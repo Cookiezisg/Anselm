@@ -269,6 +269,14 @@ func (a *App) Boot(ctx context.Context) {
 	a.forEachWorkspace(ctx, func(wsCtx context.Context) {
 		a.svc.handler.Boot(wsCtx)
 		a.svc.mcp.Boot(wsCtx)
+		// Backfill the built-in free-tier credential for every existing workspace (idempotent: a
+		// no-op where it already exists; self-heals a workspace whose prior install failed). New
+		// workspaces created after boot are covered by the workspace OnCreated hook. Best-effort —
+		// EnsureForWorkspace always returns nil, a degraded free tier never blocks boot.
+		// 为每个已存在 workspace 回填内置免费档凭证（幂等：已存在即 no-op；自愈上次 install 失败的）。
+		// boot 后新建的由 workspace OnCreated 钩子覆盖。best-effort——EnsureForWorkspace 恒返 nil，
+		// 降级的免费档绝不挂 boot。
+		a.svc.freetier.EnsureForWorkspace(wsCtx)
 		// Reconcile turns orphaned mid-stream by a hard crash (messages' scheduler.Recover
 		// counterpart): pending/streaming rows become cancelled so the UI never shows a
 		// forever-spinning bubble.

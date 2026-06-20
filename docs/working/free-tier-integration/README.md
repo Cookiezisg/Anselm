@@ -22,6 +22,21 @@ landed-into:
 
 ---
 
+## 实施状态（2026-06-20，随提交更新）
+
+| 阶段 | 状态 | 内容 |
+|---|---|---|
+| Phase 0 — infra/llm wire | ✅ 落地 | anselm provider（embed deepseek、tools/reasoning 透传）+ InstallClient + ErrQuotaExhausted（独立 sentinel 非重试）+ 402/in-stream 配额映射 + 7 测试 |
+| Phase 1 — app/apikey | ✅ 落地 | anselm 受管目录 + `Managed` flag + `CreateManaged`（合成探测档案、跳探针）+ 不可编辑守卫（`API_KEY_IMMUTABLE`）+ 4 测试 |
+| Phase 2 — app/freetier | ✅ 落地 | `Provisioner.EnsureForWorkspace`（去重→sha256 指纹→install→CreateManaged，全 best-effort）+ 5 测试 |
+| Phase 3 — bootstrap | ✅ 落地 | build_services 构造 + Boot 逐 ws 回填 + `workspace.SetOnCreated` 异步钩子（首启承载路径）+ 测试 |
+
+**🔧 落地时的设计精化（已与 @weilin 确认）**：provisioner **只确保受管行存在**（零配置「在场」），**不自动设默认模型**——把 prompt 路由到网关需用户显式隐私同意（前端），故「设为默认」由前端在同意 modal 通过后经 **现有 `PUT /workspaces/{id}/default-models/{scenario}` 端点** 完成。后端因此**无需 Pick/SetDefault、无需新端点、无需 model 域代码改动**（受管 key 经既有 `CapabilityService` 透明呈现 deepseek-v4-flash）。下文 §3 步 5 / §4 步 5 的「仅未设时设默认」作废，以本精化为准。
+
+**剩余（不在已落地范围）**：前端（隐私同意 modal + 免费档可选项 + 配额 gauge，另一层）；可选 first-class 增量（live 配额 readout / 坏-token 自愈）；testend/evals 场景。
+
+---
+
 ## 0. 结论先行
 
 - **方案**：免费档 = 后端 boot 时在每个 workspace **自动维护一条「受管 api_key 行」**（provider=`anselm`、base_url=网关、key=install token、植入合成 TestResponse 直接置 `test_status=ok`）。`gwk_` token 骑现有 `api_keys` 表的加密 Bearer 路径 → **零新表、零改解析链**。

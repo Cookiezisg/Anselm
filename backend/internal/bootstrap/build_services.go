@@ -20,6 +20,7 @@ import (
 	conversationapp "github.com/sunweilin/anselm/backend/internal/app/conversation"
 	documentapp "github.com/sunweilin/anselm/backend/internal/app/document"
 	envfixapp "github.com/sunweilin/anselm/backend/internal/app/envfix"
+	freetierapp "github.com/sunweilin/anselm/backend/internal/app/freetier"
 	functionapp "github.com/sunweilin/anselm/backend/internal/app/function"
 	handlerapp "github.com/sunweilin/anselm/backend/internal/app/handler"
 	mcpapp "github.com/sunweilin/anselm/backend/internal/app/mcp"
@@ -64,6 +65,8 @@ import (
 	workspaceapp "github.com/sunweilin/anselm/backend/internal/app/workspace"
 	relationdomain "github.com/sunweilin/anselm/backend/internal/domain/relation"
 	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
+	cryptoinfra "github.com/sunweilin/anselm/backend/internal/infra/crypto"
+	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 	mcpinfra "github.com/sunweilin/anselm/backend/internal/infra/mcp"
 	sandboxinfra "github.com/sunweilin/anselm/backend/internal/infra/sandbox"
 	searchengine "github.com/sunweilin/anselm/backend/internal/infra/search/engine"
@@ -80,6 +83,7 @@ import (
 type services struct {
 	workspace    *workspaceapp.Service
 	apikey       *apikeyapp.Service
+	freetier     *freetierapp.Provisioner
 	modelCaps    *modelapp.CapabilityService
 	relation     *relationapp.Service
 	catalog      *catalogapp.Service
@@ -131,6 +135,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	notif := notificationapp.NewService(st.notification, bus.notifications, log)
 	ws := workspaceapp.NewService(st.workspace, log)
 	keys := apikeyapp.NewService(st.apikey, inf.encryptor, apikeyapp.NewHTTPTester(http.DefaultClient), log)
+	freetier := freetierapp.NewProvisioner(keys, llminfra.NewInstallClient(), cryptoinfra.MachineFingerprint, log)
 	modelCaps := modelapp.NewCapabilityService(keys, log)
 	cat := catalogapp.NewService(log)
 	mem := memoryapp.NewService(st.memory, notif, log)
@@ -349,6 +354,19 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 		}
 	})
 
+	// Provision the built-in free-tier credential for a newly created workspace in the background.
+	// The Boot loop only covers workspaces that exist at startup; a fresh data dir has none, so this
+	// hook is the load-bearing first-run path. Async + best-effort (EnsureForWorkspace always returns
+	// nil): never block or fail Create on a slow/down gateway — a failure just means no free tier
+	// until the next Boot re-provisions. Detached(wsID) seeds the workspace the row is isolated by.
+	//
+	// 为新建 workspace 在后台开通内置免费档凭证。Boot 循环只覆盖启动时已存在的；全新 data dir 一个没有，
+	// 故此钩子是首启的承载路径。异步 + best-effort（EnsureForWorkspace 恒返 nil）：绝不因网关慢/挂而阻塞或
+	// 失败 Create——失败只是没免费档、下次 Boot 重开通。Detached(wsID) 种受管行隔离所依的 workspace。
+	ws.SetOnCreated(func(_ context.Context, wsID string) {
+		go freetier.EnsureForWorkspace(reqctxpkg.Detached(wsID))
+	})
+
 	// === post-construction injection ===
 	// agent's ReAct deps: LLM resolver + mount synthesis (the agent's tool universe is exactly its
 	// fn_/hd_/mcp mounts — never the system-tool registry) + skill guide + knowledge prefix.
@@ -439,7 +457,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 		attachment: att, function: fn, handler: hd, agent: ag, trigger: trg, mcp: mcp,
 		skill: skill, control: ctl, approval: apf, workflow: wf, scheduler: sched,
 		conversation: conv, chat: chat, subagent: subagentSvc, contextmgr: ctxmgr,
-		search: searchSvc, shellMgr: shellTools.Manager,
+		search: searchSvc, shellMgr: shellTools.Manager, freetier: freetier,
 	}
 	// aispawn composes conversation + chat + a prefix-dispatched execution renderer; built
 	// last since it reads the assembled services.

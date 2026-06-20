@@ -91,6 +91,35 @@ func TestCreate_TrimsName_DefaultsLanguageAndID(t *testing.T) {
 	}
 }
 
+func TestCreate_InvokesOnCreatedHookOnSuccess(t *testing.T) {
+	s := newService()
+	var gotWS string
+	var calls int
+	s.SetOnCreated(func(_ context.Context, wsID string) {
+		calls++
+		gotWS = wsID
+	})
+	w, err := s.Create(context.Background(), CreateInput{Name: "Free"})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if calls != 1 {
+		t.Errorf("onCreated fired %d times, want 1 (load-bearing first-run free-tier path)", calls)
+	}
+	if gotWS != w.ID {
+		t.Errorf("hook got workspace %q, want the created %q", gotWS, w.ID)
+	}
+
+	// A FAILED create must NOT fire the hook (no provisioning for a workspace that wasn't saved).
+	calls = 0
+	if _, err := s.Create(context.Background(), CreateInput{Name: "Free"}); err == nil {
+		t.Fatal("duplicate name should conflict")
+	}
+	if calls != 0 {
+		t.Error("onCreated must not fire when Create fails")
+	}
+}
+
 func TestCreate_EmptyName_ErrNameRequired(t *testing.T) {
 	_, err := newService().Create(context.Background(), CreateInput{Name: "   "})
 	if !errors.Is(err, workspacedomain.ErrNameRequired) {

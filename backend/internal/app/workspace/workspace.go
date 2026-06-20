@@ -36,6 +36,16 @@ type Service struct {
 	// reaper 在删行前拆掉 workspace 的运行时与文件（级联销毁——杀自动化、停常驻
 	// 进程、删文件树）。bootstrap 后注入（只有它看得到全部 service）；nil → 仅删行。
 	reaper Reaper
+
+	// onCreated runs just after a new workspace row is saved (e.g. provision the free-tier
+	// credential). Injected post-build by bootstrap; nil → skipped. Best-effort by contract: it
+	// returns nothing (can never fail Create) and the registered hook must not block — slow work
+	// (e.g. a gateway call) is offloaded to its own goroutine.
+	//
+	// onCreated 在新 workspace 行存好后即跑（如开通免费档凭证）。bootstrap 后注入；nil → 跳过。契约上
+	// best-effort：不返回任何东西（绝不会让 Create 失败），注册的钩子不得阻塞——慢活（如网关调用）自行
+	// 丢进 goroutine。
+	onCreated CreatedHook
 }
 
 // Reaper destroys everything a workspace owns beyond its row: in-flight runs, trigger
@@ -52,6 +62,18 @@ type Reaper func(ctx context.Context, workspaceID string)
 //
 // SetReaper 注入级联销毁钩子（bootstrap 后注入）。
 func (s *Service) SetReaper(r Reaper) { s.reaper = r }
+
+// CreatedHook runs after a workspace is created (post-Save). Best-effort and non-blocking — it
+// returns nothing (cannot fail Create) and must offload slow work to its own goroutine.
+//
+// CreatedHook 在 workspace 创建后（Save 后）跑。best-effort 且非阻塞——不返回任何东西（不能让 Create
+// 失败），慢活须自行丢 goroutine。
+type CreatedHook func(ctx context.Context, workspaceID string)
+
+// SetOnCreated injects the post-create hook (bootstrap, post-build).
+//
+// SetOnCreated 注入创建后钩子（bootstrap 后注入）。
+func (s *Service) SetOnCreated(h CreatedHook) { s.onCreated = h }
 
 // NewService wires dependencies; panics on nil logger.
 //
@@ -108,6 +130,13 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*workspacedomain.
 		return nil, err
 	}
 	s.log.Info("workspace created", zap.String("workspace_id", w.ID), zap.String("name", w.Name))
+	// Post-create hook (e.g. free-tier provisioning). Best-effort + non-blocking by contract, so a
+	// failing/slow hook can't break onboarding.
+	//
+	// 创建后钩子（如免费档开通）。契约 best-effort + 非阻塞，失败/慢钩子不能破坏 onboarding。
+	if s.onCreated != nil {
+		s.onCreated(ctx, w.ID)
+	}
 	return w, nil
 }
 
