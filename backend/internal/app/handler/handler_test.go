@@ -330,6 +330,40 @@ func TestEdit_BumpsVersionAndRestarts(t *testing.T) {
 	}
 }
 
+// TestEdit_MetaOnlyNoVersionNoRestart — F-handler-meta-restart (round-7/8): a meta-only edit (rename
+// via set_meta, zero class change) must NOT mint a redundant identical-code version NOR restart the
+// resident instance — a restart would needlessly wipe the stateful handler's in-memory state, with no
+// other rename path available to the agent.
+func TestEdit_MetaOnlyNoVersionNoRestart(t *testing.T) {
+	svc, runner, _, ctx := newSvc(t)
+	h, _, _ := svc.Create(ctx, CreateInput{Ops: createOps(t, "counter", false)})
+	_, _ = svc.Call(ctx, CallInput{HandlerID: h.ID, Method: "ping", Args: map[string]any{}}) // resident, spawns=1
+	if runner.spawns != 1 {
+		t.Fatalf("setup: want 1 spawn, got %d", runner.spawns)
+	}
+
+	metaOps, err := ParseOps([]byte(`[{"op":"set_meta","name":"renamed_counter"}]`))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	v, err := svc.Edit(ctx, EditInput{ID: h.ID, Ops: metaOps})
+	if err != nil {
+		t.Fatalf("meta-only edit: %v", err)
+	}
+	if v.Version != 1 {
+		t.Fatalf("meta-only edit must NOT mint a new version, got version %d", v.Version)
+	}
+	if runner.spawns != 1 {
+		t.Fatalf("meta-only edit must NOT restart the resident instance (would wipe state), spawns=%d", runner.spawns)
+	}
+	if got, _ := svc.Get(ctx, h.ID); got.Name != "renamed_counter" {
+		t.Fatalf("meta-only edit must persist the rename, got name %q", got.Name)
+	}
+	if _, err := svc.GetVersionByNumber(ctx, h.ID, 2); err == nil {
+		t.Fatal("meta-only edit must not create version 2")
+	}
+}
+
 func TestRevert_PointerOnly(t *testing.T) {
 	svc, _, _, ctx := newSvc(t)
 	h, _, _ := svc.Create(ctx, CreateInput{Ops: createOps(t, "a", false)})

@@ -193,6 +193,30 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*handlerdomain.Versio
 	if err != nil {
 		return nil, fmt.Errorf("handlerapp.Edit: %w", err)
 	}
+
+	// Meta-only edit (every op is set_meta): name/description/tags live on the Handler ROW, not the
+	// versioned class snapshot — nothing the resident instance runs changed. Update the row only:
+	// skip minting a redundant identical-code version AND the restart it would trigger, which would
+	// needlessly WIPE in-memory state (the sharp edge for a stateful counter / stat-tracker handler —
+	// the agent has no other rename path). A real code/schema op still takes the full version+restart
+	// path below. ApplyOps already validated the (rename) name.
+	// 纯 meta 编辑（每个 op 都是 set_meta）：name/description/tags 在 Handler 行、非版本化类快照——常驻实例
+	// 跑的东西没变。只更新行：跳过铸冗余的同码版本 + 其触发的重启（会无谓抹掉内存态——有状态计数/统计
+	// handler 的利刃，agent 又无别的改名路径）。真代码/schema op 仍走下面完整的版本+重启路径。
+	if allMetaOps(in.Ops) {
+		h.Name, h.Description, h.Tags = draft.Name, draft.Description, draft.Tags
+		if err := s.repo.SaveHandler(ctx, h); err != nil {
+			return nil, fmt.Errorf("handlerapp.Edit: %w", err)
+		}
+		active, gerr := s.repo.GetVersion(ctx, h.ActiveVersionID)
+		if gerr != nil {
+			return nil, fmt.Errorf("handlerapp.Edit: %w", gerr)
+		}
+		s.publish(ctx, "updated", in.ID, nil)
+		s.syncEditedEdge(ctx, in.ID)
+		return active, nil
+	}
+
 	nextN, err := s.nextVersionNumber(ctx, in.ID)
 	if err != nil {
 		return nil, fmt.Errorf("handlerapp.Edit: %w", err)

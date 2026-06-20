@@ -70,6 +70,24 @@ func (s *Service) ApplyOps(base *VersionDraft, ops []Op) (*VersionDraft, []OpRes
 	return state, results, nil
 }
 
+// allMetaOps reports whether every op is set_meta — the only op that touches the Handler ROW's
+// name/description/tags rather than the versioned class snapshot. An all-set_meta edit changes nothing
+// the resident instance runs, so it needs no new version and no restart (see Edit).
+//
+// allMetaOps 报告是否每个 op 都是 set_meta——唯一动 Handler 行 name/description/tags 而非版本化类快照的
+// op。全 set_meta 的编辑不改常驻实例跑的东西，故无需新版本、无需重启（见 Edit）。
+func allMetaOps(ops []Op) bool {
+	if len(ops) == 0 {
+		return false
+	}
+	for _, op := range ops {
+		if op.Type != "set_meta" {
+			return false
+		}
+	}
+	return true
+}
+
 // ParseOps decodes the LLM wire format (JSON array with `op` discriminator) into []Op.
 func ParseOps(raw json.RawMessage) ([]Op, error) {
 	raw = jsonrepairpkg.RepairBytes(raw)
