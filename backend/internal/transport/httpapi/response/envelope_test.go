@@ -37,6 +37,27 @@ func TestPagedEnvelope(t *testing.T) {
 	}
 }
 
+// TestPagedEnvelope_EmptyIsArray — F-empty-list-null (round-9 entitydelete): an empty page must
+// serialize as {"data": []}, never null or an absent key, so a client iterating data does not NPE (N4).
+// Covers both a nil typed slice (the common store-returns-nil case) and an explicit empty slice.
+func TestPagedEnvelope_EmptyIsArray(t *testing.T) {
+	for _, items := range []any{[]int(nil), []int{}, []string(nil)} {
+		w := httptest.NewRecorder()
+		Paged(w, items, "", false)
+		var raw map[string]json.RawMessage
+		if err := json.Unmarshal(w.Body.Bytes(), &raw); err != nil {
+			t.Fatalf("unmarshal %s: %v", w.Body.String(), err)
+		}
+		data, ok := raw["data"]
+		if !ok {
+			t.Fatalf("empty page must include a data key, got %s", w.Body.String())
+		}
+		if string(data) != "[]" {
+			t.Fatalf("empty page data must be [], got %s (full: %s)", data, w.Body.String())
+		}
+	}
+}
+
 func TestErrorEnvelope(t *testing.T) {
 	w := httptest.NewRecorder()
 	Error(w, 400, "BAD", "bad thing", map[string]any{"field": "name"})
