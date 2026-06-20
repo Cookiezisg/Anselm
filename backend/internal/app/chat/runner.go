@@ -131,7 +131,17 @@ func (s *Service) processTask(conversationID string, q *convQueue, t task) {
 	// 下方 cancel 解阻它们。
 	base = humanloopapp.WithBroker(base, s.broker)
 
-	ctx, cancel := context.WithCancel(base)
+	// A TOTAL wall clock on the turn — the backstop past the per-step guards (F93 LLM-stream cap,
+	// F83/F92 tool caps). Without it a turn whose stream or tool stalls past every per-step guard runs
+	// forever on this DETACHED ctx (shutdown can't cancel it): the message stays isGenerating, the
+	// runQueue goroutine never returns, and graceful shutdown blocks (F100). On the deadline the loop's
+	// in-flight op is ctx-cancelled, loop.Run finalizes the turn, and isGenerating clears below.
+	//
+	// 回合的**总**墙钟——每步守卫（F93 LLM 流总墙钟、F83/F92 工具墙钟）之上的兜底。没有它，流或工具卡过
+	// 所有每步守卫的回合会在这个 DETACHED ctx 上永远跑（shutdown 取消不了它）：message 卡 isGenerating、
+	// runQueue 协程不返回、graceful shutdown 阻塞（F100）。到点时 loop 的在飞 op 被 ctx 取消、loop.Run
+	// finalize 回合、下方 isGenerating 清除。
+	ctx, cancel := context.WithTimeout(base, time.Duration(limitspkg.Current().Timeout.ChatTurnSec)*time.Second)
 	q.mu.Lock()
 	q.cancel = cancel
 	q.mu.Unlock()

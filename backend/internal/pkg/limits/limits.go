@@ -84,6 +84,16 @@ type TimeoutLimits struct {
 	// handlerapp.Call），与 FunctionRunSec 对称。没有它，失控/阻塞的 method 会无限期钉死常驻实例的单
 	// mutex stdio 管道（method 显式声明的 Timeout 若有，则以更紧/更松的 per-method bound 覆盖此默认）。
 	HandlerCallSec int `json:"handlerCallSec"`
+	// ChatTurnSec bounds one chat assistant turn's TOTAL wall clock (consumer: chatapp.processTask) — the
+	// ReAct loop is otherwise only step-capped (Agent.MaxSteps), with no time bound. A turn whose LLM
+	// stream or a tool stalls past every per-step guard would otherwise run on its detached ctx forever:
+	// the message stays `isGenerating`, the runQueue goroutine never finishes, and graceful shutdown
+	// blocks (the detached ctx is not cancelled by shutdown). Generous — a normal turn finishes far under.
+	// ChatTurnSec 限一次 chat assistant 回合的**总**墙钟（消费方：chatapp.processTask）——ReAct 循环否则只受
+	// 步数封顶（Agent.MaxSteps）、无时间界。若回合的 LLM 流或某工具卡过了每步守卫，它会在 detached ctx 上永
+	// 远跑：message 卡 `isGenerating`、runQueue 协程不结束、graceful shutdown 阻塞（detached ctx 不被 shutdown
+	// 取消）。从宽——正常回合远在其下完成。
+	ChatTurnSec int `json:"chatTurnSec"`
 }
 
 type ToolLimits struct {
@@ -123,6 +133,7 @@ func Default() Limits {
 			FunctionRunSec:        300,
 			AgentInvokeSec:        900,
 			HandlerCallSec:        300,
+			ChatTurnSec:           1800,
 		},
 		Tools: ToolLimits{
 			ReadDefaultLines: 2000,
@@ -173,6 +184,7 @@ func Schema() []FieldSpec {
 		{"timeout.functionRunSec", "timeout", float64(d.Timeout.FunctionRunSec), 1, 0, false, "seconds", "Wall-clock bound on one function run."},
 		{"timeout.agentInvokeSec", "timeout", float64(d.Timeout.AgentInvokeSec), 1, 0, false, "seconds", "Wall-clock bound on one agent invocation."},
 		{"timeout.handlerCallSec", "timeout", float64(d.Timeout.HandlerCallSec), 1, 0, false, "seconds", "Wall-clock bound on one handler method call when the method sets no per-method timeout."},
+		{"timeout.chatTurnSec", "timeout", float64(d.Timeout.ChatTurnSec), 1, 0, false, "seconds", "Total wall-clock bound on one chat assistant turn (backstop past per-step guards; a stuck turn finalizes instead of pinning isGenerating)."},
 		{"tools.readDefaultLines", "tools", float64(d.Tools.ReadDefaultLines), 1, 0, false, "lines", "Read tool's default page size."},
 		{"tools.bashOutputCapKB", "tools", float64(d.Tools.BashOutputCapKB), 1, 0, false, "KB", "Cap on captured bash output."},
 		{"tools.toolResultCapKB", "tools", float64(d.Tools.ToolResultCapKB), 1, 0, false, "KB", "Cap on any tool_result fed back to the LLM."},
@@ -216,6 +228,9 @@ func WithDefaults(l Limits) Limits {
 	}
 	if l.Timeout.HandlerCallSec == 0 {
 		l.Timeout.HandlerCallSec = d.Timeout.HandlerCallSec
+	}
+	if l.Timeout.ChatTurnSec == 0 {
+		l.Timeout.ChatTurnSec = d.Timeout.ChatTurnSec
 	}
 	if l.Tools.ReadDefaultLines == 0 {
 		l.Tools.ReadDefaultLines = d.Tools.ReadDefaultLines
