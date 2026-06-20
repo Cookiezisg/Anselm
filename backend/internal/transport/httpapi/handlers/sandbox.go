@@ -39,6 +39,7 @@ func NewSandboxHandler(svc *sandboxapp.Service, log *zap.Logger) *SandboxHandler
 // Register 把端点挂到 mux。
 func (h *SandboxHandler) Register(mux Registrar) {
 	mux.HandleFunc("GET /api/v1/sandbox/runtimes", h.ListRuntimes)
+	mux.HandleFunc("GET /api/v1/sandbox/runtimes/available", h.AvailableRuntimes)
 	mux.HandleFunc("POST /api/v1/sandbox/runtimes", h.InstallRuntime)
 	mux.HandleFunc("DELETE /api/v1/sandbox/runtimes/{id}", h.DeleteRuntime)
 	mux.HandleFunc("GET /api/v1/sandbox/envs", h.ListEnvs)
@@ -58,6 +59,21 @@ func (h *SandboxHandler) Register(mux Registrar) {
 // ListRuntimes 处理 GET /api/v1/sandbox/runtimes。
 func (h *SandboxHandler) ListRuntimes(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.svc.ListRuntimes(r.Context())
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, rows)
+}
+
+// AvailableRuntimes handles GET /api/v1/sandbox/runtimes/available — the user-installable
+// language runtimes + their default/pinned versions, so the settings UI renders install
+// choices from the backend instead of hardcoding the recipe pin map.
+//
+// AvailableRuntimes 处理 GET /api/v1/sandbox/runtimes/available —— 用户可装语言运行时 + 其默认/
+// 钉死版本,使设置 UI 从后端渲染安装选项、免硬编 recipe pin map。
+func (h *SandboxHandler) AvailableRuntimes(w http.ResponseWriter, r *http.Request) {
+	rows, err := h.svc.AvailableRuntimes(r.Context())
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return

@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -169,6 +170,68 @@ func (s *Service) EnsureTool(ctx context.Context, kind, version string) (string,
 // ListRuntimes 返回所有已安装 runtime。
 func (s *Service) ListRuntimes(ctx context.Context) ([]*sandboxdomain.Runtime, error) {
 	return s.repo.ListRuntimes(ctx)
+}
+
+// userRuntimeInstaller is the optional capability a RuntimeInstaller implements when it is a
+// user-installable language runtime — it tells the settings UI which runtimes to offer and
+// their pinned versions. Engine artifacts (llamasrv/embedmodel) and docker don't implement it,
+// so they're naturally excluded from AvailableRuntimes (no whitelist to drift).
+//
+// userRuntimeInstaller 是 RuntimeInstaller 在「用户可装语言运行时」时实现的可选能力——告诉设置 UI
+// 该列哪些运行时及其钉死版本。引擎产物（llamasrv/embedmodel）与 docker 不实现它,故自然被
+// AvailableRuntimes 排除（无白名单可漂）。
+type userRuntimeInstaller interface {
+	UserFacing() bool
+	AvailableVersions() []string
+}
+
+// RuntimeAvailability is one user-installable runtime's catalog entry: its default version and
+// the pinned set (empty = open, any version installs). Pinned=true → the UI shows a fixed
+// dropdown; Pinned=false → a default plus a free version field.
+//
+// RuntimeAvailability 是一个用户可装运行时的目录条目:默认版本 + 钉死集（空 = 开放、任意版本可装）。
+// Pinned=true → UI 给固定下拉;false → 默认 + 自由版本输入。
+type RuntimeAvailability struct {
+	Kind     string   `json:"kind"`
+	Default  string   `json:"default"`
+	Versions []string `json:"versions"`
+	Pinned   bool     `json:"pinned"`
+}
+
+// AvailableRuntimes lists the user-installable language runtimes (python/node/uv/dotnet) with
+// their default + pinned versions, so the settings UI renders install choices from the backend
+// instead of re-hardcoding the recipe pin map. Engine artifacts and docker are excluded (they
+// don't implement userRuntimeInstaller). Sorted by kind for a stable UI order.
+//
+// AvailableRuntimes 列出用户可装语言运行时（python/node/uv/dotnet）及其默认 + 钉死版本,使设置 UI
+// 从后端渲染安装选项、免复刻 recipe pin map。引擎产物与 docker 被排除（不实现 userRuntimeInstaller）。
+// 按 kind 排序给稳定 UI 次序。
+func (s *Service) AvailableRuntimes(ctx context.Context) ([]RuntimeAvailability, error) {
+	s.regMu.RLock()
+	insts := make([]sandboxdomain.RuntimeInstaller, 0, len(s.installers))
+	for _, inst := range s.installers {
+		insts = append(insts, inst)
+	}
+	s.regMu.RUnlock()
+
+	out := []RuntimeAvailability{}
+	for _, inst := range insts {
+		uri, ok := inst.(userRuntimeInstaller)
+		if !ok || !uri.UserFacing() {
+			continue
+		}
+		def, err := inst.ResolveDefault(ctx)
+		if err != nil {
+			return nil, err
+		}
+		vers := uri.AvailableVersions()
+		if vers == nil {
+			vers = []string{} // open runtime: serialize as [] not null
+		}
+		out = append(out, RuntimeAvailability{Kind: inst.Kind(), Default: def, Versions: vers, Pinned: len(vers) > 0})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Kind < out[j].Kind })
+	return out, nil
 }
 
 // ListEnvs returns envs for the given owner kind.

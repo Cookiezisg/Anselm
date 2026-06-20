@@ -2,6 +2,7 @@ package sandbox
 
 import (
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -18,6 +19,50 @@ func TestDirectInstallers_Kinds(t *testing.T) {
 	for _, want := range []string{"python", "node", "uv", "dotnet"} {
 		if !got[want] {
 			t.Errorf("missing installer kind %q", want)
+		}
+	}
+}
+
+// TestRecipe_AvailableVersionsAndUserFacing pins G5b: the four user runtimes expose their
+// pinned version set + UserFacing()=true (so AvailableRuntimes lists them), while engine
+// artifacts (llamasrv/embedmodel) are UserFacing()=false (kept off the settings runtimes UI).
+//
+// TestRecipe_AvailableVersionsAndUserFacing 锁 G5b:四个用户运行时暴露钉死版本集 + UserFacing()=true
+// （故 AvailableRuntimes 列它们）,引擎产物（llamasrv/embedmodel）UserFacing()=false（不上设置运行时面）。
+func TestRecipe_AvailableVersionsAndUserFacing(t *testing.T) {
+	type cataloger interface {
+		AvailableVersions() []string
+		UserFacing() bool
+	}
+	want := map[string][]string{ // nil = open (any version templates directly)
+		"python": {"3.11", "3.12", "3.13"},
+		"node":   {"22"},
+		"uv":     nil,
+		"dotnet": nil,
+	}
+	for _, inst := range DirectInstallers() {
+		c, ok := inst.(cataloger)
+		if !ok {
+			t.Fatalf("%s does not expose AvailableVersions/UserFacing", inst.Kind())
+		}
+		if !c.UserFacing() {
+			t.Errorf("%s: UserFacing = false, want true", inst.Kind())
+		}
+		w, known := want[inst.Kind()]
+		if !known {
+			t.Fatalf("unexpected direct installer kind %q", inst.Kind())
+		}
+		if !slices.Equal(c.AvailableVersions(), w) {
+			t.Errorf("%s: AvailableVersions = %v, want %v", inst.Kind(), c.AvailableVersions(), w)
+		}
+	}
+	for _, inst := range EngineInstallers() {
+		c, ok := inst.(cataloger)
+		if !ok {
+			t.Fatalf("%s does not expose UserFacing", inst.Kind())
+		}
+		if c.UserFacing() {
+			t.Errorf("engine installer %s must not be user-facing", inst.Kind())
 		}
 	}
 }

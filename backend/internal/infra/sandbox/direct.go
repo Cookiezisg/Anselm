@@ -17,6 +17,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 
 	sandboxdomain "github.com/sunweilin/anselm/backend/internal/domain/sandbox"
@@ -50,6 +51,17 @@ func DirectInstallers() []sandboxdomain.RuntimeInstaller {
 func (d *directInstaller) Kind() string                                   { return d.r.kind }
 func (d *directInstaller) ResolveDefault(context.Context) (string, error) { return d.r.defVersion, nil }
 func (d *directInstaller) NormalizeVersion(v string) string               { return d.r.normalize(v) }
+
+// AvailableVersions returns the pinned installable version set (nil = the version templates
+// freely, so any value installs). UserFacing reports whether this is a user-installable
+// language runtime — the settings "runtimes" page lists only those, never engine artifacts
+// (llamasrv/embedmodel) which the search embedder auto-manages.
+//
+// AvailableVersions 返回钉死的可装版本集（nil = 版本自由套模板、任意值可装）。UserFacing 报告这是否
+// 是用户可装的语言运行时——设置「运行时」页只列这些,绝不列引擎产物（llamasrv/embedmodel,由搜索
+// embedder 自管）。
+func (d *directInstaller) AvailableVersions() []string { return d.r.versions }
+func (d *directInstaller) UserFacing() bool            { return d.r.userFacing }
 
 // runtimeRoot is the install dir for a (kind, version): <sandboxRoot>/runtimes/<kind>/<normalized>.
 // Consumers join their own subpaths onto it (node → bin/npm, dotnet → dnx), so it must hold the
@@ -180,9 +192,26 @@ func (d *directInstaller) Install(ctx context.Context, version, sandboxRoot stri
 type runtimeRecipe struct {
 	kind       string
 	defVersion string
+	versions   []string // pinned installable set surfaced to the UI; nil = open (any version templates)
+	userFacing bool     // true = user-installable language runtime (settings lists it); false = engine artifact
 	normalize  func(string) string
 	resolve    func(version, goos, goarch string) (downloadSpec, error)
 	binRel     func(goos, goarch string) string
+}
+
+// sortedKeys returns a map's keys in sorted order — a recipe's pinned-version slice is derived
+// from the very map resolve() looks up, so the advertised versions can never drift from the
+// installable ones.
+//
+// sortedKeys 返回 map 的有序 key——recipe 的可装版本切片由 resolve() 查的同一张 map 派生,故对外
+// 公布的版本绝不会与真正可装的漂开。
+func sortedKeys(m map[string]string) []string {
+	ks := make([]string, 0, len(m))
+	for k := range m {
+		ks = append(ks, k)
+	}
+	sort.Strings(ks)
+	return ks
 }
 
 // downloadSpec is one platform's resolved asset.
@@ -230,7 +259,7 @@ func pythonRecipe() runtimeRecipe {
 		"windows/amd64": "x86_64-pc-windows-msvc",
 	}
 	return runtimeRecipe{
-		kind: "python", defVersion: "3.12",
+		kind: "python", defVersion: "3.12", versions: sortedKeys(patch), userFacing: true,
 		normalize: func(v string) string { return majorMinor(stripRange(v)) },
 		resolve: func(version, goos, goarch string) (downloadSpec, error) {
 			p, ok := patch[version]
@@ -270,7 +299,7 @@ func nodeRecipe() runtimeRecipe {
 		"windows/amd64": "win-x64",
 	}
 	return runtimeRecipe{
-		kind: "node", defVersion: "22",
+		kind: "node", defVersion: "22", versions: sortedKeys(pin), userFacing: true,
 		normalize: func(v string) string { return major(stripRange(v)) },
 		resolve: func(version, goos, goarch string) (downloadSpec, error) {
 			full, ok := pin[version]
@@ -312,7 +341,7 @@ func uvRecipe() runtimeRecipe {
 		"windows/amd64": "x86_64-pc-windows-msvc",
 	}
 	return runtimeRecipe{
-		kind: "uv", defVersion: "0.11.4",
+		kind: "uv", defVersion: "0.11.4", userFacing: true, // open: the release tag is the version
 		normalize: func(v string) string { return strings.TrimPrefix(stripRange(v), "v") },
 		resolve: func(version, goos, goarch string) (downloadSpec, error) {
 			tr, ok := triple[goos+"/"+goarch]
@@ -350,7 +379,7 @@ func dotnetRecipe() runtimeRecipe {
 		"windows/amd64": "win-x64",
 	}
 	return runtimeRecipe{
-		kind: "dotnet", defVersion: "10.0.300",
+		kind: "dotnet", defVersion: "10.0.300", userFacing: true, // open: the version templates directly
 		normalize: func(v string) string { return strings.TrimPrefix(stripRange(v), "v") },
 		resolve: func(version, goos, goarch string) (downloadSpec, error) {
 			r, ok := rid[goos+"/"+goarch]
