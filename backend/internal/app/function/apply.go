@@ -51,17 +51,23 @@ func (s *Service) ApplyOps(base *VersionDraft, ops []Op) (*VersionDraft, []OpRes
 	results := make([]OpResult, 0, len(ops))
 	for i, op := range ops {
 		if err := applyOne(state, op); err != nil {
-			return nil, results, fmt.Errorf("functionapp.ApplyOps: ops[%d] type=%q: %w: %v", i, op.Type, functiondomain.ErrOpInvalid, err)
+			// applyOne returns a plain reason (json/unknown-op) — classify as ErrOpInvalid and carry the
+			// reason in Details so the LLM sees WHY (Details survives llmErrText; the %v tail did not).
+			// applyOne 返回纯原因（json/未知 op）——归为 ErrOpInvalid 并把原因放进 Details，使 LLM 看到为何。
+			return nil, results, fmt.Errorf("functionapp.ApplyOps: ops[%d] type=%q: %w", i, op.Type,
+				functiondomain.ErrOpInvalid.WithDetails(map[string]any{"op": op.Type, "reason": err.Error()}).WithCause(err))
 		}
 		if err := validateIncremental(state); err != nil {
-			return nil, results, fmt.Errorf("functionapp.ApplyOps: ops[%d] left state invalid: %w: %v", i, functiondomain.ErrOpInvalid, err)
+			// validateIncremental already returns a structured ErrOpInvalid+Details(reason); breadcrumb-wrap for logs.
+			// validateIncremental 已返回结构化 ErrOpInvalid+Details(reason)；面包屑包裹供日志。
+			return nil, results, fmt.Errorf("functionapp.ApplyOps: ops[%d] type=%q left state invalid: %w", i, op.Type, err)
 		}
 		results = append(results, OpResult{Index: i, Type: op.Type, OK: true})
 	}
 	if err := validateFinal(state); err != nil {
-		// Propagate validateFinal's sentinel (name vs code) instead of blanket-wrapping as
-		// ErrInvalidCode — the error already classifies itself.
-		// 传 validateFinal 自己的 sentinel（name vs code），不再统包 ErrInvalidCode——它已自分类。
+		// Propagate validateFinal's sentinel (name vs code) + its Details(reason) instead of blanket-wrapping
+		// as ErrInvalidCode — the error already classifies itself and carries the actionable reason.
+		// 传 validateFinal 自己的 sentinel（name vs code）+ 其 Details(reason），不再统包 ErrInvalidCode——它已自分类并带可操作原因。
 		return nil, results, fmt.Errorf("functionapp.ApplyOps: final validation: %w", err)
 	}
 	return state, results, nil

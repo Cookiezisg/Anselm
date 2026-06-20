@@ -18,6 +18,7 @@ import (
 	sandboxdomain "github.com/sunweilin/anselm/backend/internal/domain/sandbox"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 	functionstore "github.com/sunweilin/anselm/backend/internal/infra/store/function"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 	limitspkg "github.com/sunweilin/anselm/backend/internal/pkg/limits"
 	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
@@ -148,6 +149,38 @@ func TestCreate_InvalidCode(t *testing.T) {
 	if !errors.Is(err, functiondomain.ErrInvalidCode) {
 		t.Fatalf("want ErrInvalidCode, got %v", err)
 	}
+	// The actionable reason must ride in Details (llmErrText renders it), not be buried in a fmt tail
+	// that the LLM error surface strips — else the agent sees only "function code invalid".
+	var de *errorspkg.Error
+	if !errors.As(err, &de) || !strings.Contains(asString(de.Details["reason"]), "top-level def") {
+		t.Fatalf("ErrInvalidCode must carry the specific reason in Details, got %+v", errDetails(err))
+	}
+}
+
+// TestCreate_OpaqueReasonSurfacedInDetails — F-create_function-opacity (round-7): a camelCase name
+// failed validateIncremental and the agent only ever saw "invalid build op" (3× thrash), because the
+// actionable snake_case reason was wrapped in a fmt %v tail that llmErrText (F89) strips. The reason
+// must now ride in the error's Details so the LLM can self-correct.
+func TestCreate_OpaqueReasonSurfacedInDetails(t *testing.T) {
+	svc, _, ctx := newSvc(t)
+	_, _, err := svc.Create(ctx, CreateInput{Ops: createOps(t, "refundProcessor", goodCode)})
+	if !errors.Is(err, functiondomain.ErrOpInvalid) {
+		t.Fatalf("camelCase name must be rejected as ErrOpInvalid, got %v", err)
+	}
+	var de *errorspkg.Error
+	if !errors.As(err, &de) || !strings.Contains(asString(de.Details["reason"]), "lowercase") {
+		t.Fatalf("ErrOpInvalid must carry the snake_case rule in Details so the LLM learns WHY, got %+v", errDetails(err))
+	}
+}
+
+func asString(v any) string { s, _ := v.(string); return s }
+
+func errDetails(err error) map[string]any {
+	var de *errorspkg.Error
+	if errors.As(err, &de) {
+		return de.Details
+	}
+	return nil
 }
 
 func TestEdit_MovesPointerAndBumpsNumber(t *testing.T) {

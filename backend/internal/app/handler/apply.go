@@ -46,17 +46,26 @@ type OpResult struct {
 func (s *Service) ApplyOps(base *VersionDraft, ops []Op) (*VersionDraft, []OpResult, error) {
 	state := cloneDraft(base)
 	results := make([]OpResult, 0, len(ops))
+	// Validation reasons ride in the sentinel's Details (not a fmt %v tail) so they survive the LLM
+	// error surface: llmErrText (F89) strips the wrapped chain to hide Go call-paths, which also
+	// swallowed the actionable reason — an agent only saw "invalid build op" and could not learn WHY
+	// (e.g. a camelCase name). Details reaches both the LLM and HTTP N1 error.details.
+	// 校验原因放进 sentinel 的 Details（非 fmt %v 串尾），使其穿过 LLM 错误面：llmErrText（F89）为藏 Go
+	// 调用路径剥掉包裹链、连带吞掉可操作原因——agent 只见 "invalid build op"、学不到为何（如 camelCase 名）。
 	for i, op := range ops {
 		if err := applyOne(state, op); err != nil {
-			return nil, results, fmt.Errorf("handlerapp.ApplyOps: ops[%d] type=%q: %w: %v", i, op.Type, handlerdomain.ErrOpInvalid, err)
+			return nil, results, fmt.Errorf("handlerapp.ApplyOps: ops[%d] type=%q: %w", i, op.Type,
+				handlerdomain.ErrOpInvalid.WithDetails(map[string]any{"op": op.Type, "reason": err.Error()}).WithCause(err))
 		}
 		if err := validateIncremental(state); err != nil {
-			return nil, results, fmt.Errorf("handlerapp.ApplyOps: ops[%d] left state invalid: %w: %v", i, handlerdomain.ErrOpInvalid, err)
+			return nil, results, fmt.Errorf("handlerapp.ApplyOps: ops[%d] type=%q left state invalid: %w", i, op.Type,
+				handlerdomain.ErrOpInvalid.WithDetails(map[string]any{"op": op.Type, "reason": err.Error()}).WithCause(err))
 		}
 		results = append(results, OpResult{Index: i, Type: op.Type, OK: true})
 	}
 	if err := validateFinal(state); err != nil {
-		return nil, results, fmt.Errorf("handlerapp.ApplyOps: final validation: %w: %v", handlerdomain.ErrInvalidCode, err)
+		return nil, results, fmt.Errorf("handlerapp.ApplyOps: final validation: %w",
+			handlerdomain.ErrInvalidCode.WithDetails(map[string]any{"reason": err.Error()}).WithCause(err))
 	}
 	return state, results, nil
 }
