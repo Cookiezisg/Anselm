@@ -11,19 +11,19 @@
     static tag = "an-edit-affordance";
     static observed = [];   // editing 纯 CSS（:host([editing])）实时响应，不重渲——免每切态重建 3 个 an-button
     static css = `
-      /* 裸钮（无药丸底）：与 an-field/an-kv 的就地编辑铅笔/✓✕ 同观感，统一全局编辑语汇 */
+      /* 裸钮（无药丸底）：与 an-field/an-kv 的就地编辑铅笔/取消保存 同观感，统一全局编辑语汇 */
       :host { display: inline-flex; align-items: center; gap: var(--gap-tight); }
-      /* 非编辑态藏 ✓/✕、只显铅笔；编辑态藏铅笔、显 ✓/✕ */
+      /* 非编辑态藏 取消/保存、只显铅笔；编辑态藏铅笔、显 取消/保存（与 code-editor 同款：取消左中性·保存右 accent） */
       :host(:not([editing])) .a-save, :host(:not([editing])) .a-cancel { display: none; }
       :host([editing]) .a-edit { display: none; }
-      /* 保存钮 accent（经 an-button 暴露的 part=button 着绿；本件是 affordance 皮肤主人） */
-      .a-save::part(button) { color: var(--accent); }
+      /* 保存钮 accent 加粗（经 an-button 暴露的 part=button 着色；本件是 affordance 皮肤主人） */
+      .a-save::part(button) { color: var(--accent); font-weight: 600; }
       .a-save::part(button):hover { background: var(--accent-soft); color: var(--accent); }
     `;
     render() {
       return `<an-button class="a-edit" variant="icon" size="sm" icon="edit" aria-label="编辑"></an-button>`
-        + `<an-button class="a-save" variant="icon" size="sm" icon="check" aria-label="保存"></an-button>`
-        + `<an-button class="a-cancel" variant="icon" size="sm" icon="close" aria-label="取消"></an-button>`;
+        + `<an-button class="a-cancel" size="sm">取消</an-button>`
+        + `<an-button class="a-save" size="sm">保存</an-button>`;
     }
     hydrate() {
       this.$(".a-edit").addEventListener("click", () => this.emit("an-edit-start"));

@@ -1447,10 +1447,10 @@ window.REF_CATALOG = [
       {
         "name": "就地编辑钮 edit-affordance",
         "tag": "an-edit-affordance",
-        "blurb": "就地编辑三连钮（铅笔 → ✓/✕）单源，field/kv/ocean-header 共用：editing 属性切铅笔↔✓✕（✓ accent，经 an-button ::part 着绿）。铅笔 click 派 an-edit-start；✓/✕ mousedown(preventDefault) 派 an-edit-commit/an-edit-abort——抢 contenteditable blur(blur=提交) 前定调，取消优先回滚。可见性由父按 hover/editing 揭示。",
+        "blurb": "同处式就地编辑钮（铅笔 ↔ 取消/保存）单源——标题类编辑（如 ocean-header 改名）用；editing 属性切铅笔↔取消保存（与 code-editor 同款文本钮：取消左中性·保存右 accent 加粗）。铅笔 click 派 an-edit-start；取消/保存 mousedown(preventDefault) 派 an-edit-abort/an-edit-commit——抢 contenteditable blur(blur=提交) 前定调，取消优先回滚。可见性由父按 hover/editing 揭示。注：key-value 就地编辑（an-field/an-kv）是分处式（铅笔贴 key、取消保存贴 value），不用本件。",
         "specimens": [
           { "label": "默认（铅笔）", "tag": "an-edit-affordance", "center": true },
-          { "label": "editing（✓ accent / ✕）", "tag": "an-edit-affordance", "attrs": { "editing": "" }, "center": true }
+          { "label": "editing（取消 / 保存 accent）", "tag": "an-edit-affordance", "attrs": { "editing": "" }, "center": true }
         ]
       },
       {

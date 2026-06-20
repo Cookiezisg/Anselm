@@ -72,17 +72,17 @@
     wrap.appendChild(dd); valueEl.replaceWith(wrap);
   }
 
-  // 统一编辑机制的两块 HTML：铅笔（贴 key 右，hover 显）+ ✓✕ 确认（贴 value 右，editing 显）。复用 an-button icon 钮。
+  // 统一编辑机制的两块 HTML：铅笔（贴 key 右，hover 显）+ 取消/保存 确认（贴 value 右，editing 显，与 code-editor 同款文本钮：取消中性·保存 accent）。复用 an-button。
   function pencilHtml() { return `<an-button class="pencil" variant="icon" size="sm" icon="edit" aria-label="编辑"></an-button>`; }
-  function confirmHtml() { return `<span class="confirm"><an-button class="ok" variant="icon" size="sm" icon="check" aria-label="保存"></an-button><an-button class="cancel" variant="icon" size="sm" icon="close" aria-label="取消"></an-button></span>`; }
-  // 统一编辑皮肤：铅笔/✓✕ 显隐 + ✓ accent + 值编辑框白底+光标。揭示由父按 hover/editing 控（见各 css）。
+  function confirmHtml() { return `<span class="confirm"><an-button class="cancel" size="sm">取消</an-button><an-button class="ok" size="sm">保存</an-button></span>`; }
+  // 统一编辑皮肤：铅笔/取消保存 显隐 + 保存 accent 加粗 + 值编辑框白底+光标。揭示由父按 hover/editing 控（见各 css）。
   const EDIT_CSS = `
     .pencil { flex: none; }
     .confirm { flex: none; display: none; align-items: center; gap: var(--gap-tight); }
-    .confirm .ok::part(button) { color: var(--accent); }
+    .confirm .ok::part(button) { color: var(--accent); font-weight: 600; }
     .confirm .ok::part(button):hover { background: var(--accent-soft); color: var(--accent); }
-    /* 视觉框 ≠ 逻辑框：内距给留白（字不贴边、舒服），负 margin 把这份留白抵掉——盒子只「看着大」、占位仍等于原文字，故不挤行、不抖布局 */
-    .v.editing { outline: none; box-shadow: inset 0 0 0 var(--hairline) var(--line-strong); border-radius: var(--r-tag); background: var(--island); cursor: text; min-width: var(--input-min); text-align: left; padding: var(--grid) var(--sp-2); margin: calc(var(--grid) * -1) calc(var(--sp-2) * -1); }
+    /* 视觉框 ≠ 逻辑框：竖向内距用负 margin 抵掉（不改行高）；横向【右侧真实占位】（margin-right:0）——框与「保存」钮靠 flex gap 隔开、不糊一起（左侧 -sp-2 抵掉，溢进 grow 不顶布局） */
+    .v.editing { outline: none; box-shadow: inset 0 0 0 var(--hairline) var(--line-strong); border-radius: var(--r-tag); background: var(--island); cursor: text; min-width: var(--input-min); text-align: left; padding: var(--grid) var(--sp-2); margin: calc(var(--grid) * -1) 0 calc(var(--grid) * -1) calc(var(--sp-2) * -1); }
   `;
 
   class AnField extends window.AnElement {
