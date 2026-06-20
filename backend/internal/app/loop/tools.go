@@ -260,9 +260,23 @@ func executeTool(ctx context.Context, t toolapp.Tool, name string, argsJSON []by
 // 点名违例节点 + 真实 CEL 错）。Error() 本身丢 Details——它为 N1 envelope 算出、却正是 agent 自纠所需。
 // 在此浮出，一处给**所有**工具去不透明化（不透明的 "workflow graph is invalid" 曾让 agent 盲猜 CEL ~8 次）。
 func llmErrText(err error) string {
-	msg := err.Error()
 	var de *errorspkg.Error
-	if stderrors.As(err, &de) && len(de.Details) > 0 {
+	if !stderrors.As(err, &de) {
+		// Non-structured error (a raw stdlib error): the text is all we have.
+		//
+		// 非结构化错误（裸 stdlib error）：只有这串文本可用。
+		return err.Error()
+	}
+	// S20: the LLM reads the sentinel's clean Message, NOT err.Error()'s wrapped chain. App layers wrap
+	// with fmt.Errorf("pkg.Method: %w", …) for log/debug breadcrumbs — surfacing that chain leaks internal
+	// Go package/method identifiers (e.g. "functionapp.RunFunction:") into the LLM's view. The actionable
+	// part for self-correction is Message + Details, never the call path.
+	//
+	// S20：LLM 读 sentinel 的干净 Message，**非** err.Error() 的包裹链。app 层用 fmt.Errorf("pkg.Method: %w", …)
+	// 加 log/debug 面包屑——浮出那条链会把内部 Go 包/方法标识（如 "functionapp.RunFunction:"）泄露给 LLM。
+	// 自纠所需是 Message + Details，绝非调用路径。
+	msg := de.Message
+	if len(de.Details) > 0 {
 		parts := make([]string, 0, len(de.Details))
 		for k, v := range de.Details {
 			parts = append(parts, fmt.Sprintf("%s=%v", k, v))

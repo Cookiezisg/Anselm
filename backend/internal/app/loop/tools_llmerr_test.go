@@ -2,6 +2,7 @@ package loop
 
 import (
 	stderrors "errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -28,5 +29,14 @@ func TestLLMErrText(t *testing.T) {
 
 	if got := llmErrText(errorspkg.New(errorspkg.KindInvalid, "X", "nope")); got != "nope" {
 		t.Errorf("no-details error must be just the message: %q", got)
+	}
+
+	// A sentinel wrapped by an app layer (fmt.Errorf("pkg.Method: %w", …)) must surface the clean
+	// Message — never the Go call-path the wrap chain leaks. Regression for the tooload-lane finding:
+	// run_function errors reached the LLM as "functionapp.RunFunction: function not found" (S20 violated).
+	sentinel := errorspkg.New(errorspkg.KindNotFound, "FUNCTION_NOT_FOUND", "function not found")
+	wrapped := fmt.Errorf("functionapp.RunFunction: %w", sentinel)
+	if got := llmErrText(wrapped); got != "function not found" {
+		t.Errorf("wrapped sentinel must surface clean Message without Go call-path, got: %q", got)
 	}
 }
