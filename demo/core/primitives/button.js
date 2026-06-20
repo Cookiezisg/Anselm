@@ -1,6 +1,6 @@
-/* Anselm 原语 B1 — <an-button variant size icon disabled block>。
+/* Anselm 原语 B1 — <an-button variant size icon outline disabled block>。
    variant ∈ ghost(默认中性) | primary(accent CTA) | danger | icon(方钮)。label 走默认 slot：<an-button variant="primary" icon="play">Run</an-button>。
-   icon 变体只放图标、label 入 aria-label。统一 hover/active/focus/disabled。 */
+   outline（布尔）= 在变体色上加一道描边（如 variant=danger + outline = 红边删除钮）。icon 变体只放图标、label 入 aria-label。统一 hover/active/focus/disabled。 */
 (function () {
   class AnButton extends window.AnElement {
     static tag = "an-button";
@@ -24,6 +24,8 @@
       :host([variant="primary"]) button:hover { background: var(--accent-hover); }
       :host([variant="danger"]) button { color: var(--danger); }
       :host([variant="danger"]) button:hover { background: var(--danger-soft); }
+      /* outline：在当前文字色上加一道描边（currentColor 跟随变体；红边删除钮 = danger + outline） */
+      :host([outline]) button { box-shadow: inset 0 0 0 var(--hairline) currentColor; }
       :host([variant="icon"]) button { width: var(--ctl); padding: 0; color: var(--ink-3); }
       :host([variant="icon"]) button:hover { background: var(--island-3); color: var(--ink); }
       :host([size="sm"]) button { height: var(--ctl-sm); padding: 0 var(--btn-pad-x-sm); font-size: var(--t-meta); }

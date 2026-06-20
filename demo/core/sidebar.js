@@ -33,14 +33,15 @@
       .soon { padding: var(--sp-6) var(--sp-3); color: var(--ink-3); font-size: var(--t-meta); }
 
       .foot { display: flex; align-items: center; gap: calc(var(--grid) / 2); margin-top: var(--gap-tight); }
-      /* 工作区长条 = 设置入口：名称（左，撑满）+ ⚙ 齿轮（右）。整条点击开设置。 */
-      .ws { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--gap-tight); height: var(--island-head); padding: 0 var(--gap-tight) 0 var(--sp-2);
+      /* 工作区长条 = 设置入口：名称（左，撑满）+ ⚙ 齿轮（右）。整条点击开设置。与铃铛同高（紧凑 --ctl-sm，=原铃铛高）。 */
+      .ws { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--gap-tight); height: var(--ctl-sm); padding: 0 var(--gap-tight) 0 var(--sp-2);
         border-radius: var(--r-btn); color: var(--ink); transition: background var(--d-fast); }
       .ws:hover { background: var(--island-3); }
       .ws.on { background: var(--island-4); }
       .wsname { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--t-body); font-weight: 600; }
       .ws-gear { flex: none; display: grid; place-items: center; width: var(--ctl-sm); height: var(--ctl-sm); color: var(--ink-3); }
       .ws:hover .ws-gear { color: var(--ink-2); }
+      /* 铃铛：原紧凑高（--ctl-sm），与工作区长条并列同高 */
       .bell { flex: none; position: relative; width: var(--ctl-sm); height: var(--ctl-sm); display: grid; place-items: center;
         color: var(--ink-3); border-radius: var(--r-btn); transition: color var(--d-fast), background var(--d-fast); }
       .bell:hover { color: var(--ink); background: var(--island-3); }

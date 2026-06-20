@@ -18,38 +18,46 @@ window.FEATURE.settings = Object.assign(window.FEATURE.settings || {}, {
     const field = (label, value, opts) => el("an-field", Object.assign({ label: label, value: value, editable: "" }, opts || {}));
     const dotOf = (s) => ({ ok: "done", ready: "run", degraded: "wait", failed: "err", error: "err" }[s] || "idle");
 
-    // ── ① 通用 ──
+    // ── ① 通用：五行 key-value（label 左 · 值控件右），无分段标题 ──
     function general() {
       const ws = S.workspace || {};
-      const wsSec = el("an-section", { label: "工作区" });
-      wsSec.append(nameField(ws.name), field("语言", ws.language, { hint: "同时决定 AI 回复语言" }));
-      const prefSec = el("an-section", { label: "偏好 · 仅本机" });
-      prefSec.append(segRow("主题", ["明亮", "暗色"], "明亮"));
-      // 工作区管理（切换 / 删除——这俩后续单独设计）
-      const mgmtSec = el("an-section", { label: "工作区管理" });
-      const switchRow = el("an-row", { icon: "history", label: "切换工作区", hint: "在多个工作区间切换" });
-      switchRow.append(actBtn("切换", "enter", () => toast("（待单独设计）工作区选择器")));
-      const delRow = el("an-row", { icon: "trash", label: "删除此工作区", hint: "不可撤销 · 级联清空所有数据" });
-      delRow.append(actBtn("删除", "trash", () => toast("（待单独设计）删除确认流"), "danger"));
-      mgmtSec.append(switchRow, delRow);
-      return [head("通用"), wsSec, prefSec, mgmtSec];
+      // 名称：值 = 直接可改输入框
+      const nameInp = el("an-input", { value: ws.name, placeholder: "工作区名称" }); nameInp.style.cssText = "width:var(--side-w);";
+      // 语言：值 = 切换器
+      const langSeg = el("an-segmented"); langSeg.items = [{ value: "zh", label: "中文" }, { value: "en", label: "English" }]; langSeg.value = "zh";
+      // 主题：值 = 切换器
+      const themeSeg = el("an-segmented"); themeSeg.items = ["明亮", "暗色"]; themeSeg.value = "明亮";
+      // 切换工作区：值 = 工作区下拉
+      const swBtn = el("an-button", { variant: "ghost", size: "sm" });
+      swBtn.innerHTML = window.anEsc(ws.name) + '<span style="display:inline-flex; vertical-align:middle; margin-left:var(--gap-tight); color:var(--ink-3);">' + window.icon("chevd", 12) + "</span>";
+      swBtn.addEventListener("click", () => window.AnMenu && window.AnMenu.open(swBtn, {
+        align: "end", placement: "top", namespace: "ws-switch",
+        items: [{ value: "personal", label: "Personal", icon: "check" }, { value: "work", label: "Work" }, { value: "client", label: "Client X" }],
+        onPick: (v, it) => toast("切换到 " + it.label),
+      }));
+      // 删除：值 = 红边按钮
+      const delBtn = el("an-button", { variant: "danger", outline: "", size: "sm" }); delBtn.textContent = "删除";
+      delBtn.addEventListener("click", () => toast("（待单独设计）删除确认流"));
+
+      const list = el("div");
+      list.append(
+        kvRow("名称", nameInp),
+        kvRow("语言", langSeg, "同时决定 AI 回复语言"),
+        kvRow("主题", themeSeg, "仅本机"),
+        kvRow("切换工作区", swBtn),
+        kvRow("删除此工作区", delBtn, "不可撤销 · 级联清空所有数据"),
+      );
+      return [head("通用"), list];
     }
-    // 名称编辑：清爽的带标签输入框 + 保存（直接可改，非 hover 找铅笔）
-    function nameField(value) {
-      const wrap = el("div"); wrap.style.cssText = "display:flex; flex-direction:column; gap:var(--sp-2);";
-      const lbl = el("div"); lbl.style.cssText = "font-size:var(--t-meta); font-weight:600; text-transform:uppercase; color:var(--ink-3); line-height:var(--lh-ui);";
-      lbl.textContent = "名称";
-      const row = el("div"); row.style.cssText = "display:flex; align-items:center; gap:var(--sp-2); max-width:var(--w-block);";
-      const inp = el("an-input", { value: value, placeholder: "工作区名称", full: "" }); inp.style.cssText = "flex:1; min-width:var(--zero);";
-      const save = el("an-button", { variant: "primary", size: "sm" }); save.textContent = "保存";
-      save.addEventListener("click", () => toast("已保存工作区名称"));
-      row.append(inp, save); wrap.append(lbl, row); return wrap;
-    }
-    function segRow(label, items, val) {
-      const seg = el("an-segmented"); seg.items = items; seg.value = val;
-      const r = el("div"); r.style.cssText = "display:flex; align-items:center; justify-content:space-between; padding:var(--sp-2) var(--zero);";
-      const t = el("div"); t.style.cssText = "font-size:var(--t-body); color:var(--ink);"; t.textContent = label;
-      r.append(t, seg); return r;
+    // key-value 行：label（+ 副文）左 · 值控件右；行间一道极细线分隔（清爽列表）
+    function kvRow(label, valueNode, hint) {
+      const r = el("div"); r.style.cssText = "display:flex; align-items:center; justify-content:space-between; gap:var(--sp-4); min-height:var(--island-head); padding:var(--sp-2) var(--zero); box-shadow:inset 0 calc(var(--hairline) * -1) 0 var(--line);";
+      const left = el("div"); left.style.cssText = "display:flex; flex-direction:column; gap:var(--grid); min-width:var(--zero);";
+      const lbl = el("div"); lbl.style.cssText = "font-size:var(--t-body); color:var(--ink);"; lbl.textContent = label;
+      left.append(lbl);
+      if (hint) { const h = el("div"); h.style.cssText = "font-size:var(--t-meta); color:var(--ink-3);"; h.textContent = hint; left.append(h); }
+      const right = el("div"); right.style.cssText = "flex:none; display:flex; align-items:center;"; right.append(valueNode);
+      r.append(left, right); return r;
     }
     function actBtn(label, icon, on, variant) {
       const b = el("an-button", { slot: "actions", variant: variant || "ghost", size: "sm", icon: icon });
