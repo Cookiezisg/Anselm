@@ -106,6 +106,7 @@ landed-into:
 | F39 todo 全完成后 reminder 抑制+无读回→agent 编造→加常驻 todo_read(含已完成项·复用 ReadRendered)、不动抑制 | todo | happy | 假成功/能力缺口 | fixed·locked |
 | F44 构建 turn 0-block+null-error+孤儿实体→两面皆已覆盖(FACE1=F34 填非空因·FACE2=per-tool durable commit 有意)→补 F34 守测 | loop·build | 报错 | 恢复无门 | 评估关闭(非问题·已覆盖) |
 | F48 delete 结果不报依赖数+边被同 op 删→地基 CountDependents(入向 equip/link)+8 delete 工具删前读注入(避 Delete 签名级联) | relation·8 实体 delete | happy | 静默降级 | fixed·locked |
+| F87 手动 trigger_workflow 绕过并发策略(StartRun 不走 overlapDecision)但工具不说→agent 困惑→描述+workflow.md 点明仅真 fire 受策略 | workflow·trigger | happy | promise≠reality/不可发现 | fixed(措辞)·locked |
 ### 已探·无缺陷（绿格——探过、当前行为正确；记下免重挖。details→LOG 元注 0618 + round-1）
 | 绿格 | target | regime |
 |---|---|---|
@@ -119,6 +120,8 @@ landed-into:
 | durable replay（清 failed、保记忆化、replayCount++） | durable-engine | 崩溃恢复（HTTP 直验，**非 agent 席**） |
 | 结构化累加循环（count 0→1→2→3 + done 终止） | durable-engine | 多轮 loop |
 | concurrency serial/skip | workflow(并发) | 并发 |
+| concurrency replace/buffer_one（真 webhook fire：replace 取消在途 run·buffer_one defer 留最新 superseded 旧的）+ 手动 :trigger 绕过策略=设计 | workflow(并发)·trigger | 并发（真 fire 席） |
+| **kill-9 硬崩溃恢复 from agent 席**（agent 建+trigger parked run→kill -9→重启 run 存活[记忆化+版本 pin]→agent resume 到 completed） | durable-engine | 真崩溃恢复 |
 | skill allowed-tools 预授权免确认 | skill | happy |
 | agent knowledge（doc）挂载 | agent·document | happy |
 | MCP 真 server 运行时（echo，name 形接 workflow） | mcp→workflow | happy |
@@ -201,9 +204,9 @@ landed-into:
 **整列没碰（target 维空白）：**
 - **websearch**（toolpick/convo lane 见 workspace 未配 search backend）· **relation 写/删边的 agent 面**（读已绿）。
 
-**薄格（碰过但只在某 regime / 某席位）：**
-- **kill-9 真崩溃恢复 from agent 席**（T3）：诊断+修+fresh-run 恢复已绿，但**真杀进程→重启→resume** 仍未从 agent 席验（会连累共享后端，留**串行单跑**——可起独立端口+数据目录的专用后端跑）。
-- **concurrency `replace`/`buffer_one` from agent 席**：F29 仅单测、round-3 撞到 F41（skip 退化）；replace/buffer_one 的 agent 席真触发仍未验。
+**薄格（碰过但只在某 regime / 某席位）——两格 0620 补绿：**
+- ~~**kill-9 真崩溃恢复 from agent 席**（T3）~~ **GREEN（0620，独立 :8749 + 持久 data dir）**：agent 建+trigger 的 parked durable run 硬扛 `kill -9` 重启（记忆化 + 版本 pin 存活）、agent 崩后 resume 到 completed。见 LOG 元注。
+- ~~**concurrency `replace`/`buffer_one` from agent 席**~~ **VERIFIED（0620，真 webhook fire）**：逮 F87（手动 trigger_workflow 绕过策略——已修）后经真 webhook fire 实测——replace 取消在途 run、buffer_one defer 留最新。手动 `:trigger` 路径**设计上不走策略**（仅真 fire 受治）。见 LOG 元注 + F87。
 
 **镜头 / 能力缺口（待判/待探）：**
 - **代码-bug 失败 run 无原地恢复**（triage latent）：replay 按原 pin、改 code 要 fresh trigger（新 id）；无 `:rerun-with-latest`。待判值不值得做。
