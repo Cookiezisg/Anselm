@@ -63,9 +63,6 @@
       "slug": "io.github.mongodb-js/mongodb-mcp-server"
     },
     {
-      "slug": "antfu/nuxt-mcp"
-    },
-    {
       "slug": "io.github.vercel/next-devtools-mcp"
     },
     {
@@ -148,7 +145,12 @@
       }
     },
     {
-      "slug": "cognitionai/deepwiki"
+      "slug": "cognitionai/deepwiki",
+      "auth": {
+        "transport": "remote",
+        "url": "https://mcp.deepwiki.com/mcp",
+        "transportType": "streamable-http"
+      }
     },
     {
       "slug": "io.github.arm/arm-mcp"
