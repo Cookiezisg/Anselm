@@ -25,8 +25,9 @@
 
       /* 标题行：h1（吃富余、可换行）+ 编辑动作槽（固定）。h1 字号/盒在显示与编辑态【完全一致】 */
       .title-row { display: flex; align-items: baseline; gap: var(--sp-2); margin: var(--sp-2) 0; min-width: 0; }
+      /* flex:0 → 标题按内容宽（不撑满），铅笔/✓✕ 紧贴标题右边空两格（场景 B：编辑钮贴锚点文字），非推到行尾 */
       .title {
-        min-width: 0; flex: 1 1 auto; overflow-wrap: anywhere;
+        min-width: 0; flex: 0 1 auto; overflow-wrap: anywhere;
         font-size: var(--t-h2); font-weight: 600; line-height: var(--lh-tight); letter-spacing: 0; margin: 0;
       }
       .title.editing { outline: none; box-shadow: inset 0 0 0 var(--hairline) var(--line-strong); border-radius: var(--r-tag);
