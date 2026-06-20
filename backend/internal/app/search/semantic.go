@@ -19,11 +19,18 @@ const (
 	rrfK           = 60.0
 	embedKickQueue = 64
 	// cosineFloor admits only vectors whose raw cosine similarity to the query clears this bar, so a
-	// no-match / gibberish query can't flood the whole workspace with cosine noise (F80). Calibrated
-	// on the builtin embeddinggemma-300m, which has a HIGH baseline similarity (~0.5–0.63 even for
-	// unrelated text): measured gibberish tops ≤0.63, genuine relevant matches ≥0.81 — a clean empty
-	// gap, so 0.7 robustly rejects noise (0.07 margin) while keeping every real match (0.11 margin).
-	cosineFloor = 0.7
+	// no-match / gibberish query can't flood the whole workspace with cosine noise (F80). RE-CALIBRATED
+	// (F80-fix, round-7) against the builtin embeddinggemma-300m on a real 8-entity corpus, measuring
+	// EXACT cosines from the stored float32 BLOBs: genuine zero-lexical-overlap paraphrase matches span
+	// 0.549–0.746 (NOT the ≥0.81 the old comment claimed — that was never measured), while gibberish
+	// tops at 0.537. The original 0.7 sat INSIDE the genuine-match distribution and silently dropped
+	// ~38% of real paraphrase recall. There is no clean absolute split (the genuine/noise gap is only
+	// ~0.012), so 0.55 is the pragmatic floor: it clears measured gibberish (0.537) and recovers the
+	// clearly-genuine matches (e.g. 0.617, 0.677) the old floor chopped; the lone casualty (a 0.549
+	// match, 0.012 above noise) is genuinely noise-indistinguishable for this weak model. RRF fusion +
+	// vecTopK already rank-demote weak semantic hits downstream, so this pre-filter only needs to be a
+	// noise guard, not a precision gate.
+	cosineFloor = 0.55
 )
 
 // StatusReporter is the optional provider capability behind the settings

@@ -529,7 +529,7 @@ func TestHybrid_CosineFloorRejectsNoise(t *testing.T) {
 		"sd_far":  {DocID: "sd_far", EntityType: searchdomain.TypeDocument, EntityID: "doc_far", Title: "far", UpdatedAt: time.Date(2026, 6, 12, 9, 0, 0, 0, time.UTC)},
 	}
 	repo.embedded = map[string][]float32{
-		"m1/sd_near": {1, 0, 0},       // cosine 1.0 with the query → above the 0.7 floor
+		"m1/sd_near": {1, 0, 0},       // cosine 1.0 with the query → above the 0.55 floor
 		"m1/sd_far":  {0.5, 0.866, 0}, // cosine 0.5 with the query → below the floor (noise)
 	}
 	svc := NewService(repo, nil)
@@ -547,7 +547,43 @@ func TestHybrid_CosineFloorRejectsNoise(t *testing.T) {
 		t.Errorf("a near vector (cosine 1.0 > floor) must surface; got %+v", page.Hits)
 	}
 	if ids["doc_far"] {
-		t.Errorf("a far vector (cosine 0.5 < cosineFloor 0.7) must NOT surface — that is the F80 flood")
+		t.Errorf("a far vector (cosine 0.5 < cosineFloor 0.55) must NOT surface — that is the F80 flood")
+	}
+}
+
+// TestHybrid_CosineFloorAdmitsGenuineMatch — F80-fix (round-7): a genuine paraphrase match on the
+// builtin embeddinggemma-300m scores cosine 0.549–0.746 (measured), NOT the ≥0.81 the old comment
+// assumed. The old 0.7 floor sat inside that distribution and silently dropped ~38% of real recall.
+// A vector at cosine 0.62 (a clearly-genuine match) MUST now surface (it would have been wrongly
+// rejected by the old 0.7 floor), while a 0.53 vector (gibberish-level, below measured noise 0.537+
+// margin) MUST still be rejected — the floor stays a noise guard, no longer a precision gate.
+func TestHybrid_CosineFloorAdmitsGenuineMatch(t *testing.T) {
+	repo := newFakeRepo()
+	repo.hits = []*searchdomain.DocHit{} // no lexical hits — isolate the semantic floor
+	repo.docsByID = map[string]*searchdomain.DocHit{
+		"sd_genuine": {DocID: "sd_genuine", EntityType: searchdomain.TypeDocument, EntityID: "doc_genuine", Title: "genuine", UpdatedAt: time.Date(2026, 6, 12, 9, 0, 0, 0, time.UTC)},
+		"sd_noise":   {DocID: "sd_noise", EntityType: searchdomain.TypeDocument, EntityID: "doc_noise", Title: "noise", UpdatedAt: time.Date(2026, 6, 12, 9, 0, 0, 0, time.UTC)},
+	}
+	repo.embedded = map[string][]float32{
+		"m1/sd_genuine": {0.62, 0.784656, 0}, // cosine 0.62 with query {1,0,0}: genuine match, OLD 0.7 floor wrongly dropped it
+		"m1/sd_noise":   {0.53, 0.848, 0},    // cosine 0.53: gibberish-level, below the 0.55 noise guard
+	}
+	svc := NewService(repo, nil)
+	svc.SetEmbeddingProviders(&fakeProvider{model: "m1", vecs: map[string][]float32{"q": {1, 0, 0}}}, nil)
+
+	page, err := svc.Search(ctxWS("ws_a"), &searchdomain.Query{Q: "q", IncludeArchived: true})
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	ids := map[string]bool{}
+	for _, h := range page.Hits {
+		ids[h.EntityID] = true
+	}
+	if !ids["doc_genuine"] {
+		t.Errorf("a genuine-match vector (cosine 0.62, between the 0.55 floor and the old 0.7) MUST surface — the F80 recall fix; got %+v", page.Hits)
+	}
+	if ids["doc_noise"] {
+		t.Errorf("a noise vector (cosine 0.53 < cosineFloor 0.55) must still NOT surface; got %+v", page.Hits)
 	}
 }
 
