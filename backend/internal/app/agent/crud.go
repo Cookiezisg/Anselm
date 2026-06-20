@@ -218,6 +218,9 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*agentdomain.Agen
 	if err := v.ValidateTools(); err != nil {
 		return nil, nil, err
 	}
+	if err := s.validateSkillMounted(ctx, v.Skill); err != nil {
+		return nil, nil, err
+	}
 	a := &agentdomain.Agent{
 		ID: agentID, Name: in.Name, Description: in.Description, Tags: orEmptyStrs(in.Tags),
 		ActiveVersionID: versionID, CreatedAt: now, UpdatedAt: now,
@@ -254,6 +257,9 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*agentdomain.Version,
 
 	v := buildVersion(versionID, in.ID, nextN, in.Config, now, convID)
 	if err := v.ValidateTools(); err != nil {
+		return nil, err
+	}
+	if err := s.validateSkillMounted(ctx, v.Skill); err != nil {
 		return nil, err
 	}
 
@@ -336,6 +342,26 @@ func buildVersion(id, agentID string, ver int, cfg Config, now time.Time, convID
 		ChangeReason: cfg.ChangeReason, BuiltInConversationID: convID,
 		CreatedAt: now,
 	}
+}
+
+// validateSkillMounted rejects an agent whose mounted skill name doesn't exist, eager at create/edit
+// — invoke resolves the skill through the SAME SkillGuide (invoke.go), so an agent accepted here will
+// resolve its skill at invoke instead of being dead-on-arrival (the deferred "skill not found" only
+// surfaced on the first invoke before, F71-style eager validation). Nil-tolerant: no resolver wired →
+// skip (validation unavailable, mirrors invoke's nil guard).
+//
+// validateSkillMounted 在 create/edit 期拒绝挂载不存在 skill 名的 agent——invoke 经**同一** SkillGuide
+// 解析（invoke.go），故此处接受的 agent 在 invoke 时能解析其 skill、不会 dead-on-arrival（此前那条
+// "skill not found" 只在首次 invoke 才暴露；F71 式 eager 校验）。nil 容忍：无 resolver 接线则跳过（校验
+// 不可用，镜像 invoke 的 nil 守卫）。
+func (s *Service) validateSkillMounted(ctx context.Context, skill string) error {
+	if skill == "" || s.invoke.Skill == nil {
+		return nil
+	}
+	if _, err := s.invoke.Skill.Guide(ctx, skill); err != nil {
+		return agentdomain.ErrSkillNotFound.WithDetails(map[string]any{"skill": skill})
+	}
+	return nil
 }
 
 // validateModelOverride requires both apiKeyId and modelId when an override is set.

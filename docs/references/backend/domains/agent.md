@@ -34,7 +34,7 @@ Agent **自己不写代码**：它是一份"LLM 员工配置"——提示词 + *
 | `fn_<id>` | 以 **function 现名**命名的绑定工具 | desc/inputs schema 来自活实体；Execute → `RunFunction`(TriggeredBy=agent) |
 | `hd_<id>.<method>` | `<handlerName>__<method>` 绑定工具 | method spec → schema；Execute → `handler.Call`(agent)，yield 流进 progress |
 | `mcp:<server>/<tool>` | `mcp__server__tool` 绑定工具 | 经**在线** server 解析（离线即失败）；Execute → `mcp.CallTool`(agent) |
-| skill 名 | **执行指南**注入 system prompt（`## Execution guide` 段） | `skillapp.Guide`：渲染正文；**不**设 active-skill（防预授权泄漏父对话）、**不** fork |
+| skill 名 | **执行指南**注入 system prompt（`## Execution guide` 段） | `skillapp.Guide`：渲染正文；**不**设 active-skill（防预授权泄漏父对话）、**不** fork；**create/edit 期 eager 校验存在**（同一 `Guide` 解析、不存在 → `AGENT_SKILL_NOT_FOUND`，免 dangling 名建出 dead-on-arrival agent，F96） |
 | knowledge docIDs | 知识前缀拼进 user 消息 | `BuildKnowledgePrefix` |
 
 **核心设计**：agent **永不**见通用系统工具表（无 `run_function`/`Read`/`Bash`）——工具宇宙**恰是其挂载**，每个工具预绑定目标（LLM 没有自由 id 参数可乱走）。合成在 `app/tool/mount`：`Resolver` 持三个窄端口（FunctionPort/HandlerPort/MCPPort，DIP、测试可 fake），按 ref 前缀分流出三种绑定工具。

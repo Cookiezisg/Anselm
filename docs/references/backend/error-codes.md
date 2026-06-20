@@ -11,7 +11,7 @@ audience: [human, ai]
 
 # 错误码 —— 错误系统 + 全量 wire code 登记
 
-> 后端错误的单一事实源：框架 / 规约 + **283 个 sentinel wire code 完整登记**（按域）+ **2 个 transport 合成码**（`FromDomainError` 从 stdlib `context` 错误直发、非 `errorspkg.New` sentinel）。机械守卫保证「全用 `errorspkg.New`」+「码全库唯一」——`pkg/errors/standard_test.go`，进 `make verify`。
+> 后端错误的单一事实源：框架 / 规约 + **284 个 sentinel wire code 完整登记**（按域）+ **2 个 transport 合成码**（`FromDomainError` 从 stdlib `context` 错误直发、非 `errorspkg.New` sentinel）。机械守卫保证「全用 `errorspkg.New`」+「码全库唯一」——`pkg/errors/standard_test.go`，进 `make verify`。
 
 ## 框架（`pkg/errors`）
 
@@ -42,9 +42,9 @@ audience: [human, ai]
 
 ---
 
-## 全量登记（283 码，按域）
+## 全量登记（284 码，按域）
 
-> `errorspkg.New` 机械抽取（278，不含 `*_test.go` 测试 sentinel 如 DUP/THING_NOT_FOUND）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（5）。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
+> `errorspkg.New` 机械抽取（279，不含 `*_test.go` 测试 sentinel 如 DUP/THING_NOT_FOUND）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（5）。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
 
 ### `pkg/errors`（跨域 sentinel）
 
@@ -278,6 +278,7 @@ audience: [human, ai]
 | `AGENT_NAME_CONFLICT` | 409 | agent name already exists |
 | `AGENT_NOT_FOUND` | 404 | agent not found |
 | `AGENT_NO_ACTIVE_VERSION` | 422 | agent has no active version to invoke |
+| `AGENT_SKILL_NOT_FOUND` | 422 | agent mounts a skill that does not exist（create/edit 期 eager 校验，details.skill；此前 dangling skill 名只在首次 invoke 才报，F96） |
 | `AGENT_TOOLS_AGENT_REF` | 422 | agent tools cannot reference another agent (ag_ forbidden) |
 | `AGENT_TOOL_REF_BLANK` | 422 | agent tool ref must not be blank |
 | `AGENT_VERSION_NOT_FOUND` | 404 | agent version not found |

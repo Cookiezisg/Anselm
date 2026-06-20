@@ -114,6 +114,7 @@ landed-into:
 | F92 handler 方法调用无墙钟（opt-in 默认无界、钉死常驻管道）→加全局 `HandlerCallSec` 默认兜底(call.go methodCallTimeout)+暴露 per-method timeout 旋钮（对称 F83、闭 fn/hd 不对称、function.md 旧 doc-ahead 成真） | handler·durable·systems | 单工具/崩溃·并发 | 脆弱/promise≠reality | fixed·locked |
 | F93 LLM 流无总墙钟→idle-timer 每事件重置、病态流永困钉 CPU 25min+阻塞 graceful shutdown+泄漏子进程→加 `LLMStreamMaxSec` 不重置总墙钟（provider.go 第二计时器、区分 total-budget 错） | chat·llm-stream·systems | 单工具/崩溃·robustness | 脆弱/假成功 | fixed·locked |
 | F94 fire_trigger 描述诱导传 body 但只发 {manual:true} 丢之→描述点明不带自定义 payload、指向 trigger_workflow | trigger | 单工具/happy | 不可发现/promise≠reality | fixed(措辞)·locked |
+| F96 create/edit_agent 不校 skill 存在→dangling 名建 dead-on-arrival agent、只 invoke 才报→Create/Edit eager 校验（同 invoke SkillGuide、新码 AGENT_SKILL_NOT_FOUND） | agent·校验 | 单工具/happy→报错 | 假成功/promise≠reality | fixed·locked |
 ### 已探·无缺陷（绿格——探过、当前行为正确；记下免重挖。details→LOG 元注 0618 + round-1）
 | 绿格 | target | regime |
 |---|---|---|
