@@ -1,9 +1,13 @@
-/* Anselm 原语 C2 · C3 — 键值叶子两式（同域一文件，共用块模型 + 内生编辑）：
-   · <an-field label hint value editable editor>  键值大行：label + 值；值在受约束 1fr 列内换行/截断，绝不溢出/重叠/挤扁 label。自适应高度（贴内容）。
-   · <an-kv rows mono wrap>                        紧凑定义列表：值右贴边；【过长自动换行】（per-row 自检），不溢出不重叠。
-   块模型：列轨 = [key 内容宽 minmax(0,auto) | value 受约束 minmax(0,1fr) | 编辑槽 auto]，每槽 min-width:0 → 长值在自己列消化。
-   编辑是【内生】能力且【与标题一致】：值【原地】变 contenteditable（同字号/同盒/同位置，零偏移、不改高），尾槽铅笔→✓/✕；
-     Enter/✓/失焦提交、Esc/✕/空值还原。枚举值仍用 <an-dropdown>（离散选择）。Field 派 'an-field-change'；KV 派 'an-kv-change'。done 一次性守卫。 */
+/* Anselm 原语 C2 · C3 — 键值叶子两式（同域一文件，共用就地编辑机制）：
+   · <an-field label hint value editable editor>  键值大行：label 左 + 值右对齐；可编辑值走统一就地编辑机制。无 value → 默认 slot（放下拉/按钮等控件，仍右对齐）。
+   · <an-kv rows mono wrap>                        紧凑定义列表：key 左 · value 右；可编辑行走同一机制。
+   【统一就地编辑机制】（所有 kv 可编辑值 + 标题共用同一交互）：
+     平时——只显示 key 左 + value 右，无 affordance。
+     hover——在 key 右边空两格冒出【铅笔钮】（触发点贴锚点文字）。
+     点铅笔——右边的 value 原地变成【白底+光标编辑框】（不全选、只给光标），框右侧出【✓/✕】确认（编辑发生处）。
+       Enter/✓/失焦提交、Esc/✕/空值还原。✓/✕ 走 mousedown+preventDefault 抢在 blur 前定调（取消优先回滚）。
+     即：触发铅笔在锚点（key）右、编辑框+✓✕ 在值处——铅笔与确认分两处（与「一体三连钮」不同，故不用 an-edit-affordance）。
+   枚举值仍用 <an-dropdown>（离散选择）。Field 派 'an-field-change'；KV 派 'an-kv-change'。done 一次性守卫。 */
 (function () {
   function normRow(r) {
     if (Array.isArray(r)) return { key: r[0], value: r[1], editable: false };
@@ -16,8 +20,8 @@
     };
   }
 
-  // 内生就地编辑（自由文本）：值槽原地 contenteditable，同盒同字号。返回 finish(commit) 供尾槽 ✓/✕ 调用。done 一次性。
-  // realVal=真值（显示为 — 占位时编辑前清空）；commit(text) 写回+重渲+派事件；取消/未改→host._render()。onState(editing) 切尾槽铅笔↔✓✕。
+  // 内生就地编辑（自由文本）：值槽原地 contenteditable 白底+光标。返回 finish(commit) 供 ✓/✕ 调用。done 一次性。
+  // realVal=真值（显示为 — 占位时编辑前清空）；commit(text) 写回+重渲+派事件；取消/未改→host._render()。onState(editing) 切铅笔↔✓✕ 揭示。
   function editText(host, valueEl, realVal, commit, onState) {
     const orig = realVal == null ? "" : String(realVal);
     valueEl.textContent = orig;
@@ -26,13 +30,14 @@
     valueEl.classList.add("editing");
     if (onState) onState(true);
     const sel = window.getSelection();
-    // 只给光标（落到值末尾），不全选——避免蓝色选区，把编辑权交给用户
+    // 只给光标（落到值末尾），不全选——白底无蓝选区，把编辑权交给用户
     if (sel) { const r = document.createRange(); r.selectNodeContents(valueEl); r.collapse(false); sel.removeAllRanges(); sel.addRange(r); }
     valueEl.focus();
     const finish = (ok) => {
       if (done) return; done = true;
       valueEl.removeEventListener("keydown", onKey); valueEl.removeEventListener("blur", onBlur);
       valueEl.removeAttribute("contenteditable"); valueEl.classList.remove("editing");
+      if (onState) onState(false);
       const text = (valueEl.textContent || "").trim();
       if (ok && text !== orig.trim()) commit(text);
       else host._render();
@@ -67,12 +72,16 @@
     wrap.appendChild(dd); valueEl.replaceWith(wrap);
   }
 
-  // 编辑尾槽 = <an-edit-affordance>（铅笔→✓/✕ 三连钮收口到该原语，含 focus-安全 mousedown + accent 保存）；本处只给定位类 .acts。
-  function actsHtml() { return `<an-edit-affordance class="acts"></an-edit-affordance>`; }
-  /* .acts = an-edit-affordance 的【绝对浮层定位】壳（不占网格列、不偷值宽）；皮肤/三钮在 an-edit-affordance；揭示可见性由各父 hover/focus/editing 规则控（见 AnField/AnKv css）。 */
-  const ACTS_CSS = `
-    .acts { position: absolute; top: 50%; right: var(--pad-row); transform: translateY(-50%); z-index: 1; }
-    .v.editing { outline: none; box-shadow: inset 0 0 0 var(--hairline) var(--line-strong); border-radius: var(--r-tag); background: var(--island); cursor: text; }
+  // 统一编辑机制的两块 HTML：铅笔（贴 key 右，hover 显）+ ✓✕ 确认（贴 value 右，editing 显）。复用 an-button icon 钮。
+  function pencilHtml() { return `<an-button class="pencil" variant="icon" size="sm" icon="edit" aria-label="编辑"></an-button>`; }
+  function confirmHtml() { return `<span class="confirm"><an-button class="ok" variant="icon" size="sm" icon="check" aria-label="保存"></an-button><an-button class="cancel" variant="icon" size="sm" icon="close" aria-label="取消"></an-button></span>`; }
+  // 统一编辑皮肤：铅笔/✓✕ 显隐 + ✓ accent + 值编辑框白底+光标。揭示由父按 hover/editing 控（见各 css）。
+  const EDIT_CSS = `
+    .pencil { flex: none; }
+    .confirm { flex: none; display: none; align-items: center; gap: var(--gap-tight); }
+    .confirm .ok::part(button) { color: var(--accent); }
+    .confirm .ok::part(button):hover { background: var(--accent-soft); color: var(--accent); }
+    .v.editing { outline: none; box-shadow: inset 0 0 0 var(--hairline) var(--line-strong); border-radius: var(--r-tag); background: var(--island); cursor: text; min-width: var(--input-min); text-align: left; padding: 0 var(--gap-tight); }
   `;
 
   class AnField extends window.AnElement {
@@ -80,21 +89,20 @@
     static observed = ["label", "hint", "value", "editable", "editor", "wrap"];
     static css = `
       :host { display: block; }
-      /* 块模型 + 自适应高度（贴内容、不留空白）：[label 内容宽 | value 满 1fr 列]，编辑尾槽绝对浮层不偷值宽（短值单行、长值才换行） */
-      .field {
-        position: relative; display: grid; grid-template-columns: minmax(0, auto) minmax(0, 1fr); align-items: baseline; column-gap: var(--sp-4);
-        padding: var(--sp-2) var(--pad-row); border-radius: var(--r-btn); transition: background var(--d-fast);
-      }
-      :host(:hover) .field, :host([editable]:focus-within) .field { background: var(--island-3); }
-      .l { min-width: 0; align-self: baseline; }
+      /* 一行：[label 块] [铅笔] [撑开] [value 右对齐] [✓✕]——hover 出铅笔、editing 出框+✓✕ */
+      .field { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--pad-row); border-radius: var(--r-btn); transition: background var(--d-fast); }
+      :host(:hover) .field, :host([editing]) .field { background: var(--island-3); }
+      .l { min-width: 0; display: flex; flex-direction: column; gap: calc(var(--grid) / 2); }
       .k { min-width: 0; font-size: var(--t-body); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .hint { min-width: 0; font-size: var(--t-meta); color: var(--ink-3); line-height: var(--lh-ui); margin-top: calc(var(--grid) / 2); overflow-wrap: anywhere; }
-      .c { min-width: 0; display: block; }
-      .v { min-width: 0; display: block; font-size: var(--t-body); color: var(--ink-2); white-space: normal; overflow-wrap: anywhere; }
-      /* 揭示 affordance：hover/focus 或编辑中才显（默认藏）；:host .acts(0,2,0) 压过 affordance :host(0,1,0) */
-      :host .acts { display: none; }
-      :host([editable]:hover) .acts, :host([editable]:focus-within) .acts, :host .acts[editing] { display: inline-flex; }
-      ${ACTS_CSS}
+      .hint { min-width: 0; font-size: var(--t-meta); color: var(--ink-3); line-height: var(--lh-ui); overflow-wrap: anywhere; }
+      .grow { flex: 1 1 auto; min-width: var(--zero); }
+      .c { min-width: 0; flex: 0 1 auto; display: flex; align-items: center; justify-content: flex-end; }
+      .v { min-width: 0; font-size: var(--t-body); color: var(--ink-2); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      /* 铅笔：可编辑 + hover 才显；editing 时藏（:not([editing]) 直接挡掉 hover 揭示，让位 ✓✕） */
+      .pencil { display: none; }
+      :host([editable]:not([editing]):hover) .pencil { display: inline-flex; }
+      :host([editing]) .confirm { display: inline-flex; }
+      ${EDIT_CSS}
     `;
 
     set options(v) { this._options = Array.isArray(v) ? v : []; }
@@ -108,24 +116,26 @@
       const hint = this.attr("hint") ? `<div class="hint">${e(this.attr("hint"))}</div>` : "";
       const label = e(this.attr("label", ""));
       const control = hasValueAttr ? `<span class="v">${e(valAttr === "" ? "—" : valAttr)}</span>` : `<slot></slot>`;
-      const acts = editableText ? actsHtml() : "";
-      return `<div class="field"><div class="l"><div class="k">${label}</div>${hint}</div><div class="c">${control}</div>${acts}</div>`;
+      const pencil = editableText ? pencilHtml() : "";
+      const confirm = editableText ? confirmHtml() : "";
+      return `<div class="field"><div class="l"><div class="k">${label}</div>${hint}</div>${pencil}<span class="grow"></span><div class="c">${control}</div>${confirm}</div>`;
     }
 
     hydrate() {
-      this._editing = false;  // 每次重渲解锁（编辑收尾必经重渲）——配合 _startEdit 守卫挡快速双击
-      const aff = this.$(".acts"); if (!aff) return;   // 三连钮收口 an-edit-affordance：铅笔→start / ✓→commit / ✕→abort
-      aff.addEventListener("an-edit-start", () => this._startEdit());
-      aff.addEventListener("an-edit-commit", () => this._finish && this._finish(true));
-      aff.addEventListener("an-edit-abort", () => this._finish && this._finish(false));
+      this._editing = false;  // 每次重渲解锁（编辑收尾必经重渲）
+      const pencil = this.$(".pencil"); if (!pencil) return;
+      pencil.addEventListener("click", () => this._startEdit());
+      const ok = this.$(".confirm .ok"), cancel = this.$(".confirm .cancel");
+      if (ok) ok.addEventListener("mousedown", (ev) => { ev.preventDefault(); this._finish && this._finish(true); });
+      if (cancel) cancel.addEventListener("mousedown", (ev) => { ev.preventDefault(); this._finish && this._finish(false); });
     }
     _startEdit() {
-      if (this._editing) return;  // 守卫：编辑中再触发不重入（否则两套 editText 监听器抢同一 .v、收尾互踩）
-      const vEl = this.$(".v"), aff = this.$(".acts"); if (!vEl) return;
+      if (this._editing) return;  // 守卫：编辑中再触发不重入
+      const vEl = this.$(".v"); if (!vEl) return;
       const commit = (value) => { this.setAttribute("value", value); this.emit("an-field-change", { label: this.attr("label"), value }); };
       if ((this.attr("editor") || "input") === "select") { editSelect(this, vEl, { value: this.attr("value"), options: this._options || [] }, commit); return; }
       this._editing = true;
-      this._finish = editText(this, vEl, this.attr("value"), commit, (on) => aff && aff.toggleAttribute("editing", on));
+      this._finish = editText(this, vEl, this.attr("value"), commit, (on) => this.toggleAttribute("editing", on));
     }
   }
   window.AnElement.define(AnField);
@@ -136,30 +146,19 @@
     static css = `
       :host { display: block; }
       .list { display: flex; flex-direction: column; }
-      /* 块模型：[key 内容宽 | value 满 1fr 列]，编辑尾槽绝对浮层不偷值宽；value 右贴边单行，【溢出自检后逐行转多行左对齐】（.row.w 类） */
-      .row {
-        position: relative; display: grid; grid-template-columns: minmax(0, auto) minmax(0, 1fr); align-items: baseline;
-        column-gap: var(--sp-3); min-height: var(--row); padding: var(--sp-1) var(--pad-row);
-        border-radius: var(--r-btn); transition: background var(--d-fast);
-      }
-      .row:hover, .row.editable:focus-within { background: var(--island-3); }
-      .k {
-        min-width: 0; display: inline-flex; align-items: baseline; gap: var(--gap-tight);
-        color: var(--ink-2); font-size: var(--t-body); line-height: var(--lh-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      }
-      .v {
-        min-width: 0; justify-self: stretch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-        color: var(--ink-3); font-size: var(--t-meta); line-height: var(--lh-ui);
-        font-variant-numeric: tabular-nums; text-align: right;
-      }
+      /* 行：[key 左] [铅笔] [撑开] [value 右] [✓✕]，与 an-field 同款就地编辑 */
+      .row { display: flex; align-items: center; gap: var(--sp-2); min-height: var(--row); padding: var(--sp-1) var(--pad-row); border-radius: var(--r-btn); transition: background var(--d-fast); }
+      .row:hover, .row.editing { background: var(--island-3); }
+      .k { min-width: 0; color: var(--ink-2); font-size: var(--t-body); line-height: var(--lh-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .grow { flex: 1 1 auto; min-width: var(--zero); }
+      .vwrap { min-width: 0; flex: 0 1 auto; display: flex; align-items: center; justify-content: flex-end; }
+      .v { min-width: 0; color: var(--ink-3); font-size: var(--t-meta); line-height: var(--lh-ui); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       :host([mono]) .v { font-family: var(--mono); }
-      /* 过长值：转多行换行（自检命中 .row.w 或全件 [wrap]）——在 1fr 列内消化，绝不溢出/重叠 key；保持右贴边（两端对齐：key 左、value 右） */
-      :host([wrap]) .row, .row.w { align-items: start; }
-      :host([wrap]) .v, .row.w .v { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; text-align: right; }
-      /* kv 行编辑槽 = an-edit-affordance（同 Field）；hover/focus/editing 才揭示（.row .acts 0,2,0 压过 affordance :host 0,1,0） */
-      .row .acts { display: none; }
-      .row.editable:hover .acts, .row.editable:focus-within .acts, .row .acts[editing] { display: inline-flex; }
-      ${ACTS_CSS}
+      /* 铅笔：可编辑行 hover 显、editing 藏（:not(.editing) 直接挡掉 hover 揭示） */
+      .pencil { display: none; }
+      .row.editable:not(.editing):hover .pencil { display: inline-flex; }
+      .row.editing .confirm { display: inline-flex; }
+      ${EDIT_CSS}
     `;
 
     get rows() { return this._data(); }
@@ -178,47 +177,31 @@
       const e = window.anEsc;
       const body = this._data().map((r, i) => {
         const v = r.value == null || r.value === "" ? "—" : r.value;
-        const key = `<span class="k"><span class="kt">${e(r.key)}</span></span>`;
-        const acts = r.editable ? actsHtml() : "";
-        return `<div class="row${r.editable ? " editable" : ""}" data-i="${i}">${key}<span class="v">${e(v)}</span>${acts}</div>`;
+        const pencil = r.editable ? pencilHtml() : "";
+        const confirm = r.editable ? confirmHtml() : "";
+        return `<div class="row${r.editable ? " editable" : ""}" data-i="${i}"><span class="k">${e(r.key)}</span>${pencil}<span class="grow"></span><span class="vwrap"><span class="v">${e(v)}</span></span>${confirm}</div>`;
       }).join("");
       return `<div class="list">${body}</div>`;
     }
 
     hydrate() {
-      this._editing = false;  // 每次重渲解锁（编辑收尾必经重渲）——配合 start 守卫挡快速双击
-      // 过长值自检 → 逐行转多行（自适应换行）：rAF 等布局后量 scrollWidth，超列宽即给该行加 .w
-      this._autowrap();
-      this.$$('.row.editable').forEach((row) => {
+      this._editing = false;
+      this.$$(".row.editable").forEach((row) => {
         const i = Number(row.dataset.i);
-        const aff = row.querySelector(".acts");   // 该行就地编辑三连钮（an-edit-affordance）
+        const pencil = row.querySelector(".pencil");
         const start = () => {
-          if (this._editing) return;  // 守卫：编辑中再触发不重入（含同行双击）
+          if (this._editing) return;
           const vEl = row.querySelector(".v"), rec = this._rows[i];
           const commit = (value) => this._commit(i, value);
           if (rec.editor === "select") { editSelect(this, vEl, rec, commit); return; }
           this._editing = true;
-          this._finish = editText(this, vEl, rec.value, commit, (on) => aff && aff.toggleAttribute("editing", on));
+          this._finish = editText(this, vEl, rec.value, commit, (on) => row.classList.toggle("editing", on));
         };
-        if (aff) {
-          aff.addEventListener("an-edit-start", start);
-          aff.addEventListener("an-edit-commit", () => this._finish && this._finish(true));
-          aff.addEventListener("an-edit-abort", () => this._finish && this._finish(false));
-        }
+        if (pencil) pencil.addEventListener("click", start);
+        const ok = row.querySelector(".confirm .ok"), cancel = row.querySelector(".confirm .cancel");
+        if (ok) ok.addEventListener("mousedown", (ev) => { ev.preventDefault(); this._finish && this._finish(true); });
+        if (cancel) cancel.addEventListener("mousedown", (ev) => { ev.preventDefault(); this._finish && this._finish(false); });
       });
-    }
-    // 过长值自检 → 给该行加 .w 转多行（value scrollWidth 超列宽即溢出）。idempotent（add 不重复）；
-    // 多档 setTimeout 兜底惰性 tab/段布局时机不定，确保拿到真实宽度后落地。
-    _autowrap() {
-      if (this.has("wrap")) return;
-      const apply = () => {
-        if (!this.isConnected) return false;
-        if (this.getBoundingClientRect().width < 40) return false;
-        this.$$(".row").forEach((row) => { const v = row.querySelector(".v"); if (v && v.scrollWidth > v.clientWidth + 1) row.classList.add("w"); });
-        return true;
-      };
-      if (!apply()) requestAnimationFrame(apply);
-      [80, 250, 600].forEach((ms) => setTimeout(apply, ms));
     }
     _commit(i, value) {
       this._rows[i] = Object.assign({}, this._rows[i], { value });

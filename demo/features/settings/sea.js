@@ -18,22 +18,24 @@ window.FEATURE.settings = Object.assign(window.FEATURE.settings || {}, {
     const field = (label, value, opts) => el("an-field", Object.assign({ label: label, value: value, editable: "" }, opts || {}));
     const dotOf = (s) => ({ ok: "done", ready: "run", degraded: "wait", failed: "err", error: "err" }[s] || "idle");
 
-    // ── ① 通用：五行 key-value（label 左 · 值控件右，全部右端对齐），无分段标题 ──
+    // ── ① 通用：全 an-field 五行（label 左 · 值右；名称走统一就地编辑、其余右侧 slot 控件），无分段标题 ──
     function general() {
       const ws = S.workspace || {};
-      // 名称：值 = 可改输入框（full 撑满宿主 → 右端对齐；聚焦白底+光标）
-      const nameInp = el("an-input", { value: ws.name, placeholder: "工作区名称", full: "" }); nameInp.style.cssText = "width:var(--side-w);";
-      // 删除：值 = 红边按钮
+      // 名称：可编辑 an-field —— hover key 右出铅笔 → value 原地变白底框 + ✓✕（统一就地编辑机制）
+      const nameF = el("an-field", { label: "名称", value: ws.name, editable: "" });
+      nameF.addEventListener("an-field-change", (ev) => toast("已保存名称：" + ev.detail.value));
+      // 其余：an-field + 右侧 slot 控件（无 value → slot，仍右对齐、无铅笔）
+      const slotField = (label, ctrl, hint) => { const f = el("an-field", hint ? { label: label, hint: hint } : { label: label }); f.append(ctrl); return f; };
       const del = el("an-button", { variant: "danger", outline: "", size: "sm" }); del.textContent = "删除";
       del.addEventListener("click", () => toast("（待单独设计）删除确认流"));
 
       const list = el("div");
       list.append(
-        kvRow("名称", nameInp),
-        kvRow("语言", dropdownVal("中文", ["中文", "English", "跟随系统"], "set-lang")),
-        kvRow("主题", dropdownVal("明亮", ["明亮", "暗色", "跟随系统"], "set-theme")),
-        kvRow("切换工作区", dropdownVal(ws.name, ["Personal", "Work", "Client X"], "ws-switch")),
-        kvRow("删除此工作区", del, "不可撤销 · 级联清空所有数据"),
+        nameF,
+        slotField("语言", dropdownVal("中文", ["中文", "English", "跟随系统"], "set-lang")),
+        slotField("主题", dropdownVal("明亮", ["明亮", "暗色", "跟随系统"], "set-theme")),
+        slotField("切换工作区", dropdownVal(ws.name, ["Personal", "Work", "Client X"], "ws-switch")),
+        slotField("删除此工作区", del, "不可撤销 · 级联清空所有数据"),
       );
       return [head("通用"), list];
     }
@@ -48,16 +50,6 @@ window.FEATURE.settings = Object.assign(window.FEATURE.settings || {}, {
         onPick: (v, it) => { setLabel(it.label); toast("已选 " + it.label); },
       }));
       return btn;
-    }
-    // key-value 行：label（+ 副文）左 · 值控件右；行间一道极细线分隔（清爽列表）
-    function kvRow(label, valueNode, hint) {
-      const r = el("div"); r.style.cssText = "display:flex; align-items:center; justify-content:space-between; gap:var(--sp-4); min-height:var(--island-head); padding:var(--sp-2) var(--zero); box-shadow:inset 0 calc(var(--hairline) * -1) 0 var(--line);";
-      const left = el("div"); left.style.cssText = "display:flex; flex-direction:column; gap:var(--grid); min-width:var(--zero);";
-      const lbl = el("div"); lbl.style.cssText = "font-size:var(--t-body); color:var(--ink);"; lbl.textContent = label;
-      left.append(lbl);
-      if (hint) { const h = el("div"); h.style.cssText = "font-size:var(--t-meta); color:var(--ink-3);"; h.textContent = hint; left.append(h); }
-      const right = el("div"); right.style.cssText = "flex:none; display:flex; align-items:center;"; right.append(valueNode);
-      r.append(left, right); return r;
     }
     function actBtn(label, icon, on, variant) {
       const b = el("an-button", { slot: "actions", variant: variant || "ghost", size: "sm", icon: icon });
