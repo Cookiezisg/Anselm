@@ -286,7 +286,7 @@ audience: [human, ai]
 | `API_KEY_BASE_URL_REQUIRED` | 400 | base url is required for this provider |
 | `API_KEY_DISPLAY_NAME_CONFLICT` | 409 | display name already in use |
 | `API_KEY_INVALID_PROVIDER` | 400 | unknown provider |
-| `API_KEY_IN_USE` | 422 | api key is referenced and cannot be deleted |
+| `API_KEY_IN_USE` | 422 | api key is referenced and cannot be deleted（details.references: `[{kind,id,name}]`，kind=scenario_default/search_default/agent_override） |
 | `API_KEY_IMMUTABLE` | 422 | managed api key cannot be edited（内置受管 provider，如免费档 `anselm`） |
 | `API_KEY_TEST_FAILED` | 422 | api key probe failed（details: latencyMs + reason） |
 | `API_KEY_NOT_FOUND` | 404 | api key not found |

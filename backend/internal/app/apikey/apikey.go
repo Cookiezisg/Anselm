@@ -22,15 +22,17 @@ import (
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
-// RefScanner reports whether some entity still references a given api_key id.
-// Delete consults every registered scanner; any true → ErrInUse. Implementations
-// live in the referencing modules (model / conversation / workflow) and are
+// RefScanner reports the places (if any) that still reference a given api_key id, so a blocked
+// Delete can tell the user where to detach it. An empty slice means "not referenced". Delete
+// aggregates every scanner's refs; a non-empty total → ErrInUse with details.references.
+// Implementations live in the referencing modules (workspace defaults / agent override) and are
 // injected at wiring — apikey holds only this port, depending on none of them.
 //
-// RefScanner 检测某 api_key 是否仍被引用。Delete 询问每个已注册 scanner，任一 true → ErrInUse。
-// 实现住在引用方模块（model/conversation/workflow），装配时注入——apikey 只持端口、不依赖它们。
+// RefScanner 报告仍引用某 api_key 的位置（若有），使被拦的 Delete 能告诉用户去哪解引用。空切片=未引用。
+// Delete 聚合每个 scanner 的引用,总计非空 → ErrInUse 带 details.references。实现住在引用方模块
+// （workspace 默认 / agent 覆盖），装配时注入——apikey 只持端口、不依赖它们。
 type RefScanner interface {
-	ReferencesAPIKey(ctx context.Context, apiKeyID string) (bool, error)
+	ReferencesAPIKey(ctx context.Context, apiKeyID string) ([]apikeydomain.APIKeyRef, error)
 }
 
 // Service orchestrates apikey CRUD + connectivity probing; owns the encryption boundary.
@@ -272,14 +274,16 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*apike
 //
 // Delete 命中任一引用 scanner 即拒删（ErrInUse）。
 func (s *Service) Delete(ctx context.Context, id string) error {
+	var refs []apikeydomain.APIKeyRef
 	for _, sc := range s.scanners {
-		used, err := sc.ReferencesAPIKey(ctx, id)
+		found, err := sc.ReferencesAPIKey(ctx, id)
 		if err != nil {
 			return fmt.Errorf("apikey.Service.Delete: ref scan: %w", err)
 		}
-		if used {
-			return apikeydomain.ErrInUse
-		}
+		refs = append(refs, found...)
+	}
+	if len(refs) > 0 {
+		return apikeydomain.ErrInUse.WithDetails(map[string]any{"references": refs})
 	}
 	return s.repo.Delete(ctx, id)
 }

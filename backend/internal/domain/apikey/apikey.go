@@ -88,6 +88,20 @@ type ProbedKey struct {
 	TestResponse string
 }
 
+// APIKeyRef names one place a key is still referenced — returned by a RefScanner so a blocked
+// delete can tell the user WHERE to detach it (which scenario default / search default / agent).
+// Kind is an open string (scenario_default / search_default / agent_override), not a sealed
+// enum; ID is the referrer's id, Name is human-facing. Shipped in API_KEY_IN_USE details.references.
+//
+// APIKeyRef 指明 key 仍被引用的一处——RefScanner 返回它,使被拦的删除能告诉用户去哪解引用(哪个场景默认/
+// 搜索默认/哪个 agent)。Kind 开放字符串(scenario_default / search_default / agent_override),非封闭枚举;
+// ID 是引用方 id、Name 人类可读。随 API_KEY_IN_USE 的 details.references 下发。
+type APIKeyRef struct {
+	Kind string `json:"kind"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
 // ListFilter pages the key list, optionally narrowed to one provider.
 //
 // ListFilter 分页过滤 key 列表，可按 provider 收窄。

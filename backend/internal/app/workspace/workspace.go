@@ -15,6 +15,7 @@ import (
 
 	"go.uber.org/zap"
 
+	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
 	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
 	websearchdomain "github.com/sunweilin/anselm/backend/internal/domain/websearch"
 	workspacedomain "github.com/sunweilin/anselm/backend/internal/domain/workspace"
@@ -321,24 +322,28 @@ func (s *Service) DefaultSearchKeyID(ctx context.Context) (string, bool) {
 // 默认模型（dialogue/utility/agent）或默认搜索 key 指向某 api-key 即算引用。删它会静默悬空
 // workspace 的模型配置，故 apikey.Delete 询问本 scanner、命中即拒删 API_KEY_IN_USE。ctx 无
 // workspace 或行读不到都算未命中（false）、绝不硬错——删除守卫不能因自身查询失败而挡删。
-func (s *Service) ReferencesAPIKey(ctx context.Context, apiKeyID string) (bool, error) {
+func (s *Service) ReferencesAPIKey(ctx context.Context, apiKeyID string) ([]apikeydomain.APIKeyRef, error) {
 	if apiKeyID == "" {
-		return false, nil
+		return nil, nil
 	}
 	wsID, err := reqctxpkg.RequireWorkspaceID(ctx)
 	if err != nil {
-		return false, nil
+		return nil, nil
 	}
 	w, err := s.repo.Get(ctx, wsID)
 	if err != nil {
-		return false, nil
+		return nil, nil
 	}
+	var refs []apikeydomain.APIKeyRef
 	for _, scenario := range modeldomain.ListScenarios() {
 		if ref := w.DefaultFor(scenario); ref != nil && ref.APIKeyID == apiKeyID {
-			return true, nil
+			refs = append(refs, apikeydomain.APIKeyRef{Kind: "scenario_default", ID: scenario, Name: scenario})
 		}
 	}
-	return strings.TrimSpace(w.DefaultSearchKeyID) == apiKeyID, nil
+	if strings.TrimSpace(w.DefaultSearchKeyID) == apiKeyID {
+		refs = append(refs, apikeydomain.APIKeyRef{Kind: "search_default", ID: "search", Name: "default search"})
+	}
+	return refs, nil
 }
 
 // WebFetchMode resolves the current workspace's web-fetch mode for the WebFetch tool:

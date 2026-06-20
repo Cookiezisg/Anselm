@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
@@ -98,7 +99,12 @@ func (f fakeTester) Test(context.Context, string, string, string, string) (*Test
 
 type fakeScanner struct{ used bool }
 
-func (f fakeScanner) ReferencesAPIKey(context.Context, string) (bool, error) { return f.used, nil }
+func (f fakeScanner) ReferencesAPIKey(context.Context, string) ([]apikeydomain.APIKeyRef, error) {
+	if f.used {
+		return []apikeydomain.APIKeyRef{{Kind: "scenario_default", ID: "dialogue", Name: "dialogue"}}, nil
+	}
+	return nil, nil
+}
 
 func newSvc(tester ConnectivityTester) (*Service, *fakeRepo) {
 	repo := newFakeRepo()
@@ -256,6 +262,32 @@ func TestDelete_OKWhenUnreferenced(t *testing.T) {
 	s.AddRefScanner(fakeScanner{used: false})
 	if err := s.Delete(ctxWS(), k.ID); err != nil {
 		t.Errorf("delete: %v", err)
+	}
+}
+
+// TestDelete_InUseCarriesReferences pins G4: a blocked delete's ErrInUse carries the
+// referrers in details.references so the client can tell the user where to detach the key.
+//
+// TestDelete_InUseCarriesReferences 锁 G4:被拦删除的 ErrInUse 在 details.references 带上引用方,
+// 使客户端能告诉用户去哪解引用。
+func TestDelete_InUseCarriesReferences(t *testing.T) {
+	s, _ := newSvc(nil)
+	k, _ := s.Create(ctxWS(), CreateInput{Provider: "openai", DisplayName: "m", Key: "sk-1234567890"})
+	s.AddRefScanner(fakeScanner{used: true})
+	err := s.Delete(ctxWS(), k.ID)
+	if !errors.Is(err, apikeydomain.ErrInUse) {
+		t.Fatalf("err = %v, want ErrInUse", err)
+	}
+	var de *errorspkg.Error
+	if !errors.As(err, &de) {
+		t.Fatalf("err is not *errorspkg.Error: %v", err)
+	}
+	refs, ok := de.Details["references"].([]apikeydomain.APIKeyRef)
+	if !ok || len(refs) == 0 {
+		t.Fatalf("details.references missing/empty: %#v", de.Details)
+	}
+	if refs[0].Kind != "scenario_default" {
+		t.Errorf("ref kind = %q, want scenario_default", refs[0].Kind)
 	}
 }
 

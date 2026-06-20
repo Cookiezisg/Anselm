@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	agentdomain "github.com/sunweilin/anselm/backend/internal/domain/agent"
+	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
 	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
 	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
@@ -153,14 +154,15 @@ func (s *Service) ListAll(ctx context.Context) ([]*agentdomain.Agent, error) {
 // ReferencesAPIKey 实现 apikeyapp.RefScanner：当某 agent 的 active 版本以 modelOverride 钉在该
 // api-key 上即算引用。删它会让 agent 下次 invoke 以晦涩的解析错误崩，故 apikey.Delete 询问本
 // scanner、有 agent 引用时拒删 API_KEY_IN_USE。active 版本读不到按未引用处理（守卫不因查询失败挡删）。
-func (s *Service) ReferencesAPIKey(ctx context.Context, apiKeyID string) (bool, error) {
+func (s *Service) ReferencesAPIKey(ctx context.Context, apiKeyID string) ([]apikeydomain.APIKeyRef, error) {
 	if apiKeyID == "" {
-		return false, nil
+		return nil, nil
 	}
 	agents, err := s.repo.ListAll(ctx)
 	if err != nil {
-		return false, fmt.Errorf("agentapp.ReferencesAPIKey: list agents: %w", err)
+		return nil, fmt.Errorf("agentapp.ReferencesAPIKey: list agents: %w", err)
 	}
+	var refs []apikeydomain.APIKeyRef
 	for _, a := range agents {
 		if a.ActiveVersionID == "" {
 			continue
@@ -170,10 +172,10 @@ func (s *Service) ReferencesAPIKey(ctx context.Context, apiKeyID string) (bool, 
 			continue
 		}
 		if v.ModelOverride != nil && v.ModelOverride.APIKeyID == apiKeyID {
-			return true, nil
+			refs = append(refs, apikeydomain.APIKeyRef{Kind: "agent_override", ID: a.ID, Name: a.Name})
 		}
 	}
-	return false, nil
+	return refs, nil
 }
 
 // Search filters live agents by case-insensitive substring over name / description / tags
