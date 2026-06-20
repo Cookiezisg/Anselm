@@ -38,6 +38,7 @@ func (h *WorkspacesHandler) Register(mux Registrar) {
 	// Per-scenario default model selection — a workspace-scoped preference (alongside language).
 	// 按 scenario 的默认模型选择——workspace 级偏好（与 language 并列）。
 	mux.HandleFunc("PUT /api/v1/workspaces/{id}/default-models/{scenario}", h.SetDefaultModel)
+	mux.HandleFunc("DELETE /api/v1/workspaces/{id}/default-models/{scenario}", h.ClearDefaultModel)
 	// Default search key — the single explicit api-key WebSearch uses (provider implied).
 	// 默认搜索 key——WebSearch 用的唯一显式 api-key（provider 隐含）。
 	mux.HandleFunc("PUT /api/v1/workspaces/{id}/default-search", h.SetDefaultSearch)
@@ -213,6 +214,22 @@ func (h *WorkspacesHandler) SetDefaultSearch(w http.ResponseWriter, r *http.Requ
 // "去配置搜索后端"提示。
 func (h *WorkspacesHandler) ClearDefaultSearch(w http.ResponseWriter, r *http.Request) {
 	ws, err := h.svc.SetDefaultSearch(r.Context(), r.PathValue("id"), "")
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, ws)
+}
+
+// ClearDefaultModel clears a workspace's default model for one scenario (DELETE) — the
+// scenario falls back to unset (resolution then carries no workspace default for it).
+// Mirrors ClearDefaultSearch; SetDefault(...,nil) is the existing clear path, so an empty
+// PUT body no longer has to be abused (it 400s on the required ModelRef).
+//
+// ClearDefaultModel 清除 workspace 某 scenario 的默认模型（DELETE）——该 scenario 回落「未配」。
+// 镜像 ClearDefaultSearch;SetDefault(...,nil) 是既有清除路径,免去拿空 PUT body 硬清(它会因 ModelRef 必填 400)。
+func (h *WorkspacesHandler) ClearDefaultModel(w http.ResponseWriter, r *http.Request) {
+	ws, err := h.svc.SetDefault(r.Context(), r.PathValue("id"), r.PathValue("scenario"), nil)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return

@@ -266,6 +266,27 @@ func TestSetDefault_AndPick(t *testing.T) {
 	}
 }
 
+// TestSetDefault_Clear pins G3: a nil ref clears a scenario default (the DELETE
+// default-models/{scenario} path), after which Pick reports the scenario unconfigured.
+//
+// TestSetDefault_Clear 锁 G3:nil ref 清除某 scenario 默认（DELETE default-models/{scenario}
+// 路径）,此后 Pick 报该 scenario 未配。
+func TestSetDefault_Clear(t *testing.T) {
+	s := newService()
+	w, _ := s.Create(context.Background(), CreateInput{Name: "WS"})
+	ref := &modeldomain.ModelRef{APIKeyID: "aki_1", ModelID: "gpt-5.5"}
+	if _, err := s.SetDefault(context.Background(), w.ID, modeldomain.ScenarioDialogue, ref); err != nil {
+		t.Fatalf("set: %v", err)
+	}
+	if _, err := s.SetDefault(context.Background(), w.ID, modeldomain.ScenarioDialogue, nil); err != nil {
+		t.Fatalf("clear: %v", err)
+	}
+	ctx := reqctxpkg.SetWorkspaceID(context.Background(), w.ID)
+	if _, err := s.Pick(ctx, modeldomain.ScenarioDialogue); !errors.Is(err, modeldomain.ErrNotConfigured) {
+		t.Errorf("after clear Pick err = %v, want ErrNotConfigured", err)
+	}
+}
+
 func TestSetDefaultSearch_AndPick(t *testing.T) {
 	s := newService()
 	w, _ := s.Create(context.Background(), CreateInput{Name: "WS"})
