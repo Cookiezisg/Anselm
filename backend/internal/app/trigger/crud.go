@@ -38,7 +38,7 @@ type EditInput struct {
 //
 // Create 校验 + 持久化新 trigger 并同步关系边。**不挂 listener**——listener 仅在 active workflow 引用时启动。
 func (s *Service) Create(ctx context.Context, in CreateInput) (*triggerdomain.Trigger, error) {
-	if err := s.validate(in.Kind, in.Config); err != nil {
+	if err := s.validate(ctx, in.Kind, in.Config); err != nil {
 		return nil, err
 	}
 	cfg := in.Config
@@ -98,7 +98,7 @@ func (s *Service) Edit(ctx context.Context, id string, in EditInput) (*triggerdo
 	if co := triggerdomain.CanonicalOutputs(t.Kind); co != nil {
 		t.Outputs = co
 	}
-	if err := s.validate(t.Kind, t.Config); err != nil {
+	if err := s.validate(ctx, t.Kind, t.Config); err != nil {
 		return nil, err
 	}
 	if err := s.repo.SaveTrigger(ctx, t); err != nil {
@@ -224,7 +224,7 @@ func (s *Service) SearchFirings(ctx context.Context, filter triggerdomain.Firing
 //
 // validate 校验 kind + 结构 config（domain），再做 source 专属语法：cron 表达式解析、sensor CEL 编译。
 // CEL/cron 语法不能放 domain（不能 import cel-go/robfig），故在此校验并映射成 domain 错误。
-func (s *Service) validate(kind string, config map[string]any) error {
+func (s *Service) validate(ctx context.Context, kind string, config map[string]any) error {
 	if !triggerdomain.IsValidKind(kind) {
 		return triggerdomain.ErrInvalidKind
 	}
@@ -251,6 +251,17 @@ func (s *Service) validate(kind string, config map[string]any) error {
 		}
 		if _, err := celpkg.CompileFor([]string{"payload"}, sc.Output); err != nil {
 			return triggerdomain.ErrInvalidCEL.WithDetails(map[string]any{"field": "output", "cel": sc.Output, "reason": err.Error()})
+		}
+		// Eager target-existence check (F102, eager-validation family): reject a sensor whose probe
+		// target (fn/hd/mcp) doesn't exist at create/edit, rather than letting it bind a dangling equip
+		// edge and only fail loudly at the first probe. nil validator (unwired test) skips.
+		// 目标存在性 eager 校验（F102，eager 校验家族）：sensor 的探测目标（fn/hd/mcp）不存在时在 create/edit
+		// 即拒，而非绑上 dangling equip 边、首次探测才大声失败。validator 为 nil（未接线的测试）则跳过。
+		if s.sensorTargets != nil {
+			if err := s.sensorTargets.ValidateSensorTarget(ctx, sc.TargetKind, sc.TargetID, sc.Method); err != nil {
+				return triggerdomain.ErrSensorTargetNotFound.WithDetails(map[string]any{
+					"targetKind": sc.TargetKind, "targetId": sc.TargetID, "reason": err.Error()})
+			}
 		}
 	}
 	return nil

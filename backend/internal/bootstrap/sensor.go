@@ -6,6 +6,7 @@ import (
 
 	functionapp "github.com/sunweilin/anselm/backend/internal/app/function"
 	handlerapp "github.com/sunweilin/anselm/backend/internal/app/handler"
+	triggerapp "github.com/sunweilin/anselm/backend/internal/app/trigger"
 	functiondomain "github.com/sunweilin/anselm/backend/internal/domain/function"
 	handlerdomain "github.com/sunweilin/anselm/backend/internal/domain/handler"
 	mcpdomain "github.com/sunweilin/anselm/backend/internal/domain/mcp"
@@ -69,4 +70,58 @@ func (s sensorInvoker) Invoke(ctx context.Context, targetKind, targetID, method 
 	default:
 		return nil, fmt.Errorf("sensor invoke: unknown target kind %q (want function|handler|mcp)", targetKind)
 	}
+}
+
+// --- eager sensor-target existence validation (F102) ------------------------
+
+// funcGetter / handlerGetter / mcpResolver are the existence-check surfaces the sensor-target
+// validator needs — the read side of the same fn/hd/mcp services the invoker calls. Narrow so the
+// validator is unit-testable with fakes.
+//
+// funcGetter / handlerGetter / mcpResolver 是 sensor 目标校验器所需的存在性查询面——与 invoker 调的
+// 同一批 fn/hd/mcp 服务的读侧。收窄以便用 fake 单测校验器。
+type funcGetter interface {
+	Get(ctx context.Context, id string) (*functiondomain.Function, error)
+}
+type handlerGetter interface {
+	Get(ctx context.Context, id string) (*handlerdomain.Handler, error)
+}
+type mcpResolver interface {
+	ResolveServerID(ctx context.Context, token string) (string, error)
+}
+
+type sensorTargetValidator struct {
+	fn  funcGetter
+	hd  handlerGetter
+	mcp mcpResolver
+}
+
+// NewSensorTargetValidator wires the function/handler/mcp existence lookups behind the trigger
+// service's eager sensor-target check.
+//
+// NewSensorTargetValidator 把 function/handler/mcp 的存在性查询装到 trigger 服务的 eager sensor 目标校验后。
+func NewSensorTargetValidator(fn funcGetter, hd handlerGetter, mcp mcpResolver) triggerapp.SensorTargetValidator {
+	return sensorTargetValidator{fn: fn, hd: hd, mcp: mcp}
+}
+
+var _ triggerapp.SensorTargetValidator = sensorTargetValidator{}
+
+func (v sensorTargetValidator) ValidateSensorTarget(ctx context.Context, targetKind, targetID, method string) error {
+	switch targetKind {
+	case "function":
+		if _, err := v.fn.Get(ctx, targetID); err != nil {
+			return fmt.Errorf("function %s not found", targetID)
+		}
+	case "handler":
+		if _, err := v.hd.Get(ctx, targetID); err != nil {
+			return fmt.Errorf("handler %s not found", targetID)
+		}
+	case "mcp":
+		if _, err := v.mcp.ResolveServerID(ctx, targetID); err != nil {
+			return fmt.Errorf("mcp server %s not found", targetID)
+		}
+	default:
+		return fmt.Errorf("unknown target kind %q (want function|handler|mcp)", targetKind)
+	}
+	return nil
 }

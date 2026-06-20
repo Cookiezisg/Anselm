@@ -151,6 +151,37 @@ func TestCreate_RejectsBadConfig(t *testing.T) {
 	}
 }
 
+// fakeSensorTargets is a SensorTargetValidator that accepts only the ids in exists.
+type fakeSensorTargets struct{ exists map[string]bool }
+
+func (f fakeSensorTargets) ValidateSensorTarget(_ context.Context, _, targetID, _ string) error {
+	if f.exists[targetID] {
+		return nil
+	}
+	return errors.New("not found")
+}
+
+// TestCreate_RejectsDanglingSensorTarget — F102 (eager-validation family): a sensor whose probe
+// target (fn/hd/mcp) doesn't exist must be rejected at create with ErrSensorTargetNotFound, not
+// accepted to bind a dangling equip edge and fail only at the first probe.
+func TestCreate_RejectsDanglingSensorTarget(t *testing.T) {
+	s, _ := newTestService(t)
+	s.SetSensorTargetValidator(fakeSensorTargets{exists: map[string]bool{"fn_real": true}})
+	ctx := ctxWS("ws_1")
+	sensorCfg := func(targetID string) map[string]any {
+		return map[string]any{
+			"targetKind": "function", "targetId": targetID, "intervalSec": float64(10),
+			"condition": "payload.value > 1", "output": "payload",
+		}
+	}
+	if _, err := s.Create(ctx, CreateInput{Name: "snr-bad", Kind: triggerdomain.KindSensor, Config: sensorCfg("fn_ghost")}); !errors.Is(err, triggerdomain.ErrSensorTargetNotFound) {
+		t.Fatalf("dangling sensor target must be rejected with ErrSensorTargetNotFound, got %v", err)
+	}
+	if _, err := s.Create(ctx, CreateInput{Name: "snr-ok", Kind: triggerdomain.KindSensor, Config: sensorCfg("fn_real")}); err != nil {
+		t.Fatalf("existing sensor target must pass validation, got %v", err)
+	}
+}
+
 // TestCreate_CanonicalOutputs — F24/#3 (iteration loop): a fixed-payload kind's Outputs is stamped
 // from the canonical fire payload and an author-supplied list is ignored, so the declaration can't
 // drift from what the listener emits. sensor keeps its author-defined output shape.

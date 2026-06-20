@@ -133,6 +133,7 @@ var (
 	ErrInvalidCEL            = errorspkg.New(errorspkg.KindUnprocessable, "TRIGGER_INVALID_CEL", "invalid CEL expression")
 	ErrInvalidInterval       = errorspkg.New(errorspkg.KindUnprocessable, "TRIGGER_INVALID_INTERVAL", "sensor interval below minimum")
 	ErrSensorTargetRequired  = errorspkg.New(errorspkg.KindUnprocessable, "TRIGGER_SENSOR_TARGET_REQUIRED", "sensor requires a function or handler target")
+	ErrSensorTargetNotFound  = errorspkg.New(errorspkg.KindUnprocessable, "TRIGGER_SENSOR_TARGET_NOT_FOUND", "sensor target does not exist")
 	ErrWebhookSecretMismatch = errorspkg.New(errorspkg.KindUnauthorized, "TRIGGER_WEBHOOK_SECRET_MISMATCH", "webhook secret mismatch")
 	ErrActivationNotFound    = errorspkg.New(errorspkg.KindNotFound, "TRIGGER_ACTIVATION_NOT_FOUND", "activation not found")
 	ErrListenerUnavailable   = errorspkg.New(errorspkg.KindUnavailable, "TRIGGER_LISTENER_UNAVAILABLE", "trigger listener not available")

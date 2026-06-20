@@ -10,6 +10,7 @@
 package trigger
 
 import (
+	"context"
 	"net/http"
 	"sync"
 
@@ -53,9 +54,22 @@ type Service struct {
 	mu        sync.RWMutex
 	listeners map[string]*listenEntry // key: triggerID
 
-	relations RelationSyncer
-	entities  streamdomain.Bridge // entities stream (SSE-C); nil → no trigger-panel firing feed
-	log       *zap.Logger
+	relations     RelationSyncer
+	sensorTargets SensorTargetValidator // nil → skip eager sensor-target existence check
+	entities      streamdomain.Bridge   // entities stream (SSE-C); nil → no trigger-panel firing feed
+	log           *zap.Logger
+}
+
+// SensorTargetValidator checks that a sensor's probe target (function/handler/mcp entity) exists, so
+// a dangling target is rejected at create/edit instead of only failing at the first probe — eager
+// validation mirroring F96/F98/F112. Implemented at boot over the function/handler/mcp services'
+// existence lookups; nil-tolerant (nil skips the check, e.g. tests without the full wiring).
+//
+// SensorTargetValidator 校验 sensor 的探测目标（function/handler/mcp 实体）存在，使 dangling 目标在
+// create/edit 即被拒、而非仅首次探测才失败——eager 校验，与 F96/F98/F112 同族。boot 时基于 function/
+// handler/mcp 服务的存在性查询实现；允许 nil（nil 跳过，如未全装配的测试）。
+type SensorTargetValidator interface {
+	ValidateSensorTarget(ctx context.Context, targetKind, targetID, method string) error
 }
 
 // SetEntitiesBridge installs the entities stream post-construction (SSE-C): every fan-out emits a
@@ -64,6 +78,11 @@ type Service struct {
 // SetEntitiesBridge 装配后装入 entities 流（SSE-C）：每次扇出发一条 trigger scope 的 fire 信号，使 trigger
 // 面板实时显示触发。
 func (s *Service) SetEntitiesBridge(b streamdomain.Bridge) { s.entities = b }
+
+// SetSensorTargetValidator installs the eager sensor-target existence check post-construction.
+//
+// SetSensorTargetValidator 装配后装入 sensor 目标存在性的 eager 校验。
+func (s *Service) SetSensorTargetValidator(v SensorTargetValidator) { s.sensorTargets = v }
 
 // NewService constructs the Service and wires the four listeners to s.onReport. mux is shared
 // with the HTTP server (webhook routes mount on it); invoker resolves sensor targets
