@@ -45,6 +45,15 @@ type TimeoutLimits struct {
 	// LLMIdleSec resets per streamed token; fires only on a dead connection (consumer: infra/llm).
 	// LLMIdleSec 每个流式 token 重置；只在死连接时触发（消费方：infra/llm）。
 	LLMIdleSec int `json:"llmIdleSec"`
+	// LLMStreamMaxSec is the TOTAL wall-clock cap on one LLM stream (consumer: infra/llm) — unlike
+	// LLMIdleSec it does NOT reset on activity, so a model that keeps emitting events without ever
+	// converging (a pathological reasoning / empty-delta loop) is force-terminated instead of pinning
+	// CPU and wedging the turn in `streaming` forever (which also blocks graceful shutdown). Generous:
+	// a normal turn finishes far under it.
+	// LLMStreamMaxSec 是单条 LLM 流的总墙钟封顶（消费方：infra/llm）——与 LLMIdleSec 不同，它不随活动重置，
+	// 故持续滴事件却永不收敛的模型（病态 reasoning / 空 delta 循环）会被强制终止，而非钉死 CPU + 把回合永困
+	// `streaming`（亦阻塞 graceful shutdown）。从宽：正常回合远在其下完成。
+	LLMStreamMaxSec int `json:"llmStreamMaxSec"`
 	// MCPCallSec bounds one MCP tool call (consumer: mcpapp).
 	// MCPCallSec 限一次 MCP 工具调用（消费方：mcpapp）。
 	MCPCallSec int `json:"mcpCallSec"`
@@ -108,6 +117,7 @@ func Default() Limits {
 		Context: ContextLimits{TriggerRatio: 0.80},
 		Timeout: TimeoutLimits{
 			LLMIdleSec:            150,
+			LLMStreamMaxSec:       600,
 			MCPCallSec:            180,
 			BashDefaultTimeoutSec: 120,
 			FunctionRunSec:        300,
@@ -157,6 +167,7 @@ func Schema() []FieldSpec {
 		{"agent.invokeMaxTurns", "agent", float64(d.Agent.InvokeMaxTurns), 1, 0, false, "turns", "Default turn cap for one agent invocation (a per-call MaxTurns overrides)."},
 		{"context.triggerRatio", "context", d.Context.TriggerRatio, 0, 1, true, "ratio", "Compact when the last turn's input tokens reach this fraction of the input budget."},
 		{"timeout.llmIdleSec", "timeout", float64(d.Timeout.LLMIdleSec), 1, 0, false, "seconds", "LLM idle timeout, reset per streamed token (fires only on a dead connection)."},
+		{"timeout.llmStreamMaxSec", "timeout", float64(d.Timeout.LLMStreamMaxSec), 1, 0, false, "seconds", "Total wall-clock cap on one LLM stream (does not reset on activity; bounds a non-converging model)."},
 		{"timeout.mcpCallSec", "timeout", float64(d.Timeout.MCPCallSec), 1, 0, false, "seconds", "Wall-clock bound on one MCP tool call."},
 		{"timeout.bashDefaultTimeoutSec", "timeout", float64(d.Timeout.BashDefaultTimeoutSec), 1, 0, false, "seconds", "Bash tool default timeout when the LLM passes none."},
 		{"timeout.functionRunSec", "timeout", float64(d.Timeout.FunctionRunSec), 1, 0, false, "seconds", "Wall-clock bound on one function run."},
@@ -187,6 +198,9 @@ func WithDefaults(l Limits) Limits {
 	}
 	if l.Timeout.LLMIdleSec == 0 {
 		l.Timeout.LLMIdleSec = d.Timeout.LLMIdleSec
+	}
+	if l.Timeout.LLMStreamMaxSec == 0 {
+		l.Timeout.LLMStreamMaxSec = d.Timeout.LLMStreamMaxSec
 	}
 	if l.Timeout.MCPCallSec == 0 {
 		l.Timeout.MCPCallSec = d.Timeout.MCPCallSec

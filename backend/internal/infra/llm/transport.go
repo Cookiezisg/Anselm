@@ -12,11 +12,12 @@ import (
 )
 
 // These bound only the SETUP phase (connect / TLS / response headers), never the
-// streaming body. A healthy long stream is governed solely by the per-event idle timer
-// in providerClient.Stream + ctx cancellation — never a total wall-clock cap.
+// streaming body. The streaming body is governed by providerClient.Stream's per-event idle timer
+// (dead-socket detection) + a non-resetting total wall-clock cap (LLMStreamMaxSec, bounds a
+// non-converging model) + ctx cancellation.
 //
-// 这些只界定建连阶段（connect / TLS / 响应头），绝不限流式 body。健康长流仅由
-// providerClient.Stream 的逐事件 idle 计时器 + ctx 取消管控，无总墙钟。
+// 这些只界定建连阶段（connect / TLS / 响应头），绝不限流式 body。流式 body 由 providerClient.Stream
+// 的逐事件 idle 计时器（死连接探测）+ 不重置的总墙钟（LLMStreamMaxSec，封顶不收敛的模型）+ ctx 取消管控。
 const (
 	dialTimeout           = 10 * time.Second
 	tlsHandshakeTimeout   = 10 * time.Second

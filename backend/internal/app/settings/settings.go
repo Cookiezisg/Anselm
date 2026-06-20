@@ -172,7 +172,7 @@ func (s *Service) persist(l limitspkg.Limits) error {
 func validate(l limitspkg.Limits) error {
 	ints := []int{
 		l.Agent.MaxSteps, l.Agent.InvokeMaxTurns,
-		l.Timeout.LLMIdleSec, l.Timeout.MCPCallSec, l.Timeout.BashDefaultTimeoutSec, l.Timeout.FunctionRunSec, l.Timeout.AgentInvokeSec, l.Timeout.HandlerCallSec,
+		l.Timeout.LLMIdleSec, l.Timeout.LLMStreamMaxSec, l.Timeout.MCPCallSec, l.Timeout.BashDefaultTimeoutSec, l.Timeout.FunctionRunSec, l.Timeout.AgentInvokeSec, l.Timeout.HandlerCallSec,
 		l.Tools.ReadDefaultLines, l.Tools.BashOutputCapKB, l.Tools.ToolResultCapKB,
 		l.Guards.AttachmentMaxMB, l.Guards.WebhookBodyMaxMB,
 	}

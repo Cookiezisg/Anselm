@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"iter"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	limitspkg "github.com/sunweilin/anselm/backend/internal/pkg/limits"
@@ -47,13 +48,19 @@ type providerClient struct {
 
 func (c *providerClient) Stream(ctx context.Context, req Request) iter.Seq[StreamEvent] {
 	return func(yield func(StreamEvent) bool) {
-		// Idle timeout: cancel if the stream produces no event for the idle window. A
-		// dead-socket detector, NOT a total wall-clock cap — the timer resets on every
-		// event, so a healthy long stream (deep reasoning, big generation) never trips it.
-		// ctx cancellation (user stop / turn timeout) stays the primary control.
+		// Two complementary guards cancel streamCtx (ctx cancellation — user stop / turn timeout —
+		// stays the primary control):
+		//   - idle timer: a dead-socket detector that RESETS on every event, so a healthy long stream
+		//     (deep reasoning, big generation) never trips it.
+		//   - total cap: a wall clock that does NOT reset, bounding a model that keeps emitting events
+		//     without ever converging (a pathological reasoning / empty-delta loop) — without it the
+		//     idle timer resets forever, the turn wedges in `streaming`, CPU pins, and graceful
+		//     shutdown blocks (round-2 vision lane).
 		//
-		// idle 超时：流在 idle 窗口内无事件则取消。死连接探测，非总墙钟——每个事件重置
-		// 计时器，健康长流永不触发。ctx 取消（用户 stop / turn 超时）仍是主控。
+		// 两个互补守卫取消 streamCtx（ctx 取消——用户 stop / turn 超时——仍是主控）：
+		//   - idle 计时器：死连接探测，每个事件重置，健康长流永不触发。
+		//   - 总墙钟：不随事件重置，封顶持续滴事件却永不收敛的模型（病态 reasoning / 空 delta 循环）——
+		//     没有它，idle 计时器永久重置，回合永困 `streaming`、CPU 钉死、graceful shutdown 阻塞（round-2 vision lane）。
 		streamCtx, cancel := context.WithCancel(ctx)
 		defer cancel()
 		idle := time.Duration(limitspkg.Current().Timeout.LLMIdleSec) * time.Second
@@ -61,6 +68,11 @@ func (c *providerClient) Stream(ctx context.Context, req Request) iter.Seq[Strea
 		if idle > 0 {
 			timer = time.AfterFunc(idle, cancel)
 			defer timer.Stop()
+		}
+		var cappedTotal atomic.Bool
+		if maxStream := time.Duration(limitspkg.Current().Timeout.LLMStreamMaxSec) * time.Second; maxStream > 0 {
+			total := time.AfterFunc(maxStream, func() { cappedTotal.Store(true); cancel() })
+			defer total.Stop()
 		}
 
 		httpReq, err := c.provider.BuildRequest(streamCtx, req)
@@ -83,14 +95,20 @@ func (c *providerClient) Stream(ctx context.Context, req Request) iter.Seq[Strea
 			}
 		}
 
-		// If our idle timer fired (streamCtx cancelled while the parent ctx is still
-		// alive), the stream went silent mid-flight — surface it as a provider error
-		// instead of a phantom user-cancel (which would mislabel the turn).
+		// If one of OUR timers fired (streamCtx cancelled while the parent ctx is still alive), the
+		// stream failed mid-flight — surface it as a provider error instead of a phantom user-cancel
+		// (which would mislabel the turn). Distinguish the two so the agent's error is accurate: a
+		// total-cap trip means the model never converged; an idle trip means the socket went silent.
 		//
-		// 若 idle 计时器触发（streamCtx 取消而父 ctx 仍活），流中途静默——报 provider 错，
-		// 而非伪装成用户取消（会误标该回合）。
+		// 若我们的计时器之一触发（streamCtx 取消而父 ctx 仍活），流中途失败——报 provider 错，而非伪装成
+		// 用户取消（会误标该回合）。区分二者使 agent 见到的错准确：总墙钟触发=模型不收敛；idle 触发=连接静默。
 		if streamCtx.Err() != nil && ctx.Err() == nil {
-			yield(StreamEvent{Type: EventError, Err: fmt.Errorf("%w: llm.%s: no stream activity for %s (connection appears dead)", ErrProviderError, c.provider.Name(), idle)})
+			if cappedTotal.Load() {
+				maxStream := time.Duration(limitspkg.Current().Timeout.LLMStreamMaxSec) * time.Second
+				yield(StreamEvent{Type: EventError, Err: fmt.Errorf("%w: llm.%s: stream exceeded the %s total budget without converging", ErrProviderError, c.provider.Name(), maxStream)})
+			} else {
+				yield(StreamEvent{Type: EventError, Err: fmt.Errorf("%w: llm.%s: no stream activity for %s (connection appears dead)", ErrProviderError, c.provider.Name(), idle)})
+			}
 		}
 	}
 }

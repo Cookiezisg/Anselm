@@ -112,6 +112,7 @@ landed-into:
 | F90 trigger_workflow payload 不给 per-kind 形状→agent 试错（猜平铺非 webhook `{body:{}}`）→描述列各 kind fire-payload 形状（双 lane CONFIRM） | workflow(手动 run) | 单工具/happy | 不可发现/白烧 | fixed(措辞)·locked |
 | F91 list_mcp_marketplace 倾倒全 ~96 server inline 撑爆 context→加 `query` 能力过滤（filterMarketViews 纯函数、向后兼容） | mcp | 单工具/happy | 不可发现/白烧 | fixed·locked |
 | F92 handler 方法调用无墙钟（opt-in 默认无界、钉死常驻管道）→加全局 `HandlerCallSec` 默认兜底(call.go methodCallTimeout)+暴露 per-method timeout 旋钮（对称 F83、闭 fn/hd 不对称、function.md 旧 doc-ahead 成真） | handler·durable·systems | 单工具/崩溃·并发 | 脆弱/promise≠reality | fixed·locked |
+| F93 LLM 流无总墙钟→idle-timer 每事件重置、病态流永困钉 CPU 25min+阻塞 graceful shutdown+泄漏子进程→加 `LLMStreamMaxSec` 不重置总墙钟（provider.go 第二计时器、区分 total-budget 错） | chat·llm-stream·systems | 单工具/崩溃·robustness | 脆弱/假成功 | fixed·locked |
 ### 已探·无缺陷（绿格——探过、当前行为正确；记下免重挖。details→LOG 元注 0618 + round-1）
 | 绿格 | target | regime |
 |---|---|---|
