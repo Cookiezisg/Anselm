@@ -77,6 +77,40 @@ func TestPatch_PersistsAndHotSwaps(t *testing.T) {
 	}
 }
 
+// TestReset_RestoresDefaults pins G6: ResetLimits brings every field back to Default(),
+// hot-swaps it live, and persists it (a fresh Load then sees defaults).
+//
+// TestReset_RestoresDefaults 锁 G6:ResetLimits 把每个字段拉回 Default()、热换生效、并持久化
+// （重载即见默认）。
+func TestReset_RestoresDefaults(t *testing.T) {
+	defer limitspkg.SetProvider(limitspkg.Default)
+	dir := t.TempDir()
+	s, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if _, err := s.PatchLimits(json.RawMessage(`{"agent":{"maxSteps":40}}`)); err != nil {
+		t.Fatalf("PatchLimits: %v", err)
+	}
+	if s.Limits() == limitspkg.Default() {
+		t.Fatal("patch left limits at default; choose a real non-default field")
+	}
+	out, err := s.ResetLimits()
+	if err != nil {
+		t.Fatalf("ResetLimits: %v", err)
+	}
+	if out != limitspkg.Default() || s.Limits() != limitspkg.Default() || limitspkg.Current() != limitspkg.Default() {
+		t.Fatalf("reset did not restore defaults: %+v", s.Limits())
+	}
+	s2, err := Load(dir)
+	if err != nil {
+		t.Fatalf("re-Load: %v", err)
+	}
+	if s2.Limits() != limitspkg.Default() {
+		t.Fatalf("reset not persisted: %+v", s2.Limits())
+	}
+}
+
 // TestPatch_RejectsOutOfRange: negative ceilings and out-of-(0,1) ratio reject without
 // touching the live values or the file.
 //

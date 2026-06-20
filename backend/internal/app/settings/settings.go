@@ -111,6 +111,26 @@ func (s *Service) PatchLimits(patch json.RawMessage) (limitspkg.Limits, error) {
 	return next, nil
 }
 
+// ResetLimits restores the canonical defaults (limits.Default()), persists atomically and
+// hot-swaps — the server-owned "restore defaults" so a client never has to hardcode (and
+// drift from) the default values. Default() is always valid, so no validate step; cur is
+// swapped only after persist succeeds, same as PatchLimits.
+//
+// ResetLimits 恢复规范默认（limits.Default()）、原子持久化并热换——服务端自持的「恢复默认」,
+// 使客户端无须硬编默认值（也就不会漂）。Default() 恒合法,无需校验;cur 仅在 persist 成功后
+// 才换,与 PatchLimits 一致。
+func (s *Service) ResetLimits() (limitspkg.Limits, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	next := limitspkg.Default()
+	if err := s.persist(next); err != nil {
+		return limitspkg.Limits{}, err
+	}
+	s.cur = next
+	s.install()
+	return next, nil
+}
+
 // install swaps the package-level limits source to this service's current value.
 //
 // install 把包级 limits 来源换成本 service 当前值。

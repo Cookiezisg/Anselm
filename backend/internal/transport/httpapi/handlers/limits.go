@@ -32,6 +32,7 @@ func NewLimitsHandler(svc *settingsapp.Service, log *zap.Logger) *LimitsHandler 
 func (h *LimitsHandler) Register(mux Registrar) {
 	mux.HandleFunc("GET /api/v1/limits", h.Get)
 	mux.HandleFunc("PATCH /api/v1/limits", h.Patch)
+	mux.HandleFunc("POST /api/v1/limits:reset", h.Reset)
 }
 
 func (h *LimitsHandler) Get(w http.ResponseWriter, r *http.Request) {
@@ -45,6 +46,20 @@ func (h *LimitsHandler) Patch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cur, err := h.svc.PatchLimits(json.RawMessage(raw))
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, cur)
+}
+
+// Reset restores the canonical default limits (no body) — the server owns the defaults so
+// the client never hardcodes them. Returns the (now-default) live values, like Patch.
+//
+// Reset 恢复规范默认 limits（无 body）——默认由服务端持有,客户端绝不硬编。返回（现为默认的）
+// 活动值,与 Patch 同形。
+func (h *LimitsHandler) Reset(w http.ResponseWriter, r *http.Request) {
+	cur, err := h.svc.ResetLimits()
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
