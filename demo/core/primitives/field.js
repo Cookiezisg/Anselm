@@ -81,7 +81,8 @@
     .confirm { flex: none; display: none; align-items: center; gap: var(--gap-tight); }
     .confirm .ok::part(button) { color: var(--accent); }
     .confirm .ok::part(button):hover { background: var(--accent-soft); color: var(--accent); }
-    .v.editing { outline: none; box-shadow: inset 0 0 0 var(--hairline) var(--line-strong); border-radius: var(--r-tag); background: var(--island); cursor: text; min-width: var(--input-min); text-align: left; padding: 0 var(--gap-tight); }
+    /* 视觉框 ≠ 逻辑框：内距给留白（字不贴边、舒服），负 margin 把这份留白抵掉——盒子只「看着大」、占位仍等于原文字，故不挤行、不抖布局 */
+    .v.editing { outline: none; box-shadow: inset 0 0 0 var(--hairline) var(--line-strong); border-radius: var(--r-tag); background: var(--island); cursor: text; min-width: var(--input-min); text-align: left; padding: var(--grid) var(--sp-2); margin: calc(var(--grid) * -1) calc(var(--sp-2) * -1); }
   `;
 
   class AnField extends window.AnElement {
@@ -90,7 +91,8 @@
     static css = `
       :host { display: block; }
       /* 一行：[label 块] [铅笔] [撑开] [value 右对齐] [✓✕]——hover 出铅笔、editing 出框+✓✕ */
-      .field { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--pad-row); border-radius: var(--r-btn); transition: background var(--d-fast); }
+      /* 逻辑框定高：行预留固定高（容得下最高的铅笔/✓✕ 24px），故 hover 出铅笔、editing 出框都在行内活动、永不撑高行——布局零抖 */
+      .field { display: flex; align-items: center; gap: var(--sp-2); min-height: var(--island-head); padding: var(--grid) var(--pad-row); border-radius: var(--r-btn); transition: background var(--d-fast); }
       :host(:hover) .field, :host([editing]) .field { background: var(--island-3); }
       .l { min-width: 0; display: flex; flex-direction: column; gap: calc(var(--grid) / 2); }
       .k { min-width: 0; font-size: var(--t-body); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

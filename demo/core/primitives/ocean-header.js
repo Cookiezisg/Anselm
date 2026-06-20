@@ -30,8 +30,9 @@
         min-width: 0; flex: 0 1 auto; overflow-wrap: anywhere;
         font-size: var(--t-h2); font-weight: 600; line-height: var(--lh-tight); letter-spacing: 0; margin: 0;
       }
+      /* 视觉框 ≠ 逻辑框：内距给留白（字不贴边），负 margin 抵掉这份留白——盒子只「看着大」、占位仍等于标题文字，故不顶动 crumb/meta、零页面偏移 */
       .title.editing { outline: none; box-shadow: inset 0 0 0 var(--hairline) var(--line-strong); border-radius: var(--r-tag);
-        background: var(--island); cursor: text; }
+        background: var(--island); cursor: text; padding: var(--grid) var(--sp-2); margin: calc(var(--grid) * -1) calc(var(--sp-2) * -1); }
       /* 标题编辑三连钮 = an-edit-affordance（皮肤/铅笔↔✓✕ 在该原语）；这里只定位 + 揭示（hover/focus/editing 才显） */
       .t-acts { flex: none; align-self: center; }
       .title-row .t-acts { display: none; }
