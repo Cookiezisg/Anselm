@@ -16,7 +16,7 @@ type FireTrigger struct{ svc *triggerapp.Service }
 func (t *FireTrigger) Name() string { return "fire_trigger" }
 
 func (t *FireTrigger) Description() string {
-	return "Manually fire a trigger right now (mainly for testing). It fans out to whatever workflows currently listen to it and records an activation — if no active workflow listens, the activation is recorded with zero fan-out."
+	return "Manually fire a trigger right now to exercise its fan-out plumbing (mainly for testing): it fans out to whatever workflows currently listen to it and records an activation — if no active workflow listens, the activation is recorded with zero fan-out. It carries NO custom payload (the synthetic fire payload is just {\"manual\":true}), so a listening workflow that reads trigger fields gets nothing usable from it — to run a workflow WITH your own test data, use trigger_workflow (which feeds a payload you supply straight to the entry trigger node)."
 }
 
 func (t *FireTrigger) Parameters() json.RawMessage {
