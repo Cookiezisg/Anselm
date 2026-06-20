@@ -11,7 +11,7 @@ import (
 	documentdomain "github.com/sunweilin/anselm/backend/internal/domain/document"
 )
 
-const createDocumentDescription = `Create a document in the user's library. parentId nests it under another doc (Notion-style); null/omit = root. content is the full markdown body (split into child docs if >1MB). Name must be unique among siblings (auto-suffixed on collision).`
+const createDocumentDescription = `Create a document in the user's library. parentId nests it under another doc (Notion-style); null/omit = root. content is the full markdown body — max 1MB; larger content is REJECTED (DOCUMENT_CONTENT_TOO_LARGE), not auto-split, so break it into smaller child docs yourself. Name must be unique among siblings (auto-suffixed on collision).`
 
 var createDocumentSchema = json.RawMessage(`{
 	"type": "object",

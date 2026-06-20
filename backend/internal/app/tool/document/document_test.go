@@ -220,3 +220,19 @@ func TestValidateInput(t *testing.T) {
 		t.Fatalf("list: empty args should be allowed, got %v", err)
 	}
 }
+
+// TestCreateDocument_DescriptionNoFalseAutoSplit: round-4 bigio lane — the description claimed >1MB
+// content "split into child docs" (reads as automatic) but the backend HARD-REJECTS with 413
+// DOCUMENT_CONTENT_TOO_LARGE; the agent repeated the false contract to the user and burned a 25-call
+// detour trying to make an oversized doc. The description must state rejection, not auto-split.
+func TestCreateDocument_DescriptionNoFalseAutoSplit(t *testing.T) {
+	d := createDocumentDescription
+	if strings.Contains(d, "split into child docs if") {
+		t.Errorf("description still implies automatic >1MB splitting (false): %s", d)
+	}
+	for _, want := range []string{"1MB", "REJECTED", "yourself"} {
+		if !strings.Contains(d, want) {
+			t.Errorf("description must state the hard 1MB rejection (mention %q); got: %s", want, d)
+		}
+	}
+}

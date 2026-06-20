@@ -13,7 +13,7 @@ audience: [human, ai]
 
 ## 1. 定位 + 心智模型
 
-按 workspace 的 **markdown 树**：父子有序（`position`）、**path 寻址**（`/a/b/c`，物化列）、可被 @ 引用、挂载到对话/workflow、wikilink 互链。单实体单表（软删——删除的子树留墓碑）；上限：单篇 1MB（超出拆子文档）、标题 256 字符（不含 `/`——path 分隔符）。
+按 workspace 的 **markdown 树**：父子有序（`position`）、**path 寻址**（`/a/b/c`，物化列）、可被 @ 引用、挂载到对话/workflow、wikilink 互链。单实体单表（软删——删除的子树留墓碑）；上限：单篇 1MB（**超出硬拒 `DOCUMENT_CONTENT_TOO_LARGE` 413、非自动拆分**——须手动拆子文档）、标题 256 字符（不含 `/`——path 分隔符）。
 
 ## 2. 关键行为（树不变式都在 app 层）
 
