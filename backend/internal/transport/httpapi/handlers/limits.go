@@ -31,8 +31,18 @@ func NewLimitsHandler(svc *settingsapp.Service, log *zap.Logger) *LimitsHandler 
 
 func (h *LimitsHandler) Register(mux Registrar) {
 	mux.HandleFunc("GET /api/v1/limits", h.Get)
+	mux.HandleFunc("GET /api/v1/limits/schema", h.Schema)
 	mux.HandleFunc("PATCH /api/v1/limits", h.Patch)
 	mux.HandleFunc("POST /api/v1/limits:reset", h.Reset)
+}
+
+// Schema returns each tunable limit's metadata (default/min/max/unit/desc) so the UI renders
+// ranges from the backend instead of hardcoding the Go constants. Static — no body, no state.
+//
+// Schema 返回每个可调上限的元数据（default/min/max/unit/desc）,使 UI 从后端渲染范围、免硬编 Go 常量。
+// 静态——无 body、无状态。
+func (h *LimitsHandler) Schema(w http.ResponseWriter, r *http.Request) {
+	responsehttpapi.Success(w, http.StatusOK, h.svc.LimitsSchema())
 }
 
 func (h *LimitsHandler) Get(w http.ResponseWriter, r *http.Request) {

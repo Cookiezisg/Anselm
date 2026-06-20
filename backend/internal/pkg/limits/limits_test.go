@@ -1,6 +1,9 @@
 package limits
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+)
 
 // TestDefault_MatchesPreWiringConstants pins each Default() constant so the operative
 // defaults can't drift silently.
@@ -22,6 +25,58 @@ func TestDefault_MatchesPreWiringConstants(t *testing.T) {
 	}
 	if d.Guards.AttachmentMaxMB != 50 || d.Guards.WebhookBodyMaxMB != 10 {
 		t.Fatalf("guards defaults drifted: %+v", d.Guards)
+	}
+}
+
+// TestSchema_MatchesStruct pins G5: Schema() stays 1:1 with the Limits struct — every leaf
+// field has exactly one FieldSpec keyed by its dotted json path, with a default equal to
+// Default(). Adding a Limits field without a spec (or vice versa) fails here.
+//
+// TestSchema_MatchesStruct 锁 G5:Schema() 与 Limits 结构 1:1——每个叶字段恰有一条按点分 json
+// 路径命名的 FieldSpec、默认等于 Default()。加字段不加 spec(或反之)在此失败。
+func TestSchema_MatchesStruct(t *testing.T) {
+	specs := Schema()
+	byKey := make(map[string]FieldSpec, len(specs))
+	for _, s := range specs {
+		if _, dup := byKey[s.Key]; dup {
+			t.Fatalf("duplicate spec key %q", s.Key)
+		}
+		byKey[s.Key] = s
+	}
+	d := reflect.ValueOf(Default())
+	dt := d.Type()
+	leaves := 0
+	for i := 0; i < dt.NumField(); i++ {
+		group := dt.Field(i).Tag.Get("json")
+		grp := d.Field(i)
+		gt := grp.Type()
+		for j := 0; j < gt.NumField(); j++ {
+			key := group + "." + gt.Field(j).Tag.Get("json")
+			leaves++
+			spec, ok := byKey[key]
+			if !ok {
+				t.Errorf("Limits field %q has no FieldSpec (schema drifted from struct)", key)
+				continue
+			}
+			if spec.Group != group {
+				t.Errorf("%s: spec.Group = %q, want %q", key, spec.Group, group)
+			}
+			var val float64
+			switch f := grp.Field(j); f.Kind() {
+			case reflect.Int:
+				val = float64(f.Int())
+			case reflect.Float64:
+				val = f.Float()
+			default:
+				t.Fatalf("%s: unexpected kind %v", key, f.Kind())
+			}
+			if spec.Default != val {
+				t.Errorf("%s: spec.Default = %v, want %v (Default())", key, spec.Default, val)
+			}
+		}
+	}
+	if leaves != len(specs) {
+		t.Errorf("Schema has %d specs but Limits has %d leaf fields", len(specs), leaves)
 	}
 }
 

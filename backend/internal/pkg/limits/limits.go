@@ -114,6 +114,52 @@ func Default() Limits {
 	}
 }
 
+// FieldSpec is one tunable limit's machine-readable metadata: its dotted json key, group,
+// default, the bounds validate() enforces, unit and a one-line description. The settings UI
+// renders ranges/defaults from this instead of re-hardcoding the Go constants (which would
+// drift). Keep the Schema() list 1:1 with the Limits struct — TestSchema_MatchesStruct guards it.
+//
+// FieldSpec 是一个可调上限的机器可读元数据:点分 json key、组、默认、validate() 强制的 bounds、
+// 单位、一行描述。设置 UI 据此渲染范围/默认,免复刻 Go 常量(会漂)。Schema() 与 Limits 结构 1:1
+// ——TestSchema_MatchesStruct 守。
+type FieldSpec struct {
+	Key       string  `json:"key"`
+	Group     string  `json:"group"`
+	Default   float64 `json:"default"`
+	Min       float64 `json:"min"`
+	Max       float64 `json:"max,omitempty"`       // 0 = unbounded above
+	Exclusive bool    `json:"exclusive,omitempty"` // bounds open, not closed (TriggerRatio ∈ (0,1))
+	Unit      string  `json:"unit"`
+	Desc      string  `json:"desc"`
+}
+
+// Schema returns the metadata for every tunable limit. Defaults come from Default(); the
+// bounds MIRROR app/settings.validate() — all ints must be > 0 (min 1, unbounded above) and
+// TriggerRatio ∈ (0,1) exclusive. If validate() changes a bound, change it here too (the
+// 1:1 guard test catches a missing/extra field but not a loosened bound).
+//
+// Schema 返回每个可调上限的元数据。默认取自 Default();bounds 镜像 app/settings.validate()——
+// 所有 int 须 >0(min 1、上不封顶)、TriggerRatio ∈ (0,1) 开区间。validate() 改了 bound 这里要跟
+// (1:1 守护测试只抓字段缺/多,抓不到 bound 放宽)。
+func Schema() []FieldSpec {
+	d := Default()
+	return []FieldSpec{
+		{"agent.maxSteps", "agent", float64(d.Agent.MaxSteps), 1, 0, false, "steps", "Max steps in the chat ReAct loop."},
+		{"agent.invokeMaxTurns", "agent", float64(d.Agent.InvokeMaxTurns), 1, 0, false, "turns", "Default turn cap for one agent invocation (a per-call MaxTurns overrides)."},
+		{"context.triggerRatio", "context", d.Context.TriggerRatio, 0, 1, true, "ratio", "Compact when the last turn's input tokens reach this fraction of the input budget."},
+		{"timeout.llmIdleSec", "timeout", float64(d.Timeout.LLMIdleSec), 1, 0, false, "seconds", "LLM idle timeout, reset per streamed token (fires only on a dead connection)."},
+		{"timeout.mcpCallSec", "timeout", float64(d.Timeout.MCPCallSec), 1, 0, false, "seconds", "Wall-clock bound on one MCP tool call."},
+		{"timeout.bashDefaultTimeoutSec", "timeout", float64(d.Timeout.BashDefaultTimeoutSec), 1, 0, false, "seconds", "Bash tool default timeout when the LLM passes none."},
+		{"timeout.functionRunSec", "timeout", float64(d.Timeout.FunctionRunSec), 1, 0, false, "seconds", "Wall-clock bound on one function run."},
+		{"timeout.agentInvokeSec", "timeout", float64(d.Timeout.AgentInvokeSec), 1, 0, false, "seconds", "Wall-clock bound on one agent invocation."},
+		{"tools.readDefaultLines", "tools", float64(d.Tools.ReadDefaultLines), 1, 0, false, "lines", "Read tool's default page size."},
+		{"tools.bashOutputCapKB", "tools", float64(d.Tools.BashOutputCapKB), 1, 0, false, "KB", "Cap on captured bash output."},
+		{"tools.toolResultCapKB", "tools", float64(d.Tools.ToolResultCapKB), 1, 0, false, "KB", "Cap on any tool_result fed back to the LLM."},
+		{"guards.attachmentMaxMB", "guards", float64(d.Guards.AttachmentMaxMB), 1, 0, false, "MB", "Cap on one uploaded file."},
+		{"guards.webhookBodyMaxMB", "guards", float64(d.Guards.WebhookBodyMaxMB), 1, 0, false, "MB", "Cap on an inbound webhook body."},
+	}
+}
+
 // WithDefaults fills every zero field from Default() — settings parsing tolerance:
 // a partial settings.json tunes only what it names.
 //

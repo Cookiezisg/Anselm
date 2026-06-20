@@ -79,6 +79,14 @@ func (s *Service) Limits() limitspkg.Limits {
 	return s.cur
 }
 
+// LimitsSchema returns the per-field metadata (key/group/default/min/max/unit/desc) for the
+// tunable limits — a static projection of pkg/limits served read-only so the UI renders
+// ranges and defaults from the backend instead of hardcoding (and drifting from) the constants.
+//
+// LimitsSchema 返回可调上限的逐字段元数据——pkg/limits 的静态投影,只读透出使 UI 从后端渲染范围/
+// 默认,而非硬编(并漂离)常量。
+func (s *Service) LimitsSchema() []limitspkg.FieldSpec { return limitspkg.Schema() }
+
 // DataDir returns the resolved data directory (the parent of settings.json) — surfaced
 // read-only so the desktop UI can show where this local-first app persists everything
 // and offer "open in file manager". Immutable after Load, so no lock.
