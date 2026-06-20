@@ -29,8 +29,8 @@
         min-width: 0; flex: 1 1 auto; overflow-wrap: anywhere;
         font-size: var(--t-h2); font-weight: 600; line-height: var(--lh-tight); letter-spacing: 0; margin: 0;
       }
-      .title.editing { outline: none; box-shadow: 0 0 0 var(--line-2) var(--accent-line); border-radius: var(--r-tag);
-        background: var(--accent-soft); cursor: text; }
+      .title.editing { outline: none; box-shadow: inset 0 0 0 var(--hairline) var(--line-strong); border-radius: var(--r-tag);
+        background: var(--island); cursor: text; }
       /* 标题编辑三连钮 = an-edit-affordance（皮肤/铅笔↔✓✕ 在该原语）；这里只定位 + 揭示（hover/focus/editing 才显） */
       .t-acts { flex: none; align-self: center; }
       .title-row .t-acts { display: none; }
@@ -89,7 +89,8 @@
       h1.setAttribute("contenteditable", "plaintext-only");
       h1.classList.add("editing"); acts.setAttribute("editing", "");   // affordance 切 ✓/✕ + 编辑中常显
       const sel = window.getSelection();
-      if (sel) { const r = document.createRange(); r.selectNodeContents(h1); sel.removeAllRanges(); sel.addRange(r); }
+      // 只给光标（落到标题末尾），不全选——白底无蓝选区
+      if (sel) { const r = document.createRange(); r.selectNodeContents(h1); r.collapse(false); sel.removeAllRanges(); sel.addRange(r); }
       h1.focus();
       const finish = (ok) => {
         if (done) return; done = true;

@@ -26,7 +26,8 @@
     valueEl.classList.add("editing");
     if (onState) onState(true);
     const sel = window.getSelection();
-    if (sel) { const r = document.createRange(); r.selectNodeContents(valueEl); sel.removeAllRanges(); sel.addRange(r); }
+    // 只给光标（落到值末尾），不全选——避免蓝色选区，把编辑权交给用户
+    if (sel) { const r = document.createRange(); r.selectNodeContents(valueEl); r.collapse(false); sel.removeAllRanges(); sel.addRange(r); }
     valueEl.focus();
     const finish = (ok) => {
       if (done) return; done = true;
@@ -71,7 +72,7 @@
   /* .acts = an-edit-affordance 的【绝对浮层定位】壳（不占网格列、不偷值宽）；皮肤/三钮在 an-edit-affordance；揭示可见性由各父 hover/focus/editing 规则控（见 AnField/AnKv css）。 */
   const ACTS_CSS = `
     .acts { position: absolute; top: 50%; right: var(--pad-row); transform: translateY(-50%); z-index: 1; }
-    .v.editing { outline: none; box-shadow: inset 0 0 0 var(--line-2) var(--accent-line); border-radius: var(--r-tag); background: var(--accent-soft); cursor: text; }
+    .v.editing { outline: none; box-shadow: inset 0 0 0 var(--hairline) var(--line-strong); border-radius: var(--r-tag); background: var(--island); cursor: text; }
   `;
 
   class AnField extends window.AnElement {

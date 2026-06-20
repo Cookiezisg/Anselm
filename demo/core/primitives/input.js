@@ -15,7 +15,8 @@
         transition: border-color var(--d-fast), box-shadow var(--d-fast);
       }
       .input::placeholder { color: var(--ink-3); }
-      .input:focus { outline: none; border-color: var(--accent-line); box-shadow: 0 0 0 var(--focus-ring) var(--accent-soft); }
+      /* 聚焦：白底 + 一道描深的边 + 光标即可（不要蓝环/蓝底） */
+      .input:focus { outline: none; border-color: var(--line-strong); box-shadow: none; }
       :host([full]) .input { width: 100%; min-width: 0; }
       .input.area {
         height: auto; min-height: calc(var(--ctl) * 2); padding: var(--sp-2) var(--sp-3);

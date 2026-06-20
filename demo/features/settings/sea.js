@@ -18,36 +18,36 @@ window.FEATURE.settings = Object.assign(window.FEATURE.settings || {}, {
     const field = (label, value, opts) => el("an-field", Object.assign({ label: label, value: value, editable: "" }, opts || {}));
     const dotOf = (s) => ({ ok: "done", ready: "run", degraded: "wait", failed: "err", error: "err" }[s] || "idle");
 
-    // ── ① 通用：五行 key-value（label 左 · 值控件右），无分段标题 ──
+    // ── ① 通用：五行 key-value（label 左 · 值控件右，全部右端对齐），无分段标题 ──
     function general() {
       const ws = S.workspace || {};
-      // 名称：值 = 直接可改输入框
-      const nameInp = el("an-input", { value: ws.name, placeholder: "工作区名称" }); nameInp.style.cssText = "width:var(--side-w);";
-      // 语言：值 = 切换器
-      const langSeg = el("an-segmented"); langSeg.items = [{ value: "zh", label: "中文" }, { value: "en", label: "English" }]; langSeg.value = "zh";
-      // 主题：值 = 切换器
-      const themeSeg = el("an-segmented"); themeSeg.items = ["明亮", "暗色"]; themeSeg.value = "明亮";
-      // 切换工作区：值 = 工作区下拉
-      const swBtn = el("an-button", { variant: "ghost", size: "sm" });
-      swBtn.innerHTML = window.anEsc(ws.name) + '<span style="display:inline-flex; vertical-align:middle; margin-left:var(--gap-tight); color:var(--ink-3);">' + window.icon("chevd", 12) + "</span>";
-      swBtn.addEventListener("click", () => window.AnMenu && window.AnMenu.open(swBtn, {
-        align: "end", placement: "top", namespace: "ws-switch",
-        items: [{ value: "personal", label: "Personal", icon: "check" }, { value: "work", label: "Work" }, { value: "client", label: "Client X" }],
-        onPick: (v, it) => toast("切换到 " + it.label),
-      }));
+      // 名称：值 = 可改输入框（full 撑满宿主 → 右端对齐；聚焦白底+光标）
+      const nameInp = el("an-input", { value: ws.name, placeholder: "工作区名称", full: "" }); nameInp.style.cssText = "width:var(--side-w);";
       // 删除：值 = 红边按钮
-      const delBtn = el("an-button", { variant: "danger", outline: "", size: "sm" }); delBtn.textContent = "删除";
-      delBtn.addEventListener("click", () => toast("（待单独设计）删除确认流"));
+      const del = el("an-button", { variant: "danger", outline: "", size: "sm" }); del.textContent = "删除";
+      del.addEventListener("click", () => toast("（待单独设计）删除确认流"));
 
       const list = el("div");
       list.append(
         kvRow("名称", nameInp),
-        kvRow("语言", langSeg, "同时决定 AI 回复语言"),
-        kvRow("主题", themeSeg, "仅本机"),
-        kvRow("切换工作区", swBtn),
-        kvRow("删除此工作区", delBtn, "不可撤销 · 级联清空所有数据"),
+        kvRow("语言", dropdownVal("中文", ["中文", "English", "跟随系统"], "set-lang")),
+        kvRow("主题", dropdownVal("明亮", ["明亮", "暗色", "跟随系统"], "set-theme")),
+        kvRow("切换工作区", dropdownVal(ws.name, ["Personal", "Work", "Client X"], "ws-switch")),
+        kvRow("删除此工作区", del, "不可撤销 · 级联清空所有数据"),
       );
       return [head("通用"), list];
+    }
+    // 下拉值控件（语言/主题/切换工作区同款）：[当前 ⌄] ghost 钮 → AnMenu 列选项（勾当前）；选后更新钮文案
+    function dropdownVal(current, options, ns) {
+      const btn = el("an-button", { variant: "ghost", size: "sm" });
+      const setLabel = (t) => { btn.innerHTML = window.anEsc(t) + '<span style="display:inline-flex; vertical-align:middle; margin-left:var(--gap-tight); color:var(--ink-3);">' + window.icon("chevd", 12) + "</span>"; };
+      setLabel(current);
+      btn.addEventListener("click", () => window.AnMenu && window.AnMenu.open(btn, {
+        align: "end", placement: "bottom", namespace: ns,
+        items: options.map((o) => ({ value: o, label: o, icon: o === btn.textContent.trim() ? "check" : undefined })),
+        onPick: (v, it) => { setLabel(it.label); toast("已选 " + it.label); },
+      }));
+      return btn;
     }
     // key-value 行：label（+ 副文）左 · 值控件右；行间一道极细线分隔（清爽列表）
     function kvRow(label, valueNode, hint) {
