@@ -22,7 +22,7 @@ type ListMarketplace struct{ svc *mcpapp.Service }
 
 func (t *ListMarketplace) Name() string { return "list_mcp_marketplace" }
 func (t *ListMarketplace) Parameters() json.RawMessage {
-	return json.RawMessage(`{"type":"object","properties":{"query":{"type":"string","description":"Optional case-insensitive substring filter on server name + description (e.g. \"notif\", \"github\", \"database\"). STRONGLY prefer it when you want a specific capability — the catalog is large and an unfiltered list dumps every server. Omit to browse everything."}}}`)
+	return json.RawMessage(`{"type":"object","properties":{"query":{"type":"string","description":"Optional case-insensitive capability filter on server name + description. Multiple words are AND-matched (each word must appear, in any position) — so \"database query\" or \"send notification\" narrow correctly; you don't need a single contiguous substring. STRONGLY prefer it when you want a specific capability — the catalog is large and an unfiltered list dumps every server. Omit to browse everything."}}}`)
 }
 func (t *ListMarketplace) ValidateInput(json.RawMessage) error { return nil }
 func (t *ListMarketplace) Description() string {
@@ -63,20 +63,28 @@ func (t *ListMarketplace) Execute(ctx context.Context, argsJSON string) (string,
 }
 
 // filterMarketViews turns installable registry entries into views, hiding the un-installable
-// (Plan ok=false) and, when q (already lowercased) is non-empty, those whose name+description don't
-// contain it. Pure so the capability filter is unit-testable without a live registry.
+// (Plan ok=false) and, when q (already lowercased) is non-empty, those whose name+description miss
+// any query WORD (whitespace-split, AND-matched). Pure so the capability filter is unit-testable
+// without a live registry.
 //
 // filterMarketViews 把可装 registry 条目转成 view，隐去不可装的（Plan ok=false）；q（已小写）非空时
-// 再隐去 name+description 不含它的。纯函数，使能力过滤无需 live registry 即可单测。
+// 再隐去 name+description 缺任一查询词（按空白切、逐词 AND）的。纯函数，使能力过滤无需 live registry 即可单测。
 func filterMarketViews(entries []mcpdomain.RegistryEntry, q string) []marketView {
+	// Whitespace-split so a natural multi-word capability query ("database query", "send notification")
+	// AND-matches each word independently. A single Contains over the raw query required the words to
+	// appear as one contiguous substring — which silently returned 0 for the way an LLM phrases intent
+	// (F91-multiword). Empty query → no tokens → matches everything.
+	// 按空白切词，使自然的多词能力查询逐词 AND 匹配。原先对整串单次 Contains 要求词连续出现、对 LLM 表达
+	// 意图的方式静默返 0。空查询→无 token→全匹配。
+	tokens := strings.Fields(q)
 	views := make([]marketView, 0, len(entries))
 	for _, e := range entries {
 		plan, ok := e.Plan()
 		if !ok {
 			continue // unsupported runtime + no remote → can't install, hide it
 		}
-		if q != "" && !strings.Contains(strings.ToLower(e.Name), q) && !strings.Contains(strings.ToLower(e.Description), q) {
-			continue // capability filter: skip servers whose name+description don't match
+		if !matchesAllTokens(e.Name, e.Description, tokens) {
+			continue // capability filter: skip servers whose name+description miss any query word
 		}
 		v := marketView{Name: e.Name, Description: e.Description, Runtime: plan.Runtime}
 		if plan.Remote {
@@ -88,6 +96,25 @@ func filterMarketViews(entries []mcpdomain.RegistryEntry, q string) []marketView
 		views = append(views, v)
 	}
 	return views
+}
+
+// matchesAllTokens reports whether every token appears (case-insensitive substring) in name or
+// description combined. No tokens (empty query) matches everything. AND across tokens so adding a
+// word narrows the result rather than — as a single contiguous-substring match did — dropping to zero.
+//
+// matchesAllTokens 报告每个 token 是否都出现在 name+description 合串里（大小写不敏感子串）。无 token
+// （空查询）全匹配。逐 token AND，使加词收窄结果，而非像原先整串子串匹配那样一加词就归零。
+func matchesAllTokens(name, description string, tokens []string) bool {
+	if len(tokens) == 0 {
+		return true
+	}
+	hay := strings.ToLower(name + " " + description)
+	for _, tok := range tokens {
+		if !strings.Contains(hay, tok) {
+			return false
+		}
+	}
+	return true
 }
 
 // --- install_mcp_server ----------------------------------------------------

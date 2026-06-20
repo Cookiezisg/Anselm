@@ -35,6 +35,23 @@ func TestFilterMarketViews(t *testing.T) {
 		t.Fatalf("un-installable entry must stay hidden even on a matching query, got %+v", got)
 	}
 
+	// F91-multiword: a multi-word query AND-matches each word across name+description in ANY position
+	// (not as one contiguous substring). "send notifications" spans desc words; "notifications slack"
+	// is out-of-order — both must match github-notifier. A single Contains over the raw string returned 0.
+	if got := filterMarketViews(entries, "send notifications"); len(got) != 1 || got[0].Name != "github-notifier" {
+		t.Fatalf("multi-word 'send notifications' should match github-notifier, got %+v", got)
+	}
+	if got := filterMarketViews(entries, "notifications slack"); len(got) != 1 || got[0].Name != "github-notifier" {
+		t.Fatalf("out-of-order multi-word 'notifications slack' should match github-notifier, got %+v", got)
+	}
+	if got := filterMarketViews(entries, "query database"); len(got) != 1 || got[0].Name != "pg-tool" {
+		t.Fatalf("out-of-order multi-word 'query database' should match pg-tool, got %+v", got)
+	}
+	// A word no single entry has narrows to zero (AND semantics across words).
+	if got := filterMarketViews(entries, "database notifications"); len(got) != 0 {
+		t.Fatalf("AND across words with no single matching entry should yield 0, got %+v", got)
+	}
+
 	// Guard: the tool advertises the query knob so the agent reaches for it instead of dumping all.
 	if !strings.Contains(string((&ListMarketplace{}).Parameters()), "query") {
 		t.Error("list_mcp_marketplace must expose a `query` filter param")
