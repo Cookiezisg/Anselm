@@ -110,7 +110,7 @@ func (p *deepseekProvider) ParseStream(ctx context.Context, resp *http.Response,
 
 func emitDeepSeekChunk(chunk dsChunk, state *dsToolState, yield func(StreamEvent) bool) bool {
 	if chunk.Error != nil {
-		yield(StreamEvent{Type: EventError, Err: fmt.Errorf("%w: in-stream: %s", ErrProviderError, chunk.Error.Message)})
+		yield(StreamEvent{Type: EventError, Err: fmt.Errorf("%w: in-stream: %s", dsErrorSentinel(chunk.Error), chunk.Error.Message)})
 		return false
 	}
 	if len(chunk.Choices) == 0 {
@@ -174,7 +174,7 @@ func parseDeepSeekNonStreaming(body io.Reader, yield func(StreamEvent) bool) {
 		return
 	}
 	if resp.Error != nil {
-		yield(StreamEvent{Type: EventError, Err: fmt.Errorf("%w: %s", ErrProviderError, resp.Error.Message)})
+		yield(StreamEvent{Type: EventError, Err: fmt.Errorf("%w: %s", dsErrorSentinel(resp.Error), resp.Error.Message)})
 		return
 	}
 	if len(resp.Choices) == 0 {
@@ -393,7 +393,23 @@ type dsChunk struct {
 }
 
 type dsChunkError struct {
+	Code    string `json:"code"`
 	Message string `json:"message"`
+}
+
+// dsErrorSentinel maps a DeepSeek in-stream / in-body error object to the right sentinel. The
+// Anselm free-tier gateway reports monthly-budget exhaustion as error.code "BUDGET_EXHAUSTED" →
+// ErrQuotaExhausted (a hard wall, non-retryable) so a depleted free tier fails honestly; every
+// other error stays a generic, retryable provider error. Inherited verbatim by anselmProvider.
+//
+// dsErrorSentinel 把 DeepSeek 流内/体内 error 对象映射到正确 sentinel。Anselm 免费档网关用 error.code
+// "BUDGET_EXHAUSTED" 报本月额度耗尽 → ErrQuotaExhausted（硬墙、不可重试），让耗尽的免费档诚实失败；
+// 其余仍为通用、可重试的 provider 错。anselmProvider 经 embed 原样继承。
+func dsErrorSentinel(e *dsChunkError) error {
+	if e.Code == "BUDGET_EXHAUSTED" {
+		return ErrQuotaExhausted
+	}
+	return ErrProviderError
 }
 
 type dsChoice struct {

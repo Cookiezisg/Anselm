@@ -32,6 +32,19 @@ var (
 	ErrBadRequest    = errorspkg.New(errorspkg.KindInvalid, "LLM_BAD_REQUEST", "llm: bad request")
 	ErrModelNotFound = errorspkg.New(errorspkg.KindNotFound, "LLM_MODEL_NOT_FOUND", "llm: model not found")
 	ErrProviderError = errorspkg.New(errorspkg.KindBadGateway, "LLM_PROVIDER_ERROR", "llm: provider error")
+
+	// ErrQuotaExhausted is the free-tier gateway's "monthly quota exhausted" signal (gateway 402
+	// / in-stream error.code BUDGET_EXHAUSTED). A DISTINCT sentinel with its own Code so errors.Is
+	// (which matches by Code) never conflates it with ErrRateLimited — quota exhaustion is a hard
+	// wall, NOT retryable (a retry just re-hits the same 402), unlike a transient 429. Kind
+	// RateLimited → HTTP 429 at transport. It must NEVER mark the install token invalid (the token
+	// is valid, just out of budget; it recovers at the monthly reset).
+	//
+	// ErrQuotaExhausted 是免费档网关「本月额度耗尽」信号（网关 402 / 流内 error.code BUDGET_EXHAUSTED）。
+	// 独立 sentinel、自有 Code，故 errors.Is（按 Code 匹配）绝不与 ErrRateLimited 混淆——额度耗尽是硬墙、
+	// 不可重试（重试只是再撞同一个 402），区别于短暂 429。Kind RateLimited → transport 映射 HTTP 429。
+	// 绝不可据此标记 token 失效（token 有效、只是没额度，按月重置自恢复）。
+	ErrQuotaExhausted = errorspkg.New(errorspkg.KindRateLimited, "LLM_QUOTA_EXHAUSTED", "llm: free-tier quota exhausted")
 )
 
 // StreamEventType identifies a Client.Stream event variant.
@@ -274,6 +287,7 @@ func isRetryable(err error) bool {
 	case errors.Is(err, ErrAuthFailed),
 		errors.Is(err, ErrBadRequest),
 		errors.Is(err, ErrModelNotFound),
+		errors.Is(err, ErrQuotaExhausted),
 		errors.Is(err, context.Canceled):
 		return false
 	}

@@ -142,6 +142,13 @@ func classifyHTTPError(status int, body []byte) error {
 		return fmt.Errorf("%w (403): %s", ErrAuthFailed, msg)
 	case http.StatusTooManyRequests:
 		return fmt.Errorf("%w (429): %s", ErrRateLimited, msg)
+	case http.StatusPaymentRequired:
+		// Free-tier gateway signals monthly budget exhaustion as 402. Map to ErrQuotaExhausted
+		// (non-retryable) so a depleted free tier fails honestly instead of burning 3 retries.
+		//
+		// 免费档网关用 402 报本月额度耗尽。映射 ErrQuotaExhausted（不可重试），让耗尽的免费档诚实失败、
+		// 不空烧 3 次重试。
+		return fmt.Errorf("%w (402): %s", ErrQuotaExhausted, msg)
 	case http.StatusBadRequest:
 		return fmt.Errorf("%w (400): %s", ErrBadRequest, msg)
 	case http.StatusNotFound:

@@ -116,6 +116,7 @@ func buildProviderRegistry() map[string]Provider {
 		"openrouter": newOpenRouterProvider(),
 		"ollama":     newOllamaProvider(),
 		"custom":     newCustomProvider(),
+		"anselm":     newAnselmProvider(),
 	}
 }
 
