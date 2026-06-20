@@ -26,13 +26,13 @@ OP SHAPES:
   {"op":"set_init", "initBody":"self.session = requests.Session()"}     — __init__ body (after init args)
   {"op":"set_shutdown", "shutdownBody":"self.session.close()"}          — cleanup on stop/restart
   {"op":"set_init_args_schema", "args":[{"name":"api_key","type":"string","required":true,"sensitive":true}]}
-  {"op":"add_method", "method":{"name":"fetch","inputs":[{"name":"url","type":"string"}],"outputs":[{"name":"body","type":"object"}],"body":"return self.session.get(url).json()","streaming":false}}
+  {"op":"add_method", "method":{"name":"fetch","inputs":[{"name":"url","type":"string"}],"outputs":[{"name":"body","type":"object"}],"body":"return self.session.get(url).json()","streaming":false,"timeout":30000}}
   {"op":"update_method", "name":"fetch", "patch":{"description":"..."}}  — RFC 7396 merge patch
   {"op":"delete_method", "name":"fetch"}
   {"op":"set_dependencies", "dependencies":["requests==2.31"]}
   {"op":"set_python_version", "version":"3.12"}
 
-init_args (secrets like api_key) are NOT set here — the user fills them via the config; mark sensitive:true to encrypt at rest. A streaming method body yields {"progress": ...} items to stream progress; its call result is then either the last NON-progress value it yields OR its return-statement value (both honored — a bare return is NOT dropped). The instance starts once config is complete; failed dependency installs auto-fix (≤3) with an LLM.`
+init_args (secrets like api_key) are NOT set here — the user fills them via the config; mark sensitive:true to encrypt at rest. A method's optional "timeout" (ms) bounds that one call's wall clock; omit it and the call falls back to the global handler-call default — set a tighter timeout for a method that could hang (a slow/blocking call holds the resident instance's serial pipe for its whole duration). A streaming method body yields {"progress": ...} items to stream progress; its call result is then either the last NON-progress value it yields OR its return-statement value (both honored — a bare return is NOT dropped). The instance starts once config is complete; failed dependency installs auto-fix (≤3) with an LLM.`
 }
 
 func (t *CreateHandler) Parameters() json.RawMessage {

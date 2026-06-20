@@ -67,6 +67,14 @@ type TimeoutLimits struct {
 	// workspace 的排空 + 审批超时。超时记为 durable、可 :replay 的 ExecutionStatusTimeout。默认从宽
 	// （多轮 agent 合理地可跑数分钟）。
 	AgentInvokeSec int `json:"agentInvokeSec"`
+	// HandlerCallSec bounds one handler method call's wall clock when the method declares no per-method
+	// timeout (consumer: handlerapp.Call) — symmetric with FunctionRunSec. Without it a runaway/blocking
+	// method pins the resident instance's single mutexed stdio pipe indefinitely (an explicit
+	// MethodSpec.Timeout, if set, overrides this default with a tighter or looser per-method bound).
+	// HandlerCallSec 限一次 handler 方法调用的墙钟——当 method 未声明 per-method timeout 时（消费方：
+	// handlerapp.Call），与 FunctionRunSec 对称。没有它，失控/阻塞的 method 会无限期钉死常驻实例的单
+	// mutex stdio 管道（method 显式声明的 Timeout 若有，则以更紧/更松的 per-method bound 覆盖此默认）。
+	HandlerCallSec int `json:"handlerCallSec"`
 }
 
 type ToolLimits struct {
@@ -104,6 +112,7 @@ func Default() Limits {
 			BashDefaultTimeoutSec: 120,
 			FunctionRunSec:        300,
 			AgentInvokeSec:        900,
+			HandlerCallSec:        300,
 		},
 		Tools: ToolLimits{
 			ReadDefaultLines: 2000,
@@ -152,6 +161,7 @@ func Schema() []FieldSpec {
 		{"timeout.bashDefaultTimeoutSec", "timeout", float64(d.Timeout.BashDefaultTimeoutSec), 1, 0, false, "seconds", "Bash tool default timeout when the LLM passes none."},
 		{"timeout.functionRunSec", "timeout", float64(d.Timeout.FunctionRunSec), 1, 0, false, "seconds", "Wall-clock bound on one function run."},
 		{"timeout.agentInvokeSec", "timeout", float64(d.Timeout.AgentInvokeSec), 1, 0, false, "seconds", "Wall-clock bound on one agent invocation."},
+		{"timeout.handlerCallSec", "timeout", float64(d.Timeout.HandlerCallSec), 1, 0, false, "seconds", "Wall-clock bound on one handler method call when the method sets no per-method timeout."},
 		{"tools.readDefaultLines", "tools", float64(d.Tools.ReadDefaultLines), 1, 0, false, "lines", "Read tool's default page size."},
 		{"tools.bashOutputCapKB", "tools", float64(d.Tools.BashOutputCapKB), 1, 0, false, "KB", "Cap on captured bash output."},
 		{"tools.toolResultCapKB", "tools", float64(d.Tools.ToolResultCapKB), 1, 0, false, "KB", "Cap on any tool_result fed back to the LLM."},
@@ -189,6 +199,9 @@ func WithDefaults(l Limits) Limits {
 	}
 	if l.Timeout.AgentInvokeSec == 0 {
 		l.Timeout.AgentInvokeSec = d.Timeout.AgentInvokeSec
+	}
+	if l.Timeout.HandlerCallSec == 0 {
+		l.Timeout.HandlerCallSec = d.Timeout.HandlerCallSec
 	}
 	if l.Tools.ReadDefaultLines == 0 {
 		l.Tools.ReadDefaultLines = d.Tools.ReadDefaultLines

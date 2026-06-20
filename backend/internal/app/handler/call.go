@@ -17,6 +17,7 @@ import (
 	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
 	handlerinfra "github.com/sunweilin/anselm/backend/internal/infra/handler"
 	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
+	limitspkg "github.com/sunweilin/anselm/backend/internal/pkg/limits"
 	logtailpkg "github.com/sunweilin/anselm/backend/internal/pkg/logtail"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
@@ -50,13 +51,9 @@ func (s *Service) Call(ctx context.Context, in CallInput) (any, error) {
 	}
 
 	// Resolve the method's spec up front: a miss fails with the precise domain error before any
-	// spawn/RPC, and the spec's Timeout (ms) deadline-bounds THIS call — without it a wedged
-	// method would block the resident instance's serial pipe (one mutexed stdio) indefinitely
-	// when the caller carries no deadline of its own.
+	// spawn/RPC, and the spec feeds the wall-clock deadline applied just below.
 	//
-	// 先解析 method 的 spec：未命中在任何 spawn/RPC 前以精确 domain 错误失败；spec 的 Timeout（ms）
-	// 给本次调用加 deadline——没有它，卡死的 method 会在调用方自身无 deadline 时无限期堵住常驻实例的
-	// 串行管道（单 mutex stdio）。
+	// 先解析 method 的 spec：未命中在任何 spawn/RPC 前以精确 domain 错误失败；spec 喂给紧接下面施加的墙钟 deadline。
 	active, err := s.repo.GetVersion(ctx, h.ActiveVersionID)
 	if err != nil {
 		return nil, fmt.Errorf("handlerapp.Call: %w", err)
@@ -71,11 +68,17 @@ func (s *Service) Call(ctx context.Context, in CallInput) (any, error) {
 	if spec == nil {
 		return nil, fmt.Errorf("handlerapp.Call: %q: %w", in.Method, handlerdomain.ErrMethodNotFound)
 	}
-	if spec.Timeout > 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, time.Duration(spec.Timeout)*time.Millisecond)
-		defer cancel()
-	}
+	// Bound EVERY call by a wall clock: the method's own Timeout if it declared one, else the global
+	// HandlerCallSec default — symmetric with FunctionRunSec for functions (F83). Without a default a
+	// method with no per-method timeout (the common case) runs unbounded and a runaway/blocking one
+	// pins the resident instance's single mutexed stdio pipe indefinitely.
+	//
+	// 每次调用都用墙钟封顶：method 声明了 Timeout 就用它，否则用全局 HandlerCallSec 默认——与 function 的
+	// FunctionRunSec 对称（F83）。没有默认时，未声明 per-method timeout 的 method（常态）无界运行，失控/
+	// 阻塞的会无限期钉死常驻实例的单 mutex stdio 管道。
+	var cancel context.CancelFunc
+	ctx, cancel = context.WithTimeout(ctx, methodCallTimeout(spec.Timeout, limitspkg.Current().Timeout.HandlerCallSec))
+	defer cancel()
 
 	inst, err := s.manager.Get(ctx, h.ID)
 	if err != nil {
@@ -296,4 +299,18 @@ func triggerFromCtx(ctx context.Context) string {
 		return handlerdomain.TriggeredByAgent
 	}
 	return handlerdomain.TriggeredByChat
+}
+
+// methodCallTimeout picks the wall clock for one handler method call: the method's own timeout (ms)
+// when it declared one, else the global HandlerCallSec default — so every call is bounded (a method
+// with no per-method timeout no longer runs unbounded, symmetric with FunctionRunSec for functions).
+//
+// methodCallTimeout 为一次 handler 方法调用挑墙钟：method 声明了 timeout(ms) 就用它，否则用全局
+// HandlerCallSec 默认——使每次调用都有界（未声明 per-method timeout 的 method 不再无界运行，与
+// function 的 FunctionRunSec 对称）。
+func methodCallTimeout(specTimeoutMs, globalSec int) time.Duration {
+	if specTimeoutMs > 0 {
+		return time.Duration(specTimeoutMs) * time.Millisecond
+	}
+	return time.Duration(globalSec) * time.Second
 }

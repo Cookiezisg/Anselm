@@ -56,7 +56,7 @@ class HandlerImpl:
 ### RPC 协议（`infra/handler` 客户端 ↔ `driver.py`）
 
 stdio 行-JSON：`init`→`ready`/`init_error`；`call{id,method,args}`→`return`/`error`（带 Python traceback）/`progress`×N（generator 的每个 `{"progress":...}` yield）；`shutdown`→跑 `shutdown()`。**generator 终值**：driver 取「最后一个**非** `{progress}` yield」**或** generator 的 `return` 值（driver 显式捕获 `StopIteration.value`，故 `yield 终值` 与 `return 终值` 两种写法都生效、裸 return 不被吞）。要点：
-- **mutex 串行**：单 stdio 管道，并发调用方逐个过——这正是 method timeout 重要的原因（一个卡死的 method 会堵死整条管道）。
+- **mutex 串行**：单 stdio 管道，并发调用方逐个过——故每次调用都用**墙钟封顶**（method 自带 `timeout`(ms) 若有、否则全局 `limits.Timeout.HandlerCallSec` 默认 300s 兜底，与 fn/agent/mcp 同款；`PATCH /limits` 可调、校验 >0），否则一个卡死/失控的 method 会无限期堵死整条管道。
 - **`Timeout`（MethodSpec，ms）**：app 层 `Call` 先解析 method spec——找不到 method 即报 `HANDLER_METHOD_NOT_FOUND`（不进 RPC）；`Timeout>0` 给本次调用加 ctx deadline。
 - **crashed 语义（重要）**：任何读写失败/EOF/协议错乱/**ctx 取消**都把客户端标 `crashed`——包括取消：取消等待意味着回复还在路上，下一个调用会读到错位的迟到回复，**管道已脏**，唯一正确动作是废弃实例（下次 Get 自动重生）。这不是 bug，是协议正确性。
 - driver 拒调 `_` 前缀方法（私有）。
@@ -68,7 +68,7 @@ stdio 行-JSON：`init`→`ready`/`init_error`；`call{id,method,args}`→`retur
 
 ### 调用与记账（`Call`）
 
-resolve handler → 解析 method spec（校验 + timeout）→ `manager.Get`（懒 spawn）→ **一律 `StreamCall`**（非流式 method 无 yield 自然退化为普通返回）：yield 三写到 entities run 终端 + 调用方 progress sink + 限长 logtail；调用窗口同时在实例 stderr 扇出上挂 sink（print()/日志 → chat progress + run 终端 + logtail，**窗口归属**：同实例并发调用各收各窗口的行、明示可能串扰；收尾留 30ms stderr 宽限——stdout/stderr 两管道乱序，先于 return 写出的 print 可能后到）→ `recordCall`（Detached ctx，best-effort；溯源 5 列从 ctx 读，同 function；**记账前把本实例 sensitive init-arg 的解密值从 error/logs/output 掩成 `********`**——平台抹自己注入密钥的防御纵深（用户代码若把它泄进 traceback/print；只能抹平台已知的注入密钥、非任意用户密钥；config-at-rest 加密 + 读时掩码另算，F82）；`logs` 随行落盘，List 置空、单条 Get 携带）。TriggeredBy 空时按 ctx 推（subagent→agent，否则 chat）。
+resolve handler → 解析 method spec（校验 + 墙钟 deadline：method 自带 `timeout`(ms) 或全局 `HandlerCallSec` 默认兜底，使每次调用有界）→ `manager.Get`（懒 spawn）→ **一律 `StreamCall`**（非流式 method 无 yield 自然退化为普通返回）：yield 三写到 entities run 终端 + 调用方 progress sink + 限长 logtail；调用窗口同时在实例 stderr 扇出上挂 sink（print()/日志 → chat progress + run 终端 + logtail，**窗口归属**：同实例并发调用各收各窗口的行、明示可能串扰；收尾留 30ms stderr 宽限——stdout/stderr 两管道乱序，先于 return 写出的 print 可能后到）→ `recordCall`（Detached ctx，best-effort；溯源 5 列从 ctx 读，同 function；**记账前把本实例 sensitive init-arg 的解密值从 error/logs/output 掩成 `********`**——平台抹自己注入密钥的防御纵深（用户代码若把它泄进 traceback/print；只能抹平台已知的注入密钥、非任意用户密钥；config-at-rest 加密 + 读时掩码另算，F82）；`logs` 随行落盘，List 置空、单条 Get 携带）。TriggeredBy 空时按 ctx 推（subagent→agent，否则 chat）。
 
 ## 5. 关键设计决策
 
