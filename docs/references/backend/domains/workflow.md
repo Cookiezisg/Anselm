@@ -21,7 +21,7 @@ audience: [human, ai]
 
 **头部三轴**（比任何图版本长寿，住 Workflow 行）：
 - `LifecycleState`：active（监听中）/ draining（跑完在途、不起新——deactivate 时有 run 在飞）/ inactive。
-- `Concurrency`（五种全实现，标准重叠菜单，默认 serial）：`serial`（排队、当前跑完再跑）/ `skip`（丢新 firing、记 `FiringSkipped`）/ `buffer_one`（排队但只留最新待处理——更早的待处理 firing 经 `SupersedePendingOlderThan` 标 `FiringSuperseded`）/ `replace`（优雅取消在途 run——`cancelRunningForReplace` 标 cancelled + 打断 advance、与 KillWorkflow 同 race-safe 序——改跑新 firing）/ `allow_all`（并发）。`overlapDecision`（run.go）在 `running>0` 时按策略分流——**仅作用于真 trigger fire**（`consumeFiring` 路径：cron tick / webhook POST / 文件变更 / sensor）；手动 `:trigger`/`StartRun`（「run now」，UI/agent `trigger_workflow`）**绕过策略立即建 run**（人明确点一次、无去重），故两个手动 run 可同时在途、即便策略是 replace/buffer_one。`trigger_workflow` 工具描述点明此（避免 agent 误以为手动 run 受策略约束，F87）。
+- `Concurrency`（五种全实现，标准重叠菜单，默认 serial）：`serial`（排队、当前跑完再跑）/ `skip`（丢新 firing、记 `FiringSkipped`）/ `buffer_one`（排队但只留最新待处理——更早的待处理 firing 经 `SupersedeAllButNewestPending` 标 `FiringSuperseded`）/ `replace`（优雅取消在途 run——`cancelRunningForReplace` 标 cancelled + 打断 advance、与 KillWorkflow 同 race-safe 序——改跑新 firing）/ `allow_all`（并发）。`overlapDecision`（run.go）在 `running>0` 时按策略分流——**仅作用于真 trigger fire**（`consumeFiring` 路径：cron tick / webhook POST / 文件变更 / sensor）；手动 `:trigger`/`StartRun`（「run now」，UI/agent `trigger_workflow`）**绕过策略立即建 run**（人明确点一次、无去重），故两个手动 run 可同时在途、即便策略是 replace/buffer_one。`trigger_workflow` 工具描述点明此（避免 agent 误以为手动 run 受策略约束，F87）。
 - `NeedsAttention/AttentionReason/LastActionBy`：user vs system 状态变更归因。
 
 ## 3. 校验三层（依次设闸）

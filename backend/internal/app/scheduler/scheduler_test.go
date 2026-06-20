@@ -746,7 +746,7 @@ func TestFiring_OverlapSerialDefers_SkipDrops(t *testing.T) {
 
 // TestFiring_OverlapBufferOneDefers — buffer_one keeps the latest waiting: with a run in flight, a
 // single new firing is deferred (stays pending), like serial (the supersede-older path is covered by
-// the trigger store's TestSupersedePendingOlderThan).
+// the trigger store's TestSupersedeAllButNewestPending).
 func TestFiring_OverlapBufferOneDefers(t *testing.T) {
 	disp := newDisp()
 	svc, store, trg := mkSvcWithInbox(t, firingGraph(), disp, workflowdomain.ConcurrencyBufferOne)
