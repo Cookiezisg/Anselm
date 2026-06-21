@@ -10,7 +10,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"sync/atomic"
 
 	"go.uber.org/zap"
 
@@ -65,7 +64,15 @@ type Service struct {
 	indexer *Indexer
 	log     *zap.Logger
 
-	reindexing atomic.Bool
+	// reindexing tracks which workspaces have a reindex in flight, guarded by reindexMu. PER-WORKSPACE
+	// (not a single process-global flag): every downstream step is already workspace-scoped and
+	// concurrency-safe (PurgeWorkspace is workspace_id SQL, vectors.invalidate is per-ws, indexer
+	// reconcile is per-ws single-worker), so ws_a reindexing must NOT 409 an unrelated ws_b (F175-M3).
+	//
+	// reindexing 记哪些 workspace 有 reindex 在飞，由 reindexMu 守。**per-workspace**（非单个进程全局
+	// 标志）：下游每步本就 workspace 作用域且并发安全，故 ws_a 在 reindex 不该 409 无关的 ws_b（F175-M3）。
+	reindexMu  sync.Mutex
+	reindexing map[string]struct{}
 
 	// Semantic layer (§8): the builtin adapter + an Ollama factory; the active one is
 	// resolved per call from search_meta, and the Ollama adapter is rebuilt (cached under
@@ -92,12 +99,13 @@ func NewService(repo searchdomain.Repository, log *zap.Logger) *Service {
 		log = zap.NewNop()
 	}
 	s := &Service{
-		repo:      repo,
-		sources:   map[searchdomain.EntityType]Source{},
-		log:       log,
-		vectors:   newVecCache(),
-		embedKick: make(chan string, embedKickQueue),
-		embedQuit: make(chan struct{}),
+		repo:       repo,
+		sources:    map[searchdomain.EntityType]Source{},
+		log:        log,
+		vectors:    newVecCache(),
+		reindexing: map[string]struct{}{},
+		embedKick:  make(chan string, embedKickQueue),
+		embedQuit:  make(chan struct{}),
 	}
 	s.indexer = newIndexer(repo, s.sources, log)
 	s.indexer.onApplied = s.kickEmbed
@@ -179,11 +187,19 @@ func (s *Service) Reindex(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if !s.reindexing.CompareAndSwap(false, true) {
+	s.reindexMu.Lock()
+	if _, running := s.reindexing[wsID]; running {
+		s.reindexMu.Unlock()
 		return searchdomain.ErrReindexRunning
 	}
+	s.reindexing[wsID] = struct{}{}
+	s.reindexMu.Unlock()
 	go func() {
-		defer s.reindexing.Store(false)
+		defer func() {
+			s.reindexMu.Lock()
+			delete(s.reindexing, wsID)
+			s.reindexMu.Unlock()
+		}()
 		dctx := reqctxpkg.Detached(wsID)
 		if err := s.repo.PurgeWorkspace(dctx, wsID); err != nil {
 			s.log.Warn("search reindex: purge failed", zap.Error(err))

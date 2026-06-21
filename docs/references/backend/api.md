@@ -149,7 +149,7 @@ memory：`GET /memories` · `GET/PUT/DELETE /memories/{name}` · `POST /{name}/p
 | Method · Path | 语义 |
 |---|---|
 | `GET /search` | 综搜/垂搜同端点：`?q`(必填) `&types`(csv，空=综搜) `&tags`(csv) `&updatedAfter/Before`(RFC3339) `&includeArchived`(默认 true) `&cursor&limit`(默认 20 上限 50,走 ParsePageBounded;非数字/<1 → 400)。返 `{data:{hits, total}, nextCursor, hasMore}`——分页坐标顶层、total 在 data 子对象;hit 含 entityType/entityId/name/snippet(`<mark>`)/anchor/tags/archived/score/matchedChunks/refHint（仅积木六类） |
-| `POST /search:reindex` | 清空重建 ctx workspace 索引，204（fire-and-forget、无可轮询产物；运行中再调 409 `SEARCH_REINDEX_RUNNING`） |
+| `POST /search:reindex` | 清空重建 ctx workspace 索引，204（fire-and-forget、无可轮询产物；**同一 workspace** 运行中再调 409 `SEARCH_REINDEX_RUNNING`——单飞锁 per-workspace、不阻塞别的 workspace 的 reindex，F175-M3） |
 | `GET /search/settings` | 机器级搜索设置 + 引擎实时状态 `{embedder, ollamaBaseUrl, ollamaModel, engine:{status: ready\|downloading\|absent\|error\|off, model, lastError}}`（Ollama 字段恒回显生效值） |
 | `PATCH /search/settings` | 修补设置：`{embedder?: builtin\|ollama\|off, ollamaBaseUrl?, ollamaModel?}`（缺省字段不动；Ollama 参数空串重置默认）；非法 embedder 400 `SEARCH_EMBEDDER_INVALID`；改 model 即旧模型向量按 model 列失效、后台重嵌 |
 

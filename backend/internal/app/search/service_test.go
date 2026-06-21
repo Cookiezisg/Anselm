@@ -372,6 +372,43 @@ func TestReindex_ConflictWhileRunning(t *testing.T) {
 	waitFor(t, func() bool { return svc.Reindex(ctxWS("ws_a")) == nil })
 }
 
+// TestReindex_PerWorkspaceLock pins F175-M3: the single-flight lock is per-workspace, not process-
+// global. ws_a's in-flight reindex must NOT 409 an unrelated ws_b (every downstream step is already
+// workspace-scoped), while ws_a re-entry still conflicts.
+//
+// TestReindex_PerWorkspaceLock 锁 F175-M3：单飞锁 per-workspace、非进程全局。ws_a 在飞的 reindex 不该
+// 409 无关的 ws_b（下游每步本就 workspace 作用域），ws_a 自身重入仍冲突。
+func TestReindex_PerWorkspaceLock(t *testing.T) {
+	repo := newFakeRepo()
+	repo.purgeGo = make(chan struct{}) // reindex goroutines block in purge, staying in flight
+	svc := NewService(repo, nil)
+	svc.Start(nil)
+	defer svc.Close(context.Background())
+
+	if err := svc.Reindex(ctxWS("ws_a")); err != nil {
+		t.Fatalf("ws_a reindex: %v", err)
+	}
+	// ws_b is unrelated — must be accepted, not blocked by ws_a's in-flight reindex (F175-M3).
+	if err := svc.Reindex(ctxWS("ws_b")); err != nil {
+		t.Fatalf("ws_b reindex must NOT conflict with ws_a's in-flight reindex (F175-M3), got %v", err)
+	}
+	// but ws_a re-entry still conflicts (per-ws single-flight intact).
+	if err := svc.Reindex(ctxWS("ws_a")); !errors.Is(err, searchdomain.ErrReindexRunning) {
+		t.Fatalf("ws_a re-entry must still conflict, got %v", err)
+	}
+
+	close(repo.purgeGo)
+	waitFor(t, func() bool {
+		repo.mu.Lock()
+		defer repo.mu.Unlock()
+		seen := map[string]bool{}
+		for _, w := range repo.purged {
+			seen[w] = true
+		}
+		return seen["ws_a"] && seen["ws_b"]
+	})
+}
+
 func TestSearchBlocks_PaletteSemantics(t *testing.T) {
 	repo := newFakeRepo()
 	// Two methods of one handler + an mcp tool + an mcp server card (no ref).
