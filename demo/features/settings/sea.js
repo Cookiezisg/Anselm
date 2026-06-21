@@ -1,6 +1,6 @@
 /* Anselm feature — settings 海洋（sea）：左 rail 选类目 → Intent.on('settingsCat') → 渲对应设置页。
    六类：通用 / 模型与 Key / MCP 与市场 / 技能 / 运行时与索引 / 高级。各页 = ocean-header + an-section + 现有原语拼（无右岛）。
-   纯展示 mock：字段/按钮接 toast，真后端时换端点。机器级页（运行时/高级）页头标「应用级」徽。 */
+   纯展示 mock：字段/按钮接 toast，真后端时换端点。 */
 window.FEATURE = window.FEATURE || {};
 window.FEATURE.settings = Object.assign(window.FEATURE.settings || {}, {
   sea: (ctx) => {
@@ -10,11 +10,7 @@ window.FEATURE.settings = Object.assign(window.FEATURE.settings || {}, {
     const page = el("an-page");
 
     // ── 共用小工具 ──
-    const head = (title, metaBadge) => {
-      const h = el("an-ocean-header", { crumb: "设置", title: title });
-      if (metaBadge) h.append(el("an-badge", { slot: "meta", tone: "neutral" }, metaBadge));
-      return h;
-    };
+    const head = (title) => el("an-ocean-header", { crumb: "设置", title: title });
     const field = (label, value, opts) => el("an-field", Object.assign({ label: label, value: value, editable: "" }, opts || {}));
     const dotOf = (s) => ({ ok: "done", ready: "run", degraded: "wait", failed: "err", error: "err" }[s] || "idle");
 
@@ -67,10 +63,9 @@ window.FEATURE.settings = Object.assign(window.FEATURE.settings || {}, {
       const note = el("div"); note.style.cssText = "font-size:var(--t-meta); color:var(--ink-3); line-height:var(--lh-ui);";
       note.textContent = "经我们代理 + 第三方 DeepSeek，不享本地隐私保证。仅只读 · 不可编辑。";
       const enableRow = el("div"); enableRow.style.cssText = "display:flex; align-items:center; justify-content:space-between;";
-      const seg = el("an-segmented"); seg.items = ["关闭", "启用"]; seg.value = ft.enabled ? "启用" : "关闭";
-      seg.addEventListener("an-segment", () => toast("（mock）启用免费档会先弹隐私同意"));
+      const enableDd = dropdownVal(ft.enabled ? "启用" : "关闭", ["关闭", "启用"], "free-enable");
       const el2 = el("div"); el2.style.cssText = "font-size:var(--t-body); color:var(--ink);"; el2.textContent = "启用（首用弹隐私同意）";
-      enableRow.append(el2, seg);
+      enableRow.append(el2, enableDd);
       body.append(note, enableRow);
       card.append(body);
       ftSec.append(card);
@@ -169,15 +164,14 @@ window.FEATURE.settings = Object.assign(window.FEATURE.settings || {}, {
     function runtime() {
       // 嵌入引擎
       const emSec = el("an-section", { label: "嵌入引擎 · 语义搜索" });
-      const seg = el("an-segmented"); seg.items = [{ value: "builtin", label: "内置" }, { value: "ollama", label: "Ollama" }, { value: "off", label: "关闭" }];
-      seg.value = S.embedder;
-      seg.addEventListener("an-segment", (e) => toast("切到 " + e.detail.value));
+      const engineLabel = { builtin: "内置", ollama: "Ollama", off: "关闭" }[S.embedder] || "内置";
+      const engineDd = dropdownVal(engineLabel, ["内置", "Ollama", "关闭"], "embed-engine");
       const emRow = el("div"); emRow.style.cssText = "display:flex; align-items:center; justify-content:space-between; padding:var(--sp-2) var(--zero);";
       const emL = el("div"); emL.style.cssText = "display:flex; flex-direction:column; gap:var(--grid);";
       const emT = el("div"); emT.style.cssText = "font-size:var(--t-body); color:var(--ink);"; emT.textContent = "引擎";
       const emS = el("div"); emS.style.cssText = "font-size:var(--t-meta); color:var(--ink-3);";
       emS.append(el("an-status-dot", { state: "done" }), document.createTextNode(" " + S.embedderStatus));
-      emL.append(emT, emS); emRow.append(emL, seg);
+      emL.append(emT, emS); emRow.append(emL, engineDd);
       emSec.append(emRow);
       const reidx = el("an-row", { icon: "search", label: "重新索引", hint: "清空当前工作区并重建" });
       reidx.append(actBtn("重建", "history", () => toast("开始重新索引 …")));
@@ -198,12 +192,12 @@ window.FEATURE.settings = Object.assign(window.FEATURE.settings || {}, {
       disk.append(actBtn("清理缓存 (GC)", "trash", () => toast("清理 30 天未用的环境 …")));
       const boot = el("an-row", { dot: "done", label: "运行时引导", hint: "沙箱已就绪", meta: "正常" });
       stSec.append(disk, boot);
-      return [head("运行时与索引", "应用级 · 所有工作区共享"), emSec, rtSec, stSec];
+      return [head("运行时与索引"), emSec, rtSec, stSec];
     }
 
     // ── ⑥ 高级（运行上限，应用级） ──
     function advanced() {
-      const kids = [head("高级", "应用级 · 所有工作区共享")];
+      const kids = [head("高级")];
       (S.limits || []).forEach(([group, rows]) => {
         const sec = el("an-section", { label: "运行上限 · " + group });
         const kv = el("an-kv"); kv.rows = rows.map((r) => ({ key: r[0], value: r[1], editable: true }));

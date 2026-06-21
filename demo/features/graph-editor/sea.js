@@ -42,8 +42,18 @@ window.FEATURE["graph-editor"] = Object.assign(window.FEATURE["graph-editor"] ||
     }));
     bar.appendChild(addBtn);
     bar.appendChild(btn("spin", "自动布局", () => cv.relayout()));
-    const dir = document.createElement("an-segmented"); dir.items = [{ value: "LR", label: "横向" }, { value: "TB", label: "纵向" }]; dir.value = "LR";
-    dir.addEventListener("an-pick", (ev) => cv.setDir(ev.detail.value)); bar.appendChild(dir);
+    // 方向：[当前 ⌄] ghost 钮 → AnMenu 选 横向/纵向（与设置页下拉同款，全局无 segmented）
+    const dirLabels = { LR: "横向", TB: "纵向" };
+    let curDir = "LR";
+    const dirBtn = btn(null, null, () => window.AnMenu.open(dirBtn, {
+      align: "start", namespace: "graph-dir",
+      items: ["LR", "TB"].map((v) => ({ value: v, label: dirLabels[v], icon: v === curDir ? "check" : undefined })),
+      onPick: (v) => { curDir = v; setDirLabel(v); cv.setDir(v); },
+    }));
+    dirBtn.setAttribute("variant", "ghost");
+    const setDirLabel = (v) => { dirBtn.innerHTML = window.anEsc(dirLabels[v]) + '<span style="display:inline-flex;vertical-align:middle;margin-left:var(--gap-tight);color:var(--ink-3);">' + window.icon("chevd", 12) + "</span>"; };
+    setDirLabel(curDir);
+    bar.appendChild(dirBtn);
 
     // 右岛检查器
     const island = document.createElement("an-right-island");

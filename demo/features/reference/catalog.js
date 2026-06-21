@@ -716,26 +716,6 @@ window.REF_CATALOG = [
         ]
       },
       {
-        "name": "分段切换 segmented",
-        "tag": "an-segmented",
-        "blurb": "灰药丸分段器：items 走 property（字符串或 {value,label}），value 设初选，弹簧滑动，切换派发 an-pick。二元/少元紧凑切换（如图编辑器 横向/纵向）。",
-        "specimens": [
-          {
-            "label": "横向 / 纵向（图编辑器在用）",
-            "tag": "an-segmented",
-            "props": { "value": "LR", "items": [{ "value": "LR", "label": "横向" }, { "value": "TB", "label": "纵向" }] },
-            "center": true
-          },
-          {
-            "label": "disabled",
-            "tag": "an-segmented",
-            "attrs": { "disabled": true },
-            "props": { "items": ["only", "readonly"] },
-            "center": true
-          }
-        ]
-      },
-      {
         "name": "标签页 tabs",
         "tag": "an-tabs",
         "blurb": "文字下划线切换器，items 走 property [{key,label,count?,render}]，懒建 pane，切换派发 an-pick",
