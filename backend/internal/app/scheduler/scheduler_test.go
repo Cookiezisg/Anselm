@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -28,12 +29,19 @@ import (
 // fakeDispatcher counts calls per ref and returns {n: callCount} by default (so a looped node's
 // result changes each turn). failRefs makes a ref error (exhausted-retry simulation).
 type fakeDispatcher struct {
+	mu          sync.Mutex // guards all maps — the F174 pool drives RunAction/RunAgent from concurrent workers
 	actionCalls map[string]int
 	agentCalls  map[string]int
 	failRefs    map[string]bool
 	actionPins  map[string]string // ref → last pinnedVersionID received
 	agentPins   map[string]string
 	actionIters map[string][]int // ref → loop iteration seen in ctx per call (F175-M12)
+	// Blocking gate (F174 HOL tests): if gateFlag != "" and a node's resolved input[gateFlag] is true,
+	// RunAction signals entered<-ref then blocks until gate is closed (or ctx cancelled) — lets a test
+	// wedge ONE run (whose trigger payload set the flag) while another run of the same workflow runs free.
+	gateFlag string
+	gate     chan struct{}
+	entered  chan string
 }
 
 func newDisp() *fakeDispatcher {
@@ -42,17 +50,44 @@ func newDisp() *fakeDispatcher {
 		actionPins: map[string]string{}, agentPins: map[string]string{}, actionIters: map[string][]int{},
 	}
 }
-func (d *fakeDispatcher) RunAction(ctx context.Context, ref, pin string, _ map[string]any) (map[string]any, error) {
+
+// calls returns a ref's action call count under the lock (use in concurrent/pool tests).
+func (d *fakeDispatcher) calls(ref string) int {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.actionCalls[ref]
+}
+
+func (d *fakeDispatcher) RunAction(ctx context.Context, ref, pin string, input map[string]any) (map[string]any, error) {
+	d.mu.Lock()
 	d.actionCalls[ref]++
 	d.actionPins[ref] = pin
 	it, _ := reqctxpkg.GetFlowrunIteration(ctx)
 	d.actionIters[ref] = append(d.actionIters[ref], it)
-	if d.failRefs[ref] {
+	n := d.actionCalls[ref]
+	fail := d.failRefs[ref]
+	gateFlag, gate, entered := d.gateFlag, d.gate, d.entered
+	d.mu.Unlock()
+	if gateFlag != "" && gate != nil { // wedge runs whose resolved input carries the gate flag (HOL tests)
+		if b, _ := input[gateFlag].(bool); b {
+			if entered != nil {
+				entered <- ref
+			}
+			select {
+			case <-gate:
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
+		}
+	}
+	if fail {
 		return nil, errors.New("action exploded")
 	}
-	return map[string]any{"n": d.actionCalls[ref]}, nil
+	return map[string]any{"n": n}, nil
 }
 func (d *fakeDispatcher) RunAgent(_ context.Context, ref, pin string, _ map[string]any) (map[string]any, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	d.agentCalls[ref]++
 	d.agentPins[ref] = pin
 	return map[string]any{"out": "agent-" + ref}, nil
@@ -1014,5 +1049,136 @@ func TestFiring_OverlapBufferOneRunsNewestOnly(t *testing.T) {
 	}
 	if p, _ := trg.ListPendingFirings(ctx, 10); len(p) != 0 {
 		t.Fatalf("both firings resolved (1 run + 1 superseded), %d still pending", len(p))
+	}
+}
+
+// ---- F174: async Advance worker pool (head-of-line-blocking fix) ----------
+
+// waitForRunStatus polls the DURABLE store until a run reaches `want` or the timeout. Black-box to the
+// async Advance pool — it reads the truth table, never pool internals. Used by the F174 tests where the
+// pool drives runs off the calling goroutine.
+//
+// waitForRunStatus 轮询**耐久** store 直到 run 到 `want` 或超时。对异步 Advance 池是黑盒——读真相表、不碰
+// 池内部。F174 测试用它（池在调用 goroutine 之外驱动 run）。
+func waitForRunStatus(t *testing.T, store *flowrunstore.Store, ctx context.Context, id, want string, timeout time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if run, err := store.GetRun(ctx, id); err == nil && run.Status == want {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	got := "<none>"
+	if run, _ := store.GetRun(ctx, id); run != nil {
+		got = run.Status
+	}
+	t.Fatalf("run %s: status %q != want %q within %s", id, got, want, timeout)
+}
+
+// holGraph: start → a(action fn_a, input flag=start.slow). A run whose trigger payload sets slow=true
+// wedges in fn_a (the dispatcher's gate); slow=false runs free.
+func holGraph() workflowdomain.Graph {
+	return workflowdomain.Graph{
+		Nodes: []workflowdomain.Node{
+			node("start", "trigger", "trg_1", nil),
+			node("a", "action", "fn_a", map[string]string{"flag": "start.slow"}),
+		},
+		Edges: []workflowdomain.Edge{edge("e1", "start", "", "a")},
+	}
+}
+
+func seedRun(t *testing.T, store *flowrunstore.Store, ctx context.Context, payload map[string]any) string {
+	t.Helper()
+	run := &flowrundomain.FlowRun{WorkflowID: "wf_1", VersionID: "wfv_1", PinnedRefs: map[string]string{}, Status: flowrundomain.StatusRunning}
+	id, err := store.CreateRunWithTrigger(ctx, run, &flowrundomain.FlowRunNode{NodeID: "start", Kind: "trigger", Status: flowrundomain.NodeCompleted, Result: payload})
+	if err != nil {
+		t.Fatalf("seed run: %v", err)
+	}
+	return id
+}
+
+// TestHOL_SlowNodeDoesNotBlockOtherRuns is the core F174 proof: with the pool started, a run wedged in
+// a slow node does NOT block another run from advancing to completion. Pre-fix, phase-2 Advance ran
+// inline on the single drain goroutine, so run A's 30s node stalled run B (and every later workspace +
+// CheckTimeouts) for its whole duration. Deterministic (rendezvous channels, no sleeps), runs -race.
+func TestHOL_SlowNodeDoesNotBlockOtherRuns(t *testing.T) {
+	disp := newDisp()
+	disp.gateFlag, disp.gate, disp.entered = "flag", make(chan struct{}), make(chan string, 2)
+	svc, store := mkSvc(t, holGraph(), disp, nil, nil, workflowdomain.ConcurrencyAllowAll)
+	svc.StartPool()
+	defer svc.StopPool()
+	ctx := ctxWS("ws_1")
+
+	idA := seedRun(t, store, ctx, map[string]any{"slow": true})  // wedges in fn_a
+	idB := seedRun(t, store, ctx, map[string]any{"slow": false}) // runs free
+
+	svc.enqueueAdvance(ctx, idA)
+	select { // A's node is now executing and blocked on the gate
+	case <-disp.entered:
+	case <-time.After(2 * time.Second):
+		t.Fatal("slow node never entered — the pool did not drive run A")
+	}
+	svc.enqueueAdvance(ctx, idB)
+
+	// THE PROOF: B reaches completed WHILE A is still wedged.
+	waitForRunStatus(t, store, ctx, idB, flowrundomain.StatusCompleted, 2*time.Second)
+	if r, _ := store.GetRun(ctx, idA); r.Status != flowrundomain.StatusRunning {
+		t.Fatalf("run A must still be wedged (running) while blocked, got %q", r.Status)
+	}
+
+	close(disp.gate) // release A
+	waitForRunStatus(t, store, ctx, idA, flowrundomain.StatusCompleted, 2*time.Second)
+}
+
+// TestPool_SameRunNeverDoubleDriven pins the per-run guard (the 命门): two concurrent advances of the
+// SAME run must not execute its node twice. A redrive requested while a worker is mid-node collapses to
+// a single trailing re-walk, which finds the node already memoized (record-once) and does not re-run.
+func TestPool_SameRunNeverDoubleDriven(t *testing.T) {
+	disp := newDisp()
+	disp.gateFlag, disp.gate, disp.entered = "flag", make(chan struct{}), make(chan string, 2)
+	svc, store := mkSvc(t, holGraph(), disp, nil, nil, workflowdomain.ConcurrencyAllowAll)
+	svc.StartPool()
+	defer svc.StopPool()
+	ctx := ctxWS("ws_1")
+
+	id := seedRun(t, store, ctx, map[string]any{"slow": true})
+	svc.enqueueAdvance(ctx, id)
+	<-disp.entered              // the run is mid-node (fn_a blocked)
+	svc.enqueueAdvance(ctx, id) // a second signal for the SAME run while it's in progress → redrive
+	svc.enqueueAdvance(ctx, id) // and a third — all must collapse
+	close(disp.gate)            // release
+	waitForRunStatus(t, store, ctx, id, flowrundomain.StatusCompleted, 2*time.Second)
+
+	if n := disp.calls("fn_a"); n != 1 {
+		t.Fatalf("node must run exactly once despite 3 concurrent advances (per-run guard + record-once), ran %d", n)
+	}
+}
+
+// TestPool_ShutdownDrainsWorkers proves the R3/F100 shutdown contract under the pool: Shutdown cancels a
+// wedged node's ctx and StopPool then returns promptly (workers exit, no goroutine leak, no race with a
+// later db.Close). A hang here would mean a worker never drains.
+func TestPool_ShutdownDrainsWorkers(t *testing.T) {
+	disp := newDisp()
+	disp.gateFlag, disp.gate, disp.entered = "flag", make(chan struct{}), make(chan string, 1)
+	svc, store := mkSvc(t, holGraph(), disp, nil, nil, workflowdomain.ConcurrencyAllowAll)
+	svc.StartPool()
+	ctx := ctxWS("ws_1")
+
+	id := seedRun(t, store, ctx, map[string]any{"slow": true})
+	svc.enqueueAdvance(ctx, id)
+	<-disp.entered // node wedged in a worker
+
+	svc.Shutdown() // cancel every in-flight advance (interrupts the wedged node via ctx)
+	done := make(chan struct{})
+	go func() { svc.StopPool(); close(done) }()
+	select {
+	case <-done: // workers drained + exited
+	case <-time.After(3 * time.Second):
+		t.Fatal("StopPool hung — a worker did not drain after Shutdown cancelled the wedged node")
+	}
+	// the interrupted run did not complete (it was cancelled mid-node).
+	if r, _ := store.GetRun(ctx, id); r.Status == flowrundomain.StatusCompleted {
+		t.Fatal("a shutdown-interrupted run must not record completed")
 	}
 }

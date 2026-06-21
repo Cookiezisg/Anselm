@@ -11,15 +11,17 @@ import (
 
 // trackInflight wraps an advance with a cancellable context registered under the run id, so
 // KillWorkflow can interrupt this run even while it is blocked deep in a node (a long agent's
-// loop.Run, a slow function). Advance is synchronous and per-run single-goroutine, so there is at
-// most one cancel per run. The returned release deregisters and cancels (freeing the ctx). On a
-// normal finish release just cleans up; on a kill the cancel has already fired and release is a
-// harmless second cancel.
+// loop.Run, a slow function). The per-run guard (pool.go drive) ENFORCES at most one goroutine
+// advancing a given run at a time, so there is at most one cancel per run — this used to be merely
+// emergent from the sequential driver; under the F174 worker pool it is an explicit invariant. The
+// returned release deregisters and cancels (freeing the ctx). On a normal finish release just cleans
+// up; on a kill the cancel has already fired and release is a harmless second cancel.
 //
 // trackInflight 给一次 advance 包一个按 run id 注册的可取消 ctx，使 KillWorkflow 能打断这个 run——即便它
-// 正卡在某节点深处（长 agent 的 loop.Run、慢 function）。Advance 同步且 per-run 单 goroutine，故每个 run
-// 至多一个 cancel。返回的 release 注销并 cancel（释放 ctx）。正常结束时 release 只清理；被 kill 时 cancel
-// 已先触发、release 是无害的第二次 cancel。
+// 正卡在某节点深处（长 agent 的 loop.Run、慢 function）。per-run guard（pool.go 的 drive）**强制**同一 run
+// 同时至多一个 goroutine 在 advance，故每个 run 至多一个 cancel——这原来只是串行驱动器的副产物；F174
+// worker 池下它是显式不变式。返回的 release 注销并 cancel（释放 ctx）。正常结束时 release 只清理；被 kill 时
+// cancel 已先触发、release 是无害的第二次 cancel。
 func (s *Service) trackInflight(ctx context.Context, flowrunID string) (context.Context, func()) {
 	cctx, cancel := context.WithCancel(ctx)
 	s.inflightMu.Lock()

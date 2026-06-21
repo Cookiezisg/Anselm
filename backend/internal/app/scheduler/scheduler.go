@@ -164,6 +164,27 @@ type Service struct {
 
 	inflightMu sync.Mutex
 	inflight   map[string]context.CancelFunc // flowrunID → cancel its in-progress advance
+
+	// Advance worker pool (F174): background paths (DrainFirings / Recover / CheckTimeouts) ENQUEUE a
+	// run's advance onto a bounded pool instead of running it inline on the single drain goroutine, so
+	// one slow node can never head-of-line-block later runs, later workspaces, the next tick, or the
+	// timeout sweep. advMu guards the single-flight guard maps + advStarted; the guard makes "at most
+	// one goroutine advances a given run at a time" an ENFORCED invariant (it used to be merely emergent
+	// from the sequential driver). When the pool is not started (tests / manual-only), enqueueAdvance
+	// falls back to driving inline — so those paths stay synchronous and backward-compatible.
+	//
+	// Advance worker 池（F174）：后台路径（DrainFirings / Recover / CheckTimeouts）把一个 run 的 advance
+	// **入队**到有界池，而非在单 drain goroutine 上内联跑——故一个慢节点再也卡不住后面的 run / workspace /
+	// 下一 tick / 超时扫描。advMu 守单飞 guard 表 + advStarted；guard 把「同一 run 同时至多一个 goroutine
+	// advance」变成**强制**不变式（原来只是串行驱动器的副产物）。池未启动时（测试/纯手动）enqueueAdvance
+	// 回退到内联驱动——故那些路径保持同步、向后兼容。
+	advMu         sync.Mutex
+	advInProgress map[string]bool // runID → a goroutine is currently driving this run
+	advPending    map[string]bool // runID → a redrive was requested while it was in progress (re-walk once)
+	advQueued     map[string]bool // runID → sitting in advQueue awaiting a worker (dedup)
+	advStarted    bool            // worker pool running (false → enqueueAdvance drives inline)
+	advQueue      chan advanceJob // worker job queue
+	advWG         sync.WaitGroup  // tracks live workers for shutdown
 }
 
 // SetEntitiesBridge installs the entities stream post-construction (SSE-C): Advance emits a node
@@ -210,7 +231,13 @@ func NewService(runs RunStore, workflows WorkflowReader, control ControlResolver
 	if log == nil {
 		log = zap.NewNop()
 	}
-	return &Service{runs: runs, workflows: workflows, control: control, approval: approval, dispatch: dispatch, inbox: inbox, log: log, inflight: map[string]context.CancelFunc{}}
+	return &Service{
+		runs: runs, workflows: workflows, control: control, approval: approval, dispatch: dispatch, inbox: inbox, log: log,
+		inflight:      map[string]context.CancelFunc{},
+		advInProgress: map[string]bool{},
+		advPending:    map[string]bool{},
+		advQueued:     map[string]bool{},
+	}
 }
 
 // decodeGraph parses a version's Graph JSON blob into the typed graph the interpreter walks.

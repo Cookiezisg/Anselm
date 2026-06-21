@@ -16,7 +16,7 @@ landed-into:
 > 方法论：11 个静态猎手并行扫各反模式 + 每条对抗式复核（是否真实/已有清理被漏看/单用户长跑下多严重）。首轮 22 候选 → **21 确认**（R1–R21，按严重度排）。
 > 种子已确认：长 dev 会话漏 7 个 2GB llama-server + handler/MCP 子进程（已手动清，根因见 R2）。
 
-> **状态（2026-06-21）**：**R1–R20 全部 ✅ FIXED + 已提交**；**R21 仍 open**——与 [`LOG.md`](LOG.md) 顶部 backlog 的 **F174** 是同一条 head-of-line blocking（drainLoop 单 goroutine 内联 `Advance`，慢节点卡死全局 firing-drain / timeout 检查；那边定级 HIGH），待「`Advance` 异步化到 bounded worker pool + 并发安全验证」后一并修。
+> **状态（2026-06-21）**：**R1–R21 全部 ✅ FIXED + 已提交**。R21 = [`LOG.md`](LOG.md) 的 **F174**（head-of-line blocking），由有界 Advance worker 池修复（[ADR 0007](../../decisions/0007-scheduler-async-advance-pool.md)）。
 
 ## R1 [HIGH] (subprocess-reaping) — ✅ FIXED
 
@@ -262,7 +262,7 @@ LIFECYCLE — the key claim, confirmed: the "per-run" doc (agentstate.go:2,23) i
 - **修法**: Either bound the agent run with an explicit wall-clock deadline (a limits.Timeout.AgentInvokeSec wrapping loopapp.Run in invoke.go runLoop, analogous to FunctionRunSec for functions), or decouple node execution from the drain goroutine (run each Advance in its own goroutine so one slow agent node can't block draining/timeout-checks for every workspace). Given the durable model, a per-invoke deadline that surfaces as ExecutionStatusFailed (replayable) is the smaller change and matches the function/handler/mcp pattern of every other execution unit being wall-bounded.
 - **复核**: Verified every link against the actual code. (1) Single drain goroutine: build.go:281 `go a.drainLoop(tickCtx)` — exactly one; inside, build.go:317-323 forEachWorkspace iterates workspaces serially calling DrainFirings then CheckTimeouts synchronously. (2) Serial dispatch: run.go:160/217 DrainFirings→consumeFiring→s.Advance (synchronous); advance.go:74-78 Advance loops ready nodes calling runNode synchronously; no goroutine spawn anywhere in this chain. (3) The defect itself: invoke.go:256 `loopapp.Run(ctx, host, bundle.Client, req, remaining, s.log)` — only `remaining` (turn cap, default Invo…
 
-## R21 [LOW] (sqlite-contention) — _pending_
+## R21 [LOW] (sqlite-contention) — ✅ FIXED (= LOG F174)
 
 **drainLoop runs the whole durable workflow advance (slow function/agent/MCP dispatch) synchronously on the single background goroutine, serializing all firing-driven runs and timeout checks behind multi-minute node activities**
 

@@ -47,13 +47,15 @@ type Config struct {
 //
 // App 是装配好的应用：HTTP handler + 持后台工作的 Service 的 boot/shutdown 生命周期。
 type App struct {
-	Handler   http.Handler
-	Addr      string
-	log       *zap.Logger
-	svc       *services
-	db        *ormpkg.DB
-	tickStop  context.CancelFunc
-	drainDone chan struct{} // closed when drainLoop returns; Shutdown waits on it (R3 grace). drainLoop 退出时关闭，Shutdown 等它（R3 宽限）。
+	Handler     http.Handler
+	Addr        string
+	log         *zap.Logger
+	svc         *services
+	db          *ormpkg.DB
+	tickStop    context.CancelFunc
+	drainDone   chan struct{}      // closed when drainLoop returns; Shutdown waits on it. drainLoop 退出时关闭，Shutdown 等它。
+	timeoutStop context.CancelFunc // stops the independent timeout-sweep loop (F174: decoupled from drain so a slow node can't starve approval timeouts). 停独立超时扫描循环。
+	timeoutDone chan struct{}      // closed when timeoutLoop returns. timeoutLoop 退出时关闭。
 }
 
 const drainInterval = 5 * time.Second
@@ -255,6 +257,12 @@ func (a *App) Boot(ctx context.Context) {
 		a.log.Warn("bootstrap: list workspaces for search start", zap.Error(err))
 		a.svc.search.Start(nil)
 	}
+	// Start the Advance worker pool BEFORE Recover so recovered runs resume ON the pool (off this boot
+	// goroutine): a slow recovered node must not block boot, and pooled phase-2 Advance is the whole
+	// point of F174. Recover enqueues; the workers drive concurrently with the rest of boot below.
+	// 在 Recover **之前**启动 Advance worker 池，使恢复的 run 在池上恢复（脱离 boot goroutine）：慢的恢复
+	// 节点不该卡 boot，池化的阶段 2 Advance 正是 F174 的目的。Recover 入队；worker 与下面的 boot 余下部分并发驱动。
+	a.svc.scheduler.StartPool()
 	if err := a.svc.scheduler.Recover(ctx); err != nil {
 		a.log.Warn("bootstrap: scheduler recover failed", zap.Error(err))
 	}
@@ -293,12 +301,21 @@ func (a *App) Boot(ctx context.Context) {
 		}
 	})
 
-	// Firing-drain ticker: trigger listeners persist Firings to the durable inbox; the scheduler
-	// claims + advances them here on a fixed cadence, and sweeps approval/timer timeouts.
+	// Firing-drain ticker: trigger listeners persist Firings to the durable inbox; the scheduler claims
+	// them here on a fixed cadence and enqueues each onto the Advance pool. The approval/timer timeout
+	// sweep runs on its OWN ticker (F174) so a saturated pool can never starve approval-timeout settling
+	// — they used to share the drain closure, where a slow Advance blocked CheckTimeouts.
+	// firing-drain ticker：trigger 监听把 Firing 落到耐久收件箱；scheduler 在此按固定节律 claim 并把每条入队到
+	// Advance 池。审批/计时超时扫描跑在**自己**的 ticker 上（F174），故满载的池绝不饿死审批超时结算——它们原来
+	// 共用 drain 闭包、慢 Advance 阻塞 CheckTimeouts。
 	tickCtx, stop := context.WithCancel(context.Background())
 	a.tickStop = stop
 	a.drainDone = make(chan struct{})
 	go a.drainLoop(tickCtx)
+	timeoutCtx, tstop := context.WithCancel(context.Background())
+	a.timeoutStop = tstop
+	a.timeoutDone = make(chan struct{})
+	go a.timeoutLoop(timeoutCtx)
 }
 
 // forEachWorkspace runs fn once per workspace, each in a Detached ctx seeded with that
@@ -320,14 +337,42 @@ func (a *App) forEachWorkspace(ctx context.Context, fn func(wsCtx context.Contex
 	}
 }
 
-// drainLoop periodically drains pending firings and checks timeouts until the app shuts down —
-// per workspace per tick (the firings/parked-nodes tables are workspace-scoped; CheckTimeouts'
-// contract is "the caller ticks it per workspace").
+// drainLoop periodically claims pending firings (enqueuing each onto the Advance pool) until the app
+// shuts down — per workspace per tick (the firings table is workspace-scoped). Now FAST: it only
+// claims + enqueues, never executes a node, so a slow run can't stall it (F174). Timeouts are swept by
+// timeoutLoop, not here.
 //
-// drainLoop 周期 drain 待处理 firing + 检查超时，直到 app 关停——每 tick 逐 workspace（firings /
-// parked-nodes 表按 workspace 隔离；CheckTimeouts 的契约就是「调用方逐 workspace tick」）。
+// drainLoop 周期 claim 待处理 firing（把每条入队到 Advance 池）直到 app 关停——每 tick 逐 workspace
+// （firings 表按 workspace 隔离）。现在**很快**：只 claim + 入队、绝不执行节点，故慢 run 卡不住它（F174）。
+// 超时由 timeoutLoop 扫描、不在此处。
 func (a *App) drainLoop(ctx context.Context) {
-	defer close(a.drainDone) // signal Shutdown the loop (and its current tick's Advance) has returned (R3)
+	defer close(a.drainDone)
+	t := time.NewTicker(drainInterval)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			a.forEachWorkspace(ctx, func(wsCtx context.Context) {
+				if err := a.svc.scheduler.DrainFirings(wsCtx); err != nil {
+					a.log.Warn("bootstrap: drain firings", zap.Error(err))
+				}
+			})
+		}
+	}
+}
+
+// timeoutLoop sweeps approval/timer timeouts on its own ticker, decoupled from drainLoop (F174) so a
+// saturated Advance pool can never delay approval-timeout settling — it only resolves parked nodes
+// (pure DB) and ENQUEUES any re-drive, never executing a node inline. Per workspace per tick (parked-
+// nodes table is workspace-scoped; CheckTimeouts' contract is "the caller ticks it per workspace").
+//
+// timeoutLoop 在自己的 ticker 上扫描审批/计时超时，与 drainLoop 解耦（F174），故满载的 Advance 池绝不延迟
+// 审批超时结算——它只结算 parked 节点（纯 DB）并**入队**重驱动、绝不内联执行节点。每 tick 逐 workspace
+// （parked-nodes 表按 workspace 隔离；CheckTimeouts 契约就是「调用方逐 workspace tick」）。
+func (a *App) timeoutLoop(ctx context.Context) {
+	defer close(a.timeoutDone)
 	t := time.NewTicker(drainInterval)
 	defer t.Stop()
 	for {
@@ -336,9 +381,6 @@ func (a *App) drainLoop(ctx context.Context) {
 			return
 		case now := <-t.C:
 			a.forEachWorkspace(ctx, func(wsCtx context.Context) {
-				if err := a.svc.scheduler.DrainFirings(wsCtx); err != nil {
-					a.log.Warn("bootstrap: drain firings", zap.Error(err))
-				}
 				if err := a.svc.scheduler.CheckTimeouts(wsCtx, now.UTC()); err != nil {
 					a.log.Warn("bootstrap: check timeouts", zap.Error(err))
 				}
@@ -363,28 +405,31 @@ func (a *App) drainLoop(ctx context.Context) {
 // （checkpoint SQLite WAL）。每步 best-effort 记日志，一个卡死子系统不拖垮其余。
 func (a *App) Shutdown(ctx context.Context) {
 	if a.tickStop != nil {
-		a.tickStop() // no new ticks; the drain loop returns after its current tick's Advance
+		a.tickStop() // no new firing drains → no new enqueues from the drain ticker
 	}
-	// R3 (option C): give an in-flight Advance a bounded grace to finish its CURRENT node — record-once
-	// makes a completed node durable, so the run resumes cleanly on the next boot. If the grace expires
-	// (a long node still mid-flight), cancel every in-flight Advance (drained AND manual :trigger) so it
-	// can't keep spawning subprocesses or race db.Close; the interrupted run records failed (:replay-able).
-	// R3 选项 C：给在飞 Advance 有限宽限跑完当前节点（record-once 持久化、下次 boot 干净续）；宽限超时（长节点在飞）则
-	// 取消所有在飞 Advance（drained + 手动 :trigger），免其继续 spawn 子进程或撞 db.Close；被打断的 run 记 failed、可 :replay。
+	if a.timeoutStop != nil {
+		a.timeoutStop() // no new timeout sweeps → no new enqueues from the timeout ticker
+	}
+	// R3 (option C), F174 pool: the drain/timeout tickers stop FEEDING the pool; their loops return
+	// fast (they only claim + enqueue now). Then give the in-flight POOL workers a bounded grace to
+	// finish their CURRENT node — record-once makes a completed node durable, so the run resumes cleanly
+	// next boot. If the grace expires, cancel every in-flight Advance (pooled AND manual :trigger) so it
+	// can't keep spawning subprocesses or race db.Close, then WAIT for the pool workers to exit BEFORE
+	// db.Close (StopPool's WaitGroup) — drainDone alone no longer means "all Advance done", it only means
+	// the drain ticker stopped. The interrupted run records failed (:replay-able).
+	// R3 选项 C + F174 池：drain/timeout ticker 停止**喂**池；其循环快速返回（现在只 claim+入队）。再给在飞的
+	// **池 worker** 有限宽限跑完当前节点（record-once 持久化、下次 boot 干净续）。宽限超时则取消所有在飞 Advance
+	// （池上 + 手动 :trigger），免其继续 spawn 子进程或撞 db.Close，再**等池 worker 退出**才 db.Close（StopPool 的
+	// WaitGroup）——drainDone 单独已不再表示「所有 Advance 完」、只表示 drain ticker 停了。被打断的 run 记 failed、可 :replay。
 	if a.drainDone != nil {
-		grace := time.NewTimer(drainShutdownGrace)
-		select {
-		case <-a.drainDone: // the in-flight node finished within the grace — clean
-		case <-grace.C: // grace expired
-		case <-ctx.Done(): // overall shutdown deadline
-		}
-		grace.Stop()
-		a.svc.scheduler.Shutdown() // cancel any still-in-flight Advance (grace expired, or a manual :trigger run)
-		select {
-		case <-a.drainDone: // the interrupted loop returns
-		case <-ctx.Done():
-		}
+		<-a.drainDone // drain ticker loop returned (fast — claim + enqueue only)
 	}
+	if a.timeoutDone != nil {
+		<-a.timeoutDone // timeout ticker loop returned
+	}
+	a.svc.scheduler.WaitPoolDrained(ctx, drainShutdownGrace) // bounded grace for in-flight nodes to finish cleanly
+	a.svc.scheduler.Shutdown()                               // cancel every still-in-flight Advance (pooled + manual :trigger)
+	a.svc.scheduler.StopPool()                               // close the queue + wait for workers to exit before db.Close
 	a.svc.trigger.Shutdown()
 	a.svc.chat.Shutdown()
 	a.svc.search.Close(ctx) // bounded by the shutdown ctx — a first-demand model download can't stall shutdown (R14)

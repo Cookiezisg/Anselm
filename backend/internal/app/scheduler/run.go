@@ -45,7 +45,12 @@ func (s *Service) StartRun(ctx context.Context, in StartInput) (string, error) {
 	if _, err := s.runs.CreateRunWithTrigger(ctx, run, trig); err != nil {
 		return "", fmt.Errorf("schedulerapp.StartRun: %w", err)
 	}
-	if err := s.Advance(ctx, run.ID); err != nil {
+	// Manual path: drive INLINE on this request goroutine (the per-run guard makes it the sole driver of
+	// this fresh run — the pool never touches it), so StartRun still returns only after the run reaches
+	// terminal/parked. No head-of-line blocking here: one user, one run (F174).
+	// 手动路径：在本请求 goroutine 上**内联**驱动（per-run guard 使其作为这个 fresh run 的唯一驱动者——池绝不碰
+	// 它），故 StartRun 仍跑到终态/parked 才返回。此处无 HOL：一个用户、一个 run（F174）。
+	if err := s.drive(ctx, run.ID); err != nil {
 		return run.ID, err // run exists; surface the advance error but keep the id
 	}
 	return run.ID, nil
@@ -157,19 +162,26 @@ func (s *Service) DrainFirings(ctx context.Context) error {
 		return fmt.Errorf("schedulerapp.DrainFirings: list pending: %w", err)
 	}
 	// Two phases so the overlap policy can SEE siblings: phase 1 decides + claims every firing IN ORDER
-	// (each survivor is committed as a running run before the next firing is decided); phase 2 advances
-	// the seeded runs sequentially. Deciding and advancing a firing together (the old inline path) ran
-	// firing #1's run to completion before firing #2 was even decided — so CountRunningByWorkflow always
-	// saw 0 and skip/replace/buffer_one never engaged for back-to-back fires. Splitting them lets a later
-	// sibling's overlapDecision observe the earlier sibling already in-flight. Advance stays SEQUENTIAL
-	// (no concurrent run execution → no handler-pipe / single-connection races); replace just pre-empts
-	// the earlier seeded run (cancelRunningForReplace marks it terminal) so its phase-2 Advance no-ops.
+	// (each survivor is committed as a running run before the next firing is decided); phase 2 ENQUEUES
+	// each seeded run onto the Advance worker pool. Deciding and advancing a firing together (the old
+	// inline path) ran firing #1's run to completion before firing #2 was even decided — so
+	// CountRunningByWorkflow always saw 0 and skip/replace/buffer_one never engaged for back-to-back
+	// fires. Splitting them lets a later sibling's overlapDecision observe the earlier sibling already
+	// in-flight. PHASE 1 STAYS STRICTLY SEQUENTIAL+ORDERED (its correctness depends on each survivor
+	// being committed running before the next firing is decided). Only phase 2 is parallelized: enqueue
+	// is fast (the pool drives the slow nodes off this goroutine), so a slow node can no longer
+	// head-of-line-block later firings / workspaces / the next tick / CheckTimeouts (F174). replace just
+	// pre-empts the earlier seeded run (cancelRunningForReplace marks it terminal) so its pooled Advance
+	// no-ops at the status-entry check.
 	//
 	// 两阶段使 overlap 策略能**看见**兄弟 firing：阶段 1 按序决策 + claim 每条 firing（每个存活者在下一条被决策前
-	// 已落为 running run）；阶段 2 顺序 advance 已 seed 的 run。把决策与 advance 合一（旧内联路径）会让 firing #1
-	// 的 run 在 firing #2 被决策前就跑完——故 CountRunningByWorkflow 永远见 0、skip/replace/buffer_one 对背靠背
-	// 触发从不生效。拆开使后到兄弟的 overlapDecision 能观测到先到兄弟已在途。Advance 仍**顺序**（无并发 run 执行
-	// →无 handler 管道/单连接竞争）；replace 只是抢占先 seed 的 run（cancelRunningForReplace 标其终态）使其阶段 2 Advance no-op。
+	// 已落为 running run）；阶段 2 把每个已 seed 的 run **入队**到 Advance worker 池。把决策与 advance 合一（旧
+	// 内联路径）会让 firing #1 的 run 在 firing #2 被决策前就跑完——故 CountRunningByWorkflow 永远见 0、
+	// skip/replace/buffer_one 对背靠背触发从不生效。拆开使后到兄弟的 overlapDecision 能观测到先到兄弟已在途。
+	// **阶段 1 严格顺序+有序**（其正确性依赖每个存活者在下一条被决策前已落 running）。只并行阶段 2：入队很快
+	// （池在本 goroutine 之外驱动慢节点），故慢节点再也卡不住后面的 firing / workspace / 下一 tick /
+	// CheckTimeouts（F174）。replace 只是抢占先 seed 的 run（cancelRunningForReplace 标其终态），其池上 Advance
+	// 在状态入口检查处 no-op。
 	type seeded struct {
 		runID string
 		fctx  context.Context
@@ -186,9 +198,7 @@ func (s *Service) DrainFirings(ctx context.Context) error {
 		}
 	}
 	for _, p := range pending {
-		if err := s.Advance(p.fctx, p.runID); err != nil {
-			s.log.Warn("schedulerapp: advance firing run failed", zap.String("flowrun", p.runID), zap.Error(err))
-		}
+		s.enqueueAdvance(p.fctx, p.runID) // pooled (or inline if no pool) — see pool.go
 	}
 	return nil
 }
@@ -345,9 +355,7 @@ func (s *Service) Recover(ctx context.Context) error {
 	}
 	for _, run := range running {
 		rctx := reqctxpkg.SetWorkspaceID(ctx, run.WorkspaceID)
-		if err := s.Advance(rctx, run.ID); err != nil {
-			s.log.Warn("schedulerapp: recover advance failed", zap.String("flowrun", run.ID), zap.Error(err))
-		}
+		s.enqueueAdvance(rctx, run.ID) // pooled — a slow recovered run must not block boot (F174 boot variant)
 	}
 	return nil
 }
@@ -369,7 +377,7 @@ func (s *Service) DecideApproval(ctx context.Context, flowrunID, nodeID, decisio
 	if !won {
 		return flowrundomain.ErrNodeNotParked // already decided / timed out — first-wins loser
 	}
-	return s.Advance(ctx, flowrunID)
+	return s.drive(ctx, flowrunID) // manual path — inline (this run is parked, not pool-driven; sole driver)
 }
 
 // CheckTimeouts settles parked approvals whose deadline has passed (the one durable timer). For each
@@ -430,7 +438,8 @@ func (s *Service) settleTimeout(ctx context.Context, run *flowrundomain.FlowRun,
 	if err != nil || !won {
 		return err
 	}
-	return s.Advance(ctx, p.FlowRunID)
+	s.enqueueAdvance(ctx, p.FlowRunID) // pooled — CheckTimeouts must not block on the re-driven run (F174)
+	return nil
 }
 
 // Replay fixes a failed run: clear its failed node rows (a non-result), reopen the run to running +
@@ -453,5 +462,5 @@ func (s *Service) Replay(ctx context.Context, flowrunID string) error {
 	if err := s.runs.ReopenForReplay(ctx, flowrunID); err != nil {
 		return err
 	}
-	return s.Advance(ctx, flowrunID)
+	return s.drive(ctx, flowrunID) // manual path — inline (this run was failed, not pool-driven; sole driver)
 }
