@@ -258,11 +258,11 @@ func executeTool(ctx context.Context, t toolapp.Tool, name string, argsJSON []by
 }
 
 // isUnparseableArgs reports whether argsJSON is the single-key rawArgsKey sentinel parseToolArgs
-// leaves when the LLM's tool arguments could not be decoded as JSON even after repair (no tool
-// declares a "raw" parameter, so this shape is unambiguous).
+// leaves when the LLM's tool arguments could not be decoded as JSON even after repair. rawArgsKey is a
+// reserved internal token no tool parameter can be named, so this shape is unambiguous (F165).
 //
 // isUnparseableArgs 报告 argsJSON 是否是 parseToolArgs 在 LLM 工具参数即便修复也无法解析时留下的单键
-// rawArgsKey 哨兵（无工具声明 "raw" 参数，故此形状无歧义）。
+// rawArgsKey 哨兵。rawArgsKey 是任何工具参数都不可能取的保留内部 token，故此形状无歧义（F165）。
 func isUnparseableArgs(argsJSON []byte) bool {
 	var m map[string]any
 	if json.Unmarshal(argsJSON, &m) != nil || len(m) != 1 {

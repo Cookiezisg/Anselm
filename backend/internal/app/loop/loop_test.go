@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"iter"
 	"strings"
 	"testing"
@@ -397,13 +398,21 @@ func TestParseToolArgs_RepairsDirtyJSON(t *testing.T) {
 	if _, isRaw := garbage[rawArgsKey]; !isRaw {
 		t.Fatalf("unparseable args must leave the rawArgsKey sentinel, got %v", garbage)
 	}
+	// F165: a REAL one-field tool call whose only field happens to be named "raw" (valid JSON) must NOT
+	// be mistaken for the unparseable sentinel — the old sentinel key was literally "raw", which made
+	// any tool declaring a `raw` string param permanently un-callable.
+	if isUnparseableArgs([]byte(`{"raw":"a legitimate string value"}`)) {
+		t.Fatal("a valid {\"raw\":...} call must not be detected as the unparseable-args sentinel (F165 collision)")
+	}
 }
 
 // TestExecuteTool_UnparseableArgsClearError — the rawArgsKey sentinel must yield a clear "not valid
 // JSON" message, NOT the tool's downstream validation error, and must NOT execute the tool.
 func TestExecuteTool_UnparseableArgsClearError(t *testing.T) {
 	tool := fakeTool{name: "writer", result: "SHOULD-NOT-RUN"}
-	out, errMsg, ok := executeTool(context.Background(), tool, "writer", []byte(`{"raw":"}{garbage"}`), zap.NewNop())
+	// Build the sentinel via the constant (not a hardcoded "raw" key, which F165 changed).
+	sentinel := []byte(fmt.Sprintf(`{%q:%q}`, rawArgsKey, "}{garbage"))
+	out, errMsg, ok := executeTool(context.Background(), tool, "writer", sentinel, zap.NewNop())
 	if ok {
 		t.Fatalf("unparseable args must fail, got ok=true out=%q", out)
 	}

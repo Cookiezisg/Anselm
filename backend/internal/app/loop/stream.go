@@ -375,11 +375,16 @@ func parseToolArgs(raw string) (toolapp.StandardFields, map[string]any) {
 	return fields, map[string]any{rawArgsKey: raw}
 }
 
-// rawArgsKey marks args that could not be parsed as JSON even after repair — a single-key sentinel
-// (no tool declares a "raw" parameter) that executeTool detects to report the parse failure plainly.
+// rawArgsKey marks args that could not be parsed as JSON even after repair — a single-key sentinel that
+// executeTool detects to report the parse failure plainly. The key is a reserved internal token that NO
+// tool parameter can ever be named, so a real one-field call like {"raw":"..."} (a tool that legitimately
+// declares a `raw` string param) is never mistaken for the sentinel and wrongly rejected as un-parseable
+// (F165 — the old key was literally "raw", which collided and made such tools permanently un-callable).
 //
-// rawArgsKey 标记即便修复也无法解析的 args——单键哨兵（无工具声明 "raw" 参数），executeTool 据此明确报解析失败。
-const rawArgsKey = "raw"
+// rawArgsKey 标记即便修复也无法解析的 args——单键哨兵，executeTool 据此明确报解析失败。键是保留内部 token、
+// 任何工具参数都不可能叫这个，故合法的单字段调用如 {"raw":"..."}（工具确有 `raw` 串参）绝不会被误当哨兵而被
+// 错误地当成无法解析拒掉（F165——旧键字面就是 "raw"、撞名使这类工具永久不可调）。
+const rawArgsKey = "__anselm_unparsed_args__"
 
 func sortedAccumKeys(m map[int]*toolAccum) []int {
 	keys := make([]int, 0, len(m))
