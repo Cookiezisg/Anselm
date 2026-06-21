@@ -198,6 +198,28 @@ func TestService_InvokeLoudFailsUnstructuredMultiOutput(t *testing.T) {
 	}
 }
 
+// TestCoerceDeclaredOutputs_FencedJSONWithProse — F-structured-output-fence (round-14 agentstructured):
+// the LLM commonly wraps its JSON answer in a ```json fence AFTER some prose. The old code only stripped
+// a fence at the very start, so a prose-prefixed fenced answer was rejected as AGENT_OUTPUT_NOT_STRUCTURED
+// — a probabilistic terminal failure. The fenced block is now extracted from anywhere in the answer.
+func TestCoerceDeclaredOutputs_FencedJSONWithProse(t *testing.T) {
+	fields := []schemapkg.Field{{Name: "decision", Type: schemapkg.TypeString}, {Name: "score", Type: schemapkg.TypeNumber}}
+
+	msg := "Here is my assessment:\n```json\n{\"decision\": \"approve\", \"score\": 8}\n```\nLet me know if you need more."
+	out, err := coerceDeclaredOutputs(msg, fields)
+	if err != nil || out["decision"] != "approve" {
+		t.Fatalf("prose-before-fence JSON must parse to the field map, got %#v err=%v", out, err)
+	}
+	// Bare JSON (no fence) still works.
+	if out2, err := coerceDeclaredOutputs(`{"decision":"reject","score":2}`, fields); err != nil || out2["decision"] != "reject" {
+		t.Fatalf("bare JSON must still parse, got %#v err=%v", out2, err)
+	}
+	// Pure prose (no JSON anywhere) with 2+ declared fields still fails loudly (F40).
+	if _, err := coerceDeclaredOutputs("just some words about the decision", fields); err == nil {
+		t.Fatal("pure prose with 2+ fields must still fail loudly")
+	}
+}
+
 func TestService_InvokeWithoutDepsFails(t *testing.T) {
 	svc, ctx := newSvc(t)
 	a, _, _ := svc.Create(ctx, CreateInput{Name: "x", Config: Config{Prompt: "p"}})

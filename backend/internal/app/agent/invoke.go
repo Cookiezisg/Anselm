@@ -465,18 +465,43 @@ func outputsInstruction(fields []schemapkg.Field) string {
 // 非对象时：单声明 → 裹进该名；多声明 → 报错（标量拆不进多字段、大声失败）。
 func coerceDeclaredOutputs(msg string, fields []schemapkg.Field) (map[string]any, error) {
 	s := strings.TrimSpace(msg)
-	if rest, ok := strings.CutPrefix(s, "```"); ok { // strip a ```json … ``` fence
-		if nl := strings.IndexByte(rest, '\n'); nl >= 0 {
-			rest = rest[nl+1:]
-		}
-		s = strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(rest), "```"))
+	// Extract a ```json … ``` (or ``` … ```) fenced block from ANYWHERE in the answer — the LLM
+	// commonly precedes its JSON with prose ("Here is the result:\n```json\n{…}\n```"). Stripping a
+	// fence only at the very START (the old behavior) rejected that natural shape as
+	// AGENT_OUTPUT_NOT_STRUCTURED — a probabilistic terminal failure since the model fences ~half the
+	// time (F-structured-output-fence). No fence → try the whole answer as-is.
+	// 从答案**任意位置**抽 ```json … ``` 围栏块——LLM 常在 JSON 前带散文。原先只剥**开头**的围栏，于是把这种
+	// 自然形状当 AGENT_OUTPUT_NOT_STRUCTURED 拒（模型约一半时间带围栏，故是概率性终态失败）。无围栏→整答原样试。
+	if fenced, ok := extractFencedBlock(s); ok {
+		s = fenced
 	}
 	var obj map[string]any
 	if err := json.Unmarshal([]byte(jsonrepairpkg.Repair(s)), &obj); err == nil {
 		return obj, nil
 	}
 	if len(fields) == 1 {
-		return map[string]any{fields[0].Name: s}, nil
+		return map[string]any{fields[0].Name: strings.TrimSpace(msg)}, nil
 	}
 	return nil, agentdomain.ErrOutputNotStructured
+}
+
+// extractFencedBlock returns the content of the first ``` … ``` fenced block in s (skipping an
+// optional language tag like "json" on the opening line), and whether one was found. Lets a JSON
+// answer be recovered even when the model wraps it in a fence after some prose.
+//
+// extractFencedBlock 返回 s 中第一个 ``` … ``` 围栏块的内容（跳过开围栏行上可选的语言标签如 "json"），及是否找到。
+func extractFencedBlock(s string) (string, bool) {
+	open := strings.Index(s, "```")
+	if open < 0 {
+		return "", false
+	}
+	rest := s[open+3:]
+	if nl := strings.IndexByte(rest, '\n'); nl >= 0 {
+		rest = rest[nl+1:] // drop the optional ```json language-tag line
+	}
+	end := strings.Index(rest, "```")
+	if end < 0 {
+		return "", false // unterminated fence — not a clean block
+	}
+	return strings.TrimSpace(rest[:end]), true
 }
