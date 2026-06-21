@@ -103,9 +103,10 @@ func NewService(conv ConversationStarter, chat TurnSender, renderer ExecutionRen
 const iterateSteer = "You are helping the user iterate on the Anselm entity they have @-mentioned " +
 	"in the message below — its current definition is attached to that mention. Read it, briefly " +
 	"explain your plan, then call the matching edit_* tool (edit_function / edit_handler / edit_agent " +
-	"/ edit_workflow / edit_document) with that entity's id to produce a pending version the user will " +
-	"review. Do NOT call any create_* tool, and do NOT modify any other entity. After the edit " +
-	"succeeds, summarize what changed."
+	"/ edit_workflow / edit_document) with that entity's id. The edit takes effect IMMEDIATELY as a new " +
+	"active version — there is no pending/review gate; if it is wrong the user reverts it (revert_*). So " +
+	"make the change correct, not provisional. Do NOT call any create_* tool, and do NOT modify any " +
+	"other entity. After the edit succeeds, summarize what changed."
 
 // triageSteer is the one generic instruction for every triage flow — the rendered execution record
 // is appended after it.
@@ -115,8 +116,10 @@ const triageSteer = "You are helping the user diagnose a Anselm execution. The e
 	"below. Analyze what happened — which step or call went wrong, what any error means, whether " +
 	"inputs and outputs line up. Use the read/search tools to dig into the underlying function / " +
 	"handler / agent / workflow if you need more context. Explain the root cause in plain language. " +
-	"If you can propose a fix, call the matching edit_* tool to produce a pending version (the user " +
-	"reviews and retries manually). Do NOT auto-rerun anything; do NOT create new entities."
+	"If you can fix it, call the matching edit_* tool — the edit takes effect IMMEDIATELY as a new " +
+	"active version (there is no pending/review gate; the user reverts it with revert_* if needed). " +
+	"Note this goes LIVE: editing an ACTIVE workflow changes the running graph at once. State the fix " +
+	"and that it is now live in your summary. Do NOT auto-rerun anything; do NOT create new entities."
 
 // Iterate opens an AI working conversation to edit one entity: the entity is @-mentioned into the
 // first message (its current definition frozen in by the mention resolver) and the LLM is steered
