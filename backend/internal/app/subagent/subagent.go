@@ -17,6 +17,7 @@ package subagent
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -29,6 +30,7 @@ import (
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 	agentstatepkg "github.com/sunweilin/anselm/backend/internal/pkg/agentstate"
 	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
+	limitspkg "github.com/sunweilin/anselm/backend/internal/pkg/limits"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
@@ -190,7 +192,23 @@ func (s *Service) Spawn(ctx context.Context, agentType, prompt string) (string, 
 	req := bundle.Request
 	req.System = host.systemPrompt
 
-	result := loopapp.Run(subCtx, host, bundle.Client, req, typ.DefaultMaxTurns, s.log)
+	// Own whole-run wall clock (F152). Unlike chat (processTask's ChatTurnSec) and agent invoke
+	// (runLoop's AgentInvokeSec), Spawn calls loop.Run DIRECTLY — loop.Run has no time bound of its
+	// own (only maxSteps + the provider's per-stream cap), so without this the subagent is bounded
+	// ONLY by inheriting the parent chat turn's deadline. We reuse ChatTurnSec (same budget the parent
+	// already grants), so the common path sees no change; the explicit bound is defense-in-depth that
+	// keeps a subagent finite even if a future path (scheduler/fork) reaches Spawn without a parent
+	// turn deadline. A timed-out run finalizes cancelled and annotateTerminal surfaces the cutoff.
+	//
+	// 自有整运行墙钟（F152）。不同于 chat（processTask 的 ChatTurnSec）和 agent invoke（runLoop 的
+	// AgentInvokeSec），Spawn **直接**调 loop.Run——loop.Run 自身无时间界（只 maxSteps + provider 单流
+	// cap），故没这道时 subagent 仅靠继承父 chat 回合 deadline 兜。复用 ChatTurnSec（父本就给的预算）故
+	// 常规路径零变化；显式界是防御纵深，使未来从无父回合 deadline 的路径（scheduler/fork）到达 Spawn 时
+	// subagent 仍有限。超时 run 收尾为 cancelled，annotateTerminal 浮出截断。
+	runCtx, cancel := context.WithTimeout(subCtx, time.Duration(limitspkg.Current().Timeout.ChatTurnSec)*time.Second)
+	defer cancel()
+
+	result := loopapp.Run(runCtx, host, bundle.Client, req, typ.DefaultMaxTurns, s.log)
 	return annotateTerminal(result), nil
 }
 

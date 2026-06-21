@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	_ "github.com/glebarez/go-sqlite"
 	"go.uber.org/zap"
@@ -17,6 +18,7 @@ import (
 	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 	messagesstore "github.com/sunweilin/anselm/backend/internal/infra/store/messages"
+	limitspkg "github.com/sunweilin/anselm/backend/internal/pkg/limits"
 	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
@@ -200,3 +202,58 @@ func names(tools []toolapp.Tool) []string {
 }
 
 func has(ss []string, s string) bool { return slices.Contains(ss, s) }
+
+// blockingClient blocks its stream on ctx until the subagent's wall clock cancels it, then emits the
+// cancel-shaped EventError a dead/half-open connection would — the "never finishes on its own" shape.
+type blockingClient struct{}
+
+func (c *blockingClient) Stream(ctx context.Context, _ llminfra.Request) iter.Seq[llminfra.StreamEvent] {
+	return func(yield func(llminfra.StreamEvent) bool) {
+		<-ctx.Done()
+		yield(llminfra.StreamEvent{Type: llminfra.EventError, Err: ctx.Err()})
+	}
+}
+
+// TestSpawn_WallClockTimeout pins F152 step A: Spawn calls loop.Run directly (not via InvokeAgent or
+// processTask), so it owns a whole-run wall clock (reusing ChatTurnSec). A subagent whose stream never
+// returns is cut off by that deadline — finite, recorded cancelled, annotated for the parent — instead
+// of running until it happens to inherit a parent deadline (or, on a future no-parent-deadline path,
+// forever). Deterministic: a never-returning fake stream + a 1s cap; no real 35min run.
+func TestSpawn_WallClockTimeout(t *testing.T) {
+	limitspkg.SetProvider(func() limitspkg.Limits {
+		l := limitspkg.Default()
+		l.Timeout.ChatTurnSec = 1 // shrink the subagent's own wall clock to 1s
+		return l
+	})
+	defer limitspkg.SetProvider(limitspkg.Default)
+
+	store := newStore(t)
+	svc := NewService(Deps{
+		Messages: store,
+		Resolver: fakeResolver{client: &blockingClient{}},
+		Tools:    fakeTools{tools: []toolapp.Tool{fakeTool{"Read"}}},
+	}, zap.NewNop())
+	ctx := reqctxpkg.SetConversationID(ctxWS("ws_1"), "cv_1")
+	ctx = reqctxpkg.SetToolCallID(ctx, "blk_tc")
+
+	start := time.Now()
+	result, err := svc.Spawn(ctx, "Explore", "do work forever")
+	elapsed := time.Since(start)
+	if err != nil {
+		t.Fatalf("Spawn: %v", err)
+	}
+	if elapsed > 20*time.Second { // generous CI bound; the 1s cap should cut it off near-instantly
+		t.Fatalf("subagent wall clock did not cut off a never-returning stream: ran %s", elapsed)
+	}
+	if !strings.Contains(result, "did not finish cleanly") {
+		t.Fatalf("a timed-out subagent must annotate the cutoff for the parent (F150/F152), got %q", result)
+	}
+	// the sub-message persists as a non-completed terminal (the cancel shape), never stuck streaming.
+	thread, err := store.LoadThread(ctx, "cv_1")
+	if err != nil || len(thread) != 1 {
+		t.Fatalf("LoadThread: %v (%d msgs)", err, len(thread))
+	}
+	if st := thread[0].Status; st == messagesdomain.StatusCompleted || st == messagesdomain.StatusStreaming {
+		t.Fatalf("a timed-out subagent sub-message must be a cancel/error terminal, got %q", st)
+	}
+}
