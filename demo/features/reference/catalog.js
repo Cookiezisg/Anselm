@@ -1090,6 +1090,43 @@ window.REF_CATALOG = [
         ]
       },
       {
+        "name": "卡片 card",
+        "tag": "an-card",
+        "blurb": "通用卡片容器（「有边」对偶 info-card「无边」）：inset 描边+r-chip+island 底，内容走默认 slot。variant=accent · row 横向 · selectable[+selected] 可选(点派 an-card-select) · pad=tight。收口 settings/MCP/onboarding 8 处 bespoke 卡皮肤。",
+        "specimens": [
+          { "label": "默认（有边·列）", "tag": "an-card", "span": true, "children": [ { "tag": "an-kv", "props": { "rows": [ ["状态", "就绪"], ["工具", "28"] ] } } ] },
+          { "label": "row 横向（icon+内容+尾）", "tag": "an-card", "span": true, "attrs": { "row": "" }, "children": [ { "tag": "an-brand-icon", "attrs": { "glyph": "An" } }, { "tag": "an-badge", "attrs": { "tone": "neutral" }, "text": "Anthropic · 个人 key" }, { "tag": "an-button", "attrs": { "variant": "icon", "size": "sm", "icon": "more" } } ] },
+          { "label": "accent 描边（编辑/聚焦态）", "tag": "an-card", "attrs": { "variant": "accent" }, "children": [ "accent 卡 · 建 key 配置态" ] },
+          { "label": "selectable（hover 出边）", "tag": "an-card", "attrs": { "selectable": "" }, "children": [ "可选卡" ] },
+          { "label": "selected（accent 选中边）", "tag": "an-card", "attrs": { "selectable": "", "selected": "" }, "children": [ "选中卡" ] },
+          { "label": "pad=tight 紧凑", "tag": "an-card", "attrs": { "pad": "tight" }, "children": [ "紧凑内距卡" ] }
+        ]
+      },
+      {
+        "name": "品牌图标 brand-icon",
+        "tag": "an-brand-icon",
+        "blurb": "品牌/项目图标单源：src 图(头像 cover+底) | svg 内联(logo 去底随 ink) | glyph 字母兜底(灰底)。size sm/md/lg · managed→accent。收口 4 处自绘图标框 + brandIcoHtml 串重抄。",
+        "specimens": [
+          { "label": "src 图（MCP 头像）", "tag": "an-brand-icon", "center": true, "attrs": { "src": "https://avatars.githubusercontent.com/u/9919?v=4" } },
+          { "label": "svg logo（随 ink）", "tag": "an-brand-icon", "center": true, "props": { "svg": (window.BRAND || {}).openai || "" } },
+          { "label": "glyph 字母", "tag": "an-brand-icon", "center": true, "attrs": { "glyph": "An" } },
+          { "label": "managed（accent 火花）", "tag": "an-brand-icon", "center": true, "attrs": { "glyph": "✦", "managed": "" } },
+          { "label": "size=sm", "tag": "an-brand-icon", "center": true, "attrs": { "glyph": "S", "size": "sm" } },
+          { "label": "size=lg（欢迎屏）", "tag": "an-brand-icon", "center": true, "attrs": { "glyph": "L", "size": "lg" } }
+        ]
+      },
+      {
+        "name": "步骤点 stepper",
+        "tag": "an-stepper",
+        "blurb": "向导步骤进度点：count 个点，active(1-based)=accent 胶囊、<active=done 灰点、>active=待激活。收口 onboarding .ob-dots/dots()。",
+        "specimens": [
+          { "label": "1 / 3", "tag": "an-stepper", "center": true, "attrs": { "count": "3", "active": "1" } },
+          { "label": "2 / 3", "tag": "an-stepper", "center": true, "attrs": { "count": "3", "active": "2" } },
+          { "label": "3 / 3（末步）", "tag": "an-stepper", "center": true, "attrs": { "count": "3", "active": "3" } },
+          { "label": "count=5 · active=3", "tag": "an-stepper", "center": true, "attrs": { "count": "5", "active": "3" } }
+        ]
+      },
+      {
         "name": "信息卡 info-card",
         "tag": "an-info-card",
         "blurb": "无边信息单元：head（icon+title+meta）按需出现，body 走默认 slot，动作走 slot=actions",
