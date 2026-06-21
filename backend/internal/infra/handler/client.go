@@ -44,17 +44,17 @@ var (
 	ErrProtocol        = errorspkg.New(errorspkg.KindBadGateway, "HANDLER_CLIENT_PROTOCOL", "handler.Client: protocol error")
 )
 
-// callFailedErr builds the HANDLER_CLIENT_CALL_FAILED error for a method that raised, carrying the
-// Python error + traceback in DETAILS (not the fmt-wrap): the LLM error surface (errorspkg.Surface via
+// pyErr builds a handler client error for a method or __init__ that raised, carrying the Python error +
+// traceback in DETAILS (not the fmt-wrap): the LLM error surface (errorspkg.Surface via
 // llmErrText/nodeErrText) renders Message+Details but STRIPS the fmt.Errorf wrap chain (F89/F104/F122,
-// anti-Go-path-leak) — which is where the traceback used to ride, leaving an opaque "handler.Client:
-// call failed" on every agent/flowrun path and defeating §4's "method exceptions bubble up raw for
+// anti-Go-path-leak) — which is where the traceback used to ride, leaving an opaque "call failed" /
+// "init failed" on every agent/flowrun path and defeating §4's "method exceptions bubble up raw for
 // self-correction". WithCause keeps the .Error() breadcrumb the audit (recordCall persists err.Error()) needs.
 //
-// callFailedErr 为 raise 的方法构造 HANDLER_CLIENT_CALL_FAILED：把 Python 错误+traceback 放进 DETAILS（非
-// fmt 包裹）——LLM 错误面渲 Message+Details 但剥 fmt 包裹链（F89/F104/F122 防 Go 路径泄露），traceback 原本
-// 就藏那链里、于是每条 agent/flowrun 路径只剩不透明 "call failed"，违 §4「方法异常原样冒泡供自纠」。WithCause 保审计 .Error()。
-func callFailedErr(errStr, trace string) error {
+// pyErr 为 raise 的方法或 __init__ 构造 handler client 错误：把 Python 错误+traceback 放进 DETAILS（非 fmt
+// 包裹）——LLM 错误面渲 Message+Details 但剥 fmt 包裹链（F89/F104/F122 防 Go 路径泄露），traceback 原本就藏那
+// 链里、于是每条 agent/flowrun 路径只剩不透明 "call failed"/"init failed"，违 §4。WithCause 保审计 .Error()。
+func pyErr(sentinel *errorspkg.Error, errStr, trace string) error {
 	details := map[string]any{}
 	if errStr != "" {
 		details["error"] = errStr
@@ -62,7 +62,7 @@ func callFailedErr(errStr, trace string) error {
 	if trace != "" {
 		details["traceback"] = trace
 	}
-	e := ErrCallFailed
+	e := sentinel
 	if len(details) > 0 {
 		e = e.WithDetails(details)
 	}
@@ -130,7 +130,7 @@ func (c *stdioClient) Init(ctx context.Context, args map[string]any) error {
 	case MsgInitError:
 		errStr, _ := msg["error"].(string)
 		trace, _ := msg["trace"].(string)
-		return fmt.Errorf("%w: %s\n%s", ErrInitFailed, errStr, trace)
+		return pyErr(ErrInitFailed, errStr, trace)
 	default:
 		return c.fail(fmt.Errorf("%w: expected ready/init_error after init, got %q", ErrProtocol, msg["type"]))
 	}
@@ -181,7 +181,7 @@ func (c *stdioClient) doCall(ctx context.Context, method string, args map[string
 			}
 			errStr, _ := msg["error"].(string)
 			trace, _ := msg["trace"].(string)
-			return nil, callFailedErr(errStr, trace)
+			return nil, pyErr(ErrCallFailed, errStr, trace)
 		default:
 			return nil, c.fail(fmt.Errorf("%w: unexpected message type %q during call", ErrProtocol, msg["type"]))
 		}
