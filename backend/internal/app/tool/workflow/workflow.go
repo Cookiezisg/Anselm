@@ -57,7 +57,8 @@ const opsDoc = `OP SHAPES (each has an "op" discriminator):
   {"op":"set_meta", "name":"snake_case", "description":"one line", "tags":["..."], "concurrency":"serial|skip|buffer_one|replace|allow_all"}
       // concurrency = overlap policy when a fire arrives while a run is in flight: serial (queue the new one, run after the current), skip (drop the new one), buffer_one (queue but keep only the LATEST — older waiting fires are superseded), replace (gracefully cancel the in-flight run and run the new one instead), allow_all (run concurrently). Default serial.
   {"op":"add_node", "node":{"id":"<graphLocalId>", "kind":"trigger|action|agent|control|approval", "ref":"<entityRef>", "input":{"<field>":"<bareCEL>"}}}
-  {"op":"update_node", "id":"<nodeId>", "patch":{...partial node fields, merged...}}
+  {"op":"update_node", "id":"<nodeId>", "patch":{...partial node fields...}}
+      // patch merges at the TOP LEVEL ONLY: an object field you include (notably "input") REPLACES the whole prior object, it is NOT deep-merged. So to change one input field, resend ALL of the node's input keys in the patch — otherwise the omitted ones are dropped (and a now-unwired declared input fails capability_check / runtime).
   {"op":"delete_node", "id":"<nodeId>"}   // cascades: its edges are removed too
   {"op":"add_edge", "edge":{"id":"<edgeId>", "from":"<nodeId>", "to":"<nodeId>", "fromPort":"<branch>"}}
   {"op":"update_edge", "id":"<edgeId>", "patch":{...}}
