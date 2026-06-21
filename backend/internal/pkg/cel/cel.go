@@ -56,11 +56,11 @@ type Program struct {
 func Compile(expr string) (*Program, error) {
 	ast, iss := env.Compile(expr)
 	if iss != nil && iss.Err() != nil {
-		return nil, fmt.Errorf("cel.Compile %q: %w", expr, iss.Err())
+		return nil, fmt.Errorf("invalid CEL expression %q: %w", expr, iss.Err())
 	}
 	prg, err := env.Program(ast)
 	if err != nil {
-		return nil, fmt.Errorf("cel.Compile %q: program: %w", expr, err)
+		return nil, fmt.Errorf("invalid CEL expression %q: %w", expr, err)
 	}
 	return &Program{prg: prg, src: expr}, nil
 }
@@ -85,15 +85,15 @@ func CompileFor(roots []string, expr string) (*Program, error) {
 	}
 	e, err := celgo.NewEnv(opts...)
 	if err != nil {
-		return nil, fmt.Errorf("cel.CompileFor %v: %w", roots, err)
+		return nil, fmt.Errorf("CEL scope build for %v: %w", roots, err)
 	}
 	ast, iss := e.Compile(expr)
 	if iss != nil && iss.Err() != nil {
-		return nil, fmt.Errorf("cel.Compile %q: %w", expr, iss.Err())
+		return nil, fmt.Errorf("invalid CEL expression %q: %w", expr, iss.Err())
 	}
 	prg, err := e.Program(ast)
 	if err != nil {
-		return nil, fmt.Errorf("cel.Compile %q: program: %w", expr, err)
+		return nil, fmt.Errorf("invalid CEL expression %q: %w", expr, err)
 	}
 	return &Program{prg: prg, src: expr}, nil
 }
@@ -138,11 +138,11 @@ func NewScopedEnv(roots []string) (*ScopedEnv, error) {
 func (s *ScopedEnv) Compile(expr string) (*Program, error) {
 	ast, iss := s.env.Compile(expr)
 	if iss != nil && iss.Err() != nil {
-		return nil, fmt.Errorf("cel.Compile %q: %w", expr, iss.Err())
+		return nil, fmt.Errorf("invalid CEL expression %q: %w", expr, iss.Err())
 	}
 	prg, err := s.env.Program(ast)
 	if err != nil {
-		return nil, fmt.Errorf("cel.Compile %q: program: %w", expr, err)
+		return nil, fmt.Errorf("invalid CEL expression %q: %w", expr, err)
 	}
 	return &Program{prg: prg, src: expr}, nil
 }

@@ -9,6 +9,26 @@ import (
 // root variables (no auto-ctx), so author-time validation of a context-restricted entity CEL
 // (control/approval read input only; sensor reads payload only) rejects a wrong-namespace ref at
 // create/edit instead of letting the permissive package env accept it and fail at runtime.
+// TestCompile_ErrorNoGoPathLeak — F159 (M7): an author-time CEL compile error must surface the cel-go
+// diagnostic under a USER-meaningful prefix, never the Go call-path breadcrumb "cel.Compile" /
+// "cel.CompileFor" / "cel.CompileTemplate" (which the LLM-facing error surface passes through verbatim).
+func TestCompile_ErrorNoGoPathLeak(t *testing.T) {
+	_, err := Compile("undeclared_ref.field +")
+	if err == nil {
+		t.Fatal("a malformed expr must fail to compile")
+	}
+	if strings.Contains(err.Error(), "cel.Compile") {
+		t.Fatalf("compile error leaks the Go call-path breadcrumb 'cel.Compile': %q", err)
+	}
+	if !strings.Contains(err.Error(), "CEL") {
+		t.Fatalf("compile error should name CEL in user terms, got %q", err)
+	}
+	// CompileFor (the author-time scoped variant) must not leak its breadcrumb either.
+	if _, err := CompileFor([]string{"input"}, "payload.x"); err == nil || strings.Contains(err.Error(), "cel.Compile") {
+		t.Fatalf("scoped compile error must fail without a 'cel.Compile' breadcrumb, got %v", err)
+	}
+}
+
 func TestCompileFor(t *testing.T) {
 	ok := []struct {
 		roots []string

@@ -236,7 +236,14 @@ func (s *Service) recordCall(ctx context.Context, h *handlerdomain.Handler, inst
 	errMsg := ""
 	if callErr != nil {
 		status = handlerdomain.CallStatusFailed
-		errMsg = callErr.Error()
+		// Persist the CLEAN surfaced message (Message + Details, e.g. the Python traceback), NOT the raw
+		// .Error() chain — which leaks Go-layer breadcrumbs ("handler.Client:", "context deadline
+		// exceeded") into the durable record that get_handler_call / REST / the LLM read back, while the
+		// live LLM error surface already strips them via Surface. Now the record matches (F159).
+		// 持久化**清洗后**的消息（Message + Details，如 Python traceback），而非裸 .Error() 链——后者把 Go 层面包屑
+		// （"handler.Client:"、"context deadline exceeded"）漏进 get_handler_call/REST/LLM 读回的耐久记录，而实时
+		// LLM 错误面已用 Surface 剥掉。现记录与之一致（F159）。
+		errMsg = errorspkg.Surface(callErr)
 		if errors.Is(runCtxErr, context.DeadlineExceeded) {
 			status = handlerdomain.CallStatusTimeout
 		} else if errors.Is(runCtxErr, context.Canceled) {

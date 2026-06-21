@@ -67,12 +67,12 @@ func compileTemplate(tmpl string, compile func(string) (*Program, error)) (*Temp
 		rest = rest[open+2:]
 		end := strings.Index(rest, "}}")
 		if end < 0 {
-			return nil, fmt.Errorf("cel.CompileTemplate %q: unterminated {{", tmpl)
+			return nil, fmt.Errorf("invalid CEL template %q: unterminated {{", tmpl)
 		}
 		expr := strings.TrimSpace(rest[:end])
 		prog, err := compile(expr)
 		if err != nil {
-			return nil, fmt.Errorf("cel.CompileTemplate: %w", err)
+			return nil, fmt.Errorf("invalid CEL template: %w", err)
 		}
 		t.parts = append(t.parts, tmplPart{prog: prog})
 		rest = rest[end+2:]
