@@ -14,6 +14,7 @@ import (
 	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
+	jsonrepairpkg "github.com/sunweilin/anselm/backend/internal/pkg/jsonrepair"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
@@ -345,21 +346,40 @@ func collectToolCalls(accums map[int]*toolAccum) []messagesdomain.ToolCallData {
 	return calls
 }
 
-// parseToolArgs strips the 3 standard fields, surfacing malformed JSON as args["raw"] so a
-// botched call still reaches the tool (which reports the real validation error).
+// parseToolArgs strips the 3 standard fields and decodes the rest. Dirty LLM JSON (trailing commas,
+// single quotes, unquoted keys) is repaired before giving up — recovering here hands the tool its REAL
+// fields instead of the rawArgsKey sentinel, which would otherwise make the tool emit a misleading
+// "field X required" error (e.g. "ops is required") that misdirects the agent from the actual problem
+// (the JSON didn't parse). Only genuinely-unparseable args fall through to the sentinel, which
+// executeTool turns into a clear "not valid JSON" message (F-toolargs-opacity).
 //
-// parseToolArgs 剥 3 个标准字段；JSON 坏时原文塞 args["raw"]，使畸形调用仍抵达工具（由工具报真校验错）。
+// parseToolArgs 剥 3 个标准字段再解码。脏 LLM JSON（尾逗号/单引号/裸键）先 jsonrepair 再放弃——在此恢复
+// 使工具拿到**真字段**、而非 rawArgsKey 哨兵（否则工具报误导的 "field X required"，如 "ops is required"，
+// 把 agent 从真问题（JSON 没解析）引开）。只有真正无法解析的才落到哨兵，由 executeTool 转成清晰的
+// "not valid JSON" 消息。
 func parseToolArgs(raw string) (toolapp.StandardFields, map[string]any) {
 	if raw == "" {
 		return toolapp.StandardFields{Danger: toolapp.DangerSafe}, map[string]any{}
 	}
 	fields, stripped := toolapp.StripStandardFields(raw)
 	var args map[string]any
-	if err := json.Unmarshal([]byte(stripped), &args); err != nil || args == nil {
-		return fields, map[string]any{"raw": raw}
+	if err := json.Unmarshal([]byte(stripped), &args); err == nil && args != nil {
+		return fields, args
 	}
-	return fields, args
+	if repaired := jsonrepairpkg.Repair(stripped); repaired != stripped {
+		var rargs map[string]any
+		if json.Unmarshal([]byte(repaired), &rargs) == nil && rargs != nil {
+			return fields, rargs
+		}
+	}
+	return fields, map[string]any{rawArgsKey: raw}
 }
+
+// rawArgsKey marks args that could not be parsed as JSON even after repair — a single-key sentinel
+// (no tool declares a "raw" parameter) that executeTool detects to report the parse failure plainly.
+//
+// rawArgsKey 标记即便修复也无法解析的 args——单键哨兵（无工具声明 "raw" 参数），executeTool 据此明确报解析失败。
+const rawArgsKey = "raw"
 
 func sortedAccumKeys(m map[int]*toolAccum) []int {
 	keys := make([]int, 0, len(m))

@@ -379,6 +379,42 @@ func TestExecuteTool_NotFound(t *testing.T) {
 	}
 }
 
+// TestParseToolArgs_RepairsDirtyJSON — F-toolargs-opacity: dirty LLM JSON (trailing comma) is repaired
+// so the tool gets its REAL fields, not the rawArgsKey sentinel that would trigger a misleading
+// "field X required". Genuinely-unparseable args fall through to the sentinel.
+func TestParseToolArgs_RepairsDirtyJSON(t *testing.T) {
+	// A literal control char (unescaped newline) inside a string — invalid JSON, the most common LLM
+	// failure mode; jsonrepair escapes it so the real fields decode.
+	_, args := parseToolArgs("{\"code\":\"line1\nline2\"}")
+	if _, isRaw := args[rawArgsKey]; isRaw {
+		t.Fatalf("dirty-but-repairable JSON must decode to real fields, got sentinel: %v", args)
+	}
+	if _, ok := args["code"]; !ok {
+		t.Fatalf("repaired args must carry the real 'code' field, got %v", args)
+	}
+	// Genuinely-unparseable garbage falls through to the sentinel.
+	_, garbage := parseToolArgs(`}{not json at all`)
+	if _, isRaw := garbage[rawArgsKey]; !isRaw {
+		t.Fatalf("unparseable args must leave the rawArgsKey sentinel, got %v", garbage)
+	}
+}
+
+// TestExecuteTool_UnparseableArgsClearError — the rawArgsKey sentinel must yield a clear "not valid
+// JSON" message, NOT the tool's downstream validation error, and must NOT execute the tool.
+func TestExecuteTool_UnparseableArgsClearError(t *testing.T) {
+	tool := fakeTool{name: "writer", result: "SHOULD-NOT-RUN"}
+	out, errMsg, ok := executeTool(context.Background(), tool, "writer", []byte(`{"raw":"}{garbage"}`), zap.NewNop())
+	if ok {
+		t.Fatalf("unparseable args must fail, got ok=true out=%q", out)
+	}
+	if !strings.Contains(out, "not valid JSON") || errMsg == "" {
+		t.Fatalf("unparseable args must surface a clear JSON error, got out=%q errMsg=%q", out, errMsg)
+	}
+	if strings.Contains(out, "SHOULD-NOT-RUN") {
+		t.Fatal("the tool must NOT execute on unparseable args")
+	}
+}
+
 // --- stream assembly + danger ---------------------------------------------
 
 func TestStreamLLM_AssemblesBlocksAndDanger(t *testing.T) {

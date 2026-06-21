@@ -230,6 +230,16 @@ func executeTool(ctx context.Context, t toolapp.Tool, name string, argsJSON []by
 		return msg, msg, false
 	}
 
+	// The args couldn't be parsed as JSON even after repair (parseToolArgs left the rawArgsKey
+	// sentinel) — say THAT plainly, not the tool's downstream "field X required" which misdirects the
+	// agent from the real problem (its JSON was malformed) (F-toolargs-opacity).
+	// 即便修复也无法解析成 JSON（parseToolArgs 留下 rawArgsKey 哨兵）——直说，而非工具下游的 "field X
+	// required"（把 agent 从真问题=JSON 畸形引开）。
+	if isUnparseableArgs(argsJSON) {
+		msg := "your tool arguments were not valid JSON — re-send the call with a single well-formed JSON object"
+		return msg, msg, false
+	}
+
 	if err := t.ValidateInput(argsJSON); err != nil {
 		log.Warn("tool validate failed", zap.String("tool", name), zap.Error(err))
 		return "input validation failed: " + llmErrText(err), err.Error(), false
@@ -245,6 +255,21 @@ func executeTool(ctx context.Context, t toolapp.Tool, name string, argsJSON []by
 		return llmErrText(err), err.Error(), false
 	}
 	return output, "", true
+}
+
+// isUnparseableArgs reports whether argsJSON is the single-key rawArgsKey sentinel parseToolArgs
+// leaves when the LLM's tool arguments could not be decoded as JSON even after repair (no tool
+// declares a "raw" parameter, so this shape is unambiguous).
+//
+// isUnparseableArgs 报告 argsJSON 是否是 parseToolArgs 在 LLM 工具参数即便修复也无法解析时留下的单键
+// rawArgsKey 哨兵（无工具声明 "raw" 参数，故此形状无歧义）。
+func isUnparseableArgs(argsJSON []byte) bool {
+	var m map[string]any
+	if json.Unmarshal(argsJSON, &m) != nil || len(m) != 1 {
+		return false
+	}
+	_, ok := m[rawArgsKey].(string)
+	return ok
 }
 
 // llmErrText renders an error for the LLM: the message PLUS any structured Details a tool/domain
