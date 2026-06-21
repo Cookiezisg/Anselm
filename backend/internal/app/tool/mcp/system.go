@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	mcpapp "github.com/sunweilin/anselm/backend/internal/app/mcp"
@@ -22,7 +23,7 @@ type ListMarketplace struct{ svc *mcpapp.Service }
 
 func (t *ListMarketplace) Name() string { return "list_mcp_marketplace" }
 func (t *ListMarketplace) Parameters() json.RawMessage {
-	return json.RawMessage(`{"type":"object","properties":{"query":{"type":"string","description":"Optional case-insensitive capability filter on server name + description. Multiple words are AND-matched (each word must appear, in any position) — so \"database query\" or \"send notification\" narrow correctly; you don't need a single contiguous substring. STRONGLY prefer it when you want a specific capability — the catalog is large and an unfiltered list dumps every server. Omit to browse everything."}}}`)
+	return json.RawMessage(`{"type":"object","properties":{"query":{"type":"string","description":"Optional case-insensitive capability filter on server name + description. Multiple words are matched independently and the results are RANKED by how many of your words a server matches — a server matching ALL your words ranks first, but servers matching only some still appear (so \"fetch web page\" won't return empty just because no server contains all three words). Phrase it as a capability (\"send notification\", \"database query\"). STRONGLY prefer it when you want a specific capability — the catalog is large and an unfiltered list dumps every server. Omit to browse everything."}}}`)
 }
 func (t *ListMarketplace) ValidateInput(json.RawMessage) error { return nil }
 func (t *ListMarketplace) Description() string {
@@ -70,21 +71,29 @@ func (t *ListMarketplace) Execute(ctx context.Context, argsJSON string) (string,
 // filterMarketViews 把可装 registry 条目转成 view，隐去不可装的（Plan ok=false）；q（已小写）非空时
 // 再隐去 name+description 缺任一查询词（按空白切、逐词 AND）的。纯函数，使能力过滤无需 live registry 即可单测。
 func filterMarketViews(entries []mcpdomain.RegistryEntry, q string) []marketView {
-	// Whitespace-split so a natural multi-word capability query ("database query", "send notification")
-	// AND-matches each word independently. A single Contains over the raw query required the words to
-	// appear as one contiguous substring — which silently returned 0 for the way an LLM phrases intent
-	// (F91-multiword). Empty query → no tokens → matches everything.
-	// 按空白切词，使自然的多词能力查询逐词 AND 匹配。原先对整串单次 Contains 要求词连续出现、对 LLM 表达
-	// 意图的方式静默返 0。空查询→无 token→全匹配。
+	// Whitespace-split + OR-match RANKED BY MATCH COUNT: a server matching MORE query words ranks
+	// higher, and any server matching ≥1 word is included. AND-of-all-tokens (F91) was too strict —
+	// a natural capability phrase ("fetch web page", "send notification") has a word no server's
+	// name+description literally contains, so AND silently returned 0 (F113-andtoostrict). OR-ranked
+	// keeps the all-words match on top while still surfacing the relevant partial matches. Empty
+	// query → no tokens → all servers, registry order.
+	// 按空白切词 + OR 匹配、**按命中词数排序**：命中更多查询词的 server 排更前、命中 ≥1 词的都纳入。AND（F91）
+	// 太严——自然能力短语总有某词不在任何 server 的 name+description 里、AND 静默返 0。OR-排序让全词命中仍居顶、
+	// 同时浮出相关的部分命中。空查询→无 token→全部 server、registry 序。
 	tokens := strings.Fields(q)
-	views := make([]marketView, 0, len(entries))
+	type scoredView struct {
+		view  marketView
+		score int
+	}
+	scored := make([]scoredView, 0, len(entries))
 	for _, e := range entries {
 		plan, ok := e.Plan()
 		if !ok {
 			continue // unsupported runtime + no remote → can't install, hide it
 		}
-		if !matchesAllTokens(e.Name, e.Description, tokens) {
-			continue // capability filter: skip servers whose name+description miss any query word
+		score := tokenMatchCount(e.Name, e.Description, tokens)
+		if len(tokens) > 0 && score == 0 {
+			continue // matches no query word — exclude
 		}
 		v := marketView{Name: e.Name, Description: e.Description, Runtime: plan.Runtime}
 		if plan.Remote {
@@ -93,28 +102,34 @@ func filterMarketViews(entries []mcpdomain.RegistryEntry, q string) []marketView
 		for _, ev := range plan.EnvVars {
 			v.RequiredEnv = append(v.RequiredEnv, envView{Name: ev.Name, Description: ev.Description})
 		}
-		views = append(views, v)
+		scored = append(scored, scoredView{view: v, score: score})
+	}
+	// More matched words first; stable so equal-score servers keep registry order.
+	sort.SliceStable(scored, func(i, j int) bool { return scored[i].score > scored[j].score })
+	views := make([]marketView, len(scored))
+	for i, s := range scored {
+		views[i] = s.view
 	}
 	return views
 }
 
-// matchesAllTokens reports whether every token appears (case-insensitive substring) in name or
-// description combined. No tokens (empty query) matches everything. AND across tokens so adding a
-// word narrows the result rather than — as a single contiguous-substring match did — dropping to zero.
+// tokenMatchCount returns how many of tokens appear (case-insensitive substring) in name+description.
+// No tokens (empty query) → 0 (the caller treats an empty query as "match everything").
 //
-// matchesAllTokens 报告每个 token 是否都出现在 name+description 合串里（大小写不敏感子串）。无 token
-// （空查询）全匹配。逐 token AND，使加词收窄结果，而非像原先整串子串匹配那样一加词就归零。
-func matchesAllTokens(name, description string, tokens []string) bool {
+// tokenMatchCount 返回 tokens 中有几个出现在 name+description 合串里（大小写不敏感子串）。无 token（空查询）
+// →0（调用方把空查询当"全匹配"）。
+func tokenMatchCount(name, description string, tokens []string) int {
 	if len(tokens) == 0 {
-		return true
+		return 0
 	}
 	hay := strings.ToLower(name + " " + description)
+	n := 0
 	for _, tok := range tokens {
-		if !strings.Contains(hay, tok) {
-			return false
+		if strings.Contains(hay, tok) {
+			n++
 		}
 	}
-	return true
+	return n
 }
 
 // --- install_mcp_server ----------------------------------------------------

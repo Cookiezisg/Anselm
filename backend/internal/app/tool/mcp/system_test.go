@@ -35,9 +35,11 @@ func TestFilterMarketViews(t *testing.T) {
 		t.Fatalf("un-installable entry must stay hidden even on a matching query, got %+v", got)
 	}
 
-	// F91-multiword: a multi-word query AND-matches each word across name+description in ANY position
-	// (not as one contiguous substring). "send notifications" spans desc words; "notifications slack"
-	// is out-of-order — both must match github-notifier. A single Contains over the raw string returned 0.
+	// F91/F113-multiword: words are matched independently across name+description in ANY position and
+	// results are RANKED by how many words a server matches (≥1 match is included). A server matching
+	// every word still ranks first; a query whose words spread across DIFFERENT servers no longer
+	// returns 0 (the AND-too-strict trap). "send notifications" spans desc words; "notifications slack"
+	// is out-of-order — both fully match github-notifier (score 2).
 	if got := filterMarketViews(entries, "send notifications"); len(got) != 1 || got[0].Name != "github-notifier" {
 		t.Fatalf("multi-word 'send notifications' should match github-notifier, got %+v", got)
 	}
@@ -47,9 +49,15 @@ func TestFilterMarketViews(t *testing.T) {
 	if got := filterMarketViews(entries, "query database"); len(got) != 1 || got[0].Name != "pg-tool" {
 		t.Fatalf("out-of-order multi-word 'query database' should match pg-tool, got %+v", got)
 	}
-	// A word no single entry has narrows to zero (AND semantics across words).
-	if got := filterMarketViews(entries, "database notifications"); len(got) != 0 {
-		t.Fatalf("AND across words with no single matching entry should yield 0, got %+v", got)
+	// F113-andtoostrict: a query whose words spread across different servers must NOT return 0 — each
+	// server matching one word is included (OR), so the agent sees the relevant candidates.
+	if got := filterMarketViews(entries, "database notifications"); len(got) != 2 {
+		t.Fatalf("words spread across servers must surface both (OR), got %+v", got)
+	}
+	// Ranking: a server matching MORE query words ranks first. "send notifications database" →
+	// github-notifier (2 words) before pg-tool (1 word).
+	if got := filterMarketViews(entries, "send notifications database"); len(got) != 2 || got[0].Name != "github-notifier" {
+		t.Fatalf("server matching more words must rank first, got %+v", got)
 	}
 
 	// Guard: the tool advertises the query knob so the agent reaches for it instead of dumping all.
