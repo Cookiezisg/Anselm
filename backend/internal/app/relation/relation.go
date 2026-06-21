@@ -128,6 +128,25 @@ func (s *Service) CountDependents(ctx context.Context, kind, id string) (int, er
 	return len(edges), nil
 }
 
+// ListDependents returns the incoming equip/link edges to (kind,id) — the SAME dependents
+// CountDependents counts, but as their {fromKind,fromId} refs so a delete tool can name exactly which
+// entities to repair (the bare count is unfollowable once delete purges the edges — F160). The
+// repository's raw edges carry fromKind/fromId; names are not hydrated here (the id is enough to act on).
+//
+// ListDependents 返回 (kind,id) 的入向 equip/link 边——与 CountDependents 同一批依赖，但以其
+// {fromKind,fromId} ref 返回，使 delete 工具能点名究竟要修哪些实体（删除 purge 掉边后裸计数无从追，F160）。
+// 仓库原始边带 fromKind/fromId；此处不 hydrate 名（id 足以行动）。
+func (s *Service) ListDependents(ctx context.Context, kind, id string) ([]*relationdomain.Relation, error) {
+	if err := validateEntityRef(kind, id); err != nil {
+		return nil, fmt.Errorf("relationapp.ListDependents: %w", err)
+	}
+	edges, err := s.repo.ListByToAndKinds(ctx, kind, id, []string{relationdomain.KindEquip, relationdomain.KindLink})
+	if err != nil {
+		return nil, fmt.Errorf("relationapp.ListDependents: %w", err)
+	}
+	return edges, nil
+}
+
 // validateSync checks the fixed ref, the kind scope, and every edge (ref, kind, no
 // self-loop) up front, before any DB work.
 //

@@ -241,7 +241,7 @@ func (t *DeleteApproval) Execute(ctx context.Context, argsJSON string) (string, 
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return "", fmt.Errorf("delete_approval: bad args: %w", err)
 	}
-	deps := toolapp.DependentCount(ctx, t.deps, relationdomain.EntityKindApproval, args.ApprovalID)
+	deps := toolapp.DependentRefs(ctx, t.deps, relationdomain.EntityKindApproval, args.ApprovalID)
 	if err := t.svc.Delete(ctx, args.ApprovalID); err != nil {
 		return "", fmt.Errorf("delete_approval: %w", err)
 	}

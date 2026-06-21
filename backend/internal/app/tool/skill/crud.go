@@ -185,7 +185,7 @@ func (t *DeleteSkill) Execute(ctx context.Context, argsJSON string) (string, err
 	}
 	// Skill is name-as-id, so its relation id is the skill name (agents equip skills by name).
 	// skill 是名即 id，故其 relation id 就是 skill 名（agent 按名 equip skill）。
-	deps := toolapp.DependentCount(ctx, t.deps, relationdomain.EntityKindSkill, args.Name)
+	deps := toolapp.DependentRefs(ctx, t.deps, relationdomain.EntityKindSkill, args.Name)
 	if err := t.svc.Delete(ctx, args.Name); err != nil {
 		return "", fmt.Errorf("delete_skill: %w", err)
 	}

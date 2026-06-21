@@ -106,7 +106,7 @@ func (t *DeleteFunction) Execute(ctx context.Context, argsJSON string) (string, 
 	}
 	// Count dependents BEFORE the delete — the purge erases the edges, so reading after is too late.
 	// 删**前**数依赖——purge 会抹掉边，删后再读已晚。
-	deps := toolapp.DependentCount(ctx, t.deps, relationdomain.EntityKindFunction, args.FunctionID)
+	deps := toolapp.DependentRefs(ctx, t.deps, relationdomain.EntityKindFunction, args.FunctionID)
 	if err := t.svc.Delete(ctx, args.FunctionID); err != nil {
 		return "", fmt.Errorf("delete_function: %w", err)
 	}

@@ -251,7 +251,7 @@ func (t *DeleteControl) Execute(ctx context.Context, argsJSON string) (string, e
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return "", fmt.Errorf("delete_control: bad args: %w", err)
 	}
-	deps := toolapp.DependentCount(ctx, t.deps, relationdomain.EntityKindControl, args.ControlID)
+	deps := toolapp.DependentRefs(ctx, t.deps, relationdomain.EntityKindControl, args.ControlID)
 	if err := t.svc.Delete(ctx, args.ControlID); err != nil {
 		return "", fmt.Errorf("delete_control: %w", err)
 	}

@@ -177,7 +177,7 @@ func (t *DeleteTrigger) Execute(ctx context.Context, argsJSON string) (string, e
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return "", fmt.Errorf("delete_trigger: bad args: %w", err)
 	}
-	deps := toolapp.DependentCount(ctx, t.deps, relationdomain.EntityKindTrigger, args.TriggerID)
+	deps := toolapp.DependentRefs(ctx, t.deps, relationdomain.EntityKindTrigger, args.TriggerID)
 	if err := t.svc.Delete(ctx, args.TriggerID); err != nil {
 		return "", fmt.Errorf("delete_trigger: %w", err)
 	}

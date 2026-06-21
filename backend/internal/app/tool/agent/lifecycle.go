@@ -92,7 +92,7 @@ func (t *DeleteAgent) Execute(ctx context.Context, argsJSON string) (string, err
 	if err := json.Unmarshal([]byte(argsJSON), &a); err != nil {
 		return "", fmt.Errorf("delete_agent: bad args: %w", err)
 	}
-	deps := toolapp.DependentCount(ctx, t.deps, relationdomain.EntityKindAgent, a.AgentID)
+	deps := toolapp.DependentRefs(ctx, t.deps, relationdomain.EntityKindAgent, a.AgentID)
 	if err := t.svc.Delete(ctx, a.AgentID); err != nil {
 		return "", fmt.Errorf("delete_agent: %w", err)
 	}

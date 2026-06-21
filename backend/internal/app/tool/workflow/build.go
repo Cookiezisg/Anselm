@@ -229,7 +229,7 @@ func (t *DeleteWorkflow) Execute(ctx context.Context, argsJSON string) (string, 
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return "", fmt.Errorf("delete_workflow: bad args: %w", err)
 	}
-	deps := toolapp.DependentCount(ctx, t.deps, relationdomain.EntityKindWorkflow, args.WorkflowID)
+	deps := toolapp.DependentRefs(ctx, t.deps, relationdomain.EntityKindWorkflow, args.WorkflowID)
 	if err := t.svc.Delete(ctx, args.WorkflowID); err != nil {
 		return "", fmt.Errorf("delete_workflow: %w", err)
 	}

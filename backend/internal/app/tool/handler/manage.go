@@ -104,7 +104,7 @@ func (t *DeleteHandler) Execute(ctx context.Context, argsJSON string) (string, e
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return "", fmt.Errorf("delete_handler: bad args: %w", err)
 	}
-	deps := toolapp.DependentCount(ctx, t.deps, relationdomain.EntityKindHandler, args.HandlerID)
+	deps := toolapp.DependentRefs(ctx, t.deps, relationdomain.EntityKindHandler, args.HandlerID)
 	if err := t.svc.Delete(ctx, args.HandlerID); err != nil {
 		return "", fmt.Errorf("delete_handler: %w", err)
 	}
