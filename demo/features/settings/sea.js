@@ -52,19 +52,36 @@ window.FEATURE.settings = Object.assign(window.FEATURE.settings || {}, {
       b.textContent = label; b.addEventListener("click", on); return b;
     }
 
-    // 设置页一次性皮肤（provider-pick 浮层 + key 行/虚线框 hover——inline style 无 :hover，收口到这）
+    // 设置页一次性皮肤：模型与 Key 走【卡片】（异构信息密、靠框分块，退「无边框靠留白」原则）+ provider-pick 浮层。inline 无 :hover，收口到这。
     function ensureSettingsStyle() {
       if (document.getElementById("an-set-style")) return;
       const s = document.createElement("style"); s.id = "an-set-style";
       s.textContent = `
-        .an-pp { padding: var(--sp-1); border-radius: var(--r-chip); background: var(--island); box-shadow: inset 0 0 0 var(--hairline) var(--line), var(--shadow-pop); min-width: var(--side-w); }
+        .an-pp { padding: var(--sp-1); border-radius: var(--r-chip); background: var(--island); box-shadow: inset 0 0 0 var(--hairline) var(--line), var(--shadow-pop); min-width: var(--side-w); max-height: var(--w-content); overflow-y: auto; }
         .an-pp-row { display: flex; align-items: center; gap: var(--gap); width: 100%; height: var(--row); padding: 0 var(--pad-row); border: var(--zero); background: none; cursor: pointer; border-radius: var(--r-btn); color: var(--ink); font-size: var(--t-body); text-align: left; }
         .an-pp-row:hover { background: var(--island-3); }
+        .an-pp-ico { flex: none; width: var(--lead); height: var(--lead); display: grid; place-items: center; color: var(--ink); font-size: var(--lead); }
+        .an-pp-ico svg { width: 1em; height: 1em; display: block; }
         .an-pp-name { min-width: var(--zero); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .kv-key { border-radius: var(--r-btn); transition: background var(--d-fast); }
-        .kv-key:hover { background: var(--island-3); }
-        .kv-add { transition: background var(--d-fast), border-color var(--d-fast), color var(--d-fast); }
-        .kv-add:hover { background: var(--island-3); border-color: var(--ink-3); color: var(--ink-2); }
+        /* 卡片簇 */
+        .mk-list { display: flex; flex-direction: column; gap: var(--sp-2); }
+        .mk-card { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); box-shadow: inset 0 0 0 var(--hairline) var(--line); border-radius: var(--r-chip); background: var(--island); }
+        .mk-ico { flex: none; width: var(--ctl); height: var(--ctl); display: grid; place-items: center; color: var(--ink); font-size: calc(var(--lead) + var(--sp-1)); }
+        .mk-ico.is-managed { color: var(--accent); }
+        .mk-ico svg { width: 1em; height: 1em; display: block; }
+        .mk-mid { min-width: var(--zero); flex: 1; display: flex; flex-direction: column; gap: calc(var(--grid) / 2); }
+        .mk-name { display: flex; align-items: center; gap: var(--gap-tight); min-width: var(--zero); }
+        .mk-name .t { font-size: var(--t-body); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .mk-sub { font-size: var(--t-meta); color: var(--ink-3); font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .mk-right { flex: none; display: flex; align-items: center; gap: var(--sp-3); }
+        .mk-add { display: flex; align-items: center; justify-content: center; gap: var(--gap-tight); width: 100%; min-height: var(--island-head); box-sizing: border-box; border: var(--hairline) dashed var(--line-strong); border-radius: var(--r-chip); background: transparent; color: var(--ink-3); cursor: pointer; font-size: var(--t-body); transition: background var(--d-fast), border-color var(--d-fast), color var(--d-fast); }
+        .mk-add:hover { background: var(--island-2); border-color: var(--ink-3); color: var(--ink-2); }
+        .mk-scn { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); box-shadow: inset 0 0 0 var(--hairline) var(--line); border-radius: var(--r-chip); background: var(--island); }
+        .mk-scn-top { display: flex; align-items: center; gap: var(--sp-2); }
+        .mk-scn-cfg { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; padding-top: var(--sp-2); box-shadow: inset 0 var(--hairline) 0 var(--line); }
+        .mk-knob { display: flex; align-items: center; gap: var(--gap-tight); }
+        .mk-knob > .k { font-size: var(--t-meta); color: var(--ink-3); }
+        .mk-form { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-4); box-shadow: inset 0 0 0 var(--hairline) var(--accent-line); border-radius: var(--r-chip); background: var(--island); }
       `;
       document.head.appendChild(s);
     }
@@ -80,11 +97,12 @@ window.FEATURE.settings = Object.assign(window.FEATURE.settings || {}, {
       const chev = () => '<span style="display:inline-flex;vertical-align:middle;margin-left:var(--gap-tight);color:var(--ink-3);">' + icon("chevd", 12) + "</span>";
       const fmtCtx = (n) => n >= 1000000 ? (n / 1000000) + "M" : Math.round(n / 1000) + "K";
 
-      // 供应商字母头像（managed=accent，余中性）。两版：DOM + HTML 串（浮层用）。
-      const avSkin = (p) => p.managed ? "color:var(--accent);background:var(--accent-soft);" : "color:var(--ink-2);background:var(--island-3);";
-      const avCss = "flex:none;width:var(--ctl);height:var(--ctl);display:grid;place-items:center;border-radius:var(--r-tag);font-size:var(--t-meta);font-weight:600;";
-      const avatar = (p) => { const a = el("div"); a.style.cssText = avCss + avSkin(p); a.textContent = p.glyph || "?"; return a; };
-      const avatarHtml = (p) => '<span style="' + avCss + avSkin(p) + '">' + anEsc(p.glyph || "?") + "</span>";
+      // 供应商真实品牌图标（window.BRAND，lobehub/simple-icons 单色 currentColor）。缺真 logo 的回落：anselm→sparkles(accent)、custom→gear、搜索三家(serper/tavily/bocha)→字母 glyph 各自区分。
+      const brandSvg = (p) => (window.BRAND && window.BRAND[p.name])
+        || (p.name === "anselm" ? icon("sparkles", 20) : p.name === "custom" ? icon("gear", 20)
+          : '<span style="font-size:var(--t-meta);font-weight:600;color:var(--ink-3);">' + anEsc(p.glyph || "?") + "</span>");
+      const brandIco = (p) => { const s = el("span"); s.className = "mk-ico" + (p.managed ? " is-managed" : ""); s.innerHTML = brandSvg(p); return s; };
+      const brandIcoHtml = (p) => '<span class="an-pp-ico">' + brandSvg(p) + "</span>";
 
       // 小下拉钮：dd(当前值, 当前label, items 函数, onPick, align)
       const dd = (curValue, curLabel, items, onPick, align) => {
@@ -104,17 +122,15 @@ window.FEATURE.settings = Object.assign(window.FEATURE.settings || {}, {
       const miniQuota = (q) => { const s = el("span"); s.style.cssText = "font-size:var(--t-meta);color:var(--ink-3);font-variant-numeric:tabular-nums;"; s.textContent = "剩 " + (q.limit - q.used) + " / " + q.limit + " · " + q.resetAt + " 重置"; return s; };
       const keyRowEl = (k) => {
         const p = provById(k.provider), isSearch = p.category === "search", isDefault = isSearch && k.id === S.defaultSearchKeyId;
-        const row = el("div"); row.className = "kv-key";
-        row.style.cssText = "display:flex;align-items:center;gap:var(--sp-2);min-height:var(--island-head);padding:var(--grid) var(--pad-row);";
-        const mid = el("div"); mid.style.cssText = "min-width:0;flex:1;display:flex;flex-direction:column;gap:calc(var(--grid)/2);";
-        const top = el("div"); top.style.cssText = "display:flex;align-items:center;gap:var(--gap-tight);min-width:0;";
-        const nm = el("span"); nm.style.cssText = "font-size:var(--t-body);color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"; nm.textContent = p.label + " · " + k.name;
-        top.append(nm);
+        const card = el("div"); card.className = "mk-card";
+        const mid = el("div"); mid.className = "mk-mid";
+        const top = el("div"); top.className = "mk-name";
+        const nm = el("span"); nm.className = "t"; nm.textContent = p.label + " · " + k.name; top.append(nm);
         if (k.managed) top.append(el("an-badge", { tone: "accent" }, "免费档"));
         if (isDefault) top.append(el("an-badge", { tone: "neutral" }, "默认"));
-        const sub = el("span"); sub.style.cssText = "font-size:var(--t-meta);color:var(--ink-3);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"; sub.textContent = k.masked;
+        const sub = el("span"); sub.className = "mk-sub"; sub.textContent = k.masked;
         mid.append(top, sub);
-        const right = el("div"); right.style.cssText = "flex:none;display:flex;align-items:center;gap:var(--sp-3);";
+        const right = el("div"); right.className = "mk-right";
         if (k.managed && k.quota) right.append(miniQuota(k.quota));
         else if (k.status === "error") { const e = el("span"); e.style.cssText = "font-size:var(--t-meta);color:var(--danger);"; e.textContent = k.err || "异常"; right.append(e); }
         else if (!isSearch) { const m = el("span"); m.style.cssText = "font-size:var(--t-meta);color:var(--ink-3);"; m.textContent = capsOf(k.id).length + " 模型"; right.append(m); }
@@ -126,14 +142,14 @@ window.FEATURE.settings = Object.assign(window.FEATURE.settings || {}, {
           more.addEventListener("click", () => AnMenu.open(more, { align: "end", items: menu, onPick: (v) => toast({ default: "（mock）" + k.name + " 设为默认搜索", test: "探活 " + k.name + " …", del: "（mock）删 " + k.name }[v]) }));
           right.append(more);
         }
-        row.append(avatar(p), mid, right);
-        return row;
+        card.append(brandIco(p), mid, right);
+        return card;
       };
 
       // 建 key 配置卡（选完 provider 出现）：名称 + key +（ollama/custom）baseUrl +（custom）apiFormat + 测试/取消/保存
       const keyConfigForm = (p, onDone) => {
-        const card = el("div"); card.style.cssText = "display:flex;flex-direction:column;gap:var(--sp-3);padding:var(--sp-3) var(--pad-row);box-shadow:inset 0 0 0 var(--hairline) var(--line);border-radius:var(--r-btn);";
-        const headRow = el("div"); headRow.style.cssText = "display:flex;align-items:center;gap:var(--sp-2);"; const hn = el("span"); hn.style.cssText = "font-size:var(--t-body);color:var(--ink);font-weight:600;"; hn.textContent = "新建 " + p.label + " Key"; headRow.append(avatar(p), hn); card.append(headRow);
+        const card = el("div"); card.className = "mk-form";
+        const headRow = el("div"); headRow.style.cssText = "display:flex;align-items:center;gap:var(--sp-2);"; const hn = el("span"); hn.style.cssText = "font-size:var(--t-body);color:var(--ink);font-weight:600;"; hn.textContent = "新建 " + p.label + " Key"; headRow.append(brandIco(p), hn); card.append(headRow);
         const fieldRow = (label, ctrl) => { const f = el("div"); f.style.cssText = "display:flex;align-items:center;gap:var(--sp-3);"; const l = el("span"); l.style.cssText = "flex:none;width:calc(var(--lead) * 5);font-size:var(--t-body);color:var(--ink-2);"; l.textContent = label; f.append(l, ctrl); return f; };
         card.append(fieldRow("名称", el("an-input", { full: "", placeholder: "显示名（如：个人 key）" })));
         card.append(fieldRow("Key", el("an-input", { full: "", placeholder: p.name === "ollama" ? "Ollama 仍需占位 key" : "粘贴 API Key（仅存一次、不回显）" })));
@@ -148,12 +164,11 @@ window.FEATURE.settings = Object.assign(window.FEATURE.settings || {}, {
         const slot = el("div");
         const showBox = () => {
           slot.innerHTML = "";
-          const box = el("button"); box.className = "kv-add";
-          box.style.cssText = "display:flex;align-items:center;justify-content:center;gap:var(--gap-tight);width:100%;min-height:var(--island-head);border:var(--hairline) dashed var(--line-strong);border-radius:var(--r-btn);background:transparent;color:var(--ink-3);cursor:pointer;font-size:var(--t-body);";
+          const box = el("button"); box.className = "mk-add";
           box.innerHTML = icon("plus", 16) + "<span>新建" + (category === "search" ? "搜索" : "") + " Key</span>";
           box.addEventListener("click", () => {
             const list = P.filter((p) => p.category === category && p.name !== "anselm");
-            const rows = list.map((p) => '<button type="button" class="an-pp-row" data-prov="' + p.name + '">' + avatarHtml(p) + '<span class="an-pp-name">' + anEsc(p.label) + "</span></button>").join("");
+            const rows = list.map((p) => '<button type="button" class="an-pp-row" data-prov="' + p.name + '">' + brandIcoHtml(p) + '<span class="an-pp-name">' + anEsc(p.label) + "</span></button>").join("");
             const fl = AnFloating.open(box, { namespace: "prov-pick", placement: "bottom", align: "start", className: "an-pp", content: rows });
             fl.el.querySelectorAll(".an-pp-row").forEach((r) => r.addEventListener("click", () => { AnFloating.close("prov-pick"); slot.innerHTML = ""; slot.append(keyConfigForm(provById(r.dataset.prov), showBox)); }));
           });
@@ -166,42 +181,42 @@ window.FEATURE.settings = Object.assign(window.FEATURE.settings || {}, {
       // ── ② 默认模型场景行：API → model → config 联动（改任一即重渲右侧）──
       const scenarioRow = (d) => {
         const st = { apiKeyId: d.ref.apiKeyId, modelId: d.ref.modelId, options: Object.assign({}, d.ref.options) };
-        const row = el("div"); row.style.cssText = "display:flex;flex-direction:column;gap:var(--grid);min-height:var(--island-head);padding:var(--sp-2) var(--pad-row);";
+        const card = el("div"); card.className = "mk-scn";
         const renderInner = () => {
-          row.innerHTML = "";
-          const top = el("div"); top.style.cssText = "display:flex;align-items:center;gap:var(--sp-2);";
-          const lbl = el("div"); lbl.style.cssText = "min-width:0;display:flex;flex-direction:column;gap:calc(var(--grid)/2);";
-          const t1 = el("div"); t1.style.cssText = "font-size:var(--t-body);color:var(--ink);"; t1.textContent = d.label;
+          card.innerHTML = "";
+          const top = el("div"); top.className = "mk-scn-top";
+          const lbl = el("div"); lbl.style.cssText = "min-width:0;flex:1;display:flex;flex-direction:column;gap:calc(var(--grid)/2);";
+          const t1 = el("div"); t1.style.cssText = "font-size:var(--t-body);color:var(--ink);font-weight:500;"; t1.textContent = d.label;
           const t2 = el("div"); t2.style.cssText = "font-size:var(--t-meta);color:var(--ink-3);"; t2.textContent = d.hint; lbl.append(t1, t2);
-          const grow = el("span"); grow.style.cssText = "flex:1;";
           const key = (S.keys || []).find((k) => k.id === st.apiKeyId), keyP = key ? provById(key.provider) : {};
           const apiDd = dd(st.apiKeyId, key ? (keyP.label + " · " + key.name) : "选 API", () => okLlmKeys().map((k) => ({ value: k.id, label: provById(k.provider).label + " · " + k.name })), (v) => { st.apiKeyId = v; const ms = capsOf(v); st.modelId = ms[0] ? ms[0].modelId : null; st.options = {}; if (ms[0]) (ms[0].knobs || []).forEach((kn) => st.options[kn.key] = kn.default); renderInner(); });
           const caps = capsOf(st.apiKeyId), curModel = caps.find((m) => m.modelId === st.modelId) || caps[0] || null;
           const modelDd = dd(st.modelId, curModel ? curModel.label : "—", () => caps.map((m) => ({ value: m.modelId, label: m.label })), (v) => { st.modelId = v; const m = caps.find((x) => x.modelId === v); st.options = {}; if (m) (m.knobs || []).forEach((kn) => st.options[kn.key] = kn.default); renderInner(); });
-          top.append(lbl, grow, apiDd, modelDd); row.append(top);
-          const cfg = el("div"); cfg.style.cssText = "display:flex;align-items:center;gap:var(--sp-3);justify-content:flex-end;flex-wrap:wrap;";
+          top.append(lbl, apiDd, modelDd); card.append(top);
+          const cfg = el("div"); cfg.className = "mk-scn-cfg";
           if (curModel) {
-            (curModel.knobs || []).forEach((kn) => { const w = el("div"); w.style.cssText = "display:flex;align-items:center;gap:var(--gap-tight);"; const kl = el("span"); kl.style.cssText = "font-size:var(--t-meta);color:var(--ink-3);"; kl.textContent = kn.label; w.append(kl, dd(st.options[kn.key] || kn.default, st.options[kn.key] || kn.default, () => kn.values.map((v) => ({ value: v, label: v })), (v) => { st.options[kn.key] = v; })); cfg.append(w); });
+            (curModel.knobs || []).forEach((kn) => { const w = el("div"); w.className = "mk-knob"; const kl = el("span"); kl.className = "k"; kl.textContent = kn.label; w.append(kl, dd(st.options[kn.key] || kn.default, st.options[kn.key] || kn.default, () => kn.values.map((v) => ({ value: v, label: v })), (v) => { st.options[kn.key] = v; })); cfg.append(w); });
             if (!(curModel.knobs || []).length) { const none = el("span"); none.style.cssText = "font-size:var(--t-meta);color:var(--ink-3);"; none.textContent = "无可调参数"; cfg.append(none); }
-            const ctx = el("span"); ctx.style.cssText = "font-size:var(--t-meta);color:var(--ink-3);"; ctx.textContent = fmtCtx(curModel.ctx) + " 上下文"; cfg.append(ctx);
+            const ctx = el("span"); ctx.style.cssText = "font-size:var(--t-meta);color:var(--ink-3);margin-left:auto;"; ctx.textContent = fmtCtx(curModel.ctx) + " 上下文"; cfg.append(ctx);
           }
-          if (cfg.children.length) row.append(cfg);
+          if (cfg.children.length) card.append(cfg);
         };
         renderInner();
-        return row;
+        return card;
       };
 
       // 装配三段
       const keySec = el("an-section", { label: "API Key" });
-      const keyList = el("div"); keyList.style.cssText = "display:flex;flex-direction:column;";
+      const keyList = el("div"); keyList.className = "mk-list";
       (S.keys || []).filter((k) => provById(k.provider).category !== "search").forEach((k) => keyList.append(keyRowEl(k)));
       keyList.append(addKeySlot("llm")); keySec.append(keyList);
 
       const defSec = el("an-section", { label: "默认模型" });
-      (S.defaults || []).forEach((d) => defSec.append(scenarioRow(d)));
+      const defList = el("div"); defList.className = "mk-list";
+      (S.defaults || []).forEach((d) => defList.append(scenarioRow(d))); defSec.append(defList);
 
       const searchSec = el("an-section", { label: "搜索引擎 Key" });
-      const searchList = el("div"); searchList.style.cssText = "display:flex;flex-direction:column;";
+      const searchList = el("div"); searchList.className = "mk-list";
       (S.keys || []).filter((k) => provById(k.provider).category === "search").forEach((k) => searchList.append(keyRowEl(k)));
       searchList.append(addKeySlot("search")); searchSec.append(searchList);
 
