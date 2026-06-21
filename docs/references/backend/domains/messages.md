@@ -19,7 +19,7 @@ audience: [human, ai]
 
 **两段式写**（对应 loop.Host 契约）：`CreateMessage`（开回合，先 mint id 供流锚点；user 回合连 text block）→ `FinalizeMessage`（终态 + token/provider/model 溯源 + blocks，单事务、seq 落盘时分配）。两表 append-only（D1 内容日志永不删）。
 
-**关键字段语义**：`SubagentID`（≠"" 的回合是 subagent 产出——LoadHistory 排除使父历史不被污染、ListMessages 保留使 reload 能重建子树；LLM 读路径见下）；`ContextRole`（hot/warm/cold/archived——压缩器对块的**投影**变更，落库 Content 永不改写）；`StopReason` 的 `max_steps` 是诚实的非成功终态（UI 给"继续"）。
+**关键字段语义**：`SubagentID`（≠"" 的回合是 subagent 产出——LoadHistory 排除使父历史不被污染、ListMessages 保留使 reload 能重建子树；LLM 读路径见下）；`ContextRole`（hot/warm/cold/archived——压缩器对块的**投影**变更，落库 Content 永不改写）；`StopReason` 的 `max_steps`（步数耗尽）与 `context_budget`（回合 input 逼近模型 context window、loop 软停，F58）都是诚实的非成功终态（UI 给"继续"）。
 
 ## 2. 契约（引用）
 

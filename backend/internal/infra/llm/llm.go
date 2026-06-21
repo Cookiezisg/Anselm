@@ -198,6 +198,17 @@ type Request struct {
 	// DisableStream forces non-streaming wire mode (Ollama+tools workaround).
 	// DisableStream 强制 non-streaming（Ollama 有 tools 时绕 bug）。
 	DisableStream bool
+
+	// InputBudgetTokens is the model's INPUT token budget (context window − max output), resolved at
+	// bundle time from the model catalog. It is NEVER sent on the wire — it feeds the ReAct loop's
+	// intra-turn context-budget soft guard (F58): when a step's actual input nears this budget the loop
+	// stops the still-acting turn gracefully instead of letting the next call overflow. 0 = unknown
+	// window → guard disabled.
+	//
+	// InputBudgetTokens 是模型的**输入** token 预算（context window − 最大输出），bundle 时从模型目录解析。
+	// **绝不**上线缆——喂给 ReAct loop 的回合内上下文预算软守卫（F58）：某步实际 input 逼近此预算时 loop 优雅
+	// 停下仍在动作的回合，而非让下次调用溢出。0 = window 未知 → 守卫禁用。
+	InputBudgetTokens int
 }
 
 // Client streams LLM events via iter.Seq; ctx cancel stops cleanly.

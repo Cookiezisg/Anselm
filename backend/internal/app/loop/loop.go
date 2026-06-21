@@ -30,6 +30,17 @@ import (
 // 机会的最小值；burn-in 撞过 LLM 连建 4 个废 handler 才放弃，此熔断早停类似漂移。
 const maxConsecutiveAllFailTurns = 3
 
+// loopStopRatio is the fraction of the model's input budget (window − maxOutput) at which a still-acting
+// ReAct turn soft-stops, so the NEXT (larger) call can't overflow the context window (F58). Higher than
+// the compaction TriggerRatio (0.80) on purpose: compaction runs only at TURN boundaries, so within one
+// long turn this is the last line of defense — it leaves just enough headroom for the next step's growth.
+// Structural margin, not a user knob (like advanceWorkers / maxConsecutiveAllFailTurns).
+//
+// loopStopRatio 是模型输入预算（window − maxOutput）的比例，仍在动作的 ReAct 回合到此软停，使**下次**（更大的）
+// 调用不溢出 context window（F58）。刻意高于压缩 TriggerRatio（0.80）：压缩只在**回合边界**跑，故单个长回合内这是
+// 最后防线——只给下步增长留够余量。结构性余量、非用户旋钮（同 advanceWorkers / maxConsecutiveAllFailTurns）。
+const loopStopRatio = 0.92
+
 // Host is the per-run hook surface: the loop asks it for the starting history and the
 // current tool set, and hands it the terminal write. Block persistence is the host's job —
 // the loop produces blocks in memory and streams them live; finalize is where they land.
@@ -262,6 +273,27 @@ func Run(
 		}
 
 		log.Debug("react step complete", zap.Int("step", step))
+
+		// Intra-turn context-budget soft guard (F58): maxSteps bounds the step COUNT, not token GROWTH.
+		// The model still wants to act (we're past the end-turn / error / tool-storm breaks), and THIS
+		// step's ACTUAL input already crossed the soft fraction of the model's input budget — the next
+		// call (with this step's tool_results now in history) would be larger and risk a provider
+		// context-length hard-fail that wastes its tokens. Stop gracefully with the partial result
+		// instead, mirroring the maxSteps terminal. budget 0 (unknown window) disables the guard.
+		//
+		// 回合内上下文预算软守卫（F58）：maxSteps 限步数、不限 token 增长。模型仍想动作（已过 end-turn/error/
+		// 工具风暴分支），且**本步**实际 input 已越过模型输入预算的软比例——下次调用（本步 tool_result 已入历史）
+		// 会更大、可能撞 provider 上下文长度硬失败并白烧那次 token。改为优雅停在部分结果，对标 maxSteps 终态。
+		// budget 0（window 未知）禁用守卫。
+		if b := baseReq.InputBudgetTokens; b > 0 && iT >= int(float64(b)*loopStopRatio) {
+			stopReason = messagesdomain.StopReasonContextBudget
+			finalStatus = messagesdomain.StatusError
+			errCode = "CONTEXT_BUDGET_REACHED"
+			errMsg = fmt.Sprintf("stopped before the next call would overflow the model's context window (this step's input was %d tokens, past %.0f%% of the %d-token input budget); the result is partial — send a follow-up to continue (in a chat), simplify the task, or use a larger-context model", iT, loopStopRatio*100, b)
+			host.WriteFinalize(ctx, allBlocks, finalStatus, stopReason, errCode, errMsg, totalIn, totalOut)
+			finalWritten = true
+			break
+		}
 	}
 
 	if !finalWritten {

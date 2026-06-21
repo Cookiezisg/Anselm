@@ -202,6 +202,49 @@ func TestRun_ToolThenText(t *testing.T) {
 	}
 }
 
+// TestRun_ContextBudgetSoftStop — F58: a still-acting turn whose step input nears the model's input
+// budget soft-stops (context_budget terminal) before the next call would overflow the context window.
+// budget 0 (unknown window) disables the guard; an input well under the budget never stops.
+func TestRun_ContextBudgetSoftStop(t *testing.T) {
+	// Step 1 makes a tool call and reports a high ACTUAL input (1000 tokens); step 2 (if reached) ends.
+	highFinish := llminfra.StreamEvent{Type: llminfra.EventFinish, InputTokens: 1000, OutputTokens: 5}
+	scripts := func() [][]llminfra.StreamEvent {
+		return [][]llminfra.StreamEvent{
+			{toolStartEv(0, "tc_1", "echo"), toolDeltaEv(0, `{"summary":"s","danger":"safe","msg":"x"}`), highFinish},
+			{textEv("should-not-run"), finishEv()},
+		}
+	}
+	newHost := func() *fakeHost {
+		return &fakeHost{history: []llminfra.LLMMessage{{Role: llminfra.RoleUser, Content: "go"}}, tools: []toolapp.Tool{fakeTool{name: "echo", result: "ok"}}}
+	}
+
+	// budget reached (1000 ≥ 0.92*1000) → soft-stop after step 1 with the context_budget terminal.
+	host := newHost()
+	res := Run(context.Background(), host, &fakeClient{scripts: scripts()}, llminfra.Request{InputBudgetTokens: 1000}, 5, nil)
+	if res.Steps != 1 {
+		t.Fatalf("budget guard must stop after step 1, ran %d steps", res.Steps)
+	}
+	if host.fin.called != 1 || host.fin.stopReason != messagesdomain.StopReasonContextBudget ||
+		host.fin.status != messagesdomain.StatusError || host.fin.errCode != "CONTEXT_BUDGET_REACHED" {
+		t.Fatalf("want one context_budget/error/CONTEXT_BUDGET_REACHED finalize, got called=%d stop=%q status=%q code=%q",
+			host.fin.called, host.fin.stopReason, host.fin.status, host.fin.errCode)
+	}
+
+	// budget 0 (unknown window) → guard disabled → runs both steps to a normal end_turn.
+	host2 := newHost()
+	res2 := Run(context.Background(), host2, &fakeClient{scripts: scripts()}, llminfra.Request{InputBudgetTokens: 0}, 5, nil)
+	if res2.Steps != 2 || host2.fin.stopReason != messagesdomain.StopReasonEndTurn {
+		t.Fatalf("disabled guard (budget 0) must run to completion, got steps=%d stop=%q", res2.Steps, host2.fin.stopReason)
+	}
+
+	// budget large (1000 < 0.92*100000) → under threshold → no stop, runs to completion.
+	host3 := newHost()
+	res3 := Run(context.Background(), host3, &fakeClient{scripts: scripts()}, llminfra.Request{InputBudgetTokens: 100000}, 5, nil)
+	if res3.Steps != 2 || host3.fin.stopReason != messagesdomain.StopReasonEndTurn {
+		t.Fatalf("under-budget step must not stop, got steps=%d stop=%q", res3.Steps, host3.fin.stopReason)
+	}
+}
+
 func TestRun_MaxStepsReached(t *testing.T) {
 	// Every step returns a tool call → the loop never naturally ends.
 	loopStep := []llminfra.StreamEvent{toolStartEv(0, "tc_1", "echo"), toolDeltaEv(0, `{"summary":"s","danger":"safe"}`), finishEv()}

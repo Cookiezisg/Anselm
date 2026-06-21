@@ -44,6 +44,7 @@ type modelResolver struct {
 	picker  modeldomain.ModelPicker
 	keys    CredsResolver
 	factory *llminfra.Factory
+	windows contextmgrapp.WindowResolver // model context budget for the loop's intra-turn soft guard (F58); nil-safe
 }
 
 // resolve runs the chain for a scenario (+ optional override) and returns a ready client, a base
@@ -55,7 +56,20 @@ type modelResolver struct {
 // caller 后填）、解析出的 provider、解析出的 api-key id（皆作回合溯源 / 审计——见 modelclient.Resolve；
 // 末两个字符串顺序为 provider、apiKeyID）。
 func (r *modelResolver) resolve(ctx context.Context, scenario string, override *modeldomain.ModelRef) (llminfra.Client, llminfra.Request, string, string, error) {
-	return modelclientapp.Resolve(ctx, scenario, override, r.picker, r.keys, r.factory)
+	client, req, provider, apiKeyID, err := modelclientapp.Resolve(ctx, scenario, override, r.picker, r.keys, r.factory)
+	if err != nil {
+		return client, req, provider, apiKeyID, err
+	}
+	// Stamp the model's input budget (window − maxOutput) so the ReAct loop can soft-stop a turn before
+	// it overflows the context window (F58). Unknown window (0) leaves the budget 0 → the guard is off.
+	// 盖上模型的输入预算（window − maxOutput），使 ReAct loop 能在回合溢出 context window 前软停（F58）。
+	// window 未知（0）则预算留 0 → 守卫关闭。
+	if r.windows != nil {
+		if window, maxOut := r.windows.ContextBudget(ctx, provider, req.ModelID); window > maxOut {
+			req.InputBudgetTokens = window - maxOut
+		}
+	}
+	return client, req, provider, apiKeyID, err
 }
 
 // ModelResolvers exposes the one resolution core as the four differently-shaped Bundles the LLM
@@ -73,7 +87,7 @@ type ModelResolvers struct {
 // NewModelResolvers 由 workspace picker、apikey 凭证解析、llm factory 构造共享核；lookup 供 chat 的
 // per-model 内容能力。
 func NewModelResolvers(picker modeldomain.ModelPicker, keys CredsResolver, factory *llminfra.Factory, lookup ModelInfoLookup) ModelResolvers {
-	return ModelResolvers{core: &modelResolver{picker: picker, keys: keys, factory: factory}, lookup: lookup}
+	return ModelResolvers{core: &modelResolver{picker: picker, keys: keys, factory: factory, windows: lookup.WindowResolver()}, lookup: lookup}
 }
 
 // Chat / ContextmgrUtility / Subagent / Agent return the resolver each Service's port wants.
