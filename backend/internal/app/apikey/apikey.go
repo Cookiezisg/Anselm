@@ -292,6 +292,19 @@ func (s *Service) Get(ctx context.Context, id string) (*apikeydomain.APIKey, err
 	return s.repo.Get(ctx, id)
 }
 
+// KeyExists reports whether id names a real key in the ctx workspace — nil if present,
+// apikeydomain.ErrNotFound (API_KEY_NOT_FOUND) if absent. A pure existence probe (no decrypt, unlike
+// ResolveCredentialsByID): write paths use it to reject a model ref pointing at a non-existent key at
+// write time instead of only at invoke (F153). Workspace-scoped automatically (orm).
+//
+// KeyExists 报告 id 是否命中 ctx workspace 的真实 key——存在 nil、不存在 apikeydomain.ErrNotFound
+// （API_KEY_NOT_FOUND）。纯存在性探针（不解密，异于 ResolveCredentialsByID）：写路径用它在写时拒绝指向
+// 不存在 key 的 model ref，而非只在 invoke 时（F153）。orm 自动 workspace 隔离。
+func (s *Service) KeyExists(ctx context.Context, id string) error {
+	_, err := s.repo.Get(ctx, id)
+	return err
+}
+
 func (s *Service) List(ctx context.Context, filter apikeydomain.ListFilter) ([]*apikeydomain.APIKey, string, error) {
 	return s.repo.List(ctx, filter)
 }

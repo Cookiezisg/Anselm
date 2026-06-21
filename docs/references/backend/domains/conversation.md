@@ -15,7 +15,7 @@ audience: [human, ai]
 
 线程**容器**实体：身份（title/pin/archive/软删）+ 线程级配置（systemPrompt / attachedDocuments / modelOverride——用户可改，chat 运行时消费）。**消息不在这**（归 messages/chat）。三个系统写字段在记录里但**不进 PATCH 面**：`Summary`/`SummaryCoversUpToSeq`（压缩器写）、`AutoTitled`（chat 首回合自动命名后写、绝不覆盖用户标题）。
 
-**PATCH 三态**：`ModelOverride **ModelRef`——nil=不变、&nil=清除、&(&ref)=设置（指针的指针表达三态）。List：Archived nil=排除归档（默认）/&true=仅归档/&false=仅活跃；**Sort 可选**——`activity`（默认，置顶优先再 `last_message_at` 降序，最近聊过）或 `created`（置顶优先再 `created_at` 降序）。store 据 Sort 切 `Order(... <key> ...)` + `PageKeyset(<key>)`，游标键随排序列对齐（见 [orm.md](../foundation/orm.md)）；故**切换 Sort 须丢弃游标**（一种排序下的游标在另一种下无意义）。未知/空 Sort → activity（不报 400）。
+**PATCH 三态**：`ModelOverride **ModelRef`——nil=不变、&nil=清除、&(&ref)=设置（指针的指针表达三态）。**写时校验**（F153，经 `modelref.Validate`，与 agent override / workspace scenario default 同源）：设置时校结构 + **apiKeyId 存在性**（引用不存在 key 即 `API_KEY_NOT_FOUND`、非只 chat 时失败）；清除（&nil）跳过；modelId 拼写不校、留 fail-loud-at-chat（无权威 model 目录）。List：Archived nil=排除归档（默认）/&true=仅归档/&false=仅活跃；**Sort 可选**——`activity`（默认，置顶优先再 `last_message_at` 降序，最近聊过）或 `created`（置顶优先再 `created_at` 降序）。store 据 Sort 切 `Order(... <key> ...)` + `PageKeyset(<key>)`，游标键随排序列对齐（见 [orm.md](../foundation/orm.md)）；故**切换 Sort 须丢弃游标**（一种排序下的游标在另一种下无意义）。未知/空 Sort → activity（不报 400）。
 
 **last_message_at**（最近活跃排序键）：普通列（非 `,updated` tag，故 pin/改名/换模型不重排）。创建时种为 now，chat 经 `ConversationReader.TouchLastMessage` 在每个用户回合刷新——"最近聊过"上浮，ChatGPT 式 Today/Yesterday 分组的依据。
 

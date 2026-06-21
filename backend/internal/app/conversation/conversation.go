@@ -19,9 +19,9 @@ import (
 
 	"go.uber.org/zap"
 
+	modelrefapp "github.com/sunweilin/anselm/backend/internal/app/modelref"
 	conversationdomain "github.com/sunweilin/anselm/backend/internal/domain/conversation"
 	documentdomain "github.com/sunweilin/anselm/backend/internal/domain/document"
-	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
 	notificationdomain "github.com/sunweilin/anselm/backend/internal/domain/notification"
 	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
 	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
@@ -74,6 +74,14 @@ type Service struct {
 	// attachedDocuments，使悬挂/已删 doc id 在 attach 时即 422、而非静默接受、只在后续渲染时才警告。
 	// nil → 不做 attach-time 校验（F167 渲染时警告仍兜底）。（F168-M5）
 	docResolver DocumentResolver
+
+	// keyChecker is the optional apikey existence hook (apikeyapp, injected post-build): Update rejects a
+	// modelOverride pointing at a non-existent apiKeyId at write time (API_KEY_NOT_FOUND) instead of only
+	// at chat time. nil → existence check skipped (the prior fail-loud-at-chat behavior). (F153)
+	//
+	// keyChecker 是可选 apikey 存在性钩子（apikeyapp，后注入）：Update 在写时拒绝指向不存在 apiKeyId 的
+	// modelOverride（API_KEY_NOT_FOUND），而非只在 chat 时。nil → 跳过存在性校验（旧 fail-loud-at-chat）。（F153）
+	keyChecker modelrefapp.KeyExistenceChecker
 }
 
 // DocumentResolver resolves attached-document references to their live documents (missing ids are
@@ -160,6 +168,14 @@ func (s *Service) SetRelationSyncer(r RelationSyncer) { s.relations = r }
 // SetDocumentResolver 装配后注入文档存在性钩子（documentapp；无环——document 不依赖 conversation）。
 // 使 Update 的 attach-time 校验生效（F168-M5）。
 func (s *Service) SetDocumentResolver(r DocumentResolver) { s.docResolver = r }
+
+// SetKeyChecker installs the apikey existence probe post-construction (apikeyapp; no cycle — apikey
+// depends on none of agent/conversation/workspace). Enables Update to reject a modelOverride pointing
+// at a non-existent apiKeyId at write time (F153). nil → existence check skipped.
+//
+// SetKeyChecker 装配后注入 apikey 存在性探针（apikeyapp；无环）。使 Update 在写时拒绝指向不存在 apiKeyId
+// 的 modelOverride（F153）。nil → 跳过存在性校验。
+func (s *Service) SetKeyChecker(c modelrefapp.KeyExistenceChecker) { s.keyChecker = c }
 
 // validateAttachedDocs rejects a PATCH that attaches a doc id which does not exist (F168-M5). Only the
 // NEW list is checked (old data is not re-validated — F167's render-time warning backstops that); an
@@ -302,7 +318,7 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*conve
 	}
 	if in.ModelOverride != nil {
 		ref := *in.ModelOverride // *ModelRef; nil = clear
-		if err := validateModelOverride(ref); err != nil {
+		if err := modelrefapp.Validate(ctx, ref, conversationdomain.ErrInvalidModelOverride, s.keyChecker); err != nil {
 			return nil, err
 		}
 		c.ModelOverride = ref
@@ -409,21 +425,6 @@ func (s *Service) emit(ctx context.Context, convID, action string, extra map[str
 		s.log.Warn("conversation emit failed",
 			zap.String("conversationId", convID), zap.String("action", action), zap.Error(err))
 	}
-}
-
-// validateModelOverride requires both apiKeyId and modelId when an override is set; mirrors
-// agent — structural only, no key-existence probe (resolved, possibly failing gracefully, at chat time).
-//
-// validateModelOverride 在设了 override 时要求 apiKeyId 和 modelId 都非空；照 agent——仅结构、不探
-// key 存在性（在 chat 时解析，可优雅失败）。
-func validateModelOverride(o *modeldomain.ModelRef) error {
-	if o == nil {
-		return nil
-	}
-	if strings.TrimSpace(o.APIKeyID) == "" || strings.TrimSpace(o.ModelID) == "" {
-		return conversationdomain.ErrInvalidModelOverride
-	}
-	return nil
 }
 
 // Unarchive clears the archived flag (no-op when already active) — chat's auto-unarchive on

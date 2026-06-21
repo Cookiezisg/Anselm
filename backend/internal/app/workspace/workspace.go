@@ -15,6 +15,7 @@ import (
 
 	"go.uber.org/zap"
 
+	modelrefapp "github.com/sunweilin/anselm/backend/internal/app/modelref"
 	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
 	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
 	websearchdomain "github.com/sunweilin/anselm/backend/internal/domain/websearch"
@@ -47,6 +48,16 @@ type Service struct {
 	// best-effort：不返回任何东西（绝不会让 Create 失败），注册的钩子不得阻塞——慢活（如网关调用）自行
 	// 丢进 goroutine。
 	onCreated CreatedHook
+
+	// keyChecker is the optional apikey existence hook (apikeyapp, injected post-build): SetDefault
+	// rejects a scenario default pointing at a non-existent apiKeyId at write time (API_KEY_NOT_FOUND).
+	// Symmetric with ReferencesAPIKey, which already blocks DELETING a key a default points at — both
+	// directions now consistent. nil → existence check skipped. (F153)
+	//
+	// keyChecker 是可选 apikey 存在性钩子（apikeyapp，后注入）：SetDefault 在写时拒绝指向不存在 apiKeyId 的
+	// scenario 默认（API_KEY_NOT_FOUND）。与 ReferencesAPIKey（已挡删被默认引用的 key）对称——两向现一致。
+	// nil → 跳过存在性校验。（F153）
+	keyChecker modelrefapp.KeyExistenceChecker
 }
 
 // Reaper destroys everything a workspace owns beyond its row: in-flight runs, trigger
@@ -75,6 +86,14 @@ type CreatedHook func(ctx context.Context, workspaceID string)
 //
 // SetOnCreated 注入创建后钩子（bootstrap 后注入）。
 func (s *Service) SetOnCreated(h CreatedHook) { s.onCreated = h }
+
+// SetKeyChecker installs the apikey existence probe post-construction (apikeyapp; no cycle — apikey
+// depends on none of workspace/agent/conversation). Enables SetDefault to reject a scenario default
+// pointing at a non-existent apiKeyId at write time (F153). nil → existence check skipped.
+//
+// SetKeyChecker 装配后注入 apikey 存在性探针（apikeyapp；无环）。使 SetDefault 在写时拒绝指向不存在
+// apiKeyId 的 scenario 默认（F153）。nil → 跳过存在性校验。
+func (s *Service) SetKeyChecker(c modelrefapp.KeyExistenceChecker) { s.keyChecker = c }
 
 // NewService wires dependencies; panics on nil logger.
 //
@@ -273,10 +292,12 @@ func (s *Service) SetDefault(ctx context.Context, id, scenario string, ref *mode
 	if !modeldomain.IsValidScenario(scenario) {
 		return nil, modeldomain.ErrScenarioInvalid
 	}
-	if ref != nil {
-		if err := ref.Validate(); err != nil {
-			return nil, err
-		}
+	// Structure (MODEL_REF_INVALID) + apiKeyId existence (API_KEY_NOT_FOUND at write, F153). A nil ref
+	// (clear) skips both. modelId spelling stays fail-loud-at-invoke (no authoritative catalog).
+	// 结构（MODEL_REF_INVALID）+ apiKeyId 存在性（写时 API_KEY_NOT_FOUND，F153）。nil ref（清除）两者皆跳。
+	// modelId 拼写留 fail-loud-at-invoke（无权威目录）。
+	if err := modelrefapp.Validate(ctx, ref, modeldomain.ErrRefInvalid, s.keyChecker); err != nil {
+		return nil, err
 	}
 	w, err := s.repo.Get(ctx, id)
 	if err != nil {

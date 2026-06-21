@@ -9,6 +9,7 @@ import (
 	_ "github.com/glebarez/go-sqlite"
 	"go.uber.org/zap"
 
+	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
 	conversationdomain "github.com/sunweilin/anselm/backend/internal/domain/conversation"
 	documentdomain "github.com/sunweilin/anselm/backend/internal/domain/document"
 	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
@@ -295,5 +296,36 @@ func TestUpdate_AttachedDocuments_NilResolverSkips(t *testing.T) {
 	any := []documentdomain.AttachedDocument{{DocumentID: "doc_unchecked"}}
 	if _, err := svc.Update(ctx, c.ID, UpdateInput{AttachedDocuments: &any}); err != nil {
 		t.Fatalf("nil resolver must skip validation, got %v", err)
+	}
+}
+
+type fakeKeyChecker struct{ known map[string]bool }
+
+func (f fakeKeyChecker) KeyExists(_ context.Context, id string) error {
+	if f.known[id] {
+		return nil
+	}
+	return apikeydomain.ErrNotFound
+}
+
+// TestUpdate_RejectsDanglingModelOverrideKey pins F153 for the conversation override write path: a
+// modelOverride PATCH pointing at a non-existent apiKeyId is rejected at WRITE (API_KEY_NOT_FOUND, was
+// only at chat time); a real key passes; clearing (&nil) skips existence.
+func TestUpdate_RejectsDanglingModelOverrideKey(t *testing.T) {
+	svc, _, _, ctx := newSvc(t)
+	svc.SetKeyChecker(fakeKeyChecker{known: map[string]bool{"aki_real": true}})
+	c, _ := svc.Create(ctx, "t")
+
+	bad := &modeldomain.ModelRef{APIKeyID: "aki_deadbeef", ModelID: "m"}
+	if _, err := svc.Update(ctx, c.ID, UpdateInput{ModelOverride: &bad}); !errors.Is(err, apikeydomain.ErrNotFound) {
+		t.Fatalf("dangling apiKeyId must reject at write with API_KEY_NOT_FOUND, got %v", err)
+	}
+	good := &modeldomain.ModelRef{APIKeyID: "aki_real", ModelID: "deepseek-typo"}
+	if _, err := svc.Update(ctx, c.ID, UpdateInput{ModelOverride: &good}); err != nil {
+		t.Fatalf("a real apiKeyId must pass even with a typo'd modelId: %v", err)
+	}
+	var clear *modeldomain.ModelRef // &nil = clear
+	if _, err := svc.Update(ctx, c.ID, UpdateInput{ModelOverride: &clear}); err != nil {
+		t.Fatalf("clearing (&nil) must skip existence, got %v", err)
 	}
 }

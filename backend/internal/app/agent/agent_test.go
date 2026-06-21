@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	agentdomain "github.com/sunweilin/anselm/backend/internal/domain/agent"
+	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
 	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 	agentstore "github.com/sunweilin/anselm/backend/internal/infra/store/agent"
@@ -274,5 +275,32 @@ func TestService_InvokeWithoutDepsFails(t *testing.T) {
 	a, _, _ := svc.Create(ctx, CreateInput{Name: "x", Config: Config{Prompt: "p"}})
 	if _, err := svc.InvokeAgent(ctx, InvokeInput{AgentID: a.ID}); err == nil {
 		t.Fatal("expected error when invoke deps not configured")
+	}
+}
+
+type fakeKeyChecker struct{ known map[string]bool }
+
+func (f fakeKeyChecker) KeyExists(_ context.Context, id string) error {
+	if f.known[id] {
+		return nil
+	}
+	return apikeydomain.ErrNotFound
+}
+
+// TestCreate_RejectsDanglingModelOverrideKey pins F153 for the agent override write path: a modelOverride
+// pointing at a non-existent apiKeyId is rejected at WRITE with API_KEY_NOT_FOUND (was 200-then-invoke);
+// a real key passes — even with a typo'd modelId (modelId stays fail-loud at invoke).
+func TestCreate_RejectsDanglingModelOverrideKey(t *testing.T) {
+	svc, ctx := newSvc(t)
+	svc.SetKeyChecker(fakeKeyChecker{known: map[string]bool{"aki_real": true}})
+
+	_, _, err := svc.Create(ctx, CreateInput{Name: "bad", Config: Config{Prompt: "p",
+		ModelOverride: &modeldomain.ModelRef{APIKeyID: "aki_deadbeef", ModelID: "m"}}})
+	if !errors.Is(err, apikeydomain.ErrNotFound) {
+		t.Fatalf("dangling apiKeyId must reject at write with API_KEY_NOT_FOUND, got %v", err)
+	}
+	if _, _, err := svc.Create(ctx, CreateInput{Name: "ok", Config: Config{Prompt: "p",
+		ModelOverride: &modeldomain.ModelRef{APIKeyID: "aki_real", ModelID: "deepseek-typo-v9"}}}); err != nil {
+		t.Fatalf("a real apiKeyId must pass even with a typo'd modelId: %v", err)
 	}
 }

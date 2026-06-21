@@ -316,6 +316,15 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	// 构造且不依赖它，无环。
 	conv.SetDocumentResolver(doc)
 
+	// Reject a model override / scenario default pointing at a non-existent apiKeyId at WRITE time
+	// (API_KEY_NOT_FOUND) instead of only at invoke (F153). apikey (keys) depends on none of these
+	// three, so wiring it as their existence checker introduces no cycle.
+	// 在**写**时拒绝指向不存在 apiKeyId 的 model override / scenario 默认（API_KEY_NOT_FOUND），而非只在
+	// invoke 时（F153）。apikey（keys）不依赖这三者，作其存在性 checker 注入无环。
+	ag.SetKeyChecker(keys)
+	conv.SetKeyChecker(keys)
+	ws.SetKeyChecker(keys)
+
 	// apikey delete-guard (RefScanner): refuse to delete a key still referenced, so the
 	// reference never dangles. Two real sources — a workspace's scenario default models /
 	// search key, and an agent's pinned modelOverride; both implement RefScanner structurally.

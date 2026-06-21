@@ -9,6 +9,7 @@ import (
 
 	"go.uber.org/zap"
 
+	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
 	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
 	workspacedomain "github.com/sunweilin/anselm/backend/internal/domain/workspace"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
@@ -357,5 +358,35 @@ func TestSetDefault_InvalidScenario(t *testing.T) {
 	_, err := s.SetDefault(context.Background(), w.ID, "bogus", &modeldomain.ModelRef{APIKeyID: "a", ModelID: "m"})
 	if !errors.Is(err, modeldomain.ErrScenarioInvalid) {
 		t.Errorf("err = %v, want ErrScenarioInvalid", err)
+	}
+}
+
+type fakeKeyChecker struct{ known map[string]bool }
+
+func (f fakeKeyChecker) KeyExists(_ context.Context, id string) error {
+	if f.known[id] {
+		return nil
+	}
+	return apikeydomain.ErrNotFound
+}
+
+// TestSetDefault_RejectsDanglingKey pins F153 for the workspace scenario-default write path: a default
+// pointing at a non-existent apiKeyId is rejected at WRITE (API_KEY_NOT_FOUND); a real key passes; clear
+// (nil ref) skips existence. Symmetric with ReferencesAPIKey (which already blocks deleting a referenced key).
+func TestSetDefault_RejectsDanglingKey(t *testing.T) {
+	s := newService()
+	s.SetKeyChecker(fakeKeyChecker{known: map[string]bool{"aki_1": true}})
+	w, _ := s.Create(context.Background(), CreateInput{Name: "WS"})
+
+	bad := &modeldomain.ModelRef{APIKeyID: "aki_deadbeef", ModelID: "m"}
+	if _, err := s.SetDefault(context.Background(), w.ID, modeldomain.ScenarioDialogue, bad); !errors.Is(err, apikeydomain.ErrNotFound) {
+		t.Fatalf("dangling apiKeyId must reject at write with API_KEY_NOT_FOUND, got %v", err)
+	}
+	good := &modeldomain.ModelRef{APIKeyID: "aki_1", ModelID: "deepseek-typo"}
+	if _, err := s.SetDefault(context.Background(), w.ID, modeldomain.ScenarioDialogue, good); err != nil {
+		t.Fatalf("a real apiKeyId must pass even with a typo'd modelId: %v", err)
+	}
+	if _, err := s.SetDefault(context.Background(), w.ID, modeldomain.ScenarioDialogue, nil); err != nil {
+		t.Fatalf("clearing (nil ref) must skip existence, got %v", err)
 	}
 }

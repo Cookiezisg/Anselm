@@ -21,6 +21,7 @@ import (
 	"go.uber.org/zap"
 
 	loopapp "github.com/sunweilin/anselm/backend/internal/app/loop"
+	modelrefapp "github.com/sunweilin/anselm/backend/internal/app/modelref"
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 	agentdomain "github.com/sunweilin/anselm/backend/internal/domain/agent"
 	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
@@ -123,12 +124,13 @@ type RelationSyncer interface {
 //
 // Service 编排 agent domain。
 type Service struct {
-	repo      agentdomain.Repository
-	search    searchdomain.Notifier // nil → search indexing disabled. nil → 不接搜索索引。
-	invoke    InvokeDeps
-	relations RelationSyncer             // nil disables relation hooks
-	notif     notificationdomain.Emitter // nil-tolerant
-	log       *zap.Logger
+	repo       agentdomain.Repository
+	search     searchdomain.Notifier // nil → search indexing disabled. nil → 不接搜索索引。
+	invoke     InvokeDeps
+	relations  RelationSyncer                  // nil disables relation hooks
+	notif      notificationdomain.Emitter      // nil-tolerant
+	keyChecker modelrefapp.KeyExistenceChecker // nil → modelOverride apiKeyId existence not checked at write (F153)
+	log        *zap.Logger
 }
 
 // NewService wires the service; nil repo / log is a wiring bug. invoke deps + relations are
@@ -155,6 +157,14 @@ func (s *Service) SetRelationSyncer(r RelationSyncer) { s.relations = r }
 //
 // SetInvokeDeps 注入 LLM 侧 invoke 依赖。未注入前 InvokeAgent 报错——CRUD 不依赖它们。
 func (s *Service) SetInvokeDeps(deps InvokeDeps) { s.invoke = deps }
+
+// SetKeyChecker installs the apikey existence probe post-construction (apikeyapp; no cycle — apikey
+// depends on none of agent/conversation/workspace). Enables Create/Edit to reject a modelOverride
+// pointing at a non-existent apiKeyId at write time (F153). nil → existence check skipped.
+//
+// SetKeyChecker 装配后注入 apikey 存在性探针（apikeyapp；无环——apikey 不依赖 agent/conversation/workspace）。
+// 使 Create/Edit 在写时拒绝指向不存在 apiKeyId 的 modelOverride（F153）。nil → 跳过存在性校验。
+func (s *Service) SetKeyChecker(c modelrefapp.KeyExistenceChecker) { s.keyChecker = c }
 
 // publish emits an agent lifecycle notification; nil emitter is a no-op.
 //

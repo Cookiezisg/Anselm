@@ -9,6 +9,7 @@ import (
 
 	"go.uber.org/zap"
 
+	modelrefapp "github.com/sunweilin/anselm/backend/internal/app/modelref"
 	agentdomain "github.com/sunweilin/anselm/backend/internal/domain/agent"
 	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
 	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
@@ -247,7 +248,7 @@ func (s *Service) Search(ctx context.Context, query string) ([]*agentdomain.Agen
 //
 // Create 持久化新 Agent + v1（active）并同步 relation 边。无 env、无 sandbox。
 func (s *Service) Create(ctx context.Context, in CreateInput) (*agentdomain.Agent, *agentdomain.Version, error) {
-	if err := validateModelOverride(in.ModelOverride); err != nil {
+	if err := modelrefapp.Validate(ctx, in.ModelOverride, agentdomain.ErrInvalidModelOverride, s.keyChecker); err != nil {
 		return nil, nil, err
 	}
 
@@ -291,7 +292,7 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*agentdomain.Version,
 	if err != nil {
 		return nil, fmt.Errorf("agentapp.Edit: %w", err)
 	}
-	if err := validateModelOverride(in.ModelOverride); err != nil {
+	if err := modelrefapp.Validate(ctx, in.ModelOverride, agentdomain.ErrInvalidModelOverride, s.keyChecker); err != nil {
 		return nil, err
 	}
 
@@ -454,19 +455,6 @@ func (s *Service) validateToolsMounted(ctx context.Context, refs []agentdomain.T
 		if !h.Healthy {
 			return agentdomain.ErrMountInvalid.WithDetails(map[string]any{"ref": h.Ref, "error": h.Error})
 		}
-	}
-	return nil
-}
-
-// validateModelOverride requires both apiKeyId and modelId when an override is set.
-//
-// validateModelOverride 在设了 override 时要求 apiKeyId 和 modelId 都非空。
-func validateModelOverride(o *modeldomain.ModelRef) error {
-	if o == nil {
-		return nil
-	}
-	if strings.TrimSpace(o.APIKeyID) == "" || strings.TrimSpace(o.ModelID) == "" {
-		return agentdomain.ErrInvalidModelOverride
 	}
 	return nil
 }
