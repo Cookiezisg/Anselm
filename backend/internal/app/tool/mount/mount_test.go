@@ -214,7 +214,7 @@ func TestResolve_HandlerMount(t *testing.T) {
 // 同名形），绑定 server id。
 func TestResolve_MCPMount(t *testing.T) {
 	mcp := &fakeMCP{
-		servers: []mcpdomain.ServerStatus{{ID: "mcp_1", Name: "search"}},
+		servers: []mcpdomain.ServerStatus{{ID: "mcp_1", Name: "search", Status: mcpdomain.StatusReady}},
 		tools: []mcpdomain.ToolDef{{
 			ServerName: "search", Name: "query", Description: "Search the web.",
 			InputSchema: json.RawMessage(`{"type":"object","properties":{"q":{"type":"string"}}}`),
@@ -240,6 +240,22 @@ func TestResolve_MCPMount(t *testing.T) {
 	// 不在线/不存在的 server → 具体错误，fail-fast。
 	if _, err := r.Resolve(context.Background(), []agentdomain.ToolRef{{Ref: "mcp:gone/x"}}); !errors.Is(err, mcpdomain.ErrServerNotFound) {
 		t.Fatalf("missing server err = %v", err)
+	}
+}
+
+// TestResolve_MCPOfflineServer — F141: a mount whose MCP server EXISTS but is OFFLINE (failed/connecting)
+// must fail with ErrServerNotConnected (MCP_SERVER_DOWN), NOT ErrToolNotFound — otherwise mount-health /
+// the agent build error blames the tool ("not found on server") and misdirects troubleshooting to edit
+// the mount when the real fix is to reconnect the server. The tool may well exist on the offline server.
+func TestResolve_MCPOfflineServer(t *testing.T) {
+	mcp := &fakeMCP{
+		servers: []mcpdomain.ServerStatus{{ID: "mcp_1", Name: "search", Status: mcpdomain.StatusFailed}},
+		// ListTools only enumerates callable servers, so a failed server contributes no tools.
+	}
+	r := NewResolver(nil, nil, mcp)
+	_, err := r.Resolve(context.Background(), []agentdomain.ToolRef{{Ref: "mcp:search/query"}})
+	if !errors.Is(err, mcpdomain.ErrServerNotConnected) {
+		t.Fatalf("offline-server mount err = %v, want ErrServerNotConnected (not ErrToolNotFound)", err)
 	}
 }
 

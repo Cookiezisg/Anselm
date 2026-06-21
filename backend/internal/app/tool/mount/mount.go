@@ -319,17 +319,28 @@ func (r *Resolver) mcpTool(ctx context.Context, ref string) (toolapp.Tool, error
 	if err != nil {
 		return nil, err
 	}
-	serverID := ""
+	serverID, serverCallable := "", false
 	for _, s := range servers {
 		if s.Name == server {
-			serverID = s.ID
+			serverID, serverCallable = s.ID, mcpdomain.IsCallable(s.Status)
 			break
 		}
 	}
 	if serverID == "" {
 		return nil, mcpdomain.ErrServerNotFound
 	}
-	defs, err := r.mcp.ListTools(ctx) // 只含 callable server 的工具——离线 server 即解析失败（fail-fast）
+	// The server exists but is OFFLINE (failed/connecting). ListTools below only enumerates callable
+	// servers, so without this its tools are absent and we'd fall through to ErrToolNotFound — telling
+	// the user the tool was removed/renamed when the real fix is to reconnect the server. Return the
+	// distinct server-down sentinel instead (symmetric with the direct-invoke path), so mount-health and
+	// the agent build error point at the server, not the tool.
+	// server 存在但**离线**（failed/connecting）。下面 ListTools 只列 callable server，故其工具缺席、会落到
+	// ErrToolNotFound——告诉用户工具被删/改名，而真正该做的是重连 server。改返 server-down 哨兵（与直调路径对称），
+	// 使 mount-health 与 agent 构建错误指向 server、而非工具。
+	if !serverCallable {
+		return nil, fmt.Errorf("mcp server %q is not connected: %w", server, mcpdomain.ErrServerNotConnected)
+	}
+	defs, err := r.mcp.ListTools(ctx) // 只含 callable server 的工具——离线 server 上面已 fail-fast
 	if err != nil {
 		return nil, err
 	}
