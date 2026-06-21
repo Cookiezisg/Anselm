@@ -77,6 +77,13 @@ type Repository interface {
 	// (node_id, iteration) 索引。
 	GetNodes(ctx context.Context, flowrunID string) ([]*FlowRunNode, error)
 
+	// ListNodes returns ONE keyset page of a run's node rows, newest-first, for the REST run-detail
+	// view (N4 — a long loop run has thousands of rows; GetNodes' unbounded dump is the interpreter's,
+	// not the wire's). next == "" at the end. The scheduler never uses this — it needs the whole set.
+	// ListNodes 返一个 run 节点行的一页 keyset（最新在前），供 REST run 详情视图（N4——长 loop run 有数千行；
+	// GetNodes 的无界倾倒是给解释器的、非线缆的）。到底 next == ""。scheduler 从不用它——它要全集。
+	ListNodes(ctx context.Context, flowrunID, cursor string, limit int) (nodes []*FlowRunNode, next string, err error)
+
 	// ResolveParkedNode flips a parked approval row to a terminal status + result, conditionally on
 	// it still being parked — won=false means another writer (human vs timeout) already resolved it
 	// (approval first-wins). The race loser is a no-op, not an error.

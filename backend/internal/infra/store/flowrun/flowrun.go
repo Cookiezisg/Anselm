@@ -288,6 +288,18 @@ func (s *Store) GetNodes(ctx context.Context, flowrunID string) ([]*flowrundomai
 	return rows, nil
 }
 
+// ListNodes pages a run's node rows newest-first via the (created_at, id) keyset (N4) — the bounded
+// REST counterpart to GetNodes' full dump.
+//
+// ListNodes 经 (created_at, id) keyset 最新在前分页一个 run 的节点行（N4）——GetNodes 全量倾倒的有界 REST 对应物。
+func (s *Store) ListNodes(ctx context.Context, flowrunID, cursor string, limit int) ([]*flowrundomain.FlowRunNode, string, error) {
+	rows, next, err := s.nodes.WhereEq("flowrun_id", flowrunID).Page(ctx, cursor, limit)
+	if err != nil {
+		return nil, "", fmt.Errorf("flowrunstore.ListNodes: %w", err)
+	}
+	return rows, next, nil
+}
+
 func (s *Store) ResolveParkedNode(ctx context.Context, flowrunID, nodeID, status string, result map[string]any) (bool, error) {
 	raw, err := json.Marshal(result)
 	if err != nil {

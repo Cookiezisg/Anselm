@@ -94,12 +94,17 @@ func (h *FlowrunHandler) Start(w http.ResponseWriter, r *http.Request) {
 //
 // Get 返一个 run 头 + 它全部节点行（完整记忆化）。
 func (h *FlowrunHandler) Get(w http.ResponseWriter, r *http.Request) {
-	run, nodes, err := h.svc.GetRunWithNodes(r.Context(), r.PathValue("id"))
+	p, err := responsehttpapi.ParsePage(r)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusOK, map[string]any{"flowrun": run, "nodes": nodes})
+	run, nodes, next, err := h.svc.GetRunWithNodesPage(r.Context(), r.PathValue("id"), p.Cursor, p.Limit)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, map[string]any{"flowrun": run, "nodes": nodes, "nextCursor": next})
 }
 
 // Inbox returns every parked approval node in the workspace (the approval inbox).
@@ -164,10 +169,13 @@ func (h *FlowrunHandler) postOnApproval(w http.ResponseWriter, r *http.Request) 
 //
 // writeRun 重读 run + 节点并用给定 responder 写出（使调用方见动作后的 run 态）。
 func (h *FlowrunHandler) writeRun(w http.ResponseWriter, r *http.Request, id string, respond func(http.ResponseWriter, any)) {
-	run, nodes, err := h.svc.GetRunWithNodes(r.Context(), id)
+	// A post-action confirmation shows the run + its FIRST node page (newest-first); the client pages the
+	// rest via GET /flowruns/{id}?cursor= — same bounded shape as Get, never the full dump (F168-M7).
+	// 动作后确认显示 run + 其节点首页（最新在前）；客户端经 GET ?cursor= 翻其余——与 Get 同一有界形状、绝不全量倾倒。
+	run, nodes, next, err := h.svc.GetRunWithNodesPage(r.Context(), id, "", responsehttpapi.DefaultLimit)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	respond(w, map[string]any{"flowrun": run, "nodes": nodes})
+	respond(w, map[string]any{"flowrun": run, "nodes": nodes, "nextCursor": next})
 }

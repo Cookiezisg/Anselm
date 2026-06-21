@@ -30,6 +30,24 @@ func (s *Service) GetRunWithNodes(ctx context.Context, id string) (*flowrundomai
 	return run, nodes, nil
 }
 
+// GetRunWithNodesPage returns a run header + ONE keyset page of its node rows + the next cursor (N4) —
+// the bounded REST run-detail read. A long loop run has thousands of node rows, so the wire pages them
+// (the scheduler's GetRunWithNodes full dump is the interpreter's, not the wire's, F168-M7).
+//
+// GetRunWithNodesPage 返 run 头 + 它节点行的一页 keyset + 下一 cursor（N4）——有界的 REST run 详情读。
+// 长 loop run 有数千节点行，故线缆分页（scheduler 的 GetRunWithNodes 全量倾倒是给解释器的、非线缆的，F168-M7）。
+func (s *Service) GetRunWithNodesPage(ctx context.Context, id, cursor string, limit int) (*flowrundomain.FlowRun, []*flowrundomain.FlowRunNode, string, error) {
+	run, err := s.runs.GetRun(ctx, id)
+	if err != nil {
+		return nil, nil, "", err
+	}
+	nodes, next, err := s.runs.ListNodes(ctx, id, cursor, limit)
+	if err != nil {
+		return nil, nil, "", err
+	}
+	return run, nodes, next, nil
+}
+
 // ListInbox returns every parked approval node in the workspace — the approval inbox (parked rows
 // ARE the inbox; no separate projection table).
 //

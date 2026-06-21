@@ -48,6 +48,7 @@ help:
 	@echo "  前端:   make fe-gen   codegen（freezed/json/slang）"
 	@echo "          make fe-verify Flutter pre-push（gen+analyze+test）"
 	@echo "          make fe-run   起桌面 app（dev，先 make server）"
+	@echo "          make fe-gallery 起设计画廊（独立入口,零后端）"
 	@echo "  清理:   make clean    清 dev 数据（$(BACKEND_DATA_DIR)）"
 
 # ── 环境 ────────────────────────────────────────────────────────────
@@ -163,6 +164,10 @@ fe-verify:
 fe-run:
 	@cd frontend && LANG=en_US.UTF-8 ANSELM_BACKEND_URL=http://127.0.0.1:$(BACKEND_PORT) $(RUN) flutter run -d macos
 
+# fe-gallery — 起设计画廊（独立入口,零后端:验收单色设计语言 + UI 套件）。macOS 真跑需完整 Xcode + CocoaPods。
+fe-gallery:
+	@cd frontend && LANG=en_US.UTF-8 $(RUN) flutter run -t lib/dev/gallery_main.dart -d macos
+
 # ── 清理 ────────────────────────────────────────────────────────────
 
 # clean — 停服务 + 清 dev 数据目录（SQLite + 附件 + sandbox 运行时 + mcp + skills 都在 $(BACKEND_DATA_DIR)）。
@@ -172,4 +177,4 @@ clean: stop
 	@echo "✓ 已清 $(BACKEND_DATA_DIR)"
 
 .PHONY: help setup server stop unit docs build verify clean testend evals \
-        fe-setup fe-gen fe-analyze fe-test fe-verify fe-run
+        fe-setup fe-gen fe-analyze fe-test fe-verify fe-run fe-gallery

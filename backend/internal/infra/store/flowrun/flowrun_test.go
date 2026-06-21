@@ -83,6 +83,51 @@ func TestRun_RoundTrip_SeedAndPins(t *testing.T) {
 	}
 }
 
+// TestListNodes_PagesAllRows — F168-M7: the REST run-detail node list is keyset-paged (N4), so a long
+// loop run's thousands of rows page instead of dumping in one response. Every row appears exactly once
+// across the pages and pagination terminates (next == "").
+func TestListNodes_PagesAllRows(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	id := mkRun(t, s, ctx, "fr_1", "wf_1", map[string]any{}) // seeds 1 trigger node "start"
+
+	// 5 more node rows (distinct iterations → record-once keeps them all); total = 6.
+	for i := 0; i < 5; i++ {
+		if ins, err := s.InsertNodeResult(ctx, completedNode(id, "draft", "action", i, map[string]any{"i": i})); err != nil || !ins {
+			t.Fatalf("insert iter %d: ins=%v err=%v", i, ins, err)
+		}
+	}
+
+	seen := map[string]bool{}
+	cursor, pages := "", 0
+	for {
+		nodes, next, err := s.ListNodes(ctx, id, cursor, 2)
+		if err != nil {
+			t.Fatalf("ListNodes page %d: %v", pages, err)
+		}
+		pages++
+		if len(nodes) > 2 {
+			t.Fatalf("page %d returned %d rows, over the limit of 2", pages, len(nodes))
+		}
+		for _, n := range nodes {
+			if seen[n.ID] {
+				t.Fatalf("node %q returned on more than one page", n.ID)
+			}
+			seen[n.ID] = true
+		}
+		if next == "" {
+			break
+		}
+		cursor = next
+		if pages > 10 {
+			t.Fatal("pagination did not terminate")
+		}
+	}
+	if len(seen) != 6 {
+		t.Fatalf("paged set = %d nodes, want 6 (1 trigger + 5 iterations)", len(seen))
+	}
+}
+
 // record-once boundary: a duplicate (flowrun_id, node_id, iteration) is silently ignored,
 // first writer wins — never two rows, never an error.
 func TestInsertNodeResult_RecordOnce_FirstWins(t *testing.T) {
