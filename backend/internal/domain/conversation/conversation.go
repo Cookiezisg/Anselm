@@ -115,6 +115,17 @@ var (
 	// ErrInvalidModelOverride：已设的 modelOverride 缺 apiKeyId 或 modelId。照 agent——仅结构；
 	// key 存在性在 chat 时解析（可优雅失败）。
 	ErrInvalidModelOverride = errorspkg.New(errorspkg.KindUnprocessable, "CONVERSATION_INVALID_MODEL_OVERRIDE", "invalid modelOverride (apiKeyId and modelId both required)")
+
+	// ErrAttachedDocumentNotFound: a PATCH set attachedDocuments to include a doc id that does not
+	// exist (mistyped or since-deleted). Rejected 422 at attach time with the missing ids in Details —
+	// mirrors agent's eager knowledge-mount check, instead of silently accepting a dangling reference
+	// that only surfaces as a render-time warning later (F168-M5; F167 render warning still backstops
+	// old data not re-validated here).
+	//
+	// ErrAttachedDocumentNotFound：PATCH 把 attachedDocuments 设成含不存在的 doc id（拼错或已删）。attach
+	// 时即 422、Details 带缺失 id——照 agent 的 eager knowledge 挂载校验，而非静默接受悬挂引用、只在后续渲染
+	// 时才警告（F168-M5；F167 渲染警告仍兜底此处不回溯校验的老数据）。
+	ErrAttachedDocumentNotFound = errorspkg.New(errorspkg.KindUnprocessable, "CONVERSATION_ATTACHED_DOC_NOT_FOUND", "conversation attaches a document that does not exist")
 )
 
 // Repository is the storage contract; workspace isolation + soft-delete are applied by the

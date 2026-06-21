@@ -20,6 +20,7 @@ import (
 	"go.uber.org/zap"
 
 	conversationdomain "github.com/sunweilin/anselm/backend/internal/domain/conversation"
+	documentdomain "github.com/sunweilin/anselm/backend/internal/domain/document"
 	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
 	notificationdomain "github.com/sunweilin/anselm/backend/internal/domain/notification"
 	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
@@ -63,6 +64,25 @@ type Service struct {
 	// querier 是可选在途生成读取器（chatapp，后注入）：Get/List 据它派生每行 IsGenerating，使刚连上的
 	// 客户端冷启动活动圆点。与 canceler 对称——同款 DIP 端口破 chat↔conversation 环。nil → IsGenerating 恒 false。
 	querier GeneratingQuerier
+
+	// docResolver is the optional document-existence hook (documentapp, injected post-build like
+	// relations/canceler): Update validates attachedDocuments against it so a dangling/deleted doc id is
+	// rejected at attach time (422) instead of silently accepted and only surfaced as a render warning
+	// later. nil → no attach-time check (F167's render-time warning still backstops). (F168-M5)
+	//
+	// docResolver 是可选文档存在性钩子（documentapp，与 relations/canceler 同款后注入）：Update 据它校验
+	// attachedDocuments，使悬挂/已删 doc id 在 attach 时即 422、而非静默接受、只在后续渲染时才警告。
+	// nil → 不做 attach-time 校验（F167 渲染时警告仍兜底）。（F168-M5）
+	docResolver DocumentResolver
+}
+
+// DocumentResolver resolves attached-document references to their live documents (missing ids are
+// dropped, not errored — the caller diffs requested vs returned). Implemented by documentapp.Service.
+//
+// DocumentResolver 把附加文档引用解析成存活文档（缺失 id 被丢弃、非报错——调用方比对 requested vs
+// returned）。由 documentapp.Service 实现。
+type DocumentResolver interface {
+	ResolveAttached(ctx context.Context, atts []documentdomain.AttachedDocument) ([]*documentdomain.Document, error)
 }
 
 // GenerationCanceler is the chat-side hook for conversation lifecycle (chatapp.Service satisfies it):
@@ -133,6 +153,51 @@ func NewService(repo conversationdomain.Repository, emitter notificationdomain.E
 // SetRelationSyncer 装配后注入 relation Service（避免 init 环：relation 要 conversation 的 Namer，
 // conversation 要 relation 的 syncer）。
 func (s *Service) SetRelationSyncer(r RelationSyncer) { s.relations = r }
+
+// SetDocumentResolver installs the document-existence hook post-construction (documentapp; no cycle —
+// document does not depend on conversation). Enables Update's attach-time validation (F168-M5).
+//
+// SetDocumentResolver 装配后注入文档存在性钩子（documentapp；无环——document 不依赖 conversation）。
+// 使 Update 的 attach-time 校验生效（F168-M5）。
+func (s *Service) SetDocumentResolver(r DocumentResolver) { s.docResolver = r }
+
+// validateAttachedDocs rejects a PATCH that attaches a doc id which does not exist (F168-M5). Only the
+// NEW list is checked (old data is not re-validated — F167's render-time warning backstops that); an
+// empty list (clearing all attachments) and a nil resolver both pass. ResolveAttached drops missing
+// ids silently, so we diff the requested (deduped, non-blank) ids against the returned documents.
+//
+// validateAttachedDocs 拒绝 attach 不存在 doc id 的 PATCH（F168-M5）。只校验**新**列表（不回溯老数据——
+// F167 渲染警告兜底）；空列表（清空全部附件）与 nil resolver 都放行。ResolveAttached 静默丢缺失 id，故
+// 拿请求的（去重、非空）id 集与返回文档比对。
+func (s *Service) validateAttachedDocs(ctx context.Context, atts []documentdomain.AttachedDocument) error {
+	if s.docResolver == nil || len(atts) == 0 {
+		return nil
+	}
+	docs, err := s.docResolver.ResolveAttached(ctx, atts)
+	if err != nil {
+		return err
+	}
+	have := make(map[string]bool, len(docs))
+	for _, d := range docs {
+		have[d.ID] = true
+	}
+	var missing []string
+	seen := map[string]bool{}
+	for _, a := range atts {
+		id := strings.TrimSpace(a.DocumentID)
+		if id == "" || seen[id] {
+			continue
+		}
+		seen[id] = true
+		if !have[id] {
+			missing = append(missing, id)
+		}
+	}
+	if len(missing) > 0 {
+		return conversationdomain.ErrAttachedDocumentNotFound.WithDetails(map[string]any{"missing": missing})
+	}
+	return nil
+}
 
 // Create makes a new conversation with the given title (may be empty → chat auto-titles later).
 //
@@ -214,6 +279,9 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*conve
 		c.SystemPrompt = *in.SystemPrompt
 	}
 	if in.AttachedDocuments != nil {
+		if err := s.validateAttachedDocs(ctx, *in.AttachedDocuments); err != nil {
+			return nil, err
+		}
 		c.AttachedDocuments = *in.AttachedDocuments
 	}
 	if in.Archived != nil && c.Archived != *in.Archived {

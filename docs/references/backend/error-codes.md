@@ -42,7 +42,7 @@ audience: [human, ai]
 
 ---
 
-## 全量登记（297 码，按域）
+## 全量登记（298 码，按域）
 
 > `errorspkg.New` 机械抽取（281，不含 `*_test.go` 测试 sentinel 如 DUP/THING_NOT_FOUND）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（5）。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
 
@@ -349,6 +349,7 @@ audience: [human, ai]
 
 | code | HTTP | message |
 |---|---|---|
+| `CONVERSATION_ATTACHED_DOC_NOT_FOUND` | 422 | conversation attaches a document that does not exist (F168-M5; `details.missing`) |
 | `CONVERSATION_INVALID_MODEL_OVERRIDE` | 422 | invalid modelOverride (apiKeyId and modelId both required) |
 | `CONVERSATION_NOT_FOUND` | 404 | conversation not found |
 

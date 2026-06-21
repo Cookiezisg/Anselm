@@ -310,6 +310,11 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	// List/Get derive each row's isGenerating from chat's in-flight registry (same post-build port).
 	// List/Get 据 chat 在途登记派生每行 isGenerating（同款后注入端口）。
 	conv.SetGeneratingQuerier(chat)
+	// Update validates attachedDocuments against live documents (reject a dangling/deleted doc id at
+	// attach time, 422 — F168-M5). doc was built before conv and does not depend on it, so no cycle.
+	// Update 据存活文档校验 attachedDocuments（attach 时拒悬挂/已删 doc id，422——F168-M5）。doc 先于 conv
+	// 构造且不依赖它，无环。
+	conv.SetDocumentResolver(doc)
 
 	// apikey delete-guard (RefScanner): refuse to delete a key still referenced, so the
 	// reference never dangles. Two real sources — a workspace's scenario default models /

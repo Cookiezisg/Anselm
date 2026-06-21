@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	conversationdomain "github.com/sunweilin/anselm/backend/internal/domain/conversation"
+	documentdomain "github.com/sunweilin/anselm/backend/internal/domain/document"
 	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
 	conversationstore "github.com/sunweilin/anselm/backend/internal/infra/store/conversation"
 	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
@@ -250,5 +251,49 @@ func TestSetSummary_PersistsAndEmits(t *testing.T) {
 	}
 	if em.last() != "conversation.compacted" {
 		t.Fatalf("expected conversation.compacted emit, got %q", em.last())
+	}
+}
+
+type fakeDocResolver struct{ known map[string]bool }
+
+func (f fakeDocResolver) ResolveAttached(_ context.Context, atts []documentdomain.AttachedDocument) ([]*documentdomain.Document, error) {
+	var out []*documentdomain.Document
+	for _, a := range atts {
+		if f.known[a.DocumentID] {
+			out = append(out, &documentdomain.Document{ID: a.DocumentID})
+		}
+	}
+	return out, nil
+}
+
+// TestUpdate_AttachedDocuments_RejectsDangling pins F168-M5: attaching a doc id that does not exist is
+// rejected 422 at attach time (not silently accepted); a known id and an empty (clearing) list succeed.
+func TestUpdate_AttachedDocuments_RejectsDangling(t *testing.T) {
+	svc, _, _, ctx := newSvc(t)
+	svc.SetDocumentResolver(fakeDocResolver{known: map[string]bool{"doc_ok": true}})
+	c, _ := svc.Create(ctx, "t")
+
+	bad := []documentdomain.AttachedDocument{{DocumentID: "doc_missing"}}
+	if _, err := svc.Update(ctx, c.ID, UpdateInput{AttachedDocuments: &bad}); !errors.Is(err, conversationdomain.ErrAttachedDocumentNotFound) {
+		t.Fatalf("dangling attach must be rejected (F168-M5), got %v", err)
+	}
+	good := []documentdomain.AttachedDocument{{DocumentID: "doc_ok"}}
+	if got, err := svc.Update(ctx, c.ID, UpdateInput{AttachedDocuments: &good}); err != nil || len(got.AttachedDocuments) != 1 {
+		t.Fatalf("known attach must succeed: %v %+v", err, got)
+	}
+	empty := []documentdomain.AttachedDocument{}
+	if _, err := svc.Update(ctx, c.ID, UpdateInput{AttachedDocuments: &empty}); err != nil {
+		t.Fatalf("clearing attachments must succeed, got %v", err)
+	}
+}
+
+// TestUpdate_AttachedDocuments_NilResolverSkips: without a resolver wired, no attach-time check runs
+// (the F167 render-time warning backstops); the attach is accepted unchecked.
+func TestUpdate_AttachedDocuments_NilResolverSkips(t *testing.T) {
+	svc, _, _, ctx := newSvc(t) // no SetDocumentResolver
+	c, _ := svc.Create(ctx, "t")
+	any := []documentdomain.AttachedDocument{{DocumentID: "doc_unchecked"}}
+	if _, err := svc.Update(ctx, c.ID, UpdateInput{AttachedDocuments: &any}); err != nil {
+		t.Fatalf("nil resolver must skip validation, got %v", err)
 	}
 }
