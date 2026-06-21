@@ -3,6 +3,8 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
+	"strings"
 
 	handlerdomain "github.com/sunweilin/anselm/backend/internal/domain/handler"
 	jsonrepairpkg "github.com/sunweilin/anselm/backend/internal/pkg/jsonrepair"
@@ -170,6 +172,17 @@ func applyOne(state *VersionDraft, op Op) error {
 		if err := json.Unmarshal(op.Raw, &p); err != nil {
 			return fmt.Errorf("add_method unmarshal: %w", err)
 		}
+		// Fail loud on a misplaced method definition: the method fields belong NESTED under "method",
+		// and a top-level "body"/"name"/"inputs"/… unmarshals into nothing and is silently dropped —
+		// the method then lands empty-bodied (a do-nothing method = false success) or trips the
+		// misleading "method.name required". An add_method op carries only "op" + "method"; anything
+		// else at the top level is the misplacement, named back to the agent with the correct shape.
+		// 对放错位置的 method 定义大声报错：method 字段应**嵌套**在 "method" 下，顶层的 "body"/"name"/…
+		// 解析进空、被静默丢弃——method 落得空 body（什么都不做=假成功）或触发误导的 "method.name required"。
+		// add_method op 只带 "op"+"method"；顶层其余键即放错，连同正确形状一并指回给 agent。
+		if extra := unexpectedKeys(op.Raw, "op", "method"); len(extra) > 0 {
+			return fmt.Errorf("add_method: method fields must be nested under \"method\", not at the op's top level (misplaced: %s); shape: {\"op\":\"add_method\",\"method\":{\"name\":...,\"body\":...,\"inputs\":[...],\"outputs\":[...]}}", strings.Join(extra, ", "))
+		}
 		if p.Method.Name == "" {
 			return fmt.Errorf("add_method: method.name required")
 		}
@@ -235,6 +248,30 @@ func findMethodIdx(methods []handlerdomain.MethodSpec, name string) int {
 		}
 	}
 	return -1
+}
+
+// unexpectedKeys returns the top-level JSON object keys of raw that are not in allowed (sorted, for a
+// deterministic message). Used to fail loud on a misplaced op field rather than silently dropping it.
+//
+// unexpectedKeys 返回 raw 顶层对象里不在 allowed 中的键（排序，消息确定）。用于对放错位置的 op 字段大声
+// 报错而非静默丢弃。
+func unexpectedKeys(raw json.RawMessage, allowed ...string) []string {
+	var obj map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &obj); err != nil {
+		return nil
+	}
+	ok := make(map[string]bool, len(allowed))
+	for _, a := range allowed {
+		ok[a] = true
+	}
+	var extra []string
+	for k := range obj {
+		if !ok[k] {
+			extra = append(extra, k)
+		}
+	}
+	sort.Strings(extra)
+	return extra
 }
 
 // mergeMethodPatch applies an RFC 7396 JSON Merge Patch to one MethodSpec via JSON round-trip.

@@ -165,6 +165,42 @@ func editDepsOps(t *testing.T) []Op {
 
 // --- tests -----------------------------------------------------------------
 
+// TestAddMethod_MisplacedFieldsFailLoud — F136: an add_method op whose method fields sit at the op's
+// TOP LEVEL (instead of nested under "method") must fail loud with a corrective message — not silently
+// drop the body (an empty-bodied method is a false success) nor mislead with "method.name required".
+func TestAddMethod_MisplacedFieldsFailLoud(t *testing.T) {
+	mustOp := func(s string) Op {
+		t.Helper()
+		ops, err := ParseOps([]byte("[" + s + "]"))
+		if err != nil {
+			t.Fatalf("ParseOps(%s): %v", s, err)
+		}
+		return ops[0]
+	}
+
+	// body misplaced at the top level (name correctly nested) — used to drop the body silently.
+	bodyOut := mustOp(`{"op":"add_method","method":{"name":"fetch"},"body":"return 1"}`)
+	if err := applyOne(&VersionDraft{}, bodyOut); err == nil ||
+		!strings.Contains(err.Error(), "body") || !strings.Contains(err.Error(), "nested under") {
+		t.Fatalf("misplaced top-level body must fail loud naming it, got %v", err)
+	}
+
+	// everything flat — used to trip the misleading "method.name required".
+	flat := mustOp(`{"op":"add_method","name":"fetch","body":"return 1"}`)
+	if err := applyOne(&VersionDraft{}, flat); err == nil || !strings.Contains(err.Error(), "nested under") {
+		t.Fatalf("all-flat add_method must point at the nesting, got %v", err)
+	}
+
+	// the correct nested shape still applies, body and all.
+	st := &VersionDraft{}
+	if err := applyOne(st, mustOp(`{"op":"add_method","method":{"name":"fetch","body":"return 1"}}`)); err != nil {
+		t.Fatalf("correct add_method must succeed: %v", err)
+	}
+	if len(st.Methods) != 1 || st.Methods[0].Body != "return 1" {
+		t.Fatalf("method + body must land, got %+v", st.Methods)
+	}
+}
+
 func TestCreate_NoEagerSpawn(t *testing.T) {
 	svc, runner, _, ctx := newSvc(t)
 	h, v, err := svc.Create(ctx, CreateInput{Ops: createOps(t, "alpha", false)})
