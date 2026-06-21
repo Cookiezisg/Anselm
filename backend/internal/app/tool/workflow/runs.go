@@ -61,7 +61,7 @@ func (t *GetFlowrun) Execute(ctx context.Context, argsJSON string) (string, erro
 	if err != nil {
 		return "", fmt.Errorf("get_flowrun: %w", err)
 	}
-	return toolapp.ToJSON(map[string]any{"flowrun": run, "nodes": nodes}), nil
+	return toolapp.ToJSON(flowrunNodesResult(run, nodes)), nil
 }
 
 // --- search_flowruns ---------------------------------------------------------
@@ -167,7 +167,7 @@ func (t *ReplayFlowrun) Execute(ctx context.Context, argsJSON string) (string, e
 	if err != nil {
 		return "", fmt.Errorf("replay_flowrun: %w", err)
 	}
-	return toolapp.ToJSON(map[string]any{"flowrun": run, "nodes": nodes}), nil
+	return toolapp.ToJSON(flowrunNodesResult(run, nodes)), nil
 }
 
 // --- decide_approval ---------------------------------------------------------
@@ -234,5 +234,67 @@ func (t *DecideApproval) Execute(ctx context.Context, argsJSON string) (string, 
 	if err != nil {
 		return "", fmt.Errorf("decide_approval: %w", err)
 	}
-	return toolapp.ToJSON(map[string]any{"flowrun": run, "nodes": nodes}), nil
+	return toolapp.ToJSON(flowrunNodesResult(run, nodes)), nil
+}
+
+// flowrunNodesResult builds the {flowrun, nodes, nodeSummary?} tool result, capping a large run's nodes
+// via capFlowrunNodes so get_flowrun / replay_flowrun / decide_approval cannot dump a long loop's
+// thousands of node rows (~650KB at MaxIterations) into the LLM context (F173).
+//
+// flowrunNodesResult 构建 {flowrun, nodes, nodeSummary?} 工具结果，经 capFlowrunNodes 限大 run 的节点，使
+// get_flowrun/replay_flowrun/decide_approval 不把长 loop 的数千节点行（MaxIterations 时约 650KB）倾倒进 LLM 上下文（F173）。
+func flowrunNodesResult(run *flowrundomain.FlowRun, nodes []*flowrundomain.FlowRunNode) map[string]any {
+	shown, summary := capFlowrunNodes(nodes)
+	out := map[string]any{"flowrun": run, "nodes": shown}
+	if summary != nil {
+		out["nodeSummary"] = summary
+	}
+	return out
+}
+
+// maxFlowrunNodes caps how many node rows the flowrun tools return to the LLM. A loop (back-edge control
+// node) produces one row PER iteration — at MaxIterations a single run is ~2000 rows / ~650KB, and the
+// whole thing was fed verbatim into the model's context, blowing the token budget on one observability
+// call (F173).
+const maxFlowrunNodes = 80
+
+// capFlowrunNodes bounds a large run's node set for the LLM tool result. <= the cap → all rows, no
+// summary. Otherwise it returns every non-completed node (all failures + parked — what the agent
+// debugs) plus the tail of recent nodes up to the cap, and a summary (total count + per-status breakdown
+// + a note pointing at the REST endpoint for the full set). The durable record is untouched — this only
+// bounds the TOOL projection.
+//
+// capFlowrunNodes 为 LLM 工具结果限大 run 的节点集。≤cap→全行、无 summary。否则返每个非 completed 节点（全部
+// failure + parked）+ 最近节点的尾巴至 cap，并带 summary（总数 + 按状态分布 + 指向 REST 端点取全量的提示）。
+// 耐久记录不动——只限**工具投影**。
+func capFlowrunNodes(nodes []*flowrundomain.FlowRunNode) ([]*flowrundomain.FlowRunNode, map[string]any) {
+	if len(nodes) <= maxFlowrunNodes {
+		return nodes, nil
+	}
+	byStatus := map[string]int{}
+	for _, n := range nodes {
+		byStatus[n.Status]++
+	}
+	seen := make(map[string]bool, maxFlowrunNodes)
+	shown := make([]*flowrundomain.FlowRunNode, 0, maxFlowrunNodes)
+	add := func(n *flowrundomain.FlowRunNode) {
+		if !seen[n.ID] {
+			seen[n.ID] = true
+			shown = append(shown, n)
+		}
+	}
+	for _, n := range nodes { // every failure / parked node — what you debug
+		if n.Status != flowrundomain.StatusCompleted {
+			add(n)
+		}
+	}
+	for i := len(nodes) - 1; i >= 0 && len(shown) < maxFlowrunNodes; i-- { // recent activity (the tail)
+		add(nodes[i])
+	}
+	return shown, map[string]any{
+		"totalNodes": len(nodes),
+		"shownNodes": len(shown),
+		"byStatus":   byStatus,
+		"note":       fmt.Sprintf("This run has %d node rows (a large/looping run). To protect the context, `nodes` shows every non-completed node (all failures + parked) plus the most recent completed ones (cap %d). Page the full set via the REST endpoint GET /api/v1/flowruns/{id}.", len(nodes), maxFlowrunNodes),
+	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -12,10 +13,51 @@ import (
 
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 	workflowapp "github.com/sunweilin/anselm/backend/internal/app/workflow"
+	flowrundomain "github.com/sunweilin/anselm/backend/internal/domain/flowrun"
 	workflowstore "github.com/sunweilin/anselm/backend/internal/infra/store/workflow"
 	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
+
+// TestCapFlowrunNodes — F173: a large/looping run's node set is capped for the LLM tool result so a
+// 1000-iteration loop (~2000 rows / ~650KB) cannot flood the model context. <= cap → all rows + no
+// summary; > cap → every failure/parked node + a recent tail (<= cap) + a summary with the true total.
+func TestCapFlowrunNodes(t *testing.T) {
+	mk := func(n, failIdx int) []*flowrundomain.FlowRunNode {
+		out := make([]*flowrundomain.FlowRunNode, n)
+		for i := range out {
+			st := flowrundomain.StatusCompleted
+			if i == failIdx {
+				st = flowrundomain.StatusFailed
+			}
+			out[i] = &flowrundomain.FlowRunNode{ID: fmt.Sprintf("frn_%d", i), NodeID: "loop", Iteration: i, Status: st}
+		}
+		return out
+	}
+
+	// Small run: all returned, no summary.
+	if shown, summary := capFlowrunNodes(mk(10, -1)); len(shown) != 10 || summary != nil {
+		t.Fatalf("small run must return all nodes + no summary, got %d shown summary=%v", len(shown), summary)
+	}
+
+	// Big run with one failure: capped, summary carries the true total, the failure IS included.
+	shown, summary := capFlowrunNodes(mk(500, 3))
+	if len(shown) > maxFlowrunNodes {
+		t.Fatalf("big run must cap to <= %d, got %d", maxFlowrunNodes, len(shown))
+	}
+	if summary == nil || summary["totalNodes"] != 500 {
+		t.Fatalf("big run must carry a summary with the true total (500), got %v", summary)
+	}
+	hasFailure := false
+	for _, n := range shown {
+		if n.Status == flowrundomain.StatusFailed {
+			hasFailure = true
+		}
+	}
+	if !hasFailure {
+		t.Fatal("a capped run MUST still include the failed node (the debug-relevant one)")
+	}
+}
 
 // TestWorkflowTools_Wiring asserts all 14 tools are constructed with the expected names and
 // each satisfies the 5-method Tool interface: 7 build/query + 5 execution-lifecycle (D1) +
