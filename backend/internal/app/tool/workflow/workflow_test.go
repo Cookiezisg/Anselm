@@ -72,7 +72,8 @@ func TestWorkflowTools_Wiring(t *testing.T) {
 		"trigger_workflow": false, "stage_workflow": false, "activate_workflow": false,
 		"deactivate_workflow": false, "kill_workflow": false,
 		// run observability + recovery + human-in-the-loop decision
-		"get_flowrun": false, "search_flowruns": false, "replay_flowrun": false, "decide_approval": false,
+		"get_flowrun": false, "search_flowruns": false, "replay_flowrun": false,
+		"list_approval_inbox": false, "decide_approval": false,
 	}
 	if len(tools) != len(want) {
 		t.Fatalf("want %d tools, got %d", len(want), len(tools))
