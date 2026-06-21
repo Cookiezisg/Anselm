@@ -32,9 +32,15 @@ func (c *fakeLLMClient) Stream(_ context.Context, _ llminfra.Request) iter.Seq[l
 	}
 }
 
-type fakeResolver struct{ client llminfra.Client }
+type fakeResolver struct {
+	client llminfra.Client
+	err    error // when set, ResolveAgent fails (simulates a bad api-key / unresolvable model)
+}
 
 func (r fakeResolver) ResolveAgent(context.Context, *modeldomain.ModelRef) (LLMBundle, error) {
+	if r.err != nil {
+		return LLMBundle{}, r.err
+	}
 	return LLMBundle{Client: r.client, Request: llminfra.Request{ModelID: "test-model"}}, nil
 }
 
@@ -139,6 +145,49 @@ func TestService_InvokeRunsLoopAndRecords(t *testing.T) {
 	sr, err := svc.SearchExecutions(ctx, agentdomain.ExecutionFilter{AgentID: a.ID})
 	if err != nil || len(sr.Executions) != 1 || sr.Aggregates.OKCount != 1 {
 		t.Fatalf("execution not recorded as ok: %v %+v", err, sr)
+	}
+}
+
+// TestService_InvokeRecordsDeclaredModelOnResolveFailure pins F154: when the run fails BEFORE the LLM
+// is resolved (ResolveAgent errors on a bad api-key), the recorded modelID is empty — but the DECLARED
+// target model is still known from the override, so the audit row must record it. Otherwise a failed
+// run can't say which model it meant to hit.
+//
+// TestService_InvokeRecordsDeclaredModelOnResolveFailure 锁 F154：run 在解析 LLM **之前**就失败时
+// （ResolveAgent 因坏 api-key 报错）modelID 为空——但声明的目标模型仍可从 override 取，审计行须记下它，
+// 否则失败 run 说不出它本要打哪个模型。
+func TestService_InvokeRecordsDeclaredModelOnResolveFailure(t *testing.T) {
+	svc, ctx := newSvc(t)
+	svc.SetInvokeDeps(InvokeDeps{
+		Resolver:  fakeResolver{err: errors.New("api key not found")},
+		Knowledge: fakeKnowledge{},
+	})
+
+	a, _, err := svc.Create(ctx, CreateInput{
+		Name: "judge",
+		Config: Config{
+			Prompt:        "p",
+			ModelOverride: &modeldomain.ModelRef{APIKeyID: "aki_test", ModelID: "deepseek-x"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	res, err := svc.InvokeAgent(ctx, InvokeInput{AgentID: a.ID, TriggeredBy: agentdomain.TriggeredByChat})
+	if err != nil {
+		t.Fatalf("InvokeAgent surfaces the failed run as a result, not a Go error: %v", err)
+	}
+	if res.OK || res.Status != agentdomain.ExecutionStatusFailed {
+		t.Fatalf("resolve failure must record a failed run, got OK=%v status=%q", res.OK, res.Status)
+	}
+
+	sr, err := svc.SearchExecutions(ctx, agentdomain.ExecutionFilter{AgentID: a.ID})
+	if err != nil || len(sr.Executions) != 1 {
+		t.Fatalf("a failed execution must still be recorded: %v %+v", err, sr)
+	}
+	if got := sr.Executions[0].ModelID; got != "deepseek-x" {
+		t.Fatalf("failed-run audit row must name the declared target model deepseek-x (F154), got %q", got)
 	}
 }
 

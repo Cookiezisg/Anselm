@@ -350,11 +350,22 @@ func (s *Service) recordExecution(ctx context.Context, in InvokeInput, a *agentd
 		transcript = []byte("[]")
 	}
 
+	// modelID is empty when the run failed BEFORE the LLM was resolved (e.g. ResolveAgent failed on a
+	// bad api-key / typo'd model). The declared target model is still known from the override, so fall
+	// back to it — otherwise the failed-run audit row can't say which model the run meant to hit (F154).
+	//
+	// modelID 在 run 于解析 LLM **之前**就失败时为空（如 ResolveAgent 因坏 api-key / 拼错 model 失败）。
+	// 声明的目标模型仍可从 override 取，故回落到它——否则失败 run 的审计行说不出这次本要打哪个模型（F154）。
+	recordModelID := modelID
+	if recordModelID == "" && v.ModelOverride != nil {
+		recordModelID = v.ModelOverride.ModelID
+	}
+
 	exec := &agentdomain.Execution{
 		ID:             idgenpkg.New("agx"),
 		AgentID:        a.ID,
 		VersionID:      v.ID,
-		ModelID:        modelID,
+		ModelID:        recordModelID,
 		Status:         res.Status,
 		TriggeredBy:    triggeredBy,
 		Input:          input,
