@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	_ "github.com/glebarez/go-sqlite"
@@ -564,6 +565,50 @@ func TestCapabilityCheck_UndeclaredOutputReadWarns(t *testing.T) {
 	// Schema-less producer (no declared outputs) → can't check → no warning.
 	if rep := mk(t, "p.anything", nil); len(rep.Warnings) != 0 {
 		t.Fatalf("reading a schema-less producer must not warn: %+v", rep.Warnings)
+	}
+}
+
+// TestCapabilityCheck_StartFieldReadWarns — F95: a downstream node reading `trigger.<field>` is checked
+// against the trigger's fire-payload fields (Outputs — canonical for cron/webhook/fsnotify, author-
+// declared for sensor) just like any producer, reusing the F156 machinery. A trigger whose Outputs
+// don't include the read field → advisory warning; a fixed-payload field (firedAt) → no warning.
+func TestCapabilityCheck_StartFieldReadWarns(t *testing.T) {
+	mk := func(t *testing.T, consumerInput string) CapabilityReport {
+		t.Helper()
+		ops := opsJSON(t, `[
+			{"op":"add_node","node":{"id":"t","kind":"trigger","ref":"trg_cron"}},
+			{"op":"add_node","node":{"id":"c","kind":"action","ref":"fn_y","input":{"x":"`+consumerInput+`"}}},
+			{"op":"add_edge","edge":{"id":"e1","from":"t","to":"c"}}
+		]`)
+		g, err := workflowdomain.ApplyOps(nil, ops)
+		if err != nil {
+			t.Fatalf("apply ops: %v", err)
+		}
+		// trg_cron delivers a fixed {firedAt} payload (cron canonical outputs).
+		resolver := &fakeResolver{m: map[string]RefInfo{
+			"trg_cron": {Kind: relationdomain.EntityKindTrigger, HasActiveVersion: true, DeclaredOutputs: []string{"firedAt"}},
+			"fn_y":     {Kind: relationdomain.EntityKindFunction, HasActiveVersion: true, DeclaredInputs: []string{"x"}},
+		}}
+		svc, ctx := newSvc(t, resolver)
+		rep, rerr := svc.CapabilityCheck(ctx, g)
+		if rerr != nil {
+			t.Fatalf("capability check: %v", rerr)
+		}
+		return rep
+	}
+
+	if rep := mk(t, "t.firedAt"); len(rep.Warnings) != 0 {
+		t.Fatalf("reading a trigger's canonical payload field must not warn: %+v", rep.Warnings)
+	}
+	rep := mk(t, "t.firdAt") // typo
+	if len(rep.Warnings) != 1 {
+		t.Fatalf("reading a non-existent trigger payload field must warn once, got %+v", rep.Warnings)
+	}
+	if !strings.Contains(rep.Warnings[0], "payload fields are fixed") {
+		t.Fatalf("a trigger read warning must use the trigger-flavored hint, got %q", rep.Warnings[0])
+	}
+	if rep := mk(t, "has(t.firdAt) ? t.firdAt : 0"); len(rep.Warnings) != 0 {
+		t.Fatalf("a has()-guarded trigger read must not warn: %+v", rep.Warnings)
 	}
 }
 

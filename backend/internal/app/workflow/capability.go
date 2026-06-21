@@ -190,9 +190,15 @@ func (s *Service) warnUndeclaredOutputReads(g *workflowdomain.Graph, infoByNode 
 					continue
 				}
 				seen[key] = true
+				// A trigger's payload fields are fixed (canonical for cron/webhook/fsnotify, config-driven
+				// for sensor) — "declare it on the producer" doesn't apply, so steer to a typo fix instead.
+				fix := fmt.Sprintf("declare it as an output of %q or guard with has(%s.%s)", rs.Root, rs.Root, rs.Field)
+				if info.Kind == relationdomain.EntityKindTrigger {
+					fix = fmt.Sprintf("fix the field name or guard with has(%s.%s) — a trigger's payload fields are fixed", rs.Root, rs.Field)
+				}
 				report.Warnings = append(report.Warnings, fmt.Sprintf(
-					"node %q input %q reads %q.%s, but %q declares no output %q (declared: %v) — if it does not return %q at runtime this node fails; declare it on the producer or guard with has(%s.%s)",
-					n.ID, field, rs.Root, rs.Field, rs.Root, rs.Field, info.DeclaredOutputs, rs.Field, rs.Root, rs.Field))
+					"node %q input %q reads %q.%s, but %q declares no output %q (declared: %v) — if it is not produced at runtime this node fails; %s",
+					n.ID, field, rs.Root, rs.Field, rs.Root, rs.Field, info.DeclaredOutputs, fix))
 			}
 		}
 	}

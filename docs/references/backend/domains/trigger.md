@@ -45,7 +45,7 @@ durable 收件箱 trigger_firings（pending）……scheduler 每 5s 逐 workspa
 
 > **sensor = 电平触发（level-triggered，F65）**：dedup key 含 probe 秒戳，故每个轮询周期条件为真都 fire 一条新 firing——**持续坏态会每 poll 反复触发**（非 false→true 边沿一次）。alert-storm 由 listener workflow 的并发策略兜住（默认 `serial` 排队；要单跑设 `skip`/`buffer_one`）。**无内建 edge-trigger/跨 poll 状态**——只想"翻转时触发一次"须在 handler 条件里自存上次状态。create_trigger 工具描述同款记此节奏。
 
-**`outputs` 字段（声明下游可读的 payload 字段）**：cron/webhook/fsnotify 在 create/edit 时由 `triggerdomain.CanonicalOutputs(kind)` **盖上**（= 上表 Fire Payload、**覆盖作者所填、永不与 listener emit 漂移**）；sensor 由作者按 `config.output` 自定义、app 不覆盖。`CanonicalOutputs` 须与 listeners 的 fire payload 同步。
+**`outputs` 字段（声明下游可读的 payload 字段）**：cron/webhook/fsnotify 在 create/edit 时由 `triggerdomain.CanonicalOutputs(kind)` **盖上**（= 上表 Fire Payload、**覆盖作者所填、永不与 listener emit 漂移**）；sensor 由作者按 `config.output` 自定义、app 不覆盖。`CanonicalOutputs` 须与 listeners 的 fire payload 同步。**被 workflow `capability_check` 消费**（F95）：trigger 的 `Outputs` 经 `RefInfo.DeclaredOutputs` 灌入，使下游 `start.<field>` 读如普通 producer 一样校验——读不在其中的字段 → 建议性 warning（cron/webhook/fsnotify 因 canonical 盖定故是 sound 提示、sensor 因作者声明故 advisory）。
 
 ## 4. 生命周期 / 行为
 

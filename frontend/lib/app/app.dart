@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/design/colors.dart';
 import '../core/design/theme.dart';
 import '../core/design/tokens.dart';
+import '../core/design/typography.dart';
 import '../i18n/strings.g.dart';
 import 'backend_controller.dart';
 import 'providers.dart';
@@ -60,7 +62,9 @@ class _ReadyAppState extends State<_ReadyApp> {
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: 'Anselm',
-      theme: AnselmTheme.light(),
+      theme: AnTheme.light(),
+      darkTheme: AnTheme.dark(),
+      themeMode: ThemeMode.light, // light is the soul; dark is wired but not yet exposed 明亮为魂,暗色已接未启
       locale: TranslationProvider.of(context).flutterLocale,
       supportedLocales: AppLocaleUtils.supportedLocales,
       routerConfig: _router,
@@ -84,7 +88,7 @@ class _StatusApp extends StatelessWidget {
     final crashed = onRetry != null;
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: AnselmTheme.light(),
+      theme: AnTheme.light(),
       home: Scaffold(
         body: Center(
           child: Column(
@@ -97,25 +101,24 @@ class _StatusApp extends StatelessWidget {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               else
-                const Icon(Icons.error_outline,
-                    color: Tokens.danger, size: 28),
-              const SizedBox(height: Tokens.gapLg),
+                Icon(Icons.error_outline,
+                    color: AnColors.light.danger, size: 28),
+              const SizedBox(height: AnSpace.s16),
               Text(message,
                   style: Theme.of(context).textTheme.titleMedium),
               if (detail != null) ...[
-                const SizedBox(height: Tokens.gap),
+                const SizedBox(height: AnSpace.s8),
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 480),
                   child: Text(
                     detail!,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                        color: Tokens.textMuted, fontSize: 12),
+                    style: AnText.meta.copyWith(color: AnColors.light.inkMuted),
                   ),
                 ),
               ],
               if (onRetry != null) ...[
-                const SizedBox(height: Tokens.gapLg),
+                const SizedBox(height: AnSpace.s16),
                 FilledButton(onPressed: onRetry, child: Text(context.t.backend.retry)),
               ],
             ],

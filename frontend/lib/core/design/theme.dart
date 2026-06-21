@@ -1,34 +1,72 @@
 import 'package:flutter/material.dart';
 
+import 'colors.dart';
 import 'tokens.dart';
+import 'typography.dart';
 
-/// The app ThemeData built from [Tokens]. One light theme for now (the visual soul is
-/// bright/airy); a dark variant is a follow-up. Widgets read colors/metrics from the
-/// theme or [Tokens], never hardcode them.
+/// Assembles [ThemeData] from the design tokens. Two themes are produced (light is the
+/// soul; dark is structurally ready) by feeding ONE [AnColors] palette into: the Material
+/// [ColorScheme] (so stock widgets look right), the [TextTheme], divider/scrollbar themes,
+/// and the [AnColors] extension itself (for our own widgets via `context.colors`).
 ///
-/// 由 [Tokens] 构建的 app ThemeData。当前单一明亮主题(视觉灵魂明亮通透);暗色后续。
-/// widget 从主题或 [Tokens] 读颜色/度量,绝不硬编码。
-abstract final class AnselmTheme {
-  static ThemeData light() {
-    final scheme = ColorScheme.fromSeed(
-      seedColor: Tokens.accent,
-      brightness: Brightness.light,
-      surface: Tokens.surface,
+/// Deliberate desktop choices: no ink ripple (`NoSplash`) and compact density for a crisp,
+/// native — not webby — feel; the canvas (not white) is the scaffold background so white
+/// islands read as raised surfaces.
+///
+/// 由 token 装配 [ThemeData]。产出两套主题(明亮为魂、暗色已就绪):同一份 [AnColors] 喂给 Material
+/// [ColorScheme](让原生 widget 正常)、[TextTheme]、分割线/滚动条主题,以及 [AnColors] 扩展本身(供
+/// 自有 widget 经 `context.colors` 读)。桌面取舍:无墨波纹 + 紧凑密度 = 利落原生而非 web 感;脚手架背景
+/// 用 canvas(非纯白),让白色岛屿读作抬升表面。
+abstract final class AnTheme {
+  static ThemeData light() => _build(AnColors.light, Brightness.light);
+  static ThemeData dark() => _build(AnColors.dark, Brightness.dark);
+
+  static ThemeData _build(AnColors c, Brightness brightness) {
+    final scheme =
+        ColorScheme.fromSeed(seedColor: c.accent, brightness: brightness).copyWith(
+      primary: c.accent,
+      onPrimary: c.onAccent,
+      surface: c.surface,
+      onSurface: c.ink,
+      surfaceContainerLowest: c.surface,
+      surfaceContainerLow: c.surfaceSubtle,
+      surfaceContainer: c.surfaceHover,
+      surfaceContainerHigh: c.surfaceActive,
+      outline: c.lineStrong,
+      outlineVariant: c.line,
+      error: c.danger,
+      onError: c.onAccent,
+      scrim: c.scrim,
     );
+
     return ThemeData(
       useMaterial3: true,
+      brightness: brightness,
       colorScheme: scheme,
-      scaffoldBackgroundColor: Tokens.surface,
-      dividerColor: Tokens.border,
+      extensions: [c],
+      scaffoldBackgroundColor: c.canvas,
+      canvasColor: c.surface,
+      dividerColor: c.line,
       visualDensity: VisualDensity.compact,
-      textTheme: const TextTheme().apply(
-        bodyColor: Tokens.textPrimary,
-        displayColor: Tokens.textPrimary,
+      // Crisp desktop: no ripple, no highlight spread. 利落桌面:无波纹无高亮扩散。
+      splashFactory: NoSplash.splashFactory,
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      textTheme: AnText.textTheme(c.ink),
+      dividerTheme: DividerThemeData(color: c.line, thickness: 1, space: 1),
+      scrollbarTheme: ScrollbarThemeData(
+        thickness: const WidgetStatePropertyAll(6),
+        radius: const Radius.circular(AnRadius.pill),
+        thumbColor: WidgetStatePropertyAll(c.lineStrong),
+        thumbVisibility: const WidgetStatePropertyAll(false),
       ),
-      dividerTheme: const DividerThemeData(
-        color: Tokens.border,
-        thickness: 1,
-        space: 1,
+      tooltipTheme: TooltipThemeData(
+        waitDuration: const Duration(milliseconds: 400),
+        decoration: BoxDecoration(
+          color: c.ink,
+          borderRadius: BorderRadius.circular(AnRadius.button),
+        ),
+        textStyle: AnText.meta.copyWith(color: c.surface),
       ),
     );
   }

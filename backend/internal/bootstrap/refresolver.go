@@ -215,14 +215,22 @@ func (r refResolver) Resolve(ctx context.Context, ref string) (workflowapp.RefIn
 		return info, nil
 
 	case strings.HasPrefix(ref, workflowdomain.RefPrefixTrigger):
-		if _, err := r.trg.Get(ctx, ref); err != nil {
+		t, err := r.trg.Get(ctx, ref)
+		if err != nil {
 			return refMiss(err)
 		}
 		// Triggers are intentionally version-less (config entity, not built). Existence = usable:
 		// HasActiveVersion=true keeps CapabilityCheck from flagging a phantom missing version;
 		// the empty ActiveVersionID makes pin-closure record a no-op (a trigger is the seeded
 		// entry node, never dispatched — there is no version to freeze).
-		return workflowapp.RefInfo{Kind: relationdomain.EntityKindTrigger, HasActiveVersion: true}, nil
+		// DeclaredOutputs = the trigger's fire-payload fields, so a downstream `start.<field>` read is
+		// checked like any producer (F95): CANONICAL + framework-enforced for cron/webhook/fsnotify
+		// (CanonicalOutputs is stamped onto Outputs, can't drift), author-declared for sensor (advisory).
+		return workflowapp.RefInfo{
+			Kind:             relationdomain.EntityKindTrigger,
+			HasActiveVersion: true,
+			DeclaredOutputs:  fieldNames(t.Outputs),
+		}, nil
 
 	case strings.HasPrefix(ref, workflowdomain.RefPrefixMCP):
 		token := strings.TrimPrefix(ref, workflowdomain.RefPrefixMCP)

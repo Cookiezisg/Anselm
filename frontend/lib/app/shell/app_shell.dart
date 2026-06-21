@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 
+import '../../core/design/colors.dart';
 import '../../core/design/tokens.dart';
+import '../../core/design/typography.dart';
 import '../../i18n/strings.g.dart';
 
-/// The persistent desktop shell: a compact nav rail + content pane (a right-side
-/// entity inspector is added with the app-shape work). It stays mounted across
-/// navigation so the three session-long SSE streams and shell chrome never tear down.
-/// The destinations below are placeholders — the real screens land with the app-shape
-/// design; the foundation only proves the shell + theme + i18n compile and render.
+/// PLACEHOLDER shell — proves theme + i18n + tokens render. The real three-island shell
+/// (left island = fixed nav chrome · ocean = scrollable feature canvas · right island =
+/// on-demand context inspector) is the next foundation deliverable and replaces this rail.
+/// Kept here only so the app boots green while that lands.
 ///
-/// 常驻桌面 shell:紧凑 nav rail + 内容区(右侧实体 inspector 随 app-shape 加)。导航期间常驻,
-/// 使三条会话级 SSE 流与 shell chrome 不卸载。下列目的地是占位——真屏随 app-shape 设计落地;
-/// 地基仅证明 shell + theme + i18n 可编译可渲染。
+/// 占位 shell——仅证明主题 + i18n + token 可渲染。真正的三岛 shell(左岛=固定导航 chrome · 海洋=可滚
+/// feature 画布 · 右岛=按需上下文检查器)是下一个地基交付物,将替换此 rail。暂留以让 app 跑绿。
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
 
@@ -25,6 +25,7 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     final t = Translations.of(context);
+    final c = context.colors;
     final destinations = <(IconData, String)>[
       (Icons.chat_bubble_outline, t.nav.chat),
       (Icons.functions, t.nav.functions),
@@ -42,13 +43,13 @@ class _AppShellState extends State<AppShell> {
             selectedIndex: _index,
             onDestinationSelected: (i) => setState(() => _index = i),
             labelType: NavigationRailLabelType.all,
-            minWidth: Tokens.navRailWidth,
-            backgroundColor: Tokens.surfaceMuted,
+            minWidth: AnSize.navRail,
+            backgroundColor: c.surfaceSubtle,
             destinations: [
               for (final (icon, label) in destinations)
                 NavigationRailDestination(
-                  icon: Icon(icon, size: 20),
-                  label: Text(label, style: const TextStyle(fontSize: 11)),
+                  icon: Icon(icon, size: AnSize.iconLg),
+                  label: Text(label, style: AnText.label),
                 ),
             ],
           ),
@@ -60,10 +61,10 @@ class _AppShellState extends State<AppShell> {
                 children: [
                   Text(t.app.name,
                       style: Theme.of(context).textTheme.headlineSmall),
-                  const SizedBox(height: Tokens.gap),
+                  const SizedBox(height: AnSpace.s8),
                   Text(
                     '${destinations[_index].$2} — app shape TBD',
-                    style: const TextStyle(color: Tokens.textMuted),
+                    style: AnText.body.copyWith(color: c.inkMuted),
                   ),
                 ],
               ),
