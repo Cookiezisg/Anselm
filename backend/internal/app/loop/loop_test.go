@@ -401,17 +401,20 @@ func TestParseToolArgs_RepairsDirtyJSON(t *testing.T) {
 	// F165: a REAL one-field tool call whose only field happens to be named "raw" (valid JSON) must NOT
 	// be mistaken for the unparseable sentinel — the old sentinel key was literally "raw", which made
 	// any tool declaring a `raw` string param permanently un-callable.
-	if isUnparseableArgs([]byte(`{"raw":"a legitimate string value"}`)) {
+	if _, ok := unparsedRaw([]byte(`{"raw":"a legitimate string value"}`)); ok {
 		t.Fatal("a valid {\"raw\":...} call must not be detected as the unparseable-args sentinel (F165 collision)")
 	}
 }
 
 // TestExecuteTool_UnparseableArgsClearError — the rawArgsKey sentinel must yield a clear "not valid
-// JSON" message, NOT the tool's downstream validation error, and must NOT execute the tool.
+// JSON" message, NOT the tool's downstream validation error, must NOT execute the tool, AND must echo
+// back the agent's own malformed text so its retry isn't blind (F168-M9).
 func TestExecuteTool_UnparseableArgsClearError(t *testing.T) {
 	tool := fakeTool{name: "writer", result: "SHOULD-NOT-RUN"}
-	// Build the sentinel via the constant (not a hardcoded "raw" key, which F165 changed).
-	sentinel := []byte(fmt.Sprintf(`{%q:%q}`, rawArgsKey, "}{garbage"))
+	// Build the sentinel via the constant (not a hardcoded "raw" key, which F165 changed). Use a
+	// recognizable marker as the malformed text so we can assert it gets echoed back.
+	const garbage = "}{MARKER-garbage"
+	sentinel := []byte(fmt.Sprintf(`{%q:%q}`, rawArgsKey, garbage))
 	out, errMsg, ok := executeTool(context.Background(), tool, "writer", sentinel, zap.NewNop())
 	if ok {
 		t.Fatalf("unparseable args must fail, got ok=true out=%q", out)
@@ -419,8 +422,26 @@ func TestExecuteTool_UnparseableArgsClearError(t *testing.T) {
 	if !strings.Contains(out, "not valid JSON") || errMsg == "" {
 		t.Fatalf("unparseable args must surface a clear JSON error, got out=%q errMsg=%q", out, errMsg)
 	}
+	if !strings.Contains(out, "MARKER") {
+		t.Fatalf("the error must echo the agent's malformed text so retry isn't blind (F168-M9), got out=%q", out)
+	}
 	if strings.Contains(out, "SHOULD-NOT-RUN") {
 		t.Fatal("the tool must NOT execute on unparseable args")
+	}
+}
+
+// TestExecuteTool_UnparseableArgsEchoTruncated — an oversized malformed blob is truncated in the
+// echo so it can't bloat the tool_result (F168-M9).
+func TestExecuteTool_UnparseableArgsEchoTruncated(t *testing.T) {
+	tool := fakeTool{name: "writer", result: "SHOULD-NOT-RUN"}
+	big := "}{" + strings.Repeat("X", 4000)
+	sentinel := []byte(fmt.Sprintf(`{%q:%q}`, rawArgsKey, big))
+	out, _, ok := executeTool(context.Background(), tool, "writer", sentinel, zap.NewNop())
+	if ok {
+		t.Fatal("unparseable args must fail")
+	}
+	if !strings.Contains(out, "truncated") || len(out) > 1200 {
+		t.Fatalf("oversized malformed echo must be truncated, got len=%d out=%.120q…", len(out), out)
 	}
 }
 

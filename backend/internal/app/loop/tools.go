@@ -232,11 +232,18 @@ func executeTool(ctx context.Context, t toolapp.Tool, name string, argsJSON []by
 
 	// The args couldn't be parsed as JSON even after repair (parseToolArgs left the rawArgsKey
 	// sentinel) — say THAT plainly, not the tool's downstream "field X required" which misdirects the
-	// agent from the real problem (its JSON was malformed) (F-toolargs-opacity).
+	// agent from the real problem (its JSON was malformed) (F-toolargs-opacity). Echo the raw text the
+	// agent actually sent (truncated) so its retry isn't blind — it can see WHAT was malformed (F168-M9).
 	// 即便修复也无法解析成 JSON（parseToolArgs 留下 rawArgsKey 哨兵）——直说，而非工具下游的 "field X
-	// required"（把 agent 从真问题=JSON 畸形引开）。
-	if isUnparseableArgs(argsJSON) {
-		msg := "your tool arguments were not valid JSON — re-send the call with a single well-formed JSON object"
+	// required"（把 agent 从真问题=JSON 畸形引开）。回显 agent 实际发的原文（截断），使 retry 不盲——它能
+	// 看见**什么**畸形了（F168-M9）。
+	if raw, ok := unparsedRaw(argsJSON); ok {
+		const maxEcho = 512
+		echo := raw
+		if len(echo) > maxEcho {
+			echo = echo[:maxEcho] + fmt.Sprintf("…(+%d bytes truncated)", len(raw)-maxEcho)
+		}
+		msg := "your tool arguments were not valid JSON and could not be auto-repaired — re-send the call as a single well-formed JSON object. The text received was: " + echo
 		return msg, msg, false
 	}
 
@@ -257,19 +264,22 @@ func executeTool(ctx context.Context, t toolapp.Tool, name string, argsJSON []by
 	return output, "", true
 }
 
-// isUnparseableArgs reports whether argsJSON is the single-key rawArgsKey sentinel parseToolArgs
-// leaves when the LLM's tool arguments could not be decoded as JSON even after repair. rawArgsKey is a
-// reserved internal token no tool parameter can be named, so this shape is unambiguous (F165).
+// unparsedRaw reports whether argsJSON is the single-key rawArgsKey sentinel parseToolArgs leaves
+// when the LLM's tool arguments could not be decoded as JSON even after repair, and if so returns
+// the LLM's ORIGINAL malformed text. rawArgsKey is a reserved internal token no tool parameter can
+// be named, so this shape is unambiguous (F165). Returning the raw lets executeTool echo back what
+// the agent actually sent, so its retry is not blind (F168-M9).
 //
-// isUnparseableArgs 报告 argsJSON 是否是 parseToolArgs 在 LLM 工具参数即便修复也无法解析时留下的单键
-// rawArgsKey 哨兵。rawArgsKey 是任何工具参数都不可能取的保留内部 token，故此形状无歧义（F165）。
-func isUnparseableArgs(argsJSON []byte) bool {
+// unparsedRaw 报告 argsJSON 是否是 parseToolArgs 在 LLM 工具参数即便修复也无法解析时留下的单键
+// rawArgsKey 哨兵，是则返回 LLM 的原始畸形文本。rawArgsKey 是任何工具参数都不可能取的保留内部 token，
+// 故此形状无歧义（F165）。返回原文让 executeTool 回显 agent 实际发的内容、使 retry 不盲（F168-M9）。
+func unparsedRaw(argsJSON []byte) (string, bool) {
 	var m map[string]any
 	if json.Unmarshal(argsJSON, &m) != nil || len(m) != 1 {
-		return false
+		return "", false
 	}
-	_, ok := m[rawArgsKey].(string)
-	return ok
+	raw, ok := m[rawArgsKey].(string)
+	return raw, ok
 }
 
 // llmErrText renders an error for the LLM: the message PLUS any structured Details a tool/domain
