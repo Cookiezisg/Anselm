@@ -82,6 +82,18 @@ window.FEATURE.settings = Object.assign(window.FEATURE.settings || {}, {
         .mk-knob { display: flex; align-items: center; gap: var(--gap-tight); }
         .mk-knob > .k { font-size: var(--t-meta); color: var(--ink-3); }
         .mk-form { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-4); box-shadow: inset 0 0 0 var(--hairline) var(--accent-line); border-radius: var(--r-chip); background: var(--island); }
+        /* MCP 市场卡（双列）+ 已装卡 */
+        .mcp-grid { display: grid; grid-template-columns: repeat(2, minmax(var(--zero), 1fr)); gap: var(--sp-2); }
+        .mcp-card { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); box-shadow: inset 0 0 0 var(--hairline) var(--line); border-radius: var(--r-chip); background: var(--island); }
+        .mcp-top { display: flex; align-items: center; gap: var(--sp-2); min-width: var(--zero); }
+        .mcp-ico { flex: none; width: var(--ctl); height: var(--ctl); border-radius: var(--r-tag); overflow: hidden; background: var(--island-3); }
+        .mcp-ico img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .mcp-nm { flex: 1; min-width: var(--zero); font-size: var(--t-body); font-weight: 500; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .mcp-desc { font-size: var(--t-meta); color: var(--ink-2); line-height: var(--lh-ui); min-height: calc(var(--t-meta) * var(--lh-ui) * 2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .mcp-foot { display: flex; align-items: center; gap: var(--sp-2); }
+        .mcp-meta { flex: 1; min-width: var(--zero); font-size: var(--t-meta); color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .mcp-inst { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); box-shadow: inset 0 0 0 var(--hairline) var(--line); border-radius: var(--r-chip); background: var(--island); }
+        .mcp-sub { display: flex; align-items: center; gap: var(--sp-2); }
       `;
       document.head.appendChild(s);
     }
@@ -227,45 +239,77 @@ window.FEATURE.settings = Object.assign(window.FEATURE.settings || {}, {
       b.textContent = label; b.addEventListener("click", on); return b;
     }
 
-    // ── ③ MCP 与市场 ──
+    // ── ③ MCP —— 市场（带搜索·双列卡：项目图标+描述+auth 徽+stars/lang）+ 已装（卡+运行态）。镜像后端 catalog/GitHub registry（见 WRK-035）──
     function mcp() {
-      const oh = head("MCP 与市场");
+      ensureSettingsStyle();
+      const oh = head("MCP");
       const tabs = el("an-tabs"); tabs.items = [{ value: "market", label: "市场" }, { value: "installed", label: "已装 " + (S.mcpInstalled || []).length }];
       tabs.value = "market";
-      const body = el("div");
+      const body = el("div"); body.style.cssText = "margin-top:var(--sp-3);";
       const renderTab = (v) => { body.replaceChildren(v === "installed" ? mcpInstalled() : mcpMarket()); };
       tabs.addEventListener("an-tab", (e) => renderTab(e.detail.value));
       renderTab("market");
       return [oh, tabs, body];
     }
+    // auth 徽：direct 免配置（无徽）；其余各显安装方式（与后端 7 类 auth 对齐）
+    const mcpAuthBadge = { oauth: ["OAuth", "accent"], byo: ["自建应用", "warn"], "oauth-url": ["OAuth · URL", "accent"], token: ["需 Token", "neutral"], local: ["本地", "neutral"] };
+    function mcpMarketCard(m) {
+      const card = el("div"); card.className = "mcp-card";
+      const top = el("div"); top.className = "mcp-top";
+      const ico = el("div"); ico.className = "mcp-ico"; const img = el("img"); img.src = m.icon; img.loading = "lazy"; img.alt = ""; ico.append(img);
+      const nm = el("div"); nm.className = "mcp-nm"; nm.textContent = m.name; top.append(ico, nm);
+      const a = mcpAuthBadge[m.auth]; if (a) top.append(el("an-badge", { tone: a[1] }, a[0]));
+      if (m.prereq) top.append(el("an-badge", { tone: "warn" }, "需前置"));
+      const desc = el("div"); desc.className = "mcp-desc"; desc.textContent = m.desc;
+      const foot = el("div"); foot.className = "mcp-foot";
+      const meta = el("span"); meta.className = "mcp-meta"; meta.textContent = "★ " + m.stars + (m.lang ? " · " + m.lang : "");
+      const oauthish = m.auth === "oauth" || m.auth === "byo" || m.auth === "oauth-url";
+      const install = el("an-button", { variant: "ghost", size: "sm", icon: "plus" }, oauthish ? "授权安装" : "安装");
+      install.addEventListener("click", () => toast(installMsg(m)));
+      foot.append(meta, install); card.append(top, desc, foot);
+      return card;
+    }
     function mcpMarket() {
-      const grid = el("div");
-      grid.style.cssText = "display:grid; grid-template-columns:repeat(auto-fill, minmax(var(--w-block), 1fr)); gap:var(--sp-3); margin-top:var(--sp-3);";
-      const authTone = { token: "neutral", oauth: "accent", byo: "warn", "oauth-url": "accent", local: "neutral" };
-      (S.mcpMarket || []).forEach((m) => {
-        const card = el("an-info-card", { title: m.name, icon: "mcp", meta: m.desc });
-        card.append(el("an-badge", { tone: authTone[m.auth] || "neutral" }, m.authLabel));
-        card.append(actBtn("安装", "plus", () => toast(installMsg(m))));
-        grid.append(card);
-      });
-      return grid;
+      const wrap = el("div");
+      const search = el("an-input", { full: "", placeholder: "搜索 MCP 服务器…" }); search.style.cssText = "display:block; margin-bottom:var(--sp-3);";
+      const grid = el("div"); grid.className = "mcp-grid";
+      const render = (q) => { grid.innerHTML = ""; const ql = (q || "").toLowerCase(); (S.mcpMarket || []).filter((m) => !ql || (m.name + " " + m.desc + " " + (m.lang || "")).toLowerCase().includes(ql)).forEach((m) => grid.append(mcpMarketCard(m))); };
+      search.addEventListener("an-input", (e) => render(e.detail.value));
+      render(""); wrap.append(search, grid);
+      return wrap;
     }
     function installMsg(m) {
-      return ({ oauth: "装 " + m.name + " → 弹浏览器授权", byo: "装 " + m.name + " → 先填 client_id/secret + redirect URI",
-        "oauth-url": "装 " + m.name + " → 先填实例 URL → 浏览器授权", token: "装 " + m.name + " → 填 token",
-        local: "装 " + m.name + " → 先在 Figma 开 Dev Mode" }[m.auth]) || ("安装 " + m.name);
+      return ({ oauth: "装 " + m.name + " → 请求内同步拉浏览器授权（OAuth-DCR · 零表单）", byo: "装 " + m.name + " → 填 client_id/secret → 浏览器授权",
+        "oauth-url": "装 " + m.name + " → 填实例 URL → 浏览器授权", token: "装 " + m.name + " → 填 token（仅存一次）",
+        local: "装 " + m.name + " → 本地端点，先备前置", direct: "装 " + m.name + " → 免配置直装" }[m.auth]) || ("安装 " + m.name);
+    }
+    function mcpInstalledCard(s) {
+      const stDot = { ready: "done", degraded: "wait", failed: "err", connecting: "run", disconnected: "idle" }[s.status] || "idle";
+      const stLabel = { ready: "就绪", degraded: "降级", failed: "失败", connecting: "连接中", disconnected: "未连接" }[s.status] || s.status;
+      const needReauth = s.status === "failed" && /授权/.test(s.err || "");
+      const card = el("div"); card.className = "mcp-inst";
+      const top = el("div"); top.className = "mcp-top";
+      const ico = el("div"); ico.className = "mcp-ico"; const img = el("img"); img.src = s.icon; img.loading = "lazy"; img.alt = ""; ico.append(img);
+      const nm = el("div"); nm.className = "mcp-nm"; nm.style.flex = "none"; nm.textContent = s.name;
+      const st = el("span"); st.style.cssText = "display:inline-flex; align-items:center; gap:var(--gap-tight); font-size:var(--t-meta); color:var(--ink-3);"; st.append(el("an-status-dot", { state: stDot }), document.createTextNode(stLabel));
+      const grow = el("span"); grow.style.cssText = "flex:1;"; top.append(ico, nm, st, grow);
+      if (s.status === "ready" || s.status === "degraded") { const stats = el("span"); stats.style.cssText = "flex:none; font-size:var(--t-meta); color:var(--ink-3); font-variant-numeric:tabular-nums;"; stats.textContent = s.tools + " 工具 · " + s.calls + " 调用" + (s.fails ? " · " + s.fails + " 失败" : ""); top.append(stats); }
+      card.append(top);
+      const sub = el("div"); sub.className = "mcp-sub";
+      const info = el("span"); info.style.cssText = "flex:1; min-width:0; font-size:var(--t-meta); color:" + (s.err ? "var(--danger)" : "var(--ink-3)") + "; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;";
+      info.textContent = s.err || (s.transport + (s.connectedAt && s.connectedAt !== "—" ? " · " + s.connectedAt + "连接" : ""));
+      const act = (label, on, variant) => { const b = el("an-button", { variant: variant || "ghost", size: "sm" }, label); b.addEventListener("click", on); return b; };
+      sub.append(info);
+      if (needReauth) sub.append(act("重新授权", () => toast("重新授权 " + s.name + " → 卸载后重装拉浏览器（reconnect 救不了 OAuth 过期）")));
+      else if (s.status !== "connecting") sub.append(act("重连", () => toast("重连 " + s.name)), act("日志", () => toast("查看 " + s.name + " 调用台账")));
+      sub.append(act("删除", () => toast("（mock）删 " + s.name), "danger"));
+      card.append(sub);
+      return card;
     }
     function mcpInstalled() {
-      const sec = el("an-section", { label: "已连接的服务器" });
-      (S.mcpInstalled || []).forEach((s) => {
-        const r = el("an-row", { dot: dotOf(s.status), label: s.name, hint: s.source + " · " + s.tools + " 工具",
-          meta: { ready: "就绪", degraded: "降级", failed: s.err || "失败" }[s.status] });
-        r.append(actBtn("重连", "history", () => toast("重连 " + s.name)));
-        r.append(actBtn("日志", "enter", () => toast("查看 " + s.name + " 调用日志")));
-        r.append(actBtn("删除", "trash", () => toast("（mock）删 " + s.name), "danger"));
-        sec.append(r);
-      });
-      return sec;
+      const list = el("div"); list.className = "mk-list";
+      (S.mcpInstalled || []).forEach((s) => list.append(mcpInstalledCard(s)));
+      return list;
     }
 
     // ── ④ 技能 ──

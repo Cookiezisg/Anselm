@@ -6,7 +6,7 @@ window.FEATURE.settings = Object.assign(window.FEATURE.settings || {}, {
       ["g", "设置"],
       ["r", { icon: "gear", label: "通用", id: "general" }],
       ["r", { icon: "agent", label: "模型与 Key", id: "models" }],
-      ["r", { icon: "mcp", label: "MCP 与市场", id: "mcp" }],
+      ["r", { icon: "mcp", label: "MCP", id: "mcp" }],
       ["r", { icon: "doc", label: "技能", id: "skills" }],
       ["r", { icon: "box", label: "运行时与索引", id: "runtime" }],
       ["r", { icon: "sliders", label: "高级", id: "advanced" }],
