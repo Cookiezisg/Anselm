@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -349,6 +351,74 @@ func TestWalk_LoopWithBackEdge(t *testing.T) {
 	}
 	if !gate0 || !gate1 {
 		t.Fatalf("loop iterations not recorded: gate0=%v gate1=%v", gate0, gate1)
+	}
+}
+
+// TestWalk_LoopOverflow_FencepostAtMaxPlusOne pins the F175-M1 fencepost: a never-exiting loop
+// fails the run, and the body persists EXACTLY MaxIterations+1 rows (iterations 0..MaxIterations)
+// — iteration 0 is the forward-edge entry, then MaxIterations back-edge turns succeed before the
+// (MaxIterations+1)th is rejected. The error message names the cap as MaxIterations, not the row
+// count. Asserting the current 1001-rows / max-index-1000 shape guards against anyone "fixing" the
+// apparent off-by-one by flipping `>` to `>=` (which would silently drop a real loop turn).
+//
+// TestWalk_LoopOverflow_FencepostAtMaxPlusOne 锁 F175-M1 栅栏：永不退出的循环失败该 run，循环体恰
+// 持久化 MaxIterations+1 行（iteration 0..MaxIterations）——iteration 0 是前向边入口，随后
+// MaxIterations 条回边轮成功、第 MaxIterations+1 条被拒。错误消息把上限标为 MaxIterations、非行数。
+// 断言当前 1001 行/最大索引 1000 形状，防有人把 `>` 改成 `>=` 来"修" off-by-one（那会静默吞一条真循环轮）。
+func TestWalk_LoopOverflow_FencepostAtMaxPlusOne(t *testing.T) {
+	g := workflowdomain.Graph{
+		Nodes: []workflowdomain.Node{
+			node("start", "trigger", "trg_1", nil),
+			node("draft", "action", "fn_draft", map[string]string{"seed": "start.v"}),
+			node("gate", "control", "ctl_loop", map[string]string{"n": "draft.n"}),
+			node("publish", "action", "fn_pub", map[string]string{"out": "gate.n"}),
+		},
+		Edges: []workflowdomain.Edge{
+			edge("e1", "start", "", "draft"),
+			edge("e2", "draft", "", "gate"),
+			edge("e3", "gate", "done", "publish"),
+			edge("e4", "gate", "retry", "draft"), // back edge (control → ancestor)
+		},
+	}
+	// control never exits: done is never true, retry always loops → runaway → overflow.
+	// control 永不退出：done 永假、retry 永真 → 失控 → 溢出。
+	ctl := &fakeControl{byID: map[string][]controldomain.Branch{
+		"ctl_loop": {
+			{Port: "done", When: "false", Emit: map[string]string{}},
+			{Port: "retry", When: "true", Emit: map[string]string{}},
+		},
+	}}
+	svc, store := mkSvc(t, g, newDisp(), ctl, nil, "")
+	ctx := ctxWS("ws_1")
+	id := mustRun(t, svc, ctx, map[string]any{"v": "topic"})
+
+	assertRunStatus(t, store, ctx, id, flowrundomain.StatusFailed)
+
+	run, err := store.GetRun(ctx, id)
+	if err != nil {
+		t.Fatalf("GetRun: %v", err)
+	}
+	// the message names the cap as MaxIterations (the (%d) is the cap, NOT the persisted row count).
+	if !strings.Contains(run.Error, fmt.Sprintf("MaxIterations (%d)", MaxIterations)) {
+		t.Fatalf("overflow error must name the cap MaxIterations (%d): %q", MaxIterations, run.Error)
+	}
+
+	// body ran iterations 0..MaxIterations = MaxIterations+1 rows; max index == MaxIterations.
+	rows, _ := store.GetNodes(ctx, id)
+	maxIter, draftRows := -1, 0
+	for _, r := range rows {
+		if r.NodeID == "draft" {
+			draftRows++
+			if r.Iteration > maxIter {
+				maxIter = r.Iteration
+			}
+		}
+	}
+	if draftRows != MaxIterations+1 {
+		t.Fatalf("loop body rows = %d, want MaxIterations+1 = %d (iterations 0..%d)", draftRows, MaxIterations+1, MaxIterations)
+	}
+	if maxIter != MaxIterations {
+		t.Fatalf("max body iteration = %d, want MaxIterations = %d", maxIter, MaxIterations)
 	}
 }
 

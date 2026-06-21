@@ -37,8 +37,18 @@ import (
 // a runaway control (always picking its loop port) would otherwise grow frn rows without bound.
 // A real loop is bounded by its own CEL guard (e.g. attempt < 3); this is the engine's backstop.
 //
+// Fencepost (F175-M1): a loop body executes at iterations 0..MaxIterations — that is
+// MaxIterations+1 persisted frn rows on overflow, because iteration 0 is the forward-edge entry
+// (not a back-edge turn) and exactly MaxIterations back-edge turns (iterations 1..MaxIterations)
+// succeed before the (MaxIterations+1)th is rejected. So 1000 here ⇒ up to 1001 body rows; that
+// is intended, not an off-by-one.
+//
 // MaxIterations 封顶单条回边能驱动多少轮循环，超出则 run 失败——失控的 control（总选循环 port）否则
 // 会无界增长 frn 行。真实循环由自身 CEL guard（如 attempt<3）约束；这是引擎的安全帽。
+//
+// 栅栏（F175-M1）：循环体在 iteration 0..MaxIterations 上执行——溢出时即 MaxIterations+1 行 frn，
+// 因 iteration 0 是前向边入口（非回边轮），恰 MaxIterations 条回边轮（iteration 1..MaxIterations）
+// 成功后第 MaxIterations+1 条才被拒。故此处 1000 ⇒ 至多 1001 行循环体；这是设计、非 off-by-one。
 const MaxIterations = 1000
 
 // Dispatcher runs the two execution-unit node kinds. BOTH are coarse activities: they run to a

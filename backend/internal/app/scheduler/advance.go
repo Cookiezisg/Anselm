@@ -77,7 +77,16 @@ func (s *Service) Advance(ctx context.Context, flowrunID string) error {
 		w := newWalk(graph, rows)
 		ready, overflow := w.computeReady()
 		if overflow != "" {
-			return s.failRun(ctx, run, fmt.Sprintf("loop exceeded MaxIterations (%d) at node %q", MaxIterations, overflow))
+			// Fencepost (F175-M1): the cap is on back-edge-driven iterations. The body already ran
+			// iterations 0..MaxIterations (MaxIterations+1 frn rows — iteration 0 is the forward-edge
+			// entry, not a loop turn); overflow fires when a further back edge would start iteration
+			// MaxIterations+1. Spell that out so an operator counting MaxIterations+1 persisted rows
+			// doesn't misread the "(%d)" as a row count.
+			//
+			// 栅栏（F175-M1）：上限管的是回边驱动的迭代数。循环体已跑过 iteration 0..MaxIterations
+			// （MaxIterations+1 行 frn——iteration 0 是前向边入口、非循环轮），再来一条回边将开
+			// iteration MaxIterations+1 时溢出。讲清楚，免得运维数到 MaxIterations+1 行却把 "(%d)" 当行数读。
+			return s.failRun(ctx, run, fmt.Sprintf("loop at node %q exceeded MaxIterations (%d): body ran iterations 0..%d (%d rows), a back edge would start iteration %d", overflow, MaxIterations, MaxIterations, MaxIterations+1, MaxIterations+1))
 		}
 		if len(ready) == 0 {
 			break

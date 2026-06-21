@@ -32,7 +32,7 @@ audience: [human, ai]
 1. **seed**：有行的 trigger 节点（run 创建时 trigger 节点行连头一起原子写入——run 绝不无 seed 存在）。
 2. **可达 BFS（从已落库决策重推活跃子图）**：前向边**暂时传播**（未决 control 开放所有 port）；**completed 的 control/approval 只放行选中 port 的边**（`edgePruned`）；**回边只在源 completed 且选中该 port 时走、iteration+1**（循环每个真实决策恰进一轮）。**无 skip 信号传播**——活跃子图每轮从 result 里的 `__port`/`decision` 重新推导。
 3. **ready 判定（一条规则统一 AND-join 和 simple-merge）**：节点 ready ⟺ 被 reached + 还没行 + **每条 live 入边的源都 completed**（被剪的入边忽略——等它们会让分支汇合死锁；并行扇出则两条都 live、自然 AND-join）。
-4. **确定性**：ready 集按节点声明序+轮次排序；`BackEdges`（可归约回边 DFS 判定）与 workflow 校验**用同一个导出纯函数**——系统里"回边"只有一个定义。`MaxIterations=1000` 是失控循环的安全帽（真循环由自身 CEL guard 约束）。
+4. **确定性**：ready 集按节点声明序+轮次排序；`BackEdges`（可归约回边 DFS 判定）与 workflow 校验**用同一个导出纯函数**——系统里"回边"只有一个定义。`MaxIterations=1000` 是失控循环的安全帽（真循环由自身 CEL guard 约束）。**栅栏**（F175-M1）：循环体在 iteration 0..MaxIterations 上跑——溢出时持久化 MaxIterations+1 行（iteration 0 是前向边入口、非回边轮；恰 MaxIterations 条回边轮成功后第 MaxIterations+1 条才被拒），故 1000 上限 ⇒ 至多 1001 行循环体（设计、非 off-by-one）。
 
 **数据接线（model B）**：节点 `Input` 的每个字段是一条裸 CEL，根 = 祖先**节点 id**（`gate.feedback`）。`scopeFor` 取每个节点"`iteration ≤ 当前轮` 中最大且 completed"的 result——循环内祖先解析到当前轮、循环外到固定 result。**无 completed result 的已声明节点绑成空 map（非缺省）**：`celScopedEnv` 把每个 node id 声明为 CEL 根，cel-go 对表达式引用到的未绑根硬报错（即便在 `has()` 内），故缺省会让循环态初始化 `has(loopNode.f) ? loopNode.f : seed.f` 在首轮无法求值——空 map 使 `has()` 干净地为 false、走 seed 分支（循环累加器的标准写法）。control 的 result = 选中分支的 emit 字段**扁平** + 保留键 `__port`；approval = `decision`/`reason`。
 

@@ -142,7 +142,8 @@ func (w *walk) edgePruned(e *workflowdomain.Edge, srcIter int) bool {
 // (node, iteration) pairs ready to run now. A node is ready ⟺ it is reached (some non-pruned active
 // path from the seeded trigger), has no row yet, and every live incoming edge's source is completed
 // (this single rule unifies AND-join for parallel fan-out and simple-merge after a control branch).
-// overflow names a node whose iteration blew past MaxIterations (a runaway loop → caller fails the run).
+// overflow names the back-edge target a further turn would push to iteration MaxIterations+1 (a runaway
+// loop → caller fails the run). The body already ran iterations 0..MaxIterations by then (F175-M1 fencepost).
 //
 // computeReady 从已落库决策推活跃子图，返回现在可跑的 (节点,轮次)。节点 ready ⟺ 它被 reached（从
 // seed 的 trigger 有非剪活跃路径）、还没行、且每条 live 入边的源都 completed（这条规则统一了并行扇出
