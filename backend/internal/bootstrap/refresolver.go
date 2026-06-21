@@ -111,6 +111,7 @@ func (r refResolver) Resolve(ctx context.Context, ref string) (workflowapp.RefIn
 		if f.ActiveVersionID != "" {
 			if v, verr := r.fn.GetVersion(ctx, f.ActiveVersionID); verr == nil && v != nil {
 				info.DeclaredInputs = fieldNames(v.Inputs)
+				info.DeclaredOutputs = fieldNames(v.Outputs) // F156: the advisory output contract a downstream read is checked against
 			}
 		}
 		return info, nil
@@ -139,9 +140,10 @@ func (r refResolver) Resolve(ctx context.Context, ref string) (workflowapp.RefIn
 				}
 				for i := range v.Methods {
 					info.MethodNames = append(info.MethodNames, v.Methods[i].Name)
-					// The required-input check is per the specific .method this ref names (F71).
+					// The required-input + output-read checks are per the specific .method this ref names (F71/F156).
 					if v.Methods[i].Name == method {
 						info.DeclaredInputs = fieldNames(v.Methods[i].Inputs)
+						info.DeclaredOutputs = fieldNames(v.Methods[i].Outputs)
 					}
 				}
 			}
@@ -165,7 +167,8 @@ func (r refResolver) Resolve(ctx context.Context, ref string) (workflowapp.RefIn
 				for i := range v.Tools {
 					info.AgentCallables = append(info.AgentCallables, v.Tools[i].Ref)
 				}
-				info.DeclaredInputs = fieldNames(v.Inputs) // F71: the agent's declared inputs must all be wired
+				info.DeclaredInputs = fieldNames(v.Inputs)   // F71: the agent's declared inputs must all be wired
+				info.DeclaredOutputs = fieldNames(v.Outputs) // F156: declared output contract for the downstream-read warning (advisory — the LLM may emit extra/fewer keys)
 			}
 		}
 		return info, nil

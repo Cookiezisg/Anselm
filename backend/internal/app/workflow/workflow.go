@@ -52,6 +52,7 @@ type RefInfo struct {
 	MCPToolNames     []string // mcp only: the connected server's tool names (empty if disconnected — check skips)
 	AgentCallables   []string // agent only: the fn_/hd_ refs this agent mounts (for pin recursion)
 	DeclaredInputs   []string // fn/hd(.method)/agent/control/approval: declared input field names — ALL must be wired (declared = required; F71/F168-M6)
+	DeclaredOutputs  []string // fn/hd(.method)/agent: declared OUTPUT field names — the ADVISORY result contract a downstream read is checked against (F156). Empty for mcp/control/approval/trigger (no declared output schema) → output-read check skips. NOT runtime-enforced (the callable may return extra/fewer keys), so a mismatch is a WARNING, not a blocking problem.
 }
 
 // WorkflowReader is the read surface the durable scheduler depends on (DIP: the scheduler

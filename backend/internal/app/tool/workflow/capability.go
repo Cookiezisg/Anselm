@@ -16,7 +16,7 @@ type CapabilityCheckWorkflow struct{ svc *workflowapp.Service }
 func (t *CapabilityCheckWorkflow) Name() string { return "capability_check_workflow" }
 
 func (t *CapabilityCheckWorkflow) Description() string {
-	return "Validate a workflow's active graph: structural soundness plus, when the capability catalog is wired, whether every referenced entity (trigger / function / handler / mcp / agent / control / approval) exists, has an active version, and exposes the ports/methods the graph uses. Returns a report listing any problems — use it before activating a workflow. It does NOT validate node-input DATAFLOW: a node's input CEL may read an upstream field that isn't emitted on every branch reaching it (or a schema-less node's runtime-only `.text` key), and a missing key fails the WHOLE run fail-fast — so a green report still needs one trigger_workflow to confirm the data wiring."
+	return "Validate a workflow's active graph: structural soundness plus, when the capability catalog is wired, whether every referenced entity (trigger / function / handler / mcp / agent / control / approval) exists, has an active version, and exposes the ports/methods the graph uses. Returns a report with `problems` (blocking — fix before activating) and `warnings` (advisory — won't block). Warnings include node-input reads of an undeclared output: if a node's input reads `producer.field` and that producer (function / handler-method / agent) declares outputs that don't include `field`, it likely fails at runtime — declare the output or guard with has(producer.field). It does NOT fully validate DATAFLOW: declared outputs aren't runtime-enforced (so warnings are advisory, not certain), and reads from schema-less producers (mcp / trigger), conditional-branch fields, or the runtime-only `.text` key are not checked — so a clean report still needs one trigger_workflow to confirm the data wiring."
 }
 
 func (t *CapabilityCheckWorkflow) Parameters() json.RawMessage {
@@ -57,5 +57,6 @@ func (t *CapabilityCheckWorkflow) Execute(ctx context.Context, argsJSON string) 
 		"structurallyValid": rep.StructurallyValid,
 		"resolved":          rep.Resolved,
 		"problems":          rep.Problems,
+		"warnings":          rep.Warnings,
 	}), nil
 }

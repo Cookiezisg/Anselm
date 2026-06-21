@@ -8,6 +8,7 @@ import (
 
 	relationdomain "github.com/sunweilin/anselm/backend/internal/domain/relation"
 	workflowdomain "github.com/sunweilin/anselm/backend/internal/domain/workflow"
+	celpkg "github.com/sunweilin/anselm/backend/internal/pkg/cel"
 	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 )
 
@@ -24,11 +25,22 @@ type CapabilityReport struct {
 	StructurallyValid bool     `json:"structurallyValid"`
 	Resolved          bool     `json:"resolved"`
 	Problems          []string `json:"problems,omitempty"`
+	// Warnings are ADVISORY dataflow issues that are NOT provable runtime failures, so they do NOT
+	// block (OK ignores them). Today: a node input reads `producer.field` where the producer declares
+	// outputs that don't include `field` (F156) — likely a typo or a missing output declaration, but a
+	// declared-output contract is advisory (not runtime-enforced — the callable may return extra/fewer
+	// keys), so this is a hint, not a hard problem.
+	//
+	// Warnings 是**建议性**数据流问题，**非**可证的运行时失败，故**不**阻断（OK 忽略它们）。当前：节点 input
+	// 读 `producer.field`、而 producer 声明的输出不含 `field`（F156）——多半是拼写错或漏声明输出，但声明输出
+	// 契约是建议性的（非运行时强制——callable 可能返回多/少键），故这是提示、非硬问题。
+	Warnings []string `json:"warnings,omitempty"`
 }
 
 // OK reports whether the graph is structurally valid AND (when resolved) has no ref problems.
+// Warnings are advisory and deliberately do NOT affect OK.
 //
-// OK 报告图是否结构合法，且（已解析时）无 ref 问题。
+// OK 报告图是否结构合法，且（已解析时）无 ref 问题。Warnings 是建议性的、刻意不影响 OK。
 func (r CapabilityReport) OK() bool {
 	return r.StructurallyValid && len(r.Problems) == 0
 }
@@ -120,8 +132,75 @@ func (s *Service) CapabilityCheck(ctx context.Context, g *workflowdomain.Graph) 
 	}
 
 	s.reconcileControlPorts(g, infoByNode, &report)
+	s.warnUndeclaredOutputReads(g, infoByNode, &report)
 	return report, nil
 }
+
+// warnUndeclaredOutputReads is the OUTPUT-side counterpart to the F71 input-wiring check (closing the
+// asymmetry F156 flagged) — but as a WARNING, not a problem. For every node input expression, it
+// extracts the `producer.field` reads and warns when the producer DECLARES outputs that don't include
+// `field`: at runtime scope[producer] is a strict map, so reading an absent key fails — UNLESS the
+// callable returned that key anyway. Declared outputs are NOT runtime-enforced (a function/agent's
+// result is passed through verbatim — toResultMap / coerceDeclaredOutputs — so it may carry extra keys
+// or omit declared ones), so a mismatch is a likely-but-not-certain failure → advisory, never blocking.
+// Skips: schema-less producers (no declared outputs → mcp/control/approval/trigger), the implicit `.text`
+// fallback key, and has()-guarded reads (the author defended the absence). A compile failure on the
+// per-graph env is ignored (the structural pass already validated compilability).
+//
+// warnUndeclaredOutputReads 是 F71 输入接线检查的输出侧对应（补 F156 指出的不对称）——但作为**警告**、非问题。
+// 对每条节点 input 表达式，抽出 `producer.field` 读，当 producer **声明**了不含 `field` 的输出时告警：运行时
+// scope[producer] 是严格 map，读不存在的键会失败——除非 callable 恰好返回了该键。声明输出**非**运行时强制
+// （function/agent 结果原样透传——toResultMap / coerceDeclaredOutputs——可能带多余键或漏声明键），故不匹配是
+// 很可能但非必然的失败 → 建议性、绝不阻断。跳过：无声明输出的 producer（mcp/control/approval/trigger）、隐式
+// `.text` 兜底键、has() 守卫读（作者已防其缺失）。每图 env 编译失败则忽略（结构检查已校过可编译性）。
+func (s *Service) warnUndeclaredOutputReads(g *workflowdomain.Graph, infoByNode map[string]RefInfo, report *CapabilityReport) {
+	roots := make([]string, len(g.Nodes))
+	for i := range g.Nodes {
+		roots[i] = g.Nodes[i].ID
+	}
+	senv, err := celpkg.NewScopedEnv(roots)
+	if err != nil {
+		return // env build failed (no roots / dup) — skip the advisory pass, never fail the check
+	}
+	seen := map[string]bool{} // dedup per (consumer, producer, field)
+	for i := range g.Nodes {
+		n := &g.Nodes[i]
+		for field, expr := range n.Input {
+			plain, guarded, eerr := senv.ExtractRootSelects(expr)
+			if eerr != nil {
+				continue
+			}
+			guardedSet := make(map[string]bool, len(guarded))
+			for _, gs := range guarded {
+				guardedSet[gs.Root+"\x00"+gs.Field] = true
+			}
+			for _, rs := range plain {
+				info, ok := infoByNode[rs.Root]
+				if !ok || len(info.DeclaredOutputs) == 0 {
+					continue // producer unresolved or schema-less → nothing to check against
+				}
+				if rs.Field == flowrunResultTextKey || contains(info.DeclaredOutputs, rs.Field) {
+					continue // implicit .text fallback, or a declared field — fine
+				}
+				if guardedSet[rs.Root+"\x00"+rs.Field] {
+					continue // has(producer.field)-guarded read — the author handled the absence
+				}
+				key := n.ID + "\x00" + rs.Root + "\x00" + rs.Field
+				if seen[key] {
+					continue
+				}
+				seen[key] = true
+				report.Warnings = append(report.Warnings, fmt.Sprintf(
+					"node %q input %q reads %q.%s, but %q declares no output %q (declared: %v) — if it does not return %q at runtime this node fails; declare it on the producer or guard with has(%s.%s)",
+					n.ID, field, rs.Root, rs.Field, rs.Root, rs.Field, info.DeclaredOutputs, rs.Field, rs.Root, rs.Field))
+			}
+		}
+	}
+}
+
+// flowrunResultTextKey is the implicit result key a schema-less callable result is wrapped under
+// (toResultMap), so `producer.text` is ALWAYS a legal read regardless of declared outputs (F156).
+const flowrunResultTextKey = "text"
 
 // CapabilityCheckByID resolves the workflow's active graph and capability-checks it.
 //

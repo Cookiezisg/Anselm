@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	celgo "github.com/google/cel-go/cel"
+	celast "github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/types/ref"
 )
 
@@ -145,6 +146,54 @@ func (s *ScopedEnv) Compile(expr string) (*Program, error) {
 		return nil, fmt.Errorf("invalid CEL expression %q: %w", expr, err)
 	}
 	return &Program{prg: prg, src: expr}, nil
+}
+
+// RootSelect is a `<root>.<field>` field selection whose operand is a bare root identifier (one of
+// the ScopedEnv's declared roots — a graph node id). The workflow capability check uses these to
+// find which upstream-node output fields an input expression reads.
+//
+// RootSelect 是一个 `<root>.<field>` 字段选择，其操作数是裸的根标识符（ScopedEnv 声明的某个根——
+// 一个图 node id）。workflow 能力检查用它找出某条 input 表达式读了上游节点的哪些输出字段。
+type RootSelect struct {
+	Root  string
+	Field string
+}
+
+// ExtractRootSelects walks expr's AST and returns its top-level `<root>.<field>` field selections,
+// split into plain reads and has()-guarded reads (the test-only select form). It is deliberately
+// conservative — ONLY a select whose immediate operand is a root Ident matches, so nested selects
+// (`a.b.c` → only `a.b` is a root select; `c` navigates inside b's value), dynamic subscripts
+// (`a[k]` is a call, not a select), and comprehension-local idents (root not in the env) never
+// produce a RootSelect. Returns (nil, nil, err) on a compile failure — the caller already ran the
+// structural compile pass, so this only fires on an env mismatch and must not double-report.
+//
+// ExtractRootSelects 走 expr 的 AST，返回其顶层 `<root>.<field>` 字段选择，分成普通读与 has() 守卫读
+// （test-only select 形）。刻意保守——只有**直接**操作数是根 Ident 的 select 才匹配，故嵌套 select
+// （`a.b.c` 只有 `a.b` 是根 select；`c` 在 b 的值内导航）、动态下标（`a[k]` 是调用非 select）、推导式
+// 局部 ident（根不在 env 内）都不产生 RootSelect。编译失败返 (nil, nil, err)——调用方已跑过结构编译
+// 检查，故此处只在 env 不匹配时触发、不重复报。
+func (s *ScopedEnv) ExtractRootSelects(expr string) (plain, guarded []RootSelect, err error) {
+	a, iss := s.env.Compile(expr)
+	if iss != nil && iss.Err() != nil {
+		return nil, nil, iss.Err()
+	}
+	celast.PreOrderVisit(celast.NavigateAST(a.NativeRep()), celast.NewExprVisitor(func(e celast.Expr) {
+		if e.Kind() != celast.SelectKind {
+			return
+		}
+		sel := e.AsSelect()
+		op := sel.Operand()
+		if op.Kind() != celast.IdentKind {
+			return // nested select / call operand — not a top-level node-field read
+		}
+		rs := RootSelect{Root: op.AsIdent(), Field: sel.FieldName()}
+		if sel.IsTestOnly() {
+			guarded = append(guarded, rs) // has(root.field)
+		} else {
+			plain = append(plain, rs)
+		}
+	}))
+	return plain, guarded, nil
 }
 
 // Eval evaluates to a native Go value (recursing into lists/maps). vars is the activation: a

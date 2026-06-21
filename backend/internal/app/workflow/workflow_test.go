@@ -509,6 +509,64 @@ func TestCapabilityCheck_RequiredInputWiring(t *testing.T) {
 	}
 }
 
+// TestCapabilityCheck_UndeclaredOutputReadWarns — F156: a node input that reads `producer.field` where
+// the producer DECLARES outputs not including `field` surfaces a WARNING (advisory, never blocking —
+// declared outputs aren't runtime-enforced). Declared fields, the `.text` fallback, has()-guarded reads,
+// and schema-less producers (no declared outputs) are NOT warned.
+func TestCapabilityCheck_UndeclaredOutputReadWarns(t *testing.T) {
+	// producer p (fn_x) declares output "score"; consumer c (fn_y) declares input "x" wired from p.
+	mk := func(t *testing.T, consumerInput string, producerOutputs []string) CapabilityReport {
+		t.Helper()
+		ops := opsJSON(t, `[
+			{"op":"add_node","node":{"id":"t","kind":"trigger","ref":"trg_a"}},
+			{"op":"add_node","node":{"id":"p","kind":"action","ref":"fn_x"}},
+			{"op":"add_node","node":{"id":"c","kind":"action","ref":"fn_y","input":{"x":"`+consumerInput+`"}}},
+			{"op":"add_edge","edge":{"id":"e1","from":"t","to":"p"}},
+			{"op":"add_edge","edge":{"id":"e2","from":"p","to":"c"}}
+		]`)
+		g, err := workflowdomain.ApplyOps(nil, ops)
+		if err != nil {
+			t.Fatalf("apply ops: %v", err)
+		}
+		resolver := &fakeResolver{m: map[string]RefInfo{
+			"trg_a": {Kind: relationdomain.EntityKindTrigger, HasActiveVersion: true},
+			"fn_x":  {Kind: relationdomain.EntityKindFunction, HasActiveVersion: true, DeclaredOutputs: producerOutputs},
+			"fn_y":  {Kind: relationdomain.EntityKindFunction, HasActiveVersion: true, DeclaredInputs: []string{"x"}},
+		}}
+		svc, ctx := newSvc(t, resolver)
+		rep, rerr := svc.CapabilityCheck(ctx, g)
+		if rerr != nil {
+			t.Fatalf("capability check: %v", rerr)
+		}
+		return rep
+	}
+
+	// Reads a declared output → no warning.
+	if rep := mk(t, "p.score", []string{"score"}); len(rep.Warnings) != 0 {
+		t.Fatalf("reading a declared output must not warn: %+v", rep.Warnings)
+	}
+	// Reads an UNDECLARED output → one warning, but still OK() (advisory, non-blocking).
+	rep := mk(t, "p.missing", []string{"score"})
+	if len(rep.Warnings) != 1 {
+		t.Fatalf("reading an undeclared output must warn exactly once, got %+v", rep.Warnings)
+	}
+	if !rep.OK() {
+		t.Fatalf("an output-read warning must NOT block (OK stays true): %+v", rep)
+	}
+	// has()-guarded undeclared read → no warning (the author handled the absence).
+	if rep := mk(t, "has(p.missing) ? p.missing : 0", []string{"score"}); len(rep.Warnings) != 0 {
+		t.Fatalf("a has()-guarded read must not warn: %+v", rep.Warnings)
+	}
+	// The implicit .text fallback key is always legal → no warning.
+	if rep := mk(t, "p.text", []string{"score"}); len(rep.Warnings) != 0 {
+		t.Fatalf("reading .text must not warn: %+v", rep.Warnings)
+	}
+	// Schema-less producer (no declared outputs) → can't check → no warning.
+	if rep := mk(t, "p.anything", nil); len(rep.Warnings) != 0 {
+		t.Fatalf("reading a schema-less producer must not warn: %+v", rep.Warnings)
+	}
+}
+
 // --- BuildPinClosure ---
 
 func TestBuildPinClosure_AgentDepth2(t *testing.T) {

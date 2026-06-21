@@ -84,7 +84,7 @@ audience: [human, ai]
 | `POST /workflows/{id}:activate` / `:deactivate` | 上线（挂监听+active）/ 优雅下线（摘监听+inactive 或 draining） |
 | `POST /workflows/{id}:kill` | 硬停：摘监听 + 取消全部在途 run + inactive，返被杀数 |
 | `POST /workflows/{id}:edit` / `:revert` | 图 ops 构建新版本 / 移 active 指针 |
-| `POST /workflows/{id}:capability-check` | ref 解析体检（实体在吗/kind 对吗/port·method 在吗） |
+| `POST /workflows/{id}:capability-check` | ref 解析体检（实体在吗/kind 对吗/port·method 在吗）；返 `problems`（阻断）+ `warnings`（建议——含 F156 未声明输出读：读 `producer.field` 而 producer 声明输出不含 field） |
 | `POST /workflows/{id}:iterate` | 开 AI 编辑对话 |
 | `GET /workflows/{id}/versions[/{version}]` | 版本 |
 
