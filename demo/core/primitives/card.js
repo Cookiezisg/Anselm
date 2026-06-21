@@ -19,8 +19,8 @@
     `;
     render() { return `<div class="card"><slot></slot></div>`; }
     hydrate() {
-      // 点击恒挂、运行时判 selectable —— 免 selectable 后置切换要重 hydrate
-      this.$(".card").addEventListener("click", () => { if (this.has("selectable")) this.emit("an-card-select", { selected: this.has("selected") }); });
+      // 监听挂【宿主】而非内层 .card —— 卡内任意点击冒泡到宿主即触发，且 host.click()/事件委托也能命中（内层监听只认渲染区直接指针命中）。运行时判 selectable，免后置切换要重 hydrate。
+      this.addEventListener("click", () => { if (this.has("selectable")) this.emit("an-card-select", { selected: this.has("selected") }); });
     }
   }
   window.AnElement.define(AnCard);

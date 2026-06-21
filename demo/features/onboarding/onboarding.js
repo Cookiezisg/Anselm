@@ -25,26 +25,17 @@
       .ob-title { font-size: var(--t-h1); font-weight: 700; color: var(--ink); letter-spacing: -0.01em; }
       .ob-h { font-size: var(--t-h2); font-weight: 600; color: var(--ink); }
       .ob-sub { font-size: var(--t-body); color: var(--ink-2); line-height: var(--lh-prose); }
-      .ob-dots { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-1); }
-      .ob-dot { width: var(--dot); height: var(--dot); border-radius: var(--r-pill); background: var(--line-strong); transition: background var(--d-fast), width var(--d-fast); }
-      .ob-dot.on { background: var(--accent); width: calc(var(--dot) * 3); }
-      .ob-dot.done { background: var(--ink-3); }
+      /* 卡/步骤点/图标 已内化为 an-card / an-stepper / an-brand-icon 原语；此处仅留 standalone 向导外壳 + 卡内文案布局 */
       .ob-nav { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-2); }
       .ob-grow { flex: 1; }
-      .ob-choice { display: flex; flex-direction: column; gap: var(--grid); padding: var(--sp-3) var(--sp-4); box-shadow: inset 0 0 0 var(--hairline) var(--line); border-radius: var(--r-chip); background: var(--island); cursor: pointer; transition: box-shadow var(--d-fast); }
-      .ob-choice:hover { box-shadow: inset 0 0 0 var(--hairline) var(--line-strong); }
-      .ob-choice.sel { box-shadow: inset 0 0 0 var(--line-2) var(--accent-line); }
       .ob-ct { display: flex; align-items: center; gap: var(--sp-2); }
       .ob-ct .t { flex: 1; min-width: var(--zero); font-size: var(--t-body); font-weight: 600; color: var(--ink); }
       .ob-csub { font-size: var(--t-meta); color: var(--ink-2); }
       .ob-cnote { font-size: var(--t-meta); color: var(--ink-3); }
       .ob-mcp-grid { display: grid; grid-template-columns: repeat(2, minmax(var(--zero), 1fr)); gap: var(--sp-2); }
-      .ob-mcp { flex-direction: row; align-items: center; gap: var(--sp-2); }
-      .ob-mcp-ico { flex: none; width: var(--ctl); height: var(--ctl); border-radius: var(--r-tag); overflow: hidden; background: var(--island-3); }
-      .ob-mcp-ico img { width: 100%; height: 100%; object-fit: cover; display: block; }
-      .ob-mcp .m { flex: 1; min-width: var(--zero); }
-      .ob-mcp .m .nm { font-size: var(--t-body); font-weight: 500; color: var(--ink); }
-      .ob-mcp .m .d { font-size: var(--t-meta); color: var(--ink-3); }
+      .ob-m { flex: 1; min-width: var(--zero); }
+      .ob-m .nm { font-size: var(--t-body); font-weight: 500; color: var(--ink); }
+      .ob-m .d { font-size: var(--t-meta); color: var(--ink-3); }
       .ob-chk { flex: none; width: var(--lead); height: var(--lead); display: grid; place-items: center; color: var(--accent); }
     `;
     document.head.appendChild(s);
@@ -57,11 +48,7 @@
   const grow = () => { const g = el("span"); g.className = "ob-grow"; return g; };
   const btn = (label, variant, on) => { const b = el("an-button", variant ? { variant } : {}, label); b.addEventListener("click", on); return b; };
   const nav = (kids) => { const n = el("div"); n.className = "ob-nav"; kids.forEach((k) => n.append(k)); return n; };
-  function dots(active) {
-    const d = el("div"); d.className = "ob-dots";
-    for (let i = 1; i <= CONFIG; i++) { const o = el("span"); o.className = "ob-dot" + (i === active ? " on" : i < active ? " done" : ""); d.append(o); }
-    return d;
-  }
+  const dots = (active) => el("an-stepper", { count: String(CONFIG), active: String(active) });
   function brandIcon() { const i = el("img"); i.className = "ob-icon"; i.src = BRAND; i.alt = "Anselm"; return i; }
 
   // ── 步骤 ──
@@ -79,14 +66,14 @@
     card.append(dots(1), h, s, inp, nav([btn("继续", "primary", () => go(1))]));
   }
   function choice(id, title, sub, note, rec) {
-    const c = el("div"); c.className = "ob-choice" + (st.model === id ? " sel" : ""); c.dataset.id = id;
+    const c = el("an-card", { selectable: "" }); c.dataset.id = id; if (st.model === id) c.setAttribute("selected", "");
     const top = el("div"); top.className = "ob-ct";
     const t = el("div"); t.className = "t"; t.textContent = title; top.append(t);
     if (rec) top.append(el("an-badge", { tone: "accent" }, "推荐"));
     const su = el("div"); su.className = "ob-csub"; su.textContent = sub;
     const no = el("div"); no.className = "ob-cnote"; no.textContent = note;
     c.append(top, su, no);
-    c.addEventListener("click", () => { st.model = id; root.querySelectorAll(".ob-choice").forEach((x) => x.classList.toggle("sel", x.dataset.id === id)); });
+    c.addEventListener("an-card-select", () => { st.model = id; root.querySelectorAll("an-card[data-id]").forEach((x) => x.toggleAttribute("selected", x.dataset.id === id)); });
     return c;
   }
   function models(card) {
@@ -97,12 +84,12 @@
     card.append(dots(2), h, s, a, b, nav([btn("上一步", null, () => go(-1)), grow(), btn("继续", "primary", () => { if (!st.model) { toast("先选一种接入方式"); return; } go(1); })]));
   }
   function mcpCard(m) {
-    const c = el("div"); c.className = "ob-choice ob-mcp" + (st.mcp[m.name] ? " sel" : "");
-    const ico = el("div"); ico.className = "ob-mcp-ico"; const img = el("img"); img.src = m.icon; img.alt = ""; ico.append(img);
-    const mid = el("div"); mid.className = "m"; const nm = el("div"); nm.className = "nm"; nm.textContent = m.name; const d = el("div"); d.className = "d"; d.textContent = m.desc; mid.append(nm, d);
+    const c = el("an-card", { selectable: "", row: "" }); if (st.mcp[m.name]) c.setAttribute("selected", "");
+    const ico = el("an-brand-icon", { src: m.icon });
+    const mid = el("div"); mid.className = "ob-m"; const nm = el("div"); nm.className = "nm"; nm.textContent = m.name; const d = el("div"); d.className = "d"; d.textContent = m.desc; mid.append(nm, d);
     const chk = el("span"); chk.className = "ob-chk"; if (st.mcp[m.name]) chk.innerHTML = icon("check", 14);
     c.append(ico, mid, chk);
-    c.addEventListener("click", () => { st.mcp[m.name] = !st.mcp[m.name]; c.classList.toggle("sel", st.mcp[m.name]); chk.innerHTML = st.mcp[m.name] ? icon("check", 14) : ""; });
+    c.addEventListener("an-card-select", () => { st.mcp[m.name] = !st.mcp[m.name]; c.toggleAttribute("selected", st.mcp[m.name]); chk.innerHTML = st.mcp[m.name] ? icon("check", 14) : ""; });
     return c;
   }
   function mcp(card) {
