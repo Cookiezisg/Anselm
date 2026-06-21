@@ -173,7 +173,16 @@ func (s *Service) Call(ctx context.Context, in CallInput) (any, error) {
 		runTerm.Close("completed", nil)
 	}
 
-	callErr := s.mapCallErr(ctx, err)
+	// Mask the platform's injected sensitive config values in the call error BEFORE it is both recorded
+	// AND returned to the caller (call_handler → the LLM/user): a method that raised an exception
+	// referencing an injected secret carries it in the Python traceback (the error's Details). The older
+	// recordCall scrub masked only the persisted COPY, so the live error returned to the LLM still leaked
+	// the plaintext secret (F164/H4). scrubErr is a no-op when the method succeeded (callErr nil) or no
+	// secrets are injected.
+	// 在调用错误**既记账又返回调用方（call_handler→LLM/用户）之前**掩掉平台注入的 sensitive config 值：method 抛
+	// 引用注入密钥的异常时其在 Python traceback（错误 Details）里。旧 recordCall 掩码只掩持久副本，故返给 LLM 的
+	// 实时错误仍漏明文密钥（F164/H4）。callErr 为 nil（成功）或无注入密钥时 scrubErr 为 no-op。
+	callErr := scrubErr(s.mapCallErr(ctx, err), inst.SecretValues)
 	if errors.Is(callErr, handlerdomain.ErrInstanceCrashed) {
 		// The resident process died (discovered on this call; the manager reaps + respawns on the
 		// next call). Notify so the handler row shows a live red dot now, instead of the crash only
@@ -332,6 +341,48 @@ func scrubSecrets(s string, secrets []string) string {
 		}
 	}
 	return s
+}
+
+// scrubErr masks the platform's injected sensitive config values in a structured handler error BEFORE
+// it is returned to the caller (call_handler → the LLM/user) OR persisted — covering BOTH the live
+// error surface and the audit record. recordCall's older scrub only masked the buffered audit COPY of
+// errMsg, so the live error returned to the LLM still leaked the secret (F164/H4); and the spawn-failure
+// path passed inst==nil so even that record scrub was bypassed (F164/H3). The injected secret reaches an
+// error only via a Python traceback that user code printed it into — which sits in the error's Details
+// (lifted there by errorspkg.Wrap, F131) where Surface renders it. We scrub those Details + re-point the
+// cause to a scrubbed string so Surface (LLM/record/HTTP) AND .Error() (logs) are all clean, while the
+// outer Code/Kind/Message are preserved so errors.Is keeps matching by code.
+//
+// scrubErr 在 handler 结构化错误**返回调用方（call_handler→LLM/用户）或持久化之前**掩掉平台注入的 sensitive
+// config 值——同时覆盖实时错误面与审计记录。旧的 recordCall 只掩缓冲审计副本的 errMsg，故返给 LLM 的实时错误仍漏
+// 密（F164/H4）；spawn 失败路径传 inst==nil、连那道记录掩码都被绕过（F164/H3）。注入密钥只经用户代码 print 进
+// Python traceback 才进错误——而 traceback 在错误 Details 里（errorspkg.Wrap 抬上去的，F131）、Surface 渲它。我们
+// 掩这些 Details + 把 cause 重指到掩码串，使 Surface（LLM/记录/HTTP）与 .Error()（日志）全干净，外层 Code/Kind/
+// Message 保留以便 errors.Is 按码匹配。
+func scrubErr(err error, secrets []string) error {
+	if err == nil || len(secrets) == 0 {
+		return err
+	}
+	var de *errorspkg.Error
+	if !errors.As(err, &de) {
+		return errors.New(scrubSecrets(err.Error(), secrets))
+	}
+	out := de
+	if len(de.Details) > 0 {
+		scrubbed := make(map[string]any, len(de.Details))
+		for k, v := range de.Details {
+			if sv, ok := v.(string); ok {
+				scrubbed[k] = scrubSecrets(sv, secrets)
+			} else {
+				scrubbed[k] = v
+			}
+		}
+		out = out.WithDetails(scrubbed)
+	}
+	if c := de.Unwrap(); c != nil {
+		out = out.WithCause(errors.New(scrubSecrets(c.Error(), secrets)))
+	}
+	return out
 }
 
 // scrubbingWriter masks known injected secrets in a byte stream before it reaches the live progress /

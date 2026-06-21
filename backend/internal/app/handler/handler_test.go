@@ -233,6 +233,35 @@ func TestScrubSecrets(t *testing.T) {
 	}
 }
 
+// TestScrubErr — F164: a structured handler error carrying an injected secret in its traceback Details
+// (lifted there by errorspkg.Wrap) must be masked on EVERY surface — Surface (LLM/record/HTTP) AND
+// .Error() (logs) — before it is returned to the caller, while errors.Is still matches the outer code.
+// This closes the leak where recordCall scrubbed only the persisted copy, so the LIVE error returned to
+// the LLM still showed the plaintext secret (and the spawn path bypassed even that with inst==nil).
+func TestScrubErr(t *testing.T) {
+	secret := "sk-LEAKED-9999"
+	inner := errorspkg.New(errorspkg.KindBadGateway, "INIT_FAILED", "init failed").
+		WithDetails(map[string]any{"traceback": "ValueError: boom with key " + secret})
+	wrapped := errorspkg.Wrap(handlerdomain.ErrInstanceSpawnFailed, inner)
+
+	scrubbed := scrubErr(wrapped, []string{secret})
+	if s := errorspkg.Surface(scrubbed); strings.Contains(s, secret) {
+		t.Fatalf("Surface (LLM/record/HTTP) must not leak the secret, got: %q", s)
+	}
+	if strings.Contains(scrubbed.Error(), secret) {
+		t.Fatalf(".Error() (logs) must not leak the secret, got: %q", scrubbed.Error())
+	}
+	if !strings.Contains(errorspkg.Surface(scrubbed), "********") {
+		t.Fatalf("the secret must be MASKED (not silently dropped), got: %q", errorspkg.Surface(scrubbed))
+	}
+	if !errors.Is(scrubbed, handlerdomain.ErrInstanceSpawnFailed) {
+		t.Fatal("scrubErr must preserve the outer code so errors.Is keeps matching")
+	}
+	if got := scrubErr(wrapped, nil); got != wrapped {
+		t.Fatal("no secrets must be a no-op (same error returned)")
+	}
+}
+
 // TestScrubbingWriter — F108: the live progress / SSE path must mask injected secrets AT THE SOURCE,
 // not only in the after-the-fact audit copy (F82 covered only recordCall). A secret a handler print()s
 // reaches the stderr fan and must be masked before it streams to the messages/entities SSE + the

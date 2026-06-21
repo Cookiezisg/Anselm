@@ -114,9 +114,15 @@ func (s *Service) spawnInstance(ctx context.Context, handlerID string) (*Instanc
 		// Wrap (not fmt %w: %v): lift the init error's structured Details (the Python traceback, F131)
 		// onto the spawn-failure sentinel so Surface renders them. A %v re-wrap here flattened the inner
 		// ErrInitFailed and shadowed its traceback Details, leaving the agent an opaque "spawn failed".
+		// scrubErr masks the platform's injected sensitive init-args from that traceback HERE, at
+		// construction: the spawn-failure path records with inst==nil (so recordCall's scrub is bypassed)
+		// AND returns this error to the LLM/user, so a config secret a broken __init__ printed into its
+		// traceback would otherwise leak plaintext on both the audit record and the live error (F164/H3).
 		// Wrap（非 fmt %w: %v）：把 init 错误的结构化 Details（Python traceback，F131）抬到 spawn 失败 sentinel 上、
-		// 使 Surface 渲染。这里用 %v 重包会拍平内层 ErrInitFailed、遮蔽其 traceback Details，agent 只剩不透明 "spawn failed"。
-		return nil, errorspkg.Wrap(handlerdomain.ErrInstanceSpawnFailed, err)
+		// 使 Surface 渲染。这里用 %v 重包会拍平内层 ErrInitFailed、遮蔽其 traceback Details。**就地** scrubErr 掩掉
+		// 注入的 sensitive init-arg：spawn 失败路径以 inst==nil 记账（recordCall 掩码被绕过）且把此错误返给
+		// LLM/用户，否则坏 __init__ 打进 traceback 的 config 密钥会在审计记录与实时错误上双双明文泄露（F164/H3）。
+		return nil, scrubErr(errorspkg.Wrap(handlerdomain.ErrInstanceSpawnFailed, err), secretVals)
 	}
 
 	return &Instance{
