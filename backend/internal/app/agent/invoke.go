@@ -101,7 +101,7 @@ func (s *Service) InvokeAgent(ctx context.Context, in InvokeInput) (*InvokeResul
 	}
 
 	startedAt := time.Now().UTC()
-	result, modelID, runCtxErr, runErr := s.runLoop(ctx, a, v, in)
+	result, prov, runCtxErr, runErr := s.runLoop(ctx, a, v, in)
 	endedAt := time.Now().UTC()
 
 	res := &InvokeResult{
@@ -189,8 +189,22 @@ func (s *Service) InvokeAgent(ctx context.Context, in InvokeInput) (*InvokeResul
 		res.TokensOut = result.TokensOut
 	}
 
-	res.ExecutionID = s.recordExecution(ctx, in, a, v, res, modelID, result.Blocks, startedAt, endedAt)
+	res.ExecutionID = s.recordExecution(ctx, in, a, v, res, prov, result.Blocks, startedAt, endedAt)
 	return res, nil
+}
+
+// runProvenance is the resolved model identity captured for the Execution audit row: which model ran,
+// under which api-key id, on which provider. apiKeyID/provider disambiguate two keys exposing the same
+// model name (F155). All empty when the run failed BEFORE the LLM resolved — recordExecution then falls
+// back to the declared override (mirroring the modelID fallback, F154).
+//
+// runProvenance 是为 Execution 审计行捕获的解析出的模型身份：哪个 model 跑、用哪个 api-key id、哪个 provider。
+// apiKeyID/provider 区分暴露同名模型的两个 key（F155）。run 于解析 LLM **之前**就失败时全空——recordExecution
+// 回落到声明的 override（镜像 modelID 回落，F154）。
+type runProvenance struct {
+	modelID  string
+	apiKeyID string
+	provider string
 }
 
 // runLoop builds the agent host + LLM bundle and runs app/loop.Run (the ReAct loop). The loop's
@@ -199,18 +213,18 @@ func (s *Service) InvokeAgent(ctx context.Context, in InvokeInput) (*InvokeResul
 //
 // runLoop 构造 agent host + LLM bundle 并跑 app/loop.Run（ReAct 循环）。loop 的 emitter 把 block
 // 推到 ctx 携带的 stream scope（chat 内调用时即 eventlog）——agent 不写流式代码。
-func (s *Service) runLoop(ctx context.Context, a *agentdomain.Agent, v *agentdomain.Version, in InvokeInput) (loopapp.Result, string, error, error) {
+func (s *Service) runLoop(ctx context.Context, a *agentdomain.Agent, v *agentdomain.Version, in InvokeInput) (loopapp.Result, runProvenance, error, error) {
 	// Knowledge prefix (the agent's attached docs) prepended to the user message. A mounted
 	// capability with its dep unwired is a wiring bug — fail loudly, never run degraded.
 	// Knowledge 前缀（agent 挂的文档）前置到 user 消息。挂了能力而依赖未装配是装配 bug——大声失败、绝不降级跑。
 	prefix := ""
 	if len(v.Knowledge) > 0 {
 		if s.invoke.Knowledge == nil {
-			return loopapp.Result{}, "", nil, fmt.Errorf("agent mounts knowledge but no KnowledgeProvider is wired")
+			return loopapp.Result{}, runProvenance{}, nil, fmt.Errorf("agent mounts knowledge but no KnowledgeProvider is wired")
 		}
 		p, kErr := s.invoke.Knowledge.BuildKnowledgePrefix(ctx, v.Knowledge)
 		if kErr != nil {
-			return loopapp.Result{}, "", nil, fmt.Errorf("resolve knowledge: %w", kErr)
+			return loopapp.Result{}, runProvenance{}, nil, fmt.Errorf("resolve knowledge: %w", kErr)
 		}
 		prefix = p
 	}
@@ -228,12 +242,12 @@ func (s *Service) runLoop(ctx context.Context, a *agentdomain.Agent, v *agentdom
 	var tools []toolapp.Tool
 	if len(v.Tools) > 0 {
 		if s.invoke.Mounts == nil {
-			return loopapp.Result{}, "", nil, fmt.Errorf("agent mounts tools but no MountResolver is wired")
+			return loopapp.Result{}, runProvenance{}, nil, fmt.Errorf("agent mounts tools but no MountResolver is wired")
 		}
 		var mErr error
 		tools, mErr = s.invoke.Mounts.Resolve(ctx, v.Tools)
 		if mErr != nil {
-			return loopapp.Result{}, "", nil, fmt.Errorf("resolve mounts: %w", mErr)
+			return loopapp.Result{}, runProvenance{}, nil, fmt.Errorf("resolve mounts: %w", mErr)
 		}
 	}
 
@@ -242,18 +256,18 @@ func (s *Service) runLoop(ctx context.Context, a *agentdomain.Agent, v *agentdom
 	skillGuide := ""
 	if v.Skill != "" {
 		if s.invoke.Skill == nil {
-			return loopapp.Result{}, "", nil, fmt.Errorf("agent mounts skill %q but no SkillGuide is wired", v.Skill)
+			return loopapp.Result{}, runProvenance{}, nil, fmt.Errorf("agent mounts skill %q but no SkillGuide is wired", v.Skill)
 		}
 		g, gErr := s.invoke.Skill.Guide(ctx, v.Skill)
 		if gErr != nil {
-			return loopapp.Result{}, "", nil, fmt.Errorf("resolve skill: %w", gErr)
+			return loopapp.Result{}, runProvenance{}, nil, fmt.Errorf("resolve skill: %w", gErr)
 		}
 		skillGuide = g
 	}
 
 	bundle, err := s.invoke.Resolver.ResolveAgent(ctx, v.ModelOverride)
 	if err != nil {
-		return loopapp.Result{}, "", nil, fmt.Errorf("resolve LLM: %w", err)
+		return loopapp.Result{}, runProvenance{}, nil, fmt.Errorf("resolve LLM: %w", err)
 	}
 
 	host := &agentHost{
@@ -310,7 +324,7 @@ func (s *Service) runLoop(ctx context.Context, a *agentdomain.Agent, v *agentdom
 	defer cancel()
 
 	result := loopapp.Run(lctx, host, bundle.Client, req, remaining, s.log)
-	return result, req.ModelID, lctx.Err(), nil
+	return result, runProvenance{modelID: req.ModelID, apiKeyID: bundle.APIKeyID, provider: bundle.Provider}, lctx.Err(), nil
 }
 
 // recordExecution writes one terminal Execution row (best-effort, on a detached ctx that keeps
@@ -318,7 +332,7 @@ func (s *Service) runLoop(ctx context.Context, a *agentdomain.Agent, v *agentdom
 //
 // recordExecution 写一行终态 Execution（best-effort，用保留 workspace 的 detached ctx，使被取消的
 // 运行仍落账）。对标 functionapp.recordExecution。
-func (s *Service) recordExecution(ctx context.Context, in InvokeInput, a *agentdomain.Agent, v *agentdomain.Version, res *InvokeResult, modelID string, blocks []messagesdomain.Block, startedAt, endedAt time.Time) string {
+func (s *Service) recordExecution(ctx context.Context, in InvokeInput, a *agentdomain.Agent, v *agentdomain.Version, res *InvokeResult, prov runProvenance, blocks []messagesdomain.Block, startedAt, endedAt time.Time) string {
 	triggeredBy := in.TriggeredBy
 	if !agentdomain.IsValidTrigger(triggeredBy) {
 		triggeredBy = agentdomain.TriggeredByManual
@@ -352,15 +366,24 @@ func (s *Service) recordExecution(ctx context.Context, in InvokeInput, a *agentd
 		transcript = []byte("[]")
 	}
 
-	// modelID is empty when the run failed BEFORE the LLM was resolved (e.g. ResolveAgent failed on a
-	// bad api-key / typo'd model). The declared target model is still known from the override, so fall
-	// back to it — otherwise the failed-run audit row can't say which model the run meant to hit (F154).
+	// modelID/apiKeyID are empty when the run failed BEFORE the LLM was resolved (e.g. ResolveAgent failed
+	// on a bad api-key / typo'd model). The declared targets are still known from the override, so fall
+	// back to them — otherwise the failed-run audit row can't say which model/key the run meant to hit
+	// (F154/F155). Provider has no override fallback (the override declares no provider), so it stays empty
+	// on a pre-resolve failure.
 	//
-	// modelID 在 run 于解析 LLM **之前**就失败时为空（如 ResolveAgent 因坏 api-key / 拼错 model 失败）。
-	// 声明的目标模型仍可从 override 取，故回落到它——否则失败 run 的审计行说不出这次本要打哪个模型（F154）。
-	recordModelID := modelID
-	if recordModelID == "" && v.ModelOverride != nil {
-		recordModelID = v.ModelOverride.ModelID
+	// modelID/apiKeyID 在 run 于解析 LLM **之前**就失败时为空（如 ResolveAgent 因坏 api-key / 拼错 model 失败）。
+	// 声明的目标仍可从 override 取，故回落到它——否则失败 run 的审计行说不出这次本要打哪个 model/key（F154/F155）。
+	// provider 无 override 回落（override 不声明 provider），故 pre-resolve 失败时留空。
+	recordModelID := prov.modelID
+	recordAPIKeyID := prov.apiKeyID
+	if v.ModelOverride != nil {
+		if recordModelID == "" {
+			recordModelID = v.ModelOverride.ModelID
+		}
+		if recordAPIKeyID == "" {
+			recordAPIKeyID = v.ModelOverride.APIKeyID
+		}
 	}
 
 	exec := &agentdomain.Execution{
@@ -368,6 +391,8 @@ func (s *Service) recordExecution(ctx context.Context, in InvokeInput, a *agentd
 		AgentID:          a.ID,
 		VersionID:        v.ID,
 		ModelID:          recordModelID,
+		APIKeyID:         recordAPIKeyID,
+		Provider:         prov.provider,
 		Status:           res.Status,
 		TriggeredBy:      triggeredBy,
 		Input:            input,

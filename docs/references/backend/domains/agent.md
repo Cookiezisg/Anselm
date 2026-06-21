@@ -57,7 +57,9 @@ InvokeAgent(in)
   │   ├─ ctx 装饰：tool_call 嵌套（E3）+ entities 流 agent scope 镜像（SSE-C）
   │   ├─ ctx WithTimeout(limits.Timeout.AgentInvokeSec) — 整次运行墙钟封顶
   │   └─ loop.Run(agentHost, maxTurns 默认 10 − 已重放步数)
-  └─ recordExecution（Detached ctx，best-effort；status 按运行 ctx.Err() 区分 timeout/cancelled）
+  └─ recordExecution（Detached ctx，best-effort；status 按运行 ctx.Err() 区分 timeout/cancelled；
+       记 modelId + **apiKeyId + provider**——解析链经 LLMBundle 透出的凭证溯源，使暴露同名模型的两个 key 在审计行可区分，
+       run 解析前失败则 apiKeyId 回落 override 的、provider 留空，F155/F154）
 ```
 
 - **InvokeDeps**（DIP 后注入：Resolver/Mounts/Skill/Knowledge/EntitiesBridge）——"挂载了某能力却 nil 对应依赖" = 装配 bug，invoke **大声失败**（不静默跳过）。

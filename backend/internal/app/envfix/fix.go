@@ -19,7 +19,7 @@ import (
 // suggestDeps 给定失败的 deps + 捕获的 stderr，让 utility 模型给修正依赖列表。解析走
 // modelclient——唯一共享解析链，故 wire model id 不会被误设成 base URL。
 func (p *Provisioner) suggestDeps(ctx context.Context, currentDeps []string, lastErr string, history []Attempt) ([]string, error) {
-	client, req, _, err := modelclientapp.Resolve(ctx, modeldomain.ScenarioUtility, nil, p.picker, p.keys, p.factory)
+	client, req, _, _, err := modelclientapp.Resolve(ctx, modeldomain.ScenarioUtility, nil, p.picker, p.keys, p.factory)
 	if err != nil {
 		return nil, fmt.Errorf("envfix.suggestDeps: resolve utility model: %w", err)
 	}

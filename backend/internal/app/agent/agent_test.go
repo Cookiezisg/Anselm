@@ -42,7 +42,7 @@ func (r fakeResolver) ResolveAgent(context.Context, *modeldomain.ModelRef) (LLMB
 	if r.err != nil {
 		return LLMBundle{}, r.err
 	}
-	return LLMBundle{Client: r.client, Request: llminfra.Request{ModelID: "test-model"}}, nil
+	return LLMBundle{Client: r.client, Request: llminfra.Request{ModelID: "test-model"}, APIKeyID: "ak_test", Provider: "deepseek"}, nil
 }
 
 type fakeKnowledge struct{}
@@ -147,6 +147,17 @@ func TestService_InvokeRunsLoopAndRecords(t *testing.T) {
 	if err != nil || len(sr.Executions) != 1 || sr.Aggregates.OKCount != 1 {
 		t.Fatalf("execution not recorded as ok: %v %+v", err, sr)
 	}
+
+	// F155: the audit row records the resolved credential provenance — which model ran, under which
+	// api-key, on which provider — so two keys exposing the same model name stay distinguishable.
+	detail, err := svc.GetExecutionDetail(ctx, res.ExecutionID)
+	if err != nil {
+		t.Fatalf("get execution detail: %v", err)
+	}
+	if detail.ModelID != "test-model" || detail.APIKeyID != "ak_test" || detail.Provider != "deepseek" {
+		t.Fatalf("execution audit must record model/key/provider provenance (F155), got modelId=%q apiKeyId=%q provider=%q",
+			detail.ModelID, detail.APIKeyID, detail.Provider)
+	}
 }
 
 // TestService_InvokeRecordsDeclaredModelOnResolveFailure pins F154: when the run fails BEFORE the LLM
@@ -189,6 +200,14 @@ func TestService_InvokeRecordsDeclaredModelOnResolveFailure(t *testing.T) {
 	}
 	if got := sr.Executions[0].ModelID; got != "deepseek-x" {
 		t.Fatalf("failed-run audit row must name the declared target model deepseek-x (F154), got %q", got)
+	}
+	// F155: apiKeyId likewise falls back to the declared override on a pre-resolve failure; provider has
+	// no override source so it stays empty (the run never reached a resolved provider).
+	if got := sr.Executions[0].APIKeyID; got != "aki_test" {
+		t.Fatalf("failed-run audit row must fall back to the declared apiKeyId aki_test (F155), got %q", got)
+	}
+	if got := sr.Executions[0].Provider; got != "" {
+		t.Fatalf("provider has no override fallback; must stay empty on a pre-resolve failure, got %q", got)
 	}
 }
 

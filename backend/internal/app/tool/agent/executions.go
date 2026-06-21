@@ -75,7 +75,7 @@ type GetAgentExecution struct{ svc *agentapp.Service }
 func (t *GetAgentExecution) Name() string { return "get_agent_execution" }
 
 func (t *GetAgentExecution) Description() string {
-	return "Get one agent execution's full record by id: input, output, status, error message, timing, and the model that ran."
+	return "Get one agent execution's full record by id: input, output, status, error message, timing, and the model that ran (modelId) with the api-key (apiKeyId) and provider that served it."
 }
 
 func (t *GetAgentExecution) Parameters() json.RawMessage {

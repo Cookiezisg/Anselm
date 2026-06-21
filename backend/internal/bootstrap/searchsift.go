@@ -28,7 +28,7 @@ type llmSifter struct {
 }
 
 func (f *llmSifter) Sift(ctx context.Context, query string, items []string, topN int) ([]int, error) {
-	client, req, _, err := modelclientapp.Resolve(ctx, modeldomain.ScenarioUtility, nil, f.picker, f.keys, f.factory)
+	client, req, _, _, err := modelclientapp.Resolve(ctx, modeldomain.ScenarioUtility, nil, f.picker, f.keys, f.factory)
 	if err != nil {
 		return nil, err
 	}

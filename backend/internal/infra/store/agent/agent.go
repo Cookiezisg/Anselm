@@ -69,6 +69,8 @@ var Schema = []string{
 		agent_id        TEXT NOT NULL,
 		version_id      TEXT NOT NULL,
 		model_id        TEXT NOT NULL DEFAULT '',
+		api_key_id      TEXT NOT NULL DEFAULT '',
+		provider        TEXT NOT NULL DEFAULT '',
 		status          TEXT NOT NULL CHECK (status IN ('ok','failed','cancelled','timeout')),
 		triggered_by    TEXT NOT NULL CHECK (triggered_by IN ('chat','workflow','manual')),
 		input           TEXT NOT NULL DEFAULT '{}',

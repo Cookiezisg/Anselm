@@ -316,7 +316,7 @@ func classifyIP(ip net.IP) string {
 // modelclient——唯一共享链（这里手抄一份会有把 base URL 误接进线缆 model id 的风险）；
 // 无 Thinking——旋钮走 ModelRef.Options。
 func (t *WebFetch) summarise(ctx context.Context, source, prompt, content string) (string, error) {
-	client, req, _, err := modelclientapp.Resolve(ctx, modeldomain.ScenarioUtility, nil, t.picker, t.keys, t.factory)
+	client, req, _, _, err := modelclientapp.Resolve(ctx, modeldomain.ScenarioUtility, nil, t.picker, t.keys, t.factory)
 	if err != nil {
 		return "", err
 	}

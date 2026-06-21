@@ -31,11 +31,14 @@ type CredsResolver interface {
 
 // Resolve runs the chain for a scenario (+ optional override) and returns the ready
 // client, a base Request with ModelID/Key/BaseURL/Options pre-filled (System/Messages
-// are the caller's), and the resolved provider (for turn provenance).
+// are the caller's), the resolved provider, and the resolved api-key id (both for turn
+// provenance / audit — the api-key id disambiguates two keys exposing the same model
+// name, F155). The two trailing strings are (provider, apiKeyID) in that order.
 //
 // Resolve 为 scenario（+ 可选 override）跑链，返回即用 client、预填 ModelID/Key/
-// BaseURL/Options 的 base Request（System/Messages 由调用方填）、解析出的 provider
-// （回合溯源用）。
+// BaseURL/Options 的 base Request（System/Messages 由调用方填）、解析出的 provider、
+// 解析出的 api-key id（皆作回合溯源 / 审计——api-key id 用于区分暴露同名模型的两个 key，F155）。
+// 末两个字符串顺序为 (provider, apiKeyID)。
 func Resolve(
 	ctx context.Context,
 	scenario string,
@@ -43,14 +46,14 @@ func Resolve(
 	picker modeldomain.ModelPicker,
 	keys CredsResolver,
 	factory *llminfra.Factory,
-) (llminfra.Client, llminfra.Request, string, error) {
+) (llminfra.Client, llminfra.Request, string, string, error) {
 	ref, err := modeldomain.Resolve(ctx, scenario, override, picker)
 	if err != nil {
-		return nil, llminfra.Request{}, "", err
+		return nil, llminfra.Request{}, "", "", err
 	}
 	creds, err := keys.ResolveCredentialsByID(ctx, ref.APIKeyID)
 	if err != nil {
-		return nil, llminfra.Request{}, "", err
+		return nil, llminfra.Request{}, "", "", err
 	}
 	client, baseURL, err := factory.Build(llminfra.Config{
 		Provider:  creds.Provider,
@@ -60,8 +63,8 @@ func Resolve(
 		BaseURL:   creds.BaseURL,
 	})
 	if err != nil {
-		return nil, llminfra.Request{}, "", err
+		return nil, llminfra.Request{}, "", "", err
 	}
 	req := llminfra.Request{ModelID: ref.ModelID, Key: creds.Key, BaseURL: baseURL, Options: ref.Options}
-	return client, req, creds.Provider, nil
+	return client, req, creds.Provider, ref.APIKeyID, nil
 }

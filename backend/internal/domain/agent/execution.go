@@ -54,7 +54,9 @@ type Execution struct {
 	WorkspaceID string         `db:"workspace_id,ws"     json:"-"`
 	AgentID     string         `db:"agent_id"            json:"agentId"`
 	VersionID   string         `db:"version_id"          json:"versionId"`
-	ModelID     string         `db:"model_id"            json:"modelId,omitempty"` // which model actually ran
+	ModelID     string         `db:"model_id"            json:"modelId,omitempty"`  // which model actually ran
+	APIKeyID    string         `db:"api_key_id"          json:"apiKeyId,omitempty"` // which api-key served the run — disambiguates two keys exposing the same model name (F155)
+	Provider    string         `db:"provider"            json:"provider,omitempty"` // the resolved provider (self-describing audit even after the key is deleted, F155)
 	Status      string         `db:"status"              json:"status"`
 	TriggeredBy string         `db:"triggered_by"        json:"triggeredBy"`
 	Input       map[string]any `db:"input,json"          json:"input"`

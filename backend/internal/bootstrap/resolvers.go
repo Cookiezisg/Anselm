@@ -47,11 +47,14 @@ type modelResolver struct {
 }
 
 // resolve runs the chain for a scenario (+ optional override) and returns a ready client, a base
-// Request (System/Messages filled later by the caller), and the resolved provider (turn provenance).
+// Request (System/Messages filled later by the caller), the resolved provider, and the resolved
+// api-key id (both turn provenance / audit — see modelclient.Resolve; trailing strings are provider
+// then apiKeyID).
 //
 // resolve 为某 scenario（+ 可选 override）跑链，返回即用 client、base Request（System/Messages 由
-// caller 后填）、解析出的 provider（回合溯源）。
-func (r *modelResolver) resolve(ctx context.Context, scenario string, override *modeldomain.ModelRef) (llminfra.Client, llminfra.Request, string, error) {
+// caller 后填）、解析出的 provider、解析出的 api-key id（皆作回合溯源 / 审计——见 modelclient.Resolve；
+// 末两个字符串顺序为 provider、apiKeyID）。
+func (r *modelResolver) resolve(ctx context.Context, scenario string, override *modeldomain.ModelRef) (llminfra.Client, llminfra.Request, string, string, error) {
 	return modelclientapp.Resolve(ctx, scenario, override, r.picker, r.keys, r.factory)
 }
 
@@ -103,7 +106,7 @@ func (r chatResolver) ResolveUtility(ctx context.Context) (chatapp.Bundle, error
 }
 
 func (r chatResolver) bundle(ctx context.Context, scenario string, override *modeldomain.ModelRef) (chatapp.Bundle, error) {
-	client, req, provider, err := r.core.resolve(ctx, scenario, override)
+	client, req, provider, _, err := r.core.resolve(ctx, scenario, override)
 	if err != nil {
 		return chatapp.Bundle{}, err
 	}
@@ -123,7 +126,7 @@ type contextmgrResolver struct{ core *modelResolver }
 var _ contextmgrapp.UtilityResolver = contextmgrResolver{}
 
 func (r contextmgrResolver) ResolveUtility(ctx context.Context) (contextmgrapp.Bundle, error) {
-	client, req, _, err := r.core.resolve(ctx, modeldomain.ScenarioUtility, nil)
+	client, req, _, _, err := r.core.resolve(ctx, modeldomain.ScenarioUtility, nil)
 	if err != nil {
 		return contextmgrapp.Bundle{}, err
 	}
@@ -137,7 +140,7 @@ type subagentResolver struct{ core *modelResolver }
 var _ subagentapp.ModelResolver = subagentResolver{}
 
 func (r subagentResolver) Resolve(ctx context.Context) (subagentapp.Bundle, error) {
-	client, req, provider, err := r.core.resolve(ctx, modeldomain.ScenarioDialogue, nil)
+	client, req, provider, _, err := r.core.resolve(ctx, modeldomain.ScenarioDialogue, nil)
 	if err != nil {
 		return subagentapp.Bundle{}, err
 	}
@@ -151,9 +154,9 @@ type agentResolver struct{ core *modelResolver }
 var _ agentapp.LLMResolver = agentResolver{}
 
 func (r agentResolver) ResolveAgent(ctx context.Context, override *modeldomain.ModelRef) (agentapp.LLMBundle, error) {
-	client, req, _, err := r.core.resolve(ctx, modeldomain.ScenarioAgent, override)
+	client, req, provider, apiKeyID, err := r.core.resolve(ctx, modeldomain.ScenarioAgent, override)
 	if err != nil {
 		return agentapp.LLMBundle{}, err
 	}
-	return agentapp.LLMBundle{Client: client, Request: req}, nil
+	return agentapp.LLMBundle{Client: client, Request: req, APIKeyID: apiKeyID, Provider: provider}, nil
 }

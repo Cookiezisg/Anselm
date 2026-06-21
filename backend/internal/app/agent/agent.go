@@ -40,6 +40,14 @@ import (
 type LLMBundle struct {
 	Client  llminfra.Client
 	Request llminfra.Request
+	// APIKeyID + Provider are the resolved credential provenance (NOT the secret — Request.Key holds
+	// that). InvokeAgent records them on the Execution audit row so two keys exposing the same model
+	// name stay distinguishable, and the provider is self-describing even after the key is deleted (F155).
+	//
+	// APIKeyID + Provider 是解析出的凭证溯源（**非**密钥本体——Request.Key 才是）。InvokeAgent 把它们记到
+	// Execution 审计行，使暴露同名模型的两个 key 仍可区分、provider 即便 key 已删也自描述（F155）。
+	APIKeyID string
+	Provider string
 }
 
 // LLMResolver turns a (nil = default agent scenario) model override into a runnable bundle.
