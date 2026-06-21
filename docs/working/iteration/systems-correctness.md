@@ -16,6 +16,8 @@ landed-into:
 > 方法论：11 个静态猎手并行扫各反模式 + 每条对抗式复核（是否真实/已有清理被漏看/单用户长跑下多严重）。首轮 22 候选 → **21 确认**（R1–R21，按严重度排）。
 > 种子已确认：长 dev 会话漏 7 个 2GB llama-server + handler/MCP 子进程（已手动清，根因见 R2）。
 
+> **状态（2026-06-21）**：**R1–R20 全部 ✅ FIXED + 已提交**；**R21 仍 open**——与 [`LOG.md`](LOG.md) 顶部 backlog 的 **F174** 是同一条 head-of-line blocking（drainLoop 单 goroutine 内联 `Advance`，慢节点卡死全局 firing-drain / timeout 检查；那边定级 HIGH），待「`Advance` 异步化到 bounded worker pool + 并发安全验证」后一并修。
+
 ## R1 [HIGH] (subprocess-reaping) — ✅ FIXED
 
 **Background bash processes (and their whole process trees) are never reaped on shutdown — Manager.Stop() is unreachable**

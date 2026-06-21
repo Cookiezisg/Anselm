@@ -16,6 +16,36 @@ landed-into:
 > 状态：`open` 待修 · `confirmed` 已复现待修 · `fixed` 已修+验+回归 · `watch` 观察 · `not-bug` 判断后非 bug（成本/性能/可恢复且行为正确——不算）· `dup` 被他条覆盖。
 > 新发现追加在表末。**别删行**（同 D1 Log 语义）。
 
+## 📊 当前状态（2026-06-21）
+
+**175 finding：144 fixed · 13 open · 12 not-bug · 2 watch · 1 confirmed。** 所有 fix 已合入 `main`。完整逐行账在下方全表（append-only），本节只做**未结清单**速查——下表每行都在全表有对应详条。
+
+### 🔧 未结 backlog（按严重度，actionable 优先）
+
+| ID | 级 | 未结点（一句话） | 卡在哪 / 为何未修 |
+|---|---|---|---|
+| F174 | HIGH | 慢 workflow 节点卡死全局 firing-drain（单 goroutine 内联 `Advance`） | 改 `Advance` 异步前须先验并发安全 |
+| F152 | HIGH | spawn-subagent 回合跑 35min、双墙钟（600s/1800s）都没截断 | `provider.Stream` 代码审查看似正确，需活体复现定位 |
+| F153 | HIGH | model/key ref 三条写路径未校验即落库 | 运行时 fail-loud（非静默腐败），需 3-path 校验设计 |
+| F161 | HIGH | 删被依赖实体 purge 两端 relation 边、依赖图隐形 | actionable 核心已由 F160 修；剩 tombstone 增强 |
+| F101 | HIGH·watch | busy-loop 钉 CPU + 阻塞 graceful shutdown，深层因未定位 | 需 pprof 活体抓「不查 ctx 的紧循环」 |
+| F154 | MED | API-key 解析失败时执行记录丢目标 modelId | 候选：早返错误路径也带上 modelId |
+| F155 | MED | 执行记录不存服务该次的 apiKeyId（同名模型审计无法区分） | 候选：apiKeyId+provider 落 Execution 行 |
+| F156 | MED | capability_check 只校 INPUT 侧、不校 OUTPUT/READ 侧（F71 对称缺口） | 候选：resolver 浮出 DeclaredOutputs |
+| F162 | MED | `/limits` 改全局态却要 workspace header（单用户本属设计） | 候选：文档/响应澄清 limits 为全局单设置 |
+| F163 | MED | 无 `list_approval_inbox` 工具，agent 找不到 park 的审批 run | 候选：clean tool-add |
+| F95 | LOW | capability_check 不校 `start.<field>` vs 触发器 canonical outputs | 候选 sound 修（异于 F88，触发器 outputs 是 canonical） |
+| F58 | LOW | compaction 严格 turn 边界、长 ReAct turn 无 token/window 软守卫 | 排期：loop 内软守卫 |
+| F168 | 聚合 | round-20 ~9 个 medium 候选（逐条在 F168 行） | 探后清单，未逐条拆修 |
+| F175 | 聚合 | round-21 ~9 个 medium 候选（逐条在 F175 行） | 探后清单，未逐条拆修 |
+| F4 | watch | `run_function` 首调 args 平铺（疑 F1 已一并修掉） | 待 CONFIRM，基本已解 |
+
+> 另有系统级正确性维度 R1–R21（进程/泄漏/关闭/死锁等）单独登记在 [`systems-correctness.md`](systems-correctness.md)：**R1–R20 已修，R21 仍 open**（R21 = 上表 F174 同一条 head-of-line blocking）。
+
+---
+
+## 全表（append-only finding 索引）
+
 | ID | 状态 | 问题（一句话） | 范围 | 修法（定位） | 验证（前→后） | commit |
 |---|---|---|---|---|---|---|
 | F1 | fixed | lazy 工具概览不点名 id 参数 → 模型瞎猜参数名（`query`/`function_name`…） | **系统性 49/50** | 地基：`toolset.Overview` 浮出必填参数名 + `prompt` 渲 `name(args)` + preamble id→search 解析 | function+handler 修前 4/4 错 → 修后 4/4 一次对、零 error；79/91 工具现渲参数 | dfe2a361 |
