@@ -77,6 +77,45 @@ func TestPatch_PersistsAndHotSwaps(t *testing.T) {
 	}
 }
 
+// TestLimits_AreMachineGlobal_NotWorkspaceScoped pins F162: limits are a single
+// machine-level setting keyed only by dataDir — there is NO workspace dimension. The route
+// sits behind RequireWorkspace, but the header is identity only; a value written "from one
+// workspace" is the value every workspace reads. Two Service instances on the same dataDir
+// (two workspace sessions on one machine) must observe each other's writes — if limits were
+// per-workspace, B would still read the default.
+//
+// TestLimits_AreMachineGlobal_NotWorkspaceScoped 锁 F162：limits 是仅按 dataDir 索引的单一
+// 机器级设置、无 workspace 维度。路由在 RequireWorkspace 后，但 header 仅作身份；任一 workspace
+// 写的就是所有 workspace 读到的同一份。同一 dataDir 上两个 Service 实例（一台机器上两个 workspace
+// 会话）必须互见对方的写——若 limits 是 per-workspace，B 仍会读到默认。
+func TestLimits_AreMachineGlobal_NotWorkspaceScoped(t *testing.T) {
+	defer limitspkg.SetProvider(limitspkg.Default)
+	dir := t.TempDir()
+
+	// "workspace A" session patches the global ceiling.
+	sA, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load A: %v", err)
+	}
+	def := limitspkg.Default().Agent.MaxSteps
+	if _, err := sA.PatchLimits(json.RawMessage(`{"agent":{"maxSteps":42}}`)); err != nil {
+		t.Fatalf("PatchLimits A: %v", err)
+	}
+	if def == 42 {
+		t.Fatal("test vacuous: pick a maxSteps that differs from the default")
+	}
+
+	// "workspace B" session — a fresh load of the SAME dataDir — must see A's write (42),
+	// not the default. Global, not workspace-isolated.
+	sB, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load B: %v", err)
+	}
+	if got := sB.Limits().Agent.MaxSteps; got != 42 {
+		t.Fatalf("limits not machine-global: workspace-B session read maxSteps=%d, want 42 (A's write)", got)
+	}
+}
+
 // TestReset_RestoresDefaults pins G6: ResetLimits brings every field back to Default(),
 // hot-swaps it live, and persists it (a fresh Load then sees defaults).
 //

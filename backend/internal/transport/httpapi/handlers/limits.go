@@ -15,8 +15,18 @@ import (
 // block): GET returns the live values, PATCH merges a partial update, persists and
 // hot-swaps — consumers see new values on their next read, no restart.
 //
+// Why machine-level, not per-workspace: limits live in one global <dataDir>/settings.json
+// (the Service holds a single in-memory copy, no workspace dimension). The route still sits
+// behind the uniform RequireWorkspace gate, so a header is mandatory — but it is identity
+// only, NOT an isolation axis: every workspace reads and mutates the same one ceiling set.
+// For a single-user local app that global semantics is correct (F162).
+//
 // LimitsHandler 提供用户可调运行上限（settings.json "limits" 段）：GET 返活动值，PATCH
 // 合并部分更新、持久化并热换——消费方下一次读取即见新值，无需重启。
+//
+// 为何机器级而非 per-workspace：limits 落在唯一全局 <dataDir>/settings.json（Service 只持
+// 单份内存副本、无 workspace 维度）。路由仍在统一 RequireWorkspace 门后，故 header 必填——但
+// 它仅作身份、非隔离轴：所有 workspace 读/改的都是这同一份上限。单用户本地 app 下此「全局」语义即正确（F162）。
 type LimitsHandler struct {
 	svc *settingsapp.Service
 	log *zap.Logger
