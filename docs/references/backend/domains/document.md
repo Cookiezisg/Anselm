@@ -21,6 +21,7 @@ audience: [human, ai]
 - **改名 → 子树 path 级联**（批量重写后裔 path）；**Move 防环**（`IsAncestor` 拒把节点挂到自己后裔下，`DOCUMENT_INVALID_PARENT`）、nil parent=移根、nil position=追加末尾。
 - **Delete = 软删整子树**（`SoftDeleteSubtree`）+ 清全部后裔的 relation 边（`ListSubtreeIDs` BFS）。
 - **attach 单篇不拖子树**（`AttachedDocument`）：挂载必须显式有界——子树自动注入刻意不做（防"挂一篇拖出一整棵树"炸 context）。
+- **缺失附件可见警告、非静默丢**（F167）：`RenderAttachedAsXML(docs, missing)` 把对话挂载里已删/缺失的 doc id 渲成 `<document id=… missing="true">` 警告行（chat renderer 比对所请求 atts vs resolve 出的 docs 算 missing）——使模型知道 grounding 已丢，而非在静默空 `<documents>` 块上跑却以为附件还在。对位 agent 知识 `BuildKnowledgePrefix` 的大声失败（F98），但对话附件降级为 prompt 内警告而非让整个回合失败（太激进）。
 - **wikilink 出边**：body 每次写入后解析 `[[...]]`（`pkg/wikilink`）重 sync `link` 出边——文档间引用进 relation 图。
 - **`Service.Search` 走 DB LIKE**（name/description，updated_at DESC limit 50）是 `search_documents` 工具的**回退**路径——主路径走统一全文内容引擎（覆盖 name + markdown 正文、带 heading snippet）；DB LIKE 这条与 fn/hd/agent 的内存子串过滤不同：文档行数可能大、且有 content 大列，DB 侧过滤是对的（有意分化）。
 

@@ -182,7 +182,7 @@ func (s *Service) RemoveServer(ctx context.Context, name string) error {
 	delete(s.states, srv.ID)
 	s.mu.Unlock()
 	s.notifySearch(ctx, srv.Name)
-	s.purgeRelations(ctx, srv.ID)
+	s.purgeRelations(ctx, srv.ID, srv.Name) // edges may be keyed by EITHER id or name (F166)
 	s.emitNotif(ctx, "removed", srv.Name)
 	return nil
 }

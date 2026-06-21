@@ -33,6 +33,30 @@ func newSvc(t *testing.T) (*Service, context.Context) {
 }
 
 // TestCreate_ConcurrentPositionsDistinct — F61: N concurrent same-parent creates must each get a
+// TestRenderAttachedAsXML_MissingWarning — F167: a deleted/missing attached document must surface a
+// VISIBLE warning in the <documents> block, never be silently dropped — so the model knows its grounding
+// was lost. A present doc renders its content; missing ids render a missing="true" marker.
+func TestRenderAttachedAsXML_MissingWarning(t *testing.T) {
+	docs := []*documentdomain.Document{{ID: "doc_ok", Path: "notes.md", Content: "live content"}}
+
+	out := RenderAttachedAsXML(docs, []string{"doc_gone"})
+	if !strings.Contains(out, "live content") {
+		t.Fatalf("present doc content must render, got %q", out)
+	}
+	if !strings.Contains(out, "doc_gone") || !strings.Contains(out, `missing="true"`) {
+		t.Fatalf("a missing attachment must render a VISIBLE warning, not be silently dropped, got %q", out)
+	}
+
+	// No docs and no missing → empty (no spurious <documents> block).
+	if RenderAttachedAsXML(nil, nil) != "" {
+		t.Fatal("empty inputs must render nothing")
+	}
+	// Only missing (all attachments deleted) → still a warning block, not empty silence.
+	if onlyMissing := RenderAttachedAsXML(nil, []string{"doc_gone"}); !strings.Contains(onlyMissing, "doc_gone") {
+		t.Fatalf("an all-missing attachment set must still warn, got %q", onlyMissing)
+	}
+}
+
 // distinct position (the max-read + insert run in one tx, so they can't read the same max and
 // collide). Pre-fix, 20 concurrent creates produced duplicate positions.
 func TestCreate_ConcurrentPositionsDistinct(t *testing.T) {

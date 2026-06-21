@@ -73,7 +73,25 @@ func (d documentRenderer) RenderAttached(ctx context.Context, atts []documentdom
 	if err != nil {
 		return "", err
 	}
-	return documentapp.RenderAttachedAsXML(docs), nil
+	// Diff requested attachments vs resolved docs: a deleted/missing one is rendered as a visible warning
+	// rather than silently dropped (F167). Failing the whole chat turn — as agent-knowledge does (F98) —
+	// would be too aggressive for a conversation attachment, so it degrades to an in-prompt warning.
+	//
+	// 比对所请求附件 vs 已 resolve doc：已删/缺失的渲成可见警告而非静默丢（F167）。像 agent 知识那样让整个 chat
+	// 回合失败（F98）对对话附件太激进，故降级为 prompt 内警告。
+	got := make(map[string]bool, len(docs))
+	for _, doc := range docs {
+		got[doc.ID] = true
+	}
+	var missing []string
+	seen := make(map[string]bool, len(atts))
+	for _, a := range atts {
+		if a.DocumentID != "" && !got[a.DocumentID] && !seen[a.DocumentID] {
+			seen[a.DocumentID] = true
+			missing = append(missing, a.DocumentID)
+		}
+	}
+	return documentapp.RenderAttachedAsXML(docs, missing), nil
 }
 
 // knowledgeProvider adapts document.Service to agent's KnowledgeProvider port: load the agent's
@@ -116,5 +134,5 @@ func (k knowledgeProvider) BuildKnowledgePrefix(ctx context.Context, docIDs []st
 	if len(missing) > 0 {
 		return "", agentdomain.ErrKnowledgeNotFound.WithDetails(map[string]any{"missing": missing})
 	}
-	return documentapp.RenderAttachedAsXML(docs), nil
+	return documentapp.RenderAttachedAsXML(docs, nil), nil // knowledge fails loud above, so no missing reaches here
 }

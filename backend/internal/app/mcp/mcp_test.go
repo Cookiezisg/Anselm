@@ -282,6 +282,43 @@ func TestRemove_StopsAndDeletes(t *testing.T) {
 	}
 }
 
+// fakeRelSyncer records every PurgeEntity key so a test can assert which keys RemoveServer purged.
+type fakeRelSyncer struct{ purged []string }
+
+func (f *fakeRelSyncer) PurgeEntity(_ context.Context, _, id string) error {
+	f.purged = append(f.purged, id)
+	return nil
+}
+
+// TestRemove_PurgesRelationsByIdAndName — F166: an MCP equip edge is keyed by the server NAME (the common
+// mcp:<name>/tool form computeMountEdges strips to) OR the mcp_ id, so RemoveServer must purge relations
+// under BOTH. Purging by id alone left a dangling agent/workflow→mcp edge orphaned after the server was
+// removed (the relation graph then claimed a dependency that no longer existed).
+func TestRemove_PurgesRelationsByIdAndName(t *testing.T) {
+	svc := svcWith(newFakeRepo(), ctx7Registry(), &fakeClient{})
+	rel := &fakeRelSyncer{}
+	svc.SetRelationSyncer(rel)
+	ctx := ctxWS("ws_1")
+	if _, err := svc.InstallFromRegistry(ctx, "io.github.upstash/context7", nil); err != nil {
+		t.Fatalf("install: %v", err)
+	}
+	if err := svc.RemoveServer(ctx, "context7"); err != nil {
+		t.Fatalf("remove: %v", err)
+	}
+	hasID, hasName := false, false
+	for _, k := range rel.purged {
+		if strings.HasPrefix(k, "mcp_") {
+			hasID = true
+		}
+		if k == "context7" {
+			hasName = true
+		}
+	}
+	if !hasID || !hasName {
+		t.Fatalf("RemoveServer must purge by BOTH the mcp_ id and the name (name-keyed edges orphan otherwise), purged=%v", rel.purged)
+	}
+}
+
 func TestInstall_NameConflict(t *testing.T) {
 	svc := svcWith(newFakeRepo(), ctx7Registry(), &fakeClient{})
 	ctx := ctxWS("ws_1")

@@ -465,8 +465,8 @@ func (s *Service) ResolveAttached(ctx context.Context, atts []documentdomain.Att
 //
 // RenderAttachedAsXML 把已 resolve 的 docs 渲染成 <documents>…</documents> 段，chat system
 // prompt + workflow llm/agent dispatcher 共用。
-func RenderAttachedAsXML(docs []*documentdomain.Document) string {
-	if len(docs) == 0 {
+func RenderAttachedAsXML(docs []*documentdomain.Document, missing []string) string {
+	if len(docs) == 0 && len(missing) == 0 {
 		return ""
 	}
 	var sb strings.Builder
@@ -475,6 +475,15 @@ func RenderAttachedAsXML(docs []*documentdomain.Document) string {
 		fmt.Fprintf(&sb, "<document path=%q id=%q>\n", d.Path, d.ID)
 		sb.WriteString(d.Content)
 		sb.WriteString("\n</document>\n")
+	}
+	// A deleted/missing attachment is surfaced as a VISIBLE warning, never silently dropped — so the
+	// model (and the user the agent relays to) knows its grounding was LOST, instead of running against a
+	// silently-empty <documents> block while believing the attachment is present (F167 — the conversation
+	// -attach counterpart to BuildKnowledgePrefix's loud failure for agent knowledge, F98).
+	// 已删/缺失的附件作为**可见**警告浮出、绝不静默丢——使模型（及 agent 转述的用户）知道 grounding 已丢失，而非
+	// 在静默空 <documents> 块上运行却以为附件还在（F167——对话挂载侧对位 agent 知识 BuildKnowledgePrefix 的大声失败，F98）。
+	for _, id := range missing {
+		fmt.Fprintf(&sb, "<document id=%q missing=\"true\">(this attached document no longer exists — it was deleted; its content is unavailable)</document>\n", id)
 	}
 	sb.WriteString("</documents>\n")
 	return sb.String()
