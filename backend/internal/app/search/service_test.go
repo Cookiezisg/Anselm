@@ -217,11 +217,12 @@ func TestSearch_Validation(t *testing.T) {
 //
 // fakeSource 是可编排的 Source（+IncrementalSource）。
 type fakeSource struct {
-	t      searchdomain.EntityType
-	mu     sync.Mutex
-	docs   map[string][]searchdomain.SourceDoc
-	atDocs map[string]searchdomain.SourceDoc // key: id#anchor
-	stamps map[string]time.Time
+	t        searchdomain.EntityType
+	mu       sync.Mutex
+	docs     map[string][]searchdomain.SourceDoc
+	atDocs   map[string]searchdomain.SourceDoc // key: id#anchor
+	stamps   map[string]time.Time
+	stampsGo chan struct{} // non-nil → Stamps blocks until closed (keeps a reindex in-flight for the lock tests)
 }
 
 func newFakeSource(t searchdomain.EntityType) *fakeSource {
@@ -237,6 +238,9 @@ func (f *fakeSource) Docs(_ context.Context, id string) ([]searchdomain.SourceDo
 }
 
 func (f *fakeSource) Stamps(context.Context) (map[string]time.Time, error) {
+	if f.stampsGo != nil {
+		<-f.stampsGo // block here to keep a reindex's reconcile in-flight (replaces the old purge block point)
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	out := map[string]time.Time{}
@@ -350,8 +354,10 @@ func TestIndexer_ReconcileDiffsAndOrphans(t *testing.T) {
 
 func TestReindex_ConflictWhileRunning(t *testing.T) {
 	repo := newFakeRepo()
-	repo.purgeGo = make(chan struct{})
+	src := newFakeSource(searchdomain.TypeFunction)
+	src.stampsGo = make(chan struct{}) // reindex's reconcile blocks in Stamps, staying in flight
 	svc := NewService(repo, nil)
+	svc.RegisterSource(src)
 	svc.Start(nil)
 	defer svc.Close(context.Background())
 
@@ -361,14 +367,9 @@ func TestReindex_ConflictWhileRunning(t *testing.T) {
 	if err := svc.Reindex(ctxWS("ws_a")); !errors.Is(err, searchdomain.ErrReindexRunning) {
 		t.Fatalf("second reindex must conflict, got %v", err)
 	}
-	close(repo.purgeGo)
-	waitFor(t, func() bool {
-		repo.mu.Lock()
-		defer repo.mu.Unlock()
-		return len(repo.purged) == 1 && repo.purged[0] == "ws_a"
-	})
-	// After completion a new reindex is accepted again.
-	// 完成后新的 reindex 再次可用。
+	close(src.stampsGo)
+	// After completion a new reindex is accepted again (the in-flight one's reconcile returned).
+	// 完成后新的 reindex 再次可用（在飞那次的 reconcile 已返回）。
 	waitFor(t, func() bool { return svc.Reindex(ctxWS("ws_a")) == nil })
 }
 
@@ -380,8 +381,10 @@ func TestReindex_ConflictWhileRunning(t *testing.T) {
 // 409 无关的 ws_b（下游每步本就 workspace 作用域），ws_a 自身重入仍冲突。
 func TestReindex_PerWorkspaceLock(t *testing.T) {
 	repo := newFakeRepo()
-	repo.purgeGo = make(chan struct{}) // reindex goroutines block in purge, staying in flight
+	src := newFakeSource(searchdomain.TypeFunction)
+	src.stampsGo = make(chan struct{}) // reindex goroutines block in Stamps, staying in flight
 	svc := NewService(repo, nil)
+	svc.RegisterSource(src)
 	svc.Start(nil)
 	defer svc.Close(context.Background())
 
@@ -397,16 +400,52 @@ func TestReindex_PerWorkspaceLock(t *testing.T) {
 		t.Fatalf("ws_a re-entry must still conflict, got %v", err)
 	}
 
-	close(repo.purgeGo)
+	close(src.stampsGo)
+	// After unblock both workspaces' reindexes complete (locks released) — re-acceptance proves no deadlock.
+	// 解阻后两个 workspace 的 reindex 都完成（锁释放）——再次可受理证明无死锁。
+	waitFor(t, func() bool { return svc.Reindex(ctxWS("ws_a")) == nil })
+	waitFor(t, func() bool { return svc.Reindex(ctxWS("ws_b")) == nil })
+	// The lexical index was NEVER purged — force-reconcile rebuilds in place, no empty window (F168-M8).
+	repo.mu.Lock()
+	purged := len(repo.purged)
+	repo.mu.Unlock()
+	if purged != 0 {
+		t.Fatalf("reindex must NOT purge (force-reconcile in place) — got %d purge calls", purged)
+	}
+}
+
+// TestReindex_ForceRebuildsInPlaceNoPurge pins F168-M8 / F175-M2: :reindex force-reconciles (re-indexes
+// EVERY live entity, overwriting in place) WITHOUT purging — so the lexical index is never emptied and a
+// concurrent search can't return partial/empty. An entity whose index stamp already MATCHES (which the
+// incremental reconcile would skip) is still re-indexed under force, and PurgeWorkspace is never called.
+func TestReindex_ForceRebuildsInPlaceNoPurge(t *testing.T) {
+	repo := newFakeRepo()
+	src := newFakeSource(searchdomain.TypeFunction)
+	ts := time.Unix(1000, 0)
+	src.stamps["fn_x"] = ts
+	src.docs["fn_x"] = []searchdomain.SourceDoc{{Anchor: "0", Title: "X", Body: "x"}}
+	repo.stamps[searchdomain.TypeFunction] = map[string]time.Time{"fn_x": ts} // index already up-to-date (incremental would skip)
+	svc := NewService(repo, nil)
+	svc.RegisterSource(src)
+	svc.Start(nil)
+	defer svc.Close(context.Background())
+
+	if err := svc.Reindex(ctxWS("ws_a")); err != nil {
+		t.Fatalf("reindex: %v", err)
+	}
+	// force re-indexes fn_x despite the matching stamp → ReplaceDocs lands; and no purge ever runs.
 	waitFor(t, func() bool {
 		repo.mu.Lock()
 		defer repo.mu.Unlock()
-		seen := map[string]bool{}
-		for _, w := range repo.purged {
-			seen[w] = true
-		}
-		return seen["ws_a"] && seen["ws_b"]
+		_, replaced := repo.replaced["function/fn_x"]
+		return replaced
 	})
+	repo.mu.Lock()
+	purged := len(repo.purged)
+	repo.mu.Unlock()
+	if purged != 0 {
+		t.Fatalf("force-reconcile must NOT purge the workspace, got %d purge calls", purged)
+	}
 }
 
 func TestSearchBlocks_PaletteSemantics(t *testing.T) {

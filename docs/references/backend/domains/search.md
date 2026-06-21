@@ -17,7 +17,7 @@ audience: [human, ai]
 
 - **索引 = 实体内容的纯投影**：12 类实体（conversation/function/handler/agent/mcp/skill/document/workflow/trigger/control/approval/memory）各自实现 `Source` 端口，把自己投影成 `search_docs` 行（title/body/anchor/chunk）。投影永远可重建——物理删、无软删、D1 不适用。
 - **词法层**：SQLite FTS5（驱动内置）+ `trigram` 分词（中英文/代码统一子串语义）+ `bm25(title:body=4:1)`。trigram 对 <3 rune 的查询零命中（实测）→ **短词 LIKE 回退**；长短混合 token 时长 token 走 MATCH、短 token 以 LIKE 谓词叠加（隐式 AND）。
-- **同步 = 写后通知 + 单 worker + 对账自愈**：实体 Service 写成功后调 `searchdomain.Notifier.Changed(type, id, anchor)`（非阻塞，队满即丢）；单 worker 在 detached ctx（S9）下重读实体并 diff 投影；boot 对账（stamps 比对 + 孤儿清理）是丢事件/崩溃/schema 重建背后的唯一自愈机制。conversation 走 `DocAt` 单 message 增量（anchor=message_id，chunk_no=块 seq——稳定键），避免长会话 O(n²) 重索。
+- **同步 = 写后通知 + 单 worker + 对账自愈**：实体 Service 写成功后调 `searchdomain.Notifier.Changed(type, id, anchor)`（非阻塞，队满即丢）；单 worker 在 detached ctx（S9）下重读实体并 diff 投影；boot 对账（stamps 比对 + 孤儿清理）是丢事件/崩溃/schema 重建背后的唯一自愈机制。**`:reindex` 是 force-reconcile**（重新入队**每个** live 实体、就地 OVERWRITE 词法行 + 删孤儿、**不** PurgeWorkspace）——索引从不全局清空，故并发 Search 返完整结果，而非旧 purge-then-rebuild 窗口内的不全/空且无信号（F168-M8/F175-M2；boot 的 schema bump 仍走 DropAll 后增量对账，那是无并发读的启动期）。conversation 走 `DocAt` 单 message 增量（anchor=message_id，chunk_no=块 seq——稳定键），避免长会话 O(n²) 重索。
 - **排序**（§产品手感硬规则）：基底分归一到 [0,1] → exact-name +3.0 > name-prefix +1.5 > 正文命中，积木类对内容类 +0.3；tie → updated_at DESC → entity_id。测试只断言相对序。
 - **分页**：融合分跨查询不稳定 → 物化 top-200 窗口，cursor = base64{queryHash, offset}；异查询 cursor 被 `SEARCH_CURSOR_INVALID` 拒绝而非切错窗口。
 - **折叠**：综搜按实体折叠（最高分 chunk 胜出 + matchedChunks）；积木面板按 (entity, anchor)——每个 handler 方法 / mcp 工具本身就是结果单元。

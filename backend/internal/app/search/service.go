@@ -148,7 +148,7 @@ func (s *Service) Start(workspaceIDs []string) {
 			}
 		}
 		for _, ws := range workspaceIDs {
-			s.indexer.reconcile(reqctxpkg.Detached(ws), ws)
+			s.indexer.reconcile(reqctxpkg.Detached(ws), ws, false) // incremental: DropAll above already forced a full rebuild on a schema bump
 			s.kickEmbed(ws)
 		}
 	}()
@@ -175,13 +175,20 @@ func (s *Service) Close(ctx context.Context) {
 //
 // ReconcileWorkspace 按需重对账一个 workspace（切 workspace / 测试）。
 func (s *Service) ReconcileWorkspace(ctx context.Context, wsID string) {
-	s.indexer.reconcile(ctx, wsID)
+	s.indexer.reconcile(ctx, wsID, false) // incremental self-heal (workspace switch / tests)
 }
 
-// Reindex purges and rebuilds the ctx workspace asynchronously (202
-// semantics); a second call while one runs is a conflict.
+// Reindex rebuilds the ctx workspace's index IN PLACE asynchronously (202 semantics); a second call
+// while one runs is a conflict. It force-reconciles (overwrites every entity's index rows) rather than
+// purge-then-rebuild — the lexical index is never emptied, so a concurrent Search returns COMPLETE
+// (old→new transitioning) results instead of partial/empty ones with no signal (F168-M8 / F175-M2). The
+// vector cache IS invalidated + re-embedded (semantic boost is absent until re-embed, but lexical top-N
+// — the primary retrieval — stays complete, so results are never empty, only briefly lexical-ranked).
 //
-// Reindex 异步清空重建 ctx workspace（202 语义）；运行中再触发即冲突。
+// Reindex 异步**就地**重建 ctx workspace 索引（202 语义）；运行中再触发即冲突。它 force-reconcile（覆盖每个
+// 实体的索引行）、非 purge-then-rebuild——词法索引从不清空，故并发 Search 返**完整**（旧→新过渡）结果、而非
+// 不全/空且无信号（F168-M8 / F175-M2）。向量缓存仍 invalidate + 重嵌（重嵌完成前无语义加权，但词法 top-N
+// ——主检索——保持完整，故结果永不为空、只是短暂仅词法排序）。
 func (s *Service) Reindex(ctx context.Context) error {
 	wsID, err := reqctxpkg.RequireWorkspaceID(ctx)
 	if err != nil {
@@ -201,12 +208,11 @@ func (s *Service) Reindex(ctx context.Context) error {
 			s.reindexMu.Unlock()
 		}()
 		dctx := reqctxpkg.Detached(wsID)
-		if err := s.repo.PurgeWorkspace(dctx, wsID); err != nil {
-			s.log.Warn("search reindex: purge failed", zap.Error(err))
-			return
-		}
+		// No PurgeWorkspace: force-reconcile overwrites every entity's lexical rows in place (no empty
+		// window). The vector cache is still invalidated + re-embedded below.
+		// 不 PurgeWorkspace：force-reconcile 就地覆盖每个实体词法行（无空窗）。向量缓存仍在下方 invalidate + 重嵌。
 		s.vectors.invalidate(wsID)
-		s.indexer.reconcile(dctx, wsID)
+		s.indexer.reconcile(dctx, wsID, true)
 		s.kickEmbed(wsID)
 	}()
 	return nil

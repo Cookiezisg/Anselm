@@ -160,7 +160,16 @@ func (ix *Indexer) apply(c change) {
 //
 // reconcile 在单个 workspace ctx 内把每个 source 与索引求差并入队：变更/新增重投影、
 // 孤儿删除。索引是派生数据——这条循环是丢事件/崩溃/schema 重建背后唯一的自愈机制。
-func (ix *Indexer) reconcile(ctx context.Context, wsID string) {
+// force=true re-enqueues EVERY live entity regardless of stamp match — a full rebuild that OVERWRITES
+// each index row in place (ReplaceDocs/UpsertDocAt), so the index is never globally emptied. This is
+// how :reindex rebuilds WITHOUT a prior PurgeWorkspace: the old purge-then-rebuild left an empty window
+// where concurrent searches returned partial/empty results with no signal (F168-M8 / F175-M2). force=false
+// is the incremental self-heal (only stamp-mismatched/orphaned rows).
+//
+// force=true 不看 stamp 是否匹配、重新入队**每个** live 实体——就地 OVERWRITE 每行（ReplaceDocs/UpsertDocAt）
+// 的全量重建，故索引从不全局清空。:reindex 据此**不**先 PurgeWorkspace 即重建：旧的 purge-then-rebuild 留下
+// 空窗、并发搜索返不全/空且无信号（F168-M8 / F175-M2）。force=false 是增量自愈（仅 stamp 不符/孤儿行）。
+func (ix *Indexer) reconcile(ctx context.Context, wsID string, force bool) {
 	for t, src := range ix.sources {
 		live, err := src.Stamps(ctx)
 		if err != nil {
@@ -173,7 +182,7 @@ func (ix *Indexer) reconcile(ctx context.Context, wsID string) {
 			continue
 		}
 		for id, ts := range live {
-			if idxTS, ok := indexed[id]; !ok || ts.Sub(idxTS) > stampSlack {
+			if idxTS, ok := indexed[id]; force || !ok || ts.Sub(idxTS) > stampSlack {
 				ix.enqueue(change{ws: wsID, t: t, id: id})
 			}
 		}
