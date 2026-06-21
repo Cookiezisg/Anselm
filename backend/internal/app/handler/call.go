@@ -16,6 +16,7 @@ import (
 	handlerdomain "github.com/sunweilin/anselm/backend/internal/domain/handler"
 	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
 	handlerinfra "github.com/sunweilin/anselm/backend/internal/infra/handler"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
 	limitspkg "github.com/sunweilin/anselm/backend/internal/pkg/limits"
 	logtailpkg "github.com/sunweilin/anselm/backend/internal/pkg/logtail"
@@ -211,10 +212,10 @@ func (s *Service) mapCallErr(ctx context.Context, err error) error {
 		return nil
 	}
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-		return fmt.Errorf("%w: %v", handlerdomain.ErrInstanceRPCTimeout, err)
+		return errorspkg.Wrap(handlerdomain.ErrInstanceRPCTimeout, err)
 	}
 	if errors.Is(err, handlerinfra.ErrCrashed) {
-		return fmt.Errorf("%w: %v", handlerdomain.ErrInstanceCrashed, err)
+		return errorspkg.Wrap(handlerdomain.ErrInstanceCrashed, err)
 	}
 	return err // ErrCallFailed (the method raised) — passes through with the Python traceback
 }

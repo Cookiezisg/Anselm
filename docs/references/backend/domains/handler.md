@@ -60,7 +60,7 @@ stdio 行-JSON：`init`→`ready`/`init_error`；`call{id,method,args}`→`retur
 - **`Timeout`（MethodSpec，ms）**：app 层 `Call` 先解析 method spec——找不到 method 即报 `HANDLER_METHOD_NOT_FOUND`（不进 RPC）；`Timeout>0` 给本次调用加 ctx deadline。
 - **crashed 语义（重要）**：任何读写失败/EOF/协议错乱/**ctx 取消**都把客户端标 `crashed`——包括取消：取消等待意味着回复还在路上，下一个调用会读到错位的迟到回复，**管道已脏**，唯一正确动作是废弃实例（下次 Get 自动重生）。这不是 bug，是协议正确性。
 - driver 拒调 `_` 前缀方法（私有）。
-- 错误出口：ctx 超时 → `HANDLER_RPC_TIMEOUT`(504)；崩溃 → `HANDLER_CRASHED`(502)；**method 内的 Python 异常原样冒泡**（`HANDLER_CLIENT_CALL_FAILED` + traceback——给 LLM 自纠，刻意不翻译）。**traceback 放进错误 Details**（`{error, traceback}`，非 `fmt.Errorf` 包裹）——因 LLM 错误面 `errorspkg.Surface` 渲 Message+Details 但**剥 fmt 包裹链**（F89/F104/F122 防 Go 路径泄露），traceback 藏包裹里就会在每条 agent/flowrun 路径被剥成不透明 "call failed"（`callFailedErr`，F-handler-call-opaque）。
+- 错误出口：ctx 超时 → `HANDLER_RPC_TIMEOUT`(504)；崩溃 → `HANDLER_CRASHED`(502)；**method 内的 Python 异常原样冒泡**（`HANDLER_CLIENT_CALL_FAILED` + traceback——给 LLM 自纠，刻意不翻译）。**traceback 放进错误 Details**（`{error, traceback}`，非 `fmt.Errorf` 包裹）——因 LLM 错误面 `errorspkg.Surface` 渲 Message+Details 但**剥 fmt 包裹链**（F89/F104/F122 防 Go 路径泄露），traceback 藏包裹里就会在每条 agent/flowrun 路径被剥成不透明 "call failed"（`callFailedErr`，F-handler-call-opaque）。**坏 `__init__` spawn 失败同理**：`spawnInstance` 用 `errorspkg.Wrap`（非 `%w: %v`，后者把内层 `*Error` 拍平出链、Details 全丢）把 init 错误的 traceback Details **抬到** `HANDLER_INSTANCE_SPAWN_FAILED` 上、并 WithCause 保审计链（F116 记 failed call 行 + F131 surface 双补——`Wrap` 是地基助手，凡用 sentinel 包底层结构化错误皆用它，不再 `%w: %v` 拍平）。
 
 ### config 生命周期（`config.go`）
 

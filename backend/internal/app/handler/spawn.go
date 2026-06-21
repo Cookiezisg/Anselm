@@ -12,6 +12,7 @@ import (
 
 	handlerdomain "github.com/sunweilin/anselm/backend/internal/domain/handler"
 	sandboxdomain "github.com/sunweilin/anselm/backend/internal/domain/sandbox"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 )
 
 // handlerInitTimeout bounds a handler's __init__ over RPC so a hung constructor can't wedge a spawn
@@ -110,7 +111,12 @@ func (s *Service) spawnInstance(ctx context.Context, handlerID string) (*Instanc
 	defer cancel()
 	if err := client.Init(initCtx, config); err != nil {
 		_ = handle.Kill()
-		return nil, fmt.Errorf("%w: init: %v", handlerdomain.ErrInstanceSpawnFailed, err)
+		// Wrap (not fmt %w: %v): lift the init error's structured Details (the Python traceback, F131)
+		// onto the spawn-failure sentinel so Surface renders them. A %v re-wrap here flattened the inner
+		// ErrInitFailed and shadowed its traceback Details, leaving the agent an opaque "spawn failed".
+		// Wrap（非 fmt %w: %v）：把 init 错误的结构化 Details（Python traceback，F131）抬到 spawn 失败 sentinel 上、
+		// 使 Surface 渲染。这里用 %v 重包会拍平内层 ErrInitFailed、遮蔽其 traceback Details，agent 只剩不透明 "spawn failed"。
+		return nil, errorspkg.Wrap(handlerdomain.ErrInstanceSpawnFailed, err)
 	}
 
 	return &Instance{

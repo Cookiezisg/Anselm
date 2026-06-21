@@ -20,6 +20,7 @@ import (
 	handlerinfra "github.com/sunweilin/anselm/backend/internal/infra/handler"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 	handlerstore "github.com/sunweilin/anselm/backend/internal/infra/store/handler"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 	schemapkg "github.com/sunweilin/anselm/backend/internal/pkg/schema"
@@ -89,9 +90,10 @@ type fakeClient struct {
 	crashed bool
 	result  any
 	callErr error
+	initErr error
 }
 
-func (c *fakeClient) Init(context.Context, map[string]any) error { return nil }
+func (c *fakeClient) Init(context.Context, map[string]any) error { return c.initErr }
 func (c *fakeClient) Call(context.Context, string, map[string]any) (any, error) {
 	c.calls++
 	return c.result, c.callErr
@@ -103,10 +105,13 @@ func (c *fakeClient) Shutdown(context.Context) error { return nil }
 func (c *fakeClient) Crashed() bool                  { return c.crashed }
 
 // clientLog records every fake client the factory mints (one per spawn).
-type clientLog struct{ clients []*fakeClient }
+type clientLog struct {
+	clients []*fakeClient
+	initErr error // injected onto each minted client's Init (simulate a broken __init__)
+}
 
 func (cl *clientLog) factory(io.WriteCloser, io.Reader, *zap.Logger) handlerinfra.Client {
-	c := &fakeClient{result: "ok"}
+	c := &fakeClient{result: "ok", initErr: cl.initErr}
 	cl.clients = append(cl.clients, c)
 	return c
 }
@@ -334,6 +339,26 @@ func TestEdit_BumpsVersionAndRestarts(t *testing.T) {
 // via set_meta, zero class change) must NOT mint a redundant identical-code version NOR restart the
 // resident instance — a restart would needlessly wipe the stateful handler's in-memory state, with no
 // other rename path available to the agent.
+// TestSpawn_BrokenInitSurfacesTraceback — F131-init (round-15 handlertrace): a broken __init__'s Python
+// traceback must reach the agent through the FULL app spawn path, not just the infra error in isolation.
+// spawn.go wraps the structured init error via errorspkg.Wrap, which lifts its Details onto the
+// spawn-failure sentinel — else Surface picks the detail-less ErrInstanceSpawnFailed and the agent sees
+// an opaque "spawn failed". (The unit test passing while THIS integration was broken is how F131-init shipped.)
+func TestSpawn_BrokenInitSurfacesTraceback(t *testing.T) {
+	svc, _, cl, ctx := newSvc(t)
+	cl.initErr = errorspkg.New(errorspkg.KindBadGateway, "HANDLER_CLIENT_INIT_FAILED", "init failed").
+		WithDetails(map[string]any{"traceback": "RuntimeError: INIT distinctive ABC"})
+
+	h, _, _ := svc.Create(ctx, CreateInput{Ops: createOps(t, "broken", false)}) // no required config → spawns on first call
+	_, err := svc.Call(ctx, CallInput{HandlerID: h.ID, Method: "ping", Args: map[string]any{}})
+	if err == nil {
+		t.Fatal("a broken __init__ must fail the call")
+	}
+	if surfaced := errorspkg.Surface(err); !strings.Contains(surfaced, "INIT distinctive ABC") {
+		t.Fatalf("the broken __init__ traceback must reach the agent surface, got opaque: %q", surfaced)
+	}
+}
+
 func TestEdit_MetaOnlyNoVersionNoRestart(t *testing.T) {
 	svc, runner, _, ctx := newSvc(t)
 	h, _, _ := svc.Create(ctx, CreateInput{Ops: createOps(t, "counter", false)})

@@ -3,6 +3,7 @@ package errors
 import (
 	stderrors "errors"
 	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -99,5 +100,29 @@ func TestSurface(t *testing.T) {
 	// A raw (non-structured) error passes through unchanged.
 	if got := Surface(stderrors.New("raw python traceback")); got != "raw python traceback" {
 		t.Errorf("Surface(raw) = %q, want passthrough", got)
+	}
+}
+
+// TestWrap_LiftsCauseDetails — F131-init: Wrap(sentinel, cause) must surface BOTH the sentinel's
+// category Message AND a deeper *Error cause's Details (the Python traceback), not shadow them — the
+// fmt.Errorf("%w: %v", …) it replaces flattened the cause and dropped its Details from the chain.
+func TestWrap_LiftsCauseDetails(t *testing.T) {
+	outer := New(KindBadGateway, "SPAWN_FAILED", "spawn failed")
+	inner := New(KindBadGateway, "INIT_FAILED", "init failed").WithDetails(map[string]any{"traceback": "RuntimeError: boom"})
+	wrapped := Wrap(outer, inner)
+
+	if !stderrors.Is(wrapped, outer) {
+		t.Fatalf("Wrap must remain the sentinel, got %v", wrapped)
+	}
+	s := Surface(wrapped)
+	if !strings.Contains(s, "spawn failed") || !strings.Contains(s, "RuntimeError: boom") {
+		t.Fatalf("Surface must show the sentinel Message + the cause's Details, got %q", s)
+	}
+	if !strings.Contains(wrapped.Error(), "init failed") {
+		t.Fatalf(".Error() must keep the cause chain for the audit, got %q", wrapped.Error())
+	}
+	// A plain (non-structured) cause still wraps without panic.
+	if got := Surface(Wrap(outer, stderrors.New("raw"))); !strings.Contains(got, "spawn failed") {
+		t.Fatalf("Wrap with a plain cause must still surface the sentinel, got %q", got)
 	}
 }
