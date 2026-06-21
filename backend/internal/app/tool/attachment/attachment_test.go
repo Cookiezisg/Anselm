@@ -103,9 +103,11 @@ func TestReadAttachment_BinaryDescriptor(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read: %v", err)
 	}
-	// A descriptor, not bytes: filename + kind + the not-text-extractable note.
-	if !strings.Contains(out, "photo.png") || !strings.Contains(out, "image") || !strings.Contains(out, "can't be text-extracted") {
-		t.Fatalf("read of binary should return a descriptor: %q", out)
+	// A descriptor, not bytes: filename + kind + the can't-extract note + the vision-honesty (F151:
+	// don't imply attaching guarantees a text-only model can see the image).
+	if !strings.Contains(out, "photo.png") || !strings.Contains(out, "image") ||
+		!strings.Contains(out, "cannot turn its content into text") || !strings.Contains(out, "vision") {
+		t.Fatalf("read of binary should return an honest descriptor: %q", out)
 	}
 }
 

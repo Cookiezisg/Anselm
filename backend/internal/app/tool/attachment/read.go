@@ -75,7 +75,7 @@ func (t *ReadAttachment) Execute(ctx context.Context, argsJSON string) (string, 
 		return flattenText(parts), nil
 	default: // image / audio / video / other — content isn't text-extractable here
 		return fmt.Sprintf(
-			"Attachment %q (id %s, %s, %d bytes, kind %s): its content can't be text-extracted here. Images reach the model only when attached to a chat turn; other binary files have no extractor.",
+			"Attachment %q (id %s, %s, %d bytes, kind %s): this tool cannot turn its content into text. An image is seen by the model ONLY if the model has vision support AND the image is attached to the chat turn — if the current model is text-only it cannot see this image at all, so do not keep trying to read it; ask the user to describe it or switch to a vision model. Audio/video/other binaries have no extractor here.",
 			meta.Filename, meta.ID, meta.MimeType, meta.SizeBytes, meta.Kind), nil
 	}
 }

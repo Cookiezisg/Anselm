@@ -191,5 +191,32 @@ func (s *Service) Spawn(ctx context.Context, agentType, prompt string) (string, 
 	req.System = host.systemPrompt
 
 	result := loopapp.Run(subCtx, host, bundle.Client, req, typ.DefaultMaxTurns, s.log)
-	return result.LastMessage, nil
+	return annotateTerminal(result), nil
+}
+
+// annotateTerminal returns the subagent's final text, prefixed with the terminal condition when the
+// run did NOT finish cleanly (error / cancelled / max_steps). The Subagent tool_result otherwise reads
+// as a clean completion carrying only the subagent's preamble text — hiding from the parent (and the
+// parent LLM) that the work was cut short, so the parent treats a partial/failed answer as
+// authoritative (F150). On a clean completion the text passes through unchanged.
+//
+// annotateTerminal 返回 subagent 终答；run **非干净收尾**（error/cancelled/max_steps）时前缀终态原因。否则
+// Subagent tool_result 读着像干净完成、只带 subagent preamble 文本——向父（及父 LLM）隐藏工作被截断，使父
+// 把部分/失败的答案当权威（F150）。干净完成则文本原样透传。
+func annotateTerminal(result loopapp.Result) string {
+	if result.Status == messagesdomain.StatusCompleted {
+		return result.LastMessage
+	}
+	reason := result.StopReason
+	if result.ErrMsg != "" {
+		reason = result.ErrMsg
+	}
+	if reason == "" {
+		reason = result.Status
+	}
+	note := fmt.Sprintf("[subagent did not finish cleanly (%s) — its answer below is partial, not authoritative]", reason)
+	if result.LastMessage == "" {
+		return note
+	}
+	return note + "\n\n" + result.LastMessage
 }

@@ -6,11 +6,13 @@ import (
 	"encoding/json"
 	"iter"
 	"slices"
+	"strings"
 	"testing"
 
 	_ "github.com/glebarez/go-sqlite"
 	"go.uber.org/zap"
 
+	loopapp "github.com/sunweilin/anselm/backend/internal/app/loop"
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
@@ -87,6 +89,22 @@ func TestRegistry_BuiltInTypes(t *testing.T) {
 	}
 	if _, ok := r.Get("nope"); ok {
 		t.Fatal("unknown type should not resolve")
+	}
+}
+
+// TestAnnotateTerminal — F150: a subagent that did NOT finish cleanly must flag the terminal condition
+// to the parent (not read as a clean completion carrying only its preamble text); a clean run passes through.
+func TestAnnotateTerminal(t *testing.T) {
+	if got := annotateTerminal(loopapp.Result{Status: messagesdomain.StatusCompleted, LastMessage: "done"}); got != "done" {
+		t.Fatalf("clean completion must pass through unchanged, got %q", got)
+	}
+	cancelled := annotateTerminal(loopapp.Result{Status: messagesdomain.StatusCancelled, StopReason: "cancelled", LastMessage: "partial work"})
+	if !strings.Contains(cancelled, "did not finish cleanly") || !strings.Contains(cancelled, "partial work") {
+		t.Fatalf("a cancelled subagent must flag the terminal AND keep its partial text, got %q", cancelled)
+	}
+	errEmpty := annotateTerminal(loopapp.Result{Status: messagesdomain.StatusError, ErrMsg: "provider boom"})
+	if !strings.Contains(errEmpty, "provider boom") {
+		t.Fatalf("an error terminal with no text must still surface the reason, got %q", errEmpty)
 	}
 }
 
