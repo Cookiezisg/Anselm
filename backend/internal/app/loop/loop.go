@@ -274,7 +274,12 @@ func Run(
 		stopReason = messagesdomain.StopReasonMaxSteps
 		finalStatus = messagesdomain.StatusError
 		errCode = "MAX_STEPS_REACHED"
-		errMsg = fmt.Sprintf("reached the step limit (%d) before finishing; continue to resume", maxSteps)
+		// Honest for BOTH hosts (this loop drives chat AND one-shot agent invokes): a chat continues with
+		// a follow-up message, but a one-shot agent invoke has no same-run resume — so don't promise
+		// "continue to resume" universally. State the partial result + the remedies that always apply.
+		// 对两种宿主都诚实（本循环既驱动 chat 又驱动一次性 agent invoke）：chat 可用后续消息续，但一次性 invoke
+		// 无同 run 续跑——故别一概承诺 "continue to resume"。陈述部分结果 + 始终适用的补救。
+		errMsg = fmt.Sprintf("reached the step limit (%d) before finishing; the result is partial — send a follow-up to continue (in a chat), or raise the step budget / simplify the task", maxSteps)
 		host.WriteFinalize(ctx, allBlocks, finalStatus, stopReason, errCode, errMsg, totalIn, totalOut)
 	}
 

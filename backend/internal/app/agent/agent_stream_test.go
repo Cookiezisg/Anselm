@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -10,6 +11,7 @@ import (
 	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
+	schemapkg "github.com/sunweilin/anselm/backend/internal/pkg/schema"
 )
 
 type recBridge struct{ events []streamdomain.Event }
@@ -73,6 +75,37 @@ func TestService_InvokeStreamsNestedAndPersistsTranscript(t *testing.T) {
 	}
 	if !strings.Contains(string(exec.Transcript), "hello from agent") {
 		t.Fatalf("execution transcript missing the agent's output: %s", exec.Transcript)
+	}
+}
+
+// TestService_InvokeFailedTerminalNullsDeclaredOutput — F142: a non-OK terminal (here an LLM error;
+// same shape for max_steps) on an agent with DECLARED outputs must leave Output nil — never the raw
+// last narration text, which would masquerade as the declared-shape answer in the execution record.
+func TestService_InvokeFailedTerminalNullsDeclaredOutput(t *testing.T) {
+	svc, baseCtx := newSvc(t)
+	svc.SetInvokeDeps(InvokeDeps{
+		Resolver: fakeResolver{client: &fakeLLMClient{events: []llminfra.StreamEvent{
+			{Type: llminfra.EventText, Delta: "partial narration, not a JSON answer"},
+			{Type: llminfra.EventError, Err: errors.New("provider blew up")},
+		}}},
+		Knowledge: fakeKnowledge{},
+	})
+	a, _, err := svc.Create(baseCtx, CreateInput{Name: "failer", Config: Config{
+		Prompt:  "do it",
+		Outputs: []schemapkg.Field{{Name: "decision", Type: schemapkg.TypeString}, {Name: "score", Type: schemapkg.TypeNumber}},
+	}})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	res, err := svc.InvokeAgent(baseCtx, InvokeInput{AgentID: a.ID, TriggeredBy: agentdomain.TriggeredByWorkflow})
+	if err != nil {
+		t.Fatalf("invoke: %v", err)
+	}
+	if res.OK {
+		t.Fatalf("an error terminal must be non-OK")
+	}
+	if res.Output != nil {
+		t.Fatalf("a failed terminal with declared outputs must null Output, got %#v (a raw un-conformed string would mislead consumers)", res.Output)
 	}
 }
 

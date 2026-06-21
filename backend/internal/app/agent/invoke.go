@@ -163,12 +163,21 @@ func (s *Service) InvokeAgent(ctx context.Context, in InvokeInput) (*InvokeResul
 		// If the final answer can't be mapped to the declared shape, fail loudly rather than silently
 		// hand the next node an unusable text blob (F40).
 		// 有声明输出：把终答解析回结构，使下游节点读 node.<字段> 而非整段塞进 node.text；无法映射则大声失败。
-		if res.OK && len(v.Outputs) > 0 {
-			obj, perr := coerceDeclaredOutputs(result.LastMessage, v.Outputs)
-			if perr != nil {
+		if len(v.Outputs) > 0 {
+			// With a declared object shape, `output` must be that object or NOTHING — never the raw last
+			// narration string. On a non-OK terminal (max_steps / error / tool-storm) there is no conformed
+			// answer, so null it rather than leave a raw text blob masquerading as the declared output (a
+			// consumer reading the execution record's `output` would otherwise trust an un-conformed string).
+			// The raw narration is still preserved in the recorded blocks for debugging (F142).
+			// 有声明对象形状时 output 必是该对象或**空**——绝非裸末段文本。非 OK 终态（max_steps/错误/工具风暴）
+			// 无合规答案故置空，而非留裸文本冒充声明输出（消费者读记录的 output 否则会信一个不合形的串）；裸叙述仍存于记录的 blocks 供调试。
+			if !res.OK {
+				res.Output = nil
+			} else if obj, perr := coerceDeclaredOutputs(result.LastMessage, v.Outputs); perr != nil {
 				res.OK = false
 				res.Status = agentdomain.ExecutionStatusFailed
 				res.ErrorMsg = errorspkg.Surface(perr)
+				res.Output = nil
 			} else {
 				res.Output = obj
 			}
