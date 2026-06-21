@@ -54,12 +54,16 @@ func (d *fakeDispatcher) RunAgent(_ context.Context, ref, pin string, _ map[stri
 }
 
 type fakeWorkflows struct {
-	wf   *workflowdomain.Workflow
-	ver  *workflowdomain.Version
-	pins map[string]string
+	wf     *workflowdomain.Workflow
+	ver    *workflowdomain.Version
+	pins   map[string]string
+	getErr error // when set, GetWorkflow returns it (simulates a deleted workflow)
 }
 
 func (f *fakeWorkflows) GetWorkflow(context.Context, string) (*workflowdomain.Workflow, error) {
+	if f.getErr != nil {
+		return nil, f.getErr
+	}
 	return f.wf, nil
 }
 func (f *fakeWorkflows) GetActiveVersion(context.Context, string) (*workflowdomain.Version, error) {
@@ -703,6 +707,86 @@ func TestFiring_SingleTxClaim(t *testing.T) {
 		if n.NodeID == "start" && n.Result["orderId"] != "o-9" {
 			t.Fatalf("trigger payload not seeded as result: %+v", n.Result)
 		}
+	}
+}
+
+// TestFiring_DeletedWorkflowSheds — F137: a pending firing whose workflow was DELETED after the firing
+// was queued must be shed (terminal), not left pending and re-attempted (and re-logged) every drain
+// tick forever. overlapDecision's GetWorkflow returns WORKFLOW_NOT_FOUND for the deleted workflow.
+func TestFiring_DeletedWorkflowSheds(t *testing.T) {
+	disp := newDisp()
+	svc, store, trg := mkSvcWithInbox(t, firingGraph(), disp, workflowdomain.ConcurrencyAllowAll)
+	// The workflow has since been deleted — GetWorkflow now reports it gone.
+	svc.workflows.(*fakeWorkflows).getErr = workflowdomain.ErrNotFound
+	ctx := ctxWS("ws_1")
+
+	if _, err := trg.AppendFiring(ctx, &triggerdomain.Firing{
+		WorkspaceID: "ws_1", TriggerID: "trg_1", WorkflowID: "wf_1", DedupKey: "k1",
+		Payload: map[string]any{},
+	}); err != nil {
+		t.Fatalf("AppendFiring: %v", err)
+	}
+
+	// Drain twice: a working shed reaches a terminal status on the first pass; the orphan must NOT
+	// reappear as pending on the second (the infinite-loop symptom).
+	for i := 0; i < 2; i++ {
+		if err := svc.DrainFirings(ctx); err != nil {
+			t.Fatalf("DrainFirings #%d: %v", i, err)
+		}
+	}
+
+	if pending, _ := trg.ListPendingFirings(ctx, 10); len(pending) != 0 {
+		t.Fatalf("orphan firing must be shed, %d still pending (would error-loop forever)", len(pending))
+	}
+	if rows, _, _ := store.ListRuns(ctx, flowrundomain.ListFilter{Limit: 10}); len(rows) != 0 {
+		t.Fatalf("a deleted-workflow firing must not create a run, got %d", len(rows))
+	}
+}
+
+// TestFiring_OverlapReplace_SameBatch — F138: two firings that arrive in the SAME drain batch must let
+// the overlap policy engage. Previously DrainFirings advanced each firing's run to COMPLETION inline
+// before the next firing was decided, so CountRunningByWorkflow always saw 0 and replace never fired
+// (both ran to completion, 0 cancelled). Now every batch firing is seeded as a run BEFORE any is
+// advanced, so the later firing sees the earlier in-flight and replaces it. Without the fix this test
+// sees 2 completed / 0 cancelled and fails.
+func TestFiring_OverlapReplace_SameBatch(t *testing.T) {
+	disp := newDisp()
+	svc, store, trg := mkSvcWithInbox(t, firingGraph(), disp, workflowdomain.ConcurrencyReplace)
+	ctx := ctxWS("ws_1")
+
+	for _, k := range []string{"k1", "k2"} { // two distinct firings (no dedup collapse), one batch
+		if _, err := trg.AppendFiring(ctx, &triggerdomain.Firing{
+			WorkspaceID: "ws_1", TriggerID: "trg_1", WorkflowID: "wf_1", DedupKey: k,
+			Payload: map[string]any{"orderId": k}, // the action reads start.orderId
+		}); err != nil {
+			t.Fatalf("AppendFiring %s: %v", k, err)
+		}
+	}
+
+	if err := svc.DrainFirings(ctx); err != nil {
+		t.Fatalf("DrainFirings: %v", err)
+	}
+
+	// Both firings seeded a run; the earlier was REPLACED (cancelled) by the later, which ran to completion.
+	rows, _, _ := store.ListRuns(ctx, flowrundomain.ListFilter{Limit: 10})
+	if len(rows) != 2 {
+		t.Fatalf("both firings should seed a run, got %d", len(rows))
+	}
+	var completed, cancelled int
+	for _, r := range rows {
+		switch r.Status {
+		case flowrundomain.StatusCompleted:
+			completed++
+		case flowrundomain.StatusCancelled:
+			cancelled++
+		}
+	}
+	if completed != 1 || cancelled != 1 {
+		t.Fatalf("same-batch replace: want 1 completed + 1 cancelled, got %d/%d (%+v)", completed, cancelled, rows)
+	}
+	// the replaced run never dispatched its action — only the survivor ran.
+	if disp.actionCalls["fn_a"] != 1 {
+		t.Fatalf("only the surviving run should dispatch the action, got %d", disp.actionCalls["fn_a"])
 	}
 }
 

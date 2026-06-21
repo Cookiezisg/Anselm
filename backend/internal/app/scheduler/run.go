@@ -156,38 +156,83 @@ func (s *Service) DrainFirings(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("schedulerapp.DrainFirings: list pending: %w", err)
 	}
+	// Two phases so the overlap policy can SEE siblings: phase 1 decides + claims every firing IN ORDER
+	// (each survivor is committed as a running run before the next firing is decided); phase 2 advances
+	// the seeded runs sequentially. Deciding and advancing a firing together (the old inline path) ran
+	// firing #1's run to completion before firing #2 was even decided — so CountRunningByWorkflow always
+	// saw 0 and skip/replace/buffer_one never engaged for back-to-back fires. Splitting them lets a later
+	// sibling's overlapDecision observe the earlier sibling already in-flight. Advance stays SEQUENTIAL
+	// (no concurrent run execution → no handler-pipe / single-connection races); replace just pre-empts
+	// the earlier seeded run (cancelRunningForReplace marks it terminal) so its phase-2 Advance no-ops.
+	//
+	// 两阶段使 overlap 策略能**看见**兄弟 firing：阶段 1 按序决策 + claim 每条 firing（每个存活者在下一条被决策前
+	// 已落为 running run）；阶段 2 顺序 advance 已 seed 的 run。把决策与 advance 合一（旧内联路径）会让 firing #1
+	// 的 run 在 firing #2 被决策前就跑完——故 CountRunningByWorkflow 永远见 0、skip/replace/buffer_one 对背靠背
+	// 触发从不生效。拆开使后到兄弟的 overlapDecision 能观测到先到兄弟已在途。Advance 仍**顺序**（无并发 run 执行
+	// →无 handler 管道/单连接竞争）；replace 只是抢占先 seed 的 run（cancelRunningForReplace 标其终态）使其阶段 2 Advance no-op。
+	type seeded struct {
+		runID string
+		fctx  context.Context
+	}
+	pending := make([]seeded, 0, len(firings))
 	for _, f := range firings {
-		if err := s.consumeFiring(ctx, f); err != nil {
+		runID, fctx, err := s.claimFiring(ctx, f)
+		if err != nil {
 			s.log.Warn("schedulerapp: consume firing failed", zap.String("firing", f.ID), zap.Error(err))
+			continue
+		}
+		if runID != "" {
+			pending = append(pending, seeded{runID, fctx})
+		}
+	}
+	for _, p := range pending {
+		if err := s.Advance(p.fctx, p.runID); err != nil {
+			s.log.Warn("schedulerapp: advance firing run failed", zap.String("flowrun", p.runID), zap.Error(err))
 		}
 	}
 	return nil
 }
 
-// consumeFiring turns one firing into a run, honoring the workflow's overlap policy, in the firing's
-// own workspace context. The single-tx claim (ClaimFiring) does pending→claimed + SeedRunOnTx + the
-// started backfill atomically so a crash can never leave a claimed-but-no-run strand. The
-// run is then advanced outside the claim tx.
+// claimFiring applies the workflow's overlap policy to one firing and, if it should run, claims it into
+// a seeded (running) run — returning that run's id (and the firing's workspace ctx) for DrainFirings to
+// advance in phase 2. It does NOT advance: seeding every batch firing before advancing any is what lets
+// the overlap policy see siblings (see DrainFirings). A "" runID means there is nothing to advance —
+// the firing was deferred (serial/buffer_one waiting), skipped, shed (deleted workflow), or it lost the
+// claim race. The single-tx claim (ClaimFiring) does pending→claimed + SeedRunOnTx + the started
+// backfill atomically so a crash can never leave a claimed-but-no-run strand.
 //
-// consumeFiring 把一条 firing 转成 run，遵守 workflow overlap 策略，在 firing 自己的 workspace ctx 里。
-// 单事务 claim（ClaimFiring）原子做 pending→claimed + SeedRunOnTx + started 回填，崩溃绝不
-// 留 claimed-但-无-run 残留。run 在 claim 事务外 advance。
-func (s *Service) consumeFiring(ctx context.Context, f *triggerdomain.Firing) error {
+// claimFiring 对一条 firing 应用 workflow overlap 策略，若该跑则 claim 成已 seed（running）的 run——返回该 run
+// id（与 firing 的 workspace ctx）供 DrainFirings 阶段 2 advance。它**不** advance：先 seed 批内每条再 advance
+// 是 overlap 策略能看见兄弟的关键（见 DrainFirings）。"" runID 表无可 advance——firing 被 defer（serial/buffer_one
+// 等待）、skip、shed（workflow 已删）、或抢 claim 失败。单事务 claim 原子做 pending→claimed + SeedRunOnTx + started
+// 回填，崩溃绝不留 claimed-但-无-run 残留。
+func (s *Service) claimFiring(ctx context.Context, f *triggerdomain.Firing) (string, context.Context, error) {
 	fctx := reqctxpkg.SetWorkspaceID(ctx, f.WorkspaceID)
 
 	action, outcome, err := s.overlapDecision(fctx, f)
 	if err != nil {
-		return err
+		// A firing whose workflow has been DELETED can never become a run — shed it terminally instead
+		// of returning a retryable error, which would leave it pending and make DrainFirings re-attempt
+		// (and re-log) the orphan every tick forever. FiringShed is the existing "won't run" terminal
+		// status; the firing inbox is a Log table so this is its proper resting state.
+		// workflow 已被删的 firing 永远成不了 run——终态 shed 之，而非返可重试错误（那会留它 pending、使
+		// DrainFirings 每 tick 重试+重记这条孤儿、永不终结）。FiringShed 是既有「不会跑」终态；firing 收件箱是
+		// Log 表，这就是它该有的归宿态。
+		if errors.Is(err, workflowdomain.ErrNotFound) {
+			return "", fctx, s.inbox.MarkFiringOutcome(fctx, f.ID, triggerdomain.FiringShed)
+		}
+		return "", fctx, err
 	}
 	switch action {
 	case overlapDefer:
-		return nil // serial/buffer_one + a run already in flight → leave pending, re-drained later
+		return "", fctx, nil // serial/buffer_one + a run already in flight → leave pending, re-drained later
 	case overlapSkip:
-		return s.inbox.MarkFiringOutcome(fctx, f.ID, outcome)
+		return "", fctx, s.inbox.MarkFiringOutcome(fctx, f.ID, outcome)
 	case overlapReplace:
-		// replace: gracefully cancel the in-flight run(s), then fall through to run this firing.
+		// replace: gracefully cancel the in-flight run(s) (incl. a sibling just seeded earlier in this
+		// same batch), then fall through to claim this firing — the cancelled run's phase-2 Advance no-ops.
 		if err := s.cancelRunningForReplace(fctx, f.WorkflowID); err != nil {
-			return err
+			return "", fctx, err
 		}
 	}
 
@@ -199,7 +244,7 @@ func (s *Service) consumeFiring(ctx context.Context, f *triggerdomain.Firing) er
 		FiringID:   f.ID,
 	})
 	if err != nil {
-		return err
+		return "", fctx, err
 	}
 
 	runID, err := s.inbox.ClaimFiring(fctx, f.ID, func(tx *ormpkg.DB) (string, error) {
@@ -210,11 +255,11 @@ func (s *Service) consumeFiring(ctx context.Context, f *triggerdomain.Firing) er
 	})
 	if err != nil {
 		if errors.Is(err, triggerdomain.ErrFiringNotPending) {
-			return nil // lost the claim race (already consumed) — fine
+			return "", fctx, nil // lost the claim race (already consumed) — fine
 		}
-		return fmt.Errorf("schedulerapp.consumeFiring: claim: %w", err)
+		return "", fctx, fmt.Errorf("schedulerapp.claimFiring: claim: %w", err)
 	}
-	return s.Advance(fctx, runID)
+	return runID, fctx, nil
 }
 
 type overlapAction int
@@ -229,12 +274,12 @@ const (
 // overlapDecision applies the workflow's concurrency policy to a new firing when a run is already in
 // flight. All five policies are implemented: skip drops the new firing, serial defers it, buffer_one
 // defers it AND supersedes this workflow's older pending firings (keep only the latest waiting),
-// replace cancels the in-flight run(s) so the new firing runs in their place (consumeFiring does the
+// replace cancels the in-flight run(s) so the new firing runs in their place (claimFiring does the
 // cancel), and allow_all runs concurrently. With nothing in flight, every policy just runs.
 //
 // overlapDecision 在已有 run 在途时对新 firing 应用 workflow 并发策略。五种全实现：skip 丢新 firing，serial
 // 推迟它，buffer_one 推迟它**并** supersede 该 workflow 更早的待处理 firing（只留最新待处理），replace 取消
-// 在途 run 使新 firing 顶替（取消在 consumeFiring 做），allow_all 并发跑。无 run 在途时各策略都直接跑。
+// 在途 run 使新 firing 顶替（取消在 claimFiring 做），allow_all 并发跑。无 run 在途时各策略都直接跑。
 func (s *Service) overlapDecision(ctx context.Context, f *triggerdomain.Firing) (overlapAction, string, error) {
 	w, err := s.workflows.GetWorkflow(ctx, f.WorkflowID)
 	if err != nil {
@@ -279,7 +324,7 @@ func (s *Service) overlapDecision(ctx context.Context, f *triggerdomain.Firing) 
 		return overlapRun, "", nil // the latest + nothing in flight → run it
 	case workflowdomain.ConcurrencyReplace:
 		if running > 0 {
-			return overlapReplace, "", nil // consumeFiring cancels the in-flight run(s), then runs this one
+			return overlapReplace, "", nil // claimFiring cancels the in-flight run(s), then runs this one
 		}
 		return overlapRun, "", nil
 	default: // allow_all
