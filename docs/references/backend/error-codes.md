@@ -555,6 +555,7 @@ audience: [human, ai]
 | `WORKFLOW_INVALID_OPS` | 422 | invalid workflow ops |
 | `WORKFLOW_NAME_DUPLICATE` | 409 | workflow name already exists |
 | `WORKFLOW_NOT_FOUND` | 404 | workflow not found |
+| `WORKFLOW_NOT_RUNNABLE` | 422 | workflow graph is not runnable; fix the listed problems before arming or activating |
 | `WORKFLOW_NO_ACTIVE_VERSION` | 422 | workflow has no active version |
 | `WORKFLOW_NO_TRIGGER_ENTRY` | 422 | workflow has no entry trigger node to listen on |
 | `WORKFLOW_REF_NOT_FOUND` | 422 | workflow node ref not found or mismatched |

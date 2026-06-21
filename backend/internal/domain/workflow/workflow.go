@@ -296,4 +296,15 @@ var (
 	// ErrAlreadyActive：对已 active 的 workflow 调 stage（一次性待命）——它已在持续监听，一次性待命无意义
 	// （先 deactivate 再 stage）。
 	ErrAlreadyActive = errorspkg.New(errorspkg.KindConflict, "WORKFLOW_ALREADY_ACTIVE", "workflow is already active; deactivate before staging a one-shot run")
+
+	// ErrNotRunnable: an arm/activate action was refused because the active graph is not capability-sound
+	// (a dangling/kind-mismatched node ref, a missing handler method or mcp tool, or an unwired required
+	// input). Arming a broken graph would let it go live and fail-fast on every real trigger fire —
+	// invisibly, since a parked workflow's breakage only surfaces when a trigger actually fires. The
+	// offending problems ride in Details.problems. (Manual :trigger is NOT gated — its failure is one
+	// explicit, immediately-visible run.)
+	// ErrNotRunnable：待命/激活被拒，因 active 图能力不健全（悬挂/kind 不符的 node ref、缺 handler 方法或 mcp
+	// 工具、漏接必填 input）。给坏图待命会让它上线后每次真实触发都 fail-fast、且因停泊 workflow 的损坏只在触发
+	// 真正发生时浮现而**不可见**。违例问题在 Details.problems。（手动 :trigger 不门控——其失败是一次显式、立即可见的运行。）
+	ErrNotRunnable = errorspkg.New(errorspkg.KindUnprocessable, "WORKFLOW_NOT_RUNNABLE", "workflow graph is not runnable; fix the listed problems before arming or activating")
 )

@@ -40,6 +40,30 @@ func (s *Service) Trigger(ctx context.Context, id string, payload map[string]any
 	return s.runner.StartRun(ctx, id, payload)
 }
 
+// ensureRunnable refuses to arm/activate a workflow whose active graph is not capability-sound — a
+// dangling/kind-mismatched node ref, a missing handler method or mcp tool, or an unwired required
+// input. Without this gate a parked-but-broken workflow goes live and fail-fasts on every real
+// trigger fire, invisibly (a parked graph's breakage only surfaces when a trigger actually fires).
+// It mirrors the eager-validation family (agent mounts): validate the same refs the run will resolve,
+// at the commitment point. A nil resolver (structural-only mode) cannot resolve refs, so CapabilityCheck
+// reports OK and this passes — in production the resolver is always wired.
+//
+// ensureRunnable 拒绝给「active 图能力不健全」的 workflow 待命/激活——悬挂/kind 不符的 node ref、缺
+// handler 方法或 mcp 工具、漏接必填 input。无此门控，停泊但损坏的 workflow 上线后每次真实触发都 fail-fast
+// 且**不可见**（停泊图的损坏只在触发真正发生时浮现）。它镜像 eager 校验家族（agent 挂载）：在承诺点校验运行
+// 将解析的同一批 ref。nil resolver（仅结构模式）无法解析 ref，故 CapabilityCheck 报 OK、此处放行——生产中
+// resolver 必接线。
+func (s *Service) ensureRunnable(ctx context.Context, id string) error {
+	report, err := s.CapabilityCheckByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if !report.OK() {
+		return workflowdomain.ErrNotRunnable.WithDetails(map[string]any{"problems": report.Problems})
+	}
+	return nil
+}
+
 // Stage arms the workflow for exactly ONE run on its next real trigger fire, then auto-disarms (the
 // "trial run"). It does not change lifecycle — the workflow stays inactive but armed. ErrAlreadyActive
 // if it is already continuously listening (deactivate first); ErrNoTriggerEntry if it has no trigger node.
@@ -56,6 +80,9 @@ func (s *Service) Stage(ctx context.Context, id string) error {
 	}
 	if w.Active {
 		return workflowdomain.ErrAlreadyActive
+	}
+	if err := s.ensureRunnable(ctx, id); err != nil {
+		return err
 	}
 	refs, err := s.entryTriggerRefsOf(ctx, w)
 	if err != nil {
@@ -78,6 +105,9 @@ func (s *Service) Stage(ctx context.Context, id string) error {
 func (s *Service) Activate(ctx context.Context, id string) (*workflowdomain.Workflow, error) {
 	if s.binder == nil {
 		return nil, errExecUnavailable
+	}
+	if err := s.ensureRunnable(ctx, id); err != nil {
+		return nil, err
 	}
 	refs, err := s.entryTriggerRefs(ctx, id)
 	if err != nil {

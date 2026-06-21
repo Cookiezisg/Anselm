@@ -6,6 +6,7 @@ import (
 	"slices"
 	"testing"
 
+	relationdomain "github.com/sunweilin/anselm/backend/internal/domain/relation"
 	workflowdomain "github.com/sunweilin/anselm/backend/internal/domain/workflow"
 )
 
@@ -111,6 +112,58 @@ func TestExecutionLifecycle(t *testing.T) {
 	}
 	if killed != 3 || !slices.Contains(runner.killed, wf) {
 		t.Fatalf("kill wrong: killed=%d list=%v", killed, runner.killed)
+	}
+}
+
+// TestArm_RejectsUnresolvableRef — F135: arming a workflow (activate AND stage) must refuse a graph
+// with a dangling entity ref, never attaching a broken workflow to its trigger. Create does not
+// resolve refs (incremental builds stay free), so the gate lives at the arm/activate commitment point.
+// A sound graph arms fine.
+func TestArm_RejectsUnresolvableRef(t *testing.T) {
+	// trg_a resolves (the entry trigger); fn_b is absent → a dangling action ref (e.g. its function
+	// was deleted after the workflow was built).
+	broken := &fakeResolver{m: map[string]RefInfo{
+		"trg_a": {Kind: relationdomain.EntityKindTrigger, HasActiveVersion: true},
+	}}
+	svc, ctx := newSvc(t, broken)
+	binder, runner := &fakeBinder{}, &fakeRunner{}
+	svc.SetExecutionPorts(binder, runner)
+
+	w, _, err := svc.Create(ctx, CreateInput{Name: "broken", Ops: linearOps(t)})
+	if err != nil {
+		t.Fatalf("Create (no ref check) must succeed: %v", err)
+	}
+
+	if _, err := svc.Activate(ctx, w.ID); !errors.Is(err, workflowdomain.ErrNotRunnable) {
+		t.Fatalf("Activate broken graph: want ErrNotRunnable, got %v", err)
+	}
+	if len(binder.attach) != 0 {
+		t.Fatalf("a broken workflow must NOT be attached, got: %v", binder.attach)
+	}
+	if err := svc.Stage(ctx, w.ID); !errors.Is(err, workflowdomain.ErrNotRunnable) {
+		t.Fatalf("Stage broken graph: want ErrNotRunnable, got %v", err)
+	}
+	if len(binder.attachOnce) != 0 {
+		t.Fatalf("a broken workflow must NOT be armed-once, got: %v", binder.attachOnce)
+	}
+
+	// A sound resolver (all refs present) arms cleanly — the gate is not over-rejecting.
+	sound := &fakeResolver{m: map[string]RefInfo{
+		"trg_a": {Kind: relationdomain.EntityKindTrigger, HasActiveVersion: true},
+		"fn_b":  {Kind: relationdomain.EntityKindFunction, HasActiveVersion: true},
+	}}
+	svc2, ctx2 := newSvc(t, sound)
+	binder2, runner2 := &fakeBinder{}, &fakeRunner{}
+	svc2.SetExecutionPorts(binder2, runner2)
+	w2, _, err := svc2.Create(ctx2, CreateInput{Name: "sound", Ops: linearOps(t)})
+	if err != nil {
+		t.Fatalf("Create sound: %v", err)
+	}
+	if _, err := svc2.Activate(ctx2, w2.ID); err != nil {
+		t.Fatalf("Activate sound graph must succeed, got %v", err)
+	}
+	if !slices.Contains(binder2.attach, "trg_a|"+w2.ID) {
+		t.Fatalf("sound workflow should attach, got: %v", binder2.attach)
 	}
 }
 

@@ -76,7 +76,7 @@ type StageWorkflow struct{ svc *workflowapp.Service }
 func (t *StageWorkflow) Name() string { return "stage_workflow" }
 
 func (t *StageWorkflow) Description() string {
-	return "Arm a workflow to run exactly once on its NEXT real trigger fire, then automatically disarm — a trial run with a genuine event. Use this to test a workflow against a real cron tick / webhook / file change without committing it to listen forever. Only works on workflows whose entry is a real trigger source; fails if the workflow is already active (deactivate it first)."
+	return "Arm a workflow to run exactly once on its NEXT real trigger fire, then automatically disarm — a trial run with a genuine event. Use this to test a workflow against a real cron tick / webhook / file change without committing it to listen forever. Only works on workflows whose entry is a real trigger source; fails if the workflow is already active (deactivate it first). Refuses a non-runnable graph (WORKFLOW_NOT_RUNNABLE, problems in details) — a dangling/mismatched node ref or an unwired required input — so a broken workflow is never armed; run capability_check first if unsure."
 }
 
 func (t *StageWorkflow) Parameters() json.RawMessage {
@@ -109,7 +109,7 @@ type ActivateWorkflow struct{ svc *workflowapp.Service }
 func (t *ActivateWorkflow) Name() string { return "activate_workflow" }
 
 func (t *ActivateWorkflow) Description() string {
-	return "Bring a workflow online: it starts listening to its trigger continuously and reacts to every real fire (going live). Use this to deploy a workflow into production. Fails if its entry is not a real trigger source. To run it just once instead, use trigger_workflow (now) or stage_workflow (next real fire)."
+	return "Bring a workflow online: it starts listening to its trigger continuously and reacts to every real fire (going live). Use this to deploy a workflow into production. Fails if its entry is not a real trigger source. Refuses a non-runnable graph (WORKFLOW_NOT_RUNNABLE, problems in details) — a dangling/mismatched node ref or an unwired required input — so a broken workflow never goes live; run capability_check first if unsure. To run it just once instead, use trigger_workflow (now) or stage_workflow (next real fire)."
 }
 
 func (t *ActivateWorkflow) Parameters() json.RawMessage {

@@ -33,7 +33,7 @@ audience: [human, ai]
 ## 4. 生命周期 / 行为
 
 - **编辑 = 图 ops**（`set_meta/add_node/update_node/delete_node/add_edge/update_edge/delete_edge`，JSON 判别式；update 走 **顶层** merge patch（嵌套对象如 `input` **整体替换、非深合并**——改一个 input 字段须重发该节点全部 input 键，否则漏的被丢、声明 input 失接线）、id 不可变；delete_node 级联删边）。**活监听重绑**：active workflow 的 Edit/Revert 若改了入口 trigger ref，按旧/新图 diff 重指绑定（detach 删除者 + attach 新增者，`rebindIfListening`）——否则旧 trigger 永远触发本 workflow、新 trigger 无人听；staged 的一次性武装在 binder 内部、编辑保留旧武装。与 function 的差异：**不修 JSON**（ops 来自结构化编辑器/工具，畸形是该上呈的真错误）。`set_meta` 折成头部 patch（`ExtractMeta`），不动图。
-- **执行生命周期五动作**（`execution.go`，协调 trigger Binder + scheduler Runner 两端口）：`:trigger`（立即跑一次，不碰监听）· `:stage`（待命恰一次真实触发后自动撤防；已 active 报 `WORKFLOW_ALREADY_ACTIVE`）· `:activate`（逐入口 trigger Attach + 翻 active；无 trigger 节点报 `WORKFLOW_NO_TRIGGER_ENTRY`——纯手动图只能 :trigger）· `:deactivate`（Detach + 翻 inactive/draining，在途 run 不杀）· `:kill`（Detach + 取消全部在途 run + inactive）。
+- **执行生命周期五动作**（`execution.go`，协调 trigger Binder + scheduler Runner 两端口）：`:trigger`（立即跑一次，不碰监听；**不门控能力**——单次显式 run、失败立即可见）· `:stage`（待命恰一次真实触发后自动撤防；已 active 报 `WORKFLOW_ALREADY_ACTIVE`）· `:activate`（逐入口 trigger Attach + 翻 active；无 trigger 节点报 `WORKFLOW_NO_TRIGGER_ENTRY`——纯手动图只能 :trigger）· `:deactivate`（Detach + 翻 inactive/draining，在途 run 不杀）· `:kill`（Detach + 取消全部在途 run + inactive）。**待命门控**（`ensureRunnable`，F135）：`:stage`/`:activate` 在挂监听前跑 `CapabilityCheckByID`，图非健全（悬挂/kind 不符 ref、缺 hd 方法/mcp 工具、漏接必填 input）即拒 `WORKFLOW_NOT_RUNNABLE`（违例进 `details.problems`）、不 Attach——否则停泊但损坏的 workflow 上线后每次真实触发都 fail-fast 且不可见（停泊图的损坏只在触发真正发生时浮现）。create/edit **不**门控（增量构建保持自由），门控只落在「上线/待命」承诺点（镜像 agent 挂载的 eager 校验家族）；无 resolver（仅结构模式）放行。
 - **pin**（`BuildPinClosure`）：跑前把图引用的每个实体解析成 active 版本快照；agent 额外递归一层进其挂载（深度封顶 2——agent 不能挂 agent）。解析不到的 ref 不算 pin 失败（那是 CapabilityCheck 的事）。
 - boot 时 `ReattachActive` 重挂所有 active workflow 的监听（监听注册表在内存）——**在 per-workspace 播种 ctx 下跑**（见引擎文档 §5）。
 
@@ -43,7 +43,7 @@ audience: [human, ai]
 
 ## 6. 契约（引用）
 
-端点（CRUD + 9 个 `POST :action`——构建/查询 `:edit`/`:revert`/`:capability-check`/`:iterate` + 执行生命周期 `:trigger`/`:stage`/`:activate`/`:deactivate`/`:kill` + versions）→ [api.md](../api.md) · 表（`workflows`/`workflow_versions`，CHECK lifecycle+concurrency）→ [database.md](../database.md) · 码 `WORKFLOW_*` 16 个 → [error-codes.md](../error-codes.md) · ID：`wf_`/`wfv_`。LLM 工具 16 个：7 构建/查询 + 5 执行生命周期（trigger/stage/activate/deactivate/kill）+ 4 运行可观测/恢复/决策（`get_flowrun`——run 头 + 全节点记录；`search_flowruns`——闭合 `trigger_workflow` 返回 flowrunId 后的检查环；`replay_flowrun`——从断点重跑失败 run，清 failed 节点、留记忆化、按 run 原 pin 版本重走；`decide_approval`——批/拒 park 在审批节点的 run，包 `:decide` 同一 `DecideApproval`、首决胜，补全 agent 席不可达的人在环决策半边）。
+端点（CRUD + 9 个 `POST :action`——构建/查询 `:edit`/`:revert`/`:capability-check`/`:iterate` + 执行生命周期 `:trigger`/`:stage`/`:activate`/`:deactivate`/`:kill` + versions）→ [api.md](../api.md) · 表（`workflows`/`workflow_versions`，CHECK lifecycle+concurrency）→ [database.md](../database.md) · 码 `WORKFLOW_*` 17 个 → [error-codes.md](../error-codes.md) · ID：`wf_`/`wfv_`。LLM 工具 16 个：7 构建/查询 + 5 执行生命周期（trigger/stage/activate/deactivate/kill）+ 4 运行可观测/恢复/决策（`get_flowrun`——run 头 + 全节点记录；`search_flowruns`——闭合 `trigger_workflow` 返回 flowrunId 后的检查环；`replay_flowrun`——从断点重跑失败 run，清 failed 节点、留记忆化、按 run 原 pin 版本重走；`decide_approval`——批/拒 park 在审批节点的 run，包 `:decide` 同一 `DecideApproval`、首决胜，补全 agent 席不可达的人在环决策半边）。
 
 ## 7. 跨域集成
 
