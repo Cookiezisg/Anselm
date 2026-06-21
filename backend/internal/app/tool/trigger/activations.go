@@ -109,3 +109,58 @@ func (t *GetActivation) Execute(ctx context.Context, argsJSON string) (string, e
 	}
 	return toolapp.ToJSON(act), nil
 }
+
+// --- search_firings --------------------------------------------------------
+
+type SearchFirings struct{ svc *triggerapp.Service }
+
+func (t *SearchFirings) Name() string { return "search_firings" }
+
+func (t *SearchFirings) Description() string {
+	return "Inspect a trigger's firing inbox — one row per workflow it fanned out to when it fired, each with the run-or-not disposition: started (a flowrun was created), pending (awaiting the scheduler), or skipped / superseded / shed (it fired but NO flowrun ran — by an overlap policy or a resource cap). This answers \"my trigger fired but the workflow didn't run — why?\", which search_activations (which only shows whether it FIRED) cannot. Filter by status; cursor-paged."
+}
+
+func (t *SearchFirings) Parameters() json.RawMessage {
+	return json.RawMessage(`{
+		"type": "object",
+		"required": ["triggerId"],
+		"properties": {
+			"triggerId": {"type": "string"},
+			"status": {"type": "string", "enum": ["pending", "started", "skipped", "superseded", "shed"], "description": "Narrow to one disposition (e.g. shed = dropped by a resource cap; superseded = a newer firing replaced this waiting one under buffer_one)."},
+			"cursor": {"type": "string"},
+			"limit": {"type": "integer"}
+		}
+	}`)
+}
+
+func (t *SearchFirings) ValidateInput(args json.RawMessage) error {
+	var a struct {
+		TriggerID string `json:"triggerId"`
+	}
+	if err := json.Unmarshal(args, &a); err != nil {
+		return fmt.Errorf("search_firings: bad args: %w", err)
+	}
+	if a.TriggerID == "" {
+		return ErrTriggerIDRequired
+	}
+	return nil
+}
+
+func (t *SearchFirings) Execute(ctx context.Context, argsJSON string) (string, error) {
+	var args struct {
+		TriggerID string `json:"triggerId"`
+		Status    string `json:"status"`
+		Cursor    string `json:"cursor"`
+		Limit     int    `json:"limit"`
+	}
+	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+		return "", fmt.Errorf("search_firings: bad args: %w", err)
+	}
+	firings, next, err := t.svc.SearchFirings(ctx, triggerdomain.FiringFilter{
+		TriggerID: args.TriggerID, Status: args.Status, Cursor: args.Cursor, Limit: args.Limit,
+	})
+	if err != nil {
+		return "", fmt.Errorf("search_firings: %w", err)
+	}
+	return toolapp.ToJSON(map[string]any{"count": len(firings), "firings": firings, "nextCursor": next}), nil
+}

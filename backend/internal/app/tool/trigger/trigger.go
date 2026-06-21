@@ -26,5 +26,6 @@ func TriggerTools(svc *triggerapp.Service, content *searchapp.Service, deps tool
 		&FireTrigger{svc: svc},
 		&SearchActivations{svc: svc},
 		&GetActivation{svc: svc},
+		&SearchFirings{svc: svc},
 	}
 }

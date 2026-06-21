@@ -62,7 +62,7 @@ listener 永不知道 workflow（扇出是 app 的事）；Activation 与 Firing
 
 ## 6. 契约（引用）
 
-端点（CRUD + `:fire`/`:iterate` + activations 两查询）→ [api.md](../api.md) · 表（`triggers`/`trigger_activations`/`trigger_firings`——后两张 Log）→ [database.md](../database.md) · 码 `TRIGGER_*` 12+3 → [error-codes.md](../error-codes.md) · ID：`trg_`/`tra_`/`trf_`。（另有 `GET {id}/firings`——收件箱处置面：started/skipped/superseded/shed）
+端点（CRUD + `:fire`/`:iterate` + activations 两查询 + `GET {id}/firings`）→ [api.md](../api.md) · 表（`triggers`/`trigger_activations`/`trigger_firings`——后两张 Log）→ [database.md](../database.md) · 码 `TRIGGER_*` 13+3 → [error-codes.md](../error-codes.md) · ID：`trg_`/`tra_`/`trf_`。LLM 观测工具：`search_activations`（"它**有没有 fire**"——逐次动作日志，含未 fire 的 sensor 探测因）+ `get_activation` + **`search_firings`**（"它 fire 了但 workflow **跑没跑、为什么没跑**"——firing 收件箱的处置面：started/pending/skipped/superseded/shed；status 过滤经 `FiringStatuses` 封闭集校、非法值 422 `TRIGGER_FIRING_INVALID_STATUS` 而非静默空页，F175-M7 + F168-M2 延伸）。activations vs firings = 触发面 vs 运行面，名字即语义。
 
 ## 7. 跨域集成
 

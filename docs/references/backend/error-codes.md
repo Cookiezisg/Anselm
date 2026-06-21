@@ -44,7 +44,7 @@ audience: [human, ai]
 
 ## 全量登记（298 码，按域）
 
-> `errorspkg.New` 机械抽取（281，不含 `*_test.go` 测试 sentinel 如 DUP/THING_NOT_FOUND）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（5）。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
+> `errorspkg.New` 机械抽取（282，不含 `*_test.go` 测试 sentinel 如 DUP/THING_NOT_FOUND）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（5）。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
 
 ### `pkg/errors`（跨域 sentinel）
 
@@ -542,6 +542,7 @@ audience: [human, ai]
 | code | HTTP | message |
 |---|---|---|
 | `TRIGGER_ACTIVATION_NOT_FOUND` | 404 | activation not found |
+| `TRIGGER_FIRING_INVALID_STATUS` | 422 | firing status filter must be one of: pending, claimed, started, skipped, superseded, shed |
 | `TRIGGER_FIRING_NOT_PENDING` | 409 | firing already claimed |
 | `TRIGGER_INVALID_CEL` | 422 | invalid CEL expression |
 | `TRIGGER_INVALID_CONFIG` | 422 | invalid trigger config |

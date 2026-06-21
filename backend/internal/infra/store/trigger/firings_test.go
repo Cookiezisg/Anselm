@@ -1,6 +1,7 @@
 package trigger
 
 import (
+	"errors"
 	"testing"
 
 	triggerdomain "github.com/sunweilin/anselm/backend/internal/domain/trigger"
@@ -81,5 +82,9 @@ func TestSearchFirings_FilterAndOrder(t *testing.T) {
 	rows, _, err = s.SearchFirings(ctx, triggerdomain.FiringFilter{})
 	if err != nil || len(rows) != 3 {
 		t.Fatalf("unfiltered: rows=%d err=%v", len(rows), err)
+	}
+	// An out-of-enum status is rejected loudly (422), not a silent empty page (F168-M2 → F175-M7).
+	if _, _, err := s.SearchFirings(ctx, triggerdomain.FiringFilter{Status: "bogus"}); !errors.Is(err, triggerdomain.ErrInvalidFiringStatus) {
+		t.Fatalf("an out-of-enum status filter must return ErrInvalidFiringStatus, got %v", err)
 	}
 }

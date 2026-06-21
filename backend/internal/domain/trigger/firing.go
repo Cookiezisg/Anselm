@@ -1,6 +1,10 @@
 package trigger
 
-import "time"
+import (
+	"time"
+
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
+)
 
 // Firing is the durable inbox row — persist-before-act: written the moment a trigger
 // fires, before any flowrun starts. A single fire fans out to one Firing per listening
@@ -49,3 +53,18 @@ const (
 	FiringSuperseded = "superseded" // overlap policy buffer_one dropped this older waiting firing
 	FiringShed       = "shed"       // resource cap
 )
+
+// FiringStatuses is the closed firing-status enum — used to reject an illegal SearchFirings filter
+// value (an out-of-set status would otherwise silently match zero rows, the F168-M2 bug extended to
+// the firing inbox, F175-M7).
+//
+// FiringStatuses 是 firing 状态封闭集——用于拒非法 SearchFirings 过滤值（非集内状态否则静默匹配 0 行，
+// F168-M2 之病延伸到 firing 收件箱，F175-M7）。
+var FiringStatuses = []string{FiringPending, FiringClaimed, FiringStarted, FiringSkipped, FiringSuperseded, FiringShed}
+
+// ErrInvalidFiringStatus: a SearchFirings filter passed a status outside FiringStatuses — 422 with the
+// allowed set in Details, never a misleading empty page.
+//
+// ErrInvalidFiringStatus：SearchFirings 过滤传了 FiringStatuses 外的状态——422 + Details 带允许集，
+// 绝不返误导性空页。
+var ErrInvalidFiringStatus = errorspkg.New(errorspkg.KindUnprocessable, "TRIGGER_FIRING_INVALID_STATUS", "firing status filter must be one of: pending, claimed, started, skipped, superseded, shed")

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	triggerdomain "github.com/sunweilin/anselm/backend/internal/domain/trigger"
 	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
@@ -59,6 +60,12 @@ func (s *Store) ListPendingFirings(ctx context.Context, limit int) ([]*triggerdo
 //
 // SearchFirings 分页某 trigger 的 firing 收件箱（最新优先，处置面）。
 func (s *Store) SearchFirings(ctx context.Context, filter triggerdomain.FiringFilter) ([]*triggerdomain.Firing, string, error) {
+	// Reject an out-of-enum status loudly (422) instead of silently matching zero rows (F168-M2, here
+	// extended to the firing inbox for F175-M7).
+	// 非枚举状态大声拒（422），而非静默匹配 0 行（F168-M2，此处为 F175-M7 延伸到 firing 收件箱）。
+	if filter.Status != "" && !slices.Contains(triggerdomain.FiringStatuses, filter.Status) {
+		return nil, "", triggerdomain.ErrInvalidFiringStatus.WithDetails(map[string]any{"allowed": triggerdomain.FiringStatuses, "got": filter.Status})
+	}
 	q := s.frs.Query()
 	if filter.TriggerID != "" {
 		q = q.WhereEq("trigger_id", filter.TriggerID)
