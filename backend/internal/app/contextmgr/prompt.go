@@ -24,7 +24,8 @@ Rules:
 1. EXTEND the previous summary with the new content — preserve its existing points; only strike one if the new content directly contradicts it.
 2. Organize under these sections (omit any that are empty): User requests & constraints · Files/entities touched (keep exact paths & ids) · Decisions made · Errors & fixes · Open items / next steps · User preferences.
 3. Keep concrete references (file paths, ids, names, numbers) verbatim — they are expensive to recover.
-4. Be concise: under ~1500 tokens. Output ONLY the full updated summary, no preamble or commentary.`
+4. For LARGE pasted or quoted content (a document, log, dataset, or long code blob): record what it IS and its key points only — do NOT reproduce it and do NOT imply the full text is retained here. State plainly that the detail is no longer in context (the user can re-share it). A faithful gist that admits the content is gone beats a verbatim-recall promise you cannot keep.
+5. Be concise: under ~1500 tokens. Output ONLY the full updated summary, no preamble or commentary.`
 
 // buildSummaryPrompt assembles the user-message body for the summary call: the prior summary
 // (so the model extends it) followed by the new span's excerpts in chronological order.

@@ -55,7 +55,7 @@ audience: [human, ai]
 
 ## contextmgr —— 对话压缩引擎
 
-生产侧（消费侧在 loop 投影 + chat.LoadHistory）。回合边界两步管线：① **demote**（免 LLM）——旧 tool_result 按新旧降 hot→warm（预览）→cold（占位），工具输出占 token 大头、常一步就够；② 仍超预算才 **summarize**——utility 模型摘最旧 span、增量并入 conversation.summary、推水位。触发用末回合**真实** InputTokens（非估算）达 input 预算 80%；最近 4 条 message 永不动（逐字底线）。**水位（summary_covers_up_to_seq）是幂等键**：崩溃在写 summary 与翻 archived 标记之间也不重复计数。写面最小：conversation 的 summary+水位 + blocks 的 ContextRole（投影、不改内容）。
+生产侧（消费侧在 loop 投影 + chat.LoadHistory）。回合边界两步管线：① **demote**（免 LLM）——旧 tool_result 按新旧降 hot→warm（预览）→cold（占位），工具输出占 token 大头、常一步就够；② 仍超预算才 **summarize**——utility 模型摘最旧 span、增量并入 conversation.summary、推水位。触发用末回合**真实** InputTokens（非估算）达 input 预算 80%；最近 4 条 message 永不动（逐字底线）。**水位（summary_covers_up_to_seq）是幂等键**：崩溃在写 summary 与翻 archived 标记之间也不重复计数。写面最小：conversation 的 summary+水位 + blocks 的 ContextRole（投影、不改内容）。**demote 只动 tool_result 是刻意的**（F175-M9）：投影侧 `BlocksToAssistantLLM` 仅对 tool_result 施 warm/cold 截断、user/text 块恒全文——工具输出常不需逐字、用户的话是其意图，故大 user 粘贴**不** demote（截断用户原话比保真摘要更糟）、而是经 step ② summarize 处置。**summary 对大粘贴诚实**（F175-M8）：prompt 明示对大粘贴/引用（文档/日志/长代码）只记「是什么 + 要点 + 全文已不在上下文（用户可重发）」、不假装逐字保留——免 summary 记下不可满足的 recall 义务。
 
 ## entitystream —— entities 流生产原语
 
