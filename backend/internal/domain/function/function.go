@@ -116,6 +116,16 @@ var (
 	// ErrSandboxUnavailable：sandbox runtime 未就绪（无法物化 venv）。
 	ErrSandboxUnavailable = errorspkg.New(errorspkg.KindUnavailable, "FUNCTION_SANDBOX_UNAVAILABLE", "sandbox runtime unavailable")
 
+	// ErrRunTimeout: the run hit its wall-clock limit and was killed. Returned to the caller (HTTP +
+	// run_function tool) in place of the raw sandbox "spawn process timeout" — which connotes a process
+	// LAUNCH failure and misleads :triage into chasing a phantom cold-start problem. Mirrors handler's
+	// ErrInstanceRPCTimeout; the durable record carries the same meaning (F105/F157-cont).
+	//
+	// ErrRunTimeout：运行触墙钟上限被杀。回给调用方（HTTP + run_function 工具），取代裸 sandbox "spawn process
+	// timeout"——后者暗示进程**启动**失败、误导 :triage 追幻象冷启动。镜像 handler 的 ErrInstanceRPCTimeout；耐久
+	// 记录同义（F105/F157-cont）。
+	ErrRunTimeout = errorspkg.New(errorspkg.KindGatewayTimeout, "FUNCTION_RUN_TIMEOUT", "function run exceeded its wall-clock time limit")
+
 	// ErrOpInvalid: a build op is malformed or leaves the draft invalid.
 	//
 	// ErrOpInvalid：构建 op 畸形，或应用后草稿非法。

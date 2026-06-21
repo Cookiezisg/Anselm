@@ -173,6 +173,15 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*workflowdomain.Versi
 	if err := s.repo.SetActiveVersion(ctx, in.ID, versionID); err != nil {
 		return nil, fmt.Errorf("workflowapp.Edit: %w", err)
 	}
+	// Reflect the just-activated version on the in-memory header NOW, BEFORE the set_meta SaveWorkflow
+	// below: SaveWorkflow is a full-row upsert, so a stale w.ActiveVersionID (still the OLD version, set
+	// when w was read above) would CLOBBER the active pointer back to the old version — orphaning the new
+	// version and silently leaving the workflow running its pre-edit graph after a meta edit (F157). The
+	// graph-only edit path (no set_meta → no SaveWorkflow) was unaffected, which is why only meta edits broke.
+	// 现在就把刚激活的版本反映到内存头部，**早于**下面 set_meta 的 SaveWorkflow：SaveWorkflow 是整行 upsert，
+	// 陈旧的 w.ActiveVersionID（读 w 时还是旧版本）会把 active 指针**clobber 回旧版本**——孤儿化新版本、meta 编辑后
+	// 静默仍跑编辑前的图（F157）。纯图编辑（无 set_meta→无 SaveWorkflow）不受影响，故只 meta 编辑坏。
+	w.ActiveVersionID = versionID
 	// set_meta ops project onto the header — the projection is what makes them take effect
 	// (ApplyOps only shape-checks set_meta, applying nothing to the graph). Name change
 	// re-checks uniqueness via SaveWorkflow's UNIQUE.
@@ -214,8 +223,7 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*workflowdomain.Versi
 	}
 	s.publish(ctx, "edited", in.ID, map[string]any{"versionId": versionID, "version": max + 1})
 
-	w.ActiveVersionID = versionID
-	s.syncRelations(ctx, w, v, graph)
+	s.syncRelations(ctx, w, v, graph) // w.ActiveVersionID already set to versionID above
 	v.GraphParsed = graph
 	return v, nil
 }

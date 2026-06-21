@@ -306,8 +306,18 @@ func TestRunFunction_WallClockTimeout(t *testing.T) {
 	runner.block = true
 	f, _, _ := svc.Create(ctx, CreateInput{Ops: createOps(t, "slow", goodCode)})
 
-	if _, err := svc.RunFunction(ctx, RunInput{FunctionID: f.ID, TriggeredBy: functiondomain.TriggeredByWorkflow}); err == nil {
+	_, runErr := svc.RunFunction(ctx, RunInput{FunctionID: f.ID, TriggeredBy: functiondomain.TriggeredByWorkflow})
+	if runErr == nil {
 		t.Fatal("a timed-out run should return an error")
+	}
+	// F157-cont: the RETURNED error (to HTTP :run + the run_function agent tool) must be the clean
+	// FUNCTION_RUN_TIMEOUT, NOT the raw sandbox "spawn process timeout" (the phantom F105 fixed for the
+	// durable record only). errorspkg.Surface renders the actionable message the agent/HTTP envelope sees.
+	if !errors.Is(runErr, functiondomain.ErrRunTimeout) {
+		t.Fatalf("returned err must be ErrRunTimeout, got %v", runErr)
+	}
+	if surfaced := errorspkg.Surface(runErr); strings.Contains(surfaced, "spawn") || !strings.Contains(surfaced, "wall-clock") {
+		t.Fatalf("the returned error surfaced to the agent must name the wall-clock limit, not a spawn failure; got: %q", surfaced)
 	}
 	page, err := svc.SearchExecutions(ctx, functiondomain.ExecutionFilter{FunctionID: f.ID})
 	if err != nil || len(page.Executions) != 1 {

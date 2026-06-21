@@ -10,6 +10,7 @@ import (
 
 	functiondomain "github.com/sunweilin/anselm/backend/internal/domain/function"
 	sandboxdomain "github.com/sunweilin/anselm/backend/internal/domain/sandbox"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
 	limitspkg "github.com/sunweilin/anselm/backend/internal/pkg/limits"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
@@ -93,6 +94,17 @@ func (s *Service) RunFunction(ctx context.Context, in RunInput) (*functiondomain
 	s.recordExecution(ctx, in, v, startedAt, endedAt, res, sandboxErr, cctx.Err())
 
 	if sandboxErr != nil {
+		// A wall-clock timeout must reach the caller (HTTP :run + run_function agent tool) with the SAME
+		// clean meaning the durable record gets — NOT the raw sandbox "spawn process timeout", which
+		// connotes a process LAUNCH failure and misleads the agent / :triage into chasing a phantom
+		// cold-start problem (the exact phantom F105 fixed for the record only; the return path leaked it).
+		// Mirrors handler/call.go's mapCallErr → ErrInstanceRPCTimeout (F157-cont).
+		// 墙钟超时必须以与耐久记录**同义**的干净错误到达调用方（HTTP :run + run_function 工具）——而非裸 sandbox
+		// "spawn process timeout"（暗示进程启动失败、误导 agent/:triage 追幻象冷启动，正是 F105 只为记录修的幻象、
+		// 返回路径却漏了）。镜像 handler/call.go 的 mapCallErr→ErrInstanceRPCTimeout（F157-cont）。
+		if errors.Is(cctx.Err(), context.DeadlineExceeded) {
+			return nil, errorspkg.Wrap(functiondomain.ErrRunTimeout, sandboxErr)
+		}
 		return nil, fmt.Errorf("functionapp.RunFunction: %w", sandboxErr)
 	}
 	return res, nil

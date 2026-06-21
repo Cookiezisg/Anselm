@@ -200,6 +200,26 @@ func TestEdit_NewVersionPointerMoves(t *testing.T) {
 	}
 }
 
+// TestEdit_SetMetaMovesActivePointer — F157: a workflow edit carrying a set_meta op must STILL move the
+// active pointer to the new version. The set_meta SaveWorkflow (a full-row upsert) used to clobber the
+// just-activated pointer back to the OLD version (stale w.ActiveVersionID) — orphaning the new version
+// and silently leaving the workflow running its PRE-edit graph after a meta edit.
+func TestEdit_SetMetaMovesActivePointer(t *testing.T) {
+	svc, ctx := newSvc(t, nil)
+	w, _, _ := svc.Create(ctx, CreateInput{Name: "metaedit", Ops: linearOps(t)})
+	v2, err := svc.Edit(ctx, EditInput{ID: w.ID, Ops: opsJSON(t, `[{"op":"set_meta","description":"new desc"}]`)})
+	if err != nil {
+		t.Fatalf("Edit (set_meta): %v", err)
+	}
+	got, _ := svc.Get(ctx, w.ID)
+	if got.ActiveVersionID != v2.ID {
+		t.Fatalf("a set_meta edit must MOVE the active pointer to the new version (got %q, want %q) — not clobber it back to the old version (orphaning v%d)", got.ActiveVersionID, v2.ID, v2.Version)
+	}
+	if got.Description != "new desc" {
+		t.Fatalf("set_meta description must apply to the header, got %q", got.Description)
+	}
+}
+
 func TestEdit_EmptyOpsRejected(t *testing.T) {
 	svc, ctx := newSvc(t, nil)
 	w, _, _ := svc.Create(ctx, CreateInput{Name: "e2", Ops: linearOps(t)})

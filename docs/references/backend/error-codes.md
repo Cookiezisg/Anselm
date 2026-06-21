@@ -381,6 +381,7 @@ audience: [human, ai]
 | `FUNCTION_NOT_FOUND` | 404 | function not found |
 | `FUNCTION_NO_ACTIVE_VERSION` | 422 | function has no active version |
 | `FUNCTION_OP_INVALID` | 422 | invalid build op |
+| `FUNCTION_RUN_TIMEOUT` | 504 | function run exceeded its wall-clock time limit |
 | `FUNCTION_SANDBOX_UNAVAILABLE` | 503 | sandbox runtime unavailable |
 | `FUNCTION_VERSION_NOT_FOUND` | 404 | function version not found |
 | `FUNCTION_VERSION_CONFLICT` | 409 | function version already exists (concurrent edit) |
