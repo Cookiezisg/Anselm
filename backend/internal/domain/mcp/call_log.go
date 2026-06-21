@@ -55,25 +55,26 @@ func IsValidCallTrigger(s string) bool {
 // Log 表：只增，绝不软删/硬删（D1）。刻意比 handler_calls 精简：MCP server 无版本（无 version_id）、外部
 // 所有（无 instance_id——stderr 自有 ring）。
 type Call struct {
-	ID             string          `db:"id,pk"               json:"id"`
-	WorkspaceID    string          `db:"workspace_id,ws"     json:"-"`
-	ServerID       string          `db:"server_id"           json:"serverId"`
-	Tool           string          `db:"tool"                json:"tool"`
-	Status         string          `db:"status"              json:"status"`
-	TriggeredBy    string          `db:"triggered_by"        json:"triggeredBy"`
-	Input          json.RawMessage `db:"input,json"          json:"input,omitempty"`
-	Output         string          `db:"output"              json:"output,omitempty"`
-	ErrorMessage   string          `db:"error_message"       json:"errorMessage,omitempty"`
-	Logs           string          `db:"logs"                json:"logs,omitempty"`
-	ElapsedMs      int64           `db:"elapsed_ms"          json:"elapsedMs"`
-	StartedAt      time.Time       `db:"started_at"          json:"startedAt"`
-	EndedAt        time.Time       `db:"ended_at"            json:"endedAt"`
-	ConversationID string          `db:"conversation_id"     json:"conversationId,omitempty"`
-	MessageID      string          `db:"message_id"          json:"messageId,omitempty"`
-	ToolCallID     string          `db:"tool_call_id"        json:"toolCallId,omitempty"`
-	FlowrunID      string          `db:"flowrun_id"          json:"flowrunId,omitempty"`
-	FlowrunNodeID  string          `db:"flowrun_node_id"     json:"flowrunNodeId,omitempty"`
-	CreatedAt      time.Time       `db:"created_at,created"  json:"createdAt"`
+	ID               string          `db:"id,pk"               json:"id"`
+	WorkspaceID      string          `db:"workspace_id,ws"     json:"-"`
+	ServerID         string          `db:"server_id"           json:"serverId"`
+	Tool             string          `db:"tool"                json:"tool"`
+	Status           string          `db:"status"              json:"status"`
+	TriggeredBy      string          `db:"triggered_by"        json:"triggeredBy"`
+	Input            json.RawMessage `db:"input,json"          json:"input,omitempty"`
+	Output           string          `db:"output"              json:"output,omitempty"`
+	ErrorMessage     string          `db:"error_message"       json:"errorMessage,omitempty"`
+	Logs             string          `db:"logs"                json:"logs,omitempty"`
+	ElapsedMs        int64           `db:"elapsed_ms"          json:"elapsedMs"`
+	StartedAt        time.Time       `db:"started_at"          json:"startedAt"`
+	EndedAt          time.Time       `db:"ended_at"            json:"endedAt"`
+	ConversationID   string          `db:"conversation_id"     json:"conversationId,omitempty"`
+	MessageID        string          `db:"message_id"          json:"messageId,omitempty"`
+	ToolCallID       string          `db:"tool_call_id"        json:"toolCallId,omitempty"`
+	FlowrunID        string          `db:"flowrun_id"          json:"flowrunId,omitempty"`
+	FlowrunNodeID    string          `db:"flowrun_node_id"     json:"flowrunNodeId,omitempty"`
+	FlowrunIteration int             `db:"flowrun_iteration"   json:"flowrunIteration,omitempty"` // loop turn this ran on (F175-M12): (flowrun_id,flowrun_node_id,iteration) joins 1:1 to the frn truth row
+	CreatedAt        time.Time       `db:"created_at,created"  json:"createdAt"`
 }
 
 // CallFilter scopes a call-log query; empty fields are not constrained.

@@ -37,10 +37,11 @@ type InvokeInput struct {
 
 	// Workflow-only (sub-step replay): a flowrun :replay prepends prior completed steps
 	// and records new ones. All nil/empty for a standalone chat/manual invoke.
-	FlowrunID     string
-	FlowrunNodeID string
-	ReplaySteps   []RecordedStep
-	Recorder      StepRecorder
+	FlowrunID        string
+	FlowrunNodeID    string
+	FlowrunIteration int // loop turn (F175-M12); 0 outside a loop
+	ReplaySteps      []RecordedStep
+	Recorder         StepRecorder
 }
 
 // RecordedStep is one completed ReAct step (assistant blocks + tool results) for replay.
@@ -333,12 +334,13 @@ func (s *Service) recordExecution(ctx context.Context, in InvokeInput, a *agentd
 	// otherwise the scheduler's ctx injection covers the plain workflow-dispatch path.
 	// Flowrun 身份：显式 InvokeInput 字段优先（子步重放会传）；否则调度器的 ctx 注入覆盖普通
 	// workflow 派发路径。
-	flowrunID, flowrunNodeID := in.FlowrunID, in.FlowrunNodeID
+	flowrunID, flowrunNodeID, flowrunIter := in.FlowrunID, in.FlowrunNodeID, in.FlowrunIteration
 	if flowrunID == "" {
 		flowrunID, _ = reqctxpkg.GetFlowrunID(ctx)
 	}
 	if flowrunNodeID == "" {
 		flowrunNodeID, _ = reqctxpkg.GetFlowrunNodeID(ctx)
+		flowrunIter, _ = reqctxpkg.GetFlowrunIteration(ctx) // F175-M12: same fallback source as the node id
 	}
 
 	// The full block transcript is this run's self-contained durable record (NOT persisted to the
@@ -362,24 +364,25 @@ func (s *Service) recordExecution(ctx context.Context, in InvokeInput, a *agentd
 	}
 
 	exec := &agentdomain.Execution{
-		ID:             idgenpkg.New("agx"),
-		AgentID:        a.ID,
-		VersionID:      v.ID,
-		ModelID:        recordModelID,
-		Status:         res.Status,
-		TriggeredBy:    triggeredBy,
-		Input:          input,
-		Output:         res.Output,
-		Transcript:     transcript,
-		ErrorMessage:   res.ErrorMsg,
-		ElapsedMs:      res.ElapsedMs,
-		StartedAt:      startedAt,
-		EndedAt:        endedAt,
-		ConversationID: convID,
-		MessageID:      msgID,
-		ToolCallID:     toolCallID,
-		FlowrunID:      flowrunID,
-		FlowrunNodeID:  flowrunNodeID,
+		ID:               idgenpkg.New("agx"),
+		AgentID:          a.ID,
+		VersionID:        v.ID,
+		ModelID:          recordModelID,
+		Status:           res.Status,
+		TriggeredBy:      triggeredBy,
+		Input:            input,
+		Output:           res.Output,
+		Transcript:       transcript,
+		ErrorMessage:     res.ErrorMsg,
+		ElapsedMs:        res.ElapsedMs,
+		StartedAt:        startedAt,
+		EndedAt:          endedAt,
+		ConversationID:   convID,
+		MessageID:        msgID,
+		ToolCallID:       toolCallID,
+		FlowrunID:        flowrunID,
+		FlowrunNodeID:    flowrunNodeID,
+		FlowrunIteration: flowrunIter,
 	}
 
 	wsID, _ := reqctxpkg.GetWorkspaceID(ctx)

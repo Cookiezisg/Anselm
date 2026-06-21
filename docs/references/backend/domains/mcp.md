@@ -29,7 +29,7 @@ MCP server 是**容器实体**：持 N 个可调工具、以常驻进程（stdio
 - **stdio 链**：sandbox `EnsureEnv`（node/python/docker/dotnet 四 runtime）→ `SpawnLongLived`（进程归 sandbox 管）→ infra client 只把管道接进 go-sdk `IOTransport` 走 MCP 握手——**本包不碰进程生命周期**。stderr 进 256KB ring buffer（`StderrTail` 供 triage）。
 - **工具面**：连接后 `tools/list` 缓存为 `ToolDef`（InputSchema **原样**复用为包装工具的 Parameters——我们不造 schema）；全局注册表里每个工具包成 `mcp__<server>__<tool>` 动态工具（`tool/mcp/dynamic.go`）。**chat 消费**：`DynamicTools(ctx)` **per-request** 注进 chat host 的 `search_tools` 排序池（不进静态 `Toolset`/Overview，因 MCP server 是 workspace 域 + 可变）——LLM 经 search_tools 发现、host 把已 discovered 的 offer 进本回合工具集并可调（`chat.Deps.DynamicTools` provider → `NewSearchTools` + `chatHost.Tools`/`TryActivateForTool`，F52）。
 - **进度关联**：go-sdk 的 progress handler 是 session 级全局——per-call token（progSeq 铸造）→ sink 映射把 server 的进度通知关联回发起那次 CallTool，转发到该调用的 sink（chat 的 tool_call progress + entities run 终端 + 限长 logtail 三写）。
-- **调用记账**（`recordCall`）：mcp_calls Log 表，溯源 5 列与其它执行单元对齐（conversation/message/toolCall 从 ctx + **flowrun 2 列**——调度器派发注入）；`logs` 列存 progress 通知、**失败时附 server stderr 尾**（8KiB，server 级、标注可能早于本次调用）；默认 call 超时 180s（MCP 工具可能调 LLM/爬虫，长顶棚把控制权还给 agent）。
+- **调用记账**（`recordCall`）：mcp_calls Log 表，溯源 6 列与其它执行单元对齐（conversation/message/toolCall 从 ctx + **flowrun 3 列**——id/node_id/iteration，调度器派发注入；`flowrun_iteration` 使回边 loop 同节点多轮的审计行可区分、1:1 join frn，F175-M12）；`logs` 列存 progress 通知、**失败时附 server stderr 尾**（8KiB，server 级、标注可能早于本次调用）；默认 call 超时 180s（MCP 工具可能调 LLM/爬虫，长顶棚把控制权还给 agent）。
 
 ## 3. 关键设计决策
 

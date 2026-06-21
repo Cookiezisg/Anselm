@@ -131,25 +131,27 @@ func (s *Service) recordCall(ctx context.Context, serverID, tool string, args js
 	toolCallID, _ := reqctxpkg.GetToolCallID(ctx)
 	flowrunID, _ := reqctxpkg.GetFlowrunID(ctx)
 	flowrunNodeID, _ := reqctxpkg.GetFlowrunNodeID(ctx)
+	flowrunIter, _ := reqctxpkg.GetFlowrunIteration(ctx) // F175-M12: which loop turn produced this row
 
 	call := &mcpdomain.Call{
-		ID:             idgenpkg.New("mcl"),
-		ServerID:       serverID,
-		Tool:           tool,
-		Status:         status,
-		TriggeredBy:    triggeredBy,
-		Input:          args,
-		Output:         result,
-		ErrorMessage:   errMsg,
-		Logs:           logs,
-		ElapsedMs:      endedAt.Sub(startedAt).Milliseconds(),
-		StartedAt:      startedAt,
-		EndedAt:        endedAt,
-		ConversationID: convID,
-		MessageID:      msgID,
-		ToolCallID:     toolCallID,
-		FlowrunID:      flowrunID,
-		FlowrunNodeID:  flowrunNodeID,
+		ID:               idgenpkg.New("mcl"),
+		ServerID:         serverID,
+		Tool:             tool,
+		Status:           status,
+		TriggeredBy:      triggeredBy,
+		Input:            args,
+		Output:           result,
+		ErrorMessage:     errMsg,
+		Logs:             logs,
+		ElapsedMs:        endedAt.Sub(startedAt).Milliseconds(),
+		StartedAt:        startedAt,
+		EndedAt:          endedAt,
+		ConversationID:   convID,
+		MessageID:        msgID,
+		ToolCallID:       toolCallID,
+		FlowrunID:        flowrunID,
+		FlowrunNodeID:    flowrunNodeID,
+		FlowrunIteration: flowrunIter,
 	}
 	wsID, _ := reqctxpkg.GetWorkspaceID(ctx)
 	detached := reqctxpkg.Detached(wsID)

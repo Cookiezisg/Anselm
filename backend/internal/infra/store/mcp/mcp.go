@@ -65,6 +65,7 @@ var Schema = []string{
 		tool_call_id    TEXT NOT NULL DEFAULT '',
 		flowrun_id      TEXT NOT NULL DEFAULT '',
 		flowrun_node_id TEXT NOT NULL DEFAULT '',
+		flowrun_iteration INTEGER NOT NULL DEFAULT 0,
 		created_at      DATETIME NOT NULL
 	)`,
 	`CREATE INDEX IF NOT EXISTS idx_mcl_ws_server ON mcp_calls(workspace_id, server_id, created_at DESC, id DESC)`,

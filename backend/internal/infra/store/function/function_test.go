@@ -298,6 +298,28 @@ func TestExecutions_LogsOnGetNotList(t *testing.T) {
 	}
 }
 
+// TestExecutions_FlowrunIterationRoundTrips pins F175-M12: the new flowrun_iteration column persists
+// and reads back, so an audit row produced on loop turn N joins to the right frn truth row. The four
+// audit stores (function/agent/handler/mcp) share this column; function is representative.
+func TestExecutions_FlowrunIterationRoundTrips(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	now := time.Now().UTC()
+	e := &functiondomain.Execution{
+		ID: "fne_iter", FunctionID: "fn_1", VersionID: "fnv_1",
+		Status: functiondomain.ExecutionStatusOK, TriggeredBy: functiondomain.TriggeredByWorkflow,
+		Input: map[string]any{}, FlowrunID: "fr_1", FlowrunNodeID: "draft", FlowrunIteration: 3,
+		StartedAt: now, EndedAt: now,
+	}
+	if err := s.SaveExecution(ctx, e); err != nil {
+		t.Fatalf("SaveExecution: %v", err)
+	}
+	one, err := s.GetExecutionByID(ctx, "fne_iter")
+	if err != nil || one.FlowrunIteration != 3 || one.FlowrunNodeID != "draft" {
+		t.Fatalf("flowrun_iteration must round-trip (F175-M12): %+v err=%v", one, err)
+	}
+}
+
 // TestListExecutions_RejectsInvalidStatus pins F168-M2 for the execution-list path (agent/handler/mcp
 // stores mirror this exactly): an out-of-enum status is rejected 422 instead of silently empty.
 func TestListExecutions_RejectsInvalidStatus(t *testing.T) {

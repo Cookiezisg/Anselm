@@ -85,6 +85,7 @@ var Schema = []string{
 		tool_call_id    TEXT NOT NULL DEFAULT '',
 		flowrun_id      TEXT NOT NULL DEFAULT '',
 		flowrun_node_id TEXT NOT NULL DEFAULT '',
+		flowrun_iteration INTEGER NOT NULL DEFAULT 0,
 		created_at      DATETIME NOT NULL
 	)`,
 	`CREATE INDEX IF NOT EXISTS idx_hcl_ws_handler ON handler_calls(workspace_id, handler_id, created_at DESC, id DESC)`,

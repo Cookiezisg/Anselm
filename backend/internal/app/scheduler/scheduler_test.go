@@ -33,17 +33,20 @@ type fakeDispatcher struct {
 	failRefs    map[string]bool
 	actionPins  map[string]string // ref → last pinnedVersionID received
 	agentPins   map[string]string
+	actionIters map[string][]int // ref → loop iteration seen in ctx per call (F175-M12)
 }
 
 func newDisp() *fakeDispatcher {
 	return &fakeDispatcher{
 		actionCalls: map[string]int{}, agentCalls: map[string]int{}, failRefs: map[string]bool{},
-		actionPins: map[string]string{}, agentPins: map[string]string{},
+		actionPins: map[string]string{}, agentPins: map[string]string{}, actionIters: map[string][]int{},
 	}
 }
-func (d *fakeDispatcher) RunAction(_ context.Context, ref, pin string, _ map[string]any) (map[string]any, error) {
+func (d *fakeDispatcher) RunAction(ctx context.Context, ref, pin string, _ map[string]any) (map[string]any, error) {
 	d.actionCalls[ref]++
 	d.actionPins[ref] = pin
+	it, _ := reqctxpkg.GetFlowrunIteration(ctx)
+	d.actionIters[ref] = append(d.actionIters[ref], it)
 	if d.failRefs[ref] {
 		return nil, errors.New("action exploded")
 	}
@@ -351,6 +354,46 @@ func TestWalk_LoopWithBackEdge(t *testing.T) {
 	}
 	if !gate0 || !gate1 {
 		t.Fatalf("loop iterations not recorded: gate0=%v gate1=%v", gate0, gate1)
+	}
+}
+
+// TestDispatch_InjectsFlowrunIteration pins F175-M12: the scheduler injects the loop iteration into
+// ctx for each dispatched node, so an action/agent run on loop turns 0,1,… carries the turn its audit
+// row belongs to. A 2-turn loop dispatches draft at iterations [0, 1] (not [0, 0]). Without this,
+// every turn's function/agent/handler/mcp audit row would share the same (flowrun_id, node_id) and be
+// un-joinable to the right flowrun_nodes truth row.
+//
+// TestDispatch_InjectsFlowrunIteration 锁 F175-M12：调度器为每个派发节点把循环轮次注入 ctx，使 0,1,…
+// 轮跑的 action/agent 带上其审计行所属的轮次。2 轮循环派发 draft 在 iteration [0, 1]（非 [0, 0]）。
+func TestDispatch_InjectsFlowrunIteration(t *testing.T) {
+	g := workflowdomain.Graph{
+		Nodes: []workflowdomain.Node{
+			node("start", "trigger", "trg_1", nil),
+			node("draft", "action", "fn_draft", map[string]string{"seed": "start.v"}),
+			node("gate", "control", "ctl_loop", map[string]string{"n": "draft.n"}),
+			node("publish", "action", "fn_pub", map[string]string{"out": "gate.n"}),
+		},
+		Edges: []workflowdomain.Edge{
+			edge("e1", "start", "", "draft"),
+			edge("e2", "draft", "", "gate"),
+			edge("e3", "gate", "done", "publish"),
+			edge("e4", "gate", "retry", "draft"), // back edge
+		},
+	}
+	ctl := &fakeControl{byID: map[string][]controldomain.Branch{
+		"ctl_loop": {
+			{Port: "done", When: "input.n >= 2", Emit: map[string]string{"n": "input.n"}},
+			{Port: "retry", When: "true", Emit: map[string]string{}},
+		},
+	}}
+	disp := newDisp() // fn_draft returns {n: callCount} → 1 (retry, iter 0), 2 (done, iter 1)
+	svc, store := mkSvc(t, g, disp, ctl, nil, "")
+	ctx := ctxWS("ws_1")
+	id := mustRun(t, svc, ctx, map[string]any{"v": "topic"})
+	assertRunStatus(t, store, ctx, id, flowrundomain.StatusCompleted)
+
+	if got := disp.actionIters["fn_draft"]; len(got) != 2 || got[0] != 0 || got[1] != 1 {
+		t.Fatalf("draft must be dispatched at iterations [0 1] (F175-M12), got %v", got)
 	}
 }
 

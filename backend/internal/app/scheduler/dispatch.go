@@ -43,6 +43,7 @@ func (s *Service) runNode(ctx context.Context, run *flowrundomain.FlowRun, senv 
 	// 不是环境身份。
 	ctx = reqctxpkg.SetFlowrunID(ctx, run.ID)
 	ctx = reqctxpkg.SetFlowrunNodeID(ctx, node.ID)
+	ctx = reqctxpkg.SetFlowrunIteration(ctx, iter) // which loop turn (F175-M12): (flowrun_id,node_id,iteration) joins audit row → frn truth
 
 	switch node.Kind {
 	case workflowdomain.NodeKindAction:

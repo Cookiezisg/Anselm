@@ -290,6 +290,7 @@ func (s *Service) recordCall(ctx context.Context, h *handlerdomain.Handler, inst
 	toolCallID, _ := reqctxpkg.GetToolCallID(ctx)
 	flowrunID, _ := reqctxpkg.GetFlowrunID(ctx)
 	flowrunNodeID, _ := reqctxpkg.GetFlowrunNodeID(ctx)
+	flowrunIter, _ := reqctxpkg.GetFlowrunIteration(ctx) // F175-M12: which loop turn produced this row
 
 	// inst is nil on the spawn-failure audit path (no instance was ever obtained) — record an empty
 	// instance id rather than dereferencing nil.
@@ -300,25 +301,26 @@ func (s *Service) recordCall(ctx context.Context, h *handlerdomain.Handler, inst
 	}
 
 	call := &handlerdomain.Call{
-		ID:             idgenpkg.New("hcl"),
-		HandlerID:      h.ID,
-		VersionID:      h.ActiveVersionID,
-		Method:         in.Method,
-		Status:         status,
-		TriggeredBy:    triggeredBy,
-		Input:          input,
-		Output:         result,
-		ErrorMessage:   errMsg,
-		Logs:           logs,
-		ElapsedMs:      endedAt.Sub(startedAt).Milliseconds(),
-		StartedAt:      startedAt,
-		EndedAt:        endedAt,
-		InstanceID:     instanceID,
-		ConversationID: convID,
-		MessageID:      msgID,
-		ToolCallID:     toolCallID,
-		FlowrunID:      flowrunID,
-		FlowrunNodeID:  flowrunNodeID,
+		ID:               idgenpkg.New("hcl"),
+		HandlerID:        h.ID,
+		VersionID:        h.ActiveVersionID,
+		Method:           in.Method,
+		Status:           status,
+		TriggeredBy:      triggeredBy,
+		Input:            input,
+		Output:           result,
+		ErrorMessage:     errMsg,
+		Logs:             logs,
+		ElapsedMs:        endedAt.Sub(startedAt).Milliseconds(),
+		StartedAt:        startedAt,
+		EndedAt:          endedAt,
+		InstanceID:       instanceID,
+		ConversationID:   convID,
+		MessageID:        msgID,
+		ToolCallID:       toolCallID,
+		FlowrunID:        flowrunID,
+		FlowrunNodeID:    flowrunNodeID,
+		FlowrunIteration: flowrunIter,
 	}
 
 	wsID, _ := reqctxpkg.GetWorkspaceID(ctx)
