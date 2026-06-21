@@ -18,14 +18,17 @@ import (
 	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
 )
 
-// ConversationTools constructs the conversation tool group (lazy): search_conversations (recall
-// past content) + manage_conversation (archive/pin THIS thread + state that compaction is automatic).
+// ConversationTools constructs the conversation tool group (lazy): search_conversations (recall past
+// content by query) + list_conversations (faithful cursor-paged enumeration) + manage_conversation
+// (archive/pin/rename THIS thread + state that compaction is automatic). search vs list matters:
+// search is CONTENT recall (misses threads with no matching text), list is the complete enumeration.
 //
-// ConversationTools 构造 conversation 工具组（懒加载）：search_conversations（回忆历史内容）
-// + manage_conversation（归档/置顶本对话 + 声明 compaction 自动）。
+// ConversationTools 构造 conversation 工具组（懒加载）：search_conversations（按查询回忆历史内容）
+// + list_conversations（忠实游标分页枚举）+ manage_conversation（归档/置顶/改名本对话 + 声明 compaction 自动）。
 func ConversationTools(engine *searchapp.Service, mgr Manager) []toolapp.Tool {
 	return []toolapp.Tool{
 		&SearchConversations{engine: engine},
+		&ListConversations{mgr: mgr},
 		&ManageConversation{mgr: mgr},
 	}
 }
@@ -40,7 +43,7 @@ type SearchConversations struct{ engine *searchapp.Service }
 func (t *SearchConversations) Name() string { return "search_conversations" }
 
 func (t *SearchConversations) Description() string {
-	return "Search past conversation history by content (hybrid lexical + semantic). Use it when the user refers to something discussed earlier (\"the plan we talked about\"). Returns per hit: conversationId, title, a snippet of the matching message and its messageId — snippets only, never full transcripts."
+	return "Search past conversation history by CONTENT (hybrid lexical + semantic). Use it when the user refers to something discussed earlier (\"the plan we talked about\"). It is content recall, NOT an enumeration: it only returns threads whose messages match the query, so a conversation absent from the results may simply have no matching text — NEVER present these hits as a complete list of conversations (use list_conversations for \"list/show all my conversations\"). Returns per hit: conversationId, title, a snippet of the matching message and its messageId — snippets only, never full transcripts."
 }
 
 func (t *SearchConversations) Parameters() json.RawMessage {

@@ -12,15 +12,24 @@ import (
 )
 
 // fakeManager records the last Update call so a test can assert the archive/pin field the tool set.
+// It also serves canned rows for List so list_conversations can be exercised.
 type fakeManager struct {
-	gotID string
-	gotIn conversationapp.UpdateInput
-	calls int
+	gotID     string
+	gotIn     conversationapp.UpdateInput
+	calls     int
+	listRows  []*conversationdomain.Conversation
+	listNext  string
+	gotFilter conversationapp.ListFilter
 }
 
 func (f *fakeManager) Update(_ context.Context, id string, in conversationapp.UpdateInput) (*conversationdomain.Conversation, error) {
 	f.gotID, f.gotIn, f.calls = id, in, f.calls+1
 	return &conversationdomain.Conversation{ID: id, Archived: in.Archived != nil && *in.Archived, Pinned: in.Pinned != nil && *in.Pinned}, nil
+}
+
+func (f *fakeManager) List(_ context.Context, filter conversationapp.ListFilter) ([]*conversationdomain.Conversation, string, error) {
+	f.gotFilter = filter
+	return f.listRows, f.listNext, nil
 }
 
 // Test_manageConversation_Schema pins the contract: the action enum + the anti-fabrication

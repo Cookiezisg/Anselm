@@ -22,6 +22,7 @@ var _ toolapp.Tool = (*ManageConversation)(nil)
 // 使测试无需真 repo 即可注入 fake。*conversationapp.Service 满足之；archive/pin 那里已存在（无新 app 方法）。
 type Manager interface {
 	Update(ctx context.Context, id string, in conversationapp.UpdateInput) (*conversationdomain.Conversation, error)
+	List(ctx context.Context, filter conversationapp.ListFilter) ([]*conversationdomain.Conversation, string, error)
 }
 
 // ManageConversation is manage_conversation: archive/pin THIS conversation from the chat seat.
