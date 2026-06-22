@@ -1,0 +1,12 @@
+# slang i18n config. Type-safe strings generated from lib/i18n/*.i18n.json into strings.g.dart via
+# `dart run slang` (committed — deterministic, fresh checkout analyzes directly; NOT build_runner,
+# which clashed on assets). Base = en (fallback for any untranslated key); zh-CN is the bilingual
+# pair. Add a locale by dropping a strings_<locale>.i18n.json file.
+# slang i18n 配置:由 lib/i18n/*.i18n.json 经 `dart run slang` 生成 strings.g.dart(入库、不走 build_runner)。
+# base=en(未译键回退),zh-CN 为双语对;加语言只需放一个 strings_<locale>.i18n.json。
+base_locale: en
+input_directory: lib/i18n
+input_file_pattern: .i18n.json
+output_directory: lib/i18n
+output_file_name: strings.g.dart
+fallback_strategy: base_locale

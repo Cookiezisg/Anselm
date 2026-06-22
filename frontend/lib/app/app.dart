@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../core/design/theme.dart';
 import '../core/platform/window_zoom.dart';
 import '../core/ui/an_shell.dart';
+import '../i18n/strings.g.dart';
 
 /// The root widget — wires the theme onto a MaterialApp whose home is the three-island shell.
 /// App-wide UI zoom shortcuts (Cmd +/-/0) are bound here via [CallbackShortcuts]; an autofocused
@@ -19,7 +20,7 @@ class AnApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Anselm',
+      title: context.t.appName,
       debugShowCheckedModeBanner: false,
       theme: AnTheme.light(),
       home: CallbackShortcuts(

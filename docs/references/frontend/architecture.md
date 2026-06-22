@@ -28,7 +28,9 @@ app/                       # 装配根
 core/                      # 跨切共享层(不依赖上层)
   design/                  # tokens · colors · typography · theme —— 唯一值源,禁内联 px/hex/ms
   platform/                # OS 缝:host_platform(dart:io 收口)· window_zoom(应内 Cmd +/- 缩放)
-  ui/                      # An* 原语:an_island · an_window_controls · an_shell（套件随 gallery 扩充）
+  model/                   # 框架无关纯模型(无 Flutter import):status_state(状态折叠单源)
+  ui/                      # An* 套件:icons · an_brand_icon · an_interactive · an_island · an_window_controls · an_shell（套件随 gallery 扩充,见 design-system.md）
+i18n/                      # slang:en/zh_CN 双语 + 生成 strings.g.dart（dart run slang,入库）
 features/                  # ★中间层:每域 data+state+ui+model（随 feature 落地）
 ```
 **dev 工具**:截图夹具 `test/dev/capture_shell.dart`(无头渲染 PNG 看效果);产物 `test/dev/out/` **gitignore**。
@@ -37,11 +39,12 @@ features/                  # ★中间层:每域 data+state+ui+model（随 featu
 
 `app → features → core`。**features 互不依赖**(跨片走 core provider / 导航 intent);`core` 不依赖上层。UI 只用 `core/ui` + `core/design` 组合,**禁内联配色/度量**。
 
-## 4. 设计系统（`core/design`，单一值源）
+## 4. 设计系统 + UI 套件（`core/design` + `core/ui`）
 
-- `tokens.dart`(主题无关:`AnSpace`/`AnRadius`/`AnSize`/`AnMotion`)· `colors.dart`(`AnColors` ThemeExtension,明暗双值 + lerp,值镜像 demo `tokens.css`)· `typography.dart`(`AnText`,**打包 MiSans 变量字体**)· `theme.dart`(装配 `ThemeData`)。
+- 令牌(`core/design`,单一值源):`tokens.dart`(`AnSpace`/`AnRadius`/`AnSize`/`AnMotion`)· `colors.dart`(`AnColors` ThemeExtension,明暗双值 + lerp,镜像 demo `tokens.css`)· `typography.dart`(`AnText`)· `theme.dart`(`ThemeData`)。
 - **单色 chrome + 功能色**:无装饰强调色(`accent`=墨);保留状态语义(ok/warn/danger)。
-- **字体**:`MiSans`(Latin + 简体中文一套变量字体)**随 app 打包**(`assets/fonts/MiSansVF.ttf`)→ 全平台确定渲染。
+- **字体**:两套**随包变量字体**(全平台确定渲染):UI=`MiSans`(Latin+简中)· 代码=`JetBrains Mono`(`assets/fonts/`)。
+- **套件 + i18n**:An\* 组件 + 图标(Lucide)/品牌图/状态折叠/交互基座 + slang i18n —— 详见 [`design-system.md`](design-system.md)(随套件逐组填充)。
 
 ## 5. 三岛 shell 骨架（`core/ui/an_shell.dart`）
 
@@ -54,7 +57,7 @@ features/                  # ★中间层:每域 data+state+ui+model（随 featu
 
 - 工具链 = **mise**(go + flutter,仓库根 `mise.toml`)。
 - **三种启动**:`make demo`(真形态 + fixture、零后端)· `make gallery`(组件画廊,UI 套件落地后)· `make app`(后端 sidecar)。
-- 门禁 `make verify` = `flutter analyze` 净 + `flutter test` 绿(`make fe-verify` 含 codegen,待 freezed/slang 接入)。
+- 门禁 `make verify` = codegen(`dart run slang`)+ `flutter analyze` 净 + `flutter test` 绿。codegen 产物入库(slang `strings.g.dart` deterministic;freezed 待契约层再接)。
 
 ## 7. 文档纪律
 

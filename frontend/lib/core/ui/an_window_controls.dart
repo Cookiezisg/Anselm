@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../i18n/strings.g.dart';
 import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
 import '../platform/host_platform.dart';
+import 'an_brand_icon.dart';
 
 /// The top-left window-controls zone of the left island's chrome bar.
 ///
@@ -28,17 +30,9 @@ class AnWindowControls extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Placeholder mark — real logo from brand/ to be bundled later. 占位标,真 logo 待打包。
-          Container(
-            width: 18,
-            height: 18,
-            decoration: BoxDecoration(
-              color: c.ink,
-              borderRadius: BorderRadius.circular(AnRadius.tag),
-            ),
-          ),
+          const AnBrandIcon.anselm(size: AnBrandSize.sm),
           const SizedBox(width: AnSpace.s8),
-          Text('Anselm', style: AnText.strong.copyWith(color: c.ink)),
+          Text(context.t.appName, style: AnText.strong.copyWith(color: c.ink)),
         ],
       ),
     );

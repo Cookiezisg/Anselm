@@ -23,6 +23,18 @@ dependencies:
   scaled_app: ^2.3.1
   # Lightweight key/value persistence (zoom level, window prefs). 轻量持久化(缩放档/窗口偏好)。
   shared_preferences: ^2.5.0
+  # UI glyphs — the whole Lucide set as IconData. The demo vendors the same set; we use the
+  # maintained package rather than re-vendoring (原则 #8). Semantic alias map = core/ui/icons.dart.
+  # UI 图标=整组 Lucide;用成熟包而非重新 vendored,语义别名表在 core/ui/icons.dart。
+  lucide_icons_flutter: ^3.1.14+2
+  # Vector rendering for the bundled brand mark (assets/brand) + inline provider SVGs (currentColor).
+  # 矢量渲染:品牌标 + 内联 provider SVG(随 ink 着色)。
+  flutter_svg: ^2.3.0
+  # i18n — slang: type-safe `context.t.<key>` from lib/i18n/*.i18n.json. NO hardcoded CN/EN in code
+  # (CLAUDE.md 前端守则). Generated via `dart run slang` (NOT build_runner — avoids the asset clash).
+  # i18n=slang:类型安全 t.<key>,严禁硬编码中英文;`dart run slang` 生成(不走 build_runner)。
+  slang: ^4.16.0
+  slang_flutter: ^4.16.0
 
 dev_dependencies:
   flutter_test:
@@ -31,9 +43,18 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  # Bundled UI font — MiSans VF (Latin + Simplified Chinese in one variable face), so the
-  # bilingual UI renders deterministically on every machine. See core/design/typography.dart.
+  # Bundled brand mark — the app icon SVG (pixel-F squircle), rendered in-UI by AnBrandIcon.
+  # 随包品牌标——app 图标 SVG,AnBrandIcon 在 UI 内渲染。
+  assets:
+    - assets/brand/
+  # Bundled fonts so the bilingual UI + code render deterministically on every machine (no drift
+  # from whatever is installed). MiSans VF = UI face (Latin + Simplified Chinese); JetBrains Mono =
+  # code face. Both variable. See core/design/typography.dart.
+  # 随包字体,每台机器渲染同一字面:MiSans VF=UI(Latin+简中);JetBrains Mono=代码。皆变量字体。
   fonts:
     - family: MiSans
       fonts:
         - asset: assets/fonts/MiSansVF.ttf
+    - family: JetBrains Mono
+      fonts:
+        - asset: assets/fonts/JetBrainsMono.ttf

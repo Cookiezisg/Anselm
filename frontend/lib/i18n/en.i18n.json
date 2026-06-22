@@ -1,0 +1,10 @@
+{
+  "appName": "Anselm",
+  "status": {
+    "idle": "Idle",
+    "run": "Running",
+    "wait": "Waiting",
+    "err": "Failed",
+    "done": "Done"
+  }
+}

@@ -23,7 +23,7 @@
 
 - **domains/**（20 篇）：function · handler · agent · workflow · trigger · control · approval · skill · mcp · document · chat · messages · conversation · subagent · attachment · memory · todo · relation · search · support-services（十一微域合篇）
 - **foundation/**（8 篇）：orm · reqctx · scheduler-flowrun（durable 引擎）· loop（ReAct）· stream-llm · sandbox（含 envfix）· platform-pkgs · bootstrap
-- **frontend/**（ADR 0004，**从 0 重建中**）：[architecture](references/frontend/architecture.md)（第 0 篇，已落:骨架 + 设计系统 + 三岛空壳）;design-system / shell / contract / sse-gateway 随对应代码(gallery → features)逐步填充
+- **frontend/**（ADR 0004，**从 0 重建中**）：[architecture](references/frontend/architecture.md)（第 0 篇:骨架 + 三岛空壳）· [design-system](references/frontend/design-system.md)（设计令牌 + An* 套件:G0 地基已落,G1–G6 逐组填充）;shell / contract / sse-gateway 随对应代码逐步填充
 
 ## 权威层级
 

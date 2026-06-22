@@ -14,9 +14,9 @@ abstract final class AnText {
   static const List<String> uiFallback = [
     '.AppleSystemUIFont', 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', 'Noto Sans', 'sans-serif',
   ];
-  static const String monoFamily = 'SF Mono';
+  static const String monoFamily = 'JetBrains Mono'; // BUNDLED (assets/fonts) — deterministic code face 随包,代码字面确定
   static const List<String> monoFallback = [
-    'SFMono-Regular', 'JetBrains Mono', 'Menlo', 'Consolas', 'monospace',
+    'SF Mono', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace',
   ];
 
   static const TextStyle h1 = TextStyle(

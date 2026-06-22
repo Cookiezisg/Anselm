@@ -1,0 +1,10 @@
+{
+  "appName": "Anselm",
+  "status": {
+    "idle": "空闲",
+    "run": "运行中",
+    "wait": "等待",
+    "err": "失败",
+    "done": "完成"
+  }
+}
