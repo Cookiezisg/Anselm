@@ -45,6 +45,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	String get appName => 'Anselm';
 
 	late final Translations$status$en status = Translations$status$en.internal(_root);
+	late final Translations$action$en action = Translations$action$en.internal(_root);
 }
 
 // Path: status
@@ -71,6 +72,24 @@ class Translations$status$en {
 	String get done => 'Done';
 }
 
+// Path: action
+class Translations$action$en {
+	Translations$action$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Edit'
+	String get edit => 'Edit';
+
+	/// en: 'Cancel'
+	String get cancel => 'Cancel';
+
+	/// en: 'Save'
+	String get save => 'Save';
+}
+
 /// The flat map containing all translations for locale <en>.
 /// Only for edge cases! For simple maps, use the map function of this library.
 ///
@@ -85,6 +104,9 @@ extension on Translations {
 			'status.wait' => 'Waiting',
 			'status.err' => 'Failed',
 			'status.done' => 'Done',
+			'action.edit' => 'Edit',
+			'action.cancel' => 'Cancel',
+			'action.save' => 'Save',
 			_ => null,
 		};
 	}

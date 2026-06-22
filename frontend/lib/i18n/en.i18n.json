@@ -6,5 +6,10 @@
     "wait": "Waiting",
     "err": "Failed",
     "done": "Done"
+  },
+  "action": {
+    "edit": "Edit",
+    "cancel": "Cancel",
+    "save": "Save"
   }
 }

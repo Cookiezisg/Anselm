@@ -29,8 +29,9 @@ core/                      # 跨切共享层(不依赖上层)
   design/                  # tokens · colors · typography · theme —— 唯一值源,禁内联 px/hex/ms
   platform/                # OS 缝:host_platform(dart:io 收口)· window_zoom(应内 Cmd +/- 缩放)
   model/                   # 框架无关纯模型(无 Flutter import):status_state(状态折叠单源)
-  ui/                      # An* 套件:icons · an_brand_icon · an_interactive · an_island · an_window_controls · an_shell（套件随 gallery 扩充,见 design-system.md）
+  ui/                      # An* 套件:G0 地基(icons/brand/interactive/tone)+ G1 控件(status_dot/badge/button/input/dropdown/popover…)+ 三岛壳;桶=ui.dart（随组扩充,见 design-system.md）
 i18n/                      # slang:en/zh_CN 双语 + 生成 strings.g.dart（dart run slang,入库）
+dev/                       # dev 工具:gallery/（make gallery 组件画廊,双栏目录看每个 An* 全态）
 features/                  # ★中间层:每域 data+state+ui+model（随 feature 落地）
 ```
 **dev 工具**:截图夹具 `test/dev/capture_shell.dart`(无头渲染 PNG 看效果);产物 `test/dev/out/` **gitignore**。
@@ -56,7 +57,7 @@ features/                  # ★中间层:每域 data+state+ui+model（随 featu
 ## 6. 工具链与门禁
 
 - 工具链 = **mise**(go + flutter,仓库根 `mise.toml`)。
-- **三种启动**:`make demo`(真形态 + fixture、零后端)· `make gallery`(组件画廊,UI 套件落地后)· `make app`(后端 sidecar)。
+- **三种启动**:`make demo`(真形态 + fixture、零后端)· `make gallery`(组件画廊,看每个 An* 全态)· `make app`(后端 sidecar)。
 - 门禁 `make verify` = codegen(`dart run slang`)+ `flutter analyze` 净 + `flutter test` 绿。codegen 产物入库(slang `strings.g.dart` deterministic;freezed 待契约层再接)。
 
 ## 7. 文档纪律

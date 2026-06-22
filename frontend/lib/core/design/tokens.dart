@@ -14,6 +14,7 @@ import 'package:flutter/widgets.dart';
 abstract final class AnSpace {
   static const double s2 = 2;
   static const double s4 = 4;
+  static const double s6 = 6; // gap-tight: low-weight inline gap (icon↔label, dot↔label) 紧凑行内间距
   static const double s8 = 8; // inline gap + the shell's island padding/gap 行内间距 + 岛内距/间距
   static const double s12 = 12;
   static const double s16 = 16;
@@ -45,7 +46,16 @@ abstract final class AnSize {
   static const double iconSm = 12;
   static const double iconLg = 20;
   static const double dot = 7;
+  static const double dotPulse = 5; // run-status breath expansion radius 呼吸外扩半径
   static const double hairline = 1;
+
+  // Primitive control metrics (the demo's PRIMITIVE METRICS group). 原语控件度量。
+  static const double btnPadX = 14; // text-button horizontal optical pad 文本钮水平光学内距
+  static const double btnPadXSm = 10; // small-button horizontal pad 小钮水平内距
+  static const double badge = 22; // status/tag badge visual height 徽章视觉高度
+  static const double badgePadX = 9; // badge horizontal pad 徽章水平内距
+  static const double inputMin = 180; // single-line input min width 单行输入最小宽
+  static const double block = 280; // inspector 2-col min track + badge max-width 检查器列 + 徽章最大宽
 
   // Three-island layout columns. The LEFT island is elastic (draggable, 240–400, default 320);
   // the RIGHT island is fixed; the ocean is the flex remainder whose content column is elastic

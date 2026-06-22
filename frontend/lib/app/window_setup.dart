@@ -19,12 +19,13 @@ import '../core/platform/host_platform.dart';
 ///
 /// 用对的包做对的事(原则 #8):window_manager 管尺寸(scale 正确、修掉 resize ×2 炸开);
 /// macos_window_utils 只管外观(无边框 + 加高标题栏让红绿灯居中可点)。Win/Linux 暂 no-op。
-Future<void> initWindow() async {
+Future<void> initWindow({String? title}) async {
   WidgetsFlutterBinding.ensureInitialized();
   if (!HostPlatform.isMacOS) return;
 
   await windowManager.ensureInitialized();
   await WindowManipulator.initialize();
+  if (title != null) await windowManager.setTitle(title);
 
   // CHROME (macos_window_utils): frameless white + taller title bar → clickable centered lights.
   await WindowManipulator.makeTitlebarTransparent();

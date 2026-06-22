@@ -15,6 +15,7 @@ RUN := mise exec --
 help:
 	@echo "Anselm 前端（Flutter）— 在 frontend/ 下:"
 	@echo "  启动:  make demo     真 app 形态 + fixture、零后端"
+	@echo "         make gallery  组件画廊（看每个 An* 全态）"
 	@echo "         make app      真 app + 后端"
 	@echo "  开发:  make setup    拉依赖（flutter pub get）"
 	@echo "         make gen      codegen（dart run slang → i18n strings.g.dart）"
@@ -50,8 +51,12 @@ verify:
 demo:
 	@LANG=en_US.UTF-8 $(RUN) flutter run -d macos
 
+# gallery — 组件画廊（dev/gallery_main.dart）：双栏目录看每个 An* 组件全态。
+gallery:
+	@LANG=en_US.UTF-8 $(RUN) flutter run -d macos -t lib/dev/gallery_main.dart
+
 # app — 真 app + 后端 sidecar（后续接 backend）。
 app:
 	@LANG=en_US.UTF-8 $(RUN) flutter run -d macos
 
-.PHONY: help setup gen analyze test verify demo app
+.PHONY: help setup gen analyze test verify demo gallery app

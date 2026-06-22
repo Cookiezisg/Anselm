@@ -41,6 +41,7 @@ class TranslationsZhCn extends Translations with BaseTranslations<AppLocale, Tra
 	// Translations
 	@override String get appName => 'Anselm';
 	@override late final _Translations$status$zh_CN status = _Translations$status$zh_CN._(_root);
+	@override late final _Translations$action$zh_CN action = _Translations$action$zh_CN._(_root);
 }
 
 // Path: status
@@ -57,6 +58,18 @@ class _Translations$status$zh_CN extends Translations$status$en {
 	@override String get done => '完成';
 }
 
+// Path: action
+class _Translations$action$zh_CN extends Translations$action$en {
+	_Translations$action$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get edit => '编辑';
+	@override String get cancel => '取消';
+	@override String get save => '保存';
+}
+
 /// The flat map containing all translations for locale <zh-CN>.
 /// Only for edge cases! For simple maps, use the map function of this library.
 ///
@@ -71,6 +84,9 @@ extension on TranslationsZhCn {
 			'status.wait' => '等待',
 			'status.err' => '失败',
 			'status.done' => '完成',
+			'action.edit' => '编辑',
+			'action.cancel' => '取消',
+			'action.save' => '保存',
 			_ => null,
 		};
 	}

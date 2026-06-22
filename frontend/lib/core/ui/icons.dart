@@ -22,6 +22,7 @@ abstract final class AnIcons {
   static const IconData wrap = LucideIcons.wrapText;
   static const IconData expand = LucideIcons.maximize2;
   static const IconData search = LucideIcons.search;
+  static const IconData check = LucideIcons.check;
 
   // ── entities / graph nodes / mounts ──
   static const IconData function = LucideIcons.squareFunction;
@@ -73,7 +74,7 @@ abstract final class AnIcons {
   /// 语义键 → 字形,供数据驱动解析(后端节点 kind、派生的工具图标)。调用处优先用上面的具名字段。
   static const Map<String, IconData> _byKey = {
     'chevr': chevronRight, 'chevd': chevronDown, 'more': more, 'grip': grip,
-    'close': close, 'sliders': sliders, 'wrap': wrap, 'expand': expand, 'search': search,
+    'close': close, 'sliders': sliders, 'wrap': wrap, 'expand': expand, 'search': search, 'check': check,
     'function': function, 'handler': handler, 'agent': agent, 'workflow': workflow,
     'trigger': trigger, 'control': control, 'action': action, 'approval': approval,
     'mcp': mcp, 'skill': skill, 'doc': doc, 'entities': entities,

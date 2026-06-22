@@ -41,17 +41,19 @@ audience: [human, ai]
 | **AnInteractive** | `core/ui/an_interactive.dart` | 交互基座:hover/focus/pressed/disabled 统一态(`Set<WidgetState>` 喂 builder),指针 + 键盘(Enter/Space)激活;**禁用时不可聚焦、指针/按键都不激活**(对齐 demo disabled-passthrough 门)。取代手搓 MouseRegion。 |
 | **i18n（slang）** | `lib/i18n/` | 类型安全 `context.t.<key>`,`en`(base)+ `zh_CN` 双语;`TranslationProvider` 裹 app 根、`LocaleSettings.useDeviceLocaleSync()` 选语言。生成 `strings.g.dart` 经 `dart run slang`(**入库**,不走 build_runner)。 |
 
-## 4. UI 套件路线（G0 已落，G1–G6 待建，逐组同提交填本表）
+## 4. UI 套件路线（G0–G1 已落，G2–G6 待建，逐组同提交填本表）
 
 | 组 | 组件 | 状态 |
 |---|---|---|
 | G0 地基设施 | AnIcons · AnBrandIcon · AnStatus/AnTone · AnInteractive · i18n | ✅ 已落 |
-| G1 基础控件 | StatusDot · Badge · GroupLabel · Button · Input · Dropdown · ActionGroup · EditAffordance | ⏳ |
+| G1 基础控件 | StatusDot · Badge(+Tone 色) · GroupLabel · Button · Input · ActionGroup · EditAffordance · Dropdown(+ **AnPopover** 浮层基座) | ✅ 已落 |
 | G2 反馈态 | Skeleton · State · Callout · Stepper · Tags · Typewriter | ⏳ |
 | G3 行与卡 | Row · RowDetail · Card · InfoCard · Section · Field · Kv · ThinTable · RefPill | ⏳ |
 | G5 代码与数据 | CodeEditor · JsonTree · VersionDiff | ⏳ |
 | G4 导航与壳 | Tabs · Toolbar · OceanHeader · RightIsland · SidebarList · Page · WireList | ⏳ |
-| G6 浮层 | Floating · Menu · Dialog · Toast | ⏳ |
+| G6 浮层 | Menu · Dialog · Toast（复用 G1 的 **AnPopover** 基座） | ⏳ |
+
+**G1 要点**:Button/Dropdown/EditAffordance 等可交互件都搭在 `AnInteractive` 上(态/激活/禁用一致);`AnInput` 用 `TextField`,**需 Material 祖先**(app 壳与 gallery 都提供)。`AnDropdown` 未做"桩"——已用 **AnPopover**(Flutter `OverlayPortal` + `CompositedTransformFollower`,点外/Esc 关)落地真菜单;此基座原计划在 G6,因 G3 的 Field/Kv 也需提早到 G1(G6 的 Menu/Dialog/Toast 复用它)。`AnTone→色`映射在 `core/ui/tone.dart`。
 
 **推迟到各自 feature**(耦合 SSE/reducer/图模型,非套件):Chat 的 BlockTree/Composer/ApprovalGate/EntityWorkspace · 图的 GraphCanvas/KindLegend · 调度的 NodeGantt/RunBoard · 文档的 DocEditor/Outline。
 
