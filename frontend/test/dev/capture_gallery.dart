@@ -25,9 +25,7 @@ Future<void> _load(String family, String path) async {
 
 void main() {
   setUpAll(() async {
-    // System SF (the real UI face) so the capture matches the live app's Latin rendering.
-    await _load('.AppleSystemUIFont', '/System/Library/Fonts/SFNS.ttf');
-    await _load('MiSans', 'assets/fonts/MiSansVF.ttf'); // CJK fallback
+    await _load('MiSans', 'assets/fonts/MiSansVF.ttf'); // bundled UI face (VF; capture may show default weight)
     await _load('JetBrains Mono', 'assets/fonts/JetBrainsMono.ttf');
     // Thin Lucide weight (matches AnIcons._family). 细笔画 Lucide,与 AnIcons._family 对齐。
     final cache = '${Platform.environment['HOME']}/.pub-cache/hosted/pub.dev';

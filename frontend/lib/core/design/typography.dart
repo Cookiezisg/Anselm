@@ -1,50 +1,52 @@
 import 'package:flutter/material.dart';
 
-/// Typography — a modular scale anchored on a 13px UI body (everything else derives). [uiFamily] =
-/// the OS SYSTEM UI font (SF Pro on macOS) — exactly what the demo's `"MiSans", -apple-system, …`
-/// stack resolves to on a Mac without MiSans installed, i.e. the light, native Apple type the
-/// design targets. Bundled MiSans + system PingFang SC are the CJK fallback (Latin uses the system
-/// face). Colorless on purpose: the theme applies ink once and it inherits, so light/dark just work.
+/// Typography — a modular scale anchored on a 13px UI body. [uiFamily] = BUNDLED MiSans, a variable
+/// font (wght axis 150–700) covering Latin + Simplified Chinese, so the bilingual UI renders the
+/// same on every machine (the demo's intent). We render it LIGHT — body at ExtraLight (w200) — to
+/// shed the heavy look MiSans has at Regular; the weight ramp climbs from there. Colorless on
+/// purpose: the theme applies ink once and it inherits, so light/dark just work.
 ///
-/// 字体——模数阶梯,锚在 13px 正文。[uiFamily]=OS 系统 UI 字体(macOS 上即 SF Pro)——正是 demo 字体栈在未装
-/// MiSans 的 Mac 上落到的 -apple-system,轻盈原生、设计本意。打包的 MiSans + 系统 PingFang SC 兜 CJK(Latin 用系统字)。
+/// 字体——模数阶梯,锚 13px 正文。[uiFamily]=**随包 MiSans**(变量字体,wght 150–700,Latin+简中),每台机器同字面
+/// (demo 本意)。整体**压细**——正文 ExtraLight(w200),摆脱 MiSans 在 Regular 下的厚重;字重阶梯由此上爬。
 abstract final class AnText {
-  static const String uiFamily = '.AppleSystemUIFont'; // SF on macOS; non-Apple falls to the chain 苹果系=SF,他平台走回退
+  static const String uiFamily = 'MiSans'; // BUNDLED VF (assets/fonts/MiSansVF.ttf), rendered light 随包变量字体,渲染压细
   static const List<String> uiFallback = [
-    'MiSans', 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', 'Noto Sans', 'sans-serif',
+    'PingFang SC', 'Microsoft YaHei', 'Segoe UI', 'Noto Sans', 'sans-serif',
   ];
   static const String monoFamily = 'JetBrains Mono'; // BUNDLED (assets/fonts) — deterministic code face 随包,代码字面确定
   static const List<String> monoFallback = [
     'SF Mono', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace',
   ];
 
+  // Weight ramp anchored on ExtraLight body (w200). MiSans VF maps FontWeight → its wght axis.
+  // 字重阶梯锚在 ExtraLight 正文(w200);MiSans 变量字体把 FontWeight 映射到 wght 轴。
   static const TextStyle h1 = TextStyle(
     fontFamily: uiFamily, fontFamilyFallback: uiFallback,
-    fontSize: 32, height: 1.25, fontWeight: FontWeight.w700, letterSpacing: -0.5,
+    fontSize: 32, height: 1.25, fontWeight: FontWeight.w500, letterSpacing: -0.5,
   );
   static const TextStyle h2 = TextStyle(
     fontFamily: uiFamily, fontFamilyFallback: uiFallback,
-    fontSize: 24, height: 1.25, fontWeight: FontWeight.w600, letterSpacing: -0.3,
+    fontSize: 24, height: 1.25, fontWeight: FontWeight.w500, letterSpacing: -0.3,
   );
   static const TextStyle h3 = TextStyle(
     fontFamily: uiFamily, fontFamilyFallback: uiFallback,
-    fontSize: 20, height: 1.3, fontWeight: FontWeight.w600, letterSpacing: -0.2,
+    fontSize: 20, height: 1.3, fontWeight: FontWeight.w500, letterSpacing: -0.2,
   );
   static const TextStyle strong = TextStyle(
     fontFamily: uiFamily, fontFamilyFallback: uiFallback,
-    fontSize: 16, height: 1.4, fontWeight: FontWeight.w600,
+    fontSize: 16, height: 1.4, fontWeight: FontWeight.w400, // emphasis = Regular over ExtraLight body 强调=Regular
   );
   static const TextStyle body = TextStyle(
     fontFamily: uiFamily, fontFamilyFallback: uiFallback,
-    fontSize: 13, height: 1.4, fontWeight: FontWeight.w400, // the UI anchor 正文锚
+    fontSize: 13, height: 1.4, fontWeight: FontWeight.w200, // the UI anchor — ExtraLight 正文锚·ExtraLight
   );
   static const TextStyle label = TextStyle(
     fontFamily: uiFamily, fontFamilyFallback: uiFallback,
-    fontSize: 13, height: 1.4, fontWeight: FontWeight.w500,
+    fontSize: 13, height: 1.4, fontWeight: FontWeight.w300, // Light 标签·Light
   );
   static const TextStyle meta = TextStyle(
     fontFamily: uiFamily, fontFamilyFallback: uiFallback,
-    fontSize: 12, height: 1.4, fontWeight: FontWeight.w400, // muted secondary 次级
+    fontSize: 12, height: 1.4, fontWeight: FontWeight.w300, // muted secondary — Light for small-size legibility 次级·Light(小字可读)
   );
   static const TextStyle mono = TextStyle(
     fontFamily: monoFamily, fontFamilyFallback: monoFallback,

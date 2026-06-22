@@ -77,7 +77,7 @@ class _SaveButton extends StatelessWidget {
             color: active ? c.accentSoft : c.accentSoft.withValues(alpha: 0),
             borderRadius: BorderRadius.circular(AnRadius.button),
           ),
-          child: Text(label, style: AnText.meta.copyWith(color: c.accent, fontWeight: FontWeight.w600)),
+          child: Text(label, style: AnText.meta.copyWith(color: c.accent, fontWeight: FontWeight.w500)),
         );
       },
     );

@@ -85,7 +85,9 @@ class AnButton extends StatelessWidget {
 
             late final Color bg;
             late final Color fg;
-            var weight = FontWeight.w500;
+            // Lighter than before to sit over the ExtraLight body — Regular label, Medium CTA.
+            // 比原来轻,配 ExtraLight 正文:普通 Regular、主按钮 Medium。
+            var weight = FontWeight.w400;
             switch (variant) {
               // Resting bg = the hover colour at alpha 0 (NOT transparent-black) so the hover fade
               // is a pure alpha lerp — no dark midpoint flash. 静止底=hover 色的 0 透明度,淡入纯 alpha、无暗闪。
@@ -95,7 +97,7 @@ class AnButton extends StatelessWidget {
               case AnButtonVariant.primary:
                 fg = c.onAccent;
                 bg = active ? c.accentHover : c.accent;
-                weight = FontWeight.w600;
+                weight = FontWeight.w500;
               case AnButtonVariant.danger:
                 fg = c.danger;
                 bg = active ? c.dangerSoft : c.dangerSoft.withValues(alpha: 0);

@@ -22,7 +22,7 @@ class AnGroupLabel extends StatelessWidget {
         text.toUpperCase(),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: AnText.meta.copyWith(color: context.colors.inkFaint, fontWeight: FontWeight.w600),
+        style: AnText.meta.copyWith(color: context.colors.inkFaint, fontWeight: FontWeight.w500),
       ),
     );
   }
