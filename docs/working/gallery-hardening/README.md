@@ -19,7 +19,7 @@ landed-into:
 ## 执行顺序（批次）
 
 - **批 1 · P0 真破洞**（源码先修，最高优先）— ✅ 已修验（field/kv wrap · thin-table minmax · json-tree 环+cap · model-picker escape · dialog 转义；block-tree/doc-editor 经核验 text 路径本就转义、html 是信任契约，inject 对照 specimen 留批 4）
-- **批 2 · 内化 3 原语**（单一作者地基，可与批 1 并行）— ☐
+- **批 2 · 内化 3 原语 + feature 迁移 + 登记** — ✅（2a 建 an-card/an-brand-icon/an-stepper + 画廊 16 specimen · 2b onboarding 迁移[逮到 an-card 宿主监听真 bug] · 2c settings 迁移[mk-*/mcp-* 卡框→an-card、图标→an-brand-icon，删 ensureSettingsStyle 卡/图标 CSS] + PATTERNS 登记 3 原语 + 清 an-segmented 漂移；.mk-add 虚线钮 + .an-pp provider 浮层留作 feature 专属，未迁）
 - **批 3 · P1 批量**（截断簇 CSS + 逻辑簇）— ☐
 - **批 4 · 画廊补全**（五电池 specimen + 登记缺口 + 命令式 demo-trigger）— ☐
 - **批 5 · P2 毛刺 + Playwright 全矩阵 + 对抗复审**— ☐

@@ -63,12 +63,8 @@ window.FEATURE.settings = Object.assign(window.FEATURE.settings || {}, {
         .an-pp-ico { flex: none; width: var(--lead); height: var(--lead); display: grid; place-items: center; color: var(--ink); font-size: var(--lead); }
         .an-pp-ico svg { width: 1em; height: 1em; display: block; }
         .an-pp-name { min-width: var(--zero); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        /* 卡片簇 */
+        /* 卡框/图标已内化为 an-card / an-brand-icon 原语；此处仅留卡内【内容布局】 + .mk-add 虚线建钮 + .an-pp provider 浮层（未迁 AnMenu） */
         .mk-list { display: flex; flex-direction: column; gap: var(--sp-2); }
-        .mk-card { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); box-shadow: inset 0 0 0 var(--hairline) var(--line); border-radius: var(--r-chip); background: var(--island); }
-        .mk-ico { flex: none; width: var(--ctl); height: var(--ctl); display: grid; place-items: center; color: var(--ink); font-size: calc(var(--lead) + var(--sp-1)); }
-        .mk-ico.is-managed { color: var(--accent); }
-        .mk-ico svg { width: 1em; height: 1em; display: block; }
         .mk-mid { min-width: var(--zero); flex: 1; display: flex; flex-direction: column; gap: calc(var(--grid) / 2); }
         .mk-name { display: flex; align-items: center; gap: var(--gap-tight); min-width: var(--zero); }
         .mk-name .t { font-size: var(--t-body); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -76,23 +72,17 @@ window.FEATURE.settings = Object.assign(window.FEATURE.settings || {}, {
         .mk-right { flex: none; display: flex; align-items: center; gap: var(--sp-3); }
         .mk-add { display: flex; align-items: center; justify-content: center; gap: var(--gap-tight); width: 100%; min-height: var(--island-head); box-sizing: border-box; border: var(--hairline) dashed var(--line-strong); border-radius: var(--r-chip); background: transparent; color: var(--ink-3); cursor: pointer; font-size: var(--t-body); transition: background var(--d-fast), border-color var(--d-fast), color var(--d-fast); }
         .mk-add:hover { background: var(--island-2); border-color: var(--ink-3); color: var(--ink-2); }
-        .mk-scn { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); box-shadow: inset 0 0 0 var(--hairline) var(--line); border-radius: var(--r-chip); background: var(--island); }
         .mk-scn-top { display: flex; align-items: center; gap: var(--sp-2); }
         .mk-scn-cfg { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; padding-top: var(--sp-2); box-shadow: inset 0 var(--hairline) 0 var(--line); }
         .mk-knob { display: flex; align-items: center; gap: var(--gap-tight); }
         .mk-knob > .k { font-size: var(--t-meta); color: var(--ink-3); }
-        .mk-form { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-4); box-shadow: inset 0 0 0 var(--hairline) var(--accent-line); border-radius: var(--r-chip); background: var(--island); }
-        /* MCP 市场卡（双列）+ 已装卡 */
+        /* MCP 市场（双列网格）+ 已装：卡框/图标走 an-card / an-brand-icon，此处仅卡内内容布局 */
         .mcp-grid { display: grid; grid-template-columns: repeat(2, minmax(var(--zero), 1fr)); gap: var(--sp-2); }
-        .mcp-card { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); box-shadow: inset 0 0 0 var(--hairline) var(--line); border-radius: var(--r-chip); background: var(--island); }
         .mcp-top { display: flex; align-items: center; gap: var(--sp-2); min-width: var(--zero); }
-        .mcp-ico { flex: none; width: var(--ctl); height: var(--ctl); border-radius: var(--r-tag); overflow: hidden; background: var(--island-3); }
-        .mcp-ico img { width: 100%; height: 100%; object-fit: cover; display: block; }
         .mcp-nm { flex: 1; min-width: var(--zero); font-size: var(--t-body); font-weight: 500; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .mcp-desc { font-size: var(--t-meta); color: var(--ink-2); line-height: var(--lh-ui); min-height: calc(var(--t-meta) * var(--lh-ui) * 2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         .mcp-foot { display: flex; align-items: center; gap: var(--sp-2); }
         .mcp-meta { flex: 1; min-width: var(--zero); font-size: var(--t-meta); color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .mcp-inst { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); box-shadow: inset 0 0 0 var(--hairline) var(--line); border-radius: var(--r-chip); background: var(--island); }
         .mcp-sub { display: flex; align-items: center; gap: var(--sp-2); }
       `;
       document.head.appendChild(s);
@@ -113,8 +103,13 @@ window.FEATURE.settings = Object.assign(window.FEATURE.settings || {}, {
       const brandSvg = (p) => (window.BRAND && window.BRAND[p.name])
         || (p.name === "anselm" ? icon("sparkles", 20) : p.name === "custom" ? icon("gear", 20)
           : '<span style="font-size:var(--t-meta);font-weight:600;color:var(--ink-3);">' + anEsc(p.glyph || "?") + "</span>");
-      const brandIco = (p) => { const s = el("span"); s.className = "mk-ico" + (p.managed ? " is-managed" : ""); s.innerHTML = brandSvg(p); return s; };
-      const brandIcoHtml = (p) => '<span class="an-pp-ico">' + brandSvg(p) + "</span>";
+      const brandIco = (p) => {
+        const a = el("an-brand-icon", p.managed ? { managed: "" } : {});
+        const svg = (window.BRAND && window.BRAND[p.name]) || (p.name === "anselm" ? icon("sparkles", 20) : p.name === "custom" ? icon("gear", 20) : null);
+        if (svg) a.svg = svg; else a.setAttribute("glyph", p.glyph || "?");
+        return a;
+      };
+      const brandIcoHtml = (p) => '<span class="an-pp-ico">' + brandSvg(p) + "</span>";   // provider-pick 浮层（.an-pp 留作 feature 专属浮层，未迁 AnMenu）
 
       // 小下拉钮：dd(当前值, 当前label, items 函数, onPick, align)
       const dd = (curValue, curLabel, items, onPick, align) => {
@@ -134,7 +129,7 @@ window.FEATURE.settings = Object.assign(window.FEATURE.settings || {}, {
       const miniQuota = (q) => { const s = el("span"); s.style.cssText = "font-size:var(--t-meta);color:var(--ink-3);font-variant-numeric:tabular-nums;"; s.textContent = "剩 " + (q.limit - q.used) + " / " + q.limit + " · " + q.resetAt + " 重置"; return s; };
       const keyRowEl = (k) => {
         const p = provById(k.provider), isSearch = p.category === "search", isDefault = isSearch && k.id === S.defaultSearchKeyId;
-        const card = el("div"); card.className = "mk-card";
+        const card = el("an-card", { row: "" });
         const mid = el("div"); mid.className = "mk-mid";
         const top = el("div"); top.className = "mk-name";
         const nm = el("span"); nm.className = "t"; nm.textContent = p.label + " · " + k.name; top.append(nm);
@@ -160,7 +155,7 @@ window.FEATURE.settings = Object.assign(window.FEATURE.settings || {}, {
 
       // 建 key 配置卡（选完 provider 出现）：名称 + key +（ollama/custom）baseUrl +（custom）apiFormat + 测试/取消/保存
       const keyConfigForm = (p, onDone) => {
-        const card = el("div"); card.className = "mk-form";
+        const card = el("an-card", { variant: "accent" });
         const headRow = el("div"); headRow.style.cssText = "display:flex;align-items:center;gap:var(--sp-2);"; const hn = el("span"); hn.style.cssText = "font-size:var(--t-body);color:var(--ink);font-weight:600;"; hn.textContent = "新建 " + p.label + " Key"; headRow.append(brandIco(p), hn); card.append(headRow);
         const fieldRow = (label, ctrl) => { const f = el("div"); f.style.cssText = "display:flex;align-items:center;gap:var(--sp-3);min-height:var(--ctl);"; const l = el("span"); l.style.cssText = "flex:none;width:calc(var(--lead) * 5);font-size:var(--t-body);color:var(--ink-2);"; l.textContent = label; const wrap = el("div"); wrap.style.cssText = "flex:1;min-width:0;"; wrap.append(ctrl); f.append(l, wrap); return f; };
         card.append(fieldRow("名称", el("an-input", { full: "", placeholder: "显示名（如：个人 key）" })));
@@ -193,7 +188,7 @@ window.FEATURE.settings = Object.assign(window.FEATURE.settings || {}, {
       // ── ② 默认模型场景行：API → model → config 联动（改任一即重渲右侧）──
       const scenarioRow = (d) => {
         const st = { apiKeyId: d.ref.apiKeyId, modelId: d.ref.modelId, options: Object.assign({}, d.ref.options) };
-        const card = el("div"); card.className = "mk-scn";
+        const card = el("an-card");
         const renderInner = () => {
           card.innerHTML = "";
           const top = el("div"); top.className = "mk-scn-top";
@@ -254,9 +249,9 @@ window.FEATURE.settings = Object.assign(window.FEATURE.settings || {}, {
     // auth 徽：direct 免配置（无徽）；其余各显安装方式（与后端 7 类 auth 对齐）
     const mcpAuthBadge = { oauth: ["OAuth", "accent"], byo: ["自建应用", "warn"], "oauth-url": ["OAuth · URL", "accent"], token: ["需 Token", "neutral"], local: ["本地", "neutral"] };
     function mcpMarketCard(m) {
-      const card = el("div"); card.className = "mcp-card";
+      const card = el("an-card");
       const top = el("div"); top.className = "mcp-top";
-      const ico = el("div"); ico.className = "mcp-ico"; const img = el("img"); img.src = m.icon; img.loading = "lazy"; img.alt = ""; ico.append(img);
+      const ico = el("an-brand-icon", { src: m.icon });
       const nm = el("div"); nm.className = "mcp-nm"; nm.textContent = m.name; top.append(ico, nm);
       const a = mcpAuthBadge[m.auth]; if (a) top.append(el("an-badge", { tone: a[1] }, a[0]));
       if (m.prereq) top.append(el("an-badge", { tone: "warn" }, "需前置"));
@@ -287,9 +282,9 @@ window.FEATURE.settings = Object.assign(window.FEATURE.settings || {}, {
       const stDot = { ready: "done", degraded: "wait", failed: "err", connecting: "run", disconnected: "idle" }[s.status] || "idle";
       const stLabel = { ready: "就绪", degraded: "降级", failed: "失败", connecting: "连接中", disconnected: "未连接" }[s.status] || s.status;
       const needReauth = s.status === "failed" && /授权/.test(s.err || "");
-      const card = el("div"); card.className = "mcp-inst";
+      const card = el("an-card");
       const top = el("div"); top.className = "mcp-top";
-      const ico = el("div"); ico.className = "mcp-ico"; const img = el("img"); img.src = s.icon; img.loading = "lazy"; img.alt = ""; ico.append(img);
+      const ico = el("an-brand-icon", { src: s.icon });
       const nm = el("div"); nm.className = "mcp-nm"; nm.style.flex = "none"; nm.textContent = s.name;
       const st = el("span"); st.style.cssText = "display:inline-flex; align-items:center; gap:var(--gap-tight); font-size:var(--t-meta); color:var(--ink-3);"; st.append(el("an-status-dot", { state: stDot }), document.createTextNode(stLabel));
       const grow = el("span"); grow.style.cssText = "flex:1;"; top.append(ico, nm, st, grow);
