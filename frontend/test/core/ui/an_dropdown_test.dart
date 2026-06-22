@@ -2,6 +2,7 @@ import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // The dropdown opens an overlay menu — the matrix only builds the trigger, so the menu's open/
@@ -46,6 +47,21 @@ void main() {
     expect(picked, 'b');
     expect(find.text('Banana'), findsOneWidget); // echoed in trigger
     expect(find.text('Apple'), findsNothing); // menu dismissed
+  });
+
+  testWidgets('menu is keyboard-navigable — arrow focuses a row, Enter selects', (tester) async {
+    // After the FAD rewrite the rows are focusable + Enter-activatable; MaterialApp maps arrow keys
+    // to directional focus, so the menu gets keyboard nav without per-row wiring.
+    // FAD 改造后行可聚焦 + Enter 激活;MaterialApp 把方向键映射到方向聚焦 → 菜单免接线即可键盘导航。
+    String? picked;
+    await tester.pumpWidget(host(AnDropdown<String>(options: opts, value: null, onChanged: (v) => picked = v)));
+    await tester.tap(find.byType(AnDropdown<String>));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(picked, isNotNull, reason: 'arrow-down then Enter should select a row');
   });
 
   testWidgets('disabled does not open', (tester) async {
@@ -103,14 +119,16 @@ void main() {
   });
 
   testWidgets('massive option list opens and scrolls without overflow', (tester) async {
-    final many = [for (var i = 0; i < 80; i++) AnDropdownOption(value: '$i', label: 'Option $i')];
+    // Mirror the gallery's massive specimen: rich rows WITH meta, so the gate exercises the same
+    // _TwoZone two-zone overflow path the gallery shows. 与画廊 massive 一致:带 meta 的富行。
+    final many = [for (var i = 0; i < 80; i++) AnDropdownOption(value: '$i', label: 'Option number $i', meta: 'opt_$i')];
     await tester.pumpWidget(host(AnDropdown<String>(options: many, value: '0', onChanged: (_) {})));
     await tester.tap(find.byType(AnDropdown<String>));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
-    expect(find.text('Option 0'), findsWidgets);
-    // the menu is scrollable — drag up and confirm a later option surfaces
-    await tester.drag(find.text('Option 0').last, const Offset(0, -400));
+    expect(find.text('Option number 0'), findsWidgets);
+    // the menu is scrollable — drag up and confirm no overflow after scrolling
+    await tester.drag(find.text('Option number 0').last, const Offset(0, -400));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });

@@ -1,6 +1,14 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+/// The kit's canonical "visually engaged" predicate — hovered, pressed, OR (keyboard-)focused — so
+/// every control derives its hover/active surface the SAME way (no per-widget hovered||pressed vs
+/// hovered||focused drift). 套件统一的「视觉激活」判定:hover/press/(键盘)focus 任一,各控件一致取用。
+extension AnWidgetStates on Set<WidgetState> {
+  bool get isActive =>
+      contains(WidgetState.hovered) || contains(WidgetState.pressed) || contains(WidgetState.focused);
+}
+
 /// The interaction substrate every actionable surface composes — buttons, rows, chips, tabs all
 /// build on this one place so hover / focus / pressed / disabled behave identically everywhere.
 /// Built on the framework's [FocusableActionDetector] (principle #8 — standard API over hand-rolled

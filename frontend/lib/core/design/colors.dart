@@ -58,7 +58,7 @@ class AnColors extends ThemeExtension<AnColors> {
   final Color lineStrong;
   final Color scrim;
 
-  // Emphasis = INK (monochrome). 强调=墨(单色)。
+  // Emphasis = toB BLUE (demo #0071e3). 强调=商务蓝。
   final Color accent;
   final Color accentHover;
   final Color accentSoft;
@@ -248,4 +248,12 @@ class AnColors extends ThemeExtension<AnColors> {
 /// 顺手且 fail-fast:未注册即抛(装配 bug 要响)。
 extension AnColorsContext on BuildContext {
   AnColors get colors => Theme.of(this).extension<AnColors>()!;
+}
+
+/// No-flash hover/active fill: `c.surfaceHover.whenActive(active)` → the colour when active, else the
+/// SAME colour at alpha 0 (so an AnimatedContainer fades pure-alpha, never through a dark midpoint —
+/// the documented Color.lerp pitfall). The single source for the kit's resting-bg idiom.
+/// 无暗闪的悬停/激活底:激活时给该色,否则同色 alpha0(AnimatedContainer 纯 alpha 淡入、不经暗中点)。套件统一用它。
+extension AnColorWhenActive on Color {
+  Color whenActive(bool active) => active ? this : withValues(alpha: 0);
 }

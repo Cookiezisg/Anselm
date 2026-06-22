@@ -26,7 +26,9 @@ audience: [human, ai]
 
 - 组件类 `An<Name>`(`core/ui/`);文件 `an_<name>.dart`。纯框架无关模型在 `core/model/`(无 Flutter import)。
 - **颜色/度量只走 token**:widget 内禁裸 hex/rgb/`Color(0x…)`/px(只有 `core/design` 可声明色值)——`make verify` 加 grep 门禁机械兜底（套件落地时接）。
-- **悬停/选中底色淡入铁律**:`AnimatedContainer` 静止底用**目标色的 alpha=0**(`c.surfaceHover.withValues(alpha:0)`),**绝不用 `Color(0x00000000)`**(transparent black)——后者 lerp 到不透明浅色会经暗灰中点、产生"暗闪"(Flutter `Color.lerp` 官方坑)。
+- **悬停/选中底色淡入铁律**:`AnimatedContainer` 静止底用**目标色 alpha=0**——统一走 `Color.whenActive(active)` 扩展(`core/design/colors.dart`),绝不用 `Color(0x00000000)`(transparent black,lerp 到浅色经暗中点=暗闪)。
+- **共享判定/令牌(去重单源)**:`Set<WidgetState>.isActive`(hover/press/focus 任一,`an_interactive.dart`)各控件统一取「视觉激活」;`AnOpacity.disabled` 统一禁用变暗;占满宽统一名 `block`(AnButton/AnInput/AnDropdown/AnActionGroup)。
+- **交互基座 = `FocusableActionDetector`**(`AnInteractive`,原则 #8):hover/focus 由平台高亮模式驱动(焦点环只在键盘聚焦显)、Enter/Space 走标准 `ActivateIntent`、禁用即不可聚焦、`Semantics(button)` 无障碍。下拉菜单据此 + `FocusScope`/`FocusTraversalGroup` + autofocus 选中行得键盘导航(方向键 + Enter)。
 - **文案只走 i18n**:严禁硬编码中英文,走 slang `context.t.<key>`(见 §3)。
 - 注释 S11 双语 Why-not-What。
 

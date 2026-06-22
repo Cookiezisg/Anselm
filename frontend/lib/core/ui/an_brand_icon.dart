@@ -49,6 +49,10 @@ class AnBrandIcon extends StatelessWidget {
 
   static const String _anselmAsset = 'assets/brand/anselm-icon.svg';
 
+  // The app-icon SVG's squircle corner ratio (rx 114 of a 512 viewBox) — used to trace its edge.
+  // app 图标 SVG 的 squircle 圆角比(512 视框上 rx 114)。
+  static const double _squircleRatio = 114 / 512;
+
   double get _side => switch (size) {
         AnBrandSize.sm => AnSize.icon, // lead
         AnBrandSize.md => AnSize.control, // ctl
@@ -74,8 +78,8 @@ class AnBrandIcon extends StatelessWidget {
 
     if (_asset != null) {
       // App mark: the SVG carries its own white squircle + dark F. Frame with a hairline at the
-      // squircle radius (114/512 ≈ 0.2235) so it reads on any surface. 自带白 squircle,细边描其轮廓。
-      final r = side * 0.2235;
+      // squircle radius so it reads on any surface. 自带白 squircle,细边描其轮廓。
+      final r = side * _squircleRatio;
       return _elevate(
         ClipRRect(
           borderRadius: BorderRadius.circular(r),

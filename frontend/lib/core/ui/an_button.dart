@@ -72,7 +72,7 @@ class AnButton extends StatelessWidget {
       enabled: enabled,
       label: semanticLabel ?? label,
       child: Opacity(
-        opacity: enabled ? 1 : 0.4,
+        opacity: enabled ? 1 : AnOpacity.disabled,
         child: AnInteractive(
           enabled: enabled,
           onTap: onPressed,
@@ -80,37 +80,38 @@ class AnButton extends StatelessWidget {
           autofocus: autofocus,
           builder: (context, states) {
             final c = context.colors;
-            final active = states.contains(WidgetState.hovered) || states.contains(WidgetState.pressed);
+            final active = states.isActive;
             final focused = states.contains(WidgetState.focused);
 
             late final Color bg;
             late final Color fg;
-            // Lighter than before to sit over the ExtraLight body — Regular label, Medium CTA.
-            // 比原来轻,配 ExtraLight 正文:普通 Regular、主按钮 Medium。
+            // Lighter to sit over the Light (w300) body — Regular label, Medium CTA. 配 Light 正文。
             var weight = FontWeight.w400;
             switch (variant) {
-              // Resting bg = the hover colour at alpha 0 (NOT transparent-black) so the hover fade
-              // is a pure alpha lerp — no dark midpoint flash. 静止底=hover 色的 0 透明度,淡入纯 alpha、无暗闪。
+              // Resting bg = the hover colour at alpha 0 (whenActive) — pure alpha fade, no dark
+              // midpoint flash. 静止底=hover 色 alpha0(whenActive),纯 alpha 淡入、无暗闪。
               case AnButtonVariant.ghost:
                 fg = active ? c.ink : c.inkMuted;
-                bg = active ? c.surfaceHover : c.surfaceHover.withValues(alpha: 0);
+                bg = c.surfaceHover.whenActive(active);
               case AnButtonVariant.primary:
                 fg = c.onAccent;
                 bg = active ? c.accentHover : c.accent;
                 weight = FontWeight.w500;
               case AnButtonVariant.danger:
                 fg = c.danger;
-                bg = active ? c.dangerSoft : c.dangerSoft.withValues(alpha: 0);
+                bg = c.dangerSoft.whenActive(active);
               case AnButtonVariant.icon:
                 fg = active ? c.ink : c.inkFaint;
-                bg = active ? c.surfaceHover : c.surfaceHover.withValues(alpha: 0);
+                bg = c.surfaceHover.whenActive(active);
             }
 
-            // Focus ring uses inkMuted (≥3:1 on white AND on dark) — lineStrong (0.13α) was
-            // invisible in light mode for keyboard users. 焦点环用 inkMuted(明暗都够对比),lineStrong 在亮色下不可见。
-            final border = outline
-                ? Border.all(color: fg, width: AnSize.hairline)
-                : (focused ? Border.all(color: c.inkMuted, width: AnSize.hairline) : null);
+            // Always allocate the border slot (transparent when unfocused) so gaining the focus ring
+            // doesn't shift the content by 1px. Focus ring = inkMuted (≥3:1 light & dark; lineStrong
+            // 0.13α was invisible in light). 边框槽常驻(未聚焦透明),聚焦不挪 1px;焦点环 inkMuted。
+            final border = Border.all(
+              color: outline ? fg : c.inkMuted.whenActive(focused),
+              width: AnSize.hairline,
+            );
 
             final glyph = icon != null ? Icon(icon, size: iconSize, color: fg) : null;
 

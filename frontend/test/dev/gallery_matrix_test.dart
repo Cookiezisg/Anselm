@@ -23,13 +23,18 @@ void main() {
             await tester.pump(); // kick off any implicit/repeating animation
             await tester.pump(const Duration(milliseconds: 50));
             expect(tester.takeException(), isNull, reason: '${item.name}/${s.label} threw or overflowed');
-            expect(find.byType(MaterialApp), findsOneWidget);
+            // The specimen actually RENDERED something (a builder returning SizedBox.shrink() would
+            // be 0×0 and pass takeException). 断言真渲染了东西(空 builder 是 0×0,会蒙混过 takeException)。
+            final size = tester.getSize(find.byKey(_specimen));
+            expect(size.width > 0 || size.height > 0, isTrue, reason: '${item.name}/${s.label} rendered nothing');
           });
         }
       }
     });
   }
 }
+
+const _specimen = ValueKey('specimen');
 
 Widget _host(GallerySpecimen s) {
   // Constrain to the gallery's real render width (narrow stress specimen / span / 280 grid track) so
@@ -43,7 +48,10 @@ Widget _host(GallerySpecimen s) {
         body: Center(
           child: SizedBox(
             width: width,
-            child: Align(alignment: Alignment.centerLeft, child: Builder(builder: s.builder)),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: KeyedSubtree(key: _specimen, child: Builder(builder: s.builder)),
+            ),
           ),
         ),
       ),

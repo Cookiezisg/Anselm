@@ -48,6 +48,8 @@ abstract final class AnSize {
   static const double dot = 7;
   static const double dotPulse = 5; // run-status breath expansion radius 呼吸外扩半径
   static const double hairline = 1;
+  static const double gripLine = 2; // drag-handle hover divider (2× hairline) 拖柄悬停分隔线
+  static const double caret = 1.5; // text caret width 文本光标宽
 
   // Primitive control metrics (the demo's PRIMITIVE METRICS group). 原语控件度量。
   static const double btnPadX = 14; // text-button horizontal optical pad 文本钮水平光学内距
@@ -96,6 +98,11 @@ abstract final class AnSize {
   // 左岛 chrome 条给红绿灯留此横向位;灯由 OS 在(加高的)标题栏绘制居中(见 window_setup 的 addToolbar),
   // 纵向位置 OS 托管、点击安全;绝不手动挪原生按钮。
   static const double windowControlsInset = 72;
+}
+
+/// Opacity tokens — the few semantic alpha values used as whole-widget dimmers. 整件透明度语义值。
+abstract final class AnOpacity {
+  static const double disabled = 0.4; // dimmed disabled controls 禁用控件变暗
 }
 
 /// Motion — durations + easing. fast = hover, mid = reveals, slow = island slides; breath is

@@ -133,9 +133,9 @@ class _GripState extends State<_Grip> {
           child: Center(
             child: AnimatedContainer(
               duration: AnMotion.fast,
-              width: 2,
+              width: AnSize.gripLine,
               decoration: BoxDecoration(
-                color: _hover ? c.lineStrong : Colors.transparent,
+                color: c.lineStrong.whenActive(_hover), // no-flash fade 无暗闪淡入
                 borderRadius: BorderRadius.circular(AnRadius.pill),
               ),
             ),

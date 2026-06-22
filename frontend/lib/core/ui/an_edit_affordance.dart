@@ -67,14 +67,14 @@ class _SaveButton extends StatelessWidget {
       onTap: onPressed,
       builder: (context, states) {
         final c = context.colors;
-        final active = states.contains(WidgetState.hovered) || states.contains(WidgetState.pressed);
+        final active = states.isActive;
         return AnimatedContainer(
           duration: AnMotion.fast,
           height: AnSize.controlSm,
           padding: const EdgeInsets.symmetric(horizontal: AnSize.btnPadXSm),
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: active ? c.accentSoft : c.accentSoft.withValues(alpha: 0),
+            color: c.accentSoft.whenActive(active),
             borderRadius: BorderRadius.circular(AnRadius.button),
           ),
           child: Text(label, style: AnText.meta.copyWith(color: c.accent, fontWeight: FontWeight.w500)),

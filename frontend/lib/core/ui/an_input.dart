@@ -5,7 +5,7 @@ import '../design/tokens.dart';
 import '../design/typography.dart';
 
 /// B2 — the value leaf. Single-line by default; [multiline] grows to a textarea; [mono] is the
-/// compact monospace variant; [full] fills width. Focus is quiet by design — the border deepens
+/// compact monospace variant; [block] fills width (kit-wide name, like AnButton/AnDropdown). Focus deepens
 /// (line → lineStrong) with a plain caret, NO blue ring/fill (monochrome). [enabled]/[readOnly]
 /// share the kit's disabled/muted vocabulary.
 ///
@@ -20,7 +20,7 @@ class AnInput extends StatefulWidget {
     this.onSubmitted,
     this.multiline = false,
     this.mono = false,
-    this.full = false,
+    this.block = false,
     this.seamless = false,
     this.enabled = true,
     this.readOnly = false,
@@ -36,7 +36,10 @@ class AnInput extends StatefulWidget {
   final ValueChanged<String>? onSubmitted;
   final bool multiline;
   final bool mono;
-  final bool full;
+
+  /// Fill the bounded parent width (kit-wide name; AnButton/AnDropdown/AnActionGroup use the same).
+  /// 占满有界父宽(套件统一名)。
+  final bool block;
 
   /// Borderless, text-height field for in-place edit — no box chrome, no min-height, so it occupies
   /// the SAME footprint as the display text it replaces (no layout jump). Caller sizes the width.
@@ -123,7 +126,7 @@ class _AnInputState extends State<AnInput> {
       minLines: widget.multiline ? 3 : 1,
       expands: false,
       cursorColor: c.ink,
-      cursorWidth: 1.5,
+      cursorWidth: AnSize.caret,
       style: style,
       decoration: InputDecoration(
         isDense: true,
@@ -140,7 +143,7 @@ class _AnInputState extends State<AnInput> {
     // Seamless: no box chrome, text-height — the caller sizes width (Flexible/Expanded) so it slots
     // in where the display text was, no jump. 无框、文字高:宽由调用方约束,原位替换展示文字、不跳。
     if (widget.seamless) {
-      return Opacity(opacity: widget.enabled ? 1 : 0.4, child: field);
+      return Opacity(opacity: widget.enabled ? 1 : AnOpacity.disabled, child: field);
     }
 
     final box = AnimatedContainer(
@@ -160,14 +163,14 @@ class _AnInputState extends State<AnInput> {
       child: field,
     );
 
-    // full fills width — but only with a bounded parent; otherwise fall back to inputMin so an
-    // empty full input doesn't collapse to a thin line (and doesn't crash unbounded).
-    // full 占满需有界父;否则退化到 inputMin,空的 full 输入不塌成细线、也不在无界处崩。
+    // block fills width — but only with a bounded parent; otherwise fall back to inputMin so an
+    // empty input doesn't collapse to a thin line (and doesn't crash unbounded).
+    // block 占满需有界父;否则退化到 inputMin,空输入不塌成细线、也不在无界处崩。
     return Opacity(
-      opacity: widget.enabled ? 1 : 0.4,
+      opacity: widget.enabled ? 1 : AnOpacity.disabled,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          if (widget.full && constraints.hasBoundedWidth) {
+          if (widget.block && constraints.hasBoundedWidth) {
             return SizedBox(width: double.infinity, child: box);
           }
           return SizedBox(width: AnSize.inputMin, child: box);

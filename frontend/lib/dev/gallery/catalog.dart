@@ -49,8 +49,8 @@ final GalleryCategory _g1Controls = GalleryCategory('基础控件 Controls', AnI
     GallerySpecimen('mono', (_) => const AnInput(initialValue: 'fn_3a9f', mono: true)),
     GallerySpecimen('readonly', (_) => const AnInput(initialValue: 'read only', readOnly: true)),
     GallerySpecimen('disabled', (_) => const AnInput(initialValue: 'disabled', enabled: false)),
-    GallerySpecimen('multiline full', (_) => const AnInput(placeholder: 'Multiple lines…', multiline: true, full: true), span: true),
-    GallerySpecimen('超长值', (_) => const AnInput(initialValue: 'this-is-an-extremely-long-single-line-value-that-should-scroll-horizontally-and-never-overflow-the-bordered-box', full: true), stress: true, maxWidth: 180),
+    GallerySpecimen('multiline full', (_) => const AnInput(placeholder: 'Multiple lines…', multiline: true, block: true), span: true),
+    GallerySpecimen('超长值', (_) => const AnInput(initialValue: 'this-is-an-extremely-long-single-line-value-that-should-scroll-horizontally-and-never-overflow-the-bordered-box', block: true), stress: true, maxWidth: 180),
   ]),
   GalleryItem('AnActionGroup', '动作组:对齐/间距/换行', [
     GallerySpecimen('default', (_) => AnActionGroup([AnButton(label: 'Cancel', onPressed: () {}), AnButton(label: 'Save', variant: AnButtonVariant.primary, onPressed: () {})]), span: true),

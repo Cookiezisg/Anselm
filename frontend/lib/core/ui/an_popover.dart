@@ -131,7 +131,11 @@ class _AnPopoverState extends State<AnPopover> with SingleTickerProviderStateMix
                       bindings: {
                         const SingleActivator(LogicalKeyboardKey.escape): widget.controller.close,
                       },
-                      child: Focus(
+                      // FocusScope (not a plain Focus) so the overlay is a self-contained focus
+                      // context: arrow keys traverse focusable content (e.g. dropdown menu rows) and
+                      // Esc has a focused target. autofocus seeds it (a descendant autofocus wins).
+                      // 用 FocusScope:浮层自成焦点域,方向键可在内部可聚焦内容间移动、Esc 有聚焦目标。
+                      child: FocusScope(
                         autofocus: true,
                         child: widget.overlayBuilder(context, _link.leaderSize),
                       ),

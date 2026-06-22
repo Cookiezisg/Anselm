@@ -77,6 +77,11 @@ class _AnDropdownState<T> extends State<AnDropdown<T>> {
     return null;
   }
 
+  // The row to seed keyboard focus on when the menu opens: the selected value, else the first.
+  // 菜单打开时初始聚焦的行:选中值,否则第一项。
+  T? get _autofocusValue =>
+      _selected?.value ?? (widget.options.isNotEmpty ? widget.options.first.value : null);
+
   void _pick(T value) {
     _popover.close();
     widget.onChanged?.call(value);
@@ -94,7 +99,7 @@ class _AnDropdownState<T> extends State<AnDropdown<T>> {
     );
 
     return Opacity(
-      opacity: enabled ? 1 : 0.4,
+      opacity: enabled ? 1 : AnOpacity.disabled,
       child: AnPopover(
         controller: _popover,
         targetAnchor: widget.menuAlignEnd ? Alignment.bottomRight : Alignment.bottomLeft,
@@ -108,7 +113,7 @@ class _AnDropdownState<T> extends State<AnDropdown<T>> {
   Widget _trigger(BuildContext context, Set<WidgetState> states, bool ghost) {
     final c = context.colors;
     final open = _popover.isOpen;
-    final active = open || states.contains(WidgetState.hovered);
+    final active = open || states.isActive;
     final sel = _selected;
 
     final label = Text(
@@ -135,7 +140,7 @@ class _AnDropdownState<T> extends State<AnDropdown<T>> {
         height: AnSize.controlSm,
         padding: const EdgeInsets.symmetric(horizontal: AnSize.btnPadXSm),
         decoration: BoxDecoration(
-          color: active ? c.surfaceHover : c.surfaceHover.withValues(alpha: 0),
+          color: c.surfaceHover.whenActive(active),
           borderRadius: BorderRadius.circular(AnRadius.button),
         ),
         child: Row(
@@ -190,16 +195,21 @@ class _AnDropdownState<T> extends State<AnDropdown<T>> {
           borderRadius: BorderRadius.circular(AnRadius.chip),
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(vertical: AnSpace.s4),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final o in widget.options)
-                  _MenuRow(
-                    option: o,
-                    selected: o.value == widget.value,
-                    onTap: () => _pick(o.value),
-                  ),
-              ],
+            // Keyboard nav: rows are focusable (AnInteractive); seed focus on the selected row (or
+            // the first when none) so arrow-up/down traverse and Enter selects. 键盘导航:聚焦选中行,方向键遍历。
+            child: FocusTraversalGroup(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final o in widget.options)
+                    _MenuRow(
+                      option: o,
+                      selected: o.value == widget.value,
+                      autofocus: _autofocusValue == o.value,
+                      onTap: () => _pick(o.value),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
@@ -209,19 +219,21 @@ class _AnDropdownState<T> extends State<AnDropdown<T>> {
 }
 
 class _MenuRow<T> extends StatelessWidget {
-  const _MenuRow({required this.option, required this.selected, required this.onTap});
+  const _MenuRow({required this.option, required this.selected, required this.onTap, this.autofocus = false});
 
   final AnDropdownOption<T> option;
   final bool selected;
+  final bool autofocus;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return AnInteractive(
       onTap: onTap,
+      autofocus: autofocus,
       builder: (context, states) {
         final c = context.colors;
-        final active = states.contains(WidgetState.hovered) || states.contains(WidgetState.focused);
+        final active = states.isActive;
         // Menu row = same TWO ZONES as the trigger: optional leading icon, then label LEFT + meta
         // RIGHT (via _TwoZone), with the selected-check as the trailing slot (reserved when unchecked
         // so rows align). 菜单行=与触发器同两区:可选前导图标 + label 左 + meta 右,选中勾为尾槽(未选留位对齐)。
@@ -229,7 +241,7 @@ class _MenuRow<T> extends StatelessWidget {
           duration: AnMotion.fast,
           height: AnSize.row,
           padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8),
-          color: active ? c.surfaceHover : c.surfaceHover.withValues(alpha: 0),
+          color: c.surfaceHover.whenActive(active),
           child: Row(
             children: [
               if (option.icon != null) ...[
@@ -264,6 +276,9 @@ class _MenuRow<T> extends StatelessWidget {
 ///
 /// 两区行(demo 的 lab flex:1 + meta flex:none·max-width 的 Flutter 版):label 占满左、最后才省略;meta 居右、
 /// 上限 45%(长 id 挤不掉 label)、超长省略;trailing(箭头/勾)因 label Expanded 而钉在右沿。两者各自截断、不溢出。
+const double _kMetaMaxFraction = 0.45; // meta zone ≤ 45% of the row (label keeps ≥ 55%) meta 区上限
+const double _kMetaFallbackWidth = 160; // meta cap when the row width is unbounded 无界时 meta 上限
+
 class _TwoZone extends StatelessWidget {
   const _TwoZone({required this.label, this.meta, this.metaStyle, required this.trailing});
 
@@ -276,7 +291,7 @@ class _TwoZone extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final metaCap = constraints.maxWidth.isFinite ? constraints.maxWidth * 0.45 : 160.0;
+        final metaCap = constraints.maxWidth.isFinite ? constraints.maxWidth * _kMetaMaxFraction : _kMetaFallbackWidth;
         return Row(
           children: [
             Expanded(child: label),
