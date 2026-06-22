@@ -6,8 +6,10 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 // visible fallback, never crash. 语义注册表是图标单源:错/缺绑定降级成可见 fallback、绝不崩。
 void main() {
   test('byKey resolves domain keys + falls back on unknown', () {
-    expect(AnIcons.byKey('agent'), LucideIcons.bot);
-    expect(AnIcons.byKey('workflow'), LucideIcons.workflow);
+    expect(AnIcons.byKey('agent'), AnIcons.agent);
+    // Same Lucide glyph as the raw icon, rendered at the thin weight family. 同字形、细字重族。
+    expect(AnIcons.byKey('agent').codePoint, LucideIcons.bot.codePoint);
+    expect(AnIcons.byKey('workflow').codePoint, LucideIcons.workflow.codePoint);
     expect(AnIcons.byKey('conversation'), AnIcons.chat); // alias to chat
     expect(AnIcons.byKey('definitely-not-a-key'), AnIcons.fallback);
   });

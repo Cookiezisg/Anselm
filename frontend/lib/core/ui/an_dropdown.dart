@@ -115,6 +115,9 @@ class _AnDropdownState<T> extends State<AnDropdown<T>> {
       sel?.label ?? widget.placeholder,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
+      // Boxed select right-aligns its value (next to the caret) + ellipsis when long; ghost hugs left.
+      // 盒式选择框值右对齐(贴箭头)+ 超长省略号;ghost 左贴。
+      textAlign: ghost ? TextAlign.left : TextAlign.right,
       style: (ghost ? AnText.meta : AnText.body).copyWith(
         color: sel == null ? c.inkFaint : (ghost ? (active ? c.ink : c.inkMuted) : c.ink),
       ),
@@ -127,7 +130,9 @@ class _AnDropdownState<T> extends State<AnDropdown<T>> {
     );
 
     final children = <Widget>[
-      Flexible(child: label),
+      // Boxed: value Expands + right-aligns (cluster hugs the right edge by the caret). Ghost:
+      // content-hugging. 盒式:值占满并右对齐(贴右、靠箭头);ghost:贴合内容。
+      ghost ? Flexible(child: label) : Expanded(child: label),
       if (sel?.meta != null) ...[
         const SizedBox(width: AnSpace.s8),
         Text(sel!.meta!,
@@ -145,7 +150,7 @@ class _AnDropdownState<T> extends State<AnDropdown<T>> {
         height: AnSize.controlSm,
         padding: const EdgeInsets.symmetric(horizontal: AnSize.btnPadXSm),
         decoration: BoxDecoration(
-          color: active ? c.surfaceHover : const Color(0x00000000),
+          color: active ? c.surfaceHover : c.surfaceHover.withValues(alpha: 0),
           borderRadius: BorderRadius.circular(AnRadius.button),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: children),
@@ -226,7 +231,7 @@ class _MenuRow<T> extends StatelessWidget {
           duration: AnMotion.fast,
           height: AnSize.row,
           padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8),
-          color: active ? c.surfaceHover : const Color(0x00000000),
+          color: active ? c.surfaceHover : c.surfaceHover.withValues(alpha: 0),
           child: Row(
             children: [
               if (option.icon != null) ...[

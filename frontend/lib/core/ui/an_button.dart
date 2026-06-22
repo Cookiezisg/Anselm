@@ -87,19 +87,21 @@ class AnButton extends StatelessWidget {
             late final Color fg;
             var weight = FontWeight.w500;
             switch (variant) {
+              // Resting bg = the hover colour at alpha 0 (NOT transparent-black) so the hover fade
+              // is a pure alpha lerp — no dark midpoint flash. 静止底=hover 色的 0 透明度,淡入纯 alpha、无暗闪。
               case AnButtonVariant.ghost:
                 fg = active ? c.ink : c.inkMuted;
-                bg = active ? c.surfaceHover : const Color(0x00000000);
+                bg = active ? c.surfaceHover : c.surfaceHover.withValues(alpha: 0);
               case AnButtonVariant.primary:
                 fg = c.onAccent;
                 bg = active ? c.accentHover : c.accent;
                 weight = FontWeight.w600;
               case AnButtonVariant.danger:
                 fg = c.danger;
-                bg = active ? c.dangerSoft : const Color(0x00000000);
+                bg = active ? c.dangerSoft : c.dangerSoft.withValues(alpha: 0);
               case AnButtonVariant.icon:
                 fg = active ? c.ink : c.inkFaint;
-                bg = active ? c.surfaceHover : const Color(0x00000000);
+                bg = active ? c.surfaceHover : c.surfaceHover.withValues(alpha: 0);
             }
 
             // Focus ring uses inkMuted (≥3:1 on white AND on dark) — lineStrong (0.13α) was

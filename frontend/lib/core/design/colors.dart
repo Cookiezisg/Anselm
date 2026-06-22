@@ -2,14 +2,13 @@ import 'package:flutter/material.dart';
 
 /// The palette as a [ThemeExtension] — the one place colors are defined, resolved per-brightness
 /// via `Theme.of(context).extension<AnColors>()` (sugar: `context.colors`). Values mirror the
-/// demo's tokens.css exactly, with ONE deliberate divergence: MONOCHROME CHROME. There is no
-/// decorative accent hue — emphasis (primary action, selection, focus) is ink on bright
-/// surfaces, so `accent*` holds monochrome values. Functional color is kept where it carries
-/// meaning: the status semantics (ok=green / warn=orange / danger=red; run & idle achromatic).
+/// demo's tokens.css. `accent*` is the toB BLUE (demo #0071e3) — emphasis (primary action,
+/// selection, focus, run status) reads as blue, not black. Chrome stays neutral ink/surface;
+/// functional color carries meaning (ok=green / warn=orange / danger=red; idle achromatic).
 /// Named by ROLE, not by hue.
 ///
-/// 调色板 = [ThemeExtension],颜色唯一定义处(糖:`context.colors`)。值逐一镜像 demo tokens.css,
-/// 唯一刻意分歧:单色 chrome——无装饰强调色,强调=墨压亮面;功能色保留(状态 ok绿/warn橙/danger红)。
+/// 调色板 = [ThemeExtension],颜色唯一定义处(糖:`context.colors`)。值镜像 demo tokens.css。
+/// accent=toB 蓝(demo #0071e3)——强调(主动作/选中/聚焦/运行中)显蓝、非黑;chrome 中性墨/面;功能色保留。
 @immutable
 class AnColors extends ThemeExtension<AnColors> {
   const AnColors({
@@ -92,9 +91,9 @@ class AnColors extends ThemeExtension<AnColors> {
     line: Color.fromRGBO(0, 0, 0, 0.08),
     lineStrong: Color.fromRGBO(0, 0, 0, 0.13),
     scrim: Color.fromRGBO(0, 0, 0, 0.28),
-    accent: Color(0xFF1D1D1F),
-    accentHover: Color(0xFF000000),
-    accentSoft: Color.fromRGBO(0, 0, 0, 0.06),
+    accent: Color(0xFF0071E3), // toB blue (demo --accent) 商务蓝
+    accentHover: Color(0xFF0077ED),
+    accentSoft: Color.fromRGBO(0, 113, 227, 0.10),
     ok: Color(0xFF2DA44E),
     okSoft: Color.fromRGBO(45, 164, 78, 0.12),
     warn: Color(0xFFBF6A02),
@@ -126,13 +125,13 @@ class AnColors extends ThemeExtension<AnColors> {
     ink: Color(0xFFF5F5F7),
     inkMuted: Color(0xFFA1A1A6),
     inkFaint: Color(0xFF6E6E73),
-    onAccent: Color(0xFF1C1C1E),
+    onAccent: Color(0xFFFFFFFF),
     line: Color.fromRGBO(255, 255, 255, 0.10),
     lineStrong: Color.fromRGBO(255, 255, 255, 0.16),
     scrim: Color.fromRGBO(0, 0, 0, 0.50),
-    accent: Color(0xFFF5F5F7),
-    accentHover: Color(0xFFFFFFFF),
-    accentSoft: Color.fromRGBO(255, 255, 255, 0.10),
+    accent: Color(0xFF0A84FF), // toB blue, dark variant (demo) 商务蓝·暗
+    accentHover: Color(0xFF409CFF),
+    accentSoft: Color.fromRGBO(10, 132, 255, 0.16),
     ok: Color(0xFF30D158),
     okSoft: Color.fromRGBO(48, 209, 88, 0.16),
     warn: Color(0xFFFF9F0A),

@@ -19,7 +19,14 @@ abstract final class AnTheme {
       useMaterial3: true,
       brightness: brightness,
       scaffoldBackgroundColor: c.canvas,
+      // No Material ripples/overlays — our surfaces own their own hover/press via tokens. This
+      // also stops any Material leaf (TextField, future InkWell) flashing its default gray overlay.
+      // 去 Material 水波/叠加——我们的表面自管 hover/press;也杜绝 Material 叶子闪默认灰叠加。
       splashFactory: NoSplash.splashFactory,
+      splashColor: const Color(0x00000000),
+      highlightColor: const Color(0x00000000),
+      hoverColor: const Color(0x00000000),
+      focusColor: const Color(0x00000000),
       visualDensity: VisualDensity.standard,
       fontFamily: AnText.uiFamily,
       fontFamilyFallback: AnText.uiFallback,

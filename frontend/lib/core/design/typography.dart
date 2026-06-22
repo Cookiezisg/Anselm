@@ -1,18 +1,17 @@
 import 'package:flutter/material.dart';
 
-/// Typography — a modular scale anchored on a 13px UI body (everything else derives). [uiFamily]
-/// = MiSans, BUNDLED with the app (a variable font covering Latin + Simplified Chinese; see
-/// pubspec.yaml). Bundling is deliberate: the bilingual UI renders the exact same face on every
-/// machine, with zero drift from whatever fonts happen to be installed. The fallback chain only
-/// catches glyphs MiSans lacks. Colorless on purpose: color is applied once by the theme and
-/// inherited, so text adapts to light/dark without any widget restating it.
+/// Typography — a modular scale anchored on a 13px UI body (everything else derives). [uiFamily] =
+/// the OS SYSTEM UI font (SF Pro on macOS) — exactly what the demo's `"MiSans", -apple-system, …`
+/// stack resolves to on a Mac without MiSans installed, i.e. the light, native Apple type the
+/// design targets. Bundled MiSans + system PingFang SC are the CJK fallback (Latin uses the system
+/// face). Colorless on purpose: the theme applies ink once and it inherits, so light/dark just work.
 ///
-/// 字体——模数阶梯,锚在 13px 正文。[uiFamily]=MiSans,**随 app 打包**(变量字体,覆盖 Latin+简体中文)。
-/// 打包是刻意的:双语 UI 每台机器渲染同一字面,不随机器装了什么漂移。回退链只兜 MiSans 缺的字形。刻意不带色。
+/// 字体——模数阶梯,锚在 13px 正文。[uiFamily]=OS 系统 UI 字体(macOS 上即 SF Pro)——正是 demo 字体栈在未装
+/// MiSans 的 Mac 上落到的 -apple-system,轻盈原生、设计本意。打包的 MiSans + 系统 PingFang SC 兜 CJK(Latin 用系统字)。
 abstract final class AnText {
-  static const String uiFamily = 'MiSans';
+  static const String uiFamily = '.AppleSystemUIFont'; // SF on macOS; non-Apple falls to the chain 苹果系=SF,他平台走回退
   static const List<String> uiFallback = [
-    '.AppleSystemUIFont', 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', 'Noto Sans', 'sans-serif',
+    'MiSans', 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', 'Noto Sans', 'sans-serif',
   ];
   static const String monoFamily = 'JetBrains Mono'; // BUNDLED (assets/fonts) — deterministic code face 随包,代码字面确定
   static const List<String> monoFallback = [

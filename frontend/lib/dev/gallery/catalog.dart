@@ -31,6 +31,7 @@ final GalleryCategory _g1Controls = GalleryCategory('基础控件 Controls', AnI
   ]),
   GalleryItem('AnGroupLabel', '极薄分组小标题', [
     GallerySpecimen('default', (_) => const AnGroupLabel('Entities'), span: true),
+    GallerySpecimen('超长截断', (_) => const AnGroupLabel('a very long section caption that should ellipsis instead of wrapping'), stress: true),
   ]),
   GalleryItem('AnButton', '统一动作钮:变体/尺寸/图标/态', [
     GallerySpecimen('ghost', (_) => AnButton(label: 'Ghost', onPressed: () {})),
@@ -56,8 +57,9 @@ final GalleryCategory _g1Controls = GalleryCategory('基础控件 Controls', AnI
     GallerySpecimen('end compact', (_) => AnActionGroup([AnButton(label: 'A', size: AnButtonSize.sm, onPressed: () {}), AnButton(label: 'B', size: AnButtonSize.sm, onPressed: () {})], end: true, compact: true), span: true),
     GallerySpecimen('stack', (_) => AnActionGroup([AnButton(label: 'First', block: true, onPressed: () {}), AnButton(label: 'Second', block: true, onPressed: () {})], stack: true), span: true),
   ]),
-  GalleryItem('AnEditAffordance', '就地编辑三连(铅笔↔取消/保存)', [
-    GallerySpecimen('idle / editing', (_) => const _EditDemo()),
+  GalleryItem('AnEditAffordance', '就地编辑:文字 ↔ 输入框 + 光标', [
+    GallerySpecimen('idle / editing', (_) => const _EditDemo(initial: 'Untitled workflow')),
+    GallerySpecimen('超长文本', (_) => const _EditDemo(initial: 'A very long entity title that must ellipsis when idle and scroll horizontally while editing'), stress: true),
   ]),
   GalleryItem('AnDropdown', '受控单选下拉 + 富行菜单', [
     GallerySpecimen('selected + meta', (_) => const _DropdownDemo(initial: 'fn')),
@@ -65,13 +67,19 @@ final GalleryCategory _g1Controls = GalleryCategory('基础控件 Controls', AnI
     GallerySpecimen('ghost', (_) => const _DropdownDemo(initial: 'ag', ghost: true)),
     GallerySpecimen('disabled', (_) => const AnDropdown<String>(options: [], value: null, onChanged: null, placeholder: 'disabled', enabled: false)),
     GallerySpecimen('block', (_) => const _DropdownDemo(initial: 'wf', block: true), span: true),
+    GallerySpecimen('超长值省略', (_) => AnDropdown<String>(
+          options: const [AnDropdownOption(value: 'x', label: 'An extremely long selected option label that must ellipsis at the right edge', meta: 'id_9f3a')],
+          value: 'x',
+          onChanged: (_) {},
+        ), span: true, stress: true),
     GallerySpecimen('海量选项', (_) => const _DropdownDemo(initial: '0', massive: true), stress: true),
   ]),
 ]);
 
 // ── small stateful demo wrappers (specimens need live state) 小型有态演示包 ──
 
-const List<AnDropdownOption<String>> _entityOptions = [
+// final (not const): AnIcons.* are runtime IconData (thin-weight family). 非 const:图标是运行期 IconData。
+final List<AnDropdownOption<String>> _entityOptions = [
   AnDropdownOption(value: 'fn', label: 'Function', meta: 'fn_3a9f', icon: AnIcons.function),
   AnDropdownOption(value: 'hd', label: 'Handler', meta: 'hd_71c2', icon: AnIcons.handler),
   AnDropdownOption(value: 'ag', label: 'Agent', meta: 'ag_0e88', icon: AnIcons.agent),
@@ -109,30 +117,64 @@ class _DropdownDemoState extends State<_DropdownDemo> {
   }
 }
 
+// The real in-place edit interaction the affordance is meant for: idle text ↔ a live AnInput with
+// a cursor; commit/abort via AnEditAffordance. Long text ellipsis-truncates idle, scrolls editing.
+// 就地编辑真交互:静态文字 ↔ 带光标的 AnInput;长文本静态省略号、编辑时横向滚动。
 class _EditDemo extends StatefulWidget {
-  const _EditDemo();
+  const _EditDemo({required this.initial});
+
+  final String initial;
 
   @override
   State<_EditDemo> createState() => _EditDemoState();
 }
 
 class _EditDemoState extends State<_EditDemo> {
+  late final TextEditingController _ctl = TextEditingController(text: widget.initial);
+  late String _committed = widget.initial;
   bool _editing = false;
 
   @override
+  void dispose() {
+    _ctl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text('Title', style: AnText.body.copyWith(color: context.colors.ink)),
-        const SizedBox(width: AnSpace.s8),
-        AnEditAffordance(
-          editing: _editing,
-          onEdit: () => setState(() => _editing = true),
-          onCommit: () => setState(() => _editing = false),
-          onAbort: () => setState(() => _editing = false),
-        ),
-      ],
+    if (_editing) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(width: 200, child: AnInput(controller: _ctl, autofocus: true, full: true)),
+          const SizedBox(width: AnSpace.s8),
+          AnEditAffordance(
+            editing: true,
+            onCommit: () => setState(() {
+              _committed = _ctl.text;
+              _editing = false;
+            }),
+            onAbort: () => setState(() {
+              _ctl.text = _committed;
+              _editing = false;
+            }),
+          ),
+        ],
+      );
+    }
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 240),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: Text(_committed,
+                maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.body.copyWith(color: context.colors.ink)),
+          ),
+          const SizedBox(width: AnSpace.s8),
+          AnEditAffordance(editing: false, onEdit: () => setState(() => _editing = true)),
+        ],
+      ),
     );
   }
 }

@@ -25,11 +25,14 @@ Future<void> _load(String family, String path) async {
 
 void main() {
   setUpAll(() async {
-    await _load('MiSans', 'assets/fonts/MiSansVF.ttf');
+    // System SF (the real UI face) so the capture matches the live app's Latin rendering.
+    await _load('.AppleSystemUIFont', '/System/Library/Fonts/SFNS.ttf');
+    await _load('MiSans', 'assets/fonts/MiSansVF.ttf'); // CJK fallback
     await _load('JetBrains Mono', 'assets/fonts/JetBrainsMono.ttf');
-    // Package icon font resolves under packages/<pkg>/<family>. 包图标字体前缀解析。
+    // Thin Lucide weight (matches AnIcons._family). 细笔画 Lucide,与 AnIcons._family 对齐。
     final cache = '${Platform.environment['HOME']}/.pub-cache/hosted/pub.dev';
-    await _load('packages/lucide_icons_flutter/Lucide', '$cache/lucide_icons_flutter-3.1.14+2/assets/lucide.ttf');
+    await _load('packages/lucide_icons_flutter/Lucide300',
+        '$cache/lucide_icons_flutter-3.1.14+2/assets/build_font/LucideVariable-w300.ttf');
   });
 
   testWidgets('gallery', (tester) async {

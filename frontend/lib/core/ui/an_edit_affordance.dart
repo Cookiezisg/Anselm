@@ -74,7 +74,7 @@ class _SaveButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: AnSize.btnPadXSm),
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: active ? c.accentSoft : const Color(0x00000000),
+            color: active ? c.accentSoft : c.accentSoft.withValues(alpha: 0),
             borderRadius: BorderRadius.circular(AnRadius.button),
           ),
           child: Text(label, style: AnText.meta.copyWith(color: c.accent, fontWeight: FontWeight.w600)),

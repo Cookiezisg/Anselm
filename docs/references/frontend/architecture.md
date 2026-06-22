@@ -43,8 +43,8 @@ features/                  # ★中间层:每域 data+state+ui+model（随 featu
 ## 4. 设计系统 + UI 套件（`core/design` + `core/ui`）
 
 - 令牌(`core/design`,单一值源):`tokens.dart`(`AnSpace`/`AnRadius`/`AnSize`/`AnMotion`)· `colors.dart`(`AnColors` ThemeExtension,明暗双值 + lerp,镜像 demo `tokens.css`)· `typography.dart`(`AnText`)· `theme.dart`(`ThemeData`)。
-- **单色 chrome + 功能色**:无装饰强调色(`accent`=墨);保留状态语义(ok/warn/danger)。
-- **字体**:两套**随包变量字体**(全平台确定渲染):UI=`MiSans`(Latin+简中)· 代码=`JetBrains Mono`(`assets/fonts/`)。
+- **中性 chrome + toB 蓝 accent + 功能色**:`accent`=蓝(demo `#0071e3`,主动作/选中/run 显蓝);状态语义 ok/warn/danger。
+- **字体**:UI=**系统 SF**(Latin,轻盈原生、匹配 demo)+ MiSans/PingFang 兜 CJK(MiSans 随包);代码=**JetBrains Mono**(随包)。详见 [`design-system.md`](design-system.md)。
 - **套件 + i18n**:An\* 组件 + 图标(Lucide)/品牌图/状态折叠/交互基座 + slang i18n —— 详见 [`design-system.md`](design-system.md)(随套件逐组填充)。
 
 ## 5. 三岛 shell 骨架（`core/ui/an_shell.dart`）

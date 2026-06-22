@@ -20,6 +20,8 @@ class AnGroupLabel extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(AnSpace.s4, AnSpace.s8, AnSpace.s4, AnSpace.s4),
       child: Text(
         text.toUpperCase(),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: AnText.meta.copyWith(color: context.colors.inkFaint, fontWeight: FontWeight.w600),
       ),
     );

@@ -18,14 +18,15 @@ audience: [human, ai]
 ## 1. 设计令牌（`core/design`，唯一值源，禁内联 px/hex/ms）
 
 - `tokens.dart` —— 主题无关几何/时间:`AnSpace`(4 网格间距)· `AnRadius`(tag/button/chip/card/island/pill)· `AnSize`(行高 32、控件 28、图标 16/12/20、三岛列宽、窗体外廓)· `AnMotion`(fast 120 / mid 240 / slow 340 / breath 1800ms + easeOut/spring 缓动)。
-- `colors.dart` —— `AnColors` ThemeExtension(明暗双值 + lerp,糖 `context.colors`)。**单色 chrome + 功能色**:无装饰强调色(`accent`=墨,白面上墨压为强调);保留功能语义 `ok`/`warn`/`danger`(+ soft)。值镜像 demo `tokens.css`,唯一刻意分歧=强调色去蓝改墨。
-- `typography.dart` —— `AnText`,模数字阶锚 13px 正文。**两套随包变量字体**(全平台确定渲染、不漂移):UI=`MiSans`(Latin+简中,`assets/fonts/MiSansVF.ttf`)· 代码=`JetBrains Mono`(`assets/fonts/JetBrainsMono.ttf`,OFL)。
-- `theme.dart` —— 装配 `ThemeData`,注册 `AnColors` 扩展,剥 Material 默认涟漪/密度。
+- `colors.dart` —— `AnColors` ThemeExtension(明暗双值 + lerp,糖 `context.colors`)。**中性 chrome + toB 蓝 accent + 功能色**:`accent`=蓝(demo `#0071e3`/暗 `#0a84ff`)——主动作/选中/聚焦/run 状态显蓝;`ok`/`warn`/`danger`(+ soft)语义色。值镜像 demo `tokens.css`。
+- `typography.dart` —— `AnText`,模数字阶锚 13px 正文。**UI=系统 SF**(`.AppleSystemUIFont`,Latin 用系统字、轻盈原生,匹配 demo 在无 MiSans 的 Mac 上的实际渲染)+ **MiSans/PingFang SC 兜 CJK**(MiSans `assets/fonts/MiSansVF.ttf` 随包);**代码=JetBrains Mono**(随包,OFL)。
+- `theme.dart` —— 装配 `ThemeData`,注册 `AnColors` 扩展,剥 Material 涟漪 + **hover/highlight/focus/splash 全置透明**(表面自管态,杜绝 Material 默认灰叠加)。
 
 ## 2. 命名 + 纪律
 
 - 组件类 `An<Name>`(`core/ui/`);文件 `an_<name>.dart`。纯框架无关模型在 `core/model/`(无 Flutter import)。
 - **颜色/度量只走 token**:widget 内禁裸 hex/rgb/`Color(0x…)`/px(只有 `core/design` 可声明色值)——`make verify` 加 grep 门禁机械兜底（套件落地时接）。
+- **悬停/选中底色淡入铁律**:`AnimatedContainer` 静止底用**目标色的 alpha=0**(`c.surfaceHover.withValues(alpha:0)`),**绝不用 `Color(0x00000000)`**(transparent black)——后者 lerp 到不透明浅色会经暗灰中点、产生"暗闪"(Flutter `Color.lerp` 官方坑)。
 - **文案只走 i18n**:严禁硬编码中英文,走 slang `context.t.<key>`(见 §3)。
 - 注释 S11 双语 Why-not-What。
 
@@ -35,7 +36,7 @@ audience: [human, ai]
 
 | 设施 | 位置 | 职责 |
 |---|---|---|
-| **AnIcons** | `core/ui/icons.dart` | 语义图标单源:领域键 → Lucide 字形(`lucide_icons_flutter`,与 demo 同集)。具名字段(`AnIcons.agent`…)+ 数据驱动 `byKey(k)` / `toolIcon(name)`(精确+关键字推断)/ `node(kind)`;未知 → `fallback`(可见"?")。移植 demo `icons.js` ALIAS/TOOL_ICON + `entity-kinds.js`。 |
+| **AnIcons** | `core/ui/icons.dart` | 语义图标单源:领域键 → Lucide 字形(`lucide_icons_flutter`)。渲染**细字重族 `Lucide300`**(≈demo 1.7 笔画,默认 `Lucide` 偏粗;包内各字重共享码点,改一处 `_family` 即换粗细)。具名字段(`AnIcons.agent`…)+ 数据驱动 `byKey`/`toolIcon`/`node`;未知 → `fallback`。移植 `icons.js` + `entity-kinds.js`。 |
 | **AnBrandIcon** | `core/ui/an_brand_icon.dart` | 品牌/项目图标三源:`.anselm`(随包 app 标 SVG,细边描 squircle 轮廓)· `.svg`(内联 logo 串,currentColor→ink)· `.glyph`(字母圆角底兜底);`size` sm/md/lg + `managed`(accent 底)/`elevated`(浮起)。`flutter_svg` 渲染 `assets/brand/anselm-icon.svg`。 |
 | **AnStatus / AnTone** | `core/model/status_state.dart` | 状态折叠单源(纯 Dart):后端任意状态字串 → 5 通用态(idle/run/wait/err/done)+ 语义 `tone`(err→danger/wait→warn/done→ok/run→accent/idle→none)。徽章/点不再各写 if 链。移植 `state-model.js`。 |
 | **AnInteractive** | `core/ui/an_interactive.dart` | 交互基座:hover/focus/pressed/disabled 统一态(`Set<WidgetState>` 喂 builder),指针 + 键盘(Enter/Space)激活;**禁用时不可聚焦、指针/按键都不激活**(对齐 demo disabled-passthrough 门)。取代手搓 MouseRegion。 |

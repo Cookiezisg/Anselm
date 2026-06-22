@@ -15,6 +15,9 @@ import 'specimen.dart';
 ///
 /// 组件画廊(make gallery)——双栏目录,镜像 demo reference.html:类目导航栏 + 可滚 specimen 栅格 + 明暗切换。
 /// 每个 An* 组件全态在此、与落地同提交;这是对照 demo 的人工保真环(机器门禁=widget-test 矩阵)。
+// Vertical room for the frameless macOS title-bar (traffic lights live here). 无边框标题栏纵向留位。
+const double _titleBarReserve = 28;
+
 class GalleryApp extends StatefulWidget {
   const GalleryApp({super.key});
 
@@ -37,17 +40,26 @@ class _GalleryAppState extends State<GalleryApp> {
           final category = galleryCatalog[_categoryIndex];
           // Material ancestor — AnInput's TextField (and other Material leaves) require it; the app
           // shell provides one too. Material 祖先:AnInput 的 TextField 等需要,app 壳也提供。
+          // Top strip reserves the frameless macOS title-bar zone so the nav brand doesn't sit under
+          // the OS traffic lights. 顶部留出无边框 macOS 标题栏区,避免左上品牌压住红绿灯。
           return Material(
             color: c.canvas,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+            child: Column(
               children: [
-                _nav(context),
+                const SizedBox(height: _titleBarReserve),
                 Expanded(
-                  child: Column(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _topBar(context, category),
-                      Expanded(child: _content(context, category)),
+                      _nav(context),
+                      Expanded(
+                        child: Column(
+                          children: [
+                            _topBar(context, category),
+                            Expanded(child: _content(context, category)),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -106,7 +118,7 @@ class _GalleryAppState extends State<GalleryApp> {
           height: AnSize.row,
           padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8),
           decoration: BoxDecoration(
-            color: selected ? c.surfaceActive : (hovered ? c.surfaceHover : const Color(0x00000000)),
+            color: selected ? c.surfaceActive : (hovered ? c.surfaceHover : c.surfaceHover.withValues(alpha: 0)),
             borderRadius: BorderRadius.circular(AnRadius.button),
           ),
           child: Row(
