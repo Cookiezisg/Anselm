@@ -13,11 +13,11 @@
   },
   "nav": {
     "chat": "对话",
-    "functions": "函数",
-    "handlers": "处理器",
-    "agents": "智能体",
-    "workflows": "工作流",
+    "entities": "实体",
+    "scheduler": "调度",
+    "documents": "文档",
     "search": "搜索",
-    "settings": "设置"
+    "settings": "设置",
+    "notifications": "通知"
   }
 }

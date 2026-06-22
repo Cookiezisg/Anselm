@@ -46,8 +46,10 @@ class _AnRowState extends State<AnRow> {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: AnMotion.fast,
+        // Hover is INSTANT (no tween): animating from transparent-black flashed dark
+        // mid-transition; a crisp 0ms swap is also the intended density feel.
+        // 悬停瞬时(不补间):从透明黑补间会中途闪暗;0ms 利落切换也符合密度手感。
+        child: Container(
           height: AnSize.row,
           padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8),
           decoration: BoxDecoration(

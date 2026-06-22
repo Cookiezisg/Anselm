@@ -13,11 +13,11 @@
   },
   "nav": {
     "chat": "Chat",
-    "functions": "Functions",
-    "handlers": "Handlers",
-    "agents": "Agents",
-    "workflows": "Workflows",
+    "entities": "Entities",
+    "scheduler": "Scheduler",
+    "documents": "Documents",
     "search": "Search",
-    "settings": "Settings"
+    "settings": "Settings",
+    "notifications": "Notifications"
   }
 }

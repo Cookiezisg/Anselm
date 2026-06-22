@@ -11,7 +11,7 @@ import 'package:slang/generated.dart';
 import 'strings.g.dart';
 
 // Path: <root>
-class TranslationsZh with BaseTranslations<AppLocale, Translations> implements Translations {
+class TranslationsZh extends Translations with BaseTranslations<AppLocale, Translations> {
 	/// You can call this constructor and build your own translation instance of this locale.
 	/// Constructing via the enum [AppLocale.build] is preferred.
 	TranslationsZh({Map<String, Node>? overrides, PluralResolver? cardinalResolver, PluralResolver? ordinalResolver, TranslationMetadata<AppLocale, Translations>? meta})
@@ -21,7 +21,9 @@ class TranslationsZh with BaseTranslations<AppLocale, Translations> implements T
 		    overrides: overrides ?? {},
 		    cardinalResolver: cardinalResolver,
 		    ordinalResolver: ordinalResolver,
-		  ) {
+		  ),
+		  super(cardinalResolver: cardinalResolver, ordinalResolver: ordinalResolver) {
+		super.$meta.setFlatMapFunction($meta.getTranslation); // copy base translations to super.$meta
 		$meta.setFlatMapFunction(_flatMapFunction);
 	}
 
@@ -29,7 +31,7 @@ class TranslationsZh with BaseTranslations<AppLocale, Translations> implements T
 	@override final TranslationMetadata<AppLocale, Translations> $meta;
 
 	/// Access flat map
-	@override dynamic operator[](String key) => $meta.getTranslation(key);
+	@override dynamic operator[](String key) => $meta.getTranslation(key) ?? super.$meta.getTranslation(key);
 
 	late final TranslationsZh _root = this; // ignore: unused_field
 
@@ -44,8 +46,8 @@ class TranslationsZh with BaseTranslations<AppLocale, Translations> implements T
 }
 
 // Path: app
-class _Translations$app$zh implements Translations$app$en {
-	_Translations$app$zh._(this._root);
+class _Translations$app$zh extends Translations$app$en {
+	_Translations$app$zh._(TranslationsZh root) : this._root = root, super.internal(root);
 
 	final TranslationsZh _root; // ignore: unused_field
 
@@ -54,8 +56,8 @@ class _Translations$app$zh implements Translations$app$en {
 }
 
 // Path: backend
-class _Translations$backend$zh implements Translations$backend$en {
-	_Translations$backend$zh._(this._root);
+class _Translations$backend$zh extends Translations$backend$en {
+	_Translations$backend$zh._(TranslationsZh root) : this._root = root, super.internal(root);
 
 	final TranslationsZh _root; // ignore: unused_field
 
@@ -66,8 +68,8 @@ class _Translations$backend$zh implements Translations$backend$en {
 }
 
 // Path: workspace
-class _Translations$workspace$zh implements Translations$workspace$en {
-	_Translations$workspace$zh._(this._root);
+class _Translations$workspace$zh extends Translations$workspace$en {
+	_Translations$workspace$zh._(TranslationsZh root) : this._root = root, super.internal(root);
 
 	final TranslationsZh _root; // ignore: unused_field
 
@@ -77,19 +79,19 @@ class _Translations$workspace$zh implements Translations$workspace$en {
 }
 
 // Path: nav
-class _Translations$nav$zh implements Translations$nav$en {
-	_Translations$nav$zh._(this._root);
+class _Translations$nav$zh extends Translations$nav$en {
+	_Translations$nav$zh._(TranslationsZh root) : this._root = root, super.internal(root);
 
 	final TranslationsZh _root; // ignore: unused_field
 
 	// Translations
 	@override String get chat => '对话';
-	@override String get functions => '函数';
-	@override String get handlers => '处理器';
-	@override String get agents => '智能体';
-	@override String get workflows => '工作流';
+	@override String get entities => '实体';
+	@override String get scheduler => '调度';
+	@override String get documents => '文档';
 	@override String get search => '搜索';
 	@override String get settings => '设置';
+	@override String get notifications => '通知';
 }
 
 /// The flat map containing all translations for locale <zh>.
@@ -107,12 +109,12 @@ extension on TranslationsZh {
 			'workspace.selectTitle' => '选择一个工作区',
 			'workspace.none' => '未选择工作区',
 			'nav.chat' => '对话',
-			'nav.functions' => '函数',
-			'nav.handlers' => '处理器',
-			'nav.agents' => '智能体',
-			'nav.workflows' => '工作流',
+			'nav.entities' => '实体',
+			'nav.scheduler' => '调度',
+			'nav.documents' => '文档',
 			'nav.search' => '搜索',
 			'nav.settings' => '设置',
+			'nav.notifications' => '通知',
 			_ => null,
 		};
 	}

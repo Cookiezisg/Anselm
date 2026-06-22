@@ -12,6 +12,7 @@
 | **HTTP 端点 / DB 表 / 错误码 / SSE 事件**（四索引，与代码逐字同步） | `references/backend/{api,database,error-codes,events}.md` |
 | 某个域怎么设计的（心智模型 / 生命周期 / 坑） | `references/backend/domains/<域>.md` |
 | 地基与引擎（orm / reqctx / **scheduler-flowrun** / loop / stream-llm / sandbox / bootstrap / 小件） | `references/backend/foundation/` |
+| **前端架构 / 设计系统 / 契约 / SSE / 三岛 shell**（Flutter，ADR 0004） | `references/frontend/{architecture,design-system,contract,sse-gateway,shell}.md` |
 | 架构决策（直装运行时 / 统一错误类型 / API 契约标准化 / 前端 Flutter 架构 / 工具链 mise / MCP 市场白名单 / scheduler 异步 Advance 池） | `decisions/000{1,2,3,4,5,6,7}-*.md` |
 | 数据目录 / 备份 / 跨机迁移 | `how-to/data-migration.md` |
 | 全功能黑盒验收套件（make testend / evals） | `references/testend/overview.md` |
@@ -22,7 +23,7 @@
 
 - **domains/**（20 篇）：function · handler · agent · workflow · trigger · control · approval · skill · mcp · document · chat · messages · conversation · subagent · attachment · memory · todo · relation · search · support-services（十一微域合篇）
 - **foundation/**（8 篇）：orm · reqctx · scheduler-flowrun（durable 引擎）· loop（ReAct）· stream-llm · sandbox（含 envfix）· platform-pkgs · bootstrap
-- **frontend/**：随前端 features 落地填充
+- **frontend/**（5 篇，ADR 0004）：[architecture](references/frontend/architecture.md) · [design-system](references/frontend/design-system.md) · [contract](references/frontend/contract.md) · [sse-gateway](references/frontend/sse-gateway.md) · [shell](references/frontend/shell.md)；`slices/` 随各 feature 落地填充
 
 ## 权威层级
 

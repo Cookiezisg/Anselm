@@ -40,15 +40,15 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	Translations $copyWith({TranslationMetadata<AppLocale, Translations>? meta}) => Translations(meta: meta ?? this.$meta);
 
 	// Translations
-	late final Translations$app$en app = Translations$app$en._(_root);
-	late final Translations$backend$en backend = Translations$backend$en._(_root);
-	late final Translations$workspace$en workspace = Translations$workspace$en._(_root);
-	late final Translations$nav$en nav = Translations$nav$en._(_root);
+	late final Translations$app$en app = Translations$app$en.internal(_root);
+	late final Translations$backend$en backend = Translations$backend$en.internal(_root);
+	late final Translations$workspace$en workspace = Translations$workspace$en.internal(_root);
+	late final Translations$nav$en nav = Translations$nav$en.internal(_root);
 }
 
 // Path: app
 class Translations$app$en {
-	Translations$app$en._(this._root);
+	Translations$app$en.internal(this._root);
 
 	final Translations _root; // ignore: unused_field
 
@@ -60,7 +60,7 @@ class Translations$app$en {
 
 // Path: backend
 class Translations$backend$en {
-	Translations$backend$en._(this._root);
+	Translations$backend$en.internal(this._root);
 
 	final Translations _root; // ignore: unused_field
 
@@ -78,7 +78,7 @@ class Translations$backend$en {
 
 // Path: workspace
 class Translations$workspace$en {
-	Translations$workspace$en._(this._root);
+	Translations$workspace$en.internal(this._root);
 
 	final Translations _root; // ignore: unused_field
 
@@ -93,7 +93,7 @@ class Translations$workspace$en {
 
 // Path: nav
 class Translations$nav$en {
-	Translations$nav$en._(this._root);
+	Translations$nav$en.internal(this._root);
 
 	final Translations _root; // ignore: unused_field
 
@@ -102,23 +102,23 @@ class Translations$nav$en {
 	/// en: 'Chat'
 	String get chat => 'Chat';
 
-	/// en: 'Functions'
-	String get functions => 'Functions';
+	/// en: 'Entities'
+	String get entities => 'Entities';
 
-	/// en: 'Handlers'
-	String get handlers => 'Handlers';
+	/// en: 'Scheduler'
+	String get scheduler => 'Scheduler';
 
-	/// en: 'Agents'
-	String get agents => 'Agents';
-
-	/// en: 'Workflows'
-	String get workflows => 'Workflows';
+	/// en: 'Documents'
+	String get documents => 'Documents';
 
 	/// en: 'Search'
 	String get search => 'Search';
 
 	/// en: 'Settings'
 	String get settings => 'Settings';
+
+	/// en: 'Notifications'
+	String get notifications => 'Notifications';
 }
 
 /// The flat map containing all translations for locale <en>.
@@ -136,12 +136,12 @@ extension on Translations {
 			'workspace.selectTitle' => 'Select a workspace',
 			'workspace.none' => 'No workspace selected',
 			'nav.chat' => 'Chat',
-			'nav.functions' => 'Functions',
-			'nav.handlers' => 'Handlers',
-			'nav.agents' => 'Agents',
-			'nav.workflows' => 'Workflows',
+			'nav.entities' => 'Entities',
+			'nav.scheduler' => 'Scheduler',
+			'nav.documents' => 'Documents',
 			'nav.search' => 'Search',
 			'nav.settings' => 'Settings',
+			'nav.notifications' => 'Notifications',
 			_ => null,
 		};
 	}

@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
 
-/// The MONOCHROME semantic palette as a [ThemeExtension] — the one place colors are
-/// defined, resolved per-brightness from `Theme.of(context).extension<AnColors>()` (sugar:
-/// `context.colors`). The product is deliberately achromatic: there is NO decorative
-/// accent hue. Emphasis is carried by ink (near-black) on bright surfaces; hierarchy by
-/// the surface depth ladder + ink ladder; status/kind by icon + grayscale, never by color.
+/// The palette as a [ThemeExtension] — the one place colors are defined, resolved
+/// per-brightness from `Theme.of(context).extension<AnColors>()` (sugar: `context.colors`).
 ///
-/// The SINGLE functional hue is `danger` (a restrained red) — kept only as a safety signal
-/// for destructive/error states, not as an accent. Drop it (set to ink) for pure B&W.
+/// Principle: MONOCHROME CHROME, COLORED SEMANTICS. There is NO decorative accent hue —
+/// emphasis (primary action, selection, focus) is ink (near-black) on bright surfaces, and
+/// `accent*` names hold monochrome values. But functional color is kept where it carries
+/// meaning: the 5-state status model (ok=green / warn=orange / danger=red; run & idle are
+/// achromatic) and code syntax highlighting (see [AnSyntax]). Charts/graphs are B&W (node
+/// kinds read from icon + grayscale, never hue). Naming is by ROLE, not by hue.
 ///
-/// 刻意无彩色:没有装饰性强调色。强调靠墨色(近黑)压在明亮表面上;层级靠表面深度阶梯+墨色阶梯;
-/// 状态/种类靠图标+灰阶,绝不靠颜色。唯一功能色是 `danger`(克制的红)——只作危险/错误的安全信号,
-/// 非强调;要纯黑白把它设成 ink 即可。命名按角色非色相(widget 要 `surfaceHover`,不要 `#f0f0f3`)。
+/// 原则:单色 chrome、彩色语义。无装饰强调色——强调(主操作/选中/焦点)是墨色压亮面,`accent*` 持单色值。
+/// 但功能色保留(承载语义):5 态状态(ok 绿 / warn 橙 / danger 红;run 与 idle 无彩)+ 代码高亮(见 [AnSyntax])。
+/// 图表黑白(节点种类靠图标+灰阶,不靠色相)。命名按角色非色相。
 @immutable
 class AnColors extends ThemeExtension<AnColors> {
   const AnColors({
@@ -32,6 +33,10 @@ class AnColors extends ThemeExtension<AnColors> {
     required this.accentHover,
     required this.accentSoft,
     required this.accentLine,
+    required this.ok,
+    required this.okSoft,
+    required this.warn,
+    required this.warnSoft,
     required this.danger,
     required this.dangerSoft,
     required this.shadowIsland,
@@ -39,8 +44,7 @@ class AnColors extends ThemeExtension<AnColors> {
     required this.shadowPop,
   });
 
-  // Surface depth ladder (bright/airy island model: depth = small value steps + soft
-  // shadows, not heavy borders). 表面深度阶梯。
+  // Surface depth ladder (depth = small value steps + soft shadows, not heavy borders).
   final Color desk;
   final Color canvas;
   final Color surface;
@@ -52,22 +56,25 @@ class AnColors extends ThemeExtension<AnColors> {
   final Color ink;
   final Color inkMuted;
   final Color inkFaint;
-  final Color onAccent; // text/icon on an ink-filled (emphasis) surface 墨底上的前景
+  final Color onAccent; // foreground on an emphasis (ink/colored) fill 强调底上的前景
 
   // Lines & scrim. 线与遮罩。
   final Color line;
   final Color lineStrong;
   final Color scrim;
 
-  // Emphasis role = INK (no hue). accent* are the names; their VALUE is monochrome, so a
-  // hue could be reintroduced by changing one value. 强调角色=墨(无色相);值单色,日后想加色相只改一处。
-  final Color accent; // primary fill (ink) 主填充
-  final Color accentHover; // pressed/hover (pure black) 悬停/按下
-  final Color accentSoft; // selected-row wash (light gray) 选中行底
-  final Color accentLine; // focus ring / selected border 焦点环/选中边
+  // Emphasis = INK (monochrome). 强调=墨(单色)。
+  final Color accent;
+  final Color accentHover;
+  final Color accentSoft;
+  final Color accentLine;
 
-  // The one functional hue. 唯一功能色。
-  final Color danger;
+  // Functional status semantics (the colored part). 功能状态语义(有彩色的部分)。
+  final Color ok; // done / success 完成
+  final Color okSoft;
+  final Color warn; // wait / warning 等待/告警
+  final Color warnSoft;
+  final Color danger; // err / destructive 失败/破坏
   final Color dangerSoft;
 
   // Elevation shadows. 高度阴影。
@@ -75,7 +82,8 @@ class AnColors extends ThemeExtension<AnColors> {
   final List<BoxShadow> shadowFloat;
   final List<BoxShadow> shadowPop;
 
-  /// Light is the soul: bright, airy, black-on-white. 明亮为魂:通透、黑压白。
+  /// Light is the soul: bright, airy, ink-on-white chrome + functional status color.
+  /// 明亮为魂:通透,墨压白的 chrome + 功能状态色。
   static const AnColors light = AnColors(
     desk: Color(0xFFD4D5D9),
     canvas: Color(0xFFF5F5F7),
@@ -94,6 +102,10 @@ class AnColors extends ThemeExtension<AnColors> {
     accentHover: Color(0xFF000000),
     accentSoft: Color.fromRGBO(0, 0, 0, 0.06),
     accentLine: Color.fromRGBO(0, 0, 0, 0.28),
+    ok: Color(0xFF2DA44E),
+    okSoft: Color.fromRGBO(45, 164, 78, 0.12),
+    warn: Color(0xFFBF6A02),
+    warnSoft: Color.fromRGBO(191, 106, 2, 0.12),
     danger: Color(0xFFD70015),
     dangerSoft: Color.fromRGBO(215, 0, 21, 0.10),
     shadowIsland: [
@@ -111,7 +123,6 @@ class AnColors extends ThemeExtension<AnColors> {
   );
 
   /// Dark inverts the ladder; emphasis becomes white-on-near-black. Wired now, not exposed.
-  /// 暗色反转阶梯;强调变白压黑。已接未启。
   static const AnColors dark = AnColors(
     desk: Color(0xFF000000),
     canvas: Color(0xFF0A0A0A),
@@ -122,14 +133,18 @@ class AnColors extends ThemeExtension<AnColors> {
     ink: Color(0xFFF5F5F7),
     inkMuted: Color(0xFFA1A1A6),
     inkFaint: Color(0xFF6E6E73),
-    onAccent: Color(0xFF1C1C1E), // dark text on a white emphasis fill 白底上的深色前景
+    onAccent: Color(0xFF1C1C1E),
     line: Color.fromRGBO(255, 255, 255, 0.10),
     lineStrong: Color.fromRGBO(255, 255, 255, 0.16),
     scrim: Color.fromRGBO(0, 0, 0, 0.50),
-    accent: Color(0xFFF5F5F7), // white emphasis 白强调
+    accent: Color(0xFFF5F5F7),
     accentHover: Color(0xFFFFFFFF),
     accentSoft: Color.fromRGBO(255, 255, 255, 0.10),
     accentLine: Color.fromRGBO(255, 255, 255, 0.32),
+    ok: Color(0xFF30D158),
+    okSoft: Color.fromRGBO(48, 209, 88, 0.16),
+    warn: Color(0xFFFF9F0A),
+    warnSoft: Color.fromRGBO(255, 159, 10, 0.16),
     danger: Color(0xFFFF453A),
     dangerSoft: Color.fromRGBO(255, 69, 58, 0.16),
     shadowIsland: [
@@ -165,6 +180,10 @@ class AnColors extends ThemeExtension<AnColors> {
     Color? accentHover,
     Color? accentSoft,
     Color? accentLine,
+    Color? ok,
+    Color? okSoft,
+    Color? warn,
+    Color? warnSoft,
     Color? danger,
     Color? dangerSoft,
     List<BoxShadow>? shadowIsland,
@@ -189,6 +208,10 @@ class AnColors extends ThemeExtension<AnColors> {
       accentHover: accentHover ?? this.accentHover,
       accentSoft: accentSoft ?? this.accentSoft,
       accentLine: accentLine ?? this.accentLine,
+      ok: ok ?? this.ok,
+      okSoft: okSoft ?? this.okSoft,
+      warn: warn ?? this.warn,
+      warnSoft: warnSoft ?? this.warnSoft,
       danger: danger ?? this.danger,
       dangerSoft: dangerSoft ?? this.dangerSoft,
       shadowIsland: shadowIsland ?? this.shadowIsland,
@@ -221,6 +244,10 @@ class AnColors extends ThemeExtension<AnColors> {
       accentHover: c(accentHover, other.accentHover),
       accentSoft: c(accentSoft, other.accentSoft),
       accentLine: c(accentLine, other.accentLine),
+      ok: c(ok, other.ok),
+      okSoft: c(okSoft, other.okSoft),
+      warn: c(warn, other.warn),
+      warnSoft: c(warnSoft, other.warnSoft),
       danger: c(danger, other.danger),
       dangerSoft: c(dangerSoft, other.dangerSoft),
       shadowIsland: s(shadowIsland, other.shadowIsland),
@@ -230,9 +257,8 @@ class AnColors extends ThemeExtension<AnColors> {
   }
 }
 
-/// Ergonomic, fail-fast access: `context.colors.ink`. Throws if the extension is not
-/// registered (a wiring bug we want loud, not a silent fallback).
-/// 顺手且 fail-fast。未注册即抛(装配 bug 要响,不静默兜底)。
+/// Ergonomic, fail-fast access: `context.colors.ink`. Throws if not registered.
+/// 顺手且 fail-fast。未注册即抛(装配 bug 要响)。
 extension AnColorsContext on BuildContext {
   AnColors get colors => Theme.of(this).extension<AnColors>()!;
 }

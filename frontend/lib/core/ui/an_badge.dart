@@ -4,12 +4,14 @@ import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
 
-/// A small inline label/tag. Monochrome by default: solid (ink), soft (gray wash), or
-/// outline. Pass [tone] = danger for the one functional red (e.g. a failed state tag).
-/// 小内联标签。默认单色:solid 墨底 / soft 灰底 / outline 描边。tone=danger 用唯一红(如失败态)。
+/// A small inline label/tag. [variant] = fill style (solid / soft / outline); [tone] =
+/// semantic color, matching the status TONE map (neutral & accent are achromatic ink,
+/// ok/warn/danger carry the functional color). Most chrome tags are neutral; status tags
+/// (Active/Waiting/Failed) take ok/warn/danger.
+/// 小内联标签。variant=填充式;tone=语义色,对齐状态 TONE(neutral/accent 为墨,ok/warn/danger 带功能色)。
 enum AnBadgeVariant { solid, soft, outline }
 
-enum AnBadgeTone { neutral, danger }
+enum AnBadgeTone { neutral, accent, ok, warn, danger }
 
 class AnBadge extends StatelessWidget {
   const AnBadge(
@@ -26,18 +28,25 @@ class AnBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final danger = tone == AnBadgeTone.danger;
-    final solidBg = danger ? c.danger : c.accent;
-    final softBg = danger ? c.dangerSoft : c.accentSoft;
-    final mark = danger ? c.danger : c.ink;
+    // (strong, soft, mutedText) per tone. neutral stays gray; accent is ink emphasis.
+    final (Color strong, Color soft) = switch (tone) {
+      AnBadgeTone.neutral => (c.inkMuted, c.surfaceActive),
+      AnBadgeTone.accent => (c.accent, c.accentSoft),
+      AnBadgeTone.ok => (c.ok, c.okSoft),
+      AnBadgeTone.warn => (c.warn, c.warnSoft),
+      AnBadgeTone.danger => (c.danger, c.dangerSoft),
+    };
 
     final (Color bg, Color fg, Border? border) = switch (variant) {
-      AnBadgeVariant.solid => (solidBg, c.onAccent, null),
-      AnBadgeVariant.soft => (softBg, mark, null),
+      AnBadgeVariant.solid => (strong, c.onAccent, null),
+      AnBadgeVariant.soft => (soft, tone == AnBadgeTone.neutral ? c.inkMuted : strong, null),
       AnBadgeVariant.outline => (
           Colors.transparent,
-          danger ? c.danger : c.inkMuted,
-          Border.all(color: danger ? c.danger : c.line, width: AnSize.hairline),
+          strong,
+          Border.all(
+            color: tone == AnBadgeTone.neutral ? c.line : strong,
+            width: AnSize.hairline,
+          ),
         ),
     };
 

@@ -71,17 +71,24 @@ class AnButton extends StatelessWidget {
       return BorderSide(color: color, width: AnSize.hairline);
     }
 
+    // Force an EXACT height (min == max) and standard density so nothing shrinks it below
+    // [height]; tight line-height + center alignment keep the label optically centered.
+    // 锁死精确高度(min==max)+标准密度,避免被压扁;紧行高+居中对齐使文字纵向居中。
     final style = ButtonStyle(
       minimumSize: WidgetStatePropertyAll(Size(0, height)),
+      maximumSize: WidgetStatePropertyAll(Size(double.infinity, height)),
       padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: padX)),
+      alignment: Alignment.center,
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      visualDensity: VisualDensity.compact,
+      visualDensity: VisualDensity.standard,
       elevation: const WidgetStatePropertyAll(0),
       overlayColor: const WidgetStatePropertyAll(Colors.transparent),
       shape: WidgetStatePropertyAll(
         RoundedRectangleBorder(borderRadius: BorderRadius.circular(AnRadius.button)),
       ),
-      textStyle: WidgetStatePropertyAll(AnText.label.copyWith(fontWeight: FontWeight.w500)),
+      textStyle: WidgetStatePropertyAll(
+        AnText.label.copyWith(fontWeight: FontWeight.w500, height: 1.0),
+      ),
       backgroundColor: WidgetStateProperty.resolveWith(background),
       foregroundColor: WidgetStateProperty.resolveWith(foreground),
       iconColor: WidgetStateProperty.resolveWith(foreground),

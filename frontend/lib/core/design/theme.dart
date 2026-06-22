@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'colors.dart';
+import 'syntax.dart';
 import 'tokens.dart';
 import 'typography.dart';
 
@@ -18,10 +19,12 @@ import 'typography.dart';
 /// 自有 widget 经 `context.colors` 读)。桌面取舍:无墨波纹 + 紧凑密度 = 利落原生而非 web 感;脚手架背景
 /// 用 canvas(非纯白),让白色岛屿读作抬升表面。
 abstract final class AnTheme {
-  static ThemeData light() => _build(AnColors.light, Brightness.light);
-  static ThemeData dark() => _build(AnColors.dark, Brightness.dark);
+  static ThemeData light() =>
+      _build(AnColors.light, AnSyntax.light, Brightness.light);
+  static ThemeData dark() =>
+      _build(AnColors.dark, AnSyntax.dark, Brightness.dark);
 
-  static ThemeData _build(AnColors c, Brightness brightness) {
+  static ThemeData _build(AnColors c, AnSyntax syntax, Brightness brightness) {
     final scheme =
         ColorScheme.fromSeed(seedColor: c.accent, brightness: brightness).copyWith(
       primary: c.accent,
@@ -43,7 +46,7 @@ abstract final class AnTheme {
       useMaterial3: true,
       brightness: brightness,
       colorScheme: scheme,
-      extensions: [c],
+      extensions: [c, syntax],
       scaffoldBackgroundColor: c.canvas,
       canvasColor: c.surface,
       dividerColor: c.line,
@@ -67,6 +70,15 @@ abstract final class AnTheme {
           borderRadius: BorderRadius.circular(AnRadius.button),
         ),
         textStyle: AnText.meta.copyWith(color: c.surface),
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: c.surface,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AnRadius.card),
+          side: BorderSide(color: c.line, width: 1),
+        ),
+        textStyle: AnText.body.copyWith(color: c.ink),
       ),
     );
   }
