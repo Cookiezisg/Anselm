@@ -1,129 +1,35 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
+import 'package:flutter/services.dart';
 
-import '../core/design/colors.dart';
 import '../core/design/theme.dart';
-import '../core/design/tokens.dart';
-import '../core/design/typography.dart';
-import '../i18n/strings.g.dart';
-import 'backend_controller.dart';
-import 'providers.dart';
-import 'router.dart';
+import '../core/platform/window_zoom.dart';
+import '../core/ui/an_shell.dart';
 
-/// Root widget. Gates the whole app on the sidecar's lifecycle (ADR 0004 §1): a single
-/// splash / crash / ready switch, NOT per-feature error handling. Once the backend is
-/// healthy, a nested ProviderScope injects the resolved base URL as the one
-/// runtime-determined override; everything below it (Dio, SSE gateway, repos) is built
-/// from it.
+/// The root widget — wires the theme onto a MaterialApp whose home is the three-island shell.
+/// App-wide UI zoom shortcuts (Cmd +/-/0) are bound here via [CallbackShortcuts]; an autofocused
+/// [Focus] makes them live from launch (they keep working once any descendant — e.g. a text
+/// field — holds focus, since CallbackShortcuts is its ancestor). Kept deliberately thin:
+/// assembly (DI overrides, routing, sidecar lifecycle) accretes here as features land.
 ///
-/// 根 widget。整 app 门控于 sidecar 生命周期(ADR 0004 §1):单一 splash/crash/ready 切换,
-/// 非逐 feature 处理。后端健康后,嵌套 ProviderScope 注入解析后的 base URL 作唯一运行期 override;
-/// 其下一切(Dio、SSE gateway、repo)据之构建。
-class AnselmApp extends ConsumerWidget {
-  const AnselmApp({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final controller = ref.watch(backendControllerProvider);
-    return ValueListenableBuilder<BackendState>(
-      valueListenable: controller.state,
-      builder: (context, st, _) => switch (st.phase) {
-        BackendPhase.starting => _StatusApp(message: context.t.backend.starting),
-        BackendPhase.crashed => _StatusApp(
-            message: context.t.backend.crashedTitle,
-            detail: st.error,
-            onRetry: controller.start,
-          ),
-        BackendPhase.ready => ProviderScope(
-            overrides: [baseUrlProvider.overrideWithValue(st.baseUrl!)],
-            child: const _ReadyApp(),
-          ),
-      },
-    );
-  }
-}
-
-/// The live app once the backend is healthy: MaterialApp.router over the desktop shell.
-///
-/// 后端健康后的 live app:MaterialApp.router 套桌面 shell。
-class _ReadyApp extends StatefulWidget {
-  const _ReadyApp();
-
-  @override
-  State<_ReadyApp> createState() => _ReadyAppState();
-}
-
-class _ReadyAppState extends State<_ReadyApp> {
-  late final GoRouter _router = buildRouter();
+/// 根 widget——主题接到 MaterialApp,home=三岛 shell。应内缩放快捷键(Cmd +/-/0)在此经 CallbackShortcuts
+/// 绑定;autofocus 的 Focus 让其开机即生效(后续子节点取焦也照常,因 CallbackShortcuts 是其祖先)。刻意薄。
+class AnApp extends StatelessWidget {
+  const AnApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
-      debugShowCheckedModeBanner: false,
-      title: 'Anselm',
-      theme: AnTheme.light(),
-      darkTheme: AnTheme.dark(),
-      themeMode: ThemeMode.light, // light is the soul; dark is wired but not yet exposed 明亮为魂,暗色已接未启
-      locale: TranslationProvider.of(context).flutterLocale,
-      supportedLocales: AppLocaleUtils.supportedLocales,
-      routerConfig: _router,
-    );
-  }
-}
-
-/// The splash / crash screen — a standalone MaterialApp so it themes + localizes before
-/// the backend is up. Shows a retry on crash.
-///
-/// splash / crash 屏——独立 MaterialApp,后端起来前即可主题化+本地化。crash 时给重试。
-class _StatusApp extends StatelessWidget {
-  const _StatusApp({required this.message, this.detail, this.onRetry});
-
-  final String message;
-  final String? detail;
-  final VoidCallback? onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final crashed = onRetry != null;
     return MaterialApp(
+      title: 'Anselm',
       debugShowCheckedModeBanner: false,
       theme: AnTheme.light(),
-      home: Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (!crashed)
-                const SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              else
-                Icon(Icons.error_outline,
-                    color: AnColors.light.danger, size: 28),
-              const SizedBox(height: AnSpace.s16),
-              Text(message,
-                  style: Theme.of(context).textTheme.titleMedium),
-              if (detail != null) ...[
-                const SizedBox(height: AnSpace.s8),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 480),
-                  child: Text(
-                    detail!,
-                    textAlign: TextAlign.center,
-                    style: AnText.meta.copyWith(color: AnColors.light.inkMuted),
-                  ),
-                ),
-              ],
-              if (onRetry != null) ...[
-                const SizedBox(height: AnSpace.s16),
-                FilledButton(onPressed: onRetry, child: Text(context.t.backend.retry)),
-              ],
-            ],
-          ),
-        ),
+      home: CallbackShortcuts(
+        bindings: <ShortcutActivator, VoidCallback>{
+          const SingleActivator(LogicalKeyboardKey.equal, meta: true): WindowZoom.zoomIn,
+          const SingleActivator(LogicalKeyboardKey.equal, meta: true, shift: true): WindowZoom.zoomIn,
+          const SingleActivator(LogicalKeyboardKey.minus, meta: true): WindowZoom.zoomOut,
+          const SingleActivator(LogicalKeyboardKey.digit0, meta: true): WindowZoom.reset,
+        },
+        child: const Focus(autofocus: true, child: AnShell()),
       ),
     );
   }

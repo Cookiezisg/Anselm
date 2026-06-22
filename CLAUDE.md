@@ -40,7 +40,7 @@
 5. **端到端推演先行**：开工前必走完整数据流 + 列出跨域依赖（relation 边）。
 6. **反校验剧场**：只保留有物理价值的校验（JSON、必填、CHECK/UNIQUE）；不加多余 null-check。
 7. **零历史包袱 + 状态即重述**：项目未上线，禁止维护兼容性、禁止历史演化描述，只留当前物理事实（历史从 git 取）。**状态文档**（本文件 / `architecture.md` / `GOVERNANCE.md`）改任何状态/事实 = **整体重述当前状态、非追加**——绝不在旧内容旁堆新句、不留旧状态痕迹（见末「文档纪律」节 + GOVERNANCE §1.7）。
-8. **复用优先、不造轮子**：动工前先盘点 `pkg/*` 与 `infra/*` 既有能力——能复用就复用；业务层将手搓的样板本应由地基提供时（如 orm 补 UNIQUE 冲突翻译），**强化地基**而非模块内重抄。错误抽象与重复样板比多写一行更糟。
+8. **复用优先、不造轮子 + 最佳实践优先（遇问题先查、不手搓）**：动工前先盘点 `pkg/*` 与 `infra/*` 既有能力——能复用就复用。**遇到任何不确定的问题（工程 OR 视觉），第一反应是联网查成熟方案 / 官方文档 / 标准库 / 既有最佳实践，绝不一上来自己手搓**——本项目在红绿灯重定位、窗口 chrome 等问题上反复手搓、反复跌跟头，教训惨痛：手搓的"看似能跑"往往埋着边界 bug，成熟方案已替你踩过坑。有成熟包/标准 API 就用它（如 macOS 窗口用 `macos_window_utils`），而非抄它的实现。业务层手搓的样板本应由地基提供时 **强化地基**、非模块内重抄。错误抽象与重复样板比多写一行更糟。
 9. **📌 文档与代码物理同步（最高优先级）**：每个代码改动必须在**同一提交**伴随对应文档的 1:1 更新——**文档落后于代码 = 严重 Bug，与编译失败同级**。完整执行规则见本文件末「**文档纪律（强制）**」节 + [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md)。
 
 ---
@@ -97,7 +97,7 @@
 
 # 前端开发守则（Flutter 桌面端，按本节 + [`decisions/0004`](docs/decisions/0004-frontend-flutter-architecture.md)）
 
-- **技术栈**：Flutter 桌面端（Dart）。状态 **Riverpod**（经典 provider 写法，非 codegen——此 Dart SDK + freezed 3 太新，riverpod_generator/lint 生态未跟上，见 ADR 0004 取舍）；**freezed + json_serializable + slang** 经 build_runner codegen；**dio**（HTTP）/ **go_router**（导航）/ **window_manager**（窗口）。工具链经 **mise**（`go` + `flutter`，真·可写官方 SDK；devbox/nix 已弃——只读 store 构建不了 macOS app，见 [`decisions/0005`](docs/decisions/0005-toolchain-mise.md)）。
+- **技术栈**：Flutter 桌面端（Dart）。状态 **Riverpod**（经典 provider 写法，非 codegen——此 Dart SDK + freezed 3 太新，riverpod_generator/lint 生态未跟上，见 ADR 0004 取舍）；**freezed + json_serializable + slang** 经 build_runner codegen；**dio**（HTTP）/ **go_router**（导航）/ **window_manager**（窗口尺寸·最小·居中·resize,逻辑点 scale 正确）+ **macos_window_utils**（仅 macOS 窗口外观:无边框 + 加高标题栏让红绿灯居中可点）/ **scaled_app**（应内 Cmd +/- 整体缩放）——窗口三件套都用成熟包、**不手搓**,见原则 #8。工具链经 **mise**（`go` + `flutter`，真·可写官方 SDK；devbox/nix 已弃——只读 store 构建不了 macOS app，见 [`decisions/0005`](docs/decisions/0005-toolchain-mise.md)）。
 - **进程模型**：Go 后端作 **sidecar**，客户端经 localhost HTTP+SSE 对接——Dart 抢临时端口 → `ANSELM_ADDR` 拉起 → `/api/v1/health` 门控（零后端改）。dev 用 `ANSELM_BACKEND_URL` 挂已跑后端（`make server`）。
 - **分层（3-tier feature-first，对齐 Clean 不照搬）**：`shared/core`（contract/net、SSE gateway、design、i18n、router、process）→ `features/<域>`（各自管 data+state+ui）→ `app`（装配根 + shell）。**无 use-case 层**（客户端零业务规则，Go 二进制即用例）。features **互不依赖**（跨 feature 走 shared provider / nav intent）。唯一框架无关纯模型层：`BlockTreeReducer` / `GraphModel`（承载性正确、须脱 widget/socket 单测）。
 - **状态 + 实时**：Riverpod 托管 server-state（`AsyncNotifier` 分页 `loadMore`）+ 三条 `keepAlive` SSE 流。SSE 经 `SseGateway` 的 plain-Dart **`Map<Scope,Stream>` demux 自滤**（**不**在 Riverpod 里逐帧 `.where`）。铁律 **DB 行是真相、流只为实时**：`seq>0` 才 durable / 推进续传游标；ephemeral（delta/tick）只改瞬时视图态、不进耐久缓存。

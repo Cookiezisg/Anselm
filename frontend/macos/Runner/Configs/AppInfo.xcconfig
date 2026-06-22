@@ -8,7 +8,7 @@
 PRODUCT_NAME = anselm
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.anselm.anselm
+PRODUCT_BUNDLE_IDENTIFIER = host.anselm.anselm
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2026 com.anselm. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2026 host.anselm. All rights reserved.

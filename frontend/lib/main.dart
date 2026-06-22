@@ -1,39 +1,19 @@
-import 'dart:async';
-
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:scaled_app/scaled_app.dart';
 
 import 'app/app.dart';
-import 'app/backend_controller.dart';
-import 'app/providers.dart';
 import 'app/window_setup.dart';
-import 'features/entities/data/entities_repository.dart';
-import 'features/entities/state/entities_providers.dart';
-import 'i18n/strings.g.dart';
+import 'core/platform/window_zoom.dart';
 
-/// Entry point. Initializes the desktop window, picks the UI locale, starts the Go
-/// backend sidecar (non-blocking — the app shows a splash until it is healthy), and
-/// mounts the composition root (ProviderScope) with the controller injected.
-///
-/// 入口。初始化桌面窗口、选 UI locale、启动 Go 后端 sidecar(非阻塞——健康前 app 显启动屏),
-/// 挂载装配根(ProviderScope)并注入 controller。
+/// Entry point. The scaled_app binding enables app-wide UI zoom (Cmd +/-): its scaleFactor reads
+/// [WindowZoom.factor], so the whole tree reflows at the zoom level. Then configure the desktop
+/// window, restore the persisted zoom before the first frame, and run under the assembly-root
+/// [ProviderScope].
+/// 入口:scaled_app binding 启用应内 UI 缩放(Cmd +/-);配窗口 → 首帧前恢复持久化缩放 → ProviderScope 起 app。
 Future<void> main() async {
+  ScaledWidgetsFlutterBinding.ensureInitialized(scaleFactor: WindowZoom.scaleFactorCallback);
   await initWindow();
-
-  LocaleSettings.useDeviceLocale();
-
-  final backend = BackendController();
-  unawaited(backend.start());
-
-  runApp(
-    ProviderScope(
-      overrides: [
-        backendControllerProvider.overrideWithValue(backend),
-        // TODO(increment-2): swap to the real repo over core/net + entities SSE stream.
-        // 暂用 fixture,增量 2 换成走 core/net 的真实现 + entities SSE。
-        entitiesRepositoryProvider.overrideWithValue(const FixtureEntitiesRepository()),
-      ],
-      child: TranslationProvider(child: const AnselmApp()),
-    ),
-  );
+  await WindowZoom.restore();
+  runApp(const ProviderScope(child: AnApp()));
 }

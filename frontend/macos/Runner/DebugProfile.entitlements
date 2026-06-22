@@ -8,9 +8,5 @@
 	<true/>
 	<key>com.apple.security.network.server</key>
 	<true/>
-	<!-- Outbound connections to the localhost Go backend (HTTP + 3 SSE streams).
-	     Without this the sandboxed app cannot reach 127.0.0.1. -->
-	<key>com.apple.security.network.client</key>
-	<true/>
 </dict>
 </plist>

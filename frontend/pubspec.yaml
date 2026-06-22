@@ -1,5 +1,5 @@
 name: anselm
-description: "A new Flutter project."
+description: "Anselm — local-first agentic workflow platform · Flutter desktop client."
 publish_to: 'none'
 version: 0.1.0+1
 
@@ -7,35 +7,32 @@ environment:
   sdk: ^3.11.5
 
 dependencies:
-  dio: ^5.9.2
-  fast_immutable_collections: ^11.2.0
   flutter:
     sdk: flutter
+  # Assembly-root state container (classic Riverpod, not codegen — see ADR 0004).
   flutter_riverpod: ^3.3.2
-  freezed_annotation: ^3.1.0
-  go_router: ^17.3.0
-  json_annotation: ^4.12.0
-  lucide_icons_flutter: ^3.1.14+2
-  shared_preferences: ^2.5.5
-  slang: ^4.16.0
-  slang_flutter: ^4.16.0
+  # Window GEOMETRY (size / min / center / resize) — the purpose-built desktop package; handles
+  # the Retina scale factor + live resize correctly. 窗口尺寸/最小/居中/缩放(scale 正确)。
   window_manager: ^0.5.1
+  # macOS window CHROME only — frameless titlebar + taller titlebar (clickable centered traffic
+  # lights). Best-practice package, NOT hand-rolled (原则 #8). Sizing is window_manager's job.
+  # 仅 macOS 窗口外观:无边框 + 加高标题栏(灯居中可点)。尺寸归 window_manager。
+  macos_window_utils: ^1.5.0
+  # In-app UI zoom (Cmd +/-): scales the WHOLE UI reflow-correct (browser-style) by overriding
+  # the binding's view config — not Transform.scale / textScaler. 应内 UI 缩放(整体重排式)。
+  scaled_app: ^2.3.1
+  # Lightweight key/value persistence (zoom level, window prefs). 轻量持久化(缩放档/窗口偏好)。
+  shared_preferences: ^2.5.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
-  build_runner: ^2.15.0
-  freezed: ^3.2.5
-  json_serializable: ^6.14.0
 
 flutter:
   uses-material-design: true
-  # Bundled UI font — MiSans (the demo's first-choice family), a variable font covering Latin
-  # AND Simplified Chinese in one face, so the bilingual UI renders deterministically on every
-  # platform (no dependence on what's installed). One VF file carries all weights; the engine
-  # maps TextStyle.fontWeight onto its `wght` axis. See core/design/typography.dart.
-  # 打包 UI 字体——MiSans(demo 首选),变量字体,一套覆盖 Latin+简体中文,双语 UI 全平台确定渲染(不靠机器装了什么)。
+  # Bundled UI font — MiSans VF (Latin + Simplified Chinese in one variable face), so the
+  # bilingual UI renders deterministically on every machine. See core/design/typography.dart.
   fonts:
     - family: MiSans
       fonts:

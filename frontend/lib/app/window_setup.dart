@@ -1,45 +1,47 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
+import 'package:macos_window_utils/macos_window_utils.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../core/design/tokens.dart';
-import '../core/platform/window_chrome.dart';
+import '../core/platform/host_platform.dart';
 
-/// Shared desktop window setup, used by the real app AND every dev entry (so `make demo` /
-/// `make gallery` show the genuine native window). The window is a FRAMELESS, opaque white
-/// window that KEEPS the real macOS traffic-light controls (hidden title bar, buttons
-/// visible) — the app must never draw fake ones. A minimum size keeps the three-island
-/// layout usable; below the responsive breakpoints the shell auto-collapses islands.
+/// Configures the desktop window before the app runs — using the RIGHT package for each job
+/// (CLAUDE.md 原则 #8, best practice over hand-rolling):
 ///
-/// Once the window is realized we push the traffic-light geometry (derived from design tokens)
-/// to the native side via [WindowChrome], so the OS lights line up with the chrome bar instead
-/// of floating at the OS default — the position lives in Dart, not a magic number in Swift.
+///  • `window_manager` owns GEOMETRY — initial size, minimum size, center, resize. It's the
+///    purpose-built desktop window package and handles the Retina scale factor + live resize
+///    correctly (hand-rolling / sizing through the cosmetics layer caused the window to blow up
+///    ×2 on corner-resize — that's the bug this split fixes).
+///  • `macos_window_utils` owns CHROME only — a FRAMELESS opaque-white window with a TALLER title
+///    bar (`addToolbar`) so macOS vertically centers the OS-managed traffic lights lower, INSIDE
+///    the clickable title-bar layer. We never move the native buttons into the content area, and
+///    we never size the window through this package.
 ///
-/// 桌面窗口统一设置(真 app + dev 入口共用)。窗口=无边框、不透明白窗,保留 macOS 真红绿灯(隐藏标题栏、
-/// 按钮可见)——绝不画假的。最小尺寸保证三岛可用;低于响应式断点 shell 自动收岛。窗口就绪后经
-/// [WindowChrome] 把红绿灯几何(由 design token 派生)下发原生,使 OS 灯对齐顶栏条——位置事实源在 Dart。
-Future<void> initWindow({String title = 'Anselm', Size size = const Size(1280, 820)}) async {
+/// 用对的包做对的事(原则 #8):window_manager 管尺寸(scale 正确、修掉 resize ×2 炸开);
+/// macos_window_utils 只管外观(无边框 + 加高标题栏让红绿灯居中可点)。Win/Linux 暂 no-op。
+Future<void> initWindow() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (!HostPlatform.isMacOS) return;
+
   await windowManager.ensureInitialized();
+  await WindowManipulator.initialize();
+
+  // CHROME (macos_window_utils): frameless white + taller title bar → clickable centered lights.
+  await WindowManipulator.makeTitlebarTransparent();
+  await WindowManipulator.enableFullSizeContentView();
+  await WindowManipulator.hideTitle();
+  await WindowManipulator.addToolbar();
+  await WindowManipulator.setToolbarStyle(toolbarStyle: NSWindowToolbarStyle.unified);
+
+  // GEOMETRY (window_manager): scale-correct size / min / center. Title-bar style stays untouched
+  // here — the frameless look is owned by macos_window_utils above. 尺寸由 window_manager 管(标题栏不碰)。
   final options = WindowOptions(
-    size: size,
-    minimumSize: const Size(900, 600),
+    size: const Size(AnSize.windowInitialWidth, AnSize.windowInitialHeight),
+    minimumSize: const Size(AnSize.windowMinWidth, AnSize.windowMinHeight),
     center: true,
-    title: title,
-    backgroundColor: Colors.white,
-    titleBarStyle: TitleBarStyle.hidden, // hide chrome, keep the real OS buttons (below)
   );
   await windowManager.waitUntilReadyToShow(options, () async {
-    await windowManager.setTitleBarStyle(
-      TitleBarStyle.hidden,
-      windowButtonVisibility: true, // keep the real red/yellow/green controls
-    );
     await windowManager.show();
     await windowManager.focus();
-    // Align the OS traffic lights to the chrome bar (token-derived; native re-applies on resize).
-    // 把 OS 红绿灯对齐顶栏条(token 派生;原生在 resize 时重应用)。
-    await WindowChrome().alignTrafficLights(
-      left: AnSize.trafficLightLeft,
-      centerY: AnSize.trafficLightCenterY,
-    );
   });
 }
