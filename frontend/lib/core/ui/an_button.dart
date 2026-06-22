@@ -81,6 +81,7 @@ class AnButton extends StatelessWidget {
       alignment: Alignment.center,
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       visualDensity: VisualDensity.standard,
+      animationDuration: AnMotion.fast, // smooth hover/press state transitions 状态平滑过渡
       elevation: const WidgetStatePropertyAll(0),
       overlayColor: const WidgetStatePropertyAll(Colors.transparent),
       shape: WidgetStatePropertyAll(

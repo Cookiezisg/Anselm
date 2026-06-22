@@ -31,12 +31,13 @@ core/                      # 跨切共享层(无 feature 依赖)
   contract/                # 全部后端投影 DTO + envelope/page/error(见 contract.md)
   net/                     # dio 客户端(envelope 拆封 / 分页 / 错误 typed)
   sse/                     # SSE gateway(见 sse-gateway.md)
+  platform/                # OS 缝:host_platform(dart:io 收口)+ window_chrome(红绿灯对齐通道)
   design/                  # tokens/colors/typography/syntax/theme(见 design-system.md)
   ui/                      # An* 组件套件 + icons(Lucide)+ 单一 barrel ui.dart
 features/                  # ★中间层:每域 data+state+ui+model(见 features/README.md)
 i18n/                      # slang(en/zh .i18n.json + 生成的 strings*.g.dart)
 ```
-**dev 工具**(源码入库,非产品路径):`lib/dev/`(gallery + shell mock + 各自 main);截图夹具 `test/dev/capture_gallery.dart`;其产物 `test/dev/out/` **gitignore、不入库**。
+**dev 工具**(源码入库,非产品路径):`lib/dev/`(`demo_main`=真 shell+fixture · `gallery_main`+`gallery_page`=组件画廊);截图夹具 `test/dev/capture_gallery.dart`;其产物 `test/dev/out/` **gitignore、不入库**。
 
 ## 3. 依赖规则(三层)
 
@@ -50,7 +51,8 @@ Riverpod 托管 server-state(`AsyncNotifier` 分页)+ 三条 `keepAlive` SSE 流
 
 - 工具链 = **mise**(go + flutter)。
 - codegen:**build_runner**(freezed/json_serializable)+ **slang CLI**(`dart run slang`,i18n)——产物入库(deterministic)。
-- 门禁 = `frontend/Makefile` 的 `make verify`(在 `frontend/` 下跑):`gen + analyze 净 + test 绿`。单词目标:`setup/gen/analyze/test/verify/run/gallery/shell`。
+- 门禁 = `frontend/Makefile` 的 `make verify`(在 `frontend/` 下跑):`gen + analyze 净 + test 绿`。
+- **三种启动**(单词目标):`make demo`(真 app 形态 + fixture、零后端,看效果)· `make gallery`(组件画廊)· `make app`(真 app + 后端 sidecar)。demo 与 app 共用 `app/shell/app_shell.dart`,差别只在数据源(fixture vs 后端)+ 是否起 sidecar。开发门禁目标:`setup/gen/analyze/test/verify`。
 - 后端 + 仓库级目标在仓库根 `Makefile`(`server/verify/docs/testend/…`)。
 
 ## 6. 文档纪律(延伸到前端)

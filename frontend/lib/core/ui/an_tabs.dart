@@ -29,20 +29,23 @@ class AnTabs<T> extends StatelessWidget {
             GestureDetector(
               onTap: () => onChanged?.call(val),
               behavior: HitTestBehavior.opaque,
-              child: Container(
+              // Underline + label color fade between tabs (fast). 标签下划线 + 字色淡变切换。
+              child: AnimatedContainer(
+                duration: AnMotion.fast,
                 padding: const EdgeInsets.symmetric(
                     horizontal: AnSpace.s12, vertical: AnSpace.s8),
                 decoration: BoxDecoration(
                   border: Border(
                     bottom: BorderSide(
-                      color: val == value ? c.ink : Colors.transparent,
+                      color: val == value ? c.ink : c.ink.withValues(alpha: 0),
                       width: 2,
                     ),
                   ),
                 ),
-                child: Text(
-                  label,
+                child: AnimatedDefaultTextStyle(
+                  duration: AnMotion.fast,
                   style: AnText.label.copyWith(color: val == value ? c.ink : c.inkMuted),
+                  child: Text(label),
                 ),
               ),
             ),

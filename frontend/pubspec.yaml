@@ -31,3 +31,12 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  # Bundled UI font — MiSans (the demo's first-choice family), a variable font covering Latin
+  # AND Simplified Chinese in one face, so the bilingual UI renders deterministically on every
+  # platform (no dependence on what's installed). One VF file carries all weights; the engine
+  # maps TextStyle.fontWeight onto its `wght` axis. See core/design/typography.dart.
+  # 打包 UI 字体——MiSans(demo 首选),变量字体,一套覆盖 Latin+简体中文,双语 UI 全平台确定渲染(不靠机器装了什么)。
+  fonts:
+    - family: MiSans
+      fonts:
+        - asset: assets/fonts/MiSansVF.ttf

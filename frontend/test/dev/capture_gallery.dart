@@ -1,15 +1,15 @@
 // Dev screenshot harness — NOT part of the `flutter test` suite (no _test.dart suffix; it
-// depends on macOS system fonts + the Lucide package font, and writes PNGs). Run explicitly:
+// depends on macOS system fonts + the Lucide package font, and writes a PNG). Run explicitly:
 //   flutter test test/dev/capture_gallery.dart
-// Renders widgets headlessly via Skia (no Xcode/desktop toolchain) → PNGs in test/dev/out/,
-// so the rendered UI can be inspected without launching the app.
-// 开发截图夹具:经 Skia 无头渲染成 PNG(加载系统字体 + Lucide 包字体),无需起桌面 app 即可看效果。
+// Renders the component gallery headlessly via Skia (no Xcode) → test/dev/out/gallery.png,
+// so the UI kit can be inspected without launching the app. (The shell/feature screens are
+// seen live via `make demo`.)
+// 开发截图夹具:经 Skia 无头渲染组件画廊成 PNG,无需起 app 即可看 UI 套件。(shell/feature 看 make demo。)
 import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/dev/gallery_page.dart';
-import 'package:anselm/dev/shell_demo.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -38,43 +38,34 @@ String? _lucideTtf() {
   return '${pkg.first.path}/assets/lucide.ttf';
 }
 
-Future<void> _capture(WidgetTester tester, String file, Size logical, double dpr, Widget child) async {
-  const key = ValueKey('capture');
-  tester.view.devicePixelRatio = dpr;
-  tester.view.physicalSize = Size(logical.width * dpr, logical.height * dpr);
-  addTearDown(tester.view.reset);
-  await tester.pumpWidget(MaterialApp(
-    debugShowCheckedModeBanner: false,
-    theme: AnTheme.light(),
-    // TickerMode off freezes infinite animations (status-dot/skeleton) so the still is
-    // deterministic and teardown doesn't hang on a live ticker.
-    home: TickerMode(enabled: false, child: RepaintBoundary(key: key, child: child)),
-  ));
-  await tester.pump();
-  await tester.pump(const Duration(milliseconds: 50));
-  final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(key));
-  final image = await boundary.toImage(pixelRatio: dpr);
-  final png = await image.toByteData(format: ui.ImageByteFormat.png);
-  final dir = Directory('test/dev/out')..createSync(recursive: true);
-  File('${dir.path}/$file').writeAsBytesSync(png!.buffer.asUint8List());
-}
-
 void main() {
   setUpAll(() async {
-    // AnText declares fontFamily 'Inter' (+ system fallbacks incl PingFang for CJK); map
-    // those names onto real macOS fonts so every glyph renders. Mono + Lucide icon font too.
-    await _load('Inter', '/System/Library/Fonts/SFNS.ttf');
+    // Load the SAME bundled MiSans VF the app uses, so the headless render matches the app
+    // (weights come off the VF's wght axis). 载入 app 同款打包 MiSans VF,无头渲染与 app 一致。
+    await _load('MiSans', 'assets/fonts/MiSansVF.ttf');
     await _load('PingFang SC', '/System/Library/Fonts/Hiragino Sans GB.ttc');
     await _load('SF Mono', '/System/Library/Fonts/SFNSMono.ttf');
     final lucide = _lucideTtf();
     if (lucide != null) await _load('packages/lucide_icons_flutter/Lucide', lucide);
   });
 
-  testWidgets('shell', (tester) async {
-    await _capture(tester, 'shell.png', const Size(1440, 900), 2.0, const ShellDemo());
-  });
-
   testWidgets('gallery', (tester) async {
-    await _capture(tester, 'gallery.png', const Size(920, 6200), 1.0, const GalleryPage());
+    const key = ValueKey('capture');
+    const dpr = 1.0;
+    tester.view.devicePixelRatio = dpr;
+    tester.view.physicalSize = const Size(920, 6200);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: AnTheme.light(),
+      home: const RepaintBoundary(key: key, child: GalleryPage()),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(key));
+    final image = await boundary.toImage(pixelRatio: dpr);
+    final png = await image.toByteData(format: ui.ImageByteFormat.png);
+    final dir = Directory('test/dev/out')..createSync(recursive: true);
+    File('${dir.path}/gallery.png').writeAsBytesSync(png!.buffer.asUint8List());
   });
 }

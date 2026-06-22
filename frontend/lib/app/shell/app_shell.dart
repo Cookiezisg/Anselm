@@ -2,15 +2,16 @@ import 'package:flutter/material.dart';
 
 import '../../core/design/tokens.dart';
 import '../../core/ui/ui.dart';
+import '../../features/entities/ui/entities_page.dart';
+import '../../features/entities/ui/entities_rail.dart';
 import '../../i18n/strings.g.dart';
 
-/// The persistent three-island shell (左岛 sidebar · 海洋 ocean · 右岛 inspector), faithful to
-/// the demo layout, with collapse/resize chrome owned by [AnShell]. Stays mounted across
-/// navigation so the session SSE streams never tear down. Ocean bodies are placeholders
-/// until each feature lands.
+/// The persistent three-island shell, shared by the real app (`make app`) and the
+/// fixture-backed demo (`make demo`). It wires each ocean to its feature; oceans without a
+/// feature yet show a coming-soon state. Stays mounted across navigation so the session SSE
+/// streams never tear down.
 ///
-/// 常驻三岛 shell(左岛 / 海洋 / 右岛),忠实于 demo 布局,收起/调宽 chrome 归 [AnShell]。导航期间常驻,
-/// 会话级 SSE 流不卸载。海洋主体为占位,待各 feature 落地。
+/// 常驻三岛 shell,真 app 与 fixture demo 共用。每个海洋接其 feature;未落地的海洋显 coming-soon。
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
 
@@ -18,39 +19,46 @@ class AppShell extends StatefulWidget {
   State<AppShell> createState() => _AppShellState();
 }
 
+enum _Ocean { chat, entities, scheduler, documents }
+
 class _AppShellState extends State<AppShell> {
-  int _nav = 0;
+  _Ocean _ocean = _Ocean.entities; // open on the built feature
 
   @override
   Widget build(BuildContext context) {
     final t = Translations.of(context);
-    final oceans = <(IconData, String)>[
-      (AnIcons.chat, t.nav.chat),
-      (AnIcons.entities, t.nav.entities),
-      (AnIcons.scheduler, t.nav.scheduler),
-      (AnIcons.document, t.nav.documents),
+    final oceans = <(_Ocean, IconData, String)>[
+      (_Ocean.chat, AnIcons.chat, t.nav.chat),
+      (_Ocean.entities, AnIcons.entities, t.nav.entities),
+      (_Ocean.scheduler, AnIcons.scheduler, t.nav.scheduler),
+      (_Ocean.documents, AnIcons.document, t.nav.documents),
     ];
+    final index = oceans.indexWhere((o) => o.$1 == _ocean);
+    final current = oceans[index];
+    final isEntities = _ocean == _Ocean.entities;
 
     return AnShell(
-      headTitle: oceans[_nav].$2,
+      headTitle: current.$3,
       sidebarBuilder: (onCollapse) => AnSidebar(
         workspaceName: 'Personal',
-        nav: [for (final (icon, label) in oceans) AnSidebarNav(icon: icon, label: label)],
-        selectedIndex: _nav,
-        onSelect: (i) => setState(() => _nav = i),
+        nav: [for (final (_, icon, label) in oceans) AnSidebarNav(icon: icon, label: label)],
+        selectedIndex: index,
+        onSelect: (i) => setState(() => _ocean = oceans[i].$1),
         onCollapse: onCollapse,
-        body: const SizedBox.shrink(),
+        body: isEntities ? const EntitiesRail() : const SizedBox.shrink(),
       ),
       oceanBuilder: (scroll) => AnPage(
         controller: scroll,
-        child: Padding(
-          padding: const EdgeInsets.only(top: AnSpace.s48),
-          child: AnEmptyState(
-            icon: oceans[_nav].$1,
-            title: '${oceans[_nav].$2} — coming soon',
-            hint: 'This ocean lands with its feature. The shell + UI kit are in place.',
-          ),
-        ),
+        child: isEntities
+            ? const EntitiesPage()
+            : Padding(
+                padding: const EdgeInsets.only(top: AnSpace.s48),
+                child: AnEmptyState(
+                  icon: current.$2,
+                  title: '${current.$3} — coming soon',
+                  hint: 'This ocean lands with its feature.',
+                ),
+              ),
       ),
     );
   }

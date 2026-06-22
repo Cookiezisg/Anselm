@@ -63,6 +63,30 @@ abstract final class AnSize {
   static const double islandHead = 44; // 11u · floating header height 浮动头高
   static const double fieldRow = 48; // 12u · minimum readable field row 字段阅读行
   static const double tab = 34;
+
+  // Window-controls zone. `windowControlsInset` is the width reserved at the chrome bar's
+  // leading edge so app content never sits under the macOS traffic lights. `trafficLight*` are
+  // the lights' target geometry, DERIVED so they land exactly on the chrome bar's content line
+  // — pushed to the native side by WindowChrome (single source of truth, no magic number in
+  // Swift). The island's hairline border folds into its padding (Container adds the border to
+  // the content inset), so the content line = window pad + border + island pad (+ half a row for
+  // the center). `oceanHeaderTopInset` makes the borderless floating ocean header replicate that
+  // same offset so its chrome bar lands on the identical line.
+  //   left    = window pad + border + island pad → same gap from the island/ocean edge as content
+  //   centerY = window pad + border + island pad + half a row → the chrome bar's vertical center
+  // 窗控区:inset 给真红绿灯留位;trafficLight* 是灯的目标几何(由 token 派生,精确落在顶栏条内容线),
+  // 经 WindowChrome 下发原生——事实源在 Dart,Swift 不写死。岛的发丝边框会并入内距(Container 把
+  // 边框算进内容缩进),故内容线 = 窗内距+边框+岛内距(+半行=中心)。oceanHeaderInset 让无边框的
+  // 海洋浮动头在两轴复刻同一偏移,使其顶栏条落在同一条线、前导边对齐红绿灯左缘。
+  static const double windowControlsInset = 72; // reserve for the real macOS traffic lights 给真红绿灯留位
+  static const double trafficLightLeft = AnSpace.s8 + hairline + AnSpace.s12; // 21
+  static const double trafficLightCenterY = AnSpace.s8 + hairline + AnSpace.s12 + row / 2; // 37
+  static const double oceanHeaderInset = hairline + AnSpace.s12; // 13 — floating header's island-content inset (both axes)
+
+  // Responsive breakpoints: below these the shell auto-collapses islands so the ocean always
+  // has room (never overflows). 响应式断点:低于此 shell 自动收岛,海洋永有空间(不溢出)。
+  static const double rightIslandBreakpoint = 1080;
+  static const double sidebarBreakpoint = 760;
 }
 
 /// Motion: durations + easing. Fast for hover, mid for reveals, slow for island slides;

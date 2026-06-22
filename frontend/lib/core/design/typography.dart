@@ -1,26 +1,26 @@
 import 'package:flutter/material.dart';
 
 /// Typography — a modular scale anchored on a 13px UI body (the reading-comfort anchor;
-/// everything else derives). Styles carry an explicit family ([uiFamily] = Inter) with
-/// system fallbacks: today, Inter is not yet bundled so it falls back to the platform UI
-/// font (SF Pro on macOS) — identical to before — but declaring it gives cross-platform
-/// consistency the moment Inter is bundled, and a single named family the screenshot
-/// harness can inject. Colorless on purpose: color is applied once by the theme and
-/// inherited, so text adapts to light/dark without any widget restating it.
+/// everything else derives). [uiFamily] = MiSans, the demo's first-choice family, BUNDLED with
+/// the app (a variable font covering Latin + Simplified Chinese; see pubspec.yaml). Bundling is
+/// deliberate: the bilingual UI renders the exact same face on every machine, with no drift
+/// from whatever fonts happen to be installed. The fallback chain only catches glyphs MiSans
+/// lacks (system UI font → CJK → generic). Colorless on purpose: color is applied once by the
+/// theme and inherited, so text adapts to light/dark without any widget restating it.
 ///
-/// 字体——模数阶梯,锚在 13px 正文。样式带显式字族([uiFamily]=Inter)+ 系统回退:Inter 暂未打包,
-/// 故回退到平台 UI 字体(macOS=SF Pro,与之前一致);声明它使打包后三平台一致,且给截图夹具一个可注入的
-/// 字族名。刻意不带色:色由主题统一施加并继承,文本自适应明暗。
+/// 字体——模数阶梯,锚在 13px 正文。[uiFamily]=MiSans(demo 首选),**随 app 打包**(变量字体,覆盖
+/// Latin+简体中文,见 pubspec.yaml)。打包是刻意的:双语 UI 在每台机器渲染同一字面,不随机器装了什么漂移。
+/// 回退链只兜 MiSans 缺的字形(系统 UI 字 → 中文 → 通用)。刻意不带色:色由主题统一施加并继承。
 abstract final class AnText {
-  /// Intended UI family (not yet bundled → falls back to system). 预期 UI 字族(未打包→回退系统)。
-  static const String uiFamily = 'Inter';
+  /// Bundled UI family — MiSans variable font (pubspec). 打包 UI 字族——MiSans 变量字体。
+  static const String uiFamily = 'MiSans';
   static const List<String> uiFallback = [
-    'SF Pro Text', 'PingFang SC', 'Microsoft YaHei', 'Hiragino Sans GB',
-    'Segoe UI', 'Noto Sans', 'sans-serif',
+    '.AppleSystemUIFont', 'SF Pro Text', 'PingFang SC',
+    'Microsoft YaHei', 'Hiragino Sans GB', 'Segoe UI', 'Noto Sans', 'sans-serif',
   ];
   static const String monoFamily = 'SF Mono';
   static const List<String> monoFallback = [
-    'SFMono-Regular', 'Menlo', 'JetBrains Mono', 'Consolas', 'monospace',
+    'SFMono-Regular', 'JetBrains Mono', 'Menlo', 'Roboto Mono', 'Consolas', 'monospace',
   ];
 
   static const TextStyle h1 = TextStyle(

@@ -54,6 +54,7 @@ class AnIconButton extends StatelessWidget {
         padding: const WidgetStatePropertyAll(EdgeInsets.zero),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         visualDensity: VisualDensity.standard,
+        animationDuration: AnMotion.fast, // smooth hover/press 状态平滑过渡
         overlayColor: const WidgetStatePropertyAll(Colors.transparent),
         shape: WidgetStatePropertyAll(
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(AnRadius.button)),

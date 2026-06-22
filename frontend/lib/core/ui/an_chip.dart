@@ -35,13 +35,17 @@ class _AnChipState extends State<AnChip> {
       child: GestureDetector(
         onTap: widget.onTap,
         behavior: HitTestBehavior.opaque,
-        child: Container(
+        child: AnimatedContainer(
+          duration: AnMotion.fast,
           height: AnSize.control,
           padding: const EdgeInsets.symmetric(horizontal: AnSpace.s12),
           decoration: BoxDecoration(
             color: bg,
             borderRadius: BorderRadius.circular(AnRadius.pill),
-            border: selected ? null : Border.all(color: c.line, width: AnSize.hairline),
+            border: Border.all(
+              color: selected ? c.accent : c.line,
+              width: AnSize.hairline,
+            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,

@@ -31,7 +31,8 @@ class _AnRefPillState extends State<AnRefPill> {
       child: GestureDetector(
         onTap: widget.onTap,
         behavior: HitTestBehavior.opaque,
-        child: Container(
+        child: AnimatedContainer(
+          duration: AnMotion.fast,
           height: AnSize.controlSm,
           padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8),
           decoration: BoxDecoration(

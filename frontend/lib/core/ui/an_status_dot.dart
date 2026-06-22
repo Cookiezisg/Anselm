@@ -25,8 +25,27 @@ class AnStatusDot extends StatefulWidget {
 
 class _AnStatusDotState extends State<AnStatusDot>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _ac =
-      AnimationController(vsync: this, duration: AnMotion.breath)..repeat();
+  // Assigned in initState (NOT a lazy `late final = …` accessed only when running) — else
+  // disposing a never-running dot would build the controller during unmount and crash on the
+  // TickerMode lookup. Only `run` actually animates.
+  late final AnimationController _ac;
+
+  @override
+  void initState() {
+    super.initState();
+    _ac = AnimationController(vsync: this, duration: AnMotion.breath);
+    if (widget.status == AnStatus.run) _ac.repeat();
+  }
+
+  @override
+  void didUpdateWidget(AnStatusDot oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.status == AnStatus.run) {
+      if (!_ac.isAnimating) _ac.repeat();
+    } else if (_ac.isAnimating) {
+      _ac.stop();
+    }
+  }
 
   @override
   void dispose() {

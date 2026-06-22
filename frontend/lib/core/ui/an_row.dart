@@ -35,9 +35,11 @@ class _AnRowState extends State<AnRow> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    // "off" is surfaceHover at 0 alpha (NOT transparent-black) so the hover tween stays
+    // light — the dark-flash bug came from lerping through transparent black.
     final bg = widget.selected
         ? c.accentSoft
-        : (_hover ? c.surfaceHover : Colors.transparent);
+        : (_hover ? c.surfaceHover : c.surfaceHover.withValues(alpha: 0));
 
     return MouseRegion(
       cursor: widget.onTap != null ? SystemMouseCursors.click : MouseCursor.defer,
@@ -46,10 +48,9 @@ class _AnRowState extends State<AnRow> {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: widget.onTap,
-        // Hover is INSTANT (no tween): animating from transparent-black flashed dark
-        // mid-transition; a crisp 0ms swap is also the intended density feel.
-        // 悬停瞬时(不补间):从透明黑补间会中途闪暗;0ms 利落切换也符合密度手感。
-        child: Container(
+        // Smooth hover (fast) — standard micro-interaction. 平滑悬停(fast),标准微交互。
+        child: AnimatedContainer(
+          duration: AnMotion.fast,
           height: AnSize.row,
           padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8),
           decoration: BoxDecoration(
