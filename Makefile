@@ -122,6 +122,16 @@ verify:
 	@echo ""
 	@echo "✓ verify 全绿（gofmt + vet + build + unit + docs）"
 
+# demo-test — 画廊全矩阵 Playwright 回归（reference.html 每组件×填充态逐件断言：
+# 无 console 错 / 无页面横向溢出 / 无 XSS 逃逸 / 元素已渲染 + app 冒烟 + disabled/dialog 专项）。
+# demo 是 web 端建设事实源——此为其回归网。harness 自起隔离端口 serve、跑完自清。
+# playwright 是 dev-only 未入库，首次 `cd demo && npm i`。与 verify/fe-verify 分列、不入 pre-push（需浏览器、按需手跑）。
+demo-test:
+	@cd demo && node tools/matrix.mjs
+
+demo-serve:
+	@cd demo && node tools/serve.mjs
+
 # 前端（Flutter 桌面端，ADR 0004）有独立 Makefile:`cd frontend && make help`
 # （单词目标:setup / gen / analyze / test / verify / run / gallery / shell）。
 # flutter 由 mise 提供（真·可写官方 SDK）;macOS 原生构建用系统 Xcode（ADR 0005）。
@@ -134,4 +144,4 @@ clean: stop
 	@rm -rf $(BACKEND_DATA_DIR)
 	@echo "✓ 已清 $(BACKEND_DATA_DIR)"
 
-.PHONY: help setup server stop unit docs build verify clean testend evals
+.PHONY: help setup server stop unit docs build verify demo-test demo-serve clean testend evals
