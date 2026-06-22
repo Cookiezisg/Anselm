@@ -14,7 +14,7 @@
 |---|---|
 | `status-dot` · `badge` | 5 态状态点（状态翻译单源）· 分类/状态药丸 |
 | `button` · `input` · `field` · `kv` | 按钮 4 变体 · 输入/多行 · 键值大行（`editable`/`wrap` 就地编辑+多行）· 紧凑键值列（`wrap` 长 value 多行自适应） |
-| `section` · `row` · `row-detail` · `page` · `info-card` · `an-card` · `an-brand-icon` · `group-label` | 段（`grid` → 响应式 2 列，内化原 render.js 手搓网格）· 核心行（三列网格；`hint` 多行 wrap；`emphatic` accent 选中皮肤[软底+左 accent 条] · `mono` 等宽标签 · `collapsible` 非 passive 行点 chevron 派 an-toggle/点标题派 an-select——树节点分流）· 可展开详情行（点行展开下方详情面板，内化原 render.js 手搓 panel+toggle）· 记录页骨架（`:host` flex:1/min-height:0 自填海面，sea 直返即可滚）· 无边信息卡 info-card · **有边卡 `an-card`（info-card「无边」的「有边」对偶：variant=accent/row/selectable[+selected 派 an-card-select]/pad；inset 描边+r-chip+island 皮肤；收口 settings/MCP/onboarding 8 处 bespoke 卡）** · **品牌图标 `an-brand-icon`（src 图 cover / svg 内联 logo 随 ink / glyph 字母兜底；size sm·md·lg + managed→accent；收口 4 处图标框 + brandIcoHtml 串重抄）** · uppercase-meta 小标题单源 |
+| `section` · `row` · `row-detail` · `page` · `info-card` · `an-card` · `an-brand-icon` · `group-label` | 段（`grid` → 响应式 2 列，内化原 render.js 手搓网格）· 核心行（三列网格；`hint` 多行 wrap；`emphatic` accent 选中皮肤[软底+左 accent 条] · `mono` 等宽标签 · `collapsible` 非 passive 行点 chevron 派 an-toggle/点标题派 an-select——树节点分流）· 可展开详情行（点行展开下方详情面板，内化原 render.js 手搓 panel+toggle）· 记录页骨架（`:host` flex:1/min-height:0 自填海面，sea 直返即可滚）· 无边信息卡 info-card · **有边卡 `an-card`（info-card「无边」的「有边」对偶：variant=accent/row/selectable[+selected 派 an-card-select]/pad；inset 描边+r-chip+island 皮肤；收口 settings/MCP/onboarding 8 处 bespoke 卡）** · **品牌图标 `an-brand-icon`（src 图 cover / svg 内联 logo 随 ink / glyph 字母兜底；size sm·md·lg + managed→accent + elevated→浮起阴影；收口 4 处图标框 + brandIcoHtml 串重抄 + onboarding 英雄 logo .ob-icon）** · uppercase-meta 小标题单源 |
 | 地基 `base.js` | AnElement 基类 + 共享糖：`anEsc`(转义) · `anLabel`(标识符人性化) · **`el(tag,attrs,…kids)`**（元素工厂，attrs 支持 on*/html/prop；全 feature/画廊经 `window.el` 复用，不再各抄——原散在 scheduler/documents/reference 三处） |
 | `tabs` | 页级视图切换（隐藏不销毁；实体页概览/版本）。〔原 `an-segmented` 已删——紧凑选项统一走 `dropdown`(AnMenu)，全局无分段器〕 |
 | `floating`(模块) · `menu`(模块) · `model-picker`(模块) · `mention`(模块) | 锚定浮层引擎 · 菜单 · 模型/API 切换器（`AnModelPicker.open`：单浮层·两栏=左模型[按 provider 分组]右 keys，hover 可用模型→右栏列其 API key、点 key 选定「模型+key」；**避 AnMenu 嵌套子菜单**——嵌套浮层 hover 桥接/点外/Escape 栈风险大、且要改 AnFloating+AnMenu 殃及全局，单浮层两栏零嵌套同效；shell 左上角头「模型名」浅色钮用[chat 海洋，标题与 ⋯ 之间]） · @ 提及 picker（contenteditable 上 `@`→边打边滤→内联插 `an-ref-pill`；doc-editor / composer 同源，复用 AnMenu/AnFloating/ref-pill） |
@@ -30,7 +30,7 @@
 
 | Pattern | 状态 | 归宿 / 来源 | 哪需要 |
 |---|---|---|---|
-| `an-dropdown` | ✅ | 移植 design `dropdown.js`（= field + AnMenu） | models/providers/settings/onboarding/workspace |
+| `an-dropdown` | ✅ | 移植 design `dropdown.js`（= field + AnMenu）；`variant=ghost` 无边触发钮 + `menu-align` 收口 settings 全页手搓下拉(原 ghost 钮+裸 chevron) | models/providers/settings/onboarding/workspace |
 | `an-ref-pill` | ✅ | 移植 `ref-pill.js`（点击 → Intent.select） | chat @提及 · docs wikilink · mount-health · search |
 | `an-tags` | ✅ | 移植 `tags.js`（可增删 chip + health 点） | 实体 tags · skill allowed-tools · agent 挂载 |
 | `an-thin-table` | ✅ | 移植 `thin-table.js`（发丝表） | 执行/调用日志 · runtimes · provider 列表 |

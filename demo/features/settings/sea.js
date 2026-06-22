@@ -28,24 +28,19 @@ window.FEATURE.settings = Object.assign(window.FEATURE.settings || {}, {
       const list = el("div");
       list.append(
         nameF,
-        slotField("语言", dropdownVal("中文", ["中文", "English", "跟随系统"], "set-lang")),
-        slotField("主题", dropdownVal("明亮", ["明亮", "暗色", "跟随系统"], "set-theme")),
-        slotField("切换工作区", dropdownVal(ws.name, ["Personal", "Work", "Client X"], "ws-switch")),
+        slotField("语言", dropdownVal("中文", ["中文", "English", "跟随系统"])),
+        slotField("主题", dropdownVal("明亮", ["明亮", "暗色", "跟随系统"])),
+        slotField("切换工作区", dropdownVal(ws.name, ["Personal", "Work", "Client X"])),
         slotField("删除此工作区", del, "不可撤销 · 级联清空所有数据"),
       );
       return [head("通用"), list];
     }
-    // 下拉值控件（语言/主题/切换工作区同款）：[当前 ⌄] ghost 钮 → AnMenu 列选项（勾当前）；选后更新钮文案
-    function dropdownVal(current, options, ns) {
-      const btn = el("an-button", { variant: "ghost", size: "sm" });
-      const setLabel = (t) => { btn.innerHTML = window.anEsc(t) + '<span style="display:inline-flex; vertical-align:middle; margin-left:var(--gap-tight); color:var(--ink-3);">' + window.icon("chevd", 12) + "</span>"; };
-      setLabel(current);
-      btn.addEventListener("click", () => window.AnMenu && window.AnMenu.open(btn, {
-        align: "end", placement: "bottom", namespace: ns,
-        items: options.map((o) => ({ value: o, label: o, icon: o === btn.textContent.trim() ? "check" : undefined })),
-        onPick: (v, it) => { setLabel(it.label); toast("已选 " + it.label); },
-      }));
-      return btn;
+    // 下拉值控件（语言/主题/切换工作区同款）：ghost <an-dropdown>（无边框触发钮 + caret + 勾当前 + label 回显全沿用原语）；选后 toast
+    function dropdownVal(current, options) {
+      const dd = el("an-dropdown", { variant: "ghost", "menu-align": "end", value: current });
+      dd.options = options.map((o) => ({ value: o, label: o }));
+      dd.addEventListener("an-change", (ev) => toast("已选 " + ev.detail.value));
+      return dd;
     }
     function actBtn(label, icon, on, variant) {
       const b = el("an-button", { slot: "actions", variant: variant || "ghost", size: "sm", icon: icon });
@@ -96,7 +91,6 @@ window.FEATURE.settings = Object.assign(window.FEATURE.settings || {}, {
       const provById = (n) => P.find((p) => p.name === n) || { glyph: "?", label: n, category: "llm" };
       const capsOf = (id) => (S.modelCaps || {})[id] || [];
       const okLlmKeys = () => (S.keys || []).filter((k) => k.status === "ok" && provById(k.provider).category !== "search");
-      const chev = () => '<span style="display:inline-flex;vertical-align:middle;margin-left:var(--gap-tight);color:var(--ink-3);">' + icon("chevd", 12) + "</span>";
       const fmtCtx = (n) => n >= 1000000 ? (n / 1000000) + "M" : Math.round(n / 1000) + "K";
 
       // 供应商真实品牌图标（window.BRAND，lobehub/simple-icons 单色 currentColor）。缺真 logo 的回落：anselm→sparkles(accent)、custom→gear、搜索三家(serper/tavily/bocha)→字母 glyph 各自区分。
@@ -111,18 +105,14 @@ window.FEATURE.settings = Object.assign(window.FEATURE.settings || {}, {
       };
       const brandIcoHtml = (p) => '<span class="an-pp-ico">' + brandSvg(p) + "</span>";   // provider-pick 浮层（.an-pp 留作 feature 专属浮层，未迁 AnMenu）
 
-      // 小下拉钮：dd(当前值, 当前label, items 函数, onPick, align)
+      // 小下拉：dd(当前值, 当前label, items 函数, onPick, align) → ghost <an-dropdown>。
+      // curLabel 兼作 placeholder：值命中选项时回显选项 label（=curLabel），未命中（如「选 API」「—」占位）时显 placeholder——两路同字、显示一致。
       const dd = (curValue, curLabel, items, onPick, align) => {
-        const btn = el("an-button", { variant: "ghost", size: "sm" });
-        let cur = curValue;
-        const setL = (t) => { btn.innerHTML = anEsc(t) + chev(); };
-        setL(curLabel);
-        btn.addEventListener("click", () => AnMenu && AnMenu.open(btn, {
-          align: align || "end", placement: "bottom",
-          items: items().map((it) => ({ value: it.value, label: it.label, icon: it.value === cur ? "check" : undefined })),
-          onPick: (v, it) => { cur = v; setL(it.label); onPick && onPick(v, it); },
-        }));
-        return btn;
+        const ddEl = el("an-dropdown", { variant: "ghost", "menu-align": align || "end", placeholder: curLabel });
+        ddEl.options = items().map((it) => ({ value: it.value, label: it.label }));
+        if (curValue != null) ddEl.value = curValue;
+        ddEl.addEventListener("an-change", (ev) => { const v = ev.detail.value, it = ddEl.options.find((o) => String(o.value) === String(v)); onPick && onPick(v, it); });
+        return ddEl;
       };
 
       // ── ① key 行（含免费档 / 搜索 key）──
@@ -326,7 +316,7 @@ window.FEATURE.settings = Object.assign(window.FEATURE.settings || {}, {
       // 嵌入引擎
       const emSec = el("an-section", { label: "嵌入引擎 · 语义搜索" });
       const engineLabel = { builtin: "内置", ollama: "Ollama", off: "关闭" }[S.embedder] || "内置";
-      const engineDd = dropdownVal(engineLabel, ["内置", "Ollama", "关闭"], "embed-engine");
+      const engineDd = dropdownVal(engineLabel, ["内置", "Ollama", "关闭"]);
       const emRow = el("div"); emRow.style.cssText = "display:flex; align-items:center; justify-content:space-between; padding:var(--sp-2) var(--zero);";
       const emL = el("div"); emL.style.cssText = "display:flex; flex-direction:column; gap:var(--grid);";
       const emT = el("div"); emT.style.cssText = "font-size:var(--t-body); color:var(--ink);"; emT.textContent = "引擎";

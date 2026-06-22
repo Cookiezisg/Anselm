@@ -26,7 +26,8 @@
     `;
     render() {
       const e = window.anEsc;
-      const kind = this.attr("kind", "");
+      // ENTITY_KINDS 键为小写：大小写不敏感匹配，"AGENT" 才能取到 agent 图标而非退到兜底。
+      const kind = this.attr("kind", "").toLowerCase();
       const K = window.ENTITY_KINDS || {};
       const ico = (K[kind] && K[kind].icon) || kind;
       return `<span class="pill"><span class="ico">${window.icon(ico, 12)}</span>${e(this.attr("label", ""))}</span>`;

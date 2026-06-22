@@ -56,7 +56,11 @@
   function editSelect(host, valueEl, rec, commit) {
     const wrap = document.createElement("span"); wrap.className = "edit";
     let done = false;
-    const finish = (ok, value) => { if (done) return; done = true; document.removeEventListener("pointerdown", onDoc, true); if (ok) commit(value); else host._render(); };
+    // 摘 document 级 pointerdown 监听（dropdown 外点关闭用）。host 重渲会换掉整棵 shadow innerHTML、令 wrap 脱离，
+    // 但挂在 document 上的 onDoc 不随之自摘——只在下次 pointerdown 经 !isConnected 才自愈。重渲前主动 cleanup 即可令监听同步摘除、不累积泄漏。
+    const cleanup = () => { if (done) return; done = true; document.removeEventListener("pointerdown", onDoc, true); };
+    const finish = (ok, value) => { if (done) return; cleanup(); if (ok) commit(value); else host._render(); };
+    host._selCleanup = cleanup;
     const dd = document.createElement("an-dropdown");
     dd.options = (rec.options || []).map((o) => (typeof o === "string" ? { value: o, label: o } : o));
     dd.value = rec.value;
@@ -111,6 +115,9 @@
 
     set options(v) { this._options = Array.isArray(v) ? v : []; }
     get options() { return this._options || []; }
+
+    // 重渲前先摘 select 就地编辑遗留的 document 监听（见 editSelect）——否则 attr churn 会逐次叠加 pointerdown 监听泄漏
+    _render() { if (this._selCleanup) { this._selCleanup(); this._selCleanup = null; } super._render(); }
 
     render() {
       const e = window.anEsc;
@@ -167,6 +174,9 @@
       .row.editing .confirm { display: inline-flex; }
       ${EDIT_CSS}
     `;
+
+    // 重渲前先摘 select 就地编辑遗留的 document 监听（见 editSelect）——同 an-field，rows churn 不叠加 pointerdown 监听泄漏
+    _render() { if (this._selCleanup) { this._selCleanup(); this._selCleanup = null; } super._render(); }
 
     get rows() { return this._data(); }
     set rows(v) { this._rows = (Array.isArray(v) ? v : []).map(normRow); if (this.isConnected) this._render(); }

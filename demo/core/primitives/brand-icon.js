@@ -1,11 +1,11 @@
 /* Anselm 原语 — <an-brand-icon src svg glyph size managed>。品牌/项目图标单源。
    三源择一：src（图 URL → img+cover+r-tag 底，如 MCP 项目头像）| svg（内联 SVG 串，走 prop/attr，logo 自呈现、无底、随 ink 着色）| glyph（字母兜底 → 灰底圆角）。
-   size sm（lead）/ 默认 md（ctl）/ lg（≈88，欢迎屏）；managed → accent 色（免费档火花）。
+   size sm（lead）/ 默认 md（ctl）/ lg（≈88，欢迎屏）；managed → accent 色（免费档火花）；elevated → 浮起阴影（onboarding 英雄 logo 框，收口 .ob-icon）。
    why：settings/MCP/onboarding 4 处自绘图标框（.mk-ico/.an-pp-ico/.mcp-ico/.ob-mcp-ico）+ brandIcoHtml 串重抄收口。 */
 (function () {
   class AnBrandIcon extends window.AnElement {
     static tag = "an-brand-icon";
-    static observed = ["src", "glyph", "size", "managed"];
+    static observed = ["src", "glyph", "size", "managed", "elevated"];
     static css = `
       :host { display: inline-flex; }
       .ico { flex: none; width: var(--ctl); height: var(--ctl); display: grid; place-items: center; border-radius: var(--r-tag); overflow: hidden;
@@ -15,6 +15,7 @@
       /* svg logo：去底自呈现、随 ink 着色 */
       :host([data-svg]) .ico { background: none; color: var(--ink); }
       :host([managed]) .ico { background: var(--accent-soft); color: var(--accent); }
+      :host([elevated]) .ico { box-shadow: var(--shadow-float); }
       .ico img { width: 100%; height: 100%; object-fit: cover; display: block; }
       .ico svg { width: 1em; height: 1em; display: block; }
     `;

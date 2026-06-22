@@ -3,7 +3,6 @@
    本件真正专属的只有：左列表 ↔ 右 an-node-gantt 的【同步选中一个块】+ 看板 2 列外壳——点行切右甘特 + emit an-run-pick{id}（消费方据此切运行图 + 节点调试）；内嵌 an-node-gantt 的 an-node-pick 经 composed 冒泡至消费方。 */
 (function () {
   const e = window.anEsc;
-  const DOT = { running: "run", completed: "done", failed: "err", parked: "wait", cancelled: "idle" };
 
   class AnRunBoard extends window.AnElement {
     static tag = "an-run-board";
@@ -31,7 +30,7 @@
       const items = runs.length
         ? runs.map((r) => {
           const hint = [r.trigger, r.when].filter(Boolean).join(" · ");
-          return `<an-row class="run" data-id="${e(r.id)}" dot="${DOT[r.status] || "idle"}" mono emphatic label="${e(r.id)}"`
+          return `<an-row class="run" data-id="${e(r.id)}" dot="${window.anState(r.status)}" mono emphatic label="${e(r.id)}"`
             + (hint ? ` hint="${e(hint)}"` : "")
             + (r.replay ? ` meta="↻${e(String(r.replay))}"` : "")
             + (r.id === this._sel ? " selected" : "") + "></an-row>";

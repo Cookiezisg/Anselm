@@ -3,7 +3,9 @@
    能看出：哪个节点慢（条长）· 循环几轮（iters 多条 + ×N 徽）· 在哪 parked（虚框等待条）· 谁未起（future 占位）。点行 emit 'an-node-pick'{id}。 */
 (function () {
   const e = window.anEsc;
-  const SCLS = { done: "s-done", completed: "s-done", err: "s-err", failed: "s-err", parked: "s-park", future: "s-future" };
+  // 经 anState 折正大小写 + 别名（单一翻译路径），再映射 5 通用态 → 甘特条 CSS 类。
+  // why：未识别/大写 status 经 anState 落 idle（中性灰 s-future），绝不默认成 s-done 把失败节点画成绿色成功条。
+  const BARCLS = { done: "s-done", err: "s-err", wait: "s-park", run: "s-future", idle: "s-future" };
   // 定位百分比钳进 [0,100]：越界值（脏 demo 数据）会让条飞出轨道，钳死即保证条始终在轨内
   const pct = (v) => Math.min(100, Math.max(0, +v || 0));
 
@@ -47,7 +49,7 @@
         } else if (!segs.length) {
           bars = `<span class="stub">未运行</span>`;
         } else {
-          const cls = SCLS[n.status] || "s-done";
+          const cls = BARCLS[window.anState(n.status)] || "s-future";
           bars = segs.map((s) => `<span class="bar ${cls}" style="left:${pct(s.atPct)}%;width:${Math.max(2, pct(s.wPct))}%"></span>`).join("");
         }
         const xn = (n.iters && n.iters.length > 1) ? `<span class="xn">×${n.iters.length}</span>` : "";

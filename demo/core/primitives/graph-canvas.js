@@ -161,7 +161,7 @@
       });
 
       S.G.nodes.forEach((n) => {
-        const k = KIND[n.kind] || KIND.action, st = (S.mode === "run" && S.run) ? (S.run.state[n.id] || "future") : "ready", ST = STATE[st] || STATE.ready, iters = (S.mode === "run" && S.run && S.run.iters[n.id]) || 0, selN = S.sel && S.sel.type === "node" && S.sel.id === n.id;
+        const k = KIND[n.kind] || KIND.action, st = (S.mode === "run" && S.run) ? String(S.run.state[n.id] || "future").toLowerCase() : "ready", ST = STATE[st] || STATE.ready, iters = (S.mode === "run" && S.run && S.run.iters[n.id]) || 0, selN = S.sel && S.sel.type === "node" && S.sel.id === n.id;
         const g = el("g", { class: "fg-node", transform: `translate(${n.x},${n.y})`, "data-id": n.id });
         if (iters > 1) { g.appendChild(el("rect", { x: 6, y: 6, width: NW, height: NH, rx: 14, fill: ST.fill, stroke: ST.ring, opacity: .35 })); g.appendChild(el("rect", { x: 3, y: 3, width: NW, height: NH, rx: 14, fill: ST.fill, stroke: ST.ring, opacity: .6 })); }
         const card = el("rect", { class: "fg-card", width: NW, height: NH, rx: 14, fill: ST.fill, stroke: selN ? "var(--accent)" : ST.ring, "stroke-width": selN ? 2 : (st === "running" || st === "failed" || st === "parked" ? 1.6 : 1), filter: "url(#fg-lift)" }); g.appendChild(card);

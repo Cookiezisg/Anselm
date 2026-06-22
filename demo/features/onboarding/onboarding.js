@@ -21,8 +21,7 @@
       .ob { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: var(--sea); padding: var(--sp-8); overflow: auto; }
       .ob-card { width: 100%; max-width: calc(var(--w-content) - var(--side-w)); display: flex; flex-direction: column; gap: var(--sp-4); }
       .ob-card.center { align-items: center; text-align: center; }
-      .ob-icon { width: calc(var(--island-head) * 2); height: calc(var(--island-head) * 2); border-radius: calc(var(--island-head) * 0.45); box-shadow: var(--shadow-float); }
-      .ob-title { font-size: var(--t-h1); font-weight: 700; color: var(--ink); letter-spacing: -0.01em; }
+      .ob-title { font-size: var(--t-h1); font-weight: 700; color: var(--ink); letter-spacing: 0; }
       .ob-h { font-size: var(--t-h2); font-weight: 600; color: var(--ink); }
       .ob-sub { font-size: var(--t-body); color: var(--ink-2); line-height: var(--lh-prose); }
       /* 卡/步骤点/图标 已内化为 an-card / an-stepper / an-brand-icon 原语；此处仅留 standalone 向导外壳 + 卡内文案布局 */
@@ -49,7 +48,7 @@
   const btn = (label, variant, on) => { const b = el("an-button", variant ? { variant } : {}, label); b.addEventListener("click", on); return b; };
   const nav = (kids) => { const n = el("div"); n.className = "ob-nav"; kids.forEach((k) => n.append(k)); return n; };
   const dots = (active) => el("an-stepper", { count: String(CONFIG), active: String(active) });
-  function brandIcon() { const i = el("img"); i.className = "ob-icon"; i.src = BRAND; i.alt = "Anselm"; return i; }
+  function brandIcon() { return el("an-brand-icon", { src: BRAND, size: "lg", elevated: "" }); }
 
   // ── 步骤 ──
   function welcome(card) {

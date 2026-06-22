@@ -81,7 +81,14 @@
     }
     function key(e) { if (e.key === "Escape") close(namespace); }
     function resize() { place(anchor, el, o); }
+    // why：外点监听经 setTimeout 延迟挂载（避开触发本次 open 的同一次 pointerdown）。
+    // destroy 须清掉【尚未 fire】的挂载定时器并置 dead——否则同帧重复 open 时旧实例先 destroy（此刻监听还没挂，
+    // remove 空操作），随后旧定时器照样 fire、把引用已 destroy 节点的 outside 永久遗留在 document（重入泄漏）。
+    var mountTimer = 0;
+    var dead = false;
     function destroy() {
+      dead = true;
+      clearTimeout(mountTimer);
       document.removeEventListener("pointerdown", outside, true);
       document.removeEventListener("keydown", key, true);
       window.removeEventListener("resize", resize);
@@ -92,8 +99,10 @@
     }
 
     active[namespace] = { el: el, destroy: destroy };
-    // 推迟一帧再挂外点监听，避开触发本次 open 的同一次 pointerdown。
-    setTimeout(function () { document.addEventListener("pointerdown", outside, true); }, 0);
+    mountTimer = setTimeout(function () {
+      if (dead) return;
+      document.addEventListener("pointerdown", outside, true);
+    }, 0);
     document.addEventListener("keydown", key, true);
     window.addEventListener("resize", resize);
     window.addEventListener("scroll", resize, true);

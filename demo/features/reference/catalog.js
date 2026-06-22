@@ -600,7 +600,7 @@ window.REF_CATALOG = [
       {
         "name": "下拉选择 dropdown",
         "tag": "an-dropdown",
-        "blurb": "受控单选下拉（替 select），options 走 property [{value,label,meta,icon}]，选中派发 an-change",
+        "blurb": "受控单选下拉（替 select），options 走 property [{value,label,meta,icon}]，选中派发 an-change；variant=ghost 无边触发钮(settings 全页用)/menu-align 控菜单对齐",
         "specimens": [
           {
             "label": "已选 + meta",
@@ -712,6 +712,19 @@ window.REF_CATALOG = [
                 }
               ]
             }
+          },
+          {
+            "label": "variant=ghost + menu-align=end（无边触发钮·settings 全页选择器）",
+            "tag": "an-dropdown",
+            "attrs": { "variant": "ghost", "value": "anthropic", "menu-align": "end" },
+            "props": {
+              "options": [
+                { "value": "anthropic", "label": "Anthropic · 个人 key", "meta": "claude", "icon": "agent" },
+                { "value": "openai", "label": "OpenAI · 团队 key", "meta": "gpt", "icon": "function" },
+                { "value": "fake", "label": "fake_llm", "meta": "0 token" }
+              ]
+            },
+            "center": true
           }
         ]
       },
@@ -1105,14 +1118,15 @@ window.REF_CATALOG = [
       {
         "name": "品牌图标 brand-icon",
         "tag": "an-brand-icon",
-        "blurb": "品牌/项目图标单源：src 图(头像 cover+底) | svg 内联(logo 去底随 ink) | glyph 字母兜底(灰底)。size sm/md/lg · managed→accent。收口 4 处自绘图标框 + brandIcoHtml 串重抄。",
+        "blurb": "品牌/项目图标单源：src 图(头像 cover+底) | svg 内联(logo 去底随 ink) | glyph 字母兜底(灰底)。size sm/md/lg · managed→accent · elevated→浮起阴影(onboarding 英雄 logo)。收口 4 处自绘图标框 + brandIcoHtml 串重抄 + onboarding .ob-icon。",
         "specimens": [
           { "label": "src 图（MCP 头像）", "tag": "an-brand-icon", "center": true, "attrs": { "src": "https://avatars.githubusercontent.com/u/9919?v=4" } },
           { "label": "svg logo（随 ink）", "tag": "an-brand-icon", "center": true, "props": { "svg": (window.BRAND || {}).openai || "" } },
           { "label": "glyph 字母", "tag": "an-brand-icon", "center": true, "attrs": { "glyph": "An" } },
           { "label": "managed（accent 火花）", "tag": "an-brand-icon", "center": true, "attrs": { "glyph": "✦", "managed": "" } },
           { "label": "size=sm", "tag": "an-brand-icon", "center": true, "attrs": { "glyph": "S", "size": "sm" } },
-          { "label": "size=lg（欢迎屏）", "tag": "an-brand-icon", "center": true, "attrs": { "glyph": "L", "size": "lg" } }
+          { "label": "size=lg（欢迎屏）", "tag": "an-brand-icon", "center": true, "attrs": { "glyph": "L", "size": "lg" } },
+          { "label": "size=lg + elevated（onboarding 英雄 logo·浮起阴影）", "tag": "an-brand-icon", "center": true, "props": { "svg": (window.BRAND || {}).openai || "" }, "attrs": { "size": "lg", "elevated": "" } }
         ]
       },
       {

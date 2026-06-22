@@ -22,7 +22,13 @@ landed-into:
 - **批 2 · 内化 3 原语 + feature 迁移 + 登记** — ✅（2a 建 an-card/an-brand-icon/an-stepper + 画廊 16 specimen · 2b onboarding 迁移[逮到 an-card 宿主监听真 bug] · 2c settings 迁移[mk-*/mcp-* 卡框→an-card、图标→an-brand-icon，删 ensureSettingsStyle 卡/图标 CSS] + PATTERNS 登记 3 原语 + 清 an-segmented 漂移；.mk-add 虚线钮 + .an-pp provider 浮层留作 feature 专属，未迁）
 - **批 3 · P1 批量**（截断簇 CSS + 逻辑簇）— ✅ ~25 修（4 agent 并行 + 手修 badge/json-tree）：截断簇(badge/ref-pill/tags/composer-chip/menu/dropdown/toast/block-tree/doc-editor) · 逻辑簇(input 保留正敲/button disabled+aria/node-gantt clamp+滚/run-board 空态/skeleton clamp/callout tone/outline null/section actions/row-detail 冒泡/typewriter 字素/approval-gate options+ddl/wire-list/graph-canvas id) · **json-tree 真 bug:value justify-self:start 致超长值撑破轨道(2880px)→ 去掉+网格 minmax(0,auto)**。Playwright p1-stress 全绿(超长截断/越界 pct/空态/disabled 键盘/emoji/海量/null)+ 画廊 0 回归。
 - **批 4 · 画廊补全**（五电池 specimen + 登记缺口）— ✅ 新建 `features/reference/catalog-stress.js`：4 压力类目（控件/容器/数据/执行）共 **178 specimen**，每件覆盖 空/超长/海量/极值注入 + 登记缺口变体（button outline · row emphatic/mono · right-island headless · action-group footer · kind-legend divided）。4 agent 并行读真 API 生成 + 主控拼装（修 exec 组 string-attrs→对象）。**压力床逮到 4 个真 bug**：tabs `.strip` 40 tab 撑破页→`overflow-x:auto`+tab `flex:none`；action-group 24 钮撑破→`flex-wrap:wrap`+`max-width:100%`；button 超长 label 溢出→`.lbl` 省略号+inner `max-width:100%`（仅受限宽时截断、行内钮不变）；pill 族(badge/tags/ref-pill) `max-width:var(--w-block)`>窄容器→`min(--w-block,100%)`。全 12 类目 Playwright：0 console 错 / 0 页面溢出 / 0 回归。命令式(model-picker/graph-run/doc-editor 注入)转批 5 harness。
-- **批 5 · P2 毛刺 + Playwright 全矩阵 + 对抗复审**— ☐
+- **批 5 · P2 毛刺 + Playwright 全矩阵 + 对抗复审**— ✅
+  - **P2 毛刺**：6 真修（info-card title+meta 挤压 · status-dot/badge 枚举 case 归一 · field/kv select 重入+null 崩 · code-editor wrap 行号 · version-diff LCS cap），3 审计误报正确不动（ocean-header/mention/del 行号）。
+  - **全矩阵 harness `make demo-test`**：新建 tools/matrix.mjs，自起隔离端口、遍历全 12 类目 385 specimen 5 道断言（console 错/页溢出/**格内盒溢出**/XSS 逃逸[on*·script·srcdoc·js-url]/已渲染）+ app/settings/onboarding 活页冒烟 + disabled/dialog 专项；package.json(playwright dev-only)+Makefile demo-test。
+  - **对抗复审**：4 独立视角(健壮性再攻/内化纪律/harness 可信度/一致性)实证挖出 18 finding，修真者修 12+：**node-gantt 语义反转(失败→绿)** · run-board/callout/ref-pill/graph-canvas 枚举 case(全走 state-model anState) · AnFloating 监听泄漏 + AnDialog 遮罩堆叠(同帧重 open) · stepper count 封顶 · field churn 泄漏 · **settings 全页手搓下拉→an-dropdown variant=ghost(消 HIGH 造轮子)** · onboarding 英雄 logo→brand-icon elevated · harness 自身盲点(格内溢出漏检/SCROLLABLE 死代码/XSS 正则过窄/活页未覆盖)全补。误报(empty-state 三标准/graph 第三表)记录不强改。
+  - 验证：lint EXIT 0 · 强化版 make demo-test 全绿(385 specimen / 0 console 错 / 0 页溢出 / 0 格内溢 / 0 越界 / 0 XSS / 活页冒烟过 / disabled+dialog 守住) · 各 finding agent 逐个 playwright/CDP 复现前后对比。
+
+**收尾**：5 批全完成。demo 组件库已达「模块化在册 + 任意填充不破 + 画廊全覆盖 + make demo-test 逐件机器断言」，可据此直接推 web 端。
 
 ## 批 1 — P0 真破洞（破，必先修）
 
