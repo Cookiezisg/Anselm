@@ -8,11 +8,11 @@
     static tag = "an-action-group";
     static observed = ["compact", "end", "block", "stack", "label"];
     static css = `
-      :host { display: inline-flex; }
+      :host { display: inline-flex; max-width: 100%; }   /* 不超容器宽 → 多按钮换行而非撑破页 */
       :host([block]) { display: flex; width: 100%; }
       .group {
         display: inline-flex; align-items: center; justify-content: flex-start; gap: var(--sp-2);
-        min-width: 0;
+        min-width: 0; flex-wrap: wrap;
       }
       :host([compact]) .group { gap: var(--sp-1); }
       :host([end]) .group { justify-content: flex-end; }

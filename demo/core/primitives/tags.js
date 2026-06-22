@@ -21,7 +21,7 @@
         padding: calc(var(--grid) / 2) var(--gap-tight) calc(var(--grid) / 2) var(--badge-pad-x);
         border-radius: var(--r-pill); border: var(--hairline) solid var(--line);
         background: var(--island); color: var(--ink-2); font-size: var(--t-meta);
-        max-width: var(--w-block);
+        max-width: min(var(--w-block), 100%);
         animation: pop var(--d-mid) var(--ease-spring);
       }
       /* 标签文字 span 截断（.x 关闭钮不动）—— 超长 tag 名不撑破行 */
