@@ -40,26 +40,20 @@ class _GalleryAppState extends State<GalleryApp> {
           final category = galleryCatalog[_categoryIndex];
           // Material ancestor — AnInput's TextField (and other Material leaves) require it; the app
           // shell provides one too. Material 祖先:AnInput 的 TextField 等需要,app 壳也提供。
-          // Top strip reserves the frameless macOS title-bar zone so the nav brand doesn't sit under
-          // the OS traffic lights. 顶部留出无边框 macOS 标题栏区,避免左上品牌压住红绿灯。
+          // The sidebar SURFACE runs to the very top (lights float over it); only the brand/title
+          // CONTENT is inset below the title-bar zone. 侧栏面铺到顶(灯浮其上),仅品牌/标题内容下移避开灯。
           return Material(
             color: c.canvas,
-            child: Column(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: _titleBarReserve),
+                _nav(context),
                 Expanded(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                  child: Column(
                     children: [
-                      _nav(context),
-                      Expanded(
-                        child: Column(
-                          children: [
-                            _topBar(context, category),
-                            Expanded(child: _content(context, category)),
-                          ],
-                        ),
-                      ),
+                      const SizedBox(height: _titleBarReserve),
+                      _topBar(context, category),
+                      Expanded(child: _content(context, category)),
                     ],
                   ),
                 ),
@@ -82,8 +76,11 @@ class _GalleryAppState extends State<GalleryApp> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Reserve the title-bar zone so the brand clears the OS traffic lights (the white surface
+          // above still reaches the window top). 留出标题栏区让品牌避开红绿灯(上方白面仍铺到窗顶)。
+          const SizedBox(height: _titleBarReserve),
           Padding(
-            padding: const EdgeInsets.fromLTRB(AnSpace.s12, AnSpace.s16, AnSpace.s12, AnSpace.s8),
+            padding: const EdgeInsets.fromLTRB(AnSpace.s12, AnSpace.s8, AnSpace.s12, AnSpace.s8),
             child: Row(
               children: [
                 const AnBrandIcon.anselm(size: AnBrandSize.sm),

@@ -38,7 +38,7 @@ void main() {
   testWidgets('gallery', (tester) async {
     const key = ValueKey('cap');
     tester.view.devicePixelRatio = 1.0;
-    tester.view.physicalSize = const Size(1280, 2800);
+    tester.view.physicalSize = const Size(1280, 3600);
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(RepaintBoundary(

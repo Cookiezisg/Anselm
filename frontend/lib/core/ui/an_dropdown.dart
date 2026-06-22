@@ -114,10 +114,7 @@ class _AnDropdownState<T> extends State<AnDropdown<T>> {
     final label = Text(
       sel?.label ?? widget.placeholder,
       maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      // Boxed select right-aligns its value (next to the caret) + ellipsis when long; ghost hugs left.
-      // 盒式选择框值右对齐(贴箭头)+ 超长省略号;ghost 左贴。
-      textAlign: ghost ? TextAlign.left : TextAlign.right,
+      overflow: TextOverflow.ellipsis, // label hugs LEFT, ellipsis when long 标签靠左、超长省略
       style: (ghost ? AnText.meta : AnText.body).copyWith(
         color: sel == null ? c.inkFaint : (ghost ? (active ? c.ink : c.inkMuted) : c.ink),
       ),
@@ -129,16 +126,22 @@ class _AnDropdownState<T> extends State<AnDropdown<T>> {
       child: Icon(AnIcons.chevronDown, size: AnSize.iconSm, color: c.inkFaint),
     );
 
+    // Two zones: label LEFT, meta RIGHT (next to the caret). BOTH can be long → both get a Flexible
+    // + ellipsis so neither overflows (they share the row when both long). meta is null for a single-
+    // value dropdown. 两区:标签左、meta 右(贴箭头);两者都可能超长→各 Flexible + 省略,谁都不溢出;单值时无 meta。
+    final hasMeta = sel?.meta != null;
     final children = <Widget>[
-      // Boxed: value Expands + right-aligns (cluster hugs the right edge by the caret). Ghost:
-      // content-hugging. 盒式:值占满并右对齐(贴右、靠箭头);ghost:贴合内容。
-      ghost ? Flexible(child: label) : Expanded(child: label),
-      if (sel?.meta != null) ...[
+      Flexible(flex: hasMeta ? 3 : 1, child: label),
+      if (hasMeta) ...[
         const SizedBox(width: AnSpace.s8),
-        Text(sel!.meta!,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: AnText.meta.copyWith(color: c.inkFaint, fontFeatures: const [FontFeature.tabularFigures()])),
+        Flexible(
+          flex: 2,
+          child: Text(sel!.meta!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.right,
+              style: AnText.meta.copyWith(color: c.inkFaint, fontFeatures: const [FontFeature.tabularFigures()])),
+        ),
       ],
       SizedBox(width: ghost ? AnSpace.s6 : AnSpace.s8),
       caret,

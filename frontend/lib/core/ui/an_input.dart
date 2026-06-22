@@ -21,6 +21,7 @@ class AnInput extends StatefulWidget {
     this.multiline = false,
     this.mono = false,
     this.full = false,
+    this.seamless = false,
     this.enabled = true,
     this.readOnly = false,
     this.focusNode,
@@ -36,6 +37,11 @@ class AnInput extends StatefulWidget {
   final bool multiline;
   final bool mono;
   final bool full;
+
+  /// Borderless, text-height field for in-place edit — no box chrome, no min-height, so it occupies
+  /// the SAME footprint as the display text it replaces (no layout jump). Caller sizes the width.
+  /// 无边框、文字高的就地编辑字段——无框、无最小高,与被替换的展示文字同占位(不跳)。宽由调用方定。
+  final bool seamless;
   final bool enabled;
   final bool readOnly;
   final FocusNode? focusNode;
@@ -130,6 +136,12 @@ class _AnInputState extends State<AnInput> {
         disabledBorder: InputBorder.none,
       ),
     );
+
+    // Seamless: no box chrome, text-height — the caller sizes width (Flexible/Expanded) so it slots
+    // in where the display text was, no jump. 无框、文字高:宽由调用方约束,原位替换展示文字、不跳。
+    if (widget.seamless) {
+      return Opacity(opacity: widget.enabled ? 1 : 0.4, child: field);
+    }
 
     final box = AnimatedContainer(
       duration: AnMotion.fast,

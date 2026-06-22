@@ -57,18 +57,21 @@ final GalleryCategory _g1Controls = GalleryCategory('基础控件 Controls', AnI
     GallerySpecimen('end compact', (_) => AnActionGroup([AnButton(label: 'A', size: AnButtonSize.sm, onPressed: () {}), AnButton(label: 'B', size: AnButtonSize.sm, onPressed: () {})], end: true, compact: true), span: true),
     GallerySpecimen('stack', (_) => AnActionGroup([AnButton(label: 'First', block: true, onPressed: () {}), AnButton(label: 'Second', block: true, onPressed: () {})], stack: true), span: true),
   ]),
-  GalleryItem('AnEditAffordance', '就地编辑:文字 ↔ 输入框 + 光标', [
-    GallerySpecimen('idle / editing', (_) => const _EditDemo(initial: 'Untitled workflow')),
-    GallerySpecimen('超长文本', (_) => const _EditDemo(initial: 'A very long entity title that must ellipsis when idle and scroll horizontally while editing'), stress: true),
+  GalleryItem('AnEditAffordance', '就地编辑:文字 ↔ 输入框 + 光标(定高不跳)', [
+    GallerySpecimen('idle (点铅笔进编辑)', (_) => const _EditDemo(initial: 'Untitled workflow')),
+    GallerySpecimen('editing 态', (_) => const _EditDemo(initial: 'Editing title', startEditing: true)),
+    GallerySpecimen('超长·idle', (_) => const _EditDemo(initial: 'A very long entity title that must ellipsis when idle'), stress: true),
+    GallerySpecimen('超长·editing', (_) => const _EditDemo(initial: 'A very long title being edited that must shrink, scroll, and never overflow the row', startEditing: true), stress: true),
   ]),
   GalleryItem('AnDropdown', '受控单选下拉 + 富行菜单', [
-    GallerySpecimen('selected + meta', (_) => const _DropdownDemo(initial: 'fn')),
-    GallerySpecimen('placeholder', (_) => const _DropdownDemo(initial: null)),
+    GallerySpecimen('label + meta', (_) => const _DropdownDemo(initial: 'fn')),
+    GallerySpecimen('single value(无 meta)', (_) => const _DropdownDemo(initial: 'med', simple: true)),
+    GallerySpecimen('placeholder', (_) => const _DropdownDemo(initial: null, simple: true)),
     GallerySpecimen('ghost', (_) => const _DropdownDemo(initial: 'ag', ghost: true)),
     GallerySpecimen('disabled', (_) => const AnDropdown<String>(options: [], value: null, onChanged: null, placeholder: 'disabled', enabled: false)),
     GallerySpecimen('block', (_) => const _DropdownDemo(initial: 'wf', block: true), span: true),
-    GallerySpecimen('超长值省略', (_) => AnDropdown<String>(
-          options: const [AnDropdownOption(value: 'x', label: 'An extremely long selected option label that must ellipsis at the right edge', meta: 'id_9f3a')],
+    GallerySpecimen('两区都超长', (_) => AnDropdown<String>(
+          options: const [AnDropdownOption(value: 'x', label: 'An extremely long entity name that must ellipsis on the left', meta: 'a_very_long_identifier_that_also_truncates')],
           value: 'x',
           onChanged: (_) {},
         ), span: true, stress: true),
@@ -86,13 +89,29 @@ final List<AnDropdownOption<String>> _entityOptions = [
   AnDropdownOption(value: 'wf', label: 'Workflow', meta: 'wf_4d10', icon: AnIcons.workflow),
 ];
 
+// Single-value options (label only, no meta) — the common case for a plain select. 单值(仅标签、无 meta)。
+final List<AnDropdownOption<String>> _simpleOptions = const [
+  AnDropdownOption(value: 'low', label: 'Low'),
+  AnDropdownOption(value: 'med', label: 'Medium'),
+  AnDropdownOption(value: 'high', label: 'High'),
+];
+
 class _DropdownDemo extends StatefulWidget {
-  const _DropdownDemo({this.initial, this.ghost = false, this.block = false, this.massive = false});
+  const _DropdownDemo({
+    this.initial,
+    this.ghost = false,
+    this.block = false,
+    this.massive = false,
+    this.simple = false,
+  });
 
   final String? initial;
   final bool ghost;
   final bool block;
   final bool massive;
+
+  /// Single-value options (no meta). 单值选项(无 meta)。
+  final bool simple;
 
   @override
   State<_DropdownDemo> createState() => _DropdownDemoState();
@@ -105,7 +124,7 @@ class _DropdownDemoState extends State<_DropdownDemo> {
   Widget build(BuildContext context) {
     final options = widget.massive
         ? [for (var i = 0; i < 80; i++) AnDropdownOption(value: '$i', label: 'Option number $i', meta: 'opt_$i')]
-        : _entityOptions;
+        : (widget.simple ? _simpleOptions : _entityOptions);
     return AnDropdown<String>(
       options: options,
       value: _value,
@@ -117,13 +136,16 @@ class _DropdownDemoState extends State<_DropdownDemo> {
   }
 }
 
-// The real in-place edit interaction the affordance is meant for: idle text ↔ a live AnInput with
-// a cursor; commit/abort via AnEditAffordance. Long text ellipsis-truncates idle, scrolls editing.
-// 就地编辑真交互:静态文字 ↔ 带光标的 AnInput;长文本静态省略号、编辑时横向滚动。
+// The real in-place edit interaction (the demo's "logic box vs display box" lesson): a FIXED-HEIGHT
+// row so toggling display↔edit never jumps. Editing uses a SEAMLESS AnInput (text-height, no box) +
+// Flexible so it slots in where the text was and never overflows; idle text ellipsis-truncates.
+// 就地编辑真交互(demo「逻辑框/展示框」教训):定高行,切换不跳。编辑用 seamless AnInput(文字高、无框)+
+// Flexible 原位替换、不溢出;静态文字超长省略。
 class _EditDemo extends StatefulWidget {
-  const _EditDemo({required this.initial});
+  const _EditDemo({required this.initial, this.startEditing = false});
 
   final String initial;
+  final bool startEditing;
 
   @override
   State<_EditDemo> createState() => _EditDemoState();
@@ -132,7 +154,7 @@ class _EditDemo extends StatefulWidget {
 class _EditDemoState extends State<_EditDemo> {
   late final TextEditingController _ctl = TextEditingController(text: widget.initial);
   late String _committed = widget.initial;
-  bool _editing = false;
+  late bool _editing = widget.startEditing;
 
   @override
   void dispose() {
@@ -142,14 +164,21 @@ class _EditDemoState extends State<_EditDemo> {
 
   @override
   Widget build(BuildContext context) {
-    if (_editing) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
+    final c = context.colors;
+    return SizedBox(
+      height: AnSize.control, // fixed footprint — display & edit share it, no jump 定高,展示/编辑共用、不跳
+      child: Row(
         children: [
-          SizedBox(width: 200, child: AnInput(controller: _ctl, autofocus: true, full: true)),
+          Flexible(
+            child: _editing
+                ? AnInput(controller: _ctl, seamless: true, autofocus: true)
+                : Text(_committed,
+                    maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.body.copyWith(color: c.ink)),
+          ),
           const SizedBox(width: AnSpace.s8),
           AnEditAffordance(
-            editing: true,
+            editing: _editing,
+            onEdit: () => setState(() => _editing = true),
             onCommit: () => setState(() {
               _committed = _ctl.text;
               _editing = false;
@@ -159,20 +188,6 @@ class _EditDemoState extends State<_EditDemo> {
               _editing = false;
             }),
           ),
-        ],
-      );
-    }
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 240),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Flexible(
-            child: Text(_committed,
-                maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.body.copyWith(color: context.colors.ink)),
-          ),
-          const SizedBox(width: AnSpace.s8),
-          AnEditAffordance(editing: false, onEdit: () => setState(() => _editing = true)),
         ],
       ),
     );
