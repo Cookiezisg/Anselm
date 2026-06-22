@@ -50,8 +50,11 @@
       return this._rows();
     }
 
+    // 重复条数封顶：海量 count 会铺出海量 DOM + 各自跑无限 shimmer 动画卡死页面；骨架只是占位、60 条足够撑满任何视口
+    _count(d) { return Math.min(60, this.num("count", d)); }
+
     _rows() {
-      const n = this.num("count", 1);
+      const n = this._count(1);
       let out = "";
       for (let i = 0; i < n; i++) {
         out += `<div class="skel-row">`
@@ -63,19 +66,19 @@
       return out;
     }
     _text() {
-      const n = this.num("count", 1);
+      const n = this._count(1);
       let out = "";
       for (let i = 0; i < n; i++) out += `<div class="bar skel-text"></div>`;
       return out;
     }
     _lines() {
-      const n = this.num("count", 3);
+      const n = this._count(3);
       let bars = "";
       for (let i = 0; i < n; i++) bars += `<span class="bar"></span>`;
       return `<div class="skel-lines">${bars}</div>`;
     }
     _card() {
-      const n = this.num("count", 1);
+      const n = this._count(1);
       let out = "";
       for (let i = 0; i < n; i++) {
         out += `<div class="skel-card">`

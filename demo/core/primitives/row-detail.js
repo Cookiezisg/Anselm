@@ -19,7 +19,16 @@
     }
     hydrate() {
       // an-select 自内层 an-row 冒泡上来（composed）；切显隐 + 高亮该行
-      this.addEventListener("an-select", () => this.toggle());
+      this.addEventListener("an-select", (e) => {
+        // why：嵌套时子 an-select 沿 composedPath 上冒会误触外层——只认本行 [slot=row] 在更内层 an-row-detail 之前出现
+        const path = e.composedPath ? e.composedPath() : [];
+        const row = this.querySelector('[slot="row"]');
+        for (const t of path) {
+          if (t === this) break;                       // 直达本宿主，未遇本行：来源在 detail 槽内或他处，不响应
+          if (t === row) { this.toggle(); return; }     // 本行先于本宿主出现：本行触发
+          if (t.tagName === "AN-ROW-DETAIL") return;   // 先遇更内层 row-detail：归它处理
+        }
+      });
     }
     toggle(force) {
       const open = force == null ? !this.has("open") : !!force;

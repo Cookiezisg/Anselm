@@ -60,7 +60,8 @@
       @keyframes bkLineIn { from { opacity: 0; transform: translateY(var(--line-2)); } to { opacity: 1; transform: none; } }
 
       /* ── text：assistant 通栏 / user 右对齐浅灰气泡 ── */
-      .text { font-size: var(--t-body); color: var(--ink); line-height: var(--lh-prose); margin: 0; }
+      /* overflow-wrap: anywhere —— 无空格超长串（URL/hash/base64）横破换行，不撑破通栏 */
+      .text { font-size: var(--t-body); color: var(--ink); line-height: var(--lh-prose); margin: 0; overflow-wrap: anywhere; }
       .text p { margin: 0 0 var(--sp-2); }
       .text p:last-child { margin-bottom: 0; }
       .text b { font-weight: 600; }
@@ -121,6 +122,10 @@
       /* ── compaction：安静耳语（无框无线）；分隔符自带小 margin 叠在 gap 上、多一档呼吸 ── */
       .compaction { text-align: center; color: var(--ink-3); font-size: var(--t-meta);
         font-family: var(--mono); margin: var(--sp-3) 0; opacity: .8; }
+
+      /* ── unknown 兜底块（未知 type）：低调 mono 占位、不静默吞 ── */
+      .unknown-block { font-family: var(--mono); font-size: var(--t-meta); color: var(--ink-3);
+        padding: var(--sp-2) var(--sp-3); border-radius: var(--r-tag); background: var(--island-2); overflow-wrap: anywhere; }
 
       /* ── turnEnd：旗标 + max_steps 诚实终态（自带小 margin 叠 gap） ── */
       .turn-end { display: flex; align-items: center; gap: var(--sp-2); margin: var(--grid) 0;
@@ -215,7 +220,8 @@
         case "turnEnd": return this.turnEnd(b);
         case "todo": return this.todo(b, i);
         case "subtree": return this.subtree(b, i);
-        default: return "";
+        // unknown 兜底铁律：协议级块型开放，未知型不静默吞——渲一个可见占位（转义），守"unknown 不沉默"
+        default: return `<div class="unknown-block" data-i="${i}">${e("[未知块型: " + (b.type == null ? "" : b.type) + "]")}</div>`;
       }
     }
 

@@ -16,6 +16,7 @@
         border-radius: var(--r-pill); border: var(--hairline) solid var(--line);
         background: var(--island); color: var(--ink-2);
         font-size: var(--t-meta); font-weight: 500; white-space: nowrap;
+        max-width: var(--w-block); overflow: hidden; text-overflow: ellipsis;
         transition: background var(--d-fast), color var(--d-fast);
       }
       :host([id]) .pill { cursor: pointer; }

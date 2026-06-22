@@ -29,6 +29,7 @@
       .lab.is-placeholder { color: var(--ink-3); }
       .meta {
         flex: none; font-size: var(--t-meta); color: var(--ink-3);
+        max-width: var(--side-w); overflow: hidden; text-overflow: ellipsis;
         font-family: var(--mono); font-variant-numeric: tabular-nums;
       }
       .caret {

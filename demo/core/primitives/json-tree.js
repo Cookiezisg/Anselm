@@ -89,11 +89,11 @@
 
       /* branch = [chevron 槽 | key | meta]；leaf = [key | value]（无 lead 槽 → 扁平输出与 KV 同起点，不缩进成格子） */
       .row {
-        display: grid; grid-template-columns: var(--lead) auto minmax(0, 1fr);
+        display: grid; grid-template-columns: var(--lead) minmax(0, auto) minmax(0, 1fr);
         align-items: center; column-gap: var(--gap); min-height: var(--row);
         padding: 0 var(--pad-row); border-radius: var(--r-btn); color: var(--ink-2);
       }
-      .leaf { grid-template-columns: auto minmax(0, 1fr); }
+      .leaf { grid-template-columns: minmax(0, auto) minmax(0, 1fr); }
       .branch { cursor: pointer; }
       .branch:hover { background: var(--island-3); color: var(--ink); }
       .lead { width: var(--lead); height: var(--lead); display: grid; place-items: center; color: var(--ink-3); }
@@ -104,7 +104,8 @@
       .meta,
       .value {
         min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-        justify-self: start; font-family: var(--mono); font-size: var(--t-meta); color: var(--ink-3);
+        /* 勿用 justify-self:start——会让 grid item 按内容定宽(超长值撑破轨道、overflow 失效)；默认 stretch 填轨 + clip */
+        font-family: var(--mono); font-size: var(--t-meta); color: var(--ink-3);
       }
       .string { color: var(--cd-str); }
       .number { color: var(--cd-num); }

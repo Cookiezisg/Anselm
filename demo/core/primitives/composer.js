@@ -34,7 +34,10 @@
         display: inline-flex; align-items: center; gap: var(--gap-tight); height: var(--badge-h);
         padding: 0 var(--grid) 0 var(--badge-pad-x); border-radius: var(--r-tag);
         background: var(--island-3); color: var(--ink-2); font-size: var(--t-meta);
+        max-width: var(--w-block); overflow: hidden;
       }
+      /* 附件名截断 —— 超长文件名不撑破 chip 行 */
+      .chip .cn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: var(--zero); }
       .chip .ci { display: grid; place-items: center; color: var(--ink-3); }
       .chip .ci svg { width: var(--icon-sm); height: var(--icon-sm); }
       .chip .x { display: grid; place-items: center; width: var(--icon); height: var(--icon); border-radius: var(--r-tag); color: var(--ink-3); cursor: pointer; }
@@ -151,7 +154,7 @@
     _renderChips() {
       const box = this.$(".chips"); if (!box) return;
       box.innerHTML = (this._atts || []).map((a, i) =>
-        `<span class="chip"><span class="ci">${window.icon(a.icon || "doc", 12)}</span>${e(a.name || "附件")}<span class="x" data-x="${i}">${window.icon("close", 12)}</span></span>`
+        `<span class="chip"><span class="ci">${window.icon(a.icon || "doc", 12)}</span><span class="cn">${e(a.name || "附件")}</span><span class="x" data-x="${i}">${window.icon("close", 12)}</span></span>`
       ).join("");
       box.querySelectorAll(".x").forEach((x) => x.addEventListener("click", () => {
         this._atts.splice(Number(x.dataset.x), 1); this._renderChips();

@@ -24,7 +24,8 @@
       .empty { padding: var(--grid) var(--gap); font-size: var(--t-meta); color: var(--ink-3); }
     `;
 
-    set items(v) { this._items = Array.isArray(v) ? v : []; if (this.isConnected) this._render(); }
+    // why：剔除 null 元素——render 读 o.level 对 null 会崩
+    set items(v) { this._items = Array.isArray(v) ? v.filter(Boolean) : []; if (this.isConnected) this._render(); }
     get items() { return this._items || []; }
     set active(v) { this._active = v; this.$$(".item").forEach((b) => b.classList.toggle("active", +b.dataset.i === v)); }
 

@@ -25,8 +25,11 @@
       :host([grid]) .body { display: grid; grid-template-columns: repeat(auto-fit, minmax(var(--w-block), 1fr)); gap: var(--sp-4); align-items: start; }
     `;
     render() {
-      const head = this.attr("label")
-        ? `<div class="head"><div class="label">${window.anEsc(this.attr("label"))}</div><slot name="actions"></slot></div>`
+      // why：无 label 但有 actions slot 内容时也须渲 head——否则动作静默消失
+      const label = this.attr("label");
+      const hasActions = !!this.querySelector('[slot="actions"]');
+      const head = (label || hasActions)
+        ? `<div class="head"><div class="label">${window.anEsc(label)}</div><slot name="actions"></slot></div>`
         : "";
       return `${head}<div class="body"><slot></slot></div>`;
     }

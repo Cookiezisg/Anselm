@@ -16,6 +16,7 @@
       .an-toast-stack {
         position: fixed; right: var(--sp-6); bottom: var(--sp-6); z-index: 60;
         display: flex; flex-direction: column-reverse; gap: var(--sp-2);
+        max-height: calc(100vh - var(--sp-12)); overflow: hidden;
         pointer-events: none;
       }
       .an-toast {

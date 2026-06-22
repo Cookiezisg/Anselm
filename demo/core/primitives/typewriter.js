@@ -38,14 +38,16 @@
     _tick() {
       const phrases = this._phrases || []; if (!phrases.length) return;
       const full = phrases[this._idx % phrases.length] || "";
+      // why：按码点切——slice 截断 emoji/CJK 代理对会出乱码（Array.from 按码点拆）
+      const cp = Array.from(full), shown = Array.from(this._shown);
       let delay = SPEED_MS;
       if (this._phase === "typing") {
-        this._shown = full.slice(0, this._shown.length + 1);
+        this._shown = cp.slice(0, shown.length + 1).join("");
         if (this._shown === full) { this._phase = "holding"; delay = this.num("pause", PAUSE_MS); }   // 一句打满停留（attr pause 可配，chat 空态 5s）
       } else if (this._phase === "holding") {
         this._phase = "deleting"; delay = Math.round(SPEED_MS / 2);
       } else {   // deleting
-        this._shown = this._shown.slice(0, -1); delay = Math.round(SPEED_MS / 2);
+        this._shown = shown.slice(0, -1).join(""); delay = Math.round(SPEED_MS / 2);
         if (!this._shown) { this._idx = (this._idx + 1) % phrases.length; this._phase = "typing"; delay = SPEED_MS; }
       }
       const txt = this.$(".txt"); if (txt) txt.textContent = this._shown;

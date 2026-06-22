@@ -35,11 +35,15 @@
       :host([block]) button { width: 100%; justify-content: flex-start; }
     `;
     render() {
+      const isIcon = this.attr("variant") === "icon";
       const ic = this.attr("icon") ? `<span class="ico">${window.icon(this.attr("icon"))}</span>` : "";
-      const lbl = this.attr("variant") === "icon" ? "" : `<slot></slot>`;
-      const aria = this.attr("variant") === "icon" && this.textContent.trim()
-        ? ` aria-label="${window.anEsc(this.textContent.trim())}"` : "";
-      return `<button part="button"${aria}>${ic}${lbl}</button>`;
+      const lbl = isIcon ? "" : `<slot></slot>`;
+      // icon 钮无可见 label：优先 host 文本，否则按 icon 名兜底——不留无障碍空标签的图标钮
+      const ariaText = isIcon ? (this.textContent.trim() || window.anLabel(this.attr("icon", "button"))) : "";
+      const aria = ariaText ? ` aria-label="${window.anEsc(ariaText)}"` : "";
+      // why：:host([disabled]) 的 pointer-events:none 只挡鼠标；把原生 disabled 透传到内部 button，键盘 Tab+Enter 也不可触发
+      const dis = this.has("disabled") ? " disabled" : "";
+      return `<button part="button"${aria}${dis}>${ic}${lbl}</button>`;
     }
   }
   window.AnElement.define(AnButton);

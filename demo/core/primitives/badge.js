@@ -12,6 +12,7 @@
         display: inline-flex; align-items: center; gap: var(--gap-tight);
         height: var(--badge-h); padding: 0 var(--badge-pad-x); border-radius: var(--r-pill);
         font-size: var(--t-meta); font-weight: 500; white-space: nowrap;
+        max-width: var(--w-block); overflow: hidden; text-overflow: ellipsis;
         background: var(--island-3); color: var(--ink-2);
       }
       :host([tone="ok"])     .badge { background: var(--ok-soft);     color: var(--ok); }
