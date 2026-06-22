@@ -17,6 +17,16 @@
         100% { box-shadow: 0 0 0 0 transparent; }
       }
     `;
+    // Canonicalize state to lowercase so the case-sensitive CSS selectors above match
+    // backend strings of any casing (DONE/Run/…) instead of silently falling to the default gray.
+    // 单一归一路径：badge 的 dot 也经 <an-status-dot> 渲染，故只此一处折正、两处皆受益。
+    // 仅在大小写不同才回写，避免 attributeChangedCallback 自激重渲染循环。
+    hydrate() {
+      const raw = this.getAttribute("state");
+      if (raw == null) return;
+      const lc = raw.toLowerCase();
+      if (lc !== raw) this.setAttribute("state", lc);
+    }
     render() { return `<span class="dot"></span>`; }
   }
   window.AnElement.define(AnStatusDot);

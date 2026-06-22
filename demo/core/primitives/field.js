@@ -137,8 +137,9 @@
       if (this._editing) return;  // 守卫：编辑中再触发不重入
       const vEl = this.$(".v"); if (!vEl) return;
       const commit = (value) => { this.setAttribute("value", value); this.emit("an-field-change", { label: this.attr("label"), value }); };
-      if ((this.attr("editor") || "input") === "select") { editSelect(this, vEl, { value: this.attr("value"), options: this._options || [] }, commit); return; }
+      // why：select 路径也置编辑锁——否则就地下拉浮层开着时再触发会换入第二个 an-dropdown 叠浮层（收尾必经重渲解锁）。
       this._editing = true;
+      if ((this.attr("editor") || "input") === "select") { editSelect(this, vEl, { value: this.attr("value"), options: this._options || [] }, commit); return; }
       this._finish = editText(this, vEl, this.attr("value"), commit, (on) => this.toggleAttribute("editing", on));
     }
   }
@@ -197,10 +198,12 @@
         const pencil = row.querySelector(".pencil");
         const start = () => {
           if (this._editing) return;
-          const vEl = row.querySelector(".v"), rec = this._rows[i];
+          const vEl = row.querySelector(".v"); if (!vEl) return;  // 守卫：上轮 select 已把 .v 换成下拉浮层（铅笔尚在），无 .v 即不再入（否则 replaceWith null 崩）
+          const rec = this._rows[i];
           const commit = (value) => this._commit(i, value);
-          if (rec.editor === "select") { editSelect(this, vEl, rec, commit); return; }
+          // why：select 路径也置编辑锁——同 field，浮层开着时再触发不叠第二个 an-dropdown（收尾必经重渲解锁）。
           this._editing = true;
+          if (rec.editor === "select") { editSelect(this, vEl, rec, commit); return; }
           this._finish = editText(this, vEl, rec.value, commit, (on) => row.classList.toggle("editing", on));
         };
         if (pencil) pencil.addEventListener("click", start);

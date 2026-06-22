@@ -20,6 +20,15 @@
       :host([tone="danger"]) .badge { background: var(--danger-soft); color: var(--danger); }
       :host([tone="accent"]) .badge { background: var(--accent-soft); color: var(--accent); }
     `;
+    // Canonicalize tone to lowercase so the case-sensitive tone CSS matches any-casing
+    // backend strings (OK/Danger/…) instead of falling to neutral.（dot 经 <an-status-dot> 自行折正，不在此重复。）
+    // 仅大小写不同才回写，避免自激重渲染循环。
+    hydrate() {
+      const raw = this.getAttribute("tone");
+      if (raw == null) return;
+      const lc = raw.toLowerCase();
+      if (lc !== raw) this.setAttribute("tone", lc);
+    }
     render() {
       const dot = this.attr("dot")
         ? `<an-status-dot state="${window.anEsc(this.attr("dot"))}"></an-status-dot>`

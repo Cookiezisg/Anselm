@@ -11,9 +11,10 @@
       .head { display: flex; align-items: center; gap: var(--gap); min-height: var(--ctl); margin-bottom: var(--sp-1); }
       .ico { display: grid; place-items: center; flex: none; color: var(--ink-3); }
       .ico svg { width: var(--icon-sm); height: var(--icon-sm); }
-      .title { flex: 1; min-width: 0; color: var(--ink-3); font-size: var(--t-meta); font-weight: 600; line-height: var(--lh-ui); }
-      /* flex:0 1 auto + min-width:0 + 省略：常态贴内容、超长可缩并截断，绝不把 head 撑破 */
-      .meta { flex: 0 1 auto; min-width: 0; display: inline-flex; align-items: center; gap: var(--gap-tight); color: var(--ink-3); font-size: var(--t-meta); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      /* flex 1 1 auto（基准=内容）+ min-width:0 + 省略：短标题贴内容、长标题填满可用宽并截断，绝不把 head 撑破 */
+      .title { flex: 1 1 auto; min-width: 0; color: var(--ink-3); font-size: var(--t-meta); font-weight: 600; line-height: var(--lh-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      /* shrink 因子 100（远超 title 的 1）：meta 先于标题让位——同行竞争时标题优先、meta 缩并截断，绝不把 head 撑破 */
+      .meta { flex: 0 100 auto; min-width: 0; display: inline-flex; align-items: center; gap: var(--gap-tight); color: var(--ink-3); font-size: var(--t-meta); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       /* 间距归容器：卡内块间节奏（比段内更紧） */
       .body { min-width: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
       .actions { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-3); }
