@@ -19,7 +19,7 @@ audience: [human, ai]
 
 - `tokens.dart` —— 主题无关几何/时间:`AnSpace`(4 网格间距)· `AnRadius`(tag/button/chip/card/island/pill)· `AnSize`(行高 32、控件 28、图标 16/12/20、三岛列宽、窗体外廓)· `AnMotion`(fast 120 / mid 240 / slow 340 / breath 1800ms + easeOut/spring 缓动)。
 - `colors.dart` —— `AnColors` ThemeExtension(明暗双值 + lerp,糖 `context.colors`)。**中性 chrome + toB 蓝 accent + 功能色**:`accent`=蓝(demo `#0071e3`/暗 `#0a84ff`)——主动作/选中/聚焦/run 状态显蓝;`ok`/`warn`/`danger`(+ soft)语义色。值镜像 demo `tokens.css`。
-- `typography.dart` —— `AnText`,模数字阶锚 13px 正文。**UI=随包 MiSans VF**(`assets/fonts/MiSansVF.ttf`,变量字体 wght 150–700,Latin+简中,全平台同字面)+ PingFang SC 兜底;**渲染压细**——正文/标签/次级 Light(w300)、强调 Regular(w400)、标题 Medium(w500),摆脱 MiSans 在 Regular 下的厚重(ExtraLight 200 部分字偏细)。**代码=JetBrains Mono**(随包,OFL)。
+- `typography.dart` —— `AnText`,模数字阶锚 13px 正文。**UI=随包 MiSans VF**(`assets/fonts/MiSansVF.ttf`,变量字体 wght 150–700,Latin+简中,全平台同字面)+ PingFang SC 兜底;**渲染压细**——正文/标签/次级 Light(w300)、强调 Regular(w400)、标题 Medium(w500),摆脱 MiSans 在 Regular 下的厚重(ExtraLight 200 部分字偏细)。**每个样式同时给 `fontWeight` + 显式 `fontVariations('wght')`**——否则 `TextField`/`EditableText` 不渲染对的 VF 字重,就地编辑框会比展示文字更粗更宽。**代码=JetBrains Mono**(随包,OFL)。
 - `theme.dart` —— 装配 `ThemeData`,注册 `AnColors` 扩展,剥 Material 涟漪 + **hover/highlight/focus/splash 全置透明**(表面自管态,杜绝 Material 默认灰叠加)。
 
 ## 2. 命名 + 纪律
@@ -54,7 +54,7 @@ audience: [human, ai]
 | G4 导航与壳 | Tabs · Toolbar · OceanHeader · RightIsland · SidebarList · Page · WireList | ⏳ |
 | G6 浮层 | Menu · Dialog · Toast（复用 G1 的 **AnPopover** 基座） | ⏳ |
 
-**G1 要点**:Button/Dropdown/EditAffordance 等可交互件都搭在 `AnInteractive` 上(态/激活/禁用一致);`AnInput` 用 `TextField`,**需 Material 祖先**(app 壳与 gallery 都提供)。`AnDropdown` 未做"桩"——已用 **AnPopover**(Flutter `OverlayPortal` + `CompositedTransformFollower`,点外/Esc 关)落地真菜单;此基座原计划在 G6,因 G3 的 Field/Kv 也需提早到 G1(G6 的 Menu/Dialog/Toast 复用它)。`AnTone→色`映射在 `core/ui/tone.dart`。`block`/`full`(占满宽)需有界父——无界父下优雅退化(不崩),见各件 LayoutBuilder。
+**G1 要点**:Button/Dropdown/EditAffordance 等可交互件都搭在 `AnInteractive` 上(态/激活/禁用一致);`AnInput` 用 `TextField`,**需 Material 祖先**(app 壳与 gallery 都提供)。`AnDropdown` 未做"桩"——已用 **AnPopover**(Flutter `OverlayPortal` + `CompositedTransformFollower`,点外/Esc 关)落地真菜单;此基座原计划在 G6,因 G3 的 Field/Kv 也需提早到 G1(G6 的 Menu/Dialog/Toast 复用它)。`AnTone→色`映射在 `core/ui/tone.dart`。`block`/`full`(占满宽)需有界父——无界父下优雅退化(不崩),见各件 LayoutBuilder。**AnDropdown 两区**(`_TwoZone`,触发器与菜单行共用):label 占满左 + meta 上限右(≤45%)+ 箭头钉右,两者各自省略。**菜单宽 = 触发器宽夹 `[menuMin 200, menuMax 360]`**(紧凑 ghost 触发器也容富行、不溢出);开/关有 **fade + 自顶微缩放**动效(`AnPopover`,`AnMotion.fast`)。**`AnPopover` 的 `AnimationController` 在 initState 急切创建**(非懒 `late final =`,否则没开过的浮层在 dispose 才首次访问→崩)。
 
 **G6 AnFloating 待补**(对抗复审记录的两项浮层短板,提前到 G6 generalize AnPopover 时处理):① 浮层不做视口避让——触发器贴右边缘 + 窄窗时菜单可能溢出屏幕右沿(需 flip/avoid-viewport);② 首帧 `LayerLink.leaderSize` 为 null → 宽触发器(块级)菜单宽度有一帧跳变(需预量锚宽)。
 

@@ -217,7 +217,14 @@ class _GalleryAppState extends State<GalleryApp> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Align(alignment: Alignment.centerLeft, child: Builder(builder: s.builder)),
+          // A maxWidth-constrained specimen renders narrow so long content actually truncates.
+          // 受限宽的 specimen 窄渲染,逼出截断。
+          Align(
+            alignment: Alignment.centerLeft,
+            child: s.maxWidth != null
+                ? SizedBox(width: s.maxWidth, child: Builder(builder: s.builder))
+                : Builder(builder: s.builder),
+          ),
           const SizedBox(height: AnSpace.s12),
           Row(
             children: [

@@ -9,7 +9,7 @@ import 'package:flutter/widgets.dart';
 /// 渲染器哑。stress 标压力床 specimen(空/超长/海量/极值/注入),抓 happy-path 漏的溢出/转义回归。
 @immutable
 class GallerySpecimen {
-  const GallerySpecimen(this.label, this.builder, {this.span = false, this.stress = false});
+  const GallerySpecimen(this.label, this.builder, {this.span = false, this.stress = false, this.maxWidth});
 
   final String label;
   final WidgetBuilder builder;
@@ -19,6 +19,10 @@ class GallerySpecimen {
 
   /// A pressure-bed specimen (empty / overlong / massive / extreme / injection). 压力床 specimen。
   final bool stress;
+
+  /// Force a NARROW render width so long content actually hits truncation (a stress specimen that
+  /// never overflows the cell proves nothing). null = the normal cell. 强制窄宽,逼出截断(否则压测白做)。
+  final double? maxWidth;
 }
 
 @immutable

@@ -32,9 +32,9 @@ void main() {
 }
 
 Widget _host(GallerySpecimen s) {
-  // Constrain to the gallery's real cell width (full-bleed span vs 280 grid track) so overflow
-  // surfaces exactly as in the gallery. 用画廊真实格宽约束,溢出如实暴露。
-  final width = s.span ? 600.0 : 280.0;
+  // Constrain to the gallery's real render width (narrow stress specimen / span / 280 grid track) so
+  // overflow + truncation surface exactly as in the gallery. 用画廊真实渲染宽约束,溢出与截断如实暴露。
+  final width = s.maxWidth ?? (s.span ? 600.0 : 280.0);
   return TranslationProvider(
     child: MaterialApp(
       debugShowCheckedModeBanner: false,

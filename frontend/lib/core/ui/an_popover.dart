@@ -53,13 +53,22 @@ class AnPopover extends StatefulWidget {
   State<AnPopover> createState() => _AnPopoverState();
 }
 
-class _AnPopoverState extends State<AnPopover> {
+class _AnPopoverState extends State<AnPopover> with SingleTickerProviderStateMixin {
   final LayerLink _link = LayerLink();
   final OverlayPortalController _portal = OverlayPortalController();
+
+  // Open/close transition — fade + a small scale-from-top (the standard dropdown reveal). Created
+  // EAGERLY in initState (NOT a lazy `late final =`): an unopened popover would otherwise first
+  // touch _anim in dispose() → build a controller mid-teardown → crash.
+  // 开关过渡:淡入 + 自顶部微缩放。必须在 initState 急切创建(非懒 late final),否则没开过的浮层会在 dispose 才首次访问→崩。
+  late final AnimationController _anim;
+  late final Animation<double> _scale;
 
   @override
   void initState() {
     super.initState();
+    _anim = AnimationController(vsync: this, duration: AnMotion.fast);
+    _scale = Tween<double>(begin: 0.96, end: 1).animate(CurvedAnimation(parent: _anim, curve: AnMotion.easeOut));
     widget.controller.addListener(_sync);
   }
 
@@ -75,15 +84,20 @@ class _AnPopoverState extends State<AnPopover> {
 
   void _sync() {
     if (widget.controller.isOpen) {
-      _portal.show();
-    } else {
-      _portal.hide();
+      if (!_portal.isShowing) _portal.show();
+      _anim.forward();
+    } else if (_portal.isShowing) {
+      // Animate out, then remove the overlay (unless reopened mid-reverse). 反向播完再撤浮层。
+      _anim.reverse().whenComplete(() {
+        if (!widget.controller.isOpen && _portal.isShowing) _portal.hide();
+      });
     }
   }
 
   @override
   void dispose() {
     widget.controller.removeListener(_sync);
+    _anim.dispose();
     super.dispose();
   }
 
@@ -108,13 +122,20 @@ class _AnPopoverState extends State<AnPopover> {
               offset: widget.offset,
               child: Align(
                 alignment: widget.followerAnchor,
-                child: CallbackShortcuts(
-                  bindings: {
-                    const SingleActivator(LogicalKeyboardKey.escape): widget.controller.close,
-                  },
-                  child: Focus(
-                    autofocus: true,
-                    child: widget.overlayBuilder(context, _link.leaderSize),
+                child: FadeTransition(
+                  opacity: _anim,
+                  child: ScaleTransition(
+                    scale: _scale,
+                    alignment: Alignment.topCenter, // grow downward from the top edge 自顶向下展开
+                    child: CallbackShortcuts(
+                      bindings: {
+                        const SingleActivator(LogicalKeyboardKey.escape): widget.controller.close,
+                      },
+                      child: Focus(
+                        autofocus: true,
+                        child: widget.overlayBuilder(context, _link.leaderSize),
+                      ),
+                    ),
                   ),
                 ),
               ),

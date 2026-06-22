@@ -82,6 +82,26 @@ void main() {
     expect(find.text('Banana'), findsOneWidget);
   });
 
+  testWidgets('ghost (compact trigger) menu fits rich rows — no overflow', (tester) async {
+    // Regression: forcing menu width == a compact ghost trigger overflowed the rich rows. The menu
+    // now clamps to [menuMin, menuMax], so a narrow trigger still yields a wide-enough menu.
+    // 回归:菜单=紧凑 ghost 触发器宽 → 富行溢出。现夹到 [min,max],窄触发器也给够宽菜单。
+    final rich = const [
+      AnDropdownOption(value: 'fn', label: 'Function', meta: 'fn_3a9f'),
+      AnDropdownOption(value: 'ag', label: 'Agent', meta: 'ag_0e88'),
+    ];
+    await tester.pumpWidget(host(AnDropdown<String>(
+      options: rich,
+      value: 'fn',
+      variant: AnDropdownVariant.ghost,
+      onChanged: (_) {},
+    )));
+    await tester.tap(find.byType(AnDropdown<String>));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('Agent'), findsOneWidget);
+  });
+
   testWidgets('massive option list opens and scrolls without overflow', (tester) async {
     final many = [for (var i = 0; i < 80; i++) AnDropdownOption(value: '$i', label: 'Option $i')];
     await tester.pumpWidget(host(AnDropdown<String>(options: many, value: '0', onChanged: (_) {})));

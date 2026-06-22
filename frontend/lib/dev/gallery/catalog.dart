@@ -26,12 +26,12 @@ final GalleryCategory _g1Controls = GalleryCategory('基础控件 Controls', AnI
     GallerySpecimen('accent', (_) => const AnBadge('active', tone: AnTone.accent)),
     GallerySpecimen('dot=done', (_) => const AnBadge('completed', tone: AnTone.ok, dot: AnStatus.done)),
     GallerySpecimen('dot=run', (_) => const AnBadge('running', tone: AnTone.accent, dot: AnStatus.run)),
-    GallerySpecimen('超长截断', (_) => const AnBadge('a-very-long-tag-that-must-truncate-not-blow-out', tone: AnTone.ok), stress: true),
+    GallerySpecimen('超长截断', (_) => const AnBadge('a-very-long-tag-that-must-truncate-not-blow-out', tone: AnTone.ok), stress: true, maxWidth: 150),
     GallerySpecimen('注入转义', (_) => const AnBadge('<b>not</b> & <i>html</i>', tone: AnTone.warn), stress: true),
   ]),
   GalleryItem('AnGroupLabel', '极薄分组小标题', [
     GallerySpecimen('default', (_) => const AnGroupLabel('Entities'), span: true),
-    GallerySpecimen('超长截断', (_) => const AnGroupLabel('a very long section caption that should ellipsis instead of wrapping'), stress: true),
+    GallerySpecimen('超长截断', (_) => const AnGroupLabel('a very long section caption that should ellipsis instead of wrapping'), stress: true, maxWidth: 150),
   ]),
   GalleryItem('AnButton', '统一动作钮:变体/尺寸/图标/态', [
     GallerySpecimen('ghost', (_) => AnButton(label: 'Ghost', onPressed: () {})),
@@ -42,7 +42,7 @@ final GalleryCategory _g1Controls = GalleryCategory('基础控件 Controls', AnI
     GallerySpecimen('size=sm', (_) => AnButton(label: 'Small', size: AnButtonSize.sm, onPressed: () {})),
     GallerySpecimen('disabled', (_) => const AnButton(label: 'Disabled', onPressed: null)),
     GallerySpecimen('block', (_) => AnButton(label: 'Block', icon: AnIcons.enter, block: true, onPressed: () {}), span: true),
-    GallerySpecimen('超长截断', (_) => AnButton(label: 'a-really-long-button-label-that-must-ellipsis-within-its-box', block: true, onPressed: () {}), span: true, stress: true),
+    GallerySpecimen('超长截断', (_) => AnButton(label: 'a-really-long-button-label-that-must-ellipsis-within-its-box', block: true, onPressed: () {}), stress: true, maxWidth: 170),
   ]),
   GalleryItem('AnInput', '值叶子:单行/多行/等宽', [
     GallerySpecimen('default', (_) => const AnInput(placeholder: 'Type…')),
@@ -50,7 +50,7 @@ final GalleryCategory _g1Controls = GalleryCategory('基础控件 Controls', AnI
     GallerySpecimen('readonly', (_) => const AnInput(initialValue: 'read only', readOnly: true)),
     GallerySpecimen('disabled', (_) => const AnInput(initialValue: 'disabled', enabled: false)),
     GallerySpecimen('multiline full', (_) => const AnInput(placeholder: 'Multiple lines…', multiline: true, full: true), span: true),
-    GallerySpecimen('超长值', (_) => const AnInput(initialValue: 'this-is-an-extremely-long-single-line-value-that-should-scroll-horizontally-and-never-overflow-the-bordered-box', full: true), span: true, stress: true),
+    GallerySpecimen('超长值', (_) => const AnInput(initialValue: 'this-is-an-extremely-long-single-line-value-that-should-scroll-horizontally-and-never-overflow-the-bordered-box', full: true), stress: true, maxWidth: 180),
   ]),
   GalleryItem('AnActionGroup', '动作组:对齐/间距/换行', [
     GallerySpecimen('default', (_) => AnActionGroup([AnButton(label: 'Cancel', onPressed: () {}), AnButton(label: 'Save', variant: AnButtonVariant.primary, onPressed: () {})]), span: true),
@@ -60,8 +60,8 @@ final GalleryCategory _g1Controls = GalleryCategory('基础控件 Controls', AnI
   GalleryItem('AnEditAffordance', '就地编辑:文字 ↔ 输入框 + 光标(定高不跳)', [
     GallerySpecimen('idle (点铅笔进编辑)', (_) => const _EditDemo(initial: 'Untitled workflow')),
     GallerySpecimen('editing 态', (_) => const _EditDemo(initial: 'Editing title', startEditing: true)),
-    GallerySpecimen('超长·idle', (_) => const _EditDemo(initial: 'A very long entity title that must ellipsis when idle'), stress: true),
-    GallerySpecimen('超长·editing', (_) => const _EditDemo(initial: 'A very long title being edited that must shrink, scroll, and never overflow the row', startEditing: true), stress: true),
+    GallerySpecimen('超长·idle', (_) => const _EditDemo(initial: 'A very long entity title that must ellipsis when idle'), stress: true, maxWidth: 180),
+    GallerySpecimen('超长·editing', (_) => const _EditDemo(initial: 'A very long title being edited that must shrink, scroll, and never overflow the row', startEditing: true), stress: true, maxWidth: 220),
   ]),
   GalleryItem('AnDropdown', '受控单选下拉 + 富行菜单', [
     GallerySpecimen('label + meta', (_) => const _DropdownDemo(initial: 'fn')),
@@ -74,7 +74,7 @@ final GalleryCategory _g1Controls = GalleryCategory('基础控件 Controls', AnI
           options: const [AnDropdownOption(value: 'x', label: 'An extremely long entity name that must ellipsis on the left', meta: 'a_very_long_identifier_that_also_truncates')],
           value: 'x',
           onChanged: (_) {},
-        ), span: true, stress: true),
+        ), stress: true, maxWidth: 200),
     GallerySpecimen('海量选项', (_) => const _DropdownDemo(initial: '0', massive: true), stress: true),
   ]),
 ]);

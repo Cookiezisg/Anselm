@@ -18,35 +18,39 @@ abstract final class AnText {
     'SF Mono', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace',
   ];
 
-  // Weight ramp anchored on ExtraLight body (w200). MiSans VF maps FontWeight → its wght axis.
-  // 字重阶梯锚在 ExtraLight 正文(w200);MiSans 变量字体把 FontWeight 映射到 wght 轴。
+  // Weight ramp anchored on a Light body (w300). EVERY style sets BOTH fontWeight AND an explicit
+  // wght [FontVariation] — Text honours fontWeight on a VF, but TextField/EditableText only render
+  // the right weight when the axis is explicit, so without this an edit field looked heavier/wider
+  // than the display text it replaced. With both, Text and field render identically.
+  // 字重阶梯锚 Light(w300)。每个样式同时给 fontWeight + 显式 wght 变量轴——Text 认 fontWeight,但 TextField
+  // 只在显式指定轴时才渲染对的字重,否则编辑框比展示文字更粗更宽。两者都给 → Text 与输入框完全一致。
   static const TextStyle h1 = TextStyle(
     fontFamily: uiFamily, fontFamilyFallback: uiFallback,
-    fontSize: 32, height: 1.25, fontWeight: FontWeight.w500, letterSpacing: -0.5,
+    fontSize: 32, height: 1.25, fontWeight: FontWeight.w500, fontVariations: [FontVariation('wght', 500)], letterSpacing: -0.5,
   );
   static const TextStyle h2 = TextStyle(
     fontFamily: uiFamily, fontFamilyFallback: uiFallback,
-    fontSize: 24, height: 1.25, fontWeight: FontWeight.w500, letterSpacing: -0.3,
+    fontSize: 24, height: 1.25, fontWeight: FontWeight.w500, fontVariations: [FontVariation('wght', 500)], letterSpacing: -0.3,
   );
   static const TextStyle h3 = TextStyle(
     fontFamily: uiFamily, fontFamilyFallback: uiFallback,
-    fontSize: 20, height: 1.3, fontWeight: FontWeight.w500, letterSpacing: -0.2,
+    fontSize: 20, height: 1.3, fontWeight: FontWeight.w500, fontVariations: [FontVariation('wght', 500)], letterSpacing: -0.2,
   );
   static const TextStyle strong = TextStyle(
     fontFamily: uiFamily, fontFamilyFallback: uiFallback,
-    fontSize: 16, height: 1.4, fontWeight: FontWeight.w400, // emphasis = Regular over ExtraLight body 强调=Regular
+    fontSize: 16, height: 1.4, fontWeight: FontWeight.w400, fontVariations: [FontVariation('wght', 400)], // emphasis = Regular 强调=Regular
   );
   static const TextStyle body = TextStyle(
     fontFamily: uiFamily, fontFamilyFallback: uiFallback,
-    fontSize: 13, height: 1.4, fontWeight: FontWeight.w300, // the UI anchor — Light 正文锚·Light
+    fontSize: 13, height: 1.4, fontWeight: FontWeight.w300, fontVariations: [FontVariation('wght', 300)], // the UI anchor — Light 正文锚·Light
   );
   static const TextStyle label = TextStyle(
     fontFamily: uiFamily, fontFamilyFallback: uiFallback,
-    fontSize: 13, height: 1.4, fontWeight: FontWeight.w300, // Light 标签·Light
+    fontSize: 13, height: 1.4, fontWeight: FontWeight.w300, fontVariations: [FontVariation('wght', 300)], // Light 标签·Light
   );
   static const TextStyle meta = TextStyle(
     fontFamily: uiFamily, fontFamilyFallback: uiFallback,
-    fontSize: 12, height: 1.4, fontWeight: FontWeight.w300, // muted secondary — Light for small-size legibility 次级·Light(小字可读)
+    fontSize: 12, height: 1.4, fontWeight: FontWeight.w300, fontVariations: [FontVariation('wght', 300)], // muted secondary — Light 次级·Light
   );
   static const TextStyle mono = TextStyle(
     fontFamily: monoFamily, fontFamilyFallback: monoFallback,

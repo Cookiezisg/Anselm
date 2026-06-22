@@ -167,14 +167,16 @@ class _AnDropdownState<T> extends State<AnDropdown<T>> {
 
   Widget _menu(BuildContext context, Size? anchorSize) {
     final c = context.colors;
-    // Menu width == the trigger width EXACTLY (the user's rule: always aligned to its own box,
-    // dropped directly below). leaderSize is the laid-out trigger size; fallback only pre-layout.
-    // 菜单宽 = 触发框宽(完全相等、紧贴其下);leaderSize 为已布局的触发器尺寸。
+    // Menu width = the trigger width CLAMPED to [menuMin, menuMax] — tracks the trigger (aligned,
+    // dropped directly below) but never narrower than menuMin (so rich rows fit even off a compact
+    // ghost trigger) nor wider than menuMax. Forcing exact = trigger overflowed the ghost menu.
+    // 菜单宽 = 触发框宽夹到 [min,max]:跟随触发器(对齐、正下方),但不窄于 min(紧凑触发器也容富行)、不宽于 max。
     final triggerW = anchorSize?.width ?? AnSize.inputMin;
+    final menuW = triggerW.clamp(AnSize.menuMinWidth, AnSize.menuMaxWidth);
     return ConstrainedBox(
       constraints: BoxConstraints(
-        minWidth: triggerW,
-        maxWidth: triggerW,
+        minWidth: menuW,
+        maxWidth: menuW,
         maxHeight: AnSize.menuMaxHeight,
       ),
       child: DecoratedBox(
