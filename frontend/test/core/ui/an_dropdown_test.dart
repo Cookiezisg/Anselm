@@ -60,6 +60,28 @@ void main() {
     expect(find.text('Apple'), findsNothing);
   });
 
+  testWidgets('block dropdown in a wide container opens menu without non-normalized constraints', (tester) async {
+    // Regression: a full-width trigger makes the menu's minWidth large; the maxWidth cap must rise
+    // with it or BoxConstraints goes minWidth>maxWidth (the real-run white/red error).
+    // 回归:块级触发器→菜单 minWidth 大,maxWidth 上限须随之抬,否则 min>max 非法(真跑报错)。
+    await tester.pumpWidget(TranslationProvider(
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: AnTheme.light(),
+        home: Scaffold(
+          body: SizedBox(
+            width: 900,
+            child: AnDropdown<String>(options: opts, value: 'a', block: true, onChanged: (_) {}),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.byType(AnDropdown<String>));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('Banana'), findsOneWidget);
+  });
+
   testWidgets('massive option list opens and scrolls without overflow', (tester) async {
     final many = [for (var i = 0; i < 80; i++) AnDropdownOption(value: '$i', label: 'Option $i')];
     await tester.pumpWidget(host(AnDropdown<String>(options: many, value: '0', onChanged: (_) {})));

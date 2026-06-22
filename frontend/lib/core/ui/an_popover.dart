@@ -69,6 +69,7 @@ class _AnPopoverState extends State<AnPopover> {
     if (old.controller != widget.controller) {
       old.controller.removeListener(_sync);
       widget.controller.addListener(_sync);
+      _sync(); // new controller may have a different open-state with no pending notification 新 controller 状态可能不同、无待发通知
     }
   }
 

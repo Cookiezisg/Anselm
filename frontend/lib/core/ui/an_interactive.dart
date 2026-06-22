@@ -67,6 +67,21 @@ class _AnInteractiveState extends State<AnInteractive> {
     if (_hovered != v) setState(() => _hovered = v);
   }
 
+  @override
+  void didUpdateWidget(AnInteractive old) {
+    super.didUpdateWidget(old);
+    // Disabling clears stale interaction state — when disabled the MouseRegion onExit is null, so a
+    // mouse-away can't clear _hovered; without this it'd stick "hovered" after re-enable.
+    // 禁用时清残留交互态:禁用时 onExit 为 null,鼠标移开清不掉 hover,不清则重新启用后卡在 hover。
+    if (old.enabled && !widget.enabled && (_hovered || _focused || _pressed)) {
+      setState(() {
+        _hovered = false;
+        _focused = false;
+        _pressed = false;
+      });
+    }
+  }
+
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (event is KeyDownEvent &&
         (event.logicalKey == LogicalKeyboardKey.enter || event.logicalKey == LogicalKeyboardKey.space)) {

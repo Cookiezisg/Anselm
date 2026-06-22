@@ -56,6 +56,8 @@ abstract final class AnSize {
   static const double badgePadX = 9; // badge horizontal pad 徽章水平内距
   static const double inputMin = 180; // single-line input min width 单行输入最小宽
   static const double block = 280; // inspector 2-col min track + badge max-width 检查器列 + 徽章最大宽
+  static const double menuMaxWidth = 360; // dropdown/menu popover max width (≥ trigger) 菜单浮层最大宽
+  static const double menuMaxHeight = 320; // dropdown/menu popover max height (then scrolls) 菜单浮层最大高(超则滚)
 
   // Three-island layout columns. The LEFT island is elastic (draggable, 240–400, default 320);
   // the RIGHT island is fixed; the ocean is the flex remainder whose content column is elastic

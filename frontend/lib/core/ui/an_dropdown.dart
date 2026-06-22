@@ -168,11 +168,16 @@ class _AnDropdownState<T> extends State<AnDropdown<T>> {
 
   Widget _menu(BuildContext context, Size? anchorSize) {
     final c = context.colors;
+    // Menu is at least the trigger width; cap extra growth at 360 — but never below the trigger
+    // (a block/full-width trigger makes minWidth large, so maxWidth must rise with it or the
+    // constraints go non-normalized minWidth>maxWidth). 菜单≥触发器宽,上限≥触发器宽(否则 min>max 非法)。
+    final triggerW = anchorSize?.width ?? AnSize.inputMin;
+    final maxW = triggerW > AnSize.menuMaxWidth ? triggerW : AnSize.menuMaxWidth;
     return ConstrainedBox(
       constraints: BoxConstraints(
-        minWidth: anchorSize?.width ?? AnSize.inputMin,
-        maxWidth: 360,
-        maxHeight: 320,
+        minWidth: triggerW,
+        maxWidth: maxW,
+        maxHeight: AnSize.menuMaxHeight,
       ),
       child: DecoratedBox(
         decoration: BoxDecoration(

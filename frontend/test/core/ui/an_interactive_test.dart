@@ -1,4 +1,5 @@
 import 'package:anselm/core/ui/an_interactive.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -39,6 +40,37 @@ void main() {
     await gesture.up();
     await tester.pump();
     expect(states.contains(WidgetState.pressed), isFalse);
+  });
+
+  testWidgets('disabling clears a stale hover state (no stuck-hover after re-enable)', (tester) async {
+    late Set<WidgetState> states;
+    Widget build(bool enabled) => MaterialApp(
+          home: Center(
+            child: AnInteractive(
+              enabled: enabled,
+              onTap: () {},
+              builder: (_, s) {
+                states = s;
+                return const SizedBox(width: 48, height: 48);
+              },
+            ),
+          ),
+        );
+    await tester.pumpWidget(build(true));
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await gesture.addPointer(location: tester.getCenter(find.byType(AnInteractive)));
+    addTearDown(gesture.removePointer);
+    await tester.pump();
+    expect(states.contains(WidgetState.hovered), isTrue);
+
+    // Disable while hovered, then move the pointer away (onExit is null when disabled).
+    await tester.pumpWidget(build(false));
+    await gesture.moveTo(const Offset(0, 0));
+    await tester.pump();
+    // Re-enable: must NOT be stuck hovered.
+    await tester.pumpWidget(build(true));
+    await tester.pump();
+    expect(states.contains(WidgetState.hovered), isFalse);
   });
 
   testWidgets('disabled surface is inert (no tap, carries disabled state)', (tester) async {

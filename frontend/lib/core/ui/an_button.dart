@@ -102,46 +102,54 @@ class AnButton extends StatelessWidget {
                 bg = active ? c.surfaceHover : const Color(0x00000000);
             }
 
+            // Focus ring uses inkMuted (≥3:1 on white AND on dark) — lineStrong (0.13α) was
+            // invisible in light mode for keyboard users. 焦点环用 inkMuted(明暗都够对比),lineStrong 在亮色下不可见。
             final border = outline
                 ? Border.all(color: fg, width: AnSize.hairline)
-                : (focused ? Border.all(color: c.lineStrong, width: AnSize.hairline) : null);
+                : (focused ? Border.all(color: c.inkMuted, width: AnSize.hairline) : null);
 
             final glyph = icon != null ? Icon(icon, size: iconSize, color: fg) : null;
-            Widget child;
-            if (isIcon) {
-              child = glyph ?? const SizedBox.shrink();
-            } else {
-              child = Row(
-                mainAxisSize: block ? MainAxisSize.max : MainAxisSize.min,
-                mainAxisAlignment: block ? MainAxisAlignment.start : MainAxisAlignment.center,
-                children: [
-                  if (glyph != null) ...[glyph, const SizedBox(width: AnSpace.s6)],
-                  Flexible(
-                    child: Text(
-                      label ?? '',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: baseStyle.copyWith(color: fg, fontWeight: weight),
-                    ),
-                  ),
-                ],
-              );
-            }
 
-            final box = AnimatedContainer(
-              duration: AnMotion.fast,
-              height: height,
-              width: isIcon ? height : null,
-              padding: EdgeInsets.symmetric(horizontal: padX),
-              alignment: isIcon ? Alignment.center : null,
-              decoration: BoxDecoration(
-                color: bg,
-                borderRadius: BorderRadius.circular(AnRadius.button),
-                border: border,
-              ),
-              child: child,
-            );
-            return block ? SizedBox(width: double.infinity, child: box) : box;
+            // block fills width, but "fill width" needs a bounded parent — degrade to intrinsic
+            // (not crash) when unbounded (Stack/overlay/unbounded Row). block 占满需有界父;无界则退化为自适应、不崩。
+            return LayoutBuilder(builder: (context, constraints) {
+              final effBlock = block && constraints.hasBoundedWidth;
+              Widget child;
+              if (isIcon) {
+                child = glyph ?? const SizedBox.shrink();
+              } else {
+                child = Row(
+                  mainAxisSize: effBlock ? MainAxisSize.max : MainAxisSize.min,
+                  mainAxisAlignment: effBlock ? MainAxisAlignment.start : MainAxisAlignment.center,
+                  children: [
+                    if (glyph != null) ...[glyph, const SizedBox(width: AnSpace.s6)],
+                    Flexible(
+                      child: Text(
+                        label ?? '',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: baseStyle.copyWith(color: fg, fontWeight: weight),
+                      ),
+                    ),
+                  ],
+                );
+              }
+
+              final box = AnimatedContainer(
+                duration: AnMotion.fast,
+                height: height,
+                width: isIcon ? height : null,
+                padding: EdgeInsets.symmetric(horizontal: padX),
+                alignment: isIcon ? Alignment.center : null,
+                decoration: BoxDecoration(
+                  color: bg,
+                  borderRadius: BorderRadius.circular(AnRadius.button),
+                  border: border,
+                ),
+                child: child,
+              );
+              return effBlock ? SizedBox(width: double.infinity, child: box) : box;
+            });
           },
         ),
       ),

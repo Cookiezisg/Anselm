@@ -50,14 +50,40 @@ class _AnInputState extends State<AnInput> {
   FocusNode? _ownFocus;
   bool _focused = false;
 
-  TextEditingController get _controller =>
-      widget.controller ?? (_ownController ??= TextEditingController(text: widget.initialValue));
-  FocusNode get _focus => widget.focusNode ?? (_ownFocus ??= FocusNode());
+  // Cached (not getter-lazy) so listener management is deterministic across focusNode/controller
+  // swaps — a getter re-evaluated in dispose would remove the listener from the WRONG node.
+  // 缓存(非懒 getter):focusNode/controller 被父级替换时监听迁移确定,避免在错的节点上摘监听。
+  late TextEditingController _controller;
+  late FocusNode _focus;
 
   @override
   void initState() {
     super.initState();
+    _controller = widget.controller ?? (_ownController = TextEditingController(text: widget.initialValue));
+    _focus = widget.focusNode ?? (_ownFocus = FocusNode());
     _focus.addListener(_onFocusChange);
+  }
+
+  @override
+  void didUpdateWidget(AnInput old) {
+    super.didUpdateWidget(old);
+    if (widget.focusNode != old.focusNode) {
+      _focus.removeListener(_onFocusChange);
+      if (old.focusNode == null) {
+        _ownFocus?.dispose();
+        _ownFocus = null;
+      }
+      _focus = widget.focusNode ?? (_ownFocus = FocusNode());
+      _focus.addListener(_onFocusChange);
+      _focused = _focus.hasFocus;
+    }
+    if (widget.controller != old.controller) {
+      if (old.controller == null) {
+        _ownController?.dispose();
+        _ownController = null;
+      }
+      _controller = widget.controller ?? (_ownController = TextEditingController(text: widget.initialValue));
+    }
   }
 
   void _onFocusChange() {
@@ -122,7 +148,19 @@ class _AnInputState extends State<AnInput> {
       child: field,
     );
 
-    final sized = widget.full ? box : SizedBox(width: AnSize.inputMin, child: box);
-    return Opacity(opacity: widget.enabled ? 1 : 0.4, child: sized);
+    // full fills width — but only with a bounded parent; otherwise fall back to inputMin so an
+    // empty full input doesn't collapse to a thin line (and doesn't crash unbounded).
+    // full 占满需有界父;否则退化到 inputMin,空的 full 输入不塌成细线、也不在无界处崩。
+    return Opacity(
+      opacity: widget.enabled ? 1 : 0.4,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (widget.full && constraints.hasBoundedWidth) {
+            return SizedBox(width: double.infinity, child: box);
+          }
+          return SizedBox(width: AnSize.inputMin, child: box);
+        },
+      ),
+    );
   }
 }
