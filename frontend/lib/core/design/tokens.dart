@@ -119,3 +119,18 @@ abstract final class AnMotion {
   static const Cubic easeOut = Cubic(0.16, 1, 0.3, 1);
   static const Cubic spring = Cubic(0.2, 0.9, 0.25, 1);
 }
+
+/// Accessibility-driven motion gate — the single source every animated An* widget reads in build()
+/// to decide whether to run. Uses the ASPECT accessors so a widget rebuilds only when the flag
+/// flips, never on unrelated MediaQuery changes (NEVER read raw `MediaQuery.of(c).disableAnimations`
+/// — over-rebuilds — and never per-platform detection). [reduced] gates FUNCTIONAL one-shot reveals;
+/// [reducedOrAssistive] gates DECORATIVE loops (shimmer / caret blink / typewriter / breath pulse) —
+/// continuous motion under an active screen reader is noise that competes with announcements.
+///
+/// 无障碍动效门控——每个动画 An* 件 build() 里读它决定要不要动。用 aspect 访问器(只在标志翻转时 rebuild)。
+/// reduced 门控功能性一次性揭示;reducedOrAssistive 门控装饰循环(屏幕阅读器活跃时持续动效是噪声)。
+abstract final class AnMotionPref {
+  static bool reduced(BuildContext context) => MediaQuery.disableAnimationsOf(context);
+  static bool reducedOrAssistive(BuildContext context) =>
+      MediaQuery.disableAnimationsOf(context) || MediaQuery.accessibleNavigationOf(context);
+}

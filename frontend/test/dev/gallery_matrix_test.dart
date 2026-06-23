@@ -28,6 +28,22 @@ void main() {
             final size = tester.getSize(find.byKey(_specimen));
             expect(size.width > 0 || size.height > 0, isTrue, reason: '${item.name}/${s.label} rendered nothing');
           });
+
+          // Reduced-motion axis: under disableAnimations EVERY specimen must SETTLE — a component that
+          // forgot to gate a `.repeat()` loop leaves a ticker running so pumpAndSettle never settles
+          // (→ timeout = FAIL). This is the machine enforcement of the reduced-motion static-fallback
+          // standard (WRK-037 §1.2/§1.14). 降级轴:每个 specimen 必须 settle;忘了门控循环的会卡死 pumpAndSettle。
+          testWidgets('${item.name} · ${s.label} · reduced', (tester) async {
+            await tester.pumpWidget(_host(s, reduced: true));
+            await tester.pumpAndSettle(
+              const Duration(milliseconds: 16),
+              EnginePhase.sendSemanticsUpdate,
+              const Duration(seconds: 5), // a still-ticking loop never settles → fail fast 没门控的循环不收敛
+            );
+            expect(tester.takeException(), isNull, reason: '${item.name}/${s.label} (reduced) threw/overflowed or left a ticker running');
+            final size = tester.getSize(find.byKey(_specimen));
+            expect(size.width > 0 || size.height > 0, isTrue, reason: '${item.name}/${s.label} (reduced) rendered nothing');
+          });
         }
       }
     });
@@ -36,7 +52,7 @@ void main() {
 
 const _specimen = ValueKey('specimen');
 
-Widget _host(GallerySpecimen s) {
+Widget _host(GallerySpecimen s, {bool reduced = false}) {
   // Constrain to the gallery's real render width (narrow stress specimen / span / 280 grid track) so
   // overflow + truncation surface exactly as in the gallery. 用画廊真实渲染宽约束,溢出与截断如实暴露。
   final width = s.maxWidth ?? (s.span ? 600.0 : 280.0);
@@ -50,7 +66,14 @@ Widget _host(GallerySpecimen s) {
             width: width,
             child: Align(
               alignment: Alignment.centerLeft,
-              child: KeyedSubtree(key: _specimen, child: Builder(builder: s.builder)),
+              // Override disableAnimations BELOW MaterialApp's own MediaQuery so AnMotionPref sees it.
+              // disableAnimations:true makes both reduced() and reducedOrAssistive() true. 覆写降级标志。
+              child: Builder(builder: (ctx) {
+                final cell = KeyedSubtree(key: _specimen, child: Builder(builder: s.builder));
+                return reduced
+                    ? MediaQuery(data: MediaQuery.of(ctx).copyWith(disableAnimations: true), child: cell)
+                    : cell;
+              }),
             ),
           ),
         ),

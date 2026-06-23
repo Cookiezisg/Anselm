@@ -20,12 +20,21 @@ class AnStatusDot extends StatefulWidget {
 }
 
 class _AnStatusDotState extends State<AnStatusDot> with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(vsync: this, duration: AnMotion.breath);
+  // EAGER-INIT: declare + assign in initState, NOT a `late final = AnimationController(...)` field
+  // initializer — that lazy form first builds the controller on first READ, which can be during
+  // teardown (vsync already deactivated) → crash. 急切初始化:在 initState 赋值,非惰性字段初始化器。
+  late final AnimationController _c;
 
   @override
   void initState() {
     super.initState();
-    _sync();
+    _c = AnimationController(vsync: this, duration: AnMotion.breath);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _sync(); // the reduced-motion flag lives in MediaQuery → re-sync when it (or status) changes 降级标志在 MediaQuery
   }
 
   @override
@@ -34,10 +43,10 @@ class _AnStatusDotState extends State<AnStatusDot> with SingleTickerProviderStat
     if (old.status != widget.status) _sync();
   }
 
-  // Only `run` breathes; everything else is static. 仅 run 呼吸,余静止。
+  // Only `run` breathes — and only when reduced-motion is OFF (it's a decorative loop). 仅 run 且非降级时呼吸。
   void _sync() {
-    if (widget.status == AnStatus.run) {
-      _c.repeat();
+    if (widget.status == AnStatus.run && !AnMotionPref.reducedOrAssistive(context)) {
+      if (!_c.isAnimating) _c.repeat();
     } else {
       _c.stop();
       _c.value = 0;
@@ -62,7 +71,9 @@ class _AnStatusDotState extends State<AnStatusDot> with SingleTickerProviderStat
   Widget build(BuildContext context) {
     final c = context.colors;
     final color = _color(c);
-    if (widget.status != AnStatus.run) {
+    // Static for everything but a running dot — and a running dot under reduced-motion renders the
+    // solid dot at run tone, no oscillation (the defined static fallback). 降级下 run 也静态:实心点不振荡。
+    if (widget.status != AnStatus.run || AnMotionPref.reducedOrAssistive(context)) {
       return _dot(color, const []);
     }
     return AnimatedBuilder(
