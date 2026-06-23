@@ -106,4 +106,35 @@ void main() {
     expect(taps, 0);
     expect(states.contains(WidgetState.disabled), isTrue);
   });
+
+  testWidgets('expanded passes through to Semantics for disclosure surfaces (collapsible row / detail)',
+      (tester) async {
+    final handle = tester.ensureSemantics();
+    await tester.pumpWidget(MaterialApp(
+      home: Center(
+        child: AnInteractive(
+          onTap: () {},
+          expanded: true,
+          builder: (_, _) => const SizedBox(width: 48, height: 48),
+        ),
+      ),
+    ));
+    // isExpanded is a Tristate; toBoolOrNull() → true/false/null. expanded:true → true.
+    // isExpanded 是 Tristate;toBoolOrNull() → true/false/null。expanded:true → true。
+    final node = tester.getSemantics(find.byType(AnInteractive));
+    expect(node.flagsCollection.isExpanded.toBoolOrNull(), isTrue);
+    handle.dispose();
+  });
+
+  testWidgets('no expanded → not a disclosure control (expanded state unset)', (tester) async {
+    final handle = tester.ensureSemantics();
+    await tester.pumpWidget(MaterialApp(
+      home: Center(
+        child: AnInteractive(onTap: () {}, builder: (_, _) => const SizedBox(width: 48, height: 48)),
+      ),
+    ));
+    // null (Tristate.none) — no spurious "collapsed" announcement on non-disclosure rows. 不误报折叠。
+    expect(tester.getSemantics(find.byType(AnInteractive)).flagsCollection.isExpanded.toBoolOrNull(), isNull);
+    handle.dispose();
+  });
 }

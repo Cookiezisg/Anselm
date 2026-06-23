@@ -26,6 +26,7 @@ class AnInteractive extends StatefulWidget {
     this.onTap,
     this.enabled = true,
     this.selected = false,
+    this.expanded,
     this.focusNode,
     this.autofocus = false,
     this.cursor,
@@ -42,6 +43,11 @@ class AnInteractive extends StatefulWidget {
 
   /// Caller-driven selected state (surfaced as [WidgetState.selected]). 调用方驱动的选中态。
   final bool selected;
+
+  /// Disclosure state for collapsible surfaces (AnRow collapsible, AnRowDetail) — surfaced as
+  /// [SemanticsProperties.expanded] so a screen reader announces expanded/collapsed. null = not a
+  /// disclosure control (most surfaces). 披露态(可折叠行/详情行)→ Semantics expanded;null=非披露控件。
+  final bool? expanded;
   final FocusNode? focusNode;
   final bool autofocus;
 
@@ -123,6 +129,7 @@ class _AnInteractiveState extends State<AnInteractive> {
         button: widget.onTap != null,
         enabled: widget.enabled,
         selected: widget.selected,
+        expanded: widget.expanded,
         child: result,
       ),
     );

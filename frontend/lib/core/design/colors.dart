@@ -28,6 +28,7 @@ class AnColors extends ThemeExtension<AnColors> {
     required this.accent,
     required this.accentHover,
     required this.accentSoft,
+    required this.accentLine,
     required this.ok,
     required this.okSoft,
     required this.warn,
@@ -64,6 +65,7 @@ class AnColors extends ThemeExtension<AnColors> {
   final Color accent;
   final Color accentHover;
   final Color accentSoft;
+  final Color accentLine; // hairline-weight accent for emphatic borders/insets (demo --accent-line); accentSoft 太浅做不了线
 
   // Functional status semantics. 功能状态语义。
   final Color ok;
@@ -100,6 +102,7 @@ class AnColors extends ThemeExtension<AnColors> {
     accent: Color(0xFF0071E3), // toB blue (demo --accent) 商务蓝
     accentHover: Color(0xFF0077ED),
     accentSoft: Color.fromRGBO(0, 113, 227, 0.10),
+    accentLine: Color.fromRGBO(0, 113, 227, 0.30),
     ok: Color(0xFF2DA44E),
     okSoft: Color.fromRGBO(45, 164, 78, 0.12),
     warn: Color(0xFFBF6A02),
@@ -140,6 +143,7 @@ class AnColors extends ThemeExtension<AnColors> {
     accent: Color(0xFF0A84FF), // toB blue, dark variant (demo) 商务蓝·暗
     accentHover: Color(0xFF409CFF),
     accentSoft: Color.fromRGBO(10, 132, 255, 0.16),
+    accentLine: Color.fromRGBO(10, 132, 255, 0.40),
     ok: Color(0xFF30D158),
     okSoft: Color.fromRGBO(48, 209, 88, 0.16),
     warn: Color(0xFFFF9F0A),
@@ -180,6 +184,7 @@ class AnColors extends ThemeExtension<AnColors> {
     Color? accent,
     Color? accentHover,
     Color? accentSoft,
+    Color? accentLine,
     Color? ok,
     Color? okSoft,
     Color? warn,
@@ -209,6 +214,7 @@ class AnColors extends ThemeExtension<AnColors> {
       accent: accent ?? this.accent,
       accentHover: accentHover ?? this.accentHover,
       accentSoft: accentSoft ?? this.accentSoft,
+      accentLine: accentLine ?? this.accentLine,
       ok: ok ?? this.ok,
       okSoft: okSoft ?? this.okSoft,
       warn: warn ?? this.warn,
@@ -245,6 +251,7 @@ class AnColors extends ThemeExtension<AnColors> {
       accent: c(accent, other.accent),
       accentHover: c(accentHover, other.accentHover),
       accentSoft: c(accentSoft, other.accentSoft),
+      accentLine: c(accentLine, other.accentLine),
       ok: c(ok, other.ok),
       okSoft: c(okSoft, other.okSoft),
       warn: c(warn, other.warn),
