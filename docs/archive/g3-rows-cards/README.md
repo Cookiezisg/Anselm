@@ -1,13 +1,13 @@
 ---
 id: WRK-038
 type: working
-status: active
+status: archived
 owner: @weilin
 created: 2026-06-23
 reviewed: 2026-06-23
 review-due: 2026-09-21
 audience: [human, ai]
-landed-into:
+landed-into: references/frontend/design-system.md
 ---
 
 # G3 行与卡套件 —— 联网调研已确认的建造规范（开工前对齐用）
