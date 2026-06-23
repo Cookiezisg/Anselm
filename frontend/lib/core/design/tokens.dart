@@ -50,6 +50,8 @@ abstract final class AnSize {
   static const double hairline = 1;
   static const double gripLine = 2; // drag-handle hover divider (2× hairline) 拖柄悬停分隔线
   static const double caret = 1.5; // text caret width 文本光标宽
+  static const double caretHeight = 16; // text caret height — under the 18.2 body line-height so the cursor hugs the text 文本光标高(小于正文行高 18.2、贴合文字)
+  static const double caretEndPad = 3; // end-of-line caret room (caret width + a hair) so the last glyph isn't clipped under the cursor (flutter#24612) 行尾光标留位(光标宽+一丝)
 
   // Primitive control metrics (the demo's PRIMITIVE METRICS group). 原语控件度量。
   static const double btnPadX = 14; // text-button horizontal optical pad 文本钮水平光学内距
@@ -57,6 +59,7 @@ abstract final class AnSize {
   static const double badge = 22; // status/tag badge visual height 徽章视觉高度
   static const double badgePadX = 9; // badge horizontal pad 徽章水平内距
   static const double inputMin = 180; // single-line input min width 单行输入最小宽
+  static const double inlineEditMin = 32; // in-place edit field min width — an empty seamless field has ~0 intrinsic width and would be un-clickable 就地编辑框最小宽(空 seamless 框固有宽≈0、否则不可点)
   static const double block = 280; // inspector 2-col min track + badge max-width 检查器列 + 徽章最大宽
   static const double menuMinWidth = 200; // dropdown/menu min width (rich rows fit even off a compact trigger) 菜单最小宽(紧凑触发器也容得下富行)
   static const double menuMaxWidth = 360; // dropdown/menu popover max width 菜单浮层最大宽

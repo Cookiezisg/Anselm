@@ -127,6 +127,9 @@ class _AnInputState extends State<AnInput> {
       expands: false,
       cursorColor: c.ink,
       cursorWidth: AnSize.caret,
+      // Single-line: hug the text, not the full line-height. Multiline keeps Flutter's default so the
+      // caret scales per line in the textarea. 单行:贴合文字、非顶满行高;多行用默认、随行缩放。
+      cursorHeight: widget.multiline ? null : AnSize.caretHeight,
       style: style,
       decoration: InputDecoration(
         isDense: true,

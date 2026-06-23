@@ -1,4 +1,5 @@
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -6,6 +7,13 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   Widget host(Widget child) =>
       MaterialApp(debugShowCheckedModeBanner: false, theme: AnTheme.light(), home: Scaffold(body: child));
+
+  testWidgets('caret is sized to the text, not the full line-height', (tester) async {
+    await tester.pumpWidget(host(const AnInput()));
+    final field = tester.widget<TextField>(find.byType(TextField));
+    expect(field.cursorHeight, AnSize.caretHeight); // hug the text 贴合文字
+    expect(field.cursorWidth, AnSize.caret);
+  });
 
   testWidgets('full input fills a bounded parent (empty does not collapse)', (tester) async {
     await tester.pumpWidget(host(Center(child: SizedBox(width: 500, child: AnInput(block: true)))));

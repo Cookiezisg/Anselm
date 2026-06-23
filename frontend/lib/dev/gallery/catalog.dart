@@ -1,8 +1,5 @@
 import 'package:flutter/widgets.dart';
 
-import '../../core/design/colors.dart';
-import '../../core/design/tokens.dart';
-import '../../core/design/typography.dart';
 import '../../core/ui/ui.dart';
 import 'specimen.dart';
 
@@ -57,11 +54,15 @@ final GalleryCategory _g1Controls = GalleryCategory('基础控件 Controls', AnI
     GallerySpecimen('end compact', (_) => AnActionGroup([AnButton(label: 'A', size: AnButtonSize.sm, onPressed: () {}), AnButton(label: 'B', size: AnButtonSize.sm, onPressed: () {})], end: true, compact: true), span: true),
     GallerySpecimen('stack', (_) => AnActionGroup([AnButton(label: 'First', block: true, onPressed: () {}), AnButton(label: 'Second', block: true, onPressed: () {})], stack: true), span: true),
   ]),
-  GalleryItem('AnEditAffordance', '就地编辑:文字 ↔ 输入框 + 光标(定高不跳)', [
-    GallerySpecimen('idle (点铅笔进编辑)', (_) => const _EditDemo(initial: 'Untitled workflow')),
-    GallerySpecimen('editing 态', (_) => const _EditDemo(initial: 'Editing title', startEditing: true)),
-    GallerySpecimen('超长·idle', (_) => const _EditDemo(initial: 'A very long entity title that must ellipsis when idle'), stress: true, maxWidth: 180),
-    GallerySpecimen('超长·editing', (_) => const _EditDemo(initial: 'A very long title being edited that must shrink, scroll, and never overflow the row', startEditing: true), stress: true, maxWidth: 220),
+  GalleryItem('AnEditAffordance', '就地编辑触发器原语:铅笔 → 取消/保存', [
+    GallerySpecimen('idle (铅笔)', (_) => AnEditAffordance(editing: false, onEdit: () {})),
+    GallerySpecimen('editing (取消/保存)', (_) => AnEditAffordance(editing: true, onCommit: () {}, onAbort: () {})),
+  ]),
+  GalleryItem('AnInlineEdit', '就地重命名:文字 → 自适应框(增长→封顶→截断,按钮跟随→钉右)', [
+    GallerySpecimen('idle (点铅笔进编辑)', (_) => AnInlineEdit(value: 'Untitled workflow', onCommit: (_) {})),
+    GallerySpecimen('editing 态', (_) => AnInlineEdit(value: 'Editing title', startEditing: true, onCommit: (_) {})),
+    GallerySpecimen('超长·idle (省略+铅笔钉右)', (_) => AnInlineEdit(value: 'A very long entity title that must ellipsis when idle', onCommit: (_) {}), stress: true, maxWidth: 220),
+    GallerySpecimen('超长·editing (框封顶→按钮钉右→横滚)', (_) => AnInlineEdit(value: 'A very long title being edited that grows, caps at the row, then scrolls', startEditing: true, onCommit: (_) {}), stress: true, maxWidth: 240),
   ]),
   GalleryItem('AnDropdown', '受控单选下拉 + 富行菜单', [
     GallerySpecimen('label + meta', (_) => const _DropdownDemo(initial: 'fn')),
@@ -132,64 +133,6 @@ class _DropdownDemoState extends State<_DropdownDemo> {
       menuAlignEnd: widget.ghost,
       block: widget.block,
       onChanged: (v) => setState(() => _value = v),
-    );
-  }
-}
-
-// The real in-place edit interaction (the demo's "logic box vs display box" lesson): a FIXED-HEIGHT
-// row so toggling display↔edit never jumps. Editing uses a SEAMLESS AnInput (text-height, no box) +
-// Flexible so it slots in where the text was and never overflows; idle text ellipsis-truncates.
-// 就地编辑真交互(demo「逻辑框/展示框」教训):定高行,切换不跳。编辑用 seamless AnInput(文字高、无框)+
-// Flexible 原位替换、不溢出;静态文字超长省略。
-class _EditDemo extends StatefulWidget {
-  const _EditDemo({required this.initial, this.startEditing = false});
-
-  final String initial;
-  final bool startEditing;
-
-  @override
-  State<_EditDemo> createState() => _EditDemoState();
-}
-
-class _EditDemoState extends State<_EditDemo> {
-  late final TextEditingController _ctl = TextEditingController(text: widget.initial);
-  late String _committed = widget.initial;
-  late bool _editing = widget.startEditing;
-
-  @override
-  void dispose() {
-    _ctl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    return SizedBox(
-      height: AnSize.control, // fixed footprint — display & edit share it, no jump 定高,展示/编辑共用、不跳
-      child: Row(
-        children: [
-          Flexible(
-            child: _editing
-                ? AnInput(controller: _ctl, seamless: true, autofocus: true)
-                : Text(_committed,
-                    maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.body.copyWith(color: c.ink)),
-          ),
-          const SizedBox(width: AnSpace.s8),
-          AnEditAffordance(
-            editing: _editing,
-            onEdit: () => setState(() => _editing = true),
-            onCommit: () => setState(() {
-              _committed = _ctl.text;
-              _editing = false;
-            }),
-            onAbort: () => setState(() {
-              _ctl.text = _committed;
-              _editing = false;
-            }),
-          ),
-        ],
-      ),
     );
   }
 }

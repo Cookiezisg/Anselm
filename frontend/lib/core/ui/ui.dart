@@ -10,6 +10,7 @@ export 'an_button.dart';
 export 'an_dropdown.dart';
 export 'an_edit_affordance.dart';
 export 'an_group_label.dart';
+export 'an_inline_edit.dart';
 export 'an_input.dart';
 export 'an_interactive.dart';
 export 'an_island.dart';
