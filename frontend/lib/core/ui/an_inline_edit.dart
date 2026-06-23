@@ -1,4 +1,3 @@
-import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
@@ -7,6 +6,7 @@ import '../design/tokens.dart';
 import '../design/typography.dart';
 import 'an_edit_affordance.dart';
 import 'an_input.dart';
+import 'dry_intrinsic_width.dart';
 
 /// B6 — in-place rename: a title that swaps to a CONTENT-SIZED edit field. IDLE shows [value] as
 /// text with the pencil a gap after it (ellipsis + pencil-pins-right when long). EDITING swaps in a
@@ -153,7 +153,7 @@ class _EditZone extends StatelessWidget {
       bindings: {
         const SingleActivator(LogicalKeyboardKey.escape): onAbort,
       },
-      child: _DryIntrinsicWidth(
+      child: DryIntrinsicWidth(
         child: Padding(
           padding: const EdgeInsetsDirectional.only(end: AnSize.caretEndPad), // caret room at line end 行尾光标留位
           child: ConstrainedBox(
@@ -171,30 +171,3 @@ class _EditZone extends StatelessWidget {
   }
 }
 
-/// [IntrinsicWidth] that doesn't choke on TextField's missing dry-layout support — a drop-in shim
-/// (Matthew Carroll's pattern, principle #8: a tiny proven shim over hand-rolled measuring). Plain
-/// IntrinsicWidth forwards a dry-layout query to its child, and TextField/RenderEditable asserts
-/// "does not support dry layout" in nested/scroll contexts (the gallery cells ARE scrollables); we
-/// route the dry query through the intrinsic-width path instead. The real layout pass is unchanged
-/// (it already uses intrinsic width), so the field sizes to its typed content.
-///
-/// 不被 TextField 缺 dry-layout 噎住的 IntrinsicWidth(社区垫片,原则 #8:小而验证过的垫片优于手搓量宽)。原版
-/// IntrinsicWidth 会把 dry-layout 查询转给子,TextField 在嵌套/滚动上下文(画廊单元就是滚动体)断言「不支持 dry
-/// layout」;此处把 dry 查询改走固有宽路径。真实布局 pass 不变(本就用固有宽),故框按内容定宽。
-class _DryIntrinsicWidth extends SingleChildRenderObjectWidget {
-  const _DryIntrinsicWidth({super.child});
-
-  @override
-  RenderObject createRenderObject(BuildContext context) => _RenderDryIntrinsicWidth();
-}
-
-class _RenderDryIntrinsicWidth extends RenderIntrinsicWidth {
-  @override
-  Size computeDryLayout(covariant BoxConstraints constraints) {
-    final child = this.child;
-    if (child == null) return constraints.smallest;
-    final width = constraints.constrainWidth(child.getMaxIntrinsicWidth(constraints.maxHeight));
-    final height = constraints.constrainHeight(child.getMinIntrinsicHeight(width));
-    return Size(width, height);
-  }
-}

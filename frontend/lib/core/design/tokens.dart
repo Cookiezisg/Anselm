@@ -64,6 +64,7 @@ abstract final class AnSize {
   static const double stateMaxWidth = 360; // AnState centered content column max width (short lines stay readable) 状态内容列最大宽
   static const double stepCurrent = 18; // AnStepper elongated current-dot width (done/upcoming use dot=7) 步进器当前点拉长宽
   static const double skeletonLine = 12; // AnSkeleton text-line bone height (≈ a body text line box) 骨架文本行骨高
+  static const double tagRemoveHit = 18; // AnTags remove-× min hit target (avoids fat-finger mis-delete) 标签移除×命中区
   static const double block = 280; // inspector 2-col min track + badge max-width 检查器列 + 徽章最大宽
   static const double menuMinWidth = 200; // dropdown/menu min width (rich rows fit even off a compact trigger) 菜单最小宽(紧凑触发器也容得下富行)
   static const double menuMaxWidth = 360; // dropdown/menu popover max width 菜单浮层最大宽

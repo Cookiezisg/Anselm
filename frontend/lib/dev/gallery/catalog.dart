@@ -120,9 +120,39 @@ final GalleryCategory _g2Feedback = GalleryCategory('反馈态 Feedback', AnIcon
     GallerySpecimen('emoji 字素', (_) => const AnTypewriter(['Ready 👋🏽 to go'], loop: false)),
     GallerySpecimen('无光标', (_) => const AnTypewriter(['No caret here'], loop: false, showCaret: false)),
   ]),
+  GalleryItem('AnTags', '可编辑标签集:药丸 + 健康点 + 内联添加(重复拒+闪)', [
+    GallerySpecimen('multi (可编辑)', (_) => const _TagsDemo(initial: ['agent', 'workflow']), span: true),
+    GallerySpecimen('single (单值)', (_) => const _TagsDemo(initial: ['medium'], single: true)),
+    GallerySpecimen('空 (placeholder)', (_) => const _TagsDemo()),
+    GallerySpecimen('readOnly + tone/health', (_) => const AnTags(readOnly: true, tags: [AnTag('passed', tone: AnTone.ok, health: AnStatus.done), AnTag('pending', tone: AnTone.warn, health: AnStatus.wait), AnTag('failed', tone: AnTone.danger, health: AnStatus.err)]), span: true),
+    GallerySpecimen('超长换行', (_) => const _TagsDemo(initial: ['a-very-long-tag', 'another-long-one', 'third', 'fourth-tag', 'fifth']), stress: true, maxWidth: 220),
+  ]),
 ]);
 
 // ── small stateful demo wrappers (specimens need live state) 小型有态演示包 ──
+
+// AnTags is controlled — the demo owns the live list so add/remove actually mutate. AnTags 受控,演示持列表。
+class _TagsDemo extends StatefulWidget {
+  const _TagsDemo({this.initial = const [], this.single = false});
+
+  final List<String> initial;
+  final bool single;
+
+  @override
+  State<_TagsDemo> createState() => _TagsDemoState();
+}
+
+class _TagsDemoState extends State<_TagsDemo> {
+  late List<AnTag> _tags = [for (final s in widget.initial) AnTag(s)];
+
+  @override
+  Widget build(BuildContext context) => AnTags(
+        tags: _tags,
+        single: widget.single,
+        placeholder: 'Add…',
+        onChanged: (t) => setState(() => _tags = t),
+      );
+}
 
 // final (not const): AnIcons.* are runtime IconData (thin-weight family). 非 const:图标是运行期 IconData。
 final List<AnDropdownOption<String>> _entityOptions = [
