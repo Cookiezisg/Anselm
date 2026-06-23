@@ -23,5 +23,18 @@
     "goToStep": "跳到第 $n 步",
     "removeTag": "移除 $name",
     "addTag": "添加标签"
+  },
+  "ref": {
+    "function": "函数",
+    "handler": "处理器",
+    "workflow": "工作流",
+    "agent": "智能体",
+    "document": "文档",
+    "conversation": "会话",
+    "skill": "技能",
+    "mcp": "MCP",
+    "trigger": "触发器",
+    "control": "控制",
+    "approval": "审批"
   }
 }

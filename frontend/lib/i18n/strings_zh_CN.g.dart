@@ -43,6 +43,7 @@ class TranslationsZhCn extends Translations with BaseTranslations<AppLocale, Tra
 	@override late final _Translations$status$zh_CN status = _Translations$status$zh_CN._(_root);
 	@override late final _Translations$action$zh_CN action = _Translations$action$zh_CN._(_root);
 	@override late final _Translations$feedback$zh_CN feedback = _Translations$feedback$zh_CN._(_root);
+	@override late final _Translations$ref$zh_CN ref = _Translations$ref$zh_CN._(_root);
 }
 
 // Path: status
@@ -90,6 +91,26 @@ class _Translations$feedback$zh_CN extends Translations$feedback$en {
 	@override String get addTag => '添加标签';
 }
 
+// Path: ref
+class _Translations$ref$zh_CN extends Translations$ref$en {
+	_Translations$ref$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get function => '函数';
+	@override String get handler => '处理器';
+	@override String get workflow => '工作流';
+	@override String get agent => '智能体';
+	@override String get document => '文档';
+	@override String get conversation => '会话';
+	@override String get skill => '技能';
+	@override String get mcp => 'MCP';
+	@override String get trigger => '触发器';
+	@override String get control => '控制';
+	@override String get approval => '审批';
+}
+
 /// The flat map containing all translations for locale <zh-CN>.
 /// Only for edge cases! For simple maps, use the map function of this library.
 ///
@@ -117,6 +138,17 @@ extension on TranslationsZhCn {
 			'feedback.goToStep' => ({required Object n}) => '跳到第 ${n} 步',
 			'feedback.removeTag' => ({required Object name}) => '移除 ${name}',
 			'feedback.addTag' => '添加标签',
+			'ref.function' => '函数',
+			'ref.handler' => '处理器',
+			'ref.workflow' => '工作流',
+			'ref.agent' => '智能体',
+			'ref.document' => '文档',
+			'ref.conversation' => '会话',
+			'ref.skill' => '技能',
+			'ref.mcp' => 'MCP',
+			'ref.trigger' => '触发器',
+			'ref.control' => '控制',
+			'ref.approval' => '审批',
 			_ => null,
 		};
 	}

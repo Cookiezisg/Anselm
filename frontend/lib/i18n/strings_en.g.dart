@@ -47,6 +47,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$status$en status = Translations$status$en.internal(_root);
 	late final Translations$action$en action = Translations$action$en.internal(_root);
 	late final Translations$feedback$en feedback = Translations$feedback$en.internal(_root);
+	late final Translations$ref$en ref = Translations$ref$en.internal(_root);
 }
 
 // Path: status
@@ -130,6 +131,48 @@ class Translations$feedback$en {
 	String get addTag => 'Add tag';
 }
 
+// Path: ref
+class Translations$ref$en {
+	Translations$ref$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Function'
+	String get function => 'Function';
+
+	/// en: 'Handler'
+	String get handler => 'Handler';
+
+	/// en: 'Workflow'
+	String get workflow => 'Workflow';
+
+	/// en: 'Agent'
+	String get agent => 'Agent';
+
+	/// en: 'Document'
+	String get document => 'Document';
+
+	/// en: 'Conversation'
+	String get conversation => 'Conversation';
+
+	/// en: 'Skill'
+	String get skill => 'Skill';
+
+	/// en: 'MCP'
+	String get mcp => 'MCP';
+
+	/// en: 'Trigger'
+	String get trigger => 'Trigger';
+
+	/// en: 'Control'
+	String get control => 'Control';
+
+	/// en: 'Approval'
+	String get approval => 'Approval';
+}
+
 /// The flat map containing all translations for locale <en>.
 /// Only for edge cases! For simple maps, use the map function of this library.
 ///
@@ -157,6 +200,17 @@ extension on Translations {
 			'feedback.goToStep' => ({required Object n}) => 'Go to step ${n}',
 			'feedback.removeTag' => ({required Object name}) => 'Remove ${name}',
 			'feedback.addTag' => 'Add tag',
+			'ref.function' => 'Function',
+			'ref.handler' => 'Handler',
+			'ref.workflow' => 'Workflow',
+			'ref.agent' => 'Agent',
+			'ref.document' => 'Document',
+			'ref.conversation' => 'Conversation',
+			'ref.skill' => 'Skill',
+			'ref.mcp' => 'MCP',
+			'ref.trigger' => 'Trigger',
+			'ref.control' => 'Control',
+			'ref.approval' => 'Approval',
 			_ => null,
 		};
 	}

@@ -9,6 +9,7 @@ import 'specimen.dart';
 final List<GalleryCategory> galleryCatalog = [
   _g1Controls,
   _g2Feedback,
+  _g3RowsCards,
 ];
 
 // ── G1 — Foundational controls ──
@@ -126,6 +127,21 @@ final GalleryCategory _g2Feedback = GalleryCategory('反馈态 Feedback', AnIcon
     GallerySpecimen('空 (placeholder)', (_) => const _TagsDemo()),
     GallerySpecimen('readOnly + tone/health', (_) => const AnTags(readOnly: true, tags: [AnTag('passed', tone: AnTone.ok, health: AnStatus.done), AnTag('pending', tone: AnTone.warn, health: AnStatus.wait), AnTag('failed', tone: AnTone.danger, health: AnStatus.err)]), span: true),
     GallerySpecimen('超长换行', (_) => const _TagsDemo(initial: ['a-very-long-tag', 'another-long-one', 'third', 'fourth-tag', 'fifth']), stress: true, maxWidth: 220),
+  ]),
+]);
+
+// ── G3 — Rows & cards ──
+final GalleryCategory _g3RowsCards = GalleryCategory('行与卡 Rows & Cards', AnIcons.entities, [
+  GalleryItem('AnRefPill', '实体提及药丸:类型图标 + 文案;id 非空可点(派 {kind,id})、空=纯标注', [
+    GallerySpecimen('agent (可点)', (_) => AnRefPill(kind: 'agent', id: 'ag_1', label: 'deploy-bot', onTap: (_) {})),
+    GallerySpecimen('function', (_) => AnRefPill(kind: 'function', id: 'fn_1', label: 'normalize-input', onTap: (_) {})),
+    GallerySpecimen('workflow', (_) => AnRefPill(kind: 'workflow', id: 'wf_1', label: 'nightly-deploy', onTap: (_) {})),
+    GallerySpecimen('document (纯提及)', (_) => const AnRefPill(kind: 'document', label: 'spec.md')),
+    GallerySpecimen('approval (可点)', (_) => AnRefPill(kind: 'approval', id: 'apf_1', label: 'deploy-gate', onTap: (_) {})),
+    GallerySpecimen('纯标注 (无 id 不可点)', (_) => const AnRefPill(kind: 'handler', label: 'on-webhook')),
+    GallerySpecimen('未知 kind (兜底 ?)', (_) => const AnRefPill(kind: 'quasar', label: 'unknown-kind'), stress: true),
+    GallerySpecimen('超长截断', (_) => const AnRefPill(kind: 'workflow', label: 'an-extremely-long-entity-reference-name-that-must-ellipsis-within-its-cap'), stress: true, maxWidth: 180),
+    GallerySpecimen('注入转义', (_) => const AnRefPill(kind: 'agent', label: '<b>not</b> & <i>html</i>'), stress: true),
   ]),
 ]);
 

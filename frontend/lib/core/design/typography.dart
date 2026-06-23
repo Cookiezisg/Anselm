@@ -75,3 +75,13 @@ abstract final class AnText {
         labelSmall: meta,
       ).apply(bodyColor: ink, displayColor: ink);
 }
+
+/// Re-weight a variable-font [TextStyle] CORRECTLY — sets BOTH [fontWeight] AND the explicit `wght`
+/// [FontVariation]. On a VF the explicit `wght` axis OVERRIDES [fontWeight]; since every [AnText]
+/// style already pins `fontVariations`, changing only `fontWeight` via `copyWith` renders the BASE
+/// weight (the axis wins). The single correct idiom for any re-weight (group labels, ref pills, card
+/// titles, table headers). 变量字体重定权:双轴同改——单改 fontWeight 会被已钉的 wght 轴覆盖、渲染原重。
+extension AnTextWeight on TextStyle {
+  TextStyle weight(FontWeight w) =>
+      copyWith(fontWeight: w, fontVariations: [FontVariation('wght', w.value.toDouble())]);
+}

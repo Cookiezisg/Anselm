@@ -90,7 +90,7 @@ abstract final class AnIcons {
     'close': close, 'sliders': sliders, 'wrap': wrap, 'expand': expand, 'search': search, 'check': check,
     'function': function, 'handler': handler, 'agent': agent, 'workflow': workflow,
     'trigger': trigger, 'control': control, 'action': action, 'approval': approval,
-    'mcp': mcp, 'skill': skill, 'doc': doc, 'entities': entities,
+    'mcp': mcp, 'skill': skill, 'doc': doc, 'document': doc, 'entities': entities, // 'document' = backend EntityKind wire 后端实体 kind 线缆值
     'chat': chat, 'conversation': chat, 'scheduler': scheduler, 'gear': gear,
     'reasoning': reasoning, 'tool': tool, 'subagent': subagent, 'turnend': turnEnd, 'terminal': terminal,
     'run': run, 'enter': enter, 'stop': stop, 'spin': spin, 'forge': forge,

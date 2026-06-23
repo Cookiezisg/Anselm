@@ -23,5 +23,18 @@
     "goToStep": "Go to step $n",
     "removeTag": "Remove $name",
     "addTag": "Add tag"
+  },
+  "ref": {
+    "function": "Function",
+    "handler": "Handler",
+    "workflow": "Workflow",
+    "agent": "Agent",
+    "document": "Document",
+    "conversation": "Conversation",
+    "skill": "Skill",
+    "mcp": "MCP",
+    "trigger": "Trigger",
+    "control": "Control",
+    "approval": "Approval"
   }
 }
