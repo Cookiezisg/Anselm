@@ -163,6 +163,32 @@ final GalleryCategory _g3RowsCards = GalleryCategory('行与卡 Rows & Cards', A
     GallerySpecimen('窄塌 1 列', (_) => const AnAutoGrid(children: [_GridCell('a'), _GridCell('b')]), stress: true, maxWidth: 200, span: true),
     // (空/0 块 走单测——它渲 SizedBox.shrink,matrix 的 render-exists 断言天然不容空 specimen。)
   ]),
+  GalleryItem('AnKv', '紧凑定义列表:key 左·value 右;可编辑行就地编辑(铅笔→框/下拉)', [
+    GallerySpecimen('可编辑 + 只读混排', (_) => const _KvDemo(rows: [
+          AnKvRow('Name', 'normalize-input', editable: true),
+          AnKvRow('Created', '2026-06-24'),
+          AnKvRow('Effort', 'medium', editable: true, editor: AnEditKind.select, options: _effortOptions),
+        ]), span: true),
+    GallerySpecimen('只读展示', (_) => const AnKv(rows: [
+          AnKvRow('Kind', 'function'),
+          AnKvRow('Owner', null),
+          AnKvRow('Version', 'v3'),
+        ]), span: true),
+    GallerySpecimen('mono (id/hash)', (_) => const AnKv(mono: true, rows: [
+          AnKvRow('Run', 'run_3a9f0e88'),
+          AnKvRow('Hash', 'a1b2c3d4e5f6'),
+        ]), span: true),
+    GallerySpecimen('wrap (长值换行)', (_) => const _KvDemo(wrap: true, rows: [
+          AnKvRow('Description', 'A deliberately long value that should wrap onto several lines instead of truncating.', editable: true),
+        ]), span: true),
+    GallerySpecimen('超长截断', (_) => const AnKv(rows: [
+          AnKvRow('an-extremely-long-key-name-that-must-ellipsis', 'and-an-equally-long-value-that-also-truncates-on-the-right'),
+        ]), stress: true, maxWidth: 240, span: true),
+  ]),
+  GalleryItem('AnEditableValue', '双锚就地编辑核(被 Kv/Field 消费;此处直展编辑态)', [
+    GallerySpecimen('editing (input)', (_) => const _EditableDemo(value: '0.85', startEditing: true), span: true),
+    GallerySpecimen('select (常驻下拉)', (_) => const _EditableDemo(value: 'medium', editor: AnEditKind.select, options: _effortOptions), span: true),
+  ]),
 ]);
 
 // dev-only grid cell: a bordered block of a given height, to show AnAutoGrid's auto-fit columns +
@@ -189,7 +215,68 @@ class _GridCell extends StatelessWidget {
   }
 }
 
+// Shared enum options for the Kv/EditableValue select demos. Kv/EditableValue 下拉演示选项。
+const List<AnDropdownOption<String>> _effortOptions = [
+  AnDropdownOption(value: 'low', label: 'Low'),
+  AnDropdownOption(value: 'medium', label: 'Medium'),
+  AnDropdownOption(value: 'high', label: 'High'),
+];
+
 // ── small stateful demo wrappers (specimens need live state) 小型有态演示包 ──
+
+// AnKv is controlled — the demo owns the rows so in-place edits actually mutate + rebuild. AnKv 受控。
+class _KvDemo extends StatefulWidget {
+  const _KvDemo({required this.rows, this.wrap = false});
+
+  final List<AnKvRow> rows;
+  final bool wrap;
+
+  @override
+  State<_KvDemo> createState() => _KvDemoState();
+}
+
+class _KvDemoState extends State<_KvDemo> {
+  late List<AnKvRow> _rows = widget.rows;
+
+  @override
+  Widget build(BuildContext context) =>
+      AnKv(rows: _rows, wrap: widget.wrap, onChanged: (r) => setState(() => _rows = r));
+}
+
+// AnEditableValue is controlled — the demo owns the value so a commit sticks. AnEditableValue 受控。
+class _EditableDemo extends StatefulWidget {
+  const _EditableDemo({
+    required this.value,
+    this.editor = AnEditKind.input,
+    this.options = const [],
+    this.startEditing = false,
+  });
+
+  final String value;
+  final AnEditKind editor;
+  final List<AnDropdownOption<String>> options;
+  final bool startEditing;
+
+  @override
+  State<_EditableDemo> createState() => _EditableDemoState();
+}
+
+class _EditableDemoState extends State<_EditableDemo> {
+  late String _v = widget.value;
+
+  @override
+  Widget build(BuildContext context) => AnEditableValue(
+        leading: Text('Threshold', style: AnText.body.copyWith(color: context.colors.inkMuted)),
+        fieldLabel: 'Threshold',
+        value: _v,
+        valueColor: context.colors.inkFaint,
+        editor: widget.editor,
+        options: widget.options,
+        startEditing: widget.startEditing,
+        onChanged: (v) => setState(() => _v = v),
+      );
+}
+
 
 // AnTags is controlled — the demo owns the live list so add/remove actually mutate. AnTags 受控,演示持列表。
 class _TagsDemo extends StatefulWidget {

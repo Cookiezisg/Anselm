@@ -9,14 +9,16 @@ import '../design/tokens.dart';
 /// [Expanded] (greedy). Both texts truncate independently — no overflow.
 ///
 /// Promoted from AnDropdown's private `_TwoZone` (it recurred across the dropdown trigger + its menu
-/// rows, and G3 reuses the same skeleton for Section heads, InfoCard heads, and the Row/Kv trailing
-/// slot) — principle #8: the shared skeleton lives in one place, consumers don't re-roll Row+Spacer.
+/// rows, and G3 reuses the same skeleton for Section heads, InfoCard heads, and the Row trailing slot)
+/// — principle #8: the shared skeleton lives in one place, consumers don't re-roll Row+Spacer.
 /// [trailing] takes any Widget, so a consumer (e.g. AnRow) can drop a hover-swap layer into it.
+/// (AnKv does NOT use this — its row is key-hugs-left + value-grows-right, not label-greedy-Expanded.)
 ///
 /// 套件右锚两区行内容(demo 的 lab flex:1 + meta flex:none·max-width 的 Flutter 版):label 占满左、最后才省略;
 /// meta 居右、上限 45%(长 id 挤不掉 label)、超长省略;trailing(箭头/勾/动作)因 label Expanded 而钉在右沿。
 /// 两者各自截断、不溢出。由 AnDropdown 的 private `_TwoZone` 升格(触发器/菜单行/G3 的 Section·InfoCard head·
-/// Row·Kv 尾槽都复用此骨架,原则 #8:骨架归一处、消费方不再各搓 Row+Spacer);trailing 收任意 Widget。
+/// Row 尾槽都复用此骨架,原则 #8:骨架归一处、消费方不再各搓 Row+Spacer);trailing 收任意 Widget。
+/// (AnKv 不用它——Kv 行是 key 贴内容左 + value 撑右,非 label 贪婪 Expanded 的几何。)
 const double _kMetaMaxFraction = 0.45; // meta zone ≤ 45% of the row (label keeps ≥ 55%) meta 区上限
 const double _kMetaFallbackWidth = 160; // meta cap when the row width is unbounded 无界时 meta 上限
 

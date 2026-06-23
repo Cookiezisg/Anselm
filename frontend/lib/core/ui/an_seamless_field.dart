@@ -27,6 +27,7 @@ class AnSeamlessField extends StatelessWidget {
     this.onTapOutside,
     this.autofocus = true,
     this.mono = false,
+    this.tabular = false,
     super.key,
   });
 
@@ -39,6 +40,9 @@ class AnSeamlessField extends StatelessWidget {
 
   /// Monospace field (matches a mono display value so toggling doesn't change face/size). 等宽(匹配 mono 展示值)。
   final bool mono;
+
+  /// Tabular figures (mono already implies it) — match a tabular display value. 等宽数字(匹配 tabular 展示值)。
+  final bool tabular;
 
   @override
   Widget build(BuildContext context) {
@@ -55,6 +59,7 @@ class AnSeamlessField extends StatelessWidget {
               seamless: true,
               autofocus: autofocus,
               mono: mono,
+              tabular: tabular,
               onSubmitted: (_) => onCommit(),
               onTapOutside: onTapOutside,
             ),

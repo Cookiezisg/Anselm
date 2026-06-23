@@ -202,7 +202,7 @@ G3 共 **9 件展示/布局件** + **3 个必须先行抽出的共享原语**。
 | 原语 | 类型 | 归属 | 被谁用 |
 |---|---|---|---|
 | `AnEditableValue` | 净新增 StatefulWidget(双锚编辑核,行高参数化) | `an_field.dart`(private) | AnKv · AnField |
-| `AnTwoZone` 升格 | 既有 private → 顶层共享(泛化 trailing 槽) | `an_two_zone.dart`(导出) | AnDropdown(回归) · AnKv · AnField · AnSection head · AnRow trail · AnInfoCard head |
+| `AnTwoZone` 升格 | 既有 private → 顶层共享(泛化 trailing 槽) | `an_two_zone.dart`(导出) | AnDropdown(回归) · AnSection head · AnRow trail · AnInfoCard head（**AnKv 不用**:key 贴左+value 撑右,非 label 贪婪 Expanded 几何，[doc-fix] G3.7） |
 | `AnAutoGrid` | 净新增布局件(优先验证原生 delegate,否则薄封装) | `an_auto_grid.dart`(导出) | AnSection grid |
 | `AnInput.onTapOutside` | 地基增强(若采纳 blur-commit) + mono tabular 统一 | `an_input.dart` | AnEditableValue · AnInlineEdit |
 | `AnInteractive.expanded` | 地基增强(Semantics 容器新增 expanded 透传位) | `an_interactive.dart` | AnRow(collapsible) · AnRowDetail |

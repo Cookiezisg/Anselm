@@ -52,6 +52,7 @@ class AnEditableValue extends StatefulWidget {
     this.options = const [],
     this.mono = false,
     this.wrap = false,
+    this.startEditing = false,
     super.key,
   });
 
@@ -78,6 +79,10 @@ class AnEditableValue extends StatefulWidget {
   /// Long value wraps (left-aligned, multi-line) instead of single-line ellipsis. 长值换行。
   final bool wrap;
 
+  /// Open directly in edit mode ([AnEditKind.input] only) — for galleries / matrix coverage of the
+  /// editing state, or a freshly-added row. 直接进编辑态(仅 input,供 gallery/matrix + 新增行)。
+  final bool startEditing;
+
   @override
   State<AnEditableValue> createState() => _AnEditableValueState();
 }
@@ -96,6 +101,10 @@ class _AnEditableValueState extends State<AnEditableValue> {
     _ctl = TextEditingController(text: widget.value);
     _pencilFocus = FocusNode(debugLabel: 'AnEditableValue.pencil');
     _pencilFocus.addListener(_onPencilFocus);
+    if (widget.startEditing && widget.editor == AnEditKind.input) {
+      _editing = true;
+      _ctl.selection = TextSelection.collapsed(offset: _ctl.text.length); // caret at end 光标落末
+    }
   }
 
   void _onPencilFocus() {
@@ -243,16 +252,18 @@ class _AnEditableValueState extends State<AnEditableValue> {
       return AnSeamlessField(
         controller: _ctl,
         mono: widget.mono,
+        tabular: true, // value column: digits always tabular (idle ↔ editing same width) 值列数字恒等宽
         onCommit: () => _finish(true, returnFocus: true),
         onAbort: () => _finish(false, returnFocus: true),
         onTapOutside: (_) => _finish(true, returnFocus: false), // blur-commit; focus stays where clicked 失焦提交、焦点不回落
       );
     }
-    // Display: mirror AnInput's seamless style so the idle ↔ editing toggle never changes size/face;
-    // mono gets tabular figures (numeric alignment, 原语 D). Empty shows an em-dash. 展示镜像编辑框样式;mono 走 tabular;空显 —。
+    // Display: mirror AnInput's seamless style so the idle ↔ editing toggle never changes size/face.
+    // Value column → tabular figures UNCONDITIONALLY (demo .v tabular-nums always; mono only switches
+    // family, 原语 D). Empty shows an em-dash. 展示镜像编辑框;值列无条件 tabular(mono 只切字体族);空显 —。
     final base = widget.mono
         ? AnText.mono.copyWith(fontSize: AnText.meta.fontSize, fontFeatures: const [FontFeature.tabularFigures()])
-        : AnText.body;
+        : AnText.body.copyWith(fontFeatures: const [FontFeature.tabularFigures()]);
     final display = widget.value.isEmpty ? '—' : widget.value;
     return Text(
       display,
