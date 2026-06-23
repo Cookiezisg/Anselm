@@ -4,6 +4,7 @@ library;
 
 export '../model/status_state.dart' show AnStatus, AnTone;
 export 'an_action_group.dart';
+export 'an_auto_grid.dart';
 export 'an_badge.dart';
 export 'an_brand_icon.dart';
 export 'an_button.dart';

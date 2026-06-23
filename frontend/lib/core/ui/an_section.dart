@@ -4,6 +4,7 @@ import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
 import 'an_action_group.dart';
+import 'an_auto_grid.dart';
 import 'an_group_label.dart';
 import 'an_two_zone.dart';
 
@@ -23,20 +24,23 @@ enum AnSectionVariant {
 /// head isn't silently dropped). [children] stack with a uniform inter-block gap — spacing is owned by
 /// the container, children never self-margin.
 ///
-/// a11y: a [Semantics] container with explicitChildNodes (children stay individually reachable, NOT
-/// merged); the label is a `header` node reading the original-case text (the visual may be uppercased).
-/// The responsive 2-col `grid` variant arrives with AnAutoGrid in G3.5.
+/// [grid] lays the body out as a responsive auto-fit block grid (via [AnAutoGrid]) instead of a single
+/// column — for side-by-side cards. a11y: a [Semantics] container with explicitChildNodes (children
+/// stay individually reachable, NOT merged); the label is a `header` node reading the original-case
+/// text (the visual may be uppercased).
 ///
 /// D1——段:小标题 + 无边内容区,靠留白+层级组织(绝不横线)。caption=大写灰 meta(复用 AnGroupLabel 单源);
 /// plain=文档级标题(AnText.strong,h3 之下有意的最小标题档)。actions 经 AnTwoZone 居 head 右 + AnActionGroup;
-/// 有 label 或 actions 即渲 head(actions-only 不被吞)。children 统一间距堆叠(间距归容器、子件不自管外边距)。
+/// 有 label 或 actions 即渲 head(actions-only 不被吞)。children 统一间距堆叠(间距归容器、子件不自管外边距);
+/// grid=true 时 body 委托 AnAutoGrid 排成响应式块网格。
 /// a11y:Semantics 容器 + explicitChildNodes(子件各自可达、不 merge);label 为 header 节点、读原始大小写(视觉可能大写)。
-/// 响应式 2 列 grid 变体随 AnAutoGrid 在 G3.5 到。
 class AnSection extends StatelessWidget {
   const AnSection({
     this.label,
     this.actions = const [],
     this.variant = AnSectionVariant.caption,
+    this.grid = false,
+    this.gridMinColWidth,
     required this.children,
     this.semanticLabel,
     super.key,
@@ -46,6 +50,13 @@ class AnSection extends StatelessWidget {
   final List<Widget> actions;
   final AnSectionVariant variant;
   final List<Widget> children;
+
+  /// Lay the body out as a responsive auto-fit block grid (via [AnAutoGrid]) instead of a single
+  /// column — for side-by-side cards (an entity page's input/output/env blocks). 响应式块网格。
+  final bool grid;
+
+  /// Min column width for [grid] (defaults to [AnSize.block]). grid 列最小宽。
+  final double? gridMinColWidth;
 
   /// Screen-reader label override (e.g. when the visible caption is an abbreviation). 屏读标签覆盖。
   final String? semanticLabel;
@@ -70,13 +81,28 @@ class AnSection extends StatelessWidget {
               _head(context, c),
               SizedBox(height: _caption ? AnSpace.s8 : AnSpace.s12),
             ],
-            for (var i = 0; i < children.length; i++) ...[
-              if (i > 0) const SizedBox(height: AnSpace.s12),
-              children[i],
-            ],
+            _body(),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _body() {
+    // grid → responsive block grid (AnAutoGrid); else a single column with a uniform inter-block gap
+    // (sp-3) — the container owns spacing, children never self-margin. grid 走块网格,否则单列统一块间距。
+    if (grid) {
+      return AnAutoGrid(minColWidth: gridMinColWidth ?? AnSize.block, children: children);
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < children.length; i++) ...[
+          if (i > 0) const SizedBox(height: AnSpace.s12),
+          children[i],
+        ],
+      ],
     );
   }
 

@@ -1,5 +1,8 @@
 import 'package:flutter/widgets.dart';
 
+import '../../core/design/colors.dart';
+import '../../core/design/tokens.dart';
+import '../../core/design/typography.dart';
 import '../../core/ui/ui.dart';
 import 'specimen.dart';
 
@@ -150,8 +153,41 @@ final GalleryCategory _g3RowsCards = GalleryCategory('行与卡 Rows & Cards', A
     GallerySpecimen('actions-only head', (_) => AnSection(actions: [AnButton(label: 'New', size: AnButtonSize.sm, onPressed: () {})], children: const [Text('Head with no label still renders its actions.')]), span: true),
     GallerySpecimen('超长 label 截断', (_) => const AnSection(label: 'a very long section caption that must ellipsis instead of wrapping the head', children: [Text('body')]), stress: true, maxWidth: 220),
     GallerySpecimen('注入转义', (_) => const AnSection(label: '<b>not</b> & <i>html</i>', children: [Text('escaped label')]), stress: true, span: true),
+    GallerySpecimen('grid (并排块)', (_) => const AnSection(label: 'Blocks', grid: true, children: [_GridCell('inputs'), _GridCell('outputs'), _GridCell('environment')]), span: true),
+  ]),
+  GalleryItem('AnAutoGrid', '响应式块网格:auto-fit 等宽列(1fr 填满)、窄塌 1 列、每行按内容高', [
+    GallerySpecimen('auto-fit (6 块·变高)', (_) => const AnAutoGrid(children: [_GridCell('input', height: 72), _GridCell('output', height: 48), _GridCell('env', height: 96), _GridCell('schedule', height: 56), _GridCell('triggers', height: 64), _GridCell('mounts', height: 40)]), span: true),
+    GallerySpecimen('少块拉伸 (2 块·1fr)', (_) => const AnAutoGrid(children: [_GridCell('left'), _GridCell('right')]), span: true),
+    GallerySpecimen('单卡 (1 块拉满)', (_) => const AnAutoGrid(children: [_GridCell('only')]), span: true),
+    GallerySpecimen('海量 (12 块·多行流)', (_) => AnAutoGrid(children: [for (var i = 0; i < 12; i++) _GridCell('blk $i', height: (40 + (i % 4) * 16).toDouble())]), stress: true, span: true),
+    GallerySpecimen('窄塌 1 列', (_) => const AnAutoGrid(children: [_GridCell('a'), _GridCell('b')]), stress: true, maxWidth: 200, span: true),
+    // (空/0 块 走单测——它渲 SizedBox.shrink,matrix 的 render-exists 断言天然不容空 specimen。)
   ]),
 ]);
+
+// dev-only grid cell: a bordered block of a given height, to show AnAutoGrid's auto-fit columns +
+// per-row content height. 仅演示用的网格块(有边、定高),展示 auto-fit 列 + 每行按内容高。
+class _GridCell extends StatelessWidget {
+  const _GridCell(this.text, {this.height = 56});
+
+  final String text;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Container(
+      height: height,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: c.surface,
+        borderRadius: BorderRadius.circular(AnRadius.chip),
+        border: Border.all(color: c.line, width: AnSize.hairline),
+      ),
+      child: Text(text, style: AnText.meta.copyWith(color: c.inkMuted)),
+    );
+  }
+}
 
 // ── small stateful demo wrappers (specimens need live state) 小型有态演示包 ──
 
