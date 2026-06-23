@@ -220,6 +220,20 @@ final GalleryCategory _g3RowsCards = GalleryCategory('行与卡 Rows & Cards', A
     GallerySpecimen('无 head (body only)', (_) => const AnInfoCard(child: Text('A headless info unit — just body content, organised by whitespace.')), span: true),
     GallerySpecimen('超长 title + meta', (_) => const AnInfoCard(title: 'an-extremely-long-info-card-title-that-must-ellipsis', meta: 'and-a-long-meta', child: Text('body')), stress: true, maxWidth: 260, span: true),
   ]),
+  GalleryItem('AnRow', '核心行:lead(dot/icon↔chevron)+ label + trail(meta↔hover actions)', [
+    GallerySpecimen('icon + meta', (_) => AnRow(icon: AnIcons.function, label: 'normalize-input', meta: '2m ago', onSelect: () {}), span: true),
+    GallerySpecimen('dot + hover actions', (_) => AnRow(dot: AnStatus.run, label: 'nightly-deploy', meta: '12s', actions: [AnButton.iconOnly(AnIcons.stop, semanticLabel: 'Stop', onPressed: () {})], onSelect: () {}), span: true),
+    GallerySpecimen('selected', (_) => AnRow(icon: AnIcons.agent, label: 'deploy-bot', meta: 'active', selected: true, onSelect: () {}), span: true),
+    GallerySpecimen('emphatic selected (run 看板)', (_) => AnRow(dot: AnStatus.done, label: 'run #4821', meta: 'passed', selected: true, emphatic: true, onSelect: () {}), span: true),
+    GallerySpecimen('collapsible (tree)', (_) => const _CollapsibleRowDemo(), span: true),
+    GallerySpecimen('hint (多行)', (_) => AnRow(icon: AnIcons.handler, label: 'on-webhook', hint: 'Fires when an external HTTP request hits the mounted path.', onSelect: () {}), span: true),
+    GallerySpecimen('depth + mono', (_) => AnRow(dot: AnStatus.idle, label: 'fn_3a9f0e88', mono: true, depth: 2, onSelect: () {}), span: true),
+    GallerySpecimen('passive', (_) => AnRow(icon: AnIcons.doc, label: 'read-only annotation', passive: true), span: true),
+    GallerySpecimen('超长 label', (_) => AnRow(icon: AnIcons.workflow, label: 'an-extremely-long-row-label-that-must-ellipsis-not-overflow-the-row', meta: 'now', onSelect: () {}), stress: true, maxWidth: 240, span: true),
+  ]),
+  GalleryItem('AnRowDetail', '可展开详情行:点行展开下方详情(AnimatedSize 高度揭示)', [
+    GallerySpecimen('expandable (点开/收起)', (_) => const _RowDetailDemo(), span: true),
+  ]),
 ]);
 
 // dev-only grid cell: a bordered block of a given height, to show AnAutoGrid's auto-fit columns +
@@ -272,6 +286,60 @@ class _KvDemoState extends State<_KvDemo> {
   @override
   Widget build(BuildContext context) =>
       AnKv(rows: _rows, wrap: widget.wrap, onChanged: (r) => setState(() => _rows = r));
+}
+
+// AnRow collapsible demo — owns the open state so the chevron toggles. AnRow 折叠演示。
+class _CollapsibleRowDemo extends StatefulWidget {
+  const _CollapsibleRowDemo();
+
+  @override
+  State<_CollapsibleRowDemo> createState() => _CollapsibleRowDemoState();
+}
+
+class _CollapsibleRowDemoState extends State<_CollapsibleRowDemo> {
+  bool _open = false;
+
+  @override
+  Widget build(BuildContext context) => AnRow(
+        collapsible: true,
+        open: _open,
+        icon: AnIcons.workflow,
+        label: 'nightly-deploy (click the lead to toggle)',
+        meta: '5 nodes',
+        onToggle: () => setState(() => _open = !_open),
+        onSelect: () {},
+      );
+}
+
+// AnRowDetail demo — owns open; the row tap toggles the detail panel. AnRowDetail 演示。
+class _RowDetailDemo extends StatefulWidget {
+  const _RowDetailDemo();
+
+  @override
+  State<_RowDetailDemo> createState() => _RowDetailDemoState();
+}
+
+class _RowDetailDemoState extends State<_RowDetailDemo> {
+  bool _open = false;
+
+  @override
+  Widget build(BuildContext context) => AnRowDetail(
+        open: _open,
+        row: AnRow(
+          collapsible: true,
+          open: _open,
+          icon: AnIcons.scheduler,
+          label: 'Schedule (tap to expand)',
+          meta: _open ? 'open' : 'closed',
+          onToggle: () => setState(() => _open = !_open),
+          onSelect: () => setState(() => _open = !_open),
+        ),
+        detail: const AnKv(rows: [
+          AnKvRow('Cron', '0 0 * * *'),
+          AnKvRow('Timezone', 'UTC'),
+          AnKvRow('Next run', 'in 3h 12m'),
+        ]),
+      );
 }
 
 // AnCard selectable demo — owns the selected toggle. AnCard 可选演示,自持选中态。

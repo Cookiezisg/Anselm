@@ -38,10 +38,13 @@ void main() {
   // A single test per run: multiple toImage tests in one isolate hang teardown, so we parameterize
   // instead of looping. 一次截一类(--dart-define=CAT=i);单测/次(同隔离多 toImage 会卡 teardown)。
   final cat = int.tryParse(const String.fromEnvironment('CAT', defaultValue: '0')) ?? 0;
+  // Surface height (`--dart-define=H=<px>`, default 4200) — bump for a tall category so nothing clips.
+  // 画布高(--dart-define=H=px,默认 4200)——类目高时调大,避免底部裁切。
+  final h = double.tryParse(const String.fromEnvironment('H', defaultValue: '4200')) ?? 4200;
   testWidgets('gallery cat $cat — ${galleryCatalog[cat].label}', (tester) async {
     const key = ValueKey('cap');
     tester.view.devicePixelRatio = 1.0;
-    tester.view.physicalSize = const Size(1280, 4200);
+    tester.view.physicalSize = Size(1280, h);
     addTearDown(tester.view.reset);
     // Reduced-motion → deterministic still + no leftover ticker. 降级:确定性静帧、无残留 ticker。
     tester.platformDispatcher.accessibilityFeaturesTestValue =
