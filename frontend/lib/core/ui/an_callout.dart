@@ -100,6 +100,7 @@ class _AnCalloutState extends State<AnCallout> {
     if (!widget._assertive) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      if (!SemanticsBinding.instance.semanticsEnabled) return; // nothing listening → don't post 无辅助技术不发
       final msg = '${_word(context.t)}: ${widget.message}';
       SemanticsService.sendAnnouncement(View.of(context), msg, Directionality.of(context), assertiveness: Assertiveness.assertive);
     });

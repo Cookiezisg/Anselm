@@ -34,28 +34,32 @@ void main() {
         '$cache/lucide_icons_flutter-3.1.14+2/assets/build_font/LucideVariable-w300.ttf');
   });
 
-  // One PNG per category (the gallery shows one category at a time). gallery_<i>.png + gallery.png(=0).
-  // 每类一张 PNG(画廊一次显一类)。
-  for (var cat = 0; cat < galleryCatalog.length; cat++) {
-    testWidgets('gallery cat $cat — ${galleryCatalog[cat].label}', (tester) async {
-      const key = ValueKey('cap');
-      tester.view.devicePixelRatio = 1.0;
-      tester.view.physicalSize = const Size(1280, 4200);
-      addTearDown(tester.view.reset);
+  // ONE category per run (`--dart-define=CAT=<i>`, default 0) → gallery_<i>.png (+ gallery.png for 0).
+  // A single test per run: multiple toImage tests in one isolate hang teardown, so we parameterize
+  // instead of looping. 一次截一类(--dart-define=CAT=i);单测/次(同隔离多 toImage 会卡 teardown)。
+  final cat = int.tryParse(const String.fromEnvironment('CAT', defaultValue: '0')) ?? 0;
+  testWidgets('gallery cat $cat — ${galleryCatalog[cat].label}', (tester) async {
+    const key = ValueKey('cap');
+    tester.view.devicePixelRatio = 1.0;
+    tester.view.physicalSize = const Size(1280, 4200);
+    addTearDown(tester.view.reset);
+    // Reduced-motion → deterministic still + no leftover ticker. 降级:确定性静帧、无残留 ticker。
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
 
-      await tester.pumpWidget(RepaintBoundary(
-        key: key,
-        child: TranslationProvider(child: GalleryApp(initialCategory: cat)),
-      ));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 60));
+    await tester.pumpWidget(RepaintBoundary(
+      key: key,
+      child: TranslationProvider(child: GalleryApp(initialCategory: cat)),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 60));
 
-      final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(key));
-      final image = await boundary.toImage(pixelRatio: 1.0);
-      final png = await image.toByteData(format: ui.ImageByteFormat.png);
-      final dir = Directory('test/dev/out')..createSync(recursive: true);
-      File('${dir.path}/gallery_$cat.png').writeAsBytesSync(png!.buffer.asUint8List());
-      if (cat == 0) File('${dir.path}/gallery.png').writeAsBytesSync(png.buffer.asUint8List());
-    });
-  }
+    final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(key));
+    final image = await boundary.toImage(pixelRatio: 1.0);
+    final png = await image.toByteData(format: ui.ImageByteFormat.png);
+    final dir = Directory('test/dev/out')..createSync(recursive: true);
+    File('${dir.path}/gallery_$cat.png').writeAsBytesSync(png!.buffer.asUint8List());
+    if (cat == 0) File('${dir.path}/gallery.png').writeAsBytesSync(png.buffer.asUint8List());
+  });
 }
