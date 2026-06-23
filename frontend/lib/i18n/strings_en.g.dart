@@ -46,6 +46,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 
 	late final Translations$status$en status = Translations$status$en.internal(_root);
 	late final Translations$action$en action = Translations$action$en.internal(_root);
+	late final Translations$feedback$en feedback = Translations$feedback$en.internal(_root);
 }
 
 // Path: status
@@ -90,6 +91,45 @@ class Translations$action$en {
 	String get save => 'Save';
 }
 
+// Path: feedback
+class Translations$feedback$en {
+	Translations$feedback$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Info'
+	String get info => 'Info';
+
+	/// en: 'Success'
+	String get success => 'Success';
+
+	/// en: 'Warning'
+	String get warning => 'Warning';
+
+	/// en: 'Error'
+	String get error => 'Error';
+
+	/// en: 'Dismiss'
+	String get dismiss => 'Dismiss';
+
+	/// en: 'Loading'
+	String get loading => 'Loading';
+
+	/// en: 'Step $n of $m'
+	String stepOf({required Object n, required Object m}) => 'Step ${n} of ${m}';
+
+	/// en: 'Go to step $n'
+	String goToStep({required Object n}) => 'Go to step ${n}';
+
+	/// en: 'Remove $name'
+	String removeTag({required Object name}) => 'Remove ${name}';
+
+	/// en: 'Add tag'
+	String get addTag => 'Add tag';
+}
+
 /// The flat map containing all translations for locale <en>.
 /// Only for edge cases! For simple maps, use the map function of this library.
 ///
@@ -107,6 +147,16 @@ extension on Translations {
 			'action.edit' => 'Edit',
 			'action.cancel' => 'Cancel',
 			'action.save' => 'Save',
+			'feedback.info' => 'Info',
+			'feedback.success' => 'Success',
+			'feedback.warning' => 'Warning',
+			'feedback.error' => 'Error',
+			'feedback.dismiss' => 'Dismiss',
+			'feedback.loading' => 'Loading',
+			'feedback.stepOf' => ({required Object n, required Object m}) => 'Step ${n} of ${m}',
+			'feedback.goToStep' => ({required Object n}) => 'Go to step ${n}',
+			'feedback.removeTag' => ({required Object name}) => 'Remove ${name}',
+			'feedback.addTag' => 'Add tag',
 			_ => null,
 		};
 	}

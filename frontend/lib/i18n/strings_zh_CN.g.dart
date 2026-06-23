@@ -42,6 +42,7 @@ class TranslationsZhCn extends Translations with BaseTranslations<AppLocale, Tra
 	@override String get appName => 'Anselm';
 	@override late final _Translations$status$zh_CN status = _Translations$status$zh_CN._(_root);
 	@override late final _Translations$action$zh_CN action = _Translations$action$zh_CN._(_root);
+	@override late final _Translations$feedback$zh_CN feedback = _Translations$feedback$zh_CN._(_root);
 }
 
 // Path: status
@@ -70,6 +71,25 @@ class _Translations$action$zh_CN extends Translations$action$en {
 	@override String get save => '保存';
 }
 
+// Path: feedback
+class _Translations$feedback$zh_CN extends Translations$feedback$en {
+	_Translations$feedback$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get info => '提示';
+	@override String get success => '成功';
+	@override String get warning => '警告';
+	@override String get error => '错误';
+	@override String get dismiss => '关闭';
+	@override String get loading => '加载中';
+	@override String stepOf({required Object n, required Object m}) => '第 ${n} 步 / 共 ${m} 步';
+	@override String goToStep({required Object n}) => '跳到第 ${n} 步';
+	@override String removeTag({required Object name}) => '移除 ${name}';
+	@override String get addTag => '添加标签';
+}
+
 /// The flat map containing all translations for locale <zh-CN>.
 /// Only for edge cases! For simple maps, use the map function of this library.
 ///
@@ -87,6 +107,16 @@ extension on TranslationsZhCn {
 			'action.edit' => '编辑',
 			'action.cancel' => '取消',
 			'action.save' => '保存',
+			'feedback.info' => '提示',
+			'feedback.success' => '成功',
+			'feedback.warning' => '警告',
+			'feedback.error' => '错误',
+			'feedback.dismiss' => '关闭',
+			'feedback.loading' => '加载中',
+			'feedback.stepOf' => ({required Object n, required Object m}) => '第 ${n} 步 / 共 ${m} 步',
+			'feedback.goToStep' => ({required Object n}) => '跳到第 ${n} 步',
+			'feedback.removeTag' => ({required Object name}) => '移除 ${name}',
+			'feedback.addTag' => '添加标签',
 			_ => null,
 		};
 	}

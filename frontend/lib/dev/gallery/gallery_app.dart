@@ -19,7 +19,10 @@ import 'specimen.dart';
 const double _titleBarReserve = 28;
 
 class GalleryApp extends StatefulWidget {
-  const GalleryApp({super.key});
+  const GalleryApp({this.initialCategory = 0, super.key});
+
+  /// Which category to open on (dev-only; the capture harness snapshots each). 初始类目(截图夹具逐类用)。
+  final int initialCategory;
 
   @override
   State<GalleryApp> createState() => _GalleryAppState();
@@ -27,7 +30,7 @@ class GalleryApp extends StatefulWidget {
 
 class _GalleryAppState extends State<GalleryApp> {
   Brightness _brightness = Brightness.light;
-  int _categoryIndex = 0;
+  late int _categoryIndex = widget.initialCategory;
 
   @override
   Widget build(BuildContext context) {

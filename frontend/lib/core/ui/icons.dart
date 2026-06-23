@@ -72,6 +72,12 @@ abstract final class AnIcons {
   static final IconData empty = _thin(LucideIcons.inbox);
   static final IconData error = _thin(LucideIcons.triangleAlert);
 
+  // ── feedback severities (callout / state) ──
+  static final IconData info = _thin(LucideIcons.info);
+  static final IconData success = _thin(LucideIcons.circleCheck);
+  static final IconData warning = _thin(LucideIcons.triangleAlert);
+  static final IconData danger = _thin(LucideIcons.octagonAlert);
+
   /// Unknown-key sink — a visible "?" so a missing binding is obvious, never a crash.
   /// 未知键兜底——可见的"?",缺绑定一眼可见、绝不崩。
   static final IconData fallback = _thin(LucideIcons.circleQuestionMark);

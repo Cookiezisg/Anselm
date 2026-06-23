@@ -11,5 +11,17 @@
     "edit": "Edit",
     "cancel": "Cancel",
     "save": "Save"
+  },
+  "feedback": {
+    "info": "Info",
+    "success": "Success",
+    "warning": "Warning",
+    "error": "Error",
+    "dismiss": "Dismiss",
+    "loading": "Loading",
+    "stepOf": "Step $n of $m",
+    "goToStep": "Go to step $n",
+    "removeTag": "Remove $name",
+    "addTag": "Add tag"
   }
 }

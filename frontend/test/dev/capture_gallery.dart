@@ -7,6 +7,7 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:anselm/dev/gallery/catalog.dart';
 import 'package:anselm/dev/gallery/gallery_app.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
@@ -33,23 +34,28 @@ void main() {
         '$cache/lucide_icons_flutter-3.1.14+2/assets/build_font/LucideVariable-w300.ttf');
   });
 
-  testWidgets('gallery', (tester) async {
-    const key = ValueKey('cap');
-    tester.view.devicePixelRatio = 1.0;
-    tester.view.physicalSize = const Size(1280, 3600);
-    addTearDown(tester.view.reset);
+  // One PNG per category (the gallery shows one category at a time). gallery_<i>.png + gallery.png(=0).
+  // 每类一张 PNG(画廊一次显一类)。
+  for (var cat = 0; cat < galleryCatalog.length; cat++) {
+    testWidgets('gallery cat $cat — ${galleryCatalog[cat].label}', (tester) async {
+      const key = ValueKey('cap');
+      tester.view.devicePixelRatio = 1.0;
+      tester.view.physicalSize = const Size(1280, 4200);
+      addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(RepaintBoundary(
-      key: key,
-      child: TranslationProvider(child: const GalleryApp()),
-    ));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 60));
+      await tester.pumpWidget(RepaintBoundary(
+        key: key,
+        child: TranslationProvider(child: GalleryApp(initialCategory: cat)),
+      ));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 60));
 
-    final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(key));
-    final image = await boundary.toImage(pixelRatio: 1.0);
-    final png = await image.toByteData(format: ui.ImageByteFormat.png);
-    final dir = Directory('test/dev/out')..createSync(recursive: true);
-    File('${dir.path}/gallery.png').writeAsBytesSync(png!.buffer.asUint8List());
-  });
+      final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(key));
+      final image = await boundary.toImage(pixelRatio: 1.0);
+      final png = await image.toByteData(format: ui.ImageByteFormat.png);
+      final dir = Directory('test/dev/out')..createSync(recursive: true);
+      File('${dir.path}/gallery_$cat.png').writeAsBytesSync(png!.buffer.asUint8List());
+      if (cat == 0) File('${dir.path}/gallery.png').writeAsBytesSync(png.buffer.asUint8List());
+    });
+  }
 }

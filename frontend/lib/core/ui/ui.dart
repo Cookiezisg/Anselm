@@ -7,6 +7,7 @@ export 'an_action_group.dart';
 export 'an_badge.dart';
 export 'an_brand_icon.dart';
 export 'an_button.dart';
+export 'an_callout.dart';
 export 'an_dropdown.dart';
 export 'an_edit_affordance.dart';
 export 'an_group_label.dart';
