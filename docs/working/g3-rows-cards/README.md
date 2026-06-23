@@ -105,6 +105,7 @@ G3 共 **9 件展示/布局件** + **3 个必须先行抽出的共享原语**。
 - **token(全查证)**:段底距 caption=`AnSpace.s24`(--sp-6) / plain=`AnSpace.s32`(--sp-8);head→body caption=`AnSpace.s8`(--sp-2) / plain=`AnSpace.s12`(--sp-3);body 块间 `AnSpace.s12`(--sp-3);grid gap `AnSpace.s16`(--sp-4);caption head 横向光学内缩 `AnSpace.s2`(=--grid/2,**实现注释写明是 grid/2 派生、非独立间距,随 AnAutoGrid gap 模型变更须核对**);色 `context.colors.inkFaint`(caption)/`context.colors.ink`(plain)。**无新增 token**。
 - **a11y**:外层 `Semantics(container, explicitChildNodes)`(不 merge,子块各自可达);label → `Semantics(header: true)`。**`header:true` 是 kit 内首次使用的新模式(吸收 a11y MED)**:落地前须按 verify-by-real-run 在真 macOS VoiceOver 上验证读作标题,否则退回 plain labeled Text。head Row 结构上 label(Expanded)物理先于 actions = 阅读序首位天然满足,作为结构不变量声明,matrix 加 Semantics-order 断言。
 - **reduced**:N/A(纯静态)。**但 grid=true 委托 AnAutoGrid → reduced-N/A 保证以 AnAutoGrid 无动效为前提**(吸收 a11y LOW),matrix 加 grid specimen 让 reduced 轴透传覆盖 AnAutoGrid。
+- **`[doc-fix]` G3.4 落地修正(本规范本节即重述,与落地代码对齐)**:① **actions 用 `AnActionGroup`(不带 `end`)**——`AnTwoZone` 已右锚 trailing,`AnActionGroup(end:true)` 会包 `SizedBox(width:infinity)`、在 Row 内撑无限宽崩溃(上文 §101 的 `end:true` 作废);② **`grid` / `gridMinColWidth` 参数 G3.4 不暴露**,随 `AnAutoGrid` 在 **G3.5** 一并上(避免半成品 API);③ Semantics-order 不变量已由 `an_section_test` 的 reading-order 断言锁(非 matrix);④ `header:true` 真机 VoiceOver 验证仍 **待补**(decision②,环境无法跑音频,作人工后续)。
 
 #### G3-b · AnKv — 紧凑定义列表
 - **API**:`AnKv({required List<AnKvRow> rows, ValueChanged<List<AnKvRow>>? onChanged, bool mono = false, bool wrap = false})`。
