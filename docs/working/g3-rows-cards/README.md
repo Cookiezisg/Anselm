@@ -299,6 +299,8 @@ G3 共 **9 件展示/布局件** + **3 个必须先行抽出的共享原语**。
 
 ### T1 — AnThinTable：无 chrome 多列跨行对齐（Flutter 无 CSS subgrid）
 
+> **`[doc-fix]` G3.10 落地修正（实测推翻本节两处初稿）**：① 本节称 `RenderTable` 收缩「**永不溢出**」——**实测为假**:RenderTable 只压 flex 列,`IntrinsicColumnWidth`/`FixedColumnWidth` 非首列**不会缩到偏好宽以下**,窄表 + 长非首值会**静默溢出**(RenderTable 不报 overflow,故 no-exception 测试假绿)。落地改用 **`MinColumnWidth(IntrinsicColumnWidth(), FractionColumnWidth(0.9/(N-1)))`**(非首列随表宽缩、恒 ≤ 表宽)+ 几何断言测试(cell text right ≤ table right)。② selected 底色落地用 **`surfaceActive`**(demo `.on`=island-4 + 与 AnRow 选区同底),**非**下文的 `accentSoft`。③ a11y:selectable 行**仅首格**为语义节点(button+摘要+onTap,其余格 ExcludeSemantics),避免 N 个 tap 目标。
+
 **定论：用 Flutter 内置 `Table` widget**（`package:flutter/widgets.dart`，**非** Material `DataTable`）。`RenderTable` 本就是「所有行共享同一组列轨、一次性测全表 cell intrinsic 宽再统一分配 + 给每格下发 tight width 约束」的渲染器——**这正是 CSS subgrid 在 web 上做的事**，跨行列对齐内置即得、不手量。零额外 pub 依赖。
 
 **列宽映射（= demo 的 minmax 语义）**：

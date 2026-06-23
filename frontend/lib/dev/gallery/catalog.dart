@@ -234,7 +234,27 @@ final GalleryCategory _g3RowsCards = GalleryCategory('行与卡 Rows & Cards', A
   GalleryItem('AnRowDetail', '可展开详情行:点行展开下方详情(AnimatedSize 高度揭示)', [
     GallerySpecimen('expandable (点开/收起)', (_) => const _RowDetailDemo(), span: true),
   ]),
+  GalleryItem('AnThinTable', '对齐多列(非表格、无 chrome):首列吃富余 + 其余贴内容、表头灰 meta', [
+    GallerySpecimen('对齐多列 (只读)', (_) => const AnThinTable(columns: _tableCols, rows: _tableRows), span: true),
+    GallerySpecimen('可点选行', (_) => AnThinTable(columns: _tableCols, rows: _tableRows, selectable: true, onRowTap: (_) {}), span: true),
+    GallerySpecimen('海量行 (流)', (_) => AnThinTable(columns: _tableCols, rows: [for (var i = 0; i < 14; i++) {'name': 'job-$i', 'kind': 'function', 'runs': '$i'}]), stress: true, span: true),
+    GallerySpecimen('超长格截断', (_) => const AnThinTable(columns: _tableCols, rows: [
+          {'name': 'an-extremely-long-entity-name-that-must-ellipsis', 'kind': 'workflow', 'runs': '999999'},
+        ]), stress: true, maxWidth: 240, span: true),
+  ]),
 ]);
+
+// AnThinTable sample data. AnThinTable 演示数据。
+const List<AnTableColumn> _tableCols = [
+  AnTableColumn('name', label: 'Name'),
+  AnTableColumn('kind', label: 'Kind'),
+  AnTableColumn('runs', label: 'Runs', align: AnTableAlign.right),
+];
+const List<Map<String, String>> _tableRows = [
+  {'name': 'normalize-input', 'kind': 'function', 'runs': '128'},
+  {'name': 'nightly-deploy', 'kind': 'workflow', 'runs': '4821'},
+  {'name': 'on-webhook', 'kind': 'handler', 'runs': '37'},
+];
 
 // dev-only grid cell: a bordered block of a given height, to show AnAutoGrid's auto-fit columns +
 // per-row content height. 仅演示用的网格块(有边、定高),展示 auto-fit 列 + 每行按内容高。
