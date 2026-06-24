@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/material.dart' show Material, MaterialType;
 import 'package:flutter/widgets.dart';
 
 import '../../i18n/strings.g.dart';
@@ -140,14 +141,19 @@ class _AnConfirmCard extends StatelessWidget {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(AnRadius.island),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _head(context, c),
-                    if (message != null) Flexible(child: _body(context, c)),
-                    _foot(context, c),
-                  ],
+                // Material(transparency): the card lives in a RawDialogRoute, outside any Scaffold —
+                // without a Material ancestor its text paints the debug yellow underline. 须 Material 祖先免黄线。
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _head(context, c),
+                      if (message != null) Flexible(child: _body(context, c)),
+                      _foot(context, c),
+                    ],
+                  ),
                 ),
               ),
             ),

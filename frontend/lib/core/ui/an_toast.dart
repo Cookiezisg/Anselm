@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/material.dart' show Material, MaterialType;
 import 'package:flutter/widgets.dart';
 
 import '../../i18n/strings.g.dart';
@@ -138,68 +139,75 @@ class _AnToastState extends State<AnToast> with SingleTickerProviderStateMixin {
           border: Border.all(color: c.line, width: AnSize.hairline),
           boxShadow: c.shadowPop,
         ),
-        child: Stack(
-          children: [
-            Padding(
-              // Left inset leaves room for the full-height tone bar (s8 edge + s4 bar + s8 gap). 左留位给满高色条。
-              padding: const EdgeInsets.fromLTRB(
-                AnSpace.s8 + AnSpace.s4 + AnSpace.s8,
-                AnSpace.s8,
-                AnSpace.s12,
-                AnSpace.s8,
-              ),
-              child: Row(
-                children: [
-                  // Text absorbs the slack so the close button pins to the right edge; 2-line ellipsis. 文字吸余、关钮钉右。
-                  // liveRegion sits on the TEXT only (polite announce on appear), NOT the whole chip —
-                  // wrapping the chip would merge the close/action buttons into one node (their labels +
-                  // isButton leak in, and the text dupes). ExcludeSemantics drops the Text's own node so
-                  // the label isn't announced twice. liveRegion 仅在文字(包整 chip 会把按钮并进来)。
-                  Expanded(
-                    child: Semantics(
-                      liveRegion: true,
-                      label: widget.text,
-                      child: ExcludeSemantics(
-                        child: Text(
-                          widget.text,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: AnText.body.copyWith(color: c.ink),
+        // Material(transparency): floating overlay text needs a Material ancestor for its default text
+        // style — without it Flutter paints the debug yellow underline (the chip lives in the host's
+        // Stack, outside any Scaffold). No fill/elevation, so the surface + shadow stay on DecoratedBox.
+        // 浮层文字须 Material 祖先取默认文字样式,否则黄色下划线 debug 标记(chip 在 host 的 Stack、无 Scaffold)。
+        child: Material(
+          type: MaterialType.transparency,
+          child: Stack(
+            children: [
+              Padding(
+                // Left inset leaves room for the full-height tone bar (s8 edge + s4 bar + s8 gap). 左留位给满高色条。
+                padding: const EdgeInsets.fromLTRB(
+                  AnSpace.s8 + AnSpace.s4 + AnSpace.s8,
+                  AnSpace.s8,
+                  AnSpace.s12,
+                  AnSpace.s8,
+                ),
+                child: Row(
+                  children: [
+                    // Text absorbs the slack so the close button pins to the right edge; 2-line ellipsis. 文字吸余、关钮钉右。
+                    // liveRegion sits on the TEXT only (polite announce on appear), NOT the whole chip —
+                    // wrapping the chip would merge the close/action buttons into one node (their labels +
+                    // isButton leak in, and the text dupes). ExcludeSemantics drops the Text's own node so
+                    // the label isn't announced twice. liveRegion 仅在文字(包整 chip 会把按钮并进来)。
+                    Expanded(
+                      child: Semantics(
+                        liveRegion: true,
+                        label: widget.text,
+                        child: ExcludeSemantics(
+                          child: Text(
+                            widget.text,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: AnText.body.copyWith(color: c.ink),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  if (widget.action != null) ...[
+                    if (widget.action != null) ...[
+                      const SizedBox(width: AnSpace.s8),
+                      _action(context, c, reduced, t),
+                    ],
                     const SizedBox(width: AnSpace.s8),
-                    _action(context, c, reduced, t),
+                    AnButton.iconOnly(
+                      AnIcons.close,
+                      size: AnButtonSize.sm,
+                      semanticLabel: t.feedback.dismiss,
+                      onPressed: _dismiss,
+                    ),
                   ],
-                  const SizedBox(width: AnSpace.s8),
-                  AnButton.iconOnly(
-                    AnIcons.close,
-                    size: AnButtonSize.sm,
-                    semanticLabel: t.feedback.dismiss,
-                    onPressed: _dismiss,
-                  ),
-                ],
+                ),
               ),
-            ),
-            // Full-height tone bar (demo .an-toast-bar align-self:stretch), inset by the vertical pad,
-            // rounded, decorative-only. 满高 tone 色条(内距内、圆角、纯装饰)。
-            Positioned(
-              left: AnSpace.s8,
-              top: AnSpace.s8,
-              bottom: AnSpace.s8,
-              width: AnSpace.s4, // demo --grid one cell 色条 = --grid 一格
-              child: ExcludeSemantics(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: _barColor(c),
-                    borderRadius: BorderRadius.circular(AnRadius.pill),
+              // Full-height tone bar (demo .an-toast-bar align-self:stretch), inset by the vertical pad,
+              // rounded, decorative-only. 满高 tone 色条(内距内、圆角、纯装饰)。
+              Positioned(
+                left: AnSpace.s8,
+                top: AnSpace.s8,
+                bottom: AnSpace.s8,
+                width: AnSpace.s4, // demo --grid one cell 色条 = --grid 一格
+                child: ExcludeSemantics(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: _barColor(c),
+                      borderRadius: BorderRadius.circular(AnRadius.pill),
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
