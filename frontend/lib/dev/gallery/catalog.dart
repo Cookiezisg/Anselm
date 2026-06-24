@@ -327,7 +327,52 @@ final GalleryCategory _g4NavShell = GalleryCategory('导航与壳 Nav & Shell', 
           ),
         ), height: 360, span: true),
   ]),
+  GalleryItem('AnMenu', '浮层菜单(on AnPopover):分组小标题 + icon/check/meta + danger/disabled(多选 keepOpen)', [
+    GallerySpecimen('actions menu (⋯) — tap to open', (_) => const _MenuActionsDemo()),
+    GallerySpecimen('sliders (multi-check, keepOpen)', (_) => const _MenuSlidersDemo()),
+  ]),
 ]);
+
+// AnMenu demos (stateful: hold the picked / checked state). AnMenu 演示(持选中态)。
+class _MenuActionsDemo extends StatelessWidget {
+  const _MenuActionsDemo();
+  @override
+  Widget build(BuildContext context) => AnMenu(
+        anchorBuilder: (context, toggle, isOpen) =>
+            AnButton.iconOnly(AnIcons.more, semanticLabel: 'More', onPressed: toggle),
+        entries: [
+          AnMenuItem(label: 'Edit', icon: AnIcons.edit, onTap: () {}),
+          AnMenuItem(label: 'Duplicate', icon: AnIcons.iterate, onTap: () {}),
+          const AnMenuSection('Danger'),
+          AnMenuItem(label: 'Delete', icon: AnIcons.trash, danger: true, onTap: () {}),
+          AnMenuItem(label: 'Archive', icon: AnIcons.history, disabled: true),
+        ],
+      );
+}
+
+class _MenuSlidersDemo extends StatefulWidget {
+  const _MenuSlidersDemo();
+  @override
+  State<_MenuSlidersDemo> createState() => _MenuSlidersDemoState();
+}
+
+class _MenuSlidersDemoState extends State<_MenuSlidersDemo> {
+  final Set<String> _on = {'recent', 'versions'};
+  void _toggle(String k) => setState(() => _on.contains(k) ? _on.remove(k) : _on.add(k));
+  @override
+  Widget build(BuildContext context) => AnMenu(
+        anchorBuilder: (context, toggle, isOpen) =>
+            AnButton(label: 'Sort', icon: AnIcons.sliders, size: AnButtonSize.sm, onPressed: toggle),
+        entries: [
+          const AnMenuSection('Sort'),
+          AnMenuItem(label: 'Recently updated', checked: _on.contains('recent'), keepOpen: true, onTap: () => _toggle('recent')),
+          AnMenuItem(label: 'Name', checked: _on.contains('name'), keepOpen: true, onTap: () => _toggle('name')),
+          const AnMenuSection('Display'),
+          AnMenuItem(label: 'Show versions', checked: _on.contains('versions'), keepOpen: true, onTap: () => _toggle('versions')),
+          AnMenuItem(label: 'Show status dots', checked: _on.contains('dots'), keepOpen: true, onTap: () => _toggle('dots')),
+        ],
+      );
+}
 
 // AnThinTable sample data. AnThinTable 演示数据。
 const List<AnTableColumn> _tableCols = [
