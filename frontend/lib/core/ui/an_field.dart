@@ -5,6 +5,7 @@ import '../design/tokens.dart';
 import '../design/typography.dart';
 import 'an_dropdown.dart';
 import 'an_editable_value.dart';
+import 'an_lead_value.dart';
 
 /// One row of an [AnKv] definition list. [editable] (with the list's `onChanged`) makes the value
 /// editable in place via [AnEditableValue]; [editor] picks free-text vs an enum dropdown. The text
@@ -112,22 +113,18 @@ class AnKv extends StatelessWidget {
         child: Container(
           constraints: const BoxConstraints(minHeight: AnSize.row),
           padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8, vertical: AnSpace.s4),
-          child: Row(
-            children: [
-              Flexible(child: keyText),
-              const SizedBox(width: AnSpace.s8),
-              const Expanded(child: SizedBox.shrink()), // grow: pins the value right 撑开、值钉右
-              Flexible(
-                child: Text(
-                  shown,
-                  textAlign: wrap ? TextAlign.left : TextAlign.right,
-                  maxLines: wrap ? null : 1,
-                  softWrap: wrap,
-                  overflow: wrap ? TextOverflow.clip : TextOverflow.ellipsis,
-                  style: valueStyle,
-                ),
-              ),
-            ],
+          // key hugs content (capped), value fills the remainder + sits flush-right (AnLeadValue). 键贴内容、值吃余量贴右。
+          child: AnLeadValue(
+            leading: keyText,
+            wrap: wrap,
+            trailing: Text(
+              shown,
+              textAlign: wrap ? TextAlign.left : TextAlign.right,
+              maxLines: wrap ? null : 1,
+              softWrap: wrap,
+              overflow: wrap ? TextOverflow.clip : TextOverflow.ellipsis,
+              style: valueStyle,
+            ),
           ),
         ),
       ),
@@ -215,13 +212,12 @@ class AnField extends StatelessWidget {
     final row = Container(
       constraints: const BoxConstraints(minHeight: AnSize.islandHead),
       padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8, vertical: AnSpace.s4),
-      child: Row(
-        children: [
-          Flexible(child: lead),
-          const SizedBox(width: AnSpace.s8),
-          const Expanded(child: SizedBox.shrink()), // grow: pins the value / control right 撑开、值/控件钉右
-          Flexible(child: right),
-        ],
+      // label hugs content (capped), value/control fills the remainder + flush-right (AnLeadValue); only a
+      // text value honours wrap — the child-slot control is non-wrap, Align-right. 标签贴内容、值/控件吃余量贴右。
+      child: AnLeadValue(
+        leading: lead,
+        wrap: value != null && wrap,
+        trailing: right,
       ),
     );
 

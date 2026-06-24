@@ -61,4 +61,27 @@ void main() {
     await tester.pumpWidget(host(const AnField(label: 'Owner', value: '')));
     expect(find.text('—'), findsOneWidget);
   });
+
+  testWidgets('editing in a NARROW row with a multi-word label does not overflow (Save stays on-panel)', (tester) async {
+    // Regression: a non-flex capped leading couldn't yield, so the ✓✕ buttons overflowed off-panel in a
+    // ~300px inspector rail. The custom layout shrinks the leading so the value zone + buttons always fit.
+    // 回归:窄行编辑时 leading 不让位 → ✓✕ 溢出;自研布局让 leading 收缩,值区+按钮恒在面板内。
+    Widget narrow(Widget child) => TranslationProvider(
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: AnTheme.light(),
+            home: Scaffold(body: Center(child: SizedBox(width: 300, child: child))),
+          ),
+        );
+    await tester.pumpWidget(narrow(StatefulBuilder(
+      builder: (ctx, ss) => AnField(label: 'Max concurrency', value: 'short', editable: true, onChanged: (_) {}),
+    )));
+    await tester.tap(find.byIcon(AnIcons.edit));
+    await tester.pump();
+    expect(tester.takeException(), isNull, reason: 'editing a long-label field in a narrow row must not overflow');
+    // The Save button's right edge must be within the 300-wide panel. Save 按钮右缘须在面板内。
+    final saveRight = tester.getRect(find.text('Save')).right;
+    final panelRight = tester.getRect(find.byType(AnField)).right;
+    expect(saveRight, lessThanOrEqualTo(panelRight + 0.5), reason: 'Save must stay on-panel, not pushed off the right');
+  });
 }

@@ -8,6 +8,7 @@ import '../design/typography.dart';
 import 'an_button.dart';
 import 'an_dropdown.dart';
 import 'an_edit_affordance.dart';
+import 'an_lead_value.dart';
 import 'an_seamless_field.dart';
 import 'icons.dart';
 
@@ -179,7 +180,7 @@ class _AnEditableValueState extends State<AnEditableValue> {
             color: c.surfaceHover.whenActive(_hovered || _editing),
             borderRadius: BorderRadius.circular(AnRadius.button),
           ),
-          child: widget.editor == AnEditKind.select ? _selectRow(c) : _inputRow(c),
+          child: widget.editor == AnEditKind.select ? _selectRow() : _inputRow(c),
         ),
       ),
     );
@@ -187,62 +188,51 @@ class _AnEditableValueState extends State<AnEditableValue> {
 
   // select: the value zone is an always-present ghost dropdown — no pencil, no editing state, so no
   // dangling state on dismiss (a pick commits; outside-tap / Esc just close it). select:常驻 ghost 下拉。
-  Widget _selectRow(AnColors c) {
-    return Row(
-      children: [
-        Flexible(child: widget.leading),
-        const Expanded(child: SizedBox.shrink()),
-        Flexible(
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: AnDropdown<String>(
-              options: widget.options,
-              value: widget.value,
-              variant: AnDropdownVariant.ghost,
-              menuAlignEnd: true,
-              onChanged: widget.onChanged,
-            ),
-          ),
-        ),
-      ],
+  Widget _selectRow() {
+    return AnLeadValue(
+      leading: widget.leading,
+      trailing: AnDropdown<String>(
+        options: widget.options,
+        value: widget.value,
+        variant: AnDropdownVariant.ghost,
+        menuAlignEnd: true,
+        onChanged: widget.onChanged,
+      ),
     );
   }
 
   Widget _inputRow(AnColors c) {
     final revealPencil = _hovered || _pencilFocus.hasFocus;
-    return Row(
-      children: [
-        Flexible(child: widget.leading),
-        // Pencil: kept in the tree while idle (keyboard-reachable), revealed by opacity on hover/focus;
-        // gone while editing (the confirm sits at the value end). 铅笔常驻(键盘可达)、opacity 揭示;编辑时撤。
-        if (!_editing) ...[
-          const SizedBox(width: AnSpace.s6),
-          Opacity(
-            opacity: revealPencil ? 1 : 0,
-            child: AnButton.iconOnly(
-              AnIcons.edit,
-              size: AnButtonSize.sm,
-              semanticLabel: context.t.action.edit,
-              focusNode: _pencilFocus,
-              onPressed: _begin,
+    return AnLeadValue(
+      leading: widget.leading,
+      // Editing single-lines the field (Align-right); only the resting display honours wrap. 编辑单行、展示才换行。
+      wrap: !_editing && widget.wrap,
+      // Pencil: kept in the tree while idle (keyboard-reachable), revealed by opacity on hover/focus; gone
+      // while editing (the confirm takes the value end). 铅笔常驻(键盘可达)、opacity 揭示;编辑时撤、由 ✓✕ 接管。
+      afterLeading: _editing
+          ? null
+          : Opacity(
+              opacity: revealPencil ? 1 : 0,
+              child: AnButton.iconOnly(
+                AnIcons.edit,
+                size: AnButtonSize.sm,
+                semanticLabel: context.t.action.edit,
+                focusNode: _pencilFocus,
+                onPressed: _begin,
+              ),
             ),
-          ),
-        ],
-        const Expanded(child: SizedBox.shrink()), // grow: pins the value to the right edge 撑开、值钉右
-        Flexible(child: _inputValueZone(c)),
-        if (_editing) ...[
-          const SizedBox(width: AnSpace.s6),
-          // TextFieldTapRegion: tapping cancel / save isn't "outside" the field → no blur-commit
-          // (cancel-priority). 点 ✓✕ 不算字段外 → 不触发失焦提交(取消优先)。
-          TextFieldTapRegion(
-            child: AnEditAffordance(
-              editing: true,
-              onCommit: () => _finish(true, returnFocus: true),
-              onAbort: () => _finish(false, returnFocus: true),
-            ),
-          ),
-        ],
-      ],
+      trailing: _inputValueZone(c),
+      // TextFieldTapRegion: tapping cancel / save isn't "outside" the field → no blur-commit
+      // (cancel-priority). 点 ✓✕ 不算字段外 → 不触发失焦提交(取消优先)。
+      afterValue: _editing
+          ? TextFieldTapRegion(
+              child: AnEditAffordance(
+                editing: true,
+                onCommit: () => _finish(true, returnFocus: true),
+                onAbort: () => _finish(false, returnFocus: true),
+              ),
+            )
+          : null,
     );
   }
 

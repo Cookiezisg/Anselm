@@ -68,6 +68,16 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('short row vertically centres its content (not pinned to the top)', (tester) async {
+    // The minHeight floor makes the row taller than a single line; the content must centre, not sit high
+    // (the Stack default topStart bug). 短行内容须居中、非顶对齐(Stack 默认 topStart bug)。
+    await tester.pumpWidget(host(AnRow(icon: AnIcons.function, label: 'centered', onSelect: () {})));
+    final rowMid = tester.getRect(find.byType(AnRow)).center.dy;
+    final labelMid = tester.getRect(find.text('centered')).center.dy;
+    expect((labelMid - rowMid).abs(), lessThan(1.5),
+        reason: 'a single-line row taller than its text must centre the text, not pin it to the top');
+  });
+
   testWidgets('dot lead + actions render without overflow', (tester) async {
     await tester.pumpWidget(host(AnRow(
       dot: AnStatus.run,

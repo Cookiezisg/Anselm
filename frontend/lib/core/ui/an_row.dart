@@ -114,7 +114,12 @@ class AnRow extends StatelessWidget {
         duration: reduced ? Duration.zero : AnMotion.fast, // hover tint = functional micro-feedback 功能性微反馈
         constraints: BoxConstraints(minHeight: _hasHint ? AnSize.islandHead : AnSize.row),
         color: bg,
+        // alignment:center — the minHeight floor makes this Stack taller than a short single-line content;
+        // RenderStack's default (topStart) would pin that content to the top (the "text sits high" bug). The
+        // positioned accent bar has top+bottom both set → tight full height, unaffected by alignment; a tall
+        // hint row (content ≥ minHeight) centres to a zero offset → natural. 居中:补 minHeight 撑高时短内容默认顶对齐。
         child: Stack(
+          alignment: Alignment.center,
           children: [
             Padding(
               padding: EdgeInsetsDirectional.only(

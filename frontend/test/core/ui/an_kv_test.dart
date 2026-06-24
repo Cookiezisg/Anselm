@@ -69,4 +69,20 @@ void main() {
     expect(find.text('run_3a9f0e88'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('values of editable + read-only rows share one flush-right column', (tester) async {
+    // The reported bug: values parked mid-row at inconsistent x. Now every value (editable display value
+    // and read-only value alike) right-aligns to the same column. 报告的 bug:值停在行中、起点不一;现共一贴右列。
+    await tester.pumpWidget(host(AnKv(
+      onChanged: (_) {},
+      rows: const [
+        AnKvRow('Name', 'normalize-input', editable: true), // editable (pencil) display value
+        AnKvRow('Created', '2026-06-24'), // read-only value
+      ],
+    )));
+    final editableValueRight = tester.getRect(find.text('normalize-input')).right;
+    final readonlyValueRight = tester.getRect(find.text('2026-06-24')).right;
+    expect((editableValueRight - readonlyValueRight).abs(), lessThan(1.0),
+        reason: 'editable and read-only values must share the same right edge');
+  });
 }
