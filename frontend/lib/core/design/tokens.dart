@@ -72,6 +72,7 @@ abstract final class AnSize {
   static const double menuMinWidth = 200; // dropdown/menu min width (rich rows fit even off a compact trigger) 菜单最小宽(紧凑触发器也容得下富行)
   static const double menuMaxWidth = 360; // dropdown/menu popover max width 菜单浮层最大宽
   static const double menuMaxHeight = 320; // dropdown/menu popover max height (then scrolls) 菜单浮层最大高(超则滚)
+  static const double toastMaxWidth = 360; // toast single-row max width (demo --island-w) — a SEPARATE token from menuMaxWidth/stateMaxWidth (same 360 value, distinct semantic axis: a retune of one must not drag the others) toast 单条最大宽(语义独立,勿与菜单/状态列共号)
 
   // Code-surface line-number gutter FLOOR (G5). The demo's --trail=20px holds only ~2 digits at the
   // mono code size; widgets compute the gutter dynamically (digit count × mono advance + pad) and

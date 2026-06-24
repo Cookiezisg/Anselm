@@ -12,7 +12,8 @@
     "cancel": "取消",
     "save": "保存",
     "copy": "复制",
-    "wrap": "自动换行"
+    "wrap": "自动换行",
+    "delete": "删除"
   },
   "feedback": {
     "info": "提示",
@@ -20,6 +21,8 @@
     "warning": "警告",
     "error": "错误",
     "dismiss": "关闭",
+    "confirmDelete": "确认删除",
+    "dialogBarrier": "关闭对话框",
     "loading": "加载中",
     "stepOf": "第 $n 步 / 共 $m 步",
     "goToStep": "跳到第 $n 步",

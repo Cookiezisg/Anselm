@@ -9,8 +9,10 @@ import '../design/tokens.dart';
 /// see principle #8). The delegate measures the child first, THEN positions it with full knowledge of
 /// child + screen size, so it can FLIP (open the other way) and CLAMP to stay on-screen — which a pure
 /// [CompositedTransformFollower] affine link cannot. Opens/closes via [AnPopoverController]; dismisses on
-/// outside tap or Escape. The dropdown + menu sit on this; the dialog/toast layer (G6) reuses it. The
-/// overlay builder receives the anchor's size so a menu can match the trigger width.
+/// outside tap or Escape. The dropdown + menu sit on this (the ANCHORED floating family). The G6 modal
+/// layer does NOT: a dialog rides a [RawDialogRoute] and a toast a static root Overlay entry — both are
+/// non-anchored, so neither uses this base. The overlay builder receives the anchor's size so a menu
+/// can match the trigger width.
 ///
 /// 锚定浮层基座——搭在 Flutter 成熟的 OverlayPortal + CustomSingleChildLayout/SingleChildLayoutDelegate 上
 /// (框架自身 Dropdown/Tooltip/选择工具条的定位机制,非手搓,见 #8)。delegate 先量子件、再据子件+屏幕尺寸定位,

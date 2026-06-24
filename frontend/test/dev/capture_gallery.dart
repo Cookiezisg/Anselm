@@ -13,6 +13,7 @@ import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Future<void> _load(String family, String path) async {
@@ -53,7 +54,9 @@ void main() {
 
     await tester.pumpWidget(RepaintBoundary(
       key: key,
-      child: TranslationProvider(child: GalleryApp(initialCategory: cat)),
+      // ProviderScope: the gallery runs under one (G6 overlay specimens use ref); mirrors gallery_main.
+      // ProviderScope:画廊 G6 浮层 specimen 用 ref,同 gallery_main 裹一层。
+      child: ProviderScope(child: TranslationProvider(child: GalleryApp(initialCategory: cat))),
     ));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 60));

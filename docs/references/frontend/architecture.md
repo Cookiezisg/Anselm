@@ -23,13 +23,14 @@ Go 后端作 **sidecar**,Flutter 桌面端是其纯客户端。**3-tier feature-
 ```
 main.dart                  # 入口:scaled binding(应内缩放)→ initWindow → 恢复缩放档 → runApp(ProviderScope(AnApp))
 app/                       # 装配根
-  app.dart                 # 根 widget(MaterialApp + 主题 + home=AnShell;绑 Cmd +/-/0 缩放)
+  app.dart                 # 根 widget(MaterialApp + 主题 + home=AnShell + builder=AnOverlayHost[浮层宿主、持 navigatorKey];绑 Cmd +/-/0 缩放)
   window_setup.dart        # 桌面窗口:window_manager(尺寸/最小/居中)+ macos_window_utils(无边框 + 加高标题栏红绿灯)
 core/                      # 跨切共享层(不依赖上层)
   design/                  # tokens · colors · typography · theme —— 唯一值源,禁内联 px/hex/ms
   platform/                # OS 缝:host_platform(dart:io 收口)· window_zoom(应内 Cmd +/- 缩放)
   model/                   # 框架无关纯模型(无 Flutter import):status_state(状态折叠单源)
-  ui/                      # An* 套件:G0 地基(icons/brand/interactive/tone)+ G1 控件(status_dot/badge/button/input/dropdown/popover…)+ 三岛壳;桶=ui.dart（随组扩充,见 design-system.md）
+  ui/                      # An* 套件:G0 地基(icons/brand/interactive/tone)+ G1 控件(status_dot/badge/button/input/dropdown/popover…)+ 三岛壳 + G6 浮层叶子(dialog/toast);桶=ui.dart（随组扩充,见 design-system.md）
+  overlay/                 # 命令式浮层派发(G6):AnOverlayController(NotifierProvider)+ overlayProvider + AnOverlayHost(toast 栈 + dialog 路由宿主);依赖 core/ui 不被其依赖
 i18n/                      # slang:en/zh_CN 双语 + 生成 strings.g.dart（dart run slang,入库）
 dev/                       # dev 工具:gallery/（make gallery 组件画廊,双栏目录看每个 An* 全态）
 features/                  # ★中间层:每域 data+state+ui+model（随 feature 落地）
@@ -39,6 +40,8 @@ features/                  # ★中间层:每域 data+state+ui+model（随 featu
 ## 3. 依赖规则（三层，单向）
 
 `app → features → core`。**features 互不依赖**(跨片走 core provider / 导航 intent);`core` 不依赖上层。UI 只用 `core/ui` + `core/design` 组合,**禁内联配色/度量**。
+
+**命令式浮层派发(G6,跨 feature 共享的命令式 UI 副作用)**:dialog/toast 经 `core/overlay` 的 **`overlayProvider`**(经典 **`NotifierProvider`**,非 legacy `ChangeNotifierProvider`)派发——feature 在 SSE/async 回调里**无 BuildContext** 也能 `ref.read(overlayProvider.notifier).showToast(...)` / `confirm(...)→Future<bool>`(后者经装配根 `AnOverlayHost`[挂在 `MaterialApp.builder`]在 `initState` 注册的 **root navigator key** push `RawDialogRoute`)。这是「跨 feature 走 core provider」在命令式副作用上的落地——**非**全局 `navigatorKey` 单例(app 建 key + widget 树注入 host + ref 接入 controller、可 override 测、合 [`ADR 0004`](../../decisions/0004-frontend-flutter-architecture.md))。toast 层渲在内容之上(z 序偏离已拍板,详见 design-system.md)。完整建造规范见 [`WRK-041`](../../archive/g6-overlays/README.md)。
 
 ## 4. 设计系统 + UI 套件（`core/design` + `core/ui`）
 

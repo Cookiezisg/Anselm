@@ -12,7 +12,8 @@
     "cancel": "Cancel",
     "save": "Save",
     "copy": "Copy",
-    "wrap": "Wrap"
+    "wrap": "Wrap",
+    "delete": "Delete"
   },
   "feedback": {
     "info": "Info",
@@ -20,6 +21,8 @@
     "warning": "Warning",
     "error": "Error",
     "dismiss": "Dismiss",
+    "confirmDelete": "Confirm deletion",
+    "dialogBarrier": "Dismiss dialog",
     "loading": "Loading",
     "stepOf": "Step $n of $m",
     "goToStep": "Go to step $n",

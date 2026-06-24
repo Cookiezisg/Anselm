@@ -31,12 +31,17 @@ class GalleryApp extends StatefulWidget {
 class _GalleryAppState extends State<GalleryApp> {
   Brightness _brightness = Brightness.light;
   late int _categoryIndex = widget.initialCategory;
+  // Shared with AnOverlayHost so the G6 overlay specimens can push confirm dialogs (mirrors app.dart).
+  // 与 AnOverlayHost 共用,供 G6 浮层 specimen push 确认框(同 app.dart)。
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: _brightness == Brightness.light ? AnTheme.light() : AnTheme.dark(),
+      navigatorKey: _navigatorKey,
+      builder: (context, child) => AnOverlayHost(navigatorKey: _navigatorKey, child: child!),
       home: Builder(
         builder: (context) {
           final c = context.colors;
@@ -190,7 +195,10 @@ class _GalleryAppState extends State<GalleryApp> {
             children: [
               Text(item.name, style: AnText.h3.copyWith(color: c.ink)),
               const SizedBox(width: AnSpace.s12),
-              Text(item.blurb, style: AnText.meta.copyWith(color: c.inkMuted)),
+              // Flexible + ellipsis so a long blurb never overflows the header row (dev-tool resilience). 长 blurb 省略不溢出。
+              Flexible(
+                child: Text(item.blurb, maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.meta.copyWith(color: c.inkMuted)),
+              ),
             ],
           ),
           const SizedBox(height: AnSpace.s12),

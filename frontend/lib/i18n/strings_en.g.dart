@@ -99,6 +99,9 @@ class Translations$action$en {
 
 	/// en: 'Wrap'
 	String get wrap => 'Wrap';
+
+	/// en: 'Delete'
+	String get delete => 'Delete';
 }
 
 // Path: feedback
@@ -123,6 +126,12 @@ class Translations$feedback$en {
 
 	/// en: 'Dismiss'
 	String get dismiss => 'Dismiss';
+
+	/// en: 'Confirm deletion'
+	String get confirmDelete => 'Confirm deletion';
+
+	/// en: 'Dismiss dialog'
+	String get dialogBarrier => 'Dismiss dialog';
 
 	/// en: 'Loading'
 	String get loading => 'Loading';
@@ -267,11 +276,14 @@ extension on Translations {
 			'action.save' => 'Save',
 			'action.copy' => 'Copy',
 			'action.wrap' => 'Wrap',
+			'action.delete' => 'Delete',
 			'feedback.info' => 'Info',
 			'feedback.success' => 'Success',
 			'feedback.warning' => 'Warning',
 			'feedback.error' => 'Error',
 			'feedback.dismiss' => 'Dismiss',
+			'feedback.confirmDelete' => 'Confirm deletion',
+			'feedback.dialogBarrier' => 'Dismiss dialog',
 			'feedback.loading' => 'Loading',
 			'feedback.stepOf' => ({required Object n, required Object m}) => 'Step ${n} of ${m}',
 			'feedback.goToStep' => ({required Object n}) => 'Go to step ${n}',

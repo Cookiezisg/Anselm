@@ -2,6 +2,7 @@
 /// An* 套件桶文件——features + gallery 一行导入,随组(G0–G6)扩充。
 library;
 
+export '../overlay/an_overlay.dart';
 export '../model/code_diff.dart';
 export '../model/sidebar_model.dart';
 export '../model/status_state.dart' show AnStatus, AnTone;
@@ -14,6 +15,7 @@ export 'an_callout.dart';
 export 'an_card.dart';
 export 'an_code_editor.dart';
 export 'an_code_surface.dart';
+export 'an_dialog.dart';
 export 'an_dropdown.dart';
 export 'an_edit_affordance.dart';
 export 'an_editable_value.dart';
@@ -48,6 +50,7 @@ export 'an_stepper.dart';
 export 'an_tabs.dart';
 export 'an_tags.dart';
 export 'an_thin_table.dart';
+export 'an_toast.dart';
 export 'an_toolbar.dart';
 export 'an_two_zone.dart';
 export 'an_typewriter.dart';

@@ -40,6 +40,7 @@ class AnColors extends ThemeExtension<AnColors> {
     required this.shadowIsland,
     required this.shadowFloat,
     required this.shadowPop,
+    required this.shadowWin,
   });
 
   // Surface depth ladder. 面阶梯。
@@ -83,6 +84,11 @@ class AnColors extends ThemeExtension<AnColors> {
   final List<BoxShadow> shadowIsland;
   final List<BoxShadow> shadowFloat;
   final List<BoxShadow> shadowPop;
+  // The modal-dialog window shadow (demo --shadow-win) — a SINGLE deep-spread layer, NOT the
+  // two-layer shadowPop: a centered modal earns one big soft drop, not a popover's tight 2-stop
+  // stack. The one place its single-vs-double shape differs from the other three tiers (whose dark
+  // variants also diverge in offset/blur — never type-pun across tiers). 模态窗影:单层深扩,非 shadowPop 双层。
+  final List<BoxShadow> shadowWin;
 
   /// Light is the soul: bright, airy, ink-on-white. 明亮为魂:通透,墨压白。
   static const AnColors light = AnColors(
@@ -122,6 +128,9 @@ class AnColors extends ThemeExtension<AnColors> {
     shadowPop: [
       BoxShadow(color: Color.fromRGBO(0, 0, 0, 0.06), blurRadius: 8, offset: Offset(0, 2)),
       BoxShadow(color: Color.fromRGBO(0, 0, 0, 0.10), blurRadius: 32, offset: Offset(0, 12)),
+    ],
+    shadowWin: [
+      BoxShadow(color: Color.fromRGBO(0, 0, 0, 0.20), blurRadius: 50, offset: Offset(0, 16)),
     ],
   );
 
@@ -164,6 +173,9 @@ class AnColors extends ThemeExtension<AnColors> {
       BoxShadow(color: Color.fromRGBO(0, 0, 0, 0.55), blurRadius: 24, offset: Offset(0, 8)),
       BoxShadow(color: Color.fromRGBO(0, 0, 0, 0.60), blurRadius: 50, offset: Offset(0, 20)),
     ],
+    shadowWin: [
+      BoxShadow(color: Color.fromRGBO(0, 0, 0, 0.50), blurRadius: 50, offset: Offset(0, 16)),
+    ],
   );
 
   @override
@@ -196,6 +208,7 @@ class AnColors extends ThemeExtension<AnColors> {
     List<BoxShadow>? shadowIsland,
     List<BoxShadow>? shadowFloat,
     List<BoxShadow>? shadowPop,
+    List<BoxShadow>? shadowWin,
   }) {
     return AnColors(
       desk: desk ?? this.desk,
@@ -226,6 +239,7 @@ class AnColors extends ThemeExtension<AnColors> {
       shadowIsland: shadowIsland ?? this.shadowIsland,
       shadowFloat: shadowFloat ?? this.shadowFloat,
       shadowPop: shadowPop ?? this.shadowPop,
+      shadowWin: shadowWin ?? this.shadowWin,
     );
   }
 
@@ -263,6 +277,7 @@ class AnColors extends ThemeExtension<AnColors> {
       shadowIsland: s(shadowIsland, other.shadowIsland),
       shadowFloat: s(shadowFloat, other.shadowFloat),
       shadowPop: s(shadowPop, other.shadowPop),
+      shadowWin: s(shadowWin, other.shadowWin),
     );
   }
 }

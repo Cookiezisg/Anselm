@@ -75,6 +75,7 @@ class _Translations$action$zh_CN extends Translations$action$en {
 	@override String get save => '保存';
 	@override String get copy => '复制';
 	@override String get wrap => '自动换行';
+	@override String get delete => '删除';
 }
 
 // Path: feedback
@@ -89,6 +90,8 @@ class _Translations$feedback$zh_CN extends Translations$feedback$en {
 	@override String get warning => '警告';
 	@override String get error => '错误';
 	@override String get dismiss => '关闭';
+	@override String get confirmDelete => '确认删除';
+	@override String get dialogBarrier => '关闭对话框';
 	@override String get loading => '加载中';
 	@override String stepOf({required Object n, required Object m}) => '第 ${n} 步 / 共 ${m} 步';
 	@override String goToStep({required Object n}) => '跳到第 ${n} 步';
@@ -175,11 +178,14 @@ extension on TranslationsZhCn {
 			'action.save' => '保存',
 			'action.copy' => '复制',
 			'action.wrap' => '自动换行',
+			'action.delete' => '删除',
 			'feedback.info' => '提示',
 			'feedback.success' => '成功',
 			'feedback.warning' => '警告',
 			'feedback.error' => '错误',
 			'feedback.dismiss' => '关闭',
+			'feedback.confirmDelete' => '确认删除',
+			'feedback.dialogBarrier' => '关闭对话框',
 			'feedback.loading' => '加载中',
 			'feedback.stepOf' => ({required Object n, required Object m}) => '第 ${n} 步 / 共 ${m} 步',
 			'feedback.goToStep' => ({required Object n}) => '跳到第 ${n} 步',

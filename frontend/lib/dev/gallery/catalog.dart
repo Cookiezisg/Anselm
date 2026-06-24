@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/design/colors.dart';
 import '../../core/design/tokens.dart';
@@ -15,6 +16,7 @@ final List<GalleryCategory> galleryCatalog = [
   _g3RowsCards,
   _g4NavShell,
   _g5CodeData,
+  _g6Overlays,
 ];
 
 // ── G1 — Foundational controls ──
@@ -431,6 +433,82 @@ final GalleryCategory _g5CodeData = GalleryCategory('代码与数据 Code & Data
     GallerySpecimen('注入转义', (_) => const AnVersionDiff(before: '<b>old</b>', after: '<b>new</b> & \${raw}', lang: 'md', range: 'v1 → v2'), stress: true, span: true),
   ]),
 ]);
+
+// ── G6 — Overlays (dialog + toast) ──
+final GalleryCategory _g6Overlays = GalleryCategory('浮层 Overlays', AnIcons.more, [
+  GalleryItem('AnToast', '屏角瞬时提示:tone 色条 + action + 自动消隐;命令式 showToast()', [
+    // Static, sticky specimens (duration: zero → no auto-dismiss) — the chip in every tone. 静态常驻 specimen。
+    GallerySpecimen('neutral', (_) => AnToast(text: '已保存', duration: Duration.zero, onDismissed: () {}), span: true),
+    GallerySpecimen('ok', (_) => AnToast(text: '已保存 · flowrun fne_5e1a 运行完成', tone: AnToastTone.ok, duration: Duration.zero, onDismissed: () {}), span: true),
+    GallerySpecimen('warn', (_) => AnToast(text: '已暂停调度', tone: AnToastTone.warn, duration: Duration.zero, onDismissed: () {}), span: true),
+    GallerySpecimen('danger', (_) => AnToast(text: '运行失败:连接超时', tone: AnToastTone.danger, duration: Duration.zero, onDismissed: () {}), span: true),
+    GallerySpecimen('含 action (撤销)', (_) => AnToast(text: '已删除「订单处理」', tone: AnToastTone.danger, action: AnToastAction(label: '撤销', onPressed: () {}), duration: Duration.zero, onDismissed: () {}), span: true),
+    GallerySpecimen('超长文本 (2 行省略)', (_) => AnToast(text: 'a really long toast message that wraps to two lines and then ellipsizes when it exceeds the available width of the toast chip surface', duration: Duration.zero, onDismissed: () {}), stress: true, span: true),
+    GallerySpecimen('注入转义', (_) => AnToast(text: '<b>not</b> & <i>html</i> — \${raw}', tone: AnToastTone.warn, duration: Duration.zero, onDismissed: () {}), stress: true, span: true),
+    // Live trigger — fires into the real bottom-right corner overlay (auto-dismiss + soft cap). 命令式触发(真弹右下角)。
+    GallerySpecimen('命令式触发 (弹到右下角)', (_) => const _ToastTriggerDemo(), span: true),
+  ]),
+  GalleryItem('AnDialog (confirm)', '模态确认框:遮罩 + 居中卡 + 焦点陷阱 + Escape;命令式 confirm()', [
+    GallerySpecimen('危险确认 (删除)', (_) => const _DialogTriggerDemo(tone: AnDialogTone.danger), span: true),
+    GallerySpecimen('主操作确认 (无说明)', (_) => const _DialogTriggerDemo(tone: AnDialogTone.primary, withMessage: false), span: true),
+  ]),
+]);
+
+// AnToast command-trigger demo — fires toasts into the real corner overlay (auto-dismiss + soft cap 5).
+// toast 命令式触发演示——弹进真右下角浮层(自动消隐 + 软上限 5)。
+class _ToastTriggerDemo extends StatelessWidget {
+  const _ToastTriggerDemo();
+  @override
+  Widget build(BuildContext context) {
+    return Consumer(
+      builder: (context, ref, _) {
+        final ctrl = ref.read(overlayProvider.notifier);
+        return AnActionGroup([
+          AnButton(label: '弹一条', icon: AnIcons.info, onPressed: () => ctrl.showToast('已保存 · flowrun fne_5e1a 运行完成', tone: AnToastTone.ok)),
+          AnButton(label: '含撤销', onPressed: () => ctrl.showToast('已删除「订单处理」', tone: AnToastTone.danger, action: AnToastAction(label: '撤销', onPressed: () => ctrl.showToast('已恢复', tone: AnToastTone.ok)))),
+          AnButton(label: '连发 8 条 (验上限 5)', onPressed: () {
+            for (var i = 1; i <= 8; i++) {
+              ctrl.showToast('通知 #$i · 批量操作进行中');
+            }
+          }),
+        ]);
+      },
+    );
+  }
+}
+
+// AnDialog command-trigger demo — confirm() resolves true/false; the result is echoed as a toast.
+// dialog 命令式触发演示——confirm() 返 true/false,结果回弹 toast。
+class _DialogTriggerDemo extends StatelessWidget {
+  const _DialogTriggerDemo({required this.tone, this.withMessage = true});
+  final AnDialogTone tone;
+  final bool withMessage;
+  @override
+  Widget build(BuildContext context) {
+    final danger = tone == AnDialogTone.danger;
+    return Consumer(
+      builder: (context, ref, _) {
+        return AnButton(
+          label: danger ? '删除实体…' : '应用更改…',
+          icon: danger ? AnIcons.trash : AnIcons.check,
+          variant: danger ? AnButtonVariant.danger : AnButtonVariant.primary,
+          onPressed: () async {
+            final ctrl = ref.read(overlayProvider.notifier);
+            final ok = await ctrl.confirm(
+              title: danger ? '确认删除' : '应用更改',
+              message: withMessage ? (danger ? '此操作不可撤销,确定删除该实体吗?' : '将把改动写入当前版本。') : null,
+              confirmLabel: danger ? '删除' : '应用',
+              cancelLabel: '取消',
+              barrierLabel: '关闭对话框',
+              confirmTone: tone,
+            );
+            ctrl.showToast(ok ? '已执行' : '已取消', tone: ok ? AnToastTone.ok : AnToastTone.neutral);
+          },
+        );
+      },
+    );
+  }
+}
 
 // AnCodeEditor editable demo — holds the committed value across save. 可编辑代码:持保存后的值。
 class _CodeEditDemo extends StatefulWidget {
