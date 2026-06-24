@@ -331,6 +331,10 @@ final GalleryCategory _g4NavShell = GalleryCategory('导航与壳 Nav & Shell', 
     GallerySpecimen('actions menu (⋯) — tap to open', (_) => const _MenuActionsDemo()),
     GallerySpecimen('sliders (multi-check, keepOpen)', (_) => const _MenuSlidersDemo()),
   ]),
+  GalleryItem('AnTabs', '文字下划线切换器:灰→选中黑 + 弹簧下划线;IndexedStack panes 隐藏不销毁;多 tab 横滚', [
+    GallerySpecimen('tabs (underline + panes)', (_) => const _TabsDemo(), height: 220, span: true),
+    GallerySpecimen('many tabs (horizontal scroll)', (_) => const _TabsDemo(many: true), height: 200, span: true),
+  ]),
 ]);
 
 // AnMenu demos (stateful: hold the picked / checked state). AnMenu 演示(持选中态)。
@@ -658,4 +662,38 @@ class _DropdownDemoState extends State<_DropdownDemo> {
       onChanged: (v) => setState(() => _value = v),
     );
   }
+}
+
+// AnTabs demo (stateful: holds the selected key). AnTabs 演示(持选中 key)。
+class _TabsDemo extends StatefulWidget {
+  const _TabsDemo({this.many = false});
+  final bool many;
+  @override
+  State<_TabsDemo> createState() => _TabsDemoState();
+}
+
+class _TabsDemoState extends State<_TabsDemo> {
+  late String _v;
+  late final List<AnTabsItem> _items = widget.many
+      ? [
+          for (final k in const ['overview', 'source', 'versions', 'history', 'terminal', 'runs', 'settings'])
+            AnTabsItem(
+              key: k,
+              label: '${k[0].toUpperCase()}${k.substring(1)}',
+              pane: AnState(kind: AnStateKind.empty, size: AnStateSize.inset, title: '$k pane'),
+            ),
+        ]
+      : const [
+          AnTabsItem(key: 'overview', label: 'Overview', pane: AnState(kind: AnStateKind.empty, size: AnStateSize.inset, title: 'Overview pane')),
+          AnTabsItem(key: 'source', label: 'Source', count: '42', pane: AnState(kind: AnStateKind.empty, size: AnStateSize.inset, title: 'Source pane')),
+          AnTabsItem(key: 'versions', label: 'Versions', count: '3', pane: AnState(kind: AnStateKind.empty, size: AnStateSize.inset, title: 'Versions pane')),
+        ];
+  @override
+  void initState() {
+    super.initState();
+    _v = _items.first.key;
+  }
+
+  @override
+  Widget build(BuildContext context) => AnTabs(items: _items, value: _v, onPick: (k) => setState(() => _v = k));
 }

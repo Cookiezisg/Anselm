@@ -36,6 +36,7 @@ export 'an_skeleton.dart';
 export 'an_state.dart';
 export 'an_status_dot.dart';
 export 'an_stepper.dart';
+export 'an_tabs.dart';
 export 'an_tags.dart';
 export 'an_thin_table.dart';
 export 'an_toolbar.dart';
