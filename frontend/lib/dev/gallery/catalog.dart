@@ -314,6 +314,19 @@ final GalleryCategory _g4NavShell = GalleryCategory('导航与壳 Nav & Shell', 
           ),
         ), height: 200, stress: true, span: true),
   ]),
+  GalleryItem('AnPage', '海洋记录页:唯一滚动区 + 居中 720 内容列 + overlay 滚动条(头净空 pad)', [
+    GallerySpecimen('page (scroll + centered col)', (_) => AnPage(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            spacing: AnSpace.s16,
+            children: [
+              for (final t in const ['Overview', 'Source', 'Versions', 'History', 'Runs', 'Settings'])
+                AnInfoCard(title: t, child: const AnKv(rows: [AnKvRow('key', 'value'), AnKvRow('another', 'thing')])),
+            ],
+          ),
+        ), height: 360, span: true),
+  ]),
 ]);
 
 // AnThinTable sample data. AnThinTable 演示数据。
