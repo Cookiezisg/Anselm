@@ -273,6 +273,94 @@ extension AnColorsContext on BuildContext {
   AnColors get colors => Theme.of(this).extension<AnColors>()!;
 }
 
+/// The CODE syntax palette — a SEPARATE [ThemeExtension] so the syntax sub-palette stays a cohesive
+/// concern (not bloating the chrome/ink/status [AnColors]) and the highlighter [highlightCode] can be
+/// a pure function that takes it (no context). The ONE source of syntax token colours for
+/// AnCodeEditor / AnVersionDiff / AnJsonTree — NEVER inline a raw code colour (same rule as AnColors,
+/// G4 review ⑥). Values mirror demo tokens.css (One Light `:root` / One Dark `[data-theme=dark]`).
+/// [arg] (interpolation `${}` / `$n` / `{{ }}` — incl. CEL) mirrors [AnColors.accent] BY VALUE: kept
+/// here so the highlighter is self-contained, documented as the accent so a retune stays in sync.
+///
+/// 代码语法调色板 = 独立 [ThemeExtension](语法子板自成一概念、不胀 AnColors;让 highlightCode 纯函数吃它、不碰 context)。
+/// 三件唯一语法色源,禁内联(同 AnColors)。值镜像 demo tokens.css(One Light/One Dark)。arg(插值/CEL)按值镜像 accent。
+@immutable
+class SyntaxColors extends ThemeExtension<SyntaxColors> {
+  const SyntaxColors({
+    required this.comment,
+    required this.keyword,
+    required this.string,
+    required this.number,
+    required this.function,
+    required this.arg,
+  });
+
+  final Color comment; // demo --cd-com (rendered italic by the highlighter) 注释(高亮器渲斜体)
+  final Color keyword; // demo --cd-kw 关键字
+  final Color string; // demo --cd-str 字符串
+  final Color number; // demo --cd-num 数字
+  final Color function; // demo --cd-fn 标识符后跟 ( 视为函数名
+  final Color arg; // demo --cd-arg = --accent;插值 ${}/$n/{{}}(含 CEL)bold
+
+  /// One Light (demo `:root`). 明亮。
+  static const SyntaxColors light = SyntaxColors(
+    comment: Color(0xFFA0A1A7),
+    keyword: Color(0xFFA626A4),
+    string: Color(0xFF50A14F),
+    number: Color(0xFF986801),
+    function: Color(0xFF4078F2),
+    arg: Color(0xFF0071E3), // = AnColors.light.accent
+  );
+
+  /// One Dark (demo `[data-theme=dark]`). 暗色。
+  static const SyntaxColors dark = SyntaxColors(
+    comment: Color(0xFF7F848E),
+    keyword: Color(0xFFC678DD),
+    string: Color(0xFF98C379),
+    number: Color(0xFFD19A66),
+    function: Color(0xFF61AFEF),
+    arg: Color(0xFF0A84FF), // = AnColors.dark.accent
+  );
+
+  @override
+  SyntaxColors copyWith({
+    Color? comment,
+    Color? keyword,
+    Color? string,
+    Color? number,
+    Color? function,
+    Color? arg,
+  }) {
+    return SyntaxColors(
+      comment: comment ?? this.comment,
+      keyword: keyword ?? this.keyword,
+      string: string ?? this.string,
+      number: number ?? this.number,
+      function: function ?? this.function,
+      arg: arg ?? this.arg,
+    );
+  }
+
+  @override
+  SyntaxColors lerp(ThemeExtension<SyntaxColors>? other, double t) {
+    if (other is! SyntaxColors) return this;
+    Color c(Color a, Color b) => Color.lerp(a, b, t)!;
+    return SyntaxColors(
+      comment: c(comment, other.comment),
+      keyword: c(keyword, other.keyword),
+      string: c(string, other.string),
+      number: c(number, other.number),
+      function: c(function, other.function),
+      arg: c(arg, other.arg),
+    );
+  }
+}
+
+/// Fail-fast access: `context.syntax.keyword`. Throws if not registered (assembly bug).
+/// 顺手且 fail-fast 的语法色访问。
+extension SyntaxColorsContext on BuildContext {
+  SyntaxColors get syntax => Theme.of(this).extension<SyntaxColors>()!;
+}
+
 /// No-flash hover/active fill: `c.surfaceHover.whenActive(active)` → the colour when active, else the
 /// SAME colour at alpha 0 (so an AnimatedContainer fades pure-alpha, never through a dark midpoint —
 /// the documented Color.lerp pitfall). The single source for the kit's resting-bg idiom.

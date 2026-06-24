@@ -73,6 +73,11 @@ abstract final class AnSize {
   static const double menuMaxWidth = 360; // dropdown/menu popover max width 菜单浮层最大宽
   static const double menuMaxHeight = 320; // dropdown/menu popover max height (then scrolls) 菜单浮层最大高(超则滚)
 
+  // Code-surface line-number gutter FLOOR (G5). The demo's --trail=20px holds only ~2 digits at the
+  // mono code size; widgets compute the gutter dynamically (digit count × mono advance + pad) and
+  // clamp to >= this floor (≥4 digits, so files into the thousands don't blur). 行号槽下界(动态计宽夹到此).
+  static const double trail = 36;
+
   // Three-island layout columns. The LEFT island is elastic (draggable, 240–400, default 320);
   // the RIGHT island is fixed; the ocean is the flex remainder whose content column is elastic
   // 480–720 (`oceanMin`..`content`). 三岛列:左岛弹性(可拖 240–400,默认 320);右岛固定;

@@ -31,7 +31,7 @@ landed-into:
 
 **用户 2026-06-24 拍板(5 决策,全采纳推荐)**:
 1. **代码高亮引擎 = 移植 demo 正则 tokenizer 成同步 `highlight(code,lang)→List<TextSpan>`**(决策 1·A)。整片成熟 Flutter 高亮包陈旧/与同步契约冲突(详 §8);窄面 Python/CEL/JSON 移植已验逻辑非造轮子。封装层 `highlight()` 为**唯一入口**(隔离选型、换引擎只动一处);`highlighting` 包留作日后宽语言准度的升级路径,`syntax_highlight` 因 async 预载违 §4 同步铁律已否决。
-2. **行级 diff 算法 = 移植 demo LCS 成同步 `lineDiff(before,after)→List<(DiffOp,String)>`**(决策 5·A)。逆向 DP+回溯直出顺序 ctx/add/del、零包、正合 unified 网格;LCS 是教科书确定性算法、非几何 footgun。退化闸按总行数(m+n)+ 字节(~650KB),命名 `lineDiffMaxLines`。`diffutil_dart` 留作真机压测卡顿后的升级路径(保留同一出参契约)。
+2. **行级 diff 算法 = 移植 demo LCS 成同步 `lineDiff(before,after)→List<({DiffOp op,String text})>`**(决策 5·A)。逆向 DP+回溯直出顺序 ctx/add/del、零包、正合 unified 网格;LCS 是教科书确定性算法、非几何 footgun。退化闸按 **LCS 矩阵 cell 数 `(m+1)(n+1)>4M`**(命名 `lineDiffMaxCells`,忠实移植 demo;**G5.0 复审修订**——原研究写「m+n 行数闸」,实测证伪:m+n 封不住 m\*n 矩阵,详见末「G5.0 实施修订」)。`diffutil_dart` 留作真机压测卡顿后的升级路径(保留同一出参契约)。
 3. **VersionDiff v1 = 仅单字段文本行 diff**(决策 4·A)。适配 Function.code / Agent.prompt / Control.when·emit / Approval.template;结构化多字段(inputs/outputs/deps JSON 走 JsonTree)+ **Handler 多部件**(无单一 code 文本)版本 diff 整体推迟到 entities 版本视图 feature(见 §7)。
 4. **CEL 要语法上色**(决策 2·B)。因选 demo 正则路线 → 在 `highlight()` 封装层内部对 `lang==cel` 加最小正则分派(插值 `{{ }}`/`${ }` + 注释 + 字符串 + 数字),**对外仍唯一入口、绝不另起第二套 tokenizer**;CEL 专属精细 tokenizer 推迟。
 5. **JsonTree 复制路径 = JSON-pointer**(决策 3·A,RFC 6901,机器寻址语义)。复制能力本身推迟到消费 feature(kit 出 `AnInteractive` 行级动作钩子),格式先定为 JSON-pointer。
@@ -53,7 +53,7 @@ landed-into:
 - **`SyntaxColors`**(`core/design`,AnColors ThemeExtension 扩一组):cd-com/kw/str/num/fn(5 原色)+ arg(=accent)。双 brightness。三件唯一着色源,禁内联硬编码 Color 字面量(同 G4 复审 ⑥)。
 - **`AnSize.trail`**(`core/design/tokens.dart`):行号/符号槽宽。**动态计宽为主**(按最大行号位数,复审 #7);固定占位下界 ≥36px(容 4 位数,非 demo 20px)。CodeEditor 行号列 + VersionDiff 三列网格共用,右对齐 tabular。
 - **`syntax_highlighter.dart` 的静态 `highlight(code, lang) → List<TextSpan>`**(`core/ui`):**必须同步纯函数**(§4 铁律)。吃 `SyntaxColors` token、缺失语言裸渲兜底(不谎报)、对 `lang==cel` 在封装层内部加最小正则分派(插值 `{{ }}`/`${ }`+注释+字符串+数字,见 openDecision A2)。VersionDiff/JsonTree 行内着色全调它,**唯一 tokenizer**。
-- **`diff_algorithm.dart` 的静态 `lineDiff(before, after) → List<(DiffOp, String)>`**(`core/ui` 或 `core/model`):**必须同步纯函数**。v1 = demo LCS 移植(逆向 DP + 回溯,直出顺序 ctx/add/del)+ 退化闸(按**总行数 m+n 阈** + **字节数闸 ~650KB**,**非** demo 的 `LCS_CELL_CAP=4M`——复审 #10/#24:Myers 才谈不上 cell,LCS 矩阵单元数对 v1 floor 仍适用但命名应改 `lineDiffMaxLines` 脱离误导)+ before 空→整段 ctx。脱 widget golden 单测(空 before / 全删全增 / 中段改 / **多重复行多空行** / 行号在 del 不++、add/ctx 累进)。
+- **`code_diff.dart` 的静态 `lineDiff(before, after) → List<({DiffOp op, String text})>`**(落 `core/model`):**必须同步纯函数**。v1 = demo LCS 移植(逆向 DP + 回溯,直出顺序 ctx/add/del)+ 退化闸(按 **LCS 矩阵 cell 数 `(m+1)(n+1)>4M`**,命名 `lineDiffMaxCells`,忠实移植 demo——**G5.0 复审修订**:原研究拟用「m+n 行数闸」,实测证伪 m+n 封不住 m\*n 矩阵、平衡型 m=n=2500 漏网撑 ~50MB,见末「G5.0 实施修订」)+ before 空→整段 ctx。脱 widget golden 单测(空 before / 全删全增 / 中段改 / **多重复行多空行** / **平衡型 cell 退化** / 行号在 del 不++、add/ctx 累进)。
 - **新 i18n keys**(slang,`lib/i18n/<locale>.i18n.json`)——**复审 #19 纠正:先 grep 既有树,`action.{edit,cancel,save}` 与 `feedback.{error,success,...}` 已存在,复用之、勿重定义**:
   - **复用既有**:`action.{edit,cancel,save}` · `feedback.error`。
   - **真新增**:`action.{copy,wrap}` · `feedback.{copiedToClipboard,copyFailed}` · `editor.{line,lines,<lang 标签>}` · `tree.{expandedItem,collapsedItem,circular,moreItems}` · `diff.{added,removed,unchanged,version,largeDiff}` · `errors.{invalidJson,circularRef}`。
@@ -79,7 +79,7 @@ landed-into:
 - **JsonTree 环检测 + 行高确定性(虚拟化前提)**:构 `TreeSliverNode` 树时带 `seen` 集(`Set<identityHashCode>`)+ 深度上限,命中即出 `[Circular]` leaf 不下钻(jsonDecode 产物无环,但运行时构造的 Map 可能有环→栈溢出)。`treeRowExtentBuilder` 返回确定行高(`AnSize.row=32`)——长字符串若换行破坏定高即破虚拟化;对策:沿用 demo `MAX_VAL` 截断 + 单行 ellipsis,长值走单独 detail。
 - **JsonTree 类型分派按 Dart runtime type(复审 #21 新增)**:数据模型=jsonDecode 的 `dynamic`,类型分派按 Dart runtime type(`Map`→object / `List`→array / `String`→string / `num`→number(int/double 不分,统一 number 色)/ `bool`→boolean / `Null`→null),**非 demo 的 `typeof`**(Dart 无 typeof,照搬会错)。`§8 无须 unknown 兜底` 限定为「JSON 六型枚举封闭」;对手构 dynamic 可能传入的意外值(自定义对象)给 `toString` + 中性着色兜底,不 throw。
 - **VersionDiff 行号槽对齐(语义铁律)**:行号是**新文件侧逻辑行号**,del 行不计号(`op==del` 不 ++ln、ln 列留空),add/ctx 累进。错位即语义错。三列网格 `[trail | trail | 1fr]` baseline 对齐、行号右对齐 tabular。
-- **diff 性能悬崖 + 流式高频重算(复审 #10/#15/#24 收敛)**:① **退化闸按总行数(m+n)阈 + 字节数(~650KB 真实上界)闸**,非 demo 4M cell（Myers 无矩阵;v1 LCS 仍有矩阵但命名应 `lineDiffMaxLines` 脱离误导);② **占位用保守下界**(如 m+n>5000 行即退化整段 del+add,语义仍正确)而非 demo 已知卡顿的 4M——真机压测只「上调」非「首次发现卡顿」;③ **流式重算默认就上 debounce/coalesce**(16~50ms 合并 + microtask/compute,§7),不留「待定」;④ 重算在纯 model 层。
+- **diff 性能悬崖 + 流式高频重算(复审 #10/#15/#24 + G5.0 复审收敛)**:① **退化闸按 LCS 矩阵 cell 数 `(m+1)(n+1)>4M`**(命名 `lineDiffMaxCells`,忠实移植 demo)——**G5.0 复审修订**:原拟「m+n 行数闸」错(m+n 是不同量纲、封不住 m\*n 矩阵真实成本,平衡型 m=n=2500 双闸全过却撑 ~50MB);v1 是 LCS、确有矩阵,cell 数才是真实成本,一个度量封顶、无平衡型漏网;② cell 闸是**保守占位**——真机压测只「上调」非「首次发现卡顿」;③ **流式重算默认就上 debounce/coalesce**(16~50ms 合并 + microtask/compute,§7),不留「待定」;④ 重算在纯 model 层。
 - **JsonTree 构树峰值(复审 #15)**:TreeSliver 虚拟化解了 widget 悬崖,但构 `TreeSliverNode` 树是 upfront 全量;650KB JSON 一次 jsonDecode + 建全节点在主线程仍有 ms~数十 ms 峰值。>N 节点(如 >2000)考虑 isolate/compute 解码或分帧建树,§9 加真机峰值断言。
 - **a11y 行级 merge 语义(屏读不逐 token 念)**:① diff 行内多 span RichText,a11y 整行单语义节点(「新增行: <代码>」/「删除行: …」),视觉 token span 全 `ExcludeSemantics`。② JsonTree 行 Semantics 给「<key>: <type> <折叠态>」;**复审 #16:不假设 TreeSliver 自动透 expanded(它自绘行皮 IndentationType.none)——在 `treeNodeBuilder` 返回行根显式 `Semantics(expanded: 该 branch 是否展开)`(leaf 给 null,同 AnRow 不做虚假折叠承诺)**。③ 代码块容器播报「Code block, Python, 42 lines」而非逐行,Tab 不进代码块内逐字符。须真机 VoiceOver 验(§9)。
 - **AnScrollBehavior 仅局部、绝不 app-root**:仅 `ScrollConfiguration` 包住 JsonTree/CodeEditor-readonly 可滚区;全局装会碾压 AnPage 故意 overlay thumb → 海洋滚条消失(WRK-039 §2 明示)。
@@ -140,7 +140,7 @@ landed-into:
 
 - **(选包路线)scratch 试装核 SDK**:`flutter pub add <候选>` + `flutter analyze` 在 Dart 3.11.5 / Flutter 3.41.9 下 resolve + null-safety 通过 + 一个 Python/JSON parse 冒烟(5 年前的引擎包能否编译是真实未验风险)。
 - **TreeSliver 回归实测**(复审 #3):3.41.9 实测 ① reduced-motion 折叠不冻(#153889)② 全收起→再展开不抛(#178962)③ 子行 hitTest 命中区(点 chevron/行不偏,#167928)。
-- **diff 防卡阈值实测**:m+n 行数阈 + 字节闸真机压测定(扩 catalog-stress 海量增删到 2000 行级);占位用保守下界(>5000 行退化),真机只上调。流式 `:iterate` 逐 chunk debounce 窗口真机调参。
+- **diff 防卡阈值实测**:`lineDiffMaxCells`((m+1)(n+1) cell 闸,占位 4M)真机压测定(扩 catalog-stress 海量增删到 2000 行级);保守占位、真机只上调。流式 `:iterate` 逐 chunk debounce 窗口真机调参。
 - **JsonTree 构树峰值**(复审 #15):650KB / >2000 节点 jsonDecode + 建树主线程峰值断言(是否需 isolate/compute)+ 展开/折叠流畅无冻 — Impeller 截图验。
 - **CodeEditor 编辑态叠层 Impeller 实测**(复审 #6 具体化):透明文字层 caret 是否对齐高亮字形、选区高亮是否错位、tab 插入后光标位、长文本(5000 行)滚动同步是否抖、IME(中文)candidate 框定位 — MacBook M3+ 逐项截图+录屏,勿 headless 声称完成。
 - **VersionDiff 双色对比**(各语言 py/js/cel light+dark 着色清晰、绿底绿字不相融)— Impeller 截图验。
@@ -151,7 +151,7 @@ landed-into:
 
 - **字体/排版(两面)**:代码面/行号/+N−N/range 走 `AnText.mono`(JetBrains Mono 13px/1.5/tabular);UI 文字(顶栏语言标签/note/说明)走 `AnText.meta`(MiSans)——**勿顶栏全 mono 化**(复审 #20)。tab 宽=4 空格;ligature 保留。行号列与代码区**同 TextStyle 引用**(§4)。
 - **着色单源**:`SyntaxColors` ThemeExtension(cd-* 5+arg,双 brightness)登 colors.dart,三件共用、禁内联 Color 字面量。`highlight()` 是唯一 tokenizer 入口(CEL 走封装层内部最小正则分派,仍唯一入口)。
-- **性能上限**:JSON 走 TreeSliver 虚拟化 + 构树峰值看护(>2000 节点考虑 isolate)· 代码 >5000 行考虑虚拟化/截断 · diff 退化闸按 m+n 行数 + 字节(非 4M cell)+ 流式默认 debounce。重算在纯 model 层。
+- **性能上限**:JSON 走 TreeSliver 虚拟化 + 构树峰值看护(>2000 节点考虑 isolate)· 代码 >5000 行考虑虚拟化/截断 · diff 退化闸按 LCS 矩阵 cell 数 `(m+1)(n+1)>4M`(`lineDiffMaxCells`,G5.0 复审修订)+ 流式默认 debounce。重算在纯 model 层。
 - **a11y**:容器 `Semantics(label: 语言+行数)`;diff 行/树行 merge 语义(token span ExcludeSemantics)、播报折叠态/增删/行号(TreeSliver 行须**显式** `Semantics(expanded:)`,不假设自动透);桌面手搓复制钮;Tab 不进代码块内逐字符。逐件 dedicated a11y 测试(非 matrix 轴)+ 真机 VoiceOver。
 - **reduced-motion**:三件本身无功能动效;装饰性动(JSON 树 chevron rotate / TreeSliver 折叠)→ **`AnimationStyle.noAnimation`(禁 Duration.zero,#153889)** + `AnMotionPref.reducedOrAssistive` 闸。gallery_matrix reduced 轴断言无动画(否则 pumpAndSettle 超时)。
 - **滚动条两诉求拆清**:CodeEditor 可读=RawScrollbar(overlay 按需);JsonTree/CodeEditor-readonly=AnScrollBehavior 局部彻底隐;VersionDiff=纵滚 + 横滚(超长行 pre 不 wrap、代码列 horizontal SingleChildScrollView、行号/符号列固定,两滚向勿混进一个 viewport)。**AnScrollBehavior 绝不 app-root**(§4)。
@@ -218,5 +218,14 @@ landed-into:
 **决策 5 — 行级 diff 算法**(复审证伪:草案锁的 `diffutil_dart`「~20 行薄投影」被严重低估——`getUpdates()` index-based + Move/Change + 批序,折成顺序 unified 网格非平凡)
 - **A**(推荐)移植 demo LCS 成同步 `lineDiff(before,after)→List<(DiffOp,String)>`:逆向 DP + 回溯直出顺序 ctx/add/del、~10 行、demo 已跑通、零包、零投影层、正合 unified 网格。
 - **B** 引 `diffutil_dart`(Myers O(ND) 内存优于 LCS O(mn))+ 自写顺序重投影层(`detectMoves:false` 禁 Move、Change 拆 del+add、index 漂移双指针重排,远超 20 行)+ 边界单测。
-- **理由**:line-level LCS 是教科书确定性算法、非窗口 chrome/红绿灯那类几何边界 footgun(原则 #8「手搓跌跟头」针对平台/几何边界、非纯算法);demo LCS 本就直出 unified 要的形状。退化闸按总行数(m+n)+ 字节(~650KB)、命名 `lineDiffMaxLines`。B 留作真机压测证 LCS 在 2000 行级卡顿后的升级路径(保留同一出参契约)。
+- **理由**:line-level LCS 是教科书确定性算法、非窗口 chrome/红绿灯那类几何边界 footgun(原则 #8「手搓跌跟头」针对平台/几何边界、非纯算法);demo LCS 本就直出 unified 要的形状。退化闸按 LCS 矩阵 cell 数 `(m+1)(n+1)>4M`(命名 `lineDiffMaxCells`,忠实移植 demo;**G5.0 复审修订**:原拟 m+n 行数闸被实测证伪——见末「G5.0 实施修订」)。B 留作真机压测证 LCS 在 2000 行级卡顿后的升级路径(保留同一出参契约)。
+
+## G5.0 实施修订(2026-06-24,逐件落地随建随记)
+
+> 建造按 §6 顺序逐件落,每件「主控写 → analyze/test/截图 → 对抗复审 → 折入 → 提交」。各件落地后此处记实测偏离调研之处(WRK 是过程记录;最终随件 landed 进 design-system.md)。
+
+**G5.0 地基 — 已落(`SyntaxColors` / `AnSize.trail` / `AnText.code` / `highlightCode` / `lineDiff`,+29 单测,fe-verify 绿)**:
+- **退化闸:`m+n` 行数闸 → `(m+1)(n+1)>4M` cell 闸(忠实移植 demo)**。G5.0 对抗复审(LCS 镜)证伪原研究的 m+n 决策:m+n 与 m\*n 不同量纲、**封不住** DP 矩阵真实成本——平衡型 `m=n=2500` 仅 5000 行却双闸全过、撑 ~6.25M cell≈50MB,比 demo 的 4M cell 闸**更激进**(放行了 demo 会退化的 case),且与「保守占位 / #8 忠实移植」自相矛盾。改回 demo 的乘积闸 `lineDiffMaxCells=4_000_000`,一个度量直接封顶真实成本、无平衡型漏网;原 `lineDiffMaxTotalBytes` 字节闸(String.length 是 UTF-16 code unit 非字节、命名误导且 cell 闸已封顶真实成本)一并删除。回归测试 `code_diff_test`「BALANCED diff trips the cell cap」锁住。研究当初的 m+n 论证误把「Myers 无矩阵」套到 v1 的 LCS 上(LCS 确有矩阵)。
+- **`highlightCode` 唯一入口 + CEL 天然覆盖**:demo 单正则 tokenizer 语言无关,CEL 插值 `{{}}`/`${}` 经 arg 组天然上色——决策 4「封装层内 CEL 上色」由统一 tokenizer 直接满足,无须额外 cel 分支(`lang` 参仅为 API/标签稳定)。`_followedByParen` 只认 ASCII 空白(有意窄于 JS `\s`、避 per-identifier substring 的 O(n²);代码前 Unicode 空白不存于真实源码),复审记为可接受偏离。
+- **`SyntaxColors` = 独立 ThemeExtension**(非塞进 AnColors):语法子板自成一概念、不胀 280 行的 AnColors;`arg` 按值镜像 `AnColors.accent`(`single-source` 妥协,测试锁不变式)。`AnText.code` = mono 12/1.6(demo `--t-meta`/`--lh-prose`,区别于 13/1.5 的内联 `mono`)。`AnSize.trail=36`(demo 20px 在 mono 仅容 ~2 位数,升为容 4 位数的下界)。
 

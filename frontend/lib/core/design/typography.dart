@@ -57,6 +57,16 @@ abstract final class AnText {
     fontSize: 13, height: 1.5, fontWeight: FontWeight.w400,
   );
 
+  /// The CODE-SURFACE style (G5) — mono at meta size (12px) with a roomier prose line-height (demo
+  /// --t-meta / --lh-prose=1.6). The SINGLE style shared by AnCodeEditor's gutter + code area and
+  /// AnVersionDiff's rows so line numbers stay row-aligned with code (WRK-040 §4). Distinct from
+  /// [mono] (13/1.5, inline ids) — code blocks want the tighter size + looser leading.
+  /// 代码面样式:mono · 12px(meta)· 行高 1.6(prose);行号列与代码区共用之保对齐。区别于 mono(13/1.5 内联 id)。
+  static const TextStyle code = TextStyle(
+    fontFamily: monoFamily, fontFamilyFallback: monoFallback,
+    fontSize: 12, height: 1.6, fontWeight: FontWeight.w400,
+  );
+
   /// The value-column base style — the single source for the "值列 tabular 铁律": tabular figures
   /// UNCONDITIONALLY so digit columns align AND the idle↔editing toggle never changes width; [mono] only
   /// switches the family (ids / hashes). Shared by AnKv / AnField / AnEditableValue / AnInput so a retune
