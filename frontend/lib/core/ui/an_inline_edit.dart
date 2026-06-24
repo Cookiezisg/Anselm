@@ -31,6 +31,8 @@ class AnInlineEdit extends StatefulWidget {
     required this.onCommit,
     this.enabled = true,
     this.startEditing = false,
+    this.style,
+    this.minHeight = AnSize.control,
     super.key,
   });
 
@@ -40,6 +42,14 @@ class AnInlineEdit extends StatefulWidget {
 
   /// Open directly in edit mode (e.g. a freshly created entity awaiting its first name). 直接进编辑态。
   final bool startEditing;
+
+  /// Text style for BOTH the idle title and the editing field (so toggling never changes face/size) —
+  /// e.g. an H2 title rename in AnOceanHeader. Defaults to [AnText.body]. The colour is always ink.
+  /// idle 与编辑共用的文字样式(切换不改面/号),如 AnOceanHeader 的 H2 标题改名;默认 body,色恒 ink。
+  final TextStyle? style;
+
+  /// Row height — raise it for a tall [style] (e.g. [AnSize.islandHead] for an H2 title). 行高(高样式时调大)。
+  final double minHeight;
 
   @override
   State<AnInlineEdit> createState() => _AnInlineEditState();
@@ -100,7 +110,7 @@ class _AnInlineEditState extends State<AnInlineEdit> {
   Widget build(BuildContext context) {
     final c = context.colors;
     return SizedBox(
-      height: AnSize.control, // fixed footprint — idle & editing share it, no jump 定高,静态/编辑共用、不跳
+      height: widget.minHeight, // fixed footprint — idle & editing share it, no jump 定高,静态/编辑共用、不跳
       child: Row(
         children: [
           // Flexible (not Expanded): content-sized until the affordance needs room — then the field
@@ -110,13 +120,13 @@ class _AnInlineEditState extends State<AnInlineEdit> {
             // shouldn't silently commit; value-edit (AnEditableValue) opts into blur-commit instead.
             // 重命名只 Enter/✓/Esc(不失焦提交,点别处不该静默改名);改值件 AnEditableValue 才用失焦提交。
             child: _editing
-                ? AnSeamlessField(controller: _ctl, onCommit: _commit, onAbort: _abort)
+                ? AnSeamlessField(controller: _ctl, style: widget.style, onCommit: _commit, onAbort: _abort)
                 : Text(
                     _committed,
                     maxLines: 1,
                     softWrap: false,
                     overflow: TextOverflow.ellipsis,
-                    style: AnText.body.copyWith(color: c.ink),
+                    style: (widget.style ?? AnText.body).copyWith(color: c.ink),
                   ),
           ),
           const SizedBox(width: AnSpace.s8), // one gap, BOTH states — an unequal gap would twitch on toggle 同一间距、避免切换横抖

@@ -28,6 +28,7 @@ class AnInput extends StatefulWidget {
     this.autofocus = false,
     this.onTapOutside,
     this.tabular = false,
+    this.style,
     super.key,
   });
 
@@ -59,6 +60,10 @@ class AnInput extends StatefulWidget {
   /// Tabular figures (mono already implies it) — for value fields whose idle display is tabular, so
   /// the idle ↔ editing digits stay same-width. 等宽数字(mono 已含);值字段 idle↔editing 数字同宽。
   final bool tabular;
+
+  /// Text-style override (e.g. an H2 inline-rename field that must match a big title) — defaults to the
+  /// value-column / body style. The colour is still applied per readOnly/enabled. 文字样式覆写(默认值列/正文样式)。
+  final TextStyle? style;
 
   @override
   State<AnInput> createState() => _AnInputState();
@@ -122,9 +127,8 @@ class _AnInputState extends State<AnInput> {
     final c = context.colors;
     // Tabular figures when mono OR [tabular] (原语 D): digits align + match a tabular display value
     // digit-for-digit (idle ↔ editing same width) — via the shared value-column style. 等宽数字(走值列样式单源)。
-    final base = widget.mono
-        ? AnText.value(mono: true)
-        : (widget.tabular ? AnText.value() : AnText.body);
+    final base = widget.style ??
+        (widget.mono ? AnText.value(mono: true) : (widget.tabular ? AnText.value() : AnText.body));
     final style = base.copyWith(color: widget.readOnly ? c.inkFaint : c.ink);
     final borderColor = _focused ? c.lineStrong : c.line;
 

@@ -1,5 +1,6 @@
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/design/tokens.dart';
+import 'package:anselm/core/design/typography.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
@@ -18,6 +19,21 @@ void main() {
           home: Scaffold(body: Center(child: SizedBox(width: width, child: child))),
         ),
       );
+
+  testWidgets('style + minHeight parameterize the row (H2 title rename, no font jump on toggle)', (tester) async {
+    final style = AnText.h2.weight(FontWeight.w600);
+    await tester.pumpWidget(host(AnInlineEdit(value: 'Big Title', style: style, minHeight: AnSize.islandHead, onCommit: (_) {})));
+    // idle Text uses the H2 style (not body). idle 走 H2 而非 body。
+    final idle = tester.widget<Text>(find.text('Big Title'));
+    expect(idle.style?.fontSize, AnText.h2.fontSize);
+    // the row is the taller given height. 行高 = 给定的高。
+    expect(tester.getSize(find.byType(AnInlineEdit)).height, AnSize.islandHead);
+    // entering edit keeps the same font size (the field uses the same style). 编辑态字号不变。
+    await tester.tap(find.byType(AnButton));
+    await tester.pumpAndSettle();
+    expect(find.byType(AnInput), findsOneWidget);
+    expect(tester.getSize(find.byType(AnInlineEdit)).height, AnSize.islandHead);
+  });
 
   testWidgets('idle shows the value; tapping the pencil enters edit', (tester) async {
     await tester.pumpWidget(host(AnInlineEdit(value: 'Hello', onCommit: (_) {})));

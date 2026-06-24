@@ -29,6 +29,7 @@ class AnSeamlessField extends StatelessWidget {
     this.autofocus = true,
     this.mono = false,
     this.tabular = false,
+    this.style,
     super.key,
   });
 
@@ -44,6 +45,9 @@ class AnSeamlessField extends StatelessWidget {
 
   /// Tabular figures (mono already implies it) — match a tabular display value. 等宽数字(匹配 tabular 展示值)。
   final bool tabular;
+
+  /// Text-style override to match the display text it replaces (e.g. an H2 title). 文字样式覆写(匹配被替换文字)。
+  final TextStyle? style;
 
   @override
   Widget build(BuildContext context) {
@@ -61,6 +65,7 @@ class AnSeamlessField extends StatelessWidget {
               autofocus: autofocus,
               mono: mono,
               tabular: tabular,
+              style: style,
               onSubmitted: (_) => onCommit(),
               onTapOutside: onTapOutside,
             ),
