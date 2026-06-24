@@ -25,6 +25,7 @@ export 'an_popover.dart';
 export 'an_ref_pill.dart';
 export 'an_row.dart';
 export 'an_row_detail.dart';
+export 'an_scroll_behavior.dart';
 export 'an_seamless_field.dart';
 export 'an_section.dart';
 export 'an_shell.dart';

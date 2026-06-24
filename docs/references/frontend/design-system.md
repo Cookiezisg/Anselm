@@ -56,7 +56,7 @@ audience: [human, ai]
 | G2 反馈态 | Callout · State · Stepper · Skeleton · Typewriter · Tags（+ **DryIntrinsicWidth** 共享原语） | ✅ 已落 |
 | G3 行与卡 | Row · RowDetail · Card · InfoCard · Section · Field · Kv · ThinTable · RefPill（+ AnTwoZone 右锚两区 · AnLeadValue 动态键值行 · AnAutoGrid 响应式块网格 · AnEditableValue 双锚编辑核 · AnSeamlessField 编辑字段叶子 共享原语） | ✅ 已落（9 件 + 5 原语,G3.1–G3.10 + 对齐修订） |
 | G5 代码与数据 | CodeEditor · JsonTree · VersionDiff | ⏳ |
-| G4 导航与壳 | Tabs · Toolbar · OceanHeader · RightIsland · SidebarList · Page · WireList | ⏳ |
+| G4 导航与壳 | Toolbar · Inspector(右岛壳) · Page · Menu · Tabs · SidebarList · OceanHeader · Shell 扩展（+ **AnScrollBehavior** 局部隐滚动条 · **AnMenu** on AnPopover 共享原语；建造规范 [`WRK-039`](../../working/g4-nav-shell/README.md)；AnWireList 推迟到 graph-editor 批） | 🚧 建造中（G4.0 地基起） |
 | G6 浮层 | Menu · Dialog · Toast（复用 G1 的 **AnPopover** 基座） | ⏳ |
 
 **G1 要点**:Button/Dropdown/EditAffordance 等可交互件都搭在 `AnInteractive` 上(态/激活/禁用一致);`AnInput` 用 `TextField`,**需 Material 祖先**(app 壳与 gallery 都提供)。`AnDropdown` 未做"桩"——已用 **AnPopover**(Flutter `OverlayPortal` + `CompositedTransformFollower`,点外/Esc 关)落地真菜单;此基座原计划在 G6,因 G3 的 Field/Kv 也需提早到 G1(G6 的 Menu/Dialog/Toast 复用它)。`AnTone→色`映射在 `core/ui/tone.dart`。`block`/`full`(占满宽)需有界父——无界父下优雅退化(不崩),见各件 LayoutBuilder。**AnDropdown 两区**(**`AnTwoZone`**,触发器与菜单行共用;G3.1 已从 private `_TwoZone` 升格为 `core/ui/an_two_zone.dart` 公共共享原语——G3 的 Section·InfoCard head·Row 尾槽都复用此骨架、不再各搓 Row+Spacer,原则 #8;**AnKv/AnField/AnEditableValue 不用它、改用 `AnLeadValue`**:键值行要 value 能缩 + 吃尽余量贴右(动态),而 AnTwoZone 的 trailing 是内容宽、不缩,几何不同):label 占满左 + meta 上限右(≤45%)+ trailing(任意 Widget,如箭头/勾/动作)钉右,两者各自省略。**菜单宽 = 触发器宽夹 `[menuMin 200, menuMax 360]`**(紧凑 ghost 触发器也容富行、不溢出);开/关有 **fade + 自顶微缩放**动效(`AnPopover`,`AnMotion.fast`)。**`AnPopover` 的 `AnimationController` 在 initState 急切创建**(非懒 `late final =`,否则没开过的浮层在 dispose 才首次访问→崩)。
@@ -78,6 +78,8 @@ audience: [human, ai]
 **G6 AnFloating 待补**(对抗复审记录的两项浮层短板,提前到 G6 generalize AnPopover 时处理):① 浮层不做视口避让——触发器贴右边缘 + 窄窗时菜单可能溢出屏幕右沿(需 flip/avoid-viewport);② 首帧 `LayerLink.leaderSize` 为 null → 宽触发器(块级)菜单宽度有一帧跳变(需预量锚宽)。
 
 **推迟到各自 feature**(耦合 SSE/reducer/图模型,非套件):Chat 的 BlockTree/Composer/ApprovalGate/EntityWorkspace · 图的 GraphCanvas/KindLegend · 调度的 NodeGantt/RunBoard · 文档的 DocEditor/Outline。
+
+**G4 导航与壳要点**(建造规范见 [`WRK-039`](../../working/g4-nav-shell/README.md),逐件随提交填本段):**G4.0 地基**——`AnSize.tab`=34(文字下划线 tab 高,**有意比 row 高 1u**,demo `--tab-h`)· **`AnScrollBehavior`**(`core/ui`,`ScrollBehavior` 子类 override `buildScrollbar`→child 隐滚动条 + `dragDevices` 开鼠标/触控板拖滚;**仅局部** `ScrollConfiguration` 包住要隐滚动条的可滚区,绝不 app-root——否则碾压 AnPage 的 RawScrollbar)· `GallerySpecimen.height` 字段(滚动宿主件 AnPage/AnTabs/AnInspector/AnSidebarList 根部高贪婪,matrix host 仅约束宽=无界高崩,故给定高;matrix host + gallery 渲染器同步消费)。
 
 ## 5. 验收（套件每组 + 整体）
 

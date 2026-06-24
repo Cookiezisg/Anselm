@@ -62,8 +62,10 @@ Widget _host(GallerySpecimen s, {bool reduced = false}) {
       theme: AnTheme.light(),
       home: Scaffold(
         body: Center(
+          // height: s.height bounds the cell for scroll-hosting components (else unbounded-height crash). 有界高。
           child: SizedBox(
             width: width,
+            height: s.height,
             child: Align(
               alignment: Alignment.centerLeft,
               // Override disableAnimations BELOW MaterialApp's own MediaQuery so AnMotionPref sees it.

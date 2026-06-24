@@ -42,6 +42,7 @@ abstract final class AnSize {
   static const double row = 32; // standard row height (the one) 标准行高(唯一)
   static const double control = 28;
   static const double controlSm = 24;
+  static const double tab = 34; // AnTabs text-underline tab height — INTENTIONALLY 1u taller than row, a bespoke nav metric (demo --tab-h) 文字下划线 tab 高(有意比 row 高 1u)
   static const double icon = 16;
   static const double iconSm = 12;
   static const double iconLg = 20;

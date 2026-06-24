@@ -220,12 +220,12 @@ class _GalleryAppState extends State<GalleryApp> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // A maxWidth-constrained specimen renders narrow so long content actually truncates.
-          // 受限宽的 specimen 窄渲染,逼出截断。
+          // A maxWidth-constrained specimen renders narrow so long content actually truncates; a
+          // height-bounded specimen gives scroll-hosting components a viewport. 受限宽逼截断;有界高给滚动宿主视口。
           Align(
             alignment: Alignment.centerLeft,
-            child: s.maxWidth != null
-                ? SizedBox(width: s.maxWidth, child: Builder(builder: s.builder))
+            child: (s.maxWidth != null || s.height != null)
+                ? SizedBox(width: s.maxWidth, height: s.height, child: Builder(builder: s.builder))
                 : Builder(builder: s.builder),
           ),
           const SizedBox(height: AnSpace.s12),

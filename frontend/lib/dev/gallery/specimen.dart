@@ -9,7 +9,7 @@ import 'package:flutter/widgets.dart';
 /// 渲染器哑。stress 标压力床 specimen(空/超长/海量/极值/注入),抓 happy-path 漏的溢出/转义回归。
 @immutable
 class GallerySpecimen {
-  const GallerySpecimen(this.label, this.builder, {this.span = false, this.stress = false, this.maxWidth});
+  const GallerySpecimen(this.label, this.builder, {this.span = false, this.stress = false, this.maxWidth, this.height});
 
   final String label;
   final WidgetBuilder builder;
@@ -23,6 +23,12 @@ class GallerySpecimen {
   /// Force a NARROW render width so long content actually hits truncation (a stress specimen that
   /// never overflows the cell proves nothing). null = the normal cell. 强制窄宽,逼出截断(否则压测白做)。
   final double? maxWidth;
+
+  /// Force a BOUNDED render height. Scroll-hosting components (AnPage / AnTabs / AnInspector /
+  /// AnSidebarList) are height-greedy (Expanded / ListView / SingleChildScrollView at the root) and would
+  /// throw "unbounded height" in the matrix host (which bounds only width). null = intrinsic height.
+  /// 强制有界高:滚动宿主件根部高贪婪,无界高 host 下会崩,故须给定高。null=按内容高。
+  final double? height;
 }
 
 @immutable
