@@ -113,6 +113,9 @@ class _AnMenuState extends State<AnMenu> {
 
   Widget _menu(BuildContext context) {
     final c = context.colors;
+    // Seed focus on the first non-disabled item so opening lands on item 0 (a descendant autofocus
+    // wins over the overlay's FocusScope) — native menu behaviour, arrow keys engage immediately. 首项自动聚焦。
+    final firstFocusable = widget.entries.indexWhere((e) => e is AnMenuItem && !e.disabled);
     return ConstrainedBox(
       constraints: const BoxConstraints(
         minWidth: AnSize.menuMinWidth,
@@ -134,7 +137,10 @@ class _AnMenuState extends State<AnMenu> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisSize: MainAxisSize.min,
-                children: [for (final e in widget.entries) _entry(context, e)],
+                children: [
+                for (var i = 0; i < widget.entries.length; i++)
+                  _entry(context, widget.entries[i], autofocus: i == firstFocusable),
+              ],
               ),
             ),
           ),
@@ -143,7 +149,7 @@ class _AnMenuState extends State<AnMenu> {
     );
   }
 
-  Widget _entry(BuildContext context, AnMenuEntry e) {
+  Widget _entry(BuildContext context, AnMenuEntry e, {bool autofocus = false}) {
     final c = context.colors;
     if (e is AnMenuSection) {
       return Padding(
@@ -153,8 +159,10 @@ class _AnMenuState extends State<AnMenu> {
       );
     }
     final item = e as AnMenuItem;
+    final reduced = AnMotionPref.reduced(context);
     return AnInteractive(
       enabled: !item.disabled,
+      autofocus: autofocus,
       onTap: () {
         item.onTap?.call();
         if (!item.keepOpen) _popover.close();
@@ -162,15 +170,15 @@ class _AnMenuState extends State<AnMenu> {
       builder: (context, states) {
         final active = states.isActive;
         final fg = item.danger ? c.danger : (active ? c.ink : c.inkMuted);
-        final bg = item.danger
-            ? (active ? c.dangerSoft : const Color(0x00000000))
-            : c.surfaceHover.whenActive(active);
+        // Both branches route through the alpha-0 .whenActive idiom (no inline Color literal; the
+        // resting fill fades from a same-hue alpha-0, avoiding Color.lerp's dark midpoint). 静止底走 alpha-0 单源。
+        final bg = item.danger ? c.dangerSoft.whenActive(active) : c.surfaceHover.whenActive(active);
         // lead = icon, else the check when [checked] (selection lives in the lead, not trailing). 前导=图标或勾。
         final IconData? lead = item.icon ?? (item.checked ? AnIcons.check : null);
         return Opacity(
           opacity: item.disabled ? AnOpacity.disabled : 1,
           child: AnimatedContainer(
-            duration: AnMotion.fast,
+            duration: reduced ? Duration.zero : AnMotion.fast, // hover tint = functional micro-feedback 功能性微反馈
             height: AnSize.row,
             padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8),
             decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(AnRadius.button)),
@@ -189,7 +197,7 @@ class _AnMenuState extends State<AnMenu> {
                   Text(item.meta!,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: AnText.meta.copyWith(color: c.inkFaint, fontFeatures: const [FontFeature.tabularFigures()])),
+                      style: AnText.metaTabular().copyWith(color: c.inkFaint)),
                 ],
               ],
             ),

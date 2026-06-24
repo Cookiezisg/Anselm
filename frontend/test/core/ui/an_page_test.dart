@@ -1,6 +1,7 @@
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/ui/ui.dart';
+import 'package:flutter/foundation.dart' show debugDefaultTargetPlatformOverride;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -33,5 +34,26 @@ void main() {
     final width = tester.getSize(find.byKey(const Key('content'))).width;
     expect(width, lessThanOrEqualTo(AnSize.content + 0.5), reason: 'content clamped to the 720 max-width');
     expect(width, lessThan(900), reason: 'clamped, not the full ocean width (centered)');
+  });
+
+  testWidgets('on a desktop target only AnPage\'s RawScrollbar paints (no inherited Material Scrollbar)',
+      (tester) async {
+    // MaterialScrollBehavior wraps every desktop vertical scrollable in a Scrollbar; AnPage installs a
+    // ScrollConfiguration(AnScrollBehavior) so only its OWN overlay RawScrollbar shows (no double thumb).
+    // Reset the override in finally (a foundation debug var must be unset before the test's invariant check).
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    try {
+      await tester.pumpWidget(host(AnPage(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [for (var i = 0; i < 12; i++) const SizedBox(height: 80, child: Text('row'))],
+        ),
+      )));
+      await tester.pump();
+      expect(find.byType(Scrollbar), findsNothing, reason: 'inherited Material Scrollbar suppressed');
+      expect(find.byType(RawScrollbar), findsOneWidget, reason: 'only AnPage\'s deliberate overlay bar');
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
   });
 }

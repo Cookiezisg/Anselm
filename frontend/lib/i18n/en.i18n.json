@@ -38,6 +38,7 @@
     "approval": "Approval"
   },
   "a11y": {
-    "editingField": "Editing $field"
+    "editingField": "Editing $field",
+    "displayOptions": "Display options"
   }
 }

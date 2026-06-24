@@ -200,7 +200,7 @@ class AnRow extends StatelessWidget {
   Widget _trail(AnColors c, bool active) {
     final metaWidget = _hasMeta
         ? Text(meta!, maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.right,
-            style: AnText.meta.copyWith(color: c.inkFaint, fontFeatures: const [FontFeature.tabularFigures()]))
+            style: AnText.metaTabular().copyWith(color: c.inkFaint))
         : null;
     if (actions.isEmpty) return metaWidget ?? const SizedBox.shrink();
     // meta ↔ actions at the same right anchor; actions revealed on hover (opacity cross-fade, no reflow).

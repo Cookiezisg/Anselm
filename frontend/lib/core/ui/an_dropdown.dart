@@ -132,7 +132,7 @@ class _AnDropdownState<T> extends State<AnDropdown<T>> {
       child: Icon(AnIcons.chevronDown, size: AnSize.iconSm, color: c.inkFaint),
     );
 
-    final metaStyle = AnText.meta.copyWith(color: c.inkFaint, fontFeatures: const [FontFeature.tabularFigures()]);
+    final metaStyle = AnText.metaTabular().copyWith(color: c.inkFaint);
 
     // Ghost = compact, content-hugging (settings-style) — label + caret, intrinsic. Ghost 紧凑贴合内容。
     if (ghost) {

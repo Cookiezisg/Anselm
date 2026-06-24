@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../i18n/strings.g.dart';
 import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
@@ -14,10 +15,12 @@ import 'icons.dart';
 
 /// C5 — the left-rail sidebar list: a New row + an in-domain filter (with a sliders menu) + a recursive
 /// groups → types → rows tree. The New / filter heads share the same lead column as the entity rows so the
-/// `+` / search glyph aligns with the row icons. Built on [AnRow] (entity rows + collapsible type heads),
-/// [AnInput] (seamless filter), [AnMenu] (sliders), with the pure [SidebarModel] filter driving hide +
-/// ancestor-reveal. Selection is controlled ([selectedId] + [onSelect]); fold state is internal (all open
-/// by default). The keyboard expand/collapse for the tree rides here (the consumer of AnRow.expanded).
+/// `+` / search glyph aligns with the row icons. Built on [AnRow] (the New row + collapsible type heads +
+/// entity rows all ride it — only the chat-style collapsible GROUP head is bespoke, its right-anchored
+/// chevron disclosure diverging from AnRow's lead chevron), [AnInput] (seamless filter), [AnMenu] (sliders),
+/// with the pure [SidebarModel] filter driving hide + ancestor-reveal. Selection is controlled ([selectedId]
+/// + [onSelect]); fold state is internal (all open by default). The keyboard expand/collapse for the tree
+/// rides here (the consumer of AnRow.expanded).
 ///
 /// C5——左岛侧栏:New 行 + 域内过滤(带 sliders 菜单)+ 递归 groups→types→rows 树。New/过滤头与实体行共用行首列,故
 /// +/🔍 与行图标对齐。搭 AnRow(实体行 + 可折叠类型头)+ AnInput(seamless 过滤)+ AnMenu(sliders),纯 SidebarModel
@@ -81,7 +84,7 @@ class _AnSidebarListState extends State<AnSidebarList> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (widget.showNew) _newRow(c),
+        if (widget.showNew) _newRow(),
         _filterRow(c),
         Expanded(
           child: ScrollConfiguration(
@@ -100,27 +103,10 @@ class _AnSidebarListState extends State<AnSidebarList> {
     );
   }
 
-  // New: a full-width left-aligned button row (lead = +). New 行(整行左对齐按钮)。
-  Widget _newRow(AnColors c) {
-    return AnInteractive(
-      onTap: widget.onNew,
-      builder: (context, states) => Container(
-        height: AnSize.row,
-        padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8),
-        decoration: BoxDecoration(color: c.surfaceHover.whenActive(states.isActive), borderRadius: BorderRadius.circular(AnRadius.button)),
-        child: Row(
-          children: [
-            Icon(AnIcons.plus, size: AnSize.icon, color: c.inkFaint),
-            const SizedBox(width: AnSpace.s8),
-            Expanded(
-              child: Text(widget.model.newLabel,
-                  maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.body.copyWith(color: c.inkMuted)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  // New: rides AnRow (lead = +, label) so it shares the entity rows' geometry / hover / radius — no
+  // bespoke row scaffolding (the only hand-rolled row left is the chat-style collapsible group head,
+  // whose right-anchored chevron disclosure genuinely diverges from AnRow's lead chevron). New 行复用 AnRow。
+  Widget _newRow() => AnRow(icon: AnIcons.plus, label: widget.model.newLabel, onSelect: widget.onNew);
 
   // Filter: lead = search, an inline seamless input, a trailing sliders menu. 过滤行。
   Widget _filterRow(AnColors c) {
@@ -146,7 +132,7 @@ class _AnSidebarListState extends State<AnSidebarList> {
             AnMenu(
               entries: widget.menuEntries,
               anchorBuilder: (context, toggle, isOpen) =>
-                  AnButton.iconOnly(AnIcons.sliders, size: AnButtonSize.sm, semanticLabel: 'Display options', onPressed: toggle),
+                  AnButton.iconOnly(AnIcons.sliders, size: AnButtonSize.sm, semanticLabel: context.t.a11y.displayOptions, onPressed: toggle),
             ),
         ],
       ),

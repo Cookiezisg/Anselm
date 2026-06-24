@@ -28,6 +28,13 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('head title is a header node (screen-reader heading navigation)', (tester) async {
+    final handle = tester.ensureSemantics();
+    await tester.pumpWidget(host(const AnInspector(title: 'normalize-input')));
+    expect(tester.getSemantics(find.text('normalize-input')).flagsCollection.isHeader, isTrue);
+    handle.dispose();
+  });
+
   testWidgets('headless omits the head + fills with the child', (tester) async {
     await tester.pumpWidget(host(const AnInspector(
       headless: true,

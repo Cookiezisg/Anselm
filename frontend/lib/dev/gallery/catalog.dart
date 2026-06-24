@@ -707,7 +707,7 @@ class _TabsDemoState extends State<_TabsDemo> {
   }
 
   @override
-  Widget build(BuildContext context) => AnTabs(items: _items, value: _v, onPick: (k) => setState(() => _v = k));
+  Widget build(BuildContext context) => AnTabs(items: _items, value: _v, onSelect: (k) => setState(() => _v = k));
 }
 
 // AnSidebarList demo (stateful: holds selection + slider checks). AnSidebarList 演示(持选中 + 滑块勾选)。

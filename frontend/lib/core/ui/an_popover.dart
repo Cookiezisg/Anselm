@@ -57,6 +57,12 @@ class _AnPopoverState extends State<AnPopover> with SingleTickerProviderStateMix
   final LayerLink _link = LayerLink();
   final OverlayPortalController _portal = OverlayPortalController();
 
+  // Who held focus when the overlay opened — handed back on close. The overlay's FocusScope seizes
+  // focus, and a bare scope (unlike a Navigator route) won't auto-restore it, so a keyboard / screen-
+  // reader user would be dropped to the document root on pick / Esc / outside-tap (WCAG 2.4.3).
+  // 开前焦点持有者,关时归还:浮层 FocusScope 夺焦、裸 scope 不像路由自动恢复,否则键盘/屏读落到 root。
+  FocusNode? _restoreFocus;
+
   // Open/close transition — fade + a small scale-from-top (the standard dropdown reveal). Created
   // EAGERLY in initState (NOT a lazy `late final =`): an unopened popover would otherwise first
   // touch _anim in dispose() → build a controller mid-teardown → crash.
@@ -84,12 +90,21 @@ class _AnPopoverState extends State<AnPopover> with SingleTickerProviderStateMix
 
   void _sync() {
     if (widget.controller.isOpen) {
-      if (!_portal.isShowing) _portal.show();
+      if (!_portal.isShowing) {
+        _restoreFocus = FocusManager.instance.primaryFocus; // remember the trigger before the scope seizes focus 记开前焦点
+        _portal.show();
+      }
       _anim.forward();
     } else if (_portal.isShowing) {
-      // Animate out, then remove the overlay (unless reopened mid-reverse). 反向播完再撤浮层。
+      // Animate out, then remove the overlay (unless reopened mid-reverse) and hand focus back to the
+      // trigger (if it's still mounted) so traversal / SR position survives the close. 反向播完撤浮层 + 归还焦点。
       _anim.reverse().whenComplete(() {
-        if (!widget.controller.isOpen && _portal.isShowing) _portal.hide();
+        if (!widget.controller.isOpen && _portal.isShowing) {
+          _portal.hide();
+          final restore = _restoreFocus;
+          _restoreFocus = null;
+          if (restore != null && restore.context != null) restore.requestFocus();
+        }
       });
     }
   }

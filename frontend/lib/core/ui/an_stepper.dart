@@ -138,8 +138,7 @@ class AnStepper extends StatelessWidget {
         child: done
             ? Icon(AnIcons.check, size: AnSize.iconSm, color: c.onAccent)
             : Text('$i',
-                style: AnText.meta.copyWith(
-                    color: upcoming ? c.inkFaint : c.onAccent, fontFeatures: const [FontFeature.tabularFigures()])),
+                style: AnText.metaTabular().copyWith(color: upcoming ? c.inkFaint : c.onAccent)),
       );
     }
 

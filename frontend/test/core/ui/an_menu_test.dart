@@ -64,4 +64,33 @@ void main() {
     expect(picked, 0);
     expect(find.text('Archive'), findsOneWidget); // still open (inert)
   });
+
+  testWidgets('opening takes focus; closing hands it back to the pre-open holder (WCAG 2.4.3)',
+      (tester) async {
+    final probe = FocusNode(debugLabel: 'probe');
+    addTearDown(probe.dispose);
+    late VoidCallback openMenu;
+    await tester.pumpWidget(host(Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Focus(focusNode: probe, child: const SizedBox(width: 20, height: 20)),
+        AnMenu(
+          entries: const [AnMenuItem(label: 'One'), AnMenuItem(label: 'Two')],
+          anchorBuilder: (context, toggle, isOpen) {
+            openMenu = toggle;
+            return const SizedBox(width: 20, height: 20);
+          },
+        ),
+      ],
+    )));
+    probe.requestFocus();
+    await tester.pump();
+    expect(probe.hasFocus, isTrue);
+    openMenu();
+    await tester.pumpAndSettle();
+    expect(probe.hasFocus, isFalse, reason: 'overlay FocusScope + first-item autofocus take focus on open');
+    await tester.tap(find.text('One'));
+    await tester.pumpAndSettle();
+    expect(probe.hasFocus, isTrue, reason: 'focus handed back to the trigger context on close, not dropped to root');
+  });
 }

@@ -45,4 +45,11 @@ void main() {
     expect(find.byType(AnInlineEdit), findsNothing);
     expect(find.text('read-only'), findsOneWidget);
   });
+
+  testWidgets('read-only title is a header node (screen-reader heading navigation)', (tester) async {
+    final handle = tester.ensureSemantics();
+    await tester.pumpWidget(host(const AnOceanHeader(title: 'my-entity')));
+    expect(tester.getSemantics(find.text('my-entity')).flagsCollection.isHeader, isTrue);
+    handle.dispose();
+  });
 }

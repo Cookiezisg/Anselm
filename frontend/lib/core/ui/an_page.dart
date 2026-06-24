@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../design/colors.dart';
 import '../design/tokens.dart';
+import 'an_scroll_behavior.dart';
 
 /// D3 — an ocean record-page scaffold: ONE scroll region with a centered [AnSize.content] (720) column and
 /// an OVERLAY scrollbar (framework [RawScrollbar] — not the demo's hand-rolled rAF thumb math + 700ms
@@ -52,21 +53,27 @@ class AnPageState extends State<AnPage> {
       radius: const Radius.circular(AnRadius.pill),
       thickness: AnSpace.s4,
       minThumbLength: AnSize.controlSm,
-      child: SingleChildScrollView(
-        controller: _ctl,
-        // Centered content column (max 720; centers when the ocean is wider), top pad clears the head band.
-        // 居中 720 列,顶 pad 让出头栏。
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: AnSize.content),
-            child: Padding(
-              padding: const EdgeInsets.only(
-                top: AnSize.islandHead + AnSpace.s12,
-                left: AnSpace.s24,
-                right: AnSpace.s24,
-                bottom: AnSpace.s48,
+      // Suppress the inherited platform Scrollbar (MaterialScrollBehavior wraps EVERY desktop vertical
+      // scrollable in one) so only THIS RawScrollbar paints — else desktop shows two thumbs. Applied
+      // LOCALLY (the bar belongs to RawScrollbar, which sits outside this config). 抑制继承的平台滚动条,只留本 RawScrollbar(局部)。
+      child: ScrollConfiguration(
+        behavior: const AnScrollBehavior(),
+        child: SingleChildScrollView(
+          controller: _ctl,
+          // Centered content column (max 720; centers when the ocean is wider), top pad clears the head band.
+          // 居中 720 列,顶 pad 让出头栏。
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: AnSize.content),
+              child: Padding(
+                padding: const EdgeInsets.only(
+                  top: AnSize.islandHead + AnSpace.s12,
+                  left: AnSpace.s24,
+                  right: AnSpace.s24,
+                  bottom: AnSpace.s48,
+                ),
+                child: widget.child,
               ),
-              child: widget.child,
             ),
           ),
         ),

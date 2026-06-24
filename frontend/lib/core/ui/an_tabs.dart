@@ -21,7 +21,7 @@ class AnTabsItem {
 /// on hover → ink when selected) with ONE spring-following underline, over an [IndexedStack] of panes that
 /// stay alive (editing / scroll / stream state survives switching — "hide, don't destroy"). The strip
 /// scrolls horizontally with the bar hidden when there are more tabs than fit. Controlled: [value] is the
-/// selected key, [onPick] fires on a user pick (NOT on a programmatic [value] change).
+/// selected key, [onSelect] fires on a user pick (NOT on a programmatic [value] change).
 ///
 /// Hand-rolled on [AnInteractive] (NOT Material TabBar — its ripple / M3 indicator / 46px height clash, and
 /// it has tab-role asserts + a desktop traverse-auto-switch bug). a11y: each tab is a `selected` button
@@ -31,17 +31,20 @@ class AnTabsItem {
 /// activation, WAI-ARIA tabs). The underline lives INSIDE the scroll content (tracks the tab as it scrolls).
 ///
 /// B5——文字下划线视图切换器(非分段器):tab 按钮(灰→hover muted→选中 ink)+ 一条弹簧下划线,下接 keep-alive 的
-/// IndexedStack panes(编辑/滚动/流态跨切保留=「隐藏不销毁」)。tab 多则横滚隐条。受控:value=选中 key,onPick 仅用户
-/// 点选才派(非程序改 value)。手搓 on AnInteractive(非 Material TabBar:ink 波纹/M3 indicator/46px 高冲突 + tab-role
+/// IndexedStack panes(编辑/滚动/流态跨切保留=「隐藏不销毁」)。tab 多则横滚隐条。受控:value=选中 key,onSelect 仅用户
+/// 点选才派(非程序改 value;与 AnRow/AnSidebarList 同名)。手搓 on AnInteractive(非 Material TabBar:ink 波纹/M3 indicator/46px 高冲突 + tab-role
 /// 断言 + 桌面遍历自动切 bug)。a11y:每 tab=selected button(**不挂 tab/tabBar role**,该 role 结构断言会因下划线/滚动
 /// viewport/body 在子树而崩;button+selected 安全)。键盘:Tab 遍历、Enter/Space 激活、←→Home/End 在 strip 内移焦不自动选
 /// (手动激活)。下划线在滚动内容内(随 tab 滚)。
 class AnTabs extends StatefulWidget {
-  const AnTabs({required this.items, required this.value, required this.onPick, this.enabled = true, super.key});
+  const AnTabs({required this.items, required this.value, required this.onSelect, this.enabled = true, super.key});
 
   final List<AnTabsItem> items;
   final String value;
-  final ValueChanged<String> onPick;
+
+  /// Fires on a USER pick (not on a programmatic [value] change) — named [onSelect] to match the kit's
+  /// other controlled-selection primitives (AnRow / AnSidebarList). 用户点选才派(非程序改 value);与 AnRow/AnSidebarList 同名。
+  final ValueChanged<String> onSelect;
   final bool enabled;
 
   @override
@@ -133,7 +136,7 @@ class _AnTabsState extends State<AnTabs> with WidgetsBindingObserver {
   }
 
   void _pick(String key) {
-    if (key != widget.value) widget.onPick(key);
+    if (key != widget.value) widget.onSelect(key);
   }
 
   void _moveFocus(int delta) {
@@ -264,9 +267,7 @@ class _AnTabsState extends State<AnTabs> with WidgetsBindingObserver {
                 if (it.count != null && it.count!.isNotEmpty) ...[
                   const SizedBox(width: AnSpace.s6),
                   Text(it.count!,
-                      style: AnText.meta.copyWith(
-                          color: selected ? c.inkMuted : c.inkFaint,
-                          fontFeatures: const [FontFeature.tabularFigures()])),
+                      style: AnText.metaTabular().copyWith(color: selected ? c.inkMuted : c.inkFaint)),
                 ],
               ],
             ),

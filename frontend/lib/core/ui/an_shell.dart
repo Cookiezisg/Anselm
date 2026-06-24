@@ -122,7 +122,16 @@ class _RightReveal extends StatelessWidget {
               minWidth: AnSize.rightIsland,
               maxWidth: AnSize.rightIsland,
               alignment: AlignmentDirectional.centerStart,
-              child: SizedBox(width: AnSize.rightIsland, child: child),
+              // When closed the content stays laid out at full width (so it slides, not reflows), but the
+              // ClipRect only clips paint/hit-test — so make the hidden subtree fully inert, else its
+              // buttons/fields stay keyboard-focusable + screen-reader-announced behind the 0-width clip
+              // (a focus trap; same fix as AnRow._HoverSwap). 收起时内容仍满宽布局,故彻底惰化隐藏子树(同 _HoverSwap)。
+              child: SizedBox(
+                width: AnSize.rightIsland,
+                child: open
+                    ? child
+                    : ExcludeFocus(child: ExcludeSemantics(child: IgnorePointer(child: child))),
+              ),
             ),
           ),
         ),
@@ -160,6 +169,7 @@ class _GripState extends State<_Grip> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final reduced = AnMotionPref.reduced(context);
     return MouseRegion(
       cursor: SystemMouseCursors.resizeColumn,
       onEnter: (_) => setState(() => _hover = true),
@@ -171,7 +181,7 @@ class _GripState extends State<_Grip> {
           width: AnSize.shellGap,
           child: Center(
             child: AnimatedContainer(
-              duration: AnMotion.fast,
+              duration: reduced ? Duration.zero : AnMotion.fast, // hover hairline = functional micro-feedback 功能性微反馈
               width: AnSize.gripLine,
               decoration: BoxDecoration(
                 color: c.lineStrong.whenActive(_hover), // no-flash fade 无暗闪淡入

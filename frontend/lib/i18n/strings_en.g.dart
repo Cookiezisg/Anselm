@@ -184,6 +184,9 @@ class Translations$a11y$en {
 
 	/// en: 'Editing $field'
 	String editingField({required Object field}) => 'Editing ${field}';
+
+	/// en: 'Display options'
+	String get displayOptions => 'Display options';
 }
 
 /// The flat map containing all translations for locale <en>.
@@ -225,6 +228,7 @@ extension on Translations {
 			'ref.control' => 'Control',
 			'ref.approval' => 'Approval',
 			'a11y.editingField' => ({required Object field}) => 'Editing ${field}',
+			'a11y.displayOptions' => 'Display options',
 			_ => null,
 		};
 	}

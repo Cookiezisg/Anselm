@@ -169,7 +169,7 @@ class _AnInputState extends State<AnInput> {
     }
 
     final box = AnimatedContainer(
-      duration: AnMotion.fast,
+      duration: AnMotionPref.reduced(context) ? Duration.zero : AnMotion.fast, // focus-border fade = functional feedback 功能性反馈
       height: widget.multiline ? null : AnSize.control,
       constraints: BoxConstraints(minHeight: widget.multiline ? AnSize.control * 2 : AnSize.control),
       padding: EdgeInsets.symmetric(

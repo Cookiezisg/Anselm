@@ -120,6 +120,7 @@ class _Translations$a11y$zh_CN extends Translations$a11y$en {
 
 	// Translations
 	@override String editingField({required Object field}) => '正在编辑 ${field}';
+	@override String get displayOptions => '显示选项';
 }
 
 /// The flat map containing all translations for locale <zh-CN>.
@@ -161,6 +162,7 @@ extension on TranslationsZhCn {
 			'ref.control' => '控制',
 			'ref.approval' => '审批',
 			'a11y.editingField' => ({required Object field}) => '正在编辑 ${field}',
+			'a11y.displayOptions' => '显示选项',
 			_ => null,
 		};
 	}

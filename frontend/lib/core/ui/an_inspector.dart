@@ -62,12 +62,17 @@ class AnInspector extends StatelessWidget {
                   ExcludeSemantics(child: Icon(icon, size: AnSize.icon, color: c.inkFaint)), // decorative 装饰
                   const SizedBox(width: AnSpace.s8),
                 ],
+                // The inspector's section title is a header node (SR heading navigation) — independent of the
+                // deferred `complementary` landmark; header is a role flag, so an empty title carries no assert. 标题=header 节点。
                 Expanded(
-                  child: Text(
-                    title ?? '',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AnText.body.weight(FontWeight.w600).copyWith(color: c.ink),
+                  child: Semantics(
+                    header: true,
+                    child: Text(
+                      title ?? '',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AnText.body.weight(FontWeight.w600).copyWith(color: c.ink),
+                    ),
                   ),
                 ),
               ],

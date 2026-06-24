@@ -3,7 +3,7 @@ import 'package:anselm/core/ui/ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-// AnTabs = text-underline switcher over an IndexedStack of keep-alive panes; controlled (value + onPick).
+// AnTabs = text-underline switcher over an IndexedStack of keep-alive panes; controlled (value + onSelect).
 // AnTabs 契约:下划线切换 + IndexedStack 隐藏不销毁 + 受控。
 void main() {
   Widget host(Widget child, {double w = 400, double h = 300}) => MaterialApp(
@@ -22,7 +22,7 @@ void main() {
           AnTabsItem(key: 'b', label: 'Beta', pane: Text('PANE B')),
         ],
         value: value,
-        onPick: (k) => ss(() {
+        onSelect: (k) => ss(() {
           value = k;
           picked = k;
         }),
@@ -46,7 +46,7 @@ void main() {
           AnTabsItem(key: 'b', label: 'B', pane: Text('B pane')),
         ],
         value: value,
-        onPick: (k) => ss(() => value = k),
+        onSelect: (k) => ss(() => value = k),
       ),
     )));
     await tester.enterText(find.byType(TextField), 'typed');
@@ -66,7 +66,7 @@ void main() {
         AnTabsItem(key: 'b', label: 'Beta', pane: Text('B')),
       ],
       value: 'zzz', // not present in items — must clamp to tab 0 for ALL of pane/underline/highlight
-      onPick: (_) {},
+      onSelect: (_) {},
     )));
     expect(tester.widget<IndexedStack>(find.byType(IndexedStack)).index, 0);
     expect(tester.getSemantics(find.text('Alpha')).flagsCollection.isSelected.toBoolOrNull(), isTrue,
@@ -80,7 +80,7 @@ void main() {
       AnTabs(
         items: [for (var i = 0; i < 12; i++) AnTabsItem(key: 't$i', label: 'Tab number $i', pane: Text('p$i'))],
         value: 't0',
-        onPick: (_) {},
+        onSelect: (_) {},
       ),
       w: 280,
     ));

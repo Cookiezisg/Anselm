@@ -65,6 +65,12 @@ abstract final class AnText {
       ? AnText.mono.copyWith(fontSize: meta.fontSize, fontFeatures: const [FontFeature.tabularFigures()])
       : body.copyWith(fontFeatures: const [FontFeature.tabularFigures()]);
 
+  /// The meta-sized tabular idiom — the single source for trailing counts / step indices (row meta,
+  /// tab counts, menu/dropdown trailing numbers, stepper indices), so a digit-feature retune can't
+  /// drift across copies (mirrors [value]'s rule at meta size). Callers add the colour via `copyWith`.
+  /// 次级等宽数字单源(行/标签/菜单/下拉/步骤的尾随计数);颜色另加。
+  static TextStyle metaTabular() => meta.copyWith(fontFeatures: const [FontFeature.tabularFigures()]);
+
   /// Map the scale onto Material's [TextTheme] and bake the ink color in once.
   /// 把字阶映射到 Material [TextTheme] 并一次性注入墨色。
   static TextTheme textTheme(Color ink) => TextTheme(

@@ -72,7 +72,12 @@ class AnOceanHeader extends StatelessWidget {
                     minHeight: titleStyle.fontSize! * (titleStyle.height ?? 1.0),
                     onCommit: onChange,
                   )
-                : Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: titleStyle.copyWith(color: c.ink)),
+                // The page's PRIMARY heading — header semantics so screen readers can jump to it (rotor /
+                // H key); mirrors AnInfoCard's title. The editable branch's field can't carry it. 主标题=header 节点。
+                : Semantics(
+                    header: true,
+                    child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: titleStyle.copyWith(color: c.ink)),
+                  ),
           ),
           if (meta.isNotEmpty)
             Wrap(

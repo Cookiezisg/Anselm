@@ -73,6 +73,33 @@ void main() {
     expect(closedW - openW, closeTo(AnSize.rightIsland + AnSize.shellGap, 0.5));
   });
 
+  testWidgets('collapsed right island is inert — its content leaves the semantics tree (no focus trap)',
+      (tester) async {
+    final handle = tester.ensureSemantics();
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    Widget shell(bool open) => MaterialApp(
+          theme: AnTheme.light(),
+          home: AnShell(
+            inspector: const Text('inspector body', semanticsLabel: 'inspectorProbe'),
+            inspectorOpen: open,
+          ),
+        );
+
+    await tester.pumpWidget(shell(true));
+    await tester.pumpAndSettle();
+    expect(find.bySemanticsLabel('inspectorProbe'), findsOneWidget); // open → announced
+
+    await tester.pumpWidget(shell(false));
+    await tester.pumpAndSettle();
+    // closed: clipped to 0 width but content still laid out at full width → must be excluded from
+    // semantics + focus, else a real inspector's controls become an invisible focus trap. 收起=惰化。
+    expect(find.bySemanticsLabel('inspectorProbe'), findsNothing);
+    handle.dispose();
+  });
+
   test('minimum window keeps the ocean ≥ its min column even with the left island at max', () {
     expect(
       AnSize.windowMinWidth,
