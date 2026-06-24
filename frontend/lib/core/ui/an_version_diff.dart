@@ -198,7 +198,10 @@ class AnVersionDiff extends StatelessWidget {
       text: TextSpan(text: '$maxLn', style: AnText.code),
       textDirection: TextDirection.ltr,
     )..layout();
-    return math.max(AnSize.trail, tp.width + AnSpace.s8);
+    // INCLUDE the left s12 + right s8 inset in the column width, so the gutter matches AnCodeEditor's
+    // (whose `ConstrainedBox(minWidth: trail)` wraps a `Padding(left s12, right s8)` — the trail floor
+    // is the WHOLE column incl padding). Otherwise the number sits a cell too far right. 含左 s12+右 s8,与 AnCodeEditor 一致。
+    return math.max(AnSize.trail, AnSpace.s12 + tp.width + AnSpace.s8);
   }
 
   Widget _row(BuildContext context, AnColors c, SyntaxColors syntax, Translations t, _DiffRow r, double gutterW) {
@@ -225,15 +228,18 @@ class AnVersionDiff extends StatelessWidget {
     }
     final row = Container(
       color: bg,
-      padding: const EdgeInsets.symmetric(horizontal: AnSpace.s12),
+      // Only a RIGHT inset here — the left inset lives INSIDE the gutter column (left s12) so the line
+      // number lands at the same x as AnCodeEditor's gutter (no extra leading cell). 仅右内距;左内距在行号列内。
+      padding: const EdgeInsets.only(right: AnSpace.s12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // line number (new-file logical; blank for deleted), right-aligned, uniform column width. 行号(删行空、统一列宽)。
+          // line number (new-file logical; blank for deleted), right-aligned, uniform column width;
+          // left s12 + right s8 inset matches AnCodeEditor's gutter. 行号(删行空、统一列宽、内距同 AnCodeEditor)。
           SizedBox(
             width: gutterW,
             child: Padding(
-              padding: const EdgeInsets.only(right: AnSpace.s8),
+              padding: const EdgeInsets.only(left: AnSpace.s12, right: AnSpace.s8),
               child: Text(r.lineNo?.toString() ?? '', textAlign: TextAlign.right, style: AnText.code.copyWith(color: c.inkFaint)),
             ),
           ),
