@@ -47,6 +47,32 @@ void main() {
     expect(tester.getSize(find.byType(AnIsland).first).width, AnSize.sidebarMax); // clamped 400
   });
 
+  testWidgets('inspectorOpen reveals/hides the right island; the ocean reclaims its width',
+      (tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    Future<double> oceanWidth({required bool open}) async {
+      await tester.pumpWidget(MaterialApp(
+        theme: AnTheme.light(),
+        home: AnShell(
+          ocean: const SizedBox.expand(key: ValueKey('oceanProbe')),
+          inspectorOpen: open,
+        ),
+      ));
+      await tester.pumpAndSettle(); // let the reveal animation finish 让揭示动画走完
+      return tester.getSize(find.byKey(const ValueKey('oceanProbe'))).width;
+    }
+
+    final openW = await oceanWidth(open: true);
+    final closedW = await oceanWidth(open: false);
+    // Hiding the right island hands the ocean exactly the island + its gap (it slides out, no reflow).
+    // 收起右岛 → 海洋正好多得岛宽 + 间距(滑出、不重排)。
+    expect(closedW, greaterThan(openW));
+    expect(closedW - openW, closeTo(AnSize.rightIsland + AnSize.shellGap, 0.5));
+  });
+
   test('minimum window keeps the ocean ≥ its min column even with the left island at max', () {
     expect(
       AnSize.windowMinWidth,

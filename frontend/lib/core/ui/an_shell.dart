@@ -17,11 +17,16 @@ import 'an_window_controls.dart';
 /// 内容列弹性 480–720)· 右岛([inspector],固定 320)。四周 8px + 岛间 8px。窗口最小尺寸保证即便左岛
 /// 拖到最大、海洋仍 ≥ 480。左岛顶含 chrome 条(红绿灯由 OS 在加高标题栏居中,见 window_setup)。
 class AnShell extends StatefulWidget {
-  const AnShell({super.key, this.sidebar, this.ocean, this.inspector});
+  const AnShell({super.key, this.sidebar, this.ocean, this.inspector, this.inspectorOpen = true});
 
   final Widget? sidebar;
   final Widget? ocean;
   final Widget? inspector;
+
+  /// Reveal / hide the right island (a feature opens it for a selected entity, closes it otherwise). It
+  /// slides in/out (width + gap animate 0↔[AnSize.rightIsland]); the content stays full-width behind a clip
+  /// so it doesn't reflow during the slide. Default true (the island is shown). 右岛揭示/收起(滑入滑出、内容不重排)。
+  final bool inspectorOpen;
 
   @override
   State<AnShell> createState() => _AnShellState();
@@ -63,10 +68,10 @@ class _AnShellState extends State<AnShell> {
                   () => _leftW = (_leftW + dx).clamp(AnSize.sidebarMin, AnSize.sidebarMax)),
             ),
             Expanded(child: widget.ocean ?? const _Placeholder('Ocean')),
-            // Right island is fixed → a plain 8px gap (no grip). 右岛固定 → 纯 8px 间距(无 grip)。
-            const SizedBox(width: AnSize.shellGap),
-            SizedBox(
-              width: AnSize.rightIsland,
+            // Right island REVEAL: the gap + island width animate 0↔320; the content is held full-width by
+            // an OverflowBox behind a ClipRect so it slides (doesn't reflow) during the reveal. 右岛揭示:宽+间距动画、内容不重排。
+            _RightReveal(
+              open: widget.inspectorOpen,
               child: AnIsland(child: widget.inspector ?? const _Placeholder('Inspector')),
             ),
           ],
@@ -88,6 +93,40 @@ class _ChromeBar extends StatelessWidget {
     return const SizedBox(
       height: AnSize.row,
       child: Row(children: [AnWindowControls(), Spacer()]),
+    );
+  }
+}
+
+/// Animated reveal / hide of the fixed-width right island: the leading gap + the island width animate
+/// 0↔[AnSize.rightIsland] together, while an [OverflowBox] holds the content at full width behind a
+/// [ClipRect] so it slides rather than reflowing during the reveal. reduced-motion → instant.
+/// 右岛揭示:间距 + 宽一起动画 0↔320,内容经 OverflowBox 保持满宽、ClipRect 裁切,滑入而非重排;reduced→即时。
+class _RightReveal extends StatelessWidget {
+  const _RightReveal({required this.open, required this.child});
+  final bool open;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final dur = AnMotionPref.reduced(context) ? Duration.zero : AnMotion.mid;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnimatedContainer(duration: dur, curve: AnMotion.easeOut, width: open ? AnSize.shellGap : 0),
+        ClipRect(
+          child: AnimatedContainer(
+            duration: dur,
+            curve: AnMotion.easeOut,
+            width: open ? AnSize.rightIsland : 0,
+            child: OverflowBox(
+              minWidth: AnSize.rightIsland,
+              maxWidth: AnSize.rightIsland,
+              alignment: AlignmentDirectional.centerStart,
+              child: SizedBox(width: AnSize.rightIsland, child: child),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
