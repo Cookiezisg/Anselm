@@ -45,6 +45,7 @@ class TranslationsZhCn extends Translations with BaseTranslations<AppLocale, Tra
 	@override late final _Translations$feedback$zh_CN feedback = _Translations$feedback$zh_CN._(_root);
 	@override late final _Translations$ref$zh_CN ref = _Translations$ref$zh_CN._(_root);
 	@override late final _Translations$a11y$zh_CN a11y = _Translations$a11y$zh_CN._(_root);
+	@override late final _Translations$diff$zh_CN diff = _Translations$diff$zh_CN._(_root);
 	@override late final _Translations$tree$zh_CN tree = _Translations$tree$zh_CN._(_root);
 }
 
@@ -129,6 +130,18 @@ class _Translations$a11y$zh_CN extends Translations$a11y$en {
 	@override String codeBlock({required Object lang, required Object lines}) => '代码块,${lang},${lines} 行';
 	@override String codeBlockPlain({required Object lines}) => '代码块,${lines} 行';
 	@override String jsonTree({required Object count}) => 'JSON 树,${count} 项';
+	@override String diff({required Object added, required Object removed}) => '差异,新增 ${added},删除 ${removed}';
+}
+
+// Path: diff
+class _Translations$diff$zh_CN extends Translations$diff$en {
+	_Translations$diff$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get added => '新增';
+	@override String get removed => '删除';
 }
 
 // Path: tree
@@ -190,6 +203,9 @@ extension on TranslationsZhCn {
 			'a11y.codeBlock' => ({required Object lang, required Object lines}) => '代码块,${lang},${lines} 行',
 			'a11y.codeBlockPlain' => ({required Object lines}) => '代码块,${lines} 行',
 			'a11y.jsonTree' => ({required Object count}) => 'JSON 树,${count} 项',
+			'a11y.diff' => ({required Object added, required Object removed}) => '差异,新增 ${added},删除 ${removed}',
+			'diff.added' => '新增',
+			'diff.removed' => '删除',
 			'tree.invalidJson' => '无效 JSON',
 			'tree.circular' => '[循环引用]',
 			'tree.moreItems' => ({required Object count}) => '${count} 项已省略',

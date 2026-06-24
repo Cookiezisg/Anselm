@@ -49,6 +49,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$feedback$en feedback = Translations$feedback$en.internal(_root);
 	late final Translations$ref$en ref = Translations$ref$en.internal(_root);
 	late final Translations$a11y$en a11y = Translations$a11y$en.internal(_root);
+	late final Translations$diff$en diff = Translations$diff$en.internal(_root);
 	late final Translations$tree$en tree = Translations$tree$en.internal(_root);
 }
 
@@ -209,6 +210,24 @@ class Translations$a11y$en {
 
 	/// en: 'JSON tree, $count items'
 	String jsonTree({required Object count}) => 'JSON tree, ${count} items';
+
+	/// en: 'Diff, $added added, $removed removed'
+	String diff({required Object added, required Object removed}) => 'Diff, ${added} added, ${removed} removed';
+}
+
+// Path: diff
+class Translations$diff$en {
+	Translations$diff$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Added'
+	String get added => 'Added';
+
+	/// en: 'Removed'
+	String get removed => 'Removed';
 }
 
 // Path: tree
@@ -276,6 +295,9 @@ extension on Translations {
 			'a11y.codeBlock' => ({required Object lang, required Object lines}) => 'Code block, ${lang}, ${lines} lines',
 			'a11y.codeBlockPlain' => ({required Object lines}) => 'Code block, ${lines} lines',
 			'a11y.jsonTree' => ({required Object count}) => 'JSON tree, ${count} items',
+			'a11y.diff' => ({required Object added, required Object removed}) => 'Diff, ${added} added, ${removed} removed',
+			'diff.added' => 'Added',
+			'diff.removed' => 'Removed',
 			'tree.invalidJson' => 'Invalid JSON',
 			'tree.circular' => '[Circular]',
 			'tree.moreItems' => ({required Object count}) => '${count} more (truncated)',

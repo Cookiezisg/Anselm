@@ -382,6 +382,13 @@ const _deepJson = {
     }
   }
 };
+const _diffBefore = 'def f(x):\n'
+    '    # add one\n'
+    '    return x + 1';
+const _diffAfter = 'def f(x, y):\n'
+    '    # add two numbers\n'
+    '    return x + y\n'
+    '    # done';
 
 final GalleryCategory _g5CodeData = GalleryCategory('代码与数据 Code & Data', AnIcons.function, [
   GalleryItem('AnCodeEditor', '唯一代码块/轻编辑:高亮 + 行号 + 顶栏;只读/可编辑/内联/换行', [
@@ -413,6 +420,15 @@ final GalleryCategory _g5CodeData = GalleryCategory('代码与数据 Code & Data
     }, stress: true, span: true, height: 140),
     GallerySpecimen('海量键 (截断)', (_) => AnJsonTree(data: {for (var i = 0; i < 80; i++) 'key_$i': 'value_$i'}), stress: true, span: true, height: 260),
     GallerySpecimen('注入转义', (_) => const AnJsonTree(data: {'html': '<b>not</b> & <i>x</i>', 'tmpl': '\${raw} {{cel}}'}), stress: true, span: true, height: 140),
+  ]),
+  GalleryItem('AnVersionDiff', '版本 diff:单框 unified(增绿删红)+ 行内高亮(唯一 tokenizer);只读', [
+    GallerySpecimen('范围 + 说明 + 计数', (_) => const AnVersionDiff(before: _diffBefore, after: _diffAfter, lang: 'py', range: 'v3 → v4', note: 'rename + add param'), span: true),
+    GallerySpecimen('最早版本 (整段 ctx)', (_) => const AnVersionDiff(before: null, after: _diffAfter, lang: 'py', range: 'v1'), span: true),
+    GallerySpecimen('CEL diff', (_) => const AnVersionDiff(before: 'has(input.x)\n  ? input.x\n  : 0', after: 'has(input.user)\n  ? input.user.name\n  : "anon"', lang: 'cel', range: 'v2 → v3'), span: true),
+    GallerySpecimen('bare (无框内联)', (_) => const AnVersionDiff(before: 'a = 1', after: 'a = 2', lang: 'py', bare: true), span: true),
+    GallerySpecimen('全删全增 (无公共行)', (_) => const AnVersionDiff(before: 'old line one\nold line two', after: 'new line one\nnew line two', lang: 'py', range: 'v4 → v5'), stress: true, span: true),
+    GallerySpecimen('超长行 (横滚)', (_) => const AnVersionDiff(before: 'x = short', after: 'x = "a really long replacement line that exceeds the diff width and must scroll horizontally"', lang: 'py'), stress: true, span: true),
+    GallerySpecimen('注入转义', (_) => const AnVersionDiff(before: '<b>old</b>', after: '<b>new</b> & \${raw}', lang: 'md', range: 'v1 → v2'), stress: true, span: true),
   ]),
 ]);
 

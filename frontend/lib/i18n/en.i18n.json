@@ -46,7 +46,12 @@
     "displayOptions": "Display options",
     "codeBlock": "Code block, $lang, $lines lines",
     "codeBlockPlain": "Code block, $lines lines",
-    "jsonTree": "JSON tree, $count items"
+    "jsonTree": "JSON tree, $count items",
+    "diff": "Diff, $added added, $removed removed"
+  },
+  "diff": {
+    "added": "Added",
+    "removed": "Removed"
   },
   "tree": {
     "invalidJson": "Invalid JSON",

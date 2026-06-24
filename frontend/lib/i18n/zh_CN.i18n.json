@@ -46,7 +46,12 @@
     "displayOptions": "显示选项",
     "codeBlock": "代码块,$lang,$lines 行",
     "codeBlockPlain": "代码块,$lines 行",
-    "jsonTree": "JSON 树,$count 项"
+    "jsonTree": "JSON 树,$count 项",
+    "diff": "差异,新增 $added,删除 $removed"
+  },
+  "diff": {
+    "added": "新增",
+    "removed": "删除"
   },
   "tree": {
     "invalidJson": "无效 JSON",

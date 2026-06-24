@@ -1,18 +1,18 @@
 ---
 id: WRK-040
 type: working
-status: active
+status: archived
 owner: @weilin
 created: 2026-06-24
 reviewed: 2026-06-24
 review-due: 2026-09-22
 audience: [human, ai]
-landed-into:
+landed-into: references/frontend/design-system.md
 ---
 
-> G5 开工前调研产物(15-agent 工作流:10 扇出逐件 demo 盘点 + kit 复用 + 联网 best-practice + 后端契约绑定 → 1 综合 → 3 镜对抗复审 → 1 硬化折入)。
-> 待用户拍板 5 决策(见末 openDecisions——复审把「高亮包」「diff 包」从伪锁定升回 openDecision)。建造规范、单一作者、gallery-first、逐件提交。
-> 结论随件 landed 进 `references/frontend/design-system.md` 后归档(同 WRK-037/038/039 先例)。
+> **已归档(2026-06-24)**:G5.0–G5.3 全落地(地基 `SyntaxColors`/`highlightCode`/`lineDiff` + `AnCodeEditor`/`AnJsonTree`/`AnVersionDiff` + 共享 `AnCodeSurface`),结论(用户拍板 5 决策 + 逐件实施修订 + 各件对抗复审硬化)已 landed 进
+> [`design-system.md`](../../references/frontend/design-system.md) §4。**推迟到各自 feature**(§7):流式驱动 · 版本管理(revert/iterate)· 草稿/审批门 · VersionDiff 结构化多字段 diff + Handler 多部件 diff · char-level/side-by-side · CodeEditor wrap 行号精确 · JsonTree 复制路径(JSON-pointer)/真 lazy 加载。本篇留作建造存档(调研 + 决策 + 实施修订)。
+> 原调研产物(15-agent 工作流)+ 用户拍板 5 决策 + 各件 G5.x 实施修订(随建随记)见下。
 
 # WRK-040 — G5 代码与数据 建造规范
 
@@ -244,4 +244,11 @@ landed-into:
 - **类型按 Dart runtime type 分派**(Map/List/String/num/bool/Null,非 demo typeof)+ unknown→toString 兜底;环检测 identity seen 祖先集→`[Circular]`;节点 upfront 建 + 封顶 `_maxNodes=2000`(→`N more`)+ `_maxVal=500`。
 - **G5.2 对抗复审(3 镜 16 项、SDK 源码逐字核实 + 6 探针、剔 1 误报)折入**:**HIGH** ① 缺容器级 `Semantics(label「JSON tree, N items」)`(兄弟件已有)→ 补 + 新 i18n `a11y.jsonTree` ② 无 dedicated a11y 测试 → 补(分支 `isButton`+`isExpanded` 翻转、容器 label)。**MED** ① 空 `{}`/`[]` 渲成可点假分支 → 改 leaf(`isBranch` 需 `children` 非空)② leaf 单 `Text.rich` 长 key 吞 value → 改 `Row[Flexible(flex2 key) | ': ' | Flexible(flex5 value)]` 独立省略(demo 双轨等价)。**LOW** 截断用 `inkFaint`(非 danger,只 circular 是错)· null 叶补斜体 · 注释纠正(#153889 已修 / #178962→#170757)。
 - **取舍记录**:key 与 value 均 `AnText.code` mono(全等宽对齐,demo key 走 UI 字体——本组为代码面对齐取舍);a11y 测试用当前 `isSemantics` 匹配器(`hasFlag`/`containsSemantics` 已弃用)。i18n 新增 `tree.{invalidJson,circular,moreItems}` + `a11y.jsonTree`。
+
+**G5.3 AnVersionDiff + AnCodeSurface — 已落(`core/ui/an_version_diff.dart` + `an_code_surface.dart`,11 单测 + matrix 四轴 + 截图验,fe-verify 绿)**:
+- **单框 unified diff**:`before`/`after` 经 `lineDiff`(G5.0 LCS)→ ctx/add/del 行;add 软绿底(`okSoft`)+ ok 基色、del 软红底(`dangerSoft`)+ danger 基色、ctx 无底+muted。**行内着色走唯一 `highlightCode`**——基色经父 `TextSpan.style` 染、token span 覆盖、plain 文本继承基色(demo `.dl.add .ct{color:ok}` + `.cd-* override` 的 Flutter 等价,唯一高亮源铁律守住)。
+- 三列 `[行号 | 符号 iconLg | 代码]`:**行号=新文件逻辑行**(del 无号、不 ++);**行号列统一固定宽**(`TextPainter` 测最大行号、floor `AnSize.trail`——逐行 `ConstrainedBox` floor 会让不同位数行错位,故算一个统一宽)。顶栏 cap(range mono tabular + note ellipsis + +N/−N tabular);`before` 空=最早版本整段 ctx 不染;`bare` 去框。body 横滚(`IntrinsicWidth`+`minWidth` viewport=demo `.dl min-width:100%`)+ 纵向 scroll-host 双态 + **纵向呼吸内距**(上 s8/下 s12,在 `IntrinsicWidth` 内、行外 → 落白底无 tint,复审 MED)。
+- **抽出共享 `AnCodeSurface`**(第二消费者,WRK-040「≥2 才抽」):DecoratedBox 发丝 `line` 边 + ClipRRect + `surface` 白岛;`bare` 去框 / `focused` accentLine 边。**AnCodeEditor 重构复用**(原私有框删,13 测仍绿)。**无灰尖真因**=Flutter 把 uniform 边描成**单条连续 round-rect 路径**(非 CSS 4 斜接边在角叠加),故半透明 `c.line` 也无灰尖(复审 MED 纠正原注释「实色边」误述)。
+- **G5.3 对抗复审(3 镜 9 项、SDK/demo 逐字核实 + 探针,剔 1 误报 scratch 文件不存在)折入**:无 HIGH。**MED** ① AnCodeSurface 注释「实色边」误归因 → 改述单路径描边真因 ② body 缺纵向呼吸(首末彩色行贴框边)→ IntrinsicWidth 内行外包 Padding(s8/s12)。**LOW** 行号列固定宽 → 改 `TextPainter` 测最大号的统一固定宽(容 5+ 位、跨行对齐)+ 头注记无虚拟化/逐行 IntrinsicWidth 上限。
+- i18n 新增 `a11y.diff` + `diff.{added,removed}`(行级 merge「Added/Removed: code」前缀,ln/sign `excludeSemantics`)。**v1 仅单字段文本 diff**(Function.code/Agent.prompt/Control.when·emit/Approval.template);Handler 多部件 + 结构化多字段 diff 推迟 entities 版本视图 feature(§7)。
 

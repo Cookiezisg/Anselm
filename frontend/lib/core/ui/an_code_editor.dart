@@ -8,6 +8,7 @@ import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
 import 'an_button.dart';
+import 'an_code_surface.dart';
 import 'icons.dart';
 import 'syntax_highlighter.dart';
 
@@ -245,7 +246,6 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
   Widget _framed(BuildContext context) {
     final c = context.colors;
     final lines = _lineCount;
-    final border = _editing ? c.accentLine : c.line;
     final bodyRow = Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -256,33 +256,23 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
     return Semantics(
       container: true,
       label: _a11yLabel(context, lines),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          // White island fill — the kit convention (AnCard/AnIsland/AnToolbar all c.surface; demo .code
-          // bg = --island = white). A subtler tier would read as a sunken well vs the white-island norm. 白岛底,同全 kit。
-          color: c.surface,
-          // Solid hairline drawn inside the rounded box — no half-transparent corner "tips" (WRK-040 §4). 实色内描边。
-          border: Border.all(color: border, width: AnSize.hairline),
-          borderRadius: BorderRadius.circular(AnRadius.card),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(AnRadius.card),
-          // Content-height when the height is UNBOUNDED (a scrolling page/inspector hosts it); when the
-          // frame is height-CONSTRAINED (a fixed panel, or a cell shorter than the code) the body scrolls
-          // vertically while the bar stays fixed. Resolves the scroll-host dual without crashing either
-          // way (WRK-040 §4). 无界=内容高(父滚动);有界=body 纵滚、bar 固定。两态都不崩。
-          child: LayoutBuilder(
-            builder: (ctx, constraints) => Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _bar(context, c),
-                if (constraints.maxHeight.isFinite)
-                  Flexible(child: SingleChildScrollView(child: bodyRow))
-                else
-                  bodyRow,
-              ],
-            ),
+      child: AnCodeSurface(
+        focused: _editing, // accent border while editing 编辑态 accent 边
+        // Content-height when the height is UNBOUNDED (a scrolling page/inspector hosts it); when the
+        // frame is height-CONSTRAINED (a fixed panel, or a cell shorter than the code) the body scrolls
+        // vertically while the bar stays fixed. Resolves the scroll-host dual without crashing either
+        // way (WRK-040 §4). 无界=内容高(父滚动);有界=body 纵滚、bar 固定。两态都不崩。
+        child: LayoutBuilder(
+          builder: (ctx, constraints) => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _bar(context, c),
+              if (constraints.maxHeight.isFinite)
+                Flexible(child: SingleChildScrollView(child: bodyRow))
+              else
+                bodyRow,
+            ],
           ),
         ),
       ),
