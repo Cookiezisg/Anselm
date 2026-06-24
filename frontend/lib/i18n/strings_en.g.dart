@@ -91,6 +91,12 @@ class Translations$action$en {
 
 	/// en: 'Save'
 	String get save => 'Save';
+
+	/// en: 'Copy'
+	String get copy => 'Copy';
+
+	/// en: 'Wrap'
+	String get wrap => 'Wrap';
 }
 
 // Path: feedback
@@ -130,6 +136,12 @@ class Translations$feedback$en {
 
 	/// en: 'Add tag'
 	String get addTag => 'Add tag';
+
+	/// en: 'Copied'
+	String get copied => 'Copied';
+
+	/// en: 'Copy failed'
+	String get copyFailed => 'Copy failed';
 }
 
 // Path: ref
@@ -187,6 +199,12 @@ class Translations$a11y$en {
 
 	/// en: 'Display options'
 	String get displayOptions => 'Display options';
+
+	/// en: 'Code block, $lang, $lines lines'
+	String codeBlock({required Object lang, required Object lines}) => 'Code block, ${lang}, ${lines} lines';
+
+	/// en: 'Code block, $lines lines'
+	String codeBlockPlain({required Object lines}) => 'Code block, ${lines} lines';
 }
 
 /// The flat map containing all translations for locale <en>.
@@ -206,6 +224,8 @@ extension on Translations {
 			'action.edit' => 'Edit',
 			'action.cancel' => 'Cancel',
 			'action.save' => 'Save',
+			'action.copy' => 'Copy',
+			'action.wrap' => 'Wrap',
 			'feedback.info' => 'Info',
 			'feedback.success' => 'Success',
 			'feedback.warning' => 'Warning',
@@ -216,6 +236,8 @@ extension on Translations {
 			'feedback.goToStep' => ({required Object n}) => 'Go to step ${n}',
 			'feedback.removeTag' => ({required Object name}) => 'Remove ${name}',
 			'feedback.addTag' => 'Add tag',
+			'feedback.copied' => 'Copied',
+			'feedback.copyFailed' => 'Copy failed',
 			'ref.function' => 'Function',
 			'ref.handler' => 'Handler',
 			'ref.workflow' => 'Workflow',
@@ -229,6 +251,8 @@ extension on Translations {
 			'ref.approval' => 'Approval',
 			'a11y.editingField' => ({required Object field}) => 'Editing ${field}',
 			'a11y.displayOptions' => 'Display options',
+			'a11y.codeBlock' => ({required Object lang, required Object lines}) => 'Code block, ${lang}, ${lines} lines',
+			'a11y.codeBlockPlain' => ({required Object lines}) => 'Code block, ${lines} lines',
 			_ => null,
 		};
 	}

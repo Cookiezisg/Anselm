@@ -220,7 +220,7 @@ landed-into:
 - **B** 引 `diffutil_dart`(Myers O(ND) 内存优于 LCS O(mn))+ 自写顺序重投影层(`detectMoves:false` 禁 Move、Change 拆 del+add、index 漂移双指针重排,远超 20 行)+ 边界单测。
 - **理由**:line-level LCS 是教科书确定性算法、非窗口 chrome/红绿灯那类几何边界 footgun(原则 #8「手搓跌跟头」针对平台/几何边界、非纯算法);demo LCS 本就直出 unified 要的形状。退化闸按 LCS 矩阵 cell 数 `(m+1)(n+1)>4M`(命名 `lineDiffMaxCells`,忠实移植 demo;**G5.0 复审修订**:原拟 m+n 行数闸被实测证伪——见末「G5.0 实施修订」)。B 留作真机压测证 LCS 在 2000 行级卡顿后的升级路径(保留同一出参契约)。
 
-## G5.0 实施修订(2026-06-24,逐件落地随建随记)
+## G5 实施修订(2026-06-24,逐件落地随建随记)
 
 > 建造按 §6 顺序逐件落,每件「主控写 → analyze/test/截图 → 对抗复审 → 折入 → 提交」。各件落地后此处记实测偏离调研之处(WRK 是过程记录;最终随件 landed 进 design-system.md)。
 
@@ -228,4 +228,12 @@ landed-into:
 - **退化闸:`m+n` 行数闸 → `(m+1)(n+1)>4M` cell 闸(忠实移植 demo)**。G5.0 对抗复审(LCS 镜)证伪原研究的 m+n 决策:m+n 与 m\*n 不同量纲、**封不住** DP 矩阵真实成本——平衡型 `m=n=2500` 仅 5000 行却双闸全过、撑 ~6.25M cell≈50MB,比 demo 的 4M cell 闸**更激进**(放行了 demo 会退化的 case),且与「保守占位 / #8 忠实移植」自相矛盾。改回 demo 的乘积闸 `lineDiffMaxCells=4_000_000`,一个度量直接封顶真实成本、无平衡型漏网;原 `lineDiffMaxTotalBytes` 字节闸(String.length 是 UTF-16 code unit 非字节、命名误导且 cell 闸已封顶真实成本)一并删除。回归测试 `code_diff_test`「BALANCED diff trips the cell cap」锁住。研究当初的 m+n 论证误把「Myers 无矩阵」套到 v1 的 LCS 上(LCS 确有矩阵)。
 - **`highlightCode` 唯一入口 + CEL 天然覆盖**:demo 单正则 tokenizer 语言无关,CEL 插值 `{{}}`/`${}` 经 arg 组天然上色——决策 4「封装层内 CEL 上色」由统一 tokenizer 直接满足,无须额外 cel 分支(`lang` 参仅为 API/标签稳定)。`_followedByParen` 只认 ASCII 空白(有意窄于 JS `\s`、避 per-identifier substring 的 O(n²);代码前 Unicode 空白不存于真实源码),复审记为可接受偏离。
 - **`SyntaxColors` = 独立 ThemeExtension**(非塞进 AnColors):语法子板自成一概念、不胀 280 行的 AnColors;`arg` 按值镜像 `AnColors.accent`(`single-source` 妥协,测试锁不变式)。`AnText.code` = mono 12/1.6(demo `--t-meta`/`--lh-prose`,区别于 13/1.5 的内联 `mono`)。`AnSize.trail=36`(demo 20px 在 mono 仅容 ~2 位数,升为容 4 位数的下界)。
+
+**G5.1 AnCodeEditor — 已落(`core/ui/an_code_editor.dart`,13 单测 + matrix 四轴 + 截图验,fe-verify 绿)**:
+- **编辑改用 `_HighlightController.buildTextSpan`、非透明叠层(架构升级、消解 WRK #1 HIGH)**:WRK-040 §4/§5 原拟「透明 TextField 叠 RichField(highlight)+ pixel-perfect 对齐」(demo web 的 textarea-over-pre 移植)。改用 Flutter 原生机制——自定义 `TextEditingController` 重写 `buildTextSpan` 返回高亮 span,field 自渲染着色文本:光标/选区/滚动全原生、**零叠层对齐风险**(原拟的 #1 HIGH 直接消失),更 #8。read-only 用 `SelectableText.rich(highlightCode)`,两路同走唯一 `highlightCode`。`buildTextSpan` 内读 `context.syntax` → 自动跟主题。
+- **`re_editor` 已评估否决(#8 尽调)**:成熟、自绘渲染(解大文本性能+叠层),但其高亮基于 `re_highlight`(自带 tokenizer)、与决策 1「highlightCode 唯一同步源」冲突(CEL 无覆盖、cd-* 主题要另写、三件高亮源分裂)。忠实于用户决策 1,移植 demo。
+- **scroll-host 双态(LayoutBuilder)**:内容高(无界父=AnPage/AnInspector 滚)/ 有界则 `Flexible(SingleChildScrollView)` body 纵滚、bar 固定——两态都不崩(解 WRK §4 滚动宿主)。read-only 非 wrap 横滚;editable soft-wrap(TextField 不能净 nowrap+hscroll,inline 短、全码编辑罕见,v1 简化)。
+- **框底 = `c.surface` 白岛**(对齐全 kit + demo `--island`,非 surfaceSubtle);私有 `_codeFrame`(DecoratedBox 实色内描边 + ClipRRect)非 AnCard(AnCard 强制 pad/无 clip/无 focus 边不适配);G5.3 出现第二消费者再抽共享。
+- **G5.1 对抗复审(3 镜 17 项,全探针实证零误报)折入**:**HIGH** 编辑态行号/a11y 与文本脱钩(敲换行行号冻结、丢 demo per-keystroke repaint)→ 控制器挂 listener、文本变化 `setState` 重算 gutter+a11y(光标由控制器保留)+ 回归测试。**MED**:① lang 标签 `ExcludeSemantics`(否则容器 label 念两遍 Python)② gutter `ExcludeSemantics`(否则屏读逐个念行号)③ copy 失败翻 `feedback.copyFailed` tooltip(消死键 + 诚实反馈)④ Tab 拦为插 4 空格(`CallbackShortcuts`,同 demo,非跳焦点)⑤ 钮间 4px gap。**LOW**:wrap specimen 标注 v1 行号等高 + doc 注无虚拟化/每键全量 tokenize 上限(轻编辑定位)。
+- **i18n 新增**:`action.{copy,wrap}` · `feedback.{copied,copyFailed}` · `a11y.{codeBlock,codeBlockPlain}`(复用既有 `action.{edit,cancel,save}`);新图标 `AnIcons.copy`。a11y 容器播报「Code block, {lang}, N lines」。
 

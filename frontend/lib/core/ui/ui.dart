@@ -12,6 +12,7 @@ export 'an_brand_icon.dart';
 export 'an_button.dart';
 export 'an_callout.dart';
 export 'an_card.dart';
+export 'an_code_editor.dart';
 export 'an_dropdown.dart';
 export 'an_edit_affordance.dart';
 export 'an_editable_value.dart';

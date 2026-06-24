@@ -10,7 +10,9 @@
   "action": {
     "edit": "编辑",
     "cancel": "取消",
-    "save": "保存"
+    "save": "保存",
+    "copy": "复制",
+    "wrap": "自动换行"
   },
   "feedback": {
     "info": "提示",
@@ -22,7 +24,9 @@
     "stepOf": "第 $n 步 / 共 $m 步",
     "goToStep": "跳到第 $n 步",
     "removeTag": "移除 $name",
-    "addTag": "添加标签"
+    "addTag": "添加标签",
+    "copied": "已复制",
+    "copyFailed": "复制失败"
   },
   "ref": {
     "function": "函数",
@@ -39,6 +43,8 @@
   },
   "a11y": {
     "editingField": "正在编辑 $field",
-    "displayOptions": "显示选项"
+    "displayOptions": "显示选项",
+    "codeBlock": "代码块,$lang,$lines 行",
+    "codeBlockPlain": "代码块,$lines 行"
   }
 }

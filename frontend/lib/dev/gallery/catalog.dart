@@ -14,6 +14,7 @@ final List<GalleryCategory> galleryCatalog = [
   _g2Feedback,
   _g3RowsCards,
   _g4NavShell,
+  _g5CodeData,
 ];
 
 // ── G1 — Foundational controls ──
@@ -348,6 +349,53 @@ final GalleryCategory _g4NavShell = GalleryCategory('导航与壳 Nav & Shell', 
         ), span: true),
   ]),
 ]);
+
+// ── G5 — Code & data ──
+const _pyCode = 'def normalize(input):\n'
+    '    # strip + lowercase the name\n'
+    '    name = input.get("name", "").strip()\n'
+    '    return {"name": name.lower(), "len": len(name)}';
+const _celCode = 'has(input.user)\n'
+    '  ? input.user.name\n'
+    '  : "anonymous"  // {{ default }} fallback';
+const _jsonCode = '{\n'
+    '  "id": "fn_3a9f",\n'
+    '  "active": true,\n'
+    '  "retries": 3,\n'
+    '  "tags": ["prod", "io"]\n'
+    '}';
+
+final GalleryCategory _g5CodeData = GalleryCategory('代码与数据 Code & Data', AnIcons.function, [
+  GalleryItem('AnCodeEditor', '唯一代码块/轻编辑:高亮 + 行号 + 顶栏;只读/可编辑/内联/换行', [
+    GallerySpecimen('python 只读', (_) => const AnCodeEditor(code: _pyCode, lang: 'py'), span: true),
+    GallerySpecimen('CEL (插值上色)', (_) => const AnCodeEditor(code: _celCode, lang: 'cel'), span: true),
+    GallerySpecimen('json 只读', (_) => const AnCodeEditor(code: _jsonCode, lang: 'json'), span: true),
+    GallerySpecimen('可编辑 (铅笔→编辑)', (_) => const _CodeEditDemo(), span: true),
+    GallerySpecimen('compact', (_) => const AnCodeEditor(code: _celCode, lang: 'cel', compact: true), span: true),
+    GallerySpecimen('inline (无框)', (_) => const AnCodeEditor(code: 'input.x > 0 && has(node.y)', lang: 'cel', inline: true), span: true),
+    // wrap: long lines reflow; v1 gutter is EQUAL-HEIGHT per logical line (not per visual line), so a
+    // wrapped line's number doesn't track each visual row — documented v1 degrade (WRK-040). 标注:wrap 行号 v1 等高。
+    GallerySpecimen('wrap (行号 v1 等高·非逐视觉行)', (_) => const AnCodeEditor(code: 'short = 1\nresult = compute_a_very_long_expression(alpha, beta, gamma) + offset_value_for_the_pipeline_stage_that_wraps\ndone = True', lang: 'py', wrap: true), span: true),
+    GallerySpecimen('超长行 (横滚)', (_) => const AnCodeEditor(code: 'x = "a really long single line that exceeds the editor width and must scroll horizontally without wrapping or overflow"', lang: 'py'), stress: true, span: true),
+    GallerySpecimen('空', (_) => const AnCodeEditor(code: '', lang: 'py'), stress: true, span: true),
+    GallerySpecimen('海量行 (内容高、父滚动)', (_) => AnCodeEditor(code: [for (var i = 0; i < 60; i++) 'line_$i = step($i)'].join('\n'), lang: 'py'), stress: true, span: true),
+    GallerySpecimen('注入转义', (_) => const AnCodeEditor(code: '<b>not</b> & <i>html</i> — \${raw}', lang: 'md'), stress: true, span: true),
+  ]),
+]);
+
+// AnCodeEditor editable demo — holds the committed value across save. 可编辑代码:持保存后的值。
+class _CodeEditDemo extends StatefulWidget {
+  const _CodeEditDemo();
+  @override
+  State<_CodeEditDemo> createState() => _CodeEditDemoState();
+}
+
+class _CodeEditDemoState extends State<_CodeEditDemo> {
+  String _code = _celCode;
+  @override
+  Widget build(BuildContext context) =>
+      AnCodeEditor(code: _code, lang: 'cel', editable: true, onChanged: (v) => setState(() => _code = v));
+}
 
 // AnMenu demos (stateful: hold the picked / checked state). AnMenu 演示(持选中态)。
 class _MenuActionsDemo extends StatelessWidget {

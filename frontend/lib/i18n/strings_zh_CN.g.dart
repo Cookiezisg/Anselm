@@ -71,6 +71,8 @@ class _Translations$action$zh_CN extends Translations$action$en {
 	@override String get edit => '编辑';
 	@override String get cancel => '取消';
 	@override String get save => '保存';
+	@override String get copy => '复制';
+	@override String get wrap => '自动换行';
 }
 
 // Path: feedback
@@ -90,6 +92,8 @@ class _Translations$feedback$zh_CN extends Translations$feedback$en {
 	@override String goToStep({required Object n}) => '跳到第 ${n} 步';
 	@override String removeTag({required Object name}) => '移除 ${name}';
 	@override String get addTag => '添加标签';
+	@override String get copied => '已复制';
+	@override String get copyFailed => '复制失败';
 }
 
 // Path: ref
@@ -121,6 +125,8 @@ class _Translations$a11y$zh_CN extends Translations$a11y$en {
 	// Translations
 	@override String editingField({required Object field}) => '正在编辑 ${field}';
 	@override String get displayOptions => '显示选项';
+	@override String codeBlock({required Object lang, required Object lines}) => '代码块,${lang},${lines} 行';
+	@override String codeBlockPlain({required Object lines}) => '代码块,${lines} 行';
 }
 
 /// The flat map containing all translations for locale <zh-CN>.
@@ -140,6 +146,8 @@ extension on TranslationsZhCn {
 			'action.edit' => '编辑',
 			'action.cancel' => '取消',
 			'action.save' => '保存',
+			'action.copy' => '复制',
+			'action.wrap' => '自动换行',
 			'feedback.info' => '提示',
 			'feedback.success' => '成功',
 			'feedback.warning' => '警告',
@@ -150,6 +158,8 @@ extension on TranslationsZhCn {
 			'feedback.goToStep' => ({required Object n}) => '跳到第 ${n} 步',
 			'feedback.removeTag' => ({required Object name}) => '移除 ${name}',
 			'feedback.addTag' => '添加标签',
+			'feedback.copied' => '已复制',
+			'feedback.copyFailed' => '复制失败',
 			'ref.function' => '函数',
 			'ref.handler' => '处理器',
 			'ref.workflow' => '工作流',
@@ -163,6 +173,8 @@ extension on TranslationsZhCn {
 			'ref.approval' => '审批',
 			'a11y.editingField' => ({required Object field}) => '正在编辑 ${field}',
 			'a11y.displayOptions' => '显示选项',
+			'a11y.codeBlock' => ({required Object lang, required Object lines}) => '代码块,${lang},${lines} 行',
+			'a11y.codeBlockPlain' => ({required Object lines}) => '代码块,${lines} 行',
 			_ => null,
 		};
 	}
