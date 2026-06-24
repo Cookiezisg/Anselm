@@ -13,6 +13,7 @@ final List<GalleryCategory> galleryCatalog = [
   _g1Controls,
   _g2Feedback,
   _g3RowsCards,
+  _g4NavShell,
 ];
 
 // ── G1 — Foundational controls ──
@@ -241,6 +242,37 @@ final GalleryCategory _g3RowsCards = GalleryCategory('行与卡 Rows & Cards', A
     GallerySpecimen('超长格截断', (_) => const AnThinTable(columns: _tableCols, rows: [
           {'name': 'an-extremely-long-entity-name-that-must-ellipsis', 'kind': 'workflow', 'runs': '999999'},
         ]), stress: true, maxWidth: 240, span: true),
+  ]),
+]);
+
+// ── G4 — Navigation & shell ──
+final GalleryCategory _g4NavShell = GalleryCategory('导航与壳 Nav & Shell', AnIcons.grip, [
+  GalleryItem('AnToolbar', '三区工具条:左附件 | 标题+meta | 右动作(非卡;bordered=顶栏)', [
+    GallerySpecimen('default', (_) => AnToolbar(
+          title: 'normalize-input',
+          meta: 'function',
+          trailing: [
+            AnButton.iconOnly(AnIcons.run, semanticLabel: 'Run', onPressed: () {}),
+            AnButton.iconOnly(AnIcons.more, semanticLabel: 'More', onPressed: () {}),
+          ],
+        ), span: true),
+    GallerySpecimen('bordered (top bar)', (_) => AnToolbar(
+          bordered: true,
+          leading: [AnButton.iconOnly(AnIcons.search, semanticLabel: 'Search', onPressed: () {})],
+          title: 'Settings',
+          trailing: [AnButton(label: 'Save', size: AnButtonSize.sm, variant: AnButtonVariant.primary, onPressed: () {})],
+        ), span: true),
+    GallerySpecimen('compact + meta', (_) => const AnToolbar(compact: true, title: 'Versions', meta: '12 revisions'), span: true),
+    GallerySpecimen('center slot (custom main)', (_) => AnToolbar(
+          leading: [AnButton.iconOnly(AnIcons.sliders, semanticLabel: 'Options', onPressed: () {})],
+          center: AnButton(label: 'custom main', size: AnButtonSize.sm, onPressed: () {}),
+          trailing: [AnButton.iconOnly(AnIcons.more, semanticLabel: 'More', onPressed: () {})],
+        ), span: true),
+    GallerySpecimen('超长标题截断(动作不挤出)', (_) => AnToolbar(
+          title: 'an-extremely-long-toolbar-title-that-must-ellipsis-and-never-push-the-actions-off',
+          meta: 'fn',
+          trailing: [AnButton.iconOnly(AnIcons.more, semanticLabel: 'More', onPressed: () {})],
+        ), stress: true, maxWidth: 280, span: true),
   ]),
 ]);
 
