@@ -57,6 +57,14 @@ abstract final class AnText {
     fontSize: 13, height: 1.5, fontWeight: FontWeight.w400,
   );
 
+  /// The value-column base style — the single source for the "值列 tabular 铁律": tabular figures
+  /// UNCONDITIONALLY so digit columns align AND the idle↔editing toggle never changes width; [mono] only
+  /// switches the family (ids / hashes). Shared by AnKv / AnField / AnEditableValue / AnInput so a retune
+  /// can't drift across copies. Callers add the colour via `copyWith`. 值列样式单源(无条件 tabular);颜色另加。
+  static TextStyle value({bool mono = false}) => mono
+      ? AnText.mono.copyWith(fontSize: meta.fontSize, fontFeatures: const [FontFeature.tabularFigures()])
+      : body.copyWith(fontFeatures: const [FontFeature.tabularFigures()]);
+
   /// Map the scale onto Material's [TextTheme] and bake the ink color in once.
   /// 把字阶映射到 Material [TextTheme] 并一次性注入墨色。
   static TextTheme textTheme(Color ink) => TextTheme(

@@ -121,10 +121,10 @@ class _AnInputState extends State<AnInput> {
   Widget build(BuildContext context) {
     final c = context.colors;
     // Tabular figures when mono OR [tabular] (原语 D): digits align + match a tabular display value
-    // digit-for-digit (idle ↔ editing same width). 等宽数字对齐(mono 或 tabular;值字段 idle↔editing 同宽)。
+    // digit-for-digit (idle ↔ editing same width) — via the shared value-column style. 等宽数字(走值列样式单源)。
     final base = widget.mono
-        ? AnText.mono.copyWith(fontSize: AnText.meta.fontSize, fontFeatures: const [FontFeature.tabularFigures()])
-        : (widget.tabular ? AnText.body.copyWith(fontFeatures: const [FontFeature.tabularFigures()]) : AnText.body);
+        ? AnText.value(mono: true)
+        : (widget.tabular ? AnText.value() : AnText.body);
     final style = base.copyWith(color: widget.readOnly ? c.inkFaint : c.ink);
     final borderColor = _focused ? c.lineStrong : c.line;
 
@@ -158,8 +158,8 @@ class _AnInputState extends State<AnInput> {
       ),
     );
 
-    // Seamless: no box chrome, text-height — the caller sizes width (Flexible/Expanded) so it slots
-    // in where the display text was, no jump. 无框、文字高:宽由调用方约束,原位替换展示文字、不跳。
+    // Seamless: no box chrome, text-height — the caller constrains width (a Flexible, or AnLeadValue's
+    // value slot) so it slots in where the display text was, no jump. 无框、文字高:宽由调用方约束,原位替换、不跳。
     if (widget.seamless) {
       return Opacity(opacity: widget.enabled ? 1 : AnOpacity.disabled, child: field);
     }

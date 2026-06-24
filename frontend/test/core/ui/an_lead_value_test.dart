@@ -84,6 +84,17 @@ void main() {
     expect(find.text('function'), findsOneWidget);
   });
 
+  // wrap: the value FILLS the remainder and wraps left-aligned (multi-line), NOT content-width flush-right.
+  testWidgets('wrap fills + wraps the value left (multi-line), not single-line flush-right', (tester) async {
+    const long = 'a long wrapping value that needs more than one line to render in this narrow column here';
+    await tester.pumpWidget(host(const AnLeadValue(leading: Text('Notes'), trailing: Text(long), wrap: true), width: 300));
+    final row = tester.getRect(find.byType(AnLeadValue));
+    final val = tester.getRect(find.text(long));
+    expect(row.height, greaterThan(30), reason: 'a wrapping value must grow the row past a single line');
+    expect(val.left, lessThan(row.center.dx), reason: 'wrapped value is left-anchored after the leading, not flush-right');
+    expect(val.right, greaterThan(row.center.dx), reason: 'wrapped value fills toward the right edge');
+  });
+
   // F2 regression: under unbounded width the row degrades to content width instead of asserting on Expanded.
   testWidgets('degrades under unbounded width (no RenderFlex assertion)', (tester) async {
     await tester.pumpWidget(MaterialApp(

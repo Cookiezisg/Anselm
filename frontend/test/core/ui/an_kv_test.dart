@@ -1,4 +1,5 @@
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/design/typography.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
@@ -64,10 +65,16 @@ void main() {
     expect(find.byIcon(AnIcons.edit), findsNothing); // no pencil without onChanged
   });
 
-  testWidgets('mono value renders (tabular)', (tester) async {
+  testWidgets('mono value uses mono+tabular style; a NON-mono value is still tabular (值列 tabular 铁律)', (tester) async {
     await tester.pumpWidget(host(const AnKv(mono: true, rows: [AnKvRow('Run', 'run_3a9f0e88')])));
-    expect(find.text('run_3a9f0e88'), findsOneWidget);
-    expect(tester.takeException(), isNull);
+    final mono = tester.widget<Text>(find.text('run_3a9f0e88'));
+    expect(mono.style?.fontFamily, AnText.mono.fontFamily, reason: 'mono value uses the monospace family');
+    expect(mono.style?.fontFeatures, contains(const FontFeature.tabularFigures()), reason: 'mono value is tabular');
+    // The value column is tabular UNCONDITIONALLY — even without mono (the documented 铁律). 非 mono 也 tabular。
+    await tester.pumpWidget(host(const AnKv(rows: [AnKvRow('Name', 'normalize')])));
+    final plain = tester.widget<Text>(find.text('normalize'));
+    expect(plain.style?.fontFeatures, contains(const FontFeature.tabularFigures()),
+        reason: 'value column is tabular even without mono');
   });
 
   testWidgets('values of editable + read-only rows share one flush-right column', (tester) async {

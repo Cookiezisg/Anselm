@@ -17,12 +17,13 @@ import '../design/tokens.dart';
 ///     baseline) — _RenderLayoutBuilder throws "does not support returning intrinsic dimensions";
 ///   • a non-flex capped leading doesn't YIELD under pressure, so in a narrow editing row the value zone
 ///     can't shrink enough and the ✓✕ buttons overflow off-panel.
-/// This render object measures directly: the leading takes min(content, [leadingMaxFraction]·avail) so the
-/// value keeps ≥(1−fraction)·avail (key-priority + anti-starve + buttons always fit); the value owns the
-/// true remainder, flush-right. It implements intrinsics (safe under IntrinsicHeight/Width) and degrades to
-/// content width under unbounded constraints. [afterLeading] (an edit pencil) sits just right of the
-/// leading; [afterValue] (✓ / ✕) pins to the far right past the value. [wrap] fills + wraps the value
-/// left-aligned (multi-line) instead of single-line right-ellipsis.
+/// This render object measures directly: the leading takes min(content, 0.6·avail) (the anti-starve rail
+/// `_leadingMaxFraction`) so the value keeps ≥0.4·avail (key-priority + buttons always fit); the value owns
+/// the true remainder, flush-right. It implements intrinsics (safe under IntrinsicHeight/Width — but height
+/// intrinsics report single-line, so [wrap] is unsupported under an IntrinsicHeight ancestor) and degrades
+/// to content width under unbounded constraints (where [wrap] is inert — no right edge to fill against).
+/// [afterLeading] (an edit pencil) sits just right of the leading; [afterValue] (✓ / ✕) pins to the far
+/// right past the value. [wrap] fills + wraps the value left-aligned (multi-line) instead of single-line.
 ///
 /// 动态键值行:leading 贴内容靠左,value 吃尽「行宽 − leading」全部余量、贴右,长到撞回 leading 才省略。自研槽式渲染
 /// 布局而非 Row——RenderFlex 做不到(中间 grow 推不动内容宽的 value;LayoutBuilder 封顶在 intrinsic 下崩;非 flex 封顶
@@ -35,7 +36,6 @@ class AnLeadValue extends SlottedMultiChildRenderObjectWidget<AnLeadValueSlot, R
     this.afterLeading,
     this.afterValue,
     this.wrap = false,
-    this.leadingMaxFraction = 0.6,
     super.key,
   });
 
@@ -54,11 +54,6 @@ class AnLeadValue extends SlottedMultiChildRenderObjectWidget<AnLeadValueSlot, R
   /// Value wraps left-aligned (multi-line) instead of single-line right ellipsis. 值换行。
   final bool wrap;
 
-  /// Starvation rail: the leading takes at most this fraction of the key/value width before it ellipsizes,
-  /// so the value keeps ≥(1−fraction) and a pathological-long leading can't squeeze it to nothing. NOT a
-  /// visual token — a layout ratio. 防饿死闸(布局比率、非视觉令牌)。
-  final double leadingMaxFraction;
-
   @override
   Iterable<AnLeadValueSlot> get slots => AnLeadValueSlot.values;
 
@@ -72,38 +67,32 @@ class AnLeadValue extends SlottedMultiChildRenderObjectWidget<AnLeadValueSlot, R
 
   @override
   SlottedContainerRenderObjectMixin<AnLeadValueSlot, RenderBox> createRenderObject(BuildContext context) =>
-      _RenderLeadValue(wrap: wrap, leadingMaxFraction: leadingMaxFraction);
+      _RenderLeadValue(wrap: wrap);
 
+  // Wide param type + cast (not the concrete _RenderLeadValue) so the public override signature doesn't leak
+  // a private type (library_private_types_in_public_api). 宽类型 + cast,避免公有签名泄私有类型(lint)。
   @override
   void updateRenderObject(
       BuildContext context, SlottedContainerRenderObjectMixin<AnLeadValueSlot, RenderBox> renderObject) {
-    (renderObject as _RenderLeadValue)
-      ..wrap = wrap
-      ..leadingMaxFraction = leadingMaxFraction;
+    (renderObject as _RenderLeadValue).wrap = wrap;
   }
 }
 
 enum AnLeadValueSlot { leading, afterLeading, value, afterValue }
 
 class _RenderLeadValue extends RenderBox with SlottedContainerRenderObjectMixin<AnLeadValueSlot, RenderBox> {
-  _RenderLeadValue({required bool wrap, required double leadingMaxFraction})
-      : _wrap = wrap,
-        _leadingMaxFraction = leadingMaxFraction;
+  _RenderLeadValue({required bool wrap}) : _wrap = wrap;
 
   static const double _gapMid = AnSpace.s8; // leading ↔ value gap 键值间距
   static const double _gapFlank = AnSpace.s6; // around a pencil / ✓✕ 附件间距
+  // Anti-starve rail: the leading takes at most this fraction of the key/value width before it ellipsizes,
+  // so the value always keeps ≥(1−this). A layout ratio, not a visual token. 防饿死闸:leading 至多占此分数。
+  static const double _leadingMaxFraction = 0.6;
 
   bool _wrap;
   set wrap(bool v) {
     if (v == _wrap) return;
     _wrap = v;
-    markNeedsLayout();
-  }
-
-  double _leadingMaxFraction;
-  set leadingMaxFraction(double v) {
-    if (v == _leadingMaxFraction) return;
-    _leadingMaxFraction = v;
     markNeedsLayout();
   }
 
@@ -145,6 +134,12 @@ class _RenderLeadValue extends RenderBox with SlottedContainerRenderObjectMixin<
   double computeMinIntrinsicWidth(double height) => _intrinsicWidth((c) => c.getMinIntrinsicWidth(height));
   @override
   double computeMaxIntrinsicWidth(double height) => _intrinsicWidth((c) => c.getMaxIntrinsicWidth(height));
+
+  // Height intrinsics report the SINGLE-LINE height (children measured at infinite width), ignoring [width]
+  // — so a wrapping value's true multi-line height is NOT reflected. Consequence: AnLeadValue(wrap:true) is
+  // unsupported under an IntrinsicHeight / dry-layout ancestor (it would under-allocate). No consumer does
+  // that (wrap rows live in Column/Card with a minHeight floor, never under IntrinsicHeight), so width-aware
+  // wrap intrinsics aren't worth the apportionment complexity. 高 intrinsic 报单行高;wrap 不支持 IntrinsicHeight 祖先。
   @override
   double computeMinIntrinsicHeight(double width) => _intrinsicHeight((c) => c.getMinIntrinsicHeight(double.infinity));
   @override
@@ -168,7 +163,7 @@ class _RenderLeadValue extends RenderBox with SlottedContainerRenderObjectMixin<
     // anchor — there is no right edge). 无界宽降级:自然宽左起排、贴内容,不填不右锚。
     if (!c.hasBoundedWidth) {
       final order = <(RenderBox, double)>[
-        if (leading != null) (leading, 0),
+        if (leading != null) (leading, 0.0),
         if (aL != null) (aL, _gapFlank),
         if (value != null) (value, _gapMid),
         if (aV != null) (aV, _gapFlank),
@@ -250,7 +245,9 @@ class _RenderLeadValue extends RenderBox with SlottedContainerRenderObjectMixin<
 
   @override
   bool hitTestChildren(BoxHitTestResult result, {required Offset position}) {
-    for (final ch in children) {
+    // Reverse paint order — the topmost (last-painted) child wins on any overlap (standard RenderBox idiom;
+    // slots are non-overlapping today, but this removes the hidden dependency on that). 逆绘序命中,不依赖无重叠。
+    for (final ch in children.toList().reversed) {
       final pd = _pd(ch);
       final hit = result.addWithPaintOffset(
         offset: pd.offset,

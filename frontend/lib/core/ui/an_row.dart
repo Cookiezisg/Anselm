@@ -18,13 +18,14 @@ import 'icons.dart';
 ///
 /// Interaction: a [collapsible] non-[passive] row toggles on the LEAD (chevron) and selects on the rest;
 /// other rows select on tap. The whole row is one [AnInteractive] (hover drives the lead + trail reveal;
-/// passive → not focusable; collapsible → `expanded` semantics).
+/// passive → not focusable). The collapsible toggle is MOUSE-ONLY, so v1 deliberately does NOT expose
+/// `expanded` semantics (announcing expandable with no keyboard path is a false promise — see [build]).
 ///
 /// C1 列表核心行:三列网格 [lead | label 1fr | trail],对齐靠结构。lead = 状态点 或 icon(collapsible 行 hover 换
 /// chevron、open 转 90°)。trail = meta 与 hover 揭示的 actions 叠同一右锚(opacity 互换、不重排)。hint → 行变高顶对齐、
 /// hint 换行。selected 提墨;emphatic+selected = accentSoft 底 + 左 accent 条(run 看板)。depth 每级缩进;mono 等宽 label;
 /// passive 不可交互。交互:collapsible 非 passive 行点 lead 折叠、点其余选中;其它行点即选。整行一个 AnInteractive
-/// (hover 驱动 lead/trail 揭示;passive 不可聚焦;collapsible 透 expanded 语义)。
+/// (hover 驱动 lead/trail 揭示;passive 不可聚焦;collapsible 折叠仅鼠标 → v1 故意不暴露 expanded 语义,见 build)。
 class AnRow extends StatelessWidget {
   const AnRow({
     this.icon,

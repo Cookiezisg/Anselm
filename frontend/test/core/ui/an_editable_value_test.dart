@@ -7,7 +7,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // AnEditableValue = the two-anchor edit core (Field/Kv). Contract: pencil → field; Enter/✓/blur commit;
-// Esc/✕ abort (cancel beats blur via TextFieldTapRegion); empty → em-dash; select editor via dropdown.
+// Esc/✕ abort (cancel beats blur via TextFieldTapRegion); empty → em-dash; select editor via dropdown;
+// a pointer commit (✓/blur) must NOT refocus the pencil, a keyboard commit (Enter/Esc) does.
 // AnEditableValue 双锚编辑核契约。
 void main() {
   Future<String Function()> pump(

@@ -101,12 +101,8 @@ class AnKv extends StatelessWidget {
 
     // Read-only row: one merged "label: value" node — no pencil, key→value connected for SR. 只读行单节点。
     final shown = (row.value == null || row.value!.isEmpty) ? '—' : row.value!;
-    // Value column → tabular figures UNCONDITIONALLY (demo .v tabular-nums always; mono only switches
-    // family) so numeric columns align + match the editable rows. 值列无条件 tabular,mono 只切字体族。
-    final valueStyle = (mono
-            ? AnText.mono.copyWith(fontSize: AnText.meta.fontSize, fontFeatures: const [FontFeature.tabularFigures()])
-            : AnText.body.copyWith(fontFeatures: const [FontFeature.tabularFigures()]))
-        .copyWith(color: c.inkFaint);
+    // Value column → the shared tabular value style ("值列 tabular 铁律"); mono only switches family. 值列样式单源。
+    final valueStyle = AnText.value(mono: mono).copyWith(color: c.inkFaint);
     return Semantics(
       label: '${row.label}: $shown',
       child: ExcludeSemantics(
@@ -202,7 +198,7 @@ class AnField extends StatelessWidget {
         maxLines: wrap ? null : 1,
         softWrap: wrap,
         overflow: wrap ? TextOverflow.clip : TextOverflow.ellipsis,
-        style: AnText.body.copyWith(color: c.inkMuted, fontFeatures: const [FontFeature.tabularFigures()]),
+        style: AnText.value().copyWith(color: c.inkMuted),
       );
     } else {
       semValue = null;

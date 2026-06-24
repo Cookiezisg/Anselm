@@ -29,18 +29,18 @@ enum AnEditKind {
 /// anchors, unlike AnEditAffordance's co-located triad (hence net-new, not a reuse of that container).
 /// Commit on Enter / ✓ / blur; cancel on Esc / ✕. Abort wins via a one-shot [_finished] guard, and the
 /// confirm buttons sit in a [TextFieldTapRegion] so tapping them is NOT a blur-commit (cancel-priority).
-/// Keyboard focus returns to the pencil on Enter/Esc (NOT on blur — that came from a click elsewhere).
-/// Entering edit announces politely. The display value mirrors the field's style so toggling never jumps.
+/// Focus returns to the pencil only on a KEYBOARD finish (Enter/Esc), not on a pointer ✓✕ / blur — see
+/// [_finish]. Entering edit announces politely. The display value mirrors the field's style so toggling never jumps.
 ///
 /// [AnEditKind.select]: the value zone is an always-present ghost [AnDropdown] (it IS the editor — a
-/// pick commits, outside-tap / Esc dismiss it harmlessly), so there's no dangling edit state to get
-/// stuck in. [rowHeight] is parameterized (Field 44 / Kv 32) so one core serves both without baking a height.
+/// pick commits, outside-tap / Esc dismiss it harmlessly), so there's no dangling edit state to get stuck
+/// in. [rowHeight] is parameterized (Field [AnSize.islandHead] / Kv [AnSize.row]) so one core serves both.
 ///
 /// 双锚就地值编辑核(AnField + AnKv 共用,= demo field.js)。input:平时只读,hover 时 key 右冒铅笔 → 点铅笔值换
 /// seamless 框、value 右出 取消/保存(两锚,异于 AnEditAffordance 同处三连)。Enter/✓/失焦提交、Esc/✕ 取消;abort 经
-/// 一次性 _finished 守卫优先,✓✕ 套 TextFieldTapRegion 不触发失焦提交(取消优先);Enter/Esc 后焦点回落铅笔(失焦不回落);
-/// 进编辑礼貌宣告;展示值镜像编辑框样式不跳。select:值区=常驻 ghost AnDropdown(它即编辑器,pick 提交、外点/Esc 无害
-/// 收起),无悬空编辑态。rowHeight 参数化(Field 44 / Kv 32)。
+/// 一次性 _finished 守卫优先,✓✕ 套 TextFieldTapRegion 不触发失焦提交(取消优先);仅键盘完成(Enter/Esc)回落焦点到铅笔
+/// (指针 ✓✕/失焦不回落,见 _finish);进编辑礼貌宣告;展示值镜像编辑框样式不跳。select:值区=常驻 ghost AnDropdown(它即编辑器,
+/// pick 提交、外点/Esc 无害收起),无悬空编辑态。rowHeight 参数化(Field AnSize.islandHead / Kv AnSize.row)。
 class AnEditableValue extends StatefulWidget {
   const AnEditableValue({
     required this.leading,
@@ -55,7 +55,8 @@ class AnEditableValue extends StatefulWidget {
     this.wrap = false,
     this.startEditing = false,
     super.key,
-  });
+  }) : assert(!startEditing || editor == AnEditKind.input,
+            'startEditing applies to AnEditKind.input only — select has no edit state to open. 仅 input 适用');
 
   /// The visual left zone (a key [Text], or a label + hint column). 视觉左区(key 文本 / label+hint 列)。
   final Widget leading;
@@ -128,6 +129,8 @@ class _AnEditableValueState extends State<AnEditableValue> {
   }
 
   void _begin() {
+    // Reset from the current value — discards any text left over from a PRIOR ABORTED edit (didUpdateWidget
+    // only syncs on an external value change, and an abort leaves widget.value unchanged). 重置丢弃上次取消遗留文本。
     _ctl.text = widget.value;
     // Caret at END — editing a value, NOT renaming, so no select-all. 光标落末(改值非重命名,不全选)。
     _ctl.selection = TextSelection.collapsed(offset: _ctl.text.length);
@@ -145,9 +148,8 @@ class _AnEditableValueState extends State<AnEditableValue> {
     }
   }
 
-  // One-shot per session; abort (✕ / Esc) wins if it lands first. blur passes returnFocus:false (the
-  // user clicked elsewhere — don't steal focus back). Commit trims (matches demo, no dirty whitespace).
-  // 一次性;abort 先到则胜;失焦不回落焦点;提交去首尾空白(同 demo)。
+  // One-shot per session ([_finished]); abort (✕ / Esc) wins if it lands first. Commit trims (no dirty
+  // whitespace). The returnFocus decision is explained inline below. 一次性;abort 先到胜;提交去首尾空白。
   void _finish(bool commit, {required bool returnFocus}) {
     if (_finished) return;
     _finished = true;
@@ -239,10 +241,8 @@ class _AnEditableValueState extends State<AnEditableValue> {
               ),
             ),
       trailing: _inputValueZone(c),
-      // TextFieldTapRegion: tapping cancel / save isn't "outside" the field → no blur-commit
-      // (cancel-priority). returnFocus:false — a ✓✕ CLICK is a pointer action: it must not focus the
-      // pencil (else it stays revealed + focus-ringed). The keyboard commit/abort path is Enter/Esc in the
-      // field (below, returnFocus:true). 点 ✓✕ 是指针动作,不回落焦点到铅笔(否则卡可见+焦点框);键盘提交走字段 Enter/Esc。
+      // ✓✕ in a TextFieldTapRegion so tapping them isn't a blur-commit (cancel-priority); returnFocus:false
+      // because a click is a pointer finish (see _finish). ✓✕ 套 TapRegion 不触发失焦提交;点击不回落焦点(见 _finish)。
       afterValue: _editing
           ? TextFieldTapRegion(
               child: AnEditAffordance(
@@ -267,12 +267,9 @@ class _AnEditableValueState extends State<AnEditableValue> {
         onTapOutside: (_) => _finish(true, returnFocus: false), // blur-commit; focus stays where clicked 失焦提交、焦点不回落
       );
     }
-    // Display: mirror AnInput's seamless style so the idle ↔ editing toggle never changes size/face.
-    // Value column → tabular figures UNCONDITIONALLY (demo .v tabular-nums always; mono only switches
-    // family, 原语 D). Empty shows an em-dash. 展示镜像编辑框;值列无条件 tabular(mono 只切字体族);空显 —。
-    final base = widget.mono
-        ? AnText.mono.copyWith(fontSize: AnText.meta.fontSize, fontFeatures: const [FontFeature.tabularFigures()])
-        : AnText.body.copyWith(fontFeatures: const [FontFeature.tabularFigures()]);
+    // Display mirrors the seamless field's style (shared value-column style) so idle ↔ editing never
+    // changes size/face; empty shows an em-dash. 展示走值列样式单源(切换不跳),空显 —。
+    final base = AnText.value(mono: widget.mono);
     final display = widget.value.isEmpty ? '—' : widget.value;
     return Text(
       display,

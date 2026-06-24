@@ -7,7 +7,8 @@ import 'dry_intrinsic_width.dart';
 
 /// The kit's in-place edit field leaf (shared by AnInlineEdit + AnEditableValue): a seamless [AnInput]
 /// sized to its content ([DryIntrinsicWidth]), floored at [AnSize.inlineEditMin] (an empty field stays
-/// clickable) and never wider than the space its parent ([Flexible]) leaves (so it scrolls at the cap).
+/// clickable) and never wider than the width its parent allots — AnInlineEdit via a [Flexible],
+/// AnEditableValue via AnLeadValue's value slot — so it scrolls at the cap.
 /// A trailing pad keeps the caret off the last glyph at end-of-line (flutter#24612); no placeholder (a
 /// hint pollutes the intrinsic width, flutter#93337). Enter → [onCommit], Esc → [onAbort], pointer
 /// outside → [onTapOutside] (blur-commit; the consumer wraps its confirm buttons in a
@@ -15,7 +16,7 @@ import 'dry_intrinsic_width.dart';
 /// (rename → select-all; value-edit → caret at end), so this leaf stays selection-policy-agnostic.
 ///
 /// 就地编辑字段叶子(AnInlineEdit + AnEditableValue 共用):seamless AnInput 按内容定宽、不窄于 inlineEditMin、不宽于父
-/// 让出的空间(到顶横滚);尾留位防光标压末字(flutter#24612);不给 placeholder(污染固有宽 flutter#93337)。
+/// 让出的空间(AnInlineEdit 经 Flexible、AnEditableValue 经 AnLeadValue 值槽,到顶横滚);尾留位防光标压末字(flutter#24612);不给 placeholder(污染固有宽 flutter#93337)。
 /// Enter 存、Esc 弃、外点 onTapOutside(失焦提交;调用方 ✓✕ 套 TextFieldTapRegion 取消优先)。选区由调用方进编辑前设
 /// (重命名全选 / 改值光标落末),本叶子不预设选区策略。
 class AnSeamlessField extends StatelessWidget {
