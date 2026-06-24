@@ -135,18 +135,27 @@ class AnVersionDiff extends StatelessWidget {
       child: AnCodeSurface(
         bare: bare,
         child: LayoutBuilder(
-          builder: (ctx, constraints) => Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (!bare) _cap(c, t, added, removed),
-              // Content-height when unbounded (parent scrolls); scroll the body when bounded. 无界=内容高;有界=纵滚。
-              if (constraints.maxHeight.isFinite)
-                Flexible(child: SingleChildScrollView(child: body))
-              else
-                body,
-            ],
-          ),
+          builder: (ctx, constraints) {
+            final column = Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (!bare) _cap(c, t, added, removed),
+                // Content-height when unbounded (parent scrolls); scroll the body when bounded. 无界=内容高;有界=纵滚。
+                if (constraints.maxHeight.isFinite)
+                  Flexible(child: SingleChildScrollView(child: body))
+                else
+                  body,
+              ],
+            );
+            // FILL the available width (a diff is a block element, demo .vd display:block). Without
+            // this a LOOSE parent (e.g. the gallery's Align(centerLeft)) lets the Column shrink to
+            // content width, so the bar's right-pinned +N/−N stops short of the frame edge instead of
+            // hugging it. 撑满可用宽:否则 loose 父下缩成内容宽、右锚计数不贴框边。
+            return constraints.maxWidth.isFinite
+                ? SizedBox(width: constraints.maxWidth, child: column)
+                : column;
+          },
         ),
       ),
     );
@@ -156,6 +165,9 @@ class AnVersionDiff extends StatelessWidget {
   Widget _cap(AnColors c, Translations t, int added, int removed) {
     return Padding(
       padding: const EdgeInsets.only(left: AnSpace.s12, right: AnSpace.s12, top: AnSpace.s8),
+      // ONE flexible filler between the left (range/note) and the right-pinned counts — note fills it
+      // (ellipsized) when present, else a Spacer. Two flex children (a Flexible note AND a Spacer) split
+      // the slack and leave the counts short of the right edge. 单一弹性填充把计数钉右(两个 flex 子件会分摊、计数到不了右缘)。
       child: Row(
         children: [
           if (range != null) ...[
@@ -163,8 +175,9 @@ class AnVersionDiff extends StatelessWidget {
             const SizedBox(width: AnSpace.s8),
           ],
           if (note != null)
-            Flexible(child: Text(note!, maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.meta.copyWith(color: c.inkFaint))),
-          const Spacer(),
+            Expanded(child: Text(note!, maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.meta.copyWith(color: c.inkFaint)))
+          else
+            const Spacer(),
           if (added > 0 || removed > 0)
             Text.rich(
               TextSpan(children: [

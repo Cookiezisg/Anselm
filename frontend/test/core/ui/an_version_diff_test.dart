@@ -1,4 +1,5 @@
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
@@ -30,6 +31,16 @@ void main() {
     expect(find.textContaining('+1'), findsOneWidget); // one add
     expect(find.textContaining('−1'), findsOneWidget); // one del (U+2212)
     expect(find.text('v1 → v2'), findsOneWidget); // range label
+  });
+
+  testWidgets('counts are pinned to the top-right edge even with a range + note present', (tester) async {
+    // Regression (user-reported): a Flexible note + a Spacer (two flex children) split the slack and
+    // left +N/−N short of the right edge; one filler pins it right. 回归:双 flex 致计数不贴右,单填充修。
+    await tester.pumpWidget(host(const AnVersionDiff(before: 'a\nb', after: 'a\nc', range: 'v3 → v4', note: 'rename + add param')));
+    await tester.pumpAndSettle();
+    final countsRight = tester.getRect(find.textContaining('+1')).right;
+    final diffRight = tester.getRect(find.byType(AnVersionDiff)).right;
+    expect(diffRight - countsRight, lessThan(AnSpace.s16), reason: 'counts hug the right edge (only the cap padding between)');
   });
 
   testWidgets('note renders (ellipsized single line)', (tester) async {
