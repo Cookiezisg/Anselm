@@ -1,14 +1,18 @@
 ---
 id: WRK-039
 type: working
-status: active
+status: archived
 owner: @weilin
 created: 2026-06-24
 reviewed: 2026-06-24
 review-due: 2026-09-22
 audience: [human, ai]
-landed-into:
+landed-into: references/frontend/design-system.md
 ---
+
+> **已归档(2026-06-24)**:G4.0–G4.11 全落地,结论(逐件要点 + G4 整体复审硬化)已 landed 进
+> [`design-system.md`](../../references/frontend/design-system.md) §4。**推迟项**(均待真机验,#8 + verify-by-real-run):
+> 左岛 collapse/重开 · 浮动海洋头紧凑联动 · 键盘树 roving — 见 design-system.md G4.10 + G4.8。本篇留作调研存档。
 
 # WRK-039 — G4 导航与壳 建造规范
 
