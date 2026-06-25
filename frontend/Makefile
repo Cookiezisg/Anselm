@@ -28,10 +28,12 @@ help:
 setup:
 	@$(RUN) flutter pub get
 
-# gen — codegen。当前只有 slang i18n（dart run slang，非 build_runner）。产物入库（deterministic）。
-# 改 lib/i18n/*.i18n.json 后跑。freezed/json 待契约层落地再加进来。
+# gen — codegen。两套:① slang i18n(dart run slang,自有 runner)② freezed+json(build_runner,
+# 范围见 build.yaml:contract+features/data)。产物均入库(deterministic,fresh checkout 直接 analyze);
+# 改 i18n json / 契约 DTO 后跑,verify 也会重跑以抓漂移。
 gen:
 	@$(RUN) dart run slang
+	@$(RUN) dart run build_runner build --delete-conflicting-outputs
 
 # analyze — 静态分析（须净）。
 analyze:
@@ -43,9 +45,10 @@ test:
 
 # verify — pre-push 门禁:codegen + 分析净 + 单测绿。
 verify:
-	@echo "→ gen…"     && $(RUN) dart run slang
-	@echo "→ analyze…" && $(RUN) flutter analyze
-	@echo "→ test…"    && $(RUN) flutter test
+	@echo "→ gen(slang)…"        && $(RUN) dart run slang
+	@echo "→ gen(build_runner)…" && $(RUN) dart run build_runner build --delete-conflicting-outputs
+	@echo "→ analyze…"           && $(RUN) flutter analyze
+	@echo "→ test…"              && $(RUN) flutter test
 	@echo "" && echo "✓ verify 全绿（gen + analyze + test）"
 
 # demo — 真 app 形态（骨架阶段:三岛空壳;后续接 fixture 数据）。

@@ -35,11 +35,25 @@ dependencies:
   # i18n=slang:类型安全 t.<key>,严禁硬编码中英文;`dart run slang` 生成(不走 build_runner)。
   slang: ^4.16.0
   slang_flutter: ^4.16.0
+  # HTTP transport (REST ApiClient) + the long-lived SSE GET (ResponseType.stream). The one
+  # runtime dep the net + sse layers need. 网络传输:REST + 长连 SSE(均走 dio 流)。
+  dio: ^5.9.2
+  # Contract DTO codegen runtime annotations (@freezed / @Default / @JsonKey unknownEnumValue).
+  # 契约 DTO codegen 运行时注解(freezed 3.x + json 联合体 unknown 兜底)。
+  freezed_annotation: ^3.1.0
+  json_annotation: ^4.12.0
+  # Declarative desktop routing (AppShell + feature routes). 声明式路由(壳 + feature 路由)。
+  go_router: ^17.3.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  # Codegen for contract DTOs (NOT slang — slang stays on its own `dart run slang`, see build.yaml).
+  # 契约 DTO 代码生成(不含 slang——slang 自走 dart run slang,见 build.yaml)。
+  build_runner: ^2.15.0
+  freezed: ^3.2.5
+  json_serializable: ^6.14.0
 
 flutter:
   uses-material-design: true

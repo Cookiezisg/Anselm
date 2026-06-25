@@ -1,0 +1,21 @@
+# Codegen scope for freezed + json_serializable ONLY (contract DTOs + each feature's data layer).
+# slang is NOT a build_runner builder — it has its own `dart run slang`, so lib/i18n/*.g.dart is
+# left entirely untouched here. Scoping keeps the run fast and off the UI kit / generated i18n.
+# codegen 仅限 freezed + json_serializable(契约 DTO + 各 feature 的 data 层);slang 自走
+# `dart run slang`,lib/i18n 不在此、不被触碰。限范围让 codegen 快且不碰 UI kit / i18n。
+targets:
+  $default:
+    builders:
+      freezed:
+        generate_for:
+          - lib/core/contract/**.dart
+          - lib/features/**/data/**.dart
+      json_serializable:
+        options:
+          # Nested DTOs (e.g. Workspace.defaultDialogue: ModelRef) must serialize via their own
+          # toJson, not be left as objects — required for round-trip + sending nested bodies.
+          # 嵌套 DTO 须走各自 toJson(否则 toJson 留对象、往返/发嵌套体崩),故开 explicit_to_json。
+          explicit_to_json: true
+        generate_for:
+          - lib/core/contract/**.dart
+          - lib/features/**/data/**.dart
