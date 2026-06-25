@@ -24,7 +24,7 @@ Go 后端作 **sidecar**,Flutter 桌面端是其纯客户端。**3-tier feature-
 main.dart                  # 入口:scaled binding(应内缩放)→ initWindow → 恢复缩放档 → runApp(ProviderScope(AnApp))
 app/                       # 装配根
   app.dart                 # 根 widget(MaterialApp + 主题 + home=AnShell + builder=AnOverlayHost[浮层宿主、持 navigatorKey];绑 Cmd +/-/0 缩放)
-  window_setup.dart        # 桌面窗口:window_manager(尺寸/最小/居中)+ macos_window_utils(无边框 + 加高标题栏红绿灯)
+  window_setup.dart        # 桌面窗口:window_manager(尺寸/最小/居中 + hidden-at-launch:原生 order 钩子隐藏、几何就绪后 show() 一次性显示、无启动重定位闪烁)+ macos_window_utils(无边框 + 加高标题栏红绿灯)
 core/                      # 跨切共享层(不依赖上层)
   design/                  # tokens · colors · typography · theme —— 唯一值源,禁内联 px/hex/ms
   platform/                # OS 缝:host_platform(dart:io 收口)· window_zoom(应内 Cmd +/- 缩放)

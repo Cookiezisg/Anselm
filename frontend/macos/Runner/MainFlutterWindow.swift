@@ -23,4 +23,17 @@ class MainFlutterWindow: NSWindow {
 
     super.awakeFromNib()
   }
+
+  // Hide the window on its VERY FIRST ordering so it never paints at the xib's 800×600 / off-center
+  // contentRect; window_manager's show() (Dart, inside waitUntilReadyToShow AFTER size + center are
+  // applied — see window_setup.dart) is the single reveal, so the first frame the user ever sees is
+  // already at the final geometry — killing the launch reposition flash. `hiddenWindowAtLaunch()` is
+  // window_manager's NSWindow extension (one-shot, guarded by its own `configured` flag); this is the
+  // package's blessed recipe verbatim (no `import window_manager` — same as window_manager's own
+  // example Runner). 首次 order 即隐藏,绝不在 xib 的 800×600/非居中 rect 先画一帧;几何就绪后由 Dart 的
+  // windowManager.show() 一次性显示到最终位置 —— 消除启动重定位闪烁(window_manager 官方 recipe 原样照搬)。
+  override public func order(_ place: NSWindow.OrderingMode, relativeTo otherWin: Int) {
+    super.order(place, relativeTo: otherWin)
+    hiddenWindowAtLaunch()
+  }
 }
