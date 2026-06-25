@@ -51,6 +51,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$a11y$en a11y = Translations$a11y$en.internal(_root);
 	late final Translations$diff$en diff = Translations$diff$en.internal(_root);
 	late final Translations$tree$en tree = Translations$tree$en.internal(_root);
+	late final Translations$startup$en startup = Translations$startup$en.internal(_root);
 }
 
 // Path: status
@@ -257,6 +258,33 @@ class Translations$tree$en {
 	String moreItems({required Object count}) => '${count} more (truncated)';
 }
 
+// Path: startup
+class Translations$startup$en {
+	Translations$startup$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Connecting to the local engine…'
+	String get connecting => 'Connecting to the local engine…';
+
+	/// en: 'Can't reach the local engine'
+	String get crashedTitle => 'Can\'t reach the local engine';
+
+	/// en: 'The backend didn't start. For development, set ANSELM_BACKEND_URL to an already-running server (make server).'
+	String get crashedHint => 'The backend didn\'t start. For development, set ANSELM_BACKEND_URL to an already-running server (make server).';
+
+	/// en: 'Retry'
+	String get retry => 'Retry';
+
+	/// en: 'Something went wrong'
+	String get errorTitle => 'Something went wrong';
+
+	/// en: 'An unexpected error occurred while rendering this view.'
+	String get errorHint => 'An unexpected error occurred while rendering this view.';
+}
+
 /// The flat map containing all translations for locale <en>.
 /// Only for edge cases! For simple maps, use the map function of this library.
 ///
@@ -313,6 +341,12 @@ extension on Translations {
 			'tree.invalidJson' => 'Invalid JSON',
 			'tree.circular' => '[Circular]',
 			'tree.moreItems' => ({required Object count}) => '${count} more (truncated)',
+			'startup.connecting' => 'Connecting to the local engine…',
+			'startup.crashedTitle' => 'Can\'t reach the local engine',
+			'startup.crashedHint' => 'The backend didn\'t start. For development, set ANSELM_BACKEND_URL to an already-running server (make server).',
+			'startup.retry' => 'Retry',
+			'startup.errorTitle' => 'Something went wrong',
+			'startup.errorHint' => 'An unexpected error occurred while rendering this view.',
 			_ => null,
 		};
 	}

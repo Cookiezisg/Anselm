@@ -47,6 +47,7 @@ class TranslationsZhCn extends Translations with BaseTranslations<AppLocale, Tra
 	@override late final _Translations$a11y$zh_CN a11y = _Translations$a11y$zh_CN._(_root);
 	@override late final _Translations$diff$zh_CN diff = _Translations$diff$zh_CN._(_root);
 	@override late final _Translations$tree$zh_CN tree = _Translations$tree$zh_CN._(_root);
+	@override late final _Translations$startup$zh_CN startup = _Translations$startup$zh_CN._(_root);
 }
 
 // Path: status
@@ -159,6 +160,21 @@ class _Translations$tree$zh_CN extends Translations$tree$en {
 	@override String moreItems({required Object count}) => '${count} 项已省略';
 }
 
+// Path: startup
+class _Translations$startup$zh_CN extends Translations$startup$en {
+	_Translations$startup$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get connecting => '正在连接本地引擎…';
+	@override String get crashedTitle => '无法连接本地引擎';
+	@override String get crashedHint => '后端未启动。开发时把 ANSELM_BACKEND_URL 指向已运行的服务(make server)。';
+	@override String get retry => '重试';
+	@override String get errorTitle => '出错了';
+	@override String get errorHint => '渲染此视图时发生了意外错误。';
+}
+
 /// The flat map containing all translations for locale <zh-CN>.
 /// Only for edge cases! For simple maps, use the map function of this library.
 ///
@@ -215,6 +231,12 @@ extension on TranslationsZhCn {
 			'tree.invalidJson' => '无效 JSON',
 			'tree.circular' => '[循环引用]',
 			'tree.moreItems' => ({required Object count}) => '${count} 项已省略',
+			'startup.connecting' => '正在连接本地引擎…',
+			'startup.crashedTitle' => '无法连接本地引擎',
+			'startup.crashedHint' => '后端未启动。开发时把 ANSELM_BACKEND_URL 指向已运行的服务(make server)。',
+			'startup.retry' => '重试',
+			'startup.errorTitle' => '出错了',
+			'startup.errorHint' => '渲染此视图时发生了意外错误。',
 			_ => null,
 		};
 	}

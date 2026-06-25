@@ -6,6 +6,7 @@ import '../core/overlay/an_overlay.dart';
 import '../core/platform/window_zoom.dart';
 import '../core/ui/an_shell.dart';
 import '../i18n/strings.g.dart';
+import 'app_startup_gate.dart';
 
 /// The root widget — wires the theme onto a MaterialApp whose `home` is the three-island shell and
 /// whose `builder` wraps the navigator in an [AnOverlayHost] (the assembly-root layer that holds the
@@ -35,14 +36,19 @@ class _AnAppState extends State<AnApp> {
       debugShowCheckedModeBanner: false,
       theme: AnTheme.light(),
       navigatorKey: _navigatorKey,
-      home: CallbackShortcuts(
-        bindings: <ShortcutActivator, VoidCallback>{
-          const SingleActivator(LogicalKeyboardKey.equal, meta: true): WindowZoom.zoomIn,
-          const SingleActivator(LogicalKeyboardKey.equal, meta: true, shift: true): WindowZoom.zoomIn,
-          const SingleActivator(LogicalKeyboardKey.minus, meta: true): WindowZoom.zoomOut,
-          const SingleActivator(LogicalKeyboardKey.digit0, meta: true): WindowZoom.reset,
-        },
-        child: const Focus(autofocus: true, child: AnShell()),
+      // The startup gate sits BETWEEN the navigator's home and the shell: while the sidecar backend
+      // connects it shows a connecting/crashed screen; once ready it reveals the shell. The zoom
+      // shortcuts + autofocus stay wrapped inside (live once the shell shows). 启动门控在 home 与壳之间。
+      home: AppStartupGate(
+        child: CallbackShortcuts(
+          bindings: <ShortcutActivator, VoidCallback>{
+            const SingleActivator(LogicalKeyboardKey.equal, meta: true): WindowZoom.zoomIn,
+            const SingleActivator(LogicalKeyboardKey.equal, meta: true, shift: true): WindowZoom.zoomIn,
+            const SingleActivator(LogicalKeyboardKey.minus, meta: true): WindowZoom.zoomOut,
+            const SingleActivator(LogicalKeyboardKey.digit0, meta: true): WindowZoom.reset,
+          },
+          child: const Focus(autofocus: true, child: AnShell()),
+        ),
       ),
       builder: (context, child) => AnOverlayHost(navigatorKey: _navigatorKey, child: child!),
     );
