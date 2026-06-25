@@ -13,7 +13,7 @@
 - **本地优先 Agentic Workflow Platform**，目标 **Flutter 桌面 app**（macOS/Linux/Windows，Go 后端作 sidecar）、**单进程单用户**、SQLite 落盘（**不做 SaaS**）。
 - **核心心智**：**Quadrinity（四项全能）** 实体（Function/Handler/Agent/Workflow）+ **Durable Execution**（节点结果记忆化 + 解释器幂等重走）。
 - **架构**：4 层 Clean Architecture，依赖单向 `transport → app → (domain ∪ infra/store) → infra/db`。地基自研：`pkg/orm`（去 GORM）+ `glebarez/go-sqlite`（纯 Go、无 CGO）。
-- **当前状态**：后端 `backend/` 全实体 + durable 引擎，编译/装配/启动/服务全通（单一后端）；前端 `frontend/` Flutter 桌面端**地基已落**（sidecar/契约/SSE gateway/装配根/i18n，analyze+test 绿，见 ADR 0004）；**下一步**：按 app 形态铺 features、对接 `backend` 契约。
+- **当前状态**：后端 `backend/` 全实体 + durable 引擎，编译/装配/启动/服务全通（单一后端）；前端**分两条线**——`main` 持**运行时地基**（契约 DTO / `net` HTTP / `sse` gateway 四件套 / sidecar，commit `f50d5318`）+ 旧 UI，`frontend-rebuild`（**当前活跃线**）持**新设计系统 + UI kit G0–G6（49 原语 + gallery）+ 三岛 shell 骨架 + 窗口/缩放/i18n/浮层**（analyze+test 绿，见 ADR 0004），但**运行时管道尚未并入**（rebuild 无 `core/{contract,net,sse}`、`dio`/`go_router`/`freezed` 依赖未加，三岛仍占位）。**下一步（Phase 4）**：把运行时地基港进 rebuild（按 app 级复审 + 对齐当前后端契约）+ Riverpod 装配（workspace/baseUrl override、401/410、3 SSE 流），再按海洋顺序铺 features（Entities 起）。
 
 ## 文档地图
 
@@ -36,7 +36,7 @@
 1. **Quadrinity 实体化**：任何能力必须归属于 Function / Handler / Agent / Workflow 之一。
 2. **Durable 为魂**：工作流执行基于**节点结果记忆化**（`flowrun_nodes` 行表 + record-once）+ **解释器幂等重走**实现崩溃恢复与确定性重放——**非**事件日志（Temporal 式 journal 已否决）。
 3. **依赖自下而上**：`domain` 层**严禁 import 任何外部包**（含 ORM / cel-go）；`app` 层协调 domain 与 infra；跨实体协作走 DIP 端口、不硬依赖具体实现。
-4. **后端契约是事实源**：`reference` 文档 = 代码的精确投影；前端按 [`ADR 0004`](docs/decisions/0004-frontend-flutter-architecture.md)（Flutter 3-tier feature-first）对接已定型的后端契约（地基已落）。
+4. **后端契约是事实源**：`reference` 文档 = 代码的精确投影；前端按 [`ADR 0004`](docs/decisions/0004-frontend-flutter-architecture.md)（Flutter 3-tier feature-first）对接已定型的后端契约（运行时管道状态见「当前状态」节）。
 5. **端到端推演先行**：开工前必走完整数据流 + 列出跨域依赖（relation 边）。
 6. **反校验剧场**：只保留有物理价值的校验（JSON、必填、CHECK/UNIQUE）；不加多余 null-check。
 7. **零历史包袱 + 状态即重述**：项目未上线，禁止维护兼容性、禁止历史演化描述，只留当前物理事实（历史从 git 取）。**状态文档**（本文件 / `architecture.md` / `GOVERNANCE.md`）改任何状态/事实 = **整体重述当前状态、非追加**——绝不在旧内容旁堆新句、不留旧状态痕迹（见末「文档纪律」节 + GOVERNANCE §1.7）。
