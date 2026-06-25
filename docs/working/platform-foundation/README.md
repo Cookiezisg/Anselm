@@ -49,16 +49,18 @@ audience: [human, ai]
 - 已剔除一个占位垃圾集群(`test`,agent 产出残渣)。
 - 各集群表内 `⚠` 标在仅单平台/受限的包上;逐集群 verify 的"过度设计?"提示已折进表下。
 
-## 5. 开放问题(请你拍板——多为一次性架构决策)
+## 5. 决策(2026-06-26 用户已拍板)
 
-1. **关闭按钮 = 退出,还是缩到托盘 + 后台续跑?**(决定 scheduler 后台模型 + 是否要托盘 + 是否 launch-at-login)
-2. **provider API Key 归谁存?** 推荐:**Go sidecar 经纯 Go keyring 持有**(而非 Flutter `flutter_secure_storage`,后者桌面有硬坑)。
-3. **macOS 发行姿态** = 非沙盒 Developer ID + Hardened Runtime + 公证(沙盒与"下载执行运行时"冲突)——确认?
-4. **loopback 安全要不要动后端**:新增 `ANSELM_AUTH_TOKEN`(每次启动随机)+ 绑 127.0.0.1 + Host 校验。这是真实攻击面(本机网页/进程可打我们的本地 HTTP),建议进 P0,但需后端配合。
-5. **自动更新机制 + appcast 托管**:local-first 也仍需"一台服务器"发更新描述——现在定方向(Sparkle/auto_updater + Linux 另路),还是 release 前再说?
-6. **设置存储**:富设置用**带版本迁移的 JSON 文档**(非 `shared_preferences`)——采纳?
-7. **v1 范围**:P0 的 71 项里,哪些真进首个可交付版,哪些降级?(尤其发行签名那批可否推到"要给外部用户"时)
-8. **兜底网余下 5 个未深研领域**(§C.1:无障碍认证 / i18n 运行时格式化+时区 / in-app 帮助+反馈 / 商店元数据+Linux 桌面集成 / 法务许可合规)——要不要补一轮深研,还是并入既有集群?
+> 原 8 个开放问题已定如下;发行细节深挖见 [`WRK-043 发行 Playbook`](release-distribution-playbook.md)。
+
+1. ✅ **关闭 = 后台续跑**(缩到托盘 + 后台,非退出)→ scheduler 后台模型成立;需托盘 + 关窗确认(有在途 run 时)。
+2. ✅ **provider Key 归 Go 后端**(后端已持有)→ Flutter 端永不碰明文 Key,只调后端。
+3. ✅ **macOS = 非沙盒 Developer ID + Hardened Runtime + 公证**;用户确认会买 $99/yr Apple Developer。不上 Mac App Store。
+4. ✅ **loopback 三把锁进 P0**:绑 127.0.0.1 + 每次启动随机 `ANSELM_AUTH_TOKEN` + Host 校验(需后端小改)。
+5. ◑ **要自动更新**(三平台);**appcast/下载托管**首选 GitHub Releases(抗封,旧 `anselm.host` 已被封)——最终落点待新域名/托管拍板(见 WRK-043 §5)。
+6. ✅ **设置存储分阶段**:简单开关续用 `shared_preferences`;做 Settings feature 时再引入带版本迁移的 JSON 设置存(provider 设计成底层可替换)。
+7. ✅ **v1 = 可发行给外部用户**(非仅 dogfood)→ 发行签名那批 P0 必做;详尽发行手册见 WRK-043。
+8. ◑ **#8 处置**:#1 无障碍认证 / #3 in-app 帮助 = Pass 1 已够;**#4 商店元数据 + #5 法务许可已并入 WRK-043**;**#2 i18n 运行时格式化 + 时区/DST(尤其 Scheduler cron/夏令时)** = 真缺口,待晚点单独一小轮。
 
 ## 6. 落地建议(Phase 4 排序)
 
