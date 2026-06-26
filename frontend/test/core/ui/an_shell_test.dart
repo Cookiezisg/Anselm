@@ -2,6 +2,8 @@ import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/ui/an_island.dart';
 import 'package:anselm/core/ui/an_shell.dart';
+import 'package:anselm/core/ui/icons.dart';
+import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -11,7 +13,9 @@ import 'package:flutter_test/flutter_test.dart';
 /// 三岛 shell 骨架守卫:左岛可拖(240–400 默认 320)+ 右岛固定(320)+ 敞开海洋;窗口最小保证即便左岛
 /// 拖到最大、海洋内容列仍不低于最小。
 void main() {
-  Widget harness() => MaterialApp(theme: AnTheme.light(), home: const AnShell());
+  // AnShell now reads context.t for the panel-button labels → wrap in TranslationProvider. 套件读 i18n。
+  Widget wrap(Widget shell) => TranslationProvider(child: MaterialApp(theme: AnTheme.light(), home: shell));
+  Widget harness() => wrap(const AnShell());
 
   testWidgets('renders left(default 320, draggable) + right(fixed 320) islands + ocean',
       (tester) async {
@@ -54,9 +58,8 @@ void main() {
     addTearDown(tester.view.reset);
 
     Future<double> oceanWidth({required bool open}) async {
-      await tester.pumpWidget(MaterialApp(
-        theme: AnTheme.light(),
-        home: AnShell(
+      await tester.pumpWidget(wrap(
+        AnShell(
           ocean: const SizedBox.expand(key: ValueKey('oceanProbe')),
           inspectorOpen: open,
         ),
@@ -80,9 +83,8 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
-    Widget shell(bool open) => MaterialApp(
-          theme: AnTheme.light(),
-          home: AnShell(
+    Widget shell(bool open) => wrap(
+          AnShell(
             inspector: const Text('inspector body', semanticsLabel: 'inspectorProbe'),
             inspectorOpen: open,
           ),
@@ -119,6 +121,33 @@ void main() {
       find.ancestor(of: find.byType(AnIsland).last, matching: find.byType(ClipRect)),
     );
     expect(clip.clipper, isNotNull, reason: 'open island → no-op clipper → shadow not clipped (matches the left island)');
+  });
+
+  testWidgets('collapsed left → island slides away + a reopen button appears in the ocean head', (tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(wrap(AnShell(onToggleLeft: () {}, leftCollapsed: true)));
+    await tester.pumpAndSettle();
+    expect(find.byType(AnIsland), findsOneWidget); // only the right island remains 左岛已滑走
+    expect(find.byIcon(AnIcons.panelLeft), findsOneWidget); // the reopen button, now in the floating head
+  });
+
+  testWidgets('panel-right toggle shows only when onToggleRight is given, and fires', (tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(harness()); // no onToggleRight → no panel-right
+    await tester.pumpAndSettle();
+    expect(find.byIcon(AnIcons.panelRight), findsNothing);
+
+    var toggled = false;
+    await tester.pumpWidget(wrap(AnShell(onToggleRight: () => toggled = true)));
+    await tester.pumpAndSettle();
+    expect(find.byIcon(AnIcons.panelRight), findsOneWidget);
+    await tester.tap(find.byIcon(AnIcons.panelRight));
+    expect(toggled, isTrue);
   });
 
   test('minimum window keeps the ocean ≥ its min column even with the left island at max', () {

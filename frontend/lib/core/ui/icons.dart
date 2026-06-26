@@ -32,6 +32,8 @@ abstract final class AnIcons {
   static final IconData plus = _thin(LucideIcons.plus); // New / add (sidebar New row, row-add) 新建/添加
   static final IconData search = _thin(LucideIcons.search);
   static final IconData check = _thin(LucideIcons.check);
+  static final IconData panelLeft = _thin(LucideIcons.panelLeft); // collapse/reopen the left island 左岛收起/展开
+  static final IconData panelRight = _thin(LucideIcons.panelRight); // toggle the right island 右岛切换
 
   // ── entities / graph nodes / mounts ──
   static final IconData function = _thin(LucideIcons.squareFunction);

@@ -31,6 +31,12 @@
     "copied": "已复制",
     "copyFailed": "复制失败"
   },
+  "shell": {
+    "collapseSidebar": "收起侧栏",
+    "expandSidebar": "展开侧栏",
+    "togglePanel": "切换面板",
+    "backToTop": "回到顶部"
+  },
   "ref": {
     "function": "函数",
     "handler": "处理器",

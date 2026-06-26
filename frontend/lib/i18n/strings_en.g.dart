@@ -47,6 +47,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$status$en status = Translations$status$en.internal(_root);
 	late final Translations$action$en action = Translations$action$en.internal(_root);
 	late final Translations$feedback$en feedback = Translations$feedback$en.internal(_root);
+	late final Translations$shell$en shell = Translations$shell$en.internal(_root);
 	late final Translations$ref$en ref = Translations$ref$en.internal(_root);
 	late final Translations$a11y$en a11y = Translations$a11y$en.internal(_root);
 	late final Translations$diff$en diff = Translations$diff$en.internal(_root);
@@ -156,6 +157,27 @@ class Translations$feedback$en {
 
 	/// en: 'Copy failed'
 	String get copyFailed => 'Copy failed';
+}
+
+// Path: shell
+class Translations$shell$en {
+	Translations$shell$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Collapse sidebar'
+	String get collapseSidebar => 'Collapse sidebar';
+
+	/// en: 'Expand sidebar'
+	String get expandSidebar => 'Expand sidebar';
+
+	/// en: 'Toggle panel'
+	String get togglePanel => 'Toggle panel';
+
+	/// en: 'Back to top'
+	String get backToTop => 'Back to top';
 }
 
 // Path: ref
@@ -882,6 +904,10 @@ extension on Translations {
 			'feedback.addTag' => 'Add tag',
 			'feedback.copied' => 'Copied',
 			'feedback.copyFailed' => 'Copy failed',
+			'shell.collapseSidebar' => 'Collapse sidebar',
+			'shell.expandSidebar' => 'Expand sidebar',
+			'shell.togglePanel' => 'Toggle panel',
+			'shell.backToTop' => 'Back to top',
 			'ref.function' => 'Function',
 			'ref.handler' => 'Handler',
 			'ref.workflow' => 'Workflow',

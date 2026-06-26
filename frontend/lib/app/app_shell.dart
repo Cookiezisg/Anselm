@@ -1,6 +1,9 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/shell/ocean_breadcrumb.dart';
+import '../core/shell/shell_chrome.dart';
 import '../core/ui/an_inspector.dart';
 import '../core/ui/an_shell.dart';
 import '../features/entities/state/run/right_panel.dart';
@@ -9,30 +12,55 @@ import '../features/entities/ui/entity_ocean.dart';
 import '../features/entities/ui/entity_rail.dart';
 import '../features/entities/ui/run/run_terminal.dart';
 
-/// THE single shell composition — which feature sits in which island. Mounted by BOTH entries so the
-/// real app and the demo never diverge: `lib/main.dart` (→ `make app`) wraps it in the startup gate and
-/// feeds it the LIVE repositories; `lib/dev/demo_main.dart` (→ `make demo`) skips the gate and overrides
-/// the repository seam with fixtures. App vs demo differ ONLY in data source + startup.
+/// THE single shell composition — which feature sits in which island. Mounted by BOTH entries so the real
+/// app and the demo never diverge (`lib/main.dart` → `make app` with live repos behind the startup gate;
+/// `lib/dev/demo_main.dart` → `make demo` with fixtures, no gate). App vs demo differ ONLY in data + startup.
 ///
-/// The right island is the run terminal, STRONG-LINKED to the selection: it reveals whenever an entity is
-/// selected (all four kinds are executable) and isn't manually collapsed, and re-binds to whichever entity
-/// is selected (the terminal itself reads `selectedEntityProvider`). A run keeps streaming in the
-/// background when you switch entities (the controller family + keepAlive).
+/// Wires the shell chrome to the app providers: the LEFT island collapse/width ([shellChromeProvider],
+/// persisted), the OCEAN floating-head breadcrumb ([OceanBreadcrumb] over [shellHeadProvider], fed by the
+/// ocean's scroll), and the RIGHT island reveal — strong-linked to the selection (reveals whenever an
+/// entity is selected and the panel isn't manually collapsed; the run terminal re-binds to the selection).
+/// ⌘B / ⌘\ toggle the panels (the autofocus anchor in app.dart keeps them live from launch).
 ///
-/// 唯一的壳组合。右岛=run 终端,强链选区:有选中且未手动收起即揭示,并随选区重绑(终端自读 selectedEntityProvider);
-/// 切换实体时运行在后台续流(controller family + keepAlive)。
+/// 唯一壳组合。把壳 chrome 接到 app provider:左岛收起/宽度(持久化)· 海洋浮层头面包屑(随海洋滚动)· 右岛揭示
+/// (强链选区:有选中且未手动收起即揭示,run 终端随选区重绑)。⌘B/⌘\ 切换左右岛(app.dart autofocus 锚使开机即生效)。
 class AppShell extends ConsumerWidget {
   const AppShell({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final hasSelection = ref.watch(selectedEntityProvider) != null;
-    final collapsed = ref.watch(rightPanelCollapsedProvider);
-    return AnShell(
-      sidebar: const EntityRail(),
-      ocean: const EntityOcean(),
-      inspector: const AnInspector(headless: true, child: RunTerminal()),
-      inspectorOpen: hasSelection && !collapsed,
+    final rightCollapsed = ref.watch(rightPanelCollapsedProvider);
+    final chrome = ref.watch(shellChromeProvider);
+
+    void toggleLeft() => ref.read(shellChromeProvider.notifier).toggleLeft();
+    void toggleRight() =>
+        ref.read(rightPanelCollapsedProvider.notifier).toggle();
+
+    return CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        const SingleActivator(LogicalKeyboardKey.keyB, meta: true): toggleLeft,
+        const SingleActivator(LogicalKeyboardKey.keyB, control: true):
+            toggleLeft,
+        const SingleActivator(LogicalKeyboardKey.backslash, meta: true):
+            toggleRight,
+        const SingleActivator(LogicalKeyboardKey.backslash, control: true):
+            toggleRight,
+      },
+      child: AnShell(
+        sidebar: const EntityRail(),
+        ocean: const EntityOcean(),
+        inspector: const AnInspector(headless: true, child: RunTerminal()),
+        inspectorOpen: hasSelection && !rightCollapsed,
+        leftCollapsed: chrome.leftCollapsed,
+        leftWidth: chrome.leftWidth,
+        onToggleLeft: toggleLeft,
+        onLeftWidthCommitted: (w) =>
+            ref.read(shellChromeProvider.notifier).setLeftWidth(w),
+        head: const OceanBreadcrumb(),
+        // The panel-right toggle exists only when an entity is selected (a bound right island). 仅有选中时给右切换。
+        onToggleRight: hasSelection ? toggleRight : null,
+      ),
     );
   }
 }

@@ -12,6 +12,7 @@ import 'dart:ui' as ui;
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/ui/an_shell.dart';
+import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -38,10 +39,12 @@ void main() {
     tester.view.physicalSize = const Size(AnSize.windowInitialWidth, AnSize.windowInitialHeight);
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: AnTheme.light(),
-      home: const RepaintBoundary(key: key, child: AnShell()),
+    await tester.pumpWidget(TranslationProvider(
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: AnTheme.light(),
+        home: const RepaintBoundary(key: key, child: AnShell()),
+      ),
     ));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));

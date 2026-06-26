@@ -31,6 +31,12 @@
     "copied": "Copied",
     "copyFailed": "Copy failed"
   },
+  "shell": {
+    "collapseSidebar": "Collapse sidebar",
+    "expandSidebar": "Expand sidebar",
+    "togglePanel": "Toggle panel",
+    "backToTop": "Back to top"
+  },
   "ref": {
     "function": "Function",
     "handler": "Handler",

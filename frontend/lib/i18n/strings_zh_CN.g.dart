@@ -43,6 +43,7 @@ class TranslationsZhCn extends Translations with BaseTranslations<AppLocale, Tra
 	@override late final _Translations$status$zh_CN status = _Translations$status$zh_CN._(_root);
 	@override late final _Translations$action$zh_CN action = _Translations$action$zh_CN._(_root);
 	@override late final _Translations$feedback$zh_CN feedback = _Translations$feedback$zh_CN._(_root);
+	@override late final _Translations$shell$zh_CN shell = _Translations$shell$zh_CN._(_root);
 	@override late final _Translations$ref$zh_CN ref = _Translations$ref$zh_CN._(_root);
 	@override late final _Translations$a11y$zh_CN a11y = _Translations$a11y$zh_CN._(_root);
 	@override late final _Translations$diff$zh_CN diff = _Translations$diff$zh_CN._(_root);
@@ -102,6 +103,19 @@ class _Translations$feedback$zh_CN extends Translations$feedback$en {
 	@override String get addTag => '添加标签';
 	@override String get copied => '已复制';
 	@override String get copyFailed => '复制失败';
+}
+
+// Path: shell
+class _Translations$shell$zh_CN extends Translations$shell$en {
+	_Translations$shell$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get collapseSidebar => '收起侧栏';
+	@override String get expandSidebar => '展开侧栏';
+	@override String get togglePanel => '切换面板';
+	@override String get backToTop => '回到顶部';
 }
 
 // Path: ref
@@ -489,6 +503,10 @@ extension on TranslationsZhCn {
 			'feedback.addTag' => '添加标签',
 			'feedback.copied' => '已复制',
 			'feedback.copyFailed' => '复制失败',
+			'shell.collapseSidebar' => '收起侧栏',
+			'shell.expandSidebar' => '展开侧栏',
+			'shell.togglePanel' => '切换面板',
+			'shell.backToTop' => '回到顶部',
 			'ref.function' => '函数',
 			'ref.handler' => '处理器',
 			'ref.workflow' => '工作流',
