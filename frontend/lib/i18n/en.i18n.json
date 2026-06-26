@@ -81,6 +81,49 @@
     "selectHint": "Choose a function, handler, agent, or workflow from the rail.",
     "sortLabel": "Sort",
     "sortRecent": "Recently updated",
-    "sortName": "Name"
+    "sortName": "Name",
+    "detail": {
+      "crumbRoot": "Entities",
+      "moreActions": "More actions",
+      "tab": { "overview": "Overview", "versions": "Versions", "logs": "Logs" },
+      "verb": { "run": "Run", "call": "Call", "invoke": "Invoke", "trigger": "Trigger" },
+      "sec": {
+        "code": "Code", "input": "Inputs", "output": "Outputs", "env": "Environment",
+        "runtime": "Resident state", "initArgs": "Init args", "methods": "Methods",
+        "prompt": "Prompt", "capabilities": "Capabilities", "mountHealth": "Mount health",
+        "governance": "Run governance", "alerts": "Alerts", "graph": "Orchestration graph"
+      },
+      "card": {
+        "deps": "Dependencies", "venv": "venv status", "runtime": "Runtime", "config": "Config readiness",
+        "tools": "Tool mounts", "skill": "Skill", "knowledge": "Knowledge", "model": "Model override",
+        "lifecycle": "Lifecycle", "concurrency": "Concurrency"
+      },
+      "graph": { "nodes": "Node", "edges": "Edge", "path": "Path", "openEditor": "Open graph editor" },
+      "kv": {
+        "name": "Name", "tags": "Tags", "id": "ID", "activeVersion": "Active version",
+        "currentVersion": "Current version", "python": "Python", "updated": "Updated", "desc": "Description",
+        "envId": "env id", "status": "Status", "syncedAt": "Last synced", "error": "Error",
+        "model": "Model", "provider": "Provider", "instanceId": "Instance", "version": "Version",
+        "elapsed": "Elapsed", "time": "Time", "replay": "Replay", "flowrunId": "Flowrun id",
+        "workflow": "Workflow", "nodes": "Nodes", "lifecycle": "Lifecycle", "active": "Engaged",
+        "lastAction": "Last action by", "concurrency": "Concurrency", "trigger": "Trigger",
+        "input": "Input", "output": "Output", "ref": "Ref", "healthy": "Healthy", "method": "Method",
+        "startedAt": "Started", "completedAt": "Completed", "triggeredBy": "Triggered by"
+      },
+      "val": {
+        "listening": "Listening", "stopped": "Stopped", "noAlerts": "No alerts",
+        "needsAttention": "Needs attention", "required": "required", "optional": "optional",
+        "sensitive": "sensitive", "defaultPrefix": "default", "generator": "generator",
+        "modelDefault": "Workspace default", "modelOverridden": "Overridden", "none": "—"
+      },
+      "mounts": { "healthy": "All mounts healthy", "unhealthy": "$count unhealthy" },
+      "state": {
+        "noVersions": "No versions", "noLogs": "No runs yet", "noLogsHint": "Runs will appear here once this entity is executed.",
+        "noActiveVersion": "No active version", "notFoundTitle": "Entity not found",
+        "errorTitle": "Couldn't load this entity", "errorHint": "The local engine didn't return it.",
+        "loadMore": "Load more", "endOfList": "End of list", "loadFailed": "Load failed — tap to retry",
+        "earliest": "earliest version"
+      }
+    }
   }
 }

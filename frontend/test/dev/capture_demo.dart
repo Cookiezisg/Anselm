@@ -10,7 +10,9 @@ import 'package:anselm/app/app_shell.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/features/entities/data/entity_demo_fixture.dart';
+import 'package:anselm/features/entities/data/entity_kind.dart';
 import 'package:anselm/features/entities/data/entity_providers.dart';
+import 'package:anselm/features/entities/state/selected_entity.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -25,6 +27,18 @@ Future<void> _load(String family, String path) async {
   final loader = FontLoader(family)
     ..addFont(Future.value(ByteData.view(b.buffer, b.offsetInBytes, b.length)));
   await loader.load();
+}
+
+// Optional `--dart-define=SEL=function:fn_normalize` pre-selects an entity so the detail sea is
+// captured (default: rail + empty ocean → demo.png; selected → demo_<id>.png). 可预选实体截详情。
+const _sel = String.fromEnvironment('SEL');
+
+/// A SelectedEntity override that starts on a fixed selection. 起始即选中的 override。
+class _PreSelected extends SelectedEntity {
+  _PreSelected(this._ref);
+  final EntityRef _ref;
+  @override
+  EntityRef? build() => _ref;
 }
 
 void main() {
@@ -42,8 +56,19 @@ void main() {
     tester.view.physicalSize = const Size(AnSize.windowInitialWidth * 2, AnSize.windowInitialHeight * 2);
     addTearDown(tester.view.reset);
 
+    EntityRef? sel;
+    var outName = 'demo';
+    if (_sel.isNotEmpty) {
+      final parts = _sel.split(':');
+      sel = EntityRef(EntityKind.values.byName(parts[0]), parts[1]);
+      outName = 'demo_${parts[1]}';
+    }
+
     await tester.pumpWidget(ProviderScope(
-      overrides: [entityRepositoryProvider.overrideWithValue(demoEntityRepository())],
+      overrides: [
+        entityRepositoryProvider.overrideWithValue(demoEntityRepository()),
+        if (sel != null) selectedEntityProvider.overrideWith(() => _PreSelected(sel!)),
+      ],
       child: TranslationProvider(
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
@@ -64,6 +89,6 @@ void main() {
       image.dispose();
     });
     final dir = Directory('test/dev/out')..createSync(recursive: true);
-    File('${dir.path}/demo.png').writeAsBytesSync(bytes);
+    File('${dir.path}/$outName.png').writeAsBytesSync(bytes);
   });
 }

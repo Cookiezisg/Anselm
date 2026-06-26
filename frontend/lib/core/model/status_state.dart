@@ -45,6 +45,10 @@ enum AnStatus {
     'stopped': AnStatus.idle,
     'completed': AnStatus.done,
     'failed': AnStatus.err,
+    'ready': AnStatus.done, // env/config ready (function envStatus, handler configState)
+    'syncing': AnStatus.run, // function env materializing
+    'partially_configured': AnStatus.wait, // handler missing some required config
+    'unconfigured': AnStatus.idle,
     'cancelled': AnStatus.idle,
     'parked': AnStatus.wait,
     'active': AnStatus.done,

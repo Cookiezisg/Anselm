@@ -1,52 +1,107 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
-import '../../../core/design/typography.dart';
+import '../../../core/ui/an_button.dart';
+import '../../../core/ui/an_page.dart';
+import '../../../core/ui/an_skeleton.dart';
 import '../../../core/ui/an_state.dart';
+import '../../../core/ui/an_tabs.dart';
 import '../../../i18n/strings.g.dart';
 import '../data/entity_kind.dart';
+import '../state/detail/entity_detail.dart';
+import '../state/detail/entity_detail_provider.dart';
 import '../state/selected_entity.dart';
+import 'detail/log_tab.dart';
+import 'detail/ocean_header.dart';
+import 'detail/overview/agent_overview.dart';
+import 'detail/overview/function_overview.dart';
+import 'detail/overview/handler_overview.dart';
+import 'detail/overview/workflow_overview.dart';
+import 'detail/version_tab.dart';
 
-/// The detail "ocean" for the selected entity (the open window surface between the islands). STEP 3
-/// ships a PLACEHOLDER: empty-state when nothing is selected, a minimal kind+id card once a rail row is
-/// picked — proving the rail → selection → ocean axis end to end. STEP 4 replaces the body with the
-/// real detail sea (AnOceanHeader + AnTabs 概览/版本/日志). 详情海洋(STEP 3 占位,STEP 4 建真详情)。
-class EntityOcean extends ConsumerWidget {
+/// The detail "ocean" (the open window surface). Reads [selectedEntityProvider]: null → empty state;
+/// else watches [entityDetailProvider] → loading skeleton / error+retry / the header + 概览/版本/日志 tabs.
+/// The selected tab is local widget state and resets to overview when the selection changes. STEP 4:
+/// verb CTA + rename + build-mirror are disabled stubs (STEP 5). 详情海洋:选中→详情头 + 三 tab。
+class EntityOcean extends ConsumerStatefulWidget {
   const EntityOcean({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<EntityOcean> createState() => _EntityOceanState();
+}
+
+class _EntityOceanState extends ConsumerState<EntityOcean> {
+  String _tab = 'overview';
+
+  @override
+  Widget build(BuildContext context) {
+    final d = context.t.entities.detail;
     final selected = ref.watch(selectedEntityProvider);
-    final t = context.t;
+
+    // Reset to the overview tab whenever the selected entity changes. 选区变化时回到概览 tab。
+    ref.listen(selectedEntityProvider, (prev, next) {
+      if (prev != next && _tab != 'overview') setState(() => _tab = 'overview');
+    });
 
     if (selected == null) {
       return Center(
         child: AnState(
           kind: AnStateKind.empty,
-          title: t.entities.selectTitle,
-          hint: t.entities.selectHint,
+          title: context.t.entities.selectTitle,
+          hint: context.t.entities.selectHint,
         ),
       );
     }
 
-    final c = context.colors;
-    final kindLabel = switch (selected.kind) {
-      EntityKind.function => t.ref.function,
-      EntityKind.handler => t.ref.handler,
-      EntityKind.agent => t.ref.agent,
-      EntityKind.workflow => t.ref.workflow,
-    };
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+    final async = ref.watch(entityDetailProvider(selected));
+    return async.when(
+      loading: () => const Padding(
+        padding: EdgeInsets.all(AnSpace.s24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [AnSkeleton.card(), SizedBox(height: AnSpace.s16), AnSkeleton.lines(6)],
+        ),
+      ),
+      error: (_, _) => Center(
+        child: AnState(
+          kind: AnStateKind.error,
+          title: d.state.errorTitle,
+          hint: d.state.errorHint,
+          action: AnButton(
+            label: d.state.loadMore,
+            onPressed: () => ref.invalidate(entityDetailProvider(selected)),
+          ),
+        ),
+      ),
+      data: (detail) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(kindLabel, style: AnText.meta.copyWith(color: c.inkFaint)),
-          const SizedBox(height: AnSpace.s4),
-          Text(selected.id, style: AnText.body.copyWith(color: c.ink)),
+          EntityOceanHeader(detail: detail),
+          Expanded(
+            child: AnTabs(
+              value: _tab,
+              onSelect: (k) => setState(() => _tab = k),
+              items: [
+                AnTabsItem(
+                  key: 'overview',
+                  label: d.tab.overview,
+                  pane: AnPage(child: _overview(detail)),
+                ),
+                AnTabsItem(key: 'versions', label: d.tab.versions, pane: VersionTab(detail.ref)),
+                AnTabsItem(key: 'logs', label: d.tab.logs, pane: LogTab(detail.ref)),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
+
+  Widget _overview(EntityDetail d) => switch (d.ref.kind) {
+        EntityKind.function => FunctionOverview(fn: d.function!),
+        EntityKind.handler => HandlerOverview(hd: d.handler!),
+        EntityKind.agent => AgentOverview(agent: d.agent!, mountHealth: d.mountHealth),
+        EntityKind.workflow => WorkflowOverview(wf: d.workflow!),
+      };
 }

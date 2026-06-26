@@ -329,6 +329,396 @@ class Translations$entities$en {
 
 	/// en: 'Name'
 	String get sortName => 'Name';
+
+	late final Translations$entities$detail$en detail = Translations$entities$detail$en.internal(_root);
+}
+
+// Path: entities.detail
+class Translations$entities$detail$en {
+	Translations$entities$detail$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Entities'
+	String get crumbRoot => 'Entities';
+
+	/// en: 'More actions'
+	String get moreActions => 'More actions';
+
+	late final Translations$entities$detail$tab$en tab = Translations$entities$detail$tab$en.internal(_root);
+	late final Translations$entities$detail$verb$en verb = Translations$entities$detail$verb$en.internal(_root);
+	late final Translations$entities$detail$sec$en sec = Translations$entities$detail$sec$en.internal(_root);
+	late final Translations$entities$detail$card$en card = Translations$entities$detail$card$en.internal(_root);
+	late final Translations$entities$detail$graph$en graph = Translations$entities$detail$graph$en.internal(_root);
+	late final Translations$entities$detail$kv$en kv = Translations$entities$detail$kv$en.internal(_root);
+	late final Translations$entities$detail$val$en val = Translations$entities$detail$val$en.internal(_root);
+	late final Translations$entities$detail$mounts$en mounts = Translations$entities$detail$mounts$en.internal(_root);
+	late final Translations$entities$detail$state$en state = Translations$entities$detail$state$en.internal(_root);
+}
+
+// Path: entities.detail.tab
+class Translations$entities$detail$tab$en {
+	Translations$entities$detail$tab$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Overview'
+	String get overview => 'Overview';
+
+	/// en: 'Versions'
+	String get versions => 'Versions';
+
+	/// en: 'Logs'
+	String get logs => 'Logs';
+}
+
+// Path: entities.detail.verb
+class Translations$entities$detail$verb$en {
+	Translations$entities$detail$verb$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Run'
+	String get run => 'Run';
+
+	/// en: 'Call'
+	String get call => 'Call';
+
+	/// en: 'Invoke'
+	String get invoke => 'Invoke';
+
+	/// en: 'Trigger'
+	String get trigger => 'Trigger';
+}
+
+// Path: entities.detail.sec
+class Translations$entities$detail$sec$en {
+	Translations$entities$detail$sec$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Code'
+	String get code => 'Code';
+
+	/// en: 'Inputs'
+	String get input => 'Inputs';
+
+	/// en: 'Outputs'
+	String get output => 'Outputs';
+
+	/// en: 'Environment'
+	String get env => 'Environment';
+
+	/// en: 'Resident state'
+	String get runtime => 'Resident state';
+
+	/// en: 'Init args'
+	String get initArgs => 'Init args';
+
+	/// en: 'Methods'
+	String get methods => 'Methods';
+
+	/// en: 'Prompt'
+	String get prompt => 'Prompt';
+
+	/// en: 'Capabilities'
+	String get capabilities => 'Capabilities';
+
+	/// en: 'Mount health'
+	String get mountHealth => 'Mount health';
+
+	/// en: 'Run governance'
+	String get governance => 'Run governance';
+
+	/// en: 'Alerts'
+	String get alerts => 'Alerts';
+
+	/// en: 'Orchestration graph'
+	String get graph => 'Orchestration graph';
+}
+
+// Path: entities.detail.card
+class Translations$entities$detail$card$en {
+	Translations$entities$detail$card$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Dependencies'
+	String get deps => 'Dependencies';
+
+	/// en: 'venv status'
+	String get venv => 'venv status';
+
+	/// en: 'Runtime'
+	String get runtime => 'Runtime';
+
+	/// en: 'Config readiness'
+	String get config => 'Config readiness';
+
+	/// en: 'Tool mounts'
+	String get tools => 'Tool mounts';
+
+	/// en: 'Skill'
+	String get skill => 'Skill';
+
+	/// en: 'Knowledge'
+	String get knowledge => 'Knowledge';
+
+	/// en: 'Model override'
+	String get model => 'Model override';
+
+	/// en: 'Lifecycle'
+	String get lifecycle => 'Lifecycle';
+
+	/// en: 'Concurrency'
+	String get concurrency => 'Concurrency';
+}
+
+// Path: entities.detail.graph
+class Translations$entities$detail$graph$en {
+	Translations$entities$detail$graph$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Node'
+	String get nodes => 'Node';
+
+	/// en: 'Edge'
+	String get edges => 'Edge';
+
+	/// en: 'Path'
+	String get path => 'Path';
+
+	/// en: 'Open graph editor'
+	String get openEditor => 'Open graph editor';
+}
+
+// Path: entities.detail.kv
+class Translations$entities$detail$kv$en {
+	Translations$entities$detail$kv$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Name'
+	String get name => 'Name';
+
+	/// en: 'Tags'
+	String get tags => 'Tags';
+
+	/// en: 'ID'
+	String get id => 'ID';
+
+	/// en: 'Active version'
+	String get activeVersion => 'Active version';
+
+	/// en: 'Current version'
+	String get currentVersion => 'Current version';
+
+	/// en: 'Python'
+	String get python => 'Python';
+
+	/// en: 'Updated'
+	String get updated => 'Updated';
+
+	/// en: 'Description'
+	String get desc => 'Description';
+
+	/// en: 'env id'
+	String get envId => 'env id';
+
+	/// en: 'Status'
+	String get status => 'Status';
+
+	/// en: 'Last synced'
+	String get syncedAt => 'Last synced';
+
+	/// en: 'Error'
+	String get error => 'Error';
+
+	/// en: 'Model'
+	String get model => 'Model';
+
+	/// en: 'Provider'
+	String get provider => 'Provider';
+
+	/// en: 'Instance'
+	String get instanceId => 'Instance';
+
+	/// en: 'Version'
+	String get version => 'Version';
+
+	/// en: 'Elapsed'
+	String get elapsed => 'Elapsed';
+
+	/// en: 'Time'
+	String get time => 'Time';
+
+	/// en: 'Replay'
+	String get replay => 'Replay';
+
+	/// en: 'Flowrun id'
+	String get flowrunId => 'Flowrun id';
+
+	/// en: 'Workflow'
+	String get workflow => 'Workflow';
+
+	/// en: 'Nodes'
+	String get nodes => 'Nodes';
+
+	/// en: 'Lifecycle'
+	String get lifecycle => 'Lifecycle';
+
+	/// en: 'Engaged'
+	String get active => 'Engaged';
+
+	/// en: 'Last action by'
+	String get lastAction => 'Last action by';
+
+	/// en: 'Concurrency'
+	String get concurrency => 'Concurrency';
+
+	/// en: 'Trigger'
+	String get trigger => 'Trigger';
+
+	/// en: 'Input'
+	String get input => 'Input';
+
+	/// en: 'Output'
+	String get output => 'Output';
+
+	/// en: 'Ref'
+	String get ref => 'Ref';
+
+	/// en: 'Healthy'
+	String get healthy => 'Healthy';
+
+	/// en: 'Method'
+	String get method => 'Method';
+
+	/// en: 'Started'
+	String get startedAt => 'Started';
+
+	/// en: 'Completed'
+	String get completedAt => 'Completed';
+
+	/// en: 'Triggered by'
+	String get triggeredBy => 'Triggered by';
+}
+
+// Path: entities.detail.val
+class Translations$entities$detail$val$en {
+	Translations$entities$detail$val$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Listening'
+	String get listening => 'Listening';
+
+	/// en: 'Stopped'
+	String get stopped => 'Stopped';
+
+	/// en: 'No alerts'
+	String get noAlerts => 'No alerts';
+
+	/// en: 'Needs attention'
+	String get needsAttention => 'Needs attention';
+
+	/// en: 'required'
+	String get required => 'required';
+
+	/// en: 'optional'
+	String get optional => 'optional';
+
+	/// en: 'sensitive'
+	String get sensitive => 'sensitive';
+
+	/// en: 'default'
+	String get defaultPrefix => 'default';
+
+	/// en: 'generator'
+	String get generator => 'generator';
+
+	/// en: 'Workspace default'
+	String get modelDefault => 'Workspace default';
+
+	/// en: 'Overridden'
+	String get modelOverridden => 'Overridden';
+
+	/// en: '—'
+	String get none => '—';
+}
+
+// Path: entities.detail.mounts
+class Translations$entities$detail$mounts$en {
+	Translations$entities$detail$mounts$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'All mounts healthy'
+	String get healthy => 'All mounts healthy';
+
+	/// en: '$count unhealthy'
+	String unhealthy({required Object count}) => '${count} unhealthy';
+}
+
+// Path: entities.detail.state
+class Translations$entities$detail$state$en {
+	Translations$entities$detail$state$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'No versions'
+	String get noVersions => 'No versions';
+
+	/// en: 'No runs yet'
+	String get noLogs => 'No runs yet';
+
+	/// en: 'Runs will appear here once this entity is executed.'
+	String get noLogsHint => 'Runs will appear here once this entity is executed.';
+
+	/// en: 'No active version'
+	String get noActiveVersion => 'No active version';
+
+	/// en: 'Entity not found'
+	String get notFoundTitle => 'Entity not found';
+
+	/// en: 'Couldn't load this entity'
+	String get errorTitle => 'Couldn\'t load this entity';
+
+	/// en: 'The local engine didn't return it.'
+	String get errorHint => 'The local engine didn\'t return it.';
+
+	/// en: 'Load more'
+	String get loadMore => 'Load more';
+
+	/// en: 'End of list'
+	String get endOfList => 'End of list';
+
+	/// en: 'Load failed — tap to retry'
+	String get loadFailed => 'Load failed — tap to retry';
+
+	/// en: 'earliest version'
+	String get earliest => 'earliest version';
 }
 
 /// The flat map containing all translations for locale <en>.
@@ -405,6 +795,102 @@ extension on Translations {
 			'entities.sortLabel' => 'Sort',
 			'entities.sortRecent' => 'Recently updated',
 			'entities.sortName' => 'Name',
+			'entities.detail.crumbRoot' => 'Entities',
+			'entities.detail.moreActions' => 'More actions',
+			'entities.detail.tab.overview' => 'Overview',
+			'entities.detail.tab.versions' => 'Versions',
+			'entities.detail.tab.logs' => 'Logs',
+			'entities.detail.verb.run' => 'Run',
+			'entities.detail.verb.call' => 'Call',
+			'entities.detail.verb.invoke' => 'Invoke',
+			'entities.detail.verb.trigger' => 'Trigger',
+			'entities.detail.sec.code' => 'Code',
+			'entities.detail.sec.input' => 'Inputs',
+			'entities.detail.sec.output' => 'Outputs',
+			'entities.detail.sec.env' => 'Environment',
+			'entities.detail.sec.runtime' => 'Resident state',
+			'entities.detail.sec.initArgs' => 'Init args',
+			'entities.detail.sec.methods' => 'Methods',
+			'entities.detail.sec.prompt' => 'Prompt',
+			'entities.detail.sec.capabilities' => 'Capabilities',
+			'entities.detail.sec.mountHealth' => 'Mount health',
+			'entities.detail.sec.governance' => 'Run governance',
+			'entities.detail.sec.alerts' => 'Alerts',
+			'entities.detail.sec.graph' => 'Orchestration graph',
+			'entities.detail.card.deps' => 'Dependencies',
+			'entities.detail.card.venv' => 'venv status',
+			'entities.detail.card.runtime' => 'Runtime',
+			'entities.detail.card.config' => 'Config readiness',
+			'entities.detail.card.tools' => 'Tool mounts',
+			'entities.detail.card.skill' => 'Skill',
+			'entities.detail.card.knowledge' => 'Knowledge',
+			'entities.detail.card.model' => 'Model override',
+			'entities.detail.card.lifecycle' => 'Lifecycle',
+			'entities.detail.card.concurrency' => 'Concurrency',
+			'entities.detail.graph.nodes' => 'Node',
+			'entities.detail.graph.edges' => 'Edge',
+			'entities.detail.graph.path' => 'Path',
+			'entities.detail.graph.openEditor' => 'Open graph editor',
+			'entities.detail.kv.name' => 'Name',
+			'entities.detail.kv.tags' => 'Tags',
+			'entities.detail.kv.id' => 'ID',
+			'entities.detail.kv.activeVersion' => 'Active version',
+			'entities.detail.kv.currentVersion' => 'Current version',
+			'entities.detail.kv.python' => 'Python',
+			'entities.detail.kv.updated' => 'Updated',
+			'entities.detail.kv.desc' => 'Description',
+			'entities.detail.kv.envId' => 'env id',
+			'entities.detail.kv.status' => 'Status',
+			'entities.detail.kv.syncedAt' => 'Last synced',
+			'entities.detail.kv.error' => 'Error',
+			'entities.detail.kv.model' => 'Model',
+			'entities.detail.kv.provider' => 'Provider',
+			'entities.detail.kv.instanceId' => 'Instance',
+			'entities.detail.kv.version' => 'Version',
+			'entities.detail.kv.elapsed' => 'Elapsed',
+			'entities.detail.kv.time' => 'Time',
+			'entities.detail.kv.replay' => 'Replay',
+			'entities.detail.kv.flowrunId' => 'Flowrun id',
+			'entities.detail.kv.workflow' => 'Workflow',
+			'entities.detail.kv.nodes' => 'Nodes',
+			'entities.detail.kv.lifecycle' => 'Lifecycle',
+			'entities.detail.kv.active' => 'Engaged',
+			'entities.detail.kv.lastAction' => 'Last action by',
+			'entities.detail.kv.concurrency' => 'Concurrency',
+			'entities.detail.kv.trigger' => 'Trigger',
+			'entities.detail.kv.input' => 'Input',
+			'entities.detail.kv.output' => 'Output',
+			'entities.detail.kv.ref' => 'Ref',
+			'entities.detail.kv.healthy' => 'Healthy',
+			'entities.detail.kv.method' => 'Method',
+			'entities.detail.kv.startedAt' => 'Started',
+			'entities.detail.kv.completedAt' => 'Completed',
+			'entities.detail.kv.triggeredBy' => 'Triggered by',
+			'entities.detail.val.listening' => 'Listening',
+			'entities.detail.val.stopped' => 'Stopped',
+			'entities.detail.val.noAlerts' => 'No alerts',
+			'entities.detail.val.needsAttention' => 'Needs attention',
+			'entities.detail.val.required' => 'required',
+			'entities.detail.val.optional' => 'optional',
+			'entities.detail.val.sensitive' => 'sensitive',
+			'entities.detail.val.defaultPrefix' => 'default',
+			'entities.detail.val.generator' => 'generator',
+			'entities.detail.val.modelDefault' => 'Workspace default',
+			'entities.detail.val.modelOverridden' => 'Overridden',
+			'entities.detail.val.none' => '—',
+			'entities.detail.mounts.healthy' => 'All mounts healthy',
+			'entities.detail.mounts.unhealthy' => ({required Object count}) => '${count} unhealthy',
+			'entities.detail.state.noVersions' => 'No versions',
+			'entities.detail.state.noLogs' => 'No runs yet',
+			'entities.detail.state.noLogsHint' => 'Runs will appear here once this entity is executed.',
+			'entities.detail.state.noActiveVersion' => 'No active version',
+			'entities.detail.state.notFoundTitle' => 'Entity not found',
+			'entities.detail.state.errorTitle' => 'Couldn\'t load this entity',
+			'entities.detail.state.errorHint' => 'The local engine didn\'t return it.',
+			'entities.detail.state.loadMore' => 'Load more',
+			'entities.detail.state.endOfList' => 'End of list',
+			'entities.detail.state.loadFailed' => 'Load failed — tap to retry',
+			'entities.detail.state.earliest' => 'earliest version',
 			_ => null,
 		};
 	}
