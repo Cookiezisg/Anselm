@@ -4,13 +4,13 @@ import '../../../core/contract/entities/handler.dart';
 import '../../../core/contract/entities/workflow.dart';
 import 'entity_fixtures.dart';
 
-/// A realistic zero-backend seed for the interactive preview (`make entities`) and the wider demo —
-/// a handful of each kind with varied badges so the rail's status dots, counts, and sections all show.
-/// STEP 4/5 extend this with versions / logs / flowruns. NOT used by the live app (which wires
-/// LiveEntityRepository); a single seam swap drives the whole feature off this instead.
+/// A realistic zero-backend seed for `make demo` (the real AppShell driven by fixtures) — a handful of
+/// each kind with varied badges so the rail's status dots, counts, and sections all show. STEP 4/5
+/// extend this with versions / logs / flowruns. NOT used by the live app (which wires
+/// LiveEntityRepository); the demo entry swaps the repository seam to this via one ProviderScope override.
 ///
-/// 交互预览(`make entities`)与 demo 的真实零后端种子——每 kind 数个 + 多样徽标,使 rail 状态点/计数/分组
-/// 全现。STEP 4/5 续加版本/日志/flowrun。非 live app 用(后者接 Live);单点缝切换即用此驱动整 feature。
+/// `make demo`(真 AppShell + fixture)的真实零后端种子——每 kind 数个 + 多样徽标,使 rail 状态点/计数/分组
+/// 全现。STEP 4/5 续加版本/日志/flowrun。非 live app 用(后者接 Live);demo 入口经一次 override 切到此。
 FixtureEntityRepository demoEntityRepository() {
   final t = DateTime.utc(2026, 6, 25, 14, 30);
   return FixtureEntityRepository(

@@ -190,6 +190,8 @@ class _Translations$entities$zh_CN extends Translations$entities$en {
 	@override String get errorTitle => '无法加载实体';
 	@override String get errorHint => '本地引擎没有返回实体列表。';
 	@override String get retry => '重试';
+	@override String get selectTitle => '选择一个实体';
+	@override String get selectHint => '从左侧选择一个函数、处理器、智能体或工作流。';
 }
 
 /// The flat map containing all translations for locale <zh-CN>.
@@ -261,6 +263,8 @@ extension on TranslationsZhCn {
 			'entities.errorTitle' => '无法加载实体',
 			'entities.errorHint' => '本地引擎没有返回实体列表。',
 			'entities.retry' => '重试',
+			'entities.selectTitle' => '选择一个实体',
+			'entities.selectHint' => '从左侧选择一个函数、处理器、智能体或工作流。',
 			_ => null,
 		};
 	}

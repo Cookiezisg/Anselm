@@ -52,21 +52,18 @@ verify:
 	@echo "" && echo "✓ verify 全绿（gen + analyze + test）"
 
 # demo — 真 app 形态（骨架阶段:三岛空壳;后续接 fixture 数据）。
+# demo — 真 app 壳（AppShell，同 make app）+ 假数据（fixture override、零后端、跳启动门控）。
+# 「真 app + 假数据」唯一面:凡接进 AppShell 的 feature 在此自动出现。绝不加 per-feature 入口。
 demo:
-	@LANG=en_US.UTF-8 $(RUN) flutter run -d macos
+	@LANG=en_US.UTF-8 $(RUN) flutter run -d macos -t lib/dev/demo_main.dart
 
-# gallery — 组件画廊（dev/gallery_main.dart）：双栏目录看每个 An* 组件全态。
+# gallery — 组件画廊（dev/gallery_main.dart）：双栏目录看每个 An* 组件全态（视觉，与 app/demo 正交）。
 gallery:
 	@LANG=en_US.UTF-8 $(RUN) flutter run -d macos -t lib/dev/gallery_main.dart
 
-# app — 真 app + 后端 sidecar（后续接 backend）。
+# app — 真 app 壳（AppShell）+ 真后端 sidecar。与 demo 共用壳,只差数据源 + 启动门控。
 app:
 	@LANG=en_US.UTF-8 $(RUN) flutter run -d macos
-
-# entities — Entities feature 交互预览（dev/entities_preview_main.dart）：真桌面窗 + fixture 零后端，
-# 可点/滚/筛 rail、选择映射到海洋占位（STEP 4 详情前的手动验收入口）。
-entities:
-	@LANG=en_US.UTF-8 $(RUN) flutter run -d macos -t lib/dev/entities_preview_main.dart
 
 # shots — 无头渲染截图(Skia toImage,免 Xcode)→ test/dev/out/*.png 供肉眼/AI 对照 demo 审。
 # capture_*.dart 把 toImage/toByteData 包进 tester.runAsync:它们是引擎线程真异步,在 testWidgets 的
@@ -82,4 +79,4 @@ shots:
 shot-app:
 	@bash test/dev/shot_app.sh
 
-.PHONY: help setup gen analyze test verify demo gallery app entities shots shot-app
+.PHONY: help setup gen analyze test verify demo gallery app shots shot-app

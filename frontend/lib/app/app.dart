@@ -4,8 +4,8 @@ import 'package:flutter/services.dart';
 import '../core/design/theme.dart';
 import '../core/overlay/an_overlay.dart';
 import '../core/platform/window_zoom.dart';
-import '../core/ui/an_shell.dart';
 import '../i18n/strings.g.dart';
+import 'app_shell.dart';
 import 'app_startup_gate.dart';
 
 /// The root widget — wires the theme onto a MaterialApp whose `home` is the three-island shell and
@@ -47,7 +47,7 @@ class _AnAppState extends State<AnApp> {
             const SingleActivator(LogicalKeyboardKey.minus, meta: true): WindowZoom.zoomOut,
             const SingleActivator(LogicalKeyboardKey.digit0, meta: true): WindowZoom.reset,
           },
-          child: const Focus(autofocus: true, child: AnShell()),
+          child: const Focus(autofocus: true, child: AppShell()),
         ),
       ),
       builder: (context, child) => AnOverlayHost(navigatorKey: _navigatorKey, child: child!),

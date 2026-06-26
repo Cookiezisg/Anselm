@@ -76,6 +76,8 @@
     "emptyHint": "新建一个函数、处理器、智能体或工作流来开始。",
     "errorTitle": "无法加载实体",
     "errorHint": "本地引擎没有返回实体列表。",
-    "retry": "重试"
+    "retry": "重试",
+    "selectTitle": "选择一个实体",
+    "selectHint": "从左侧选择一个函数、处理器、智能体或工作流。"
   }
 }

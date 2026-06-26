@@ -76,6 +76,8 @@
     "emptyHint": "Create a function, handler, agent, or workflow to get started.",
     "errorTitle": "Couldn't load entities",
     "errorHint": "The local engine didn't return the entity list.",
-    "retry": "Try again"
+    "retry": "Try again",
+    "selectTitle": "Select an entity",
+    "selectHint": "Choose a function, handler, agent, or workflow from the rail."
   }
 }

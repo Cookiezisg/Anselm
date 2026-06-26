@@ -23,7 +23,8 @@ Go 后端作 **sidecar**,Flutter 桌面端是其纯客户端。**3-tier feature-
 ```
 main.dart                  # 入口:runZonedGuarded(binding 在内)→ scaled binding → installErrorHandlers → initWindow → 恢复缩放档 → runApp(ProviderScope(AnApp))
 app/                       # 装配根
-  app.dart                 # 根 widget(MaterialApp + 主题 + home=AppStartupGate(壳) + builder=AnOverlayHost[持 navigatorKey];绑 Cmd +/-/0)
+  app.dart                 # 根 widget(MaterialApp + 主题 + home=AppStartupGate(AppShell) + builder=AnOverlayHost[持 navigatorKey];绑 Cmd +/-/0)
+  app_shell.dart           # 唯一壳组合 AppShell(哪个 feature 在哪个岛):make app 与 make demo 共用,只差数据源 + 启动(见 §6)
   app_startup_gate.dart    # 据 backend 单一 phase 门控:连接中 / 崩溃可重试 / 就绪显壳(整 app 单点门控)
   window_setup.dart        # 桌面窗口:window_manager(尺寸/最小/居中 + hidden-at-launch:原生 order 钩子隐藏、show() 一次性显示、无启动闪烁)+ macos_window_utils(无边框 + 加高标题栏红绿灯)
 core/                      # 跨切共享层(不依赖上层)
@@ -40,11 +41,12 @@ core/                      # 跨切共享层(不依赖上层)
   ui/                      # An* 套件 G0–G6(49 原语:控件/行卡/导航壳/代码数据/浮层)+ 三岛壳;桶=ui.dart(见 design-system.md)
   overlay/                 # 命令式浮层派发(G6):AnOverlayController(NotifierProvider) + overlayProvider + AnOverlayHost
 i18n/                      # slang:en/zh_CN 双语 + 生成 strings.g.dart（dart run slang,入库）
-dev/                       # dev 工具:gallery/（make gallery 组件画廊）· entities_preview_main（make entities:Entities feature 交互预览,fixture 零后端）
+dev/                       # dev 工具:gallery_main（make gallery 组件画廊）· demo_main（make demo:真壳 AppShell + fixture override + 跳门控,零后端）
 features/                  # ★中间层:每域 data+state+ui+model（随 feature 落地,Entities 起）
   entities/data/           # Entities feature 数据缝[Phase 4.1 STEP 1]:单一 EntityRepository(Live 接 ApiClient+SseGateway / Fixture 内存可脚本 / entityRepositoryProvider 单点 override) + EntityKind/EntityRow/EntitySignal
   entities/state/          # Entities 列表 state[Phase 4.1 STEP 2]:entityListProvider(AsyncNotifier.family:首页+loadMore+SSE 就地 patch) + railModelProvider(rail VM) + selectedEntityProvider
-  entities/ui/             # Entities UI[Phase 4.1 STEP 3]:EntityRail over AnSidebarList(4 kind 段 + 状态点 + 四态)+ entity_rail_model(纯投影)
+  entities/ui/             # Entities UI[Phase 4.1 STEP 3]:EntityRail over AnSidebarList(4 kind 段 + 状态点 + 四态)+ entity_rail_model(纯投影) + entity_ocean(详情海洋,STEP 3 占位/STEP 4 建)
+  entities/data/entity_demo_fixture.dart  # demoEntityRepository():make demo 的零后端种子(STEP 4/5 续加版本/日志/flowrun)
 ```
 **运行时骨干(Phase 4.0)**:sidecar 进程托管(`core/process`)+ 契约/net/SSE(`core/{contract,net,sse}`,PORT 自 main + 加固)+ Riverpod 装配(`core/runtime.dart`)+ 错误边界(`core/error`)+ 启动门控(`app/app_startup_gate.dart`)+ L0–L2 流式性能原语(`core/sse` demux + `core/perf` coalescer)。loopback 安全在后端(绑 127.0.0.1 + bearer + Host 校验,见 `references/backend/api.md`)。建造规范见 [`WRK-045`](../../working/platform-foundation/phase-4.0-runtime-backbone.md)。
 **dev 工具**:截图夹具 `test/dev/capture_shell.dart`(无头渲染 PNG 看效果);产物 `test/dev/out/` **gitignore**。
@@ -72,8 +74,12 @@ features/                  # ★中间层:每域 data+state+ui+model（随 featu
 ## 6. 工具链与门禁
 
 - 工具链 = **mise**(go + flutter,仓库根 `mise.toml`)。
-- **启动**:`make demo`(真形态 + fixture、零后端)· `make gallery`(组件画廊,看每个 An* 全态)· `make entities`(Entities feature 交互预览,fixture 零后端,可点/筛/选 rail)· `make app`(后端 sidecar)。
-- 门禁 `make verify` = codegen(`dart run slang`)+ `flutter analyze` 净 + `flutter test` 绿。codegen 产物入库(slang `strings.g.dart` deterministic;freezed 待契约层再接)。
+- **三个启动面(规范,永不增 per-feature 入口)**:
+  - `make gallery` — 组件画廊(`lib/dev/gallery_main.dart`):看每个 An* 原语全态。**视觉**面,与 app/demo 正交。
+  - `make app` — 真 app(`lib/main.dart`):**真壳 + 真后端 sidecar**(启动门控等后端就绪)。
+  - `make demo` — 真 app 壳 + **假数据**(`lib/dev/demo_main.dart`):看真实形态、零后端。
+  - **铁律:app 与 demo 共用唯一壳组合 [`app/app_shell.dart`](`AppShell`)**——哪个 feature 在哪个岛只写一次。二者**只差两点**:① 数据源(app 接 Live repository / demo 用 `ProviderScope` override 成 fixture,见 `features/*/data/*_demo_fixture.dart`)② 启动(app 走 `AppStartupGate` 等后端 / demo 跳门控直接进壳)。**新 feature 接进 `AppShell` 一次,app 与 demo 同时拥有**——**绝不为单个 feature 加 `make <feature>` 入口**(碎片化、必不 sync)。截图同理:`test/dev/capture_demo.dart` 截整 `AppShell`,不做 per-feature 截图。
+- 门禁 `make fe-verify`(= `cd frontend && make verify`)= codegen(`dart run slang` + `dart run build_runner`)+ `flutter analyze` 净 + `flutter test` 绿。codegen 产物入库(deterministic,fresh checkout 直接 analyze)。
 
 ## 7. 文档纪律
 

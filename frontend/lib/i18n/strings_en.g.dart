@@ -314,6 +314,12 @@ class Translations$entities$en {
 
 	/// en: 'Try again'
 	String get retry => 'Try again';
+
+	/// en: 'Select an entity'
+	String get selectTitle => 'Select an entity';
+
+	/// en: 'Choose a function, handler, agent, or workflow from the rail.'
+	String get selectHint => 'Choose a function, handler, agent, or workflow from the rail.';
 }
 
 /// The flat map containing all translations for locale <en>.
@@ -385,6 +391,8 @@ extension on Translations {
 			'entities.errorTitle' => 'Couldn\'t load entities',
 			'entities.errorHint' => 'The local engine didn\'t return the entity list.',
 			'entities.retry' => 'Try again',
+			'entities.selectTitle' => 'Select an entity',
+			'entities.selectHint' => 'Choose a function, handler, agent, or workflow from the rail.',
 			_ => null,
 		};
 	}
