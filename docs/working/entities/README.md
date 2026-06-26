@@ -9,7 +9,7 @@ review-due: 2026-09-24
 audience: [human, ai]
 ---
 
-# WRK-046 — Phase 4.1 Entities 建造规范(待拍板)
+# WRK-046 — Phase 4.1 Entities 建造规范(5 决策已拍板,STEP 0 已落)
 
 > **一句话**:第一个真 feature——**Entities** 海洋。用它把"三岛布局(忠实复刻 demo)+ 运行时管道(Phase 4.0)"端到端走通。两轮调研合并:**(a) 后端契约 + demo 布局** `wd6a072aj` + **(b) 解决方案 best-practice** `wk6vkas9w`,两轮均经对抗验证(已折入纠正)。落地后结论提取进 `references/frontend/`(新 entities 域)+ 填 `landed-into`。
 
@@ -51,7 +51,7 @@ audience: [human, ai]
 - 录制真后端 JSON(make server + curl)→ `test/fixtures/entities/<kind>/*.json` 做 DTO 往返 golden。
 
 ## 6. 有序构建步骤(fixtures-first;每步 gate;`make fe-verify` 滚动门禁 + 真机截图里程碑)
-- **STEP 0 DTO 契约 + golden**(地基,单作者,阻塞全部):录真 JSON → ~22 DTO + getPageWithAggregate + codegen。Gate:每 DTO fromJson↔toJson key-equal golden;EntityKind/NodeKind unknown 兜底;ExecutionResult/InvokeResult/HandlerConfig 解码。
+- ✅ **STEP 0 DTO 契约 + golden**(地基,单作者,阻塞全部)— **已落**(`core/contract/entities/{values,function,handler,agent,workflow,common}.dart`,~22 DTO + codegen 入库 + 16 golden 往返,`make fe-verify` 746 测绿,投影进 [`contract.md`](../../references/frontend/contract.md))。Gate 达成:每 DTO fromJson↔toJson key-equal;NodeKind unknown 兜底;`default` 保留字 rename;bare `FunctionRunResult`/`InvokeResult` 解码;`explicit_to_json` 嵌套对象。**`HandlerConfig` DTO + `getPageWithAggregate` client 动词推迟到首个消费它们的步骤**(分别是 handler config-CRUD / STEP 1 repository)。
 - **STEP 1 Repository 缝 + fixtures**:抽象 + Live + Fixture + override 接线。Gate:fixture 返 Page/PageWithAggregate;脚本信号对账;传输 rung 端到端。
 - **STEP 2 列表 state + rail VM**:entityListProvider family(loadMore + _onSignal)+ railModelProvider。Gate:ProviderContainer 测(首页/loadMore 保 hasValue/created·deleted·edited durable 就地 patch/seq=0 不动列表)。
 - **STEP 3 rail UI(左岛)**:entity_rail over AnSidebarList + 4 组 + 空态。Gate:widget 测各态 + **真机截图**。

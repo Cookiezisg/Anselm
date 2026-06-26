@@ -122,6 +122,11 @@ verify:
 	@echo ""
 	@echo "✓ verify 全绿（gofmt + vet + build + unit + docs）"
 
+# fe-verify — 前端 pre-push 门禁（委派到 frontend/Makefile）：codegen + flutter analyze 净 + flutter test 绿。
+# 与 verify（后端）分列、各自 pre-push（ADR 0004）。frontend 有独立 Makefile（`cd frontend && make help`）。
+fe-verify:
+	@$(MAKE) -C frontend verify
+
 # demo-test — 画廊全矩阵 Playwright 回归（reference.html 每组件×填充态逐件断言：
 # 无 console 错 / 无页面横向溢出 / 无 XSS 逃逸 / 元素已渲染 + app 冒烟 + disabled/dialog 专项）。
 # demo 是 web 端建设事实源——此为其回归网。harness 自起隔离端口 serve、跑完自清。
