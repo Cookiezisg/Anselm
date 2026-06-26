@@ -4,5 +4,12 @@
 <dict>
 	<key>com.apple.security.app-sandbox</key>
 	<true/>
+	<!-- The app makes outbound HTTP/SSE to the sidecar over loopback; the spawned Go sidecar listens on
+	     loopback. Both required in release too (without them the shipped app can't reach its own backend).
+	     客户端=app 出站 sidecar;服务端=子进程 sidecar 监听;release 同样必需。 -->
+	<key>com.apple.security.network.client</key>
+	<true/>
+	<key>com.apple.security.network.server</key>
+	<true/>
 </dict>
 </plist>

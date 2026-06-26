@@ -7,6 +7,7 @@ import '../core/platform/window_zoom.dart';
 import '../i18n/strings.g.dart';
 import 'app_shell.dart';
 import 'app_startup_gate.dart';
+import 'workspace_gate.dart';
 
 /// The root widget — wires the theme onto a MaterialApp whose `home` is the three-island shell and
 /// whose `builder` wraps the navigator in an [AnOverlayHost] (the assembly-root layer that holds the
@@ -47,7 +48,8 @@ class _AnAppState extends State<AnApp> {
             const SingleActivator(LogicalKeyboardKey.minus, meta: true): WindowZoom.zoomOut,
             const SingleActivator(LogicalKeyboardKey.digit0, meta: true): WindowZoom.reset,
           },
-          child: const Focus(autofocus: true, child: AppShell()),
+          // Backend ready → cold-start resolves the workspace → the shell. 后端就绪 → 冷启动定工作区 → 壳。
+          child: const Focus(autofocus: true, child: WorkspaceGate(child: AppShell())),
         ),
       ),
       builder: (context, child) => AnOverlayHost(navigatorKey: _navigatorKey, child: child!),

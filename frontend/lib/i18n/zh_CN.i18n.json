@@ -125,5 +125,11 @@
         "earliest": "最早版本"
       }
     }
+  },
+  "coldStart": {
+    "connecting": "正在准备工作区…",
+    "errorTitle": "无法准备工作区",
+    "errorHint": "本地引擎已连通,但工作区未就绪。",
+    "defaultWorkspace": "个人"
   }
 }

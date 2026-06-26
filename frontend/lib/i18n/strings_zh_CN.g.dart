@@ -49,6 +49,7 @@ class TranslationsZhCn extends Translations with BaseTranslations<AppLocale, Tra
 	@override late final _Translations$tree$zh_CN tree = _Translations$tree$zh_CN._(_root);
 	@override late final _Translations$startup$zh_CN startup = _Translations$startup$zh_CN._(_root);
 	@override late final _Translations$entities$zh_CN entities = _Translations$entities$zh_CN._(_root);
+	@override late final _Translations$coldStart$zh_CN coldStart = _Translations$coldStart$zh_CN._(_root);
 }
 
 // Path: status
@@ -196,6 +197,19 @@ class _Translations$entities$zh_CN extends Translations$entities$en {
 	@override String get sortRecent => '最近更新';
 	@override String get sortName => '名称';
 	@override late final _Translations$entities$detail$zh_CN detail = _Translations$entities$detail$zh_CN._(_root);
+}
+
+// Path: coldStart
+class _Translations$coldStart$zh_CN extends Translations$coldStart$en {
+	_Translations$coldStart$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get connecting => '正在准备工作区…';
+	@override String get errorTitle => '无法准备工作区';
+	@override String get errorHint => '本地引擎已连通,但工作区未就绪。';
+	@override String get defaultWorkspace => '个人';
 }
 
 // Path: entities.detail
@@ -563,6 +577,10 @@ extension on TranslationsZhCn {
 			'entities.detail.state.endOfList' => '已到底',
 			'entities.detail.state.loadFailed' => '加载失败,点此重试',
 			'entities.detail.state.earliest' => '最早版本',
+			'coldStart.connecting' => '正在准备工作区…',
+			'coldStart.errorTitle' => '无法准备工作区',
+			'coldStart.errorHint' => '本地引擎已连通,但工作区未就绪。',
+			'coldStart.defaultWorkspace' => '个人',
 			_ => null,
 		};
 	}

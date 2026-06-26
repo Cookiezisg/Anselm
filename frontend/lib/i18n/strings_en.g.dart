@@ -53,6 +53,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$tree$en tree = Translations$tree$en.internal(_root);
 	late final Translations$startup$en startup = Translations$startup$en.internal(_root);
 	late final Translations$entities$en entities = Translations$entities$en.internal(_root);
+	late final Translations$coldStart$en coldStart = Translations$coldStart$en.internal(_root);
 }
 
 // Path: status
@@ -331,6 +332,27 @@ class Translations$entities$en {
 	String get sortName => 'Name';
 
 	late final Translations$entities$detail$en detail = Translations$entities$detail$en.internal(_root);
+}
+
+// Path: coldStart
+class Translations$coldStart$en {
+	Translations$coldStart$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Setting up your workspace…'
+	String get connecting => 'Setting up your workspace…';
+
+	/// en: 'Couldn't set up the workspace'
+	String get errorTitle => 'Couldn\'t set up the workspace';
+
+	/// en: 'The local engine is reachable but the workspace didn't resolve.'
+	String get errorHint => 'The local engine is reachable but the workspace didn\'t resolve.';
+
+	/// en: 'Personal'
+	String get defaultWorkspace => 'Personal';
 }
 
 // Path: entities.detail
@@ -891,6 +913,10 @@ extension on Translations {
 			'entities.detail.state.endOfList' => 'End of list',
 			'entities.detail.state.loadFailed' => 'Load failed — tap to retry',
 			'entities.detail.state.earliest' => 'earliest version',
+			'coldStart.connecting' => 'Setting up your workspace…',
+			'coldStart.errorTitle' => 'Couldn\'t set up the workspace',
+			'coldStart.errorHint' => 'The local engine is reachable but the workspace didn\'t resolve.',
+			'coldStart.defaultWorkspace' => 'Personal',
 			_ => null,
 		};
 	}

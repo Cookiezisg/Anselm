@@ -79,4 +79,10 @@ shots:
 shot-app:
 	@bash test/dev/shot_app.sh
 
-.PHONY: help setup gen analyze test verify demo gallery app shots shot-app
+# shot-app-real — 真·端到端:真壳 make app 挂真后端(非 fixture)。起后端 + 经 API 种 workspace/实体
+# → flutter run 真 app 挂上它 → 截运行窗口 → test/dev/out/app.png。验证 sidecar 挂载 + 冷启动 +
+# rail/详情走真 HTTP/SSE(抓 fixture 路径抓不到的契约漂移)。详见 test/dev/shot_app_real.sh。
+shot-app-real:
+	@bash test/dev/shot_app_real.sh
+
+.PHONY: help setup gen analyze test verify demo gallery app shots shot-app shot-app-real

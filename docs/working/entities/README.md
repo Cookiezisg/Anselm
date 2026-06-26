@@ -60,6 +60,8 @@ audience: [human, ai]
 - **STEP 5 执行 + 右岛 run-terminal**:动词 CTA → run/call/invoke/trigger;ephemeral 终端经 L2 coalescer;idle 态。Gate:fixture 脚本流驱动终端,重建计数门禁(叶子≤1/帧);wf :trigger 显异步 flowrun id。
 - **STEP 6 select + 路由 + 收尾**:见 §7;全 feature 五电池矩阵入 fe-verify + 真机截图终检。
 
+- ✅ **冷启动 + make app 端到端验证**(用户复审追加,STEP 4 后):`core/workspace/workspace_bootstrap`(后端就绪后 列/建 workspace + 设 `activeWorkspace`,否则全 workspace 域 API 401)+ `app/workspace_gate`;`test/dev/shot_app_real.sh`(`make shot-app-real`)= 真后端端到端截图(起后端 + 种 workspace/实体 + build macos + 直跑二进制带 `ANSELM_BACKEND_URL` → 截真窗口)。**真跑抓到关键缺陷**:macOS sandbox 缺 `com.apple.security.network.client` → app 无法出站、卡"连接中";Debug/Release entitlements 补 network.client+server 后 **make app 真后端端到端可用**(冷启动定 workspace → rail 显真实体,真截图核对)。加载态:`AnDeferredLoading`(160ms 防闪)+ 详情骨架同 720 列(用户复审)。
+
 ## 7. 待你拍板(带推荐)
 1. **范围**:4.1 = 4 可执行 kind 详情 + 其余 rail-rows-only。确认?(推荐:是)
 2. **workflow 概览的 graph**:graph-canvas 是推迟原语 → 4.1 渲**只读 stub**(GraphModel 用 AnSection/AnKv/AnRow 列出节点/边,或至多简单 CustomPaint DAG)+ "进入图编辑器" nav intent(路由到未来编辑器海洋,暂 gate 成"敬请期待")。**绝不在 4.1 建交互画布**。确认?(推荐:是)

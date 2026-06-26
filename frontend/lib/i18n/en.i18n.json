@@ -125,5 +125,11 @@
         "earliest": "earliest version"
       }
     }
+  },
+  "coldStart": {
+    "connecting": "Setting up your workspace…",
+    "errorTitle": "Couldn't set up the workspace",
+    "errorHint": "The local engine is reachable but the workspace didn't resolve.",
+    "defaultWorkspace": "Personal"
   }
 }
