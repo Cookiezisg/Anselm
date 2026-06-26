@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/tokens.dart';
 import '../../../../core/ui/an_button.dart';
+import '../../../../core/ui/an_deferred_loading.dart';
 import '../../../../core/ui/an_row.dart';
 import '../../../../core/ui/an_skeleton.dart';
 import '../../../../core/ui/an_state.dart';
@@ -29,7 +30,7 @@ class VersionTab extends ConsumerWidget {
     final notifier = ref.read(versionListProvider(entityRef).notifier);
 
     return async.when(
-      loading: () => const AnSkeleton.lines(6),
+      loading: () => const AnDeferredLoading(child: AnSkeleton.lines(6)),
       error: (_, _) => AnState(
         kind: AnStateKind.error,
         size: AnStateSize.inset,

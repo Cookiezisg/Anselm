@@ -130,6 +130,11 @@ abstract final class AnMotion {
   static const Duration slow = Duration(milliseconds: 340);
   static const Duration breath = Duration(milliseconds: 1800);
 
+  // Delay before a loading skeleton/indicator is shown — a sub-threshold async (the common case for a
+  // local sidecar) resolves first, so the indicator never flashes (appear-then-instantly-vanish).
+  // 加载骨架/指示器显示前的延迟:亚阈值异步(本地 sidecar 常态)先返回,指示器不闪烁。
+  static const Duration loaderDelay = Duration(milliseconds: 160);
+
   // AnTypewriter cadences. 打字机节奏。
   static const Duration typePerChar = Duration(milliseconds: 55); // per-grapheme reveal 每字素揭示
   static const Duration deletePerChar = Duration(milliseconds: 28); // delete (faster than typing) 删除(快于打字)

@@ -5,6 +5,7 @@ import '../../../../core/design/tokens.dart';
 import '../../../../core/model/status_state.dart';
 import '../../../../core/ui/an_badge.dart';
 import '../../../../core/ui/an_button.dart';
+import '../../../../core/ui/an_deferred_loading.dart';
 import '../../../../core/ui/an_row.dart';
 import '../../../../core/ui/an_row_detail.dart';
 import '../../../../core/ui/an_skeleton.dart';
@@ -32,7 +33,7 @@ class LogTab extends ConsumerWidget {
     final kindIcon = AnIcons.byKey(entityRef.kind.scopeKind);
 
     return async.when(
-      loading: () => const AnSkeleton.lines(8),
+      loading: () => const AnDeferredLoading(child: AnSkeleton.lines(8)),
       error: (_, _) => AnState(
         kind: AnStateKind.error,
         size: AnStateSize.inset,

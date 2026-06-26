@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/design/tokens.dart';
 import '../../../core/ui/an_button.dart';
+import '../../../core/ui/an_deferred_loading.dart';
 import '../../../core/ui/an_page.dart';
 import '../../../core/ui/an_skeleton.dart';
 import '../../../core/ui/an_state.dart';
@@ -56,11 +57,14 @@ class _EntityOceanState extends ConsumerState<EntityOcean> {
 
     final async = ref.watch(entityDetailProvider(selected));
     return async.when(
-      loading: () => const Padding(
-        padding: EdgeInsets.all(AnSpace.s24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [AnSkeleton.card(), SizedBox(height: AnSpace.s16), AnSkeleton.lines(6)],
+      // Loading lives in the SAME AnPage (centered 720 column) as the loaded content, so there is no
+      // width jump when data arrives; deferred so a fast load never flashes a skeleton. 同 720 列 + 延迟防闪。
+      loading: () => const AnPage(
+        child: AnDeferredLoading(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [AnSkeleton.card(), SizedBox(height: AnSpace.s16), AnSkeleton.lines(6)],
+          ),
         ),
       ),
       error: (_, _) => Center(

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/design/tokens.dart';
 import '../../../core/ui/an_button.dart';
+import '../../../core/ui/an_deferred_loading.dart';
 import '../../../core/ui/an_menu.dart';
 import '../../../core/ui/an_sidebar_list.dart';
 import '../../../core/ui/an_skeleton.dart';
@@ -36,8 +37,9 @@ class EntityRail extends ConsumerWidget {
     final anyLoading = groups.any((g) => g.state.isLoading);
     final allError = groups.every((g) => g.state.hasError);
 
-    // Loading: nothing resolved yet. A shaped skeleton reads faster than a spinner for content. 首载骨架。
-    if (!anyData && anyLoading) return const _RailSkeleton();
+    // Loading: nothing resolved yet. A shaped skeleton reads faster than a spinner for content; deferred
+    // so a fast first load never flashes it. 首载骨架(延迟防闪)。
+    if (!anyData && anyLoading) return const AnDeferredLoading(child: _RailSkeleton());
 
     // Error: every kind failed and there is nothing to show — offer a retry that refetches all. 全错可重试。
     if (!anyData && allError) {

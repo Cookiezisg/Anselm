@@ -100,10 +100,12 @@ void main() {
     expect(find.text(t.entities.retry), findsOneWidget);
   });
 
-  testWidgets('loading → skeleton (no spinner settle)', (tester) async {
+  testWidgets('loading → deferred skeleton (after the anti-flash delay)', (tester) async {
     await tester.pumpWidget(_host(_PendingRepo()));
-    await tester.pump(); // one frame — futures still pending
+    await tester.pump(); // one frame — within the anti-flash delay, nothing yet
+    expect(find.byType(AnSkeleton), findsNothing);
 
+    await tester.pump(const Duration(milliseconds: 250)); // past AnMotion.loaderDelay
     expect(find.byType(AnSkeleton), findsWidgets);
     expect(find.byType(AnSidebarList), findsNothing);
   });
