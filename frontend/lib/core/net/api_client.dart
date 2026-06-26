@@ -83,6 +83,27 @@ class ApiClient {
         return Page.fromBody(r.data ?? const {}, item);
       });
 
+  /// GET a log page whose `data` is an object carrying a list + an aggregate sidecar:
+  /// `{data:{<listKey>:[…], aggregates:{…}}, nextCursor?, hasMore}` → [PageWithAggregate].
+  /// The execution / call log endpoints (MD2); [listKey] is `executions`/`calls`, and the
+  /// aggregate decoder reads the nested `aggregates` object (see callers).
+  ///
+  /// GET `data` 为对象(列表 + 聚合旁挂)的日志页 → [PageWithAggregate]。执行/调用日志端点(MD2);
+  /// [listKey] 为 `executions`/`calls`,聚合解码读嵌套的 `aggregates` 对象(见调用方)。
+  Future<PageWithAggregate<T, A>> getPageWithAggregate<T, A>(
+    String path,
+    String listKey,
+    T Function(Map<String, dynamic>) item,
+    A Function(Map<String, dynamic>) aggregate, {
+    Map<String, dynamic>? query,
+  }) =>
+      _send(() async {
+        final r = await _dio.get<Map<String, dynamic>>(path,
+            queryParameters: query);
+        return PageWithAggregate.fromBody(
+            r.data ?? const {}, listKey, item, aggregate);
+      });
+
   /// GET a raw envelope body (for composite reads like `{flowrun, nodes}` whose `data`
   /// is a multi-key object the caller destructures itself).
   ///
