@@ -38,10 +38,10 @@ class FixtureEntityRepository implements EntityRepository {
     Map<String, List<Flowrun>>? flowruns,
     Map<String, FlowrunComposite>? flowrunDetail,
     Map<String, MountHealthReport>? mountHealth,
-  })  : _functions = functions ?? const [],
-        _handlers = handlers ?? const [],
-        _agents = agents ?? const [],
-        _workflows = workflows ?? const [],
+  })  : _functions = List.of(functions ?? const []),
+        _handlers = List.of(handlers ?? const []),
+        _agents = List.of(agents ?? const []),
+        _workflows = List.of(workflows ?? const []),
         _functionVersions = functionVersions ?? const {},
         _handlerVersions = handlerVersions ?? const {},
         _agentVersions = agentVersions ?? const {},
@@ -101,6 +101,17 @@ class FixtureEntityRepository implements EntityRepository {
   @override
   Future<Page<EntityRow>> listEntities(EntityKind kind, {String? cursor, int? limit}) async => _page(
       _itemsOf(kind).map((m) => EntityRow.fromListItem(kind, m)).toList(), cursor, limit);
+
+  @override
+  Future<EntityRow> getEntityRow(EntityKind kind, String id) async => EntityRow.fromListItem(
+        kind,
+        switch (kind) {
+          EntityKind.function => (await getFunction(id)).toJson(),
+          EntityKind.handler => (await getHandler(id)).toJson(),
+          EntityKind.agent => (await getAgent(id)).toJson(),
+          EntityKind.workflow => (await getWorkflow(id)).toJson(),
+        },
+      );
 
   @override
   Future<FunctionEntity> getFunction(String id) async =>
@@ -186,6 +197,23 @@ class FixtureEntityRepository implements EntityRepository {
 
   /// Script a panel-realtime frame onto one scope's stream (test/dev only). 脚本一条面板实时帧。
   void emitPanel(StreamScope scope, StreamEnvelope env) => _lazyPanel(scope.key).add(env);
+
+  // Upsert an entity AFTER construction (replace-by-id, else append) — lets a test/demo simulate a
+  // server-side create (a new id, fetchable via getEntityRow though absent from the initial list) OR an
+  // edit (same id, changed fields). 构造后 upsert(按 id 替换、否则追加):模拟服务端新建或编辑。
+  void upsertFunction(FunctionEntity e) => _upsert(_functions, e, (x) => x.id);
+  void upsertHandler(HandlerEntity e) => _upsert(_handlers, e, (x) => x.id);
+  void upsertAgent(AgentEntity e) => _upsert(_agents, e, (x) => x.id);
+  void upsertWorkflow(WorkflowEntity e) => _upsert(_workflows, e, (x) => x.id);
+
+  static void _upsert<T>(List<T> list, T e, String Function(T) id) {
+    final i = list.indexWhere((x) => id(x) == id(e));
+    if (i >= 0) {
+      list[i] = e;
+    } else {
+      list.add(e);
+    }
+  }
 
   StreamController<EntitySignal> _lazyLifecycle(EntityKind kind) =>
       _lifecycle.putIfAbsent(kind, () => StreamController<EntitySignal>.broadcast());

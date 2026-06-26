@@ -25,6 +25,11 @@ abstract interface class EntityRepository {
   // ── rail / list (uniform row across all 4 kinds) ──────────────────────────
   Future<Page<EntityRow>> listEntities(EntityKind kind, {String? cursor, int? limit});
 
+  /// Fetch the rail ROW for one instance — the list uses this to materialize/refresh a row when a
+  /// `created`/`edited`/`updated` lifecycle signal arrives (the signal carries only an id). 据 id 取单行
+  /// (列表对 created/edited/updated 信号就地 patch 用)。
+  Future<EntityRow> getEntityRow(EntityKind kind, String id);
+
   // ── detail (typed, embeds activeVersion) ──────────────────────────────────
   Future<FunctionEntity> getFunction(String id);
   Future<HandlerEntity> getHandler(String id);
@@ -102,6 +107,17 @@ class LiveEntityRepository implements EntityRepository {
   @override
   Future<Page<EntityRow>> listEntities(EntityKind kind, {String? cursor, int? limit}) =>
       _api.getPage(kind.base, (m) => EntityRow.fromListItem(kind, m), query: _query(cursor, limit));
+
+  @override
+  Future<EntityRow> getEntityRow(EntityKind kind, String id) async => EntityRow.fromListItem(
+        kind,
+        switch (kind) {
+          EntityKind.function => (await getFunction(id)).toJson(),
+          EntityKind.handler => (await getHandler(id)).toJson(),
+          EntityKind.agent => (await getAgent(id)).toJson(),
+          EntityKind.workflow => (await getWorkflow(id)).toJson(),
+        },
+      );
 
   @override
   Future<FunctionEntity> getFunction(String id) =>

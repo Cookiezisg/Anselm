@@ -10,6 +10,7 @@ targets:
         generate_for:
           - lib/core/contract/**.dart
           - lib/features/**/data/**.dart
+          - lib/features/**/state/**.dart
       json_serializable:
         options:
           # Nested DTOs (e.g. Workspace.defaultDialogue: ModelRef) must serialize via their own
