@@ -197,6 +197,7 @@ class _Translations$entities$zh_CN extends Translations$entities$en {
 	@override String get sortRecent => '最近更新';
 	@override String get sortName => '名称';
 	@override late final _Translations$entities$detail$zh_CN detail = _Translations$entities$detail$zh_CN._(_root);
+	@override late final _Translations$entities$run$zh_CN run = _Translations$entities$run$zh_CN._(_root);
 }
 
 // Path: coldStart
@@ -230,6 +231,42 @@ class _Translations$entities$detail$zh_CN extends Translations$entities$detail$e
 	@override late final _Translations$entities$detail$val$zh_CN val = _Translations$entities$detail$val$zh_CN._(_root);
 	@override late final _Translations$entities$detail$mounts$zh_CN mounts = _Translations$entities$detail$mounts$zh_CN._(_root);
 	@override late final _Translations$entities$detail$state$zh_CN state = _Translations$entities$detail$state$zh_CN._(_root);
+}
+
+// Path: entities.run
+class _Translations$entities$run$zh_CN extends Translations$entities$run$en {
+	_Translations$entities$run$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get method => '方法';
+	@override String get streaming => '流式';
+	@override String get noInputs => '无入参 —— 直接运行。';
+	@override String get payload => '载荷(JSON,可选)';
+	@override String get payloadInvalid => '载荷必须是合法 JSON。';
+	@override String get payloadObject => '载荷必须是 JSON 对象。';
+	@override String fieldInvalid({required Object name}) => '${name} 必须是合法 JSON。';
+	@override String get boolTrue => 'true';
+	@override String get boolFalse => 'false';
+	@override String get runAgain => '再运行一次';
+	@override String get cancel => '取消';
+	@override String get close => '关闭运行终端';
+	@override String get idleTitle => '准备运行';
+	@override String get idleHint => '填好入参后运行。';
+	@override String get cancelled => '已取消';
+	@override String get outputHeading => '输出';
+	@override String get resultHeading => '结果';
+	@override String get logsHeading => '日志';
+	@override String get traceHeading => '轨迹';
+	@override String get reasoning => '推理';
+	@override String get toolCall => '工具调用';
+	@override String get nodesHeading => '节点';
+	@override String get noTrace => '等待输出…';
+	@override String steps({required Object n}) => '${n} 步';
+	@override String tokens({required Object inT, required Object outT}) => '输入 ${inT} · 输出 ${outT}';
+	@override String ms({required Object ms}) => '${ms} ms';
+	@override late final _Translations$entities$run$danger$zh_CN danger = _Translations$entities$run$danger$zh_CN._(_root);
 }
 
 // Path: entities.detail.tab
@@ -407,6 +444,17 @@ class _Translations$entities$detail$state$zh_CN extends Translations$entities$de
 	@override String get earliest => '最早版本';
 }
 
+// Path: entities.run.danger
+class _Translations$entities$run$danger$zh_CN extends Translations$entities$run$danger$en {
+	_Translations$entities$run$danger$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get cautious => '谨慎';
+	@override String get dangerous => '危险';
+}
+
 /// The flat map containing all translations for locale <zh-CN>.
 /// Only for edge cases! For simple maps, use the map function of this library.
 ///
@@ -577,6 +625,34 @@ extension on TranslationsZhCn {
 			'entities.detail.state.endOfList' => '已到底',
 			'entities.detail.state.loadFailed' => '加载失败,点此重试',
 			'entities.detail.state.earliest' => '最早版本',
+			'entities.run.method' => '方法',
+			'entities.run.streaming' => '流式',
+			'entities.run.noInputs' => '无入参 —— 直接运行。',
+			'entities.run.payload' => '载荷(JSON,可选)',
+			'entities.run.payloadInvalid' => '载荷必须是合法 JSON。',
+			'entities.run.payloadObject' => '载荷必须是 JSON 对象。',
+			'entities.run.fieldInvalid' => ({required Object name}) => '${name} 必须是合法 JSON。',
+			'entities.run.boolTrue' => 'true',
+			'entities.run.boolFalse' => 'false',
+			'entities.run.runAgain' => '再运行一次',
+			'entities.run.cancel' => '取消',
+			'entities.run.close' => '关闭运行终端',
+			'entities.run.idleTitle' => '准备运行',
+			'entities.run.idleHint' => '填好入参后运行。',
+			'entities.run.cancelled' => '已取消',
+			'entities.run.outputHeading' => '输出',
+			'entities.run.resultHeading' => '结果',
+			'entities.run.logsHeading' => '日志',
+			'entities.run.traceHeading' => '轨迹',
+			'entities.run.reasoning' => '推理',
+			'entities.run.toolCall' => '工具调用',
+			'entities.run.nodesHeading' => '节点',
+			'entities.run.noTrace' => '等待输出…',
+			'entities.run.steps' => ({required Object n}) => '${n} 步',
+			'entities.run.tokens' => ({required Object inT, required Object outT}) => '输入 ${inT} · 输出 ${outT}',
+			'entities.run.ms' => ({required Object ms}) => '${ms} ms',
+			'entities.run.danger.cautious' => '谨慎',
+			'entities.run.danger.dangerous' => '危险',
 			'coldStart.connecting' => '正在准备工作区…',
 			'coldStart.errorTitle' => '无法准备工作区',
 			'coldStart.errorHint' => '本地引擎已连通,但工作区未就绪。',

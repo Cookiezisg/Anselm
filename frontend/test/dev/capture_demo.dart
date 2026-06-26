@@ -9,6 +9,7 @@ import 'dart:ui' as ui;
 import 'package:anselm/app/app_shell.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/design/tokens.dart';
+import 'package:anselm/core/ui/an_button.dart';
 import 'package:anselm/features/entities/data/entity_demo_fixture.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
 import 'package:anselm/features/entities/data/entity_providers.dart';
@@ -34,6 +35,9 @@ Future<void> _load(String family, String path) async {
 const _sel = String.fromEnvironment('SEL');
 // Optional `--dart-define=TAB=overview|versions|logs` taps that tab before capture. 预点某 tab。
 const _tab = String.fromEnvironment('TAB');
+// Optional `--dart-define=RUN=1` opens the right-island run terminal (verb CTA) + executes, to capture
+// the STEP 5 run terminal with live output. Requires SEL. 打开右岛 run 终端并执行,截运行态。
+const _run = String.fromEnvironment('RUN');
 
 /// A SelectedEntity override that starts on a fixed selection. 起始即选中的 override。
 class _PreSelected extends SelectedEntity {
@@ -89,6 +93,27 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 80)); // the tab's data loads
       outName = '${outName}_$_tab';
+    }
+
+    if (_run.isNotEmpty && sel != null) {
+      final verb = LocaleSettings.instance.currentTranslations.entities.detail.verb;
+      final label = {
+        EntityKind.function: verb.run,
+        EntityKind.handler: verb.call,
+        EntityKind.agent: verb.invoke,
+        EntityKind.workflow: verb.trigger,
+      }[sel.kind]!;
+      // open the run terminal (the header CTA is the only such button before it opens)…
+      await tester.tap(find.widgetWithText(AnButton, label).first);
+      for (var i = 0; i < 6; i++) {
+        await tester.pump(const Duration(milliseconds: 40)); // slide-in
+      }
+      // …then execute via the form's run button (now the last button with that label).
+      await tester.tap(find.widgetWithText(AnButton, label).last);
+      for (var i = 0; i < 24; i++) {
+        await tester.pump(const Duration(milliseconds: 40)); // scripted stream frames
+      }
+      outName = '${outName}_run';
     }
 
     late final Uint8List bytes;

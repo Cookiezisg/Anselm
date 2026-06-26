@@ -124,6 +124,35 @@
         "loadMore": "加载更多", "endOfList": "已到底", "loadFailed": "加载失败,点此重试",
         "earliest": "最早版本"
       }
+    },
+    "run": {
+      "method": "方法",
+      "streaming": "流式",
+      "noInputs": "无入参 —— 直接运行。",
+      "payload": "载荷(JSON,可选)",
+      "payloadInvalid": "载荷必须是合法 JSON。",
+      "payloadObject": "载荷必须是 JSON 对象。",
+      "fieldInvalid": "$name 必须是合法 JSON。",
+      "boolTrue": "true",
+      "boolFalse": "false",
+      "runAgain": "再运行一次",
+      "cancel": "取消",
+      "close": "关闭运行终端",
+      "idleTitle": "准备运行",
+      "idleHint": "填好入参后运行。",
+      "cancelled": "已取消",
+      "outputHeading": "输出",
+      "resultHeading": "结果",
+      "logsHeading": "日志",
+      "traceHeading": "轨迹",
+      "reasoning": "推理",
+      "toolCall": "工具调用",
+      "nodesHeading": "节点",
+      "noTrace": "等待输出…",
+      "steps": "$n 步",
+      "tokens": "输入 $inT · 输出 $outT",
+      "ms": "$ms ms",
+      "danger": { "cautious": "谨慎", "dangerous": "危险" }
     }
   },
   "coldStart": {

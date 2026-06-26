@@ -332,6 +332,7 @@ class Translations$entities$en {
 	String get sortName => 'Name';
 
 	late final Translations$entities$detail$en detail = Translations$entities$detail$en.internal(_root);
+	late final Translations$entities$run$en run = Translations$entities$run$en.internal(_root);
 }
 
 // Path: coldStart
@@ -378,6 +379,95 @@ class Translations$entities$detail$en {
 	late final Translations$entities$detail$val$en val = Translations$entities$detail$val$en.internal(_root);
 	late final Translations$entities$detail$mounts$en mounts = Translations$entities$detail$mounts$en.internal(_root);
 	late final Translations$entities$detail$state$en state = Translations$entities$detail$state$en.internal(_root);
+}
+
+// Path: entities.run
+class Translations$entities$run$en {
+	Translations$entities$run$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Method'
+	String get method => 'Method';
+
+	/// en: 'streaming'
+	String get streaming => 'streaming';
+
+	/// en: 'No inputs — run with no arguments.'
+	String get noInputs => 'No inputs — run with no arguments.';
+
+	/// en: 'Payload (JSON, optional)'
+	String get payload => 'Payload (JSON, optional)';
+
+	/// en: 'Payload must be valid JSON.'
+	String get payloadInvalid => 'Payload must be valid JSON.';
+
+	/// en: 'Payload must be a JSON object.'
+	String get payloadObject => 'Payload must be a JSON object.';
+
+	/// en: '$name must be valid JSON.'
+	String fieldInvalid({required Object name}) => '${name} must be valid JSON.';
+
+	/// en: 'true'
+	String get boolTrue => 'true';
+
+	/// en: 'false'
+	String get boolFalse => 'false';
+
+	/// en: 'Run again'
+	String get runAgain => 'Run again';
+
+	/// en: 'Cancel'
+	String get cancel => 'Cancel';
+
+	/// en: 'Close run terminal'
+	String get close => 'Close run terminal';
+
+	/// en: 'Ready to run'
+	String get idleTitle => 'Ready to run';
+
+	/// en: 'Fill in the inputs, then run.'
+	String get idleHint => 'Fill in the inputs, then run.';
+
+	/// en: 'Cancelled'
+	String get cancelled => 'Cancelled';
+
+	/// en: 'Output'
+	String get outputHeading => 'Output';
+
+	/// en: 'Result'
+	String get resultHeading => 'Result';
+
+	/// en: 'Logs'
+	String get logsHeading => 'Logs';
+
+	/// en: 'Trace'
+	String get traceHeading => 'Trace';
+
+	/// en: 'Reasoning'
+	String get reasoning => 'Reasoning';
+
+	/// en: 'Tool call'
+	String get toolCall => 'Tool call';
+
+	/// en: 'Nodes'
+	String get nodesHeading => 'Nodes';
+
+	/// en: 'Waiting for output…'
+	String get noTrace => 'Waiting for output…';
+
+	/// en: '$n steps'
+	String steps({required Object n}) => '${n} steps';
+
+	/// en: '$inT in · $outT out'
+	String tokens({required Object inT, required Object outT}) => '${inT} in · ${outT} out';
+
+	/// en: '$ms ms'
+	String ms({required Object ms}) => '${ms} ms';
+
+	late final Translations$entities$run$danger$en danger = Translations$entities$run$danger$en.internal(_root);
 }
 
 // Path: entities.detail.tab
@@ -743,6 +833,21 @@ class Translations$entities$detail$state$en {
 	String get earliest => 'earliest version';
 }
 
+// Path: entities.run.danger
+class Translations$entities$run$danger$en {
+	Translations$entities$run$danger$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Cautious'
+	String get cautious => 'Cautious';
+
+	/// en: 'Dangerous'
+	String get dangerous => 'Dangerous';
+}
+
 /// The flat map containing all translations for locale <en>.
 /// Only for edge cases! For simple maps, use the map function of this library.
 ///
@@ -913,6 +1018,34 @@ extension on Translations {
 			'entities.detail.state.endOfList' => 'End of list',
 			'entities.detail.state.loadFailed' => 'Load failed — tap to retry',
 			'entities.detail.state.earliest' => 'earliest version',
+			'entities.run.method' => 'Method',
+			'entities.run.streaming' => 'streaming',
+			'entities.run.noInputs' => 'No inputs — run with no arguments.',
+			'entities.run.payload' => 'Payload (JSON, optional)',
+			'entities.run.payloadInvalid' => 'Payload must be valid JSON.',
+			'entities.run.payloadObject' => 'Payload must be a JSON object.',
+			'entities.run.fieldInvalid' => ({required Object name}) => '${name} must be valid JSON.',
+			'entities.run.boolTrue' => 'true',
+			'entities.run.boolFalse' => 'false',
+			'entities.run.runAgain' => 'Run again',
+			'entities.run.cancel' => 'Cancel',
+			'entities.run.close' => 'Close run terminal',
+			'entities.run.idleTitle' => 'Ready to run',
+			'entities.run.idleHint' => 'Fill in the inputs, then run.',
+			'entities.run.cancelled' => 'Cancelled',
+			'entities.run.outputHeading' => 'Output',
+			'entities.run.resultHeading' => 'Result',
+			'entities.run.logsHeading' => 'Logs',
+			'entities.run.traceHeading' => 'Trace',
+			'entities.run.reasoning' => 'Reasoning',
+			'entities.run.toolCall' => 'Tool call',
+			'entities.run.nodesHeading' => 'Nodes',
+			'entities.run.noTrace' => 'Waiting for output…',
+			'entities.run.steps' => ({required Object n}) => '${n} steps',
+			'entities.run.tokens' => ({required Object inT, required Object outT}) => '${inT} in · ${outT} out',
+			'entities.run.ms' => ({required Object ms}) => '${ms} ms',
+			'entities.run.danger.cautious' => 'Cautious',
+			'entities.run.danger.dangerous' => 'Dangerous',
 			'coldStart.connecting' => 'Setting up your workspace…',
 			'coldStart.errorTitle' => 'Couldn\'t set up the workspace',
 			'coldStart.errorHint' => 'The local engine is reachable but the workspace didn\'t resolve.',

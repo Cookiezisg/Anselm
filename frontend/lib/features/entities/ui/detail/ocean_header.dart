@@ -9,14 +9,17 @@ import '../../../../i18n/strings.g.dart';
 import '../../data/entity_kind.dart';
 import '../../state/detail/entity_detail.dart';
 
-/// The detail ocean header — breadcrumb + entity name + per-kind status badges + the verb CTA. In STEP 4
-/// the title is read-only (rename is an edit → STEP 5) and the CTA + more-menu are DISABLED stubs
-/// (wiring the verb to the right-island run terminal is STEP 5). Pure function of [EntityDetail].
-/// 详情海洋页头:面包屑 + 名称 + 各 kind 状态徽 + 动词 CTA(STEP 4 标题只读、CTA/更多 为禁用占位,STEP 5 接)。
+/// The detail ocean header — breadcrumb + entity name + per-kind status badges + the verb CTA. The verb
+/// CTA (Run/Call/Invoke/Trigger) opens the right-island run terminal for this entity ([onVerb], STEP 5);
+/// the title is read-only and the more-menu is a disabled stub (rename / actions land later). Pure
+/// function of [EntityDetail] + [onVerb]. 详情海洋页头:面包屑 + 名称 + 各 kind 状态徽 + 动词 CTA(开右岛 run 终端)。
 class EntityOceanHeader extends StatelessWidget {
-  const EntityOceanHeader({required this.detail, super.key});
+  const EntityOceanHeader({required this.detail, this.onVerb, super.key});
 
   final EntityDetail detail;
+
+  /// Press the verb CTA → open the run terminal for this entity (null = disabled). 动词 CTA → 开 run 终端。
+  final VoidCallback? onVerb;
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +34,7 @@ class EntityOceanHeader extends StatelessWidget {
           label: _verbLabel(t, detail.ref.kind),
           icon: AnIcons.byKey(detail.ref.kind.scopeKind),
           variant: AnButtonVariant.primary,
-          onPressed: null, // STEP 5: wire to right-island run terminal
+          onPressed: onVerb,
         ),
         AnButton.iconOnly(
           AnIcons.byKey('more'),

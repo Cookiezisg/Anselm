@@ -82,7 +82,9 @@ class EntityDetailNotifier extends AsyncNotifier<EntityDetail> {
     }
   }
 
-  // Held for STEP 5 (run terminal / build mirror). 占位:STEP 5 接 run 终端 / build 镜像。
+  // No-op: the run terminal owns its OWN panel subscription (state/run/run_terminal_controller); this
+  // seam is held for the future build-mirror banner (create/edit streaming over the entity scope).
+  // no-op:run 终端自管面板订阅;此缝留给未来 build 镜像横幅(实体 scope 上的 create/edit 流式)。
   void _onPanel(StreamEnvelope env) {}
 }
 

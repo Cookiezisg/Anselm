@@ -12,6 +12,7 @@ import '../../../i18n/strings.g.dart';
 import '../data/entity_kind.dart';
 import '../state/detail/entity_detail.dart';
 import '../state/detail/entity_detail_provider.dart';
+import '../state/run/run_terminal_controller.dart';
 import '../state/selected_entity.dart';
 import 'detail/log_tab.dart';
 import 'detail/ocean_header.dart';
@@ -85,7 +86,10 @@ class _EntityOceanState extends ConsumerState<EntityOcean> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            EntityOceanHeader(detail: detail),
+            EntityOceanHeader(
+              detail: detail,
+              onVerb: () => ref.read(runTerminalProvider.notifier).openFor(detail.ref),
+            ),
             AnTabs(
               flow: true,
               value: _tab,

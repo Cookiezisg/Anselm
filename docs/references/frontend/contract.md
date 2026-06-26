@@ -32,6 +32,8 @@ core/contract/
     agent.dart             # AgentEntity/Version/Execution + InvokeResult(bare) + MountHealth(Report)
     workflow.dart          # WorkflowEntity/Version + Flowrun/FlowrunNode/FlowrunComposite
     common.dart            # ExecutionAggregates + CapabilityReport(跨域)
+  messages/                # 消息 / run-轨迹块契约(STEP 5;Chat 4.2 共用)
+    block_content.dart     # BlockKind(6 sealed)+ Text/ToolCall/ToolResult/Message Content
 ```
 
 ## 3. 信封 + 分页 + 错误（`api_error` · `page`）
@@ -65,9 +67,16 @@ core/contract/
 
 `ExecutionAggregates`（日志页 ok/failed 计数，随 `PageWithAggregate` 同行）· `CapabilityReport`（结构可运行性：`problems` 阻塞执行 / `warnings` 仅告知）。
 
+### 4.4 消息块内容（`messages/block_content.dart`，run 轨迹 / Chat 共用）
+
+agent `:invoke` 的 ReAct 轨迹经 **entities 流**（scope `agent:<id>`）以 messages-block 词汇推送（`text`/`reasoning`/`tool_call`/`tool_result`/`progress`，open→delta→close，E3 `parentId` 嵌套）；run 终端（STEP 5）用 `BlockTreeReducer`（`core/messages/`，**唯一框架无关纯模型层**，脱 widget 单测）折成嵌套树、用这批 typed content 渲染，未来 Chat（4.2）在 messages 流复用同一批 DTO（投影自 backend `messages.go`/`loop/{stream,tools}.go` + `chat/emit.go`）。
+
+- **`BlockKind` 封闭枚举**（`text`/`reasoning`/`tool_call`/`tool_result`/`progress`/`compaction` 6 持久块型 + `message` 元包装 + `unknown` 兜底）—— 6 block 型是真封闭集（合 CLAUDE.md「仅 seal 真封闭集」）；线缆 `node.type` 仍是开放 String（`StreamNode.type`），`BlockKind` 只是消费方归类（`blockKindFromWire` 未知→`unknown`、不抛）。
+- **typed content**：`TextContent`（text/reasoning，reasoning 带 `signature?`）· `ToolCallContent`（`name`/`arguments?`/`summary?`/`danger?`；`danger` 开放 String 三级 safe/cautious/dangerous）· `ToolResultContent`（`content`；挂 tool_call 下 E3）· `MessageContent`（`role`/`subagent?` + 终态 `status`/`stopReason`/token 计数；仅 messages 流的 chat 包装，agent 的 entities 镜像无此包装、顶层块即根）。
+
 ## 5. 契约开放性铁律（seal 谁、不 seal 谁）
 
-**仅 seal 真封闭集**（NodeKind 5 + unknown）。协议级**保持开放 + 字符串兜底**：错误码（~261，前端只精选常量）· `lifecycleState`/`concurrency`/`configState`/`runtimeState`/`envStatus`/`status` 等状态串（开放 String，不枚举）。理由：后端是唯一事实源，前端枚举状态串 = 给自己埋未来不兼容；开放 String + UI 层 `status_state` 折叠语义即可。
+**仅 seal 真封闭集**（NodeKind 5 + unknown；BlockKind 6 + `message` + unknown）。协议级**保持开放 + 字符串兜底**：错误码（~261，前端只精选常量）· `lifecycleState`/`concurrency`/`configState`/`runtimeState`/`envStatus`/`status` 等状态串（开放 String，不枚举）。理由：后端是唯一事实源，前端枚举状态串 = 给自己埋未来不兼容；开放 String + UI 层 `status_state` 折叠语义即可。
 
 ## 6. 纪律
 

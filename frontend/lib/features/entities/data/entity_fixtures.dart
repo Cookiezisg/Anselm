@@ -38,6 +38,7 @@ class FixtureEntityRepository implements EntityRepository {
     Map<String, List<Flowrun>>? flowruns,
     Map<String, FlowrunComposite>? flowrunDetail,
     Map<String, MountHealthReport>? mountHealth,
+    this.runDelay = const Duration(milliseconds: 10),
   })  : _functions = List.of(functions ?? const []),
         _handlers = List.of(handlers ?? const []),
         _agents = List.of(agents ?? const []),
@@ -50,8 +51,13 @@ class FixtureEntityRepository implements EntityRepository {
         _handlerCalls = handlerCalls ?? const {},
         _agentExecutions = agentExecutions ?? const {},
         _flowruns = flowruns ?? const {},
-        _flowrunDetail = flowrunDetail ?? const {},
+        _flowrunDetail = Map.of(flowrunDetail ?? const {}),
         _mountHealth = mountHealth ?? const {};
+
+  /// Inter-frame delay for the scripted run-terminal streams (so `make demo` shows a live terminal).
+  /// Tests pass [Duration.zero] for an instant burst. 脚本流的帧间延迟(demo 现真实流式);测试用 zero 即时。
+  final Duration runDelay;
+  int _runCount = 0;
 
   final List<FunctionEntity> _functions;
   final List<HandlerEntity> _handlers;
@@ -169,18 +175,113 @@ class FixtureEntityRepository implements EntityRepository {
       _flowrunDetail[id] ??
       (throw StateError('FixtureEntityRepository: no flowrun seeded for $id'));
 
-  // ── execute (canned results; STEP 5 wires real run-terminal streaming) ─────
+  // ── execute (scripted streaming over the panel scope, then the bare result — STEP 5) ──────────
+  // Each verb scripts a realistic entities-stream sequence onto the entity's panel scope (the SAME shape
+  // the Live path receives) BEFORE returning the sync result / async id, so the run terminal renders a
+  // live stream in the zero-backend demo + widget tests. fn/hd = a `run` node (open→stderr deltas→close);
+  // agent = a ReAct block tree (reasoning/tool_call/tool_result/text); workflow = ephemeral flowrun ticks
+  // + a synthesized durable flowrun (so the terminal's GET /flowruns/{id} resolves).
+  // 每个动词把一段真实 entities 流脚本到面板 scope(与 Live 同形)再返结果,使 demo/测试里 run 终端真流式。
   @override
-  Future<FunctionRunResult> runFunction(String id, {required Map<String, dynamic> args, int? version}) async =>
-      const FunctionRunResult(ok: true, output: 'fixture', elapsedMs: 1);
+  Future<FunctionRunResult> runFunction(String id, {required Map<String, dynamic> args, int? version}) async {
+    await _streamRun(EntityKind.function.scope(id));
+    return const FunctionRunResult(ok: true, output: {'result': 'ok'}, elapsedMs: 12, logs: 'normalized 1 field');
+  }
+
   @override
-  Future<dynamic> callHandler(String id, {required String method, required Map<String, dynamic> args}) async =>
-      {'ok': true, 'method': method};
+  Future<dynamic> callHandler(String id, {required String method, required Map<String, dynamic> args}) async {
+    await _streamRun(EntityKind.handler.scope(id));
+    return {'ok': true, 'method': method};
+  }
+
   @override
-  Future<InvokeResult> invokeAgent(String id, {required Map<String, dynamic> input, int? version}) async =>
-      const InvokeResult(executionId: 'agx_fixture', ok: true, status: 'completed', steps: 1);
+  Future<InvokeResult> invokeAgent(String id, {required Map<String, dynamic> input, int? version}) async {
+    await _streamAgent(EntityKind.agent.scope(id));
+    return const InvokeResult(
+        executionId: 'agx_fixture', ok: true, output: {'summary': 'a concise answer'}, status: 'completed', steps: 3, tokensIn: 1840, tokensOut: 320, elapsedMs: 5200);
+  }
+
   @override
-  Future<String> triggerWorkflow(String id, {Map<String, dynamic>? payload}) async => 'flr_fixture';
+  Future<String> triggerWorkflow(String id, {Map<String, dynamic>? payload}) async {
+    final flowrunId = 'flr_run${++_runCount}';
+    final scope = EntityKind.workflow.scope(id);
+    final nodes = [
+      ('n1', 'trigger', 'tr_cron'),
+      ('n2', 'agent', 'ag_researcher'),
+      ('n3', 'action', 'fn_summarize'),
+    ];
+    for (final (nodeId, _, _) in nodes) {
+      await _delay();
+      emitPanel(scope, _sig(scope, 'sig_$nodeId', {'flowrunId': flowrunId, 'nodeId': nodeId, 'iteration': 0, 'status': 'completed'}));
+    }
+    final now = DateTime.utc(2026, 6, 27, 10);
+    _flowrunDetail[flowrunId] = FlowrunComposite(
+      flowrun: Flowrun(id: flowrunId, workflowId: id, versionId: '${id}_v1', status: 'completed', startedAt: now, completedAt: now, updatedAt: now),
+      nodes: [
+        for (final (nodeId, kind, ref) in nodes)
+          FlowrunNode(id: 'frn_$nodeId', flowrunId: flowrunId, nodeId: nodeId, kind: kind, ref: ref, status: 'completed', createdAt: now, completedAt: now, updatedAt: now),
+      ],
+    );
+    return flowrunId;
+  }
+
+  Future<void> _delay() => runDelay == Duration.zero ? Future<void>.value() : Future<void>.delayed(runDelay);
+
+  // fn/hd run node: open (durable) → stderr deltas (ephemeral) → close (durable). fn/hd run 节点。
+  Future<void> _streamRun(StreamScope scope) async {
+    const nid = 'blk_run';
+    await _delay();
+    emitPanel(scope, _open(scope, nid, 'run'));
+    for (final line in const ['› starting…\n', '› processing input\n', '› done\n']) {
+      await _delay();
+      emitPanel(scope, _delta(scope, nid, line));
+    }
+    await _delay();
+    emitPanel(scope, _close(scope, nid, 'run', 'completed'));
+  }
+
+  // agent ReAct trace: reasoning → tool_call → tool_result (nested) → text. agent 轨迹块树。
+  Future<void> _streamAgent(StreamScope scope) async {
+    Future<void> open(String id, String type, {String? parent, Map<String, dynamic>? content}) async {
+      await _delay();
+      emitPanel(scope, StreamEnvelope(seq: 1, scope: scope, id: id, frame: FrameOpen(parentId: parent, node: StreamNode(type: type, content: content))));
+    }
+
+    Future<void> delta(String id, String chunk) async {
+      await _delay();
+      emitPanel(scope, _delta(scope, id, chunk));
+    }
+
+    Future<void> close(String id, String type, Map<String, dynamic> content) async {
+      await _delay();
+      emitPanel(scope, StreamEnvelope(seq: 2, scope: scope, id: id, frame: FrameClose(status: 'completed', result: StreamNode(type: type, content: content))));
+    }
+
+    await open('b1', 'reasoning');
+    await delta('b1', 'The topic needs a quick search, ');
+    await delta('b1', 'then a summary.');
+    await close('b1', 'reasoning', {'content': 'The topic needs a quick search, then a summary.'});
+
+    await open('b2', 'tool_call', content: {'name': 'web-search'});
+    await delta('b2', '{"q":"llm agents"}');
+    await close('b2', 'tool_call', {'name': 'web-search', 'arguments': '{"q":"llm agents"}', 'danger': 'safe'});
+    await open('b3', 'tool_result', parent: 'b2', content: {'content': '3 results found'});
+    await close('b3', 'tool_result', {'content': '3 results found'});
+
+    await open('b4', 'text');
+    await delta('b4', 'Based on the search, ');
+    await delta('b4', 'here is a concise answer.');
+    await close('b4', 'text', {'content': 'Based on the search, here is a concise answer.'});
+  }
+
+  StreamEnvelope _open(StreamScope scope, String id, String type) =>
+      StreamEnvelope(seq: 1, scope: scope, id: id, frame: FrameOpen(node: StreamNode(type: type)));
+  StreamEnvelope _delta(StreamScope scope, String id, String chunk) =>
+      StreamEnvelope(seq: 0, scope: scope, id: id, frame: FrameDelta(chunk: chunk));
+  StreamEnvelope _close(StreamScope scope, String id, String type, String status) =>
+      StreamEnvelope(seq: 2, scope: scope, id: id, frame: FrameClose(status: status, result: StreamNode(type: type)));
+  StreamEnvelope _sig(StreamScope scope, String id, Map<String, dynamic> content) =>
+      StreamEnvelope(seq: 0, scope: scope, id: id, frame: FrameSignal(node: StreamNode(type: 'run', content: content)));
 
   @override
   Future<MountHealthReport> getMountHealth(String id) async =>

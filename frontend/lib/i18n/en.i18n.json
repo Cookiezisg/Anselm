@@ -124,6 +124,35 @@
         "loadMore": "Load more", "endOfList": "End of list", "loadFailed": "Load failed — tap to retry",
         "earliest": "earliest version"
       }
+    },
+    "run": {
+      "method": "Method",
+      "streaming": "streaming",
+      "noInputs": "No inputs — run with no arguments.",
+      "payload": "Payload (JSON, optional)",
+      "payloadInvalid": "Payload must be valid JSON.",
+      "payloadObject": "Payload must be a JSON object.",
+      "fieldInvalid": "$name must be valid JSON.",
+      "boolTrue": "true",
+      "boolFalse": "false",
+      "runAgain": "Run again",
+      "cancel": "Cancel",
+      "close": "Close run terminal",
+      "idleTitle": "Ready to run",
+      "idleHint": "Fill in the inputs, then run.",
+      "cancelled": "Cancelled",
+      "outputHeading": "Output",
+      "resultHeading": "Result",
+      "logsHeading": "Logs",
+      "traceHeading": "Trace",
+      "reasoning": "Reasoning",
+      "toolCall": "Tool call",
+      "nodesHeading": "Nodes",
+      "noTrace": "Waiting for output…",
+      "steps": "$n steps",
+      "tokens": "$inT in · $outT out",
+      "ms": "$ms ms",
+      "danger": { "cautious": "Cautious", "dangerous": "Dangerous" }
     }
   },
   "coldStart": {
