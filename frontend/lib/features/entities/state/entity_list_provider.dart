@@ -102,8 +102,12 @@ class EntityListNotifier extends AsyncNotifier<EntityListState> {
   }
 }
 
-/// Per-kind rail list (family over [EntityKind]). 每 kind 的 rail 列表(按 EntityKind family)。
+/// Per-kind rail list (family over [EntityKind]). Auto-retry is disabled — recovery is the rail's
+/// explicit retry button (Riverpod's default exponential auto-retry would otherwise oscillate the
+/// failed list back into a loading spinner, hiding the error state). 每 kind 的 rail 列表;关自动重试
+/// (恢复交给 rail 的重试钮,否则默认指数重试会把错误态闪回 loading)。
 final entityListProvider =
     AsyncNotifierProvider.family<EntityListNotifier, EntityListState, EntityKind>(
   EntityListNotifier.new,
+  retry: (_, _) => null,
 );

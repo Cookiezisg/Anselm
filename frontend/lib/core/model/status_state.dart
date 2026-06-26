@@ -41,6 +41,8 @@ enum AnStatus {
   // Domain status string → universal state (the demo's STATE_MODEL.ALIAS). 域状态 → 通用态。
   static const Map<String, AnStatus> _alias = {
     'running': AnStatus.run,
+    'crashed': AnStatus.err, // handler runtime — a dead resident process (events.md handler.crashed)
+    'stopped': AnStatus.idle,
     'completed': AnStatus.done,
     'failed': AnStatus.err,
     'cancelled': AnStatus.idle,

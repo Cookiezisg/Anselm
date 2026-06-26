@@ -48,6 +48,7 @@ class TranslationsZhCn extends Translations with BaseTranslations<AppLocale, Tra
 	@override late final _Translations$diff$zh_CN diff = _Translations$diff$zh_CN._(_root);
 	@override late final _Translations$tree$zh_CN tree = _Translations$tree$zh_CN._(_root);
 	@override late final _Translations$startup$zh_CN startup = _Translations$startup$zh_CN._(_root);
+	@override late final _Translations$entities$zh_CN entities = _Translations$entities$zh_CN._(_root);
 }
 
 // Path: status
@@ -175,6 +176,22 @@ class _Translations$startup$zh_CN extends Translations$startup$en {
 	@override String get errorHint => '渲染此视图时发生了意外错误。';
 }
 
+// Path: entities
+class _Translations$entities$zh_CN extends Translations$entities$en {
+	_Translations$entities$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get kNew => '新建';
+	@override String get filter => '筛选…';
+	@override String get emptyTitle => '还没有实体';
+	@override String get emptyHint => '新建一个函数、处理器、智能体或工作流来开始。';
+	@override String get errorTitle => '无法加载实体';
+	@override String get errorHint => '本地引擎没有返回实体列表。';
+	@override String get retry => '重试';
+}
+
 /// The flat map containing all translations for locale <zh-CN>.
 /// Only for edge cases! For simple maps, use the map function of this library.
 ///
@@ -237,6 +254,13 @@ extension on TranslationsZhCn {
 			'startup.retry' => '重试',
 			'startup.errorTitle' => '出错了',
 			'startup.errorHint' => '渲染此视图时发生了意外错误。',
+			'entities.kNew' => '新建',
+			'entities.filter' => '筛选…',
+			'entities.emptyTitle' => '还没有实体',
+			'entities.emptyHint' => '新建一个函数、处理器、智能体或工作流来开始。',
+			'entities.errorTitle' => '无法加载实体',
+			'entities.errorHint' => '本地引擎没有返回实体列表。',
+			'entities.retry' => '重试',
 			_ => null,
 		};
 	}

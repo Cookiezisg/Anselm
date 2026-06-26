@@ -68,5 +68,14 @@
     "retry": "Retry",
     "errorTitle": "Something went wrong",
     "errorHint": "An unexpected error occurred while rendering this view."
+  },
+  "entities": {
+    "new": "New",
+    "filter": "Filter…",
+    "emptyTitle": "No entities yet",
+    "emptyHint": "Create a function, handler, agent, or workflow to get started.",
+    "errorTitle": "Couldn't load entities",
+    "errorHint": "The local engine didn't return the entity list.",
+    "retry": "Try again"
   }
 }

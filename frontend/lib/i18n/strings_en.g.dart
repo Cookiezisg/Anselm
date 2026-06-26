@@ -52,6 +52,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$diff$en diff = Translations$diff$en.internal(_root);
 	late final Translations$tree$en tree = Translations$tree$en.internal(_root);
 	late final Translations$startup$en startup = Translations$startup$en.internal(_root);
+	late final Translations$entities$en entities = Translations$entities$en.internal(_root);
 }
 
 // Path: status
@@ -285,6 +286,36 @@ class Translations$startup$en {
 	String get errorHint => 'An unexpected error occurred while rendering this view.';
 }
 
+// Path: entities
+class Translations$entities$en {
+	Translations$entities$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'New'
+	String get kNew => 'New';
+
+	/// en: 'Filter…'
+	String get filter => 'Filter…';
+
+	/// en: 'No entities yet'
+	String get emptyTitle => 'No entities yet';
+
+	/// en: 'Create a function, handler, agent, or workflow to get started.'
+	String get emptyHint => 'Create a function, handler, agent, or workflow to get started.';
+
+	/// en: 'Couldn't load entities'
+	String get errorTitle => 'Couldn\'t load entities';
+
+	/// en: 'The local engine didn't return the entity list.'
+	String get errorHint => 'The local engine didn\'t return the entity list.';
+
+	/// en: 'Try again'
+	String get retry => 'Try again';
+}
+
 /// The flat map containing all translations for locale <en>.
 /// Only for edge cases! For simple maps, use the map function of this library.
 ///
@@ -347,6 +378,13 @@ extension on Translations {
 			'startup.retry' => 'Retry',
 			'startup.errorTitle' => 'Something went wrong',
 			'startup.errorHint' => 'An unexpected error occurred while rendering this view.',
+			'entities.kNew' => 'New',
+			'entities.filter' => 'Filter…',
+			'entities.emptyTitle' => 'No entities yet',
+			'entities.emptyHint' => 'Create a function, handler, agent, or workflow to get started.',
+			'entities.errorTitle' => 'Couldn\'t load entities',
+			'entities.errorHint' => 'The local engine didn\'t return the entity list.',
+			'entities.retry' => 'Try again',
 			_ => null,
 		};
 	}
