@@ -1,0 +1,71 @@
+---
+id: WRK-046
+type: working
+status: active
+owner: @weilin
+created: 2026-06-26
+reviewed: 2026-06-26
+review-due: 2026-09-24
+audience: [human, ai]
+---
+
+# WRK-046 — Phase 4.1 Entities 建造规范(待拍板)
+
+> **一句话**:第一个真 feature——**Entities** 海洋。用它把"三岛布局(忠实复刻 demo)+ 运行时管道(Phase 4.0)"端到端走通。两轮调研合并:**(a) 后端契约 + demo 布局** `wd6a072aj` + **(b) 解决方案 best-practice** `wk6vkas9w`,两轮均经对抗验证(已折入纠正)。落地后结论提取进 `references/frontend/`(新 entities 域)+ 填 `landed-into`。
+
+## 0. 执行摘要
+- **范围**:**4 个可执行 Quadrinity kind 给详情页**——function(`:run`)/handler(`:call`)/agent(`:invoke`)/workflow(`:trigger`)。trigger/control/approval/mcp/skill 在左岛 rail **只显行、详情推迟**。
+- **架构**:`features/entities/{data(repository+fixtures), state(Riverpod), ui(三岛 from An* kit), model}`;复用 Phase 4.0 全管道(ApiClient 全动词已有 / SseGateway demux / L2 CoalescingNotifier)。
+- **契约**:字节级确认(stage-a,带 file:line);~22 个净新增 freezed DTO。ApiClient **唯一缺口** = `getPageWithAggregate`(包 `PageWithAggregate.fromBody`,page.dart 已有,client 缺动词)。
+- **⚠ 对抗验证纠正(已折入)**:① **SSE 流路由**——**生命周期(created/edited/deleted…)全走 notifications 流**(events.md §38),**entities 流只承面板实时**(build 镜像/run 终端/flowrun tick);synthesis 原说"fn/hd/ag 走 entities"是错的。② 缺 `HandlerConfig` DTO。③ workflow 概览 graph = **只读 stub**(graph-canvas 是推迟原语)。④ 空/错/loading 是一等屏(G1 白屏教训)。⑤ events.md 生命周期动作词表不全 → `[doc-fix]` 一并补。
+
+## 1. 待忠实复刻的三岛布局(概念级复刻;颜色/尺寸/动效/字形自由)
+全部用现有 An* kit 组装,**绝不 bespoke**(20 个 kit 件已核存在)。
+
+- **左岛 = 实体 rail**:`AnSidebarList`(`more` 行尾 …;model={newLabel:'New Entity', filterPlaceholder, groups})。**4 个固定可折叠超组**(rail.js:12-17):逻辑节点[function,handler,agent,trigger]/控制节点[control,approval]/工作流[workflow]/外部组件[mcp,skill] → 每 kind(≥1 实体)成可折叠 type-head(图标+标签+count,默认开)→ 实体行{id,label,meta,dot,…菜单}。空 kind/空组隐藏。New + 行内 filter。行点 → select(entity,id);… → openEntityMenu(单源动作表)。映射:`AnSidebarList`+`AnStatusDot`+`AnMenu`+`AnBadge`。
+- **海洋 = AnPage 单滚动**居中 ~720;**绝对浮动 `AnOceanHeader`**(面包屑 Entities|<KindLabel> + 就地编辑 H1 + meta badge[tone=anTone(dot)] + 主 CTA=kind 动词钮[Run/Call/Invoke/Trigger]接右岛 run + … 菜单)over `AnTabs`(概览/版本/日志)+ 段(`AnField`/`AnKv`/`AnCodeEditor`/`AnVersionDiff`)。
+- **右岛 = `AnInspector` run-terminal**:**仅可执行 kind 揭示**;run 前 idle(终端隐藏);动词 CTA 触发 → 实时输出。
+
+## 2. 集成契约(stage-a,字节级;客户端 1:1 镜像)
+- **Envelope/分页**:复用现成 `api_error.dart`/`page.dart`。裸实体规则:`data` 内永远裸实体、版本走嵌入 `activeVersion`(Create+Get 同形)。日志 → `PageWithAggregate`(listKey `executions`/`calls`,aggregates {okCount,failedCount})。
+- **每 kind CRUD(统一)**:`POST /{plural}`(201 裸实体+activeVersion)· `GET /{plural}`(分页)· `GET /{plural}/{id}`(裸+activeVersion+computed)· `PATCH /{plural}/{id}`({name?,description?,tags?};wf 另 concurrency?)· `DELETE`(204)。版本:`GET /{plural}/{id}/versions`(分页)+ version-diff。日志:executions/calls(PageWithAggregate)。`:iterate`→conversationId。
+- **执行动词**:fn `:run {args,version?}`(postBare→ExecutionResult)· hd `:call {method,args}`(postBare)· ag `:invoke {input,version?}`(postBare→InvokeResult)· wf `:trigger {payload?}`(**postForId→flowrunId,异步 202**)。
+- **~22 DTO**(core/contract/entities/):Function/Handler/Agent/Workflow 的 entity+version DTO + 共享值类型 Field/ToolRef/MethodSpec/InitArgSpec/Graph/Node/Edge + ExecutionResult/InvokeResult/**HandlerConfig**(纠正补)。复用 ModelRef + Page/PageWithAggregate。**只 seal `EntityKind`+`NodeKind`(unknown 兜底)**;envStatus/configState/runtimeState/lifecycleState/concurrency/Field.type 等小集**保持 open String 常量**。
+
+## 3. SSE 对账设计(已纠正 — 这是 stage-b verify 的 load-bearing 修正)
+**唯一可丢性规则**(frame.dart):`durable == seq>0`。durable 进缓存+进游标;ephemeral(seq=0)只入 L2 CoalescingNotifier 瞬时视图(可丢,DB 行是真相)。
+
+- **列表对账 = notifications 流**(events.md §38):所有 kind 的 `<kind>.{created,edited,reverted,updated,deleted,…}` 都在 notifications 流(fn 另 env_rebuilt;hd 另 restarted/config_updated/config_cleared/crashed;wf 另 lifecycle_changed/attention_changed/run_failed/approval_pending;mcp/skill/document 各自族)。notifications 帧 scope=notification:<id>、node.type=`<域>.<动作>`——**按 node.type 前缀过滤**(生命周期低频,此处 `.where` 可接受;demux-by-scope 对 notifications 不分 kind)。列表 notifier 据 id **就地 patch `AsyncData`**(created→插、deleted→移、其余→改),**绝不全量重取**;410 resync→`invalidateSelf` 重读 REST。
+- **详情面板实时 = entities 流**(events.md §50/§70):`gw.scopeStream(StreamScope(kind.wire, id))`——build 镜像(open/delta/close 填概览)+ run 终端(fn stderr/hd yield/ag ReAct 轨迹,ephemeral→L2 coalescer)+ **workflow flowrun 节点 tick**(ephemeral Signal {flowrunId,nodeId,iteration,status})。
+- **L2 coalescer 只在详情 ephemeral 路径**(run 终端/tick);列表 durable patch 不经它。
+
+## 4. Feature 结构(stage-b)
+- **data/**:每 kind 一个 `Repository` 抽象(`FunctionRepository` 等)front 现成管道(ui/state 不直碰 ApiClient/SseGateway)。Live impl 包 apiClientProvider/sseGatewayProvider;Fixture impl 返港自 demo data.js 的内存数据 + 脚本化 FakeGateway(含 empty/error/delay 态)。`Provider<XRepository>`(非 Notifier)。+ `entity_kinds.dart`(单源 kind→{label,icon,verb,plural,idPrefix} + kindIconOf)。
+- **state/**(经典 Riverpod,非 codegen):`entityListProvider(EntityKind)` = `FamilyAsyncNotifier`(首页 + `loadMore` 保 hasValue + `_onSignal` 就地对账,build() 内订阅 notifications kindStream、`ref.onDispose` 撤);`railModelProvider` = `Provider<SidebarModel>` **同步派生** 4 超组(watch 各 kind list,零额外网络);`entityDetailProvider(id)` = family(实体+activeVersion + 订阅 entities scopeStream patch);版本/日志 paginated provider。
+- **ui/**:`entity_rail.dart`(AnSidebarList)· `entity_sea.dart`(AnPage+AnOceanHeader+AnTabs+段)· `entity_inspector.dart`(AnInspector run-terminal)· 空/错/loading 用 `AnState`/`AnSkeleton`。
+- **select/路由**:见 §7 决策。
+
+## 5. fixtures-first 数据策略(两 rung)
+- **Rung 1 仓库 override**(日常 UI 主战场,无后端):`ProviderScope(overrides: kUseFixtures ? [xRepositoryProvider.overrideWith((ref)=>FixtureX()), …] : [])`。**用 `overrideWith` 非 `overrideWithValue`**(Riverpod 3.x #4324)。Fixture 暴露 emitCreated/Deleted/Edited + empty/error/delay 模式。
+- **Rung 2 传输级 fixture**(契约保真 + demux/coalescer 正确性):换 Dio `httpClientAdapter`(net 测已有 `_FakeAdapter` 范式)+ `SseGateway` 的 `connectionFactory`(STEP 3 加的 @visibleForTesting 缝)注脚本化连接。
+- 录制真后端 JSON(make server + curl)→ `test/fixtures/entities/<kind>/*.json` 做 DTO 往返 golden。
+
+## 6. 有序构建步骤(fixtures-first;每步 gate;`make fe-verify` 滚动门禁 + 真机截图里程碑)
+- **STEP 0 DTO 契约 + golden**(地基,单作者,阻塞全部):录真 JSON → ~22 DTO + getPageWithAggregate + codegen。Gate:每 DTO fromJson↔toJson key-equal golden;EntityKind/NodeKind unknown 兜底;ExecutionResult/InvokeResult/HandlerConfig 解码。
+- **STEP 1 Repository 缝 + fixtures**:抽象 + Live + Fixture + override 接线。Gate:fixture 返 Page/PageWithAggregate;脚本信号对账;传输 rung 端到端。
+- **STEP 2 列表 state + rail VM**:entityListProvider family(loadMore + _onSignal)+ railModelProvider。Gate:ProviderContainer 测(首页/loadMore 保 hasValue/created·deleted·edited durable 就地 patch/seq=0 不动列表)。
+- **STEP 3 rail UI(左岛)**:entity_rail over AnSidebarList + 4 组 + 空态。Gate:widget 测各态 + **真机截图**。
+- **STEP 4 详情 sea(海洋)**:AnOceanHeader+AnTabs(概览/版本/日志)+ 段;detail provider + entities scopeStream patch。Gate:各 kind 概览/版本(diff)/日志(PageWithAggregate loadMore)+ 空/404/loading + **真机截图**。
+- **STEP 5 执行 + 右岛 run-terminal**:动词 CTA → run/call/invoke/trigger;ephemeral 终端经 L2 coalescer;idle 态。Gate:fixture 脚本流驱动终端,重建计数门禁(叶子≤1/帧);wf :trigger 显异步 flowrun id。
+- **STEP 6 select + 路由 + 收尾**:见 §7;全 feature 五电池矩阵入 fe-verify + 真机截图终检。
+
+## 7. 待你拍板(带推荐)
+1. **范围**:4.1 = 4 可执行 kind 详情 + 其余 rail-rows-only。确认?(推荐:是)
+2. **workflow 概览的 graph**:graph-canvas 是推迟原语 → 4.1 渲**只读 stub**(GraphModel 用 AnSection/AnKv/AnRow 列出节点/边,或至多简单 CustomPaint DAG)+ "进入图编辑器" nav intent(路由到未来编辑器海洋,暂 gate 成"敬请期待")。**绝不在 4.1 建交互画布**。确认?(推荐:是)
+3. **select/路由**:go_router 路由(`/entities/:kind/:id`,deep-link+back 白送)**还是** 选择 provider(Notifier 持 {kind,id})?(推荐:**go_router**——已加依赖;海洋+右岛都 watch 路由参、rail 不 import 它们[跨 feature 经 shared])
+4. **workflow 详情深度**:概览(graph stub)/版本/日志(flowruns)+ Trigger CTA 显异步启动态;**完整 flowrun 时间线** = 薄首切(显 flowrun id + 节点列表)还是推到 Scheduler 4.3?(推荐:薄首切,富时间线归 4.3)
+5. **fixtures-first**:先港 demo data.js 做 fixtures 把 UI 全建起来,再接 seed/真后端。确认这个开发回路?(推荐:是)
+
+## 8. 数据/复核
+- digest:`scratchpad/wf6_digest.json`(stage-a 契约+布局)· `wf7_digest.json`(stage-b 方案)· brief `wf6_brief.txt`。原始:`tasks/{wd6a072aj,wk6vkas9w}.output`(含全部 file:line + AsyncNotifier/反模式)。
+- 验证:stage-a verdict=needs-revision(4 缺口已折入 §0/§3)· stage-b verdict=REVISE(SSE 路由纠正已折入 §3)。
