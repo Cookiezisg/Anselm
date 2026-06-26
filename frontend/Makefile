@@ -16,7 +16,7 @@ help:
 	@echo "Anselm 前端（Flutter）— 在 frontend/ 下:"
 	@echo "  启动:  make demo     真 app 形态 + fixture、零后端"
 	@echo "         make gallery  组件画廊（看每个 An* 全态）"
-	@echo "         make app      真 app + 后端"
+	@echo "         make app      真 app + 真后端(自动起后端 + 热重载)"
 	@echo "  开发:  make setup    拉依赖（flutter pub get）"
 	@echo "         make gen      codegen（dart run slang → i18n strings.g.dart）"
 	@echo "         make analyze  flutter analyze（须净）"
@@ -61,9 +61,10 @@ demo:
 gallery:
 	@LANG=en_US.UTF-8 $(RUN) flutter run -d macos -t lib/dev/gallery_main.dart
 
-# app — 真 app 壳（AppShell）+ 真后端 sidecar。与 demo 共用壳,只差数据源 + 启动门控。
+# app — 真 app 壳（AppShell）+ 真后端,带热重载。自动起后端(make server,后台常驻)+ dev-attach。
+# 生产的"spawn 打包 sidecar"需把签名 Go 二进制打进 .app(发行阶段 WRK-043)。详见 test/dev/run_app.sh。
 app:
-	@LANG=en_US.UTF-8 $(RUN) flutter run -d macos
+	@bash test/dev/run_app.sh
 
 # shots — 无头渲染截图(Skia toImage,免 Xcode)→ test/dev/out/*.png 供肉眼/AI 对照 demo 审。
 # capture_*.dart 把 toImage/toByteData 包进 tester.runAsync:它们是引擎线程真异步,在 testWidgets 的
