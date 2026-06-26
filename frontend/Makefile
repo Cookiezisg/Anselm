@@ -63,6 +63,11 @@ gallery:
 app:
 	@LANG=en_US.UTF-8 $(RUN) flutter run -d macos
 
+# entities — Entities feature 交互预览（dev/entities_preview_main.dart）：真桌面窗 + fixture 零后端，
+# 可点/滚/筛 rail、选择映射到海洋占位（STEP 4 详情前的手动验收入口）。
+entities:
+	@LANG=en_US.UTF-8 $(RUN) flutter run -d macos -t lib/dev/entities_preview_main.dart
+
 # shots — 无头渲染截图(Skia toImage,免 Xcode)→ test/dev/out/*.png 供肉眼/AI 对照 demo 审。
 # capture_*.dart 把 toImage/toByteData 包进 tester.runAsync:它们是引擎线程真异步,在 testWidgets 的
 # fake-async zone 里 Future 永不解析→hang(flutter#49317/#50783)。一次截一类(同隔离多 toImage 卡 teardown)。
@@ -77,4 +82,4 @@ shots:
 shot-app:
 	@bash test/dev/shot_app.sh
 
-.PHONY: help setup gen analyze test verify demo gallery app shots shot-app
+.PHONY: help setup gen analyze test verify demo gallery app entities shots shot-app

@@ -40,7 +40,7 @@ core/                      # 跨切共享层(不依赖上层)
   ui/                      # An* 套件 G0–G6(49 原语:控件/行卡/导航壳/代码数据/浮层)+ 三岛壳;桶=ui.dart(见 design-system.md)
   overlay/                 # 命令式浮层派发(G6):AnOverlayController(NotifierProvider) + overlayProvider + AnOverlayHost
 i18n/                      # slang:en/zh_CN 双语 + 生成 strings.g.dart（dart run slang,入库）
-dev/                       # dev 工具:gallery/（make gallery 组件画廊,双栏目录看每个 An* 全态）
+dev/                       # dev 工具:gallery/（make gallery 组件画廊）· entities_preview_main（make entities:Entities feature 交互预览,fixture 零后端）
 features/                  # ★中间层:每域 data+state+ui+model（随 feature 落地,Entities 起）
   entities/data/           # Entities feature 数据缝[Phase 4.1 STEP 1]:单一 EntityRepository(Live 接 ApiClient+SseGateway / Fixture 内存可脚本 / entityRepositoryProvider 单点 override) + EntityKind/EntityRow/EntitySignal
   entities/state/          # Entities 列表 state[Phase 4.1 STEP 2]:entityListProvider(AsyncNotifier.family:首页+loadMore+SSE 就地 patch) + railModelProvider(rail VM) + selectedEntityProvider
@@ -72,7 +72,7 @@ features/                  # ★中间层:每域 data+state+ui+model（随 featu
 ## 6. 工具链与门禁
 
 - 工具链 = **mise**(go + flutter,仓库根 `mise.toml`)。
-- **三种启动**:`make demo`(真形态 + fixture、零后端)· `make gallery`(组件画廊,看每个 An* 全态)· `make app`(后端 sidecar)。
+- **启动**:`make demo`(真形态 + fixture、零后端)· `make gallery`(组件画廊,看每个 An* 全态)· `make entities`(Entities feature 交互预览,fixture 零后端,可点/筛/选 rail)· `make app`(后端 sidecar)。
 - 门禁 `make verify` = codegen(`dart run slang`)+ `flutter analyze` 净 + `flutter test` 绿。codegen 产物入库(slang `strings.g.dart` deterministic;freezed 待契约层再接)。
 
 ## 7. 文档纪律
