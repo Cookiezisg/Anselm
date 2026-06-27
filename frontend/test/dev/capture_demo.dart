@@ -9,6 +9,7 @@ import 'dart:ui' as ui;
 import 'package:anselm/app/app_shell.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/design/tokens.dart';
+import 'package:anselm/core/shell/shell_chrome.dart';
 import 'package:anselm/core/ui/an_button.dart';
 import 'package:anselm/features/entities/data/entity_demo_fixture.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
@@ -38,6 +39,8 @@ const _tab = String.fromEnvironment('TAB');
 // Optional `--dart-define=RUN=1` opens the right-island run terminal (verb CTA) + executes, to capture
 // the STEP 5 run terminal with live output. Requires SEL. 打开右岛 run 终端并执行,截运行态。
 const _run = String.fromEnvironment('RUN');
+// Optional `--dart-define=COLLAPSE=1` collapses the left island (verify reopen-after-lights layout). 收起左岛。
+const _collapse = String.fromEnvironment('COLLAPSE');
 
 /// A SelectedEntity override that starts on a fixed selection. 起始即选中的 override。
 class _PreSelected extends SelectedEntity {
@@ -85,6 +88,14 @@ void main() {
     ));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 80)); // let the 4 list futures resolve
+
+    if (_collapse.isNotEmpty) {
+      final ctx = tester.element(find.byType(AppShell));
+      ProviderScope.containerOf(ctx, listen: false).read(shellChromeProvider.notifier).toggleLeft();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400)); // the collapse slide settles 收起滑动
+      outName = '${outName}_collapsed';
+    }
 
     if (_tab.isNotEmpty) {
       final detail = LocaleSettings.instance.currentTranslations.entities.detail.tab;

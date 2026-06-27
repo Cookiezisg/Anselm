@@ -76,5 +76,11 @@ if [ "$BOUNDS" = "TIMEOUT" ]; then echo "✗ anselm window never appeared (see /
 
 osascript -e 'tell application "anselm" to activate' >/dev/null 2>&1 || true
 osascript -e 'delay 8'   # debug build: boot → dev-attach health-gate → cold-start workspace → rail load 让全链路稳定
-screencapture -R "$BOUNDS" -o "$OUT/app.png"
-echo "✓ $OUT/app.png  (window rect $BOUNDS)"
+# COLLAPSE=1 → send ⌘B to collapse the left island (verify the reopen sits AFTER the OS traffic lights).
+OUTNAME="app"
+if [ "${COLLAPSE:-0}" = "1" ]; then
+  osascript -e 'tell application "System Events" to keystroke "b" using command down' >/dev/null 2>&1 || true
+  osascript -e 'delay 1' ; OUTNAME="app_collapsed"
+fi
+screencapture -R "$BOUNDS" -o "$OUT/$OUTNAME.png"
+echo "✓ $OUT/$OUTNAME.png  (window rect $BOUNDS)"

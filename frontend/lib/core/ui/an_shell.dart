@@ -8,6 +8,14 @@ import 'an_island.dart';
 import 'an_window_controls.dart';
 import 'icons.dart';
 
+/// The top inset that drops a shell top control's CENTER onto the OS traffic-lights' horizontal line. The
+/// lights are centered in a [bandHeight] band at the window top (queried at runtime — varies with the
+/// toolbar config), so the control center must sit at `bandHeight/2` from the window top; the islands begin
+/// [AnSize.shellPad] below the window top, so the control is offset `bandHeight/2 - shellPad - control/2`
+/// from its band's top (clamped ≥ 0 for small/absent bands, e.g. non-macOS). 顶控落到红绿灯水平线的顶距。
+double _controlInset(double bandHeight) =>
+    (bandHeight / 2 - AnSize.shellPad - AnSize.control / 2).clamp(0.0, AnSize.islandHead);
+
 /// The three-island desktop shell skeleton: a left island ([sidebar]), the open ocean ([ocean]) — the
 /// window's white surface, no card — and a right island ([inspector]). 8px padding around + 8px gaps
 /// between. The LEFT island is drag-resizable (240–400) AND collapsible (its top chrome bar carries the
@@ -40,11 +48,17 @@ class AnShell extends StatelessWidget {
     this.onLeftWidthCommitted,
     this.head,
     this.onToggleRight,
+    this.titlebarHeight = AnSize.titlebar,
   });
 
   final Widget? sidebar;
   final Widget? ocean;
   final Widget? inspector;
+
+  /// The OS title-bar band height (where macOS centers the traffic lights), queried at runtime by the
+  /// caller (0 on platforms without left-side OS lights). The top controls center on `titlebarHeight/2`.
+  /// OS 标题栏带高(红绿灯居中处),调用方运行时查询;顶控对齐到 titlebarHeight/2。
+  final double titlebarHeight;
 
   /// Reveal / hide the right island (a feature opens it for a selected entity). 右岛揭示/收起。
   final bool inspectorOpen;
@@ -68,6 +82,7 @@ class AnShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final controlInset = _controlInset(titlebarHeight); // drop top controls onto the lights' line 顶控落到灯线
     return Material(
       color: c.surface,
       child: Padding(
@@ -86,7 +101,7 @@ class AnShell extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _ChromeBar(onCollapse: onToggleLeft),
+                    _ChromeBar(onCollapse: onToggleLeft, controlInset: controlInset),
                     const SizedBox(height: AnSpace.s8),
                     Expanded(child: sidebar ?? const _Placeholder('Sidebar')),
                   ],
@@ -99,6 +114,7 @@ class AnShell extends StatelessWidget {
                 head: head,
                 showReopen: leftCollapsed,
                 onReopen: onToggleLeft,
+                controlInset: controlInset,
                 // panel-right shows only when there's a bound right island (caller passes the callback iff
                 // an entity is selected) — mirrors the demo's has-right gate. 仅有绑定右岛时显(对齐 demo has-right)。
                 showRightToggle: onToggleRight != null,
@@ -117,26 +133,35 @@ class AnShell extends StatelessWidget {
 }
 
 /// The left island's top control strip — reserves the macOS traffic-light zone at the leading edge (the OS
-/// draws the real lights there), then a spacer, then the collapse button. Its height matches the ocean's
-/// floating head ([AnSize.islandHead]) so the lights / collapse button / breadcrumb / panel-right all sit
-/// on one band. 左岛顶栏:行首留红绿灯位 + 间隔 + 收起钮;高与浮层头一致,顶控同带对齐。
+/// draws the real lights there), then a spacer, then the collapse button. The control row sits at
+/// [controlInset] from the band top so it centers on the OS lights' horizontal line; the band stays
+/// [AnSize.islandHead] tall (the sidebar starts below it). 左岛顶栏:行首留红绿灯位 + 间隔 + 收起钮;控件行落在灯线。
 class _ChromeBar extends StatelessWidget {
-  const _ChromeBar({this.onCollapse});
+  const _ChromeBar({this.onCollapse, required this.controlInset});
   final VoidCallback? onCollapse;
+  final double controlInset;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       height: AnSize.islandHead,
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const AnWindowControls(),
-          const Spacer(),
-          AnButton.iconOnly(
-            AnIcons.panelLeft,
-            size: AnButtonSize.sm,
-            semanticLabel: context.t.shell.collapseSidebar,
-            onPressed: onCollapse,
+          SizedBox(height: controlInset),
+          SizedBox(
+            height: AnSize.control,
+            child: Row(
+              children: [
+                const AnWindowControls(),
+                const Spacer(),
+                AnButton.iconOnly(
+                  AnIcons.panelLeft,
+                  semanticLabel: context.t.shell.collapseSidebar,
+                  onPressed: onCollapse,
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -154,6 +179,7 @@ class _OceanRegion extends StatelessWidget {
     this.onReopen,
     required this.showRightToggle,
     this.onToggleRight,
+    required this.controlInset,
   });
 
   final Widget? ocean;
@@ -162,6 +188,7 @@ class _OceanRegion extends StatelessWidget {
   final VoidCallback? onReopen;
   final bool showRightToggle;
   final VoidCallback? onToggleRight;
+  final double controlInset;
 
   @override
   Widget build(BuildContext context) {
@@ -188,13 +215,14 @@ class _OceanRegion extends StatelessWidget {
             ),
           ),
         ),
-        // Head row: reopen (collapsed-only) + breadcrumb + spacer + panel-right (inspector-only). The empty
-        // middle falls through to the scrolling content (no opaque fill). 头行:reopen + 面包屑 + 间隔 + 右切换。
+        // Head row: reopen (collapsed-only) + breadcrumb + spacer + panel-right (inspector-only). Banded at
+        // [controlInset]/[AnSize.control] so its controls center on the OS lights' line; the empty middle
+        // falls through to the scrolling content (no opaque fill). 头行控件落在灯线;空白中段穿透到正文。
         Positioned(
-          top: 0,
+          top: controlInset,
           left: 0,
           right: 0,
-          height: AnSize.islandHead,
+          height: AnSize.control,
           child: Padding(
             padding: const EdgeInsets.only(
               left: AnSpace.s12,
@@ -202,20 +230,25 @@ class _OceanRegion extends StatelessWidget {
             ),
             child: Row(
               children: [
+                // When the sidebar is collapsed the OS traffic lights now float over the ocean's top-left,
+                // so reserve their zone (AnWindowControls = the mac inset / the brand on Win/Linux) BEFORE
+                // the reopen button — the reopen sits AFTER the lights, never under them. 收起后红绿灯压到海洋左上,
+                // 故 reopen 前留出红绿灯位(AnWindowControls),reopen 落在灯之后、绝不压灯。
                 AnimatedSize(
-                  duration: AnMotionPref.reduced(context)
-                      ? Duration.zero
-                      : AnMotion.mid,
+                  duration: AnMotionPref.reduced(context) ? Duration.zero : AnMotion.mid,
                   alignment: Alignment.centerLeft,
                   child: showReopen
-                      ? Padding(
-                          padding: const EdgeInsets.only(right: AnSpace.s4),
-                          child: AnButton.iconOnly(
-                            AnIcons.panelLeft,
-                            size: AnButtonSize.sm,
-                            semanticLabel: context.t.shell.expandSidebar,
-                            onPressed: onReopen,
-                          ),
+                      ? Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const AnWindowControls(),
+                            AnButton.iconOnly(
+                              AnIcons.panelLeft,
+                              semanticLabel: context.t.shell.expandSidebar,
+                              onPressed: onReopen,
+                            ),
+                            const SizedBox(width: AnSpace.s4),
+                          ],
                         )
                       : const SizedBox.shrink(),
                 ),
@@ -231,7 +264,6 @@ class _OceanRegion extends StatelessWidget {
                 if (showRightToggle)
                   AnButton.iconOnly(
                     AnIcons.panelRight,
-                    size: AnButtonSize.sm,
                     semanticLabel: context.t.shell.togglePanel,
                     onPressed: onToggleRight,
                   ),

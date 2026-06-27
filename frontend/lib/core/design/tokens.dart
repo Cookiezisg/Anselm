@@ -91,6 +91,14 @@ abstract final class AnSize {
   static const double oceanMin = 480; // ocean content column MIN (elastic 480–720) 内容列最小(弹性 480–720)
   static const double islandHead = 44; // floating header height 浮动头高
 
+  // The macOS title-bar band the OS vertically CENTERS the traffic lights in (≈ titlebar/2 = 26 from the
+  // window top). The shell's top controls (collapse / breadcrumb / panel toggle) align their CENTER to 26
+  // so they sit on the lights' line. = macos_ui's ToolBar _kToolbarHeight. NOTE (real-run verified, research
+  // wf w2ah4v0ll): macos_window_utils' getTitlebarHeight() returns the FULL title+toolbar band (~66) which
+  // OVER-shoots — the lights center in this 52 title-bar portion (26), not the full band (33), so we use the
+  // verified constant, not the runtime query. 红绿灯居中带(灯心≈26);顶控对齐到 titlebar/2;getTitlebarHeight 返全带 66 会偏低,故用此验证常量。
+  static const double titlebar = 52;
+
   // Shell envelope: 8px padding around the islands + 8px gaps between them.
   // 壳外廓:岛四周 8px 内距 + 岛间 8px 间距。
   static const double shellPad = AnSpace.s8;

@@ -58,6 +58,7 @@ class AppShell extends ConsumerWidget {
         onLeftWidthCommitted: (w) =>
             ref.read(shellChromeProvider.notifier).setLeftWidth(w),
         head: const OceanBreadcrumb(),
+        // titlebarHeight defaults to AnSize.titlebar (the lights-centering band, real-run verified). 用默认带高。
         // The panel-right toggle exists only when an entity is selected (a bound right island). 仅有选中时给右切换。
         onToggleRight: hasSelection ? toggleRight : null,
       ),
