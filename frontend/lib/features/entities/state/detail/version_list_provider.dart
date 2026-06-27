@@ -34,6 +34,7 @@ class VersionListNotifier extends AsyncNotifier<VersionListState> {
     state = AsyncData(cur.copyWith(loadingMore: true));
     try {
       final page = await _fetch(cur.nextCursor);
+      if (!ref.mounted) return; // autoDispose: left the entity mid-page 已离开实体则不写
       final now = state.value ?? cur;
       state = AsyncData(now.copyWith(
         versions: [...now.versions, ...page.rows],
@@ -42,6 +43,7 @@ class VersionListNotifier extends AsyncNotifier<VersionListState> {
         loadingMore: false,
       ));
     } catch (_) {
+      if (!ref.mounted) rethrow; // disposed → don't touch state, just propagate
       final now = state.value ?? cur;
       state = AsyncData(now.copyWith(loadingMore: false));
       rethrow;
@@ -123,8 +125,10 @@ class VersionListNotifier extends AsyncNotifier<VersionListState> {
   }
 }
 
+/// autoDispose: a sub-resource of the detail (only relevant while viewing the entity) — released on leave.
+/// autoDispose:详情的子资源(仅查看时相关),离开即释放。
 final versionListProvider =
-    AsyncNotifierProvider.family<VersionListNotifier, VersionListState, EntityRef>(
+    AsyncNotifierProvider.autoDispose.family<VersionListNotifier, VersionListState, EntityRef>(
   VersionListNotifier.new,
   retry: (_, _) => null,
 );

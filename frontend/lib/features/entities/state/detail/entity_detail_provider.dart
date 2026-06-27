@@ -82,7 +82,11 @@ class EntityDetailNotifier extends AsyncNotifier<EntityDetail> {
       case EntityAction.edited:
       case EntityAction.updated:
       case EntityAction.unknown:
-        state = await AsyncValue.guard(_fetch);
+        final next = await AsyncValue.guard(_fetch);
+        // autoDispose: the user may have left this entity mid-fetch (provider disposed) — writing state
+        // after dispose throws. 已 autoDispose:取数途中可能已离开本实体(provider 释放),释放后写 state 会抛。
+        if (!ref.mounted) return;
+        state = next;
         // The active version (and its logs) may have moved — let those tabs reconcile from truth.
         ref.invalidate(versionListProvider(entityRef));
         ref.invalidate(logListProvider(entityRef));
@@ -95,8 +99,12 @@ class EntityDetailNotifier extends AsyncNotifier<EntityDetail> {
   void _onPanel(StreamEnvelope env) {}
 }
 
+/// autoDispose: leaving an entity tears down the notifier + its TWO SSE subscriptions (life/panel) — a
+/// non-autoDispose family would leak a subscription pair per entity ever opened. Re-selecting re-fetches
+/// (the deferred skeleton suppresses any flash on a fast local fetch). autoDispose:离开实体即释放 notifier
+/// + 其两条 SSE 订阅;非 autoDispose 会每开一个实体泄漏一对订阅。重选重取(本地快取经延迟骨架不闪)。
 final entityDetailProvider =
-    AsyncNotifierProvider.family<EntityDetailNotifier, EntityDetail, EntityRef>(
+    AsyncNotifierProvider.autoDispose.family<EntityDetailNotifier, EntityDetail, EntityRef>(
   EntityDetailNotifier.new,
   retry: (_, _) => null,
 );

@@ -45,6 +45,7 @@ class LogListNotifier extends AsyncNotifier<LogListState> {
     state = AsyncData(cur.copyWith(loadingMore: true));
     try {
       final page = await _fetch(cur.nextCursor);
+      if (!ref.mounted) return; // autoDispose: left the entity mid-page 已离开实体则不写
       final now = state.value ?? cur;
       state = AsyncData(now.copyWith(
         rows: [...now.rows, ...page.rows],
@@ -53,6 +54,7 @@ class LogListNotifier extends AsyncNotifier<LogListState> {
         loadingMore: false,
       ));
     } catch (_) {
+      if (!ref.mounted) rethrow; // disposed → don't touch state, just propagate
       final now = state.value ?? cur;
       state = AsyncData(now.copyWith(loadingMore: false));
       rethrow;
@@ -72,6 +74,7 @@ class LogListNotifier extends AsyncNotifier<LogListState> {
     if (opening && entityRef.kind == EntityKind.workflow && !cur.flowruns.containsKey(id)) {
       try {
         final comp = await _repo.getFlowrun(id);
+        if (!ref.mounted) return; // autoDispose: left the entity mid-fetch 已离开实体则不写
         final now = state.value ?? cur;
         state = AsyncData(now.copyWith(flowruns: {...now.flowruns, id: comp}));
       } catch (_) {
@@ -187,8 +190,10 @@ class LogListNotifier extends AsyncNotifier<LogListState> {
   }
 }
 
+/// autoDispose: a sub-resource of the detail (only relevant while viewing the entity) — released on leave.
+/// autoDispose:详情的子资源(仅查看时相关),离开即释放。
 final logListProvider =
-    AsyncNotifierProvider.family<LogListNotifier, LogListState, EntityRef>(
+    AsyncNotifierProvider.autoDispose.family<LogListNotifier, LogListState, EntityRef>(
   LogListNotifier.new,
   retry: (_, _) => null,
 );

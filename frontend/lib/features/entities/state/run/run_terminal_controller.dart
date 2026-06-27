@@ -35,24 +35,31 @@ class RunStream {
   }
 }
 
-/// The run terminal for ONE executable entity ([entityRef]) — a FAMILY keyed by [EntityRef]. Each member
-/// owns its own panel SSE subscription + streamed body + lifecycle, so a run keeps streaming in the
-/// BACKGROUND when the user selects another entity ([ref.keepAlive] is taken the moment a run starts, so
-/// the member survives deselection) and is intact when they return. The verb CTA (header) and the form's
-/// run button both call [run] — the typed input DRAFT lives here (so the header can trigger a run without
-/// reaching into the form), coerced to the request on [run] using the entity's declared [Field] types.
-/// Cancel ABANDONS the UI wait (sync verbs aren't abortable; the backend run completes + records its row).
+/// The run terminal for ONE executable entity ([entityRef]) — an autoDispose FAMILY keyed by [EntityRef].
+/// Each member owns its own panel SSE subscription + streamed body + lifecycle. autoDispose means selecting
+/// an entity (without running) and leaving it frees the controller + its panel subscription — a
+/// non-autoDispose family would leak one per executable entity ever selected. A RUN takes a keep-alive
+/// ([ref.keepAlive], released when the run settles), so a run keeps streaming in the BACKGROUND across
+/// deselection and is intact on return; once it finishes, leaving the entity frees it. The verb CTA
+/// (header) and the form's run button both call [run] — the typed input DRAFT lives here (so the header
+/// can trigger a run without reaching into the form), coerced to the request on [run] using the entity's
+/// declared [Field] types. Cancel ABANDONS the UI wait (sync verbs aren't abortable; the backend run
+/// completes + records its row).
 ///
-/// 一个可执行实体的 run 终端(按 [EntityRef] 的 family)。各成员自管面板 SSE 订阅 + 流式 body + 生命周期,
-/// 故一个运行在切走后台续流(run 起即 keepAlive、存活过取消选中)、切回完好。头部动词 CTA 与表单按钮都调
-/// run——类型化输入草稿在此(头部无需伸进表单即可触发),run 时按声明的 Field 类型强转成请求。
+/// 一个可执行实体的 run 终端(按 [EntityRef] 的 **autoDispose** family)。各成员自管面板 SSE 订阅 + 流式 body +
+/// 生命周期。autoDispose:仅选中(未运行)后离开即释放 controller + 面板订阅(非 autoDispose 会每选一个可执行实体
+/// 泄漏一个)。**一次运行取 keepAlive(运行收尾时释放)** → 切走后台续流、切回完好;跑完离开即释放。头部动词 CTA 与
+/// 表单按钮都调 run——类型化输入草稿在此,run 时按声明的 Field 类型强转成请求。
 class RunTerminalController extends Notifier<RunTerminalState> {
   RunTerminalController(this.entityRef);
 
   final EntityRef entityRef;
   late EntityRepository _repo;
   StreamSubscription<StreamEnvelope>? _panelSub;
-  bool _keptAlive = false; // a run took a keep-alive (background streaming survives deselection) 已取 keepAlive
+  // Closes the keep-alive link taken on run start (KeepAliveLink isn't publicly nameable in riverpod 3.3.2,
+  // so we hold its .close tear-off). Non-null = a run is pinning this controller against autoDispose.
+  // 运行起取的 keepAlive 释放钮(KeepAliveLink 3.3.2 不可公开命名,故持 .close);非空 = 有运行钉住本 controller 防 autoDispose。
+  void Function()? _releaseRun;
 
   final CoalescingNotifier<RunStream> stream = CoalescingNotifier(RunStream());
 
@@ -89,10 +96,6 @@ class RunTerminalController extends Notifier<RunTerminalState> {
       state = state.copyWith(inputError: inputError);
       return;
     }
-    if (!_keptAlive) {
-      ref.keepAlive(); // survive deselection so the run keeps streaming in the background 后台续流
-      _keptAlive = true;
-    }
     final seq = state.runSeq + 1;
     stream.mutate((s) => s..reset());
     state = state.copyWith(
@@ -111,10 +114,16 @@ class RunTerminalController extends Notifier<RunTerminalState> {
     );
     final args = Map<String, dynamic>.from(request);
     try {
+      // Pin this controller against autoDispose so the run keeps streaming if the user deselects; released
+      // in `finally` once THIS run settles (so a finished run, once left, frees the panel subscription).
+      // Taken INSIDE try, after runSeq=seq is set, so a throw anywhere below is still covered by the finally
+      // release — no path can leave it permanently pinned. 钉住本 controller 防 autoDispose(切走后台续流);
+      // 在 try 内取(runSeq=seq 之后),下方任意抛错仍被 finally 释放、绝不永钉。
+      _releaseRun ??= ref.keepAlive().close;
       switch (entityRef.kind) {
         case EntityKind.function:
           final r = await _repo.runFunction(entityRef.id, args: args);
-          if (state.runSeq != seq) return;
+          if (!ref.mounted || state.runSeq != seq) return;
           state = state.copyWith(
             phase: r.ok ? RunPhase.ok : RunPhase.failed,
             output: r.output,
@@ -124,11 +133,11 @@ class RunTerminalController extends Notifier<RunTerminalState> {
           );
         case EntityKind.handler:
           final r = await _repo.callHandler(entityRef.id, method: state.method, args: args);
-          if (state.runSeq != seq) return;
+          if (!ref.mounted || state.runSeq != seq) return;
           state = state.copyWith(phase: RunPhase.ok, output: r);
         case EntityKind.agent:
           final r = await _repo.invokeAgent(entityRef.id, input: args);
-          if (state.runSeq != seq) return;
+          if (!ref.mounted || state.runSeq != seq) return;
           state = state.copyWith(
             phase: r.ok ? RunPhase.ok : RunPhase.failed,
             output: r.output,
@@ -141,10 +150,10 @@ class RunTerminalController extends Notifier<RunTerminalState> {
         case EntityKind.workflow:
           final flowrunId =
               await _repo.triggerWorkflow(entityRef.id, payload: args.isEmpty ? null : args);
-          if (state.runSeq != seq) return;
+          if (!ref.mounted || state.runSeq != seq) return;
           state = state.copyWith(flowrunId: flowrunId);
           final comp = await _repo.getFlowrun(flowrunId);
-          if (state.runSeq != seq) return;
+          if (!ref.mounted || state.runSeq != seq) return;
           state = state.copyWith(
             phase: comp.flowrun.status == 'failed' ? RunPhase.failed : RunPhase.ok,
             flowNodes: comp.nodes,
@@ -152,17 +161,30 @@ class RunTerminalController extends Notifier<RunTerminalState> {
           );
       }
     } on ApiException catch (e) {
-      if (state.runSeq != seq) return;
+      if (!ref.mounted || state.runSeq != seq) return;
       state = state.copyWith(phase: RunPhase.failed, errorCode: e.code, errorMsg: e.message);
     } catch (e) {
-      if (state.runSeq != seq) return;
+      if (!ref.mounted || state.runSeq != seq) return;
       state = state.copyWith(phase: RunPhase.failed, errorMsg: e.toString());
+    } finally {
+      // Release the keep-alive once THIS run is the settled current one — a superseding run (seq bumped)
+      // or a cancel keeps/handles it. Guarded by mounted so we never read state on a disposed notifier.
+      // 本运行为当前且收尾才释放(被新运行接管/被 cancel 则另行处理);mounted 守卫防读已释放 notifier 的 state。
+      if (ref.mounted && state.runSeq == seq) {
+        _releaseRun?.call();
+        _releaseRun = null;
+      }
     }
   }
 
   /// Abandon the UI-side wait (the in-flight result is dropped via the seq bump; the backend run still
-  /// completes + records its audit row). 放弃前端等待(后端续跑落审计行)。
-  void cancel() => state = state.copyWith(phase: RunPhase.cancelled, runSeq: state.runSeq + 1);
+  /// completes + records its audit row). Releases the keep-alive — the bumped seq makes the in-flight
+  /// run's `finally` skip its own release, so cancel owns it. 放弃前端等待(后端续跑落审计行);释放 keepAlive。
+  void cancel() {
+    state = state.copyWith(phase: RunPhase.cancelled, runSeq: state.runSeq + 1);
+    _releaseRun?.call();
+    _releaseRun = null;
+  }
 
   // Coerce the draft into the request by the entity's declared field types. workflow = one optional JSON
   // payload; fn/ag/hd = per-field (object/array via jsonDecode, surfacing a parse error). 草稿→请求强转。
@@ -241,7 +263,10 @@ class RunTerminalController extends Notifier<RunTerminalState> {
   }
 }
 
-/// One run-terminal controller PER executable entity (family) — each keeps its own run alive in the
-/// background. The right island shows the SELECTED entity's controller. 每可执行实体一个 controller(family)。
+/// One run-terminal controller PER executable entity (autoDispose family) — freed when the entity is
+/// deselected UNLESS a run is in flight (which pins it via keepAlive, so it streams in the background).
+/// The right island shows the SELECTED entity's controller. 每可执行实体一个 controller(autoDispose family);
+/// 选区移开即释放,除非有运行在 keepAlive 钉住(后台续流)。
 final runTerminalProvider =
-    NotifierProvider.family<RunTerminalController, RunTerminalState, EntityRef>(RunTerminalController.new);
+    NotifierProvider.autoDispose.family<RunTerminalController, RunTerminalState, EntityRef>(
+        RunTerminalController.new);
