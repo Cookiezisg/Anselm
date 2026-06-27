@@ -1,20 +1,20 @@
 // Dev screenshot harness for `make demo` — renders the REAL app shell ([AppShell], same as make app)
 // driven by the zero-backend [demoEntityRepository], headlessly via Skia → test/dev/out/demo.png.
+// STEP 6: routing is real — pre-selection is a deep link (navigate the GoRouter), not a provider override.
 // Run:  flutter test test/dev/capture_demo.dart
-// One capture for the whole demo composition (no per-feature capture — mirrors the single demo target).
-// 截 make demo 的真壳(AppShell)+ fixture → demo.png。整 demo 一张图,不做 per-feature 截图。
+// 截 make demo 的真壳(AppShell)+ fixture → demo.png。STEP 6:预选 = deep-link 导航(非 provider override)。
 import 'dart:io';
 import 'dart:ui' as ui;
 
-import 'package:anselm/app/app_shell.dart';
+import 'package:anselm/app/router.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/design/tokens.dart';
+import 'package:anselm/core/router/navigation.dart';
 import 'package:anselm/core/shell/shell_chrome.dart';
 import 'package:anselm/core/ui/an_button.dart';
 import 'package:anselm/features/entities/data/entity_demo_fixture.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
 import 'package:anselm/features/entities/data/entity_providers.dart';
-import 'package:anselm/features/entities/state/selected_entity.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -31,7 +31,7 @@ Future<void> _load(String family, String path) async {
   await loader.load();
 }
 
-// Optional `--dart-define=SEL=function:fn_normalize` pre-selects an entity so the detail sea is
+// Optional `--dart-define=SEL=function:fn_normalize` deep-links to an entity so the detail sea is
 // captured (default: rail + empty ocean → demo.png; selected → demo_<id>.png). 可预选实体截详情。
 const _sel = String.fromEnvironment('SEL');
 // Optional `--dart-define=TAB=overview|versions|logs` taps that tab before capture. 预点某 tab。
@@ -42,12 +42,18 @@ const _run = String.fromEnvironment('RUN');
 // Optional `--dart-define=COLLAPSE=1` collapses the left island (verify reopen-after-lights layout). 收起左岛。
 const _collapse = String.fromEnvironment('COLLAPSE');
 
-/// A SelectedEntity override that starts on a fixed selection. 起始即选中的 override。
-class _PreSelected extends SelectedEntity {
-  _PreSelected(this._ref);
-  final EntityRef _ref;
+/// The capture root — the REAL [AppShell] driven by the REAL [buildAppRouter] (so routing is exercised
+/// exactly as `make app`); the `builder` wraps the routed shell in a keyed RepaintBoundary to grab. 截图根。
+class _CaptureApp extends ConsumerWidget {
+  const _CaptureApp();
   @override
-  EntityRef? build() => _ref;
+  Widget build(BuildContext context, WidgetRef ref) => MaterialApp.router(
+        debugShowCheckedModeBanner: false,
+        theme: AnTheme.light(),
+        routerConfig: ref.watch(goRouterProvider),
+        builder: (context, child) =>
+            RepaintBoundary(key: const ValueKey('cap'), child: child!),
+      );
 }
 
 void main() {
@@ -60,38 +66,41 @@ void main() {
   });
 
   testWidgets('demo', (tester) async {
-    const key = ValueKey('cap');
     tester.view.devicePixelRatio = 2.0;
     tester.view.physicalSize = const Size(AnSize.windowInitialWidth * 2, AnSize.windowInitialHeight * 2);
     addTearDown(tester.view.reset);
 
-    EntityRef? sel;
+    EntityKind? selKind;
+    String? selId;
     var outName = 'demo';
     if (_sel.isNotEmpty) {
       final parts = _sel.split(':');
-      sel = EntityRef(EntityKind.values.byName(parts[0]), parts[1]);
-      outName = 'demo_${parts[1]}';
+      selKind = EntityKind.values.byName(parts[0]);
+      selId = parts[1];
+      outName = 'demo_$selId';
     }
 
     await tester.pumpWidget(ProviderScope(
       overrides: [
         entityRepositoryProvider.overrideWithValue(demoEntityRepository()),
-        if (sel != null) selectedEntityProvider.overrideWith(() => _PreSelected(sel!)),
+        goRouterProvider.overrideWith(buildAppRouter),
       ],
-      child: TranslationProvider(
-        child: MaterialApp(
-          debugShowCheckedModeBanner: false,
-          theme: AnTheme.light(),
-          home: const RepaintBoundary(key: key, child: AppShell()),
-        ),
-      ),
+      child: TranslationProvider(child: const _CaptureApp()),
     ));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 80)); // let the 4 list futures resolve
 
+    final container = ProviderScope.containerOf(tester.element(find.byType(_CaptureApp)), listen: false);
+
+    // Pre-select via a deep link (the real navigation path). 经 deep-link 预选(真导航路径)。
+    if (selKind != null && selId != null) {
+      container.read(goRouterProvider).go(entityLocation(selKind, selId));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 80)); // detail resolves
+    }
+
     if (_collapse.isNotEmpty) {
-      final ctx = tester.element(find.byType(AppShell));
-      ProviderScope.containerOf(ctx, listen: false).read(shellChromeProvider.notifier).toggleLeft();
+      container.read(shellChromeProvider.notifier).toggleLeft();
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400)); // the collapse slide settles 收起滑动
       outName = '${outName}_collapsed';
@@ -106,14 +115,14 @@ void main() {
       outName = '${outName}_$_tab';
     }
 
-    if (_run.isNotEmpty && sel != null) {
+    if (_run.isNotEmpty && selKind != null) {
       final verb = LocaleSettings.instance.currentTranslations.entities.detail.verb;
       final label = {
         EntityKind.function: verb.run,
         EntityKind.handler: verb.call,
         EntityKind.agent: verb.invoke,
         EntityKind.workflow: verb.trigger,
-      }[sel.kind]!;
+      }[selKind]!;
       // The right island is already revealed (strong-linked to the selection); the header verb CTA both
       // ensures it's open and fires the run. 右岛已随选区揭示;头部动词 CTA 展开 + 执行。
       await tester.tap(find.widgetWithText(AnButton, label).first);
@@ -125,7 +134,7 @@ void main() {
 
     late final Uint8List bytes;
     await tester.runAsync(() async {
-      final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(key));
+      final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('cap')));
       final image = await boundary.toImage(pixelRatio: 2.0);
       final png = await image.toByteData(format: ui.ImageByteFormat.png);
       bytes = png!.buffer.asUint8List();

@@ -1,33 +1,25 @@
 import 'package:anselm/core/contract/entities/agent.dart';
 import 'package:anselm/core/contract/entities/function.dart';
 import 'package:anselm/core/contract/entities/values.dart';
-import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/messages/block_tree_reducer.dart';
 import 'package:anselm/core/sse/frame.dart';
 import 'package:anselm/core/ui/an_button.dart';
 import 'package:anselm/features/entities/data/entity_fixtures.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
-import 'package:anselm/features/entities/data/entity_providers.dart';
 import 'package:anselm/features/entities/state/selected_entity.dart';
 import 'package:anselm/features/entities/ui/run/block_tree_view.dart';
 import 'package:anselm/features/entities/ui/run/run_terminal.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-// STEP 5.5 gate (widget) — the run terminal is bound to the SELECTED entity: idle shows the typed input
-// form + idle state; pressing the verb runs and renders the streamed output + result; the agent trace
-// renders reasoning collapsed-by-default + a danger badge.
+import '../../../../support/router_harness.dart';
+
+// STEP 5.5/6 gate (widget) — the run terminal is bound to the SELECTED entity (route-driven, STEP 6):
+// idle shows the typed input form + idle state; pressing the verb runs and renders the streamed output +
+// result; the agent trace renders reasoning collapsed-by-default + a danger badge.
 
 final _t0 = DateTime.utc(2026, 6, 27);
-
-class _Pre extends SelectedEntity {
-  _Pre(this._r);
-  final EntityRef _r;
-  @override
-  EntityRef? build() => _r;
-}
 
 FixtureEntityRepository _fix() => FixtureEntityRepository(
       runDelay: Duration.zero,
@@ -68,18 +60,10 @@ FixtureEntityRepository _fix() => FixtureEntityRepository(
     );
 
 Widget _host(FixtureEntityRepository repo, {EntityRef? sel, Widget child = const RunTerminal()}) =>
-    ProviderScope(
-      overrides: [
-        entityRepositoryProvider.overrideWithValue(repo),
-        if (sel != null) selectedEntityProvider.overrideWith(() => _Pre(sel)),
-      ],
-      child: TranslationProvider(
-        child: MaterialApp(
-          debugShowCheckedModeBanner: false,
-          theme: AnTheme.light(),
-          home: Scaffold(body: SizedBox(width: 340, height: 800, child: child)),
-        ),
-      ),
+    routedHost(
+      Scaffold(body: SizedBox(width: 340, height: 800, child: child)),
+      initialLocation: sel == null ? '/' : selectionLocation(sel.kind, sel.id),
+      repository: repo,
     );
 
 void main() {

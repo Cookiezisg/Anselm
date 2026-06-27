@@ -1,5 +1,6 @@
 import 'package:anselm/core/contract/entities/agent.dart';
 import 'package:anselm/core/contract/entities/function.dart';
+import 'package:anselm/core/router/navigation.dart';
 import 'package:anselm/features/entities/data/entity_fixtures.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
 import 'package:anselm/features/entities/data/entity_providers.dart';
@@ -7,12 +8,15 @@ import 'package:anselm/features/entities/data/entity_repository.dart';
 import 'package:anselm/features/entities/data/entity_signal.dart';
 import 'package:anselm/features/entities/state/detail/entity_detail_provider.dart';
 import 'package:anselm/features/entities/state/selected_entity.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-// STEP 4 gate — the detail provider's resolution + realtime contract: typed fetch per kind (agent also
-// pulls mount-health), no auto-retry on error, durable lifecycle → re-fetch, deleted → clears selection,
-// ephemeral → no re-fetch (DB-row-is-truth).
+import '../../../../support/router_harness.dart';
+
+// STEP 4/6 gate — the detail provider's resolution + realtime contract: typed fetch per kind (agent also
+// pulls mount-health), no auto-retry on error, durable lifecycle → re-fetch, deleted → navigates home
+// (route-derived selection clears, STEP 6), ephemeral → no re-fetch (DB-row-is-truth).
 
 final _t = DateTime.utc(2026, 6, 26);
 FunctionEntity _fn(String id, String name) =>
@@ -79,16 +83,31 @@ void main() {
     expect(c.read(entityDetailProvider(_ref)).value?.function?.name, 'new');
   });
 
-  test('durable deleted → clears the selection', () async {
+  // Route-derived selection (STEP 6): "clear" = navigate home. Driven through a real router (the
+  // delegate only parses when attached to MaterialApp.router), so this one is a widget test. 经真路由验。
+  testWidgets('durable deleted → navigates home (selection clears)', (tester) async {
     final fixture = FixtureEntityRepository(functions: [_fn('fn_1', 'sum')]);
-    final c = _container(fixture);
-    c.read(selectedEntityProvider.notifier).select(_ref);
+    final router = buildTestRouter(
+        initialLocation: '/entities/function/fn_1', page: const SizedBox.shrink());
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        entityRepositoryProvider.overrideWithValue(fixture),
+        goRouterProvider.overrideWithValue(router),
+      ],
+      child: MaterialApp.router(routerConfig: router),
+    ));
+    await tester.pump();
+
+    final c = ProviderScope.containerOf(tester.element(find.byType(MaterialApp)));
+    c.listen(entityDetailProvider(_ref), (_, _) {}); // keep the notifier (+ SSE subs) alive
     await c.read(entityDetailProvider(_ref).future);
+    expect(c.read(selectedEntityProvider), _ref); // selection derived from the deep link
 
     fixture.emitLifecycle(const EntitySignal(
         kind: EntityKind.function, id: 'fn_1', action: EntityAction.deleted, durable: true));
-    await pumpEventQueue();
+    await tester.pumpAndSettle();
 
+    expect(router.routerDelegate.currentConfiguration.uri.path, '/');
     expect(c.read(selectedEntityProvider), isNull);
   });
 

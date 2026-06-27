@@ -37,3 +37,18 @@ enum EntityKind {
   /// 生命周期通知 payload 里携带本实体 id 的键。
   String get idField => '${scopeKind}Id';
 }
+
+/// The deep-link location for an entity (STEP 6): `/entities/<kind>/<id>`. The `:kind` segment is the
+/// enum `name` (= the lowercase wire kind), so [entityKindFromWire] round-trips it. The rail navigates
+/// here (`context.go`) to set selection; the router is the source of truth. 实体 deep-link 位置。
+String entityLocation(EntityKind kind, String id) => '/entities/${kind.name}/$id';
+
+/// Parse a route `:kind` segment back to an [EntityKind] — null if not one of the four (a bad/legacy
+/// link). URLs are case-sensitive in go_router, so only the exact lowercase `name` matches; the router's
+/// redirect uses this to bounce bad kinds home. 解析路由 :kind(非四者之一→null,大小写敏感)。
+EntityKind? entityKindFromWire(String? wire) {
+  for (final k in EntityKind.values) {
+    if (k.name == wire) return k;
+  }
+  return null;
+}

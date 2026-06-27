@@ -5,9 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scaled_app/scaled_app.dart';
 
 import 'app/app.dart';
+import 'app/router.dart';
 import 'app/window_setup.dart';
 import 'core/error/error_boundary.dart';
 import 'core/platform/window_zoom.dart';
+import 'core/router/navigation.dart';
 import 'i18n/strings.g.dart';
 
 /// Entry point. The scaled_app binding enables app-wide UI zoom (Cmd +/-): its scaleFactor reads
@@ -26,7 +28,14 @@ Future<void> main() async {
     LocaleSettings.useDeviceLocaleSync();
     await initWindow();
     await WindowZoom.restore();
-    runApp(TranslationProvider(child: const ProviderScope(child: AnApp())));
+    runApp(TranslationProvider(
+      child: ProviderScope(
+        // The GoRouter (which references the shell + entity kinds) is assembled in the app layer and
+        // injected into the core seam. 路由(引用壳 + 实体 kind)在 app 层装配、注入 core 缝。
+        overrides: [goRouterProvider.overrideWith(buildAppRouter)],
+        child: const AnApp(),
+      ),
+    ));
   }, (error, stack) {
     debugPrint('[anselm] zone error: $error\n$stack');
   });

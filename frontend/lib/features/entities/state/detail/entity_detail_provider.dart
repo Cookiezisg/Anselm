@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/contract/entities/agent.dart';
+import '../../../../core/router/navigation.dart';
 import '../../../../core/sse/frame.dart';
 import '../../data/entity_kind.dart';
 import '../../data/entity_providers.dart';
@@ -69,7 +70,13 @@ class EntityDetailNotifier extends AsyncNotifier<EntityDetail> {
     if (!s.durable || s.id != entityRef.id) return;
     switch (s.action) {
       case EntityAction.deleted:
-        ref.read(selectedEntityProvider.notifier).clear();
+        // The open entity vanished → navigate home (clears selection; the ocean falls back to empty).
+        // ONLY when THIS is the currently-routed entity — a stale-but-alive detail notifier for some
+        // OTHER entity must not yank the user out of what they're viewing. STEP 6: "clear" = go to `/`.
+        // 仅当被删的是当前选中实体才回首页(防陈旧 notifier 把用户从正看的实体里拽走);选区随路由清空。
+        if (ref.read(selectedEntityProvider) == entityRef) {
+          ref.read(goRouterProvider).go('/');
+        }
       case EntityAction.created:
         return; // detail is open on an existing id
       case EntityAction.edited:

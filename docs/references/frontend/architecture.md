@@ -21,15 +21,17 @@ Go 后端作 **sidecar**,Flutter 桌面端是其纯客户端。**3-tier feature-
 ## 2. 物理结构（`frontend/lib/`，当前 = 视觉地基 + 运行时骨干 [Phase 4.0 STEP 0–7 已落]）
 
 ```
-main.dart                  # 入口:runZonedGuarded(binding 在内)→ scaled binding → installErrorHandlers → initWindow → 恢复缩放档 → runApp(ProviderScope(AnApp))
+main.dart                  # 入口:runZonedGuarded(binding 在内)→ scaled binding → installErrorHandlers → initWindow → 恢复缩放档 → runApp(ProviderScope(overrides:[goRouter←buildAppRouter], AnApp))
 app/                       # 装配根
-  app.dart                 # 根 widget(MaterialApp + 主题 + home=AppStartupGate(AppShell) + builder=AnOverlayHost[持 navigatorKey];绑 Cmd +/-/0)
+  app.dart                 # 根 widget(MaterialApp.router[routerConfig=goRouter] + 主题 + builder=AnOverlayHost→门控链[AppStartupGate→缩放快捷键→autofocus→WorkspaceGate→路由 child];绑 Cmd +/-/0)
+  router.dart              # buildAppRouter[STEP 6]:两 location(/ + /entities/:kind/:id)共用同一常量 key 的 NoTransitionPage(AppShell)→壳永不重挂;坏 kind redirect 回首页;注入 core goRouterProvider 缝
   app_shell.dart           # 唯一壳组合 AppShell(哪个 feature 在哪个岛):make app 与 make demo 共用,只差数据源 + 启动(见 §6)
-  app_startup_gate.dart    # 据 backend 单一 phase 门控:连接中 / 崩溃可重试 / 就绪显壳(整 app 单点门控)
+  app_startup_gate.dart    # 据 backend 单一 phase 门控:连接中 / 崩溃可重试 / 就绪显壳(整 app 单点门控,在 MaterialApp.router builder 里包路由 child、非 redirect)
   workspace_gate.dart      # 冷启动工作区门控(在 startup gate 之下、壳之上):解析 workspace 中显"准备工作区",就绪显壳
   window_setup.dart        # 桌面窗口:window_manager(尺寸/最小/居中 + hidden-at-launch:原生 order 钩子隐藏、show() 一次性显示、无启动闪烁)+ macos_window_utils(无边框 + 加高标题栏红绿灯)
 core/                      # 跨切共享层(不依赖上层)
   runtime.dart             # DI 装配:activeWorkspace + backendController/Startup(BackendState phase 桥) + dio/apiClient + sseGateway(就绪前 null)
+  router/                  # 导航缝[STEP 6]:navigation.dart = rootNavigatorKeyProvider(GoRouter↔AnOverlayHost 共享根 navigator key)+ goRouterProvider(throw 默认,app 经 buildAppRouter override 注入;具体 router 认识壳+kind 故只能 app 装配、core 仅声明缝)
   workspace/               # 冷启动:workspace_bootstrap(后端就绪后 列/建 workspace + 设 activeWorkspace,否则全 API 401)
   contract/                # 后端投影 DTO(freezed/json,1:1 镜像后端):api_error(N1 信封 + AnselmErr 码) · page(N4 keyset/聚合) · workspace(+ModelRef) · entities/(Quadrinity ~22 DTO,见 contract.md)
   net/                     # api_client:唯一 HTTP 边界,标准契约只编码一次 + workspace/bearer(ANSELM_AUTH_TOKEN)拦截器
@@ -48,20 +50,22 @@ i18n/                      # slang:en/zh_CN 双语 + 生成 strings.g.dart（dar
 dev/                       # dev 工具:gallery_main（make gallery 组件画廊）· demo_main（make demo:真壳 AppShell + fixture override + 跳门控,零后端）
 features/                  # ★中间层:每域 data+state+ui+model（随 feature 落地,Entities 起）
   entities/data/           # Entities feature 数据缝[Phase 4.1 STEP 1]:单一 EntityRepository(Live 接 ApiClient+SseGateway / Fixture 内存可脚本 / entityRepositoryProvider 单点 override) + EntityKind/EntityRow/EntitySignal
-  entities/state/          # Entities 列表 state[STEP 2]:entityListProvider(首页+loadMore+SSE patch) + railModelProvider + selectedEntityProvider + railSortProvider
+  entities/state/          # Entities 列表 state[STEP 2]:entityListProvider(首页+loadMore+SSE patch) + railModelProvider + selectedEntityProvider(STEP 6 改:只读、单向派生自路由 delegate) + railSortProvider
   entities/state/detail/   # 详情 state[STEP 4]:entityDetail(双流订阅,durable 重取/ephemeral no-op) + versionList + logList(PageWithAggregate+workflow flowrun 懒取)
   entities/ui/             # Entities UI[STEP 3]:EntityRail over AnSidebarList(4 kind 段 + 状态点 + 四态)+ entity_rail_model(纯投影)+ entity_ocean[STEP 4 详情根]
   entities/ui/detail/      # 详情 UI[STEP 4]:EntityOcean=单一 AnPage 文档(头+tab+内容居中 720 一起滚,AnTabs flow)+ ocean_header(状态徽 + 动词 CTA)+ overview/{4 kind}(workflow 图推迟图编辑器阶段)+ version_tab(AnVersionDiff)+ log_tab + detail_sections + entity_ocean(详情海洋,STEP 3 占位/STEP 4 建)
   entities/data/entity_demo_fixture.dart  # demoEntityRepository():make demo 的零后端种子(STEP 4/5 续加版本/日志/flowrun)
 ```
 **运行时骨干(Phase 4.0)**:sidecar 进程托管(`core/process`)+ 契约/net/SSE(`core/{contract,net,sse}`,PORT 自 main + 加固)+ Riverpod 装配(`core/runtime.dart`)+ 错误边界(`core/error`)+ 启动门控(`app/app_startup_gate.dart`)+ L0–L2 流式性能原语(`core/sse` demux + `core/perf` coalescer)。loopback 安全在后端(绑 127.0.0.1 + bearer + Host 校验,见 `references/backend/api.md`)。建造规范见 [`WRK-045`](../../working/platform-foundation/phase-4.0-runtime-backbone.md)。
-**dev 工具**:截图夹具 `test/dev/capture_shell.dart`(无头渲染 PNG 看效果);产物 `test/dev/out/` **gitignore**。
+**dev 工具**:截图夹具 `test/dev/capture_shell.dart` + `capture_demo.dart`(无头渲染 PNG;STEP 6 起预选 = deep-link 导航,非 provider override)+ 真跑 `test/dev/shot_app_real.sh`(真后端端到端);产物 `test/dev/out/` **gitignore**。**测试支撑**(`test/support/`):`router_harness`(路由化 widget 测:测试 GoRouter 镜像 app 两 location、`routedHost` 注入 goRouter+repository 缝)+ `five_batteries`(五电池矩阵 空/超长/海量/极值/注入,STEP 6 加固)。
 
 ## 3. 依赖规则（三层，单向）
 
 `app → features → core`。**features 互不依赖**(跨片走 core provider / 导航 intent);`core` 不依赖上层。UI 只用 `core/ui` + `core/design` 组合,**禁内联配色/度量**。
 
-**命令式浮层派发(G6,跨 feature 共享的命令式 UI 副作用)**:dialog/toast 经 `core/overlay` 的 **`overlayProvider`**(经典 **`NotifierProvider`**,非 legacy `ChangeNotifierProvider`)派发——feature 在 SSE/async 回调里**无 BuildContext** 也能 `ref.read(overlayProvider.notifier).showToast(...)` / `confirm(...)→Future<bool>`(后者经装配根 `AnOverlayHost`[挂在 `MaterialApp.builder`]在 `initState` 注册的 **root navigator key** push `RawDialogRoute`)。这是「跨 feature 走 core provider」在命令式副作用上的落地——**非**全局 `navigatorKey` 单例(app 建 key + widget 树注入 host + ref 接入 controller、可 override 测、合 [`ADR 0004`](../../decisions/0004-frontend-flutter-architecture.md))。toast 层渲在内容之上(z 序偏离已拍板,详见 design-system.md)。完整建造规范见 [`WRK-041`](../../archive/g6-overlays/README.md)。
+**路由(go_router,STEP 6)**:`MaterialApp.router(routerConfig=goRouterProvider)`。两 location `/`(无选区)与 `/entities/:kind/:id` **共用同一常量 key 的 `NoTransitionPage(AppShell)`** → Navigator 复用同一 Element → 三岛壳(rail/ocean/keepAlive run 终端/滚动位)**永不重挂**;选区由 `selectedEntityProvider` **单向派生**(监听 router delegate[`ChangeNotifier`]解析 URL→`EntityRef`,`ref.onDispose` 摘监听),rail 点击 = `context.go(entityLocation(...))`(rail 不 import ocean/inspector,只改 URL),ocean/inspector/detail 照旧 `ref.watch(selectedEntityProvider)` 零改动;deleted 信号 = `goRouter.go('/')` 清选区。坏 `:kind`(非四者)在 `/entities/:kind/:id` 的 **route-level redirect** 回首页(URL 大小写敏感天然强制小写枚举);`:id` 存在性路由层管不了→ ocean 错误态。**门控是 `MaterialApp.router(builder:)` 里包路由 child 的 widget(非 redirect)**:`AnOverlayHost → AppStartupGate → 缩放快捷键 → autofocus → WorkspaceGate → child`。builder 的 `child` 即 `Router` widget——门控扣住它时 Router 未挂载,门控开启时 Router 挂载并解析待决/初始路由(deep-link 仍正确落地、只是在门控开启时);门控须在 MaterialApp.router 内(非外裹)使路由配置开机即接上。未匹配路径经 `errorPageBuilder=同一常量页` 回壳(不触发会重挂壳的默认错误屏)。
+
+**命令式浮层派发(G6,跨 feature 共享的命令式 UI 副作用)**:dialog/toast 经 `core/overlay` 的 **`overlayProvider`**(经典 **`NotifierProvider`**,非 legacy `ChangeNotifierProvider`)派发——feature 在 SSE/async 回调里**无 BuildContext** 也能 `ref.read(overlayProvider.notifier).showToast(...)` / `confirm(...)→Future<bool>`(后者经装配根 `AnOverlayHost`[挂在 `MaterialApp.router` 的 `builder`]在 `initState` 注册的 **root navigator key** push `RawDialogRoute`)。STEP 6 起该 key = `rootNavigatorKeyProvider`,**由 `GoRouter(navigatorKey:)` 与 `AnOverlayHost(navigatorKey:)` 两端共享**(go_router 持 root navigator;`MaterialApp.router` 无 `navigatorKey` 参数,key 不传给它)。这是「跨 feature 走 core provider」在命令式副作用上的落地——**非**全局 `navigatorKey` 单例(app 建 key + widget 树注入 host + ref 接入 controller、可 override 测、合 [`ADR 0004`](../../decisions/0004-frontend-flutter-architecture.md))。toast 层渲在内容之上(z 序偏离已拍板,详见 design-system.md)。完整建造规范见 [`WRK-041`](../../archive/g6-overlays/README.md)。
 
 ## 4. 设计系统 + UI 套件（`core/design` + `core/ui`）
 

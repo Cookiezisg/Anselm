@@ -1,37 +1,22 @@
-import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/ui/an_state.dart';
 import 'package:anselm/features/entities/data/entity_demo_fixture.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
-import 'package:anselm/features/entities/data/entity_providers.dart';
 import 'package:anselm/features/entities/state/selected_entity.dart';
 import 'package:anselm/features/entities/ui/entity_ocean.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-// STEP 4 gate (widget) — the detail ocean over the rich demo fixture: empty when nothing is selected;
-// per-kind overview + 概览/版本/日志 tabs when selected; switching tabs shows version/log content.
+import '../../../../support/router_harness.dart';
 
-class _Pre extends SelectedEntity {
-  _Pre(this._r);
-  final EntityRef _r;
-  @override
-  EntityRef? build() => _r;
-}
+// STEP 4/6 gate (widget) — the detail ocean over the rich demo fixture: empty when nothing is selected;
+// per-kind overview + 概览/版本/日志 tabs when selected (selection is route-driven, STEP 6); switching
+// tabs shows version/log content.
 
-Widget _host({EntityRef? sel}) => ProviderScope(
-      overrides: [
-        entityRepositoryProvider.overrideWithValue(demoEntityRepository()),
-        if (sel != null) selectedEntityProvider.overrideWith(() => _Pre(sel)),
-      ],
-      child: TranslationProvider(
-        child: MaterialApp(
-          debugShowCheckedModeBanner: false,
-          theme: AnTheme.light(),
-          home: const Scaffold(body: SizedBox(width: 900, height: 800, child: EntityOcean())),
-        ),
-      ),
+Widget _host({EntityRef? sel}) => routedHost(
+      const Scaffold(body: SizedBox(width: 900, height: 800, child: EntityOcean())),
+      initialLocation: sel == null ? '/' : selectionLocation(sel.kind, sel.id),
+      repository: demoEntityRepository(),
     );
 
 void main() {

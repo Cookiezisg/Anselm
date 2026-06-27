@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/design/tokens.dart';
 import '../../../core/ui/an_button.dart';
@@ -80,10 +81,10 @@ class EntityRail extends ConsumerWidget {
       showNew: false, // entity creation is a later phase; the rail is read+select only in 4.1
       menuEntries: _sortMenu(ref, t, sort),
       onSelect: (id) {
+        // Navigate to set selection — the route is the source of truth (STEP 6); the rail never imports
+        // ocean/inspector, it just changes the URL. 导航即设选区(路由为真相);rail 只改 URL、不 import 海洋/右岛。
         final kind = kindForId(groups, id);
-        if (kind != null) {
-          ref.read(selectedEntityProvider.notifier).select(EntityRef(kind, id));
-        }
+        if (kind != null) context.go(entityLocation(kind, id));
       },
     );
   }

@@ -3,13 +3,12 @@ import 'dart:async';
 import 'package:anselm/core/contract/entities/function.dart';
 import 'package:anselm/core/contract/entities/handler.dart';
 import 'package:anselm/core/contract/page.dart';
-import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/router/navigation.dart';
 import 'package:anselm/core/ui/an_sidebar_list.dart';
 import 'package:anselm/core/ui/an_skeleton.dart';
 import 'package:anselm/core/ui/icons.dart';
 import 'package:anselm/features/entities/data/entity_fixtures.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
-import 'package:anselm/features/entities/data/entity_providers.dart';
 import 'package:anselm/features/entities/data/entity_repository.dart';
 import 'package:anselm/features/entities/data/entity_row.dart';
 import 'package:anselm/features/entities/state/selected_entity.dart';
@@ -19,9 +18,11 @@ import 'package:flutter/material.dart' hide Page;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-// STEP 3 gate (widget) — the rail resolves the four states off the repository seam: loading skeleton /
-// error / empty / the AnSidebarList of kind sections, and selection writes back to selectedEntityProvider.
-// (The real-machine look is verified separately by the PNG capture harness.)
+import '../../../support/router_harness.dart';
+
+// STEP 3/6 gate (widget) — the rail resolves the four states off the repository seam: loading skeleton /
+// error / empty / the AnSidebarList of kind sections, and selection navigates the router (STEP 6, the
+// route is the source of truth). (The real-machine look is verified separately by the PNG capture harness.)
 
 final _t = DateTime.utc(2026, 6, 26);
 FunctionEntity _fn(String id, String name) =>
@@ -29,15 +30,9 @@ FunctionEntity _fn(String id, String name) =>
 HandlerEntity _hd(String id, String name, String runtime) =>
     HandlerEntity(id: id, name: name, createdAt: _t, updatedAt: _t, runtimeState: runtime);
 
-Widget _host(EntityRepository repo) => ProviderScope(
-      overrides: [entityRepositoryProvider.overrideWithValue(repo)],
-      child: TranslationProvider(
-        child: MaterialApp(
-          debugShowCheckedModeBanner: false,
-          theme: AnTheme.light(),
-          home: const Scaffold(body: SizedBox(width: 300, height: 600, child: EntityRail())),
-        ),
-      ),
+Widget _host(EntityRepository repo) => routedHost(
+      const Scaffold(body: SizedBox(width: 300, height: 600, child: EntityRail())),
+      repository: repo,
     );
 
 /// Repo whose list never resolves — pins the loading state (a Future, not a Timer, so no pending-timer
@@ -71,7 +66,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('tapping a row writes selection to selectedEntityProvider', (tester) async {
+  testWidgets('tapping a row navigates → selection derives from the route', (tester) async {
     await tester.pumpWidget(_host(FixtureEntityRepository(functions: [_fn('fn_1', 'normalize-input')])));
     await tester.pump(const Duration(milliseconds: 50));
 
@@ -79,8 +74,11 @@ void main() {
     expect(container.read(selectedEntityProvider), isNull);
 
     await tester.tap(find.text('normalize-input'));
-    await tester.pump();
+    await tester.pumpAndSettle(); // the route change + delegate notify settles
 
+    // The rail called context.go('/entities/function/fn_1'); the route is the truth, selection derives it.
+    expect(container.read(goRouterProvider).routerDelegate.currentConfiguration.uri.path,
+        '/entities/function/fn_1');
     expect(container.read(selectedEntityProvider), const EntityRef(EntityKind.function, 'fn_1'));
   });
 
