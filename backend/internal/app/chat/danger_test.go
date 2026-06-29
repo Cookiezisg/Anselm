@@ -137,7 +137,7 @@ func TestDanger_ApproveRunsTool(t *testing.T) {
 		t.Fatal("tool must NOT run before approval (interrupt-before-side-effect)")
 	}
 
-	if err := svc.ResolveInteraction(ctx, pending[0].ToolCallID, humanloopapp.DecisionApprove, ""); err != nil {
+	if err := svc.ResolveInteraction(ctx, pending[0].ConversationID, pending[0].ToolCallID, humanloopapp.DecisionApprove, ""); err != nil {
 		t.Fatalf("ResolveInteraction: %v", err)
 	}
 	waitClose(t, bridge, asstID)
@@ -162,7 +162,7 @@ func TestDanger_DenySkipsTool(t *testing.T) {
 
 	asstID, _ := svc.Send(ctx, "cv_1", SendInput{Content: "deploy"})
 	pending := waitPending(t, svc, "cv_1", 1)
-	if err := svc.ResolveInteraction(ctx, pending[0].ToolCallID, humanloopapp.DecisionDeny, ""); err != nil {
+	if err := svc.ResolveInteraction(ctx, pending[0].ConversationID, pending[0].ToolCallID, humanloopapp.DecisionDeny, ""); err != nil {
 		t.Fatalf("ResolveInteraction: %v", err)
 	}
 	waitClose(t, bridge, asstID)
@@ -192,7 +192,7 @@ func TestDanger_ApproveAlwaysWhitelists(t *testing.T) {
 
 	asst1, _ := svc.Send(ctx, "cv_1", SendInput{Content: "deploy"})
 	pending := waitPending(t, svc, "cv_1", 1)
-	if err := svc.ResolveInteraction(ctx, pending[0].ToolCallID, humanloopapp.DecisionApproveAlways, ""); err != nil {
+	if err := svc.ResolveInteraction(ctx, pending[0].ConversationID, pending[0].ToolCallID, humanloopapp.DecisionApproveAlways, ""); err != nil {
 		t.Fatalf("approve_always: %v", err)
 	}
 	waitClose(t, bridge, asst1)

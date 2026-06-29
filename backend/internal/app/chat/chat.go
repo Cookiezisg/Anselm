@@ -79,12 +79,14 @@ type ConversationReader interface {
 	//
 	// Unarchive 清归档标志——Send 自动解档（给归档线程发消息即隐式唤回）。
 	Unarchive(ctx context.Context, id string) error
-	// TouchLastMessage records that a message just landed (Send calls it per user turn) so the
-	// conversation list re-sorts by recent activity. Best-effort — a failed touch only mis-sorts.
+	// TouchLastMessage records that a message just landed (chat calls it on the user turn AND the
+	// assistant finalize) so the conversation list re-sorts by recent activity and the rail snippet
+	// follows the latest message. `preview` is that message's folded + rune-truncated text (empty =
+	// keep the existing preview). Best-effort — a failed touch only mis-sorts / mis-previews.
 	//
-	// TouchLastMessage 记一条消息刚落地（Send 每用户回合调），使对话列表按最近活跃重排。best-effort——
-	// touch 失败只是排序略偏。
-	TouchLastMessage(ctx context.Context, id string, t time.Time) error
+	// TouchLastMessage 记一条消息刚落地（chat 在用户回合 + assistant 终态都调），使对话列表按最近活跃重排、rail
+	// 摘要跟随最新消息。preview 是该消息折叠 + rune 截断后的文本（空 = 保留原预览）。best-effort——失败只是排序/预览略偏。
+	TouchLastMessage(ctx context.Context, id string, t time.Time, preview string) error
 }
 
 // ContentCapabilities is what the resolved model can natively ingest — supplied by the resolver
@@ -327,7 +329,7 @@ func (s *Service) Send(ctx context.Context, conversationID string, in SendInput)
 	// Bump the conversation's recency key so the list re-sorts by latest activity. Best-effort:
 	// a failed touch only mis-sorts the list, it must not fail the turn.
 	// 刷新对话最近活跃键，使列表按最新活动重排。best-effort：touch 失败只是排序略偏，绝不能让回合失败。
-	if err := s.deps.Conversations.TouchLastMessage(ctx, conversationID, time.Now().UTC()); err != nil {
+	if err := s.deps.Conversations.TouchLastMessage(ctx, conversationID, time.Now().UTC(), previewFrom(in.Content)); err != nil {
 		s.log.Warn("chat: touch last_message_at failed", zap.String("conversation", conversationID), zap.Error(err))
 	}
 

@@ -636,4 +636,4 @@ func TestSystemPromptPreview(t *testing.T) {
 
 func (f fakeConvs) Unarchive(context.Context, string) error { return nil }
 
-func (f fakeConvs) TouchLastMessage(context.Context, string, time.Time) error { return nil }
+func (f fakeConvs) TouchLastMessage(context.Context, string, time.Time, string) error { return nil }

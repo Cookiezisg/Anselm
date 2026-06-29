@@ -50,8 +50,18 @@ type Conversation struct {
 	//
 	// LastMessageAt 是最近活跃排序键：线程最后一条消息加入的时间（创建时设、chat 每个用户回合刷）。
 	// 它是普通列、非 ,updated tag——故 pin/改名/换模型（刷 updated_at）不会重排列表。
-	LastMessageAt time.Time  `db:"last_message_at" json:"lastMessageAt"`
-	DeletedAt     *time.Time `db:"deleted_at,deleted" json:"-"`
+	LastMessageAt time.Time `db:"last_message_at" json:"lastMessageAt"`
+	// LastMessagePreview is a denormalized cache of the most recent message's text (whitespace-folded +
+	// rune-truncated), written alongside LastMessageAt on each TouchLastMessage so the rail can show a
+	// one-line snippet under the title with ZERO extra query on the List hot path. A system-write field
+	// (like Summary / AutoTitled): read-only on the wire, never accepted in PATCH; NOT the source of
+	// truth (messages are) — it is not back-filled if a message is later edited/deleted.
+	//
+	// LastMessagePreview 是最后一条消息文本的 denormalized 缓存（折叠空白 + rune 截断），随 LastMessageAt 在每次
+	// TouchLastMessage 一并写，使 rail 能在标题下显一行摘要、List 热路径零额外查询。系统写字段（同 Summary /
+	// AutoTitled）：线缆只读、不进 PATCH；非真相源（消息才是）——消息后续编辑/删不回溯。
+	LastMessagePreview string     `db:"last_message_preview" json:"lastMessagePreview"`
+	DeletedAt          *time.Time `db:"deleted_at,deleted" json:"-"`
 
 	// IsGenerating is a derived runtime flag (NOT persisted, db:"-"): true when chat has an
 	// in-flight assistant turn for this conversation. Filled per-row in the app layer from the
@@ -62,6 +72,20 @@ type Conversation struct {
 	// 由 app 层据 chat 登记（GeneratingQuerier）逐行填，使刚连上的客户端能冷启动活动圆点；线缆只读、
 	// 不进 PATCH。
 	IsGenerating bool `db:"-" json:"isGenerating"`
+
+	// AwaitingInput is a derived runtime flag (NOT persisted, db:"-"): true when this conversation has
+	// ≥1 pending human-in-loop interaction (an approve/answer the user must resolve before the turn
+	// continues). Filled per-row in the app layer from the in-memory humanloop broker
+	// (AwaitingInputQuerier), mirroring IsGenerating, so a freshly-connected client cold-starts its
+	// "needs you" rail dot. Pending interactions live ONLY in the broker (no DB table, intentionally
+	// ephemeral — a restart leaves none), so this is always derived, never stored. Read-only on the
+	// wire, never accepted in PATCH.
+	//
+	// AwaitingInput 是派生运行时标志（不落库，db:"-"）：该对话有 ≥1 个待决人在环 interaction（用户须批准/回答、
+	// 回合才续）时为 true。由 app 层据内存 humanloop broker（AwaitingInputQuerier）逐行填，镜像 IsGenerating，
+	// 使刚连上的客户端冷启动「等你」rail 点。待决 interaction 只活在 broker（无 DB 表、刻意 ephemeral——重启即无），
+	// 故恒派生、不落库。线缆只读、不进 PATCH。
+	AwaitingInput bool `db:"-" json:"awaitingInput"`
 }
 
 // ListFilter narrows the conversation list. Archived: nil = exclude archived (default),
@@ -139,11 +163,14 @@ type Repository interface {
 	GetBatch(ctx context.Context, ids []string) ([]*Conversation, error)
 	List(ctx context.Context, filter ListFilter) (items []*Conversation, next string, err error)
 	Update(ctx context.Context, c *Conversation) error
-	// TouchLastMessage sets last_message_at on one conversation (chat calls it when a message is
-	// added) — a single cheap UPDATE; the ORM ,updated tag also bumps updated_at, as expected.
+	// TouchLastMessage sets last_message_at AND last_message_preview on one conversation (chat calls it
+	// when a message is added) — a single cheap UPDATE carrying both recency and the rail snippet; the
+	// ORM ,updated tag also bumps updated_at, as expected. `preview` is the folded + rune-truncated text
+	// of that message (empty = leave the existing preview, e.g. an attachment-only / tool-only turn).
 	//
-	// TouchLastMessage 把某对话的 last_message_at 设为 t（chat 在消息加入时调）——一次廉价 UPDATE；
-	// ORM ,updated tag 顺带刷 updated_at，符合预期。
-	TouchLastMessage(ctx context.Context, id string, t time.Time) error
+	// TouchLastMessage 把某对话的 last_message_at 与 last_message_preview 一并设（chat 在消息加入时调）——一次
+	// 廉价 UPDATE 同时带 recency 与 rail 摘要；ORM ,updated tag 顺带刷 updated_at，符合预期。preview 是该消息
+	// 折叠 + rune 截断后的文本（空 = 保留原有预览，如附件-only / 纯工具回合）。
+	TouchLastMessage(ctx context.Context, id string, t time.Time, preview string) error
 	SoftDelete(ctx context.Context, id string) error
 }

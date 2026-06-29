@@ -498,3 +498,107 @@ func TestChat_ErrorPaths(t *testing.T) {
 		t.Fatalf("unconfigured model must error the turn with a code, got %s code=%q", turn.Status, turn.ErrorCode)
 	}
 }
+
+// convRow is the wire shape of one conversation in GET /conversations (the rail row).
+//
+// convRow 是 GET /conversations 里一条对话的线缆形状（rail 行）。
+type convRow struct {
+	ID                 string `json:"id"`
+	Title              string `json:"title"`
+	Pinned             bool   `json:"pinned"`
+	Archived           bool   `json:"archived"`
+	LastMessageAt      string `json:"lastMessageAt"`
+	LastMessagePreview string `json:"lastMessagePreview"`
+	IsGenerating       bool   `json:"isGenerating"`
+	AwaitingInput      bool   `json:"awaitingInput"`
+}
+
+func listConvs(t *testing.T, wc *harness.Client) []convRow {
+	t.Helper()
+	var rows []convRow
+	wc.GET("/api/v1/conversations?limit=50").OK(t, &rows)
+	return rows
+}
+
+func findConv(rows []convRow, id string) (convRow, bool) {
+	for _, r := range rows {
+		if r.ID == id {
+			return r, true
+		}
+	}
+	return convRow{}, false
+}
+
+// TestChat_RailPreviewFollowsLatest: the conversation list carries lastMessagePreview, a folded
+// snippet that follows the LATEST message — the user's text on send, then the assistant's reply once
+// the turn finalizes. isGenerating returns to false on completion.
+//
+// TestChat_RailPreviewFollowsLatest：对话列表带 lastMessagePreview，折叠摘要跟随最新消息——发送时是用户文本，
+// 回合落定后变成 assistant 回复。完成后 isGenerating 回 false。
+func TestChat_RailPreviewFollowsLatest(t *testing.T) {
+	wc, mock := chatSetup(t, false)
+	mock.Enqueue(dlgModel, harness.LLMTurn{Text: "Assistant reply about the rail preview."})
+
+	convID := convCreate(t, wc, "preview")
+	mid := sendMsg(t, wc, convID, "Hello   from\nthe user rail line")
+
+	// The user-turn preview is written synchronously on send (folded to single spaces) before the
+	// assistant turn runs. 用户回合预览在发送时同步写入（空白折叠），先于 assistant 回合。
+	if row, ok := findConv(listConvs(t, wc), convID); !ok || row.LastMessagePreview != "Hello from the user rail line" {
+		t.Fatalf("user-turn preview must be the folded user text, got %q (found=%v)", row.LastMessagePreview, ok)
+	}
+
+	if turn := waitTurn(t, wc, convID, mid, 30000); turn.Status != "completed" {
+		t.Fatalf("turn must complete, got %s %s", turn.Status, turn.ErrorMessage)
+	}
+	// On finalize the preview follows the assistant's reply, and isGenerating clears.
+	// 落定后预览跟随 assistant 回复，isGenerating 清零。
+	harness.Eventually(t, 10000, "rail preview follows the assistant reply", func() bool {
+		row, ok := findConv(listConvs(t, wc), convID)
+		return ok && strings.Contains(row.LastMessagePreview, "Assistant reply about the rail preview") && !row.IsGenerating
+	})
+}
+
+// TestChat_RailAwaitingInput: a pending human-loop interaction lights the conversation's awaitingInput
+// flag on the rail; resolving it clears the flag. Mirrors the derived isGenerating pattern over real
+// HTTP + the in-memory broker.
+//
+// TestChat_RailAwaitingInput：待决人在环 interaction 点亮对话 rail 的 awaitingInput；解决即清。镜像派生
+// isGenerating 那套，经真 HTTP + 内存 broker。
+func TestChat_RailAwaitingInput(t *testing.T) {
+	wc, mock := chatSetup(t, false)
+	fnID := fnCreate(t, wc, "await_probe", "def go() -> dict:\n    return {\"ok\": true}\n")
+	mock.Enqueue(dlgModel,
+		harness.LLMTurn{ToolCalls: []harness.MockToolCall{{ID: "call_await", Name: "run_function", Args: map[string]any{
+			"functionId": fnID, "args": map[string]any{},
+			"summary": "Run the gated probe", "danger": "dangerous", "execution_group": 1,
+		}}}},
+		harness.LLMTurn{Text: "done after approval"},
+	)
+
+	convID := convCreate(t, wc, "awaiting")
+	mid := sendMsg(t, wc, convID, "do the dangerous thing")
+
+	var pending []struct {
+		ToolCallID string `json:"toolCallId"`
+	}
+	harness.Eventually(t, 15000, "danger interaction pends", func() bool {
+		pending = nil
+		wc.GET("/api/v1/conversations/"+convID+"/interactions").OK(t, &pending)
+		return len(pending) == 1
+	})
+	// While the interaction blocks, the rail row reports awaitingInput=true. 阻塞期间 rail 行 awaitingInput=true。
+	harness.Eventually(t, 5000, "rail awaitingInput true while an interaction is pending", func() bool {
+		row, ok := findConv(listConvs(t, wc), convID)
+		return ok && row.AwaitingInput
+	})
+
+	// Resolving clears it (broker pending drops → derived flag re-reads false). 解决即清（broker pending 移除 → 派生 false）。
+	wc.POST("/api/v1/conversations/"+convID+"/interactions/"+pending[0].ToolCallID,
+		map[string]any{"action": "approve"}).OK(t, nil)
+	waitTurn(t, wc, convID, mid, 20000)
+	harness.Eventually(t, 5000, "rail awaitingInput false after resolve", func() bool {
+		row, ok := findConv(listConvs(t, wc), convID)
+		return ok && !row.AwaitingInput
+	})
+}

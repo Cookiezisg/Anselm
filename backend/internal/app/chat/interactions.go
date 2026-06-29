@@ -39,18 +39,29 @@ func (s *Service) interactionSurface(ctx context.Context, req humanloopapp.Reque
 	})
 }
 
-// ResolveInteraction delivers a human decision to a tool/ask blocked in this conversation.
-// It just hands the decision to the broker — the gated tool / ask_user, blocked inside the running
-// turn's goroutine, wakes and interprets it (approve runs the tool; deny / decline feed back;
-// approve_always also session-whitelists). Returns ErrNoPendingInteraction if nothing is waiting.
+// ResolveInteraction delivers a human decision to a tool/ask blocked in this conversation. It hands
+// the decision to the broker — the gated tool / ask_user, blocked inside the running turn's goroutine,
+// wakes and interprets it (approve runs the tool; deny / decline feed back; approve_always also
+// session-whitelists) — then mirrors the pending signal with a resolved one so the front end clears
+// the prompt + the conversation's awaiting-input rail dot without reverse-inferring from the
+// tool_result. Returns ErrNoPendingInteraction if nothing is waiting.
 //
-// ResolveInteraction 把人的决定送给本对话中阻塞的工具/ask。它只是把决定交给 broker——被门工具 / ask_user
-// 阻塞在运行回合的 goroutine 里，醒来并解读它（approve 跑工具；deny / decline 反馈；approve_always 还会话白名单）。
-// 无等待项则返 ErrNoPendingInteraction。
-func (s *Service) ResolveInteraction(_ context.Context, toolCallID, action, answer string) error {
+// ResolveInteraction 把人的决定送给本对话中阻塞的工具/ask。它把决定交给 broker——被门工具 / ask_user 阻塞在运行
+// 回合的 goroutine 里，醒来并解读它（approve 跑工具；deny / decline 反馈；approve_always 还会话白名单）——再镜像
+// pending 信号发一条 resolved，使前端清提示 + 会话 awaiting rail 点而不靠 tool_result 反推。无等待项则返 ErrNoPendingInteraction。
+func (s *Service) ResolveInteraction(ctx context.Context, conversationID, toolCallID, action, answer string) error {
 	if s.broker == nil || !s.broker.Resolve(toolCallID, humanloopapp.Response{Action: action, Answer: answer}) {
 		return ErrNoPendingInteraction
 	}
+	// Symmetric ephemeral "interaction cleared" signal (same scope + node.type, resolved:true).
+	// 对称 ephemeral「交互已清」信号（同 scope + node.type、resolved:true）。
+	s.publishFrame(ctx, conversationID, toolCallID, streamdomain.Signal{
+		Node: streamdomain.Node{
+			Type:    nodeTypeInteraction,
+			Content: streamdomain.JSONContent(humanloopapp.Request{ToolCallID: toolCallID, ConversationID: conversationID, Resolved: true}),
+		},
+		Ephemeral: true,
+	})
 	return nil
 }
 
@@ -65,4 +76,14 @@ func (s *Service) PendingInteractions(_ context.Context, conversationID string) 
 		return nil
 	}
 	return s.broker.Pending(conversationID)
+}
+
+// HasAwaitingInteraction reports whether a conversation has ≥1 pending human interaction — the
+// conversation list's per-row AwaitingInput derive (chatapp satisfies conversationapp's
+// AwaitingInputQuerier). A cheap broker short-circuit; nil broker → false.
+//
+// HasAwaitingInteraction 报告某对话是否有 ≥1 个待决人机交互——会话列表逐行 AwaitingInput 派生（chatapp 满足
+// conversationapp 的 AwaitingInputQuerier）。廉价 broker 短路；nil broker → false。
+func (s *Service) HasAwaitingInteraction(conversationID string) bool {
+	return s.broker != nil && s.broker.HasPending(conversationID)
 }

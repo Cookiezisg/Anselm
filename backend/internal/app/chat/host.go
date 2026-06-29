@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -156,4 +157,12 @@ func (h *chatHost) WriteFinalize(ctx context.Context, blocks []messagesdomain.Bl
 	}
 	h.svc.notifySearchMessage(dctx, h.conversationID, h.assistantMsg.ID)
 	h.svc.emitMessageStop(dctx, h.conversationID, h.assistantMsg)
+	// Bump recency + follow the rail snippet to the assistant's reply (preview empty for a pure-tool /
+	// failed turn → TouchLastMessage keeps the prior user-side preview). Best-effort: a failed touch
+	// only mis-sorts / mis-previews the list, it must never disturb the already-persisted turn.
+	// 刷新 recency + rail 摘要跟随 assistant 回复（纯工具/失败回合预览为空 → TouchLastMessage 保留用户侧预览）。
+	// best-effort：touch 失败只是排序/预览略偏，绝不扰动已落盘的回合。
+	if err := h.svc.deps.Conversations.TouchLastMessage(dctx, h.conversationID, time.Now().UTC(), previewFromBlocks(blocks)); err != nil {
+		h.svc.log.Warn("chatapp.WriteFinalize: touch last_message failed", zap.String("conversation", h.conversationID), zap.Error(err))
+	}
 }

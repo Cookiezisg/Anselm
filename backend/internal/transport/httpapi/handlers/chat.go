@@ -150,7 +150,7 @@ func (h *ChatHandler) ResolveInteraction(w http.ResponseWriter, r *http.Request)
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	if err := h.svc.ResolveInteraction(r.Context(), r.PathValue("toolCallId"), req.Action, req.Answer); err != nil {
+	if err := h.svc.ResolveInteraction(r.Context(), r.PathValue("id"), r.PathValue("toolCallId"), req.Action, req.Answer); err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}

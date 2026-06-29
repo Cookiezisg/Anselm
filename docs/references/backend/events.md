@@ -32,7 +32,7 @@ audience: [human, ai]
 | 流 | node.type 当前全集 |
 |---|---|
 | entities | `build`（create/edit 内容镜像）· `run`（执行中间产出 / flowrun tick）· `fire`（trigger 扇出）· `status`（ephemeral：mcp 连接态转移） |
-| messages | `message`（start/stop，durable 带快照）· `text` · `reasoning` · `tool_call` · `tool_result` · `progress`（块级 open/delta/close）· `interaction`（ephemeral 信号）· `todo`（信号） |
+| messages | `message`（start/stop，durable 带快照）· `text` · `reasoning` · `tool_call` · `tool_result` · `progress`（块级 open/delta/close）· `interaction`（ephemeral 信号：create + resolve 两态，resolve 帧带 `resolved:true`）· `todo`（信号） |
 | notifications | node.type = 事件类型字符串 `<domain>.<action>`（见下方各域登记） |
 
 ## notifications 流（生命周期通知，`<domain>.<action>`）
@@ -84,7 +84,7 @@ audience: [human, ai]
 
 ## P5 对话运行时族挂载
 
-**messages 流（主战场）**：message_start/stop（durable，close 带快照）· 块级 open/delta/close（text/reasoning/tool_call/tool_result/progress 实时流，E2 delta=ephemeral）· **interaction 信号**（ephemeral——broker pending 表是真相、重连走 REST 重同步）· todo 信号 · subagent 子树经 `Open.ParentID` 嵌套（E3）。
+**messages 流（主战场）**：message_start/stop（durable，close 带快照）· 块级 open/delta/close（text/reasoning/tool_call/tool_result/progress 实时流，E2 delta=ephemeral）· **interaction 信号**（ephemeral，**create + resolve 两态**——pending 时发 `humanloop.Request`，resolve 时发对称帧带 `resolved:true`[使前端清提示 + 会话 `awaitingInput`「等你」点而不靠 tool_result 反推]；broker pending 表是真相、重连走 REST 重同步）· todo 信号 · subagent 子树经 `Open.ParentID` 嵌套（E3）。
 
 **notifications**：`conversation.{created, updated, deleted, archived, unarchived, pinned, unpinned, auto_titled, model_override, compacted}`（`updated` = 仅改 title/systemPrompt/attachedDocuments 的默认动作；archived/unarchived·pinned/unpinned 为 toggle 动作；`compacted` payload {coversUpToSeq, summaryBytes}——压缩器写）· `memory.{created, updated, deleted}` · `sandbox.env_status_changed`（payload 含 env/状态）· `sandbox.env_deleted` · 上传/删除类生命周期。
 

@@ -41,6 +41,7 @@ var Schema = []string{
 		created_at               DATETIME NOT NULL,
 		updated_at               DATETIME NOT NULL,
 		last_message_at          DATETIME NOT NULL,
+		last_message_preview     TEXT NOT NULL DEFAULT '',
 		deleted_at               DATETIME
 	)`,
 	`CREATE INDEX IF NOT EXISTS idx_conversations_ws_list ON conversations(workspace_id, pinned DESC, last_message_at DESC, id DESC) WHERE deleted_at IS NULL`,
@@ -128,11 +129,19 @@ func (s *Store) List(ctx context.Context, filter conversationdomain.ListFilter) 
 	return rows, next, nil
 }
 
-// TouchLastMessage sets last_message_at on one conversation (chat calls it when a message lands).
+// TouchLastMessage sets last_message_at (and, when non-empty, last_message_preview) on one
+// conversation (chat calls it when a message lands). An empty preview keeps the existing one — an
+// attachment-only / tool-only turn leaves the last meaningful snippet in place. last_message_preview
+// is NOT a sort/cursor key, so the partial list index is untouched.
 //
-// TouchLastMessage 把某对话的 last_message_at 设为 t（chat 在消息落地时调）。
-func (s *Store) TouchLastMessage(ctx context.Context, id string, t time.Time) error {
-	if _, err := s.repo.Query().WhereEq("id", id).Updates(ctx, map[string]any{"last_message_at": t}); err != nil {
+// TouchLastMessage 设某对话的 last_message_at（preview 非空时一并设 last_message_preview）（chat 在消息落地时调）。
+// 空 preview 保留原有——附件-only / 纯工具回合不动上一条有意义的摘要。last_message_preview 非排序/游标键，partial 列表索引不动。
+func (s *Store) TouchLastMessage(ctx context.Context, id string, t time.Time, preview string) error {
+	updates := map[string]any{"last_message_at": t}
+	if preview != "" {
+		updates["last_message_preview"] = preview
+	}
+	if _, err := s.repo.Query().WhereEq("id", id).Updates(ctx, updates); err != nil {
 		return fmt.Errorf("conversationstore.TouchLastMessage: %w", err)
 	}
 	return nil

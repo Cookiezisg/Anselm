@@ -311,6 +311,10 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	// List/Get derive each row's isGenerating from chat's in-flight registry (same post-build port).
 	// List/Get 据 chat 在途登记派生每行 isGenerating（同款后注入端口）。
 	conv.SetGeneratingQuerier(chat)
+	// List/Get also derive each row's awaitingInput from chat's humanloop broker (pending interactions),
+	// so the rail can show a "needs you" dot — same post-build port pattern.
+	// List/Get 同样据 chat 的 humanloop broker（待决 interaction）派生每行 awaitingInput，使 rail 显「等你」点——同款后注入端口。
+	conv.SetAwaitingInputQuerier(chat)
 	// Update validates attachedDocuments against live documents (reject a dangling/deleted doc id at
 	// attach time, 422 — F168-M5). doc was built before conv and does not depend on it, so no cycle.
 	// Update 据存活文档校验 attachedDocuments（attach 时拒悬挂/已删 doc id，422——F168-M5）。doc 先于 conv

@@ -13,13 +13,15 @@ audience: [human, ai]
 
 ## 1. 定位 + 心智模型
 
-线程**容器**实体：身份（title/pin/archive/软删）+ 线程级配置（systemPrompt / attachedDocuments / modelOverride——用户可改，chat 运行时消费）。**消息不在这**（归 messages/chat）。三个系统写字段在记录里但**不进 PATCH 面**：`Summary`/`SummaryCoversUpToSeq`（压缩器写）、`AutoTitled`（chat 首回合自动命名后写、绝不覆盖用户标题）。
+线程**容器**实体：身份（title/pin/archive/软删）+ 线程级配置（systemPrompt / attachedDocuments / modelOverride——用户可改，chat 运行时消费）。**消息不在这**（归 messages/chat）。系统写字段在记录里但**不进 PATCH 面**：`Summary`/`SummaryCoversUpToSeq`（压缩器写）、`AutoTitled`（chat 首回合自动命名后写、绝不覆盖用户标题）、`LastMessagePreview`（最后消息文本 denormalized 缓存——随 `last_message_at` 在 chat 每条消息[用户回合 + assistant 终态]的 `TouchLastMessage` 一并写，使 rail 标题下显一行摘要、List 热路径零额外查询；服务端按 rune 截断、排除 reasoning/tool_call；**非真相源**——消息后续编辑/删不回溯；空预览=保留原有[附件-only/纯工具回合]）。
 
 **PATCH 三态**：`ModelOverride **ModelRef`——nil=不变、&nil=清除、&(&ref)=设置（指针的指针表达三态）。**写时校验**（F153，经 `modelref.Validate`，与 agent override / workspace scenario default 同源）：设置时校结构 + **apiKeyId 存在性**（引用不存在 key 即 `API_KEY_NOT_FOUND`、非只 chat 时失败）；清除（&nil）跳过；modelId 拼写不校、留 fail-loud-at-chat（无权威 model 目录）。List：Archived nil=排除归档（默认）/&true=仅归档/&false=仅活跃；**Sort 可选**——`activity`（默认，置顶优先再 `last_message_at` 降序，最近聊过）或 `created`（置顶优先再 `created_at` 降序）。store 据 Sort 切 `Order(... <key> ...)` + `PageKeyset(<key>)`，游标键随排序列对齐（见 [orm.md](../foundation/orm.md)）；故**切换 Sort 须丢弃游标**（一种排序下的游标在另一种下无意义）。未知/空 Sort → activity（不报 400）。
 
 **last_message_at**（最近活跃排序键）：普通列（非 `,updated` tag，故 pin/改名/换模型不重排）。创建时种为 now，chat 经 `ConversationReader.TouchLastMessage` 在每个用户回合刷新——"最近聊过"上浮，ChatGPT 式 Today/Yesterday 分组的依据。
 
 **isGenerating**（派生只读，`db:"-"`）：List/Get 据 chat 注入的 `GeneratingQuerier` 端口逐行填——该对话当前是否有在途 assistant 回合。让刚连上 / SSE 重连的客户端冷启动活动圆点（无需等下一帧）；纯运行时状态、不落库、不进 PATCH。与 canceler 同款后注入端口破 chat↔conversation 环。
+
+**awaitingInput**（派生只读，`db:"-"`）：List/Get 据 chat 注入的 `AwaitingInputQuerier` 端口逐行填——该对话当前是否有 ≥1 个待决人在环 interaction（等用户批准/回答、回合才续）。镜像 isGenerating（同款后注入端口破环），使 rail 显「等你」点。待决 interaction 只活在**内存 humanloop broker**（无 DB 表、刻意 ephemeral——重启即无、events.md），故恒派生、不落库、不进 PATCH；冷启动经 List/Get、`GET /{id}/interactions` 精确重同步,实时经 messages 流的 `interaction` 信号（create + resolve 两态 ephemeral——resolve 帧带 `resolved:true` 使前端清「等你」点而不靠 tool_result 反推）。
 
 **Unarchive**：chat Send 的自动解档入口（给归档线程发消息即隐式唤回）。**Delete 连带停生成**：可选 `GenerationCanceler` 端口（chat 满足、后注入破环）——删对话先 cancel 在途生成，已删线程不再烧 LLM/推流。
 

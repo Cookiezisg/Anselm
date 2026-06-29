@@ -65,6 +65,14 @@ type Service struct {
 	// 客户端冷启动活动圆点。与 canceler 对称——同款 DIP 端口破 chat↔conversation 环。nil → IsGenerating 恒 false。
 	querier GeneratingQuerier
 
+	// awaitingQuerier is the optional pending-interaction reader (chatapp, injected post-build): Get/List
+	// derive each row's AwaitingInput from the in-memory humanloop broker so a freshly-connected client
+	// cold-starts its "needs you" dot. Mirrors querier exactly — same DIP port. nil → AwaitingInput false.
+	//
+	// awaitingQuerier 是可选待决-interaction 读取器（chatapp，后注入）：Get/List 据内存 humanloop broker 派生每行
+	// AwaitingInput，使刚连上的客户端冷启动「等你」点。与 querier 完全对称——同款 DIP 端口。nil → AwaitingInput 恒 false。
+	awaitingQuerier AwaitingInputQuerier
+
 	// docResolver is the optional document-existence hook (documentapp, injected post-build like
 	// relations/canceler): Update validates attachedDocuments against it so a dangling/deleted doc id is
 	// rejected at attach time (422) instead of silently accepted and only surfaced as a render warning
@@ -129,18 +137,38 @@ type GeneratingQuerier interface {
 // SetGeneratingQuerier 构造后注入 chat 生成态读取器（与 SetGenerationCanceler 同款破环）。
 func (s *Service) SetGeneratingQuerier(q GeneratingQuerier) { s.querier = q }
 
-// markGenerating fills the derived IsGenerating flag on each row from the chat registry (no-op when
-// the querier is unwired). Pure in-memory reads — no DB/IO — so it is cheap even per-row in List.
+// AwaitingInputQuerier reports whether a conversation has ≥1 pending human-in-loop interaction
+// (chatapp.Service satisfies it via the in-memory humanloop broker). Short-circuits on the first match
+// so List can call it per-row cheaply.
 //
-// markGenerating 据 chat 登记给每行填派生 IsGenerating 标志（querier 未接时 no-op）。纯内存读、无
-// DB/IO，故即便 List 逐行也廉价。
-func (s *Service) markGenerating(rows ...*conversationdomain.Conversation) {
-	if s.querier == nil {
-		return
-	}
+// AwaitingInputQuerier 报告某对话是否有 ≥1 个待决人在环 interaction（chatapp.Service 经内存 humanloop
+// broker 满足之）。首个匹配即短路，使 List 可逐行廉价调用。
+type AwaitingInputQuerier interface {
+	HasAwaitingInteraction(conversationID string) bool
+}
+
+// SetAwaitingInputQuerier injects the chat pending-interaction reader post-construction (same
+// cycle-break as SetGeneratingQuerier).
+//
+// SetAwaitingInputQuerier 构造后注入 chat 待决-interaction 读取器（与 SetGeneratingQuerier 同款破环）。
+func (s *Service) SetAwaitingInputQuerier(q AwaitingInputQuerier) { s.awaitingQuerier = q }
+
+// markRuntime fills the derived runtime flags on each row — IsGenerating from the chat registry,
+// AwaitingInput from the humanloop broker — each independently a no-op when its querier is unwired.
+// Pure in-memory reads, no DB/IO, so it is cheap even per-row in List.
+//
+// markRuntime 给每行填派生运行时标志——IsGenerating 据 chat 登记、AwaitingInput 据 humanloop broker——各自在对应
+// querier 未接时 no-op。纯内存读、无 DB/IO，故即便 List 逐行也廉价。
+func (s *Service) markRuntime(rows ...*conversationdomain.Conversation) {
 	for _, c := range rows {
-		if c != nil {
+		if c == nil {
+			continue
+		}
+		if s.querier != nil {
 			c.IsGenerating = s.querier.IsGenerating(c.ID)
+		}
+		if s.awaitingQuerier != nil {
+			c.AwaitingInput = s.awaitingQuerier.HasAwaitingInteraction(c.ID)
 		}
 	}
 }
@@ -252,7 +280,7 @@ func (s *Service) Get(ctx context.Context, id string) (*conversationdomain.Conve
 	if err != nil {
 		return nil, err
 	}
-	s.markGenerating(c)
+	s.markRuntime(c)
 	return c, nil
 }
 
@@ -265,18 +293,21 @@ func (s *Service) List(ctx context.Context, filter ListFilter) ([]*conversationd
 	if err != nil {
 		return nil, "", err
 	}
-	s.markGenerating(rows...)
+	s.markRuntime(rows...)
 	return rows, next, nil
 }
 
-// TouchLastMessage records that a message just landed in a conversation — chat calls it on each
-// user turn so the list re-sorts by recent activity. A single cheap UPDATE; best-effort (a failed
-// touch only mis-sorts the list, never blocks the turn).
+// TouchLastMessage records that a message just landed in a conversation — chat calls it when a
+// message is added so the list re-sorts by recent activity AND the rail snippet follows the latest
+// message. `preview` is that message's folded + rune-truncated text (empty = keep the existing
+// preview, e.g. an attachment-only / tool-only turn). A single cheap UPDATE; best-effort (a failed
+// touch only mis-sorts / mis-previews the list, never blocks the turn).
 //
-// TouchLastMessage 记一条消息刚落入对话——chat 每个用户回合调，使列表按最近活跃重排。一次廉价 UPDATE；
-// best-effort（touch 失败只是列表排序略偏，绝不阻塞回合）。
-func (s *Service) TouchLastMessage(ctx context.Context, id string, t time.Time) error {
-	return s.repo.TouchLastMessage(ctx, id, t)
+// TouchLastMessage 记一条消息刚落入对话——chat 在消息加入时调,使列表按最近活跃重排、rail 摘要跟随最新消息。
+// preview 是该消息折叠 + rune 截断后的文本（空 = 保留原预览，如附件-only / 纯工具回合）。一次廉价 UPDATE；
+// best-effort（touch 失败只是列表排序/预览略偏，绝不阻塞回合）。
+func (s *Service) TouchLastMessage(ctx context.Context, id string, t time.Time, preview string) error {
+	return s.repo.TouchLastMessage(ctx, id, t, preview)
 }
 
 // Update applies a PATCH (nil = leave; for ModelOverride nil = leave, &nil = clear, &(&ref) = set).
@@ -331,7 +362,7 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*conve
 	// Fill the derived flag so a PATCH (e.g. pinning a conversation mid-generation) returns the same
 	// accurate isGenerating the frontend sees in List/Get — never a stale false.
 	// 填派生标志，使 PATCH（如生成中置顶）返回与 List/Get 一致的准确 isGenerating，不返回过期 false。
-	s.markGenerating(c)
+	s.markRuntime(c)
 	return c, nil
 }
 
