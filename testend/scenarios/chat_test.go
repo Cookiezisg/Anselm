@@ -602,3 +602,84 @@ func TestChat_RailAwaitingInput(t *testing.T) {
 		return ok && !row.AwaitingInput
 	})
 }
+
+// TestChat_RailSortByName: ?sort=name orders conversations by title A–Z case-INSENSITIVELY
+// (COLLATE NOCASE) with id ASC as the same-title tiebreaker, and the keyset cursor walks that order
+// across pages with no skip/duplicate (including a same-title page boundary). "Banana" (capital)
+// landing between "apple" and "cherry" is the binary-vs-NOCASE discriminator — a regression dropping
+// NOCASE would surface it first. End-to-end over real HTTP + the title keyset (orm PageAsc).
+//
+// TestChat_RailSortByName：?sort=name 按 title A–Z **大小写不敏感**（COLLATE NOCASE）排序、id 升序为同名
+// tiebreaker，且 keyset 游标按该序跨页行进、不漏/不重（含同名页边界）。大写 "Banana" 落在 "apple" 与 "cherry"
+// 之间是 binary-vs-NOCASE 判别器——若回归丢了 NOCASE 它会冒到最前。经真 HTTP + title keyset（orm PageAsc）端到端。
+func TestChat_RailSortByName(t *testing.T) {
+	wc, _ := chatSetup(t, false)
+	// Created in a deliberately non-alphabetical order; name sort must reorder regardless of creation.
+	// 故意以非字母序创建；name 排序须无视创建序重排。
+	convCreate(t, wc, "cherry")
+	convCreate(t, wc, "Banana")
+	convCreate(t, wc, "apple")
+	d1 := convCreate(t, wc, "delta")
+	d2 := convCreate(t, wc, "delta")
+
+	// Full page: NOCASE order is apple < Banana < cherry < delta(×2). 全量页：NOCASE 序。
+	var rows []convRow
+	wc.GET("/api/v1/conversations?sort=name&limit=50").OK(t, &rows)
+	gotTitles := make([]string, len(rows))
+	for i, r := range rows {
+		gotTitles[i] = r.Title
+	}
+	wantTitles := []string{"apple", "Banana", "cherry", "delta", "delta"}
+	if fmt.Sprint(gotTitles) != fmt.Sprint(wantTitles) {
+		t.Fatalf("sort=name titles = %v, want %v (NOCASE: Banana between apple/cherry)", gotTitles, wantTitles)
+	}
+	// Same-title rows ordered by id ASC (the tiebreaker; server-assigned ids, so derive lo/hi).
+	// 同名行按 id 升序（tiebreaker；id 由服务端分配，故推导 lo/hi）。
+	lo, hi := d1, d2
+	if lo > hi {
+		lo, hi = hi, lo
+	}
+	if rows[3].ID != lo || rows[4].ID != hi {
+		t.Fatalf("same-title delta rows must be id-ASC, got [%s %s], want [%s %s]", rows[3].ID, rows[4].ID, lo, hi)
+	}
+
+	// Cursor walk at limit=2 reconstructs the exact order with no dup/miss; the same-title pair splits
+	// across the page-2/page-3 boundary, exercising the (title NOCASE = key AND id > cursorID) branch.
+	// 游标 limit=2 重建完整序、不漏/不重；同名对跨第2/3页边界，触发 (title NOCASE = key AND id > cursorID) 分支。
+	var walked []string
+	seen := map[string]bool{}
+	cursor := ""
+	pages := 0
+	for {
+		var page []convRow
+		url := "/api/v1/conversations?sort=name&limit=2"
+		if cursor != "" {
+			url += "&cursor=" + cursor
+		}
+		resp := wc.GET(url).OK(t, &page)
+		if len(page) > 2 {
+			t.Fatalf("page returned %d rows, limit was 2", len(page))
+		}
+		for _, r := range page {
+			if seen[r.ID] {
+				t.Errorf("duplicate %s across pages", r.ID)
+			}
+			seen[r.ID] = true
+			walked = append(walked, r.Title)
+		}
+		pages++
+		if pages > 10 {
+			t.Fatal("pagination did not terminate")
+		}
+		if !resp.HasMore || resp.NextCursor == "" {
+			break
+		}
+		cursor = resp.NextCursor
+	}
+	if fmt.Sprint(walked) != fmt.Sprint(wantTitles) {
+		t.Fatalf("cursor walk = %v, want %v (NOCASE keyset + id tiebreaker across boundary)", walked, wantTitles)
+	}
+	if pages != 3 {
+		t.Errorf("5 rows / page 2 → want 3 pages, got %d", pages)
+	}
+}

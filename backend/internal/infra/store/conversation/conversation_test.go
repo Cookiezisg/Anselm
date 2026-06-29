@@ -294,6 +294,80 @@ func TestList_SortParam(t *testing.T) {
 	}
 }
 
+// TestList_SortByName_Order proves sort=name is pinned-first, then title A–Z case-INSENSITIVELY,
+// with id ASC as the same-title tiebreaker. The data is a binary-vs-NOCASE discriminator: under
+// SQLite's default binary collation uppercase "Banana" (B=66) sorts BEFORE lowercase "apple"
+// (a=97); under the required COLLATE NOCASE it sorts between apple and cherry. A regression that
+// dropped NOCASE would surface Banana first. cv_zpin (title "zzz", last alphabetically) is pinned to
+// prove the pinned partition wins over alpha order.
+//
+// TestList_SortByName_Order 证明 sort=name 置顶优先、再 title A–Z **大小写不敏感**、id 升序为同名 tiebreaker。
+// 数据是 binary-vs-NOCASE 判别器：SQLite 默认 binary collation 下大写 "Banana"(B=66) 排在小写 "apple"(a=97) 前，
+// 而所需 COLLATE NOCASE 下它落在 apple 与 cherry 之间。若回归丢了 NOCASE，Banana 会冒到最前。cv_zpin（title "zzz"、
+// 字母序最末）置顶以证置顶分区压过字母序。
+func TestList_SortByName_Order(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	seed(t, s, ctx, "cv_zpin", "zzz", true, false, t1) // pinned, alpha-last → must still lead
+	seed(t, s, ctx, "cv_cherry", "cherry", false, false, t1)
+	seed(t, s, ctx, "cv_banana", "Banana", false, false, t2) // capital B: NOCASE places between apple/cherry
+	seed(t, s, ctx, "cv_apple", "apple", false, false, t3)
+	seed(t, s, ctx, "cv_d1", "delta", false, false, t1) // same title as cv_d2 → id ASC tiebreaker
+	seed(t, s, ctx, "cv_d2", "delta", false, false, t2)
+
+	rows, next, err := s.List(ctx, conversationdomain.ListFilter{Sort: conversationdomain.ListSortName})
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if next != "" {
+		t.Errorf("unexpected next cursor: %q", next)
+	}
+	want := []string{"cv_zpin", "cv_apple", "cv_banana", "cv_cherry", "cv_d1", "cv_d2"}
+	if got := ids(rows); !equal(got, want) {
+		t.Errorf("sort=name order = %v, want %v", got, want)
+	}
+}
+
+// TestList_SortByName_CursorPaging proves the title keyset cursor walks the same NOCASE-collated
+// title order with no skip/duplicate, and crucially that the same-title id tiebreaker survives a page
+// boundary: limit=4 splits the two "delta" rows (cv_d1 ends page 1, cv_d2 must be the sole page-2
+// row — not skipped, not re-served). No pins here: the cursor keys only (title, id), so pinned-first
+// pagination relies on the documented "all pins on page one" assumption, tested separately above.
+//
+// TestList_SortByName_CursorPaging 证明 title keyset 游标按同一 NOCASE 序行进、不漏/不重，关键是同名 id
+// tiebreaker 跨页存活：limit=4 把两条 "delta" 切开（cv_d1 收尾首页，cv_d2 须为第二页唯一行——不漏、不重发）。
+// 此处无置顶：游标只键 (title,id)，置顶优先分页靠上面单测的「所有置顶落首页」假设。
+func TestList_SortByName_CursorPaging(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	seed(t, s, ctx, "cv_cherry", "cherry", false, false, t1)
+	seed(t, s, ctx, "cv_banana", "Banana", false, false, t2)
+	seed(t, s, ctx, "cv_apple", "apple", false, false, t3)
+	seed(t, s, ctx, "cv_d1", "delta", false, false, t1)
+	seed(t, s, ctx, "cv_d2", "delta", false, false, t2)
+
+	p1, next, err := s.List(ctx, conversationdomain.ListFilter{Sort: conversationdomain.ListSortName, Limit: 4})
+	if err != nil {
+		t.Fatalf("page1: %v", err)
+	}
+	if got := ids(p1); !equal(got, []string{"cv_apple", "cv_banana", "cv_cherry", "cv_d1"}) {
+		t.Fatalf("page1 = %v, want [cv_apple cv_banana cv_cherry cv_d1] (NOCASE: Banana between apple/cherry)", got)
+	}
+	if next == "" {
+		t.Fatal("expected next cursor")
+	}
+	p2, next2, err := s.List(ctx, conversationdomain.ListFilter{Sort: conversationdomain.ListSortName, Limit: 4, Cursor: next})
+	if err != nil {
+		t.Fatalf("page2: %v", err)
+	}
+	if got := ids(p2); !equal(got, []string{"cv_d2"}) {
+		t.Fatalf("page2 = %v, want [cv_d2] (same-title id tiebreaker walks the page boundary)", got)
+	}
+	if next2 != "" {
+		t.Errorf("unexpected next2: %q", next2)
+	}
+}
+
 func TestSoftDelete_NotFoundAndExcluded(t *testing.T) {
 	s := newStore(t)
 	ctx := ctxWS("ws_1")

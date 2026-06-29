@@ -75,15 +75,16 @@ func (q *Query[T]) WhereNotNull(col string) *Query[T] { return q.Where(col + " I
 // Order 设置 ORDER BY 子句（不含关键字），替换之前的。
 func (q *Query[T]) Order(clause string) *Query[T] { q.order = clause; return q }
 
-// PageKeyset overrides the time column Page keys its cursor on (default = the created column). The
-// named column must exist on the table and be a time.Time. Use it when the list's ORDER BY sorts by
-// a non-created time column (e.g. conversations by last_message_at) so the keyset cursor's WHERE and
-// next-cursor encode track the SAME column as the sort — otherwise pages skip/duplicate rows. A
-// missing column name is a programming error (panics, like meta config errors).
+// PageKeyset overrides the keyset column Page/PageAsc key their cursor on (default = the created
+// column). The named column must exist on the table — a time.Time when paginated by Page (time, DESC),
+// or a string when paginated by PageAsc (string, ASC). Use it when the list's ORDER BY sorts by a
+// non-default column (e.g. conversations by last_message_at, or by title for sort=name) so the keyset
+// cursor's WHERE and next-cursor encode track the SAME column as the sort — otherwise pages
+// skip/duplicate rows. A missing column name is a programming error (panics, like meta config errors).
 //
-// PageKeyset 覆盖 Page 游标所键的时间列（默认 created 列）。列须存在且为 time.Time。当列表 ORDER BY
-// 按非 created 的时间列排序（如 conversations 按 last_message_at）时用它，使游标 WHERE 与下一页 encode
-// 跟同一列对齐——否则跨页漏行/重行。列名写错是编程错误（panic，与 meta 配置错同）。
+// PageKeyset 覆盖 Page/PageAsc 游标所键的列（默认 created 列）。列须存在——经 Page（时间、降序）时为 time.Time、
+// 经 PageAsc（字符串、升序）时为字符串。当列表 ORDER BY 按非默认列排序（如 conversations 按 last_message_at、或
+// sort=name 按 title）时用它，使游标 WHERE 与下一页 encode 跟同一列对齐——否则跨页漏/重行。列名写错 panic。
 func (q *Query[T]) PageKeyset(col string) *Query[T] {
 	for i := range q.meta.cols {
 		if q.meta.cols[i].name == col {

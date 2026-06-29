@@ -31,6 +31,19 @@ type Cursor struct {
 	ID  string    `json:"i"`
 }
 
+// StringCursor is the keyset tuple for a STRING-keyed, ascending list (e.g. conversations sorted by
+// title A–Z). Same compact wire shape {c, i} as Cursor (c is just a plain string here instead of an
+// RFC3339 time) — a cursor minted under one sort is meaningless under another, so callers MUST drop
+// the cursor when the sort changes (the existing rule, unchanged).
+//
+// StringCursor 是**字符串键、升序**列表的 keyset 元组（如 conversations 按 title A–Z）。线缆形状与 Cursor 同
+// （{c, i}，c 此处是普通字符串而非 RFC3339 时间）——一种排序下的游标在另一种下无意义，故切换排序时调用方
+// **必须丢弃游标**（既有规则，不变）。
+type StringCursor struct {
+	Key string `json:"c"`
+	ID  string `json:"i"`
+}
+
 // EncodeCursor marshals v as base64url(JSON); a nil v maps to "" (signals no further pages).
 //
 // EncodeCursor 把 v 编码为 base64url(JSON)；v 为 nil 时返 ""（表示无下一页）。

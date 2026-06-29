@@ -93,18 +93,21 @@ type Conversation struct {
 //
 // ListFilter 收窄对话列表。Archived：nil = 排除已归档（默认），&true = 仅归档，&false = 仅活跃。
 // Search 是标题大小写不敏感 LIKE。
-// ListSort selects the conversation list ordering (always pinned-first within either). Empty
-// defaults to ListSortActivity. The keyset cursor tracks the chosen sort's column, so a client that
-// switches sort MUST drop its cursor (start a fresh page) — a cursor minted under one sort is
-// meaningless under the other.
+// ListSort selects the conversation list ordering (always pinned-first within each). Empty defaults
+// to ListSortActivity. The keyset cursor tracks the chosen sort's column (activity/created walk a
+// time key descending via Page; name walks the title string ascending + NOCASE via PageAsc), so a
+// client that switches sort MUST drop its cursor (start a fresh page) — a cursor minted under one
+// sort is meaningless under another.
 //
-// ListSort 选对话列表排序（两者都置顶优先）。空 = ListSortActivity。keyset 游标随所选排序的列走，故
-// 客户端切换排序时**必须丢弃游标**（重新翻页）——一种排序下铸的游标在另一种下无意义。
+// ListSort 选对话列表排序（每种都置顶优先）。空 = ListSortActivity。keyset 游标随所选排序的列走（activity/created
+// 经 Page 走时间键降序；name 经 PageAsc 走 title 字符串升序 + NOCASE），故客户端切换排序时**必须丢弃游标**
+// （重新翻页）——一种排序下铸的游标在另一种下无意义。
 type ListSort string
 
 const (
 	ListSortActivity ListSort = "activity" // pinned-first, then last_message_at DESC — "recently chatted" (default)
 	ListSortCreated  ListSort = "created"  // pinned-first, then created_at DESC — "when opened"
+	ListSortName     ListSort = "name"     // pinned-first, then title A–Z (case-insensitive) — "by name"
 )
 
 type ListFilter struct {

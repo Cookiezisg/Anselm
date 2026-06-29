@@ -1,11 +1,12 @@
 // Package conversation is the orm-backed conversationdomain.Repository: a workspace-scoped,
 // soft-deleted thread table. Workspace isolation + soft-delete are automatic (orm fills/filters
-// from ctx), so no method hand-writes a predicate. List sorts pinned-first then most-recently-
-// active, keyset-paginated on (last_message_at, id).
+// from ctx), so no method hand-writes a predicate. List is always pinned-first; its secondary key
+// follows ListFilter.Sort — activity (last_message_at) / created (created_at) via Page, or name
+// (title COLLATE NOCASE) via PageAsc — each keyset-paginated on its own column.
 //
 // Package conversation 是 conversationdomain.Repository 的 orm 实现：按 workspace、软删的线程表。
-// workspace 隔离 + 软删自动（orm 据 ctx 填/过滤），故无方法手写谓词。List 置顶优先再最近活跃、按
-// (last_message_at, id) keyset 分页。
+// workspace 隔离 + 软删自动（orm 据 ctx 填/过滤），故无方法手写谓词。List 恒置顶优先；次键随 ListFilter.Sort——
+// activity（last_message_at）/ created（created_at）经 Page，或 name（title COLLATE NOCASE）经 PageAsc——各按自身列 keyset 分页。
 package conversation
 
 import (
@@ -45,6 +46,10 @@ var Schema = []string{
 		deleted_at               DATETIME
 	)`,
 	`CREATE INDEX IF NOT EXISTS idx_conversations_ws_list ON conversations(workspace_id, pinned DESC, last_message_at DESC, id DESC) WHERE deleted_at IS NULL`,
+	// sort=name covering index: pinned-first, then title A–Z (COLLATE NOCASE, matching the ORDER BY +
+	// keyset comparison), id ASC tiebreaker. Mirrors the activity index for the title-keyed page.
+	// sort=name 覆盖索引:置顶优先、再 title A–Z（COLLATE NOCASE，与 ORDER BY + keyset 比较一致）、id 升序 tiebreaker。
+	`CREATE INDEX IF NOT EXISTS idx_conversations_ws_title ON conversations(workspace_id, pinned DESC, title COLLATE NOCASE ASC, id ASC) WHERE deleted_at IS NULL`,
 }
 
 // Store implements conversationdomain.Repository over pkg/orm.
@@ -93,14 +98,15 @@ func (s *Store) GetBatch(ctx context.Context, ids []string) ([]*conversationdoma
 	return rows, nil
 }
 
-// List returns one page: pinned-first then most-recently-active, keyset cursor on
-// (last_message_at, id). The cursor keys (last_message_at, id) only — the leading pinned partition
-// relies on all pins landing on page one (few, single-user), so it never drifts across pages.
-// PageKeyset aligns the cursor column with the ORDER BY's last_message_at (the keyset invariant).
+// List returns one page, pinned-first, with the secondary key chosen by filter.Sort (default
+// activity). The cursor keys only (sortColumn, id) — the leading pinned partition relies on all pins
+// landing on page one (few, single-user), so it never drifts across pages. PageKeyset aligns the
+// cursor column with the ORDER BY's sort column (the keyset invariant); the name path additionally
+// keeps that alignment collation-sensitive (COLLATE NOCASE on column, ORDER BY, and index alike).
 //
-// List 返一页：置顶优先再最近活跃，游标键 (last_message_at, id)。游标只键 (last_message_at, id)——
-// 置顶分区靠「所有置顶都落首页」（少、单用户）故不跨页漂移。PageKeyset 让游标列与 ORDER BY 的
-// last_message_at 对齐（keyset 不变量）。
+// List 返一页，置顶优先，次键由 filter.Sort 选（默认 activity）。游标只键 (sortColumn, id)——置顶分区靠
+// 「所有置顶都落首页」（少、单用户）故不跨页漂移。PageKeyset 让游标列与 ORDER BY 排序列对齐（keyset 不变量）；
+// name 路径另把这个对齐做成对 collation 敏感（列 / ORDER BY / 索引同 COLLATE NOCASE）。
 func (s *Store) List(ctx context.Context, filter conversationdomain.ListFilter) ([]*conversationdomain.Conversation, string, error) {
 	q := s.repo.Query()
 	if filter.Archived == nil {
@@ -118,11 +124,27 @@ func (s *Store) List(ctx context.Context, filter conversationdomain.ListFilter) 
 	//
 	// 排序恒置顶优先；次键为最近活跃（默认）或创建序。keyset 游标必须键 ORDER BY 所按的同一列——PageKeyset
 	// 对齐之，使游标 WHERE/encode 跟选定列（否则跨页漏/重）。未知/空 sort → activity（不为 sort 笔误报 400）。
-	keyset := "last_message_at"
-	if filter.Sort == conversationdomain.ListSortCreated {
-		keyset = "created_at"
+	var (
+		rows []*conversationdomain.Conversation
+		next string
+		err  error
+	)
+	if filter.Sort == conversationdomain.ListSortName {
+		// Title A–Z (case-insensitive), pinned-first, id ASC tiebreaker — a STRING keyset via PageAsc
+		// (ascending). Order, keyset column, and the idx_conversations_ws_title index all agree on
+		// COLLATE NOCASE + direction (the keyset invariant, collation-sensitive here).
+		// title A–Z（大小写不敏感）、置顶优先、id 升序 tiebreaker——经 PageAsc 的字符串升序 keyset。Order / keyset 列 /
+		// idx_conversations_ws_title 索引三处在 COLLATE NOCASE + 方向上一致（keyset 不变量，此处对 collation 敏感）。
+		rows, next, err = q.Order("pinned DESC, title COLLATE NOCASE ASC, id ASC").PageKeyset("title").PageAsc(ctx, filter.Cursor, filter.Limit)
+	} else {
+		// activity (default) / created: time-keyed, pinned-first, descending via Page.
+		// activity（默认）/ created：时间键、置顶优先、降序，经 Page。
+		keyset := "last_message_at"
+		if filter.Sort == conversationdomain.ListSortCreated {
+			keyset = "created_at"
+		}
+		rows, next, err = q.Order("pinned DESC, "+keyset+" DESC, id DESC").PageKeyset(keyset).Page(ctx, filter.Cursor, filter.Limit)
 	}
-	rows, next, err := q.Order("pinned DESC, "+keyset+" DESC, id DESC").PageKeyset(keyset).Page(ctx, filter.Cursor, filter.Limit)
 	if err != nil {
 		return nil, "", fmt.Errorf("conversationstore.List: %w", err)
 	}

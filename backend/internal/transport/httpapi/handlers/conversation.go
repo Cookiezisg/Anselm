@@ -110,9 +110,11 @@ func (h *ConversationHandler) List(w http.ResponseWriter, r *http.Request) {
 		b := v == "true" || v == "1"
 		archived = &b
 	}
-	// sort: "created" = pinned-first then creation order; anything else (incl absent) = "activity"
-	// (pinned-first then most-recently-active, the default). Switching sort resets pagination.
-	// sort："created" = 置顶优先再创建序；其余（含缺省）= "activity"（置顶优先再最近活跃，默认）。切换排序须重置分页。
+	// sort: "created" = pinned-first then creation order; "name" = pinned-first then title A–Z
+	// (case-insensitive); anything else (incl absent) = "activity" (pinned-first then most-recently-
+	// active, the default). Each sort keys its own keyset column, so switching sort MUST reset pagination.
+	// sort："created" = 置顶优先再创建序；"name" = 置顶优先再 title A–Z（大小写不敏感）；其余（含缺省）= "activity"
+	// （置顶优先再最近活跃，默认）。每种排序键各自的 keyset 列，故切换排序**必须重置分页**。
 	items, next, err := h.svc.List(r.Context(), conversationdomain.ListFilter{
 		Cursor:   p.Cursor,
 		Limit:    p.Limit,
