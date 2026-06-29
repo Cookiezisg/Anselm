@@ -57,6 +57,7 @@ class AnMenu extends StatefulWidget {
     required this.anchorBuilder,
     required this.entries,
     this.alignEnd = true,
+    this.matchAnchorWidth = false,
     this.onClose,
     super.key,
   });
@@ -68,6 +69,10 @@ class AnMenu extends StatefulWidget {
 
   /// Right-align the menu to the anchor (the common case — a ⋯ at the right). 右对齐到锚(常见)。
   final bool alignEnd;
+
+  /// Make the menu EXACTLY the trigger's width (drops straight down from it) instead of hugging its
+  /// widest row — for a full-width dropdown like the workspace switcher. 菜单与触发钮等宽(顺钮下展),而非贴内容宽。
+  final bool matchAnchorWidth;
 
   /// Forwarded when the menu dismisses (consumer resets state). 收起回调。
   final VoidCallback? onClose;
@@ -105,15 +110,29 @@ class _AnMenuState extends State<AnMenu> {
     return AnPopover(
       controller: _popover,
       alignEnd: widget.alignEnd,
-      overlayBuilder: (context, _) => _menu(context),
+      overlayBuilder: (context, anchorSize) => _menu(context, anchorSize),
       anchor: widget.anchorBuilder(context, _popover.toggle, _popover.isOpen),
     );
   }
 
-  Widget _menu(BuildContext context) {
+  Widget _menu(BuildContext context, Size? anchorSize) {
     // Seed focus on the first non-disabled item so opening lands on item 0 (a descendant autofocus
     // wins over the overlay's FocusScope) — native menu behaviour, arrow keys engage immediately. 首项自动聚焦。
     final firstFocusable = widget.entries.indexWhere((e) => e is AnMenuItem && !e.disabled);
+    // shared menu chrome (surface + s4-all-sides inset so each row's pill floats off the edge). 共用面板壳。
+    final body = AnMenuSurface(
+      children: [
+        for (var i = 0; i < widget.entries.length; i++)
+          _entry(context, widget.entries[i], autofocus: i == firstFocusable),
+      ],
+    );
+    // Match the trigger width exactly (full-width dropdown, e.g. the workspace switcher). 与触发钮等宽。
+    if (widget.matchAnchorWidth && anchorSize != null) {
+      return ConstrainedBox(
+        constraints: const BoxConstraints(maxHeight: AnSize.menuMaxHeight),
+        child: SizedBox(width: anchorSize.width, child: body),
+      );
+    }
     return ConstrainedBox(
       // Hug the widest row's content (clamped to [min,max]) instead of always filling maxWidth — the
       // demo's shrink-to-fit menu (the surface's stretch fills the INTRINSIC width, rows share an edge). 贴内容宽。
@@ -122,15 +141,7 @@ class _AnMenuState extends State<AnMenu> {
         maxWidth: AnSize.menuMaxWidth,
         maxHeight: AnSize.menuMaxHeight,
       ),
-      child: IntrinsicWidth(
-        // shared menu chrome (surface + s4-all-sides inset so each row's pill floats off the edge). 共用面板壳。
-        child: AnMenuSurface(
-          children: [
-            for (var i = 0; i < widget.entries.length; i++)
-              _entry(context, widget.entries[i], autofocus: i == firstFocusable),
-          ],
-        ),
-      ),
+      child: IntrinsicWidth(child: body),
     );
   }
 
@@ -140,7 +151,7 @@ class _AnMenuState extends State<AnMenu> {
       return Padding(
         padding: const EdgeInsetsDirectional.only(start: _labelIndent, end: AnSpace.s8, top: AnSpace.s8, bottom: AnSpace.s4),
         child: Text(e.label, maxLines: 1, overflow: TextOverflow.ellipsis,
-            style: AnText.meta.weight(FontWeight.w600).copyWith(color: c.inkFaint)),
+            style: AnText.meta.weight(AnText.emphasisWeight).copyWith(color: c.inkFaint)),
       );
     }
     final item = e as AnMenuItem;

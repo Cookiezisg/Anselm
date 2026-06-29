@@ -281,7 +281,7 @@ class _AnTabsState extends State<AnTabs> with WidgetsBindingObserver {
                 Text(it.label,
                     maxLines: 1,
                     overflow: TextOverflow.clip,
-                    style: AnText.body.weight(FontWeight.w500).copyWith(color: fg)),
+                    style: AnText.body.weight(AnText.emphasisWeight).copyWith(color: fg)),
                 if (it.count != null && it.count!.isNotEmpty) ...[
                   const SizedBox(width: AnSpace.s6),
                   Text(it.count!,

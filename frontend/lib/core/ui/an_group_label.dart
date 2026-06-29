@@ -29,7 +29,7 @@ class AnGroupLabel extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
         // VF: re-weight via .weight() (sets fontWeight + wght axis) — copyWith(fontWeight:) alone is
         // overridden by meta's pinned wght:300 axis and renders Light. VF 双轴重定权,单改 fontWeight 渲染原重。
-        style: AnText.meta.weight(FontWeight.w500).copyWith(color: context.colors.inkFaint),
+        style: AnText.meta.weight(AnText.emphasisWeight).copyWith(color: context.colors.inkFaint),
       ),
     );
   }

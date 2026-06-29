@@ -51,6 +51,7 @@ abstract final class AnIcons {
   static final IconData chat = _thin(LucideIcons.messageSquare);
   static final IconData scheduler = _thin(LucideIcons.clock);
   static final IconData gear = _thin(LucideIcons.settings);
+  static final IconData bell = _thin(LucideIcons.bell); // notifications 通知
 
   // ── block / conversation semantics ──
   static final IconData reasoning = _thin(LucideIcons.brain);

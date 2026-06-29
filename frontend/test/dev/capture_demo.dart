@@ -10,7 +10,11 @@ import 'package:anselm/app/router.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/router/navigation.dart';
+import 'package:anselm/core/runtime.dart';
+import 'package:anselm/core/shell/oceans.dart';
 import 'package:anselm/core/shell/shell_chrome.dart';
+import 'package:anselm/core/ui/an_sidebar_footer.dart';
+import 'package:anselm/core/ui/icons.dart';
 import 'package:anselm/core/ui/an_button.dart';
 import 'package:anselm/features/entities/data/entity_demo_fixture.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
@@ -41,6 +45,18 @@ const _tab = String.fromEnvironment('TAB');
 const _run = String.fromEnvironment('RUN');
 // Optional `--dart-define=COLLAPSE=1` collapses the left island (verify reopen-after-lights layout). 收起左岛。
 const _collapse = String.fromEnvironment('COLLAPSE');
+// Optional `--dart-define=OCEAN=chat|scheduler|documents|settings` switches the ocean (verify the
+// switcher + "coming soon" placeholder for an unbuilt ocean / the gear→settings ocean). 切换海洋。
+const _ocean = String.fromEnvironment('OCEAN');
+// Optional `--dart-define=NOTIF=1` opens the notifications tray (bell) — verify it takes over the left
+// island. 拉开通知托盘,验它接管左岛。
+const _notif = String.fromEnvironment('NOTIF');
+// Optional `--dart-define=WSMENU=1` opens the workspace quick-actions menu — verify it matches the
+// trigger width. 打开 workspace 快捷菜单,验它与触发钮等宽。
+const _wsmenu = String.fromEnvironment('WSMENU');
+// Optional `--dart-define=NOTIFPICK=1` opens notifications THEN taps the settings gear — verify picking
+// an ocean dismisses the tray (settings shows, not notifications). 开通知再点设置齿轮,验选海洋即收起托盘。
+const _notifPick = String.fromEnvironment('NOTIFPICK');
 
 /// The capture root — the REAL [AppShell] driven by the REAL [buildAppRouter] (so routing is exercised
 /// exactly as `make app`); the `builder` wraps the routed shell in a keyed RepaintBoundary to grab. 截图根。
@@ -91,6 +107,44 @@ void main() {
     await tester.pump(const Duration(milliseconds: 80)); // let the 4 list futures resolve
 
     final container = ProviderScope.containerOf(tester.element(find.byType(_CaptureApp)), listen: false);
+    container.read(activeWorkspaceNameProvider.notifier).set('Personal'); // footer shows a real name 底栏显真名
+    await tester.pump(); // let the name reach the footer 让名字到达底栏
+
+    // Switch the ocean (the switcher's real path) — captures the placeholder for an unbuilt ocean. 切换海洋。
+    if (_ocean.isNotEmpty) {
+      container.read(selectedOceanProvider.notifier).select(OceanKind.values.byName(_ocean));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300)); // the switch animation settles 切换动画落定
+      outName = '${outName}_$_ocean';
+    }
+
+    // Open the notifications tray (bell) — it takes over the left-island middle. 拉开通知托盘,接管左岛中段。
+    if (_notif.isNotEmpty) {
+      container.read(notificationsOpenProvider.notifier).toggle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+      outName = '${outName}_notif';
+    }
+
+    // Open the workspace quick-actions menu — verify it matches the trigger width. 打开 workspace 菜单,验等宽。
+    if (_wsmenu.isNotEmpty) {
+      await tester.tap(find.byType(AnWorkspaceButton));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200)); // popover open animation 浮层开
+      outName = '${outName}_wsmenu';
+    }
+
+    // Open notifications, THEN tap the settings gear — picking an ocean must dismiss the tray (we should
+    // see the SETTINGS ocean, not the notifications list). 开通知再点齿轮:选海洋须收起托盘 → 应见设置海洋而非通知。
+    if (_notifPick.isNotEmpty) {
+      container.read(notificationsOpenProvider.notifier).toggle(); // open the tray 开托盘
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.tap(find.byIcon(AnIcons.gear).first); // user picks settings 用户点设置
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      outName = '${outName}_notifpick';
+    }
 
     // Pre-select via a deep link (the real navigation path). 经 deep-link 预选(真导航路径)。
     if (selKind != null && selId != null) {

@@ -44,7 +44,7 @@ class AnOceanHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final titleStyle = AnText.h2.weight(FontWeight.w600);
+    final titleStyle = AnText.h2.weight(AnText.emphasisWeight);
     final onChange = onTitleChange;
 
     return Padding(

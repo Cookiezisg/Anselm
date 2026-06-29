@@ -85,7 +85,7 @@ class _SaveButton extends StatelessWidget {
                 borderRadius: BorderRadius.circular(AnRadius.button),
               ),
               // accent + w500 via .weight (VF double-axis: copyWith(fontWeight) alone renders Light). 双轴重定权。
-              child: Text(label, style: AnText.meta.weight(FontWeight.w500).copyWith(color: c.accent)),
+              child: Text(label, style: AnText.meta.weight(AnText.emphasisWeight).copyWith(color: c.accent)),
             );
           },
         ),

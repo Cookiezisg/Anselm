@@ -71,7 +71,7 @@ class AnInspector extends StatelessWidget {
                       title ?? '',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: AnText.body.weight(FontWeight.w600).copyWith(color: c.ink),
+                      style: AnText.body.weight(AnText.emphasisWeight).copyWith(color: c.ink),
                     ),
                   ),
                 ),

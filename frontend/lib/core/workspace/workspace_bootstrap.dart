@@ -27,6 +27,7 @@ class WorkspaceBootstrap extends AsyncNotifier<String> {
           });
     // After the await — past the synchronous build, so setting another provider is safe. 过同步 build 后设。
     ref.read(activeWorkspaceProvider.notifier).set(ws.id);
+    ref.read(activeWorkspaceNameProvider.notifier).set(ws.name); // for the sidebar footer 供底栏显示
     return ws.id;
   }
 }

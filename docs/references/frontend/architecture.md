@@ -30,7 +30,7 @@ app/                       # 装配根
   workspace_gate.dart      # 冷启动工作区门控(在 startup gate 之下、壳之上):解析 workspace 中显"准备工作区",就绪显壳
   window_setup.dart        # 桌面窗口:window_manager(尺寸/最小/居中 + hidden-at-launch:原生 order 钩子隐藏、show() 一次性显示、无启动闪烁)+ macos_window_utils(无边框 + 加高标题栏红绿灯)
 core/                      # 跨切共享层(不依赖上层)
-  runtime.dart             # DI 装配:activeWorkspace + backendController/Startup(BackendState phase 桥) + dio/apiClient + sseGateway(就绪前 null)
+  runtime.dart             # DI 装配:activeWorkspace(+ activeWorkspaceName 底栏显示名)+ backendController/Startup(BackendState phase 桥) + dio/apiClient + sseGateway(就绪前 null)
   router/                  # 导航缝[STEP 6]:navigation.dart = rootNavigatorKeyProvider(GoRouter↔AnOverlayHost 共享根 navigator key)+ goRouterProvider(throw 默认,app 经 buildAppRouter override 注入;具体 router 认识壳+kind 故只能 app 装配、core 仅声明缝)
   workspace/               # 冷启动:workspace_bootstrap(后端就绪后 列/建 workspace + 设 activeWorkspace,否则全 API 401)
   contract/                # 后端投影 DTO(freezed/json,1:1 镜像后端):api_error(N1 信封 + AnselmErr 码) · page(N4 keyset/聚合) · workspace(+ModelRef) · entities/(Quadrinity ~22 DTO,见 contract.md)
@@ -76,7 +76,8 @@ features/                  # ★中间层:每域 data+state+ui+model（随 featu
 
 ## 5. 三岛 shell 骨架（`core/ui/an_shell.dart`）
 
-无边框**不透明白窗**:左岛(`AnIsland` 卡,**弹性 240–400 默认 320、可拖 + 可收起**)· 敞开海洋(窗体白面、无卡,内容列**弹性 480–720**)· 右岛(`AnIsland` 卡,**固定 320**);四周 8px + 岛间 8px(左岛 grip 兼间距、右岛纯间距)。**状态由 app 持有、props 喂入,`AnShell` 不沾 Riverpod**(`shellChromeProvider` 左收起/宽度[持久化,demo 键 `fy.side.collapsed/w`]· `shellHeadProvider` 浮层头面包屑 · `rightPanelCollapsedProvider` 右收起)。
+无边框**不透明白窗**:左岛(`AnIsland` 卡,**弹性 240–400 默认 320、可拖 + 可收起**)· 敞开海洋(窗体白面、无卡,内容列**弹性 480–720**)· 右岛(`AnIsland` 卡,**固定 320**);四周 8px + 岛间 8px(左岛 grip 兼间距、右岛纯间距)。**状态由 app 持有、props 喂入,`AnShell` 不沾 Riverpod**(`shellChromeProvider` 左收起/宽度[持久化,demo 键 `fy.side.collapsed/w`]· `shellHeadProvider` 浮层头面包屑 · `rightPanelCollapsedProvider` 右收起 · `selectedOceanProvider`/`notificationsOpenProvider` 左岛两轴 · `activeWorkspaceNameProvider` 底栏名)。
+  - **左岛内容(`app_shell.dart` 装配,自上而下,均 gallery-first 的 kit 原语)**:chrome bar(红绿灯 + 收起钮)→ **海洋切换器 `AnOceanSwitcher`**(顶部 4 海洋 chat/entities/scheduler/documents 图标钮,选中展开标签;**matched-geometry 滑动药丸**[单药丸滑动+变宽、旧收新展、整行回流,无水珠收颈];`selectedIndex=-1` 无选中态;横滚不裁)→ **中段**(当前海洋的 rail,或铃开时换成通知托盘)→ **底栏 `AnSidebarFooter`**(`AnWorkspaceButton` workspace 快捷菜单[`AnMenu matchAnchorWidth` 与钮等宽下拉:切换/新建/工作区设置] | 设置格 | 通知格[红点])。**左岛两条独立轴**:① **选中海洋** `selectedOceanProvider`(顶部 4 + 齿轮进的 `settings`,驱动 rail + 中心;在 settings 时顶部切换器无选中、齿轮高亮)② **通知托盘** `notificationsOpenProvider`(正交,铃 toggle,**接管左岛中段 rail、不动中心**;**点任一海洋[顶部 4 或齿轮]即收起**)。**仅 `entities` 已建**(真 EntityRail/EntityOcean),其余海洋 + 通知托盘 = 「即将推出」占位;workspace 名经 `activeWorkspaceNameProvider`(冷启动 bootstrap 设、底栏显,空回退默认标签)。**海洋切换暂走 provider(未路由化,后续并入 go_router)**。
   - **左岛收起**:顶栏 chrome bar 的收起钮(panel-left)→ `_LeftReveal` 整岛 + 间距 0↔width 滑走(OverflowBox 保满宽不重排、仅滑动中裁、reduced 即时);收起后 reopen 钮迁到海洋浮层头。grip 拖本地宽、松手 `onLeftWidthCommitted` 提交持久化。
   - **海洋浮层头**(`_OceanRegion` 内 `Stack`):top 0 的 44px 透明带 + 渐隐 scrim(island→透明,IgnorePointer、正文从其下滚过、仅角落可点);左→右 = reopen(仅左收起时)· **面包屑 `OceanBreadcrumb`**(大标题滚到头下时淡入、点击回顶,`Expanded+Align` 占中、把右钮顶到最右)· panel-right(仅有选中右岛时)。面包屑折叠由 `EntityOcean` 的 `ScrollController` 据测得大头高算阈值 → `shellHeadProvider.setCollapsed`(只重建浮层头、不动正文)。
   - **右岛按需揭示**——`inspectorOpen` 驱动 `_RightReveal`(0↔320 滑入/滑走,内容满宽不重排,reduced 即时,收起态彻底惰化)。Entities feature 把 run 终端放右岛、**强链选中实体**(`RunTerminal` 自读 `selectedEntityProvider`、`runTerminalProvider` **autoDispose** family by EntityRef、随选区重绑;动词 CTA 直接执行、close 钮 sticky 收起;选中未运行离开即释放[防泄漏]、运行起 `keepAlive` 钉住后台续流、收尾释放)。

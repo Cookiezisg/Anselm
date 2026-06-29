@@ -132,7 +132,7 @@ class AnRefPill extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 // meta · w500 (demo font-weight:500) via .weight() — meta pins wght:300, so copyWith
                 // (fontWeight:) alone is overridden by the axis and renders Light. meta·500,双轴重定权。
-                style: AnText.meta.weight(FontWeight.w500).copyWith(color: active ? c.ink : c.inkMuted),
+                style: AnText.meta.weight(AnText.emphasisWeight).copyWith(color: active ? c.ink : c.inkMuted),
               ),
             ),
           ],

@@ -65,7 +65,7 @@ class AnToolbar extends StatelessWidget {
             child: Text(title!,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: AnText.body.weight(FontWeight.w600).copyWith(color: c.ink)),
+                style: AnText.body.weight(AnText.emphasisWeight).copyWith(color: c.ink)),
           ),
         if (title != null && meta != null) const SizedBox(width: AnSpace.s8),
         if (meta != null)

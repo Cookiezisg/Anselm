@@ -85,8 +85,8 @@ class AnButton extends StatelessWidget {
 
             late final Color bg;
             late final Color fg;
-            // Lighter to sit over the Light (w300) body — Regular label, Medium CTA. 配 Light 正文。
-            var weight = FontWeight.w400;
+            // Regular (w400) label over the Light (w300) body — two-weight rule: no heavier CTA. 两种字重:加粗一律 Regular。
+            final weight = AnText.emphasisWeight;
             switch (variant) {
               // Resting bg = the hover colour at alpha 0 (whenActive) — pure alpha fade, no dark
               // midpoint flash. 静止底=hover 色 alpha0(whenActive),纯 alpha 淡入、无暗闪。
@@ -96,7 +96,6 @@ class AnButton extends StatelessWidget {
               case AnButtonVariant.primary:
                 fg = c.onAccent;
                 bg = active ? c.accentHover : c.accent;
-                weight = FontWeight.w500;
               case AnButtonVariant.danger:
                 fg = c.danger;
                 bg = c.dangerSoft.whenActive(active);

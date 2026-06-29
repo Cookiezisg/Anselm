@@ -333,6 +333,7 @@ final GalleryCategory _g4NavShell = GalleryCategory('导航与壳 Nav & Shell', 
   GalleryItem('AnMenu', '浮层菜单(on AnPopover):分组小标题 + icon/check/meta + danger/disabled(多选 keepOpen)', [
     GallerySpecimen('actions menu (⋯) — tap to open', (_) => const _MenuActionsDemo()),
     GallerySpecimen('sliders (multi-check, keepOpen)', (_) => const _MenuSlidersDemo()),
+    GallerySpecimen('match anchor width (workspace 切换器) — tap to open', (_) => const _MenuMatchWidthDemo(), span: true),
   ]),
   GalleryItem('AnTabs', '文字下划线切换器:灰→选中黑 + 弹簧下划线;IndexedStack panes 隐藏不销毁;多 tab 横滚', [
     GallerySpecimen('tabs (underline + panes)', (_) => const _TabsDemo(), height: 220, span: true),
@@ -350,7 +351,39 @@ final GalleryCategory _g4NavShell = GalleryCategory('导航与壳 Nav & Shell', 
           meta: const [AnBadge('document', tone: AnTone.accent)],
         ), span: true),
   ]),
+  GalleryItem('AnOceanSwitcher', '左岛海洋切换器:选中展开标签 + 匹配几何滑动(旧的收起、新的展开,单药丸滑动+变宽,整行回流);降级=瞬切', [
+    GallerySpecimen('interactive (点不同海洋,看滑动)', (_) => const _OceanSwitcherDemo(), span: true),
+    GallerySpecimen('rest · Chat', (_) => AnOceanSwitcherFrame(items: _oceanItems, fromIndex: 0, toIndex: 0, t: 1), span: true),
+    GallerySpecimen('rest · Documents', (_) => AnOceanSwitcherFrame(items: _oceanItems, fromIndex: 3, toIndex: 3, t: 1), span: true),
+    GallerySpecimen('frozen · 滑动中 (t=0.5)', (_) => AnOceanSwitcherFrame(items: _oceanItems, fromIndex: 0, toIndex: 1, t: 0.5), span: true),
+    GallerySpecimen('rest · 无选中 (设置/通知激活)', (_) => AnOceanSwitcherFrame(items: _oceanItems, fromIndex: -1, toIndex: -1, t: 1), span: true),
+    GallerySpecimen('frozen · 取消选中淡出 (t=0.5)', (_) => AnOceanSwitcherFrame(items: _oceanItems, fromIndex: 1, toIndex: -1, t: 0.5), span: true),
+    GallerySpecimen('超长标签 (clip 不溢出)', (_) => AnOceanSwitcherFrame(items: _longOceanItems, fromIndex: 1, toIndex: 1, t: 1), stress: true, maxWidth: 240, span: true),
+  ]),
+  GalleryItem('AnWorkspaceButton', '左岛底栏 workspace 触发钮:头像 + 名字(省略)+ chevron;点开快捷操作菜单(isOpen 高亮 + chevron 翻转)', [
+    GallerySpecimen('default', (_) => SizedBox(width: 200, child: AnWorkspaceButton(name: 'Personal', onTap: () {})), span: true),
+    GallerySpecimen('open (菜单展开态)', (_) => SizedBox(width: 200, child: AnWorkspaceButton(name: 'Personal', isOpen: true, onTap: () {})), span: true),
+    GallerySpecimen('超长名字 (省略)', (_) => SizedBox(width: 180, child: AnWorkspaceButton(name: 'A very long workspace name that must ellipsize', onTap: () {})), stress: true, span: true),
+  ]),
+  GalleryItem('AnSidebarFooter', '左岛底栏:workspace 菜单 | 设置格 | 通知格(两格独立高亮 + 未读红点)', [
+    GallerySpecimen('idle', (_) => _footerDemo(), span: true),
+    GallerySpecimen('settings active (齿轮高亮)', (_) => _footerDemo(settingsActive: true), span: true),
+    GallerySpecimen('notifications active + 红点', (_) => _footerDemo(notificationsActive: true, unread: 3), span: true),
+  ]),
 ]);
+
+// AnSidebarFooter demo helper — a footer with a sample workspace button. 底栏演示:带样例 workspace 钮。
+AnSidebarFooter _footerDemo({bool settingsActive = false, bool notificationsActive = false, int unread = 0}) =>
+    AnSidebarFooter(
+      workspace: AnWorkspaceButton(name: 'Personal', onTap: () {}),
+      settingsLabel: 'Settings',
+      notificationsLabel: 'Notifications',
+      onSettings: () {},
+      onNotifications: () {},
+      settingsActive: settingsActive,
+      notificationsActive: notificationsActive,
+      unreadCount: unread,
+    );
 
 // ── G5 — Code & data ──
 const _pyCode = 'def normalize(input):\n'
@@ -524,6 +557,26 @@ class _CodeEditDemoState extends State<_CodeEditDemo> {
       AnCodeEditor(code: _code, lang: 'cel', editable: true, onChanged: (v) => setState(() => _code = v));
 }
 
+// AnMenu match-anchor-width demo — a full-width dropdown (the workspace switcher pattern). 等宽下拉演示。
+class _MenuMatchWidthDemo extends StatelessWidget {
+  const _MenuMatchWidthDemo();
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        width: 240,
+        child: AnMenu(
+          matchAnchorWidth: true,
+          alignEnd: false,
+          anchorBuilder: (context, toggle, isOpen) =>
+              AnWorkspaceButton(name: 'Personal', onTap: toggle, isOpen: isOpen),
+          entries: [
+            AnMenuItem(label: 'Personal', checked: true, onTap: () {}),
+            AnMenuItem(label: 'New workspace', icon: AnIcons.plus, onTap: () {}),
+            AnMenuItem(label: 'Workspace settings', icon: AnIcons.gear, onTap: () {}),
+          ],
+        ),
+      );
+}
+
 // AnMenu demos (stateful: hold the picked / checked state). AnMenu 演示(持选中态)。
 class _MenuActionsDemo extends StatelessWidget {
   const _MenuActionsDemo();
@@ -562,6 +615,43 @@ class _MenuSlidersDemoState extends State<_MenuSlidersDemo> {
           AnMenuItem(label: 'Show versions', checked: _on.contains('versions'), keepOpen: true, onTap: () => _toggle('versions')),
           AnMenuItem(label: 'Show status dots', checked: _on.contains('dots'), keepOpen: true, onTap: () => _toggle('dots')),
         ],
+      );
+}
+
+// AnOceanSwitcher demo data + interactive wrapper. 海洋切换器演示数据 + 交互包。
+// final (not const): AnIcons.* are runtime IconData. 非 const:图标是运行期 IconData。
+final List<AnOceanItem> _oceanItems = [
+  AnOceanItem(id: 'chat', icon: AnIcons.chat, label: 'Chat'),
+  AnOceanItem(id: 'entities', icon: AnIcons.entities, label: 'Entities'),
+  AnOceanItem(id: 'scheduler', icon: AnIcons.scheduler, label: 'Scheduler'),
+  AnOceanItem(id: 'documents', icon: AnIcons.doc, label: 'Documents'),
+];
+
+// Stress: a deliberately long label to verify the selected slot clips (no overflow). 超长标签压力。
+final List<AnOceanItem> _longOceanItems = [
+  AnOceanItem(id: 'chat', icon: AnIcons.chat, label: 'Chat'),
+  AnOceanItem(id: 'long', icon: AnIcons.workflow, label: 'A very long ocean name that must clip'),
+  AnOceanItem(id: 'docs', icon: AnIcons.doc, label: 'Docs'),
+];
+
+// AnOceanSwitcher is controlled — the demo owns the selected index so taps animate the droplet flow.
+// AnOceanSwitcher 受控:演示持选中索引,点击即播水滴流转。
+class _OceanSwitcherDemo extends StatefulWidget {
+  const _OceanSwitcherDemo();
+  @override
+  State<_OceanSwitcherDemo> createState() => _OceanSwitcherDemoState();
+}
+
+class _OceanSwitcherDemoState extends State<_OceanSwitcherDemo> {
+  int _sel = 0;
+  @override
+  Widget build(BuildContext context) => Align(
+        alignment: Alignment.centerLeft,
+        child: AnOceanSwitcher(
+          items: _oceanItems,
+          selectedIndex: _sel,
+          onSelect: (i) => setState(() => _sel = i),
+        ),
       );
 }
 

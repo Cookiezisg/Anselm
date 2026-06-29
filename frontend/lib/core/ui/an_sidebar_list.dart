@@ -167,9 +167,9 @@ class _AnSidebarListState extends State<AnSidebarList> {
             decoration: BoxDecoration(color: c.surfaceHover.whenActive(states.isActive), borderRadius: BorderRadius.circular(AnRadius.button)),
             child: Row(
               children: [
-                Flexible(child: Text(g.label!, maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.meta.weight(FontWeight.w600).copyWith(color: c.inkFaint))),
+                Flexible(child: Text(g.label!, maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.meta.weight(AnText.emphasisWeight).copyWith(color: c.inkFaint))),
                 const SizedBox(width: AnSpace.s6),
-                Text('${g.totalRows}', style: AnText.meta.weight(FontWeight.w500).copyWith(color: c.inkFaint)),
+                Text('${g.totalRows}', style: AnText.meta.weight(AnText.emphasisWeight).copyWith(color: c.inkFaint)),
                 const Spacer(),
                 AnimatedRotation(
                   // snap (not spin) when a filter forces the group open, so chevron + content stay in lockstep. 过滤强制展开时即时。

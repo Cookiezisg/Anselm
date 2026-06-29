@@ -138,7 +138,7 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
                 child: Text(name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AnText.body.weight(FontWeight.w600).copyWith(color: c.ink)),
+                    style: AnText.body.weight(AnText.emphasisWeight).copyWith(color: c.ink)),
               ),
               AnButton.iconOnly(
                 AnIcons.close,

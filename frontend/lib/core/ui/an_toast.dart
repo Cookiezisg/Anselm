@@ -255,7 +255,7 @@ class _AnToastState extends State<AnToast> with SingleTickerProviderStateMixin {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: AnText.meta
-                .weight(FontWeight.w500)
+                .weight(AnText.emphasisWeight)
                 .copyWith(color: c.accent),
           ),
         );

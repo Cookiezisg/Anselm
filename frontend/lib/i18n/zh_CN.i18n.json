@@ -35,7 +35,21 @@
     "collapseSidebar": "收起侧栏",
     "expandSidebar": "展开侧栏",
     "togglePanel": "切换面板",
-    "backToTop": "回到顶部"
+    "backToTop": "回到顶部",
+    "ocean": {
+      "chat": "对话",
+      "entities": "实体",
+      "scheduler": "调度",
+      "documents": "文档"
+    },
+    "comingSoonTitle": "即将推出",
+    "comingSoonHint": "该海洋尚未构建。",
+    "settings": "设置",
+    "notifications": "通知",
+    "notificationsHint": "没有新通知。",
+    "workspaceFallback": "工作区",
+    "newWorkspace": "新建工作区",
+    "workspaceSettings": "工作区设置"
   },
   "ref": {
     "function": "函数",

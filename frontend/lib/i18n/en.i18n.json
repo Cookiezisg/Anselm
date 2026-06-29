@@ -35,7 +35,21 @@
     "collapseSidebar": "Collapse sidebar",
     "expandSidebar": "Expand sidebar",
     "togglePanel": "Toggle panel",
-    "backToTop": "Back to top"
+    "backToTop": "Back to top",
+    "ocean": {
+      "chat": "Chat",
+      "entities": "Entities",
+      "scheduler": "Scheduler",
+      "documents": "Documents"
+    },
+    "comingSoonTitle": "Coming soon",
+    "comingSoonHint": "This ocean isn't built yet.",
+    "settings": "Settings",
+    "notifications": "Notifications",
+    "notificationsHint": "You're all caught up.",
+    "workspaceFallback": "Workspace",
+    "newWorkspace": "New workspace",
+    "workspaceSettings": "Workspace settings"
   },
   "ref": {
     "function": "Function",

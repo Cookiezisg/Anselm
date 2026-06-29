@@ -18,6 +18,14 @@ abstract final class AnText {
     'SF Mono', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace',
   ];
 
+  // TWO-WEIGHT RULE — the WHOLE UI uses exactly two MiSans weights: [bodyWeight] (Light w300) for normal
+  // text and [emphasisWeight] (Regular w400) for EVERYTHING emphasized (headings, titles, labels, nav).
+  // NEVER w500/w600/SemiBold — re-weight via `.weight(AnText.emphasisWeight)`. (The code face is separate.)
+  // 两种字重铁律:整套 UI 只用两种 MiSans 字重——正文 bodyWeight(Light w300)、一切加粗 emphasisWeight(Regular w400);
+  // 禁 w500/w600/SemiBold,加粗一律 `.weight(AnText.emphasisWeight)`。(代码字面是另一套,不在此限。)
+  static const FontWeight bodyWeight = FontWeight.w300;
+  static const FontWeight emphasisWeight = FontWeight.w400;
+
   // Weight ramp anchored on a Light body (w300). EVERY style sets BOTH fontWeight AND an explicit
   // wght [FontVariation] — Text honours fontWeight on a VF, but TextField/EditableText only render
   // the right weight when the axis is explicit, so without this an edit field looked heavier/wider
@@ -26,15 +34,15 @@ abstract final class AnText {
   // 只在显式指定轴时才渲染对的字重,否则编辑框比展示文字更粗更宽。两者都给 → Text 与输入框完全一致。
   static const TextStyle h1 = TextStyle(
     fontFamily: uiFamily, fontFamilyFallback: uiFallback,
-    fontSize: 32, height: 1.25, fontWeight: FontWeight.w500, fontVariations: [FontVariation('wght', 500)], letterSpacing: -0.5,
+    fontSize: 32, height: 1.25, fontWeight: FontWeight.w400, fontVariations: [FontVariation('wght', 400)], letterSpacing: -0.5,
   );
   static const TextStyle h2 = TextStyle(
     fontFamily: uiFamily, fontFamilyFallback: uiFallback,
-    fontSize: 24, height: 1.25, fontWeight: FontWeight.w500, fontVariations: [FontVariation('wght', 500)], letterSpacing: -0.3,
+    fontSize: 24, height: 1.25, fontWeight: FontWeight.w400, fontVariations: [FontVariation('wght', 400)], letterSpacing: -0.3,
   );
   static const TextStyle h3 = TextStyle(
     fontFamily: uiFamily, fontFamilyFallback: uiFallback,
-    fontSize: 20, height: 1.3, fontWeight: FontWeight.w500, fontVariations: [FontVariation('wght', 500)], letterSpacing: -0.2,
+    fontSize: 20, height: 1.3, fontWeight: FontWeight.w400, fontVariations: [FontVariation('wght', 400)], letterSpacing: -0.2,
   );
   static const TextStyle strong = TextStyle(
     fontFamily: uiFamily, fontFamilyFallback: uiFallback,

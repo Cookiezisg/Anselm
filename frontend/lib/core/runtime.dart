@@ -31,6 +31,21 @@ class ActiveWorkspace extends Notifier<String?> {
 final activeWorkspaceProvider =
     NotifierProvider<ActiveWorkspace, String?>(ActiveWorkspace.new);
 
+/// The active workspace's DISPLAY NAME — for the sidebar footer. Set alongside the id by the cold-start
+/// bootstrap; null until then (the footer falls back to a default label). Kept SEPARATE from
+/// [activeWorkspaceProvider] (the id = the auth axis, read as a `String?` by net/sse callbacks) so those
+/// call sites stay untyped-by-name. 活动 workspace 显示名(底栏用),由冷启动 bootstrap 与 id 一并设;
+/// 设前为 null(底栏回退默认)。与 id provider 分开(id 是鉴权轴、被 net/sse 当 String? 读)。
+class ActiveWorkspaceName extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void set(String? name) => state = name;
+}
+
+final activeWorkspaceNameProvider =
+    NotifierProvider<ActiveWorkspaceName, String?>(ActiveWorkspaceName.new);
+
 /// The sidecar supervisor. A plain Provider so tests can override it with a fake-launcher controller.
 /// sidecar 监督器;Provider 便于测试 override 假 launcher。
 final backendControllerProvider = Provider<BackendController>((ref) => BackendController());

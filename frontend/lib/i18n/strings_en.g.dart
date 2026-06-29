@@ -178,6 +178,32 @@ class Translations$shell$en {
 
 	/// en: 'Back to top'
 	String get backToTop => 'Back to top';
+
+	late final Translations$shell$ocean$en ocean = Translations$shell$ocean$en.internal(_root);
+
+	/// en: 'Coming soon'
+	String get comingSoonTitle => 'Coming soon';
+
+	/// en: 'This ocean isn't built yet.'
+	String get comingSoonHint => 'This ocean isn\'t built yet.';
+
+	/// en: 'Settings'
+	String get settings => 'Settings';
+
+	/// en: 'Notifications'
+	String get notifications => 'Notifications';
+
+	/// en: 'You're all caught up.'
+	String get notificationsHint => 'You\'re all caught up.';
+
+	/// en: 'Workspace'
+	String get workspaceFallback => 'Workspace';
+
+	/// en: 'New workspace'
+	String get newWorkspace => 'New workspace';
+
+	/// en: 'Workspace settings'
+	String get workspaceSettings => 'Workspace settings';
 }
 
 // Path: ref
@@ -376,6 +402,27 @@ class Translations$coldStart$en {
 
 	/// en: 'Personal'
 	String get defaultWorkspace => 'Personal';
+}
+
+// Path: shell.ocean
+class Translations$shell$ocean$en {
+	Translations$shell$ocean$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Chat'
+	String get chat => 'Chat';
+
+	/// en: 'Entities'
+	String get entities => 'Entities';
+
+	/// en: 'Scheduler'
+	String get scheduler => 'Scheduler';
+
+	/// en: 'Documents'
+	String get documents => 'Documents';
 }
 
 // Path: entities.detail
@@ -908,6 +955,18 @@ extension on Translations {
 			'shell.expandSidebar' => 'Expand sidebar',
 			'shell.togglePanel' => 'Toggle panel',
 			'shell.backToTop' => 'Back to top',
+			'shell.ocean.chat' => 'Chat',
+			'shell.ocean.entities' => 'Entities',
+			'shell.ocean.scheduler' => 'Scheduler',
+			'shell.ocean.documents' => 'Documents',
+			'shell.comingSoonTitle' => 'Coming soon',
+			'shell.comingSoonHint' => 'This ocean isn\'t built yet.',
+			'shell.settings' => 'Settings',
+			'shell.notifications' => 'Notifications',
+			'shell.notificationsHint' => 'You\'re all caught up.',
+			'shell.workspaceFallback' => 'Workspace',
+			'shell.newWorkspace' => 'New workspace',
+			'shell.workspaceSettings' => 'Workspace settings',
 			'ref.function' => 'Function',
 			'ref.handler' => 'Handler',
 			'ref.workflow' => 'Workflow',

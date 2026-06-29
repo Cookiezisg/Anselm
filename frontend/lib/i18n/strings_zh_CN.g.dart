@@ -116,6 +116,15 @@ class _Translations$shell$zh_CN extends Translations$shell$en {
 	@override String get expandSidebar => '展开侧栏';
 	@override String get togglePanel => '切换面板';
 	@override String get backToTop => '回到顶部';
+	@override late final _Translations$shell$ocean$zh_CN ocean = _Translations$shell$ocean$zh_CN._(_root);
+	@override String get comingSoonTitle => '即将推出';
+	@override String get comingSoonHint => '该海洋尚未构建。';
+	@override String get settings => '设置';
+	@override String get notifications => '通知';
+	@override String get notificationsHint => '没有新通知。';
+	@override String get workspaceFallback => '工作区';
+	@override String get newWorkspace => '新建工作区';
+	@override String get workspaceSettings => '工作区设置';
 }
 
 // Path: ref
@@ -225,6 +234,19 @@ class _Translations$coldStart$zh_CN extends Translations$coldStart$en {
 	@override String get errorTitle => '无法准备工作区';
 	@override String get errorHint => '本地引擎已连通,但工作区未就绪。';
 	@override String get defaultWorkspace => '个人';
+}
+
+// Path: shell.ocean
+class _Translations$shell$ocean$zh_CN extends Translations$shell$ocean$en {
+	_Translations$shell$ocean$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get chat => '对话';
+	@override String get entities => '实体';
+	@override String get scheduler => '调度';
+	@override String get documents => '文档';
 }
 
 // Path: entities.detail
@@ -507,6 +529,18 @@ extension on TranslationsZhCn {
 			'shell.expandSidebar' => '展开侧栏',
 			'shell.togglePanel' => '切换面板',
 			'shell.backToTop' => '回到顶部',
+			'shell.ocean.chat' => '对话',
+			'shell.ocean.entities' => '实体',
+			'shell.ocean.scheduler' => '调度',
+			'shell.ocean.documents' => '文档',
+			'shell.comingSoonTitle' => '即将推出',
+			'shell.comingSoonHint' => '该海洋尚未构建。',
+			'shell.settings' => '设置',
+			'shell.notifications' => '通知',
+			'shell.notificationsHint' => '没有新通知。',
+			'shell.workspaceFallback' => '工作区',
+			'shell.newWorkspace' => '新建工作区',
+			'shell.workspaceSettings' => '工作区设置',
 			'ref.function' => '函数',
 			'ref.handler' => '处理器',
 			'ref.workflow' => '工作流',

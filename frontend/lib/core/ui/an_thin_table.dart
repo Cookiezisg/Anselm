@@ -141,7 +141,7 @@ class _AnThinTableState extends State<AnThinTable> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       textAlign: _textAlign(cols[i].align),
-                      style: AnText.meta.weight(FontWeight.w600).copyWith(color: c.inkFaint),
+                      style: AnText.meta.weight(AnText.emphasisWeight).copyWith(color: c.inkFaint),
                     ),
                   ),
                 ),
