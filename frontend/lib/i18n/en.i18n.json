@@ -128,8 +128,11 @@
     "selectTitle": "Select an entity",
     "selectHint": "Choose a function, handler, agent, or workflow from the rail.",
     "sortLabel": "Sort",
-    "sortRecent": "Recently updated",
+    "sortRecent": "Recently active",
+    "sortCreated": "Recently created",
     "sortName": "Name",
+    "displayLabel": "Display",
+    "showCount": "Show counts",
     "detail": {
       "crumbRoot": "Entities",
       "moreActions": "More actions",

@@ -32,8 +32,15 @@ AnStatus? railDot(EntityRow r) => switch (r.kind) {
     };
 
 /// Build the rail model: one flat group with four collapsible kind sections (icon + label + count),
-/// entities as depth-1 rows ordered by [sort]. 构建 rail 模型:单平铺组 + 四 kind 折叠段(按 sort 排序)。
-SidebarModel buildRailModel(List<RailGroup> groups, RailLabels labels, RailSort sort) => SidebarModel(
+/// entities as rows ordered by [sort]. [showCount] gates the per-section count badge (the ⚙ "show
+/// counts" toggle — null count → no badge). 构建 rail 模型:单平铺组 + 四 kind 折叠段(按 sort 排序);showCount 关则段头不显计数。
+SidebarModel buildRailModel(
+  List<RailGroup> groups,
+  RailLabels labels,
+  RailSort sort, {
+  bool showCount = true,
+}) =>
+    SidebarModel(
       newLabel: labels.newLabel,
       filterPlaceholder: labels.filter,
       groups: [
@@ -43,7 +50,7 @@ SidebarModel buildRailModel(List<RailGroup> groups, RailLabels labels, RailSort 
               SidebarType(
                 label: labels.kindLabel(g.kind),
                 icon: AnIcons.byKey(g.kind.scopeKind),
-                count: g.count,
+                count: showCount ? g.count : null,
                 rows: [
                   for (final row in sortRows(g.state.value?.rows ?? const <EntityRow>[], sort))
                     SidebarRow(id: row.id, label: row.name, dot: railDot(row)),

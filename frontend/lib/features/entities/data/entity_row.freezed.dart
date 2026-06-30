@@ -14,7 +14,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$EntityRow {
 
- EntityKind get kind; String get id; String get name; String get description; List<String> get tags; DateTime get updatedAt;// handler badges
+ EntityKind get kind; String get id; String get name; String get description; List<String> get tags; DateTime get createdAt; DateTime get updatedAt;// handler badges
  String? get configState; String? get runtimeState; int get missingConfigCount;// workflow badges
  bool? get active; String? get lifecycleState; bool get needsAttention;
 /// Create a copy of EntityRow
@@ -27,16 +27,16 @@ $EntityRowCopyWith<EntityRow> get copyWith => _$EntityRowCopyWithImpl<EntityRow>
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is EntityRow&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.description, description) || other.description == description)&&const DeepCollectionEquality().equals(other.tags, tags)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.configState, configState) || other.configState == configState)&&(identical(other.runtimeState, runtimeState) || other.runtimeState == runtimeState)&&(identical(other.missingConfigCount, missingConfigCount) || other.missingConfigCount == missingConfigCount)&&(identical(other.active, active) || other.active == active)&&(identical(other.lifecycleState, lifecycleState) || other.lifecycleState == lifecycleState)&&(identical(other.needsAttention, needsAttention) || other.needsAttention == needsAttention));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is EntityRow&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.description, description) || other.description == description)&&const DeepCollectionEquality().equals(other.tags, tags)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.configState, configState) || other.configState == configState)&&(identical(other.runtimeState, runtimeState) || other.runtimeState == runtimeState)&&(identical(other.missingConfigCount, missingConfigCount) || other.missingConfigCount == missingConfigCount)&&(identical(other.active, active) || other.active == active)&&(identical(other.lifecycleState, lifecycleState) || other.lifecycleState == lifecycleState)&&(identical(other.needsAttention, needsAttention) || other.needsAttention == needsAttention));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,kind,id,name,description,const DeepCollectionEquality().hash(tags),updatedAt,configState,runtimeState,missingConfigCount,active,lifecycleState,needsAttention);
+int get hashCode => Object.hash(runtimeType,kind,id,name,description,const DeepCollectionEquality().hash(tags),createdAt,updatedAt,configState,runtimeState,missingConfigCount,active,lifecycleState,needsAttention);
 
 @override
 String toString() {
-  return 'EntityRow(kind: $kind, id: $id, name: $name, description: $description, tags: $tags, updatedAt: $updatedAt, configState: $configState, runtimeState: $runtimeState, missingConfigCount: $missingConfigCount, active: $active, lifecycleState: $lifecycleState, needsAttention: $needsAttention)';
+  return 'EntityRow(kind: $kind, id: $id, name: $name, description: $description, tags: $tags, createdAt: $createdAt, updatedAt: $updatedAt, configState: $configState, runtimeState: $runtimeState, missingConfigCount: $missingConfigCount, active: $active, lifecycleState: $lifecycleState, needsAttention: $needsAttention)';
 }
 
 
@@ -47,7 +47,7 @@ abstract mixin class $EntityRowCopyWith<$Res>  {
   factory $EntityRowCopyWith(EntityRow value, $Res Function(EntityRow) _then) = _$EntityRowCopyWithImpl;
 @useResult
 $Res call({
- EntityKind kind, String id, String name, String description, List<String> tags, DateTime updatedAt, String? configState, String? runtimeState, int missingConfigCount, bool? active, String? lifecycleState, bool needsAttention
+ EntityKind kind, String id, String name, String description, List<String> tags, DateTime createdAt, DateTime updatedAt, String? configState, String? runtimeState, int missingConfigCount, bool? active, String? lifecycleState, bool needsAttention
 });
 
 
@@ -64,14 +64,15 @@ class _$EntityRowCopyWithImpl<$Res>
 
 /// Create a copy of EntityRow
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? kind = null,Object? id = null,Object? name = null,Object? description = null,Object? tags = null,Object? updatedAt = null,Object? configState = freezed,Object? runtimeState = freezed,Object? missingConfigCount = null,Object? active = freezed,Object? lifecycleState = freezed,Object? needsAttention = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? kind = null,Object? id = null,Object? name = null,Object? description = null,Object? tags = null,Object? createdAt = null,Object? updatedAt = null,Object? configState = freezed,Object? runtimeState = freezed,Object? missingConfigCount = null,Object? active = freezed,Object? lifecycleState = freezed,Object? needsAttention = null,}) {
   return _then(_self.copyWith(
 kind: null == kind ? _self.kind : kind // ignore: cast_nullable_to_non_nullable
 as EntityKind,id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,description: null == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
 as String,tags: null == tags ? _self.tags : tags // ignore: cast_nullable_to_non_nullable
-as List<String>,updatedAt: null == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
+as List<String>,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
+as DateTime,updatedAt: null == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
 as DateTime,configState: freezed == configState ? _self.configState : configState // ignore: cast_nullable_to_non_nullable
 as String?,runtimeState: freezed == runtimeState ? _self.runtimeState : runtimeState // ignore: cast_nullable_to_non_nullable
 as String?,missingConfigCount: null == missingConfigCount ? _self.missingConfigCount : missingConfigCount // ignore: cast_nullable_to_non_nullable
@@ -163,10 +164,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( EntityKind kind,  String id,  String name,  String description,  List<String> tags,  DateTime updatedAt,  String? configState,  String? runtimeState,  int missingConfigCount,  bool? active,  String? lifecycleState,  bool needsAttention)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( EntityKind kind,  String id,  String name,  String description,  List<String> tags,  DateTime createdAt,  DateTime updatedAt,  String? configState,  String? runtimeState,  int missingConfigCount,  bool? active,  String? lifecycleState,  bool needsAttention)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _EntityRow() when $default != null:
-return $default(_that.kind,_that.id,_that.name,_that.description,_that.tags,_that.updatedAt,_that.configState,_that.runtimeState,_that.missingConfigCount,_that.active,_that.lifecycleState,_that.needsAttention);case _:
+return $default(_that.kind,_that.id,_that.name,_that.description,_that.tags,_that.createdAt,_that.updatedAt,_that.configState,_that.runtimeState,_that.missingConfigCount,_that.active,_that.lifecycleState,_that.needsAttention);case _:
   return orElse();
 
 }
@@ -184,10 +185,10 @@ return $default(_that.kind,_that.id,_that.name,_that.description,_that.tags,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( EntityKind kind,  String id,  String name,  String description,  List<String> tags,  DateTime updatedAt,  String? configState,  String? runtimeState,  int missingConfigCount,  bool? active,  String? lifecycleState,  bool needsAttention)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( EntityKind kind,  String id,  String name,  String description,  List<String> tags,  DateTime createdAt,  DateTime updatedAt,  String? configState,  String? runtimeState,  int missingConfigCount,  bool? active,  String? lifecycleState,  bool needsAttention)  $default,) {final _that = this;
 switch (_that) {
 case _EntityRow():
-return $default(_that.kind,_that.id,_that.name,_that.description,_that.tags,_that.updatedAt,_that.configState,_that.runtimeState,_that.missingConfigCount,_that.active,_that.lifecycleState,_that.needsAttention);case _:
+return $default(_that.kind,_that.id,_that.name,_that.description,_that.tags,_that.createdAt,_that.updatedAt,_that.configState,_that.runtimeState,_that.missingConfigCount,_that.active,_that.lifecycleState,_that.needsAttention);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -204,10 +205,10 @@ return $default(_that.kind,_that.id,_that.name,_that.description,_that.tags,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( EntityKind kind,  String id,  String name,  String description,  List<String> tags,  DateTime updatedAt,  String? configState,  String? runtimeState,  int missingConfigCount,  bool? active,  String? lifecycleState,  bool needsAttention)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( EntityKind kind,  String id,  String name,  String description,  List<String> tags,  DateTime createdAt,  DateTime updatedAt,  String? configState,  String? runtimeState,  int missingConfigCount,  bool? active,  String? lifecycleState,  bool needsAttention)?  $default,) {final _that = this;
 switch (_that) {
 case _EntityRow() when $default != null:
-return $default(_that.kind,_that.id,_that.name,_that.description,_that.tags,_that.updatedAt,_that.configState,_that.runtimeState,_that.missingConfigCount,_that.active,_that.lifecycleState,_that.needsAttention);case _:
+return $default(_that.kind,_that.id,_that.name,_that.description,_that.tags,_that.createdAt,_that.updatedAt,_that.configState,_that.runtimeState,_that.missingConfigCount,_that.active,_that.lifecycleState,_that.needsAttention);case _:
   return null;
 
 }
@@ -219,7 +220,7 @@ return $default(_that.kind,_that.id,_that.name,_that.description,_that.tags,_tha
 
 
 class _EntityRow implements EntityRow {
-  const _EntityRow({required this.kind, required this.id, this.name = '', this.description = '', final  List<String> tags = const <String>[], required this.updatedAt, this.configState, this.runtimeState, this.missingConfigCount = 0, this.active, this.lifecycleState, this.needsAttention = false}): _tags = tags;
+  const _EntityRow({required this.kind, required this.id, this.name = '', this.description = '', final  List<String> tags = const <String>[], required this.createdAt, required this.updatedAt, this.configState, this.runtimeState, this.missingConfigCount = 0, this.active, this.lifecycleState, this.needsAttention = false}): _tags = tags;
   
 
 @override final  EntityKind kind;
@@ -233,6 +234,7 @@ class _EntityRow implements EntityRow {
   return EqualUnmodifiableListView(_tags);
 }
 
+@override final  DateTime createdAt;
 @override final  DateTime updatedAt;
 // handler badges
 @override final  String? configState;
@@ -253,16 +255,16 @@ _$EntityRowCopyWith<_EntityRow> get copyWith => __$EntityRowCopyWithImpl<_Entity
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _EntityRow&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.description, description) || other.description == description)&&const DeepCollectionEquality().equals(other._tags, _tags)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.configState, configState) || other.configState == configState)&&(identical(other.runtimeState, runtimeState) || other.runtimeState == runtimeState)&&(identical(other.missingConfigCount, missingConfigCount) || other.missingConfigCount == missingConfigCount)&&(identical(other.active, active) || other.active == active)&&(identical(other.lifecycleState, lifecycleState) || other.lifecycleState == lifecycleState)&&(identical(other.needsAttention, needsAttention) || other.needsAttention == needsAttention));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _EntityRow&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.description, description) || other.description == description)&&const DeepCollectionEquality().equals(other._tags, _tags)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.configState, configState) || other.configState == configState)&&(identical(other.runtimeState, runtimeState) || other.runtimeState == runtimeState)&&(identical(other.missingConfigCount, missingConfigCount) || other.missingConfigCount == missingConfigCount)&&(identical(other.active, active) || other.active == active)&&(identical(other.lifecycleState, lifecycleState) || other.lifecycleState == lifecycleState)&&(identical(other.needsAttention, needsAttention) || other.needsAttention == needsAttention));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,kind,id,name,description,const DeepCollectionEquality().hash(_tags),updatedAt,configState,runtimeState,missingConfigCount,active,lifecycleState,needsAttention);
+int get hashCode => Object.hash(runtimeType,kind,id,name,description,const DeepCollectionEquality().hash(_tags),createdAt,updatedAt,configState,runtimeState,missingConfigCount,active,lifecycleState,needsAttention);
 
 @override
 String toString() {
-  return 'EntityRow(kind: $kind, id: $id, name: $name, description: $description, tags: $tags, updatedAt: $updatedAt, configState: $configState, runtimeState: $runtimeState, missingConfigCount: $missingConfigCount, active: $active, lifecycleState: $lifecycleState, needsAttention: $needsAttention)';
+  return 'EntityRow(kind: $kind, id: $id, name: $name, description: $description, tags: $tags, createdAt: $createdAt, updatedAt: $updatedAt, configState: $configState, runtimeState: $runtimeState, missingConfigCount: $missingConfigCount, active: $active, lifecycleState: $lifecycleState, needsAttention: $needsAttention)';
 }
 
 
@@ -273,7 +275,7 @@ abstract mixin class _$EntityRowCopyWith<$Res> implements $EntityRowCopyWith<$Re
   factory _$EntityRowCopyWith(_EntityRow value, $Res Function(_EntityRow) _then) = __$EntityRowCopyWithImpl;
 @override @useResult
 $Res call({
- EntityKind kind, String id, String name, String description, List<String> tags, DateTime updatedAt, String? configState, String? runtimeState, int missingConfigCount, bool? active, String? lifecycleState, bool needsAttention
+ EntityKind kind, String id, String name, String description, List<String> tags, DateTime createdAt, DateTime updatedAt, String? configState, String? runtimeState, int missingConfigCount, bool? active, String? lifecycleState, bool needsAttention
 });
 
 
@@ -290,14 +292,15 @@ class __$EntityRowCopyWithImpl<$Res>
 
 /// Create a copy of EntityRow
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? kind = null,Object? id = null,Object? name = null,Object? description = null,Object? tags = null,Object? updatedAt = null,Object? configState = freezed,Object? runtimeState = freezed,Object? missingConfigCount = null,Object? active = freezed,Object? lifecycleState = freezed,Object? needsAttention = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? kind = null,Object? id = null,Object? name = null,Object? description = null,Object? tags = null,Object? createdAt = null,Object? updatedAt = null,Object? configState = freezed,Object? runtimeState = freezed,Object? missingConfigCount = null,Object? active = freezed,Object? lifecycleState = freezed,Object? needsAttention = null,}) {
   return _then(_EntityRow(
 kind: null == kind ? _self.kind : kind // ignore: cast_nullable_to_non_nullable
 as EntityKind,id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,description: null == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
 as String,tags: null == tags ? _self._tags : tags // ignore: cast_nullable_to_non_nullable
-as List<String>,updatedAt: null == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
+as List<String>,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
+as DateTime,updatedAt: null == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
 as DateTime,configState: freezed == configState ? _self.configState : configState // ignore: cast_nullable_to_non_nullable
 as String?,runtimeState: freezed == runtimeState ? _self.runtimeState : runtimeState // ignore: cast_nullable_to_non_nullable
 as String?,missingConfigCount: null == missingConfigCount ? _self.missingConfigCount : missingConfigCount // ignore: cast_nullable_to_non_nullable

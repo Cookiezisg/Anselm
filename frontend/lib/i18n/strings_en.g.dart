@@ -431,11 +431,20 @@ class Translations$entities$en {
 	/// en: 'Sort'
 	String get sortLabel => 'Sort';
 
-	/// en: 'Recently updated'
-	String get sortRecent => 'Recently updated';
+	/// en: 'Recently active'
+	String get sortRecent => 'Recently active';
+
+	/// en: 'Recently created'
+	String get sortCreated => 'Recently created';
 
 	/// en: 'Name'
 	String get sortName => 'Name';
+
+	/// en: 'Display'
+	String get displayLabel => 'Display';
+
+	/// en: 'Show counts'
+	String get showCount => 'Show counts';
 
 	late final Translations$entities$detail$en detail = Translations$entities$detail$en.internal(_root);
 	late final Translations$entities$run$en run = Translations$entities$run$en.internal(_root);
@@ -1124,8 +1133,11 @@ extension on Translations {
 			'entities.selectTitle' => 'Select an entity',
 			'entities.selectHint' => 'Choose a function, handler, agent, or workflow from the rail.',
 			'entities.sortLabel' => 'Sort',
-			'entities.sortRecent' => 'Recently updated',
+			'entities.sortRecent' => 'Recently active',
+			'entities.sortCreated' => 'Recently created',
 			'entities.sortName' => 'Name',
+			'entities.displayLabel' => 'Display',
+			'entities.showCount' => 'Show counts',
 			'entities.detail.crumbRoot' => 'Entities',
 			'entities.detail.moreActions' => 'More actions',
 			'entities.detail.tab.overview' => 'Overview',

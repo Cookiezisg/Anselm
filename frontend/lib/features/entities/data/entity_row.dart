@@ -21,6 +21,7 @@ abstract class EntityRow with _$EntityRow {
     @Default('') String name,
     @Default('') String description,
     @Default(<String>[]) List<String> tags,
+    required DateTime createdAt,
     required DateTime updatedAt,
     // handler badges
     String? configState,
@@ -44,6 +45,8 @@ abstract class EntityRow with _$EntityRow {
         name: m['name'] as String? ?? '',
         description: m['description'] as String? ?? '',
         tags: (m['tags'] as List<dynamic>?)?.cast<String>() ?? const [],
+        createdAt: DateTime.tryParse(m['createdAt'] as String? ?? '') ??
+            DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
         updatedAt: DateTime.tryParse(m['updatedAt'] as String? ?? '') ??
             DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
         configState: m['configState'] as String?,

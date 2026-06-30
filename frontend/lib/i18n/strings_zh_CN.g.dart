@@ -244,8 +244,11 @@ class _Translations$entities$zh_CN extends Translations$entities$en {
 	@override String get selectTitle => '选择一个实体';
 	@override String get selectHint => '从左侧选择一个函数、处理器、智能体或工作流。';
 	@override String get sortLabel => '排序';
-	@override String get sortRecent => '最近更新';
+	@override String get sortRecent => '最近活跃';
+	@override String get sortCreated => '最近创建';
 	@override String get sortName => '名称';
+	@override String get displayLabel => '显示';
+	@override String get showCount => '显示分组计数';
 	@override late final _Translations$entities$detail$zh_CN detail = _Translations$entities$detail$zh_CN._(_root);
 	@override late final _Translations$entities$run$zh_CN run = _Translations$entities$run$zh_CN._(_root);
 }
@@ -653,8 +656,11 @@ extension on TranslationsZhCn {
 			'entities.selectTitle' => '选择一个实体',
 			'entities.selectHint' => '从左侧选择一个函数、处理器、智能体或工作流。',
 			'entities.sortLabel' => '排序',
-			'entities.sortRecent' => '最近更新',
+			'entities.sortRecent' => '最近活跃',
+			'entities.sortCreated' => '最近创建',
 			'entities.sortName' => '名称',
+			'entities.displayLabel' => '显示',
+			'entities.showCount' => '显示分组计数',
 			'entities.detail.crumbRoot' => '实体',
 			'entities.detail.moreActions' => '更多操作',
 			'entities.detail.tab.overview' => '概览',

@@ -128,8 +128,11 @@
     "selectTitle": "选择一个实体",
     "selectHint": "从左侧选择一个函数、处理器、智能体或工作流。",
     "sortLabel": "排序",
-    "sortRecent": "最近更新",
+    "sortRecent": "最近活跃",
+    "sortCreated": "最近创建",
     "sortName": "名称",
+    "displayLabel": "显示",
+    "showCount": "显示分组计数",
     "detail": {
       "crumbRoot": "实体",
       "moreActions": "更多操作",

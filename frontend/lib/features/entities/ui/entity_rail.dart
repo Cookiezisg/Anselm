@@ -32,6 +32,7 @@ class EntityRail extends ConsumerWidget {
     final groups = ref.watch(railModelProvider);
     final selected = ref.watch(selectedEntityProvider);
     final sort = ref.watch(railSortProvider);
+    final showCount = ref.watch(railShowCountProvider);
     final t = context.t;
 
     final anyData = groups.any((g) => g.state.hasValue);
@@ -73,13 +74,14 @@ class EntityRail extends ConsumerWidget {
         filter: t.entities.filter,
       ),
       sort,
+      showCount: showCount,
     );
 
     return AnSidebarList(
       model: model,
       selectedId: selected?.id,
       showNew: false, // entity creation is a later phase; the rail is read+select only in 4.1
-      menuEntries: _sortMenu(ref, t, sort),
+      menuEntries: _menu(ref, t, sort, showCount),
       onSelect: (id) {
         // Navigate to set selection — the route is the source of truth (STEP 6); the rail never imports
         // ocean/inspector, it just changes the URL. 导航即设选区(路由为真相);rail 只改 URL、不 import 海洋/右岛。
@@ -89,20 +91,23 @@ class EntityRail extends ConsumerWidget {
     );
   }
 
-  /// The filter-row sliders menu (Sort) — checkable radio over [RailSort]. 排序 sliders 菜单(单选)。
-  List<AnMenuEntry> _sortMenu(WidgetRef ref, Translations t, RailSort current) {
+  /// The filter-row sliders menu — a single-select Sort section (recently active / created / name,
+  /// client-side via [sortRows]) + a Display section (show counts → [railShowCountProvider]). Aligned
+  /// with the chat rail's ⚙ menu. The display toggle keepOpens so it can be flipped without reopening.
+  /// 排序单选(最近活跃/创建/名称,客户端) + 显示开关(显示分组计数);与 chat rail ⚙ 对齐。
+  List<AnMenuEntry> _menu(WidgetRef ref, Translations t, RailSort sort, bool showCount) {
     void pick(RailSort s) => ref.read(railSortProvider.notifier).set(s);
     return [
       AnMenuSection(t.entities.sortLabel),
+      AnMenuItem(label: t.entities.sortRecent, checked: sort == RailSort.recent, onTap: () => pick(RailSort.recent)),
+      AnMenuItem(label: t.entities.sortCreated, checked: sort == RailSort.created, onTap: () => pick(RailSort.created)),
+      AnMenuItem(label: t.entities.sortName, checked: sort == RailSort.name, onTap: () => pick(RailSort.name)),
+      AnMenuSection(t.entities.displayLabel),
       AnMenuItem(
-        label: t.entities.sortRecent,
-        checked: current == RailSort.recent,
-        onTap: () => pick(RailSort.recent),
-      ),
-      AnMenuItem(
-        label: t.entities.sortName,
-        checked: current == RailSort.name,
-        onTap: () => pick(RailSort.name),
+        label: t.entities.showCount,
+        checked: showCount,
+        keepOpen: true,
+        onTap: () => ref.read(railShowCountProvider.notifier).toggle(),
       ),
     ];
   }

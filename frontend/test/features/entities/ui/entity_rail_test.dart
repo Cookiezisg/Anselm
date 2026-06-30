@@ -108,17 +108,38 @@ void main() {
     expect(find.byType(AnSidebarList), findsNothing);
   });
 
-  testWidgets('sort sliders menu opens with the sort options', (tester) async {
+  testWidgets('sliders menu opens with the three sorts + the display toggle', (tester) async {
     await tester.pumpWidget(_host(FixtureEntityRepository(functions: [_fn('fn_1', 'a')])));
     await tester.pump(const Duration(milliseconds: 50));
 
-    // The sliders anchor renders (menuEntries wired); opening it reveals the Sort options.
+    // The sliders anchor renders (menuEntries wired); opening it reveals Sort (3 options, aligned with
+    // the chat rail) + Display (show counts).
     await tester.tap(find.byIcon(AnIcons.sliders));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
     expect(find.text(t.entities.sortLabel), findsOneWidget);
     expect(find.text(t.entities.sortRecent), findsOneWidget);
+    expect(find.text(t.entities.sortCreated), findsOneWidget);
     expect(find.text(t.entities.sortName), findsOneWidget);
+    expect(find.text(t.entities.displayLabel), findsOneWidget);
+    expect(find.text(t.entities.showCount), findsOneWidget);
+  });
+
+  testWidgets('show-counts toggle drops the per-section count badge', (tester) async {
+    await tester.pumpWidget(_host(FixtureEntityRepository(functions: [_fn('fn_1', 'a')])));
+    await tester.pump(const Duration(milliseconds: 50));
+
+    // The function section carries one entity → its head shows the count badge "1".
+    expect(find.text('1'), findsOneWidget);
+
+    await tester.tap(find.byIcon(AnIcons.sliders));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.text(t.entities.showCount)); // keepOpen toggle → counts off
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.text('1'), findsNothing); // badge gone across every section
   });
 }
