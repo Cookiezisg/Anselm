@@ -39,6 +39,7 @@ class TranslationsZhCn extends Translations with BaseTranslations<AppLocale, Tra
 	TranslationsZhCn $copyWith({TranslationMetadata<AppLocale, Translations>? meta}) => TranslationsZhCn(meta: meta ?? this.$meta);
 
 	// Translations
+	@override late final _Translations$chat$zh_CN chat = _Translations$chat$zh_CN._(_root);
 	@override String get appName => 'Anselm';
 	@override late final _Translations$status$zh_CN status = _Translations$status$zh_CN._(_root);
 	@override late final _Translations$action$zh_CN action = _Translations$action$zh_CN._(_root);
@@ -51,6 +52,22 @@ class TranslationsZhCn extends Translations with BaseTranslations<AppLocale, Tra
 	@override late final _Translations$startup$zh_CN startup = _Translations$startup$zh_CN._(_root);
 	@override late final _Translations$entities$zh_CN entities = _Translations$entities$zh_CN._(_root);
 	@override late final _Translations$coldStart$zh_CN coldStart = _Translations$coldStart$zh_CN._(_root);
+}
+
+// Path: chat
+class _Translations$chat$zh_CN extends Translations$chat$en {
+	_Translations$chat$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get kNew => '新对话';
+	@override String get filter => '搜索对话…';
+	@override String get emptyTitle => '还没有对话';
+	@override String get emptyHint => '开始一个新对话吧。';
+	@override String get errorTitle => '对话列表加载失败';
+	@override String get errorHint => '本地引擎没有返回对话列表。';
+	@override String get retry => '重试';
 }
 
 // Path: status
@@ -499,6 +516,13 @@ class _Translations$entities$run$danger$zh_CN extends Translations$entities$run$
 extension on TranslationsZhCn {
 	dynamic _flatMapFunction(String path) {
 		return switch (path) {
+			'chat.kNew' => '新对话',
+			'chat.filter' => '搜索对话…',
+			'chat.emptyTitle' => '还没有对话',
+			'chat.emptyHint' => '开始一个新对话吧。',
+			'chat.errorTitle' => '对话列表加载失败',
+			'chat.errorHint' => '本地引擎没有返回对话列表。',
+			'chat.retry' => '重试',
 			'appName' => 'Anselm',
 			'status.idle' => '空闲',
 			'status.run' => '运行中',

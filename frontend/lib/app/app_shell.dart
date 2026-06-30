@@ -8,6 +8,7 @@ import '../core/shell/ocean_breadcrumb.dart';
 import '../core/shell/oceans.dart';
 import '../core/shell/shell_chrome.dart';
 import '../core/ui/ui.dart';
+import '../features/chat/ui/conversation_rail.dart';
 import '../features/entities/state/run/right_panel.dart';
 import '../features/entities/state/selected_entity.dart';
 import '../features/entities/ui/entity_ocean.dart';
@@ -38,6 +39,10 @@ class AppShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final ocean = ref.watch(selectedOceanProvider);
     final onEntities = ocean == OceanKind.entities;
+    // Chat mounts its rail in the left-island middle ONLY — the center transcript/ocean is a later
+    // phase, so chat keeps the coming-soon center (don't fold onChat into one flag driving both).
+    // chat 只在左岛中段挂 rail——中心海洋是后续片,故 chat 保持「即将推出」中心(别用一个 flag 同驱中段+中心)。
+    final onChat = ocean == OceanKind.chat;
     final notifOpen = ref.watch(notificationsOpenProvider);
     // Entity selection + the right island are entities-only (URL-driven); dormant on other oceans.
     final hasSelection = onEntities && ref.watch(selectedEntityProvider) != null;
@@ -67,7 +72,11 @@ class AppShell extends ConsumerWidget {
     // The left-island MIDDLE: notifications tray (takeover) wins; else the ocean's rail. 中段:通知托盘优先,否则海洋 rail。
     final Widget middle = notifOpen
         ? const _NotificationsTray()
-        : (onEntities ? const EntityRail() : const _RailPlaceholder());
+        : onEntities
+            ? const EntityRail()
+            : onChat
+                ? const ConversationRail()
+                : const _RailPlaceholder();
 
     final sidebar = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

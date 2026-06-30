@@ -1,5 +1,32 @@
 import '../../../core/contract/conversation.dart';
+import '../../../core/model/sidebar_model.dart';
 import '../../../core/model/status_state.dart';
+
+/// Project the loaded conversations onto a flat [SidebarModel] for [AnSidebarList] — one group (label
+/// null → flattens) holding one headless type (label+icon null → rows at depth 0), one [SidebarRow] per
+/// conversation {id, title, lead dot}. Single-domain, so unlike the entities rail there is NO per-kind
+/// section AND NO client-side sort: the server already orders the rows (ConvSort → ?sort=), so they are
+/// emitted in arrival order. Time-bucket grouping (Pinned / Today / Yesterday / …) is a later slice.
+///
+/// 把已加载对话投影成扁平 SidebarModel 喂 AnSidebarList——一个 group(label 空→扁平)持一个 headless type(label+icon 空→
+/// 行在 depth 0)、每对话一个 SidebarRow{id, 标题, 前导点}。单域,故不像 entities rail 有 per-kind 分节、也无客户端排序:
+/// 服务端已排好(ConvSort→?sort=),按到达序发出。时间分桶(置顶/今天/昨天/…)是后续片。
+SidebarModel buildConversationRailModel(
+  List<Conversation> rows, {
+  required String newLabel,
+  required String filter,
+}) =>
+    SidebarModel(
+      newLabel: newLabel,
+      filterPlaceholder: filter,
+      groups: [
+        SidebarGroup(types: [
+          SidebarType(rows: [
+            for (final c in rows) SidebarRow(id: c.id, label: c.title, dot: conversationDot(c)),
+          ]),
+        ]),
+      ],
+    );
 
 /// The lead status dot for a conversation rail row — or null for a plain active thread (no dot, the
 /// common case). Precedence, highest first:

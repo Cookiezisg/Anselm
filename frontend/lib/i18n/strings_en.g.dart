@@ -40,6 +40,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	Translations $copyWith({TranslationMetadata<AppLocale, Translations>? meta}) => Translations(meta: meta ?? this.$meta);
 
 	// Translations
+	late final Translations$chat$en chat = Translations$chat$en.internal(_root);
 
 	/// en: 'Anselm'
 	String get appName => 'Anselm';
@@ -55,6 +56,36 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$startup$en startup = Translations$startup$en.internal(_root);
 	late final Translations$entities$en entities = Translations$entities$en.internal(_root);
 	late final Translations$coldStart$en coldStart = Translations$coldStart$en.internal(_root);
+}
+
+// Path: chat
+class Translations$chat$en {
+	Translations$chat$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'New chat'
+	String get kNew => 'New chat';
+
+	/// en: 'Search conversations…'
+	String get filter => 'Search conversations…';
+
+	/// en: 'No conversations yet'
+	String get emptyTitle => 'No conversations yet';
+
+	/// en: 'Start a new chat to begin.'
+	String get emptyHint => 'Start a new chat to begin.';
+
+	/// en: 'Couldn't load conversations'
+	String get errorTitle => 'Couldn\'t load conversations';
+
+	/// en: 'The local engine didn't return the conversation list.'
+	String get errorHint => 'The local engine didn\'t return the conversation list.';
+
+	/// en: 'Try again'
+	String get retry => 'Try again';
 }
 
 // Path: status
@@ -925,6 +956,13 @@ class Translations$entities$run$danger$en {
 extension on Translations {
 	dynamic _flatMapFunction(String path) {
 		return switch (path) {
+			'chat.kNew' => 'New chat',
+			'chat.filter' => 'Search conversations…',
+			'chat.emptyTitle' => 'No conversations yet',
+			'chat.emptyHint' => 'Start a new chat to begin.',
+			'chat.errorTitle' => 'Couldn\'t load conversations',
+			'chat.errorHint' => 'The local engine didn\'t return the conversation list.',
+			'chat.retry' => 'Try again',
 			'appName' => 'Anselm',
 			'status.idle' => 'Idle',
 			'status.run' => 'Running',

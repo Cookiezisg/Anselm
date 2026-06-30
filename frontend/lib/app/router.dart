@@ -48,6 +48,10 @@ GoRouter buildAppRouter(Ref ref) {
             entityKindFromWire(state.pathParameters['kind']) == null ? '/' : null,
         pageBuilder: _shellPage,
       ),
+      // Chat conversation selection — same constant-key shell page (no remount). No redirect: a
+      // conversation is single-domain, so there's no kind to validate, and :id existence can't be
+      // checked at the router layer (same rule as entities). 对话选区,同常量页(不重挂);无 kind 可校、无 redirect。
+      GoRoute(path: '/chat/:id', pageBuilder: _shellPage),
     ],
   );
   ref.onDispose(router.dispose);

@@ -1,4 +1,13 @@
 {
+  "chat": {
+    "new": "New chat",
+    "filter": "Search conversations…",
+    "emptyTitle": "No conversations yet",
+    "emptyHint": "Start a new chat to begin.",
+    "errorTitle": "Couldn't load conversations",
+    "errorHint": "The local engine didn't return the conversation list.",
+    "retry": "Try again"
+  },
   "appName": "Anselm",
   "status": {
     "idle": "Idle",

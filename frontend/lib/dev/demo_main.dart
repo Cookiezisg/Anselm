@@ -6,6 +6,8 @@ import '../app/window_setup.dart';
 import '../core/design/theme.dart';
 import '../core/overlay/an_overlay.dart';
 import '../core/router/navigation.dart';
+import '../features/chat/data/chat_demo_fixture.dart';
+import '../features/chat/data/chat_providers.dart';
 import '../features/entities/data/entity_demo_fixture.dart';
 import '../features/entities/data/entity_providers.dart';
 import '../i18n/strings.g.dart';
@@ -29,6 +31,7 @@ Future<void> main() async {
       overrides: [
         goRouterProvider.overrideWith(buildAppRouter),
         entityRepositoryProvider.overrideWithValue(demoEntityRepository()),
+        chatRepositoryProvider.overrideWithValue(demoChatRepository()),
       ],
       child: TranslationProvider(child: const _DemoRoot()),
     ),

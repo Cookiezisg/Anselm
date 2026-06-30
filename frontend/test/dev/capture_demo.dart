@@ -16,6 +16,9 @@ import 'package:anselm/core/shell/shell_chrome.dart';
 import 'package:anselm/core/ui/an_sidebar_footer.dart';
 import 'package:anselm/core/ui/icons.dart';
 import 'package:anselm/core/ui/an_button.dart';
+import 'package:anselm/features/chat/data/chat_demo_fixture.dart';
+import 'package:anselm/features/chat/data/chat_providers.dart';
+import 'package:anselm/features/chat/state/selected_conversation.dart';
 import 'package:anselm/features/entities/data/entity_demo_fixture.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
 import 'package:anselm/features/entities/data/entity_providers.dart';
@@ -51,6 +54,9 @@ const _ocean = String.fromEnvironment('OCEAN');
 // Optional `--dart-define=NOTIF=1` opens the notifications tray (bell) — verify it takes over the left
 // island. 拉开通知托盘,验它接管左岛。
 const _notif = String.fromEnvironment('NOTIF');
+// Optional `--dart-define=CHATSEL=cv_id` deep-links to a conversation (on the chat ocean) so the rail's
+// selected-row highlight + route-derived selection are captured. 预选某对话,截 rail 高亮 + 路由派生选区。
+const _chatSel = String.fromEnvironment('CHATSEL');
 // Optional `--dart-define=WSMENU=1` opens the workspace quick-actions menu — verify it matches the
 // trigger width. 打开 workspace 快捷菜单,验它与触发钮等宽。
 const _wsmenu = String.fromEnvironment('WSMENU');
@@ -99,6 +105,7 @@ void main() {
     await tester.pumpWidget(ProviderScope(
       overrides: [
         entityRepositoryProvider.overrideWithValue(demoEntityRepository()),
+        chatRepositoryProvider.overrideWithValue(demoChatRepository()),
         goRouterProvider.overrideWith(buildAppRouter),
       ],
       child: TranslationProvider(child: const _CaptureApp()),
@@ -116,6 +123,14 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300)); // the switch animation settles 切换动画落定
       outName = '${outName}_$_ocean';
+    }
+
+    // Deep-link to a conversation (real navigation) so the rail highlights the selected row. 深链选中对话。
+    if (_chatSel.isNotEmpty) {
+      container.read(goRouterProvider).go(conversationLocation(_chatSel));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 80));
+      outName = '${outName}_sel';
     }
 
     // Open the notifications tray (bell) — it takes over the left-island middle. 拉开通知托盘,接管左岛中段。
