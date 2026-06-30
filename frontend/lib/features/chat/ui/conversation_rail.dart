@@ -31,6 +31,7 @@ class ConversationRail extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(conversationListProvider);
     final selected = ref.watch(selectedConversationProvider);
+    final groupByTime = ref.watch(groupByTimeProvider);
     final t = context.t;
 
     // Loading: nothing resolved yet → a shaped skeleton (deferred so a fast load never flashes it).
@@ -56,7 +57,27 @@ class ConversationRail extends ConsumerWidget {
       return AnState(kind: AnStateKind.empty, title: t.chat.emptyTitle, hint: t.chat.emptyHint);
     }
 
-    final model = buildConversationRailModel(rows, newLabel: t.chat.kNew, filter: t.chat.filter);
+    final model = buildConversationRailModel(
+      rows,
+      now: DateTime.now(),
+      groupByTime: groupByTime,
+      labels: ConvRailLabels(
+        newLabel: t.chat.kNew,
+        filter: t.chat.filter,
+        pinned: t.chat.bucket.pinned,
+        today: t.chat.bucket.today,
+        yesterday: t.chat.bucket.yesterday,
+        lastWeek: t.chat.bucket.lastWeek,
+        older: t.chat.bucket.older,
+        time: ConvTimeStrings(
+          justNow: t.chat.time.justNow,
+          yesterday: t.chat.time.yesterday,
+          minutesAgo: (n) => t.chat.time.minutesAgo(n: n),
+          hoursAgo: (n) => t.chat.time.hoursAgo(n: n),
+          daysAgo: (n) => t.chat.time.daysAgo(n: n),
+        ),
+      ),
+    );
 
     return AnSidebarList(
       model: model,

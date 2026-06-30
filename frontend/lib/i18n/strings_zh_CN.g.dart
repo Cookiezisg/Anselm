@@ -68,6 +68,8 @@ class _Translations$chat$zh_CN extends Translations$chat$en {
 	@override String get errorTitle => '对话列表加载失败';
 	@override String get errorHint => '本地引擎没有返回对话列表。';
 	@override String get retry => '重试';
+	@override late final _Translations$chat$time$zh_CN time = _Translations$chat$time$zh_CN._(_root);
+	@override late final _Translations$chat$bucket$zh_CN bucket = _Translations$chat$bucket$zh_CN._(_root);
 }
 
 // Path: status
@@ -251,6 +253,34 @@ class _Translations$coldStart$zh_CN extends Translations$coldStart$en {
 	@override String get errorTitle => '无法准备工作区';
 	@override String get errorHint => '本地引擎已连通,但工作区未就绪。';
 	@override String get defaultWorkspace => '个人';
+}
+
+// Path: chat.time
+class _Translations$chat$time$zh_CN extends Translations$chat$time$en {
+	_Translations$chat$time$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get justNow => '刚刚';
+	@override String minutesAgo({required Object n}) => '${n} 分钟前';
+	@override String hoursAgo({required Object n}) => '${n} 小时前';
+	@override String get yesterday => '昨天';
+	@override String daysAgo({required Object n}) => '${n} 天前';
+}
+
+// Path: chat.bucket
+class _Translations$chat$bucket$zh_CN extends Translations$chat$bucket$en {
+	_Translations$chat$bucket$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get pinned => '置顶';
+	@override String get today => '今天';
+	@override String get yesterday => '昨天';
+	@override String get lastWeek => '过去 7 天';
+	@override String get older => '更早';
 }
 
 // Path: shell.ocean
@@ -523,6 +553,16 @@ extension on TranslationsZhCn {
 			'chat.errorTitle' => '对话列表加载失败',
 			'chat.errorHint' => '本地引擎没有返回对话列表。',
 			'chat.retry' => '重试',
+			'chat.time.justNow' => '刚刚',
+			'chat.time.minutesAgo' => ({required Object n}) => '${n} 分钟前',
+			'chat.time.hoursAgo' => ({required Object n}) => '${n} 小时前',
+			'chat.time.yesterday' => '昨天',
+			'chat.time.daysAgo' => ({required Object n}) => '${n} 天前',
+			'chat.bucket.pinned' => '置顶',
+			'chat.bucket.today' => '今天',
+			'chat.bucket.yesterday' => '昨天',
+			'chat.bucket.lastWeek' => '过去 7 天',
+			'chat.bucket.older' => '更早',
 			'appName' => 'Anselm',
 			'status.idle' => '空闲',
 			'status.run' => '运行中',

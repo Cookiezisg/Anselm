@@ -86,6 +86,9 @@ class Translations$chat$en {
 
 	/// en: 'Try again'
 	String get retry => 'Try again';
+
+	late final Translations$chat$time$en time = Translations$chat$time$en.internal(_root);
+	late final Translations$chat$bucket$en bucket = Translations$chat$bucket$en.internal(_root);
 }
 
 // Path: status
@@ -433,6 +436,54 @@ class Translations$coldStart$en {
 
 	/// en: 'Personal'
 	String get defaultWorkspace => 'Personal';
+}
+
+// Path: chat.time
+class Translations$chat$time$en {
+	Translations$chat$time$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Just now'
+	String get justNow => 'Just now';
+
+	/// en: '$n min ago'
+	String minutesAgo({required Object n}) => '${n} min ago';
+
+	/// en: '$n hr ago'
+	String hoursAgo({required Object n}) => '${n} hr ago';
+
+	/// en: 'Yesterday'
+	String get yesterday => 'Yesterday';
+
+	/// en: '$n days ago'
+	String daysAgo({required Object n}) => '${n} days ago';
+}
+
+// Path: chat.bucket
+class Translations$chat$bucket$en {
+	Translations$chat$bucket$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Pinned'
+	String get pinned => 'Pinned';
+
+	/// en: 'Today'
+	String get today => 'Today';
+
+	/// en: 'Yesterday'
+	String get yesterday => 'Yesterday';
+
+	/// en: 'Previous 7 days'
+	String get lastWeek => 'Previous 7 days';
+
+	/// en: 'Older'
+	String get older => 'Older';
 }
 
 // Path: shell.ocean
@@ -963,6 +1014,16 @@ extension on Translations {
 			'chat.errorTitle' => 'Couldn\'t load conversations',
 			'chat.errorHint' => 'The local engine didn\'t return the conversation list.',
 			'chat.retry' => 'Try again',
+			'chat.time.justNow' => 'Just now',
+			'chat.time.minutesAgo' => ({required Object n}) => '${n} min ago',
+			'chat.time.hoursAgo' => ({required Object n}) => '${n} hr ago',
+			'chat.time.yesterday' => 'Yesterday',
+			'chat.time.daysAgo' => ({required Object n}) => '${n} days ago',
+			'chat.bucket.pinned' => 'Pinned',
+			'chat.bucket.today' => 'Today',
+			'chat.bucket.yesterday' => 'Yesterday',
+			'chat.bucket.lastWeek' => 'Previous 7 days',
+			'chat.bucket.older' => 'Older',
 			'appName' => 'Anselm',
 			'status.idle' => 'Idle',
 			'status.run' => 'Running',
