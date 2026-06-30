@@ -298,18 +298,16 @@ func (s *Service) List(ctx context.Context, filter ListFilter) ([]*conversationd
 }
 
 // TouchLastMessage records that a message just landed in a conversation — chat calls it when a
-// message is added so the list re-sorts by recent activity, the rail snippet follows the latest
-// message, and the unread flag tracks whether there is an unseen assistant reply. `preview` is that
-// message's folded + rune-truncated text (empty = keep the existing preview). `unread` is the new
-// unread state (false on the user's own send, true on a completed assistant finalize). A single cheap
-// atomic UPDATE; best-effort (a failed touch only mis-sorts / mis-previews / mis-flags, never blocks
-// the turn).
+// message is added so the list re-sorts by recent activity and the unread flag tracks whether there is
+// an unseen assistant reply. `unread` is the new unread state (false on the user's own send, true on a
+// completed assistant finalize). A single cheap atomic UPDATE; best-effort (a failed touch only
+// mis-sorts / mis-flags, never blocks the turn).
 //
-// TouchLastMessage 记一条消息刚落入对话——chat 在消息加入时调,使列表按最近活跃重排、rail 摘要跟随最新消息、unread
-// 标志跟踪有无未读 assistant 回复。preview 是该消息折叠 + rune 截断后的文本（空 = 保留原预览）。unread 是新未读态
-// （用户自己发送 false、assistant 完成终态 true）。一次廉价原子 UPDATE；best-effort（touch 失败只是排序/预览/标志略偏，绝不阻塞回合）。
-func (s *Service) TouchLastMessage(ctx context.Context, id string, t time.Time, preview string, unread bool) error {
-	return s.repo.TouchLastMessage(ctx, id, t, preview, unread)
+// TouchLastMessage 记一条消息刚落入对话——chat 在消息加入时调,使列表按最近活跃重排、unread 标志跟踪有无未读
+// assistant 回复。unread 是新未读态（用户自己发送 false、assistant 完成终态 true）。一次廉价原子 UPDATE；
+// best-effort（touch 失败只是排序/标志略偏，绝不阻塞回合）。
+func (s *Service) TouchLastMessage(ctx context.Context, id string, t time.Time, unread bool) error {
+	return s.repo.TouchLastMessage(ctx, id, t, unread)
 }
 
 // MarkSeen clears a conversation's unread flag — the :seen action, called when the user opens a

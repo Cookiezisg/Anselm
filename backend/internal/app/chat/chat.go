@@ -80,15 +80,13 @@ type ConversationReader interface {
 	// Unarchive 清归档标志——Send 自动解档（给归档线程发消息即隐式唤回）。
 	Unarchive(ctx context.Context, id string) error
 	// TouchLastMessage records that a message just landed (chat calls it on the user turn AND the
-	// assistant finalize) so the conversation list re-sorts by recent activity, the rail snippet follows
-	// the latest message, and the unread flag tracks an unseen reply. `preview` is that message's folded
-	// + rune-truncated text (empty = keep the existing preview). `unread` is the new unread state: false
-	// on the user turn (sending is seeing), true on a COMPLETED assistant finalize. Best-effort.
+	// assistant finalize) so the conversation list re-sorts by recent activity and the unread flag tracks
+	// an unseen reply. `unread` is the new unread state: false on the user turn (sending is seeing), true
+	// on a COMPLETED assistant finalize. Best-effort.
 	//
-	// TouchLastMessage 记一条消息刚落地（chat 在用户回合 + assistant 终态都调），使对话列表按最近活跃重排、rail
-	// 摘要跟随最新消息、unread 跟踪未读回复。preview 是该消息折叠 + rune 截断后文本（空 = 保留原预览）。unread 是新未读态：
-	// 用户回合 false（发即是看）、assistant **完成**终态 true。best-effort。
-	TouchLastMessage(ctx context.Context, id string, t time.Time, preview string, unread bool) error
+	// TouchLastMessage 记一条消息刚落地（chat 在用户回合 + assistant 终态都调），使对话列表按最近活跃重排、unread
+	// 跟踪未读回复。unread 是新未读态：用户回合 false（发即是看）、assistant **完成**终态 true。best-effort。
+	TouchLastMessage(ctx context.Context, id string, t time.Time, unread bool) error
 	// MarkSeen clears the unread flag (chat's :seen action delegates here when the user opens a thread).
 	//
 	// MarkSeen 清 unread 标志（chat 的 :seen 动作在用户打开线程时转发至此）。
@@ -337,7 +335,7 @@ func (s *Service) Send(ctx context.Context, conversationID string, in SendInput)
 	// Best-effort: a failed touch only mis-sorts the list, it must not fail the turn.
 	// 刷新 recency + 清未读（unread=false）：用户正在发送、即已看过该线程——touch 与清未读走同一条原子 UPDATE，
 	// 故自己的消息绝不会显未读。best-effort：touch 失败只是排序略偏，绝不能让回合失败。
-	if err := s.deps.Conversations.TouchLastMessage(ctx, conversationID, time.Now().UTC(), previewFrom(in.Content), false); err != nil {
+	if err := s.deps.Conversations.TouchLastMessage(ctx, conversationID, time.Now().UTC(), false); err != nil {
 		s.log.Warn("chat: touch last_message_at failed", zap.String("conversation", conversationID), zap.Error(err))
 	}
 

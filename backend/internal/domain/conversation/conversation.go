@@ -50,18 +50,8 @@ type Conversation struct {
 	//
 	// LastMessageAt 是最近活跃排序键：线程最后一条消息加入的时间（创建时设、chat 每个用户回合刷）。
 	// 它是普通列、非 ,updated tag——故 pin/改名/换模型（刷 updated_at）不会重排列表。
-	LastMessageAt time.Time `db:"last_message_at" json:"lastMessageAt"`
-	// LastMessagePreview is a denormalized cache of the most recent message's text (whitespace-folded +
-	// rune-truncated), written alongside LastMessageAt on each TouchLastMessage so the rail can show a
-	// one-line snippet under the title with ZERO extra query on the List hot path. A system-write field
-	// (like Summary / AutoTitled): read-only on the wire, never accepted in PATCH; NOT the source of
-	// truth (messages are) — it is not back-filled if a message is later edited/deleted.
-	//
-	// LastMessagePreview 是最后一条消息文本的 denormalized 缓存（折叠空白 + rune 截断），随 LastMessageAt 在每次
-	// TouchLastMessage 一并写，使 rail 能在标题下显一行摘要、List 热路径零额外查询。系统写字段（同 Summary /
-	// AutoTitled）：线缆只读、不进 PATCH；非真相源（消息才是）——消息后续编辑/删不回溯。
-	LastMessagePreview string     `db:"last_message_preview" json:"lastMessagePreview"`
-	DeletedAt          *time.Time `db:"deleted_at,deleted" json:"-"`
+	LastMessageAt time.Time  `db:"last_message_at" json:"lastMessageAt"`
+	DeletedAt     *time.Time `db:"deleted_at,deleted" json:"-"`
 
 	// IsGenerating is a derived runtime flag (NOT persisted, db:"-"): true when chat has an
 	// in-flight assistant turn for this conversation. Filled per-row in the app layer from the
@@ -96,14 +86,14 @@ type Conversation struct {
 	// seq watermark — because this is a single-user, conversation-level binary: it needs no read-position
 	// granularity, and storing the answer directly sidesteps wall-clock comparison entirely (no NTP
 	// step-back / coarse-tick mis-flag). Survives restart (it is a column). System-write, wire read-only,
-	// never accepted in PATCH (like Summary / LastMessagePreview).
+	// never accepted in PATCH (like Summary / AutoTitled).
 	//
 	// Unread 是**持久布尔**（非 db:"-"）：有一条**完成的** assistant 回复落地、用户尚未看 → 为 true，即「你不在时答完了」
 	// 的 rail 绿点。它是存的标志、非派生比较：由 assistant 终态的 TouchLastMessage 置 true（折进同一条 UPDATE，故与
 	// recency 刷新原子），并在用户自己发送（TouchLastMessage unread=false——发即是看）、MarkSeen（用户打开线程的 :seen
 	// 动作）、创建（列默认 0）时清为 false。用存布尔、**非时间戳/seq watermark**——因为这是单用户、会话级的二元量：不需要
 	// 读位置粒度，且直接存答案彻底绕开墙上时钟比较（无 NTP 回拨 / 粗 tick 误判）。重启照样记得（是列）。系统写、线缆只读、
-	// 不进 PATCH（同 Summary / LastMessagePreview）。
+	// 不进 PATCH（同 Summary / AutoTitled）。
 	Unread bool `db:"unread" json:"hasUnread"`
 }
 
@@ -185,18 +175,16 @@ type Repository interface {
 	GetBatch(ctx context.Context, ids []string) ([]*Conversation, error)
 	List(ctx context.Context, filter ListFilter) (items []*Conversation, next string, err error)
 	Update(ctx context.Context, c *Conversation) error
-	// TouchLastMessage sets last_message_at, last_message_preview AND the unread flag on one conversation
-	// (chat calls it when a message lands) — a single cheap UPDATE carrying recency + the rail snippet +
-	// the unread bit, so all three move atomically; the ORM ,updated tag also bumps updated_at. `preview`
-	// is the folded + rune-truncated text (empty = leave the existing preview, e.g. an attachment-only /
-	// tool-only turn). `unread` is the new unread state: false on the user's own send (sending is seeing),
-	// true on a COMPLETED assistant finalize (a reply to read), false on a non-completed terminal.
+	// TouchLastMessage sets last_message_at AND the unread flag on one conversation (chat calls it when a
+	// message lands) — a single cheap UPDATE carrying recency + the unread bit atomically; the ORM
+	// ,updated tag also bumps updated_at. `unread` is the new unread state: false on the user's own send
+	// (sending is seeing), true on a COMPLETED assistant finalize (a reply to read), false on a
+	// non-completed terminal.
 	//
-	// TouchLastMessage 把某对话的 last_message_at、last_message_preview 与 unread 标志一并设（chat 在消息落地时调）——
-	// 一次廉价 UPDATE 同时带 recency + rail 摘要 + 未读位，三者原子移动；ORM ,updated tag 顺带刷 updated_at。preview 是
-	// 折叠 + rune 截断后的文本（空 = 保留原预览，如附件-only / 纯工具回合）。unread 是新未读态：用户自己发送时 false
-	// （发即是看）、assistant **完成**终态时 true（有回复待读）、非完成终态时 false。
-	TouchLastMessage(ctx context.Context, id string, t time.Time, preview string, unread bool) error
+	// TouchLastMessage 把某对话的 last_message_at 与 unread 标志一并设（chat 在消息落地时调）——一次廉价 UPDATE
+	// 原子带 recency + 未读位；ORM ,updated tag 顺带刷 updated_at。unread 是新未读态：用户自己发送时 false（发即是看）、
+	// assistant **完成**终态时 true（有回复待读）、非完成终态时 false。
+	TouchLastMessage(ctx context.Context, id string, t time.Time, unread bool) error
 	// MarkSeen clears the unread flag (the :seen action — the user opened the thread without sending).
 	// A single focused UPDATE on the unread column only; idempotent (a no-op on an unknown id returns
 	// nil). Does NOT touch last_message_at, so opening a thread never reorders the activity list.

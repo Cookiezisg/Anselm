@@ -157,15 +157,13 @@ func (h *chatHost) WriteFinalize(ctx context.Context, blocks []messagesdomain.Bl
 	}
 	h.svc.notifySearchMessage(dctx, h.conversationID, h.assistantMsg.ID)
 	h.svc.emitMessageStop(dctx, h.conversationID, h.assistantMsg)
-	// Bump recency + follow the rail snippet to the assistant's reply + flag unread. unread = true ONLY
-	// for a COMPLETED reply: a cancelled / errored terminal is not "a reply to read", and the user just
-	// cancelled it — so it stays seen (this is also why the queued-cancel path, which never calls
-	// TouchLastMessage, leaves unread alone). preview empty for a pure-tool / failed turn → keeps the
-	// prior user-side preview. Best-effort: a failed touch only mis-sorts / mis-previews / mis-flags.
-	// 刷新 recency + rail 摘要跟随 assistant 回复 + 标记未读。unread=true 仅对**完成**的回复：取消/出错的终态不是
-	//「待读的回复」、且用户刚取消了它——故保持已读（这也是为何 queued-cancel 路径不调 TouchLastMessage、不动 unread）。
-	// 纯工具/失败回合预览为空 → 保留用户侧预览。best-effort：touch 失败只是排序/预览/标志略偏。
-	if err := h.svc.deps.Conversations.TouchLastMessage(dctx, h.conversationID, time.Now().UTC(), previewFromBlocks(blocks), status == messagesdomain.StatusCompleted); err != nil {
+	// Bump recency + flag unread. unread = true ONLY for a COMPLETED reply: a cancelled / errored
+	// terminal is not "a reply to read", and the user just cancelled it — so it stays seen (this is also
+	// why the queued-cancel path, which never calls TouchLastMessage, leaves unread alone). Best-effort:
+	// a failed touch only mis-sorts / mis-flags the list, it must never disturb the already-persisted turn.
+	// 刷新 recency + 标记未读。unread=true 仅对**完成**的回复：取消/出错的终态不是「待读的回复」、且用户刚取消了它——
+	// 故保持已读（这也是为何 queued-cancel 路径不调 TouchLastMessage、不动 unread）。best-effort：touch 失败只是排序/标志略偏。
+	if err := h.svc.deps.Conversations.TouchLastMessage(dctx, h.conversationID, time.Now().UTC(), status == messagesdomain.StatusCompleted); err != nil {
 		h.svc.log.Warn("chatapp.WriteFinalize: touch last_message failed", zap.String("conversation", h.conversationID), zap.Error(err))
 	}
 }

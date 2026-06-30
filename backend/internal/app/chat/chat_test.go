@@ -688,7 +688,7 @@ func TestSystemPromptPreview(t *testing.T) {
 
 func (f fakeConvs) Unarchive(context.Context, string) error { return nil }
 
-func (f fakeConvs) TouchLastMessage(_ context.Context, _ string, _ time.Time, _ string, unread bool) error {
+func (f fakeConvs) TouchLastMessage(_ context.Context, _ string, _ time.Time, unread bool) error {
 	if f.rec != nil {
 		select {
 		case f.rec.unread <- unread:

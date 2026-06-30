@@ -386,7 +386,7 @@ func TestUnread_TouchFlagsAndMarkSeenClears(t *testing.T) {
 		t.Fatal("a brand-new conversation must not be unread")
 	}
 	// A completed assistant finalize (unread=true) flags it.
-	if err := s.TouchLastMessage(ctx, "cv_1", t2, "assistant reply", true); err != nil {
+	if err := s.TouchLastMessage(ctx, "cv_1", t2, true); err != nil {
 		t.Fatalf("touch(unread=true): %v", err)
 	}
 	afterTouch, _ := s.Get(ctx, "cv_1")
@@ -405,7 +405,7 @@ func TestUnread_TouchFlagsAndMarkSeenClears(t *testing.T) {
 		t.Errorf("MarkSeen must NOT change last_message_at (no reorder): %v != %v", afterSeen.LastMessageAt, afterTouch.LastMessageAt)
 	}
 	// A user-send touch (unread=false) keeps it seen even as it bumps recency.
-	if err := s.TouchLastMessage(ctx, "cv_1", t3, "user msg", false); err != nil {
+	if err := s.TouchLastMessage(ctx, "cv_1", t3, false); err != nil {
 		t.Fatalf("touch(unread=false): %v", err)
 	}
 	if c, _ := s.Get(ctx, "cv_1"); c.Unread {

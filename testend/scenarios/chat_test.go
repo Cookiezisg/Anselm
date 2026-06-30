@@ -503,15 +503,14 @@ func TestChat_ErrorPaths(t *testing.T) {
 //
 // convRow 是 GET /conversations 里一条对话的线缆形状（rail 行）。
 type convRow struct {
-	ID                 string `json:"id"`
-	Title              string `json:"title"`
-	Pinned             bool   `json:"pinned"`
-	Archived           bool   `json:"archived"`
-	LastMessageAt      string `json:"lastMessageAt"`
-	LastMessagePreview string `json:"lastMessagePreview"`
-	IsGenerating       bool   `json:"isGenerating"`
-	AwaitingInput      bool   `json:"awaitingInput"`
-	HasUnread          bool   `json:"hasUnread"`
+	ID            string `json:"id"`
+	Title         string `json:"title"`
+	Pinned        bool   `json:"pinned"`
+	Archived      bool   `json:"archived"`
+	LastMessageAt string `json:"lastMessageAt"`
+	IsGenerating  bool   `json:"isGenerating"`
+	AwaitingInput bool   `json:"awaitingInput"`
+	HasUnread     bool   `json:"hasUnread"`
 }
 
 func listConvs(t *testing.T, wc *harness.Client) []convRow {
@@ -528,36 +527,6 @@ func findConv(rows []convRow, id string) (convRow, bool) {
 		}
 	}
 	return convRow{}, false
-}
-
-// TestChat_RailPreviewFollowsLatest: the conversation list carries lastMessagePreview, a folded
-// snippet that follows the LATEST message — the user's text on send, then the assistant's reply once
-// the turn finalizes. isGenerating returns to false on completion.
-//
-// TestChat_RailPreviewFollowsLatest：对话列表带 lastMessagePreview，折叠摘要跟随最新消息——发送时是用户文本，
-// 回合落定后变成 assistant 回复。完成后 isGenerating 回 false。
-func TestChat_RailPreviewFollowsLatest(t *testing.T) {
-	wc, mock := chatSetup(t, false)
-	mock.Enqueue(dlgModel, harness.LLMTurn{Text: "Assistant reply about the rail preview."})
-
-	convID := convCreate(t, wc, "preview")
-	mid := sendMsg(t, wc, convID, "Hello   from\nthe user rail line")
-
-	// The user-turn preview is written synchronously on send (folded to single spaces) before the
-	// assistant turn runs. 用户回合预览在发送时同步写入（空白折叠），先于 assistant 回合。
-	if row, ok := findConv(listConvs(t, wc), convID); !ok || row.LastMessagePreview != "Hello from the user rail line" {
-		t.Fatalf("user-turn preview must be the folded user text, got %q (found=%v)", row.LastMessagePreview, ok)
-	}
-
-	if turn := waitTurn(t, wc, convID, mid, 30000); turn.Status != "completed" {
-		t.Fatalf("turn must complete, got %s %s", turn.Status, turn.ErrorMessage)
-	}
-	// On finalize the preview follows the assistant's reply, and isGenerating clears.
-	// 落定后预览跟随 assistant 回复，isGenerating 清零。
-	harness.Eventually(t, 10000, "rail preview follows the assistant reply", func() bool {
-		row, ok := findConv(listConvs(t, wc), convID)
-		return ok && strings.Contains(row.LastMessagePreview, "Assistant reply about the rail preview") && !row.IsGenerating
-	})
 }
 
 // TestChat_RailAwaitingInput: a pending human-loop interaction lights the conversation's awaitingInput
@@ -727,7 +696,7 @@ func TestChat_RailUnread(t *testing.T) {
 // action 404 (N1 envelope).
 //
 // TestChat_ConversationActionRouting 守 {idAction} 派发器（:cancel 改 switch 以容纳 :seen 后）：:cancel 仍 204
-//（无运行回合时优雅 no-op）、:seen 204、未知动作 404（N1 envelope）。
+// （无运行回合时优雅 no-op）、:seen 204、未知动作 404（N1 envelope）。
 func TestChat_ConversationActionRouting(t *testing.T) {
 	wc, _ := chatSetup(t, false)
 	convID := convCreate(t, wc, "actions")

@@ -42,7 +42,6 @@ var Schema = []string{
 		created_at               DATETIME NOT NULL,
 		updated_at               DATETIME NOT NULL,
 		last_message_at          DATETIME NOT NULL,
-		last_message_preview     TEXT NOT NULL DEFAULT '',
 		unread                   INTEGER NOT NULL DEFAULT 0,
 		deleted_at               DATETIME
 	)`,
@@ -152,23 +151,16 @@ func (s *Store) List(ctx context.Context, filter conversationdomain.ListFilter) 
 	return rows, next, nil
 }
 
-// TouchLastMessage sets last_message_at, the unread flag, and (when non-empty) last_message_preview
-// on one conversation in ONE UPDATE (chat calls it when a message lands). Folding unread into the
-// same UPDATE keeps it atomic with the recency bump — the user-send path (unread=false) can never
-// half-commit into "your own message looks unread". An empty preview keeps the existing one (an
-// attachment-only / tool-only turn). Neither unread nor last_message_preview is a sort/cursor key,
-// so the partial list indexes are untouched.
+// TouchLastMessage sets last_message_at and the unread flag on one conversation in ONE UPDATE (chat
+// calls it when a message lands). Folding unread into the same UPDATE keeps it atomic with the recency
+// bump — the user-send path (unread=false) can never half-commit into "your own message looks unread".
+// unread is not a sort/cursor key, so the partial list indexes are untouched.
 //
-// TouchLastMessage 在一条 UPDATE 里设某对话的 last_message_at、unread 标志、（preview 非空时）last_message_preview
-// （chat 在消息落地时调）。把 unread 折进同一条 UPDATE 使其与 recency 刷新原子——用户发送路径（unread=false）绝不会半提交成
-// 「自己的消息看着未读」。空 preview 保留原有（附件-only / 纯工具回合）。unread 与 last_message_preview 都非排序/游标键，
-// partial 列表索引不动。
-func (s *Store) TouchLastMessage(ctx context.Context, id string, t time.Time, preview string, unread bool) error {
-	updates := map[string]any{"last_message_at": t, "unread": unread}
-	if preview != "" {
-		updates["last_message_preview"] = preview
-	}
-	if _, err := s.repo.Query().WhereEq("id", id).Updates(ctx, updates); err != nil {
+// TouchLastMessage 在一条 UPDATE 里设某对话的 last_message_at 与 unread 标志（chat 在消息落地时调）。把 unread 折进
+// 同一条 UPDATE 使其与 recency 刷新原子——用户发送路径（unread=false）绝不会半提交成「自己的消息看着未读」。unread 非
+// 排序/游标键，partial 列表索引不动。
+func (s *Store) TouchLastMessage(ctx context.Context, id string, t time.Time, unread bool) error {
+	if _, err := s.repo.Query().WhereEq("id", id).Updates(ctx, map[string]any{"last_message_at": t, "unread": unread}); err != nil {
 		return fmt.Errorf("conversationstore.TouchLastMessage: %w", err)
 	}
 	return nil
