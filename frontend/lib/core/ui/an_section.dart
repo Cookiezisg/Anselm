@@ -14,6 +14,10 @@ enum AnSectionVariant {
 
   /// Document-tier heading (leans on whitespace, not rules). 文档级标题(靠留白)。
   plain,
+
+  /// A QUIET lowercase meta label (no uppercase, no emphasis) over a tightly-spaced body — for compact
+  /// stacks of headed groups like the run terminal's output / trace / nodes sections. 安静小写 meta 小标(紧凑头组,如 run 终端各段)。
+  quiet,
 }
 
 /// D1 — a section: a small heading + an unbordered content area, organised by whitespace + hierarchy
@@ -63,6 +67,18 @@ class AnSection extends StatelessWidget {
 
   bool get _caption => variant == AnSectionVariant.caption;
 
+  // Per-variant rhythm: quiet is the most compact (tight stacks of headed groups). 各档节奏:quiet 最紧凑。
+  double get _bottomPad => switch (variant) {
+        AnSectionVariant.caption => AnSpace.s24,
+        AnSectionVariant.plain => AnSpace.s32,
+        AnSectionVariant.quiet => AnSpace.s16,
+      };
+  double get _headGap => switch (variant) {
+        AnSectionVariant.caption => AnSpace.s8,
+        AnSectionVariant.plain => AnSpace.s12,
+        AnSectionVariant.quiet => AnSpace.s6,
+      };
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
@@ -72,14 +88,14 @@ class AnSection extends StatelessWidget {
       container: true,
       explicitChildNodes: true,
       child: Padding(
-        padding: EdgeInsets.only(bottom: _caption ? AnSpace.s24 : AnSpace.s32),
+        padding: EdgeInsets.only(bottom: _bottomPad),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
             if (hasHead) ...[
               _head(context, c),
-              SizedBox(height: _caption ? AnSpace.s8 : AnSpace.s12),
+              SizedBox(height: _headGap),
             ],
             _body(),
           ],
@@ -121,9 +137,14 @@ class AnSection extends StatelessWidget {
   }
 
   Widget _label(BuildContext context, AnColors c) {
-    final visible = _caption
-        ? AnGroupLabel(label!, padding: EdgeInsets.zero)
-        : Text(label!, maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.strong.copyWith(color: c.ink));
+    final visible = switch (variant) {
+      AnSectionVariant.caption => AnGroupLabel(label!, padding: EdgeInsets.zero),
+      AnSectionVariant.plain =>
+        Text(label!, maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.strong.copyWith(color: c.ink)),
+      // quiet: a small lowercase faint-meta label (NOT uppercased like caption). 安静小写灰 meta。
+      AnSectionVariant.quiet =>
+        Text(label!, maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.meta.copyWith(color: c.inkFaint)),
+    };
     // One header node reading the original-case label (caption visual is uppercased); exclude the
     // visual's own semantics so the reader hears "Inputs", not "INPUTS". 单 header 节点读原始大小写。
     return Semantics(header: true, label: semanticLabel ?? label!, child: ExcludeSemantics(child: visible));

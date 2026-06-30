@@ -129,6 +129,7 @@ final GalleryCategory _g2Feedback = GalleryCategory('反馈态 Feedback', AnIcon
     GallerySpecimen('empty', (_) => AnState(kind: AnStateKind.empty, title: 'No functions yet', hint: 'Create your first Function to get started.', action: AnButton(label: 'New Function', icon: AnIcons.function, variant: AnButtonVariant.primary, onPressed: () {})), span: true),
     GallerySpecimen('loading', (_) => const AnState(kind: AnStateKind.loading, title: 'Loading…'), span: true),
     GallerySpecimen('error', (_) => AnState(kind: AnStateKind.error, title: "Couldn't load entities", hint: 'Check the backend is running, then try again.', action: AnButton(label: 'Try again', onPressed: () {})), span: true),
+    GallerySpecimen('fatal + detail (启动门控)', (_) => AnState(kind: AnStateKind.error, fatal: true, title: "Can't reach the local engine", hint: 'The backend did not start.', detail: 'dial tcp 127.0.0.1:7777: connection refused', action: AnButton(label: 'Retry', variant: AnButtonVariant.primary, onPressed: () {})), span: true),
     GallerySpecimen('inset (嵌入)', (_) => const AnState(kind: AnStateKind.empty, size: AnStateSize.inset, title: 'Nothing here', hint: 'This panel has no content.'), span: true),
     GallerySpecimen('超长换行', (_) => const AnState(kind: AnStateKind.error, title: 'A long error title that should wrap and stay centered without overflowing', hint: 'An equally long explanatory hint sentence that must wrap onto several centered lines within the capped content column and never overflow.'), stress: true, maxWidth: 260),
   ]),
@@ -178,6 +179,7 @@ final GalleryCategory _g3RowsCards = GalleryCategory('行与卡 Rows & Cards', A
     GallerySpecimen('caption + body', (_) => const AnSection(label: 'Inputs', children: [AnInput(placeholder: 'name'), AnInput(placeholder: 'value')]), span: true),
     GallerySpecimen('caption + actions', (_) => AnSection(label: 'Environment', actions: [AnButton(label: 'Add', size: AnButtonSize.sm, icon: AnIcons.enter, onPressed: () {})], children: const [AnBadge('NODE_ENV=prod'), AnBadge('REGION=us')]), span: true),
     GallerySpecimen('plain (文档标题)', (_) => const AnSection(label: 'Overview', variant: AnSectionVariant.plain, children: [Text('A document-tier section leans on whitespace, not rule lines.')]), span: true),
+    GallerySpecimen('quiet (安静 meta 标题)', (_) => const AnSection(label: 'trace', variant: AnSectionVariant.quiet, children: [Text('A quiet lowercase faint-meta heading over a tight body — run terminal output / trace / nodes sections.')]), span: true),
     GallerySpecimen('actions-only head', (_) => AnSection(actions: [AnButton(label: 'New', size: AnButtonSize.sm, onPressed: () {})], children: const [Text('Head with no label still renders its actions.')]), span: true),
     GallerySpecimen('超长 label 截断', (_) => const AnSection(label: 'a very long section caption that must ellipsis instead of wrapping the head', children: [Text('body')]), stress: true, maxWidth: 220),
     GallerySpecimen('注入转义', (_) => const AnSection(label: '<b>not</b> & <i>html</i>', children: [Text('escaped label')]), stress: true, span: true),
@@ -261,6 +263,10 @@ final GalleryCategory _g3RowsCards = GalleryCategory('行与卡 Rows & Cards', A
   ]),
   GalleryItem('AnRowDetail', '可展开详情行:点行展开下方详情(AnExpandReveal 高度揭示)', [
     GallerySpecimen('expandable (点开/收起)', (_) => const _RowDetailDemo(), span: true),
+  ]),
+  GalleryItem('AnDisclosure', '披露组:常驻旋转 chevron 头(icon/label/可选尾随)+ AnExpandReveal body(流式轨迹/日志)', [
+    GallerySpecimen('reasoning (点开/收起)', (_) => _DisclosureDemo(label: 'reasoning', icon: AnIcons.reasoning), span: true),
+    GallerySpecimen('tool_call + danger 尾随', (_) => _DisclosureDemo(label: 'shell.run', icon: AnIcons.tool, danger: true), span: true),
   ]),
   GalleryItem('AnThinTable', '对齐多列(非表格、无 chrome):首列吃富余 + 其余贴内容、表头灰 meta', [
     GallerySpecimen('对齐多列 (只读)', (_) => const AnThinTable(columns: _tableCols, rows: _tableRows), span: true),
@@ -796,6 +802,37 @@ class _RowDetailDemoState extends State<_RowDetailDemo> {
           AnKvRow('Next run', 'in 3h 12m'),
         ]),
       );
+}
+
+// AnDisclosure demo — owns open; the persistent-chevron header toggles the revealed body. AnDisclosure 演示。
+class _DisclosureDemo extends StatefulWidget {
+  const _DisclosureDemo({required this.label, required this.icon, this.danger = false});
+
+  final String label;
+  final IconData icon;
+  final bool danger;
+
+  @override
+  State<_DisclosureDemo> createState() => _DisclosureDemoState();
+}
+
+class _DisclosureDemoState extends State<_DisclosureDemo> {
+  bool _open = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return AnDisclosure(
+      label: widget.label,
+      icon: widget.icon,
+      labelStyle: AnText.value(mono: true).copyWith(color: c.ink),
+      trailing: widget.danger ? const AnBadge('dangerous', tone: AnTone.danger) : null,
+      open: _open,
+      onToggle: () => setState(() => _open = !_open),
+      child: Text('node.exec("deploy", env)\n  → streaming output…',
+          style: AnText.value(mono: true).copyWith(color: c.inkMuted)),
+    );
+  }
 }
 
 // AnCard selectable demo — owns the selected toggle. AnCard 可选演示,自持选中态。

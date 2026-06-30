@@ -10,7 +10,9 @@ import '../../../../core/ui/an_badge.dart';
 import '../../../../core/ui/an_button.dart';
 import '../../../../core/ui/an_callout.dart';
 import '../../../../core/ui/an_code_surface.dart';
+import '../../../../core/ui/an_row.dart';
 import '../../../../core/ui/an_scroll_behavior.dart';
+import '../../../../core/ui/an_section.dart';
 import '../../../../core/ui/an_state.dart';
 import '../../../../core/ui/icons.dart';
 import '../../../../i18n/strings.g.dart';
@@ -245,79 +247,41 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
   }
 
   Widget _nodes(BuildContext context, RunTerminalState state, RunStream s) {
-    final c = context.colors;
     final r = context.t.entities.run;
+    // Each flowrun node = a passive mono AnRow: status dot (lead) + 'nodeId · kind' + status word (meta).
+    // 每个 flowrun 节点 = passive mono AnRow:状态点 + 'nodeId·kind' + 状态词。
     if (state.flowNodes.isNotEmpty) {
-      return _section(
-        context,
-        r.nodesHeading,
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (final n in state.flowNodes)
-              Padding(
-                padding: const EdgeInsets.only(bottom: AnSpace.s6),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text('${n.nodeId} · ${n.kind}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AnText.value(mono: true).copyWith(color: c.ink)),
-                    ),
-                    const SizedBox(width: AnSpace.s8),
-                    AnBadge(n.status, tone: AnStatus.fromRaw(n.status).tone),
-                  ],
-                ),
-              ),
-          ],
-        ),
-      );
+      return _section(context, r.nodesHeading, _nodeList([
+        for (final n in state.flowNodes) (label: '${n.nodeId} · ${n.kind}', status: n.status),
+      ]));
     }
     if (s.liveNodes.isNotEmpty) {
-      return _section(
-        context,
-        r.nodesHeading,
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (final e in s.liveNodes.entries)
-              Padding(
-                padding: const EdgeInsets.only(bottom: AnSpace.s6),
-                child: Row(
-                  children: [
-                    Expanded(
-                        child: Text(e.key,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AnText.value(mono: true).copyWith(color: c.ink))),
-                    const SizedBox(width: AnSpace.s8),
-                    AnBadge(e.value, tone: AnStatus.fromRaw(e.value).tone),
-                  ],
-                ),
-              ),
-          ],
-        ),
-      );
+      return _section(context, r.nodesHeading, _nodeList([
+        for (final e in s.liveNodes.entries) (label: e.key, status: e.value),
+      ]));
     }
     return _hint(context, r.noTrace);
   }
 
-  // ── shared bits ───────────────────────────────────────────────────────────--
-  Widget _section(BuildContext context, String title, Widget child) {
-    final c = context.colors;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AnSpace.s16),
-      child: Column(
+  Widget _nodeList(List<({String label, String status})> nodes) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(title, style: AnText.meta.copyWith(color: c.inkFaint)),
-          const SizedBox(height: AnSpace.s6),
-          child,
+          for (final n in nodes)
+            AnRow(
+              label: n.label,
+              mono: true,
+              passive: true,
+              dot: AnStatus.fromRaw(n.status),
+              meta: n.status,
+            ),
         ],
-      ),
-    );
-  }
+      );
+
+  // ── shared bits ───────────────────────────────────────────────────────────--
+  // A quiet headed section (lowercase faint meta label + tight body) — output / result / logs / trace /
+  // nodes all ride it. 安静头组(小写灰 meta 标 + 紧凑体):各输出段共用。
+  Widget _section(BuildContext context, String title, Widget child) =>
+      AnSection(label: title, variant: AnSectionVariant.quiet, children: [child]);
 
   // Plain Text — the whole scroll body is one SelectionArea (best-practice over per-row SelectableText).
   Widget _mono(BuildContext context, String text) => AnCodeSurface(

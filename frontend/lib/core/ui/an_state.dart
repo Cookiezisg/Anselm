@@ -33,8 +33,10 @@ class AnState extends StatelessWidget {
     required this.kind,
     required this.title,
     this.hint,
+    this.detail,
     this.action,
     this.icon,
+    this.fatal = false,
     this.size = AnStateSize.page,
     super.key,
   });
@@ -43,11 +45,22 @@ class AnState extends StatelessWidget {
   final String title;
   final String? hint;
 
+  /// An optional THIRD line below [hint] — a faint, smaller, 3-line-clamped secondary (e.g. a raw error
+  /// message / stack tail on an app-fatal screen). Kept out of the merged a11y label (debug detail, not
+  /// the announcement). 可选第三行(hint 下):灰小、3 行截断的次级,如启动失败的原始错误明细;不进 a11y 主播报。
+  final String? detail;
+
   /// Usually an [AnButton] (empty → primary CTA; error → ghost 'Try again'). 动作钮。
   final Widget? action;
 
   /// Override the default per-kind glyph (empty→inbox, error→triangle; loading uses a spinner). 覆盖默认字形。
   final IconData? icon;
+
+  /// App-level FATAL error (the startup / workspace gates) — tints the glyph [AnColors.danger] for a
+  /// louder "the app can't start" read. Default false keeps in-content errors MONOCHROME (decision ①,
+  /// red reserved for AnCallout). Only meaningful for [AnStateKind.error]. 应用级致命错(启动门控):字形转 danger;
+  /// 默认 false,内容内错误仍单色(红留 Callout)。
+  final bool fatal;
 
   final AnStateSize size;
 
@@ -75,7 +88,9 @@ class AnState extends StatelessWidget {
       leading = Icon(
         icon ?? (kind == AnStateKind.empty ? AnIcons.empty : AnIcons.error),
         size: glyphSize,
-        color: c.inkFaint, // monochrome — error is NOT red (decision ①) 单色:error 不着红
+        // monochrome by default (decision ①, red reserved for AnCallout); a [fatal] error tints danger.
+        // 默认单色;fatal error 转 danger(app 致命屏)。
+        color: (kind == AnStateKind.error && fatal) ? c.danger : c.inkFaint,
       );
     }
 
@@ -93,6 +108,16 @@ class AnState extends StatelessWidget {
           const SizedBox(height: AnSpace.s6),
           ExcludeSemantics(
             child: Text(hint!, textAlign: TextAlign.center, style: AnText.meta.copyWith(color: c.inkMuted)),
+          ),
+        ],
+        if (detail != null && detail!.isNotEmpty) ...[
+          const SizedBox(height: AnSpace.s8),
+          ExcludeSemantics(
+            child: Text(detail!,
+                textAlign: TextAlign.center,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: AnText.meta.copyWith(color: c.inkFaint)),
           ),
         ],
         if (action != null) ...[

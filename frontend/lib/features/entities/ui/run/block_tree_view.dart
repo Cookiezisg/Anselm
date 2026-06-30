@@ -7,8 +7,7 @@ import '../../../../core/design/typography.dart';
 import '../../../../core/messages/block_tree_reducer.dart';
 import '../../../../core/model/status_state.dart' show AnTone;
 import '../../../../core/ui/an_badge.dart';
-import '../../../../core/ui/an_expand_reveal.dart';
-import '../../../../core/ui/an_interactive.dart';
+import '../../../../core/ui/an_disclosure.dart';
 import '../../../../core/ui/icons.dart';
 import '../../../../i18n/strings.g.dart';
 
@@ -94,23 +93,14 @@ class _BlockViewState extends State<BlockView> {
     bool dim = false,
   }) {
     final c = context.colors;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _header(context, icon, label, dim: dim),
-        AnExpandReveal(
-          open: _open,
-          child: Padding(
-            padding: const EdgeInsets.only(top: AnSpace.s4, left: AnSpace.s16),
-            child: Text(
-              body,
-              style: AnText.value(
-                mono: true,
-              ).copyWith(color: dim ? c.inkMuted : c.ink),
-            ),
-          ),
-        ),
-      ],
+    return AnDisclosure(
+      label: label,
+      icon: icon,
+      iconColor: c.inkFaint,
+      labelStyle: AnText.meta.copyWith(color: dim ? c.inkFaint : c.inkMuted),
+      open: _open,
+      onToggle: () => setState(() => _open = !_open),
+      child: Text(body, style: AnText.value(mono: true).copyWith(color: dim ? c.inkMuted : c.ink)),
     );
   }
 
@@ -122,51 +112,16 @@ class _BlockViewState extends State<BlockView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        AnInteractive(
-          onTap: () => setState(() => _open = !_open),
-          builder: (context, _) => Row(
-            children: [
-              AnimatedRotation(
-                duration: AnMotion.fast,
-                turns: _open ? 0.25 : 0,
-                child: Icon(
-                  AnIcons.chevronRight,
-                  size: AnSize.iconSm,
-                  color: c.inkFaint,
-                ),
-              ),
-              const SizedBox(width: AnSpace.s4),
-              Icon(AnIcons.tool, size: AnSize.iconSm, color: c.inkMuted),
-              const SizedBox(width: AnSpace.s6),
-              Flexible(
-                child: Text(
-                  n.name ?? t.entities.run.toolCall,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AnText.value(mono: true).copyWith(color: c.ink),
-                ),
-              ),
-              if (showDanger) ...[
-                const SizedBox(width: AnSpace.s6),
-                AnBadge(
-                  _dangerLabel(t, danger),
-                  tone: danger == Danger.dangerous
-                      ? AnTone.danger
-                      : AnTone.warn,
-                ),
-              ],
-            ],
-          ),
-        ),
-        AnExpandReveal(
+        AnDisclosure(
+          label: n.name ?? t.entities.run.toolCall,
+          icon: AnIcons.tool,
+          labelStyle: AnText.value(mono: true).copyWith(color: c.ink),
+          trailing: showDanger
+              ? AnBadge(_dangerLabel(t, danger), tone: danger == Danger.dangerous ? AnTone.danger : AnTone.warn)
+              : null,
           open: _open,
-          child: Padding(
-            padding: const EdgeInsets.only(top: AnSpace.s4, left: AnSpace.s16),
-            child: Text(
-              n.argumentsText,
-              style: AnText.value(mono: true).copyWith(color: c.inkMuted),
-            ),
-          ),
+          onToggle: () => setState(() => _open = !_open),
+          child: Text(n.argumentsText, style: AnText.value(mono: true).copyWith(color: c.inkMuted)),
         ),
         // children (tool_result / progress) always shown, indented under the call. 子节点常显、缩进。
         if (n.children.isNotEmpty)
@@ -196,38 +151,6 @@ class _BlockViewState extends State<BlockView> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _header(
-    BuildContext context,
-    IconData icon,
-    String label, {
-    bool dim = false,
-  }) {
-    final c = context.colors;
-    return AnInteractive(
-      onTap: () => setState(() => _open = !_open),
-      builder: (context, _) => Row(
-        children: [
-          AnimatedRotation(
-            duration: AnMotion.fast,
-            turns: _open ? 0.25 : 0,
-            child: Icon(
-              AnIcons.chevronRight,
-              size: AnSize.iconSm,
-              color: c.inkFaint,
-            ),
-          ),
-          const SizedBox(width: AnSpace.s4),
-          Icon(icon, size: AnSize.iconSm, color: c.inkFaint),
-          const SizedBox(width: AnSpace.s6),
-          Text(
-            label,
-            style: AnText.meta.copyWith(color: dim ? c.inkFaint : c.inkMuted),
-          ),
-        ],
-      ),
     );
   }
 

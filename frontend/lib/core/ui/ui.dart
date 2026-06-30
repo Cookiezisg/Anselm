@@ -17,6 +17,7 @@ export 'an_code_editor.dart';
 export 'an_code_surface.dart';
 export 'an_deferred_loading.dart';
 export 'an_dialog.dart';
+export 'an_disclosure.dart';
 export 'an_dropdown.dart';
 export 'an_edit_affordance.dart';
 export 'an_editable_value.dart';
