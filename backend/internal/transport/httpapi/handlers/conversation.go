@@ -103,12 +103,17 @@ func (h *ConversationHandler) List(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	// archived: absent = exclude archived (default); "true"/"1" = archived only; else = active only.
-	// archived：缺省 = 排除已归档；"true"/"1" = 仅归档；其余 = 仅活跃。
-	var archived *bool
-	if v := q.Get("archived"); v != "" {
-		b := v == "true" || v == "1"
-		archived = &b
+	// archived: absent/else = active only (default); "true"/"1"/"archived" = archived only; "all" =
+	// both (the rail's "show archived" — archived rows carry archived=true for the gray dot).
+	// archived：缺省/其余 = 仅活跃（默认）；"true"/"1"/"archived" = 仅归档；"all" = 两者（rail「显示已归档」，归档行带 archived=true 供灰点）。
+	var archive conversationdomain.ArchiveScope
+	switch q.Get("archived") {
+	case "all":
+		archive = conversationdomain.ArchiveAll
+	case "true", "1", "archived":
+		archive = conversationdomain.ArchiveArchived
+	default:
+		archive = conversationdomain.ArchiveActive
 	}
 	// sort: "created" = pinned-first then creation order; "name" = pinned-first then title A–Z
 	// (case-insensitive); anything else (incl absent) = "activity" (pinned-first then most-recently-
@@ -116,11 +121,11 @@ func (h *ConversationHandler) List(w http.ResponseWriter, r *http.Request) {
 	// sort："created" = 置顶优先再创建序；"name" = 置顶优先再 title A–Z（大小写不敏感）；其余（含缺省）= "activity"
 	// （置顶优先再最近活跃，默认）。每种排序键各自的 keyset 列，故切换排序**必须重置分页**。
 	items, next, err := h.svc.List(r.Context(), conversationdomain.ListFilter{
-		Cursor:   p.Cursor,
-		Limit:    p.Limit,
-		Search:   q.Get("search"),
-		Archived: archived,
-		Sort:     conversationdomain.ListSort(q.Get("sort")),
+		Cursor:  p.Cursor,
+		Limit:   p.Limit,
+		Search:  q.Get("search"),
+		Archive: archive,
+		Sort:    conversationdomain.ListSort(q.Get("sort")),
 	})
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)

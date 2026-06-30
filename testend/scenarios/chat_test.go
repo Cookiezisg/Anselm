@@ -691,6 +691,50 @@ func TestChat_RailUnread(t *testing.T) {
 	}
 }
 
+// TestChat_RailArchivedAll: ?archived=all returns active + archived in ONE list (the rail's "show
+// archived" mode), each archived row carrying archived=true (→ the gray dot). The default excludes
+// archived; ?archived=true is archived-only. Guards the ArchiveScope 3-state enum end-to-end.
+//
+// TestChat_RailArchivedAll：?archived=all 把活跃+归档放**一个**列表返（rail「显示已归档」），归档行带 archived=true
+// （→灰点）。默认排除归档；?archived=true 仅归档。端到端守 ArchiveScope 三态枚举。
+func TestChat_RailArchivedAll(t *testing.T) {
+	wc, _ := chatSetup(t, false)
+	active := convCreate(t, wc, "active one")
+	arch := convCreate(t, wc, "archived one")
+	wc.Do("PATCH", "/api/v1/conversations/"+arch, map[string]any{"archived": true}).OK(t, nil)
+
+	// Default list excludes archived.
+	def := listConvs(t, wc)
+	if _, ok := findConv(def, arch); ok {
+		t.Fatal("default list must exclude archived")
+	}
+	if _, ok := findConv(def, active); !ok {
+		t.Fatal("default list must include the active conversation")
+	}
+
+	// ?archived=all returns BOTH; the archived row is flagged archived=true (drives the gray dot).
+	var all []convRow
+	wc.GET("/api/v1/conversations?archived=all&limit=50").OK(t, &all)
+	ra, okA := findConv(all, arch)
+	_, okV := findConv(all, active)
+	if !okA || !okV {
+		t.Fatalf("?archived=all must return both, got active=%v archived=%v", okV, okA)
+	}
+	if !ra.Archived {
+		t.Fatal("the archived row must carry archived=true (the rail draws the gray dot from it)")
+	}
+
+	// ?archived=true is archived-only.
+	var only []convRow
+	wc.GET("/api/v1/conversations?archived=true&limit=50").OK(t, &only)
+	if _, ok := findConv(only, active); ok {
+		t.Fatal("?archived=true must exclude active")
+	}
+	if _, ok := findConv(only, arch); !ok {
+		t.Fatal("?archived=true must include the archived conversation")
+	}
+}
+
 // TestChat_ConversationActionRouting guards the {idAction} dispatcher after :cancel was widened into a
 // switch to host :seen: :cancel still 204 (graceful no-op when nothing runs), :seen 204, an unknown
 // action 404 (N1 envelope).

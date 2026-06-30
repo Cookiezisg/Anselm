@@ -70,10 +70,9 @@ func (t *ListConversations) Execute(ctx context.Context, argsJSON string) (strin
 		limit = 50
 	}
 	filter := conversationapp.ListFilter{Cursor: args.Cursor, Limit: limit}
-	if !args.IncludeArchived {
-		active := false
-		filter.Archived = &active // active only; nil = all (incl. archived)
-	}
+	if args.IncludeArchived {
+		filter.Archive = conversationapp.ArchiveAll // active + archived in one enumeration
+	} // else: zero value ArchiveActive = active only (the default)
 	rows, next, err := t.mgr.List(ctx, filter)
 	if err != nil {
 		return "", fmt.Errorf("list_conversations: %w", err)

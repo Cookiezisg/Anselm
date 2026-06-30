@@ -31,8 +31,18 @@ import (
 //
 // 复用 domain 载荷类型，使 handler 只依赖 app 包。
 type (
-	ListFilter  = conversationdomain.ListFilter
-	UpdateInput = conversationdomain.UpdateInput
+	ListFilter   = conversationdomain.ListFilter
+	UpdateInput  = conversationdomain.UpdateInput
+	ArchiveScope = conversationdomain.ArchiveScope
+)
+
+// Re-export the archive-scope constants so callers (the list_conversations tool) need only the app package.
+//
+// 复用归档范围常量，使调用方（list_conversations 工具）只依赖 app 包。
+const (
+	ArchiveActive   = conversationdomain.ArchiveActive
+	ArchiveArchived = conversationdomain.ArchiveArchived
+	ArchiveAll      = conversationdomain.ArchiveAll
 )
 
 // Service is the conversation CRUD application façade.

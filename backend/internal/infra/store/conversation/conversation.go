@@ -109,10 +109,16 @@ func (s *Store) GetBatch(ctx context.Context, ids []string) ([]*conversationdoma
 // name 路径另把这个对齐做成对 collation 敏感（列 / ORDER BY / 索引同 COLLATE NOCASE）。
 func (s *Store) List(ctx context.Context, filter conversationdomain.ListFilter) ([]*conversationdomain.Conversation, string, error) {
 	q := s.repo.Query()
-	if filter.Archived == nil {
+	// Exactly one archived predicate per scope (or none for ArchiveAll). ArchiveAll is the rail's
+	// "show archived" mode — active + archived in one list, each row carrying its archived flag.
+	// 每个 scope 恰好一个 archived 谓词（ArchiveAll 不加）。ArchiveAll = rail「显示已归档」：活跃+归档同列、各带 archived 标志。
+	switch filter.Archive {
+	case conversationdomain.ArchiveArchived:
+		q = q.WhereEq("archived", true)
+	case conversationdomain.ArchiveAll:
+		// no archived predicate — both active and archived
+	default: // ArchiveActive
 		q = q.WhereEq("archived", false)
-	} else {
-		q = q.WhereEq("archived", *filter.Archived)
 	}
 	if term := strings.TrimSpace(filter.Search); term != "" {
 		q = q.Where("title LIKE ?", "%"+term+"%")

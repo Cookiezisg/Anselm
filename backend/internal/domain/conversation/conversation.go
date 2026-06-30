@@ -97,11 +97,27 @@ type Conversation struct {
 	Unread bool `db:"unread" json:"hasUnread"`
 }
 
-// ListFilter narrows the conversation list. Archived: nil = exclude archived (default),
-// &true = archived only, &false = active only. Search is a case-insensitive title LIKE.
+// ArchiveScope selects which archive states the conversation list returns. The zero value is
+// ArchiveActive (active-only) — the common default. It is an explicit 3-state enum, NOT an
+// overloaded *bool: the rail's "show archived" needs an ACTIVE+ARCHIVED-together mode that a
+// nil/true/false pointer cannot express (and whose absence silently broke list_conversations'
+// includeArchived). The store applies exactly one predicate per scope.
 //
-// ListFilter 收窄对话列表。Archived：nil = 排除已归档（默认），&true = 仅归档，&false = 仅活跃。
-// Search 是标题大小写不敏感 LIKE。
+// ArchiveScope 选列表返回哪些归档态。零值 ArchiveActive（仅活跃）——常用默认。它是显式三态枚举、非
+// 重载 *bool：rail 的「显示已归档」要一个**活跃+归档同列**的模式，nil/true/false 指针表达不了
+// （其缺失正是 list_conversations 的 includeArchived 静默失效之因）。store 按每个 scope 套恰好一个谓词。
+type ArchiveScope string
+
+const (
+	ArchiveActive   ArchiveScope = ""         // active only (default / zero value)
+	ArchiveArchived ArchiveScope = "archived" // archived only
+	ArchiveAll      ArchiveScope = "all"      // both active and archived (rail "show archived" — archived rows carry archived=true for the gray dot)
+)
+
+// ListFilter narrows the conversation list. Archive selects the archive scope (default ArchiveActive
+// = active-only). Search is a case-insensitive title LIKE.
+//
+// ListFilter 收窄对话列表。Archive 选归档范围（默认 ArchiveActive = 仅活跃）。Search 是标题大小写不敏感 LIKE。
 // ListSort selects the conversation list ordering (always pinned-first within each). Empty defaults
 // to ListSortActivity. The keyset cursor tracks the chosen sort's column (activity/created walk a
 // time key descending via Page; name walks the title string ascending + NOCASE via PageAsc), so a
@@ -120,11 +136,11 @@ const (
 )
 
 type ListFilter struct {
-	Cursor   string
-	Limit    int
-	Search   string
-	Archived *bool
-	Sort     ListSort // "" → ListSortActivity
+	Cursor  string
+	Limit   int
+	Search  string
+	Archive ArchiveScope // "" → ArchiveActive (active only)
+	Sort    ListSort     // "" → ListSortActivity
 }
 
 // UpdateInput is the PATCH payload; a nil field is left unchanged. ModelOverride is a

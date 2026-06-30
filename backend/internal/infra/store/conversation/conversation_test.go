@@ -150,25 +150,34 @@ func TestList_PinnedFirstThenNewest(t *testing.T) {
 	}
 }
 
+// TestList_ArchivedFilter covers all three ArchiveScope values: default/ArchiveActive (active only),
+// ArchiveArchived (archived only), and ArchiveAll (both — the rail's "show archived" mode). cv_active
+// is newer than cv_arch so ArchiveAll's recency order is deterministic.
+//
+// TestList_ArchivedFilter 覆盖三个 ArchiveScope：默认/ArchiveActive（仅活跃）、ArchiveArchived（仅归档）、
+// ArchiveAll（两者——rail「显示已归档」）。cv_active 比 cv_arch 新，故 ArchiveAll 的活跃序确定。
 func TestList_ArchivedFilter(t *testing.T) {
 	s := newStore(t)
 	ctx := ctxWS("ws_1")
 	seed(t, s, ctx, "cv_active", "a", false, false, t2)
 	seed(t, s, ctx, "cv_arch", "b", false, true, t1)
 
-	rows, _, _ := s.List(ctx, conversationdomain.ListFilter{}) // nil → exclude archived
+	rows, _, _ := s.List(ctx, conversationdomain.ListFilter{}) // zero value → ArchiveActive (active only)
 	if got := ids(rows); !equal(got, []string{"cv_active"}) {
-		t.Errorf("default = %v, want [cv_active]", got)
+		t.Errorf("default(active) = %v, want [cv_active]", got)
 	}
-	yes := true
-	rows, _, _ = s.List(ctx, conversationdomain.ListFilter{Archived: &yes}) // archived only
+	rows, _, _ = s.List(ctx, conversationdomain.ListFilter{Archive: conversationdomain.ArchiveArchived})
 	if got := ids(rows); !equal(got, []string{"cv_arch"}) {
-		t.Errorf("archived = %v, want [cv_arch]", got)
+		t.Errorf("archived-only = %v, want [cv_arch]", got)
 	}
-	no := false
-	rows, _, _ = s.List(ctx, conversationdomain.ListFilter{Archived: &no}) // active only
+	rows, _, _ = s.List(ctx, conversationdomain.ListFilter{Archive: conversationdomain.ArchiveActive})
 	if got := ids(rows); !equal(got, []string{"cv_active"}) {
-		t.Errorf("active = %v, want [cv_active]", got)
+		t.Errorf("active-only = %v, want [cv_active]", got)
+	}
+	// ArchiveAll returns BOTH, recency-ordered (cv_active newer than cv_arch).
+	rows, _, _ = s.List(ctx, conversationdomain.ListFilter{Archive: conversationdomain.ArchiveAll})
+	if got := ids(rows); !equal(got, []string{"cv_active", "cv_arch"}) {
+		t.Errorf("all = %v, want [cv_active cv_arch] (both, recency order)", got)
 	}
 }
 
