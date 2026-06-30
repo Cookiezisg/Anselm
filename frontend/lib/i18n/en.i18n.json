@@ -16,10 +16,7 @@
     },
     "bucket": {
       "pinned": "Pinned",
-      "today": "Today",
-      "yesterday": "Yesterday",
-      "lastWeek": "Previous 7 days",
-      "older": "Older"
+      "recents": "Recents"
     }
   },
   "appName": "Anselm",

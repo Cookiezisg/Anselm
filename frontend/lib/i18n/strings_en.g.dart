@@ -473,17 +473,8 @@ class Translations$chat$bucket$en {
 	/// en: 'Pinned'
 	String get pinned => 'Pinned';
 
-	/// en: 'Today'
-	String get today => 'Today';
-
-	/// en: 'Yesterday'
-	String get yesterday => 'Yesterday';
-
-	/// en: 'Previous 7 days'
-	String get lastWeek => 'Previous 7 days';
-
-	/// en: 'Older'
-	String get older => 'Older';
+	/// en: 'Recents'
+	String get recents => 'Recents';
 }
 
 // Path: shell.ocean
@@ -1020,10 +1011,7 @@ extension on Translations {
 			'chat.time.yesterday' => 'Yesterday',
 			'chat.time.daysAgo' => ({required Object n}) => '${n} days ago',
 			'chat.bucket.pinned' => 'Pinned',
-			'chat.bucket.today' => 'Today',
-			'chat.bucket.yesterday' => 'Yesterday',
-			'chat.bucket.lastWeek' => 'Previous 7 days',
-			'chat.bucket.older' => 'Older',
+			'chat.bucket.recents' => 'Recents',
 			'appName' => 'Anselm',
 			'status.idle' => 'Idle',
 			'status.run' => 'Running',

@@ -201,81 +201,29 @@ class _AnSidebarListState extends State<AnSidebarList> {
     }
     final key = 'g$gi/t$ti';
     final open = active || _open(key);
-    // An icon'd type head rides AnRow (lead icon↔chevron on hover, rows indented one level). An
-    // icon-LESS head (e.g. chat's time buckets — there is no per-bucket glyph) is FLUSH: the label leads
-    // (no empty reserved lead), the count + a hover-revealed disclosure chevron sit at the far right, and
-    // the rows are NOT extra-indented (their own lead column already aligns them). Both heads are a
-    // disclosure BUTTON: the whole head toggles (keyboard-operable, not a mouse-only lead chevron).
-    //
-    // 带 icon 的类型头走 AnRow(lead 图标↔chevron hover、行缩进一级)。无 icon 头(如 chat 时间桶——无 per-bucket 字形)**打头**:
-    // 标签贴左(不留空 lead)、计数 + hover 显的折叠 chevron 在最右、行不额外缩进(行自身 lead 列已对齐)。两种头都是披露按钮(整头可点、键盘可达)。
-    final flush = t.icon == null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (flush)
-          _flushTypeHead(c, t, key, open)
-        else
-          AnRow(
-            icon: t.icon,
-            label: t.label ?? '',
-            meta: t.count != null ? '${t.count}' : null,
-            collapsible: true,
-            open: open,
-            onSelect: () => _toggle(key),
-            onToggle: () => _toggle(key),
-          ),
+        // The type head is a disclosure BUTTON (not an entity): the whole head toggles — onSelect=toggle so
+        // it is keyboard-operable (Enter/Space) + click, not just the mouse-only lead chevron. 类型头=展开按钮(整头切、键盘可达)。
+        AnRow(
+          icon: t.icon,
+          label: t.label ?? '',
+          meta: t.count != null ? '${t.count}' : null,
+          collapsible: true,
+          open: open,
+          onSelect: () => _toggle(key),
+          onToggle: () => _toggle(key),
+        ),
         AnExpandReveal(
           open: open,
           duration: active ? Duration.zero : null,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [for (final r in t.rows) _row(c, r, flush ? 0 : 1, active, visible)],
+            children: [for (final r in t.rows) _row(c, r, 1, active, visible)],
           ),
         ),
       ],
-    );
-  }
-
-  // An icon-less collapsible section head: flush label + far-right count + a hover-revealed disclosure
-  // chevron, no reserved lead. Space for the chevron is always held (opacity toggle) so revealing it on
-  // hover never shifts the count. The whole head toggles (AnInteractive — keyboard + click).
-  //
-  // 无 icon 可折叠分节头:标签打头 + 计数最右 + hover 显折叠 chevron,无预留 lead。chevron 槽恒占位(只切 opacity),故 hover
-  // 显示不挪动计数。整头可点(AnInteractive,键盘 + 点击)。
-  Widget _flushTypeHead(AnColors c, SidebarType t, String key, bool open) {
-    final style = AnText.meta.weight(AnText.emphasisWeight).copyWith(color: c.inkFaint);
-    return AnInteractive(
-      onTap: () => _toggle(key),
-      expanded: open,
-      builder: (context, states) => Container(
-        height: AnSize.row,
-        padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8),
-        decoration: BoxDecoration(
-          color: c.surfaceHover.whenActive(states.isActive),
-          borderRadius: BorderRadius.circular(AnRadius.button),
-        ),
-        child: Row(
-          children: [
-            Flexible(child: Text(t.label ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: style)),
-            const Spacer(),
-            if (t.count != null) Text('${t.count}', style: style),
-            AnimatedOpacity(
-              opacity: states.isActive ? 1 : 0,
-              duration: AnMotionPref.reduced(context) ? Duration.zero : AnMotion.fast,
-              child: Padding(
-                padding: const EdgeInsets.only(left: AnSpace.s6),
-                child: AnimatedRotation(
-                  duration: AnMotionPref.reduced(context) ? Duration.zero : AnMotion.mid,
-                  curve: AnMotion.spring,
-                  turns: open ? 0.25 : 0,
-                  child: Icon(AnIcons.chevronRight, size: AnSize.iconSm, color: c.inkFaint),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 

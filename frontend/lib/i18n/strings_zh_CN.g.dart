@@ -277,10 +277,7 @@ class _Translations$chat$bucket$zh_CN extends Translations$chat$bucket$en {
 
 	// Translations
 	@override String get pinned => '置顶';
-	@override String get today => '今天';
-	@override String get yesterday => '昨天';
-	@override String get lastWeek => '过去 7 天';
-	@override String get older => '更早';
+	@override String get recents => '最近';
 }
 
 // Path: shell.ocean
@@ -559,10 +556,7 @@ extension on TranslationsZhCn {
 			'chat.time.yesterday' => '昨天',
 			'chat.time.daysAgo' => ({required Object n}) => '${n} 天前',
 			'chat.bucket.pinned' => '置顶',
-			'chat.bucket.today' => '今天',
-			'chat.bucket.yesterday' => '昨天',
-			'chat.bucket.lastWeek' => '过去 7 天',
-			'chat.bucket.older' => '更早',
+			'chat.bucket.recents' => '最近',
 			'appName' => 'Anselm',
 			'status.idle' => '空闲',
 			'status.run' => '运行中',

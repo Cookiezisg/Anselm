@@ -31,7 +31,6 @@ class ConversationRail extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(conversationListProvider);
     final selected = ref.watch(selectedConversationProvider);
-    final groupByTime = ref.watch(groupByTimeProvider);
     final t = context.t;
 
     // Loading: nothing resolved yet → a shaped skeleton (deferred so a fast load never flashes it).
@@ -60,15 +59,11 @@ class ConversationRail extends ConsumerWidget {
     final model = buildConversationRailModel(
       rows,
       now: DateTime.now(),
-      groupByTime: groupByTime,
       labels: ConvRailLabels(
         newLabel: t.chat.kNew,
         filter: t.chat.filter,
         pinned: t.chat.bucket.pinned,
-        today: t.chat.bucket.today,
-        yesterday: t.chat.bucket.yesterday,
-        lastWeek: t.chat.bucket.lastWeek,
-        older: t.chat.bucket.older,
+        recents: t.chat.bucket.recents,
         time: ConvTimeStrings(
           justNow: t.chat.time.justNow,
           yesterday: t.chat.time.yesterday,

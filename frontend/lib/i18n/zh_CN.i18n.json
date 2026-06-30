@@ -16,10 +16,7 @@
     },
     "bucket": {
       "pinned": "置顶",
-      "today": "今天",
-      "yesterday": "昨天",
-      "lastWeek": "过去 7 天",
-      "older": "更早"
+      "recents": "最近"
     }
   },
   "appName": "Anselm",

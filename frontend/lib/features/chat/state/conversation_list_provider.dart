@@ -42,25 +42,6 @@ class ShowArchivedController extends Notifier<bool> {
 final showArchivedProvider =
     NotifierProvider<ShowArchivedController, bool>(ShowArchivedController.new);
 
-/// Whether the rail groups conversations into time buckets (置顶 / 今天 / 昨天 / 过去7天 / 更早) — the ⚙
-/// "group by time" toggle, default ON. false → a flat list (pinned still lead, server order, no bucket
-/// heads). A pure VIEW preference applied at render (NOT a server param), so it needs no re-fetch.
-///
-/// rail 是否按时间桶分组(置顶/今天/昨天/过去7天/更早)——⚙「按时间分组」开关,默认开。false → 扁平列表(置顶仍领先、服务端序、无桶头)。
-/// 纯视图偏好、渲染时应用(非服务端参),故无需重取。
-class GroupByTimeController extends Notifier<bool> {
-  @override
-  bool build() => true;
-
-  void toggle() => state = !state;
-  void set(bool value) {
-    if (value != state) state = value;
-  }
-}
-
-final groupByTimeProvider =
-    NotifierProvider<GroupByTimeController, bool>(GroupByTimeController.new);
-
 /// The conversation rail list — first page on build, [loadMore] appends the next keyset page. It
 /// `watch`es the sort + show-archived providers, so changing either re-runs build → a fresh first page
 /// from the top (the cursor-reset-on-sort-switch rule, free). Realtime list mutation (the SSE merge)
