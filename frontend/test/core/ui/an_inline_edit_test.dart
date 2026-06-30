@@ -112,6 +112,21 @@ void main() {
     expect(find.text('Hello'), findsOneWidget); // reverted to original
   });
 
+  testWidgets('onAbort fires on Esc and on Cancel (a host can drop its editing state)', (tester) async {
+    var aborts = 0;
+    await tester.pumpWidget(host(AnInlineEdit(value: 'Hello', startEditing: true, onCommit: (_) {}, onAbort: () => aborts++)));
+    // Esc aborts → onAbort fires.
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(aborts, 1);
+    // Re-enter via the pencil, then the Cancel button also aborts.
+    await tester.tap(find.byType(AnButton)); // idle pencil
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(t.action.cancel));
+    await tester.pumpAndSettle();
+    expect(aborts, 2);
+  });
+
   testWidgets('disabled does not enter edit', (tester) async {
     await tester.pumpWidget(host(AnInlineEdit(value: 'X', enabled: false, onCommit: (_) {})));
     await tester.tap(find.byType(AnButton), warnIfMissed: false);

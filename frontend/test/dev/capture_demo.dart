@@ -6,6 +6,7 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:flutter/gestures.dart';
 import 'package:anselm/app/router.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/design/tokens.dart';
@@ -60,6 +61,11 @@ const _chatSel = String.fromEnvironment('CHATSEL');
 // Optional `--dart-define=CHATMENU=1` taps the rail's ⚙ sliders button to open the Sort/Display menu.
 // 点 rail 的 ⚙ sliders 钮,展开排序/显示菜单。
 const _chatMenu = String.fromEnvironment('CHATMENU');
+// Optional `--dart-define=CHATROWMENU=1` (chat ocean) hovers a conversation row + opens its ⋯ menu
+// (rename / pin / archive / delete). `--dart-define=CHATRENAME=1` goes one further: taps 重命名 so the row
+// shows the in-place rename field. 行 ⋯ 菜单 / 就地改名截图。
+const _chatRowMenu = String.fromEnvironment('CHATROWMENU');
+const _chatRename = String.fromEnvironment('CHATRENAME');
 // Optional `--dart-define=WSMENU=1` opens the workspace quick-actions menu — verify it matches the
 // trigger width. 打开 workspace 快捷菜单,验它与触发钮等宽。
 const _wsmenu = String.fromEnvironment('WSMENU');
@@ -142,6 +148,43 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 250)); // popover open animation 浮层开
       outName = '${outName}_menu';
+    }
+
+    // Hover a conversation row + open its ⋯ menu (rename / pin / archive / delete), optionally tapping
+    // 重命名 to show the in-place rename field. A real mouse + alwaysTraditional highlight reveals the
+    // hover-gated trail action; fixed pumps (NOT pumpAndSettle — the demo has a forever-breathing
+    // generating dot). 悬停某行 + 开 ⋯ 菜单(可再点重命名显就地编辑框)。
+    if (_chatRowMenu.isNotEmpty || _chatRename.isNotEmpty) {
+      WidgetsBinding.instance.focusManager.highlightStrategy = FocusHighlightStrategy.alwaysTraditional;
+      final row = find.text('API key 轮换排查'); // a calm recents row (no animated dot)
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      final rowY = tester.getCenter(row.first).dy;
+      await mouse.moveTo(tester.getCenter(row.first));
+      await tester.pump(); // hover → the row's ⋯ becomes hit-testable
+      // Pick the ⋯ at THIS row's y (every row lays one out; only the hovered one is interactive). 取该行 y 的 ⋯。
+      var p = Offset.zero;
+      final mores = find.byIcon(AnIcons.more);
+      for (var i = 0; i < mores.evaluate().length; i++) {
+        final c = tester.getCenter(mores.at(i));
+        if ((c.dy - rowY).abs() < 4) {
+          p = c;
+          break;
+        }
+      }
+      await mouse.moveTo(p);
+      await tester.pump();
+      await mouse.down(p);
+      await mouse.up();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250)); // popover open
+      outName = '${outName}_rowmenu';
+      if (_chatRename.isNotEmpty) {
+        await tester.tap(find.text(LocaleSettings.instance.currentTranslations.chat.rename));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 250)); // the row becomes the rename field
+        outName = '${outName.replaceFirst('_rowmenu', '')}_rename';
+      }
     }
 
     // Open the notifications tray (bell) — it takes over the left-island middle. 拉开通知托盘,接管左岛中段。

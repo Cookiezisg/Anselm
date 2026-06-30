@@ -76,6 +76,15 @@ class _Translations$chat$zh_CN extends Translations$chat$en {
 	@override String get showArchived => '显示已归档';
 	@override String get showCount => '显示分组计数';
 	@override String get showTime => '显示时间';
+	@override String get rename => '重命名';
+	@override String get pin => '置顶';
+	@override String get unpin => '取消置顶';
+	@override String get archive => '归档';
+	@override String get unarchive => '取消归档';
+	@override String get deleteTitle => '删除这个对话？';
+	@override String deleteBody({required Object title}) => '「${title}」将被移除。';
+	@override String get deleteConfirm => '删除';
+	@override String get actionFailed => '操作失败';
 	@override late final _Translations$chat$time$zh_CN time = _Translations$chat$time$zh_CN._(_root);
 	@override late final _Translations$chat$bucket$zh_CN bucket = _Translations$chat$bucket$zh_CN._(_root);
 }
@@ -183,6 +192,7 @@ class _Translations$a11y$zh_CN extends Translations$a11y$en {
 	// Translations
 	@override String editingField({required Object field}) => '正在编辑 ${field}';
 	@override String get displayOptions => '显示选项';
+	@override String get moreActions => '更多操作';
 	@override String codeBlock({required Object lang, required Object lines}) => '代码块,${lang},${lines} 行';
 	@override String codeBlockPlain({required Object lines}) => '代码块,${lines} 行';
 	@override String jsonTree({required Object count}) => 'JSON 树,${count} 项';
@@ -569,6 +579,15 @@ extension on TranslationsZhCn {
 			'chat.showArchived' => '显示已归档',
 			'chat.showCount' => '显示分组计数',
 			'chat.showTime' => '显示时间',
+			'chat.rename' => '重命名',
+			'chat.pin' => '置顶',
+			'chat.unpin' => '取消置顶',
+			'chat.archive' => '归档',
+			'chat.unarchive' => '取消归档',
+			'chat.deleteTitle' => '删除这个对话？',
+			'chat.deleteBody' => ({required Object title}) => '「${title}」将被移除。',
+			'chat.deleteConfirm' => '删除',
+			'chat.actionFailed' => '操作失败',
 			'chat.time.justNow' => '刚刚',
 			'chat.time.minutesAgo' => ({required Object n}) => '${n} 分钟前',
 			'chat.time.hoursAgo' => ({required Object n}) => '${n} 小时前',
@@ -631,6 +650,7 @@ extension on TranslationsZhCn {
 			'ref.approval' => '审批',
 			'a11y.editingField' => ({required Object field}) => '正在编辑 ${field}',
 			'a11y.displayOptions' => '显示选项',
+			'a11y.moreActions' => '更多操作',
 			'a11y.codeBlock' => ({required Object lang, required Object lines}) => '代码块,${lang},${lines} 行',
 			'a11y.codeBlockPlain' => ({required Object lines}) => '代码块,${lines} 行',
 			'a11y.jsonTree' => ({required Object count}) => 'JSON 树,${count} 项',

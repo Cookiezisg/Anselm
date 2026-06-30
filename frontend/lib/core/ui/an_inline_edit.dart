@@ -29,6 +29,7 @@ class AnInlineEdit extends StatefulWidget {
   const AnInlineEdit({
     required this.value,
     required this.onCommit,
+    this.onAbort,
     this.enabled = true,
     this.startEditing = false,
     this.style,
@@ -38,6 +39,12 @@ class AnInlineEdit extends StatefulWidget {
 
   final String value;
   final ValueChanged<String> onCommit;
+
+  /// Fired when an edit is abandoned (Esc / Cancel) — the resting text is unchanged. A host that MOUNTS
+  /// this only while editing (e.g. a sidebar row's rename, unmounted on done) wires this to drop its
+  /// editing state so the row reverts to its display widget instead of flashing the idle pencil.
+  /// 弃编辑(Esc/取消)回调,静态文字不变。仅在编辑时挂载本件的宿主(如 rail 行改名,完事即卸)接它清编辑态、回展示件、不闪 idle 铅笔。
+  final VoidCallback? onAbort;
   final bool enabled;
 
   /// Open directly in edit mode (e.g. a freshly created entity awaiting its first name). 直接进编辑态。
@@ -101,10 +108,13 @@ class _AnInlineEditState extends State<AnInlineEdit> {
     widget.onCommit(next);
   }
 
-  void _abort() => setState(() {
-        _ctl.text = _committed;
-        _editing = false;
-      });
+  void _abort() {
+    setState(() {
+      _ctl.text = _committed;
+      _editing = false;
+    });
+    widget.onAbort?.call();
+  }
 
   @override
   Widget build(BuildContext context) {

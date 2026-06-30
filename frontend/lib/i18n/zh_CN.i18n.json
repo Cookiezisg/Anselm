@@ -15,6 +15,15 @@
     "showArchived": "显示已归档",
     "showCount": "显示分组计数",
     "showTime": "显示时间",
+    "rename": "重命名",
+    "pin": "置顶",
+    "unpin": "取消置顶",
+    "archive": "归档",
+    "unarchive": "取消归档",
+    "deleteTitle": "删除这个对话？",
+    "deleteBody": "「$title」将被移除。",
+    "deleteConfirm": "删除",
+    "actionFailed": "操作失败",
     "time": {
       "justNow": "刚刚",
       "minutesAgo": "$n 分钟前",
@@ -95,6 +104,7 @@
   "a11y": {
     "editingField": "正在编辑 $field",
     "displayOptions": "显示选项",
+    "moreActions": "更多操作",
     "codeBlock": "代码块,$lang,$lines 行",
     "codeBlockPlain": "代码块,$lines 行",
     "jsonTree": "JSON 树,$count 项",

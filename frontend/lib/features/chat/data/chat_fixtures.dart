@@ -65,4 +65,34 @@ class FixtureChatRepository implements ChatRepository {
       ..sort(_comparator(sort));
     return _page(rows, cursor, limit);
   }
+
+  // ── writes (mutate the seed list, mirroring the backend's PATCH/DELETE) ──
+
+  // Find + replace by id; throw if gone (mirrors the backend's 404 CONVERSATION_NOT_FOUND so the error
+  // path is exercisable). 按 id 改;不存在即抛(镜像后端 404)。
+  Conversation _mutate(String id, Conversation Function(Conversation) f) {
+    final i = _all.indexWhere((c) => c.id == id);
+    if (i < 0) throw StateError('conversation not found: $id');
+    final next = f(_all[i]);
+    _all[i] = next;
+    return next;
+  }
+
+  @override
+  Future<Conversation> renameConversation(String id, String title) async =>
+      _mutate(id, (c) => c.copyWith(title: title.trim()));
+
+  @override
+  Future<Conversation> setPinned(String id, bool pinned) async =>
+      _mutate(id, (c) => c.copyWith(pinned: pinned));
+
+  @override
+  Future<Conversation> setArchived(String id, bool archived) async =>
+      _mutate(id, (c) => c.copyWith(archived: archived));
+
+  @override
+  Future<void> deleteConversation(String id) async {
+    if (!_all.any((c) => c.id == id)) throw StateError('conversation not found: $id');
+    _all.removeWhere((c) => c.id == id);
+  }
 }

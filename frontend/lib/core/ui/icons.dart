@@ -53,6 +53,7 @@ abstract final class AnIcons {
   static final IconData gear = _thin(LucideIcons.settings);
   static final IconData bell = _thin(LucideIcons.bell); // notifications 通知
   static final IconData pin = _thin(LucideIcons.pin); // pinned conversations 置顶对话
+  static final IconData archive = _thin(LucideIcons.archive); // archive a conversation 归档对话
 
   // ── block / conversation semantics ──
   static final IconData reasoning = _thin(LucideIcons.brain);

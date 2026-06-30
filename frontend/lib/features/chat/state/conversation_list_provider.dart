@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/contract/conversation.dart';
 import '../data/chat_providers.dart';
 import '../data/chat_repository.dart';
 import 'conversation_list_state.dart';
@@ -114,6 +115,38 @@ class ConversationListNotifier extends AsyncNotifier<ConversationListState> {
       state = AsyncData(now.copyWith(loadingMore: false));
       rethrow;
     }
+  }
+
+  /// Fold an authoritative updated conversation (a PATCH response) into the loaded list: replace the row
+  /// in place, or DROP it when it just got archived while the rail isn't showing archived (it leaves the
+  /// active list). Pin/unpin needs no move here — the rail model re-buckets by `pinned` on rebuild. This
+  /// is the initiator's own path (it has the response); idempotent so a later SSE echo of the same change
+  /// (notifications carry no echo suppression) re-applies safely.
+  ///
+  /// 把权威更新(PATCH 响应)折进列表:就地替换;若刚归档且 rail 不显归档则移出(离开活跃列表)。置顶/取消无需在此搬动
+  /// (model 重建时按 pinned 重分组)。这是发起端自己的路径(已有响应);幂等(SSE 回声无抑制,重放安全)。
+  void applyUpdate(Conversation c) {
+    final cur = state.value;
+    if (cur == null) return;
+    final rows = [...cur.rows];
+    final i = rows.indexWhere((r) => r.id == c.id);
+    final showArchived = ref.read(showArchivedProvider);
+    if (c.archived && !showArchived) {
+      if (i < 0) return; // already absent → idempotent no-op 已不在,幂等
+      rows.removeAt(i);
+    } else if (i >= 0) {
+      rows[i] = c;
+    } else {
+      return; // not in the loaded window (e.g. unarchived into view) — a fresh page brings it 不在已载窗,留给重翻
+    }
+    state = AsyncData(cur.copyWith(rows: rows));
+  }
+
+  /// Drop a (soft-)deleted conversation from the list. Idempotent. 移除已删行;幂等。
+  void applyDelete(String id) {
+    final cur = state.value;
+    if (cur == null || !cur.rows.any((r) => r.id == id)) return;
+    state = AsyncData(cur.copyWith(rows: cur.rows.where((r) => r.id != id).toList(growable: false)));
   }
 }
 

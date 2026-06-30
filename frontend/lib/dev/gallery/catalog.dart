@@ -365,6 +365,7 @@ final GalleryCategory _g4NavShell = GalleryCategory('导航与壳 Nav & Shell', 
   ]),
   GalleryItem('AnSidebarList', '左岛侧栏:New + 域内过滤(sliders 菜单)+ groups→types→rows 递归树(文档树可折叠)', [
     GallerySpecimen('sidebar (filter + tree + select)', (_) => const _SidebarDemo(), height: 420, span: true),
+    GallerySpecimen('row 改名中 (就地编辑态)', (_) => const _SidebarDemo(editingId: 'fn1'), height: 420, span: true),
   ]),
   GalleryItem('AnOceanHeader', '海洋页头:面包屑 + H2 标题(可就地改名)+ 右动作 + meta', [
     GallerySpecimen('editable (crumb + H2 + actions + meta)', (_) => const _OceanHeaderDemo(), span: true),
@@ -1001,13 +1002,18 @@ class _TabsDemoState extends State<_TabsDemo> {
 
 // AnSidebarList demo (stateful: holds selection + slider checks). AnSidebarList 演示(持选中 + 滑块勾选)。
 class _SidebarDemo extends StatefulWidget {
-  const _SidebarDemo();
+  const _SidebarDemo({this.editingId});
+
+  /// Pre-open this row in the in-place rename state (the 就地编辑态 specimen). 预开此行的就地改名态。
+  final String? editingId;
+
   @override
   State<_SidebarDemo> createState() => _SidebarDemoState();
 }
 
 class _SidebarDemoState extends State<_SidebarDemo> {
   String _sel = 'fn1';
+  late String? _editing = widget.editingId;
   final Set<String> _opts = {'updated', 'versions', 'status'};
   void _opt(String k) => setState(() => _opts.contains(k) ? _opts.remove(k) : _opts.add(k));
 
@@ -1043,6 +1049,9 @@ class _SidebarDemoState extends State<_SidebarDemo> {
       selectedId: _sel,
       onSelect: (id) => setState(() => _sel = id),
       onNew: () {},
+      editingRowId: _editing,
+      onRenameCommit: (id, v) => setState(() => _editing = null),
+      onRenameCancel: () => setState(() => _editing = null),
       menuEntries: [
         const AnMenuSection('Sort'),
         AnMenuItem(label: 'Recently updated', checked: _opts.contains('updated'), keepOpen: true, onTap: () => _opt('updated')),

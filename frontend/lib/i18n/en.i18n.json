@@ -15,6 +15,15 @@
     "showArchived": "Show archived",
     "showCount": "Show counts",
     "showTime": "Show time",
+    "rename": "Rename",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "archive": "Archive",
+    "unarchive": "Unarchive",
+    "deleteTitle": "Delete this conversation?",
+    "deleteBody": "“$title” will be removed.",
+    "deleteConfirm": "Delete",
+    "actionFailed": "Action failed",
     "time": {
       "justNow": "Just now",
       "minutesAgo": "$n min ago",
@@ -95,6 +104,7 @@
   "a11y": {
     "editingField": "Editing $field",
     "displayOptions": "Display options",
+    "moreActions": "More actions",
     "codeBlock": "Code block, $lang, $lines lines",
     "codeBlockPlain": "Code block, $lines lines",
     "jsonTree": "JSON tree, $count items",

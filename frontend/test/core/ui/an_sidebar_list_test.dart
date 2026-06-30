@@ -1,6 +1,8 @@
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/ui/ui.dart';
+import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // AnSidebarList = New + in-domain filter + groups→types→rows tree (on AnRow/AnInput/AnMenu). Selection is
@@ -19,10 +21,14 @@ void main() {
         ],
       );
 
-  Widget host(Widget child) => MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: AnTheme.light(),
-        home: Scaffold(body: Center(child: SizedBox(width: 280, height: 400, child: child))),
+  // TranslationProvider: the in-place rename row mounts AnInlineEdit → AnEditAffordance, which reads
+  // context.t for its button labels. 就地改名行的 AnEditAffordance 读 context.t,故需 TranslationProvider。
+  Widget host(Widget child) => TranslationProvider(
+        child: MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: AnTheme.light(),
+          home: Scaffold(body: Center(child: SizedBox(width: 280, height: 400, child: child))),
+        ),
       );
 
   testWidgets('renders New + filter + group/type heads + rows', (tester) async {
@@ -66,5 +72,47 @@ void main() {
     await tester.tap(find.text('Pinned')); // the group head toggles
     await tester.pumpAndSettle();
     expect(find.text('normalize-input'), findsNothing); // collapsed
+  });
+
+  testWidgets('editingRowId swaps that row for an in-place rename field; commit bubbles (id, value)', (tester) async {
+    String? gotId, gotValue;
+    await tester.pumpWidget(host(AnSidebarList(
+      model: model(),
+      onSelect: (_) {},
+      editingRowId: 'fn1',
+      onRenameCommit: (id, v) {
+        gotId = id;
+        gotValue = v;
+      },
+      onRenameCancel: () {},
+    )));
+    await tester.pumpAndSettle();
+    // The edited row is now the rename primitive (its value seeds the field); the OTHER row is untouched.
+    // Scope to the AnInlineEdit's field — AnSidebarList also has the filter input. 限定到编辑框(列表还有过滤框)。
+    final field = find.descendant(of: find.byType(AnInlineEdit), matching: find.byType(EditableText));
+    expect(find.byType(AnInlineEdit), findsOneWidget);
+    expect(tester.widget<EditableText>(field).controller.text, 'normalize-input');
+    expect(find.text('validate-schema'), findsOneWidget);
+
+    await tester.enterText(field, 'renamed-fn');
+    await tester.testTextInput.receiveAction(TextInputAction.done); // Enter → commit
+    await tester.pumpAndSettle();
+    expect(gotId, 'fn1');
+    expect(gotValue, 'renamed-fn');
+  });
+
+  testWidgets('Esc in the editing row fires onRenameCancel', (tester) async {
+    var cancels = 0;
+    await tester.pumpWidget(host(AnSidebarList(
+      model: model(),
+      onSelect: (_) {},
+      editingRowId: 'fn1',
+      onRenameCommit: (_, _) {},
+      onRenameCancel: () => cancels++,
+    )));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(cancels, 1);
   });
 }

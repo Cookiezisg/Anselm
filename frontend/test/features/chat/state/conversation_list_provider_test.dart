@@ -88,4 +88,39 @@ void main() {
     final all = await c.read(conversationListProvider.future);
     expect(all.rows.map((r) => r.id).toSet(), {'cv_a', 'cv_x'});
   });
+
+  test('applyUpdate replaces a row in place (rename, optimistic — no re-fetch)', () async {
+    final c = _container(FixtureChatRepository(conversations: [_c('cv_a', 'A', hour: 9), _c('cv_b', 'B', hour: 11)]));
+    await c.read(conversationListProvider.future);
+    c.read(conversationListProvider.notifier).applyUpdate(_c('cv_a', 'Renamed', hour: 9));
+    final rows = c.read(conversationListProvider).value!.rows;
+    expect(rows.length, 2);
+    expect(rows.firstWhere((r) => r.id == 'cv_a').title, 'Renamed');
+  });
+
+  test('applyUpdate drops a row that just got archived while show-archived is off', () async {
+    final c = _container(FixtureChatRepository(conversations: [_c('cv_a', 'A', hour: 9), _c('cv_b', 'B', hour: 11)]));
+    await c.read(conversationListProvider.future);
+    c.read(conversationListProvider.notifier).applyUpdate(_c('cv_a', 'A', archived: true, hour: 9));
+    expect(c.read(conversationListProvider).value!.rows.map((r) => r.id), ['cv_b']);
+  });
+
+  test('applyUpdate keeps a just-archived row when show-archived is on (gray-dot mode)', () async {
+    final c = _container(FixtureChatRepository(conversations: [_c('cv_a', 'A')]));
+    c.read(showArchivedProvider.notifier).set(true);
+    await c.read(conversationListProvider.future);
+    c.read(conversationListProvider.notifier).applyUpdate(_c('cv_a', 'A', archived: true));
+    final rows = c.read(conversationListProvider).value!.rows;
+    expect(rows.single.archived, true);
+  });
+
+  test('applyDelete removes the row and is idempotent', () async {
+    final c = _container(FixtureChatRepository(conversations: [_c('cv_a', 'A', hour: 9), _c('cv_b', 'B', hour: 11)]));
+    await c.read(conversationListProvider.future);
+    final n = c.read(conversationListProvider.notifier);
+    n.applyDelete('cv_a');
+    expect(c.read(conversationListProvider).value!.rows.map((r) => r.id), ['cv_b']);
+    n.applyDelete('cv_a'); // already gone → no-op, no throw
+    expect(c.read(conversationListProvider).value!.rows.map((r) => r.id), ['cv_b']);
+  });
 }

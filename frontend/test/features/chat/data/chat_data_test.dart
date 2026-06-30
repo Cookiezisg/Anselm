@@ -119,6 +119,40 @@ void main() {
     });
   });
 
+  group('FixtureChatRepository writes (mutate the seed, mirror PATCH/DELETE)', () {
+    test('rename sets a trimmed title + returns the updated row', () async {
+      final r = _repo();
+      final updated = await r.renameConversation('cv_a', '  Apricot  ');
+      expect(updated.title, 'Apricot'); // trimmed (backend TrimSpace)
+      final p = await r.listConversations(sort: ConvSort.name);
+      expect(p.items.firstWhere((c) => c.id == 'cv_a').title, 'Apricot');
+    });
+
+    test('setPinned / setArchived flip the flags', () async {
+      final r = _repo();
+      expect((await r.setPinned('cv_a', true)).pinned, true);
+      expect((await r.setArchived('cv_c', true)).archived, true);
+      // cv_c now hidden under the active scope, visible under all.
+      final active = await r.listConversations();
+      expect(active.items.map((c) => c.id), isNot(contains('cv_c')));
+      final all = await r.listConversations(archive: ConvArchive.all);
+      expect(all.items.map((c) => c.id), contains('cv_c'));
+    });
+
+    test('delete removes the row entirely', () async {
+      final r = _repo();
+      await r.deleteConversation('cv_a');
+      final all = await r.listConversations(archive: ConvArchive.all);
+      expect(all.items.map((c) => c.id), isNot(contains('cv_a')));
+    });
+
+    test('writing a missing id throws (mirrors 404 CONVERSATION_NOT_FOUND)', () async {
+      expect(() => _repo().renameConversation('cv_zzz', 'x'), throwsStateError);
+      expect(() => _repo().setPinned('cv_zzz', true), throwsStateError);
+      expect(() => _repo().deleteConversation('cv_zzz'), throwsStateError);
+    });
+  });
+
   test('chatRepositoryProvider swaps to the fixture at one seam', () {
     final container = ProviderContainer(
       overrides: [chatRepositoryProvider.overrideWithValue(_repo())],

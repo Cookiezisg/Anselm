@@ -111,6 +111,33 @@ class Translations$chat$en {
 	/// en: 'Show time'
 	String get showTime => 'Show time';
 
+	/// en: 'Rename'
+	String get rename => 'Rename';
+
+	/// en: 'Pin'
+	String get pin => 'Pin';
+
+	/// en: 'Unpin'
+	String get unpin => 'Unpin';
+
+	/// en: 'Archive'
+	String get archive => 'Archive';
+
+	/// en: 'Unarchive'
+	String get unarchive => 'Unarchive';
+
+	/// en: 'Delete this conversation?'
+	String get deleteTitle => 'Delete this conversation?';
+
+	/// en: '“$title” will be removed.'
+	String deleteBody({required Object title}) => '“${title}” will be removed.';
+
+	/// en: 'Delete'
+	String get deleteConfirm => 'Delete';
+
+	/// en: 'Action failed'
+	String get actionFailed => 'Action failed';
+
 	late final Translations$chat$time$en time = Translations$chat$time$en.internal(_root);
 	late final Translations$chat$bucket$en bucket = Translations$chat$bucket$en.internal(_root);
 }
@@ -319,6 +346,9 @@ class Translations$a11y$en {
 
 	/// en: 'Display options'
 	String get displayOptions => 'Display options';
+
+	/// en: 'More actions'
+	String get moreActions => 'More actions';
 
 	/// en: 'Code block, $lang, $lines lines'
 	String codeBlock({required Object lang, required Object lines}) => 'Code block, ${lang}, ${lines} lines';
@@ -1046,6 +1076,15 @@ extension on Translations {
 			'chat.showArchived' => 'Show archived',
 			'chat.showCount' => 'Show counts',
 			'chat.showTime' => 'Show time',
+			'chat.rename' => 'Rename',
+			'chat.pin' => 'Pin',
+			'chat.unpin' => 'Unpin',
+			'chat.archive' => 'Archive',
+			'chat.unarchive' => 'Unarchive',
+			'chat.deleteTitle' => 'Delete this conversation?',
+			'chat.deleteBody' => ({required Object title}) => '“${title}” will be removed.',
+			'chat.deleteConfirm' => 'Delete',
+			'chat.actionFailed' => 'Action failed',
 			'chat.time.justNow' => 'Just now',
 			'chat.time.minutesAgo' => ({required Object n}) => '${n} min ago',
 			'chat.time.hoursAgo' => ({required Object n}) => '${n} hr ago',
@@ -1108,6 +1147,7 @@ extension on Translations {
 			'ref.approval' => 'Approval',
 			'a11y.editingField' => ({required Object field}) => 'Editing ${field}',
 			'a11y.displayOptions' => 'Display options',
+			'a11y.moreActions' => 'More actions',
 			'a11y.codeBlock' => ({required Object lang, required Object lines}) => 'Code block, ${lang}, ${lines} lines',
 			'a11y.codeBlockPlain' => ({required Object lines}) => 'Code block, ${lines} lines',
 			'a11y.jsonTree' => ({required Object count}) => 'JSON tree, ${count} items',

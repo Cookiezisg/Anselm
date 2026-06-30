@@ -7,11 +7,13 @@ import '../design/typography.dart';
 import '../model/sidebar_model.dart';
 import 'an_button.dart';
 import 'an_expand_reveal.dart';
+import 'an_inline_edit.dart';
 import 'an_input.dart';
 import 'an_interactive.dart';
 import 'an_menu.dart';
 import 'an_row.dart';
 import 'an_scroll_behavior.dart';
+import 'an_status_dot.dart';
 import 'icons.dart';
 
 /// C5 — the left-rail sidebar list: a New row + an in-domain filter (with a sliders menu) + a recursive
@@ -41,6 +43,9 @@ class AnSidebarList extends StatefulWidget {
     this.menuEntries = const [],
     this.showNew = true,
     this.rowActionsBuilder,
+    this.editingRowId,
+    this.onRenameCommit,
+    this.onRenameCancel,
     super.key,
   });
 
@@ -56,6 +61,17 @@ class AnSidebarList extends StatefulWidget {
 
   /// Optional trailing actions per row (e.g. add / more), keyed by row id. 行尾动作(add/more)。
   final List<Widget> Function(String rowId)? rowActionsBuilder;
+
+  /// In-place rename: the row with this id renders an [AnInlineEdit] (opened, select-all) in its label
+  /// slot instead of the static [AnRow] — the lead dot + indent stay so nothing shifts. The host (e.g. a
+  /// row-more menu's "Rename") owns this id and clears it on commit/cancel; [onRenameCommit] gets the new
+  /// value (the host trims / no-ops empty-or-unchanged), [onRenameCancel] fires on Esc / Cancel. Composes
+  /// the gallery's purpose-built rename primitive — no bespoke editing field.
+  /// 就地改名:此 id 的行在 label 槽渲 AnInlineEdit(已开、全选)替代静态 AnRow,lead 点 + 缩进不变故不抖。宿主持此 id、
+  /// commit/cancel 时清;onRenameCommit 收新值(宿主 trim / 空或未变即 no-op),onRenameCancel 在 Esc/取消触发。复用现成改名原语。
+  final String? editingRowId;
+  final void Function(String id, String value)? onRenameCommit;
+  final VoidCallback? onRenameCancel;
 
   @override
   State<AnSidebarList> createState() => _AnSidebarListState();
@@ -235,6 +251,8 @@ class _AnSidebarListState extends State<AnSidebarList> {
   // recursive entity row (+ branch children). 递归实体行(+ 树枝子)。
   Widget _row(AnColors c, SidebarRow r, int depth, bool active, Set<String> visible) {
     if (active && !visible.contains(r.id)) return const SizedBox.shrink();
+    // In-place rename: swap THIS row's body for the rename primitive (lead + indent preserved). 此行换就地改名件。
+    if (r.id == widget.editingRowId) return _editingRow(c, r, depth);
     final branch = r.hasChildren;
     final open = active || _open('r:${r.id}'); // a query forces branches open to reveal matches 过滤强制展开
     final row = AnRow(
@@ -265,6 +283,42 @@ class _AnSidebarListState extends State<AnSidebarList> {
           ),
         ),
       ],
+    );
+  }
+
+  // The rename variant of a row: the SAME lead column (status dot or empty) + indent as [AnRow], with the
+  // label slot replaced by the gallery's [AnInlineEdit] (opened + select-all via startEditing). Commit /
+  // abort bubble to the host, which owns [editingRowId] and clears it. 改名态行:与 AnRow 同 lead/缩进,label 换 AnInlineEdit。
+  Widget _editingRow(AnColors c, SidebarRow r, int depth) {
+    return Padding(
+      padding: EdgeInsetsDirectional.only(
+        start: AnSpace.s8 + depth * AnSize.iconLg, // pad-row + per-level indent (matches AnRow) 与 AnRow 同缩进
+        end: AnSpace.s8,
+      ),
+      child: SizedBox(
+        height: AnSize.row,
+        child: Row(
+          children: [
+            SizedBox(
+              width: AnSize.icon,
+              height: AnSize.icon,
+              child: Center(
+                child: r.dot != null ? ExcludeSemantics(child: AnStatusDot(r.dot!)) : const SizedBox.shrink(),
+              ),
+            ),
+            const SizedBox(width: AnSpace.s8),
+            Expanded(
+              child: AnInlineEdit(
+                value: r.label,
+                startEditing: true,
+                minHeight: AnSize.row,
+                onCommit: (v) => widget.onRenameCommit?.call(r.id, v),
+                onAbort: widget.onRenameCancel,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

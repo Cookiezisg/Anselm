@@ -57,6 +57,21 @@ abstract interface class ChatRepository {
     ConvArchive archive,
     String? search,
   });
+
+  /// Rename a thread (`PATCH {title}`). Returns the authoritative updated object so the caller patches
+  /// its list state from it (the initiator never waits on the SSE echo — notifications are for OTHER
+  /// clients, and carry no echo suppression, so the list merge must be idempotent). One PATCH = one
+  /// semantic field (the backend's `action` is otherwise undefined). 重命名,返权威对象供调用方 patch 列表(不等 SSE)。
+  Future<Conversation> renameConversation(String id, String title);
+
+  /// Pin / unpin (`PATCH {pinned}`). 置顶/取消(PATCH {pinned})。
+  Future<Conversation> setPinned(String id, bool pinned);
+
+  /// Archive / unarchive (`PATCH {archived}`). 归档/取消(PATCH {archived})。
+  Future<Conversation> setArchived(String id, bool archived);
+
+  /// Soft-delete (`DELETE` → 204, tombstoned server-side; the rail just drops the row). 软删(204)。
+  Future<void> deleteConversation(String id);
 }
 
 /// The production repository over the Phase-4.0 pipeline. Holds no state; the method is a thin
@@ -87,4 +102,23 @@ class LiveChatRepository implements ChatRepository {
     };
     return _api.getPage('/api/v1/conversations', Conversation.fromJson, query: q);
   }
+
+  // Each write is one PATCH of one semantic field (rename / pin / archive) or a DELETE — the response is
+  // the authoritative new Conversation (PATCH) the caller folds into its list. 每写=单字段 PATCH 或 DELETE。
+  String _path(String id) => '/api/v1/conversations/$id';
+
+  @override
+  Future<Conversation> renameConversation(String id, String title) =>
+      _api.patchEntity(_path(id), Conversation.fromJson, body: {'title': title});
+
+  @override
+  Future<Conversation> setPinned(String id, bool pinned) =>
+      _api.patchEntity(_path(id), Conversation.fromJson, body: {'pinned': pinned});
+
+  @override
+  Future<Conversation> setArchived(String id, bool archived) =>
+      _api.patchEntity(_path(id), Conversation.fromJson, body: {'archived': archived});
+
+  @override
+  Future<void> deleteConversation(String id) => _api.delete(_path(id));
 }
