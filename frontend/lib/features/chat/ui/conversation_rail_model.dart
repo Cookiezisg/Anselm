@@ -99,16 +99,21 @@ SidebarModel buildConversationRailModel(
   List<Conversation> rows, {
   required DateTime now,
   required ConvRailLabels labels,
+  bool showCount = true,
+  bool showTime = true,
 }) {
+  // showTime/showCount are the ⚙ "show time" / "show counts" toggles: a null meta/count renders nothing
+  // (AnRow omits the trailing time; the section head omits the count). showTime/showCount = ⚙ 开关:meta/count 为 null 则不渲。
   SidebarRow toRow(Conversation c) => SidebarRow(
         id: c.id,
         label: c.title,
-        meta: conversationTimeLabel(c.lastMessageAt, now, labels.time),
+        meta: showTime ? conversationTimeLabel(c.lastMessageAt, now, labels.time) : null,
         dot: conversationDot(c),
       );
 
   final pinned = [for (final c in rows) if (c.pinned) toRow(c)];
   final recents = [for (final c in rows) if (!c.pinned) toRow(c)];
+  int? count(int n) => showCount ? n : null;
 
   return SidebarModel(
     newLabel: labels.newLabel,
@@ -116,9 +121,9 @@ SidebarModel buildConversationRailModel(
     groups: [
       SidebarGroup(types: [
         if (pinned.isNotEmpty)
-          SidebarType(label: labels.pinned, icon: AnIcons.pin, count: pinned.length, rows: pinned),
+          SidebarType(label: labels.pinned, icon: AnIcons.pin, count: count(pinned.length), rows: pinned),
         if (recents.isNotEmpty)
-          SidebarType(label: labels.recents, icon: AnIcons.history, count: recents.length, rows: recents),
+          SidebarType(label: labels.recents, icon: AnIcons.history, count: count(recents.length), rows: recents),
       ]),
     ],
   );

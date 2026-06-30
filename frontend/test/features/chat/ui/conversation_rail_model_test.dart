@@ -104,5 +104,16 @@ void main() {
           buildConversationRailModel([_cAt('cv_a', _now)], now: _now, labels: _labels).groups.single.types;
       expect(types.map((t) => t.label), ['RECENTS']);
     });
+
+    test('showCount/showTime off → section counts and row time meta are null (⚙ toggles)', () {
+      final rows = [_cAt('cv_pin', _now, pinned: true), _cAt('cv_a', _now)];
+      final types = buildConversationRailModel(rows,
+              now: _now, labels: _labels, showCount: false, showTime: false)
+          .groups
+          .single
+          .types;
+      expect(types.every((t) => t.count == null), isTrue); // no count badge on the heads
+      expect(types.expand((t) => t.rows).every((r) => r.meta == null), isTrue); // no relative time on rows
+    });
   });
 }

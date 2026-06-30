@@ -87,6 +87,30 @@ class Translations$chat$en {
 	/// en: 'Try again'
 	String get retry => 'Try again';
 
+	/// en: 'Sort'
+	String get sortLabel => 'Sort';
+
+	/// en: 'Recently active'
+	String get sortActivity => 'Recently active';
+
+	/// en: 'Recently created'
+	String get sortCreated => 'Recently created';
+
+	/// en: 'Name'
+	String get sortName => 'Name';
+
+	/// en: 'Display'
+	String get displayLabel => 'Display';
+
+	/// en: 'Show archived'
+	String get showArchived => 'Show archived';
+
+	/// en: 'Show counts'
+	String get showCount => 'Show counts';
+
+	/// en: 'Show time'
+	String get showTime => 'Show time';
+
 	late final Translations$chat$time$en time = Translations$chat$time$en.internal(_root);
 	late final Translations$chat$bucket$en bucket = Translations$chat$bucket$en.internal(_root);
 }
@@ -1005,6 +1029,14 @@ extension on Translations {
 			'chat.errorTitle' => 'Couldn\'t load conversations',
 			'chat.errorHint' => 'The local engine didn\'t return the conversation list.',
 			'chat.retry' => 'Try again',
+			'chat.sortLabel' => 'Sort',
+			'chat.sortActivity' => 'Recently active',
+			'chat.sortCreated' => 'Recently created',
+			'chat.sortName' => 'Name',
+			'chat.displayLabel' => 'Display',
+			'chat.showArchived' => 'Show archived',
+			'chat.showCount' => 'Show counts',
+			'chat.showTime' => 'Show time',
 			'chat.time.justNow' => 'Just now',
 			'chat.time.minutesAgo' => ({required Object n}) => '${n} min ago',
 			'chat.time.hoursAgo' => ({required Object n}) => '${n} hr ago',

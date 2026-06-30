@@ -68,6 +68,14 @@ class _Translations$chat$zh_CN extends Translations$chat$en {
 	@override String get errorTitle => '对话列表加载失败';
 	@override String get errorHint => '本地引擎没有返回对话列表。';
 	@override String get retry => '重试';
+	@override String get sortLabel => '排序';
+	@override String get sortActivity => '最近活跃';
+	@override String get sortCreated => '最近创建';
+	@override String get sortName => '按名称';
+	@override String get displayLabel => '显示';
+	@override String get showArchived => '显示已归档';
+	@override String get showCount => '显示分组计数';
+	@override String get showTime => '显示时间';
 	@override late final _Translations$chat$time$zh_CN time = _Translations$chat$time$zh_CN._(_root);
 	@override late final _Translations$chat$bucket$zh_CN bucket = _Translations$chat$bucket$zh_CN._(_root);
 }
@@ -550,6 +558,14 @@ extension on TranslationsZhCn {
 			'chat.errorTitle' => '对话列表加载失败',
 			'chat.errorHint' => '本地引擎没有返回对话列表。',
 			'chat.retry' => '重试',
+			'chat.sortLabel' => '排序',
+			'chat.sortActivity' => '最近活跃',
+			'chat.sortCreated' => '最近创建',
+			'chat.sortName' => '按名称',
+			'chat.displayLabel' => '显示',
+			'chat.showArchived' => '显示已归档',
+			'chat.showCount' => '显示分组计数',
+			'chat.showTime' => '显示时间',
 			'chat.time.justNow' => '刚刚',
 			'chat.time.minutesAgo' => ({required Object n}) => '${n} 分钟前',
 			'chat.time.hoursAgo' => ({required Object n}) => '${n} 小时前',

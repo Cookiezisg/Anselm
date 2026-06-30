@@ -57,6 +57,9 @@ const _notif = String.fromEnvironment('NOTIF');
 // Optional `--dart-define=CHATSEL=cv_id` deep-links to a conversation (on the chat ocean) so the rail's
 // selected-row highlight + route-derived selection are captured. 预选某对话,截 rail 高亮 + 路由派生选区。
 const _chatSel = String.fromEnvironment('CHATSEL');
+// Optional `--dart-define=CHATMENU=1` taps the rail's ⚙ sliders button to open the Sort/Display menu.
+// 点 rail 的 ⚙ sliders 钮,展开排序/显示菜单。
+const _chatMenu = String.fromEnvironment('CHATMENU');
 // Optional `--dart-define=WSMENU=1` opens the workspace quick-actions menu — verify it matches the
 // trigger width. 打开 workspace 快捷菜单,验它与触发钮等宽。
 const _wsmenu = String.fromEnvironment('WSMENU');
@@ -131,6 +134,14 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 80));
       outName = '${outName}_sel';
+    }
+
+    // Open the rail's ⚙ sliders menu (Sort / Display) to capture it. 打开 rail 的 ⚙ 菜单。
+    if (_chatMenu.isNotEmpty) {
+      await tester.tap(find.byIcon(AnIcons.sliders).first);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250)); // popover open animation 浮层开
+      outName = '${outName}_menu';
     }
 
     // Open the notifications tray (bell) — it takes over the left-island middle. 拉开通知托盘,接管左岛中段。

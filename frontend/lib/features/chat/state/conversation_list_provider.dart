@@ -42,6 +42,27 @@ class ShowArchivedController extends Notifier<bool> {
 final showArchivedProvider =
     NotifierProvider<ShowArchivedController, bool>(ShowArchivedController.new);
 
+/// Whether the rail shows the per-section count (置顶 ··· 1) — the ⚙ "show counts" toggle, default ON.
+/// rail 是否显分节计数(置顶···1)——⚙「显示分组计数」开关,默认开。
+class ShowCountController extends Notifier<bool> {
+  @override
+  bool build() => true;
+  void toggle() => state = !state;
+}
+
+final showGroupCountProvider =
+    NotifierProvider<ShowCountController, bool>(ShowCountController.new);
+
+/// Whether each row shows its relative-time meta (10 分钟前) — the ⚙ "show time" toggle, default ON.
+/// rail 每行是否显相对时间(10 分钟前)——⚙「显示时间」开关,默认开。
+class ShowTimeController extends Notifier<bool> {
+  @override
+  bool build() => true;
+  void toggle() => state = !state;
+}
+
+final showTimeProvider = NotifierProvider<ShowTimeController, bool>(ShowTimeController.new);
+
 /// The conversation rail list — first page on build, [loadMore] appends the next keyset page. It
 /// `watch`es the sort + show-archived providers, so changing either re-runs build → a fresh first page
 /// from the top (the cursor-reset-on-sort-switch rule, free). Realtime list mutation (the SSE merge)
