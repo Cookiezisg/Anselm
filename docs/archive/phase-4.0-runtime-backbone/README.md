@@ -1,7 +1,7 @@
 ---
 id: WRK-045
 type: working
-status: active
+status: archived
 owner: @weilin
 created: 2026-06-26
 reviewed: 2026-06-26

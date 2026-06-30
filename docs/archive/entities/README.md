@@ -1,15 +1,16 @@
 ---
 id: WRK-046
 type: working
-status: active
+status: archived
 owner: @weilin
 created: 2026-06-26
 reviewed: 2026-06-26
 review-due: 2026-09-24
 audience: [human, ai]
+landed-into: references/frontend/architecture.md, references/frontend/contract.md, references/frontend/design-system.md
 ---
 
-# WRK-046 — Phase 4.1 Entities 建造规范(5 决策已拍板,STEP 0 已落)
+# WRK-046 — Phase 4.1 Entities 建造规范(STEP 0–6 + 5.5 全落,已归档)
 
 > **一句话**:第一个真 feature——**Entities** 海洋。用它把"三岛布局(忠实复刻 demo)+ 运行时管道(Phase 4.0)"端到端走通。两轮调研合并:**(a) 后端契约 + demo 布局** `wd6a072aj` + **(b) 解决方案 best-practice** `wk6vkas9w`,两轮均经对抗验证(已折入纠正)。落地后结论提取进 `references/frontend/`(新 entities 域)+ 填 `landed-into`。
 

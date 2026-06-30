@@ -20,7 +20,7 @@
   - **左岛骨架完全体**：`AnOceanSwitcher`（海洋切换器：matched-geometry 滑动药丸 + `selectedIndex=-1` 无选中态）+ `AnSidebarFooter`（底栏：`AnWorkspaceButton` 等宽快捷菜单 + 设置格 + 通知格红点）；左岛两条独立轴 `selectedOceanProvider`（顶部 4 海洋 + 齿轮进的 `settings`）/ `notificationsOpenProvider`（铃接管左岛中段、不动中心、点任一海洋即收）；仅 `entities` 已建、余「即将推出」占位。海洋切换暂走 provider（未路由化，后续并入 go_router）。
   - **关键约定**：app 与 demo 共用唯一 `app/app_shell.dart`，只差数据源 + 启动门控（`make app` 真后端 / `make demo` fixture 零后端）；冷启动 `core/workspace/workspace_bootstrap` 定 workspace；**字体两档**（正文 w300 / 加粗 w400，见「视觉灵魂」节）；组件 **gallery-first**（先进 gallery 再被 app/demo 组装、不手搓）。
   - **门禁**：`make verify`（后端）+ `make fe-verify`（前端）+ `make docs`（文档）各自全绿；前端当前 **874 测绿**。
-  - **文档**：前端 [`architecture.md`](docs/references/frontend/architecture.md) · [`design-system.md`](docs/references/frontend/design-system.md) · [`contract.md`](docs/references/frontend/contract.md)；建造规范 [`WRK-046`](docs/working/entities/README.md)（Entities）· [`WRK-042`](docs/working/platform-foundation/README.md)（平台地基总账）· [`WRK-043`](docs/working/platform-foundation/release-distribution-playbook.md)（发行 Playbook）· [`WRK-045`](docs/working/platform-foundation/phase-4.0-runtime-backbone.md)（运行时骨干）。
+  - **文档**：前端 [`architecture.md`](docs/references/frontend/architecture.md) · [`design-system.md`](docs/references/frontend/design-system.md) · [`contract.md`](docs/references/frontend/contract.md)；建造规范 [`WRK-046`](docs/archive/entities/README.md)（Entities）· [`WRK-042`](docs/working/platform-foundation/README.md)（平台地基总账）· [`WRK-043`](docs/working/platform-foundation/release-distribution-playbook.md)（发行 Playbook）· [`WRK-045`](docs/archive/phase-4.0-runtime-backbone/README.md)（运行时骨干）。
 
 ## 文档地图
 

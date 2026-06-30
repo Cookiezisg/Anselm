@@ -204,11 +204,6 @@ composer.lock   # 如为库项目，取消注释此行
 **/.docusaurus/
 
 # ============================================================
-# 历史问题
-# ============================================================
-/legacy
-
-# ============================================================
 # Claude Code 本地状态
 # ============================================================
 # .claude/ 含 Claude Code 的本地状态（settings.local.json /
@@ -237,8 +232,3 @@ mise.local.toml
 # data-dir resolves under cwd). Contains the lazily-downloaded runtimes
 # (python/node/uv/dotnet) — large (~100MB+), regenerable, never commit.
 backend/sandbox/
-
-
-# Test artifacts
-.env
-/tmp/anselm-tests/

@@ -72,8 +72,8 @@ app:
 # 类目数变了就同步下面的列表(同 S22「状态即重述」)。
 shots:
 	@$(RUN) flutter test test/dev/capture_shell.dart
-	@for i in 0 1 2 3 4 5; do $(RUN) flutter test test/dev/capture_gallery.dart --dart-define=CAT=$$i; done
-	@echo "" && echo "✓ 截图落 test/dev/out/(shell.png + gallery_0..5.png)"
+	@for i in 0 1 2 3 4 5 6; do $(RUN) flutter test test/dev/capture_gallery.dart --dart-define=CAT=$$i; done
+	@echo "" && echo "✓ 截图落 test/dev/out/(shell.png + gallery_0..6.png)"
 
 # shot-app — 真跑终检截图:构建+启动 gallery .app、截运行中窗口 → test/dev/out/app.png(Impeller 真渲染
 # + 红绿灯,headless 还原不了)。BUILD=0 复用已构建 app 跳过重构。详见 test/dev/shot_app.sh。

@@ -56,7 +56,7 @@ features/                  # ★中间层:每域 data+state+ui+model（随 featu
   entities/ui/detail/      # 详情 UI[STEP 4]:EntityOcean=单一 AnPage 文档(头+tab+内容居中 720 一起滚,AnTabs flow)+ ocean_header(状态徽 + 动词 CTA)+ overview/{4 kind}(workflow 图推迟图编辑器阶段)+ version_tab(AnVersionDiff)+ log_tab + detail_sections + entity_ocean(详情海洋,STEP 3 占位/STEP 4 建)
   entities/data/entity_demo_fixture.dart  # demoEntityRepository():make demo 的零后端种子(STEP 4/5 续加版本/日志/flowrun)
 ```
-**运行时骨干(Phase 4.0)**:sidecar 进程托管(`core/process`)+ 契约/net/SSE(`core/{contract,net,sse}`,PORT 自 main + 加固)+ Riverpod 装配(`core/runtime.dart`)+ 错误边界(`core/error`)+ 启动门控(`app/app_startup_gate.dart`)+ L0–L2 流式性能原语(`core/sse` demux + `core/perf` coalescer)。loopback 安全在后端(绑 127.0.0.1 + bearer + Host 校验,见 `references/backend/api.md`)。建造规范见 [`WRK-045`](../../working/platform-foundation/phase-4.0-runtime-backbone.md)。
+**运行时骨干(Phase 4.0)**:sidecar 进程托管(`core/process`)+ 契约/net/SSE(`core/{contract,net,sse}`,PORT 自 main + 加固)+ Riverpod 装配(`core/runtime.dart`)+ 错误边界(`core/error`)+ 启动门控(`app/app_startup_gate.dart`)+ L0–L2 流式性能原语(`core/sse` demux + `core/perf` coalescer)。loopback 安全在后端(绑 127.0.0.1 + bearer + Host 校验,见 `references/backend/api.md`)。建造规范见 [`WRK-045`](../../archive/phase-4.0-runtime-backbone/README.md)。
 **dev 工具**:截图夹具 `test/dev/capture_shell.dart` + `capture_demo.dart`(无头渲染 PNG;STEP 6 起预选 = deep-link 导航,非 provider override)+ 真跑 `test/dev/shot_app_real.sh`(真后端端到端);产物 `test/dev/out/` **gitignore**。**测试支撑**(`test/support/`):`router_harness`(路由化 widget 测:测试 GoRouter 镜像 app 两 location、`routedHost` 注入 goRouter+repository 缝)+ `five_batteries`(五电池矩阵 空/超长/海量/极值/注入,STEP 6 加固)。
 
 ## 3. 依赖规则（三层，单向）
