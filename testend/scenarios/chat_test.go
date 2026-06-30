@@ -511,6 +511,7 @@ type convRow struct {
 	LastMessagePreview string `json:"lastMessagePreview"`
 	IsGenerating       bool   `json:"isGenerating"`
 	AwaitingInput      bool   `json:"awaitingInput"`
+	HasUnread          bool   `json:"hasUnread"`
 }
 
 func listConvs(t *testing.T, wc *harness.Client) []convRow {
@@ -681,5 +682,63 @@ func TestChat_RailSortByName(t *testing.T) {
 	}
 	if pages != 3 {
 		t.Errorf("5 rows / page 2 → want 3 pages, got %d", pages)
+	}
+}
+
+// TestChat_RailUnread: a COMPLETED assistant reply flags the conversation hasUnread on the rail (you
+// were away while it answered → green dot); the user's own send is never unread; POST /{id}:seen (204)
+// clears it. End-to-end over real HTTP + the persisted unread column (survives a cold List re-read).
+//
+// TestChat_RailUnread：**完成**的 assistant 回复点亮 rail 的 hasUnread（你不在时它答完了 → 绿点）；用户自己的发送
+// 绝不未读；POST /{id}:seen（204）清之。经真 HTTP + 持久 unread 列端到端（冷 List 重读照样在）。
+func TestChat_RailUnread(t *testing.T) {
+	wc, mock := chatSetup(t, false)
+	mock.Enqueue(dlgModel, harness.LLMTurn{Text: "The assistant has finished answering."})
+
+	convID := convCreate(t, wc, "unread probe")
+	// A brand-new conversation is seen. 全新对话已读。
+	if row, ok := findConv(listConvs(t, wc), convID); !ok || row.HasUnread {
+		t.Fatalf("a brand-new conversation must not be unread (found=%v hasUnread=%v)", ok, row.HasUnread)
+	}
+	mid := sendMsg(t, wc, convID, "answer me")
+	// The user's own send is never unread (the send folds unread=false into the recency touch).
+	// 用户自己的发送绝不未读（发送把 unread=false 折进 recency touch）。
+	if row, _ := findConv(listConvs(t, wc), convID); row.HasUnread {
+		t.Fatal("the user's own send must not be unread")
+	}
+	if turn := waitTurn(t, wc, convID, mid, 30000); turn.Status != "completed" {
+		t.Fatalf("turn must complete, got %s %s", turn.Status, turn.ErrorMessage)
+	}
+	// Once the assistant reply completes, the rail row reports hasUnread=true. 完成后 rail 行 hasUnread=true。
+	harness.Eventually(t, 10000, "a completed reply flags the conversation unread", func() bool {
+		row, ok := findConv(listConvs(t, wc), convID)
+		return ok && row.HasUnread && !row.IsGenerating
+	})
+	// POST :seen clears it (204 No Content), and a cold List re-read confirms (persisted column).
+	// POST :seen 清之（204），冷 List 重读确认（持久列）。
+	wc.POST("/api/v1/conversations/"+convID+":seen", nil).OK(t, nil)
+	if row, ok := findConv(listConvs(t, wc), convID); !ok || row.HasUnread {
+		t.Fatalf(":seen must clear hasUnread (found=%v hasUnread=%v)", ok, row.HasUnread)
+	}
+}
+
+// TestChat_ConversationActionRouting guards the {idAction} dispatcher after :cancel was widened into a
+// switch to host :seen: :cancel still 204 (graceful no-op when nothing runs), :seen 204, an unknown
+// action 404 (N1 envelope).
+//
+// TestChat_ConversationActionRouting 守 {idAction} 派发器（:cancel 改 switch 以容纳 :seen 后）：:cancel 仍 204
+//（无运行回合时优雅 no-op）、:seen 204、未知动作 404（N1 envelope）。
+func TestChat_ConversationActionRouting(t *testing.T) {
+	wc, _ := chatSetup(t, false)
+	convID := convCreate(t, wc, "actions")
+
+	if resp := wc.Do("POST", "/api/v1/conversations/"+convID+":cancel", nil); resp.Status != 204 {
+		t.Errorf(":cancel must stay 204, got %d", resp.Status)
+	}
+	if resp := wc.Do("POST", "/api/v1/conversations/"+convID+":seen", nil); resp.Status != 204 {
+		t.Errorf(":seen must be 204, got %d", resp.Status)
+	}
+	if resp := wc.Do("POST", "/api/v1/conversations/"+convID+":bogus", nil); resp.Status != 404 {
+		t.Errorf("an unknown action must be 404, got %d body=%s", resp.Status, resp.Raw)
 	}
 }

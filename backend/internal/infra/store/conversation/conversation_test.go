@@ -368,6 +368,62 @@ func TestList_SortByName_CursorPaging(t *testing.T) {
 	}
 }
 
+// TestUnread_TouchFlagsAndMarkSeenClears proves the unread watermark column: a fresh thread is seen,
+// a completed-finalize touch (unread=true) flags it, a user-send touch (unread=false) keeps it seen,
+// and MarkSeen clears it WITHOUT moving last_message_at (opening a thread must never reorder the list).
+// The persisted column means hasUnread survives a restart (Get re-reads it straight from the row).
+//
+// TestUnread_TouchFlagsAndMarkSeenClears 证明未读 watermark 列：新线程已读、完成终态 touch（unread=true）标记之、
+// 用户发送 touch（unread=false）保持已读，且 MarkSeen 清未读时**不动 last_message_at**（打开线程绝不重排）。持久列
+// 意味着 hasUnread 重启照样在（Get 直接从行读回）。
+func TestUnread_TouchFlagsAndMarkSeenClears(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	seed(t, s, ctx, "cv_1", "thread", false, false, t1)
+
+	// Fresh thread (Insert column default) is NOT unread.
+	if c, _ := s.Get(ctx, "cv_1"); c.Unread {
+		t.Fatal("a brand-new conversation must not be unread")
+	}
+	// A completed assistant finalize (unread=true) flags it.
+	if err := s.TouchLastMessage(ctx, "cv_1", t2, "assistant reply", true); err != nil {
+		t.Fatalf("touch(unread=true): %v", err)
+	}
+	afterTouch, _ := s.Get(ctx, "cv_1")
+	if !afterTouch.Unread {
+		t.Fatal("a completed-finalize touch (unread=true) must flag the thread unread")
+	}
+	// MarkSeen clears unread and leaves last_message_at exactly where the touch left it (no reorder).
+	if err := s.MarkSeen(ctx, "cv_1"); err != nil {
+		t.Fatalf("markseen: %v", err)
+	}
+	afterSeen, _ := s.Get(ctx, "cv_1")
+	if afterSeen.Unread {
+		t.Fatal("MarkSeen must clear unread")
+	}
+	if !afterSeen.LastMessageAt.Equal(afterTouch.LastMessageAt) {
+		t.Errorf("MarkSeen must NOT change last_message_at (no reorder): %v != %v", afterSeen.LastMessageAt, afterTouch.LastMessageAt)
+	}
+	// A user-send touch (unread=false) keeps it seen even as it bumps recency.
+	if err := s.TouchLastMessage(ctx, "cv_1", t3, "user msg", false); err != nil {
+		t.Fatalf("touch(unread=false): %v", err)
+	}
+	if c, _ := s.Get(ctx, "cv_1"); c.Unread {
+		t.Fatal("a user-send touch (unread=false) must keep the thread seen")
+	}
+}
+
+// TestMarkSeen_UnknownIdIdempotent: MarkSeen on an unknown/soft-deleted id is a nil no-op (matches the
+// :seen action's idempotent 204 — the client only :seens a thread it is viewing).
+//
+// TestMarkSeen_UnknownIdIdempotent：MarkSeen 对未知/已删 id 是 nil no-op（对应 :seen 动作的幂等 204）。
+func TestMarkSeen_UnknownIdIdempotent(t *testing.T) {
+	s := newStore(t)
+	if err := s.MarkSeen(ctxWS("ws_1"), "cv_missing"); err != nil {
+		t.Errorf("MarkSeen on unknown id must be a nil no-op, got %v", err)
+	}
+}
+
 func TestSoftDelete_NotFoundAndExcluded(t *testing.T) {
 	s := newStore(t)
 	ctx := ctxWS("ws_1")

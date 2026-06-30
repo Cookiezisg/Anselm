@@ -43,6 +43,7 @@ var Schema = []string{
 		updated_at               DATETIME NOT NULL,
 		last_message_at          DATETIME NOT NULL,
 		last_message_preview     TEXT NOT NULL DEFAULT '',
+		unread                   INTEGER NOT NULL DEFAULT 0,
 		deleted_at               DATETIME
 	)`,
 	`CREATE INDEX IF NOT EXISTS idx_conversations_ws_list ON conversations(workspace_id, pinned DESC, last_message_at DESC, id DESC) WHERE deleted_at IS NULL`,
@@ -151,20 +152,37 @@ func (s *Store) List(ctx context.Context, filter conversationdomain.ListFilter) 
 	return rows, next, nil
 }
 
-// TouchLastMessage sets last_message_at (and, when non-empty, last_message_preview) on one
-// conversation (chat calls it when a message lands). An empty preview keeps the existing one — an
-// attachment-only / tool-only turn leaves the last meaningful snippet in place. last_message_preview
-// is NOT a sort/cursor key, so the partial list index is untouched.
+// TouchLastMessage sets last_message_at, the unread flag, and (when non-empty) last_message_preview
+// on one conversation in ONE UPDATE (chat calls it when a message lands). Folding unread into the
+// same UPDATE keeps it atomic with the recency bump — the user-send path (unread=false) can never
+// half-commit into "your own message looks unread". An empty preview keeps the existing one (an
+// attachment-only / tool-only turn). Neither unread nor last_message_preview is a sort/cursor key,
+// so the partial list indexes are untouched.
 //
-// TouchLastMessage 设某对话的 last_message_at（preview 非空时一并设 last_message_preview）（chat 在消息落地时调）。
-// 空 preview 保留原有——附件-only / 纯工具回合不动上一条有意义的摘要。last_message_preview 非排序/游标键，partial 列表索引不动。
-func (s *Store) TouchLastMessage(ctx context.Context, id string, t time.Time, preview string) error {
-	updates := map[string]any{"last_message_at": t}
+// TouchLastMessage 在一条 UPDATE 里设某对话的 last_message_at、unread 标志、（preview 非空时）last_message_preview
+// （chat 在消息落地时调）。把 unread 折进同一条 UPDATE 使其与 recency 刷新原子——用户发送路径（unread=false）绝不会半提交成
+// 「自己的消息看着未读」。空 preview 保留原有（附件-only / 纯工具回合）。unread 与 last_message_preview 都非排序/游标键，
+// partial 列表索引不动。
+func (s *Store) TouchLastMessage(ctx context.Context, id string, t time.Time, preview string, unread bool) error {
+	updates := map[string]any{"last_message_at": t, "unread": unread}
 	if preview != "" {
 		updates["last_message_preview"] = preview
 	}
 	if _, err := s.repo.Query().WhereEq("id", id).Updates(ctx, updates); err != nil {
 		return fmt.Errorf("conversationstore.TouchLastMessage: %w", err)
+	}
+	return nil
+}
+
+// MarkSeen clears the unread flag on one conversation (the :seen action — the user opened the thread
+// without sending). A single focused UPDATE on unread only; idempotent (an unknown id matches 0 rows
+// and returns nil). last_message_at is untouched, so opening a thread never reorders the list.
+//
+// MarkSeen 清某对话的 unread 标志（:seen 动作——用户没发、只是打开了线程）。只针对 unread 列的聚焦 UPDATE；幂等
+// （未知 id 匹配 0 行、返 nil）。不动 last_message_at，故打开线程绝不重排列表。
+func (s *Store) MarkSeen(ctx context.Context, id string) error {
+	if _, err := s.repo.Query().WhereEq("id", id).Updates(ctx, map[string]any{"unread": false}); err != nil {
+		return fmt.Errorf("conversationstore.MarkSeen: %w", err)
 	}
 	return nil
 }

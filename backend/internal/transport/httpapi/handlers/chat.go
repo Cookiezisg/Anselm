@@ -96,19 +96,36 @@ func (h *ChatHandler) List(w http.ResponseWriter, r *http.Request) {
 	responsehttpapi.Paged(w, items, next, next != "")
 }
 
-// postAction dispatches the conversation-level action POST /conversations/{id}:cancel.
+// postAction dispatches the conversation-level :action POSTs that share the {idAction} pattern
+// (Go 1.22 ServeMux allows ONE handler per pattern, so :cancel and :seen are switched here rather
+// than registered as separate routes). Both return 204; an unknown action is 404.
 //
-// postAction 派发对话级动作 POST /conversations/{id}:cancel。
+// postAction 派发共享 {idAction} 模式的对话级 :action（Go 1.22 ServeMux 每模式仅一处理器，故 :cancel 与 :seen
+// 在此 switch、而非各注册一条路由）。两者均返 204；未知动作 404。
 func (h *ChatHandler) postAction(w http.ResponseWriter, r *http.Request) {
 	id, action, ok := idAndAction(r, "idAction")
-	if !ok || action != "cancel" {
+	if !ok {
 		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 		return
 	}
-	// Cancel stops the conversation's running turn (204). Graceful no-op when nothing runs.
-	// Cancel 停止对话运行中的回合（204）。无运行回合时优雅 no-op。
-	if err := h.svc.Cancel(r.Context(), id); err != nil {
-		responsehttpapi.FromDomainError(w, h.log, err)
+	switch action {
+	case "cancel":
+		// Cancel stops the conversation's running turn (204). Graceful no-op when nothing runs.
+		// Cancel 停止对话运行中的回合（204）。无运行回合时优雅 no-op。
+		if err := h.svc.Cancel(r.Context(), id); err != nil {
+			responsehttpapi.FromDomainError(w, h.log, err)
+			return
+		}
+	case "seen":
+		// Seen clears the unread flag (the user opened the thread). Idempotent (204) — a no-op on an
+		// unknown id, since the client only :seens a thread it is currently viewing.
+		// Seen 清未读标志（用户打开了线程）。幂等（204）——未知 id 上 no-op，因客户端只对正在看的线程 :seen。
+		if err := h.svc.MarkSeen(r.Context(), id); err != nil {
+			responsehttpapi.FromDomainError(w, h.log, err)
+			return
+		}
+	default:
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 		return
 	}
 	responsehttpapi.NoContent(w)

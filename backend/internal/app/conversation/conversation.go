@@ -298,16 +298,29 @@ func (s *Service) List(ctx context.Context, filter ListFilter) ([]*conversationd
 }
 
 // TouchLastMessage records that a message just landed in a conversation — chat calls it when a
-// message is added so the list re-sorts by recent activity AND the rail snippet follows the latest
-// message. `preview` is that message's folded + rune-truncated text (empty = keep the existing
-// preview, e.g. an attachment-only / tool-only turn). A single cheap UPDATE; best-effort (a failed
-// touch only mis-sorts / mis-previews the list, never blocks the turn).
+// message is added so the list re-sorts by recent activity, the rail snippet follows the latest
+// message, and the unread flag tracks whether there is an unseen assistant reply. `preview` is that
+// message's folded + rune-truncated text (empty = keep the existing preview). `unread` is the new
+// unread state (false on the user's own send, true on a completed assistant finalize). A single cheap
+// atomic UPDATE; best-effort (a failed touch only mis-sorts / mis-previews / mis-flags, never blocks
+// the turn).
 //
-// TouchLastMessage 记一条消息刚落入对话——chat 在消息加入时调,使列表按最近活跃重排、rail 摘要跟随最新消息。
-// preview 是该消息折叠 + rune 截断后的文本（空 = 保留原预览，如附件-only / 纯工具回合）。一次廉价 UPDATE；
-// best-effort（touch 失败只是列表排序/预览略偏，绝不阻塞回合）。
-func (s *Service) TouchLastMessage(ctx context.Context, id string, t time.Time, preview string) error {
-	return s.repo.TouchLastMessage(ctx, id, t, preview)
+// TouchLastMessage 记一条消息刚落入对话——chat 在消息加入时调,使列表按最近活跃重排、rail 摘要跟随最新消息、unread
+// 标志跟踪有无未读 assistant 回复。preview 是该消息折叠 + rune 截断后的文本（空 = 保留原预览）。unread 是新未读态
+// （用户自己发送 false、assistant 完成终态 true）。一次廉价原子 UPDATE；best-effort（touch 失败只是排序/预览/标志略偏，绝不阻塞回合）。
+func (s *Service) TouchLastMessage(ctx context.Context, id string, t time.Time, preview string, unread bool) error {
+	return s.repo.TouchLastMessage(ctx, id, t, preview, unread)
+}
+
+// MarkSeen clears a conversation's unread flag — the :seen action, called when the user opens a
+// thread without sending (a thin delegate to the repo's focused unread-only UPDATE). Does NOT go
+// through Update/emit: mark-seen is high-frequency (every open), single-user, and tells no other
+// client anything, so it deliberately broadcasts NO notification (would spam the SSE for nothing).
+//
+// MarkSeen 清某对话的 unread 标志——:seen 动作，用户没发消息只是打开线程时调（薄薄转发到 repo 的 unread-only UPDATE）。
+// 不走 Update/emit：mark-seen 高频（每次打开）、单用户、对别的客户端无意义，故刻意**不发任何通知**（否则白白刷爆 SSE）。
+func (s *Service) MarkSeen(ctx context.Context, id string) error {
+	return s.repo.MarkSeen(ctx, id)
 }
 
 // Update applies a PATCH (nil = leave; for ModelOverride nil = leave, &nil = clear, &(&ref) = set).

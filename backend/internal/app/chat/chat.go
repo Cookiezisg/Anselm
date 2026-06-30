@@ -80,13 +80,19 @@ type ConversationReader interface {
 	// Unarchive 清归档标志——Send 自动解档（给归档线程发消息即隐式唤回）。
 	Unarchive(ctx context.Context, id string) error
 	// TouchLastMessage records that a message just landed (chat calls it on the user turn AND the
-	// assistant finalize) so the conversation list re-sorts by recent activity and the rail snippet
-	// follows the latest message. `preview` is that message's folded + rune-truncated text (empty =
-	// keep the existing preview). Best-effort — a failed touch only mis-sorts / mis-previews.
+	// assistant finalize) so the conversation list re-sorts by recent activity, the rail snippet follows
+	// the latest message, and the unread flag tracks an unseen reply. `preview` is that message's folded
+	// + rune-truncated text (empty = keep the existing preview). `unread` is the new unread state: false
+	// on the user turn (sending is seeing), true on a COMPLETED assistant finalize. Best-effort.
 	//
 	// TouchLastMessage 记一条消息刚落地（chat 在用户回合 + assistant 终态都调），使对话列表按最近活跃重排、rail
-	// 摘要跟随最新消息。preview 是该消息折叠 + rune 截断后的文本（空 = 保留原预览）。best-effort——失败只是排序/预览略偏。
-	TouchLastMessage(ctx context.Context, id string, t time.Time, preview string) error
+	// 摘要跟随最新消息、unread 跟踪未读回复。preview 是该消息折叠 + rune 截断后文本（空 = 保留原预览）。unread 是新未读态：
+	// 用户回合 false（发即是看）、assistant **完成**终态 true。best-effort。
+	TouchLastMessage(ctx context.Context, id string, t time.Time, preview string, unread bool) error
+	// MarkSeen clears the unread flag (chat's :seen action delegates here when the user opens a thread).
+	//
+	// MarkSeen 清 unread 标志（chat 的 :seen 动作在用户打开线程时转发至此）。
+	MarkSeen(ctx context.Context, id string) error
 }
 
 // ContentCapabilities is what the resolved model can natively ingest — supplied by the resolver
@@ -326,10 +332,12 @@ func (s *Service) Send(ctx context.Context, conversationID string, in SendInput)
 	}
 	s.notifySearchMessage(ctx, conversationID, userMsg.ID)
 	s.emitUserMessage(ctx, conversationID, userMsg, in.Content)
-	// Bump the conversation's recency key so the list re-sorts by latest activity. Best-effort:
-	// a failed touch only mis-sorts the list, it must not fail the turn.
-	// 刷新对话最近活跃键，使列表按最新活动重排。best-effort：touch 失败只是排序略偏，绝不能让回合失败。
-	if err := s.deps.Conversations.TouchLastMessage(ctx, conversationID, time.Now().UTC(), previewFrom(in.Content)); err != nil {
+	// Bump recency + clear unread (unread=false): the user is sending, so they have seen the thread —
+	// the touch and the seen-clear ride ONE atomic UPDATE so your own message can never look unread.
+	// Best-effort: a failed touch only mis-sorts the list, it must not fail the turn.
+	// 刷新 recency + 清未读（unread=false）：用户正在发送、即已看过该线程——touch 与清未读走同一条原子 UPDATE，
+	// 故自己的消息绝不会显未读。best-effort：touch 失败只是排序略偏，绝不能让回合失败。
+	if err := s.deps.Conversations.TouchLastMessage(ctx, conversationID, time.Now().UTC(), previewFrom(in.Content), false); err != nil {
 		s.log.Warn("chat: touch last_message_at failed", zap.String("conversation", conversationID), zap.Error(err))
 	}
 
@@ -585,6 +593,16 @@ func (s *Service) Cancel(_ context.Context, conversationID string) error {
 			return nil
 		}
 	}
+}
+
+// MarkSeen clears a conversation's unread flag — the POST /conversations/{id}:seen action, fired
+// when the user opens a thread. It is routed through chat (the {idAction} dispatcher lives on the
+// chat handler) but is pure conversation metadata, so it delegates straight to the conversation port.
+//
+// MarkSeen 清某对话的 unread 标志——POST /conversations/{id}:seen 动作，用户打开线程时触发。它经 chat 路由
+// （{idAction} 派发器在 chat handler 上）但纯属对话元数据，故直接转发到 conversation 端口。
+func (s *Service) MarkSeen(ctx context.Context, conversationID string) error {
+	return s.deps.Conversations.MarkSeen(ctx, conversationID)
 }
 
 // ForgetConversation drops a conversation's per-conversation chat state on delete — currently the
