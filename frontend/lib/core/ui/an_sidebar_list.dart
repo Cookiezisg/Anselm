@@ -220,7 +220,12 @@ class _AnSidebarListState extends State<AnSidebarList> {
           duration: active ? Duration.zero : null,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [for (final r in t.rows) _row(c, r, 1, active, visible)],
+            // Rows sit at depth 0 (NOT one level in): the head already groups them, so a second nesting
+            // indent on top of each row's own lead column was redundant. At depth 0 the row lead (the
+            // status dot, or empty) aligns under the head's icon and every title aligns under the head's
+            // label — the dot lives in that far-left gutter instead of pushing the title. 行在 depth 0(不再
+            // 内缩一级):头已分组,再叠一层缩进与行自身 lead 列冗余。depth 0 下行 lead(状态点/空)对齐头图标、标题对齐头标签,点挂最左槽、不推标题。
+            children: [for (final r in t.rows) _row(c, r, 0, active, visible)],
           ),
         ),
       ],
