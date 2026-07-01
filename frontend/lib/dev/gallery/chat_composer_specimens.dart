@@ -73,10 +73,11 @@ class _ComposerSpecimenState extends State<_ComposerSpecimen> {
 
   @override
   Widget build(BuildContext context) {
+    // Key the trailing so AnComposer's AnimatedSwitcher cross-fades send↔stop (not a hard swap). 给 trailing 加 key。
     final Widget? trailing = widget.generating
-        ? AnButton.iconOnly(AnIcons.stop, semanticLabel: '停止', onPressed: () {})
+        ? AnButton.iconOnly(AnIcons.stop, semanticLabel: '停止', onPressed: () {}, key: const ValueKey('stop'))
         : widget.send
-            ? AnButton.iconOnly(AnIcons.send, semanticLabel: '发送', onPressed: () {})
+            ? AnButton.iconOnly(AnIcons.send, semanticLabel: '发送', onPressed: () {}, key: const ValueKey('send'))
             : null;
     return AnComposer(
       controller: _ctrl,

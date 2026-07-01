@@ -7,17 +7,24 @@ import '../design/typography.dart';
 /// The composer CHROME primitive (the demo `an-composer` evolving input) — a text box that is a rounded
 /// PILL on one line and morphs to a CARD as the text wraps to ≥2 lines, reflowing from a single
 /// `[lead · edit · tail]` row to a ChatGPT-style stack (edit on top, the [lead]/[trailing] actions dropped
-/// to a row below). It owns ONLY the visual shell + the typed [TextField] (driven by the injected
-/// [controller]/[focusNode]) + a small accent focus halo; ALL behaviour — send/stop, @-mention typeahead,
-/// attachment uploads, key handling — stays with the host, injected as the [lead] actions, the [trailing]
-/// morph, and an optional [attachments] strip. The send button is the host's concern too: pass `trailing:
-/// null` to hide it (empty input), the send glyph when there's content, the stop glyph while generating.
-/// Reusable: any future composer (a doc-comment box, a search-with-actions) gets the same evolving shell.
+/// to a row below). It owns ONLY the visual shell + the typed [TextField] + a decoupled accent focus halo;
+/// ALL behaviour — send/stop, @-mention typeahead, attachment uploads, key handling — stays with the host,
+/// injected as the [lead] actions, the [trailing] morph, and an optional [attachments] strip.
 ///
-/// composer chrome 原语(demo an-composer 演变输入):单行=药丸、≥2 行→card 并 reflow(单行 [lead·edit·tail] →
-/// ChatGPT 式 edit 占整行 + lead/tail 行下移)。只拥有视觉壳 + 类型化 TextField(由注入的 controller/focusNode
-/// 驱动)+ 一圈轻 accent 聚焦光环;所有行为(send/stop、@提及、附件、键)留宿主,经 lead/trailing/attachments 注入。
-/// 发送钮也归宿主:trailing=null 藏(空输入)、给 send 字形(有内容)、给 stop 字形(生成中)。可复用。
+/// Motion (every transition animated, no hard cuts; all gated to instant under reduced-motion):
+/// - SHAPE MORPH pill↔card + every height change (reflow, attachments) ride ONE [AnimatedSize] + the
+///   [AnimatedContainer] radius, co-timed at [AnMotion.slow]/`spring` so corners round AS the box grows.
+/// - The FOCUS halo is a DECOUPLED accent layer that fades at [AnMotion.fast] (an affordance mustn't ride the
+///   slow shape morph); the base border stays neutral [AnColors.line].
+/// - The TRAILING slot is an [AnimatedSwitcher] (scale+fade, [AnMotion.mid]) so the send button appears on
+///   first keystroke and swaps to stop while generating in ONE place. **The host must KEY its trailing
+///   widgets** (`ValueKey('send')` / `ValueKey('stop')`) so they cross-fade rather than snap.
+///
+/// composer chrome 原语。演变输入:单行药丸 ↔ 多行卡片 + reflow。只拥视觉壳 + TextField + 解耦聚焦光环;行为留宿主。
+/// 动效(每个转移都动、无硬切、reduced 即时):① 形变+一切高度变化(reflow/附件)走一个 AnimatedSize + 半径
+/// AnimatedContainer,slow/spring 同时——圆角随盒长大;② 聚焦光环=解耦 accent 覆层、fast 淡入(反馈不该骑 slow
+/// 形变),基础边恒中性 line;③ trailing 是 AnimatedSwitcher(scale+fade,mid),send 首键出现、生成时换 stop 一处
+/// 搞定——**宿主须给 trailing 加 key**(ValueKey('send')/('stop'))才交叉淡、不硬切。可复用。
 class AnComposer extends StatefulWidget {
   const AnComposer({
     required this.controller,
@@ -34,18 +41,16 @@ class AnComposer extends StatefulWidget {
   final FocusNode focusNode;
   final String placeholder;
 
-  /// Leading actions (e.g. @ mention, 📎 attach) — left of the edit (single line) or the bottom-left
-  /// action row (multiline). 左侧动作(@/📎)。
+  /// Leading actions (e.g. @ mention, 📎 attach). 左侧动作(@/📎)。
   final List<Widget> lead;
 
-  /// Trailing action (e.g. the send↔stop morph) — right of the edit / bottom-right; null = none. 右侧动作。
+  /// Trailing action — the send↔stop morph; null = none (empty input). KEY it for the cross-fade. 右侧动作。
   final Widget? trailing;
 
   /// An optional strip ABOVE the input (e.g. attachment chips). 输入上方的条(附件 chip)。
   final Widget? attachments;
 
-  /// Landing (New-chat) variant: lift the box with a float shadow (demo `:host([pill])`). Docked = false.
-  /// 落地(新对话)态:给盒加浮起阴影;停靠态=false。
+  /// Landing (New-chat) variant: lift the box with a float shadow. 落地态:浮起阴影。
   final bool floating;
 
   @override
@@ -58,12 +63,8 @@ class _AnComposerState extends State<AnComposer> {
   static const double _singleLineReserve = 124;
 
   // Left inset for the wrapped-text line so its optical left edge lands flush with the lead icon glyph on the
-  // row below. The glyph is centered in the (square, `control`-wide) icon button, so its box sits at
-  // (control − icon)/2 from the button's left; pull in ONE hairline more so the text — whose left bearing
-  // (CJK especially) reads a touch heavier than the icon glyph — sits pixel-flush with it (measured). Derived
-  // from the button geometry so it self-heals if the control/icon sizes retune.
-  // 换行文字的左内距,使其光学左缘与下排图标字形齐平:字形在方形(control 宽)图标钮内居中→盒在 (control−icon)/2 处;
-  // 再收一个 hairline,让左内切略重的文字(尤 CJK)与图标像素级贴齐(实测)。派生自按钮几何,尺寸重调时自愈。
+  // row below — derived from the button geometry so it self-heals if the control/icon sizes retune.
+  // 换行文字左内距,使其光学左缘与下排图标字形齐平;派生自按钮几何、尺寸重调自愈。
   static const double _wrapTextInset = (AnSize.control - AnSize.icon) / 2 - AnSize.hairline;
 
   @override
@@ -94,87 +95,128 @@ class _AnComposerState extends State<AnComposer> {
   }
 
   void _onChange() => setState(() {}); // re-evaluate the pill↔card line count 重算行数
-  void _onFocus() => setState(() {}); // re-tint the focus halo 聚焦光环重绘
+  void _onFocus() => setState(() {}); // re-fade the focus halo 聚焦光环重淡
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final focused = widget.focusNode.hasFocus;
+    final reduced = AnMotionPref.reduced(context);
+    final shape = reduced ? Duration.zero : AnMotion.slow; // box morph + height 形变+高度
+    final feedback = reduced ? Duration.zero : AnMotion.fast; // focus 反馈
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final editWidth = (constraints.maxWidth - _singleLineReserve).clamp(80.0, double.infinity);
-        // `multiline` = the TEXT wraps to ≥2 lines → drives the ROW reflow (edit on top, actions below).
-        // `tall` = the box is taller than one line for ANY reason (wrapped text OR an attachment strip) →
-        // drives the CARD radius: a full pill is only for a genuine single line with nothing above it, so a
-        // chip strip settles the corners to card even while the input itself stays one row.
-        // multiline=文字换行(驱动钮组下移 reflow);tall=盒子高于一行的任何情形(换行 或 附件条)→驱动卡片圆角:
-        // 全药丸只留给「单行且上方无物」,附件条即便输入仍单行也把圆角落到卡片。
+        // multiline = TEXT wraps ≥2 lines (drives the reflow); tall = box is taller than one line for ANY
+        // reason (wrap OR attachments) → card radius. 换行→reflow;高于一行(换行或附件)→卡片圆角。
         final multiline = _countLines(widget.controller.text, AnText.body, editWidth) >= 2;
         final tall = multiline || widget.attachments != null;
-        final shadows = <BoxShadow>[
-          if (widget.floating) ...c.shadowFloat,
-          // A little accent halo on focus — a soft, low-alpha accent glow (demo .box:focus-within).
-          // 聚焦一圈轻 accent 光环(低透明柔光)。
-          if (focused) BoxShadow(color: c.accentSoft, spreadRadius: AnSpace.s2, blurRadius: AnSpace.s4),
-        ];
-        return AnimatedContainer(
-          // The pill→card morph is a functional reflow (mirrors the wrap); gate it under reduced-motion.
-          // 药丸→卡片演变是功能性 reflow;reduced-motion 下不动。
-          duration: AnMotionPref.reduced(context) ? Duration.zero : AnMotion.slow,
-          curve: AnMotion.spring,
-          decoration: BoxDecoration(
-            color: c.surface,
-            // radius evolves pill → card the moment the box is taller than one line. 半径随「高于一行」落卡片。
-            borderRadius: BorderRadius.circular(tall ? AnRadius.card : AnRadius.pill),
-            // Focus halo: accent inset border + the soft accent ring above. 聚焦:accent 边 + 上方柔光环。
-            border: Border.all(color: focused ? c.accentLine : c.line, width: AnSize.hairline),
-            boxShadow: shadows.isEmpty ? null : shadows,
-          ),
-          padding: const EdgeInsets.all(AnSpace.s8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (widget.attachments != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: AnSpace.s8, left: AnSpace.s4),
-                  child: widget.attachments!,
+        final radius = BorderRadius.circular(tall ? AnRadius.card : AnRadius.pill);
+
+        final content = Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (widget.attachments != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AnSpace.s8, left: AnSpace.s4),
+                child: widget.attachments!,
+              ),
+            multiline ? _multilineRow(context, c) : _singleRow(context, c),
+          ],
+        );
+
+        // A decoupled focus layer (fades FAST — an affordance mustn't ride the slow shape morph). The glow
+        // sits BEHIND the white box so its interior is covered (only the outer ring shows, NO blue fill); the
+        // accent border sits ON TOP so it reads on the edge. 解耦聚焦层(fast 淡入):辉光在白盒**背后**(内部被盖、
+        // 只露外圈、无蓝内填),accent 描边在**上面**(只在边缘)。
+        Widget focusLayer({required BoxDecoration decoration}) => Positioned.fill(
+              child: IgnorePointer(
+                child: AnimatedOpacity(
+                  opacity: focused ? 1 : 0,
+                  duration: feedback,
+                  curve: AnMotion.easeOut,
+                  child: AnimatedContainer(duration: shape, curve: AnMotion.spring, decoration: decoration),
                 ),
-              if (multiline)
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // edit's optical left edge aligns to the lead icon glyph on the row below (see _wrapTextInset).
-                    // 文字光学左缘对齐下排图标字形(见 _wrapTextInset)。
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(_wrapTextInset, 0, AnSpace.s6, 0),
-                      child: _editField(context, c),
-                    ),
-                    const SizedBox(height: AnSpace.s4),
-                    Row(children: [
-                      ...widget.lead,
-                      const Spacer(),
-                      if (widget.trailing != null) widget.trailing!,
-                    ]),
-                  ],
-                )
-              else
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    ...widget.lead,
-                    const SizedBox(width: AnSpace.s4),
-                    Expanded(child: _editField(context, c)),
-                    const SizedBox(width: AnSpace.s8),
-                    if (widget.trailing != null) widget.trailing!,
-                  ],
-                ),
-            ],
-          ),
+              ),
+            );
+        return Stack(
+          children: [
+            // 0 — the soft outer glow, BEHIND (interior gets covered by the box). 辉光在后。
+            focusLayer(
+              decoration: BoxDecoration(
+                borderRadius: radius,
+                boxShadow: [BoxShadow(color: c.accentSoft, spreadRadius: AnSpace.s2, blurRadius: AnSpace.s4)],
+              ),
+            ),
+            // 1 — the box itself (opaque white covers the glow's interior). 白盒盖住辉光内部。
+            AnimatedContainer(
+              duration: shape,
+              curve: AnMotion.spring,
+              decoration: BoxDecoration(
+                color: c.surface,
+                borderRadius: radius,
+                border: Border.all(color: c.line, width: AnSize.hairline), // base border neutral 基础边中性
+                boxShadow: widget.floating ? c.shadowFloat : null,
+              ),
+              padding: const EdgeInsets.all(AnSpace.s8),
+              // ONE size animation for the reflow / attachments height delta; radius co-times above. 一 size 动画。
+              child: AnimatedSize(
+                duration: shape,
+                curve: AnMotion.spring,
+                alignment: Alignment.topCenter,
+                child: content,
+              ),
+            ),
+            // 2 — the accent ring, ON TOP (edge only, no fill, no shadow). accent 描边在上、仅边缘。
+            focusLayer(
+              decoration: BoxDecoration(
+                borderRadius: radius,
+                border: Border.all(color: c.accentLine, width: AnSize.hairline),
+              ),
+            ),
+          ],
         );
       },
     );
   }
+
+  // Single line: [lead · edit · tail]. 单行。
+  Widget _singleRow(BuildContext context, AnColors c) => Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          ...widget.lead,
+          const SizedBox(width: AnSpace.s4),
+          Expanded(child: _editField(context, c)),
+          const SizedBox(width: AnSpace.s8),
+          _trailing(),
+        ],
+      );
+
+  // Multiline: edit on top, actions dropped to a row below. 多行:edit 占整行 + 钮组下移。
+  Widget _multilineRow(BuildContext context, AnColors c) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(_wrapTextInset, 0, AnSpace.s6, 0),
+            child: _editField(context, c),
+          ),
+          const SizedBox(height: AnSpace.s4),
+          Row(children: [...widget.lead, const Spacer(), _trailing()]),
+        ],
+      );
+
+  // The trailing slot: send appears on first keystroke, swaps to stop while generating — scale+fade in ONE
+  // switcher. `none` is a keyed empty box so the switch is a real cross-fade. 右侧:一个 switcher 管出现+send↔stop。
+  Widget _trailing() => AnimatedSwitcher(
+        duration: AnMotionPref.reduced(context) ? Duration.zero : AnMotion.mid,
+        transitionBuilder: (child, anim) => ScaleTransition(
+          scale: Tween<double>(begin: 0.8, end: 1).animate(anim),
+          child: FadeTransition(opacity: anim, child: child),
+        ),
+        child: widget.trailing ?? const SizedBox.shrink(key: ValueKey('none')),
+      );
 
   Widget _editField(BuildContext context, AnColors c) => ConstrainedBox(
         constraints: BoxConstraints(maxHeight: AnSize.row * 6 - AnSpace.s8 * 2), // ~6 lines then internal scroll
@@ -199,7 +241,7 @@ class _AnComposerState extends State<AnComposer> {
       );
 
   // Count the lines the text wraps to at [maxWidth] (soft-wrap aware) — drives the single↔multiline morph.
-  // Pills render as their @label runs (same-ish width), so plain text is a close enough proxy. 行数估算驱动演变。
+  // 行数估算驱动演变。
   static int _countLines(String text, TextStyle style, double maxWidth) {
     if (text.trim().isEmpty) return 1;
     final tp = TextPainter(
