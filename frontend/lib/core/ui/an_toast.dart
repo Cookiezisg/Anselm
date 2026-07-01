@@ -178,7 +178,7 @@ class _AnToastState extends State<AnToast> with SingleTickerProviderStateMixin {
                     ),
                     if (widget.action != null) ...[
                       const SizedBox(width: AnSpace.s8),
-                      _action(context, c, reduced, t),
+                      _action(c, reduced),
                     ],
                     const SizedBox(width: AnSpace.s8),
                     AnButton.iconOnly(
@@ -228,12 +228,7 @@ class _AnToastState extends State<AnToast> with SingleTickerProviderStateMixin {
   }
 
   // Inline accent-text action (AnButton has no accent variant — WRK-041 decision U1). 行内 accent 文字钮。
-  Widget _action(
-    BuildContext context,
-    AnColors c,
-    bool reduced,
-    Translations t,
-  ) {
+  Widget _action(AnColors c, bool reduced) {
     return AnInteractive(
       onTap: () {
         widget.action!.onPressed();

@@ -28,13 +28,14 @@ class AnWorkspaceButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final reduced = AnMotionPref.reduced(context);
     return AnInteractive(
       onTap: onTap,
       selected: isOpen,
       builder: (context, states) {
         final hot = isOpen || states.isActive;
         return AnimatedContainer(
-          duration: AnMotion.fast,
+          duration: reduced ? Duration.zero : AnMotion.fast,
           height: AnSize.controlSm,
           padding: const EdgeInsets.symmetric(horizontal: AnSpace.s6),
           decoration: BoxDecoration(
@@ -55,7 +56,7 @@ class AnWorkspaceButton extends StatelessWidget {
               const SizedBox(width: AnSpace.s4),
               AnimatedRotation(
                 turns: isOpen ? 0.5 : 0,
-                duration: AnMotion.fast,
+                duration: reduced ? Duration.zero : AnMotion.fast,
                 child: Icon(AnIcons.chevronDown, size: AnSize.iconSm, color: c.inkFaint),
               ),
             ],
@@ -137,6 +138,7 @@ class _Cell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final reduced = AnMotionPref.reduced(context);
     return AnInteractive(
       onTap: onTap,
       selected: active,
@@ -152,7 +154,7 @@ class _Cell extends StatelessWidget {
               children: [
                 Positioned.fill(
                   child: AnimatedContainer(
-                    duration: AnMotion.fast,
+                    duration: reduced ? Duration.zero : AnMotion.fast,
                     decoration: BoxDecoration(
                       color: (active ? c.surfaceActive : c.surfaceHover).whenActive(hot),
                       borderRadius: BorderRadius.circular(AnRadius.button),

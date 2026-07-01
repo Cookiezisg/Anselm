@@ -75,8 +75,9 @@ class _SaveButton extends StatelessWidget {
           builder: (context, states) {
             final c = context.colors;
             final active = states.isActive;
+            final reduced = AnMotionPref.reduced(context);
             return AnimatedContainer(
-              duration: AnMotion.fast,
+              duration: reduced ? Duration.zero : AnMotion.fast,
               height: AnSize.controlSm,
               padding: const EdgeInsets.symmetric(horizontal: AnSize.btnPadXSm),
               alignment: Alignment.center,

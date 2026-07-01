@@ -106,17 +106,19 @@ class _AnPopoverState extends State<AnPopover> with SingleTickerProviderStateMix
   }
 
   void _sync() {
+    // Reduced-motion: jump the reveal to its end state (no fade/scale) rather than animate. 降级:揭示直达终态、不播。
+    final revealDur = AnMotionPref.reduced(context) ? Duration.zero : null;
     if (widget.controller.isOpen) {
       if (!_portal.isShowing) {
         _restoreFocus = FocusManager.instance.primaryFocus; // remember the trigger before the scope seizes focus 记开前焦点
         _attachScrollDismiss(); // scrolling an ancestor list dismisses the menu 滚动祖先即关
         _portal.show();
       }
-      _anim.forward();
+      _anim.animateTo(1, duration: revealDur);
     } else if (_portal.isShowing) {
       // Animate out, then remove the overlay (unless reopened mid-reverse) and hand focus back to the
       // trigger (if it's still mounted) so traversal / SR position survives the close. 反向播完撤浮层 + 归还焦点。
-      _anim.reverse().whenComplete(() {
+      _anim.animateBack(0, duration: revealDur).whenComplete(() {
         if (!widget.controller.isOpen && _portal.isShowing) {
           _portal.hide();
           _detachScrollDismiss();

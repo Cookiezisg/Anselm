@@ -80,6 +80,7 @@ class AnButton extends StatelessWidget {
           autofocus: autofocus,
           builder: (context, states) {
             final c = context.colors;
+            final reduced = AnMotionPref.reduced(context);
             final active = states.isActive;
             final focused = states.contains(WidgetState.focused);
 
@@ -140,7 +141,7 @@ class AnButton extends StatelessWidget {
               }
 
               final box = AnimatedContainer(
-                duration: AnMotion.fast,
+                duration: reduced ? Duration.zero : AnMotion.fast,
                 height: height,
                 width: isIcon ? height : null,
                 padding: EdgeInsets.symmetric(horizontal: padX),

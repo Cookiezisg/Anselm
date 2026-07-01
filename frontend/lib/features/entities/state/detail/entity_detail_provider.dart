@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/contract/entities/agent.dart';
 import '../../../../core/router/navigation.dart';
-import '../../../../core/sse/frame.dart';
 import '../../data/entity_kind.dart';
 import '../../data/entity_providers.dart';
 import '../../data/entity_repository.dart';
@@ -34,11 +33,11 @@ class EntityDetailNotifier extends AsyncNotifier<EntityDetail> {
   Future<EntityDetail> build() async {
     _repo = ref.watch(entityRepositoryProvider);
     final life = _repo.lifecycleSignals(entityRef.kind).listen(_onLifecycle);
-    final panel = _repo.panelSignals(entityRef.kind.scope(entityRef.id)).listen(_onPanel);
-    ref.onDispose(() {
-      life.cancel();
-      panel.cancel();
-    });
+    ref.onDispose(life.cancel);
+    // The entities (panel) stream is NOT subscribed here: the run terminal owns its own panel
+    // subscription, and the future build-mirror banner (create/edit streaming over the entity scope)
+    // will add one when it lands — a held no-op subscription was just a duplicate + wasted cost.
+    // panel 流不在此订阅:run 终端自管;未来 build 镜像横幅落地时再加——空持有订阅只是重复+浪费。
     return _fetch();
   }
 
@@ -93,10 +92,6 @@ class EntityDetailNotifier extends AsyncNotifier<EntityDetail> {
     }
   }
 
-  // No-op: the run terminal owns its OWN panel subscription (state/run/run_terminal_controller); this
-  // seam is held for the future build-mirror banner (create/edit streaming over the entity scope).
-  // no-op:run 终端自管面板订阅;此缝留给未来 build 镜像横幅(实体 scope 上的 create/edit 流式)。
-  void _onPanel(StreamEnvelope env) {}
 }
 
 /// autoDispose: leaving an entity tears down the notifier + its TWO SSE subscriptions (life/panel) — a
