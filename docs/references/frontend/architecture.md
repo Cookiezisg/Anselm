@@ -28,6 +28,7 @@ app/                       # 装配根
   app_shell.dart           # 唯一壳组合 AppShell(哪个 feature 在哪个岛):make app 与 make demo 共用,只差数据源 + 启动(见 §6)
   app_startup_gate.dart    # 据 backend 单一 phase 门控:连接中 / 崩溃可重试 / 就绪显壳(整 app 单点门控,在 MaterialApp.router builder 里包路由 child、非 redirect)
   workspace_gate.dart      # 冷启动工作区门控(在 startup gate 之下、壳之上):解析 workspace 中显"准备工作区",就绪显壳
+  gate_backdrop.dart       # 两道门控(startup + workspace)共用的满屏 canvas 底(GateBackdrop),内层 AnState 自居中/限宽
   window_setup.dart        # 桌面窗口:window_manager(尺寸/最小/居中 + hidden-at-launch:原生 order 钩子隐藏、show() 一次性显示、无启动闪烁)+ macos_window_utils(无边框 + 加高标题栏红绿灯)
 core/                      # 跨切共享层(不依赖上层)
   runtime.dart             # DI 装配:activeWorkspace(+ activeWorkspaceName 底栏显示名)+ backendController/Startup(BackendState phase 桥) + dio/apiClient + sseGateway(就绪前 null)
@@ -37,7 +38,8 @@ core/                      # 跨切共享层(不依赖上层)
   net/                     # api_client:唯一 HTTP 边界,标准契约只编码一次 + workspace/bearer(ANSELM_AUTH_TOKEN)拦截器
   sse/                     # 3 流地基:frame(线缆 + seq 派生 durable) · sse_parser · sse_connection(重连 + 410 续传 + full-jitter + bearer) · sse_gateway(per-scope/per-kind demux,Riverpod 之下)
   process/                 # backend_controller:sidecar 监督(抢端口 / health 门控 / 有界崩溃重启 / SIGTERM→kill 优雅关停 / 铸 ANSELM_AUTH_TOKEN)
-  perf/                    # coalescing_notifier(L2:值同步无损、监听者每帧≤1 通知 —— 流式 firehose 防整页重建)
+  perf/                    # coalescing_notifier(L2:值同步无损、监听者每帧≤1 通知 —— 流式 firehose 防整页重建) · debouncer(尾沿防抖原语,run/dispose;rail 搜索框逐键防抖)
+  state/                   # 框架无关 Riverpod 状态原语:bool_pref(BoolPrefNotifier:单 bool UI 偏好,toggle/set) · keyset_query_paging(KeysetQueryPaging mixin:query-reset keyset 分页 epoch 守卫,实体/对话 rail 共用)
   error/                   # error_boundary:installErrorHandlers(全局错误汇)+ 可恢复 ErrorWidget(构建抛错不灰屏)
   design/                  # tokens · colors · typography · theme —— 唯一值源,禁内联 px/hex/ms
   platform/                # OS 缝:host_platform(dart:io 收口) · window_zoom(应内 Cmd +/- 缩放)
@@ -49,10 +51,11 @@ core/                      # 跨切共享层(不依赖上层)
 i18n/                      # slang:en/zh_CN 双语 + 生成 strings.g.dart（dart run slang,入库）
 dev/                       # dev 工具:gallery_main（make gallery 组件画廊）· demo_main（make demo:真壳 AppShell + fixture override + 跳门控,零后端）
 features/                  # ★中间层:每域 data+state+ui+model（随 feature 落地,Entities 起）
-  entities/data/           # Entities feature 数据缝[Phase 4.1 STEP 1]:单一 EntityRepository(Live 接 ApiClient+SseGateway / Fixture 内存可脚本 / entityRepositoryProvider 单点 override) + EntityKind/EntityRow/EntitySignal
-  entities/state/          # Entities 列表 state[STEP 2]:entityListProvider(首页+loadMore+SSE patch) + railModelProvider + selectedEntityProvider(STEP 6 改:只读、单向派生自路由 delegate) + railSortProvider(最近活跃/最近创建/名称,与 chat rail 对齐) + railShowCountProvider(⚙ 显示分组计数)
+  entities/data/           # Entities feature 数据缝[Phase 4.1 STEP 1]:单一 EntityRepository(Live 接 ApiClient+SseGateway / Fixture 内存可脚本 / entityRepositoryProvider 单点 override) + EntityKind/EntityRow/EntitySignal + entity_labels(EntityKindLabels 扩展:type/verb i18n 标签唯一源,rail·海洋头·run 终端共用)
+  entities/state/          # Entities 列表 state[STEP 2]:entityListProvider(首页 + loadMore via KeysetQueryPaging mixin + SSE patch) + railModelProvider + selectedEntityProvider(STEP 6 改:只读、单向派生自路由 delegate) + railSortProvider(最近活跃/最近创建/名称,与 chat rail 对齐) + railShowCountProvider(⚙ 显示分组计数)
   entities/state/detail/   # 详情 state[STEP 4]:entityDetail(双流订阅,durable 重取/ephemeral no-op) + versionList + logList(PageWithAggregate+workflow flowrun 懒取);全 autoDispose(离开实体释放 notifier+SSE 订阅,async 写前 ref.mounted 守卫;STEP 6 收口)
-  entities/ui/             # Entities UI[STEP 3]:EntityRail over AnSidebarList(4 kind 段 + 状态点 + 四态)+ entity_rail_model(纯投影)+ entity_ocean[STEP 4 详情根]
+  entities/state/run/      # 运行 state[STEP 5]:run_terminal_controller(草稿→请求强转 + 流帧)+ run_fields(runInputFields/runMethods:表单渲染与 controller 强转的唯一字段源,防渲染≠强转的静默丢参)
+  entities/ui/             # Entities UI[STEP 3]:EntityRail over AnSidebarList(4 kind 段 + 状态点 + 四态;首载 AnRailSkeleton + Debouncer 搜索)+ entity_rail_model(纯投影)+ entity_ocean[STEP 4 详情根]
   entities/ui/detail/      # 详情 UI[STEP 4]:EntityOcean=单一 AnPage 文档(头+tab+内容居中 720 一起滚,AnTabs flow)+ ocean_header(状态徽 + 动词 CTA)+ overview/{4 kind}(workflow 图推迟图编辑器阶段)+ version_tab(AnVersionDiff)+ log_tab + detail_sections + entity_ocean(详情海洋,STEP 3 占位/STEP 4 建)
   entities/data/entity_demo_fixture.dart  # demoEntityRepository():make demo 的零后端种子(STEP 4/5 续加版本/日志/flowrun)
 ```
