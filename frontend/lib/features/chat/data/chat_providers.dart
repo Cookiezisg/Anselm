@@ -11,5 +11,8 @@ import 'chat_repository.dart';
 /// Chat feature 的数据缝(provider)。默认 Live(接 apiClient);零后端 demo / gallery / 每个 feature 测试经
 /// ProviderScope override 此唯一 provider 成 fixture——整 feature 单点切换后端(镜像 entityRepositoryProvider)。
 final chatRepositoryProvider = Provider<ChatRepository>((ref) {
-  return LiveChatRepository(api: ref.watch(apiClientProvider));
+  return LiveChatRepository(
+    api: ref.watch(apiClientProvider),
+    sse: ref.watch(sseGatewayProvider),
+  );
 });

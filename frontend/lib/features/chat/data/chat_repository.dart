@@ -1,6 +1,8 @@
 import '../../../core/contract/conversation.dart';
 import '../../../core/contract/page.dart';
 import '../../../core/net/api_client.dart';
+import '../../../core/sse/sse_gateway.dart';
+import 'conversation_signal.dart';
 
 /// How the conversation list is ordered. Mirrors the backend's three sort values exactly (a sealed
 /// closed set — the rail's sort menu offers only these). [wire] is the `?sort=` query value.
@@ -72,18 +74,30 @@ abstract interface class ChatRepository {
 
   /// Soft-delete (`DELETE` → 204, tombstoned server-side; the rail just drops the row). 软删(204)。
   Future<void> deleteConversation(String id);
+
+  /// A single conversation by id (`GET /{id}`) — the rail re-reads ONE row on a lifecycle signal it did
+  /// not originate (auto-title, or a change from another window). 单取一条,供 rail 据非自身发起的信号重读一行。
+  Future<Conversation> getConversation(String id);
+
+  /// The conversation lifecycle signals off the notifications SSE stream (`conversation.<action>`). The
+  /// list patches on `durable`, ignores ephemeral — created→insert, deleted→drop, everything else→re-read
+  /// that row. Live is a projection over the gateway; the fixture scripts them. 对话生命周期信号(notifications)。
+  Stream<ConversationSignal> lifecycleSignals();
 }
 
 /// The production repository over the Phase-4.0 pipeline. Holds no state; the method is a thin
 /// envelope-decode over [ApiClient.getPage]. (Realtime gets the nullable SseGateway added in the
 /// live-wiring slice — omitted now since step 1 has no realtime method.)
 ///
-/// 生产 repository(接 Phase 4.0 管道)。无状态;方法是 ApiClient.getPage 上的薄信封解码。(实时在 live-wiring
-/// 片加可空 SseGateway——此处省,step 1 无实时方法。)
+/// 生产 repository(接 Phase 4.0 管道)。无状态;读方法是 ApiClient 上的薄信封解码,实时则是 notifications 流
+/// 上的投影(可空 SseGateway——就绪前 null,则信号流为空)。
 class LiveChatRepository implements ChatRepository {
-  LiveChatRepository({required ApiClient api}) : _api = api;
+  LiveChatRepository({required ApiClient api, SseGateway? sse})
+      : _api = api,
+        _sse = sse;
 
   final ApiClient _api;
+  final SseGateway? _sse;
 
   @override
   Future<Page<Conversation>> listConversations({
@@ -121,4 +135,23 @@ class LiveChatRepository implements ChatRepository {
 
   @override
   Future<void> deleteConversation(String id) => _api.delete(_path(id));
+
+  @override
+  Future<Conversation> getConversation(String id) =>
+      _api.getEntity(_path(id), Conversation.fromJson);
+
+  @override
+  Stream<ConversationSignal> lifecycleSignals() {
+    final sse = _sse;
+    if (sse == null) return const Stream.empty();
+    // The notifications stream is low-frequency and shares one scope (scope.kind="notification"), so a
+    // `.where` over the raw feed is correct here — NOT the rebuild-storm the demux guards high-freq paths
+    // against (mirrors LiveEntityRepository.lifecycleSignals).
+    // notifications 低频、共用单 scope,故对原始 feed `.where` 在此正确(非 demux 所防的高频风暴)。
+    return sse
+        .rawStream(StreamName.notifications)
+        .map(ConversationSignal.fromEnvelope)
+        .where((s) => s != null)
+        .cast<ConversationSignal>();
+  }
 }

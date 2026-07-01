@@ -6,6 +6,7 @@ import '../../../core/state/bool_pref.dart';
 import '../../../core/state/keyset_paging.dart';
 import '../data/chat_providers.dart';
 import '../data/chat_repository.dart';
+import '../data/conversation_signal.dart';
 import 'conversation_list_state.dart';
 
 /// The conversation list sort — a transient view preference (activity / created / name), held in its
@@ -95,6 +96,11 @@ class ConversationListNotifier extends AsyncNotifier<ConversationListState>
     _sort = ref.watch(conversationSortProvider);
     _archive = ref.watch(showArchivedProvider) ? ConvArchive.all : ConvArchive.active;
     _search = ref.watch(conversationSearchProvider);
+    // Live lifecycle: the notifications stream reconciles the list for changes this client didn't originate
+    // (auto-title after the first message, or another window's create/rename/archive/pin/delete). Re-run on
+    // a query switch cancels + re-subscribes (onDispose). 实时生命周期:notifications 流据非自身发起的变更重排。
+    final sub = _repo.lifecycleSignals().listen(_onSignal);
+    ref.onDispose(sub.cancel);
     final page = await _repo.listConversations(
         limit: _pageSize, sort: _sort, archive: _archive, search: _search.isEmpty ? null : _search);
     return ConversationListState(
@@ -153,6 +159,46 @@ class ConversationListNotifier extends AsyncNotifier<ConversationListState>
     final cur = state.value;
     if (cur == null || !cur.rows.any((r) => r.id == id)) return;
     state = AsyncData(cur.copyWith(rows: cur.rows.where((r) => r.id != id).toList(growable: false)));
+  }
+
+  // Reconcile one lifecycle signal into the loaded list. Only durable frames patch (DB-row-is-truth);
+  // deleted drops, created inserts, everything else re-reads that one row. Re-reads `state` after each
+  // await (a query switch may have re-paged meanwhile). 据一条生命周期信号重排;仅 durable 生效。
+  Future<void> _onSignal(ConversationSignal s) async {
+    if (!s.durable || state.value == null) return;
+    switch (s.action) {
+      case ConversationAction.deleted:
+        applyDelete(s.id);
+      case ConversationAction.created:
+        await _insert(s.id);
+      case ConversationAction.updated:
+        final c = await _fetch(s.id);
+        if (c != null) applyUpdate(c); // replace in place / drop if archived-and-hidden / re-bucket
+      case ConversationAction.unknown:
+        return;
+    }
+  }
+
+  // A created thread this client didn't originate (another window, or an AI-edit :iterate) → fetch it and
+  // prepend, if visible under the current archive scope and not already loaded. Under activity/created sort
+  // a new thread belongs at the top; under name sort it's approximate until the next full page (self-heals).
+  // 非自身发起的新对话→取回前插(当前归档范围可见、且未在窗内)。activity/created 新对话本就在顶;name 排序近似、下页自愈。
+  Future<void> _insert(String id) async {
+    final cur = state.value;
+    if (cur == null || cur.rows.any((r) => r.id == id)) return; // dedup
+    final c = await _fetch(id);
+    if (c == null || (c.archived && _archive == ConvArchive.active)) return; // gone, or not in this scope
+    final now = state.value;
+    if (now == null || now.rows.any((r) => r.id == id)) return; // re-check after the await
+    state = AsyncData(now.copyWith(rows: [c, ...now.rows]));
+  }
+
+  Future<Conversation?> _fetch(String id) async {
+    try {
+      return await _repo.getConversation(id);
+    } catch (_) {
+      return null; // vanished between signal and fetch — let the list be
+    }
   }
 }
 

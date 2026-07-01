@@ -29,13 +29,14 @@ audience: [human, ai]
 - **状态点**(`conversationDot`,优先级高→低):🔵 生成中(`isGenerating`,唯一呼吸)> 🟡 等你输入(`awaitingInput`)> 🟢 答完未读(`hasUnread`)> ⚪ 已归档(`archived`,仅显归档时)> 无。
 - **⚙ 菜单**:排序(activity/created/name → 服务端 `?sort=`)+ 显示开关(显示已归档[重取]/分组计数/时间)。
 - **⋯ 行菜单**(STEP 7,hover 显):重命名(**就地改名**,复用 `AnInlineEdit`)/ 置顶·取消 / 归档·取消 / 删除(danger + 确认弹窗)。写打后端 PATCH/DELETE,发起端拿响应**乐观更新**列表(`applyUpdate`/`applyDelete`,幂等),不等 SSE。
-- **数据缝** `ChatRepository`(Live/Fixture/`chatRepositoryProvider`);**列表 state** `ConversationListNotifier`(分页 + sort/archived watch 重翻 + 乐观 patch);**选区** `/chat/:id` 路由派生。
+- **数据缝** `ChatRepository`(Live/Fixture/`chatRepositoryProvider`);**列表 state** `ConversationListNotifier`(分页 via `KeysetQueryPaging` mixin + sort/archived watch 重翻 + 乐观 patch + notifications 实时重排);**选区** `/chat/:id` 路由派生。
+- **实时生命周期**(✅ 本片落):`ChatRepository.lifecycleSignals()` 投影 notifications 流的 `conversation.<action>`(`ConversationSignal`,镜像 entities `EntitySignal`;payload id=`conversationId`);`ConversationListNotifier` build 订阅 → `_onSignal` reconcile:`deleted`→drop、`created`→取回前插、其余(`updated`/`auto_titled`/`archived`/`pinned`/…)→`GET /{id}` 重读 + `applyUpdate`(就地替换 / 隐藏时移出归档 / 重分置顶)。仅 `durable`(seq>0)生效、幂等(与发起端乐观写重叠安全)。**注**:活动点(生成中/等你/未读)的流转**不在** notifications 词表,由 messages 流驱动 → 随中心海洋(§B)一起活。
 
 **后端 rail 能力(已就绪、已消费)**:`?sort=name`(orm PageAsc NOCASE)· `awaitingInput`(humanloop 派生 bool)· `hasUnread`(持久布尔列 + `POST :seen`,免时钟比较)· `ArchiveScope` 三态(`?archived=all`)。`lastMessagePreview` 已删(无预览)。
 
 **rail 写契约**(Explore `a33793ae`):rename/pin/archive 全 `PATCH /api/v1/conversations/{id}` **单字段**(`{title}`/`{pinned}`/`{archived}`)+ `DELETE`(软删 204);走 **notifications 流**回声、**无 echo 抑制**(合并须幂等);title 后端零校验(前端挡空)。
 
-**rail 尾巴(未做,并入后续片)**:无限下滑(需 `AnSidebarList` scroll hook)· 跨客户端 SSE 回声合并(并到 §B live-wiring)。
+**rail 尾巴**:✅ 无限下滑(`AnSidebarList` 虚拟化 + `onLoadMore` → `loadMore`,`pageKey='recents'`)· ✅ 跨客户端 notifications 回声合并(见上「实时生命周期」)。**唯一剩项**:活动点(生成中/等你/未读)真正流动——由 messages 流驱动,随 §B 中心海洋一起做(rail 本身在无中心时已做到能做的极限)。
 
 ---
 

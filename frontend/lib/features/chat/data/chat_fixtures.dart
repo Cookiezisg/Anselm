@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import '../../../core/contract/conversation.dart';
 import '../../../core/contract/page.dart';
 import 'chat_repository.dart';
+import 'conversation_signal.dart';
 
 /// In-memory, scriptable [ChatRepository] — the SINGLE seam the whole Chat feature is driven by in
 /// gallery / widget / provider tests and the zero-backend demo (mirrors [FixtureEntityRepository]). It
@@ -17,6 +20,12 @@ class FixtureChatRepository implements ChatRepository {
       : _all = List.of(conversations ?? const []);
 
   final List<Conversation> _all;
+
+  // A lazy broadcast controller so tests / the demo can script `conversation.<action>` signals without an
+  // SSE socket (mirrors FixtureEntityRepository). 惰性广播控制器,使测试/demo 无 socket 即可脚本化信号。
+  StreamController<ConversationSignal>? _signals;
+  StreamController<ConversationSignal> get _lazySignals =>
+      _signals ??= StreamController<ConversationSignal>.broadcast();
 
   // cursor = the next start index, as a string (same scheme as FixtureEntityRepository._page).
   // cursor = 下一起始下标的字符串(同 FixtureEntityRepository._page 方案)。
@@ -94,5 +103,31 @@ class FixtureChatRepository implements ChatRepository {
   Future<void> deleteConversation(String id) async {
     if (!_all.any((c) => c.id == id)) throw StateError('conversation not found: $id');
     _all.removeWhere((c) => c.id == id);
+  }
+
+  @override
+  Future<Conversation> getConversation(String id) async {
+    final c = _all.where((c) => c.id == id).firstOrNull;
+    if (c == null) throw StateError('conversation not found: $id'); // mirrors 404 CONVERSATION_NOT_FOUND
+    return c;
+  }
+
+  @override
+  Stream<ConversationSignal> lifecycleSignals() => _lazySignals.stream;
+
+  // ── realtime scripting (tests / demo) ──
+
+  /// Seed or replace a row (a server-side create fetchable via [getConversation], or an out-of-band edit),
+  /// WITHOUT emitting — pair with [emitSignal]. 落/替一行(不发信号,配 emitSignal 用)。
+  void upsert(Conversation c) {
+    final i = _all.indexWhere((r) => r.id == c.id);
+    i < 0 ? _all.add(c) : _all[i] = c;
+  }
+
+  /// Push a lifecycle signal to subscribers (the list notifier). 向订阅者(list notifier)推一条生命周期信号。
+  void emitSignal(ConversationSignal signal) => _lazySignals.add(signal);
+
+  Future<void> dispose() async {
+    await _signals?.close();
   }
 }

@@ -2,6 +2,7 @@ import 'package:anselm/core/contract/conversation.dart';
 import 'package:anselm/features/chat/data/chat_fixtures.dart';
 import 'package:anselm/features/chat/data/chat_providers.dart';
 import 'package:anselm/features/chat/data/chat_repository.dart';
+import 'package:anselm/features/chat/data/conversation_signal.dart';
 import 'package:anselm/features/chat/state/conversation_list_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -139,6 +140,67 @@ void main() {
     n.applyDelete('cv_a');
     expect(c.read(conversationListProvider).value!.rows.map((r) => r.id), ['cv_b']);
     n.applyDelete('cv_a'); // already gone → no-op, no throw
+    expect(c.read(conversationListProvider).value!.rows.map((r) => r.id), ['cv_b']);
+  });
+
+  // ── live lifecycle (notifications-stream signal reconciliation) ──
+  ConversationSignal sig(String id, ConversationAction a, {bool durable = true}) =>
+      ConversationSignal(id: id, action: a, durable: durable);
+
+  test('durable deleted signal drops the row', () async {
+    final repo = FixtureChatRepository(conversations: [_c('cv_a', 'A', hour: 9), _c('cv_b', 'B', hour: 11)]);
+    final c = _container(repo);
+    await c.read(conversationListProvider.future);
+    repo.emitSignal(sig('cv_a', ConversationAction.deleted));
+    await pumpEventQueue();
+    expect(c.read(conversationListProvider).value!.rows.map((r) => r.id), ['cv_b']);
+  });
+
+  test('durable updated signal re-reads that row (auto-title lands)', () async {
+    final repo = FixtureChatRepository(conversations: [_c('cv_a', 'A', hour: 9)]);
+    final c = _container(repo);
+    await c.read(conversationListProvider.future);
+    repo.upsert(_c('cv_a', 'Auto Title', hour: 9)); // server renamed it (auto_titled)
+    repo.emitSignal(sig('cv_a', ConversationAction.updated));
+    await pumpEventQueue();
+    expect(c.read(conversationListProvider).value!.rows.single.title, 'Auto Title');
+  });
+
+  test('durable created signal fetches + prepends the new row', () async {
+    final repo = FixtureChatRepository(conversations: [_c('cv_b', 'B', hour: 11)]);
+    final c = _container(repo);
+    await c.read(conversationListProvider.future);
+    repo.upsert(_c('cv_new', 'Fresh', hour: 23)); // a thread created elsewhere, now fetchable
+    repo.emitSignal(sig('cv_new', ConversationAction.created));
+    await pumpEventQueue();
+    expect(c.read(conversationListProvider).value!.rows.map((r) => r.id), ['cv_new', 'cv_b']);
+  });
+
+  test('created signal for an already-loaded id is a no-op (dedup)', () async {
+    final repo = FixtureChatRepository(conversations: [_c('cv_a', 'A', hour: 9)]);
+    final c = _container(repo);
+    await c.read(conversationListProvider.future);
+    repo.emitSignal(sig('cv_a', ConversationAction.created));
+    await pumpEventQueue();
+    expect(c.read(conversationListProvider).value!.rows.length, 1);
+  });
+
+  test('ephemeral signal (durable=false) never patches the list', () async {
+    final repo = FixtureChatRepository(conversations: [_c('cv_a', 'A', hour: 9), _c('cv_b', 'B', hour: 11)]);
+    final c = _container(repo);
+    await c.read(conversationListProvider.future);
+    repo.emitSignal(sig('cv_a', ConversationAction.deleted, durable: false));
+    await pumpEventQueue();
+    expect(c.read(conversationListProvider).value!.rows.length, 2); // untouched
+  });
+
+  test('updated signal for an archived thread drops it when show-archived is off', () async {
+    final repo = FixtureChatRepository(conversations: [_c('cv_a', 'A', hour: 9), _c('cv_b', 'B', hour: 11)]);
+    final c = _container(repo);
+    await c.read(conversationListProvider.future);
+    repo.upsert(_c('cv_a', 'A', archived: true, hour: 9)); // archived from another window
+    repo.emitSignal(sig('cv_a', ConversationAction.updated));
+    await pumpEventQueue();
     expect(c.read(conversationListProvider).value!.rows.map((r) => r.id), ['cv_b']);
   });
 }
