@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -17,18 +19,49 @@ import '../state/rail_sort.dart';
 import '../state/selected_entity.dart';
 import 'entity_rail_model.dart';
 
-/// The left-island entity navigator (Phase 4.1 STEP 3). Watches [railModelProvider] (the 4 kinds' live
-/// list states) + [selectedEntityProvider], resolves ONE of four screens — loading skeleton / error /
-/// empty / the [AnSidebarList] of kind sections — and wires selection back to [selectedEntityProvider].
-/// All data flows through the repository seam, so the gallery/tests drive every state with a fixture.
+/// The left-island entity navigator. Watches [railModelProvider] (the 4 kinds' live list states) +
+/// [selectedEntityProvider], resolves ONE of four screens — loading skeleton / error / empty / the
+/// virtualized [AnSidebarList] of kind sections — and wires selection back to the URL. The rail's search
+/// box drives the server-side `?search` ([entitySearchProvider], debounced), and each kind section's tail
+/// drives [EntityListNotifier.loadMore] (keyset infinite scroll). All data flows through the repository
+/// seam, so the gallery/tests drive every state with a fixture.
 ///
-/// 左岛实体导航(4.1 STEP 3)。watch railModel + selected,解出四态之一(骨架/错/空/列表),并把选择写回
-/// selectedEntityProvider。全数据过 repository 缝,故 gallery/测试用 fixture 驱动每态。
-class EntityRail extends ConsumerWidget {
+/// 左岛实体导航。watch railModel + selected,解出四态之一(骨架/错/空/虚拟化列表),选择写回 URL。搜索框驱动服务端
+/// ?search(entitySearchProvider,防抖),每个 kind 段尾驱动 loadMore(keyset 无限下滑)。全数据过 repository 缝。
+class EntityRail extends ConsumerStatefulWidget {
   const EntityRail({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<EntityRail> createState() => _EntityRailState();
+}
+
+class _EntityRailState extends ConsumerState<EntityRail> {
+  Timer? _debounce;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  // Debounce keystrokes before hitting the server-side ?search (the provider re-pages from the top on
+  // change; firing per key would storm the backend). 逐键防抖再打服务端 ?search(每键一请求会打爆后端)。
+  void _onFilter(String v) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 250), () {
+      if (mounted) ref.read(entitySearchProvider.notifier).set(v);
+    });
+  }
+
+  // A kind section's tail fires with that kind's pageKey → page THAT kind's list (each kind is its own
+  // keyset axis). 段尾携该 kind 的 pageKey → 翻该 kind 的列表(每 kind 独立 keyset 轴)。
+  void _onLoadMore(String pageKey) {
+    final kind = EntityKind.values.firstWhere((k) => k.name == pageKey, orElse: () => EntityKind.function);
+    ref.read(entityListProvider(kind).notifier).loadMore();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final groups = ref.watch(railModelProvider);
     final selected = ref.watch(selectedEntityProvider);
     final sort = ref.watch(railSortProvider);
@@ -39,8 +72,8 @@ class EntityRail extends ConsumerWidget {
     final anyLoading = groups.any((g) => g.state.isLoading);
     final allError = groups.every((g) => g.state.hasError);
 
-    // Loading: nothing resolved yet. A shaped skeleton reads faster than a spinner for content; deferred
-    // so a fast first load never flashes it. 首载骨架(延迟防闪)。
+    // Loading: nothing resolved yet. A shaped skeleton reads faster than a spinner; deferred so a fast
+    // first load never flashes it. 首载骨架(延迟防闪)。
     if (!anyData && anyLoading) return const AnDeferredLoading(child: _RailSkeleton());
 
     // Error: every kind failed and there is nothing to show — offer a retry that refetches all. 全错可重试。
@@ -49,30 +82,19 @@ class EntityRail extends ConsumerWidget {
         kind: AnStateKind.error,
         title: t.entities.errorTitle,
         hint: t.entities.errorHint,
-        action: AnButton(
-          label: t.entities.retry,
-          onPressed: () => _retryAll(ref),
-        ),
+        action: AnButton(label: t.entities.retry, onPressed: _retryAll),
       );
     }
 
     // Empty: loaded, but zero entities across all kinds. 加载完但空。
     final total = groups.fold<int>(0, (sum, g) => sum + g.count);
     if (total == 0) {
-      return AnState(
-        kind: AnStateKind.empty,
-        title: t.entities.emptyTitle,
-        hint: t.entities.emptyHint,
-      );
+      return AnState(kind: AnStateKind.empty, title: t.entities.emptyTitle, hint: t.entities.emptyHint);
     }
 
     final model = buildRailModel(
       groups,
-      RailLabels(
-        kindLabel: (k) => _kindLabel(t, k),
-        newLabel: t.entities.kNew,
-        filter: t.entities.filter,
-      ),
+      RailLabels(kindLabel: (k) => _kindLabel(t, k), newLabel: t.entities.kNew, filter: t.entities.filter),
       sort,
       showCount: showCount,
     );
@@ -81,21 +103,21 @@ class EntityRail extends ConsumerWidget {
       model: model,
       selectedId: selected?.id,
       showNew: false, // entity creation is a later phase; the rail is read+select only in 4.1
-      menuEntries: _menu(ref, t, sort, showCount),
+      menuEntries: _menu(t, sort, showCount),
+      // Navigate to set selection — the route is the source of truth (STEP 6). 导航即设选区(路由为真相)。
       onSelect: (id) {
-        // Navigate to set selection — the route is the source of truth (STEP 6); the rail never imports
-        // ocean/inspector, it just changes the URL. 导航即设选区(路由为真相);rail 只改 URL、不 import 海洋/右岛。
         final kind = kindForId(groups, id);
         if (kind != null) context.go(entityLocation(kind, id));
       },
+      onFilterChanged: _onFilter,
+      onLoadMore: _onLoadMore,
+      onRetryLoad: _onLoadMore, // retry = just page again 重试即再翻
     );
   }
 
   /// The filter-row sliders menu — a single-select Sort section (recently active / created / name,
-  /// client-side via [sortRows]) + a Display section (show counts → [railShowCountProvider]). Aligned
-  /// with the chat rail's ⚙ menu. The display toggle keepOpens so it can be flipped without reopening.
-  /// 排序单选(最近活跃/创建/名称,客户端) + 显示开关(显示分组计数);与 chat rail ⚙ 对齐。
-  List<AnMenuEntry> _menu(WidgetRef ref, Translations t, RailSort sort, bool showCount) {
+  /// client-side over the loaded rows) + a Display section (show counts). 排序单选 + 显示开关。
+  List<AnMenuEntry> _menu(Translations t, RailSort sort, bool showCount) {
     void pick(RailSort s) => ref.read(railSortProvider.notifier).set(s);
     return [
       AnMenuSection(t.entities.sortLabel),
@@ -112,7 +134,7 @@ class EntityRail extends ConsumerWidget {
     ];
   }
 
-  void _retryAll(WidgetRef ref) {
+  void _retryAll() {
     for (final kind in EntityKind.values) {
       ref.invalidate(entityListProvider(kind));
     }

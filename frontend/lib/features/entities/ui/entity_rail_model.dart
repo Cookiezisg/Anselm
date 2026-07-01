@@ -51,6 +51,9 @@ SidebarModel buildRailModel(
                 label: labels.kindLabel(g.kind),
                 icon: AnIcons.byKey(g.kind.scopeKind),
                 count: showCount ? g.count : null,
+                pageKey: g.kind.name, // pagination axis — onLoadMore maps this back to the kind 分页轴
+                hasMore: g.state.value?.hasMore ?? false,
+                loadingMore: g.state.value?.loadingMore ?? false,
                 rows: [
                   for (final row in sortRows(g.state.value?.rows ?? const <EntityRow>[], sort))
                     SidebarRow(id: row.id, label: row.name, dot: railDot(row)),

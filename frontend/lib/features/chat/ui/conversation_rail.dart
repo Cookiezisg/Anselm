@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -48,6 +50,13 @@ class ConversationRail extends ConsumerStatefulWidget {
 class _ConversationRailState extends ConsumerState<ConversationRail> {
   // Which row is mid-rename (its label slot becomes an AnInlineEdit). null = none. 哪行在改名中。
   String? _editingId;
+  Timer? _debounce;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
 
   ChatRepository get _repo => ref.read(chatRepositoryProvider);
   ConversationListNotifier get _list => ref.read(conversationListProvider.notifier);
@@ -92,6 +101,8 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
       now: DateTime.now(),
       showCount: showCount,
       showTime: showTime,
+      hasMore: async.value?.hasMore ?? false,
+      loadingMore: async.value?.loadingMore ?? false,
       labels: ConvRailLabels(
         newLabel: t.chat.kNew,
         filter: t.chat.filter,
@@ -118,6 +129,9 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
       menuEntries: _menu(t, sort, archived, showCount, showTime),
       // The row id IS the conversation id — navigate straight to it (the route is the source of truth).
       onSelect: (id) => context.go(conversationLocation(id)),
+      onFilterChanged: _onFilter,
+      onLoadMore: (_) => _list.loadMore(), // the recents tail pages the conversation list 最近段尾翻列表
+      onRetryLoad: (_) => _list.loadMore(),
       editingRowId: _editingId,
       onRenameCommit: _rename,
       onRenameCancel: () => setState(() => _editingId = null),
@@ -127,6 +141,15 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
         return [_rowMenu(t, c)];
       },
     );
+  }
+
+  // Debounce keystrokes before the server-side ?search (the provider re-pages from the top on change;
+  // firing per key would storm the backend). 逐键防抖再打服务端 ?search(每键一请求会打爆后端)。
+  void _onFilter(String v) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 250), () {
+      if (mounted) ref.read(conversationSearchProvider.notifier).set(v);
+    });
   }
 
   /// The per-row ⋯ menu (hover-revealed) — every per-thread action in one place: rename / pin·unpin /

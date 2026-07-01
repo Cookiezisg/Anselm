@@ -101,6 +101,8 @@ SidebarModel buildConversationRailModel(
   required ConvRailLabels labels,
   bool showCount = true,
   bool showTime = true,
+  bool hasMore = false,
+  bool loadingMore = false,
 }) {
   // showTime/showCount are the ⚙ "show time" / "show counts" toggles: a null meta/count renders nothing
   // (AnRow omits the trailing time; the section head omits the count). showTime/showCount = ⚙ 开关:meta/count 为 null 则不渲。
@@ -123,7 +125,15 @@ SidebarModel buildConversationRailModel(
         if (pinned.isNotEmpty)
           SidebarType(label: labels.pinned, icon: AnIcons.pin, count: count(pinned.length), rows: pinned),
         if (recents.isNotEmpty)
-          SidebarType(label: labels.recents, icon: AnIcons.history, count: count(recents.length), rows: recents),
+          SidebarType(
+            label: labels.recents,
+            icon: AnIcons.history,
+            count: count(recents.length),
+            pageKey: 'recents', // the single paginated axis (pinned all land on page one) 唯一分页轴
+            hasMore: hasMore,
+            loadingMore: loadingMore,
+            rows: recents,
+          ),
       ]),
     ],
   );
