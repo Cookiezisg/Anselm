@@ -53,7 +53,7 @@ audience: [human, ai]
 - **ops 是唯一变更词汇**：LLM/HTTP/直接创建三口径合一管线，校验只写一处。
 - **无 pending/accept**：本地单用户，编辑立即生效 + revert 兜底，审批态是多余仪式。
 - **env 失败不阻塞创建**：让用户先看到实体 + env 状态，修复（edit 空 ops / 改依赖）是后续动作。
-- **Search/ListAll 全表载入内存过滤**：本地单用户规模的标准取舍（catalog/relation 同路）。
+- **两种搜索**：REST 列表 `GET /functions?search=<term>` 走服务端 `name` 大小写不敏感子串（orm `WhereLike`，转义 `%`/`_`；handler/agent/workflow 的 list 同构）；LLM 工具 `search_*` / `ListAll` 则全表载入内存过滤——本地单用户规模的标准取舍（catalog/relation 同路）。
 - 删除 = 软删 + best-effort 销毁 env/代码目录 + 硬删 relation 边。
 
 ## 6. 契约（引用，不重列）

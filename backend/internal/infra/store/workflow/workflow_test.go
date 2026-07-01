@@ -205,6 +205,23 @@ func TestWorkflow_SetActiveVersion(t *testing.T) {
 	}
 }
 
+// TestWorkflow_ListSearch — ?search is a case-insensitive name substring (WhereLike), same as the other 3 entity stores.
+//
+// TestWorkflow_ListSearch —— ?search 是大小写不敏感的 name 子串（WhereLike），与另 3 个实体 store 同键。
+func TestWorkflow_ListSearch(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	mkWf(t, s, ctx, "wf_1", "Quarterly Report", "")
+	mkWf(t, s, ctx, "wf_2", "random helper", "")
+	rows, _, err := s.ListWorkflows(ctx, workflowdomain.ListFilter{Search: "REPORT"})
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if len(rows) != 1 || rows[0].ID != "wf_1" {
+		t.Fatalf("search 'REPORT' should match only wf_1, got %d rows", len(rows))
+	}
+}
+
 func TestWorkflow_UpdateMetaAndActiveList(t *testing.T) {
 	s := newStore(t)
 	ctx := ctxWS("ws_1")

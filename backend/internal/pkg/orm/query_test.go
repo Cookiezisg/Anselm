@@ -54,6 +54,53 @@ func TestWhereIn_Empty(t *testing.T) {
 	}
 }
 
+func TestWhereLike(t *testing.T) {
+	db, ctx := newTestDB(t)
+	r := widgets(db)
+	mustCreate(t, r, ctx, "w_1", "Quarterly Report", 1)
+	mustCreate(t, r, ctx, "w_2", "random note", 2)
+	mustCreate(t, r, ctx, "w_3", "50% off", 3)
+	mustCreate(t, r, ctx, "w_4", "a_b_c", 4)
+
+	// Case-insensitive substring.
+	// 大小写不敏感子串。
+	got, err := r.Query().WhereLike("name", "report").Find(ctx)
+	if err != nil {
+		t.Fatalf("like: %v", err)
+	}
+	if len(got) != 1 || got[0].ID != "w_1" {
+		t.Errorf("substring 'report' = %v, want [w_1]", ids(got))
+	}
+
+	// Blank term is a no-op — matches every row (empty search = no filter).
+	// 空 term 为 no-op——匹配全部行（空搜索 = 不过滤）。
+	all, err := r.Query().WhereLike("name", "  ").Find(ctx)
+	if err != nil || len(all) != 4 {
+		t.Errorf("blank term must not filter: got %d err %v", len(all), err)
+	}
+
+	// A literal "%" is escaped, so it matches only the row with a percent — without escaping
+	// the wildcard would match ALL rows. This is the whole point of WhereLike over a raw LIKE.
+	// 字面 "%" 被转义，故只匹配含百分号的行——不转义则通配符匹配全部行。这正是 WhereLike 相对裸 LIKE 的价值。
+	pct, err := r.Query().WhereLike("name", "%").Find(ctx)
+	if err != nil {
+		t.Fatalf("like %%: %v", err)
+	}
+	if len(pct) != 1 || pct[0].ID != "w_3" {
+		t.Errorf("escaped %% = %v, want [w_3] (literal, not all)", ids(pct))
+	}
+
+	// A literal "_" is escaped too (else it matches any single char → all rows).
+	// 字面 "_" 同样被转义（否则匹配任意单字符 → 全部行）。
+	us, err := r.Query().WhereLike("name", "_").Find(ctx)
+	if err != nil {
+		t.Fatalf("like _: %v", err)
+	}
+	if len(us) != 1 || us[0].ID != "w_4" {
+		t.Errorf("escaped _ = %v, want [w_4] (literal, not all)", ids(us))
+	}
+}
+
 func TestCount_Exists(t *testing.T) {
 	db, ctx := newTestDB(t)
 	r := widgets(db)

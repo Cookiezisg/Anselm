@@ -35,7 +35,7 @@ audience: [human, ai]
 
 ## 4. API 面
 
-- **链式入口**（Repo 简写 / `Query()` 起链）：`Where(raw, args…)` · `WhereEq` · `WhereIn`（空 vals → `1=0` 永假守卫）· `WhereNull` · `WhereNotNull` · `Order` · `Limit` · `Offset` · `Unscoped` · `CrossWorkspace`。
+- **链式入口**（Repo 简写 / `Query()` 起链）：`Where(raw, args…)` · `WhereEq` · `WhereIn`（空 vals → `1=0` 永假守卫）· `WhereNull` · `WhereNotNull` · `WhereLike`（`col LIKE '%term%'` 大小写不敏感子串；转义 `%`/`_` + `ESCAPE '\'` 使用户字面通配符不生效；空/纯空白 term = no-op，故调用方可直接传原始 search 输入）· `Order` · `Limit` · `Offset` · `Unscoped` · `CrossWorkspace`。
 - **终结**：读 `First`(无则 `ErrNotFound`)/`Find`/`Count`/`Exists`/`Pluck`(单列入 `*[]T`)/`Page`；写 `Create`/`Save`(按 pk upsert，保留 created)/`Update`(单列)/`Updates`(多列)/`Delete`；by-pk `Get`/`Delete`。
 - **`DB`**：`Open(pool)` · `Transaction`（**扁平嵌套**——已在 tx 内则复用、无 savepoint，故 store 方法可自由组合）· `Exec`（裸 SQL 写逃生口：DDL / PRAGMA / 一次性维护）· `Query`/`QueryRow`（裸读逃生口：行映射表达不了的 FTS5 虚表 / MATCH 排序 / snippet）· `Close`。
 - **json 列**：`db:"…,json"` 经 `[]byte` 暂存自动 marshal/unmarshal。

@@ -22,7 +22,7 @@ audience: [human, ai]
 | Method · Path | 语义 |
 |---|---|
 | `POST /functions` | 创建（扁平 payload → 反推 ops 走构建管线），201 |
-| `GET /functions` | 分页列表 |
+| `GET /functions` | 分页列表（`?search`：`name` 大小写不敏感子串过滤） |
 | `GET /functions/{id}` | 单读（附 activeVersion：代码+env 状态一趟拿全） |
 | `PATCH /functions/{id}` | 改 meta（name/description/tags，不升版本） |
 | `DELETE /functions/{id}` | 软删 + 销毁 env + 清边，204 |
@@ -40,7 +40,7 @@ audience: [human, ai]
 | Method · Path | 语义 |
 |---|---|
 | `POST /handlers` | 创建（扁平 → ops），201；**不 spawn 实例**（等 config 配齐/Boot/首调） |
-| `GET /handlers` | 分页列表 |
+| `GET /handlers` | 分页列表（`?search`：`name` 大小写不敏感子串过滤） |
 | `GET /handlers/{id}` | 单读（附 activeVersion + configState + missingConfig + runtimeState） |
 | `PATCH /handlers/{id}` | 改 meta |
 | `DELETE /handlers/{id}` | 停实例 + 软删 + 销毁 env + 清边，204 |
@@ -61,7 +61,7 @@ audience: [human, ai]
 | Method · Path | 语义 |
 |---|---|
 | `POST /agents` | 创建（identity + 全量 Config 快照 = v1），201 |
-| `GET /agents` | 分页列表 |
+| `GET /agents` | 分页列表（`?search`：`name` 大小写不敏感子串过滤） |
 | `GET /agents/{id}` | 单读（附 activeVersion） |
 | `PATCH /agents/{id}` | 改 meta |
 | `DELETE /agents/{id}` | 软删 + 清边，204 |
@@ -78,7 +78,7 @@ audience: [human, ai]
 
 | Method · Path | 语义 |
 |---|---|
-| `POST /workflows` · `GET /workflows` · `GET /workflows/{id}` · `PATCH /workflows/{id}` · `DELETE /workflows/{id}` | CRUD（PATCH=meta 不升版本）（含 `concurrency`: serial\|skip\|buffer_one\|replace\|allow_all——overlap 政策，下一次 drain 生效） |
+| `POST /workflows` · `GET /workflows` · `GET /workflows/{id}` · `PATCH /workflows/{id}` · `DELETE /workflows/{id}` | CRUD（PATCH=meta 不升版本；列表 `?search`：`name` 大小写不敏感子串过滤）（含 `concurrency`: serial\|skip\|buffer_one\|replace\|allow_all——overlap 政策，下一次 drain 生效） |
 | `POST /workflows/{id}:trigger` | 立即跑一次（任何 lifecycle 下可跑），body `{payload?}`（只读 payload），返 flowrun id |
 | `POST /workflows/{id}:stage` | 待命恰一次真实触发后自动撤防（已 active → 409） |
 | `POST /workflows/{id}:activate` / `:deactivate` | 上线（挂监听+active）/ 优雅下线（摘监听+inactive 或 draining） |

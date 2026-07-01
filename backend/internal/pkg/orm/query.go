@@ -70,6 +70,28 @@ func (q *Query[T]) WhereNull(col string) *Query[T] { return q.Where(col + " IS N
 // WhereNotNull 加 `col IS NOT NULL`。
 func (q *Query[T]) WhereNotNull(col string) *Query[T] { return q.Where(col + " IS NOT NULL") }
 
+// WhereLike adds a case-insensitive substring match `col LIKE '%term%'`, escaping the term's
+// LIKE metacharacters so a user's literal % or _ never acts as a wildcard. A blank/whitespace
+// term is a no-op — callers pass raw filter input and an empty search means "no filter".
+//
+// WhereLike 加大小写不敏感子串匹配 `col LIKE '%term%'`，转义 term 的 LIKE 元字符，使用户字面的
+// % 或 _ 绝不当通配符。空/纯空白 term 为 no-op——调用方直接传原始 filter 输入，空搜索即「不过滤」。
+func (q *Query[T]) WhereLike(col, term string) *Query[T] {
+	term = strings.TrimSpace(term)
+	if term == "" {
+		return q
+	}
+	// SQLite LIKE is ASCII case-insensitive; ESCAPE '\' lets the escaped % _ match literally.
+	// SQLite LIKE 对 ASCII 大小写不敏感；ESCAPE '\' 让被转义的 % _ 字面匹配。
+	return q.Where(col+" LIKE ? ESCAPE '\\'", "%"+likeEscaper.Replace(term)+"%")
+}
+
+// likeEscaper escapes SQL LIKE metacharacters for use under `ESCAPE '\'`. Backslash first
+// (it is the escape char itself), then the two wildcards.
+//
+// likeEscaper 转义 SQL LIKE 元字符以配合 `ESCAPE '\'`。先反斜杠（转义字符本身），再两个通配符。
+var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
+
 // Order sets the ORDER BY clause (without the keyword), replacing any prior one.
 //
 // Order 设置 ORDER BY 子句（不含关键字），替换之前的。

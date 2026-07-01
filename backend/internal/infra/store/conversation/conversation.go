@@ -13,7 +13,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	conversationdomain "github.com/sunweilin/anselm/backend/internal/domain/conversation"
@@ -120,9 +119,7 @@ func (s *Store) List(ctx context.Context, filter conversationdomain.ListFilter) 
 	default: // ArchiveActive
 		q = q.WhereEq("archived", false)
 	}
-	if term := strings.TrimSpace(filter.Search); term != "" {
-		q = q.Where("title LIKE ?", "%"+term+"%")
-	}
+	q = q.WhereLike("title", filter.Search)
 	// Sort is always pinned-first; the secondary key is recency (default) or creation order. The
 	// keyset cursor MUST key the same column the ORDER BY sorts by — PageKeyset aligns them, so the
 	// cursor's WHERE/encode track the chosen column (else pages skip/duplicate). Unknown/empty sort

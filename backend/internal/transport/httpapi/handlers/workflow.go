@@ -89,7 +89,7 @@ func (h *WorkflowHandler) List(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	items, next, err := h.svc.List(r.Context(), workflowdomain.ListFilter{Cursor: p.Cursor, Limit: p.Limit})
+	items, next, err := h.svc.List(r.Context(), workflowdomain.ListFilter{Cursor: p.Cursor, Limit: p.Limit, Search: r.URL.Query().Get("search")})
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
