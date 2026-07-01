@@ -46,6 +46,7 @@ export 'an_scroll_behavior.dart';
 export 'an_seamless_field.dart';
 export 'an_section.dart';
 export 'an_shell.dart';
+export 'an_shimmer_text.dart';
 export 'an_sidebar_footer.dart';
 export 'an_sidebar_list.dart';
 export 'an_skeleton.dart';

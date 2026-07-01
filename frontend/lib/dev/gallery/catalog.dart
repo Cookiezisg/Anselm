@@ -6,6 +6,7 @@ import '../../core/design/tokens.dart';
 import '../../core/design/typography.dart';
 import '../../core/ui/ui.dart';
 import 'chat_composer_specimens.dart';
+import 'chat_thinking_specimens.dart';
 import 'chat_turn_specimens.dart';
 import 'specimen.dart';
 
@@ -44,6 +45,7 @@ final GalleryCategory _chatRail = GalleryCategory('对话 Chat', AnIcons.chat, [
     GallerySpecimen('注入转义', (_) => const AnRow(label: '<b>not</b> & <i>html</i> 注入标题', meta: '上周'), stress: true, span: true, maxWidth: _railW),
   ]),
   chatTurnGalleryItem,
+  chatThinkingGalleryItem,
   chatComposerGalleryItem,
 ]);
 
@@ -150,6 +152,11 @@ final GalleryCategory _g2Feedback = GalleryCategory('反馈态 Feedback', AnIcon
     GallerySpecimen('lines (3)', (_) => const AnSkeleton.lines(3), span: true),
     GallerySpecimen('row', (_) => const AnSkeleton.row(), span: true),
     GallerySpecimen('card', (_) => const AnSkeleton.card(), span: true),
+  ]),
+  GalleryItem('AnShimmerText', '「正在忙」文字流光:光带扫过字形(降级/inactive=静态);chat thinking · 运行中 tool 名复用', [
+    GallerySpecimen('active · meta', (c) => AnShimmerText('thinking', style: AnText.meta.copyWith(color: c.colors.inkMuted)), span: true),
+    GallerySpecimen('active · body', (c) => AnShimmerText('running run_function…', style: AnText.body.copyWith(color: c.colors.inkMuted)), span: true),
+    GallerySpecimen('inactive (静态)', (c) => AnShimmerText('idle', style: AnText.meta.copyWith(color: c.colors.inkFaint), active: false), span: true),
   ]),
   GalleryItem('AnTypewriter', '打字机:type→hold→delete→循环(降级=静态主句)', [
     GallerySpecimen('cycling', (_) => const AnTypewriter(['Build agents.', 'Wire workflows.', 'Ship faster.'])),
