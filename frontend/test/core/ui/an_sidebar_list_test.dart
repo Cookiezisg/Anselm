@@ -115,4 +115,40 @@ void main() {
     await tester.pumpAndSettle();
     expect(cancels, 1);
   });
+
+  // ── five-battery ──────────────────────────────────────────────────────────
+  testWidgets('battery empty: an empty model renders the chrome + nothing else, no throw', (tester) async {
+    await tester.pumpWidget(host(const AnSidebarList(model: SidebarModel(newLabel: 'New', filterPlaceholder: 'Filter…'))));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    expect(find.text('New'), findsOneWidget); // the New/filter chrome stays even with no rows
+  });
+
+  testWidgets('battery massive: a 5000-row section virtualizes — the far tail never builds', (tester) async {
+    final big = SidebarModel(groups: [
+      SidebarGroup(types: [
+        SidebarType(label: 'All', icon: AnIcons.function, rows: [
+          for (var i = 0; i < 5000; i++) SidebarRow(id: 'a$i', label: 'entity-$i'),
+        ]),
+      ]),
+    ]);
+    await tester.pumpWidget(host(AnSidebarList(model: big, onSelect: (_) {})));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    expect(find.text('entity-0'), findsOneWidget); // head rows build
+    expect(find.text('entity-4999'), findsNothing); // virtualized: the off-screen tail does not
+  });
+
+  testWidgets('battery overlong/injection: markup + long labels are inert plain text (no overflow/throw)', (tester) async {
+    final m = SidebarModel(groups: [
+      SidebarGroup(types: [
+        SidebarType(label: 'Sec', icon: AnIcons.function, rows: const [
+          SidebarRow(id: 'x', label: '<b>not</b> & <i>html</i> 一个非常非常长的标题应当省略号截断而不撑破侧栏宽度'),
+        ]),
+      ]),
+    ]);
+    await tester.pumpWidget(host(AnSidebarList(model: m, onSelect: (_) {})));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+  });
 }
