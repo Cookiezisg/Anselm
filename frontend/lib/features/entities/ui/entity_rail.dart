@@ -1,15 +1,13 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/design/tokens.dart';
+import '../../../core/perf/debouncer.dart';
 import '../../../core/ui/an_button.dart';
 import '../../../core/ui/an_deferred_loading.dart';
 import '../../../core/ui/an_menu.dart';
+import '../../../core/ui/an_rail_skeleton.dart';
 import '../../../core/ui/an_sidebar_list.dart';
-import '../../../core/ui/an_skeleton.dart';
 import '../../../core/ui/an_state.dart';
 import '../../../i18n/strings.g.dart';
 import '../data/entity_kind.dart';
@@ -37,22 +35,19 @@ class EntityRail extends ConsumerStatefulWidget {
 }
 
 class _EntityRailState extends ConsumerState<EntityRail> {
-  Timer? _debounce;
+  final _debounce = Debouncer(const Duration(milliseconds: 250));
 
   @override
   void dispose() {
-    _debounce?.cancel();
+    _debounce.dispose();
     super.dispose();
   }
 
   // Debounce keystrokes before hitting the server-side ?search (the provider re-pages from the top on
   // change; firing per key would storm the backend). 逐键防抖再打服务端 ?search(每键一请求会打爆后端)。
-  void _onFilter(String v) {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 250), () {
-      if (mounted) ref.read(entitySearchProvider.notifier).set(v);
-    });
-  }
+  void _onFilter(String v) => _debounce.run(() {
+        if (mounted) ref.read(entitySearchProvider.notifier).set(v);
+      });
 
   // A kind section's tail fires with that kind's pageKey → page THAT kind's list (each kind is its own
   // keyset axis). 段尾携该 kind 的 pageKey → 翻该 kind 的列表(每 kind 独立 keyset 轴)。
@@ -78,7 +73,7 @@ class _EntityRailState extends ConsumerState<EntityRail> {
 
     // Loading: nothing resolved yet. A shaped skeleton reads faster than a spinner; deferred so a fast
     // first load never flashes it. 首载骨架(延迟防闪)。
-    if (!anyData && anyLoading) return const AnDeferredLoading(child: _RailSkeleton());
+    if (!anyData && anyLoading) return const AnDeferredLoading(child: AnRailSkeleton());
 
     // Error: every kind failed and there is nothing to show — offer a retry that refetches all. 全错可重试。
     if (!anyData && allError) {
@@ -142,32 +137,5 @@ class _EntityRailState extends ConsumerState<EntityRail> {
     for (final kind in EntityKind.values) {
       ref.invalidate(entityListProvider(kind));
     }
-  }
-
-}
-
-/// The first-load placeholder — a few bone rows under the chrome zone. 首载占位:数行骨架。
-class _RailSkeleton extends StatelessWidget {
-  const _RailSkeleton();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AnSpace.s8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: const [
-          AnSkeleton.row(),
-          SizedBox(height: AnSpace.s8),
-          AnSkeleton.row(),
-          SizedBox(height: AnSpace.s8),
-          AnSkeleton.row(),
-          SizedBox(height: AnSpace.s8),
-          AnSkeleton.row(),
-          SizedBox(height: AnSpace.s8),
-          AnSkeleton.row(),
-        ],
-      ),
-    );
   }
 }

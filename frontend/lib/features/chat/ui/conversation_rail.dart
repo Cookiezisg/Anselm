@@ -1,17 +1,15 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/contract/conversation.dart';
-import '../../../core/design/tokens.dart';
+import '../../../core/perf/debouncer.dart';
 import '../../../core/overlay/an_overlay.dart';
 import '../../../core/ui/an_button.dart';
 import '../../../core/ui/an_deferred_loading.dart';
 import '../../../core/ui/an_menu.dart';
+import '../../../core/ui/an_rail_skeleton.dart';
 import '../../../core/ui/an_sidebar_list.dart';
-import '../../../core/ui/an_skeleton.dart';
 import '../../../core/ui/an_state.dart';
 import '../../../core/ui/an_toast.dart';
 import '../../../core/ui/icons.dart';
@@ -50,11 +48,11 @@ class ConversationRail extends ConsumerStatefulWidget {
 class _ConversationRailState extends ConsumerState<ConversationRail> {
   // Which row is mid-rename (its label slot becomes an AnInlineEdit). null = none. 哪行在改名中。
   String? _editingId;
-  Timer? _debounce;
+  final _debounce = Debouncer(const Duration(milliseconds: 250));
 
   @override
   void dispose() {
-    _debounce?.cancel();
+    _debounce.dispose();
     super.dispose();
   }
 
@@ -75,7 +73,7 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
 
     // Loading: nothing resolved yet → a shaped skeleton (deferred so a fast load never flashes it).
     if (async.isLoading && !async.hasValue) {
-      return const AnDeferredLoading(child: _RailSkeleton());
+      return const AnDeferredLoading(child: AnRailSkeleton());
     }
 
     // Error with nothing loaded → retry refetches the list (the provider disables auto-retry).
@@ -145,12 +143,9 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
 
   // Debounce keystrokes before the server-side ?search (the provider re-pages from the top on change;
   // firing per key would storm the backend). 逐键防抖再打服务端 ?search(每键一请求会打爆后端)。
-  void _onFilter(String v) {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 250), () {
-      if (mounted) ref.read(conversationSearchProvider.notifier).set(v);
-    });
-  }
+  void _onFilter(String v) => _debounce.run(() {
+        if (mounted) ref.read(conversationSearchProvider.notifier).set(v);
+      });
 
   /// The per-row ⋯ menu (hover-revealed) — every per-thread action in one place: rename / pin·unpin /
   /// archive·unarchive / delete. Pin & archive labels flip on the row's current state; delete is a danger
@@ -271,33 +266,5 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
   void _toastFail() {
     if (!mounted) return;
     ref.read(overlayProvider.notifier).showToast(context.t.chat.actionFailed, tone: AnToastTone.danger);
-  }
-
-}
-
-/// The first-load placeholder — a few bone rows under the chrome zone (copied from EntityRail).
-/// 首载占位:数行骨架(抄自 EntityRail)。
-class _RailSkeleton extends StatelessWidget {
-  const _RailSkeleton();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AnSpace.s8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: const [
-          AnSkeleton.row(),
-          SizedBox(height: AnSpace.s8),
-          AnSkeleton.row(),
-          SizedBox(height: AnSpace.s8),
-          AnSkeleton.row(),
-          SizedBox(height: AnSpace.s8),
-          AnSkeleton.row(),
-          SizedBox(height: AnSpace.s8),
-          AnSkeleton.row(),
-        ],
-      ),
-    );
   }
 }
