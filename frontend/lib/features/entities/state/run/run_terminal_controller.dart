@@ -11,9 +11,9 @@ import '../../../../core/sse/frame.dart';
 import '../../data/entity_kind.dart';
 import '../../data/entity_providers.dart';
 import '../../data/entity_repository.dart';
-import '../detail/entity_detail.dart';
 import '../detail/entity_detail_provider.dart';
 import '../selected_entity.dart';
+import 'run_fields.dart';
 import 'run_terminal_state.dart';
 
 /// The high-frequency streamed body of one entity's terminal, held OUTSIDE Riverpod (in a
@@ -203,7 +203,7 @@ class RunTerminalController extends Notifier<RunTerminalState> {
       return (decoded, null);
     }
     final req = <String, Object?>{};
-    for (final f in _fieldsFor(detail)) {
+    for (final f in runInputFields(entityRef.kind, detail, method: state.method)) {
       if (f.type == 'boolean') {
         final b = draft[f.name];
         if (b is bool) req[f.name] = b;
@@ -225,20 +225,6 @@ class RunTerminalController extends Notifier<RunTerminalState> {
       }
     }
     return (req, null);
-  }
-
-  List<Field> _fieldsFor(EntityDetail? d) {
-    if (d == null) return const [];
-    return switch (entityRef.kind) {
-      EntityKind.function => d.function?.activeVersion?.inputs ?? const [],
-      EntityKind.agent => d.agent?.activeVersion?.inputs ?? const [],
-      EntityKind.handler => d.handler?.activeVersion?.methods
-              .where((m) => m.name == state.method)
-              .firstOrNull
-              ?.inputs ??
-          const [],
-      EntityKind.workflow => const [],
-    };
   }
 
   void _onPanel(StreamEnvelope env) {

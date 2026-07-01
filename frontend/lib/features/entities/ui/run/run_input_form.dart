@@ -12,6 +12,8 @@ import '../../../../core/ui/an_input.dart';
 import '../../../../core/ui/icons.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../data/entity_kind.dart';
+import '../../state/detail/entity_detail_provider.dart';
+import '../../state/run/run_fields.dart';
 import '../../state/run/run_terminal_controller.dart';
 import '../../state/selected_entity.dart';
 
@@ -27,15 +29,11 @@ import '../../state/selected_entity.dart';
 class RunInputForm extends ConsumerStatefulWidget {
   const RunInputForm({
     required this.entityRef,
-    required this.inputs,
-    required this.methods,
     required this.verbLabel,
     super.key,
   });
 
   final EntityRef entityRef;
-  final List<Field> inputs; // fn/ag declared inputs (empty for hd/wf) fn/ag 声明入参
-  final List<MethodSpec> methods; // hd methods (empty otherwise) hd 方法
   final String verbLabel; // Run / Call / Invoke / Trigger
 
   @override
@@ -49,26 +47,19 @@ class _RunInputFormState extends ConsumerState<RunInputForm> {
   void initState() {
     super.initState();
     // Default the handler method to the first one (drives which fields render). 默认选第一个方法。
-    if (widget.entityRef.kind == EntityKind.handler && widget.methods.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        final c = ref.read(runTerminalProvider(widget.entityRef).notifier);
-        if (ref.read(runTerminalProvider(widget.entityRef)).method.isEmpty) {
-          c.setMethod(widget.methods.first.name);
-        }
-      });
+    if (widget.entityRef.kind == EntityKind.handler) {
+      final methods = runMethods(ref.read(entityDetailProvider(widget.entityRef)).value);
+      if (methods.isNotEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          final c = ref.read(runTerminalProvider(widget.entityRef).notifier);
+          if (ref.read(runTerminalProvider(widget.entityRef)).method.isEmpty) {
+            c.setMethod(methods.first.name);
+          }
+        });
+      }
     }
   }
-
-  List<Field> get _fields => switch (widget.entityRef.kind) {
-        EntityKind.handler => widget.methods
-                .where((m) => m.name == ref.read(runTerminalProvider(widget.entityRef)).method)
-                .firstOrNull
-                ?.inputs ??
-            const [],
-        EntityKind.function || EntityKind.agent => widget.inputs,
-        EntityKind.workflow => const [],
-      };
 
   @override
   Widget build(BuildContext context) {
@@ -76,7 +67,11 @@ class _RunInputFormState extends ConsumerState<RunInputForm> {
     final p = runTerminalProvider(widget.entityRef);
     final state = ref.watch(p);
     final c = ref.read(p.notifier);
-    final fields = _fields;
+    // Render fields + method list read from the SAME canonical source the controller coerces from — no
+    // props threading, so render and coerce can't drift. 渲染字段/方法与 controller 强转同源,不经 props、不会漂移。
+    final detail = ref.watch(entityDetailProvider(widget.entityRef)).value;
+    final methods = runMethods(detail);
+    final fields = runInputFields(widget.entityRef.kind, detail, method: state.method);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -88,7 +83,7 @@ class _RunInputFormState extends ConsumerState<RunInputForm> {
             value: state.method.isEmpty ? null : state.method,
             enabled: !state.isRunning,
             options: [
-              for (final m in widget.methods)
+              for (final m in methods)
                 AnDropdownOption(value: m.name, label: m.name, meta: m.streaming ? r.streaming : null),
             ],
             onChanged: c.setMethod,

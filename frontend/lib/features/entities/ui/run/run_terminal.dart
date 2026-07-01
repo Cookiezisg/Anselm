@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/contract/entities/values.dart';
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
@@ -99,8 +98,6 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
                     RunInputForm(
                       key: ValueKey(sel),
                       entityRef: sel,
-                      inputs: _inputs(sel.kind, detail),
-                      methods: _methods(detail),
                       verbLabel: _verbLabel(context, sel.kind),
                     ),
                     const SizedBox(height: AnSpace.s16),
@@ -293,17 +290,6 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
 
   Widget _hint(BuildContext context, String text) =>
       Text(text, style: AnText.meta.copyWith(color: context.colors.inkFaint));
-
-  List<Field> _inputs(EntityKind kind, EntityDetail? d) {
-    if (d == null) return const [];
-    return switch (kind) {
-      EntityKind.function => d.function?.activeVersion?.inputs ?? const [],
-      EntityKind.agent => d.agent?.activeVersion?.inputs ?? const [],
-      EntityKind.handler || EntityKind.workflow => const [],
-    };
-  }
-
-  List<MethodSpec> _methods(EntityDetail? d) => d?.handler?.activeVersion?.methods ?? const [];
 
   String _verbLabel(BuildContext context, EntityKind k) => switch (k) {
         EntityKind.function => context.t.entities.detail.verb.run,
