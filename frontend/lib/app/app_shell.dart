@@ -39,6 +39,14 @@ class AppShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final ocean = ref.watch(selectedOceanProvider);
     final onEntities = ocean == OceanKind.entities;
+    // Leaving the entities ocean clears the floating-head breadcrumb it owns (other oceans have none) —
+    // breadcrumb lifecycle belongs to the ocean SWITCH, not to a side-effect-only placeholder widget.
+    // 离开实体海洋即清它拥有的浮层头面包屑(别的海洋没有)——面包屑生命周期属于海洋切换,不该塞进纯副作用占位件。
+    ref.listen(selectedOceanProvider, (prev, next) {
+      if (prev == OceanKind.entities && next != OceanKind.entities) {
+        ref.read(shellHeadProvider.notifier).clear();
+      }
+    });
     // Chat mounts its rail in the left-island middle ONLY — the center transcript/ocean is a later
     // phase, so chat keeps the coming-soon center (don't fold onChat into one flag driving both).
     // chat 只在左岛中段挂 rail——中心海洋是后续片,故 chat 保持「即将推出」中心(别用一个 flag 同驱中段+中心)。
@@ -184,23 +192,10 @@ class _NotificationsTray extends StatelessWidget {
       );
 }
 
-/// Open-ocean placeholder for an unbuilt ocean. Clears any stale floating-head breadcrumb the entities
-/// ocean may have left (a non-entities ocean has none). 未建海洋的中心占位;清掉 entities 海洋遗留的面包屑。
-class _OceanPlaceholder extends ConsumerStatefulWidget {
+/// Open-ocean placeholder for an unbuilt ocean (breadcrumb clearing lives at the ocean switch, see the
+/// [selectedOceanProvider] listener in [AppShell]). 未建海洋的中心占位(清面包屑在海洋切换处)。
+class _OceanPlaceholder extends StatelessWidget {
   const _OceanPlaceholder();
-
-  @override
-  ConsumerState<_OceanPlaceholder> createState() => _OceanPlaceholderState();
-}
-
-class _OceanPlaceholderState extends ConsumerState<_OceanPlaceholder> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) ref.read(shellHeadProvider.notifier).clear();
-    });
-  }
 
   @override
   Widget build(BuildContext context) => AnState(

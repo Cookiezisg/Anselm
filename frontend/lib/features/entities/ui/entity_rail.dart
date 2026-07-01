@@ -13,6 +13,7 @@ import '../../../core/ui/an_skeleton.dart';
 import '../../../core/ui/an_state.dart';
 import '../../../i18n/strings.g.dart';
 import '../data/entity_kind.dart';
+import '../data/entity_labels.dart';
 import '../state/entity_list_provider.dart';
 import '../state/rail_model.dart';
 import '../state/rail_sort.dart';
@@ -56,7 +57,10 @@ class _EntityRailState extends ConsumerState<EntityRail> {
   // A kind section's tail fires with that kind's pageKey → page THAT kind's list (each kind is its own
   // keyset axis). 段尾携该 kind 的 pageKey → 翻该 kind 的列表(每 kind 独立 keyset 轴)。
   void _onLoadMore(String pageKey) {
-    final kind = EntityKind.values.firstWhere((k) => k.name == pageKey, orElse: () => EntityKind.function);
+    // pageKey is a kind.name set by the rail model; an unknown key means nothing to page (don't silently
+    // fall back to some default kind's list). pageKey 是 rail 模型给的 kind.name;未知键=无可翻,不静默兜底翻别的。
+    final kind = EntityKind.values.where((k) => k.name == pageKey).firstOrNull;
+    if (kind == null) return;
     ref.read(entityListProvider(kind).notifier).loadMore();
   }
 
@@ -94,7 +98,7 @@ class _EntityRailState extends ConsumerState<EntityRail> {
 
     final model = buildRailModel(
       groups,
-      RailLabels(kindLabel: (k) => _kindLabel(t, k), newLabel: t.entities.kNew, filter: t.entities.filter),
+      RailLabels(kindLabel: (k) => k.typeLabel(t), newLabel: t.entities.kNew, filter: t.entities.filter),
       sort,
       showCount: showCount,
     );
@@ -140,12 +144,6 @@ class _EntityRailState extends ConsumerState<EntityRail> {
     }
   }
 
-  String _kindLabel(Translations t, EntityKind k) => switch (k) {
-        EntityKind.function => t.ref.function,
-        EntityKind.handler => t.ref.handler,
-        EntityKind.agent => t.ref.agent,
-        EntityKind.workflow => t.ref.workflow,
-      };
 }
 
 /// The first-load placeholder — a few bone rows under the chrome zone. 首载占位:数行骨架。

@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../core/design/colors.dart';
 import '../core/process/backend_controller.dart';
 import '../core/runtime.dart';
 import '../core/ui/an_button.dart';
 import '../core/ui/an_state.dart';
 import '../i18n/strings.g.dart';
+import 'gate_backdrop.dart';
 
 /// Gates the app shell on the sidecar backend's single phase: a connecting screen while it starts, a
 /// RECOVERABLE crashed screen (with Retry) if it never came up, the shell once ready. The whole app
@@ -28,10 +28,9 @@ class AppStartupGate extends ConsumerWidget {
     return switch (phase) {
       BackendPhase.ready => child,
       BackendPhase.starting =>
-        _gate(context, AnState(kind: AnStateKind.loading, title: t.startup.connecting)),
-      BackendPhase.crashed => _gate(
-          context,
-          AnState(
+        GateBackdrop(child: AnState(kind: AnStateKind.loading, title: t.startup.connecting)),
+      BackendPhase.crashed => GateBackdrop(
+          child: AnState(
             kind: AnStateKind.error,
             fatal: true, // app can't start — louder than an in-content error 应用起不来,比内容内错更响
             title: t.startup.crashedTitle,
@@ -46,8 +45,4 @@ class AppStartupGate extends ConsumerWidget {
         ),
     };
   }
-
-  // The canvas backdrop; AnState self-centers + caps + pads. canvas 底,AnState 自居中/限宽/留白。
-  Widget _gate(BuildContext context, Widget child) =>
-      Material(color: context.colors.canvas, child: child);
 }

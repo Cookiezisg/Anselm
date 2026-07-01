@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/contract/conversation.dart';
+import '../../../core/state/bool_pref.dart';
 import '../data/chat_providers.dart';
 import '../data/chat_repository.dart';
 import 'conversation_list_state.dart';
@@ -30,39 +31,17 @@ final conversationSortProvider =
 ///
 /// rail 是否也显归档——⚙「显示已归档」开关。false → 仅活跃;true → 活跃+归档同列(归档行带 archived=true 供灰点)。
 /// 被 list notifier watch(切换即从顶重翻)。
-class ShowArchivedController extends Notifier<bool> {
-  @override
-  bool build() => false;
-
-  void toggle() => state = !state;
-  void set(bool value) {
-    if (value != state) state = value;
-  }
-}
-
 final showArchivedProvider =
-    NotifierProvider<ShowArchivedController, bool>(ShowArchivedController.new);
+    NotifierProvider<BoolPrefNotifier, bool>(() => BoolPrefNotifier(false));
 
 /// Whether the rail shows the per-section count (置顶 ··· 1) — the ⚙ "show counts" toggle, default ON.
 /// rail 是否显分节计数(置顶···1)——⚙「显示分组计数」开关,默认开。
-class ShowCountController extends Notifier<bool> {
-  @override
-  bool build() => true;
-  void toggle() => state = !state;
-}
-
 final showGroupCountProvider =
-    NotifierProvider<ShowCountController, bool>(ShowCountController.new);
+    NotifierProvider<BoolPrefNotifier, bool>(() => BoolPrefNotifier(true));
 
 /// Whether each row shows its relative-time meta (10 分钟前) — the ⚙ "show time" toggle, default ON.
 /// rail 每行是否显相对时间(10 分钟前)——⚙「显示时间」开关,默认开。
-class ShowTimeController extends Notifier<bool> {
-  @override
-  bool build() => true;
-  void toggle() => state = !state;
-}
-
-final showTimeProvider = NotifierProvider<ShowTimeController, bool>(ShowTimeController.new);
+final showTimeProvider = NotifierProvider<BoolPrefNotifier, bool>(() => BoolPrefNotifier(true));
 
 /// The conversation rail search query — a transient view state in its own provider so the list notifier
 /// can `watch` it and re-page from the top whenever it changes. Server-side `?search`: a keyset cursor

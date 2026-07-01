@@ -17,6 +17,7 @@ import '../../../../core/ui/icons.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../data/entity_format.dart';
 import '../../data/entity_kind.dart';
+import '../../data/entity_labels.dart';
 import '../../state/detail/entity_detail.dart';
 import '../../state/detail/entity_detail_provider.dart';
 import '../../state/run/right_panel.dart';
@@ -98,7 +99,7 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
                     RunInputForm(
                       key: ValueKey(sel),
                       entityRef: sel,
-                      verbLabel: _verbLabel(context, sel.kind),
+                      verbLabel: sel.kind.verbLabel(context.t),
                     ),
                     const SizedBox(height: AnSpace.s16),
                     ValueListenableBuilder<RunStream>(
@@ -149,7 +150,7 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
           const SizedBox(height: AnSpace.s6),
           Row(
             children: [
-              Text(_verbLabel(context, sel.kind), style: AnText.meta.copyWith(color: c.inkMuted)),
+              Text(sel.kind.verbLabel(context.t), style: AnText.meta.copyWith(color: c.inkMuted)),
               const SizedBox(width: AnSpace.s8),
               Expanded(
                 child: Text(
@@ -291,10 +292,4 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
   Widget _hint(BuildContext context, String text) =>
       Text(text, style: AnText.meta.copyWith(color: context.colors.inkFaint));
 
-  String _verbLabel(BuildContext context, EntityKind k) => switch (k) {
-        EntityKind.function => context.t.entities.detail.verb.run,
-        EntityKind.handler => context.t.entities.detail.verb.call,
-        EntityKind.agent => context.t.entities.detail.verb.invoke,
-        EntityKind.workflow => context.t.entities.detail.verb.trigger,
-      };
 }

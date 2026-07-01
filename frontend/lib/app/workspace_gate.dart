@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../core/design/colors.dart';
 import '../core/ui/an_button.dart';
 import '../core/ui/an_state.dart';
 import '../core/workspace/workspace_bootstrap.dart';
 import '../i18n/strings.g.dart';
+import 'gate_backdrop.dart';
 
 /// Gates the shell on cold-start workspace resolution — it sits BELOW [AppStartupGate] (backend ready)
 /// and ABOVE the shell: a brief "setting up your workspace" screen while [workspaceBootstrapProvider]
@@ -23,10 +23,9 @@ class WorkspaceGate extends ConsumerWidget {
     final t = context.t;
     return async.when(
       data: (_) => child,
-      loading: () => _gate(context, AnState(kind: AnStateKind.loading, title: t.coldStart.connecting)),
-      error: (e, _) => _gate(
-        context,
-        AnState(
+      loading: () => GateBackdrop(child: AnState(kind: AnStateKind.loading, title: t.coldStart.connecting)),
+      error: (e, _) => GateBackdrop(
+        child: AnState(
           kind: AnStateKind.error,
           fatal: true,
           title: t.coldStart.errorTitle,
@@ -41,7 +40,4 @@ class WorkspaceGate extends ConsumerWidget {
       ),
     );
   }
-
-  Widget _gate(BuildContext context, Widget child) =>
-      Material(color: context.colors.canvas, child: child);
 }

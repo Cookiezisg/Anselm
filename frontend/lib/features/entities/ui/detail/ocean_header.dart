@@ -7,6 +7,7 @@ import '../../../../core/ui/an_ocean_header.dart';
 import '../../../../core/ui/icons.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../data/entity_kind.dart';
+import '../../data/entity_labels.dart';
 import '../../state/detail/entity_detail.dart';
 
 /// The detail ocean header — breadcrumb + entity name + per-kind status badges + the verb CTA. The verb
@@ -27,11 +28,11 @@ class EntityOceanHeader extends StatelessWidget {
     final d = t.entities.detail;
     return AnOceanHeader(
       title: detail.name,
-      crumbs: [d.crumbRoot, _kindLabel(t, detail.ref.kind)],
+      crumbs: [d.crumbRoot, detail.ref.kind.typeLabel(t)],
       meta: _badges(t),
       actions: [
         AnButton(
-          label: _verbLabel(t, detail.ref.kind),
+          label: detail.ref.kind.verbLabel(t),
           icon: AnIcons.byKey(detail.ref.kind.scopeKind),
           variant: AnButtonVariant.primary,
           onPressed: onVerb,
@@ -84,17 +85,4 @@ class EntityOceanHeader extends StatelessWidget {
     }
   }
 
-  String _kindLabel(Translations t, EntityKind k) => switch (k) {
-        EntityKind.function => t.ref.function,
-        EntityKind.handler => t.ref.handler,
-        EntityKind.agent => t.ref.agent,
-        EntityKind.workflow => t.ref.workflow,
-      };
-
-  String _verbLabel(Translations t, EntityKind k) => switch (k) {
-        EntityKind.function => t.entities.detail.verb.run,
-        EntityKind.handler => t.entities.detail.verb.call,
-        EntityKind.agent => t.entities.detail.verb.invoke,
-        EntityKind.workflow => t.entities.detail.verb.trigger,
-      };
 }

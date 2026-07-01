@@ -234,8 +234,10 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
   // reverts the row to its display widget immediately. 提交改名:trim,空或未变即当取消(不 PATCH);先清编辑态回展示件。
   Future<void> _rename(String id, String value) async {
     final next = value.trim();
+    // A row racing out of the list mid-edit → current is null → an empty new value still cancels (isEmpty),
+    // a non-empty one still PATCHes (null != next). 编辑途中行被移除→current 为 null:空值仍取消、非空值仍 PATCH。
     final current =
-        ref.read(conversationListProvider).value?.rows.firstWhere((c) => c.id == id, orElse: () => _missing).title;
+        ref.read(conversationListProvider).value?.rows.where((c) => c.id == id).firstOrNull?.title;
     setState(() => _editingId = null);
     if (next.isEmpty || next == current) return;
     try {
@@ -271,14 +273,6 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
     ref.read(overlayProvider.notifier).showToast(context.t.chat.actionFailed, tone: AnToastTone.danger);
   }
 
-  // Sentinel for the rename lookup's orElse (a row racing out of the list mid-edit) — its title '' makes
-  // an empty new value compare unequal, so the PATCH still fires rather than being silently dropped. 兜底哨兵。
-  static final Conversation _missing = Conversation(
-    id: '',
-    createdAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
-    updatedAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
-    lastMessageAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
-  );
 }
 
 /// The first-load placeholder — a few bone rows under the chrome zone (copied from EntityRail).
