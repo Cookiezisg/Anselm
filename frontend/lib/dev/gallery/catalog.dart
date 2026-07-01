@@ -5,6 +5,7 @@ import '../../core/design/colors.dart';
 import '../../core/design/tokens.dart';
 import '../../core/design/typography.dart';
 import '../../core/ui/ui.dart';
+import 'chat_composer_specimens.dart';
 import 'specimen.dart';
 
 // Gallery catalog — dev-only tool, so plain strings here are exempt from the i18n rule (like test
@@ -41,6 +42,7 @@ final GalleryCategory _chatRail = GalleryCategory('对话 Chat', AnIcons.chat, [
     GallerySpecimen('超长截断', (_) => const AnRow(label: '一个非常非常长的对话标题，应当省略号截断而不撑破侧栏宽度无限延伸下去', meta: '3 天前'), stress: true, span: true, maxWidth: _railW),
     GallerySpecimen('注入转义', (_) => const AnRow(label: '<b>not</b> & <i>html</i> 注入标题', meta: '上周'), stress: true, span: true, maxWidth: _railW),
   ]),
+  chatComposerGalleryItem,
 ]);
 
 // ── G1 — Foundational controls ──

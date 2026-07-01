@@ -15,6 +15,7 @@ export 'an_callout.dart';
 export 'an_card.dart';
 export 'an_code_editor.dart';
 export 'an_code_surface.dart';
+export 'an_composer.dart';
 export 'an_deferred_loading.dart';
 export 'an_dialog.dart';
 export 'an_disclosure.dart';

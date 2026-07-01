@@ -62,6 +62,11 @@ abstract final class AnIcons {
   static final IconData turnEnd = _thin(LucideIcons.flag);
   static final IconData terminal = _thin(LucideIcons.squareTerminal);
 
+  // ── composer (chat input) ──
+  static final IconData mention = _thin(LucideIcons.atSign); // @ mention trigger @提及
+  static final IconData attach = _thin(LucideIcons.paperclip); // 📎 attach a file 附件
+  static final IconData send = _thin(LucideIcons.arrowUp); // ↑ send the message (stop reuses `stop`) 发送
+
   // ── execution verbs / actions ──
   static final IconData run = _thin(LucideIcons.play);
   static final IconData enter = _thin(LucideIcons.cornerDownLeft);
