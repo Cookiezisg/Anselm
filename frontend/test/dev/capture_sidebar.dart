@@ -61,9 +61,7 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     tester.view.physicalSize = const Size(560, 900);
     addTearDown(tester.view.reset);
-    tester.platformDispatcher.accessibilityFeaturesTestValue =
-        const FakeAccessibilityFeatures(disableAnimations: true);
-    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+    // Animations ON (no disableAnimations) so the fold size-tween is captured mid-flight. 动画开,截折叠补间中间帧。
 
     await tester.pumpWidget(RepaintBoundary(
       key: key,
@@ -85,10 +83,12 @@ void main() {
     ));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 60));
-    // Scroll into Documents › src › ui so the overlay pins the section head + branch chain.
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -548));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 60));
+    // Collapse the `Documents` section (its head is a disclosure button — the whole head toggles) and
+    // capture the fold size-tween MID-FLIGHT: the whole src/ui/core tree sliding up under the head.
+    // 折叠 Documents 段(整头即折叠),截折叠补间中间帧:整棵 src/ui/core 树从头下滑上收起。
+    await tester.tap(find.text('Documents'));
+    await tester.pump(); // kick off the tween
+    await tester.pump(const Duration(milliseconds: 130)); // ~mid-flight of the fold tween
 
     late final Uint8List bytes;
     await tester.runAsync(() async {

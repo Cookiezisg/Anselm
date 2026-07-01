@@ -87,6 +87,32 @@ class _AnSidebarListState extends State<AnSidebarList> {
   final ScrollController _scroll = ScrollController();
   String _query = '';
 
+  // The flattened list is HELD (not recomputed inline) so its indices stay in lock-step with the
+  // SliverAnimatedList's: a user toggle animates a precise sub-range; a model/query change rebuilds it
+  // fresh under a new key. 展平列表被持有(非内联重算),使 index 与 SliverAnimatedList 锁步:toggle 动画精确子区间;
+  // model/query 变则换 key 重建。
+  late List<SidebarFlatNode> _flat;
+  GlobalKey<SliverAnimatedListState> _listKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    _flat = flattenSidebar(widget.model, collapsed: _collapsed, query: _query);
+  }
+
+  @override
+  void didUpdateWidget(AnSidebarList old) {
+    super.didUpdateWidget(old);
+    // A model change (loadMore append / SSE patch / sort) rebuilds instantly — the fold TWEEN is only for
+    // user toggles, not data churn. model 变(loadMore/SSE/sort)瞬时重建——折叠补间只给用户 toggle。
+    if (!identical(old.model, widget.model)) _rebuildFlat();
+  }
+
+  void _rebuildFlat() {
+    _flat = flattenSidebar(widget.model, collapsed: _collapsed, query: _query);
+    _listKey = GlobalKey(); // a new key drops any stale animated-list index state → fresh initialItemCount
+  }
+
   @override
   void dispose() {
     _filter.dispose();
@@ -94,15 +120,46 @@ class _AnSidebarListState extends State<AnSidebarList> {
     super.dispose();
   }
 
-  void _toggle(String key) =>
-      setState(() => _collapsed.contains(key) ? _collapsed.remove(key) : _collapsed.add(key));
+  // Fold/unfold a branch. The head + descendants are a contiguous range in _flat; a collapse removes that
+  // range with a size tween (reverse order so indices stay valid), an expand re-flattens + inserts the new
+  // descendants — keeping _flat and the SliverAnimatedList in lock-step.
+  // 折叠/展开分支。头+子孙在 _flat 是连续区间;折叠倒序移除该区间(index 保持有效)、展开重展平+插入,使二者锁步。
+  void _toggle(String key) {
+    final headIdx = _flat.indexWhere((n) => n.key == key);
+    if (headIdx < 0) return;
+    final state = _listKey.currentState;
+    final dur = AnMotionPref.reduced(context) ? Duration.zero : AnMotion.mid;
+
+    // The head's descendants are the CONTIGUOUS range that appears/disappears when the key flips — a
+    // re-flatten differs from the current list ONLY by that range's length (depth alone can't delimit it,
+    // since a section head's rows share its depth). 头的子孙是 key 翻转时增删的连续区间:重展平与当前只差该区间长度
+    // (depth 无法界定——段头的行与其同深)。
+    if (!_collapsed.contains(key)) {
+      _collapsed.add(key);
+      final newFlat = flattenSidebar(widget.model, collapsed: _collapsed, query: _query);
+      final removedCount = _flat.length - newFlat.length;
+      final removed = _flat.sublist(headIdx + 1, headIdx + 1 + removedCount);
+      _flat = newFlat;
+      for (var i = headIdx + removedCount; i > headIdx; i--) {
+        final node = removed[i - headIdx - 1];
+        state?.removeItem(i, (context, animation) => _animatedRow(context, node, animation), duration: dur);
+      }
+    } else {
+      _collapsed.remove(key);
+      final newFlat = flattenSidebar(widget.model, collapsed: _collapsed, query: _query);
+      final insertCount = newFlat.length - _flat.length;
+      _flat = newFlat;
+      for (var i = headIdx + 1; i <= headIdx + insertCount; i++) {
+        state?.insertItem(i, duration: dur);
+      }
+    }
+    setState(() {}); // refresh the toggled head's chevron
+  }
 
   bool _open(String key) => _query.trim().isNotEmpty || !_collapsed.contains(key); // a query force-opens
 
   @override
   Widget build(BuildContext context) {
-    final flat = flattenSidebar(widget.model, collapsed: _collapsed, query: _query);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -116,12 +173,11 @@ class _AnSidebarListState extends State<AnSidebarList> {
                 child: CustomScrollView(
                   controller: _scroll,
                   slivers: [
-                    SliverFixedExtentList(
-                      itemExtent: AnSize.row,
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) => _flatRow(context, flat[index]),
-                        childCount: flat.length,
-                      ),
+                    SliverAnimatedList(
+                      key: _listKey,
+                      initialItemCount: _flat.length,
+                      itemBuilder: (context, index, animation) =>
+                          _animatedRow(context, _flat[index], animation),
                     ),
                   ],
                 ),
@@ -135,7 +191,7 @@ class _AnSidebarListState extends State<AnSidebarList> {
                 right: 0,
                 child: AnimatedBuilder(
                   animation: _scroll,
-                  builder: (context, _) => _stickyOverlay(context, flat),
+                  builder: (context, _) => _stickyOverlay(context, _flat),
                 ),
               ),
             ],
@@ -214,7 +270,10 @@ class _AnSidebarListState extends State<AnSidebarList> {
               seamless: true,
               placeholder: widget.model.filterPlaceholder,
               onChanged: (v) {
-                setState(() => _query = v);
+                setState(() {
+                  _query = v;
+                  _rebuildFlat();
+                });
                 widget.onFilterChanged?.call(v);
               },
             ),
@@ -229,6 +288,11 @@ class _AnSidebarListState extends State<AnSidebarList> {
       ),
     );
   }
+
+  // Wraps a row in the SliverAnimatedList's size tween so a collapse/expand slides the row's height (the
+  // children slide up under their head; axisAlignment -1 anchors to the top). 折叠补间:行高滑动(-1 顶锚)。
+  Widget _animatedRow(BuildContext context, SidebarFlatNode n, Animation<double> animation) =>
+      SizeTransition(sizeFactor: animation, axisAlignment: -1, child: _flatRow(context, n));
 
   Widget _flatRow(BuildContext context, SidebarFlatNode n, {bool sticky = false}) {
     switch (n.kind) {
