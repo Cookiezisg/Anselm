@@ -39,7 +39,7 @@ core/                      # 跨切共享层(不依赖上层)
   sse/                     # 3 流地基:frame(线缆 + seq 派生 durable) · sse_parser · sse_connection(重连 + 410 续传 + full-jitter + bearer) · sse_gateway(per-scope/per-kind demux,Riverpod 之下)
   process/                 # backend_controller:sidecar 监督(抢端口 / health 门控 / 有界崩溃重启 / SIGTERM→kill 优雅关停 / 铸 ANSELM_AUTH_TOKEN)
   perf/                    # coalescing_notifier(L2:值同步无损、监听者每帧≤1 通知 —— 流式 firehose 防整页重建) · debouncer(尾沿防抖原语,run/dispose;rail 搜索框逐键防抖)
-  state/                   # 框架无关 Riverpod 状态原语:bool_pref(BoolPrefNotifier:单 bool UI 偏好,toggle/set) · keyset_query_paging(KeysetQueryPaging mixin:query-reset keyset 分页 epoch 守卫,实体/对话 rail 共用)
+  state/                   # 框架无关 Riverpod 状态原语:bool_pref(BoolPrefNotifier:单 bool UI 偏好,toggle/set) · keyset_paging(两 mixin:KeysetQueryPaging=query-reset epoch 守卫[实体/对话 rail] · KeysetScopedPaging=autoDispose ref.mounted 守卫[版本/日志详情 tab])
   error/                   # error_boundary:installErrorHandlers(全局错误汇)+ 可恢复 ErrorWidget(构建抛错不灰屏)
   design/                  # tokens · colors · typography · theme —— 唯一值源,禁内联 px/hex/ms
   platform/                # OS 缝:host_platform(dart:io 收口) · window_zoom(应内 Cmd +/- 缩放)
@@ -53,9 +53,9 @@ dev/                       # dev 工具:gallery_main（make gallery 组件画廊
 features/                  # ★中间层:每域 data+state+ui+model（随 feature 落地,Entities 起）
   entities/data/           # Entities feature 数据缝[Phase 4.1 STEP 1]:单一 EntityRepository(Live 接 ApiClient+SseGateway / Fixture 内存可脚本 / entityRepositoryProvider 单点 override) + EntityKind/EntityRow/EntitySignal + entity_labels(EntityKindLabels 扩展:type/verb i18n 标签唯一源,rail·海洋头·run 终端共用)
   entities/state/          # Entities 列表 state[STEP 2]:entityListProvider(首页 + loadMore via KeysetQueryPaging mixin + SSE patch) + railModelProvider + selectedEntityProvider(STEP 6 改:只读、单向派生自路由 delegate) + railSortProvider(最近活跃/最近创建/名称,与 chat rail 对齐) + railShowCountProvider(⚙ 显示分组计数)
-  entities/state/detail/   # 详情 state[STEP 4]:entityDetail(双流订阅,durable 重取/ephemeral no-op) + versionList + logList(PageWithAggregate+workflow flowrun 懒取);全 autoDispose(离开实体释放 notifier+SSE 订阅,async 写前 ref.mounted 守卫;STEP 6 收口)
+  entities/state/detail/   # 详情 state[STEP 4]:entityDetail(双流订阅,durable 重取/ephemeral no-op) + versionList + logList(PageWithAggregate+workflow flowrun 懒取;分页 via KeysetScopedPaging mixin);全 autoDispose(离开实体释放 notifier+SSE 订阅,async 写前 ref.mounted 守卫;STEP 6 收口)
   entities/state/run/      # 运行 state[STEP 5]:run_terminal_controller(草稿→请求强转 + 流帧)+ run_fields(runInputFields/runMethods:表单渲染与 controller 强转的唯一字段源,防渲染≠强转的静默丢参)
-  entities/ui/             # Entities UI[STEP 3]:EntityRail over AnSidebarList(4 kind 段 + 状态点 + 四态;首载 AnRailSkeleton + Debouncer 搜索)+ entity_rail_model(纯投影)+ entity_ocean[STEP 4 详情根]
+  entities/ui/             # Entities UI[STEP 3]:EntityRail over AnSidebarList(4 kind 段 + 状态点;四态 via 共享 AnRailStates,布尔为 4-kind 聚合;首载 AnRailSkeleton + Debouncer 搜索)+ entity_rail_model(纯投影)+ entity_ocean[STEP 4 详情根]
   entities/ui/detail/      # 详情 UI[STEP 4]:EntityOcean=单一 AnPage 文档(头+tab+内容居中 720 一起滚,AnTabs flow)+ ocean_header(状态徽 + 动词 CTA)+ overview/{4 kind}(workflow 图推迟图编辑器阶段)+ version_tab(AnVersionDiff)+ log_tab + detail_sections + entity_ocean(详情海洋,STEP 3 占位/STEP 4 建)
   entities/data/entity_demo_fixture.dart  # demoEntityRepository():make demo 的零后端种子(STEP 4/5 续加版本/日志/flowrun)
 ```

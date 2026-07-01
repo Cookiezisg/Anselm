@@ -3,12 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/perf/debouncer.dart';
-import '../../../core/ui/an_button.dart';
-import '../../../core/ui/an_deferred_loading.dart';
 import '../../../core/ui/an_menu.dart';
-import '../../../core/ui/an_rail_skeleton.dart';
+import '../../../core/ui/an_rail_states.dart';
 import '../../../core/ui/an_sidebar_list.dart';
-import '../../../core/ui/an_state.dart';
 import '../../../i18n/strings.g.dart';
 import '../data/entity_kind.dart';
 import '../data/entity_labels.dart';
@@ -67,50 +64,41 @@ class _EntityRailState extends ConsumerState<EntityRail> {
     final showCount = ref.watch(railShowCountProvider);
     final t = context.t;
 
+    // The three placeholder states are an AGGREGATE over the 4 kind lists: loading = nothing resolved yet;
+    // error = every kind failed with nothing to show; empty = loaded but zero rows across all kinds.
+    // 三占位态是 4 kind 列表的聚合:载=尚无一解 / 错=全 kind 失败且无可显 / 空=载完但全 kind 零行。
     final anyData = groups.any((g) => g.state.hasValue);
-    final anyLoading = groups.any((g) => g.state.isLoading);
-    final allError = groups.every((g) => g.state.hasError);
-
-    // Loading: nothing resolved yet. A shaped skeleton reads faster than a spinner; deferred so a fast
-    // first load never flashes it. 首载骨架(延迟防闪)。
-    if (!anyData && anyLoading) return const AnDeferredLoading(child: AnRailSkeleton());
-
-    // Error: every kind failed and there is nothing to show — offer a retry that refetches all. 全错可重试。
-    if (!anyData && allError) {
-      return AnState(
-        kind: AnStateKind.error,
-        title: t.entities.errorTitle,
-        hint: t.entities.errorHint,
-        action: AnButton(label: t.entities.retry, onPressed: _retryAll),
-      );
-    }
-
-    // Empty: loaded, but zero entities across all kinds. 加载完但空。
-    final total = groups.fold<int>(0, (sum, g) => sum + g.count);
-    if (total == 0) {
-      return AnState(kind: AnStateKind.empty, title: t.entities.emptyTitle, hint: t.entities.emptyHint);
-    }
-
-    final model = buildRailModel(
-      groups,
-      RailLabels(kindLabel: (k) => k.typeLabel(t), newLabel: t.entities.kNew, filter: t.entities.filter),
-      sort,
-      showCount: showCount,
-    );
-
-    return AnSidebarList(
-      model: model,
-      selectedId: selected?.id,
-      showNew: false, // entity creation is a later phase; the rail is read+select only in 4.1
-      menuEntries: _menu(t, sort, showCount),
-      // Navigate to set selection — the route is the source of truth (STEP 6). 导航即设选区(路由为真相)。
-      onSelect: (id) {
-        final kind = kindForId(groups, id);
-        if (kind != null) context.go(entityLocation(kind, id));
-      },
-      onFilterChanged: _onFilter,
-      onLoadMore: _onLoadMore,
-      onRetryLoad: _onLoadMore, // retry = just page again 重试即再翻
+    return AnRailStates(
+      loading: !anyData && groups.any((g) => g.state.isLoading),
+      error: !anyData && groups.every((g) => g.state.hasError),
+      empty: groups.fold<int>(0, (sum, g) => sum + g.count) == 0,
+      strings: AnRailStrings(
+        errorTitle: t.entities.errorTitle,
+        errorHint: t.entities.errorHint,
+        retry: t.entities.retry,
+        emptyTitle: t.entities.emptyTitle,
+        emptyHint: t.entities.emptyHint,
+      ),
+      onRetry: _retryAll,
+      builder: () => AnSidebarList(
+        model: buildRailModel(
+          groups,
+          RailLabels(kindLabel: (k) => k.typeLabel(t), newLabel: t.entities.kNew, filter: t.entities.filter),
+          sort,
+          showCount: showCount,
+        ),
+        selectedId: selected?.id,
+        showNew: false, // entity creation is a later phase; the rail is read+select only in 4.1
+        menuEntries: _menu(t, sort, showCount),
+        // Navigate to set selection — the route is the source of truth (STEP 6). 导航即设选区(路由为真相)。
+        onSelect: (id) {
+          final kind = kindForId(groups, id);
+          if (kind != null) context.go(entityLocation(kind, id));
+        },
+        onFilterChanged: _onFilter,
+        onLoadMore: _onLoadMore,
+        onRetryLoad: _onLoadMore, // retry = just page again 重试即再翻
+      ),
     );
   }
 

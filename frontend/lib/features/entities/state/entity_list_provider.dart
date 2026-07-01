@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/contract/page.dart';
-import '../../../core/state/keyset_query_paging.dart';
+import '../../../core/state/keyset_paging.dart';
 import '../data/entity_kind.dart';
 import '../data/entity_providers.dart';
 import '../data/entity_repository.dart';

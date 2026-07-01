@@ -72,35 +72,12 @@ class AnVersionDiff extends StatelessWidget {
     final syntax = context.syntax;
     final t = context.t;
 
-    // Build the row list + counts. 构建行 + 计数。
-    final rows = <_DiffRow>[];
-    var added = 0;
-    var removed = 0;
-    var ln = 0;
-    final b = before;
-    if (b == null || b.isEmpty) {
-      for (final line in after.split('\n')) {
-        rows.add(_DiffRow(DiffOp.context, ++ln, line));
-      }
-    } else {
-      for (final d in lineDiff(b, after)) {
-        switch (d.op) {
-          case DiffOp.add:
-            added++;
-            rows.add(_DiffRow(DiffOp.add, ++ln, d.text));
-          case DiffOp.del:
-            removed++;
-            rows.add(_DiffRow(DiffOp.del, null, d.text)); // deleted line → no new-file number 删行无号
-          case DiffOp.context:
-            rows.add(_DiffRow(DiffOp.context, ++ln, d.text));
-        }
-      }
-    }
+    final (:rows, :added, :removed, :lastLn) = _assembleRows();
 
     // Gutter width: a SINGLE fixed width for every row (per-row ConstrainedBox-floor would let rows with
     // different digit counts diverge and misalign the sign/code columns). Measured from the largest line
     // number so 5+ digits don't clip, floored at AnSize.trail. 行号列统一固定宽(按最大行号测、floor=trail;逐行 floor 会错位)。
-    final gutterW = _gutterWidth(ln);
+    final gutterW = _gutterWidth(lastLn);
 
     final body = LayoutBuilder(
       builder: (ctx, constraints) {
@@ -159,6 +136,35 @@ class AnVersionDiff extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  // Assemble the diff rows + add/remove counts (no `before`, or empty → all-context first render). Kept out
+  // of build() so build reads as pure layout. 装配 diff 行 + 增删计数(无 before/空=全 context 首渲);移出 build 使其纯布局。
+  ({List<_DiffRow> rows, int added, int removed, int lastLn}) _assembleRows() {
+    final rows = <_DiffRow>[];
+    var added = 0;
+    var removed = 0;
+    var ln = 0;
+    final b = before;
+    if (b == null || b.isEmpty) {
+      for (final line in after.split('\n')) {
+        rows.add(_DiffRow(DiffOp.context, ++ln, line));
+      }
+    } else {
+      for (final d in lineDiff(b, after)) {
+        switch (d.op) {
+          case DiffOp.add:
+            added++;
+            rows.add(_DiffRow(DiffOp.add, ++ln, d.text));
+          case DiffOp.del:
+            removed++;
+            rows.add(_DiffRow(DiffOp.del, null, d.text)); // deleted line → no new-file number 删行无号
+          case DiffOp.context:
+            rows.add(_DiffRow(DiffOp.context, ++ln, d.text));
+        }
+      }
+    }
+    return (rows: rows, added: added, removed: removed, lastLn: ln);
   }
 
   // Top bar: range (mono tabular) + note (ellipsized) + +N/−N counts. 顶栏:范围 + 说明 + 增删计数。

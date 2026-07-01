@@ -6,11 +6,9 @@ import '../../../core/contract/conversation.dart';
 import '../../../core/perf/debouncer.dart';
 import '../../../core/overlay/an_overlay.dart';
 import '../../../core/ui/an_button.dart';
-import '../../../core/ui/an_deferred_loading.dart';
 import '../../../core/ui/an_menu.dart';
-import '../../../core/ui/an_rail_skeleton.dart';
+import '../../../core/ui/an_rail_states.dart';
 import '../../../core/ui/an_sidebar_list.dart';
-import '../../../core/ui/an_state.dart';
 import '../../../core/ui/an_toast.dart';
 import '../../../core/ui/icons.dart';
 import '../../../i18n/strings.g.dart';
@@ -71,72 +69,64 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
     final showTime = ref.watch(showTimeProvider);
     final t = context.t;
 
-    // Loading: nothing resolved yet → a shaped skeleton (deferred so a fast load never flashes it).
-    if (async.isLoading && !async.hasValue) {
-      return const AnDeferredLoading(child: AnRailSkeleton());
-    }
-
-    // Error with nothing loaded → retry refetches the list (the provider disables auto-retry).
-    if (async.hasError && !async.hasValue) {
-      return AnState(
-        kind: AnStateKind.error,
-        title: t.chat.errorTitle,
-        hint: t.chat.errorHint,
-        action: AnButton(
-          label: t.chat.retry,
-          onPressed: () => ref.invalidate(conversationListProvider),
-        ),
-      );
-    }
-
+    // The three placeholder states over the ONE list AsyncValue: loading = nothing resolved yet; error =
+    // failed with nothing loaded; empty = loaded but zero rows. 三占位态基于单个列表 AsyncValue。
     final rows = async.value?.rows ?? const <Conversation>[];
-    if (rows.isEmpty) {
-      return AnState(kind: AnStateKind.empty, title: t.chat.emptyTitle, hint: t.chat.emptyHint);
-    }
-
-    final model = buildConversationRailModel(
-      rows,
-      now: DateTime.now(),
-      showCount: showCount,
-      showTime: showTime,
-      hasMore: async.value?.hasMore ?? false,
-      loadingMore: async.value?.loadingMore ?? false,
-      labels: ConvRailLabels(
-        newLabel: t.chat.kNew,
-        filter: t.chat.filter,
-        pinned: t.chat.bucket.pinned,
-        recents: t.chat.bucket.recents,
-        time: ConvTimeStrings(
-          justNow: t.chat.time.justNow,
-          yesterday: t.chat.time.yesterday,
-          minutesAgo: (n) => t.chat.time.minutesAgo(n: n),
-          hoursAgo: (n) => t.chat.time.hoursAgo(n: n),
-          daysAgo: (n) => t.chat.time.daysAgo(n: n),
-        ),
+    return AnRailStates(
+      loading: async.isLoading && !async.hasValue,
+      error: async.hasError && !async.hasValue,
+      empty: rows.isEmpty,
+      strings: AnRailStrings(
+        errorTitle: t.chat.errorTitle,
+        errorHint: t.chat.errorHint,
+        retry: t.chat.retry,
+        emptyTitle: t.chat.emptyTitle,
+        emptyHint: t.chat.emptyHint,
       ),
-    );
-
-    // id → conversation, so the per-row ⋯ menu can read the current pin/archive state for its labels.
-    // id→对话,供逐行 ⋯ 菜单按现态出置顶/归档标签。
-    final byId = {for (final c in rows) c.id: c};
-
-    return AnSidebarList(
-      model: model,
-      selectedId: selected?.id,
-      showNew: false, // lazy New-chat is a later slice; the rail is read+select+act only here
-      menuEntries: _menu(t, sort, archived, showCount, showTime),
-      // The row id IS the conversation id — navigate straight to it (the route is the source of truth).
-      onSelect: (id) => context.go(conversationLocation(id)),
-      onFilterChanged: _onFilter,
-      onLoadMore: (_) => _list.loadMore(), // the recents tail pages the conversation list 最近段尾翻列表
-      onRetryLoad: (_) => _list.loadMore(),
-      editingRowId: _editingId,
-      onRenameCommit: _rename,
-      onRenameCancel: () => setState(() => _editingId = null),
-      rowActionsBuilder: (id) {
-        final c = byId[id];
-        if (c == null) return const [];
-        return [_rowMenu(t, c)];
+      onRetry: () => ref.invalidate(conversationListProvider),
+      builder: () {
+        // id → conversation, so the per-row ⋯ menu can read the current pin/archive state for its labels.
+        // id→对话,供逐行 ⋯ 菜单按现态出置顶/归档标签。
+        final byId = {for (final c in rows) c.id: c};
+        return AnSidebarList(
+          model: buildConversationRailModel(
+            rows,
+            now: DateTime.now(),
+            showCount: showCount,
+            showTime: showTime,
+            hasMore: async.value?.hasMore ?? false,
+            loadingMore: async.value?.loadingMore ?? false,
+            labels: ConvRailLabels(
+              newLabel: t.chat.kNew,
+              filter: t.chat.filter,
+              pinned: t.chat.bucket.pinned,
+              recents: t.chat.bucket.recents,
+              time: ConvTimeStrings(
+                justNow: t.chat.time.justNow,
+                yesterday: t.chat.time.yesterday,
+                minutesAgo: (n) => t.chat.time.minutesAgo(n: n),
+                hoursAgo: (n) => t.chat.time.hoursAgo(n: n),
+                daysAgo: (n) => t.chat.time.daysAgo(n: n),
+              ),
+            ),
+          ),
+          selectedId: selected?.id,
+          showNew: false, // lazy New-chat is a later slice; the rail is read+select+act only here
+          menuEntries: _menu(t, sort, archived, showCount, showTime),
+          // The row id IS the conversation id — navigate straight to it (route is the source of truth).
+          onSelect: (id) => context.go(conversationLocation(id)),
+          onFilterChanged: _onFilter,
+          onLoadMore: (_) => _list.loadMore(), // the recents tail pages the conversation list 最近段尾翻列表
+          onRetryLoad: (_) => _list.loadMore(),
+          editingRowId: _editingId,
+          onRenameCommit: _rename,
+          onRenameCancel: () => setState(() => _editingId = null),
+          rowActionsBuilder: (id) {
+            final c = byId[id];
+            if (c == null) return const [];
+            return [_rowMenu(t, c)];
+          },
+        );
       },
     );
   }

@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/state/keyset_paging.dart';
 import '../../../../core/contract/entities/agent.dart';
 import '../../../../core/contract/entities/common.dart';
 import '../../../../core/contract/entities/function.dart';
@@ -19,7 +20,8 @@ import 'log_list_state.dart';
 /// ok/failed aggregate (function/handler/agent only), expands rows in place, and — for workflow only —
 /// lazily fetches the [FlowrunComposite] (node list) on first expand. Detail-row labels use slang's
 /// global `t` (no BuildContext in state). Auto-retry off. 日志 tab(按 EntityRef family)。
-class LogListNotifier extends AsyncNotifier<LogListState> {
+class LogListNotifier extends AsyncNotifier<LogListState>
+    with KeysetScopedPaging<LogListState, LogRow> {
   LogListNotifier(this.entityRef);
 
   final EntityRef entityRef;
@@ -39,27 +41,24 @@ class LogListNotifier extends AsyncNotifier<LogListState> {
     );
   }
 
-  Future<void> loadMore() async {
-    final cur = state.value;
-    if (cur == null || !cur.hasMore || cur.loadingMore || cur.nextCursor == null) return;
-    state = AsyncData(cur.copyWith(loadingMore: true));
-    try {
-      final page = await _fetch(cur.nextCursor);
-      if (!ref.mounted) return; // autoDispose: left the entity mid-page 已离开实体则不写
-      final now = state.value ?? cur;
-      state = AsyncData(now.copyWith(
-        rows: [...now.rows, ...page.rows],
-        nextCursor: page.next,
-        hasMore: page.more,
-        loadingMore: false,
-      ));
-    } catch (_) {
-      if (!ref.mounted) rethrow; // disposed → don't touch state, just propagate
-      final now = state.value ?? cur;
-      state = AsyncData(now.copyWith(loadingMore: false));
-      rethrow;
-    }
+  // KeysetScopedPaging hooks. The aggregate is a build-only header (unchanged by loadMore), so the paging
+  // fetch drops it. 分页钩子:聚合是仅 build 的表头、loadMore 不变,故分页 fetch 丢弃它。
+  @override
+  ({bool hasMore, bool loadingMore, String? nextCursor}) pageCursor(LogListState s) =>
+      (hasMore: s.hasMore, loadingMore: s.loadingMore, nextCursor: s.nextCursor);
+
+  @override
+  Future<({List<LogRow> rows, String? next, bool more})> fetchNextPage(String cursor) async {
+    final page = await _fetch(cursor);
+    return (rows: page.rows, next: page.next, more: page.more);
   }
+
+  @override
+  LogListState stateWithLoadingMore(LogListState s, bool loading) => s.copyWith(loadingMore: loading);
+
+  @override
+  LogListState stateWithAppended(LogListState s, List<LogRow> rows, String? next, bool more) =>
+      s.copyWith(rows: [...s.rows, ...rows], nextCursor: next, hasMore: more, loadingMore: false);
 
   /// Toggle a row's expansion; for a workflow flowrun, lazily fetch its node list on first open.
   /// 展开/收起一行;workflow flowrun 首次展开时懒取节点列表。

@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/state/keyset_paging.dart';
 import '../../data/entity_format.dart';
 import '../../data/entity_kind.dart';
 import '../../data/entity_providers.dart';
@@ -14,7 +15,8 @@ import 'version_list_state.dart';
 /// detail's `activeVersionId`, and tracks the selected row for the diff. Same paging discipline as the
 /// rail list (loadMore keeps rows on error; re-read state after await; auto-retry off). The detail
 /// provider invalidates this on edit so a new active version reconciles. 版本 tab(按 EntityRef family)。
-class VersionListNotifier extends AsyncNotifier<VersionListState> {
+class VersionListNotifier extends AsyncNotifier<VersionListState>
+    with KeysetScopedPaging<VersionListState, VersionRow> {
   VersionListNotifier(this.entityRef);
 
   final EntityRef entityRef;
@@ -28,27 +30,20 @@ class VersionListNotifier extends AsyncNotifier<VersionListState> {
     return VersionListState(versions: page.rows, nextCursor: page.next, hasMore: page.more);
   }
 
-  Future<void> loadMore() async {
-    final cur = state.value;
-    if (cur == null || !cur.hasMore || cur.loadingMore || cur.nextCursor == null) return;
-    state = AsyncData(cur.copyWith(loadingMore: true));
-    try {
-      final page = await _fetch(cur.nextCursor);
-      if (!ref.mounted) return; // autoDispose: left the entity mid-page 已离开实体则不写
-      final now = state.value ?? cur;
-      state = AsyncData(now.copyWith(
-        versions: [...now.versions, ...page.rows],
-        nextCursor: page.next,
-        hasMore: page.more,
-        loadingMore: false,
-      ));
-    } catch (_) {
-      if (!ref.mounted) rethrow; // disposed → don't touch state, just propagate
-      final now = state.value ?? cur;
-      state = AsyncData(now.copyWith(loadingMore: false));
-      rethrow;
-    }
-  }
+  // KeysetScopedPaging hooks — the kind-erased version fetch + this state's cursor/append shape. 分页钩子。
+  @override
+  ({bool hasMore, bool loadingMore, String? nextCursor}) pageCursor(VersionListState s) =>
+      (hasMore: s.hasMore, loadingMore: s.loadingMore, nextCursor: s.nextCursor);
+
+  @override
+  Future<({List<VersionRow> rows, String? next, bool more})> fetchNextPage(String cursor) => _fetch(cursor);
+
+  @override
+  VersionListState stateWithLoadingMore(VersionListState s, bool loading) => s.copyWith(loadingMore: loading);
+
+  @override
+  VersionListState stateWithAppended(VersionListState s, List<VersionRow> rows, String? next, bool more) =>
+      s.copyWith(versions: [...s.versions, ...rows], nextCursor: next, hasMore: more, loadingMore: false);
 
   /// Pick the version to show on the diff's `after` side (compared against the next-older loaded row).
   /// 选 diff 的 after 版本(与下一更旧版本比)。
