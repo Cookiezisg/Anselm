@@ -24,6 +24,12 @@ class EntityListNotifier extends AsyncNotifier<EntityListState> {
 
   final EntityKind kind;
   late EntityRepository _repo;
+  String _search = '';
+
+  // Bumped each build(). loadMore captures it before its await and drops the returned page if a
+  // search switch re-ran build meanwhile — else the stale page appends onto the new query's list.
+  // 每次 build() 自增。loadMore 在 await 前捕获,若期间 search 切换重跑了 build 则丢弃返回页(否则旧查询页追加到新列表)。
+  int _gen = 0;
 
   // Server applies a default page cap anyway; we request an explicit window so loadMore is exercised.
   // 服务端本就有默认页上限;此处显式请求一窗,使 loadMore 真正生效。
@@ -31,10 +37,12 @@ class EntityListNotifier extends AsyncNotifier<EntityListState> {
 
   @override
   Future<EntityListState> build() async {
+    _gen++;
     _repo = ref.watch(entityRepositoryProvider);
+    _search = ref.watch(entitySearchProvider);
     final sub = _repo.lifecycleSignals(kind).listen(_onSignal);
     ref.onDispose(sub.cancel);
-    final page = await _repo.listEntities(kind, limit: _pageSize);
+    final page = await _repo.listEntities(kind, limit: _pageSize, search: _search.isEmpty ? null : _search);
     return EntityListState(rows: page.items, nextCursor: page.nextCursor, hasMore: page.hasMore);
   }
 
@@ -43,9 +51,12 @@ class EntityListNotifier extends AsyncNotifier<EntityListState> {
   Future<void> loadMore() async {
     final cur = state.value;
     if (cur == null || !cur.hasMore || cur.loadingMore || cur.nextCursor == null) return;
+    final gen = _gen; // a search switch re-runs build + bumps _gen mid-await
     state = AsyncData(cur.copyWith(loadingMore: true));
     try {
-      final page = await _repo.listEntities(kind, cursor: cur.nextCursor, limit: _pageSize);
+      final page = await _repo.listEntities(kind,
+          cursor: cur.nextCursor, limit: _pageSize, search: _search.isEmpty ? null : _search);
+      if (gen != _gen) return; // build re-ran during the await — this page belongs to a stale query, drop it
       final now = state.value ?? cur;
       state = AsyncData(now.copyWith(
         rows: [...now.rows, ...page.items],
@@ -56,6 +67,7 @@ class EntityListNotifier extends AsyncNotifier<EntityListState> {
     } catch (_) {
       // Keep the rows we have, drop the spinner, surface the error to the caller (a tail-error
       // indicator in the rail is a STEP 3/5 concern). 保留已得行、撤 spinner、错误上抛(尾部错误提示后续步)。
+      if (gen != _gen) return;
       final now = state.value ?? cur;
       state = AsyncData(now.copyWith(loadingMore: false));
       rethrow;
@@ -101,6 +113,26 @@ class EntityListNotifier extends AsyncNotifier<EntityListState> {
     }
   }
 }
+
+/// The rail's search query — a rail-level (not per-kind) transient view state; every kind's list notifier
+/// watches it and re-pages from the top when it changes (server-side `?search`, same cursor-reset rule as
+/// a sort switch). One search box filters all 4 kind sections. `set` trims + no-ops on no change; keystroke
+/// debouncing lives at the search-box input edge, so this provider updates immediately and stays testable.
+///
+/// rail 搜索词——rail 级(非 per-kind)瞬时视图态;每个 kind 的 list notifier watch 它、变即从顶重翻(服务端 `?search`,
+/// 与切 sort 同样的游标重置)。一个搜索框过滤全部 4 kind 段。`set` trim + 无变化 no-op;逐键防抖在搜索框输入边、保持易测。
+class EntitySearchController extends Notifier<String> {
+  @override
+  String build() => '';
+
+  void set(String query) {
+    final q = query.trim();
+    if (q != state) state = q;
+  }
+}
+
+final entitySearchProvider =
+    NotifierProvider<EntitySearchController, String>(EntitySearchController.new);
 
 /// Per-kind rail list (family over [EntityKind]). Auto-retry is disabled — recovery is the rail's
 /// explicit retry button (Riverpod's default exponential auto-retry would otherwise oscillate the

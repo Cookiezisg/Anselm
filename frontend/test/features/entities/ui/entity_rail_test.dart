@@ -39,14 +39,14 @@ Widget _host(EntityRepository repo) => routedHost(
 /// failure and no need to settle the shimmer ticker).
 class _PendingRepo extends FixtureEntityRepository {
   @override
-  Future<Page<EntityRow>> listEntities(EntityKind kind, {String? cursor, int? limit}) =>
+  Future<Page<EntityRow>> listEntities(EntityKind kind, {String? cursor, int? limit, String? search}) =>
       Completer<Page<EntityRow>>().future;
 }
 
 /// Repo whose list always throws — pins the error state.
 class _ErrRepo extends FixtureEntityRepository {
   @override
-  Future<Page<EntityRow>> listEntities(EntityKind kind, {String? cursor, int? limit}) async =>
+  Future<Page<EntityRow>> listEntities(EntityKind kind, {String? cursor, int? limit, String? search}) async =>
       throw Exception('boom');
 }
 

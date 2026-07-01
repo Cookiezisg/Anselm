@@ -64,6 +64,29 @@ class ShowTimeController extends Notifier<bool> {
 
 final showTimeProvider = NotifierProvider<ShowTimeController, bool>(ShowTimeController.new);
 
+/// The conversation rail search query — a transient view state in its own provider so the list notifier
+/// can `watch` it and re-page from the top whenever it changes. Server-side `?search`: a keyset cursor
+/// minted under one query is meaningless under another, so switching MUST reset pagination — `build`
+/// re-running gives that for free, exactly like sort/archived. `set` trims + no-ops on no change;
+/// keystroke debouncing lives at the rail's search-box input edge, so this provider updates immediately
+/// and stays trivially testable.
+///
+/// 对话列表搜索词——瞬时视图态,独立 provider,使 list notifier watch 它、变即从顶重翻。服务端 `?search`:一种查询下
+/// 铸的游标在另一种下无意义,切换必须重置分页——build 重跑天然给到,与 sort/archived 一致。`set` trim + 无变化 no-op;
+/// 逐键防抖在 rail 搜索框输入边,故此 provider 立即更新、保持易测。
+class ConversationSearchController extends Notifier<String> {
+  @override
+  String build() => '';
+
+  void set(String query) {
+    final q = query.trim();
+    if (q != state) state = q;
+  }
+}
+
+final conversationSearchProvider =
+    NotifierProvider<ConversationSearchController, String>(ConversationSearchController.new);
+
 /// The conversation rail list — first page on build, [loadMore] appends the next keyset page. It
 /// `watch`es the sort + show-archived providers, so changing either re-runs build → a fresh first page
 /// from the top (the cursor-reset-on-sort-switch rule, free). Realtime list mutation (the SSE merge)
@@ -77,6 +100,13 @@ class ConversationListNotifier extends AsyncNotifier<ConversationListState> {
   late ChatRepository _repo;
   ConvSort _sort = ConvSort.activity;
   ConvArchive _archive = ConvArchive.active;
+  String _search = '';
+
+  // Bumped each build(). loadMore captures it before its await and drops the returned page if a
+  // sort/archived/search switch re-ran build meanwhile — else the stale page appends onto the new query.
+  // 每次 build() 自增。loadMore 在 await 前捕获它,若期间 sort/archived/search 切换重跑了 build 则丢弃返回页
+  // (否则旧查询的页会追加到新查询上)。
+  int _gen = 0;
 
   // The server caps pages anyway; we request an explicit window so loadMore is exercised.
   // 服务端本就有页上限;此处显式请求一窗,使 loadMore 真正生效。
@@ -84,10 +114,13 @@ class ConversationListNotifier extends AsyncNotifier<ConversationListState> {
 
   @override
   Future<ConversationListState> build() async {
+    _gen++;
     _repo = ref.watch(chatRepositoryProvider);
     _sort = ref.watch(conversationSortProvider);
     _archive = ref.watch(showArchivedProvider) ? ConvArchive.all : ConvArchive.active;
-    final page = await _repo.listConversations(limit: _pageSize, sort: _sort, archive: _archive);
+    _search = ref.watch(conversationSearchProvider);
+    final page = await _repo.listConversations(
+        limit: _pageSize, sort: _sort, archive: _archive, search: _search.isEmpty ? null : _search);
     return ConversationListState(
         rows: page.items, nextCursor: page.nextCursor, hasMore: page.hasMore);
   }
@@ -97,10 +130,13 @@ class ConversationListNotifier extends AsyncNotifier<ConversationListState> {
   Future<void> loadMore() async {
     final cur = state.value;
     if (cur == null || !cur.hasMore || cur.loadingMore || cur.nextCursor == null) return;
+    final gen = _gen; // a sort/archived/search switch re-runs build + bumps _gen mid-await
     state = AsyncData(cur.copyWith(loadingMore: true));
     try {
       final page = await _repo.listConversations(
-          cursor: cur.nextCursor, limit: _pageSize, sort: _sort, archive: _archive);
+          cursor: cur.nextCursor, limit: _pageSize, sort: _sort, archive: _archive,
+          search: _search.isEmpty ? null : _search);
+      if (gen != _gen) return; // build re-ran during the await — this page belongs to a stale query, drop it
       final now = state.value ?? cur;
       state = AsyncData(now.copyWith(
         rows: [...now.rows, ...page.items],
@@ -111,6 +147,7 @@ class ConversationListNotifier extends AsyncNotifier<ConversationListState> {
     } catch (_) {
       // Keep the rows we have, drop the spinner, surface the error (a tail-error affordance is a later
       // slice). 保留已得行、撤 spinner、错误上抛(尾部错误提示后续片)。
+      if (gen != _gen) return;
       final now = state.value ?? cur;
       state = AsyncData(now.copyWith(loadingMore: false));
       rethrow;

@@ -89,6 +89,24 @@ void main() {
     expect(all.rows.map((r) => r.id).toSet(), {'cv_a', 'cv_x'});
   });
 
+  test('setting search re-pages from the top, filtered by title (case-insensitive)', () async {
+    final c = _container(FixtureChatRepository(conversations: [
+      _c('cv_a', 'Quarterly report', hour: 9),
+      _c('cv_b', 'Random chat', hour: 11),
+    ]));
+    expect((await c.read(conversationListProvider.future)).rows.length, 2);
+
+    // Uppercase term matches the mixed-case title — server-side ?search is case-insensitive; the watched
+    // provider re-runs build → fresh filtered first page (same cursor-reset rule as a sort switch).
+    c.read(conversationSearchProvider.notifier).set('REPORT');
+    final hit = await c.read(conversationListProvider.future);
+    expect(hit.rows.map((r) => r.id), ['cv_a']);
+
+    // Clearing the search restores the full list.
+    c.read(conversationSearchProvider.notifier).set('');
+    expect((await c.read(conversationListProvider.future)).rows.length, 2);
+  });
+
   test('applyUpdate replaces a row in place (rename, optimistic — no re-fetch)', () async {
     final c = _container(FixtureChatRepository(conversations: [_c('cv_a', 'A', hour: 9), _c('cv_b', 'B', hour: 11)]));
     await c.read(conversationListProvider.future);

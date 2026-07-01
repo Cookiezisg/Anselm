@@ -105,8 +105,16 @@ class FixtureEntityRepository implements EntityRepository {
       };
 
   @override
-  Future<Page<EntityRow>> listEntities(EntityKind kind, {String? cursor, int? limit}) async => _page(
-      _itemsOf(kind).map((m) => EntityRow.fromListItem(kind, m)).toList(), cursor, limit);
+  Future<Page<EntityRow>> listEntities(EntityKind kind, {String? cursor, int? limit, String? search}) async {
+    // Mirror the server's ?search: case-insensitive name substring, applied before paging.
+    // 镜像服务端 ?search:分页前对 name 大小写不敏感子串过滤。
+    final term = search?.trim().toLowerCase() ?? '';
+    var rows = _itemsOf(kind).map((m) => EntityRow.fromListItem(kind, m)).toList();
+    if (term.isNotEmpty) {
+      rows = rows.where((r) => r.name.toLowerCase().contains(term)).toList();
+    }
+    return _page(rows, cursor, limit);
+  }
 
   @override
   Future<EntityRow> getEntityRow(EntityKind kind, String id) async => EntityRow.fromListItem(

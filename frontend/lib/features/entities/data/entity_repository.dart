@@ -23,7 +23,7 @@ import 'entity_signal.dart';
 /// fixture override 驱动。Live 接 Phase 4.0 管道,fixture 内存 + 可脚本化。
 abstract interface class EntityRepository {
   // ── rail / list (uniform row across all 4 kinds) ──────────────────────────
-  Future<Page<EntityRow>> listEntities(EntityKind kind, {String? cursor, int? limit});
+  Future<Page<EntityRow>> listEntities(EntityKind kind, {String? cursor, int? limit, String? search});
 
   /// Fetch the rail ROW for one instance — the list uses this to materialize/refresh a row when a
   /// `created`/`edited`/`updated` lifecycle signal arrives (the signal carries only an id). 据 id 取单行
@@ -105,8 +105,9 @@ class LiveEntityRepository implements EntityRepository {
       ExecutionAggregates.fromJson((data['aggregates'] as Map<String, dynamic>?) ?? const {});
 
   @override
-  Future<Page<EntityRow>> listEntities(EntityKind kind, {String? cursor, int? limit}) =>
-      _api.getPage(kind.base, (m) => EntityRow.fromListItem(kind, m), query: _query(cursor, limit));
+  Future<Page<EntityRow>> listEntities(EntityKind kind, {String? cursor, int? limit, String? search}) =>
+      _api.getPage(kind.base, (m) => EntityRow.fromListItem(kind, m),
+          query: _query(cursor, limit, {'search': ?search}));
 
   @override
   Future<EntityRow> getEntityRow(EntityKind kind, String id) async => EntityRow.fromListItem(

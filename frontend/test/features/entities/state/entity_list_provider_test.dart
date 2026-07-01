@@ -135,4 +135,22 @@ void main() {
     expect(rail.firstWhere((g) => g.kind == EntityKind.function).count, 2);
     expect(rail.firstWhere((g) => g.kind == EntityKind.agent).count, 0);
   });
+
+  test('setting search re-pages the kind list, filtered by name (case-insensitive)', () async {
+    final c = _container(FixtureEntityRepository(
+        functions: [_fn('fn_1', 'quarterly_report'), _fn('fn_2', 'random_helper')]));
+    await c.read(entityListProvider(EntityKind.function).future);
+    expect(_ids(c), ['fn_1', 'fn_2']);
+
+    // The rail-level search provider is watched by every kind's list → build re-runs with server-side
+    // ?search (mirrored by the fixture). Uppercase term matches the lowercase name (case-insensitive).
+    c.read(entitySearchProvider.notifier).set('REPORT');
+    await c.read(entityListProvider(EntityKind.function).future);
+    expect(_ids(c), ['fn_1']);
+
+    // Clearing restores the full list.
+    c.read(entitySearchProvider.notifier).set('');
+    await c.read(entityListProvider(EntityKind.function).future);
+    expect(_ids(c), ['fn_1', 'fn_2']);
+  });
 }
