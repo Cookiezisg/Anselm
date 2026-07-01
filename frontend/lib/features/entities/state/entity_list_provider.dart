@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/contract/page.dart';
+import '../../../core/state/keyset_query_paging.dart';
 import '../data/entity_kind.dart';
 import '../data/entity_providers.dart';
 import '../data/entity_repository.dart';
@@ -19,17 +21,13 @@ import 'entity_list_state.dart';
 /// 单 kind 的 rail 列表——build 取首页,loadMore 追加,SSE 订阅就地 patch 耐久列表。E2:仅 durable
 /// 信号改列表(DB 行是真相),ephemeral 永不。created→取新行前插 / deleted→按 id 删 / edited·updated→
 /// 重取该行替换;不在已载页的 id 忽略。每次 await 后重读 state 防并发互踩。
-class EntityListNotifier extends AsyncNotifier<EntityListState> {
+class EntityListNotifier extends AsyncNotifier<EntityListState>
+    with KeysetQueryPaging<EntityListState, EntityRow> {
   EntityListNotifier(this.kind);
 
   final EntityKind kind;
   late EntityRepository _repo;
   String _search = '';
-
-  // Bumped each build(). loadMore captures it before its await and drops the returned page if a
-  // search switch re-ran build meanwhile — else the stale page appends onto the new query's list.
-  // 每次 build() 自增。loadMore 在 await 前捕获,若期间 search 切换重跑了 build 则丢弃返回页(否则旧查询页追加到新列表)。
-  int _gen = 0;
 
   // Server applies a default page cap anyway; we request an explicit window so loadMore is exercised.
   // 服务端本就有默认页上限;此处显式请求一窗,使 loadMore 真正生效。
@@ -37,7 +35,7 @@ class EntityListNotifier extends AsyncNotifier<EntityListState> {
 
   @override
   Future<EntityListState> build() async {
-    _gen++;
+    bumpGeneration();
     _repo = ref.watch(entityRepositoryProvider);
     _search = ref.watch(entitySearchProvider);
     final sub = _repo.lifecycleSignals(kind).listen(_onSignal);
@@ -46,33 +44,25 @@ class EntityListNotifier extends AsyncNotifier<EntityListState> {
     return EntityListState(rows: page.items, nextCursor: page.nextCursor, hasMore: page.hasMore);
   }
 
-  /// Fetch the next keyset page and append. No-op while loading, at the end, or before first load.
-  /// 取下一 keyset 页并追加;加载中/已到底/首载前为 no-op。
-  Future<void> loadMore() async {
-    final cur = state.value;
-    if (cur == null || !cur.hasMore || cur.loadingMore || cur.nextCursor == null) return;
-    final gen = _gen; // a search switch re-runs build + bumps _gen mid-await
-    state = AsyncData(cur.copyWith(loadingMore: true));
-    try {
-      final page = await _repo.listEntities(kind,
-          cursor: cur.nextCursor, limit: _pageSize, search: _search.isEmpty ? null : _search);
-      if (gen != _gen) return; // build re-ran during the await — this page belongs to a stale query, drop it
-      final now = state.value ?? cur;
-      state = AsyncData(now.copyWith(
-        rows: [...now.rows, ...page.items],
+  // KeysetQueryPaging hooks — the per-kind fetch + this state's cursor/append shape. 分页 mixin 钩子。
+  @override
+  ({bool hasMore, bool loadingMore, String? nextCursor}) pageCursor(EntityListState s) =>
+      (hasMore: s.hasMore, loadingMore: s.loadingMore, nextCursor: s.nextCursor);
+
+  @override
+  Future<Page<EntityRow>> fetchNextPage(String cursor) => _repo.listEntities(kind,
+      cursor: cursor, limit: _pageSize, search: _search.isEmpty ? null : _search);
+
+  @override
+  EntityListState stateWithLoadingMore(EntityListState s, bool loading) => s.copyWith(loadingMore: loading);
+
+  @override
+  EntityListState stateWithAppended(EntityListState s, Page<EntityRow> page) => s.copyWith(
+        rows: [...s.rows, ...page.items],
         nextCursor: page.nextCursor,
         hasMore: page.hasMore,
         loadingMore: false,
-      ));
-    } catch (_) {
-      // Keep the rows we have, drop the spinner, surface the error to the caller (a tail-error
-      // indicator in the rail is a STEP 3/5 concern). 保留已得行、撤 spinner、错误上抛(尾部错误提示后续步)。
-      if (gen != _gen) return;
-      final now = state.value ?? cur;
-      state = AsyncData(now.copyWith(loadingMore: false));
-      rethrow;
-    }
-  }
+      );
 
   Future<void> _onSignal(EntitySignal s) async {
     if (!s.durable) return; // ephemeral never touches the durable list

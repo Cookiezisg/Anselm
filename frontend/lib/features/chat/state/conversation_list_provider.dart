@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/contract/conversation.dart';
+import '../../../core/contract/page.dart';
 import '../../../core/state/bool_pref.dart';
+import '../../../core/state/keyset_query_paging.dart';
 import '../data/chat_providers.dart';
 import '../data/chat_repository.dart';
 import 'conversation_list_state.dart';
@@ -75,17 +77,12 @@ final conversationSearchProvider =
 /// 对话 rail 列表——build 取首页,loadMore 追加下一 keyset 页。它 watch sort + 显示归档 provider,故改任一即重跑
 /// build → 从顶取新首页(切换排序自动重置游标)。实时列表 patch(SSE 合并)在 live-wiring 片落;本片只分页 + 查询参。
 /// 关自动重试(失败交给 rail 的重试钮,否则闪回 spinner)。
-class ConversationListNotifier extends AsyncNotifier<ConversationListState> {
+class ConversationListNotifier extends AsyncNotifier<ConversationListState>
+    with KeysetQueryPaging<ConversationListState, Conversation> {
   late ChatRepository _repo;
   ConvSort _sort = ConvSort.activity;
   ConvArchive _archive = ConvArchive.active;
   String _search = '';
-
-  // Bumped each build(). loadMore captures it before its await and drops the returned page if a
-  // sort/archived/search switch re-ran build meanwhile — else the stale page appends onto the new query.
-  // 每次 build() 自增。loadMore 在 await 前捕获它,若期间 sort/archived/search 切换重跑了 build 则丢弃返回页
-  // (否则旧查询的页会追加到新查询上)。
-  int _gen = 0;
 
   // The server caps pages anyway; we request an explicit window so loadMore is exercised.
   // 服务端本就有页上限;此处显式请求一窗,使 loadMore 真正生效。
@@ -93,7 +90,7 @@ class ConversationListNotifier extends AsyncNotifier<ConversationListState> {
 
   @override
   Future<ConversationListState> build() async {
-    _gen++;
+    bumpGeneration();
     _repo = ref.watch(chatRepositoryProvider);
     _sort = ref.watch(conversationSortProvider);
     _archive = ref.watch(showArchivedProvider) ? ConvArchive.all : ConvArchive.active;
@@ -104,34 +101,27 @@ class ConversationListNotifier extends AsyncNotifier<ConversationListState> {
         rows: page.items, nextCursor: page.nextCursor, hasMore: page.hasMore);
   }
 
-  /// Fetch the next keyset page and append. No-op while loading, at the end, or before first load.
-  /// 取下一 keyset 页并追加;加载中/已到底/首载前为 no-op。
-  Future<void> loadMore() async {
-    final cur = state.value;
-    if (cur == null || !cur.hasMore || cur.loadingMore || cur.nextCursor == null) return;
-    final gen = _gen; // a sort/archived/search switch re-runs build + bumps _gen mid-await
-    state = AsyncData(cur.copyWith(loadingMore: true));
-    try {
-      final page = await _repo.listConversations(
-          cursor: cur.nextCursor, limit: _pageSize, sort: _sort, archive: _archive,
-          search: _search.isEmpty ? null : _search);
-      if (gen != _gen) return; // build re-ran during the await — this page belongs to a stale query, drop it
-      final now = state.value ?? cur;
-      state = AsyncData(now.copyWith(
-        rows: [...now.rows, ...page.items],
+  // KeysetQueryPaging hooks — the sort/archived/search-scoped fetch + this state's cursor/append shape. 钩子。
+  @override
+  ({bool hasMore, bool loadingMore, String? nextCursor}) pageCursor(ConversationListState s) =>
+      (hasMore: s.hasMore, loadingMore: s.loadingMore, nextCursor: s.nextCursor);
+
+  @override
+  Future<Page<Conversation>> fetchNextPage(String cursor) => _repo.listConversations(
+      cursor: cursor, limit: _pageSize, sort: _sort, archive: _archive,
+      search: _search.isEmpty ? null : _search);
+
+  @override
+  ConversationListState stateWithLoadingMore(ConversationListState s, bool loading) =>
+      s.copyWith(loadingMore: loading);
+
+  @override
+  ConversationListState stateWithAppended(ConversationListState s, Page<Conversation> page) => s.copyWith(
+        rows: [...s.rows, ...page.items],
         nextCursor: page.nextCursor,
         hasMore: page.hasMore,
         loadingMore: false,
-      ));
-    } catch (_) {
-      // Keep the rows we have, drop the spinner, surface the error (a tail-error affordance is a later
-      // slice). 保留已得行、撤 spinner、错误上抛(尾部错误提示后续片)。
-      if (gen != _gen) return;
-      final now = state.value ?? cur;
-      state = AsyncData(now.copyWith(loadingMore: false));
-      rethrow;
-    }
-  }
+      );
 
   /// Fold an authoritative updated conversation (a PATCH response) into the loaded list: replace the row
   /// in place, or DROP it when it just got archived while the rail isn't showing archived (it leaves the
