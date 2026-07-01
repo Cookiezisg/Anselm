@@ -31,14 +31,40 @@ class SidebarRow {
 /// A kind/type block: a collapsible head ([label]/[icon]/[count]) over its [rows], OR headless (no
 /// label AND no icon) — rows flush at depth 0 (scheduler / a documents-folder root). 类型块(或 headless)。
 class SidebarType {
-  const SidebarType({this.label, this.icon, this.count, this.rows = const []});
+  const SidebarType({
+    this.label,
+    this.icon,
+    this.count,
+    this.rows = const [],
+    this.pageKey,
+    this.hasMore = false,
+    this.loadingMore = false,
+    this.loadError = false,
+  });
 
   final String? label;
   final IconData? icon;
   final int? count;
   final List<SidebarRow> rows;
 
+  /// Pagination axis id — non-null makes this section infinite-scrollable: a tail sentinel drives
+  /// `onLoadMore(pageKey)` and a trailing footer renders the loading/retry state. null = not paginated
+  /// (no footer, no sentinel). Also the section's stable semantic fold key.
+  /// 分页轴 id——非空则本段可无限下滑:尾哨兵驱动 `onLoadMore(pageKey)`、尾随 footer 渲加载/重试态。null=不分页。
+  /// 亦作本段稳定语义折叠键。
+  final String? pageKey;
+
+  /// Paging state (meaningful only when [pageKey] != null). [hasMore] gates the sentinel; [loadingMore]/
+  /// [loadError] pick the footer's look. 分页态(仅 pageKey 非空时有意义)。
+  final bool hasMore;
+  final bool loadingMore;
+  final bool loadError;
+
   bool get headless => label == null && icon == null;
+
+  /// Stable fold identity — [pageKey] if set, else the label. Never positional (a conditionally-emitted
+  /// section can't fuse fold state with a sibling). 稳定折叠身份:pageKey 优先、否则 label;绝不按位置。
+  String get foldKey => pageKey ?? label ?? '';
 }
 
 /// A big group: a collapsible chat-style header ([label]) over its [types], OR — when [label] is null —

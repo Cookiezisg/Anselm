@@ -5,6 +5,7 @@ import '../../core/design/colors.dart';
 import '../../core/design/tokens.dart';
 import '../../core/design/typography.dart';
 import '../../core/ui/ui.dart';
+import 'sidebar_poc.dart';
 import 'specimen.dart';
 
 // Gallery catalog — dev-only tool, so plain strings here are exempt from the i18n rule (like test
@@ -372,6 +373,7 @@ final GalleryCategory _g4NavShell = GalleryCategory('导航与壳 Nav & Shell', 
   GalleryItem('AnSidebarList', '左岛侧栏:New + 域内过滤(sliders 菜单)+ groups→types→rows 递归树(文档树可折叠)', [
     GallerySpecimen('sidebar (filter + tree + select)', (_) => const _SidebarDemo(), height: 420, span: true),
     GallerySpecimen('row 改名中 (就地编辑态)', (_) => const _SidebarDemo(editingId: 'fn1'), height: 420, span: true),
+    GallerySpecimen('⚡ 虚拟化 POC (sticky 段头+折叠动画+5000 行+触底)', (_) => const SidebarVirtualPoc(), height: 480, span: true),
   ]),
   GalleryItem('AnOceanHeader', '海洋页头:面包屑 + H2 标题(可就地改名)+ 右动作 + meta', [
     GallerySpecimen('editable (crumb + H2 + actions + meta)', (_) => const _OceanHeaderDemo(), span: true),
