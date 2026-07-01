@@ -86,27 +86,12 @@ class _AnSidebarListState extends State<AnSidebarList> {
   final Set<String> _collapsed = {}; // collapsed fold keys (default: all open) 折叠键(默认全开)
   final ScrollController _scroll = ScrollController();
   String _query = '';
-  int _firstVisible = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _scroll.addListener(_onScroll);
-  }
 
   @override
   void dispose() {
     _filter.dispose();
     _scroll.dispose();
     super.dispose();
-  }
-
-  // Fixed row height → offset ÷ rowH = the top-most visible index, exactly (the whole reason we flatten
-  // ourselves instead of TreeSliver). offset÷行高=顶部可见 index(精确,自展平的全部理由)。
-  void _onScroll() {
-    if (!_scroll.hasClients) return;
-    final i = (_scroll.offset / AnSize.row).floor();
-    if (i != _firstVisible) setState(() => _firstVisible = i);
   }
 
   void _toggle(String key) =>
@@ -117,12 +102,6 @@ class _AnSidebarListState extends State<AnSidebarList> {
   @override
   Widget build(BuildContext context) {
     final flat = flattenSidebar(widget.model, collapsed: _collapsed, query: _query);
-    final top = flat.isEmpty ? 0 : _firstVisible.clamp(0, flat.length - 1);
-    // The sticky stack = the top-most visible row's ancestor chain (outermost→nearest), capped. A group/
-    // type/branch head that IS the top row doesn't re-pin itself (it's already at the top of the list).
-    // 吸顶栈 = 顶部行的祖先链(最外→最近),封顶。顶行本身是头则不自吸(它已在列表顶)。
-    final sticky =
-        flat.isEmpty ? const <SidebarFlatNode>[] : flat[top].ancestors.take(_maxSticky).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -147,20 +126,72 @@ class _AnSidebarListState extends State<AnSidebarList> {
                   ],
                 ),
               ),
-              if (sticky.isNotEmpty)
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [for (final a in sticky) _flatRow(context, a, sticky: true)],
-                  ),
+              // The sticky ancestor overlay rebuilds EACH FRAME off the scroll position (AnimatedBuilder on
+              // the controller), so the nearest head follows the finger + is pushed out by the next
+              // sibling-level row — without rebuilding the virtualized list. 吸顶 overlay 每帧跟滚动重建(跟手推走),不重建列表。
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: AnimatedBuilder(
+                  animation: _scroll,
+                  builder: (context, _) => _stickyOverlay(context, flat),
                 ),
+              ),
             ],
           ),
         ),
       ],
+    );
+  }
+
+  // The dynamic ancestor sticky overlay: the ancestor chain of the top-most visible row, pinned at the top
+  // (fixed row height → offset ÷ rowH = the top index, exactly). The NEAREST head follows the finger +
+  // is pushed out by the first row after it that leaves its branch (depth ≤ the head's) scrolling up into
+  // the stack's bottom — VS Code sticky-scroll. Computed each frame off the scroll offset.
+  //
+  // 动态祖先吸顶:顶部行的祖先链吸顶(定高→offset÷行高=顶部 index 精确)。最近头跟手 + 被其后第一个离开本分支
+  // (depth ≤ 头深)的行顶到栈底时推出——VS Code sticky-scroll。每帧按 offset 算。
+  Widget _stickyOverlay(BuildContext context, List<SidebarFlatNode> flat) {
+    if (flat.isEmpty || !_scroll.hasClients) return const SizedBox.shrink();
+    final off = _scroll.offset;
+    final top = (off / AnSize.row).floor().clamp(0, flat.length - 1);
+    final sticky = flat[top].ancestors.take(_maxSticky).toList();
+    if (sticky.isEmpty) return const SizedBox.shrink();
+
+    final stackBottom = sticky.length * AnSize.row;
+    // Per-layer push (VS Code cascade): each ancestor head is pushed up once the first row that LEAVES
+    // its branch (depth ≤ its own) scrolls up to meet the bottom of ITS slot — so the deepest head goes
+    // first, then the next up. 每层各自推:某祖先头在离开其分支(depth ≤ 其深)的行顶到其槽底时被推,故最深先走、再上一层。
+    final pushUps = List<double>.filled(sticky.length, 0.0);
+    for (var i = 0; i < sticky.length; i++) {
+      final d = sticky[i].depth;
+      final slot = (i + 1) * AnSize.row;
+      for (var j = top + 1; j < flat.length; j++) {
+        if (flat[j].depth <= d) {
+          final rowTop = j * AnSize.row - off;
+          if (rowTop < slot) pushUps[i] = rowTop - slot;
+          break;
+        }
+      }
+    }
+
+    return SizedBox(
+      height: stackBottom,
+      child: Stack(
+        children: [
+          // A continuous opaque backing so a pushed-out head reveals surface, not the list rows under it.
+          // 连续 opaque 底:被推出的头露出的是 surface、不是其下的列表行。
+          Positioned.fill(child: Container(color: context.colors.surface)),
+          for (var i = 0; i < sticky.length; i++)
+            Positioned(
+              top: i * AnSize.row + pushUps[i],
+              left: 0,
+              right: 0,
+              child: _flatRow(context, sticky[i], sticky: true),
+            ),
+        ],
+      ),
     );
   }
 

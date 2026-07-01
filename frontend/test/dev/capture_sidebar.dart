@@ -86,7 +86,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 60));
     // Scroll into Documents › src › ui so the overlay pins the section head + branch chain.
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -450));
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -548));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 60));
 
