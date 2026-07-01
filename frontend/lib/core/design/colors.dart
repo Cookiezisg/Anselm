@@ -18,6 +18,7 @@ class AnColors extends ThemeExtension<AnColors> {
     required this.surfaceSubtle,
     required this.surfaceHover,
     required this.surfaceActive,
+    required this.surfaceSunken,
     required this.ink,
     required this.inkMuted,
     required this.inkFaint,
@@ -50,6 +51,14 @@ class AnColors extends ThemeExtension<AnColors> {
   final Color surfaceSubtle;
   final Color surfaceHover;
   final Color surfaceActive;
+
+  /// A neutral fill a notch off the base [surface] — for contained, NON-interactive regions (chat bubbles,
+  /// wells, inset panels). Distinct from [surfaceHover]/[surfaceActive] (those are hover/selected STATES) and
+  /// from [surface] (the base): reusing a state colour for a resting fill mis-signals interactivity. Reads as
+  /// a gentle inset in light, a gentle lift in dark. 比基础 [surface] 轻降一档的中性填充——供 contained、**非交互**
+  /// 区域(聊天泡、凹槽、内嵌面板)。区别于 hover/active(状态色)与 base surface(拿状态色当静止填充会误示可交互)。
+  /// 明亮下读作轻凹、暗色下读作轻凸。
+  final Color surfaceSunken;
 
   // Ink hierarchy. 墨色层级。
   final Color ink;
@@ -98,6 +107,7 @@ class AnColors extends ThemeExtension<AnColors> {
     surfaceSubtle: Color(0xFFFBFBFD),
     surfaceHover: Color(0xFFF0F0F3),
     surfaceActive: Color(0xFFE9E9EC),
+    surfaceSunken: Color(0xFFECECEF), // between surfaceHover and surfaceActive — a gentle inset well 轻凹填充
     ink: Color(0xFF1D1D1F),
     inkMuted: Color(0xFF6E6E73),
     inkFaint: Color(0xFF8E8E93),
@@ -142,6 +152,7 @@ class AnColors extends ThemeExtension<AnColors> {
     surfaceSubtle: Color(0xFF232326),
     surfaceHover: Color(0xFF2A2A2D),
     surfaceActive: Color(0xFF323236),
+    surfaceSunken: Color(0xFF26262A), // gentle lift above the near-black base surface (dark inverts) 暗色轻凸
     ink: Color(0xFFF5F5F7),
     inkMuted: Color(0xFFA1A1A6),
     inkFaint: Color(0xFF6E6E73),
@@ -186,6 +197,7 @@ class AnColors extends ThemeExtension<AnColors> {
     Color? surfaceSubtle,
     Color? surfaceHover,
     Color? surfaceActive,
+    Color? surfaceSunken,
     Color? ink,
     Color? inkMuted,
     Color? inkFaint,
@@ -217,6 +229,7 @@ class AnColors extends ThemeExtension<AnColors> {
       surfaceSubtle: surfaceSubtle ?? this.surfaceSubtle,
       surfaceHover: surfaceHover ?? this.surfaceHover,
       surfaceActive: surfaceActive ?? this.surfaceActive,
+      surfaceSunken: surfaceSunken ?? this.surfaceSunken,
       ink: ink ?? this.ink,
       inkMuted: inkMuted ?? this.inkMuted,
       inkFaint: inkFaint ?? this.inkFaint,
@@ -255,6 +268,7 @@ class AnColors extends ThemeExtension<AnColors> {
       surfaceSubtle: c(surfaceSubtle, other.surfaceSubtle),
       surfaceHover: c(surfaceHover, other.surfaceHover),
       surfaceActive: c(surfaceActive, other.surfaceActive),
+      surfaceSunken: c(surfaceSunken, other.surfaceSunken),
       ink: c(ink, other.ink),
       inkMuted: c(inkMuted, other.inkMuted),
       inkFaint: c(inkFaint, other.inkFaint),
