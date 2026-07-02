@@ -63,3 +63,19 @@ final conversationHeaderProvider = AsyncNotifierProvider.autoDispose
 final modelCapabilitiesProvider = FutureProvider((ref) async {
   return ref.watch(chatRepositoryProvider).listModelCapabilities();
 });
+
+/// The LANDING's model choice — sticky across new chats (null = Auto). The backend's create endpoint
+/// takes only a title, so the first send stamps this via PATCH between create and send (see
+/// startConversation); it stays put afterwards so the next new chat inherits the choice.
+///
+/// landing 的模型选择——跨新对话粘性(null=Auto)。后端建会话只收 title,首发在 create 与 send 之间经
+/// PATCH 盖章(见 startConversation);选择保留,下一个新对话继承。
+class LandingModel extends Notifier<({String apiKeyId, String modelId})?> {
+  @override
+  ({String apiKeyId, String modelId})? build() => null;
+
+  void set(({String apiKeyId, String modelId})? value) => state = value;
+}
+
+final landingModelProvider =
+    NotifierProvider<LandingModel, ({String apiKeyId, String modelId})?>(LandingModel.new);

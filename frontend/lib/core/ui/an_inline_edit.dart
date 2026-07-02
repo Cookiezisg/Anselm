@@ -122,6 +122,11 @@ class _AnInlineEditState extends State<AnInlineEdit> {
     return SizedBox(
       height: widget.minHeight, // fixed footprint — idle & editing share it, no jump 定高,静态/编辑共用、不跳
       child: Row(
+        // min: under a LOOSE host the row hugs its content (title + pencil), so trailing siblings
+        // (e.g. the chat head's model button) sit right after the title instead of at the far edge;
+        // a tight host (Expanded) is unaffected. min:loose 宿主下收紧到内容宽(题+铅笔),兄弟件贴题
+        // 而非被顶到最右;tight 宿主(Expanded)不受影响。
+        mainAxisSize: MainAxisSize.min,
         children: [
           // Flexible (not Expanded): content-sized until the affordance needs room — then the field
           // scrolls / the text ellipsizes (never overflow). Flexible:内容定宽,affordance 需位时框横滚/文字省略。

@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
 import '../../../core/design/colors.dart';
-import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
 import '../state/new_conversation.dart';
 import '../state/selected_conversation.dart';
@@ -43,12 +42,14 @@ class ChatOcean extends ConsumerWidget {
   }
 }
 
-/// The New-chat landing: a typewriter greeting over a centered floating composer (heart ≈ upper-middle,
-/// the 2:3 split). The FIRST send creates the thread + sends + navigates — the rail row appears via the
-/// notifications echo and auto-titles in place.
+/// The New-chat landing: a STATIC greeting over a centered floating composer (heart ≈ upper-middle,
+/// the 2:3 split). ChatGPT/Claude/Gemini all render the greeting static — a typewriter delays the
+/// interactive moment and re-plays on every new chat; the streaming metaphor belongs to the reply. So:
+/// h2 (24px, ChatGPT's value), primary ink, one gentle fade-and-rise on entry. The FIRST send creates
+/// the thread + sends + navigates — the rail row appears via the notifications echo and auto-titles.
 ///
-/// 新对话 landing:打字机问候 + 居中浮起 composer(心口 ≈ 上中,2:3)。首发建线程+发送+导航——rail 行经
-/// notifications 回声出现并原位自动命名。
+/// 新对话 landing:**静态**问候 + 居中浮起 composer(心口 ≈ 上中,2:3)。三家皆静态——打字机拖慢可交互时刻、
+/// 每次新建重播成噪音,流式隐喻留给回答本身。h2(24,ChatGPT 值)/主墨/一次轻淡入上移。首发建线程+发送+导航。
 class _ChatLanding extends ConsumerWidget {
   const _ChatLanding();
 
@@ -68,9 +69,8 @@ class _ChatLanding extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Center(
-                    child: DefaultTextStyle(
-                      style: AnText.h3.copyWith(color: c.ink),
-                      child: AnTypewriter([t.chat.landingGreeting], loop: false),
+                    child: _FadeRiseIn(
+                      child: Text(t.chat.landingGreeting, style: AnText.h2.copyWith(color: c.ink)),
                     ),
                   ),
                   const SizedBox(height: AnSpace.s24),
@@ -88,6 +88,29 @@ class _ChatLanding extends ConsumerWidget {
         ),
         const Spacer(flex: 3),
       ],
+    );
+  }
+}
+
+/// One entry-only fade + 6px rise (mid, easeOut); renders static under reduced motion.
+/// 仅入场一次的淡入+6px 上移(mid, easeOut);reduced motion 直接静态。
+class _FadeRiseIn extends StatelessWidget {
+  const _FadeRiseIn({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (AnMotionPref.reduced(context)) return child;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: AnMotion.mid,
+      curve: AnMotion.easeOut,
+      builder: (context, v, child) => Opacity(
+        opacity: v,
+        child: Transform.translate(offset: Offset(0, (1 - v) * 6), child: child),
+      ),
+      child: child,
     );
   }
 }
