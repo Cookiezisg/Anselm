@@ -89,6 +89,19 @@ class _Translations$chat$zh_CN extends Translations$chat$en {
 	@override String get actionFailed => '操作失败';
 	@override late final _Translations$chat$time$zh_CN time = _Translations$chat$time$zh_CN._(_root);
 	@override late final _Translations$chat$bucket$zh_CN bucket = _Translations$chat$bucket$zh_CN._(_root);
+	@override String get placeholder => 'Ask anything…';
+	@override String get thinking => 'thinking';
+	@override String get thought => 'thought';
+	@override String get sendFailed => 'Couldn\'t send';
+	@override String get retrySend => 'Retry';
+	@override String get discard => 'Discard';
+	@override String get stoppedCancelled => 'Stopped';
+	@override String get stoppedError => 'Something went wrong';
+	@override String get stoppedMaxSteps => 'Paused — step limit reached';
+	@override String get stoppedBudget => 'Paused — context window is full';
+	@override String get transcriptErrorTitle => 'Couldn\'t load this conversation';
+	@override String get transcriptErrorHint => 'The local engine didn’t return the messages.';
+	@override String get landingGreeting => 'What should we dig into?';
 }
 
 // Path: status
@@ -619,6 +632,19 @@ extension on TranslationsZhCn {
 			'chat.time.daysAgo' => ({required Object n}) => '${n} 天前',
 			'chat.bucket.pinned' => '置顶',
 			'chat.bucket.recents' => '最近',
+			'chat.placeholder' => 'Ask anything…',
+			'chat.thinking' => 'thinking',
+			'chat.thought' => 'thought',
+			'chat.sendFailed' => 'Couldn\'t send',
+			'chat.retrySend' => 'Retry',
+			'chat.discard' => 'Discard',
+			'chat.stoppedCancelled' => 'Stopped',
+			'chat.stoppedError' => 'Something went wrong',
+			'chat.stoppedMaxSteps' => 'Paused — step limit reached',
+			'chat.stoppedBudget' => 'Paused — context window is full',
+			'chat.transcriptErrorTitle' => 'Couldn\'t load this conversation',
+			'chat.transcriptErrorHint' => 'The local engine didn’t return the messages.',
+			'chat.landingGreeting' => 'What should we dig into?',
 			'appName' => 'Anselm',
 			'status.idle' => '空闲',
 			'status.run' => '运行中',

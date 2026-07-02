@@ -142,6 +142,45 @@ class Translations$chat$en {
 
 	late final Translations$chat$time$en time = Translations$chat$time$en.internal(_root);
 	late final Translations$chat$bucket$en bucket = Translations$chat$bucket$en.internal(_root);
+
+	/// en: 'Ask anything…'
+	String get placeholder => 'Ask anything…';
+
+	/// en: 'thinking'
+	String get thinking => 'thinking';
+
+	/// en: 'thought'
+	String get thought => 'thought';
+
+	/// en: 'Couldn't send'
+	String get sendFailed => 'Couldn\'t send';
+
+	/// en: 'Retry'
+	String get retrySend => 'Retry';
+
+	/// en: 'Discard'
+	String get discard => 'Discard';
+
+	/// en: 'Stopped'
+	String get stoppedCancelled => 'Stopped';
+
+	/// en: 'Something went wrong'
+	String get stoppedError => 'Something went wrong';
+
+	/// en: 'Paused — step limit reached'
+	String get stoppedMaxSteps => 'Paused — step limit reached';
+
+	/// en: 'Paused — context window is full'
+	String get stoppedBudget => 'Paused — context window is full';
+
+	/// en: 'Couldn't load this conversation'
+	String get transcriptErrorTitle => 'Couldn\'t load this conversation';
+
+	/// en: 'The local engine didn’t return the messages.'
+	String get transcriptErrorHint => 'The local engine didn’t return the messages.';
+
+	/// en: 'What should we dig into?'
+	String get landingGreeting => 'What should we dig into?';
 }
 
 // Path: status
@@ -1124,6 +1163,19 @@ extension on Translations {
 			'chat.time.daysAgo' => ({required Object n}) => '${n} days ago',
 			'chat.bucket.pinned' => 'Pinned',
 			'chat.bucket.recents' => 'Recents',
+			'chat.placeholder' => 'Ask anything…',
+			'chat.thinking' => 'thinking',
+			'chat.thought' => 'thought',
+			'chat.sendFailed' => 'Couldn\'t send',
+			'chat.retrySend' => 'Retry',
+			'chat.discard' => 'Discard',
+			'chat.stoppedCancelled' => 'Stopped',
+			'chat.stoppedError' => 'Something went wrong',
+			'chat.stoppedMaxSteps' => 'Paused — step limit reached',
+			'chat.stoppedBudget' => 'Paused — context window is full',
+			'chat.transcriptErrorTitle' => 'Couldn\'t load this conversation',
+			'chat.transcriptErrorHint' => 'The local engine didn’t return the messages.',
+			'chat.landingGreeting' => 'What should we dig into?',
 			'appName' => 'Anselm',
 			'status.idle' => 'Idle',
 			'status.run' => 'Running',

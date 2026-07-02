@@ -73,6 +73,11 @@ class ConversationTranscript {
 
   // ── hydration (REST → the live shape) 水化(REST → live 同形) ──
 
+  /// How many rows at the FRONT of [settled] came from [prependOlder] — the view's center-sliver split
+  /// (older pages grow upward around the anchor, so a prepend never shifts pixels). Reset by [setHistory].
+  /// settled 前部来自 prependOlder 的行数——视图 center-sliver 的切分点(老页绕锚向上长,prepend 零位移)。
+  int olderCount = 0;
+
   /// Replace history with one REST head page ([newestFirst], the wire order). Terminal turns hydrate to
   /// [settled] (chronological); ONE trailing non-terminal turn (a reply in flight when we loaded) is
   /// seeded into the live reducer so the ongoing stream continues it. Top-level only — subagent rows
@@ -82,6 +87,7 @@ class ConversationTranscript {
   /// (载入时在飞的回复)种进 live reducer,由进行中的流续写。仅顶层——subagent 行不入 transcript。
   void setHistory(List<ChatMessage> newestFirst) {
     settled.clear();
+    olderCount = 0;
     final chronological =
         newestFirst.reversed.where((m) => m.subagentId.isEmpty).toList(growable: false);
     for (var i = 0; i < chronological.length; i++) {
@@ -97,12 +103,12 @@ class ConversationTranscript {
 
   /// Prepend one older REST page ([newestFirst] wire order) above the loaded history. 上翻一页,插史前。
   void prependOlder(List<ChatMessage> newestFirst) {
-    settled.insertAll(
-      0,
-      newestFirst.reversed
-          .where((m) => m.subagentId.isEmpty)
-          .map(hydrateTurn),
-    );
+    final rows = newestFirst.reversed
+        .where((m) => m.subagentId.isEmpty)
+        .map(hydrateTurn)
+        .toList(growable: false);
+    settled.insertAll(0, rows);
+    olderCount += rows.length;
   }
 
   // ── live ──

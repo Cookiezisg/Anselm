@@ -1,0 +1,248 @@
+import 'package:anselm/core/contract/conversation.dart';
+import 'package:anselm/core/contract/messages/chat_message.dart';
+import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/sse/frame.dart';
+import 'package:anselm/core/ui/ui.dart';
+import 'package:anselm/features/chat/data/chat_fixtures.dart';
+import 'package:anselm/features/chat/data/chat_providers.dart';
+import 'package:anselm/features/chat/state/conversation_stream_provider.dart';
+import 'package:anselm/features/chat/state/selected_conversation.dart';
+import 'package:anselm/features/chat/ui/chat_thinking.dart';
+import 'package:anselm/features/chat/ui/chat_transcript.dart';
+import 'package:anselm/i18n/strings.g.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+// The transcript view. Pins: phase surfaces, block dispatch to the locked modules (markdown /
+// thinking / tool placeholder / cancelled banner), LIVE streaming reaching the leaf, the BuildSpy
+// gate (streaming rebuilds ONLY the live leaf — page 0 / settled rows 0), the center-sliver
+// prepend (pixels do not move), and the bottom pin (follows while pinned, holds while scrolled up).
+// transcript 视图钉:相位面、块派发、流式到叶、BuildSpy 门禁(流式只重建 live 叶——页 0/settled 行 0)、
+// center-sliver prepend 零位移、贴底跟随(钉住跟、上翻不动)。
+
+const _scope = StreamScope(kind: 'conversation', id: 'cv_1');
+
+StreamEnvelope _open(String id, String type, {String? parentId, Map<String, dynamic>? content}) =>
+    StreamEnvelope(seq: 5, scope: _scope, id: id,
+        frame: FrameOpen(parentId: parentId, node: StreamNode(type: type, content: content)));
+
+StreamEnvelope _delta(String id, String chunk) =>
+    StreamEnvelope(seq: 0, scope: _scope, id: id, frame: FrameDelta(chunk: chunk));
+
+StreamEnvelope _close(String id, String type, Map<String, dynamic> result, {String status = 'completed'}) =>
+    StreamEnvelope(seq: 6, scope: _scope, id: id,
+        frame: FrameClose(status: status, result: StreamNode(type: type, content: result)));
+
+Conversation _conv(String id) {
+  final at = DateTime.utc(2026, 7, 2, 9);
+  return Conversation(id: id, title: 'T', createdAt: at, updatedAt: at, lastMessageAt: at);
+}
+
+ChatMessage _turn(String id, String role,
+        {String status = 'completed', String stopReason = '', int hour = 10, List<ChatBlock> blocks = const []}) =>
+    ChatMessage(id: id, conversationId: 'cv_1', role: role, status: status, stopReason: stopReason,
+        blocks: blocks, createdAt: DateTime.utc(2026, 7, 2, hour));
+
+ChatBlock _blk(String id, String type, String content, {Map<String, dynamic>? attrs}) =>
+    ChatBlock(id: id, type: type, content: content, status: 'completed', attrs: attrs);
+
+class _FakeSelected extends SelectedConversation {
+  @override
+  ConversationRef? build() => const ConversationRef('cv_1');
+}
+
+Widget _host(FixtureChatRepository repo) => ProviderScope(
+      overrides: [
+        chatRepositoryProvider.overrideWithValue(repo),
+        selectedConversationProvider.overrideWith(_FakeSelected.new),
+      ],
+      child: TranslationProvider(
+        child: MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: AnTheme.light(),
+          home: const Scaffold(body: ChatTranscriptView(conversationId: 'cv_1')),
+        ),
+      ),
+    );
+
+FixtureChatRepository _repo({Map<String, List<ChatMessage>>? messages}) =>
+    FixtureChatRepository(conversations: [_conv('cv_1')], messages: messages ?? {'cv_1': []});
+
+/// Frames reach the leaf via stream-microtask → coalesced postFrame notify → next-frame build — three
+/// pumps in the test binding (production frames run continuously). 帧到叶需 3 泵(生产帧连续、无此事)。
+Future<void> _settle(WidgetTester tester) async {
+  for (var i = 0; i < 3; i++) {
+    await tester.pump(const Duration(milliseconds: 20));
+  }
+}
+
+void main() {
+  tearDown(() => TranscriptProbe.onBuild = null);
+
+  testWidgets('hydrated history dispatches blocks to the locked modules', (tester) async {
+    final repo = _repo(messages: {
+      'cv_1': [
+        _turn('msg_u', 'user', hour: 10, blocks: [_blk('bu', 'text', '帮我看下这个')]),
+        _turn('msg_a', 'assistant', hour: 11, blocks: [
+          _blk('br', 'reasoning', '想一想'),
+          _blk('bt', 'text', '**答案**在这'),
+          _blk('bc', 'tool_call', '{}', attrs: {'tool': 'web_search'}),
+        ]),
+        _turn('msg_c', 'assistant', hour: 12, status: 'cancelled', stopReason: 'cancelled',
+            blocks: [_blk('bt2', 'text', '半截')]),
+      ],
+    });
+    await tester.pumpWidget(_host(repo));
+    await tester.pump(); // hydration future 水化
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.text('帮我看下这个'), findsOneWidget); // user bubble 用户泡
+    expect(find.byType(ChatThinking), findsOneWidget); // reasoning → thinking module
+    expect(find.byType(AnMarkdown), findsWidgets); // text → markdown
+    expect(find.text('web_search'), findsOneWidget); // tool placeholder V3 前占位
+    final t = Translations.of(tester.element(find.byType(ChatTranscriptView)));
+    expect(find.textContaining(t.chat.stoppedCancelled), findsOneWidget); // honest banner 诚实横幅
+  });
+
+  testWidgets('live streaming: open → deltas grow the leaf → close settles; pinned view follows', (tester) async {
+    final repo = _repo();
+    await tester.pumpWidget(_host(repo));
+    await tester.pump();
+
+    repo.emitFrame('cv_1', _open('msg_a', 'message', content: {'role': 'assistant'}));
+    repo.emitFrame('cv_1', _open('b1', 'text', parentId: 'msg_a', content: {'content': ''}));
+    await _settle(tester);
+
+    repo.emitFrame('cv_1', _delta('b1', '第一段'));
+    await _settle(tester);
+    expect(find.textContaining('第一段', findRichText: true), findsOneWidget);
+
+    repo.emitFrame('cv_1', _delta('b1', ',更多'));
+    await _settle(tester);
+    expect(find.textContaining('第一段,更多', findRichText: true), findsOneWidget);
+
+    repo.emitFrame('cv_1', _close('b1', 'text', {'content': '第一段,更多'}));
+    repo.emitFrame('cv_1',
+        _close('msg_a', 'message', {'role': 'assistant', 'status': 'completed', 'stopReason': 'end_turn'}));
+    await _settle(tester);
+    expect(find.textContaining('第一段,更多', findRichText: true), findsOneWidget);
+  });
+
+  testWidgets('BuildSpy gate: 200 streamed deltas rebuild ONLY the live leaf (page 0, settled rows 0)',
+      (tester) async {
+    final repo = _repo(messages: {
+      'cv_1': [
+        for (var i = 0; i < 6; i++)
+          _turn('msg_$i', i.isEven ? 'user' : 'assistant', hour: 9,
+              blocks: [_blk('b$i', 'text', '历史 $i')]),
+      ],
+    });
+    await tester.pumpWidget(_host(repo));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 30));
+
+    // Open the streaming turn, then instrument. 开流式回合后再挂探针。
+    repo.emitFrame('cv_1', _open('msg_live', 'message', content: {'role': 'assistant'}));
+    repo.emitFrame('cv_1', _open('bl', 'text', parentId: 'msg_live', content: {'content': ''}));
+    await _settle(tester);
+
+    final hits = <String, int>{};
+    TranscriptProbe.onBuild = (zone) => hits[zone] = (hits[zone] ?? 0) + 1;
+
+    const batches = 4;
+    for (var b = 0; b < batches; b++) {
+      for (var i = 0; i < 50; i++) {
+        repo.emitFrame('cv_1', _delta('bl', 'x'));
+      }
+      await _settle(tester);
+    }
+
+    expect(hits['page'] ?? 0, 0, reason: 'the page must NEVER rebuild while streaming 页级零重建');
+    expect(hits['row-settled'] ?? 0, 0,
+        reason: 'settled rows are identity-cached — zero rebuilds while streaming settled 行零重建');
+    expect(hits['leaf-stream'] ?? 0, lessThanOrEqualTo(batches * 3 + 2),
+        reason: 'the live leaf ticks ≤1×/frame (coalesced) live 叶每帧≤1');
+    expect(hits['list'] ?? 0, lessThanOrEqualTo(batches * 3 + 2));
+  });
+
+  testWidgets('center-sliver prepend: loading an older page does NOT move pixels', (tester) async {
+    final repo = _repo(messages: {
+      'cv_1': [
+        for (var i = 0; i < 45; i++)
+          _turn('msg_$i', i.isEven ? 'user' : 'assistant', hour: 9,
+              blocks: [_blk('b$i', 'text', '第 $i 条,加一点长度让行高稳定一些。')]),
+      ],
+    });
+    await tester.pumpWidget(_host(repo));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 30));
+
+    final scrollable = tester.state<ScrollableState>(find.byType(Scrollable).first);
+    // Scroll up into the older region to trigger loadOlder. 上翻进近顶带触发 loadOlder。
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, 4000));
+    await tester.pump();
+    final before = scrollable.position.pixels;
+    await tester.pump(const Duration(milliseconds: 60)); // page lands 页落
+    await tester.pump(const Duration(milliseconds: 20));
+    expect(scrollable.position.pixels, closeTo(before, 0.5),
+        reason: 'prepend grows ABOVE the center anchor — reader position never shifts prepend 零位移');
+    expect(scrollable.position.minScrollExtent, lessThan(-100),
+        reason: 'the older page mounted ABOVE the anchor (negative extent) 老页挂在锚上方(负延伸)');
+  });
+
+  testWidgets('scrolled-up reader is not pushed by streaming; pinned reader follows to max', (tester) async {
+    final repo = _repo(messages: {
+      'cv_1': [
+        for (var i = 0; i < 20; i++)
+          _turn('msg_$i', i.isEven ? 'user' : 'assistant', hour: 9,
+              blocks: [_blk('b$i', 'text', '历史消息 $i —— 撑高度的一行文字。')]),
+      ],
+    });
+    await tester.pumpWidget(_host(repo));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 30));
+    final scrollable = tester.state<ScrollableState>(find.byType(Scrollable).first);
+
+    // Pinned: at bottom, streaming keeps us at max. 钉住:流式后仍在 max。
+    scrollable.position.jumpTo(scrollable.position.maxScrollExtent);
+    repo.emitFrame('cv_1', _open('msg_a', 'message', content: {'role': 'assistant'}));
+    repo.emitFrame('cv_1', _open('bl', 'text', parentId: 'msg_a', content: {'content': ''}));
+    for (var i = 0; i < 30; i++) {
+      repo.emitFrame('cv_1', _delta('bl', '流式内容让回合越长越高。'));
+    }
+    await _settle(tester);
+    expect(scrollable.position.pixels, scrollable.position.maxScrollExtent);
+
+    // Scrolled up: more streaming must NOT move pixels. 上翻:继续流式不动 pixels。
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, 600));
+    await tester.pump();
+    final held = scrollable.position.pixels;
+    for (var i = 0; i < 30; i++) {
+      repo.emitFrame('cv_1', _delta('bl', '继续流。'));
+    }
+    await _settle(tester);
+    expect(scrollable.position.pixels, closeTo(held, 0.5),
+        reason: 'growth is at the max end — an upward reader holds position 上翻阅读者不被推');
+  });
+
+  testWidgets('failed optimistic bubble: retry re-posts, discard removes', (tester) async {
+    final repo = _repo();
+    await tester.pumpWidget(_host(repo));
+    await tester.pump();
+    final t = Translations.of(tester.element(find.byType(ChatTranscriptView)));
+
+    repo.failNextSend = true;
+    final container = ProviderScope.containerOf(tester.element(find.byType(ChatTranscriptView)));
+    await container.read(conversationStreamProvider('cv_1').notifier).send('会失败的');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    expect(find.text(t.chat.sendFailed), findsOneWidget);
+
+    await tester.tap(find.text(t.chat.retrySend));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    expect(repo.lastSend?.content, '会失败的'); // re-posted 已重发
+    expect(find.text(t.chat.sendFailed), findsNothing);
+  });
+}

@@ -34,7 +34,20 @@
     "bucket": {
       "pinned": "置顶",
       "recents": "最近"
-    }
+    },
+    "placeholder": "Ask anything…",
+    "thinking": "thinking",
+    "thought": "thought",
+    "sendFailed": "Couldn't send",
+    "retrySend": "Retry",
+    "discard": "Discard",
+    "stoppedCancelled": "Stopped",
+    "stoppedError": "Something went wrong",
+    "stoppedMaxSteps": "Paused — step limit reached",
+    "stoppedBudget": "Paused — context window is full",
+    "transcriptErrorTitle": "Couldn't load this conversation",
+    "transcriptErrorHint": "The local engine didn’t return the messages.",
+    "landingGreeting": "What should we dig into?"
   },
   "appName": "Anselm",
   "status": {
