@@ -101,10 +101,36 @@ class _AnSidebarListState extends State<AnSidebarList> {
   late List<SidebarFlatNode> _flat;
   GlobalKey<SliverAnimatedListState> _listKey = GlobalKey();
 
+  // Branch END index per head key (exclusive: the first row that LEAVES the branch) — precomputed
+  // O(n) whenever _flat rebuilds, so the sticky push is an O(1) lookup per frame. Depth CANNOT delimit
+  // a branch (a section head's rows share its depth — the old per-frame depth scan made every in-section
+  // row a pusher, so the pinned head "tumbled" one slot per row scrolled).
+  // 每头的分支结束 index(排他:第一个离开分支的行)——_flat 重建时 O(n) 预计算,吸顶推头每帧 O(1) 查表。
+  // depth 界定不了分支(段头的行与其同深——旧的逐帧 depth 扫描把段内每行都当推头者,头每滚一行翻滚一次)。
+  Map<String, ({int start, int end})> _branchSpan = const {};
+
+  Map<String, ({int start, int end})> _computeBranchSpans(List<SidebarFlatNode> flat) {
+    final spans = <String, ({int start, int end})>{};
+    final stack = <(SidebarFlatNode, int)>[]; // open branch heads + their index 开着的分支头及其 index
+    for (var i = 0; i < flat.length; i++) {
+      final anc = flat[i].ancestors;
+      while (stack.isNotEmpty && !anc.contains(stack.last.$1)) {
+        final (h, at) = stack.removeLast();
+        spans[h.key] = (start: at, end: i);
+      }
+      if (flat[i].isBranch) stack.add((flat[i], i));
+    }
+    for (final (h, at) in stack) {
+      spans[h.key] = (start: at, end: flat.length); // runs to the end — never pushed 到底,永不被推
+    }
+    return spans;
+  }
+
   @override
   void initState() {
     super.initState();
     _flat = flattenSidebar(widget.model, collapsed: _collapsed, query: _query);
+    _branchSpan = _computeBranchSpans(_flat);
   }
 
   @override
@@ -117,6 +143,7 @@ class _AnSidebarListState extends State<AnSidebarList> {
 
   void _rebuildFlat() {
     _flat = flattenSidebar(widget.model, collapsed: _collapsed, query: _query);
+    _branchSpan = _computeBranchSpans(_flat);
     _listKey = GlobalKey(); // a new key drops any stale animated-list index state → fresh initialItemCount
   }
 
@@ -147,6 +174,7 @@ class _AnSidebarListState extends State<AnSidebarList> {
       final removedCount = _flat.length - newFlat.length;
       final removed = _flat.sublist(headIdx + 1, headIdx + 1 + removedCount);
       _flat = newFlat;
+      _branchSpan = _computeBranchSpans(_flat);
       for (var i = headIdx + removedCount; i > headIdx; i--) {
         final node = removed[i - headIdx - 1];
         state?.removeItem(i, (context, animation) => _animatedRow(context, node, animation), duration: dur);
@@ -156,6 +184,7 @@ class _AnSidebarListState extends State<AnSidebarList> {
       final newFlat = flattenSidebar(widget.model, collapsed: _collapsed, query: _query);
       final insertCount = newFlat.length - _flat.length;
       _flat = newFlat;
+      _branchSpan = _computeBranchSpans(_flat);
       for (var i = headIdx + 1; i <= headIdx + insertCount; i++) {
         state?.insertItem(i, duration: dur);
       }
@@ -219,24 +248,38 @@ class _AnSidebarListState extends State<AnSidebarList> {
     if (flat.isEmpty || !_scroll.hasClients) return const SizedBox.shrink();
     final off = _scroll.offset;
     final top = (off / AnSize.row).floor().clamp(0, flat.length - 1);
-    final sticky = flat[top].ancestors.take(_maxSticky).toList();
+    // The chain pins the top row's ancestors AND the top row itself when it IS a head: the head
+    // pins the moment it reaches the top (content dives under it) instead of scrolling out one row
+    // and popping back as a sticky — the VS Code / iOS-sections behaviour.
+    // 链=顶行祖先 + 顶行自身(若是头):头一到顶即钉住(内容从其下钻过),而非滚出一行再跳回。
+    final node = flat[top];
+    final chain = [...node.ancestors, if (node.isBranch) node].take(_maxSticky).toList();
+    // A head needs a sticky COPY only once its OWN row has scrolled past its pin slot — before that
+    // the in-list row IS at (or below) the slot, and a copy would double it (semantics + paint).
+    // Because (index − slot) is non-decreasing down the chain, the skipped layers are always a
+    // SUFFIX — the rendered prefix keeps the slot stack hole-free.
+    // 头只在**本体滚过其钉住槽位**后才需要副本——此前本体就在槽位(或其下),副本=双份(语义+绘制)。
+    // (index − 槽号)沿链非降 ⇒ 被跳过的层恒为后缀,渲染前缀的槽栈无洞。
+    final sticky = <SidebarFlatNode>[];
+    for (var i = 0; i < chain.length; i++) {
+      final span = _branchSpan[chain[i].key];
+      if (span == null || span.start * AnSize.row - off >= i * AnSize.row) break;
+      sticky.add(chain[i]);
+    }
     if (sticky.isEmpty) return const SizedBox.shrink();
 
     final stackBottom = sticky.length * AnSize.row;
-    // Per-layer push (VS Code cascade): each ancestor head is pushed up once the first row that LEAVES
-    // its branch (depth ≤ its own) scrolls up to meet the bottom of ITS slot — so the deepest head goes
-    // first, then the next up. 每层各自推:某祖先头在离开其分支(depth ≤ 其深)的行顶到其槽底时被推,故最深先走、再上一层。
+    // Per-layer push (VS Code cascade): a head is pushed up ONLY when the first row that leaves its
+    // branch (the precomputed branch END — depth can't delimit it, in-section rows share the head's
+    // depth) scrolls up to meet the bottom of ITS slot; the deepest head goes first.
+    // 每层各自推:仅当**预计算的分支结束行**(depth 界定不了——段内行与头同深)顶到其槽底时才推;最深先走。
     final pushUps = List<double>.filled(sticky.length, 0.0);
     for (var i = 0; i < sticky.length; i++) {
-      final d = sticky[i].depth;
+      final end = _branchSpan[sticky[i].key]?.end ?? flat.length;
+      if (end >= flat.length) continue; // branch runs to the list end — never pushed 到底不推
       final slot = (i + 1) * AnSize.row;
-      for (var j = top + 1; j < flat.length; j++) {
-        if (flat[j].depth <= d) {
-          final rowTop = j * AnSize.row - off;
-          if (rowTop < slot) pushUps[i] = rowTop - slot;
-          break;
-        }
-      }
+      final rowTop = end * AnSize.row - off;
+      if (rowTop < slot) pushUps[i] = rowTop - slot;
     }
 
     return SizedBox(

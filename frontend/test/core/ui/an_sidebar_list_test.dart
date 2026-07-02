@@ -1,4 +1,5 @@
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
@@ -117,6 +118,76 @@ void main() {
   });
 
   // ── five-battery ──────────────────────────────────────────────────────────
+  group('sticky ancestor overlay', () {
+    SidebarModel twoSections() => SidebarModel(
+          newLabel: 'New',
+          filterPlaceholder: 'Filter…',
+          groups: [
+            SidebarGroup(types: [
+              SidebarType(label: 'ALPHA', icon: AnIcons.pin, rows: [
+                for (var i = 0; i < 20; i++) SidebarRow(id: 'a$i', label: 'alpha-$i'),
+              ]),
+              SidebarType(label: 'BETA', icon: AnIcons.history, rows: [
+                for (var i = 0; i < 20; i++) SidebarRow(id: 'b$i', label: 'beta-$i'),
+              ]),
+            ]),
+          ],
+        );
+
+    // The sticky copy of a head is the LAST match (the overlay stacks above the list). 吸顶副本=最后一个匹配。
+    double headY(WidgetTester t, String label) =>
+        t.getTopLeft(find.text(label).last).dy;
+
+    testWidgets('mid-section scrolling NEVER moves the pinned head (the tumble bug)', (tester) async {
+      await tester.pumpWidget(host(AnSidebarList(model: twoSections())));
+      final list = tester.state<ScrollableState>(find.byType(Scrollable).last).position;
+
+      // Scroll into ALPHA's middle at several offsets INSIDE one row-height of each other — the old
+      // depth-scan pushed the head once per row, so its y oscillated. 段中多个错相 offset:旧实现头逐行振荡。
+      final ys = <double>[];
+      for (final off in [4 * AnSize.row, 4 * AnSize.row + 10, 4 * AnSize.row + 20, 5 * AnSize.row + 4]) {
+        list.jumpTo(off);
+        await tester.pump();
+        ys.add(headY(tester, 'ALPHA'));
+      }
+      expect(ys.toSet(), hasLength(1)); // pinned STILL 钉死不动
+    });
+
+    testWidgets('the NEXT section head pushes the pinned one out smoothly; then replaces it', (tester) async {
+      await tester.pumpWidget(host(AnSidebarList(model: twoSections())));
+      final list = tester.state<ScrollableState>(find.byType(Scrollable).last).position;
+
+      list.jumpTo(10 * AnSize.row);
+      await tester.pump();
+      final pinnedY = headY(tester, 'ALPHA');
+
+      // BETA's head sits at flat index 21; push begins when it crosses the slot bottom. BETA 头临近:推走。
+      list.jumpTo(21 * AnSize.row - AnSize.row / 2);
+      await tester.pump();
+      expect(headY(tester, 'ALPHA'), lessThan(pinnedY)); // mid-push 半推
+      list.jumpTo(22 * AnSize.row + 4);
+      await tester.pump();
+      expect(headY(tester, 'BETA'), pinnedY); // BETA now pinned where ALPHA was BETA 接棒钉住
+    });
+
+    testWidgets('a head reaching the top pins IMMEDIATELY (never scrolls out and pops back)', (tester) async {
+      await tester.pumpWidget(host(AnSidebarList(model: twoSections())));
+      final list = tester.state<ScrollableState>(find.byType(Scrollable).last).position;
+
+      // The settled pinned position first (deep in BETA's section). 先取稳定钉住位。
+      list.jumpTo(25 * AnSize.row);
+      await tester.pump();
+      final pinnedY = headY(tester, 'BETA');
+
+      // Offset INSIDE the BETA head's own row (index 21): the old code left the sticky empty here —
+      // the head scrolled out one row, then popped back. It must already sit at the pinned position.
+      // offset 落在 BETA 头自己的行内:旧码此处吸顶为空(头滚出一行再跳回);现在必须已在钉住位。
+      list.jumpTo(21 * AnSize.row + AnSize.row / 2);
+      await tester.pump();
+      expect(headY(tester, 'BETA'), pinnedY);
+    });
+  });
+
   testWidgets('battery empty: an empty model renders the chrome + nothing else, no throw', (tester) async {
     await tester.pumpWidget(host(const AnSidebarList(model: SidebarModel(newLabel: 'New', filterPlaceholder: 'Filter…'))));
     await tester.pump();
