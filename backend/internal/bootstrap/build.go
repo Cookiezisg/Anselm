@@ -298,6 +298,21 @@ func (a *App) Boot(ctx context.Context) {
 		// 对账被硬崩溃卡在流式中的孤儿回合（messages 版 scheduler.Recover）：pending/streaming 行
 		// 置 cancelled，UI 不再出现永久转圈气泡。
 		a.svc.chat.SweepOrphans(wsCtx)
+		// Reclaim orphaned attachment blobs (content-addressed bytes whose last live metadata row was
+		// deleted). GC runs at boot — NOT on delete — because a delete-time sweep races an in-flight
+		// upload (blob Put precedes row Create; a concurrent GC between them would sweep the just-Put
+		// blob). Boot has no concurrent uploads, so ListLiveSHAs → Sweep is race-free. A long session
+		// accumulates orphans until restart; that is bounded (not unbounded across restarts) and
+		// acceptable for a single-user desktop app, matching the boot-reconciliation pattern above.
+		// 回收孤儿附件 blob（内容寻址字节，其最后一条 live 元数据行已删）。GC 在 boot 跑——**非**删除时——因为删除时
+		// 扫描会与在飞上传竞态（blob Put 先于行 Create；其间的并发 GC 会扫掉刚 Put 的 blob）。boot 无并发上传，故
+		// ListLiveSHAs→Sweep 无竞态。长会话会累积孤儿到重启；这是有界的（跨重启不无界）、对单用户桌面 app 可接受,
+		// 与上方 boot 对账模式一致。
+		if n, err := a.svc.attachment.GC(wsCtx); err != nil {
+			a.log.Warn("bootstrap: attachment blob GC failed", zap.Error(err))
+		} else if n > 0 {
+			a.log.Info("bootstrap: reclaimed orphaned attachment blobs", zap.Int("count", n))
+		}
 		// D1: the trigger listen-registry is in-memory, so re-engage the listener for every
 		// active workflow ("replay active references on boot").
 		// D1：trigger 监听注册表是内存的，为每个 active workflow 重挂监听（boot 重放 active 引用）。

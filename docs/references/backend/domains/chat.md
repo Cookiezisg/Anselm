@@ -13,7 +13,7 @@ audience: [human, ai]
 
 ## 1. 定位
 
-把一条用户消息变成持久化回合、在工作区工具上驱动 ReAct 循环（`app/loop`）、实时推流、落盘结果。**它是枢纽但一无所有**：conversation/messages/tool/attachment/memory/document/catalog/todo/model 全部经 DIP 端口注入（loop 例外——chat 直接调 `loopapp.Run`、并作为 `loop.Host` 被其回调）——chat 用 fake LLM 即可整测。chat 无 domain 包（[messages](messages.md) 是中立内容模型）；自己的 HTTP 错误（`EMPTY_CONTENT`/`STREAM_IN_PROGRESS`/`NO_PENDING_INTERACTION`）就地用 errorspkg 定义。
+把一条用户消息变成持久化回合、在工作区工具上驱动 ReAct 循环（`app/loop`）、实时推流、落盘结果。**它是枢纽但一无所有**：conversation/messages/tool/attachment/memory/document/catalog/todo/model 全部经 DIP 端口注入（loop 例外——chat 直接调 `loopapp.Run`、并作为 `loop.Host` 被其回调）——chat 用 fake LLM 即可整测。chat 无 domain 包（[messages](messages.md) 是中立内容模型）；自己的 HTTP 错误（`EMPTY_CONTENT`/`STREAM_IN_PROGRESS`/`NO_PENDING_INTERACTION`/`INTERACTION_INVALID_ACTION`）就地用 errorspkg 定义。
 
 ## 2. 心智模型：每对话一条串行队列
 
@@ -34,7 +34,7 @@ audience: [human, ai]
 
 ## 4. 人在环
 
-危险工具（LLM 自报 dangerous）/ `ask_user` 在 loop 内**阻塞**于 humanloop broker。chat 注入的 Surface 把待决交互推成 messages 流的 **ephemeral** `interaction` 信号（即时弹出）；**broker 内存 pending 表是真相源**——重连客户端走 `GET .../interactions` 重新同步。`ResolveInteraction` 把人的决定交给 broker（approve 跑 / deny 反馈 / approve_always 加**对话级会话白名单**——active skill 的 allowed-tools 也是预授权来源）；重复 POST 安全（`NO_PENDING_INTERACTION` 404）。broker 经 ctx 流入嵌套 agent 运行（嵌套不冒泡，阻塞的 goroutine hold 整栈）。broker 是 **app 级单例**（比任一对话活得久），故 always-allow 白名单按 `conversationID` 键、**对话删除时经 `ForgetConversation` 钩子（conversation 删除级联调）整批清掉**——否则授权会越过删除永久泄漏在内存里（与 stream-stop 的 `Cancel` 区分：后者只停在途生成、对话仍活、保留白名单）。
+危险工具（LLM 自报 dangerous）/ `ask_user` 在 loop 内**阻塞**于 humanloop broker。chat 注入的 Surface 把待决交互推成 messages 流的 **ephemeral** `interaction` 信号（即时弹出）；**broker 内存 pending 表是真相源**——重连客户端走 `GET .../interactions` 重新同步。`ResolveInteraction` 先校验 action 属封闭决策集（approve/approve_always/deny/accept/decline，枚举外 → `422 INTERACTION_INVALID_ACTION` 带 `details.validActions`，先于 broker 查找就拒——loop 门是 fail-safe，非 approve 一律拒，故拼错的 action 不再无声拒掉一个危险工具），再把决定交给 broker（approve 跑 / deny 反馈 / approve_always 加**对话级会话白名单**——active skill 的 allowed-tools 也是预授权来源）；重复 POST 安全（`NO_PENDING_INTERACTION` 404）。broker 经 ctx 流入嵌套 agent 运行（嵌套不冒泡，阻塞的 goroutine hold 整栈）。broker 是 **app 级单例**（比任一对话活得久），故 always-allow 白名单按 `conversationID` 键、**对话删除时经 `ForgetConversation` 钩子（conversation 删除级联调）整批清掉**——否则授权会越过删除永久泄漏在内存里（与 stream-stop 的 `Cancel` 区分：后者只停在途生成、对话仍活、保留白名单）。
 
 ## 5. freeze-on-send（@提及）
 
@@ -42,7 +42,7 @@ audience: [human, ai]
 
 ## 6. 契约（引用）
 
-端点（send/cancel/interactions/usage/system-prompt-preview）→ [api.md](../api.md) · 码 3 个（`EMPTY_CONTENT` 400 / `STREAM_IN_PROGRESS` 409 / `NO_PENDING_INTERACTION` 404）→ [error-codes.md](../error-codes.md)。注：message 行的 `error_code` 字段（如 `LLM_RESOLVE_ERROR`/`MAX_STEPS_REACHED`）是**回合级错误码**（前端展示），与 HTTP wire code 是两个命名空间。
+端点（send/cancel/interactions/usage/system-prompt-preview）→ [api.md](../api.md) · 码 4 个（`EMPTY_CONTENT` 400 / `STREAM_IN_PROGRESS` 409 / `NO_PENDING_INTERACTION` 404 / `INTERACTION_INVALID_ACTION` 422）→ [error-codes.md](../error-codes.md)。注：message 行的 `error_code` 字段（如 `LLM_RESOLVE_ERROR`/`MAX_STEPS_REACHED`）是**回合级错误码**（前端展示），与 HTTP wire code 是两个命名空间。
 
 ## 7. 跨域集成
 

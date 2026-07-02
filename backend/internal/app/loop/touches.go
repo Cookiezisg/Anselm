@@ -33,13 +33,19 @@ type entityTool interface {
 }
 
 // recordTouches books an EXECUTED, successful tool call's touch targets into the conversation
-// ledger. Denied/cancelled-before-run and failed calls never record (a touch that didn't
-// happen is not a touch); extraction under-reports rather than errors; Record itself is
-// best-effort — nothing here can disturb the turn.
+// ledger. "Failed" here means TOOL-LEVEL failure (ok&&executed is false: denied/cancelled-before-run
+// by the danger gate, or the tool returned a Go error — bad ref, malformed args) — those never record
+// (a touch that didn't happen is not a touch). A tool that ran fine but whose underlying entity
+// operation failed INTERNALLY (e.g. run_function on a real function that raised) is ok=true and DOES
+// book "executed": the ledger is a factual footprint of what the conversation touched, and that entity
+// really was executed — consistent with viewed/created booking regardless of downstream outcome.
+// Extraction under-reports rather than errors; Record itself is best-effort — nothing here disturbs the turn.
 //
-// recordTouches 把一次**真执行且成功**的工具调用的触碰目标记入对话台账。被拒/运行前取消与失败
-// 的调用不记(没发生的触碰不是触碰);提取宁少报不报错;Record 本身 best-effort——这里没有任何
-// 东西能扰动回合。
+// recordTouches 把一次**真执行且成功**的工具调用的触碰目标记入对话台账。这里的「失败」指**工具层**失败
+// (ok&&executed 为假:被 danger 门拒/运行前取消,或工具返 Go error——坏 ref、畸形参数)——这些不记(没发生的
+// 触碰不是触碰)。工具跑得好但底层实体操作**内部**失败(如 run_function 跑一个真函数而它 raise)是 ok=true、
+// **会**记 executed:台账是「对话碰过什么」的事实足迹,该实体确被执行——与 viewed/created 无条件记一致。
+// 提取宁少报不报错;Record 本身 best-effort——不扰动回合。
 func recordTouches(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallData, output string, ok bool) {
 	if !ok {
 		return

@@ -43,9 +43,9 @@ audience: [human, ai]
 
 ---
 
-## 全量登记（300 码，按域）
+## 全量登记（301 码，按域）
 
-> `errorspkg.New` 机械抽取（282，不含 `*_test.go` 测试 sentinel 如 DUP/THING_NOT_FOUND）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（7）。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
+> `errorspkg.New` 机械抽取（283，不含 `*_test.go` 测试 sentinel 如 DUP/THING_NOT_FOUND）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（7）。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
 
 ### `pkg/errors`（跨域 sentinel）
 
@@ -88,6 +88,7 @@ audience: [human, ai]
 |---|---|---|
 | `EMPTY_CONTENT` | 400 | message has no text and no attachments |
 | `NO_PENDING_INTERACTION` | 404 | no pending interaction with that tool call id in this conversation |
+| `INTERACTION_INVALID_ACTION` | 422 | action must be one of: approve, approve_always, deny, accept, decline（details.validActions 带合法集） |
 | `STREAM_IN_PROGRESS` | 409 | this conversation already has an assistant turn running |
 
 ### `app/freetier`

@@ -10,6 +10,7 @@
 package settings
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -113,7 +114,14 @@ func (s *Service) PatchLimits(patch json.RawMessage) (limitspkg.Limits, error) {
 	// unmarshal 之后跑——它会把每个零值字段从 Default() 回填，从而掩盖 patch 里显式的越界 0（每个 limit 都有
 	// 正下限、validate 拒 <=0）、静默重置而非返 400。客户端把 functionRunSec 降到 0 本会得 200 + 静默弹回 300。
 	next := limitspkg.WithDefaults(s.cur)
-	if err := json.Unmarshal(patch, &next); err != nil {
+	// Strict decode (DisallowUnknownFields): a typo'd key (e.g. {"agent":{"maxStep":2}} — the field
+	// is maxStepS) must 400, not silently no-op with 200. Every other write path rejects unknown
+	// fields via decodeJSON; limits is edited through this app-layer path, so the strictness lives here.
+	// 严格解码：拼错的键(如 {"agent":{"maxStep":2}}——字段是 maxStepS)必须 400,而非静默 no-op 返 200。
+	// 其余写路径都经 decodeJSON 拒未知字段;limits 走这条 app 层路径,故严格性落在这里。
+	dec := json.NewDecoder(bytes.NewReader(patch))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&next); err != nil {
 		return limitspkg.Limits{}, fmt.Errorf("%w: %v", ErrLimitsInvalid, err)
 	}
 	if err := validate(next); err != nil {

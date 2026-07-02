@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 
@@ -67,12 +68,19 @@ type updateConversationRequest struct {
 
 // UnmarshalJSON detects whether `modelOverride` was present as a key (vs absent), to distinguish
 // "leave unchanged" from "explicitly clear to null" — the tristate the per-thread override needs.
+// It stays STRICT (DisallowUnknownFields) like decodeJSON: this custom unmarshal shadows the
+// transport's strict decoder, so without this a typo'd field (e.g. "titel") would silently no-op
+// instead of a 400 — the same silent-drop inconsistency every other PATCH rejects.
 //
 // UnmarshalJSON 探测 `modelOverride` 是否在 JSON 中出现（区分「不动」与「显式 null 清除」）——
-// 即线程级 override 需要的三态。
+// 即线程级 override 需要的三态。它像 decodeJSON 一样保持**严格**（DisallowUnknownFields）:此自定义
+// unmarshal 遮蔽了 transport 的严格解码器,不加则拼错的字段(如 "titel")会静默 no-op 而非 400——正是其余
+// PATCH 都拒的静默丢弃不一致。
 func (r *updateConversationRequest) UnmarshalJSON(data []byte) error {
 	type raw updateConversationRequest
-	if err := json.Unmarshal(data, (*raw)(r)); err != nil {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode((*raw)(r)); err != nil {
 		return err
 	}
 	var m map[string]json.RawMessage
