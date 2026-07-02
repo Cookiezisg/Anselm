@@ -48,7 +48,8 @@
     "transcriptErrorTitle": "Couldn't load this conversation",
     "transcriptErrorHint": "The local engine didn’t return the messages.",
     "landingGreeting": "What should we dig into?",
-    "modelAuto": "Auto"
+    "modelAuto": "Auto",
+    "mentionEntity": "Mention an entity"
   },
   "appName": "Anselm",
   "status": {

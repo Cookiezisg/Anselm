@@ -75,9 +75,9 @@ class _ChatLanding extends ConsumerWidget {
                   ),
                   const SizedBox(height: AnSpace.s24),
                   ChatComposer(
-                    onSubmitNew: (text) async {
+                    onSubmitNew: (text, mentions) async {
                       final start = ref.read(startConversationProvider);
-                      final id = await start(text);
+                      final id = await start(text, mentions: mentions);
                       if (context.mounted) context.go(conversationLocation(id));
                     },
                   ),

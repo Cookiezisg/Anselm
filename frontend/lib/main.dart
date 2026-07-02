@@ -6,6 +6,8 @@ import 'package:scaled_app/scaled_app.dart';
 
 import 'app/app.dart';
 import 'app/router.dart';
+import 'app/entity_mention_source.dart';
+import 'core/entity/mention_source.dart';
 import 'app/window_setup.dart';
 import 'core/error/error_boundary.dart';
 import 'core/platform/window_zoom.dart';
@@ -32,7 +34,10 @@ Future<void> main() async {
       child: ProviderScope(
         // The GoRouter (which references the shell + entity kinds) is assembled in the app layer and
         // injected into the core seam. 路由(引用壳 + 实体 kind)在 app 层装配、注入 core 缝。
-        overrides: [goRouterProvider.overrideWith(buildAppRouter)],
+        overrides: [
+          goRouterProvider.overrideWith(buildAppRouter),
+          mentionSourceProvider.overrideWith(entityMentionSource),
+        ],
         child: const AnApp(),
       ),
     ));

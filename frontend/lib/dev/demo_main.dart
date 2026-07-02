@@ -11,6 +11,8 @@ import '../features/chat/data/chat_providers.dart';
 import '../features/entities/data/entity_demo_fixture.dart';
 import '../features/entities/data/entity_providers.dart';
 import '../i18n/strings.g.dart';
+import '../app/entity_mention_source.dart';
+import '../core/entity/mention_source.dart';
 
 /// Entry for `make demo` — the REAL app shell + router (byte-identical routing to `make app`, sharing
 /// [buildAppRouter]) driven by fake data: one ProviderScope override swaps the repository seam for the
@@ -32,6 +34,7 @@ Future<void> main() async {
         goRouterProvider.overrideWith(buildAppRouter),
         entityRepositoryProvider.overrideWithValue(demoEntityRepository()),
         chatRepositoryProvider.overrideWithValue(demoChatRepository()),
+        mentionSourceProvider.overrideWith(entityMentionSource),
       ],
       child: TranslationProvider(child: const _DemoRoot()),
     ),

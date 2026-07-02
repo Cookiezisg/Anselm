@@ -1,4 +1,5 @@
 import 'package:anselm/core/contract/conversation.dart';
+import 'package:anselm/core/entity/mention_source.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/sse/frame.dart';
 import 'package:anselm/core/ui/ui.dart';
@@ -40,6 +41,7 @@ Widget _host(FixtureChatRepository repo, {Widget? child}) => ProviderScope(
       overrides: [
         chatRepositoryProvider.overrideWithValue(repo),
         selectedConversationProvider.overrideWith(_FakeSelected.new),
+        mentionSourceProvider.overrideWithValue(_FakeMentions()),
       ],
       child: TranslationProvider(
         child: MaterialApp(
@@ -169,7 +171,7 @@ void main() {
     final repo = FixtureChatRepository(conversations: [], messages: {});
     var fail = true;
     await tester.pumpWidget(_host(repo,
-        child: ChatComposer(onSubmitNew: (text) async {
+        child: ChatComposer(onSubmitNew: (text, mentions) async {
           if (fail) throw StateError('scripted create failure');
         })));
     await _settle(tester);
@@ -205,4 +207,105 @@ void main() {
     expect(echoes, contains('created:$id')); // the rail hears about it 回声给 rail
     await sub.cancel();
   });
+
+  group('@ typeahead', () {
+    Future<void> pumpQuery(WidgetTester tester) async {
+      await tester.pump(const Duration(milliseconds: 200)); // debounce 防抖
+      await _settle(tester);
+    }
+
+    testWidgets('typing @ opens the panel; further typing filters; no match closes', (tester) async {
+      final repo = FixtureChatRepository(conversations: [_conv('cv_1')], messages: {'cv_1': []});
+      await tester.pumpWidget(_host(repo));
+      await tester.enterText(find.byType(TextField).last, '@');
+      await pumpQuery(tester);
+      expect(find.byType(AnMentionPanel), findsOneWidget);
+      expect(find.text('sync_inventory'), findsOneWidget);
+      expect(find.text('report_writer'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField).last, '@syn');
+      await pumpQuery(tester);
+      expect(find.text('sync_inventory'), findsOneWidget);
+      expect(find.text('report_writer'), findsNothing);
+
+      await tester.enterText(find.byType(TextField).last, '@zzz');
+      await pumpQuery(tester);
+      expect(find.byType(AnMentionPanel), findsNothing); // no match → closed 无匹配即关
+    });
+
+    testWidgets('↑↓ move (wrapping), Enter picks — intercepted before send — and the send carries mentions',
+        (tester) async {
+      final repo = FixtureChatRepository(conversations: [_conv('cv_1')], messages: {'cv_1': []});
+      await tester.pumpWidget(_host(repo));
+      await tester.enterText(find.byType(TextField).last, '@');
+      await pumpQuery(tester);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown); // → report_writer
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter); // picks, must NOT send 选中、不发
+      await pumpQuery(tester);
+      expect(repo.lastSend, isNull);
+      expect(find.byType(AnMentionPanel), findsNothing);
+      final field = tester.widget<TextField>(find.byType(TextField).last);
+      expect(field.controller!.text, '@report_writer ');
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter); // now it sends 这次才发
+      await _settle(tester);
+      expect(repo.lastSend?.content, '@report_writer');
+      expect(repo.lastSend?.mentions, [(type: 'agent', id: 'ag_1')]);
+    });
+
+    testWidgets('Esc dismisses and THIS token stays closed; a fresh @ re-opens', (tester) async {
+      final repo = FixtureChatRepository(conversations: [_conv('cv_1')], messages: {'cv_1': []});
+      await tester.pumpWidget(_host(repo));
+      await tester.enterText(find.byType(TextField).last, '@');
+      await pumpQuery(tester);
+      expect(find.byType(AnMentionPanel), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      expect(find.byType(AnMentionPanel), findsNothing);
+
+      await tester.enterText(find.byType(TextField).last, '@sy'); // same token keeps closed 同 token 不再弹
+      await pumpQuery(tester);
+      expect(find.byType(AnMentionPanel), findsNothing);
+
+      await tester.enterText(find.byType(TextField).last, ''); // leave the token 离开
+      await tester.pump();
+      await tester.enterText(find.byType(TextField).last, '@');
+      await pumpQuery(tester);
+      expect(find.byType(AnMentionPanel), findsOneWidget); // fresh @ opens 新 @ 再弹
+    });
+
+    testWidgets('one backspace right after a pill deletes the whole @name', (tester) async {
+      final repo = FixtureChatRepository(conversations: [_conv('cv_1')], messages: {'cv_1': []});
+      await tester.pumpWidget(_host(repo));
+      await tester.enterText(find.byType(TextField).last, '@syn');
+      await pumpQuery(tester);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter); // pick sync_inventory
+      await pumpQuery(tester);
+      final ctl = tester.widget<TextField>(find.byType(TextField).last).controller!;
+      expect(ctl.text, '@sync_inventory ');
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace); // eats the trailing space 先删尾空格
+      await tester.pump();
+      expect(ctl.text, '@sync_inventory');
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace); // atomic 整删
+      await tester.pump();
+      expect(ctl.text, '');
+    });
+  });
+
+}
+
+class _FakeMentions implements MentionSource {
+  @override
+  Future<List<MentionCandidate>> search(String query) async {
+    const all = [
+      MentionCandidate(type: 'function', id: 'fn_1', name: 'sync_inventory', description: 'sync stock'),
+      MentionCandidate(type: 'agent', id: 'ag_1', name: 'report_writer', description: 'writes reports'),
+    ];
+    final q = query.toLowerCase();
+    return [for (final c in all) if (q.isEmpty || c.name.toLowerCase().contains(q)) c];
+  }
 }

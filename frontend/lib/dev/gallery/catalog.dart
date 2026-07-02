@@ -51,6 +51,62 @@ final GalleryCategory _chatRail = GalleryCategory('对话 Chat', AnIcons.chat, [
   anMarkdownGalleryItem,
   chatThinkingGalleryItem,
   chatComposerGalleryItem,
+  GalleryItem('AnMentionPanel @ 预输入面板', 'composer 上方的 @ 实体候选;键盘活动行外驱高亮(焦点留输入框)', [
+    GallerySpecimen(
+        '四类候选 · 第 2 行键盘活动',
+        (_) => AnMentionPanel(
+              items: const [
+                AnMentionRowData(kind: 'function', name: 'sync_inventory', description: '同步库存到仓库主档'),
+                AnMentionRowData(kind: 'handler', name: 'on_order_created', description: '订单创建后的入库钩子'),
+                AnMentionRowData(kind: 'agent', name: 'report_writer', description: '周报/日报撰写代理'),
+                AnMentionRowData(kind: 'workflow', name: 'daily_digest', description: '每日竞品摘要流水线'),
+              ],
+              activeIndex: 1,
+              onPick: (_) {},
+            ),
+        span: true,
+        maxWidth: 460),
+    GallerySpecimen(
+        '无描述行 · 首行活动',
+        (_) => AnMentionPanel(
+              items: const [
+                AnMentionRowData(kind: 'function', name: 'fn_alpha'),
+                AnMentionRowData(kind: 'workflow', name: 'wf_beta'),
+              ],
+              activeIndex: 0,
+              onPick: (_) {},
+            ),
+        span: true,
+        maxWidth: 460),
+    GallerySpecimen(
+        '海量滚动 (封顶 menuMaxHeight)',
+        (_) => AnMentionPanel(
+              items: [
+                for (var i = 0; i < 24; i++)
+                  AnMentionRowData(kind: 'function', name: 'candidate_$i', description: '第 $i 个候选'),
+              ],
+              activeIndex: 3,
+              onPick: (_) {},
+            ),
+        stress: true,
+        span: true,
+        maxWidth: 460),
+    GallerySpecimen(
+        '超长名截断 + 注入转义',
+        (_) => AnMentionPanel(
+              items: const [
+                AnMentionRowData(
+                    kind: 'agent',
+                    name: 'a_very_long_entity_name_that_must_ellipsis_not_overflow_the_panel_row',
+                    description: '<b>not</b> & <i>html</i> 注入描述也应字面渲染'),
+              ],
+              activeIndex: 0,
+              onPick: (_) {},
+            ),
+        stress: true,
+        span: true,
+        maxWidth: 460),
+  ]),
 ]);
 
 // ── G1 — Foundational controls ──

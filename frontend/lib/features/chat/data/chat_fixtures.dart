@@ -197,7 +197,7 @@ class FixtureChatRepository implements ChatRepository {
       id: assistantId, conversationId: conversationId, role: 'assistant', status: 'pending', createdAt: now,
     ));
     _mutate(conversationId, (c) => c.copyWith(lastMessageAt: now, hasUnread: false));
-    lastSend = (conversationId: conversationId, content: content, assistantId: assistantId);
+    lastSend = (conversationId: conversationId, content: content, mentions: mentions, assistantId: assistantId);
     return assistantId;
   }
 
@@ -228,7 +228,7 @@ class FixtureChatRepository implements ChatRepository {
   final Map<String, StreamController<StreamEnvelope>> _frames = {};
 
   /// What sendMessage / cancel / seen recorded — assertion + demo-script hooks. 发送/取消/已读的记录钩。
-  ({String conversationId, String content, String assistantId})? lastSend;
+  ({String conversationId, String content, List<({String type, String id})> mentions, String assistantId})? lastSend;
   final List<String> cancelled = [];
   final List<String> seen = [];
 

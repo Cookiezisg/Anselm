@@ -64,6 +64,7 @@ class AnMenuRow extends StatelessWidget {
     this.enabled = true,
     this.danger = false,
     this.autofocus = false,
+    this.highlighted = false,
     super.key,
   });
 
@@ -79,6 +80,11 @@ class AnMenuRow extends StatelessWidget {
   final bool danger;
   final bool autofocus;
 
+  /// Externally-driven highlight (a typeahead's keyboard-active row, where FOCUS stays in the text
+  /// field — aria-activedescendant style): fills like hover without owning focus. Hover still works
+  /// independently. 外驱高亮(typeahead 键盘活动行,焦点留在输入框):同 hover 底色、不夺焦;hover 独立仍生效。
+  final bool highlighted;
+
   @override
   Widget build(BuildContext context) {
     return AnInteractive(
@@ -87,7 +93,7 @@ class AnMenuRow extends StatelessWidget {
       onTap: onTap,
       builder: (context, states) {
         final c = context.colors;
-        final active = states.isActive;
+        final active = states.isActive || highlighted;
         final reduced = AnMotionPref.reduced(context);
         // resting fill = same hue at alpha 0 (whenActive) → no dark-midpoint flash on the fade 静止底走 alpha-0 单源
         final bg = danger ? c.dangerSoft.whenActive(active) : c.surfaceHover.whenActive(active);

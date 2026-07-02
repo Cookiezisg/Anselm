@@ -184,6 +184,9 @@ class Translations$chat$en {
 
 	/// en: 'Auto'
 	String get modelAuto => 'Auto';
+
+	/// en: 'Mention an entity'
+	String get mentionEntity => 'Mention an entity';
 }
 
 // Path: status
@@ -1180,6 +1183,7 @@ extension on Translations {
 			'chat.transcriptErrorHint' => 'The local engine didn’t return the messages.',
 			'chat.landingGreeting' => 'What should we dig into?',
 			'chat.modelAuto' => 'Auto',
+			'chat.mentionEntity' => 'Mention an entity',
 			'appName' => 'Anselm',
 			'status.idle' => 'Idle',
 			'status.run' => 'Running',
