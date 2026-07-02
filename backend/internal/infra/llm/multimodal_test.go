@@ -130,3 +130,33 @@ func TestMultimodalTextOnlyUnchanged(t *testing.T) {
 		})
 	}
 }
+
+// TestDeepSeekAllTextPartsCollapse guards the array→string collapse: an attachment turn whose
+// image already degraded to a text note (a non-vision model — the anselm free tier inherits this
+// builder) must go out as STRING content, because text-only endpoints reject array-form content
+// and the frozen attachment replays every turn (array form would 400 the conversation forever).
+//
+// TestDeepSeekAllTextPartsCollapse 守数组→字符串坍缩：图已降级成文本占位的附件回合(非视觉模型,
+// anselm 免费档继承本构造器)必须以**字符串** content 出线——纯文本端点拒收数组形,且冻结附件逐回合
+// 重放,数组形会让该对话永远 400。
+func TestDeepSeekAllTextPartsCollapse(t *testing.T) {
+	req := Request{ModelID: "m", Key: "k", BaseURL: "https://example.test",
+		Messages: []LLMMessage{{Role: RoleUser, Parts: []ContentPart{
+			{Type: PartText, Text: "看看这张图"},
+			{Type: PartText, Text: `[image "shot.png" attached, but the current model has no vision]`},
+		}}}}
+	httpReq, err := newDeepSeekProvider().BuildRequest(context.Background(), req)
+	if err != nil {
+		t.Fatalf("BuildRequest: %v", err)
+	}
+	raw, _ := io.ReadAll(httpReq.Body)
+	body := string(raw)
+	if strings.Contains(body, `"type":"text"`) {
+		t.Errorf("all-text parts must collapse to string content, got array\nbody: %s", body)
+	}
+	for _, want := range []string{"看看这张图", "shot.png"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("collapsed content missing %q\nbody: %s", want, body)
+		}
+	}
+}

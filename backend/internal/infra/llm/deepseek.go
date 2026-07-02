@@ -8,6 +8,7 @@ import (
 	"io"
 	"iter"
 	"net/http"
+	"strings"
 )
 
 // deepseekProvider speaks DeepSeek's /chat/completions API, fully self-contained: its own
@@ -279,21 +280,35 @@ type dsImageURL struct {
 // buildDeepSeekUserMsg renders a user turn: plain text, or multimodal content parts (text +
 // image_url, image carried as a data-URL for vision models). A part type this provider can't
 // carry inline (e.g. a PDF "file") is skipped — the attachment layer extracts those to text.
+// When NO image survives, the parts COLLAPSE back to a plain string: a text-only endpoint (the
+// anselm free-tier gateway inherits this builder) rejects array-form `content` outright, and the
+// frozen attachment replays every turn — array form would 400 that conversation forever.
 //
 // buildDeepSeekUserMsg 渲染 user 回合：纯文本，或多模态内容块（text + image_url，图为 data-URL，
 // 供视觉模型）。本 provider 无法内联承载的 part（如 PDF "file"）跳过——附件层为它抽成文本。
+// **无图存活时坍缩回纯字符串**：纯文本端点（anselm 免费网关继承本构造器）直接拒收数组形 `content`,
+// 且冻结附件逐回合重放——保持数组会让该对话每一回合永远 400。
 func buildDeepSeekUserMsg(m LLMMessage) (dsMessage, error) {
 	if len(m.Parts) == 0 {
 		return dsMessage{Role: "user", Content: dsJSONString(m.Content)}, nil
 	}
 	parts := make([]dsContentPart, 0, len(m.Parts))
+	hasImage := false
 	for _, part := range m.Parts {
 		switch part.Type {
 		case "text":
 			parts = append(parts, dsContentPart{Type: "text", Text: part.Text})
 		case "image_url":
+			hasImage = true
 			parts = append(parts, dsContentPart{Type: "image_url", ImageURL: &dsImageURL{URL: part.ImageURL}})
 		}
+	}
+	if !hasImage {
+		texts := make([]string, len(parts))
+		for i, p := range parts {
+			texts[i] = p.Text
+		}
+		return dsMessage{Role: "user", Content: dsJSONString(strings.Join(texts, "\n\n"))}, nil
 	}
 	raw, err := json.Marshal(parts)
 	if err != nil {
