@@ -83,6 +83,9 @@ abstract final class AnIcons {
   // ── state placeholders ──
   static final IconData empty = _thin(LucideIcons.inbox);
   static final IconData error = _thin(LucideIcons.triangleAlert);
+  static final IconData image = _thin(LucideIcons.image); // markdown image placeholder chip 图片占位
+  static final IconData taskOpen = _thin(LucideIcons.square); // md task list, unchecked 任务未勾
+  static final IconData taskDone = _thin(LucideIcons.squareCheck); // md task list, checked 任务已勾
 
   // ── feedback severities (callout / state) ──
   static final IconData info = _thin(LucideIcons.info);

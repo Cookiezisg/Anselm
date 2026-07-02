@@ -56,6 +56,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$startup$en startup = Translations$startup$en.internal(_root);
 	late final Translations$entities$en entities = Translations$entities$en.internal(_root);
 	late final Translations$coldStart$en coldStart = Translations$coldStart$en.internal(_root);
+	late final Translations$markdown$en markdown = Translations$markdown$en.internal(_root);
 }
 
 // Path: chat
@@ -499,6 +500,18 @@ class Translations$coldStart$en {
 
 	/// en: 'Personal'
 	String get defaultWorkspace => 'Personal';
+}
+
+// Path: markdown
+class Translations$markdown$en {
+	Translations$markdown$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'image not loaded'
+	String get imageNotLoaded => 'image not loaded';
 }
 
 // Path: chat.time
@@ -1306,6 +1319,7 @@ extension on Translations {
 			'coldStart.errorTitle' => 'Couldn\'t set up the workspace',
 			'coldStart.errorHint' => 'The local engine is reachable but the workspace didn\'t resolve.',
 			'coldStart.defaultWorkspace' => 'Personal',
+			'markdown.imageNotLoaded' => 'image not loaded',
 			_ => null,
 		};
 	}

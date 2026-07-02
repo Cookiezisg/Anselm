@@ -52,6 +52,7 @@ class TranslationsZhCn extends Translations with BaseTranslations<AppLocale, Tra
 	@override late final _Translations$startup$zh_CN startup = _Translations$startup$zh_CN._(_root);
 	@override late final _Translations$entities$zh_CN entities = _Translations$entities$zh_CN._(_root);
 	@override late final _Translations$coldStart$zh_CN coldStart = _Translations$coldStart$zh_CN._(_root);
+	@override late final _Translations$markdown$zh_CN markdown = _Translations$markdown$zh_CN._(_root);
 }
 
 // Path: chat
@@ -274,6 +275,16 @@ class _Translations$coldStart$zh_CN extends Translations$coldStart$en {
 	@override String get errorTitle => '无法准备工作区';
 	@override String get errorHint => '本地引擎已连通,但工作区未就绪。';
 	@override String get defaultWorkspace => '个人';
+}
+
+// Path: markdown
+class _Translations$markdown$zh_CN extends Translations$markdown$en {
+	_Translations$markdown$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get imageNotLoaded => '图片未加载';
 }
 
 // Path: chat.time
@@ -809,6 +820,7 @@ extension on TranslationsZhCn {
 			'coldStart.errorTitle' => '无法准备工作区',
 			'coldStart.errorHint' => '本地引擎已连通,但工作区未就绪。',
 			'coldStart.defaultWorkspace' => '个人',
+			'markdown.imageNotLoaded' => '图片未加载',
 			_ => null,
 		};
 	}

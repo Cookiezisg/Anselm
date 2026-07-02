@@ -146,43 +146,116 @@
     "detail": {
       "crumbRoot": "实体",
       "moreActions": "更多操作",
-      "tab": { "overview": "概览", "versions": "版本", "logs": "日志" },
-      "verb": { "run": "运行", "call": "调用", "invoke": "唤起", "trigger": "触发" },
+      "tab": {
+        "overview": "概览",
+        "versions": "版本",
+        "logs": "日志"
+      },
+      "verb": {
+        "run": "运行",
+        "call": "调用",
+        "invoke": "唤起",
+        "trigger": "触发"
+      },
       "sec": {
-        "code": "代码", "input": "输入", "output": "输出", "env": "环境",
-        "runtime": "常驻状态", "initArgs": "init 参数", "methods": "方法",
-        "prompt": "提示词", "capabilities": "能力挂载", "mountHealth": "挂载健康",
-        "governance": "运行治理", "alerts": "告警", "graph": "编排图"
+        "code": "代码",
+        "input": "输入",
+        "output": "输出",
+        "env": "环境",
+        "runtime": "常驻状态",
+        "initArgs": "init 参数",
+        "methods": "方法",
+        "prompt": "提示词",
+        "capabilities": "能力挂载",
+        "mountHealth": "挂载健康",
+        "governance": "运行治理",
+        "alerts": "告警",
+        "graph": "编排图"
       },
       "card": {
-        "deps": "依赖", "venv": "venv 状态", "runtime": "运行时", "config": "配置完整度",
-        "tools": "工具挂载", "skill": "技能", "knowledge": "知识", "model": "模型覆盖",
-        "lifecycle": "生命周期", "concurrency": "并发策略"
+        "deps": "依赖",
+        "venv": "venv 状态",
+        "runtime": "运行时",
+        "config": "配置完整度",
+        "tools": "工具挂载",
+        "skill": "技能",
+        "knowledge": "知识",
+        "model": "模型覆盖",
+        "lifecycle": "生命周期",
+        "concurrency": "并发策略"
       },
-      "graph": { "nodes": "节点", "edges": "边", "path": "路径", "openEditor": "进入图编辑器" },
+      "graph": {
+        "nodes": "节点",
+        "edges": "边",
+        "path": "路径",
+        "openEditor": "进入图编辑器"
+      },
       "kv": {
-        "name": "名称", "tags": "标签", "id": "ID", "activeVersion": "活动版本",
-        "currentVersion": "当前版本", "python": "Python", "updated": "更新", "desc": "说明",
-        "envId": "env id", "status": "状态", "syncedAt": "最近同步", "error": "错误",
-        "model": "模型", "provider": "提供方", "instanceId": "实例", "version": "版本",
-        "elapsed": "耗时", "time": "时间", "replay": "重放", "flowrunId": "Flowrun id",
-        "workflow": "工作流", "nodes": "节点", "lifecycle": "生命周期", "active": "在途",
-        "lastAction": "最近操作", "concurrency": "并发", "trigger": "触发器",
-        "input": "输入", "output": "输出", "ref": "引用", "healthy": "健康", "method": "方法",
-        "startedAt": "开始", "completedAt": "结束", "triggeredBy": "触发方"
+        "name": "名称",
+        "tags": "标签",
+        "id": "ID",
+        "activeVersion": "活动版本",
+        "currentVersion": "当前版本",
+        "python": "Python",
+        "updated": "更新",
+        "desc": "说明",
+        "envId": "env id",
+        "status": "状态",
+        "syncedAt": "最近同步",
+        "error": "错误",
+        "model": "模型",
+        "provider": "提供方",
+        "instanceId": "实例",
+        "version": "版本",
+        "elapsed": "耗时",
+        "time": "时间",
+        "replay": "重放",
+        "flowrunId": "Flowrun id",
+        "workflow": "工作流",
+        "nodes": "节点",
+        "lifecycle": "生命周期",
+        "active": "在途",
+        "lastAction": "最近操作",
+        "concurrency": "并发",
+        "trigger": "触发器",
+        "input": "输入",
+        "output": "输出",
+        "ref": "引用",
+        "healthy": "健康",
+        "method": "方法",
+        "startedAt": "开始",
+        "completedAt": "结束",
+        "triggeredBy": "触发方"
       },
       "val": {
-        "listening": "监听中", "stopped": "已停", "noAlerts": "无告警",
-        "needsAttention": "需注意", "required": "必填", "optional": "可选",
-        "sensitive": "敏感", "defaultPrefix": "默认", "generator": "生成器",
-        "modelDefault": "工作区默认", "modelOverridden": "已覆盖", "none": "—"
+        "listening": "监听中",
+        "stopped": "已停",
+        "noAlerts": "无告警",
+        "needsAttention": "需注意",
+        "required": "必填",
+        "optional": "可选",
+        "sensitive": "敏感",
+        "defaultPrefix": "默认",
+        "generator": "生成器",
+        "modelDefault": "工作区默认",
+        "modelOverridden": "已覆盖",
+        "none": "—"
       },
-      "mounts": { "healthy": "挂载正常", "unhealthy": "$count 项异常" },
+      "mounts": {
+        "healthy": "挂载正常",
+        "unhealthy": "$count 项异常"
+      },
       "state": {
-        "noVersions": "暂无版本", "noLogs": "暂无运行记录", "noLogsHint": "执行该实体后,记录会出现在这里。",
-        "noActiveVersion": "无活动版本", "notFoundTitle": "未找到该实体",
-        "errorTitle": "无法加载该实体", "errorHint": "本地引擎没有返回它。",
-        "loadMore": "加载更多", "endOfList": "已到底", "loadFailed": "加载失败,点此重试",
+        "noVersions": "暂无版本",
+        "noLogs": "暂无运行记录",
+        "noLogsHint": "执行该实体后,记录会出现在这里。",
+        "noActiveVersion": "无活动版本",
+        "notFoundTitle": "未找到该实体",
+        "errorTitle": "无法加载该实体",
+        "errorHint": "本地引擎没有返回它。",
+        "loadMore": "加载更多",
+        "endOfList": "已到底",
+        "loadFailed": "加载失败,点此重试",
         "earliest": "最早版本"
       }
     },
@@ -213,7 +286,10 @@
       "steps": "$n 步",
       "tokens": "输入 $inT · 输出 $outT",
       "ms": "$ms ms",
-      "danger": { "cautious": "谨慎", "dangerous": "危险" }
+      "danger": {
+        "cautious": "谨慎",
+        "dangerous": "危险"
+      }
     }
   },
   "coldStart": {
@@ -221,5 +297,8 @@
     "errorTitle": "无法准备工作区",
     "errorHint": "本地引擎已连通,但工作区未就绪。",
     "defaultWorkspace": "个人"
+  },
+  "markdown": {
+    "imageNotLoaded": "图片未加载"
   }
 }

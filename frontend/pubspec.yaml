@@ -27,6 +27,12 @@ dependencies:
   # maintained package rather than re-vendoring (原则 #8). Semantic alias map = core/ui/icons.dart.
   # UI 图标=整组 Lucide;用成熟包而非重新 vendored,语义别名表在 core/ui/icons.dart。
   lucide_icons_flutter: ^3.1.14+2
+  # LLM-output markdown renderer with the richest builder surface (codeBuilder / highlightBuilder /
+  # imageBuilder / tableBuilder / onLinkTap / swappable components) — used ONLY through the AnMarkdown
+  # facade (core/ui), never raw. PINNED EXACT: upstream has broken builder signatures within a minor
+  # before; the facade keeps us vendorable if it stalls. LLM 输出 markdown 渲染器,builder 钩子面最全;
+  # 仅经 AnMarkdown 门面用、绝不裸用。钉死精确版本(上游曾在小版本内破坏 builder 签名;门面保可 vendor)。
+  gpt_markdown: 1.1.7
   # Vector rendering for the bundled brand mark (assets/brand) + inline provider SVGs (currentColor).
   # 矢量渲染:品牌标 + 内联 provider SVG(随 ink 着色)。
   flutter_svg: ^2.3.0

@@ -44,11 +44,13 @@ audience: [human, ai]
 
 rail 选中/新建后,中心要长出**对话正文 + 输入**。这块从零建,是 chat 的核心。
 
+> **建法已改(2026-07,用户拍板)**:视觉阶梯 **V0–V8 逐模块 gallery-first 锁死长相再组装**(用户对着 gallery 看,不管内部联调)。**已落**:V0 `AnComposer`(发送框原语+完整转场动效,`b8f2f7a4`+`5ca606b5`)· V1 `ChatTurn`(回合韵律:用户泡/助手裸 + `surfaceSunken` token,`e688d7f2`)· V2 `ChatThinking`(推理块「低语+流窗」完整生命线 + `AnShimmerText` 流光原语,`78b30c79`)+ `AnMarkdown`(本提交)。待建:V3 tool_call chassis → V4 tool_result 三形状 → V5 特殊块 → V6 人在环卡 → V7 @提及/附件 → V8 右岛;组装(transcript 管道/BuildSpy/滚动器)在模块锁完后进行。
+
 ### B.1 计划面(从 New 起头)
 
 1. **New 懒建**:点「新对话」→ 进**空 landing**(composer,ChatGPT 式),**首句才真建**(POST 会话 + 自动标题),rail 原地不跳。这步把中心海洋 + composer 起头。
 2. **对话正文 transcript**:历史水化(REST `Message.blocks[]` → `BlockNode`)+ 实时流式(messages SSE)经 **`BlockTreeReducer`**(已有,run 终端共用)折块树渲染。
-3. **markdown 渲染**(决策①):`gpt_markdown`,codeBuilder 注入既有 `AnCodeSurface`,**必经 `CoalescingNotifier`**。
+3. **markdown 渲染**(决策①)✅:`AnMarkdown`(core/ui,`gpt_markdown 1.1.7` token 锁定门面、版本钉死)——bold→w400 组件替换(包默认在钉轴 VF 上渲 w300,两档字重是功能必需)· 标题降档 20/16/13 · 围栏→`AnCodeEditor` 只读(唯一高亮源)· 表→AnThinTable · 链接 scheme 闸+宿主回调、永不自动开 · 图不取网 · HTML/`(x)` 惰性 · LaTeX 关;流式 text 纯 prop、未闭合围栏乐观渲染(接 transcript 时**必经 `CoalescingNotifier`**)。12 专项测试 + gallery 五电池。
 4. **人在环确认卡**(决策③):危险/ask = **内联确认卡**(非模态);turnEnd Continue 后端无 resume → 诚实发续跑消息。
 5. **右岛 entity-workspace**(决策②):随对话「长出」(touchedEntities + Todo + Subagent + picker,active 跟最新)。**右岛内容须深读 demo `features/chat` 再定**(用户明确要认真参考 demo)。
 
@@ -56,7 +58,7 @@ rail 选中/新建后,中心要长出**对话正文 + 输入**。这块从零建
 
 - **messages SSE** 唯一 scope = `conversation:<id>`;**耐久判据 = `seq>0`**(不看帧动词)。
 - **interaction 是 `seq=0` ephemeral** → 重连**必拉 `GET .../interactions`** 否则 turn 永久阻塞(**硬需求**);无「resolved」帧(靠 tool_result 流入关确认卡)。
-- 仓库**无 markdown 渲染器**,净新必建。
+- markdown 渲染器已落(`AnMarkdown`,见 B.1-3)。
 - 块型:后端 **6 持久块 + `message` + `unknown` + 第 9 非块 `interaction` 信号**;demo 的 `todo`/`turnEnd`/「3.5s 自动批准」与后端不符,**勿造**(human-loop 无超时/无自动批准)。
 
 ### B.3 🔥 流式渲染性能纪律(B 阶段真落地处)
