@@ -27,6 +27,7 @@ import (
 	relationstore "github.com/sunweilin/anselm/backend/internal/infra/store/relation"
 	sandboxstore "github.com/sunweilin/anselm/backend/internal/infra/store/sandbox"
 	todostore "github.com/sunweilin/anselm/backend/internal/infra/store/todo"
+	touchpointstore "github.com/sunweilin/anselm/backend/internal/infra/store/touchpoint"
 	triggerstore "github.com/sunweilin/anselm/backend/internal/infra/store/trigger"
 	workflowstore "github.com/sunweilin/anselm/backend/internal/infra/store/workflow"
 	workspacestore "github.com/sunweilin/anselm/backend/internal/infra/store/workspace"
@@ -48,6 +49,7 @@ type stores struct {
 	sandbox      *sandboxstore.Store
 	document     *documentstore.Store
 	todo         *todostore.Store
+	touchpoint   *touchpointstore.Store
 	attachment   *attachmentstore.Store
 	function     *functionstore.Store
 	handler      *handlerstore.Store
@@ -127,6 +129,7 @@ func allSchemas() []string {
 	s = append(s, sandboxstore.Schema...)
 	s = append(s, documentstore.Schema...)
 	s = append(s, todostore.Schema...)
+	s = append(s, touchpointstore.Schema...)
 	s = append(s, attachmentstore.Schema...)
 	s = append(s, functionstore.Schema...)
 	s = append(s, handlerstore.Schema...)
@@ -179,6 +182,7 @@ func buildStores(database *ormpkg.DB, enc cryptodomain.Encryptor, dataDir string
 		sandbox:      sandboxstore.New(database),
 		document:     documentstore.New(database),
 		todo:         todostore.New(database),
+		touchpoint:   touchpointstore.New(database),
 		attachment:   attachmentstore.New(database),
 		function:     functionstore.New(database),
 		handler:      handlerstore.New(database),

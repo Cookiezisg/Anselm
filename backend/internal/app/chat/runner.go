@@ -10,6 +10,7 @@ import (
 	entitystreamapp "github.com/sunweilin/anselm/backend/internal/app/entitystream"
 	humanloopapp "github.com/sunweilin/anselm/backend/internal/app/humanloop"
 	loopapp "github.com/sunweilin/anselm/backend/internal/app/loop"
+	touchpointapp "github.com/sunweilin/anselm/backend/internal/app/touchpoint"
 	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
 	limitspkg "github.com/sunweilin/anselm/backend/internal/pkg/limits"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
@@ -124,6 +125,14 @@ func (s *Service) processTask(conversationID string, q *convQueue, t task) {
 	//
 	// SSE-C：种 entities Bridge，使 loop 把 build tool_call 的内容 delta 镜像到 entities 流（LLM 构建时实体面板实时填充）。
 	base = entitystreamapp.WithBridge(base, s.deps.EntitiesBridge)
+	// Seed the conversation-ledger recorder so the loop's tool choke point books every touched item
+	// (flows into nested subagent/invoke runs via ctx; conversation-less paths never see one).
+	//
+	// 种对话台账记账器，使 loop 工具咽喉记下每个被触碰的物（经 ctx 流入嵌套 subagent/invoke 运行；
+	// 无对话路径永远见不到它）。
+	if s.deps.Touchpoints != nil {
+		base = touchpointapp.With(base, s.deps.Touchpoints)
+	}
 	// Seed the human-in-the-loop broker so the loop's danger gate + ask_user can block for a
 	// human decision (and it flows into any nested agent run via ctx). Cancel (below) unblocks them.
 	//

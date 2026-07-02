@@ -540,6 +540,15 @@ audience: [human, ai]
 | `TODO_INVALID_STATUS` | 400 | invalid todo item status |
 | `TODO_TOO_MANY_ITEMS` | 400 | too many todo items |
 
+### `domain/touchpoint`
+
+| code | HTTP | message |
+|---|---|---|
+| `TP_INVALID_REF` | 400 | touchpoint requires conversation and item ids |
+| `TP_INVALID_KIND` | 400 | invalid touchpoint item kind |
+| `TP_INVALID_VERB` | 400 | invalid touchpoint verb |
+| `TP_INVALID_ACTOR` | 400 | invalid touchpoint actor |
+
 ### `domain/trigger`
 
 | code | HTTP | message |

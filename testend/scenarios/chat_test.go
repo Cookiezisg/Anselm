@@ -265,6 +265,11 @@ func TestChat_HumanLoopDangerGate(t *testing.T) {
 	if page.Aggregates.OKCount != 1 {
 		t.Fatalf("approve must actually run the tool, executions=%+v", page.Aggregates)
 	}
+	// The approved execution lands in the conversation's context ledger. 批准的执行入触点台账。
+	harness.Eventually(t, 10000, "approved run books an executed touchpoint", func() bool {
+		rows := listTouchpoints(t, wc, conv1, "?verb=executed")
+		return len(rows) == 1 && rows[0].ItemID == fnID
+	})
 
 	// duplicate resolve → gone. 重复决议 → 404。
 	wc.Do("POST", "/api/v1/conversations/"+conv1+"/interactions/"+pending[0].ToolCallID,
@@ -290,6 +295,11 @@ func TestChat_HumanLoopDangerGate(t *testing.T) {
 	wc.GET("/api/v1/functions/"+fnID+"/executions").OK(t, &page)
 	if page.Aggregates.OKCount != 1 {
 		t.Fatalf("deny must NOT run the tool, executions=%+v", page.Aggregates)
+	}
+	// PHANTOM-TOUCH regression: a DENIED call must leave the ledger untouched (deny reads
+	// ok=true for the model, executed=false for the ledger). 拒绝调用不得留任何台账行。
+	if rows := listTouchpoints(t, wc, conv2, ""); len(rows) != 0 {
+		t.Fatalf("denied call must not book any touchpoint, got %+v", rows)
 	}
 	// The denial is fed back to the model as the tool outcome. 拒绝作为工具结果回喂模型。
 	dumps := mock.DumpsFor(dlgModel)

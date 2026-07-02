@@ -60,11 +60,13 @@ import (
 	triggertool "github.com/sunweilin/anselm/backend/internal/app/tool/trigger"
 	webtool "github.com/sunweilin/anselm/backend/internal/app/tool/web"
 	workflowtool "github.com/sunweilin/anselm/backend/internal/app/tool/workflow"
+	touchpointapp "github.com/sunweilin/anselm/backend/internal/app/touchpoint"
 	triggerapp "github.com/sunweilin/anselm/backend/internal/app/trigger"
 	workflowapp "github.com/sunweilin/anselm/backend/internal/app/workflow"
 	workspaceapp "github.com/sunweilin/anselm/backend/internal/app/workspace"
 	relationdomain "github.com/sunweilin/anselm/backend/internal/domain/relation"
 	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
+	touchpointdomain "github.com/sunweilin/anselm/backend/internal/domain/touchpoint"
 	cryptoinfra "github.com/sunweilin/anselm/backend/internal/infra/crypto"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 	mcpinfra "github.com/sunweilin/anselm/backend/internal/infra/mcp"
@@ -93,6 +95,7 @@ type services struct {
 	sandbox       *sandboxapp.Service
 	document      *documentapp.Service
 	todo          *todoapp.Service
+	touchpoint    *touchpointapp.Service
 	attachment    *attachmentapp.Service
 	function      *functionapp.Service
 	handler       *handlerapp.Service
@@ -112,6 +115,11 @@ type services struct {
 	aispawn       *aispawnapp.Service
 	search        *searchapp.Service
 	shellMgr      *shelltool.ProcessManager // owns run_in_background children; Stop() reaps them on shutdown (R1)
+
+	// toolNames is the final toolset's name inventory, retained for the touchpoint catalog's
+	// exhaustiveness gate test (every tool must declare its ledger stance).
+	// toolNames 是定型工具集的名字清单,留给 touchpoint 目录穷尽性门禁测试(每个工具必须表态)。
+	toolNames []string
 }
 
 // toolsetHolder is a mutable ToolsProvider: the subagent Service and agent invoke-deps read the
@@ -214,6 +222,32 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 		Log:   log,
 	})
 
+	// touchpoint: the conversation context ledger. Namers mirror relation's registration (the
+	// SAME source-domain resolvers — one vocabulary) plus the ledger-only attachment namer;
+	// live signals ride the messages stream (conversation-anchored, like todo).
+	// touchpoint:对话上下文台账。Namers 镜像 relation 的注册(同一批 source-domain resolver——
+	// 一份词表)+ 台账独有的 attachment namer;实时信号走 messages 流(锚定对话,同 todo)。
+	tp := touchpointapp.NewService(touchpointapp.Config{
+		Repo:   st.touchpoint,
+		Bridge: bus.messages,
+		Namers: map[string]touchpointapp.Namer{
+			relationdomain.EntityKindFunction:     fn,
+			relationdomain.EntityKindHandler:      hd,
+			relationdomain.EntityKindAgent:        ag,
+			relationdomain.EntityKindControl:      ctl,
+			relationdomain.EntityKindApproval:     apf,
+			relationdomain.EntityKindWorkflow:     wf,
+			relationdomain.EntityKindTrigger:      trg,
+			relationdomain.EntityKindMCP:          mcp,
+			relationdomain.EntityKindSkill:        skill,
+			relationdomain.EntityKindDocument:     doc,
+			relationdomain.EntityKindConversation: conv,
+			touchpointdomain.ItemKindAttachment:   att,
+		},
+		Log: log,
+	})
+	conv.SetTouchpointPurger(tp)
+
 	// --- toolset: Resident (filesystem/search/shell) + Lazy (entity tools + web) ---
 	guard := pathguardpkg.NewDefault()
 	// Capture the struct, not just .Tools: its Manager owns every run_in_background child's process
@@ -258,6 +292,10 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 		subagenttool.NewTraceTool(st.messages),
 	)
 	holder.tools = toolset.All()
+	toolNames := make([]string, 0, len(holder.tools))
+	for _, t := range holder.tools {
+		toolNames = append(toolNames, t.Name())
+	}
 
 	// --- context compaction + chat (the dialogue surface) ---
 	ctxmgr := contextmgrapp.NewService(contextmgrapp.Deps{
@@ -289,6 +327,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 		Titler:         conv,
 		Notifier:       notif,
 		Compactor:      ctxmgr,
+		Touchpoints:    tp,
 	}, log)
 
 	// D1 execution lifecycle: workflow drives the trigger binder (activate/stage/deactivate/kill engage
@@ -476,6 +515,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	s := &services{
 		workspace: ws, apikey: keys, modelCaps: modelCaps, relation: rel, catalog: cat,
 		notification: notif, memory: mem, sandbox: sbx, document: doc, todo: todo,
+		touchpoint: tp, toolNames: toolNames,
 		attachment: att, function: fn, handler: hd, agent: ag, trigger: trg, mcp: mcp,
 		skill: skill, control: ctl, approval: apf, workflow: wf, scheduler: sched,
 		conversation: conv, chat: chat, subagent: subagentSvc, contextmgr: ctxmgr,

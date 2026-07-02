@@ -38,7 +38,7 @@ audience: [human, ai]
 
 ## 5. freeze-on-send（@提及）
 
-发送时**快照**被 @ 实体的内容（function 代码/handler 类/agent 描述/文档正文…经 mention registry 解析）进 user 回合 Attrs——之后实体再改不影响已发送回合的语境。渲染进 LLM 历史时从快照读。
+发送时**快照**被 @ 实体的内容（function 代码/handler 类/agent 描述/文档正文…经 mention registry 解析）进 user 回合 Attrs——之后实体再改不影响已发送回合的语境。渲染进 LLM 历史时从快照读。快照落定后 Send 同时把 @提及/附件记进**对话触点台账**（`mentioned`/`attached`，actor=user、锚 user 消息——`app/chat/touches.go`，best-effort；AI 侧触碰在 loop 工具咽喉记，见 [touchpoint.md](touchpoint.md)）。
 
 ## 6. 契约（引用）
 

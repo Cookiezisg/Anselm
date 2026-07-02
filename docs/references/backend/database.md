@@ -99,6 +99,7 @@ ID：`mcp_`/`mcl_` · `doc_`（skill 无 id——slug 即身份）
 | `message_blocks` | message_id · parent_block_id · **seq**（落盘分配）· type(CHECK 六型含 progress/compaction) · attrs/content · status · **context_role**(CHECK hot/warm/cold/archived——压缩投影) | append-only；`blk_` |
 | `attachments` | sha256(内容寻址，非唯一) · filename · mime_type · kind(image/document/text/audio/video/other) · size_bytes · blob 字节在 infra/fs/blob 按 sha256 寻址 | 软删；`att_`；≤50MB |
 | `todos` | **`scope_id`**(pk = subagent id ?? conv id) · conversation_id · subagent_id · items(json ≤64) | 整表替换写 |
+| `conversation_touchpoints` | conversation_id · item_kind(relation 11 kind + attachment) · item_id · **item_name**(显示名快照，实体删后仍诚实可显) · verb(CHECK 7 动词) · last_actor(CHECK user/assistant/subagent) · count · first_at/last_at · last_message_id | **聚合行**：`UNIQUE idx_tp_dedup (ws, conversation_id, item_kind, item_id, verb)`（并发记账撞此收敛）+ `idx_tp_conv (ws, conversation_id, last_at)`（新鲜度分页）；**硬删**（派生台账，同 relations——唯一删除路径=对话删除级联 PurgeConversation，实体删除**不**清行[历程真相]）；`tp_` |
 | **memory / subagent：无表** | — | memory=文件式（`workspaces/<ws>/memories/<name>.md`）；subagent=运行时机制（回合落父对话 messages） |
 
 ## search（统一搜索索引——派生数据）

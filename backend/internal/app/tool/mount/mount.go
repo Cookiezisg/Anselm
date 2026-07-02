@@ -34,6 +34,7 @@ import (
 	functiondomain "github.com/sunweilin/anselm/backend/internal/domain/function"
 	handlerdomain "github.com/sunweilin/anselm/backend/internal/domain/handler"
 	mcpdomain "github.com/sunweilin/anselm/backend/internal/domain/mcp"
+	relationdomain "github.com/sunweilin/anselm/backend/internal/domain/relation"
 	mcpinfra "github.com/sunweilin/anselm/backend/internal/infra/mcp"
 	schemapkg "github.com/sunweilin/anselm/backend/internal/pkg/schema"
 )
@@ -207,6 +208,17 @@ func (t *functionTool) Description() string                 { return t.descripti
 func (t *functionTool) Parameters() json.RawMessage         { return t.params }
 func (t *functionTool) ValidateInput(json.RawMessage) error { return nil } // 实体执行路径自校验
 
+// TouchEntity self-reports the bound entity for the conversation ledger (the loop's marker
+// interface): mounted tools run under the ENTITY'S OWN NAME, so the name-keyed touch catalog
+// cannot know them — and must never guess (a user entity named like a catalog key would
+// mis-extract).
+//
+// TouchEntity 为对话台账自报绑定实体(loop 的标记接口):挂载工具以**实体自己的名字**运行,
+// 按名字键的触碰目录不可能认识它——也绝不能猜(用户实体撞目录键名会被误提取)。
+func (t *functionTool) TouchEntity() (kind, id, name string) {
+	return relationdomain.EntityKindFunction, t.functionID, t.name
+}
+
 func (t *functionTool) Execute(ctx context.Context, argsJSON string) (string, error) {
 	var args map[string]any
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
@@ -271,6 +283,11 @@ type handlerTool struct {
 	name        string
 	description string
 	params      json.RawMessage
+}
+
+// TouchEntity — see functionTool.TouchEntity. TouchEntity——见 functionTool.TouchEntity。
+func (t *handlerTool) TouchEntity() (kind, id, name string) {
+	return relationdomain.EntityKindHandler, t.handlerID, t.name
 }
 
 func (t *handlerTool) Name() string                        { return t.name }
@@ -367,6 +384,13 @@ type mcpTool struct {
 	toolName    string
 	description string
 	params      json.RawMessage
+}
+
+// TouchEntity — see functionTool.TouchEntity; reports the mcp_ id (converging with
+// install_mcp_server's ledger key rather than the short-name fallback).
+// TouchEntity——见 functionTool;报 mcp_ id(与 install_mcp_server 的台账键收敛,不走短名回退)。
+func (t *mcpTool) TouchEntity() (kind, id, name string) {
+	return relationdomain.EntityKindMCP, t.serverID, t.serverName
 }
 
 func (t *mcpTool) Name() string                        { return "mcp__" + t.serverName + "__" + t.toolName }

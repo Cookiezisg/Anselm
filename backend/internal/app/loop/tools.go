@@ -98,12 +98,13 @@ func runOneTool(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallD
 	ctx = reqctxpkg.SetToolCallID(ctx, tc.ID)
 	pcap := &progressCapture{}
 	ctx = withProgressCapture(ctx, pcap)
-	output, errMsg, ok := dispatchWithGate(ctx, t, tc, argsJSON, log)
+	output, errMsg, ok, executed := dispatchWithGate(ctx, t, tc, argsJSON, log)
 
 	status := messagesdomain.StatusCompleted
 	if !ok {
 		status = messagesdomain.StatusError
 	}
+	recordTouches(ctx, t, tc, output, ok && executed)
 
 	em := newEmitter(ctx, log)
 	blockID := idgenpkg.New("blk")
@@ -144,7 +145,15 @@ func runOneTool(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallD
 // 执行——拒绝记为结果使模型改道；ctx 取消（运行中止）记下之。approve / approve_always 落下去执行（approve_always
 // 还会话白名单，使本对话下次对该工具的危险调用跳过门）。active skill 的 allowed-tools 同样预授权（skill
 // 声明它期待的工具，故它有意的危险调用跳过逐次确认）——见 skillPreApproves。
-func dispatchWithGate(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallData, argsJSON []byte, log *zap.Logger) (output, errMsg string, ok bool) {
+// The fourth return (executed) tells the ledger apart from the model: deny / cancel-before-run
+// return ok=true (a smooth "didn't run" RESULT the model reroutes on), yet the tool never
+// executed — recording a touch for it would book a phantom (e.g. a DENIED delete_agent must
+// not produce a `deleted` ledger row).
+//
+// 第四个返回值(executed)把台账与模型区分开:deny / 运行前取消返 ok=true(给模型改道的平滑
+// 「没跑」结果),但工具从未执行——为其记触碰即幽灵账(被**拒绝**的 delete_agent 绝不能产生
+// `deleted` 台账行)。
+func dispatchWithGate(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallData, argsJSON []byte, log *zap.Logger) (output, errMsg string, ok, executed bool) {
 	if b := humanloopapp.From(ctx); b != nil && tc.Danger == string(toolapp.DangerDangerous) {
 		convID, _ := reqctxpkg.GetConversationID(ctx)
 		if !b.IsAllowed(convID, tc.Name) && !skillPreApproves(ctx, tc.Name) {
@@ -157,19 +166,20 @@ func dispatchWithGate(ctx context.Context, t toolapp.Tool, tc messagesdomain.Too
 				Prompt:         prompt,
 			})
 			if err != nil { // ctx cancelled — the run is aborting
-				return "The run was cancelled before this tool ran.", "", true
+				return "The run was cancelled before this tool ran.", "", true, false
 			}
 			// Fail-safe: only an explicit approve runs the tool; deny / an unexpected action does NOT
 			// (a malformed resolve must never execute a dangerous call).
 			//
 			// fail-safe：只有显式 approve 才跑工具；deny / 意外动作都不跑（畸形 resolve 绝不能执行危险调用）。
 			if resp.Action != humanloopapp.DecisionApprove && resp.Action != humanloopapp.DecisionApproveAlways {
-				return humanloopapp.DenyFeedback, "", true
+				return humanloopapp.DenyFeedback, "", true, false
 			}
 			// approve / approve_always → fall through and execute
 		}
 	}
-	return executeTool(ctx, t, tc.Name, argsJSON, log)
+	output, errMsg, ok = executeTool(ctx, t, tc.Name, argsJSON, log)
+	return output, errMsg, ok, true
 }
 
 // skillPreApproves reports whether the run's active skill declared this tool in its allowed-tools.

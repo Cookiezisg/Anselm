@@ -45,6 +45,14 @@ func (f *fakeRelations) PurgeEntity(_ context.Context, kind, id string) error {
 	return nil
 }
 
+// fakeTouchpoints records the ledger cascade. fakeTouchpoints 记录台账级联调用。
+type fakeTouchpoints struct{ purged []string }
+
+func (f *fakeTouchpoints) PurgeConversation(_ context.Context, id string) error {
+	f.purged = append(f.purged, id)
+	return nil
+}
+
 // newSvc wires the Service over a real in-memory store + fakes, so the tests exercise the full
 // app→store→orm stack offline (JSON round-trip, soft-delete, isolation).
 //
@@ -66,6 +74,7 @@ func newSvc(t *testing.T) (*Service, *fakeEmitter, *fakeRelations, context.Conte
 	svc := NewService(conversationstore.New(ormpkg.Open(sqlDB)), em, zap.NewNop())
 	rel := &fakeRelations{}
 	svc.SetRelationSyncer(rel)
+	svc.SetTouchpointPurger(&fakeTouchpoints{})
 	return svc, em, rel, reqctxpkg.SetWorkspaceID(context.Background(), "ws_1")
 }
 
@@ -213,6 +222,9 @@ func TestDelete_EmitsAndPurges(t *testing.T) {
 	}
 	if len(rel.purged) != 1 || rel.purged[0] != "conversation:"+c.ID {
 		t.Errorf("purged = %v", rel.purged)
+	}
+	if tpp, ok := svc.touchpoints.(*fakeTouchpoints); !ok || len(tpp.purged) != 1 || tpp.purged[0] != c.ID {
+		t.Errorf("touchpoint cascade = %+v", svc.touchpoints)
 	}
 	if _, err := svc.Get(ctx, c.ID); !errors.Is(err, conversationdomain.ErrNotFound) {
 		t.Errorf("get after delete = %v, want ErrNotFound", err)

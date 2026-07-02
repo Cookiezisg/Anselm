@@ -27,12 +27,12 @@ func TestDispatchWithGate_SkillPreApproved(t *testing.T) {
 	state.SetActiveSkill("deployer", []string{"deploy"}) // pre-approves "deploy"
 	ctx := humanloopapp.WithBroker(reqctxpkg.WithAgentState(context.Background(), state), broker)
 
-	out, _, ok := dispatchWithGate(ctx, fakeTool{name: "deploy", result: "deployed"}, dangerTC("deploy"), []byte(`{}`), zap.NewNop())
+	out, _, ok, executed := dispatchWithGate(ctx, fakeTool{name: "deploy", result: "deployed"}, dangerTC("deploy"), []byte(`{}`), zap.NewNop())
 	if surfaced != 0 {
 		t.Fatalf("a skill-pre-approved tool must not surface for approval (surfaced %d)", surfaced)
 	}
-	if !ok || out != "deployed" {
-		t.Fatalf("pre-approved dangerous tool should run: out=%q ok=%v", out, ok)
+	if !ok || !executed || out != "deployed" {
+		t.Fatalf("pre-approved dangerous tool should run: out=%q ok=%v executed=%v", out, ok, executed)
 	}
 }
 
@@ -50,11 +50,14 @@ func TestDispatchWithGate_NotPreApprovedGated(t *testing.T) {
 	state.SetActiveSkill("reader", []string{"read_file"}) // does NOT cover "deploy"
 	ctx := humanloopapp.WithBroker(reqctxpkg.WithAgentState(context.Background(), state), broker)
 
-	out, _, ok := dispatchWithGate(ctx, fakeTool{name: "deploy", result: "deployed"}, dangerTC("deploy"), []byte(`{}`), zap.NewNop())
+	out, _, ok, executed := dispatchWithGate(ctx, fakeTool{name: "deploy", result: "deployed"}, dangerTC("deploy"), []byte(`{}`), zap.NewNop())
 	if surfaced != 1 {
 		t.Fatalf("a non-pre-approved dangerous tool must be gated (surfaced %d)", surfaced)
 	}
 	if !ok || out != humanloopapp.DenyFeedback {
 		t.Fatalf("denied tool should not run: out=%q", out)
+	}
+	if executed {
+		t.Fatal("a denied call must report executed=false — the ledger must not book a phantom touch")
 	}
 }

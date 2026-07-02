@@ -22,6 +22,7 @@ import (
 	humanloopapp "github.com/sunweilin/anselm/backend/internal/app/humanloop"
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 	toolsetpkg "github.com/sunweilin/anselm/backend/internal/app/tool/toolset"
+	touchpointapp "github.com/sunweilin/anselm/backend/internal/app/touchpoint"
 	conversationdomain "github.com/sunweilin/anselm/backend/internal/domain/conversation"
 	documentdomain "github.com/sunweilin/anselm/backend/internal/domain/document"
 	mentiondomain "github.com/sunweilin/anselm/backend/internal/domain/mention"
@@ -198,6 +199,7 @@ type Deps struct {
 	Titler         ConversationTitler         // auto-title writer; nil → no auto-titling
 	Notifier       notificationdomain.Emitter // auto-title notification; nil → no notify
 	Compactor      Compactor                  // context compaction; nil → no compaction
+	Touchpoints    *touchpointapp.Service     // conversation context ledger; nil → no touch recording 对话触点台账
 }
 
 // Compactor compacts a conversation when it nears the model's context window (app/contextmgr).
@@ -315,7 +317,8 @@ func (s *Service) Send(ctx context.Context, conversationID string, in SendInput)
 	if len(in.AttachmentIDs) > 0 {
 		attrs[attrAttachments] = in.AttachmentIDs
 	}
-	if snaps := s.resolveMentions(ctx, in.Mentions); len(snaps) > 0 {
+	snaps := s.resolveMentions(ctx, in.Mentions)
+	if len(snaps) > 0 {
 		attrs[attrMentions] = snaps // freeze-on-send: snapshot @-mentioned entities' content now
 	}
 	if len(attrs) > 0 {
@@ -330,6 +333,7 @@ func (s *Service) Send(ctx context.Context, conversationID string, in SendInput)
 	}
 	s.notifySearchMessage(ctx, conversationID, userMsg.ID)
 	s.emitUserMessage(ctx, conversationID, userMsg, in.Content)
+	s.recordSendTouches(ctx, conversationID, userMsg.ID, snaps, in.AttachmentIDs)
 	// Bump recency + clear unread (unread=false): the user is sending, so they have seen the thread —
 	// the touch and the seen-clear ride ONE atomic UPDATE so your own message can never look unread.
 	// Best-effort: a failed touch only mis-sorts the list, it must not fail the turn.

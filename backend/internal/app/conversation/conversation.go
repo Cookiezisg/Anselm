@@ -58,6 +58,10 @@ type Service struct {
 	// relations 是可选 relation 钩子；nil 时禁用边清理、Namer 仍无害。
 	relations RelationSyncer
 
+	// touchpoints is the optional context-ledger hook; nil disables the ledger cascade on delete.
+	// touchpoints 是可选上下文台账钩子；nil 时禁用删除级联。
+	touchpoints TouchpointPurger
+
 	// canceler is the optional generation hook (chatapp, injected post-build like relations):
 	// Delete cancels any in-flight generation so a deleted conversation can't keep burning
 	// tokens and streaming into the void. nil → deletion alone.
@@ -458,6 +462,7 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 	}
 	s.emit(ctx, id, "deleted", nil)
 	s.purgeRelations(ctx, id)
+	s.purgeTouchpoints(ctx, id)
 	return nil
 }
 
