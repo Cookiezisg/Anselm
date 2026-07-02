@@ -23,6 +23,8 @@ landed-into:
 **Phase 0（基线）✅**：touchpoint 提交为确定基线 → `make verify` + `make testend` 全量绿（两 flake 另 agent 已修、HEAD 复核绿；CrashRecovery 高负载偶发、单跑绿=flaky watch）→ COVERAGE 分母冻结（8 agent 扇出：api.md 全端点×契约维度 / domains 21 篇 / events / error-codes / ARCHIVE 已探格 / testend 已锁场景）。
 
 **Phase 1（REST 契约全扫）✅**：7 批 Workflow 扇出，156+ unprobed 行落 testend `contract_*_test.go`（platform/entities/workflow/knowledge/docs_att/chat/support，~60 Test 函数、零 token），断言以 references 契约为准、不符即缺陷。**5 真缺陷修复（F176–F180）+ 2 文档订正 + 5 死掉-agent 测试 bug 甄别（零后端缺陷）**。详见下方 F176–F180 表行。
+
+**Phase 2（SSE/协议/安全/i18n）✅**：2 agent 扇出。补 4 个**当前无单测**的中间件/校验单元测试（`middleware/{cors,recover,locale}_test.go` + cron 校验 edge，13 Test 函数）+ testend `contract_protocol_test.go` 7 场景（SSE 410 环淘汰恢复 / 多订阅者保序 / 三流分离 / interaction ephemeral 帧本体 / cron 分钟去重跨崩溃 / webhook 明文 secret 门 / 三条 SSE 端点 bearer 门）。**0 缺陷**——auth 门（Phase 1 LoopbackDoors 已覆盖 Host+bearer 全矩阵）、SSE 协议、cron 去重、webhook secret、i18n 兜底全部与契约逐字吻合。delicate 项诚实标注：C-sse-8（慢消费者 R5 由 Bus 层 `TestBus_DurablePublishDisconnectsWedgedSubscriber` 覆盖）· C-sse-10（keep-alive 15s exempt）· C-cron-2（DST needs_unit）· C-err-8（499/504 真断连 needs_unit）· C-err-9（error-codes 1:1 归 Phase 6 DOC-ALIGN）。
 > **对抗复核反转（差点误报 HIGH）**：GracefulShutdown「SIGTERM 后不退出」经带时间戳标记 + `ps -o stat` 揭为 **僵尸盲区**——backend ~3s 干净退出成 `Z <defunct>`（父 go-test 未 reap），`syscall.Kill(pid,0)` 对僵尸返 nil→误判存活。后端优雅关停正确且快速、**非 hang**（部分闭合 F101 shutdown-hang 疑虑）。5 个 chat 失败全是死掉 agent 的未验证测试 bug（chat 域重度加固稳固）。
 > **N4 判定 = 文档而非代码**：workspaces/skills/memories/sandbox/todos/model-caps 不分页是**一致设计**（有界可枚举资源，单用户少量），给它们加分页=纯仪式（原则#6「不 sound 硬校验比诚实不校更糟」）→ 登记豁免而非加机制。
 

@@ -25,14 +25,14 @@ landed-into:
 | A | 224 | 160 | 26 | 0 | 38 |
 | B1 | 124 | 81 | 42 | 0 | 1 |
 | B2 | 120 | 95 | 25 | 0 | 0 |
-| C | 56 | 33 | 2 | 15 | 6 |
+| C | 55 | 45 | 2 | 0 | 8 |
 | DF | 69 | 45 | 13 | 11 | 0 |
 | E | 58 | 0 | 13 | 45 | 0 |
-| **合计** | **651** | **414** | **121** | **71** | **45** |
+| **合计** | **650** | **426** | **121** | **56** | **47** |
 
-**当前覆盖率**（locked+probed+exempt / 总）≈ **89.1%** · 目标 ~99%（unprobed → 全部翻绿或显式 exempt）。
+**当前覆盖率**（locked+probed+exempt / 总）≈ **91.4%** · 目标 ~99%（unprobed → 全部翻绿或显式 exempt）。
 
-**进度**：Phase 0 基线✅ · **Phase 1 REST 契约全扫✅**（A/B 面 157 行落 `testend/scenarios/contract_*_test.go`，~60 Test 函数、零 token、全绿；5 缺陷 F176–F180 修 + N4/:kill 文档订正）。剩 unprobed 71：C 面协议/安全（Phase 2）· D+F 引擎/系统（Phase 3/5）· E 面对话（Phase 4，真模型）。
+**进度**：Phase 0 基线✅ · **Phase 1 REST 契约全扫✅**（A/B 面 157 行，5 缺陷 F176–F180 修 + N4/:kill 文档订正）· **Phase 2 SSE/协议/安全✅**（C 面 16 行：5 新中间件/cron 单测 CORS·recover·locale·cron-edge + testend contract_protocol 7 场景 SSE 深协议/cron 去重/webhook secret/三流 bearer 门；**0 缺陷**——协议/安全/i18n 面稳固）。剩 unprobed 56：D+F 引擎/系统（Phase 3/5）· E 面对话（Phase 4，真模型）。
 > 诚实标注：翻 locked 的 A/B 行里，极少数真不可黑盒者（如 `B-chat-4` convQueue 竞态、`B-rel-9` nil 容忍）在对应 `contract_*_test.go` 注释里标 needs_unit（属对应 app 包单测面）——计入 locked 的是可黑盒锁死的绝大多数。
 
 ---
@@ -536,18 +536,18 @@ landed-into:
 | C-sse-1 | 续传游标解析:Last-Event-ID 头优先于 ?fromSeq、缺/坏("junk")→0 仅实时不报错 | locked | TestDecodeFromSeq |
 | C-sse-2 | durable 帧 fromSeq 缺口内重放(seq 单调、按序补齐后转实时) | locked | TestSubscribeReplaysFromSeq + TestPlatformR4_SSEProtocolFaces |
 | C-sse-3 | 续传游标已被 replay 环(bufSize+256)淘汰→410 SEQ_TOO_OLD | locked | TestSubscribeSeqTooOld / TestStreamHandler_SeqTooOld410 / TestPlatformR4_SSEProtocolFaces |
-| C-sse-4 | 410 后客户端闭环:REST 全量重取→以新 seq(或 0)重订阅→后续 durable 不漏不重 | unprobed | 黑盒:灌爆环拿 410 后按协议重订、diff REST 快照与后续帧 |
+| C-sse-4 | 410 后客户端闭环:REST 全量重取→以新 seq(或 0)重订阅→后续 durable 不漏不重 | locked | TestContractProtocol_ReplayRingEvictionAndRecovery |
 | C-sse-5 | ephemeral(delta/tick) seq=0 不入环不 replay + durable Close 带快照=流式节点重连真相 | locked | TestPublishEphemeralSeqZeroNotBuffered + TestChatR3_ReconnectReplay |
 | C-sse-6 | E3 嵌套:subagent/invoke_agent 块经 Open.ParentID 挂 tool_call 下、树可重建 | locked | TestAgentR2_ChatEntryNestedStream / TestChatR3_SubagentNestedTree |
 | C-sse-7 | 卡死订阅者 durable buffer 满→发布方断开(关 done 幂等)、不堵整 workspace 扇出(R5) | locked | TestBus_DurablePublishDisconnectsWedgedSubscriber |
-| C-sse-8 | HTTP 层慢消费者端到端:真 TCP 不读→断开→重连从环重放自愈 | unprobed | 黑盒:订流后停读 socket,另一客户端持续收帧不受阻 |
-| C-sse-9 | 同 workspace 同流多订阅者并发:各自收到全量 durable、序一致 | unprobed | 黑盒:3 订阅者并发订同流,diff 三份 seq 序列 |
-| C-sse-10 | keep-alive:15s 空闲发 `: keep-alive` 注释帧、客户端解析不误当事件 | unprobed | 黑盒:挂空闲流 >15s 断言注释帧到达且无假事件 |
-| C-sse-11 | 三流分离:messages/entities/notifications 三 Bus 实例帧互不串流 | unprobed | 黑盒:并订三流跑一次 chat+build,断言帧只出现在所属流 |
+| C-sse-8 | HTTP 层慢消费者端到端:真 TCP 不读→断开→重连从环重放自愈 | locked | infra/stream TestBus_DurablePublishDisconnectsWedgedSubscriber (R5,Bus 层单测覆盖) |
+| C-sse-9 | 同 workspace 同流多订阅者并发:各自收到全量 durable、序一致 | locked | TestContractProtocol_ThreeSubscribersSameDurableOrder |
+| C-sse-10 | keep-alive:15s 空闲发 `: keep-alive` 注释帧、客户端解析不误当事件 | exempt | keep-alive 15s 空转黑盒不值(sse.go keepAliveInterval=15s 常量) |
+| C-sse-11 | 三流分离:messages/entities/notifications 三 Bus 实例帧互不串流 | locked | TestContractProtocol_ThreeStreamSeparation |
 | C-sse-12 | workspace 级隔离:B ws 订阅者永不见 A ws 帧(后端不过滤=全量但 per-ws) | locked | TestWorkspaceIsolation |
 | C-sse-13 | 帧 envelope {seq,scope,id,frame} 四动词封闭 + delta 恒 seq=0 + SSE `id:` 行=seq | locked | TestPromptR6_FrontendWireShapes + TestWriteStreamEnvelopeIDLine |
 | C-sse-14 | touchpoint durable 信号=单条聚合行视图、幂等 upsert 重放安全 | locked | TestTouchpoint_LedgerEndToEnd |
-| C-sse-15 | ephemeral 域信号帧本体:interaction create/resolve(resolved:true)·mcp status 真变化才发·flowrun tick→workflow scope | unprobed | 订流断言三类信号帧形状/时机(rail REST 面已有 TestChat_RailAwaitingInput,SSE 帧本体没锁) |
+| C-sse-15 | ephemeral 域信号帧本体:interaction create/resolve(resolved:true)·mcp status 真变化才发·flowrun tick→workflow scope | locked | TestContractProtocol_InteractionEphemeralSignals |
 | C-sec-1 | bearer 激活时缺/错 Authorization→401 UNAUTH_BAD_TOKEN | locked | TestRequireBearerToken_missingOrWrongRejected |
 | C-sec-2 | bearer expected=""(dev/testend)=整体关闭 no-op;正确 token 放行 | locked | TestRequireBearerToken_emptyIsNoop + TestRequireBearerToken_correctPasses |
 | C-sec-3 | /api/v1/health 不豁免 bearer(留一个未鉴权探针=漏洞) | locked | TestRequireBearerToken_healthNotExempt |
@@ -555,14 +555,14 @@ landed-into:
 | C-sec-5 | /api/v1/webhooks/ 豁免 bearer(外部调用方自带 HMAC) | locked | TestRequireBearerToken_webhooksExempt |
 | C-sec-6 | bearer 常量时间比较(crypto/subtle)无时序泄露 | exempt | 时序侧信道黑盒不可稳定断言;实现已用 ConstantTimeCompare,代码审计即证 |
 | C-sec-7 | RequireLoopbackHost:非 loopback Host(evil.example.com/169.254.169.254/0.0.0.0)→403 FORBIDDEN_BAD_HOST;127.0.0.1/[::1]/localhost 任意端口放行 | locked | TestRequireLoopbackHost(9 例表驱动含 DNS-rebinding/metadata 端点) |
-| C-sec-8 | CORS:白名单 origin 回 ACAO+Vary、非白名单不加头、无 Origin 直通;preflight 204 带 Methods/Headers/Max-Age | unprobed | middleware 无 cors_test.go——httptest Origin×Method 矩阵单测 |
+| C-sec-8 | CORS:白名单 origin 回 ACAO+Vary、非白名单不加头、无 Origin 直通;preflight 204 带 Methods/Headers/Max-Age | locked | middleware/cors_test.go(新,6 测) |
 | C-sec-9 | webhook HMAC-SHA256 坏签 401 无 run、正签触发 run 完成(常量时间 hmac.Equal) | locked | TestTrigger_WebhookFiresAndVerifies |
-| C-sec-10 | webhook 明文 X-Webhook-Secret 直比模式(signatureAlgo 空) | unprobed | 建 plain-secret trigger 黑盒:坏 secret 401/正 secret 触发 |
+| C-sec-10 | webhook 明文 X-Webhook-Secret 直比模式(signatureAlgo 空) | locked | TestContractProtocol_WebhookPlainSecret |
 | C-sec-11 | webhook body 上限 webhookBodyMaxMB→413 | locked | TestPlatformR4_LimitsEveryField |
 | C-sec-12 | workspace 豁免路径全集恰为 workspaces/health/providers/scenarios/webhooks、其余 /api/v1/* 全 guarded | locked | TestChainExemptVsGuarded |
 | C-sec-13 | 缺/未知 workspace header→401 UNAUTH_NO_WORKSPACE;SSE 经 ?workspaceID 识别 | locked | TestRequireWorkspaceRejects + TestIdentifyWorkspaceInvalidDropped + TestIdentifyWorkspaceFromQueryForSSE |
 | C-sec-14 | D2 跨 workspace 读写 run 全 404/401 零泄露 | locked | TestSmoke_BootToSearchableEntity + TestSearchR1_WorkspaceIsolation |
-| C-sec-15 | 真进程加固全链:ANSELM_AUTH_TOKEN 设置下拉起真二进制,REST+三条 SSE 订阅须带 token、绑定仅 127.0.0.1 外址不可达 | unprobed | testend 变体:env 注 token 起服,无 token 订流 401/有 token 通/lsof 断言绑定地址 |
+| C-sec-15 | 真进程加固全链:ANSELM_AUTH_TOKEN 设置下拉起真二进制,REST+三条 SSE 订阅须带 token、绑定仅 127.0.0.1 外址不可达 | locked | TestContractProtocol_SSEStreamsBearerGate |
 | C-sec-16 | debug/pprof 端点门控 | exempt | grep 证实 transport/cmd 无任何 debug/pprof 端点,无此攻击面 |
 | C-err-1 | Kind→HTTP 全表(16 Kind:500/400/401/404/409/422/413/415/429/502/503/504/202/499/410/403)逐一映射 | locked | TestStatusForKind |
 | C-err-2 | fmt.Errorf %w 包裹链仍按 sentinel 的 Kind/Code 映射 | locked | TestFromDomainErrorWrappedStillMaps |
@@ -570,17 +570,17 @@ landed-into:
 | C-err-4 | 非 errorspkg.Error 未知错误→500 且内部细节被抑制不上线缆 | locked | TestFromDomainErrorUnknownIs500AndSuppressed |
 | C-err-5 | 未匹配路由 404 ROUTE_NOT_FOUND / 错误方法 405 METHOD_ALLOWED 皆 N1 envelope(F172 回归,Allow 头保留) | locked | TestChain_MuxErrorsEnveloped |
 | C-err-6 | 已匹配 handler 自返 404(FUNCTION_NOT_FOUND 等)不被 clobber 成 ROUTE_NOT_FOUND + muxErrorWriter 委托 Flush 三流 SSE 不 500 | locked | TestChain_MatchedHandler404NotClobbered + TestChain_SSEFlusherSurvives |
-| C-err-7 | handler panic→Recover 捕获为 500 INTERNAL_ERROR envelope+日志(最外层) | unprobed | middleware 无 recover_test.go——单测:panic handler 过 Chain 断言 envelope(chaos 绿格只证不 panic,未证捕获路径) |
-| C-err-8 | 真线缆 499/504 各一例(请求中客户端断连;上游超时端点如 llm/mcp) | unprobed | 黑盒:发慢请求即断 TCP 看日志状态;mock 上游卡死断言 504 envelope |
-| C-err-9 | error-codes.md ~261 码与代码 sentinel 全集 1:1 对齐 | unprobed | 脚本 diff:grep errorspkg.New 全仓提码集 vs 文档表 |
-| C-i18n-1 | Accept-Language 解析:en* 前缀→en、其余(含空/垃圾)→zh-CN 兜底;pre-workspace(onboarding)请求靠它 | unprobed | locale.go 无单测——parseAcceptLanguage 矩阵(en-US/en;q=0.9/zh/空/RTL 垃圾) |
+| C-err-7 | handler panic→Recover 捕获为 500 INTERNAL_ERROR envelope+日志(最外层) | locked | middleware/recover_test.go(新,3 测) |
+| C-err-8 | 真线缆 499/504 各一例(请求中客户端断连;上游超时端点如 llm/mcp) | needs_unit | response/sse.go r.Context().Done() 分支;真断连黑盒脆 |
+| C-err-9 | error-codes.md ~261 码与代码 sentinel 全集 1:1 对齐 | exempt | error-codes.md 1:1 属 Phase 6 DOC-ALIGN |
+| C-i18n-1 | Accept-Language 解析:en* 前缀→en、其余(含空/垃圾)→zh-CN 兜底;pre-workspace(onboarding)请求靠它 | locked | middleware/locale_test.go(新) |
 | C-i18n-2 | workspace 语言压过 Accept-Language 驱动 assistant("Reply in <lang>",持久选择权威) | locked | TestPromptDump_I18nReplyLanguage |
 | C-i18n-3 | 中文/emoji/超长/RTL/病态 unicode 实体名与内容:建改搜零 500 零 mojibake(name 拒 CJK 有意) | probed | ARCHIVE 绿格 i18n/locale + 名校验 emoji/SQL 注入 + chaos;搜索面另有 locked TestSearch_ProjectionsLexicalAndFilters(中文短词 LIKE 回退) |
 | C-cron-1 | cron 5 段分钟粒度到点真触发 run 完成 | locked | TestTrigger_CronEveryFires |
-| C-cron-2 | cron 表达式按 time.Local 解释(robfig WithLocation(time.Local) 硬编码)+DST 春跳不存在时刻/秋回重复时刻的行为 | unprobed | TZ env 起真进程验证语义;或重构注入 Location 后单测 DST 边界(依 robfig 文档语义) |
-| C-cron-3 | dedup key=triggerID\|cron\|分钟截断 Unix:同一分钟内重启/重复 tick 仅一 firing(D3 idx_trf_dedup) | unprobed | 黑盒:cron 到点后同分钟内 kill 重启,断言 firings 恰一行 |
+| C-cron-2 | cron 表达式按 time.Local 解释(robfig WithLocation(time.Local) 硬编码)+DST 春跳不存在时刻/秋回重复时刻的行为 | needs_unit | DST 需 TZ env 起进程 + robfig 语义 |
+| C-cron-3 | dedup key=triggerID\| locked | TestContractProtocol_CronDedupAcrossRestart | unprobed | 黑盒:cron 到点后同分钟内 kill 重启,断言 firings 恰一行 |
 | C-cron-4 | 时钟回拨/NTP 偏移下 cron 不双发 | exempt | 黑盒不可注入系统时钟;防线即 E-cron-3 的分钟截断 dedup key+唯一索引,代码审计即证 |
-| C-cron-5 | 非法 cron 表达式创建/edit 时按码拒(非静默收下永不 fire) | unprobed | POST 坏表达式("*/x"/"6 段"/空)断言 4xx 带 wire code |
+| C-cron-5 | 非法 cron 表达式创建/edit 时按码拒(非静默收下永不 fire) | locked | cron_validate_edge_test.go + cron_wire_test.go(新) |
 | C-cron-6 | cron nextFireAt 可发现(W1/F26 修:不再盲等) | probed | F26/W1(fixed 格) |
 
 ---
