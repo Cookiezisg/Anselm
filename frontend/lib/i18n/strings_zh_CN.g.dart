@@ -102,6 +102,7 @@ class _Translations$chat$zh_CN extends Translations$chat$en {
 	@override String get transcriptErrorTitle => 'Couldn\'t load this conversation';
 	@override String get transcriptErrorHint => 'The local engine didn’t return the messages.';
 	@override String get landingGreeting => 'What should we dig into?';
+	@override String get modelAuto => 'Auto';
 }
 
 // Path: status
@@ -645,6 +646,7 @@ extension on TranslationsZhCn {
 			'chat.transcriptErrorTitle' => 'Couldn\'t load this conversation',
 			'chat.transcriptErrorHint' => 'The local engine didn’t return the messages.',
 			'chat.landingGreeting' => 'What should we dig into?',
+			'chat.modelAuto' => 'Auto',
 			'appName' => 'Anselm',
 			'status.idle' => '空闲',
 			'status.run' => '运行中',

@@ -47,7 +47,8 @@
     "stoppedBudget": "Paused — context window is full",
     "transcriptErrorTitle": "Couldn't load this conversation",
     "transcriptErrorHint": "The local engine didn’t return the messages.",
-    "landingGreeting": "What should we dig into?"
+    "landingGreeting": "What should we dig into?",
+    "modelAuto": "Auto"
   },
   "appName": "Anselm",
   "status": {

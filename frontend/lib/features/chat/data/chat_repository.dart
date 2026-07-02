@@ -1,5 +1,6 @@
 import '../../../core/contract/conversation.dart';
 import '../../../core/contract/messages/chat_message.dart';
+import '../../../core/contract/model_capability.dart';
 import '../../../core/contract/page.dart';
 import '../../../core/net/api_client.dart';
 import '../../../core/sse/frame.dart';
@@ -126,6 +127,10 @@ abstract interface class ChatRepository {
   /// The messages-stream 410 resync signal: the buffer evicted past our cursor — drop the live layer,
   /// refetch the durable head, resubscribe-fresh. messages 流 410 重同步信号:丢 live 层、重拉耐久头。
   Stream<void> transcriptResync();
+
+  /// Every runnable model option (`GET /model-capabilities`: probed key × served model) — the head's
+  /// per-thread model picker. 全部可跑模型选项(已探测 key × 模型)——头部线程级选择器的数据源。
+  Future<List<ModelCapability>> listModelCapabilities();
 }
 
 /// The production repository over the Phase-4.0 pipeline. Holds no state; the method is a thin
@@ -247,4 +252,10 @@ class LiveChatRepository implements ChatRepository {
 
   @override
   Stream<void> transcriptResync() => _sse?.resync(StreamName.messages) ?? const Stream.empty();
+
+  @override
+  Future<List<ModelCapability>> listModelCapabilities() async {
+    final page = await _api.getPage('/api/v1/model-capabilities', ModelCapability.fromJson);
+    return page.items;
+  }
 }

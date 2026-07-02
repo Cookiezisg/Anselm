@@ -1,0 +1,65 @@
+import 'dart:async';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/contract/conversation.dart';
+import '../data/chat_providers.dart';
+import '../data/chat_repository.dart';
+import '../data/conversation_signal.dart';
+
+/// The open thread's HEAD state (title + per-thread model override) — one fetch on open, then patched by
+/// the same two paths the rail uses: the initiator's authoritative PATCH response (rename / model set
+/// here) and the notifications lifecycle echo (an `updated`-class signal for THIS id → quiet re-read;
+/// this is exactly how the backend's post-first-turn AUTO-TITLE lands in the head, live, no refresh).
+///
+/// 打开线程的头部状态(标题 + 线程级模型覆写)——打开取一次,随后与 rail 同两条路 patch:发起端权威 PATCH 响应
+/// (此处的改名/选模型)+ notifications 生命周期回声(本 id 的 updated 类信号 → 静默重读;**首回合后的自动命名
+/// 正是走这条路活着落进头部**,零刷新)。
+class ConversationHeaderController extends AsyncNotifier<Conversation> {
+  ConversationHeaderController(this.conversationId);
+
+  final String conversationId;
+  late ChatRepository _repo;
+
+  @override
+  Future<Conversation> build() async {
+    _repo = ref.watch(chatRepositoryProvider);
+    final sub = _repo.lifecycleSignals().listen(_onSignal);
+    ref.onDispose(sub.cancel);
+    return _repo.getConversation(conversationId);
+  }
+
+  Future<void> _onSignal(ConversationSignal s) async {
+    if (!s.durable || s.id != conversationId) return;
+    if (s.action == ConversationAction.deleted) return; // the rail navigates away; nothing to show 删除由 rail 导航走
+    try {
+      final c = await _repo.getConversation(conversationId);
+      if (ref.mounted) state = AsyncData(c);
+    } catch (_) {/* deleted between signal and read — leave the last state 信号与读之间被删,保持现状 */}
+  }
+
+  /// Rename from the head (same PATCH as the rail's ⋯ rename; authoritative response patches state —
+  /// never waits on the echo). 头部改名(同 rail PATCH;权威响应即 patch,不等回声)。
+  Future<void> rename(String title) async {
+    final trimmed = title.trim();
+    final current = state.value;
+    if (trimmed.isEmpty || current == null || trimmed == current.title) return;
+    final updated = await _repo.renameConversation(conversationId, trimmed);
+    if (ref.mounted) state = AsyncData(updated);
+  }
+
+  /// Set / clear the per-thread model (tristate PATCH). 设/清线程级模型(三态 PATCH)。
+  Future<void> setModel(({String apiKeyId, String modelId})? refValue) async {
+    final updated = await _repo.setModelOverride(conversationId, refValue);
+    if (ref.mounted) state = AsyncData(updated);
+  }
+}
+
+final conversationHeaderProvider = AsyncNotifierProvider.autoDispose
+    .family<ConversationHeaderController, Conversation, String>(ConversationHeaderController.new);
+
+/// The model picker's options — fetched once per session (capabilities change only when keys change;
+/// a stale list self-heals on next app run, acceptable for v1). 选择器选项(会话期取一次;key 变更后下次启动自愈)。
+final modelCapabilitiesProvider = FutureProvider((ref) async {
+  return ref.watch(chatRepositoryProvider).listModelCapabilities();
+});

@@ -181,6 +181,9 @@ class Translations$chat$en {
 
 	/// en: 'What should we dig into?'
 	String get landingGreeting => 'What should we dig into?';
+
+	/// en: 'Auto'
+	String get modelAuto => 'Auto';
 }
 
 // Path: status
@@ -1176,6 +1179,7 @@ extension on Translations {
 			'chat.transcriptErrorTitle' => 'Couldn\'t load this conversation',
 			'chat.transcriptErrorHint' => 'The local engine didn’t return the messages.',
 			'chat.landingGreeting' => 'What should we dig into?',
+			'chat.modelAuto' => 'Auto',
 			'appName' => 'Anselm',
 			'status.idle' => 'Idle',
 			'status.run' => 'Running',

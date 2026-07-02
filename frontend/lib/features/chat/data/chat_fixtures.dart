@@ -2,6 +2,7 @@ import 'dart:async';
 
 import '../../../core/contract/conversation.dart';
 import '../../../core/contract/messages/chat_message.dart';
+import '../../../core/contract/model_capability.dart';
 import '../../../core/contract/page.dart';
 import '../../../core/sse/frame.dart';
 import 'chat_repository.dart';
@@ -235,6 +236,12 @@ class FixtureChatRepository implements ChatRepository {
   /// 向某会话的帧流脚本化推一帧(demo 假流式 + 测试)。
   void emitFrame(String conversationId, StreamEnvelope envelope) =>
       (_frames[conversationId] ??= StreamController<StreamEnvelope>.broadcast()).add(envelope);
+
+  /// Seedable picker options. 可种的选择器选项。
+  List<ModelCapability> capabilities = const [];
+
+  @override
+  Future<List<ModelCapability>> listModelCapabilities() async => capabilities;
 
   @override
   Stream<void> transcriptResync() => _resync.stream;

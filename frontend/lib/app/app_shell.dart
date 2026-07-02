@@ -9,6 +9,7 @@ import '../core/shell/oceans.dart';
 import '../core/shell/shell_chrome.dart';
 import '../core/ui/ui.dart';
 import '../features/chat/state/selected_conversation.dart';
+import '../features/chat/ui/chat_head.dart';
 import '../features/chat/ui/chat_ocean.dart';
 import '../features/chat/ui/conversation_rail.dart';
 import '../features/entities/state/run/right_panel.dart';
@@ -170,7 +171,7 @@ class AppShell extends ConsumerWidget {
         leftWidth: chrome.leftWidth,
         onToggleLeft: toggleLeft,
         onLeftWidthCommitted: (w) => ref.read(shellChromeProvider.notifier).setLeftWidth(w),
-        head: const OceanBreadcrumb(),
+        head: onChat ? const ChatHead() : const OceanBreadcrumb(),
         // titlebarHeight defaults to AnSize.titlebar (lights-centering band, real-run verified). 用默认带高。
         onToggleRight: hasSelection ? toggleRight : null,
       ),

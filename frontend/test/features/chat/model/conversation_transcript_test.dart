@@ -1,4 +1,3 @@
-import 'package:anselm/core/contract/messages/block_content.dart';
 import 'package:anselm/core/contract/messages/chat_message.dart';
 import 'package:anselm/core/sse/frame.dart';
 import 'package:anselm/features/chat/model/conversation_transcript.dart';
