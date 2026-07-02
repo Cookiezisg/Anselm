@@ -99,6 +99,13 @@ void main() {
       expect(types[1].rows.last.meta, '2026/6/1');
     });
 
+    test('an un-titled thread falls back to the New-chat label — a row never renders blank', () {
+      final at = DateTime(2026, 6, 26, 9);
+      final untitled = Conversation(id: 'cv_u', title: '  ', createdAt: at, updatedAt: at, lastMessageAt: at);
+      final types = buildConversationRailModel([untitled], now: _now, labels: _labels).groups.single.types;
+      expect(types.single.rows.single.label, 'New'); // labels.newLabel
+    });
+
     test('no pinned → only the Recents section', () {
       final types =
           buildConversationRailModel([_cAt('cv_a', _now)], now: _now, labels: _labels).groups.single.types;

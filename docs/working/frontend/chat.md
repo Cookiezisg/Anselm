@@ -40,41 +40,44 @@ audience: [human, ai]
 
 ---
 
-## B. 中心海洋 —— ⏳ 下一步(主战场)
+## B. 中心海洋 —— ✅ 纯聊天骨干已落(切片①–⑧,真后端免费模型端到端亲测);tool 卡/人在环/右岛 ⏳ 待建
 
-rail 选中/新建后,中心要长出**对话正文 + 输入**。这块从零建,是 chat 的核心。
+> **建法(2026-07,用户拍板)**:视觉阶梯 **V0–V8 逐模块 gallery-first 锁死长相再组装**。**模块已锁**:V0 `AnComposer`(发送框原语+完整转场动效,`b8f2f7a4`+`5ca606b5`)· V1 `ChatTurn`(回合韵律:用户泡/助手裸 + `surfaceSunken` token,`e688d7f2`)· V2 `ChatThinking`(推理块「低语+流窗」完整生命线 + `AnShimmerText` 流光原语,`78b30c79`)+ `AnMarkdown`(`a157dec9`)· **V7-transcript 半(用户泡完整体)**:`AnAttachmentCard`/`AnAttachmentThumb` + `UserTurnContent`(附件在上、提及 `AnRefPill` 内联、文本在下;五态降级诚实)。**待建**:V3 tool_call chassis → V4 tool_result 三形状 → V5 特殊块 → V6 人在环卡(interaction 重连补拉硬需求)→ V8 右岛 entity-workspace(须深读 demo 再定)→ V7-composer 半(上传流/预览条/@ picker)。
 
-> **建法已改(2026-07,用户拍板)**:视觉阶梯 **V0–V8 逐模块 gallery-first 锁死长相再组装**(用户对着 gallery 看,不管内部联调)。**已落**:V0 `AnComposer`(发送框原语+完整转场动效,`b8f2f7a4`+`5ca606b5`)· V1 `ChatTurn`(回合韵律:用户泡/助手裸 + `surfaceSunken` token,`e688d7f2`)· V2 `ChatThinking`(推理块「低语+流窗」完整生命线 + `AnShimmerText` 流光原语,`78b30c79`)+ `AnMarkdown`(`a157dec9`)· **V7-transcript 半(用户泡完整体)**:`AnAttachmentCard`/`AnAttachmentThumb` 原语 + `UserTurnContent` 组装(附件图瓦片/文件卡在上、提及 `AnRefPill` 内联[无服务端 offset,`resolveMentionSegments` 消耗式推位、冻结名显示、点按派活体 {kind,id} 供后续右岛]、文本在下;五态降级诚实;图字节仅 loopback `GET /attachments/{id}/content`)。**V7-composer 半留待接线**(上传流/预览条/@ picker,同原语复用保发送前后一致)。待建:V3 tool_call chassis → V4 tool_result 三形状 → V5 特殊块 → V6 人在环卡 → V8 右岛;组装(transcript 管道/附件解析器/BuildSpy/滚动器)在模块锁完后进行。
+### B.1 已落形态(纯聊天组装,切片①–⑧)
 
-### B.1 计划面(从 New 起头)
+- **契约+数据缝**:`core/contract/messages/chat_message.dart`(REST `ChatMessage`/`ChatBlock`)+ `ModelRef`(conversation `modelOverride` 三态)+ `ModelCapability`;`ChatRepository` 扩 transcript 面(`createConversation`/`listMessages`/`sendMessage`/`cancelTurn`/`markSeen`/`setModelOverride`/`conversationFrames`/`transcriptResync`/`listModelCapabilities`),Live/Fixture 双实现。
+- **合并模型** `ConversationTranscript`(`features/chat/model/`,纯 Dart 可单测):**三层** settled(终态水化)/ live(`BlockTreeReducer` 流式,永不升层)/ pending(乐观回声 FIFO 对账,线上无 nonce);**未完回合种子**——REST 头页的非终态尾巴以合成帧种进 live,流续写不孤儿;echo close 快照会整写 content → `_echoMentions` 每耐久帧后重并(测试抓到的真 bug)。
+- **流控制器** `ConversationStreamController`(autoDispose family):订阅→预置缓冲→水化→放帧;`late CoalescingNotifier` 每 build 重建;`send`/`retrySend`/`discardFailed`/`cancelTurn`/`loadOlder`(flag try/catch 复位);`_onResync` 重缓冲+dropLive+重水化;`_syncPin` 在飞时 keepAlive 钉活;`:seen` 仅当前选区(水化 + 助手耐久 close 两处)。
+- **transcript 视图**(`chat_transcript.dart`):**CustomScrollView + center 锚**——老页填锚上 sliver(负偏移向上长,**prepend 零位移**),头页+live+pending 填锚下(向 max 长,上翻阅读者不被推);**dock 语义**:锚下超屏 → 贴 max(逐 tick 跟随);未满屏 → **钉 min**(露出锚上让头 padding,首行永不被浮层头盖——E2E 抓到的真 bug,修于同切片);上滑解钉、发送重钉。终态行**身份缓存**(同实例短路 element 重建)= L3 等价;`TranscriptProbe` BuildSpy 门禁(200 deltas:页 0 / settled 行 0 / 叶≤1/帧)。块派发:text→`AnMarkdown` · reasoning→`ChatThinking` · tool_call→占位(V3 前)· 非 end_turn 终态→诚实横幅(cancelled/error[码+文案]/max_steps/budget)。
+- **composer 接线**(`chat_composer.dart`):Enter 发 / Shift+Enter 换行 / IME composing 守卫 / 生成中 Enter 吞;docked 态随 `hasInFlight` 在 send↔stop 间切;草稿 per-thread(`chatDraftsProvider`,成功即清);landing 失败留文本 + toast。
+- **landing + New 懒建**:无选区 → `_ChatLanding`(打字机问候 + 浮起 composer);首句 `startConversation`(POST 空题会话 → 新 controller 发送,keepAlive 跨导航持住)→ `context.go` 进线程;rail 行由 notifications `created` 信号长出。
+- **浮层头**(`chat_head.dart` + `conversation_header.dart`):标题就地改名(`AnInlineEdit`,同 rail PATCH)+ **模型菜单**(`GET /model-capabilities`;Auto=清覆写走 workspace 对话默认;PATCH `modelOverride` 三态)+ 生成中蓝点;**自动命名活着落**——header controller 听 lifecycleSignals(durable+本 id)静默重读,rail 行同信号重读,**完成瞬间双落、无需刷新**(真机已验)。
+- **rail 空标题回落**:未命名线程(建完未命名/命名失败)rail 行回落「New chat」(与头一词),行绝不空白(E2E 抓到的真 bug)。
+- **demo 脚本流式**:`DemoChatRepository.sendMessage` 经与真网关同一帧缝回放 回声→thinking deltas→text deltas→close(~4s),流中 Stop 落诚实 cancelled;种子会话铺满已锁模块。`make demo` 零后端全闭环。
 
-1. **New 懒建**:点「新对话」→ 进**空 landing**(composer,ChatGPT 式),**首句才真建**(POST 会话 + 自动标题),rail 原地不跳。这步把中心海洋 + composer 起头。
-2. **对话正文 transcript**:历史水化(REST `Message.blocks[]` → `BlockNode`)+ 实时流式(messages SSE)经 **`BlockTreeReducer`**(已有,run 终端共用)折块树渲染。
-3. **markdown 渲染**(决策①)✅:`AnMarkdown`(core/ui,`gpt_markdown 1.1.7` token 锁定门面、版本钉死)——bold→w400 组件替换(包默认在钉轴 VF 上渲 w300,两档字重是功能必需)· 标题降档 20/16/13 · 围栏→`AnCodeEditor` 只读(唯一高亮源)· 表→AnThinTable · 链接 scheme 闸+宿主回调、永不自动开 · 图不取网 · HTML/`(x)` 惰性 · LaTeX 关;流式 text 纯 prop、未闭合围栏乐观渲染(接 transcript 时**必经 `CoalescingNotifier`**)。12 专项测试 + gallery 五电池。
-4. **人在环确认卡**(决策③):危险/ask = **内联确认卡**(非模态);turnEnd Continue 后端无 resume → 诚实发续跑消息。
-5. **右岛 entity-workspace**(决策②):随对话「长出」(touchedEntities + Todo + Subagent + picker,active 跟最新)。**右岛内容须深读 demo `features/chat` 再定**(用户明确要认真参考 demo)。
+### B.2 端到端实证(2026-07-02,真后端 + 免费模型,cliclick 亲测)
 
-### B.2 后端契约要点(建前必扇出详读)
+`make server`(:8742)+ 真 app(`ANSELM_BACKEND_URL`):workspace 冷启动自建 + **免费档自动开通**(managed key `anselm`/`deepseek-v4-flash`)→ landing 首发懒建 → **无默认模型时诚实错误横幅**(`LLM_RESOLVE_ERROR · no model configured for scenario`)→ 设 dialogue 默认后**真流式全程**(thinking 流光→流窗→thought 收起;正文 token 级贴底跟随;未闭合 markdown 乐观渲)→ **自动命名走 utility scenario**(只设 dialogue 不够——rail+head 完成瞬间活着双落)→ 流中 Stop 落 `cancelled` + 半截保留 + Stopped 横幅 → 杀 app 重启 transcript/标题/横幅全量恢复。**E2E 揪出并同切片修复 2 真 bug**:未满屏首行被浮层头盖(dock-to-min 修)· rail 空标题空白行(New chat 回落修)。
 
-- **messages SSE** 唯一 scope = `conversation:<id>`;**耐久判据 = `seq>0`**(不看帧动词)。
-- **interaction 是 `seq=0` ephemeral** → 重连**必拉 `GET .../interactions`** 否则 turn 永久阻塞(**硬需求**);无「resolved」帧(靠 tool_result 流入关确认卡)。
-- markdown 渲染器已落(`AnMarkdown`,见 B.1-3)。
+### B.3 后端契约要点(后续 V3–V8 建前仍必读)
+
+- **messages SSE** 唯一 scope = `conversation:<id>`;**耐久判据 = `seq>0`**(不看帧动词);用户回声 close 带内联 content+attachmentIds、**不带 mentions**(本地快照并入)。
+- **interaction 是 `seq=0` ephemeral** → 重连**必拉 `GET .../interactions`** 否则 turn 永久阻塞(**硬需求**,V6 落);无「resolved」帧(靠 tool_result 流入关确认卡)。
 - 块型:后端 **6 持久块 + `message` + `unknown` + 第 9 非块 `interaction` 信号**;demo 的 `todo`/`turnEnd`/「3.5s 自动批准」与后端不符,**勿造**(human-loop 无超时/无自动批准)。
+- **自动命名 = utility scenario**(非 dialogue):free-tier 开通只建 key、**不设默认模型**(consent 门);app 首启需引导设 dialogue+utility 两个默认(平台 backlog,见 WRK-042)。
 
-### B.3 🔥 流式渲染性能纪律(B 阶段真落地处)
+### B.4 🔥 流式渲染性能纪律(已落实)
 
-中心海洋是流式 firehose——**绝不整页重绘**靠 7 层 AND(详见 [[chat-4.2-plan]] 记忆全文):
-
-- **L0–L2 原语 4.0 已建**:网关 demux(订阅者只拿自己帧、禁逐帧 `.where`)· ephemeral/durable 分流(seq=0 瞬时 holder / seq>0 patch 缓存)· **每帧合并器** `CoalescingNotifier`(`_flushScheduled` 守一帧 ≤1 notify,几百帧/秒 → ≤1 重建/帧)。
-- **L3–L6 本阶段写**:L3 family provider per blockId · L4 叶子 `.select` slice · L5 叶子 `Consumer`+`ValueListenable`+`RepaintBoundary`(**页面 `const` StatelessWidget 建 `ListView.builder`、绝不 watch 流**)· L6 `ListView.builder` 虚拟化 + 稳定 `ValueKey` + **`reverse:true`**(底部增长)。
+- **L0–L2 原语 4.0**:网关 demux · ephemeral/durable 分流 · `CoalescingNotifier`(一帧 ≤1 notify)。
+- **L3–L6 已落的等价形**:终态行身份缓存(= per-block provider 的目的:settled 零重建)· live 回合逐 tick 新建但只它一个 · `RepaintBoundary` 于行 · CustomScrollView 懒 sliver。**门禁红绿证明**:`BuildSpy` 200 帧断言 页==0 / settled 行==0 / 叶≤1/帧,入 `make fe-verify`。
 - **禁** A1–A6:页面 watch 整流 · 叶子不 select · 逐帧 where · 一 token 一 notify · ephemeral 灌 durable · helper 函数建行。
-- **性能门禁** `make fe-verify`:`BuildSpy` 灌 200 帧 + `pump()`,断言 **叶子≈190 / 行≤1 / 页面==0** + durable 进缓存。= 「绝不整页重绘」红绿证明。
 
 ---
 
 ## C. 跨阶段决策 + 咬人的坑(durable,移植/续建必读)
 
-- **`ListView reverse:true` 是滚动 bug 的根治**(backup 对抗复审 `waium6gnb` 10 confirmed):正向 ListView + 手动 offset 数学是一族 bug 的根(切会话误翻 / prepend 早一帧失效 / 变高行估高);reverse 令贴底+保位**布局自带**。短会话底贴(WhatsApp 流派,与底部 composer 衔接)。
+- **滚动根治 = CustomScrollView + center 锚**(取代 backup 时代的 `reverse:true` 结论):老页在锚上负偏移向上长(**prepend 零位移、无 offset 数学**),live 在锚下向 max 长(上翻阅读者不被流式推);贴底是**显式跟随**(钉住时逐 tick 跳 dock 目标,上滑解钉、发送重钉)。dock 目标 = 超屏贴 max、未满屏钉 min(锚定列表初始停锚上、首行会被浮层头盖——min 才露出锚上让头 padding)。`reverse:true` 的旧结论只对正向 ListView + 手动 offset 成立,center 锚同样布局自带保位且不引入 reverse 的语序反转。
 - **`CoalescingNotifier` 持有者必须每 build 重建**一只 + build 域 onDispose 释放(Riverpod onDispose 重建时也触发,`final` 实例释放后仍被 ValueListenableBuilder 绑 = 冻结/崩);用 `late` 重建。
 - **async 分页 flag 须 try/finally 复位**(`_loadingOlder`),否则瞬时错误/410 抢占永卡。
 - **interaction 重连补拉**(B.2)是硬需求,别漏。
@@ -83,14 +86,11 @@ rail 选中/新建后,中心要长出**对话正文 + 输入**。这块从零建
 
 ---
 
-## 建造顺序(B 阶段,照 entities 拓扑 + 流水线 7 步)
+## 建造顺序
 
-> rail STEP 0–7 ✅。以下为中心海洋:每步 扇出读后端 → best-practice → 本文档加 STEP 规范 → 你拍板 → gallery-first → 建 → 五电池 → 真机截图。
+> rail STEP 0–7 ✅;纯聊天骨干切片①–⑧ ✅(契约缝→管道→视图滚动→composer→landing→头→点灯→端到端,B.1/B.2)。剩余按视觉阶梯:
 
-1. **New 懒建 + composer + landing**(起中心海洋骨架)
-2. **transcript 水化 + 流式合并**(BlockTreeReducer 接历史 + messages 流;L3–L6 叶子 + BuildSpy 门禁)
-3. **markdown 渲染**(gpt_markdown + AnCodeSurface,gallery 先行)
-4. **人在环 surface**(内联确认卡 + interaction 重连补拉)
-5. **右岛 entity-workspace**(深读 demo 后定)
-6. **两流活态接线 + 重连对账**(messages + notifications;rail 跨客户端合并并入此)
-7. **五电池 + 真机端到端**
+1. **V3 tool_call chassis → V4 tool_result 三形状 → V5 特殊块**(gallery-first 锁长相再接 transcript 派发)
+2. **V6 人在环卡**(内联确认卡 + interaction 重连补拉硬需求)
+3. **V8 右岛 entity-workspace**(深读 demo 后定)+ V7-composer 半(上传流/预览条/@ picker)
+4. **每步照流水线**:扇出读后端 → best-practice → 规范 → 拍板 → gallery → 建 → 五电池 → 真机截图

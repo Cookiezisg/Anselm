@@ -129,6 +129,24 @@ void main() {
     expect(find.textContaining('第一段,更多', findRichText: true), findsOneWidget);
   });
 
+  testWidgets('shorter-than-a-screen content docks to MIN — the first row clears the floating head',
+      (tester) async {
+    // One short turn: the anchored list would park pixels at 0 (first row under the head); the dock
+    // must land on minScrollExtent, revealing the head-clearing padding above the anchor.
+    // 一条短回合:锚定列表默认停 0(首行被头盖);dock 应落 min、露出锚上让头 padding。
+    final repo = _repo(messages: {
+      'cv_1': [_turn('msg_u', 'user', blocks: [_blk('bu', 'text', '短问题')])],
+    });
+    await tester.pumpWidget(_host(repo));
+    await tester.pump();
+    await _settle(tester);
+
+    final pos = tester.state<ScrollableState>(find.byType(Scrollable).first).position;
+    expect(pos.maxScrollExtent, 0); // not a screenful below the anchor 锚下未满屏
+    expect(pos.minScrollExtent, lessThan(0)); // the head-clearing padding 让头 padding
+    expect(pos.pixels, pos.minScrollExtent); // docked to the top 钉顶
+  });
+
   testWidgets('BuildSpy gate: 200 streamed deltas rebuild ONLY the live leaf (page 0, settled rows 0)',
       (tester) async {
     final repo = _repo(messages: {

@@ -106,9 +106,11 @@ SidebarModel buildConversationRailModel(
 }) {
   // showTime/showCount are the ⚙ "show time" / "show counts" toggles: a null meta/count renders nothing
   // (AnRow omits the trailing time; the section head omits the count). showTime/showCount = ⚙ 开关:meta/count 为 null 则不渲。
+  // An un-titled thread (created, auto-title pending or failed) falls back to the same "New chat" word
+  // the head uses — a rail row must never render blank. 未命名线程回落「New chat」(与头一致),行绝不空白。
   SidebarRow toRow(Conversation c) => SidebarRow(
         id: c.id,
-        label: c.title,
+        label: c.title.trim().isEmpty ? labels.newLabel : c.title,
         meta: showTime ? conversationTimeLabel(c.lastMessageAt, now, labels.time) : null,
         dot: conversationDot(c),
       );

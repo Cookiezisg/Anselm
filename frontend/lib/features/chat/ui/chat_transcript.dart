@@ -139,16 +139,25 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
     }
   }
 
+  // The dock target. A center-anchored list starts AT the anchor (pixels 0 = the first head row), which
+  // parks the first turn UNDER the floating head while the content is shorter than a screen — the
+  // head-clearing padding lives above the anchor at negative offsets. So: content overflowing below the
+  // anchor → dock to max (stick-to-bottom); shorter → dock to MIN, which reveals that padding and seats
+  // the first row below the head. 锚定列表初始停在锚上(首行被浮层头盖):超屏贴 max;未满屏钉 min 露出锚上让头 padding。
+  double _dockTarget(ScrollPosition pos) =>
+      pos.maxScrollExtent > 0 ? pos.maxScrollExtent : pos.minScrollExtent;
+
   void _jumpToBottom() {
     if (!mounted || !_scroll.hasClients) return;
     final pos = _scroll.position;
-    if (pos.pixels < pos.maxScrollExtent) _scroll.jumpTo(pos.maxScrollExtent);
+    final target = _dockTarget(pos);
+    if (pos.pixels != target) _scroll.jumpTo(target);
   }
 
   void _onScroll() {
     if (!_scroll.hasClients) return;
     final pos = _scroll.position;
-    _pinned = pos.maxScrollExtent - pos.pixels <= _pinSlack;
+    _pinned = _dockTarget(pos) - pos.pixels <= _pinSlack;
     if (pos.pixels - pos.minScrollExtent <= _loadOlderSlack) {
       // Guarded inside the controller (cursor/loading/hasMore). 控制器内自守。
       ref.read(conversationStreamProvider(widget.conversationId).notifier).loadOlder();
