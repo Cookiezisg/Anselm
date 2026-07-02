@@ -3,6 +3,7 @@ import 'package:anselm/features/chat/data/chat_fixtures.dart';
 import 'package:anselm/features/chat/data/chat_providers.dart';
 import 'package:anselm/features/chat/data/chat_repository.dart';
 import 'package:anselm/features/chat/data/conversation_signal.dart';
+import 'package:anselm/features/chat/data/turn_signal.dart';
 import 'package:anselm/features/chat/state/conversation_list_provider.dart';
 import 'package:anselm/features/chat/state/title_reveals.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -132,6 +133,57 @@ void main() {
     c.read(conversationListProvider.notifier).applyUpdate(_c('cv_a', 'A', archived: true));
     final rows = c.read(conversationListProvider).value!.rows;
     expect(rows.single.archived, true);
+  });
+
+  test('a turn pulse debounces into ONE row re-read — the dots flip from the DB row', () async {
+    final repo = FixtureChatRepository(conversations: [_c('cv_a', 'A')]);
+    final c = _container(repo);
+    await c.read(conversationListProvider.future);
+    expect(c.read(conversationListProvider).value!.rows.single.isGenerating, isFalse);
+
+    // The turn starts server-side; the burst (echo close + assistant open) sends TWO signals.
+    // 服务端回合开始;边界簇发两条信号。
+    repo.upsert(Conversation(
+        id: 'cv_a', title: 'A', isGenerating: true,
+        createdAt: _at(9), updatedAt: _at(9), lastMessageAt: _at(9)));
+    repo.emitTurnSignal('cv_a', TurnSignalKind.turnOpen);
+    repo.emitTurnSignal('cv_a', TurnSignalKind.turnOpen);
+    await Future<void>.delayed(const Duration(milliseconds: 400)); // debounce 防抖窗
+    expect(c.read(conversationListProvider).value!.rows.single.isGenerating, isTrue); // blue on 蓝亮
+
+    // Terminal: generating off, unread on (green). 终态:蓝灭绿亮。
+    repo.upsert(Conversation(
+        id: 'cv_a', title: 'A', isGenerating: false, hasUnread: true,
+        createdAt: _at(9), updatedAt: _at(9), lastMessageAt: _at(9)));
+    repo.emitTurnSignal('cv_a', TurnSignalKind.turnClose);
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    final row = c.read(conversationListProvider).value!.rows.single;
+    expect(row.isGenerating, isFalse);
+    expect(row.hasUnread, isTrue);
+  });
+
+  test('markSeenLocal squashes the green idempotently (the :seen race guard)', () async {
+    final repo = FixtureChatRepository(conversations: [
+      Conversation(id: 'cv_a', title: 'A', hasUnread: true,
+          createdAt: _at(9), updatedAt: _at(9), lastMessageAt: _at(9)),
+    ]);
+    final c = _container(repo);
+    await c.read(conversationListProvider.future);
+    final n = c.read(conversationListProvider.notifier);
+    n.markSeenLocal('cv_a');
+    expect(c.read(conversationListProvider).value!.rows.single.hasUnread, isFalse);
+    n.markSeenLocal('cv_a'); // idempotent 幂等
+    n.markSeenLocal('cv_missing'); // absent row no-op 缺行不动
+    expect(c.read(conversationListProvider).value!.rows.single.hasUnread, isFalse);
+  });
+
+  test('a pulse for a deleted conversation is silent (the lifecycle signal owns the drop)', () async {
+    final repo = FixtureChatRepository(conversations: [_c('cv_a', 'A')]);
+    final c = _container(repo);
+    await c.read(conversationListProvider.future);
+    repo.emitTurnSignal('cv_gone', TurnSignalKind.turnClose); // 404 on re-read 重读 404
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    expect(c.read(conversationListProvider).value!.rows, hasLength(1)); // untouched 不动
   });
 
   test('a FRESH auto-title (empty→non-empty + autoTitled) queues the typewriter reveal', () async {

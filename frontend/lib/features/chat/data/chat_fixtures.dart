@@ -8,6 +8,7 @@ import '../../../core/contract/page.dart';
 import '../../../core/sse/frame.dart';
 import 'chat_repository.dart';
 import 'conversation_signal.dart';
+import 'turn_signal.dart';
 
 /// In-memory, scriptable [ChatRepository] — the SINGLE seam the whole Chat feature is driven by in
 /// gallery / widget / provider tests and the zero-backend demo (mirrors [FixtureEntityRepository]). It
@@ -278,6 +279,17 @@ class FixtureChatRepository implements ChatRepository {
   /// Push a lifecycle signal to subscribers (the list notifier). 向订阅者(list notifier)推一条生命周期信号。
   void emitSignal(ConversationSignal signal) => _lazySignals.add(signal);
 
+  StreamController<TurnSignal>? _turnSignals;
+  StreamController<TurnSignal> get _lazyTurnSignals =>
+      _turnSignals ??= StreamController<TurnSignal>.broadcast();
+
+  @override
+  Stream<TurnSignal> turnSignals() => _lazyTurnSignals.stream;
+
+  /// Script a turn-lifecycle signal (the rail dots' realtime feed). 脚本化回合生命周期信号(活态点实时源)。
+  void emitTurnSignal(String conversationId, TurnSignalKind kind) =>
+      _lazyTurnSignals.add((conversationId: conversationId, kind: kind));
+
   /// Uploaded attachments in order; [failNextUpload] scripts the failed-chip path. 上传记录+失败脚本。
   final List<({String id, String filename, String? mimeType, int size})> uploads = [];
   final List<String> deletedAttachments = [];
@@ -336,6 +348,7 @@ class FixtureChatRepository implements ChatRepository {
 
   Future<void> dispose() async {
     await _signals?.close();
+    await _turnSignals?.close();
     await _resync.close();
     for (final c in _frames.values) {
       await c.close();

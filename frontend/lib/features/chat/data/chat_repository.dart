@@ -9,6 +9,7 @@ import '../../../core/net/api_client.dart';
 import '../../../core/sse/frame.dart';
 import '../../../core/sse/sse_gateway.dart';
 import 'conversation_signal.dart';
+import 'turn_signal.dart';
 
 /// How the conversation list is ordered. Mirrors the backend's three sort values exactly (a sealed
 /// closed set — the rail's sort menu offers only these). [wire] is the `?sort=` query value.
@@ -150,6 +151,15 @@ abstract interface class ChatRepository {
   /// The messages-stream 410 resync signal: the buffer evicted past our cursor — drop the live layer,
   /// refetch the durable head, resubscribe-fresh. messages 流 410 重同步信号:丢 live 层、重拉耐久头。
   Stream<void> transcriptResync();
+
+  /// Workspace-wide TURN lifecycle for the rail's activity dots: durable top-level `message`
+  /// open/close + `interaction` signals from the messages stream (E1: unfiltered, client-filtered).
+  /// The row re-read this drives is the ONLY realtime path for isGenerating / awaitingInput /
+  /// hasUnread — the backend emits NO notifications event at turn terminals by design.
+  /// workspace 级回合生命周期(rail 活态点):messages 流的顶层 message open/close + interaction 信号。
+  /// 由此驱动的单行重读是 isGenerating/awaitingInput/hasUnread 唯一实时通路——后端设计上回合终态
+  /// **不发** notifications 事件。
+  Stream<TurnSignal> turnSignals();
 
   /// Every runnable model option (`GET /model-capabilities`: probed key × served model) — the head's
   /// per-thread model picker. 全部可跑模型选项(已探测 key × 模型)——头部线程级选择器的数据源。
@@ -301,6 +311,20 @@ class LiveChatRepository implements ChatRepository {
 
   @override
   Stream<void> transcriptResync() => _sse?.resync(StreamName.messages) ?? const Stream.empty();
+
+  @override
+  Stream<TurnSignal> turnSignals() {
+    final sse = _sse;
+    if (sse == null) return const Stream.empty();
+    // The RAW workspace feed (deltas included) through a PURE O(1) mapper — demux-layer discipline:
+    // per-frame constant work lives here, never in a Riverpod build (the deltas die in the mapper).
+    // RAW 全量 feed 过纯 O(1) 映射——demux 层纪律:逐帧常数功在此、绝不进 build(delta 死在映射里)。
+    return sse
+        .rawStream(StreamName.messages)
+        .map(turnSignalFromEnvelope)
+        .where((s) => s != null)
+        .cast<TurnSignal>();
+  }
 
   @override
   Future<List<ModelCapability>> listModelCapabilities() async {

@@ -7,6 +7,7 @@ import '../../../core/contract/messages/chat_message.dart';
 import '../../../core/sse/frame.dart';
 import 'chat_fixtures.dart';
 import 'conversation_signal.dart';
+import 'turn_signal.dart';
 
 /// The scripted auto-title: the first user line, grapheme-safe cut (emoji/CJK never split) — mirrors
 /// the backend's utility titler in spirit. 脚本自动命名:首行字素安全截断(镜像后端 utility 命名器)。
@@ -51,6 +52,11 @@ class DemoChatRepository extends FixtureChatRepository {
   }) async {
     final assistantId = await super.sendMessage(conversationId,
         content: content, attachmentIds: attachmentIds, mentions: mentions);
+    // Mirror the backend's dot truth: the row turns generating and the rail hears a turn pulse.
+    // 镜像后端点真相:行转 generating,rail 收到回合脉冲。
+    final conv = conversationOrNull(conversationId);
+    if (conv != null) upsert(conv.copyWith(isGenerating: true, hasUnread: false));
+    emitTurnSignal(conversationId, TurnSignalKind.turnOpen);
     _playReply(conversationId, assistantId, userText: content);
     return assistantId;
   }
@@ -79,6 +85,9 @@ class DemoChatRepository extends FixtureChatRepository {
         ),
       ),
     );
+    final conv = conversationOrNull(conversationId);
+    if (conv != null) upsert(conv.copyWith(isGenerating: false)); // cancelled ≠ unread 取消不算未读
+    emitTurnSignal(conversationId, TurnSignalKind.turnClose);
   }
 
   // The scripted turn: echo → assistant open → thinking (deltas, close) → text (deltas, close) → stop.
@@ -162,11 +171,18 @@ class DemoChatRepository extends FixtureChatRepository {
         ),
       );
       final conv = conversationOrNull(conversationId);
-      if (conv != null && conv.title.trim().isEmpty) {
-        upsert(conv.copyWith(title: _demoTitle(userText), autoTitled: true));
-        emitSignal(ConversationSignal(
-            id: conversationId, action: ConversationAction.updated, durable: true));
+      if (conv != null) {
+        // Terminal truth: generating off, unread on (completed lands unseen — the rail's green).
+        // 终态真相:generating 灭、unread 亮(完成未读=rail 绿)。
+        var next = conv.copyWith(isGenerating: false, hasUnread: true);
+        if (next.title.trim().isEmpty) {
+          next = next.copyWith(title: _demoTitle(userText), autoTitled: true);
+          emitSignal(ConversationSignal(
+              id: conversationId, action: ConversationAction.updated, durable: true));
+        }
+        upsert(next);
       }
+      emitTurnSignal(conversationId, TurnSignalKind.turnClose);
     }));
   }
 

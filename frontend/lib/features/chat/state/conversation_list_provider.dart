@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/contract/conversation.dart';
@@ -7,6 +9,7 @@ import '../../../core/state/keyset_paging.dart';
 import '../data/chat_providers.dart';
 import '../data/chat_repository.dart';
 import '../data/conversation_signal.dart';
+import '../data/turn_signal.dart';
 import 'conversation_list_state.dart';
 import 'title_reveals.dart';
 
@@ -102,6 +105,19 @@ class ConversationListNotifier extends AsyncNotifier<ConversationListState>
     // a query switch cancels + re-subscribes (onDispose). 实时生命周期:notifications 流据非自身发起的变更重排。
     final sub = _repo.lifecycleSignals().listen(_onSignal);
     ref.onDispose(sub.cancel);
+    // ACTIVITY-DOT INFRASTRUCTURE: turn lifecycle rides the messages stream (the backend emits NO
+    // notifications event at turn terminals — this is the ONLY realtime path for isGenerating /
+    // awaitingInput / hasUnread). Each signal debounces into ONE row re-read (DB row is truth); all
+    // merge paths (optimistic PATCH folds, :seen local squash, lifecycle re-reads) stay idempotent.
+    // A messages-stream 410 resync re-pages the whole list (durable dots may have moved arbitrarily).
+    // **活态点基建**:回合生命周期骑 messages 流(后端回合终态不发 notifications——这是三点唯一实时
+    // 通路)。信号防抖成单行重读(DB 行为真相);与乐观折入/:seen 本地压/生命周期重读全幂等。messages
+    // 流 410 resync → 整列重翻(点可能任意漂移)。
+    final turnSub = _repo.turnSignals().listen(_onTurnSignal);
+    ref.onDispose(turnSub.cancel);
+    final resyncSub = _repo.transcriptResync().listen((_) => ref.invalidateSelf());
+    ref.onDispose(resyncSub.cancel);
+    ref.onDispose(_cancelRefreshTimers);
     final page = await _repo.listConversations(
         limit: _pageSize, sort: _sort, archive: _archive, search: _search.isEmpty ? null : _search);
     return ConversationListState(
@@ -129,6 +145,54 @@ class ConversationListNotifier extends AsyncNotifier<ConversationListState>
         hasMore: page.hasMore,
         loadingMore: false,
       );
+
+  // ── activity-dot turn pulse 活态点回合脉冲 ──
+
+  static const _turnDebounce = Duration(milliseconds: 300);
+  final Map<String, Timer> _refreshTimers = {};
+
+  void _cancelRefreshTimers() {
+    for (final t in _refreshTimers.values) {
+      t.cancel();
+    }
+    _refreshTimers.clear();
+  }
+
+  // Debounce per conversation: a turn boundary bursts frames (user echo close + assistant open land
+  // together) — one re-read serves the burst. 按会话防抖:回合边界帧成簇,一次重读即够。
+  void _onTurnSignal(TurnSignal signal) {
+    final id = signal.conversationId;
+    _refreshTimers[id]?.cancel();
+    _refreshTimers[id] = Timer(_turnDebounce, () {
+      _refreshTimers.remove(id);
+      _refreshRow(id);
+    });
+  }
+
+  Future<void> _refreshRow(String id) async {
+    if (state.value == null) return;
+    try {
+      final c = await _repo.getConversation(id);
+      if (ref.mounted) applyUpdate(c);
+    } catch (_) {
+      // Gone between signal and read (deleted) — the lifecycle deleted signal handles the drop.
+      // 信号与读之间被删——删除交由生命周期信号处理。
+    }
+  }
+
+  /// Locally squash the unread flag after a successful `:seen` — closes the race where the turn
+  /// pulse re-read lands BEFORE the server processed :seen (the row would flash-and-stick green:
+  /// nothing re-reads after the 204). Idempotent with every other merge path.
+  /// `:seen` 成功后本地压未读——封「脉冲重读先于 :seen 落库」的竞态(行会绿住:204 后没人再读)。
+  void markSeenLocal(String id) {
+    final cur = state.value;
+    if (cur == null) return;
+    final i = cur.rows.indexWhere((r) => r.id == id);
+    if (i < 0 || !cur.rows[i].hasUnread) return;
+    final rows = [...cur.rows];
+    rows[i] = rows[i].copyWith(hasUnread: false);
+    state = AsyncData(cur.copyWith(rows: rows));
+  }
 
   /// Fold an authoritative updated conversation (a PATCH response) into the loaded list: replace the row
   /// in place, or DROP it when it just got archived while the rail isn't showing archived (it leaves the

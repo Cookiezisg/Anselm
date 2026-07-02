@@ -9,6 +9,7 @@ import '../data/chat_providers.dart';
 import '../data/chat_repository.dart';
 import '../model/conversation_transcript.dart';
 import '../model/mention_spans.dart';
+import 'conversation_list_provider.dart';
 import 'conversation_stream_state.dart';
 import 'selected_conversation.dart';
 
@@ -248,6 +249,11 @@ class ConversationStreamController extends Notifier<ConversationStreamState> {
   Future<void> _quietlySeen() async {
     try {
       await _repo.markSeen(conversationId);
+      // Squash the rail's green locally — the turn pulse may have re-read BEFORE :seen landed and
+      // nothing re-reads after the 204. 本地压 rail 绿点(脉冲重读可能早于 :seen 落库,204 后无人再读)。
+      if (ref.mounted) {
+        ref.read(conversationListProvider.notifier).markSeenLocal(conversationId);
+      }
     } catch (_) {/* cosmetic; the next open retries 装饰性,下次打开重试 */}
   }
 }
