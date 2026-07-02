@@ -27,6 +27,7 @@ Future<void> _load(String family, String path) async {
 
 void main() {
   setUpAll(() async {
+    await _load('Inter', 'assets/fonts/InterVariable.ttf');
     await _load('MiSans', 'assets/fonts/MiSansVF.ttf'); // bundled UI face (VF; capture may show default weight)
     await _load('JetBrains Mono', 'assets/fonts/JetBrainsMono.ttf');
     // Thin Lucide weight (matches AnIcons._family). 细笔画 Lucide,与 AnIcons._family 对齐。

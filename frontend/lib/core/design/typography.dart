@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 
-/// Typography — a modular scale anchored on a 13px UI body. [uiFamily] = BUNDLED MiSans, a variable
-/// font (wght axis 150–700) covering Latin + Simplified Chinese, so the bilingual UI renders the
-/// same on every machine (the demo's intent). We render it LIGHT — body at Light (w300) — to shed
-/// the heavy look MiSans has at Regular (ExtraLight 200 was too thin for some glyphs); the ramp
-/// climbs from there. Colorless on purpose: the theme applies ink once and it inherits.
+/// Typography — a modular scale anchored on a 13px UI body. [uiFamily] = BUNDLED Inter (the
+/// variable font, wght 100–900), the Latin/numeral face; CJK glyphs fall through to BUNDLED MiSans
+/// (VF, wght 150–700) first in [uiFallback] — BOTH ship in the bundle, so the bilingual UI renders
+/// the same on every machine (the demo's intent; Inter has no CJK coverage by design). The body
+/// renders LIGHT (w300) and the ramp climbs from there. Colorless on purpose: the theme applies ink
+/// once and it inherits.
 ///
-/// 字体——模数阶梯,锚 13px 正文。[uiFamily]=**随包 MiSans**(变量字体,wght 150–700,Latin+简中),每台机器同字面
-/// (demo 本意)。整体**压细**——正文 Light(w300)(ExtraLight 200 部分字偏细);字重阶梯由此上爬。
+/// 字体——模数阶梯,锚 13px 正文。[uiFamily]=**随包 Inter**(变量字体,wght 100–900),拉丁/数字字面;
+/// 中文字形回落到 [uiFallback] 首位的**随包 MiSans**(VF,150–700)——两者皆入包,每台机器同字面(demo 本意;
+/// Inter 本就不含 CJK)。正文压细 w300,字重阶梯由此上爬。刻意无色:主题上一次 ink、全部继承。
 abstract final class AnText {
-  static const String uiFamily = 'MiSans'; // BUNDLED VF (assets/fonts/MiSansVF.ttf), rendered light 随包变量字体,渲染压细
+  static const String uiFamily = 'Inter'; // BUNDLED VF (assets/fonts/InterVariable.ttf) 随包变量字体
   static const List<String> uiFallback = [
+    'MiSans', // BUNDLED — the CJK face (deterministic across machines) 随包中文字面,跨机器确定
     'PingFang SC', 'Microsoft YaHei', 'Segoe UI', 'Noto Sans', 'sans-serif',
   ];
   static const String monoFamily = 'JetBrains Mono'; // BUNDLED (assets/fonts) — deterministic code face 随包,代码字面确定

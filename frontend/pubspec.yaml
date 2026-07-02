@@ -79,6 +79,9 @@ flutter:
   # code face. Both variable. See core/design/typography.dart.
   # 随包字体,每台机器渲染同一字面:MiSans VF=UI(Latin+简中);JetBrains Mono=代码。皆变量字体。
   fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/InterVariable.ttf
     - family: MiSans
       fonts:
         - asset: assets/fonts/MiSansVF.ttf

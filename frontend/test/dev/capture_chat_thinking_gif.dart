@@ -38,6 +38,7 @@ String _textAt(int t) {
 
 void main() {
   setUpAll(() async {
+    await _load('Inter', 'assets/fonts/InterVariable.ttf');
     await _load('MiSans', 'assets/fonts/MiSansVF.ttf');
     await _load('JetBrains Mono', 'assets/fonts/JetBrainsMono.ttf');
     final cache = '${Platform.environment['HOME']}/.pub-cache/hosted/pub.dev';
