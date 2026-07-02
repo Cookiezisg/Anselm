@@ -286,10 +286,19 @@ class _AnSidebarListState extends State<AnSidebarList> {
       height: stackBottom,
       child: Stack(
         children: [
-          // A continuous opaque backing so a pushed-out head reveals surface, not the list rows under it.
-          // 连续 opaque 底:被推出的头露出的是 surface、不是其下的列表行。
-          Positioned.fill(child: Container(color: context.colors.surface)),
-          for (var i = 0; i < sticky.length; i++)
+          // NO full-slot backing: each sticky row carries its OWN opaque surface and moves with its
+          // push — a pushed-out head must reveal the list row rising underneath (that row IS the
+          // successor doing the pushing; a static slot-wide backing hid it, so the handover read as
+          // "slide out, blank, pop in" instead of one head shoving the other).
+          // **不要整槽静态白底**:每个吸顶行自带 opaque 面、随各自 push 移动——被推出的头必须露出
+          // 其下正在升起的列表行(那正是来顶它的接替头;静态整槽底把它盖住,交接就成了
+          // 「滑出→空白→突现」而非「一个把另一个顶走」)。
+          // Deep-to-shallow paint order (VS Code's z-index semantics): the DEEPEST layer is pushed
+          // first, and it must slide out UNDER the shallower heads above it — so shallower layers
+          // paint later (on top). The Stack's hardEdge clip crops the slid-out part (VS Code's
+          // overflow:hidden). 深→浅绘制(VS Code z 序):最深层先被推,须从浅层**底下**滑出——浅层后画
+          // (在上)。Stack hardEdge 裁掉滑出部分(同 overflow:hidden)。
+          for (var i = sticky.length - 1; i >= 0; i--)
             Positioned(
               top: i * AnSize.row + pushUps[i],
               left: 0,

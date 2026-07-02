@@ -165,6 +165,12 @@ void main() {
       list.jumpTo(21 * AnSize.row - AnSize.row / 2);
       await tester.pump();
       expect(headY(tester, 'ALPHA'), lessThan(pinnedY)); // mid-push 半推
+      // The handover is a SHOVE: the successor rides exactly one row-height below the pushed head
+      // (its top edge on the head's bottom edge) — the in-row text offsets cancel, so the text tops
+      // differ by exactly AnSize.row. And nothing (no slot backing) may hide the riser.
+      // 交接=顶走:接替头恰骑在被推头下一行高处(顶边贴底边)——行内文字偏移相消,文字 y 差恰一行高;
+      // 且无物(整槽底)遮挡上升者。
+      expect(headY(tester, 'BETA') - headY(tester, 'ALPHA'), closeTo(AnSize.row, 0.01));
       list.jumpTo(22 * AnSize.row + 4);
       await tester.pump();
       expect(headY(tester, 'BETA'), pinnedY); // BETA now pinned where ALPHA was BETA 接棒钉住
