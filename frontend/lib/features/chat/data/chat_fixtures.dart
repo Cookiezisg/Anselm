@@ -153,6 +153,9 @@ class FixtureChatRepository implements ChatRepository {
     return _page(newestFirst, cursor, limit);
   }
 
+  /// One-shot scripted send failure (the optimistic bubble's failed path). 一次性发送失败脚本。
+  bool failNextSend = false;
+
   @override
   Future<String> sendMessage(
     String conversationId, {
@@ -160,6 +163,10 @@ class FixtureChatRepository implements ChatRepository {
     List<String> attachmentIds = const [],
     List<({String type, String id})> mentions = const [],
   }) async {
+    if (failNextSend) {
+      failNextSend = false;
+      throw StateError('scripted send failure');
+    }
     if (!_all.any((c) => c.id == conversationId)) {
       throw StateError('conversation not found: $conversationId');
     }
@@ -227,6 +234,13 @@ class FixtureChatRepository implements ChatRepository {
   void emitFrame(String conversationId, StreamEnvelope envelope) =>
       (_frames[conversationId] ??= StreamController<StreamEnvelope>.broadcast()).add(envelope);
 
+  @override
+  Stream<void> transcriptResync() => _resync.stream;
+  final StreamController<void> _resync = StreamController.broadcast();
+
+  /// Script a messages-stream 410 (tests: the controller must drop live + refetch). 脚本化 410。
+  void emitResync() => _resync.add(null);
+
   /// Append a persisted message row (so a later hydration/refetch sees it — the demo script finalizes
   /// its scripted turn through this). 落一条持久消息(后续水化可见;demo 脚本借此定格已完成回合)。
   void appendMessage(String conversationId, ChatMessage message) =>
@@ -246,6 +260,7 @@ class FixtureChatRepository implements ChatRepository {
 
   Future<void> dispose() async {
     await _signals?.close();
+    await _resync.close();
     for (final c in _frames.values) {
       await c.close();
     }

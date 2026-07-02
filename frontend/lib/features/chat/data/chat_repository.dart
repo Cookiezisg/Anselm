@@ -122,6 +122,10 @@ abstract interface class ChatRepository {
   /// transcript controller folds these. Live = the gateway demux; the fixture scripts playback, which is
   /// what makes the zero-backend demo stream. 单会话实时帧(messages 流 demux);fixture 脚本化回放供 demo 流式。
   Stream<StreamEnvelope> conversationFrames(String conversationId);
+
+  /// The messages-stream 410 resync signal: the buffer evicted past our cursor — drop the live layer,
+  /// refetch the durable head, resubscribe-fresh. messages 流 410 重同步信号:丢 live 层、重拉耐久头。
+  Stream<void> transcriptResync();
 }
 
 /// The production repository over the Phase-4.0 pipeline. Holds no state; the method is a thin
@@ -240,4 +244,7 @@ class LiveChatRepository implements ChatRepository {
     if (sse == null) return const Stream.empty();
     return sse.scopeStream(StreamScope(kind: 'conversation', id: conversationId));
   }
+
+  @override
+  Stream<void> transcriptResync() => _sse?.resync(StreamName.messages) ?? const Stream.empty();
 }
