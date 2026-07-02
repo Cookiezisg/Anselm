@@ -1,4 +1,5 @@
 import 'package:file_selector/file_selector.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -389,21 +390,42 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
       runSpacing: AnSpace.s6,
       children: [
         for (final a in pending)
-          AnAttachmentChip(
-            key: ValueKey(a.localId),
-            kind: a.isImage ? 'image' : 'other',
-            filename: a.filename,
-            meta: switch (a.status) {
-              'uploading' => t.attach.uploading,
-              'failed' => t.attach.failedRetry,
-              _ => attachmentMetaLine(
-                  filename: a.filename, mimeType: a.mimeType, sizeBytes: a.sizeBytes),
-            },
-            uploading: a.status == 'uploading',
-            failed: a.status == 'failed',
-            onRetry: () => _att.retry(a.localId),
-            onRemove: () => _att.remove(a.localId),
-          ),
+          // A pending IMAGE with bytes in hand shows a real thumbnail tile (memory-decoded, ✕ on the
+          // corner); everything else is the filename chip. 有字节的图=真缩略瓦片(角上 ✕);其余=文件名 chip。
+          if (a.isImage && a.bytes != null && a.status != 'failed')
+            Stack(
+              key: ValueKey(a.localId),
+              children: [
+                AnAttachmentThumb(
+                  image: MemoryImage(Uint8List.fromList(a.bytes!)),
+                  filename: a.filename,
+                ),
+                PositionedDirectional(
+                  top: AnSpace.s2,
+                  end: AnSpace.s2,
+                  child: AnButton.iconOnly(AnIcons.close,
+                      size: AnButtonSize.sm,
+                      semanticLabel: t.attach.remove,
+                      onPressed: () => _att.remove(a.localId)),
+                ),
+              ],
+            )
+          else
+            AnAttachmentChip(
+              key: ValueKey(a.localId),
+              kind: a.isImage ? 'image' : 'other',
+              filename: a.filename,
+              meta: switch (a.status) {
+                'uploading' => t.attach.uploading,
+                'failed' => t.attach.failedRetry,
+                _ => attachmentMetaLine(
+                    filename: a.filename, mimeType: a.mimeType, sizeBytes: a.sizeBytes),
+              },
+              uploading: a.status == 'uploading',
+              failed: a.status == 'failed',
+              onRetry: () => _att.retry(a.localId),
+              onRemove: () => _att.remove(a.localId),
+            ),
       ],
     );
   }

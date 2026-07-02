@@ -323,6 +323,7 @@
     "retry": "Tap to retry",
     "tapToLoad": "Tap to load",
     "uploading": "Uploading…",
-    "failedRetry": "Failed — tap to retry"
+    "failedRetry": "Failed — tap to retry",
+    "remove": "Remove"
   }
 }

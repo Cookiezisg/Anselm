@@ -295,6 +295,7 @@ class FixtureChatRepository implements ChatRepository {
     }
     final id = 'att_fx_${_idSeq++}';
     uploads.add((id: id, filename: filename, mimeType: mimeType, size: bytes.length));
+    attachmentBytes[id] = bytes;
     return AttachmentMeta(
         id: id, filename: filename, mimeType: mimeType ?? '', sizeBytes: bytes.length,
         kind: (mimeType ?? '').startsWith('image/') ? 'image' : 'other');
@@ -305,6 +306,16 @@ class FixtureChatRepository implements ChatRepository {
 
   /// Seedable metadata rows for [getAttachment] (uploads are auto-visible too). 可种元数据行。
   final Map<String, AttachmentMeta> attachmentMetas = {};
+
+  /// Seedable content bytes for [getAttachmentBytes] (uploads auto-fill). 可种内容字节(上传自动存)。
+  final Map<String, List<int>> attachmentBytes = {};
+
+  @override
+  Future<List<int>> getAttachmentBytes(String id) async {
+    final b = attachmentBytes[id];
+    if (b == null) throw StateError('attachment content not found: $id'); // mirrors 404
+    return b;
+  }
 
   @override
   Future<AttachmentMeta> getAttachment(String id) async {

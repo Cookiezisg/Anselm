@@ -588,6 +588,9 @@ class Translations$attach$en {
 
 	/// en: 'Failed — tap to retry'
 	String get failedRetry => 'Failed — tap to retry';
+
+	/// en: 'Remove'
+	String get remove => 'Remove';
 }
 
 // Path: chat.time
@@ -1418,6 +1421,7 @@ extension on Translations {
 			'attach.tapToLoad' => 'Tap to load',
 			'attach.uploading' => 'Uploading…',
 			'attach.failedRetry' => 'Failed — tap to retry',
+			'attach.remove' => 'Remove',
 			_ => null,
 		};
 	}

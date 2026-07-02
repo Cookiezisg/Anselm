@@ -106,9 +106,10 @@ class PendingAttachments extends Notifier<List<PendingAttachment>> {
       final meta = await ref
           .read(chatRepositoryProvider)
           .uploadAttachment(bytes: bytes, filename: a.filename, mimeType: a.mimeType);
-      // Keep bytes until READY lands (a retry after failure needs them; after ready they're dead weight).
-      // 字节留到 ready 落地(失败重试要用;ready 后是死重)。
-      _patch(localId, (p) => p._with(status: 'ready', attachmentId: meta.id, dropBytes: true));
+      // Bytes drop on ready EXCEPT for images — the chip's thumbnail renders straight from memory
+      // (a few MB per pending image, bounded by the strip). 非图 ready 即弃字节;图留作 chip 缩略图。
+      _patch(localId,
+          (p) => p._with(status: 'ready', attachmentId: meta.id, dropBytes: !p.isImage));
     } catch (_) {
       _patch(localId, (p) => p._with(status: 'failed'));
     }

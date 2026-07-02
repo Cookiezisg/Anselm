@@ -308,10 +308,10 @@ void main() {
         return host;
       }));
       c = ProviderScope.containerOf(tester.element(find.byType(ChatComposer)));
-      await c.read(pendingAttachmentsProvider('cv_1').notifier).addBytes([1, 2], filename: 'a.png', mimeType: 'image/png');
+      await c.read(pendingAttachmentsProvider('cv_1').notifier).addBytes([1, 2], filename: 'a.pdf', mimeType: 'application/pdf');
       await tester.pump();
       expect(find.byType(AnAttachmentChip), findsOneWidget);
-      expect(find.text('a.png'), findsOneWidget);
+      expect(find.text('a.pdf'), findsOneWidget);
 
       await tester.enterText(find.byType(TextField).last, '看这个图');
       await tester.pump();

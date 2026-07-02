@@ -317,6 +317,7 @@ class _Translations$attach$zh_CN extends Translations$attach$en {
 	@override String get tapToLoad => '点按加载';
 	@override String get uploading => 'Uploading…';
 	@override String get failedRetry => 'Failed — tap to retry';
+	@override String get remove => 'Remove';
 }
 
 // Path: chat.time
@@ -875,6 +876,7 @@ extension on TranslationsZhCn {
 			'attach.tapToLoad' => '点按加载',
 			'attach.uploading' => 'Uploading…',
 			'attach.failedRetry' => 'Failed — tap to retry',
+			'attach.remove' => 'Remove',
 			_ => null,
 		};
 	}

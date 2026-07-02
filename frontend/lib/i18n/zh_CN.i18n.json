@@ -323,6 +323,7 @@
     "retry": "点按重试",
     "tapToLoad": "点按加载",
     "uploading": "Uploading…",
-    "failedRetry": "Failed — tap to retry"
+    "failedRetry": "Failed — tap to retry",
+    "remove": "Remove"
   }
 }

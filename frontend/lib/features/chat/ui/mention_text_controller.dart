@@ -21,14 +21,32 @@ class MentionTextEditingController extends TextEditingController {
 
   @override
   TextSpan buildTextSpan({required BuildContext context, TextStyle? style, required bool withComposing}) {
-    if (pillNames.isEmpty || (withComposing && value.composing.isValid)) {
+    if (pillNames.isEmpty) {
       return super.buildTextSpan(context: context, style: style, withComposing: withComposing);
     }
+    // An open IME composition must NOT drop the pill tint (typing CJK made every pill flash back to
+    // plain ink — the reported bug): tint AROUND the composing range and underline only that range,
+    // matching the default span's IME affordance. IME 合成期不再整体回退(打中文药丸闪灭的根因):
+    // 合成区间外照染,仅合成段加默认的下划线。
+    final composing = withComposing && !value.composing.isCollapsed && value.composing.isValid
+        ? value.composing
+        : null;
+    if (composing == null) return TextSpan(style: style, children: _pillSpans(context, text, style));
+    final composingStyle =
+        (style ?? AnText.body).merge(const TextStyle(decoration: TextDecoration.underline));
+    return TextSpan(style: style, children: [
+      ..._pillSpans(context, composing.textBefore(text), style),
+      TextSpan(text: composing.textInside(text), style: composingStyle),
+      ..._pillSpans(context, composing.textAfter(text), style),
+    ]);
+  }
+
+  // Pill-tint one plain segment (token boundaries evaluated within it). 对一段做药丸染色。
+  List<InlineSpan> _pillSpans(BuildContext context, String s, TextStyle? style) {
     final c = context.colors;
     final pillStyle = (style ?? AnText.body)
         .copyWith(color: c.accent, fontWeight: AnText.emphasisWeight, fontVariations: const [FontVariation('wght', 400)]);
     final spans = <InlineSpan>[];
-    final s = text;
     var i = 0;
     while (i < s.length) {
       final at = s.indexOf('@', i);
@@ -43,7 +61,7 @@ class MentionTextEditingController extends TextEditingController {
       i = at + match.length + 1;
     }
     if (i < s.length) spans.add(TextSpan(text: s.substring(i), style: style));
-    return TextSpan(style: style, children: spans);
+    return spans;
   }
 
   /// The pill name starting at [at] (an '@'), or null. Longest name wins (nested names both picked).

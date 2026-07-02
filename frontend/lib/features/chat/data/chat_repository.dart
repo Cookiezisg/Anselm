@@ -97,6 +97,10 @@ abstract interface class ChatRepository {
   /// the id-only `attrs.attachments` snapshot. 附件元数据——泡从纯 id 快照解析名/类/大小。
   Future<AttachmentMeta> getAttachment(String id);
 
+  /// The raw bytes (`GET /attachments/{id}/content`, non-envelope) — image thumbnails decode from
+  /// this; loopback-only, so per-image fetch is cheap. 原始字节(非 envelope)——图缩略图由此解码;loopback 便宜。
+  Future<List<int>> getAttachmentBytes(String id);
+
   /// A single conversation by id (`GET /{id}`) — the rail re-reads ONE row on a lifecycle signal it did
   /// not originate (auto-title, or a change from another window). 单取一条,供 rail 据非自身发起的信号重读一行。
   Future<Conversation> getConversation(String id);
@@ -224,6 +228,10 @@ class LiveChatRepository implements ChatRepository {
   @override
   Future<AttachmentMeta> getAttachment(String id) =>
       _api.getEntity('/api/v1/attachments/$id', AttachmentMeta.fromJson);
+
+  @override
+  Future<List<int>> getAttachmentBytes(String id) =>
+      _api.getBytes('/api/v1/attachments/$id/content');
 
   @override
   Future<Conversation> getConversation(String id) =>

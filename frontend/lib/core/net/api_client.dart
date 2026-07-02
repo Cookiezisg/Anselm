@@ -108,6 +108,13 @@ class ApiClient {
   /// is a multi-key object the caller destructures itself).
   ///
   /// GET 原始信封体(供 `{flowrun, nodes}` 这类 `data` 为多 key 对象、调用方自解的复合读)。
+  /// GET raw bytes (non-envelope endpoints — attachment content). 裸字节 GET(非 envelope,附件内容)。
+  Future<List<int>> getBytes(String path) => _send(() async {
+        final r = await _dio.get<List<int>>(path,
+            options: Options(responseType: ResponseType.bytes));
+        return r.data ?? const <int>[];
+      });
+
   Future<Map<String, dynamic>> getData(String path,
           {Map<String, dynamic>? query}) =>
       _send(() async {

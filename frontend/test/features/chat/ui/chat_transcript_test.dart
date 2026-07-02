@@ -156,6 +156,38 @@ void main() {
     expect(find.text('att_gone'), findsOneWidget); // missing keeps the honest id 缺失留 id
   });
 
+  testWidgets('an image attachment renders a REAL thumbnail (bytes from the seam, cached by id)',
+      (tester) async {
+    // 1x1 transparent PNG 一像素透明图
+    const png = [
+      0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44,
+      0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1F,
+      0x15, 0xC4, 0x89, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0x00,
+      0x01, 0x00, 0x00, 0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00, 0x00, 0x00, 0x00, 0x49,
+      0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+    ];
+    final repo = _repo(messages: {
+      'cv_1': [
+        ChatMessage(
+          id: 'msg_u', conversationId: 'cv_1', role: 'user', status: 'completed',
+          attrs: {'attachments': ['att_img']},
+          blocks: [_blk('bu', 'text', '看图')], createdAt: DateTime.utc(2026, 7, 2, 10),
+        ),
+      ],
+    });
+    repo.attachmentMetas['att_img'] = const AttachmentMeta(
+        id: 'att_img', filename: 'shot.png', mimeType: 'image/png', sizeBytes: 68, kind: 'image');
+    repo.attachmentBytes['att_img'] = png;
+
+    await tester.pumpWidget(_host(repo));
+    await tester.pump();
+    await _settle(tester);
+    await tester.pump(const Duration(milliseconds: 50)); // meta + bytes futures
+    await tester.pump(const Duration(milliseconds: 50)); // decode frame 解码帧
+    expect(find.byType(AnAttachmentThumb), findsOneWidget); // a thumb, not a file card 缩略非文件卡
+    expect(find.byType(AnAttachmentCard), findsNothing);
+  });
+
   testWidgets('shorter-than-a-screen content docks to MIN — the first row clears the floating head',
       (tester) async {
     // One short turn: the anchored list would park pixels at 0 (first row under the head); the dock

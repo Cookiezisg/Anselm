@@ -106,8 +106,10 @@ class ChatHead extends ConsumerWidget {
     required ValueChanged<({String apiKeyId, String modelId})?> onSelect,
   }) {
     // The anchor lives at the head's LEFT (landing: far left; thread: right after the title), so the
-    // menu opens rightward; the popover flips if it would overflow. 锚在头部左区,菜单向右展开,越界自翻。
+    // menu opens DOWN-RIGHT (start-aligned — AnMenu defaults to end); the popover flips on overflow.
+    // 锚在头部左区,菜单**右下**展开(start 对齐——AnMenu 默认 end)、越界自翻。
     return AnMenu(
+      alignEnd: false,
       anchorBuilder: (context, toggle, isOpen) => AnButton(
         label: current?.modelId ?? t.chat.modelAuto,
         size: AnButtonSize.sm,

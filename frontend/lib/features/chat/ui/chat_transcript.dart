@@ -10,6 +10,8 @@ import '../../../core/perf/coalescing_notifier.dart';
 import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
 import '../model/conversation_transcript.dart';
+import '../data/attachment_image_provider.dart';
+import '../data/chat_providers.dart';
 import '../state/attachment_meta.dart';
 import '../model/user_attachment.dart';
 import '../state/conversation_stream_provider.dart';
@@ -275,7 +277,13 @@ class _TurnRow extends ConsumerWidget {
         switch (ref.watch(attachmentMetaProvider(id))) {
           AsyncData(value: final m) => UserAttachment(
               id: id, kind: m.kind, filename: m.filename,
-              mimeType: m.mimeType.isEmpty ? null : m.mimeType, sizeBytes: m.sizeBytes),
+              mimeType: m.mimeType.isEmpty ? null : m.mimeType, sizeBytes: m.sizeBytes,
+              // Images render as real thumbnails — bytes stream from the sidecar, cached by id in
+              // Flutter's ImageCache. 图片渲真缩略图(字节来自 sidecar,按 id 进全局图缓存)。
+              thumb: m.kind == 'image'
+                  ? AttachmentImageProvider(id,
+                      fetch: () => ref.read(chatRepositoryProvider).getAttachmentBytes(id))
+                  : null),
           AsyncError() => UserAttachment(
               id: id, kind: 'other', filename: id, state: AnAttachmentState.missing),
           _ => UserAttachment(

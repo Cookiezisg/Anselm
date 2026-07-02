@@ -16,15 +16,16 @@ void main() {
     return (c, repo);
   }
 
-  test('addBytes uploads and lands ready with the server id (bytes dropped)', () async {
+  test('addBytes uploads and lands ready with the server id (bytes: images keep, others drop)', () async {
     final (c, repo) = setup();
     final n = c.read(pendingAttachmentsProvider('k').notifier);
     await n.addBytes([1, 2, 3], filename: 'a.png', mimeType: 'image/png');
-    final a = c.read(pendingAttachmentsProvider('k')).single;
-    expect(a.status, 'ready');
-    expect(a.attachmentId, repo.uploads.single.id);
-    expect(a.bytes, isNull); // dead weight dropped ready 后弃字节
-    expect(n.readyIds, [a.attachmentId]);
+    await n.addBytes([4], filename: 'b.pdf', mimeType: 'application/pdf');
+    final rows = c.read(pendingAttachmentsProvider('k'));
+    expect(rows.every((a) => a.status == 'ready'), isTrue);
+    expect(rows.first.bytes, isNotNull); // image keeps bytes — the chip thumbnail 图留字节供缩略
+    expect(rows.last.bytes, isNull); // non-image drops the dead weight 非图弃字节
+    expect(n.readyIds, [repo.uploads[0].id, repo.uploads[1].id]);
   });
 
   test('a scripted failure lands failed (bytes kept); retry heals to ready', () async {
