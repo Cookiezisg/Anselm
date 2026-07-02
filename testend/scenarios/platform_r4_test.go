@@ -149,12 +149,28 @@ func TestPlatformR4_LimitsEveryField(t *testing.T) {
 
 	// agent.invokeMaxTurns：永不收口的 agent 在 2 轮被切，状态/stopReason 诚实。
 	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"invokeMaxTurns": 2}}).OK(t, nil)
+	// Pick the MOCK key by name — the workspace ALSO auto-provisions the managed free-tier key
+	// asynchronously, so [0] was a race: when the managed key sorted first, the agent scene
+	// routed to the REAL gateway, a real model answered and ended the loop naturally, and the
+	// max-turns cut never fired (this test then failed on live-network behavior).
+	// 按名取 mock key——workspace 还会异步自动开通托管 free-tier key,取 [0] 是竞态:托管 key 排前时
+	// agent 场景被路由到真网关,真模型答完自然收口,max-turns 切割永不触发(本测就此栽在真网络上)。
 	keyArr := []struct {
-		ID string `json:"id"`
+		ID          string `json:"id"`
+		DisplayName string `json:"displayName"`
 	}{}
 	wc.GET("/api/v1/api-keys").OK(t, &keyArr)
+	mockKeyID := ""
+	for _, k := range keyArr {
+		if k.DisplayName == "llmmock" {
+			mockKeyID = k.ID
+		}
+	}
+	if mockKeyID == "" {
+		t.Fatalf("mock key not found among %d workspace keys", len(keyArr))
+	}
 	wc.PUT("/api/v1/workspaces/"+wsOf(t, wc)+"/default-models/agent",
-		map[string]any{"apiKeyId": keyArr[0].ID, "modelId": agModel}).OK(t, nil)
+		map[string]any{"apiKeyId": mockKeyID, "modelId": agModel}).OK(t, nil)
 	fnLoop := fnCreate(t, wc, "loop_target", "def loop_target() -> dict:\n    return {}\n")
 	agID := agCreate(t, wc, map[string]any{
 		"name": "Endless", "description": "loops", "prompt": "loop",
