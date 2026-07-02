@@ -18,13 +18,17 @@ import '../design/typography.dart';
 ///   slow shape morph); the base border stays neutral [AnColors.line].
 /// - The TRAILING slot is an [AnimatedSwitcher] (scale+fade, [AnMotion.mid]) so the send button appears on
 ///   first keystroke and swaps to stop while generating in ONE place. **The host must KEY its trailing
-///   widgets** (`ValueKey('send')` / `ValueKey('stop')`) so they cross-fade rather than snap.
+///   widgets** (`ValueKey('send')` / `ValueKey('stop')`) so they cross-fade rather than snap, AND size
+///   them the SAME control tier as [lead] — the single row is height-maxed across its children, so a
+///   taller trailing popping in grows the whole box by the tier delta (the "field suddenly gets taller
+///   on the first keystroke" bug).
 ///
 /// composer chrome 原语。演变输入:单行药丸 ↔ 多行卡片 + reflow。只拥视觉壳 + TextField + 解耦聚焦光环;行为留宿主。
 /// 动效(每个转移都动、无硬切、reduced 即时):① 形变+一切高度变化(reflow/附件)走一个 AnimatedSize + 半径
 /// AnimatedContainer,slow/spring 同时——圆角随盒长大;② 聚焦光环=解耦 accent 覆层、fast 淡入(反馈不该骑 slow
 /// 形变),基础边恒中性 line;③ trailing 是 AnimatedSwitcher(scale+fade,mid),send 首键出现、生成时换 stop 一处
-/// 搞定——**宿主须给 trailing 加 key**(ValueKey('send')/('stop'))才交叉淡、不硬切。可复用。
+/// 搞定——**宿主须给 trailing 加 key**(ValueKey('send')/('stop'))才交叉淡、不硬切,**且与 lead 同控件档**——
+/// 单行高取子件 max,更高档的 trailing 首键出现会把整盒撑高一档(「首键突长高」bug)。可复用。
 class AnComposer extends StatefulWidget {
   const AnComposer({
     required this.controller,

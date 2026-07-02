@@ -73,11 +73,15 @@ class _ComposerSpecimenState extends State<_ComposerSpecimen> {
 
   @override
   Widget build(BuildContext context) {
-    // Key the trailing so AnComposer's AnimatedSwitcher cross-fades send↔stop (not a hard swap). 给 trailing 加 key。
+    // Key the trailing so AnComposer's AnimatedSwitcher cross-fades send↔stop (not a hard swap),
+    // and keep it the SAME control tier as lead (sm, the product arrangement) — a taller trailing
+    // popping in would grow the whole box. trailing 加 key + 与 lead 同档(sm,产品排布)——高档 trailing 出现会撑高整盒。
     final Widget? trailing = widget.generating
-        ? AnButton.iconOnly(AnIcons.stop, semanticLabel: '停止', onPressed: () {}, key: const ValueKey('stop'))
+        ? AnButton.iconOnly(AnIcons.stop,
+            size: AnButtonSize.sm, semanticLabel: '停止', onPressed: () {}, key: const ValueKey('stop'))
         : widget.send
-            ? AnButton.iconOnly(AnIcons.send, semanticLabel: '发送', onPressed: () {}, key: const ValueKey('send'))
+            ? AnButton.iconOnly(AnIcons.send,
+                size: AnButtonSize.sm, semanticLabel: '发送', onPressed: () {}, key: const ValueKey('send'))
             : null;
     return AnComposer(
       controller: _ctrl,
@@ -85,8 +89,8 @@ class _ComposerSpecimenState extends State<_ComposerSpecimen> {
       placeholder: widget.hint,
       floating: widget.floating,
       lead: [
-        AnButton.iconOnly(AnIcons.mention, semanticLabel: '提及', onPressed: () {}),
-        AnButton.iconOnly(AnIcons.attach, semanticLabel: '附件', onPressed: () {}),
+        AnButton.iconOnly(AnIcons.mention, size: AnButtonSize.sm, semanticLabel: '提及', onPressed: () {}),
+        AnButton.iconOnly(AnIcons.attach, size: AnButtonSize.sm, semanticLabel: '附件', onPressed: () {}),
       ],
       trailing: trailing,
       attachments: widget.attachments ? _chips() : null,

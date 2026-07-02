@@ -134,6 +134,21 @@ void main() {
     expect(find.byIcon(AnIcons.send), findsOneWidget);
   });
 
+  testWidgets('single-line height is INVARIANT to the send button appearing', (tester) async {
+    // The regression: send/stop rendered a tier taller (md 28) than the sm(24) lead buttons, so the
+    // first keystroke re-maxed the row and the whole composer grew 4px (animated — "cute" but wrong).
+    // 回归钉:send/stop 曾比 lead 高一档,首键出现把整盒撑高 4px(被动画平滑成「可爱的突长高」)。
+    final repo = FixtureChatRepository(conversations: [_conv('cv_1')], messages: {'cv_1': []});
+    await tester.pumpWidget(_host(repo));
+    await tester.pumpAndSettle();
+    final emptyH = tester.getSize(find.byType(AnComposer)).height;
+
+    await tester.enterText(find.byType(TextField), 'x');
+    await tester.pumpAndSettle(); // let the AnimatedSize morph finish 等形变动画走完
+    expect(find.byIcon(AnIcons.send), findsOneWidget);
+    expect(tester.getSize(find.byType(AnComposer)).height, emptyH);
+  });
+
   testWidgets('the draft survives a remount and clears after a successful send', (tester) async {
     final repo = FixtureChatRepository(conversations: [_conv('cv_1')], messages: {'cv_1': []});
     final container = ProviderContainer(overrides: [

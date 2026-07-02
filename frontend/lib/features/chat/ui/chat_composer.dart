@@ -457,7 +457,10 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
           attachments: _attachmentStrip(t, pending),
           trailing: (_hasText || ready) && !uploading && !_submittingNew
               ? AnButton.iconOnly(AnIcons.send,
-                  key: const ValueKey('send'), semanticLabel: t.chat.placeholder, onPressed: _send)
+                  key: const ValueKey('send'),
+                  size: AnButtonSize.sm,
+                  semanticLabel: t.chat.placeholder,
+                  onPressed: _send)
               : null,
         )),
       );
@@ -469,14 +472,21 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
       valueListenable: ctl.transcript,
       builder: (context, transcript, _) {
         final generating = transcript.hasInFlight;
+        // send/stop MUST be the same control tier as the lead buttons (sm) — a taller trailing
+        // popping in on the first keystroke re-maxes the single row and the whole composer grows.
+        // send/stop 必须与 lead 同档(sm)——更高的 trailing 首键出现会重定单行 max,整个 composer 长高。
         final Widget? trailing = generating
             ? AnButton.iconOnly(AnIcons.stop,
                 key: const ValueKey('stop'),
+                size: AnButtonSize.sm,
                 semanticLabel: t.chat.stoppedCancelled,
                 onPressed: () => ctl.cancelTurn())
             : (_hasText || ready) && !uploading
                 ? AnButton.iconOnly(AnIcons.send,
-                    key: const ValueKey('send'), semanticLabel: t.chat.placeholder, onPressed: _send)
+                    key: const ValueKey('send'),
+                    size: AnButtonSize.sm,
+                    semanticLabel: t.chat.placeholder,
+                    onPressed: _send)
                 : null;
         return _anchored(
           context,
