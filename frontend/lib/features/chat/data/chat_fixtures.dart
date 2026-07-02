@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import '../../../core/contract/conversation.dart';
+import '../../../core/contract/messages/chat_message.dart';
 import '../../../core/contract/page.dart';
+import '../../../core/sse/frame.dart';
 import 'chat_repository.dart';
 import 'conversation_signal.dart';
 
@@ -16,10 +18,20 @@ import 'conversation_signal.dart';
 /// 缝(镜像 FixtureEntityRepository)。忠实复现后端列表语义,使 demo/测试行为如真:归档范围过滤、标题搜索子串、
 /// 置顶优先 + sort 排序、keyset 分页(cursor = 下一起始下标)。种子放可变 list,供后续片加 upsert / mutate 脚本化实时。
 class FixtureChatRepository implements ChatRepository {
-  FixtureChatRepository({List<Conversation>? conversations})
-      : _all = List.of(conversations ?? const []);
+  FixtureChatRepository({
+    List<Conversation>? conversations,
+    Map<String, List<ChatMessage>>? messages,
+  })  : _all = List.of(conversations ?? const []),
+        _messages = {
+          for (final e in (messages ?? const {}).entries) e.key: List.of(e.value),
+        };
 
   final List<Conversation> _all;
+
+  // Chronological per conversation (oldest→newest); listMessages serves newest-first like the backend.
+  // 每会话时间序(旧→新);listMessages 按后端同款新→旧出。
+  final Map<String, List<ChatMessage>> _messages;
+  int _idSeq = 0;
 
   // A lazy broadcast controller so tests / the demo can script `conversation.<action>` signals without an
   // SSE socket (mirrors FixtureEntityRepository). 惰性广播控制器,使测试/demo 无 socket 即可脚本化信号。
@@ -115,6 +127,111 @@ class FixtureChatRepository implements ChatRepository {
   @override
   Stream<ConversationSignal> lifecycleSignals() => _lazySignals.stream;
 
+  // ── the per-thread transcript surface 逐线程 transcript 面 ──
+
+  @override
+  Future<Conversation> createConversation() async {
+    final now = DateTime.now();
+    final c = Conversation(
+      id: 'cv_fx_${_idSeq++}',
+      createdAt: now,
+      updatedAt: now,
+      lastMessageAt: now,
+    );
+    _all.insert(0, c);
+    return c;
+  }
+
+  @override
+  Future<Page<ChatMessage>> listMessages(String conversationId, {String? cursor, int? limit}) async {
+    if (!_all.any((c) => c.id == conversationId)) {
+      throw StateError('conversation not found: $conversationId');
+    }
+    // Wire order = newest-first (the backend's keyset), so hydration's reverse is exercised for real.
+    // 线缆序=新→旧(后端 keyset 同款),水化的反转被真实演练。
+    final newestFirst = (_messages[conversationId] ?? const <ChatMessage>[]).reversed.toList();
+    return _page(newestFirst, cursor, limit);
+  }
+
+  @override
+  Future<String> sendMessage(
+    String conversationId, {
+    required String content,
+    List<String> attachmentIds = const [],
+    List<({String type, String id})> mentions = const [],
+  }) async {
+    if (!_all.any((c) => c.id == conversationId)) {
+      throw StateError('conversation not found: $conversationId');
+    }
+    final now = DateTime.now();
+    final rows = _messages.putIfAbsent(conversationId, () => []);
+    rows.add(ChatMessage(
+      id: 'msg_fx_u${_idSeq++}',
+      conversationId: conversationId,
+      role: 'user',
+      status: 'completed',
+      attrs: {
+        if (attachmentIds.isNotEmpty) 'attachments': attachmentIds,
+        if (mentions.isNotEmpty)
+          'mentions': [
+            for (final m in mentions) {'type': m.type, 'id': m.id, 'name': m.id, 'content': ''},
+          ],
+      },
+      blocks: [
+        ChatBlock(id: 'blk_fx_${_idSeq++}', type: 'text', content: content, status: 'completed'),
+      ],
+      createdAt: now,
+    ));
+    final assistantId = 'msg_fx_a${_idSeq++}';
+    rows.add(ChatMessage(
+      id: assistantId, conversationId: conversationId, role: 'assistant', status: 'pending', createdAt: now,
+    ));
+    _mutate(conversationId, (c) => c.copyWith(lastMessageAt: now, hasUnread: false));
+    lastSend = (conversationId: conversationId, content: content, assistantId: assistantId);
+    return assistantId;
+  }
+
+  @override
+  Future<void> cancelTurn(String conversationId) async {
+    cancelled.add(conversationId); // the terminal frame is the DEMO SCRIPT's job (mirrors the stream) 终帧归脚本
+  }
+
+  @override
+  Future<void> markSeen(String conversationId) async {
+    seen.add(conversationId);
+    _mutate(conversationId, (c) => c.copyWith(hasUnread: false));
+  }
+
+  @override
+  Future<Conversation> setModelOverride(String id, ({String apiKeyId, String modelId})? ref) async =>
+      _mutate(
+        id,
+        (c) => ref == null
+            ? c.copyWith(modelOverride: null)
+            : c.copyWith(modelOverride: ModelRef(apiKeyId: ref.apiKeyId, modelId: ref.modelId)),
+      );
+
+  @override
+  Stream<StreamEnvelope> conversationFrames(String conversationId) =>
+      (_frames[conversationId] ??= StreamController<StreamEnvelope>.broadcast()).stream;
+
+  final Map<String, StreamController<StreamEnvelope>> _frames = {};
+
+  /// What sendMessage / cancel / seen recorded — assertion + demo-script hooks. 发送/取消/已读的记录钩。
+  ({String conversationId, String content, String assistantId})? lastSend;
+  final List<String> cancelled = [];
+  final List<String> seen = [];
+
+  /// Script one realtime frame into a conversation's feed (the demo's fake streaming + tests).
+  /// 向某会话的帧流脚本化推一帧(demo 假流式 + 测试)。
+  void emitFrame(String conversationId, StreamEnvelope envelope) =>
+      (_frames[conversationId] ??= StreamController<StreamEnvelope>.broadcast()).add(envelope);
+
+  /// Append a persisted message row (so a later hydration/refetch sees it — the demo script finalizes
+  /// its scripted turn through this). 落一条持久消息(后续水化可见;demo 脚本借此定格已完成回合)。
+  void appendMessage(String conversationId, ChatMessage message) =>
+      _messages.putIfAbsent(conversationId, () => []).add(message);
+
   // ── realtime scripting (tests / demo) ──
 
   /// Seed or replace a row (a server-side create fetchable via [getConversation], or an out-of-band edit),
@@ -129,5 +246,8 @@ class FixtureChatRepository implements ChatRepository {
 
   Future<void> dispose() async {
     await _signals?.close();
+    for (final c in _frames.values) {
+      await c.close();
+    }
   }
 }

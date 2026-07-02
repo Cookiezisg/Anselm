@@ -5,8 +5,8 @@ part 'conversation.g.dart';
 
 /// A chat-thread container — the backend projection of `conversation.Conversation`, as the rail and
 /// ocean see it on the wire (camelCase ↔ json_serializable, no rename maps; mirrors `references/`).
-/// This is the LIST-row + identity shape the rail consumes; the heavier thread config the ocean edits
-/// (systemPrompt / attachedDocuments / modelOverride / summary) is added when that surface lands —
+/// This is the list-row + identity shape plus the per-thread [modelOverride] the ocean head edits; the
+/// heavier thread config (systemPrompt / attachedDocuments / summary) is added when that surface lands —
 /// json_serializable simply ignores those wire keys until then.
 ///
 /// Three flags are SYSTEM-WRITE / wire-read-only (never sent in PATCH), each driving a rail status
@@ -16,8 +16,8 @@ part 'conversation.g.dart';
 /// gray "archived" marker when the rail shows archived threads.
 ///
 /// 对话线程容器——后端 `conversation.Conversation` 的投影,rail/ocean 在线缆上所见(camelCase ↔
-/// json_serializable、无重命名表;镜像 references/)。这是 rail 消费的「列表行 + 身份」形状;ocean 编辑的更重
-/// 线程配置(systemPrompt / attachedDocuments / modelOverride / summary)待那个面落地再加——在此之前
+/// json_serializable、无重命名表;镜像 references/)。= rail 的「列表行 + 身份」形状 + ocean 头编辑的线程级
+/// [modelOverride];更重配置(systemPrompt / attachedDocuments / summary)待其表面落地再加——在此之前
 /// json_serializable 直接忽略那些线缆键。三个标志系统写、线缆只读(不进 PATCH),各驱动一个 rail 状态点:
 /// isGenerating(在途 assistant 回合→蓝呼吸)、awaitingInput(≥1 待决人在环→琥珀)、hasUnread(完成的回复未看→绿)。
 /// 前两个服务端逐请求派生;hasUnread 是持久列。archived 在 rail 显归档时驱动灰色标记。
@@ -29,6 +29,7 @@ abstract class Conversation with _$Conversation {
     @Default(false) bool autoTitled,
     @Default(false) bool archived,
     @Default(false) bool pinned,
+    ModelRef? modelOverride,
     required DateTime createdAt,
     required DateTime updatedAt,
     required DateTime lastMessageAt,
@@ -39,4 +40,20 @@ abstract class Conversation with _$Conversation {
 
   factory Conversation.fromJson(Map<String, dynamic> json) =>
       _$ConversationFromJson(json);
+}
+
+/// A model selection — the backend `model.ModelRef` {apiKeyId, modelId}: which credential serves it +
+/// which model. Null on a conversation = no per-thread override (the workspace's dialogue default runs).
+/// The PATCH is tristate: send a ref to set, an EXPLICIT null to clear (an absent key = unchanged).
+///
+/// 模型选择——后端 `model.ModelRef`(apiKeyId + modelId:哪个凭证 + 哪个模型)。会话上 null=无线程级覆写
+/// (走 workspace 对话默认)。PATCH 三态:传 ref=设、显式 null=清(缺键=不动)。
+@freezed
+abstract class ModelRef with _$ModelRef {
+  const factory ModelRef({
+    @Default('') String apiKeyId,
+    @Default('') String modelId,
+  }) = _ModelRef;
+
+  factory ModelRef.fromJson(Map<String, dynamic> json) => _$ModelRefFromJson(json);
 }

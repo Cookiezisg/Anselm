@@ -32,8 +32,10 @@ core/contract/
     agent.dart             # AgentEntity/Version/Execution + InvokeResult(bare) + MountHealth(Report)
     workflow.dart          # WorkflowEntity/Version + Flowrun/FlowrunNode/FlowrunComposite
     common.dart            # ExecutionAggregates + CapabilityReport(跨域)
+  conversation.dart        # Conversation(rail 行 + isGenerating/awaitingInput/hasUnread 三点 + modelOverride)+ ModelRef
   messages/                # 消息 / run-轨迹块契约(STEP 5;Chat 4.2 共用)
-    block_content.dart     # BlockKind(6 sealed)+ Text/ToolCall/ToolResult/Message Content
+    block_content.dart     # BlockKind(6 sealed)+ Text/ToolCall/ToolResult/Message Content(SSE 帧载荷)
+    chat_message.dart      # ChatMessage/ChatBlock —— REST 回合历史投影(GET /{id}/messages,含 blocks)
 ```
 
 ## 3. 信封 + 分页 + 错误（`api_error` · `page`）
@@ -73,6 +75,7 @@ agent `:invoke` 的 ReAct 轨迹经 **entities 流**（scope `agent:<id>`）以 
 
 - **`BlockKind` 封闭枚举**（`text`/`reasoning`/`tool_call`/`tool_result`/`progress`/`compaction` 6 持久块型 + `message` 元包装 + `unknown` 兜底）—— 6 block 型是真封闭集（合 CLAUDE.md「仅 seal 真封闭集」）；线缆 `node.type` 仍是开放 String（`StreamNode.type`），`BlockKind` 只是消费方归类（`blockKindFromWire` 未知→`unknown`、不抛）。
 - **typed content**：`TextContent`（text/reasoning，reasoning 带 `signature?`）· `ToolCallContent`（`name`/`arguments?`/`summary?`/`danger?`；`danger` 开放 String 三级 safe/cautious/dangerous）· `ToolResultContent`（`content`；挂 tool_call 下 E3）· `MessageContent`（`role`/`subagent?` + 终态 `status`/`stopReason`/token 计数；仅 messages 流的 chat 包装，agent 的 entities 镜像无此包装、顶层块即根）。
+- **REST 回合历史（`messages/chat_message.dart`，Chat transcript 水化）**：`ChatMessage`（`msg_`；`role`/`status`/`stopReason?`/`errorCode?`/`errorMessage?`/token 计数/`provider?`/`modelId?`/`subagentId?`[≠'' 不入顶层 transcript]/`attrs?`[user 回合冻结:`attachments` id 数组 + `mentions` 快照 `{type,id,name,content?}`——坏引用降级 `name:"(unavailable)"` 且无 `content` 键]/`blocks[]`）+ `ChatBlock`（`blk_`;`type` 开放 String/`seq`/`parentBlockId?`/`attrs?`[持久分型附加:tool 名/summary/danger 等——live 帧里内联在 content,水化两处都读]/`content`/`status`/`error?`）。线缆序 keyset 新→旧,水化反转;投影自 backend `messages.go` json tag,与 SSE 载荷(`block_content.dart`)是同一真相的两面。`Conversation` 增 `modelOverride: ModelRef?`（PATCH 三态:ref=设/显式 null=清/缺键=不动）。
 
 ## 5. 契约开放性铁律（seal 谁、不 seal 谁）
 

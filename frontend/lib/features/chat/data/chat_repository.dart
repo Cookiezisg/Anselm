@@ -1,6 +1,8 @@
 import '../../../core/contract/conversation.dart';
+import '../../../core/contract/messages/chat_message.dart';
 import '../../../core/contract/page.dart';
 import '../../../core/net/api_client.dart';
+import '../../../core/sse/frame.dart';
 import '../../../core/sse/sse_gateway.dart';
 import 'conversation_signal.dart';
 
@@ -83,6 +85,43 @@ abstract interface class ChatRepository {
   /// list patches on `durable`, ignores ephemeral — created→insert, deleted→drop, everything else→re-read
   /// that row. Live is a projection over the gateway; the fixture scripts them. 对话生命周期信号(notifications)。
   Stream<ConversationSignal> lifecycleSignals();
+
+  // ── the per-thread transcript surface 逐线程 transcript 面 ──
+
+  /// Create a thread (`POST /conversations`, empty title — the backend auto-titles after turn 1). The
+  /// landing's first send calls this, then [sendMessage]. 建线程(空标题,首回合后后端自动命名)。
+  Future<Conversation> createConversation();
+
+  /// One keyset page of turn history WITH blocks (`GET /{id}/messages`) — wire order is newest-first;
+  /// hydration reverses to chronological. 回合历史一页(含 blocks);线缆新→旧,水化反转为时间序。
+  Future<Page<ChatMessage>> listMessages(String conversationId, {String? cursor, int? limit});
+
+  /// Send a user turn (`POST /{id}/messages` → 202): lands the user message, opens the assistant turn,
+  /// enqueues the run; returns the ASSISTANT message id. [mentions] are `{type,id}` wire inputs
+  /// (freeze-on-send happens server-side). 发送(202,返 assistant msg id);mentions 为 {type,id} 线缆输入。
+  Future<String> sendMessage(
+    String conversationId, {
+    required String content,
+    List<String> attachmentIds,
+    List<({String type, String id})> mentions,
+  });
+
+  /// Cancel the in-flight turn (`POST /{id}:cancel` → 204, idempotent). The terminal arrives via the
+  /// stream's `message_stop` — the client never fabricates one. 取消在途回合;终态经流帧到达、不本地伪造。
+  Future<void> cancelTurn(String conversationId);
+
+  /// Clear the unread flag (`POST /{id}:seen` → 204, idempotent) — called when the user has the thread
+  /// focused as a reply completes (or opens it). 清未读(:seen,幂等)。
+  Future<void> markSeen(String conversationId);
+
+  /// PATCH the per-thread model override — tristate: a [ref] sets it, null CLEARS it (the wire sends an
+  /// explicit `modelOverride: null`; omitting the key would mean "leave unchanged"). 三态:ref=设,null=显式清。
+  Future<Conversation> setModelOverride(String id, ({String apiKeyId, String modelId})? ref);
+
+  /// The realtime frame feed for ONE conversation (messages SSE, scope `conversation:<id>`) — the
+  /// transcript controller folds these. Live = the gateway demux; the fixture scripts playback, which is
+  /// what makes the zero-backend demo stream. 单会话实时帧(messages 流 demux);fixture 脚本化回放供 demo 流式。
+  Stream<StreamEnvelope> conversationFrames(String conversationId);
 }
 
 /// The production repository over the Phase-4.0 pipeline. Holds no state; the method is a thin
@@ -153,5 +192,52 @@ class LiveChatRepository implements ChatRepository {
         .map(ConversationSignal.fromEnvelope)
         .where((s) => s != null)
         .cast<ConversationSignal>();
+  }
+
+  @override
+  Future<Conversation> createConversation() =>
+      _api.postEntity('/api/v1/conversations', Conversation.fromJson, body: {'title': ''});
+
+  @override
+  Future<Page<ChatMessage>> listMessages(String conversationId, {String? cursor, int? limit}) =>
+      _api.getPage('${_path(conversationId)}/messages', ChatMessage.fromJson,
+          query: {'cursor': ?cursor, 'limit': ?limit});
+
+  @override
+  Future<String> sendMessage(
+    String conversationId, {
+    required String content,
+    List<String> attachmentIds = const [],
+    List<({String type, String id})> mentions = const [],
+  }) =>
+      _api.postForId('${_path(conversationId)}/messages', body: {
+        'content': content,
+        'attachmentIds': attachmentIds,
+        'mentions': [
+          for (final m in mentions) {'type': m.type, 'id': m.id},
+        ],
+      });
+
+  @override
+  Future<void> cancelTurn(String conversationId) =>
+      _api.postNoContent('${_path(conversationId)}:cancel');
+
+  @override
+  Future<void> markSeen(String conversationId) =>
+      _api.postNoContent('${_path(conversationId)}:seen');
+
+  @override
+  Future<Conversation> setModelOverride(String id, ({String apiKeyId, String modelId})? ref) =>
+      // Tristate on the wire: the key must be PRESENT — a value sets, an explicit null clears (an absent
+      // key would mean "leave unchanged"). 线缆三态:键必须出现——有值=设,显式 null=清(缺键=不动)。
+      _api.patchEntity(_path(id), Conversation.fromJson, body: {
+        'modelOverride': ref == null ? null : {'apiKeyId': ref.apiKeyId, 'modelId': ref.modelId},
+      });
+
+  @override
+  Stream<StreamEnvelope> conversationFrames(String conversationId) {
+    final sse = _sse;
+    if (sse == null) return const Stream.empty();
+    return sse.scopeStream(StreamScope(kind: 'conversation', id: conversationId));
   }
 }
