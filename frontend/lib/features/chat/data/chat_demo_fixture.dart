@@ -1,9 +1,20 @@
 import 'dart:async';
 
+import 'package:characters/characters.dart';
+
 import '../../../core/contract/conversation.dart';
 import '../../../core/contract/messages/chat_message.dart';
 import '../../../core/sse/frame.dart';
 import 'chat_fixtures.dart';
+import 'conversation_signal.dart';
+
+/// The scripted auto-title: the first user line, grapheme-safe cut (emoji/CJK never split) — mirrors
+/// the backend's utility titler in spirit. 脚本自动命名:首行字素安全截断(镜像后端 utility 命名器)。
+String _demoTitle(String text) {
+  final line = text.trim().split('\n').first.trim();
+  final chars = line.characters;
+  return chars.length <= 12 ? line : chars.take(12).join();
+}
 
 /// The zero-backend chat repository for `make demo` / the gallery — a rail spread that exercises every
 /// signal at once (pinned+generating blue / awaiting amber / unread green / archived gray / time
@@ -129,7 +140,9 @@ class DemoChatRepository extends FixtureChatRepository {
             })),
         step: 80);
 
-    // Settle the persisted rows so a reload shows the finished turn. 定格持久行,重载见完成回合。
+    // Settle the persisted rows so a reload shows the finished turn; an un-titled thread then
+    // AUTO-TITLES (mirrors the backend's post-first-turn hook) — the rail row + head play the
+    // one-shot typewriter. 定格持久行;未命名线程随后自动命名(镜像后端首回合钩子)——rail 行+头播打字机。
     _timers.add(Timer(Duration(milliseconds: at + 40), () {
       replaceMessage(
         conversationId,
@@ -148,6 +161,12 @@ class DemoChatRepository extends FixtureChatRepository {
           createdAt: DateTime.now().toUtc(),
         ),
       );
+      final conv = conversationOrNull(conversationId);
+      if (conv != null && conv.title.trim().isEmpty) {
+        upsert(conv.copyWith(title: _demoTitle(userText), autoTitled: true));
+        emitSignal(ConversationSignal(
+            id: conversationId, action: ConversationAction.updated, durable: true));
+      }
     }));
   }
 

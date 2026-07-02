@@ -4,6 +4,7 @@ import 'package:anselm/features/chat/data/chat_providers.dart';
 import 'package:anselm/features/chat/data/chat_repository.dart';
 import 'package:anselm/features/chat/data/conversation_signal.dart';
 import 'package:anselm/features/chat/state/conversation_list_provider.dart';
+import 'package:anselm/features/chat/state/title_reveals.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -131,6 +132,32 @@ void main() {
     c.read(conversationListProvider.notifier).applyUpdate(_c('cv_a', 'A', archived: true));
     final rows = c.read(conversationListProvider).value!.rows;
     expect(rows.single.archived, true);
+  });
+
+  test('a FRESH auto-title (empty→non-empty + autoTitled) queues the typewriter reveal', () async {
+    final c = _container(FixtureChatRepository(conversations: [_c('cv_a', '')]));
+    await c.read(conversationListProvider.future);
+
+    final titled = Conversation(
+        id: 'cv_a', title: '新标题', autoTitled: true,
+        createdAt: _at(9), updatedAt: _at(9), lastMessageAt: _at(9));
+    c.read(conversationListProvider.notifier).applyUpdate(titled);
+    expect(c.read(titleRevealsProvider), {'cv_a'}); // queued for the rail + head 入队
+
+    c.read(titleRevealsProvider.notifier).remove('cv_a'); // the typewriter finished 播完
+    expect(c.read(titleRevealsProvider), isEmpty);
+  });
+
+  test('a user rename (autoTitled=false) or an already-titled row never queues a reveal', () async {
+    final c = _container(FixtureChatRepository(conversations: [_c('cv_a', ''), _c('cv_b', '有名字')]));
+    await c.read(conversationListProvider.future);
+    final n = c.read(conversationListProvider.notifier);
+
+    n.applyUpdate(_c('cv_a', '用户手改')); // rename response: autoTitled=false 改名
+    n.applyUpdate(Conversation(
+        id: 'cv_b', title: '改了', autoTitled: true,
+        createdAt: _at(9), updatedAt: _at(9), lastMessageAt: _at(9))); // had a title already 已有名
+    expect(c.read(titleRevealsProvider), isEmpty);
   });
 
   test('applyDelete removes the row and is idempotent', () async {

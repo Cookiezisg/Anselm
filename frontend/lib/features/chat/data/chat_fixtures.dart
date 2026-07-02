@@ -275,6 +275,12 @@ class FixtureChatRepository implements ChatRepository {
   /// Push a lifecycle signal to subscribers (the list notifier). 向订阅者(list notifier)推一条生命周期信号。
   void emitSignal(ConversationSignal signal) => _lazySignals.add(signal);
 
+  /// Synchronous row peek for scripts (null when absent — no throw). 脚本用同步查行(缺=null,不抛)。
+  Conversation? conversationOrNull(String id) {
+    final i = _all.indexWhere((r) => r.id == id);
+    return i < 0 ? null : _all[i];
+  }
+
   Future<void> dispose() async {
     await _signals?.close();
     await _resync.close();

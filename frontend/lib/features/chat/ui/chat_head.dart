@@ -7,6 +7,7 @@ import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
 import '../state/conversation_header.dart';
 import '../state/selected_conversation.dart';
+import '../state/title_reveals.dart';
 
 /// The chat ocean's floating-head content. On a THREAD: the title (in-place renameable — the same PATCH
 /// as the rail's ⋯ rename) then the per-thread MODEL picker nudged right by it. On the LANDING: the
@@ -47,6 +48,11 @@ class ChatHead extends ConsumerWidget {
     final conv = header.value;
     if (conv == null) return const SizedBox.shrink();
 
+    // A FRESH auto-title lands as a one-shot typewriter (the rail row plays the same title in sync);
+    // done → back to the renameable title. 新自动命名以一次性打字机落地(rail 行同播);完→可改名标题。
+    final revealing =
+        ref.watch(titleRevealsProvider).contains(id) && conv.title.trim().isNotEmpty;
+
     final override = conv.modelOverride;
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -55,11 +61,26 @@ class ChatHead extends ConsumerWidget {
         // so the model button sits right after it; Flexible still caps runaway titles.
         // 标题:就地改名,收紧到内容宽(AnInlineEdit loose 下 min),模型钮贴题;Flexible 仍封超长。
         Flexible(
-          child: AnInlineEdit(
-            key: ValueKey('chat-head-title-$id'),
-            value: conv.title.isEmpty ? t.chat.kNew : conv.title,
-            onCommit: (v) => ref.read(conversationHeaderProvider(id).notifier).rename(v),
-          ),
+          child: revealing
+              ? SizedBox(
+                  height: AnSize.control, // the AnInlineEdit footprint — swap never jumps 同定高,切换不跳
+                  // widthFactor pins the box to the typed width (Align would fill the loose slot and
+                  // shove the model button to the far edge) — the button rides the typing instead.
+                  // widthFactor 收紧到已打出的宽(Align 会撑满 loose 槽把模型钮顶到最右)——钮随打字右移。
+                  child: Center(
+                    widthFactor: 1,
+                    child: AnTypewriter(
+                      [conv.title],
+                      loop: false,
+                      onDone: () => ref.read(titleRevealsProvider.notifier).remove(id),
+                    ),
+                  ),
+                )
+              : AnInlineEdit(
+                  key: ValueKey('chat-head-title-$id'),
+                  value: conv.title.isEmpty ? t.chat.kNew : conv.title,
+                  onCommit: (v) => ref.read(conversationHeaderProvider(id).notifier).rename(v),
+                ),
         ),
         const SizedBox(width: AnSpace.s8),
         _modelMenu(

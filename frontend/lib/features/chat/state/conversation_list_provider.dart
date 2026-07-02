@@ -8,6 +8,7 @@ import '../data/chat_providers.dart';
 import '../data/chat_repository.dart';
 import '../data/conversation_signal.dart';
 import 'conversation_list_state.dart';
+import 'title_reveals.dart';
 
 /// The conversation list sort — a transient view preference (activity / created / name), held in its
 /// own provider so the list notifier can `watch` it and re-page from the top whenever it changes (a
@@ -142,6 +143,12 @@ class ConversationListNotifier extends AsyncNotifier<ConversationListState>
     if (cur == null) return;
     final rows = [...cur.rows];
     final i = rows.indexWhere((r) => r.id == c.id);
+    // A FRESH auto-title (empty→non-empty + autoTitled; a user rename never matches — the renamed row
+    // already had a title and rename responses carry autoTitled=false) → queue the one-shot typewriter
+    // for the rail row + head. 新自动命名(空→非空 + autoTitled;改名不命中)→ 入打字机队列(rail+头同播)。
+    if (i >= 0 && rows[i].title.trim().isEmpty && c.title.trim().isNotEmpty && c.autoTitled) {
+      ref.read(titleRevealsProvider.notifier).add(c.id);
+    }
     final showArchived = ref.read(showArchivedProvider);
     if (c.archived && !showArchived) {
       if (i < 0) return; // already absent → idempotent no-op 已不在,幂等

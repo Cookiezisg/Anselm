@@ -32,6 +32,7 @@ class AnRow extends StatelessWidget {
     this.icon,
     this.dot,
     required this.label,
+    this.labelWidget,
     this.hint,
     this.meta,
     this.selected = false,
@@ -50,6 +51,11 @@ class AnRow extends StatelessWidget {
   final IconData? icon;
   final AnStatus? dot;
   final String label;
+
+  /// Optional label OVERRIDE widget (e.g. a one-shot typewriter while a fresh auto-title lands) —
+  /// replaces the label Text only; [label] stays required as the row's semantic/filter identity.
+  /// label 覆盖件(如自动命名首落的打字机)——只换 label 文本;[label] 仍是行的语义/过滤身份。
+  final Widget? labelWidget;
   final String? hint;
   final String? meta;
   final bool selected;
@@ -183,7 +189,8 @@ class AnRow extends StatelessWidget {
   Widget _labelBlock(AnColors c, bool active) {
     final strong = active || selected;
     final labelStyle = (mono ? AnText.mono : AnText.body).copyWith(color: strong ? c.ink : c.inkMuted);
-    final labelText = Text(label, maxLines: 1, softWrap: false, overflow: TextOverflow.ellipsis, style: labelStyle);
+    final labelText = labelWidget ??
+        Text(label, maxLines: 1, softWrap: false, overflow: TextOverflow.ellipsis, style: labelStyle);
     if (!_hasHint) return labelText;
     return Column(
       mainAxisSize: MainAxisSize.min,

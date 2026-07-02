@@ -59,6 +59,27 @@ void main() {
     await tester.pump(const Duration(milliseconds: 2500)); // finish + hold + stop
   });
 
+  testWidgets('onDone fires once when a non-looping run finishes (after type + hold)', (tester) async {
+    var done = 0;
+    await tester.pumpWidget(host(AnTypewriter(const ['Hi'], loop: false, onDone: () => done++)));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300)); // typing (2 chars) + not yet held out 打字中
+    expect(done, 0);
+    await tester.pump(const Duration(milliseconds: 1600)); // hold ends → completed → post-frame 完成
+    await tester.pump();
+    expect(done, 1);
+    await tester.pump(const Duration(seconds: 1)); // stays 1 — no re-fire 不重触发
+    expect(done, 1);
+  });
+
+  testWidgets('onDone fires under reduced motion (static render is the finished state)', (tester) async {
+    var done = 0;
+    await tester.pumpWidget(host(AnTypewriter(const ['Hi'], loop: false, onDone: () => done++), reduced: true));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(done, 1);
+  });
+
   testWidgets('empty phrases render nothing and do not crash', (tester) async {
     await tester.pumpWidget(host(const AnTypewriter([])));
     await tester.pumpAndSettle(const Duration(milliseconds: 16), EnginePhase.sendSemanticsUpdate, const Duration(seconds: 5));

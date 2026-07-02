@@ -30,6 +30,7 @@ class AnTypewriter extends StatefulWidget {
     this.showCaret = true,
     this.accentCaret = false,
     this.textStyle,
+    this.onDone,
     super.key,
   });
 
@@ -38,6 +39,11 @@ class AnTypewriter extends StatefulWidget {
   /// Cycle the phrases; when false, type the last phrase and stop (steady caret). 循环;false=打完末句停。
   final bool loop;
   final bool showCaret;
+
+  /// Fires ONCE when a non-looping run finishes its last phrase (a host can then swap in its static
+  /// widget). Under reduced motion (static render) it fires on the next frame. Never fires while
+  /// looping. 非循环打完末句触发一次(宿主可切回静态件);reduced 下下一帧即触发;循环模式永不触发。
+  final VoidCallback? onDone;
 
   /// Accent the caret (welcome/run feel) vs the default ink. 光标着 accent。
   final bool accentCaret;
@@ -55,6 +61,7 @@ class _AnTypewriterState extends State<AnTypewriter> with SingleTickerProviderSt
   String _phrase = '';
   int _n = 0; // grapheme count
   int _typeMs = 0, _holdEnd = 0, _delEnd = 0, _total = 1; // phase boundaries (ms)
+  bool _doneFired = false; // onDone once per run (didChangeDependencies re-restarts) 每轮只触发一次
 
   @override
   void initState() {
@@ -79,9 +86,22 @@ class _AnTypewriterState extends State<AnTypewriter> with SingleTickerProviderSt
 
   void _restart() {
     _c.stop();
-    if (_reduced || widget.phrases.isEmpty) return; // build renders the static fallback 静态兜底
+    _doneFired = false;
+    if (_reduced || widget.phrases.isEmpty) {
+      // The static fallback IS the finished state — let a waiting host proceed. 静态兜底即完成态,放宿主走。
+      _fireDone();
+      return; // build renders the static fallback 静态兜底
+    }
     _i = 0;
     _startPhrase();
+  }
+
+  void _fireDone() {
+    if (widget.loop || _doneFired || widget.onDone == null) return;
+    _doneFired = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.onDone!();
+    });
   }
 
   void _startPhrase() {
@@ -98,7 +118,11 @@ class _AnTypewriterState extends State<AnTypewriter> with SingleTickerProviderSt
   }
 
   void _onStatus(AnimationStatus s) {
-    if (s != AnimationStatus.completed || _stopOnThis) return;
+    if (s != AnimationStatus.completed) return;
+    if (_stopOnThis) {
+      _fireDone();
+      return;
+    }
     _i = (_i + 1) % widget.phrases.length;
     _startPhrase();
   }

@@ -50,6 +50,7 @@ dependencies:
   json_annotation: ^4.12.0
   # Declarative desktop routing (AppShell + feature routes). 声明式路由(壳 + feature 路由)。
   go_router: ^17.3.0
+  characters: ^1.4.1
 
 dev_dependencies:
   flutter_test:

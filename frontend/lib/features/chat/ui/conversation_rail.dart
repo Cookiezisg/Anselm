@@ -9,6 +9,7 @@ import '../../../core/ui/an_button.dart';
 import '../../../core/ui/an_menu.dart';
 import '../../../core/ui/an_rail_states.dart';
 import '../../../core/ui/an_sidebar_list.dart';
+import '../../../core/ui/an_typewriter.dart';
 import '../../../core/ui/an_toast.dart';
 import '../../../core/ui/icons.dart';
 import '../../../i18n/strings.g.dart';
@@ -16,6 +17,7 @@ import '../data/chat_providers.dart';
 import '../data/chat_repository.dart';
 import '../state/conversation_list_provider.dart';
 import '../state/selected_conversation.dart';
+import '../state/title_reveals.dart';
 import 'conversation_rail_model.dart';
 
 /// The left-island conversation navigator. Watches [conversationListProvider] (one live list AsyncValue)
@@ -88,7 +90,20 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
         // id → conversation, so the per-row ⋯ menu can read the current pin/archive state for its labels.
         // id→对话,供逐行 ⋯ 菜单按现态出置顶/归档标签。
         final byId = {for (final c in rows) c.id: c};
+        final reveals = ref.watch(titleRevealsProvider);
         return AnSidebarList(
+          // A fresh auto-title lands as a one-shot typewriter in its row (the head plays the same title
+          // in sync); done → back to the static label. 新自动命名在行内一次性打字机落地(头同播);完→静态。
+          labelWidgetFor: (id) {
+            final title = byId[id]?.title ?? '';
+            if (!reveals.contains(id) || title.trim().isEmpty) return null;
+            return AnTypewriter(
+              [title],
+              loop: false,
+              showCaret: false,
+              onDone: () => ref.read(titleRevealsProvider.notifier).remove(id),
+            );
+          },
           model: buildConversationRailModel(
             rows,
             now: DateTime.now(),

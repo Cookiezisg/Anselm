@@ -41,6 +41,7 @@ class AnSidebarList extends StatefulWidget {
     this.menuEntries = const [],
     this.showNew = true,
     this.rowActionsBuilder,
+    this.labelWidgetFor,
     this.editingRowId,
     this.onRenameCommit,
     this.onRenameCancel,
@@ -66,6 +67,12 @@ class AnSidebarList extends StatefulWidget {
 
   /// Optional trailing actions per row (e.g. a ⋯ menu), keyed by row id. 行尾动作(⋯ 菜单),按 id。
   final List<Widget> Function(String rowId)? rowActionsBuilder;
+
+  /// Optional per-row label OVERRIDE widget (e.g. a one-shot typewriter while a fresh auto-title lands);
+  /// null → the row's static label. The MODEL stays pure (no widgets in SidebarRow) — overrides live at
+  /// the render layer, keyed by row id. 行 label 覆盖件(如自动命名首落的打字机);null=静态 label。模型保持纯
+  /// (SidebarRow 不进 Widget)——覆盖在渲染层按 id 查。
+  final Widget? Function(String rowId)? labelWidgetFor;
 
   /// In-place rename: the row with this id renders an [AnInlineEdit] in its label slot instead of the
   /// static [AnRow]. The host owns this id + clears it on commit/cancel. 就地改名:此 id 行渲 AnInlineEdit。
@@ -375,6 +382,7 @@ class _AnSidebarListState extends State<AnSidebarList> {
       icon: r.dot == null ? r.icon : null,
       dot: r.dot,
       label: r.label,
+      labelWidget: widget.labelWidgetFor?.call(r.id),
       hint: r.hint,
       meta: r.meta,
       selected: r.id == widget.selectedId,
