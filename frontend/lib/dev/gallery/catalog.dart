@@ -7,6 +7,7 @@ import '../../core/design/typography.dart';
 import '../../core/ui/ui.dart';
 import 'chat_composer_specimens.dart';
 import 'chat_thinking_specimens.dart';
+import 'chat_tool_card_specimens.dart';
 import 'chat_turn_specimens.dart';
 import 'markdown_specimens.dart';
 import 'specimen.dart';
@@ -50,6 +51,7 @@ final GalleryCategory _chatRail = GalleryCategory('对话 Chat', AnIcons.chat, [
   userTurnGalleryItem,
   anMarkdownGalleryItem,
   chatThinkingGalleryItem,
+  chatToolCardGalleryItem,
   chatComposerGalleryItem,
   GalleryItem('AnAttachmentChip 待发附件', 'composer 附件条的一枚;上传中/就绪/失败(点体重试)', [
     GallerySpecimen('就绪 · 图片', (_) => AnAttachmentChip(kind: 'image', filename: 'screenshot.png', meta: 'PNG · 1.2 MB', onRemove: () {})),

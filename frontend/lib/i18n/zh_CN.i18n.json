@@ -51,7 +51,24 @@
     "modelAuto": "Auto",
     "mentionEntity": "Mention an entity",
     "attachFile": "Attach files",
-    "dropToAttach": "Drop files to attach"
+    "dropToAttach": "Drop files to attach",
+    "tool": {
+      "calling": "正在调用",
+      "called": "已调用",
+      "awaitingConfirm": "等待确认",
+      "failed": "失败",
+      "denied": "已拒绝执行",
+      "cancelled": "已中断",
+      "elapsed": "$s 秒",
+      "intent": "意图",
+      "argsLabel": "参数",
+      "progressLabel": "进度",
+      "resultLabel": "结果",
+      "errorLabel": "错误",
+      "liveLabel": "实时",
+      "truncatedNote": "已截断 · 完整内容 $chars 字符",
+      "progressOmitted": "…前 $n 行略"
+    }
   },
   "appName": "Anselm",
   "status": {

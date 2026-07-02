@@ -193,6 +193,8 @@ class Translations$chat$en {
 
 	/// en: 'Drop files to attach'
 	String get dropToAttach => 'Drop files to attach';
+
+	late final Translations$chat$tool$en tool = Translations$chat$tool$en.internal(_root);
 }
 
 // Path: status
@@ -630,6 +632,60 @@ class Translations$chat$bucket$en {
 
 	/// en: 'Recents'
 	String get recents => 'Recents';
+}
+
+// Path: chat.tool
+class Translations$chat$tool$en {
+	Translations$chat$tool$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Calling'
+	String get calling => 'Calling';
+
+	/// en: 'Called'
+	String get called => 'Called';
+
+	/// en: 'Awaiting confirmation'
+	String get awaitingConfirm => 'Awaiting confirmation';
+
+	/// en: 'failed'
+	String get failed => 'failed';
+
+	/// en: 'Denied'
+	String get denied => 'Denied';
+
+	/// en: 'Interrupted'
+	String get cancelled => 'Interrupted';
+
+	/// en: '$s s'
+	String elapsed({required Object s}) => '${s} s';
+
+	/// en: 'Intent'
+	String get intent => 'Intent';
+
+	/// en: 'Arguments'
+	String get argsLabel => 'Arguments';
+
+	/// en: 'Progress'
+	String get progressLabel => 'Progress';
+
+	/// en: 'Result'
+	String get resultLabel => 'Result';
+
+	/// en: 'Error'
+	String get errorLabel => 'Error';
+
+	/// en: 'live'
+	String get liveLabel => 'live';
+
+	/// en: 'Truncated · full content $chars chars'
+	String truncatedNote({required Object chars}) => 'Truncated · full content ${chars} chars';
+
+	/// en: '…$n earlier lines omitted'
+	String progressOmitted({required Object n}) => '…${n} earlier lines omitted';
 }
 
 // Path: shell.ocean
@@ -1201,6 +1257,21 @@ extension on Translations {
 			'chat.mentionEntity' => 'Mention an entity',
 			'chat.attachFile' => 'Attach files',
 			'chat.dropToAttach' => 'Drop files to attach',
+			'chat.tool.calling' => 'Calling',
+			'chat.tool.called' => 'Called',
+			'chat.tool.awaitingConfirm' => 'Awaiting confirmation',
+			'chat.tool.failed' => 'failed',
+			'chat.tool.denied' => 'Denied',
+			'chat.tool.cancelled' => 'Interrupted',
+			'chat.tool.elapsed' => ({required Object s}) => '${s} s',
+			'chat.tool.intent' => 'Intent',
+			'chat.tool.argsLabel' => 'Arguments',
+			'chat.tool.progressLabel' => 'Progress',
+			'chat.tool.resultLabel' => 'Result',
+			'chat.tool.errorLabel' => 'Error',
+			'chat.tool.liveLabel' => 'live',
+			'chat.tool.truncatedNote' => ({required Object chars}) => 'Truncated · full content ${chars} chars',
+			'chat.tool.progressOmitted' => ({required Object n}) => '…${n} earlier lines omitted',
 			'appName' => 'Anselm',
 			'status.idle' => 'Idle',
 			'status.run' => 'Running',

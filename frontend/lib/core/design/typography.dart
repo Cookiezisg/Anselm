@@ -17,8 +17,18 @@ abstract final class AnText {
     'PingFang SC', 'Microsoft YaHei', 'Segoe UI', 'Noto Sans', 'sans-serif',
   ];
   static const String monoFamily = 'JetBrains Mono'; // BUNDLED (assets/fonts) — deterministic code face 随包,代码字面确定
+  // MiSans FIRST: the bundled JetBrains Mono already owns every latin/mono glyph, so the only
+  // job of the fallback head is CJK — Chinese inside mono contexts (code comments, tool prose
+  // results, terminal output) must hit the BUNDLED CJK face deterministically. Platform monos
+  // stay as tail insurance only; ahead of MiSans they'd shadow it non-deterministically (the
+  // test binding resolves unknown families to the FlutterTest font, whose sparse cmap turns
+  // select CJK into solid boxes).
+  // MiSans 置首:随包 JetBrains Mono 已覆盖全部拉丁/等宽字形,回退链头部唯一职责是 CJK——mono 语境
+  // 的中文(代码注释/工具散文结果/终端输出)必须**确定性**落随包中文字面。平台 mono 只作尾部保险;
+  // 排在 MiSans 前会不确定地遮蔽它(测试绑定把未知族解析成 FlutterTest 字体,其稀疏 cmap 把个别
+  // CJK 渲成实心块)。
   static const List<String> monoFallback = [
-    'SF Mono', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace',
+    'MiSans', 'SF Mono', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace',
   ];
 
   // TWO-WEIGHT RULE — the WHOLE UI uses exactly two MiSans weights: [bodyWeight] (Light w300) for normal

@@ -51,7 +51,24 @@
     "modelAuto": "Auto",
     "mentionEntity": "Mention an entity",
     "attachFile": "Attach files",
-    "dropToAttach": "Drop files to attach"
+    "dropToAttach": "Drop files to attach",
+    "tool": {
+      "calling": "Calling",
+      "called": "Called",
+      "awaitingConfirm": "Awaiting confirmation",
+      "failed": "failed",
+      "denied": "Denied",
+      "cancelled": "Interrupted",
+      "elapsed": "$s s",
+      "intent": "Intent",
+      "argsLabel": "Arguments",
+      "progressLabel": "Progress",
+      "resultLabel": "Result",
+      "errorLabel": "Error",
+      "liveLabel": "live",
+      "truncatedNote": "Truncated · full content $chars chars",
+      "progressOmitted": "…$n earlier lines omitted"
+    }
   },
   "appName": "Anselm",
   "status": {

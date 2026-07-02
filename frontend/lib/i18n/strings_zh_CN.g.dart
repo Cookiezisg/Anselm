@@ -106,6 +106,7 @@ class _Translations$chat$zh_CN extends Translations$chat$en {
 	@override String get mentionEntity => 'Mention an entity';
 	@override String get attachFile => 'Attach files';
 	@override String get dropToAttach => 'Drop files to attach';
+	@override late final _Translations$chat$tool$zh_CN tool = _Translations$chat$tool$zh_CN._(_root);
 }
 
 // Path: status
@@ -343,6 +344,30 @@ class _Translations$chat$bucket$zh_CN extends Translations$chat$bucket$en {
 	// Translations
 	@override String get pinned => '置顶';
 	@override String get recents => '最近';
+}
+
+// Path: chat.tool
+class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
+	_Translations$chat$tool$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get calling => '正在调用';
+	@override String get called => '已调用';
+	@override String get awaitingConfirm => '等待确认';
+	@override String get failed => '失败';
+	@override String get denied => '已拒绝执行';
+	@override String get cancelled => '已中断';
+	@override String elapsed({required Object s}) => '${s} 秒';
+	@override String get intent => '意图';
+	@override String get argsLabel => '参数';
+	@override String get progressLabel => '进度';
+	@override String get resultLabel => '结果';
+	@override String get errorLabel => '错误';
+	@override String get liveLabel => '实时';
+	@override String truncatedNote({required Object chars}) => '已截断 · 完整内容 ${chars} 字符';
+	@override String progressOmitted({required Object n}) => '…前 ${n} 行略';
 }
 
 // Path: shell.ocean
@@ -656,6 +681,21 @@ extension on TranslationsZhCn {
 			'chat.mentionEntity' => 'Mention an entity',
 			'chat.attachFile' => 'Attach files',
 			'chat.dropToAttach' => 'Drop files to attach',
+			'chat.tool.calling' => '正在调用',
+			'chat.tool.called' => '已调用',
+			'chat.tool.awaitingConfirm' => '等待确认',
+			'chat.tool.failed' => '失败',
+			'chat.tool.denied' => '已拒绝执行',
+			'chat.tool.cancelled' => '已中断',
+			'chat.tool.elapsed' => ({required Object s}) => '${s} 秒',
+			'chat.tool.intent' => '意图',
+			'chat.tool.argsLabel' => '参数',
+			'chat.tool.progressLabel' => '进度',
+			'chat.tool.resultLabel' => '结果',
+			'chat.tool.errorLabel' => '错误',
+			'chat.tool.liveLabel' => '实时',
+			'chat.tool.truncatedNote' => ({required Object chars}) => '已截断 · 完整内容 ${chars} 字符',
+			'chat.tool.progressOmitted' => ({required Object n}) => '…前 ${n} 行略',
 			'appName' => 'Anselm',
 			'status.idle' => '空闲',
 			'status.run' => '运行中',

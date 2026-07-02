@@ -16,6 +16,7 @@ import '../state/attachment_meta.dart';
 import '../model/user_attachment.dart';
 import '../state/conversation_stream_provider.dart';
 import '../state/conversation_stream_state.dart';
+import 'chat_tool_card.dart';
 import 'chat_turn.dart';
 import 'chat_thinking.dart';
 import 'user_turn_content.dart';
@@ -344,25 +345,11 @@ class _TurnRow extends ConsumerWidget {
           settledLabel: t.chat.thought,
         );
       case BlockKind.toolCall:
-        // The minimal stand-in until the V3 chassis: glyph + humanized name, honest and quiet.
-        // V3 前的最简占位:字形 + 名称,诚实安静。
-        final name = b.name ?? '';
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(AnIcons.toolIcon(name), size: AnSize.iconSm, color: c.inkFaint),
-            const SizedBox(width: AnSpace.s6),
-            Flexible(
-              child: b.isOpen
-                  ? AnShimmerText(name.isEmpty ? '…' : name,
-                      style: AnText.meta.copyWith(color: c.inkMuted))
-                  : Text(name, maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: AnText.meta.copyWith(color: c.inkMuted)),
-            ),
-          ],
-        );
+        // The V3a chassis (WRK-053): full lifecycle line + generic expanded body; nested
+        // progress/tool_result ride the node's children. V3a 底盘:完整生命线 + 通用展开体。
+        return ChatToolCard(node: b, key: ValueKey('tool-${b.id}'));
       case BlockKind.toolResult || BlockKind.progress:
-        return null; // fold under the tool chassis at V4/V5 — not top-level noise 归 V4/V5,不作顶层噪声
+        return null; // children of the tool card — never top-level noise 工具卡子块,不作顶层噪声
       case BlockKind.compaction:
         return Center(
           child: Text('· ${b.displayText} ·',
