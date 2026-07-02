@@ -8,6 +8,8 @@ import '../core/shell/ocean_breadcrumb.dart';
 import '../core/shell/oceans.dart';
 import '../core/shell/shell_chrome.dart';
 import '../core/ui/ui.dart';
+import '../features/chat/state/selected_conversation.dart';
+import '../features/chat/ui/chat_ocean.dart';
 import '../features/chat/ui/conversation_rail.dart';
 import '../features/entities/state/run/right_panel.dart';
 import '../features/entities/state/selected_entity.dart';
@@ -47,10 +49,17 @@ class AppShell extends ConsumerWidget {
         ref.read(shellHeadProvider.notifier).clear();
       }
     });
-    // Chat mounts its rail in the left-island middle ONLY — the center transcript/ocean is a later
-    // phase, so chat keeps the coming-soon center (don't fold onChat into one flag driving both).
-    // chat 只在左岛中段挂 rail——中心海洋是后续片,故 chat 保持「即将推出」中心(别用一个 flag 同驱中段+中心)。
+    // Chat mounts its rail in the left-island middle AND its center ocean (landing / transcript+composer).
+    // chat 同时挂左岛 rail 与中心海洋(landing / transcript+composer)。
     final onChat = ocean == OceanKind.chat;
+    // A /chat/:id navigation (deep link, restored URL) pulls the ocean to chat — the URL is the
+    // conversation-selection truth, so the ocean must follow it, never fight it. (Full ocean routing is
+    // the planned go_router fold-in; this is the one coherence rule needed until then.)
+    // /chat/:id 导航(深链/恢复)把海洋拉到 chat——URL 是会话选区真相,海洋必须跟、不能顶。(海洋整体路由化是
+    // 既定后续;在那之前只需这一条一致性规则。)
+    ref.listen(selectedConversationProvider, (prev, next) {
+      if (next != null) ref.read(selectedOceanProvider.notifier).select(OceanKind.chat);
+    });
     final notifOpen = ref.watch(notificationsOpenProvider);
     // Entity selection + the right island are entities-only (URL-driven); dormant on other oceans.
     final hasSelection = onEntities && ref.watch(selectedEntityProvider) != null;
@@ -150,7 +159,11 @@ class AppShell extends ConsumerWidget {
       },
       child: AnShell(
         sidebar: sidebar,
-        ocean: onEntities ? const EntityOcean() : const _OceanPlaceholder(),
+        ocean: onEntities
+            ? const EntityOcean()
+            : onChat
+                ? const ChatOcean()
+                : const _OceanPlaceholder(),
         inspector: const AnInspector(headless: true, child: RunTerminal()),
         inspectorOpen: hasSelection && !rightCollapsed,
         leftCollapsed: chrome.leftCollapsed,

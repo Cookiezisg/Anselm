@@ -111,7 +111,9 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
             ),
           ),
           selectedId: selected?.id,
-          showNew: false, // lazy New-chat is a later slice; the rail is read+select+act only here
+          // New chat = the landing at '/' (no selection; the FIRST SEND creates the thread — nothing is
+          // minted by the click itself). 新对话=回 '/' landing(首发才建线程,点击本身不铸)。
+          onNew: () => context.go('/'),
           menuEntries: _menu(t, sort, archived, showCount, showTime),
           // The row id IS the conversation id — navigate straight to it (route is the source of truth).
           onSelect: (id) => context.go(conversationLocation(id)),

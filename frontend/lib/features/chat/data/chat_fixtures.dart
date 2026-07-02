@@ -139,6 +139,8 @@ class FixtureChatRepository implements ChatRepository {
       lastMessageAt: now,
     );
     _all.insert(0, c);
+    // Mirror the backend's notifications echo so the rail inserts the new row (demo/tests). 镜像回声,rail 长新行。
+    emitSignal(ConversationSignal(id: c.id, action: ConversationAction.created, durable: true));
     return c;
   }
 
