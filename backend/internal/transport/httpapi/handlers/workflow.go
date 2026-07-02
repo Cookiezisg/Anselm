@@ -274,10 +274,12 @@ func (h *WorkflowHandler) deactivate(w http.ResponseWriter, r *http.Request, id 
 	responsehttpapi.Success(w, http.StatusOK, wf)
 }
 
-// kill backs :kill — hard-stop the workflow (stop listening + cancel every in-flight run). Returns
-// how many runs were killed.
+// kill backs :kill — hard-stop the workflow (stop listening + cancel every in-flight run) and return
+// the post-action workflow entity snapshot (state-change-action rule, ADR 0003 — not a bare count; the
+// killed-run count is queried via GET /flowruns?status=cancelled).
 //
-// kill 支撑 :kill——硬停 workflow（停监听 + 取消所有在途 run）。返被杀 run 数。
+// kill 支撑 :kill——硬停 workflow（停监听 + 取消所有在途 run），返**动作后实体快照**（状态变更动作铁律
+// ADR 0003，非裸计数；被杀 run 数由 GET /flowruns?status=cancelled 查）。
 func (h *WorkflowHandler) kill(w http.ResponseWriter, r *http.Request, id string) {
 	if _, err := h.svc.Kill(r.Context(), id); err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)

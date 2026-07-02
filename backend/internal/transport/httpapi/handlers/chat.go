@@ -152,12 +152,15 @@ func (h *ChatHandler) ListInteractions(w http.ResponseWriter, r *http.Request) {
 	responsehttpapi.Success(w, http.StatusOK, h.svc.PendingInteractions(r.Context(), r.PathValue("id")))
 }
 
-// ResolveInteraction delivers a human decision (approve / approve_always / deny / accept / decline)
-// to a tool blocked awaiting input in this conversation; 202 (the gated tool resumes + streams over
-// the messages SSE). NO_PENDING_INTERACTION (404) if nothing is waiting on that tool_call.
+// ResolveInteraction delivers a human decision (approve / approve_always / deny / accept / decline) to
+// a tool blocked awaiting input in this conversation. 204 (pure state change, no new product; the gated
+// tool resuming + streaming over the messages SSE is an async side effect, not the HTTP response).
+// An out-of-enum action → 422 INTERACTION_INVALID_ACTION; nothing waiting on that tool_call → 404
+// NO_PENDING_INTERACTION.
 //
 // ResolveInteraction 把人的决定（approve / approve_always / deny / accept / decline）送给本对话中阻塞等输入的
-// 工具；202（被门工具续跑 + 经 messages SSE 流式）。该 tool_call 无等待项则 NO_PENDING_INTERACTION (404)。
+// 工具。204（纯状态变更、无新产物；被门工具续跑 + 经 messages SSE 流式是异步副作用、非 HTTP 响应）。枚举外 action
+// → 422 INTERACTION_INVALID_ACTION；该 tool_call 无等待项则 404 NO_PENDING_INTERACTION。
 func (h *ChatHandler) ResolveInteraction(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Action string `json:"action"` // approve | approve_always | deny | accept | decline

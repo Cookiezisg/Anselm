@@ -167,7 +167,7 @@ trigger 是**独立信号源实体**：
 |---|---|---|
 | 后端（`backend/`，4 层架构 + Quadrinity + durable 引擎 + 全实体） | 编译/装配/启动/服务全通；单一后端 | ✅ 当前 |
 | 前端地基（`frontend/`，Flutter 桌面端：sidecar + 契约层 + SSE gateway + 装配根 + i18n） | analyze + test 绿；见 [`decisions/0004`](../decisions/0004-frontend-flutter-architecture.md) | ✅ 当前 |
-| 前端 features（按 app 形态铺各域屏、对接 `backend` 契约） | 桌面 app 联调 | ⬜ 下一步 |
+| 前端 features（按 app 形态铺各域屏、对接 `backend` 契约） | Entities（Phase 4.1）+ Chat（Phase 4.2：rail / 中心海洋 / composer / @提及 / 附件 / tool 卡）已落；右岛·人在环·余下 tool 卡族在建。详见 CLAUDE.md 当前状态节 + `working/frontend/` hub | 🚧 进行中 |
 
 > 旧版快照归档在 `version-0.2` git 分支。历史只在 git，不在本文档（**零历史包袱**）。
 
