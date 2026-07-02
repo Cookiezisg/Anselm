@@ -87,6 +87,13 @@ abstract final class AnIcons {
   static final IconData taskOpen = _thin(LucideIcons.square); // md task list, unchecked 任务未勾
   static final IconData taskDone = _thin(LucideIcons.squareCheck); // md task list, checked 任务已勾
 
+  // ── attachments (backend kind wire: image|document|text|audio|video|other) 附件(后端 kind 线缆) ──
+  static final IconData audio = _thin(LucideIcons.music);
+  static final IconData video = _thin(LucideIcons.film);
+  static final IconData file = _thin(LucideIcons.file); // kind=other 通用文件
+  static final IconData fileCode = _thin(LucideIcons.fileCode); // kind=text(代码/纯文本)
+  static final IconData fileMissing = _thin(LucideIcons.fileX); // tombstone: deleted/404 墓碑
+
   // ── feedback severities (callout / state) ──
   static final IconData info = _thin(LucideIcons.info);
   static final IconData success = _thin(LucideIcons.circleCheck);

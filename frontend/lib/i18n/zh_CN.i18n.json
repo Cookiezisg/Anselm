@@ -300,5 +300,10 @@
   },
   "markdown": {
     "imageNotLoaded": "图片未加载"
+  },
+  "attach": {
+    "unavailable": "已不可用",
+    "retry": "点按重试",
+    "tapToLoad": "点按加载"
   }
 }

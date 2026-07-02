@@ -44,7 +44,7 @@ audience: [human, ai]
 
 rail 选中/新建后,中心要长出**对话正文 + 输入**。这块从零建,是 chat 的核心。
 
-> **建法已改(2026-07,用户拍板)**:视觉阶梯 **V0–V8 逐模块 gallery-first 锁死长相再组装**(用户对着 gallery 看,不管内部联调)。**已落**:V0 `AnComposer`(发送框原语+完整转场动效,`b8f2f7a4`+`5ca606b5`)· V1 `ChatTurn`(回合韵律:用户泡/助手裸 + `surfaceSunken` token,`e688d7f2`)· V2 `ChatThinking`(推理块「低语+流窗」完整生命线 + `AnShimmerText` 流光原语,`78b30c79`)+ `AnMarkdown`(本提交)。待建:V3 tool_call chassis → V4 tool_result 三形状 → V5 特殊块 → V6 人在环卡 → V7 @提及/附件 → V8 右岛;组装(transcript 管道/BuildSpy/滚动器)在模块锁完后进行。
+> **建法已改(2026-07,用户拍板)**:视觉阶梯 **V0–V8 逐模块 gallery-first 锁死长相再组装**(用户对着 gallery 看,不管内部联调)。**已落**:V0 `AnComposer`(发送框原语+完整转场动效,`b8f2f7a4`+`5ca606b5`)· V1 `ChatTurn`(回合韵律:用户泡/助手裸 + `surfaceSunken` token,`e688d7f2`)· V2 `ChatThinking`(推理块「低语+流窗」完整生命线 + `AnShimmerText` 流光原语,`78b30c79`)+ `AnMarkdown`(`a157dec9`)· **V7-transcript 半(用户泡完整体)**:`AnAttachmentCard`/`AnAttachmentThumb` 原语 + `UserTurnContent` 组装(附件图瓦片/文件卡在上、提及 `AnRefPill` 内联[无服务端 offset,`resolveMentionSegments` 消耗式推位、冻结名显示、点按派活体 {kind,id} 供后续右岛]、文本在下;五态降级诚实;图字节仅 loopback `GET /attachments/{id}/content`)。**V7-composer 半留待接线**(上传流/预览条/@ picker,同原语复用保发送前后一致)。待建:V3 tool_call chassis → V4 tool_result 三形状 → V5 特殊块 → V6 人在环卡 → V8 右岛;组装(transcript 管道/附件解析器/BuildSpy/滚动器)在模块锁完后进行。
 
 ### B.1 计划面(从 New 起头)
 

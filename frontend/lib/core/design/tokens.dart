@@ -74,6 +74,12 @@ abstract final class AnSize {
   static const double menuMaxHeight = 320; // dropdown/menu popover max height (then scrolls) 菜单浮层最大高(超则滚)
   static const double toastMaxWidth = 360; // toast single-row max width (demo --island-w) — a SEPARATE token from menuMaxWidth/stateMaxWidth (same 360 value, distinct semantic axis: a retune of one must not drag the others) toast 单条最大宽(语义独立,勿与菜单/状态列共号)
 
+  // Sent-attachment surfaces (chat user bubble). 已发送附件面(用户泡)。
+  static const double attachCard = 248; // file card fixed width (fits name + TYPE·SIZE meta) 文件卡定宽
+  static const double thumbTile = 96; // multi-image square tile 多图方瓦片
+  static const double thumbMaxW = 280; // single-image bound (= block) 单图宽上限
+  static const double thumbMaxH = 240; // single-image height cap (≈9 body lines, keeps the column calm) 单图高上限
+
   // Code-surface line-number gutter FLOOR (G5). The demo's --trail=20px holds only ~2 digits at the
   // mono code size; widgets compute the gutter dynamically (digit count × mono advance + pad) and
   // clamp to >= this floor (≥4 digits, so files into the thousands don't blur). 行号槽下界(动态计宽夹到此).

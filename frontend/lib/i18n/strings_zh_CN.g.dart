@@ -53,6 +53,7 @@ class TranslationsZhCn extends Translations with BaseTranslations<AppLocale, Tra
 	@override late final _Translations$entities$zh_CN entities = _Translations$entities$zh_CN._(_root);
 	@override late final _Translations$coldStart$zh_CN coldStart = _Translations$coldStart$zh_CN._(_root);
 	@override late final _Translations$markdown$zh_CN markdown = _Translations$markdown$zh_CN._(_root);
+	@override late final _Translations$attach$zh_CN attach = _Translations$attach$zh_CN._(_root);
 }
 
 // Path: chat
@@ -285,6 +286,18 @@ class _Translations$markdown$zh_CN extends Translations$markdown$en {
 
 	// Translations
 	@override String get imageNotLoaded => '图片未加载';
+}
+
+// Path: attach
+class _Translations$attach$zh_CN extends Translations$attach$en {
+	_Translations$attach$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get unavailable => '已不可用';
+	@override String get retry => '点按重试';
+	@override String get tapToLoad => '点按加载';
 }
 
 // Path: chat.time
@@ -821,6 +834,9 @@ extension on TranslationsZhCn {
 			'coldStart.errorHint' => '本地引擎已连通,但工作区未就绪。',
 			'coldStart.defaultWorkspace' => '个人',
 			'markdown.imageNotLoaded' => '图片未加载',
+			'attach.unavailable' => '已不可用',
+			'attach.retry' => '点按重试',
+			'attach.tapToLoad' => '点按加载',
 			_ => null,
 		};
 	}

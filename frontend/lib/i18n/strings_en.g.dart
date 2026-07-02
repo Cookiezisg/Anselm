@@ -57,6 +57,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$entities$en entities = Translations$entities$en.internal(_root);
 	late final Translations$coldStart$en coldStart = Translations$coldStart$en.internal(_root);
 	late final Translations$markdown$en markdown = Translations$markdown$en.internal(_root);
+	late final Translations$attach$en attach = Translations$attach$en.internal(_root);
 }
 
 // Path: chat
@@ -512,6 +513,24 @@ class Translations$markdown$en {
 
 	/// en: 'image not loaded'
 	String get imageNotLoaded => 'image not loaded';
+}
+
+// Path: attach
+class Translations$attach$en {
+	Translations$attach$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Unavailable'
+	String get unavailable => 'Unavailable';
+
+	/// en: 'Tap to retry'
+	String get retry => 'Tap to retry';
+
+	/// en: 'Tap to load'
+	String get tapToLoad => 'Tap to load';
 }
 
 // Path: chat.time
@@ -1320,6 +1339,9 @@ extension on Translations {
 			'coldStart.errorHint' => 'The local engine is reachable but the workspace didn\'t resolve.',
 			'coldStart.defaultWorkspace' => 'Personal',
 			'markdown.imageNotLoaded' => 'image not loaded',
+			'attach.unavailable' => 'Unavailable',
+			'attach.retry' => 'Tap to retry',
+			'attach.tapToLoad' => 'Tap to load',
 			_ => null,
 		};
 	}

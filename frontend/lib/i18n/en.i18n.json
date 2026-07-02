@@ -300,5 +300,10 @@
   },
   "markdown": {
     "imageNotLoaded": "image not loaded"
+  },
+  "attach": {
+    "unavailable": "Unavailable",
+    "retry": "Tap to retry",
+    "tapToLoad": "Tap to load"
   }
 }

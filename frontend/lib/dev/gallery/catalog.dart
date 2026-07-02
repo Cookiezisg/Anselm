@@ -10,6 +10,7 @@ import 'chat_thinking_specimens.dart';
 import 'chat_turn_specimens.dart';
 import 'markdown_specimens.dart';
 import 'specimen.dart';
+import 'user_turn_specimens.dart';
 
 // Gallery catalog — dev-only tool, so plain strings here are exempt from the i18n rule (like test
 // code; never shipped). Grows one category per build group (G0–G6).
@@ -46,6 +47,7 @@ final GalleryCategory _chatRail = GalleryCategory('对话 Chat', AnIcons.chat, [
     GallerySpecimen('注入转义', (_) => const AnRow(label: '<b>not</b> & <i>html</i> 注入标题', meta: '上周'), stress: true, span: true, maxWidth: _railW),
   ]),
   chatTurnGalleryItem,
+  userTurnGalleryItem,
   anMarkdownGalleryItem,
   chatThinkingGalleryItem,
   chatComposerGalleryItem,
