@@ -183,6 +183,7 @@ type Service struct {
 	advPending    map[string]bool // runID → a redrive was requested while it was in progress (re-walk once)
 	advQueued     map[string]bool // runID → sitting in advQueue awaiting a worker (dedup)
 	advStarted    bool            // worker pool running (false → enqueueAdvance drives inline)
+	advClosing    bool            // Shutdown set: drive() skips execution so StopPool's queue-drain doesn't run buffered runs
 	advQueue      chan advanceJob // worker job queue
 	advWG         sync.WaitGroup  // tracks live workers for shutdown
 }

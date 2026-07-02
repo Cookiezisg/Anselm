@@ -61,6 +61,23 @@ func (s *Service) cancelInflight(flowrunID string) {
 // 不在 store 标 cancelled——关停非用户 kill：被打断的节点未记忆化、run 记 failed，:replay 从末个记忆化节点续；宽限内
 // 跑完节点的 run 保持 running、由 boot 恢复续跑。无在飞则 no-op。
 func (s *Service) Shutdown() {
+	// Mark the pool closing BEFORE cancelling in-flight, so from this instant drive() skips execution.
+	// Shutdown only cancels ctxs already in s.inflight (registered when a worker enters Advance); a job
+	// still BUFFERED in advQueue is not yet in-flight and carries an uncancellable Detached workspace ctx,
+	// so StopPool's close(q) queue-drain would otherwise run every buffered run to full completion —
+	// unbounded advWG.Wait blocking shutdown past the grace → SIGKILL orphaning sandbox subprocesses. With
+	// advClosing set, the drained buffered runs are skipped (they stay Running; boot Recover resumes them,
+	// exactly like an interrupted node — record-once keeps durability). R3/F174 shutdown-hang family.
+	//
+	// 在取消在飞**之前**标记池关闭,使从此刻起 drive() 跳过执行。Shutdown 只取消已在 s.inflight 的 ctx（worker
+	// 进入 Advance 时注册）;仍**缓冲**在 advQueue 里的 job 尚未在飞、且带不可取消的 Detached workspace ctx,故
+	// StopPool 的 close(q) 排空会把每个缓冲 run 跑到完成——无界 advWG.Wait 把关停拖过宽限 → SIGKILL 孤儿化 sandbox
+	// 子进程。设 advClosing 后,被排空的缓冲 run 被跳过（保持 Running；boot Recover 续跑,同被打断的节点——record-once
+	// 保住持久性）。R3/F174 关停挂起家族。
+	s.advMu.Lock()
+	s.advClosing = true
+	s.advMu.Unlock()
+
 	s.inflightMu.Lock()
 	cancels := make([]context.CancelFunc, 0, len(s.inflight))
 	for id, cancel := range s.inflight {

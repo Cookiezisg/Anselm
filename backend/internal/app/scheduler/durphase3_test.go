@@ -287,3 +287,45 @@ func TestPool_RecoverEnqueuesNonInline(t *testing.T) {
 		t.Fatalf("slow recovered run must still be wedged (running), got %q", r.Status)
 	}
 }
+
+// TestPool_ShutdownSkipsBufferedRun proves the R3/F174 shutdown fix: a run still BUFFERED in the
+// Advance queue when Shutdown fires is SKIPPED by StopPool's queue-drain, not driven to full
+// completion. Without the advClosing guard, StopPool's close(q) would drain every buffered run to
+// completion on an uncancellable Detached ctx — an unbounded advWG.Wait that blocks shutdown past the
+// grace (→ SIGKILL orphaning sandbox subprocesses). The skipped run stays Running for boot Recover.
+//
+// TestPool_ShutdownSkipsBufferedRun 证 R3/F174 关停修复:Shutdown 触发时仍缓冲在 Advance 队列里的 run 被
+// StopPool 的排空跳过、而非跑到完成。无 advClosing 守卫时,StopPool 的 close(q) 会在不可取消的 Detached ctx 上
+// 把每个缓冲 run 跑完——无界 advWG.Wait 把关停拖过宽限（→ SIGKILL 孤儿化 sandbox 子进程）。被跳过的 run 保持
+// Running 待 boot Recover。
+func TestPool_ShutdownSkipsBufferedRun(t *testing.T) {
+	disp := newDisp()
+	svc, store := mkSvc(t, firingGraph(), disp, nil, nil, workflowdomain.ConcurrencyAllowAll)
+	ctx := ctxWS("ws_1")
+	svc.StartPool()
+
+	// Shutdown flags the pool closing (inflight empty here → cancel-all is a no-op); from now drive() skips.
+	svc.Shutdown()
+
+	// Seed a Running run (trigger node completed) and enqueue it — it buffers; a worker drains it.
+	run := &flowrundomain.FlowRun{WorkflowID: "wf_1", VersionID: "wfv_1", PinnedRefs: map[string]string{}, Status: flowrundomain.StatusRunning}
+	rid, err := store.CreateRunWithTrigger(ctx, run, &flowrundomain.FlowRunNode{NodeID: "start", Kind: "trigger", Status: flowrundomain.NodeCompleted, Result: map[string]any{"orderId": "o-1"}})
+	if err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	svc.enqueueAdvance(ctx, rid)
+
+	// StopPool drains the buffered job; drive() must SKIP it (advClosing) rather than dispatch fn_a.
+	svc.StopPool()
+
+	if n := disp.calls("fn_a"); n != 0 {
+		t.Fatalf("a run buffered when Shutdown fired must be SKIPPED, not executed — fn_a dispatched %d times", n)
+	}
+	got, err := store.GetRun(ctx, rid)
+	if err != nil {
+		t.Fatalf("GetRun: %v", err)
+	}
+	if got.Status != flowrundomain.StatusRunning {
+		t.Fatalf("a skipped run must stay Running for boot Recover, got %s", got.Status)
+	}
+}

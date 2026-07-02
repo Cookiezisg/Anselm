@@ -49,6 +49,14 @@ var Schema = []string{
 	// keyset comparison), id ASC tiebreaker. Mirrors the activity index for the title-keyed page.
 	// sort=name 覆盖索引:置顶优先、再 title A–Z（COLLATE NOCASE，与 ORDER BY + keyset 比较一致）、id 升序 tiebreaker。
 	`CREATE INDEX IF NOT EXISTS idx_conversations_ws_title ON conversations(workspace_id, pinned DESC, title COLLATE NOCASE ASC, id ASC) WHERE deleted_at IS NULL`,
+	// sort=created covering index: pinned-first, then created_at DESC, id DESC — matches the created-sort
+	// ORDER BY + keyset so a rail scrolled by creation order is an index range scan, not a full-workspace
+	// scan + temp-b-tree filesort (which the keyset cursor could not shrink). Sibling of the two above; a
+	// documented, reachable sort mode must not degrade to O(N²) on a long-lived thread list (R12 family).
+	// sort=created 覆盖索引:置顶优先、再 created_at DESC、id DESC——与 created 排序的 ORDER BY + keyset 一致,
+	// 使按创建序翻 rail 是索引区间扫而非全工作区扫 + 临时 b-tree filesort（keyset 游标无从收窄）。与上两条同族;
+	// 文档化且可达的排序模式不该在长期线程列表上退化成 O(N²)（R12 族）。
+	`CREATE INDEX IF NOT EXISTS idx_conversations_ws_created ON conversations(workspace_id, pinned DESC, created_at DESC, id DESC) WHERE deleted_at IS NULL`,
 }
 
 // Store implements conversationdomain.Repository over pkg/orm.

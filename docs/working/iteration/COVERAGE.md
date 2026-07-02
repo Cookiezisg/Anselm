@@ -26,13 +26,13 @@ landed-into:
 | B1 | 124 | 81 | 42 | 0 | 1 |
 | B2 | 120 | 95 | 25 | 0 | 0 |
 | C | 55 | 45 | 2 | 0 | 8 |
-| DF | 68 | 52 | 12 | 4 | 0 |
+| DF | 68 | 56 | 12 | 0 | 0 |
 | E | 58 | 0 | 13 | 45 | 0 |
-| **合计** | **649** | **433** | **120** | **49** | **47** |
+| **合计** | **649** | **437** | **120** | **45** | **47** |
 
-**当前覆盖率**（locked+probed+exempt / 总）≈ **92.4%** · 目标 ~99%（unprobed → 全部翻绿或显式 exempt）。
+**当前覆盖率**（locked+probed+exempt / 总）≈ **93.1%** · 目标 ~99%（unprobed → 全部翻绿或显式 exempt）。
 
-**进度**：Phase 0 基线✅ · **Phase 1 REST 契约全扫✅**（A/B 面 157 行，5 缺陷 F176–F180 修 + N4/:kill 文档订正）· **Phase 2 SSE/协议/安全✅**（C 面 16 行：5 新中间件/cron 单测 CORS·recover·locale·cron-edge + testend contract_protocol 7 场景 SSE 深协议/cron 去重/webhook secret/三流 bearer 门；**0 缺陷**——协议/安全/i18n 面稳固）。· **Phase 3 引擎+mega✅**（D 面 8 行：fsnotify testend 四源真空补齐 + 4 新 -race scheduler 单测 allow_all/人vs超时竞争/满载池不饿死超时/Recover 非内联 + mega 单链 trigger→混合图 5 kind→审计→approval→notification→relation→search + SSE flowrun tick；**0 缺陷**——durable 引擎稳固）。剩 unprobed 49：F-new 系统正确性静态扫（Phase 5，D-pool-8=F101 watch）· E 面对话（Phase 4，真模型）。
+**进度**：Phase 0 基线✅ · **Phase 1 REST 契约全扫✅**（A/B 面 157 行，5 缺陷 F176–F180 修 + N4/:kill 文档订正）· **Phase 2 SSE/协议/安全✅**（C 面 16 行：5 新中间件/cron 单测 CORS·recover·locale·cron-edge + testend contract_protocol 7 场景 SSE 深协议/cron 去重/webhook secret/三流 bearer 门；**0 缺陷**——协议/安全/i18n 面稳固）。· **Phase 3 引擎+mega✅**（D 面 8 行：fsnotify testend 四源真空补齐 + 4 新 -race scheduler 单测 allow_all/人vs超时竞争/满载池不饿死超时/Recover 非内联 + mega 单链 trigger→混合图 5 kind→审计→approval→notification→relation→search + SSE flowrun tick；**0 缺陷**——durable 引擎稳固）。· **Phase 5 系统正确性✅**（F-new 4 行 + 2 缺陷 F181/F182 修：conversation sort=created 缺覆盖索引[R12 族] + 关停竞态 Advance 池缓冲队列[R3/F174 族];4 静态候选经对抗验证 2 CONFIRMED·2 REFUTED）。剩 unprobed 45：几乎全是 E 面对话（Phase 4，真模型）+ D-pool-8=F101 CPU-pin watch（需活体 pprof）。
 > 诚实标注：翻 locked 的 A/B 行里，极少数真不可黑盒者（如 `B-chat-4` convQueue 竞态、`B-rel-9` nil 容忍）在对应 `contract_*_test.go` 注释里标 needs_unit（属对应 app 包单测面）——计入 locked 的是可黑盒锁死的绝大多数。
 
 ---
@@ -661,10 +661,10 @@ landed-into:
 | F-R19 | sensor Stop 等在飞探测归队(WaitGroup join,不与 db.Close 竞争) | locked | TestSensor_Stop_WaitsForInflightProbe |
 | F-R20 | InvokeAgent 墙钟:无界 agent 不钉死调度(超时呈 failed 可 replay) | locked | TestService_InvokeWallClockTimeout_R20 + TestService_InvokeNoTimeoutUnderDeadline_R20 |
 | F-R21 | drain head-of-line blocking 消除(=F174,ADR 0007 有界 Advance 池) | locked | TestHOL_SlowNodeDoesNotBlockOtherRuns(背景 ctx 播种契约另锁 TestBackgroundPaths_RequireWorkspaceSeeding) |
-| F-new-1 | touchpoint 新码(domain/store/app,git status 未提交件)六类反模式扫描:泄漏/死锁/ctx 生命周期/单连接争用/关闭序/IO 放大 | unprobed | 静态猎手扇出复扫+对抗复核(方法照 WRK-030) |
-| F-new-2 | chat rail 新查询面(awaitingInput/sort=name/hasUnread/:seen/archived)系统面:索引缺失/查询放大/unread watermark 竞态 | unprobed | 功能面已锁(TestChat_Rail* 四件);系统面静态扫+EXPLAIN 抽查 |
-| F-new-3 | loopback 加固(RequireBearerToken/RequireLoopbackHost)边界:空 token=关语义/常时比较/Host 头 DNS-rebinding 绕过 | unprobed | testend auth 黑盒:坏 token 401+非 loopback Host 拒+空 token 放行 |
-| F-new-4 | SSE wedged 强断→客户端重连→410 SEQ_TOO_OLD→REST 再续 端到端自愈链 | unprobed | 强断分支已锁(F-R5)、续传/410 面已锁(testend TestPlatformR4_SSEProtocolFaces);全链黑盒未串 |
+| F-new-1 | touchpoint 新码(domain/store/app,git status 未提交件)六类反模式扫描:泄漏/死锁/ctx 生命周期/单连接争用/关闭序/IO 放大 | locked | Phase 5 静态猎扇出(4 维度)复扫 touchpoint 新码;2 候选(tmp-path/name-resolve)对抗验证 REFUTED=洁净 |
+| F-new-2 | chat rail 新查询面(awaitingInput/sort=name/hasUnread/:seen/archived)系统面:索引缺失/查询放大/unread watermark 竞态 | locked | Phase 5 → F181 conversation sort=created 缺索引已修(idx_conversations_ws_created) |
+| F-new-3 | loopback 加固(RequireBearerToken/RequireLoopbackHost)边界:空 token=关语义/常时比较/Host 头 DNS-rebinding 绕过 | locked | Phase 1 LoopbackDoors(Host+bearer 全矩阵)+ middleware bearer/host/cors 单测 |
+| F-new-4 | SSE wedged 强断→客户端重连→410 SEQ_TOO_OLD→REST 再续 端到端自愈链 | locked | C-sse-4(410 环淘汰恢复)+ Bus TestBus_DurablePublishDisconnectsWedgedSubscriber |
 
 ---
 
