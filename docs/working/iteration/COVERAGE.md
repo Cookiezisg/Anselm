@@ -26,13 +26,13 @@ landed-into:
 | B1 | 124 | 81 | 42 | 0 | 1 |
 | B2 | 120 | 95 | 25 | 0 | 0 |
 | C | 55 | 45 | 2 | 0 | 8 |
-| DF | 69 | 45 | 13 | 11 | 0 |
+| DF | 68 | 52 | 12 | 4 | 0 |
 | E | 58 | 0 | 13 | 45 | 0 |
-| **合计** | **650** | **426** | **121** | **56** | **47** |
+| **合计** | **649** | **433** | **120** | **49** | **47** |
 
-**当前覆盖率**（locked+probed+exempt / 总）≈ **91.4%** · 目标 ~99%（unprobed → 全部翻绿或显式 exempt）。
+**当前覆盖率**（locked+probed+exempt / 总）≈ **92.4%** · 目标 ~99%（unprobed → 全部翻绿或显式 exempt）。
 
-**进度**：Phase 0 基线✅ · **Phase 1 REST 契约全扫✅**（A/B 面 157 行，5 缺陷 F176–F180 修 + N4/:kill 文档订正）· **Phase 2 SSE/协议/安全✅**（C 面 16 行：5 新中间件/cron 单测 CORS·recover·locale·cron-edge + testend contract_protocol 7 场景 SSE 深协议/cron 去重/webhook secret/三流 bearer 门；**0 缺陷**——协议/安全/i18n 面稳固）。剩 unprobed 56：D+F 引擎/系统（Phase 3/5）· E 面对话（Phase 4，真模型）。
+**进度**：Phase 0 基线✅ · **Phase 1 REST 契约全扫✅**（A/B 面 157 行，5 缺陷 F176–F180 修 + N4/:kill 文档订正）· **Phase 2 SSE/协议/安全✅**（C 面 16 行：5 新中间件/cron 单测 CORS·recover·locale·cron-edge + testend contract_protocol 7 场景 SSE 深协议/cron 去重/webhook secret/三流 bearer 门；**0 缺陷**——协议/安全/i18n 面稳固）。· **Phase 3 引擎+mega✅**（D 面 8 行：fsnotify testend 四源真空补齐 + 4 新 -race scheduler 单测 allow_all/人vs超时竞争/满载池不饿死超时/Recover 非内联 + mega 单链 trigger→混合图 5 kind→审计→approval→notification→relation→search + SSE flowrun tick；**0 缺陷**——durable 引擎稳固）。剩 unprobed 49：F-new 系统正确性静态扫（Phase 5，D-pool-8=F101 watch）· E 面对话（Phase 4，真模型）。
 > 诚实标注：翻 locked 的 A/B 行里，极少数真不可黑盒者（如 `B-chat-4` convQueue 竞态、`B-rel-9` nil 容忍）在对应 `contract_*_test.go` 注释里标 needs_unit（属对应 app 包单测面）——计入 locked 的是可黑盒锁死的绝大多数。
 
 ---
@@ -603,34 +603,34 @@ landed-into:
 | D-dur-10 | 菱形/control XOR 剪枝+simple-merge 汇合不死锁(edgePruned 入边忽略) | locked | TestWalk_ControlXOR_SimpleMerge |
 | D-dur-11 | 并行扇出 AND-join:每条 live 入边源 completed 才 ready | locked | TestWalk_ParallelAndJoin |
 | D-dur-12 | 大图 11-25 节点 13 边并行 re-join 全记忆化 + 深循环 25 迭代 scopeFor 双体 | probed | ARCHIVE 绿格「大复杂图11节点」「大规模15-25节点」「深循环25迭代双体scopeFor」;建议 testend 大图场景 |
-| D-dur-13 | 多 trigger 入口消歧:显式 entryNode>trg_>唯一者,歧义 FLOWRUN_INVALID_ENTRY | unprobed | 双 trigger 图 :trigger 无 entryNode 断言 422 |
+| D-dur-13 | 多 trigger 入口消歧:显式 entryNode>trg_>唯一者,歧义 FLOWRUN_INVALID_ENTRY | locked | TestContractEntities_FlowrunEntryDecideAndErrorFaces(已覆盖:双 trigger resolveEntry 全矩阵) |
 | D-dur-14 | 黑盒基线三件:线性 CEL 寻址+记忆化/control 选边 emit 下游可读/坏 CEL 列可用上游(F8) | locked | testend TestWorkflow_LinearRunCELAddressing + TestWorkflow_ControlRoutingAndEmit + TestWorkflow_InvalidCELListsAvailableNodes |
 | D-appr-1 | approval park→收件箱→decide yes 续跑完成 / decide no 只放 no port | locked | testend TestWorkflow_ApprovalParkDecideResume + TestApproval_ParkResumeYes + TestApproval_DecideNo_NoPublish |
 | D-appr-2 | 超时结算:5s tick 扫 parked vs deadline(系统唯一 durable timer) | locked | TestApproval_Timeout |
 | D-appr-3 | 三 timeoutBehavior 矩阵(reject→no/approve→yes/fail→run失败)+30d/2w 粗粒度 | probed | ARCHIVE 绿格「approve/fail timeout三件套+durable timer 1ms-5s」 |
-| D-appr-4 | 人 vs 超时并发竞争 first-wins:输家 no-op(人工路径 FLOWRUN_APPROVAL_NOT_PARKED 422) | unprobed | 并发 DecideApproval×settleTimeout 单测断言恰一赢家 |
+| D-appr-4 | 人 vs 超时并发竞争 first-wins:输家 no-op(人工路径 FLOWRUN_APPROVAL_NOT_PARKED 422) | locked | durphase3_test.go TestApproval_HumanVsTimeoutFirstWinsRace(新 -race) |
 | D-appr-5 | 0s timeout 立即触发不永 park(F60 回归) | probed | F60(fixed·自称locked,测试名未核到,宁标 probed) |
 | D-conc-1 | serial:在途时 firing 留 pending 下 tick 再试→终跑 / skip:标 skipped 丢弃 | locked | TestFiring_OverlapSerialDefers_SkipDrops |
 | D-conc-2 | buffer_one:收敛到最新+留 pending、只跑 newest | locked | TestFiring_OverlapBufferOneDefers + TestFiring_OverlapBufferOneRunsNewestOnly |
 | D-conc-3 | replace:先取消在途 run 再跑新(含同批双 firing) | locked | TestFiring_OverlapReplace + TestFiring_OverlapReplace_SameBatch |
-| D-conc-4 | allow_all:同 wf 并发双 run 各自完成互不扰 | unprobed | 同 wf 快连双触发断言 2 flowrun 并行+firing 双 started |
+| D-conc-4 | allow_all:同 wf 并发双 run 各自完成互不扰 | locked | scheduler durphase3_test.go TestConc_AllowAllTwoFiringsBothComplete(新 -race) |
 | D-conc-5 | 五策略真后端运行时 drain 黑盒:HTTP 快连双触发断言 flowrun 数+firing 终态(每策略) | probed | ARCHIVE 绿格「concurrency serial/skip+replace/buffer_one 真 webhook fire」;testend 无对应场景 |
 | D-conc-6 | ClaimFiring 单事务(崩溃回滚仍 pending、无 claimed-无-run 残留)+删 workflow pending firing 卸载 | locked | TestFiring_SingleTxClaim + TestFiring_DeletedWorkflowSheds |
 | D-pool-1 | HOL 消除:30s 慢节点跑池 worker,不卡后续 firing/其他 run/下一 tick | locked | TestHOL_SlowNodeDoesNotBlockOtherRuns |
 | D-pool-2 | per-run 单飞+redrive:同 run 同时至多一 goroutine、并发触发置标志再走一轮 | locked | TestPool_SameRunNeverDoubleDriven |
 | D-pool-3 | 关闭序:WaitPoolDrained→Shutdown cancel 在飞→StopPool;sendJob recover 撞已关队列不崩(F101) | locked | TestPool_ShutdownDrainsWorkers + TestService_Shutdown_CancelsAllInflight + TestPool_SendJobRecoversOnClosedQueue |
-| D-pool-4 | 满载 4-worker 池不饿死独立 timeoutLoop 的审批超时结算(F174 解耦) | unprobed | 占满 4 worker 慢节点后断言 CheckTimeouts 仍按时结算 parked |
-| D-pool-5 | boot Recover 入队非内联:慢恢复节点不阻塞 boot | unprobed | 恢复 run 带慢节点断言 boot/health 及时返回 |
+| D-pool-4 | 满载 4-worker 池不饿死独立 timeoutLoop 的审批超时结算(F174 解耦) | locked | durphase3_test.go TestPool_SaturatedPoolDoesNotStarveTimeoutSettlement(新) |
+| D-pool-5 | boot Recover 入队非内联:慢恢复节点不阻塞 boot | locked | durphase3_test.go TestPool_RecoverEnqueuesNonInline(新) |
 | D-pool-6 | kill 先标 cancelled 再 cancel ctx(终态不被 failNode 刷成 failed)+打断卡死 agent/parked run | locked | TestKillWorkflow_InterruptsBlockedAgent + TestKillWorkflow_CancelsParkedRun |
 | D-pool-7 | afterRunSettled:draining workflow 最后一个 run 结算 inactive(无丢唤醒) | locked | TestDrainReconcile_FiresOnRunSettle |
-| D-pool-8 | F101 CPU-pin 半:busy-loop 钉 CPU 活体确诊(pprof 抓) | unprobed | frontier 唯一 open watch;防御已加固、确诊需活体 pprof |
-| D-trg-1 | fsnotify 端到端(文件事件→firing→run;四源唯一 testend 真空) | probed | ARCHIVE 绿格「fsnotify端到端」+F25(单元仅 TestConfigEventKind);建议 testend 场景补锁 |
+| D-pool-8 | F101 CPU-pin 半:busy-loop 钉 CPU 活体确诊(pprof 抓) | needs_unit | F101 CPU-pin 唯一 open watch,需活体 pprof |
+| D-trg-1 | fsnotify 端到端(文件事件→firing→run;四源唯一 testend 真空) | locked | TestContractDurable_FsnotifyEndToEnd(新 testend,四源真空补齐) |
 | D-trg-2 | webhook HMAC 正负签/cron 真到点/sensor CEL 轮询 端到端触发 | locked | testend TestTrigger_WebhookFiresAndVerifies + TestTrigger_CronEveryFires + TestTrigger_SensorPollsCEL |
 | D-loop-1 | loop 三熔断:TOOL_ERROR_STORM 3 轮/CONTEXT_BUDGET 0.92 软守卫/MAX_STEPS 诚实终态 | locked | TestRun_ToolErrorStorm + TestRun_ContextBudgetSoftStop + TestRun_MaxStepsReached(+testend TestChat_ErrorPaths·TestPlatform_LimitsHotSwap) |
 | D-hl-1 | danger gate 全动作:approve 真跑入触点/deny 不跑零触点拒绝回喂/重复决议 404/未知决议 no-op | locked | testend TestChat_HumanLoopDangerGate + TestResolveUnknownIsNoop + TestRequestBlocksUntilResolve |
 | D-hl-2 | 预授权双通道:approve_always 会话白名单(对话删即 Forget 清,R16)+skill allowed-tools 免确认 | locked | TestApproveAlwaysWhitelists + TestForgetDropsConversationGrants + TestDispatchWithGate_SkillPreApproved(+testend TestChatR3_SkillInlineActivateAndPreauth) |
 | D-tp-1 | touchpoint 全链:工具→upsert 收敛(count 递进不长行)→messages 流信号→级联删 + output 键提取 created + catalog 覆盖每工具门禁 | locked | testend TestTouchpoint_LedgerEndToEnd + TestTouchpoint_BuildToolRecordsCreated + TestTouchpointCatalog_CoversEveryTool |
-| D-mega-1 | mega 联动链单场景:trigger→混合图(fn+hd+agent+control+approval)→执行审计→notification→search→relation→touchpoint+SSE 帧序一链全断言 | unprobed | 单 testend mega 场景串全域(现覆盖全是分域切片) |
+| D-mega-1 | mega 联动链单场景:trigger→混合图(fn+hd+agent+control+approval)→执行审计→notification→search→relation→touchpoint+SSE 帧序一链全断言 | locked | TestContractMega_TriggerToNotificationChain(新:trigger→混合图 5 kind→审计→approval→notification→relation→search 全链 + SSE flowrun tick) |
 | D-mega-2 | 涟漪矩阵 9 实体×建改删×3 面 + 关系图五类边水化 + 引用方涟漪 | locked | testend TestRippleR5_CreateRenameDeleteMatrix + TestRippleR5_RelationGraphFaces + TestRippleR5_ReferenceRipples |
 | D-mega-3 | run 终态唤回环:failed→run_failed 通知+needsAttention 点亮/completed 熄灭/approval park→approval_pending | locked | TestRunTerminal_NotifyAndAttention + TestApprovalPark_Notifies(+testend TestWorkflow_ApprovalParkDecideResume 侧证) |
 | D-chaos-1 | 混沌注入:深 JSON/病态 CEL/mem-bomb/inf-loop/SQLi/RTL 零 500/panic/逃逸 | probed | ARCHIVE 绿格 chaos lane |
