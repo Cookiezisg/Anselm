@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../../core/contract/attachment.dart';
 import '../../../core/contract/conversation.dart';
 import '../../../core/contract/messages/chat_message.dart';
 import '../../../core/contract/model_capability.dart';
@@ -198,6 +199,7 @@ class FixtureChatRepository implements ChatRepository {
     ));
     _mutate(conversationId, (c) => c.copyWith(lastMessageAt: now, hasUnread: false));
     lastSend = (conversationId: conversationId, content: content, mentions: mentions, assistantId: assistantId);
+    lastSendAttachmentIds = attachmentIds;
     return assistantId;
   }
 
@@ -229,6 +231,7 @@ class FixtureChatRepository implements ChatRepository {
 
   /// What sendMessage / cancel / seen recorded — assertion + demo-script hooks. 发送/取消/已读的记录钩。
   ({String conversationId, String content, List<({String type, String id})> mentions, String assistantId})? lastSend;
+  List<String> lastSendAttachmentIds = const [];
   final List<String> cancelled = [];
   final List<String> seen = [];
 
@@ -274,6 +277,45 @@ class FixtureChatRepository implements ChatRepository {
 
   /// Push a lifecycle signal to subscribers (the list notifier). 向订阅者(list notifier)推一条生命周期信号。
   void emitSignal(ConversationSignal signal) => _lazySignals.add(signal);
+
+  /// Uploaded attachments in order; [failNextUpload] scripts the failed-chip path. 上传记录+失败脚本。
+  final List<({String id, String filename, String? mimeType, int size})> uploads = [];
+  final List<String> deletedAttachments = [];
+  bool failNextUpload = false;
+
+  @override
+  Future<AttachmentMeta> uploadAttachment({
+    required List<int> bytes,
+    required String filename,
+    String? mimeType,
+  }) async {
+    if (failNextUpload) {
+      failNextUpload = false;
+      throw StateError('scripted upload failure');
+    }
+    final id = 'att_fx_${_idSeq++}';
+    uploads.add((id: id, filename: filename, mimeType: mimeType, size: bytes.length));
+    return AttachmentMeta(
+        id: id, filename: filename, mimeType: mimeType ?? '', sizeBytes: bytes.length,
+        kind: (mimeType ?? '').startsWith('image/') ? 'image' : 'other');
+  }
+
+  @override
+  Future<void> deleteAttachment(String id) async => deletedAttachments.add(id);
+
+  /// Seedable metadata rows for [getAttachment] (uploads are auto-visible too). 可种元数据行。
+  final Map<String, AttachmentMeta> attachmentMetas = {};
+
+  @override
+  Future<AttachmentMeta> getAttachment(String id) async {
+    final seeded = attachmentMetas[id];
+    if (seeded != null) return seeded;
+    final up = uploads.where((u) => u.id == id).firstOrNull;
+    if (up == null) throw StateError('attachment not found: $id'); // mirrors 404
+    return AttachmentMeta(
+        id: id, filename: up.filename, mimeType: up.mimeType ?? '', sizeBytes: up.size,
+        kind: (up.mimeType ?? '').startsWith('image/') ? 'image' : 'other');
+  }
 
   /// Synchronous row peek for scripts (null when absent — no throw). 脚本用同步查行(缺=null,不抛)。
   Conversation? conversationOrNull(String id) {

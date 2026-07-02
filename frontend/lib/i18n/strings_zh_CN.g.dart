@@ -104,6 +104,8 @@ class _Translations$chat$zh_CN extends Translations$chat$en {
 	@override String get landingGreeting => 'What should we dig into?';
 	@override String get modelAuto => 'Auto';
 	@override String get mentionEntity => 'Mention an entity';
+	@override String get attachFile => 'Attach files';
+	@override String get dropToAttach => 'Drop files to attach';
 }
 
 // Path: status
@@ -313,6 +315,8 @@ class _Translations$attach$zh_CN extends Translations$attach$en {
 	@override String get unavailable => '已不可用';
 	@override String get retry => '点按重试';
 	@override String get tapToLoad => '点按加载';
+	@override String get uploading => 'Uploading…';
+	@override String get failedRetry => 'Failed — tap to retry';
 }
 
 // Path: chat.time
@@ -649,6 +653,8 @@ extension on TranslationsZhCn {
 			'chat.landingGreeting' => 'What should we dig into?',
 			'chat.modelAuto' => 'Auto',
 			'chat.mentionEntity' => 'Mention an entity',
+			'chat.attachFile' => 'Attach files',
+			'chat.dropToAttach' => 'Drop files to attach',
 			'appName' => 'Anselm',
 			'status.idle' => '空闲',
 			'status.run' => '运行中',
@@ -867,6 +873,8 @@ extension on TranslationsZhCn {
 			'attach.unavailable' => '已不可用',
 			'attach.retry' => '点按重试',
 			'attach.tapToLoad' => '点按加载',
+			'attach.uploading' => 'Uploading…',
+			'attach.failedRetry' => 'Failed — tap to retry',
 			_ => null,
 		};
 	}

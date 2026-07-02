@@ -1,3 +1,6 @@
+import 'package:dio/dio.dart';
+
+import '../../../core/contract/attachment.dart';
 import '../../../core/contract/conversation.dart';
 import '../../../core/contract/messages/chat_message.dart';
 import '../../../core/contract/model_capability.dart';
@@ -77,6 +80,22 @@ abstract interface class ChatRepository {
 
   /// Soft-delete (`DELETE` → 204, tombstoned server-side; the rail just drops the row). 软删(204)。
   Future<void> deleteConversation(String id);
+
+  /// Upload one attachment (`POST /attachments`, multipart field `file`, 50MB cap server-side) →
+  /// the authoritative row (id goes into the send's attachmentIds). 上传附件(multipart `file`)→ 权威行。
+  Future<AttachmentMeta> uploadAttachment({
+    required List<int> bytes,
+    required String filename,
+    String? mimeType,
+  });
+
+  /// Delete an attachment (soft, 204) — the composer calls this when a pending chip is removed, so
+  /// dangling uploads don't pile up (the backend has no GC). 软删附件——移除待发 chip 时调,防悬挂堆积。
+  Future<void> deleteAttachment(String id);
+
+  /// One attachment's metadata (`GET /attachments/{id}`) — the bubble resolves filename/kind/size from
+  /// the id-only `attrs.attachments` snapshot. 附件元数据——泡从纯 id 快照解析名/类/大小。
+  Future<AttachmentMeta> getAttachment(String id);
 
   /// A single conversation by id (`GET /{id}`) — the rail re-reads ONE row on a lifecycle signal it did
   /// not originate (auto-title, or a change from another window). 单取一条,供 rail 据非自身发起的信号重读一行。
@@ -183,6 +202,28 @@ class LiveChatRepository implements ChatRepository {
 
   @override
   Future<void> deleteConversation(String id) => _api.delete(_path(id));
+
+  @override
+  Future<AttachmentMeta> uploadAttachment({
+    required List<int> bytes,
+    required String filename,
+    String? mimeType,
+  }) =>
+      _api.postEntity(
+        '/api/v1/attachments',
+        AttachmentMeta.fromJson,
+        body: FormData.fromMap({
+          'file': MultipartFile.fromBytes(bytes, filename: filename,
+              contentType: mimeType == null ? null : DioMediaType.parse(mimeType)),
+        }),
+      );
+
+  @override
+  Future<void> deleteAttachment(String id) => _api.delete('/api/v1/attachments/$id');
+
+  @override
+  Future<AttachmentMeta> getAttachment(String id) =>
+      _api.getEntity('/api/v1/attachments/$id', AttachmentMeta.fromJson);
 
   @override
   Future<Conversation> getConversation(String id) =>

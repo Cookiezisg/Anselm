@@ -10,6 +10,7 @@ import '../../../core/perf/coalescing_notifier.dart';
 import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
 import '../model/conversation_transcript.dart';
+import '../state/attachment_meta.dart';
 import '../model/user_attachment.dart';
 import '../state/conversation_stream_provider.dart';
 import '../state/conversation_stream_state.dart';
@@ -243,17 +244,17 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
 }
 
 /// One transcript turn, centered in the reading column with the inter-turn gap. 一条回合(阅读列+轮距)。
-class _TurnRow extends StatelessWidget {
+class _TurnRow extends ConsumerWidget {
   const _TurnRow({required this.turn, required this.streaming, super.key});
 
   final BlockNode turn;
   final bool streaming;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     TranscriptProbe.hit(streaming ? 'leaf-stream' : 'row-settled');
     final role = ConversationTranscript.turnRole(turn);
-    final child = role == 'user' ? _user(context) : _assistant(context);
+    final child = role == 'user' ? _user(context, ref) : _assistant(context);
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: AnSize.content),
@@ -265,12 +266,21 @@ class _TurnRow extends StatelessWidget {
     );
   }
 
-  Widget _user(BuildContext context) {
-    // Attachment metadata resolution lands with the composer-upload slice; ids render as minimal cards
-    // meanwhile (honest, never hidden). 附件元数据解析随上传片落;此前 id 渲最简卡(诚实不藏)。
+  Widget _user(BuildContext context, WidgetRef ref) {
+    // The id-only `attrs.attachments` snapshot resolves to filename/kind/size via the kept-alive meta
+    // provider: loading → a resolving skeleton card, a 404 → the honest missing tombstone.
+    // 纯 id 快照经 keepAlive 元数据 provider 解析:加载=resolving 骨架卡;404=诚实 missing 墓碑。
     final attachments = [
       for (final id in ConversationTranscript.turnAttachmentIds(turn))
-        UserAttachment(id: id, kind: 'other', filename: id),
+        switch (ref.watch(attachmentMetaProvider(id))) {
+          AsyncData(value: final m) => UserAttachment(
+              id: id, kind: m.kind, filename: m.filename,
+              mimeType: m.mimeType.isEmpty ? null : m.mimeType, sizeBytes: m.sizeBytes),
+          AsyncError() => UserAttachment(
+              id: id, kind: 'other', filename: id, state: AnAttachmentState.missing),
+          _ => UserAttachment(
+              id: id, kind: 'other', filename: id, state: AnAttachmentState.resolving),
+        },
     ];
     return ChatTurn(
       role: ChatRole.user,

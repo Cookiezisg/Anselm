@@ -1,3 +1,4 @@
+import 'package:anselm/core/contract/attachment.dart';
 import 'package:anselm/core/contract/conversation.dart';
 import 'package:anselm/core/contract/messages/chat_message.dart';
 import 'package:anselm/core/design/theme.dart';
@@ -127,6 +128,32 @@ void main() {
         _close('msg_a', 'message', {'role': 'assistant', 'status': 'completed', 'stopReason': 'end_turn'}));
     await _settle(tester);
     expect(find.textContaining('第一段,更多', findRichText: true), findsOneWidget);
+  });
+
+  testWidgets('a user bubble resolves attachment ids to filename cards (missing → tombstone)',
+      (tester) async {
+    final repo = _repo(messages: {
+      'cv_1': [
+        _turn('msg_u', 'user', blocks: [_blk('bu', 'text', '看这个文件')])
+      ],
+    });
+    // attrs carry the id-only snapshot 纯 id 快照
+    repo.attachmentMetas['att_ok'] = const AttachmentMeta(
+        id: 'att_ok', filename: 'report.pdf', mimeType: 'application/pdf', sizeBytes: 2048, kind: 'document');
+    final msgs = await repo.listMessages('cv_1');
+    final withAtt = ChatMessage(
+      id: 'msg_u', conversationId: 'cv_1', role: 'user', status: 'completed',
+      attrs: {'attachments': ['att_ok', 'att_gone']},
+      blocks: msgs.items.single.blocks, createdAt: DateTime.utc(2026, 7, 2, 10),
+    );
+    repo.replaceMessage('cv_1', withAtt);
+
+    await tester.pumpWidget(_host(repo));
+    await tester.pump();
+    await _settle(tester);
+    await tester.pump(const Duration(milliseconds: 30)); // meta futures 元数据
+    expect(find.text('report.pdf'), findsOneWidget); // resolved 解析成名
+    expect(find.text('att_gone'), findsOneWidget); // missing keeps the honest id 缺失留 id
   });
 
   testWidgets('shorter-than-a-screen content docks to MIN — the first row clears the floating head',

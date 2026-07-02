@@ -187,6 +187,12 @@ class Translations$chat$en {
 
 	/// en: 'Mention an entity'
 	String get mentionEntity => 'Mention an entity';
+
+	/// en: 'Attach files'
+	String get attachFile => 'Attach files';
+
+	/// en: 'Drop files to attach'
+	String get dropToAttach => 'Drop files to attach';
 }
 
 // Path: status
@@ -576,6 +582,12 @@ class Translations$attach$en {
 
 	/// en: 'Tap to load'
 	String get tapToLoad => 'Tap to load';
+
+	/// en: 'Uploading…'
+	String get uploading => 'Uploading…';
+
+	/// en: 'Failed — tap to retry'
+	String get failedRetry => 'Failed — tap to retry';
 }
 
 // Path: chat.time
@@ -1184,6 +1196,8 @@ extension on Translations {
 			'chat.landingGreeting' => 'What should we dig into?',
 			'chat.modelAuto' => 'Auto',
 			'chat.mentionEntity' => 'Mention an entity',
+			'chat.attachFile' => 'Attach files',
+			'chat.dropToAttach' => 'Drop files to attach',
 			'appName' => 'Anselm',
 			'status.idle' => 'Idle',
 			'status.run' => 'Running',
@@ -1402,6 +1416,8 @@ extension on Translations {
 			'attach.unavailable' => 'Unavailable',
 			'attach.retry' => 'Tap to retry',
 			'attach.tapToLoad' => 'Tap to load',
+			'attach.uploading' => 'Uploading…',
+			'attach.failedRetry' => 'Failed — tap to retry',
 			_ => null,
 		};
 	}

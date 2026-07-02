@@ -51,6 +51,12 @@ final GalleryCategory _chatRail = GalleryCategory('对话 Chat', AnIcons.chat, [
   anMarkdownGalleryItem,
   chatThinkingGalleryItem,
   chatComposerGalleryItem,
+  GalleryItem('AnAttachmentChip 待发附件', 'composer 附件条的一枚;上传中/就绪/失败(点体重试)', [
+    GallerySpecimen('就绪 · 图片', (_) => AnAttachmentChip(kind: 'image', filename: 'screenshot.png', meta: 'PNG · 1.2 MB', onRemove: () {})),
+    GallerySpecimen('上传中', (_) => AnAttachmentChip(kind: 'document', filename: 'quarterly-report.pdf', meta: 'Uploading…', uploading: true, onRemove: () {})),
+    GallerySpecimen('失败 (点体重试)', (_) => AnAttachmentChip(kind: 'other', filename: 'data.bin', meta: 'Failed — tap to retry', failed: true, onRetry: () {}, onRemove: () {})),
+    GallerySpecimen('超长名截断', (_) => AnAttachmentChip(kind: 'text', filename: 'a-very-long-file-name-that-must-ellipsis-instead-of-blowing-out.txt', meta: '4 KB', onRemove: () {}), stress: true, maxWidth: 260),
+  ]),
   GalleryItem('AnMentionPanel @ 预输入面板', 'composer 上方的 @ 实体候选;键盘活动行外驱高亮(焦点留输入框)', [
     GallerySpecimen(
         '四类候选 · 第 2 行键盘活动',

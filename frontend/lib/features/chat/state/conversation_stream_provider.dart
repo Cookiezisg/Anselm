@@ -153,21 +153,25 @@ class ConversationStreamController extends Notifier<ConversationStreamState> {
   /// Optimistic send: the bubble appears NOW; the durable user echo replaces it (FIFO reconcile in the
   /// model). Failure marks the bubble failed (retry/discard affordances) — nothing is silently dropped.
   /// 乐观发送:泡立即出现,durable 回声替换(模型内 FIFO 对账);失败标 failed(重试/丢弃),绝不静默丢。
-  Future<void> send(String text, {List<MentionSnapshot> mentions = const []}) async {
+  Future<void> send(String text,
+      {List<MentionSnapshot> mentions = const [], List<String> attachmentIds = const []}) async {
     final trimmed = text.trim();
-    if (trimmed.isEmpty) return;
+    if (trimmed.isEmpty && attachmentIds.isEmpty) return; // attachments alone may send 后端允许纯附件
     final localId = 'local_${_localSeq++}';
-    transcript.mutate(
-        (t) => t..addPending(PendingSend(localId: localId, text: trimmed, mentions: mentions)));
+    transcript.mutate((t) => t
+      ..addPending(PendingSend(
+          localId: localId, text: trimmed, mentions: mentions, attachmentIds: attachmentIds)));
     _syncPin();
-    await _post(localId, trimmed, mentions);
+    await _post(localId, trimmed, mentions, attachmentIds);
   }
 
-  Future<void> _post(String localId, String text, List<MentionSnapshot> mentions) async {
+  Future<void> _post(
+      String localId, String text, List<MentionSnapshot> mentions, List<String> attachmentIds) async {
     try {
       await _repo.sendMessage(
         conversationId,
         content: text,
+        attachmentIds: attachmentIds,
         mentions: [for (final m in mentions) (type: m.type, id: m.id)],
       );
     } catch (_) {
@@ -186,7 +190,7 @@ class ConversationStreamController extends Notifier<ConversationStreamState> {
       return t;
     });
     _syncPin();
-    await _post(localId, p.text, p.mentions);
+    await _post(localId, p.text, p.mentions, p.attachmentIds);
   }
 
   /// Drop a failed bubble. 丢弃失败泡。

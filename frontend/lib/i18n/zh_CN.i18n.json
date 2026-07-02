@@ -49,7 +49,9 @@
     "transcriptErrorHint": "The local engine didn’t return the messages.",
     "landingGreeting": "What should we dig into?",
     "modelAuto": "Auto",
-    "mentionEntity": "Mention an entity"
+    "mentionEntity": "Mention an entity",
+    "attachFile": "Attach files",
+    "dropToAttach": "Drop files to attach"
   },
   "appName": "Anselm",
   "status": {
@@ -319,6 +321,8 @@
   "attach": {
     "unavailable": "已不可用",
     "retry": "点按重试",
-    "tapToLoad": "点按加载"
+    "tapToLoad": "点按加载",
+    "uploading": "Uploading…",
+    "failedRetry": "Failed — tap to retry"
   }
 }

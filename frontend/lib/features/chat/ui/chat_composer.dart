@@ -1,6 +1,8 @@
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pasteboard/pasteboard.dart';
 
 import '../../../core/design/tokens.dart';
 import '../../../core/entity/mention_source.dart';
@@ -11,7 +13,9 @@ import '../model/conversation_transcript.dart';
 import '../model/mention_query.dart';
 import '../model/mention_spans.dart';
 import 'mention_text_controller.dart';
+import '../model/user_attachment.dart';
 import '../state/chat_drafts.dart';
+import '../state/pending_attachments.dart';
 import '../state/conversation_stream_provider.dart';
 
 /// The chat composer BEHAVIOUR host over the [AnComposer] chrome — docked in a thread (pass
@@ -45,7 +49,8 @@ class ChatComposer extends ConsumerStatefulWidget {
             'ChatComposer needs a conversationId or onSubmitNew');
 
   final String? conversationId;
-  final Future<void> Function(String text, List<MentionSnapshot> mentions)? onSubmitNew;
+  final Future<void> Function(String text, List<MentionSnapshot> mentions, List<String> attachmentIds)?
+      onSubmitNew;
 
   /// Landing (New page) — lifts the chrome with the float shadow. landing 浮起。
   bool get _floating => conversationId == null;
@@ -259,13 +264,49 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
     return KeyEventResult.handled;
   }
 
+  // ── attachments: three intakes, one funnel 附件三入口一漏斗 ──
+
+  PendingAttachments get _att => ref.read(pendingAttachmentsProvider(_draftKey).notifier);
+
+  Future<void> _pickFiles() async {
+    final files = await openFiles();
+    for (final f in files) {
+      await _att.addBytes(await f.readAsBytes(), filename: f.name, mimeType: f.mimeType);
+    }
+  }
+
+  /// Clipboard triage, the platform convention: file URLs first (Finder copies also carry the file's
+  /// ICON bitmap — image-first would paste an icon), then a bitmap (screenshots — PNG bytes), then let
+  /// the DEFAULT paste run (text). 剪贴板判序:文件先(Finder 复制同时带图标位图,图先会贴成图标)→ 位图
+  /// (截图,PNG 字节)→ 放行默认文本粘贴。
+  Future<void> _pasteIntake(VoidCallback fallthrough) async {
+    try {
+      final files = await Pasteboard.files();
+      if (files.isNotEmpty) {
+        for (final path in files) {
+          await _att.addPath(path);
+        }
+        return;
+      }
+      final image = await Pasteboard.image;
+      if (image != null && image.isNotEmpty) {
+        final stamp = DateTime.now().toIso8601String().replaceAll(RegExp(r'[:.]'), '-');
+        await _att.addBytes(image, filename: 'pasted-image-$stamp.png', mimeType: 'image/png');
+        return;
+      }
+    } catch (_) {/* clipboard read failed — fall through to text 剪贴板读失败,走文本 */}
+    fallthrough();
+  }
+
   /// Snapshots whose `@name` still lives in the text (deleted pills drop off). 仍在文本里的快照。
   List<MentionSnapshot> _liveMentions(String text) =>
       [for (final m in _picked.values) if (text.contains('@${m.name}')) m];
 
   Future<void> _send() async {
     final text = _ctrl.text.trim();
-    if (text.isEmpty || _submittingNew) return;
+    final attachmentIds = _att.readyIds;
+    if ((text.isEmpty && attachmentIds.isEmpty) || _submittingNew) return;
+    if (_att.hasUploading) return; // the button is disabled too — never send half a payload 上传中不发
     final mentions = _liveMentions(text);
     _closePicker();
     final id = widget.conversationId;
@@ -274,8 +315,11 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
       _ctrl.clear();
       _picked.clear();
       _ctrl.pillNames.clear();
+      _att.clear();
       ref.read(chatDraftsProvider).clear(_draftKey);
-      await ref.read(conversationStreamProvider(id).notifier).send(text, mentions: mentions);
+      await ref
+          .read(conversationStreamProvider(id).notifier)
+          .send(text, mentions: mentions, attachmentIds: attachmentIds);
       return;
     }
     // Landing: the first send creates the thread — keep the text until it succeeds (a failed create
@@ -283,11 +327,12 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
     // (建失败不吞消息,失败冒 toast)。
     setState(() => _submittingNew = true);
     try {
-      await widget.onSubmitNew!(text, mentions);
+      await widget.onSubmitNew!(text, mentions, attachmentIds);
       if (!mounted) return;
       _ctrl.clear();
       _picked.clear();
       _ctrl.pillNames.clear();
+      _att.clear();
       ref.read(chatDraftsProvider).clear(_draftKey);
     } catch (_) {
       if (mounted) {
@@ -331,26 +376,68 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
   List<Widget> _lead(Translations t) => [
         AnButton.iconOnly(AnIcons.mention,
             size: AnButtonSize.sm, semanticLabel: t.chat.mentionEntity, onPressed: _insertMentionTrigger),
+        AnButton.iconOnly(AnIcons.attach,
+            size: AnButtonSize.sm, semanticLabel: t.chat.attachFile, onPressed: _pickFiles),
       ];
+
+  /// The pending strip for [AnComposer.attachments] — null when empty (presence flips pill→card).
+  /// 待发条(空=null,有即触发形变)。
+  Widget? _attachmentStrip(Translations t, List<PendingAttachment> pending) {
+    if (pending.isEmpty) return null;
+    return Wrap(
+      spacing: AnSpace.s6,
+      runSpacing: AnSpace.s6,
+      children: [
+        for (final a in pending)
+          AnAttachmentChip(
+            key: ValueKey(a.localId),
+            kind: a.isImage ? 'image' : 'other',
+            filename: a.filename,
+            meta: switch (a.status) {
+              'uploading' => t.attach.uploading,
+              'failed' => t.attach.failedRetry,
+              _ => attachmentMetaLine(
+                  filename: a.filename, mimeType: a.mimeType, sizeBytes: a.sizeBytes),
+            },
+            uploading: a.status == 'uploading',
+            failed: a.status == 'failed',
+            onRetry: () => _att.retry(a.localId),
+            onRemove: () => _att.remove(a.localId),
+          ),
+      ],
+    );
+  }
+
+  /// Wrap the composer so Cmd+V / context-menu Paste triages the clipboard BEFORE the default text
+  /// paste (Action.overridable — EditableText registers its paste as overridable; [callingAction] is
+  /// that default). 拦粘贴:文件→位图→放行默认文本(Action.overridable 机制)。
+  Widget _pasteInterceptor(Widget child) => Actions(
+        actions: {PasteTextIntent: _ComposerPasteAction(this)},
+        child: child,
+      );
 
   @override
   Widget build(BuildContext context) {
     final t = Translations.of(context);
     final id = widget.conversationId;
+    final pending = ref.watch(pendingAttachmentsProvider(_draftKey));
+    final uploading = pending.any((a) => a.status == 'uploading');
+    final ready = pending.any((a) => a.status == 'ready');
     if (id == null) {
       return _anchored(
         context,
-        AnComposer(
+        _pasteInterceptor(AnComposer(
           controller: _ctrl,
           focusNode: _focus,
           placeholder: t.chat.placeholder,
           floating: widget._floating,
           lead: _lead(t),
-          trailing: _hasText && !_submittingNew
+          attachments: _attachmentStrip(t, pending),
+          trailing: (_hasText || ready) && !uploading && !_submittingNew
               ? AnButton.iconOnly(AnIcons.send,
                   key: const ValueKey('send'), semanticLabel: t.chat.placeholder, onPressed: _send)
               : null,
-        ),
+        )),
       );
     }
     // Docked: the send↔stop morph follows the live pipeline (re-read the listenable each build — it is
@@ -365,21 +452,39 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
                 key: const ValueKey('stop'),
                 semanticLabel: t.chat.stoppedCancelled,
                 onPressed: () => ctl.cancelTurn())
-            : _hasText
+            : (_hasText || ready) && !uploading
                 ? AnButton.iconOnly(AnIcons.send,
                     key: const ValueKey('send'), semanticLabel: t.chat.placeholder, onPressed: _send)
                 : null;
         return _anchored(
           context,
-          AnComposer(
+          _pasteInterceptor(AnComposer(
             controller: _ctrl,
             focusNode: _focus,
             placeholder: t.chat.placeholder,
             lead: _lead(t),
+            attachments: _attachmentStrip(t, pending),
             trailing: trailing,
-          ),
+          )),
         );
       },
     );
+  }
+}
+
+/// The overridable-paste hook: EditableText registers its paste action as [Action.overridable], so an
+/// ancestor [Actions] map with this action intercepts Cmd+V AND the context-menu Paste; [callingAction]
+/// is the default text paste we fall through to. 覆盖式粘贴钩:祖先 Actions 注册即拦 Cmd+V 与右键粘贴;
+/// callingAction=默认文本粘贴(回落)。
+class _ComposerPasteAction extends Action<PasteTextIntent> {
+  _ComposerPasteAction(this._host);
+
+  final _ChatComposerState _host;
+
+  @override
+  Object? invoke(PasteTextIntent intent) {
+    final def = callingAction;
+    _host._pasteIntake(() => def?.invoke(intent));
+    return null;
   }
 }

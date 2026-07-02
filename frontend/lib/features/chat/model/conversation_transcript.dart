@@ -12,11 +12,13 @@ import 'mention_spans.dart';
 /// 乐观用户泡(等回声)。localId 客户端铸(绝非 msg_);failed 在发送失败时翻(泡长出重试/丢弃)。mentions 是
 /// composer 本地快照——回声落地时并进去(SSE 用户回声带 attachmentIds、**不带 mentions**;REST 重载两者都有)。
 class PendingSend {
-  PendingSend({required this.localId, required this.text, this.mentions = const []});
+  PendingSend(
+      {required this.localId, required this.text, this.mentions = const [], this.attachmentIds = const []});
 
   final String localId;
   final String text;
   final List<MentionSnapshot> mentions;
+  final List<String> attachmentIds;
   bool failed = false;
 }
 

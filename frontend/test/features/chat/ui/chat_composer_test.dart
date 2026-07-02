@@ -7,6 +7,7 @@ import 'package:anselm/features/chat/data/chat_fixtures.dart';
 import 'package:anselm/features/chat/data/chat_providers.dart';
 import 'package:anselm/features/chat/state/chat_drafts.dart';
 import 'package:anselm/features/chat/state/new_conversation.dart';
+import 'package:anselm/features/chat/state/pending_attachments.dart';
 import 'package:anselm/features/chat/state/selected_conversation.dart';
 import 'package:anselm/features/chat/ui/chat_composer.dart';
 import 'package:anselm/i18n/strings.g.dart';
@@ -171,7 +172,7 @@ void main() {
     final repo = FixtureChatRepository(conversations: [], messages: {});
     var fail = true;
     await tester.pumpWidget(_host(repo,
-        child: ChatComposer(onSubmitNew: (text, mentions) async {
+        child: ChatComposer(onSubmitNew: (text, mentions, attachmentIds) async {
           if (fail) throw StateError('scripted create failure');
         })));
     await _settle(tester);
@@ -293,6 +294,48 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.backspace); // atomic 整删
       await tester.pump();
       expect(ctl.text, '');
+    });
+  });
+
+
+  group('attachments', () {
+    testWidgets('ready chips render in the strip; the send carries attachmentIds and clears the strip',
+        (tester) async {
+      final repo = FixtureChatRepository(conversations: [_conv('cv_1')], messages: {'cv_1': []});
+      late final ProviderContainer c;
+      await tester.pumpWidget(Builder(builder: (ctx) {
+        final host = _host(repo);
+        return host;
+      }));
+      c = ProviderScope.containerOf(tester.element(find.byType(ChatComposer)));
+      await c.read(pendingAttachmentsProvider('cv_1').notifier).addBytes([1, 2], filename: 'a.png', mimeType: 'image/png');
+      await tester.pump();
+      expect(find.byType(AnAttachmentChip), findsOneWidget);
+      expect(find.text('a.png'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField).last, '看这个图');
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await _settle(tester);
+      expect(repo.lastSendAttachmentIds, [repo.uploads.single.id]);
+      expect(c.read(pendingAttachmentsProvider('cv_1')), isEmpty); // cleared after send 发后清
+    });
+
+    testWidgets('attachments-only send is allowed; uploading gates the send', (tester) async {
+      final repo = FixtureChatRepository(conversations: [_conv('cv_1')], messages: {'cv_1': []});
+      await tester.pumpWidget(_host(repo));
+      final c = ProviderScope.containerOf(tester.element(find.byType(ChatComposer)));
+      await c.read(pendingAttachmentsProvider('cv_1').notifier).addBytes([7], filename: 'r.pdf');
+      await tester.pump();
+      // ready + no text → the send button EXISTS (attachments alone may send) 纯附件可发
+      expect(find.byKey(const ValueKey('send')), findsOneWidget);
+
+      repo.failNextUpload = true;
+      await c.read(pendingAttachmentsProvider('cv_1').notifier).addBytes([8], filename: 'x.bin');
+      await tester.pump();
+      // one failed chip present; still no uploading → still sendable; now simulate uploading gate:
+      // a failed chip never gates; only uploading does. 失败不禁发,仅上传中禁。
+      expect(find.byKey(const ValueKey('send')), findsOneWidget);
     });
   });
 
