@@ -24,7 +24,15 @@ final List<GalleryCategory> galleryCatalog = [
   _g5CodeData,
   _g6Overlays,
   _chatRail,
+  _toolCards,
 ];
+
+// ── Tool cards — the V3 chassis + per-family skins (WRK-053), one item per family so each
+// tool's card is findable at a glance (split out of 对话 Chat by user decree — too crowded).
+// 工具卡——V3 底盘+族皮肤(WRK-053),每族一个 item 一眼可找(用户定调:从对话类拆出,太挤难找)。
+final GalleryCategory _toolCards = GalleryCategory('工具卡 Tool Cards', AnIcons.tool, [
+  chatToolCardGalleryItem,
+]);
 
 // ── Chat — the conversation rail's row, in every state ──
 // The row is an AnRow composition (no new primitive): a lead status dot + single-line title + a
@@ -51,7 +59,6 @@ final GalleryCategory _chatRail = GalleryCategory('对话 Chat', AnIcons.chat, [
   userTurnGalleryItem,
   anMarkdownGalleryItem,
   chatThinkingGalleryItem,
-  chatToolCardGalleryItem,
   chatComposerGalleryItem,
   GalleryItem('AnAttachmentChip 待发附件', 'composer 附件条的一枚;上传中/就绪/失败(点体重试)', [
     GallerySpecimen('就绪 · 图片', (_) => AnAttachmentChip(kind: 'image', filename: 'screenshot.png', meta: 'PNG · 1.2 MB', onRemove: () {})),
