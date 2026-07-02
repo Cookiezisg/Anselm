@@ -30,6 +30,14 @@ type fixedMode string
 
 func (m fixedMode) WebFetchMode(context.Context) string { return string(m) }
 
+// Mock page bodies for the summarise/fetch-mode tests must clear shellTextThreshold (200 readable
+// chars) so they exercise the summarise path, not the content-less-shell guard (Phase 4 web HIGH).
+var (
+	longMockPage      = "the page content " + strings.Repeat("Real readable article sentence with actual content. ", 8)
+	longRawBody       = "raw page body here " + strings.Repeat("More real readable page text with plenty of words. ", 8)
+	longDirectContent = "direct content " + strings.Repeat("Real readable direct-GET page text with words. ", 8)
+)
+
 func TestWebFetch_ValidateInput(t *testing.T) {
 	wf := &WebFetch{}
 	cases := []struct {
@@ -95,7 +103,7 @@ func TestWebFetch_Execute_SSRFBlocked(t *testing.T) {
 func TestWebFetch_Execute_Summarises(t *testing.T) {
 	// Mock Jina reader; any path returns canned page content.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte("the page content"))
+		_, _ = w.Write([]byte(longMockPage))
 	}))
 	defer srv.Close()
 	old := jinaEndpoint
@@ -126,7 +134,7 @@ func TestWebFetch_Execute_Summarises(t *testing.T) {
 
 func TestWebFetch_Execute_SummariseFailDegrades(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte("raw page body here"))
+		_, _ = w.Write([]byte(longRawBody))
 	}))
 	defer srv.Close()
 	old := jinaEndpoint
@@ -164,7 +172,7 @@ func TestWebFetch_FetchMode_LocalSkipsJina(t *testing.T) {
 	defer func() { jinaEndpoint = old }()
 
 	oldDirect := fetchDirectFn
-	fetchDirectFn = func(context.Context, string) (string, error) { return "direct content", nil }
+	fetchDirectFn = func(context.Context, string) (string, error) { return longDirectContent, nil }
 	defer func() { fetchDirectFn = oldDirect }()
 
 	wf := &WebFetch{
@@ -198,7 +206,7 @@ func TestWebFetch_FetchMode_NilPickerDefaultsLocal(t *testing.T) {
 	defer func() { jinaEndpoint = old }()
 
 	oldDirect := fetchDirectFn
-	fetchDirectFn = func(context.Context, string) (string, error) { return "direct content", nil }
+	fetchDirectFn = func(context.Context, string) (string, error) { return longDirectContent, nil }
 	defer func() { fetchDirectFn = oldDirect }()
 
 	wf := &WebFetch{picker: &fakePicker{err: modeldomain.ErrNotConfigured}, keys: &fakeKeys{}, factory: llminfra.NewFactory()}
@@ -224,7 +232,7 @@ func TestWebFetch_FetchMode_JinaFallsBackToDirect(t *testing.T) {
 	defer func() { jinaEndpoint = old }()
 
 	oldDirect := fetchDirectFn
-	fetchDirectFn = func(context.Context, string) (string, error) { return "direct content", nil }
+	fetchDirectFn = func(context.Context, string) (string, error) { return longDirectContent, nil }
 	defer func() { fetchDirectFn = oldDirect }()
 
 	wf := &WebFetch{
@@ -239,5 +247,23 @@ func TestWebFetch_FetchMode_JinaFallsBackToDirect(t *testing.T) {
 	}
 	if !strings.Contains(out, "direct content") {
 		t.Fatalf("jina mode must fall back to direct GET, got %q", out)
+	}
+}
+
+// TestVisibleTextLen_FlagsShell proves the content-less JS-shell guard: a SPA shell (meta + scripts,
+// no article text) falls below shellTextThreshold, while a real content page clears it. This is what
+// stops WebFetch from handing a shell to the summariser, which would confabulate page content (Phase 4).
+func TestVisibleTextLen_FlagsShell(t *testing.T) {
+	shell := `<!doctype html><html><head><title>Sam Altman (@sama)</title>` +
+		`<meta name="description" content="x"><script>window.__INIT__={a:1};for(;;){}</script>` +
+		`<style>.a{color:red}</style></head><body><div id="root"></div><script src="/app.js"></script></body></html>`
+	if n := visibleTextLen(shell); n >= shellTextThreshold {
+		t.Fatalf("JS-app shell must fall below threshold %d, got %d readable chars", shellTextThreshold, n)
+	}
+	real := `<html><body><article><h1>OpenAI update</h1><p>` +
+		strings.Repeat("Real readable article sentence with actual content. ", 20) +
+		`</p></article></body></html>`
+	if n := visibleTextLen(real); n < shellTextThreshold {
+		t.Fatalf("a real content page must clear threshold %d, got %d", shellTextThreshold, n)
 	}
 }

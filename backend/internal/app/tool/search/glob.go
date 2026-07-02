@@ -142,9 +142,37 @@ func (t *Glob) Execute(ctx context.Context, argsJSON string) (string, error) {
 	}
 
 	pattern := filepath.ToSlash(args.Pattern)
-	relMatches, err := doublestar.Glob(os.DirFS(root), pattern)
-	if err != nil {
-		return fmt.Sprintf("Invalid glob pattern %q: %v", args.Pattern, err), nil
+	// doublestar.Glob walks the whole tree for the pattern and is NOT interruptible (takes no ctx).
+	// A pathological pattern ("**" from a large root) walks for many minutes stuck in os.ReadDir,
+	// ignoring the turn's ctx cancellation — the turn hangs PAST ChatTurnSec (the turn-cap cancels ctx
+	// but os.ReadDir doesn't check it), the message never finalizes, isGenerating never clears, the
+	// runQueue goroutine leaks, and graceful shutdown blocks. Run the walk off-goroutine and return on
+	// ctx so it can never outlive the turn budget; the abandoned read-only walk finishes on its own.
+	// (Grep's rg backend is ctx-safe via exec.CommandContext; its stdlib fallback checks ctx per WalkDir
+	// entry — Glob's doublestar call is the one non-interruptible walk, hence this guard.)
+	//
+	// doublestar.Glob 为 pattern 走完整棵树、**不可中断**（不收 ctx）。病态 pattern（大根下 "**"）会卡在
+	// os.ReadDir 里走好几分钟、无视回合 ctx 取消——回合挂过 ChatTurnSec（turn-cap 取消了 ctx 但 os.ReadDir
+	// 不查它），message 永不 finalize、isGenerating 永不清、runQueue goroutine 泄漏、优雅关停阻塞。把 walk
+	// 放 goroutine、在 ctx 上返回,使其绝不活过回合预算;被弃的只读 walk 自行走完。
+	type globWalkOutcome struct {
+		rel []string
+		err error
+	}
+	resCh := make(chan globWalkOutcome, 1)
+	go func() {
+		rel, gerr := doublestar.Glob(os.DirFS(root), pattern)
+		resCh <- globWalkOutcome{rel, gerr}
+	}()
+	var relMatches []string
+	select {
+	case r := <-resCh:
+		if r.err != nil {
+			return fmt.Sprintf("Invalid glob pattern %q: %v", args.Pattern, r.err), nil
+		}
+		relMatches = r.rel
+	case <-ctx.Done():
+		return "Glob search exceeded the time budget before completing — narrow the search root and avoid a bare '**' from a large directory, then try again.", nil
 	}
 
 	matches := make([]globMatch, 0, len(relMatches))

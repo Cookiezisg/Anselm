@@ -33,7 +33,7 @@ func (b *webBridge) Subscribe(_ context.Context, _ int64) (<-chan streamdomain.E
 // 块，而最终 tool_result 是完整摘要。
 func TestWebFetch_StreamsSummaryProgress(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte("the page content"))
+		_, _ = w.Write([]byte(longMockPage))
 	}))
 	defer srv.Close()
 	old := jinaEndpoint

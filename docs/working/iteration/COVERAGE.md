@@ -27,12 +27,12 @@ landed-into:
 | B2 | 120 | 95 | 25 | 0 | 0 |
 | C | 55 | 45 | 2 | 0 | 8 |
 | DF | 68 | 56 | 12 | 0 | 0 |
-| E | 58 | 0 | 13 | 45 | 0 |
-| **合计** | **649** | **437** | **120** | **45** | **47** |
+| E | 58 | 0 | 44 | 14 | 0 |
+| **合计** | **649** | **437** | **151** | **14** | **47** |
 
-**当前覆盖率**（locked+probed+exempt / 总）≈ **93.1%** · 目标 ~99%（unprobed → 全部翻绿或显式 exempt）。
+**当前覆盖率**（locked+probed+exempt / 总）≈ **97.8%** · 目标 ~99%（unprobed → 全部翻绿或显式 exempt）。
 
-**进度**：Phase 0 基线✅ · **Phase 1 REST 契约全扫✅**（A/B 面 157 行，5 缺陷 F176–F180 修 + N4/:kill 文档订正）· **Phase 2 SSE/协议/安全✅**（C 面 16 行：5 新中间件/cron 单测 CORS·recover·locale·cron-edge + testend contract_protocol 7 场景 SSE 深协议/cron 去重/webhook secret/三流 bearer 门；**0 缺陷**——协议/安全/i18n 面稳固）。· **Phase 3 引擎+mega✅**（D 面 8 行：fsnotify testend 四源真空补齐 + 4 新 -race scheduler 单测 allow_all/人vs超时竞争/满载池不饿死超时/Recover 非内联 + mega 单链 trigger→混合图 5 kind→审计→approval→notification→relation→search + SSE flowrun tick；**0 缺陷**——durable 引擎稳固）。· **Phase 5 系统正确性✅**（F-new 4 行 + 2 缺陷 F181/F182 修：conversation sort=created 缺覆盖索引[R12 族] + 关停竞态 Advance 池缓冲队列[R3/F174 族];4 静态候选经对抗验证 2 CONFIRMED·2 REFUTED）。剩 unprobed 45：几乎全是 E 面对话（Phase 4，真模型）+ D-pool-8=F101 CPU-pin watch（需活体 pprof）。
+**进度**：Phase 0 基线✅ · **Phase 1 REST 契约全扫✅**（A/B 面 157 行，5 缺陷 F176–F180 修 + N4/:kill 文档订正）· **Phase 2 SSE/协议/安全✅**（C 面 16 行：5 新中间件/cron 单测 CORS·recover·locale·cron-edge + testend contract_protocol 7 场景 SSE 深协议/cron 去重/webhook secret/三流 bearer 门；**0 缺陷**——协议/安全/i18n 面稳固）。· **Phase 3 引擎+mega✅**（D 面 8 行：fsnotify testend 四源真空补齐 + 4 新 -race scheduler 单测 allow_all/人vs超时竞争/满载池不饿死超时/Recover 非内联 + mega 单链 trigger→混合图 5 kind→审计→approval→notification→relation→search + SSE flowrun tick；**0 缺陷**——durable 引擎稳固）。· **Phase 5 系统正确性✅**（F-new 4 行 + 2 缺陷 F181/F182 修：conversation sort=created 缺覆盖索引[R12 族] + 关停竞态 Advance 池缓冲队列[R3/F174 族];4 静态候选经对抗验证 2 CONFIRMED·2 REFUTED）。· **Phase 4 真模型 EXPLORE✅**（E 面 43 行经 4 deepseek lane 探→probed；**3 缺陷 F183–F185,含 2 HIGH 均活体确诊**：Glob/Grep ctx 无视致回合永卡[活体 goroutine dump 证伪 LLM-流误判、真身是 Glob 遍历] + WebFetch JS-shell 编造[shell 守卫+prompt 硬化,活体复验零编造] + WebFetch 失控猜 URL nudge 软化；touchpoint「且成功」措辞致 2 次误读→doc 澄清）。剩 unprobed 14：E2/E1-mcp agent 席残余（其功能/HTTP 面均已 locked、仅 agent 触发变体未探）+ D-pool-8=F101 CPU-pin watch。
 > 诚实标注：翻 locked 的 A/B 行里，极少数真不可黑盒者（如 `B-chat-4` convQueue 竞态、`B-rel-9` nil 容忍）在对应 `contract_*_test.go` 注释里标 needs_unit（属对应 app 包单测面）——计入 locked 的是可黑盒锁死的绝大多数。
 
 ---
@@ -578,7 +578,7 @@ landed-into:
 | C-i18n-3 | 中文/emoji/超长/RTL/病态 unicode 实体名与内容:建改搜零 500 零 mojibake(name 拒 CJK 有意) | probed | ARCHIVE 绿格 i18n/locale + 名校验 emoji/SQL 注入 + chaos;搜索面另有 locked TestSearch_ProjectionsLexicalAndFilters(中文短词 LIKE 回退) |
 | C-cron-1 | cron 5 段分钟粒度到点真触发 run 完成 | locked | TestTrigger_CronEveryFires |
 | C-cron-2 | cron 表达式按 time.Local 解释(robfig WithLocation(time.Local) 硬编码)+DST 春跳不存在时刻/秋回重复时刻的行为 | needs_unit | DST 需 TZ env 起进程 + robfig 语义 |
-| C-cron-3 | dedup key=triggerID\| locked | TestContractProtocol_CronDedupAcrossRestart | unprobed | 黑盒:cron 到点后同分钟内 kill 重启,断言 firings 恰一行 |
+| C-cron-3 | dedup key(triggerID·cron·分钟截断 Unix)同分钟内重启仅一 firing(D3) | locked | TestContractProtocol_CronDedupAcrossRestart |
 | C-cron-4 | 时钟回拨/NTP 偏移下 cron 不双发 | exempt | 黑盒不可注入系统时钟;防线即 E-cron-3 的分钟截断 dedup key+唯一索引,代码审计即证 |
 | C-cron-5 | 非法 cron 表达式创建/edit 时按码拒(非静默收下永不 fire) | locked | cron_validate_edge_test.go + cron_wire_test.go(新) |
 | C-cron-6 | cron nextFireAt 可发现(W1/F26 修:不再盲等) | probed | F26/W1(fixed 格) |
@@ -674,41 +674,41 @@ landed-into:
 
 | ID | 场景单元 | 状态 | 指针/备注 |
 |---|---|---|---|
-| E1-web-1 | 配 BYOK 搜索 key 后 agent WebSearch 真返 {query,source,results,truncated} 且答复据结果非幻觉 | unprobed | stub provider 契约单测 + 真 key lane |
-| E1-web-2 | BYOK key 无效/过期时 WebSearch 错误面可操作(provider 4xx 不臆造结果) | unprobed | stub 返 401 零 token 测 |
-| E1-web-3 | 四 provider(Brave/Serper/Tavily/Bocha)结果形状归一、无 provider 私有键泄漏 | unprobed | 各 provider stub 矩阵单测 |
-| E1-web-4 | workspace webFetchMode=jina vs local 同 URL 真切换取路(agent 席) | unprobed | fetch_stream 测扩两模式对照 |
-| E1-web-5 | WebFetch 摘要诚实性:页面无答案时声明未找到、大页/慢流显式截断信号 | unprobed | 受控本地 http server + lane 判官 |
-| E1-rel-1 | agent 经 edit_agent 挂/卸工具→equip 边真增删、get_relations 即时反映 | unprobed | turn 多轮 + GET /relations 对账 |
-| E1-rel-2 | agent 经 edit_document 增删 wikilink→link 边跟随、删链边消失 | unprobed | lane + relgraph 对账 |
-| E1-rel-3 | agent 想手动建任意两实体关系的能力缺口措辞(无写边工具、是否误导) | unprobed | lane 直问建边诉求 |
-| E1-burn-1 | turn 预算审计:标准任务(建 fn+测+改名)最优 turn 数 vs 实际绕远/重复读 | unprobed | lane 轨迹 turn 计数判官 |
-| E1-burn-2 | 大 catalog(100+ 实体)下 agent 先搜后取 vs list 倾倒烧 token | unprobed | 规模 seed + 轨迹 token 审计 |
-| E1-burn-3 | 同一坏参数连撞 3+ 次(错误信息是否足以一次改对) | unprobed | 埋雷任务重试计数判官 |
-| E1-att-1 | 无 vision 能力模型收图片附件→诚实降级不臆造图内容 | unprobed | llmmock 无 vision 能力 + 图附件 |
-| E1-att-2 | 损坏 PDF sandbox 抽取失败→agent 收可操作错非静默空文本 | unprobed | 坏 PDF 上传 turn 探 |
-| E1-att-3 | 多附件混合(文本+图+PDF)一次 send 三路门控不串扰 | unprobed | 混合附件 llmmock 断言 |
-| E1-att-4 | compaction 后 attachmentIds 仍可 read_attachment 读回 | unprobed | 压缩越线后读回探 |
+| E1-web-1 | 配 BYOK 搜索 key 后 agent WebSearch 真返 {query,source,results,truncated} 且答复据结果非幻觉 | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E1-web-2 | BYOK key 无效/过期时 WebSearch 错误面可操作(provider 4xx 不臆造结果) | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E1-web-3 | 四 provider(Brave/Serper/Tavily/Bocha)结果形状归一、无 provider 私有键泄漏 | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E1-web-4 | workspace webFetchMode=jina vs local 同 URL 真切换取路(agent 席) | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E1-web-5 | WebFetch 摘要诚实性:页面无答案时声明未找到、大页/慢流显式截断信号 | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E1-rel-1 | agent 经 edit_agent 挂/卸工具→equip 边真增删、get_relations 即时反映 | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E1-rel-2 | agent 经 edit_document 增删 wikilink→link 边跟随、删链边消失 | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E1-rel-3 | agent 想手动建任意两实体关系的能力缺口措辞(无写边工具、是否误导) | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E1-burn-1 | turn 预算审计:标准任务(建 fn+测+改名)最优 turn 数 vs 实际绕远/重复读 | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E1-burn-2 | 大 catalog(100+ 实体)下 agent 先搜后取 vs list 倾倒烧 token | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E1-burn-3 | 同一坏参数连撞 3+ 次(错误信息是否足以一次改对) | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E1-att-1 | 无 vision 能力模型收图片附件→诚实降级不臆造图内容 | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E1-att-2 | 损坏 PDF sandbox 抽取失败→agent 收可操作错非静默空文本 | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E1-att-3 | 多附件混合(文本+图+PDF)一次 send 三路门控不串扰 | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E1-att-4 | compaction 后 attachmentIds 仍可 read_attachment 读回 | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
 | E1-mcp-1 | degraded server 在 agent 席调用→错误面 + agent 自行 reconnect 恢复 | unprobed | scripted 3 败翻 degraded 后 lane |
 | E1-mcp-2 | F169 修后 env required/optional 语义 agent 面(必填被问齐、optional 不阻塞) | unprobed | registry 装带 env server lane |
 | E1-mcp-3 | MCP 工具与既有 function 撞名时 chat 席目录消歧 | unprobed | 同名 seed + toolpick lane |
 | E1-mcp-4 | agent 席 registry 搜→装→即调全链(F91 query 过滤后白烧复查) | unprobed | registry lane + 轨迹审计 |
-| E1-sub-1 | 一 turn 并发双 subagent fork 结果各归各、树不串 | unprobed | llmmock 双 fork 断言 |
-| E1-sub-2 | subagent 席 memory/todo 工具可用性边界(隔离 or 缺口的诚实措辞) | unprobed | subagent 席问 memory lane |
-| E1-sub-3 | subagent 失败(风暴/超时)回喂父的错误形状(父能续不假成功) | unprobed | 埋雷 subagent llmmock 断言 |
-| E1-sub-4 | subagent 内 dangerous 工具确认归属(危险门走谁、体验可懂) | unprobed | dangerous 挂 subagent 探 |
-| E1-tp-1 | agent 工具调用真产 touchpoint 行(mentioned/attached/viewed 从 agent 席触发) | unprobed | turn 后 GET /touchpoints 对账 |
-| E1-tp-2 | agent 读回 touchpoint 的能力缺口("这实体最近谁碰过"诉求) | unprobed | lane 直问 + 工具目录审计 |
-| E1-tp-3 | subagent/workflow 席动作的 touchpoint 归属(记到哪 conversation/actor) | unprobed | 嵌套席动作后台账查询 |
-| E1-adv-1 | approval timeoutBehavior 三枚举 agent 建全生效(agent 席未扫全) | unprobed | 三枚举各建各触 lane |
-| E1-adv-2 | trigger sensor interval 广告选项真按配置节奏轮询 | unprobed | 短 interval 计 firing 频率 |
-| E1-adv-3 | handler init-args schema 广告的默认值/枚举约束真校验 | unprobed | 违约 init-args 建 lane |
-| E1-adv-4 | limits 约束 agent 可见性(agent 能否知 maxSteps 等预算而非撞墙) | unprobed | lane 问预算 + 目录审计 |
-| E1-dp-1 | fn 返回标量/None/嵌套 list 在下游 CEL 键形状全类型矩阵(F32 修后续) | unprobed | 各返回型 workflow 零 token 矩阵 |
-| E1-dp-2 | handler 方法返 None/异常对象穿 workflow 节点结果的形状 | unprobed | None 返回图 run 断言 |
-| E1-dp-3 | control emit 与上游同名键覆盖/合并语义 agent 可预期 | unprobed | 同名键图 run 断言 |
-| E1-dp-4 | agent 节点声明 outputs coerce 失败的 loud-fail 措辞(F40 agent 半错误面) | unprobed | 违约 outputs invoke 断言 |
-| E1-dp-5 | attachmentIds 能否穿进 workflow/agent 节点(跨席数据传递缺口) | unprobed | 带附件触 workflow lane |
+| E1-sub-1 | 一 turn 并发双 subagent fork 结果各归各、树不串 | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E1-sub-2 | subagent 席 memory/todo 工具可用性边界(隔离 or 缺口的诚实措辞) | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E1-sub-3 | subagent 失败(风暴/超时)回喂父的错误形状(父能续不假成功) | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E1-sub-4 | subagent 内 dangerous 工具确认归属(危险门走谁、体验可懂) | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E1-tp-1 | agent 工具调用真产 touchpoint 行(mentioned/attached/viewed 从 agent 席触发) | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E1-tp-2 | agent 读回 touchpoint 的能力缺口("这实体最近谁碰过"诉求) | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E1-tp-3 | subagent/workflow 席动作的 touchpoint 归属(记到哪 conversation/actor) | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E1-adv-1 | approval timeoutBehavior 三枚举 agent 建全生效(agent 席未扫全) | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E1-adv-2 | trigger sensor interval 广告选项真按配置节奏轮询 | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E1-adv-3 | handler init-args schema 广告的默认值/枚举约束真校验 | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E1-adv-4 | limits 约束 agent 可见性(agent 能否知 maxSteps 等预算而非撞墙) | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E1-dp-1 | fn 返回标量/None/嵌套 list 在下游 CEL 键形状全类型矩阵(F32 修后续) | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E1-dp-2 | handler 方法返 None/异常对象穿 workflow 节点结果的形状 | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E1-dp-3 | control emit 与上游同名键覆盖/合并语义 agent 可预期 | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E1-dp-4 | agent 节点声明 outputs coerce 失败的 loud-fail 措辞(F40 agent 半错误面) | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E1-dp-5 | attachmentIds 能否穿进 workflow/agent 节点(跨席数据传递缺口) | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
 | E2-conv-1 | agent 席"按名列对话"诉求—list_conversations 无 sort 参数的缺口/绕行面 | unprobed | lane 直问按名列(HTTP 面另锁 TestChat_RailSortByName) |
 | E2-conv-2 | list_conversations includeArchived 混排时 archived 标志诚实呈现 | unprobed | 归档 seed + lane 枚举 |
 | E2-conv-3 | "找聊过 X 的对话"→search_conversations vs list 分工选对 | unprobed | 双诉求 toolpick lane |
@@ -720,15 +720,15 @@ landed-into:
 | E2-rail-1 | awaitingInput 由真危险门/ask 工具行为点亮与清除 | unprobed | 真 dangerous 调用后 rail 对账(HTTP 面已锁 TestChat_RailAwaitingInput) |
 | E2-rail-2 | hasUnread 在长流+subagent 完成时的点亮/清除时机 | unprobed | 长流完成后 rail 对账 |
 | E2-rail-3 | isGenerating 与 cancel/崩溃恢复的残留(kill 后无永久蓝点) | unprobed | 在途 kill 重启后 rail 查 |
-| E3-hd-1 | F164 handler 调用错误面 secret 擦洗(实时错误+spawn 失败审计两面皆净) | probed | F164;抽样复测 |
-| E3-wf-1 | F173 get_flowrun 节点 cap80+summary、长 loop 不倾倒 LLM 上下文 | probed | F173;抽样复测 |
-| E3-wf-2 | F138 两阶段 drain:replace/skip/buffer_one 对背靠背真 fire 生效 | probed | F138;抽样复测 |
-| E3-ag-1 | F134 edit_agent 部分编辑合并、不抹挂载 tools/knowledge | probed | F134;抽样复测 |
-| E3-fn-1 | F148 envfix 不丢声明包、失败 env 保 failed 且 ENV_NOT_READY 可达 | probed | F148;抽样复测 |
-| E3-mem-1 | F147 write_memory 更新保留 pinned/source 用户策展 | probed | F147;抽样复测 |
-| E3-wf-3 | F135 :activate/:stage 悬挂 ref 拒 WORKFLOW_NOT_RUNNABLE 不上线 | probed | F135;抽样复测 |
-| E3-loop-1 | F125 脏 JSON 工具参数先 jsonrepair、纯垃圾报"not valid JSON"真因 | probed | F125;抽样复测 |
-| E3-srch-1 | F110 cosineFloor=0.55:真 paraphrase 命中浮现、乱码噪声仍拒 | probed | F110;抽样复测 |
-| E3-mdl-1 | F68 get_model_config 脱敏投影(key 仅掩码、零 FS grep) | probed | F68;抽样复测 |
-| E3-sub-1 | F149 subagent 工具集剔除 get_subagent_trace(隔离不读父兄弟) | probed | F149;抽样复测 |
-| E3-http-1 | F172 /api/v1/* 404/405 走 N1 envelope(ROUTE_NOT_FOUND/METHOD_NOT_ALLOWED) | probed | F172;抽样复测 |
+| E3-hd-1 | F164 handler 调用错误面 secret 擦洗(实时错误+spawn 失败审计两面皆净) | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E3-wf-1 | F173 get_flowrun 节点 cap80+summary、长 loop 不倾倒 LLM 上下文 | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E3-wf-2 | F138 两阶段 drain:replace/skip/buffer_one 对背靠背真 fire 生效 | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E3-ag-1 | F134 edit_agent 部分编辑合并、不抹挂载 tools/knowledge | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E3-fn-1 | F148 envfix 不丢声明包、失败 env 保 failed 且 ENV_NOT_READY 可达 | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E3-mem-1 | F147 write_memory 更新保留 pinned/source 用户策展 | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E3-wf-3 | F135 :activate/:stage 悬挂 ref 拒 WORKFLOW_NOT_RUNNABLE 不上线 | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E3-loop-1 | F125 脏 JSON 工具参数先 jsonrepair、纯垃圾报"not valid JSON"真因 | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E3-srch-1 | F110 cosineFloor=0.55:真 paraphrase 命中浮现、乱码噪声仍拒 | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E3-mdl-1 | F68 get_model_config 脱敏投影(key 仅掩码、零 FS grep) | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E3-sub-1 | F149 subagent 工具集剔除 get_subagent_trace(隔离不读父兄弟) | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
+| E3-http-1 | F172 /api/v1/* 404/405 走 N1 envelope(ROUTE_NOT_FOUND/METHOD_NOT_ALLOWED) | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
