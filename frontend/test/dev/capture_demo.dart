@@ -66,6 +66,10 @@ const _chatMenu = String.fromEnvironment('CHATMENU');
 // shows the in-place rename field. 行 ⋯ 菜单 / 就地改名截图。
 const _chatRowMenu = String.fromEnvironment('CHATROWMENU');
 const _chatRename = String.fromEnvironment('CHATRENAME');
+// Optional `--dart-define=CHATSEND=文本` types into the composer + Enter, then pumps the demo's scripted
+// streaming reply. `CHATAT=mid|done` picks the capture moment (default done). 打字发送 + 泵脚本流;选截流中或完成。
+const _chatSend = String.fromEnvironment('CHATSEND');
+const _chatAt = String.fromEnvironment('CHATAT');
 // Optional `--dart-define=WSMENU=1` opens the workspace quick-actions menu — verify it matches the
 // trigger width. 打开 workspace 快捷菜单,验它与触发钮等宽。
 const _wsmenu = String.fromEnvironment('WSMENU');
@@ -90,6 +94,7 @@ class _CaptureApp extends ConsumerWidget {
 void main() {
   setUpAll(() async {
     await _load('MiSans', 'assets/fonts/MiSansVF.ttf');
+    await _load('JetBrains Mono', 'assets/fonts/JetBrainsMono.ttf');
     final cache = '${Platform.environment['HOME']}/.pub-cache/hosted/pub.dev';
     await _load('packages/lucide_icons_flutter/Lucide300',
         '$cache/lucide_icons_flutter-3.1.14+2/assets/build_font/LucideVariable-w300.ttf');
@@ -229,6 +234,19 @@ void main() {
       outName = '${outName}_collapsed';
     }
 
+    // Type + send in the open conversation (or the landing) and pump the scripted stream. 打字发送+泵流。
+    if (_chatSend.isNotEmpty) {
+      await tester.enterText(find.byType(TextField).last, _chatSend); // the composer field (rail filter is first)
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      // The scripted reply spans ~4s: mid ≈ inside the text deltas; done = past the terminal. 脚本约 4s。
+      final horizonMs = _chatAt == 'mid' ? 2600 : 6500;
+      for (var i = 0; i < horizonMs ~/ 50; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      outName = '${outName}_send${_chatAt == 'mid' ? '_mid' : ''}';
+    }
+
     if (_tab.isNotEmpty) {
       final detail = LocaleSettings.instance.currentTranslations.entities.detail.tab;
       final label = {'overview': detail.overview, 'versions': detail.versions, 'logs': detail.logs}[_tab]!;
@@ -265,5 +283,13 @@ void main() {
     });
     final dir = Directory('test/dev/out')..createSync(recursive: true);
     File('${dir.path}/$outName.png').writeAsBytesSync(bytes);
+
+    // A mid-stream capture leaves the demo script's timers pending — drain them so the harness ends
+    // clean (the frame is already grabbed). 流中截帧后脚本计时器仍挂——泵尽收尾(图已到手)。
+    if (_chatSend.isNotEmpty && _chatAt == 'mid') {
+      for (var i = 0; i < 120; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+    }
   });
 }

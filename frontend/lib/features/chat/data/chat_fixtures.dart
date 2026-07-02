@@ -255,6 +255,14 @@ class FixtureChatRepository implements ChatRepository {
   void appendMessage(String conversationId, ChatMessage message) =>
       _messages.putIfAbsent(conversationId, () => []).add(message);
 
+  /// Replace a persisted row by id (the demo script settles the pending assistant row it minted).
+  /// 按 id 替换持久行(demo 脚本把铸出的 pending assistant 行定格成完成态)。
+  void replaceMessage(String conversationId, ChatMessage message) {
+    final rows = _messages.putIfAbsent(conversationId, () => []);
+    final i = rows.indexWhere((m) => m.id == message.id);
+    i < 0 ? rows.add(message) : rows[i] = message;
+  }
+
   // ── realtime scripting (tests / demo) ──
 
   /// Seed or replace a row (a server-side create fetchable via [getConversation], or an out-of-band edit),
