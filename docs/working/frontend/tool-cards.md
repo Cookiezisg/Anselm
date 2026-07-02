@@ -1,0 +1,102 @@
+---
+id: WRK-053
+type: working
+status: active
+owner: @weilin
+created: 2026-07-03
+reviewed: 2026-07-03
+review-due: 2026-10-01
+audience: [human, ai]
+---
+
+# V3 tool_call 卡片 —— 建造规范(在建)
+
+> chat 中心海洋的工具卡模块:**一个底盘 + 每族一张精心皮肤**,119 个工具全落座。经四路扇出调研
+> (后端线缆逐帧真相 / 业界模式目录[Vercel AI Elements 7 态机、Cursor/Claude Code/ChatGPT agent 等] /
+> 17+1 工具分类学 / demo 仅当块型清单**不当设计参照**——用户明确定调),用户 2026-07-03 拍板四点(§1)。
+> 建完 → 结论提取进 `references/frontend/features/chat.md` + `design-system.md`,本页归 archive。母文档 [`chat.md`](chat.md)。
+
+## 1. 已拍板决策(2026-07-03)
+
+| # | 决策 | 取值 |
+|---|---|---|
+| 1 | 收起行文案主体 | **注册表确定性动词**(双语、可靠、诚实);LLM 自报 `summary` 放展开卡首行作「意图」;仅 MCP 动态等无文法工具用 summary 当收起行 |
+| 2 | 行形态 | **无边框裸行**(32px,与 thinking 低语同韵);展开体才有容器 |
+| 3 | 批次顺序 | V3a 底盘 → V3b shell+fs → V3c builds → V3d exec+searches+entity-get+web → V3e 薄卡族+批量折叠 |
+| 4 | 路线图 | **取消独立 V4**(tool_result 三形状被族皮肤吸收);V6 人在环紧随 V3c(底盘先留「等待确认」态) |
+
+## 2. 卡片状态机(线缆判据锚定)
+
+```
+args 流入中 ──→ [等待确认]* ──→ 执行中 ──→ 终态(成功 / 失败 / 已拒绝 / 已中断)
+```
+
+| 状态 | 线缆判据(messages 流) | 呈现 |
+|---|---|---|
+| args 流入中 | tool_call `Open`(只带 `{name}`)后、`Close` 前;args 经 Delta 逐 token 流入(**含未剥的 summary/danger 键**,渲染前须容忍) | 动词流光,目标未知则只动词 |
+| 等待确认 | `interaction` 信号(seq=0 ephemeral,payload 带 kind/tool/prompt{summary,args});重连**必拉** `GET .../interactions` | V3a 占位视觉;完整卡 V6 |
+| 执行中 | tool_call 已 `Close`(status completed,快照落 `attrs{tool,summary,danger}` + arguments)且**无 tool_result 子块** | 流光 + 3s 后计时;progress 块 delta = 流窗尾巴 |
+| 成功/失败 | tool_result `Open`(整体内容,≤256KB)+ `Close`(completed/error,error 带信息) | 过去时 + 回执;失败自动展开 |
+| 已拒绝 | tool_result 文本 = "The user denied running this tool…"(status **completed**) | ⊘ 专属态,一等公民不消失 |
+| 已中断 | tool_call Close status=cancelled(args 期);或 Bash 尾部 `[cancelled]`;或 gate 解阻文本 "cancelled before this tool ran" | 「已中断」标记,流光必须落定 |
+
+progress 块:懒 Open(首字节)→ Delta 逐块(**字节粒度非行保证**,渲染侧按行切)→ Close 带全量快照;durable 可重放;一个 tool_call 至多一个。发射者:Bash 前台、run_function print、call_handler 流式方法、create/edit_function env-fix 行、WebFetch、MCP 动态、mount 工具。
+
+## 3. 收起行文法
+
+```
+执行中:  ⟨icon⟩ 正在读取 overview.md …        ← 动词 AnShimmerText;… 即活感;>3s 追加 · 4s 计时
+完成:    ⟨icon⟩ 已读取 overview.md · 120 行    ← 过去时 + 灰回执后缀(行数/命中数/耗时/exit)
+失败:    ⟨icon⟩ 已执行 npm test · exit 1       ← 过去时文法不破 + 失败标记 + 自动展开
+拒绝:    ⊘ 已拒绝执行 delete_agent
+中断:    ⟨icon⟩ 已中断 · 读取 overview.md
+```
+
+- **动词=正文字重,目标=等宽 chip**(路径中截断 `src/…/foo.ts`,query 尾截断);全文案 slang 双语。
+- **回执后缀**是过去时的凭据(业界铁律);无目标工具引号包 query、必带结果计数。
+- **id→name 升级**:args 阶段只有 id/path,终态从输出提 name 替换,失败保持 id。
+- 双键目标(`get_relations` kind+id / `decide_approval` flowrun+node)渲「主目标+徽标」。
+- 展开 affordance:有展开体才显 chevron(AnDisclosure 常驻式);Read 类完成后**无展开体**只留回执。
+
+## 4. 17+1 族全表(每族一张皮肤;动词对为 zh 版,en 对应入 slang)
+
+| 族 | 成员 | 动词对(进行→完成) | 目标 | 展开体 | 流式 | 风险 |
+|---|---|---|---|---|---|---|
+| F1 fs-ops | Read/Write/Edit (3) | 正在读取/写入/编辑→已读取/写入/编辑 | `file_path` basename | Read 无体只回执;Write=内容代码块;Edit=old→new **diff** | Write/Edit args 增长 | Write/Edit cautious |
+| F2 fs-search | Glob/Grep/LS (3) | 正在检索→找到 N 个文件/匹配 | 引号包 pattern/path | 命中列表(Grep 三模式) | 计数揭示 | — |
+| F3 shell | Bash/BashOutput/KillShell (3) | 正在执行命令→完成(exit 0)/失败(exit N)/超时 | `command` 首行等宽 | 终端视图+exit footer 解析;**后台=持久运行态**,BashOutput 增量追加 | **最强进度流**(前台 progress 逐行) | ⚠️ 全族红,summary 常显 |
+| F4 builds | create/edit×8 实体+trigger 两个 (18) | 正在创建/修改 kind X→已创建 X (vN) | create=output.id(流中用 args.name);edit=args.<k>Id | 内容区**打字机流入**+结果条(id/version/**envStatus 半成功态**/restarted)+「在实体面板查看」 | **全系统最强**(args 即内容) | edit cautious;create_document 输出纯文本正则/create_skill 无 id/create_trigger 整实体 |
+| F5 lifecycle | revert×6/delete×9/wf 四态/restart/activate_skill/move/meta×4 (26) | 正在删除/回滚/激活…→已删除/已回滚到 vN | args.<k>Id(+version) | 极薄:目标+动作+确认一行 | 无 | ⚠️ delete 9 员+kill_workflow 红核 |
+| F6 entity-get | get×8+read_document/attachment (10) | 正在查看 X→已查看 X | args id(终态升 name) | 实体摘要+内容折叠区(截断+逃生口) | 无 | — |
+| F7 searches | search×9+list×2 (11) | 正在搜索 "Q"→找到 N 个 | 引号 query | 命中行列表,可点→右岛;空态「无匹配」 | 计数揭示 | — |
+| F8 exec | run/call/invoke/trigger/fire/replay (6) | 正在运行 X→运行成功(1.2s)/失败 | args id(call 附 `.method()`) | 输入 JSON 树/输出(`{ok,output,errorMsg,elapsedMs,logs}`)/logs 折叠/flowrunId 深链 | args 流入+耗时揭示;invoke/trigger 持久态 | replay cautious |
+| F9 run-logs | search/get × 执行档案 (13) | 正在查执行历史→找到 N 条 | 父实体 id(两个 optional)/记录 id | search=状态列表+rollup;get=单条全档;**get_flowrun 节点表虚拟滚动+nodeSummary 省略提示** | 无 | 尺寸风险第一 |
+| F10 web | WebSearch/WebFetch (2) | 正在搜索网页 "Q"→找到 N 条;正在抓取 域名→已抓取 | query/裸域名 | Search=链接列表(source 徽标/truncated);Fetch=摘要+prompt;**三退化态识别**(fail/empty/raw-4KB) | 计数/首行揭示 | — |
+| F11 memory-todo | write/read/forget_memory+todo×2 (5) | 正在记忆/回忆/遗忘 "name";待办已更新 (3/7) | name/ctx 无目标 | memory=名+文本;**todo=复选清单卡** | todo items 逐条 | forget 红标 |
+| F12 introspection | get_relations/capability_check/search_tools/get_model_config (4) | 正在分析依赖 X→找到 N 条关系 | 双键/无目标 | 边列表/问题清单/工具列表/键值表 | 无 | — |
+| F13 mcp-mgmt | marketplace/install/uninstall/reconnect (4) | 正在安装 X→已安装 X (N 个工具) | 短名(install=registry 全名截短) | install=ServerStatus 卡(**tools 列表**) | install 慢=持久态 | ⚠️ cautious+,summary 常显 |
+| F14 mcp-dynamic | `mcp__*__*` (∞) | 正在调用 server 的 tool→调用完成 | 名剥取 server+tool | **通用 JSON 卡**(schema-less,截断兜底必备) | args 流入 | ⚠️ 全族 cautious+ |
+| F15 subagent | Subagent/get_subagent_trace (2) | 正在派遣子代理→子代理已完成 | subagent_type;树数据自 **E3 嵌套**非输出 | **嵌套 transcript**(reducer 已备)+调用计数徽标 | 双层流,持久态 | 继承内部 |
+| F16 humanloop | ask_user/decide_approval/list_approval_inbox (3) | 正在等待你的回答→你已回答 | 无/flowrun+node 双键 | **ask_user=唯一交互阻塞卡**(V6);decide=决定全文永不折叠 | ask 持久琥珀态(联动 rail) | decide 即权限动作 |
+| F17 conversation | manage/list/search_conversations (3) | 正在重命名对话→已重命名为 "T" | ctx/无 | 薄卡;manage 改名联动浮层头/rail(复用自动命名管道) | 无 | — |
+
+## 5. 横切规则
+
+- **截断安全网**:卡内容区硬上限+「已截断,查看全文」逃生口;重灾:get_flowrun(后端已 cap+nodeSummary)>agent 轨迹>Bash 256KB(footer 解析)>Read 2000 行>文档正文>F14 全体。
+- **自动展开**:仅 错误 + 等待确认;完成后重新收拢(历史读起来像目录不像日志)。
+- **批量折叠**(V3e):连续同动词行折「读取了 5 个文件 ▸」。
+- 危险自报 `summary` 在 F3/F13/F14 常显。
+- 全部 `Animated*` reduced 即时;流光/计时/流窗复用 V2 原语(AnShimmerText/AnExpandReveal/流窗滚动)。
+
+## 6. 批次与验收
+
+| 批次 | 内容 | 验收 |
+|---|---|---|
+| V3a 底盘 | 状态模型(纯 Dart,块树→phase 派生)+ ToolCardSpec 注册表(通用兜底)+ ChatToolCard chassis(收起行/计时/展开/自动展开/终态四款)+ 通用 JSON 皮肤 | gallery 全生命周期 specimen + 五电池 + fe-verify |
+| V3b | F1+F2+F3(终端流窗/diff 视图) | 各族 ASCII 提案→拍板→gallery→真机 |
+| V3c | F4 builds(代码流入+envStatus) | 同上 |
+| V6 | F16 完整确认卡(approve/always/deny+决议后不可变记录+interactions 重连补拉) | 同上+testend 联调 |
+| V3d | F8+F7+F6+F10 | 同上 |
+| V3e | F5/F9/F11/F12/F13/F17 薄卡 + 批量折叠 + transcript 全接线 | 真后端端到端 |
+
+landed-into:
