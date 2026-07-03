@@ -423,10 +423,8 @@ class _Translations$entities$detail$zh_CN extends Translations$entities$detail$e
 
 	// Translations
 	@override String get crumbRoot => '实体';
-	@override String get moreActions => '更多操作';
 	@override late final _Translations$entities$detail$tab$zh_CN tab = _Translations$entities$detail$tab$zh_CN._(_root);
 	@override late final _Translations$entities$detail$verb$zh_CN verb = _Translations$entities$detail$verb$zh_CN._(_root);
-	@override late final _Translations$entities$detail$edit$zh_CN edit = _Translations$entities$detail$edit$zh_CN._(_root);
 	@override late final _Translations$entities$detail$hero$zh_CN hero = _Translations$entities$detail$hero$zh_CN._(_root);
 	@override late final _Translations$entities$detail$codeToggle$zh_CN codeToggle = _Translations$entities$detail$codeToggle$zh_CN._(_root);
 	@override late final _Translations$entities$detail$sec$zh_CN sec = _Translations$entities$detail$sec$zh_CN._(_root);
@@ -515,25 +513,6 @@ class _Translations$entities$detail$verb$zh_CN extends Translations$entities$det
 	@override String get call => '调用';
 	@override String get invoke => '唤起';
 	@override String get trigger => '触发';
-}
-
-// Path: entities.detail.edit
-class _Translations$entities$detail$edit$zh_CN extends Translations$entities$detail$edit$en {
-	_Translations$entities$detail$edit$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
-
-	final TranslationsZhCn _root; // ignore: unused_field
-
-	// Translations
-	@override String get edit => '编辑';
-	@override String get save => '保存为新版本';
-	@override String get discard => '放弃';
-	@override String get changeReason => '这次改了什么(可选)';
-	@override String get saveFailed => '保存失败';
-	@override String get saveHint => '保存会追加一个新版本并使其生效;历史版本随时可回。';
-	@override String get addInput => '添加入参';
-	@override String get addOutput => '添加返回';
-	@override String get fieldName => '字段名';
-	@override String get removeField => '移除字段';
 }
 
 // Path: entities.detail.hero
@@ -919,7 +898,6 @@ extension on TranslationsZhCn {
 			'entities.displayLabel' => '显示',
 			'entities.showCount' => '显示分组计数',
 			'entities.detail.crumbRoot' => '实体',
-			'entities.detail.moreActions' => '更多操作',
 			'entities.detail.tab.overview' => '概览',
 			'entities.detail.tab.versions' => '版本',
 			'entities.detail.tab.logs' => '日志',
@@ -927,16 +905,6 @@ extension on TranslationsZhCn {
 			'entities.detail.verb.call' => '调用',
 			'entities.detail.verb.invoke' => '唤起',
 			'entities.detail.verb.trigger' => '触发',
-			'entities.detail.edit.edit' => '编辑',
-			'entities.detail.edit.save' => '保存为新版本',
-			'entities.detail.edit.discard' => '放弃',
-			'entities.detail.edit.changeReason' => '这次改了什么(可选)',
-			'entities.detail.edit.saveFailed' => '保存失败',
-			'entities.detail.edit.saveHint' => '保存会追加一个新版本并使其生效;历史版本随时可回。',
-			'entities.detail.edit.addInput' => '添加入参',
-			'entities.detail.edit.addOutput' => '添加返回',
-			'entities.detail.edit.fieldName' => '字段名',
-			'entities.detail.edit.removeField' => '移除字段',
 			'entities.detail.hero.noInputs' => '无入参',
 			'entities.detail.hero.noOutputs' => '无返回',
 			'entities.detail.hero.deps' => ({required Object n}) => '${n} 依赖',

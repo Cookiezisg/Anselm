@@ -4,7 +4,6 @@ import '../../../core/contract/entities/agent.dart';
 import '../../../core/contract/entities/common.dart';
 import '../../../core/contract/entities/function.dart';
 import '../../../core/contract/entities/handler.dart';
-import '../../../core/contract/entities/values.dart';
 import '../../../core/contract/entities/workflow.dart';
 import '../../../core/contract/page.dart';
 import '../../../core/sse/frame.dart';
@@ -44,8 +43,7 @@ class FixtureEntityRepository implements EntityRepository {
         _handlers = List.of(handlers ?? const []),
         _agents = List.of(agents ?? const []),
         _workflows = List.of(workflows ?? const []),
-        // Mutable copy: the F2 write plane (editFunction) appends new versions. 可变拷贝:写面追加新版本。
-        _functionVersions = Map.of(functionVersions ?? const {}),
+        _functionVersions = functionVersions ?? const {},
         _handlerVersions = handlerVersions ?? const {},
         _agentVersions = agentVersions ?? const {},
         _workflowVersions = workflowVersions ?? const {},
@@ -309,45 +307,6 @@ class FixtureEntityRepository implements EntityRepository {
         kind: EntityKind.function, id: id, action: EntityAction.updated, durable: true));
     return next;
   }
-
-  @override
-  Future<FunctionVersion> editFunction(String id,
-      {required List<Map<String, dynamic>> ops, String changeReason = ''}) async {
-    final e = await getFunction(id);
-    final base = e.activeVersion!;
-    final n = base.version + 1;
-    var v = _applyFunctionOps(base, ops);
-    v = v.copyWith(
-      id: '${id}_v$n',
-      version: n,
-      changeReason: changeReason.isEmpty ? null : changeReason,
-      createdAt: base.createdAt,
-      updatedAt: base.updatedAt,
-    );
-    _functionVersions[id] = [v, ...?_functionVersions[id]];
-    upsertFunction(e.copyWith(activeVersionId: v.id, activeVersion: v));
-    emitLifecycle(EntitySignal(
-        kind: EntityKind.function, id: id, action: EntityAction.edited, durable: true));
-    return v;
-  }
-
-  static FunctionVersion _applyFunctionOps(FunctionVersion v, List<Map<String, dynamic>> ops) {
-    for (final op in ops) {
-      v = switch (op['op']) {
-        'set_code' => v.copyWith(code: (op['code'] as String?) ?? ''),
-        'set_inputs' => v.copyWith(inputs: _fields(op['inputs'])),
-        'set_outputs' => v.copyWith(outputs: _fields(op['outputs'])),
-        'set_dependencies' =>
-          v.copyWith(dependencies: ((op['dependencies'] as List?) ?? const []).cast<String>()),
-        'set_python_version' => v.copyWith(pythonVersion: (op['version'] as String?) ?? v.pythonVersion),
-        _ => v,
-      };
-    }
-    return v;
-  }
-
-  static List<Field> _fields(Object? raw) =>
-      [for (final f in (raw as List?) ?? const []) Field.fromJson((f as Map).cast<String, dynamic>())];
 
   @override
   Future<void> revertVersion(EntityKind kind, String id, int version) async {

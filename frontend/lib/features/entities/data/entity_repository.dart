@@ -66,12 +66,6 @@ abstract interface class EntityRepository {
   /// PATCH meta (name/description/tags) — does NOT bump the version. 改 meta,不升版本。
   Future<FunctionEntity> patchFunctionMeta(String id, Map<String, dynamic> patch);
 
-  /// `POST :edit` — apply build ops → a NEW appended version (returned; the active pointer moves to
-  /// it server-side). Ops are the backend's full-setter vocabulary (`set_code`/`set_inputs`/…).
-  /// ops 构建新版本(返回新版;active 指针服务端已移)。ops = 后端全量 setter 词汇。
-  Future<FunctionVersion> editFunction(String id,
-      {required List<Map<String, dynamic>> ops, String changeReason});
-
   /// `POST :revert` — move the active pointer to version [version] (any versioned kind; the endpoint
   /// shape is uniform). 把 active 指针移到指定版本号(版本化 kind 通用,端点同形)。
   Future<void> revertVersion(EntityKind kind, String id, int version);
@@ -217,14 +211,7 @@ class LiveEntityRepository implements EntityRepository {
   Future<FunctionEntity> patchFunctionMeta(String id, Map<String, dynamic> patch) =>
       _api.patchEntity(EntityKind.function.itemPath(id), FunctionEntity.fromJson, body: patch);
 
-  // :edit / :revert answer `{data: <version>}` (N1 envelope, unlike the BARE `:run`). :edit/:revert
-  // 走 N1 信封返版本(不同于裸返的 :run)。
-  @override
-  Future<FunctionVersion> editFunction(String id,
-          {required List<Map<String, dynamic>> ops, String changeReason = ''}) =>
-      _api.postEntity('${EntityKind.function.itemPath(id)}:edit', FunctionVersion.fromJson,
-          body: {'ops': ops, 'changeReason': changeReason});
-
+  // :revert answers `{data: <version>}` (N1 envelope, unlike the BARE `:run`). :revert 走 N1 信封返版本。
   @override
   Future<void> revertVersion(EntityKind kind, String id, int version) async =>
       await _api.postEntity('${kind.itemPath(id)}:revert', (m) => m, body: {'version': version});

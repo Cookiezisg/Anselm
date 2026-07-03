@@ -221,7 +221,6 @@
     "showCount": "显示分组计数",
     "detail": {
       "crumbRoot": "实体",
-      "moreActions": "更多操作",
       "tab": {
         "overview": "概览",
         "versions": "版本",
@@ -232,18 +231,6 @@
         "call": "调用",
         "invoke": "唤起",
         "trigger": "触发"
-      },
-      "edit": {
-        "edit": "编辑",
-        "save": "保存为新版本",
-        "discard": "放弃",
-        "changeReason": "这次改了什么(可选)",
-        "saveFailed": "保存失败",
-        "saveHint": "保存会追加一个新版本并使其生效;历史版本随时可回。",
-        "addInput": "添加入参",
-        "addOutput": "添加返回",
-        "fieldName": "字段名",
-        "removeField": "移除字段"
       },
       "hero": {
         "noInputs": "无入参",

@@ -221,7 +221,6 @@
     "showCount": "Show counts",
     "detail": {
       "crumbRoot": "Entities",
-      "moreActions": "More actions",
       "tab": {
         "overview": "Overview",
         "versions": "Versions",
@@ -232,18 +231,6 @@
         "call": "Call",
         "invoke": "Invoke",
         "trigger": "Trigger"
-      },
-      "edit": {
-        "edit": "Edit",
-        "save": "Save as new version",
-        "discard": "Discard",
-        "changeReason": "What changed (optional)",
-        "saveFailed": "Save failed",
-        "saveHint": "Saving appends a new version and makes it active; older versions stay available.",
-        "addInput": "Add input",
-        "addOutput": "Add output",
-        "fieldName": "field name",
-        "removeField": "Remove field"
       },
       "hero": {
         "noInputs": "no inputs",

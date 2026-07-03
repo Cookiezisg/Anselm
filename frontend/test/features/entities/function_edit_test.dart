@@ -1,9 +1,3 @@
-import 'package:anselm/core/design/theme.dart';
-import 'package:anselm/core/ui/an_input.dart';
-import 'package:anselm/core/ui/an_transform_box.dart';
-import 'package:anselm/features/entities/ui/detail/overview/function_overview.dart';
-import 'package:anselm/i18n/strings.g.dart';
-import 'package:flutter/material.dart';
 import 'package:anselm/core/contract/entities/function.dart';
 import 'package:anselm/core/contract/entities/values.dart';
 import 'package:anselm/features/entities/data/entity_fixtures.dart';
@@ -50,31 +44,6 @@ FixtureEntityRepository _repo() => FixtureEntityRepository(
 
 void main() {
   group('fixture write plane', () {
-    test('editFunction applies ops → appended version + entity active swap', () async {
-      final repo = _repo();
-      final v = await repo.editFunction('fn_1', ops: [
-        {'op': 'set_code', 'code': 'new code'},
-        {
-          'op': 'set_inputs',
-          'inputs': [
-            {'name': 'city', 'type': 'string'}
-          ]
-        },
-        {'op': 'set_python_version', 'version': '3.13'},
-      ], changeReason: 'tweak');
-      expect(v.version, 3);
-      expect(v.code, 'new code');
-      expect(v.inputs.single.name, 'city');
-      expect(v.pythonVersion, '3.13');
-      expect(v.changeReason, 'tweak');
-
-      final e = await repo.getFunction('fn_1');
-      expect(e.activeVersionId, 'fn_1_v3');
-      expect(e.activeVersion!.code, 'new code');
-      final page = await repo.listFunctionVersions('fn_1');
-      expect(page.items.map((x) => x.version), [3, 2, 1]);
-    });
-
     test('revertVersion moves the active pointer', () async {
       final repo = _repo();
       await repo.revertVersion(EntityKind.function, 'fn_1', 1);
@@ -135,68 +104,4 @@ void main() {
     });
   });
 
-  group('draft edit widget flow', () {
-    testWidgets('编辑 → 改 python → 保存为新版本 → repo 落新版', (tester) async {
-      final repo = _repo();
-      final fn = await repo.getFunction('fn_1');
-      await tester.pumpWidget(ProviderScope(
-        overrides: [entityRepositoryProvider.overrideWithValue(repo)],
-        child: TranslationProvider(
-          child: MaterialApp(
-            theme: AnTheme.light(),
-            home: Scaffold(
-              body: SingleChildScrollView(
-                child: SizedBox(
-                  width: 720,
-                  child: FunctionOverview(fn: fn),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ));
-      // read mode shows the hero + edit button 读态:hero + 编辑钮
-      expect(find.byType(AnTransformBox), findsOneWidget);
-      await tester.tap(find.text('Edit'));
-      await tester.pump();
-      expect(find.byType(AnTransformBox), findsNothing); // draft replaces the hero
-
-      // change python + save 改 python + 保存
-      final pyField = find.widgetWithText(AnInput, '3.12');
-      expect(pyField, findsOneWidget);
-      await tester.enterText(
-          find.descendant(of: pyField, matching: find.byType(TextField)), '3.13');
-      await tester.tap(find.text('Save as new version'));
-      await tester.pumpAndSettle();
-
-      final e = await repo.getFunction('fn_1');
-      expect(e.activeVersion!.version, 3);
-      expect(e.activeVersion!.pythonVersion, '3.13');
-      expect(find.text('Save as new version'), findsNothing); // back to read mode 回读态
-    });
-
-    testWidgets('无改动保存 = 放弃(不产生新版本)', (tester) async {
-      final repo = _repo();
-      final fn = await repo.getFunction('fn_1');
-      await tester.pumpWidget(ProviderScope(
-        overrides: [entityRepositoryProvider.overrideWithValue(repo)],
-        child: TranslationProvider(
-          child: MaterialApp(
-            theme: AnTheme.light(),
-            home: Scaffold(
-              body: SingleChildScrollView(
-                child: SizedBox(width: 720, child: FunctionOverview(fn: fn)),
-              ),
-            ),
-          ),
-        ),
-      ));
-      await tester.tap(find.text('Edit'));
-      await tester.pump();
-      await tester.tap(find.text('Save as new version'));
-      await tester.pumpAndSettle();
-      expect((await repo.listFunctionVersions('fn_1')).items, hasLength(2));
-      expect(find.byType(AnTransformBox), findsOneWidget);
-    });
-  });
 }

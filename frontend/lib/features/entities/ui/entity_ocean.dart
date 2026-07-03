@@ -11,6 +11,7 @@ import '../../../core/ui/an_state.dart';
 import '../../../core/ui/an_tabs.dart';
 import '../../../i18n/strings.g.dart';
 import '../data/entity_kind.dart';
+import '../data/entity_providers.dart';
 import '../state/detail/entity_detail.dart';
 import '../state/detail/entity_detail_provider.dart';
 import '../state/run/right_panel.dart';
@@ -154,6 +155,16 @@ class _EntityOceanState extends ConsumerState<EntityOcean> {
                     ref.read(rightPanelCollapsedProvider.notifier).set(false);
                     ref.read(runTerminalProvider(detail.ref).notifier).run();
                   },
+                  // Rename = meta PATCH (function first; other kinds when their pages are sculpted).
+                  // 改名=meta PATCH(function 先行,余 kind 随各自雕琢批接入)。
+                  onRename: detail.ref.kind == EntityKind.function
+                      ? (name) async {
+                          await ref
+                              .read(entityRepositoryProvider)
+                              .patchFunctionMeta(detail.ref.id, {'name': name});
+                          ref.invalidate(entityDetailProvider(detail.ref));
+                        }
+                      : null,
                 ),
               ),
               AnTabs(

@@ -10,17 +10,20 @@ import '../../data/entity_kind.dart';
 import '../../data/entity_labels.dart';
 import '../../state/detail/entity_detail.dart';
 
-/// The detail ocean header — breadcrumb + entity name + per-kind status badges + the verb CTA. The verb
-/// CTA (Run/Call/Invoke/Trigger) opens the right-island run terminal for this entity ([onVerb], STEP 5);
-/// the title is read-only and the more-menu is a disabled stub (rename / actions land later). Pure
-/// function of [EntityDetail] + [onVerb]. 详情海洋页头:面包屑 + 名称 + 各 kind 状态徽 + 动词 CTA(开右岛 run 终端)。
+/// The detail ocean header — breadcrumb + entity name (inline-renamable when [onRename] is given) +
+/// per-kind status badges + the verb CTA (Run/Call/Invoke/Trigger → the right-island run terminal,
+/// [onVerb]). Version content is read-only here (AI edits it via chat; hand-editing covers meta only).
+/// 详情海洋页头:面包屑 + 名称(onRename 时就地改名)+ 状态徽 + 动词 CTA。版本内容此处只读。
 class EntityOceanHeader extends StatelessWidget {
-  const EntityOceanHeader({required this.detail, this.onVerb, super.key});
+  const EntityOceanHeader({required this.detail, this.onVerb, this.onRename, super.key});
 
   final EntityDetail detail;
 
   /// Press the verb CTA → open the run terminal for this entity (null = disabled). 动词 CTA → 开 run 终端。
   final VoidCallback? onVerb;
+
+  /// Non-null → the title renames in place (meta PATCH, no version bump). 非空则标题就地改名。
+  final ValueChanged<String>? onRename;
 
   @override
   Widget build(BuildContext context) {
@@ -28,6 +31,7 @@ class EntityOceanHeader extends StatelessWidget {
     final d = t.entities.detail;
     return AnOceanHeader(
       title: detail.name,
+      onTitleChange: onRename,
       crumbs: [d.crumbRoot, detail.ref.kind.typeLabel(t)],
       meta: _badges(t),
       actions: [
@@ -36,11 +40,6 @@ class EntityOceanHeader extends StatelessWidget {
           icon: AnIcons.byKey(detail.ref.kind.scopeKind),
           variant: AnButtonVariant.primary,
           onPressed: onVerb,
-        ),
-        AnButton.iconOnly(
-          AnIcons.byKey('more'),
-          onPressed: null,
-          semanticLabel: d.moreActions,
         ),
       ],
     );
