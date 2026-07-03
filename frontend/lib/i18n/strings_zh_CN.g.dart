@@ -131,6 +131,7 @@ class _Translations$action$zh_CN extends Translations$action$en {
 
 	// Translations
 	@override String get edit => '编辑';
+	@override String get done => '完成';
 	@override String get cancel => '取消';
 	@override String get save => '保存';
 	@override String get copy => '复制';
@@ -433,6 +434,7 @@ class _Translations$entities$detail$zh_CN extends Translations$entities$detail$e
 	@override late final _Translations$entities$detail$kv$zh_CN kv = _Translations$entities$detail$kv$zh_CN._(_root);
 	@override late final _Translations$entities$detail$val$zh_CN val = _Translations$entities$detail$val$zh_CN._(_root);
 	@override late final _Translations$entities$detail$mounts$zh_CN mounts = _Translations$entities$detail$mounts$zh_CN._(_root);
+	@override String get addTag => '添加标签';
 	@override late final _Translations$entities$detail$state$zh_CN state = _Translations$entities$detail$state$zh_CN._(_root);
 }
 
@@ -676,6 +678,8 @@ class _Translations$entities$detail$state$zh_CN extends Translations$entities$de
 
 	// Translations
 	@override String get setActive => '设为活跃版本';
+	@override String get setActiveFailed => '设为活跃版本失败';
+	@override String get retry => '重试';
 	@override String get noVersions => '暂无版本';
 	@override String get noLogs => '暂无运行记录';
 	@override String get noLogsHint => '执行该实体后,记录会出现在这里。';
@@ -818,6 +822,7 @@ extension on TranslationsZhCn {
 			'status.err' => '失败',
 			'status.done' => '完成',
 			'action.edit' => '编辑',
+			'action.done' => '完成',
 			'action.cancel' => '取消',
 			'action.save' => '保存',
 			'action.copy' => '复制',
@@ -986,7 +991,10 @@ extension on TranslationsZhCn {
 			'entities.detail.val.none' => '—',
 			'entities.detail.mounts.healthy' => '挂载正常',
 			'entities.detail.mounts.unhealthy' => ({required Object count}) => '${count} 项异常',
+			'entities.detail.addTag' => '添加标签',
 			'entities.detail.state.setActive' => '设为活跃版本',
+			'entities.detail.state.setActiveFailed' => '设为活跃版本失败',
+			'entities.detail.state.retry' => '重试',
 			'entities.detail.state.noVersions' => '暂无版本',
 			'entities.detail.state.noLogs' => '暂无运行记录',
 			'entities.detail.state.noLogsHint' => '执行该实体后,记录会出现在这里。',

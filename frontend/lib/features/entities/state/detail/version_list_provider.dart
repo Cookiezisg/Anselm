@@ -45,13 +45,31 @@ class VersionListNotifier extends AsyncNotifier<VersionListState>
   VersionListState stateWithAppended(VersionListState s, List<VersionRow> rows, String? next, bool more) =>
       s.copyWith(versions: [...s.versions, ...rows], nextCursor: next, hasMore: more, loadingMore: false);
 
-  /// `POST :revert` — move the entity's active pointer to [version], then reconcile detail + this
-  /// list from truth (active flags re-derive on re-fetch). Throws on failure (caller surfaces it).
-  /// 把 active 指针移到指定版本,随后详情+本列表从真相重取(active 标记重取时重算)。失败上抛。
+  /// `POST :revert` — move the entity's active pointer to [version], then reconcile detail + the
+  /// active flags IN PLACE (no self-invalidation → the user's selected row is preserved, not snapped
+  /// back to newest). Re-entry guarded + pending-flagged via [VersionListState.activatingVersion];
+  /// throws on failure (caller toasts) after clearing the flag. 移 active 指针 → 就地重算 active 标记
+  /// (不 invalidateSelf,选区不回弹到最新);防重入 + pending 标记;失败清标记后上抛(调用方 toast)。
   Future<void> setActive(int version) async {
-    await _repo.revertVersion(entityRef.kind, entityRef.id, version);
-    ref.invalidate(entityDetailProvider(entityRef));
-    ref.invalidateSelf();
+    final cur = state.value;
+    if (cur == null || cur.activatingVersion != null) return; // re-entry guard 防重入(含双击)
+    state = AsyncData(cur.copyWith(activatingVersion: version));
+    try {
+      await _repo.revertVersion(entityRef.kind, entityRef.id, version);
+      ref.invalidate(entityDetailProvider(entityRef)); // header badge / hero reconcile from truth
+      final now = state.value;
+      if (now == null) return;
+      // Re-derive active flags on the loaded rows — no refetch, so selectedIndex + paging survive.
+      // 就地重算 active 标记,不重取,选区与已翻页面保住。
+      state = AsyncData(now.copyWith(
+        versions: [for (final r in now.versions) r.copyWith(active: r.version == version)],
+        activatingVersion: null,
+      ));
+    } catch (_) {
+      final now = state.value;
+      if (now != null) state = AsyncData(now.copyWith(activatingVersion: null));
+      rethrow;
+    }
   }
 
   /// Pick the version to show on the diff's `after` side (compared against the next-older loaded row).

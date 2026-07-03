@@ -44,6 +44,8 @@ Future<void> _load(String family, String path) async {
 const _sel = String.fromEnvironment('SEL');
 // Optional `--dart-define=TAB=overview|versions|logs` taps that tab before capture. 预点某 tab。
 const _tab = String.fromEnvironment('TAB');
+// Optional `--dart-define=VSEL=v1` taps that version row in the 版本 tab. 选某版本行。
+const _vsel = String.fromEnvironment('VSEL');
 // Optional `--dart-define=RUN=1` opens the right-island run terminal (verb CTA) + executes, to capture
 // the STEP 5 run terminal with live output. Requires SEL. 打开右岛 run 终端并执行,截运行态。
 const _run = String.fromEnvironment('RUN');
@@ -255,6 +257,14 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 80)); // the tab's data loads
       outName = '${outName}_$_tab';
+      if (_vsel.isNotEmpty) {
+        // Tap a version row (e.g. `v1`) to show a non-active selection → set-active appears in the
+        // footer BELOW the diff. 选某版本行,验证 set-active 在 diff 下方 footer。
+        await tester.tap(find.text(_vsel));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 80));
+        outName = '${outName}_$_vsel';
+      }
     }
 
     if (_run.isNotEmpty && selKind != null) {

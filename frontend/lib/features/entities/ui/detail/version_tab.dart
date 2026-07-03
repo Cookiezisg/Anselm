@@ -2,14 +2,16 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/tokens.dart';
+import '../../../../core/model/status_state.dart';
+import '../../../../core/overlay/an_overlay.dart';
 import '../../../../core/ui/an_badge.dart';
 import '../../../../core/ui/an_button.dart';
 import '../../../../core/ui/an_deferred_loading.dart';
 import '../../../../core/ui/an_row.dart';
 import '../../../../core/ui/an_skeleton.dart';
 import '../../../../core/ui/an_state.dart';
+import '../../../../core/ui/an_toast.dart';
 import '../../../../core/ui/an_version_diff.dart';
-import '../../../../core/model/status_state.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../data/entity_format.dart';
 import '../../state/detail/version_list_provider.dart';
@@ -18,7 +20,10 @@ import '../../state/selected_entity.dart';
 
 /// The 版本 tab (kind-agnostic): a selectable version list (left) + the adjacent-version [AnVersionDiff]
 /// (right). Selecting a version diffs it against the next-older loaded version (the earliest shows full
-/// context). 版本 tab:左侧版本列表 + 右侧相邻版本 diff。
+/// context). The diff sits FIRST in the right column so its top never moves; the per-version metadata
+/// (structured-summary chips) and the set-active action live in a footer BELOW it — selecting a
+/// version can only grow/shrink the footer, never shift the diff. 版本 tab:左列表 + 右相邻版本 diff;
+/// diff 置顶(顶不动),摘要小签 + 设为活跃在其下的 footer(选版本只改 footer、不移 diff)。
 class VersionTab extends ConsumerWidget {
   const VersionTab(this.entityRef, {super.key});
 
@@ -36,45 +41,27 @@ class VersionTab extends ConsumerWidget {
         kind: AnStateKind.error,
         size: AnStateSize.inset,
         title: d.state.errorTitle,
-        action: AnButton(label: d.state.loadMore, onPressed: () => ref.invalidate(versionListProvider(entityRef))),
+        action: AnButton(label: d.state.retry, onPressed: () => ref.invalidate(versionListProvider(entityRef))),
       ),
       data: (st) {
         if (st.versions.isEmpty) {
           return AnState(kind: AnStateKind.empty, size: AnStateSize.inset, title: d.state.noVersions);
         }
-        final sel = st.versions[st.selectedIndex];
-        final older = st.selectedIndex + 1 < st.versions.length ? st.versions[st.selectedIndex + 1] : null;
+        // Defensive clamp — the read site never RangeErrors even if selectedIndex ever goes stale. 防越界。
+        final selIndex = st.selectedIndex.clamp(0, st.versions.length - 1);
+        final sel = st.versions[selIndex];
+        final older = selIndex + 1 < st.versions.length ? st.versions[selIndex + 1] : null;
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(flex: 2, child: _list(context, st, notifier)),
+            Expanded(flex: 2, child: _list(context, st, selIndex, notifier)),
             const SizedBox(width: AnSpace.s16),
             Expanded(
               flex: 3,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Structured (non-text) deltas + the activate action live above the text diff.
-                  // 结构化变化小签 + 设为活跃动作在文本 diff 之上。
-                  if (sel.summary.isNotEmpty || !sel.active)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: AnSpace.s8),
-                      child: Row(children: [
-                        Expanded(
-                          child: Wrap(
-                            spacing: AnSpace.s6,
-                            runSpacing: AnSpace.s4,
-                            children: [for (final s in sel.summary) AnBadge(s, tone: AnTone.none)],
-                          ),
-                        ),
-                        if (!sel.active)
-                          AnButton(
-                            label: d.state.setActive,
-                            size: AnButtonSize.sm,
-                            onPressed: () => notifier.setActive(sel.version),
-                          ),
-                      ]),
-                    ),
+                  // Diff FIRST → its top is pinned; nothing below it can move it. diff 置顶、顶点恒定。
                   AnVersionDiff(
                     after: sel.src,
                     before: older?.src,
@@ -82,6 +69,7 @@ class VersionTab extends ConsumerWidget {
                     range: older != null ? 'v${older.version} → v${sel.version}' : 'v${sel.version} · ${d.state.earliest}',
                     note: sel.changeReason,
                   ),
+                  _footer(context, ref, d, st, sel, notifier),
                 ],
               ),
             ),
@@ -91,8 +79,51 @@ class VersionTab extends ConsumerWidget {
     );
   }
 
+  // Below the diff: structured-summary chips (left) + the set-active action (right). Its height varies
+  // with selection, but it sits AFTER the diff so it never shifts it. footer 在 diff 下,增缩不移 diff。
+  Widget _footer(BuildContext context, WidgetRef ref, dynamic d, VersionListState st, VersionRow sel,
+      VersionListNotifier notifier) {
+    final showChips = sel.summary.isNotEmpty;
+    final showActivate = !sel.active;
+    if (!showChips && !showActivate) return const SizedBox.shrink();
+    final pending = st.activatingVersion != null;
+    return Padding(
+      padding: const EdgeInsets.only(top: AnSpace.s8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: showChips
+                ? Wrap(
+                    spacing: AnSpace.s6,
+                    runSpacing: AnSpace.s4,
+                    children: [for (final s in sel.summary) AnBadge(s, tone: AnTone.none)],
+                  )
+                : const SizedBox.shrink(),
+          ),
+          if (showActivate)
+            AnButton(
+              label: d.state.setActive,
+              size: AnButtonSize.sm,
+              onPressed: pending
+                  ? null
+                  : () async {
+                      try {
+                        await notifier.setActive(sel.version);
+                      } catch (_) {
+                        ref
+                            .read(overlayProvider.notifier)
+                            .showToast(d.state.setActiveFailed, tone: AnToastTone.danger);
+                      }
+                    },
+            ),
+        ],
+      ),
+    );
+  }
+
   // Column (not ListView): the surrounding AnPage owns the single document scroll (flow tabs). 文档单滚,用 Column。
-  Widget _list(BuildContext context, VersionListState st, VersionListNotifier notifier) {
+  Widget _list(BuildContext context, VersionListState st, int selIndex, VersionListNotifier notifier) {
     final d = context.t.entities.detail;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -102,7 +133,7 @@ class VersionTab extends ConsumerWidget {
             label: 'v${st.versions[i].version}',
             dot: st.versions[i].active ? AnStatus.done : null,
             hint: _hint(st.versions[i]),
-            selected: i == st.selectedIndex,
+            selected: i == selIndex,
             onSelect: () => notifier.select(i),
           ),
         if (st.loadingMore)

@@ -122,6 +122,7 @@
   },
   "action": {
     "edit": "编辑",
+    "done": "完成",
     "cancel": "取消",
     "save": "保存",
     "copy": "复制",
@@ -329,8 +330,11 @@
         "healthy": "挂载正常",
         "unhealthy": "$count 项异常"
       },
+      "addTag": "添加标签",
       "state": {
         "setActive": "设为活跃版本",
+        "setActiveFailed": "设为活跃版本失败",
+        "retry": "重试",
         "noVersions": "暂无版本",
         "noLogs": "暂无运行记录",
         "noLogsHint": "执行该实体后,记录会出现在这里。",
