@@ -411,6 +411,18 @@ class Translations$a11y$en {
 	/// en: 'More actions'
 	String get moreActions => 'More actions';
 
+	/// en: 'Zoom in'
+	String get graphZoomIn => 'Zoom in';
+
+	/// en: 'Zoom out'
+	String get graphZoomOut => 'Zoom out';
+
+	/// en: 'Fit to view'
+	String get graphFit => 'Fit to view';
+
+	/// en: 'Node $id, $kind, $ref'
+	String graphNode({required Object id, required Object kind, required Object ref}) => 'Node ${id}, ${kind}, ${ref}';
+
 	/// en: 'Code block, $lang, $lines lines'
 	String codeBlock({required Object lang, required Object lines}) => 'Code block, ${lang}, ${lines} lines';
 
@@ -1558,6 +1570,10 @@ extension on Translations {
 			'a11y.addTagTo' => ({required Object field}) => 'Add tag: ${field}',
 			'a11y.displayOptions' => 'Display options',
 			'a11y.moreActions' => 'More actions',
+			'a11y.graphZoomIn' => 'Zoom in',
+			'a11y.graphZoomOut' => 'Zoom out',
+			'a11y.graphFit' => 'Fit to view',
+			'a11y.graphNode' => ({required Object id, required Object kind, required Object ref}) => 'Node ${id}, ${kind}, ${ref}',
 			'a11y.codeBlock' => ({required Object lang, required Object lines}) => 'Code block, ${lang}, ${lines} lines',
 			'a11y.codeBlockPlain' => ({required Object lines}) => 'Code block, ${lines} lines',
 			'a11y.jsonTree' => ({required Object count}) => 'JSON tree, ${count} items',

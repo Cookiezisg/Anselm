@@ -85,6 +85,10 @@ abstract final class AnSize {
   // clamp to >= this floor (≥4 digits, so files into the thousands don't blur). 行号槽下界(动态计宽夹到此).
   static const double trail = 36;
 
+  // Embedded graph-preview frame height (demo --h-graph-preview) — AnGraphCanvas[framed] on entity
+  // pages. 实体页内嵌编排图框定高。
+  static const double graphPreview = 380;
+
   // Three-island layout columns. The LEFT island is elastic (draggable, 240–400, default 320);
   // the RIGHT island is fixed; the ocean is the flex remainder whose content column is elastic
   // 480–720 (`oceanMin`..`content`). 三岛列:左岛弹性(可拖 240–400,默认 320);右岛固定;

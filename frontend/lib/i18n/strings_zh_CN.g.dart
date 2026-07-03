@@ -215,6 +215,10 @@ class _Translations$a11y$zh_CN extends Translations$a11y$en {
 	@override String addTagTo({required Object field}) => '添加标签:${field}';
 	@override String get displayOptions => '显示选项';
 	@override String get moreActions => '更多操作';
+	@override String get graphZoomIn => '放大';
+	@override String get graphZoomOut => '缩小';
+	@override String get graphFit => '适应画布';
+	@override String graphNode({required Object id, required Object kind, required Object ref}) => '节点 ${id},${kind},${ref}';
 	@override String codeBlock({required Object lang, required Object lines}) => '代码块,${lang},${lines} 行';
 	@override String codeBlockPlain({required Object lines}) => '代码块,${lines} 行';
 	@override String jsonTree({required Object count}) => 'JSON 树,${count} 项';
@@ -876,6 +880,10 @@ extension on TranslationsZhCn {
 			'a11y.addTagTo' => ({required Object field}) => '添加标签:${field}',
 			'a11y.displayOptions' => '显示选项',
 			'a11y.moreActions' => '更多操作',
+			'a11y.graphZoomIn' => '放大',
+			'a11y.graphZoomOut' => '缩小',
+			'a11y.graphFit' => '适应画布',
+			'a11y.graphNode' => ({required Object id, required Object kind, required Object ref}) => '节点 ${id},${kind},${ref}',
 			'a11y.codeBlock' => ({required Object lang, required Object lines}) => '代码块,${lang},${lines} 行',
 			'a11y.codeBlockPlain' => ({required Object lines}) => '代码块,${lines} 行',
 			'a11y.jsonTree' => ({required Object count}) => 'JSON 树,${count} 项',

@@ -397,3 +397,95 @@ extension SyntaxColorsContext on BuildContext {
 extension AnColorWhenActive on Color {
   Color whenActive(bool active) => active ? this : withValues(alpha: 0);
 }
+
+/// The GRAPH palette — a SEPARATE [ThemeExtension] (same reasoning as [SyntaxColors]: a cohesive
+/// sub-palette that must not bloat [AnColors], consumed by painters as plain values). Two axes:
+/// the node-kind hue families the chrome palette lacks (violet=trigger, teal=agent — action/control/
+/// approval reuse [AnColors.accent]/warn/danger), and the canvas strokes (edge / future edge / grid
+/// dot). Values mirror demo tokens.css. The ONE source for graph colours — NEVER inline.
+///
+/// 图调色板 = 独立 [ThemeExtension](同 SyntaxColors 理由:自成一概念、不胀 AnColors,painter 吃纯值)。
+/// 两轴:chrome 板缺的节点 kind 色族(violet=trigger、teal=agent;action/control/approval 复用
+/// accent/warn/danger)+ 画布笔画(边/未走边/网格点)。值镜像 demo tokens.css。图色唯一源,禁内联。
+@immutable
+class GraphColors extends ThemeExtension<GraphColors> {
+  const GraphColors({
+    required this.violet,
+    required this.violetSoft,
+    required this.teal,
+    required this.tealSoft,
+    required this.edge,
+    required this.edgeFuture,
+    required this.gridDot,
+  });
+
+  final Color violet; // trigger nodes 触发节点
+  final Color violetSoft;
+  final Color teal; // agent nodes 智能体节点
+  final Color tealSoft;
+  final Color edge; // resting edge stroke (demo --edge) 静止边
+  final Color edgeFuture; // run-mode not-yet-walked edge (demo --edge-future) 未走边
+  final Color gridDot; // canvas dot grid (demo --grid-dot) 网格点
+
+  static const GraphColors light = GraphColors(
+    violet: Color(0xFF7C5CFF),
+    violetSoft: Color.fromRGBO(124, 92, 255, 0.12),
+    teal: Color(0xFF0B9AAB),
+    tealSoft: Color.fromRGBO(11, 154, 171, 0.12),
+    edge: Color.fromRGBO(0, 0, 0, 0.22),
+    edgeFuture: Color.fromRGBO(0, 0, 0, 0.10),
+    gridDot: Color.fromRGBO(0, 0, 0, 0.05),
+  );
+
+  static const GraphColors dark = GraphColors(
+    violet: Color(0xFFA78BFA),
+    violetSoft: Color.fromRGBO(167, 139, 250, 0.18),
+    teal: Color(0xFF2DD4BF),
+    tealSoft: Color.fromRGBO(45, 212, 191, 0.18),
+    edge: Color.fromRGBO(255, 255, 255, 0.28),
+    edgeFuture: Color.fromRGBO(255, 255, 255, 0.12),
+    gridDot: Color.fromRGBO(255, 255, 255, 0.05),
+  );
+
+  @override
+  GraphColors copyWith({
+    Color? violet,
+    Color? violetSoft,
+    Color? teal,
+    Color? tealSoft,
+    Color? edge,
+    Color? edgeFuture,
+    Color? gridDot,
+  }) {
+    return GraphColors(
+      violet: violet ?? this.violet,
+      violetSoft: violetSoft ?? this.violetSoft,
+      teal: teal ?? this.teal,
+      tealSoft: tealSoft ?? this.tealSoft,
+      edge: edge ?? this.edge,
+      edgeFuture: edgeFuture ?? this.edgeFuture,
+      gridDot: gridDot ?? this.gridDot,
+    );
+  }
+
+  @override
+  GraphColors lerp(ThemeExtension<GraphColors>? other, double t) {
+    if (other is! GraphColors) return this;
+    Color c(Color a, Color b) => Color.lerp(a, b, t)!;
+    return GraphColors(
+      violet: c(violet, other.violet),
+      violetSoft: c(violetSoft, other.violetSoft),
+      teal: c(teal, other.teal),
+      tealSoft: c(tealSoft, other.tealSoft),
+      edge: c(edge, other.edge),
+      edgeFuture: c(edgeFuture, other.edgeFuture),
+      gridDot: c(gridDot, other.gridDot),
+    );
+  }
+}
+
+/// Fail-fast access: `context.graphColors.violet`. Throws if not registered (assembly bug).
+/// 顺手且 fail-fast 的图色访问。
+extension GraphColorsContext on BuildContext {
+  GraphColors get graphColors => Theme.of(this).extension<GraphColors>()!;
+}

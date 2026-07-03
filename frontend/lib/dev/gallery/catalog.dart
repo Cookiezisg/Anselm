@@ -1,9 +1,11 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/contract/entities/values.dart';
 import '../../core/design/colors.dart';
 import '../../core/design/tokens.dart';
 import '../../core/design/typography.dart';
+import '../../core/graph/graph_model.dart';
 import '../../core/ui/ui.dart';
 import 'chat_composer_specimens.dart';
 import 'chat_thinking_specimens.dart';
@@ -78,6 +80,83 @@ final GalleryCategory _entityViz = GalleryCategory('实体可视化 Entity Viz',
       status: AnStatus.done, statusLabel: '<b>ok</b>',
     ), stress: true, span: true),
   ]),
+  GalleryItem('AnGraphCanvas 编排图画布', 'workflow hero:节点卡 + 正交圆角边 + 回边虚线弧 + 平移缩放 fit;framed=实体页预览框', [
+    GallerySpecimen('线性 (trigger→action→agent)', (_) => AnGraphCanvas(graph: _gLinear, framed: true), span: true),
+    GallerySpecimen('分支+端口+回边 (pr_merge_flow)', (_) => AnGraphCanvas(graph: _gBranch, framed: true), span: true),
+    GallerySpecimen('纵向 TB (回边走右通道)', (_) => AnGraphCanvas(graph: _gBranch, dir: GraphDirection.tb, framed: true), span: true),
+    GallerySpecimen('手摆 pos 优先 (不重排)', (_) => AnGraphCanvas(graph: _gPinned, framed: true), span: true),
+    GallerySpecimen('选中 + 进入编辑器', (_) => AnGraphCanvas(
+      graph: _gBranch, framed: true, selectedNodeId: 'run_tests',
+      onNodeTap: (_) {}, enterEditorLabel: '进入编辑器', onEnterEditor: () {},
+    ), span: true),
+    GallerySpecimen('编辑器形态 (非 framed 满幅)', (_) => AnGraphCanvas(graph: _gBranch), span: true, height: 420),
+    GallerySpecimen('空图', (_) => AnGraphCanvas(graph: const Graph(), framed: true), stress: true, span: true),
+    GallerySpecimen('海量 (40 节点扇出)', (_) => AnGraphCanvas(graph: _gHuge, framed: true), stress: true, span: true),
+    GallerySpecimen('unknown kind + 超长 + 注入', (_) => AnGraphCanvas(graph: _gHostile, framed: true), stress: true, span: true),
+  ]),
+]);
+
+// Sample graphs for the canvas specimens — mirrors the demo's pr_merge_flow reference workflow.
+// 画布标本用样例图——镜像 demo 的 pr_merge_flow 参照工作流。
+Node _gn(String id, NodeKind k, String ref, {NodePosition? pos}) => Node(id: id, kind: k, ref: ref, pos: pos);
+Edge _ge(String id, String from, String to, {String? port}) => Edge(id: id, from: from, fromPort: port, to: to);
+
+final Graph _gLinear = Graph(nodes: [
+  _gn('on_tick', NodeKind.trigger, 'trg_3a1f9c2b'),
+  _gn('fetch', NodeKind.action, 'fn_5b2e1a77'),
+  _gn('summarize', NodeKind.agent, 'ag_9c4d21aa'),
+], edges: [
+  _ge('e1', 'on_tick', 'fetch'),
+  _ge('e2', 'fetch', 'summarize'),
+]);
+
+final Graph _gBranch = Graph(nodes: [
+  _gn('on_pr_merged', NodeKind.trigger, 'trg_3a1f9c2b'),
+  _gn('run_tests', NodeKind.action, 'fn_5b2e1a77'),
+  _gn('branch_result', NodeKind.control, 'ctl_7d4c9e01'),
+  _gn('approve_rollback', NodeKind.approval, 'apf_2e9b5c33'),
+  _gn('do_rollback', NodeKind.action, 'hd_8a3f.rollback'),
+], edges: [
+  _ge('e1', 'on_pr_merged', 'run_tests'),
+  _ge('e2', 'run_tests', 'branch_result'),
+  _ge('e3', 'branch_result', 'approve_rollback', port: 'fail'),
+  _ge('e4', 'approve_rollback', 'do_rollback', port: 'yes'),
+  _ge('e5', 'branch_result', 'run_tests', port: 'retry'),
+]);
+
+final Graph _gPinned = Graph(nodes: [
+  _gn('webhook', NodeKind.trigger, 'trg_11aa22bb', pos: const NodePosition(x: 0, y: 90)),
+  _gn('etl', NodeKind.action, 'fn_33cc44dd', pos: const NodePosition(x: 260, y: 0)),
+  _gn('review', NodeKind.approval, 'apf_55ee66ff', pos: const NodePosition(x: 260, y: 180)),
+  _gn('publish', NodeKind.action, 'fn_77aa88bb', pos: const NodePosition(x: 520, y: 90)),
+], edges: [
+  _ge('e1', 'webhook', 'etl'),
+  _ge('e2', 'webhook', 'review'),
+  _ge('e3', 'etl', 'publish'),
+  _ge('e4', 'review', 'publish', port: 'yes'),
+]);
+
+final Graph _gHuge = Graph(nodes: [
+  _gn('t', NodeKind.trigger, 'trg_00000000'),
+  for (var i = 0; i < 13; i++) ...[
+    _gn('fan$i', NodeKind.action, 'fn_${i.toRadixString(16).padLeft(8, '0')}'),
+    _gn('mid$i', NodeKind.agent, 'ag_${i.toRadixString(16).padLeft(8, '0')}'),
+    _gn('end$i', NodeKind.action, 'fn_${(i + 100).toRadixString(16).padLeft(8, '0')}'),
+  ],
+], edges: [
+  for (var i = 0; i < 13; i++) ...[
+    _ge('a$i', 't', 'fan$i'),
+    _ge('b$i', 'fan$i', 'mid$i'),
+    _ge('c$i', 'mid$i', 'end$i'),
+  ],
+]);
+
+final Graph _gHostile = Graph(nodes: [
+  _gn('trigger_with_an_unreasonably_long_node_identifier_name', NodeKind.trigger, 'trg_ffffffffffffffff_more_more_more'),
+  _gn('<b>not</b> & html', NodeKind.unknown, '\${injection}'),
+], edges: [
+  _ge('e1', 'trigger_with_an_unreasonably_long_node_identifier_name', '<b>not</b> & html', port: '{{cel}}'),
+  _ge('dangling', 'nope', 'missing'),
 ]);
 
 // ── Tool cards — the V3 chassis + per-family skins (WRK-053), one item per family so each

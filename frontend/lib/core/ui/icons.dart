@@ -30,6 +30,8 @@ abstract final class AnIcons {
   static final IconData copy = _thin(LucideIcons.copy); // code-block / value copy-to-clipboard 复制
   static final IconData expand = _thin(LucideIcons.maximize2);
   static final IconData plus = _thin(LucideIcons.plus); // New / add (sidebar New row, row-add) 新建/添加
+  static final IconData zoomIn = _thin(LucideIcons.zoomIn); // graph canvas zoom 图画布放大
+  static final IconData zoomOut = _thin(LucideIcons.zoomOut); // graph canvas zoom 图画布缩小
   static final IconData search = _thin(LucideIcons.search);
   static final IconData check = _thin(LucideIcons.check);
   static final IconData panelLeft = _thin(LucideIcons.panelLeft); // collapse/reopen the left island 左岛收起/展开

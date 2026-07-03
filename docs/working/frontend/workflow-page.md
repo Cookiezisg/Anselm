@@ -33,10 +33,10 @@ audience: [human, ai]
 
 ## 架构决策(业界调研 2026-07-03,对抗验证过)
 
-- **混合架构**:`InteractiveViewer(constrained:false, boundaryMargin:∞)` 管平移缩放;**节点=真 widget**(An* token/文本/图标/MouseRegion/i18n/主题全免费,RepaintBoundary 包裹);**边=CustomPaint 双层**(静态层 path 缓存 + 动画层 `repaint: AnimationController` 直驱、绝不 AnimatedBuilder rebuild)。几十节点规模性能富余。
+- **混合架构**:**节点=真 widget**(An* token/文本/图标/MouseRegion/i18n/主题全免费)定位在变换 Stack;**边=CustomPaint 底层**(W3 加动画层时 `repaint: AnimationController` 直驱、绝不 AnimatedBuilder rebuild)。几十节点规模性能富余。
 - **零图形包依赖**:graphview(边渲染只有直线箭头、小图定位)/fl_nodes(pre-1.0、自带皮肤体系与 An* 冲突)都不引;最难的正交圆角边路由 + 回边弧 + 运行态动画没有包替写,布局已有 60 行 Sugiyama-lite 参照可移植。
 - **GraphModel 纯模型层**(`core/graph/`,CLAUDE.md 预留位):解析 → 回边判定(DFS 灰节点,与后端 graph.go BackEdges 同算法)→ 分层(拓扑 rank + 中位数排序 8 趟)→ 坐标(LR/TB;**全节点带 pos 则用 pos、否则整图自动布局**)→ 正交圆角边路由(浮动锚 facing + STUB + 拐角点列)+ 回边通道 → bounds。纯 Dart 函数、脱 widget 单测。
-- **自研滚轮缩放到光标**(InteractiveViewer 内置滚轮行为跨版本反复变):外包 `Listener` 辨 `PointerScrollEvent`,矩阵更新 `M' = T(cursor)·S(f)·T(-cursor)·M` 直写 transformationController;fit-to-content 公式自管(k ≤ 1.3、居中、clamp)。拖拽 delta ÷ 当前 scale;视口↔场景用 `toScene()`。
+- **视口自管**(Matrix4 + 手势,**不用 InteractiveViewer**——IV 用内置 Listener 抢 `PointerSignalResolver`(内层先注册者赢)、滚轮行为关不掉且跨版本反复变):`Listener` 辨 `PointerScrollEvent` → `M' = T(cursor)·S(f)·T(-cursor)·M` 缩放到光标(k∈[0.2,2.5]);scale 手势族管空白拖拽平移 + 触控板双指平移 + pinch 缩放(每帧从手势起点矩阵重组、不累积漂移);fit 公式自管(k ≤ 1.3、居中)。坑:读缩放用 `entry(0,0)`——`getMaxScaleOnAxis` 含未动 z 轴,k<1 错读为 1。
 - **视觉规格照 demo 逐项复刻**(digits 见 graph-canvas.js:8):节点 188×60 rx14、类型色 chip 26×26 rx8 + 18 图标、id+ref 双行(截断)、GAPX 84/GAPY 44/PAD 48/STUB 22/CORNER 12/LOOP_GAP 26、回边底部/右侧虚线 accent 通道、端口药丸、运行 tier(taken 加粗 ink/live accent 彗星/future 虚线/parked 琥珀/running 呼吸环——呼吸过 AnMotionPref 门控)、×N 叠卡、网格点底、悬浮工具条、framed 380 定高自动 fit。**字重按两档纪律适配**(demo 的 w600/w700 → emphasisWeight w400)。5 kind 色族缺 violet/teal → 新增 design token(照 SyntaxColors ThemeExtension 先例,禁内联)。
 - **demo 已知缺陷不照抄**:layout 覆写 pos(做成 pos 优先)、branchN/retry 编造端口(编辑器拉 ctl_ 实体解析)、approval 门未接线(真接 `:decide`)、run 终端「拉一次定终态」(重做成 tick+对账)。
 
@@ -52,7 +52,7 @@ audience: [human, ai]
 
 | 批 | 内容 | 状态 |
 |---|---|---|
-| W1 图地基 | 节点色族 token(violet/teal)+ `GraphModel` 纯模型层(布局/回边/路由,单测矩阵)+ `AnGraphCanvas` 只读版(节点 widget + 边双层 painter + 平移缩放 fit + 滚轮缩放到光标 + framed/toolbar + 选中回调)+ gallery specimens(线性/分支端口/回边/TB/空/海量 stress/unknown kind/framed) | ⏳ |
+| W1 图地基 | `GraphColors` token(violet/teal + edge/gridDot)+ `GraphModel` 纯模型层(`core/graph/`,回边 DFS/Sugiyama-lite/pos 优先/正交路由/回边通道,17 单测)+ `AnGraphCanvas` 只读版(节点 widget + 边 painter[圆角折线+箭头+回边虚线] + 视口自管[滚轮缩放到光标/拖拽平移/pinch/fit] + framed/toolbar/进入编辑器缝 + 受控选中)+ gallery 9 specimens(线性/分支端口回边/TB/pos/选中/编辑器形态/空/海量/敌意) | ✅(fe-verify 1392 绿;gallery 截图过) |
 | W2 页面组装 | 概览重排(hero 图 + meta AnKv + 治理合卡 + 告警)+ `patchWorkflowMeta` 写面 + 版本 tab `workflowVersionSummary` 图结构 diff 小签 | ⏳ |
 | W3 活运行 | run 态渲染(tick 合成 running + REST 对账 + taken 推导 + 彗星/呼吸/×N)+ 右岛 run 终端 workflow 分支重做 + 审批门 `:decide` + hero 活态 | ⏳ |
 | W4 驾驶舱 | `AnRunBoard` + `AnNodeGantt` 原语 + 运行 tab 组装(run 选择 ↔ 甘特 ↔ 活图 ↔ 右岛节点调试强链)+ `:replay`/`:kill` | ⏳ |

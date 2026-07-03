@@ -27,6 +27,7 @@ export 'an_editable_value.dart';
 export 'an_expand_reveal.dart';
 export 'an_fade_collapse.dart';
 export 'an_field.dart';
+export 'an_graph_canvas.dart';
 export 'an_group_label.dart';
 export 'an_info_card.dart';
 export 'an_inline_edit.dart';
