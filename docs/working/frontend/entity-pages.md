@@ -11,7 +11,7 @@ audience: [human, ai]
 
 # 实体页雕琢 — 逐实体 ideal 形态(function 首站)
 
-> 总纲:十实体逐个雕琢实体页(概览 hero 可视化 + 编辑草稿模式 + 版本结构化 diff + 右岛升级),每实体定稿后 revisit 其 chat 工具卡。顺序 function → (后续逐个聊)。共享原语下沉 `core/ui`、gallery-first。
+> 总纲:十实体逐个雕琢实体页(概览 hero 可视化 + 编辑草稿模式 + 版本结构化 diff + 右岛升级),每实体定稿后 revisit 其 chat 工具卡。顺序 function → **workflow(第二站,2026-07-03 用户 pivot,专属规范 [`workflow-page.md`](workflow-page.md) WRK-055)** → (后续逐个聊)。共享原语下沉 `core/ui`、gallery-first。function 的 F3 批(右岛按签名渲结果 + hero 活态)暂缓、排在 workflow 站之后。
 
 ## 已拍板(2026-07-03)
 
