@@ -8,6 +8,7 @@ import '../../core/ui/ui.dart';
 import 'chat_composer_specimens.dart';
 import 'chat_thinking_specimens.dart';
 import 'chat_tool_card_specimens.dart';
+import 'tool_card_family_specimens.dart';
 import 'chat_turn_specimens.dart';
 import 'markdown_specimens.dart';
 import 'specimen.dart';
@@ -32,6 +33,9 @@ final List<GalleryCategory> galleryCatalog = [
 // 工具卡——V3 底盘+族皮肤(WRK-053),每族一个 item 一眼可找(用户定调:从对话类拆出,太挤难找)。
 final GalleryCategory _toolCards = GalleryCategory('工具卡 Tool Cards', AnIcons.tool, [
   chatToolCardGalleryItem,
+  toolCardShellGalleryItem,
+  toolCardFsGalleryItem,
+  toolCardSearchGalleryItem,
 ]);
 
 // ── Chat — the conversation rail's row, in every state ──

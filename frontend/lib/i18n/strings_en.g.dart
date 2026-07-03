@@ -686,6 +686,75 @@ class Translations$chat$tool$en {
 
 	/// en: '…$n earlier lines omitted'
 	String progressOmitted({required Object n}) => '…${n} earlier lines omitted';
+
+	/// en: 'Reading'
+	String get reading => 'Reading';
+
+	/// en: 'Read'
+	String get read => 'Read';
+
+	/// en: 'Writing'
+	String get writing => 'Writing';
+
+	/// en: 'Wrote'
+	String get wrote => 'Wrote';
+
+	/// en: 'Editing'
+	String get editing => 'Editing';
+
+	/// en: 'Edited'
+	String get edited => 'Edited';
+
+	/// en: 'Globbing'
+	String get globbing => 'Globbing';
+
+	/// en: 'Globbed'
+	String get globbed => 'Globbed';
+
+	/// en: 'Searching'
+	String get grepping => 'Searching';
+
+	/// en: 'Searched'
+	String get grepped => 'Searched';
+
+	/// en: 'Listing'
+	String get listing => 'Listing';
+
+	/// en: 'Listed'
+	String get listed => 'Listed';
+
+	/// en: 'Running command'
+	String get runningCmd => 'Running command';
+
+	/// en: 'Ran'
+	String get ranCmd => 'Ran';
+
+	/// en: '$n lines'
+	String lines({required Object n}) => '${n} lines';
+
+	/// en: 'first $n lines (truncated)'
+	String linesTruncated({required Object n}) => 'first ${n} lines (truncated)';
+
+	/// en: '$n matches'
+	String matches({required Object n}) => '${n} matches';
+
+	/// en: '$n files'
+	String files({required Object n}) => '${n} files';
+
+	/// en: '$n items'
+	String items({required Object n}) => '${n} items';
+
+	/// en: 'no matches'
+	String get noMatches => 'no matches';
+
+	/// en: 'exit $code'
+	String exit({required Object code}) => 'exit ${code}';
+
+	/// en: 'timed out'
+	String get timedOut => 'timed out';
+
+	/// en: '$n bytes'
+	String wroteBytes({required Object n}) => '${n} bytes';
 }
 
 // Path: shell.ocean
@@ -1272,6 +1341,29 @@ extension on Translations {
 			'chat.tool.liveLabel' => 'live',
 			'chat.tool.truncatedNote' => ({required Object chars}) => 'Truncated · full content ${chars} chars',
 			'chat.tool.progressOmitted' => ({required Object n}) => '…${n} earlier lines omitted',
+			'chat.tool.reading' => 'Reading',
+			'chat.tool.read' => 'Read',
+			'chat.tool.writing' => 'Writing',
+			'chat.tool.wrote' => 'Wrote',
+			'chat.tool.editing' => 'Editing',
+			'chat.tool.edited' => 'Edited',
+			'chat.tool.globbing' => 'Globbing',
+			'chat.tool.globbed' => 'Globbed',
+			'chat.tool.grepping' => 'Searching',
+			'chat.tool.grepped' => 'Searched',
+			'chat.tool.listing' => 'Listing',
+			'chat.tool.listed' => 'Listed',
+			'chat.tool.runningCmd' => 'Running command',
+			'chat.tool.ranCmd' => 'Ran',
+			'chat.tool.lines' => ({required Object n}) => '${n} lines',
+			'chat.tool.linesTruncated' => ({required Object n}) => 'first ${n} lines (truncated)',
+			'chat.tool.matches' => ({required Object n}) => '${n} matches',
+			'chat.tool.files' => ({required Object n}) => '${n} files',
+			'chat.tool.items' => ({required Object n}) => '${n} items',
+			'chat.tool.noMatches' => 'no matches',
+			'chat.tool.exit' => ({required Object code}) => 'exit ${code}',
+			'chat.tool.timedOut' => 'timed out',
+			'chat.tool.wroteBytes' => ({required Object n}) => '${n} bytes',
 			'appName' => 'Anselm',
 			'status.idle' => 'Idle',
 			'status.run' => 'Running',

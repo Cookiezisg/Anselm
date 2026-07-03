@@ -11,7 +11,9 @@ import '../../../core/messages/block_tree_reducer.dart';
 import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
 import '../model/tool_card_state.dart';
+import '../model/tool_receipts.dart';
 import 'tool_card_catalog.dart';
+import 'tool_card_skins.dart';
 
 /// The V3a tool-call CHASSIS (WRK-053) — one borderless 32px-register line per tool call
 /// (decision #2: bare row, the expanded body owns the only container), carrying the whole
@@ -106,32 +108,52 @@ class _ChatToolCardState extends State<ChatToolCard> {
     final t = Translations.of(context);
     final c = context.colors;
     final state = ToolCardState.of(widget.node, awaitingConfirm: widget.awaitingConfirm);
-    final strings = toolCardStrings(state, t);
+    final spec = toolCardSpecFor(state.toolName);
     final live = state.phase == ToolCardPhase.argsStreaming || state.phase == ToolCardPhase.running;
     if (!live && _ticker != null) _syncTicker();
 
-    // Failure auto-expands ONCE (industry consensus); the user's explicit toggle wins after.
-    // 失败自动展开一次(业界共识);之后用户手动开关优先。
-    if (state.phase == ToolCardPhase.failed && !_autoExpandedOnce) {
+    // Failure auto-expands ONCE (industry consensus) — including a DANGER-TONED family
+    // receipt (Bash exit≠0 / timeout close with status=completed on the wire, but the user
+    // wants to see why). The user's explicit toggle wins after.
+    // 失败自动展开一次(业界共识)——含**危险色族回执**(Bash 非零 exit/超时在线缆上是 completed,
+    // 但用户要看原因);之后用户手动开关优先。
+    final hasBody = !spec.bodyless && state.hasBody;
+    ToolReceipt? familyReceipt;
+    if (state.phase == ToolCardPhase.succeeded || state.phase == ToolCardPhase.failed) {
+      familyReceipt = spec.receipt?.call(t, state);
+    }
+    final failedLook = state.phase == ToolCardPhase.failed || (familyReceipt?.danger ?? false);
+    if (failedLook && hasBody && !_autoExpandedOnce) {
       _autoExpandedOnce = true;
       _userExpanded ??= true;
     }
-    final open = (_userExpanded ?? false) && state.hasBody;
+    final open = (_userExpanded ?? false) && hasBody;
+    // The live machine-window tail (F3): visible while running, dissolves into the expanded
+    // body's full window on completion. 活机器窗尾巴:执行中可见,完成溶进展开体完整窗。
+    final showTail = spec.liveTail && live && state.progressText.isNotEmpty && !open;
 
+    const bodyInset = EdgeInsets.only(top: AnSpace.s4, left: AnSize.iconSm + AnSpace.s6);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _line(context, t, c, state, strings, live, open),
+        _line(context, t, c, state, spec, live, open, hasBody, familyReceipt),
+        AnExpandReveal(
+          open: showTail,
+          child: Padding(
+            padding: bodyInset,
+            child: SizedBox(width: double.infinity, child: ToolLiveTail(text: state.progressText)),
+          ),
+        ),
         AnExpandReveal(
           open: open,
           child: Padding(
             // Body left inset derives from the line's icon geometry (icon + its gap) so the
             // sections align under the verb — self-healing if the icon size retunes.
             // 体左内距从行的图标几何派生(icon+间距),段落齐动词——图标改尺寸自愈。
-            padding: const EdgeInsets.only(top: AnSpace.s4, left: AnSize.iconSm + AnSpace.s6),
+            padding: bodyInset,
             child: SizedBox(
               width: double.infinity,
-              child: _GenericToolBody(state: state),
+              child: spec.body?.call(context, state) ?? _GenericToolBody(state: state),
             ),
           ),
         ),
@@ -140,28 +162,44 @@ class _ChatToolCardState extends State<ChatToolCard> {
   }
 
   Widget _line(BuildContext context, Translations t, AnColors c, ToolCardState state,
-      ToolCardStrings strings, bool live, bool open) {
+      ToolCardSpec spec, bool live, bool open, bool hasBody, ToolReceipt? familyReceipt) {
     final reduced = AnMotionPref.reduced(context);
     final verbStyle = AnText.meta.copyWith(color: c.inkMuted);
     final faint = AnText.meta.copyWith(color: c.inkFaint);
 
-    // The dimmed receipt tail: elapsed seconds while live-and-slow; the failure marker on
-    // failed (past-tense grammar stays honest — "已调用 X · 失败").
-    // 灰回执尾:live 且慢时读秒;失败给标记(过去时文法不破——「已调用 X · 失败」)。
+    // Terminal overrides stay with the chassis; live/settled verbs come from the family spec.
+    // 终态动词归底盘;进行/过去时动词出自族规格。
+    final verb = switch (state.phase) {
+      ToolCardPhase.awaitingConfirm => t.chat.tool.awaitingConfirm,
+      ToolCardPhase.denied => t.chat.tool.denied,
+      ToolCardPhase.cancelled => t.chat.tool.cancelled,
+      _ => spec.verb(t, live: live),
+    };
+    final target = spec.target?.call(state) ?? '';
+
+    // The dimmed receipt tail: elapsed seconds while live-and-slow; the family receipt (the
+    // past tense's proof — line/match counts, exit codes) when settled; the generic failure
+    // marker only when the family gave no danger-toned receipt of its own.
+    // 灰回执尾:live 且慢时读秒;终态给族回执(过去时的凭据);族未给危险色回执时才补通用失败标记。
     final receipt = <InlineSpan>[];
     if (live && _liveSeconds >= _elapsedRevealAfter.inSeconds) {
       receipt.add(
           TextSpan(text: ' · ${t.chat.tool.elapsed(s: _liveSeconds)}', style: faint));
     }
-    if (state.phase == ToolCardPhase.failed) {
+    if (familyReceipt != null) {
+      receipt.add(TextSpan(
+          text: ' · ${familyReceipt.text}',
+          style: familyReceipt.danger ? AnText.meta.copyWith(color: c.danger) : faint));
+    }
+    if (state.phase == ToolCardPhase.failed && !(familyReceipt?.danger ?? false)) {
       receipt.add(TextSpan(
           text: ' · ${t.chat.tool.failed}', style: AnText.meta.copyWith(color: c.danger)));
     }
 
     final dimVerb = state.phase == ToolCardPhase.denied || state.phase == ToolCardPhase.cancelled;
     return AnInteractive(
-      onTap: state.hasBody ? () => setState(() => _userExpanded = !(_userExpanded ?? false)) : null,
-      expanded: state.hasBody ? open : null,
+      onTap: hasBody ? () => setState(() => _userExpanded = !(_userExpanded ?? false)) : null,
+      expanded: hasBody ? open : null,
       builder: (context, _) => ConstrainedBox(
         constraints: const BoxConstraints(minHeight: AnSize.row),
         child: Row(
@@ -170,13 +208,13 @@ class _ChatToolCardState extends State<ChatToolCard> {
                 color: state.phase == ToolCardPhase.awaitingConfirm ? c.warn : c.inkFaint),
             const SizedBox(width: AnSpace.s6),
             live
-                ? AnShimmerText('${strings.verb}…', style: verbStyle)
-                : Text(strings.verb,
+                ? AnShimmerText('$verb…', style: verbStyle)
+                : Text(verb,
                     style: dimVerb ? faint : verbStyle),
-            if (strings.target.isNotEmpty) ...[
+            if (target.isNotEmpty) ...[
               const SizedBox(width: AnSpace.s6),
               Flexible(
-                child: Text(strings.target,
+                child: Text(target,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: AnText.code.copyWith(
@@ -185,7 +223,7 @@ class _ChatToolCardState extends State<ChatToolCard> {
             ],
             if (receipt.isNotEmpty)
               Text.rich(TextSpan(children: receipt), maxLines: 1, overflow: TextOverflow.clip),
-            if (state.hasBody) ...[
+            if (hasBody) ...[
               const SizedBox(width: AnSpace.s6),
               AnimatedRotation(
                 duration: reduced ? Duration.zero : AnMotion.fast,

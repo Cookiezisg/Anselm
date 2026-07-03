@@ -368,6 +368,29 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get liveLabel => '实时';
 	@override String truncatedNote({required Object chars}) => '已截断 · 完整内容 ${chars} 字符';
 	@override String progressOmitted({required Object n}) => '…前 ${n} 行略';
+	@override String get reading => '正在读取';
+	@override String get read => '已读取';
+	@override String get writing => '正在写入';
+	@override String get wrote => '已写入';
+	@override String get editing => '正在编辑';
+	@override String get edited => '已编辑';
+	@override String get globbing => '正在检索';
+	@override String get globbed => '已检索';
+	@override String get grepping => '正在搜索';
+	@override String get grepped => '已搜索';
+	@override String get listing => '正在列出';
+	@override String get listed => '已列出';
+	@override String get runningCmd => '正在执行命令';
+	@override String get ranCmd => '已执行';
+	@override String lines({required Object n}) => '${n} 行';
+	@override String linesTruncated({required Object n}) => '前 ${n} 行(截断)';
+	@override String matches({required Object n}) => '${n} 处匹配';
+	@override String files({required Object n}) => '${n} 个文件';
+	@override String items({required Object n}) => '${n} 项';
+	@override String get noMatches => '无匹配';
+	@override String exit({required Object code}) => 'exit ${code}';
+	@override String get timedOut => '超时';
+	@override String wroteBytes({required Object n}) => '${n} 字节';
 }
 
 // Path: shell.ocean
@@ -696,6 +719,29 @@ extension on TranslationsZhCn {
 			'chat.tool.liveLabel' => '实时',
 			'chat.tool.truncatedNote' => ({required Object chars}) => '已截断 · 完整内容 ${chars} 字符',
 			'chat.tool.progressOmitted' => ({required Object n}) => '…前 ${n} 行略',
+			'chat.tool.reading' => '正在读取',
+			'chat.tool.read' => '已读取',
+			'chat.tool.writing' => '正在写入',
+			'chat.tool.wrote' => '已写入',
+			'chat.tool.editing' => '正在编辑',
+			'chat.tool.edited' => '已编辑',
+			'chat.tool.globbing' => '正在检索',
+			'chat.tool.globbed' => '已检索',
+			'chat.tool.grepping' => '正在搜索',
+			'chat.tool.grepped' => '已搜索',
+			'chat.tool.listing' => '正在列出',
+			'chat.tool.listed' => '已列出',
+			'chat.tool.runningCmd' => '正在执行命令',
+			'chat.tool.ranCmd' => '已执行',
+			'chat.tool.lines' => ({required Object n}) => '${n} 行',
+			'chat.tool.linesTruncated' => ({required Object n}) => '前 ${n} 行(截断)',
+			'chat.tool.matches' => ({required Object n}) => '${n} 处匹配',
+			'chat.tool.files' => ({required Object n}) => '${n} 个文件',
+			'chat.tool.items' => ({required Object n}) => '${n} 项',
+			'chat.tool.noMatches' => '无匹配',
+			'chat.tool.exit' => ({required Object code}) => 'exit ${code}',
+			'chat.tool.timedOut' => '超时',
+			'chat.tool.wroteBytes' => ({required Object n}) => '${n} 字节',
 			'appName' => 'Anselm',
 			'status.idle' => '空闲',
 			'status.run' => '运行中',

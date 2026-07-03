@@ -13,6 +13,7 @@ import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/design/typography.dart';
 import 'package:anselm/dev/gallery/chat_tool_card_specimens.dart';
+import 'package:anselm/dev/gallery/tool_card_family_specimens.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -42,7 +43,7 @@ void main() {
     LocaleSettings.setLocaleRaw('zh-CN');
     const key = ValueKey('cap');
     tester.view.devicePixelRatio = 1.0;
-    tester.view.physicalSize = const Size(760, 2400);
+    tester.view.physicalSize = const Size(760, 3600);
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(RepaintBoundary(
@@ -57,7 +58,12 @@ void main() {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  for (final s in chatToolCardGalleryItem.specimens) ...[
+                  for (final s in [
+                    ...toolCardShellGalleryItem.specimens,
+                    ...toolCardFsGalleryItem.specimens,
+                    ...toolCardSearchGalleryItem.specimens,
+                    ...chatToolCardGalleryItem.specimens,
+                  ]) ...[
                     Builder(
                         builder: (context) => Text(s.label,
                             style: AnText.meta
@@ -73,15 +79,14 @@ void main() {
         ),
       ),
     ));
-    // Expand the success / Bash-progress / truncation / MCP cards so every generic-body form
-    // is in the still (first create_function match is the args-streaming card — skip it).
-    // 点开 成功/Bash 进度/截断/MCP 四张,通用体各形态全入镜(首个 create_function 是流入卡,跳过)。
+    // Expand the family bodies for the still: Bash-ok terminal, Write code window, Edit diff,
+    // Grep hit window (Bash-fail auto-expands). 点开 Bash成功/Write/Edit/Grep 四张入镜。
     await tester.pump(const Duration(milliseconds: 60));
     for (final f in [
-      find.text('create_function').at(1),
-      find.text('Bash'),
-      find.text('read_document'),
-      find.textContaining('mcp__context7'),
+      find.text('npm test').at(1), // Bash · exit 0 (第 0 个是活尾巴卡) 成功终端窗
+      find.text('quarters.py').first, // Write 代码窗
+      find.text('rollup.py').at(1), // Edit diff 窗(第 0 个是 Read 回执卡的 chip)
+      find.text('"amount"'), // Grep 命中窗
     ]) {
       await tester.tap(f, warnIfMissed: false);
       await tester.pump(const Duration(milliseconds: 100));
