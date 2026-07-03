@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../core/router/navigation.dart';
 import '../features/entities/data/entity_kind.dart';
+import '../features/entities/ui/detail/workflow_editor_page.dart';
 import 'app_shell.dart';
 
 /// The app's GoRouter (Phase 4.1 STEP 6). Assembled in `app/` because it is the one place that knows BOTH
@@ -52,6 +53,16 @@ GoRouter buildAppRouter(Ref ref) {
       // conversation is single-domain, so there's no kind to validate, and :id existence can't be
       // checked at the router layer (same rule as entities). 对话选区,同常量页(不重挂);无 kind 可校、无 redirect。
       GoRoute(path: '/chat/:id', pageBuilder: _shellPage),
+      // The workflow graph editor is a FULL-SCREEN page (its OWN scaffold, NOT the shell) — a focused
+      // edit mode entered from the overview hero, exited back to the entity page. 图编辑器是全屏页
+      // (自有 scaffold、非壳):从概览 hero 进、退回实体页。
+      GoRoute(
+        path: '/entities/workflow/:id/editor',
+        pageBuilder: (context, state) => NoTransitionPage(
+          key: const ValueKey('anselm-workflow-editor'),
+          child: WorkflowEditorPage(workflowId: state.pathParameters['id']!),
+        ),
+      ),
     ],
   );
   ref.onDispose(router.dispose);

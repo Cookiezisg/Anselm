@@ -887,6 +887,7 @@ class Translations$entities$detail$en {
 	String get addTag => 'Add tag';
 
 	late final Translations$entities$detail$state$en state = Translations$entities$detail$state$en.internal(_root);
+	late final Translations$entities$detail$editor$en editor = Translations$entities$detail$editor$en.internal(_root);
 }
 
 // Path: entities.run
@@ -1494,6 +1495,114 @@ class Translations$entities$detail$state$en {
 	String get earliest => 'earliest version';
 }
 
+// Path: entities.detail.editor
+class Translations$entities$detail$editor$en {
+	Translations$entities$detail$editor$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Graph editor'
+	String get title => 'Graph editor';
+
+	/// en: 'Back'
+	String get back => 'Back';
+
+	/// en: 'Add node'
+	String get addNode => 'Add node';
+
+	/// en: 'Auto layout'
+	String get autoLayout => 'Auto layout';
+
+	/// en: 'Direction'
+	String get direction => 'Direction';
+
+	/// en: 'Horizontal'
+	String get dirLR => 'Horizontal';
+
+	/// en: 'Vertical'
+	String get dirTB => 'Vertical';
+
+	/// en: 'Save'
+	String get save => 'Save';
+
+	/// en: 'Discard'
+	String get discard => 'Discard';
+
+	/// en: 'New version saved'
+	String get saved => 'New version saved';
+
+	/// en: 'Unsaved changes'
+	String get unsaved => 'Unsaved changes';
+
+	/// en: 'Select a node or edge to edit'
+	String get inspectorEmpty => 'Select a node or edge to edit';
+
+	/// en: 'Ref'
+	String get nodeRef => 'Ref';
+
+	/// en: 'Kind'
+	String get nodeKind => 'Kind';
+
+	/// en: 'Input mapping'
+	String get nodeInput => 'Input mapping';
+
+	/// en: 'Retry'
+	String get nodeRetry => 'Retry';
+
+	/// en: 'Port'
+	String get edgePort => 'Port';
+
+	/// en: 'From'
+	String get edgeFrom => 'From';
+
+	/// en: 'To'
+	String get edgeTo => 'To';
+
+	/// en: 'Delete node'
+	String get deleteNode => 'Delete node';
+
+	/// en: 'Delete edge'
+	String get deleteEdge => 'Delete edge';
+
+	/// en: 'A control port must match a branch name; approval is yes/no'
+	String get portHint => 'A control port must match a branch name; approval is yes/no';
+
+	/// en: 'Add field'
+	String get addField => 'Add field';
+
+	/// en: 'Field'
+	String get field => 'Field';
+
+	/// en: 'CEL expression'
+	String get expr => 'CEL expression';
+
+	/// en: 'Enable retry'
+	String get retryEnable => 'Enable retry';
+
+	/// en: 'Max attempts'
+	String get maxAttempts => 'Max attempts';
+
+	/// en: 'No self-loops: a node cannot connect to itself'
+	String get errSelfLoop => 'No self-loops: a node cannot connect to itself';
+
+	/// en: 'That edge already exists'
+	String get errDuplicateEdge => 'That edge already exists';
+
+	/// en: 'A back edge may only leave a control / approval node'
+	String get errBackEdgeSource => 'A back edge may only leave a control / approval node';
+
+	/// en: 'An approval has only yes / no outputs'
+	String get errApprovalPortsFull => 'An approval has only yes / no outputs';
+
+	/// en: 'On'
+	String get on => 'On';
+
+	/// en: 'Off'
+	String get off => 'Off';
+}
+
 // Path: entities.run.danger
 class Translations$entities$run$danger$en {
 	Translations$entities$run$danger$en.internal(this._root);
@@ -1840,6 +1949,39 @@ extension on Translations {
 			'entities.detail.state.endOfList' => 'End of list',
 			'entities.detail.state.loadFailed' => 'Load failed — tap to retry',
 			'entities.detail.state.earliest' => 'earliest version',
+			'entities.detail.editor.title' => 'Graph editor',
+			'entities.detail.editor.back' => 'Back',
+			'entities.detail.editor.addNode' => 'Add node',
+			'entities.detail.editor.autoLayout' => 'Auto layout',
+			'entities.detail.editor.direction' => 'Direction',
+			'entities.detail.editor.dirLR' => 'Horizontal',
+			'entities.detail.editor.dirTB' => 'Vertical',
+			'entities.detail.editor.save' => 'Save',
+			'entities.detail.editor.discard' => 'Discard',
+			'entities.detail.editor.saved' => 'New version saved',
+			'entities.detail.editor.unsaved' => 'Unsaved changes',
+			'entities.detail.editor.inspectorEmpty' => 'Select a node or edge to edit',
+			'entities.detail.editor.nodeRef' => 'Ref',
+			'entities.detail.editor.nodeKind' => 'Kind',
+			'entities.detail.editor.nodeInput' => 'Input mapping',
+			'entities.detail.editor.nodeRetry' => 'Retry',
+			'entities.detail.editor.edgePort' => 'Port',
+			'entities.detail.editor.edgeFrom' => 'From',
+			'entities.detail.editor.edgeTo' => 'To',
+			'entities.detail.editor.deleteNode' => 'Delete node',
+			'entities.detail.editor.deleteEdge' => 'Delete edge',
+			'entities.detail.editor.portHint' => 'A control port must match a branch name; approval is yes/no',
+			'entities.detail.editor.addField' => 'Add field',
+			'entities.detail.editor.field' => 'Field',
+			'entities.detail.editor.expr' => 'CEL expression',
+			'entities.detail.editor.retryEnable' => 'Enable retry',
+			'entities.detail.editor.maxAttempts' => 'Max attempts',
+			'entities.detail.editor.errSelfLoop' => 'No self-loops: a node cannot connect to itself',
+			'entities.detail.editor.errDuplicateEdge' => 'That edge already exists',
+			'entities.detail.editor.errBackEdgeSource' => 'A back edge may only leave a control / approval node',
+			'entities.detail.editor.errApprovalPortsFull' => 'An approval has only yes / no outputs',
+			'entities.detail.editor.on' => 'On',
+			'entities.detail.editor.off' => 'Off',
 			'entities.run.method' => 'Method',
 			'entities.run.streaming' => 'streaming',
 			'entities.run.noInputs' => 'No inputs — run with no arguments.',

@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 
 import '../../../core/contract/entities/agent.dart';
 import '../../../core/contract/entities/common.dart';
 import '../../../core/contract/entities/function.dart';
 import '../../../core/contract/entities/handler.dart';
 import '../../../core/contract/entities/values.dart';
+import '../../../core/graph/graph_edit_ops.dart';
 import '../../../core/contract/entities/workflow.dart';
 import '../../../core/contract/page.dart';
 import '../../../core/sse/frame.dart';
@@ -48,7 +50,7 @@ class FixtureEntityRepository implements EntityRepository {
         _functionVersions = functionVersions ?? const {},
         _handlerVersions = handlerVersions ?? const {},
         _agentVersions = agentVersions ?? const {},
-        _workflowVersions = workflowVersions ?? const {},
+        _workflowVersions = Map.of(workflowVersions ?? const {}),
         _functionExecutions = functionExecutions ?? const {},
         _handlerCalls = handlerCalls ?? const {},
         _agentExecutions = agentExecutions ?? const {},
@@ -388,6 +390,36 @@ class FixtureEntityRepository implements EntityRepository {
     emitLifecycle(EntitySignal(
         kind: EntityKind.function, id: id, action: EntityAction.updated, durable: true));
     return next;
+  }
+
+  @override
+  Future<WorkflowVersion> editWorkflow(String id, List<Map<String, Object?>> ops, {String? changeReason}) async {
+    final wf = await getWorkflow(id);
+    final cur = wf.activeVersion;
+    final base = cur == null ? const Graph() : (graphOf(cur) ?? const Graph());
+    final next = applyEditOps(base, ops);
+    final version = (cur?.version ?? 0) + 1;
+    final v = WorkflowVersion(
+      id: '${id}_v$version',
+      workflowId: id,
+      version: version,
+      graph: jsonEncode({
+        'nodes': [for (final n in next.nodes) nodeWire(n)],
+        'edges': [
+          for (final e in next.edges)
+            {'id': e.id, 'from': e.from, if ((e.fromPort ?? '').isNotEmpty) 'fromPort': e.fromPort, 'to': e.to}
+        ],
+      }),
+      graphParsed: next,
+      changeReason: changeReason,
+      createdAt: DateTime.utc(2026, 6, 27, 13),
+      updatedAt: DateTime.utc(2026, 6, 27, 13),
+    );
+    _workflowVersions[id] = [v, ...(_workflowVersions[id] ?? const [])];
+    upsertWorkflow(wf.copyWith(activeVersionId: v.id, activeVersion: v));
+    emitLifecycle(EntitySignal(
+        kind: EntityKind.workflow, id: id, action: EntityAction.updated, durable: true));
+    return v;
   }
 
   @override

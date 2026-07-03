@@ -468,6 +468,7 @@ class _Translations$entities$detail$zh_CN extends Translations$entities$detail$e
 	@override late final _Translations$entities$detail$mounts$zh_CN mounts = _Translations$entities$detail$mounts$zh_CN._(_root);
 	@override String get addTag => '添加标签';
 	@override late final _Translations$entities$detail$state$zh_CN state = _Translations$entities$detail$state$zh_CN._(_root);
+	@override late final _Translations$entities$detail$editor$zh_CN editor = _Translations$entities$detail$editor$zh_CN._(_root);
 }
 
 // Path: entities.run
@@ -754,6 +755,48 @@ class _Translations$entities$detail$state$zh_CN extends Translations$entities$de
 	@override String get endOfList => '已到底';
 	@override String get loadFailed => '加载失败,点此重试';
 	@override String get earliest => '最早版本';
+}
+
+// Path: entities.detail.editor
+class _Translations$entities$detail$editor$zh_CN extends Translations$entities$detail$editor$en {
+	_Translations$entities$detail$editor$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => '图编辑器';
+	@override String get back => '返回';
+	@override String get addNode => '添加节点';
+	@override String get autoLayout => '自动布局';
+	@override String get direction => '方向';
+	@override String get dirLR => '横向';
+	@override String get dirTB => '纵向';
+	@override String get save => '保存';
+	@override String get discard => '放弃更改';
+	@override String get saved => '已保存新版本';
+	@override String get unsaved => '未保存更改';
+	@override String get inspectorEmpty => '选中节点或连线进行编辑';
+	@override String get nodeRef => '引用';
+	@override String get nodeKind => '类型';
+	@override String get nodeInput => '输入映射';
+	@override String get nodeRetry => '重试';
+	@override String get edgePort => '端口';
+	@override String get edgeFrom => '从';
+	@override String get edgeTo => '到';
+	@override String get deleteNode => '删除节点';
+	@override String get deleteEdge => '删除连线';
+	@override String get portHint => 'control 端口须匹配分支名;approval 为 yes/no';
+	@override String get addField => '添加字段';
+	@override String get field => '字段';
+	@override String get expr => 'CEL 表达式';
+	@override String get retryEnable => '启用重试';
+	@override String get maxAttempts => '最大次数';
+	@override String get errSelfLoop => '不支持自环:节点不能连自身';
+	@override String get errDuplicateEdge => '该连线已存在';
+	@override String get errBackEdgeSource => '回边仅可从 control / approval 发出';
+	@override String get errApprovalPortsFull => 'approval 仅有 yes / no 两个出口';
+	@override String get on => '开';
+	@override String get off => '关';
 }
 
 // Path: entities.run.danger
@@ -1098,6 +1141,39 @@ extension on TranslationsZhCn {
 			'entities.detail.state.endOfList' => '已到底',
 			'entities.detail.state.loadFailed' => '加载失败,点此重试',
 			'entities.detail.state.earliest' => '最早版本',
+			'entities.detail.editor.title' => '图编辑器',
+			'entities.detail.editor.back' => '返回',
+			'entities.detail.editor.addNode' => '添加节点',
+			'entities.detail.editor.autoLayout' => '自动布局',
+			'entities.detail.editor.direction' => '方向',
+			'entities.detail.editor.dirLR' => '横向',
+			'entities.detail.editor.dirTB' => '纵向',
+			'entities.detail.editor.save' => '保存',
+			'entities.detail.editor.discard' => '放弃更改',
+			'entities.detail.editor.saved' => '已保存新版本',
+			'entities.detail.editor.unsaved' => '未保存更改',
+			'entities.detail.editor.inspectorEmpty' => '选中节点或连线进行编辑',
+			'entities.detail.editor.nodeRef' => '引用',
+			'entities.detail.editor.nodeKind' => '类型',
+			'entities.detail.editor.nodeInput' => '输入映射',
+			'entities.detail.editor.nodeRetry' => '重试',
+			'entities.detail.editor.edgePort' => '端口',
+			'entities.detail.editor.edgeFrom' => '从',
+			'entities.detail.editor.edgeTo' => '到',
+			'entities.detail.editor.deleteNode' => '删除节点',
+			'entities.detail.editor.deleteEdge' => '删除连线',
+			'entities.detail.editor.portHint' => 'control 端口须匹配分支名;approval 为 yes/no',
+			'entities.detail.editor.addField' => '添加字段',
+			'entities.detail.editor.field' => '字段',
+			'entities.detail.editor.expr' => 'CEL 表达式',
+			'entities.detail.editor.retryEnable' => '启用重试',
+			'entities.detail.editor.maxAttempts' => '最大次数',
+			'entities.detail.editor.errSelfLoop' => '不支持自环:节点不能连自身',
+			'entities.detail.editor.errDuplicateEdge' => '该连线已存在',
+			'entities.detail.editor.errBackEdgeSource' => '回边仅可从 control / approval 发出',
+			'entities.detail.editor.errApprovalPortsFull' => 'approval 仅有 yes / no 两个出口',
+			'entities.detail.editor.on' => '开',
+			'entities.detail.editor.off' => '关',
 			'entities.run.method' => '方法',
 			'entities.run.streaming' => '流式',
 			'entities.run.noInputs' => '无入参 —— 直接运行。',

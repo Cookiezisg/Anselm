@@ -83,6 +83,10 @@ abstract interface class EntityRepository {
   /// 改 workflow meta,不升版本。
   Future<WorkflowEntity> patchWorkflowMeta(String id, Map<String, dynamic> patch);
 
+  /// `:edit` a workflow — apply graph ops → a NEW version (WRK-055 W5). One edit session's diff is
+  /// one ops array is one version. 编辑 workflow:图 ops → 新版本(一次会话一版)。
+  Future<WorkflowVersion> editWorkflow(String id, List<Map<String, Object?>> ops, {String? changeReason});
+
   /// `POST :revert` — move the active pointer to version [version] (any versioned kind; the endpoint
   /// shape is uniform). 把 active 指针移到指定版本号(版本化 kind 通用,端点同形)。
   Future<void> revertVersion(EntityKind kind, String id, int version);
@@ -245,6 +249,11 @@ class LiveEntityRepository implements EntityRepository {
   @override
   Future<WorkflowEntity> patchWorkflowMeta(String id, Map<String, dynamic> patch) =>
       _api.patchEntity(EntityKind.workflow.itemPath(id), WorkflowEntity.fromJson, body: patch);
+
+  @override
+  Future<WorkflowVersion> editWorkflow(String id, List<Map<String, Object?>> ops, {String? changeReason}) =>
+      _api.postEntity('${EntityKind.workflow.itemPath(id)}:edit', WorkflowVersion.fromJson,
+          body: {'ops': ops, 'changeReason': ?changeReason});
 
   // :revert answers `{data: <version>}` (N1 envelope, unlike the BARE `:run`). :revert 走 N1 信封返版本。
   @override

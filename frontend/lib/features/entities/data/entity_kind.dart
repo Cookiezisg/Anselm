@@ -43,6 +43,9 @@ enum EntityKind {
 /// here (`context.go`) to set selection; the router is the source of truth. 实体 deep-link 位置。
 String entityLocation(EntityKind kind, String id) => '/entities/${kind.name}/$id';
 
+/// The workflow graph-editor route (WRK-055 W5) — a full-screen page, NOT the shell. 图编辑器路由(全屏)。
+String workflowEditorLocation(String id) => '/entities/workflow/$id/editor';
+
 /// Parse a route `:kind` segment back to an [EntityKind] — null if not one of the four (a bad/legacy
 /// link). URLs are case-sensitive in go_router, so only the exact lowercase `name` matches; the router's
 /// redirect uses this to bounce bad kinds home. 解析路由 :kind(非四者之一→null,大小写敏感)。

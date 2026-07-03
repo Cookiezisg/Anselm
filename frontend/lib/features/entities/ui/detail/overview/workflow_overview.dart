@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../core/contract/entities/workflow.dart';
@@ -62,7 +63,14 @@ class WorkflowOverview extends ConsumerWidget {
           if (g == null)
             insetEmpty(d.graph.unparseable) // bad blob — honest, not blank 坏 blob 诚实呈现
           else
-            AnGraphCanvas(graph: g, framed: true, run: overlay),
+            AnGraphCanvas(
+              graph: g,
+              framed: true,
+              run: overlay,
+              // Enter the full-screen graph editor (W5). 进入全屏图编辑器。
+              enterEditorLabel: d.graph.openEditor,
+              onEnterEditor: () => context.go(workflowEditorLocation(wf.id)),
+            ),
         ]),
         // ② Meta — the hand-editable surface (same mature AnKv path as function; PATCH, no bump).
         // Row order [说明, 标签] is stable (AnKv keys edit state by index). ② meta 手编面,行序稳定。

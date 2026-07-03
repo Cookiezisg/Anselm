@@ -73,9 +73,9 @@ void main() {
       expect(tester.getTopLeft(canvas).dy, lessThan(tester.getTopLeft(find.byType(AnKv).first).dy));
       expect(find.text('research'), findsOneWidget); // node card id
       expect(find.text('retry'), findsOneWidget); // back-edge port pill
-      // No enter-editor affordance until the W5 route exists. W5 前无「进入编辑器」。
+      // The enter-editor affordance is wired (W5). W5:进入编辑器已接线。
       expect(find.text(TranslationProvider.of(tester.element(canvas)).translations
-          .entities.detail.graph.openEditor), findsNothing);
+          .entities.detail.graph.openEditor), findsOneWidget);
     });
 
     testWidgets('meta: description pencil-edit PATCHes workflow meta (no version bump)',

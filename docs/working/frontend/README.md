@@ -69,13 +69,13 @@ Anselm 前端 = 一个 **Flutter 桌面 app**,是内嵌 **Go sidecar** 的纯客
 | **Phase 4.0 运行时骨干** | ✅ | 契约/net/SSE/进程托管/Riverpod 装配/loopback/错误边界/L0–L2 流式原语 | [`overview`](../../references/frontend/overview.md) §4–5 · 归档 [`WRK-045`](../../archive/phase-4.0-runtime-backbone/README.md) |
 | **Phase 4.1 Entities** | ✅ | 实体导航 + 详情海洋 + 执行右岛(STEP 0–6 + 5.5) | [`features/entities`](../../references/frontend/features/entities.md) · 归档 [`WRK-046`](../../archive/entities/README.md) |
 | **Phase 4.2 Chat** | 🔨 在建 | **纯聊天骨干完整体已落**(rail + 中心海洋 transcript/composer/浮层头 + 自动命名 + @提及 + 附件三入口);**tool 卡 V3a–V3c 已落**(底盘 + 机器窗口 + shell·fs·builds 皮肤,WRK-053);余 V3d–V3e/V6 人在环/V5 特殊块/V8 右岛待建 | [`chat.md`](chat.md) · [`tool-cards.md`](tool-cards.md) |
-| **实体页雕琢 + 实体可视化** | 🔨 在建 | 逐实体 ideal 实体页;**function F1–F2 已落**(变换盒 hero + 代码渐隐 + 环境合卡 + meta 就地编辑 + 版本 tab,F3 暂缓);**workflow 站开工**(编排图画布 + 驾驶舱 + 编辑器,W1–W5) | [`entity-pages.md`](entity-pages.md) · [`workflow-page.md`](workflow-page.md) |
+| **实体页雕琢 + 实体可视化** | 🔨 在建 | 逐实体 ideal 实体页;**function F1–F2 已落**(变换盒 hero + 代码渐隐 + 环境合卡 + meta 就地编辑 + 版本 tab,F3 暂缓);**workflow 站 W1–W5 全落**(图地基/页面/活运行/驾驶舱/编辑器) | [`entity-pages.md`](entity-pages.md) · [`workflow-page.md`](workflow-page.md) |
 | **Phase 4.3 Scheduler** | ⏳ | 调度海洋(占位「即将推出」) | — |
 | **Phase 4.4 Documents** | ⏳ | 文档海洋(占位) | — |
 
 ### 3.2 当前焦点 + 下一步
 
-- **现在**:workflow 实体页(WRK-055,2026-07-03 pivot)——编排图画布 `AnGraphCanvas` + GraphModel 纯模型层(W1)→ 页面组装(W2)→ 活运行(W3)→ 驾驶舱(W4)→ 图编辑器(W5)。
+- **现在**:workflow 实体页(WRK-055)**W1–W5 全落**——图地基(GraphModel/AnGraphCanvas)→ 页面组装 → 活运行 → 驾驶舱 → 图编辑器全部完成、各批对抗复审收口。
 - **随后**:function F3 收尾(右岛按签名渲结果 + hero 活态)→ 逐个聊下一实体 → 各实体 chat 工具卡按定稿 revisit。
 - **chat 尾巴**:V6 人在环确认卡(interaction 重同步)· V3d–V3e 余族皮肤 · V5 特殊块 · V8 右岛(后端 touchpoint 台账已就绪)。
 - **远期弧线**:Chat/实体全成 → Scheduler 4.3 → Documents 4.4。

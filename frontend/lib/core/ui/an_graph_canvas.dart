@@ -44,6 +44,11 @@ class AnGraphCanvas extends StatefulWidget {
     this.toolbar = true,
     this.selectedNodeId,
     this.onNodeTap,
+    this.editable = false,
+    this.selectedEdgeId,
+    this.onEdgeTap,
+    this.onNodeMoved,
+    this.onConnect,
     this.enterEditorLabel,
     this.onEnterEditor,
     super.key,
@@ -69,6 +74,14 @@ class AnGraphCanvas extends StatefulWidget {
   /// Node tap (background tap reports null → deselect). 点节点回调(点空白报 null → 取消选中)。
   final ValueChanged<String?>? onNodeTap;
 
+  /// Edit plane (W5): node drag → [onNodeMoved]; four-side connect handles → [onConnect]; edge tap →
+  /// [onEdgeTap] ([selectedEdgeId] accent-highlights). 编辑面:节点拖拽/连接柄/边点选。
+  final bool editable;
+  final String? selectedEdgeId;
+  final ValueChanged<String>? onEdgeTap;
+  final void Function(String id, NodePosition pos)? onNodeMoved;
+  final void Function(String from, String to)? onConnect;
+
   /// Both set → the toolbar grows the demo's "enter editor" action (label is caller i18n).
   /// 两者都给 → 工具条长出「进入编辑器」(文案由调用方 i18n)。
   final String? enterEditorLabel;
@@ -93,6 +106,15 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
   // frame (never accumulates drift). 手势起点矩阵 + 焦点,每帧从起点重组、不累积漂移。
   Matrix4? _gestureStart;
   Offset? _gestureFocal;
+
+  // Edit-mode interaction state (W5). A node drag tracks the dragged id + its live scene top-left
+  // (committed on release); a connect drag tracks the source id + the pointer scene position (a
+  // rubber-band edge). 编辑态:节点拖(id + 活场景左上,松手提交)/ 连接拖(源 id + 指针场景位,橡皮筋)。
+  String? _dragId;
+  Offset? _dragScene;
+  String? _connectFrom;
+  Offset? _connectScene;
+  String? _hoverNodeId; // the node whose connect handles are shown (edit mode) 显连接柄的节点
 
   // Run-plane animation drivers, created lazily and only while needed: the comet rides the live
   // edges (1.1s lap, demo cadence), the pulse breathes the running nodes' rings (AnMotion.breath).
@@ -188,33 +210,23 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
   void _onWheel(PointerScrollEvent e) =>
       _zoomAt(e.localPosition, math.exp(-e.scrollDelta.dy * 0.0015));
 
-  void _onScaleStart(ScaleStartDetails d) {
+  void _onPanStart(DragStartDetails d) {
+    if (_connectFrom != null) return; // a handle connect owns this pointer 连接拖已占用
     _gestureStart = _view.clone();
-    _gestureFocal = d.localFocalPoint;
+    _gestureFocal = d.localPosition;
   }
 
-  void _onScaleUpdate(ScaleUpdateDetails d) {
+  void _onPanUpdate(DragUpdateDetails d) {
     final start = _gestureStart, focal = _gestureFocal;
-    if (start == null || focal == null) return;
-    // Compose from the gesture-start matrix: pan by focal travel, then pinch about the CURRENT
-    // focal. 从起点矩阵重组:焦点位移=平移,pinch 绕当前焦点。
+    if (start == null || focal == null || _connectFrom != null) return;
+    // Translate from the gesture-start matrix by the pointer travel (no accumulation drift).
+    // 从起点矩阵按指针位移平移(不累积漂移)。
     final pan = Matrix4.identity()
-      ..translateByDouble(d.localFocalPoint.dx - focal.dx, d.localFocalPoint.dy - focal.dy, 0, 1);
-    var m = pan.multiplied(start);
-    if (d.scale != 1) {
-      final k = start.entry(0, 0);
-      final nk = (k * d.scale).clamp(_minScale, _maxScale);
-      final r = nk / k;
-      final z = Matrix4.identity()
-        ..translateByDouble(d.localFocalPoint.dx, d.localFocalPoint.dy, 0, 1)
-        ..scaleByDouble(r, r, 1, 1)
-        ..translateByDouble(-d.localFocalPoint.dx, -d.localFocalPoint.dy, 0, 1);
-      m = z.multiplied(m);
-    }
-    _setView(m);
+      ..translateByDouble(d.localPosition.dx - focal.dx, d.localPosition.dy - focal.dy, 0, 1);
+    _setView(pan.multiplied(start));
   }
 
-  void _onScaleEnd(ScaleEndDetails d) {
+  void _onPanEnd(DragEndDetails d) {
     _gestureStart = null;
     _gestureFocal = null;
   }
@@ -239,6 +251,11 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
             });
           }
         }
+        // Canvas pan/zoom wraps the scene as an ANCESTOR, using onPan (NOT onScale): a node/handle
+        // drag is a DEEPER PanGestureRecognizer of the SAME type, which wins the gesture arena over
+        // the ancestor pan cleanly (scale-vs-pan would let the ancestor scale steal a child pan).
+        // Zoom is the wheel + toolbar; touchpad pinch is a follow-up. 画布平移缩放作为祖先包住场景,用
+        // onPan(非 onScale):节点/柄拖是更深的同类型 pan、干净胜过祖先 pan;缩放走滚轮+工具条,pinch 后补。
         return Listener(
           onPointerSignal: (e) {
             if (e is PointerScrollEvent) {
@@ -248,19 +265,16 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
           },
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onScaleStart: _onScaleStart,
-            onScaleUpdate: _onScaleUpdate,
-            onScaleEnd: _onScaleEnd,
-            onTap: widget.onNodeTap == null ? null : () => widget.onNodeTap!(null),
+            onPanStart: _onPanStart,
+            onPanUpdate: _onPanUpdate,
+            onPanEnd: _onPanEnd,
+            onTapUp: _onBackgroundTapUp,
             child: MouseRegion(
               cursor: SystemMouseCursors.grab,
               child: Stack(children: [
-                // Dot grid stays screen-fixed (demo .stage::before is untransformed backdrop).
-                // 网格点钉屏幕、不随内容变换(同 demo)。
+                // Dot grid stays screen-fixed (demo .stage::before is untransformed backdrop). 网格钉屏。
                 Positioned.fill(
-                  child: IgnorePointer(
-                    child: CustomPaint(painter: _GridPainter(dot: gc.gridDot)),
-                  ),
+                  child: IgnorePointer(child: CustomPaint(painter: _GridPainter(dot: gc.gridDot))),
                 ),
                 Positioned.fill(
                   child: Transform(
@@ -335,11 +349,26 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
                   run: run,
                   taken: c.ink,
                   future: gc.edgeFuture,
+                  selectedEdgeId: widget.selectedEdgeId,
+                  selected: c.accent,
                 ),
               ),
             ),
           ),
         ),
+        // The rubber-band connection line while dragging from a handle. 连接拖拽中的橡皮筋线。
+        if (_connectFrom != null && _connectScene != null)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(
+                painter: _ConnectPainter(
+                  from: l.nodeRects[_connectFrom!]?.center ?? Offset.zero,
+                  to: _connectScene!,
+                  color: c.accent,
+                ),
+              ),
+            ),
+          ),
         if (liveRoutes.isNotEmpty && !still)
           Positioned.fill(
             child: IgnorePointer(
@@ -366,8 +395,10 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
         for (final n in l.graph.nodes)
           if (l.nodeRects[n.id] case final rect?)
             Positioned(
-              left: rect.left,
-              top: rect.top,
+              // A node being dragged floats at its live scene position (committed on release).
+              // 拖拽中的节点浮在活场景位(松手提交)。
+              left: _dragId == n.id ? _dragScene!.dx : rect.left,
+              top: _dragId == n.id ? _dragScene!.dy : rect.top,
               width: rect.width,
               height: rect.height,
               child: _NodeCard(
@@ -377,10 +408,196 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
                 runState: run == null ? null : (run.nodes[n.id] ?? GraphNodeRun.future),
                 iters: run?.iters[n.id] ?? 0,
                 pulse: still ? null : _pulse,
+                editable: widget.editable,
+                onDragStart: () => _startNodeDrag(n.id, rect),
+                onDragUpdate: _updateNodeDrag,
+                onDragEnd: _endNodeDrag,
+                onHoverChange: (h) => setState(() {
+                  if (h) {
+                    _hoverNodeId = n.id;
+                  } else if (_hoverNodeId == n.id) {
+                    _hoverNodeId = null;
+                  }
+                }),
               ),
             ),
+        // Connect handles for the hovered node — scene-level overlays ON TOP of the cards, so a
+        // handle drag is consumed here (the node below never starts a move). Inset within the card
+        // so the node's hover region still covers them. 悬停节点的连接柄:场景级覆层、盖在卡上,拖柄
+        // 在此独占(下方节点不移);内嵌卡内使节点 hover 区仍覆盖它们。
+        if (widget.editable && _hoverNodeId != null && l.nodeRects[_hoverNodeId!] != null)
+          for (final side in _Side.values)
+            _handleOverlay(context, _hoverNodeId!, l.nodeRects[_hoverNodeId!]!, side),
       ]),
     ));
+  }
+
+  Widget _handleOverlay(BuildContext context, String nodeId, Rect rect, _Side side) {
+    final c = context.colors;
+    const inset = 3.0;
+    final center = switch (side) {
+      _Side.top => Offset(rect.left + rect.width / 2, rect.top + inset),
+      _Side.bottom => Offset(rect.left + rect.width / 2, rect.bottom - inset),
+      _Side.left => Offset(rect.left + inset, rect.top + rect.height / 2),
+      _Side.right => Offset(rect.right - inset, rect.top + rect.height / 2),
+    };
+    return Positioned(
+      left: center.dx - 11,
+      top: center.dy - 11,
+      width: 22,
+      height: 22,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.precise,
+        // Keep the node hovered while the pointer is on a handle (else moving off the card clears it).
+        // 指针在柄上时保持节点 hover(否则离卡即清)。
+        onEnter: (_) => setState(() => _hoverNodeId = nodeId),
+        // A raw Listener (NOT a GestureDetector) drives the connect drag: it bypasses the gesture
+        // arena, so the drag is never cancelled by the ancestor canvas pan or a mid-drag rebuild
+        // (an accepted GestureDetector pan here fires onStart then gets stolen — Listener doesn't).
+        // 用裸 Listener(非 GestureDetector)驱动连接拖:绕开手势竞技场,拖拽绝不被祖先画布 pan 或
+        // 拖拽中重建取消(此处 GestureDetector pan 会 onStart 后被抢走,Listener 不会)。
+        child: Listener(
+          key: ValueKey('graphHandle_${nodeId}_${side.name}'),
+          behavior: HitTestBehavior.opaque,
+          onPointerDown: (_) => _startConnect(nodeId, rect, side),
+          onPointerMove: (ev) => _updateConnect(ev.delta),
+          onPointerUp: (_) => _endConnect(),
+          onPointerCancel: (_) => _cancelConnect(),
+          child: Center(
+            child: Container(
+              width: 9,
+              height: 9,
+              decoration: BoxDecoration(
+                color: c.surface,
+                shape: BoxShape.circle,
+                border: Border.all(color: c.accent, width: 1.5),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── edit-mode gestures (W5) ──
+  // Node drag: track the live scene top-left; delta is in viewport pixels so divide by scale.
+  // 节点拖:记活场景左上;delta 是视口像素、除以缩放。
+  void _startNodeDrag(String id, Rect rect) {
+    setState(() {
+      _dragId = id;
+      _dragScene = rect.topLeft;
+    });
+  }
+
+  void _updateNodeDrag(Offset delta) {
+    if (_dragScene == null) return;
+    setState(() => _dragScene = _dragScene! + delta / _scale);
+  }
+
+  void _endNodeDrag() {
+    final id = _dragId, scene = _dragScene;
+    setState(() {
+      _dragId = null;
+      _dragScene = null;
+    });
+    if (id != null && scene != null) {
+      widget.onNodeMoved?.call(id, NodePosition(x: scene.dx.round(), y: scene.dy.round()));
+    }
+  }
+
+  // Connect drag: rubber-band from the source node centre to the pointer; drop over a node connects.
+  // 连接拖:源心 → 指针橡皮筋;松手落在节点上则连。
+  void _startConnect(String id, Rect rect, _Side side) {
+    setState(() {
+      _connectFrom = id;
+      _connectScene = _anchorOf(rect, side);
+    });
+  }
+
+  void _updateConnect(Offset delta) {
+    if (_connectScene == null) return;
+    setState(() => _connectScene = _connectScene! + delta / _scale);
+  }
+
+  void _endConnect() {
+    final from = _connectFrom, scene = _connectScene;
+    setState(() {
+      _connectFrom = null;
+      _connectScene = null;
+    });
+    if (from == null || scene == null) return;
+    final target = _nodeAt(scene);
+    if (target != null && target != from) widget.onConnect?.call(from, target);
+  }
+
+  void _cancelConnect() {
+    if (_connectFrom == null) return;
+    setState(() {
+      _connectFrom = null;
+      _connectScene = null;
+    });
+  }
+
+  Offset _anchorOf(Rect r, _Side side) => switch (side) {
+        _Side.top => Offset(r.left + r.width / 2, r.top),
+        _Side.bottom => Offset(r.left + r.width / 2, r.bottom),
+        _Side.left => Offset(r.left, r.top + r.height / 2),
+        _Side.right => Offset(r.right, r.top + r.height / 2),
+      };
+
+  /// The node whose rect contains [scene] (topmost). 含该场景点的节点。
+  String? _nodeAt(Offset scene) {
+    for (final n in layout.graph.nodes.reversed) {
+      if (layout.nodeRects[n.id]?.contains(scene) ?? false) return n.id;
+    }
+    return null;
+  }
+
+  // A background tap (missed every node): in edit mode select the nearest edge or clear; otherwise
+  // just deselect. localPosition is VIEWPORT space (the background layer isn't transformed) → invert
+  // to scene. 背景点(漏掉全部节点):编辑态选最近边或清,否则取消选。localPosition 是视口坐标 → 反变换到场景。
+  void _onBackgroundTapUp(TapUpDetails d) {
+    if (widget.editable && widget.onEdgeTap != null) {
+      final id = _edgeAt(_toScene(d.localPosition));
+      if (id != null) {
+        widget.onEdgeTap!(id);
+        return;
+      }
+    }
+    widget.onNodeTap?.call(null);
+  }
+
+  // Convert a viewport point to a scene point (inverse of translate∘uniform-scale). 视口→场景。
+  Offset _toScene(Offset local) {
+    final sc = _scale;
+    return Offset((local.dx - _view.entry(0, 3)) / sc, (local.dy - _view.entry(1, 3)) / sc);
+  }
+
+  /// The nearest edge to [scene] within a scene-space threshold (segment distance over the route
+  /// polyline). 场景点阈值内最近的边(沿折线段距)。
+  String? _edgeAt(Offset scene) {
+    const threshold = 12.0;
+    String? best;
+    var bestD = threshold;
+    for (final r in layout.routes) {
+      final pts = r.points;
+      for (var i = 1; i < pts.length; i++) {
+        final d = _segDist(scene, pts[i - 1], pts[i]);
+        if (d < bestD) {
+          bestD = d;
+          best = r.edge.id;
+        }
+      }
+    }
+    return best;
+  }
+
+  static double _segDist(Offset p, Offset a, Offset b) {
+    final ab = b - a;
+    final len2 = ab.dx * ab.dx + ab.dy * ab.dy;
+    if (len2 == 0) return (p - a).distance;
+    final t = (((p - a).dx * ab.dx + (p - a).dy * ab.dy) / len2).clamp(0.0, 1.0);
+    return (p - (a + ab * t)).distance;
   }
 
   /// Floating zoom group — the canvas owns its zoom affordances (demo: 外设随画布走,消费点不重拼)。
@@ -425,7 +642,10 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
 /// overlay (state ring + status dot + breathing while running + ×N iteration stack + dashed future).
 /// Real widget so text, tooltips and semantics come free. 节点卡:kind 色 chip + id/ref 双行 +
 /// 运行覆层(状态环/状态点/running 呼吸/×N 叠卡/future 虚线),真 widget。
-class _NodeCard extends StatelessWidget {
+/// Which face a connection handle sits on. 连接柄所在面。
+enum _Side { top, bottom, left, right }
+
+class _NodeCard extends StatefulWidget {
   const _NodeCard({
     required this.node,
     required this.selected,
@@ -433,6 +653,11 @@ class _NodeCard extends StatelessWidget {
     this.runState,
     this.iters = 0,
     this.pulse,
+    this.editable = false,
+    this.onDragStart,
+    this.onDragUpdate,
+    this.onDragEnd,
+    this.onHoverChange,
   });
 
   final Node node;
@@ -445,6 +670,26 @@ class _NodeCard extends StatelessWidget {
 
   /// The shared breath driver (null under reduced motion → a static ring instead). 共享呼吸驱动。
   final Animation<double>? pulse;
+
+  /// Edit mode: whole-card drag (move) + hover reporting (the canvas draws connect handles). 编辑态:
+  /// 整卡拖移 + 悬停上报(连接柄由画布画)。
+  final bool editable;
+  final VoidCallback? onDragStart;
+  final ValueChanged<Offset>? onDragUpdate; // viewport-pixel delta 视口像素 delta
+  final VoidCallback? onDragEnd;
+  final ValueChanged<bool>? onHoverChange;
+
+  @override
+  State<_NodeCard> createState() => _NodeCardState();
+}
+
+class _NodeCardState extends State<_NodeCard> {
+  Node get node => widget.node;
+  bool get selected => widget.selected;
+  VoidCallback? get onTap => widget.onTap;
+  GraphNodeRun? get runState => widget.runState;
+  int get iters => widget.iters;
+  Animation<double>? get pulse => widget.pulse;
 
   @override
   Widget build(BuildContext context) {
@@ -518,8 +763,17 @@ class _NodeCard extends StatelessWidget {
       button: onTap != null,
       child: GestureDetector(
         onTap: onTap,
+        // In edit mode the card itself is draggable (move); its pan recognizer wins over the canvas
+        // scale/pan when the pointer starts on the node. 编辑态整卡可拖(移),命中节点时节点 pan 胜过画布。
+        onPanStart: widget.editable ? (_) => widget.onDragStart?.call() : null,
+        onPanUpdate: widget.editable ? (d) => widget.onDragUpdate?.call(d.delta) : null,
+        onPanEnd: widget.editable ? (_) => widget.onDragEnd?.call() : null,
         child: MouseRegion(
-          cursor: onTap != null ? SystemMouseCursors.click : MouseCursor.defer,
+          onEnter: widget.editable ? (_) => widget.onHoverChange?.call(true) : null,
+          onExit: widget.editable ? (_) => widget.onHoverChange?.call(false) : null,
+          cursor: widget.editable
+              ? SystemMouseCursors.move
+              : (onTap != null ? SystemMouseCursors.click : MouseCursor.defer),
           child: Stack(clipBehavior: Clip.none, children: [
             // Iteration ghosts stack UNDER the card (demo's ×N 叠卡:offset shadows read as "this
             // slot ran multiple times"). 迭代影子叠在卡下(×N 叠卡)。
@@ -677,6 +931,8 @@ class _EdgePainter extends CustomPainter {
     this.run,
     required this.taken,
     required this.future,
+    this.selectedEdgeId,
+    required this.selected,
   });
 
   final GraphLayout layout;
@@ -685,6 +941,8 @@ class _EdgePainter extends CustomPainter {
   final GraphRunState? run;
   final Color taken; // walked edge (ink) 已走边
   final Color future; // not-yet-walked edge 未走边
+  final String? selectedEdgeId; // edit-mode selection 编辑态选中边
+  final Color selected;
 
   static const double _strokeW = 1.8;
   static const double _takenW = 2.3;
@@ -710,6 +968,10 @@ class _EdgePainter extends CustomPainter {
           color = future;
           dashed = true;
         }
+      }
+      if (r.edge.id == selectedEdgeId) {
+        color = selected;
+        w = _liveW;
       }
       final paint = Paint()
         ..color = color
@@ -791,7 +1053,36 @@ class _EdgePainter extends CustomPainter {
       old.back != back ||
       !identical(old.run, run) ||
       old.taken != taken ||
-      old.future != future;
+      old.future != future ||
+      old.selectedEdgeId != selectedEdgeId ||
+      old.selected != selected;
+}
+
+/// The rubber-band line while dragging a new connection (source anchor → pointer). 连接拖拽橡皮筋。
+class _ConnectPainter extends CustomPainter {
+  const _ConnectPainter({required this.from, required this.to, required this.color});
+
+  final Offset from;
+  final Offset to;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round;
+    // A dashed straight line + endpoint dot (matches the demo's connect preview). 虚直线 + 端点。
+    final path = Path()
+      ..moveTo(from.dx, from.dy)
+      ..lineTo(to.dx, to.dy);
+    canvas.drawPath(_EdgePainter._dash(path, on: 4, off: 4), paint);
+    canvas.drawCircle(to, 3.5, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(_ConnectPainter old) => old.from != from || old.to != to || old.color != color;
 }
 
 /// The comet overlay — one dot lapping each live edge, driven by the controller via `repaint` (the

@@ -92,6 +92,10 @@ final GalleryCategory _entityViz = GalleryCategory('实体可视化 Entity Viz',
       onNodeTap: (_) {}, enterEditorLabel: '进入编辑器', onEnterEditor: () {},
     ), span: true),
     GallerySpecimen('编辑器形态 (非 framed 满幅)', (_) => AnGraphCanvas(graph: _gBranch), span: true, height: 420),
+    GallerySpecimen('编辑态 (选中节点+连接柄 hover)', (_) => AnGraphCanvas(
+      graph: _gBranch, editable: true, selectedNodeId: 'run_tests',
+      onNodeTap: (_) {}, onEdgeTap: (_) {}, onNodeMoved: (_, _) {}, onConnect: (_, _) {},
+    ), span: true, height: 420),
     GallerySpecimen('运行中 (taken 加粗+彗星+running 呼吸)', (_) => AnGraphCanvas(graph: _gBranch, framed: true, run: const GraphRunState(
       nodes: {'on_pr_merged': GraphNodeRun.completed, 'run_tests': GraphNodeRun.completed, 'branch_result': GraphNodeRun.running},
       iters: {'on_pr_merged': 1, 'run_tests': 1, 'branch_result': 1},

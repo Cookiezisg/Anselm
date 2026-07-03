@@ -45,7 +45,7 @@ core/                      # 跨切共享层(不依赖上层)
   platform/                # OS 缝:host_platform(dart:io 收口) · window_zoom(应内 Cmd +/- 缩放)
   model/                   # 框架无关纯模型(无 Flutter import):status_state(状态折叠单源)
   messages/                # 框架无关纯模型:block_tree_reducer(折 open/delta/close→嵌套块树;run 终端 + Chat 4.2 共用,脱 widget 单测)
-  graph/                   # 框架无关纯模型:graph_model(图→定位几何)+ graph_run_state(节点行→运行覆层)+ flowrun_timeline(节点行→甘特时段);全脱 widget 单测
+  graph/                   # 框架无关纯模型:graph_model(图→定位几何)+ graph_run_state(节点行→运行覆层)+ flowrun_timeline(节点行→甘特时段)+ graph_edit_ops(working diff→:edit ops);全脱 widget 单测
   contract/messages/       # block_content(BlockKind 6 sealed + Text/ToolCall/ToolResult/Message Content,run 轨迹 / messages 块投影)
   ui/                      # An* 套件 G0–G6(49 原语:控件/行卡/导航壳/代码数据/浮层)+ 三岛壳;桶=ui.dart(见 design-system.md)
   overlay/                 # 命令式浮层派发(G6):AnOverlayController(NotifierProvider) + overlayProvider + AnOverlayHost

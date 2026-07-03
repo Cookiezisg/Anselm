@@ -230,6 +230,21 @@ void main() {
 
     // Pre-select via a deep link (the real navigation path). 经 deep-link 预选(真导航路径)。
     if (selKind != null && selId != null) {
+      // EDITOR=1: go straight to the full-screen graph editor route. EDITOR=1 直进全屏图编辑器。
+      if (const String.fromEnvironment('EDITOR').isNotEmpty && selKind == EntityKind.workflow) {
+        container.read(goRouterProvider).go(workflowEditorLocation(selId));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 200));
+        await tester.pump(const Duration(milliseconds: 200));
+        outName = '${outName}_editor';
+        // EDNODE=<nodeId>: tap a node to reveal the inspector's node editor. 点节点显检查器。
+        if (const String.fromEnvironment('EDNODE').isNotEmpty) {
+          await tester.tap(find.text(const String.fromEnvironment('EDNODE')).first);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 120));
+          outName = '${outName}_node';
+        }
+      } else {
       container.read(goRouterProvider).go(entityLocation(selKind, selId));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 80)); // detail resolves
@@ -238,6 +253,7 @@ void main() {
       // 右岛滑入、海洋变窄——让其落定,宽度响应内容(framed 图重 fit)按终宽截。
       await tester.pump(const Duration(milliseconds: 400));
       await tester.pump();
+      }
     }
 
     if (_collapse.isNotEmpty) {
