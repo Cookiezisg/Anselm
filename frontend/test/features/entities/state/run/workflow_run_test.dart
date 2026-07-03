@@ -40,6 +40,36 @@ FixtureEntityRepository _repo({String? graph}) => FixtureEntityRepository(
       ],
     );
 
+const _chainGraph =
+    '{"nodes":[{"id":"c0","kind":"trigger","ref":"tr_x"},{"id":"c1","kind":"action","ref":"fn_1"},{"id":"c2","kind":"action","ref":"fn_2"},{"id":"c3","kind":"action","ref":"fn_3"},{"id":"c4","kind":"action","ref":"fn_4"}],"edges":[{"id":"e1","from":"c0","to":"c1"},{"id":"e2","from":"c1","to":"c2"},{"id":"e3","from":"c2","to":"c3"},{"id":"e4","from":"c3","to":"c4"}]}';
+
+/// Forces 2-row pages regardless of the caller's limit — proves the reconcile's page-through path.
+/// 无视调用方 limit、强制 2 行/页——证对账翻页路径。
+class _TinyPageRepo extends FixtureEntityRepository {
+  _TinyPageRepo()
+      : super(runDelay: Duration.zero, workflows: [
+          WorkflowEntity(
+            id: 'wf_1',
+            name: 'chain',
+            createdAt: _t0,
+            updatedAt: _t0,
+            activeVersionId: 'wf_1_v1',
+            activeVersion: WorkflowVersion(
+              id: 'wf_1_v1',
+              workflowId: 'wf_1',
+              version: 1,
+              graph: _chainGraph,
+              createdAt: _t0,
+              updatedAt: _t0,
+            ),
+          ),
+        ]);
+
+  @override
+  Future<FlowrunComposite> getFlowrun(String id, {String? cursor, int? limit}) =>
+      super.getFlowrun(id, cursor: cursor, limit: 2);
+}
+
 (ProviderContainer, RunTerminalController) _harness(FixtureEntityRepository repo) {
   final c = ProviderContainer(overrides: [entityRepositoryProvider.overrideWithValue(repo)]);
   addTearDown(c.dispose);
@@ -118,6 +148,48 @@ void main() {
     final st = c.read(runTerminalProvider(_wfRef));
     expect(st.flowrunId, mine);
     expect(st.flowNodes.any((n) => n.nodeId == 'ghost'), isFalse); // 混流帧被丢
+  });
+
+  test('cancel is immune to late ticks — the phase never resurrects to running', () async {
+    final (c, ctl) = _harness(_repo());
+    await ctl.run();
+    await pumpEventQueue();
+    await Future<void>.delayed(const Duration(milliseconds: 400)); // parked 落定
+    final mine = c.read(runTerminalProvider(_wfRef)).flowrunId!;
+    ctl.cancel();
+    expect(c.read(runTerminalProvider(_wfRef)).phase, RunPhase.cancelled);
+    final scope = EntityKind.workflow.scope('wf_1');
+    final repo = c.read(entityRepositoryProvider) as FixtureEntityRepository;
+    repo.emitPanel(
+        scope,
+        StreamEnvelope(
+            seq: 0,
+            scope: scope,
+            id: 'sig_late',
+            frame: FrameSignal(
+                node: StreamNode(type: 'run', content: {
+              'flowrunId': mine,
+              'nodeId': 'ship',
+              'iteration': 0,
+              'status': 'completed',
+            }))));
+    await pumpEventQueue();
+    await Future<void>.delayed(const Duration(milliseconds: 400)); // 若有对账也让它跑完
+    expect(c.read(runTerminalProvider(_wfRef)).phase, RunPhase.cancelled); // 不复活
+  });
+
+  test('first reconcile pages through the FULL node history (newest-first page ≠ whole run)',
+      () async {
+    final (c, ctl) = _harness(_TinyPageRepo());
+    await ctl.run();
+    await pumpEventQueue();
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    final st = c.read(runTerminalProvider(_wfRef));
+    expect(st.phase, RunPhase.ok);
+    // Every node of the 5-node chain is present even though a page holds only 2 rows —
+    // early nodes must NOT degrade to future. 每页仅 2 行,5 节点仍全在——早期节点不得退化 future。
+    expect({for (final n in st.flowNodes) n.nodeId},
+        {'c0', 'c1', 'c2', 'c3', 'c4'});
   });
 
   test('tick rows that raced past a reconcile survive the merge until covered', () async {

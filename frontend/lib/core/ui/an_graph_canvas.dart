@@ -326,14 +326,16 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
       child: Stack(clipBehavior: Clip.none, children: [
         Positioned.fill(
           child: IgnorePointer(
-            child: CustomPaint(
-              painter: _EdgePainter(
-                layout: l,
-                edge: gc.edge,
-                back: c.accent,
-                run: run,
-                taken: c.ink,
-                future: gc.edgeFuture,
+            child: RepaintBoundary(
+              child: CustomPaint(
+                painter: _EdgePainter(
+                  layout: l,
+                  edge: gc.edge,
+                  back: c.accent,
+                  run: run,
+                  taken: c.ink,
+                  future: gc.edgeFuture,
+                ),
               ),
             ),
           ),
@@ -341,8 +343,13 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
         if (liveRoutes.isNotEmpty && !still)
           Positioned.fill(
             child: IgnorePointer(
-              child: CustomPaint(
-                painter: _CometPainter(routes: liveRoutes, color: c.accent, t: _comet!),
+              // Isolated layer: the comet repaints every animation tick for the WHOLE run — without
+              // a boundary that invalidates the entire scene picture at 60fps. 独立层:彗星整个 run
+              // 逐 tick 重绘,无边界会 60fps 重绘全场景。
+              child: RepaintBoundary(
+                child: CustomPaint(
+                  painter: _CometPainter(routes: liveRoutes, color: c.accent, t: _comet!),
+                ),
               ),
             ),
           ),

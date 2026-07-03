@@ -181,9 +181,20 @@ class FixtureEntityRepository implements EntityRepository {
           {required String workflowId, String? status, String? cursor, int? limit}) async =>
       _page(_flowruns[workflowId] ?? const [], cursor, limit);
   @override
-  Future<FlowrunComposite> getFlowrun(String id, {String? cursor, int? limit}) async =>
-      _flowrunDetail[id] ??
-      (throw StateError('FixtureEntityRepository: no flowrun seeded for $id'));
+  Future<FlowrunComposite> getFlowrun(String id, {String? cursor, int? limit}) async {
+    final comp = _flowrunDetail[id] ??
+        (throw StateError('FixtureEntityRepository: no flowrun seeded for $id'));
+    // Honest paging like the wire (newest-first; cursor = offset): the reconcile's page-through
+    // path is exercised by fixtures too. 与线缆同形的诚实分页(最新在前,cursor=偏移)。
+    final start = int.tryParse(cursor ?? '') ?? 0;
+    final size = limit ?? 50;
+    final end = (start + size).clamp(0, comp.nodes.length);
+    return FlowrunComposite(
+      flowrun: comp.flowrun,
+      nodes: comp.nodes.sublist(start.clamp(0, comp.nodes.length), end),
+      nextCursor: end < comp.nodes.length ? '$end' : null,
+    );
+  }
 
   // ── execute (scripted streaming over the panel scope, then the bare result — STEP 5) ──────────
   // Each verb scripts a realistic entities-stream sequence onto the entity's panel scope (the SAME shape

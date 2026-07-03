@@ -270,6 +270,11 @@ class RunTerminalController extends Notifier<RunTerminalState> {
           final flowrunId = c?['flowrunId'] as String?;
           if (nodeId == null || status == null) return;
           if (flowrunId == null || flowrunId != state.flowrunId) return;
+          // A tick arriving after cancel/terminal must not resurrect the phase: reading runSeq HERE
+          // would capture the post-cancel seq and sail through the reconcile guard — gate on the
+          // phase instead. cancel/终态后的迟到 tick 不得复活状态机:此处读 runSeq 会拿到 bump 后的
+          // 新值、穿透对账守卫——改按 phase 闸。
+          if (!state.isRunning) return;
           stream.mutate((s) => s..liveNodes[nodeId] = status);
           final iteration = (c?['iteration'] as num?)?.toInt() ?? 0;
           final now = DateTime.now();
@@ -295,29 +300,53 @@ class RunTerminalController extends Notifier<RunTerminalState> {
     }
   }
 
-  /// GET /flowruns/{id} and apply: rows are REST truth (tick upserts not yet covered survive the
-  /// merge), the header status decides the phase. Terminal → stop timers + release the keep-alive.
-  /// 对账:行=REST 真相(未覆盖的 tick upsert 保留),run 头定 phase;终态停表 + 释放 keepAlive。
+  /// GET /flowruns/{id} and apply. The node page is NEWEST-FIRST and one page is NOT the whole run
+  /// (WRK-055 契约:long loop runs overflow a page — early nodes would read as future and a parked
+  /// row could get squeezed out, vanishing the gate): the FIRST reconcile of a flowrun pages through
+  /// the full history; later reconciles fetch one page and UNION-merge (rows are record-once
+  /// immutable — except parked→completed, which always lands in the newest window).
+  /// 对账。节点页**最新在前且一页非全量**(长循环溢页会把早期节点误判 future、parked 行被挤出页外
+  /// 让审批门凭空消失):本 flowrun 首次对账翻页拉全,此后取一页并**并集合并**(行 record-once 不可变,
+  /// 唯一会变的 parked→completed 必在最新窗口)。
   Future<void> _reconcileFlowrun(int seq) async {
     final id = state.flowrunId;
-    if (id == null || !ref.mounted || state.runSeq != seq) return;
+    if (id == null || !ref.mounted || state.runSeq != seq || !state.isRunning) return;
     final FlowrunComposite comp;
+    var rows = <FlowrunNode>[];
     try {
-      comp = await _repo.getFlowrun(id);
+      final full = state.flowNodes.every((r) => r.id.startsWith('tick_')); // no truth yet 尚无真相行
+      comp = await _repo.getFlowrun(id, limit: 200);
+      rows = [...comp.nodes];
+      if (full) {
+        var cursor = comp.nextCursor;
+        var pages = 0;
+        while (cursor != null && pages < 20) {
+          final page = await _repo.getFlowrun(id, cursor: cursor, limit: 200);
+          rows.addAll(page.nodes);
+          cursor = page.nextCursor;
+          pages++;
+        }
+      }
     } catch (_) {
       return; // transient — the poll retries 瞬态失败,轮询会再来
     }
     if (!ref.mounted || state.runSeq != seq) return;
-    _applyFlowrun(comp);
+    _applyFlowrun(comp, rows);
   }
 
-  void _applyFlowrun(FlowrunComposite comp) {
-    var rows = comp.nodes;
-    for (final t in state.flowNodes) {
-      if (!t.id.startsWith('tick_')) continue;
-      if (rows.any((m) => m.nodeId == t.nodeId && m.iteration == t.iteration)) continue;
-      rows = [...rows, t]; // a tick that raced past this GET — keep until covered 赛过本次 GET 的 tick 先留
+  void _applyFlowrun(FlowrunComposite comp, List<FlowrunNode> fetched) {
+    // Union by (node, iteration): fetched truth wins; older truth rows outside this page window
+    // survive; tick rows fill the not-yet-covered races. 按 (节点,迭代) 并集:新取真相赢;窗口外
+    // 旧真相行存活;tick 行补未覆盖的竞速。
+    final merged = <(String, int), FlowrunNode>{
+      for (final r in state.flowNodes.where((r) => !r.id.startsWith('tick_')))
+        (r.nodeId, r.iteration): r,
+      for (final r in fetched) (r.nodeId, r.iteration): r,
+    };
+    for (final t in state.flowNodes.where((r) => r.id.startsWith('tick_'))) {
+      merged.putIfAbsent((t.nodeId, t.iteration), () => t);
     }
+    final rows = merged.values.toList();
     final status = comp.flowrun.status;
     final terminal = status == 'completed' || status == 'failed' || status == 'cancelled';
     state = state.copyWith(
@@ -349,7 +378,7 @@ class RunTerminalController extends Notifier<RunTerminalState> {
     try {
       final comp = await _repo.decideApproval(id, nodeId, decision: decision);
       if (!ref.mounted || state.runSeq != seq) return;
-      _applyFlowrun(comp);
+      _applyFlowrun(comp, comp.nodes);
     } catch (_) {
       await _reconcileFlowrun(seq);
     }

@@ -92,20 +92,71 @@ void main() {
       expect(s2.nodes['gate'], GraphNodeRun.running); // gate due at iter 1 now gate 应跑 iter1
     });
 
-    test('parked node blocks running synthesis (the run waits on a human)', () {
+    test('parked blocks its OWN downstream only; parallel branches keep lighting (backend walk)', () {
       final ga = Graph(nodes: [
         n('t', NodeKind.trigger),
         n('gate', NodeKind.approval),
         n('post', NodeKind.action),
+        n('b', NodeKind.action),
+        n('c', NodeKind.action),
       ], edges: [
         e('e1', 't', 'gate'),
         e('e2', 'gate', 'post', port: 'yes'),
+        e('e3', 't', 'b'),
+        e('e4', 'b', 'c'),
       ]);
       final s = deriveRunState(ga,
-          rows: [row('t', 'completed'), row('gate', 'parked')], runStatus: 'running');
+          rows: [row('t', 'completed'), row('gate', 'parked'), row('b', 'completed')],
+          runStatus: 'running');
       expect(s.nodes['gate'], GraphNodeRun.parked);
-      expect(s.liveEdges, isEmpty);
-      expect(s.nodes.containsKey('post'), isFalse);
+      expect(s.nodes.containsKey('post'), isFalse); // parked 自身下游不亮
+      // The sibling branch is REALLY advancing on the backend — it must light. 并行分支真在推进,必须亮。
+      expect(s.nodes['c'], GraphNodeRun.running);
+      expect(s.liveEdges, {'e4'});
+    });
+
+    test('AND-join: a partially-satisfied merge does NOT light (backend predecessorsSatisfied)', () {
+      final gd = Graph(nodes: [
+        n('t', NodeKind.trigger),
+        n('a', NodeKind.action),
+        n('b', NodeKind.action),
+        n('c', NodeKind.action),
+      ], edges: [
+        e('e1', 't', 'a'),
+        e('e2', 't', 'b'),
+        e('e3', 'a', 'c'),
+        e('e4', 'b', 'c'),
+      ]);
+      final s = deriveRunState(gd,
+          rows: [row('t', 'completed'), row('a', 'completed')], runStatus: 'running');
+      // b is the one running; c waits for the join. b 在跑,c 等汇聚。
+      expect(s.nodes['b'], GraphNodeRun.running);
+      expect(s.nodes.containsKey('c'), isFalse);
+      expect(s.liveEdges, {'e2'});
+      // Once b completes, c lights. b 完成后 c 亮。
+      final s2 = deriveRunState(gd,
+          rows: [row('t', 'completed'), row('a', 'completed'), row('b', 'completed')],
+          runStatus: 'running');
+      expect(s2.nodes['c'], GraphNodeRun.running);
+      expect(s2.liveEdges, {'e3', 'e4'});
+    });
+
+    test('×N counts EXECUTIONS (rows), not max-iteration+1 — loop-exit successor stays ×1', () {
+      final s = deriveRunState(g,
+          rows: [
+            row('t', 'completed'),
+            row('work', 'completed', iteration: 0),
+            row('gate', 'completed', iteration: 0, result: {'__port': 'retry'}),
+            row('work', 'completed', iteration: 1),
+            row('gate', 'completed', iteration: 1, result: {'__port': 'pass'}),
+            // post first (and only) runs at the loop's final iteration — forward edges KEEP i.
+            // post 首次也是唯一一次执行落在循环末迭代(前向边保持 i)。
+            row('post', 'completed', iteration: 1),
+          ],
+          runStatus: 'completed');
+      expect(s.iters['post'], 1); // ran once → no ×N badge 只跑一次,无叠卡
+      expect(s.iters['work'], 2);
+      expect(s.iters['gate'], 2);
     });
 
     test('approval decision gates the yes/no edge', () {
