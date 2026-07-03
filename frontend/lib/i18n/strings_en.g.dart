@@ -232,9 +232,6 @@ class Translations$action$en {
 	/// en: 'Edit'
 	String get edit => 'Edit';
 
-	/// en: 'Done'
-	String get done => 'Done';
-
 	/// en: 'Cancel'
 	String get cancel => 'Cancel';
 
@@ -828,10 +825,6 @@ class Translations$entities$detail$en {
 	late final Translations$entities$detail$kv$en kv = Translations$entities$detail$kv$en.internal(_root);
 	late final Translations$entities$detail$val$en val = Translations$entities$detail$val$en.internal(_root);
 	late final Translations$entities$detail$mounts$en mounts = Translations$entities$detail$mounts$en.internal(_root);
-
-	/// en: 'Add tag'
-	String get addTag => 'Add tag';
-
 	late final Translations$entities$detail$state$en state = Translations$entities$detail$state$en.internal(_root);
 }
 
@@ -1498,7 +1491,6 @@ extension on Translations {
 			'status.err' => 'Failed',
 			'status.done' => 'Done',
 			'action.edit' => 'Edit',
-			'action.done' => 'Done',
 			'action.cancel' => 'Cancel',
 			'action.save' => 'Save',
 			'action.copy' => 'Copy',
@@ -1667,7 +1659,6 @@ extension on Translations {
 			'entities.detail.val.none' => '—',
 			'entities.detail.mounts.healthy' => 'All mounts healthy',
 			'entities.detail.mounts.unhealthy' => ({required Object count}) => '${count} unhealthy',
-			'entities.detail.addTag' => 'Add tag',
 			'entities.detail.state.setActive' => 'Set active',
 			'entities.detail.state.setActiveFailed' => 'Couldn\'t set active version',
 			'entities.detail.state.retry' => 'Retry',

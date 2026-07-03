@@ -41,8 +41,8 @@ audience: [human, ai]
 | 批 | 内容 | 状态 |
 |---|---|---|
 | F1 | `AnTransformBox` + `AnFadeCollapse` 原语(gallery 7+2 specimens)+ function 概览重排(hero + 50 行渐隐代码 + 环境合卡 + envError callout) | ✅ 已落(gallery + demo 页截图过,输出列对齐 & 窄宿主 chip 溢出已修) |
-| F2 | 写面(repository `patchFunctionMeta`/`revertVersion` kind 通用,Live+Fixture 双实现)+ **meta 就地编辑**(页头改名 `AnOceanHeader.onTitleChange` + 概览说明 `AnField editable` + 标签 `_TagsMetaField`,均 PATCH 不升版)+ 版本 tab 结构化签名 diff 小签(`functionVersionSummary` 纯函数)+「设为活跃版本」(`:revert`) | ✅ 已落(含 review 重写) |
-| F2-fix | 概览 meta review 重写:①说明+标签同 `AnLeadValue` 几何(标签列对齐,原手搓 120px Row 弃)②标签读优先(静态只读药丸、hover 铅笔 → 可编辑 `AnTags`,不再常驻 ×/添加框)③版本 tab **diff 置顶**、摘要小签+「设为活跃」移到 diff **下方 footer**(选版本不再跳)④`setActive` 就地重算 active 标记(选区不回弹最新)+ 防重入 pending + 失败 toast ⑤`VersionRow` 升 freezed 值类型 + `selectedIndex` 防越界 | ✅ 已落(12 测 + 读态/版本双截图过;拍板:版本内容 AI-only、手工仅 meta) |
+| F2 | 写面(repository `patchFunctionMeta`/`revertVersion` kind 通用,Live+Fixture 双实现)+ **meta 就地编辑**(页头改名 `AnOceanHeader.onTitleChange` + 概览说明/标签走**成熟 `AnKv` 编辑模式**,PATCH 不升版)+ 版本 tab 结构化签名 diff 小签(`functionVersionSummary` 纯函数)+「设为活跃版本」(`:revert`) | ✅ 已落(含 review 重写) |
+| F2-fix | 概览 meta review 重写:①**说明 + 标签 = 一个可编辑 `AnKv`**(拍板:AnKv 是本页成熟 KV 编辑件,与 venv 段同件;`AnField` 直用 + 手搓 `_TagsMetaField` 均弃,消除对齐/半高/卡编辑态等 review 缺陷)——标签经单文本行往返(逗号连接显示,`parseTags` 纯函数解析回列表:逗号/空白分隔、去空去重)②版本 tab **diff 置顶**、摘要小签 +「设为活跃」移到 diff **下方 footer**(选版本不再跳)③`setActive` 就地重算 active 标记(选区不回弹最新)+ 防重入 pending + 失败 toast ④`VersionRow` 升 freezed 值类型 + `selectedIndex` 防越界 | ✅ 已落(12 测 含就地编辑→PATCH 端到端 + parseTags;读态/版本双截图过;拍板:版本内容 AI-only、手工仅 meta) |
 | F3 | 右岛结果按签名渲 + hero 活态接 run 流 | 待建 |
 
 每批:gallery → 接线 → 截图过目 → fe-verify 绿 → 文档同步。

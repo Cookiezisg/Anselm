@@ -1,7 +1,7 @@
 import 'package:anselm/core/contract/entities/function.dart';
 import 'package:anselm/core/contract/entities/values.dart';
 import 'package:anselm/core/design/theme.dart';
-import 'package:anselm/core/ui/an_tags.dart';
+import 'package:anselm/core/ui/an_field.dart';
 import 'package:anselm/core/ui/an_transform_box.dart';
 import 'package:anselm/core/ui/icons.dart';
 import 'package:anselm/core/ui/an_version_diff.dart';
@@ -61,32 +61,28 @@ Widget _host(Widget child, FixtureEntityRepository repo) => ProviderScope(
     );
 
 void main() {
-  group('meta section — read-first', () {
-    testWidgets('tags render as read-only pills (no × / add-field) at rest', (tester) async {
-      await tester.pumpWidget(_host(FunctionOverview(fn: _fn()), _repo()));
-      // The transform-box hero renders (page assembled). hero 存在=页面装配。
-      expect(find.byType(AnTransformBox), findsOneWidget);
-      final tags = tester.widget<AnTags>(find.byType(AnTags));
-      expect(tags.readOnly, isTrue, reason: 'tags are display-only until the pencil is clicked');
-      expect(find.text('util'), findsOneWidget);
+  group('meta section — AnKv editable', () {
+    testWidgets('说明 + 标签 render as editable AnKv rows (tags comma-joined)', (tester) async {
+      await tester.pumpWidget(_host(FunctionOverview(fn: _fn(tags: const ['util', 'io'])), _repo()));
+      expect(find.byType(AnTransformBox), findsOneWidget); // page assembled
+      expect(find.byType(AnKv), findsWidgets); // meta + venv both use the mature AnKv
+      expect(find.text('util, io'), findsOneWidget); // tags round-trip through one comma-joined row
+      expect(find.byIcon(AnIcons.edit), findsWidgets); // editable rows carry the hover pencil
     });
 
-    testWidgets('clicking the tags pencil switches to an editable AnTags', (tester) async {
-      await tester.pumpWidget(_host(FunctionOverview(fn: _fn()), _repo()));
-      // Both description + tags carry an opacity-gated (but hit-testable) edit pencil (AnIcons.edit);
-      // the tags one is last in tree order. 点标签行铅笔 → 可编辑 AnTags。
-      final pencils = find.byIcon(AnIcons.edit);
-      expect(pencils, findsWidgets);
-      await tester.tap(pencils.last, warnIfMissed: false);
+    testWidgets('editing the 说明 row commits a description PATCH', (tester) async {
+      final repo = _repo();
+      final fn = await repo.getFunction('fn_1');
+      await tester.pumpWidget(_host(FunctionOverview(fn: fn), repo));
+      // First pencil = the 说明 (description) row. 第一支铅笔=说明行。
+      await tester.tap(find.byIcon(AnIcons.edit).first, warnIfMissed: false);
       await tester.pumpAndSettle();
-      final tags = tester.widget<AnTags>(find.byType(AnTags));
-      expect(tags.readOnly, isFalse, reason: 'editing → AnTags with × + add-field');
-    });
-
-    testWidgets('empty tags show an em-dash at rest (no bare add field)', (tester) async {
-      await tester.pumpWidget(_host(FunctionOverview(fn: _fn(tags: const [])), _repo()));
-      expect(find.byType(AnTags), findsNothing); // no pills, no add field — just the em-dash
-      expect(find.text('—'), findsAtLeastNWidgets(1)); // the tags row (venv KV also em-dashes empties)
+      final editing = find.byWidgetPredicate((w) => w is EditableText && !w.readOnly);
+      expect(editing, findsOneWidget);
+      await tester.enterText(editing, 'Trim + coerce v2');
+      await tester.testTextInput.receiveAction(TextInputAction.done); // onSubmitted → commit
+      await tester.pumpAndSettle();
+      expect((await repo.getFunction('fn_1')).description, 'Trim + coerce v2');
     });
   });
 

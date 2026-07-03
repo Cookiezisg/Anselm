@@ -1,21 +1,18 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../core/contract/entities/function.dart';
-import '../../../../../core/design/colors.dart';
 import '../../../../../core/design/tokens.dart';
 import '../../../../../core/design/typography.dart';
 import '../../../../../core/model/status_state.dart';
-import '../../../../../core/ui/an_button.dart';
 import '../../../../../core/ui/an_callout.dart';
 import '../../../../../core/ui/an_code_editor.dart';
 import '../../../../../core/ui/an_fade_collapse.dart';
 import '../../../../../core/ui/an_field.dart';
 import '../../../../../core/ui/an_info_card.dart';
-import '../../../../../core/ui/an_lead_value.dart';
 import '../../../../../core/ui/an_row.dart';
 import '../../../../../core/ui/an_section.dart';
-import '../../../../../core/ui/an_tags.dart';
 import '../../../../../core/ui/an_transform_box.dart';
 import '../../../../../core/ui/icons.dart';
 import '../../../../../i18n/strings.g.dart';
@@ -28,8 +25,8 @@ import '../detail_sections.dart';
 
 /// Function 概览。读态:meta(说明 + 标签,手工可编)→ 变换盒 hero(签名即接口)→ 代码(50 行渐隐
 /// 收合)→ 环境合卡(envError 直出)。**版本内容(签名/代码/依赖/py)只读、AI-only**(拍板 #4);手工
-/// 只编 meta——说明走 `AnField` 就地编辑(hover 铅笔),标签走 [_TagsMetaField](同一 `AnLeadValue` 几何
-/// + 同一 hover-铅笔读优先手感),两行标签列对齐、静态不显编辑控件。均 PATCH 不升版本。
+/// 只编 meta——说明 + 标签走**成熟的 [AnKv] 编辑模式**(与 venv 段同件,hover 铅笔 → 就地文本编辑,失焦
+/// 提交),标签按逗号/空白分隔的文本行编辑。均 PATCH 不升版本。
 class FunctionOverview extends ConsumerWidget {
   const FunctionOverview({required this.fn, super.key});
 
@@ -56,21 +53,23 @@ class FunctionOverview extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Meta — the ONLY hand-editable surface (PATCH, no version bump). Both rows ride the same
-        // AnLeadValue geometry + hover-pencil idiom → aligned + read-first. 唯一手编面,两行同几何同手感。
+        // Meta — the ONLY hand-editable surface, edited via the mature AnKv path (PATCH, no version
+        // bump). Row order [说明, 标签] is stable (AnKv keys edit state by index). 唯一手编面,走 AnKv;行序稳定。
         AnSection(variant: AnSectionVariant.plain, children: [
-          AnField(
-            label: d.kv.desc,
-            value: fn.description,
-            editable: true,
+          AnKv(
             wrap: true,
-            onChanged: (s) => _patchMeta(ref, {'description': s}),
-          ),
-          _TagsMetaField(
-            label: d.kv.tags,
-            tags: fn.tags,
-            addLabel: d.addTag,
-            onChanged: (next) => _patchMeta(ref, {'tags': next}),
+            rows: [
+              AnKvRow(d.kv.desc, fn.description, editable: true),
+              AnKvRow(d.kv.tags, fn.tags.join(', '), editable: true),
+            ],
+            onChanged: (rows) {
+              final desc = rows[0].value ?? '';
+              final tags = parseTags(rows[1].value ?? '');
+              final patch = <String, dynamic>{};
+              if (desc != fn.description) patch['description'] = desc;
+              if (!listEquals(tags, fn.tags)) patch['tags'] = tags;
+              if (patch.isNotEmpty) _patchMeta(ref, patch);
+            },
           ),
         ]),
         AnSection(variant: AnSectionVariant.plain, children: [
@@ -127,97 +126,6 @@ class FunctionOverview extends ConsumerWidget {
           ),
         ]),
       ],
-    );
-  }
-}
-
-/// A tags meta row that MATCHES [AnField]'s editable geometry (same [AnLeadValue] label-hug + s8 inset
-/// + islandHead floor + wrap-left value) and its read-first hover-pencil idiom (the sibling of
-/// [AnEditableValue] for a pill control instead of a text field). At rest: read-only pills + a
-/// hover-revealed pencil at the label's right. Editing: the pills gain ×/add and the pencil becomes a
-/// ✓ done — each add/remove PATCHes live via [onChanged]. Empty + not-editing shows an em-dash, exactly
-/// like [AnField]'s empty value. 标签 meta 行:与 AnField 同几何同手感(AnLeadValue + s8 + islandHead +
-/// wrap-left,hover 铅笔读优先);静态只读药丸 + hover 铅笔,编辑时药丸出 ×/添加、铅笔变 ✓,增删即时 PATCH。
-class _TagsMetaField extends StatefulWidget {
-  const _TagsMetaField({
-    required this.label,
-    required this.tags,
-    required this.addLabel,
-    required this.onChanged,
-  });
-
-  final String label;
-  final List<String> tags;
-  final String addLabel;
-  final ValueChanged<List<String>> onChanged;
-
-  @override
-  State<_TagsMetaField> createState() => _TagsMetaFieldState();
-}
-
-class _TagsMetaFieldState extends State<_TagsMetaField> {
-  bool _editing = false;
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    final reduced = AnMotionPref.reduced(context);
-    final labelText = Text(widget.label, maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.body.copyWith(color: c.ink));
-    final revealPencil = _hovered || _editing;
-    return Semantics(
-      container: true,
-      explicitChildNodes: true,
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
-        child: AnimatedContainer(
-          duration: reduced ? Duration.zero : AnMotion.fast,
-          constraints: const BoxConstraints(minHeight: AnSize.islandHead),
-          padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8, vertical: AnSpace.s4),
-          decoration: BoxDecoration(
-            color: c.surfaceHover.whenActive(_hovered || _editing),
-            borderRadius: BorderRadius.circular(AnRadius.button),
-          ),
-          child: AnLeadValue(
-            leading: labelText,
-            // Pencil ↔ ✓ at the label's right, mirroring AnEditableValue's afterLeading anchor. 铅笔/✓ 在标签右。
-            afterLeading: _editing
-                ? AnButton.iconOnly(
-                    AnIcons.check,
-                    size: AnButtonSize.sm,
-                    semanticLabel: context.t.action.done,
-                    onPressed: () => setState(() => _editing = false),
-                  )
-                : Opacity(
-                    opacity: revealPencil ? 1 : 0,
-                    child: AnButton.iconOnly(
-                      AnIcons.edit,
-                      size: AnButtonSize.sm,
-                      semanticLabel: context.t.action.edit,
-                      onPressed: () => setState(() => _editing = true),
-                    ),
-                  ),
-            wrap: true,
-            trailing: _value(c),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _value(AnColors c) {
-    if (!_editing) {
-      if (widget.tags.isEmpty) {
-        // Empty at rest → em-dash, same as AnField's empty value. 空静态显 —,同 AnField。
-        return Text('—', style: AnText.value().copyWith(color: c.inkMuted));
-      }
-      return AnTags(tags: [for (final t in widget.tags) AnTag(t)], readOnly: true);
-    }
-    return AnTags(
-      tags: [for (final t in widget.tags) AnTag(t)],
-      placeholder: widget.addLabel,
-      onChanged: (next) => widget.onChanged([for (final t in next) t.label]),
     );
   }
 }
