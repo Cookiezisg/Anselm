@@ -878,6 +878,7 @@ class Translations$entities$detail$en {
 	late final Translations$entities$detail$sec$en sec = Translations$entities$detail$sec$en.internal(_root);
 	late final Translations$entities$detail$card$en card = Translations$entities$detail$card$en.internal(_root);
 	late final Translations$entities$detail$graph$en graph = Translations$entities$detail$graph$en.internal(_root);
+	late final Translations$entities$detail$cockpit$en cockpit = Translations$entities$detail$cockpit$en.internal(_root);
 	late final Translations$entities$detail$kv$en kv = Translations$entities$detail$kv$en.internal(_root);
 	late final Translations$entities$detail$val$en val = Translations$entities$detail$val$en.internal(_root);
 	late final Translations$entities$detail$mounts$en mounts = Translations$entities$detail$mounts$en.internal(_root);
@@ -1041,6 +1042,9 @@ class Translations$entities$detail$tab$en {
 
 	/// en: 'Logs'
 	String get logs => 'Logs';
+
+	/// en: 'Runs'
+	String get runs => 'Runs';
 }
 
 // Path: entities.detail.verb
@@ -1209,6 +1213,57 @@ class Translations$entities$detail$graph$en {
 
 	/// en: 'Orchestration graph unparseable'
 	String get unparseable => 'Orchestration graph unparseable';
+}
+
+// Path: entities.detail.cockpit
+class Translations$entities$detail$cockpit$en {
+	Translations$entities$detail$cockpit$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Runs'
+	String get runs => 'Runs';
+
+	/// en: 'Runs · $n'
+	String runsCount({required Object n}) => 'Runs · ${n}';
+
+	/// en: 'Node timeline'
+	String get nodeGantt => 'Node timeline';
+
+	/// en: 'Not run'
+	String get notRun => 'Not run';
+
+	/// en: 'Awaiting approval'
+	String get waitingApproval => 'Awaiting approval';
+
+	/// en: 'No runs yet'
+	String get noRuns => 'No runs yet';
+
+	/// en: 'Each run appears here once the workflow is triggered'
+	String get noRunsHint => 'Each run appears here once the workflow is triggered';
+
+	/// en: 'Run graph'
+	String get runGraph => 'Run graph';
+
+	/// en: 'Node · $id'
+	String nodeDetail({required Object id}) => 'Node · ${id}';
+
+	/// en: 'Pick a node to see its execution detail'
+	String get pickNode => 'Pick a node to see its execution detail';
+
+	/// en: 'Replay'
+	String get replay => 'Replay';
+
+	/// en: 'Kill'
+	String get kill => 'Kill';
+
+	/// en: 'Run info'
+	String get runInfo => 'Run info';
+
+	/// en: 'Iteration $n'
+	String iteration({required Object n}) => 'Iteration ${n}';
 }
 
 // Path: entities.detail.kv
@@ -1667,6 +1722,7 @@ extension on Translations {
 			'entities.detail.tab.overview' => 'Overview',
 			'entities.detail.tab.versions' => 'Versions',
 			'entities.detail.tab.logs' => 'Logs',
+			'entities.detail.tab.runs' => 'Runs',
 			'entities.detail.verb.run' => 'Run',
 			'entities.detail.verb.call' => 'Call',
 			'entities.detail.verb.invoke' => 'Invoke',
@@ -1705,6 +1761,20 @@ extension on Translations {
 			'entities.detail.graph.path' => 'Path',
 			'entities.detail.graph.openEditor' => 'Open graph editor',
 			'entities.detail.graph.unparseable' => 'Orchestration graph unparseable',
+			'entities.detail.cockpit.runs' => 'Runs',
+			'entities.detail.cockpit.runsCount' => ({required Object n}) => 'Runs · ${n}',
+			'entities.detail.cockpit.nodeGantt' => 'Node timeline',
+			'entities.detail.cockpit.notRun' => 'Not run',
+			'entities.detail.cockpit.waitingApproval' => 'Awaiting approval',
+			'entities.detail.cockpit.noRuns' => 'No runs yet',
+			'entities.detail.cockpit.noRunsHint' => 'Each run appears here once the workflow is triggered',
+			'entities.detail.cockpit.runGraph' => 'Run graph',
+			'entities.detail.cockpit.nodeDetail' => ({required Object id}) => 'Node · ${id}',
+			'entities.detail.cockpit.pickNode' => 'Pick a node to see its execution detail',
+			'entities.detail.cockpit.replay' => 'Replay',
+			'entities.detail.cockpit.kill' => 'Kill',
+			'entities.detail.cockpit.runInfo' => 'Run info',
+			'entities.detail.cockpit.iteration' => ({required Object n}) => 'Iteration ${n}',
 			'entities.detail.kv.name' => 'Name',
 			'entities.detail.kv.tags' => 'Tags',
 			'entities.detail.kv.id' => 'ID',

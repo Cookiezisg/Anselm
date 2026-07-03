@@ -240,7 +240,8 @@
       "tab": {
         "overview": "概览",
         "versions": "版本",
-        "logs": "日志"
+        "logs": "日志",
+        "runs": "运行"
       },
       "verb": {
         "run": "运行",
@@ -291,6 +292,22 @@
         "path": "路径",
         "openEditor": "进入图编辑器",
         "unparseable": "编排图无法解析"
+      },
+      "cockpit": {
+        "runs": "运行",
+        "runsCount": "运行 · $n 次",
+        "nodeGantt": "节点甘特",
+        "notRun": "未运行",
+        "waitingApproval": "等待审批",
+        "noRuns": "尚无运行",
+        "noRunsHint": "触发此工作流后这里会列出每次运行",
+        "runGraph": "运行图",
+        "nodeDetail": "节点 · $id",
+        "pickNode": "选择一个节点查看执行详情",
+        "replay": "重跑",
+        "kill": "终止",
+        "runInfo": "运行信息",
+        "iteration": "轮次 $n"
       },
       "kv": {
         "name": "名称",

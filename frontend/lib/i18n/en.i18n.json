@@ -240,7 +240,8 @@
       "tab": {
         "overview": "Overview",
         "versions": "Versions",
-        "logs": "Logs"
+        "logs": "Logs",
+        "runs": "Runs"
       },
       "verb": {
         "run": "Run",
@@ -291,6 +292,22 @@
         "path": "Path",
         "openEditor": "Open graph editor",
         "unparseable": "Orchestration graph unparseable"
+      },
+      "cockpit": {
+        "runs": "Runs",
+        "runsCount": "Runs · $n",
+        "nodeGantt": "Node timeline",
+        "notRun": "Not run",
+        "waitingApproval": "Awaiting approval",
+        "noRuns": "No runs yet",
+        "noRunsHint": "Each run appears here once the workflow is triggered",
+        "runGraph": "Run graph",
+        "nodeDetail": "Node · $id",
+        "pickNode": "Pick a node to see its execution detail",
+        "replay": "Replay",
+        "kill": "Kill",
+        "runInfo": "Run info",
+        "iteration": "Iteration $n"
       },
       "kv": {
         "name": "Name",

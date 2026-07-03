@@ -18,6 +18,7 @@ import '../state/run/right_panel.dart';
 import '../state/run/run_terminal_controller.dart';
 import '../state/selected_entity.dart';
 import 'detail/log_tab.dart';
+import 'detail/run_cockpit_tab.dart';
 import 'detail/ocean_header.dart';
 import 'detail/overview/agent_overview.dart';
 import 'detail/overview/function_overview.dart';
@@ -189,11 +190,21 @@ class _EntityOceanState extends ConsumerState<EntityOcean> {
                     label: d.tab.versions,
                     pane: VersionTab(detail.ref),
                   ),
-                  AnTabsItem(
-                    key: 'logs',
-                    label: d.tab.logs,
-                    pane: LogTab(detail.ref),
-                  ),
+                  // Workflow's log IS its flowruns → the 运行 cockpit (run board + gantt + run graph +
+                  // node debug, WRK-055 W4); other kinds keep the generic 日志 tab.
+                  // workflow 的日志就是 flowrun → 运行驾驶舱;余 kind 走通用日志 tab。
+                  if (detail.ref.kind == EntityKind.workflow)
+                    AnTabsItem(
+                      key: 'runs',
+                      label: d.tab.runs,
+                      pane: RunCockpitTab(detail.ref),
+                    )
+                  else
+                    AnTabsItem(
+                      key: 'logs',
+                      label: d.tab.logs,
+                      pane: LogTab(detail.ref),
+                    ),
                 ],
               ),
             ],

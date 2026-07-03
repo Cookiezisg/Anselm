@@ -67,6 +67,14 @@ abstract interface class EntityRepository {
   Future<FlowrunComposite> decideApproval(String flowrunId, String nodeId,
       {required String decision, String? reason});
 
+  /// `:replay` a FAILED flowrun (422 FLOWRUN_NOT_REPLAYABLE otherwise) → the fresh snapshot (202).
+  /// 重跑失败 flowrun → 新快照。
+  Future<FlowrunComposite> replayFlowrun(String flowrunId);
+
+  /// `:kill` a workflow — hard-stop every in-flight run (→ cancelled) → the workflow snapshot.
+  /// 终止 workflow:硬停全部在途 run。
+  Future<WorkflowEntity> killWorkflow(String id);
+
   // ── write plane (WRK-054 F2 — function first, signatures kind-generic where the endpoint is) ──
   /// PATCH meta (name/description/tags) — does NOT bump the version. 改 meta,不升版本。
   Future<FunctionEntity> patchFunctionMeta(String id, Map<String, dynamic> patch);
@@ -221,6 +229,14 @@ class LiveEntityRepository implements EntityRepository {
           {required String decision, String? reason}) =>
       _api.postEntity('/api/v1/flowruns/$flowrunId/approvals/$nodeId:decide',
           FlowrunComposite.fromJson, body: {'decision': decision, 'reason': ?reason});
+
+  @override
+  Future<FlowrunComposite> replayFlowrun(String flowrunId) =>
+      _api.postEntity('/api/v1/flowruns/$flowrunId:replay', FlowrunComposite.fromJson);
+
+  @override
+  Future<WorkflowEntity> killWorkflow(String id) =>
+      _api.postEntity('${EntityKind.workflow.itemPath(id)}:kill', WorkflowEntity.fromJson);
 
   @override
   Future<FunctionEntity> patchFunctionMeta(String id, Map<String, dynamic> patch) =>

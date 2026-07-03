@@ -434,6 +434,46 @@ class FixtureEntityRepository implements EntityRepository {
   }
 
   @override
+  Future<FlowrunComposite> replayFlowrun(String flowrunId) async {
+    final comp = _flowrunDetail[flowrunId];
+    if (comp == null) throw StateError('FixtureEntityRepository: no flowrun $flowrunId');
+    // :replay clears failed node rows + re-walks (record-once reuse). The fixture simply flips the
+    // failed rows to completed + the header to completed, bumping replayCount. fixture:失败行翻完成。
+    final now = DateTime.utc(2026, 6, 27, 11);
+    final next = FlowrunComposite(
+      flowrun: comp.flowrun.copyWith(
+          status: 'completed', completedAt: now, replayCount: comp.flowrun.replayCount + 1),
+      nodes: [
+        for (final n in comp.nodes)
+          n.status == 'failed'
+              ? n.copyWith(status: 'completed', completedAt: now, updatedAt: now, error: null)
+              : n,
+      ],
+    );
+    _flowrunDetail[flowrunId] = next;
+    return next;
+  }
+
+  @override
+  Future<WorkflowEntity> killWorkflow(String id) async {
+    final wf = await getWorkflow(id);
+    final next = wf.copyWith(lifecycleState: 'inactive', active: false);
+    upsertWorkflow(next);
+    // Cancel every in-flight flowrun of this workflow. 硬停本 workflow 全部在途 run。
+    for (final entry in _flowrunDetail.entries.toList()) {
+      final comp = entry.value;
+      if (comp.flowrun.workflowId == id &&
+          (comp.flowrun.status == 'running' || comp.flowrun.status == 'parked')) {
+        _flowrunDetail[entry.key] =
+            FlowrunComposite(flowrun: comp.flowrun.copyWith(status: 'cancelled'), nodes: comp.nodes);
+      }
+    }
+    emitLifecycle(EntitySignal(
+        kind: EntityKind.workflow, id: id, action: EntityAction.updated, durable: true));
+    return next;
+  }
+
+  @override
   Future<MountHealthReport> getMountHealth(String id) async =>
       _mountHealth[id] ?? const MountHealthReport(allHealthy: true);
 

@@ -6,6 +6,7 @@ import '../../core/design/colors.dart';
 import '../../core/design/tokens.dart';
 import '../../core/design/typography.dart';
 import '../../core/graph/graph_model.dart';
+import '../../core/graph/flowrun_timeline.dart';
 import '../../core/graph/graph_run_state.dart';
 import '../../core/ui/ui.dart';
 import 'chat_composer_specimens.dart';
@@ -110,7 +111,43 @@ final GalleryCategory _entityViz = GalleryCategory('实体可视化 Entity Viz',
     GallerySpecimen('海量 (40 节点扇出)', (_) => AnGraphCanvas(graph: _gHuge, framed: true), stress: true, span: true),
     GallerySpecimen('unknown kind + 超长 + 注入', (_) => AnGraphCanvas(graph: _gHostile, framed: true), stress: true, span: true),
   ]),
+  GalleryItem('AnNodeGantt 节点甘特', 'flowrun 逐节点时段条:状态色 + ×N 循环 + parked 等待框 + 未运行占位', [
+    GallerySpecimen('完成/失败/循环×3/parked/未运行', (_) => Padding(
+      padding: const EdgeInsets.all(AnSpace.s16),
+      child: AnNodeGantt(rows: _ganttSample, notRunLabel: '未运行', waitingLabel: '等待审批', selectedNodeId: 'gate'),
+    ), span: true),
+    GallerySpecimen('空 (无 run)', (_) => Padding(
+      padding: const EdgeInsets.all(AnSpace.s16),
+      child: AnNodeGantt(rows: const [], notRunLabel: '未运行', waitingLabel: '等待审批'),
+    ), stress: true, span: true),
+  ]),
+  GalleryItem('AnRunBoard 运行看板', '左 run 列表 + 右节点甘特 2 列;强链选区', [
+    GallerySpecimen('多次运行 + 选中甘特', (_) => AnRunBoard(
+      runs: _runSample, gantt: _ganttSample, selectedRunId: 'flr_a1c', selectedNodeId: 'gate',
+      runsHeader: '运行 · 3 次', ganttHeader: '节点甘特', emptyTitle: '尚无运行', emptyHint: '触发后列出',
+      notRunLabel: '未运行', waitingLabel: '等待审批',
+    ), span: true),
+    GallerySpecimen('空态', (_) => AnRunBoard(
+      runs: const [], gantt: const [], runsHeader: '运行 · 0 次', ganttHeader: '节点甘特',
+      emptyTitle: '尚无运行', emptyHint: '触发此工作流后这里会列出每次运行',
+    ), stress: true, span: true),
+  ]),
 ]);
+
+// Sample gantt/run data for the cockpit specimens. 驾驶舱标本数据。
+final List<GanttRow> _ganttSample = [
+  const GanttRow(nodeId: 'on_pr_merged', kind: NodeKind.trigger, ref: 'trg_3a1f', status: 'completed', segments: [GanttSegment(0.0, 0.08)], parked: false, iterations: 1),
+  const GanttRow(nodeId: 'run_tests', kind: NodeKind.action, ref: 'fn_5b2e', status: 'completed', segments: [GanttSegment(0.1, 0.2), GanttSegment(0.34, 0.2), GanttSegment(0.58, 0.18)], parked: false, iterations: 3),
+  const GanttRow(nodeId: 'branch_result', kind: NodeKind.control, ref: 'ctl_7d4c', status: 'completed', segments: [GanttSegment(0.78, 0.06)], parked: false, iterations: 1),
+  const GanttRow(nodeId: 'gate', kind: NodeKind.approval, ref: 'apf_2e9b', status: 'parked', segments: [GanttSegment(0.86, 0.12)], parked: true, iterations: 1),
+  const GanttRow(nodeId: 'do_rollback', kind: NodeKind.action, ref: 'hd_8a3f', status: '', segments: [], parked: false, iterations: 0),
+];
+
+const List<AnRunItem> _runSample = [
+  AnRunItem(id: 'flr_a1c', status: 'parked', hint: 'webhook · 12:09'),
+  AnRunItem(id: 'flr_9f2', status: 'completed', hint: 'webhook · 10:30'),
+  AnRunItem(id: 'flr_c3d', status: 'failed', hint: 'webhook · 昨天 18:21', replayCount: 1),
+];
 
 // Sample graphs for the canvas specimens — mirrors the demo's pr_merge_flow reference workflow.
 // 画布标本用样例图——镜像 demo 的 pr_merge_flow 参照工作流。

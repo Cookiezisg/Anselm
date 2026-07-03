@@ -142,3 +142,23 @@ String prettyJsonSource(String raw) {
   }
 }
 
+/// Page through GET /flowruns/{id} to the FULL node history — the page is newest-first and one page
+/// is not the whole run (a long loop overflows it; WRK-055 W3 契约). Caps at [maxPages] pages.
+/// 翻页拉全 flowrun 节点(页最新在前、一页非全量;长循环溢页)。封顶 [maxPages] 页防跑飞。
+Future<FlowrunComposite> fetchFlowrunFull(
+  Future<FlowrunComposite> Function(String id, {String? cursor, int? limit}) get,
+  String id, {
+  int maxPages = 20,
+}) async {
+  final first = await get(id, limit: 200);
+  final nodes = [...first.nodes];
+  var cursor = first.nextCursor;
+  var pages = 0;
+  while (cursor != null && pages < maxPages) {
+    final page = await get(id, cursor: cursor, limit: 200);
+    nodes.addAll(page.nodes);
+    cursor = page.nextCursor;
+    pages++;
+  }
+  return FlowrunComposite(flowrun: first.flowrun, nodes: nodes, nextCursor: null);
+}

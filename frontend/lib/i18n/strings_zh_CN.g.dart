@@ -462,6 +462,7 @@ class _Translations$entities$detail$zh_CN extends Translations$entities$detail$e
 	@override late final _Translations$entities$detail$sec$zh_CN sec = _Translations$entities$detail$sec$zh_CN._(_root);
 	@override late final _Translations$entities$detail$card$zh_CN card = _Translations$entities$detail$card$zh_CN._(_root);
 	@override late final _Translations$entities$detail$graph$zh_CN graph = _Translations$entities$detail$graph$zh_CN._(_root);
+	@override late final _Translations$entities$detail$cockpit$zh_CN cockpit = _Translations$entities$detail$cockpit$zh_CN._(_root);
 	@override late final _Translations$entities$detail$kv$zh_CN kv = _Translations$entities$detail$kv$zh_CN._(_root);
 	@override late final _Translations$entities$detail$val$zh_CN val = _Translations$entities$detail$val$zh_CN._(_root);
 	@override late final _Translations$entities$detail$mounts$zh_CN mounts = _Translations$entities$detail$mounts$zh_CN._(_root);
@@ -537,6 +538,7 @@ class _Translations$entities$detail$tab$zh_CN extends Translations$entities$deta
 	@override String get overview => '概览';
 	@override String get versions => '版本';
 	@override String get logs => '日志';
+	@override String get runs => '运行';
 }
 
 // Path: entities.detail.verb
@@ -629,6 +631,29 @@ class _Translations$entities$detail$graph$zh_CN extends Translations$entities$de
 	@override String get path => '路径';
 	@override String get openEditor => '进入图编辑器';
 	@override String get unparseable => '编排图无法解析';
+}
+
+// Path: entities.detail.cockpit
+class _Translations$entities$detail$cockpit$zh_CN extends Translations$entities$detail$cockpit$en {
+	_Translations$entities$detail$cockpit$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get runs => '运行';
+	@override String runsCount({required Object n}) => '运行 · ${n} 次';
+	@override String get nodeGantt => '节点甘特';
+	@override String get notRun => '未运行';
+	@override String get waitingApproval => '等待审批';
+	@override String get noRuns => '尚无运行';
+	@override String get noRunsHint => '触发此工作流后这里会列出每次运行';
+	@override String get runGraph => '运行图';
+	@override String nodeDetail({required Object id}) => '节点 · ${id}';
+	@override String get pickNode => '选择一个节点查看执行详情';
+	@override String get replay => '重跑';
+	@override String get kill => '终止';
+	@override String get runInfo => '运行信息';
+	@override String iteration({required Object n}) => '轮次 ${n}';
 }
 
 // Path: entities.detail.kv
@@ -955,6 +980,7 @@ extension on TranslationsZhCn {
 			'entities.detail.tab.overview' => '概览',
 			'entities.detail.tab.versions' => '版本',
 			'entities.detail.tab.logs' => '日志',
+			'entities.detail.tab.runs' => '运行',
 			'entities.detail.verb.run' => '运行',
 			'entities.detail.verb.call' => '调用',
 			'entities.detail.verb.invoke' => '唤起',
@@ -993,6 +1019,20 @@ extension on TranslationsZhCn {
 			'entities.detail.graph.path' => '路径',
 			'entities.detail.graph.openEditor' => '进入图编辑器',
 			'entities.detail.graph.unparseable' => '编排图无法解析',
+			'entities.detail.cockpit.runs' => '运行',
+			'entities.detail.cockpit.runsCount' => ({required Object n}) => '运行 · ${n} 次',
+			'entities.detail.cockpit.nodeGantt' => '节点甘特',
+			'entities.detail.cockpit.notRun' => '未运行',
+			'entities.detail.cockpit.waitingApproval' => '等待审批',
+			'entities.detail.cockpit.noRuns' => '尚无运行',
+			'entities.detail.cockpit.noRunsHint' => '触发此工作流后这里会列出每次运行',
+			'entities.detail.cockpit.runGraph' => '运行图',
+			'entities.detail.cockpit.nodeDetail' => ({required Object id}) => '节点 · ${id}',
+			'entities.detail.cockpit.pickNode' => '选择一个节点查看执行详情',
+			'entities.detail.cockpit.replay' => '重跑',
+			'entities.detail.cockpit.kill' => '终止',
+			'entities.detail.cockpit.runInfo' => '运行信息',
+			'entities.detail.cockpit.iteration' => ({required Object n}) => '轮次 ${n}',
 			'entities.detail.kv.name' => '名称',
 			'entities.detail.kv.tags' => '标签',
 			'entities.detail.kv.id' => 'ID',

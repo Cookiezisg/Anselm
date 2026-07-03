@@ -89,6 +89,11 @@ abstract final class AnSize {
   // pages. 实体页内嵌编排图框定高。
   static const double graphPreview = 380;
 
+  // Run-cockpit metrics (demo --run-list-w / --lane-w) — the AnRunBoard run-list column + the
+  // AnNodeGantt label lane. 驾驶舱度量:run 列表列宽 + 甘特标签列宽。
+  static const double runListW = 208;
+  static const double ganttLaneW = 132;
+
   // Three-island layout columns. The LEFT island is elastic (draggable, 240–400, default 320);
   // the RIGHT island is fixed; the ocean is the flex remainder whose content column is elastic
   // 480–720 (`oceanMin`..`content`). 三岛列:左岛弹性(可拖 240–400,默认 320);右岛固定;

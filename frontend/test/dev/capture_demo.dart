@@ -262,11 +262,27 @@ void main() {
 
     if (_tab.isNotEmpty) {
       final detail = LocaleSettings.instance.currentTranslations.entities.detail.tab;
-      final label = {'overview': detail.overview, 'versions': detail.versions, 'logs': detail.logs}[_tab]!;
+      final label = {'overview': detail.overview, 'versions': detail.versions, 'logs': detail.logs, 'runs': detail.runs}[_tab]!;
       await tester.tap(find.text(label));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 80)); // the tab's data loads
+      await tester.pump(const Duration(milliseconds: 120)); // the tab's data loads (cockpit pages through)
+      await tester.pump(const Duration(milliseconds: 120));
       outName = '${outName}_$_tab';
+      // RUNSEL=<flowrunId>: pick a run in the cockpit list. 点 run 列表某条。
+      if (const String.fromEnvironment('RUNSEL').isNotEmpty) {
+        await tester.tap(find.text(const String.fromEnvironment('RUNSEL')).first);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 120));
+        await tester.pump(const Duration(milliseconds: 120));
+        outName = '${outName}_${const String.fromEnvironment('RUNSEL')}';
+      }
+      // NODESEL=<nodeId>: pick a node in the run cockpit → the node-debug card. 点甘特节点出调试卡。
+      if (const String.fromEnvironment('NODESEL').isNotEmpty) {
+        await tester.tap(find.text(const String.fromEnvironment('NODESEL')).first);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 80));
+        outName = '${outName}_node';
+      }
       if (_vsel.isNotEmpty) {
         // Tap a version row (e.g. `v1`) to show a non-active selection → set-active appears in the
         // footer BELOW the diff. 选某版本行,验证 set-active 在 diff 下方 footer。

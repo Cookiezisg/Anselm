@@ -16,6 +16,8 @@ import 'entity_fixtures.dart';
 FixtureEntityRepository demoEntityRepository() {
   final t0 = DateTime.utc(2026, 6, 20, 9, 0);
   final t1 = DateTime.utc(2026, 6, 25, 14, 30);
+  // Node timestamps for the cockpit run (a retry loop with visible durations). 驾驶舱 run 的节点时刻(带可见时长的重试循环)。
+  DateTime rt(int sec) => DateTime.utc(2026, 6, 27, 12, 9, sec);
 
   FunctionVersion fnVer(String fnId, int v, String code, String reason) => FunctionVersion(
         id: '${fnId}_v$v',
@@ -219,19 +221,44 @@ FixtureEntityRepository demoEntityRepository() {
         AgentExecution(id: 'agx_1', agentId: 'ag_researcher', versionId: 'ag_researcher_v3', status: 'ok', triggeredBy: 'chat', input: const {'topic': 'llm agents'}, output: 'a summary…', provider: 'anthropic', modelId: 'claude-opus-4-8', elapsedMs: 5200, createdAt: t1),
       ],
     },
+    // wf_digest run history — node ids match the v2 graph (on_schedule/research/summarize/
+    // quality_gate/post_slack). flr_done shows a retry loop (research ×2); flr_fail a failed
+    // summarize (→ :replay); flr_run an in-flight run (running synthesis lights summarize).
+    // 运行历史,节点 id 对齐 v2 图。flr_done 重试循环;flr_fail 失败(可重跑);flr_run 在途。
     flowruns: {
       'wf_digest': [
-        Flowrun(id: 'flr_1', workflowId: 'wf_digest', versionId: 'wf_digest_v1', status: 'completed', replayCount: 0, startedAt: t1, completedAt: t1, updatedAt: t1),
-        Flowrun(id: 'flr_2', workflowId: 'wf_digest', versionId: 'wf_digest_v1', status: 'running', replayCount: 0, startedAt: t1, updatedAt: t1),
+        Flowrun(id: 'flr_run', workflowId: 'wf_digest', versionId: 'wf_digest_v2', status: 'running', replayCount: 0, triggerId: 'trg_3a1f', startedAt: rt(0), updatedAt: rt(2)),
+        Flowrun(id: 'flr_done', workflowId: 'wf_digest', versionId: 'wf_digest_v2', status: 'completed', replayCount: 0, triggerId: 'trg_3a1f', startedAt: t1, completedAt: t1.add(const Duration(seconds: 9)), updatedAt: t1),
+        Flowrun(id: 'flr_fail', workflowId: 'wf_digest', versionId: 'wf_digest_v2', status: 'failed', replayCount: 0, triggerId: 'trg_3a1f', error: 'run_tests exit code 1', startedAt: t0, completedAt: t0.add(const Duration(seconds: 4)), updatedAt: t0),
       ],
     },
     flowrunDetail: {
-      'flr_1': FlowrunComposite(
-        flowrun: Flowrun(id: 'flr_1', workflowId: 'wf_digest', versionId: 'wf_digest_v1', status: 'completed', replayCount: 0, startedAt: t1, completedAt: t1, updatedAt: t1),
+      'flr_run': FlowrunComposite(
+        flowrun: Flowrun(id: 'flr_run', workflowId: 'wf_digest', versionId: 'wf_digest_v2', status: 'running', replayCount: 0, triggerId: 'trg_3a1f', startedAt: rt(0), updatedAt: rt(2)),
         nodes: [
-          FlowrunNode(id: 'frn_1', flowrunId: 'flr_1', nodeId: 'n1', kind: 'trigger', ref: 'tr_cron', status: 'completed', createdAt: t1, completedAt: t1, updatedAt: t1),
-          FlowrunNode(id: 'frn_2', flowrunId: 'flr_1', nodeId: 'n2', kind: 'agent', ref: 'ag_researcher', status: 'completed', createdAt: t1, completedAt: t1, updatedAt: t1),
-          FlowrunNode(id: 'frn_3', flowrunId: 'flr_1', nodeId: 'n3', kind: 'action', ref: 'fn_summarize', status: 'completed', createdAt: t1, completedAt: t1, updatedAt: t1),
+          FlowrunNode(id: 'r1', flowrunId: 'flr_run', nodeId: 'on_schedule', kind: 'trigger', ref: 'tr_cron', status: 'completed', createdAt: rt(0), completedAt: rt(0), updatedAt: rt(0)),
+          FlowrunNode(id: 'r2', flowrunId: 'flr_run', nodeId: 'research', kind: 'agent', ref: 'ag_researcher', status: 'completed', createdAt: rt(0), completedAt: rt(2), updatedAt: rt(2)),
+        ],
+      ),
+      'flr_done': FlowrunComposite(
+        flowrun: Flowrun(id: 'flr_done', workflowId: 'wf_digest', versionId: 'wf_digest_v2', status: 'completed', replayCount: 0, triggerId: 'trg_3a1f', startedAt: t1, completedAt: t1.add(const Duration(seconds: 9)), updatedAt: t1),
+        nodes: [
+          FlowrunNode(id: 'd0', flowrunId: 'flr_done', nodeId: 'on_schedule', kind: 'trigger', ref: 'tr_cron', status: 'completed', createdAt: t1, completedAt: t1, updatedAt: t1),
+          FlowrunNode(id: 'd1', flowrunId: 'flr_done', nodeId: 'research', kind: 'agent', ref: 'ag_researcher', iteration: 0, status: 'completed', result: const {'summary': 'draft 1'}, createdAt: t1, completedAt: t1.add(const Duration(seconds: 2)), updatedAt: t1),
+          FlowrunNode(id: 'd2', flowrunId: 'flr_done', nodeId: 'summarize', kind: 'action', ref: 'fn_summarize', iteration: 0, status: 'completed', createdAt: t1.add(const Duration(seconds: 2)), completedAt: t1.add(const Duration(seconds: 3)), updatedAt: t1),
+          FlowrunNode(id: 'd3', flowrunId: 'flr_done', nodeId: 'quality_gate', kind: 'control', ref: 'ctl_quality', iteration: 0, status: 'completed', result: const {'__port': 'retry', 'score': 0.4}, createdAt: t1.add(const Duration(seconds: 3)), completedAt: t1.add(const Duration(seconds: 3)), updatedAt: t1),
+          FlowrunNode(id: 'd4', flowrunId: 'flr_done', nodeId: 'research', kind: 'agent', ref: 'ag_researcher', iteration: 1, status: 'completed', result: const {'summary': 'draft 2'}, createdAt: t1.add(const Duration(seconds: 3)), completedAt: t1.add(const Duration(seconds: 6)), updatedAt: t1),
+          FlowrunNode(id: 'd5', flowrunId: 'flr_done', nodeId: 'summarize', kind: 'action', ref: 'fn_summarize', iteration: 1, status: 'completed', createdAt: t1.add(const Duration(seconds: 6)), completedAt: t1.add(const Duration(seconds: 7)), updatedAt: t1),
+          FlowrunNode(id: 'd6', flowrunId: 'flr_done', nodeId: 'quality_gate', kind: 'control', ref: 'ctl_quality', iteration: 1, status: 'completed', result: const {'__port': 'pass', 'score': 0.9}, createdAt: t1.add(const Duration(seconds: 7)), completedAt: t1.add(const Duration(seconds: 7)), updatedAt: t1),
+          FlowrunNode(id: 'd7', flowrunId: 'flr_done', nodeId: 'post_slack', kind: 'action', ref: 'hd_slack.post', iteration: 1, status: 'completed', result: const {'ts': '1719487747.12'}, createdAt: t1.add(const Duration(seconds: 7)), completedAt: t1.add(const Duration(seconds: 9)), updatedAt: t1),
+        ],
+      ),
+      'flr_fail': FlowrunComposite(
+        flowrun: Flowrun(id: 'flr_fail', workflowId: 'wf_digest', versionId: 'wf_digest_v2', status: 'failed', replayCount: 0, triggerId: 'trg_3a1f', error: 'run_tests exit code 1', startedAt: t0, completedAt: t0.add(const Duration(seconds: 4)), updatedAt: t0),
+        nodes: [
+          FlowrunNode(id: 'f0', flowrunId: 'flr_fail', nodeId: 'on_schedule', kind: 'trigger', ref: 'tr_cron', status: 'completed', createdAt: t0, completedAt: t0, updatedAt: t0),
+          FlowrunNode(id: 'f1', flowrunId: 'flr_fail', nodeId: 'research', kind: 'agent', ref: 'ag_researcher', status: 'completed', createdAt: t0, completedAt: t0.add(const Duration(seconds: 2)), updatedAt: t0),
+          FlowrunNode(id: 'f2', flowrunId: 'flr_fail', nodeId: 'summarize', kind: 'action', ref: 'fn_summarize', status: 'failed', error: 'ValueError: empty document', createdAt: t0.add(const Duration(seconds: 2)), completedAt: t0.add(const Duration(seconds: 4)), updatedAt: t0),
         ],
       ),
     },
