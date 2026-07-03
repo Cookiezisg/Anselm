@@ -90,7 +90,26 @@
       "noMatches": "no matches",
       "exit": "exit $code",
       "timedOut": "timed out",
-      "wroteBytes": "$n bytes"
+      "wroteBytes": "$n bytes",
+      "creatingKind": "Creating $kind",
+      "createdKind": "Created $kind",
+      "updatingKind": "Updating $kind",
+      "updatedKind": "Updated $kind",
+      "envReady": "env ready",
+      "envBuilding": "env building",
+      "envFailed": "env failed",
+      "restarted": "restarted",
+      "kind": {
+        "function": "function",
+        "handler": "handler",
+        "agent": "agent",
+        "workflow": "workflow",
+        "control": "control",
+        "approval": "approval",
+        "document": "document",
+        "skill": "skill",
+        "trigger": "trigger"
+      }
     }
   },
   "appName": "Anselm",

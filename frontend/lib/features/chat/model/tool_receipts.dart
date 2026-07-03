@@ -81,6 +81,36 @@ String? argString(String argsFragment, String key) {
       .replaceAll(r'\t', '\t');
 }
 
+/// Like [argString] but ALSO accepts a still-open value: when the closing quote hasn't
+/// streamed in yet, returns everything emitted so far — the builds family streams its code
+/// window with this (the whole point of "全系统最强流式").
+///
+/// 同 [argString] 但**接受未闭合值**:收尾引号未到时返已流入的全部——builds 族靠它流代码窗
+/// (「全系统最强流式」的落点)。
+String? argStringPartial(String argsFragment, String key) {
+  final closed = argString(argsFragment, key);
+  if (closed != null) return closed;
+  final start = RegExp('"$key"\\s*:\\s*"').firstMatch(argsFragment);
+  if (start == null) return null;
+  final buf = StringBuffer();
+  var escaped = false;
+  for (var i = start.end; i < argsFragment.length; i++) {
+    final ch = argsFragment[i];
+    if (escaped) {
+      buf.write(switch (ch) { 'n' => '\n', 't' => '\t', _ => ch });
+      escaped = false;
+    } else if (ch == r'\') {
+      escaped = true;
+    } else if (ch == '"') {
+      break; // closed after all (argString would have caught it, but be safe) 已闭合兜底
+    } else {
+      buf.write(ch);
+    }
+  }
+  final v = buf.toString();
+  return v.isEmpty ? null : v;
+}
+
 /// Path → basename for the target chip (full path belongs in a tooltip).
 /// 路径 → basename 作目标 chip(全路径归 tooltip)。
 String pathBasename(String path) {

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/widgets.dart';
 
 import '../../../i18n/strings.g.dart';
@@ -20,7 +22,7 @@ class ToolCardSpec {
     this.receipt,
     this.body,
     this.bodyless = false,
-    this.liveTail = false,
+    this.liveBody,
   });
 
   /// The phase verb — gerund while live, past tense settled (terminal overrides — denied /
@@ -41,9 +43,12 @@ class ToolCardSpec {
   /// Never expands (Read: the receipt IS the card — industry consensus). 永不展开(Read)。
   final bool bodyless;
 
-  /// Show the live machine-window tail (last progress lines) under the row while running.
-  /// 执行中在行下显机器窗活尾巴(progress 尾行)。
-  final bool liveTail;
+  /// The LIVE machine window under the row while the call is in flight and not user-expanded:
+  /// F3 = the terminal tail (progress lines); F4 builds = the content window streaming in as
+  /// args flow. null → nothing shows while live.
+  /// 在飞且未被用户展开时行下的**活机器窗**:F3=终端尾巴(progress 行);F4 builds=随 args 流入
+  /// 的内容窗。null=live 期无窗。
+  final Widget Function(BuildContext context, ToolCardState state)? liveBody;
 }
 
 /// The generic fallback (V3a behavior, unchanged). 通用兜底(V3a 行为不变)。
@@ -88,6 +93,40 @@ ToolCardSpec _search({
       receipt: (t, s) => countReceipt(s.resultText,
           countLabel: (n) => countLabel(t, n), noneLabel: t.chat.tool.noMatches),
       body: body,
+    );
+
+/// F4 builds: create/edit × 8 entities + the trigger pair. The verb carries the KIND NOUN
+/// (正在创建函数/Creating function); create targets the streaming args.name, edit targets the
+/// entity id; the receipt is vN from the output + the env half-success (envStatus failed →
+/// danger → auto-expand); the live body streams the authored content as args flow.
+/// F4 构建族:create/edit×8 实体+trigger 对。动词带**类名词**;create 目标=流中 args.name、
+/// edit=实体 id;回执=输出 vN + env 半成功(failed→危险色→自动展开);活体=内容随 args 流入。
+ToolCardSpec _build({
+  required String Function(Translations) kind,
+  required bool create,
+  String? editIdKey,
+}) =>
+    ToolCardSpec(
+      verb: (t, {required bool live}) => create
+          ? (live ? t.chat.tool.creatingKind(kind: kind(t)) : t.chat.tool.createdKind(kind: kind(t)))
+          : (live ? t.chat.tool.updatingKind(kind: kind(t)) : t.chat.tool.updatedKind(kind: kind(t))),
+      target: (s) => create
+          ? argStringPartial(s.argsText, 'name')
+          : (editIdKey == null ? null : argString(s.argsText, editIdKey)),
+      receipt: (t, s) {
+        Map<String, dynamic>? out;
+        try {
+          final d = jsonDecode(s.resultText);
+          if (d is Map<String, dynamic>) out = d;
+        } catch (_) {}
+        if (out == null) return null;
+        final v = out['version'];
+        final envFailed = out['envStatus'] == 'failed' || (out['envError'] as String?)?.isNotEmpty == true;
+        if (envFailed) return (text: t.chat.tool.envFailed, danger: true);
+        return v == null ? null : (text: 'v$v', danger: false);
+      },
+      body: buildToolBody,
+      liveBody: buildLiveBody,
     );
 
 /// The family table — keyed by exact tool name. 族表,按精确工具名键。
@@ -141,6 +180,26 @@ final Map<String, ToolCardSpec> _catalog = {
     body: listToolBody,
   ),
 
+  // ── F4 builds 构建族 ──
+  'create_function': _build(kind: (t) => t.chat.tool.kind.function, create: true),
+  'edit_function': _build(kind: (t) => t.chat.tool.kind.function, create: false, editIdKey: 'functionId'),
+  'create_handler': _build(kind: (t) => t.chat.tool.kind.handler, create: true),
+  'edit_handler': _build(kind: (t) => t.chat.tool.kind.handler, create: false, editIdKey: 'handlerId'),
+  'create_agent': _build(kind: (t) => t.chat.tool.kind.agent, create: true),
+  'edit_agent': _build(kind: (t) => t.chat.tool.kind.agent, create: false, editIdKey: 'agentId'),
+  'create_workflow': _build(kind: (t) => t.chat.tool.kind.workflow, create: true),
+  'edit_workflow': _build(kind: (t) => t.chat.tool.kind.workflow, create: false, editIdKey: 'workflowId'),
+  'create_control': _build(kind: (t) => t.chat.tool.kind.control, create: true),
+  'edit_control': _build(kind: (t) => t.chat.tool.kind.control, create: false, editIdKey: 'controlId'),
+  'create_approval': _build(kind: (t) => t.chat.tool.kind.approval, create: true),
+  'edit_approval': _build(kind: (t) => t.chat.tool.kind.approval, create: false, editIdKey: 'approvalId'),
+  'create_document': _build(kind: (t) => t.chat.tool.kind.document, create: true),
+  'edit_document': _build(kind: (t) => t.chat.tool.kind.document, create: false, editIdKey: 'id'),
+  'create_skill': _build(kind: (t) => t.chat.tool.kind.skill, create: true),
+  'edit_skill': _build(kind: (t) => t.chat.tool.kind.skill, create: false, editIdKey: 'name'),
+  'create_trigger': _build(kind: (t) => t.chat.tool.kind.trigger, create: true),
+  'edit_trigger': _build(kind: (t) => t.chat.tool.kind.trigger, create: false, editIdKey: 'triggerId'),
+
   // ── F3 shell ──
   'Bash': ToolCardSpec(
     verb: (t, {required bool live}) => live ? t.chat.tool.runningCmd : t.chat.tool.ranCmd,
@@ -151,7 +210,9 @@ final Map<String, ToolCardSpec> _catalog = {
     receipt: (t, s) => bashReceipt(s.resultText,
         exitLabel: (code) => t.chat.tool.exit(code: code), timedOutLabel: t.chat.tool.timedOut),
     body: bashToolBody,
-    liveTail: true, // the soul of the family: the little live terminal 族魂:活的小终端
+    // The soul of the family: the little live terminal under the row. 族魂:行下活的小终端。
+    liveBody: (context, s) =>
+        s.progressText.isEmpty ? const SizedBox.shrink() : ToolLiveTail(text: s.progressText),
   ),
 };
 

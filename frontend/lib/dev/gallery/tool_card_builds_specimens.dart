@@ -1,0 +1,104 @@
+import '../../core/contract/messages/block_content.dart';
+import '../../core/messages/block_tree_reducer.dart';
+import '../../core/sse/frame.dart';
+import '../../features/chat/ui/chat_tool_card.dart';
+import 'specimen.dart';
+
+// V3c builds — the platform's soul family: the authored content STREAMS into the machine
+// window as the LLM emits args (plain mono while flowing, highlighted editor once settled),
+// then the RESULT BAR lands: id · vN · env outcome (the honest half-success — the entity
+// landed but its sandbox env may still be building or failed).
+//
+// V3c 构建族——平台灵魂:创作内容随 LLM 吐 args **流进机器窗**(流动期纯等宽,落定换高亮编辑器),
+// 然后**结果条**落地:id · vN · env 结局(诚实半成功——实体落了,沙箱 env 可能还在建或已失败)。
+
+BlockNode _call(
+  String id,
+  String name, {
+  String status = 'completed',
+  String? args,
+  String? summary,
+  String? result,
+}) {
+  final node = BlockNode(id: 'tc_$id', kind: BlockKind.toolCall)
+    ..status = status
+    ..content = {'name': name, 'arguments': ?args, 'summary': ?summary};
+  if (result != null) {
+    node.children.add(BlockNode(id: 'tr_$id', kind: BlockKind.toolResult)
+      ..status = 'completed'
+      ..content = {'content': result});
+  }
+  return node;
+}
+
+/// Mid-stream create_function: set_code's `code` value still OPEN — the live window shows
+/// exactly what has streamed so far. 流中 create_function:code 值未闭合,活窗显已流入部分。
+BlockNode _streamingBuild() {
+  const scope = StreamScope(kind: 'conversation', id: 'cv_g');
+  final r = BlockTreeReducer()
+    ..apply(const StreamEnvelope(
+        seq: 1, scope: scope, id: 'tc_bstream',
+        frame: FrameOpen(node: StreamNode(type: 'tool_call', content: {'name': 'create_function'}))))
+    ..apply(const StreamEnvelope(
+        seq: 0, scope: scope, id: 'tc_bstream',
+        frame: FrameDelta(
+            chunk: '{"summary":"Create the quarterly rollup","ops":[{"op":"set_meta","name":"quarterly_rollup",'
+                '"description":"按季度聚合发票"},{"op":"set_code","code":"import json\\n\\ndef rollup(items):\\n'
+                '    by_quarter = {}\\n    for it in items:\\n        q = quarter_of(it.date)\\n'
+                '        by_quarter.setdefault(q, 0)\\n        by_quar')));
+  return r.roots.single;
+}
+
+const String _fnArgs =
+    '{"ops":[{"op":"set_meta","name":"quarterly_rollup","description":"按季度聚合发票"},'
+    '{"op":"set_code","code":"import json\\n\\ndef rollup(items):\\n    by_quarter = {}\\n'
+    '    for it in items:\\n        q = quarter_of(it.date)\\n        by_quarter.setdefault(q, 0)\\n'
+    '        by_quarter[q] += it.amount\\n    return by_quarter\\n"}]}';
+
+final toolCardBuildsGalleryItem = GalleryItem(
+  'ChatToolCard · builds 族',
+  'F4:动词带类名词(正在创建函数);create 目标=流中 args.name;**活代码窗**(内容随 args 流入,'
+      '流动期纯等宽、落定换高亮编辑器);结果条 id·vN·env(半成功诚实:failed=危险色回执+自动展开+envError 红)。',
+  [
+    GallerySpecimen('args 流入中 · 活代码窗(本族主打:代码随打字流进窗)',
+        (c) => ChatToolCard(node: _streamingBuild()), span: true),
+    GallerySpecimen('已创建函数 · v1 · env 就绪(展开:高亮代码+结果条)',
+        (c) => ChatToolCard(
+            node: _call('fn-ok', 'create_function',
+                args: _fnArgs, summary: 'Create the quarterly rollup',
+                result:
+                    '{"id":"fn_1a2b3c4d5e6f7a8b","versionId":"fnv_0011223344556677","version":1,"envStatus":"ready","opsApplied":2}')),
+        span: true),
+    GallerySpecimen('env 失败 · 半成功(危险色回执,自动展开,envError 红)',
+        (c) => ChatToolCard(
+            node: _call('fn-env', 'create_function',
+                args: _fnArgs, summary: 'Create the quarterly rollup',
+                result:
+                    '{"id":"fn_1a2b3c4d5e6f7a8b","versionId":"fnv_0011223344556677","version":1,"envStatus":"failed","opsApplied":2,"envError":"pip install pandas==9.9.9: no matching distribution found"}')),
+        span: true),
+    GallerySpecimen('已更新智能体 · v3(prompt 窗)',
+        (c) => ChatToolCard(
+            node: _call('ag-edit', 'edit_agent',
+                args:
+                    '{"agentId":"ag_9f8e7d6c5b4a3f2e","prompt":"You are the invoice triager.\\nClassify each incoming invoice by quarter and flag any refund lines.\\nWhen totals mismatch, open an issue instead of guessing."}',
+                summary: 'Sharpen the triager prompt',
+                result: '{"id":"ag_9f8e7d6c5b4a3f2e","versionId":"agv_8877665544332211","version":3}')),
+        span: true),
+    GallerySpecimen('已创建文档(markdown 内容;散文输出→无结果条)',
+        (c) => ChatToolCard(
+            node: _call('doc', 'create_document',
+                args:
+                    '{"name":"季度汇总口径","content":"# 季度汇总口径\\n\\n- 退款行计入当季(冲减)\\n- 多币种先归一到本位币\\n- 净额为主列,含税总额附加"}',
+                summary: 'Write down the rollup rules',
+                result: 'Created document "季度汇总口径" (id=doc_5566778899aabbcc, path=/specs/季度汇总口径)')),
+        span: true),
+    GallerySpecimen('已创建工作流(无单一内容→配置 JSON 窗)',
+        (c) => ChatToolCard(
+            node: _call('wf', 'create_workflow',
+                args:
+                    '{"name":"invoice_sync","graph":{"nodes":[{"id":"trigger","kind":"trigger","ref":"trg_1"},{"id":"sync","kind":"action","ref":"fn_1a2b3c4d5e6f7a8b"}],"edges":[{"from":"trigger","to":"sync"}]}}',
+                summary: 'Wire the sync pipeline',
+                result: '{"id":"wf_00ff00ff00ff00ff","versionId":"wfv_1122334455667788","version":1,"active":false,"lifecycleState":"draft"}')),
+        span: true, stress: true),
+  ],
+);

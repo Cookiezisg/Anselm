@@ -90,7 +90,26 @@
       "noMatches": "无匹配",
       "exit": "exit $code",
       "timedOut": "超时",
-      "wroteBytes": "$n 字节"
+      "wroteBytes": "$n 字节",
+      "creatingKind": "正在创建$kind",
+      "createdKind": "已创建$kind",
+      "updatingKind": "正在修改$kind",
+      "updatedKind": "已更新$kind",
+      "envReady": "env 就绪",
+      "envBuilding": "env 构建中",
+      "envFailed": "env 失败",
+      "restarted": "已重启",
+      "kind": {
+        "function": "函数",
+        "handler": "处理器",
+        "agent": "智能体",
+        "workflow": "工作流",
+        "control": "控制",
+        "approval": "审批",
+        "document": "文档",
+        "skill": "技能",
+        "trigger": "触发器"
+      }
     }
   },
   "appName": "Anselm",

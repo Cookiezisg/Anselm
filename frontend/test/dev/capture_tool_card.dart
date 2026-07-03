@@ -13,6 +13,7 @@ import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/design/typography.dart';
 import 'package:anselm/dev/gallery/chat_tool_card_specimens.dart';
+import 'package:anselm/dev/gallery/tool_card_builds_specimens.dart';
 import 'package:anselm/dev/gallery/tool_card_family_specimens.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
@@ -59,6 +60,7 @@ void main() {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   for (final s in [
+                    ...toolCardBuildsGalleryItem.specimens,
                     ...toolCardShellGalleryItem.specimens,
                     ...toolCardFsGalleryItem.specimens,
                     ...toolCardSearchGalleryItem.specimens,
@@ -83,6 +85,8 @@ void main() {
     // Grep hit window (Bash-fail auto-expands). 点开 Bash成功/Write/Edit/Grep 四张入镜。
     await tester.pump(const Duration(milliseconds: 60));
     for (final f in [
+      find.text('quarterly_rollup').at(1), // builds 成功卡(第 0 个是流入卡的 name)
+      find.textContaining('已更新智能体').last, // edit_agent prompt 窗(first=标签)
       find.text('npm test').at(1), // Bash · exit 0 (第 0 个是活尾巴卡) 成功终端窗
       find.text('quarters.py').first, // Write 代码窗
       find.text('rollup.py').at(1), // Edit diff 窗(第 0 个是 Read 回执卡的 chip)

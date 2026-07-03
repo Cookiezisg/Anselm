@@ -64,7 +64,7 @@ void main() {
 
   testWidgets('failure auto-expands once and shows the error body; user can re-collapse',
       (tester) async {
-    final failed = _call('edit_workflow', extra: {'arguments': '{"workflowId":"wf_1"}'})
+    final failed = _call('edit_gizmo', extra: {'arguments': '{"gizmoId":"gz_1"}'})
       ..children.add(_result('GRAPH_CYCLE: sync reaches itself', error: true));
     await tester.pumpWidget(_host(ChatToolCard(node: failed), reduced: true));
     await tester.pumpAndSettle();
@@ -81,7 +81,7 @@ void main() {
 
   testWidgets('success stays collapsed; tapping reveals intent/args/result sections',
       (tester) async {
-    final ok = _call('create_function', extra: {
+    final ok = _call('summon_gizmo', extra: {
       'summary': 'Build the rollup',
       'arguments': '{"ops":[{"op":"set_meta"}]}',
     })

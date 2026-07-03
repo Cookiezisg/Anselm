@@ -755,6 +755,32 @@ class Translations$chat$tool$en {
 
 	/// en: '$n bytes'
 	String wroteBytes({required Object n}) => '${n} bytes';
+
+	/// en: 'Creating $kind'
+	String creatingKind({required Object kind}) => 'Creating ${kind}';
+
+	/// en: 'Created $kind'
+	String createdKind({required Object kind}) => 'Created ${kind}';
+
+	/// en: 'Updating $kind'
+	String updatingKind({required Object kind}) => 'Updating ${kind}';
+
+	/// en: 'Updated $kind'
+	String updatedKind({required Object kind}) => 'Updated ${kind}';
+
+	/// en: 'env ready'
+	String get envReady => 'env ready';
+
+	/// en: 'env building'
+	String get envBuilding => 'env building';
+
+	/// en: 'env failed'
+	String get envFailed => 'env failed';
+
+	/// en: 'restarted'
+	String get restarted => 'restarted';
+
+	late final Translations$chat$tool$kind$en kind = Translations$chat$tool$kind$en.internal(_root);
 }
 
 // Path: shell.ocean
@@ -890,6 +916,42 @@ class Translations$entities$run$en {
 	String ms({required Object ms}) => '${ms} ms';
 
 	late final Translations$entities$run$danger$en danger = Translations$entities$run$danger$en.internal(_root);
+}
+
+// Path: chat.tool.kind
+class Translations$chat$tool$kind$en {
+	Translations$chat$tool$kind$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'function'
+	String get function => 'function';
+
+	/// en: 'handler'
+	String get handler => 'handler';
+
+	/// en: 'agent'
+	String get agent => 'agent';
+
+	/// en: 'workflow'
+	String get workflow => 'workflow';
+
+	/// en: 'control'
+	String get control => 'control';
+
+	/// en: 'approval'
+	String get approval => 'approval';
+
+	/// en: 'document'
+	String get document => 'document';
+
+	/// en: 'skill'
+	String get skill => 'skill';
+
+	/// en: 'trigger'
+	String get trigger => 'trigger';
 }
 
 // Path: entities.detail.tab
@@ -1364,6 +1426,23 @@ extension on Translations {
 			'chat.tool.exit' => ({required Object code}) => 'exit ${code}',
 			'chat.tool.timedOut' => 'timed out',
 			'chat.tool.wroteBytes' => ({required Object n}) => '${n} bytes',
+			'chat.tool.creatingKind' => ({required Object kind}) => 'Creating ${kind}',
+			'chat.tool.createdKind' => ({required Object kind}) => 'Created ${kind}',
+			'chat.tool.updatingKind' => ({required Object kind}) => 'Updating ${kind}',
+			'chat.tool.updatedKind' => ({required Object kind}) => 'Updated ${kind}',
+			'chat.tool.envReady' => 'env ready',
+			'chat.tool.envBuilding' => 'env building',
+			'chat.tool.envFailed' => 'env failed',
+			'chat.tool.restarted' => 'restarted',
+			'chat.tool.kind.function' => 'function',
+			'chat.tool.kind.handler' => 'handler',
+			'chat.tool.kind.agent' => 'agent',
+			'chat.tool.kind.workflow' => 'workflow',
+			'chat.tool.kind.control' => 'control',
+			'chat.tool.kind.approval' => 'approval',
+			'chat.tool.kind.document' => 'document',
+			'chat.tool.kind.skill' => 'skill',
+			'chat.tool.kind.trigger' => 'trigger',
 			'appName' => 'Anselm',
 			'status.idle' => 'Idle',
 			'status.run' => 'Running',

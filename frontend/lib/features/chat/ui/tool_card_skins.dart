@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/design/colors.dart';
@@ -175,4 +177,127 @@ String? _langOf(String path) {
     'yaml' || 'yml' => 'yaml',
     _ => null,
   };
+}
+
+// ── F4 builds 构建族 ────────────────────────────────────────────────────────
+
+/// Extract a build call's MAIN CONTENT (the thing being authored) from its args — tolerant of
+/// a PARTIAL mid-stream fragment, which is the family's whole show: the code/prompt/document
+/// streams into the window as the LLM types it.
+/// 从 args 提取构建调用的**主内容**(被创作之物)——容忍流中不完整片段;这正是本族的重头戏:
+/// 代码/提示词/文档随 LLM 打字流进窗里。
+String? buildContentOf(String toolName, String argsFragment) {
+  if (toolName.endsWith('_function') || toolName.endsWith('_handler')) {
+    // ops-based: the set_code op's `code` (functions); handlers are structured ops — fall
+    // through to `code` too (add_method carries `body`, try it second).
+    // ops 型:set_code 的 `code`;handler 结构化 ops——先试 `code` 再试 add_method 的 `body`。
+    return argStringPartial(argsFragment, 'code') ?? argStringPartial(argsFragment, 'body');
+  }
+  if (toolName.endsWith('_agent')) return argStringPartial(argsFragment, 'prompt');
+  if (toolName.endsWith('_document')) return argStringPartial(argsFragment, 'content');
+  if (toolName.endsWith('_skill')) return argStringPartial(argsFragment, 'body');
+  return null; // workflow/control/approval/trigger: JSON config — the body shows args 图/配置走 JSON
+}
+
+String? _buildLang(String toolName) {
+  if (toolName.endsWith('_function') || toolName.endsWith('_handler')) return 'python';
+  if (toolName.endsWith('_document') || toolName.endsWith('_skill')) return 'markdown';
+  return null;
+}
+
+/// The LIVE builds window: the content streaming in as the LLM emits args — plain mono while
+/// flowing (a re-highlight per delta would burn the frame budget), swapped for the highlighted
+/// editor once settled (in [buildToolBody]).
+/// builds 活窗:内容随 LLM 吐 args 流入——流动期纯等宽(逐 delta 重新高亮烧帧预算),落定后
+/// (在 [buildToolBody])换高亮编辑器。
+Widget buildLiveBody(BuildContext context, ToolCardState state) {
+  final content = buildContentOf(state.toolName, state.argsText);
+  if (content == null || content.isEmpty) return const SizedBox.shrink();
+  final c = context.colors;
+  final lines = content.split('\n');
+  const tail = 8; // a taller window than the terminal tail — code is the show 代码是主角,窗更高
+  final shown = lines.length > tail ? lines.sublist(lines.length - tail) : lines;
+  return ToolWindow(
+    child: Text(shown.join('\n'), style: AnText.code.copyWith(color: c.inkMuted)),
+  );
+}
+
+/// The settled builds body: intent · authored content (highlighted) · the RESULT BAR — id,
+/// version, env outcome. envStatus is the family's honest half-success: the entity landed but
+/// its sandbox env may still be building or have failed (envError shown red).
+/// builds 落定体:意图 · 创作内容(高亮)· **结果条**——id/版本/env 结局。envStatus 是本族的
+/// 诚实半成功:实体落了、沙箱 env 可能还在构建或已失败(envError 红显)。
+Widget buildToolBody(BuildContext context, ToolCardState state) {
+  final content = buildContentOf(state.toolName, state.argsText);
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _intent(context, state),
+      if (content != null && content.isNotEmpty)
+        AnCodeEditor(code: content, lang: _buildLang(state.toolName))
+      else if (state.argsText.isNotEmpty)
+        ToolWindow(child: _cappedMono(context, state.argsText)),
+      _BuildResultBar(state: state),
+    ],
+  );
+}
+
+class _BuildResultBar extends StatelessWidget {
+  const _BuildResultBar({required this.state});
+
+  final ToolCardState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Translations.of(context);
+    final c = context.colors;
+    Map<String, dynamic>? out;
+    try {
+      final d = jsonDecode(state.resultText);
+      if (d is Map<String, dynamic>) out = d;
+    } catch (_) {}
+    if (out == null) return const SizedBox.shrink();
+    final id = out['id'] as String?;
+    final version = out['version'];
+    final envStatus = out['envStatus'] as String?;
+    final envError = out['envError'] as String?;
+    final restarted = out['restarted'] == true;
+    final parts = <InlineSpan>[
+      if (id != null)
+        TextSpan(text: id, style: AnText.code.copyWith(color: c.inkMuted, height: 1.4)),
+      if (version != null)
+        TextSpan(text: '${id != null ? ' · ' : ''}v$version',
+            style: AnText.metaTabular().copyWith(color: c.inkMuted)),
+      if (envStatus != null)
+        TextSpan(
+            text: ' · ${switch (envStatus) {
+              'ready' => t.chat.tool.envReady,
+              'failed' => t.chat.tool.envFailed,
+              _ => t.chat.tool.envBuilding,
+            }}',
+            style: AnText.meta.copyWith(
+                color: switch (envStatus) {
+              'ready' => c.ok,
+              'failed' => c.danger,
+              _ => c.warn,
+            })),
+      if (restarted)
+        TextSpan(text: ' · ${t.chat.tool.restarted}', style: AnText.meta.copyWith(color: c.inkFaint)),
+    ];
+    if (parts.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: AnSpace.s6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text.rich(TextSpan(children: parts)),
+          if (envError != null && envError.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: AnSpace.s4),
+              child: Text(envError, style: AnText.code.copyWith(color: c.danger)),
+            ),
+        ],
+      ),
+    );
+  }
 }

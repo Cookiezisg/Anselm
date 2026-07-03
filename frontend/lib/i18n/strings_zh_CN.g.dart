@@ -391,6 +391,15 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String exit({required Object code}) => 'exit ${code}';
 	@override String get timedOut => '超时';
 	@override String wroteBytes({required Object n}) => '${n} 字节';
+	@override String creatingKind({required Object kind}) => '正在创建${kind}';
+	@override String createdKind({required Object kind}) => '已创建${kind}';
+	@override String updatingKind({required Object kind}) => '正在修改${kind}';
+	@override String updatedKind({required Object kind}) => '已更新${kind}';
+	@override String get envReady => 'env 就绪';
+	@override String get envBuilding => 'env 构建中';
+	@override String get envFailed => 'env 失败';
+	@override String get restarted => '已重启';
+	@override late final _Translations$chat$tool$kind$zh_CN kind = _Translations$chat$tool$kind$zh_CN._(_root);
 }
 
 // Path: shell.ocean
@@ -460,6 +469,24 @@ class _Translations$entities$run$zh_CN extends Translations$entities$run$en {
 	@override String tokens({required Object inT, required Object outT}) => '输入 ${inT} · 输出 ${outT}';
 	@override String ms({required Object ms}) => '${ms} ms';
 	@override late final _Translations$entities$run$danger$zh_CN danger = _Translations$entities$run$danger$zh_CN._(_root);
+}
+
+// Path: chat.tool.kind
+class _Translations$chat$tool$kind$zh_CN extends Translations$chat$tool$kind$en {
+	_Translations$chat$tool$kind$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get function => '函数';
+	@override String get handler => '处理器';
+	@override String get agent => '智能体';
+	@override String get workflow => '工作流';
+	@override String get control => '控制';
+	@override String get approval => '审批';
+	@override String get document => '文档';
+	@override String get skill => '技能';
+	@override String get trigger => '触发器';
 }
 
 // Path: entities.detail.tab
@@ -742,6 +769,23 @@ extension on TranslationsZhCn {
 			'chat.tool.exit' => ({required Object code}) => 'exit ${code}',
 			'chat.tool.timedOut' => '超时',
 			'chat.tool.wroteBytes' => ({required Object n}) => '${n} 字节',
+			'chat.tool.creatingKind' => ({required Object kind}) => '正在创建${kind}',
+			'chat.tool.createdKind' => ({required Object kind}) => '已创建${kind}',
+			'chat.tool.updatingKind' => ({required Object kind}) => '正在修改${kind}',
+			'chat.tool.updatedKind' => ({required Object kind}) => '已更新${kind}',
+			'chat.tool.envReady' => 'env 就绪',
+			'chat.tool.envBuilding' => 'env 构建中',
+			'chat.tool.envFailed' => 'env 失败',
+			'chat.tool.restarted' => '已重启',
+			'chat.tool.kind.function' => '函数',
+			'chat.tool.kind.handler' => '处理器',
+			'chat.tool.kind.agent' => '智能体',
+			'chat.tool.kind.workflow' => '工作流',
+			'chat.tool.kind.control' => '控制',
+			'chat.tool.kind.approval' => '审批',
+			'chat.tool.kind.document' => '文档',
+			'chat.tool.kind.skill' => '技能',
+			'chat.tool.kind.trigger' => '触发器',
 			'appName' => 'Anselm',
 			'status.idle' => '空闲',
 			'status.run' => '运行中',

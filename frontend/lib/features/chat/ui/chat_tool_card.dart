@@ -13,7 +13,6 @@ import '../../../i18n/strings.g.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
 import 'tool_card_catalog.dart';
-import 'tool_card_skins.dart';
 
 /// The V3a tool-call CHASSIS (WRK-053) — one borderless 32px-register line per tool call
 /// (decision #2: bare row, the expanded body owns the only container), carrying the whole
@@ -128,9 +127,10 @@ class _ChatToolCardState extends State<ChatToolCard> {
       _userExpanded ??= true;
     }
     final open = (_userExpanded ?? false) && hasBody;
-    // The live machine-window tail (F3): visible while running, dissolves into the expanded
-    // body's full window on completion. 活机器窗尾巴:执行中可见,完成溶进展开体完整窗。
-    final showTail = spec.liveTail && live && state.progressText.isNotEmpty && !open;
+    // The live machine window (F3 terminal tail / F4 builds content streaming in): visible
+    // while in flight, dissolves into the expanded body on completion.
+    // 活机器窗(F3 终端尾/F4 builds 内容流入):在飞可见,完成溶进展开体。
+    final showLiveBody = spec.liveBody != null && live && !open;
 
     const bodyInset = EdgeInsets.only(top: AnSpace.s4, left: AnSize.iconSm + AnSpace.s6);
     return Column(
@@ -138,10 +138,14 @@ class _ChatToolCardState extends State<ChatToolCard> {
       children: [
         _line(context, t, c, state, spec, live, open, hasBody, familyReceipt),
         AnExpandReveal(
-          open: showTail,
+          open: showLiveBody,
           child: Padding(
             padding: bodyInset,
-            child: SizedBox(width: double.infinity, child: ToolLiveTail(text: state.progressText)),
+            child: SizedBox(
+                width: double.infinity,
+                child: showLiveBody
+                    ? spec.liveBody!(context, state)
+                    : const SizedBox.shrink()),
           ),
         ),
         AnExpandReveal(
@@ -153,7 +157,21 @@ class _ChatToolCardState extends State<ChatToolCard> {
             padding: bodyInset,
             child: SizedBox(
               width: double.infinity,
-              child: spec.body?.call(context, state) ?? _GenericToolBody(state: state),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  spec.body?.call(context, state) ?? _GenericToolBody(state: state),
+                  // Family bodies get the error section from the CHASSIS — every family shows
+                  // failures without re-implementing them (the generic body has its own).
+                  // 族体的错误段由**底盘**追加——各族免费显示失败(通用体自带)。
+                  if (spec.body != null &&
+                      (state.phase == ToolCardPhase.failed && (state.errorText.isNotEmpty || state.resultText.isNotEmpty)))
+                    Padding(
+                      padding: const EdgeInsets.only(top: AnSpace.s8),
+                      child: _errorSection(context, state),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
@@ -236,6 +254,22 @@ class _ChatToolCardState extends State<ChatToolCard> {
       ),
     );
   }
+}
+
+/// The chassis-level error section appended under FAMILY bodies on failure.
+/// 底盘级错误段,失败时追加在族体之下。
+Widget _errorSection(BuildContext context, ToolCardState state) {
+  final t = Translations.of(context);
+  final c = context.colors;
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(t.chat.tool.errorLabel, style: AnText.meta.copyWith(color: c.danger)),
+      const SizedBox(height: AnSpace.s4),
+      Text(state.errorText.isEmpty ? state.resultText : state.errorText,
+          style: AnText.code.copyWith(color: c.danger)),
+    ],
+  );
 }
 
 /// The generic expanded body — labeled flat sections (the demo's one honest idea, rebuilt to
