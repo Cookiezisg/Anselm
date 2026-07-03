@@ -13,6 +13,7 @@ class VersionRow {
     required this.src,
     required this.lang,
     this.changeReason,
+    this.summary = const [],
   });
 
   final int version;
@@ -21,6 +22,10 @@ class VersionRow {
   final String src;
   final String lang;
   final String? changeReason;
+
+  /// Structured non-text deltas vs the next-older version, as short chips (`+ units` / `− dep pydantic`
+  /// / `py 3.11→3.12`) — the text diff below only covers `src`. 相对上版的结构化(非文本)变化小签。
+  final List<String> summary;
 }
 
 /// The versions tab state: the loaded (newest-first) version page + keyset paging + which row is

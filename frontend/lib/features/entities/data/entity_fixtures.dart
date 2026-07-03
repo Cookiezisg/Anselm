@@ -4,6 +4,7 @@ import '../../../core/contract/entities/agent.dart';
 import '../../../core/contract/entities/common.dart';
 import '../../../core/contract/entities/function.dart';
 import '../../../core/contract/entities/handler.dart';
+import '../../../core/contract/entities/values.dart';
 import '../../../core/contract/entities/workflow.dart';
 import '../../../core/contract/page.dart';
 import '../../../core/sse/frame.dart';
@@ -43,7 +44,8 @@ class FixtureEntityRepository implements EntityRepository {
         _handlers = List.of(handlers ?? const []),
         _agents = List.of(agents ?? const []),
         _workflows = List.of(workflows ?? const []),
-        _functionVersions = functionVersions ?? const {},
+        // Mutable copy: the F2 write plane (editFunction) appends new versions. 可变拷贝:写面追加新版本。
+        _functionVersions = Map.of(functionVersions ?? const {}),
         _handlerVersions = handlerVersions ?? const {},
         _agentVersions = agentVersions ?? const {},
         _workflowVersions = workflowVersions ?? const {},
@@ -290,6 +292,90 @@ class FixtureEntityRepository implements EntityRepository {
       StreamEnvelope(seq: 2, scope: scope, id: id, frame: FrameClose(status: status, result: StreamNode(type: type)));
   StreamEnvelope _sig(StreamScope scope, String id, Map<String, dynamic> content) =>
       StreamEnvelope(seq: 0, scope: scope, id: id, frame: FrameSignal(node: StreamNode(type: 'run', content: content)));
+
+  // ── write plane (F2) — mutate seeds + emit the same durable lifecycle signal the Live path would
+  // see, so the detail/version providers reconcile through their normal re-fetch route.
+  // 写面:改种子 + 发与 Live 同款 durable 生命周期信号,详情/版本 provider 走正常重取路收敛。
+  @override
+  Future<FunctionEntity> patchFunctionMeta(String id, Map<String, dynamic> patch) async {
+    final e = await getFunction(id);
+    final next = e.copyWith(
+      name: (patch['name'] as String?) ?? e.name,
+      description: (patch['description'] as String?) ?? e.description,
+      tags: (patch['tags'] as List?)?.cast<String>() ?? e.tags,
+    );
+    upsertFunction(next);
+    emitLifecycle(EntitySignal(
+        kind: EntityKind.function, id: id, action: EntityAction.updated, durable: true));
+    return next;
+  }
+
+  @override
+  Future<FunctionVersion> editFunction(String id,
+      {required List<Map<String, dynamic>> ops, String changeReason = ''}) async {
+    final e = await getFunction(id);
+    final base = e.activeVersion!;
+    final n = base.version + 1;
+    var v = _applyFunctionOps(base, ops);
+    v = v.copyWith(
+      id: '${id}_v$n',
+      version: n,
+      changeReason: changeReason.isEmpty ? null : changeReason,
+      createdAt: base.createdAt,
+      updatedAt: base.updatedAt,
+    );
+    _functionVersions[id] = [v, ...?_functionVersions[id]];
+    upsertFunction(e.copyWith(activeVersionId: v.id, activeVersion: v));
+    emitLifecycle(EntitySignal(
+        kind: EntityKind.function, id: id, action: EntityAction.edited, durable: true));
+    return v;
+  }
+
+  static FunctionVersion _applyFunctionOps(FunctionVersion v, List<Map<String, dynamic>> ops) {
+    for (final op in ops) {
+      v = switch (op['op']) {
+        'set_code' => v.copyWith(code: (op['code'] as String?) ?? ''),
+        'set_inputs' => v.copyWith(inputs: _fields(op['inputs'])),
+        'set_outputs' => v.copyWith(outputs: _fields(op['outputs'])),
+        'set_dependencies' =>
+          v.copyWith(dependencies: ((op['dependencies'] as List?) ?? const []).cast<String>()),
+        'set_python_version' => v.copyWith(pythonVersion: (op['version'] as String?) ?? v.pythonVersion),
+        _ => v,
+      };
+    }
+    return v;
+  }
+
+  static List<Field> _fields(Object? raw) =>
+      [for (final f in (raw as List?) ?? const []) Field.fromJson((f as Map).cast<String, dynamic>())];
+
+  @override
+  Future<void> revertVersion(EntityKind kind, String id, int version) async {
+    T? pick<T>(List<T>? list, int Function(T) num) {
+      final i = list?.indexWhere((x) => num(x) == version) ?? -1;
+      return i < 0 ? null : list![i];
+    }
+
+    switch (kind) {
+      case EntityKind.function:
+        final v = pick(_functionVersions[id], (FunctionVersion x) => x.version);
+        if (v == null) return;
+        upsertFunction((await getFunction(id)).copyWith(activeVersionId: v.id, activeVersion: v));
+      case EntityKind.handler:
+        final v = pick(_handlerVersions[id], (HandlerVersion x) => x.version);
+        if (v == null) return;
+        upsertHandler((await getHandler(id)).copyWith(activeVersionId: v.id, activeVersion: v));
+      case EntityKind.agent:
+        final v = pick(_agentVersions[id], (AgentVersion x) => x.version);
+        if (v == null) return;
+        upsertAgent((await getAgent(id)).copyWith(activeVersionId: v.id, activeVersion: v));
+      case EntityKind.workflow:
+        final v = pick(_workflowVersions[id], (WorkflowVersion x) => x.version);
+        if (v == null) return;
+        upsertWorkflow((await getWorkflow(id)).copyWith(activeVersionId: v.id, activeVersion: v));
+    }
+    emitLifecycle(EntitySignal(kind: kind, id: id, action: EntityAction.updated, durable: true));
+  }
 
   @override
   Future<MountHealthReport> getMountHealth(String id) async =>

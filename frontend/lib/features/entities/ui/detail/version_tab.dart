@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/tokens.dart';
+import '../../../../core/ui/an_badge.dart';
 import '../../../../core/ui/an_button.dart';
 import '../../../../core/ui/an_deferred_loading.dart';
 import '../../../../core/ui/an_row.dart';
@@ -50,12 +51,38 @@ class VersionTab extends ConsumerWidget {
             const SizedBox(width: AnSpace.s16),
             Expanded(
               flex: 3,
-              child: AnVersionDiff(
-                after: sel.src,
-                before: older?.src,
-                lang: sel.lang,
-                range: older != null ? 'v${older.version} → v${sel.version}' : 'v${sel.version} · ${d.state.earliest}',
-                note: sel.changeReason,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Structured (non-text) deltas + the activate action live above the text diff.
+                  // 结构化变化小签 + 设为活跃动作在文本 diff 之上。
+                  if (sel.summary.isNotEmpty || !sel.active)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: AnSpace.s8),
+                      child: Row(children: [
+                        Expanded(
+                          child: Wrap(
+                            spacing: AnSpace.s6,
+                            runSpacing: AnSpace.s4,
+                            children: [for (final s in sel.summary) AnBadge(s, tone: AnTone.none)],
+                          ),
+                        ),
+                        if (!sel.active)
+                          AnButton(
+                            label: d.state.setActive,
+                            size: AnButtonSize.sm,
+                            onPressed: () => notifier.setActive(sel.version),
+                          ),
+                      ]),
+                    ),
+                  AnVersionDiff(
+                    after: sel.src,
+                    before: older?.src,
+                    lang: sel.lang,
+                    range: older != null ? 'v${older.version} → v${sel.version}' : 'v${sel.version} · ${d.state.earliest}',
+                    note: sel.changeReason,
+                  ),
+                ],
               ),
             ),
           ],

@@ -820,6 +820,7 @@ class Translations$entities$detail$en {
 
 	late final Translations$entities$detail$tab$en tab = Translations$entities$detail$tab$en.internal(_root);
 	late final Translations$entities$detail$verb$en verb = Translations$entities$detail$verb$en.internal(_root);
+	late final Translations$entities$detail$edit$en edit = Translations$entities$detail$edit$en.internal(_root);
 	late final Translations$entities$detail$hero$en hero = Translations$entities$detail$hero$en.internal(_root);
 	late final Translations$entities$detail$codeToggle$en codeToggle = Translations$entities$detail$codeToggle$en.internal(_root);
 	late final Translations$entities$detail$sec$en sec = Translations$entities$detail$sec$en.internal(_root);
@@ -993,6 +994,45 @@ class Translations$entities$detail$verb$en {
 
 	/// en: 'Trigger'
 	String get trigger => 'Trigger';
+}
+
+// Path: entities.detail.edit
+class Translations$entities$detail$edit$en {
+	Translations$entities$detail$edit$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Edit'
+	String get edit => 'Edit';
+
+	/// en: 'Save as new version'
+	String get save => 'Save as new version';
+
+	/// en: 'Discard'
+	String get discard => 'Discard';
+
+	/// en: 'What changed (optional)'
+	String get changeReason => 'What changed (optional)';
+
+	/// en: 'Save failed'
+	String get saveFailed => 'Save failed';
+
+	/// en: 'Saving appends a new version and makes it active; older versions stay available.'
+	String get saveHint => 'Saving appends a new version and makes it active; older versions stay available.';
+
+	/// en: 'Add input'
+	String get addInput => 'Add input';
+
+	/// en: 'Add output'
+	String get addOutput => 'Add output';
+
+	/// en: 'field name'
+	String get fieldName => 'field name';
+
+	/// en: 'Remove field'
+	String get removeField => 'Remove field';
 }
 
 // Path: entities.detail.hero
@@ -1318,6 +1358,9 @@ class Translations$entities$detail$state$en {
 
 	// Translations
 
+	/// en: 'Set active'
+	String get setActive => 'Set active';
+
 	/// en: 'No versions'
 	String get noVersions => 'No versions';
 
@@ -1573,6 +1616,16 @@ extension on Translations {
 			'entities.detail.verb.call' => 'Call',
 			'entities.detail.verb.invoke' => 'Invoke',
 			'entities.detail.verb.trigger' => 'Trigger',
+			'entities.detail.edit.edit' => 'Edit',
+			'entities.detail.edit.save' => 'Save as new version',
+			'entities.detail.edit.discard' => 'Discard',
+			'entities.detail.edit.changeReason' => 'What changed (optional)',
+			'entities.detail.edit.saveFailed' => 'Save failed',
+			'entities.detail.edit.saveHint' => 'Saving appends a new version and makes it active; older versions stay available.',
+			'entities.detail.edit.addInput' => 'Add input',
+			'entities.detail.edit.addOutput' => 'Add output',
+			'entities.detail.edit.fieldName' => 'field name',
+			'entities.detail.edit.removeField' => 'Remove field',
 			'entities.detail.hero.noInputs' => 'no inputs',
 			'entities.detail.hero.noOutputs' => 'no outputs',
 			'entities.detail.hero.deps' => ({required Object n}) => '${n} deps',
@@ -1654,6 +1707,7 @@ extension on Translations {
 			'entities.detail.val.none' => '—',
 			'entities.detail.mounts.healthy' => 'All mounts healthy',
 			'entities.detail.mounts.unhealthy' => ({required Object count}) => '${count} unhealthy',
+			'entities.detail.state.setActive' => 'Set active',
 			'entities.detail.state.noVersions' => 'No versions',
 			'entities.detail.state.noLogs' => 'No runs yet',
 			'entities.detail.state.noLogsHint' => 'Runs will appear here once this entity is executed.',

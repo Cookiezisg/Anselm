@@ -426,6 +426,7 @@ class _Translations$entities$detail$zh_CN extends Translations$entities$detail$e
 	@override String get moreActions => '更多操作';
 	@override late final _Translations$entities$detail$tab$zh_CN tab = _Translations$entities$detail$tab$zh_CN._(_root);
 	@override late final _Translations$entities$detail$verb$zh_CN verb = _Translations$entities$detail$verb$zh_CN._(_root);
+	@override late final _Translations$entities$detail$edit$zh_CN edit = _Translations$entities$detail$edit$zh_CN._(_root);
 	@override late final _Translations$entities$detail$hero$zh_CN hero = _Translations$entities$detail$hero$zh_CN._(_root);
 	@override late final _Translations$entities$detail$codeToggle$zh_CN codeToggle = _Translations$entities$detail$codeToggle$zh_CN._(_root);
 	@override late final _Translations$entities$detail$sec$zh_CN sec = _Translations$entities$detail$sec$zh_CN._(_root);
@@ -514,6 +515,25 @@ class _Translations$entities$detail$verb$zh_CN extends Translations$entities$det
 	@override String get call => '调用';
 	@override String get invoke => '唤起';
 	@override String get trigger => '触发';
+}
+
+// Path: entities.detail.edit
+class _Translations$entities$detail$edit$zh_CN extends Translations$entities$detail$edit$en {
+	_Translations$entities$detail$edit$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get edit => '编辑';
+	@override String get save => '保存为新版本';
+	@override String get discard => '放弃';
+	@override String get changeReason => '这次改了什么(可选)';
+	@override String get saveFailed => '保存失败';
+	@override String get saveHint => '保存会追加一个新版本并使其生效;历史版本随时可回。';
+	@override String get addInput => '添加入参';
+	@override String get addOutput => '添加返回';
+	@override String get fieldName => '字段名';
+	@override String get removeField => '移除字段';
 }
 
 // Path: entities.detail.hero
@@ -676,6 +696,7 @@ class _Translations$entities$detail$state$zh_CN extends Translations$entities$de
 	final TranslationsZhCn _root; // ignore: unused_field
 
 	// Translations
+	@override String get setActive => '设为活跃版本';
 	@override String get noVersions => '暂无版本';
 	@override String get noLogs => '暂无运行记录';
 	@override String get noLogsHint => '执行该实体后,记录会出现在这里。';
@@ -906,6 +927,16 @@ extension on TranslationsZhCn {
 			'entities.detail.verb.call' => '调用',
 			'entities.detail.verb.invoke' => '唤起',
 			'entities.detail.verb.trigger' => '触发',
+			'entities.detail.edit.edit' => '编辑',
+			'entities.detail.edit.save' => '保存为新版本',
+			'entities.detail.edit.discard' => '放弃',
+			'entities.detail.edit.changeReason' => '这次改了什么(可选)',
+			'entities.detail.edit.saveFailed' => '保存失败',
+			'entities.detail.edit.saveHint' => '保存会追加一个新版本并使其生效;历史版本随时可回。',
+			'entities.detail.edit.addInput' => '添加入参',
+			'entities.detail.edit.addOutput' => '添加返回',
+			'entities.detail.edit.fieldName' => '字段名',
+			'entities.detail.edit.removeField' => '移除字段',
 			'entities.detail.hero.noInputs' => '无入参',
 			'entities.detail.hero.noOutputs' => '无返回',
 			'entities.detail.hero.deps' => ({required Object n}) => '${n} 依赖',
@@ -987,6 +1018,7 @@ extension on TranslationsZhCn {
 			'entities.detail.val.none' => '—',
 			'entities.detail.mounts.healthy' => '挂载正常',
 			'entities.detail.mounts.unhealthy' => ({required Object count}) => '${count} 项异常',
+			'entities.detail.state.setActive' => '设为活跃版本',
 			'entities.detail.state.noVersions' => '暂无版本',
 			'entities.detail.state.noLogs' => '暂无运行记录',
 			'entities.detail.state.noLogsHint' => '执行该实体后,记录会出现在这里。',

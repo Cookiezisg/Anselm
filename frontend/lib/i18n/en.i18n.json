@@ -233,6 +233,18 @@
         "invoke": "Invoke",
         "trigger": "Trigger"
       },
+      "edit": {
+        "edit": "Edit",
+        "save": "Save as new version",
+        "discard": "Discard",
+        "changeReason": "What changed (optional)",
+        "saveFailed": "Save failed",
+        "saveHint": "Saving appends a new version and makes it active; older versions stay available.",
+        "addInput": "Add input",
+        "addOutput": "Add output",
+        "fieldName": "field name",
+        "removeField": "Remove field"
+      },
       "hero": {
         "noInputs": "no inputs",
         "noOutputs": "no outputs",
@@ -331,6 +343,7 @@
         "unhealthy": "$count unhealthy"
       },
       "state": {
+        "setActive": "Set active",
         "noVersions": "No versions",
         "noLogs": "No runs yet",
         "noLogsHint": "Runs will appear here once this entity is executed.",

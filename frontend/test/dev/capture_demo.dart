@@ -44,6 +44,8 @@ Future<void> _load(String family, String path) async {
 const _sel = String.fromEnvironment('SEL');
 // Optional `--dart-define=TAB=overview|versions|logs` taps that tab before capture. 预点某 tab。
 const _tab = String.fromEnvironment('TAB');
+// Optional `--dart-define=EDIT=1` taps the function overview's 编辑 button (draft mode). 进草稿编辑态。
+const _edit = String.fromEnvironment('EDIT');
 // Optional `--dart-define=RUN=1` opens the right-island run terminal (verb CTA) + executes, to capture
 // the STEP 5 run terminal with live output. Requires SEL. 打开右岛 run 终端并执行,截运行态。
 const _run = String.fromEnvironment('RUN');
@@ -246,6 +248,13 @@ void main() {
         await tester.pump(const Duration(milliseconds: 50));
       }
       outName = '${outName}_send${_chatAt == 'mid' ? '_mid' : ''}';
+    }
+
+    if (_edit.isNotEmpty) {
+      // Tap the overview's 编辑 button → the function draft edit mode (WRK-054 F2). 进草稿编辑态。
+      await tester.tap(find.text(LocaleSettings.instance.currentTranslations.entities.detail.edit.edit));
+      await tester.pump();
+      outName = '${outName}_edit';
     }
 
     if (_tab.isNotEmpty) {

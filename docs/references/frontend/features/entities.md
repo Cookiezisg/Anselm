@@ -23,12 +23,12 @@ audience: [human, ai]
 |---|---|---|
 | **rail(左岛)** | `features/entities/ui/entity_rail.dart` | `EntityRail` over [`AnSidebarList`]:4 kind 折叠段 + 实体行(状态点)+ 域内过滤 + ⚙ 菜单(排序 最近活跃/创建/名称 + 显示分组计数)+ 四态(骨架/错/空/列表)。选择 = `context.go` 改 URL。 |
 | **ocean(中心)** | `features/entities/ui/detail/` | `EntityOcean` = **单一 `AnPage` 文档**(头 + tab + 720 阅读列**一起滚**):`AnOceanHeader`(面包屑 + 名称 + 状态徽 + 动词 CTA)+ `AnTabs(flow)`(概览/版本/日志)+ 4 kind 各自概览。 |
-| **detail(tab 内容)** | `features/entities/{state,ui}/detail/` | 概览(function = **`AnTransformBox` 变换盒 hero**[签名即接口:inputs→盒→outputs 一张图,env 灯+py·deps meta] + 代码 **50 行渐隐收合**[`AnFadeCollapse`] + 环境合卡[venv KV + deps,envError `AnCallout` 红字直出];余 kind 暂 AnKv/AnField/AnCodeEditor 罗列,逐个雕琢中 WRK-054)· 版本(`AnVersionDiff` 相邻版本)· 日志(ok/failed 聚合 + `AnRowDetail` 行展开 + loadMore;workflow flowrun 懒取节点)。 |
+| **detail(tab 内容)** | `features/entities/{state,ui}/detail/` | 概览(function = **`AnTransformBox` 变换盒 hero**[签名即接口:inputs→盒→outputs 一张图,env 灯+py·deps meta] + 代码 **50 行渐隐收合**[`AnFadeCollapse`] + 环境合卡[venv KV + deps,envError `AnCallout` 红字直出];余 kind 暂 AnKv/AnField/AnCodeEditor 罗列,逐个雕琢中 WRK-054)· 版本(`AnVersionDiff` 相邻版本 + function **结构化签名 diff 小签**[字段/依赖/py 变化,`functionVersionSummary` 纯函数,页边界行无签] + **「设为活跃版本」**[`:revert` 后详情+列表从真相重取])· 日志(ok/failed 聚合 + `AnRowDetail` 行展开 + loadMore;workflow flowrun 懒取节点)。**function 编辑 = 显式草稿模式**(概览「编辑」→ 签名字段/代码[inline 常驻编辑]/依赖 tags/py 可改 → changeReason + 保存[diff 成 ops 走 `:edit` 升版]/放弃;无改动保存=放弃)。 |
 | **run 终端(右岛)** | `features/entities/{state,ui}/run/` | 强链选区揭示:类型化逐字段入参表单 → 执行 → `BlockTreeReducer` 渲 agent 块树(完整 block-tree,非 flat 转录)。`autoDispose` + 后台续流。 |
 
 ## 数据缝 + state
 
-- **唯一缝** `EntityRepository`(`features/entities/data/`):`LiveEntityRepository`(接 `ApiClient` + `SseGateway` demux)/ `FixtureEntityRepository`(内存可脚本,demo + 测试)/ `entityRepositoryProvider` 单点 override。辅型 `EntityKind`(4 kind 的 REST/scope/verb 常量)· `EntityRow`(统一 rail 行投影 + 徽标 + `createdAt`/`updatedAt`)· `EntitySignal`(生命周期投影)。
+- **唯一缝** `EntityRepository`(`features/entities/data/`):`LiveEntityRepository`(接 `ApiClient` + `SseGateway` demux)/ `FixtureEntityRepository`(内存可脚本,demo + 测试;写面同样实现并发 durable 信号走正常重取路)/ `entityRepositoryProvider` 单点 override。**写面(WRK-054 F2)**:`patchFunctionMeta`(PATCH,不升版)· `editFunction`(`:edit` ops → 新版本,N1 信封返版本)· `revertVersion`(`:revert`,kind 通用签名)。辅型 `EntityKind`(4 kind 的 REST/scope/verb 常量)· `EntityRow`(统一 rail 行投影 + 徽标 + `createdAt`/`updatedAt`)· `EntitySignal`(生命周期投影)。
 - **state**(`features/entities/state/`):`entityListProvider`(AsyncNotifier.family over kind,首页 + `loadMore` keyset + SSE 就地 patch)· `railModelProvider`(扇 4 kind 成 RailGroup)· `railSortProvider` / `railShowCountProvider`(⚙ 视图偏好)· `selectedEntityProvider`(**只读、单向派生自路由 delegate**)· detail/(`entityDetail` 双流订阅 + `versionList` + `logList`,全 `autoDispose`)。
 - **SSE 路由**:生命周期走 `notifications` 流(按 node.type 投影)、面板实时走 `entities` scope 流;`seq>0` durable 重取、`seq=0` ephemeral no-op。
 

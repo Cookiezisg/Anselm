@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../../../core/contract/entities/function.dart';
 import '../../../core/contract/entities/handler.dart';
 import '../../../core/contract/entities/values.dart';
 import '../../../core/contract/entities/workflow.dart';
@@ -53,4 +54,41 @@ String prettyJson(Object? value) {
   } catch (_) {
     return value.toString();
   }
+}
+
+/// Structured (non-text) deltas of a function version vs its next-older neighbour, as short chips:
+/// signature fields (`+in name` / `−out name` / type changes), dependencies, python version. The code
+/// body is NOT summarized here — the text diff renders it. Pure + unit-testable.
+/// function 版本相对上一版的结构化变化小签(签名字段/依赖/py 版本);代码体不在此摘要(文本 diff 渲)。
+List<String> functionVersionSummary(FunctionVersion cur, FunctionVersion prev) {
+  final out = <String>[];
+  void diffFields(List<Field> a, List<Field> b, String tag) {
+    final an = {for (final f in a) f.name: f};
+    final bn = {for (final f in b) f.name: f};
+    for (final n in an.keys) {
+      if (!bn.containsKey(n)) {
+        out.add('+ $tag $n');
+      } else if (bn[n]!.type != an[n]!.type) {
+        out.add('$tag $n: ${bn[n]!.type}→${an[n]!.type}');
+      }
+    }
+    for (final n in bn.keys) {
+      if (!an.containsKey(n)) out.add('− $tag $n');
+    }
+  }
+
+  diffFields(cur.inputs, prev.inputs, 'in');
+  diffFields(cur.outputs, prev.outputs, 'out');
+  final curDeps = cur.dependencies.toSet();
+  final prevDeps = prev.dependencies.toSet();
+  for (final d in curDeps.difference(prevDeps)) {
+    out.add('+ dep $d');
+  }
+  for (final d in prevDeps.difference(curDeps)) {
+    out.add('− dep $d');
+  }
+  if (cur.pythonVersion != prev.pythonVersion) {
+    out.add('py ${prev.pythonVersion}→${cur.pythonVersion}');
+  }
+  return out;
 }

@@ -40,7 +40,7 @@ audience: [human, ai]
 | 批 | 内容 | 状态 |
 |---|---|---|
 | F1 | `AnTransformBox` + `AnFadeCollapse` 原语(gallery 7+2 specimens)+ function 概览重排(hero + 50 行渐隐代码 + 环境合卡 + envError callout) | ✅ 已落(gallery + demo 页截图过,输出列对齐 & 窄宿主 chip 溢出已修) |
-| F2 | 写面(repository `patchMeta`/`editVersion`/`revert`)+ 草稿编辑模式 + 版本 tab 签名 diff + 设为活跃 | 待建 |
+| F2 | 写面(repository `patchFunctionMeta`/`editFunction` ops/`revertVersion` kind 通用,Live+Fixture 双实现)+ 草稿编辑模式(签名字段/代码/依赖/py 可改 → changeReason + 保存/放弃,diff 成 ops 走 `:edit`;无改动保存=放弃)+ 版本 tab 结构化签名 diff 小签(`functionVersionSummary` 纯函数)+「设为活跃版本」(`:revert`) | ✅ 已落(8 测 + 草稿/版本截图过;坑:AnField child 槽与 AutoGrid 均给子件无界宽,编辑行 Expanded/AnDropdown 须避开) |
 | F3 | 右岛结果按签名渲 + hero 活态接 run 流 | 待建 |
 
 每批:gallery → 接线 → 截图过目 → fe-verify 绿 → 文档同步。

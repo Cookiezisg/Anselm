@@ -233,6 +233,18 @@
         "invoke": "唤起",
         "trigger": "触发"
       },
+      "edit": {
+        "edit": "编辑",
+        "save": "保存为新版本",
+        "discard": "放弃",
+        "changeReason": "这次改了什么(可选)",
+        "saveFailed": "保存失败",
+        "saveHint": "保存会追加一个新版本并使其生效;历史版本随时可回。",
+        "addInput": "添加入参",
+        "addOutput": "添加返回",
+        "fieldName": "字段名",
+        "removeField": "移除字段"
+      },
       "hero": {
         "noInputs": "无入参",
         "noOutputs": "无返回",
@@ -331,6 +343,7 @@
         "unhealthy": "$count 项异常"
       },
       "state": {
+        "setActive": "设为活跃版本",
         "noVersions": "暂无版本",
         "noLogs": "暂无运行记录",
         "noLogsHint": "执行该实体后,记录会出现在这里。",

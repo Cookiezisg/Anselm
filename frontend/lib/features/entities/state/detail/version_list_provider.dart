@@ -45,6 +45,15 @@ class VersionListNotifier extends AsyncNotifier<VersionListState>
   VersionListState stateWithAppended(VersionListState s, List<VersionRow> rows, String? next, bool more) =>
       s.copyWith(versions: [...s.versions, ...rows], nextCursor: next, hasMore: more, loadingMore: false);
 
+  /// `POST :revert` — move the entity's active pointer to [version], then reconcile detail + this
+  /// list from truth (active flags re-derive on re-fetch). Throws on failure (caller surfaces it).
+  /// 把 active 指针移到指定版本,随后详情+本列表从真相重取(active 标记重取时重算)。失败上抛。
+  Future<void> setActive(int version) async {
+    await _repo.revertVersion(entityRef.kind, entityRef.id, version);
+    ref.invalidate(entityDetailProvider(entityRef));
+    ref.invalidateSelf();
+  }
+
   /// Pick the version to show on the diff's `after` side (compared against the next-older loaded row).
   /// 选 diff 的 after 版本(与下一更旧版本比)。
   void select(int index) {
@@ -59,15 +68,21 @@ class VersionListNotifier extends AsyncNotifier<VersionListState>
       case EntityKind.function:
         final p = await _repo.listFunctionVersions(entityRef.id, cursor: cursor, limit: _pageSize);
         return (
-          rows: p.items
-              .map((v) => VersionRow(
-                  version: v.version,
-                  active: v.id == activeId,
-                  createdAt: v.createdAt,
-                  src: v.code,
+          rows: [
+            for (var i = 0; i < p.items.length; i++)
+              VersionRow(
+                  version: p.items[i].version,
+                  active: p.items[i].id == activeId,
+                  createdAt: p.items[i].createdAt,
+                  src: p.items[i].code,
                   lang: 'py',
-                  changeReason: v.changeReason))
-              .toList(),
+                  changeReason: p.items[i].changeReason,
+                  // Newest-first page: the next-older neighbour is i+1 (a page-boundary row simply
+                  // gets no chips — acceptable degrade). 页内相邻即上一版;跨页边界行无签,可接受。
+                  summary: i + 1 < p.items.length
+                      ? functionVersionSummary(p.items[i], p.items[i + 1])
+                      : const []),
+          ],
           next: p.nextCursor,
           more: p.hasMore,
         );
