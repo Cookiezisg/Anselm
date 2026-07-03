@@ -27,12 +27,13 @@ landed-into:
 | B2 | 120 | 95 | 25 | 0 | 0 |
 | C | 55 | 45 | 2 | 0 | 8 |
 | DF | 68 | 56 | 12 | 0 | 0 |
-| E | 58 | 0 | 44 | 14 | 0 |
-| **合计** | **649** | **437** | **151** | **14** | **47** |
+| E | 58 | 13 | 44 | 0 | 1 |
+| **合计** | **649** | **450** | **151** | **0** | **48** |
 
-**当前覆盖率**（locked+probed+exempt / 总）≈ **97.8%** · 目标 ~99%（unprobed → 全部翻绿或显式 exempt）。
+**当前覆盖率**（locked+probed+exempt / 总）≈ **100.0%** · 目标 ~99%（unprobed → 全部翻绿或显式 exempt）。
 
-**进度**：Phase 0 基线✅ · **Phase 1 REST 契约全扫✅**（A/B 面 157 行，5 缺陷 F176–F180 修 + N4/:kill 文档订正）· **Phase 2 SSE/协议/安全✅**（C 面 16 行：5 新中间件/cron 单测 CORS·recover·locale·cron-edge + testend contract_protocol 7 场景 SSE 深协议/cron 去重/webhook secret/三流 bearer 门；**0 缺陷**——协议/安全/i18n 面稳固）。· **Phase 3 引擎+mega✅**（D 面 8 行：fsnotify testend 四源真空补齐 + 4 新 -race scheduler 单测 allow_all/人vs超时竞争/满载池不饿死超时/Recover 非内联 + mega 单链 trigger→混合图 5 kind→审计→approval→notification→relation→search + SSE flowrun tick；**0 缺陷**——durable 引擎稳固）。· **Phase 5 系统正确性✅**（F-new 4 行 + 2 缺陷 F181/F182 修：conversation sort=created 缺覆盖索引[R12 族] + 关停竞态 Advance 池缓冲队列[R3/F174 族];4 静态候选经对抗验证 2 CONFIRMED·2 REFUTED）。· **Phase 4 真模型 EXPLORE✅**（E 面 43 行经 4 deepseek lane 探→probed；**3 缺陷 F183–F185,含 2 HIGH 均活体确诊**：Glob/Grep ctx 无视致回合永卡[活体 goroutine dump 证伪 LLM-流误判、真身是 Glob 遍历] + WebFetch JS-shell 编造[shell 守卫+prompt 硬化,活体复验零编造] + WebFetch 失控猜 URL nudge 软化；touchpoint「且成功」措辞致 2 次误读→doc 澄清）。剩 unprobed 14：E2/E1-mcp agent 席残余（其功能/HTTP 面均已 locked、仅 agent 触发变体未探）+ D-pool-8=F101 CPU-pin watch。
+**进度**：Phase 0 基线✅ · **Phase 1 REST 契约全扫✅**（A/B 面 157 行，5 缺陷 F176–F180 修 + N4/:kill 文档订正）· **Phase 2 SSE/协议/安全✅**（C 面 16 行：5 新中间件/cron 单测 CORS·recover·locale·cron-edge + testend contract_protocol 7 场景 SSE 深协议/cron 去重/webhook secret/三流 bearer 门；**0 缺陷**——协议/安全/i18n 面稳固）。· **Phase 3 引擎+mega✅**（D 面 8 行：fsnotify testend 四源真空补齐 + 4 新 -race scheduler 单测 allow_all/人vs超时竞争/满载池不饿死超时/Recover 非内联 + mega 单链 trigger→混合图 5 kind→审计→approval→notification→relation→search + SSE flowrun tick；**0 缺陷**——durable 引擎稳固）。· **Phase 5 系统正确性✅**（F-new 4 行 + 2 缺陷 F181/F182 修：conversation sort=created 缺覆盖索引[R12 族] + 关停竞态 Advance 池缓冲队列[R3/F174 族];4 静态候选经对抗验证 2 CONFIRMED·2 REFUTED）。· **Phase 4 真模型 EXPLORE✅**（E 面 43 行经 4 deepseek lane 探→probed；**3 缺陷 F183–F185,含 2 HIGH 均活体确诊**：Glob/Grep ctx 无视致回合永卡[活体 goroutine dump 证伪 LLM-流误判、真身是 Glob 遍历] + WebFetch JS-shell 编造[shell 守卫+prompt 硬化,活体复验零编造] + WebFetch 失控猜 URL nudge 软化；touchpoint「且成功」措辞致 2 次误读→doc 澄清）。· **Phase 4b 残余覆盖✅**（剩 14 E2/E1-mcp agent 席变体尽转 llmmock 确定性 testend 锁死:mention 冻结[非文档实体/已删/多提及+附件]、list_conversations[sort 缺口判 honest/includeArchived/search-vs-list/深页 cursor 走全]、rail[ask 门/danger deny/subagent unread/cancel·crash 无残留蓝点]、MCP[F141 离线 reconnect/F169 缺 env 点名/命名空间消歧];3 lane 17 测**0 缺陷**）。
+> **战役收官（2026-07-03）**：unprobed **归零**。覆盖率 = **100% 黑盒可覆盖面**（649 行：450 locked + 151 probed + 48 exempt）；**3 项 needs_unit 显式碳出**——C-err-8（499/504 真断连,脆）· C-cron-2（cron DST,需 TZ env 起进程）· D-pool-8（F101 CPU-pin,唯一 open watch,需活体 pprof）,均属单测/活体层非黑盒。
 > 诚实标注：翻 locked 的 A/B 行里，极少数真不可黑盒者（如 `B-chat-4` convQueue 竞态、`B-rel-9` nil 容忍）在对应 `contract_*_test.go` 注释里标 needs_unit（属对应 app 包单测面）——计入 locked 的是可黑盒锁死的绝大多数。
 
 ---
@@ -689,10 +690,10 @@ landed-into:
 | E1-att-2 | 损坏 PDF sandbox 抽取失败→agent 收可操作错非静默空文本 | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
 | E1-att-3 | 多附件混合(文本+图+PDF)一次 send 三路门控不串扰 | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
 | E1-att-4 | compaction 后 attachmentIds 仍可 read_attachment 读回 | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
-| E1-mcp-1 | degraded server 在 agent 席调用→错误面 + agent 自行 reconnect 恢复 | unprobed | scripted 3 败翻 degraded 后 lane |
-| E1-mcp-2 | F169 修后 env required/optional 语义 agent 面(必填被问齐、optional 不阻塞) | unprobed | registry 装带 env server lane |
-| E1-mcp-3 | MCP 工具与既有 function 撞名时 chat 席目录消歧 | unprobed | 同名 seed + toolpick lane |
-| E1-mcp-4 | agent 席 registry 搜→装→即调全链(F91 query 过滤后白烧复查) | unprobed | registry lane + 轨迹审计 |
+| E1-mcp-1 | degraded server 在 agent 席调用→错误面 + agent 自行 reconnect 恢复 | locked | TestP4bMcp_OfflineServerAgentSeatAndRecovery(F141 agent 席+reconnect) |
+| E1-mcp-2 | F169 修后 env required/optional 语义 agent 面(必填被问齐、optional 不阻塞) | locked | TestP4bMcp_ChatInstallErrorFaces(F169 缺 required env 点名;optional-不阻塞 needs_unit=装后走真远程连) |
+| E1-mcp-3 | MCP 工具与既有 function 撞名时 chat 席目录消歧 | locked | TestP4bMcp_ChatNamespaceDisambiguation(function echo + mcp__ns__echo 命名空间隔离) |
+| E1-mcp-4 | agent 席 registry 搜→装→即调全链(F91 query 过滤后白烧复查) | exempt | registry 搜→装→即调全链需真 GitHub Registry 拉取+运行时下载;已由 mcp_test.go TestMCP_OfficialFilesystemServer 覆盖 |
 | E1-sub-1 | 一 turn 并发双 subagent fork 结果各归各、树不串 | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
 | E1-sub-2 | subagent 席 memory/todo 工具可用性边界(隔离 or 缺口的诚实措辞) | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
 | E1-sub-3 | subagent 失败(风暴/超时)回喂父的错误形状(父能续不假成功) | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
@@ -709,17 +710,17 @@ landed-into:
 | E1-dp-3 | control emit 与上游同名键覆盖/合并语义 agent 可预期 | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
 | E1-dp-4 | agent 节点声明 outputs coerce 失败的 loud-fail 措辞(F40 agent 半错误面) | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
 | E1-dp-5 | attachmentIds 能否穿进 workflow/agent 节点(跨席数据传递缺口) | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
-| E2-conv-1 | agent 席"按名列对话"诉求—list_conversations 无 sort 参数的缺口/绕行面 | unprobed | lane 直问按名列(HTTP 面另锁 TestChat_RailSortByName) |
-| E2-conv-2 | list_conversations includeArchived 混排时 archived 标志诚实呈现 | unprobed | 归档 seed + lane 枚举 |
-| E2-conv-3 | "找聊过 X 的对话"→search_conversations vs list 分工选对 | unprobed | 双诉求 toolpick lane |
+| E2-conv-1 | agent 席"按名列对话"诉求—list_conversations 无 sort 参数的缺口/绕行面 | locked | TestP4bMenConv_ListNoSortCapability(判 honest-by-design:sort 属 rail/UI、工具是 recall 枚举) |
+| E2-conv-2 | list_conversations includeArchived 混排时 archived 标志诚实呈现 | locked | TestP4bMenConv_ListIncludeArchivedHonest |
+| E2-conv-3 | "找聊过 X 的对话"→search_conversations vs list 分工选对 | locked | TestP4bMenConv_SearchVsListDivision(机制锁;模型选工具判断→evals) |
 | E2-conv-4 | manage_conversation rename agent 席真改题、rail 即时反映 | probed | F107;抽样复测 |
-| E2-conv-5 | 50+ 对话 nextCursor 忠实走完、不把单页当全集(F146 修后深面) | unprobed | 多页 seed 枚举轨迹审计 |
-| E2-men-1 | @提及非文档实体(fn/agent/skill)的冻结语义 | unprobed | 多实体 mention llmmock 矩阵(文档面已锁 TestChatR3_MentionFreeze) |
-| E2-men-2 | @提及已删实体发送时的错误/降级面 | unprobed | 删后 mention turn 探 |
-| E2-men-3 | 一条消息多提及+附件组合的注入顺序与冻结一致性 | unprobed | 组合 send llmmock 断言 |
-| E2-rail-1 | awaitingInput 由真危险门/ask 工具行为点亮与清除 | unprobed | 真 dangerous 调用后 rail 对账(HTTP 面已锁 TestChat_RailAwaitingInput) |
-| E2-rail-2 | hasUnread 在长流+subagent 完成时的点亮/清除时机 | unprobed | 长流完成后 rail 对账 |
-| E2-rail-3 | isGenerating 与 cancel/崩溃恢复的残留(kill 后无永久蓝点) | unprobed | 在途 kill 重启后 rail 查 |
+| E2-conv-5 | 50+ 对话 nextCursor 忠实走完、不把单页当全集(F146 修后深面) | locked | TestP4bMenConv_ListCursorWalkFaithful(55 对话 cursor 走全不漏不重) |
+| E2-men-1 | @提及非文档实体(fn/agent/skill)的冻结语义 | locked | TestP4bMenConv_AgentMentionFreeze |
+| E2-men-2 | @提及已删实体发送时的错误/降级面 | locked | TestP4bMenConv_DeletedAndUnknownMentionDegrade |
+| E2-men-3 | 一条消息多提及+附件组合的注入顺序与冻结一致性 | locked | TestP4bMenConv_MultiMentionPlusAttachment |
+| E2-rail-1 | awaitingInput 由真危险门/ask 工具行为点亮与清除 | locked | TestP4bRail_AwaitingInputAskGate + AwaitingInputDangerDeny |
+| E2-rail-2 | hasUnread 在长流+subagent 完成时的点亮/清除时机 | locked | TestP4bRail_UnreadSubagentCompletes + UnreadCancelled/ErrorStaysSeen |
+| E2-rail-3 | isGenerating 与 cancel/崩溃恢复的残留(kill 后无永久蓝点) | locked | TestP4bRail_GeneratingCancelClearsDot + GeneratingNoResidueAfterCrash |
 | E3-hd-1 | F164 handler 调用错误面 secret 擦洗(实时错误+spawn 失败审计两面皆净) | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
 | E3-wf-1 | F173 get_flowrun 节点 cap80+summary、长 loop 不倾倒 LLM 上下文 | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
 | E3-wf-2 | F138 两阶段 drain:replace/skip/buffer_one 对背靠背真 fire 生效 | probed | Phase4 lane 探(web/reltp/attsub/regress) + greens/findings F183-F185 |
