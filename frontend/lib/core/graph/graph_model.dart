@@ -246,8 +246,17 @@ void _autoLayout(Graph g, Set<String> back, GraphDirection dir, Map<String, Offs
         : List<int>.generate(layers.length, (i) => layers.length - 1 - i);
     for (final li in order) {
       final adj = down ? pred : succ;
-      final scored = [for (final id in layers[li]) (id: id, m: median(id, adj))]
-        ..sort((a, b) => a.m.compareTo(b.m));
+      // Tiebreak on the current in-layer index: Dart's sort is UNSTABLE (unlike the JS reference,
+      // stable per ES2019) — ties among medians must keep their order or wide layers (≥34 siblings,
+      // where Dart switches to quicksort) silently diverge from the demo/backend semantics.
+      // 按层内现序 tiebreak:Dart sort 不稳定(JS 参照按 ES2019 稳定)——中位数并列必须保序,
+      // 否则宽层(≥34 兄弟,Dart 切 quicksort)与 demo/后端语义静默分叉。
+      final scored = [
+        for (var i = 0; i < layers[li].length; i++) (id: layers[li][i], m: median(layers[li][i], adj), i: i)
+      ]..sort((a, b) {
+          final c = a.m.compareTo(b.m);
+          return c != 0 ? c : a.i.compareTo(b.i);
+        });
       layers[li] = [for (final s in scored) s.id];
       for (var i = 0; i < layers[li].length; i++) {
         pos[layers[li][i]] = i;

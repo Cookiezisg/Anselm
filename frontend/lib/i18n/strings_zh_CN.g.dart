@@ -46,6 +46,7 @@ class TranslationsZhCn extends Translations with BaseTranslations<AppLocale, Tra
 	@override late final _Translations$feedback$zh_CN feedback = _Translations$feedback$zh_CN._(_root);
 	@override late final _Translations$shell$zh_CN shell = _Translations$shell$zh_CN._(_root);
 	@override late final _Translations$ref$zh_CN ref = _Translations$ref$zh_CN._(_root);
+	@override late final _Translations$graph$zh_CN graph = _Translations$graph$zh_CN._(_root);
 	@override late final _Translations$a11y$zh_CN a11y = _Translations$a11y$zh_CN._(_root);
 	@override late final _Translations$diff$zh_CN diff = _Translations$diff$zh_CN._(_root);
 	@override late final _Translations$tree$zh_CN tree = _Translations$tree$zh_CN._(_root);
@@ -201,6 +202,16 @@ class _Translations$ref$zh_CN extends Translations$ref$en {
 	@override String get trigger => '触发器';
 	@override String get control => '控制';
 	@override String get approval => '审批';
+}
+
+// Path: graph
+class _Translations$graph$zh_CN extends Translations$graph$en {
+	_Translations$graph$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override late final _Translations$graph$kind$zh_CN kind = _Translations$graph$kind$zh_CN._(_root);
 }
 
 // Path: a11y
@@ -419,6 +430,21 @@ class _Translations$shell$ocean$zh_CN extends Translations$shell$ocean$en {
 	@override String get entities => '实体';
 	@override String get scheduler => '调度';
 	@override String get documents => '文档';
+}
+
+// Path: graph.kind
+class _Translations$graph$kind$zh_CN extends Translations$graph$kind$en {
+	_Translations$graph$kind$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get trigger => '触发';
+	@override String get action => '动作';
+	@override String get agent => '智能体';
+	@override String get control => '分支';
+	@override String get approval => '审批';
+	@override String get unknown => '未知';
 }
 
 // Path: entities.detail
@@ -875,6 +901,12 @@ extension on TranslationsZhCn {
 			'ref.trigger' => '触发器',
 			'ref.control' => '控制',
 			'ref.approval' => '审批',
+			'graph.kind.trigger' => '触发',
+			'graph.kind.action' => '动作',
+			'graph.kind.agent' => '智能体',
+			'graph.kind.control' => '分支',
+			'graph.kind.approval' => '审批',
+			'graph.kind.unknown' => '未知',
 			'a11y.editingField' => ({required Object field}) => '正在编辑 ${field}',
 			'a11y.editField' => ({required Object field}) => '编辑 ${field}',
 			'a11y.addTagTo' => ({required Object field}) => '添加标签:${field}',

@@ -190,5 +190,101 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.text('x0'), findsOneWidget);
     });
+
+    testWidgets('swapping in a different graph re-fits (demo setGraph contract)', (tester) async {
+      final small = Graph(
+        nodes: [n('a', NodeKind.trigger), n('b', NodeKind.action)],
+        edges: [e('e1', 'a', 'b')],
+      );
+      // 8 ranks ≈ 2188 wide → fit k≈0.36, above the 0.25 floor (a longer chain would clamp at the
+      // floor and legitimately overflow, same as the demo). 8 层链在 0.25 下限之上,可整链入框。
+      final long = Graph(nodes: [
+        n('c0', NodeKind.trigger),
+        for (var i = 1; i < 8; i++) n('c$i', NodeKind.action),
+      ], edges: [
+        for (var i = 1; i < 8; i++) e('e$i', 'c${i - 1}', 'c$i'),
+      ]);
+      await tester.pumpWidget(host(AnGraphCanvas(graph: small)));
+      await tester.pump();
+      final smallK = scaleOf(tester);
+      await tester.pumpWidget(host(AnGraphCanvas(graph: long)));
+      await tester.pump();
+      final longK = scaleOf(tester);
+      expect(longK, lessThan(smallK)); // 30-node chain must shrink to fit 长链必缩小入框
+      // And the far end is actually visible. 链尾真可见。
+      final canvasBox = tester.getRect(find.byType(AnGraphCanvas));
+      expect(canvasBox.contains(tester.getCenter(find.text('c7'))), isTrue);
+    });
+
+    testWidgets('equal-value graph rebuild keeps the user viewport (freezed ==, not identical)',
+        (tester) async {
+      Graph makeGraph() => Graph(
+            nodes: [n('a', NodeKind.trigger), n('b', NodeKind.action)],
+            edges: [e('e1', 'a', 'b')],
+          );
+      await tester.pumpWidget(host(AnGraphCanvas(graph: makeGraph())));
+      await tester.pump();
+      final rect = tester.getRect(find.byType(AnGraphCanvas));
+      await tester.dragFrom(rect.bottomRight - const Offset(12, 12), const Offset(-40, -25));
+      await tester.pump();
+      final panned = viewOf(tester).getTranslation();
+      // Rebuild with a NEW but equal instance (the normal map-from-DTO path)… 等值新实例重建…
+      await tester.pumpWidget(host(AnGraphCanvas(graph: makeGraph())));
+      await tester.pump();
+      // …then resize the viewport: the pan must survive (no deferred re-fit detonation).
+      // …再改视口尺寸:平移必须存活(无延迟重 fit 突爆)。
+      await tester.pumpWidget(host(AnGraphCanvas(graph: makeGraph()), size: const Size(760, 560)));
+      await tester.pump();
+      final after = viewOf(tester).getTranslation();
+      expect(after.x, moreOrLessEquals(panned.x, epsilon: 1e-6));
+      expect(after.y, moreOrLessEquals(panned.y, epsilon: 1e-6));
+    });
+
+    testWidgets('wheel zoom keeps the scene point under the cursor still', (tester) async {
+      await tester.pumpWidget(host(AnGraphCanvas(graph: branchGraph)));
+      await tester.pump();
+      final anchor = tester.getCenter(find.text('branch_result'));
+      final pointer = TestPointer(1, PointerDeviceKind.mouse);
+      pointer.hover(anchor);
+      await tester.sendEventToBinding(pointer.scroll(const Offset(0, -240)));
+      await tester.pump();
+      final after = tester.getCenter(find.text('branch_result'));
+      expect(after.dx, moreOrLessEquals(anchor.dx, epsilon: 0.5));
+      expect(after.dy, moreOrLessEquals(anchor.dy, epsilon: 0.5));
+    });
+
+    testWidgets('selection ring follows a controlled prop change', (tester) async {
+      bool ringed(WidgetTester t, String id) {
+        final container = t.widget<Container>(
+            find.ancestor(of: find.text(id), matching: find.byType(Container)).first);
+        final d = container.decoration! as BoxDecoration;
+        return (d.border! as Border).top.width == 1.5;
+      }
+
+      await tester.pumpWidget(host(AnGraphCanvas(graph: branchGraph, selectedNodeId: 'run_tests')));
+      await tester.pump();
+      expect(ringed(tester, 'run_tests'), isTrue);
+      expect(ringed(tester, 'branch_result'), isFalse);
+      await tester
+          .pumpWidget(host(AnGraphCanvas(graph: branchGraph, selectedNodeId: 'branch_result')));
+      await tester.pump();
+      expect(ringed(tester, 'run_tests'), isFalse);
+      expect(ringed(tester, 'branch_result'), isTrue);
+    });
+
+    testWidgets('system text scaling never overflows the geometry-locked cards', (tester) async {
+      await tester.pumpWidget(TranslationProvider(
+        child: MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: AnTheme.light(),
+          home: MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+            child: Scaffold(body: AnGraphCanvas(graph: branchGraph)),
+          ),
+        ),
+      ));
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+    });
   });
 }

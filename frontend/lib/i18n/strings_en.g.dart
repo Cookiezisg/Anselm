@@ -50,6 +50,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$feedback$en feedback = Translations$feedback$en.internal(_root);
 	late final Translations$shell$en shell = Translations$shell$en.internal(_root);
 	late final Translations$ref$en ref = Translations$ref$en.internal(_root);
+	late final Translations$graph$en graph = Translations$graph$en.internal(_root);
 	late final Translations$a11y$en a11y = Translations$a11y$en.internal(_root);
 	late final Translations$diff$en diff = Translations$diff$en.internal(_root);
 	late final Translations$tree$en tree = Translations$tree$en.internal(_root);
@@ -386,6 +387,16 @@ class Translations$ref$en {
 
 	/// en: 'Approval'
 	String get approval => 'Approval';
+}
+
+// Path: graph
+class Translations$graph$en {
+	Translations$graph$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+	late final Translations$graph$kind$en kind = Translations$graph$kind$en.internal(_root);
 }
 
 // Path: a11y
@@ -820,6 +831,33 @@ class Translations$shell$ocean$en {
 
 	/// en: 'Documents'
 	String get documents => 'Documents';
+}
+
+// Path: graph.kind
+class Translations$graph$kind$en {
+	Translations$graph$kind$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Trigger'
+	String get trigger => 'Trigger';
+
+	/// en: 'Action'
+	String get action => 'Action';
+
+	/// en: 'Agent'
+	String get agent => 'Agent';
+
+	/// en: 'Branch'
+	String get control => 'Branch';
+
+	/// en: 'Approval'
+	String get approval => 'Approval';
+
+	/// en: 'Unknown'
+	String get unknown => 'Unknown';
 }
 
 // Path: entities.detail
@@ -1565,6 +1603,12 @@ extension on Translations {
 			'ref.trigger' => 'Trigger',
 			'ref.control' => 'Control',
 			'ref.approval' => 'Approval',
+			'graph.kind.trigger' => 'Trigger',
+			'graph.kind.action' => 'Action',
+			'graph.kind.agent' => 'Agent',
+			'graph.kind.control' => 'Branch',
+			'graph.kind.approval' => 'Approval',
+			'graph.kind.unknown' => 'Unknown',
 			'a11y.editingField' => ({required Object field}) => 'Editing ${field}',
 			'a11y.editField' => ({required Object field}) => 'Edit ${field}',
 			'a11y.addTagTo' => ({required Object field}) => 'Add tag: ${field}',

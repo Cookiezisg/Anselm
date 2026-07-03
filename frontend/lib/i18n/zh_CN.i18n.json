@@ -177,6 +177,16 @@
     "control": "控制",
     "approval": "审批"
   },
+  "graph": {
+    "kind": {
+      "trigger": "触发",
+      "action": "动作",
+      "agent": "智能体",
+      "control": "分支",
+      "approval": "审批",
+      "unknown": "未知"
+    }
+  },
   "a11y": {
     "editingField": "正在编辑 $field",
     "editField": "编辑 $field",

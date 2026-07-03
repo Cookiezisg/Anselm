@@ -93,9 +93,17 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> {
   @override
   void didUpdateWidget(AnGraphCanvas old) {
     super.didUpdateWidget(old);
-    if (!identical(old.graph, widget.graph) || old.dir != widget.dir) {
+    // Freezed deep == — an equal-value rebuild (the normal Riverpod map-from-DTO path) must NOT
+    // relayout nor touch the user's viewport. A REAL graph/dir change re-fits right away (the demo's
+    // setGraph/setDir contract); deferring via a flag would leave it to detonate on a later resize,
+    // wiping a pan the user meant to keep. freezed 深比较——等值重建(Riverpod 正常 map 路径)不得
+    // 重布局/动视口;真换图/换向当即重 fit(demo setGraph/setDir 契约),存旗延迟会在日后 resize
+    // 时突爆、吞掉用户特意保留的平移。
+    if (old.graph != widget.graph || old.dir != widget.dir) {
       _layout = null;
-      _fitted = false; // new graph → re-fit on next frame 新图重 fit
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _fit();
+      });
     }
   }
 
@@ -260,7 +268,12 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> {
     final gc = context.graphColors;
     final c = context.colors;
     final l = layout;
-    return SizedBox(
+    // Canvas text is geometry-locked (node slots are GraphGeometry constants); accessibility text
+    // scaling would overflow the 60px cards — magnification is the canvas ZOOM's job (demo SVG text
+    // likewise ignores browser font scale). 画布文本几何钉死(节点槽是常量);辅助字号放大会撑破
+    // 60px 卡——放大语义归画布缩放(demo SVG 文本同样不随浏览器字号)。
+    return MediaQuery.withNoTextScaling(
+        child: SizedBox(
       width: l.size.width,
       height: l.size.height,
       child: Stack(clipBehavior: Clip.none, children: [
@@ -299,7 +312,7 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> {
               ),
             ),
       ]),
-    );
+    ));
   }
 
   /// Floating zoom group — the canvas owns its zoom affordances (demo: 外设随画布走,消费点不重拼)。
@@ -356,7 +369,7 @@ class _NodeCard extends StatelessWidget {
     final (kindColor, kindSoft) = _kindColors(node.kind, c, gc);
     final t = context.t;
     return Semantics(
-      label: t.a11y.graphNode(id: node.id, kind: node.kind.name, ref: node.ref),
+      label: t.a11y.graphNode(id: node.id, kind: _kindLabel(t, node.kind), ref: node.ref),
       button: onTap != null,
       child: GestureDetector(
         onTap: onTap,
@@ -393,7 +406,7 @@ class _NodeCard extends StatelessWidget {
                       node.id,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: AnText.body.copyWith(color: c.ink, fontWeight: AnText.emphasisWeight),
+                      style: AnText.body.weight(AnText.emphasisWeight).copyWith(color: c.ink),
                     ),
                     Text(
                       node.ref,
@@ -410,6 +423,17 @@ class _NodeCard extends StatelessWidget {
       ),
     );
   }
+
+  /// Localized node-kind word for assistive labels (the enum's Dart name is English and would
+  /// read half-translated). 无障碍标签用的本地化 kind 词(枚举名是英文,直插读作夹生)。
+  static String _kindLabel(Translations t, NodeKind k) => switch (k) {
+        NodeKind.trigger => t.graph.kind.trigger,
+        NodeKind.action => t.graph.kind.action,
+        NodeKind.agent => t.graph.kind.agent,
+        NodeKind.control => t.graph.kind.control,
+        NodeKind.approval => t.graph.kind.approval,
+        NodeKind.unknown => t.graph.kind.unknown,
+      };
 
   /// Kind → (main, soft) family. action=accent / control=warn / approval=danger reuse the chrome
   /// palette; trigger/agent take the graph-only families; unknown degrades to neutral ink.
@@ -444,10 +468,9 @@ class _PortPill extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: AnText.meta.copyWith(
-          color: isBack ? c.accent : c.inkMuted,
-          fontWeight: AnText.emphasisWeight,
-        ),
+        style: AnText.meta.weight(AnText.emphasisWeight).copyWith(
+              color: isBack ? c.accent : c.inkMuted,
+            ),
       ),
     );
   }

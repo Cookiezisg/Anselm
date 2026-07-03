@@ -158,7 +158,7 @@ class AnTransformBox extends StatelessWidget {
                   title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: AnText.body.copyWith(color: c.ink, fontWeight: AnText.emphasisWeight),
+                  style: AnText.body.weight(AnText.emphasisWeight).copyWith(color: c.ink),
                 ),
               ),
             ]),

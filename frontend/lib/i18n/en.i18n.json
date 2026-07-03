@@ -177,6 +177,16 @@
     "control": "Control",
     "approval": "Approval"
   },
+  "graph": {
+    "kind": {
+      "trigger": "Trigger",
+      "action": "Action",
+      "agent": "Agent",
+      "control": "Branch",
+      "approval": "Approval",
+      "unknown": "Unknown"
+    }
+  },
   "a11y": {
     "editingField": "Editing $field",
     "editField": "Edit $field",

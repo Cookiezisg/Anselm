@@ -165,6 +165,28 @@ void main() {
       expect(l.routes, isEmpty);
     });
 
+    test('median ordering is construction-stable on wide layers (≥34 ties)', () {
+      // 34 same-parent siblings tie on the median; Dart's unstable sort (quicksort past 33
+      // elements) would permute them without the index tiebreak — the JS reference is stable.
+      // 34 个同父兄弟中位数并列;无 tiebreak 时 Dart 不稳定排序(>33 切 quicksort)会置换,JS 参照稳定。
+      final g = Graph(nodes: [
+        n('r1', NodeKind.trigger),
+        n('r2', NodeKind.trigger),
+        for (var i = 0; i < 34; i++) n('c$i', NodeKind.action),
+        n('d', NodeKind.action),
+      ], edges: [
+        for (var i = 0; i < 34; i++) e('e$i', 'r1', 'c$i'),
+        e('ed', 'r2', 'd'),
+      ]);
+      final l = layoutGraph(g);
+      final tops = [for (var i = 0; i < 34; i++) l.nodeRects['c$i']!.top];
+      // Declaration order must survive the 8 passes verbatim. 声明序须原样穿过 8 趟排序。
+      for (var i = 1; i < tops.length; i++) {
+        expect(tops[i], greaterThan(tops[i - 1]),
+            reason: 'c${i - 1} → c$i out of order (unstable sort leak)');
+      }
+    });
+
     test('huge fan-out stays finite and collision-free on the main axis', () {
       final g = Graph(nodes: [
         n('t', NodeKind.trigger),
