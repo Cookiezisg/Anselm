@@ -86,9 +86,9 @@ class AnTransformBox extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(child: _fieldColumn(c, inputs, emptyInputsLabel, lit: inActive || outActive, alignEnd: true)),
-          _connector(c, inputs.length, active: inActive),
+          _connector(c, inputs.length, active: inActive, fanLeft: true),
           _centreBox(context, c),
-          _connector(c, outputs.length, active: outActive),
+          _connector(c, outputs.length, active: outActive, fanLeft: false),
           Expanded(child: _fieldColumn(c, outputs, emptyOutputsLabel, lit: outActive, alignEnd: false)),
         ],
       ),
@@ -113,7 +113,7 @@ class AnTransformBox extends StatelessWidget {
     );
   }
 
-  Widget _connector(AnColors c, int count, {required bool active}) {
+  Widget _connector(AnColors c, int count, {required bool active, required bool fanLeft}) {
     return SizedBox(
       width: AnSpace.s48,
       child: CustomPaint(
@@ -122,6 +122,7 @@ class AnTransformBox extends StatelessWidget {
           tileHeight: _tileH,
           color: active ? c.accent : c.line,
           dashed: count == 0,
+          fanLeft: fanLeft,
         ),
       ),
     );
@@ -266,23 +267,28 @@ class _EmptySlot extends StatelessWidget {
   }
 }
 
-/// Horizontal-tangent cubic beziers from each field tile centre to the box's vertical middle —
-/// `cubicTo(midX, y1, midX, y2, x2, y2)` (the n8n edge). Endpoint dots instead of arrows (direction
-/// is self-evident left→right); a 0-field side paints one dashed centre line into the void slot.
-/// 每字段行中心 → 盒纵向中点的水平切线三次贝塞尔(n8n 边)。端点用小圆点、不用箭头(左→右方向自明);
-/// 0 字段侧画一条虚线中线接空槽。
+/// Horizontal-tangent cubic beziers between the field tile centres and the box's vertical middle —
+/// `cubicTo(midX, y1, midX, y2, x2, y2)` (the n8n edge). [fanLeft] sets which side holds the fan:
+/// the input connector fans on its LEFT (many fields → one box port), the output connector fans on
+/// its RIGHT (one box port → many fields) — flipping this reads backwards. Endpoint dots instead of
+/// arrows (direction is self-evident left→right); a 0-field side paints one dashed centre line.
+/// 字段行中心 ↔ 盒纵向中点的水平切线三次贝塞尔(n8n 边)。[fanLeft] 定分叉在哪一侧:输入连线分叉在左
+/// (多字段 → 盒单口)、输出连线分叉在右(盒单口 → 多字段)——反了就读反。端点小圆点、不用箭头;
+/// 0 字段侧画一条虚线中线。
 class _ConnectorPainter extends CustomPainter {
   const _ConnectorPainter({
     required this.count,
     required this.tileHeight,
     required this.color,
     required this.dashed,
+    required this.fanLeft,
   });
 
   final int count;
   final double tileHeight;
   final Color color;
   final bool dashed;
+  final bool fanLeft;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -301,15 +307,17 @@ class _ConnectorPainter extends CustomPainter {
     }
     final top = midY - count * tileHeight / 2;
     final dot = Paint()..color = color;
+    final fanX = fanLeft ? 0.0 : size.width; // field-side x 字段侧
+    final portX = fanLeft ? size.width : 0.0; // box-port x 盒口侧
     for (var i = 0; i < count; i++) {
       final y = top + i * tileHeight + tileHeight / 2;
       final p = Path()
-        ..moveTo(0, y)
-        ..cubicTo(size.width / 2, y, size.width / 2, midY, size.width, midY);
+        ..moveTo(fanX, y)
+        ..cubicTo(size.width / 2, y, size.width / 2, midY, portX, midY);
       canvas.drawPath(dashed ? _dash(p) : p, stroke);
-      canvas.drawCircle(Offset(0, y), 1.5, dot);
+      canvas.drawCircle(Offset(fanX, y), 1.5, dot);
     }
-    canvas.drawCircle(Offset(size.width, midY), 1.5, dot);
+    canvas.drawCircle(Offset(portX, midY), 1.5, dot);
   }
 
   Path _dash(Path source) {
@@ -326,7 +334,7 @@ class _ConnectorPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_ConnectorPainter old) =>
-      old.count != count || old.tileHeight != tileHeight || old.color != color || old.dashed != dashed;
+      old.count != count || old.tileHeight != tileHeight || old.color != color || old.dashed != dashed || old.fanLeft != fanLeft;
 }
 
 /// Hairline dashed rounded-rect border (the empty signature slot). 虚线圆角边框(空签名槽)。
