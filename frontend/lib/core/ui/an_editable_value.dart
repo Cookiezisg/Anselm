@@ -22,25 +22,29 @@ enum AnEditKind {
 }
 
 /// The kit's in-place value editor — the shared edit core of AnField + AnKv (the demo's `field.js`
-/// editText / editSelect). A row of [leading] (key / label) + value.
+/// editText / editSelect). A row of [leading] (key / label) + a flush-right value.
 ///
 /// [AnEditKind.input]: display-only until you click the pencil that reveals on hover at the VALUE's
-/// FAR RIGHT; the value then swaps to a seamless field with cancel / save co-located at that same far
-/// right (the pencil ↔ ✓✕ never hop sides — a single anchor beside the value being edited, not by the
-/// label). Commit on Enter / ✓ / blur; cancel on Esc / ✕. Abort wins via a one-shot [_finished] guard, and the
-/// confirm buttons sit in a [TextFieldTapRegion] so tapping them is NOT a blur-commit (cancel-priority).
-/// Focus returns to the pencil only on a KEYBOARD finish (Enter/Esc), not on a pointer ✓✕ / blur — see
-/// [_finish]. Entering edit announces politely. The display value mirrors the field's style so toggling never jumps.
+/// FAR RIGHT (the affordance rail); the value then swaps to a seamless field with Cancel / Save
+/// co-located at that same far right — a single anchor beside the value being edited, never hopping
+/// sides. Commit on Enter / Save / blur; cancel on Esc / Cancel. Abort wins via a one-shot [_finished]
+/// guard, and the confirm buttons sit in a [TextFieldTapRegion] so tapping them is NOT a blur-commit
+/// (cancel-priority). Focus returns to the pencil only on a KEYBOARD finish (Enter/Esc), not on a
+/// pointer Cancel/Save / blur — see [_finish]. Entering edit announces politely. The display value
+/// mirrors the field's style so toggling never jumps. The resting display is ALWAYS single-line
+/// right-ellipsis (editable values are flush-right by decree — long prose is not an inline-editable
+/// value's job).
 ///
 /// [AnEditKind.select]: the value zone is an always-present ghost [AnDropdown] (it IS the editor — a
-/// pick commits, outside-tap / Esc dismiss it harmlessly), so there's no dangling edit state to get stuck
-/// in. [rowHeight] is parameterized (Field [AnSize.islandHead] / Kv [AnSize.row]) so one core serves both.
+/// pick commits, outside-tap / Esc dismiss it harmlessly), so there's no dangling edit state to get
+/// stuck in; it reserves the same far-right rail width so mixed lists keep ONE right edge. [rowHeight]
+/// is parameterized (Field [AnSize.islandHead] / Kv [AnSize.row]) so one core serves both.
 ///
-/// 双锚就地值编辑核(AnField + AnKv 共用,= demo field.js)。input:平时只读,hover 时 key 右冒铅笔 → 点铅笔值换
-/// seamless 框、value 右出 取消/保存(两锚,异于 AnEditAffordance 同处三连)。Enter/✓/失焦提交、Esc/✕ 取消;abort 经
-/// 一次性 _finished 守卫优先,✓✕ 套 TextFieldTapRegion 不触发失焦提交(取消优先);仅键盘完成(Enter/Esc)回落焦点到铅笔
-/// (指针 ✓✕/失焦不回落,见 _finish);进编辑礼貌宣告;展示值镜像编辑框样式不跳。select:值区=常驻 ghost AnDropdown(它即编辑器,
-/// pick 提交、外点/Esc 无害收起),无悬空编辑态。rowHeight 参数化(Field AnSize.islandHead / Kv AnSize.row)。
+/// 就地值编辑核(AnField + AnKv 共用,= demo field.js)。input:平时只读,hover 时 value 最右冒铅笔 →
+/// 点铅笔值换 seamless 框、同一最右位置换 取消/保存(单锚贴值、绝不换边)。Enter/保存/失焦提交、Esc/取消 弃;
+/// abort 经一次性 _finished 守卫优先,取消/保存套 TextFieldTapRegion 不触发失焦提交;仅键盘完成回落焦点到铅笔;
+/// 进编辑礼貌宣告;展示值镜像编辑框样式不跳,且恒单行右省略(可编辑值钦定贴右)。select:值区=常驻 ghost 下拉
+/// (它即编辑器),同样保留最右轨宽使混排列表共一右缘。rowHeight 参数化(Field islandHead / Kv row)。
 class AnEditableValue extends StatefulWidget {
   const AnEditableValue({
     required this.leading,
@@ -52,7 +56,6 @@ class AnEditableValue extends StatefulWidget {
     this.editor = AnEditKind.input,
     this.options = const [],
     this.mono = false,
-    this.wrap = false,
     this.startEditing = false,
     super.key,
   }) : assert(!startEditing || editor == AnEditKind.input,
@@ -61,7 +64,8 @@ class AnEditableValue extends StatefulWidget {
   /// The visual left zone (a key [Text], or a label + hint column). 视觉左区(key 文本 / label+hint 列)。
   final Widget leading;
 
-  /// Identifies the field for the edit-entry announcement + a11y. 用于编辑宣告 + a11y 的字段名。
+  /// Identifies the field for the edit-entry announcement + the pencil's a11y label (N pencils in one
+  /// list must be distinguishable). 用于编辑宣告 + 铅笔 a11y 标签的字段名(一列多铅笔须可分辨)。
   final String fieldLabel;
   final String value;
   final ValueChanged<String> onChanged;
@@ -77,9 +81,6 @@ class AnEditableValue extends StatefulWidget {
   /// Options for [AnEditKind.select]. 枚举选项。
   final List<AnDropdownOption<String>> options;
   final bool mono;
-
-  /// Long value wraps (left-aligned, multi-line) instead of single-line ellipsis. 长值换行。
-  final bool wrap;
 
   /// Open directly in edit mode ([AnEditKind.input] only) — for galleries / matrix coverage of the
   /// editing state, or a freshly-added row. 直接进编辑态(仅 input,供 gallery/matrix + 新增行)。
@@ -148,31 +149,29 @@ class _AnEditableValueState extends State<AnEditableValue> {
     }
   }
 
-  // One-shot per session ([_finished]); abort (✕ / Esc) wins if it lands first. Commit trims (no dirty
-  // whitespace). The returnFocus decision is explained inline below. 一次性;abort 先到胜;提交去首尾空白。
+  // One-shot per session ([_finished]); abort (Cancel / Esc) wins if it lands first. Commit trims (no
+  // dirty whitespace). The returnFocus decision is explained inline below. 一次性;abort 先到胜;提交去首尾空白。
   void _finish(bool commit, {required bool returnFocus}) {
     if (_finished) return;
     _finished = true;
     final next = _ctl.text.trim();
     if (!returnFocus) {
-      // Pointer finish (✓✕ click / blur): drop focus from the about-to-be-removed editing zone (the field
-      // or the ✓✕ button) BEFORE the rebuild — otherwise, when that focused node is removed, Flutter
-      // RESTORES focus to the nearest survivor (the pencil), re-revealing + focus-ringing it. Doing it
-      // pre-rebuild (synchronously) avoids the restoration entirely; a click elsewhere then takes focus via
-      // its own gesture. 指针完成:重建前(同步)卸掉编辑区焦点,杜绝被自动恢复到铅笔(否则铅笔再现+画焦点框)。
+      // Pointer finish (Cancel/Save click / blur): drop focus from the about-to-be-removed editing zone
+      // (the field or the button) BEFORE the rebuild — otherwise, when that focused node is removed,
+      // Flutter RESTORES focus to the nearest survivor (the pencil), re-revealing + focus-ringing it.
+      // Doing it pre-rebuild (synchronously) avoids the restoration entirely; a click elsewhere then
+      // takes focus via its own gesture. 指针完成:重建前(同步)卸掉编辑区焦点,杜绝被自动恢复到铅笔。
       FocusManager.instance.primaryFocus?.unfocus();
     }
     setState(() => _editing = false);
     if (commit && next != widget.value) widget.onChanged(next);
     // returnFocus is decided by the SOURCE of the finish, NOT the input modality: the KEYBOARD paths
     // (Enter/Esc in the field) pass true so keyboard nav continues on the pencil; the POINTER paths (a
-    // ✓✕ click, blur) pass false — a click must NOT focus the pencil, else `revealPencil` (reads hasFocus)
-    // pins it visible AND it paints its focus ring instead of returning to its hidden resting state.
-    // NB: FocusManager.highlightMode can't tell mouse from keyboard on desktop — a MOUSE pointer is also
-    // `traditional` (only finger-touch is `touch`) — so the call site, not highlightMode, decides.
-    // returnFocus 按完成「来源」(非输入模态)判定:键盘路径(字段 Enter/Esc)传 true 续导航;指针路径(点 ✓✕、失焦)
-    // 传 false——点击不该聚焦铅笔(否则 revealPencil 读 hasFocus 卡可见 + 画焦点框而非隐回默认)。注:桌面上鼠标指针
-    // 的 highlightMode 也是 traditional(只有触摸是 touch),分不开鼠标/键盘,故按调用点而非 highlightMode 判定。
+    // Cancel/Save click, blur) pass false — a click must NOT focus the pencil, else `revealPencil`
+    // (reads hasFocus) pins it visible AND it paints its focus ring instead of returning to its hidden
+    // resting state. NB: FocusManager.highlightMode can't tell mouse from keyboard on desktop — a MOUSE
+    // pointer is also `traditional` (only finger-touch is `touch`) — so the call site decides.
+    // returnFocus 按完成「来源」判定:键盘路径回落铅笔续导航;指针路径不回落(否则铅笔卡可见+画焦点框)。
     if (returnFocus) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _pencilFocus.requestFocus();
@@ -187,7 +186,7 @@ class _AnEditableValueState extends State<AnEditableValue> {
 
     return Semantics(
       container: true,
-      explicitChildNodes: true, // key / value / pencil / ✓✕ each individually reachable (NOT merged) 各自可达、不 merge
+      explicitChildNodes: true, // key / value / pencil / Cancel/Save each individually reachable 各自可达、不 merge
       child: MouseRegion(
         onEnter: (_) => setState(() => _hovered = true),
         onExit: (_) => setState(() => _hovered = false),
@@ -206,7 +205,9 @@ class _AnEditableValueState extends State<AnEditableValue> {
   }
 
   // select: the value zone is an always-present ghost dropdown — no pencil, no editing state, so no
-  // dangling state on dismiss (a pick commits; outside-tap / Esc just close it). select:常驻 ghost 下拉。
+  // dangling state on dismiss (a pick commits; outside-tap / Esc just close it). It reserves the same
+  // far-right rail width as the input rows' pencil so a mixed list keeps ONE right edge.
+  // select:常驻 ghost 下拉;保留与铅笔同宽的最右轨,混排列表共一右缘。
   Widget _selectRow() {
     return AnLeadValue(
       leading: widget.leading,
@@ -217,6 +218,7 @@ class _AnEditableValueState extends State<AnEditableValue> {
         menuAlignEnd: true,
         onChanged: widget.onChanged,
       ),
+      afterValue: const SizedBox(width: AnSize.controlSm),
     );
   }
 
@@ -224,15 +226,13 @@ class _AnEditableValueState extends State<AnEditableValue> {
     final revealPencil = _hovered || _pencilFocus.hasFocus;
     return AnLeadValue(
       leading: widget.leading,
-      // Editing single-lines the field (Align-right); only the resting display honours wrap. 编辑单行、展示才换行。
-      wrap: !_editing && widget.wrap,
       trailing: _inputValueZone(c),
-      // SINGLE affordance anchor at the value's FAR RIGHT: a hover-revealed pencil while idle, ✓✕ while
-      // editing — co-located so the control never hops sides, and it sits by the value it edits (not by
-      // the label). The pencil stays in the tree at opacity 0 so it's keyboard-reachable; ✓✕ live in a
-      // TextFieldTapRegion so tapping them isn't a blur-commit (cancel-priority), returnFocus:false as a
-      // pointer finish. 单锚在值最右:idle hover 显铅笔、editing ✓✕(同处不换边、贴其所编之值,非贴标签);
-      // 铅笔 opacity 0 常驻可达;✓✕ 套 TapRegion 不触发失焦提交、点击不回落焦点。
+      // SINGLE affordance anchor at the value's FAR RIGHT: a hover-revealed pencil while idle,
+      // Cancel/Save while editing — co-located, never hopping sides, beside the value it edits. The
+      // pencil stays in the tree at opacity 0 so it's keyboard-reachable; Cancel/Save live in a
+      // TextFieldTapRegion so tapping them isn't a blur-commit (cancel-priority), returnFocus:false as
+      // a pointer finish. 单锚在值最右:idle 铅笔、editing 取消/保存,同处不换边、贴其所编之值;铅笔
+      // opacity 0 常驻可达;按钮套 TapRegion 不触发失焦提交、点击不回落焦点。
       afterValue: _editing
           ? TextFieldTapRegion(
               child: AnEditAffordance(
@@ -246,7 +246,9 @@ class _AnEditableValueState extends State<AnEditableValue> {
               child: AnButton.iconOnly(
                 AnIcons.edit,
                 size: AnButtonSize.sm,
-                semanticLabel: context.t.action.edit,
+                // Field-specific label — N pencils in one list must be distinguishable to a screen
+                // reader. 按字段命名,列表多铅笔可分辨。
+                semanticLabel: context.t.a11y.editField(field: widget.fieldLabel),
                 focusNode: _pencilFocus,
                 onPressed: _begin,
               ),
@@ -268,15 +270,15 @@ class _AnEditableValueState extends State<AnEditableValue> {
       );
     }
     // Display mirrors the seamless field's style (shared value-column style) so idle ↔ editing never
-    // changes size/face; empty shows an em-dash. 展示走值列样式单源(切换不跳),空显 —。
+    // changes size/face; empty shows an em-dash; always single-line right-ellipsis (flush-right decree).
+    // 展示走值列样式单源(切换不跳),空显 —,恒单行右省略(贴右钦定)。
     final base = AnText.value(mono: widget.mono);
     final display = widget.value.isEmpty ? '—' : widget.value;
     return Text(
       display,
-      textAlign: widget.wrap ? TextAlign.left : TextAlign.right,
-      maxLines: widget.wrap ? null : 1,
-      softWrap: widget.wrap,
-      overflow: widget.wrap ? TextOverflow.clip : TextOverflow.ellipsis,
+      textAlign: TextAlign.right,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
       style: base.copyWith(color: color),
     );
   }

@@ -97,4 +97,105 @@ void main() {
     expect(find.bySemanticsLabel('Remove passed'), findsNothing); // no ×
     handle.dispose();
   });
+
+  // ── host-controlled add field (showAddField / onAddDismissed) — the KV tags row's contract ──
+  group('host-controlled add field', () {
+    Future<({List<AnTag> Function() tags, bool Function() dismissed, void Function(bool) setShow})> pumpHost(
+        WidgetTester tester, List<AnTag> initial, {bool show = false}) async {
+      var tags = initial;
+      var dismissed = false;
+      late StateSetter setState;
+      var showAdd = show;
+      await tester.pumpWidget(TranslationProvider(
+        child: MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: AnTheme.light(),
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 340,
+                child: StatefulBuilder(
+                  builder: (ctx, ss) {
+                    setState = ss;
+                    return AnTags(
+                      tags: tags,
+                      placeholder: 'Add',
+                      showAddField: showAdd,
+                      onChanged: (t) => ss(() => tags = t),
+                      onAddDismissed: () => ss(() {
+                        dismissed = true;
+                        showAdd = false;
+                      }),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+      ));
+      return (
+        tags: () => tags,
+        dismissed: () => dismissed,
+        setShow: (v) {
+          setState(() => showAdd = v);
+        },
+      );
+    }
+
+    testWidgets('showAddField:false hides the field but keeps the ×', (tester) async {
+      final handle = tester.ensureSemantics();
+      final h = await pumpHost(tester, [const AnTag('agent')]);
+      expect(find.byType(TextField), findsNothing);
+      expect(find.bySemanticsLabel('Remove agent'), findsOneWidget); // still editable
+      expect(h.dismissed(), isFalse);
+      handle.dispose();
+    });
+
+    testWidgets('false→true mounts the field AND focuses it', (tester) async {
+      final h = await pumpHost(tester, [const AnTag('agent')]);
+      h.setShow(true);
+      await tester.pumpAndSettle();
+      final field = find.byType(TextField);
+      expect(field, findsOneWidget);
+      expect(tester.widget<TextField>(field).focusNode?.hasFocus, isTrue);
+    });
+
+    testWidgets('Enter chains: adds, keeps the field + focus, no dismissal', (tester) async {
+      final h = await pumpHost(tester, [const AnTag('agent')], show: true);
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'net');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+      expect(h.tags().map((t) => t.label), contains('net'));
+      expect(find.byType(TextField), findsOneWidget);
+      expect(tester.widget<TextField>(find.byType(TextField)).focusNode?.hasFocus, isTrue);
+      expect(h.dismissed(), isFalse);
+    });
+
+    testWidgets('Esc discards the draft + dismisses', (tester) async {
+      final h = await pumpHost(tester, [const AnTag('agent')], show: true);
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'draft');
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(h.dismissed(), isTrue);
+      expect(find.byType(TextField), findsNothing);
+      expect(h.tags().map((t) => t.label), isNot(contains('draft'))); // draft discarded
+      // re-open: no stale draft resurrects 重开无陈旧草稿
+      h.setShow(true);
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextField>(find.byType(TextField)).controller?.text, isEmpty);
+    });
+
+    testWidgets('blur with text commits it, then dismisses; blur empty just dismisses', (tester) async {
+      final h = await pumpHost(tester, [const AnTag('agent')], show: true);
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'kept');
+      FocusManager.instance.primaryFocus?.unfocus(); // focus leaves the field
+      await tester.pumpAndSettle();
+      expect(h.tags().map((t) => t.label), contains('kept')); // blur-commit
+      expect(h.dismissed(), isTrue);
+    });
+  });
 }

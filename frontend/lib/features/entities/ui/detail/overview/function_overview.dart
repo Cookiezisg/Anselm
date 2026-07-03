@@ -32,9 +32,9 @@ class FunctionOverview extends ConsumerWidget {
 
   final FunctionEntity fn;
 
-  /// 50 code lines at the code style's line box, plus the editor chrome — the collapse threshold.
-  /// 代码样式行盒 × 50 行 + 编辑器 chrome = 收合高度。
-  static const double _collapsedCodeHeight = 50 * 12 * 1.6 + 44;
+  /// 50 code lines at the code style's line box (from the token, not re-typed numbers), plus the
+  /// editor's bar+padding chrome — the collapse threshold. 收合高度=50×代码样式行盒(取自 token)+ 编辑器 chrome。
+  static final double _collapsedCodeHeight = 50 * AnText.code.fontSize! * AnText.code.height! + 44;
 
   Future<void> _patchMeta(WidgetRef ref, Map<String, dynamic> patch) async {
     await ref.read(entityRepositoryProvider).patchFunctionMeta(fn.id, patch);
@@ -57,10 +57,9 @@ class FunctionOverview extends ConsumerWidget {
         // bump). Row order [说明, 标签] is stable (AnKv keys edit state by index). 唯一手编面,走 AnKv;行序稳定。
         AnSection(variant: AnSectionVariant.plain, children: [
           AnKv(
-            wrap: true,
             rows: [
               AnKvRow(d.kv.desc, fn.description, editable: true),
-              // Tags row: ➕add / ✕remove pills (the mature AnKv tags kind), not text edit. 标签行:+/× 药丸。
+              // Tags row: hover → per-pill ✕ + far-right ➕; press ➕ → the add input appears. 标签行:➕→输入框。
               AnKvRow.tags(d.kv.tags, fn.tags, tagsPlaceholder: d.addTag),
             ],
             onChanged: (rows) {
@@ -74,20 +73,17 @@ class FunctionOverview extends ConsumerWidget {
           ),
         ]),
         AnSection(variant: AnSectionVariant.plain, children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: AnSpace.s16),
-            child: AnTransformBox(
-              title: fn.name,
-              icon: AnIcons.function,
-              inputs: [for (final f in v.inputs) AnTransformField(f.name, f.type)],
-              outputs: [for (final f in v.outputs) AnTransformField(f.name, f.type)],
-              phase: v.envStatus == 'failed' ? AnTransformPhase.failed : AnTransformPhase.idle,
-              status: AnStatus.fromRaw(v.envStatus),
-              statusLabel: 'env ${v.envStatus}',
-              meta: meta,
-              emptyInputsLabel: d.hero.noInputs,
-              emptyOutputsLabel: d.hero.noOutputs,
-            ),
+          AnTransformBox(
+            title: fn.name,
+            icon: AnIcons.function,
+            inputs: [for (final f in v.inputs) AnTransformField(f.name, f.type)],
+            outputs: [for (final f in v.outputs) AnTransformField(f.name, f.type)],
+            phase: v.envStatus == 'failed' ? AnTransformPhase.failed : AnTransformPhase.idle,
+            status: AnStatus.fromRaw(v.envStatus),
+            statusLabel: d.hero.envStatus(status: v.envStatus),
+            meta: meta,
+            emptyInputsLabel: d.hero.noInputs,
+            emptyOutputsLabel: d.hero.noOutputs,
           ),
         ]),
         AnSection(label: d.sec.code, variant: AnSectionVariant.plain, children: [
@@ -100,11 +96,9 @@ class FunctionOverview extends ConsumerWidget {
           ),
         ]),
         AnSection(label: d.sec.env, variant: AnSectionVariant.plain, children: [
+          // Bare child — AnSection owns the inter-block gap (children never self-margin). 间距归容器。
           if (v.envError != null && v.envError!.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: AnSpace.s8),
-              child: AnCallout(v.envError!, severity: AnCalloutSeverity.danger),
-            ),
+            AnCallout(v.envError!, severity: AnCalloutSeverity.danger),
           AnInfoCard(
             title: d.card.venv,
             icon: AnIcons.byKey('check'),
@@ -119,7 +113,7 @@ class FunctionOverview extends ConsumerWidget {
                 ]),
                 const SizedBox(height: AnSpace.s8),
                 if (v.dependencies.isEmpty)
-                  Text(d.val.none, style: AnText.meta)
+                  insetEmpty(d.val.none) // the feature's one empty-state idiom 同一空态惯用法
                 else
                   for (final dep in v.dependencies) AnRow(label: dep, passive: true),
               ],

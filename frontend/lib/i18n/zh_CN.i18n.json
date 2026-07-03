@@ -179,6 +179,8 @@
   },
   "a11y": {
     "editingField": "正在编辑 $field",
+    "editField": "编辑 $field",
+    "addTagTo": "添加标签:$field",
     "displayOptions": "显示选项",
     "moreActions": "更多操作",
     "codeBlock": "代码块,$lang,$lines 行",
@@ -233,6 +235,7 @@
         "trigger": "触发"
       },
       "hero": {
+        "envStatus": "env $status",
         "noInputs": "无入参",
         "noOutputs": "无返回",
         "deps": "$n 依赖"
@@ -319,6 +322,7 @@
         "required": "必填",
         "optional": "可选",
         "sensitive": "敏感",
+        "timeoutMs": "超时 $ms ms",
         "defaultPrefix": "默认",
         "generator": "生成器",
         "modelDefault": "工作区默认",

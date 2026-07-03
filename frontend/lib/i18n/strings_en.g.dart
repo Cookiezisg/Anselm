@@ -399,6 +399,12 @@ class Translations$a11y$en {
 	/// en: 'Editing $field'
 	String editingField({required Object field}) => 'Editing ${field}';
 
+	/// en: 'Edit $field'
+	String editField({required Object field}) => 'Edit ${field}';
+
+	/// en: 'Add tag: $field'
+	String addTagTo({required Object field}) => 'Add tag: ${field}';
+
 	/// en: 'Display options'
 	String get displayOptions => 'Display options';
 
@@ -1004,6 +1010,9 @@ class Translations$entities$detail$hero$en {
 
 	// Translations
 
+	/// en: 'env $status'
+	String envStatus({required Object status}) => 'env ${status}';
+
 	/// en: 'no inputs'
 	String get noInputs => 'no inputs';
 
@@ -1280,6 +1289,9 @@ class Translations$entities$detail$val$en {
 	/// en: 'sensitive'
 	String get sensitive => 'sensitive';
 
+	/// en: 'timeout $ms ms'
+	String timeoutMs({required Object ms}) => 'timeout ${ms} ms';
+
 	/// en: 'default'
 	String get defaultPrefix => 'default';
 
@@ -1542,6 +1554,8 @@ extension on Translations {
 			'ref.control' => 'Control',
 			'ref.approval' => 'Approval',
 			'a11y.editingField' => ({required Object field}) => 'Editing ${field}',
+			'a11y.editField' => ({required Object field}) => 'Edit ${field}',
+			'a11y.addTagTo' => ({required Object field}) => 'Add tag: ${field}',
 			'a11y.displayOptions' => 'Display options',
 			'a11y.moreActions' => 'More actions',
 			'a11y.codeBlock' => ({required Object lang, required Object lines}) => 'Code block, ${lang}, ${lines} lines',
@@ -1582,6 +1596,7 @@ extension on Translations {
 			'entities.detail.verb.call' => 'Call',
 			'entities.detail.verb.invoke' => 'Invoke',
 			'entities.detail.verb.trigger' => 'Trigger',
+			'entities.detail.hero.envStatus' => ({required Object status}) => 'env ${status}',
 			'entities.detail.hero.noInputs' => 'no inputs',
 			'entities.detail.hero.noOutputs' => 'no outputs',
 			'entities.detail.hero.deps' => ({required Object n}) => '${n} deps',
@@ -1656,6 +1671,7 @@ extension on Translations {
 			'entities.detail.val.required' => 'required',
 			'entities.detail.val.optional' => 'optional',
 			'entities.detail.val.sensitive' => 'sensitive',
+			'entities.detail.val.timeoutMs' => ({required Object ms}) => 'timeout ${ms} ms',
 			'entities.detail.val.defaultPrefix' => 'default',
 			'entities.detail.val.generator' => 'generator',
 			'entities.detail.val.modelDefault' => 'Workspace default',

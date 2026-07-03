@@ -76,7 +76,7 @@ class HandlerOverview extends StatelessWidget {
               icon: AnIcons.byKey('tool'),
               label: m.name,
               meta: '${m.inputs.length}→${m.outputs.length}',
-              hint: m.streaming ? d.val.generator : (m.timeout != null ? 'timeout ${m.timeout}ms' : null),
+              hint: m.streaming ? d.val.generator : (m.timeout != null ? d.val.timeoutMs(ms: m.timeout!) : null),
               passive: true,
             ),
           AnCodeEditor(code: handlerSourceOf(v), lang: 'py', wrap: true),

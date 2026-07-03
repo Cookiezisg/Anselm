@@ -342,7 +342,7 @@ final GalleryCategory _g3RowsCards = GalleryCategory('行与卡 Rows & Cards', A
           AnKvRow('Created', '2026-06-24'),
           AnKvRow('Effort', 'medium', editable: true, editor: AnEditKind.select, options: _effortOptions),
         ]), span: true),
-    GallerySpecimen('标签行 (➕/✕ 药丸,hover 显)', (_) => _KvDemo(rows: [
+    GallerySpecimen('标签行 (hover→✕/➕,点➕出输入框)', (_) => _KvDemo(rows: [
           const AnKvRow('Name', 'normalize-input', editable: true),
           AnKvRow.tags('Tags', const ['util', 'io'], tagsPlaceholder: 'add tag'),
         ]), span: true),
@@ -355,8 +355,8 @@ final GalleryCategory _g3RowsCards = GalleryCategory('行与卡 Rows & Cards', A
           AnKvRow('Run', 'run_3a9f0e88'),
           AnKvRow('Hash', 'a1b2c3d4e5f6'),
         ]), span: true),
-    GallerySpecimen('wrap (长值换行)', (_) => const _KvDemo(wrap: true, rows: [
-          AnKvRow('Description', 'A deliberately long value that should wrap onto several lines instead of truncating.', editable: true),
+    GallerySpecimen('wrap (只读长值换行,行级)', (_) => const AnKv(rows: [
+          AnKvRow('Description', 'A deliberately long value that should wrap onto several lines instead of truncating.', wrap: true),
         ]), span: true),
     GallerySpecimen('超长截断', (_) => const AnKv(rows: [
           AnKvRow('an-extremely-long-key-name-that-must-ellipsis', 'and-an-equally-long-value-that-also-truncates-on-the-right'),
@@ -890,10 +890,9 @@ const List<AnDropdownOption<String>> _effortOptions = [
 
 // AnKv is controlled — the demo owns the rows so in-place edits actually mutate + rebuild. AnKv 受控。
 class _KvDemo extends StatefulWidget {
-  const _KvDemo({required this.rows, this.wrap = false});
+  const _KvDemo({required this.rows});
 
   final List<AnKvRow> rows;
-  final bool wrap;
 
   @override
   State<_KvDemo> createState() => _KvDemoState();
@@ -904,7 +903,7 @@ class _KvDemoState extends State<_KvDemo> {
 
   @override
   Widget build(BuildContext context) =>
-      AnKv(rows: _rows, wrap: widget.wrap, onChanged: (r) => setState(() => _rows = r));
+      AnKv(rows: _rows, onChanged: (r) => setState(() => _rows = r));
 }
 
 // AnRow collapsible demo — owns the open state so the chevron toggles. AnRow 折叠演示。

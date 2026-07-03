@@ -61,7 +61,7 @@ class AgentOverview extends StatelessWidget {
             icon: AnIcons.byKey('skill'),
             child: (v.skill == null || v.skill!.isEmpty)
                 ? insetEmpty(d.val.none)
-                : AnField(label: d.card.skill, value: v.skill, wrap: true),
+                : kvList([(d.kv.name, v.skill)]),
           ),
           AnInfoCard(
             title: d.card.knowledge,

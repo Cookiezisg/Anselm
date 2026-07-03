@@ -179,6 +179,8 @@
   },
   "a11y": {
     "editingField": "Editing $field",
+    "editField": "Edit $field",
+    "addTagTo": "Add tag: $field",
     "displayOptions": "Display options",
     "moreActions": "More actions",
     "codeBlock": "Code block, $lang, $lines lines",
@@ -233,6 +235,7 @@
         "trigger": "Trigger"
       },
       "hero": {
+        "envStatus": "env $status",
         "noInputs": "no inputs",
         "noOutputs": "no outputs",
         "deps": "$n deps"
@@ -319,6 +322,7 @@
         "required": "required",
         "optional": "optional",
         "sensitive": "sensitive",
+        "timeoutMs": "timeout $ms ms",
         "defaultPrefix": "default",
         "generator": "generator",
         "modelDefault": "Workspace default",

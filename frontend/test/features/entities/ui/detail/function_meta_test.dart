@@ -6,6 +6,7 @@ import 'package:anselm/core/ui/an_tags.dart';
 import 'package:anselm/core/ui/an_transform_box.dart';
 import 'package:anselm/core/ui/icons.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:anselm/core/ui/an_version_diff.dart';
 import 'package:anselm/features/entities/data/entity_fixtures.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
@@ -76,24 +77,59 @@ void main() {
       expect(find.byIcon(AnIcons.edit), findsOneWidget);
     });
 
-    testWidgets('说明 pills stay read-first: no ✕ until hover, then ✕/➕ reveal + remove PATCHes', (tester) async {
+    testWidgets('tags: rest=药丸净、hover→✕/➕、点➕→输入框、Enter 加、Esc 收、✕ 删', (tester) async {
       final repo = _repo(tags: const ['util', 'io']);
       final fn = await repo.getFunction('fn_1');
       await tester.pumpWidget(_host(FunctionOverview(fn: fn), repo));
-      expect(find.byIcon(AnIcons.close), findsNothing); // read-first: no remove-× at rest
-      expect(find.byIcon(AnIcons.plus), findsNothing); // no add affordance at rest
+      // Rest: no ✕; the ➕ is IN THE TREE (keyboard-reachable) but transparent; no input field.
+      // 静态:无 ✕;➕ 常驻树(键盘可达)但透明;无输入框。
+      expect(find.byIcon(AnIcons.close), findsNothing);
+      final plus = find.byIcon(AnIcons.plus);
+      expect(plus, findsOneWidget);
+      // The reveal gate is SOME ancestor Opacity at 0 (the button's own internal Opacity is 1). 揭示门=祖先里有 0。
+      double minPlusOpacity() => [
+            for (final e in find.ancestor(of: plus, matching: find.byType(Opacity)).evaluate())
+              (e.widget as Opacity).opacity
+          ].reduce((a, b) => a < b ? a : b);
+      expect(minPlusOpacity(), 0);
+      expect(find.byType(TextField), findsNothing);
 
       final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
       await mouse.addPointer(location: Offset.zero);
       addTearDown(() => mouse.removePointer());
       await mouse.moveTo(tester.getCenter(find.text('util')));
       await tester.pumpAndSettle();
-      expect(find.byIcon(AnIcons.close), findsNWidgets(2)); // hover → a ✕ per pill
-      expect(find.byIcon(AnIcons.plus), findsOneWidget); // hover → the ➕ add affordance
+      // Hover: a ✕ per pill + the ➕ turns visible — but STILL no input field (input is on demand).
+      // hover:每丸 ✕ + ➕ 显形;输入框仍不出现(按需)。
+      expect(find.byIcon(AnIcons.close), findsNWidgets(2));
+      expect(minPlusOpacity(), 1);
+      expect(find.byType(TextField), findsNothing);
 
-      await tester.tap(find.byIcon(AnIcons.close).first); // remove the first tag
+      // Press ➕ → the add input mounts, focused. 按 ➕ → 输入框挂出并聚焦。
+      await tester.tap(plus);
       await tester.pumpAndSettle();
-      expect((await repo.getFunction('fn_1')).tags, hasLength(1));
+      final input = find.byType(TextField);
+      expect(input, findsOneWidget);
+      expect(tester.widget<TextField>(input).focusNode?.hasFocus, isTrue);
+
+      // Type + Enter → tag PATCHes; the field STAYS for chaining. 输入+Enter → PATCH;字段留驻连加。
+      await tester.enterText(input, 'net');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+      expect((await repo.getFunction('fn_1')).tags, contains('net'));
+      expect(find.byType(TextField), findsOneWidget);
+
+      // Esc → the field dismisses. Esc → 收框。
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byType(TextField), findsNothing);
+
+      // ✕ removes (row re-hovered — still under the pointer). ✕ 删除。
+      await mouse.moveTo(tester.getCenter(find.text('util')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(AnIcons.close).first);
+      await tester.pumpAndSettle();
+      expect((await repo.getFunction('fn_1')).tags, isNot(contains('util')));
     });
 
     testWidgets('editing the 说明 row commits a description PATCH', (tester) async {

@@ -211,6 +211,8 @@ class _Translations$a11y$zh_CN extends Translations$a11y$en {
 
 	// Translations
 	@override String editingField({required Object field}) => '正在编辑 ${field}';
+	@override String editField({required Object field}) => '编辑 ${field}';
+	@override String addTagTo({required Object field}) => '添加标签:${field}';
 	@override String get displayOptions => '显示选项';
 	@override String get moreActions => '更多操作';
 	@override String codeBlock({required Object lang, required Object lines}) => '代码块,${lang},${lines} 行';
@@ -523,6 +525,7 @@ class _Translations$entities$detail$hero$zh_CN extends Translations$entities$det
 	final TranslationsZhCn _root; // ignore: unused_field
 
 	// Translations
+	@override String envStatus({required Object status}) => 'env ${status}';
 	@override String get noInputs => '无入参';
 	@override String get noOutputs => '无返回';
 	@override String deps({required Object n}) => '${n} 依赖';
@@ -651,6 +654,7 @@ class _Translations$entities$detail$val$zh_CN extends Translations$entities$deta
 	@override String get required => '必填';
 	@override String get optional => '可选';
 	@override String get sensitive => '敏感';
+	@override String timeoutMs({required Object ms}) => '超时 ${ms} ms';
 	@override String get defaultPrefix => '默认';
 	@override String get generator => '生成器';
 	@override String get modelDefault => '工作区默认';
@@ -868,6 +872,8 @@ extension on TranslationsZhCn {
 			'ref.control' => '控制',
 			'ref.approval' => '审批',
 			'a11y.editingField' => ({required Object field}) => '正在编辑 ${field}',
+			'a11y.editField' => ({required Object field}) => '编辑 ${field}',
+			'a11y.addTagTo' => ({required Object field}) => '添加标签:${field}',
 			'a11y.displayOptions' => '显示选项',
 			'a11y.moreActions' => '更多操作',
 			'a11y.codeBlock' => ({required Object lang, required Object lines}) => '代码块,${lang},${lines} 行',
@@ -908,6 +914,7 @@ extension on TranslationsZhCn {
 			'entities.detail.verb.call' => '调用',
 			'entities.detail.verb.invoke' => '唤起',
 			'entities.detail.verb.trigger' => '触发',
+			'entities.detail.hero.envStatus' => ({required Object status}) => 'env ${status}',
 			'entities.detail.hero.noInputs' => '无入参',
 			'entities.detail.hero.noOutputs' => '无返回',
 			'entities.detail.hero.deps' => ({required Object n}) => '${n} 依赖',
@@ -982,6 +989,7 @@ extension on TranslationsZhCn {
 			'entities.detail.val.required' => '必填',
 			'entities.detail.val.optional' => '可选',
 			'entities.detail.val.sensitive' => '敏感',
+			'entities.detail.val.timeoutMs' => ({required Object ms}) => '超时 ${ms} ms',
 			'entities.detail.val.defaultPrefix' => '默认',
 			'entities.detail.val.generator' => '生成器',
 			'entities.detail.val.modelDefault' => '工作区默认',

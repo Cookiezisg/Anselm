@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/model/status_state.dart';
 import '../../../../core/overlay/an_overlay.dart';
+import '../../../../core/ui/an_action_group.dart';
 import '../../../../core/ui/an_badge.dart';
 import '../../../../core/ui/an_button.dart';
+import '../../../../core/ui/an_two_zone.dart';
 import '../../../../core/ui/an_deferred_loading.dart';
 import '../../../../core/ui/an_row.dart';
 import '../../../../core/ui/an_skeleton.dart';
@@ -69,7 +71,7 @@ class VersionTab extends ConsumerWidget {
                     range: older != null ? 'v${older.version} → v${sel.version}' : 'v${sel.version} · ${d.state.earliest}',
                     note: sel.changeReason,
                   ),
-                  _footer(context, ref, d, st, sel, notifier),
+                  _footer(context, ref, st, sel, notifier),
                 ],
               ),
             ),
@@ -79,45 +81,45 @@ class VersionTab extends ConsumerWidget {
     );
   }
 
-  // Below the diff: structured-summary chips (left) + the set-active action (right). Its height varies
-  // with selection, but it sits AFTER the diff so it never shifts it. footer 在 diff 下,增缩不移 diff。
-  Widget _footer(BuildContext context, WidgetRef ref, dynamic d, VersionListState st, VersionRow sel,
+  // Below the diff: structured-summary chips (left) + the set-active action (right), on the kit's
+  // two-zone + action-group idioms (no hand-placed buttons). Its height varies with selection, but it
+  // sits AFTER the diff so it never shifts it. footer 在 diff 下(AnTwoZone+AnActionGroup),增缩不移 diff。
+  Widget _footer(BuildContext context, WidgetRef ref, VersionListState st, VersionRow sel,
       VersionListNotifier notifier) {
+    final d = context.t.entities.detail;
     final showChips = sel.summary.isNotEmpty;
     final showActivate = !sel.active;
     if (!showChips && !showActivate) return const SizedBox.shrink();
     final pending = st.activatingVersion != null;
     return Padding(
       padding: const EdgeInsets.only(top: AnSpace.s8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: showChips
-                ? Wrap(
-                    spacing: AnSpace.s6,
-                    runSpacing: AnSpace.s4,
-                    children: [for (final s in sel.summary) AnBadge(s, tone: AnTone.none)],
-                  )
-                : const SizedBox.shrink(),
-          ),
-          if (showActivate)
-            AnButton(
-              label: d.state.setActive,
-              size: AnButtonSize.sm,
-              onPressed: pending
-                  ? null
-                  : () async {
-                      try {
-                        await notifier.setActive(sel.version);
-                      } catch (_) {
-                        ref
-                            .read(overlayProvider.notifier)
-                            .showToast(d.state.setActiveFailed, tone: AnToastTone.danger);
-                      }
-                    },
-            ),
-        ],
+      child: AnTwoZone(
+        label: showChips
+            ? Wrap(
+                spacing: AnSpace.s6,
+                runSpacing: AnSpace.s4,
+                children: [for (final s in sel.summary) AnBadge(s, tone: AnTone.none)],
+              )
+            : const SizedBox.shrink(),
+        trailing: !showActivate
+            ? const SizedBox.shrink()
+            : AnActionGroup([
+                AnButton(
+                  label: d.state.setActive,
+                  size: AnButtonSize.sm,
+                  onPressed: pending
+                      ? null
+                      : () async {
+                          try {
+                            await notifier.setActive(sel.version);
+                          } catch (_) {
+                            ref
+                                .read(overlayProvider.notifier)
+                                .showToast(d.state.setActiveFailed, tone: AnToastTone.danger);
+                          }
+                        },
+                ),
+              ]),
       ),
     );
   }

@@ -18,6 +18,7 @@ class AnInput extends StatefulWidget {
     this.placeholder,
     this.onChanged,
     this.onSubmitted,
+    this.onEditingComplete,
     this.multiline = false,
     this.mono = false,
     this.block = false,
@@ -37,6 +38,11 @@ class AnInput extends StatefulWidget {
   final String? placeholder;
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
+
+  /// Passed through to [TextField.onEditingComplete]. Pass `() {}` to SUPPRESS the framework default
+  /// (which unfocuses on Enter under `TextInputAction.done`) — a chaining input (tag add) keeps focus
+  /// so consecutive submits work; [onSubmitted] still fires. 透传;传空回调压掉 Enter 默认失焦(连加场景)。
+  final VoidCallback? onEditingComplete;
   final bool multiline;
   final bool mono;
 
@@ -140,6 +146,7 @@ class _AnInputState extends State<AnInput> {
       autofocus: widget.autofocus,
       onChanged: widget.onChanged,
       onSubmitted: widget.onSubmitted,
+      onEditingComplete: widget.onEditingComplete,
       onTapOutside: widget.onTapOutside,
       maxLines: widget.multiline ? null : 1,
       minLines: widget.multiline ? 3 : 1,
