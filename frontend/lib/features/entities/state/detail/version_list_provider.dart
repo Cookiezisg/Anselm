@@ -137,15 +137,23 @@ class VersionListNotifier extends AsyncNotifier<VersionListState>
       case EntityKind.workflow:
         final p = await _repo.listWorkflowVersions(entityRef.id, cursor: cursor, limit: _pageSize);
         return (
-          rows: p.items
-              .map((v) => VersionRow(
-                  version: v.version,
-                  active: v.id == activeId,
-                  createdAt: v.createdAt,
-                  src: v.graph,
+          rows: [
+            for (var i = 0; i < p.items.length; i++)
+              VersionRow(
+                  version: p.items[i].version,
+                  active: p.items[i].id == activeId,
+                  createdAt: p.items[i].createdAt,
+                  // Pretty-printed: the wire blob is compact one-line JSON, which would LCS-diff as
+                  // a single opaque line. 美化后 diff 才有行可比(线缆 blob 是单行紧凑 JSON)。
+                  src: prettyJsonSource(p.items[i].graph),
                   lang: 'json',
-                  changeReason: v.changeReason))
-              .toList(),
+                  changeReason: p.items[i].changeReason,
+                  // Graph-structural chips vs the next-older loaded row (same page-boundary degrade
+                  // as function). 图结构小签,页边界行无签(同 function)。
+                  summary: i + 1 < p.items.length
+                      ? workflowVersionSummary(p.items[i], p.items[i + 1])
+                      : const []),
+          ],
           next: p.nextCursor,
           more: p.hasMore,
         );

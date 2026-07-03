@@ -105,8 +105,12 @@ FixtureEntityRepository demoEntityRepository() {
         ),
       );
 
+  // v2 grows a quality gate: control node routes pass→post / retry→back to the researcher (a real
+  // back edge, so the demo shows the full edge language). v2 长出质检门:pass→发布、retry 回边回研究。
   const graph =
-      '{"nodes":[{"id":"n1","kind":"trigger","ref":"tr_cron"},{"id":"n2","kind":"agent","ref":"ag_researcher"},{"id":"n3","kind":"action","ref":"fn_summarize"},{"id":"n4","kind":"action","ref":"hd_slack.post"}],"edges":[{"id":"e1","from":"n1","to":"n2"},{"id":"e2","from":"n2","to":"n3"},{"id":"e3","from":"n3","to":"n4"}]}';
+      '{"nodes":[{"id":"on_schedule","kind":"trigger","ref":"tr_cron"},{"id":"research","kind":"agent","ref":"ag_researcher"},{"id":"summarize","kind":"action","ref":"fn_summarize"},{"id":"quality_gate","kind":"control","ref":"ctl_quality"},{"id":"post_slack","kind":"action","ref":"hd_slack.post"}],"edges":[{"id":"e1","from":"on_schedule","to":"research"},{"id":"e2","from":"research","to":"summarize"},{"id":"e3","from":"summarize","to":"quality_gate"},{"id":"e4","from":"quality_gate","fromPort":"pass","to":"post_slack"},{"id":"e5","from":"quality_gate","fromPort":"retry","to":"research"}]}';
+  const graphV1 =
+      '{"nodes":[{"id":"on_schedule","kind":"trigger","ref":"tr_cron"},{"id":"research","kind":"agent","ref":"ag_researcher"},{"id":"summarize","kind":"action","ref":"fn_summarize"},{"id":"post_slack","kind":"action","ref":"hd_slack.post"}],"edges":[{"id":"e1","from":"on_schedule","to":"research"},{"id":"e2","from":"research","to":"summarize"},{"id":"e3","from":"summarize","to":"post_slack"}]}';
 
   WorkflowEntity wf(String id, String name, String desc, String lifecycle,
           {bool active = false, bool attention = false, String? reason}) =>
@@ -132,6 +136,16 @@ FixtureEntityRepository demoEntityRepository() {
           createdAt: t0,
           updatedAt: t1,
         ),
+      );
+
+  WorkflowVersion wfVer(String id, int version, String g, String reason) => WorkflowVersion(
+        id: '${id}_v$version',
+        workflowId: id,
+        version: version,
+        graph: g,
+        changeReason: reason,
+        createdAt: version == 1 ? t0 : t1,
+        updatedAt: t1,
       );
 
   FunctionExecution fnExec(String fnId, String suffix, String status, int ms) => FunctionExecution(
@@ -167,7 +181,11 @@ FixtureEntityRepository demoEntityRepository() {
       ag('ag_triager', 'triager', 'Routes inbound issues'),
     ],
     workflows: [
-      wf('wf_digest', 'daily-digest', 'Summarize + post each morning', 'active', active: true),
+      wf('wf_digest', 'daily-digest', 'Summarize + post each morning', 'active', active: true)
+          .copyWith(
+              activeVersionId: 'wf_digest_v2',
+              activeVersion: wfVer('wf_digest', 2, graph, 'add quality gate + retry loop'),
+              tags: const ['daily', 'digest']),
       wf('wf_invoice', 'invoice-sync', 'Sync invoices to the ledger', 'active', active: true, attention: true, reason: 'last run failed'),
       wf('wf_onboard', 'onboarding', 'New-user onboarding steps', 'inactive'),
     ],
@@ -175,6 +193,12 @@ FixtureEntityRepository demoEntityRepository() {
       'fn_normalize': [
         fnVer('fn_normalize', 2, 'def main(text):\n    return text.strip().lower()', 'tighten validation'),
         fnVer('fn_normalize', 1, 'def main(text):\n    return text.strip()', 'initial'),
+      ],
+    },
+    workflowVersions: {
+      'wf_digest': [
+        wfVer('wf_digest', 2, graph, 'add quality gate + retry loop'),
+        wfVer('wf_digest', 1, graphV1, 'initial pipeline'),
       ],
     },
     functionExecutions: {

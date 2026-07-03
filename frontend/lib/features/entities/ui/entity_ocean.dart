@@ -155,16 +155,23 @@ class _EntityOceanState extends ConsumerState<EntityOcean> {
                     ref.read(rightPanelCollapsedProvider.notifier).set(false);
                     ref.read(runTerminalProvider(detail.ref).notifier).run();
                   },
-                  // Rename = meta PATCH (function first; other kinds when their pages are sculpted).
-                  // 改名=meta PATCH(function 先行,余 kind 随各自雕琢批接入)。
-                  onRename: detail.ref.kind == EntityKind.function
-                      ? (name) async {
-                          await ref
-                              .read(entityRepositoryProvider)
-                              .patchFunctionMeta(detail.ref.id, {'name': name});
-                          ref.invalidate(entityDetailProvider(detail.ref));
-                        }
-                      : null,
+                  // Rename = meta PATCH (kinds join as their pages are sculpted: function F2,
+                  // workflow W2). 改名=meta PATCH(随各自雕琢批接入:function F2、workflow W2)。
+                  onRename: switch (detail.ref.kind) {
+                    EntityKind.function => (name) async {
+                        await ref
+                            .read(entityRepositoryProvider)
+                            .patchFunctionMeta(detail.ref.id, {'name': name});
+                        ref.invalidate(entityDetailProvider(detail.ref));
+                      },
+                    EntityKind.workflow => (name) async {
+                        await ref
+                            .read(entityRepositoryProvider)
+                            .patchWorkflowMeta(detail.ref.id, {'name': name});
+                        ref.invalidate(entityDetailProvider(detail.ref));
+                      },
+                    _ => null,
+                  },
                 ),
               ),
               AnTabs(

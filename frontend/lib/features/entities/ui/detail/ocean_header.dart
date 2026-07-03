@@ -76,6 +76,8 @@ class EntityOceanHeader extends StatelessWidget {
         final wf = detail.workflow;
         if (wf == null) return const [];
         return [
+          // vN badge aligns workflow with the other versioned kinds (W2). 版本徽与余 kind 对齐。
+          if (wf.activeVersion != null) AnBadge('v${wf.activeVersion!.version}', tone: AnTone.none),
           AnBadge(wf.lifecycleState, tone: AnStatus.fromRaw(wf.lifecycleState).tone),
           AnBadge(wf.concurrency, tone: AnTone.none),
           if (wf.needsAttention)

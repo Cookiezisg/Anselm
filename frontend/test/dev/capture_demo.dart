@@ -233,6 +233,11 @@ void main() {
       container.read(goRouterProvider).go(entityLocation(selKind, selId));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 80)); // detail resolves
+      // The right island slides in (AnMotion.slow 340ms) and the ocean narrows — let it settle so
+      // width-reactive content (framed graph re-fit) captures at the FINAL size, not mid-flight.
+      // 右岛滑入、海洋变窄——让其落定,宽度响应内容(framed 图重 fit)按终宽截。
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump();
     }
 
     if (_collapse.isNotEmpty) {

@@ -309,6 +309,21 @@ class FixtureEntityRepository implements EntityRepository {
   }
 
   @override
+  Future<WorkflowEntity> patchWorkflowMeta(String id, Map<String, dynamic> patch) async {
+    final e = await getWorkflow(id);
+    final next = e.copyWith(
+      name: (patch['name'] as String?) ?? e.name,
+      description: (patch['description'] as String?) ?? e.description,
+      tags: (patch['tags'] as List?)?.cast<String>() ?? e.tags,
+      concurrency: (patch['concurrency'] as String?) ?? e.concurrency,
+    );
+    upsertWorkflow(next);
+    emitLifecycle(EntitySignal(
+        kind: EntityKind.workflow, id: id, action: EntityAction.updated, durable: true));
+    return next;
+  }
+
+  @override
   Future<void> revertVersion(EntityKind kind, String id, int version) async {
     T? pick<T>(List<T>? list, int Function(T) num) {
       final i = list?.indexWhere((x) => num(x) == version) ?? -1;

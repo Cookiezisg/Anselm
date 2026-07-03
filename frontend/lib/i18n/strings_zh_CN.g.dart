@@ -624,6 +624,7 @@ class _Translations$entities$detail$graph$zh_CN extends Translations$entities$de
 	@override String get edges => '边';
 	@override String get path => '路径';
 	@override String get openEditor => '进入图编辑器';
+	@override String get unparseable => '编排图无法解析';
 }
 
 // Path: entities.detail.kv
@@ -987,6 +988,7 @@ extension on TranslationsZhCn {
 			'entities.detail.graph.edges' => '边',
 			'entities.detail.graph.path' => '路径',
 			'entities.detail.graph.openEditor' => '进入图编辑器',
+			'entities.detail.graph.unparseable' => '编排图无法解析',
 			'entities.detail.kv.name' => '名称',
 			'entities.detail.kv.tags' => '标签',
 			'entities.detail.kv.id' => 'ID',

@@ -289,7 +289,8 @@
         "nodes": "节点",
         "edges": "边",
         "path": "路径",
-        "openEditor": "进入图编辑器"
+        "openEditor": "进入图编辑器",
+        "unparseable": "编排图无法解析"
       },
       "kv": {
         "name": "名称",

@@ -66,6 +66,10 @@ abstract interface class EntityRepository {
   /// PATCH meta (name/description/tags) — does NOT bump the version. 改 meta,不升版本。
   Future<FunctionEntity> patchFunctionMeta(String id, Map<String, dynamic> patch);
 
+  /// PATCH workflow meta (name/description/tags/concurrency) — no version bump (WRK-055 W2).
+  /// 改 workflow meta,不升版本。
+  Future<WorkflowEntity> patchWorkflowMeta(String id, Map<String, dynamic> patch);
+
   /// `POST :revert` — move the active pointer to version [version] (any versioned kind; the endpoint
   /// shape is uniform). 把 active 指针移到指定版本号(版本化 kind 通用,端点同形)。
   Future<void> revertVersion(EntityKind kind, String id, int version);
@@ -210,6 +214,10 @@ class LiveEntityRepository implements EntityRepository {
   @override
   Future<FunctionEntity> patchFunctionMeta(String id, Map<String, dynamic> patch) =>
       _api.patchEntity(EntityKind.function.itemPath(id), FunctionEntity.fromJson, body: patch);
+
+  @override
+  Future<WorkflowEntity> patchWorkflowMeta(String id, Map<String, dynamic> patch) =>
+      _api.patchEntity(EntityKind.workflow.itemPath(id), WorkflowEntity.fromJson, body: patch);
 
   // :revert answers `{data: <version>}` (N1 envelope, unlike the BARE `:run`). :revert 走 N1 信封返版本。
   @override

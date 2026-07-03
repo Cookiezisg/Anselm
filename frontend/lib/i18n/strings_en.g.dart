@@ -1194,6 +1194,9 @@ class Translations$entities$detail$graph$en {
 
 	/// en: 'Open graph editor'
 	String get openEditor => 'Open graph editor';
+
+	/// en: 'Orchestration graph unparseable'
+	String get unparseable => 'Orchestration graph unparseable';
 }
 
 // Path: entities.detail.kv
@@ -1689,6 +1692,7 @@ extension on Translations {
 			'entities.detail.graph.edges' => 'Edge',
 			'entities.detail.graph.path' => 'Path',
 			'entities.detail.graph.openEditor' => 'Open graph editor',
+			'entities.detail.graph.unparseable' => 'Orchestration graph unparseable',
 			'entities.detail.kv.name' => 'Name',
 			'entities.detail.kv.tags' => 'Tags',
 			'entities.detail.kv.id' => 'ID',
