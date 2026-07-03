@@ -67,11 +67,17 @@ class RunCockpitNotifier extends AsyncNotifier<RunCockpitState>
   RunCockpitState stateWithAppended(RunCockpitState s, List<dynamic> rows, String? next, bool more) =>
       s.copyWith(runs: [...s.runs, ...rows.cast()], nextCursor: next, hasMore: more, loadingMore: false);
 
-  /// Select a run → fetch its full node composite; clears the node selection. 选 run → 拉全节点。
+  /// Select a run → fetch its full node composite; clears the node selection. Early-return only when
+  /// THIS run's composite is already loaded (so a failed fetch can be retried by re-clicking); a new
+  /// selection clears the stale composite so the panel never shows another run's nodes.
+  /// 选 run → 拉全节点。仅当该 run composite 已加载才早退(失败可重点重试);换选区先清陈旧 composite,
+  /// 面板不会显示别的 run 的节点。
   Future<void> selectRun(String id) async {
     final cur = state.value;
-    if (cur == null || cur.selectedRunId == id) return;
-    state = AsyncData(cur.copyWith(selectedRunId: id, selectedNodeId: null, loadingRun: true));
+    if (cur == null) return;
+    if (cur.selectedRunId == id && cur.selected?.flowrun.id == id && !cur.loadingRun) return;
+    state = AsyncData(
+        cur.copyWith(selectedRunId: id, selectedNodeId: null, selected: null, loadingRun: true));
     try {
       final comp = await _fetchFull(id);
       final now = state.value;
@@ -79,7 +85,9 @@ class RunCockpitNotifier extends AsyncNotifier<RunCockpitState>
       state = AsyncData(now.copyWith(selected: comp, loadingRun: false));
     } catch (_) {
       final now = state.value;
-      if (now != null) state = AsyncData(now.copyWith(loadingRun: false));
+      if (now != null && now.selectedRunId == id) {
+        state = AsyncData(now.copyWith(loadingRun: false)); // stays retryable (selected is null) 可重试
+      }
     }
   }
 
@@ -89,15 +97,25 @@ class RunCockpitNotifier extends AsyncNotifier<RunCockpitState>
     state = AsyncData(cur.copyWith(selectedNodeId: cur.selectedNodeId == id ? null : id));
   }
 
-  /// Re-read the selected run from truth (after a mutation). 从真相重取选中 run。
+  /// Re-read the selected run from truth (after a mutation). ALWAYS clears [busy] — including the
+  /// superseded/empty early-out (an action set busy=true; if the user switched runs mid-refresh, the
+  /// guard must still release busy or the action buttons lock forever). 从真相重取选中 run。**任何**
+  /// 出口都清 busy——含 superseded/空早退(动作置了 busy;refresh 中途换 run 若不释放,按钮永久锁死)。
   Future<void> _refreshSelected() async {
     final cur = state.value;
     final id = cur?.selectedRunId;
-    if (cur == null || id == null) return;
+    if (cur == null || id == null) {
+      if (cur != null && cur.busy) state = AsyncData(cur.copyWith(busy: false));
+      return;
+    }
     try {
       final comp = await _fetchFull(id);
       final now = state.value;
-      if (now == null || now.selectedRunId != id) return;
+      if (now == null) return;
+      if (now.selectedRunId != id) {
+        if (now.busy) state = AsyncData(now.copyWith(busy: false)); // release, the new run owns display 释放
+        return;
+      }
       // Reconcile the run's header row in the list too (status may have changed). 列表头行同步。
       state = AsyncData(now.copyWith(
         selected: comp,
@@ -146,17 +164,24 @@ class RunCockpitNotifier extends AsyncNotifier<RunCockpitState>
     final page = await _safeList();
     final now = state.value;
     if (now == null) return;
-    state = AsyncData(now.copyWith(
-      runs: page ?? now.runs,
-      busy: false,
-    ));
+    // Re-init the list to the FRESH first page — reset the paging cursor too (replacing runs with
+    // page-1 while keeping a stale nextCursor would drop the middle + skip on the next loadMore).
+    // 用新首页重置列表 + 分页游标(只换 runs 而留旧 cursor 会丢中段 + 下次 loadMore 跳号)。
+    state = AsyncData(page == null
+        ? now.copyWith(busy: false)
+        : now.copyWith(
+            runs: page.items,
+            nextCursor: page.nextCursor,
+            hasMore: page.hasMore,
+            busy: false,
+          ));
     await _refreshSelected();
   }
 
-  Future<List<Flowrun>?> _safeList() async {
+  Future<({List<Flowrun> items, String? nextCursor, bool hasMore})?> _safeList() async {
     try {
       final p = await _repo.listFlowruns(workflowId: entityRef.id, limit: _pageSize);
-      return p.items;
+      return (items: p.items, nextCursor: p.nextCursor, hasMore: p.hasMore);
     } catch (_) {
       return null;
     }

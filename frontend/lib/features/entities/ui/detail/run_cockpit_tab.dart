@@ -208,7 +208,7 @@ class RunCockpitTab extends ConsumerWidget {
             AnCodeSurface(
               child: Padding(
                 padding: const EdgeInsets.all(AnSpace.s8),
-                child: Text(prettyJson(payload),
+                child: Text(prettyJsonCapped(payload),
                     style: AnText.value(mono: true).copyWith(color: c.ink)),
               ),
             ),

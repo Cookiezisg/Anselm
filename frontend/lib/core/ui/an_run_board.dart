@@ -76,6 +76,10 @@ class AnRunBoard extends StatelessWidget {
         border: Border.all(color: c.line, width: AnSize.hairline),
       ),
       clipBehavior: Clip.antiAlias,
+      // IntrinsicHeight equalizes the two columns so the divider spans full — and it can measure the
+      // gantt now that each gantt row is a FIXED-height SizedBox (the per-row track LayoutBuilder
+      // only measures width, not height). IntrinsicHeight 让两列等高、分隔线满高;甘特每行定高、其逐行
+      // LayoutBuilder 只测宽,故可被量。
       child: IntrinsicHeight(
         child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           SizedBox(

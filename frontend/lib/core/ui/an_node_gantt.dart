@@ -38,6 +38,9 @@ class AnNodeGantt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Column of fixed-height rows (so an enclosing IntrinsicHeight — the run board — can measure the
+    // gantt's height without recursing into the per-row track LayoutBuilder, which only measures
+    // WIDTH). 定高行的 Column:外层 IntrinsicHeight(看板)量得了高,不必递归进逐行测宽的 LayoutBuilder。
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [for (final r in rows) _row(context, r)],
@@ -82,19 +85,23 @@ class AnNodeGantt extends StatelessWidget {
     );
   }
 
-  // A single LayoutBuilder measures the track once, then Positioned bars go DIRECTLY into the Stack
-  // (a Positioned must be a direct Stack child — never wrapped in its own builder). 单次测宽,条直入 Stack。
+  // A single LayoutBuilder measures the track WIDTH (fixed height above), then Positioned bars go
+  // DIRECTLY into the Stack. 单次测轨宽(高固定),条 Positioned 直入 Stack。
   Widget _track(BuildContext context, GanttRow r) {
     final c = context.colors;
     return SizedBox(
       height: AnSize.controlSm,
       child: LayoutBuilder(builder: (context, cst) {
         final w = cst.maxWidth;
+        // The min visible width can't exceed the track (a track narrower than s4 would make
+        // clamp(s4, w) throw: lowerLimit > upperLimit — a hard ArgumentError, not just an overflow).
+        // 最小可见宽不得超过轨宽(否则 clamp 下限>上限抛 ArgumentError、非仅溢出)。
+        final minBar = w < AnSpace.s4 ? w : AnSpace.s4;
         Widget bar(GanttSegment seg, {required Color fill, Color? border, Widget? child}) => Positioned(
               left: (seg.at * w).clamp(0.0, w),
               top: 0,
               bottom: 0,
-              width: (seg.w * w).clamp(AnSpace.s4, w),
+              width: (seg.w * w).clamp(minBar, w),
               child: Container(
                 alignment: Alignment.centerLeft,
                 decoration: BoxDecoration(

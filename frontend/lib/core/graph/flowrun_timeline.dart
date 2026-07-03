@@ -14,6 +14,15 @@ library;
 import '../contract/entities/values.dart';
 import '../contract/entities/workflow.dart';
 
+/// Parse a row's wire kind string (trigger|action|agent|control|approval) to [NodeKind], unknown
+/// fallback. 行的线缆 kind 字串 → NodeKind。
+NodeKind _kindOf(String raw) {
+  for (final k in NodeKind.values) {
+    if (k.name == raw) return k;
+  }
+  return NodeKind.unknown;
+}
+
 /// One bar on a gantt row: [at]/[w] are fractions of the run span in [0,1]. 甘特行的一条:占跨度分数。
 class GanttSegment {
   const GanttSegment(this.at, this.w);
@@ -136,16 +145,18 @@ List<GanttRow> flowrunTimeline(Graph g, FlowrunComposite comp) {
 
   final out = <GanttRow>[];
   final seen = <String>{};
-  final byId = {for (final n in g.nodes) n.id: n};
   for (final n in g.nodes) {
     out.add(rowFor(n.id, n.kind, n.ref));
     seen.add(n.id);
   }
-  // Orphan rows (a nodeId in the run but not the current graph def). 孤儿行。
+  // Orphan rows (a nodeId in the run but not the CURRENT graph def — a renamed/removed node). The
+  // graph can't supply its kind (it isn't there), but the ROW carries the backend-written kind, so
+  // read it (this is exactly when seeing the original kind matters most). 孤儿行(改名/删除的节点):
+  // 图给不了 kind,但行带后端写入的 kind——读它(恰是最需看清原 kind 的场景)。
   for (final nodeId in byNode.keys) {
     if (seen.contains(nodeId)) continue;
     final sample = byNode[nodeId]!.first;
-    out.add(rowFor(nodeId, byId[nodeId]?.kind ?? NodeKind.unknown, sample.ref));
+    out.add(rowFor(nodeId, _kindOf(sample.kind), sample.ref));
   }
   return out;
 }

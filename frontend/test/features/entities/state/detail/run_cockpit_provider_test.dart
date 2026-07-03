@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:anselm/core/contract/entities/workflow.dart';
 import 'package:anselm/features/entities/data/entity_fixtures.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
@@ -78,6 +80,79 @@ FixtureEntityRepository _repo() {
   return (c, c.read(runCockpitProvider(_ref).notifier));
 }
 
+WorkflowEntity _wf() => WorkflowEntity(
+      id: 'wf_1',
+      name: 'pipe',
+      lifecycleState: 'active',
+      active: true,
+      createdAt: _t,
+      updatedAt: _t,
+      activeVersionId: 'wf_1_v1',
+      activeVersion: WorkflowVersion(
+          id: 'wf_1_v1', workflowId: 'wf_1', version: 1, graph: _graph, createdAt: _t, updatedAt: _t),
+    );
+
+Flowrun _flr(String id, String status) => Flowrun(
+    id: id,
+    workflowId: 'wf_1',
+    versionId: 'wf_1_v1',
+    status: status,
+    startedAt: _t,
+    completedAt: status == 'completed' || status == 'failed' ? _t : null,
+    updatedAt: _t);
+
+FlowrunComposite _detail(String id, String status) =>
+    FlowrunComposite(flowrun: _flr(id, status), nodes: [_node(id, 'c0', 'completed')]);
+
+/// getFlowrun gated on a Completer so a selection can race the post-action refresh. getFlowrun 门控。
+class _GatedRepo extends FixtureEntityRepository {
+  _GatedRepo()
+      : super(runDelay: Duration.zero, workflows: [_wf()], flowruns: {
+          'wf_1': [_flr('flr_fail', 'failed'), _flr('flr_done', 'completed')]
+        }, flowrunDetail: {
+          'flr_fail': _detail('flr_fail', 'failed'),
+          'flr_done': _detail('flr_done', 'completed'),
+        });
+  bool armed = false; // gate only AFTER the initial build (else build hangs) 仅 build 后门控
+  Completer<void>? _gate;
+  void release() => _gate?.complete();
+  @override
+  Future<FlowrunComposite> getFlowrun(String id, {String? cursor, int? limit}) async {
+    if (armed && id == 'flr_fail') {
+      _gate = Completer<void>();
+      await _gate!.future;
+    }
+    return super.getFlowrun(id, cursor: cursor, limit: limit);
+  }
+}
+
+/// getFlowrun throws while [fail]. getFlowrun 在 fail 时抛。
+class _FlakyRepo extends FixtureEntityRepository {
+  _FlakyRepo()
+      : super(runDelay: Duration.zero, workflows: [_wf()], flowruns: {
+          'wf_1': [_flr('flr_fail', 'failed'), _flr('flr_done', 'completed')]
+        }, flowrunDetail: {
+          'flr_fail': _detail('flr_fail', 'failed'),
+          'flr_done': _detail('flr_done', 'completed'),
+        });
+  bool fail = false;
+  @override
+  Future<FlowrunComposite> getFlowrun(String id, {String? cursor, int? limit}) async {
+    if (fail) throw StateError('boom');
+    return super.getFlowrun(id, cursor: cursor, limit: limit);
+  }
+}
+
+/// 45 flowruns to exercise loadMore + the kill cursor reset. 45 run 验翻页 + kill 游标重置。
+class _ManyRunsRepo extends FixtureEntityRepository {
+  _ManyRunsRepo()
+      : super(runDelay: Duration.zero, workflows: [_wf()], flowruns: {
+          'wf_1': [for (var i = 0; i < 45; i++) _flr('flr_$i', 'completed')]
+        }, flowrunDetail: {
+          for (var i = 0; i < 45; i++) 'flr_$i': _detail('flr_$i', 'completed'),
+        });
+}
+
 void main() {
   test('build: loads the run list, selects the newest, fetches its full composite', () async {
     final (c, _) = _harness(_repo());
@@ -146,6 +221,54 @@ void main() {
     expect((await repo.getWorkflow('wf_1')).lifecycleState, 'inactive');
     final st = c.read(runCockpitProvider(_ref)).value!;
     expect(st.selectedRun?.status, 'cancelled'); // the in-flight run was cancelled
+  });
+
+  test('busy is released even when the selection changes mid-refresh (no permanent lock)', () async {
+    // A gated repo lets a run selection race the post-action refresh. 门控 repo 让选区赛过动作后刷新。
+    final repo = _GatedRepo();
+    final (c, ctl) = _harness(repo);
+    await c.read(runCockpitProvider(_ref).future); // selected = flr_fail
+    repo.armed = true; // now gate the post-replay refresh 现在门控刷新
+    // Kick a replay: busy=true; its :replay resolves, then _refreshSelected awaits a GATED getFlowrun.
+    final replaying = ctl.replaySelected();
+    await pumpEventQueue();
+    expect(c.read(runCockpitProvider(_ref)).value!.busy, isTrue); // in flight
+    // Switch runs mid-refresh → the stale refresh's superseded guard must still release busy.
+    await ctl.selectRun('flr_done');
+    repo.release(); // let the stale getFlowrun(flr_fail) finally return
+    await replaying;
+    await pumpEventQueue();
+    expect(c.read(runCockpitProvider(_ref)).value!.busy, isFalse); // NOT permanently locked 未永久锁死
+  });
+
+  test('a failed run fetch is retryable by re-selecting the same run', () async {
+    final repo = _FlakyRepo();
+    final (c, ctl) = _harness(repo);
+    await c.read(runCockpitProvider(_ref).future);
+    repo.fail = true;
+    await ctl.selectRun('flr_done'); // fetch throws
+    var st = c.read(runCockpitProvider(_ref)).value!;
+    expect(st.selectedRunId, 'flr_done');
+    expect(st.selected, isNull); // stale composite cleared, not showing flr_fail's nodes
+    repo.fail = false;
+    await ctl.selectRun('flr_done'); // re-click retries (not early-returned)
+    st = c.read(runCockpitProvider(_ref)).value!;
+    expect(st.selected?.flowrun.id, 'flr_done'); // now loaded
+  });
+
+  test('kill resets the paging cursor (no lost middle after loadMore)', () async {
+    final repo = _ManyRunsRepo();
+    final (c, ctl) = _harness(repo);
+    await c.read(runCockpitProvider(_ref).future);
+    await ctl.loadMore();
+    expect(c.read(runCockpitProvider(_ref)).value!.runs.length, 40);
+    await ctl.kill();
+    final st = c.read(runCockpitProvider(_ref)).value!;
+    expect(st.runs.length, 20); // reset to first page
+    // The cursor was reset too — the next loadMore continues from 20, not 40 (no skipped middle).
+    await ctl.loadMore();
+    final ids = c.read(runCockpitProvider(_ref)).value!.runs.map((r) => r.id).toList();
+    expect(ids, containsAll(['flr_20', 'flr_39'])); // the middle survived 中段没丢
   });
 
   test('empty history: no selection, no composite, empty node', () async {

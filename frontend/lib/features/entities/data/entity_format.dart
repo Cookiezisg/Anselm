@@ -56,6 +56,16 @@ String prettyJson(Object? value) {
   }
 }
 
+/// Pretty-print with a HARD length cap — a node result can be hundreds of KB (backend precedent: a
+/// 653KB flowrun-node dump), and dropping that into one non-scrolling Text janks/hangs the main
+/// thread. Truncates at [maxChars] with a trailing notice. 带硬上限的美化(节点 result 可达数百 KB,
+/// 灌进单个不滚 Text 会卡死主线程)——超 [maxChars] 截断 + 尾注。
+String prettyJsonCapped(Object? value, {int maxChars = 4000}) {
+  final full = prettyJson(value);
+  if (full.length <= maxChars) return full;
+  return '${full.substring(0, maxChars)}\n… (+${full.length - maxChars} chars)';
+}
+
 /// Structured (non-text) deltas of a function version vs its next-older neighbour, as short chips:
 /// signature fields (`+in name` / `−out name` / type changes), dependencies, python version. The code
 /// body is NOT summarized here — the text diff renders it. Pure + unit-testable.

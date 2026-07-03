@@ -123,10 +123,23 @@ void main() {
       }
     });
 
-    test('orphan row (nodeId not in graph) is appended, not dropped', () {
-      final rows = flowrunTimeline(g, comp([row('ghost', 'completed', endSec: 1)]));
-      expect(rows.map((r) => r.nodeId), contains('ghost'));
-      expect(rows.firstWhere((r) => r.nodeId == 'ghost').kind, NodeKind.unknown);
+    test('orphan row keeps the backend-written kind (a renamed/removed node)', () {
+      // The row carries kind=agent though the graph no longer has 'ghost' — read the row, not the
+      // graph (which can only say unknown). 行带 agent,图已无 ghost——读行而非图。
+      final ghost = FlowrunNode(
+          id: 'g', flowrunId: 'flr_1', nodeId: 'ghost', kind: 'agent', ref: 'ag_x',
+          status: 'completed', createdAt: _t, completedAt: _t.add(const Duration(seconds: 1)), updatedAt: _t);
+      final rows = flowrunTimeline(g, comp([ghost]));
+      final r = rows.firstWhere((x) => x.nodeId == 'ghost');
+      expect(r.kind, NodeKind.agent); // NOT unknown 非 unknown
+    });
+
+    test('orphan row with an unknown kind string falls back to unknown', () {
+      final ghost = FlowrunNode(
+          id: 'g', flowrunId: 'flr_1', nodeId: 'ghost', kind: 'bogus', ref: 'x',
+          status: 'completed', createdAt: _t, completedAt: _t, updatedAt: _t);
+      final rows = flowrunTimeline(g, comp([ghost]));
+      expect(rows.firstWhere((x) => x.nodeId == 'ghost').kind, NodeKind.unknown);
     });
   });
 }
