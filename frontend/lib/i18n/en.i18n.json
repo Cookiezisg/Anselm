@@ -396,7 +396,11 @@
       "danger": {
         "cautious": "Cautious",
         "dangerous": "Dangerous"
-      }
+      },
+      "approvalTitle": "Awaiting approval",
+      "approve": "Approve",
+      "reject": "Reject",
+      "approvalHint": "First decision wins."
     }
   },
   "coldStart": {

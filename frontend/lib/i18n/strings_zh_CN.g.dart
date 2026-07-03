@@ -503,6 +503,10 @@ class _Translations$entities$run$zh_CN extends Translations$entities$run$en {
 	@override String tokens({required Object inT, required Object outT}) => '输入 ${inT} · 输出 ${outT}';
 	@override String ms({required Object ms}) => '${ms} ms';
 	@override late final _Translations$entities$run$danger$zh_CN danger = _Translations$entities$run$danger$zh_CN._(_root);
+	@override String get approvalTitle => '等待审批';
+	@override String get approve => '通过';
+	@override String get reject => '驳回';
+	@override String get approvalHint => 'first-wins:先到的决断生效。';
 }
 
 // Path: chat.tool.kind
@@ -1082,6 +1086,10 @@ extension on TranslationsZhCn {
 			'entities.run.ms' => ({required Object ms}) => '${ms} ms',
 			'entities.run.danger.cautious' => '谨慎',
 			'entities.run.danger.dangerous' => '危险',
+			'entities.run.approvalTitle' => '等待审批',
+			'entities.run.approve' => '通过',
+			'entities.run.reject' => '驳回',
+			'entities.run.approvalHint' => 'first-wins:先到的决断生效。',
 			'coldStart.connecting' => '正在准备工作区…',
 			'coldStart.errorTitle' => '无法准备工作区',
 			'coldStart.errorHint' => '本地引擎已连通,但工作区未就绪。',

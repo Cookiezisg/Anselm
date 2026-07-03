@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/contract/api_error.dart';
 import '../../../../core/contract/entities/values.dart';
+import '../../../../core/contract/entities/workflow.dart';
 import '../../../../core/messages/block_tree_reducer.dart';
 import '../../../../core/perf/coalescing_notifier.dart';
 import '../../../../core/sse/frame.dart';
@@ -63,6 +64,22 @@ class RunTerminalController extends Notifier<RunTerminalState> {
 
   final CoalescingNotifier<RunStream> stream = CoalescingNotifier(RunStream());
 
+  // Workflow reconcile plumbing: ticks are ephemeral (droppable, resultless) — the DB row is the
+  // truth, so every tick schedules a debounced GET /flowruns/{id}, and a slow poll backstops a
+  // fully-dropped tick stream. Both die on terminal/cancel/dispose. workflow 对账管道:tick 可丢
+  // 且无 result——DB 行是真相,每 tick 去抖重取,慢轮询兜底全丢;终态/取消/释放即停。
+  Timer? _reconcileDebounce;
+  Timer? _poll;
+  static const Duration _reconcileDelay = Duration(milliseconds: 300);
+  static const Duration _pollEvery = Duration(seconds: 4);
+
+  void _stopFlowrunTimers() {
+    _reconcileDebounce?.cancel();
+    _reconcileDebounce = null;
+    _poll?.cancel();
+    _poll = null;
+  }
+
   /// The current form input (raw values: String for text/number/object/array, bool for boolean), kept off
   /// [state] so typing never rebuilds the lifecycle. Persists per entity (family + keepAlive). 当前表单草稿。
   final Map<String, Object?> draft = {};
@@ -73,6 +90,7 @@ class RunTerminalController extends Notifier<RunTerminalState> {
     _panelSub = _repo.panelSignals(entityRef.kind.scope(entityRef.id)).listen(_onPanel);
     ref.onDispose(() {
       _panelSub?.cancel();
+      _stopFlowrunTimers();
       stream.dispose();
     });
     return const RunTerminalState();
@@ -152,13 +170,15 @@ class RunTerminalController extends Notifier<RunTerminalState> {
               await _repo.triggerWorkflow(entityRef.id, payload: args.isEmpty ? null : args);
           if (!ref.mounted || state.runSeq != seq) return;
           state = state.copyWith(flowrunId: flowrunId);
-          final comp = await _repo.getFlowrun(flowrunId);
-          if (!ref.mounted || state.runSeq != seq) return;
-          state = state.copyWith(
-            phase: comp.flowrun.status == 'failed' ? RunPhase.failed : RunPhase.ok,
-            flowNodes: comp.nodes,
-            errorMsg: comp.flowrun.error,
-          );
+          // Reconcile-driven from here: the first GET may still say running (long runs, parked
+          // approvals) — ticks + the poll keep truing it up until the header goes terminal. The old
+          // one-shot GET froze long runs as ok. 此后对账驱动:首拉可能仍 running(长跑/停车),
+          // tick+轮询持续对账到 run 头终态;旧的一次性拉取会把长跑冻成 ok。
+          await _reconcileFlowrun(seq);
+          if (ref.mounted && state.runSeq == seq && state.isRunning) {
+            _poll?.cancel();
+            _poll = Timer.periodic(_pollEvery, (_) => _reconcileFlowrun(seq));
+          }
       }
     } on ApiException catch (e) {
       if (!ref.mounted || state.runSeq != seq) return;
@@ -168,9 +188,11 @@ class RunTerminalController extends Notifier<RunTerminalState> {
       state = state.copyWith(phase: RunPhase.failed, errorMsg: e.toString());
     } finally {
       // Release the keep-alive once THIS run is the settled current one — a superseding run (seq bumped)
-      // or a cancel keeps/handles it. Guarded by mounted so we never read state on a disposed notifier.
-      // 本运行为当前且收尾才释放(被新运行接管/被 cancel 则另行处理);mounted 守卫防读已释放 notifier 的 state。
-      if (ref.mounted && state.runSeq == seq) {
+      // or a cancel keeps/handles it. A workflow still in flight (reconcile-driven) keeps the pin;
+      // its terminal reconcile releases. Guarded by mounted so we never read a disposed notifier.
+      // 本运行为当前且收尾才释放(被新运行接管/被 cancel 另行处理);workflow 在途(对账驱动)保钉,
+      // 终态对账处释放;mounted 守卫防读已释放 notifier 的 state。
+      if (ref.mounted && state.runSeq == seq && !state.isRunning) {
         _releaseRun?.call();
         _releaseRun = null;
       }
@@ -181,6 +203,7 @@ class RunTerminalController extends Notifier<RunTerminalState> {
   /// completes + records its audit row). Releases the keep-alive — the bumped seq makes the in-flight
   /// run's `finally` skip its own release, so cancel owns it. 放弃前端等待(后端续跑落审计行);释放 keepAlive。
   void cancel() {
+    _stopFlowrunTimers();
     state = state.copyWith(phase: RunPhase.cancelled, runSeq: state.runSeq + 1);
     _releaseRun?.call();
     _releaseRun = null;
@@ -241,11 +264,103 @@ class RunTerminalController extends Notifier<RunTerminalState> {
           final c = f.node.content;
           final nodeId = c?['nodeId'] as String?;
           final status = c?['status'] as String?;
-          if (nodeId != null && status != null) {
-            stream.mutate((s) => s..liveNodes[nodeId] = status);
-          }
+          // The tick scope is workflow-level — concurrent flowruns interleave on it, so frames not
+          // for OUR run are dropped (the old code mixed them). tick 是 workflow 级 scope——并发多
+          // run 混流,非本 run 的帧丢弃(旧码会混)。
+          final flowrunId = c?['flowrunId'] as String?;
+          if (nodeId == null || status == null) return;
+          if (flowrunId == null || flowrunId != state.flowrunId) return;
+          stream.mutate((s) => s..liveNodes[nodeId] = status);
+          final iteration = (c?['iteration'] as num?)?.toInt() ?? 0;
+          final now = DateTime.now();
+          state = state.copyWith(
+            flowNodes: _upsertRow(
+                state.flowNodes,
+                FlowrunNode(
+                    id: 'tick_${nodeId}_$iteration',
+                    flowrunId: flowrunId,
+                    nodeId: nodeId,
+                    iteration: iteration,
+                    status: status,
+                    createdAt: now,
+                    updatedAt: now)),
+          );
+          // Ticks carry no result (a control's chosen port arrives only via the row) and the run
+          // header has NO terminal signal — the debounced GET is where truth lands. tick 无 result、
+          // run 头无终态信号——去抖 GET 落真相。
+          final seq = state.runSeq;
+          _reconcileDebounce?.cancel();
+          _reconcileDebounce = Timer(_reconcileDelay, () => _reconcileFlowrun(seq));
         }
     }
+  }
+
+  /// GET /flowruns/{id} and apply: rows are REST truth (tick upserts not yet covered survive the
+  /// merge), the header status decides the phase. Terminal → stop timers + release the keep-alive.
+  /// 对账:行=REST 真相(未覆盖的 tick upsert 保留),run 头定 phase;终态停表 + 释放 keepAlive。
+  Future<void> _reconcileFlowrun(int seq) async {
+    final id = state.flowrunId;
+    if (id == null || !ref.mounted || state.runSeq != seq) return;
+    final FlowrunComposite comp;
+    try {
+      comp = await _repo.getFlowrun(id);
+    } catch (_) {
+      return; // transient — the poll retries 瞬态失败,轮询会再来
+    }
+    if (!ref.mounted || state.runSeq != seq) return;
+    _applyFlowrun(comp);
+  }
+
+  void _applyFlowrun(FlowrunComposite comp) {
+    var rows = comp.nodes;
+    for (final t in state.flowNodes) {
+      if (!t.id.startsWith('tick_')) continue;
+      if (rows.any((m) => m.nodeId == t.nodeId && m.iteration == t.iteration)) continue;
+      rows = [...rows, t]; // a tick that raced past this GET — keep until covered 赛过本次 GET 的 tick 先留
+    }
+    final status = comp.flowrun.status;
+    final terminal = status == 'completed' || status == 'failed' || status == 'cancelled';
+    state = state.copyWith(
+      flowNodes: rows,
+      flowrunStatus: status,
+      phase: terminal
+          ? (status == 'completed'
+              ? RunPhase.ok
+              : status == 'failed'
+                  ? RunPhase.failed
+                  : RunPhase.cancelled)
+          : RunPhase.running,
+      errorMsg: comp.flowrun.error,
+    );
+    if (terminal) {
+      _stopFlowrunTimers();
+      _releaseRun?.call();
+      _releaseRun = null;
+    }
+  }
+
+  /// Decide a parked approval (yes/no). The 202 snapshot applies directly; a first-wins loss (422)
+  /// or any failure falls back to a reconcile — truth wins, the gate self-corrects.
+  /// 决断 parked 审批;202 快照直接应用,输了 first-wins(422)或任何失败回落对账——真相赢,门自纠。
+  Future<void> decide(String nodeId, String decision) async {
+    final id = state.flowrunId;
+    if (id == null) return;
+    final seq = state.runSeq;
+    try {
+      final comp = await _repo.decideApproval(id, nodeId, decision: decision);
+      if (!ref.mounted || state.runSeq != seq) return;
+      _applyFlowrun(comp);
+    } catch (_) {
+      await _reconcileFlowrun(seq);
+    }
+  }
+
+  static List<FlowrunNode> _upsertRow(List<FlowrunNode> rows, FlowrunNode row) {
+    final i = rows.indexWhere((r) => r.nodeId == row.nodeId && r.iteration == row.iteration);
+    if (i < 0) return [row, ...rows];
+    // A truth row never regresses to a tick row (same terminal status anyway). 真相行不被 tick 行覆退。
+    if (!rows[i].id.startsWith('tick_')) return rows;
+    return [for (var j = 0; j < rows.length; j++) j == i ? row : rows[j]];
   }
 }
 

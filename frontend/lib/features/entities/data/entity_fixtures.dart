@@ -4,9 +4,11 @@ import '../../../core/contract/entities/agent.dart';
 import '../../../core/contract/entities/common.dart';
 import '../../../core/contract/entities/function.dart';
 import '../../../core/contract/entities/handler.dart';
+import '../../../core/contract/entities/values.dart';
 import '../../../core/contract/entities/workflow.dart';
 import '../../../core/contract/page.dart';
 import '../../../core/sse/frame.dart';
+import 'entity_format.dart';
 import 'entity_kind.dart';
 import 'entity_row.dart';
 import 'entity_signal.dart';
@@ -212,25 +214,94 @@ class FixtureEntityRepository implements EntityRepository {
   @override
   Future<String> triggerWorkflow(String id, {Map<String, dynamic>? payload}) async {
     final flowrunId = 'flr_run${++_runCount}';
-    final scope = EntityKind.workflow.scope(id);
-    final nodes = [
-      ('n1', 'trigger', 'tr_cron'),
-      ('n2', 'agent', 'ag_researcher'),
-      ('n3', 'action', 'fn_summarize'),
-    ];
-    for (final (nodeId, _, _) in nodes) {
-      await _delay();
-      emitPanel(scope, _sig(scope, 'sig_$nodeId', {'flowrunId': flowrunId, 'nodeId': nodeId, 'iteration': 0, 'status': 'completed'}));
-    }
     final now = DateTime.utc(2026, 6, 27, 10);
+    final graph = graphOf((await getWorkflow(id)).activeVersion ??
+            (throw StateError('FixtureEntityRepository: workflow $id has no active version'))) ??
+        const Graph();
     _flowrunDetail[flowrunId] = FlowrunComposite(
-      flowrun: Flowrun(id: flowrunId, workflowId: id, versionId: '${id}_v1', status: 'completed', startedAt: now, completedAt: now, updatedAt: now),
-      nodes: [
-        for (final (nodeId, kind, ref) in nodes)
-          FlowrunNode(id: 'frn_$nodeId', flowrunId: flowrunId, nodeId: nodeId, kind: kind, ref: ref, status: 'completed', createdAt: now, completedAt: now, updatedAt: now),
-      ],
+      flowrun: Flowrun(id: flowrunId, workflowId: id, versionId: '${id}_v1', status: 'running', startedAt: now, updatedAt: now),
+      nodes: const [],
     );
+    // 202 semantics: the id returns FIRST, the walk runs async — exactly the Live path's shape (a
+    // tick arriving before the caller knows its flowrunId would be self-filtered away).
+    // 202 语义:先返 id、走图异步——与 Live 同形(id 未知前到的 tick 会被自滤丢)。
+    unawaited(_walkFlowrun(id, flowrunId, graph, now));
     return flowrunId;
+  }
+
+  /// Walk the entity's ACTUAL graph in declaration order (so the overview hero lights the real
+  /// nodes): control picks its first forward-edge port (recorded as __port, like the backend),
+  /// approval PARKS the run (the terminal shows the gate; :decide resumes). Ticks mirror the wire
+  /// (terminal statuses only, no result payload); the composite rows carry the results.
+  /// 按实体真图声明序走:control 选首条前向口(落 __port),approval 停车(:decide 续走)。
+  /// tick 同线缆(只有终态、无 result);composite 行带结果。
+  Future<void> _walkFlowrun(String id, String flowrunId, Graph graph, DateTime now) async {
+    final scope = EntityKind.workflow.scope(id);
+    for (final n in graph.nodes) {
+      await _delay();
+      if (n.kind == NodeKind.approval) {
+        _appendFlowrunRow(flowrunId, FlowrunNode(
+            id: 'frn_${n.id}', flowrunId: flowrunId, nodeId: n.id, kind: n.kind.name, ref: n.ref,
+            status: 'parked', result: const {'rendered': 'Approve this step to continue.'},
+            createdAt: now, updatedAt: now));
+        emitPanel(scope, _sig(scope, 'sig_${n.id}', {'flowrunId': flowrunId, 'nodeId': n.id, 'iteration': 0, 'status': 'parked'}));
+        return; // parked — the run waits for :decide 停车等决断
+      }
+      final result = <String, Object?>{};
+      if (n.kind == NodeKind.control) {
+        final port = graph.edges
+            .firstWhere((e) => e.from == n.id && (e.fromPort ?? '').isNotEmpty,
+                orElse: () => const Edge(id: '', from: '', to: ''))
+            .fromPort;
+        if (port != null) result['__port'] = port;
+      }
+      _appendFlowrunRow(flowrunId, FlowrunNode(
+          id: 'frn_${n.id}', flowrunId: flowrunId, nodeId: n.id, kind: n.kind.name, ref: n.ref,
+          status: 'completed', result: result, createdAt: now, completedAt: now, updatedAt: now));
+      emitPanel(scope, _sig(scope, 'sig_${n.id}', {'flowrunId': flowrunId, 'nodeId': n.id, 'iteration': 0, 'status': 'completed'}));
+    }
+    _updateFlowrun(flowrunId, status: 'completed', completedAt: now);
+  }
+
+  void _appendFlowrunRow(String flowrunId, FlowrunNode row) {
+    final comp = _flowrunDetail[flowrunId];
+    if (comp == null) return;
+    _flowrunDetail[flowrunId] = FlowrunComposite(flowrun: comp.flowrun, nodes: [row, ...comp.nodes]);
+  }
+
+  void _updateFlowrun(String flowrunId, {required String status, DateTime? completedAt}) {
+    final comp = _flowrunDetail[flowrunId];
+    if (comp == null) return;
+    _flowrunDetail[flowrunId] = FlowrunComposite(
+      flowrun: comp.flowrun.copyWith(status: status, completedAt: completedAt),
+      nodes: comp.nodes,
+    );
+  }
+
+  @override
+  Future<FlowrunComposite> decideApproval(String flowrunId, String nodeId,
+      {required String decision, String? reason}) async {
+    final comp = _flowrunDetail[flowrunId];
+    if (comp == null) throw StateError('FixtureEntityRepository: no flowrun $flowrunId');
+    final i = comp.nodes.indexWhere((n) => n.nodeId == nodeId && n.status == 'parked');
+    if (i < 0) throw StateError('FixtureEntityRepository: $nodeId is not parked (first-wins)');
+    final now = DateTime.utc(2026, 6, 27, 10, 5);
+    final decided = comp.nodes[i].copyWith(
+        status: 'completed',
+        result: {...comp.nodes[i].result, 'decision': decision, 'reason': ?reason},
+        completedAt: now,
+        updatedAt: now);
+    final next = FlowrunComposite(
+      // The fixture resolves the whole run on decide (enough for demo/tests — the Live path's truth
+      // is the backend walk). fixture 决断即收尾(demo/测试够用;Live 真相在后端)。
+      flowrun: comp.flowrun.copyWith(status: 'completed', completedAt: now),
+      nodes: [for (final n in comp.nodes) n.nodeId == nodeId ? decided : n],
+    );
+    _flowrunDetail[flowrunId] = next;
+    final scope = EntityKind.workflow.scope(comp.flowrun.workflowId);
+    emitPanel(scope, _sig(scope, 'sig_decide_$nodeId',
+        {'flowrunId': flowrunId, 'nodeId': nodeId, 'iteration': 0, 'status': 'completed'}));
+    return next;
   }
 
   Future<void> _delay() => runDelay == Duration.zero ? Future<void>.value() : Future<void>.delayed(runDelay);

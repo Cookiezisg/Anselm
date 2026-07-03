@@ -62,6 +62,11 @@ abstract interface class EntityRepository {
   /// Trigger a workflow once now → the async flowrun id (202). 触发一次 → flowrun id。
   Future<String> triggerWorkflow(String id, {Map<String, dynamic>? payload});
 
+  /// Decide a parked approval node (first-wins; the loser gets 422 FLOWRUN_APPROVAL_NOT_PARKED) →
+  /// the fresh flowrun snapshot (202). 决断 parked 审批(first-wins)→ 新快照。
+  Future<FlowrunComposite> decideApproval(String flowrunId, String nodeId,
+      {required String decision, String? reason});
+
   // ── write plane (WRK-054 F2 — function first, signatures kind-generic where the endpoint is) ──
   /// PATCH meta (name/description/tags) — does NOT bump the version. 改 meta,不升版本。
   Future<FunctionEntity> patchFunctionMeta(String id, Map<String, dynamic> patch);
@@ -210,6 +215,12 @@ class LiveEntityRepository implements EntityRepository {
   @override
   Future<String> triggerWorkflow(String id, {Map<String, dynamic>? payload}) =>
       _api.postForId(EntityKind.workflow.actionPath(id), body: {'payload': ?payload});
+
+  @override
+  Future<FlowrunComposite> decideApproval(String flowrunId, String nodeId,
+          {required String decision, String? reason}) =>
+      _api.postEntity('/api/v1/flowruns/$flowrunId/approvals/$nodeId:decide',
+          FlowrunComposite.fromJson, body: {'decision': decision, 'reason': ?reason});
 
   @override
   Future<FunctionEntity> patchFunctionMeta(String id, Map<String, dynamic> patch) =>

@@ -54,7 +54,7 @@ audience: [human, ai]
 |---|---|---|
 | W1 图地基 | `GraphColors` token(violet/teal + edge/gridDot)+ `GraphModel` 纯模型层(`core/graph/`,回边 DFS/Sugiyama-lite/pos 优先/正交路由/回边通道)+ `AnGraphCanvas` 只读版(节点 widget + 边 painter[圆角折线+箭头+回边虚线] + 视口自管[滚轮缩放到光标/拖拽平移/pinch/fit] + framed/toolbar/进入编辑器缝 + 受控选中)+ gallery 9 specimens。**对抗复审 6 缺陷已修**(1 HIGH:换图不重 fit;5 MEDIUM:Dart 不稳定 sort 宽层漂移[index tiebreak]/等值重建吞用户视口[freezed == 判变]/辅助字号撑破节点卡[场景锁 textScaler]/加粗被 wght 轴覆盖实渲 w300[.weight(),连 AnTransformBox 同款]/a11y 直插英文枚举名[t.graph.kind.* 词表])+ 测试缺口 6 连补 | ✅(fe-verify 1398 绿;gallery 截图过) |
 | W2 页面组装 | 概览重排(编排图 hero 置顶 framed + meta AnKv 就地编辑 + id·版本·计数 KV + 治理合卡 + 告警,坏 blob 诚实 inset)+ `patchWorkflowMeta` 写面(Live+Fixture,页头改名接线 + vN 徽对齐)+ 版本 tab `workflowVersionSummary` 图结构小签(节点按 id/边按端点+口)+ graph blob `prettyJsonSource` 美化 diff + demo fixture 升级(v2 质检门+retry 回边 + 版本历史) | ✅(fe-verify 1406 绿;概览/版本两截图过) |
-| W3 活运行 | run 态渲染(tick 合成 running + REST 对账 + taken 推导 + 彗星/呼吸/×N)+ 右岛 run 终端 workflow 分支重做 + 审批门 `:decide` + hero 活态 | ⏳ |
+| W3 活运行 | `GraphRunState`/`deriveRunState` 纯派生(迭代精确回边/口匹配/合成 running,9 单测)+ 画布运行面(边四 tier + 彗星层 + 呼吸环 + ×N 叠卡 + future 虚线,AnMotionPref 门控)+ run 终端 workflow 分支重做(tick `flowrunId` 自滤[修混流]+ 去抖对账 + 4s 轮询兜底 + 终态收口[修「拉一次定终态」]+ keepAlive 钉到终态)+ 审批门卡 `:decide`(first-wins 回落对账)+ hero 活态(watch 同一 provider)+ fixture 202 同形图驱动脚本 + gallery 3 运行态 specimens | ✅(fe-verify 1429 绿;demo run hero + gallery 三态截图过) |
 | W4 驾驶舱 | `AnRunBoard` + `AnNodeGantt` 原语 + 运行 tab 组装(run 选择 ↔ 甘特 ↔ 活图 ↔ 右岛节点调试强链)+ `:replay`/`:kill` | ⏳ |
 | W5 编辑器 | 编辑器路由页(工具条/检查器/连接柄拖线/edit ops/动态 control 端口解析/capability-check 问题条) | ⏳ |
 

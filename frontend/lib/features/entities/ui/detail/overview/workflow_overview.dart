@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../../core/contract/entities/workflow.dart';
 import '../../../../../core/model/status_state.dart';
 import '../../../../../core/ui/an_field.dart';
+import '../../../../../core/graph/graph_run_state.dart';
 import '../../../../../core/ui/an_graph_canvas.dart';
 import '../../../../../core/ui/an_info_card.dart';
 import '../../../../../core/ui/an_row.dart';
@@ -15,6 +16,7 @@ import '../../../data/entity_format.dart';
 import '../../../data/entity_kind.dart';
 import '../../../data/entity_providers.dart';
 import '../../../state/detail/entity_detail_provider.dart';
+import '../../../state/run/run_terminal_controller.dart';
 import '../../../state/selected_entity.dart';
 import '../detail_sections.dart';
 
@@ -38,6 +40,18 @@ class WorkflowOverview extends ConsumerWidget {
     if (v == null) return insetEmpty(d.state.noActiveVersion);
     final g = graphOf(v);
 
+    // Hero live overlay — the SAME run-terminal state the right island operates on (页 hero=仪表盘、
+    // 右岛=操作台,同源两视角): once a run was triggered, its rows/ticks light the graph; before the
+    // first reconcile lands the header status is still empty, so an in-flight phase reads as running
+    // (synthesis on). No run yet → pure definition view.
+    // hero 活态覆层:与右岛同一份 run 态;触发过即点亮,首个对账未落时按 running 合成;未跑=纯定义。
+    final run = ref.watch(runTerminalProvider(EntityRef(EntityKind.workflow, wf.id)));
+    final overlay = (g == null || run.flowrunId == null || run.flowNodes.isEmpty)
+        ? null
+        : deriveRunState(g,
+            rows: run.flowNodes,
+            runStatus: run.flowrunStatus.isEmpty && run.isRunning ? 'running' : run.flowrunStatus);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -48,7 +62,7 @@ class WorkflowOverview extends ConsumerWidget {
           if (g == null)
             insetEmpty(d.graph.unparseable) // bad blob — honest, not blank 坏 blob 诚实呈现
           else
-            AnGraphCanvas(graph: g, framed: true),
+            AnGraphCanvas(graph: g, framed: true, run: overlay),
         ]),
         // ② Meta — the hand-editable surface (same mature AnKv path as function; PATCH, no bump).
         // Row order [说明, 标签] is stable (AnKv keys edit state by index). ② meta 手编面,行序稳定。

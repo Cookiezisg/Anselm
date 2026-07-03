@@ -10,6 +10,7 @@ import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
 import '../graph/graph_model.dart';
+import '../graph/graph_run_state.dart';
 import 'an_button.dart';
 import 'icons.dart';
 
@@ -38,6 +39,7 @@ class AnGraphCanvas extends StatefulWidget {
   const AnGraphCanvas({
     required this.graph,
     this.dir = GraphDirection.lr,
+    this.run,
     this.framed = false,
     this.toolbar = true,
     this.selectedNodeId,
@@ -49,6 +51,10 @@ class AnGraphCanvas extends StatefulWidget {
 
   final Graph graph;
   final GraphDirection dir;
+
+  /// The run overlay (W3): node states + walked/live edges painted over the definition. Null = pure
+  /// definition view. 运行覆层:节点态 + 已走/活跃边;null = 纯定义视图。
+  final GraphRunState? run;
 
   /// Entity-page preview flavour: fixed [AnSize.graphPreview] height + hairline card frame.
   /// 实体页预览形态:定高 + hairline 卡框。
@@ -72,7 +78,7 @@ class AnGraphCanvas extends StatefulWidget {
   State<AnGraphCanvas> createState() => _AnGraphCanvasState();
 }
 
-class _AnGraphCanvasState extends State<AnGraphCanvas> {
+class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateMixin {
   static const double _minScale = 0.2;
   static const double _maxScale = 2.5;
   static const double _fitMaxScale = 1.3; // fit never blows a small graph up past this fit 不放大过此
@@ -87,6 +93,35 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> {
   // frame (never accumulates drift). 手势起点矩阵 + 焦点,每帧从起点重组、不累积漂移。
   Matrix4? _gestureStart;
   Offset? _gestureFocal;
+
+  // Run-plane animation drivers, created lazily and only while needed: the comet rides the live
+  // edges (1.1s lap, demo cadence), the pulse breathes the running nodes' rings (AnMotion.breath).
+  // Both feed painters/transitions via `repaint`/Listenable — never AnimatedBuilder-rebuild storms.
+  // 运行面动画驱动,按需惰性创建:彗星沿活跃边(1.1s/圈)、脉冲呼吸 running 环(breath)。都走
+  // repaint/Listenable 直驱,绝不 AnimatedBuilder 重建风暴。
+  AnimationController? _comet;
+  AnimationController? _pulse;
+
+  void _syncTickers({required bool wantComet, required bool wantPulse}) {
+    if (wantComet) {
+      (_comet ??= AnimationController(vsync: this, duration: const Duration(milliseconds: 1100)))
+          .repeat();
+    } else {
+      _comet?.stop();
+    }
+    if (wantPulse) {
+      (_pulse ??= AnimationController(vsync: this, duration: AnMotion.breath)).repeat();
+    } else {
+      _pulse?.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _comet?.dispose();
+    _pulse?.dispose();
+    super.dispose();
+  }
 
   GraphLayout get layout => _layout ??= layoutGraph(widget.graph, dir: widget.dir);
 
@@ -262,12 +297,24 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> {
     );
   }
 
-  /// The transformed scene: edges underlay → port pills → node cards. Sized to the layout so the
-  /// unconstrained Stack children position against content coords. 变换场景:边底层 → 端口药丸 → 节点卡。
+  /// The transformed scene: edges underlay → comet overlay → port pills → node cards. Sized to the
+  /// layout so the unconstrained Stack children position against content coords.
+  /// 变换场景:边底层 → 彗星层 → 端口药丸 → 节点卡。
   Widget _scene(BuildContext context) {
     final gc = context.graphColors;
     final c = context.colors;
     final l = layout;
+    final run = widget.run;
+    // Decorative loops gate off under reduced-motion/assistive tech (the live edge stays accent —
+    // information survives, only the motion goes). 无障碍下装饰循环关停(活跃边仍 accent,信息不丢)。
+    final still = AnMotionPref.reducedOrAssistive(context);
+    final liveRoutes = run == null
+        ? const <GraphEdgeRoute>[]
+        : [for (final r in l.routes) if (run.liveEdges.contains(r.edge.id)) r];
+    _syncTickers(
+      wantComet: liveRoutes.isNotEmpty && !still,
+      wantPulse: run != null && run.nodes.containsValue(GraphNodeRun.running) && !still,
+    );
     // Canvas text is geometry-locked (node slots are GraphGeometry constants); accessibility text
     // scaling would overflow the 60px cards — magnification is the canvas ZOOM's job (demo SVG text
     // likewise ignores browser font scale). 画布文本几何钉死(节点槽是常量);辅助字号放大会撑破
@@ -284,10 +331,21 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> {
                 layout: l,
                 edge: gc.edge,
                 back: c.accent,
+                run: run,
+                taken: c.ink,
+                future: gc.edgeFuture,
               ),
             ),
           ),
         ),
+        if (liveRoutes.isNotEmpty && !still)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(
+                painter: _CometPainter(routes: liveRoutes, color: c.accent, t: _comet!),
+              ),
+            ),
+          ),
         for (final r in l.routes)
           if ((r.edge.fromPort ?? '').isNotEmpty)
             Positioned(
@@ -309,6 +367,9 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> {
                 node: n,
                 selected: n.id == widget.selectedNodeId,
                 onTap: widget.onNodeTap == null ? null : () => widget.onNodeTap!(n.id),
+                runState: run == null ? null : (run.nodes[n.id] ?? GraphNodeRun.future),
+                iters: run?.iters[n.id] ?? 0,
+                pulse: still ? null : _pulse,
               ),
             ),
       ]),
@@ -353,14 +414,30 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> {
   }
 }
 
-/// One node card: kind chip (soft family colour + icon) + id / ref double line. Real widget so
-/// text, tooltips and semantics come free. 节点卡:kind 色 chip + id/ref 双行,真 widget。
+/// One node card: kind chip (soft family colour + icon) + id / ref double line, plus the run
+/// overlay (state ring + status dot + breathing while running + ×N iteration stack + dashed future).
+/// Real widget so text, tooltips and semantics come free. 节点卡:kind 色 chip + id/ref 双行 +
+/// 运行覆层(状态环/状态点/running 呼吸/×N 叠卡/future 虚线),真 widget。
 class _NodeCard extends StatelessWidget {
-  const _NodeCard({required this.node, required this.selected, required this.onTap});
+  const _NodeCard({
+    required this.node,
+    required this.selected,
+    required this.onTap,
+    this.runState,
+    this.iters = 0,
+    this.pulse,
+  });
 
   final Node node;
   final bool selected;
   final VoidCallback? onTap;
+
+  /// Null = definition view (no run overlay). 运行态;null=纯定义视图。
+  final GraphNodeRun? runState;
+  final int iters;
+
+  /// The shared breath driver (null under reduced motion → a static ring instead). 共享呼吸驱动。
+  final Animation<double>? pulse;
 
   @override
   Widget build(BuildContext context) {
@@ -368,6 +445,67 @@ class _NodeCard extends StatelessWidget {
     final gc = context.graphColors;
     final (kindColor, kindSoft) = _kindColors(node.kind, c, gc);
     final t = context.t;
+    final rs = runState;
+    final future = rs == GraphNodeRun.future;
+    final (Color ring, double ringW) = selected
+        ? (c.accent, 1.5)
+        : switch (rs) {
+            GraphNodeRun.running => (c.accentLine, 1.6),
+            GraphNodeRun.failed => (c.danger, 1.6),
+            GraphNodeRun.parked => (c.warn, 1.6),
+            // A future card carries NO solid border (the dashed overlay is the border). future 卡实线边让位虚线。
+            GraphNodeRun.future => (const Color(0x00000000), AnSize.hairline),
+            _ => (c.line, AnSize.hairline),
+          };
+    final dotColor = switch (rs) {
+      GraphNodeRun.running => c.accent,
+      GraphNodeRun.failed => c.danger,
+      GraphNodeRun.parked => c.warn,
+      _ => c.inkFaint,
+    };
+
+    final card = Container(
+      decoration: BoxDecoration(
+        color: future ? c.surfaceSubtle : c.surface,
+        borderRadius: BorderRadius.circular(AnRadius.card),
+        border: Border.all(color: ring, width: ringW),
+        boxShadow: future ? null : c.shadowIsland,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: AnSpace.s12),
+      child: Row(children: [
+        Container(
+          width: 26,
+          height: 26,
+          decoration: BoxDecoration(
+            color: kindSoft,
+            borderRadius: BorderRadius.circular(AnRadius.button),
+          ),
+          child: Icon(AnIcons.node(node.kind.name), size: 18, color: kindColor),
+        ),
+        const SizedBox(width: AnSpace.s8),
+        Expanded(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                node.id,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AnText.body.weight(AnText.emphasisWeight).copyWith(color: c.ink),
+              ),
+              Text(
+                node.ref,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AnText.code.copyWith(color: c.inkFaint),
+              ),
+            ],
+          ),
+        ),
+      ]),
+    );
+
     return Semantics(
       label: t.a11y.graphNode(id: node.id, kind: _kindLabel(t, node.kind), ref: node.ref),
       button: onTap != null,
@@ -375,54 +513,95 @@ class _NodeCard extends StatelessWidget {
         onTap: onTap,
         child: MouseRegion(
           cursor: onTap != null ? SystemMouseCursors.click : MouseCursor.defer,
-          child: Container(
-            decoration: BoxDecoration(
-              color: c.surface,
-              borderRadius: BorderRadius.circular(AnRadius.card),
-              border: Border.all(
-                color: selected ? c.accent : c.line,
-                width: selected ? 1.5 : AnSize.hairline,
-              ),
-              boxShadow: c.shadowIsland,
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: AnSpace.s12),
-            child: Row(children: [
-              Container(
-                width: 26,
-                height: 26,
-                decoration: BoxDecoration(
-                  color: kindSoft,
-                  borderRadius: BorderRadius.circular(AnRadius.button),
-                ),
-                child: Icon(AnIcons.node(node.kind.name), size: 18, color: kindColor),
-              ),
-              const SizedBox(width: AnSpace.s8),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      node.id,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AnText.body.weight(AnText.emphasisWeight).copyWith(color: c.ink),
-                    ),
-                    Text(
-                      node.ref,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AnText.code.copyWith(color: c.inkFaint),
-                    ),
-                  ],
+          child: Stack(clipBehavior: Clip.none, children: [
+            // Iteration ghosts stack UNDER the card (demo's ×N 叠卡:offset shadows read as "this
+            // slot ran multiple times"). 迭代影子叠在卡下(×N 叠卡)。
+            if (iters > 1) ...[
+              _ghost(c, ring, const Offset(6, 6), 0.35),
+              _ghost(c, ring, const Offset(3, 3), 0.6),
+            ],
+            Positioned.fill(child: future ? _dashedWrap(c, card) : card),
+            if (rs == GraphNodeRun.running)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: pulse == null
+                      ? _breathRing(c, 0.35)
+                      : FadeTransition(
+                          // 0→.5→0 over one breath (demo's opacity keyframes). 一次呼吸 0→.5→0。
+                          opacity: pulse!.drive(TweenSequence([
+                            TweenSequenceItem(tween: Tween(begin: 0.0, end: 0.5), weight: 1),
+                            TweenSequenceItem(tween: Tween(begin: 0.5, end: 0.0), weight: 1),
+                          ])),
+                          child: _breathRing(c, 1),
+                        ),
                 ),
               ),
-            ]),
-          ),
+            if (rs != null)
+              Positioned(
+                right: AnSpace.s8,
+                top: AnSpace.s8,
+                child: IgnorePointer(
+                  child: Container(
+                    width: AnSize.dot,
+                    height: AnSize.dot,
+                    decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+                  ),
+                ),
+              ),
+            if (iters > 1)
+              Positioned(
+                right: AnSpace.s8,
+                bottom: AnSpace.s4,
+                child: IgnorePointer(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: AnSpace.s6),
+                    decoration: BoxDecoration(
+                      color: c.accentSoft,
+                      borderRadius: BorderRadius.circular(AnRadius.pill),
+                    ),
+                    child: Text('×$iters',
+                        style: AnText.metaTabular().weight(AnText.emphasisWeight).copyWith(color: c.accent)),
+                  ),
+                ),
+              ),
+          ]),
         ),
       ),
     );
   }
+
+  Widget _ghost(AnColors c, Color ring, Offset offset, double opacity) => Positioned.fill(
+        child: IgnorePointer(
+          child: Transform.translate(
+            offset: offset,
+            child: Opacity(
+              opacity: opacity,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: c.surface,
+                  borderRadius: BorderRadius.circular(AnRadius.card),
+                  border: Border.all(color: c.line, width: AnSize.hairline),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+  Widget _breathRing(AnColors c, double opacity) => Opacity(
+        opacity: opacity,
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AnRadius.card),
+            border: Border.all(color: c.accent, width: 2),
+          ),
+        ),
+      );
+
+  Widget _dashedWrap(AnColors c, Widget card) => CustomPaint(
+        foregroundPainter: _DashedRRectPainter(color: c.line),
+        child: card,
+      );
 
   /// Localized node-kind word for assistive labels (the enum's Dart name is English and would
   /// read half-translated). 无障碍标签用的本地化 kind 词(枚举名是英文,直插读作夹生)。
@@ -476,33 +655,63 @@ class _PortPill extends StatelessWidget {
   }
 }
 
-/// Static edge underlay: rounded orthogonal polylines + arrowheads; back edges dashed accent.
-/// Colours arrive resolved from build (painters can't read Theme — and theme flips must repaint,
-/// which the shouldRepaint equality below guarantees). 静态边底层:圆角正交折线 + 箭头;回边虚线
-/// accent。色值 build 解析后传入(painter 不碰 Theme;主题切换靠 shouldRepaint 相等性触发重绘)。
+/// Static edge underlay: rounded orthogonal polylines + arrowheads; back edges dashed accent. In
+/// run mode each edge picks a tier (demo semantics): live (accent, bold — the comet rides on the
+/// separate overlay) > taken (ink, bold) > base (target walked) > future (faint dashed). Colours
+/// arrive resolved from build (painters can't read Theme — and theme flips must repaint, which the
+/// shouldRepaint equality below guarantees). 静态边底层:圆角正交折线 + 箭头;回边虚线 accent。
+/// 运行态每边取 tier:live(accent 粗,彗星在独立覆层)> taken(墨粗)> base(目标已走)>
+/// future(淡虚线)。色值 build 解析后传入。
 class _EdgePainter extends CustomPainter {
-  const _EdgePainter({required this.layout, required this.edge, required this.back});
+  const _EdgePainter({
+    required this.layout,
+    required this.edge,
+    required this.back,
+    this.run,
+    required this.taken,
+    required this.future,
+  });
 
   final GraphLayout layout;
   final Color edge; // resting edge + arrow 静止边
-  final Color back; // back edge (accent) 回边
+  final Color back; // back edge / live (accent) 回边·活跃
+  final GraphRunState? run;
+  final Color taken; // walked edge (ink) 已走边
+  final Color future; // not-yet-walked edge 未走边
 
   static const double _strokeW = 1.8;
+  static const double _takenW = 2.3;
+  static const double _liveW = 2.6;
   static const double _arrowLen = 7;
   static const double _arrowHalf = 3;
 
   @override
   void paint(Canvas canvas, Size size) {
+    final r0 = run;
     for (final r in layout.routes) {
-      final color = r.isBack ? back : edge;
+      var color = r.isBack ? back : edge;
+      var w = _strokeW;
+      var dashed = r.isBack;
+      if (r0 != null) {
+        if (r0.liveEdges.contains(r.edge.id)) {
+          color = back;
+          w = _liveW;
+        } else if (r0.takenEdges.contains(r.edge.id)) {
+          color = taken;
+          w = _takenW;
+        } else if (!r0.nodes.containsKey(r.edge.to)) {
+          color = future;
+          dashed = true;
+        }
+      }
       final paint = Paint()
         ..color = color
         ..style = PaintingStyle.stroke
-        ..strokeWidth = _strokeW
+        ..strokeWidth = w
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round;
       var path = _rounded(r.points, GraphGeometry.corner);
-      if (r.isBack) path = _dash(path, on: 6, off: 5);
+      if (dashed) path = _dash(path, on: r.isBack ? 6 : 5, off: 5);
       canvas.drawPath(path, paint);
       _arrow(canvas, r.points, color);
     }
@@ -570,7 +779,65 @@ class _EdgePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_EdgePainter old) =>
-      !identical(old.layout, layout) || old.edge != edge || old.back != back;
+      !identical(old.layout, layout) ||
+      old.edge != edge ||
+      old.back != back ||
+      !identical(old.run, run) ||
+      old.taken != taken ||
+      old.future != future;
+}
+
+/// The comet overlay — one dot lapping each live edge, driven by the controller via `repaint` (the
+/// painter repaints per tick; the widget tree never rebuilds). 彗星覆层:每条活跃边一点循环,
+/// controller 经 repaint 直驱(逐 tick 重绘、树零重建)。
+class _CometPainter extends CustomPainter {
+  _CometPainter({required this.routes, required this.color, required this.t}) : super(repaint: t);
+
+  final List<GraphEdgeRoute> routes;
+  final Color color;
+  final Animation<double> t;
+
+  static const double _r = 3.6;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    for (final r in routes) {
+      final path = _EdgePainter._rounded(r.points, GraphGeometry.corner);
+      for (final m in path.computeMetrics()) {
+        final tangent = m.getTangentForOffset(m.length * t.value);
+        if (tangent != null) canvas.drawCircle(tangent.position, _r, paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_CometPainter old) =>
+      !identical(old.routes, routes) || old.color != color || old.t != t;
+}
+
+/// Hairline dashed rounded border — the future (not-yet-walked) node card frame (same idiom as
+/// AnTransformBox's empty slot). 虚线圆角边框(future 节点卡;同变换盒空槽做法)。
+class _DashedRRectPainter extends CustomPainter {
+  const _DashedRRectPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final source = Path()
+      ..addRRect(RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(AnRadius.card)));
+    canvas.drawPath(
+      _EdgePainter._dash(source, on: 4, off: 4),
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = AnSize.hairline,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_DashedRRectPainter old) => old.color != color;
 }
 
 /// The screen-fixed dot grid backdrop. 钉屏幕的网格点背景。

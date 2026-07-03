@@ -8,6 +8,9 @@ import 'package:anselm/features/entities/data/entity_fixtures.dart';
 import 'package:anselm/features/entities/data/entity_format.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
 import 'package:anselm/features/entities/data/entity_providers.dart';
+import 'package:anselm/core/graph/graph_run_state.dart';
+import 'package:anselm/features/entities/state/run/run_terminal_controller.dart';
+import 'package:anselm/features/entities/state/selected_entity.dart';
 import 'package:anselm/features/entities/ui/detail/overview/workflow_overview.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/gestures.dart';
@@ -105,6 +108,28 @@ void main() {
       await tester.pump();
       expect((await repo.getWorkflow('wf_1')).tags, ['daily']);
       await gesture.removePointer();
+    });
+
+    testWidgets('hero lights up from the SAME run state the right island drives (W3)',
+        (tester) async {
+      final repo = FixtureEntityRepository(workflows: [_wf()], runDelay: Duration.zero);
+      await tester.pumpWidget(_host(WorkflowOverview(wf: _wf()), repo));
+      await tester.pump();
+      // Definition view first — no overlay. 未跑=纯定义。
+      expect(tester.widget<AnGraphCanvas>(find.byType(AnGraphCanvas)).run, isNull);
+
+      final container = ProviderScope.containerOf(tester.element(find.byType(WorkflowOverview)));
+      const ref = EntityRef(EntityKind.workflow, 'wf_1');
+      container.read(runTerminalProvider(ref).notifier).run();
+      await tester.pump(); // trigger returns, walk scheduled
+      await tester.pump(); // ticks land
+      await tester.pump(const Duration(milliseconds: 400)); // reconcile lands truth rows
+      final overlay = tester.widget<AnGraphCanvas>(find.byType(AnGraphCanvas)).run;
+      expect(overlay, isNotNull);
+      expect(overlay!.nodes['research'], GraphNodeRun.completed);
+      // The control recorded __port=pass → the pass edge is taken, retry is not. pass 亮、retry 不亮。
+      expect(overlay.takenEdges.contains('e3'), isTrue);
+      expect(overlay.takenEdges.contains('e4'), isFalse);
     });
 
     testWidgets('unparseable graph blob → honest inset, not a blank hero', (tester) async {

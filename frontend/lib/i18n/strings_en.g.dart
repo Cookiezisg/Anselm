@@ -975,6 +975,18 @@ class Translations$entities$run$en {
 	String ms({required Object ms}) => '${ms} ms';
 
 	late final Translations$entities$run$danger$en danger = Translations$entities$run$danger$en.internal(_root);
+
+	/// en: 'Awaiting approval'
+	String get approvalTitle => 'Awaiting approval';
+
+	/// en: 'Approve'
+	String get approve => 'Approve';
+
+	/// en: 'Reject'
+	String get reject => 'Reject';
+
+	/// en: 'First decision wins.'
+	String get approvalHint => 'First decision wins.';
 }
 
 // Path: chat.tool.kind
@@ -1786,6 +1798,10 @@ extension on Translations {
 			'entities.run.ms' => ({required Object ms}) => '${ms} ms',
 			'entities.run.danger.cautious' => 'Cautious',
 			'entities.run.danger.dangerous' => 'Dangerous',
+			'entities.run.approvalTitle' => 'Awaiting approval',
+			'entities.run.approve' => 'Approve',
+			'entities.run.reject' => 'Reject',
+			'entities.run.approvalHint' => 'First decision wins.',
 			'coldStart.connecting' => 'Setting up your workspace…',
 			'coldStart.errorTitle' => 'Couldn\'t set up the workspace',
 			'coldStart.errorHint' => 'The local engine is reachable but the workspace didn\'t resolve.',

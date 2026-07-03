@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/contract/entities/workflow.dart';
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
 import '../../../../core/model/status_state.dart' show AnStatus, AnTone;
 import '../../../../core/ui/an_badge.dart';
 import '../../../../core/ui/an_button.dart';
+import '../../../../core/ui/an_action_group.dart';
 import '../../../../core/ui/an_callout.dart';
 import '../../../../core/ui/an_code_surface.dart';
+import '../../../../core/ui/an_info_card.dart';
 import '../../../../core/ui/an_row.dart';
 import '../../../../core/ui/an_scroll_behavior.dart';
 import '../../../../core/ui/an_section.dart';
@@ -246,12 +249,20 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
 
   Widget _nodes(BuildContext context, RunTerminalState state, RunStream s) {
     final r = context.t.entities.run;
+    final parked = state.isRunning ? state.parkedNode : null;
     // Each flowrun node = a passive mono AnRow: status dot (lead) + 'nodeId · kind' + status word (meta).
-    // 每个 flowrun 节点 = passive mono AnRow:状态点 + 'nodeId·kind' + 状态词。
+    // A parked run grows the approval gate ABOVE the rows (the human decision is the next action).
+    // 每个 flowrun 节点 = passive mono AnRow;停车时审批门长在行列之上(人决断是下一步)。
     if (state.flowNodes.isNotEmpty) {
-      return _section(context, r.nodesHeading, _nodeList([
-        for (final n in state.flowNodes) (label: '${n.nodeId} · ${n.kind}', status: n.status),
-      ]));
+      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        if (parked != null) ...[
+          _approvalGate(context, parked),
+          const SizedBox(height: AnSpace.s12),
+        ],
+        _section(context, r.nodesHeading, _nodeList([
+          for (final n in state.flowNodes) (label: '${n.nodeId} · ${n.kind}', status: n.status),
+        ])),
+      ]);
     }
     if (s.liveNodes.isNotEmpty) {
       return _section(context, r.nodesHeading, _nodeList([
@@ -259,6 +270,44 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
       ]));
     }
     return _hint(context, r.noTrace);
+  }
+
+  /// The durable approval gate — the parked node's rendered prompt + Approve/Reject firing the
+  /// backend `:decide` (first-wins; a lost race reconciles the gate away). Composed from existing
+  /// primitives (card + action group), no new hand-rolled surface. 停车审批门:rendered 提示 +
+  /// 通过/驳回直发 `:decide`(first-wins,输了对账自纠);既有原语组合、零手搓新面。
+  Widget _approvalGate(BuildContext context, FlowrunNode parked) {
+    final r = context.t.entities.run;
+    final c = context.colors;
+    final prompt = parked.result['rendered'] as String? ?? '';
+    final notifier = ref.read(runTerminalProvider(ref.read(selectedEntityProvider)!).notifier);
+    return AnInfoCard(
+      title: r.approvalTitle,
+      icon: AnIcons.approval,
+      meta: parked.nodeId,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        if (prompt.isNotEmpty) ...[
+          Text(prompt, style: AnText.body.copyWith(color: c.ink)),
+          const SizedBox(height: AnSpace.s8),
+        ],
+        Text(r.approvalHint, style: AnText.meta.copyWith(color: c.inkFaint)),
+        const SizedBox(height: AnSpace.s8),
+        AnActionGroup([
+          AnButton(
+            label: r.approve,
+            variant: AnButtonVariant.primary,
+            size: AnButtonSize.sm,
+            onPressed: () => notifier.decide(parked.nodeId, 'yes'),
+          ),
+          AnButton(
+            label: r.reject,
+            variant: AnButtonVariant.danger,
+            size: AnButtonSize.sm,
+            onPressed: () => notifier.decide(parked.nodeId, 'no'),
+          ),
+        ]),
+      ]),
+    );
   }
 
   Widget _nodeList(List<({String label, String status})> nodes) => Column(

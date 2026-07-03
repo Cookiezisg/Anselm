@@ -35,7 +35,11 @@ abstract class RunTerminalState with _$RunTerminalState {
     @Default(0) int tokensIn,
     @Default(0) int tokensOut,
     String? flowrunId, // workflow 触发的 flowrun id
-    @Default(<FlowrunNode>[]) List<FlowrunNode> flowNodes, // workflow durable node list 工作流节点(真相)
+    // workflow node rows — REST truth merged with tick upserts (tick rows carry a `tick_` id and no
+    // result until the reconcile lands). workflow 节点行:REST 真相 + tick upsert 合并(tick 行 id
+    // 前缀 tick_、result 空,对账后被真相行顶替)。
+    @Default(<FlowrunNode>[]) List<FlowrunNode> flowNodes,
+    @Default('') String flowrunStatus, // flowrun header status from the last reconcile 最近对账的 run 头状态
     @Default(0) int runSeq, // generation counter — a stale run's result is dropped 运行代号,陈旧结果丢弃
   }) = _RunTerminalState;
 
@@ -43,4 +47,15 @@ abstract class RunTerminalState with _$RunTerminalState {
 
   bool get isRunning => phase == RunPhase.running;
   bool get isTerminal => phase == RunPhase.ok || phase == RunPhase.failed || phase == RunPhase.cancelled;
+
+  /// The node currently parked on a human decision (its LATEST iteration is parked), if any —
+  /// drives the approval gate. 正停车等人决断的节点(最新迭代 parked)——驱动审批门。
+  FlowrunNode? get parkedNode {
+    for (final r in flowNodes) {
+      if (r.status != 'parked') continue;
+      final newer = flowNodes.any((o) => o.nodeId == r.nodeId && o.iteration > r.iteration);
+      if (!newer) return r;
+    }
+    return null;
+  }
 }

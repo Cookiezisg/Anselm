@@ -6,6 +6,7 @@ import '../../core/design/colors.dart';
 import '../../core/design/tokens.dart';
 import '../../core/design/typography.dart';
 import '../../core/graph/graph_model.dart';
+import '../../core/graph/graph_run_state.dart';
 import '../../core/ui/ui.dart';
 import 'chat_composer_specimens.dart';
 import 'chat_thinking_specimens.dart';
@@ -90,6 +91,21 @@ final GalleryCategory _entityViz = GalleryCategory('实体可视化 Entity Viz',
       onNodeTap: (_) {}, enterEditorLabel: '进入编辑器', onEnterEditor: () {},
     ), span: true),
     GallerySpecimen('编辑器形态 (非 framed 满幅)', (_) => AnGraphCanvas(graph: _gBranch), span: true, height: 420),
+    GallerySpecimen('运行中 (taken 加粗+彗星+running 呼吸)', (_) => AnGraphCanvas(graph: _gBranch, framed: true, run: const GraphRunState(
+      nodes: {'on_pr_merged': GraphNodeRun.completed, 'run_tests': GraphNodeRun.completed, 'branch_result': GraphNodeRun.running},
+      iters: {'on_pr_merged': 1, 'run_tests': 1, 'branch_result': 1},
+      takenEdges: {'e1'}, liveEdges: {'e2'},
+    )), span: true),
+    GallerySpecimen('停车待批 (parked 琥珀)', (_) => AnGraphCanvas(graph: _gBranch, framed: true, run: const GraphRunState(
+      nodes: {'on_pr_merged': GraphNodeRun.completed, 'run_tests': GraphNodeRun.completed, 'branch_result': GraphNodeRun.completed, 'approve_rollback': GraphNodeRun.parked},
+      iters: {'on_pr_merged': 1, 'run_tests': 1, 'branch_result': 1, 'approve_rollback': 1},
+      takenEdges: {'e1', 'e2', 'e3'},
+    )), span: true),
+    GallerySpecimen('失败 + ×2 循环叠卡', (_) => AnGraphCanvas(graph: _gBranch, framed: true, run: const GraphRunState(
+      nodes: {'on_pr_merged': GraphNodeRun.completed, 'run_tests': GraphNodeRun.failed, 'branch_result': GraphNodeRun.completed},
+      iters: {'on_pr_merged': 1, 'run_tests': 2, 'branch_result': 1},
+      takenEdges: {'e1', 'e2', 'e5'},
+    )), span: true),
     GallerySpecimen('空图', (_) => AnGraphCanvas(graph: const Graph(), framed: true), stress: true, span: true),
     GallerySpecimen('海量 (40 节点扇出)', (_) => AnGraphCanvas(graph: _gHuge, framed: true), stress: true, span: true),
     GallerySpecimen('unknown kind + 超长 + 注入', (_) => AnGraphCanvas(graph: _gHostile, framed: true), stress: true, span: true),

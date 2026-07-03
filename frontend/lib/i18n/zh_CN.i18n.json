@@ -396,7 +396,11 @@
       "danger": {
         "cautious": "谨慎",
         "dangerous": "危险"
-      }
+      },
+      "approvalTitle": "等待审批",
+      "approve": "通过",
+      "reject": "驳回",
+      "approvalHint": "first-wins:先到的决断生效。"
     }
   },
   "coldStart": {

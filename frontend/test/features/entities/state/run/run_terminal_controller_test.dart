@@ -1,6 +1,7 @@
 import 'package:anselm/core/contract/api_error.dart';
 import 'package:anselm/core/contract/entities/function.dart';
 import 'package:anselm/core/contract/entities/values.dart';
+import 'package:anselm/core/contract/entities/workflow.dart';
 import 'package:anselm/features/entities/data/entity_fixtures.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
 import 'package:anselm/features/entities/data/entity_providers.dart';
@@ -27,6 +28,28 @@ const _wfRef = EntityRef(EntityKind.workflow, 'wf_1');
   c.listen(runTerminalProvider(ref), (_, _) {}); // keep the family member (+ its panel sub) alive
   return (c, c.read(runTerminalProvider(ref).notifier));
 }
+
+FixtureEntityRepository _wfRepo() => FixtureEntityRepository(
+      runDelay: Duration.zero,
+      workflows: [
+        WorkflowEntity(
+          id: 'wf_1',
+          name: 'pipeline',
+          createdAt: DateTime.utc(2026, 6, 27),
+          updatedAt: DateTime.utc(2026, 6, 27),
+          activeVersionId: 'wf_1_v1',
+          activeVersion: WorkflowVersion(
+            id: 'wf_1_v1',
+            workflowId: 'wf_1',
+            version: 1,
+            graph:
+                '{"nodes":[{"id":"n1","kind":"trigger","ref":"tr_cron"},{"id":"n2","kind":"agent","ref":"ag_r"},{"id":"n3","kind":"action","ref":"fn_s"}],"edges":[{"id":"e1","from":"n1","to":"n2"},{"id":"e2","from":"n2","to":"n3"}]}',
+            createdAt: DateTime.utc(2026, 6, 27),
+            updatedAt: DateTime.utc(2026, 6, 27),
+          ),
+        ),
+      ],
+    );
 
 class _ThrowRepo extends FixtureEntityRepository {
   _ThrowRepo() : super(runDelay: Duration.zero);
@@ -61,14 +84,21 @@ void main() {
     expect(tc.children.single.displayText, '3 results found');
   });
 
-  test('workflow :trigger → ok + durable flowrun nodes', () async {
-    final (c, ctl) = _harness(FixtureEntityRepository(runDelay: Duration.zero), _wfRef);
+  test('workflow :trigger → reconcile-driven: running while walking, ok at terminal', () async {
+    final (c, ctl) = _harness(_wfRepo(), _wfRef);
     await ctl.run();
     await pumpEventQueue();
-    final st = c.read(runTerminalProvider(_wfRef));
-    expect(st.phase, RunPhase.ok);
+    // The walk streamed ticks in (self-filtered to OUR flowrunId) — the debounced reconcile
+    // hasn't landed yet, so the phase is honestly running. 走图 tick 已进,去抖对账未落 → 诚实 running。
+    var st = c.read(runTerminalProvider(_wfRef));
     expect(st.flowrunId, isNotNull);
-    expect(st.flowNodes.length, 3);
+    expect(st.flowNodes.length, 3); // tick upserts tick 行已上
+    await Future<void>.delayed(const Duration(milliseconds: 400)); // debounce lands 对账落地
+    st = c.read(runTerminalProvider(_wfRef));
+    expect(st.phase, RunPhase.ok);
+    expect(st.flowrunStatus, 'completed');
+    // Truth rows replaced the tick rows. 真相行顶替 tick 行。
+    expect(st.flowNodes.every((n) => !n.id.startsWith('tick_')), isTrue);
   });
 
   test('API error → failed with code + message', () async {
