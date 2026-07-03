@@ -68,16 +68,17 @@ Anselm 前端 = 一个 **Flutter 桌面 app**,是内嵌 **Go sidecar** 的纯客
 | **UI kit G0–G6** | ✅ | 49 原语 + gallery(控件/反馈/行卡/导航壳/代码数据/浮层) | [`design-system`](../../references/frontend/design-system.md) + §4 归档 |
 | **Phase 4.0 运行时骨干** | ✅ | 契约/net/SSE/进程托管/Riverpod 装配/loopback/错误边界/L0–L2 流式原语 | [`overview`](../../references/frontend/overview.md) §4–5 · 归档 [`WRK-045`](../../archive/phase-4.0-runtime-backbone/README.md) |
 | **Phase 4.1 Entities** | ✅ | 实体导航 + 详情海洋 + 执行右岛(STEP 0–6 + 5.5) | [`features/entities`](../../references/frontend/features/entities.md) · 归档 [`WRK-046`](../../archive/entities/README.md) |
-| **Phase 4.2 Chat** | 🔨 在建 | **左岛 rail 已落**(STEP 0–7:数据缝/列表/分组/⚙菜单/⋯菜单+就地改名);**中心海洋(对话正文+composer)未建** | [`chat.md`](chat.md) |
+| **Phase 4.2 Chat** | 🔨 在建 | **纯聊天骨干完整体已落**(rail + 中心海洋 transcript/composer/浮层头 + 自动命名 + @提及 + 附件三入口);**tool 卡 V3a–V3c 已落**(底盘 + 机器窗口 + shell·fs·builds 皮肤,WRK-053);余 V3d–V3e/V6 人在环/V5 特殊块/V8 右岛待建 | [`chat.md`](chat.md) · [`tool-cards.md`](tool-cards.md) |
+| **实体页雕琢 + 实体可视化** | 🔨 在建 | 逐实体 ideal 实体页(hero 可视化 + 编辑草稿模式 + 版本结构化 diff + 右岛升级);**function F1 已落**(`AnTransformBox` 变换盒 hero + 代码 50 行渐隐 + 环境合卡) | [`entity-pages.md`](entity-pages.md) |
 | **Phase 4.3 Scheduler** | ⏳ | 调度海洋(占位「即将推出」) | — |
 | **Phase 4.4 Documents** | ⏳ | 文档海洋(占位) | — |
 
 ### 3.2 当前焦点 + 下一步
 
-- **现在**:Chat 4.2 左岛 rail 收尾。rail 的 ⋯ 菜单 + 就地改名刚落(commit `1c8dcd23`)。
-- **紧接**:Chat **New 懒建**(点新对话进空 landing、首句才真建)→ 这步把**中心海洋**起头(composer/landing);随后对话正文(transcript + markdown 渲染 + 流式)、人在环确认卡、右岛 entity-workspace。
-- **rail 尾巴**(并入后续片):无限下滑(`AnSidebarList` scroll hook)· 跨客户端 SSE 回声合并(并到 chat live-wiring,带消息流订阅)。
-- **远期弧线**:Chat 海洋全成 → Scheduler 4.3 → Documents 4.4。流式叶子写法(L3–L6)+ BuildSpy 性能门禁在 Chat 4.2 真落地(见 [`chat.md`](chat.md))。
+- **现在**:实体页逐实体雕琢(WRK-054,function 首站)——F1 hero 可视化已落,F2 编辑草稿模式 + 写面 repository、F3 右岛按签名渲结果紧接。
+- **随后**:function 定稿 → 逐个聊下一实体(handler/control/workflow…每实体专属可视化)→ 各实体 chat 工具卡按定稿 revisit。
+- **chat 尾巴**:V6 人在环确认卡(interaction 重同步)· V3d–V3e 余族皮肤 · V5 特殊块 · V8 右岛(后端 touchpoint 台账已就绪)。
+- **远期弧线**:Chat/实体全成 → Scheduler 4.3 → Documents 4.4。
 
 ---
 

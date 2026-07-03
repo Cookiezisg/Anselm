@@ -233,6 +233,15 @@
         "invoke": "唤起",
         "trigger": "触发"
       },
+      "hero": {
+        "noInputs": "无入参",
+        "noOutputs": "无返回",
+        "deps": "$n 依赖"
+      },
+      "codeToggle": {
+        "expand": "展开全部 ($n 行)",
+        "collapse": "收起"
+      },
       "sec": {
         "code": "代码",
         "input": "输入",

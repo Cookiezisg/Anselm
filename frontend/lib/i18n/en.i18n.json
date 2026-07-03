@@ -233,6 +233,15 @@
         "invoke": "Invoke",
         "trigger": "Trigger"
       },
+      "hero": {
+        "noInputs": "no inputs",
+        "noOutputs": "no outputs",
+        "deps": "$n deps"
+      },
+      "codeToggle": {
+        "expand": "Show all ($n lines)",
+        "collapse": "Collapse"
+      },
       "sec": {
         "code": "Code",
         "input": "Inputs",

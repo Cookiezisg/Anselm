@@ -426,6 +426,8 @@ class _Translations$entities$detail$zh_CN extends Translations$entities$detail$e
 	@override String get moreActions => '更多操作';
 	@override late final _Translations$entities$detail$tab$zh_CN tab = _Translations$entities$detail$tab$zh_CN._(_root);
 	@override late final _Translations$entities$detail$verb$zh_CN verb = _Translations$entities$detail$verb$zh_CN._(_root);
+	@override late final _Translations$entities$detail$hero$zh_CN hero = _Translations$entities$detail$hero$zh_CN._(_root);
+	@override late final _Translations$entities$detail$codeToggle$zh_CN codeToggle = _Translations$entities$detail$codeToggle$zh_CN._(_root);
 	@override late final _Translations$entities$detail$sec$zh_CN sec = _Translations$entities$detail$sec$zh_CN._(_root);
 	@override late final _Translations$entities$detail$card$zh_CN card = _Translations$entities$detail$card$zh_CN._(_root);
 	@override late final _Translations$entities$detail$graph$zh_CN graph = _Translations$entities$detail$graph$zh_CN._(_root);
@@ -512,6 +514,29 @@ class _Translations$entities$detail$verb$zh_CN extends Translations$entities$det
 	@override String get call => '调用';
 	@override String get invoke => '唤起';
 	@override String get trigger => '触发';
+}
+
+// Path: entities.detail.hero
+class _Translations$entities$detail$hero$zh_CN extends Translations$entities$detail$hero$en {
+	_Translations$entities$detail$hero$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get noInputs => '无入参';
+	@override String get noOutputs => '无返回';
+	@override String deps({required Object n}) => '${n} 依赖';
+}
+
+// Path: entities.detail.codeToggle
+class _Translations$entities$detail$codeToggle$zh_CN extends Translations$entities$detail$codeToggle$en {
+	_Translations$entities$detail$codeToggle$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String expand({required Object n}) => '展开全部 (${n} 行)';
+	@override String get collapse => '收起';
 }
 
 // Path: entities.detail.sec
@@ -881,6 +906,11 @@ extension on TranslationsZhCn {
 			'entities.detail.verb.call' => '调用',
 			'entities.detail.verb.invoke' => '唤起',
 			'entities.detail.verb.trigger' => '触发',
+			'entities.detail.hero.noInputs' => '无入参',
+			'entities.detail.hero.noOutputs' => '无返回',
+			'entities.detail.hero.deps' => ({required Object n}) => '${n} 依赖',
+			'entities.detail.codeToggle.expand' => ({required Object n}) => '展开全部 (${n} 行)',
+			'entities.detail.codeToggle.collapse' => '收起',
 			'entities.detail.sec.code' => '代码',
 			'entities.detail.sec.input' => '输入',
 			'entities.detail.sec.output' => '输出',

@@ -23,7 +23,7 @@ audience: [human, ai]
 |---|---|---|
 | **rail(左岛)** | `features/entities/ui/entity_rail.dart` | `EntityRail` over [`AnSidebarList`]:4 kind 折叠段 + 实体行(状态点)+ 域内过滤 + ⚙ 菜单(排序 最近活跃/创建/名称 + 显示分组计数)+ 四态(骨架/错/空/列表)。选择 = `context.go` 改 URL。 |
 | **ocean(中心)** | `features/entities/ui/detail/` | `EntityOcean` = **单一 `AnPage` 文档**(头 + tab + 720 阅读列**一起滚**):`AnOceanHeader`(面包屑 + 名称 + 状态徽 + 动词 CTA)+ `AnTabs(flow)`(概览/版本/日志)+ 4 kind 各自概览。 |
-| **detail(tab 内容)** | `features/entities/{state,ui}/detail/` | 概览(复用 AnKv/AnField/AnCodeEditor)· 版本(`AnVersionDiff` 相邻版本)· 日志(ok/failed 聚合 + `AnRowDetail` 行展开 + loadMore;workflow flowrun 懒取节点)。 |
+| **detail(tab 内容)** | `features/entities/{state,ui}/detail/` | 概览(function = **`AnTransformBox` 变换盒 hero**[签名即接口:inputs→盒→outputs 一张图,env 灯+py·deps meta] + 代码 **50 行渐隐收合**[`AnFadeCollapse`] + 环境合卡[venv KV + deps,envError `AnCallout` 红字直出];余 kind 暂 AnKv/AnField/AnCodeEditor 罗列,逐个雕琢中 WRK-054)· 版本(`AnVersionDiff` 相邻版本)· 日志(ok/failed 聚合 + `AnRowDetail` 行展开 + loadMore;workflow flowrun 懒取节点)。 |
 | **run 终端(右岛)** | `features/entities/{state,ui}/run/` | 强链选区揭示:类型化逐字段入参表单 → 执行 → `BlockTreeReducer` 渲 agent 块树(完整 block-tree,非 flat 转录)。`autoDispose` + 后台续流。 |
 
 ## 数据缝 + state
@@ -36,11 +36,11 @@ audience: [human, ai]
 
 ✅ **全落**:STEP 0(契约 DTO)→ 1(数据缝 + fixtures)→ 2(列表 state + rail VM)→ 3(rail UI)→ 4(详情海洋)→ 5(执行 + run 终端)→ 6(go_router 路由化)+ 5.5(壳 chrome:左岛收起 + 浮层头面包屑 + 红绿灯对齐)。`make fe-verify` 全绿。
 
-**最近迭代**:rail ⚙ 菜单与 chat rail 对齐(三档排序 最近活跃/创建/名称 + 显示分组计数,去时间;commit `60a00325`)。
+**最近迭代**:实体页逐实体雕琢开工([WRK-054](../../../working/frontend/entity-pages.md)),function 概览重排为变换盒 hero + 代码收合 + 环境合卡(F1 批)。此前:rail ⚙ 菜单与 chat rail 对齐(三档排序 + 显示分组计数;commit `60a00325`)。
 
 ## 复用的原语(看全 props → design-system)
 
-`AnSidebarList`(rail)· `AnPage`(海洋滚动脚手架)· `AnOceanHeader` · `AnTabs(flow)` · `AnInspector`(右岛壳)· `AnRow`/`AnRowDetail` · `AnKv`/`AnField`/`AnEditableValue`(就地编辑)· `AnCodeEditor` · `AnVersionDiff` · `AnStatusDot`/`AnBadge`。**全部来自 gallery,零手搓**。
+`AnSidebarList`(rail)· `AnPage`(海洋滚动脚手架)· `AnOceanHeader` · `AnTabs(flow)` · `AnInspector`(右岛壳)· `AnRow`/`AnRowDetail` · `AnKv`/`AnField`/`AnEditableValue`(就地编辑)· `AnCodeEditor` · `AnTransformBox`(function hero)· `AnFadeCollapse`(代码收合)· `AnCallout`(envError)· `AnVersionDiff` · `AnStatusDot`/`AnBadge`。**全部来自 gallery,零手搓**。
 
 ## 关键决策(详见归档 WRK-046)
 

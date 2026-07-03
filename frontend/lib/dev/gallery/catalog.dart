@@ -27,7 +27,58 @@ final List<GalleryCategory> galleryCatalog = [
   _g6Overlays,
   _chatRail,
   _toolCards,
+  _entityViz,
 ];
+
+// ── Entity viz — per-kind entity visualizations (WRK-054), one item per primitive. Grows as each
+// entity's page is sculpted (function first: the transform-box hero).
+// 实体可视化——逐实体专属可视化(WRK-054),每原语一 item。随各实体页雕琢生长(function 先行:变换盒 hero)。
+final GalleryCategory _entityViz = GalleryCategory('实体可视化 Entity Viz', AnIcons.entities, [
+  GalleryItem('AnTransformBox 变换盒', 'function hero:inputs → 盒 → outputs 一张图;贝塞尔 hairline 连线 + 空槽 + 运行三态', [
+    GallerySpecimen('静态 (2入2出)', (_) => AnTransformBox(
+      title: 'fetch_weather', icon: AnIcons.function,
+      inputs: const [AnTransformField('city', 'string'), AnTransformField('units', 'string')],
+      outputs: const [AnTransformField('temp', 'number'), AnTransformField('desc', 'string')],
+      status: AnStatus.done, statusLabel: 'env ready', meta: 'Python 3.12 · 2 deps',
+    ), span: true),
+    GallerySpecimen('空入参 (虚线空槽)', (_) => AnTransformBox(
+      title: 'now', icon: AnIcons.function,
+      outputs: const [AnTransformField('iso', 'string')],
+      status: AnStatus.done, statusLabel: 'env ready', meta: 'Python 3.12',
+      emptyInputsLabel: '无入参', emptyOutputsLabel: '无返回',
+    ), span: true),
+    GallerySpecimen('运行中 (实参点亮)', (_) => AnTransformBox(
+      title: 'fetch_weather', icon: AnIcons.function,
+      inputs: const [AnTransformField('city', 'string', value: '"Tokyo"'), AnTransformField('units', 'string', value: '"metric"')],
+      outputs: const [AnTransformField('temp', 'number'), AnTransformField('desc', 'string')],
+      phase: AnTransformPhase.running, statusLabel: 'running', meta: 'Python 3.12 · 2 deps',
+    ), span: true),
+    GallerySpecimen('完成 (结果浮现)', (_) => AnTransformBox(
+      title: 'fetch_weather', icon: AnIcons.function,
+      inputs: const [AnTransformField('city', 'string', value: '"Tokyo"'), AnTransformField('units', 'string', value: '"metric"')],
+      outputs: const [AnTransformField('temp', 'number', value: '23.5'), AnTransformField('desc', 'string', value: '"clear sky"')],
+      phase: AnTransformPhase.done, status: AnStatus.done, statusLabel: '412ms', meta: 'Python 3.12 · 2 deps',
+    ), span: true),
+    GallerySpecimen('失败 (env failed)', (_) => AnTransformBox(
+      title: 'fetch_weather', icon: AnIcons.function,
+      inputs: const [AnTransformField('city', 'string')],
+      outputs: const [AnTransformField('temp', 'number')],
+      phase: AnTransformPhase.failed, status: AnStatus.err, statusLabel: 'env failed', meta: 'Python 3.12 · 2 deps',
+    ), span: true),
+    GallerySpecimen('海量字段 + 超长名', (_) => AnTransformBox(
+      title: 'a_function_with_an_unreasonably_long_name_that_truncates', icon: AnIcons.function,
+      inputs: [for (var i = 0; i < 8; i++) AnTransformField('a_rather_long_input_field_name_$i', 'object')],
+      outputs: [for (var i = 0; i < 5; i++) AnTransformField('out_$i', 'array')],
+      status: AnStatus.wait, statusLabel: 'pending', meta: 'Python 3.12 · 14 deps',
+    ), stress: true, span: true),
+    GallerySpecimen('注入转义', (_) => AnTransformBox(
+      title: '<b>not</b> & html',
+      inputs: const [AnTransformField('<i>x</i>', '\${string}')],
+      outputs: const [AnTransformField('{{cel}}', 'number')],
+      status: AnStatus.done, statusLabel: '<b>ok</b>',
+    ), stress: true, span: true),
+  ]),
+]);
 
 // ── Tool cards — the V3 chassis + per-family skins (WRK-053), one item per family so each
 // tool's card is findable at a glance (split out of 对话 Chat by user decree — too crowded).
@@ -563,6 +614,16 @@ final GalleryCategory _g5CodeData = GalleryCategory('代码与数据 Code & Data
     GallerySpecimen('空', (_) => const AnCodeEditor(code: '', lang: 'py'), stress: true, span: true),
     GallerySpecimen('海量行 (内容高、父滚动)', (_) => AnCodeEditor(code: [for (var i = 0; i < 60; i++) 'line_$i = step($i)'].join('\n'), lang: 'py'), stress: true, span: true),
     GallerySpecimen('注入转义', (_) => const AnCodeEditor(code: '<b>not</b> & <i>html</i> — \${raw}', lang: 'md'), stress: true, span: true),
+  ]),
+  GalleryItem('AnFadeCollapse 渐隐收合', '超长内容收合 + 底部渐隐 + 展开/收起;是否可收由调用方按内容尺寸判定', [
+    GallerySpecimen('长代码收合 (200px)', (_) => AnFadeCollapse(
+      collapsible: true, collapsedHeight: 200, expandLabel: '展开全部', collapseLabel: '收起',
+      child: AnCodeEditor(code: [for (var i = 0; i < 40; i++) 'line_$i = step($i)'].join('\n'), lang: 'py'),
+    ), span: true),
+    GallerySpecimen('collapsible=false (裸渲)', (_) => const AnFadeCollapse(
+      collapsible: false, expandLabel: '展开全部', collapseLabel: '收起',
+      child: AnCodeEditor(code: 'short = 1', lang: 'py'),
+    ), span: true),
   ]),
   GalleryItem('AnJsonTree', '唯一 JSON/结构化展示:可折叠树 + 类型着色(TreeSliver 虚拟化);只读', [
     GallerySpecimen('flowrun 节点结果', (_) => const AnJsonTree(data: _flowrunNode), span: true, height: 280),

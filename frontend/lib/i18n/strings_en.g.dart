@@ -820,6 +820,8 @@ class Translations$entities$detail$en {
 
 	late final Translations$entities$detail$tab$en tab = Translations$entities$detail$tab$en.internal(_root);
 	late final Translations$entities$detail$verb$en verb = Translations$entities$detail$verb$en.internal(_root);
+	late final Translations$entities$detail$hero$en hero = Translations$entities$detail$hero$en.internal(_root);
+	late final Translations$entities$detail$codeToggle$en codeToggle = Translations$entities$detail$codeToggle$en.internal(_root);
 	late final Translations$entities$detail$sec$en sec = Translations$entities$detail$sec$en.internal(_root);
 	late final Translations$entities$detail$card$en card = Translations$entities$detail$card$en.internal(_root);
 	late final Translations$entities$detail$graph$en graph = Translations$entities$detail$graph$en.internal(_root);
@@ -991,6 +993,39 @@ class Translations$entities$detail$verb$en {
 
 	/// en: 'Trigger'
 	String get trigger => 'Trigger';
+}
+
+// Path: entities.detail.hero
+class Translations$entities$detail$hero$en {
+	Translations$entities$detail$hero$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'no inputs'
+	String get noInputs => 'no inputs';
+
+	/// en: 'no outputs'
+	String get noOutputs => 'no outputs';
+
+	/// en: '$n deps'
+	String deps({required Object n}) => '${n} deps';
+}
+
+// Path: entities.detail.codeToggle
+class Translations$entities$detail$codeToggle$en {
+	Translations$entities$detail$codeToggle$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Show all ($n lines)'
+	String expand({required Object n}) => 'Show all (${n} lines)';
+
+	/// en: 'Collapse'
+	String get collapse => 'Collapse';
 }
 
 // Path: entities.detail.sec
@@ -1538,6 +1573,11 @@ extension on Translations {
 			'entities.detail.verb.call' => 'Call',
 			'entities.detail.verb.invoke' => 'Invoke',
 			'entities.detail.verb.trigger' => 'Trigger',
+			'entities.detail.hero.noInputs' => 'no inputs',
+			'entities.detail.hero.noOutputs' => 'no outputs',
+			'entities.detail.hero.deps' => ({required Object n}) => '${n} deps',
+			'entities.detail.codeToggle.expand' => ({required Object n}) => 'Show all (${n} lines)',
+			'entities.detail.codeToggle.collapse' => 'Collapse',
 			'entities.detail.sec.code' => 'Code',
 			'entities.detail.sec.input' => 'Inputs',
 			'entities.detail.sec.output' => 'Outputs',
