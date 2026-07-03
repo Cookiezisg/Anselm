@@ -125,16 +125,6 @@ void main() {
     });
   });
 
-  group('parseTags', () {
-    test('splits on comma or whitespace, trims, drops empties, de-dupes', () {
-      expect(parseTags('util, io'), ['util', 'io']);
-      expect(parseTags('a  b\tc'), ['a', 'b', 'c']);
-      expect(parseTags('  ,, x ,'), ['x']);
-      expect(parseTags('dup, dup, other'), ['dup', 'other']);
-      expect(parseTags(''), isEmpty);
-    });
-  });
-
   group('VersionRow value equality', () {
     test('equal content → equal rows (freezed structural ==)', () {
       final a = VersionRow(version: 1, active: true, createdAt: _t, src: 'x', lang: 'py', summary: const ['+ dep y']);

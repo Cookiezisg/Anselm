@@ -6,6 +6,7 @@ import '../design/typography.dart';
 import 'an_dropdown.dart';
 import 'an_editable_value.dart';
 import 'an_lead_value.dart';
+import 'an_tags.dart';
 
 /// One row of an [AnKv] definition list. [editable] (with the list's `onChanged`) makes the value
 /// editable in place via [AnEditableValue]; [editor] picks free-text vs an enum dropdown. The text
@@ -17,7 +18,20 @@ class AnKvRow {
     this.editable = false,
     this.editor = AnEditKind.input,
     this.options = const [],
+    this.tags,
+    this.tagsPlaceholder,
   });
+
+  /// A TAGS row: its value is a SET of tags edited via ➕add / ✕remove pills (revealed on row hover /
+  /// focus, matching the far-right pencil so the whole list stays read-first) — NOT a text field /
+  /// dropdown. [tags] is the current set; [tagsPlaceholder] labels the add field. Emitted through the
+  /// list [AnKv.onChanged] like any other row (the emitted row carries the new [tags]).
+  /// 标签行:值=一组标签,经 ➕/✕ 药丸编辑(hover/聚焦时显,与最右铅笔同手感、整列读优先),非文本/下拉。
+  const AnKvRow.tags(this.label, List<String> this.tags, {this.tagsPlaceholder})
+      : value = null,
+        editable = true,
+        editor = AnEditKind.input,
+        options = const [];
 
   final String label;
   final String? value;
@@ -27,8 +41,13 @@ class AnKvRow {
   /// Options for [AnEditKind.select]. 枚举选项。
   final List<AnDropdownOption<String>> options;
 
+  /// Non-null → this is a tags row (see [AnKvRow.tags]). 非空=标签行。
+  final List<String>? tags;
+  final String? tagsPlaceholder;
+
   AnKvRow _withValue(String v) =>
       AnKvRow(label, v, editable: editable, editor: editor, options: options);
+  AnKvRow _withTags(List<String> t) => AnKvRow.tags(label, t, tagsPlaceholder: tagsPlaceholder);
 }
 
 /// C3 — a compact definition list: key (left) · value (right), one [AnSize.row] per row, layered by
@@ -59,6 +78,11 @@ class AnKv extends StatelessWidget {
   final bool mono;
   final bool wrap;
 
+  // The far-right edit affordance (pencil ↔ ✓✕) reserves a trailing gutter on editable rows; when the
+  // list HAS such rows, read-only rows reserve a matching gutter so every value shares one right edge
+  // (a pure read-only list keeps its values flush to the edge, unchanged). 有编辑触点时只读行留同宽右槽,值共右缘。
+  bool get _hasEditAffordance => onChanged != null && rows.any((r) => r.editable || r.tags != null);
+
   void _emit(int i, String v) {
     final next = [...rows]..[i] = rows[i]._withValue(v);
     onChanged!(next);
@@ -83,6 +107,17 @@ class AnKv extends StatelessWidget {
       overflow: TextOverflow.ellipsis,
       style: AnText.body.copyWith(color: c.inkMuted),
     );
+
+    // Tags row: ➕add / ✕remove pills (hover-revealed), emitted through the list onChanged. A read-only
+    // list (onChanged == null) still displays its pills. 标签行:➕/✕ 药丸(hover 显);只读列表也展示药丸。
+    if (row.tags != null) {
+      return _KvTagsRow(
+        leading: keyText,
+        tags: row.tags!,
+        placeholder: row.tagsPlaceholder,
+        onChanged: onChanged == null ? null : (t) => onChanged!([...rows]..[i] = rows[i]._withTags(t)),
+      );
+    }
 
     if (row.editable && onChanged != null) {
       return AnEditableValue(
@@ -113,6 +148,8 @@ class AnKv extends StatelessWidget {
           child: AnLeadValue(
             leading: keyText,
             wrap: wrap,
+            // Match the editable rows' far-right affordance gutter so all values share one right edge. 留同宽右槽对齐。
+            afterValue: _hasEditAffordance ? const SizedBox(width: AnSize.controlSm) : null,
             trailing: Text(
               shown,
               textAlign: wrap ? TextAlign.left : TextAlign.right,
@@ -240,6 +277,78 @@ class AnField extends StatelessWidget {
         // hint: faint meta, wraps onto multiple lines (word boundaries) — a long mechanism / description. hint 多行换行。
         Text(hint!, softWrap: true, style: AnText.meta.copyWith(color: c.inkFaint)),
       ],
+    );
+  }
+}
+
+/// The tags-row body for [AnKv] (an [AnKvRow.tags]) — the pill sibling of [AnEditableValue]: read-first
+/// pills that reveal ✕remove (per pill) + a ➕add field on row hover / focus (the same idiom as the
+/// far-right pencil), so a whole [AnKv] stays calm at rest. Focus keeps it revealed after the mouse
+/// leaves (so a mid-add doesn't collapse). A null [onChanged] renders display-only pills. Shares the
+/// [AnLeadValue] geometry + [AnSize.row] floor + s8 inset with the text rows, so columns align.
+/// 标签行体(AnKv 的 AnKvRow.tags)——AnEditableValue 的药丸对偶:静态只读药丸,hover/聚焦揭示每枚 ✕ + ➕
+/// 添加框(同最右铅笔手感);聚焦后鼠标移开仍保持揭示(不中断添加)。onChanged 空=纯展示。与文本行同几何、同行高、同内距,列对齐。
+class _KvTagsRow extends StatefulWidget {
+  const _KvTagsRow({
+    required this.leading,
+    required this.tags,
+    this.placeholder,
+    this.onChanged,
+  });
+
+  final Widget leading;
+  final List<String> tags;
+  final String? placeholder;
+  final ValueChanged<List<String>>? onChanged;
+
+  @override
+  State<_KvTagsRow> createState() => _KvTagsRowState();
+}
+
+class _KvTagsRowState extends State<_KvTagsRow> {
+  bool _hovered = false;
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final editable = widget.onChanged != null;
+    final reduced = AnMotionPref.reduced(context);
+    // Revealed = the ✕/➕ affordances show. Mirrors AnEditableValue's hover/focus-revealed far-right
+    // pencil so the whole AnKv reads read-first. 揭示=显 ✕/➕,与铅笔同门控、整列读优先。
+    final revealed = editable && (_hovered || _focused);
+    final Widget content = widget.tags.isEmpty && !revealed
+        ? Text('—', style: AnText.value().copyWith(color: c.inkFaint))
+        : AnTags(
+            tags: [for (final t in widget.tags) AnTag(t)],
+            readOnly: !revealed,
+            placeholder: widget.placeholder,
+            onChanged: editable ? (next) => widget.onChanged!([for (final t in next) t.label]) : null,
+          );
+    return Semantics(
+      container: true,
+      explicitChildNodes: true,
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        // A non-traversable Focus node just to observe descendant (add-field / ✕) focus so the reveal
+        // survives the mouse leaving mid-add. 不可聚焦的 Focus 仅观察后代焦点,添加中鼠标移开仍揭示。
+        child: Focus(
+          canRequestFocus: false,
+          skipTraversal: true,
+          onFocusChange: (f) => setState(() => _focused = f),
+          child: AnimatedContainer(
+            duration: reduced ? Duration.zero : AnMotion.fast,
+            constraints: const BoxConstraints(minHeight: AnSize.row),
+            padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8, vertical: AnSpace.s4),
+            decoration: BoxDecoration(
+              color: c.surfaceHover.whenActive(revealed),
+              borderRadius: BorderRadius.circular(AnRadius.button),
+            ),
+            child: AnLeadValue(leading: widget.leading, wrap: true, trailing: content),
+          ),
+        ),
+      ),
     );
   }
 }

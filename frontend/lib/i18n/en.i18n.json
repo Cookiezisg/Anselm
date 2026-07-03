@@ -329,6 +329,7 @@
         "healthy": "All mounts healthy",
         "unhealthy": "$count unhealthy"
       },
+      "addTag": "Add tag",
       "state": {
         "setActive": "Set active",
         "setActiveFailed": "Couldn't set active version",

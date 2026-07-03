@@ -60,11 +60,12 @@ class FunctionOverview extends ConsumerWidget {
             wrap: true,
             rows: [
               AnKvRow(d.kv.desc, fn.description, editable: true),
-              AnKvRow(d.kv.tags, fn.tags.join(', '), editable: true),
+              // Tags row: ➕add / ✕remove pills (the mature AnKv tags kind), not text edit. 标签行:+/× 药丸。
+              AnKvRow.tags(d.kv.tags, fn.tags, tagsPlaceholder: d.addTag),
             ],
             onChanged: (rows) {
               final desc = rows[0].value ?? '';
-              final tags = parseTags(rows[1].value ?? '');
+              final tags = rows[1].tags ?? const [];
               final patch = <String, dynamic>{};
               if (desc != fn.description) patch['description'] = desc;
               if (!listEquals(tags, fn.tags)) patch['tags'] = tags;

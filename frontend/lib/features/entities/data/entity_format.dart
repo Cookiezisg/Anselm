@@ -93,16 +93,3 @@ List<String> functionVersionSummary(FunctionVersion cur, FunctionVersion prev) {
   return out;
 }
 
-/// Parse a tags text row (the AnKv meta editor round-trips tags through one comma-joined string)
-/// back into a clean list: split on comma OR whitespace, trim, drop empties, de-dupe (first wins).
-/// Pure + unit-testable. 标签文本行解析回列表:逗号/空白分隔、去空白、去空、去重(先到为准)。
-List<String> parseTags(String raw) {
-  final seen = <String>{};
-  final out = <String>[];
-  for (final part in raw.split(RegExp(r'[,\s]+'))) {
-    final t = part.trim();
-    if (t.isEmpty || !seen.add(t)) continue;
-    out.add(t);
-  }
-  return out;
-}

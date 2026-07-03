@@ -2,8 +2,10 @@ import 'package:anselm/core/contract/entities/function.dart';
 import 'package:anselm/core/contract/entities/values.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/ui/an_field.dart';
+import 'package:anselm/core/ui/an_tags.dart';
 import 'package:anselm/core/ui/an_transform_box.dart';
 import 'package:anselm/core/ui/icons.dart';
+import 'package:flutter/gestures.dart';
 import 'package:anselm/core/ui/an_version_diff.dart';
 import 'package:anselm/features/entities/data/entity_fixtures.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
@@ -43,8 +45,8 @@ FunctionEntity _fn({String desc = 'Coerce fields', List<String> tags = const ['u
     createdAt: _t,
     updatedAt: _t);
 
-FixtureEntityRepository _repo() => FixtureEntityRepository(
-      functions: [_fn()],
+FixtureEntityRepository _repo({List<String> tags = const ['util']}) => FixtureEntityRepository(
+      functions: [_fn(tags: tags)],
       functionVersions: {
         'fn_1': [_v(2), _v(1)]
       },
@@ -61,21 +63,44 @@ Widget _host(Widget child, FixtureEntityRepository repo) => ProviderScope(
     );
 
 void main() {
-  group('meta section — AnKv editable', () {
-    testWidgets('说明 + 标签 render as editable AnKv rows (tags comma-joined)', (tester) async {
+  group('meta section — AnKv (text row + tags row)', () {
+    testWidgets('说明 = editable text row; 标签 = pills (not comma text), 1 edit pencil', (tester) async {
       await tester.pumpWidget(_host(FunctionOverview(fn: _fn(tags: const ['util', 'io'])), _repo()));
       expect(find.byType(AnTransformBox), findsOneWidget); // page assembled
-      expect(find.byType(AnKv), findsWidgets); // meta + venv both use the mature AnKv
-      expect(find.text('util, io'), findsOneWidget); // tags round-trip through one comma-joined row
-      expect(find.byIcon(AnIcons.edit), findsWidgets); // editable rows carry the hover pencil
+      expect(find.byType(AnKv), findsWidgets); // meta + venv both AnKv
+      expect(find.byType(AnTags), findsOneWidget); // the 标签 row renders pills, not text
+      expect(find.text('util'), findsOneWidget);
+      expect(find.text('io'), findsOneWidget);
+      expect(find.text('util, io'), findsNothing); // NOT a comma-joined text value
+      // only the 说明 text row carries a pencil; the tags row uses ✕/➕ instead. 仅说明行有铅笔。
+      expect(find.byIcon(AnIcons.edit), findsOneWidget);
+    });
+
+    testWidgets('说明 pills stay read-first: no ✕ until hover, then ✕/➕ reveal + remove PATCHes', (tester) async {
+      final repo = _repo(tags: const ['util', 'io']);
+      final fn = await repo.getFunction('fn_1');
+      await tester.pumpWidget(_host(FunctionOverview(fn: fn), repo));
+      expect(find.byIcon(AnIcons.close), findsNothing); // read-first: no remove-× at rest
+      expect(find.byIcon(AnIcons.plus), findsNothing); // no add affordance at rest
+
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(() => mouse.removePointer());
+      await mouse.moveTo(tester.getCenter(find.text('util')));
+      await tester.pumpAndSettle();
+      expect(find.byIcon(AnIcons.close), findsNWidgets(2)); // hover → a ✕ per pill
+      expect(find.byIcon(AnIcons.plus), findsOneWidget); // hover → the ➕ add affordance
+
+      await tester.tap(find.byIcon(AnIcons.close).first); // remove the first tag
+      await tester.pumpAndSettle();
+      expect((await repo.getFunction('fn_1')).tags, hasLength(1));
     });
 
     testWidgets('editing the 说明 row commits a description PATCH', (tester) async {
       final repo = _repo();
       final fn = await repo.getFunction('fn_1');
       await tester.pumpWidget(_host(FunctionOverview(fn: fn), repo));
-      // First pencil = the 说明 (description) row. 第一支铅笔=说明行。
-      await tester.tap(find.byIcon(AnIcons.edit).first, warnIfMissed: false);
+      await tester.tap(find.byIcon(AnIcons.edit), warnIfMissed: false); // the lone 说明 pencil (far right)
       await tester.pumpAndSettle();
       final editing = find.byWidgetPredicate((w) => w is EditableText && !w.readOnly);
       expect(editing, findsOneWidget);

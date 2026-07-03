@@ -433,6 +433,7 @@ class _Translations$entities$detail$zh_CN extends Translations$entities$detail$e
 	@override late final _Translations$entities$detail$kv$zh_CN kv = _Translations$entities$detail$kv$zh_CN._(_root);
 	@override late final _Translations$entities$detail$val$zh_CN val = _Translations$entities$detail$val$zh_CN._(_root);
 	@override late final _Translations$entities$detail$mounts$zh_CN mounts = _Translations$entities$detail$mounts$zh_CN._(_root);
+	@override String get addTag => '添加标签';
 	@override late final _Translations$entities$detail$state$zh_CN state = _Translations$entities$detail$state$zh_CN._(_root);
 }
 
@@ -988,6 +989,7 @@ extension on TranslationsZhCn {
 			'entities.detail.val.none' => '—',
 			'entities.detail.mounts.healthy' => '挂载正常',
 			'entities.detail.mounts.unhealthy' => ({required Object count}) => '${count} 项异常',
+			'entities.detail.addTag' => '添加标签',
 			'entities.detail.state.setActive' => '设为活跃版本',
 			'entities.detail.state.setActiveFailed' => '设为活跃版本失败',
 			'entities.detail.state.retry' => '重试',

@@ -329,6 +329,7 @@
         "healthy": "挂载正常",
         "unhealthy": "$count 项异常"
       },
+      "addTag": "添加标签",
       "state": {
         "setActive": "设为活跃版本",
         "setActiveFailed": "设为活跃版本失败",

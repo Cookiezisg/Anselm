@@ -24,10 +24,10 @@ enum AnEditKind {
 /// The kit's in-place value editor — the shared edit core of AnField + AnKv (the demo's `field.js`
 /// editText / editSelect). A row of [leading] (key / label) + value.
 ///
-/// [AnEditKind.input]: display-only until you click the pencil that reveals on hover at the KEY's
-/// right; the value then swaps to a seamless field with cancel / save at the VALUE's right — TWO
-/// anchors, unlike AnEditAffordance's co-located triad (hence net-new, not a reuse of that container).
-/// Commit on Enter / ✓ / blur; cancel on Esc / ✕. Abort wins via a one-shot [_finished] guard, and the
+/// [AnEditKind.input]: display-only until you click the pencil that reveals on hover at the VALUE's
+/// FAR RIGHT; the value then swaps to a seamless field with cancel / save co-located at that same far
+/// right (the pencil ↔ ✓✕ never hop sides — a single anchor beside the value being edited, not by the
+/// label). Commit on Enter / ✓ / blur; cancel on Esc / ✕. Abort wins via a one-shot [_finished] guard, and the
 /// confirm buttons sit in a [TextFieldTapRegion] so tapping them is NOT a blur-commit (cancel-priority).
 /// Focus returns to the pencil only on a KEYBOARD finish (Enter/Esc), not on a pointer ✓✕ / blur — see
 /// [_finish]. Entering edit announces politely. The display value mirrors the field's style so toggling never jumps.
@@ -226,10 +226,21 @@ class _AnEditableValueState extends State<AnEditableValue> {
       leading: widget.leading,
       // Editing single-lines the field (Align-right); only the resting display honours wrap. 编辑单行、展示才换行。
       wrap: !_editing && widget.wrap,
-      // Pencil: kept in the tree while idle (keyboard-reachable), revealed by opacity on hover/focus; gone
-      // while editing (the confirm takes the value end). 铅笔常驻(键盘可达)、opacity 揭示;编辑时撤、由 ✓✕ 接管。
-      afterLeading: _editing
-          ? null
+      trailing: _inputValueZone(c),
+      // SINGLE affordance anchor at the value's FAR RIGHT: a hover-revealed pencil while idle, ✓✕ while
+      // editing — co-located so the control never hops sides, and it sits by the value it edits (not by
+      // the label). The pencil stays in the tree at opacity 0 so it's keyboard-reachable; ✓✕ live in a
+      // TextFieldTapRegion so tapping them isn't a blur-commit (cancel-priority), returnFocus:false as a
+      // pointer finish. 单锚在值最右:idle hover 显铅笔、editing ✓✕(同处不换边、贴其所编之值,非贴标签);
+      // 铅笔 opacity 0 常驻可达;✓✕ 套 TapRegion 不触发失焦提交、点击不回落焦点。
+      afterValue: _editing
+          ? TextFieldTapRegion(
+              child: AnEditAffordance(
+                editing: true,
+                onCommit: () => _finish(true, returnFocus: false),
+                onAbort: () => _finish(false, returnFocus: false),
+              ),
+            )
           : Opacity(
               opacity: revealPencil ? 1 : 0,
               child: AnButton.iconOnly(
@@ -240,18 +251,6 @@ class _AnEditableValueState extends State<AnEditableValue> {
                 onPressed: _begin,
               ),
             ),
-      trailing: _inputValueZone(c),
-      // ✓✕ in a TextFieldTapRegion so tapping them isn't a blur-commit (cancel-priority); returnFocus:false
-      // because a click is a pointer finish (see _finish). ✓✕ 套 TapRegion 不触发失焦提交;点击不回落焦点(见 _finish)。
-      afterValue: _editing
-          ? TextFieldTapRegion(
-              child: AnEditAffordance(
-                editing: true,
-                onCommit: () => _finish(true, returnFocus: false),
-                onAbort: () => _finish(false, returnFocus: false),
-              ),
-            )
-          : null,
     );
   }
 

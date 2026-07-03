@@ -337,10 +337,14 @@ final GalleryCategory _g3RowsCards = GalleryCategory('行与卡 Rows & Cards', A
     // (空/0 块 走单测——它渲 SizedBox.shrink,matrix 的 render-exists 断言天然不容空 specimen。)
   ]),
   GalleryItem('AnKv', '紧凑定义列表:key 左·value 右;可编辑行就地编辑(铅笔→框/下拉)', [
-    GallerySpecimen('可编辑 + 只读混排', (_) => const _KvDemo(rows: [
+    GallerySpecimen('可编辑 + 只读混排 (铅笔在最右)', (_) => const _KvDemo(rows: [
           AnKvRow('Name', 'normalize-input', editable: true),
           AnKvRow('Created', '2026-06-24'),
           AnKvRow('Effort', 'medium', editable: true, editor: AnEditKind.select, options: _effortOptions),
+        ]), span: true),
+    GallerySpecimen('标签行 (➕/✕ 药丸,hover 显)', (_) => _KvDemo(rows: [
+          const AnKvRow('Name', 'normalize-input', editable: true),
+          AnKvRow.tags('Tags', const ['util', 'io'], tagsPlaceholder: 'add tag'),
         ]), span: true),
     GallerySpecimen('只读展示', (_) => const AnKv(rows: [
           AnKvRow('Kind', 'function'),

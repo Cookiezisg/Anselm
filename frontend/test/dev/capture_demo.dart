@@ -46,6 +46,9 @@ const _sel = String.fromEnvironment('SEL');
 const _tab = String.fromEnvironment('TAB');
 // Optional `--dart-define=VSEL=v1` taps that version row in the 版本 tab. 选某版本行。
 const _vsel = String.fromEnvironment('VSEL');
+// Optional `--dart-define=HOVER=<text>` hovers a widget by its text (reveals meta edit affordances:
+// the far-right pencil, the tags ✕/➕). 悬停某文本处,揭示 meta 编辑触点(最右铅笔、标签 ✕/➕)。
+const _hover = String.fromEnvironment('HOVER');
 // Optional `--dart-define=RUN=1` opens the right-island run terminal (verb CTA) + executes, to capture
 // the STEP 5 run terminal with live output. Requires SEL. 打开右岛 run 终端并执行,截运行态。
 const _run = String.fromEnvironment('RUN');
@@ -282,6 +285,15 @@ void main() {
         await tester.pump(const Duration(milliseconds: 40)); // scripted stream frames
       }
       outName = '${outName}_run';
+    }
+
+    if (_hover.isNotEmpty) {
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      await mouse.moveTo(tester.getCenter(find.text(_hover).first));
+      await tester.pump(); // hover enter
+      await tester.pump(const Duration(milliseconds: 200)); // reveal settles (avoid pumpAndSettle: caret blinks)
+      outName = '${outName}_hover';
     }
 
     late final Uint8List bytes;

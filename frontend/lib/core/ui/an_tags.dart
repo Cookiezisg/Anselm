@@ -199,24 +199,32 @@ class _AnTagsState extends State<AnTags> {
 
   Widget _addField(AnColors c) {
     // Grows with the typed content (DryIntrinsicWidth), floored at inlineEditMin so an empty field
-    // stays clickable. 随输入增长,空框不塌、可点。
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: AnSize.menuMaxWidth),
-      child: DryIntrinsicWidth(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: AnSize.inlineEditMin),
-          child: Focus(
-            onKeyEvent: _onKey,
-            child: AnInput(
-              controller: _ctl,
-              focusNode: _focus,
-              seamless: true,
-              placeholder: widget.placeholder,
-              onSubmitted: (_) => _add(),
+    // stays clickable. A leading ➕ marks it as the ADD affordance (not just a stray input). 随输入增长,
+    // 空框不塌、可点;前置 ➕ 标明是「添加」触点。
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ExcludeSemantics(child: Icon(AnIcons.plus, size: AnSize.iconSm, color: c.inkFaint)),
+        const SizedBox(width: AnSpace.s6),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: AnSize.menuMaxWidth),
+          child: DryIntrinsicWidth(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: AnSize.inlineEditMin),
+              child: Focus(
+                onKeyEvent: _onKey,
+                child: AnInput(
+                  controller: _ctl,
+                  focusNode: _focus,
+                  seamless: true,
+                  placeholder: widget.placeholder,
+                  onSubmitted: (_) => _add(),
+                ),
+              ),
             ),
           ),
         ),
-      ),
+      ],
     );
   }
 }
