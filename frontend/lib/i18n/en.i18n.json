@@ -415,7 +415,18 @@
         "errBackEdgeSource": "A back edge may only leave a control / approval node",
         "errApprovalPortsFull": "An approval has only yes / no outputs",
         "on": "On",
-        "off": "Off"
+        "off": "Off",
+        "inspectorTitle": "Inspector",
+        "inspectorEmptyHint": "Pick a node or edge on the canvas to edit it.",
+        "edge": "Edge",
+        "removeField": "Remove field",
+        "refPickFamily": "Category…",
+        "refFamilyFunction": "Function",
+        "refFamilyHandler": "Handler",
+        "refFamilyMcp": "MCP",
+        "refPickTarget": "Select…",
+        "refPickMethod": "Method…",
+        "refPickTool": "Tool…"
       }
     },
     "run": {

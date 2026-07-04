@@ -10,25 +10,37 @@ import '../../../../core/graph/graph_model.dart';
 import '../../../../core/overlay/an_overlay.dart';
 import '../../../../core/ui/an_button.dart';
 import '../../../../core/ui/an_graph_canvas.dart';
+import '../../../../core/ui/an_inspector.dart';
+import '../../../../core/ui/an_interactive.dart';
+import '../../../../core/ui/an_island.dart';
 import '../../../../core/ui/an_menu.dart';
 import '../../../../core/ui/an_state.dart';
 import '../../../../core/ui/an_toast.dart';
+import '../../../../core/ui/an_window_controls.dart';
 import '../../../../core/ui/icons.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../data/entity_kind.dart';
 import '../../state/detail/workflow_editor_provider.dart';
 import '../../state/detail/workflow_editor_state.dart';
+import '../../state/run/right_panel.dart';
 import '../../state/selected_entity.dart';
 import 'workflow_editor_inspector.dart';
 
-/// The full-screen graph editor (WRK-055 W5) — a distinct route, NOT the three-island shell: a top
-/// toolbar (back · add-node · auto-layout · direction · save/discard) + the [AnGraphCanvas] in EDIT
-/// mode + a right inspector. All edits mutate a local working graph via [workflowEditorProvider]; save
-/// diffs it into one `:edit` (one version). Back returns to the entity page.
+/// The full-screen graph editor (WRK-055 W5) — a distinct route, NOT the three-island shell, and
+/// FRAMELESS: the canvas is full-bleed and the chrome floats OVER it as transparent pill clusters, not
+/// a solid top bar. The top control row is banded on the OS traffic-lights' line and reserves their
+/// zone with [AnWindowControls], so nothing overlaps the lights. Actions: back · add-node · auto-layout
+/// · direction (left pill); unsaved · discard · save (right pill); the right-island toggle. The canvas
+/// keeps its own zoom cluster, moved to the bottom-left to clear the top chrome. The right island is the
+/// real collapsible one ([AnIsland] + the shared [rightPanelCollapsedProvider]); it holds the node/edge
+/// inspector and slides away on toggle. All edits mutate a local working graph via
+/// [workflowEditorProvider]; save diffs it into one `:edit` (one version). Back returns to the entity page.
 ///
-/// 全屏图编辑器(W5)——独立路由、非三岛壳:顶工具条(返回·加节点·自动布局·方向·保存/放弃)+ 编辑态
-/// [AnGraphCanvas] + 右检查器。所有编辑改本地 working 图(workflowEditorProvider);保存 diff 成一个
-/// `:edit`(一版)。返回回实体页。
+/// 全屏图编辑器(W5)——独立路由、非三岛壳,且无边框:画布满铺,chrome 以透明浮层药丸浮在其上、非实心
+/// 顶条。顶控行落在红绿灯线上、用 [AnWindowControls] 预留灯位,不压灯。动作:返回·加节点·自动布局·方向
+/// (左药丸);未保存·放弃·保存(右药丸);右岛切换。画布自带缩放条移到左下、让开顶部 chrome。右岛是真·可
+/// 收岛([AnIsland] + 共享 [rightPanelCollapsedProvider]),装节点/边检查器、切换时滑出。所有编辑改本地
+/// working 图;保存 diff 成一个 `:edit`(一版)。返回回实体页。
 class WorkflowEditorPage extends ConsumerWidget {
   const WorkflowEditorPage({required this.workflowId, super.key});
 
@@ -42,141 +54,258 @@ class WorkflowEditorPage extends ConsumerWidget {
     final d = context.t.entities.detail;
     final async = ref.watch(workflowEditorProvider(_ref));
     final notifier = ref.read(workflowEditorProvider(_ref).notifier);
+    final collapsed = ref.watch(rightPanelCollapsedProvider);
 
     return Scaffold(
       backgroundColor: c.canvas,
-      body: SafeArea(
-        child: Column(children: [
-          _toolbar(context, ref, async.value, notifier),
-          Expanded(
-            child: async.when(
-              loading: () => const Center(child: AnState(kind: AnStateKind.loading, title: '')),
-              error: (_, _) => Center(
-                  child: AnState(
-                      kind: AnStateKind.error, size: AnStateSize.inset, title: d.state.errorTitle)),
-              data: (st) => Row(children: [
-                Expanded(
-                  child: AnGraphCanvas(
-                    graph: st.working,
-                    dir: st.dir,
-                    editable: true,
-                    selectedNodeId: st.selectedNodeId,
-                    selectedEdgeId: st.selectedEdgeId,
-                    onNodeTap: notifier.selectNode,
-                    onEdgeTap: notifier.selectEdge,
-                    onNodeMoved: notifier.moveNode,
-                    onConnect: (from, to) {
-                      final reason = notifier.connect(from, to);
-                      if (reason != null) {
-                        ref
-                            .read(overlayProvider.notifier)
-                            .showToast(_edgeError(context, reason), tone: AnToastTone.warn);
-                      }
-                    },
-                  ),
+      // stretch → the right island fills the full height (the shell's right-island spec), not a
+      // content-height card floating mid-edge. stretch → 右岛满高(同壳右岛规格),非居中矮卡。
+      body: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Expanded(
+          child: Stack(children: [
+            // The canvas is full-bleed (frameless). Its zoom cluster floats bottom-left so it clears
+            // the top chrome + the OS lights. 画布满铺(无边框);缩放条落左下、让开顶部 chrome 与红绿灯。
+            Positioned.fill(
+              child: async.when(
+                loading: () => const Center(child: AnState(kind: AnStateKind.loading, title: '')),
+                error: (_, _) => Center(
+                    child: AnState(
+                        kind: AnStateKind.error, size: AnStateSize.inset, title: d.state.errorTitle)),
+                data: (st) => AnGraphCanvas(
+                  graph: st.working,
+                  dir: st.dir,
+                  editable: true,
+                  toolbarAlignment: Alignment.bottomLeft,
+                  selectedNodeId: st.selectedNodeId,
+                  selectedEdgeId: st.selectedEdgeId,
+                  onNodeTap: notifier.selectNode,
+                  onEdgeTap: notifier.selectEdge,
+                  onNodeMoved: notifier.moveNode,
+                  onConnect: (from, to) {
+                    final reason = notifier.connect(from, to);
+                    if (reason != null) {
+                      ref
+                          .read(overlayProvider.notifier)
+                          .showToast(_edgeError(context, reason), tone: AnToastTone.warn);
+                    }
+                  },
                 ),
-                Container(width: AnSize.rightIsland, color: c.surface, child: WorkflowEditorInspector(entityRef: _ref)),
-              ]),
+              ),
+            ),
+            // Frameless top chrome: two independently-anchored transparent clusters (never one full-width
+            // Spacer row that could overflow) — the left reserves the OS traffic-lights' zone. 无边框顶控:
+            // 左右两簇各自锚定(无会溢出的满宽 Spacer 行),左簇预留红绿灯位。
+            _leftChrome(context, async.value, notifier),
+            _rightChrome(context, ref, async.value, notifier),
+          ]),
+        ),
+        // The real collapsible right island. 真·可收右岛。
+        _CollapsibleInspector(entityRef: _ref, collapsed: collapsed),
+      ]),
+    );
+  }
+
+  /// The left chrome cluster: OS-lights reservation + the edit-tool pill. Anchored left, min-sized —
+  /// it never fights the right cluster for width. 左簇:红绿灯预留 + 编辑工具药丸;左锚、min 宽,不与右簇争。
+  Widget _leftChrome(BuildContext context, WorkflowEditorState? st, WorkflowEditorNotifier notifier) {
+    final c = context.colors;
+    final e = context.t.entities.detail.editor;
+    return Positioned(
+      top: 0,
+      left: AnSpace.s8,
+      height: AnSize.titlebar, // centered controls sit on the traffic-lights' horizontal line 控件居中落灯线
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        // Reserve the OS traffic-lights' zone so nothing sits under them. 预留红绿灯位。
+        const AnWindowControls(),
+        const SizedBox(width: AnSpace.s4),
+        _pill(context, [
+          AnButton(
+            label: e.back,
+            variant: AnButtonVariant.ghost,
+            size: AnButtonSize.sm,
+            onPressed: () => _exit(context),
+          ),
+          _divider(c),
+          AnMenu(
+            entries: [
+              for (final k in const [
+                NodeKind.trigger,
+                NodeKind.action,
+                NodeKind.agent,
+                NodeKind.control,
+                NodeKind.approval
+              ])
+                AnMenuItem(
+                  label: _kindLabel(context, k),
+                  icon: AnIcons.node(k.name),
+                  onTap: () => notifier.addNode(k),
+                ),
+            ],
+            anchorBuilder: (context, toggle, isOpen) => AnButton(
+              label: e.addNode,
+              icon: AnIcons.plus,
+              size: AnButtonSize.sm,
+              onPressed: st == null ? null : toggle,
+            ),
+          ),
+          AnButton(
+            label: e.autoLayout,
+            icon: AnIcons.byKey('spin'),
+            variant: AnButtonVariant.ghost,
+            size: AnButtonSize.sm,
+            onPressed: st == null ? null : notifier.autoLayout,
+          ),
+          AnMenu(
+            entries: [
+              AnMenuItem(
+                  label: e.dirLR,
+                  checked: st?.dir == GraphDirection.lr,
+                  onTap: () => notifier.setDir(GraphDirection.lr)),
+              AnMenuItem(
+                  label: e.dirTB,
+                  checked: st?.dir == GraphDirection.tb,
+                  onTap: () => notifier.setDir(GraphDirection.tb)),
+            ],
+            anchorBuilder: (context, toggle, isOpen) => AnButton(
+              label: st?.dir == GraphDirection.tb ? e.dirTB : e.dirLR,
+              variant: AnButtonVariant.ghost,
+              size: AnButtonSize.sm,
+              onPressed: st == null ? null : toggle,
             ),
           ),
         ]),
+      ]),
+    );
+  }
+
+  /// The right chrome cluster: unsaved marker + discard/save pill + the right-island toggle. Anchored
+  /// right, min-sized. 右簇:未保存标记 + 放弃/保存药丸 + 右岛切换;右锚、min 宽。
+  Widget _rightChrome(BuildContext context, WidgetRef ref, WorkflowEditorState? st,
+      WorkflowEditorNotifier notifier) {
+    final c = context.colors;
+    final e = context.t.entities.detail.editor;
+    final dirty = st?.dirty ?? false;
+    final saving = st?.saving ?? false;
+    final collapsed = ref.watch(rightPanelCollapsedProvider);
+    // The secondary ghost actions (discard while dirty, reopen while collapsed) share ONE surface pill —
+    // ghost buttons are transparent at rest and need a readable backing over the canvas. The primary
+    // save is NOT in this pill (a filled button inside a bordered pill reads as an ugly double frame).
+    // 次级 ghost 动作(脏时放弃 / 收起时重开)共用一张 surface 药丸——ghost 静止透明、画布上需底;主按钮
+    // 保存不进药丸(填充钮套在描边药丸里=难看的双层框)。
+    final ghostActions = <Widget>[
+      if (dirty)
+        AnButton(
+          label: e.discard,
+          variant: AnButtonVariant.ghost,
+          size: AnButtonSize.sm,
+          onPressed: saving ? null : notifier.discard,
+        ),
+      if (collapsed)
+        AnButton.iconOnly(
+          AnIcons.panelRight,
+          size: AnButtonSize.sm,
+          semanticLabel: context.t.shell.togglePanel,
+          onPressed: () => ref.read(rightPanelCollapsedProvider.notifier).set(false),
+        ),
+    ];
+    final VoidCallback? onSave = (!dirty || saving)
+        ? null
+        : () async {
+            final ok = await notifier.save();
+            if (!context.mounted) return;
+            final st2 = ref.read(workflowEditorProvider(_ref)).value;
+            if (ok) {
+              ref.read(overlayProvider.notifier).showToast(e.saved, tone: AnToastTone.ok);
+            } else if ((st2?.saveError ?? '').isNotEmpty) {
+              ref.read(overlayProvider.notifier).showToast(st2!.saveError!, tone: AnToastTone.danger);
+            }
+          };
+    return Positioned(
+      top: 0,
+      right: AnSpace.s8,
+      height: AnSize.titlebar,
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        if (dirty)
+          Padding(
+            padding: const EdgeInsets.only(right: AnSpace.s8),
+            child: Text(e.unsaved, style: AnText.meta.copyWith(color: c.warn)),
+          ),
+        if (ghostActions.isNotEmpty) ...[
+          _pill(context, ghostActions),
+          const SizedBox(width: AnSpace.s6),
+        ],
+        // Save = an accent-filled pill the SAME size as the white ghost pills (no white frame, no
+        // undersized bare button); a soft float shadow anchors it over the canvas. 保存=与白药丸同尺寸的
+        // accent 药丸(无白框、不再比旁边矮一圈)+ 柔和 float 阴影锚住。
+        _saveButton(context, onPressed: onSave),
+      ]),
+    );
+  }
+
+  /// The primary save CTA — an accent-filled pill sized to the SAME outer height as the white ghost
+  /// pills (a sm control + the pill's s4 top/bottom = matching footprint), so it never reads smaller
+  /// than the buttons beside it, and with no white frame around a filled button. Hover/press/disabled
+  /// come from [AnInteractive], the shared interaction base. 主保存 CTA:accent 药丸,外高与白药丸一致
+  /// (sm 控件 + 药丸 s4 上下),不再比旁边矮、也无填充钮套白框;交互态复用 [AnInteractive]。
+  Widget _saveButton(BuildContext context, {required VoidCallback? onPressed}) {
+    final c = context.colors;
+    final e = context.t.entities.detail.editor;
+    final enabled = onPressed != null;
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: e.save,
+      child: Opacity(
+        opacity: enabled ? 1 : AnOpacity.disabled,
+        child: AnInteractive(
+          enabled: enabled,
+          onTap: onPressed,
+          builder: (context, states) {
+            final active = states.isActive;
+            return Container(
+              height: AnSize.controlSm + AnSpace.s4 * 2,
+              padding: const EdgeInsets.symmetric(horizontal: AnSpace.s12),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: active ? c.accentHover : c.accent,
+                borderRadius: BorderRadius.circular(AnRadius.button),
+                boxShadow: c.shadowFloat,
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(AnIcons.check, size: AnSize.iconSm, color: c.onAccent),
+                const SizedBox(width: AnSpace.s6),
+                Text(e.save,
+                    style: AnText.meta.weight(AnText.emphasisWeight).copyWith(color: c.onAccent)),
+              ]),
+            );
+          },
+        ),
       ),
     );
   }
 
-  Widget _toolbar(BuildContext context, WidgetRef ref, WorkflowEditorState? st, WorkflowEditorNotifier notifier) {
+  /// A floating chrome cluster — surface pill + hairline + float shadow (same idiom as the canvas zoom
+  /// toolbar), readable over the dotted canvas. 浮动 chrome 簇:surface 药丸(同画布缩放条),画布上可读。
+  Widget _pill(BuildContext context, List<Widget> children) {
     final c = context.colors;
-    final d = context.t.entities.detail;
-    final e = d.editor;
-    final dirty = st?.dirty ?? false;
-    final saving = st?.saving ?? false;
     return Container(
-      height: AnSize.islandHead + AnSpace.s8,
-      padding: const EdgeInsets.symmetric(horizontal: AnSpace.s12),
+      padding: const EdgeInsets.all(AnSpace.s4),
       decoration: BoxDecoration(
         color: c.surface,
-        border: Border(bottom: BorderSide(color: c.line, width: AnSize.hairline)),
+        borderRadius: BorderRadius.circular(AnRadius.button),
+        border: Border.all(color: c.line, width: AnSize.hairline),
+        boxShadow: c.shadowFloat,
       ),
-      child: Row(children: [
-        AnButton(
-          label: e.back,
-          variant: AnButtonVariant.ghost,
-          size: AnButtonSize.sm,
-          onPressed: () => _exit(context),
-        ),
-        const SizedBox(width: AnSpace.s12),
-        // Add-node menu (the 5 kinds). 加节点菜单(5 类)。
-        AnMenu(
-          entries: [
-            for (final k in const [NodeKind.trigger, NodeKind.action, NodeKind.agent, NodeKind.control, NodeKind.approval])
-              AnMenuItem(
-                label: _kindLabel(context, k),
-                icon: AnIcons.node(k.name),
-                onTap: () => notifier.addNode(k),
-              ),
-          ],
-          anchorBuilder: (context, toggle, isOpen) => AnButton(
-            label: e.addNode,
-            icon: AnIcons.plus,
-            size: AnButtonSize.sm,
-            onPressed: st == null ? null : toggle,
-          ),
-        ),
-        AnButton(
-          label: e.autoLayout,
-          icon: AnIcons.byKey('spin'),
-          variant: AnButtonVariant.ghost,
-          size: AnButtonSize.sm,
-          onPressed: st == null ? null : notifier.autoLayout,
-        ),
-        // Direction menu. 方向菜单。
-        AnMenu(
-          entries: [
-            AnMenuItem(label: e.dirLR, checked: st?.dir == GraphDirection.lr, onTap: () => notifier.setDir(GraphDirection.lr)),
-            AnMenuItem(label: e.dirTB, checked: st?.dir == GraphDirection.tb, onTap: () => notifier.setDir(GraphDirection.tb)),
-          ],
-          anchorBuilder: (context, toggle, isOpen) => AnButton(
-            label: st?.dir == GraphDirection.tb ? e.dirTB : e.dirLR,
-            variant: AnButtonVariant.ghost,
-            size: AnButtonSize.sm,
-            onPressed: st == null ? null : toggle,
-          ),
-        ),
-        const Spacer(),
-        if (dirty)
-          Padding(
-            padding: const EdgeInsets.only(right: AnSpace.s12),
-            child: Text(e.unsaved, style: AnText.meta.copyWith(color: c.warn)),
-          ),
-        if (dirty)
-          AnButton(
-            label: e.discard,
-            variant: AnButtonVariant.ghost,
-            size: AnButtonSize.sm,
-            onPressed: saving ? null : notifier.discard,
-          ),
-        const SizedBox(width: AnSpace.s8),
-        AnButton(
-          label: e.save,
-          icon: AnIcons.check,
-          variant: AnButtonVariant.primary,
-          size: AnButtonSize.sm,
-          onPressed: (!dirty || saving)
-              ? null
-              : () async {
-                  final ok = await notifier.save();
-                  if (!context.mounted) return;
-                  final st2 = ref.read(workflowEditorProvider(_ref)).value;
-                  if (ok) {
-                    ref.read(overlayProvider.notifier).showToast(e.saved, tone: AnToastTone.ok);
-                  } else if ((st2?.saveError ?? '').isNotEmpty) {
-                    ref.read(overlayProvider.notifier).showToast(st2!.saveError!, tone: AnToastTone.danger);
-                  }
-                },
-        ),
-      ]),
+      child: Row(mainAxisSize: MainAxisSize.min, children: children),
     );
   }
+
+  Widget _divider(AnColors c) => Container(
+        width: AnSize.hairline,
+        height: AnSize.controlSm,
+        margin: const EdgeInsets.symmetric(horizontal: AnSpace.s4),
+        color: c.line,
+      );
 
   void _exit(BuildContext context) => context.go(entityLocation(EntityKind.workflow, workflowId));
 
@@ -201,5 +330,57 @@ class WorkflowEditorPage extends ConsumerWidget {
       'approvalPortsFull' => e.errApprovalPortsFull,
       _ => reason,
     };
+  }
+}
+
+/// The editor's right island — the SAME skin + reveal as the shell's inspector (app_shell.dart:168 +
+/// an_shell _RightReveal): `AnIsland(child: AnInspector(headless: WorkflowEditorInspector))`, revealed
+/// by animating the wrapper width 0↔[AnSize.rightIsland] on the shared [rightPanelCollapsedProvider].
+/// When collapsed the content is excluded from focus/semantics/pointer (twin of the shell), and it
+/// keeps only the shell's standard 8px breathing on top/right/bottom (flush to the canvas seam on the
+/// left) — no titlebar-height gap, since the OS lights are on the LEFT, not over this island.
+/// 编辑器右岛——与壳右岛同皮同揭示:`AnIsland(AnInspector(headless: 检查器))`,按共享 collapse 态动画收放
+/// 0↔右岛宽;收起时内容排除出焦点/语义/指针(同壳);只留壳标准的 8px 顶/右/下留白(左缘贴画布缝)——无
+/// 标题栏高的空洞(红绿灯在左、不压此岛)。
+class _CollapsibleInspector extends StatelessWidget {
+  const _CollapsibleInspector({required this.entityRef, required this.collapsed});
+
+  final EntityRef entityRef;
+  final bool collapsed;
+
+  @override
+  Widget build(BuildContext context) {
+    final reduced = AnMotionPref.reduced(context);
+    final content = AnInspector(headless: true, child: WorkflowEditorInspector(entityRef: entityRef));
+    final island = AnIsland(
+      child: collapsed
+          ? ExcludeFocus(child: ExcludeSemantics(child: IgnorePointer(child: content)))
+          : content,
+    );
+    return AnimatedContainer(
+      duration: reduced ? Duration.zero : AnMotion.mid,
+      curve: Curves.easeOutCubic,
+      width: collapsed ? 0 : AnSize.rightIsland,
+      child: ClipRect(
+        // Keep the island at its full width while the wrapper animates 0↔rightIsland (no reflow of the
+        // inspector as it slides). 岛保持满宽,外层动画收放(滑动时检查器不重排)。
+        child: OverflowBox(
+          alignment: Alignment.centerLeft,
+          minWidth: AnSize.rightIsland,
+          maxWidth: AnSize.rightIsland,
+          child: SizedBox(
+            width: AnSize.rightIsland,
+            child: Padding(
+              padding: const EdgeInsets.only(
+                top: AnSize.shellPad,
+                right: AnSize.shellPad,
+                bottom: AnSize.shellPad,
+              ),
+              child: island,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

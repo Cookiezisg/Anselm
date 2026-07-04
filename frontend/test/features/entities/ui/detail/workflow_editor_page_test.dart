@@ -1,5 +1,4 @@
 import 'package:anselm/core/contract/entities/workflow.dart';
-import 'package:anselm/core/ui/an_button.dart';
 import 'package:anselm/core/ui/an_dropdown.dart';
 import 'package:anselm/core/ui/an_graph_canvas.dart';
 import 'package:anselm/features/entities/data/entity_fixtures.dart';
@@ -89,13 +88,16 @@ void main() {
     await tester.pump(const Duration(milliseconds: 60));
     const ref = EntityRef(EntityKind.workflow, 'wf_1');
     final container = ProviderScope.containerOf(tester.element(find.byType(WorkflowEditorPage)));
-    // Save is disabled until dirty. 未改前保存禁用。
-    expect(tester.widget<AnButton>(find.widgetWithText(AnButton, e.save)).onPressed, isNull);
+    final saveBtn = find.text(e.save);
+    expect(saveBtn, findsOneWidget);
+    // Not dirty → the save CTA is inert (tapping persists nothing, still v1). 未改前保存惰性、点无效。
+    await tester.tap(saveBtn);
+    await tester.pumpAndSettle();
+    expect((await repo.getWorkflow('wf_1')).activeVersion!.version, 1);
     container.read(workflowEditorProvider(ref).notifier).setNodeRef('work', 'fn_renamed');
     await tester.pump();
-    // Now dirty → save enabled. 已改 → 保存可点。
-    expect(tester.widget<AnButton>(find.widgetWithText(AnButton, e.save)).onPressed, isNotNull);
-    await tester.tap(find.widgetWithText(AnButton, e.save));
+    // Now dirty → tapping the save CTA persists a new version. 已改 → 点保存落新版本。
+    await tester.tap(saveBtn);
     await tester.pumpAndSettle();
     final wf = await repo.getWorkflow('wf_1');
     expect(wf.activeVersion!.version, 2);

@@ -415,7 +415,18 @@
         "errBackEdgeSource": "回边仅可从 control / approval 发出",
         "errApprovalPortsFull": "approval 仅有 yes / no 两个出口",
         "on": "开",
-        "off": "关"
+        "off": "关",
+        "inspectorTitle": "检查器",
+        "inspectorEmptyHint": "在画布上选一个节点或边来编辑。",
+        "edge": "边",
+        "removeField": "移除字段",
+        "refPickFamily": "选择类别…",
+        "refFamilyFunction": "函数",
+        "refFamilyHandler": "处理器",
+        "refFamilyMcp": "MCP",
+        "refPickTarget": "选择…",
+        "refPickMethod": "选择方法…",
+        "refPickTool": "选择工具…"
       }
     },
     "run": {

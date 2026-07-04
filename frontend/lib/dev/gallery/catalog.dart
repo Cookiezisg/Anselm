@@ -630,6 +630,41 @@ final GalleryCategory _g4NavShell = GalleryCategory('导航与壳 Nav & Shell', 
           ),
         ), height: 200, stress: true, span: true),
   ]),
+  GalleryItem('AnInspectorHead', '右岛内容头带:icon + 标题 + 尾部动作 + 可选 meta 次行;run 终端头 + 编辑器检查器头共用', [
+    GallerySpecimen('title + subhead + collapse action', (_) => SizedBox(
+          width: 320,
+          child: AnIsland(
+            padding: EdgeInsets.zero,
+            child: AnInspectorHead(
+              icon: AnIcons.node('action'),
+              title: 'run_tests',
+              subLeading: '动作',
+              subTrailing: 'mcp:github/create_issue',
+              trailing: AnButton.iconOnly(AnIcons.close, semanticLabel: 'Collapse', onPressed: () {}),
+            ),
+          ),
+        ), span: true),
+    GallerySpecimen('title only (no subhead)', (_) => SizedBox(
+          width: 320,
+          child: AnIsland(
+            padding: EdgeInsets.zero,
+            child: AnInspectorHead(icon: AnIcons.workflow, title: '检查器'),
+          ),
+        ), span: true),
+    GallerySpecimen('超长标题省略 + 超长 ref', (_) => SizedBox(
+          width: 280,
+          child: AnIsland(
+            padding: EdgeInsets.zero,
+            child: AnInspectorHead(
+              icon: AnIcons.node('agent'),
+              title: 'an-extremely-long-node-identifier-that-must-ellipsis-and-hold',
+              subLeading: '智能体',
+              subTrailing: 'ag_an_extremely_long_reference_that_also_ellipsis',
+              trailing: AnButton.iconOnly(AnIcons.close, semanticLabel: 'x', onPressed: () {}),
+            ),
+          ),
+        ), stress: true, span: true),
+  ]),
   GalleryItem('AnPage', '海洋记录页:唯一滚动区 + 居中 720 内容列 + overlay 滚动条(头净空 pad)', [
     GallerySpecimen('page (scroll + centered col)', (_) => AnPage(
           child: Column(

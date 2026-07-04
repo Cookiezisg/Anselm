@@ -9,20 +9,25 @@ import '../../../../core/ui/an_action_group.dart';
 import '../../../../core/ui/an_button.dart';
 import '../../../../core/ui/an_dropdown.dart';
 import '../../../../core/ui/an_input.dart';
-import '../../../../core/ui/an_section.dart';
+import '../../../../core/ui/an_inspector_head.dart';
+import '../../../../core/ui/an_scroll_behavior.dart';
 import '../../../../core/ui/an_state.dart';
 import '../../../../core/ui/icons.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../state/detail/workflow_editor_provider.dart';
+import '../../state/run/right_panel.dart';
 import '../../state/selected_entity.dart';
+import 'node_ref_picker.dart';
 
-/// The editor's inspector (WRK-055 W5) — edits the SELECTED node or edge. Node: kind, ref, an
-/// input-mapping (field→CEL) editor, a retry toggle, delete. Edge: from→to (read-only), a port field
-/// (approval → yes/no dropdown; control → text that must match a branch name; others hidden), delete.
-/// Nothing selected → an empty state. All edits flow through [workflowEditorProvider].
+/// The editor's inspector (WRK-055) — the visual twin of the run terminal's right-island content: a
+/// head band (kind glyph + node.id + a bare collapse button) → a hairline → a full-height scrolling
+/// body, so it reads as the SAME app, not a foreign panel. Edits the SELECTED node or edge; nothing
+/// selected → a centered empty state in the full-height body. Fields use the app's label-above /
+/// block-control-below vocabulary. All edits flow through [workflowEditorProvider].
 ///
-/// 编辑器检查器(W5)——编辑选中的节点或边。节点:类型/引用/输入映射(field→CEL)/重试开关/删除。
-/// 边:from→to(只读)/端口(approval yes/no 下拉;control 文本须匹配分支名;余隐藏)/删除。未选=空态。
+/// 编辑器检查器——run 终端右岛内容的视觉孪生:头带(kind 图标 + node.id + 裸收起钮)→ 发丝线 → 满高滚动
+/// body,读来是同一个 app、不是外来面板。编辑选中的节点或边;未选 = 满高 body 里居中的空态。字段用 app 的
+/// 「标签在上、block 控件在下」语汇。所有编辑经 [workflowEditorProvider]。
 class WorkflowEditorInspector extends ConsumerWidget {
   const WorkflowEditorInspector({required this.entityRef, super.key});
 
@@ -30,25 +35,111 @@ class WorkflowEditorInspector extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
     final e = context.t.entities.detail.editor;
     final st = ref.watch(workflowEditorProvider(entityRef)).value;
     final notifier = ref.read(workflowEditorProvider(entityRef).notifier);
     final node = st?.selectedNode;
     final edge = st?.selectedEdge;
 
-    final Widget body;
+    // Head content varies by selection; the collapse action is always present (twin of run_terminal). 头随选区变;收起钮常在。
+    final IconData headIcon;
+    final String headTitle;
+    String? subLeading;
+    String? subTrailing;
     if (node != null) {
-      body = _NodeEditor(node: node, notifier: notifier);
-    } else if (edge != null && st != null) {
-      body = _EdgeEditor(edge: edge, graph: st.working, notifier: notifier);
+      headIcon = AnIcons.node(node.kind.name);
+      headTitle = node.id;
+      subLeading = _kindLabel(context, node.kind);
+      subTrailing = node.ref;
+    } else if (edge != null) {
+      headIcon = AnIcons.byKey('chevr');
+      headTitle = '${edge.from} → ${edge.to}';
+      subLeading = e.edge;
+      subTrailing = edge.fromPort;
     } else {
-      body = Center(
-        child: AnState(kind: AnStateKind.empty, size: AnStateSize.inset, title: e.inspectorEmpty),
-      );
+      headIcon = AnIcons.workflow;
+      headTitle = e.inspectorTitle;
     }
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AnSpace.s12),
-      child: body,
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AnInspectorHead(
+          icon: headIcon,
+          title: headTitle,
+          subLeading: subLeading,
+          subTrailing: subTrailing,
+          trailing: AnButton.iconOnly(
+            AnIcons.close,
+            semanticLabel: context.t.shell.togglePanel,
+            onPressed: () => ref.read(rightPanelCollapsedProvider.notifier).set(true),
+          ),
+        ),
+        Container(height: AnSize.hairline, color: c.line),
+        Expanded(
+          child: node != null
+              ? _body(_NodeEditor(node: node, notifier: notifier))
+              : edge != null && st != null
+                  ? _body(_EdgeEditor(edge: edge, graph: st.working, notifier: notifier))
+                  : AnState(
+                      kind: AnStateKind.empty,
+                      size: AnStateSize.inset,
+                      title: e.inspectorEmpty,
+                      hint: e.inspectorEmptyHint,
+                    ),
+        ),
+      ],
+    );
+  }
+
+  /// The scrolling body wrapper (bar hidden, s16 padding — the run-terminal body idiom). 滚动 body(隐条、s16)。
+  Widget _body(Widget child) => ScrollConfiguration(
+        behavior: const AnScrollBehavior(),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(AnSpace.s16),
+          child: child,
+        ),
+      );
+
+  static String _kindLabel(BuildContext context, NodeKind k) {
+    final g = context.t.graph.kind;
+    return switch (k) {
+      NodeKind.trigger => g.trigger,
+      NodeKind.action => g.action,
+      NodeKind.agent => g.agent,
+      NodeKind.control => g.control,
+      NodeKind.approval => g.approval,
+      NodeKind.unknown => g.unknown,
+    };
+  }
+}
+
+/// A field block in the app's label-above / control-below vocabulary (the run input form idiom). 字段块:标签在上、控件在下。
+class _Field extends StatelessWidget {
+  const _Field({required this.label, required this.child, this.desc});
+
+  final String label;
+  final String? desc;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AnSpace.s16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(label, style: AnText.strong.copyWith(color: c.ink)),
+          if (desc != null) ...[
+            const SizedBox(height: AnSpace.s2),
+            Text(desc!, style: AnText.meta.copyWith(color: c.inkMuted)),
+          ],
+          const SizedBox(height: AnSpace.s6),
+          child,
+        ],
+      ),
     );
   }
 }
@@ -64,42 +155,45 @@ class _NodeEditor extends StatelessWidget {
     final e = context.t.entities.detail.editor;
     final g = context.t.graph.kind;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Text(node.id, style: AnText.h3.copyWith(color: context.colors.ink)),
-      const SizedBox(height: AnSpace.s12),
-      AnSection(label: e.nodeKind, variant: AnSectionVariant.quiet, children: [
-        AnDropdown<NodeKind>(
+      _Field(
+        label: e.nodeKind,
+        child: AnDropdown<NodeKind>(
           value: node.kind,
           block: true,
           options: [
-            for (final k in const [NodeKind.trigger, NodeKind.action, NodeKind.agent, NodeKind.control, NodeKind.approval])
-              AnDropdownOption(value: k, label: switch (k) {
-                NodeKind.trigger => g.trigger,
-                NodeKind.action => g.action,
-                NodeKind.agent => g.agent,
-                NodeKind.control => g.control,
-                NodeKind.approval => g.approval,
-                NodeKind.unknown => g.unknown,
-              }, icon: AnIcons.node(k.name)),
+            for (final k in const [
+              NodeKind.trigger,
+              NodeKind.action,
+              NodeKind.agent,
+              NodeKind.control,
+              NodeKind.approval
+            ])
+              AnDropdownOption(
+                  value: k,
+                  label: switch (k) {
+                    NodeKind.trigger => g.trigger,
+                    NodeKind.action => g.action,
+                    NodeKind.agent => g.agent,
+                    NodeKind.control => g.control,
+                    NodeKind.approval => g.approval,
+                    NodeKind.unknown => g.unknown,
+                  },
+                  icon: AnIcons.node(k.name)),
           ],
           onChanged: (k) => notifier.setNodeKind(node.id, k),
         ),
-      ]),
-      AnSection(label: e.nodeRef, variant: AnSectionVariant.quiet, children: [
-        AnInput(
+      ),
+      _Field(
+        label: e.nodeRef,
+        child: NodeRefPicker(
           key: ValueKey('ref_${node.id}'),
-          initialValue: node.ref,
-          block: true,
-          onSubmitted: (v) => notifier.setNodeRef(node.id, v),
+          kind: node.kind,
+          refString: node.ref,
           onChanged: (v) => notifier.setNodeRef(node.id, v),
         ),
-      ]),
-      AnSection(label: e.nodeInput, variant: AnSectionVariant.quiet, children: [
-        _InputMapEditor(node: node, notifier: notifier),
-      ]),
-      AnSection(label: e.nodeRetry, variant: AnSectionVariant.quiet, children: [
-        _RetryEditor(node: node, notifier: notifier),
-      ]),
-      const SizedBox(height: AnSpace.s12),
+      ),
+      _Field(label: e.nodeInput, child: _InputMapEditor(node: node, notifier: notifier)),
+      _Field(label: e.nodeRetry, child: _RetryEditor(node: node, notifier: notifier)),
       AnActionGroup(footer: true, [
         AnButton(
           label: e.deleteNode,
@@ -133,7 +227,9 @@ class _InputMapEditor extends StatelessWidget {
           child: Row(children: [
             SizedBox(
               width: 96,
-              child: Text(entry.key, style: AnText.code.copyWith(color: context.colors.inkMuted), overflow: TextOverflow.ellipsis),
+              child: Text(entry.key,
+                  style: AnText.code.copyWith(color: context.colors.inkMuted),
+                  overflow: TextOverflow.ellipsis),
             ),
             const SizedBox(width: AnSpace.s6),
             Expanded(
@@ -146,10 +242,11 @@ class _InputMapEditor extends StatelessWidget {
                 onChanged: (v) => commit({...node.input, entry.key: v}),
               ),
             ),
-            AnButton.iconOnly(AnIcons.close,
-                size: AnButtonSize.sm,
-                semanticLabel: 'remove',
-                onPressed: () => commit({...node.input}..remove(entry.key)),
+            AnButton.iconOnly(
+              AnIcons.close,
+              size: AnButtonSize.sm,
+              semanticLabel: e.removeField,
+              onPressed: () => commit({...node.input}..remove(entry.key)),
             ),
           ]),
         ),
@@ -213,7 +310,8 @@ class _RetryEditor extends StatelessWidget {
           label: retry == null ? e.off : e.on,
           size: AnButtonSize.sm,
           variant: retry == null ? AnButtonVariant.ghost : AnButtonVariant.primary,
-          onPressed: () => notifier.setNodeRetry(node.id, retry == null ? const RetryConfig(maxAttempts: 3) : null),
+          onPressed: () =>
+              notifier.setNodeRetry(node.id, retry == null ? const RetryConfig(maxAttempts: 3) : null),
         ),
       ]),
       if (retry != null) ...[
@@ -226,7 +324,8 @@ class _RetryEditor extends StatelessWidget {
               key: ValueKey('retry_${node.id}'),
               initialValue: '${retry.maxAttempts}',
               block: true,
-              onSubmitted: (v) => notifier.setNodeRetry(node.id, retry.copyWith(maxAttempts: int.tryParse(v) ?? retry.maxAttempts)),
+              onSubmitted: (v) => notifier.setNodeRetry(
+                  node.id, retry.copyWith(maxAttempts: int.tryParse(v) ?? retry.maxAttempts)),
             ),
           ),
         ]),
@@ -245,16 +344,14 @@ class _EdgeEditor extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final e = context.t.entities.detail.editor;
-    final c = context.colors;
     final src = graph.nodes.where((n) => n.id == edge.from).firstOrNull;
     final isApproval = src?.kind == NodeKind.approval;
     final isControl = src?.kind == NodeKind.control;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Text('${edge.from} → ${edge.to}', style: AnText.strong.copyWith(color: c.ink)),
-      const SizedBox(height: AnSpace.s12),
       if (isApproval)
-        AnSection(label: e.edgePort, variant: AnSectionVariant.quiet, children: [
-          AnDropdown<String>(
+        _Field(
+          label: e.edgePort,
+          child: AnDropdown<String>(
             value: edge.fromPort ?? 'yes',
             block: true,
             options: const [
@@ -263,20 +360,19 @@ class _EdgeEditor extends StatelessWidget {
             ],
             onChanged: (p) => notifier.setEdgePort(edge.id, p),
           ),
-        ])
+        )
       else if (isControl)
-        AnSection(label: e.edgePort, variant: AnSectionVariant.quiet, children: [
-          AnInput(
+        _Field(
+          label: e.edgePort,
+          desc: e.portHint,
+          child: AnInput(
             key: ValueKey('port_${edge.id}'),
             initialValue: edge.fromPort ?? '',
             block: true,
             onSubmitted: (v) => notifier.setEdgePort(edge.id, v.isEmpty ? null : v),
             onChanged: (v) => notifier.setEdgePort(edge.id, v.isEmpty ? null : v),
           ),
-          const SizedBox(height: AnSpace.s4),
-          Text(e.portHint, style: AnText.meta.copyWith(color: c.inkFaint)),
-        ]),
-      const SizedBox(height: AnSpace.s12),
+        ),
       AnActionGroup(footer: true, [
         AnButton(
           label: e.deleteEdge,

@@ -797,6 +797,17 @@ class _Translations$entities$detail$editor$zh_CN extends Translations$entities$d
 	@override String get errApprovalPortsFull => 'approval 仅有 yes / no 两个出口';
 	@override String get on => '开';
 	@override String get off => '关';
+	@override String get inspectorTitle => '检查器';
+	@override String get inspectorEmptyHint => '在画布上选一个节点或边来编辑。';
+	@override String get edge => '边';
+	@override String get removeField => '移除字段';
+	@override String get refPickFamily => '选择类别…';
+	@override String get refFamilyFunction => '函数';
+	@override String get refFamilyHandler => '处理器';
+	@override String get refFamilyMcp => 'MCP';
+	@override String get refPickTarget => '选择…';
+	@override String get refPickMethod => '选择方法…';
+	@override String get refPickTool => '选择工具…';
 }
 
 // Path: entities.run.danger
@@ -1174,6 +1185,17 @@ extension on TranslationsZhCn {
 			'entities.detail.editor.errApprovalPortsFull' => 'approval 仅有 yes / no 两个出口',
 			'entities.detail.editor.on' => '开',
 			'entities.detail.editor.off' => '关',
+			'entities.detail.editor.inspectorTitle' => '检查器',
+			'entities.detail.editor.inspectorEmptyHint' => '在画布上选一个节点或边来编辑。',
+			'entities.detail.editor.edge' => '边',
+			'entities.detail.editor.removeField' => '移除字段',
+			'entities.detail.editor.refPickFamily' => '选择类别…',
+			'entities.detail.editor.refFamilyFunction' => '函数',
+			'entities.detail.editor.refFamilyHandler' => '处理器',
+			'entities.detail.editor.refFamilyMcp' => 'MCP',
+			'entities.detail.editor.refPickTarget' => '选择…',
+			'entities.detail.editor.refPickMethod' => '选择方法…',
+			'entities.detail.editor.refPickTool' => '选择工具…',
 			'entities.run.method' => '方法',
 			'entities.run.streaming' => '流式',
 			'entities.run.noInputs' => '无入参 —— 直接运行。',

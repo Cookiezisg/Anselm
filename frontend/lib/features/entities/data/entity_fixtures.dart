@@ -42,6 +42,11 @@ class FixtureEntityRepository implements EntityRepository {
     Map<String, List<Flowrun>>? flowruns,
     Map<String, FlowrunComposite>? flowrunDetail,
     Map<String, MountHealthReport>? mountHealth,
+    List<RefCandidate>? mcpServers,
+    Map<String, List<RefCandidate>>? mcpTools,
+    List<RefCandidate>? triggers,
+    List<RefCandidate>? controls,
+    List<RefCandidate>? approvals,
     this.runDelay = const Duration(milliseconds: 10),
   })  : _functions = List.of(functions ?? const []),
         _handlers = List.of(handlers ?? const []),
@@ -56,7 +61,12 @@ class FixtureEntityRepository implements EntityRepository {
         _agentExecutions = agentExecutions ?? const {},
         _flowruns = flowruns ?? const {},
         _flowrunDetail = Map.of(flowrunDetail ?? const {}),
-        _mountHealth = mountHealth ?? const {};
+        _mountHealth = mountHealth ?? const {},
+        _mcpServers = mcpServers ?? const [],
+        _mcpTools = mcpTools ?? const {},
+        _triggers = triggers ?? const [],
+        _controls = controls ?? const [],
+        _approvals = approvals ?? const [];
 
   /// Inter-frame delay for the scripted run-terminal streams (so `make demo` shows a live terminal).
   /// Tests pass [Duration.zero] for an instant burst. 脚本流的帧间延迟(demo 现真实流式);测试用 zero 即时。
@@ -77,6 +87,11 @@ class FixtureEntityRepository implements EntityRepository {
   final Map<String, List<Flowrun>> _flowruns;
   final Map<String, FlowrunComposite> _flowrunDetail;
   final Map<String, MountHealthReport> _mountHealth;
+  final List<RefCandidate> _mcpServers;
+  final Map<String, List<RefCandidate>> _mcpTools;
+  final List<RefCandidate> _triggers;
+  final List<RefCandidate> _controls;
+  final List<RefCandidate> _approvals;
 
   final _lifecycle = <EntityKind, StreamController<EntitySignal>>{};
   final _panels = <String, StreamController<StreamEnvelope>>{};
@@ -119,6 +134,18 @@ class FixtureEntityRepository implements EntityRepository {
     }
     return _page(rows, cursor, limit);
   }
+
+  // ── ref-picker candidates ──────────────────────────────────────────────────
+  @override
+  Future<List<RefCandidate>> listMcpServers() async => _mcpServers;
+  @override
+  Future<List<RefCandidate>> listMcpTools(String server) async => _mcpTools[server] ?? const [];
+  @override
+  Future<List<RefCandidate>> listTriggers() async => _triggers;
+  @override
+  Future<List<RefCandidate>> listControls() async => _controls;
+  @override
+  Future<List<RefCandidate>> listApprovals() async => _approvals;
 
   @override
   Future<EntityRow> getEntityRow(EntityKind kind, String id) async => EntityRow.fromListItem(

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/contract/api_error.dart';
@@ -11,45 +13,52 @@ import '../selected_entity.dart';
 import 'entity_detail_provider.dart';
 import 'workflow_editor_state.dart';
 
-/// Edge-add validation, mirroring the backend's rules (graph.go): no self-loop, no duplicate
-/// endpoints, and a back edge (target can already reach source) may leave ONLY a control/approval
-/// node. Returns the assigned port (approval → yes/no; control gets an empty port the user fills in
-/// the inspector; a forward plain edge → null). 加边校验(镜像后端):禁自环/禁重复端点/回边仅可从
-/// control·approval 出。返回端口(approval→yes/no;control 空口待检查器填;前向普通边→null)。
+/// Sentinel id for the candidate edge while validating (never persisted). 校验期候选边的哨兵 id。
+const _trialEdgeId = '__anselm_trial_edge__';
+
+/// Edge-add validation, matching the backend's rules (graph.go ValidateGraph): no self-loop, and —
+/// after the edge is added — EVERY back edge in the whole graph may leave ONLY a control/approval node.
+/// The backend forbids duplicate edge IDs, NOT duplicate endpoints, so it only rejects an EXACT
+/// duplicate (same source, target AND port); control/approval FAN-IN to one target via DIFFERENT ports
+/// (approval yes+no, control's two branches) is legal. "Which edge is a back edge" is decided by the
+/// SAME gray-node DFS the backend runs ([backEdgeIds], keyed on node/edge declaration order), because
+/// the cycle a new edge closes can make a DIFFERENT edge the back edge — a plain reachability test on
+/// the new edge alone diverges from the backend and yields false accepts/rejects. Returns the assigned
+/// port (approval → the free yes/no slot; control gets an empty port the user fills; forward plain edge
+/// → null). 加边校验(对齐后端 ValidateGraph):禁自环;加边后整图每条回边只可从 control·approval 出。后端禁
+/// 重复边 id、非重复端点,故只拒完全重复(源/目标/端口全同);control/approval 用不同端口扇入同一目标(approval
+/// yes+no、control 两分支)合法。"哪条是回边"用后端同款灰节点 DFS([backEdgeIds])判——新边闭合的环可能让另一
+/// 条边成为回边。返回端口(approval→空闲 yes/no;control 空口待填;前向普通边→null)。
 ({bool ok, String? reason, String? port}) validateWorkflowEdge(Graph g, String from, String to) {
   if (from == to) return (ok: false, reason: 'selfLoop', port: null);
-  if (g.edges.any((e) => e.from == from && e.to == to)) {
-    return (ok: false, reason: 'duplicateEdge', port: null);
-  }
   final src = g.nodes.where((n) => n.id == from).firstOrNull;
-  final isBack = _reachable(g, to, from);
-  if (isBack && src?.kind != NodeKind.control && src?.kind != NodeKind.approval) {
-    return (ok: false, reason: 'backEdgeSource', port: null);
-  }
+  // Prospective port first (an approval source auto-takes the free yes/no slot), so the duplicate check
+  // can be port-aware. 先定预期端口(approval 取空闲 yes/no),使重复检查能按端口区分。
   String? port;
   if (src?.kind == NodeKind.approval) {
     final used = g.edges.where((e) => e.from == from).map((e) => e.fromPort).toSet();
     port = !used.contains('yes') ? 'yes' : (!used.contains('no') ? 'no' : null);
     if (port == null) return (ok: false, reason: 'approvalPortsFull', port: null);
   }
-  return (ok: true, reason: null, port: port);
-}
-
-bool _reachable(Graph g, String from, String to) {
-  final adj = <String, List<String>>{};
-  for (final e in g.edges) {
-    (adj[e.from] ??= []).add(e.to);
+  // Reject only an EXACT duplicate (source, target AND port all equal) — NOT any second (from,to).
+  // 仅拒完全重复(源/目标/端口全同),非任意第二条 (from,to)。
+  if (g.edges.any((e) => e.from == from && e.to == to && e.fromPort == port)) {
+    return (ok: false, reason: 'duplicateEdge', port: null);
   }
-  final seen = <String>{from};
-  final q = <String>[from];
-  while (q.isNotEmpty) {
-    final u = q.removeAt(0);
-    for (final v in adj[u] ?? const <String>[]) {
-      if (v == to) return true;
-      if (seen.add(v)) q.add(v);
+  final trial = g.copyWith(edges: [
+    ...g.edges,
+    Edge(id: _trialEdgeId, from: from, fromPort: port, to: to),
+  ]);
+  final backs = backEdgeIds(trial);
+  final byId = {for (final n in trial.nodes) n.id: n};
+  for (final e in trial.edges) {
+    if (!backs.contains(e.id)) continue;
+    final k = byId[e.from]?.kind;
+    if (k != NodeKind.control && k != NodeKind.approval) {
+      return (ok: false, reason: 'backEdgeSource', port: null);
     }
   }
-  return false;
+  return (ok: true, reason: null, port: port);
 }
 
 /// The graph editor (family over the workflow [EntityRef]). Loads the active-version graph into a
@@ -159,7 +168,11 @@ class WorkflowEditorNotifier extends AsyncNotifier<WorkflowEditorState> {
     if (cur == null) return null;
     final v = validateWorkflowEdge(cur.working, from, to);
     if (!v.ok) return v.reason;
-    final edge = Edge(id: 'e${_idSeq++}_new', from: from, fromPort: v.port, to: to);
+    // A fresh random edge id (NOT a per-session counter, which resets when this autoDispose provider
+    // is rebuilt → a reopened editor would regenerate 'e0_new' and collide with the one already saved
+    // into the graph, silently dropping the new edge at diff time). 全新随机边 id(非会话计数器——
+    // autoDispose 重建即归零,重开编辑器会再生 'e0_new' 撞上已存入图的同 id,导致 diff 时静默吞掉新边)。
+    final edge = Edge(id: _freshEdgeId(cur.working), from: from, fromPort: v.port, to: to);
     _mutate((g) => g.copyWith(edges: [...g.edges, edge]));
     selectEdge(edge.id);
     return null;
@@ -170,8 +183,15 @@ class WorkflowEditorNotifier extends AsyncNotifier<WorkflowEditorState> {
         for (final n in g.nodes) n.id == id ? n.copyWith(ref: ref) : n,
       ]));
 
+  /// Change a node's kind. The kind determines the ref's ENTITY FAMILY (action→callable, agent→ag_,
+  /// …), so a kind change must reset the ref to the new kind's placeholder — otherwise the old ref
+  /// (e.g. `fn_x`) would linger as a nonsense cross-family target in the ref picker. 改 kind → ref 家族
+  /// 也变,故须把 ref 重置为新 kind 的占位(否则旧 ref 作跨族乱选目标留在选择器里)。
   void setNodeKind(String id, NodeKind kind) => _mutate((g) => g.copyWith(nodes: [
-        for (final n in g.nodes) n.id == id ? n.copyWith(kind: kind) : n,
+        for (final n in g.nodes)
+          n.id == id
+              ? (n.kind == kind ? n : n.copyWith(kind: kind, ref: '${_prefix(kind)}_new'))
+              : n,
       ]));
 
   void setNodeInput(String id, Map<String, String> input) => _mutate((g) => g.copyWith(nodes: [
@@ -205,7 +225,10 @@ class WorkflowEditorNotifier extends AsyncNotifier<WorkflowEditorState> {
   Future<bool> save({String? changeReason}) async {
     final cur = state.value;
     if (cur == null || !cur.dirty || cur.saving) return false;
-    final ops = workflowEditOps(cur.original, cur.working);
+    // Snapshot the exact graph we diff + send. Edits the user makes DURING the await must not be
+    // folded into the new baseline. 快照要 diff+发送的确切图;await 期间的编辑不得并入新基线。
+    final committed = cur.working;
+    final ops = workflowEditOps(cur.original, committed);
     if (ops.isEmpty) return false;
     state = AsyncData(cur.copyWith(saving: true, saveError: null));
     try {
@@ -213,8 +236,13 @@ class WorkflowEditorNotifier extends AsyncNotifier<WorkflowEditorState> {
       ref.invalidate(entityDetailProvider(entityRef));
       final now = state.value;
       if (now == null) return true;
-      // New baseline = the just-saved working graph (also the server truth). 新基线=刚存的 working。
-      state = AsyncData(now.copyWith(original: now.working, saving: false));
+      // New baseline = the snapshot we persisted, NOT now.working. now.working may carry edits made
+      // during the await; setting original to it would mark them "saved" (dirty=false) though the
+      // server never got them → data loss + a stuck-clean editor. Baselining to `committed` leaves
+      // those edits as a live diff the user can still save. 新基线=已落盘的快照,非 now.working。后者可
+      // 能含 await 期间的编辑,若设为基线会把它们标成已存(dirty=false)而服务器根本没收到 → 丢数据 +
+      // 编辑器卡在假净态。基线设为 committed 让那些编辑仍是可再存的活 diff。
+      state = AsyncData(now.copyWith(original: committed, saving: false));
       return true;
     } on ApiException catch (e) {
       final now = state.value;
@@ -235,6 +263,28 @@ class WorkflowEditorNotifier extends AsyncNotifier<WorkflowEditorState> {
     if (cur == null) return;
     state = AsyncData(cur.copyWith(
         working: cur.original, selectedNodeId: null, selectedEdgeId: null, saveError: null));
+  }
+
+  static final _rng = math.Random();
+
+  /// A fresh, collision-checked edge id (`edg_<16hex>`, S15 shape). Client-authored so it must not
+  /// reuse an existing id in the working graph. 全新、查重的边 id;客户端造,不得复用 working 中既有 id。
+  static String _freshEdgeId(Graph g) {
+    final ids = {for (final e in g.edges) e.id};
+    String id;
+    do {
+      id = 'edg_${_hex16()}';
+    } while (ids.contains(id));
+    return id;
+  }
+
+  static String _hex16() {
+    const chars = '0123456789abcdef';
+    final b = StringBuffer();
+    for (var i = 0; i < 16; i++) {
+      b.write(chars[_rng.nextInt(16)]);
+    }
+    return b.toString();
   }
 
   static String _prefix(NodeKind k) => switch (k) {

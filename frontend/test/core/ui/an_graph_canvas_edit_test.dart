@@ -89,6 +89,28 @@ void main() {
     expect(tapped, 'e1');
   });
 
+  // Regression (rework review, MEDIUM): a small node drag (past the scene drag-slop but within the
+  // viewport tap-slop) must move the node WITHOUT also firing a selection tap (which would toggle the
+  // node off + close the inspector). 微拖只移动、不再顺带切换选中。
+  testWidgets('a small node drag moves it without also toggling selection', (tester) async {
+    (String, NodePosition)? moved;
+    String? tapped = 'sentinel';
+    await tester.pumpWidget(host(AnGraphCanvas(
+      graph: g,
+      editable: true,
+      selectedNodeId: 'a',
+      onNodeMoved: (id, pos) => moved = (id, pos),
+      onNodeTap: (id) => tapped = id,
+    )));
+    await tester.pump();
+    // A few px: past the 3-scene-px drag slop, within the 6-viewport-px tap slop. 几像素:越过拖拽阈值、仍在点击带内。
+    await tester.drag(find.text('a'), const Offset(5, 0));
+    await tester.pump();
+    expect(moved, isNotNull); // it moved
+    expect(moved!.$1, 'a');
+    expect(tapped, 'sentinel'); // onNodeTap NOT fired → selection not toggled 选中未被切换
+  });
+
   testWidgets('handles do not appear when not editable', (tester) async {
     await tester.pumpWidget(host(AnGraphCanvas(graph: g)));
     await tester.pump();

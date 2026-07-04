@@ -37,8 +37,12 @@ void main() {
         ),
       );
 
-  Matrix4 viewOf(WidgetTester tester) =>
-      tester.widget<Transform>(find.byKey(const ValueKey('anGraphScene'))).transform;
+  // The viewport transform now lives in the InteractiveViewer's controller (we adopted IV as the
+  // pan/zoom substrate). Its .value IS the live view matrix. 视口变换托管在 IV 控制器,.value 即活视图矩阵。
+  Matrix4 viewOf(WidgetTester tester) => tester
+      .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+      .transformationController!
+      .value;
   // entry(0,0) = the uniform scale (getMaxScaleOnAxis mixes in the untouched z axis for k<1).
   double scaleOf(WidgetTester tester) => viewOf(tester).entry(0, 0);
 

@@ -1601,6 +1601,39 @@ class Translations$entities$detail$editor$en {
 
 	/// en: 'Off'
 	String get off => 'Off';
+
+	/// en: 'Inspector'
+	String get inspectorTitle => 'Inspector';
+
+	/// en: 'Pick a node or edge on the canvas to edit it.'
+	String get inspectorEmptyHint => 'Pick a node or edge on the canvas to edit it.';
+
+	/// en: 'Edge'
+	String get edge => 'Edge';
+
+	/// en: 'Remove field'
+	String get removeField => 'Remove field';
+
+	/// en: 'Category…'
+	String get refPickFamily => 'Category…';
+
+	/// en: 'Function'
+	String get refFamilyFunction => 'Function';
+
+	/// en: 'Handler'
+	String get refFamilyHandler => 'Handler';
+
+	/// en: 'MCP'
+	String get refFamilyMcp => 'MCP';
+
+	/// en: 'Select…'
+	String get refPickTarget => 'Select…';
+
+	/// en: 'Method…'
+	String get refPickMethod => 'Method…';
+
+	/// en: 'Tool…'
+	String get refPickTool => 'Tool…';
 }
 
 // Path: entities.run.danger
@@ -1982,6 +2015,17 @@ extension on Translations {
 			'entities.detail.editor.errApprovalPortsFull' => 'An approval has only yes / no outputs',
 			'entities.detail.editor.on' => 'On',
 			'entities.detail.editor.off' => 'Off',
+			'entities.detail.editor.inspectorTitle' => 'Inspector',
+			'entities.detail.editor.inspectorEmptyHint' => 'Pick a node or edge on the canvas to edit it.',
+			'entities.detail.editor.edge' => 'Edge',
+			'entities.detail.editor.removeField' => 'Remove field',
+			'entities.detail.editor.refPickFamily' => 'Category…',
+			'entities.detail.editor.refFamilyFunction' => 'Function',
+			'entities.detail.editor.refFamilyHandler' => 'Handler',
+			'entities.detail.editor.refFamilyMcp' => 'MCP',
+			'entities.detail.editor.refPickTarget' => 'Select…',
+			'entities.detail.editor.refPickMethod' => 'Method…',
+			'entities.detail.editor.refPickTool' => 'Tool…',
 			'entities.run.method' => 'Method',
 			'entities.run.streaming' => 'streaming',
 			'entities.run.noInputs' => 'No inputs — run with no arguments.',

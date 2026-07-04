@@ -13,6 +13,12 @@ import 'entity_kind.dart';
 import 'entity_row.dart';
 import 'entity_signal.dart';
 
+/// A lean projection of one selectable option for the workflow node-ref picker — a target entity or a
+/// member (handler method / mcp tool). [id] is the value written into the ref, [name] the display name,
+/// [meta] an optional secondary (e.g. an mcp server's status / a tool's description). ref 选择器的精简候选
+/// (目标实体 / 成员):id=写进 ref 的值,name=显示名,meta=可选次级(mcp 状态 / 工具描述)。
+typedef RefCandidate = ({String id, String name, String? meta});
+
 /// THE seam for the Entities feature's data access — every read/execute/realtime call the feature makes
 /// passes through here, so the whole feature can be driven by one [FixtureEntityRepository] override (no
 /// per-provider SSE/HTTP mocking). [LiveEntityRepository] wires the Phase-4.0 pipeline (ApiClient +
@@ -90,6 +96,16 @@ abstract interface class EntityRepository {
   /// `POST :revert` — move the active pointer to version [version] (any versioned kind; the endpoint
   /// shape is uniform). 把 active 指针移到指定版本号(版本化 kind 通用,端点同形)。
   Future<void> revertVersion(EntityKind kind, String id, int version);
+
+  // ── ref-picker candidates (lean id/name/meta projections for the workflow node-ref picker) ─────
+  // These families are NOT the four rail EntityKinds, so they get their own list endpoints. The
+  // picker only needs id + display name (+ an optional meta), never the full entity. 非四大 rail 实体的
+  // 族,走各自 list 端点;选择器只要 id + 名(+ 可选 meta),不要整实体。
+  Future<List<RefCandidate>> listMcpServers();
+  Future<List<RefCandidate>> listMcpTools(String server);
+  Future<List<RefCandidate>> listTriggers();
+  Future<List<RefCandidate>> listControls();
+  Future<List<RefCandidate>> listApprovals();
 
   // ── agent mount health (overview preflight) ───────────────────────────────
   Future<MountHealthReport> getMountHealth(String id);
@@ -263,6 +279,50 @@ class LiveEntityRepository implements EntityRepository {
   @override
   Future<MountHealthReport> getMountHealth(String id) =>
       _api.getEntity('${EntityKind.agent.itemPath(id)}/mount-health', MountHealthReport.fromJson);
+
+  // ── ref-picker candidates ──────────────────────────────────────────────────
+  // An mcp SERVER is keyed by name (id == name), status is the meta. mcp server 以 name 为键(id=name)。
+  @override
+  Future<List<RefCandidate>> listMcpServers() async => (await _api.getPage<RefCandidate>(
+        '/api/v1/mcp-servers',
+        (m) => (id: m['name'] as String? ?? '', name: m['name'] as String? ?? '', meta: m['status'] as String?),
+        query: const {'limit': 200},
+      ))
+          .items;
+
+  // GET /mcp-servers/{name} answers {data:{name, status, tools:[{name, description}], …}} — project the
+  // tools cache. 取工具缓存。
+  @override
+  Future<List<RefCandidate>> listMcpTools(String server) async {
+    final data = await _api.getEntity<Map<String, dynamic>>('/api/v1/mcp-servers/$server', (m) => m);
+    final tools = (data['tools'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? const [];
+    return [
+      for (final t in tools)
+        (id: t['name'] as String? ?? '', name: t['name'] as String? ?? '', meta: t['description'] as String?),
+    ];
+  }
+
+  @override
+  Future<List<RefCandidate>> listTriggers() => _refList('/api/v1/triggers');
+  @override
+  Future<List<RefCandidate>> listControls() => _refList('/api/v1/controls');
+  @override
+  Future<List<RefCandidate>> listApprovals() => _refList('/api/v1/approvals');
+
+  // trigger/control/approval list items carry id + name (N4 paginated; local sets are small, one page).
+  // trigger/control/approval 列表项带 id + name。
+  Future<List<RefCandidate>> _refList(String path) async => (await _api.getPage<RefCandidate>(
+        path,
+        (m) => (
+          id: m['id'] as String? ?? '',
+          name: (m['name'] as String?)?.isNotEmpty == true ? m['name'] as String : (m['id'] as String? ?? ''),
+          meta: null,
+        ),
+        // Explicit 200 cap (backend MaxLimit) so the picker isn't silently trimmed to the default 50 —
+        // matches the rail families' bound. 显式 200 上限(后端 MaxLimit),不被默认 50 静默截断。
+        query: const {'limit': 200},
+      ))
+          .items;
 
   @override
   Stream<EntitySignal> lifecycleSignals(EntityKind kind) {

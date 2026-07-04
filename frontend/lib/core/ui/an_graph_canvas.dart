@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 import 'dart:ui' show PathMetric;
 
-import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../i18n/strings.g.dart';
@@ -14,27 +13,28 @@ import '../graph/graph_run_state.dart';
 import 'an_button.dart';
 import 'icons.dart';
 
-/// The workflow-graph canvas (read plane) — the Flutter port of the demo's `an-graph-canvas`:
-/// node cards + orthogonal rounded edges over a pannable/zoomable viewport, laid out by the pure
-/// [layoutGraph] model. Hybrid architecture (the researched consensus for rich few-dozen-node
-/// DAGs): nodes are REAL widgets (An* tokens, text, icons, semantics for free) positioned in a
-/// transformed Stack; edges are a cached CustomPaint underlay. The viewport is self-managed
-/// (Matrix4 + gestures, not InteractiveViewer): mouse wheel zooms TO THE CURSOR (拍板 #4;
-/// InteractiveViewer's built-in wheel handling would win the PointerSignalResolver and can't be
-/// disabled alone), trackpad two-finger pans and pinch zooms (they arrive as distinct pan-zoom
-/// gestures on desktop), empty-space drag pans. `framed` is the entity-page preview flavour
-/// (fixed height, hairline card frame, auto-refit on resize); un-framed fills its parent (the
-/// editor ocean). Selection is CONTROLLED ([selectedNodeId] + [onNodeTap]) — pages derive it from
-/// URL/state, the canvas never owns it. Run/edit planes land in later batches (WRK-055 W3/W5).
+/// The workflow-graph canvas — the Flutter port of the demo's `an-graph-canvas`: node cards +
+/// orthogonal rounded edges over a pannable/zoomable viewport, laid out by the pure [layoutGraph]
+/// model. Hybrid architecture (the researched consensus for rich few-dozen-node DAGs): nodes are
+/// REAL widgets (An* tokens, text, icons, semantics for free) positioned in a transformed Stack;
+/// edges are a cached CustomPaint underlay. The viewport rides a plain [InteractiveViewer] (拍板:
+/// adopt the battle-tested substrate, don't hand-manage a Matrix4): mouse wheel zooms TO THE CURSOR,
+/// trackpad two-finger pans and pinch zooms (both free — IV's ScaleGestureRecognizer consumes the
+/// PointerPanZoom stream), empty-space drag pans. The node/handle drags run on raw Listeners and flip
+/// IV's `panEnabled` off for their duration, so the canvas holds still under a drag without the
+/// scale-vs-pan arena stealing it. `framed` is the entity-page preview flavour (fixed height, hairline
+/// card frame, auto-refit on resize); un-framed fills its parent (the editor ocean). Selection is
+/// CONTROLLED ([selectedNodeId] + [onNodeTap]) — pages derive it from URL/state, the canvas never owns
+/// it.
 ///
-/// workflow 编排图画布(只读面)——demo `an-graph-canvas` 的 Flutter 移植:节点卡 + 正交圆角边,
-/// 铺在可平移缩放的视口上,几何来自纯模型 [layoutGraph]。混合架构(业界共识):节点=真 widget
-/// (An* token/文本/图标/语义全免费)、边=缓存 CustomPaint 底层。视口自管(Matrix4 + 手势、
-/// 不用 InteractiveViewer):滚轮以光标为中心缩放(拍板 #4;IV 内置滚轮抢 PointerSignalResolver
-/// 且无法单独关),触控板双指=平移、pinch=缩放(桌面端两者是独立 pan-zoom 手势),空白拖拽=平移。
-/// framed=实体页预览形态(定高 + hairline 框 + 尺寸变化自动重 fit);非 framed 占满父容器(编辑器
-/// 海洋)。选中受控([selectedNodeId] + [onNodeTap])——页面从 URL/state 派生,画布不持有。
-/// 运行/编辑两面在后续批(WRK-055 W3/W5)。
+/// workflow 编排图画布——demo `an-graph-canvas` 的 Flutter 移植:节点卡 + 正交圆角边,铺在可平移缩放的
+/// 视口上,几何来自纯模型 [layoutGraph]。混合架构(业界共识):节点=真 widget(An* token/文本/图标/
+/// 语义全免费)、边=缓存 CustomPaint 底层。视口骑在原生 [InteractiveViewer] 上(拍板:采用久经考验的
+/// 基座,不再手管 Matrix4):滚轮以光标为中心缩放,触控板双指=平移、pinch=缩放(都白拿——IV 的
+/// ScaleGestureRecognizer 吃 PointerPanZoom 流),空白拖拽=平移。节点/柄拖走裸 Listener 并在其间把 IV 的
+/// `panEnabled` 置 false,画布在拖拽下不动、不被 scale-vs-pan 竞技场抢走。framed=实体页预览形态(定高 +
+/// hairline 框 + 尺寸变化自动重 fit);非 framed 占满父容器(编辑器海洋)。选中受控([selectedNodeId] +
+/// [onNodeTap])——页面从 URL/state 派生,画布不持有。
 class AnGraphCanvas extends StatefulWidget {
   const AnGraphCanvas({
     required this.graph,
@@ -42,6 +42,7 @@ class AnGraphCanvas extends StatefulWidget {
     this.run,
     this.framed = false,
     this.toolbar = true,
+    this.toolbarAlignment = Alignment.topLeft,
     this.selectedNodeId,
     this.onNodeTap,
     this.editable = false,
@@ -65,8 +66,13 @@ class AnGraphCanvas extends StatefulWidget {
   /// 实体页预览形态:定高 + hairline 卡框。
   final bool framed;
 
-  /// Floating zoom toolbar (top-left). 悬浮缩放工具条(左上)。
+  /// Floating zoom toolbar. 悬浮缩放工具条。
   final bool toolbar;
+
+  /// Where the zoom toolbar floats (default top-left; the frameless editor moves it to bottom-left so
+  /// it clears the top chrome + the OS traffic lights). 缩放工具条停靠(默认左上;无边框编辑器移到左下、
+  /// 让开顶部 chrome + 红绿灯)。
+  final Alignment toolbarAlignment;
 
   /// Controlled selection — accent-ring the node with this id. 受控选中(accent 环)。
   final String? selectedNodeId;
@@ -96,16 +102,39 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
   static const double _maxScale = 2.5;
   static const double _fitMaxScale = 1.3; // fit never blows a small graph up past this fit 不放大过此
   static const double _fitMinScale = 0.25;
+  // Wheel step: exp(-dy / _wheelScaleFactor); ≈666.67 reproduces the demo's 0.0015-per-pixel feel
+  // (InteractiveViewer's mousewheel path uses the same exp(-dy/scaleFactor) zoom-to-cursor).
+  // 滚轮步长:与 demo 0.0015/px 手感等价(IV 滚轮同款 exp(-dy/scaleFactor) 到光标缩放)。
+  static const double _wheelScaleFactor = 666.6667;
+  // Max press travel (viewport px) still counted as a tap (vs a drag/pan). 判为点击的最大按下位移(视口px)。
+  static const double _tapSlop = 6.0;
 
-  Matrix4 _view = Matrix4.identity();
+  // The viewport transform lives in InteractiveViewer's controller (adopt its battle-tested
+  // pan/zoom/pinch + wheel-to-cursor instead of hand-managing a Matrix4). We SET .value for fit and
+  // the zoom toolbar, and READ entry(0,0) for scene-space measures. 视口变换托管在 IV 的 controller
+  // (采用其久经考验的平移/缩放/pinch/滚轮到光标,不再手管 Matrix4);fit 与缩放工具条写它、量度读它。
+  final TransformationController _tc = TransformationController();
   GraphLayout? _layout;
   Size _viewport = Size.zero;
   bool _fitted = false;
 
-  // Scale-gesture bookkeeping: matrix + focal at gesture start, so update composes fresh each
-  // frame (never accumulates drift). 手势起点矩阵 + 焦点,每帧从起点重组、不累积漂移。
-  Matrix4? _gestureStart;
-  Offset? _gestureFocal;
+  // While a node/handle interaction owns the pointer, IV's pan switches OFF (panEnabled=false) so the
+  // canvas doesn't slide under the drag; the drag itself runs on a raw Listener (arena-free) whose
+  // localDelta is already scene space. 节点/柄交互占用指针时关掉 IV 平移,画布在拖拽下不滑;拖拽本身走
+  // 裸 Listener(不进竞技场),其 localDelta 天然是场景坐标。
+  bool _suppressPan = false;
+
+  // Pointer-down position for the arena-free tap detector (viewport coords), and the node whose card
+  // the press landed on (recorded by the card's own Listener → the reliable, frame-sync-proof node id
+  // for a tap; toScene is used only for edges/empty). 裸点击探测的按下位(视口坐标)+ 按下命中的节点卡 id
+  // (由卡自己的 Listener 记 → 点击选中的可靠、无帧同步问题的节点 id;toScene 只用于边/空白)。
+  Offset? _tapDown;
+  String? _pressedNodeId;
+  // Set once a press crosses the node/handle drag slop → the viewport tap detector then suppresses the
+  // tap, so a small node drag never ALSO toggles selection (the two slops differ: node drag is scene
+  // space, tap is viewport space, leaving an overlap band that would fire both). 一旦按下越过节点/柄拖拽
+  // 阈值即置位 → 视口点击探测抑制 tap,微拖不再顺带切换选中(两阈值坐标系不同、有重叠带会齐发)。
+  bool _draggedThisPress = false;
 
   // Edit-mode interaction state (W5). A node drag tracks the dragged id + its live scene top-left
   // (committed on release); a connect drag tracks the source id + the pointer scene position (a
@@ -142,6 +171,7 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
   void dispose() {
     _comet?.dispose();
     _pulse?.dispose();
+    _tc.dispose();
     super.dispose();
   }
 
@@ -150,26 +180,28 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
   @override
   void didUpdateWidget(AnGraphCanvas old) {
     super.didUpdateWidget(old);
-    // Freezed deep == — an equal-value rebuild (the normal Riverpod map-from-DTO path) must NOT
-    // relayout nor touch the user's viewport. A REAL graph/dir change re-fits right away (the demo's
-    // setGraph/setDir contract); deferring via a flag would leave it to detonate on a later resize,
-    // wiping a pan the user meant to keep. freezed 深比较——等值重建(Riverpod 正常 map 路径)不得
-    // 重布局/动视口;真换图/换向当即重 fit(demo setGraph/setDir 契约),存旗延迟会在日后 resize
-    // 时突爆、吞掉用户特意保留的平移。
+    // A real graph/dir change relayouts. In the READ/RUN planes it also re-fits (the demo's
+    // setGraph/setDir contract); in the EDIT plane it must NOT — every structural edit changes the
+    // graph, and re-fitting would yank the viewport the user is actively panning/zooming. freezed 深
+    // 比较:真换图/换向重布局;只读/运行面重 fit,编辑面绝不(每次结构编辑都改图,重 fit 会夺走用户
+    // 正在平移/缩放的视口)。
     if (old.graph != widget.graph || old.dir != widget.dir) {
       _layout = null;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _fit();
-      });
+      if (!widget.editable) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _fit();
+        });
+      }
     }
   }
 
-  // The view is only ever translate∘uniform-scale, so entry(0,0) IS the scale.
-  // getMaxScaleOnAxis is a trap here: it includes the untouched z axis, so any k<1 reads as 1.
-  // 视图矩阵只有平移∘等比缩放,(0,0) 项即缩放;getMaxScaleOnAxis 含未动的 z 轴,k<1 时错读为 1。
-  double get _scale => _view.entry(0, 0);
-
-  void _setView(Matrix4 m) => setState(() => _view = m);
+  // The controller matrix is only ever translate∘uniform-scale (no rotation — rotateEnabled off), so
+  // entry(0,0) IS the scale. We ALSO scale the z axis in lockstep (visually inert — the scene is 2D,
+  // z=0) precisely so IV's own `getMaxScaleOnAxis` (which it reads to clamp wheel/pinch to
+  // [minScale,maxScale]) equals the true scale; leaving z=1 would make it misread any fit<1 as 1 and
+  // cap zoom-in / sink zoom-out wrongly. entry(0,0) 即缩放;z 轴同步缩放(2D 场景 z=0、视觉无影响)是
+  // 为了让 IV 自己的 getMaxScaleOnAxis==真实缩放、min/max 夹得对(z 留 1 会把 fit<1 误读为 1)。
+  double get _scale => _tc.value.entry(0, 0);
 
   /// Fit the whole content into the viewport (demo fit): padded, centered, scale capped so tiny
   /// graphs don't balloon. 整图入框:留白、居中、上限防小图放大。
@@ -185,9 +217,9 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
     k = math.max(_fitMinScale, k);
     final x = (_viewport.width - content.width * k) / 2;
     final y = (_viewport.height - content.height * k) / 2;
-    _setView(Matrix4.identity()
+    _tc.value = Matrix4.identity()
       ..translateByDouble(x, y, 0, 1)
-      ..scaleByDouble(k, k, 1, 1));
+      ..scaleByDouble(k, k, k, 1); // z scaled too → IV's getMaxScaleOnAxis reads the true scale
   }
 
   /// Zoom by [factor] keeping the scene point under [anchor] (viewport coords) still:
@@ -199,37 +231,13 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
     if (r == 1) return;
     final t = Matrix4.identity()
       ..translateByDouble(anchor.dx, anchor.dy, 0, 1)
-      ..scaleByDouble(r, r, 1, 1)
+      ..scaleByDouble(r, r, r, 1) // z in lockstep (see _scale) so IV's zoom clamp stays correct
       ..translateByDouble(-anchor.dx, -anchor.dy, 0, 1);
-    _setView(t.multiplied(_view));
+    _tc.value = t.multiplied(_tc.value);
   }
 
   void _zoomBy(double factor) =>
       _zoomAt(Offset(_viewport.width / 2, _viewport.height / 2), factor);
-
-  void _onWheel(PointerScrollEvent e) =>
-      _zoomAt(e.localPosition, math.exp(-e.scrollDelta.dy * 0.0015));
-
-  void _onPanStart(DragStartDetails d) {
-    if (_connectFrom != null) return; // a handle connect owns this pointer 连接拖已占用
-    _gestureStart = _view.clone();
-    _gestureFocal = d.localPosition;
-  }
-
-  void _onPanUpdate(DragUpdateDetails d) {
-    final start = _gestureStart, focal = _gestureFocal;
-    if (start == null || focal == null || _connectFrom != null) return;
-    // Translate from the gesture-start matrix by the pointer travel (no accumulation drift).
-    // 从起点矩阵按指针位移平移(不累积漂移)。
-    final pan = Matrix4.identity()
-      ..translateByDouble(d.localPosition.dx - focal.dx, d.localPosition.dy - focal.dy, 0, 1);
-    _setView(pan.multiplied(start));
-  }
-
-  void _onPanEnd(DragEndDetails d) {
-    _gestureStart = null;
-    _gestureFocal = null;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -251,43 +259,70 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
             });
           }
         }
-        // Canvas pan/zoom wraps the scene as an ANCESTOR, using onPan (NOT onScale): a node/handle
-        // drag is a DEEPER PanGestureRecognizer of the SAME type, which wins the gesture arena over
-        // the ancestor pan cleanly (scale-vs-pan would let the ancestor scale steal a child pan).
-        // Zoom is the wheel + toolbar; touchpad pinch is a follow-up. 画布平移缩放作为祖先包住场景,用
-        // onPan(非 onScale):节点/柄拖是更深的同类型 pan、干净胜过祖先 pan;缩放走滚轮+工具条,pinch 后补。
         return Listener(
-          onPointerSignal: (e) {
-            if (e is PointerScrollEvent) {
-              GestureBinding.instance.pointerSignalResolver
-                  .register(e, (e) => _onWheel(e as PointerScrollEvent));
+          // One viewport-level tap detector, ARENA-FREE: a raw Listener sees every pointer no matter
+          // who wins the gesture arena — a GestureDetector.onTap here would lose, because IV's
+          // DESCENDANT scale recognizer is added first and out-sweeps an ancestor tap on a no-move
+          // press. A press that lifts within _tapSlop is a tap → route by scene hit-test (node select /
+          // edge select / deselect); a longer travel is a drag/pan, left to IV or the node Listener. It
+          // covers the WHOLE viewport, so even a tap in the empty margin deselects. 单一视口级点击探测
+          // (绕竞技场):裸 Listener 无视谁赢竞技场都收得到指针——此处用 GestureDetector.onTap 会输,因
+          // IV 后代 scale 识别器先入、无移动 tap 上横扫掉祖先 tap。按下在 _tapSlop 内抬起=点击 → 场景命中
+          // 路由;位移更大=拖拽/平移,交给 IV 或节点 Listener。覆盖整视口(空白边距点击也取消选中)。
+          behavior: HitTestBehavior.deferToChild,
+          onPointerDown: (e) {
+            _tapDown = e.localPosition;
+            _draggedThisPress = false;
+          },
+          onPointerUp: (e) {
+            final down = _tapDown;
+            final pressed = _pressedNodeId; // set by the card's Listener on the same pointer-down
+            final dragged = _draggedThisPress;
+            _tapDown = null;
+            _pressedNodeId = null;
+            _draggedThisPress = false;
+            // A press that became a node/handle drag is NOT a tap — never toggle selection after a move.
+            // 已成为拖拽的按下不是点击——移动后绝不再切换选中。
+            if (dragged) return;
+            if (down == null || (e.localPosition - down).distance > _tapSlop) return;
+            if (pressed != null) {
+              widget.onNodeTap?.call(pressed); // reliable node id from the widget hit, not toScene
+            } else {
+              _onViewportTap(e.localPosition); // edge / empty via scene hit-test
             }
           },
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onPanStart: _onPanStart,
-            onPanUpdate: _onPanUpdate,
-            onPanEnd: _onPanEnd,
-            onTapUp: _onBackgroundTapUp,
-            child: MouseRegion(
-              cursor: SystemMouseCursors.grab,
-              child: Stack(children: [
-                // Dot grid stays screen-fixed (demo .stage::before is untransformed backdrop). 网格钉屏。
-                Positioned.fill(
-                  child: IgnorePointer(child: CustomPaint(painter: _GridPainter(dot: gc.gridDot))),
-                ),
-                Positioned.fill(
-                  child: Transform(
-                    // Keyed so tests (and later capture harnesses) can read the live view matrix
-                    // precisely. 挂 key 让测试/截图 harness 精确读取视图矩阵。
-                    key: const ValueKey('anGraphScene'),
-                    transform: _view,
-                    child: _scene(context),
-                  ),
-                ),
-              ]),
+          onPointerCancel: (_) {
+            _tapDown = null;
+            _pressedNodeId = null;
+            _draggedThisPress = false;
+          },
+          child: Stack(children: [
+            // Dot grid stays screen-fixed (demo .stage::before is untransformed backdrop). 网格钉屏。
+            Positioned.fill(
+              child: IgnorePointer(child: CustomPaint(painter: _GridPainter(dot: gc.gridDot))),
             ),
-          ),
+          // The scene rides InteractiveViewer: it owns pan (single-pointer drag + trackpad two-finger),
+          // pinch zoom, and mousewheel zoom-to-cursor. panEnabled drops while a node/handle drag is
+          // live so the canvas holds still under the drag (the drag runs on a raw Listener, so IV's
+          // uncontested scale recognizer merely no-ops). 场景骑在 IV 上:平移(单指拖 + 触控板双指)/
+          // pinch / 滚轮到光标全归它;节点/柄拖拽时 panEnabled 落下,画布在拖拽下不动(拖拽走裸 Listener,
+          // IV 无对手的 scale 识别器仅空转)。
+            Positioned.fill(
+              child: MouseRegion(
+                cursor: SystemMouseCursors.grab,
+                child: InteractiveViewer(
+                  transformationController: _tc,
+                  constrained: false,
+                  boundaryMargin: const EdgeInsets.all(double.infinity),
+                  minScale: _minScale,
+                  maxScale: _maxScale,
+                  scaleFactor: _wheelScaleFactor,
+                  panEnabled: !_suppressPan,
+                  child: _scene(context),
+                ),
+              ),
+            ),
+          ]),
         );
       }),
     );
@@ -295,7 +330,15 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
     final withTools = Stack(children: [
       Positioned.fill(child: stage),
       if (widget.toolbar)
-        Positioned(left: AnSpace.s12, top: AnSpace.s12, child: _toolbar(context)),
+        Positioned.fill(
+          child: Align(
+            alignment: widget.toolbarAlignment,
+            child: Padding(
+              padding: const EdgeInsets.all(AnSpace.s12),
+              child: _toolbar(context),
+            ),
+          ),
+        ),
     ]);
 
     if (!widget.framed) return withTools;
@@ -311,9 +354,9 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
     );
   }
 
-  /// The transformed scene: edges underlay → comet overlay → port pills → node cards. Sized to the
-  /// layout so the unconstrained Stack children position against content coords.
-  /// 变换场景:边底层 → 彗星层 → 端口药丸 → 节点卡。
+  /// The transformed scene: background tap layer → edges underlay → comet overlay → port pills →
+  /// node cards → connect handles. Sized to the layout so the unconstrained Stack children position
+  /// against content coords. 变换场景:背景点击层 → 边底层 → 彗星层 → 端口药丸 → 节点卡 → 连接柄。
   Widget _scene(BuildContext context) {
     final gc = context.graphColors;
     final c = context.colors;
@@ -402,6 +445,7 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
               width: rect.width,
               height: rect.height,
               child: _NodeCard(
+                key: ValueKey('graphNode_${n.id}'),
                 node: n,
                 selected: n.id == widget.selectedNodeId,
                 onTap: widget.onNodeTap == null ? null : () => widget.onNodeTap!(n.id),
@@ -409,6 +453,15 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
                 iters: run?.iters[n.id] ?? 0,
                 pulse: still ? null : _pulse,
                 editable: widget.editable,
+                // Record the pressed node id (no rebuild — read only by the tap detector) and, in edit
+                // mode, drop IV's pan for the press. 记按下的节点 id(不重建,仅点击探测读)+ 编辑态落下 IV 平移。
+                onPressStart: () {
+                  _pressedNodeId = n.id;
+                  if (widget.editable) setState(() => _suppressPan = true);
+                },
+                onPressEnd: () {
+                  if (widget.editable && mounted) setState(() => _suppressPan = false);
+                },
                 onDragStart: () => _startNodeDrag(n.id, rect),
                 onDragUpdate: _updateNodeDrag,
                 onDragEnd: _endNodeDrag,
@@ -452,17 +505,27 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
         // 指针在柄上时保持节点 hover(否则离卡即清)。
         onEnter: (_) => setState(() => _hoverNodeId = nodeId),
         // A raw Listener (NOT a GestureDetector) drives the connect drag: it bypasses the gesture
-        // arena, so the drag is never cancelled by the ancestor canvas pan or a mid-drag rebuild
-        // (an accepted GestureDetector pan here fires onStart then gets stolen — Listener doesn't).
-        // 用裸 Listener(非 GestureDetector)驱动连接拖:绕开手势竞技场,拖拽绝不被祖先画布 pan 或
-        // 拖拽中重建取消(此处 GestureDetector pan 会 onStart 后被抢走,Listener 不会)。
+        // arena, so the drag is never cancelled by IV's scale recognizer or a mid-drag rebuild. Its
+        // localDelta is scene space (it's inside the transformed child), so no /scale. _suppressPan
+        // drops IV's pan for the drag. 裸 Listener(非 GestureDetector)驱动连接拖:绕开竞技场,不被
+        // IV scale 或拖拽中重建取消;localDelta 天然场景坐标(在变换子树内),不除 scale;_suppressPan
+        // 拖拽期间落下 IV 平移。
         child: Listener(
           key: ValueKey('graphHandle_${nodeId}_${side.name}'),
           behavior: HitTestBehavior.opaque,
-          onPointerDown: (_) => _startConnect(nodeId, rect, side),
-          onPointerMove: (ev) => _updateConnect(ev.delta),
-          onPointerUp: (_) => _endConnect(),
-          onPointerCancel: (_) => _cancelConnect(),
+          onPointerDown: (_) {
+            setState(() => _suppressPan = true);
+            _startConnect(nodeId, rect, side);
+          },
+          onPointerMove: (ev) => _updateConnect(ev.localDelta),
+          onPointerUp: (_) {
+            _endConnect();
+            if (mounted) setState(() => _suppressPan = false);
+          },
+          onPointerCancel: (_) {
+            _cancelConnect();
+            if (mounted) setState(() => _suppressPan = false);
+          },
           child: Center(
             child: Container(
               width: 9,
@@ -480,18 +543,20 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
   }
 
   // ── edit-mode gestures (W5) ──
-  // Node drag: track the live scene top-left; delta is in viewport pixels so divide by scale.
-  // 节点拖:记活场景左上;delta 是视口像素、除以缩放。
+  // Node drag: track the live scene top-left. The delta arrives already in scene space (the node
+  // Listener is inside the transformed child), so it is added straight — no /scale. 节点拖:记活场景
+  // 左上;delta 已是场景坐标(节点 Listener 在变换子树内),直接相加、不除缩放。
   void _startNodeDrag(String id, Rect rect) {
+    _draggedThisPress = true; // this press is a drag, not a tap → suppress the follow-up selection tap
     setState(() {
       _dragId = id;
       _dragScene = rect.topLeft;
     });
   }
 
-  void _updateNodeDrag(Offset delta) {
+  void _updateNodeDrag(Offset sceneDelta) {
     if (_dragScene == null) return;
-    setState(() => _dragScene = _dragScene! + delta / _scale);
+    setState(() => _dragScene = _dragScene! + sceneDelta);
   }
 
   void _endNodeDrag() {
@@ -505,18 +570,19 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
     }
   }
 
-  // Connect drag: rubber-band from the source node centre to the pointer; drop over a node connects.
-  // 连接拖:源心 → 指针橡皮筋;松手落在节点上则连。
+  // Connect drag: rubber-band from the source node anchor to the pointer; drop over a node connects.
+  // sceneDelta is already scene space. 连接拖:源锚 → 指针橡皮筋;松手落在节点上则连;sceneDelta 已是场景。
   void _startConnect(String id, Rect rect, _Side side) {
+    _draggedThisPress = true; // a connect drag is not a tap either
     setState(() {
       _connectFrom = id;
       _connectScene = _anchorOf(rect, side);
     });
   }
 
-  void _updateConnect(Offset delta) {
+  void _updateConnect(Offset sceneDelta) {
     if (_connectScene == null) return;
-    setState(() => _connectScene = _connectScene! + delta / _scale);
+    setState(() => _connectScene = _connectScene! + sceneDelta);
   }
 
   void _endConnect() {
@@ -553,24 +619,25 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
     return null;
   }
 
-  // A background tap (missed every node): in edit mode select the nearest edge or clear; otherwise
-  // just deselect. localPosition is VIEWPORT space (the background layer isn't transformed) → invert
-  // to scene. 背景点(漏掉全部节点):编辑态选最近边或清,否则取消选。localPosition 是视口坐标 → 反变换到场景。
-  void _onBackgroundTapUp(TapUpDetails d) {
+  // A viewport tap, routed by scene hit-test: a node → select; else an edge (edit mode) → select;
+  // else deselect. The point is viewport space (from the stage GestureDetector, which fills the
+  // viewport as IV does) → toScene puts it in the child's coords. 视口点击,场景命中路由:节点→选/边→选
+  // (编辑)/空白取消;入参是视口坐标(stage GestureDetector 与 IV 同占满视口)→ toScene 转子坐标。
+  void _onViewportTap(Offset viewportPoint) {
+    final scene = _tc.toScene(viewportPoint);
+    // Node hits come from the widget-level press tracking (_pressedNodeId), never this scene math —
+    // toScene reads the live controller matrix, which can trail the painted layout by a frame right
+    // after a fit. Here only edges (painted, no widget to hit) and empty space are resolved.
+    // 节点命中走 widget 级按下追踪(_pressedNodeId),不用这里的坐标反算——toScene 读活控制器矩阵,fit
+    // 后可能落后绘制一帧;此处只判边(纯绘制、无 widget 可命中)与空白。
     if (widget.editable && widget.onEdgeTap != null) {
-      final id = _edgeAt(_toScene(d.localPosition));
-      if (id != null) {
-        widget.onEdgeTap!(id);
+      final edgeId = _edgeAt(scene);
+      if (edgeId != null) {
+        widget.onEdgeTap!(edgeId);
         return;
       }
     }
     widget.onNodeTap?.call(null);
-  }
-
-  // Convert a viewport point to a scene point (inverse of translate∘uniform-scale). 视口→场景。
-  Offset _toScene(Offset local) {
-    final sc = _scale;
-    return Offset((local.dx - _view.entry(0, 3)) / sc, (local.dy - _view.entry(1, 3)) / sc);
   }
 
   /// The nearest edge to [scene] within a scene-space threshold (segment distance over the route
@@ -654,10 +721,13 @@ class _NodeCard extends StatefulWidget {
     this.iters = 0,
     this.pulse,
     this.editable = false,
+    this.onPressStart,
+    this.onPressEnd,
     this.onDragStart,
     this.onDragUpdate,
     this.onDragEnd,
     this.onHoverChange,
+    super.key,
   });
 
   final Node node;
@@ -671,11 +741,16 @@ class _NodeCard extends StatefulWidget {
   /// The shared breath driver (null under reduced motion → a static ring instead). 共享呼吸驱动。
   final Animation<double>? pulse;
 
-  /// Edit mode: whole-card drag (move) + hover reporting (the canvas draws connect handles). 编辑态:
-  /// 整卡拖移 + 悬停上报(连接柄由画布画)。
+  /// Edit mode: whole-card drag (move) + hover reporting (the canvas draws connect handles). The
+  /// drag runs on a raw Listener with slop-based tap/drag disambiguation so it never fights IV's
+  /// arena; [onPressStart]/[onPressEnd] bracket the whole pointer press (canvas drops IV pan for its
+  /// span), [onDragUpdate] carries a SCENE-space delta. 编辑态:整卡拖移 + 悬停上报;拖拽走裸 Listener +
+  /// slop 判 tap/drag、不打竞技场;press 起止括住整次按下(画布落下 IV 平移),onDragUpdate 是场景坐标 delta。
   final bool editable;
+  final VoidCallback? onPressStart;
+  final VoidCallback? onPressEnd;
   final VoidCallback? onDragStart;
-  final ValueChanged<Offset>? onDragUpdate; // viewport-pixel delta 视口像素 delta
+  final ValueChanged<Offset>? onDragUpdate; // scene-space delta 场景坐标 delta
   final VoidCallback? onDragEnd;
   final ValueChanged<bool>? onHoverChange;
 
@@ -684,6 +759,12 @@ class _NodeCard extends StatefulWidget {
 }
 
 class _NodeCardState extends State<_NodeCard> {
+  // Beyond this scene-space travel a press becomes a drag (below it, a release is a tap → select).
+  // 超过此场景位移即判为拖拽(不足则松手=点选)。
+  static const double _dragSlop = 3.0;
+  Offset? _downPos;
+  bool _moved = false;
+
   Node get node => widget.node;
   bool get selected => widget.selected;
   VoidCallback? get onTap => widget.onTap;
@@ -758,75 +839,116 @@ class _NodeCardState extends State<_NodeCard> {
       ]),
     );
 
+    final overlay = Stack(clipBehavior: Clip.none, children: [
+      // Iteration ghosts stack UNDER the card (demo's ×N 叠卡:offset shadows read as "this slot ran
+      // multiple times"). 迭代影子叠在卡下(×N 叠卡)。
+      if (iters > 1) ...[
+        _ghost(c, ring, const Offset(6, 6), 0.35),
+        _ghost(c, ring, const Offset(3, 3), 0.6),
+      ],
+      Positioned.fill(child: future ? _dashedWrap(c, card) : card),
+      if (rs == GraphNodeRun.running)
+        Positioned.fill(
+          child: IgnorePointer(
+            child: pulse == null
+                ? _breathRing(c, 0.35)
+                : FadeTransition(
+                    // 0→.5→0 over one breath (demo's opacity keyframes). 一次呼吸 0→.5→0。
+                    opacity: pulse!.drive(TweenSequence([
+                      TweenSequenceItem(tween: Tween(begin: 0.0, end: 0.5), weight: 1),
+                      TweenSequenceItem(tween: Tween(begin: 0.5, end: 0.0), weight: 1),
+                    ])),
+                    child: _breathRing(c, 1),
+                  ),
+          ),
+        ),
+      if (rs != null)
+        Positioned(
+          right: AnSpace.s8,
+          top: AnSpace.s8,
+          child: IgnorePointer(
+            child: Container(
+              width: AnSize.dot,
+              height: AnSize.dot,
+              decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+            ),
+          ),
+        ),
+      if (iters > 1)
+        Positioned(
+          right: AnSpace.s8,
+          bottom: AnSpace.s4,
+          child: IgnorePointer(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: AnSpace.s6),
+              decoration: BoxDecoration(
+                color: c.accentSoft,
+                borderRadius: BorderRadius.circular(AnRadius.pill),
+              ),
+              child: Text('×$iters',
+                  style: AnText.metaTabular().weight(AnText.emphasisWeight).copyWith(color: c.accent)),
+            ),
+          ),
+        ),
+    ]);
+
+    final body = MouseRegion(
+      onEnter: widget.editable ? (_) => widget.onHoverChange?.call(true) : null,
+      onExit: widget.editable ? (_) => widget.onHoverChange?.call(false) : null,
+      cursor: widget.editable
+          ? SystemMouseCursors.move
+          : (onTap != null ? SystemMouseCursors.click : MouseCursor.defer),
+      child: overlay,
+    );
+
     return Semantics(
       label: t.a11y.graphNode(id: node.id, kind: _kindLabel(t, node.kind), ref: node.ref),
       button: onTap != null,
-      child: GestureDetector(
-        onTap: onTap,
-        // In edit mode the card itself is draggable (move); its pan recognizer wins over the canvas
-        // scale/pan when the pointer starts on the node. 编辑态整卡可拖(移),命中节点时节点 pan 胜过画布。
-        onPanStart: widget.editable ? (_) => widget.onDragStart?.call() : null,
-        onPanUpdate: widget.editable ? (d) => widget.onDragUpdate?.call(d.delta) : null,
-        onPanEnd: widget.editable ? (_) => widget.onDragEnd?.call() : null,
-        child: MouseRegion(
-          onEnter: widget.editable ? (_) => widget.onHoverChange?.call(true) : null,
-          onExit: widget.editable ? (_) => widget.onHoverChange?.call(false) : null,
-          cursor: widget.editable
-              ? SystemMouseCursors.move
-              : (onTap != null ? SystemMouseCursors.click : MouseCursor.defer),
-          child: Stack(clipBehavior: Clip.none, children: [
-            // Iteration ghosts stack UNDER the card (demo's ×N 叠卡:offset shadows read as "this
-            // slot ran multiple times"). 迭代影子叠在卡下(×N 叠卡)。
-            if (iters > 1) ...[
-              _ghost(c, ring, const Offset(6, 6), 0.35),
-              _ghost(c, ring, const Offset(3, 3), 0.6),
-            ],
-            Positioned.fill(child: future ? _dashedWrap(c, card) : card),
-            if (rs == GraphNodeRun.running)
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: pulse == null
-                      ? _breathRing(c, 0.35)
-                      : FadeTransition(
-                          // 0→.5→0 over one breath (demo's opacity keyframes). 一次呼吸 0→.5→0。
-                          opacity: pulse!.drive(TweenSequence([
-                            TweenSequenceItem(tween: Tween(begin: 0.0, end: 0.5), weight: 1),
-                            TweenSequenceItem(tween: Tween(begin: 0.5, end: 0.0), weight: 1),
-                          ])),
-                          child: _breathRing(c, 1),
-                        ),
-                ),
-              ),
-            if (rs != null)
-              Positioned(
-                right: AnSpace.s8,
-                top: AnSpace.s8,
-                child: IgnorePointer(
-                  child: Container(
-                    width: AnSize.dot,
-                    height: AnSize.dot,
-                    decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
-                  ),
-                ),
-              ),
-            if (iters > 1)
-              Positioned(
-                right: AnSpace.s8,
-                bottom: AnSpace.s4,
-                child: IgnorePointer(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: AnSpace.s6),
-                    decoration: BoxDecoration(
-                      color: c.accentSoft,
-                      borderRadius: BorderRadius.circular(AnRadius.pill),
-                    ),
-                    child: Text('×$iters',
-                        style: AnText.metaTabular().weight(AnText.emphasisWeight).copyWith(color: c.accent)),
-                  ),
-                ),
-              ),
-          ]),
-        ),
+      // Assistive-tech activation only — sighted taps route through the canvas's viewport hit-test so
+      // tap/edge/deselect share one path. 仅辅助技术激活——肉眼点击走画布视口命中(点/边/取消一条路)。
+      onTap: onTap,
+      // Edit mode: a raw Listener owns the press for DRAG (slop separates a real move from a tap) and
+      // drops IV's pan for its span; a clean tap does nothing here — the stage hit-test selects the
+      // node. Read mode: no gesture — taps and drags both fall to the stage / IV. 编辑态:裸 Listener
+      // 掌管拖拽(slop 分真移动/点选)并落下 IV 平移;净点在此不动、由 stage 命中选中;只读态无手势。
+      // A raw Listener owns the press in BOTH modes: onPressStart lets the canvas record this node as
+      // the tap target (frame-sync-proof selection) and, in edit mode, drop IV's pan; edit-mode moves
+      // (slop-gated, scene-space localDelta) run here too. A clean tap does nothing here — the canvas's
+      // tap detector selects this node from the recorded id. 裸 Listener 两态都掌管按下:onPressStart 让
+      // 画布记下本节点为点击目标(无帧同步问题的选中)+ 编辑态落下 IV 平移;编辑态拖移(slop 门控、场景坐标
+      // localDelta)也在此。净点在此不动,画布点击探测据所记 id 选中本节点。
+      child: Listener(
+        behavior: HitTestBehavior.opaque,
+        onPointerDown: (e) {
+          _downPos = e.localPosition;
+          _moved = false;
+          widget.onPressStart?.call();
+        },
+        onPointerMove: widget.editable
+            ? (e) {
+                final start = _downPos;
+                if (start == null) return;
+                if (!_moved) {
+                  if ((e.localPosition - start).distance <= _dragSlop) return;
+                  _moved = true;
+                  widget.onDragStart?.call();
+                }
+                widget.onDragUpdate?.call(e.localDelta);
+              }
+            : null,
+        onPointerUp: (_) {
+          if (_moved) widget.onDragEnd?.call();
+          _downPos = null;
+          _moved = false;
+          widget.onPressEnd?.call();
+        },
+        onPointerCancel: (_) {
+          if (_moved) widget.onDragEnd?.call();
+          _downPos = null;
+          _moved = false;
+          widget.onPressEnd?.call();
+        },
+        child: body,
       ),
     );
   }
