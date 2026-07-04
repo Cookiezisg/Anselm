@@ -29,6 +29,8 @@ audience: [human, ai]
 
 ## Function 页 ideal(设计已过用户)
 
+> ⚠️ **回退记录(后续)**:变换盒 hero 试用后由用户判定不如朴素 KV 文档好看,已回退——function/handler 概览回到「说明/标签 meta + 代码收合 + 输入/输出卡 + 环境卡」的 KV 文档,`AnTransformBox`/`AnReadinessPipeline` 原语已删。下方 F1/心智描述为当时建造记录,非当前形态。
+
 **心智:变换盒** `inputs → [Python] → outputs`,把本质画在页顶。
 
 - **概览三段**:① hero 签名条 `AnTransformBox`(左 inputs 列 / 中心盒[名 + env 灯 + py·deps 徽] / 右 outputs 列,水平切线贝塞尔 hairline 连线——与 workflow 图同款边,首次落地;空签名显示虚线空槽;运行时活:输入亮→盒呼吸→输出亮/失败转红,数据源=右岛同 scope run 流)② 代码段(50 行渐隐收合)③ 环境卡(deps + py + venv 状态合一,envError 红字直出)。meta KV 收进 header 区。
@@ -40,7 +42,7 @@ audience: [human, ai]
 
 | 批 | 内容 | 状态 |
 |---|---|---|
-| F1 | `AnTransformBox` + `AnFadeCollapse` 原语(gallery 7+2 specimens)+ function 概览重排(hero + 50 行渐隐代码 + 环境合卡 + envError callout) | ✅ 已落(gallery + demo 页截图过,输出列对齐 & 窄宿主 chip 溢出已修) |
+| F1 | `AnTransformBox` + `AnFadeCollapse` 原语 + function 概览重排(hero + 50 行渐隐代码 + 环境合卡 + envError callout) | ⚠️ **hero 已回退**(概览回 KV 文档 + 输入/输出卡,`AnTransformBox` 已删);`AnFadeCollapse` 代码收合保留 |
 | F2 | 写面(repository `patchFunctionMeta`/`revertVersion` kind 通用,Live+Fixture 双实现)+ **meta 就地编辑**(页头改名 `AnOceanHeader.onTitleChange` + 概览说明/标签走**成熟 `AnKv` 编辑模式**,PATCH 不升版)+ 版本 tab 结构化签名 diff 小签(`functionVersionSummary` 纯函数)+「设为活跃版本」(`:revert`) | ✅ 已落(含 review 重写) |
 | F2-fix | 概览 meta review 重写:①**说明 + 标签 = 一个可编辑 `AnKv`**(拍板:AnKv 是本页成熟 KV 编辑件,与 venv 段同件;`AnField` 直用 + 手搓 `_TagsMetaField` 均弃,消除对齐/半高/卡编辑态等 review 缺陷)②版本 tab **diff 置顶**、摘要小签 +「设为活跃」移到 diff **下方 footer**(选版本不再跳)③`setActive` 就地重算 active 标记(选区不回弹最新)+ 防重入 pending + 失败 toast ④`VersionRow` 升 freezed 值类型 + `selectedIndex` 防越界 | ✅ 已落 |
 | F2-primitive | 拍板反馈「KV 编辑按钮该在最右、标签该是 ➕/✕ 而非文本」→ **增强 core 原语**:`AnEditableValue` 铅笔↔取消/保存移到 **value 最右单锚**;新增 **`AnKvRow.tags`** | ✅(被 F2-cleanup 重写取代) |

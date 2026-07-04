@@ -24,7 +24,7 @@
 
 - **domains/**（21 篇）：function · handler · agent · workflow · trigger · control · approval · skill · mcp · document · chat · messages · conversation · subagent · attachment · memory · todo · relation · touchpoint · search · support-services（十一微域合篇）
 - **foundation/**（8 篇）：orm · reqctx · scheduler-flowrun（durable 引擎）· loop（ReAct）· stream-llm · sandbox（含 envfix）· platform-pkgs · bootstrap
-- **frontend/**（ADR 0004）：**先读 [overview](references/frontend/overview.md)**（鸟瞰第 0 篇:三岛壳 + 海洋 + sidecar + 三流）· [architecture](references/frontend/architecture.md)（物理文件图 + 路由 + 装配）· [design-system](references/frontend/design-system.md)（设计令牌 + An* 套件 G0–G6）· [contract](references/frontend/contract.md)（后端线缆的 Dart 投影）· [features/](references/frontend/features/)（各 feature 当前形态:entities…）。**协作 / 进展 / 路线 → 一站式 hub [working/frontend/](working/frontend/README.md)**
+- **frontend/**（ADR 0004）：**先读 [overview](references/frontend/overview.md)**（鸟瞰第 0 篇:三岛壳 + 海洋 + sidecar + 三流）· [architecture](references/frontend/architecture.md)（物理文件图 + 路由 + 装配）· [design-system](references/frontend/design-system.md)（设计令牌 + An* 套件 G0–G6）· [contract](references/frontend/contract.md)（后端线缆的 Dart 投影）· [features/](references/frontend/features/)（各 feature 当前形态:entities · documents…）。**协作 / 进展 / 路线 → 一站式 hub [working/frontend/](working/frontend/README.md)**
 
 ## 权威层级
 

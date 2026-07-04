@@ -9,7 +9,7 @@ import '../../../../core/graph/graph_run_state.dart';
 import '../../../../core/ui/an_action_group.dart';
 import '../../../../core/ui/an_button.dart';
 import '../../../../core/ui/an_callout.dart';
-import '../../../../core/ui/an_code_surface.dart';
+import '../../../../core/ui/an_code_block.dart';
 import '../../../../core/ui/an_deferred_loading.dart';
 import '../../../../core/ui/an_graph_canvas.dart';
 import '../../../../core/ui/an_info_card.dart';
@@ -205,13 +205,7 @@ class RunCockpitTab extends ConsumerWidget {
         if (payload.isNotEmpty) ...[
           const SizedBox(height: AnSpace.s8),
           AnSection(label: kv.output, variant: AnSectionVariant.quiet, children: [
-            AnCodeSurface(
-              child: Padding(
-                padding: const EdgeInsets.all(AnSpace.s8),
-                child: Text(prettyJsonCapped(payload),
-                    style: AnText.value(mono: true).copyWith(color: c.ink)),
-              ),
-            ),
+            AnCodeBlock(prettyJsonCapped(payload)),
           ]),
         ],
         // A parked approval node grows the gate — decide right here (first-wins → reconcile). parked 出门。

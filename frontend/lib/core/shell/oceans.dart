@@ -17,7 +17,8 @@ enum OceanKind {
   settings;
 
   /// Whether the ocean's feature exists; the rest render a placeholder. 是否已构建(否则占位)。
-  bool get isBuilt => this == OceanKind.entities || this == OceanKind.chat;
+  bool get isBuilt =>
+      this == OceanKind.entities || this == OceanKind.chat || this == OceanKind.documents;
 
   /// Shown in the top switcher (the gear-reached [settings] is not). 出现在顶部切换器里(齿轮进的 settings 不在)。
   bool get inTopSwitcher => index < OceanKind.settings.index;

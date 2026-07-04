@@ -9,9 +9,10 @@ import '../../../../core/design/typography.dart';
 import '../../../../core/graph/graph_model.dart';
 import '../../../../core/overlay/an_overlay.dart';
 import '../../../../core/ui/an_button.dart';
+import '../../../../core/ui/an_divider.dart';
+import '../../../../core/ui/an_floating_bar.dart';
 import '../../../../core/ui/an_graph_canvas.dart';
 import '../../../../core/ui/an_inspector.dart';
-import '../../../../core/ui/an_interactive.dart';
 import '../../../../core/ui/an_island.dart';
 import '../../../../core/ui/an_menu.dart';
 import '../../../../core/ui/an_state.dart';
@@ -108,7 +109,6 @@ class WorkflowEditorPage extends ConsumerWidget {
   /// The left chrome cluster: OS-lights reservation + the edit-tool pill. Anchored left, min-sized —
   /// it never fights the right cluster for width. 左簇:红绿灯预留 + 编辑工具药丸;左锚、min 宽,不与右簇争。
   Widget _leftChrome(BuildContext context, WorkflowEditorState? st, WorkflowEditorNotifier notifier) {
-    final c = context.colors;
     final e = context.t.entities.detail.editor;
     return Positioned(
       top: 0,
@@ -118,14 +118,14 @@ class WorkflowEditorPage extends ConsumerWidget {
         // Reserve the OS traffic-lights' zone so nothing sits under them. 预留红绿灯位。
         const AnWindowControls(),
         const SizedBox(width: AnSpace.s4),
-        _pill(context, [
+        AnFloatingBar(children: [
           AnButton(
             label: e.back,
             variant: AnButtonVariant.ghost,
             size: AnButtonSize.sm,
             onPressed: () => _exit(context),
           ),
-          _divider(c),
+          const AnDivider.vertical(),
           AnMenu(
             entries: [
               for (final k in const [
@@ -231,81 +231,21 @@ class WorkflowEditorPage extends ConsumerWidget {
             child: Text(e.unsaved, style: AnText.meta.copyWith(color: c.warn)),
           ),
         if (ghostActions.isNotEmpty) ...[
-          _pill(context, ghostActions),
+          AnFloatingBar(children: ghostActions),
           const SizedBox(width: AnSpace.s6),
         ],
-        // Save = an accent-filled pill the SAME size as the white ghost pills (no white frame, no
-        // undersized bare button); a soft float shadow anchors it over the canvas. 保存=与白药丸同尺寸的
-        // accent 药丸(无白框、不再比旁边矮一圈)+ 柔和 float 阴影锚住。
-        _saveButton(context, onPressed: onSave),
+        // Save = the primary CTA, accent-filled with a soft float shadow to anchor it over the busy
+        // canvas ([AnButton] elevated). 保存=主 CTA:accent 填充 + 柔和 float 阴影锚在繁忙画布上(AnButton elevated)。
+        AnButton(
+          label: e.save,
+          icon: AnIcons.check,
+          variant: AnButtonVariant.primary,
+          elevated: true,
+          onPressed: onSave,
+        ),
       ]),
     );
   }
-
-  /// The primary save CTA — an accent-filled pill sized to the SAME outer height as the white ghost
-  /// pills (a sm control + the pill's s4 top/bottom = matching footprint), so it never reads smaller
-  /// than the buttons beside it, and with no white frame around a filled button. Hover/press/disabled
-  /// come from [AnInteractive], the shared interaction base. 主保存 CTA:accent 药丸,外高与白药丸一致
-  /// (sm 控件 + 药丸 s4 上下),不再比旁边矮、也无填充钮套白框;交互态复用 [AnInteractive]。
-  Widget _saveButton(BuildContext context, {required VoidCallback? onPressed}) {
-    final c = context.colors;
-    final e = context.t.entities.detail.editor;
-    final enabled = onPressed != null;
-    return Semantics(
-      button: true,
-      enabled: enabled,
-      label: e.save,
-      child: Opacity(
-        opacity: enabled ? 1 : AnOpacity.disabled,
-        child: AnInteractive(
-          enabled: enabled,
-          onTap: onPressed,
-          builder: (context, states) {
-            final active = states.isActive;
-            return Container(
-              height: AnSize.controlSm + AnSpace.s4 * 2,
-              padding: const EdgeInsets.symmetric(horizontal: AnSpace.s12),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: active ? c.accentHover : c.accent,
-                borderRadius: BorderRadius.circular(AnRadius.button),
-                boxShadow: c.shadowFloat,
-              ),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(AnIcons.check, size: AnSize.iconSm, color: c.onAccent),
-                const SizedBox(width: AnSpace.s6),
-                Text(e.save,
-                    style: AnText.meta.weight(AnText.emphasisWeight).copyWith(color: c.onAccent)),
-              ]),
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  /// A floating chrome cluster — surface pill + hairline + float shadow (same idiom as the canvas zoom
-  /// toolbar), readable over the dotted canvas. 浮动 chrome 簇:surface 药丸(同画布缩放条),画布上可读。
-  Widget _pill(BuildContext context, List<Widget> children) {
-    final c = context.colors;
-    return Container(
-      padding: const EdgeInsets.all(AnSpace.s4),
-      decoration: BoxDecoration(
-        color: c.surface,
-        borderRadius: BorderRadius.circular(AnRadius.button),
-        border: Border.all(color: c.line, width: AnSize.hairline),
-        boxShadow: c.shadowFloat,
-      ),
-      child: Row(mainAxisSize: MainAxisSize.min, children: children),
-    );
-  }
-
-  Widget _divider(AnColors c) => Container(
-        width: AnSize.hairline,
-        height: AnSize.controlSm,
-        margin: const EdgeInsets.symmetric(horizontal: AnSpace.s4),
-        color: c.line,
-      );
 
   void _exit(BuildContext context) => context.go(entityLocation(EntityKind.workflow, workflowId));
 

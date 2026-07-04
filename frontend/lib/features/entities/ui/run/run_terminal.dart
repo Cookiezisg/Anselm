@@ -10,7 +10,8 @@ import '../../../../core/ui/an_badge.dart';
 import '../../../../core/ui/an_button.dart';
 import '../../../../core/ui/an_action_group.dart';
 import '../../../../core/ui/an_callout.dart';
-import '../../../../core/ui/an_code_surface.dart';
+import '../../../../core/ui/an_code_block.dart';
+import '../../../../core/ui/an_divider.dart';
 import '../../../../core/ui/an_info_card.dart';
 import '../../../../core/ui/an_row.dart';
 import '../../../../core/ui/an_scroll_behavior.dart';
@@ -88,7 +89,7 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _head(context, sel, state, detail),
-        Container(height: AnSize.hairline, color: context.colors.line),
+        const AnDivider(),
         Expanded(
           child: ScrollConfiguration(
             behavior: const AnScrollBehavior(),
@@ -189,6 +190,10 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
     final r = context.t.entities.run;
     final parts = <String>[];
     switch (sel.kind) {
+      case EntityKind.control:
+      case EntityKind.approval:
+      case EntityKind.trigger:
+        break; // support kinds — no run meta 支撑 kind 无 run meta
       case EntityKind.agent:
         if (state.steps > 0) parts.add(r.steps(n: state.steps));
         if (state.tokensIn > 0 || state.tokensOut > 0) {
@@ -225,6 +230,10 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
   List<Widget> _kindBody(BuildContext context, EntityRef sel, RunTerminalState state, RunStream s) {
     final r = context.t.entities.run;
     switch (sel.kind) {
+      case EntityKind.control:
+      case EntityKind.approval:
+      case EntityKind.trigger:
+        return const []; // support kinds — no run body 支撑 kind 无 run body
       case EntityKind.function:
       case EntityKind.handler:
         return [
@@ -331,12 +340,7 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
       AnSection(label: title, variant: AnSectionVariant.quiet, children: [child]);
 
   // Plain Text — the whole scroll body is one SelectionArea (best-practice over per-row SelectableText).
-  Widget _mono(BuildContext context, String text) => AnCodeSurface(
-        child: Padding(
-          padding: const EdgeInsets.all(AnSpace.s8),
-          child: Text(text, style: AnText.value(mono: true).copyWith(color: context.colors.ink)),
-        ),
-      );
+  Widget _mono(BuildContext context, String text) => AnCodeBlock(text);
 
   Widget _hint(BuildContext context, String text) =>
       Text(text, style: AnText.meta.copyWith(color: context.colors.inkFaint));

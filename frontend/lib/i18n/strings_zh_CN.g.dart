@@ -53,6 +53,7 @@ class TranslationsZhCn extends Translations with BaseTranslations<AppLocale, Tra
 	@override late final _Translations$startup$zh_CN startup = _Translations$startup$zh_CN._(_root);
 	@override late final _Translations$entities$zh_CN entities = _Translations$entities$zh_CN._(_root);
 	@override late final _Translations$coldStart$zh_CN coldStart = _Translations$coldStart$zh_CN._(_root);
+	@override late final _Translations$documents$zh_CN documents = _Translations$documents$zh_CN._(_root);
 	@override late final _Translations$markdown$zh_CN markdown = _Translations$markdown$zh_CN._(_root);
 	@override late final _Translations$attach$zh_CN attach = _Translations$attach$zh_CN._(_root);
 }
@@ -313,6 +314,29 @@ class _Translations$coldStart$zh_CN extends Translations$coldStart$en {
 	@override String get defaultWorkspace => '个人';
 }
 
+// Path: documents
+class _Translations$documents$zh_CN extends Translations$documents$en {
+	_Translations$documents$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get documents => '文档';
+	@override String get skills => '技能';
+	@override String get untitled => '未命名';
+	@override String get filter => '过滤';
+	@override String get kNew => '新建';
+	@override String get errorTitle => '无法加载知识库';
+	@override String get errorHint => '本地引擎没有返回它。';
+	@override String get retry => '重试';
+	@override String get emptyTitle => '这里还什么都没有';
+	@override String get emptyHint => '新建一篇文档或一个技能开始。';
+	@override String get pickTitle => '选一篇文档';
+	@override String get pickHint => '在左侧选一篇文档或技能来阅读或编辑。';
+	@override String get loadFailed => '打不开这个';
+	@override String get emptyDoc => '这篇文档是空的。';
+}
+
 // Path: markdown
 class _Translations$markdown$zh_CN extends Translations$markdown$en {
 	_Translations$markdown$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
@@ -458,6 +482,7 @@ class _Translations$entities$detail$zh_CN extends Translations$entities$detail$e
 	@override late final _Translations$entities$detail$tab$zh_CN tab = _Translations$entities$detail$tab$zh_CN._(_root);
 	@override late final _Translations$entities$detail$verb$zh_CN verb = _Translations$entities$detail$verb$zh_CN._(_root);
 	@override late final _Translations$entities$detail$hero$zh_CN hero = _Translations$entities$detail$hero$zh_CN._(_root);
+	@override late final _Translations$entities$detail$gate$zh_CN gate = _Translations$entities$detail$gate$zh_CN._(_root);
 	@override late final _Translations$entities$detail$codeToggle$zh_CN codeToggle = _Translations$entities$detail$codeToggle$zh_CN._(_root);
 	@override late final _Translations$entities$detail$sec$zh_CN sec = _Translations$entities$detail$sec$zh_CN._(_root);
 	@override late final _Translations$entities$detail$card$zh_CN card = _Translations$entities$detail$card$zh_CN._(_root);
@@ -466,6 +491,7 @@ class _Translations$entities$detail$zh_CN extends Translations$entities$detail$e
 	@override late final _Translations$entities$detail$kv$zh_CN kv = _Translations$entities$detail$kv$zh_CN._(_root);
 	@override late final _Translations$entities$detail$val$zh_CN val = _Translations$entities$detail$val$zh_CN._(_root);
 	@override late final _Translations$entities$detail$mounts$zh_CN mounts = _Translations$entities$detail$mounts$zh_CN._(_root);
+	@override late final _Translations$entities$detail$trigger$zh_CN trigger = _Translations$entities$detail$trigger$zh_CN._(_root);
 	@override String get addTag => '添加标签';
 	@override late final _Translations$entities$detail$state$zh_CN state = _Translations$entities$detail$state$zh_CN._(_root);
 	@override late final _Translations$entities$detail$editor$zh_CN editor = _Translations$entities$detail$editor$zh_CN._(_root);
@@ -509,6 +535,9 @@ class _Translations$entities$run$zh_CN extends Translations$entities$run$en {
 	@override String get approve => '通过';
 	@override String get reject => '驳回';
 	@override String get approvalHint => 'first-wins:先到的决断生效。';
+	@override String get reasonHint => '备注(可选)';
+	@override String get inboxEmpty => '没有待审批';
+	@override String get inboxEmptyHint => '等待决断的审批会出现在这里。';
 }
 
 // Path: chat.tool.kind
@@ -540,6 +569,8 @@ class _Translations$entities$detail$tab$zh_CN extends Translations$entities$deta
 	@override String get versions => '版本';
 	@override String get logs => '日志';
 	@override String get runs => '运行';
+	@override String get activity => '活动';
+	@override String get dispatch => '派发';
 }
 
 // Path: entities.detail.verb
@@ -565,7 +596,22 @@ class _Translations$entities$detail$hero$zh_CN extends Translations$entities$det
 	@override String envStatus({required Object status}) => 'env ${status}';
 	@override String get noInputs => '无入参';
 	@override String get noOutputs => '无返回';
+	@override String get noConfig => '无 config';
+	@override String get noMethods => '无方法';
+	@override String methods({required Object n}) => '${n} 个方法';
 	@override String deps({required Object n}) => '${n} 依赖';
+}
+
+// Path: entities.detail.gate
+class _Translations$entities$detail$gate$zh_CN extends Translations$entities$detail$gate$en {
+	_Translations$entities$detail$gate$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get config => 'config';
+	@override String get env => 'env';
+	@override String get instance => 'instance';
 }
 
 // Path: entities.detail.codeToggle
@@ -599,6 +645,12 @@ class _Translations$entities$detail$sec$zh_CN extends Translations$entities$deta
 	@override String get governance => '运行治理';
 	@override String get alerts => '告警';
 	@override String get graph => '编排图';
+	@override String get branches => '路由分支';
+	@override String get template => '审批模板';
+	@override String get decisionRules => '决策规则';
+	@override String get config => '配置';
+	@override String get listener => '监听';
+	@override String get firePayload => 'Fire 载荷';
 }
 
 // Path: entities.detail.card
@@ -672,6 +724,9 @@ class _Translations$entities$detail$kv$zh_CN extends Translations$entities$detai
 	@override String get python => 'Python';
 	@override String get updated => '更新';
 	@override String get desc => '说明';
+	@override String get allowReason => '允许备注';
+	@override String get timeout => '超时';
+	@override String get timeoutBehavior => '超时行为';
 	@override String get envId => 'env id';
 	@override String get status => '状态';
 	@override String get syncedAt => '最近同步';
@@ -709,6 +764,10 @@ class _Translations$entities$detail$val$zh_CN extends Translations$entities$deta
 
 	// Translations
 	@override String get listening => '监听中';
+	@override String get passthrough => '透传';
+	@override String get never => '永不超时';
+	@override String get yes => '是';
+	@override String get no => '否';
 	@override String get stopped => '已停';
 	@override String get noAlerts => '无告警';
 	@override String get needsAttention => '需注意';
@@ -734,6 +793,41 @@ class _Translations$entities$detail$mounts$zh_CN extends Translations$entities$d
 	@override String unhealthy({required Object count}) => '${count} 项异常';
 }
 
+// Path: entities.detail.trigger
+class _Translations$entities$detail$trigger$zh_CN extends Translations$entities$detail$trigger$en {
+	_Translations$entities$detail$trigger$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get fire => '催发';
+	@override String get listening => '监听中';
+	@override String get idle => '空闲';
+	@override String get source => '源';
+	@override String get refCount => '监听者';
+	@override String get lastFired => '最近触发';
+	@override String get nextFire => '下次触发';
+	@override String get signatureAlgo => '签名';
+	@override String get signatureHeader => '签名头';
+	@override String get events => '事件';
+	@override String get pattern => '匹配';
+	@override String get target => '目标';
+	@override String get interval => '间隔';
+	@override String get fired => '已触发';
+	@override String get notFired => '未触发';
+	@override String fanout({required Object n}) => '扇出 ${n}';
+	@override String get fanoutLabel => '扇出';
+	@override String get returnValue => '返回值';
+	@override String get payload => '载荷';
+	@override String get detail => '详情';
+	@override String get activation => '活动';
+	@override String get allActivity => '全部活动';
+	@override String get firedOnly => '仅已触发';
+	@override String get allDispatch => '全部派发';
+	@override String firedToast({required Object id}) => '已催发 · ${id}';
+	@override String get fireFailed => '催发失败';
+}
+
 // Path: entities.detail.state
 class _Translations$entities$detail$state$zh_CN extends Translations$entities$detail$state$en {
 	_Translations$entities$detail$state$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
@@ -747,6 +841,10 @@ class _Translations$entities$detail$state$zh_CN extends Translations$entities$de
 	@override String get noVersions => '暂无版本';
 	@override String get noLogs => '暂无运行记录';
 	@override String get noLogsHint => '执行该实体后,记录会出现在这里。';
+	@override String get noActivations => '暂无活动';
+	@override String get noActivationsHint => '该触发器每次动作(触发与否)都会在此留一行。';
+	@override String get noFirings => '无派发';
+	@override String get noFiringsHint => '一次触发扇给 workflow 后,其处置显示在此。';
 	@override String get noActiveVersion => '无活动版本';
 	@override String get notFoundTitle => '未找到该实体';
 	@override String get errorTitle => '无法加载该实体';
@@ -786,6 +884,10 @@ class _Translations$entities$detail$editor$zh_CN extends Translations$entities$d
 	@override String get deleteNode => '删除节点';
 	@override String get deleteEdge => '删除连线';
 	@override String get portHint => 'control 端口须匹配分支名;approval 为 yes/no';
+	@override String get portPick => '选择分支端口';
+	@override String get branches => '路由分支';
+	@override String get branchDefault => '兜底(其余情况)';
+	@override String get branchEmit => 'emit';
 	@override String get addField => '添加字段';
 	@override String get field => '字段';
 	@override String get expr => 'CEL 表达式';
@@ -1035,6 +1137,8 @@ extension on TranslationsZhCn {
 			'entities.detail.tab.versions' => '版本',
 			'entities.detail.tab.logs' => '日志',
 			'entities.detail.tab.runs' => '运行',
+			'entities.detail.tab.activity' => '活动',
+			'entities.detail.tab.dispatch' => '派发',
 			'entities.detail.verb.run' => '运行',
 			'entities.detail.verb.call' => '调用',
 			'entities.detail.verb.invoke' => '唤起',
@@ -1042,7 +1146,13 @@ extension on TranslationsZhCn {
 			'entities.detail.hero.envStatus' => ({required Object status}) => 'env ${status}',
 			'entities.detail.hero.noInputs' => '无入参',
 			'entities.detail.hero.noOutputs' => '无返回',
+			'entities.detail.hero.noConfig' => '无 config',
+			'entities.detail.hero.noMethods' => '无方法',
+			'entities.detail.hero.methods' => ({required Object n}) => '${n} 个方法',
 			'entities.detail.hero.deps' => ({required Object n}) => '${n} 依赖',
+			'entities.detail.gate.config' => 'config',
+			'entities.detail.gate.env' => 'env',
+			'entities.detail.gate.instance' => 'instance',
 			'entities.detail.codeToggle.expand' => ({required Object n}) => '展开全部 (${n} 行)',
 			'entities.detail.codeToggle.collapse' => '收起',
 			'entities.detail.sec.code' => '代码',
@@ -1058,6 +1168,12 @@ extension on TranslationsZhCn {
 			'entities.detail.sec.governance' => '运行治理',
 			'entities.detail.sec.alerts' => '告警',
 			'entities.detail.sec.graph' => '编排图',
+			'entities.detail.sec.branches' => '路由分支',
+			'entities.detail.sec.template' => '审批模板',
+			'entities.detail.sec.decisionRules' => '决策规则',
+			'entities.detail.sec.config' => '配置',
+			'entities.detail.sec.listener' => '监听',
+			'entities.detail.sec.firePayload' => 'Fire 载荷',
 			'entities.detail.card.deps' => '依赖',
 			'entities.detail.card.venv' => 'venv 状态',
 			'entities.detail.card.runtime' => '运行时',
@@ -1095,6 +1211,9 @@ extension on TranslationsZhCn {
 			'entities.detail.kv.python' => 'Python',
 			'entities.detail.kv.updated' => '更新',
 			'entities.detail.kv.desc' => '说明',
+			'entities.detail.kv.allowReason' => '允许备注',
+			'entities.detail.kv.timeout' => '超时',
+			'entities.detail.kv.timeoutBehavior' => '超时行为',
 			'entities.detail.kv.envId' => 'env id',
 			'entities.detail.kv.status' => '状态',
 			'entities.detail.kv.syncedAt' => '最近同步',
@@ -1123,6 +1242,10 @@ extension on TranslationsZhCn {
 			'entities.detail.kv.completedAt' => '结束',
 			'entities.detail.kv.triggeredBy' => '触发方',
 			'entities.detail.val.listening' => '监听中',
+			'entities.detail.val.passthrough' => '透传',
+			'entities.detail.val.never' => '永不超时',
+			'entities.detail.val.yes' => '是',
+			'entities.detail.val.no' => '否',
 			'entities.detail.val.stopped' => '已停',
 			'entities.detail.val.noAlerts' => '无告警',
 			'entities.detail.val.needsAttention' => '需注意',
@@ -1137,6 +1260,32 @@ extension on TranslationsZhCn {
 			'entities.detail.val.none' => '—',
 			'entities.detail.mounts.healthy' => '挂载正常',
 			'entities.detail.mounts.unhealthy' => ({required Object count}) => '${count} 项异常',
+			'entities.detail.trigger.fire' => '催发',
+			'entities.detail.trigger.listening' => '监听中',
+			'entities.detail.trigger.idle' => '空闲',
+			'entities.detail.trigger.source' => '源',
+			'entities.detail.trigger.refCount' => '监听者',
+			'entities.detail.trigger.lastFired' => '最近触发',
+			'entities.detail.trigger.nextFire' => '下次触发',
+			'entities.detail.trigger.signatureAlgo' => '签名',
+			'entities.detail.trigger.signatureHeader' => '签名头',
+			'entities.detail.trigger.events' => '事件',
+			'entities.detail.trigger.pattern' => '匹配',
+			'entities.detail.trigger.target' => '目标',
+			'entities.detail.trigger.interval' => '间隔',
+			'entities.detail.trigger.fired' => '已触发',
+			'entities.detail.trigger.notFired' => '未触发',
+			'entities.detail.trigger.fanout' => ({required Object n}) => '扇出 ${n}',
+			'entities.detail.trigger.fanoutLabel' => '扇出',
+			'entities.detail.trigger.returnValue' => '返回值',
+			'entities.detail.trigger.payload' => '载荷',
+			'entities.detail.trigger.detail' => '详情',
+			'entities.detail.trigger.activation' => '活动',
+			'entities.detail.trigger.allActivity' => '全部活动',
+			'entities.detail.trigger.firedOnly' => '仅已触发',
+			'entities.detail.trigger.allDispatch' => '全部派发',
+			'entities.detail.trigger.firedToast' => ({required Object id}) => '已催发 · ${id}',
+			'entities.detail.trigger.fireFailed' => '催发失败',
 			'entities.detail.addTag' => '添加标签',
 			'entities.detail.state.setActive' => '设为活跃版本',
 			'entities.detail.state.setActiveFailed' => '设为活跃版本失败',
@@ -1144,6 +1293,10 @@ extension on TranslationsZhCn {
 			'entities.detail.state.noVersions' => '暂无版本',
 			'entities.detail.state.noLogs' => '暂无运行记录',
 			'entities.detail.state.noLogsHint' => '执行该实体后,记录会出现在这里。',
+			'entities.detail.state.noActivations' => '暂无活动',
+			'entities.detail.state.noActivationsHint' => '该触发器每次动作(触发与否)都会在此留一行。',
+			'entities.detail.state.noFirings' => '无派发',
+			'entities.detail.state.noFiringsHint' => '一次触发扇给 workflow 后,其处置显示在此。',
 			'entities.detail.state.noActiveVersion' => '无活动版本',
 			'entities.detail.state.notFoundTitle' => '未找到该实体',
 			'entities.detail.state.errorTitle' => '无法加载该实体',
@@ -1174,6 +1327,10 @@ extension on TranslationsZhCn {
 			'entities.detail.editor.deleteNode' => '删除节点',
 			'entities.detail.editor.deleteEdge' => '删除连线',
 			'entities.detail.editor.portHint' => 'control 端口须匹配分支名;approval 为 yes/no',
+			'entities.detail.editor.portPick' => '选择分支端口',
+			'entities.detail.editor.branches' => '路由分支',
+			'entities.detail.editor.branchDefault' => '兜底(其余情况)',
+			'entities.detail.editor.branchEmit' => 'emit',
 			'entities.detail.editor.addField' => '添加字段',
 			'entities.detail.editor.field' => '字段',
 			'entities.detail.editor.expr' => 'CEL 表达式',
@@ -1228,10 +1385,27 @@ extension on TranslationsZhCn {
 			'entities.run.approve' => '通过',
 			'entities.run.reject' => '驳回',
 			'entities.run.approvalHint' => 'first-wins:先到的决断生效。',
+			'entities.run.reasonHint' => '备注(可选)',
+			'entities.run.inboxEmpty' => '没有待审批',
+			'entities.run.inboxEmptyHint' => '等待决断的审批会出现在这里。',
 			'coldStart.connecting' => '正在准备工作区…',
 			'coldStart.errorTitle' => '无法准备工作区',
 			'coldStart.errorHint' => '本地引擎已连通,但工作区未就绪。',
 			'coldStart.defaultWorkspace' => '个人',
+			'documents.documents' => '文档',
+			'documents.skills' => '技能',
+			'documents.untitled' => '未命名',
+			'documents.filter' => '过滤',
+			'documents.kNew' => '新建',
+			'documents.errorTitle' => '无法加载知识库',
+			'documents.errorHint' => '本地引擎没有返回它。',
+			'documents.retry' => '重试',
+			'documents.emptyTitle' => '这里还什么都没有',
+			'documents.emptyHint' => '新建一篇文档或一个技能开始。',
+			'documents.pickTitle' => '选一篇文档',
+			'documents.pickHint' => '在左侧选一篇文档或技能来阅读或编辑。',
+			'documents.loadFailed' => '打不开这个',
+			'documents.emptyDoc' => '这篇文档是空的。',
 			'markdown.imageNotLoaded' => '图片未加载',
 			'attach.unavailable' => '已不可用',
 			'attach.retry' => '点按重试',

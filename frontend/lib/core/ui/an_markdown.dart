@@ -68,8 +68,10 @@ class AnMarkdown extends StatelessWidget {
   // 默认组件表剔 LaTeX(块+内联)、UnderLineMd(`<u>` 须字面)与 RadioButtonMd(`(x)` 单选非标准 markdown——正文
   // 行首 "(x) …" 会被惊吓渲成单选钮),换入 token 锁定版加粗/引用/任务勾;顺序镜像包默认;static 保身份稳定。
   static final List<MarkdownComponent> _components = [
-    CodeBlockMd(), NewLines(), _AnBlockQuoteMd(), TableMd(), HTag(),
-    UnOrderedList(), OrderedList(), _AnCheckBoxMd(), HrLine(), IndentMd(),
+    // _AnCheckBoxMd BEFORE UnOrderedList: a task line (`- [x] …`) is claimed whole by the checkbox
+    // component, so it never also gets an unordered bullet. checkbox 排在无序列表前,task 行不再双记号。
+    CodeBlockMd(), _AnNewLines(), _AnBlockQuoteMd(), TableMd(), _AnHTag(),
+    _AnCheckBoxMd(), UnOrderedList(), OrderedList(), HrLine(), IndentMd(),
   ];
   static final List<MarkdownComponent> _inlineComponents = [
     ATagMd(), ImageMd(), TableMd(), StrikeMd(), _AnBoldMd(), ItalicMd(),
@@ -88,8 +90,10 @@ class AnMarkdown extends StatelessWidget {
     // The style MUST carry the theme ink: the package regenerates spans only when `style` differs
     // (isSame), so a colourless const style would go stale on a theme flip.
     // style 必须带主题墨色:包只在 style 不同才重生成 span(isSame),无色常量换主题会陈旧。
-    final body = AnText.body.copyWith(color: c.ink);
-    final h456 = AnText.body.weight(AnText.emphasisWeight).copyWith(color: c.ink);
+    // Reading-column body — 13px w300 at the roomier 1.55 line-height (Notion-calibrated air for prose).
+    // 阅读列正文:13px w300 + 1.55 行高(照 Notion 校准给 prose 空气)。
+    final body = AnText.reading.copyWith(color: c.ink);
+    final h456 = AnText.reading.weight(AnText.emphasisWeight).copyWith(color: c.ink);
     return GptMarkdownTheme(
       // The factory back-fills UNSPECIFIED fields from a fresh Material ThemeData, not ours — specify
       // every field. 工厂对未指定字段用全新 Material ThemeData 兜底——所有字段显式给值。
@@ -105,7 +109,8 @@ class AnMarkdown extends StatelessWidget {
         h6: h456,
         hrLineThickness: AnSize.hairline,
         hrLineColor: c.line,
-        hrLinePadding: const EdgeInsets.symmetric(vertical: AnSpace.s12),
+        hrLinePadding: EdgeInsets.zero, // the newline gap owns separation (no double-stack) 间距归换行
+
         linkColor: c.accent,
         linkHoverColor: c.accentHover,
         autoAddDividerLineAfterH1: false, // no decorative divider under H1 不给 H1 配装饰分割线
@@ -130,10 +135,10 @@ class AnMarkdown extends StatelessWidget {
   // optimistically as a live block that grows with the stream. trimRight: the closing-fence newline
   // otherwise renders a trailing empty gutter line. 围栏→唯一代码解剖(只读);未闭合乐观渲染;trimRight 去掉
   // 闭合围栏换行带来的尾空行。
-  Widget _fencedCode(BuildContext context, String name, String code, bool closed) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: AnSpace.s8),
-        child: AnCodeEditor(code: code.trimRight(), lang: name.trim().isEmpty ? null : name.trim()),
-      );
+  // No outer padding — the flanking _AnNewLines gap (AnFlow.block) is the SINGLE block-separation term;
+  // a padding here would stack on it and read too loose (the old inconsistency). 无外距,间距归换行统一。
+  Widget _fencedCode(BuildContext context, String name, String code, bool closed) =>
+      AnCodeEditor(code: code.trimRight(), lang: name.trim().isEmpty ? null : name.trim());
 
   // Inline `code` → mono on a sunken chip (the package default is bold-only — broken on the pinned axis).
   // 内联 code→mono+凹陷 chip(包默认仅加粗——钉轴上渲错)。
@@ -191,10 +196,7 @@ class AnMarkdown extends StatelessWidget {
             if (i < columns.length) 'c$i': f.data.trim(),
         },
     ];
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AnSpace.s8),
-      child: AnThinTable(columns: columns, rows: dataRows),
-    );
+    return AnThinTable(columns: columns, rows: dataRows); // no outer padding — the newline gap owns separation 间距归换行
   }
 
   static AnTableAlign _mapAlign(TextAlign a) => switch (a) {
@@ -234,6 +236,34 @@ class AnMarkdown extends StatelessWidget {
       );
 }
 
+/// The SINGLE block-gap authority. The package's `NewLines` emits a `"\n\n"` span at height 1.15 (≈15px,
+/// font-metric-dependent, no theme knob); combined with each block's own padding the rhythm drifted
+/// (prose ~15 / quote ~17 / code ~23 / hr ~27). This pins EVERY block transition to one deterministic
+/// [AnFlow.block] (12px) — with the per-block paddings zeroed (see AnMarkdown), the flanking blank line
+/// is the ONLY separation term, so para↔para, heading↔body, ↔code, ↔table, ↔quote, ↔hr all read at 12.
+/// 唯一块间距权威:把包的 ~15px 换行改成确定 12px;各块外距归零后,换行是唯一间距源 → 全部块间距统一 12。
+class _AnNewLines extends NewLines {
+  @override
+  InlineSpan span(BuildContext context, String text, GptMarkdownConfig config) => TextSpan(
+        // fontSize == the gap, height 1.0 → the blank line is exactly AnFlow.block tall, font-independent.
+        // fontSize=间距、height=1.0 → 空行恰为 AnFlow.block 高,与字体无关。
+        text: '\n\n',
+        style: const TextStyle(fontSize: AnFlow.block, height: 1.0),
+      );
+}
+
+/// Headings breathe MORE above than below (Notion's signature ~2:1) — a heading belongs to the content
+/// beneath it. On top of the uniform [AnFlow.block] (12) the flanking newline already gives, add
+/// [AnFlow.block] more ABOVE only → ≈24 above / 12 below. Mirrors the package HTag build, wrapping it in a
+/// top pad. 标题上方留白多于下方(Notion 2:1,归组下文):在换行统一 12 之上,仅上方再加 12 → 上≈24 / 下 12。
+class _AnHTag extends HTag {
+  @override
+  Widget build(BuildContext context, String text, GptMarkdownConfig config) => Padding(
+        padding: const EdgeInsets.only(top: AnFlow.block),
+        child: super.build(context, text, config),
+      );
+}
+
 /// BoldMd under the two-weight rule — mirrors the package `span` with ONE change: re-weight via
 /// `.weight(emphasisWeight)` (pins the `wght` axis). The package's bare `copyWith(fontWeight: bold)` is
 /// overridden by our pinned axis and would render w300. 两档字重版加粗:镜像包实现、只改 style 一行(走 `.weight()`
@@ -257,6 +287,13 @@ class _AnBoldMd extends BoldMd {
 /// mirroring the list markers. Read-only prose, so no interactivity is lost. 任务勾:去 Material Checkbox
 /// (过大+触target空隙、不合 13px 律),换 16px 安静字形(勾=ok / 空=inkFaint),布局同列表记号;只读无损。
 class _AnCheckBoxMd extends CheckBoxMd {
+  // Match the FULL task line INCLUDING the leading list marker (`- [x] …` / `* [ ] …`), so this component
+  // claims the whole item and the checkbox is the ONE marker — the package default matches only `[x] …`,
+  // letting UnOrderedList ALSO draw a bullet (the double-marker bug). Must be ordered BEFORE UnOrderedList.
+  // 匹配含前导 `- `/`* ` 的整行,独占该项、勾框是唯一记号(包默认只匹 `[x]`→无序列表另画圆点=双记号);须排在 UnOrderedList 前。
+  @override
+  String get expString => r"(?:\-|\*)\ \[((?:x|\ ))\]\ (\S[^\n]*?)$";
+
   @override
   Widget build(BuildContext context, String text, GptMarkdownConfig config) {
     final match = exp.firstMatch(text.trim());
@@ -309,7 +346,7 @@ class _AnBlockQuoteMd extends BlockQuote {
           child: Directionality(
             textDirection: config.textDirection,
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: AnSpace.s2),
+              padding: EdgeInsets.zero, // the newline gap owns separation (was s2 → cramped) 间距归换行(原 s2 太挤)
               child: BlockQuoteWidget(
                 color: c.lineStrong,
                 direction: config.textDirection,

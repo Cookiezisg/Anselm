@@ -33,21 +33,11 @@ class ToolWindow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
-    return Container(
+    // The machine window IS the shared sunken panel (its header slot carries the command echo).
+    // 机器窗即共享凹陷面板(header 槽承载命令回显)。
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: AnSpace.s12, vertical: AnSpace.s8),
-      decoration: BoxDecoration(
-        color: c.surfaceSunken,
-        borderRadius: BorderRadius.circular(AnRadius.chip),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (header != null) ...[header!, const SizedBox(height: AnSpace.s4)],
-          child,
-        ],
-      ),
+      child: AnSunkenPanel(header: header, child: child),
     );
   }
 }
@@ -264,7 +254,7 @@ class _BuildResultBar extends StatelessWidget {
     final restarted = out['restarted'] == true;
     final parts = <InlineSpan>[
       if (id != null)
-        TextSpan(text: id, style: AnText.code.copyWith(color: c.inkMuted, height: 1.4)),
+        TextSpan(text: id, style: AnText.codeInline.copyWith(color: c.inkMuted)),
       if (version != null)
         TextSpan(text: '${id != null ? ' · ' : ''}v$version',
             style: AnText.metaTabular().copyWith(color: c.inkMuted)),

@@ -2,10 +2,22 @@ import 'package:flutter/widgets.dart';
 
 import '../../../../core/contract/entities/values.dart';
 import '../../../../core/ui/an_field.dart';
+import '../../../../core/ui/an_section.dart';
 import '../../../../core/ui/an_state.dart';
 
 /// Small shared builders the four per-kind overviews compose, so KV/field/empty rendering is written
 /// once. Pure presentation over the verified kit (AnKv / AnField / AnState). 概览共享小构件(KV/字段/空)。
+
+/// The read-only IDENTITY section shared by the agent + handler overviews — an optional wrapped
+/// description field ([descLabel]/[desc]) over an id/version/… KV list. i18n-free like its siblings, so
+/// the caller passes the localized description label. 只读身份段(agent/handler 概览共用):可选说明字段 + KV 列。
+Widget identitySection(String descLabel, String desc, List<(String, String?)> rows) => AnSection(
+      variant: AnSectionVariant.plain,
+      children: [
+        if (desc.isNotEmpty) AnField(label: descLabel, value: desc, wrap: true),
+        kvList(rows),
+      ],
+    );
 
 /// A read-only key/value definition list from `(label, value)` tuples — `value: null` rows are dropped.
 /// `wrap` is now per-row on AnKvRow (read-only long values); this helper applies it to every row.

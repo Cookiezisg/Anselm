@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
+import 'an_edge_fade.dart';
 import 'an_interactive.dart';
 
 /// A tall block collapsed to [collapsedHeight] with a fade-out gradient and an expand/collapse
@@ -67,17 +68,7 @@ class _AnFadeCollapseState extends State<AnFadeCollapse> {
               right: 0,
               bottom: 0,
               height: AnSize.row * 2,
-              child: IgnorePointer(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [fade.withValues(alpha: 0), fade],
-                    ),
-                  ),
-                ),
-              ),
+              child: AnEdgeFade(fromTop: false, color: fade),
             ),
           ]),
         Semantics(

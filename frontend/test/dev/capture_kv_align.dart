@@ -10,7 +10,6 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:anselm/core/design/theme.dart';
-import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/gestures.dart';

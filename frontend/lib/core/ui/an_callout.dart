@@ -129,8 +129,8 @@ class _AnCalloutState extends State<AnCallout> {
             semanticsLabel: hasTitle ? null : '$word: ${widget.message}'),
         if (widget.actions.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.only(top: AnSpace.s8),
-            child: Wrap(spacing: AnSpace.s6, runSpacing: AnSpace.s6, children: widget.actions),
+            padding: const EdgeInsets.only(top: AnGap.block), // content → actions (12, unified with cards) 内容→动作
+            child: Wrap(spacing: AnGap.inline, runSpacing: AnGap.inline, children: widget.actions),
           ),
       ],
     );
@@ -139,7 +139,7 @@ class _AnCalloutState extends State<AnCallout> {
       container: true,
       liveRegion: true,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: AnSpace.s12, vertical: AnSpace.s8),
+        padding: AnInset.snug, // callout interior (12/8) 提示框内距
         decoration: BoxDecoration(color: tone.softBg(c), borderRadius: BorderRadius.circular(AnRadius.chip)),
         // start-align so the icon hugs the FIRST line when the message wraps. start 对齐:多行时图标贴首行。
         child: Row(

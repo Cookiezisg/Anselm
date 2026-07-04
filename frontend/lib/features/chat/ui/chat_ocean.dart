@@ -46,7 +46,8 @@ class _ChatOceanState extends ConsumerState<ChatOcean> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: AnSize.content),
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(AnSpace.s24, AnSpace.s4, AnSpace.s24, AnSpace.s16),
+                // top = AnGap.block (12): the transcript↔composer boundary was the tightest gap in chat (s4). 转录↔输入边界(原 s4 最紧)。
+                padding: const EdgeInsets.fromLTRB(AnInset.pageX, AnGap.block, AnInset.pageX, AnSpace.s16),
                 child: ChatComposer(conversationId: id, key: ValueKey('composer-$id')),
               ),
             ),

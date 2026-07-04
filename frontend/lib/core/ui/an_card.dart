@@ -65,9 +65,7 @@ class AnCard extends StatelessWidget {
   Widget _card(BuildContext context, {required bool active}) {
     final c = context.colors;
     final reduced = AnMotionPref.reduced(context);
-    final padding = pad == AnCardPad.tight
-        ? const EdgeInsets.symmetric(horizontal: AnSpace.s8, vertical: AnSpace.s4)
-        : const EdgeInsets.symmetric(horizontal: AnSpace.s16, vertical: AnSpace.s12);
+    final padding = pad == AnCardPad.tight ? AnInset.tight : AnInset.card; // 8/4 vs 16/12 — deliberate density rungs 密度分档
 
     // Priority (matches demo source order): selected (2px accent) > selectable-hover (lineStrong) >
     // accent variant (accentLine) > neutral (line). So an accent selectable card's hover deepens to

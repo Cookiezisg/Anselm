@@ -44,8 +44,7 @@ class MentionTextEditingController extends TextEditingController {
   // Pill-tint one plain segment (token boundaries evaluated within it). 对一段做药丸染色。
   List<InlineSpan> _pillSpans(BuildContext context, String s, TextStyle? style) {
     final c = context.colors;
-    final pillStyle = (style ?? AnText.body)
-        .copyWith(color: c.accent, fontWeight: AnText.emphasisWeight, fontVariations: const [FontVariation('wght', 400)]);
+    final pillStyle = (style ?? AnText.body).weight(AnText.emphasisWeight).copyWith(color: c.accent);
     final spans = <InlineSpan>[];
     var i = 0;
     while (i < s.length) {

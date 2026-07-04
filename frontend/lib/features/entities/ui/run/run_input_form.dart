@@ -8,6 +8,7 @@ import '../../../../core/design/typography.dart';
 import '../../../../core/ui/an_button.dart';
 import '../../../../core/ui/an_callout.dart';
 import '../../../../core/ui/an_dropdown.dart';
+import '../../../../core/ui/an_form_field.dart';
 import '../../../../core/ui/an_input.dart';
 import '../../../../core/ui/icons.dart';
 import '../../../../i18n/strings.g.dart';
@@ -76,17 +77,18 @@ class _RunInputFormState extends ConsumerState<RunInputForm> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (widget.entityRef.kind == EntityKind.handler) ...[
-          _label(context, r.method),
-          const SizedBox(height: AnSpace.s4),
-          AnDropdown<String>(
-            block: true,
-            value: state.method.isEmpty ? null : state.method,
-            enabled: !state.isRunning,
-            options: [
-              for (final m in methods)
-                AnDropdownOption(value: m.name, label: m.name, meta: m.streaming ? r.streaming : null),
-            ],
-            onChanged: c.setMethod,
+          AnFormField(
+            label: r.method,
+            child: AnDropdown<String>(
+              block: true,
+              value: state.method.isEmpty ? null : state.method,
+              enabled: !state.isRunning,
+              options: [
+                for (final m in methods)
+                  AnDropdownOption(value: m.name, label: m.name, meta: m.streaming ? r.streaming : null),
+              ],
+              onChanged: c.setMethod,
+            ),
           ),
           const SizedBox(height: AnSpace.s12),
         ],
@@ -136,13 +138,11 @@ class _RunInputFormState extends ConsumerState<RunInputForm> {
         onChanged: (v) => c.setField(f.name, v),
       );
     }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _label(context, f.name, type: f.type, desc: f.description),
-        const SizedBox(height: AnSpace.s4),
-        input,
-      ],
+    return AnFormField(
+      label: f.name,
+      desc: f.description,
+      labelTrailing: Text(f.type, style: AnText.meta.copyWith(color: context.colors.inkFaint)),
+      child: input,
     );
   }
 
@@ -151,46 +151,19 @@ class _RunInputFormState extends ConsumerState<RunInputForm> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _label(context, r.payload),
-        const SizedBox(height: AnSpace.s4),
-        AnInput(
-          key: ValueKey('${widget.entityRef}/$_payloadKey'),
-          block: true,
-          multiline: true,
-          mono: true,
-          enabled: !busy,
-          initialValue: c.draft[_payloadKey] as String?,
-          onChanged: (v) => c.setField(_payloadKey, v),
+        AnFormField(
+          label: r.payload,
+          child: AnInput(
+            key: ValueKey('${widget.entityRef}/$_payloadKey'),
+            block: true,
+            multiline: true,
+            mono: true,
+            enabled: !busy,
+            initialValue: c.draft[_payloadKey] as String?,
+            onChanged: (v) => c.setField(_payloadKey, v),
+          ),
         ),
         const SizedBox(height: AnSpace.s12),
-      ],
-    );
-  }
-
-  Widget _label(BuildContext context, String name, {String? type, String? desc}) {
-    final c = context.colors;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.baseline,
-          textBaseline: TextBaseline.alphabetic,
-          children: [
-            Flexible(
-              child: Text(name,
-                  maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.strong.copyWith(color: c.ink)),
-            ),
-            if (type != null) ...[
-              const SizedBox(width: AnSpace.s6),
-              Text(type, style: AnText.meta.copyWith(color: c.inkFaint)),
-            ],
-          ],
-        ),
-        if (desc != null && desc.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: AnSpace.s2),
-            child: Text(desc, style: AnText.meta.copyWith(color: c.inkMuted)),
-          ),
       ],
     );
   }

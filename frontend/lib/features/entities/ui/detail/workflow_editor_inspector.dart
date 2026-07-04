@@ -1,19 +1,25 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/contract/entities/control.dart';
 import '../../../../core/contract/entities/values.dart';
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
+import '../../../../core/model/status_state.dart';
 import '../../../../core/ui/an_action_group.dart';
+import '../../../../core/ui/an_badge.dart';
 import '../../../../core/ui/an_button.dart';
+import '../../../../core/ui/an_divider.dart';
 import '../../../../core/ui/an_dropdown.dart';
+import '../../../../core/ui/an_form_field.dart';
 import '../../../../core/ui/an_input.dart';
 import '../../../../core/ui/an_inspector_head.dart';
 import '../../../../core/ui/an_scroll_behavior.dart';
 import '../../../../core/ui/an_state.dart';
 import '../../../../core/ui/icons.dart';
 import '../../../../i18n/strings.g.dart';
+import '../../state/detail/ref_candidates.dart';
 import '../../state/detail/workflow_editor_provider.dart';
 import '../../state/run/right_panel.dart';
 import '../../state/selected_entity.dart';
@@ -35,7 +41,6 @@ class WorkflowEditorInspector extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final c = context.colors;
     final e = context.t.entities.detail.editor;
     final st = ref.watch(workflowEditorProvider(entityRef)).value;
     final notifier = ref.read(workflowEditorProvider(entityRef).notifier);
@@ -76,7 +81,7 @@ class WorkflowEditorInspector extends ConsumerWidget {
             onPressed: () => ref.read(rightPanelCollapsedProvider.notifier).set(true),
           ),
         ),
-        Container(height: AnSize.hairline, color: c.line),
+        const AnDivider(),
         Expanded(
           child: node != null
               ? _body(_NodeEditor(node: node, notifier: notifier))
@@ -115,7 +120,8 @@ class WorkflowEditorInspector extends ConsumerWidget {
   }
 }
 
-/// A field block in the app's label-above / control-below vocabulary (the run input form idiom). 字段块:标签在上、控件在下。
+/// A form field with the standard inter-field bottom gap — a thin wrapper over the shared [AnFormField]
+/// (label-above / control-below). 字段块(带标准字段间距):薄封装共享 [AnFormField](标签在上、控件在下)。
 class _Field extends StatelessWidget {
   const _Field({required this.label, required this.child, this.desc});
 
@@ -124,24 +130,10 @@ class _Field extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AnSpace.s16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(label, style: AnText.strong.copyWith(color: c.ink)),
-          if (desc != null) ...[
-            const SizedBox(height: AnSpace.s2),
-            Text(desc!, style: AnText.meta.copyWith(color: c.inkMuted)),
-          ],
-          const SizedBox(height: AnSpace.s6),
-          child,
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: AnSpace.s16),
+        child: AnFormField(label: label, desc: desc, child: child),
+      );
 }
 
 class _NodeEditor extends StatelessWidget {
@@ -194,6 +186,9 @@ class _NodeEditor extends StatelessWidget {
       ),
       _Field(label: e.nodeInput, child: _InputMapEditor(node: node, notifier: notifier)),
       _Field(label: e.nodeRetry, child: _RetryEditor(node: node, notifier: notifier)),
+      // Control nodes: a read-only peek at the referenced control's routing branches (port / when / emit)
+      // so the author sees the exits without leaving the editor. control 节点:只读 peek 路由分支(出口条件)。
+      if (node.kind == NodeKind.control && node.ref.isNotEmpty) _ControlBranches(controlId: node.ref),
       AnActionGroup(footer: true, [
         AnButton(
           label: e.deleteNode,
@@ -226,7 +221,7 @@ class _InputMapEditor extends StatelessWidget {
           padding: const EdgeInsets.only(bottom: AnSpace.s6),
           child: Row(children: [
             SizedBox(
-              width: 96,
+              width: AnSize.inspectorKeyCol,
               child: Text(entry.key,
                   style: AnText.code.copyWith(color: context.colors.inkMuted),
                   overflow: TextOverflow.ellipsis),
@@ -319,7 +314,7 @@ class _RetryEditor extends StatelessWidget {
         Row(children: [
           Expanded(child: Text(e.maxAttempts, style: AnText.meta.copyWith(color: c.inkMuted))),
           SizedBox(
-            width: 72,
+            width: AnSize.inspectorNumField,
             child: AnInput(
               key: ValueKey('retry_${node.id}'),
               initialValue: '${retry.maxAttempts}',
@@ -334,7 +329,7 @@ class _RetryEditor extends StatelessWidget {
   }
 }
 
-class _EdgeEditor extends StatelessWidget {
+class _EdgeEditor extends ConsumerWidget {
   const _EdgeEditor({required this.edge, required this.graph, required this.notifier});
 
   final Edge edge;
@@ -342,7 +337,7 @@ class _EdgeEditor extends StatelessWidget {
   final WorkflowEditorNotifier notifier;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final e = context.t.entities.detail.editor;
     final src = graph.nodes.where((n) => n.id == edge.from).firstOrNull;
     final isApproval = src?.kind == NodeKind.approval;
@@ -362,15 +357,15 @@ class _EdgeEditor extends StatelessWidget {
           ),
         )
       else if (isControl)
+        // The control's declared branch ports become the dropdown — no more blind free-text.
+        // control 声明的 branch port 变下拉,消灭盲打。
         _Field(
           label: e.edgePort,
           desc: e.portHint,
-          child: AnInput(
-            key: ValueKey('port_${edge.id}'),
-            initialValue: edge.fromPort ?? '',
-            block: true,
-            onSubmitted: (v) => notifier.setEdgePort(edge.id, v.isEmpty ? null : v),
-            onChanged: (v) => notifier.setEdgePort(edge.id, v.isEmpty ? null : v),
+          child: _ControlPortPicker(
+            controlId: src!.ref,
+            current: edge.fromPort,
+            onChanged: (p) => notifier.setEdgePort(edge.id, p),
           ),
         ),
       AnActionGroup(footer: true, [
@@ -383,5 +378,87 @@ class _EdgeEditor extends StatelessWidget {
         ),
       ]),
     ]);
+  }
+}
+
+/// The control-source edge's `fromPort` picker: an [AnDropdown] of the referenced control's declared
+/// branch ports (via [controlPortsProvider]), replacing free-text so a port always matches a real branch
+/// (mirrors approval's yes/no dropdown). A stale [current] the control no longer declares stays
+/// selectable so editing never silently drops it (same as the ref-target picker). control 出边端口下拉:
+/// 被引用 control 的 branch port(陈旧值仍可选、不静默丢)。
+class _ControlPortPicker extends ConsumerWidget {
+  const _ControlPortPicker({required this.controlId, required this.current, required this.onChanged});
+
+  final String controlId;
+  final String? current;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final e = context.t.entities.detail.editor;
+    final ports = ref.watch(controlPortsProvider(controlId)).value ?? const <String>[];
+    final cur = current ?? '';
+    final options = <String>[...ports, if (cur.isNotEmpty && !ports.contains(cur)) cur];
+    return AnDropdown<String>(
+      block: true,
+      value: cur.isEmpty ? null : cur,
+      placeholder: e.portPick,
+      options: [for (final p in options) AnDropdownOption(value: p, label: p)],
+      onChanged: onChanged,
+    );
+  }
+}
+
+/// A read-only peek at a control's routing branches (its active version), shown in the node inspector so
+/// the author sees each exit's port + when-condition + whether it reshapes the payload — without opening
+/// the control. Renders nothing until the control loads (or if it declares no branches). control 路由分支
+/// 只读 peek(节点检查器):每出口 port + when 条件 + 是否 emit;加载完才显。
+class _ControlBranches extends ConsumerWidget {
+  const _ControlBranches({required this.controlId});
+
+  final String controlId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final e = context.t.entities.detail.editor;
+    final c = context.colors;
+    final branches =
+        ref.watch(controlProvider(controlId)).value?.activeVersion?.branches ?? const <Branch>[];
+    if (branches.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AnSpace.s16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text(e.branches, style: AnText.strong.copyWith(color: c.ink)),
+        const SizedBox(height: AnSpace.s6),
+        for (final b in branches) _row(context, b),
+      ]),
+    );
+  }
+
+  Widget _row(BuildContext context, Branch b) {
+    final e = context.t.entities.detail.editor;
+    final c = context.colors;
+    // The last branch's when is always `"true"` — the catch-all (routes when nothing else matched).
+    // 末条 when=="true" 是兜底出口。
+    final isDefault = b.when == 'true';
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AnSpace.s2),
+      child: Row(children: [
+        AnBadge(b.port, tone: isDefault ? AnTone.none : AnTone.accent),
+        const SizedBox(width: AnSpace.s8),
+        Expanded(
+          child: Text(
+            isDefault ? e.branchDefault : b.when,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AnText.codeInline.copyWith(color: isDefault ? c.inkFaint : c.inkMuted),
+          ),
+        ),
+        if (b.emit.isNotEmpty) ...[
+          const SizedBox(width: AnSpace.s6),
+          AnBadge(e.branchEmit, tone: AnTone.warn),
+        ],
+      ]),
+    );
   }
 }

@@ -1,8 +1,11 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import '../../../../core/contract/entities/agent.dart';
+import '../../../../core/contract/entities/approval.dart';
+import '../../../../core/contract/entities/control.dart';
 import '../../../../core/contract/entities/function.dart';
 import '../../../../core/contract/entities/handler.dart';
+import '../../../../core/contract/entities/trigger.dart';
 import '../../../../core/contract/entities/workflow.dart';
 import '../../data/entity_kind.dart';
 import '../selected_entity.dart';
@@ -21,6 +24,9 @@ abstract class EntityDetail with _$EntityDetail {
     HandlerEntity? handler,
     AgentEntity? agent,
     WorkflowEntity? workflow,
+    ControlLogic? control,
+    ApprovalForm? approval,
+    TriggerEntity? trigger,
     MountHealthReport? mountHealth,
   }) = _EntityDetail;
 }
@@ -33,6 +39,9 @@ extension EntityDetailX on EntityDetail {
         EntityKind.handler => handler?.name ?? '',
         EntityKind.agent => agent?.name ?? '',
         EntityKind.workflow => workflow?.name ?? '',
+        EntityKind.control => control?.name ?? '',
+        EntityKind.approval => approval?.name ?? '',
+        EntityKind.trigger => trigger?.name ?? '',
       };
 
   String get activeVersionId => switch (ref.kind) {
@@ -40,5 +49,8 @@ extension EntityDetailX on EntityDetail {
         EntityKind.handler => handler?.activeVersionId ?? '',
         EntityKind.agent => agent?.activeVersionId ?? '',
         EntityKind.workflow => workflow?.activeVersionId ?? '',
+        EntityKind.control => control?.activeVersionId ?? '',
+        EntityKind.approval => approval?.activeVersionId ?? '',
+        EntityKind.trigger => '', // unversioned config entity 无版本配置实体
       };
 }

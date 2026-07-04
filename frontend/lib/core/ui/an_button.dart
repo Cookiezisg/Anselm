@@ -27,6 +27,7 @@ class AnButton extends StatelessWidget {
     this.size = AnButtonSize.md,
     this.outline = false,
     this.block = false,
+    this.elevated = false,
     this.semanticLabel,
     this.focusNode,
     this.autofocus = false,
@@ -39,6 +40,7 @@ class AnButton extends StatelessWidget {
     required this.onPressed,
     this.size = AnButtonSize.md,
     this.outline = false,
+    this.elevated = false,
     required String this.semanticLabel,
     this.focusNode,
     this.autofocus = false,
@@ -54,6 +56,10 @@ class AnButton extends StatelessWidget {
   final AnButtonSize size;
   final bool outline;
   final bool block;
+
+  /// A soft [AnColors.shadowFloat] elevation — a button that floats over busy content (a graph canvas).
+  /// 浮起 float 阴影——浮在繁忙内容(图画布)上的钮。
+  final bool elevated;
   final String? semanticLabel;
   final FocusNode? focusNode;
   final bool autofocus;
@@ -150,6 +156,7 @@ class AnButton extends StatelessWidget {
                   color: bg,
                   borderRadius: BorderRadius.circular(AnRadius.button),
                   border: border,
+                  boxShadow: elevated ? c.shadowFloat : null,
                 ),
                 child: child,
               );

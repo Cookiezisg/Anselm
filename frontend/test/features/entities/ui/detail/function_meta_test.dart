@@ -4,7 +4,6 @@ import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/ui/an_editable_value.dart';
 import 'package:anselm/core/ui/an_field.dart';
 import 'package:anselm/core/ui/an_tags.dart';
-import 'package:anselm/core/ui/an_transform_box.dart';
 import 'package:anselm/core/ui/icons.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
@@ -68,7 +67,7 @@ void main() {
   group('meta section — AnKv (text row + tags row)', () {
     testWidgets('说明 = editable text row; 标签 = pills (not comma text), 1 edit pencil', (tester) async {
       await tester.pumpWidget(_host(FunctionOverview(fn: _fn(tags: const ['util', 'io'])), _repo()));
-      expect(find.byType(AnTransformBox), findsOneWidget); // page assembled
+      expect(find.text('result'), findsOneWidget); // input/output cards assembled (signature shown as cards, not a hero)
       expect(find.byType(AnKv), findsWidgets); // meta + venv both AnKv
       expect(find.byType(AnTags), findsOneWidget); // the 标签 row renders pills, not text
       expect(find.text('util'), findsOneWidget);

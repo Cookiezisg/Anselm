@@ -41,18 +41,18 @@ class AnInfoCard extends StatelessWidget {
       container: true,
       explicitChildNodes: true, // head / body / actions each individually reachable (NOT merged) 各自可达不 merge
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8, vertical: AnSpace.s4),
+        padding: AnInset.tight, // dense caption-card interior (8/4) 密集卡内距
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
             if (_hasHead) ...[
               _head(c),
-              const SizedBox(height: AnSpace.s4),
+              const SizedBox(height: AnFlow.headBodyTight), // caption title → body (8, was 4 — reconciled with AnSection-caption) 标题→正文 8
             ],
             child,
             if (actions.isNotEmpty) ...[
-              const SizedBox(height: AnSpace.s12),
+              const SizedBox(height: AnGap.block), // content → actions (12) 内容→动作
               AnActionGroup(actions),
             ],
           ],

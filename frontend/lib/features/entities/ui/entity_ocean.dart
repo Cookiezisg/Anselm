@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/design/tokens.dart';
+import '../../../core/overlay/an_overlay.dart';
 import '../../../core/shell/shell_chrome.dart';
 import '../../../core/ui/an_button.dart';
 import '../../../core/ui/an_deferred_loading.dart';
@@ -9,11 +10,13 @@ import '../../../core/ui/an_page.dart';
 import '../../../core/ui/an_skeleton.dart';
 import '../../../core/ui/an_state.dart';
 import '../../../core/ui/an_tabs.dart';
+import '../../../core/ui/an_toast.dart';
 import '../../../i18n/strings.g.dart';
 import '../data/entity_kind.dart';
 import '../data/entity_providers.dart';
 import '../state/detail/entity_detail.dart';
 import '../state/detail/entity_detail_provider.dart';
+import '../state/detail/observability_list_provider.dart';
 import '../state/run/right_panel.dart';
 import '../state/run/run_terminal_controller.dart';
 import '../state/selected_entity.dart';
@@ -21,9 +24,13 @@ import 'detail/log_tab.dart';
 import 'detail/run_cockpit_tab.dart';
 import 'detail/ocean_header.dart';
 import 'detail/overview/agent_overview.dart';
+import 'detail/overview/approval_overview.dart';
+import 'detail/overview/control_overview.dart';
 import 'detail/overview/function_overview.dart';
 import 'detail/overview/handler_overview.dart';
+import 'detail/overview/trigger_overview.dart';
 import 'detail/overview/workflow_overview.dart';
+import 'detail/trigger_observability_tab.dart';
 import 'detail/version_tab.dart';
 
 /// The detail "ocean" (the open window surface). Reads [selectedEntityProvider]: null → empty state;
@@ -156,13 +163,42 @@ class _EntityOceanState extends ConsumerState<EntityOcean> {
                     ref.read(rightPanelCollapsedProvider.notifier).set(false);
                     ref.read(runTerminalProvider(detail.ref).notifier).run();
                   },
+                  // Trigger's Fire CTA: `:fire` a manual signal (→ an activation, NOT a run terminal),
+                  // toast the new activation id, then refresh the activity list + lastFired badge.
+                  // trigger 的 Fire:手动催一次 → toast 新 activation id → 刷新活动列表 + 徽标。
+                  onFire: detail.ref.kind == EntityKind.trigger
+                      ? () async {
+                          final tr = context.t.entities.detail.trigger;
+                          // Capture before the await — the ocean may dispose mid-fire. 取在 await 前(催发途中海洋可能释放)。
+                          final repo = ref.read(entityRepositoryProvider);
+                          final overlay = ref.read(overlayProvider.notifier);
+                          try {
+                            final actId = await repo.fireTrigger(detail.ref.id);
+                            if (!mounted) return;
+                            // A fire writes a new activation AND fans out firings — refresh both observability
+                            // streams + the lastFired badge. 一次 fire 产 activation + firing,两观测面 + 徽标都刷。
+                            ref.invalidate(activationListProvider);
+                            ref.invalidate(firingListProvider);
+                            ref.invalidate(entityDetailProvider(detail.ref));
+                            overlay.showToast(tr.firedToast(id: actId));
+                          } catch (_) {
+                            overlay.showToast(tr.fireFailed, tone: AnToastTone.danger);
+                          }
+                        }
+                      : null,
                   // Rename = meta PATCH (kinds join as their pages are sculpted: function F2,
-                  // workflow W2). 改名=meta PATCH(随各自雕琢批接入:function F2、workflow W2)。
+                  // workflow W2, handler). 改名=meta PATCH(随各自雕琢批接入:function、workflow、handler)。
                   onRename: switch (detail.ref.kind) {
                     EntityKind.function => (name) async {
                         await ref
                             .read(entityRepositoryProvider)
                             .patchFunctionMeta(detail.ref.id, {'name': name});
+                        ref.invalidate(entityDetailProvider(detail.ref));
+                      },
+                    EntityKind.handler => (name) async {
+                        await ref
+                            .read(entityRepositoryProvider)
+                            .patchHandlerMeta(detail.ref.id, {'name': name});
                         ref.invalidate(entityDetailProvider(detail.ref));
                       },
                     EntityKind.workflow => (name) async {
@@ -185,26 +221,45 @@ class _EntityOceanState extends ConsumerState<EntityOcean> {
                     label: d.tab.overview,
                     pane: _overview(detail),
                   ),
-                  AnTabsItem(
-                    key: 'versions',
-                    label: d.tab.versions,
-                    pane: VersionTab(detail.ref),
-                  ),
-                  // Workflow's log IS its flowruns → the 运行 cockpit (run board + gantt + run graph +
-                  // node debug, WRK-055 W4); other kinds keep the generic 日志 tab.
-                  // workflow 的日志就是 flowrun → 运行驾驶舱;余 kind 走通用日志 tab。
-                  if (detail.ref.kind == EntityKind.workflow)
+                  // Support kinds (control) are overview-only in the pilot — versions (structured branch
+                  // diff) + no logs are a follow-up. 支撑 kind 暂概览-only(版本 diff 后续、无日志)。
+                  if (detail.ref.kind.executable) ...[
                     AnTabsItem(
-                      key: 'runs',
-                      label: d.tab.runs,
-                      pane: RunCockpitTab(detail.ref),
-                    )
-                  else
-                    AnTabsItem(
-                      key: 'logs',
-                      label: d.tab.logs,
-                      pane: LogTab(detail.ref),
+                      key: 'versions',
+                      label: d.tab.versions,
+                      pane: VersionTab(detail.ref),
                     ),
+                    // Workflow's log IS its flowruns → the 运行 cockpit (run board + gantt + run graph +
+                    // node debug, WRK-055 W4); other kinds keep the generic 日志 tab.
+                    // workflow 的日志就是 flowrun → 运行驾驶舱;余 kind 走通用日志 tab。
+                    if (detail.ref.kind == EntityKind.workflow)
+                      AnTabsItem(
+                        key: 'runs',
+                        label: d.tab.runs,
+                        pane: RunCockpitTab(detail.ref),
+                      )
+                    else
+                      AnTabsItem(
+                        key: 'logs',
+                        label: d.tab.logs,
+                        pane: LogTab(detail.ref),
+                      ),
+                  ]
+                  // Trigger is unversioned but has two observability streams — 活动 (activations, 触发面) +
+                  // 派发 (firings, 运行面) — as first-class tabs (two independent keyset cursors can't merge).
+                  // trigger 无版本、有两条观测面 → 活动/派发首级 tab(两独立游标不可合并分页)。
+                  else if (detail.ref.kind == EntityKind.trigger) ...[
+                    AnTabsItem(
+                      key: 'activity',
+                      label: d.tab.activity,
+                      pane: TriggerActivityTab(detail.ref.id),
+                    ),
+                    AnTabsItem(
+                      key: 'dispatch',
+                      label: d.tab.dispatch,
+                      pane: TriggerDispatchTab(detail.ref.id),
+                    ),
+                  ],
                 ],
               ),
             ],
@@ -222,5 +277,8 @@ class _EntityOceanState extends ConsumerState<EntityOcean> {
       mountHealth: d.mountHealth,
     ),
     EntityKind.workflow => WorkflowOverview(wf: d.workflow!),
+    EntityKind.control => ControlOverview(control: d.control!),
+    EntityKind.approval => ApprovalOverview(approval: d.approval!),
+    EntityKind.trigger => TriggerOverview(trigger: d.trigger!),
   };
 }

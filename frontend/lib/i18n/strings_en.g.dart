@@ -57,6 +57,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$startup$en startup = Translations$startup$en.internal(_root);
 	late final Translations$entities$en entities = Translations$entities$en.internal(_root);
 	late final Translations$coldStart$en coldStart = Translations$coldStart$en.internal(_root);
+	late final Translations$documents$en documents = Translations$documents$en.internal(_root);
 	late final Translations$markdown$en markdown = Translations$markdown$en.internal(_root);
 	late final Translations$attach$en attach = Translations$attach$en.internal(_root);
 }
@@ -585,6 +586,57 @@ class Translations$coldStart$en {
 	String get defaultWorkspace => 'Personal';
 }
 
+// Path: documents
+class Translations$documents$en {
+	Translations$documents$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Documents'
+	String get documents => 'Documents';
+
+	/// en: 'Skills'
+	String get skills => 'Skills';
+
+	/// en: 'Untitled'
+	String get untitled => 'Untitled';
+
+	/// en: 'Filter'
+	String get filter => 'Filter';
+
+	/// en: 'New'
+	String get kNew => 'New';
+
+	/// en: 'Couldn't load your library'
+	String get errorTitle => 'Couldn\'t load your library';
+
+	/// en: 'The local engine didn't return it.'
+	String get errorHint => 'The local engine didn\'t return it.';
+
+	/// en: 'Retry'
+	String get retry => 'Retry';
+
+	/// en: 'Nothing here yet'
+	String get emptyTitle => 'Nothing here yet';
+
+	/// en: 'Create a document or a skill to get started.'
+	String get emptyHint => 'Create a document or a skill to get started.';
+
+	/// en: 'Pick a document'
+	String get pickTitle => 'Pick a document';
+
+	/// en: 'Choose a document or skill on the left to read or edit it.'
+	String get pickHint => 'Choose a document or skill on the left to read or edit it.';
+
+	/// en: 'Couldn't open this'
+	String get loadFailed => 'Couldn\'t open this';
+
+	/// en: 'This document is empty.'
+	String get emptyDoc => 'This document is empty.';
+}
+
 // Path: markdown
 class Translations$markdown$en {
 	Translations$markdown$en.internal(this._root);
@@ -874,6 +926,7 @@ class Translations$entities$detail$en {
 	late final Translations$entities$detail$tab$en tab = Translations$entities$detail$tab$en.internal(_root);
 	late final Translations$entities$detail$verb$en verb = Translations$entities$detail$verb$en.internal(_root);
 	late final Translations$entities$detail$hero$en hero = Translations$entities$detail$hero$en.internal(_root);
+	late final Translations$entities$detail$gate$en gate = Translations$entities$detail$gate$en.internal(_root);
 	late final Translations$entities$detail$codeToggle$en codeToggle = Translations$entities$detail$codeToggle$en.internal(_root);
 	late final Translations$entities$detail$sec$en sec = Translations$entities$detail$sec$en.internal(_root);
 	late final Translations$entities$detail$card$en card = Translations$entities$detail$card$en.internal(_root);
@@ -882,6 +935,7 @@ class Translations$entities$detail$en {
 	late final Translations$entities$detail$kv$en kv = Translations$entities$detail$kv$en.internal(_root);
 	late final Translations$entities$detail$val$en val = Translations$entities$detail$val$en.internal(_root);
 	late final Translations$entities$detail$mounts$en mounts = Translations$entities$detail$mounts$en.internal(_root);
+	late final Translations$entities$detail$trigger$en trigger = Translations$entities$detail$trigger$en.internal(_root);
 
 	/// en: 'Add tag'
 	String get addTag => 'Add tag';
@@ -989,6 +1043,15 @@ class Translations$entities$run$en {
 
 	/// en: 'First decision wins.'
 	String get approvalHint => 'First decision wins.';
+
+	/// en: 'Reason (optional)'
+	String get reasonHint => 'Reason (optional)';
+
+	/// en: 'No pending approvals'
+	String get inboxEmpty => 'No pending approvals';
+
+	/// en: 'Approvals waiting for a decision will appear here.'
+	String get inboxEmptyHint => 'Approvals waiting for a decision will appear here.';
 }
 
 // Path: chat.tool.kind
@@ -1046,6 +1109,12 @@ class Translations$entities$detail$tab$en {
 
 	/// en: 'Runs'
 	String get runs => 'Runs';
+
+	/// en: 'Activity'
+	String get activity => 'Activity';
+
+	/// en: 'Dispatch'
+	String get dispatch => 'Dispatch';
 }
 
 // Path: entities.detail.verb
@@ -1086,8 +1155,35 @@ class Translations$entities$detail$hero$en {
 	/// en: 'no outputs'
 	String get noOutputs => 'no outputs';
 
+	/// en: 'no config'
+	String get noConfig => 'no config';
+
+	/// en: 'no methods'
+	String get noMethods => 'no methods';
+
+	/// en: '$n methods'
+	String methods({required Object n}) => '${n} methods';
+
 	/// en: '$n deps'
 	String deps({required Object n}) => '${n} deps';
+}
+
+// Path: entities.detail.gate
+class Translations$entities$detail$gate$en {
+	Translations$entities$detail$gate$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'config'
+	String get config => 'config';
+
+	/// en: 'env'
+	String get env => 'env';
+
+	/// en: 'instance'
+	String get instance => 'instance';
 }
 
 // Path: entities.detail.codeToggle
@@ -1151,6 +1247,24 @@ class Translations$entities$detail$sec$en {
 
 	/// en: 'Orchestration graph'
 	String get graph => 'Orchestration graph';
+
+	/// en: 'Routing branches'
+	String get branches => 'Routing branches';
+
+	/// en: 'Approval template'
+	String get template => 'Approval template';
+
+	/// en: 'Decision rules'
+	String get decisionRules => 'Decision rules';
+
+	/// en: 'Configuration'
+	String get config => 'Configuration';
+
+	/// en: 'Listener'
+	String get listener => 'Listener';
+
+	/// en: 'Fire payload'
+	String get firePayload => 'Fire payload';
 }
 
 // Path: entities.detail.card
@@ -1299,6 +1413,15 @@ class Translations$entities$detail$kv$en {
 	/// en: 'Description'
 	String get desc => 'Description';
 
+	/// en: 'Allow reason'
+	String get allowReason => 'Allow reason';
+
+	/// en: 'Timeout'
+	String get timeout => 'Timeout';
+
+	/// en: 'On timeout'
+	String get timeoutBehavior => 'On timeout';
+
 	/// en: 'env id'
 	String get envId => 'env id';
 
@@ -1392,6 +1515,18 @@ class Translations$entities$detail$val$en {
 	/// en: 'Listening'
 	String get listening => 'Listening';
 
+	/// en: 'passthrough'
+	String get passthrough => 'passthrough';
+
+	/// en: 'never'
+	String get never => 'never';
+
+	/// en: 'Yes'
+	String get yes => 'Yes';
+
+	/// en: 'No'
+	String get no => 'No';
+
 	/// en: 'Stopped'
 	String get stopped => 'Stopped';
 
@@ -1444,6 +1579,93 @@ class Translations$entities$detail$mounts$en {
 	String unhealthy({required Object count}) => '${count} unhealthy';
 }
 
+// Path: entities.detail.trigger
+class Translations$entities$detail$trigger$en {
+	Translations$entities$detail$trigger$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Fire'
+	String get fire => 'Fire';
+
+	/// en: 'Listening'
+	String get listening => 'Listening';
+
+	/// en: 'Idle'
+	String get idle => 'Idle';
+
+	/// en: 'Source'
+	String get source => 'Source';
+
+	/// en: 'Listeners'
+	String get refCount => 'Listeners';
+
+	/// en: 'Last fired'
+	String get lastFired => 'Last fired';
+
+	/// en: 'Next fire'
+	String get nextFire => 'Next fire';
+
+	/// en: 'Signature'
+	String get signatureAlgo => 'Signature';
+
+	/// en: 'Signature header'
+	String get signatureHeader => 'Signature header';
+
+	/// en: 'Events'
+	String get events => 'Events';
+
+	/// en: 'Pattern'
+	String get pattern => 'Pattern';
+
+	/// en: 'Target'
+	String get target => 'Target';
+
+	/// en: 'Interval'
+	String get interval => 'Interval';
+
+	/// en: 'Fired'
+	String get fired => 'Fired';
+
+	/// en: 'Didn't fire'
+	String get notFired => 'Didn\'t fire';
+
+	/// en: '$n fanned out'
+	String fanout({required Object n}) => '${n} fanned out';
+
+	/// en: 'Fan-out'
+	String get fanoutLabel => 'Fan-out';
+
+	/// en: 'Return value'
+	String get returnValue => 'Return value';
+
+	/// en: 'Payload'
+	String get payload => 'Payload';
+
+	/// en: 'Detail'
+	String get detail => 'Detail';
+
+	/// en: 'Activation'
+	String get activation => 'Activation';
+
+	/// en: 'All activity'
+	String get allActivity => 'All activity';
+
+	/// en: 'Fired only'
+	String get firedOnly => 'Fired only';
+
+	/// en: 'All dispatches'
+	String get allDispatch => 'All dispatches';
+
+	/// en: 'Fired · $id'
+	String firedToast({required Object id}) => 'Fired · ${id}';
+
+	/// en: 'Couldn't fire the trigger'
+	String get fireFailed => 'Couldn\'t fire the trigger';
+}
+
 // Path: entities.detail.state
 class Translations$entities$detail$state$en {
 	Translations$entities$detail$state$en.internal(this._root);
@@ -1469,6 +1691,18 @@ class Translations$entities$detail$state$en {
 
 	/// en: 'Runs will appear here once this entity is executed.'
 	String get noLogsHint => 'Runs will appear here once this entity is executed.';
+
+	/// en: 'No activity yet'
+	String get noActivations => 'No activity yet';
+
+	/// en: 'Every time this trigger acts — fired or not — a row appears here.'
+	String get noActivationsHint => 'Every time this trigger acts — fired or not — a row appears here.';
+
+	/// en: 'Nothing dispatched'
+	String get noFirings => 'Nothing dispatched';
+
+	/// en: 'When a fire fans out to a workflow, its disposition shows here.'
+	String get noFiringsHint => 'When a fire fans out to a workflow, its disposition shows here.';
 
 	/// en: 'No active version'
 	String get noActiveVersion => 'No active version';
@@ -1568,6 +1802,18 @@ class Translations$entities$detail$editor$en {
 
 	/// en: 'A control port must match a branch name; approval is yes/no'
 	String get portHint => 'A control port must match a branch name; approval is yes/no';
+
+	/// en: 'Select a branch port'
+	String get portPick => 'Select a branch port';
+
+	/// en: 'Routing branches'
+	String get branches => 'Routing branches';
+
+	/// en: 'default (all else)'
+	String get branchDefault => 'default (all else)';
+
+	/// en: 'emit'
+	String get branchEmit => 'emit';
 
 	/// en: 'Add field'
 	String get addField => 'Add field';
@@ -1865,6 +2111,8 @@ extension on Translations {
 			'entities.detail.tab.versions' => 'Versions',
 			'entities.detail.tab.logs' => 'Logs',
 			'entities.detail.tab.runs' => 'Runs',
+			'entities.detail.tab.activity' => 'Activity',
+			'entities.detail.tab.dispatch' => 'Dispatch',
 			'entities.detail.verb.run' => 'Run',
 			'entities.detail.verb.call' => 'Call',
 			'entities.detail.verb.invoke' => 'Invoke',
@@ -1872,7 +2120,13 @@ extension on Translations {
 			'entities.detail.hero.envStatus' => ({required Object status}) => 'env ${status}',
 			'entities.detail.hero.noInputs' => 'no inputs',
 			'entities.detail.hero.noOutputs' => 'no outputs',
+			'entities.detail.hero.noConfig' => 'no config',
+			'entities.detail.hero.noMethods' => 'no methods',
+			'entities.detail.hero.methods' => ({required Object n}) => '${n} methods',
 			'entities.detail.hero.deps' => ({required Object n}) => '${n} deps',
+			'entities.detail.gate.config' => 'config',
+			'entities.detail.gate.env' => 'env',
+			'entities.detail.gate.instance' => 'instance',
 			'entities.detail.codeToggle.expand' => ({required Object n}) => 'Show all (${n} lines)',
 			'entities.detail.codeToggle.collapse' => 'Collapse',
 			'entities.detail.sec.code' => 'Code',
@@ -1888,6 +2142,12 @@ extension on Translations {
 			'entities.detail.sec.governance' => 'Run governance',
 			'entities.detail.sec.alerts' => 'Alerts',
 			'entities.detail.sec.graph' => 'Orchestration graph',
+			'entities.detail.sec.branches' => 'Routing branches',
+			'entities.detail.sec.template' => 'Approval template',
+			'entities.detail.sec.decisionRules' => 'Decision rules',
+			'entities.detail.sec.config' => 'Configuration',
+			'entities.detail.sec.listener' => 'Listener',
+			'entities.detail.sec.firePayload' => 'Fire payload',
 			'entities.detail.card.deps' => 'Dependencies',
 			'entities.detail.card.venv' => 'venv status',
 			'entities.detail.card.runtime' => 'Runtime',
@@ -1925,6 +2185,9 @@ extension on Translations {
 			'entities.detail.kv.python' => 'Python',
 			'entities.detail.kv.updated' => 'Updated',
 			'entities.detail.kv.desc' => 'Description',
+			'entities.detail.kv.allowReason' => 'Allow reason',
+			'entities.detail.kv.timeout' => 'Timeout',
+			'entities.detail.kv.timeoutBehavior' => 'On timeout',
 			'entities.detail.kv.envId' => 'env id',
 			'entities.detail.kv.status' => 'Status',
 			'entities.detail.kv.syncedAt' => 'Last synced',
@@ -1953,6 +2216,10 @@ extension on Translations {
 			'entities.detail.kv.completedAt' => 'Completed',
 			'entities.detail.kv.triggeredBy' => 'Triggered by',
 			'entities.detail.val.listening' => 'Listening',
+			'entities.detail.val.passthrough' => 'passthrough',
+			'entities.detail.val.never' => 'never',
+			'entities.detail.val.yes' => 'Yes',
+			'entities.detail.val.no' => 'No',
 			'entities.detail.val.stopped' => 'Stopped',
 			'entities.detail.val.noAlerts' => 'No alerts',
 			'entities.detail.val.needsAttention' => 'Needs attention',
@@ -1967,6 +2234,32 @@ extension on Translations {
 			'entities.detail.val.none' => '—',
 			'entities.detail.mounts.healthy' => 'All mounts healthy',
 			'entities.detail.mounts.unhealthy' => ({required Object count}) => '${count} unhealthy',
+			'entities.detail.trigger.fire' => 'Fire',
+			'entities.detail.trigger.listening' => 'Listening',
+			'entities.detail.trigger.idle' => 'Idle',
+			'entities.detail.trigger.source' => 'Source',
+			'entities.detail.trigger.refCount' => 'Listeners',
+			'entities.detail.trigger.lastFired' => 'Last fired',
+			'entities.detail.trigger.nextFire' => 'Next fire',
+			'entities.detail.trigger.signatureAlgo' => 'Signature',
+			'entities.detail.trigger.signatureHeader' => 'Signature header',
+			'entities.detail.trigger.events' => 'Events',
+			'entities.detail.trigger.pattern' => 'Pattern',
+			'entities.detail.trigger.target' => 'Target',
+			'entities.detail.trigger.interval' => 'Interval',
+			'entities.detail.trigger.fired' => 'Fired',
+			'entities.detail.trigger.notFired' => 'Didn\'t fire',
+			'entities.detail.trigger.fanout' => ({required Object n}) => '${n} fanned out',
+			'entities.detail.trigger.fanoutLabel' => 'Fan-out',
+			'entities.detail.trigger.returnValue' => 'Return value',
+			'entities.detail.trigger.payload' => 'Payload',
+			'entities.detail.trigger.detail' => 'Detail',
+			'entities.detail.trigger.activation' => 'Activation',
+			'entities.detail.trigger.allActivity' => 'All activity',
+			'entities.detail.trigger.firedOnly' => 'Fired only',
+			'entities.detail.trigger.allDispatch' => 'All dispatches',
+			'entities.detail.trigger.firedToast' => ({required Object id}) => 'Fired · ${id}',
+			'entities.detail.trigger.fireFailed' => 'Couldn\'t fire the trigger',
 			'entities.detail.addTag' => 'Add tag',
 			'entities.detail.state.setActive' => 'Set active',
 			'entities.detail.state.setActiveFailed' => 'Couldn\'t set active version',
@@ -1974,6 +2267,10 @@ extension on Translations {
 			'entities.detail.state.noVersions' => 'No versions',
 			'entities.detail.state.noLogs' => 'No runs yet',
 			'entities.detail.state.noLogsHint' => 'Runs will appear here once this entity is executed.',
+			'entities.detail.state.noActivations' => 'No activity yet',
+			'entities.detail.state.noActivationsHint' => 'Every time this trigger acts — fired or not — a row appears here.',
+			'entities.detail.state.noFirings' => 'Nothing dispatched',
+			'entities.detail.state.noFiringsHint' => 'When a fire fans out to a workflow, its disposition shows here.',
 			'entities.detail.state.noActiveVersion' => 'No active version',
 			'entities.detail.state.notFoundTitle' => 'Entity not found',
 			'entities.detail.state.errorTitle' => 'Couldn\'t load this entity',
@@ -2004,6 +2301,10 @@ extension on Translations {
 			'entities.detail.editor.deleteNode' => 'Delete node',
 			'entities.detail.editor.deleteEdge' => 'Delete edge',
 			'entities.detail.editor.portHint' => 'A control port must match a branch name; approval is yes/no',
+			'entities.detail.editor.portPick' => 'Select a branch port',
+			'entities.detail.editor.branches' => 'Routing branches',
+			'entities.detail.editor.branchDefault' => 'default (all else)',
+			'entities.detail.editor.branchEmit' => 'emit',
 			'entities.detail.editor.addField' => 'Add field',
 			'entities.detail.editor.field' => 'Field',
 			'entities.detail.editor.expr' => 'CEL expression',
@@ -2058,10 +2359,27 @@ extension on Translations {
 			'entities.run.approve' => 'Approve',
 			'entities.run.reject' => 'Reject',
 			'entities.run.approvalHint' => 'First decision wins.',
+			'entities.run.reasonHint' => 'Reason (optional)',
+			'entities.run.inboxEmpty' => 'No pending approvals',
+			'entities.run.inboxEmptyHint' => 'Approvals waiting for a decision will appear here.',
 			'coldStart.connecting' => 'Setting up your workspace…',
 			'coldStart.errorTitle' => 'Couldn\'t set up the workspace',
 			'coldStart.errorHint' => 'The local engine is reachable but the workspace didn\'t resolve.',
 			'coldStart.defaultWorkspace' => 'Personal',
+			'documents.documents' => 'Documents',
+			'documents.skills' => 'Skills',
+			'documents.untitled' => 'Untitled',
+			'documents.filter' => 'Filter',
+			'documents.kNew' => 'New',
+			'documents.errorTitle' => 'Couldn\'t load your library',
+			'documents.errorHint' => 'The local engine didn\'t return it.',
+			'documents.retry' => 'Retry',
+			'documents.emptyTitle' => 'Nothing here yet',
+			'documents.emptyHint' => 'Create a document or a skill to get started.',
+			'documents.pickTitle' => 'Pick a document',
+			'documents.pickHint' => 'Choose a document or skill on the left to read or edit it.',
+			'documents.loadFailed' => 'Couldn\'t open this',
+			'documents.emptyDoc' => 'This document is empty.',
 			'markdown.imageNotLoaded' => 'image not loaded',
 			'attach.unavailable' => 'Unavailable',
 			'attach.retry' => 'Tap to retry',

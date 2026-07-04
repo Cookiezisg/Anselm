@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 
-import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
+import '../../../core/ui/an_sunken_panel.dart';
 
 /// Which side of the conversation a turn belongs to. 回合归属方。
 enum ChatRole { user, assistant }
@@ -49,23 +49,13 @@ class ChatTurn extends StatelessWidget {
     }
     // USER: right-aligned bubble on the design system's neutral sunken fill (surfaceSunken), ≤80% of the column.
     // 用户:右对齐气泡,填设计系统的中性凹陷填充(surfaceSunken),≤阅读列 80%。
-    final c = context.colors;
     return Align(
       alignment: Alignment.centerRight,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: AnSize.content * _userMaxFraction),
         child: Opacity(
           opacity: sending ? _sendingOpacity : 1,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: c.surfaceSunken,
-              borderRadius: BorderRadius.circular(AnRadius.chip),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AnSpace.s12, vertical: AnSpace.s8),
-              child: child,
-            ),
-          ),
+          child: AnSunkenPanel(child: child),
         ),
       ),
     );

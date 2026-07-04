@@ -3,7 +3,6 @@ import 'package:flutter/widgets.dart';
 import '../../../../../core/contract/entities/agent.dart';
 import '../../../../../core/model/status_state.dart';
 import '../../../../../core/ui/an_code_editor.dart';
-import '../../../../../core/ui/an_field.dart';
 import '../../../../../core/ui/an_info_card.dart';
 import '../../../../../core/ui/an_row.dart';
 import '../../../../../core/ui/an_section.dart';
@@ -30,14 +29,11 @@ class AgentOverview extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        AnSection(variant: AnSectionVariant.plain, children: [
-          if (agent.description.isNotEmpty) AnField(label: d.kv.desc, value: agent.description, wrap: true),
-          kvList([
-            (d.kv.id, agent.id),
-            (d.kv.activeVersion, 'v${v.version}'),
-            (d.kv.model, mo != null ? mo.modelId : d.val.modelDefault),
-            if (mh != null) (d.sec.mountHealth, mh.allHealthy ? d.mounts.healthy : d.mounts.unhealthy(count: unhealthy)),
-          ]),
+        identitySection(d.kv.desc, agent.description, [
+          (d.kv.id, agent.id),
+          (d.kv.activeVersion, 'v${v.version}'),
+          (d.kv.model, mo != null ? mo.modelId : d.val.modelDefault),
+          if (mh != null) (d.sec.mountHealth, mh.allHealthy ? d.mounts.healthy : d.mounts.unhealthy(count: unhealthy)),
         ]),
         AnSection(label: d.sec.prompt, variant: AnSectionVariant.plain, children: [
           AnCodeEditor(code: v.prompt, lang: 'md', wrap: true),

@@ -12,6 +12,7 @@ import 'package:flutter/widgets.dart';
 /// Spacing scale (4-grid). Value-named to stay unambiguous at call sites.
 /// 间距阶梯(4 网格)。值命名,调用处零歧义。
 abstract final class AnSpace {
+  static const double s0 = 0; // explicit zero (beats a magic 0 literal) 显式零
   static const double s2 = 2;
   static const double s4 = 4;
   static const double s6 = 6; // gap-tight: low-weight inline gap (icon↔label, dot↔label) 紧凑行内间距
@@ -22,6 +23,48 @@ abstract final class AnSpace {
   static const double s32 = 32;
   static const double s48 = 48;
   static const double s64 = 64;
+}
+
+/// SEMANTIC spacing tier (mirrors [AnRadius]) — the raw [AnSpace] scale names VALUES; these three
+/// classes name ROLES over it, so the SAME relationship renders at ONE value everywhere. Widget code
+/// reads these, never `AnSpace.sN` directly (which is reserved for these definitions). A retune of one
+/// role changes one line product-wide. 语义间距层:按角色命名(非尺寸),同一种关系全产品一个值;组件读这层、
+/// 不直接读 AnSpace.sN。
+///
+/// Gaps BETWEEN two sibling elements (no surface fill between them). 兄弟元素间的间距。
+abstract final class AnGap {
+  static const double inlineHair = AnSpace.s2; // flush to a 1px border/badge; label→hint micro-pair 贴边微对
+  static const double inline = AnSpace.s6; // DEFAULT icon↔label inside a compact control (button/badge/dropdown/tab/chip) 紧凑控件内 icon↔label
+  static const double inlineLoose = AnSpace.s8; // row lead↔label, control↔control in a toolbar 行首↔标签 / 工具条控件间
+  static const double stackTight = AnSpace.s4; // bound vertical pair (label over its field); dense li↔li 绑定纵对 / 密集列表项
+  static const double stack = AnSpace.s8; // item↔item in a menu/list group 菜单/列表项间
+  static const double block = AnSpace.s12; // DEFAULT gap between stacked blocks/cards/turns (the house unit) 块/卡/回合间(主单位)
+  static const double section = AnSpace.s24; // titled section ↔ titled section 有题段落间
+  static const double region = AnSpace.s32; // major page region ↔ region (rare) 大区块间(罕用)
+}
+
+/// Padding INSIDE a surface — a density ladder; pick the rung by surface class. 表面内 padding(密度阶梯)。
+abstract final class AnInset {
+  static const double denseRowV = AnSpace.s4; // dense field/KV row vertical floor 密集行纵向下界
+  static const EdgeInsets tight = EdgeInsets.symmetric(horizontal: AnSpace.s8, vertical: AnSpace.s4); // dense card / toast
+  static const EdgeInsets snug = EdgeInsets.symmetric(horizontal: AnSpace.s12, vertical: AnSpace.s8); // callout / medium alert
+  static const EdgeInsets card = EdgeInsets.symmetric(horizontal: AnSpace.s16, vertical: AnSpace.s12); // standard bordered card / dialog body
+  static const double island = AnSpace.s8; // island outer pad + inter-island gap (= AnSize.shellPad) 岛内距 + 岛间距
+  static const double pageX = AnSpace.s24; // reading-column horizontal pad 阅读列水平内距
+  static const double pageBottom = AnSpace.s48; // trailing scroll runway 尾部滚动余量
+}
+
+/// Prose vertical rhythm — the reading column + markdown flow, tied to the body line box. Headings are
+/// ASYMMETRIC (more space above than below — they belong to the content below). 阅读列/markdown 垂直节奏,
+/// 与正文行盒挂钩;标题上下不对称(上留多、下贴内容)。
+abstract final class AnFlow {
+  static const double listItem = AnSpace.s4; // li ↔ li 列表项间
+  static const double block = AnSpace.s12; // ONE markdown/prose block gap (para↔para/code/table/quote/list) 唯一块间距
+  static const double headBody = AnSpace.s12; // section heading → its body (default) 段标题→正文
+  static const double headBodyTight = AnSpace.s8; // faint-meta title → body 淡 meta 标题→正文
+  static const double headBodyDense = AnSpace.s6; // quiet/collapsible header → body 静默/折叠头→正文
+  static const double headingTop = AnSpace.s24; // h2 space-ABOVE (own the block below) h2 上方留白
+  static const double subheadingTop = AnSpace.s16; // h3 space-above h3 上方留白
 }
 
 /// Corner radii (4-grid). Each tier maps to a surface class: tag→button→chip→card→island.
@@ -93,6 +136,11 @@ abstract final class AnSize {
   // AnNodeGantt label lane. 驾驶舱度量:run 列表列宽 + 甘特标签列宽。
   static const double runListW = 208;
   static const double ganttLaneW = 132;
+
+  // Editor-inspector field metrics — the field→CEL input-map key column + the small numeric field
+  // (retry max-attempts). 检查器字段度量:输入映射 key 列 + 小数字输入框(retry 次数)。
+  static const double inspectorKeyCol = 96;
+  static const double inspectorNumField = 72;
 
   // Three-island layout columns. The LEFT island is elastic (draggable, 240–400, default 320);
   // the RIGHT island is fixed; the ocean is the flex remainder whose content column is elastic

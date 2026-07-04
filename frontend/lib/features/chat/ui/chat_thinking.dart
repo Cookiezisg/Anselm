@@ -6,6 +6,7 @@ import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
 import '../../../core/model/status_state.dart';
+import '../../../core/ui/an_edge_fade.dart';
 import '../../../core/ui/an_expand_reveal.dart';
 import '../../../core/ui/an_interactive.dart';
 import '../../../core/ui/an_scroll_behavior.dart';
@@ -236,17 +237,7 @@ class _ChatThinkingState extends State<ChatThinking> {
         left: 0,
         right: 0,
         height: height,
-        child: IgnorePointer(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: top ? Alignment.topCenter : Alignment.bottomCenter,
-                end: top ? Alignment.bottomCenter : Alignment.topCenter,
-                colors: [c.surface, c.surface.withValues(alpha: 0)],
-              ),
-            ),
-          ),
-        ),
+        child: AnEdgeFade(fromTop: top, color: c.surface),
       );
 
   double _lineHeight(TextStyle s) =>

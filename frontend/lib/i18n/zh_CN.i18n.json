@@ -241,7 +241,9 @@
         "overview": "概览",
         "versions": "版本",
         "logs": "日志",
-        "runs": "运行"
+        "runs": "运行",
+        "activity": "活动",
+        "dispatch": "派发"
       },
       "verb": {
         "run": "运行",
@@ -253,7 +255,15 @@
         "envStatus": "env $status",
         "noInputs": "无入参",
         "noOutputs": "无返回",
+        "noConfig": "无 config",
+        "noMethods": "无方法",
+        "methods": "$n 个方法",
         "deps": "$n 依赖"
+      },
+      "gate": {
+        "config": "config",
+        "env": "env",
+        "instance": "instance"
       },
       "codeToggle": {
         "expand": "展开全部 ($n 行)",
@@ -272,7 +282,13 @@
         "mountHealth": "挂载健康",
         "governance": "运行治理",
         "alerts": "告警",
-        "graph": "编排图"
+        "graph": "编排图",
+        "branches": "路由分支",
+        "template": "审批模板",
+        "decisionRules": "决策规则",
+        "config": "配置",
+        "listener": "监听",
+        "firePayload": "Fire 载荷"
       },
       "card": {
         "deps": "依赖",
@@ -318,6 +334,9 @@
         "python": "Python",
         "updated": "更新",
         "desc": "说明",
+        "allowReason": "允许备注",
+        "timeout": "超时",
+        "timeoutBehavior": "超时行为",
         "envId": "env id",
         "status": "状态",
         "syncedAt": "最近同步",
@@ -348,6 +367,10 @@
       },
       "val": {
         "listening": "监听中",
+        "passthrough": "透传",
+        "never": "永不超时",
+        "yes": "是",
+        "no": "否",
         "stopped": "已停",
         "noAlerts": "无告警",
         "needsAttention": "需注意",
@@ -365,6 +388,34 @@
         "healthy": "挂载正常",
         "unhealthy": "$count 项异常"
       },
+      "trigger": {
+        "fire": "催发",
+        "listening": "监听中",
+        "idle": "空闲",
+        "source": "源",
+        "refCount": "监听者",
+        "lastFired": "最近触发",
+        "nextFire": "下次触发",
+        "signatureAlgo": "签名",
+        "signatureHeader": "签名头",
+        "events": "事件",
+        "pattern": "匹配",
+        "target": "目标",
+        "interval": "间隔",
+        "fired": "已触发",
+        "notFired": "未触发",
+        "fanout": "扇出 $n",
+        "fanoutLabel": "扇出",
+        "returnValue": "返回值",
+        "payload": "载荷",
+        "detail": "详情",
+        "activation": "活动",
+        "allActivity": "全部活动",
+        "firedOnly": "仅已触发",
+        "allDispatch": "全部派发",
+        "firedToast": "已催发 · $id",
+        "fireFailed": "催发失败"
+      },
       "addTag": "添加标签",
       "state": {
         "setActive": "设为活跃版本",
@@ -373,6 +424,10 @@
         "noVersions": "暂无版本",
         "noLogs": "暂无运行记录",
         "noLogsHint": "执行该实体后,记录会出现在这里。",
+        "noActivations": "暂无活动",
+        "noActivationsHint": "该触发器每次动作(触发与否)都会在此留一行。",
+        "noFirings": "无派发",
+        "noFiringsHint": "一次触发扇给 workflow 后,其处置显示在此。",
         "noActiveVersion": "无活动版本",
         "notFoundTitle": "未找到该实体",
         "errorTitle": "无法加载该实体",
@@ -405,6 +460,10 @@
         "deleteNode": "删除节点",
         "deleteEdge": "删除连线",
         "portHint": "control 端口须匹配分支名;approval 为 yes/no",
+        "portPick": "选择分支端口",
+        "branches": "路由分支",
+        "branchDefault": "兜底(其余情况)",
+        "branchEmit": "emit",
         "addField": "添加字段",
         "field": "字段",
         "expr": "CEL 表达式",
@@ -463,7 +522,10 @@
       "approvalTitle": "等待审批",
       "approve": "通过",
       "reject": "驳回",
-      "approvalHint": "first-wins:先到的决断生效。"
+      "approvalHint": "first-wins:先到的决断生效。",
+      "reasonHint": "备注(可选)",
+      "inboxEmpty": "没有待审批",
+      "inboxEmptyHint": "等待决断的审批会出现在这里。"
     }
   },
   "coldStart": {
@@ -471,6 +533,22 @@
     "errorTitle": "无法准备工作区",
     "errorHint": "本地引擎已连通,但工作区未就绪。",
     "defaultWorkspace": "个人"
+  },
+  "documents": {
+    "documents": "文档",
+    "skills": "技能",
+    "untitled": "未命名",
+    "filter": "过滤",
+    "kNew": "新建",
+    "errorTitle": "无法加载知识库",
+    "errorHint": "本地引擎没有返回它。",
+    "retry": "重试",
+    "emptyTitle": "这里还什么都没有",
+    "emptyHint": "新建一篇文档或一个技能开始。",
+    "pickTitle": "选一篇文档",
+    "pickHint": "在左侧选一篇文档或技能来阅读或编辑。",
+    "loadFailed": "打不开这个",
+    "emptyDoc": "这篇文档是空的。"
   },
   "markdown": {
     "imageNotLoaded": "图片未加载"

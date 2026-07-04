@@ -26,6 +26,24 @@ abstract class HandlerEntity with _$HandlerEntity {
   factory HandlerEntity.fromJson(Map<String, dynamic> json) => _$HandlerEntityFromJson(json);
 }
 
+/// The masked config blob for one handler — `GET /handlers/{id}/config`. [config] carries the CURRENT
+/// stored init-arg values with sensitive fields masked to `********` server-side (the client never sees
+/// plaintext, so there is no reveal toggle for stored values); [schema] is the active version's
+/// [InitArgSpec] list the config form renders from; [configState]/[missingConfig] gate whether the
+/// resident instance can spawn. Editing (PUT, a JSON merge patch) restarts the instance. handler 的掩码
+/// config blob(GET config):config=当前存值(sensitive 服务端掩 `********`,客户端无明文故存值无 reveal)、
+/// schema=渲染表单的 initArgsSchema、state/missing=实例能否启动的闸门;编辑(PUT merge patch)重启实例。
+@freezed
+abstract class HandlerConfig with _$HandlerConfig {
+  const factory HandlerConfig({
+    @Default(<String, dynamic>{}) Map<String, dynamic> config,
+    String? configState,
+    @Default(<String>[]) List<String> missingConfig,
+    @Default(<InitArgSpec>[]) List<InitArgSpec> schema,
+  }) = _HandlerConfig;
+  factory HandlerConfig.fromJson(Map<String, dynamic> json) => _$HandlerConfigFromJson(json);
+}
+
 /// Handler version (append-only). Carries the class shape (imports/init/shutdown/methods/initArgsSchema)
 /// + the env mirror (envId/envStatus/envError/envSyncedAt). handler.go:59。
 @freezed

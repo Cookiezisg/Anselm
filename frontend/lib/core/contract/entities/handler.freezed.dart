@@ -342,6 +342,296 @@ $HandlerVersionCopyWith<$Res>? get activeVersion {
 
 
 /// @nodoc
+mixin _$HandlerConfig {
+
+ Map<String, dynamic> get config; String? get configState; List<String> get missingConfig; List<InitArgSpec> get schema;
+/// Create a copy of HandlerConfig
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$HandlerConfigCopyWith<HandlerConfig> get copyWith => _$HandlerConfigCopyWithImpl<HandlerConfig>(this as HandlerConfig, _$identity);
+
+  /// Serializes this HandlerConfig to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is HandlerConfig&&const DeepCollectionEquality().equals(other.config, config)&&(identical(other.configState, configState) || other.configState == configState)&&const DeepCollectionEquality().equals(other.missingConfig, missingConfig)&&const DeepCollectionEquality().equals(other.schema, schema));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(config),configState,const DeepCollectionEquality().hash(missingConfig),const DeepCollectionEquality().hash(schema));
+
+@override
+String toString() {
+  return 'HandlerConfig(config: $config, configState: $configState, missingConfig: $missingConfig, schema: $schema)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $HandlerConfigCopyWith<$Res>  {
+  factory $HandlerConfigCopyWith(HandlerConfig value, $Res Function(HandlerConfig) _then) = _$HandlerConfigCopyWithImpl;
+@useResult
+$Res call({
+ Map<String, dynamic> config, String? configState, List<String> missingConfig, List<InitArgSpec> schema
+});
+
+
+
+
+}
+/// @nodoc
+class _$HandlerConfigCopyWithImpl<$Res>
+    implements $HandlerConfigCopyWith<$Res> {
+  _$HandlerConfigCopyWithImpl(this._self, this._then);
+
+  final HandlerConfig _self;
+  final $Res Function(HandlerConfig) _then;
+
+/// Create a copy of HandlerConfig
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? config = null,Object? configState = freezed,Object? missingConfig = null,Object? schema = null,}) {
+  return _then(_self.copyWith(
+config: null == config ? _self.config : config // ignore: cast_nullable_to_non_nullable
+as Map<String, dynamic>,configState: freezed == configState ? _self.configState : configState // ignore: cast_nullable_to_non_nullable
+as String?,missingConfig: null == missingConfig ? _self.missingConfig : missingConfig // ignore: cast_nullable_to_non_nullable
+as List<String>,schema: null == schema ? _self.schema : schema // ignore: cast_nullable_to_non_nullable
+as List<InitArgSpec>,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [HandlerConfig].
+extension HandlerConfigPatterns on HandlerConfig {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _HandlerConfig value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _HandlerConfig() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _HandlerConfig value)  $default,){
+final _that = this;
+switch (_that) {
+case _HandlerConfig():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _HandlerConfig value)?  $default,){
+final _that = this;
+switch (_that) {
+case _HandlerConfig() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( Map<String, dynamic> config,  String? configState,  List<String> missingConfig,  List<InitArgSpec> schema)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _HandlerConfig() when $default != null:
+return $default(_that.config,_that.configState,_that.missingConfig,_that.schema);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( Map<String, dynamic> config,  String? configState,  List<String> missingConfig,  List<InitArgSpec> schema)  $default,) {final _that = this;
+switch (_that) {
+case _HandlerConfig():
+return $default(_that.config,_that.configState,_that.missingConfig,_that.schema);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( Map<String, dynamic> config,  String? configState,  List<String> missingConfig,  List<InitArgSpec> schema)?  $default,) {final _that = this;
+switch (_that) {
+case _HandlerConfig() when $default != null:
+return $default(_that.config,_that.configState,_that.missingConfig,_that.schema);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _HandlerConfig implements HandlerConfig {
+  const _HandlerConfig({final  Map<String, dynamic> config = const <String, dynamic>{}, this.configState, final  List<String> missingConfig = const <String>[], final  List<InitArgSpec> schema = const <InitArgSpec>[]}): _config = config,_missingConfig = missingConfig,_schema = schema;
+  factory _HandlerConfig.fromJson(Map<String, dynamic> json) => _$HandlerConfigFromJson(json);
+
+ final  Map<String, dynamic> _config;
+@override@JsonKey() Map<String, dynamic> get config {
+  if (_config is EqualUnmodifiableMapView) return _config;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableMapView(_config);
+}
+
+@override final  String? configState;
+ final  List<String> _missingConfig;
+@override@JsonKey() List<String> get missingConfig {
+  if (_missingConfig is EqualUnmodifiableListView) return _missingConfig;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_missingConfig);
+}
+
+ final  List<InitArgSpec> _schema;
+@override@JsonKey() List<InitArgSpec> get schema {
+  if (_schema is EqualUnmodifiableListView) return _schema;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_schema);
+}
+
+
+/// Create a copy of HandlerConfig
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$HandlerConfigCopyWith<_HandlerConfig> get copyWith => __$HandlerConfigCopyWithImpl<_HandlerConfig>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$HandlerConfigToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _HandlerConfig&&const DeepCollectionEquality().equals(other._config, _config)&&(identical(other.configState, configState) || other.configState == configState)&&const DeepCollectionEquality().equals(other._missingConfig, _missingConfig)&&const DeepCollectionEquality().equals(other._schema, _schema));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_config),configState,const DeepCollectionEquality().hash(_missingConfig),const DeepCollectionEquality().hash(_schema));
+
+@override
+String toString() {
+  return 'HandlerConfig(config: $config, configState: $configState, missingConfig: $missingConfig, schema: $schema)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$HandlerConfigCopyWith<$Res> implements $HandlerConfigCopyWith<$Res> {
+  factory _$HandlerConfigCopyWith(_HandlerConfig value, $Res Function(_HandlerConfig) _then) = __$HandlerConfigCopyWithImpl;
+@override @useResult
+$Res call({
+ Map<String, dynamic> config, String? configState, List<String> missingConfig, List<InitArgSpec> schema
+});
+
+
+
+
+}
+/// @nodoc
+class __$HandlerConfigCopyWithImpl<$Res>
+    implements _$HandlerConfigCopyWith<$Res> {
+  __$HandlerConfigCopyWithImpl(this._self, this._then);
+
+  final _HandlerConfig _self;
+  final $Res Function(_HandlerConfig) _then;
+
+/// Create a copy of HandlerConfig
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? config = null,Object? configState = freezed,Object? missingConfig = null,Object? schema = null,}) {
+  return _then(_HandlerConfig(
+config: null == config ? _self._config : config // ignore: cast_nullable_to_non_nullable
+as Map<String, dynamic>,configState: freezed == configState ? _self.configState : configState // ignore: cast_nullable_to_non_nullable
+as String?,missingConfig: null == missingConfig ? _self._missingConfig : missingConfig // ignore: cast_nullable_to_non_nullable
+as List<String>,schema: null == schema ? _self._schema : schema // ignore: cast_nullable_to_non_nullable
+as List<InitArgSpec>,
+  ));
+}
+
+
+}
+
+
+/// @nodoc
 mixin _$HandlerVersion {
 
  String get id; String get handlerId; int get version; String get imports; String get initBody; String get shutdownBody; List<MethodSpec> get methods; List<InitArgSpec> get initArgsSchema; List<String> get dependencies; String get pythonVersion; String get envId; String get envStatus; String? get envError; DateTime? get envSyncedAt; String? get changeReason; String? get builtInConversationId; DateTime get createdAt; DateTime get updatedAt;

@@ -19,9 +19,9 @@ void main() {
 
   testWidgets('fits N equal columns by width (gap-compensated, columns fill the row)', (tester) async {
     await pumpAt(tester, 900, cells(6));
-    // n = floor((900+16)/(280+16)) = 3; colW = floor((900 - 2*16)/3) = 289
+    // gap = AnGap.block (12): n = floor((900+12)/(280+12)) = 3; colW = floor((900 - 2*12)/3) = 292
     for (var i = 0; i < 6; i++) {
-      expect(cellW(tester, i), 289.0, reason: 'all columns equal width, filling the row');
+      expect(cellW(tester, i), 292.0, reason: 'all columns equal width, filling the row');
     }
   });
 
@@ -34,9 +34,9 @@ void main() {
 
   testWidgets('few children in a wide container stretch to fill (auto-fit, not auto-fill)', (tester) async {
     await pumpAt(tester, 1200, cells(2));
-    // n = min(floor((1200+16)/296)=4, 2) = 2; colW = floor((1200-16)/2) = 592
-    expect(cellW(tester, 0), 592.0);
-    expect(cellW(tester, 1), 592.0);
+    // gap = AnGap.block (12): n = min(floor((1200+12)/292)=4, 2) = 2; colW = floor((1200-12)/2) = 594
+    expect(cellW(tester, 0), 594.0);
+    expect(cellW(tester, 1), 594.0);
   });
 
   testWidgets('empty children → renders nothing, no exception', (tester) async {

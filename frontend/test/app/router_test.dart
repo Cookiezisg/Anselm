@@ -30,13 +30,17 @@ Future<ProviderContainer> _mount(WidgetTester tester, String initialLocation) as
 
 void main() {
   group('route helpers (pure)', () {
-    test('entityKindFromWire round-trips the four kinds, rejects everything else', () {
+    test('entityKindFromWire round-trips every rail kind, rejects everything else', () {
+      // The four executable Quadrinity + the three support kinds (control/approval/trigger) are all rail
+      // entities with a detail page, so all seven round-trip. 四可执行 + 三支撑 kind 全是可路由 rail 实体。
       expect(entityKindFromWire('function'), EntityKind.function);
       expect(entityKindFromWire('handler'), EntityKind.handler);
       expect(entityKindFromWire('agent'), EntityKind.agent);
       expect(entityKindFromWire('workflow'), EntityKind.workflow);
+      expect(entityKindFromWire('control'), EntityKind.control);
+      expect(entityKindFromWire('approval'), EntityKind.approval);
+      expect(entityKindFromWire('trigger'), EntityKind.trigger);
       expect(entityKindFromWire('Function'), isNull); // URLs are case-sensitive
-      expect(entityKindFromWire('trigger'), isNull); // a rail-only kind, not routable in 4.1
       expect(entityKindFromWire('bogus'), isNull);
       expect(entityKindFromWire(''), isNull);
       expect(entityKindFromWire(null), isNull);

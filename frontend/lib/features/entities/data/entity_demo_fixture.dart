@@ -1,6 +1,7 @@
 import '../../../core/contract/entities/agent.dart';
 import '../../../core/contract/entities/function.dart';
 import '../../../core/contract/entities/handler.dart';
+import '../../../core/contract/entities/trigger.dart';
 import '../../../core/contract/entities/values.dart';
 import '../../../core/contract/entities/workflow.dart';
 import '../../../core/contract/workspace.dart';
@@ -271,6 +272,48 @@ FixtureEntityRepository demoEntityRepository() {
         ],
         allHealthy: false,
       ),
+    },
+    // The 4 sealed source kinds, each an unversioned config entity (cron drives wf_digest). trg 现 4 源。
+    triggerEntities: [
+      TriggerEntity(
+        id: 'trg_3a1f', name: 'nightly-digest', description: 'Kick the daily digest at 09:00.',
+        kind: TriggerSource.cron, config: const {'expression': '0 9 * * *'},
+        outputs: const [Field(name: 'firedAt', type: 'string', description: 'When the trigger fired (RFC3339).')],
+        refCount: 1, listening: true, lastFiredAt: t1, nextFireAt: t1.add(const Duration(hours: 18, minutes: 30)),
+        createdAt: t0, updatedAt: t1),
+      TriggerEntity(
+        id: 'trg_wh1', name: 'github-push', description: 'Fire when GitHub pushes to main.',
+        kind: TriggerSource.webhook,
+        config: const {'path': 'gh/push', 'signatureAlgo': 'hmac-sha256-hex', 'signatureHeader': 'X-Hub-Signature-256'},
+        outputs: const [Field(name: 'body', type: 'object', description: 'Posted body parsed as JSON.')],
+        refCount: 2, listening: true, lastFiredAt: t1, createdAt: t0, updatedAt: t1),
+      TriggerEntity(
+        id: 'trg_fs1', name: 'watch-inbox', description: 'React to files dropped in the inbox.',
+        kind: TriggerSource.fsnotify,
+        config: const {'path': '/data/inbox', 'events': ['create', 'modify'], 'pattern': '*.csv'},
+        refCount: 0, listening: false, createdAt: t0, updatedAt: t0),
+      TriggerEntity(
+        id: 'trg_sn1', name: 'queue-depth', description: 'Fire when the job queue backs up.',
+        kind: TriggerSource.sensor,
+        config: const {'targetKind': 'handler', 'targetId': 'hd_queue', 'method': 'depth', 'intervalSec': 30, 'condition': 'output.depth > 100'},
+        outputs: const [Field(name: 'depth', type: 'number')],
+        refCount: 1, listening: true, lastFiredAt: t0, createdAt: t0, updatedAt: t1),
+    ],
+    activations: {
+      'trg_3a1f': [
+        Activation(id: 'tra_9', triggerId: 'trg_3a1f', kind: TriggerSource.cron, fired: true, firingCount: 1, payload: const {'firedAt': '2026-06-25T09:00:00Z'}, createdAt: t1),
+        Activation(id: 'tra_8', triggerId: 'trg_3a1f', kind: TriggerSource.cron, fired: true, firingCount: 1, createdAt: t0.add(const Duration(days: 1))),
+      ],
+      'trg_sn1': [
+        Activation(id: 'tra_7', triggerId: 'trg_sn1', kind: TriggerSource.sensor, fired: true, firingCount: 1, returnValue: const {'depth': 142}, detail: 'condition held', createdAt: t1),
+        Activation(id: 'tra_6', triggerId: 'trg_sn1', kind: TriggerSource.sensor, fired: false, returnValue: const {'depth': 12}, detail: 'condition evaluated false', createdAt: t0),
+      ],
+    },
+    firings: {
+      'trg_3a1f': [
+        Firing(id: 'trf_3', triggerId: 'trg_3a1f', workflowId: 'wf_digest', activationId: 'tra_9', status: FiringStatus.started, flowrunId: 'flr_done', dedupKey: 'k9', createdAt: t1, updatedAt: t1),
+        Firing(id: 'trf_2', triggerId: 'trg_3a1f', workflowId: 'wf_digest', activationId: 'tra_8', status: FiringStatus.skipped, dedupKey: 'k8', createdAt: t0.add(const Duration(days: 1)), updatedAt: t0.add(const Duration(days: 1))),
+      ],
     },
   );
 }

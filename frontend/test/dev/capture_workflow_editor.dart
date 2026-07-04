@@ -10,8 +10,10 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:anselm/core/contract/entities/control.dart';
 import 'package:anselm/core/contract/entities/workflow.dart';
 import 'package:anselm/core/contract/entities/function.dart';
+import 'package:anselm/core/ui/an_dropdown.dart';
 import 'package:anselm/core/contract/entities/handler.dart';
 import 'package:anselm/core/contract/entities/agent.dart';
 import 'package:anselm/core/design/theme.dart';
@@ -89,6 +91,28 @@ FixtureEntityRepository _repo() => FixtureEntityRepository(
         ),
       ],
       agents: [AgentEntity(id: 'ag_triage', name: 'triage', createdAt: _t, updatedAt: _t)],
+      // The control referenced by branch_result — its branch ports feed the edge-port dropdown.
+      controlLogics: [
+        ControlLogic(
+          id: 'ctl_gate',
+          name: 'quality-gate',
+          activeVersionId: 'ctlv_1',
+          createdAt: _t,
+          updatedAt: _t,
+          activeVersion: ControlVersion(
+            id: 'ctlv_1',
+            controlId: 'ctl_gate',
+            version: 2,
+            branches: const [
+              Branch(port: 'pass', when: 'input.ok'),
+              Branch(port: 'fail', when: 'input.failures > 0'),
+              Branch(port: 'retry', when: 'true'),
+            ],
+            createdAt: _t,
+            updatedAt: _t,
+          ),
+        ),
+      ],
       mcpServers: const [(id: 'github', name: 'github', meta: 'connected')],
       mcpTools: const {
         'github': [
@@ -153,6 +177,92 @@ void main() {
     });
     final dir = Directory('test/dev/out')..createSync(recursive: true);
     File('${dir.path}/workflow_editor.png').writeAsBytesSync(bytes);
+  });
+
+  testWidgets('capture control-edge port dropdown (P1 fix)', (tester) async {
+    LocaleSettings.setLocaleRaw('zh-CN');
+    const key = ValueKey('cap');
+    tester.view.devicePixelRatio = 1.0;
+    tester.view.physicalSize = const Size(1400, 900);
+    addTearDown(tester.view.reset);
+
+    final repo = _repo();
+    await tester.pumpWidget(RepaintBoundary(
+      key: key,
+      child: ProviderScope(
+        overrides: [entityRepositoryProvider.overrideWithValue(repo)],
+        child: TranslationProvider(
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: AnTheme.light(),
+            home: const WorkflowEditorPage(workflowId: 'wf_1'),
+          ),
+        ),
+      ),
+    ));
+    await tester.pump(const Duration(milliseconds: 80)); // editor loads + fit
+    // Select the control→approval edge (e3, currently routing on port 'fail'): the inspector's port
+    // field is now a DROPDOWN of the control's branches. 选 control→approval 边:端口字段=分支下拉。
+    const ref = EntityRef(EntityKind.workflow, 'wf_1');
+    final container = ProviderScope.containerOf(tester.element(find.byType(WorkflowEditorPage)));
+    container.read(workflowEditorProvider(ref).notifier).selectEdge('e3');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 120)); // controlPortsProvider resolves
+    await tester.tap(find.byType(AnDropdown<String>)); // open it so pass/fail/retry show
+    await tester.pumpAndSettle();
+
+    late final Uint8List bytes;
+    await tester.runAsync(() async {
+      final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(key));
+      final image = await boundary.toImage(pixelRatio: 2.0);
+      final png = await image.toByteData(format: ui.ImageByteFormat.png);
+      bytes = png!.buffer.asUint8List();
+      image.dispose();
+    });
+    final dir = Directory('test/dev/out')..createSync(recursive: true);
+    File('${dir.path}/workflow_editor_control_port.png').writeAsBytesSync(bytes);
+  });
+
+  testWidgets('capture control node branch peek (P1)', (tester) async {
+    LocaleSettings.setLocaleRaw('zh-CN');
+    const key = ValueKey('cap');
+    tester.view.devicePixelRatio = 1.0;
+    tester.view.physicalSize = const Size(1400, 900);
+    addTearDown(tester.view.reset);
+
+    final repo = _repo();
+    await tester.pumpWidget(RepaintBoundary(
+      key: key,
+      child: ProviderScope(
+        overrides: [entityRepositoryProvider.overrideWithValue(repo)],
+        child: TranslationProvider(
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: AnTheme.light(),
+            home: const WorkflowEditorPage(workflowId: 'wf_1'),
+          ),
+        ),
+      ),
+    ));
+    await tester.pump(const Duration(milliseconds: 80)); // editor loads + fit
+    // Select the control node → the inspector shows the read-only routing-branch peek (port/when/emit).
+    // 选 control 节点 → 检查器出只读路由分支 peek。
+    const ref = EntityRef(EntityKind.workflow, 'wf_1');
+    final container = ProviderScope.containerOf(tester.element(find.byType(WorkflowEditorPage)));
+    container.read(workflowEditorProvider(ref).notifier).selectNode('branch_result');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 120)); // controlProvider resolves
+
+    late final Uint8List bytes;
+    await tester.runAsync(() async {
+      final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(key));
+      final image = await boundary.toImage(pixelRatio: 2.0);
+      final png = await image.toByteData(format: ui.ImageByteFormat.png);
+      bytes = png!.buffer.asUint8List();
+      image.dispose();
+    });
+    final dir = Directory('test/dev/out')..createSync(recursive: true);
+    File('${dir.path}/workflow_editor_branch_peek.png').writeAsBytesSync(bytes);
   });
 
   testWidgets('capture editor empty inspector (nothing selected)', (tester) async {

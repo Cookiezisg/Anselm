@@ -31,6 +31,8 @@ abstract class EntityRow with _$EntityRow {
     bool? active,
     String? lifecycleState,
     @Default(false) bool needsAttention,
+    // trigger badge — read-derived: is its listener hot (≥1 active workflow references it). trigger 徽:listener 热否。
+    bool? listening,
   }) = _EntityRow;
 
   /// Project a raw list-item map (a bare entity with embedded activeVersion) onto a rail row. Badge
@@ -55,5 +57,6 @@ abstract class EntityRow with _$EntityRow {
         active: m['active'] as bool?,
         lifecycleState: m['lifecycleState'] as String?,
         needsAttention: m['needsAttention'] as bool? ?? false,
+        listening: m['listening'] as bool?,
       );
 }

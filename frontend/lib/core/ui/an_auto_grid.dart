@@ -24,8 +24,8 @@ class AnAutoGrid extends StatelessWidget {
   const AnAutoGrid({
     required this.children,
     this.minColWidth = AnSize.block,
-    this.gap = AnSpace.s16,
-    this.runGap = AnSpace.s16,
+    this.gap = AnGap.block, // 12 — so a section's grid:true keeps the SAME card gap as its column mode (was 16) 与单列同块间距
+    this.runGap = AnGap.block,
     super.key,
   });
 

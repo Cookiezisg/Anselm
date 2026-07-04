@@ -53,6 +53,12 @@ class EntityDetailNotifier extends AsyncNotifier<EntityDetail> {
           ),
         EntityKind.workflow =>
           EntityDetail(ref: entityRef, workflow: await _repo.getWorkflow(entityRef.id)),
+        EntityKind.control =>
+          EntityDetail(ref: entityRef, control: await _repo.getControl(entityRef.id)),
+        EntityKind.approval =>
+          EntityDetail(ref: entityRef, approval: await _repo.getApproval(entityRef.id)),
+        EntityKind.trigger =>
+          EntityDetail(ref: entityRef, trigger: await _repo.getTrigger(entityRef.id)),
       };
 
   // Mount-health is a non-fatal preflight — a failed probe must not blank the whole agent detail.

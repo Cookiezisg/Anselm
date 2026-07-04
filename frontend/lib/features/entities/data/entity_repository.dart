@@ -1,9 +1,12 @@
 import 'dart:async';
 
 import '../../../core/contract/entities/agent.dart';
+import '../../../core/contract/entities/approval.dart';
 import '../../../core/contract/entities/common.dart';
+import '../../../core/contract/entities/control.dart';
 import '../../../core/contract/entities/function.dart';
 import '../../../core/contract/entities/handler.dart';
+import '../../../core/contract/entities/trigger.dart';
 import '../../../core/contract/entities/workflow.dart';
 import '../../../core/contract/page.dart';
 import '../../../core/net/api_client.dart';
@@ -42,6 +45,17 @@ abstract interface class EntityRepository {
   Future<AgentEntity> getAgent(String id);
   Future<WorkflowEntity> getWorkflow(String id);
 
+  /// A control logic (branches/ports) — not a rail entity, fetched for the workflow editor's edge-port
+  /// picker. control 逻辑(分支/端口),供图编辑器边端口下拉。
+  Future<ControlLogic> getControl(String id);
+
+  /// An approval form (template/decision rules) — a support rail kind. 审批表(模板/决策规则),支撑 rail kind。
+  Future<ApprovalForm> getApproval(String id);
+
+  /// A trigger (config signal source) — a support rail kind, UNVERSIONED. Carries read-derived
+  /// `refCount`/`listening`/`lastFiredAt`/`nextFireAt`. trigger(配置信号源),支撑 rail kind,无版本。
+  Future<TriggerEntity> getTrigger(String id);
+
   // ── version history (typed, append-only) ──────────────────────────────────
   Future<Page<FunctionVersion>> listFunctionVersions(String id, {String? cursor, int? limit});
   Future<Page<HandlerVersion>> listHandlerVersions(String id, {String? cursor, int? limit});
@@ -52,7 +66,7 @@ abstract interface class EntityRepository {
   Future<PageWithAggregate<FunctionExecution, ExecutionAggregates>> listFunctionExecutions(
       String id, {String? cursor, int? limit, String? status});
   Future<PageWithAggregate<HandlerCall, ExecutionAggregates>> listHandlerCalls(
-      String id, {String? cursor, int? limit, String? status});
+      String id, {String? cursor, int? limit, String? status, String? method});
   Future<PageWithAggregate<AgentExecution, ExecutionAggregates>> listAgentExecutions(
       String id, {String? cursor, int? limit, String? status});
 
@@ -73,6 +87,10 @@ abstract interface class EntityRepository {
   Future<FlowrunComposite> decideApproval(String flowrunId, String nodeId,
       {required String decision, String? reason});
 
+  /// Every PARKED approval node across the workspace (the cross-run approval inbox, `GET /flowrun-inbox`).
+  /// 跨 run 审批收件箱:workspace 内所有 parked approval 节点。
+  Future<List<FlowrunNode>> listFlowrunInbox();
+
   /// `:replay` a FAILED flowrun (422 FLOWRUN_NOT_REPLAYABLE otherwise) → the fresh snapshot (202).
   /// 重跑失败 flowrun → 新快照。
   Future<FlowrunComposite> replayFlowrun(String flowrunId);
@@ -81,9 +99,36 @@ abstract interface class EntityRepository {
   /// 终止 workflow:硬停全部在途 run。
   Future<WorkflowEntity> killWorkflow(String id);
 
+  // ── trigger observability + manual fire (the trigger detail's two log streams + its CTA) ──────
+  /// `:fire` a trigger — fan a manual signal to its current listeners (payload is always `{manual:true}`,
+  /// no custom body) → the new activation id (202). 手动催一次(合成 {manual:true})→ 新 activation id。
+  Future<String> fireTrigger(String id);
+
+  /// The trigger's ACTIVATION log (触发面) — one row per action, fired or not (`?firedOnly` narrows to
+  /// the fired ones). N4 keyset-paged. trigger 活动日志(触没触发都记)。
+  Future<Page<Activation>> listActivations(String id, {bool firedOnly, String? cursor, int? limit});
+
+  /// The trigger's FIRING inbox (运行面) — one row per fired→listener dispatch, `?status` narrows to a
+  /// disposition (pending/started/skipped/superseded/shed). N4 keyset-paged. trigger 派发收件箱。
+  Future<Page<Firing>> listFirings(String id, {String? status, String? cursor, int? limit});
+
   // ── write plane (WRK-054 F2 — function first, signatures kind-generic where the endpoint is) ──
   /// PATCH meta (name/description/tags) — does NOT bump the version. 改 meta,不升版本。
   Future<FunctionEntity> patchFunctionMeta(String id, Map<String, dynamic> patch);
+
+  /// PATCH handler meta (name/description/tags) — no version bump, no instance restart. 改 handler meta。
+  Future<HandlerEntity> patchHandlerMeta(String id, Map<String, dynamic> patch);
+
+  /// Handler config (init-arg values, sensitive masked). Read the masked blob + schema + gate state;
+  /// merge-patch it (null deletes a key); or clear it. A PUT or a clear RESTARTS the resident instance
+  /// (re-runs `__init__`), so both re-read the handler for its new config/runtime state. handler config:
+  /// 读掩码值+schema+闸门态 / 合并写(null 删键)/ 清;写或清都重启实例、故都回读 handler 新态。
+  Future<HandlerConfig> getHandlerConfig(String id);
+  Future<HandlerEntity> putHandlerConfig(String id, Map<String, Object?> patch);
+  Future<HandlerEntity> clearHandlerConfig(String id);
+
+  /// `POST :restart` — stop + respawn the resident instance (new instanceId). 重启常驻实例。
+  Future<HandlerEntity> restartHandler(String id);
 
   /// PATCH workflow meta (name/description/tags/concurrency) — no version bump (WRK-055 W2).
   /// 改 workflow meta,不升版本。
@@ -162,6 +207,9 @@ class LiveEntityRepository implements EntityRepository {
           EntityKind.handler => (await getHandler(id)).toJson(),
           EntityKind.agent => (await getAgent(id)).toJson(),
           EntityKind.workflow => (await getWorkflow(id)).toJson(),
+          EntityKind.control => (await getControl(id)).toJson(),
+          EntityKind.approval => (await getApproval(id)).toJson(),
+          EntityKind.trigger => (await getTrigger(id)).toJson(),
         },
       );
 
@@ -177,6 +225,15 @@ class LiveEntityRepository implements EntityRepository {
   @override
   Future<WorkflowEntity> getWorkflow(String id) =>
       _api.getEntity(EntityKind.workflow.itemPath(id), WorkflowEntity.fromJson);
+  @override
+  Future<ControlLogic> getControl(String id) =>
+      _api.getEntity('/api/v1/controls/$id', ControlLogic.fromJson);
+  @override
+  Future<ApprovalForm> getApproval(String id) =>
+      _api.getEntity('/api/v1/approvals/$id', ApprovalForm.fromJson);
+  @override
+  Future<TriggerEntity> getTrigger(String id) =>
+      _api.getEntity('/api/v1/triggers/$id', TriggerEntity.fromJson);
 
   @override
   Future<Page<FunctionVersion>> listFunctionVersions(String id, {String? cursor, int? limit}) =>
@@ -203,10 +260,10 @@ class LiveEntityRepository implements EntityRepository {
           query: _query(cursor, limit, {'status': ?status}));
   @override
   Future<PageWithAggregate<HandlerCall, ExecutionAggregates>> listHandlerCalls(
-          String id, {String? cursor, int? limit, String? status}) =>
+          String id, {String? cursor, int? limit, String? status, String? method}) =>
       _api.getPageWithAggregate('${EntityKind.handler.itemPath(id)}/calls', 'calls',
           HandlerCall.fromJson, _agg,
-          query: _query(cursor, limit, {'status': ?status}));
+          query: _query(cursor, limit, {'status': ?status, 'method': ?method}));
   @override
   Future<PageWithAggregate<AgentExecution, ExecutionAggregates>> listAgentExecutions(
           String id, {String? cursor, int? limit, String? status}) =>
@@ -224,31 +281,40 @@ class LiveEntityRepository implements EntityRepository {
 
   @override
   Future<FunctionRunResult> runFunction(String id, {required Map<String, dynamic> args, int? version}) async {
-    final r = await _api.postBare(EntityKind.function.actionPath(id),
+    final r = await _api.postBare(EntityKind.function.actionPath(id)!,
         body: {'args': args, 'version': ?version});
     return FunctionRunResult.fromJson((r as Map).cast<String, dynamic>());
   }
 
   @override
   Future<dynamic> callHandler(String id, {required String method, required Map<String, dynamic> args}) =>
-      _api.postBare(EntityKind.handler.actionPath(id), body: {'method': method, 'args': args});
+      _api.postBare(EntityKind.handler.actionPath(id)!, body: {'method': method, 'args': args});
 
   @override
   Future<InvokeResult> invokeAgent(String id, {required Map<String, dynamic> input, int? version}) async {
-    final r = await _api.postBare(EntityKind.agent.actionPath(id),
+    final r = await _api.postBare(EntityKind.agent.actionPath(id)!,
         body: {'input': input, 'version': ?version});
     return InvokeResult.fromJson((r as Map).cast<String, dynamic>());
   }
 
   @override
   Future<String> triggerWorkflow(String id, {Map<String, dynamic>? payload}) =>
-      _api.postForId(EntityKind.workflow.actionPath(id), body: {'payload': ?payload});
+      _api.postForId(EntityKind.workflow.actionPath(id)!, body: {'payload': ?payload});
 
   @override
   Future<FlowrunComposite> decideApproval(String flowrunId, String nodeId,
           {required String decision, String? reason}) =>
       _api.postEntity('/api/v1/flowruns/$flowrunId/approvals/$nodeId:decide',
           FlowrunComposite.fromJson, body: {'decision': decision, 'reason': ?reason});
+
+  @override
+  Future<List<FlowrunNode>> listFlowrunInbox() async {
+    final data = await _api.getData('/api/v1/flowrun-inbox');
+    return [
+      for (final e in (data['parked'] as List? ?? const []))
+        FlowrunNode.fromJson((e as Map).cast<String, dynamic>()),
+    ];
+  }
 
   @override
   Future<FlowrunComposite> replayFlowrun(String flowrunId) =>
@@ -259,8 +325,46 @@ class LiveEntityRepository implements EntityRepository {
       _api.postEntity('${EntityKind.workflow.itemPath(id)}:kill', WorkflowEntity.fromJson);
 
   @override
+  Future<String> fireTrigger(String id) =>
+      _api.postForId('${EntityKind.trigger.itemPath(id)}:fire');
+  @override
+  Future<Page<Activation>> listActivations(String id, {bool firedOnly = false, String? cursor, int? limit}) =>
+      _api.getPage('${EntityKind.trigger.itemPath(id)}/activations', Activation.fromJson,
+          query: _query(cursor, limit, {if (firedOnly) 'firedOnly': 'true'}));
+  @override
+  Future<Page<Firing>> listFirings(String id, {String? status, String? cursor, int? limit}) =>
+      _api.getPage('${EntityKind.trigger.itemPath(id)}/firings', Firing.fromJson,
+          query: _query(cursor, limit, {'status': ?status}));
+
+  @override
   Future<FunctionEntity> patchFunctionMeta(String id, Map<String, dynamic> patch) =>
       _api.patchEntity(EntityKind.function.itemPath(id), FunctionEntity.fromJson, body: patch);
+
+  @override
+  Future<HandlerEntity> patchHandlerMeta(String id, Map<String, dynamic> patch) =>
+      _api.patchEntity(EntityKind.handler.itemPath(id), HandlerEntity.fromJson, body: patch);
+
+  @override
+  Future<HandlerConfig> getHandlerConfig(String id) =>
+      _api.getEntity('${EntityKind.handler.itemPath(id)}/config', HandlerConfig.fromJson);
+
+  // PUT/DELETE config restart the instance; the response shape isn't relied on — re-read the handler for
+  // its canonical new config/runtime state. PUT/DELETE 重启实例;不依赖其响应体、回读 handler 取新态。
+  @override
+  Future<HandlerEntity> putHandlerConfig(String id, Map<String, Object?> patch) async {
+    await _api.patchEntity('${EntityKind.handler.itemPath(id)}/config', (m) => m, body: patch, put: true);
+    return getHandler(id);
+  }
+
+  @override
+  Future<HandlerEntity> clearHandlerConfig(String id) async {
+    await _api.delete('${EntityKind.handler.itemPath(id)}/config');
+    return getHandler(id);
+  }
+
+  @override
+  Future<HandlerEntity> restartHandler(String id) =>
+      _api.postEntity('${EntityKind.handler.itemPath(id)}:restart', HandlerEntity.fromJson);
 
   @override
   Future<WorkflowEntity> patchWorkflowMeta(String id, Map<String, dynamic> patch) =>

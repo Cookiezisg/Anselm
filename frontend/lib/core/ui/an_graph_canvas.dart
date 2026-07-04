@@ -11,6 +11,8 @@ import '../design/typography.dart';
 import '../graph/graph_model.dart';
 import '../graph/graph_run_state.dart';
 import 'an_button.dart';
+import 'an_divider.dart';
+import 'an_floating_bar.dart';
 import 'icons.dart';
 
 /// The workflow-graph canvas — the Flutter port of the demo's `an-graph-canvas`: node cards +
@@ -669,39 +671,24 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
 
   /// Floating zoom group — the canvas owns its zoom affordances (demo: 外设随画布走,消费点不重拼)。
   Widget _toolbar(BuildContext context) {
-    final c = context.colors;
     final t = context.t;
-    return Container(
-      padding: const EdgeInsets.all(AnSpace.s4),
-      decoration: BoxDecoration(
-        color: c.surface,
-        borderRadius: BorderRadius.circular(AnRadius.button),
-        border: Border.all(color: c.line, width: AnSize.hairline),
-        boxShadow: c.shadowFloat,
-      ),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        AnButton.iconOnly(AnIcons.zoomOut,
-            size: AnButtonSize.sm, onPressed: () => _zoomBy(1 / 1.2), semanticLabel: t.a11y.graphZoomOut),
-        AnButton.iconOnly(AnIcons.zoomIn,
-            size: AnButtonSize.sm, onPressed: () => _zoomBy(1.2), semanticLabel: t.a11y.graphZoomIn),
-        AnButton.iconOnly(AnIcons.expand,
-            size: AnButtonSize.sm, onPressed: _fit, semanticLabel: t.a11y.graphFit),
-        if (widget.onEnterEditor != null && (widget.enterEditorLabel ?? '').isNotEmpty) ...[
-          Container(
-            width: AnSize.hairline,
-            height: AnSize.controlSm,
-            margin: const EdgeInsets.symmetric(horizontal: AnSpace.s4),
-            color: c.line,
-          ),
-          AnButton(
-            label: widget.enterEditorLabel,
-            icon: AnIcons.workflow,
-            size: AnButtonSize.sm,
-            onPressed: widget.onEnterEditor,
-          ),
-        ],
-      ]),
-    );
+    return AnFloatingBar(children: [
+      AnButton.iconOnly(AnIcons.zoomOut,
+          size: AnButtonSize.sm, onPressed: () => _zoomBy(1 / 1.2), semanticLabel: t.a11y.graphZoomOut),
+      AnButton.iconOnly(AnIcons.zoomIn,
+          size: AnButtonSize.sm, onPressed: () => _zoomBy(1.2), semanticLabel: t.a11y.graphZoomIn),
+      AnButton.iconOnly(AnIcons.expand,
+          size: AnButtonSize.sm, onPressed: _fit, semanticLabel: t.a11y.graphFit),
+      if (widget.onEnterEditor != null && (widget.enterEditorLabel ?? '').isNotEmpty) ...[
+        const AnDivider.vertical(),
+        AnButton(
+          label: widget.enterEditorLabel,
+          icon: AnIcons.workflow,
+          size: AnButtonSize.sm,
+          onPressed: widget.onEnterEditor,
+        ),
+      ],
+    ]);
   }
 }
 
@@ -1236,8 +1223,7 @@ class _CometPainter extends CustomPainter {
       !identical(old.routes, routes) || old.color != color || old.t != t;
 }
 
-/// Hairline dashed rounded border — the future (not-yet-walked) node card frame (same idiom as
-/// AnTransformBox's empty slot). 虚线圆角边框(future 节点卡;同变换盒空槽做法)。
+/// Hairline dashed rounded border — the future (not-yet-walked) node card frame. 虚线圆角边框(future 节点卡)。
 class _DashedRRectPainter extends CustomPainter {
   const _DashedRRectPainter({required this.color});
 

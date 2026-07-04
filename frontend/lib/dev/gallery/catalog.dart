@@ -34,54 +34,11 @@ final List<GalleryCategory> galleryCatalog = [
   _entityViz,
 ];
 
-// ── Entity viz — per-kind entity visualizations (WRK-054), one item per primitive. Grows as each
-// entity's page is sculpted (function first: the transform-box hero).
-// 实体可视化——逐实体专属可视化(WRK-054),每原语一 item。随各实体页雕琢生长(function 先行:变换盒 hero)。
+// ── Entity viz — per-kind entity visualizations. Currently workflow (graph canvas / node gantt / run
+// board); function & handler use the plain KV-document overview (no bespoke hero).
+// 实体可视化——逐实体专属可视化。当前 workflow(编排图画布 / 节点甘特 / 运行看板);function & handler 走
+// 朴素 KV 文档概览(无专属 hero)。
 final GalleryCategory _entityViz = GalleryCategory('实体可视化 Entity Viz', AnIcons.entities, [
-  GalleryItem('AnTransformBox 变换盒', 'function hero:inputs → 盒 → outputs 一张图;贝塞尔 hairline 连线 + 空槽 + 运行三态', [
-    GallerySpecimen('静态 (2入2出)', (_) => AnTransformBox(
-      title: 'fetch_weather', icon: AnIcons.function,
-      inputs: const [AnTransformField('city', 'string'), AnTransformField('units', 'string')],
-      outputs: const [AnTransformField('temp', 'number'), AnTransformField('desc', 'string')],
-      status: AnStatus.done, statusLabel: 'env ready', meta: 'Python 3.12 · 2 deps',
-    ), span: true),
-    GallerySpecimen('空入参 (虚线空槽)', (_) => AnTransformBox(
-      title: 'now', icon: AnIcons.function,
-      outputs: const [AnTransformField('iso', 'string')],
-      status: AnStatus.done, statusLabel: 'env ready', meta: 'Python 3.12',
-      emptyInputsLabel: '无入参', emptyOutputsLabel: '无返回',
-    ), span: true),
-    GallerySpecimen('运行中 (实参点亮)', (_) => AnTransformBox(
-      title: 'fetch_weather', icon: AnIcons.function,
-      inputs: const [AnTransformField('city', 'string', value: '"Tokyo"'), AnTransformField('units', 'string', value: '"metric"')],
-      outputs: const [AnTransformField('temp', 'number'), AnTransformField('desc', 'string')],
-      phase: AnTransformPhase.running, statusLabel: 'running', meta: 'Python 3.12 · 2 deps',
-    ), span: true),
-    GallerySpecimen('完成 (结果浮现)', (_) => AnTransformBox(
-      title: 'fetch_weather', icon: AnIcons.function,
-      inputs: const [AnTransformField('city', 'string', value: '"Tokyo"'), AnTransformField('units', 'string', value: '"metric"')],
-      outputs: const [AnTransformField('temp', 'number', value: '23.5'), AnTransformField('desc', 'string', value: '"clear sky"')],
-      phase: AnTransformPhase.done, status: AnStatus.done, statusLabel: '412ms', meta: 'Python 3.12 · 2 deps',
-    ), span: true),
-    GallerySpecimen('失败 (env failed)', (_) => AnTransformBox(
-      title: 'fetch_weather', icon: AnIcons.function,
-      inputs: const [AnTransformField('city', 'string')],
-      outputs: const [AnTransformField('temp', 'number')],
-      phase: AnTransformPhase.failed, status: AnStatus.err, statusLabel: 'env failed', meta: 'Python 3.12 · 2 deps',
-    ), span: true),
-    GallerySpecimen('海量字段 + 超长名', (_) => AnTransformBox(
-      title: 'a_function_with_an_unreasonably_long_name_that_truncates', icon: AnIcons.function,
-      inputs: [for (var i = 0; i < 8; i++) AnTransformField('a_rather_long_input_field_name_$i', 'object')],
-      outputs: [for (var i = 0; i < 5; i++) AnTransformField('out_$i', 'array')],
-      status: AnStatus.wait, statusLabel: 'pending', meta: 'Python 3.12 · 14 deps',
-    ), stress: true, span: true),
-    GallerySpecimen('注入转义', (_) => AnTransformBox(
-      title: '<b>not</b> & html',
-      inputs: const [AnTransformField('<i>x</i>', '\${string}')],
-      outputs: const [AnTransformField('{{cel}}', 'number')],
-      status: AnStatus.done, statusLabel: '<b>ok</b>',
-    ), stress: true, span: true),
-  ]),
   GalleryItem('AnGraphCanvas 编排图画布', 'workflow hero:节点卡 + 正交圆角边 + 回边虚线弧 + 平移缩放 fit;framed=实体页预览框', [
     GallerySpecimen('线性 (trigger→action→agent)', (_) => AnGraphCanvas(graph: _gLinear, framed: true), span: true),
     GallerySpecimen('分支+端口+回边 (pr_merge_flow)', (_) => AnGraphCanvas(graph: _gBranch, framed: true), span: true),
@@ -319,6 +276,16 @@ final GalleryCategory _chatRail = GalleryCategory('对话 Chat', AnIcons.chat, [
 
 // ── G1 — Foundational controls ──
 final GalleryCategory _g1Controls = GalleryCategory('基础控件 Controls', AnIcons.sliders, [
+  GalleryItem('AnDivider 发丝分隔', '横向通栏 head↔body / 竖向段分隔;恒 hairline + line 色', [
+    GallerySpecimen('横向 (通栏)', (_) => const Padding(
+          padding: EdgeInsets.symmetric(vertical: AnSpace.s8),
+          child: AnDivider(),
+        ), span: true),
+    GallerySpecimen('竖向段 (工具条内)', (_) => const SizedBox(
+          height: AnSize.control,
+          child: Row(mainAxisSize: MainAxisSize.min, children: [Text('A'), AnDivider.vertical(), Text('B')]),
+        )),
+  ]),
   GalleryItem('AnStatusDot', '语义状态点;run 呼吸', [
     for (final s in AnStatus.values) GallerySpecimen(s.name, (_) => AnStatusDot(s)),
   ]),
@@ -389,6 +356,24 @@ final GalleryCategory _g1Controls = GalleryCategory('基础控件 Controls', AnI
 
 // ── G2 — Feedback states ──
 final GalleryCategory _g2Feedback = GalleryCategory('反馈态 Feedback', AnIcons.info, [
+  GalleryItem('AnEdgeFade 边缘渐隐', 'IgnorePointer 单向渐变:给定边不透明、朝内透明;可滚内容边缘溶解', [
+    GallerySpecimen('顶+底渐隐 (内容溶入两端)', (context) => ClipRect(
+          child: SizedBox(
+            height: 64,
+            child: Stack(children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: AnSpace.s8),
+                child: Text([for (var i = 0; i < 8; i++) 'scrolling content line $i'].join('\n'),
+                    style: AnText.body.copyWith(color: context.colors.inkMuted)),
+              ),
+              Positioned(
+                  top: 0, left: 0, right: 0, height: 20, child: AnEdgeFade(fromTop: true, color: context.colors.surface)),
+              Positioned(
+                  bottom: 0, left: 0, right: 0, height: 20, child: AnEdgeFade(fromTop: false, color: context.colors.surface)),
+            ]),
+          ),
+        ), span: true),
+  ]),
   GalleryItem('AnCallout', '通栏语气提示条:图标 + 文案 + 动作 + 关闭', [
     GallerySpecimen('info', (_) => const AnCallout('Heads up — this workflow has unsaved changes.'), span: true),
     GallerySpecimen('ok', (_) => const AnCallout('Saved. Your changes are live.', severity: AnCalloutSeverity.ok), span: true),
@@ -443,6 +428,28 @@ final GalleryCategory _g2Feedback = GalleryCategory('反馈态 Feedback', AnIcon
 
 // ── G3 — Rows & cards ──
 final GalleryCategory _g3RowsCards = GalleryCategory('行与卡 Rows & Cards', AnIcons.entities, [
+  GalleryItem('AnSunkenPanel 凹陷面板', 'surfaceSunken 底 + chip 圆角 + s12/s8 内距;可选 header(命令回显);聊天泡 / 机器窗 / 内嵌板', [
+    GallerySpecimen('纯内容 (聊天泡 / 内嵌板)', (_) => const AnSunkenPanel(
+          child: Text('A contained, non-interactive well one rung below the surface.'),
+        ), span: true),
+    GallerySpecimen('带 header (机器窗)', (context) => AnSunkenPanel(
+          header: Text('\$ ls -la', style: AnText.codeInline.copyWith(color: context.colors.inkMuted)),
+          child: Text('total 4\ndrwxr-xr-x  lib\n-rw-r--r--  README.md',
+              style: AnText.code.copyWith(color: context.colors.inkMuted)),
+        ), span: true),
+  ]),
+  GalleryItem('AnFormField 纵向表单字段', '标签在上 + 可选 desc + 可选类型徽章 + block 控件在下(区别于横向 AnField)', [
+    GallerySpecimen('label + 控件', (_) => const AnFormField(label: 'Method', child: AnInput(placeholder: 'select…', block: true)), span: true),
+    GallerySpecimen('label + desc + 控件', (_) => const AnFormField(
+          label: 'Payload', desc: 'JSON body sent to the workflow', child: AnInput(multiline: true, block: true)), span: true),
+    GallerySpecimen('label + 类型徽章 (labelTrailing)', (context) => AnFormField(
+          label: 'city',
+          labelTrailing: Text('string', style: AnText.meta.copyWith(color: context.colors.inkFaint)),
+          child: const AnInput(block: true)), span: true),
+    GallerySpecimen('超长 label 省略', (_) => const AnFormField(
+          label: 'an-extremely-long-field-label-that-must-ellipsis-not-overflow-the-column',
+          child: AnInput(block: true)), stress: true, maxWidth: 240, span: true),
+  ]),
   GalleryItem('AnRefPill', '实体提及药丸:类型图标 + 文案;id 非空可点(派 {kind,id})、空=纯标注', [
     GallerySpecimen('agent (可点)', (_) => AnRefPill(kind: 'agent', id: 'ag_1', label: 'deploy-bot', onTap: (_) {})),
     GallerySpecimen('function', (_) => AnRefPill(kind: 'function', id: 'fn_1', label: 'normalize-input', onTap: (_) {})),
@@ -563,6 +570,15 @@ final GalleryCategory _g3RowsCards = GalleryCategory('行与卡 Rows & Cards', A
 
 // ── G4 — Navigation & shell ──
 final GalleryCategory _g4NavShell = GalleryCategory('导航与壳 Nav & Shell', AnIcons.grip, [
+  GalleryItem('AnFloatingBar 浮动工具条', 'surface 药丸 + 发丝边 + float 阴影;浮在繁忙内容(图画布)上;段间放 AnDivider.vertical', [
+    GallerySpecimen('缩放簇 + 分隔 + 动作', (_) => AnFloatingBar(children: [
+          AnButton.iconOnly(AnIcons.zoomOut, size: AnButtonSize.sm, semanticLabel: 'Zoom out', onPressed: () {}),
+          AnButton.iconOnly(AnIcons.zoomIn, size: AnButtonSize.sm, semanticLabel: 'Zoom in', onPressed: () {}),
+          AnButton.iconOnly(AnIcons.expand, size: AnButtonSize.sm, semanticLabel: 'Fit', onPressed: () {}),
+          const AnDivider.vertical(),
+          AnButton(label: 'Editor', icon: AnIcons.workflow, size: AnButtonSize.sm, onPressed: () {}),
+        ])),
+  ]),
   GalleryItem('AnToolbar', '三区工具条:左附件 | 标题+meta | 右动作(非卡;bordered=顶栏)', [
     GallerySpecimen('default', (_) => AnToolbar(
           title: 'normalize-input',
@@ -775,6 +791,14 @@ const _diffAfter = 'def f(x, y):\n'
     '    # done';
 
 final GalleryCategory _g5CodeData = GalleryCategory('代码与数据 Code & Data', AnIcons.function, [
+  GalleryItem('AnCodeBlock 只读代码块', 'AnCodeSurface + 标准内距 + mono 文本;给不需要编辑器 chrome 的输出/数据块', [
+    GallerySpecimen('输出块', (_) => const AnCodeBlock('run finished\nexit code 0'), span: true),
+    GallerySpecimen('json 数据', (_) => const AnCodeBlock('{\n  "number": 42,\n  "state": "open"\n}'), span: true),
+    GallerySpecimen('bare (无框)', (_) => const AnCodeBlock('a bare mono line, no frame', bare: true), span: true),
+    GallerySpecimen('超长 (软换行)', (_) => const AnCodeBlock(
+          'x = "a really long single line that exceeds the block width and soft-wraps within the framed surface without overflow"'),
+        stress: true, span: true),
+  ]),
   GalleryItem('AnCodeEditor', '唯一代码块/轻编辑:高亮 + 行号 + 顶栏;只读/可编辑/内联/换行', [
     GallerySpecimen('python 只读', (_) => const AnCodeEditor(code: _pyCode, lang: 'py'), span: true),
     GallerySpecimen('CEL (插值上色)', (_) => const AnCodeEditor(code: _celCode, lang: 'cel'), span: true),

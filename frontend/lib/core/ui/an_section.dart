@@ -67,16 +67,20 @@ class AnSection extends StatelessWidget {
 
   bool get _caption => variant == AnSectionVariant.caption;
 
-  // Per-variant rhythm: quiet is the most compact (tight stacks of headed groups). 各档节奏:quiet 最紧凑。
+  // Section↔section bottom gap = AnGap.section (24) for both real headed variants — plain was s32, a 2.67×
+  // jump over its own s12 children that read as a "slab" void on every entity overview (fixed). quiet stays
+  // compact (16, the tight run-terminal stacks). 段↔段底距统一 24(plain 原 s32「板块感」已修);quiet 保紧凑 16。
   double get _bottomPad => switch (variant) {
-        AnSectionVariant.caption => AnSpace.s24,
-        AnSectionVariant.plain => AnSpace.s32,
+        AnSectionVariant.caption => AnGap.section,
+        AnSectionVariant.plain => AnGap.section,
         AnSectionVariant.quiet => AnSpace.s16,
       };
+  // Heading→body ramp — a deliberate, now-NAMED 3-tier (sanctioned prose exception): plain 12 / caption 8 /
+  // quiet 6. 标题→正文三档(命名后的合规例外)。
   double get _headGap => switch (variant) {
-        AnSectionVariant.caption => AnSpace.s8,
-        AnSectionVariant.plain => AnSpace.s12,
-        AnSectionVariant.quiet => AnSpace.s6,
+        AnSectionVariant.caption => AnFlow.headBodyTight,
+        AnSectionVariant.plain => AnFlow.headBody,
+        AnSectionVariant.quiet => AnFlow.headBodyDense,
       };
 
   @override
@@ -115,7 +119,7 @@ class AnSection extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         for (var i = 0; i < children.length; i++) ...[
-          if (i > 0) const SizedBox(height: AnSpace.s12),
+          if (i > 0) const SizedBox(height: AnGap.block), // uniform inter-block gap (12) 统一块间距
           children[i],
         ],
       ],

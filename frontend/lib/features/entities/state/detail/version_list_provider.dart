@@ -83,6 +83,12 @@ class VersionListNotifier extends AsyncNotifier<VersionListState>
   Future<({List<VersionRow> rows, String? next, bool more})> _fetch(String? cursor) async {
     final activeId = ref.read(entityDetailProvider(entityRef)).value?.activeVersionId ?? '';
     switch (entityRef.kind) {
+      // Support kinds have no version tab — control/approval unwired in the pilot; trigger is unversioned.
+      // 支撑 kind 无版本 tab(control/approval 暂未接;trigger 本就无版本)。
+      case EntityKind.control:
+      case EntityKind.approval:
+      case EntityKind.trigger:
+        return (rows: const <VersionRow>[], next: null, more: false);
       case EntityKind.function:
         final p = await _repo.listFunctionVersions(entityRef.id, cursor: cursor, limit: _pageSize);
         return (

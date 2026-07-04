@@ -7,8 +7,8 @@ import '../state/rail_model.dart';
 import '../state/rail_sort.dart';
 
 /// Pure projection: the rail's [RailGroup]s → an [AnSidebarList] [SidebarModel]. Kept widget/context-free
-/// so the mapping (4 kind sections, per-kind status dot, id→kind lookup) is unit-tested without pumping
-/// UI. The i18n strings are injected ([RailLabels]) rather than read from context here.
+/// so the mapping (one section per kind, per-kind status dot, id→kind lookup) is unit-tested without
+/// pumping UI. The i18n strings are injected ([RailLabels]) rather than read from context here.
 ///
 /// 纯投影:rail 的 RailGroup → AnSidebarList 的 SidebarModel。无 widget/context,使映射可脱 UI 单测;
 /// i18n 文案注入而非此处读 context。
@@ -28,12 +28,14 @@ AnStatus? railDot(EntityRow r) => switch (r.kind) {
       EntityKind.handler => AnStatus.fromRaw(r.runtimeState),
       EntityKind.workflow =>
         r.needsAttention ? AnStatus.wait : AnStatus.fromRaw(r.lifecycleState),
-      EntityKind.function || EntityKind.agent => null,
+      // A trigger's live signal is whether its listener is hot (≥1 active workflow references it). trigger:listener 热则蓝点。
+      EntityKind.trigger => r.listening == true ? AnStatus.run : null,
+      EntityKind.function || EntityKind.agent || EntityKind.control || EntityKind.approval => null,
     };
 
-/// Build the rail model: one flat group with four collapsible kind sections (icon + label + count),
+/// Build the rail model: one flat group with a collapsible section per kind (icon + label + count),
 /// entities as rows ordered by [sort]. [showCount] gates the per-section count badge (the ⚙ "show
-/// counts" toggle — null count → no badge). 构建 rail 模型:单平铺组 + 四 kind 折叠段(按 sort 排序);showCount 关则段头不显计数。
+/// counts" toggle — null count → no badge). 构建 rail 模型:单平铺组 + 每 kind 一折叠段(按 sort 排序);showCount 关则段头不显计数。
 SidebarModel buildRailModel(
   List<RailGroup> groups,
   RailLabels labels,

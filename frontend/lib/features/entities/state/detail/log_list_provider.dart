@@ -85,6 +85,12 @@ class LogListNotifier extends AsyncNotifier<LogListState>
   Future<({List<LogRow> rows, ExecutionAggregates? agg, String? next, bool more})> _fetch(
       String? cursor) async {
     switch (entityRef.kind) {
+      // Support kinds have no generic 日志 tab — control/approval have no execution; trigger's history is
+      // its OWN observability tabs (活动/派发), not this one. 支撑 kind 无通用日志(trigger 走自己的观测面)。
+      case EntityKind.control:
+      case EntityKind.approval:
+      case EntityKind.trigger:
+        return (rows: const <LogRow>[], agg: null, next: null, more: false);
       case EntityKind.function:
         final p =
             await _repo.listFunctionExecutions(entityRef.id, cursor: cursor, limit: _pageSize);

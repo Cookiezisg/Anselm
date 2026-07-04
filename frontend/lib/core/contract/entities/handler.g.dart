@@ -46,6 +46,31 @@ Map<String, dynamic> _$HandlerEntityToJson(_HandlerEntity instance) =>
       'runtimeState': instance.runtimeState,
     };
 
+_HandlerConfig _$HandlerConfigFromJson(Map<String, dynamic> json) =>
+    _HandlerConfig(
+      config:
+          json['config'] as Map<String, dynamic>? ?? const <String, dynamic>{},
+      configState: json['configState'] as String?,
+      missingConfig:
+          (json['missingConfig'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          const <String>[],
+      schema:
+          (json['schema'] as List<dynamic>?)
+              ?.map((e) => InitArgSpec.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const <InitArgSpec>[],
+    );
+
+Map<String, dynamic> _$HandlerConfigToJson(_HandlerConfig instance) =>
+    <String, dynamic>{
+      'config': instance.config,
+      'configState': instance.configState,
+      'missingConfig': instance.missingConfig,
+      'schema': instance.schema.map((e) => e.toJson()).toList(),
+    };
+
 _HandlerVersion _$HandlerVersionFromJson(Map<String, dynamic> json) =>
     _HandlerVersion(
       id: json['id'] as String,

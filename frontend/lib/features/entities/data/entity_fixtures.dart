@@ -2,9 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 
 import '../../../core/contract/entities/agent.dart';
+import '../../../core/contract/entities/approval.dart';
 import '../../../core/contract/entities/common.dart';
+import '../../../core/contract/entities/control.dart';
 import '../../../core/contract/entities/function.dart';
 import '../../../core/contract/entities/handler.dart';
+import '../../../core/contract/entities/trigger.dart';
 import '../../../core/contract/entities/values.dart';
 import '../../../core/graph/graph_edit_ops.dart';
 import '../../../core/contract/entities/workflow.dart';
@@ -46,7 +49,13 @@ class FixtureEntityRepository implements EntityRepository {
     Map<String, List<RefCandidate>>? mcpTools,
     List<RefCandidate>? triggers,
     List<RefCandidate>? controls,
+    List<ControlLogic>? controlLogics,
     List<RefCandidate>? approvals,
+    List<ApprovalForm>? approvalForms,
+    List<TriggerEntity>? triggerEntities,
+    Map<String, List<Activation>>? activations,
+    Map<String, List<Firing>>? firings,
+    Map<String, HandlerConfig>? handlerConfigs,
     this.runDelay = const Duration(milliseconds: 10),
   })  : _functions = List.of(functions ?? const []),
         _handlers = List.of(handlers ?? const []),
@@ -66,7 +75,13 @@ class FixtureEntityRepository implements EntityRepository {
         _mcpTools = mcpTools ?? const {},
         _triggers = triggers ?? const [],
         _controls = controls ?? const [],
-        _approvals = approvals ?? const [];
+        _controlLogics = controlLogics ?? const [],
+        _approvals = approvals ?? const [],
+        _approvalForms = approvalForms ?? const [],
+        _triggerEntities = triggerEntities ?? const [],
+        _activations = activations ?? const {},
+        _firings = firings ?? const {},
+        _handlerConfigs = handlerConfigs ?? const {};
 
   /// Inter-frame delay for the scripted run-terminal streams (so `make demo` shows a live terminal).
   /// Tests pass [Duration.zero] for an instant burst. 脚本流的帧间延迟(demo 现真实流式);测试用 zero 即时。
@@ -91,7 +106,13 @@ class FixtureEntityRepository implements EntityRepository {
   final Map<String, List<RefCandidate>> _mcpTools;
   final List<RefCandidate> _triggers;
   final List<RefCandidate> _controls;
+  final List<ControlLogic> _controlLogics;
   final List<RefCandidate> _approvals;
+  final List<ApprovalForm> _approvalForms;
+  final List<TriggerEntity> _triggerEntities;
+  final Map<String, List<Activation>> _activations;
+  final Map<String, List<Firing>> _firings;
+  final Map<String, HandlerConfig> _handlerConfigs;
 
   final _lifecycle = <EntityKind, StreamController<EntitySignal>>{};
   final _panels = <String, StreamController<StreamEnvelope>>{};
@@ -121,6 +142,9 @@ class FixtureEntityRepository implements EntityRepository {
         EntityKind.handler => _handlers.map((e) => e.toJson()).toList(),
         EntityKind.agent => _agents.map((e) => e.toJson()).toList(),
         EntityKind.workflow => _workflows.map((e) => e.toJson()).toList(),
+        EntityKind.control => _controlLogics.map((e) => e.toJson()).toList(),
+        EntityKind.approval => _approvalForms.map((e) => e.toJson()).toList(),
+        EntityKind.trigger => _triggerEntities.map((e) => e.toJson()).toList(),
       };
 
   @override
@@ -141,11 +165,41 @@ class FixtureEntityRepository implements EntityRepository {
   @override
   Future<List<RefCandidate>> listMcpTools(String server) async => _mcpTools[server] ?? const [];
   @override
-  Future<List<RefCandidate>> listTriggers() async => _triggers;
+  Future<List<RefCandidate>> listTriggers() async => _triggerEntities.isNotEmpty
+      ? [for (final t in _triggerEntities) (id: t.id, name: t.name, meta: t.kind.name)]
+      : _triggers;
   @override
-  Future<List<RefCandidate>> listControls() async => _controls;
+  Future<TriggerEntity> getTrigger(String id) async => _triggerEntities.firstWhere((e) => e.id == id);
   @override
-  Future<List<RefCandidate>> listApprovals() async => _approvals;
+  Future<String> fireTrigger(String id) async => 'tra_${id.hashCode.toUnsigned(32).toRadixString(16)}';
+  @override
+  Future<Page<Activation>> listActivations(String id, {bool firedOnly = false, String? cursor, int? limit}) async {
+    final all = _activations[id] ?? const <Activation>[];
+    return _page(firedOnly ? all.where((a) => a.fired).toList() : all, cursor, limit);
+  }
+  @override
+  Future<Page<Firing>> listFirings(String id, {String? status, String? cursor, int? limit}) async {
+    final all = _firings[id] ?? const <Firing>[];
+    return _page(status == null ? all : all.where((f) => f.status.name == status).toList(), cursor, limit);
+  }
+  @override
+  Future<List<RefCandidate>> listControls() async => _controlLogics.isNotEmpty
+      ? [for (final c in _controlLogics) (id: c.id, name: c.name, meta: 'v${c.activeVersion?.version ?? 1}')]
+      : _controls;
+  @override
+  Future<ControlLogic> getControl(String id) async => _controlLogics.firstWhere((e) => e.id == id);
+  @override
+  Future<List<RefCandidate>> listApprovals() async => _approvalForms.isNotEmpty
+      ? [for (final a in _approvalForms) (id: a.id, name: a.name, meta: 'v${a.activeVersion?.version ?? 1}')]
+      : _approvals;
+  @override
+  Future<ApprovalForm> getApproval(String id) async => _approvalForms.firstWhere((e) => e.id == id);
+  @override
+  Future<List<FlowrunNode>> listFlowrunInbox() async => [
+        for (final comp in _flowrunDetail.values)
+          for (final n in comp.nodes)
+            if (n.status == 'parked' && n.kind == 'approval') n,
+      ];
 
   @override
   Future<EntityRow> getEntityRow(EntityKind kind, String id) async => EntityRow.fromListItem(
@@ -155,6 +209,9 @@ class FixtureEntityRepository implements EntityRepository {
           EntityKind.handler => (await getHandler(id)).toJson(),
           EntityKind.agent => (await getAgent(id)).toJson(),
           EntityKind.workflow => (await getWorkflow(id)).toJson(),
+          EntityKind.control => (await getControl(id)).toJson(),
+          EntityKind.approval => (await getApproval(id)).toJson(),
+          EntityKind.trigger => (await getTrigger(id)).toJson(),
         },
       );
 
@@ -197,8 +254,14 @@ class FixtureEntityRepository implements EntityRepository {
       _logPage(_functionExecutions[id] ?? const [], cursor, limit, (e) => e.status == 'ok');
   @override
   Future<PageWithAggregate<HandlerCall, ExecutionAggregates>> listHandlerCalls(
-          String id, {String? cursor, int? limit, String? status}) async =>
-      _logPage(_handlerCalls[id] ?? const [], cursor, limit, (e) => e.status == 'ok');
+          String id, {String? cursor, int? limit, String? status, String? method}) async =>
+      _logPage(
+          (_handlerCalls[id] ?? const [])
+              .where((c) => method == null || c.method == method)
+              .toList(),
+          cursor,
+          limit,
+          (e) => e.status == 'ok');
   @override
   Future<PageWithAggregate<AgentExecution, ExecutionAggregates>> listAgentExecutions(
           String id, {String? cursor, int? limit, String? status}) async =>
@@ -420,6 +483,39 @@ class FixtureEntityRepository implements EntityRepository {
   }
 
   @override
+  Future<HandlerEntity> patchHandlerMeta(String id, Map<String, dynamic> patch) async {
+    final e = await getHandler(id);
+    final next = e.copyWith(
+      name: (patch['name'] as String?) ?? e.name,
+      description: (patch['description'] as String?) ?? e.description,
+      tags: (patch['tags'] as List?)?.cast<String>() ?? e.tags,
+    );
+    upsertHandler(next);
+    emitLifecycle(EntitySignal(
+        kind: EntityKind.handler, id: id, action: EntityAction.updated, durable: true));
+    return next;
+  }
+
+  @override
+  Future<HandlerConfig> getHandlerConfig(String id) async {
+    final seeded = _handlerConfigs[id];
+    if (seeded != null) return seeded;
+    final h = await getHandler(id);
+    return HandlerConfig(
+      configState: h.configState,
+      missingConfig: h.missingConfig,
+      schema: h.activeVersion?.initArgsSchema ?? const [],
+    );
+  }
+
+  @override
+  Future<HandlerEntity> putHandlerConfig(String id, Map<String, Object?> patch) async => getHandler(id);
+  @override
+  Future<HandlerEntity> clearHandlerConfig(String id) async => getHandler(id);
+  @override
+  Future<HandlerEntity> restartHandler(String id) async => getHandler(id);
+
+  @override
   Future<WorkflowVersion> editWorkflow(String id, List<Map<String, Object?>> ops, {String? changeReason}) async {
     final wf = await getWorkflow(id);
     final cur = wf.activeVersion;
@@ -472,6 +568,10 @@ class FixtureEntityRepository implements EntityRepository {
     }
 
     switch (kind) {
+      case EntityKind.control:
+      case EntityKind.approval:
+      case EntityKind.trigger:
+        return; // support kinds — no revert (control/approval revert unwired; trigger is unversioned) 支撑 kind 无 revert
       case EntityKind.function:
         final v = pick(_functionVersions[id], (FunctionVersion x) => x.version);
         if (v == null) return;

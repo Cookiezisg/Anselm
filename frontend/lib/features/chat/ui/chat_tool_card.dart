@@ -13,6 +13,7 @@ import '../../../i18n/strings.g.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
 import 'tool_card_catalog.dart';
+import 'tool_card_skins.dart';
 
 /// The V3a tool-call CHASSIS (WRK-053) — one borderless 32px-register line per tool call
 /// (decision #2: bare row, the expanded body owns the only container), carrying the whole
@@ -235,8 +236,7 @@ class _ChatToolCardState extends State<ChatToolCard> {
                 child: Text(target,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AnText.code.copyWith(
-                        color: dimVerb ? c.inkFaint : c.inkMuted, height: 1.4)),
+                    style: AnText.codeInline.copyWith(color: dimVerb ? c.inkFaint : c.inkMuted)),
               ),
             ],
             if (receipt.isNotEmpty)
@@ -384,22 +384,12 @@ class _GenericToolBody extends StatelessWidget {
     final lines = state.progressText.trimRight().split('\n');
     final omitted = lines.length - _progressTailLines;
     final tail = omitted > 0 ? lines.sublist(omitted) : lines;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: AnSpace.s12, vertical: AnSpace.s8),
-      decoration: BoxDecoration(
-        color: c.surfaceSunken,
-        borderRadius: BorderRadius.circular(AnRadius.chip),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (omitted > 0)
-            Text(t.chat.tool.progressOmitted(n: omitted),
-                style: AnText.meta.copyWith(color: c.inkFaint)),
-          Text(tail.join('\n'), style: AnText.code.copyWith(color: c.inkMuted)),
-        ],
-      ),
+    return ToolWindow(
+      header: omitted > 0
+          ? Text(t.chat.tool.progressOmitted(n: omitted),
+              style: AnText.meta.copyWith(color: c.inkFaint))
+          : null,
+      child: Text(tail.join('\n'), style: AnText.code.copyWith(color: c.inkMuted)),
     );
   }
 }

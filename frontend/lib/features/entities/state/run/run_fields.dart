@@ -17,6 +17,7 @@ List<Field> runInputFields(EntityKind kind, EntityDetail? d, {String? method}) {
     EntityKind.handler =>
       d.handler?.activeVersion?.methods.where((m) => m.name == method).firstOrNull?.inputs ?? const [],
     EntityKind.workflow => const [],
+    EntityKind.control || EntityKind.approval || EntityKind.trigger => const [], // support kinds — not executable 支撑 kind 无执行入参
   };
 }
 

@@ -65,6 +65,15 @@ abstract final class AnText {
     fontFamily: uiFamily, fontFamilyFallback: uiFallback,
     fontSize: 13, height: 1.4, fontWeight: FontWeight.w300, fontVariations: [FontVariation('wght', 300)], // the UI anchor — Light 正文锚·Light
   );
+
+  /// The READING-COLUMN body — same 13px w300 as [body] but a roomier 1.6 line-height (≈21px line box,
+  /// Notion-calibrated air). Used ONLY by prose reading surfaces (AnMarkdown + the document ocean), NOT
+  /// the dense 32px-row UI chrome — reading wants air, chrome stays compact. 阅读列正文:同 13px w300、行高
+  /// 1.6(≈21px 行盒,照 Notion 校准);仅 markdown/文档阅读面用,密集 UI chrome 不用。
+  static const TextStyle reading = TextStyle(
+    fontFamily: uiFamily, fontFamilyFallback: uiFallback,
+    fontSize: 13, height: 1.6, fontWeight: FontWeight.w300, fontVariations: [FontVariation('wght', 300)],
+  );
   static const TextStyle label = TextStyle(
     fontFamily: uiFamily, fontFamilyFallback: uiFallback,
     fontSize: 13, height: 1.4, fontWeight: FontWeight.w300, fontVariations: [FontVariation('wght', 300)], // Light 标签·Light
@@ -86,6 +95,16 @@ abstract final class AnText {
   static const TextStyle code = TextStyle(
     fontFamily: monoFamily, fontFamilyFallback: monoFallback,
     fontSize: 12, height: 1.6, fontWeight: FontWeight.w400,
+  );
+
+  /// Inline mono at [code]'s size (12px) but with a tighter [height] 1.4 for SINGLE-LINE row content
+  /// (a tool call's target / an entity id echoed on a bare row): code BLOCKS want the looser 1.6
+  /// leading, row-embedded inline mono wants the row's rhythm. The one-rung-down twin of the
+  /// [mono](13/1.5, inline ids) ↔ [code](12/1.6, code blocks) split. 内联 mono:code 的 12px + 更紧
+  /// 行高 1.4,给单行行内内容(工具 target / 行内 id);代码块用 1.6、行内用行节奏。
+  static const TextStyle codeInline = TextStyle(
+    fontFamily: monoFamily, fontFamilyFallback: monoFallback,
+    fontSize: 12, height: 1.4, fontWeight: FontWeight.w400,
   );
 
   /// The value-column base style — the single source for the "值列 tabular 铁律": tabular figures

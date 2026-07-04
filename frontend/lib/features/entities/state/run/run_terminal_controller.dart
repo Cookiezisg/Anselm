@@ -139,6 +139,10 @@ class RunTerminalController extends Notifier<RunTerminalState> {
       // 在 try 内取(runSeq=seq 之后),下方任意抛错仍被 finally 释放、绝不永钉。
       _releaseRun ??= ref.keepAlive().close;
       switch (entityRef.kind) {
+        case EntityKind.control:
+        case EntityKind.approval:
+        case EntityKind.trigger:
+          return; // support kinds — not runnable (defensive; no run CTA reaches here) 支撑 kind 不可跑
         case EntityKind.function:
           final r = await _repo.runFunction(entityRef.id, args: args);
           if (!ref.mounted || state.runSeq != seq) return;
@@ -252,6 +256,10 @@ class RunTerminalController extends Notifier<RunTerminalState> {
 
   void _onPanel(StreamEnvelope env) {
     switch (entityRef.kind) {
+      case EntityKind.control:
+      case EntityKind.approval:
+      case EntityKind.trigger:
+        return; // support kinds — no run panel 支撑 kind 无 run 面板
       case EntityKind.function:
       case EntityKind.handler:
         final f = env.frame;

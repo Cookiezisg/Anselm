@@ -14,7 +14,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$EntityDetail {
 
- EntityRef get ref; FunctionEntity? get function; HandlerEntity? get handler; AgentEntity? get agent; WorkflowEntity? get workflow; MountHealthReport? get mountHealth;
+ EntityRef get ref; FunctionEntity? get function; HandlerEntity? get handler; AgentEntity? get agent; WorkflowEntity? get workflow; ControlLogic? get control; ApprovalForm? get approval; TriggerEntity? get trigger; MountHealthReport? get mountHealth;
 /// Create a copy of EntityDetail
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -25,16 +25,16 @@ $EntityDetailCopyWith<EntityDetail> get copyWith => _$EntityDetailCopyWithImpl<E
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is EntityDetail&&(identical(other.ref, ref) || other.ref == ref)&&(identical(other.function, function) || other.function == function)&&(identical(other.handler, handler) || other.handler == handler)&&(identical(other.agent, agent) || other.agent == agent)&&(identical(other.workflow, workflow) || other.workflow == workflow)&&(identical(other.mountHealth, mountHealth) || other.mountHealth == mountHealth));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is EntityDetail&&(identical(other.ref, ref) || other.ref == ref)&&(identical(other.function, function) || other.function == function)&&(identical(other.handler, handler) || other.handler == handler)&&(identical(other.agent, agent) || other.agent == agent)&&(identical(other.workflow, workflow) || other.workflow == workflow)&&(identical(other.control, control) || other.control == control)&&(identical(other.approval, approval) || other.approval == approval)&&(identical(other.trigger, trigger) || other.trigger == trigger)&&(identical(other.mountHealth, mountHealth) || other.mountHealth == mountHealth));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,ref,function,handler,agent,workflow,mountHealth);
+int get hashCode => Object.hash(runtimeType,ref,function,handler,agent,workflow,control,approval,trigger,mountHealth);
 
 @override
 String toString() {
-  return 'EntityDetail(ref: $ref, function: $function, handler: $handler, agent: $agent, workflow: $workflow, mountHealth: $mountHealth)';
+  return 'EntityDetail(ref: $ref, function: $function, handler: $handler, agent: $agent, workflow: $workflow, control: $control, approval: $approval, trigger: $trigger, mountHealth: $mountHealth)';
 }
 
 
@@ -45,11 +45,11 @@ abstract mixin class $EntityDetailCopyWith<$Res>  {
   factory $EntityDetailCopyWith(EntityDetail value, $Res Function(EntityDetail) _then) = _$EntityDetailCopyWithImpl;
 @useResult
 $Res call({
- EntityRef ref, FunctionEntity? function, HandlerEntity? handler, AgentEntity? agent, WorkflowEntity? workflow, MountHealthReport? mountHealth
+ EntityRef ref, FunctionEntity? function, HandlerEntity? handler, AgentEntity? agent, WorkflowEntity? workflow, ControlLogic? control, ApprovalForm? approval, TriggerEntity? trigger, MountHealthReport? mountHealth
 });
 
 
-$FunctionEntityCopyWith<$Res>? get function;$HandlerEntityCopyWith<$Res>? get handler;$AgentEntityCopyWith<$Res>? get agent;$WorkflowEntityCopyWith<$Res>? get workflow;$MountHealthReportCopyWith<$Res>? get mountHealth;
+$FunctionEntityCopyWith<$Res>? get function;$HandlerEntityCopyWith<$Res>? get handler;$AgentEntityCopyWith<$Res>? get agent;$WorkflowEntityCopyWith<$Res>? get workflow;$ControlLogicCopyWith<$Res>? get control;$ApprovalFormCopyWith<$Res>? get approval;$TriggerEntityCopyWith<$Res>? get trigger;$MountHealthReportCopyWith<$Res>? get mountHealth;
 
 }
 /// @nodoc
@@ -62,14 +62,17 @@ class _$EntityDetailCopyWithImpl<$Res>
 
 /// Create a copy of EntityDetail
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? ref = null,Object? function = freezed,Object? handler = freezed,Object? agent = freezed,Object? workflow = freezed,Object? mountHealth = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? ref = null,Object? function = freezed,Object? handler = freezed,Object? agent = freezed,Object? workflow = freezed,Object? control = freezed,Object? approval = freezed,Object? trigger = freezed,Object? mountHealth = freezed,}) {
   return _then(_self.copyWith(
 ref: null == ref ? _self.ref : ref // ignore: cast_nullable_to_non_nullable
 as EntityRef,function: freezed == function ? _self.function : function // ignore: cast_nullable_to_non_nullable
 as FunctionEntity?,handler: freezed == handler ? _self.handler : handler // ignore: cast_nullable_to_non_nullable
 as HandlerEntity?,agent: freezed == agent ? _self.agent : agent // ignore: cast_nullable_to_non_nullable
 as AgentEntity?,workflow: freezed == workflow ? _self.workflow : workflow // ignore: cast_nullable_to_non_nullable
-as WorkflowEntity?,mountHealth: freezed == mountHealth ? _self.mountHealth : mountHealth // ignore: cast_nullable_to_non_nullable
+as WorkflowEntity?,control: freezed == control ? _self.control : control // ignore: cast_nullable_to_non_nullable
+as ControlLogic?,approval: freezed == approval ? _self.approval : approval // ignore: cast_nullable_to_non_nullable
+as ApprovalForm?,trigger: freezed == trigger ? _self.trigger : trigger // ignore: cast_nullable_to_non_nullable
+as TriggerEntity?,mountHealth: freezed == mountHealth ? _self.mountHealth : mountHealth // ignore: cast_nullable_to_non_nullable
 as MountHealthReport?,
   ));
 }
@@ -120,6 +123,42 @@ $WorkflowEntityCopyWith<$Res>? get workflow {
 
   return $WorkflowEntityCopyWith<$Res>(_self.workflow!, (value) {
     return _then(_self.copyWith(workflow: value));
+  });
+}/// Create a copy of EntityDetail
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$ControlLogicCopyWith<$Res>? get control {
+    if (_self.control == null) {
+    return null;
+  }
+
+  return $ControlLogicCopyWith<$Res>(_self.control!, (value) {
+    return _then(_self.copyWith(control: value));
+  });
+}/// Create a copy of EntityDetail
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$ApprovalFormCopyWith<$Res>? get approval {
+    if (_self.approval == null) {
+    return null;
+  }
+
+  return $ApprovalFormCopyWith<$Res>(_self.approval!, (value) {
+    return _then(_self.copyWith(approval: value));
+  });
+}/// Create a copy of EntityDetail
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$TriggerEntityCopyWith<$Res>? get trigger {
+    if (_self.trigger == null) {
+    return null;
+  }
+
+  return $TriggerEntityCopyWith<$Res>(_self.trigger!, (value) {
+    return _then(_self.copyWith(trigger: value));
   });
 }/// Create a copy of EntityDetail
 /// with the given fields replaced by the non-null parameter values.
@@ -215,10 +254,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( EntityRef ref,  FunctionEntity? function,  HandlerEntity? handler,  AgentEntity? agent,  WorkflowEntity? workflow,  MountHealthReport? mountHealth)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( EntityRef ref,  FunctionEntity? function,  HandlerEntity? handler,  AgentEntity? agent,  WorkflowEntity? workflow,  ControlLogic? control,  ApprovalForm? approval,  TriggerEntity? trigger,  MountHealthReport? mountHealth)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _EntityDetail() when $default != null:
-return $default(_that.ref,_that.function,_that.handler,_that.agent,_that.workflow,_that.mountHealth);case _:
+return $default(_that.ref,_that.function,_that.handler,_that.agent,_that.workflow,_that.control,_that.approval,_that.trigger,_that.mountHealth);case _:
   return orElse();
 
 }
@@ -236,10 +275,10 @@ return $default(_that.ref,_that.function,_that.handler,_that.agent,_that.workflo
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( EntityRef ref,  FunctionEntity? function,  HandlerEntity? handler,  AgentEntity? agent,  WorkflowEntity? workflow,  MountHealthReport? mountHealth)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( EntityRef ref,  FunctionEntity? function,  HandlerEntity? handler,  AgentEntity? agent,  WorkflowEntity? workflow,  ControlLogic? control,  ApprovalForm? approval,  TriggerEntity? trigger,  MountHealthReport? mountHealth)  $default,) {final _that = this;
 switch (_that) {
 case _EntityDetail():
-return $default(_that.ref,_that.function,_that.handler,_that.agent,_that.workflow,_that.mountHealth);case _:
+return $default(_that.ref,_that.function,_that.handler,_that.agent,_that.workflow,_that.control,_that.approval,_that.trigger,_that.mountHealth);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -256,10 +295,10 @@ return $default(_that.ref,_that.function,_that.handler,_that.agent,_that.workflo
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( EntityRef ref,  FunctionEntity? function,  HandlerEntity? handler,  AgentEntity? agent,  WorkflowEntity? workflow,  MountHealthReport? mountHealth)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( EntityRef ref,  FunctionEntity? function,  HandlerEntity? handler,  AgentEntity? agent,  WorkflowEntity? workflow,  ControlLogic? control,  ApprovalForm? approval,  TriggerEntity? trigger,  MountHealthReport? mountHealth)?  $default,) {final _that = this;
 switch (_that) {
 case _EntityDetail() when $default != null:
-return $default(_that.ref,_that.function,_that.handler,_that.agent,_that.workflow,_that.mountHealth);case _:
+return $default(_that.ref,_that.function,_that.handler,_that.agent,_that.workflow,_that.control,_that.approval,_that.trigger,_that.mountHealth);case _:
   return null;
 
 }
@@ -271,7 +310,7 @@ return $default(_that.ref,_that.function,_that.handler,_that.agent,_that.workflo
 
 
 class _EntityDetail implements EntityDetail {
-  const _EntityDetail({required this.ref, this.function, this.handler, this.agent, this.workflow, this.mountHealth});
+  const _EntityDetail({required this.ref, this.function, this.handler, this.agent, this.workflow, this.control, this.approval, this.trigger, this.mountHealth});
   
 
 @override final  EntityRef ref;
@@ -279,6 +318,9 @@ class _EntityDetail implements EntityDetail {
 @override final  HandlerEntity? handler;
 @override final  AgentEntity? agent;
 @override final  WorkflowEntity? workflow;
+@override final  ControlLogic? control;
+@override final  ApprovalForm? approval;
+@override final  TriggerEntity? trigger;
 @override final  MountHealthReport? mountHealth;
 
 /// Create a copy of EntityDetail
@@ -291,16 +333,16 @@ _$EntityDetailCopyWith<_EntityDetail> get copyWith => __$EntityDetailCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _EntityDetail&&(identical(other.ref, ref) || other.ref == ref)&&(identical(other.function, function) || other.function == function)&&(identical(other.handler, handler) || other.handler == handler)&&(identical(other.agent, agent) || other.agent == agent)&&(identical(other.workflow, workflow) || other.workflow == workflow)&&(identical(other.mountHealth, mountHealth) || other.mountHealth == mountHealth));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _EntityDetail&&(identical(other.ref, ref) || other.ref == ref)&&(identical(other.function, function) || other.function == function)&&(identical(other.handler, handler) || other.handler == handler)&&(identical(other.agent, agent) || other.agent == agent)&&(identical(other.workflow, workflow) || other.workflow == workflow)&&(identical(other.control, control) || other.control == control)&&(identical(other.approval, approval) || other.approval == approval)&&(identical(other.trigger, trigger) || other.trigger == trigger)&&(identical(other.mountHealth, mountHealth) || other.mountHealth == mountHealth));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,ref,function,handler,agent,workflow,mountHealth);
+int get hashCode => Object.hash(runtimeType,ref,function,handler,agent,workflow,control,approval,trigger,mountHealth);
 
 @override
 String toString() {
-  return 'EntityDetail(ref: $ref, function: $function, handler: $handler, agent: $agent, workflow: $workflow, mountHealth: $mountHealth)';
+  return 'EntityDetail(ref: $ref, function: $function, handler: $handler, agent: $agent, workflow: $workflow, control: $control, approval: $approval, trigger: $trigger, mountHealth: $mountHealth)';
 }
 
 
@@ -311,11 +353,11 @@ abstract mixin class _$EntityDetailCopyWith<$Res> implements $EntityDetailCopyWi
   factory _$EntityDetailCopyWith(_EntityDetail value, $Res Function(_EntityDetail) _then) = __$EntityDetailCopyWithImpl;
 @override @useResult
 $Res call({
- EntityRef ref, FunctionEntity? function, HandlerEntity? handler, AgentEntity? agent, WorkflowEntity? workflow, MountHealthReport? mountHealth
+ EntityRef ref, FunctionEntity? function, HandlerEntity? handler, AgentEntity? agent, WorkflowEntity? workflow, ControlLogic? control, ApprovalForm? approval, TriggerEntity? trigger, MountHealthReport? mountHealth
 });
 
 
-@override $FunctionEntityCopyWith<$Res>? get function;@override $HandlerEntityCopyWith<$Res>? get handler;@override $AgentEntityCopyWith<$Res>? get agent;@override $WorkflowEntityCopyWith<$Res>? get workflow;@override $MountHealthReportCopyWith<$Res>? get mountHealth;
+@override $FunctionEntityCopyWith<$Res>? get function;@override $HandlerEntityCopyWith<$Res>? get handler;@override $AgentEntityCopyWith<$Res>? get agent;@override $WorkflowEntityCopyWith<$Res>? get workflow;@override $ControlLogicCopyWith<$Res>? get control;@override $ApprovalFormCopyWith<$Res>? get approval;@override $TriggerEntityCopyWith<$Res>? get trigger;@override $MountHealthReportCopyWith<$Res>? get mountHealth;
 
 }
 /// @nodoc
@@ -328,14 +370,17 @@ class __$EntityDetailCopyWithImpl<$Res>
 
 /// Create a copy of EntityDetail
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? ref = null,Object? function = freezed,Object? handler = freezed,Object? agent = freezed,Object? workflow = freezed,Object? mountHealth = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? ref = null,Object? function = freezed,Object? handler = freezed,Object? agent = freezed,Object? workflow = freezed,Object? control = freezed,Object? approval = freezed,Object? trigger = freezed,Object? mountHealth = freezed,}) {
   return _then(_EntityDetail(
 ref: null == ref ? _self.ref : ref // ignore: cast_nullable_to_non_nullable
 as EntityRef,function: freezed == function ? _self.function : function // ignore: cast_nullable_to_non_nullable
 as FunctionEntity?,handler: freezed == handler ? _self.handler : handler // ignore: cast_nullable_to_non_nullable
 as HandlerEntity?,agent: freezed == agent ? _self.agent : agent // ignore: cast_nullable_to_non_nullable
 as AgentEntity?,workflow: freezed == workflow ? _self.workflow : workflow // ignore: cast_nullable_to_non_nullable
-as WorkflowEntity?,mountHealth: freezed == mountHealth ? _self.mountHealth : mountHealth // ignore: cast_nullable_to_non_nullable
+as WorkflowEntity?,control: freezed == control ? _self.control : control // ignore: cast_nullable_to_non_nullable
+as ControlLogic?,approval: freezed == approval ? _self.approval : approval // ignore: cast_nullable_to_non_nullable
+as ApprovalForm?,trigger: freezed == trigger ? _self.trigger : trigger // ignore: cast_nullable_to_non_nullable
+as TriggerEntity?,mountHealth: freezed == mountHealth ? _self.mountHealth : mountHealth // ignore: cast_nullable_to_non_nullable
 as MountHealthReport?,
   ));
 }
@@ -387,6 +432,42 @@ $WorkflowEntityCopyWith<$Res>? get workflow {
 
   return $WorkflowEntityCopyWith<$Res>(_self.workflow!, (value) {
     return _then(_self.copyWith(workflow: value));
+  });
+}/// Create a copy of EntityDetail
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$ControlLogicCopyWith<$Res>? get control {
+    if (_self.control == null) {
+    return null;
+  }
+
+  return $ControlLogicCopyWith<$Res>(_self.control!, (value) {
+    return _then(_self.copyWith(control: value));
+  });
+}/// Create a copy of EntityDetail
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$ApprovalFormCopyWith<$Res>? get approval {
+    if (_self.approval == null) {
+    return null;
+  }
+
+  return $ApprovalFormCopyWith<$Res>(_self.approval!, (value) {
+    return _then(_self.copyWith(approval: value));
+  });
+}/// Create a copy of EntityDetail
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$TriggerEntityCopyWith<$Res>? get trigger {
+    if (_self.trigger == null) {
+    return null;
+  }
+
+  return $TriggerEntityCopyWith<$Res>(_self.trigger!, (value) {
+    return _then(_self.copyWith(trigger: value));
   });
 }/// Create a copy of EntityDetail
 /// with the given fields replaced by the non-null parameter values.

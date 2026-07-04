@@ -56,7 +56,7 @@ class AnActionGroup extends StatelessWidget {
       content = SizedBox(width: double.infinity, child: content);
     }
     if (footer) {
-      content = Padding(padding: const EdgeInsets.only(top: AnSpace.s16), child: content);
+      content = Padding(padding: const EdgeInsets.only(top: AnGap.block), child: content); // content → footer actions (12, was 16) 内容→底部动作
     }
     return content;
   }

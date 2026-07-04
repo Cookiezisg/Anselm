@@ -241,7 +241,9 @@
         "overview": "Overview",
         "versions": "Versions",
         "logs": "Logs",
-        "runs": "Runs"
+        "runs": "Runs",
+        "activity": "Activity",
+        "dispatch": "Dispatch"
       },
       "verb": {
         "run": "Run",
@@ -253,7 +255,15 @@
         "envStatus": "env $status",
         "noInputs": "no inputs",
         "noOutputs": "no outputs",
+        "noConfig": "no config",
+        "noMethods": "no methods",
+        "methods": "$n methods",
         "deps": "$n deps"
+      },
+      "gate": {
+        "config": "config",
+        "env": "env",
+        "instance": "instance"
       },
       "codeToggle": {
         "expand": "Show all ($n lines)",
@@ -272,7 +282,13 @@
         "mountHealth": "Mount health",
         "governance": "Run governance",
         "alerts": "Alerts",
-        "graph": "Orchestration graph"
+        "graph": "Orchestration graph",
+        "branches": "Routing branches",
+        "template": "Approval template",
+        "decisionRules": "Decision rules",
+        "config": "Configuration",
+        "listener": "Listener",
+        "firePayload": "Fire payload"
       },
       "card": {
         "deps": "Dependencies",
@@ -318,6 +334,9 @@
         "python": "Python",
         "updated": "Updated",
         "desc": "Description",
+        "allowReason": "Allow reason",
+        "timeout": "Timeout",
+        "timeoutBehavior": "On timeout",
         "envId": "env id",
         "status": "Status",
         "syncedAt": "Last synced",
@@ -348,6 +367,10 @@
       },
       "val": {
         "listening": "Listening",
+        "passthrough": "passthrough",
+        "never": "never",
+        "yes": "Yes",
+        "no": "No",
         "stopped": "Stopped",
         "noAlerts": "No alerts",
         "needsAttention": "Needs attention",
@@ -365,6 +388,34 @@
         "healthy": "All mounts healthy",
         "unhealthy": "$count unhealthy"
       },
+      "trigger": {
+        "fire": "Fire",
+        "listening": "Listening",
+        "idle": "Idle",
+        "source": "Source",
+        "refCount": "Listeners",
+        "lastFired": "Last fired",
+        "nextFire": "Next fire",
+        "signatureAlgo": "Signature",
+        "signatureHeader": "Signature header",
+        "events": "Events",
+        "pattern": "Pattern",
+        "target": "Target",
+        "interval": "Interval",
+        "fired": "Fired",
+        "notFired": "Didn't fire",
+        "fanout": "$n fanned out",
+        "fanoutLabel": "Fan-out",
+        "returnValue": "Return value",
+        "payload": "Payload",
+        "detail": "Detail",
+        "activation": "Activation",
+        "allActivity": "All activity",
+        "firedOnly": "Fired only",
+        "allDispatch": "All dispatches",
+        "firedToast": "Fired · $id",
+        "fireFailed": "Couldn't fire the trigger"
+      },
       "addTag": "Add tag",
       "state": {
         "setActive": "Set active",
@@ -373,6 +424,10 @@
         "noVersions": "No versions",
         "noLogs": "No runs yet",
         "noLogsHint": "Runs will appear here once this entity is executed.",
+        "noActivations": "No activity yet",
+        "noActivationsHint": "Every time this trigger acts — fired or not — a row appears here.",
+        "noFirings": "Nothing dispatched",
+        "noFiringsHint": "When a fire fans out to a workflow, its disposition shows here.",
         "noActiveVersion": "No active version",
         "notFoundTitle": "Entity not found",
         "errorTitle": "Couldn't load this entity",
@@ -405,6 +460,10 @@
         "deleteNode": "Delete node",
         "deleteEdge": "Delete edge",
         "portHint": "A control port must match a branch name; approval is yes/no",
+        "portPick": "Select a branch port",
+        "branches": "Routing branches",
+        "branchDefault": "default (all else)",
+        "branchEmit": "emit",
         "addField": "Add field",
         "field": "Field",
         "expr": "CEL expression",
@@ -463,7 +522,10 @@
       "approvalTitle": "Awaiting approval",
       "approve": "Approve",
       "reject": "Reject",
-      "approvalHint": "First decision wins."
+      "approvalHint": "First decision wins.",
+      "reasonHint": "Reason (optional)",
+      "inboxEmpty": "No pending approvals",
+      "inboxEmptyHint": "Approvals waiting for a decision will appear here."
     }
   },
   "coldStart": {
@@ -471,6 +533,22 @@
     "errorTitle": "Couldn't set up the workspace",
     "errorHint": "The local engine is reachable but the workspace didn't resolve.",
     "defaultWorkspace": "Personal"
+  },
+  "documents": {
+    "documents": "Documents",
+    "skills": "Skills",
+    "untitled": "Untitled",
+    "filter": "Filter",
+    "kNew": "New",
+    "errorTitle": "Couldn't load your library",
+    "errorHint": "The local engine didn't return it.",
+    "retry": "Retry",
+    "emptyTitle": "Nothing here yet",
+    "emptyHint": "Create a document or a skill to get started.",
+    "pickTitle": "Pick a document",
+    "pickHint": "Choose a document or skill on the left to read or edit it.",
+    "loadFailed": "Couldn't open this",
+    "emptyDoc": "This document is empty."
   },
   "markdown": {
     "imageNotLoaded": "image not loaded"

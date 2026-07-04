@@ -12,10 +12,13 @@ import '../features/chat/state/selected_conversation.dart';
 import '../features/chat/ui/chat_head.dart';
 import '../features/chat/ui/chat_ocean.dart';
 import '../features/chat/ui/conversation_rail.dart';
+import '../features/documents/ui/document_ocean.dart';
+import '../features/documents/ui/document_rail.dart';
 import '../features/entities/state/run/right_panel.dart';
 import '../features/entities/state/selected_entity.dart';
 import '../features/entities/ui/entity_ocean.dart';
 import '../features/entities/ui/entity_rail.dart';
+import '../features/entities/ui/flowrun_inbox.dart';
 import '../features/entities/ui/run/run_terminal.dart';
 import '../i18n/strings.g.dart';
 
@@ -53,6 +56,9 @@ class AppShell extends ConsumerWidget {
     // Chat mounts its rail in the left-island middle AND its center ocean (landing / transcript+composer).
     // chat 同时挂左岛 rail 与中心海洋(landing / transcript+composer)。
     final onChat = ocean == OceanKind.chat;
+    // Documents ocean: the file-like knowledge library (document tree + skills) in the left island +
+    // a read/edit center. 文档海洋:文件式知识库(文档树 + skill)左岛 + 中心读/编。
+    final onDocuments = ocean == OceanKind.documents;
     // A /chat/:id navigation (deep link, restored URL) pulls the ocean to chat — the URL is the
     // conversation-selection truth, so the ocean must follow it, never fight it. (Full ocean routing is
     // the planned go_router fold-in; this is the one coherence rule needed until then.)
@@ -94,7 +100,9 @@ class AppShell extends ConsumerWidget {
             ? const EntityRail()
             : onChat
                 ? const ConversationRail()
-                : const _RailPlaceholder();
+                : onDocuments
+                    ? const DocumentRail()
+                    : const _RailPlaceholder();
 
     final sidebar = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -164,7 +172,9 @@ class AppShell extends ConsumerWidget {
             ? const EntityOcean()
             : onChat
                 ? const ChatOcean()
-                : const _OceanPlaceholder(),
+                : onDocuments
+                    ? const DocumentOcean()
+                    : const _OceanPlaceholder(),
         inspector: const AnInspector(headless: true, child: RunTerminal()),
         inspectorOpen: hasSelection && !rightCollapsed,
         leftCollapsed: chrome.leftCollapsed,
@@ -194,16 +204,14 @@ class _RailPlaceholder extends StatelessWidget {
 
 /// The notifications tray — takes over the left-island middle when the bell is on. Skeleton placeholder.
 /// 通知托盘——铃开时接管左岛中段。骨架占位。
+/// The bell tray — for now the cross-run approval INBOX (parked approvals awaiting a decision). A broader
+/// notifications feed lands with the notifications feature; approvals are its first, most-actionable
+/// section. 铃托盘:当前=审批收件箱(跨 run 待审 parked 节点);更广的通知流随通知 feature 落地。
 class _NotificationsTray extends StatelessWidget {
   const _NotificationsTray();
 
   @override
-  Widget build(BuildContext context) => AnState(
-        kind: AnStateKind.empty,
-        size: AnStateSize.inset,
-        title: context.t.shell.notifications,
-        hint: context.t.shell.notificationsHint,
-      );
+  Widget build(BuildContext context) => const FlowrunInbox();
 }
 
 /// Open-ocean placeholder for an unbuilt ocean (breadcrumb clearing lives at the ocean switch, see the

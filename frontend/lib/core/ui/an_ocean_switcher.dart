@@ -123,7 +123,7 @@ class AnOceanSwitcherFrame extends StatelessWidget {
 
   // Geometry (all from tokens). 几何(全读令牌)。
   static const double _padX = AnSize.btnPadXSm; // 10 — slot horizontal pad 槽水平内距
-  static const double _iconGap = AnSpace.s8; // 8 — icon↔label gap 图标↔标签
+  static const double _iconGap = AnGap.inline; // 6 — icon↔label INSIDE a compact control (was row-tier 8) 紧凑控件内 icon↔标签
   static const double _slotGap = AnSpace.s2; // 2 — gap between slots (demo --grid/2) 槽间距
   static const double _rowH = AnSize.row; // 32
   static const double _iconOnlyW = _padX * 2 + AnSize.icon; // 36 — collapsed (icon only) 收起态宽

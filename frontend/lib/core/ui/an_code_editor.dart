@@ -41,6 +41,11 @@ import 'syntax_highlighter.dart';
 /// buildTextSpan 返回高亮 span,field 自渲染着色文本(光标/选区/滚动全原生、零叠层,#8)。read-only 用 SelectableText.rich。
 /// 两路同走 highlightCode(唯一高亮源)。re_editor 已评估否决(自带 re_highlight、与单 tokenizer 决策冲突)。内容高、父滚动。
 class AnCodeEditor extends StatefulWidget {
+  /// The bar + top-padding chrome height, exposed so consumers can compute a collapse threshold (e.g.
+  /// [AnFadeCollapse] height around a known line count) without eyeballing a literal in feature code.
+  /// 栏 + 顶内距 chrome 高,导出供消费方算收合阈值(围绕已知行数),免在业务层裸写魔数。
+  static const double chromeHeight = 44;
+
   const AnCodeEditor({
     required this.code,
     this.lang,

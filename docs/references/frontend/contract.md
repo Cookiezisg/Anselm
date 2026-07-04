@@ -31,6 +31,11 @@ core/contract/
     handler.dart           # HandlerEntity/Version/Call
     agent.dart             # AgentEntity/Version/Execution + InvokeResult(bare) + MountHealth(Report)
     workflow.dart          # WorkflowEntity/Version + Flowrun/FlowrunNode/FlowrunComposite
+    approval.dart          # ApprovalForm/Version(非 Quadrinity 支撑 rail kind;template + 决策规则)
+    control.dart           # ControlLogic/Version + Branch(非 Quadrinity 支撑 rail kind;+ 图编辑器边端口下拉)
+    trigger.dart           # TriggerEntity(无版本)+ Activation/Firing + TriggerSource/FiringStatus 封闭枚举(支撑 rail kind;观测面)
+    document.dart          # DocumentNode(Notion 树节点,一 DTO 兼服 /tree[省 content]与 /{id};file-like 用户可编,无版本)+ 护栏常量
+    skill.dart             # Skill + Frontmatter(SKILL.md:name slug 即身份、body+YAML frontmatter;file-like)+ 护栏常量(body≤32KB/desc≤1024/name 正则)
     common.dart            # ExecutionAggregates + CapabilityReport(跨域)
   conversation.dart        # Conversation(rail 行 + isGenerating/awaitingInput/hasUnread 三点 + modelOverride)+ ModelRef
   messages/                # 消息 / run-轨迹块契约(STEP 5;Chat 4.2 共用)
@@ -64,6 +69,7 @@ core/contract/
 
 - **Bare 执行结果**（同步动词直返、**不裹信封**）：`FunctionRunResult`（`:run`）· `InvokeResult`（`:invoke`，带 token/step 计数）。
 - **复合解码**（非标准 bare-entity）：`FlowrunComposite` = `{flowrun, nodes, nextCursor}`（GET /flowruns/{id}）。
+- **非 Quadrinity 支撑 DTO**（`control.dart`/`approval.dart`/`trigger.dart`，P1）：`ControlLogic`/`ControlVersion`（`inputs` + `branches` Branch[]`{port,when,emit?}`）· `ApprovalForm`/`ApprovalVersion`（`inputs` + `template` markdown + `allowReason`/`timeout`/`timeoutBehavior`）· **`TriggerEntity`（**无版本**配置信号源:`kind` `TriggerSource` 封闭枚举 + 自由 `config` map + `outputs` + 读派生 `refCount`/`listening`/`lastFiredAt`/`nextFireAt?`）+ `Activation`（触发面审计:`fired`/`returnValue`/`payload`/`firingCount`）+ `Firing`（运行面收件箱:`status` `FiringStatus` 封闭枚举 + `flowrunId?`）**,皆 **无 `tags`**。——**现作 entities rail 的支撑 kind**（control 第 5、approval 第 6、**trigger 第 7**；扩 `EntityKind`[`verb`→nullable + `executable` 位]、`ControlOverview`/`ApprovalOverview`/`TriggerOverview` 概览；支撑 kind＝无执行/run 终端，动词 CTA 由 `executable` 门控）。control 另由图编辑器经 `getControl` 喂边 branch-port 下拉（`controlPortsProvider`）+ 节点分支 peek。approval 运行时=flowrun parked 行（`:decide`）+ 跨 run 铃托盘收件箱（`listFlowrunInbox`）。**trigger 无版本、有两条观测面**——活动（`listActivations`,`?firedOnly`）+ 派发（`listFirings`,`?status`）作首级 tab、复用日志 tab 分页壳；`Fire` CTA 经 `fireTrigger`（`:fire` 合成 `{manual:true}` → 新 activation id）。
 
 ### 4.3 跨域（`common.dart`）
 
@@ -79,7 +85,7 @@ agent `:invoke` 的 ReAct 轨迹经 **entities 流**（scope `agent:<id>`）以 
 
 ## 5. 契约开放性铁律（seal 谁、不 seal 谁）
 
-**仅 seal 真封闭集**（NodeKind 5 + unknown；BlockKind 6 + `message` + unknown）。协议级**保持开放 + 字符串兜底**：错误码（~261，前端只精选常量）· `lifecycleState`/`concurrency`/`configState`/`runtimeState`/`envStatus`/`status` 等状态串（开放 String，不枚举）。理由：后端是唯一事实源，前端枚举状态串 = 给自己埋未来不兼容；开放 String + UI 层 `status_state` 折叠语义即可。
+**仅 seal 真封闭集**（NodeKind 5 + unknown；BlockKind 6 + `message` + unknown；**TriggerSource 4 源 `cron`/`webhook`/`fsnotify`/`sensor` + unknown**；**FiringStatus 6 `pending`/`claimed`/`started`/`skipped`/`superseded`/`shed` + unknown**——皆 `@JsonKey(unknownEnumValue:)` 兜底,firing `?status` 过滤只发真六种[后端非法值 422]）。协议级**保持开放 + 字符串兜底**：错误码（~261，前端只精选常量）· `lifecycleState`/`concurrency`/`configState`/`runtimeState`/`envStatus`/`status` 等状态串（开放 String，不枚举）。理由：后端是唯一事实源，前端枚举状态串 = 给自己埋未来不兼容；开放 String + UI 层 `status_state` 折叠语义即可。
 
 ## 6. 纪律
 

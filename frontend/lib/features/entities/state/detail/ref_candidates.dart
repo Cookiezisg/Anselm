@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/contract/entities/control.dart';
 import '../../../../core/contract/entities/values.dart';
 import '../../../../core/graph/node_ref.dart';
 import '../../data/entity_kind.dart';
@@ -62,4 +63,19 @@ final refMembersProvider = FutureProvider.autoDispose
     default:
       return const <RefCandidate>[];
   }
+});
+
+/// A control logic fetched FULL (its active version's branches) — the source for both the editor's
+/// edge-port dropdown and the node-inspector branch peek. control 全量(活跃版本分支),供边端口下拉 + 节点分支 peek。
+final controlProvider = FutureProvider.autoDispose
+    .family<ControlLogic, String>((ref, controlId) => ref.watch(entityRepositoryProvider).getControl(controlId));
+
+/// The branch PORTS a control declares — the valid `fromPort` choices for an edge leaving a control node,
+/// so the editor picks from real branches instead of blind free-text. Derives from [controlProvider] so
+/// both share ONE fetch. Stale entries (a port the loaded control no longer declares) are kept selectable
+/// at the call site. control 声明的 branch port(派生自 controlProvider,共享一次取);陈旧值仍可选。
+final controlPortsProvider =
+    FutureProvider.autoDispose.family<List<String>, String>((ref, controlId) async {
+  final control = await ref.watch(controlProvider(controlId).future);
+  return [for (final b in control.activeVersion?.branches ?? const <Branch>[]) b.port];
 });
