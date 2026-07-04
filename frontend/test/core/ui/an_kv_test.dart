@@ -2,6 +2,7 @@ import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/design/typography.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/i18n/strings.g.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -15,6 +16,15 @@ void main() {
           home: Scaffold(body: Center(child: SizedBox(width: 360, child: child))),
         ),
       );
+
+  // The edit pencil is hover-gated (idle 0-width so the value rests flush-right); hover the editable
+  // row to reveal + enable it (as on desktop). 铅笔悬停门控(静态 0 宽让值贴右);悬停编辑行揭示可点。
+  Future<void> revealPencil(WidgetTester tester) async {
+    final g = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await g.addPointer(location: tester.getCenter(find.byType(AnEditableValue).first));
+    addTearDown(g.removePointer);
+    await tester.pumpAndSettle();
+  }
 
   testWidgets('renders rows; read-only value shows; empty → em-dash', (tester) async {
     await tester.pumpWidget(host(const AnKv(rows: [
@@ -50,6 +60,7 @@ void main() {
         }),
       ),
     )));
+    await revealPencil(tester);
     await tester.tap(find.byIcon(AnIcons.edit)); // only the editable row has a pencil
     await tester.pump();
     await tester.enterText(find.byType(TextField), 'new');

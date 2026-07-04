@@ -1,5 +1,6 @@
 import 'package:anselm/core/contract/entities/workflow.dart';
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/ui/an_editable_value.dart';
 import 'package:anselm/core/ui/an_field.dart';
 import 'package:anselm/core/ui/an_graph_canvas.dart';
 import 'package:anselm/core/ui/an_tags.dart';
@@ -83,7 +84,11 @@ void main() {
       final repo = FixtureEntityRepository(workflows: [_wf()]);
       await tester.pumpWidget(_host(WorkflowOverview(wf: _wf()), repo));
       await tester.pump();
-      // The description row is the ONLY pencil row. 说明行是唯一铅笔行。
+      // The description row is the ONLY pencil row. Hover it to reveal the (idle-hidden) pencil. 说明行唯一铅笔;悬停揭示。
+      final hover = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await hover.addPointer(location: tester.getCenter(find.byType(AnEditableValue).first));
+      addTearDown(hover.removePointer);
+      await tester.pumpAndSettle();
       await tester.tap(find.byIcon(AnIcons.edit));
       await tester.pump();
       await tester.enterText(find.byType(EditableText), 'A better description');

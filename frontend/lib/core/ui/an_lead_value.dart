@@ -195,8 +195,11 @@ class _RenderLeadValue extends RenderBox with SlottedContainerRenderObjectMixin<
       aV.layout(BoxConstraints(maxWidth: w, maxHeight: hMax), parentUsesSize: true);
       aVW = aV.size.width;
     }
-    final gapL = aL != null ? _gapFlank : 0.0;
-    final gapV = aV != null ? _gapFlank : 0.0;
+    final gapL = aLW > 0 ? _gapFlank : 0.0;
+    // Only gap before afterValue when it has real width — a 0-width (idle, hover-collapsed) affordance
+    // adds no gap, so the value sits truly flush-right at rest and only shifts left when the pencil
+    // grows on hover. 0 宽附件不加间距:值静态真贴右,悬停铅笔长出才左移。
+    final gapV = aVW > 0 ? _gapFlank : 0.0;
     final avail = math.max(0.0, w - aLW - aVW - gapL - gapV - _gapMid);
 
     // leading hugs content, capped at fraction·avail (so value keeps ≥(1−fraction)·avail — key-priority,

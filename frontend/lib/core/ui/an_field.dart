@@ -161,13 +161,13 @@ class AnKv extends StatelessWidget {
         child: Container(
           constraints: const BoxConstraints(minHeight: AnSize.row),
           padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8, vertical: AnSpace.s4),
-          // key hugs content (capped), value fills the remainder + sits flush-right (AnLeadValue);
-          // in an editable list the rail placeholder keeps this value on the shared right edge.
-          // 键贴内容、值吃余量贴右;可编辑列表中经轨占位与他行共右缘。
+          // key hugs content (capped), value fills the remainder + sits flush-RIGHT (AnLeadValue). No
+          // reserved rail — read-only values rest flush-right like every row; the editable rows' pencil
+          // only reserves width on hover, so at rest the whole list is two-end aligned. 键贴内容、值吃余量
+          // 贴右;不留轨——只读值与他行同样静态贴右,编辑行铅笔仅悬停才占宽,故静态全列两端对齐。
           child: AnLeadValue(
             leading: keyText,
             wrap: row.wrap,
-            afterValue: _railed ? const SizedBox(width: AnSize.controlSm) : null,
             trailing: Text(
               shown,
               textAlign: row.wrap ? TextAlign.left : TextAlign.right,

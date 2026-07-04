@@ -1,6 +1,7 @@
 import 'package:anselm/core/contract/entities/function.dart';
 import 'package:anselm/core/contract/entities/values.dart';
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/ui/an_editable_value.dart';
 import 'package:anselm/core/ui/an_field.dart';
 import 'package:anselm/core/ui/an_tags.dart';
 import 'package:anselm/core/ui/an_transform_box.dart';
@@ -136,6 +137,11 @@ void main() {
       final repo = _repo();
       final fn = await repo.getFunction('fn_1');
       await tester.pumpWidget(_host(FunctionOverview(fn: fn), repo));
+      // Hover the 说明 row to reveal its idle-hidden pencil (flush-right value → pencil pushes on hover). 悬停揭示。
+      final hover = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await hover.addPointer(location: tester.getCenter(find.byType(AnEditableValue).first));
+      addTearDown(hover.removePointer);
+      await tester.pumpAndSettle();
       await tester.tap(find.byIcon(AnIcons.edit), warnIfMissed: false); // the lone 说明 pencil (far right)
       await tester.pumpAndSettle();
       final editing = find.byWidgetPredicate((w) => w is EditableText && !w.readOnly);

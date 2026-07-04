@@ -209,6 +209,9 @@ class _AnEditableValueState extends State<AnEditableValue> {
   // far-right rail width as the input rows' pencil so a mixed list keeps ONE right edge.
   // select:常驻 ghost 下拉;保留与铅笔同宽的最右轨,混排列表共一右缘。
   Widget _selectRow() {
+    // The ghost dropdown IS the always-live editor (no hover-reveal), so it fills flush-right like every
+    // other value's resting state — no reserved rail. ghost 下拉本身即常活编辑器(无悬停揭示),同他行静态
+    // 一样贴右填满、不留轨。
     return AnLeadValue(
       leading: widget.leading,
       trailing: AnDropdown<String>(
@@ -218,7 +221,6 @@ class _AnEditableValueState extends State<AnEditableValue> {
         menuAlignEnd: true,
         onChanged: widget.onChanged,
       ),
-      afterValue: const SizedBox(width: AnSize.controlSm),
     );
   }
 
@@ -241,16 +243,30 @@ class _AnEditableValueState extends State<AnEditableValue> {
                 onAbort: () => _finish(false, returnFocus: false),
               ),
             )
-          : Opacity(
-              opacity: revealPencil ? 1 : 0,
-              child: AnButton.iconOnly(
-                AnIcons.edit,
-                size: AnButtonSize.sm,
-                // Field-specific label — N pencils in one list must be distinguishable to a screen
-                // reader. 按字段命名,列表多铅笔可分辨。
-                semanticLabel: context.t.a11y.editField(field: widget.fieldLabel),
-                focusNode: _pencilFocus,
-                onPressed: _begin,
+          // Idle: the pencil collapses to ZERO width so the value sits flush-right; on hover / keyboard
+          // focus it grows to a control width, pushing the value left to make room. The button stays in
+          // the tree (clipped, opacity 0) so it's still tab-reachable — gaining focus flips `revealPencil`
+          // and expands it. 静态:铅笔收成 0 宽让值贴右;悬停/键盘聚焦长出、把值挤左腾位。钮常驻(裁剪+透明0)
+          // 仍可 Tab 到——聚焦即翻 revealPencil 展开。
+          // widthFactor collapses the slot to 0 at rest (value flush-right) and to the button's width on
+          // reveal (value pushed left), clipping the overflow — no unbounded-height OverflowBox, no space
+          // reserved at rest. widthFactor 静态收 0(值贴右)、揭示时取钮宽(值挤左),裁溢出;无无界高 OverflowBox、静态不占位。
+          : ClipRect(
+              child: Align(
+                alignment: Alignment.centerRight,
+                widthFactor: revealPencil ? 1.0 : 0.0,
+                child: Opacity(
+                  opacity: revealPencil ? 1 : 0,
+                  child: AnButton.iconOnly(
+                    AnIcons.edit,
+                    size: AnButtonSize.sm,
+                    // Field-specific label — N pencils in one list must be distinguishable to a screen
+                    // reader. 按字段命名,列表多铅笔可分辨。
+                    semanticLabel: context.t.a11y.editField(field: widget.fieldLabel),
+                    focusNode: _pencilFocus,
+                    onPressed: _begin,
+                  ),
+                ),
               ),
             ),
     );

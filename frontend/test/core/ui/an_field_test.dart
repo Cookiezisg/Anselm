@@ -1,6 +1,7 @@
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/i18n/strings.g.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -15,11 +16,21 @@ void main() {
         ),
       );
 
+  // The edit pencil is hover-gated (idle 0-width so the value rests flush-right); hover the row to
+  // reveal + enable it. 铅笔悬停门控(静态 0 宽让值贴右);悬停行揭示可点。
+  Future<void> revealPencil(WidgetTester tester) async {
+    final g = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await g.addPointer(location: tester.getCenter(find.byType(AnEditableValue).first));
+    addTearDown(g.removePointer);
+    await tester.pumpAndSettle();
+  }
+
   testWidgets('editable value: pencil → edit → Enter commits', (tester) async {
     var value = 'old';
     await tester.pumpWidget(host(StatefulBuilder(
       builder: (ctx, ss) => AnField(label: 'Name', value: value, editable: true, onChanged: (v) => ss(() => value = v)),
     )));
+    await revealPencil(tester);
     await tester.tap(find.byIcon(AnIcons.edit));
     await tester.pump();
     await tester.enterText(find.byType(TextField), 'new');
@@ -76,6 +87,7 @@ void main() {
     await tester.pumpWidget(narrow(StatefulBuilder(
       builder: (ctx, ss) => AnField(label: 'Max concurrency', value: 'short', editable: true, onChanged: (_) {}),
     )));
+    await revealPencil(tester);
     await tester.tap(find.byIcon(AnIcons.edit));
     await tester.pump();
     expect(tester.takeException(), isNull, reason: 'editing a long-label field in a narrow row must not overflow');

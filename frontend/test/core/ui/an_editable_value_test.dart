@@ -16,6 +16,7 @@ void main() {
     String initial = 'v1',
     AnEditKind editor = AnEditKind.input,
     List<AnDropdownOption<String>> options = const [],
+    bool hover = true,
   }) async {
     var value = initial;
     await tester.pumpWidget(TranslationProvider(
@@ -41,6 +42,16 @@ void main() {
         ),
       ),
     ));
+    // The pencil is hover-gated (idle = 0-width so the value rests flush-right); reveal it with a
+    // persistent mouse over the row so the pencil is visible + tappable, as it is on desktop. Tests that
+    // manage their OWN mouse pass hover:false (two mouse pointers collide). 铅笔悬停门控(静态 0 宽让值贴右);
+    // 持久鼠标悬停行揭示铅笔(桌面恒 hover);自管鼠标的测试传 hover:false(双 mouse 指针冲突)。
+    if (hover) {
+      final h = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await h.addPointer(location: tester.getCenter(find.byType(AnEditableValue)));
+      addTearDown(h.removePointer);
+      await tester.pumpAndSettle();
+    }
     return () => value;
   }
 
@@ -86,10 +97,12 @@ void main() {
     // field never takes primary focus, so this guards the EXPLICIT-focus path (the prior regression: a
     // ✓ click calling returnFocus:true); the restoration path is verified on device via `make gallery`.
     // 鼠标点 ✓ 不该聚焦铅笔(否则可见+焦点框)。用鼠标指针(桌面 traditional);无头文本框不取主焦点,故守显式聚焦路径,恢复路径真机验。
-    final read = await pump(tester);
+    final read = await pump(tester, hover: false); // this test drives its OWN mouse
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    await mouse.addPointer(location: Offset.zero);
+    // Hover the row so the (idle-hidden) pencil reveals + becomes clickable. 悬停行揭示铅笔。
+    await mouse.addPointer(location: tester.getCenter(find.byType(AnEditableValue)));
     addTearDown(mouse.removePointer);
+    await tester.pumpAndSettle();
 
     Future<void> click(Finder f) async {
       final p = tester.getCenter(f);
