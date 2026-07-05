@@ -356,7 +356,7 @@ void main() {
 
 }
 
-class _FakeMentions implements MentionSource {
+class _FakeMentions extends MentionSource {
   @override
   Future<List<MentionCandidate>> search(String query) async {
     const all = [

@@ -111,9 +111,21 @@ class _DocEditViewState extends ConsumerState<_DocEditView> {
 
   void _onChanged(String markdown) => _save.run(() {
         if (!mounted) return;
-        // Content PATCH IS the save (no versioning). 存正文=PATCH content。
+        // Content PATCH IS the save (no versioning). The editor already collapsed mention links → `[[id]]`.
+        // 存正文=PATCH content;编辑器已把 mention 链接塌回 `[[id]]`。
         ref.read(documentsRepositoryProvider).updateDocument(widget.id, {'content': markdown});
       });
+
+  /// The editor with its @/slash seams wired — reused across the content provider's data/error branches so
+  /// the two never drift. 编辑器(接好 @/斜杠),内容 provider 的 data/error 分支共用、不漂移。
+  Widget _editor(Translations t, String markdown) => AnDocEditor(
+        initialMarkdown: markdown,
+        onChanged: _onChanged,
+        // The @ typeahead reuses chat's entity mention seam (function/handler/agent/workflow). @ 复用 chat mention 缝。
+        mentionSource: ref.watch(mentionSourceProvider),
+        // The `/` slash block menu — labels injected here (core/ui stays i18n-free). `/` 块菜单文案注入。
+        slashLabels: _slashLabels(t),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -146,15 +158,14 @@ class _DocEditViewState extends ConsumerState<_DocEditView> {
                 ),
                 const SizedBox(height: AnFlow.headBody),
                 Expanded(
-                  child: AnDocEditor(
-                    initialMarkdown: doc.content,
-                    onChanged: _onChanged,
-                    // The @ typeahead reuses chat's entity mention seam (function/handler/agent/workflow).
-                    // @ 预输入复用 chat 的实体 mention 缝。
-                    mentionSource: ref.watch(mentionSourceProvider),
-                    // The `/` slash block menu — labels injected here (core/ui stays i18n-free). `/` 块菜单文案注入。
-                    slashLabels: _slashLabels(t),
-                  ),
+                  // The editor loads the EXPANDED content (`[[id]]` wikilinks → `[name](anselm-entity:id)`
+                  // mention links, names resolved); on resolve failure it falls back to the raw stored
+                  // content. 编辑器载入富化正文(名解析);解析失败回落原始正文。
+                  child: ref.watch(openDocumentContentProvider(widget.id)).when(
+                        loading: () => const AnDeferredLoading(child: AnSkeleton.lines(8)),
+                        error: (_, _) => _editor(t, doc.content),
+                        data: (markdown) => _editor(t, markdown),
+                      ),
                 ),
               ],
             );

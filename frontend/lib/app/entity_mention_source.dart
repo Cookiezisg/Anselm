@@ -41,6 +41,38 @@ class EntityMentionSource implements MentionSource {
           ),
     ];
   }
+
+  /// An entity ID's prefix (`<prefix>_<16hex>`) pins its kind, so a `[[id]]` wikilink resolves with a single
+  /// targeted `getEntityRow` per id — no guessing across kinds. 前缀定 kind,每 id 一次精确 getEntityRow。
+  static const Map<String, EntityKind> _prefixKind = {
+    'fn': EntityKind.function,
+    'hd': EntityKind.handler,
+    'ag': EntityKind.agent,
+    'wf': EntityKind.workflow,
+    'ctl': EntityKind.control,
+    'apf': EntityKind.approval,
+    'trg': EntityKind.trigger,
+  };
+
+  @override
+  Future<Map<String, String>> resolveNames(List<String> ids) async {
+    final repo = _ref.read(entityRepositoryProvider);
+    final unique = ids.toSet();
+    final entries = await Future.wait([
+      for (final id in unique)
+        () async {
+          final kind = _prefixKind[id.split('_').first];
+          if (kind == null) return null; // unknown prefix (e.g. a doc_ ref) → chip falls back to the id. 未知前缀→回落 id。
+          try {
+            final row = await repo.getEntityRow(kind, id);
+            return MapEntry(id, row.name);
+          } catch (_) {
+            return null; // deleted / not found → fall back to the id. 删了/找不到→回落 id。
+          }
+        }(),
+    ]);
+    return {for (final e in entries) if (e != null) e.key: e.value};
+  }
 }
 
 /// The override both mains install: `mentionSourceProvider.overrideWith(entityMentionSource)`.

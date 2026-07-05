@@ -7,6 +7,7 @@ import '../design/tokens.dart';
 import '../design/typography.dart';
 import '../entity/mention_source.dart';
 import 'an_mention_picker.dart';
+import 'entity_ref_codec.dart';
 
 /// The @ mention trigger rule — Notion-style: `@` opens a token that ends on whitespace / a dot / a
 /// newline. Committed mentions may still contain spaces (they're frozen text, not re-parsed). @ 规则:空白/点/换行结束 token。
@@ -113,6 +114,7 @@ class _AnDocEditorState extends State<AnDocEditor> {
   List<MentionCandidate> _mentionMatches = const [];
   List<_SlashBlock> _slashMatches = const [];
   int _queryToken = 0; // in-flight guard for the async mention search 异步 @ 查询竞态守卫
+  bool _committing = false; // true while a pick rewrites the doc — suppress the tag listener re-opening 选中改文时抑制监听重开
 
   @override
   void initState() {
@@ -172,9 +174,10 @@ class _AnDocEditorState extends State<AnDocEditor> {
 
   void _onChange(DocumentChangeLog _) {
     if (widget.onChanged == null) return;
-    // Serialize the whole block document back to strict-CommonMark markdown. The consumer debounces saves.
-    // 把整块文档序列化回严格 CommonMark;保存去抖归调用方。
-    widget.onChanged!(serializeDocumentToMarkdown(_doc, syntax: MarkdownSyntax.normal));
+    // Serialize to strict-CommonMark, then COLLAPSE the in-editor `[name](anselm-entity:id)` mention links
+    // back to the stored `[[id]]` wire form (the backend's wikilink parser reads that). 序列化后把 mention
+    // 链接塌回 `[[id]]` 线缆形(后端 wikilink 解析读它)。保存去抖归调用方。
+    widget.onChanged!(collapseEntityRefs(serializeDocumentToMarkdown(_doc, syntax: MarkdownSyntax.normal)));
   }
 
   @override
@@ -187,6 +190,7 @@ class _AnDocEditorState extends State<AnDocEditor> {
   // ── @ typeahead @ 预输入 ──
 
   void _onMentionTag() {
+    if (_committing) return; // a pick is rewriting the doc — don't re-open from a stale composing value. pick 改文中,勿重开。
     final tag = _mentionPlugin?.tagIndex.composingStableTag.value;
     if (tag == null) {
       if (_popKind == _PopKind.mention) _closePopover();
@@ -214,9 +218,31 @@ class _AnDocEditorState extends State<AnDocEditor> {
 
   void _pickMention(int index) {
     if (index < 0 || index >= _mentionMatches.length) return;
-    // Fill the composing @token with the committed mention (inserts "@name " as an atomic span). The
-    // composing-tag listener then fires null → the picker closes itself. 用提交 mention 填 @token;随后收 null 自关。
-    _editor.execute([FillInComposingStableTagRequest(_mentionMatches[index].name, _mentionTagRule)]);
+    final cand = _mentionMatches[index];
+    final tag = _mentionPlugin?.tagIndex.composingStableTag.value;
+    if (tag == null) return;
+    // `contentBounds` spans the token WITHOUT the `@` trigger (its start = triggerOffset + 1); extend it one
+    // char left so the delete swallows the `@` too. contentBounds 不含 `@`(start=触发符+1),左扩一格连 `@` 一起删。
+    final tokenStart = tag.contentBounds.start;
+    final triggerPos = DocumentPosition(
+      nodeId: tokenStart.nodeId,
+      nodePosition: TextNodePosition(offset: (tokenStart.nodePosition as TextNodePosition).offset - 1),
+    );
+    final deleteRange = DocumentRange(start: triggerPos, end: tag.contentBounds.end);
+    // Replace `@query` with the entity NAME carrying a hidden link to `anselm-entity:<id>` (styled as a chip;
+    // the codec collapses that link to the stored `[[id]]` on save — id survives, name is display-only) + a
+    // trailing space so the caret continues after the chip. 插「名+隐藏 id 链接」chip+尾空格。
+    final link = LinkAttribution('$kEntityRefScheme:${cand.id}');
+    final chip = AttributedText('${cand.name} ')..addAttribution(link, SpanRange(0, cand.name.length - 1));
+    _committing = true;
+    _editor.execute([
+      DeleteContentRequest(documentRange: deleteRange),
+      InsertAttributedTextRequest(triggerPos, chip),
+    ]);
+    _committing = false;
+    // Deleting the composing token also drops its composing attribution, but close the picker explicitly
+    // rather than rely on the plugin's null-notify ordering. 删组合 token 后显式关面板,不赖插件通知时序。
+    _closePopover();
   }
 
   // ── `/` slash block menu `/` 斜杠块菜单 ──
@@ -369,6 +395,24 @@ class _AnDocEditorState extends State<AnDocEditor> {
 Stylesheet _anStylesheet(AnColors c) {
   TextStyle ink(TextStyle s) => s.copyWith(color: c.ink);
   return defaultStylesheet.copyWith(
+    // Inline styling: keep the defaults, then paint an entity-ref mention (a link to `anselm-entity:…`) as an
+    // accent chip — accent ink + emphasis weight, no link underline (it reads as a branded reference, not a
+    // web link). 内联:留默认,再把实体 mention(anselm-entity 链接)画成 accent 药丸(accent 墨 + 加粗、无下划线)。
+    inlineTextStyler: (attributions, existingStyle) {
+      var style = defaultInlineTextStyler(attributions, existingStyle);
+      final isEntityRef = attributions
+          .whereType<LinkAttribution>()
+          .any((l) => l.plainTextUri.startsWith('$kEntityRefScheme:'));
+      if (isEntityRef) {
+        style = style.copyWith(
+          color: c.accent,
+          fontWeight: AnText.emphasisWeight,
+          fontVariations: const [FontVariation('wght', 400)],
+          decoration: TextDecoration.none,
+        );
+      }
+      return style;
+    },
     addRulesAfter: [
       // Base: reading body (13/1.6 w300, Notion air), a 720 reading column, page-X horizontal pad.
       StyleRule(BlockSelector.all, (doc, node) => {

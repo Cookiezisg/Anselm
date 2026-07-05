@@ -28,6 +28,12 @@ class MentionCandidate {
 /// chat 与 entities),经 [mentionSourceProvider] 注入。
 abstract class MentionSource {
   Future<List<MentionCandidate>> search(String query);
+
+  /// Resolve a batch of entity IDs → display names, for rendering `[[id]]` wikilinks a document was loaded
+  /// with (the doc editor stores the bare id; the chip shows the name). Unresolvable ids are simply absent
+  /// from the map (the caller falls back to the id). Default = resolve nothing (chat's composer doesn't need
+  /// it). id→name 批解析,供渲染文档载入的 `[[id]]`(存裸 id、chip 显名);解析不到的缺席(调用方回落 id)。默认不解析。
+  Future<Map<String, String>> resolveNames(List<String> ids) async => const {};
 }
 
 /// DIP seam — the app layer overrides this (mirrors the repository-seam pattern). app 层 override(镜像仓储缝)。

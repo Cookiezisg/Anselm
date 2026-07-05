@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/contract/entities/document.dart';
 import '../../../core/contract/entities/skill.dart';
+import '../../../core/entity/mention_source.dart';
+import '../../../core/ui/entity_ref_codec.dart';
 import '../data/document_repository.dart';
 
 /// The Documents ocean's server-state, over the [documentsRepositoryProvider] seam. The rail watches the
@@ -37,6 +39,19 @@ final selectedDocProvider =
 /// The open document WITH content (fetched on select; autoDispose releases it on deselect). 打开的文档(带正文)。
 final openDocumentProvider = FutureProvider.autoDispose
     .family<DocumentNode, String>((ref, id) => ref.watch(documentsRepositoryProvider).getDocument(id));
+
+/// The open document's content EXPANDED for the editor: stored `[[id]]` wikilinks → the editor's mention
+/// link form `[name](anselm-entity:id)`, resolving display names via the [mentionSourceProvider]. This is the
+/// content [AnDocEditor] loads; on save it collapses the links back to `[[id]]`. Docs with no wikilinks skip
+/// the resolve entirely (and never touch the mention source). 载入正文富化:`[[id]]`→mention 链接形(名经解析);
+/// 无 wikilink 的文档跳过解析。
+final openDocumentContentProvider = FutureProvider.autoDispose.family<String, String>((ref, id) async {
+  final doc = await ref.watch(openDocumentProvider(id).future);
+  final ids = extractEntityRefIds(doc.content);
+  if (ids.isEmpty) return doc.content;
+  final names = await ref.read(mentionSourceProvider).resolveNames(ids);
+  return expandEntityRefs(doc.content, names);
+});
 
 /// The open skill WITH body + frontmatter (fetched on select). 打开的 skill(带 body + frontmatter)。
 final openSkillProvider = FutureProvider.autoDispose

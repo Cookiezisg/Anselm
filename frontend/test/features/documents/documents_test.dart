@@ -4,6 +4,7 @@ import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/entity/mention_source.dart';
 import 'package:anselm/core/ui/an_doc_editor.dart';
 import 'package:anselm/core/ui/an_mention_picker.dart';
+import 'package:anselm/core/ui/entity_ref_codec.dart';
 import 'package:anselm/features/documents/data/document_fixtures.dart';
 import 'package:anselm/features/documents/data/document_repository.dart';
 import 'package:anselm/features/documents/state/document_state.dart';
@@ -191,9 +192,48 @@ void main() {
       await tester.tap(find.text('sync_inventory'));
       await tester.pumpAndSettle();
 
-      // Picked → panel closed, mention committed into the markdown. 选中→面板关、mention 落 markdown。
+      // Picked → panel closed; the mention serializes to the backend `[[id]]` wikilink (the display name is
+      // dropped, the bare id survives — what pkg/wikilink reads to build link edges). 选中→关、落 `[[id]]` 线缆形。
       expect(find.byType(AnMentionPanel), findsNothing);
-      expect(lastMd, contains('@sync_inventory'));
+      expect(lastMd, contains('[[$_fnId]]'));
+      expect(lastMd, isNot(contains('@'))); // the `@` trigger is gone — the chip is the bare name. 无 @。
+    });
+
+    // The wikilink round-trip: a document loaded with the EXPANDED editor form (what document_ocean produces
+    // from stored `[[id]]` + resolved names) must serialize back to the bare `[[id]]` wire form on edit.
+    // wikilink 往返:载入编辑内展开形(document_ocean 由 `[[id]]`+名产)→编辑→存回裸 `[[id]]`。
+    testWidgets('a loaded [name](anselm-entity:id) link round-trips back to [[id]] on save', (tester) async {
+      disableCaretBlink();
+      String? lastMd;
+      const expanded = 'Owner [sync_inventory]($kEntityRefScheme:$_fnId) ships it';
+      await tester.pumpWidget(TranslationProvider(
+        child: MaterialApp(
+          theme: AnTheme.light(),
+          home: Scaffold(
+            body: SizedBox(
+              width: 720,
+              height: 600,
+              child: AnDocEditor(
+                initialMarkdown: expanded,
+                autofocus: true,
+                mentionSource: _FakeMentions(),
+                onChanged: (m) => lastMd = m,
+              ),
+            ),
+          ),
+        ),
+      ));
+      await tester.pump();
+
+      // Edit (type a space at the end) to fire onChanged, then assert the link collapsed to `[[id]]`.
+      final nodeId = SuperEditorInspector.findDocument()!.first.id;
+      final end = SuperEditorInspector.findTextInComponent(nodeId).length;
+      await tester.placeCaretInParagraph(nodeId, end);
+      await tester.typeImeText('!');
+      await tester.pumpAndSettle();
+
+      expect(lastMd, contains('[[$_fnId]]'));
+      expect(lastMd, isNot(contains(kEntityRefScheme))); // the in-editor link scheme never persists. 链接 scheme 不落盘。
     });
 
     testWidgets('Escape dismisses the picker without inserting', (tester) async {
@@ -312,18 +352,25 @@ const _slashTestLabels = SlashMenuLabels(
   quote: 'Quote',
 );
 
-/// The @ picker's data seam for the editor tests — two entities, name-substring filtered (mirrors the
-/// server-side `?search`). editor 测试的 @ 数据缝:两实体、名子串过滤(镜像服务端 ?search)。
+const _fnId = 'fn_0123456789abcdef';
+const _agId = 'ag_fedcba9876543210';
+
+/// The @ picker's data seam for the editor tests — two entities (strict `<prefix>_<16hex>` ids so the
+/// wikilink codec round-trips), name-substring filtered (mirrors the server-side `?search`). @ 数据缝。
 class _FakeMentions implements MentionSource {
   @override
   Future<List<MentionCandidate>> search(String query) async {
     const all = [
-      MentionCandidate(type: 'function', id: 'fn_1', name: 'sync_inventory', description: 'sync stock'),
-      MentionCandidate(type: 'agent', id: 'ag_1', name: 'report_writer', description: 'writes reports'),
+      MentionCandidate(type: 'function', id: _fnId, name: 'sync_inventory', description: 'sync stock'),
+      MentionCandidate(type: 'agent', id: _agId, name: 'report_writer', description: 'writes reports'),
     ];
     final q = query.toLowerCase();
     return [for (final c in all) if (q.isEmpty || c.name.toLowerCase().contains(q)) c];
   }
+
+  @override
+  Future<Map<String, String>> resolveNames(List<String> ids) async =>
+      {for (final id in ids) if (id == _fnId) id: 'sync_inventory' else if (id == _agId) id: 'report_writer'};
 }
 
 class _PinnedSelection extends SelectedDocController {
