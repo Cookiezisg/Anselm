@@ -39,6 +39,7 @@ core/contract/
     relation.dart          # EntityRelation(关系图一条边,镜像 relation.go RelationView:kind 4 动词封闭集 + from/to {kind,id,name},名读时 hydrate;文档 backlinks = GET /relations?toKind=document&toId=…&kind=link)
     common.dart            # ExecutionAggregates + CapabilityReport(跨域)
   conversation.dart        # Conversation(rail 行 + isGenerating/awaitingInput/hasUnread 三点 + modelOverride)+ ModelRef
+  interaction.dart         # Interaction(人在环 humanloop.Request 投影:danger 门{summary,args}/ask 提问{message,options}判别联合 + resolved 对称信号[kind/tool 空串在场、判 resolved 位])+ InteractionKind(danger/ask/unknown 前向兼容)+ InteractionAction(approve/approve_always/deny/accept/decline 封闭集,.wire)——信号 content 与 GET interactions 一行同形双源解析
   messages/                # 消息 / run-轨迹块契约(STEP 5;Chat 4.2 共用)
     block_content.dart     # BlockKind(6 sealed)+ Text/ToolCall/ToolResult/Message Content(SSE 帧载荷)
     chat_message.dart      # ChatMessage/ChatBlock —— REST 回合历史投影(GET /{id}/messages,含 blocks)

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import '../../../core/contract/attachment.dart';
 import '../../../core/contract/conversation.dart';
+import '../../../core/contract/interaction.dart';
 import '../../../core/contract/messages/chat_message.dart';
 import '../../../core/contract/model_capability.dart';
 import '../../../core/contract/page.dart';
@@ -246,6 +247,38 @@ class FixtureChatRepository implements ChatRepository {
 
   @override
   Future<List<ModelCapability>> listModelCapabilities() async => capabilities;
+
+  // ── human-loop interactions (scriptable) 人在环交互(可脚本化) ──
+
+  /// Seedable pending snapshot per conversation (what [listInteractions] returns). 可种的待决快照。
+  final Map<String, List<Interaction>> interactions = {};
+
+  /// Every resolveInteraction call, in order — assertion hook. 决议调用记录(断言钩)。
+  final List<({String conversationId, String toolCallId, InteractionAction action, String? answer})>
+      resolvedInteractions = [];
+
+  /// Script the failed-resolve path (POST rejects → the provider restores the awaiting record).
+  /// 脚本化决议失败(POST 拒 → provider 复原待决记录)。
+  bool failNextResolve = false;
+
+  @override
+  Future<List<Interaction>> listInteractions(String conversationId) async =>
+      List.of(interactions[conversationId] ?? const []);
+
+  @override
+  Future<void> resolveInteraction(
+    String conversationId,
+    String toolCallId, {
+    required InteractionAction action,
+    String? answer,
+  }) async {
+    if (failNextResolve) {
+      failNextResolve = false;
+      throw StateError('scripted resolve failure');
+    }
+    resolvedInteractions
+        .add((conversationId: conversationId, toolCallId: toolCallId, action: action, answer: answer));
+  }
 
   @override
   Stream<void> transcriptResync() => _resync.stream;

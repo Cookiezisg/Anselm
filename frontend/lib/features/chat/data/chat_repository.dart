@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../../../core/contract/attachment.dart';
 import '../../../core/contract/conversation.dart';
+import '../../../core/contract/interaction.dart';
 import '../../../core/contract/messages/chat_message.dart';
 import '../../../core/contract/model_capability.dart';
 import '../../../core/contract/page.dart';
@@ -164,6 +165,23 @@ abstract interface class ChatRepository {
   /// Every runnable model option (`GET /model-capabilities`: probed key × served model) — the head's
   /// per-thread model picker. 全部可跑模型选项(已探测 key × 模型)——头部线程级选择器的数据源。
   Future<List<ModelCapability>> listModelCapabilities();
+
+  // ── human-loop interactions (V6 danger gate + ask_user) 人在环交互 ──
+
+  /// The reconnect snapshot of currently-AWAITING interactions (`GET /{id}/interactions` → `{data:[…]}`,
+  /// bounded/unpaginated — the broker's in-memory pending table). The interaction signal is ephemeral
+  /// (seq 0), so THIS is the source of truth after a reconnect. 重连快照:当前待决交互(ephemeral 信号的重连真相)。
+  Future<List<Interaction>> listInteractions(String conversationId);
+
+  /// Resolve one awaiting interaction (`POST /{id}/interactions/{toolCallId}` `{action, answer?}` → 204).
+  /// [action] is the closed wire set; [answer] rides only ask-accept. fail-safe: only approve/accept
+  /// executes. 决议一个待决交互(204);action 封闭集,answer 仅 ask-accept;fail-safe 只 approve/accept 落下去。
+  Future<void> resolveInteraction(
+    String conversationId,
+    String toolCallId, {
+    required InteractionAction action,
+    String? answer,
+  });
 }
 
 /// The production repository over the Phase-4.0 pipeline. Holds no state; the method is a thin
@@ -331,4 +349,25 @@ class LiveChatRepository implements ChatRepository {
     final page = await _api.getPage('/api/v1/model-capabilities', ModelCapability.fromJson);
     return page.items;
   }
+
+  @override
+  Future<List<Interaction>> listInteractions(String conversationId) async {
+    // Bounded `{data:[…]}` (no cursor) — reuse getPage and take the items (mirrors listModelCapabilities).
+    // 有界 {data:[…]}(无游标)——复用 getPage 取 items。
+    final page =
+        await _api.getPage('${_path(conversationId)}/interactions', Interaction.fromJson);
+    return page.items;
+  }
+
+  @override
+  Future<void> resolveInteraction(
+    String conversationId,
+    String toolCallId, {
+    required InteractionAction action,
+    String? answer,
+  }) =>
+      _api.postNoContent(
+        '${_path(conversationId)}/interactions/$toolCallId',
+        body: {'action': action.wire, 'answer': ?answer},
+      );
 }
