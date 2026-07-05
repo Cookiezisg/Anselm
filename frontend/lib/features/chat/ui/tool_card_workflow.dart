@@ -140,6 +140,149 @@ Widget workflowOpLiveBody(BuildContext context, ToolCardState state) {
   );
 }
 
+// ── edit_workflow morph (WRK-056 §edit_workflow, ★pivot 场景「旧图变成新图」) ──
+
+/// The precise delta of an edit_workflow ops fragment — added / updated / deleted nodes + edge counts,
+/// derived ENTIRELY from the ops (add_node / update_node / delete_node / add_edge / update_edge /
+/// delete_edge), with ZERO before-graph dependency (the after-graph canvas needs the fetch seam, #50;
+/// this roster is the always-works baseline). edit_workflow 增量精确导出(零 before 依赖)。
+typedef WorkflowDelta = ({
+  List<Node> addedNodes,
+  List<String> updatedNodes,
+  List<String> deletedNodes,
+  int addedEdges,
+  int updatedEdges,
+  int deletedEdges,
+  bool metaOnly,
+});
+
+WorkflowDelta workflowEditDelta(String argsText) {
+  final added = <Node>[];
+  final updated = <String>[];
+  final deleted = <String>[];
+  var addedE = 0, updatedE = 0, deletedE = 0;
+  var sawGraphOp = false;
+  for (final raw in partialJsonArrayItems(argsText, ['ops'])) {
+    if (raw is! Map) continue;
+    switch (raw['op']) {
+      case 'add_node':
+        sawGraphOp = true;
+        final n = raw['node'];
+        if (n is Map && n['id'] is String) {
+          added.add(Node(id: n['id'] as String, kind: workflowNodeKind(n['kind']), ref: (n['ref'] ?? '').toString()));
+        }
+      case 'update_node':
+        sawGraphOp = true;
+        if (raw['id'] is String) updated.add(raw['id'] as String);
+      case 'delete_node':
+        sawGraphOp = true;
+        if (raw['id'] is String) deleted.add(raw['id'] as String);
+      case 'add_edge':
+        sawGraphOp = true;
+        addedE++;
+      case 'update_edge':
+        sawGraphOp = true;
+        updatedE++;
+      case 'delete_edge':
+        sawGraphOp = true;
+        deletedE++;
+    }
+  }
+  return (
+    addedNodes: added,
+    updatedNodes: updated,
+    deletedNodes: deleted,
+    addedEdges: addedE,
+    updatedEdges: updatedE,
+    deletedEdges: deletedE,
+    metaOnly: !sawGraphOp,
+  );
+}
+
+/// edit_workflow — the morph roster (pure-delta form, WRK-056 三级降级基线): a coloured legend
+/// (+added / ~updated / −deleted, nodes · edges) + the change chips (added = green kind chips /
+/// updated = amber id / deleted = red strikethrough), all from the ops — no fetch. The after-graph
+/// canvas + green-halo/pulse overlay is the enhancement (needs the fetch seam #50, a Consumer body
+/// that gallery-embedded cards can't host). meta-only edits say so honestly.
+/// edit_workflow morph 花名册(纯 delta 形):彩色图例 + 变更花名册(绿添/琥珀改/红删划线),全从 ops、
+/// 不 fetch;after 图画布 + 绿晕/脉冲覆层是增强(需取数缝 #50)。纯改元数据诚实说明。
+Widget editWorkflowBody(BuildContext context, ToolCardState state) {
+  final t = Translations.of(context);
+  final c = context.colors;
+  final d = workflowEditDelta(state.argsText);
+
+  if (d.metaOnly && state.resultText.isNotEmpty) {
+    // Only set_meta ops — the graph didn't change. 仅 set_meta:图未变。
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      if (state.summary.isNotEmpty)
+        Padding(padding: const EdgeInsets.only(bottom: AnSpace.s6), child: Text(state.summary, style: AnText.meta.copyWith(color: c.inkMuted))),
+      Text(t.chat.tool.wfDeltaEmpty, style: AnText.label.copyWith(color: c.inkFaint)),
+      RunStatBar(state: state),
+    ]);
+  }
+
+  final legend = <InlineSpan>[];
+  void part(String text, Color color) {
+    if (legend.isNotEmpty) legend.add(TextSpan(text: ' · ', style: AnText.meta.copyWith(color: c.inkFaint)));
+    legend.add(TextSpan(text: text, style: AnText.metaTabular().copyWith(color: color)));
+  }
+  final nodeParts = <String>[];
+  if (d.addedNodes.isNotEmpty) nodeParts.add('+${d.addedNodes.length}');
+  if (d.updatedNodes.isNotEmpty) nodeParts.add('~${d.updatedNodes.length}');
+  if (d.deletedNodes.isNotEmpty) nodeParts.add('−${d.deletedNodes.length}');
+  if (nodeParts.isNotEmpty) part('${nodeParts.join(' ')} ${t.chat.tool.wfNodeUnit}', c.ink);
+  final edgeParts = <String>[];
+  if (d.addedEdges > 0) edgeParts.add('+${d.addedEdges}');
+  if (d.updatedEdges > 0) edgeParts.add('~${d.updatedEdges}');
+  if (d.deletedEdges > 0) edgeParts.add('−${d.deletedEdges}');
+  if (edgeParts.isNotEmpty) part('${edgeParts.join(' ')} ${t.chat.tool.wfEdgeUnit}', c.inkMuted);
+
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      if (state.summary.isNotEmpty)
+        Padding(padding: const EdgeInsets.only(bottom: AnSpace.s6), child: Text(state.summary, style: AnText.meta.copyWith(color: c.inkMuted))),
+      if (legend.isNotEmpty) Text.rich(TextSpan(children: legend)),
+      const SizedBox(height: AnGap.stack),
+      Wrap(
+        spacing: AnGap.inline,
+        runSpacing: AnGap.stackTight,
+        children: [
+          for (final n in d.addedNodes) _morphChip(context, icon: nodeKindIcon(n.kind), label: n.ref.isEmpty ? n.id : n.ref, tone: c.ok, deco: false),
+          for (final id in d.updatedNodes) _morphChip(context, icon: AnIcons.edit, label: id, tone: c.warn, deco: false),
+          for (final id in d.deletedNodes) _morphChip(context, icon: AnIcons.trash, label: id, tone: c.danger, deco: true),
+        ],
+      ),
+      Padding(
+        padding: const EdgeInsets.only(top: AnSpace.s6),
+        child: Text(t.chat.tool.wfMorphNote, style: AnText.meta.copyWith(color: c.inkFaint)),
+      ),
+      RunStatBar(state: state),
+    ],
+  );
+}
+
+/// A morph change chip: kind/action glyph + label, tinted by tone; [deco]=true strikes the label
+/// through (a deleted node — its ref is gone, only the id remains). morph 变更 chip;deco=删除划线。
+Widget _morphChip(BuildContext context, {required IconData icon, required String label, required Color tone, required bool deco}) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8, vertical: AnSpace.s2),
+    decoration: BoxDecoration(
+      border: Border.all(color: tone.withValues(alpha: 0.5), width: AnSize.hairline),
+      borderRadius: BorderRadius.circular(AnRadius.tag),
+    ),
+    child: Row(mainAxisSize: MainAxisSize.min, children: [
+      Icon(icon, size: AnSize.iconSm, color: tone),
+      const SizedBox(width: AnGap.inlineHair),
+      Text(label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: AnText.label.copyWith(
+              color: tone, decoration: deco ? TextDecoration.lineThrough : null)),
+    ]),
+  );
+}
+
 /// Act two — the settled body: intent · the workflow graph replaying its growth · the result bar.
 /// 幕二 落定体:意图 · 工作流图回放生长 · 结果条。
 Widget workflowBuildBody(BuildContext context, ToolCardState state) {

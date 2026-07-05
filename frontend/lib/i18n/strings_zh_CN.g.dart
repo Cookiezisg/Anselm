@@ -490,6 +490,10 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String wfGraphCounts({required Object nodes, required Object edges}) => '节点 ${nodes} · 边 ${edges}';
 	@override String get wfActivateHint => 'activate_workflow 上线 · trigger_workflow 试跑';
 	@override String get wfGrowing => '正在编排';
+	@override String get wfNodeUnit => '节点';
+	@override String get wfEdgeUnit => '边';
+	@override String get wfDeltaEmpty => '仅改元数据(图未变)';
+	@override String get wfMorphNote => '增量变换(图整体见实体面板)';
 }
 
 // Path: chat.gate
@@ -1201,6 +1205,10 @@ extension on TranslationsZhCn {
 			'chat.tool.wfGraphCounts' => ({required Object nodes, required Object edges}) => '节点 ${nodes} · 边 ${edges}',
 			'chat.tool.wfActivateHint' => 'activate_workflow 上线 · trigger_workflow 试跑',
 			'chat.tool.wfGrowing' => '正在编排',
+			'chat.tool.wfNodeUnit' => '节点',
+			'chat.tool.wfEdgeUnit' => '边',
+			'chat.tool.wfDeltaEmpty' => '仅改元数据(图未变)',
+			'chat.tool.wfMorphNote' => '增量变换(图整体见实体面板)',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -1570,12 +1578,12 @@ extension on TranslationsZhCn {
 			'entities.run.approvalTitle' => '等待审批',
 			'entities.run.approve' => '通过',
 			'entities.run.reject' => '驳回',
+			_ => null,
+		} ?? switch (path) {
 			'entities.run.approvalHint' => 'first-wins:先到的决断生效。',
 			'entities.run.reasonHint' => '备注(可选)',
 			'entities.run.inboxEmpty' => '没有待审批',
 			'entities.run.inboxEmptyHint' => '等待决断的审批会出现在这里。',
-			_ => null,
-		} ?? switch (path) {
 			'coldStart.connecting' => '正在准备工作区…',
 			'coldStart.errorTitle' => '无法准备工作区',
 			'coldStart.errorHint' => '本地引擎已连通,但工作区未就绪。',

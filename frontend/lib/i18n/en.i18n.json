@@ -145,7 +145,11 @@
       "wfInactive": "Not activated",
       "wfGraphCounts": "$nodes nodes · $edges edges",
       "wfActivateHint": "activate_workflow to go live · trigger_workflow to test",
-      "wfGrowing": "Composing"
+      "wfGrowing": "Composing",
+      "wfNodeUnit": "nodes",
+      "wfEdgeUnit": "edges",
+      "wfDeltaEmpty": "metadata only (graph unchanged)",
+      "wfMorphNote": "incremental change (full graph in the entity panel)"
     },
     "gate": {
       "dangerBadge": "Dangerous",

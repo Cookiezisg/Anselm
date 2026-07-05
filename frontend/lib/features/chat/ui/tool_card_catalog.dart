@@ -221,7 +221,14 @@ final Map<String, ToolCardSpec> _catalog = {
     liveBody: workflowOpLiveBody,
     receipt: workflowCreateReceipt,
   ),
-  'edit_workflow': _build(kind: (t) => t.chat.tool.kind.workflow, create: false, editIdKey: 'workflowId'),
+  // edit_workflow ★ morph roster: the delta (added/updated/deleted from the ops) — the pure-delta form
+  // (after-graph canvas needs the fetch seam #50). edit_workflow morph 花名册(纯 delta 形)。
+  'edit_workflow': _build(
+    kind: (t) => t.chat.tool.kind.workflow,
+    create: false,
+    editIdKey: 'workflowId',
+    body: editWorkflowBody,
+  ),
   'create_control': _build(kind: (t) => t.chat.tool.kind.control, create: true),
   'edit_control': _build(kind: (t) => t.chat.tool.kind.control, create: false, editIdKey: 'controlId'),
   'create_approval': _build(kind: (t) => t.chat.tool.kind.approval, create: true),

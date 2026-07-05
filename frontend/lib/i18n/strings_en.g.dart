@@ -1004,6 +1004,18 @@ class Translations$chat$tool$en {
 
 	/// en: 'Composing'
 	String get wfGrowing => 'Composing';
+
+	/// en: 'nodes'
+	String get wfNodeUnit => 'nodes';
+
+	/// en: 'edges'
+	String get wfEdgeUnit => 'edges';
+
+	/// en: 'metadata only (graph unchanged)'
+	String get wfDeltaEmpty => 'metadata only (graph unchanged)';
+
+	/// en: 'incremental change (full graph in the entity panel)'
+	String get wfMorphNote => 'incremental change (full graph in the entity panel)';
 }
 
 // Path: chat.gate
@@ -2378,6 +2390,10 @@ extension on Translations {
 			'chat.tool.wfGraphCounts' => ({required Object nodes, required Object edges}) => '${nodes} nodes · ${edges} edges',
 			'chat.tool.wfActivateHint' => 'activate_workflow to go live · trigger_workflow to test',
 			'chat.tool.wfGrowing' => 'Composing',
+			'chat.tool.wfNodeUnit' => 'nodes',
+			'chat.tool.wfEdgeUnit' => 'edges',
+			'chat.tool.wfDeltaEmpty' => 'metadata only (graph unchanged)',
+			'chat.tool.wfMorphNote' => 'incremental change (full graph in the entity panel)',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -2747,12 +2763,12 @@ extension on Translations {
 			'entities.run.approvalTitle' => 'Awaiting approval',
 			'entities.run.approve' => 'Approve',
 			'entities.run.reject' => 'Reject',
+			_ => null,
+		} ?? switch (path) {
 			'entities.run.approvalHint' => 'First decision wins.',
 			'entities.run.reasonHint' => 'Reason (optional)',
 			'entities.run.inboxEmpty' => 'No pending approvals',
 			'entities.run.inboxEmptyHint' => 'Approvals waiting for a decision will appear here.',
-			_ => null,
-		} ?? switch (path) {
 			'coldStart.connecting' => 'Setting up your workspace…',
 			'coldStart.errorTitle' => 'Couldn\'t set up the workspace',
 			'coldStart.errorHint' => 'The local engine is reachable but the workspace didn\'t resolve.',

@@ -92,6 +92,63 @@ void main() {
     expect(find.text('pr-merged'), findsOneWidget);
     expect(find.text('summarize'), findsOneWidget);
   });
+
+  // ── edit_workflow morph (pure-delta form) ──
+
+  const editOps =
+      '{"workflowId":"wf_1","ops":['
+      '{"op":"add_node","node":{"id":"n4","kind":"action","ref":"notify-slack"}},'
+      '{"op":"update_node","id":"n2","patch":{"ref":"fn_new"}},'
+      '{"op":"delete_node","id":"n3"},'
+      '{"op":"add_edge","edge":{"id":"e5","from":"n2","to":"n4"}},'
+      '{"op":"delete_edge","id":"e2"}]}';
+
+  BlockNode editNode(String args, {String result = '{"id":"wf_1","versionId":"wfv_2","version":5}'}) {
+    return BlockNode(id: 'tc_edit_workflow', kind: BlockKind.toolCall)
+      ..status = 'completed'
+      ..content = {'name': 'edit_workflow', 'arguments': args}
+      ..children.add(BlockNode(id: 'tr_ew', kind: BlockKind.toolResult)
+        ..status = 'completed'
+        ..content = {'content': result});
+  }
+
+  test('workflowEditDelta derives added / updated / deleted from the ops (zero before-graph)', () {
+    final d = workflowEditDelta(editOps);
+    expect(d.addedNodes.length, 1);
+    expect(d.addedNodes.first.ref, 'notify-slack');
+    expect(d.updatedNodes, ['n2']);
+    expect(d.deletedNodes, ['n3']);
+    expect(d.addedEdges, 1);
+    expect(d.deletedEdges, 1);
+    expect(d.metaOnly, isFalse);
+  });
+
+  test('a set_meta-only edit is metaOnly (graph unchanged)', () {
+    final d = workflowEditDelta('{"workflowId":"wf_1","ops":[{"op":"set_meta","name":"renamed"}]}');
+    expect(d.metaOnly, isTrue);
+    expect(d.addedNodes, isEmpty);
+  });
+
+  testWidgets('edit_workflow morph roster: legend + green add / amber update / red-strike delete chips', (tester) async {
+    await tester.pumpWidget(_host(ChatToolCard(node: editNode(editOps))));
+    await tester.pump();
+    await tester.tap(find.textContaining('已更新工作流'), warnIfMissed: false);
+    await tester.pumpAndSettle();
+    // The change roster chips (added node's ref, updated + deleted ids). 变更花名册 chips。
+    expect(find.text('notify-slack'), findsOneWidget); // added (green)
+    expect(find.text('n2'), findsOneWidget); // updated (amber)
+    expect(find.text('n3'), findsOneWidget); // deleted (red strikethrough)
+    // No fetched canvas in the pure-delta form. 纯 delta 形无 fetch 画布。
+    expect(find.byType(AnMiniGraph), findsNothing);
+  });
+
+  testWidgets('meta-only edit says so honestly', (tester) async {
+    await tester.pumpWidget(_host(ChatToolCard(node: editNode('{"workflowId":"wf_1","ops":[{"op":"set_meta","name":"x"}]}'))));
+    await tester.pump();
+    await tester.tap(find.textContaining('已更新工作流'), warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('仅改元数据'), findsOneWidget);
+  });
 }
 
 // Minimal ToolCardState for the pure-function test. 纯函数测的最小依赖。

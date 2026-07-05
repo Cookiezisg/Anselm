@@ -122,5 +122,13 @@ final toolCardBuildsGalleryItem = GalleryItem(
                 summary: 'Wire the invoice sync pipeline',
                 result: '{"id":"wf_00ff00ff00ff00ff","versionId":"wfv_1122334455667788","version":1,"active":false,"lifecycleState":"inactive"}')),
         span: true, stress: true),
+    GallerySpecimen('已更新工作流 · v5(★morph 花名册:绿添 · 琥珀改 · 红删划线)',
+        (c) => ChatToolCard(
+            node: _call('wfe', 'edit_workflow',
+                args:
+                    '{"workflowId":"wf_00ff00ff00ff00ff","ops":[{"op":"add_node","node":{"id":"notify","kind":"action","ref":"通知 Slack"}},{"op":"update_node","id":"classify","patch":{"ref":"更快的分类器"}},{"op":"delete_node","id":"gate"},{"op":"add_edge","edge":{"id":"e5","from":"classify","to":"notify"}},{"op":"delete_edge","id":"e3"}]}',
+                summary: 'Simplify: drop the gate, add a Slack notify',
+                result: '{"id":"wf_00ff00ff00ff00ff","versionId":"wfv_5566778899aabbcc","version":5}')),
+        span: true, stress: true),
   ],
 );

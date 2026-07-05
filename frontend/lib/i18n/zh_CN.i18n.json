@@ -145,7 +145,11 @@
       "wfInactive": "未激活",
       "wfGraphCounts": "节点 $nodes · 边 $edges",
       "wfActivateHint": "activate_workflow 上线 · trigger_workflow 试跑",
-      "wfGrowing": "正在编排"
+      "wfGrowing": "正在编排",
+      "wfNodeUnit": "节点",
+      "wfEdgeUnit": "边",
+      "wfDeltaEmpty": "仅改元数据(图未变)",
+      "wfMorphNote": "增量变换(图整体见实体面板)"
     },
     "gate": {
       "dangerBadge": "危险",
