@@ -12,10 +12,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:super_editor/super_editor.dart';
 
+import '../../i18n/strings.g.dart';
+
 import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
 import '../entity/mention_source.dart';
+import 'an_doc_editor_components.dart';
 import 'an_mention_picker.dart';
 import 'entity_ref_codec.dart';
 
@@ -153,7 +156,11 @@ class AnDocEditorState extends State<AnDocEditor> {
   }
 
   void _build(String markdown) {
-    _doc = deserializeMarkdownToDocument(markdown, syntax: MarkdownSyntax.normal);
+    // The custom fence converter preserves the code language (upstream drops it — an edit would save
+    // the document back without its ```lang tags). 自定义围栏 converter 保语言(上游丢弃,编辑保存即丢标)。
+    _doc = deserializeMarkdownToDocument(markdown,
+        syntax: MarkdownSyntax.normal,
+        customElementToNodeConverters: const [AnCodeBlockElementConverter()]);
     _composer = MutableDocumentComposer();
     _mentionPlugin = widget.mentionSource == null ? null : StableTagPlugin(tagRule: _mentionTagRule);
     _slashPlugin = widget.slashLabels == null ? null : ActionTagsPlugin();
@@ -269,10 +276,12 @@ class AnDocEditorState extends State<AnDocEditor> {
 
   void _onChange(DocumentChangeLog _) {
     if (widget.onChanged == null) return;
-    // Serialize to strict-CommonMark, then COLLAPSE the in-editor `[name](anselm-entity:id)` mention links
-    // back to the stored `[[id]]` wire form (the backend's wikilink parser reads that). 序列化后把 mention
-    // 链接塌回 `[[id]]` 线缆形(后端 wikilink 解析读它)。保存去抖归调用方。
-    widget.onChanged!(collapseEntityRefs(serializeDocumentToMarkdown(_doc, syntax: MarkdownSyntax.normal)));
+    // Serialize to strict-CommonMark (the custom serializer writes language-tagged fences), then COLLAPSE
+    // the in-editor `[name](anselm-entity:id)` mention links back to the stored `[[id]]` wire form (the
+    // backend's wikilink parser reads that). 序列化(自定义序列化器写带语言围栏)后把 mention 链接塌回 `[[id]]`
+    // 线缆形。保存去抖归调用方。
+    widget.onChanged!(collapseEntityRefs(serializeDocumentToMarkdown(_doc,
+        syntax: MarkdownSyntax.normal, customNodeSerializers: const [AnCodeBlockSerializer()])));
   }
 
   @override
@@ -428,6 +437,10 @@ class AnDocEditorState extends State<AnDocEditor> {
     }
   }
 
+  /// The fence language for a code node — kept on node METADATA by the custom converter (the paragraph
+  /// view model doesn't carry it). 代码节点的围栏语言(converter 存 metadata;段落 VM 不带)。
+  String? _codeLanguageOf(String nodeId) => _doc.getNodeById(nodeId)?.getMetadataValue('language') as String?;
+
   void _cancel() {
     switch (_popKind) {
       case _PopKind.mention:
@@ -531,6 +544,21 @@ class AnDocEditorState extends State<AnDocEditor> {
       documentLayoutKey: _docLayoutKey,
       stylesheet: _anStylesheet(c),
       selectionStyle: SelectionStyles(selectionColor: c.accentSoft),
+      // The AnMarkdown-parity components (code chrome / quote bar / hairline HR / quiet list markers /
+      // glyph tasks) run FIRST (first-non-null-wins); TaskComponentBuilder's view-model duty rides inside
+      // AnTaskComponentBuilder (SuperEditor only auto-appends the stock one when NO custom list is given).
+      // 基准对齐组件先行(先非空者胜);任务 VM 职责在 AnTaskComponentBuilder 里(传自定义列表后 SuperEditor 不再自动补)。
+      componentBuilders: [
+        AnCodeBlockComponentBuilder(c, languageOf: _codeLanguageOf, copyLabel: Translations.of(context).action.copy),
+        AnTaskComponentBuilder(_editor, c),
+        AnListItemComponentBuilder(c),
+        AnBlockquoteComponentBuilder(c),
+        AnHrComponentBuilder(c),
+        ...defaultComponentBuilders,
+      ],
+      // Group-boundary rhythm (ul↔ol / ↔task) — a block-name-blind gap the stylesheet can't express.
+      // 组边界节奏(样式表按块名看不见的间距)。
+      customStylePhases: [AnListBoundaryStylePhase()],
       plugins: {?_mentionPlugin, ?_slashPlugin},
       // SuperEditor's input source is IME (the default) — the actions MUST be the IME set: the hardware set
       // (`defaultKeyboardActions`) consumes raw key-downs before the OS input method sees them, which kills
@@ -592,21 +620,35 @@ Stylesheet _anStylesheet(AnColors c) {
     // No document-level padding — the vertical rhythm is authored entirely by the per-block token rules
     // (and an embedding host brings its own page insets). 文档级 padding 归零:节奏全由每块 token 规则定。
     documentPadding: EdgeInsets.zero,
-    // Inline styling: the stock attribution styles, then paint an entity-ref mention (a link to
-    // `anselm-entity:…`) as an accent chip — accent ink + emphasis weight, no link underline (it reads as a
-    // branded reference, not a web link). 内联:默认属性样式,再把实体 mention 画成 accent 药丸(无下划线)。
+    // Inline styling — the stock attribution styles, then the PARITY fixes so inline runs read exactly
+    // like AnMarkdown: ① bold re-weighted via `.weight()` (the default's bare `fontWeight: bold` is
+    // overridden by the pinned `wght` axis and renders NOT-bold / synthesized-heavy — the same
+    // two-weight bug AnMarkdown fixed); ② inline `code` → mono on a sunken ground (the default styles it
+    // NOT AT ALL); ③ web links → accent (default is Material lightBlue); ④ an entity-ref mention → accent
+    // chip, emphasis weight, no underline (a branded reference, not a web link).
+    // 内联对齐 AnMarkdown:①粗体走 `.weight()` 钉轴(默认裸 fontWeight 被钉轴覆盖/合成过重——AnMarkdown 修过的
+    // 同一 bug);②内联 code → mono+凹陷底(默认完全没样式);③网链 → accent(默认 lightBlue);④实体 mention →
+    // accent 药丸无下划线。
     inlineTextStyler: (attributions, existingStyle) {
       var style = defaultInlineTextStyler(attributions, existingStyle);
-      final isEntityRef = attributions
-          .whereType<LinkAttribution>()
-          .any((l) => l.plainTextUri.startsWith('$kEntityRefScheme:'));
-      if (isEntityRef) {
+      if (attributions.contains(boldAttribution)) {
+        style = style.weight(AnText.emphasisWeight);
+      }
+      if (attributions.contains(codeAttribution)) {
         style = style.copyWith(
-          color: c.accent,
-          fontWeight: AnText.emphasisWeight,
-          fontVariations: const [FontVariation('wght', 400)],
-          decoration: TextDecoration.none,
+          fontFamily: AnText.mono.fontFamily,
+          fontFamilyFallback: AnText.mono.fontFamilyFallback,
+          backgroundColor: c.surfaceSunken,
         );
+      }
+      final link = attributions.whereType<LinkAttribution>().firstOrNull;
+      if (link != null) {
+        final isEntityRef = link.plainTextUri.startsWith('$kEntityRefScheme:');
+        style = isEntityRef
+            ? style
+                .weight(AnText.emphasisWeight)
+                .copyWith(color: c.accent, decoration: TextDecoration.none)
+            : style.copyWith(color: c.accent, decorationColor: c.accent);
       }
       return style;
     },
@@ -625,18 +667,23 @@ Stylesheet _anStylesheet(AnColors c) {
       StyleRule(const BlockSelector('paragraph'),
           (doc, node) => {Styles.padding: const CascadingPadding.only(top: AnFlow.block)}),
       // List items sit TIGHT within a list (AnFlow.listItem 4); the first one (after a paragraph) takes the
-      // full block gap so the list separates from the prose above. Tasks follow the same rhythm. 列表项内紧
-      // (4);首项离上文一个块间距;待办同律。
-      StyleRule(const BlockSelector('listItem'),
-          (doc, node) => {Styles.padding: const CascadingPadding.only(top: AnFlow.listItem)}),
+      // full block gap so the list separates from the prose above. Tasks follow the same rhythm. The bullet
+      // dot matches AnMarkdown's quiet marker (inkFaint, ~3px — not the default full-ink 4px). 列表项内紧
+      // (4);首项离上文一个块间距;待办同律;圆点=AnMarkdown 的安静记号(inkFaint 小点)。
+      StyleRule(const BlockSelector('listItem'), (doc, node) => {
+            Styles.padding: const CascadingPadding.only(top: AnFlow.listItem),
+            Styles.dotColor: c.inkFaint,
+            Styles.dotSize: const Size(3, 3),
+          }),
       StyleRule(const BlockSelector('listItem').after('paragraph'),
           (doc, node) => {Styles.padding: const CascadingPadding.only(top: AnFlow.block)}),
       StyleRule(const BlockSelector('task'),
           (doc, node) => {Styles.padding: const CascadingPadding.only(top: AnFlow.listItem)}),
       StyleRule(const BlockSelector('task').after('paragraph'),
           (doc, node) => {Styles.padding: const CascadingPadding.only(top: AnFlow.block)}),
-      // Headings: AnMarkdown's downshifted reading-column sizes (h1→h3 tier / h2→strong / h3→body-emphasis),
-      // and MORE space above (AnFlow.headingTop/subheadingTop) — they own the block below. 标题降档 + 上方留多。
+      // Headings: AnMarkdown's downshifted reading-column sizes (h1→h3 tier / h2→strong / h3→body-emphasis)
+      // with ONE uniform space-above (AnFlow.headingTop 24 ≈ AnMarkdown's 12+12) — the baseline breathes
+      // every heading level the same. 标题降档 + 上方统一 24(基准全级同律)。
       StyleRule(const BlockSelector('header1'), (doc, node) => {
             Styles.textStyle: ink(AnText.h3),
             Styles.padding: const CascadingPadding.only(top: AnFlow.headingTop),
@@ -647,15 +694,22 @@ Stylesheet _anStylesheet(AnColors c) {
           }),
       StyleRule(const BlockSelector('header3'), (doc, node) => {
             Styles.textStyle: ink(AnText.reading.weight(AnText.emphasisWeight)),
-            Styles.padding: const CascadingPadding.only(top: AnFlow.subheadingTop),
+            Styles.padding: const CascadingPadding.only(top: AnFlow.headingTop),
           }),
-      // Fenced code — the mono code face (super_editor's code paragraph doesn't honor a block background,
-      // so the read-only AnCodeEditor frame stays AnMarkdown's job; here the mono font carries it). 代码块 mono。
-      StyleRule(const BlockSelector('code'),
-          (doc, node) => {Styles.textStyle: AnText.code.copyWith(color: c.ink)}),
-      // Blockquote — the quiet-aside register (inkMuted prose), matching AnMarkdown. 引用:静默旁白(inkMuted)。
-      StyleRule(const BlockSelector('blockquote'),
-          (doc, node) => {Styles.textStyle: AnText.reading.copyWith(color: c.inkMuted)}),
+      // Fenced code — the code face + the uniform block gap (the custom component brings the frame). 代码块。
+      StyleRule(const BlockSelector('code'), (doc, node) => {
+            Styles.textStyle: AnText.code.copyWith(color: c.ink),
+            Styles.padding: const CascadingPadding.only(top: AnFlow.block),
+          }),
+      // Blockquote — the quiet-aside register (inkMuted prose), matching AnMarkdown; the custom component
+      // brings the 2px left bar. 引用:静默旁白(inkMuted);左条归自定义组件。
+      StyleRule(const BlockSelector('blockquote'), (doc, node) => {
+            Styles.textStyle: AnText.reading.copyWith(color: c.inkMuted),
+            Styles.padding: const CascadingPadding.only(top: AnFlow.block),
+          }),
+      // Horizontal rule — the uniform block gap (hairline look comes from the custom component). 分隔线间距。
+      StyleRule(const BlockSelector('horizontalRule'),
+          (doc, node) => {Styles.padding: const CascadingPadding.only(top: AnFlow.block)}),
       // Trailing scroll runway.
       StyleRule(BlockSelector.all.last(),
           (doc, node) => {Styles.padding: const CascadingPadding.only(bottom: AnInset.pageBottom)}),

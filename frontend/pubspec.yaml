@@ -33,6 +33,11 @@ dependencies:
   # before; the facade keeps us vendorable if it stalls. LLM 输出 markdown 渲染器,builder 钩子面最全;
   # 仅经 AnMarkdown 门面用、绝不裸用。钉死精确版本(上游曾在小版本内破坏 builder 签名;门面保可 vendor)。
   gpt_markdown: 1.1.7
+  # markdown AST types (md.Element) for AnDocEditor's custom fence converter — super_editor's built-in
+  # parser DROPS the fence language; our converter preserves it via node metadata. Pinned to the exact
+  # version super_editor already locks transitively (no new resolution). markdown AST 类型:自定义围栏
+  # converter 用(上游丢语言标,经节点 metadata 保真);钉 super_editor 传递锁定的同版本。
+  markdown: 7.3.1
   # SPIKE (WRK-documents, provisional): Notion-style block-editor foundation for the documents ocean —
   # true WYSIWYG blocks + live markdown + StableTag(@)/ActionTag(/) primitives + owned markdown codec.
   # MIT, PRE-1.0 dev line. PINNED EXACT dev.40 (NOT the latest dev.52): dev.41+ adopt Flutter's newer

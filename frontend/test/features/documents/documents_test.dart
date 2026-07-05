@@ -769,6 +769,37 @@ void main() {
       expect(md, contains('- [ ] Ship'));
     });
 
+    // The fence LANGUAGE survives an edit — super_editor's built-in parser drops it (```python would
+    // save back as bare ```); the custom converter/serializer pair keeps it on node metadata.
+    // 围栏语言在编辑后存活——上游解析器丢弃(```python 存回裸 ```);自定义 converter/serializer 经 metadata 保真。
+    testWidgets('a fenced code block round-trips its language tag', (tester) async {
+      disableCaretBlink();
+      String? lastMd;
+      await tester.pumpWidget(TranslationProvider(
+        child: MaterialApp(
+          theme: AnTheme.light(),
+          home: Scaffold(
+            body: SizedBox(
+              width: 720,
+              height: 600,
+              child: AnDocEditor(
+                initialMarkdown: '```python\nprint(1)\n```',
+                autofocus: true,
+                onChanged: (m) => lastMd = m,
+              ),
+            ),
+          ),
+        ),
+      ));
+      await tester.pump();
+      final nodeId = SuperEditorInspector.findDocument()!.first.id;
+      await tester.placeCaretInParagraph(nodeId, 0);
+      await tester.typeImeText('# ');
+      await tester.pumpAndSettle();
+      expect(lastMd, contains('```python')); // the language tag survived the edit 语言标存活
+      expect(lastMd, contains('print(1)# ')); // …and the typed chars landed inside the block 输入落块内
+    });
+
     // Chip integrity — a picked mention behaves as ONE token: the caret continues AFTER it, and a
     // backspace at its edge deletes the whole chip. chip 完整性:光标续在其后;缘上退格整删。
     testWidgets('a picked mention seats the caret after the chip; typing continues outside', (tester) async {
