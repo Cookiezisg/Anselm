@@ -28,7 +28,6 @@ import (
 	mentiondomain "github.com/sunweilin/anselm/backend/internal/domain/mention"
 	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
 	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
-	notificationdomain "github.com/sunweilin/anselm/backend/internal/domain/notification"
 	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
 	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
@@ -194,12 +193,11 @@ type Deps struct {
 	Catalog        CatalogProvider
 	Documents      DocumentRenderer
 	Todo           TodoReminder
-	Bridge         streamdomain.Bridge        // messages stream instance; nil → no live push (REST history still works)
-	EntitiesBridge streamdomain.Bridge        // entities stream (SSE-C): loop mirrors build tool_call deltas here; nil → no entity-panel live fill
-	Titler         ConversationTitler         // auto-title writer; nil → no auto-titling
-	Notifier       notificationdomain.Emitter // auto-title notification; nil → no notify
-	Compactor      Compactor                  // context compaction; nil → no compaction
-	Touchpoints    *touchpointapp.Service     // conversation context ledger; nil → no touch recording 对话触点台账
+	Bridge         streamdomain.Bridge    // messages stream instance; nil → no live push (REST history still works)
+	EntitiesBridge streamdomain.Bridge    // entities stream (SSE-C): loop mirrors build tool_call deltas here; nil → no entity-panel live fill
+	Titler         ConversationTitler     // auto-title writer (also emits conversation.auto_titled); nil → no auto-titling
+	Compactor      Compactor              // context compaction; nil → no compaction
+	Touchpoints    *touchpointapp.Service // conversation context ledger; nil → no touch recording 对话触点台账
 }
 
 // Compactor compacts a conversation when it nears the model's context window (app/contextmgr).

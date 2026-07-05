@@ -29,7 +29,7 @@ audience: [human, ai]
 - **ReminderProvider**：每步前注入 live todo 清单为临时 `<system-reminder>`（不污染持久历史）。
 - **WriteFinalize 在 Detached ctx**：用户中途关页也绝不留永久 streaming 孤儿；**硬崩溃**（kill -9）的孤儿由 boot 对账兜底（`SweepOrphans`——每 workspace 把 pending/streaming 行扫成 cancelled，messages 版 scheduler.Recover）。
 - **recency + 未读 watermark（经 `ConversationReader` 端口）**：Send 落 user 回合后 `TouchLastMessage(…, unread=false)`、WriteFinalize 落 assistant 回合后 `TouchLastMessage(…, unread = status==completed)`——**这条不对称就是未读信号**：用户发送=已读、完成的回复=未读、取消/出错终态=不算（queued-cancel 路径不调 Touch、不动 unread）。两次都把 unread 折进 last_message_at 的同一原子 UPDATE（自己的消息绝不半提交成未读）。端口另有 `MarkSeen`（`:seen` 动作用户打开线程时清 unread）。详见 [conversation.md](conversation.md) 的 hasUnread。
-- 回合后（仍在队列槽内防竞态）：首回合自动起标题（utility 模型、best-effort）+ 同步触发上下文压缩检查（contextmgr）。**utility 未配时的全降级面**：起标题静默缺席、压缩跳过、WebFetch 摘要回退原文、search_blocks 精选落纯索引——对话主链路（dialogue 模型）不受影响，但这些静默缺席的归因口前端应在设置页提示「未配 utility 模型」。
+- 回合后（仍在队列槽内防竞态）：首回合自动起标题（best-effort）+ 同步触发上下文压缩检查（contextmgr）。**起标题的模型解析带回落**（`resolveTitler`）：优先 workspace utility 模型（这种一次性调用用廉价模型最宜），**未配 utility 时回落到对话自己的模型**（`conv.ModelOverride`）——app 只按对话配模型、从不设 workspace 级默认，故无此回落 `ResolveUtility` 返 `MODEL_NOT_CONFIGURED`、起标题永不触发。标题据首条 user+assistant 摘要、**按对话语言**产出，经 `SetAutoTitle` 落 Title+AutoTitled 并发**单条** `conversation.auto_titled`（前端据此重读行 + 触发标题打字机；chat 不再在 SetAutoTitle 之外重复通知）。**utility 未配的其余降级面仍在**：压缩跳过、WebFetch 摘要回退原文、search_blocks 精选落纯索引——这些静默缺席的归因口前端应在设置页提示「未配 utility 模型」。
 - maxSteps **实时读** `limits.Current().Agent.MaxSteps`（默认 25，`PATCH /limits` 热换下回合即生效；高于 agent invoke 默认的 `InvokeMaxTurns`=10——交互对话合理串更多步）；触顶诚实报 stop_reason `max_steps` + error_code `MAX_STEPS_REACHED` + "继续"提示。
 
 ## 4. 人在环

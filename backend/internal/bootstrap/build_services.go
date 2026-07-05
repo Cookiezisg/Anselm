@@ -325,7 +325,6 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 		Bridge:         bus.messages,
 		EntitiesBridge: bus.entities,
 		Titler:         conv,
-		Notifier:       notif,
 		Compactor:      ctxmgr,
 		Touchpoints:    tp,
 	}, log)
