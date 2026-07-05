@@ -5,19 +5,21 @@ import '../../../core/contract/entities/skill.dart';
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
+import '../../../core/perf/debouncer.dart';
 import '../../../core/ui/an_deferred_loading.dart';
+import '../../../core/ui/an_doc_editor.dart';
 import '../../../core/ui/an_markdown.dart';
 import '../../../core/ui/an_page.dart';
 import '../../../core/ui/an_skeleton.dart';
 import '../../../core/ui/an_state.dart';
 import '../../../i18n/strings.g.dart';
+import '../data/document_repository.dart';
 import '../state/document_state.dart';
 
-/// The Documents ocean center — for P1/P2 a READ-ONLY preview of the selected node (the Notion WYSIWYG
-/// editor on super_editor lands in P3). A document renders its markdown [content]; a skill renders a
-/// compact frontmatter line + its markdown body. No selection → an empty "pick a document" state. All
-/// content flows through the repository seam. 文档海洋中心(P1/P2 只读预览;Notion 编辑器 P3):文档渲正文,
-/// skill 渲 frontmatter 摘要 + body;无选区=空态。
+/// The Documents ocean center — a document opens in the Notion-style [AnDocEditor] (P3: editable WYSIWYG,
+/// markdown source of truth, debounced content save); a skill still renders a read-only preview (its full
+/// structured editor is P4). No selection → an empty "pick a document" state. All content flows through the
+/// repository seam. 文档海洋中心:文档进 Notion 式可编辑器(去抖保存);skill 暂只读(P4);无选区=空态。
 class DocumentOcean extends ConsumerWidget {
   const DocumentOcean({super.key});
 
@@ -28,29 +30,10 @@ class DocumentOcean extends ConsumerWidget {
     if (selected == null) {
       return AnState(kind: AnStateKind.empty, title: t.documents.pickTitle, hint: t.documents.pickHint);
     }
-    return selected.isSkill ? _skill(context, ref, selected.id) : _doc(context, ref, selected.id);
-  }
-
-  Widget _doc(BuildContext context, WidgetRef ref, String id) {
-    final t = context.t;
-    return ref.watch(openDocumentProvider(id)).when(
-          loading: () => const AnDeferredLoading(child: AnSkeleton.lines(8)),
-          error: (_, _) => AnState(kind: AnStateKind.error, title: t.documents.loadFailed, hint: t.documents.errorHint),
-          data: (doc) => AnPage(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _title(context, doc.name.isEmpty ? t.documents.untitled : doc.name),
-                const SizedBox(height: AnFlow.headBody), // title → body (12) 标题→正文
-                // Read-only render of the markdown source of truth (the editor replaces this in P3). 只读渲染真相 markdown。
-                if (doc.content.trim().isEmpty)
-                  AnState(kind: AnStateKind.empty, size: AnStateSize.inset, title: t.documents.emptyDoc)
-                else
-                  AnMarkdown(doc.content),
-              ],
-            ),
-          ),
-        );
+    // Key the doc edit view by id so switching documents resets the editor + its debouncer cleanly. 按 id 键控,换文档即重建。
+    return selected.isSkill
+        ? _skill(context, ref, selected.id)
+        : _DocEditView(key: ValueKey(selected.id), id: selected.id);
   }
 
   Widget _skill(BuildContext context, WidgetRef ref, String name) {
@@ -87,6 +70,74 @@ class DocumentOcean extends ConsumerWidget {
     return parts.join(' · ');
   }
 
-  Widget _title(BuildContext context, String text) =>
+  static Widget _title(BuildContext context, String text) =>
       Text(text, style: AnText.h2.weight(AnText.emphasisWeight).copyWith(color: context.colors.ink));
+}
+
+/// The editable document view — a fixed title bar (the doc NAME, aligned to the editor's 720/pageX column)
+/// over the [AnDocEditor] which fills the rest + scrolls internally. Edits serialize to markdown and save
+/// via `updateDocument` (debounced 600ms; the open provider is NOT invalidated, so the editor keeps its
+/// cursor). 可编辑文档视图:固定标题栏 + 占余高内部滚的 AnDocEditor;编辑去抖 600ms 存 content(不 invalidate、保光标)。
+class _DocEditView extends ConsumerStatefulWidget {
+  const _DocEditView({required this.id, super.key});
+
+  final String id;
+
+  @override
+  ConsumerState<_DocEditView> createState() => _DocEditViewState();
+}
+
+class _DocEditViewState extends ConsumerState<_DocEditView> {
+  final _save = Debouncer(const Duration(milliseconds: 600));
+
+  @override
+  void dispose() {
+    _save.dispose();
+    super.dispose();
+  }
+
+  void _onChanged(String markdown) => _save.run(() {
+        if (!mounted) return;
+        // Content PATCH IS the save (no versioning). 存正文=PATCH content。
+        ref.read(documentsRepositoryProvider).updateDocument(widget.id, {'content': markdown});
+      });
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t;
+    return ref.watch(openDocumentProvider(widget.id)).when(
+          loading: () => const AnDeferredLoading(child: AnSkeleton.lines(8)),
+          error: (_, _) => AnState(kind: AnStateKind.error, title: t.documents.loadFailed, hint: t.documents.errorHint),
+          data: (doc) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Title bar — the doc NAME, LEFT-aligned to the editor's reading column (720 + pageX). Align
+                // fills the column so the title's left edge matches the editor body (not centered as a narrow
+                // Text). 标题左对齐到编辑器列(Align 撑满列宽,左缘对齐正文,不被当窄内容居中)。
+                Padding(
+                  padding: const EdgeInsets.only(top: AnFlow.headingTop),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: AnSize.content),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: AnInset.pageX),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: DocumentOcean._title(
+                              context, doc.name.isEmpty ? t.documents.untitled : doc.name),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AnFlow.headBody),
+                Expanded(
+                  child: AnDocEditor(initialMarkdown: doc.content, onChanged: _onChanged),
+                ),
+              ],
+            );
+          },
+        );
+  }
 }

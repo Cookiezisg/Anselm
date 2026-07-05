@@ -1,6 +1,7 @@
 import 'package:anselm/core/contract/entities/document.dart';
 import 'package:anselm/core/contract/entities/skill.dart';
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/ui/an_doc_editor.dart';
 import 'package:anselm/features/documents/data/document_fixtures.dart';
 import 'package:anselm/features/documents/data/document_repository.dart';
 import 'package:anselm/features/documents/state/document_state.dart';
@@ -112,7 +113,7 @@ void main() {
       expect(find.text(t.documents.pickTitle), findsOneWidget);
     });
 
-    testWidgets('a selected document renders its markdown content', (tester) async {
+    testWidgets('a selected document opens in the editable AnDocEditor', (tester) async {
       final repo = _repo();
       await tester.pumpWidget(ProviderScope(
         overrides: [
@@ -128,7 +129,10 @@ void main() {
       ));
       await tester.pump();
       await tester.pump();
-      expect(find.text('Hello'), findsWidgets); // the markdown h1 rendered
+      // The doc opens in the Notion editor (super_editor renders text via its own layout, not a plain
+      // Text, so assert the editor is mounted + the title bar shows the doc name). 文档进可编辑器。
+      expect(find.byType(AnDocEditor), findsOneWidget);
+      expect(find.text('Getting Started'), findsOneWidget); // the title bar (doc name)
     });
   });
 }
