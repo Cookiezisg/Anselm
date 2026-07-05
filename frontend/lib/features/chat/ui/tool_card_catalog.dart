@@ -140,6 +140,9 @@ ToolCardSpec _build({
         final v = out['version'];
         final envFailed = out['envStatus'] == 'failed' || (out['envError'] as String?)?.isNotEmpty == true;
         if (envFailed) return (text: t.chat.tool.envFailed, tone: ToolReceiptTone.danger);
+        // A crashed handler instance (env ready but __init__ broke) is a danger the user must see —
+        // auto-expand. stopped is benign (never-spawned) → not danger. crashed=真 brick 自动展开;stopped 良性。
+        if (out['runtimeState'] == 'crashed') return (text: t.chat.tool.runtimeCrashed, tone: ToolReceiptTone.danger);
         return v == null ? null : (text: 'v$v', tone: ToolReceiptTone.none);
       },
       body: buildToolBody,

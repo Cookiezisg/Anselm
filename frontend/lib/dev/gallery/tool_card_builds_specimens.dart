@@ -76,6 +76,28 @@ final toolCardBuildsGalleryItem = GalleryItem(
                 result:
                     '{"id":"fn_1a2b3c4d5e6f7a8b","versionId":"fnv_0011223344556677","version":1,"envStatus":"failed","opsApplied":2,"envError":"pip install pandas==9.9.9: no matching distribution found"}')),
         span: true),
+    GallerySpecimen('已创建函数 · env 自愈(装错重试→治好,EnvFixTimeline)',
+        (c) => ChatToolCard(
+            node: _call('fn-heal', 'create_function',
+                args: _fnArgs, summary: 'Create the quarterly rollup',
+                result:
+                    '{"id":"fn_1a2b3c4d5e6f7a8b","version":2,"envStatus":"ready","opsApplied":2,"envFixAttempts":[{"attempt":1,"deps":["pandas==9.9.9","numpy"],"ok":false,"error":"ERROR: No matching distribution found for pandas==9.9.9"},{"attempt":2,"deps":["pandas","numpy"],"ok":true}]}')),
+        span: true),
+    GallerySpecimen('已更新处理器 · crashed(真 brick:env 好但 __init__ 坏,红 warning 自动展开)',
+        (c) => ChatToolCard(
+            node: _call('hd-crash', 'edit_handler',
+                args: '{"handlerId":"hd_5c4b3a2f1e0d9c8b","ops":[{"op":"add_method","method":{"name":"charge","body":"raise RuntimeError()"}}]}',
+                summary: 'Add the charge method',
+                result:
+                    '{"id":"hd_5c4b3a2f1e0d9c8b","version":5,"envStatus":"ready","opsApplied":1,"runtimeState":"crashed","runtimeWarning":"the resident instance is not running after this edit — the new version may have a broken __init__ or need config; call get_handler for crash/config details, fix the code, or revert_handler to the last good version"}')),
+        span: true),
+    GallerySpecimen('已更新处理器 · stopped(良性:纯改名、从未 spawn,静音徽不报警)',
+        (c) => ChatToolCard(
+            node: _call('hd-stop', 'edit_handler',
+                args: '{"handlerId":"hd_5c4b3a2f1e0d9c8b","ops":[{"op":"set_meta","name":"billing-webhook"}]}',
+                summary: 'Rename the handler',
+                result: '{"id":"hd_5c4b3a2f1e0d9c8b","version":3,"envStatus":"ready","opsApplied":1,"runtimeState":"stopped"}')),
+        span: true),
     GallerySpecimen('已更新智能体 · v3(prompt 窗)',
         (c) => ChatToolCard(
             node: _call('ag-edit', 'edit_agent',

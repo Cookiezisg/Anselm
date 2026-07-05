@@ -974,6 +974,24 @@ class Translations$chat$tool$en {
 
 	/// en: 'Inbox empty — no run is awaiting approval'
 	String get inboxEmptyState => 'Inbox empty — no run is awaiting approval';
+
+	/// en: 'Running'
+	String get runtimeRunning => 'Running';
+
+	/// en: 'Instance not running'
+	String get runtimeStopped => 'Instance not running';
+
+	/// en: 'Instance crashed'
+	String get runtimeCrashed => 'Instance crashed';
+
+	/// en: 'attempt $n'
+	String envFixAttempt({required Object n}) => 'attempt ${n}';
+
+	/// en: 'revised deps, retried'
+	String get envFixHealing => 'revised deps, retried';
+
+	/// en: 'Environment self-heal'
+	String get envFixTitle => 'Environment self-heal';
 }
 
 // Path: chat.gate
@@ -2338,6 +2356,12 @@ extension on Translations {
 			'chat.tool.inboxWait' => 'Waiting',
 			'chat.tool.inboxRun' => 'run',
 			'chat.tool.inboxEmptyState' => 'Inbox empty — no run is awaiting approval',
+			'chat.tool.runtimeRunning' => 'Running',
+			'chat.tool.runtimeStopped' => 'Instance not running',
+			'chat.tool.runtimeCrashed' => 'Instance crashed',
+			'chat.tool.envFixAttempt' => ({required Object n}) => 'attempt ${n}',
+			'chat.tool.envFixHealing' => 'revised deps, retried',
+			'chat.tool.envFixTitle' => 'Environment self-heal',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -2715,14 +2739,14 @@ extension on Translations {
 			'coldStart.errorTitle' => 'Couldn\'t set up the workspace',
 			'coldStart.errorHint' => 'The local engine is reachable but the workspace didn\'t resolve.',
 			'coldStart.defaultWorkspace' => 'Personal',
+			_ => null,
+		} ?? switch (path) {
 			'documents.documents' => 'Documents',
 			'documents.skills' => 'Skills',
 			'documents.untitled' => 'Untitled',
 			'documents.filter' => 'Filter',
 			'documents.kNew' => 'New',
 			'documents.errorTitle' => 'Couldn\'t load your library',
-			_ => null,
-		} ?? switch (path) {
 			'documents.errorHint' => 'The local engine didn\'t return it.',
 			'documents.retry' => 'Retry',
 			'documents.emptyTitle' => 'Nothing here yet',

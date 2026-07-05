@@ -480,6 +480,12 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get inboxWait => '等待';
 	@override String get inboxRun => 'run';
 	@override String get inboxEmptyState => '收件箱空——没有 run 在等审批';
+	@override String get runtimeRunning => '运行中';
+	@override String get runtimeStopped => '实例未运行';
+	@override String get runtimeCrashed => '实例已崩溃';
+	@override String envFixAttempt({required Object n}) => '尝试 ${n}';
+	@override String get envFixHealing => '改依赖重试';
+	@override String get envFixTitle => '环境自愈';
 }
 
 // Path: chat.gate
@@ -1181,6 +1187,12 @@ extension on TranslationsZhCn {
 			'chat.tool.inboxWait' => '等待',
 			'chat.tool.inboxRun' => 'run',
 			'chat.tool.inboxEmptyState' => '收件箱空——没有 run 在等审批',
+			'chat.tool.runtimeRunning' => '运行中',
+			'chat.tool.runtimeStopped' => '实例未运行',
+			'chat.tool.runtimeCrashed' => '实例已崩溃',
+			'chat.tool.envFixAttempt' => ({required Object n}) => '尝试 ${n}',
+			'chat.tool.envFixHealing' => '改依赖重试',
+			'chat.tool.envFixTitle' => '环境自愈',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -1558,14 +1570,14 @@ extension on TranslationsZhCn {
 			'coldStart.errorTitle' => '无法准备工作区',
 			'coldStart.errorHint' => '本地引擎已连通,但工作区未就绪。',
 			'coldStart.defaultWorkspace' => '个人',
+			_ => null,
+		} ?? switch (path) {
 			'documents.documents' => '文档',
 			'documents.skills' => '技能',
 			'documents.untitled' => '未命名',
 			'documents.filter' => '过滤',
 			'documents.kNew' => '新建',
 			'documents.errorTitle' => '无法加载知识库',
-			_ => null,
-		} ?? switch (path) {
 			'documents.errorHint' => '本地引擎没有返回它。',
 			'documents.retry' => '重试',
 			'documents.emptyTitle' => '这里还什么都没有',

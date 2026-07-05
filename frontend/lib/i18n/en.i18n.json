@@ -135,7 +135,13 @@
       "inboxSummary": "Summary",
       "inboxWait": "Waiting",
       "inboxRun": "run",
-      "inboxEmptyState": "Inbox empty — no run is awaiting approval"
+      "inboxEmptyState": "Inbox empty — no run is awaiting approval",
+      "runtimeRunning": "Running",
+      "runtimeStopped": "Instance not running",
+      "runtimeCrashed": "Instance crashed",
+      "envFixAttempt": "attempt $n",
+      "envFixHealing": "revised deps, retried",
+      "envFixTitle": "Environment self-heal"
     },
     "gate": {
       "dangerBadge": "Dangerous",

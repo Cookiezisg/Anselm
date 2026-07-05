@@ -395,6 +395,70 @@ Widget buildToolBody(BuildContext context, ToolCardState state) {
   );
 }
 
+/// F4 fn/hd — the ENV SELF-HEAL timeline: when the sandbox env took more than one attempt to build,
+/// the fixer revised deps with an LLM and retried (≤3). Each `envFixAttempts` entry (`{attempt, deps,
+/// ok, error?}`) renders as ✓ ready / ✗ failed + its deps + the error tail — the "it fixed itself"
+/// moment. Only shown when the array is present (single-shot success omits it).
+/// env 自愈时间线:env 装了不止一次(改依赖重试 ≤3)时逐 attempt 渲 ✓/✗ + deps + error——「自己治好自己」。
+Widget envFixTimeline(BuildContext context, List<dynamic> attempts) {
+  final t = Translations.of(context);
+  final c = context.colors;
+  return Padding(
+    padding: const EdgeInsets.only(top: AnSpace.s8),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(t.chat.tool.envFixTitle, style: AnText.label.copyWith(color: c.inkFaint)),
+        const SizedBox(height: AnSpace.s4),
+        for (final raw in attempts)
+          if (raw is Map) _envFixRow(context, raw),
+      ],
+    ),
+  );
+}
+
+Widget _envFixRow(BuildContext context, Map<dynamic, dynamic> a) {
+  final t = Translations.of(context);
+  final c = context.colors;
+  final ok = a['ok'] == true;
+  final deps = (a['deps'] as List?)?.map((e) => e.toString()).join(' ') ?? '';
+  final error = a['error']?.toString() ?? '';
+  return Padding(
+    padding: const EdgeInsets.only(bottom: AnSpace.s4),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(ok ? AnIcons.check : AnIcons.close,
+                size: AnSize.iconSm, color: ok ? c.ok : c.danger),
+            const SizedBox(width: AnGap.inline),
+            Text(t.chat.tool.envFixAttempt(n: '${a['attempt']}'),
+                style: AnText.label.copyWith(color: c.inkMuted)),
+            if (deps.isNotEmpty) ...[
+              const SizedBox(width: AnGap.inline),
+              Flexible(
+                child: Text(deps,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AnText.codeInline.copyWith(color: c.inkFaint)),
+              ),
+            ],
+          ],
+        ),
+        if (!ok && error.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(left: AnSize.iconSm + AnGap.inline, top: AnSpace.s2),
+            child: Text(error,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: AnText.code.copyWith(color: c.danger)),
+          ),
+      ],
+    ),
+  );
+}
+
 /// The backend EntityKind wire value a build tool operates on (create_function → 'function'), used by
 /// [RunStatBar] for the provenance RefPill + the dual-key id fallback. null = not an entity-CRUD build.
 /// 构建工具作用的实体 kind 线缆值(RefPill + 双键 id 用);null=非 entity-CRUD。
@@ -433,11 +497,21 @@ class RunStatBar extends StatelessWidget {
     final kind = buildEntityKind(state.toolName);
     // Dual-key id: create returns `id`, edit returns `<entity>Id` (agentId / functionId / …). 双键兜。
     final id = (out['id'] ?? (kind == null ? null : out['${kind}Id'])) as String?;
-    final label = argStringPartial(state.argsText, 'name') ?? id; // create names it; edit → id
+    // Label: only CREATE's args.name is the entity name (top-level or in set_meta); on EDIT the first
+    // "name" in args is a nested op field (e.g. add_method's method.name) — use the id there.
+    // label:仅 create 的 args.name 是实体名;edit 的首个 "name" 是嵌套 op 字段(如方法名)→ 用 id。
+    final label = state.toolName.startsWith('create_') ? (argStringPartial(state.argsText, 'name') ?? id) : id;
     final version = out['version'];
     final envStatus = out['envStatus'] as String?;
     final envError = out['envError'] as String?;
     final restarted = out['restarted'] == true;
+    // handler-edit only: the resident instance's state after the edit. crashed = the honest brick
+    // (env ready but __init__ broke); stopped is BENIGN (a never-spawned handler — census correction,
+    // don't over-alarm); running = healthy. handler edit 专属:crashed=真 brick,stopped=良性(未 spawn)。
+    final runtimeState = out['runtimeState'] as String?;
+    final runtimeWarning = out['runtimeWarning'] as String?;
+    final restartNote = out['restartNote'] as String?;
+    final envFixAttempts = out['envFixAttempts'] as List?;
 
     final faint = AnText.meta.copyWith(color: c.inkFaint);
     final metaSpans = <InlineSpan>[];
@@ -460,6 +534,20 @@ class RunStatBar extends StatelessWidget {
             'ready' => c.ok,
             'failed' => c.danger,
             _ => c.warn,
+          })));
+    }
+    if (runtimeState != null) {
+      sep();
+      metaSpans.add(TextSpan(
+          text: switch (runtimeState) {
+            'running' => t.chat.tool.runtimeRunning,
+            'crashed' => t.chat.tool.runtimeCrashed,
+            _ => t.chat.tool.runtimeStopped,
+          },
+          style: AnText.meta.copyWith(color: switch (runtimeState) {
+            'running' => c.ok,
+            'crashed' => c.danger,
+            _ => c.inkFaint, // stopped = benign muted 良性静音
           })));
     }
     if (restarted) {
@@ -496,6 +584,22 @@ class RunStatBar extends StatelessWidget {
               padding: const EdgeInsets.only(top: AnSpace.s4),
               child: Text(envError, style: AnText.code.copyWith(color: c.danger)),
             ),
+          // restartNote (empty-ops rebuild wiped in-memory state) = an amber heads-up, not an error.
+          // restartNote(空 ops 重建抹内存态)= 琥珀提醒、非错。
+          if (restartNote != null && restartNote.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: AnSpace.s4),
+              child: Text(restartNote, style: AnText.label.copyWith(color: c.warn)),
+            ),
+          // runtimeWarning ONLY for a real crash (census correction: stopped false-alarms on a
+          // never-spawned handler, so a stopped badge alone suffices there). runtimeWarning 仅 crashed 显。
+          if (runtimeState == 'crashed' && runtimeWarning != null && runtimeWarning.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: AnSpace.s4),
+              child: Text(runtimeWarning, style: AnText.code.copyWith(color: c.danger)),
+            ),
+          if (envFixAttempts != null && envFixAttempts.length > 1)
+            envFixTimeline(context, envFixAttempts),
         ],
       ),
     );

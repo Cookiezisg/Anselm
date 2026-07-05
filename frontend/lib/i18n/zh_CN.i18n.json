@@ -135,7 +135,13 @@
       "inboxSummary": "摘要",
       "inboxWait": "等待",
       "inboxRun": "run",
-      "inboxEmptyState": "收件箱空——没有 run 在等审批"
+      "inboxEmptyState": "收件箱空——没有 run 在等审批",
+      "runtimeRunning": "运行中",
+      "runtimeStopped": "实例未运行",
+      "runtimeCrashed": "实例已崩溃",
+      "envFixAttempt": "尝试 $n",
+      "envFixHealing": "改依赖重试",
+      "envFixTitle": "环境自愈"
     },
     "gate": {
       "dangerBadge": "危险",

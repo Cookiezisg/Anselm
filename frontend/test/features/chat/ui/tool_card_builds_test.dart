@@ -123,6 +123,49 @@ void main() {
     expect(find.text('口径'), findsOneWidget); // name target 名字目标
   });
 
+  testWidgets('env self-heal: envFixAttempts renders the EnvFixTimeline (fail then ok)', (tester) async {
+    final n = _call('create_function',
+        args: '{"ops":[{"op":"set_code","code":"x=1\\n"}]}',
+        result:
+            '{"id":"fn_1","version":2,"envStatus":"ready","opsApplied":1,"envFixAttempts":[{"attempt":1,"deps":["pandas==9.9.9"],"ok":false,"error":"No matching distribution"},{"attempt":2,"deps":["pandas"],"ok":true}]}');
+    await tester.pumpWidget(_host(ChatToolCard(node: n, key: const ValueKey('heal'))));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('已创建函数'), warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('环境自愈'), findsOneWidget); // the timeline header
+    expect(find.textContaining('尝试 1'), findsOneWidget);
+    expect(find.textContaining('尝试 2'), findsOneWidget);
+    expect(find.textContaining('No matching distribution'), findsOneWidget); // attempt 1 error
+  });
+
+  testWidgets('edit_handler crashed: danger receipt auto-expands + red runtimeWarning', (tester) async {
+    final n = _call('edit_handler',
+        args: '{"handlerId":"hd_1","ops":[{"op":"add_method","method":{"name":"m","body":"raise"}}]}',
+        result:
+            '{"id":"hd_1","version":5,"envStatus":"ready","opsApplied":1,"runtimeState":"crashed","runtimeWarning":"the resident instance is not running after this edit — revert_handler to the last good version"}');
+    await tester.pumpWidget(_host(ChatToolCard(node: n, key: const ValueKey('crash'))));
+    await tester.pumpAndSettle();
+    // crashed → danger receipt → auto-expanded (no tap needed). crashed=危险回执→自动展开。
+    expect(find.textContaining('实例已崩溃'), findsWidgets); // receipt + body badge
+    expect(find.textContaining('revert_handler to the last good'), findsOneWidget); // red warning line
+  });
+
+  testWidgets('edit_handler stopped: benign muted badge, NO warning line, NOT auto-expanded', (tester) async {
+    final n = _call('edit_handler',
+        args: '{"handlerId":"hd_1","ops":[{"op":"set_meta","name":"renamed"}]}',
+        result: '{"id":"hd_1","version":3,"envStatus":"ready","opsApplied":1,"runtimeState":"stopped",'
+            '"runtimeWarning":"the resident instance is not running after this edit — may need config"}');
+    await tester.pumpWidget(_host(ChatToolCard(node: n, key: const ValueKey('stop'))));
+    await tester.pumpAndSettle();
+    // stopped is benign → NOT auto-expanded (collapsed), so no warning line shows. 良性→不自动展开。
+    expect(find.textContaining('may need config'), findsNothing); // warning suppressed for stopped
+    // Expand → the stopped badge shows, still no red warning line (census correction). 展开→静音徽、仍无红警。
+    await tester.tap(find.textContaining('已更新处理器'), warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('实例未运行'), findsWidgets); // muted badge
+    expect(find.textContaining('may need config'), findsNothing); // still no warning (benign)
+  });
+
   testWidgets('RunStatBar dual-key id: falls back to <entity>Id when there is no top-level id',
       (tester) async {
     // A result carrying only `functionId` (no `id`) still yields a provenance pill. 只有 functionId 也出 pill。
