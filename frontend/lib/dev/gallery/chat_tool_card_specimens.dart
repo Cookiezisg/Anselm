@@ -122,6 +122,24 @@ final chatToolCardGalleryItem = GalleryItem(
                 ),
                 decided: InteractionAction.approve)),
         span: true),
+    GallerySpecimen('ask_user · 已回答·选项(选中章 + 余淡出)',
+        (c) => ChatToolCard(
+            node: _call('ask_user',
+                args: '{"message":"这几张发票币种不一致,按哪种本位币归一?","options":["人民币 CNY","美元 USD","欧元 EUR"]}',
+                result: '美元 USD')),
+        span: true),
+    GallerySpecimen('ask_user · 已回答·自由文本(引用)',
+        (c) => ChatToolCard(
+            node: _call('ask_user',
+                args: '{"message":"你希望这份报告用什么口径?"}',
+                result: '按不含税净额,并附一列含税总额。')),
+        span: true),
+    GallerySpecimen('ask_user · 已跳过(decline 散文 → 已跳过)',
+        (c) => ChatToolCard(
+            node: _call('ask_user',
+                args: '{"message":"要我顺手把旧版本清理掉吗?","options":["好","不用"]}',
+                result: 'The user declined to answer this question. Proceed without it or ask differently.')),
+        span: true),
     GallerySpecimen('成功 · JSON 结果(点行展开:意图/参数/结果树)',
         (c) => ChatToolCard(
             node: _call('create_function',

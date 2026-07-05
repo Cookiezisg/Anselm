@@ -255,11 +255,13 @@ class _ChatToolCardState extends State<ChatToolCard> {
 
     // Terminal overrides stay with the chassis; live/settled verbs come from the family spec.
     // 终态动词归底盘;进行/过去时动词出自族规格。
+    // Awaiting + terminal verbs default to the chassis, but a family may override them (ask_user:
+    // 等待你回答 + 已回答/已跳过/空答案 by result). 等待/终态动词默认归底盘,族可覆盖(ask_user)。
     final verb = switch (state.phase) {
-      ToolCardPhase.awaitingConfirm => t.chat.tool.awaitingConfirm,
-      ToolCardPhase.denied => t.chat.tool.denied,
-      ToolCardPhase.cancelled => t.chat.tool.cancelled,
-      _ => spec.verb(t, live: live),
+      ToolCardPhase.awaitingConfirm => spec.awaitingVerb?.call(t) ?? t.chat.tool.awaitingConfirm,
+      ToolCardPhase.denied => spec.terminalVerb?.call(t, state) ?? t.chat.tool.denied,
+      ToolCardPhase.cancelled => spec.terminalVerb?.call(t, state) ?? t.chat.tool.cancelled,
+      _ => spec.terminalVerb?.call(t, state) ?? spec.verb(t, live: live),
     };
     final target = spec.target?.call(state) ?? '';
 

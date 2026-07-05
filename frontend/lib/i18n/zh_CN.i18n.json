@@ -111,7 +111,13 @@
         "document": "文档",
         "skill": "技能",
         "trigger": "触发器"
-      }
+      },
+      "asking": "正在提问",
+      "asked": "已提问",
+      "answered": "已回答",
+      "skipped": "已跳过",
+      "emptyAnswer": "空答案",
+      "awaitingAnswer": "等待你回答"
     },
     "gate": {
       "dangerBadge": "危险",

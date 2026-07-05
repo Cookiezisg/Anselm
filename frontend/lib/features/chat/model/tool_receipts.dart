@@ -7,6 +7,8 @@
 /// 命中数/exit code)。逐个钉死后端**精确**输出格式;不匹配即静默无回执——回执绝不猜。
 library;
 
+import 'dart:convert';
+
 /// The receipt tone — the collapsed row's dimmed suffix carries one of three voices:
 ///   none   — neutral proof (line/match counts, exit 0): inkFaint;
 ///   warn   — a soft half-state (env building, draining, not-activated, truncated): amber;
@@ -116,6 +118,18 @@ String? argStringPartial(String argsFragment, String key) {
   }
   final v = buf.toString();
   return v.isEmpty ? null : v;
+}
+
+/// Parse a JSON string-array arg (e.g. ask_user's `options`) from a COMPLETE args fragment. Returns
+/// empty on absence / malformed / non-list (never guesses). 从完整 args 解析字符串数组(缺/畸形→空,不猜)。
+List<String> argStringList(String argsFragment, String key) {
+  try {
+    final decoded = jsonDecode(argsFragment);
+    if (decoded is Map && decoded[key] is List) {
+      return [for (final e in decoded[key] as List) e.toString()];
+    }
+  } catch (_) {}
+  return const [];
 }
 
 /// Path → basename for the target chip (full path belongs in a tooltip).

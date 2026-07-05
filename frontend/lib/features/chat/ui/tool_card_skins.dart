@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
+import '../../../core/contract/interaction.dart';
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
@@ -9,6 +10,7 @@ import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
+import 'tool_interaction_gate.dart';
 
 /// Family bodies for the tool card — the MACHINE-WINDOW identity (user decree, 2026-07-03):
 /// a tool call is an OPERATION against the outside world, not the model's inner voice, so its
@@ -151,6 +153,25 @@ Widget editToolBody(BuildContext context, ToolCardState state) {
 Widget listToolBody(BuildContext context, ToolCardState state) {
   if (state.resultText.trim().isEmpty) return const SizedBox.shrink();
   return ToolWindow(child: _cappedMono(context, state.resultText));
+}
+
+/// F16 ask_user — the frozen Q/A record, reconstructed from the SETTLED block (the interaction signal
+/// is ephemeral; the DB block is truth): the question from args.message, the answer / skip / empty from
+/// the result prose. Reuses the gate's RESOLVED mode (chosen-option章 / free-text quotation / skipped).
+/// ask_user 落定 Q/A:问题取 args.message、结果按散文分 已答/跳过/空;复用 gate resolved 模式(选中章/引用/跳过)。
+Widget askUserBody(BuildContext context, ToolCardState state) {
+  final message = argString(state.argsText, 'message') ?? '';
+  final options = argStringList(state.argsText, 'options');
+  final declined = state.resultText.startsWith(declinedProsePrefix);
+  final empty = state.resultText.trim() == askEmptyAnswerProse;
+  return ToolInteractionGate(
+    kind: GateKind.ask,
+    prompt: message,
+    options: options,
+    decided: declined ? InteractionAction.decline : InteractionAction.accept,
+    decidedAnswer: empty ? '' : state.resultText.trim(),
+    autofocus: false,
+  );
 }
 
 String? _langOf(String path) {

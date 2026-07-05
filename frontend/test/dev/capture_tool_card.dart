@@ -91,6 +91,9 @@ void main() {
       find.text('quarters.py').first, // Write 代码窗
       find.text('rollup.py').at(1), // Edit diff 窗(第 0 个是 Read 回执卡的 chip)
       find.text('"amount"'), // Grep 命中窗
+      find.text('已回答').at(0), // ask_user 选项 Q/A(选中章)
+      find.text('已回答').at(1), // ask_user 自由文本 Q/A(引用)
+      find.text('已跳过'), // ask_user 已跳过
     ]) {
       await tester.tap(f, warnIfMissed: false);
       await tester.pump(const Duration(milliseconds: 100));

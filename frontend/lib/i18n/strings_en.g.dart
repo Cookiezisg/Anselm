@@ -902,6 +902,24 @@ class Translations$chat$tool$en {
 	String get restarted => 'restarted';
 
 	late final Translations$chat$tool$kind$en kind = Translations$chat$tool$kind$en.internal(_root);
+
+	/// en: 'Asking'
+	String get asking => 'Asking';
+
+	/// en: 'Asked'
+	String get asked => 'Asked';
+
+	/// en: 'Answered'
+	String get answered => 'Answered';
+
+	/// en: 'Skipped'
+	String get skipped => 'Skipped';
+
+	/// en: 'Empty answer'
+	String get emptyAnswer => 'Empty answer';
+
+	/// en: 'Awaiting your answer'
+	String get awaitingAnswer => 'Awaiting your answer';
 }
 
 // Path: chat.gate
@@ -2242,6 +2260,12 @@ extension on Translations {
 			'chat.tool.kind.document' => 'document',
 			'chat.tool.kind.skill' => 'skill',
 			'chat.tool.kind.trigger' => 'trigger',
+			'chat.tool.asking' => 'Asking',
+			'chat.tool.asked' => 'Asked',
+			'chat.tool.answered' => 'Answered',
+			'chat.tool.skipped' => 'Skipped',
+			'chat.tool.emptyAnswer' => 'Empty answer',
+			'chat.tool.awaitingAnswer' => 'Awaiting your answer',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -2643,14 +2667,14 @@ extension on Translations {
 			'documents.actionFailed' => 'Action failed',
 			'documents.props.title' => 'Properties',
 			'documents.props.name' => 'Name',
+			_ => null,
+		} ?? switch (path) {
 			'documents.props.description' => 'Description',
 			'documents.props.tags' => 'Tags',
 			'documents.props.addTag' => 'Add a tag',
 			'documents.props.path' => 'Path',
 			'documents.props.size' => 'Size',
 			'documents.props.modified' => 'Modified',
-			_ => null,
-		} ?? switch (path) {
 			'documents.props.context' => 'Context',
 			'documents.props.contextInline' => 'Inline',
 			'documents.props.contextFork' => 'Fork',

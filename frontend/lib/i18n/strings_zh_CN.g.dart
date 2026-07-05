@@ -456,6 +456,12 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get envFailed => 'env 失败';
 	@override String get restarted => '已重启';
 	@override late final _Translations$chat$tool$kind$zh_CN kind = _Translations$chat$tool$kind$zh_CN._(_root);
+	@override String get asking => '正在提问';
+	@override String get asked => '已提问';
+	@override String get answered => '已回答';
+	@override String get skipped => '已跳过';
+	@override String get emptyAnswer => '空答案';
+	@override String get awaitingAnswer => '等待你回答';
 }
 
 // Path: chat.gate
@@ -1133,6 +1139,12 @@ extension on TranslationsZhCn {
 			'chat.tool.kind.document' => '文档',
 			'chat.tool.kind.skill' => '技能',
 			'chat.tool.kind.trigger' => '触发器',
+			'chat.tool.asking' => '正在提问',
+			'chat.tool.asked' => '已提问',
+			'chat.tool.answered' => '已回答',
+			'chat.tool.skipped' => '已跳过',
+			'chat.tool.emptyAnswer' => '空答案',
+			'chat.tool.awaitingAnswer' => '等待你回答',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -1534,14 +1546,14 @@ extension on TranslationsZhCn {
 			'documents.actionFailed' => '操作失败',
 			'documents.props.title' => '属性',
 			'documents.props.name' => '名称',
+			_ => null,
+		} ?? switch (path) {
 			'documents.props.description' => '描述',
 			'documents.props.tags' => '标签',
 			'documents.props.addTag' => '添加标签',
 			'documents.props.path' => '路径',
 			'documents.props.size' => '大小',
 			'documents.props.modified' => '修改时间',
-			_ => null,
-		} ?? switch (path) {
 			'documents.props.context' => '上下文',
 			'documents.props.contextInline' => '内联',
 			'documents.props.contextFork' => '分叉',

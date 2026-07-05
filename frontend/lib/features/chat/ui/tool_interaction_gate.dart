@@ -312,6 +312,9 @@ class _ToolInteractionGateState extends State<ToolInteractionGate> {
         ],
       );
     }
+    // An empty accepted answer (backend's empty-answer prose) has nothing to quote — the collapsed
+    // verb already says 空答案. 空答案无可引用(收起动词已言明)。
+    if (answer.isEmpty) return const SizedBox.shrink();
     // Free-text answer → a quotation (blockquote semantics, distinct from thinking's rail). 自由答复=引用。
     return Container(
       padding: const EdgeInsets.only(left: AnSpace.s12),

@@ -31,6 +31,11 @@ const String deniedProsePrefix = 'The user denied running this tool';
 const String declinedProsePrefix = 'The user declined to answer this question';
 const String cancelledBeforeRunProse = 'The run was cancelled before this tool ran';
 
+/// ask_user's exact completed-but-empty answer (backend `ask/ask.go`): an accept with a blank answer
+/// closes status=completed with this prose — the card reads it as 空答案, not a real answer.
+/// ask_user 的空答案精确串:accept 但答案为空以 completed 关闭并带此串——卡读作「空答案」。
+const String askEmptyAnswerProse = '(the user submitted an empty answer)';
+
 /// One tool call's render-ready projection of its [BlockNode] subtree (tool_call + nested
 /// progress / tool_result children). Pure and cheap — recomputed per build, no caching.
 ///

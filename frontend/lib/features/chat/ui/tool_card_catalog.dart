@@ -23,11 +23,22 @@ class ToolCardSpec {
     this.body,
     this.bodyless = false,
     this.liveBody,
+    this.awaitingVerb,
+    this.terminalVerb,
   });
 
-  /// The phase verb — gerund while live, past tense settled (terminal overrides — denied /
-  /// cancelled / awaiting — stay with the chassis). live=进行时,settled=过去时;终态覆盖归底盘。
+  /// The phase verb — gerund while live, past tense settled. The chassis supplies default terminal
+  /// overrides (denied / cancelled / awaiting); a family may override those via [awaitingVerb] /
+  /// [terminalVerb]. live=进行时,settled=过去时;终态默认覆盖归底盘,族可经下两字段夺回。
   final String Function(Translations t, {required bool live}) verb;
+
+  /// Override the AWAITING-phase row verb (default 等待确认). ask_user → 等待你回答. 覆盖等待动词。
+  final String Function(Translations t)? awaitingVerb;
+
+  /// Override the SETTLED-phase row verb with OUTCOME awareness (succeeded/failed/denied/cancelled) —
+  /// the first consumer of the verb-state seam (ask_user: 已回答/已跳过/空答案 off the result prose).
+  /// 带结果覆盖终态动词(verb-state 缝首个消费者:ask_user 按结果散文分 已回答/已跳过/空答案)。
+  final String Function(Translations t, ToolCardState state)? terminalVerb;
 
   /// The mono target chip; null/empty → verb self-sufficient. Streaming-tolerant (args may be
   /// a partial fragment). 目标 chip;可空=动词自足。须容忍流中的不完整 args。
@@ -199,6 +210,35 @@ final Map<String, ToolCardSpec> _catalog = {
   'edit_skill': _build(kind: (t) => t.chat.tool.kind.skill, create: false, editIdKey: 'name'),
   'create_trigger': _build(kind: (t) => t.chat.tool.kind.trigger, create: true),
   'edit_trigger': _build(kind: (t) => t.chat.tool.kind.trigger, create: false, editIdKey: 'triggerId'),
+
+  // ── F16 humanloop: ask_user (the danger gate is not a tool — it's the chassis awaitingConfirm phase) ──
+  // 三段动词:正在提问(live)→ 等待你回答(awaiting,底盘渲门)→ 已回答/已跳过/空答案(按结果散文)。
+  'ask_user': ToolCardSpec(
+    verb: (t, {required bool live}) => live ? t.chat.tool.asking : t.chat.tool.answered,
+    awaitingVerb: (t) => t.chat.tool.awaitingAnswer,
+    terminalVerb: (t, s) {
+      if (s.resultText.startsWith(declinedProsePrefix)) return t.chat.tool.skipped;
+      if (s.resultText.trim() == askEmptyAnswerProse) return t.chat.tool.emptyAnswer;
+      return t.chat.tool.answered;
+    },
+    target: (s) {
+      final m = argString(s.argsText, 'message');
+      if (m == null) return null;
+      final first = m.split('\n').first.trim();
+      return '"${first.length > 40 ? '${first.substring(0, 40)}…' : first}"';
+    },
+    receipt: (t, s) {
+      // The answer's first line is the past tense's proof (only for a real answer). 答案首行=凭据。
+      if (s.resultText.startsWith(declinedProsePrefix) || s.resultText.trim() == askEmptyAnswerProse) {
+        return null;
+      }
+      final first = s.resultText.split('\n').first.trim();
+      if (first.isEmpty) return null;
+      final short = first.length > 48 ? '${first.substring(0, 48)}…' : first;
+      return (text: '"$short"', tone: ToolReceiptTone.none);
+    },
+    body: askUserBody,
+  ),
 
   // ── F3 shell ──
   'Bash': ToolCardSpec(

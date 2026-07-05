@@ -111,7 +111,13 @@
         "document": "document",
         "skill": "skill",
         "trigger": "trigger"
-      }
+      },
+      "asking": "Asking",
+      "asked": "Asked",
+      "answered": "Answered",
+      "skipped": "Skipped",
+      "emptyAnswer": "Empty answer",
+      "awaitingAnswer": "Awaiting your answer"
     },
     "gate": {
       "dangerBadge": "Dangerous",

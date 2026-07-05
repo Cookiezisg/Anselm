@@ -104,4 +104,79 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('本对话总是'), findsOneWidget);
   });
+
+  // ── F16 ask_user (settled Q/A record, derived from the DB block; awaiting drives the gate) ──
+
+  BlockNode askNode({String? optionsJson, String? result, bool declined = false, bool empty = false}) {
+    final args = optionsJson == null
+        ? '{"message":"which currency?"}'
+        : '{"message":"which currency?","options":$optionsJson}';
+    final n = BlockNode(id: 'tc_ask_user', kind: BlockKind.toolCall)
+      ..status = 'completed'
+      ..content = {'name': 'ask_user', 'arguments': args};
+    final res = declined
+        ? 'The user declined to answer this question. Proceed without it or ask differently.'
+        : empty
+            ? '(the user submitted an empty answer)'
+            : (result ?? 'USD');
+    n.children.add(BlockNode(id: 'tr_ask', kind: BlockKind.toolResult)
+      ..status = 'completed'
+      ..content = {'content': res});
+    return n;
+  }
+
+  testWidgets('ask_user settled verbs: answered / skipped / empty by result prose', (tester) async {
+    await tester.pumpWidget(_host(ChatToolCard(node: askNode(result: 'USD'))));
+    await tester.pump();
+    expect(find.text('已回答'), findsOneWidget);
+
+    await tester.pumpWidget(_host(ChatToolCard(node: askNode(declined: true))));
+    await tester.pump();
+    expect(find.text('已跳过'), findsOneWidget); // decline prose → skipped, NOT the danger 已拒绝执行
+
+    await tester.pumpWidget(_host(ChatToolCard(node: askNode(empty: true))));
+    await tester.pump();
+    expect(find.text('空答案'), findsOneWidget);
+  });
+
+  testWidgets('ask_user receipt is the answer first line (only for a real answer)', (tester) async {
+    await tester.pumpWidget(_host(ChatToolCard(node: askNode(result: 'euros please'))));
+    await tester.pump();
+    expect(find.textContaining('euros please'), findsWidgets); // in the collapsed receipt
+  });
+
+  testWidgets('ask_user expanded → frozen Q/A via the gate resolved mode (chosen option章)', (tester) async {
+    await tester.pumpWidget(_host(ChatToolCard(
+      node: askNode(optionsJson: '["CNY","USD","EUR"]', result: 'USD'))));
+    await tester.pump();
+    await tester.tap(find.text('已回答'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ToolInteractionGate), findsOneWidget);
+    expect(find.text('which currency?'), findsOneWidget); // the question
+    expect(find.text('2. USD'), findsOneWidget); // chosen option pinned
+  });
+
+  testWidgets('ask_user awaiting → the ask gate (options + free text) via the interaction record', (tester) async {
+    final rec = InteractionRecord(
+      interaction: const Interaction(
+        toolCallId: 'tc_ask_user',
+        kind: InteractionKind.ask,
+        tool: 'ask_user',
+        resolved: false,
+        message: 'which currency?',
+        options: ['CNY', 'USD'],
+      ),
+    );
+    // Awaiting = NO tool_result yet (a landed result would win over the awaiting overlay). 待决=无结果子块。
+    final awaitingNode = BlockNode(id: 'tc_ask_user', kind: BlockKind.toolCall)
+      ..status = 'completed'
+      ..content = {'name': 'ask_user', 'arguments': '{"message":"which currency?","options":["CNY","USD"]}'};
+    await tester.pumpWidget(_host(ChatToolCard(node: awaitingNode, interaction: rec)));
+    await tester.pump();
+    // The row verb 等待你回答 (ask awaiting, not danger's 等待确认) — echoed by the gate header, so ≥1.
+    expect(find.text('等待你回答'), findsWidgets);
+    expect(find.text('等待确认'), findsNothing); // NOT the danger awaiting verb
+    expect(find.byType(ToolInteractionGate), findsOneWidget);
+    expect(find.widgetWithText(AnButton, '1. CNY'), findsOneWidget);
+  });
 }
