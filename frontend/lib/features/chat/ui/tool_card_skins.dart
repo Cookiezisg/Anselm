@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/contract/interaction.dart';
 import '../../../core/model/time_format.dart';
@@ -389,13 +390,32 @@ Widget buildToolBody(BuildContext context, ToolCardState state) {
         AnCodeEditor(code: content, lang: _buildLang(state.toolName))
       else if (state.argsText.isNotEmpty)
         ToolWindow(child: _cappedMono(context, state.argsText)),
-      _BuildResultBar(state: state),
+      RunStatBar(state: state),
     ],
   );
 }
 
-class _BuildResultBar extends StatelessWidget {
-  const _BuildResultBar({required this.state});
+/// The backend EntityKind wire value a build tool operates on (create_function → 'function'), used by
+/// [RunStatBar] for the provenance RefPill + the dual-key id fallback. null = not an entity-CRUD build.
+/// 构建工具作用的实体 kind 线缆值(RefPill + 双键 id 用);null=非 entity-CRUD。
+String? buildEntityKind(String toolName) {
+  const kinds = ['function', 'handler', 'agent', 'workflow', 'control', 'approval', 'document', 'skill', 'trigger'];
+  for (final k in kinds) {
+    if (toolName.endsWith('_$k')) return k;
+  }
+  return null;
+}
+
+/// The settled RESULT BAR (公共化 from the old _BuildResultBar) — the outcome in one line: a provenance
+/// [AnRefPill] (the entity just built; label = its name from args, else id) + version + env 三色 +
+/// restarted, plus an optional envError line. The pill's onTap DEGRADES to copy-id until the panel-nav
+/// registry lands (B3 #8); it will then become a real select-intent deep-link. Reused across F4 builds;
+/// F8 exec extends it (B5).
+///
+/// 结果条(旧 _BuildResultBar 公共化):凭据 RefPill(刚建的实体,label=args.name 否则 id)+ vN + env 三色
+/// + 重启 + envError 行。pill 的 onTap 在面板注册表(B3 #8)就绪前**降级复制 id**,届时升级为真 select 深链。
+class RunStatBar extends StatelessWidget {
+  const RunStatBar({required this.state, super.key});
 
   final ToolCardState state;
 
@@ -409,40 +429,68 @@ class _BuildResultBar extends StatelessWidget {
       if (d is Map<String, dynamic>) out = d;
     } catch (_) {}
     if (out == null) return const SizedBox.shrink();
-    final id = out['id'] as String?;
+
+    final kind = buildEntityKind(state.toolName);
+    // Dual-key id: create returns `id`, edit returns `<entity>Id` (agentId / functionId / …). 双键兜。
+    final id = (out['id'] ?? (kind == null ? null : out['${kind}Id'])) as String?;
+    final label = argStringPartial(state.argsText, 'name') ?? id; // create names it; edit → id
     final version = out['version'];
     final envStatus = out['envStatus'] as String?;
     final envError = out['envError'] as String?;
     final restarted = out['restarted'] == true;
-    final parts = <InlineSpan>[
-      if (id != null)
-        TextSpan(text: id, style: AnText.codeInline.copyWith(color: c.inkMuted)),
-      if (version != null)
-        TextSpan(text: '${id != null ? ' · ' : ''}v$version',
-            style: AnText.metaTabular().copyWith(color: c.inkMuted)),
-      if (envStatus != null)
-        TextSpan(
-            text: ' · ${switch (envStatus) {
-              'ready' => t.chat.tool.envReady,
-              'failed' => t.chat.tool.envFailed,
-              _ => t.chat.tool.envBuilding,
-            }}',
-            style: AnText.meta.copyWith(
-                color: switch (envStatus) {
-              'ready' => c.ok,
-              'failed' => c.danger,
-              _ => c.warn,
-            })),
-      if (restarted)
-        TextSpan(text: ' · ${t.chat.tool.restarted}', style: AnText.meta.copyWith(color: c.inkFaint)),
+
+    final faint = AnText.meta.copyWith(color: c.inkFaint);
+    final metaSpans = <InlineSpan>[];
+    void sep() {
+      if (metaSpans.isNotEmpty) metaSpans.add(TextSpan(text: ' · ', style: faint));
+    }
+    if (version != null) {
+      sep();
+      metaSpans.add(TextSpan(text: 'v$version', style: AnText.metaTabular().copyWith(color: c.inkMuted)));
+    }
+    if (envStatus != null) {
+      sep();
+      metaSpans.add(TextSpan(
+          text: switch (envStatus) {
+            'ready' => t.chat.tool.envReady,
+            'failed' => t.chat.tool.envFailed,
+            _ => t.chat.tool.envBuilding,
+          },
+          style: AnText.meta.copyWith(color: switch (envStatus) {
+            'ready' => c.ok,
+            'failed' => c.danger,
+            _ => c.warn,
+          })));
+    }
+    if (restarted) {
+      sep();
+      metaSpans.add(TextSpan(text: t.chat.tool.restarted, style: faint));
+    }
+
+    final chips = <Widget>[
+      if (id != null && kind != null)
+        AnRefPill(
+            kind: kind,
+            label: label ?? id,
+            id: id,
+            // Degrade: copy the id until the panel-nav registry lands (B3). 深链降级:复制 id。
+            onTap: (tgt) => Clipboard.setData(ClipboardData(text: tgt.id)))
+      else if (id != null)
+        Text(id, style: AnText.codeInline.copyWith(color: c.inkMuted)),
+      if (metaSpans.isNotEmpty) Text.rich(TextSpan(children: metaSpans)),
     ];
-    if (parts.isEmpty) return const SizedBox.shrink();
+    if (chips.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(top: AnSpace.s6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text.rich(TextSpan(children: parts)),
+          Wrap(
+            spacing: AnSpace.s6,
+            runSpacing: AnSpace.s4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: chips,
+          ),
           if (envError != null && envError.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: AnSpace.s4),

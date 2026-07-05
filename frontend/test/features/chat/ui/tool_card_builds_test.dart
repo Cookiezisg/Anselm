@@ -86,7 +86,9 @@ void main() {
     await tester.tap(find.textContaining('已创建函数'), warnIfMissed: false);
     await tester.pumpAndSettle();
     expect(find.byType(AnCodeEditor), findsOneWidget); // settled → highlighted 落定高亮
-    expect(find.textContaining('fn_1'), findsOneWidget); // result bar 结果条
+    // Result bar: a provenance RefPill (label = the function name, id = fn_1 as its tap target) + env.
+    // 结果条:凭据 RefPill(label=函数名、id=fn_1 作点击目标)+ env。
+    expect(find.byType(AnRefPill), findsOneWidget);
     expect(find.textContaining('env 就绪', findRichText: true), findsWidgets);
   });
 
@@ -109,7 +111,7 @@ void main() {
     await tester.pumpWidget(_host(ChatToolCard(node: edit, key: const ValueKey('e'))));
     await tester.pumpAndSettle();
     expect(find.textContaining('已更新智能体'), findsOneWidget);
-    expect(find.text('ag_1'), findsOneWidget); // id target chip
+    expect(find.text('ag_1'), findsOneWidget); // collapsed-row edit target chip (result bar is in the body)
     expect(find.textContaining('v3'), findsOneWidget);
 
     final doc = _call('create_document',
@@ -119,5 +121,19 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('已创建文档'), findsOneWidget);
     expect(find.text('口径'), findsOneWidget); // name target 名字目标
+  });
+
+  testWidgets('RunStatBar dual-key id: falls back to <entity>Id when there is no top-level id',
+      (tester) async {
+    // A result carrying only `functionId` (no `id`) still yields a provenance pill. 只有 functionId 也出 pill。
+    final n = _call('edit_function',
+        args: '{"functionId":"fn_9","ops":[{"op":"set_code","code":"y = 2\\n"}]}',
+        result: '{"functionId":"fn_9","version":4}');
+    await tester.pumpWidget(_host(ChatToolCard(node: n, key: const ValueKey('dk'))));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('已更新函数'), warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect(find.byType(AnRefPill), findsOneWidget); // pill from the fallback id 兜底 id 出 pill
+    expect(find.textContaining('v4'), findsWidgets);
   });
 }
