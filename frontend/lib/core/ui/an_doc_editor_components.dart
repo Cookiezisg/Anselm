@@ -546,8 +546,67 @@ class AnListBoundaryStylePhase extends SingleColumnLayoutStylePhase {
   }
 }
 
-/// The syntax palette re-export point — kept so a future attribution-reaction highlighter colours through
-/// the SAME tokenizer AnCodeEditor uses ([highlightCode]); nothing else may highlight. 语法着色的单一出口
-/// 备位:后续 attribution reaction 高亮必须走同一 [highlightCode],不得二写高亮器。
-typedef AnCodeHighlighter = List<TextSpan> Function(String code, {String? lang, required SyntaxColors colors});
-const AnCodeHighlighter anCodeHighlighter = highlightCode;
+// ── code syntax highlight 代码语法高亮 ──
+
+/// Per-token syntax colouring for EDITABLE code blocks — a style phase that recolours the VIEW MODEL's
+/// text copy (never the document): tokenize via the ONE [highlightCode] tokenizer (AnCodeEditor's — no
+/// second highlighter, 铁律) and ride the colours in as [ColorAttribution] spans, which the default
+/// inline styler already maps to ink. Because view models are per-layout copies, nothing reaches the
+/// document or the markdown serializer, there is no edit-reaction loop, and every keystroke restyles
+/// automatically. Memoized per node (text+lang) so untouched code blocks skip re-tokenizing.
+/// 可编辑代码块的逐 token 上色——样式 phase 只染**视图模型**的文本拷贝(绝不动文档):经唯一 [highlightCode]
+/// 分词(AnCodeEditor 同源,不二写高亮器),颜色以 [ColorAttribution] 骑行(默认内联 styler 原生映射)。VM 是
+/// 每次布局的拷贝:不进文档、不进序列化、无 reaction 回环,每键自动重染;按节点(文本+语言)记忆化,未动的
+/// 代码块跳过重分词。
+class AnCodeHighlightStylePhase extends SingleColumnLayoutStylePhase {
+  AnCodeHighlightStylePhase(this.syntax, this.languageOf);
+
+  final SyntaxColors syntax;
+  final String? Function(String nodeId) languageOf;
+
+  final _memo = <String, (String, String?, List<(SpanRange, Color)>)>{};
+
+  @override
+  SingleColumnLayoutViewModel style(Document document, SingleColumnLayoutViewModel viewModel) {
+    if (_memo.length > 256) _memo.clear(); // deleted-node hygiene (docs are small) 删除节点卫生
+    return SingleColumnLayoutViewModel(
+      padding: viewModel.padding,
+      componentViewModels: [
+        for (final vm in viewModel.componentViewModels) _highlighted(vm),
+      ],
+    );
+  }
+
+  SingleColumnLayoutComponentViewModel _highlighted(SingleColumnLayoutComponentViewModel vm) {
+    if (vm is! ParagraphComponentViewModel || vm.blockType != codeAttribution) return vm;
+    final plain = vm.text.toPlainText();
+    final lang = languageOf(vm.nodeId);
+    var memo = _memo[vm.nodeId];
+    if (memo == null || memo.$1 != plain || memo.$2 != lang) {
+      memo = (plain, lang, _tokenRanges(plain, lang));
+      _memo[vm.nodeId] = memo;
+    }
+    if (memo.$3.isEmpty) return vm;
+    final restyled = vm.copy();
+    final coloured = vm.text.copy();
+    for (final (range, color) in memo.$3) {
+      coloured.addAttribution(ColorAttribution(color), range);
+    }
+    restyled.text = coloured;
+    return restyled;
+  }
+
+  /// Flattens the tokenizer's spans into offset ranges (SpanRange is END-INCLUSIVE). 摊平 token 区间(闭区间)。
+  List<(SpanRange, Color)> _tokenRanges(String code, String? lang) {
+    final ranges = <(SpanRange, Color)>[];
+    var offset = 0;
+    for (final span in highlightCode(code, lang: lang, colors: syntax)) {
+      final len = span.text?.length ?? 0;
+      if (len == 0) continue;
+      final color = span.style?.color;
+      if (color != null) ranges.add((SpanRange(offset, offset + len - 1), color));
+      offset += len;
+    }
+    return ranges;
+  }
+}

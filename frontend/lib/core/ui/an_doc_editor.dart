@@ -556,9 +556,12 @@ class AnDocEditorState extends State<AnDocEditor> {
         AnHrComponentBuilder(c),
         ...defaultComponentBuilders,
       ],
-      // Group-boundary rhythm (ul↔ol / ↔task) — a block-name-blind gap the stylesheet can't express.
-      // 组边界节奏(样式表按块名看不见的间距)。
-      customStylePhases: [AnListBoundaryStylePhase()],
+      // Group-boundary rhythm (ul↔ol / ↔task) + per-token code colouring — both restyle VIEW MODELS
+      // only (nothing reaches the document/serializer). 组边界节奏 + 代码逐 token 上色——都只染视图模型。
+      customStylePhases: [
+        AnListBoundaryStylePhase(),
+        AnCodeHighlightStylePhase(context.syntax, _codeLanguageOf),
+      ],
       plugins: {?_mentionPlugin, ?_slashPlugin},
       // SuperEditor's input source is IME (the default) — the actions MUST be the IME set: the hardware set
       // (`defaultKeyboardActions`) consumes raw key-downs before the OS input method sees them, which kills
