@@ -36,6 +36,7 @@ core/contract/
     trigger.dart           # TriggerEntity(无版本)+ Activation/Firing + TriggerSource/FiringStatus 封闭枚举(支撑 rail kind;观测面)
     document.dart          # DocumentNode(Notion 树节点,一 DTO 兼服 /tree[省 content]与 /{id};file-like 用户可编,无版本)+ 护栏常量
     skill.dart             # Skill + Frontmatter(SKILL.md:name slug 即身份、body+YAML frontmatter;file-like)+ 护栏常量(body≤32KB/desc≤1024/name 正则)
+    relation.dart          # EntityRelation(关系图一条边,镜像 relation.go RelationView:kind 4 动词封闭集 + from/to {kind,id,name},名读时 hydrate;文档 backlinks = GET /relations?toKind=document&toId=…&kind=link)
     common.dart            # ExecutionAggregates + CapabilityReport(跨域)
   conversation.dart        # Conversation(rail 行 + isGenerating/awaitingInput/hasUnread 三点 + modelOverride)+ ModelRef
   messages/                # 消息 / run-轨迹块契约(STEP 5;Chat 4.2 共用)

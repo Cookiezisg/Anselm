@@ -1,9 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/contract/entities/document.dart';
+import '../../../core/contract/entities/relation.dart';
 import '../../../core/contract/entities/skill.dart';
 import '../../../core/net/api_client.dart';
 import '../../../core/runtime.dart';
+import '../../../core/sse/frame.dart';
+import '../../../core/sse/sse_gateway.dart';
 
 /// THE data seam for the Documents ocean — every read/write for both file-like knowledge types passes
 /// through here, so the whole feature swaps backends at one [documentsRepositoryProvider] override
@@ -54,15 +57,29 @@ abstract interface class DocumentsRepository {
   Future<Skill> replaceSkill(String name, Map<String, dynamic> body);
 
   Future<void> deleteSkill(String name);
+
+  // ── graph 关系图 ──────────────────────────────────────────────────────────
+  /// Who links to this document: incoming `link` edges (bodies whose `[[id]]` wikilinks target it), names
+  /// hydrated fresh server-side. 谁链到此文档:入向 link 边(wikilink 指它的正文),名服务端新鲜 hydrate。
+  Future<List<EntityRelation>> listBacklinks(String documentId);
+
+  // ── realtime 实时 ─────────────────────────────────────────────────────────
+  /// Lifecycle signals off the notifications stream: emits the DOMAIN (`document` / `skill`) for every
+  /// durable `document.*` / `skill.*` notification, so the list providers refetch when anything in the
+  /// library changes (an AI tool edit, another surface's write). The DB row is the truth — this is only
+  /// the "go look again" tap on the shoulder. 通知流生命周期信号:每条 durable `document.*`/`skill.*` 帧发其
+  /// 域名,列表 provider 收到即重取(AI 工具改/别处写);DB 行是真相,这只是「再去看一眼」。
+  Stream<String> lifecycleSignals();
 }
 
 /// The production seam over the Phase-4.0 ApiClient. Holds no state; every method is a thin
 /// envelope-decode. Bounded lists (`/tree`, children, `/skills`) come back as `{data:[…]}` with no
 /// cursor — [ApiClient.getPage] parses the list and yields a null cursor. 生产缝:薄信封解码。
 class LiveDocumentsRepository implements DocumentsRepository {
-  LiveDocumentsRepository(this._api);
+  LiveDocumentsRepository(this._api, {SseGateway? sse}) : _sse = sse;
 
   final ApiClient _api;
+  final SseGateway? _sse;
   static const String _docs = '/api/v1/documents';
   static const String _skills = '/api/v1/skills';
 
@@ -113,10 +130,46 @@ class LiveDocumentsRepository implements DocumentsRepository {
       _api.patchEntity('$_skills/$name', Skill.fromJson, body: body, put: true);
   @override
   Future<void> deleteSkill(String name) => _api.delete('$_skills/$name');
+
+  @override
+  Future<List<EntityRelation>> listBacklinks(String documentId) async => (await _api.getPage(
+        '/api/v1/relations',
+        EntityRelation.fromJson,
+        // The to-pair must be given together (REL_INCOMPLETE_FILTER); kind=link narrows to wikilinks
+        // (drop it and equip mounts would show too). Explicit 100 cap — plenty for a panel list.
+        // to 对须成对给;kind=link 只取 wikilink(不带会混进 equip 挂载);显式 100 上限。
+        query: {'toKind': 'document', 'toId': documentId, 'kind': 'link', 'limit': 100},
+      ))
+          .items;
+
+  @override
+  Stream<String> lifecycleSignals() {
+    final sse = _sse;
+    if (sse == null) return const Stream.empty();
+    // The notifications stream is low-frequency and shares one scope (scope.kind="notification"), so a
+    // `.where` over the raw feed is correct here (same rationale as the entities repository). Only durable
+    // frames count (seq>0 — ephemeral frames never signal a library change). The domain+action live in
+    // `node.type` ("document.updated"); we project to the domain and drop everything else.
+    // notifications 低频且共用单 scope,对原始 feed `.where` 正确(同 entities 仓);只认 durable(seq>0);
+    // 域.动作在 node.type,投影成域名、其余丢弃。
+    return sse
+        .rawStream(StreamName.notifications)
+        .where((env) => env.durable)
+        .map((env) {
+          final frame = env.frame;
+          if (frame is! FrameSignal) return null;
+          final type = frame.node.type;
+          if (type.startsWith('document.')) return 'document';
+          if (type.startsWith('skill.')) return 'skill';
+          return null;
+        })
+        .where((domain) => domain != null)
+        .cast<String>();
+  }
 }
 
 /// The Documents feature's data seam, as a provider — defaults to Live; demo / gallery / tests override
 /// THIS ONE provider with a [FixtureDocumentsRepository] via ProviderScope. 单点切换后端。
 final documentsRepositoryProvider = Provider<DocumentsRepository>((ref) {
-  return LiveDocumentsRepository(ref.watch(apiClientProvider));
+  return LiveDocumentsRepository(ref.watch(apiClientProvider), sse: ref.watch(sseGatewayProvider));
 });

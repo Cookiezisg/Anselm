@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:anselm/core/contract/entities/document.dart';
 import 'package:anselm/core/contract/entities/skill.dart';
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/router/navigation.dart';
 import 'package:anselm/core/entity/mention_source.dart';
 import 'package:anselm/core/ui/an_doc_editor.dart';
 import 'package:anselm/core/ui/an_mention_picker.dart';
@@ -22,6 +25,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:super_editor/super_editor_test.dart';
 import 'package:super_text_layout/super_text_layout.dart' show BlinkController;
 
+import '../../support/router_harness.dart';
+
 final _t = DateTime.utc(2026, 7, 5);
 
 DocumentNode _doc(String id, String? parent, String name, int pos, {String content = ''}) => DocumentNode(
@@ -42,15 +47,28 @@ FixtureDocumentsRepository _repo() => FixtureDocumentsRepository(
       skills: [_skill('commit-helper'), _skill('triage')],
     );
 
-Widget _host(FixtureDocumentsRepository repo, Widget child) => ProviderScope(
-      overrides: [documentsRepositoryProvider.overrideWithValue(repo)],
-      child: TranslationProvider(
-        child: MaterialApp(
-          theme: AnTheme.light(),
-          home: Scaffold(body: SizedBox(width: 320, height: 640, child: child)),
-        ),
+/// Selection is route-derived now, so rail hosts ride a real test router (the SAME instance is
+/// routerConfig AND the goRouterProvider override — context.go and selectedDocProvider share one truth).
+/// 选区由路由派生:rail 宿主挂真测试路由(同实例既是 routerConfig 又是 goRouterProvider override)。
+Widget _host(FixtureDocumentsRepository repo, Widget child, {String initialLocation = '/'}) {
+  final router = buildTestRouter(
+    initialLocation: initialLocation,
+    page: Scaffold(body: SizedBox(width: 320, height: 640, child: child)),
+  );
+  return ProviderScope(
+    overrides: [
+      documentsRepositoryProvider.overrideWithValue(repo),
+      goRouterProvider.overrideWithValue(router),
+    ],
+    child: TranslationProvider(
+      child: MaterialApp.router(
+        debugShowCheckedModeBanner: false,
+        theme: AnTheme.light(),
+        routerConfig: router,
       ),
-    );
+    ),
+  );
+}
 
 void main() {
   group('buildDocumentsRailModel', () {
@@ -326,6 +344,46 @@ void main() {
     });
   });
 
+  group('SSE-driven refresh', () {
+    testWidgets('a document.* signal refetches the tree (debounced, burst-collapsed); skill signals do not',
+        (tester) async {
+      final repo = _SignallingRepo();
+      final container = ProviderContainer(overrides: [documentsRepositoryProvider.overrideWithValue(repo)]);
+      addTearDown(container.dispose);
+      final sub = container.listen(documentTreeProvider, (_, _) {});
+      addTearDown(sub.close);
+      await container.read(documentTreeProvider.future);
+      expect(repo.treeFetches, 1);
+
+      // A burst of document signals (the typing-save echo shape) collapses into ONE refetch. 突发合一。
+      repo.emit('document');
+      repo.emit('document');
+      await tester.pump(const Duration(milliseconds: 500)); // past the 400ms debounce 过去抖
+      await container.read(documentTreeProvider.future);
+      expect(repo.treeFetches, 2);
+
+      // A skill signal must NOT refetch the tree. skill 信号不动树。
+      repo.emit('skill');
+      await tester.pump(const Duration(milliseconds: 500));
+      await container.read(documentTreeProvider.future);
+      expect(repo.treeFetches, 2);
+    });
+
+    testWidgets('a skill.* signal refetches the skill list', (tester) async {
+      final repo = _SignallingRepo();
+      final container = ProviderContainer(overrides: [documentsRepositoryProvider.overrideWithValue(repo)]);
+      addTearDown(container.dispose);
+      final sub = container.listen(skillListProvider, (_, _) {});
+      addTearDown(sub.close);
+      await container.read(skillListProvider.future);
+      expect(repo.skillFetches, 1);
+      repo.emit('skill');
+      await tester.pump(const Duration(milliseconds: 500));
+      await container.read(skillListProvider.future);
+      expect(repo.skillFetches, 2);
+    });
+  });
+
   group('DocumentsInspector', () {
     Widget host(FixtureDocumentsRepository repo, DocSelection sel) => ProviderScope(
           overrides: [
@@ -363,6 +421,35 @@ void main() {
       expect(find.text('User-invocable'), findsOneWidget);
       // The name is read-only (slug identity) — shown, not an input. name 只读展示。
       expect(find.text('commit-helper'), findsWidgets);
+    });
+
+    testWidgets('backlinks list the linking pages; a tap navigates to the linker', (tester) async {
+      // doc_d's body wikilinks doc_a → doc_a's panel lists 'Playbooks' as a backlink. doc_d 链 doc_a。
+      final repo = FixtureDocumentsRepository(
+        documents: [
+          _doc('doc_a', null, 'Getting Started', 0),
+          _doc('doc_d', null, 'Playbooks', 1, content: 'see [[doc_a]] first'),
+        ],
+        skills: const [],
+      );
+      final router = buildTestRouter(page: const Scaffold(body: SizedBox(width: 320, height: 640, child: DocumentsInspector())));
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          documentsRepositoryProvider.overrideWithValue(repo),
+          goRouterProvider.overrideWithValue(router),
+          selectedDocProvider.overrideWith(() => _PinnedSelection((isSkill: false, id: 'doc_a'))),
+        ],
+        child: TranslationProvider(
+          child: MaterialApp.router(theme: AnTheme.light(), routerConfig: router),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('Backlinks'), findsOneWidget);
+      expect(find.text('Playbooks'), findsOneWidget);
+
+      await tester.tap(find.text('Playbooks'));
+      await tester.pumpAndSettle();
+      expect(router.routerDelegate.currentConfiguration.uri.path, '/documents/doc_d'); // navigated 导航到链接方
     });
 
     testWidgets('editing a skill description PUTs the whole frontmatter, keeping the body', (tester) async {
@@ -614,4 +701,35 @@ class _PinnedSelection extends SelectedDocController {
   final DocSelection _seed;
   @override
   DocSelection? build() => _seed;
+}
+
+/// A fixture whose lifecycle stream the test drives by hand, counting refetches. 手动驱动信号流的 fixture,计数重取。
+class _SignallingRepo extends FixtureDocumentsRepository {
+  _SignallingRepo()
+      : super(documents: [
+          DocumentNode(id: 'doc_a', name: 'A', createdAt: _t, updatedAt: _t),
+        ], skills: [
+          _skill('triage'),
+        ]);
+
+  final _signals = StreamController<String>.broadcast();
+  int treeFetches = 0;
+  int skillFetches = 0;
+
+  void emit(String domain) => _signals.add(domain);
+
+  @override
+  Stream<String> lifecycleSignals() => _signals.stream;
+
+  @override
+  Future<List<DocumentNode>> getTree() {
+    treeFetches++;
+    return super.getTree();
+  }
+
+  @override
+  Future<List<Skill>> listSkills() {
+    skillFetches++;
+    return super.listSkills();
+  }
 }

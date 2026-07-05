@@ -580,6 +580,8 @@ class _Translations$documents$props$zh_CN extends Translations$documents$props$e
 	@override String get off => '关';
 	@override String get empty => '未选中';
 	@override String get emptyHint => '选一个页面或技能查看它的属性。';
+	@override String get backlinks => '反向链接';
+	@override String get noBacklinks => '还没有页面链接到这里。';
 }
 
 // Path: documents.slash
@@ -1495,14 +1497,16 @@ extension on TranslationsZhCn {
 			'documents.props.off' => '关',
 			'documents.props.empty' => '未选中',
 			'documents.props.emptyHint' => '选一个页面或技能查看它的属性。',
+			'documents.props.backlinks' => '反向链接',
+			'documents.props.noBacklinks' => '还没有页面链接到这里。',
 			'documents.slash.text' => '正文',
 			'documents.slash.h1' => '标题 1',
 			'documents.slash.h2' => '标题 2',
 			'documents.slash.h3' => '标题 3',
-			'documents.slash.bulleted' => '无序列表',
-			'documents.slash.numbered' => '有序列表',
 			_ => null,
 		} ?? switch (path) {
+			'documents.slash.bulleted' => '无序列表',
+			'documents.slash.numbered' => '有序列表',
 			'documents.slash.quote' => '引用',
 			'markdown.imageNotLoaded' => '图片未加载',
 			'attach.unavailable' => '已不可用',

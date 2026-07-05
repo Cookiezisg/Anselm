@@ -580,7 +580,9 @@
       "on": "On",
       "off": "Off",
       "empty": "Nothing selected",
-      "emptyHint": "Select a page or skill to see its properties."
+      "emptyHint": "Select a page or skill to see its properties.",
+      "backlinks": "Backlinks",
+      "noBacklinks": "No pages link here yet."
     },
     "slash": {
       "text": "Text",

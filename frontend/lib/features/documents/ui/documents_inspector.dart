@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/contract/entities/document.dart';
 import '../../../core/contract/entities/skill.dart';
@@ -15,6 +16,7 @@ import '../../../core/ui/an_dropdown.dart';
 import '../../../core/ui/an_form_field.dart';
 import '../../../core/ui/an_inspector_head.dart';
 import '../../../core/ui/an_input.dart';
+import '../../../core/ui/an_row.dart';
 import '../../../core/ui/an_scroll_behavior.dart';
 import '../../../core/ui/an_skeleton.dart';
 import '../../../core/ui/an_state.dart';
@@ -215,8 +217,51 @@ class _DocFormState extends ConsumerState<_DocForm> {
         _MetaRow(label: p.path, value: widget.doc.path),
         _MetaRow(label: p.size, value: _fmtSize(widget.doc.sizeBytes)),
         _MetaRow(label: p.modified, value: _fmtDate(widget.doc.updatedAt)),
+        const SizedBox(height: AnSpace.s12),
+        const AnDivider(),
+        const SizedBox(height: AnSpace.s12),
+        _Backlinks(id: widget.doc.id),
       ],
     );
+  }
+}
+
+/// The document's BACKLINKS — pages whose bodies `[[id]]`-wikilink this one (incoming `link` edges, names
+/// hydrated server-side). A document row navigates to the linker; non-document linkers (a conversation, a
+/// workflow) render inert — their oceans own their navigation. 反向链接:正文 wikilink 指向本页的页面(入向
+/// link 边);文档行点击即导航,非文档链接方(对话/工作流)惰性展示——导航归其海洋。
+class _Backlinks extends ConsumerWidget {
+  const _Backlinks({required this.id});
+
+  final String id;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.t;
+    final c = context.colors;
+    return ref.watch(backlinksProvider(id)).when(
+          loading: () => const AnSkeleton.lines(2),
+          error: (_, _) => const SizedBox.shrink(), // quiet: backlinks are auxiliary 反链是辅助信息,静默降级
+          data: (links) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(t.documents.props.backlinks,
+                  style: AnText.meta.weight(AnText.emphasisWeight).copyWith(color: c.inkFaint)),
+              const SizedBox(height: AnGap.stack),
+              if (links.isEmpty)
+                Text(t.documents.props.noBacklinks, style: AnText.meta.copyWith(color: c.inkFaint))
+              else
+                for (final link in links)
+                  AnRow(
+                    icon: AnIcons.byKey(link.fromKind),
+                    label: link.fromName.isEmpty ? link.fromId : link.fromName,
+                    onSelect: link.fromKind == 'document'
+                        ? () => context.go(documentLocation(link.fromId))
+                        : null,
+                  ),
+            ],
+          ),
+        );
   }
 }
 

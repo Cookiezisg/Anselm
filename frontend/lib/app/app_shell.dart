@@ -69,6 +69,11 @@ class AppShell extends ConsumerWidget {
     ref.listen(selectedConversationProvider, (prev, next) {
       if (next != null) ref.read(selectedOceanProvider.notifier).select(OceanKind.chat);
     });
+    // Same coherence rule for documents: a /documents/... navigation (rail click, deep link, restored
+    // URL) pulls the ocean to documents. documents 同款一致性规则:/documents/... 导航把海洋拉到 documents。
+    ref.listen(selectedDocProvider, (prev, next) {
+      if (next != null) ref.read(selectedOceanProvider.notifier).select(OceanKind.documents);
+    });
     final notifOpen = ref.watch(notificationsOpenProvider);
     // The right island reveals for entities (run terminal) OR documents (properties inspector) when that
     // ocean has a selection. 右岛在 entities(run 终端)或 documents(属性面板)有选中时揭示。

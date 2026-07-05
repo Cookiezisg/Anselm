@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/contract/entities/document.dart';
 import '../../../core/overlay/an_overlay.dart';
@@ -79,7 +80,8 @@ class _DocumentRailState extends ConsumerState<DocumentRail> {
         selectedId: selected == null
             ? null
             : (selected.isSkill ? '$kSkillRowPrefix${selected.id}' : selected.id),
-        onSelect: (id) => ref.read(selectedDocProvider.notifier).select(docSelectionForRowId(id)),
+        // Selection = navigation (the URL is the truth; selectedDocProvider derives from it). 选中=导航。
+        onSelect: (id) => context.go(_locationForRow(id)),
         // The New row creates a root page (skill creation lives in the skill editor, P4c). New 建根页。
         onNew: _newDocument,
         editingRowId: _editingId,
@@ -152,6 +154,12 @@ class _DocumentRailState extends ConsumerState<DocumentRail> {
     return name.isEmpty ? context.t.documents.untitled : name;
   }
 
+  /// A rail row id → its route location (skill rows carry the namespace prefix). 行 id → 路由位置。
+  String _locationForRow(String rowId) {
+    final sel = docSelectionForRowId(rowId);
+    return sel.isSkill ? skillLocation(sel.id) : documentLocation(sel.id);
+  }
+
   // ── actions (write → invalidate to refetch; toast on failure) 写→invalidate 重取;失败 toast ──
 
   Future<void> _newDocument() async {
@@ -159,7 +167,7 @@ class _DocumentRailState extends ConsumerState<DocumentRail> {
       final doc = await _repo.createDocument(name: context.t.documents.untitled);
       if (!mounted) return;
       ref.invalidate(documentTreeProvider);
-      ref.read(selectedDocProvider.notifier).select((isSkill: false, id: doc.id));
+      context.go(documentLocation(doc.id));
       // Drop straight into inline-rename on the fresh row. 新行直接进就地改名。
       setState(() => _editingId = doc.id);
     } catch (_) {
@@ -188,7 +196,7 @@ class _DocumentRailState extends ConsumerState<DocumentRail> {
       final copy = await _repo.duplicateDocument(id);
       if (!mounted) return;
       ref.invalidate(documentTreeProvider);
-      ref.read(selectedDocProvider.notifier).select((isSkill: false, id: copy.id));
+      context.go(documentLocation(copy.id));
     } catch (_) {
       _toastFail();
     }
@@ -234,11 +242,12 @@ class _DocumentRailState extends ConsumerState<DocumentRail> {
     }
   }
 
-  // Deleting the open selection leaves a dead center view — clear it. 删掉选中即清选区。
+  // Deleting the open selection leaves a dead center view — navigate home to clear it (the URL is the
+  // selection truth). 删掉选中即导航回首页清选区(URL 是选区真相)。
   void _clearIfSelected(DocSelection deleted) {
     final sel = ref.read(selectedDocProvider);
     if (sel != null && sel.isSkill == deleted.isSkill && sel.id == deleted.id) {
-      ref.read(selectedDocProvider.notifier).clear();
+      context.go('/');
     }
   }
 

@@ -20,7 +20,8 @@ import 'package:go_router/go_router.dart';
 /// 镜像 app 两 location + kind 校验,但渲被测件作路由内容。同一 router 既是 routerConfig 又是 goRouterProvider override,
 /// 故 context.go 与 selectedEntityProvider 同一真相源。
 
-/// A test router rendering [page] for both locations. Disposed at tear-down. 测试路由(两 location 渲被测件)。
+/// A test router rendering [page] for every app location (entities + documents selections). Disposed at
+/// tear-down. 测试路由(全部 location 渲被测件)。
 GoRouter buildTestRouter({String initialLocation = '/', required Widget page}) {
   final router = GoRouter(
     initialLocation: initialLocation,
@@ -32,6 +33,9 @@ GoRouter buildTestRouter({String initialLocation = '/', required Widget page}) {
             entityKindFromWire(state.pathParameters['kind']) == null ? '/' : null,
         builder: (_, _) => page,
       ),
+      // Documents ocean selections (page / slug-addressed skill) — mirrors app router. 文档选区,镜像 app 路由。
+      GoRoute(path: '/documents/:id', builder: (_, _) => page),
+      GoRoute(path: '/documents/skill/:name', builder: (_, _) => page),
     ],
   );
   addTearDown(router.dispose);

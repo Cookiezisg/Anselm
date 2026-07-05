@@ -1,4 +1,5 @@
 import 'package:anselm/core/router/navigation.dart';
+import 'package:anselm/features/documents/state/document_state.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
 import 'package:anselm/features/entities/state/selected_entity.dart';
 import 'package:flutter/material.dart';
@@ -83,10 +84,40 @@ void main() {
     });
   });
 
+  group('selectedDocProvider derives from the route', () {
+    test('documentLocation / skillLocation build the locations', () {
+      expect(documentLocation('doc_7'), '/documents/doc_7');
+      expect(skillLocation('commit-helper'), '/documents/skill/commit-helper');
+    });
+
+    testWidgets('root → null; page + skill locations parse; home clears', (tester) async {
+      final c = await _mount(tester, '/');
+      expect(c.read(selectedDocProvider), isNull);
+
+      c.read(goRouterProvider).go(documentLocation('doc_7'));
+      await tester.pumpAndSettle();
+      expect(c.read(selectedDocProvider), (isSkill: false, id: 'doc_7'));
+
+      c.read(goRouterProvider).go(skillLocation('triage'));
+      await tester.pumpAndSettle();
+      expect(c.read(selectedDocProvider), (isSkill: true, id: 'triage'));
+
+      c.read(goRouterProvider).go('/'); // clear by navigating home 导航回首页即清选区
+      await tester.pumpAndSettle();
+      expect(c.read(selectedDocProvider), isNull);
+    });
+
+    testWidgets('a foreign route (entities) parses to no doc selection', (tester) async {
+      final c = await _mount(tester, '/entities/agent/ag_7');
+      expect(c.read(selectedDocProvider), isNull);
+      expect(c.read(selectedEntityProvider), const EntityRef(EntityKind.agent, 'ag_7'));
+    });
+  });
+
   testWidgets('constant page key → the shell never remounts across navigation', (tester) async {
-    // Mirrors buildAppRouter: both locations resolve to ONE NoTransitionPage with the SAME constant key,
+    // Mirrors buildAppRouter: ALL locations resolve to ONE NoTransitionPage with the SAME constant key,
     // so the Navigator reuses the same Element (keepAlive run-terminal + scroll + rail state all survive).
-    // 同 buildAppRouter:两 location 共用同一常量 key 的页 → 复用同一 Element、壳永不重挂。
+    // 同 buildAppRouter:全部 location 共用同一常量 key 的页 → 复用同一 Element、壳永不重挂。
     Page<void> page(BuildContext c, GoRouterState s) =>
         const NoTransitionPage(key: ValueKey('anselm-shell'), child: _Sentinel());
     final router = GoRouter(
@@ -99,6 +130,8 @@ void main() {
               entityKindFromWire(state.pathParameters['kind']) == null ? '/' : null,
           pageBuilder: page,
         ),
+        GoRoute(path: '/documents/:id', pageBuilder: page),
+        GoRoute(path: '/documents/skill/:name', pageBuilder: page),
       ],
     );
     addTearDown(router.dispose);
@@ -109,6 +142,8 @@ void main() {
     before.marker = 42; // mark the live State
 
     router.go('/entities/function/fn_1');
+    await tester.pumpAndSettle();
+    router.go('/documents/doc_1'); // hop across oceans — still the same Element 跨海洋仍同 Element
     await tester.pumpAndSettle();
     final after = tester.state<_SentinelState>(find.byType(_Sentinel));
 

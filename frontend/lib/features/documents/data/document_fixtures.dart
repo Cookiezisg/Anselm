@@ -1,4 +1,5 @@
 import '../../../core/contract/entities/document.dart';
+import '../../../core/contract/entities/relation.dart';
 import '../../../core/contract/entities/skill.dart';
 import 'document_repository.dart';
 
@@ -172,4 +173,27 @@ class FixtureDocumentsRepository implements DocumentsRepository {
 
   @override
   Future<void> deleteSkill(String name) async => _skills.removeWhere((s) => s.name == name);
+
+  // No backend, no stream — the demo's writes all go through the rail, which invalidates directly.
+  // 零后端零流:demo 的写全走 rail、直接 invalidate。
+  @override
+  Stream<String> lifecycleSignals() => const Stream.empty();
+
+  /// Derived honestly the way the backend does: scan every document body for `[[<id>]]` wikilinks
+  /// targeting [documentId] (names hydrated from the live rows). 照后端方式诚实派生:扫全部正文的 `[[id]]`。
+  @override
+  Future<List<EntityRelation>> listBacklinks(String documentId) async => [
+        for (final d in _docs)
+          if (d.id != documentId && d.content.contains('[[$documentId]]'))
+            EntityRelation(
+              id: 'rel_${d.id}_$documentId',
+              kind: 'link',
+              fromKind: 'document',
+              fromId: d.id,
+              fromName: d.name,
+              toKind: 'document',
+              toId: documentId,
+              toName: _byId(documentId).name,
+            ),
+      ];
 }

@@ -1157,6 +1157,12 @@ class Translations$documents$props$en {
 
 	/// en: 'Select a page or skill to see its properties.'
 	String get emptyHint => 'Select a page or skill to see its properties.';
+
+	/// en: 'Backlinks'
+	String get backlinks => 'Backlinks';
+
+	/// en: 'No pages link here yet.'
+	String get noBacklinks => 'No pages link here yet.';
 }
 
 // Path: documents.slash
@@ -2546,14 +2552,16 @@ extension on Translations {
 			'documents.props.off' => 'Off',
 			'documents.props.empty' => 'Nothing selected',
 			'documents.props.emptyHint' => 'Select a page or skill to see its properties.',
+			'documents.props.backlinks' => 'Backlinks',
+			'documents.props.noBacklinks' => 'No pages link here yet.',
 			'documents.slash.text' => 'Text',
 			'documents.slash.h1' => 'Heading 1',
 			'documents.slash.h2' => 'Heading 2',
 			'documents.slash.h3' => 'Heading 3',
-			'documents.slash.bulleted' => 'Bulleted list',
-			'documents.slash.numbered' => 'Numbered list',
 			_ => null,
 		} ?? switch (path) {
+			'documents.slash.bulleted' => 'Bulleted list',
+			'documents.slash.numbered' => 'Numbered list',
 			'documents.slash.quote' => 'Quote',
 			'markdown.imageNotLoaded' => 'image not loaded',
 			'attach.unavailable' => 'Unavailable',
