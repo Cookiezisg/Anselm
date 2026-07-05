@@ -16,6 +16,7 @@ import '../state/attachment_meta.dart';
 import '../model/user_attachment.dart';
 import '../state/conversation_stream_provider.dart';
 import '../state/conversation_stream_state.dart';
+import '../state/pending_interactions_provider.dart';
 import 'chat_tool_card.dart';
 import 'chat_turn.dart';
 import 'chat_thinking.dart';
@@ -239,25 +240,28 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
   // 终态行走身份缓存(同实例短路重建——流式中 settled 行零 build);open 回合逐 tick 新建。
   Widget _rowFor(BlockNode turn) {
     if (!turn.isOpen) {
-      return _settledRowCache[turn.id] ??=
-          _TurnRow(turn: turn, streaming: false, key: ValueKey(turn.id));
+      return _settledRowCache[turn.id] ??= _TurnRow(
+          turn: turn, streaming: false, conversationId: widget.conversationId, key: ValueKey(turn.id));
     }
-    return _TurnRow(turn: turn, streaming: true, key: ValueKey(turn.id));
+    return _TurnRow(
+        turn: turn, streaming: true, conversationId: widget.conversationId, key: ValueKey(turn.id));
   }
 }
 
 /// One transcript turn, centered in the reading column with the inter-turn gap. 一条回合(阅读列+轮距)。
 class _TurnRow extends ConsumerWidget {
-  const _TurnRow({required this.turn, required this.streaming, super.key});
+  const _TurnRow(
+      {required this.turn, required this.streaming, required this.conversationId, super.key});
 
   final BlockNode turn;
   final bool streaming;
+  final String conversationId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     TranscriptProbe.hit(streaming ? 'leaf-stream' : 'row-settled');
     final role = ConversationTranscript.turnRole(turn);
-    final child = role == 'user' ? _user(context, ref) : _assistant(context);
+    final child = role == 'user' ? _user(context, ref) : _assistant(context, ref);
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: AnSize.content),
@@ -301,11 +305,11 @@ class _TurnRow extends ConsumerWidget {
     );
   }
 
-  Widget _assistant(BuildContext context) {
+  Widget _assistant(BuildContext context, WidgetRef ref) {
     final c = context.colors;
     final t = Translations.of(context);
     final blocks = <Widget>[
-      for (final b in turn.children) ?_block(context, b),
+      for (final b in turn.children) ?_block(context, ref, b),
     ];
     final banner = _stopBanner(context);
     if (blocks.isEmpty && banner == null && streaming) {
@@ -331,7 +335,7 @@ class _TurnRow extends ConsumerWidget {
     );
   }
 
-  Widget? _block(BuildContext context, BlockNode b) {
+  Widget? _block(BuildContext context, WidgetRef ref, BlockNode b) {
     final c = context.colors;
     final t = Translations.of(context);
     switch (b.kind) {
@@ -345,9 +349,20 @@ class _TurnRow extends ConsumerWidget {
           settledLabel: t.chat.thought,
         );
       case BlockKind.toolCall:
-        // The V3a chassis (WRK-053): full lifecycle line + generic expanded body; nested
-        // progress/tool_result ride the node's children. V3a 底盘:完整生命线 + 通用展开体。
-        return ChatToolCard(node: b, key: ValueKey('tool-${b.id}'));
+        // The V3a chassis (WRK-053) + the V6 human gate: the pending-interaction record for THIS
+        // tool_call (keyed by block id) drives the awaiting gate / decided provenance章; resolving POSTs
+        // through the provider. Watching only this block's slice keeps unrelated gate changes from
+        // rebuilding the whole card. V3a 底盘 + V6 人闸:本块的待决记录驱动门/出处章;select 单块切片。
+        final record = ref.watch(
+            pendingInteractionsProvider(conversationId).select((m) => m[b.id]));
+        return ChatToolCard(
+          node: b,
+          interaction: record,
+          onResolve: (action, {answer}) => ref
+              .read(pendingInteractionsProvider(conversationId).notifier)
+              .resolve(b.id, action, answer: answer),
+          key: ValueKey('tool-${b.id}'),
+        );
       case BlockKind.toolResult || BlockKind.progress:
         return null; // children of the tool card — never top-level noise 工具卡子块,不作顶层噪声
       case BlockKind.compaction:

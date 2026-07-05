@@ -44,7 +44,7 @@ void main() {
     LocaleSettings.setLocaleRaw('zh-CN');
     const key = ValueKey('cap');
     tester.view.devicePixelRatio = 1.0;
-    tester.view.physicalSize = const Size(760, 3600);
+    tester.view.physicalSize = const Size(760, 4600);
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(RepaintBoundary(

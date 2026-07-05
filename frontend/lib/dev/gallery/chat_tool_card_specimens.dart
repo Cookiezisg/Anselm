@@ -1,6 +1,8 @@
+import '../../core/contract/interaction.dart';
 import '../../core/contract/messages/block_content.dart';
 import '../../core/messages/block_tree_reducer.dart';
 import '../../core/sse/frame.dart';
+import '../../features/chat/state/pending_interactions_provider.dart';
 import '../../features/chat/ui/chat_tool_card.dart';
 import 'specimen.dart';
 
@@ -88,12 +90,37 @@ final chatToolCardGalleryItem = GalleryItem(
                 args: '{"functionId":"fn_1a2b3c4d5e6f7a8b","args":{"quarter":"Q3"}}',
                 summary: 'Run the rollup for Q3', danger: 'safe')),
         span: true),
-    GallerySpecimen('等待确认(V6 完整卡前的底盘占位)',
+    GallerySpecimen('V6 危险门 · 待决(裸行 + 锁定展开人闸)',
         (c) => ChatToolCard(
             node: _call('delete_agent',
                 args: '{"agentId":"ag_9f8e7d6c5b4a3f2e"}',
                 summary: 'Remove the obsolete triager', danger: 'dangerous'),
-            awaitingConfirm: true),
+            interaction: const InteractionRecord(
+                interaction: Interaction(
+              toolCallId: 'blk_del',
+              kind: InteractionKind.danger,
+              tool: 'delete_agent',
+              resolved: false,
+              summary: '这个 triager 已经废弃了,把它删掉以免误触发。',
+              args: {'agentId': 'ag_9f8e7d6c5b4a3f2e'},
+            ))),
+        span: true),
+    GallerySpecimen('V6 危险门 · 已允许(出处章 + 正常生命周期)',
+        (c) => ChatToolCard(
+            node: _call('delete_agent',
+                args: '{"agentId":"ag_9f8e7d6c5b4a3f2e"}',
+                summary: 'Remove the obsolete triager', danger: 'dangerous',
+                result: '{"deleted":"ag_9f8e7d6c5b4a3f2e"}'),
+            interaction: const InteractionRecord(
+                interaction: Interaction(
+                  toolCallId: 'blk_del',
+                  kind: InteractionKind.danger,
+                  tool: 'delete_agent',
+                  resolved: false,
+                  summary: '这个 triager 已经废弃了,把它删掉以免误触发。',
+                  args: {'agentId': 'ag_9f8e7d6c5b4a3f2e'},
+                ),
+                decided: InteractionAction.approve)),
         span: true),
     GallerySpecimen('成功 · JSON 结果(点行展开:意图/参数/结果树)',
         (c) => ChatToolCard(

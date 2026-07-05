@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
+import '../../../core/contract/interaction.dart';
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
@@ -11,8 +12,10 @@ import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
+import '../state/pending_interactions_provider.dart';
 import 'tool_card_catalog.dart';
 import 'tool_card_skins.dart';
+import 'tool_interaction_gate.dart';
 
 /// The V3a tool-call CHASSIS (WRK-053) — one borderless 32px-register line per tool call
 /// (decision #2: bare row, the expanded body owns the only container), carrying the whole
@@ -29,13 +32,19 @@ import 'tool_card_skins.dart';
 /// (LLM summary)· 参数 JSON · 进度尾巴 · 结果(可解析即 JSON 树)· 错误——硬显示上限 + 诚实
 /// 截断注记。族皮肤(V3b+)按族替换体;行文法与状态管道恒在此。
 class ChatToolCard extends StatefulWidget {
-  const ChatToolCard({required this.node, this.awaitingConfirm = false, super.key});
+  const ChatToolCard({required this.node, this.interaction, this.onResolve, super.key});
 
   /// The tool_call [BlockNode] (children carry nested progress / tool_result). 工具调用节点。
   final BlockNode node;
 
-  /// Interaction-signal overlay: pending danger/ask gate (wired at V6). 人在环覆盖(V6 接线)。
-  final bool awaitingConfirm;
+  /// The human-loop record for THIS tool_call (from pendingInteractionsProvider, threaded by the
+  /// transcript so the card stays a pure prop widget): awaiting → the gate renders LOCKED-OPEN; a
+  /// positive decision → a provenance章 in the expanded body; null → no gate.
+  /// 本 tool_call 的人在环记录(transcript 下喂,卡保持纯 prop):待决→锁定展开门;正向决议→展开体出处章;null→无门。
+  final InteractionRecord? interaction;
+
+  /// The danger/ask gate's decision sink (POST happens in the provider). 门决议回调(POST 在 provider)。
+  final void Function(InteractionAction action, {String? answer})? onResolve;
 
   @override
   State<ChatToolCard> createState() => _ChatToolCardState();
@@ -69,7 +78,8 @@ class _ChatToolCardState extends State<ChatToolCard> {
   // as tool elapsed. 单一 live 谓词=显示同款相位集;旧启发式在 awaitingConfirm 下把人等的时间计进
   // 工具耗时、且停在门上仍每秒重建。
   bool get _live {
-    final phase = ToolCardState.of(widget.node, awaitingConfirm: widget.awaitingConfirm).phase;
+    final awaiting = widget.interaction?.isAwaiting ?? false;
+    final phase = ToolCardState.of(widget.node, awaitingConfirm: awaiting).phase;
     return phase == ToolCardPhase.argsStreaming || phase == ToolCardPhase.running;
   }
 
@@ -110,10 +120,25 @@ class _ChatToolCardState extends State<ChatToolCard> {
   Widget build(BuildContext context) {
     final t = Translations.of(context);
     final c = context.colors;
-    final state = ToolCardState.of(widget.node, awaitingConfirm: widget.awaitingConfirm);
+    final awaiting = widget.interaction?.isAwaiting ?? false;
+    final state = ToolCardState.of(widget.node, awaitingConfirm: awaiting);
     final spec = toolCardSpecFor(state.toolName);
     final live = state.phase == ToolCardPhase.argsStreaming || state.phase == ToolCardPhase.running;
     if (!live && _ticker != null) _syncTicker();
+
+    const bodyInsetGate = EdgeInsets.only(top: AnSpace.s6, left: AnSize.icon + AnSpace.s6);
+    // The HUMAN GATE (WRK-053 §V6): an awaiting danger/ask interaction renders the gate LOCKED-OPEN
+    // under a bare amber verb line — a question the user MUST act on can never hide behind a chevron.
+    // 人闸:待决交互在琥珀动词裸行下锁定展开门——必须动手的问题不能藏在 chevron 后。
+    if (state.phase == ToolCardPhase.awaitingConfirm && widget.interaction != null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _line(context, t, c, state, spec, false, false, false, null),
+          Padding(padding: bodyInsetGate, child: _gate(context, widget.interaction!.interaction)),
+        ],
+      );
+    }
 
     // Failure auto-expands ONCE (industry consensus) — including a DANGER-TONED family
     // receipt (Bash exit≠0 / timeout close with status=completed on the wire, but the user
@@ -164,6 +189,10 @@ class _ChatToolCardState extends State<ChatToolCard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Provenance章: a positive decision (approve / approve_always) leaves a session-only
+                  // proof at the top of the body — the tool then ran its normal lifecycle below.
+                  // 出处章:正向决议(允许/总是允许)在体首留会话级凭据,其下是工具正常生命周期。
+                  ?_provenanceChip(context, c),
                   spec.body?.call(context, state) ?? _GenericToolBody(state: state),
                   // Family bodies get the error section from the CHASSIS — every family shows
                   // failures without re-implementing them (the generic body has its own).
@@ -180,6 +209,37 @@ class _ChatToolCardState extends State<ChatToolCard> {
           ),
         ),
       ],
+    );
+  }
+
+  /// Build the danger/ask gate from the awaiting interaction (locked-open under the row). 从待决交互建门。
+  Widget _gate(BuildContext context, Interaction it) {
+    final ask = it.kind == InteractionKind.ask;
+    return ToolInteractionGate(
+      kind: ask ? GateKind.ask : GateKind.danger,
+      prompt: ask ? (it.message ?? '') : (it.summary ?? ''),
+      toolName: it.tool,
+      evidence: it.args ?? const {},
+      options: it.options ?? const [],
+      allowFreeText: ask,
+      onResolve: (action, {answer}) => widget.onResolve?.call(action, answer: answer),
+    );
+  }
+
+  /// The session-only provenance章 for a positively-decided gate (approve / approve_always). deny leaves
+  /// a denied phase (prose), so no chip is needed there. 正向决议的会话级出处章(deny 走 denied 相位、无需)。
+  Widget? _provenanceChip(BuildContext context, AnColors c) {
+    final decided = widget.interaction?.decided;
+    if (decided != InteractionAction.approve && decided != InteractionAction.approveAlways) return null;
+    final t = Translations.of(context);
+    final always = decided == InteractionAction.approveAlways;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AnSpace.s6),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: AnBadge(always ? t.chat.gate.decidedApprovedAlways : t.chat.gate.decidedApproved,
+            tone: always ? AnTone.accent : AnTone.ok),
+      ),
     );
   }
 
