@@ -1,31 +1,49 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/contract/entities/document.dart';
+import '../../../core/overlay/an_overlay.dart';
+import '../../../core/ui/an_button.dart';
+import '../../../core/ui/an_menu.dart';
 import '../../../core/ui/an_rail_states.dart';
 import '../../../core/ui/an_sidebar_list.dart';
+import '../../../core/ui/an_toast.dart';
+import '../../../core/ui/icons.dart';
 import '../../../i18n/strings.g.dart';
+import '../data/document_repository.dart';
 import '../state/document_state.dart';
 import 'document_rail_model.dart';
 
 /// The left-island Documents navigator — one [AnSidebarList] over two sections (the recursive document
-/// page tree + the flat skill list). Watches [documentTreeProvider] + [skillListProvider], resolves the
-/// four rail states (loading / error / empty / list), and drives [selectedDocProvider] on select. Filtering
-/// is client-side inside AnSidebarList (the whole bounded tree is loaded), so no server search is wired.
-/// All data flows through the repository seam → the demo + tests drive it with a fixture.
+/// page tree + the flat skill list), now with CRUD: a New row creates a root page (then inline-renames it),
+/// and each row hovers a ⋯ menu — pages get Rename / Duplicate / Delete, skills get Delete (skills have no
+/// rename: `name` is the slug/identity). Writes go straight through the repository seam and the two plain
+/// FutureProviders are `invalidate`d to refetch (no optimistic notifier). Deleting the open selection clears
+/// it. Filtering stays client-side inside AnSidebarList.
 ///
-/// 左岛文档导航:一个 AnSidebarList 双段(文档页树 + skill 扁平列)。watch 树+skill,解四态,选区写 provider。
-/// AnSidebarList 内建客户端过滤(整棵有界树已载),不接服务端搜索。全数据过 repository 缝。
-class DocumentRail extends ConsumerWidget {
+/// 左岛文档导航:一个 AnSidebarList 双段(文档页树 + skill 扁平列)+ CRUD:New 建根页(随即就地改名),每行
+/// hover ⋯ 菜单——页=改名/复制/删除,skill=删除(skill 无改名:name 即 slug 身份)。写过 repository 缝,两个
+/// 普通 FutureProvider invalidate 重取(无乐观 notifier);删掉选中即清选区。过滤仍走 AnSidebarList 客户端。
+class DocumentRail extends ConsumerStatefulWidget {
   const DocumentRail({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DocumentRail> createState() => _DocumentRailState();
+}
+
+class _DocumentRailState extends ConsumerState<DocumentRail> {
+  String? _editingId; // which row is mid inline-rename (transient view state). 哪行在就地改名中。
+
+  DocumentsRepository get _repo => ref.read(documentsRepositoryProvider);
+
+  @override
+  Widget build(BuildContext context) {
     final t = context.t;
     final treeAsync = ref.watch(documentTreeProvider);
     final skillsAsync = ref.watch(skillListProvider);
     final selected = ref.watch(selectedDocProvider);
 
-    final tree = treeAsync.value ?? const [];
+    final tree = treeAsync.value ?? const <DocumentNode>[];
     final skills = skillsAsync.value ?? const [];
     final anyData = treeAsync.hasValue || skillsAsync.hasValue;
 
@@ -61,11 +79,152 @@ class DocumentRail extends ConsumerWidget {
         selectedId: selected == null
             ? null
             : (selected.isSkill ? '$kSkillRowPrefix${selected.id}' : selected.id),
-        // Creation (New document / New skill) lands with the editor phase; the rail is read+select for now.
-        // 新建随编辑器阶段接;当前 rail 只读+选择。
-        showNew: false,
         onSelect: (id) => ref.read(selectedDocProvider.notifier).select(docSelectionForRowId(id)),
+        // The New row creates a root page (skill creation lives in the skill editor, P4c). New 建根页。
+        onNew: _newDocument,
+        editingRowId: _editingId,
+        onRenameCommit: _renameDocument,
+        onRenameCancel: () => setState(() => _editingId = null),
+        rowActionsBuilder: (rowId) => [_rowMenu(t, rowId, tree)],
       ),
     );
+  }
+
+  /// A row's hover ⋯ menu. Pages: Rename / Duplicate / Delete. Skills: Delete only (no rename — the slug is
+  /// the identity). 行 ⋯ 菜单:页=改名/复制/删除;skill=仅删除(slug 即身份、不可改名)。
+  Widget _rowMenu(Translations t, String rowId, List<DocumentNode> tree) {
+    final sel = docSelectionForRowId(rowId);
+    return AnMenu(
+      anchorBuilder: (context, toggle, isOpen) => AnButton.iconOnly(
+        AnIcons.more,
+        size: AnButtonSize.sm,
+        semanticLabel: t.a11y.moreActions,
+        onPressed: toggle,
+      ),
+      entries: sel.isSkill
+          ? [
+              AnMenuItem(
+                label: t.action.delete,
+                icon: AnIcons.trash,
+                danger: true,
+                onTap: () => _confirmDeleteSkill(sel.id),
+              ),
+            ]
+          : [
+              AnMenuItem(
+                label: t.documents.rename,
+                icon: AnIcons.edit,
+                onTap: () => setState(() => _editingId = rowId),
+              ),
+              AnMenuItem(label: t.documents.duplicate, icon: AnIcons.copy, onTap: () => _duplicate(sel.id)),
+              AnMenuItem(
+                label: t.action.delete,
+                icon: AnIcons.trash,
+                danger: true,
+                onTap: () => _confirmDeleteDoc(sel.id, _docName(tree, sel.id)),
+              ),
+            ],
+    );
+  }
+
+  String _docName(List<DocumentNode> tree, String id) {
+    final doc = tree.where((d) => d.id == id).firstOrNull;
+    final name = doc?.name.trim() ?? '';
+    return name.isEmpty ? context.t.documents.untitled : name;
+  }
+
+  // ── actions (write → invalidate to refetch; toast on failure) 写→invalidate 重取;失败 toast ──
+
+  Future<void> _newDocument() async {
+    try {
+      final doc = await _repo.createDocument(name: context.t.documents.untitled);
+      if (!mounted) return;
+      ref.invalidate(documentTreeProvider);
+      ref.read(selectedDocProvider.notifier).select((isSkill: false, id: doc.id));
+      // Drop straight into inline-rename on the fresh row. 新行直接进就地改名。
+      setState(() => _editingId = doc.id);
+    } catch (_) {
+      _toastFail();
+    }
+  }
+
+  /// Commit an inline rename: trim, treat empty-or-unchanged as a cancel. 提交改名:trim,空或未变即取消。
+  Future<void> _renameDocument(String rowId, String value) async {
+    final id = docSelectionForRowId(rowId).id;
+    final next = value.trim();
+    final current = ref.read(documentTreeProvider).value?.where((d) => d.id == id).firstOrNull?.name;
+    setState(() => _editingId = null);
+    if (next.isEmpty || next == current) return;
+    try {
+      await _repo.updateDocument(id, {'name': next});
+      if (!mounted) return;
+      ref.invalidate(documentTreeProvider);
+    } catch (_) {
+      _toastFail();
+    }
+  }
+
+  Future<void> _duplicate(String id) async {
+    try {
+      final copy = await _repo.duplicateDocument(id);
+      if (!mounted) return;
+      ref.invalidate(documentTreeProvider);
+      ref.read(selectedDocProvider.notifier).select((isSkill: false, id: copy.id));
+    } catch (_) {
+      _toastFail();
+    }
+  }
+
+  Future<void> _confirmDeleteDoc(String id, String name) async {
+    final t = context.t;
+    final ok = await ref.read(overlayProvider.notifier).confirm(
+          title: t.documents.deleteDocTitle,
+          message: t.documents.deleteDocBody(name: name),
+          confirmLabel: t.action.delete,
+          cancelLabel: t.action.cancel,
+          barrierLabel: t.feedback.dialogBarrier,
+        );
+    if (!ok) return;
+    try {
+      await _repo.deleteDocument(id);
+      if (!mounted) return;
+      ref.invalidate(documentTreeProvider);
+      _clearIfSelected((isSkill: false, id: id));
+    } catch (_) {
+      _toastFail();
+    }
+  }
+
+  Future<void> _confirmDeleteSkill(String name) async {
+    final t = context.t;
+    final ok = await ref.read(overlayProvider.notifier).confirm(
+          title: t.documents.deleteSkillTitle,
+          message: t.documents.deleteSkillBody(name: name),
+          confirmLabel: t.action.delete,
+          cancelLabel: t.action.cancel,
+          barrierLabel: t.feedback.dialogBarrier,
+        );
+    if (!ok) return;
+    try {
+      await _repo.deleteSkill(name);
+      if (!mounted) return;
+      ref.invalidate(skillListProvider);
+      _clearIfSelected((isSkill: true, id: name));
+    } catch (_) {
+      _toastFail();
+    }
+  }
+
+  // Deleting the open selection leaves a dead center view — clear it. 删掉选中即清选区。
+  void _clearIfSelected(DocSelection deleted) {
+    final sel = ref.read(selectedDocProvider);
+    if (sel != null && sel.isSkill == deleted.isSkill && sel.id == deleted.id) {
+      ref.read(selectedDocProvider.notifier).clear();
+    }
+  }
+
+  void _toastFail() {
+    if (!mounted) return;
+    ref.read(overlayProvider.notifier).showToast(context.t.documents.actionFailed, tone: AnToastTone.danger);
   }
 }

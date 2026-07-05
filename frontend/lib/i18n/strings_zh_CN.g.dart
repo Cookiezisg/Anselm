@@ -335,6 +335,14 @@ class _Translations$documents$zh_CN extends Translations$documents$en {
 	@override String get pickHint => '在左侧选一篇文档或技能来阅读或编辑。';
 	@override String get loadFailed => '打不开这个';
 	@override String get emptyDoc => '这篇文档是空的。';
+	@override String get newSkill => '新建技能';
+	@override String get rename => '改名';
+	@override String get duplicate => '创建副本';
+	@override String get deleteDocTitle => '删除这个页面?';
+	@override String deleteDocBody({required Object name}) => '“${name}”及其下嵌套的所有内容都会被删除。';
+	@override String get deleteSkillTitle => '删除这个技能?';
+	@override String deleteSkillBody({required Object name}) => '技能“${name}”会被删除。';
+	@override String get actionFailed => '操作失败';
 	@override late final _Translations$documents$slash$zh_CN slash = _Translations$documents$slash$zh_CN._(_root);
 }
 
@@ -1423,6 +1431,14 @@ extension on TranslationsZhCn {
 			'documents.pickHint' => '在左侧选一篇文档或技能来阅读或编辑。',
 			'documents.loadFailed' => '打不开这个',
 			'documents.emptyDoc' => '这篇文档是空的。',
+			'documents.newSkill' => '新建技能',
+			'documents.rename' => '改名',
+			'documents.duplicate' => '创建副本',
+			'documents.deleteDocTitle' => '删除这个页面?',
+			'documents.deleteDocBody' => ({required Object name}) => '“${name}”及其下嵌套的所有内容都会被删除。',
+			'documents.deleteSkillTitle' => '删除这个技能?',
+			'documents.deleteSkillBody' => ({required Object name}) => '技能“${name}”会被删除。',
+			'documents.actionFailed' => '操作失败',
 			'documents.slash.text' => '正文',
 			'documents.slash.h1' => '标题 1',
 			'documents.slash.h2' => '标题 2',

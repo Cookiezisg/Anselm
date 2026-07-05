@@ -636,6 +636,30 @@ class Translations$documents$en {
 	/// en: 'This document is empty.'
 	String get emptyDoc => 'This document is empty.';
 
+	/// en: 'New skill'
+	String get newSkill => 'New skill';
+
+	/// en: 'Rename'
+	String get rename => 'Rename';
+
+	/// en: 'Duplicate'
+	String get duplicate => 'Duplicate';
+
+	/// en: 'Delete this page?'
+	String get deleteDocTitle => 'Delete this page?';
+
+	/// en: '“$name” and everything nested inside it will be removed.'
+	String deleteDocBody({required Object name}) => '“${name}” and everything nested inside it will be removed.';
+
+	/// en: 'Delete this skill?'
+	String get deleteSkillTitle => 'Delete this skill?';
+
+	/// en: 'The “$name” skill will be removed.'
+	String deleteSkillBody({required Object name}) => 'The “${name}” skill will be removed.';
+
+	/// en: 'Action failed'
+	String get actionFailed => 'Action failed';
+
 	late final Translations$documents$slash$en slash = Translations$documents$slash$en.internal(_root);
 }
 
@@ -2412,6 +2436,14 @@ extension on Translations {
 			'documents.pickHint' => 'Choose a document or skill on the left to read or edit it.',
 			'documents.loadFailed' => 'Couldn\'t open this',
 			'documents.emptyDoc' => 'This document is empty.',
+			'documents.newSkill' => 'New skill',
+			'documents.rename' => 'Rename',
+			'documents.duplicate' => 'Duplicate',
+			'documents.deleteDocTitle' => 'Delete this page?',
+			'documents.deleteDocBody' => ({required Object name}) => '“${name}” and everything nested inside it will be removed.',
+			'documents.deleteSkillTitle' => 'Delete this skill?',
+			'documents.deleteSkillBody' => ({required Object name}) => 'The “${name}” skill will be removed.',
+			'documents.actionFailed' => 'Action failed',
 			'documents.slash.text' => 'Text',
 			'documents.slash.h1' => 'Heading 1',
 			'documents.slash.h2' => 'Heading 2',

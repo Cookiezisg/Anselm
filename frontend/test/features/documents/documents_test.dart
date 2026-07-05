@@ -111,6 +111,30 @@ void main() {
       await tester.pump();
       expect(ref.read(selectedDocProvider), (isSkill: false, id: 'doc_a'));
     });
+
+    testWidgets('the New row creates a root page and selects it', (tester) async {
+      final repo = _repo();
+      late WidgetRef ref;
+      await tester.pumpWidget(_host(
+        repo,
+        Consumer(builder: (_, r, _) {
+          ref = r;
+          return const DocumentRail();
+        }),
+      ));
+      await tester.pump();
+      await tester.pump();
+      final before = (await repo.getTree()).length;
+      await tester.tap(find.text('New'));
+      await tester.pumpAndSettle();
+      final tree = await repo.getTree();
+      // A new root page was created and became the selection (dropping into inline-rename). 新根页建成+选中。
+      expect(tree.length, before + 1);
+      final sel = ref.read(selectedDocProvider);
+      expect(sel, isNotNull);
+      expect(sel!.isSkill, isFalse);
+      expect(tree.any((d) => d.id == sel.id && d.parentId == null), isTrue);
+    });
   });
 
   group('DocumentOcean', () {
