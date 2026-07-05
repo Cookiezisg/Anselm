@@ -9,11 +9,11 @@ review-due: 2026-10-04
 audience: [human, ai]
 ---
 
-# 工具卡完美态蓝图 —— 113 工具逐个设计(提案,待拍板)
+# 工具卡完美态蓝图 —— 113 工具逐个设计(2026-07-06 已拍板)
 
 > **这是什么**:chat 工具卡 pivot 初衷(「每个 tool call 都是量身插件级呈现,核心动作**纯可视化看见变化本身**——图长出来、代码被写出来、旧图 morph 成新图」)的全量设计蓝图:**113 具名工具 + MCP 动态族 + mount 附节,17 族逐工具**给出收起行 / 活期生长秀 / 落定体 / edit morph / 退化态 / 新原语 / 可行性注记。
 > **怎么来的**:64-agent 编队——12 路普查(9 路后端契约逐工具提取 + 框架机制 + 前端乐器盘点 + 图画布勘探,见底册 [`tool-card-census.md`](tool-card-census.md))→ 17 族设计师(共同宪法约束)→ 17 路对抗审察(可行性谎言 / 诚实违规 / 性能陷阱 / 文法破坏)→ 修订落回 → 总合成裁决 12 处族间冲突。
-> **状态**:**提案、待用户拍板**——总纲第三章 B1–B7 建造顺序 + 第四章 10 道拍板题。拍板后:顺序与裁决重述进 [`tool-cards.md`](tool-cards.md)(WRK-053)§1/§6,本文作为逐族实施的设计事实源,随批次落地逐族勾销、终归 archive。
+> **状态**:**已拍板(2026-07-06)**——B1–B7 建造顺序认可;第四章 10 题:**第 1 题用户改判「保留两套」**(Subagent=SubTranscriptFrame / invoke_agent=NestedRunPane,R1 裁决被推翻),其余 9 题按推荐(取数缝允许统一一条、后端小改包 6 项全做、时间语义/chip 单热区/settled 禁呼吸/HitList 归一/generic 地板 B2 后穿插/P2 挂起)。拍板已重述进 [`tool-cards.md`](tool-cards.md)(WRK-053)§1/§6;本文是逐族实施的设计事实源,随批次落地逐族勾销、终归 archive。
 > **引用约定**:族文内「census 01–10 / palette / graph」指底册对应章;「palette 缺口 #N」指底册 palette 章缺口清单。母文档 [`chat.md`](chat.md)。
 
 ---
@@ -134,7 +134,7 @@ audience: [human, ai]
 4. **SubTranscriptFrame 嵌套对话框**(左缩进 + accent 竖界 + 身份行):子代理的「小对话」第三身份——既非机器窗也非 thinking 低语;全注册表递归复用。
 5. thinking 低语(左 rail 散文)——**工具卡永远不借**(宪法既定)。
 
-**裁决 R1(族间最大冲突)**:F08 invoke_agent 的 NestedRunPane(ToolWindow mono 行)与 F15 SubTranscriptFrame 是同一物的两套设计。**裁 SubTranscriptFrame 为唯一嵌套运行呈现件**——invoke_agent 与 Subagent 共用(嵌套 block 同是 E3 机制、全注册表递归价值更高、身份行+竖界已解决语音归属歧义);NestedRunPane 作为独立原语**删除**。落定差异保留:Subagent 有耐久 sub-message 可重水合,invoke_agent 落定收拢成「轨迹·N 步」深链(不重放)。
+**裁决 R1(族间最大冲突)**:F08 invoke_agent 的 NestedRunPane(ToolWindow mono 行)与 F15 SubTranscriptFrame 是同一物的两套设计。合成曾裁「SubTranscriptFrame 唯一、删 NestedRunPane」——**用户 2026-07-06 改判:保留两套**:Subagent(对话内的小对话,全注册表递归)= SubTranscriptFrame;invoke_agent(执行一个实体)= NestedRunPane 轻量运行窗(F08 章原设计有效,恢复为 F08 专属原语,不入总表 50 件计数)。落定差异照旧:Subagent 有耐久 sub-message 可重水合,invoke_agent 落定收拢成「轨迹·N 步」深链(不重放)。
 
 ### 1.4 回执文法(全族一部宪法,tool_receipts.dart 单源)
 
@@ -225,7 +225,7 @@ audience: [human, ai]
 | 44 | McpMarketList / McpServerStatusCard / McpToolsList | 市场货架 / ServerStatus 卡(memoize 承载点)/ 工具清单点亮 | F13 | 7 | M |
 | 45 | ToolStageTail | stage 标签进度尾(`[stage] msg (pct%)`) | F13(通用) | 4 | S |
 | 46 | AnTermTail | 终端活尾(ToolLiveTail+ANSI) | F03 | 4,5 | S |
-| 47 | **SubTranscriptFrame + SubagentDigestTail + reload 重水合缝** ★ | 嵌套对话第三身份(全注册表递归)+ 最近 K 行活摘要 + sub-message 折树重水合 + nested state 扩展 | F15/08 | 6,21,37 | L |
+| 47 | **SubTranscriptFrame + SubagentDigestTail + reload 重水合缝** ★ | 嵌套对话第三身份(全注册表递归)+ 最近 K 行活摘要 + sub-message 折树重水合 + nested state 扩展(R1 改判后仅 Subagent 用;invoke_agent 用 F08 专属 NestedRunPane) | F15 | 6,21,37 | L |
 | 48 | WebHitList(ToolHitList 变体)+ webOutcome 分类器 | 搜索命中出卡 + 假成功判别(URL 绑定锚) | F10 | 10,8 | S |
 | 49 | AnVersionRewindChip | `⤺ vN` 倒带徽标(P2 打磨件) | F05 | 1 | S |
 | 50 | **取数缝(before/after/版本图)** ★ | 工具卡 fetch-on-expand repository 缝:before 懒取 diff / after 图权威源 / 按版本取 graphParsed / mount map / 名→id 反查;内建 diff 尺寸门 + 诚实降级 | F01/04/05/06/08/13 | 架构拍板 Q2 | M/L |
@@ -259,7 +259,7 @@ audience: [human, ai]
 - **理由**:执行观测一体成型(跑了什么/留在哪张台账/坏在哪一步);水合适配器是 B6 的硬前置工件;RunWaterfall 开工前先真跑验证节点时长分布(F09 已列)。
 
 ### B6 「嵌套对话」— F15 + F08 invoke_agent 活期
-- **内容**:子树投影纯模型 + reload 重水合缝 → SubTranscriptFrame(组合 AnStickViewport)+ 钉住终答 → SubagentDigestTail 活期 + 琥珀上浮(消费 B1 的祖先冒泡)→ get_subagent_trace + scroll-anchor intent;invoke_agent 活期按 R1 裁决接同一套件。
+- **内容**:子树投影纯模型 + reload 重水合缝 → SubTranscriptFrame(组合 AnStickViewport)+ 钉住终答 → SubagentDigestTail 活期 + 琥珀上浮(消费 B1 的祖先冒泡)→ get_subagent_trace + scroll-anchor intent。(R1 改判:invoke_agent 不接此套件——其 NestedRunPane 随 B5 F08 落。)
 - **理由**:依赖最深(E3 接线、重水合缝、视口、pendingInteractions 冒泡、水合适配器——B1/B4/B5 各供一件),放最后风险最小;wow 是全系统天花板(对话里长出会用工具的小对话,整套卡片文法免费递归)。
 
 ### B7 「生态收尾」— F14 + F11 + F10 + F13 + F12(可并行/穿插)
@@ -270,7 +270,9 @@ audience: [human, ai]
 
 ## 第四章 拍板问题清单
 
-1. **嵌套运行身份(R1)**:invoke_agent 活期用 F15 SubTranscriptFrame(第三身份、全注册表递归)还是 F08 NestedRunPane(ToolWindow mono 行)?**推荐:统一 SubTranscriptFrame,删 NestedRunPane**——一套嵌套渲染器、递归价值更高;宪法「不借 thinking 低语」由身份行+accent 竖界满足。
+> **拍板结果(2026-07-06)**:第 1 题用户**改判「保留两套」**;第 2–10 题全部按推荐执行。
+
+1. **嵌套运行身份(R1)**:invoke_agent 活期用 F15 SubTranscriptFrame(第三身份、全注册表递归)还是 F08 NestedRunPane(ToolWindow mono 行)?推荐曾为统一 SubTranscriptFrame;**拍板:保留两套**——Subagent=SubTranscriptFrame,invoke_agent=NestedRunPane(见 §1.3 R1 改判记录)。
 2. **工具卡取数缝(#50)**:是否允许工具卡越出「块状态纯函数」边界开 repository 缝(before 懒取 diff / after 图 / FlowrunSnapshotPane / mount map / mcp 名→id)?**推荐:允许,统一一条 fetch-on-expand 缝 + 诚实降级**;随缝核实「按版本取 workflow 图(graphParsed)」端点——今天零证据,缺则按迭代铁律②补端点或写死降级(绝不用 active 图冒充版本图)。
 3. **后端小改包(迭代铁律②,打包一次拍板)**:①document 系散文输出迁 JSON(砍全族模板脆性,F04/05/06 三族受益)+ delete_agent 对齐;②Bash/BashOutput cap 预留 footer 余量(双 cap 冲突根治);③todo content 单行不变量;④rg 补 `--with-filename`/`--no-context-separator` 抹平双后端;⑤MCP OAuth `[oauth]` progress 行;⑥失败 tool_result 是否序列化 details(ToolProblemsBlock 前置)。**推荐:全做**,各随消费批次同提交、守 testend。
 4. **时间语义(R6)**:**推荐:时点=绝对紧凑、时长=相对,settled 永不活刷**——一条全族纪律入 WRK-053。
