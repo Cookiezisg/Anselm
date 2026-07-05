@@ -1,7 +1,10 @@
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/design/tokens.dart';
+import 'package:anselm/core/platform/host_platform.dart';
+import 'package:anselm/core/platform/window_fullscreen.dart';
 import 'package:anselm/core/ui/an_island.dart';
 import 'package:anselm/core/ui/an_shell.dart';
+import 'package:anselm/core/ui/an_window_controls.dart';
 import 'package:anselm/core/ui/icons.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
@@ -148,6 +151,45 @@ void main() {
     expect(find.byIcon(AnIcons.panelRight), findsOneWidget);
     await tester.tap(find.byIcon(AnIcons.panelRight));
     expect(toggled, isTrue);
+  });
+
+  // --- fullscreen chrome collapse (the white-band bug) --------------------
+  // In native macOS fullscreen the OS hides the traffic lights + taller title bar, so the shell must
+  // collapse the reservations it makes FOR those lights: the vertical band (titlebarHeight → 0) and the
+  // horizontal lights gutter (AnWindowControls → 0). Left un-collapsed they read as a blank strip.
+
+  testWidgets('fullscreen (titlebarHeight 0) pins the chrome controls to the top vs the windowed band',
+      (tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    Future<double> collapseButtonTop(double titlebarHeight) async {
+      await tester.pumpWidget(wrap(AnShell(onToggleLeft: () {}, titlebarHeight: titlebarHeight)));
+      await tester.pumpAndSettle();
+      return tester.getTopLeft(find.byIcon(AnIcons.panelLeft)).dy;
+    }
+
+    final windowed = await collapseButtonTop(AnSize.titlebar); // offset onto the lights' line
+    final fullscreen = await collapseButtonTop(0); // no lights → pinned to the top
+    expect(fullscreen, lessThan(windowed),
+        reason: 'titlebarHeight 0 collapses the lights-centering inset so the header pins to the top');
+  });
+
+  testWidgets('AnWindowControls collapses its traffic-light gutter to 0 in fullscreen (macOS)',
+      (tester) async {
+    if (!HostPlatform.isMacOS) return; // the reserved gutter is macOS-only; elsewhere the slot is the brand
+    addTearDown(() => WindowFullScreen.active.value = false);
+
+    Future<double> gutterWidth(bool fullScreen) async {
+      WindowFullScreen.active.value = fullScreen;
+      await tester.pumpWidget(wrap(const Center(child: AnWindowControls())));
+      await tester.pumpAndSettle();
+      return tester.getSize(find.byType(AnWindowControls)).width;
+    }
+
+    expect(await gutterWidth(false), AnSize.windowControlsInset); // windowed → reserve 72 for the lights
+    expect(await gutterWidth(true), 0); // fullscreen → no lights → no gutter
   });
 
   test('minimum window keeps the ocean ≥ its min column even with the left island at max', () {

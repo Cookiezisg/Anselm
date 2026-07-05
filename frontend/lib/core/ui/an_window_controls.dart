@@ -5,6 +5,7 @@ import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
 import '../platform/host_platform.dart';
+import '../platform/window_fullscreen.dart';
 import 'an_brand_icon.dart';
 
 /// The top-left window-controls zone of the left island's chrome bar.
@@ -22,7 +23,13 @@ class AnWindowControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (HostPlatform.isMacOS) {
-      return const SizedBox(width: AnSize.windowControlsInset);
+      // In native fullscreen the OS hides the traffic lights, so their reserved horizontal gutter
+      // collapses to 0 (else it's dead space that pushes the top row right). 全屏无红绿灯 → 灯位归零。
+      return ValueListenableBuilder<bool>(
+        valueListenable: WindowFullScreen.active,
+        builder: (_, fullScreen, _) =>
+            SizedBox(width: fullScreen ? 0 : AnSize.windowControlsInset),
+      );
     }
     final c = context.colors;
     return Padding(

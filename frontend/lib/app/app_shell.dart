@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/design/tokens.dart';
+import '../core/platform/window_fullscreen.dart';
 import '../core/runtime.dart';
 import '../core/shell/ocean_breadcrumb.dart';
 import '../core/shell/oceans.dart';
@@ -179,29 +180,35 @@ class AppShell extends ConsumerWidget {
         const SingleActivator(LogicalKeyboardKey.backslash, meta: true): toggleRight,
         const SingleActivator(LogicalKeyboardKey.backslash, control: true): toggleRight,
       },
-      child: AnShell(
-        sidebar: sidebar,
-        ocean: onEntities
-            ? const EntityOcean()
-            : onChat
-                ? const ChatOcean()
-                : onDocuments
-                    ? const DocumentOcean()
-                    : const _OceanPlaceholder(),
-        // Documents → the properties inspector; entities → the run terminal (the shell only reveals it when
-        // that ocean has a selection). documents→属性面板;entities→run 终端。
-        inspector: AnInspector(
-          headless: true,
-          child: onDocuments ? const DocumentsInspector() : const RunTerminal(),
+      // In native fullscreen the OS hides the traffic lights + taller title bar, so the shell's
+      // lights-centering band collapses to 0 (the header pins to the top instead of floating under a
+      // now-absent title bar; the toolbar itself is dropped natively in window_setup). 全屏无灯 → 带高归零。
+      child: ValueListenableBuilder<bool>(
+        valueListenable: WindowFullScreen.active,
+        builder: (context, fullScreen, _) => AnShell(
+          sidebar: sidebar,
+          ocean: onEntities
+              ? const EntityOcean()
+              : onChat
+                  ? const ChatOcean()
+                  : onDocuments
+                      ? const DocumentOcean()
+                      : const _OceanPlaceholder(),
+          // Documents → the properties inspector; entities → the run terminal (the shell only reveals it when
+          // that ocean has a selection). documents→属性面板;entities→run 终端。
+          inspector: AnInspector(
+            headless: true,
+            child: onDocuments ? const DocumentsInspector() : const RunTerminal(),
+          ),
+          inspectorOpen: hasSelection && !rightCollapsed,
+          leftCollapsed: chrome.leftCollapsed,
+          leftWidth: chrome.leftWidth,
+          onToggleLeft: toggleLeft,
+          onLeftWidthCommitted: (w) => ref.read(shellChromeProvider.notifier).setLeftWidth(w),
+          head: onChat ? const ChatHead() : const OceanBreadcrumb(),
+          titlebarHeight: fullScreen ? 0 : AnSize.titlebar,
+          onToggleRight: hasSelection ? toggleRight : null,
         ),
-        inspectorOpen: hasSelection && !rightCollapsed,
-        leftCollapsed: chrome.leftCollapsed,
-        leftWidth: chrome.leftWidth,
-        onToggleLeft: toggleLeft,
-        onLeftWidthCommitted: (w) => ref.read(shellChromeProvider.notifier).setLeftWidth(w),
-        head: onChat ? const ChatHead() : const OceanBreadcrumb(),
-        // titlebarHeight defaults to AnSize.titlebar (lights-centering band, real-run verified). 用默认带高。
-        onToggleRight: hasSelection ? toggleRight : null,
       ),
     );
   }
