@@ -93,16 +93,17 @@ class AnMarkdown extends StatelessWidget {
     // Reading-column body — 13px w300 at the roomier 1.55 line-height (Notion-calibrated air for prose).
     // 阅读列正文:13px w300 + 1.55 行高(照 Notion 校准给 prose 空气)。
     final body = AnText.reading.copyWith(color: c.ink);
-    final h456 = AnText.reading.weight(AnText.emphasisWeight).copyWith(color: c.ink);
+    final h456 = AnText.readingH3.copyWith(color: c.ink);
     return GptMarkdownTheme(
       // The factory back-fills UNSPECIFIED fields from a fresh Material ThemeData, not ours — specify
       // every field. 工厂对未指定字段用全新 Material ThemeData 兜底——所有字段显式给值。
       gptThemeData: GptMarkdownThemeData(
         brightness: Theme.of(context).brightness,
         highlightColor: c.surfaceSunken, // superseded by highlightBuilder; pinned anyway 已被 builder 接管,仍钉住
-        // Headings downshifted for the reading column (md # is not a page title). 标题降档(# 不是页标题)。
-        h1: AnText.h3.copyWith(color: c.ink),
-        h2: AnText.strong.copyWith(color: c.ink),
+        // The reading-column heading ladder (md # is not a page title; h4–h6 fold into h3). 阅读列标题阶梯
+        // (# 非页标题;h4–h6 并入 h3)。
+        h1: AnText.readingH1.copyWith(color: c.ink),
+        h2: AnText.readingH2.copyWith(color: c.ink),
         h3: h456,
         h4: h456,
         h5: h456,
@@ -215,8 +216,11 @@ class AnMarkdown extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsetsDirectional.only(start: AnSpace.s12, end: AnSpace.s8),
-            // tabular figures so multi-digit markers align down a long list. 等宽数字,长列表序号齐位。
-            child: Text('$no.', style: AnText.value().copyWith(color: context.colors.inkFaint)),
+            // Reading-sized tabular figures so markers match the prose rung AND multi-digit numbers align
+            // down a long list. 记号随阅读档 + 等宽数字,长列表序号齐位。
+            child: Text('$no.',
+                style: AnText.reading
+                    .copyWith(fontFeatures: const [FontFeature.tabularFigures()], color: context.colors.inkFaint)),
           ),
           Flexible(child: child),
         ],
@@ -229,7 +233,7 @@ class AnMarkdown extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsetsDirectional.only(start: AnSpace.s12, end: AnSpace.s8),
-            child: Text('•', style: AnText.body.copyWith(color: context.colors.inkFaint)),
+            child: Text('•', style: AnText.reading.copyWith(color: context.colors.inkFaint)),
           ),
           Flexible(child: child),
         ],

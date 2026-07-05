@@ -684,19 +684,19 @@ Stylesheet _anStylesheet(AnColors c) {
           (doc, node) => {Styles.padding: const CascadingPadding.only(top: AnFlow.listItem)}),
       StyleRule(const BlockSelector('task').after('paragraph'),
           (doc, node) => {Styles.padding: const CascadingPadding.only(top: AnFlow.block)}),
-      // Headings: AnMarkdown's downshifted reading-column sizes (h1→h3 tier / h2→strong / h3→body-emphasis)
-      // with ONE uniform space-above (AnFlow.headingTop 24 ≈ AnMarkdown's 12+12) — the baseline breathes
-      // every heading level the same. 标题降档 + 上方统一 24(基准全级同律)。
+      // Headings: the reading-column ladder (readingH1 22 / readingH2 18 / readingH3 15-emphasis) with
+      // ONE uniform space-above (AnFlow.headingTop 24 ≈ AnMarkdown's 12+12) — the baseline breathes every
+      // heading level the same. 阅读列标题阶梯 + 上方统一 24(基准全级同律)。
       StyleRule(const BlockSelector('header1'), (doc, node) => {
-            Styles.textStyle: ink(AnText.h3),
+            Styles.textStyle: ink(AnText.readingH1),
             Styles.padding: const CascadingPadding.only(top: AnFlow.headingTop),
           }),
       StyleRule(const BlockSelector('header2'), (doc, node) => {
-            Styles.textStyle: ink(AnText.strong),
+            Styles.textStyle: ink(AnText.readingH2),
             Styles.padding: const CascadingPadding.only(top: AnFlow.headingTop),
           }),
       StyleRule(const BlockSelector('header3'), (doc, node) => {
-            Styles.textStyle: ink(AnText.reading.weight(AnText.emphasisWeight)),
+            Styles.textStyle: ink(AnText.readingH3),
             Styles.padding: const CascadingPadding.only(top: AnFlow.headingTop),
           }),
       // Fenced code — the code face + the uniform block gap (the custom component brings the frame). 代码块。

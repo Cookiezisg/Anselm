@@ -29,13 +29,14 @@ import 'an_code_surface.dart';
 import 'icons.dart';
 import 'syntax_highlighter.dart';
 
-// ── markdown geometry tokens (the AnMarkdown baseline, MEASURED) 基准几何(实测) ──
-// AnMarkdown markers: start 12 · glyph box ('•' 13.3 / '1.' 26.5 in AnText.value) · gap 8 → unordered
-// text lands at 33.4, ordered at 46.6 (probed; the two families never column-align in the baseline).
-// 基准记号:起12·字形盒('•' 13.3 / '1.' 26.5)·隔8 → 无序文本 33.4、有序 46.6(探针实测;两族本不同列)。
+// ── markdown geometry tokens (the AnMarkdown baseline, MEASURED @ reading 15) 基准几何(15 档实测) ──
+// AnMarkdown markers: start 12 · glyph box ('•' 15.3 / '1.' 30.5 at the 15px reading rung) · gap 8 →
+// unordered text lands at 35.4, ordered at 50.6 (probed; the two families never column-align in the
+// baseline). RE-PROBE these whenever AnText.reading retunes. 基准记号:起12·字形盒('•' 15.3/'1.' 30.5,
+// 15 档)·隔8 → 无序文本 35.4、有序 50.6(探针实测;两族本不同列)。reading 重调时必须重探针。
 const double _kMarkerGap = AnSpace.s8;
-const double _kUlColumn = 33.5;
-const double _kOlColumn = 46.5;
+const double _kUlColumn = 35.5;
+const double _kOlColumn = 50.5;
 
 double _anUlIndent(TextStyle style, int indent) => _kUlColumn * (indent + 1);
 double _anOlIndent(TextStyle style, int indent) => _kOlColumn * (indent + 1);
@@ -183,8 +184,8 @@ class AnListItemComponentBuilder implements ComponentBuilder {
             child: Container(
               width: 3,
               height: 3,
-              // Optical centre at the baseline's '•' glyph centre (12 + 13.3/2 ≈ 18.7). 光学中心对基准字形心。
-              margin: const EdgeInsetsDirectional.only(start: 17),
+              // Optical centre at the baseline's '•' glyph centre (12 + 15.3/2 ≈ 19.7). 光学中心对基准字形心。
+              margin: const EdgeInsetsDirectional.only(start: 18),
               decoration: BoxDecoration(shape: BoxShape.circle, color: colors.inkFaint),
             ),
           ),
@@ -195,12 +196,12 @@ class AnListItemComponentBuilder implements ComponentBuilder {
   }
 
   Widget _numeral(BuildContext context, OrderedListItemComponent component) => Padding(
-        // top 2 seats the numeral's smaller line box on the text baseline (upstream top-aligns it inside
-        // the line-height slot). top 2 让较矮的序号行盒落到文本基线(上游在行高槽里顶对齐)。
-        padding: const EdgeInsetsDirectional.only(start: AnSpace.s12, top: 2),
-        // Tabular figures so multi-digit markers align down a long list (the AnMarkdown rule); the natural
-        // glyph width leaves exactly the baseline's gap-8 before the text. 等宽数字;自然字宽恰余基准隔 8。
-        child: Text('${component.listIndex}.', style: AnText.value().copyWith(color: colors.inkFaint)),
+        padding: const EdgeInsetsDirectional.only(start: AnSpace.s12),
+        // Reading-sized tabular figures (the AnMarkdown marker style); the natural glyph width leaves
+        // exactly the baseline's gap-8 before the text. 阅读档等宽数字(基准同款);自然字宽恰余隔 8。
+        child: Text('${component.listIndex}.',
+            style: AnText.reading
+                .copyWith(fontFeatures: const [FontFeature.tabularFigures()], color: colors.inkFaint)),
       );
 }
 
@@ -258,8 +259,8 @@ class _AnTaskComponentState extends State<_AnTaskComponent>
       children: [
         SizedBox(width: vm.indentCalculator(vm.textStyleBuilder({}), vm.indent)),
         Padding(
-          // top nudge centres the 16px glyph on the 13/1.6 first text line. 顶部微调对齐首行。
-          padding: const EdgeInsetsDirectional.only(start: AnSpace.s12, end: _kMarkerGap, top: 2),
+          // top nudge centres the 16px glyph on the 15/1.6 (24px) first text line. 顶部微调对齐首行。
+          padding: const EdgeInsetsDirectional.only(start: AnSpace.s12, end: _kMarkerGap, top: 4),
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: vm.setComplete == null ? null : () => vm.setComplete!(!vm.isComplete),

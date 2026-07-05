@@ -83,10 +83,10 @@ void main() {
       expect(body?.fontWeight, FontWeight.w300);
     });
 
-    testWidgets('# heading downshifts to 20/w400 (never 32, never >w400)', (tester) async {
+    testWidgets('# heading downshifts to readingH1 22/w400 (never 32, never >w400)', (tester) async {
       await tester.pumpWidget(host(const AnMarkdown('# Title')));
       final (_, style, _) = spanWhere(tester, 'Title');
-      expect(style?.fontSize, 20);
+      expect(style?.fontSize, 22);
       expect(style?.fontWeight, FontWeight.w400);
     });
   });

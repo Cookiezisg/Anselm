@@ -66,13 +66,33 @@ abstract final class AnText {
     fontSize: 13, height: 1.4, fontWeight: FontWeight.w300, fontVariations: [FontVariation('wght', 300)], // the UI anchor — Light 正文锚·Light
   );
 
-  /// The READING-COLUMN body — same 13px w300 as [body] but a roomier 1.6 line-height (≈21px line box,
-  /// Notion-calibrated air). Used ONLY by prose reading surfaces (AnMarkdown + the document ocean), NOT
-  /// the dense 32px-row UI chrome — reading wants air, chrome stays compact. 阅读列正文:同 13px w300、行高
-  /// 1.6(≈21px 行盒,照 Notion 校准);仅 markdown/文档阅读面用,密集 UI chrome 不用。
+  /// The READING-COLUMN body — 15px w300 at 1.6 line-height (24px line box, a clean 2:1 over the 12px
+  /// block gap). ONE rung ABOVE the 13px dense-UI anchor (the industry ladder: sidebar/nav 13-14, prose
+  /// 15-16) so navigation and content stop reading as the same voice. Used ONLY by prose reading
+  /// surfaces (AnMarkdown + the document ocean), NOT the dense 32px-row UI chrome. 阅读列正文:15px w300、
+  /// 行高 1.6(24px 行盒,与 12 块间距成 2:1)。比 13 密集 UI 锚**高一档**(业界阶梯:侧栏 13-14/正文 15-16),
+  /// 导航与内容不再同声。仅 prose 阅读面用(AnMarkdown+文档海洋),密集 UI chrome 不用。
   static const TextStyle reading = TextStyle(
     fontFamily: uiFamily, fontFamilyFallback: uiFallback,
-    fontSize: 13, height: 1.6, fontWeight: FontWeight.w300, fontVariations: [FontVariation('wght', 300)],
+    fontSize: 15, height: 1.6, fontWeight: FontWeight.w300, fontVariations: [FontVariation('wght', 300)],
+  );
+
+  /// READING-COLUMN headings — the content ladder riding the 15px [reading] body (in-document h1 22 /
+  /// h2 18 / h3 15-emphasis; the page's BIG title stays [h2] 24). w400 only — hierarchy is size+colour,
+  /// never heavier weight (two-weight rule). The dense-UI chrome ladder ([h1] 32/[h2] 24/[h3] 20/[strong]
+  /// 16) is a SEPARATE axis and does not move. 阅读列标题阶梯(文档内 h1 22/h2 18/h3 15 强调;页大标题仍
+  /// [h2] 24)。只用 w400——层级靠字号+颜色(两字重铁律)。密集 UI 的标题阶梯是独立轴、不动。
+  static const TextStyle readingH1 = TextStyle(
+    fontFamily: uiFamily, fontFamilyFallback: uiFallback,
+    fontSize: 22, height: 1.3, fontWeight: FontWeight.w400, fontVariations: [FontVariation('wght', 400)], letterSpacing: -0.2,
+  );
+  static const TextStyle readingH2 = TextStyle(
+    fontFamily: uiFamily, fontFamilyFallback: uiFallback,
+    fontSize: 18, height: 1.35, fontWeight: FontWeight.w400, fontVariations: [FontVariation('wght', 400)],
+  );
+  static const TextStyle readingH3 = TextStyle(
+    fontFamily: uiFamily, fontFamilyFallback: uiFallback,
+    fontSize: 15, height: 1.5, fontWeight: FontWeight.w400, fontVariations: [FontVariation('wght', 400)],
   );
   static const TextStyle label = TextStyle(
     fontFamily: uiFamily, fontFamilyFallback: uiFallback,
