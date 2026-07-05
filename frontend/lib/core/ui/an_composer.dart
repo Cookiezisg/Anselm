@@ -114,7 +114,7 @@ class _AnComposerState extends State<AnComposer> {
         final editWidth = (constraints.maxWidth - _singleLineReserve).clamp(80.0, double.infinity);
         // multiline = TEXT wraps ≥2 lines (drives the reflow); tall = box is taller than one line for ANY
         // reason (wrap OR attachments) → card radius. 换行→reflow;高于一行(换行或附件)→卡片圆角。
-        final multiline = _countLines(widget.controller.text, AnText.body, editWidth) >= 2;
+        final multiline = _countLines(widget.controller.text, AnText.reading, editWidth) >= 2;
         final tall = multiline || widget.attachments != null;
         final radius = BorderRadius.circular(tall ? AnRadius.card : AnRadius.pill);
 
@@ -231,14 +231,17 @@ class _AnComposerState extends State<AnComposer> {
           maxLines: null,
           keyboardType: TextInputType.multiline,
           textInputAction: TextInputAction.newline,
-          style: AnText.body.copyWith(color: c.ink),
+          // The composer is a PROSE surface — the message a person writes reads on the 15 reading rung,
+          // matching the assistant bubble (AnMarkdown) it will sit beside. composer 是 prose 面:人写的
+          // 消息走 15 阅读档,与旁边的助手泡(AnMarkdown)同档。
+          style: AnText.reading.copyWith(color: c.ink),
           cursorColor: c.ink,
           cursorWidth: AnSize.caret,
           decoration: InputDecoration(
             isCollapsed: true,
             border: InputBorder.none,
             hintText: widget.placeholder,
-            hintStyle: AnText.body.copyWith(color: c.inkFaint),
+            hintStyle: AnText.reading.copyWith(color: c.inkFaint),
           ),
           onTapOutside: (_) {}, // desktop: keep focus when clicking elsewhere 桌面:点外不失焦
         ),

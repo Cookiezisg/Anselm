@@ -409,7 +409,10 @@ class _PendingRow extends ConsumerWidget {
               ChatTurn(
                 role: ChatRole.user,
                 sending: !pending.failed,
-                child: Text(pending.text, style: AnText.body.copyWith(color: c.ink)),
+                // The optimistic bubble is the SAME message as the reconciled one (UserTurnContent) —
+                // both prose on the 15 reading rung, or the bubble reflows the instant the echo lands.
+                // 乐观泡与回声后的泡是同一条消息:同走 15 阅读档,否则回声一到就重排。
+                child: Text(pending.text, style: AnText.reading.copyWith(color: c.ink)),
               ),
               if (pending.failed)
                 Padding(

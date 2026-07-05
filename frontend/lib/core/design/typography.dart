@@ -7,9 +7,47 @@ import 'package:flutter/material.dart';
 /// renders LIGHT (w300) and the ramp climbs from there. Colorless on purpose: the theme applies ink
 /// once and it inherits.
 ///
+/// **DUAL-TRACK TYPE LADDER — the registry (which surface uses which rung).** Two axes, chosen by
+/// what the text IS, never by where it sits:
+///
+///   • **PROSE — flowing content a person READS as the point of the surface** → the 15 rung:
+///     [reading] (15) body, [readingH1]/[readingH2]/[readingH3] (22/18/15) content headings.
+///     The registry: the chat COMPOSER input + placeholder, the USER message bubble (live +
+///     optimistic), the ASSISTANT answer (via AnMarkdown), the DOCUMENT / SKILL body (via
+///     AnDocEditor), and anything AnMarkdown renders. If you add a new surface whose job is to be
+///     read as prose, it joins this list — use [reading].
+///
+///   • **DENSE UI CHROME — labels, controls, metadata, machine output a person OPERATES** → the 13
+///     anchor: [body] (13), [label] (13), [meta] (12), [strong] (16), [h3]/[h2]/[h1] (20/24/32),
+///     [value]/[metaTabular]. The registry: nav rows, buttons, tabs, menus, KV/field rows, inputs,
+///     dropdowns, toasts, chips, headers, badges, tooltips, status lines, empty-state affordances
+///     (AnState), callouts (AnCallout), dialog messages, table cells (even inside markdown, via
+///     AnThinTable), tool-card receipts, the run terminal, the reasoning aside (a deliberately
+///     quiet secondary voice), and code (mono, its own face). Chrome stays compact — the 32px row
+///     rhythm depends on it.
+///
+/// The line is PRIMARY CONVERSATIONAL / DOCUMENT CONTENT (prose 15) vs EVERYTHING THAT FRAMES OR
+/// OPERATES ON IT (chrome 13). It is a human judgment the guard test can't make — the guard
+/// (`test/core/design/type_scale_guard_test.dart`) only enforces the MECHANICAL invariants: every
+/// size flows from here (no raw `fontSize:` literals elsewhere) and only two weights exist
+/// (w300/w400). New prose surfaces are checked visually against the AnMarkdown baseline
+/// (`test/dev/capture_md_parity.dart`).
+///
 /// 字体——模数阶梯,锚 13px 正文。[uiFamily]=**随包 Inter**(变量字体,wght 100–900),拉丁/数字字面;
 /// 中文字形回落到 [uiFallback] 首位的**随包 MiSans**(VF,150–700)——两者皆入包,每台机器同字面(demo 本意;
 /// Inter 本就不含 CJK)。正文压细 w300,字重阶梯由此上爬。刻意无色:主题上一次 ink、全部继承。
+///
+/// **双轨字阶——登记表(哪个面用哪档,按文字「是什么」判、绝不按「在哪」)**:
+///   • **prose(人当内容读的流动文字)→ 15 档**([reading] + [readingH1]/[H2]/[H3])。登记:chat
+///     composer 输入+占位、用户气泡(实时+乐观)、助手答案(经 AnMarkdown)、文档/skill 正文(经
+///     AnDocEditor)、一切 AnMarkdown 渲染。新增以「被当 prose 读」为职责的面即入此表、用 [reading]。
+///   • **dense UI chrome(人操作的标签/控件/元数据/机器输出)→ 13 锚**([body]/[label]/[meta]/[strong]/
+///     [h1–h3]/[value])。登记:导航/按钮/tab/菜单/KV/输入/下拉/toast/chip/头/徽章/tooltip/状态行、
+///     空态 affordance(AnState)、callout、对话框消息、表格 cell(markdown 内也走 AnThinTable)、tool 卡
+///     回执、run 终端、推理旁白(刻意的安静次要声)、代码(mono 自成一体)。chrome 保紧凑,32px 行律靠它。
+///   分界=**主对话/文档内容(prose 15)vs 一切框住或操作它的东西(chrome 13)**。此判断守卫测试做不了——
+///   守卫(`type_scale_guard_test.dart`)只守机械不变量:字号全出此处(别处禁裸 `fontSize:`)、只两档字重
+///   (w300/w400);新 prose 面靠 AnMarkdown 对照板(`capture_md_parity.dart`)肉眼验。
 abstract final class AnText {
   static const String uiFamily = 'Inter'; // BUNDLED VF (assets/fonts/InterVariable.ttf) 随包变量字体
   static const List<String> uiFallback = [

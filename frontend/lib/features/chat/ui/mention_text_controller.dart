@@ -33,7 +33,7 @@ class MentionTextEditingController extends TextEditingController {
         : null;
     if (composing == null) return TextSpan(style: style, children: _pillSpans(context, text, style));
     final composingStyle =
-        (style ?? AnText.body).merge(const TextStyle(decoration: TextDecoration.underline));
+        (style ?? AnText.reading).merge(const TextStyle(decoration: TextDecoration.underline));
     return TextSpan(style: style, children: [
       ..._pillSpans(context, composing.textBefore(text), style),
       TextSpan(text: composing.textInside(text), style: composingStyle),
@@ -44,7 +44,7 @@ class MentionTextEditingController extends TextEditingController {
   // Pill-tint one plain segment (token boundaries evaluated within it). 对一段做药丸染色。
   List<InlineSpan> _pillSpans(BuildContext context, String s, TextStyle? style) {
     final c = context.colors;
-    final pillStyle = (style ?? AnText.body).weight(AnText.emphasisWeight).copyWith(color: c.accent);
+    final pillStyle = (style ?? AnText.reading).weight(AnText.emphasisWeight).copyWith(color: c.accent);
     final spans = <InlineSpan>[];
     var i = 0;
     while (i < s.length) {

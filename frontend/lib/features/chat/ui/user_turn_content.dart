@@ -101,7 +101,10 @@ class UserTurnContent extends StatelessWidget {
 
   Widget _mentionText(BuildContext context, String trimmed) {
     final c = context.colors;
-    final style = AnText.body.copyWith(color: c.ink);
+    // The user's message is PROSE — the 15 reading rung, matching the assistant bubble (AnMarkdown) it
+    // shares the transcript with (a 13 user bubble beside a 15 answer read as two different systems).
+    // 用户消息是 prose:15 阅读档,与同一 transcript 里的助手泡(AnMarkdown)同档(13 泡挨着 15 答=两套系统)。
+    final style = AnText.reading.copyWith(color: c.ink);
     final segments = resolveMentionSegments(trimmed, mentions);
     if (segments.length <= 1 && mentions.isEmpty) return Text(trimmed, style: style);
     return Text.rich(
