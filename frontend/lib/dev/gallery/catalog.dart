@@ -73,6 +73,12 @@ final GalleryCategory _entityViz = GalleryCategory('实体可视化 Entity Viz',
     GallerySpecimen('海量 (40 节点扇出)', (_) => AnGraphCanvas(graph: _gHuge, framed: true), stress: true, span: true),
     GallerySpecimen('unknown kind + 超长 + 注入', (_) => AnGraphCanvas(graph: _gHostile, framed: true), stress: true, span: true),
   ]),
+  GalleryItem('AnMiniGraph 迷你图', '只读轻量图预览(复用 layoutGraph 几何,无 IV/编辑/run):整图 fit 进定框,kind 五色节点 chip + 正交边。create/edit_workflow 构建卡内嵌', [
+    GallerySpecimen('线性(3 节点)', (_) => AnMiniGraph(graph: _gLinear), span: true),
+    GallerySpecimen('分支(control 分叉 + 回边)', (_) => AnMiniGraph(graph: _gBranch), span: true),
+    GallerySpecimen('海量 (40 节点扇出,fit 整图)', (_) => AnMiniGraph(graph: _gHuge, height: 300), stress: true, span: true),
+    GallerySpecimen('空图(占位)', (_) => AnMiniGraph(graph: const Graph()), stress: true, span: true),
+  ]),
   GalleryItem('AnNodeGantt 节点甘特', 'flowrun 逐节点时段条:状态色 + ×N 循环 + parked 等待框 + 未运行占位', [
     GallerySpecimen('完成/失败/循环×3/parked/未运行', (_) => Padding(
       padding: const EdgeInsets.all(AnSpace.s16),

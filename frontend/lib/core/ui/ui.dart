@@ -45,6 +45,7 @@ export 'an_island.dart';
 export 'an_json_tree.dart';
 export 'an_lead_value.dart';
 export 'an_markdown.dart';
+export 'an_mini_graph.dart';
 export 'an_menu.dart';
 export 'an_attachment_chip.dart';
 export 'an_mention_picker.dart';
