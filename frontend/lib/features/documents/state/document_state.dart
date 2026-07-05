@@ -154,6 +154,22 @@ class DocOutlineController extends Notifier<List<DocOutlineEntry>> {
   void clear() => state = const [];
 }
 
+/// The outline entry the CENTER viewport is currently reading — the LAST heading scrolled up past the
+/// head band (null = still above the first heading). Fed by the edit view's scroll listener; the
+/// inspector's outline highlights it live. 中心视口正在读的大纲项——最后一个滚过头带的标题(null=还在首个
+/// 标题之上)。编辑视图滚动监听喂;右岛大纲实时高亮。
+final docOutlineActiveProvider =
+    NotifierProvider<DocOutlineActiveController, int?>(DocOutlineActiveController.new);
+
+class DocOutlineActiveController extends Notifier<int?> {
+  @override
+  int? build() => null;
+
+  void set(int? index) {
+    if (state != index) state = index;
+  }
+}
+
 /// An outline-row tap → "scroll the editor to the N-th heading". A (tick, index) pair so tapping the SAME
 /// heading twice still re-fires (state must change to notify). 大纲点击意图:(tick,index) 对,重复点同项也触发。
 final outlineJumpProvider =

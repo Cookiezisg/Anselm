@@ -2,7 +2,6 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/contract/entities/document.dart';
 import '../../../core/contract/entities/skill.dart';
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
@@ -100,8 +99,9 @@ class _InspectorShell extends ConsumerWidget {
 }
 
 /// The open document's OUTLINE — its headings as an indented, tappable table of contents (fed live by the
-/// editor; a tap scrolls the editor to that heading). Quietly absent when the document has no headings.
-/// 打开文档的大纲:标题作可点目录(编辑器活喂;点击滚到该标题);无标题时静默缺席。
+/// editor; a tap scrolls the editor to that heading; the entry the viewport is READING highlights live via
+/// [docOutlineActiveProvider]). Quietly absent when the document has no headings.
+/// 打开文档的大纲:标题作可点目录(编辑器活喂;点击滚到该标题;**视口正读的项实时高亮**);无标题时静默缺席。
 class _OutlineSection extends ConsumerWidget {
   const _OutlineSection();
 
@@ -109,7 +109,14 @@ class _OutlineSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final outline = ref.watch(docOutlineProvider);
     if (outline.isEmpty) return const SizedBox.shrink();
+    final active = ref.watch(docOutlineActiveProvider);
     final c = context.colors;
+    // Indent RELATIVE to the shallowest heading present — a document whose sections start at h2 reads
+    // flush-left, not pre-indented one step. 缩进按最浅层级归一:从 h2 起头的文档顶格,不预缩一级。
+    var minLevel = 6;
+    for (final e in outline) {
+      if (e.level < minLevel) minLevel = e.level;
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -118,8 +125,10 @@ class _OutlineSection extends ConsumerWidget {
         const SizedBox(height: AnGap.stackTight),
         for (var i = 0; i < outline.length; i++)
           AnRow(
-            depth: outline[i].level - 1,
+            depth: outline[i].level - minLevel,
             label: outline[i].text,
+            leadless: true, // a TOC has no icons — the reserved slot reads as mystery indent 目录无图标,空槽=莫名缩进
+            selected: active == i,
             onSelect: () => ref.read(outlineJumpProvider.notifier).jump(i),
           ),
         const SizedBox(height: AnSpace.s12),
@@ -165,108 +174,23 @@ class _DocProperties extends ConsumerWidget {
         loading: () => const AnSkeleton.lines(5),
         error: (_, _) =>
             AnState(kind: AnStateKind.error, size: AnStateSize.inset, title: t.documents.loadFailed),
+        // The island is "about this page" only: outline (live focus) / file meta / backlinks. The page's
+        // OWN properties (name/description/tags) edit in the CENTER under the big title. 右岛只谈「这一页」:
+        // 大纲(实时焦点)/文件 meta/反链;页自身属性(名/描述/标签)在中心大标题下编辑。
         data: (doc) => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const _OutlineSection(),
-            _DocForm(key: ValueKey(doc.id), doc: doc),
+            _MetaRow(label: t.documents.props.path, value: doc.path),
+            _MetaRow(label: t.documents.props.size, value: _fmtSize(doc.sizeBytes)),
+            _MetaRow(label: t.documents.props.modified, value: _fmtDate(doc.updatedAt)),
+            const SizedBox(height: AnSpace.s12),
+            const AnDivider(),
+            const SizedBox(height: AnSpace.s12),
+            _Backlinks(id: doc.id),
           ],
         ),
       ),
-    );
-  }
-}
-
-class _DocForm extends ConsumerStatefulWidget {
-  const _DocForm({required this.doc, super.key});
-
-  final DocumentNode doc;
-
-  @override
-  ConsumerState<_DocForm> createState() => _DocFormState();
-}
-
-class _DocFormState extends ConsumerState<_DocForm> {
-  late final TextEditingController _name;
-  late final TextEditingController _desc;
-  late List<String> _tags;
-  final _save = Debouncer(const Duration(milliseconds: 500));
-
-  DocumentsRepository get _repo => ref.read(documentsRepositoryProvider);
-
-  @override
-  void initState() {
-    super.initState();
-    _name = TextEditingController(text: widget.doc.name);
-    _desc = TextEditingController(text: widget.doc.description);
-    _tags = [...widget.doc.tags];
-  }
-
-  @override
-  void dispose() {
-    _save.dispose();
-    _name.dispose();
-    _desc.dispose();
-    super.dispose();
-  }
-
-  // A partial PATCH; on success refresh the rail (a rename must show there). Content lives in the editor, not
-  // here. 分部 PATCH;成功刷 rail(改名要现);正文归编辑器、不在此。
-  Future<void> _patch(Map<String, dynamic> fields) async {
-    try {
-      await _repo.updateDocument(widget.doc.id, fields);
-      if (!mounted) return;
-      ref.invalidate(documentTreeProvider);
-    } catch (_) {
-      if (mounted) ref.read(overlayProvider.notifier).showToast(context.t.documents.actionFailed, tone: AnToastTone.danger);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.t;
-    final p = t.documents.props;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _Field(
-          label: p.name,
-          child: AnInput(
-            controller: _name,
-            block: true,
-            onChanged: (v) => _save.run(() => _patch({'name': v.trim()})),
-          ),
-        ),
-        _Field(
-          label: p.description,
-          child: AnInput(
-            controller: _desc,
-            block: true,
-            multiline: true,
-            onChanged: (v) => _save.run(() => _patch({'description': v})),
-          ),
-        ),
-        _Field(
-          label: p.tags,
-          child: AnTags(
-            tags: [for (final tag in _tags) AnTag(tag)],
-            placeholder: p.addTag,
-            onChanged: (tags) {
-              setState(() => _tags = [for (final tag in tags) tag.label]);
-              _patch({'tags': _tags});
-            },
-          ),
-        ),
-        const AnDivider(),
-        const SizedBox(height: AnSpace.s12),
-        _MetaRow(label: p.path, value: widget.doc.path),
-        _MetaRow(label: p.size, value: _fmtSize(widget.doc.sizeBytes)),
-        _MetaRow(label: p.modified, value: _fmtDate(widget.doc.updatedAt)),
-        const SizedBox(height: AnSpace.s12),
-        const AnDivider(),
-        const SizedBox(height: AnSpace.s12),
-        _Backlinks(id: widget.doc.id),
-      ],
     );
   }
 }
@@ -375,7 +299,6 @@ class _SkillForm extends ConsumerStatefulWidget {
 }
 
 class _SkillFormState extends ConsumerState<_SkillForm> {
-  late final TextEditingController _desc;
   late final TextEditingController _agent;
   late String _context;
   late List<String> _tools;
@@ -390,7 +313,6 @@ class _SkillFormState extends ConsumerState<_SkillForm> {
   void initState() {
     super.initState();
     final f = widget.skill.frontmatter;
-    _desc = TextEditingController(text: widget.skill.description);
     _agent = TextEditingController(text: f.agent);
     _context = f.context.isEmpty ? kSkillContextInline : f.context;
     _tools = [...f.allowedTools];
@@ -402,20 +324,20 @@ class _SkillFormState extends ConsumerState<_SkillForm> {
   @override
   void dispose() {
     _save.dispose();
-    _desc.dispose();
     _agent.dispose();
     super.dispose();
   }
 
   // A skill write is a PUT of the WHOLE frontmatter, and the body must ride along or the full-replace
-  // resets it. READ-MODIFY-WRITE: fetch the CURRENT body right before the PUT — the center editor may
-  // have saved a newer body than this form's mount-time snapshot (two writers, one document). 整套 PUT;
-  // body 读-改-写:PUT 前取**当前** body——中心编辑器可能已存了比本表单快照更新的正文(双写者一文档)。
+  // resets it. READ-MODIFY-WRITE: fetch the CURRENT skill right before the PUT — the center editor may
+  // have saved a newer body OR description than this form's mount-time snapshot (identity/description
+  // edit in the center; this island owns only the CONFIG fields). 整套 PUT;读-改-写:PUT 前取**当前**
+  // skill——中心可能已存更新的 body/描述(身份/描述归中心,本岛只管配置字段)。
   void _put() => _save.run(() async {
         try {
           final current = await _repo.getSkill(widget.skill.name);
           await _repo.replaceSkill(widget.skill.name, {
-            'description': _desc.text.trim(),
+            'description': current.description,
             'body': current.body,
             'allowedTools': _tools,
             'context': _context,
@@ -435,19 +357,11 @@ class _SkillFormState extends ConsumerState<_SkillForm> {
   Widget build(BuildContext context) {
     final t = context.t;
     final p = t.documents.props;
-    final c = context.colors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Name is the slug/identity — read-only (renaming = create + delete, not offered here). name=slug 只读。
-        _Field(
-          label: p.name,
-          child: Text(widget.skill.name, style: AnText.body.weight(AnText.emphasisWeight).copyWith(color: c.ink)),
-        ),
-        _Field(
-          label: p.description,
-          child: AnInput(controller: _desc, block: true, multiline: true, onChanged: (_) => _put()),
-        ),
+        // Identity (slug title) + description edit in the CENTER header — this island is the skill's
+        // CONFIG only. 身份(slug 标题)与描述在中心头部编辑;本岛只管配置。
         _Field(
           label: p.context,
           child: AnDropdown<String>(

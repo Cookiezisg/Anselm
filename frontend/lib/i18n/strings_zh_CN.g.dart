@@ -599,6 +599,9 @@ class _Translations$documents$slash$zh_CN extends Translations$documents$slash$e
 	@override String get bulleted => '无序列表';
 	@override String get numbered => '有序列表';
 	@override String get quote => '引用';
+	@override String get code => '代码块';
+	@override String get divider => '分隔线';
+	@override String get todo => '待办';
 }
 
 // Path: chat.tool.kind
@@ -1510,6 +1513,9 @@ extension on TranslationsZhCn {
 			'documents.slash.bulleted' => '无序列表',
 			'documents.slash.numbered' => '有序列表',
 			'documents.slash.quote' => '引用',
+			'documents.slash.code' => '代码块',
+			'documents.slash.divider' => '分隔线',
+			'documents.slash.todo' => '待办',
 			'markdown.imageNotLoaded' => '图片未加载',
 			'attach.unavailable' => '已不可用',
 			'attach.retry' => '点按重试',

@@ -42,11 +42,13 @@ class AnRow extends StatelessWidget {
     this.passive = false,
     this.depth = 0,
     this.mono = false,
+    this.leadless = false,
     this.actions = const [],
     this.onSelect,
     this.onToggle,
     super.key,
-  });
+  }) : assert(!leadless || (icon == null && dot == null && !collapsible),
+            'leadless drops the lead slot — it cannot carry an icon/dot/chevron. leadless 无 lead 槽,不可带图标/点/箭头。');
 
   final IconData? icon;
   final AnStatus? dot;
@@ -71,6 +73,11 @@ class AnRow extends StatelessWidget {
   /// Tree indent level (each adds [AnSize.iconLg]). 树缩进层级。
   final int depth;
   final bool mono;
+
+  /// Drop the lead ICON SLOT entirely — for icon-free lists (the outline TOC) where the reserved slot
+  /// reads as mystery indentation. Default keeps the slot so mixed lists stay column-aligned.
+  /// 整个去掉 lead 图标槽——无图标列表(大纲目录)里空槽读作莫名缩进;默认保留槽,混合列表纵向对齐。
+  final bool leadless;
   final List<Widget> actions;
   final VoidCallback? onSelect;
   final VoidCallback? onToggle;
@@ -110,8 +117,7 @@ class AnRow extends StatelessWidget {
     final content = Row(
       crossAxisAlignment: _hasHint ? CrossAxisAlignment.start : CrossAxisAlignment.center,
       children: [
-        _lead(c, active, reduced),
-        const SizedBox(width: AnSpace.s8),
+        if (!leadless) ...[_lead(c, active, reduced), const SizedBox(width: AnSpace.s8)],
         Expanded(child: _labelBlock(c, active)),
         const SizedBox(width: AnSpace.s8),
         _trail(c, active),

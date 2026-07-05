@@ -72,6 +72,9 @@ abstract final class AnIcons {
   static final IconData listBulleted = _thin(LucideIcons.list);
   static final IconData listNumbered = _thin(LucideIcons.listOrdered);
   static final IconData quote = _thin(LucideIcons.textQuote);
+  static final IconData codeBlock = _thin(LucideIcons.code); // fenced code block 代码块
+  static final IconData divider = _thin(LucideIcons.minus); // horizontal rule 分隔线
+  static final IconData todo = _thin(LucideIcons.listTodo); // task checkbox block 待办
 
   // ── composer (chat input) ──
   static final IconData mention = _thin(LucideIcons.atSign); // @ mention trigger @提及
@@ -129,6 +132,7 @@ abstract final class AnIcons {
     // editor slash block menu 斜杠块菜单
     'paragraph': paragraph, 'heading1': heading1, 'heading2': heading2, 'heading3': heading3,
     'listBulleted': listBulleted, 'listNumbered': listNumbered, 'quote': quote,
+    'codeBlock': codeBlock, 'divider': divider, 'todo': todo,
     'run': run, 'enter': enter, 'stop': stop, 'spin': spin, 'forge': forge,
     'edit': edit, 'trash': trash, 'web': web, 'iterate': iterate, 'history': history, 'diff': diff,
     'empty': empty, 'error': error,

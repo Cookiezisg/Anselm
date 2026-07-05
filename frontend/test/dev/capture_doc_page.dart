@@ -100,4 +100,8 @@ void main() {
   testWidgets('capture skill page (left-aligned slug title + meta)', (tester) async {
     await capture(tester, location: '/documents/skill/commit-helper', out: 'doc_page_skill.png');
   });
+
+  testWidgets('capture task-list page (An-styled checkboxes)', (tester) async {
+    await capture(tester, location: '/documents/doc_00000000000d44f0', out: 'doc_page_tasks.png');
+  });
 }

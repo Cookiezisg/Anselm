@@ -202,6 +202,7 @@ final GalleryCategory _chatRail = GalleryCategory('对话 Chat', AnIcons.chat, [
     GallerySpecimen('已归档 (灰标记)', (_) => const AnRow(dot: AnStatus.idle, label: '旧版迁移笔记', meta: '上月'), span: true, maxWidth: _railW),
     GallerySpecimen('选中', (_) => const AnRow(selected: true, dot: AnStatus.done, label: '周会纪要整理', meta: '昨天'), span: true, maxWidth: _railW),
     GallerySpecimen('带 ⋯ 菜单 (hover 显)', (_) => AnRow(label: 'API key 轮换排查', meta: '3 小时前', actions: [AnButton.iconOnly(AnIcons.more, semanticLabel: 'More', onPressed: () {})]), span: true, maxWidth: _railW),
+    GallerySpecimen('无 lead 槽 (leadless · 大纲目录)', (_) => const AnRow(label: '目录行 · 无图标槽顶格', leadless: true), span: true, maxWidth: _railW),
     GallerySpecimen('超长截断', (_) => const AnRow(label: '一个非常非常长的对话标题，应当省略号截断而不撑破侧栏宽度无限延伸下去', meta: '3 天前'), stress: true, span: true, maxWidth: _railW),
     GallerySpecimen('注入转义', (_) => const AnRow(label: '<b>not</b> & <i>html</i> 注入标题', meta: '上周'), stress: true, span: true, maxWidth: _railW),
   ]),

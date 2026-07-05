@@ -592,7 +592,10 @@
       "h3": "Heading 3",
       "bulleted": "Bulleted list",
       "numbered": "Numbered list",
-      "quote": "Quote"
+      "quote": "Quote",
+      "code": "Code block",
+      "divider": "Divider",
+      "todo": "To-do"
     }
   },
   "markdown": {

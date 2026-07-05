@@ -592,7 +592,10 @@
       "h3": "标题 3",
       "bulleted": "无序列表",
       "numbered": "有序列表",
-      "quote": "引用"
+      "quote": "引用",
+      "code": "代码块",
+      "divider": "分隔线",
+      "todo": "待办"
     }
   },
   "markdown": {

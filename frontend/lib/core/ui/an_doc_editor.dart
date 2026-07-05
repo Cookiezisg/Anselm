@@ -1,3 +1,13 @@
+import 'package:flutter/material.dart'
+    show
+        Material,
+        MaterialType,
+        Theme,
+        CheckboxThemeData,
+        MaterialTapTargetSize,
+        VisualDensity,
+        WidgetState,
+        WidgetStateProperty;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:super_editor/super_editor.dart';
@@ -25,9 +35,12 @@ class SlashMenuLabels {
     required this.bulleted,
     required this.numbered,
     required this.quote,
+    required this.code,
+    required this.divider,
+    required this.todo,
   });
 
-  final String text, h1, h2, h3, bulleted, numbered, quote;
+  final String text, h1, h2, h3, bulleted, numbered, quote, code, divider, todo;
 }
 
 /// AnDocEditor — the Notion-style WYSIWYG markdown editor, a token-locked FACADE over `super_editor`
@@ -86,12 +99,14 @@ class AnDocEditor extends StatefulWidget {
 enum _PopKind { none, mention, slash }
 
 /// One `/` slash block option — an icon key (→ [AnIcons] glyph), an i18n label, and the built-in transform
-/// request to run on the current node. 一个斜杠块选项:图标键 + 文案 + 对当前节点跑的内建变换请求。
+/// request(s) to run on the current node (a divider REPLACES the node + re-seats the caret, so an option
+/// yields a request LIST). 一个斜杠块选项:图标键 + 文案 + 对当前节点跑的内建变换请求(分隔线要换节点+重置光标,
+/// 故为请求列表)。
 class _SlashBlock {
-  const _SlashBlock(this.iconKey, this.label, this.request);
+  const _SlashBlock(this.iconKey, this.label, this.requests);
   final String iconKey;
   final String label;
-  final EditRequest Function(String nodeId) request;
+  final List<EditRequest> Function(String nodeId) requests;
 }
 
 class AnDocEditorState extends State<AnDocEditor> {
@@ -110,7 +125,9 @@ class AnDocEditorState extends State<AnDocEditor> {
   final GlobalKey _docLayoutKey = GlobalKey();
   OverlayEntry? _pickerEntry;
   _PopKind _popKind = _PopKind.none;
-  Offset _anchor = Offset.zero; // GLOBAL bottom-left of the trigger token → the panel hangs just below. token 全局左下。
+  Rect _anchorRect = Rect.zero; // GLOBAL rect of the trigger token — the panel hangs below, or flips above. token 全局矩形。
+  DocumentRange? _anchorBounds; // the token range behind [_anchorRect] — re-resolved when the host scrolls. 锚定的 token 范围,滚动时重算。
+  ScrollPosition? _hostScroll; // the ancestor scrollable watched while the picker is open. 面板开时监听的祖先滚动。
   int _activeIndex = 0;
   List<AnMentionRowData> _rows = const []; // the rendered rows (either kind) 渲染行(两种通用)
   // Parallel match lists so a pick index maps back to its source. 平行匹配表,选中下标回源。
@@ -161,53 +178,93 @@ class AnDocEditorState extends State<AnDocEditor> {
     final entry = OverlayEntry(builder: _pickerOverlay);
     _pickerEntry = entry;
     Overlay.of(context).insert(entry);
+    // Follow the page scroll while open: the token moves with the document, so the panel must re-anchor
+    // (else it floats detached over stale coordinates). 开着时跟随页面滚动重锚,否则面板脱钩悬空。
+    _hostScroll = Scrollable.maybeOf(context)?.position;
+    _hostScroll?.addListener(_onHostScroll);
   }
 
   void _hidePicker() {
+    _hostScroll?.removeListener(_onHostScroll);
+    _hostScroll = null;
     _pickerEntry?.remove();
     _pickerEntry = null;
+  }
+
+  void _onHostScroll() {
+    final bounds = _anchorBounds;
+    if (bounds == null || _pickerEntry == null) return;
+    if (_updateAnchor(bounds)) _pickerEntry!.markNeedsBuild();
   }
 
   /// GLOBAL top-left of the [index]-th HEADING block (header1/2/3, document order) — the outline panel's
   /// jump anchor (the host converts to its scroll offset). null when out of range / layout not ready.
   /// 第 [index] 个标题块(h1–h3,文档序)的全局左上——大纲跳转锚点(宿主换算滚动量);越界/未布局=null。
   Offset? headingOriginGlobal(int index) {
+    if (index < 0) return null;
+    final origins = headingOriginsGlobal();
+    return index < origins.length ? origins[index] : null;
+  }
+
+  /// GLOBAL top-left of EVERY heading block (h1–h3, document order) in ONE walk — the outline's live-focus
+  /// tracker reads all origins each scroll tick (per-index calls would be O(n²)). Empty when layout isn't
+  /// ready. 所有标题块全局左上,一次遍历——大纲实时焦点每滚动 tick 读全表(逐下标调用是 O(n²));未布局返空。
+  List<Offset> headingOriginsGlobal() {
     final layout = _docLayoutKey.currentState as DocumentLayout?;
-    if (layout == null || index < 0) return null;
-    var seen = 0;
+    if (layout == null) return const [];
+    final origins = <Offset>[];
     for (final node in _doc) {
       if (node is! ParagraphNode) continue;
       final blockType = node.metadata['blockType'];
       if (blockType != header1Attribution && blockType != header2Attribution && blockType != header3Attribution) {
         continue;
       }
-      if (seen++ < index) continue;
       final rect = layout.getRectForPosition(
         DocumentPosition(nodeId: node.id, nodePosition: node.beginningPosition),
       );
-      if (rect == null) return null;
-      return layout.getGlobalOffsetFromDocumentOffset(rect.topLeft);
+      if (rect == null) return const []; // layout mid-flight — skip this tick 布局未提交,本 tick 跳过
+      origins.add(layout.getGlobalOffsetFromDocumentOffset(rect.topLeft));
     }
-    return null;
+    return origins;
   }
 
-  // Built-in super_editor transform requests — no custom command needed (all in defaultRequestHandlers).
-  // 内建 super_editor 变换请求——无需自定义命令(都在 defaultRequestHandlers)。
+  // Built-in super_editor transform requests — no custom command needed (all in defaultRequestHandlers;
+  // tasks render via the auto-registered TaskComponentBuilder and serialize as GitHub `- [ ]`; a divider
+  // REPLACES the emptied paragraph with a HorizontalRuleNode and re-seats the caret in a fresh paragraph
+  // after it, since an HR can't hold a caret). 内建变换请求;待办走自动注册的 TaskComponentBuilder、序列化
+  // `- [ ]`;分隔线把清空后的段换成 HR 节点 + 光标落进其后新段(HR 不能持光标)。
   List<_SlashBlock> _buildSlashOptions(SlashMenuLabels l) => [
         _SlashBlock('paragraph', l.text,
-            (id) => ChangeParagraphBlockTypeRequest(nodeId: id, blockType: paragraphAttribution)),
+            (id) => [ChangeParagraphBlockTypeRequest(nodeId: id, blockType: paragraphAttribution)]),
         _SlashBlock('heading1', l.h1,
-            (id) => ChangeParagraphBlockTypeRequest(nodeId: id, blockType: header1Attribution)),
+            (id) => [ChangeParagraphBlockTypeRequest(nodeId: id, blockType: header1Attribution)]),
         _SlashBlock('heading2', l.h2,
-            (id) => ChangeParagraphBlockTypeRequest(nodeId: id, blockType: header2Attribution)),
+            (id) => [ChangeParagraphBlockTypeRequest(nodeId: id, blockType: header2Attribution)]),
         _SlashBlock('heading3', l.h3,
-            (id) => ChangeParagraphBlockTypeRequest(nodeId: id, blockType: header3Attribution)),
+            (id) => [ChangeParagraphBlockTypeRequest(nodeId: id, blockType: header3Attribution)]),
         _SlashBlock('listBulleted', l.bulleted,
-            (id) => ConvertParagraphToListItemRequest(nodeId: id, type: ListItemType.unordered)),
+            (id) => [ConvertParagraphToListItemRequest(nodeId: id, type: ListItemType.unordered)]),
         _SlashBlock('listNumbered', l.numbered,
-            (id) => ConvertParagraphToListItemRequest(nodeId: id, type: ListItemType.ordered)),
+            (id) => [ConvertParagraphToListItemRequest(nodeId: id, type: ListItemType.ordered)]),
         _SlashBlock('quote', l.quote,
-            (id) => ChangeParagraphBlockTypeRequest(nodeId: id, blockType: blockquoteAttribution)),
+            (id) => [ChangeParagraphBlockTypeRequest(nodeId: id, blockType: blockquoteAttribution)]),
+        _SlashBlock('codeBlock', l.code,
+            (id) => [ChangeParagraphBlockTypeRequest(nodeId: id, blockType: codeAttribution)]),
+        _SlashBlock('todo', l.todo, (id) => [ConvertParagraphToTaskRequest(nodeId: id)]),
+        _SlashBlock('divider', l.divider, (id) {
+          final para = ParagraphNode(id: Editor.createNodeId(), text: AttributedText(''));
+          return [
+            ReplaceNodeRequest(existingNodeId: id, newNode: HorizontalRuleNode(id: id)),
+            InsertNodeAfterNodeRequest(existingNodeId: id, newNode: para),
+            ChangeSelectionRequest(
+              DocumentSelection.collapsed(
+                position: DocumentPosition(nodeId: para.id, nodePosition: const TextNodePosition(offset: 0)),
+              ),
+              SelectionChangeType.insertContent,
+              SelectionReason.userInteraction,
+            ),
+          ];
+        }),
       ];
 
   void _onChange(DocumentChangeLog _) {
@@ -269,13 +326,26 @@ class AnDocEditorState extends State<AnDocEditor> {
     final deleteRange = DocumentRange(start: triggerPos, end: tag.contentBounds.end);
     // Replace `@query` with the entity NAME carrying a hidden link to `anselm-entity:<id>` (styled as a chip;
     // the codec collapses that link to the stored `[[id]]` on save — id survives, name is display-only) + a
-    // trailing space so the caret continues after the chip. 插「名+隐藏 id 链接」chip+尾空格。
+    // trailing space, then seat the caret AFTER the chip+space explicitly (typing must continue past the
+    // chip, never inside it). 插「名+隐藏 id 链接」chip+尾空格,并**显式把光标落到 chip 之后**(继续打字在
+    // chip 外,绝不卡在中间)。
     final link = LinkAttribution('$kEntityRefScheme:${cand.id}');
-    final chip = AttributedText('${cand.name} ')..addAttribution(link, SpanRange(0, cand.name.length - 1));
+    final chipText = '${cand.name} ';
+    final chip = AttributedText(chipText)..addAttribution(link, SpanRange(0, cand.name.length - 1));
+    final caretAfter = DocumentPosition(
+      nodeId: tokenStart.nodeId,
+      nodePosition: TextNodePosition(
+          offset: (tokenStart.nodePosition as TextNodePosition).offset - 1 + chipText.length),
+    );
     _committing = true;
     _editor.execute([
       DeleteContentRequest(documentRange: deleteRange),
       InsertAttributedTextRequest(triggerPos, chip),
+      ChangeSelectionRequest(
+        DocumentSelection.collapsed(position: caretAfter),
+        SelectionChangeType.placeCaret,
+        SelectionReason.userInteraction,
+      ),
     ]);
     _committing = false;
     // Deleting the composing token also drops its composing attribution, but close the picker explicitly
@@ -301,20 +371,25 @@ class AnDocEditorState extends State<AnDocEditor> {
     final tag = _slashPlugin?.composingActionTag.value;
     if (tag == null || index < 0 || index >= _slashMatches.length) return;
     // Submit deletes the "/query" text, then the block converts on the SAME node id. Submit 删 /query,再变同节点。
-    _editor.execute([const SubmitComposingActionTagRequest(), _slashMatches[index].request(tag.nodeId)]);
+    _editor.execute([const SubmitComposingActionTagRequest(), ..._slashMatches[index].requests(tag.nodeId)]);
   }
 
   // ── shared popover 共享 popover ──
 
-  /// Convert the trigger token's document rect to a GLOBAL bottom-left offset (the app Overlay fills the
-  /// screen, so global coords place the follower directly). Returns false if layout isn't ready yet.
-  /// 把 token 文档矩形转全局左下(Overlay 铺满屏);布局未就绪返 false。
+  /// Anchor the panel to the trigger token's START — a single caret-position rect converted to GLOBAL
+  /// coords (the app Overlay fills the screen). The start is STABLE across keystrokes; anchoring the whole
+  /// token range wobbled per keystroke (the selection rect is re-measured against a layout that may not
+  /// have committed the newest character yet). Remembers the range for scroll re-anchoring; false if
+  /// layout isn't ready. 锚=token **起点**的单点矩形转全局——起点逐键恒稳;整段范围矩形会因布局未提交最新字符
+  /// 而逐键漂移。记范围供滚动重锚;布局未就绪返 false。
   bool _updateAnchor(DocumentRange bounds) {
     final layout = _docLayoutKey.currentState as DocumentLayout?;
     if (layout == null) return false;
-    final rect = layout.getRectForSelection(bounds.start, bounds.end);
+    final rect = layout.getRectForPosition(bounds.start);
     if (rect == null) return false;
-    _anchor = layout.getGlobalOffsetFromDocumentOffset(rect.bottomLeft);
+    final topLeft = layout.getGlobalOffsetFromDocumentOffset(rect.topLeft);
+    _anchorRect = topLeft & rect.size;
+    _anchorBounds = bounds;
     return true;
   }
 
@@ -393,14 +468,63 @@ class AnDocEditorState extends State<AnDocEditor> {
     return ExecutionInstruction.continueExecution;
   }
 
+  /// Backspace right after an entity-ref chip deletes the WHOLE chip (it reads as one token, so it must
+  /// die as one token — matching the composer's pill behavior). The chip is the maximal span carrying the
+  /// `anselm-entity:` link at the char before the caret; halting keeps the key from ALSO reaching the IME
+  /// (no double delete). chip 尾退格=整删 chip(读作一个 token 就整体删,同 composer 药丸);halt 后按键不再
+  /// 进 IME,不会双删。
+  ExecutionInstruction _chipBackspace({required SuperEditorContext editContext, required KeyEvent keyEvent}) {
+    if (keyEvent is! KeyDownEvent && keyEvent is! KeyRepeatEvent) return ExecutionInstruction.continueExecution;
+    if (keyEvent.logicalKey != LogicalKeyboardKey.backspace) return ExecutionInstruction.continueExecution;
+    final sel = _composer.selection;
+    if (sel == null || !sel.isCollapsed) return ExecutionInstruction.continueExecution;
+    final pos = sel.extent.nodePosition;
+    if (pos is! TextNodePosition || pos.offset == 0) return ExecutionInstruction.continueExecution;
+    final node = _doc.getNodeById(sel.extent.nodeId);
+    if (node is! TextNode) return ExecutionInstruction.continueExecution;
+    final link = node.text
+        .getAllAttributionsAt(pos.offset - 1)
+        .whereType<LinkAttribution>()
+        .where((l) => l.plainTextUri.startsWith('$kEntityRefScheme:'))
+        .firstOrNull;
+    if (link == null) return ExecutionInstruction.continueExecution;
+    final span = node.text.getAttributedRange({link}, pos.offset - 1);
+    _editor.execute([
+      DeleteContentRequest(
+        documentRange: DocumentRange(
+          start: DocumentPosition(nodeId: node.id, nodePosition: TextNodePosition(offset: span.start)),
+          end: DocumentPosition(nodeId: node.id, nodePosition: TextNodePosition(offset: span.end + 1)),
+        ),
+      ),
+    ]);
+    return ExecutionInstruction.haltExecution;
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final hasTypeahead = _mentionPlugin != null || _slashPlugin != null;
     // The bare SuperEditor IS the return value — under an ancestor Scrollable it renders as a sliver, so
-    // no box widget may wrap it here (the typeahead popover lives in a hand-managed OverlayEntry instead).
-    // 裸 SuperEditor 即返回值——祖先滚动下它渲染成 sliver,此处不得包任何盒件(浮层走手动 OverlayEntry)。
-    return SuperEditor(
+    // no box widget may wrap it here (the typeahead popover lives in a hand-managed OverlayEntry instead;
+    // the Theme below is an InheritedWidget — no render object, sliver-safe). 裸 SuperEditor 即返回值——
+    // 祖先滚动下渲染成 sliver,不得包盒件(浮层走手动 OverlayEntry;下方 Theme 是 InheritedWidget、无渲染盒)。
+    return Theme(
+      // The task block's checkbox is a raw Material Checkbox driven by the ambient theme — untamed it
+      // paints the stock oversized blue box. Compact it and paint it in tokens (accent fill, hairline
+      // side, small radius). 待办块的勾选框是裸 Material Checkbox、吃环境主题——不管就是超大蓝盒;这里紧凑化
+      // 并按 token 上色(accent 填充/细边/小圆角)。
+      data: Theme.of(context).copyWith(
+        visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+        checkboxTheme: CheckboxThemeData(
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(AnRadius.tag))),
+          side: BorderSide(color: c.lineStrong, width: 1.2),
+          fillColor: WidgetStateProperty.resolveWith(
+              (states) => states.contains(WidgetState.selected) ? c.accent : const Color(0x00000000)),
+          checkColor: WidgetStateProperty.all(c.surface),
+        ),
+      ),
+      child: SuperEditor(
       editor: _editor,
       focusNode: widget.focusNode ?? (_ownFocus ??= FocusNode()),
       autofocus: widget.autofocus,
@@ -408,20 +532,45 @@ class AnDocEditorState extends State<AnDocEditor> {
       stylesheet: _anStylesheet(c),
       selectionStyle: SelectionStyles(selectionColor: c.accentSoft),
       plugins: {?_mentionPlugin, ?_slashPlugin},
-      keyboardActions: [if (hasTypeahead) _pickerKeys, ...defaultKeyboardActions],
+      // SuperEditor's input source is IME (the default) — the actions MUST be the IME set: the hardware set
+      // (`defaultKeyboardActions`) consumes raw key-downs before the OS input method sees them, which kills
+      // CJK composition entirely (pinyin letters insert raw, no candidate window). The IME set ends with
+      // `sendKeyEventToMacOs`, handing keys to the macOS IME; the picker's keys stay prepended (arrows /
+      // Enter / Esc are non-text keys that still arrive here first). 输入源=IME(默认),动作集必须配 IME 集:
+      // 硬件集会在输入法看到按键前吃掉 key-down,中文组合直接失效;IME 集以 sendKeyEventToMacOs 收尾把键放行给
+      // 系统输入法。picker 键仍前置(方向/回车/Esc 非文本键,先到这里)。
+      keyboardActions: [if (hasTypeahead) _pickerKeys, _chipBackspace, ...defaultImeKeyboardActions],
+      ),
     );
   }
 
-  /// The typeahead follower — anchored below the trigger token in global coords, clamped to stay on-screen.
-  /// 面板 follower:全局坐标挂 token 下方,夹取防出屏。
+  /// The typeahead follower — anchored below the trigger token in global coords, clamped horizontally, and
+  /// FLIPPED above the token when the space below can't hold the panel (a caret near the window bottom must
+  /// not push the menu off-screen); whichever side wins, the panel's height is capped to the space actually
+  /// there. 面板 follower:全局坐标挂 token 下方、水平夹取;下方装不下即**翻到 token 上方**(窗口底部的光标不能把
+  /// 菜单顶出屏),且高度封顶为该侧真实余量。
   Widget _pickerOverlay(BuildContext context) {
     final screen = MediaQuery.sizeOf(context);
-    final left = _anchor.dx.clamp(AnInset.pageX, screen.width - AnSize.menuMaxWidth - AnInset.pageX);
+    final left = _anchorRect.left.clamp(AnInset.pageX, screen.width - AnSize.menuMaxWidth - AnInset.pageX);
+    final spaceBelow = screen.height - _anchorRect.bottom - AnGap.inlineLoose - AnInset.pageX;
+    final spaceAbove = _anchorRect.top - AnGap.inlineLoose - AnInset.pageX;
+    final below = spaceBelow >= AnSize.menuMaxHeight || spaceBelow >= spaceAbove;
+    final maxH = (below ? spaceBelow : spaceAbove).clamp(AnSize.control, AnSize.menuMaxHeight).toDouble();
     return Positioned(
       left: left,
-      top: _anchor.dy + AnGap.inlineLoose,
+      top: below ? _anchorRect.bottom + AnGap.inlineLoose : null,
+      bottom: below ? null : screen.height - _anchorRect.top + AnGap.inlineLoose,
       width: AnSize.menuMaxWidth,
-      child: AnMentionPanel(items: _rows, activeIndex: _activeIndex, onPick: _pick),
+      // Material(transparency): the Overlay sits OUTSIDE the app's Material tree — without one, every
+      // Text in the panel paints the framework's yellow-double-underline fallback. 浮层在 Material 树外,
+      // 不包一层透明 Material 面板文字会画出框架的黄双下划线兜底。
+      child: Material(
+        type: MaterialType.transparency,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: maxH),
+          child: AnMentionPanel(items: _rows, activeIndex: _activeIndex, onPick: _pick),
+        ),
+      ),
     );
   }
 }
@@ -430,15 +579,22 @@ class AnDocEditorState extends State<AnDocEditor> {
 /// + contextual `.after()` selectors — the same asymmetric-heading model AnMarkdown uses (heading owns the
 /// space above; body hugs below). 整套外观走 token:super_editor 靠每块 top-padding + `.after()` 造节奏(同
 /// AnMarkdown 的标题不对称)。
+///
+/// ⚠️ Authored FROM SCRATCH, not `defaultStylesheet.copyWith(addRulesAfter:)`: the stylesheet styler's
+/// `_mergeStyles` can only merge TextStyle/CascadingPadding — any OTHER style a later rule re-sets (like
+/// `maxWidth`, a double) is silently DROPPED, so an addRulesAfter override of the default 640 column can
+/// never win (the body then floats 40px right of a 720 header). One base rule sets `maxWidth` exactly once.
+/// ⚠️ 从零作者、不 copyWith:上游 `_mergeStyles` 只会合并 TextStyle/Padding,其余重复键(如 maxWidth)静默丢弃
+/// 后规则——覆盖不了默认 640 列(正文比 720 头右漂 40)。基础规则把 maxWidth 一次定死。
 Stylesheet _anStylesheet(AnColors c) {
   TextStyle ink(TextStyle s) => s.copyWith(color: c.ink);
-  return defaultStylesheet.copyWith(
+  return Stylesheet(
     // No document-level padding — the vertical rhythm is authored entirely by the per-block token rules
     // (and an embedding host brings its own page insets). 文档级 padding 归零:节奏全由每块 token 规则定。
     documentPadding: EdgeInsets.zero,
-    // Inline styling: keep the defaults, then paint an entity-ref mention (a link to `anselm-entity:…`) as an
-    // accent chip — accent ink + emphasis weight, no link underline (it reads as a branded reference, not a
-    // web link). 内联:留默认,再把实体 mention(anselm-entity 链接)画成 accent 药丸(accent 墨 + 加粗、无下划线)。
+    // Inline styling: the stock attribution styles, then paint an entity-ref mention (a link to
+    // `anselm-entity:…`) as an accent chip — accent ink + emphasis weight, no link underline (it reads as a
+    // branded reference, not a web link). 内联:默认属性样式,再把实体 mention 画成 accent 药丸(无下划线)。
     inlineTextStyler: (attributions, existingStyle) {
       var style = defaultInlineTextStyler(attributions, existingStyle);
       final isEntityRef = attributions
@@ -454,9 +610,12 @@ Stylesheet _anStylesheet(AnColors c) {
       }
       return style;
     },
-    addRulesAfter: [
-      // Base: reading body (13/1.6 w300, Notion air), a 720 reading column, page-X horizontal pad (a no-op
-      // cap when embedded in an already-720 sliver — same numbers either way). 720 列+pageX(嵌入 720 sliver 时等值)。
+    inlineWidgetBuilders: defaultInlineWidgetBuilderChain,
+    rules: [
+      // Base: reading body (13/1.6 w300, Notion air), the ocean's 720 reading column + page-X pad — the SAME
+      // numbers as AnPage, and the single-column layout centers each block in the full-width editor, so the
+      // body lines up exactly with a `Center > 720 > pageX` header above. 基础:720 列+pageX(AnPage 同数),
+      // 布局把每块在全宽编辑器里居中,与头精确对齐。
       StyleRule(BlockSelector.all, (doc, node) => {
             Styles.maxWidth: AnSize.content,
             Styles.padding: const CascadingPadding.symmetric(horizontal: AnInset.pageX),
@@ -466,10 +625,15 @@ Stylesheet _anStylesheet(AnColors c) {
       StyleRule(const BlockSelector('paragraph'),
           (doc, node) => {Styles.padding: const CascadingPadding.only(top: AnFlow.block)}),
       // List items sit TIGHT within a list (AnFlow.listItem 4); the first one (after a paragraph) takes the
-      // full block gap so the list separates from the prose above. 列表项内紧(4);首项离上文一个块间距。
+      // full block gap so the list separates from the prose above. Tasks follow the same rhythm. 列表项内紧
+      // (4);首项离上文一个块间距;待办同律。
       StyleRule(const BlockSelector('listItem'),
           (doc, node) => {Styles.padding: const CascadingPadding.only(top: AnFlow.listItem)}),
       StyleRule(const BlockSelector('listItem').after('paragraph'),
+          (doc, node) => {Styles.padding: const CascadingPadding.only(top: AnFlow.block)}),
+      StyleRule(const BlockSelector('task'),
+          (doc, node) => {Styles.padding: const CascadingPadding.only(top: AnFlow.listItem)}),
+      StyleRule(const BlockSelector('task').after('paragraph'),
           (doc, node) => {Styles.padding: const CascadingPadding.only(top: AnFlow.block)}),
       // Headings: AnMarkdown's downshifted reading-column sizes (h1→h3 tier / h2→strong / h3→body-emphasis),
       // and MORE space above (AnFlow.headingTop/subheadingTop) — they own the block below. 标题降档 + 上方留多。

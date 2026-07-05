@@ -160,11 +160,27 @@ class FixtureDocumentsRepository implements DocumentsRepository {
 
   @override
   Future<Skill> replaceSkill(String name, Map<String, dynamic> body) async {
+    // FULL-replace, mirroring the backend PUT: omitted fields RESET to their zero values, and the
+    // frontmatter carries every CONFIG field — an agent/tools/arguments/toggle edit must actually land
+    // (the old partial copy silently dropped them). 全覆盖照后端 PUT:缺省字段归零;frontmatter 带全部配置
+    // 字段(agent/工具/参数/开关的编辑必须真落——旧的部分拷贝会静默丢掉)。
     final i = _skills.indexWhere((s) => s.name == name);
-    final next = _skills[i].copyWith(
-      description: body['description'] as String? ?? _skills[i].description,
-      context: body['context'] as String? ?? _skills[i].context,
-      body: body['body'] as String? ?? _skills[i].body,
+    final cur = _skills[i];
+    final desc = body['description'] as String? ?? '';
+    final context = body['context'] as String? ?? '';
+    final next = cur.copyWith(
+      description: desc,
+      context: context,
+      body: body['body'] as String? ?? '',
+      frontmatter: cur.frontmatter.copyWith(
+        description: desc,
+        context: context,
+        agent: body['agent'] as String? ?? '',
+        allowedTools: [...(body['allowedTools'] as List? ?? const [])].cast<String>(),
+        arguments: [...(body['arguments'] as List? ?? const [])].cast<String>(),
+        disableModelInvocation: body['disableModelInvocation'] as bool? ?? false,
+        userInvocable: body['userInvocable'] as bool? ?? false,
+      ),
       updatedAt: _t,
     );
     _skills[i] = next;

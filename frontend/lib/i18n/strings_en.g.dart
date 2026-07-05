@@ -1196,6 +1196,15 @@ class Translations$documents$slash$en {
 
 	/// en: 'Quote'
 	String get quote => 'Quote';
+
+	/// en: 'Code block'
+	String get code => 'Code block';
+
+	/// en: 'Divider'
+	String get divider => 'Divider';
+
+	/// en: 'To-do'
+	String get todo => 'To-do';
 }
 
 // Path: chat.tool.kind
@@ -2567,6 +2576,9 @@ extension on Translations {
 			'documents.slash.bulleted' => 'Bulleted list',
 			'documents.slash.numbered' => 'Numbered list',
 			'documents.slash.quote' => 'Quote',
+			'documents.slash.code' => 'Code block',
+			'documents.slash.divider' => 'Divider',
+			'documents.slash.todo' => 'To-do',
 			'markdown.imageNotLoaded' => 'image not loaded',
 			'attach.unavailable' => 'Unavailable',
 			'attach.retry' => 'Tap to retry',
