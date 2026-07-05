@@ -703,8 +703,8 @@ final GalleryCategory _g4NavShell = GalleryCategory('导航与壳 Nav & Shell', 
     GallerySpecimen('tabs (underline + panes)', (_) => const _TabsDemo(), height: 220, span: true),
     GallerySpecimen('many tabs (horizontal scroll)', (_) => const _TabsDemo(many: true), height: 200, span: true),
   ]),
-  GalleryItem('AnSidebarList', '左岛侧栏:New + 域内过滤(sliders 菜单)+ groups→types→rows 递归树(文档树可折叠)', [
-    GallerySpecimen('sidebar (filter + tree + select)', (_) => const _SidebarDemo(), height: 420, span: true),
+  GalleryItem('AnSidebarList', '左岛侧栏:New + 域内过滤(sliders 菜单)+ groups→types→rows 递归树(文档树可折叠、可拖拽重排:插线=重排/中段=嵌入)', [
+    GallerySpecimen('sidebar (filter + tree + select + drag)', (_) => const _SidebarDemo(), height: 420, span: true),
     GallerySpecimen('row 改名中 (就地编辑态)', (_) => const _SidebarDemo(editingId: 'fn1'), height: 420, span: true),
   ]),
   GalleryItem('AnOceanHeader', '海洋页头:面包屑 + H2 标题(可就地改名)+ 右动作 + meta', [
@@ -1399,11 +1399,64 @@ class _SidebarDemo extends StatefulWidget {
   State<_SidebarDemo> createState() => _SidebarDemoState();
 }
 
+/// A tiny mutable tree node for the drag-reorder demo (SidebarRow is immutable). 拖拽演示用的可变树节点。
+class _DemoNode {
+  _DemoNode(this.id, this.label, [List<_DemoNode>? children]) : children = children ?? [];
+  final String id;
+  final String label;
+  final List<_DemoNode> children;
+}
+
 class _SidebarDemoState extends State<_SidebarDemo> {
   String _sel = 'fn1';
   late String? _editing = widget.editingId;
   final Set<String> _opts = {'updated', 'versions', 'status'};
   void _opt(String k) => setState(() => _opts.contains(k) ? _opts.remove(k) : _opts.add(k));
+
+  // The docs section is DRAGGABLE (the d* rows): a local mutable tree, moved in place on drop. 文档段可拖。
+  final List<_DemoNode> _docs = [
+    _DemoNode('d1', 'docs', [
+      _DemoNode('d2', 'guide.md'),
+      _DemoNode('d3', 'api', [_DemoNode('d4', 'reference.md')]),
+    ]),
+    _DemoNode('d5', 'notes.md'),
+  ];
+
+  _DemoNode? _take(List<_DemoNode> rows, String id) {
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i].id == id) return rows.removeAt(i);
+      final hit = _take(rows[i].children, id);
+      if (hit != null) return hit;
+    }
+    return null;
+  }
+
+  bool _place(List<_DemoNode> rows, _DemoNode node, String targetId, AnRowDropZone zone) {
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i].id == targetId) {
+        switch (zone) {
+          case AnRowDropZone.above:
+            rows.insert(i, node);
+          case AnRowDropZone.below:
+            rows.insert(i + 1, node);
+          case AnRowDropZone.inside:
+            rows[i].children.add(node);
+        }
+        return true;
+      }
+      if (_place(rows[i].children, node, targetId, zone)) return true;
+    }
+    return false;
+  }
+
+  void _drop(String dragged, String target, AnRowDropZone zone) => setState(() {
+        final node = _take(_docs, dragged);
+        if (node == null) return;
+        if (!_place(_docs, node, target, zone)) _docs.add(node); // detached fallback — re-append 兜底回挂
+      });
+
+  SidebarRow _toRow(_DemoNode n) => SidebarRow(
+      id: n.id, label: n.label, icon: AnIcons.doc, children: [for (final c in n.children) _toRow(c)]);
 
   @override
   Widget build(BuildContext context) {
@@ -1421,14 +1474,7 @@ class _SidebarDemoState extends State<_SidebarDemo> {
           ]),
         ]),
         SidebarGroup(types: [
-          SidebarType(rows: [
-            SidebarRow(id: 'd1', label: 'docs', icon: AnIcons.doc, children: [
-              SidebarRow(id: 'd2', label: 'guide.md', icon: AnIcons.doc),
-              SidebarRow(id: 'd3', label: 'api', icon: AnIcons.doc, children: const [
-                SidebarRow(id: 'd4', label: 'reference.md'),
-              ]),
-            ]),
-          ]),
+          SidebarType(rows: [for (final n in _docs) _toRow(n)]),
         ]),
       ],
     );
@@ -1440,6 +1486,10 @@ class _SidebarDemoState extends State<_SidebarDemo> {
       editingRowId: _editing,
       onRenameCommit: (id, v) => setState(() => _editing = null),
       onRenameCancel: () => setState(() => _editing = null),
+      // Drag-reorder: only the docs tree participates (drag a row — line = reorder, middle = nest).
+      // 拖拽重排:仅文档树参与(拖行——插线=重排、中段=嵌入)。
+      onRowDropped: _drop,
+      canDragRow: (id) => id.startsWith('d'),
       menuEntries: [
         const AnMenuSection('Sort'),
         AnMenuItem(label: 'Recently updated', checked: _opts.contains('updated'), keepOpen: true, onTap: () => _opt('updated')),

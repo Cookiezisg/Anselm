@@ -4,6 +4,7 @@ import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/entity/mention_source.dart';
 import 'package:anselm/core/ui/an_doc_editor.dart';
 import 'package:anselm/core/ui/an_mention_picker.dart';
+import 'package:anselm/core/ui/an_sidebar_list.dart' show AnRowDropZone;
 import 'package:anselm/core/ui/entity_ref_codec.dart';
 import 'package:anselm/features/documents/data/document_fixtures.dart';
 import 'package:anselm/features/documents/data/document_repository.dart';
@@ -166,6 +167,129 @@ void main() {
       // Text, so assert the editor is mounted + the title bar shows the doc name). 文档进可编辑器。
       expect(find.byType(AnDocEditor), findsOneWidget);
       expect(find.text('Getting Started'), findsOneWidget); // the title bar (doc name)
+    });
+  });
+
+  group('planDocMove', () {
+    // Seed shape: doc_a(root,0){doc_b(0), doc_c(1)} · doc_d(root,1). 种子:两根、doc_a 携两子。
+    List<DocumentNode> tree() => [
+          _doc('doc_a', null, 'Getting Started', 0),
+          _doc('doc_b', 'doc_a', 'Setup', 0),
+          _doc('doc_c', 'doc_a', 'Concepts', 1),
+          _doc('doc_d', null, 'Playbooks', 1),
+        ];
+
+    test('inside → nest under the target, position omitted (backend appends)', () {
+      expect(planDocMove(tree(), 'doc_d', 'doc_a', AnRowDropZone.inside),
+          (parentId: 'doc_a', position: null));
+    });
+
+    test('above/below → the target parent + index among siblings EXCLUDING the dragged node', () {
+      expect(planDocMove(tree(), 'doc_d', 'doc_b', AnRowDropZone.above), (parentId: 'doc_a', position: 0));
+      expect(planDocMove(tree(), 'doc_d', 'doc_b', AnRowDropZone.below), (parentId: 'doc_a', position: 1));
+      expect(planDocMove(tree(), 'doc_d', 'doc_c', AnRowDropZone.below), (parentId: 'doc_a', position: 2));
+    });
+
+    test('same-parent reorder excludes the dragged node from the index space', () {
+      // Root siblings excluding doc_a = [doc_d] → dropping doc_a below doc_d = position 1. 剔除自身后计序。
+      expect(planDocMove(tree(), 'doc_a', 'doc_d', AnRowDropZone.below), (parentId: null, position: 1));
+      expect(planDocMove(tree(), 'doc_d', 'doc_a', AnRowDropZone.above), (parentId: null, position: 0));
+    });
+
+    test('cycles are refused: into or beside the dragged node\'s own subtree', () {
+      expect(planDocMove(tree(), 'doc_a', 'doc_b', AnRowDropZone.inside), isNull);
+      expect(planDocMove(tree(), 'doc_a', 'doc_b', AnRowDropZone.below), isNull);
+    });
+
+    test('self, unknown ids and skill rows are refused', () {
+      expect(planDocMove(tree(), 'doc_a', 'doc_a', AnRowDropZone.inside), isNull);
+      expect(planDocMove(tree(), 'doc_a', 'nope', AnRowDropZone.inside), isNull);
+      expect(planDocMove(tree(), 'skill:triage', 'doc_a', AnRowDropZone.inside), isNull);
+      expect(planDocMove(tree(), 'doc_a', 'skill:triage', AnRowDropZone.inside), isNull);
+    });
+
+    test('a malformed parent loop in the data is refused, not spun on', () {
+      final looped = [
+        _doc('doc_x', 'doc_y', 'X', 0),
+        _doc('doc_y', 'doc_x', 'Y', 0),
+        _doc('doc_z', null, 'Z', 0),
+      ];
+      expect(planDocMove(looped, 'doc_z', 'doc_x', AnRowDropZone.above), isNull);
+    });
+  });
+
+  group('DocumentRail drag-reorder', () {
+    // A real pointer drag: grab the source row, nudge to arm the drag recognizer, glide to the target
+    // offset, release. 真手势:按住源行→微移触发识别→滑到目标点→松手。
+    Future<void> drag(WidgetTester tester, String fromLabel, Offset to) async {
+      final g = await tester.startGesture(tester.getCenter(find.text(fromLabel)));
+      await tester.pump(const Duration(milliseconds: 20));
+      await g.moveBy(const Offset(0, 6));
+      await tester.pump(const Duration(milliseconds: 20));
+      await g.moveTo(to);
+      await tester.pump(const Duration(milliseconds: 20));
+      await g.up();
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('dropping on a row\'s middle nests the page under it', (tester) async {
+      final repo = _repo();
+      await tester.pumpWidget(_host(repo, const DocumentRail()));
+      await tester.pump();
+      await tester.pump();
+      // 'Playbooks' (root) onto the CENTER of 'Getting Started' → inside → reparent. 中段=嵌入。
+      await drag(tester, 'Playbooks', tester.getCenter(find.text('Getting Started')));
+      expect((await repo.getDocument('doc_d')).parentId, 'doc_a');
+    });
+
+    testWidgets('dropping on a row\'s top edge reorders above it', (tester) async {
+      final repo = _repo();
+      await tester.pumpWidget(_host(repo, const DocumentRail()));
+      await tester.pump();
+      await tester.pump();
+      // 'Playbooks' onto the TOP QUARTER of 'Getting Started' → above → root position 0. 上缘=前插。
+      await drag(tester, 'Playbooks', tester.getCenter(find.text('Getting Started')) - const Offset(0, 12));
+      final moved = await repo.getDocument('doc_d');
+      expect(moved.parentId, isNull);
+      expect(moved.position, 0);
+      expect((await repo.getDocument('doc_a')).position, 1); // shifted sibling 让位兄弟顺移
+    });
+
+    testWidgets('dropping a page into its own subtree is refused (cycle)', (tester) async {
+      final repo = _repo();
+      await tester.pumpWidget(_host(repo, const DocumentRail()));
+      await tester.pump();
+      await tester.pump();
+      await drag(tester, 'Getting Started', tester.getCenter(find.text('Setup')));
+      // Nothing moved. 未动。
+      expect((await repo.getDocument('doc_a')).parentId, isNull);
+      expect((await repo.getDocument('doc_b')).parentId, 'doc_a');
+    });
+
+    testWidgets('dragging a branch\'s first child onto its parent\'s bottom edge is an identity move', (tester) async {
+      final repo = _repo();
+      await tester.pumpWidget(_host(repo, const DocumentRail()));
+      await tester.pump();
+      await tester.pump();
+      // 'Setup' IS doc_a's first child; below-on-open-branch normalizes to "above first child" = itself —
+      // the primitive must emit nothing (adversarial-review regression). 首子拖到父行下缘=恒等移动,不派发。
+      await drag(tester, 'Setup', tester.getCenter(find.text('Getting Started')) + const Offset(0, 12));
+      final b = await repo.getDocument('doc_b');
+      expect(b.parentId, 'doc_a');
+      expect(b.position, 0);
+    });
+
+    testWidgets('drag is disabled while the filter query is active', (tester) async {
+      final repo = _repo();
+      await tester.pumpWidget(_host(repo, const DocumentRail()));
+      await tester.pump();
+      await tester.pump();
+      // The query force-expands + hides rows — indicators/position math would lie, so rows must not drag
+      // (adversarial-review regression). 过滤时强展开+藏行,指示会撒谎——行必须不可拖。
+      await tester.enterText(find.byType(EditableText).first, 'o'); // matches several rows 命中若干行
+      await tester.pump();
+      await drag(tester, 'Playbooks', tester.getCenter(find.text('Getting Started')));
+      expect((await repo.getDocument('doc_d')).parentId, isNull); // unchanged 未动
     });
   });
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 
 import '../../i18n/strings.g.dart';
@@ -16,6 +18,11 @@ import 'an_scroll_behavior.dart';
 import 'an_status_dot.dart';
 import 'icons.dart';
 
+/// Where a dragged row lands relative to the row under the pointer — the row divides into a top-quarter
+/// (insert BEFORE, as a sibling), a bottom-quarter (insert AFTER), and the middle half (nest INSIDE as a
+/// child) — the Notion tree-drop model. 拖拽落点:行分上¼(前插兄弟)/下¼(后插)/中½(嵌入为子)——Notion 树落点模型。
+enum AnRowDropZone { above, below, inside }
+
 /// C5 — the left-rail sidebar list. A fixed New row + in-domain filter (with a sliders menu) sit above a
 /// VIRTUALIZED body: [flattenSidebar] flattens the groups→types→rows tree by the current fold + filter
 /// state into one flat list, rendered by a fixed-extent [SliverList] (only visible rows build — 5000-row
@@ -25,10 +32,23 @@ import 'icons.dart';
 /// conditionally-emitted section can't fuse fold state with a sibling). Rows ride [AnRow]; the edited row
 /// swaps to the reused [AnInlineEdit]; a paginated section drives [onLoadMore] via a tail footer.
 ///
+/// **Tree drag-reorder (opt-in via [onRowDropped])**: rows become [Draggable]s (pointer-anchored so the
+/// drop-zone math is exact) + [DragTarget]s. The hovered row paints an accent INSERTION LINE (above/below)
+/// or a rounded accentSoft NEST highlight (inside); hovering a collapsed branch's middle auto-expands it
+/// after a beat (Notion). The primitive guards the visually-obvious invalids — self, the dragged row's own
+/// subtree (a cycle), rows [canDragRow] excludes — and NORMALIZES "below an open branch" to "above its
+/// first child" (that's where the line visually sits), so the host's position math needs no fold state.
+/// The HOST owns the real move (validation + `:move` + refetch). Drag is desktop-mouse only by design —
+/// wheel/trackpad scrolling is untouched (no touch-scroll conflict on this target).
+///
 /// C5——左岛侧栏。固定 New 行 + 域内过滤 在上;下方 VIRTUALIZED 主体:flattenSidebar 把 groups→types→rows 树按当前折叠
 /// +过滤态展平成一维,定高 SliverList 渲染(只建可见行,5000 行段不卡)。Stack overlay 吸顶「顶部行的动态祖先链」
 /// (VS Code sticky-scroll):扁平段吸一层头、深树吸整条分支链(封顶)。折叠键按稳定语义键(id/pageKey/label、非位置)。
 /// 行搭 AnRow;编辑行换 AnInlineEdit;分页段经尾 footer 驱动 onLoadMore。
+/// **树内拖拽重排(经 [onRowDropped] 可选启用)**:行成 Draggable(指针锚定、落区判定精确)+ DragTarget;悬停行画
+/// accent 插入线(上/下)或圆角 accentSoft 嵌入高亮(中);悬停折叠枝中段片刻自动展开(Notion)。原语守视觉级非法
+/// (自身/自子树成环/canDragRow 排除),并把「开枝之下」归一成「其首子之上」(线就画在那)——宿主算位置无需折叠态;
+/// 真移动(校验 + `:move` + 重取)归宿主。拖拽仅桌面鼠标——滚轮/触控板滚动不受影响。
 class AnSidebarList extends StatefulWidget {
   const AnSidebarList({
     required this.model,
@@ -45,6 +65,8 @@ class AnSidebarList extends StatefulWidget {
     this.editingRowId,
     this.onRenameCommit,
     this.onRenameCancel,
+    this.onRowDropped,
+    this.canDragRow,
     super.key,
   });
 
@@ -80,6 +102,16 @@ class AnSidebarList extends StatefulWidget {
   final void Function(String id, String value)? onRenameCommit;
   final VoidCallback? onRenameCancel;
 
+  /// Non-null ENABLES tree drag-reorder. Fired on a valid drop with the dragged row id, the target row id
+  /// and the [AnRowDropZone] ("below an open branch" arrives normalized to "above its first child"). The
+  /// host validates + performs the actual move. null → rows aren't draggable (zero overhead).
+  /// 非空即启用树内拖拽。落下时携(拖行 id, 目标行 id, 落区)——「开枝之下」已归一成「首子之上」;真移动归宿主。
+  final void Function(String draggedId, String targetId, AnRowDropZone zone)? onRowDropped;
+
+  /// Which rows participate (as drag SOURCE and drop TARGET). null → all rows, when drag is enabled.
+  /// 哪些行参与(既是拖源也是落点);null=全部(启用时)。
+  final bool Function(String rowId)? canDragRow;
+
   @override
   State<AnSidebarList> createState() => _AnSidebarListState();
 }
@@ -93,6 +125,14 @@ class _AnSidebarListState extends State<AnSidebarList> {
   final Set<String> _collapsed = {}; // collapsed fold keys (default: all open) 折叠键(默认全开)
   final ScrollController _scroll = ScrollController();
   String _query = '';
+
+  // ── tree drag-reorder state 树内拖拽态 ──
+  String? _dragId; // the row being dragged 拖动中的行
+  Set<String> _dragSubtree = const {}; // its descendant ids (cycle guard) 其子孙 id(防环)
+  String? _dropRowId; // the hovered valid target 悬停中的合法落点行
+  AnRowDropZone? _dropZone;
+  Timer? _hoverExpand; // dwell-to-expand a collapsed branch 悬停片刻自动展开折叠枝
+  EdgeDraggingAutoScroller? _autoScroller; // edge auto-scroll while dragging 拖拽近缘自动滚
 
   // The flattened list is HELD (not recomputed inline) so its indices stay in lock-step with the
   // SliverAnimatedList's: a user toggle animates a precise sub-range; a model/query change rebuilds it
@@ -145,10 +185,22 @@ class _AnSidebarListState extends State<AnSidebarList> {
     _flat = flattenSidebar(widget.model, collapsed: _collapsed, query: _query);
     _branchSpan = _computeBranchSpans(_flat);
     _listKey = GlobalKey(); // a new key drops any stale animated-list index state → fresh initialItemCount
+    // A mid-drag model rebuild: the hover indicator is stale (rows re-keyed) and the dragged row's subtree
+    // may have changed — drop the indicator, recompute the cycle guard against the NEW model. The drag
+    // itself survives (the SDK keeps the recognizer alive across the source row's unmount).
+    // 拖拽中模型重建:悬停指示已陈旧(行换键)、被拖行子树可能已变——撤指示、按新 model 重算防环;拖拽本身存活
+    // (SDK 让识别器跨源行 unmount 存续)。
+    if (_dragId != null) {
+      _hoverExpand?.cancel();
+      _dropRowId = null;
+      _dropZone = null;
+      _dragSubtree = _subtreeIds(_dragId!);
+    }
   }
 
   @override
   void dispose() {
+    _hoverExpand?.cancel();
     _filter.dispose();
     _scroll.dispose();
     super.dispose();
@@ -220,14 +272,21 @@ class _AnSidebarListState extends State<AnSidebarList> {
               ),
               // The sticky ancestor overlay rebuilds EACH FRAME off the scroll position (AnimatedBuilder on
               // the controller), so the nearest head follows the finger + is pushed out by the next
-              // sibling-level row — without rebuilding the virtualized list. 吸顶 overlay 每帧跟滚动重建(跟手推走),不重建列表。
+              // sibling-level row — without rebuilding the virtualized list. During a DRAG it goes
+              // pointer-transparent: its opaque copies aren't drop targets, so they'd swallow drops (and
+              // hide indicators) near the top — hits must fall through to the real rows underneath.
+              // 吸顶 overlay 每帧跟滚动重建(跟手推走),不重建列表。拖拽中变指针透明:opaque 副本不是落点,
+              // 会吞掉顶部落下(并遮指示)——命中须穿透到其下真行。
               Positioned(
                 top: 0,
                 left: 0,
                 right: 0,
-                child: AnimatedBuilder(
-                  animation: _scroll,
-                  builder: (context, _) => _stickyOverlay(context, _flat),
+                child: IgnorePointer(
+                  ignoring: _dragId != null,
+                  child: AnimatedBuilder(
+                    animation: _scroll,
+                    builder: (context, _) => _stickyOverlay(context, _flat),
+                  ),
                 ),
               ),
             ],
@@ -423,7 +482,8 @@ class _AnSidebarListState extends State<AnSidebarList> {
   }
 
   // A recursive entity row (leaf or branch). The edited row swaps to the rename primitive. Sticky (a
-  // branch ancestor) → wrapped opaque. 实体行(叶/树枝);编辑行换改名件;sticky(树枝祖先)→opaque。
+  // branch ancestor) → wrapped opaque. A drag-enabled row wraps in the Draggable + DragTarget pair.
+  // 实体行(叶/树枝);编辑行换改名件;sticky(树枝祖先)→opaque;启用拖拽的行包 Draggable+DragTarget。
   Widget _entityRow(BuildContext context, SidebarFlatNode n, {bool sticky = false}) {
     final r = n.row!;
     if (!sticky && r.id == widget.editingRowId) return _editingRow(context, n);
@@ -444,7 +504,267 @@ class _AnSidebarListState extends State<AnSidebarList> {
       onToggle: branch ? () => _toggle(n.key) : null,
       actions: widget.rowActionsBuilder?.call(r.id) ?? const [],
     );
-    return sticky ? _opaque(context, row) : row;
+    if (sticky) return _opaque(context, row);
+    // Rows inside the subtree being dragged ride along: dimmed + inert (they move as one unit with their
+    // head — hover tints / row actions there would lie). 被拖子树内的行随行:变暗+惰性(与头一体,悬停/动作会撒谎)。
+    if (_dragId != null && _dragSubtree.contains(r.id)) {
+      return IgnorePointer(child: Opacity(opacity: 0.35, child: row));
+    }
+    if (!_rowDraggable(r.id)) return row;
+    return _draggableRow(context, n, row);
+  }
+
+  // ── tree drag-reorder 树内拖拽 ──
+
+  /// Drag is OFF while the filter query is active: the query force-expands branches and HIDES non-matching
+  /// rows, so both the drop indicators and the host's position math would lie about where things land
+  /// (Notion also disables tree reorder in filtered views). 过滤时禁拖:query 强展开+藏行,指示与位置计算都会撒谎。
+  bool get _dragEnabled => widget.onRowDropped != null && _query.trim().isEmpty;
+  bool _rowDraggable(String id) => _dragEnabled && (widget.canDragRow?.call(id) ?? true);
+
+  /// A valid drop target: not the dragged row itself, not inside its own subtree (a cycle), and a
+  /// participating row. 合法落点:非自身、非自子树(成环)、且是参与行。
+  bool _validTarget(String targetId) =>
+      _dragId != null && targetId != _dragId && !_dragSubtree.contains(targetId) && _rowDraggable(targetId);
+
+  /// The dragged row's descendant ids, from the MODEL (collapsed children aren't in [_flat]). 子孙 id 取自 model。
+  Set<String> _subtreeIds(String id) {
+    SidebarRow? found;
+    void findIn(List<SidebarRow> rows) {
+      for (final r in rows) {
+        if (found != null) return;
+        if (r.id == id) {
+          found = r;
+          return;
+        }
+        findIn(r.children);
+      }
+    }
+
+    for (final g in widget.model.groups) {
+      for (final t in g.types) {
+        findIn(t.rows);
+        if (found != null) break;
+      }
+      if (found != null) break;
+    }
+    final out = <String>{};
+    void collect(SidebarRow r) {
+      for (final c in r.children) {
+        out.add(c.id);
+        collect(c);
+      }
+    }
+
+    if (found != null) collect(found!);
+    return out;
+  }
+
+  /// Pointer position → the zone within the hovered row, from the ROW'S OWN RenderBox (exact even while a
+  /// fold SizeTransition is tweening heights above — a fixed-grid modulo would misclassify then). The drag
+  /// is pointer-anchored ([pointerDragAnchorStrategy]) so [globalPointer] IS the pointer, exactly.
+  /// 指针→行内落区:用**行自身** RenderBox(上方折叠补间进行中也精确——网格取模那时会判错);拖拽指针锚定,全局点即指针。
+  AnRowDropZone _zoneAt(BuildContext rowContext, Offset globalPointer) {
+    final box = rowContext.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize || box.size.height <= 0) return AnRowDropZone.inside;
+    final within = box.globalToLocal(globalPointer).dy;
+    if (within < box.size.height / 4) return AnRowDropZone.above;
+    if (within > box.size.height * 3 / 4) return AnRowDropZone.below;
+    return AnRowDropZone.inside;
+  }
+
+  void _updateDrop(SidebarFlatNode n, BuildContext rowContext, Offset globalPointer) {
+    // Edge auto-scroll: nudge the list when the pointer nears the viewport's top/bottom so off-screen
+    // targets are reachable (Flutter's own reorderable-list helper). 近缘自动滚,屏外落点可达(官方 helper)。
+    final scrollable = Scrollable.maybeOf(rowContext);
+    if (scrollable != null) {
+      // velocityScalar 50 = ReorderableList's own default. 50=官方 ReorderableList 默认。
+      (_autoScroller ??= EdgeDraggingAutoScroller(scrollable, velocityScalar: 50)).startAutoScrollIfNecessary(
+        Rect.fromCenter(center: globalPointer, width: 1, height: AnSize.row * 2),
+      );
+    }
+    final zone = _zoneAt(rowContext, globalPointer);
+    final id = n.row!.id;
+    if (_dropRowId == id && _dropZone == zone) return;
+    setState(() {
+      _dropRowId = id;
+      _dropZone = zone;
+    });
+    // Dwelling on a collapsed branch's middle auto-expands it so its children become targets (Notion).
+    // 悬停折叠枝中段片刻自动展开,让其子成为落点(Notion)。
+    _hoverExpand?.cancel();
+    if (zone == AnRowDropZone.inside && n.isBranch && !_open(n.key)) {
+      _hoverExpand = Timer(const Duration(milliseconds: 600), () {
+        if (mounted && _dropRowId == id && !_open(n.key)) _toggle(n.key);
+      });
+    }
+  }
+
+  void _clearDrop(String rowId) {
+    _hoverExpand?.cancel();
+    if (_dropRowId == rowId) {
+      setState(() {
+        _dropRowId = null;
+        _dropZone = null;
+      });
+    }
+  }
+
+  /// End-of-drag cleanup, shared + idempotent. Wired to onDragCompleted AND onDraggableCanceled — the SDK
+  /// calls those even when the source row's State was unmounted mid-drag (a model rebuild re-keys the list;
+  /// scrolling can recycle the row), whereas onDragEnd is mounted-guarded and gets SKIPPED then, which
+  /// would leak a stuck indicator + a live dwell timer. The closure's `this` is the LIST state, which
+  /// outlives any row. 拖拽收尾(共享、幂等):挂 onDragCompleted+onDraggableCanceled——源行 State 中途被 unmount
+  /// (模型重建换键/滚动回收)时 SDK 仍会调它们,而 onDragEnd 有 mounted 守卫会被跳过→泄漏卡死指示+活定时器。
+  /// 闭包的 this 是列表 State,比任何行都长寿。
+  void _endDrag() {
+    _hoverExpand?.cancel();
+    _autoScroller?.stopAutoScroll();
+    _autoScroller = null;
+    if (!mounted) return;
+    if (_dragId == null && _dropRowId == null) return;
+    setState(() {
+      _dragId = null;
+      _dragSubtree = const {};
+      _dropRowId = null;
+      _dropZone = null;
+    });
+  }
+
+  /// Whether a below-zone drop on [n] lands as its FIRST CHILD (the branch is open, so the line below its
+  /// head visually sits above its first child). Shared by the indicator painter and [_emitDrop] so the
+  /// pixels and the emitted intent can never drift. 「下落区是否落为其首子」:开枝头的下缘线视觉上就在首子之上;
+  /// 指示绘制与派发共用此判定,像素与意图不漂移。
+  bool _belowNestsAsFirstChild(SidebarFlatNode n) => n.row!.hasChildren && _open(n.key);
+
+  /// Resolve + emit a drop. "Below an OPEN branch" is normalized to "above its first child" — and if that
+  /// normalization lands on the dragged row itself (dragging a branch's first child onto its parent's
+  /// bottom edge), the drop is an identity move: emit nothing. 解析并派发:「开枝之下」归一成「首子之上」;
+  /// 归一后若正是被拖行自身(拖首子到父行下缘),是恒等移动——不派发。
+  void _emitDrop(SidebarFlatNode n, String draggedId) {
+    var targetId = n.row!.id;
+    var zone = _dropZone ?? AnRowDropZone.inside;
+    if (zone == AnRowDropZone.below && _belowNestsAsFirstChild(n)) {
+      targetId = n.row!.children.first.id;
+      zone = AnRowDropZone.above;
+    }
+    if (targetId == draggedId) return;
+    widget.onRowDropped!(draggedId, targetId, zone);
+  }
+
+  /// The Draggable + DragTarget wrap around a row: pointer-anchored drag (exact zone math off the row's
+  /// own box, via the Builder-captured context), a floating name-chip feedback, the origin row dimmed in
+  /// place (no mid-drag reflow in the virtualized list), and the drop indicators — an accent insertion
+  /// line straddling the row edge, or a rounded accentSoft nest veil painted OVER the row (the row's own
+  /// hover/selection fill is opaque; painted under, the veil would vanish exactly on the selected row).
+  /// A below-line that will NEST (open branch → first child) draws at the CHILD indent, exactly where the
+  /// drop lands. 行的拖拽包裹:指针锚定 + Builder 捕获行自身盒做落区判定 + 名签浮标 + 原行原位变暗 + 落点指示
+  /// (贴缘 accent 插入线 / 盖在行上的 accentSoft 嵌入纱——行自身悬停/选中底不透明,垫底会在选中行上消失)。
+  /// 会归一成嵌入的下缘线按**子层缩进**画——线在哪、落哪。
+  Widget _draggableRow(BuildContext context, SidebarFlatNode n, Widget row) {
+    final r = n.row!;
+    final c = context.colors;
+    final zone = (_dragId != null && _dropRowId == r.id) ? _dropZone : null;
+    final indent = AnSpace.s8 + n.depth * AnSize.iconLg;
+    // The below-line indents one level deeper when the drop will land as the branch's first child —
+    // the shared predicate keeps the pixels and _emitDrop in lock-step. 下缘线在将嵌入时深一层缩进(共享判定)。
+    final belowIndent =
+        _belowNestsAsFirstChild(n) ? AnSpace.s8 + (n.depth + 1) * AnSize.iconLg : indent;
+
+    final target = Builder(
+      builder: (rowContext) => DragTarget<String>(
+        onWillAcceptWithDetails: (d) => _validTarget(r.id),
+        onMove: (d) {
+          if (_validTarget(r.id)) _updateDrop(n, rowContext, d.offset);
+        },
+        onLeave: (_) => _clearDrop(r.id),
+        onAcceptWithDetails: (d) => _emitDrop(n, d.data),
+        builder: (context, candidates, rejected) => Stack(
+          clipBehavior: Clip.none,
+          children: [
+            row,
+            if (zone == AnRowDropZone.inside)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: c.accentSoft,
+                      borderRadius: BorderRadius.circular(AnRadius.button),
+                    ),
+                  ),
+                ),
+              ),
+            if (zone == AnRowDropZone.above)
+              PositionedDirectional(top: -1, start: indent, end: AnSpace.s8, child: _insertLine(c)),
+            if (zone == AnRowDropZone.below)
+              PositionedDirectional(bottom: -1, start: belowIndent, end: AnSpace.s8, child: _insertLine(c)),
+          ],
+        ),
+      ),
+    );
+
+    return Draggable<String>(
+      data: r.id,
+      dragAnchorStrategy: pointerDragAnchorStrategy,
+      maxSimultaneousDrags: 1,
+      onDragStarted: () => setState(() {
+        _dragId = r.id;
+        _dragSubtree = _subtreeIds(r.id);
+      }),
+      // Cleanup rides onDragCompleted + onDraggableCanceled: unlike onDragEnd they fire even when this
+      // row's State was unmounted mid-drag (model rebuild / scroll recycling) — see [_endDrag].
+      // 收尾挂 completed+canceled:源行中途被 unmount 时它们仍会被调(onDragEnd 会被跳过)——见 _endDrag。
+      onDragCompleted: _endDrag,
+      onDraggableCanceled: (_, _) => _endDrag(),
+      feedback: _dragFeedback(context, r),
+      childWhenDragging: Opacity(opacity: 0.35, child: SizedBox(height: AnSize.row, child: row)),
+      child: target,
+    );
+  }
+
+  Widget _insertLine(AnColors c) => IgnorePointer(
+        child: Container(
+          height: 2,
+          decoration: BoxDecoration(color: c.accent, borderRadius: BorderRadius.circular(1)),
+        ),
+      );
+
+  /// The floating chip that follows the pointer: the row's icon + name on a raised surface. Pointer-anchored
+  /// drags put the feedback's origin AT the pointer, so it's nudged down-right for cursor clearance. The
+  /// feedback mounts in the ROOT overlay — outside any Material/DefaultTextStyle scope — so it carries its
+  /// own text style with an explicit no-decoration (else the "missing ancestor" yellow underline shows).
+  /// 跟随指针的名签:行图标+名、浮起面;指针锚定使原点即指针,右下偏移让开光标。feedback 挂根 overlay、脱离
+  /// Material/DefaultTextStyle 作用域,故自带文字样式 + 显式无装饰(否则渲出「缺祖先」黄下划线)。
+  Widget _dragFeedback(BuildContext context, SidebarRow r) {
+    final c = context.colors;
+    return IgnorePointer(
+      child: Transform.translate(
+        offset: const Offset(12, 8),
+        child: DefaultTextStyle(
+          style: AnText.body.copyWith(color: c.ink, decoration: TextDecoration.none),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: AnSpace.s12, vertical: AnSpace.s6),
+            decoration: BoxDecoration(
+              color: c.surface,
+              borderRadius: BorderRadius.circular(AnRadius.button),
+              // The float tier — a pop shadow's 32-blur second layer reads as a detached smudge under a
+              // 32px chip. float 档——pop 影的 32 模糊第二层在 32px 小签下渲成分离残影。
+              boxShadow: c.shadowFloat,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (r.icon != null) ...[
+                  Icon(r.icon, size: AnSize.icon, color: c.inkMuted),
+                  const SizedBox(width: AnSpace.s8),
+                ],
+                Text(r.label),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   // Opaque backing for a sticky ancestor head so list rows scroll UNDER it (AnRow is transparent). 吸顶头 opaque 底。

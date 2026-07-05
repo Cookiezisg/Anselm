@@ -86,8 +86,27 @@ class _DocumentRailState extends ConsumerState<DocumentRail> {
         onRenameCommit: _renameDocument,
         onRenameCancel: () => setState(() => _editingId = null),
         rowActionsBuilder: (rowId) => [_rowMenu(t, rowId, tree)],
+        // Tree drag-reorder: pages drag (reparent via nest, reorder via insertion lines); skills sit out
+        // (flat, no position in their contract). 树内拖拽:页可拖(嵌入=改父、插线=重排);skill 不参与(无位次)。
+        onRowDropped: _onDrop,
+        canDragRow: (id) => !id.startsWith(kSkillRowPrefix),
       ),
     );
+  }
+
+  /// Translate the drop into `:move` args (pure [planDocMove] — cycle/self/skill guarded there), run it,
+  /// refetch the tree. 落点经纯 planDocMove 译成 :move 参数(环/自落/skill 皆在彼守),执行后重取树。
+  Future<void> _onDrop(String dragged, String target, AnRowDropZone zone) async {
+    final tree = ref.read(documentTreeProvider).value ?? const <DocumentNode>[];
+    final plan = planDocMove(tree, dragged, target, zone);
+    if (plan == null) return;
+    try {
+      await _repo.moveDocument(dragged, parentId: plan.parentId, position: plan.position);
+      if (!mounted) return;
+      ref.invalidate(documentTreeProvider);
+    } catch (_) {
+      _toastFail();
+    }
   }
 
   /// A row's hover ⋯ menu. Pages: Rename / Duplicate / Delete. Skills: Delete only (no rename — the slug is

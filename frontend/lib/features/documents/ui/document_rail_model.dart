@@ -1,6 +1,7 @@
 import '../../../core/contract/entities/document.dart';
 import '../../../core/contract/entities/skill.dart';
 import '../../../core/model/sidebar_model.dart';
+import '../../../core/ui/an_sidebar_list.dart' show AnRowDropZone;
 import '../../../core/ui/icons.dart';
 
 /// The i18n labels the (widget-free) rail projection needs — injected so the pure builder can be unit-tested
@@ -70,3 +71,45 @@ SidebarModel buildDocumentsRailModel(List<DocumentNode> tree, List<Skill> skills
 ({bool isSkill, String id}) docSelectionForRowId(String rowId) => rowId.startsWith(kSkillRowPrefix)
     ? (isSkill: true, id: rowId.substring(kSkillRowPrefix.length))
     : (isSkill: false, id: rowId);
+
+/// PURE translation of a rail drop into the backend `:move` args, or null when the drop is invalid.
+/// Semantics (mirrors the backend contract exactly):
+///   • inside  → `parentId = target`, position OMITTED (the backend appends to the end of the children)
+///   • above/below → `parentId = target's parent`; `position` = the target's index among the new parent's
+///     children **with the dragged node excluded** (the backend inserts at index against exactly that
+///     list), +1 for below
+///   • invalid → null: self-drop, an unknown id, a skill row, or a CYCLE (the target sits inside the
+///     dragged node's own subtree — walked via parentId links, iteration-capped against malformed loops)
+///
+/// 纯翻译:rail 落点 →(parentId, position)`:move` 参数;非法=null。inside=进 target 尾部(position 省略=后端追加);
+/// 上/下=target 在新父的兄弟序(**剔除被拖节点后**——后端正是对该列表按 index 插入),below 再 +1;自落/未知 id/skill 行/
+/// 成环(沿 parentId 链上溯、防畸形环封顶)= null。
+({String? parentId, int? position})? planDocMove(
+  List<DocumentNode> tree,
+  String draggedId,
+  String targetId,
+  AnRowDropZone zone,
+) {
+  if (draggedId == targetId) return null;
+  if (draggedId.startsWith(kSkillRowPrefix) || targetId.startsWith(kSkillRowPrefix)) return null;
+  final byId = {for (final d in tree) d.id: d};
+  final target = byId[targetId];
+  if (target == null || !byId.containsKey(draggedId)) return null;
+  // Cycle guard: the target (or, for above/below, its parent chain) must not pass through the dragged
+  // node. 防环:target 的祖先链不得经过被拖节点。
+  var hops = 0;
+  for (String? p = targetId; p != null; p = byId[p]?.parentId) {
+    if (p == draggedId) return null;
+    if (++hops > tree.length) return null; // malformed parent loop — refuse 畸形父环,拒绝
+  }
+
+  if (zone == AnRowDropZone.inside) return (parentId: target.id, position: null);
+
+  final siblings = [
+    for (final d in tree)
+      if (d.parentId == target.parentId && d.id != draggedId) d,
+  ]..sort((a, b) => a.position.compareTo(b.position));
+  final idx = siblings.indexWhere((d) => d.id == targetId);
+  if (idx < 0) return null;
+  return (parentId: target.parentId, position: zone == AnRowDropZone.above ? idx : idx + 1);
+}

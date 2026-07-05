@@ -72,7 +72,22 @@ class FixtureDocumentsRepository implements DocumentsRepository {
       updatedAt: _t,
     );
     _docs[i] = next;
-    return next;
+    // A rename shifts the materialized path of the node + its whole subtree (backend cascades). 改名级联 path。
+    if (patch['name'] is String) _recomputePaths(id);
+    return _docs[i];
+  }
+
+  /// Recompute the materialized `path` of [id] + its subtree from the current parent chain — the backend
+  /// cascades paths on rename/move; a stale fixture path would lie to path-reading UI. 按当前父链重算子树 path。
+  void _recomputePaths(String id) {
+    final i = _docs.indexWhere((d) => d.id == id);
+    if (i < 0) return;
+    final d = _docs[i];
+    final parentPath = d.parentId == null ? '' : _byId(d.parentId!).path;
+    _docs[i] = d.copyWith(path: '$parentPath/${d.name}');
+    for (final child in [..._docs.where((c) => c.parentId == id)]) {
+      _recomputePaths(child.id);
+    }
   }
 
   @override
@@ -92,13 +107,22 @@ class FixtureDocumentsRepository implements DocumentsRepository {
   @override
   Future<DocumentNode> moveDocument(String id, {String? parentId, int? position}) async {
     final i = _docs.indexWhere((d) => d.id == id);
-    final next = _docs[i].copyWith(
-      parentId: parentId,
-      position: position ?? _docs[i].position,
-      updatedAt: _t,
-    );
-    _docs[i] = next;
-    return next;
+    // Mirror the backend: position omitted → APPEND among the new parent's children (not "keep the old
+    // number", which is meaningless under a different parent); an explicit position shifts the siblings it
+    // lands among (stable insert-at-index). 镜像后端:省略=追加新父末尾;显式=按 index 插入、让位兄弟顺移。
+    final siblings = [for (final d in _docs) if (d.parentId == parentId && d.id != id) d]
+      ..sort((a, b) => a.position.compareTo(b.position));
+    final at = position == null || position < 0 || position > siblings.length ? siblings.length : position;
+    for (var s = 0; s < siblings.length; s++) {
+      final want = s < at ? s : s + 1;
+      if (siblings[s].position != want) {
+        _docs[_docs.indexWhere((d) => d.id == siblings[s].id)] = siblings[s].copyWith(position: want);
+      }
+    }
+    _docs[i] = _docs[i].copyWith(parentId: parentId, position: at, updatedAt: _t);
+    // Reparenting shifts the whole subtree's materialized paths (backend cascades). 改父级联子树 path。
+    _recomputePaths(id);
+    return _docs[_docs.indexWhere((d) => d.id == id)];
   }
 
   @override
