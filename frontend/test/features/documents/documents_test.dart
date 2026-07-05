@@ -221,8 +221,96 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(AnMentionPanel), findsNothing);
     });
+
+    // The `/` slash block menu — type `/head`, the same shared popover opens filtered to the heading
+    // options, and picking Heading 1 submits (deletes `/head`) + converts the block → markdown `# `.
+    // `/` 块菜单:打 /head→同一 popover 过滤到标题→选 H1→删 /head + 变块→markdown 起始 `# `。
+    testWidgets('typing / opens the block menu; a pick converts the block', (tester) async {
+      disableCaretBlink();
+      String? lastMd;
+      await tester.pumpWidget(TranslationProvider(
+        child: MaterialApp(
+          theme: AnTheme.light(),
+          home: Scaffold(
+            body: SizedBox(
+              width: 720,
+              height: 600,
+              child: AnDocEditor(
+                initialMarkdown: 'Draft ',
+                autofocus: true,
+                slashLabels: _slashTestLabels,
+                onChanged: (m) => lastMd = m,
+              ),
+            ),
+          ),
+        ),
+      ));
+      await tester.pump();
+
+      final paragraphId = SuperEditorInspector.findDocument()!.first.id;
+      await tester.placeCaretInParagraph(paragraphId, 'Draft '.length);
+      await tester.typeImeText('/head');
+      await tester.pumpAndSettle();
+
+      // Panel up, filtered to the heading options ("Bulleted list" doesn't match "head").
+      expect(find.byType(AnMentionPanel), findsOneWidget);
+      expect(find.text('Heading 1'), findsOneWidget);
+      expect(find.text('Bulleted list'), findsNothing);
+
+      await tester.tap(find.text('Heading 1'));
+      await tester.pumpAndSettle();
+
+      // Picked → panel closed, the `/head` text is gone and the block is now a header. 选中→关、块变标题。
+      expect(find.byType(AnMentionPanel), findsNothing);
+      expect(lastMd, startsWith('# '));
+      expect(lastMd, contains('Draft'));
+      expect(lastMd, isNot(contains('/head')));
+    });
+
+    testWidgets('/ then Bulleted list converts to a list item', (tester) async {
+      disableCaretBlink();
+      String? lastMd;
+      await tester.pumpWidget(TranslationProvider(
+        child: MaterialApp(
+          theme: AnTheme.light(),
+          home: Scaffold(
+            body: SizedBox(
+              width: 720,
+              height: 600,
+              child: AnDocEditor(
+                initialMarkdown: 'Milk ',
+                autofocus: true,
+                slashLabels: _slashTestLabels,
+                onChanged: (m) => lastMd = m,
+              ),
+            ),
+          ),
+        ),
+      ));
+      await tester.pump();
+      final paragraphId = SuperEditorInspector.findDocument()!.first.id;
+      await tester.placeCaretInParagraph(paragraphId, 'Milk '.length);
+      await tester.typeImeText('/bul');
+      await tester.pumpAndSettle();
+      expect(find.text('Bulleted list'), findsOneWidget);
+      await tester.tap(find.text('Bulleted list'));
+      await tester.pumpAndSettle();
+      // Unordered list item → super_editor markdown emits a `*` bullet. 无序列表项(super_editor 用 `*`)。
+      expect(lastMd, contains('* Milk'));
+      expect(lastMd, isNot(contains('/bul')));
+    });
   });
 }
+
+const _slashTestLabels = SlashMenuLabels(
+  text: 'Text',
+  h1: 'Heading 1',
+  h2: 'Heading 2',
+  h3: 'Heading 3',
+  bulleted: 'Bulleted list',
+  numbered: 'Numbered list',
+  quote: 'Quote',
+);
 
 /// The @ picker's data seam for the editor tests — two entities, name-substring filtered (mirrors the
 /// server-side `?search`). editor 测试的 @ 数据缝:两实体、名子串过滤(镜像服务端 ?search)。

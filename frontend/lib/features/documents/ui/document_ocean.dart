@@ -75,6 +75,18 @@ class DocumentOcean extends ConsumerWidget {
       Text(text, style: AnText.h2.weight(AnText.emphasisWeight).copyWith(color: context.colors.ink));
 }
 
+/// Maps the i18n slash strings into the editor's [SlashMenuLabels] (AnDocEditor is a core/ui primitive and
+/// stays i18n-free — the feature layer injects the labels). i18n → 编辑器块菜单文案(core/ui 不碰 i18n)。
+SlashMenuLabels _slashLabels(Translations t) => SlashMenuLabels(
+      text: t.documents.slash.text,
+      h1: t.documents.slash.h1,
+      h2: t.documents.slash.h2,
+      h3: t.documents.slash.h3,
+      bulleted: t.documents.slash.bulleted,
+      numbered: t.documents.slash.numbered,
+      quote: t.documents.slash.quote,
+    );
+
 /// The editable document view — a fixed title bar (the doc NAME, aligned to the editor's 720/pageX column)
 /// over the [AnDocEditor] which fills the rest + scrolls internally. Edits serialize to markdown and save
 /// via `updateDocument` (debounced 600ms; the open provider is NOT invalidated, so the editor keeps its
@@ -140,6 +152,8 @@ class _DocEditViewState extends ConsumerState<_DocEditView> {
                     // The @ typeahead reuses chat's entity mention seam (function/handler/agent/workflow).
                     // @ 预输入复用 chat 的实体 mention 缝。
                     mentionSource: ref.watch(mentionSourceProvider),
+                    // The `/` slash block menu — labels injected here (core/ui stays i18n-free). `/` 块菜单文案注入。
+                    slashLabels: _slashLabels(t),
                   ),
                 ),
               ],

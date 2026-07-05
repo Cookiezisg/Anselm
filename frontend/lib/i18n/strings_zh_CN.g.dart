@@ -335,6 +335,7 @@ class _Translations$documents$zh_CN extends Translations$documents$en {
 	@override String get pickHint => '在左侧选一篇文档或技能来阅读或编辑。';
 	@override String get loadFailed => '打不开这个';
 	@override String get emptyDoc => '这篇文档是空的。';
+	@override late final _Translations$documents$slash$zh_CN slash = _Translations$documents$slash$zh_CN._(_root);
 }
 
 // Path: markdown
@@ -538,6 +539,22 @@ class _Translations$entities$run$zh_CN extends Translations$entities$run$en {
 	@override String get reasonHint => '备注(可选)';
 	@override String get inboxEmpty => '没有待审批';
 	@override String get inboxEmptyHint => '等待决断的审批会出现在这里。';
+}
+
+// Path: documents.slash
+class _Translations$documents$slash$zh_CN extends Translations$documents$slash$en {
+	_Translations$documents$slash$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get text => '正文';
+	@override String get h1 => '标题 1';
+	@override String get h2 => '标题 2';
+	@override String get h3 => '标题 3';
+	@override String get bulleted => '无序列表';
+	@override String get numbered => '有序列表';
+	@override String get quote => '引用';
 }
 
 // Path: chat.tool.kind
@@ -1406,6 +1423,13 @@ extension on TranslationsZhCn {
 			'documents.pickHint' => '在左侧选一篇文档或技能来阅读或编辑。',
 			'documents.loadFailed' => '打不开这个',
 			'documents.emptyDoc' => '这篇文档是空的。',
+			'documents.slash.text' => '正文',
+			'documents.slash.h1' => '标题 1',
+			'documents.slash.h2' => '标题 2',
+			'documents.slash.h3' => '标题 3',
+			'documents.slash.bulleted' => '无序列表',
+			'documents.slash.numbered' => '有序列表',
+			'documents.slash.quote' => '引用',
 			'markdown.imageNotLoaded' => '图片未加载',
 			'attach.unavailable' => '已不可用',
 			'attach.retry' => '点按重试',

@@ -548,7 +548,16 @@
     "pickTitle": "选一篇文档",
     "pickHint": "在左侧选一篇文档或技能来阅读或编辑。",
     "loadFailed": "打不开这个",
-    "emptyDoc": "这篇文档是空的。"
+    "emptyDoc": "这篇文档是空的。",
+    "slash": {
+      "text": "正文",
+      "h1": "标题 1",
+      "h2": "标题 2",
+      "h3": "标题 3",
+      "bulleted": "无序列表",
+      "numbered": "有序列表",
+      "quote": "引用"
+    }
   },
   "markdown": {
     "imageNotLoaded": "图片未加载"

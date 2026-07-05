@@ -635,6 +635,8 @@ class Translations$documents$en {
 
 	/// en: 'This document is empty.'
 	String get emptyDoc => 'This document is empty.';
+
+	late final Translations$documents$slash$en slash = Translations$documents$slash$en.internal(_root);
 }
 
 // Path: markdown
@@ -1052,6 +1054,36 @@ class Translations$entities$run$en {
 
 	/// en: 'Approvals waiting for a decision will appear here.'
 	String get inboxEmptyHint => 'Approvals waiting for a decision will appear here.';
+}
+
+// Path: documents.slash
+class Translations$documents$slash$en {
+	Translations$documents$slash$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Text'
+	String get text => 'Text';
+
+	/// en: 'Heading 1'
+	String get h1 => 'Heading 1';
+
+	/// en: 'Heading 2'
+	String get h2 => 'Heading 2';
+
+	/// en: 'Heading 3'
+	String get h3 => 'Heading 3';
+
+	/// en: 'Bulleted list'
+	String get bulleted => 'Bulleted list';
+
+	/// en: 'Numbered list'
+	String get numbered => 'Numbered list';
+
+	/// en: 'Quote'
+	String get quote => 'Quote';
 }
 
 // Path: chat.tool.kind
@@ -2380,6 +2412,13 @@ extension on Translations {
 			'documents.pickHint' => 'Choose a document or skill on the left to read or edit it.',
 			'documents.loadFailed' => 'Couldn\'t open this',
 			'documents.emptyDoc' => 'This document is empty.',
+			'documents.slash.text' => 'Text',
+			'documents.slash.h1' => 'Heading 1',
+			'documents.slash.h2' => 'Heading 2',
+			'documents.slash.h3' => 'Heading 3',
+			'documents.slash.bulleted' => 'Bulleted list',
+			'documents.slash.numbered' => 'Numbered list',
+			'documents.slash.quote' => 'Quote',
 			'markdown.imageNotLoaded' => 'image not loaded',
 			'attach.unavailable' => 'Unavailable',
 			'attach.retry' => 'Tap to retry',

@@ -64,6 +64,15 @@ abstract final class AnIcons {
   static final IconData turnEnd = _thin(LucideIcons.flag);
   static final IconData terminal = _thin(LucideIcons.squareTerminal);
 
+  // ── editor / slash block menu (AnDocEditor `/`) 编辑器斜杠块菜单 ──
+  static final IconData paragraph = _thin(LucideIcons.type); // Text block 段落
+  static final IconData heading1 = _thin(LucideIcons.heading1);
+  static final IconData heading2 = _thin(LucideIcons.heading2);
+  static final IconData heading3 = _thin(LucideIcons.heading3);
+  static final IconData listBulleted = _thin(LucideIcons.list);
+  static final IconData listNumbered = _thin(LucideIcons.listOrdered);
+  static final IconData quote = _thin(LucideIcons.textQuote);
+
   // ── composer (chat input) ──
   static final IconData mention = _thin(LucideIcons.atSign); // @ mention trigger @提及
   static final IconData attach = _thin(LucideIcons.paperclip); // 📎 attach a file 附件
@@ -117,6 +126,9 @@ abstract final class AnIcons {
     'mcp': mcp, 'skill': skill, 'doc': doc, 'document': doc, 'entities': entities, // 'document' = backend EntityKind wire 后端实体 kind 线缆值
     'chat': chat, 'conversation': chat, 'scheduler': scheduler, 'gear': gear,
     'reasoning': reasoning, 'tool': tool, 'subagent': subagent, 'turnend': turnEnd, 'terminal': terminal,
+    // editor slash block menu 斜杠块菜单
+    'paragraph': paragraph, 'heading1': heading1, 'heading2': heading2, 'heading3': heading3,
+    'listBulleted': listBulleted, 'listNumbered': listNumbered, 'quote': quote,
     'run': run, 'enter': enter, 'stop': stop, 'spin': spin, 'forge': forge,
     'edit': edit, 'trash': trash, 'web': web, 'iterate': iterate, 'history': history, 'diff': diff,
     'empty': empty, 'error': error,
