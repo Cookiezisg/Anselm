@@ -42,7 +42,7 @@ audience: [human, ai]
 
 | 设施 | 位置 | 职责 |
 |---|---|---|
-| **AnIcons** | `core/ui/icons.dart` | 语义图标单源:领域键 → Lucide 字形(`lucide_icons_flutter`)。渲染**细字重族 `Lucide300`**(≈demo 1.7 笔画,默认 `Lucide` 偏粗;包内各字重共享码点,改一处 `_family` 即换粗细)。具名字段(`AnIcons.agent`…)+ 数据驱动 `byKey`/`toolIcon`/`node`;未知 → `fallback`。移植 `icons.js` + `entity-kinds.js`。 |
+| **AnIcons** | `core/ui/icons.dart` | 语义图标单源:领域键 → Lucide 字形(`lucide_icons_flutter`)。渲染**细字重族 `Lucide300`**(≈demo 1.7 笔画,默认 `Lucide` 偏粗;包内各字重共享码点,改一处 `_family` 即换粗细)。具名字段(`AnIcons.agent`…)+ 数据驱动 `byKey`/`toolIcon`/`node`;未知 → `fallback`。**`toolIcon` 精确表(WRK-053 §3 收起行族字形)**:精确表钉死一切不规则工具(fs/shell/exec/humanloop/memory/mcp/introspection…),规整 entity-CRUD 由规则解析——**建/看=实体形、删=墓碑、回滚=history、搜=search、执行档案(executions/calls/flowruns/firings/activations)=history**;每个注册工具都有意图字形,扳手兜底只留真未知名(`icons_test.dart` 全 116 工具完备性守卫:漏配即红)。移植 `icons.js` + `entity-kinds.js`。 |
 | **AnBrandIcon** | `core/ui/an_brand_icon.dart` | 品牌/项目图标三源:`.anselm`(随包 app 标 SVG,细边描 squircle 轮廓)· `.svg`(内联 logo 串,currentColor→ink)· `.glyph`(字母圆角底兜底);`size` sm/md/lg + `managed`(accent 底)/`elevated`(浮起)。`flutter_svg` 渲染 `assets/brand/anselm-icon.svg`。 |
 | **AnStatus / AnTone** | `core/model/status_state.dart` | 状态折叠单源(纯 Dart):后端任意状态字串 → 5 通用态(idle/run/wait/err/done)+ 语义 `tone`(err→danger/wait→warn/done→ok/run→accent/idle→none)。徽章/点不再各写 if 链。移植 `state-model.js`。 |
 | **AnInteractive** | `core/ui/an_interactive.dart` | 交互基座:hover/focus/pressed/disabled 统一态(`Set<WidgetState>` 喂 builder),指针 + 键盘(Enter/Space)激活;**禁用时不可聚焦、指针/按键都不激活**(对齐 demo disabled-passthrough 门)。取代手搓 MouseRegion。 |

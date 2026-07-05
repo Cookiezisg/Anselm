@@ -64,6 +64,25 @@ abstract final class AnIcons {
   static final IconData turnEnd = _thin(LucideIcons.flag);
   static final IconData terminal = _thin(LucideIcons.squareTerminal);
 
+  // ── tool-call verb glyphs (the collapsed-row identity per tool family, WRK-053 §3) ──
+  // 工具卡收起行族字形:builds/get 用实体形、lifecycle 用动作形、run-logs 用 history、humanloop/memory/mcp 专属。
+  static final IconData folder = _thin(LucideIcons.folder); // LS / directory listing 目录
+  static final IconData refresh = _thin(LucideIcons.refreshCw); // restart_handler / reconnect_mcp 重启/重连
+  static final IconData move = _thin(LucideIcons.move); // move_document 移动
+  static final IconData download = _thin(LucideIcons.download); // WebFetch / install_mcp_server 抓取/安装
+  static final IconData layers = _thin(LucideIcons.layers); // stage_workflow 暂存版本
+  static final IconData pause = _thin(LucideIcons.circlePause); // deactivate_workflow 停用
+  static final IconData ban = _thin(LucideIcons.ban); // kill_workflow / KillShell 强杀
+  static final IconData store = _thin(LucideIcons.store); // list_mcp_marketplace 市场
+  static final IconData unplug = _thin(LucideIcons.unplug); // uninstall_mcp_server 卸载
+  static final IconData model = _thin(LucideIcons.cpu); // get_model_config 模型配置
+  static final IconData capability = _thin(LucideIcons.badgeCheck); // capability_check_workflow 能力体检
+  static final IconData relations = _thin(LucideIcons.share2); // get_relations 依赖关系
+  static final IconData memory = _thin(LucideIcons.bookMarked); // write/read_memory 记忆
+  static final IconData ask = _thin(LucideIcons.messageCircleQuestion); // ask_user 提问
+  static final IconData gavel = _thin(LucideIcons.gavel); // decide_approval 裁决
+  static final IconData inbox = _thin(LucideIcons.inbox); // list_approval_inbox 审批收件箱
+
   // ── editor / slash block menu (AnDocEditor `/`) 编辑器斜杠块菜单 ──
   static final IconData paragraph = _thin(LucideIcons.type); // Text block 段落
   static final IconData heading1 = _thin(LucideIcons.heading1);
@@ -141,30 +160,86 @@ abstract final class AnIcons {
   /// Resolve a semantic key string to a glyph (unknown → [fallback]). 语义键字串 → 字形。
   static IconData byKey(String key) => _byKey[key] ?? fallback;
 
-  /// Exact tool-name → icon overrides (the rest are inferred by [toolIcon]). 工具名精确映射。
+  /// Exact tool-name → glyph, keyed lowercase. Covers every IRREGULAR tool (whose glyph isn't
+  /// derivable from a create/edit/get/delete/revert × entity pattern) — the regular entity-CRUD
+  /// families are resolved by rule in [toolIcon]. Real backend tool names (WRK-057 census §6),
+  /// not the old demo aliases. 精确表:钉死一切不规则工具;规整 entity-CRUD 由 [toolIcon] 规则解析。
   static final Map<String, IconData> _toolExact = {
-    'run_function': action, 'call_handler': handler, 'invoke_agent': agent, 'trigger_workflow': workflow,
-    'run_shell': tool, 'read_file': doc, 'write_file': edit, 'edit_file': edit,
-    'web_search': web, 'web_fetch': web, 'search_blocks': search,
+    // F1 fs-ops:读=文档 / 写=笔 / 改=diff(编辑即呈现变化)
+    'read': doc, 'write': edit, 'edit': diff,
+    // F2 fs-search:pattern 检索=search / LS=目录
+    'glob': search, 'grep': search, 'ls': folder,
+    // F3 shell:终端 / 后台输出=终端 / 杀=禁
+    'bash': terminal, 'bashoutput': terminal, 'killshell': ban,
+    // F8 exec:执行动词(标的实体形,replay=history)
+    'run_function': run, 'call_handler': handler, 'invoke_agent': agent,
+    'trigger_workflow': workflow, 'fire_trigger': trigger, 'replay_flowrun': history,
+    // workflow 生命周期:暂存=层 / 激活=运行 / 停用=暂停 / 杀=禁 / 能力体检=徽
+    'stage_workflow': layers, 'activate_workflow': run, 'deactivate_workflow': pause,
+    'kill_workflow': ban, 'capability_check_workflow': capability,
+    // lifecycle 杂项:重启=刷新 / 激活技能=运行 / 移动文档=移动
+    'restart_handler': refresh, 'activate_skill': run, 'move_document': move,
+    // F6 内容读取:文档=文档形 / 附件=文件形
+    'read_document': doc, 'read_attachment': file,
+    // F10 web:搜网=地球 / 抓取=下载
+    'websearch': web, 'webfetch': download,
+    // F11 memory-todo:记/忆=书签 / 忘=删 / 待办=清单
+    'write_memory': memory, 'read_memory': memory, 'forget_memory': trash,
+    'todo_write': todo, 'todo_read': todo,
+    // F12 introspection:依赖=关系 / 找工具=search / 模型配置=芯片
+    'get_relations': relations, 'search_tools': search, 'get_model_config': model,
+    // F13 mcp-mgmt:市场=店 / 装=下载 / 卸=拔插 / 重连=刷新
+    'list_mcp_marketplace': store, 'install_mcp_server': download,
+    'uninstall_mcp_server': unplug, 'reconnect_mcp': refresh,
+    // F15 subagent:派遣=分叉 / 看轨迹=history
+    'subagent': subagent, 'get_subagent_trace': history,
+    // F16 humanloop:提问=气泡 / 裁决=法槌 / 收件箱=收件箱
+    'ask_user': ask, 'decide_approval': gavel, 'list_approval_inbox': inbox,
+    // F17 conversation + misc:管理/列对话=对话 / 块检索=search / 列附件·文档
+    'manage_conversation': chat, 'list_conversations': chat,
+    'search_blocks': search, 'list_attachments': file, 'list_documents': doc,
   };
 
-  /// Tool name → icon. Exact match first, then keyword inference (mirrors demo `toolIcon`); the
-  /// block-tree shows a per-tool glyph so a `read_file` call reads differently from a `web_fetch`.
-  /// 工具名 → 图标:先精确、后关键字推断(镜像 demo toolIcon)。
+  /// The entity noun a regular tool name ends with → its glyph (null = not an entity-CRUD tool).
+  /// 规整工具名的尾实体名词 → 字形(null=非 entity-CRUD)。
+  static IconData? _entityGlyph(String n) {
+    if (n.endsWith('_function')) return function;
+    if (n.endsWith('_handler')) return handler;
+    if (n.endsWith('_agent')) return agent;
+    if (n.endsWith('_workflow')) return workflow;
+    if (n.endsWith('_control')) return control;
+    if (n.endsWith('_approval')) return approval;
+    if (n.endsWith('_trigger') || n.endsWith('_triggers')) return trigger;
+    if (n.endsWith('_document') || n.endsWith('_documents')) return doc;
+    if (n.endsWith('_skill')) return skill;
+    return null;
+  }
+
+  /// Tool name → glyph. Exact table first (irregulars), then structured rules for the regular
+  /// entity-CRUD families: build/get show the ENTITY, delete/revert/search show the ACTION, and
+  /// run-log archives (executions / calls / flowruns / firings / activations) read as history.
+  /// Every registered tool lands an intentional glyph — the wrench default is only for genuinely
+  /// unknown names. 工具名 → 字形:精确表打头(不规则),其余按规则(建/看=实体、删/回滚/搜=动作、
+  /// 执行档案=history);每个注册工具都有意图字形,扳手兜底只留给真未知名。
   static IconData toolIcon(String name) {
     final n = name.toLowerCase();
     final exact = _toolExact[n];
     if (exact != null) return exact;
-    if (RegExp(r'shell|bash|exec').hasMatch(n)) return tool;
-    if (n.contains('search')) return search;
-    if (RegExp(r'file|read|write|doc').hasMatch(n)) return doc;
-    if (RegExp(r'web|fetch|http|url').hasMatch(n)) return web;
-    if (n.contains('function')) return function;
-    if (n.contains('handler')) return handler;
-    if (n.contains('agent')) return agent;
-    if (RegExp(r'workflow|trigger').hasMatch(n)) return workflow;
-    if (RegExp(r'create|edit|build|forge').hasMatch(n)) return forge;
-    if (n.startsWith('mcp')) return mcp;
+    if (n.startsWith('mcp__')) return mcp; // dynamic MCP tool 动态 MCP 工具
+    // Run-log archives read as history — checked BEFORE the entity rule so `get_function_execution`
+    // isn't captured by the `_function` suffix. 执行档案先判,免被实体后缀截胡。
+    if (RegExp(r'execution|_call|flowrun|firing|activation').hasMatch(n)) return history;
+    final ent = _entityGlyph(n);
+    if (ent != null) {
+      if (n.startsWith('delete_')) return trash;
+      if (n.startsWith('revert_')) return history;
+      if (n.startsWith('search_') || n.startsWith('list_')) return search;
+      if (n.startsWith('update_')) return edit;
+      return ent; // create_ / edit_ / get_ 建/改/看 → 实体形
+    }
+    // Unknown tool fallbacks (MCP dynamic already handled above). 未知兜底。
+    if (n.contains('search') || n.contains('list')) return search;
+    if (RegExp(r'create|edit|build|forge|update').hasMatch(n)) return edit;
     return tool;
   }
 
