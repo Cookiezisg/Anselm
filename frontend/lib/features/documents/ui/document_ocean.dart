@@ -6,13 +6,13 @@ import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
 import '../../../core/entity/mention_source.dart';
+import '../../../core/overlay/an_overlay.dart';
 import '../../../core/perf/debouncer.dart';
 import '../../../core/ui/an_deferred_loading.dart';
 import '../../../core/ui/an_doc_editor.dart';
-import '../../../core/ui/an_markdown.dart';
-import '../../../core/ui/an_page.dart';
 import '../../../core/ui/an_skeleton.dart';
 import '../../../core/ui/an_state.dart';
+import '../../../core/ui/an_toast.dart';
 import '../../../i18n/strings.g.dart';
 import '../data/document_repository.dart';
 import '../state/document_state.dart';
@@ -31,44 +31,10 @@ class DocumentOcean extends ConsumerWidget {
     if (selected == null) {
       return AnState(kind: AnStateKind.empty, title: t.documents.pickTitle, hint: t.documents.pickHint);
     }
-    // Key the doc edit view by id so switching documents resets the editor + its debouncer cleanly. 按 id 键控,换文档即重建。
+    // Key the edit views by id so switching resets the editor + its debouncer cleanly. 按 id 键控,换选即重建。
     return selected.isSkill
-        ? _skill(context, ref, selected.id)
+        ? _SkillEditView(key: ValueKey('skill:${selected.id}'), name: selected.id)
         : _DocEditView(key: ValueKey(selected.id), id: selected.id);
-  }
-
-  Widget _skill(BuildContext context, WidgetRef ref, String name) {
-    final t = context.t;
-    final c = context.colors;
-    return ref.watch(openSkillProvider(name)).when(
-          loading: () => const AnDeferredLoading(child: AnSkeleton.lines(8)),
-          error: (_, _) => AnState(kind: AnStateKind.error, title: t.documents.loadFailed, hint: t.documents.errorHint),
-          data: (skill) => AnPage(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _title(context, skill.name),
-                const SizedBox(height: AnFlow.headBodyTight), // title → meta (8) 标题→meta
-                // A compact frontmatter line — the full structured properties panel is P4. 紧凑 frontmatter 摘要(完整面板 P4)。
-                Text(_skillMeta(skill), style: AnText.meta.copyWith(color: c.inkFaint)),
-                const SizedBox(height: AnFlow.headBody), // meta → body (12) meta→正文
-                if (skill.body.trim().isEmpty)
-                  AnState(kind: AnStateKind.empty, size: AnStateSize.inset, title: t.documents.emptyDoc)
-                else
-                  AnMarkdown(skill.body),
-              ],
-            ),
-          ),
-        );
-  }
-
-  String _skillMeta(Skill skill) {
-    final parts = <String>[
-      if (skill.context.isNotEmpty) skill.context,
-      if (skill.source.isNotEmpty) skill.source,
-      if (skill.frontmatter.allowedTools.isNotEmpty) '${skill.frontmatter.allowedTools.length} tools',
-    ];
-    return parts.join(' · ');
   }
 
   static Widget _title(BuildContext context, String text) =>
@@ -166,6 +132,118 @@ class _DocEditViewState extends ConsumerState<_DocEditView> {
                         error: (_, _) => _editor(t, doc.content),
                         data: (markdown) => _editor(t, markdown),
                       ),
+                ),
+              ],
+            );
+          },
+        );
+  }
+}
+
+/// The editable SKILL view — the slug title + a compact frontmatter meta line over the [AnDocEditor]
+/// editing the body. A save is a PUT full-replace, so the CURRENT frontmatter is fetched right before the
+/// write and carried through (read-modify-write — the right-island properties panel is a second writer on
+/// the same skill and must not be stomped with this view's mount-time snapshot). No @ mentions here: a
+/// skill body is a prompt template, and the backend only parses `[[id]]` wikilinks on DOCUMENTS (no link
+/// edges for skills), so an inserted chip would collapse into inert text. The `/` block menu stays.
+///
+/// skill 可编辑视图:slug 标题 + 紧凑 frontmatter 摘要行 + AnDocEditor 编 body。存=PUT 全覆盖,故写前取
+/// **当前** frontmatter 带上(读-改-写——右岛属性面板是同一 skill 的第二写者,不能被本视图的挂载快照踩掉)。
+/// 不接 @ 提及:skill body 是提示词模板,后端只对 document 解析 `[[id]]` 建边(skill 无),chip 会塌成死文本。
+/// `/` 块菜单保留。
+class _SkillEditView extends ConsumerStatefulWidget {
+  const _SkillEditView({required this.name, super.key});
+
+  final String name;
+
+  @override
+  ConsumerState<_SkillEditView> createState() => _SkillEditViewState();
+}
+
+class _SkillEditViewState extends ConsumerState<_SkillEditView> {
+  final _save = Debouncer(const Duration(milliseconds: 600));
+
+  @override
+  void dispose() {
+    _save.dispose();
+    super.dispose();
+  }
+
+  void _onChanged(String markdown) => _save.run(() async {
+        if (!mounted) return;
+        final repo = ref.read(documentsRepositoryProvider);
+        try {
+          // Read-modify-write: the properties panel may have saved newer frontmatter than this view's
+          // snapshot — fetch it fresh, then PUT the whole set with the new body. 写前取最新 frontmatter。
+          final current = await repo.getSkill(widget.name);
+          final f = current.frontmatter;
+          // description/context fall back to the top-level mirrors (the backend keeps both in sync; data
+          // that only filled the mirror must not be blanked by the PUT). description/context 回落顶层镜像。
+          await repo.replaceSkill(widget.name, {
+            'description': f.description.isEmpty ? current.description : f.description,
+            'body': markdown,
+            'allowedTools': f.allowedTools,
+            'context': f.context.isEmpty ? current.context : f.context,
+            'agent': f.agent,
+            'arguments': f.arguments,
+            'disableModelInvocation': f.disableModelInvocation,
+            'userInvocable': f.userInvocable,
+          });
+        } catch (_) {
+          if (mounted) {
+            ref.read(overlayProvider.notifier).showToast(context.t.documents.actionFailed, tone: AnToastTone.danger);
+          }
+        }
+      });
+
+  String _meta(Skill skill) {
+    final parts = <String>[
+      if (skill.context.isNotEmpty) skill.context,
+      if (skill.source.isNotEmpty) skill.source,
+      if (skill.frontmatter.allowedTools.isNotEmpty) '${skill.frontmatter.allowedTools.length} tools',
+    ];
+    return parts.join(' · ');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t;
+    final c = context.colors;
+    return ref.watch(openSkillProvider(widget.name)).when(
+          loading: () => const AnDeferredLoading(child: AnSkeleton.lines(8)),
+          error: (_, _) => AnState(kind: AnStateKind.error, title: t.documents.loadFailed, hint: t.documents.errorHint),
+          data: (skill) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Title + meta, LEFT-aligned to the editor's reading column (same chrome as the doc view).
+                // 标题+meta 左对齐编辑器列(与文档视图同 chrome)。
+                Padding(
+                  padding: const EdgeInsets.only(top: AnFlow.headingTop),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: AnSize.content),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: AnInset.pageX),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            DocumentOcean._title(context, skill.name),
+                            const SizedBox(height: AnFlow.headBodyTight),
+                            Text(_meta(skill), style: AnText.meta.copyWith(color: c.inkFaint)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AnFlow.headBody),
+                Expanded(
+                  child: AnDocEditor(
+                    initialMarkdown: skill.body,
+                    onChanged: _onChanged,
+                    slashLabels: _slashLabels(t),
+                  ),
                 ),
               ],
             );

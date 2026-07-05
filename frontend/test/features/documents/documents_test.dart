@@ -168,6 +168,39 @@ void main() {
       expect(find.byType(AnDocEditor), findsOneWidget);
       expect(find.text('Getting Started'), findsOneWidget); // the title bar (doc name)
     });
+
+    testWidgets('a selected skill opens editable; a body edit PUTs keeping the frontmatter', (tester) async {
+      BlinkController.indeterminateAnimationsEnabled = false;
+      addTearDown(() => BlinkController.indeterminateAnimationsEnabled = true);
+      final repo = _repo();
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          documentsRepositoryProvider.overrideWithValue(repo),
+          selectedDocProvider.overrideWith(() => _PinnedSelection((isSkill: true, id: 'commit-helper'))),
+          mentionSourceProvider.overrideWithValue(_FakeMentions()),
+        ],
+        child: TranslationProvider(
+          child: MaterialApp(theme: AnTheme.light(), home: const Scaffold(body: DocumentOcean())),
+        ),
+      ));
+      await tester.pump();
+      await tester.pump();
+      expect(find.byType(AnDocEditor), findsOneWidget); // the skill body is editable now. skill 正文可编。
+
+      // Type into the body, wait past the 600ms save debounce: the PUT must carry the body edit AND the
+      // untouched frontmatter (read-modify-write — the inspector is a second writer). 编辑落 PUT、frontmatter 不丢。
+      final nodeId = SuperEditorInspector.findDocument()!.first.id;
+      final len = SuperEditorInspector.findTextInComponent(nodeId).length;
+      await tester.placeCaretInParagraph(nodeId, len);
+      await tester.typeImeText('!');
+      await tester.pump(const Duration(milliseconds: 700));
+      await tester.pumpAndSettle();
+
+      final after = await repo.getSkill('commit-helper');
+      expect(after.body, contains('!'));
+      expect(after.description, 'x'); // untouched frontmatter fields survive. 未动的 frontmatter 字段存活。
+      expect(after.context, 'inline');
+    });
   });
 
   group('planDocMove', () {

@@ -309,13 +309,16 @@ class _SkillFormState extends ConsumerState<_SkillForm> {
     super.dispose();
   }
 
-  // A skill write is a PUT of the WHOLE frontmatter — the untouched body is carried through so it isn't
-  // reset. On success refresh the skill list. skill 写=整套 frontmatter PUT(带上原 body 免被清);成功刷列表。
+  // A skill write is a PUT of the WHOLE frontmatter, and the body must ride along or the full-replace
+  // resets it. READ-MODIFY-WRITE: fetch the CURRENT body right before the PUT — the center editor may
+  // have saved a newer body than this form's mount-time snapshot (two writers, one document). 整套 PUT;
+  // body 读-改-写:PUT 前取**当前** body——中心编辑器可能已存了比本表单快照更新的正文(双写者一文档)。
   void _put() => _save.run(() async {
         try {
+          final current = await _repo.getSkill(widget.skill.name);
           await _repo.replaceSkill(widget.skill.name, {
             'description': _desc.text.trim(),
-            'body': widget.skill.body,
+            'body': current.body,
             'allowedTools': _tools,
             'context': _context,
             'agent': _agent.text.trim(),
