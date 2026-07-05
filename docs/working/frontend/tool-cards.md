@@ -15,6 +15,7 @@ audience: [human, ai]
 > (后端线缆逐帧真相 / 业界模式目录[Vercel AI Elements 7 态机、Cursor/Claude Code/ChatGPT agent 等] /
 > 17+1 工具分类学 / demo 仅当块型清单**不当设计参照**——用户明确定调),用户 2026-07-03 拍板四点(§1)。
 > 建完 → 结论提取进 `references/frontend/features/chat.md` + `design-system.md`,本页归 archive。母文档 [`chat.md`](chat.md)。
+> **完美态蓝图已出**(2026-07-06,113 工具逐个设计 + 50 新原语 + B1–B7 顺序提案,**待拍板**):[`tool-card-blueprints.md`](tool-card-blueprints.md)(WRK-056)+ 线缆普查底册 [`tool-card-census.md`](tool-card-census.md)(WRK-057);拍板后本页 §1/§6 按结果整体重述。
 
 ## 1. 已拍板决策(2026-07-03)
 
