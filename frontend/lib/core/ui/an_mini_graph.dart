@@ -28,6 +28,7 @@ class AnMiniGraph extends StatelessWidget {
     this.height = _defaultHeight,
     this.framed = true,
     this.onNodeTap,
+    this.revealProgress,
     super.key,
   });
 
@@ -40,6 +41,13 @@ class AnMiniGraph extends StatelessWidget {
 
   /// A node tap (deep-link to the workflow editor node); null = non-interactive. 节点点击(深链);null=不可点。
   final ValueChanged<String>? onNodeTap;
+
+  /// The settle-then-replay GROWTH frame (WRK-056 #23): 0 = nothing yet, 1 = fully shown. As it sweeps
+  /// 0→1 the geometry stays FROZEN (laid out once) and nodes fade+scale in by topological rank, edges
+  /// draw in after their source lands. This is the PURE render frame — [AnMiniGraphGrowth] is the driver
+  /// that animates it; null = a static, fully-shown graph. 生长帧(几何冻结、按 rank 浮现+边 draw-in);
+  /// 纯渲染帧,驱动在 AnMiniGraphGrowth;null=静态整图。
+  final double? revealProgress;
 
   static const double _defaultHeight = 220;
 
@@ -56,6 +64,9 @@ class AnMiniGraph extends StatelessWidget {
       return framed ? _frame(context, body) : body;
     }
     final layout = layoutGraph(graph, dir: dir);
+    final ranks = graphRanks(layout);
+    final maxRank = ranks.values.isEmpty ? 0 : ranks.values.reduce((a, b) => a > b ? a : b);
+    final progress = revealProgress ?? 1.0;
     final scene = MediaQuery.withNoTextScaling(
       child: SizedBox(
         width: layout.size.width,
@@ -65,7 +76,16 @@ class AnMiniGraph extends StatelessWidget {
           children: [
             Positioned.fill(
               child: IgnorePointer(
-                child: CustomPaint(painter: _MiniEdgePainter(layout: layout, color: context.graphColors.edge, back: c.accent)),
+                child: CustomPaint(
+                  painter: _MiniEdgePainter(
+                    layout: layout,
+                    color: context.graphColors.edge,
+                    back: c.accent,
+                    ranks: ranks,
+                    maxRank: maxRank,
+                    progress: progress,
+                  ),
+                ),
               ),
             ),
             for (final n in graph.nodes)
@@ -75,7 +95,10 @@ class AnMiniGraph extends StatelessWidget {
                   top: rect.top,
                   width: rect.width,
                   height: rect.height,
-                  child: _MiniNode(node: n, onTap: onNodeTap == null ? null : () => onNodeTap!(n.id)),
+                  child: _revealed(
+                    nodeRevealAt(ranks[n.id] ?? 0, maxRank, progress),
+                    _MiniNode(node: n, onTap: onNodeTap == null ? null : () => onNodeTap!(n.id)),
+                  ),
                 ),
           ],
         ),
@@ -106,6 +129,121 @@ class AnMiniGraph extends StatelessWidget {
       child: child,
     );
   }
+}
+
+/// The DRIVER for [AnMiniGraph]'s settle-then-replay growth: on first mount it animates the reveal 0→1
+/// ONCE (duration ≈ ranks × 250ms, capped 3s), then rests at the settled graph. Under reduced motion it
+/// jumps straight to the settled graph (no ticker) — the growth is decoration, the graph is the info
+/// (WCAG 2.3.3). The tool card mounts this once the workflow's op stream has settled.
+///
+/// AnMiniGraph 生长驱动:首次挂载 0→1 播一次(rank×250ms 封顶 3s)后停在终态;reduced 直落终态(无
+/// ticker)——生长是装饰、图才是信息。tool 卡在 workflow op 流落定后挂载它。
+class AnMiniGraphGrowth extends StatefulWidget {
+  const AnMiniGraphGrowth({
+    required this.graph,
+    this.dir = GraphDirection.lr,
+    this.height = AnMiniGraph._defaultHeight,
+    this.framed = true,
+    this.onNodeTap,
+    super.key,
+  });
+
+  final Graph graph;
+  final GraphDirection dir;
+  final double height;
+  final bool framed;
+  final ValueChanged<String>? onNodeTap;
+
+  @override
+  State<AnMiniGraphGrowth> createState() => _AnMiniGraphGrowthState();
+}
+
+class _AnMiniGraphGrowthState extends State<AnMiniGraphGrowth>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+  bool _started = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Duration scales with the number of columns (each rank gets ~250ms), capped at 3s. 时长随列数。
+    final rankCount = widget.graph.nodes.isEmpty ? 1 : graphRanks(layoutGraph(widget.graph, dir: widget.dir)).values.fold<int>(0, (m, r) => r > m ? r : m) + 1;
+    final ms = (rankCount * 250).clamp(250, 3000);
+    _c = AnimationController(vsync: this, duration: Duration(milliseconds: ms));
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+    if (AnMotionPref.reducedOrAssistive(context)) {
+      _c.value = 1.0; // settled frame, no motion 终态帧、无动效
+    } else {
+      _c.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, _) => AnMiniGraph(
+        graph: widget.graph,
+        dir: widget.dir,
+        height: widget.height,
+        framed: widget.framed,
+        onNodeTap: widget.onNodeTap,
+        revealProgress: _c.value,
+      ),
+    );
+  }
+}
+
+// ── settle-then-replay growth (WRK-056 #23) ──────────────────────────────────
+
+/// Each node's topological RANK = its layout column (distinct x-positions, left→right from 0). The
+/// growth reveals rank by rank. 节点拓扑 rank = 布局列(相异 x,从左到右自 0)。
+Map<String, int> graphRanks(GraphLayout layout) {
+  final lefts = <double>{for (final r in layout.nodeRects.values) _q(r.left)}.toList()..sort();
+  final rankOf = {for (var k = 0; k < lefts.length; k++) lefts[k]: k};
+  return {for (final e in layout.nodeRects.entries) e.key: rankOf[_q(e.value.left)] ?? 0};
+}
+
+// Quantize x so tiny float drift within a column groups to one rank. 量化 x,同列微差归一 rank。
+double _q(double x) => (x / 4).roundToDouble();
+
+/// The reveal amount (0..1) of a node at [rank] when the growth is at [progress] — the sweep passes
+/// left→right so rank r lands around progress r/(maxRank+1), over a one-step window. progress ≥ 1 = full.
+/// 节点浮现量:progress 从左扫到右,rank r 约在 r/(maxRank+1) 落定。
+double nodeRevealAt(int rank, int maxRank, double progress) {
+  if (progress >= 1.0) return 1.0;
+  final span = maxRank + 1;
+  return (progress * span - rank).clamp(0.0, 1.0);
+}
+
+/// The draw-in fraction (0..1) of an edge whose SOURCE is at [fromRank] — an edge draws only after its
+/// source node has landed (a small lead keeps the line from outrunning the node). 边 draw-in:源节点落定后才画。
+double edgeDrawAt(int fromRank, int maxRank, double progress) {
+  if (progress >= 1.0) return 1.0;
+  final span = maxRank + 1;
+  return (progress * span - fromRank - 0.4).clamp(0.0, 1.0);
+}
+
+/// Wrap a node in the reveal transform: fade + a subtle scale-up (0.9→1). At r≥1 the child is returned
+/// untouched (no wasted Opacity/Transform layers on a settled graph). 浮现变换:淡入+微放大;r≥1 原样返回。
+Widget _revealed(double r, Widget child) {
+  if (r >= 1.0) return child;
+  return Opacity(
+    opacity: r,
+    child: Transform.scale(scale: 0.9 + 0.1 * r, child: child),
+  );
 }
 
 /// The 5-colour node-kind family (blueprint): trigger violet / action accent / agent teal / control
@@ -167,31 +305,51 @@ class _MiniNode extends StatelessWidget {
 /// points (back edges in accent). The mini omits the editor's rounded-corner + arrowhead detail; the
 /// routing itself is identical. 正交边路由(直折线穿路由点;回边 accent)。mini 省圆角/箭头细节,路由本身一致。
 class _MiniEdgePainter extends CustomPainter {
-  _MiniEdgePainter({required this.layout, required this.color, required this.back});
+  _MiniEdgePainter({
+    required this.layout,
+    required this.color,
+    required this.back,
+    required this.ranks,
+    required this.maxRank,
+    required this.progress,
+  });
 
   final GraphLayout layout;
   final Color color;
   final Color back;
+  final Map<String, int> ranks;
+  final int maxRank;
+  final double progress;
 
   @override
   void paint(Canvas canvas, Size size) {
     for (final route in layout.routes) {
       if (route.points.length < 2) continue;
+      // Draw-in: an edge appears only after its source node lands (growth). 边随源节点落定后 draw-in。
+      final frac = edgeDrawAt(ranks[route.edge.from] ?? 0, maxRank, progress);
+      if (frac <= 0.0) continue;
       final paint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = AnSize.hairline * 1.5
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round
         ..color = route.isBack ? back : color;
-      final path = Path()..moveTo(route.points.first.dx, route.points.first.dy);
+      final full = Path()..moveTo(route.points.first.dx, route.points.first.dy);
       for (final p in route.points.skip(1)) {
-        path.lineTo(p.dx, p.dy);
+        full.lineTo(p.dx, p.dy);
       }
-      canvas.drawPath(path, paint);
-      // A small arrowhead at the destination so direction reads. 终点小箭头,方向可读。
-      final a = route.points[route.points.length - 2];
-      final b = route.points.last;
-      _arrowhead(canvas, a, b, paint..style = PaintingStyle.fill);
+      if (frac >= 1.0) {
+        canvas.drawPath(full, paint);
+        final a = route.points[route.points.length - 2];
+        final b = route.points.last;
+        _arrowhead(canvas, a, b, paint..style = PaintingStyle.fill);
+      } else {
+        // Partial: extract the leading fraction of the routed path (the line grows toward the target).
+        // 部分:抽路径前段(线朝目标生长);未到目标前不画箭头。
+        for (final metric in full.computeMetrics()) {
+          canvas.drawPath(metric.extractPath(0, metric.length * frac), paint);
+        }
+      }
     }
   }
 
@@ -213,5 +371,5 @@ class _MiniEdgePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_MiniEdgePainter old) =>
-      old.layout != layout || old.color != color || old.back != back;
+      old.layout != layout || old.color != color || old.back != back || old.progress != progress;
 }

@@ -1,5 +1,6 @@
 import 'package:anselm/core/contract/entities/values.dart';
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/graph/graph_model.dart';
 import 'package:anselm/core/ui/an_mini_graph.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -59,5 +60,53 @@ void main() {
     final g = Graph(nodes: const [Node(id: 'x', kind: NodeKind.unknown, ref: 'mystery')]);
     await _pump(tester, AnMiniGraph(graph: g));
     expect(find.text('mystery'), findsOneWidget);
+  });
+
+  // ── settle-then-replay growth (B2.4) ──
+
+  test('graphRanks assigns a column index per node (left→right)', () {
+    final layout = layoutGraph(_graph);
+    final ranks = graphRanks(layout);
+    expect(ranks['on_tick'], 0); // trigger = first column
+    expect(ranks['fetch'], 1);
+    expect(ranks['summarize'], 2);
+  });
+
+  test('nodeRevealAt sweeps left→right; ≥1 progress is fully shown', () {
+    expect(nodeRevealAt(0, 2, 0.0), 0.0);
+    expect(nodeRevealAt(0, 2, 1.0), 1.0);
+    // rank 0 lands before rank 2 as progress grows. 越左越先浮现。
+    expect(nodeRevealAt(0, 2, 0.4), greaterThan(nodeRevealAt(2, 2, 0.4)));
+    expect(nodeRevealAt(2, 2, 0.3), 0.0); // the last rank hasn't started at 0.3
+  });
+
+  test('edgeDrawAt trails its source node (a small lead)', () {
+    expect(edgeDrawAt(0, 2, 0.0), 0.0);
+    expect(edgeDrawAt(0, 2, 1.0), 1.0);
+    // An edge from a later rank draws later than one from an earlier rank. 源越靠后越晚画。
+    expect(edgeDrawAt(0, 2, 0.5), greaterThanOrEqualTo(edgeDrawAt(1, 2, 0.5)));
+  });
+
+  testWidgets('revealProgress 0 makes every node fully transparent (present but hidden)', (tester) async {
+    await _pump(tester, AnMiniGraph(graph: _graph, revealProgress: 0.0));
+    // The nodes are in the tree (for a stable layout) but at opacity 0. 节点在树里但透明。
+    final opacities = tester.widgetList<Opacity>(find.byType(Opacity)).where((o) => o.opacity == 0.0);
+    expect(opacities.length, greaterThanOrEqualTo(3));
+  });
+
+  testWidgets('AnMiniGraphGrowth settles to the full graph (reduced motion → instant)', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      theme: AnTheme.light(),
+      home: MediaQuery(
+        data: const MediaQueryData(disableAnimations: true), // reduced → jump to settled
+        child: Scaffold(body: Center(child: SizedBox(width: 520, child: AnMiniGraphGrowth(graph: _graph)))),
+      ),
+    ));
+    await tester.pumpAndSettle(); // must converge (no eternal ticker under reduced) 必须收敛
+    // Settled: all three nodes present and opaque (no lingering Opacity<1). 终态:三节点全在、不透。
+    expect(find.text('trg_1'), findsOneWidget);
+    expect(find.text('ag_3'), findsOneWidget);
+    final faded = tester.widgetList<Opacity>(find.byType(Opacity)).where((o) => o.opacity < 1.0);
+    expect(faded, isEmpty);
   });
 }

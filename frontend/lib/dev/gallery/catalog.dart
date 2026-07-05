@@ -78,6 +78,11 @@ final GalleryCategory _entityViz = GalleryCategory('实体可视化 Entity Viz',
     GallerySpecimen('分支(control 分叉 + 回边)', (_) => AnMiniGraph(graph: _gBranch), span: true),
     GallerySpecimen('海量 (40 节点扇出,fit 整图)', (_) => AnMiniGraph(graph: _gHuge, height: 300), stress: true, span: true),
     GallerySpecimen('空图(占位)', (_) => AnMiniGraph(graph: const Graph()), stress: true, span: true),
+    // settle-then-replay 生长(B2.4):静态帧(纯渲染,可逐帧截图)+ 驱动(挂载播一次)。
+    GallerySpecimen('生长帧 · progress 0.35', (_) => AnMiniGraph(graph: _gBranch, height: 150, revealProgress: 0.35), span: true),
+    GallerySpecimen('生长帧 · progress 0.7', (_) => AnMiniGraph(graph: _gBranch, height: 150, revealProgress: 0.7), span: true),
+    GallerySpecimen('生长驱动(挂载 0→1 播一次,rank×250ms 封顶 3s)',
+        (_) => AnMiniGraphGrowth(graph: _gBranch, height: 150), span: true),
   ]),
   GalleryItem('AnNodeGantt 节点甘特', 'flowrun 逐节点时段条:状态色 + ×N 循环 + parked 等待框 + 未运行占位', [
     GallerySpecimen('完成/失败/循环×3/parked/未运行', (_) => Padding(

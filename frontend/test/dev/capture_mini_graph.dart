@@ -47,7 +47,7 @@ void main() {
   testWidgets('capture mini graph', (tester) async {
     const key = ValueKey('cap');
     tester.view.devicePixelRatio = 1.0;
-    tester.view.physicalSize = const Size(640, 340);
+    tester.view.physicalSize = const Size(640, 760);
     addTearDown(tester.view.reset);
     await tester.pumpWidget(RepaintBoundary(
       key: key,
@@ -55,13 +55,16 @@ void main() {
         debugShowCheckedModeBanner: false,
         theme: AnTheme.light(),
         home: Scaffold(
-          body: Padding(
+          body: SingleChildScrollView(
             padding: const EdgeInsets.all(AnSpace.s24),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Builder(builder: (ctx) => Text('AnMiniGraph · 分支(control 分叉 + 回边,kind 五色)',
+              Builder(builder: (ctx) => Text('AnMiniGraph · settle-then-replay 生长帧(progress 0.3 / 0.55 / 0.8 / 1.0)',
                   style: AnText.meta.copyWith(color: Theme.of(ctx).colorScheme.outline))),
               const SizedBox(height: AnSpace.s6),
-              AnMiniGraph(graph: _branch, height: 240),
+              for (final p in [0.3, 0.55, 0.8, 1.0]) ...[
+                AnMiniGraph(graph: _branch, height: 150, revealProgress: p),
+                const SizedBox(height: AnSpace.s12),
+              ],
             ]),
           ),
         ),
