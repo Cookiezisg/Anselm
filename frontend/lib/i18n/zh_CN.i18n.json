@@ -141,7 +141,11 @@
       "runtimeCrashed": "实例已崩溃",
       "envFixAttempt": "尝试 $n",
       "envFixHealing": "改依赖重试",
-      "envFixTitle": "环境自愈"
+      "envFixTitle": "环境自愈",
+      "wfInactive": "未激活",
+      "wfGraphCounts": "节点 $nodes · 边 $edges",
+      "wfActivateHint": "activate_workflow 上线 · trigger_workflow 试跑",
+      "wfGrowing": "正在编排"
     },
     "gate": {
       "dangerBadge": "危险",

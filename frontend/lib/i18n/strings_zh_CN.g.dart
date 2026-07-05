@@ -486,6 +486,10 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String envFixAttempt({required Object n}) => '尝试 ${n}';
 	@override String get envFixHealing => '改依赖重试';
 	@override String get envFixTitle => '环境自愈';
+	@override String get wfInactive => '未激活';
+	@override String wfGraphCounts({required Object nodes, required Object edges}) => '节点 ${nodes} · 边 ${edges}';
+	@override String get wfActivateHint => 'activate_workflow 上线 · trigger_workflow 试跑';
+	@override String get wfGrowing => '正在编排';
 }
 
 // Path: chat.gate
@@ -1193,6 +1197,10 @@ extension on TranslationsZhCn {
 			'chat.tool.envFixAttempt' => ({required Object n}) => '尝试 ${n}',
 			'chat.tool.envFixHealing' => '改依赖重试',
 			'chat.tool.envFixTitle' => '环境自愈',
+			'chat.tool.wfInactive' => '未激活',
+			'chat.tool.wfGraphCounts' => ({required Object nodes, required Object edges}) => '节点 ${nodes} · 边 ${edges}',
+			'chat.tool.wfActivateHint' => 'activate_workflow 上线 · trigger_workflow 试跑',
+			'chat.tool.wfGrowing' => '正在编排',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -1566,12 +1574,12 @@ extension on TranslationsZhCn {
 			'entities.run.reasonHint' => '备注(可选)',
 			'entities.run.inboxEmpty' => '没有待审批',
 			'entities.run.inboxEmptyHint' => '等待决断的审批会出现在这里。',
+			_ => null,
+		} ?? switch (path) {
 			'coldStart.connecting' => '正在准备工作区…',
 			'coldStart.errorTitle' => '无法准备工作区',
 			'coldStart.errorHint' => '本地引擎已连通,但工作区未就绪。',
 			'coldStart.defaultWorkspace' => '个人',
-			_ => null,
-		} ?? switch (path) {
 			'documents.documents' => '文档',
 			'documents.skills' => '技能',
 			'documents.untitled' => '未命名',

@@ -141,7 +141,11 @@
       "runtimeCrashed": "Instance crashed",
       "envFixAttempt": "attempt $n",
       "envFixHealing": "revised deps, retried",
-      "envFixTitle": "Environment self-heal"
+      "envFixTitle": "Environment self-heal",
+      "wfInactive": "Not activated",
+      "wfGraphCounts": "$nodes nodes · $edges edges",
+      "wfActivateHint": "activate_workflow to go live · trigger_workflow to test",
+      "wfGrowing": "Composing"
     },
     "gate": {
       "dangerBadge": "Dangerous",

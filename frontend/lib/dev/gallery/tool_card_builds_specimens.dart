@@ -114,13 +114,13 @@ final toolCardBuildsGalleryItem = GalleryItem(
                 summary: 'Write down the rollup rules',
                 result: 'Created document "季度汇总口径" (id=doc_5566778899aabbcc, path=/specs/季度汇总口径)')),
         span: true),
-    GallerySpecimen('已创建工作流(无单一内容→配置 JSON 窗)',
+    GallerySpecimen('已创建工作流 · v1 · 未激活(★两幕生长:展开→图回放生长)',
         (c) => ChatToolCard(
             node: _call('wf', 'create_workflow',
                 args:
-                    '{"name":"invoice_sync","graph":{"nodes":[{"id":"trigger","kind":"trigger","ref":"trg_1"},{"id":"sync","kind":"action","ref":"fn_1a2b3c4d5e6f7a8b"}],"edges":[{"from":"trigger","to":"sync"}]}}',
-                summary: 'Wire the sync pipeline',
-                result: '{"id":"wf_00ff00ff00ff00ff","versionId":"wfv_1122334455667788","version":1,"active":false,"lifecycleState":"draft"}')),
+                    '{"name":"invoice_sync","ops":[{"op":"add_node","node":{"id":"on_invoice","kind":"trigger","ref":"发票到达"}},{"op":"add_node","node":{"id":"sync","kind":"action","ref":"抓取行项目"}},{"op":"add_node","node":{"id":"classify","kind":"agent","ref":"按季度分类"}},{"op":"add_node","node":{"id":"gate","kind":"control","ref":"金额>阈值?"}},{"op":"add_node","node":{"id":"approve","kind":"approval","ref":"人工复核"}},{"op":"add_edge","edge":{"id":"e1","from":"on_invoice","to":"sync"}},{"op":"add_edge","edge":{"id":"e2","from":"sync","to":"classify"}},{"op":"add_edge","edge":{"id":"e3","from":"classify","to":"gate"}},{"op":"add_edge","edge":{"id":"e4","from":"gate","fromPort":"yes","to":"approve"}}]}',
+                summary: 'Wire the invoice sync pipeline',
+                result: '{"id":"wf_00ff00ff00ff00ff","versionId":"wfv_1122334455667788","version":1,"active":false,"lifecycleState":"inactive"}')),
         span: true, stress: true),
   ],
 );

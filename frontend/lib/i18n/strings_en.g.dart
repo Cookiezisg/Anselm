@@ -992,6 +992,18 @@ class Translations$chat$tool$en {
 
 	/// en: 'Environment self-heal'
 	String get envFixTitle => 'Environment self-heal';
+
+	/// en: 'Not activated'
+	String get wfInactive => 'Not activated';
+
+	/// en: '$nodes nodes · $edges edges'
+	String wfGraphCounts({required Object nodes, required Object edges}) => '${nodes} nodes · ${edges} edges';
+
+	/// en: 'activate_workflow to go live · trigger_workflow to test'
+	String get wfActivateHint => 'activate_workflow to go live · trigger_workflow to test';
+
+	/// en: 'Composing'
+	String get wfGrowing => 'Composing';
 }
 
 // Path: chat.gate
@@ -2362,6 +2374,10 @@ extension on Translations {
 			'chat.tool.envFixAttempt' => ({required Object n}) => 'attempt ${n}',
 			'chat.tool.envFixHealing' => 'revised deps, retried',
 			'chat.tool.envFixTitle' => 'Environment self-heal',
+			'chat.tool.wfInactive' => 'Not activated',
+			'chat.tool.wfGraphCounts' => ({required Object nodes, required Object edges}) => '${nodes} nodes · ${edges} edges',
+			'chat.tool.wfActivateHint' => 'activate_workflow to go live · trigger_workflow to test',
+			'chat.tool.wfGrowing' => 'Composing',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -2735,12 +2751,12 @@ extension on Translations {
 			'entities.run.reasonHint' => 'Reason (optional)',
 			'entities.run.inboxEmpty' => 'No pending approvals',
 			'entities.run.inboxEmptyHint' => 'Approvals waiting for a decision will appear here.',
+			_ => null,
+		} ?? switch (path) {
 			'coldStart.connecting' => 'Setting up your workspace…',
 			'coldStart.errorTitle' => 'Couldn\'t set up the workspace',
 			'coldStart.errorHint' => 'The local engine is reachable but the workspace didn\'t resolve.',
 			'coldStart.defaultWorkspace' => 'Personal',
-			_ => null,
-		} ?? switch (path) {
 			'documents.documents' => 'Documents',
 			'documents.skills' => 'Skills',
 			'documents.untitled' => 'Untitled',

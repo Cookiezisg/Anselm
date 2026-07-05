@@ -6,6 +6,7 @@ import '../../../i18n/strings.g.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
 import 'tool_card_skins.dart';
+import 'tool_card_workflow.dart';
 
 /// One tool's card grammar: the deterministic verb pair (decision #1 — the collapsed line's
 /// voice; the LLM's `summary` stays inside the body), the target chip, the settled receipt,
@@ -122,6 +123,10 @@ ToolCardSpec _build({
   required String Function(Translations) kind,
   required bool create,
   String? editIdKey,
+  // Per-kind overrides: workflow swaps the code window for the growing graph (B2.5). 族覆盖:workflow 换图。
+  Widget Function(BuildContext, ToolCardState)? body,
+  Widget Function(BuildContext, ToolCardState)? liveBody,
+  ToolReceipt? Function(Translations, ToolCardState)? receipt,
 }) =>
     ToolCardSpec(
       verb: (t, {required bool live}) => create
@@ -130,7 +135,7 @@ ToolCardSpec _build({
       target: (s) => create
           ? argStringPartial(s.argsText, 'name')
           : (editIdKey == null ? null : argString(s.argsText, editIdKey)),
-      receipt: (t, s) {
+      receipt: receipt ?? (t, s) {
         Map<String, dynamic>? out;
         try {
           final d = jsonDecode(s.resultText);
@@ -145,8 +150,8 @@ ToolCardSpec _build({
         if (out['runtimeState'] == 'crashed') return (text: t.chat.tool.runtimeCrashed, tone: ToolReceiptTone.danger);
         return v == null ? null : (text: 'v$v', tone: ToolReceiptTone.none);
       },
-      body: buildToolBody,
-      liveBody: buildLiveBody,
+      body: body ?? buildToolBody,
+      liveBody: liveBody ?? buildLiveBody,
     );
 
 /// The family table — keyed by exact tool name. 族表,按精确工具名键。
@@ -207,7 +212,15 @@ final Map<String, ToolCardSpec> _catalog = {
   'edit_handler': _build(kind: (t) => t.chat.tool.kind.handler, create: false, editIdKey: 'handlerId'),
   'create_agent': _build(kind: (t) => t.chat.tool.kind.agent, create: true),
   'edit_agent': _build(kind: (t) => t.chat.tool.kind.agent, create: false, editIdKey: 'agentId'),
-  'create_workflow': _build(kind: (t) => t.chat.tool.kind.workflow, create: true),
+  // create_workflow ★ two-act growth show: op ticker (streaming) → graph replaying its growth (settled).
+  // create_workflow 两幕生长秀:op ticker → 图回放生长。
+  'create_workflow': _build(
+    kind: (t) => t.chat.tool.kind.workflow,
+    create: true,
+    body: workflowBuildBody,
+    liveBody: workflowOpLiveBody,
+    receipt: workflowCreateReceipt,
+  ),
   'edit_workflow': _build(kind: (t) => t.chat.tool.kind.workflow, create: false, editIdKey: 'workflowId'),
   'create_control': _build(kind: (t) => t.chat.tool.kind.control, create: true),
   'edit_control': _build(kind: (t) => t.chat.tool.kind.control, create: false, editIdKey: 'controlId'),
