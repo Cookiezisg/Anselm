@@ -140,6 +140,24 @@ final chatToolCardGalleryItem = GalleryItem(
                 args: '{"message":"要我顺手把旧版本清理掉吗?","options":["好","不用"]}',
                 result: 'The user declined to answer this question. Proceed without it or ask differently.')),
         span: true),
+    GallerySpecimen('decide_approval · 已批准(判词章 + 理由 + 后果条)',
+        (c) => ChatToolCard(
+            node: _call('decide_approval',
+                args: '{"flowrunId":"flr_7a1b2c3d4e5f6a7b","nodeId":"approve_spend","decision":"yes","reason":"金额在季度预算内,且申请人是授权审批人,批准放行。"}',
+                result: '{"flowrun":{"status":"running"},"nodes":[{"status":"completed"},{"status":"completed"},{"status":"running"}]}')),
+        span: true),
+    GallerySpecimen('decide_approval · 已否决(红章 + 理由 + failed 后果)',
+        (c) => ChatToolCard(
+            node: _call('decide_approval',
+                args: '{"flowrunId":"flr_7a1b2c3d4e5f6a7b","nodeId":"approve_spend","decision":"no","reason":"超出本季度预算上限,需先走额度调整流程。"}',
+                result: '{"flowrun":{"status":"failed"},"nodes":[{"status":"completed"},{"status":"failed"}]}')),
+        span: true),
+    GallerySpecimen('decide_approval · NOT_PARKED(产品正常态,友好呈现非红崩)',
+        (c) => ChatToolCard(
+            node: _call('decide_approval',
+                args: '{"flowrunId":"flr_7a1b2c3d4e5f6a7b","nodeId":"approve_spend","decision":"yes"}',
+                resultError: 'approval node is not awaiting a decision')),
+        span: true),
     GallerySpecimen('成功 · JSON 结果(点行展开:意图/参数/结果树)',
         (c) => ChatToolCard(
             node: _call('create_function',

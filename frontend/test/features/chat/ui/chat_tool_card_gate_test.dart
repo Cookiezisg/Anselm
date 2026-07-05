@@ -179,4 +179,63 @@ void main() {
     expect(find.byType(ToolInteractionGate), findsOneWidget);
     expect(find.widgetWithText(AnButton, '1. CNY'), findsOneWidget);
   });
+
+  // ── F16 decide_approval (verdict record + consequence bar; NOT_PARKED reframed) ──
+
+  BlockNode decideNode({required String decision, String? reason, String? result, String? errorProse}) {
+    final args = reason == null
+        ? '{"flowrunId":"flr_1","nodeId":"n1","decision":"$decision"}'
+        : '{"flowrunId":"flr_1","nodeId":"n1","decision":"$decision","reason":"$reason"}';
+    final n = BlockNode(id: 'tc_decide_approval', kind: BlockKind.toolCall)
+      ..status = 'completed'
+      ..content = {'name': 'decide_approval', 'arguments': args};
+    n.children.add(BlockNode(id: 'tr_d', kind: BlockKind.toolResult)
+      ..status = errorProse != null ? 'error' : 'completed'
+      ..error = errorProse
+      ..content = {'content': errorProse ?? result ?? '{}'});
+    return n;
+  }
+
+  testWidgets('decide verbs: yes → 已批准, no → 已否决; failed → neutral 已裁决', (tester) async {
+    await tester.pumpWidget(_host(ChatToolCard(
+        node: decideNode(decision: 'yes', result: '{"flowrun":{"status":"running"},"nodes":[]}'))));
+    await tester.pump();
+    expect(find.text('已批准'), findsOneWidget);
+
+    await tester.pumpWidget(_host(ChatToolCard(
+        node: decideNode(decision: 'no', result: '{"flowrun":{"status":"failed"},"nodes":[]}'))));
+    await tester.pump();
+    expect(find.text('已否决'), findsOneWidget);
+
+    await tester.pumpWidget(_host(ChatToolCard(
+        node: decideNode(decision: 'yes', errorProse: 'approval node is not awaiting a decision'))));
+    await tester.pump();
+    expect(find.text('已裁决'), findsOneWidget); // NOT falsely 已批准
+    expect(find.text('已批准'), findsNothing);
+  });
+
+  testWidgets('decide approved body: verdict章 + reason + consequence counts', (tester) async {
+    await tester.pumpWidget(_host(ChatToolCard(
+        node: decideNode(
+            decision: 'yes',
+            reason: '预算内,批准',
+            result:
+                '{"flowrun":{"status":"running"},"nodes":[{"status":"completed"},{"status":"completed"},{"status":"running"}]}'))));
+    await tester.pump();
+    await tester.tap(find.text('已批准'));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(AnBadge, '批准'), findsOneWidget); // verdict章
+    expect(find.text('预算内,批准'), findsOneWidget); // reason
+    expect(find.text('completed 2'), findsOneWidget); // consequence count off nodes[]
+    expect(find.text('running 1'), findsOneWidget);
+  });
+
+  testWidgets('decide NOT_PARKED: friendly note, no raw crash prose (ownsError)', (tester) async {
+    await tester.pumpWidget(_host(ChatToolCard(
+        node: decideNode(decision: 'yes', errorProse: 'approval node is not awaiting a decision'))));
+    await tester.pump();
+    await tester.pumpAndSettle(); // failed auto-expands once
+    expect(find.textContaining('本次裁决未生效'), findsOneWidget); // the reframed note
+    expect(find.textContaining('approval node is not awaiting'), findsNothing); // raw prose suppressed
+  });
 }

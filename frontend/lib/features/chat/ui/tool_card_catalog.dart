@@ -25,6 +25,7 @@ class ToolCardSpec {
     this.liveBody,
     this.awaitingVerb,
     this.terminalVerb,
+    this.ownsError = false,
   });
 
   /// The phase verb — gerund while live, past tense settled. The chassis supplies default terminal
@@ -53,6 +54,11 @@ class ToolCardSpec {
 
   /// Never expands (Read: the receipt IS the card — industry consensus). 永不展开(Read)。
   final bool bodyless;
+
+  /// The family body renders its OWN failure display (so the chassis skips the default error section) —
+  /// for families where a non-zero terminal is a product-normal, not a red crash (decide_approval's
+  /// NOT_PARKED first-decision-wins). 族体自管失败显示(底盘跳默认错误段)——如 decide_approval 的 NOT_PARKED。
+  final bool ownsError;
 
   /// The LIVE machine window under the row while the call is in flight and not user-expanded:
   /// F3 = the terminal tail (progress lines); F4 builds = the content window streaming in as
@@ -238,6 +244,33 @@ final Map<String, ToolCardSpec> _catalog = {
       return (text: '"$short"', tone: ToolReceiptTone.none);
     },
     body: askUserBody,
+  ),
+
+  // ── F16 decide_approval — the verdict (yes/no from args.decision) ──
+  'decide_approval': ToolCardSpec(
+    verb: (t, {required bool live}) => live ? t.chat.tool.deciding : t.chat.tool.decided,
+    // A failed terminal (NOT_PARKED / error) means the decision never landed → neutral 已裁决, never
+    // 已批准 (the row would falsely claim it took effect). 失败终态=裁决未生效→中性,不谎报已批准。
+    terminalVerb: (t, s) => s.phase == ToolCardPhase.failed
+        ? t.chat.tool.decided
+        : switch (argString(s.argsText, 'decision')) {
+            'yes' => t.chat.tool.approved,
+            'no' => t.chat.tool.rejected,
+            _ => t.chat.tool.decided,
+          },
+    target: (s) => argString(s.argsText, 'flowrunId'),
+    receipt: (t, s) {
+      // The flowrun's status after the decision (parse the result's flowrun.status). 裁决后 flowrun 状态。
+      try {
+        final d = jsonDecode(s.resultText);
+        final fr = d is Map<String, dynamic> ? d['flowrun'] : null;
+        final status = fr is Map<String, dynamic> ? fr['status'] as String? : null;
+        if (status != null && status.isNotEmpty) return (text: status, tone: ToolReceiptTone.none);
+      } catch (_) {}
+      return null;
+    },
+    body: decideApprovalBody,
+    ownsError: true, // NOT_PARKED is a product-normal, not a red crash 首决胜非红崩
   ),
 
   // ── F3 shell ──

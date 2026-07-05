@@ -94,6 +94,8 @@ void main() {
       find.text('已回答').at(0), // ask_user 选项 Q/A(选中章)
       find.text('已回答').at(1), // ask_user 自由文本 Q/A(引用)
       find.text('已跳过'), // ask_user 已跳过
+      find.text('已批准'), // decide_approval 批准判词+后果条
+      find.text('已否决'), // decide_approval 否决判词
     ]) {
       await tester.tap(f, warnIfMissed: false);
       await tester.pump(const Duration(milliseconds: 100));

@@ -195,9 +195,10 @@ class _ChatToolCardState extends State<ChatToolCard> {
                   ?_provenanceChip(context, c),
                   spec.body?.call(context, state) ?? _GenericToolBody(state: state),
                   // Family bodies get the error section from the CHASSIS — every family shows
-                  // failures without re-implementing them (the generic body has its own).
-                  // 族体的错误段由**底盘**追加——各族免费显示失败(通用体自带)。
+                  // failures without re-implementing them (the generic body has its own). A family that
+                  // OWNS its error display (spec.ownsError) opts out. 族体错误段由底盘追加;自管族退出。
                   if (spec.body != null &&
+                      !spec.ownsError &&
                       (state.phase == ToolCardPhase.failed && (state.errorText.isNotEmpty || state.resultText.isNotEmpty)))
                     Padding(
                       padding: const EdgeInsets.only(top: AnSpace.s8),

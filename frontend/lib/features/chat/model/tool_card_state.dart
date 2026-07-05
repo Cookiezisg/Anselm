@@ -36,6 +36,11 @@ const String cancelledBeforeRunProse = 'The run was cancelled before this tool r
 /// ask_user 的空答案精确串:accept 但答案为空以 completed 关闭并带此串——卡读作「空答案」。
 const String askEmptyAnswerProse = '(the user submitted an empty answer)';
 
+/// decide_approval's NOT_PARKED message (backend `flowrun.go` ErrNodeNotParked, surfaced as the error
+/// tool_result text). A product-NORMAL (first-decision-wins / timed out / wrong node id), not a crash —
+/// the card reframes it, never a red failure. 首决胜/超时/节点误标的产品正常态,卡友好呈现、非红崩。
+const String notParkedProse = 'approval node is not awaiting a decision';
+
 /// One tool call's render-ready projection of its [BlockNode] subtree (tool_call + nested
 /// progress / tool_result children). Pure and cheap — recomputed per build, no caching.
 ///

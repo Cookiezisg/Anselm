@@ -920,6 +920,60 @@ class Translations$chat$tool$en {
 
 	/// en: 'Awaiting your answer'
 	String get awaitingAnswer => 'Awaiting your answer';
+
+	/// en: 'Deciding'
+	String get deciding => 'Deciding';
+
+	/// en: 'Approved'
+	String get approved => 'Approved';
+
+	/// en: 'Rejected'
+	String get rejected => 'Rejected';
+
+	/// en: 'Decided'
+	String get decided => 'Decided';
+
+	/// en: 'Approve'
+	String get approveVerdict => 'Approve';
+
+	/// en: 'Reject'
+	String get rejectVerdict => 'Reject';
+
+	/// en: 'This node isn't awaiting a decision (already decided, timed out, or a wrong node id) — this decision had no effect.'
+	String get notParked => 'This node isn\'t awaiting a decision (already decided, timed out, or a wrong node id) — this decision had no effect.';
+
+	/// en: 'showing $shown/$total nodes, full set in the flowrun'
+	String nodesShown({required Object shown, required Object total}) => 'showing ${shown}/${total} nodes, full set in the flowrun';
+
+	/// en: 'Checking the approval inbox'
+	String get clearing => 'Checking the approval inbox';
+
+	/// en: 'Checked'
+	String get cleared => 'Checked';
+
+	/// en: '$n awaiting'
+	String inboxCount({required Object n}) => '${n} awaiting';
+
+	/// en: 'None awaiting'
+	String get inboxEmpty => 'None awaiting';
+
+	/// en: '$n more'
+	String inboxMore({required Object n}) => '${n} more';
+
+	/// en: 'Approval'
+	String get inboxRef => 'Approval';
+
+	/// en: 'Summary'
+	String get inboxSummary => 'Summary';
+
+	/// en: 'Waiting'
+	String get inboxWait => 'Waiting';
+
+	/// en: 'run'
+	String get inboxRun => 'run';
+
+	/// en: 'Inbox empty — no run is awaiting approval'
+	String get inboxEmptyState => 'Inbox empty — no run is awaiting approval';
 }
 
 // Path: chat.gate
@@ -2266,6 +2320,24 @@ extension on Translations {
 			'chat.tool.skipped' => 'Skipped',
 			'chat.tool.emptyAnswer' => 'Empty answer',
 			'chat.tool.awaitingAnswer' => 'Awaiting your answer',
+			'chat.tool.deciding' => 'Deciding',
+			'chat.tool.approved' => 'Approved',
+			'chat.tool.rejected' => 'Rejected',
+			'chat.tool.decided' => 'Decided',
+			'chat.tool.approveVerdict' => 'Approve',
+			'chat.tool.rejectVerdict' => 'Reject',
+			'chat.tool.notParked' => 'This node isn\'t awaiting a decision (already decided, timed out, or a wrong node id) — this decision had no effect.',
+			'chat.tool.nodesShown' => ({required Object shown, required Object total}) => 'showing ${shown}/${total} nodes, full set in the flowrun',
+			'chat.tool.clearing' => 'Checking the approval inbox',
+			'chat.tool.cleared' => 'Checked',
+			'chat.tool.inboxCount' => ({required Object n}) => '${n} awaiting',
+			'chat.tool.inboxEmpty' => 'None awaiting',
+			'chat.tool.inboxMore' => ({required Object n}) => '${n} more',
+			'chat.tool.inboxRef' => 'Approval',
+			'chat.tool.inboxSummary' => 'Summary',
+			'chat.tool.inboxWait' => 'Waiting',
+			'chat.tool.inboxRun' => 'run',
+			'chat.tool.inboxEmptyState' => 'Inbox empty — no run is awaiting approval',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -2649,6 +2721,8 @@ extension on Translations {
 			'documents.filter' => 'Filter',
 			'documents.kNew' => 'New',
 			'documents.errorTitle' => 'Couldn\'t load your library',
+			_ => null,
+		} ?? switch (path) {
 			'documents.errorHint' => 'The local engine didn\'t return it.',
 			'documents.retry' => 'Retry',
 			'documents.emptyTitle' => 'Nothing here yet',
@@ -2667,8 +2741,6 @@ extension on Translations {
 			'documents.actionFailed' => 'Action failed',
 			'documents.props.title' => 'Properties',
 			'documents.props.name' => 'Name',
-			_ => null,
-		} ?? switch (path) {
 			'documents.props.description' => 'Description',
 			'documents.props.tags' => 'Tags',
 			'documents.props.addTag' => 'Add a tag',

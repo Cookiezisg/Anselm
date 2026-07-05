@@ -462,6 +462,24 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get skipped => '已跳过';
 	@override String get emptyAnswer => '空答案';
 	@override String get awaitingAnswer => '等待你回答';
+	@override String get deciding => '正在裁决';
+	@override String get approved => '已批准';
+	@override String get rejected => '已否决';
+	@override String get decided => '已裁决';
+	@override String get approveVerdict => '批准';
+	@override String get rejectVerdict => '否决';
+	@override String get notParked => '该节点当前不在等待审批(可能已被决议、已超时或节点标识有误),本次裁决未生效。';
+	@override String nodesShown({required Object shown, required Object total}) => '显示 ${shown}/${total} 个节点,全量见 flowrun';
+	@override String get clearing => '正在清点审批收件箱';
+	@override String get cleared => '已清点';
+	@override String inboxCount({required Object n}) => '${n} 件待审';
+	@override String get inboxEmpty => '无待审';
+	@override String inboxMore({required Object n}) => '另有 ${n} 件';
+	@override String get inboxRef => '审批';
+	@override String get inboxSummary => '摘要';
+	@override String get inboxWait => '等待';
+	@override String get inboxRun => 'run';
+	@override String get inboxEmptyState => '收件箱空——没有 run 在等审批';
 }
 
 // Path: chat.gate
@@ -1145,6 +1163,24 @@ extension on TranslationsZhCn {
 			'chat.tool.skipped' => '已跳过',
 			'chat.tool.emptyAnswer' => '空答案',
 			'chat.tool.awaitingAnswer' => '等待你回答',
+			'chat.tool.deciding' => '正在裁决',
+			'chat.tool.approved' => '已批准',
+			'chat.tool.rejected' => '已否决',
+			'chat.tool.decided' => '已裁决',
+			'chat.tool.approveVerdict' => '批准',
+			'chat.tool.rejectVerdict' => '否决',
+			'chat.tool.notParked' => '该节点当前不在等待审批(可能已被决议、已超时或节点标识有误),本次裁决未生效。',
+			'chat.tool.nodesShown' => ({required Object shown, required Object total}) => '显示 ${shown}/${total} 个节点,全量见 flowrun',
+			'chat.tool.clearing' => '正在清点审批收件箱',
+			'chat.tool.cleared' => '已清点',
+			'chat.tool.inboxCount' => ({required Object n}) => '${n} 件待审',
+			'chat.tool.inboxEmpty' => '无待审',
+			'chat.tool.inboxMore' => ({required Object n}) => '另有 ${n} 件',
+			'chat.tool.inboxRef' => '审批',
+			'chat.tool.inboxSummary' => '摘要',
+			'chat.tool.inboxWait' => '等待',
+			'chat.tool.inboxRun' => 'run',
+			'chat.tool.inboxEmptyState' => '收件箱空——没有 run 在等审批',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -1528,6 +1564,8 @@ extension on TranslationsZhCn {
 			'documents.filter' => '过滤',
 			'documents.kNew' => '新建',
 			'documents.errorTitle' => '无法加载知识库',
+			_ => null,
+		} ?? switch (path) {
 			'documents.errorHint' => '本地引擎没有返回它。',
 			'documents.retry' => '重试',
 			'documents.emptyTitle' => '这里还什么都没有',
@@ -1546,8 +1584,6 @@ extension on TranslationsZhCn {
 			'documents.actionFailed' => '操作失败',
 			'documents.props.title' => '属性',
 			'documents.props.name' => '名称',
-			_ => null,
-		} ?? switch (path) {
 			'documents.props.description' => '描述',
 			'documents.props.tags' => '标签',
 			'documents.props.addTag' => '添加标签',

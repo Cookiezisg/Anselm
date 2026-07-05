@@ -174,6 +174,89 @@ Widget askUserBody(BuildContext context, ToolCardState state) {
   );
 }
 
+/// F16 decide_approval — the verdict record: NOT_PARKED reframed as a calm note (a product-normal), else
+/// the judgment章 (批准/否决 + reason) + a consequence bar (flowrun.status + node status counts, from
+/// nodeSummary.byStatus when the run is capped, else counted off nodes[] — never dumps the raw JSON).
+/// decide_approval 裁决记录:NOT_PARKED 友好呈现;否则 判词章(批准/否决+reason)+ 后果条(flowrun.status +
+/// 节点状态计数,超 80 用 nodeSummary.byStatus 否则自数 nodes[],绝不倾倒 JSON)。
+Widget decideApprovalBody(BuildContext context, ToolCardState state) {
+  final t = Translations.of(context);
+  final c = context.colors;
+
+  // NOT_PARKED — first-decision-wins / timed out / wrong node id: a calm amber note, never red. 友好呈现。
+  if (state.resultText.contains(notParkedProse)) {
+    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Icon(AnIcons.info, size: AnSize.icon, color: c.warn),
+      const SizedBox(width: AnSpace.s6),
+      Expanded(child: Text(t.chat.tool.notParked, style: AnText.reading.copyWith(color: c.inkMuted))),
+    ]);
+  }
+
+  final decision = argString(state.argsText, 'decision');
+  final reason = argString(state.argsText, 'reason');
+  final isYes = decision == 'yes';
+
+  Map<String, dynamic>? out;
+  try {
+    final d = jsonDecode(state.resultText);
+    if (d is Map<String, dynamic>) out = d;
+  } catch (_) {}
+  final fr = out?['flowrun'] as Map<String, dynamic>?;
+  final flowStatus = fr?['status'] as String?;
+  final summary = out?['nodeSummary'] as Map<String, dynamic>?;
+  final counts = <String, int>{};
+  int? shown, total;
+  if (summary != null) {
+    final by = summary['byStatus'];
+    if (by is Map) {
+      by.forEach((k, v) => counts[k.toString()] = (v as num).toInt());
+    }
+    shown = (summary['shownNodes'] as num?)?.toInt();
+    total = (summary['totalNodes'] as num?)?.toInt();
+  } else {
+    final nodes = out?['nodes'];
+    if (nodes is List) {
+      for (final n in nodes) {
+        final s = (n is Map ? n['status']?.toString() : null) ?? '?';
+        counts[s] = (counts[s] ?? 0) + 1;
+      }
+    }
+  }
+
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      // Judgment章 (green approve / red reject) + the reason (the司法 record, full text). 判词章+理由。
+      AnBadge(isYes ? t.chat.tool.approveVerdict : t.chat.tool.rejectVerdict,
+          tone: isYes ? AnTone.ok : AnTone.danger),
+      if (reason != null && reason.isNotEmpty) ...[
+        const SizedBox(height: AnGap.stack),
+        Text(reason, style: AnText.reading.copyWith(color: c.ink)),
+      ],
+      // Consequence bar: the flowrun's status + per-status node counts. 后果条:flowrun 状态 + 节点计数。
+      if (flowStatus != null || counts.isNotEmpty) ...[
+        const SizedBox(height: AnGap.block),
+        Wrap(
+          spacing: AnSpace.s6,
+          runSpacing: AnSpace.s4,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            if (flowStatus != null) AnBadge(flowStatus, tone: AnStatus.fromRaw(flowStatus).tone),
+            for (final e in counts.entries)
+              Text('${e.key} ${e.value}', style: AnText.metaTabular().copyWith(color: c.inkFaint)),
+          ],
+        ),
+        if (shown != null && total != null && shown < total)
+          Padding(
+            padding: const EdgeInsets.only(top: AnSpace.s4),
+            child: Text(t.chat.tool.nodesShown(shown: '$shown', total: '$total'),
+                style: AnText.meta.copyWith(color: c.inkFaint)),
+          ),
+      ],
+    ],
+  );
+}
+
 String? _langOf(String path) {
   final i = path.lastIndexOf('.');
   if (i < 0) return null;
