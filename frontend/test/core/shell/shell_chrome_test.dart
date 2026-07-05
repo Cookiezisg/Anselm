@@ -42,7 +42,7 @@ void main() {
     expect(c.read(shellChromeProvider).leftWidth, 360.0);
   });
 
-  test('shellHead: bind sets title (collapsed false), setCollapsed preserves title, clear resets', () {
+  test('shellHead: bind sets title AND PRESERVES collapsed (mid-scroll rebinds must not pop the head), clear resets', () {
     final c = ProviderContainer();
     addTearDown(c.dispose);
     final n = c.read(shellHeadProvider.notifier);
@@ -52,6 +52,13 @@ void main() {
     n.setCollapsed(true);
     expect(c.read(shellHeadProvider).collapsed, isTrue);
     expect(c.read(shellHeadProvider).title, 'normalize'); // title preserved across collapse
+    // The load-bearing new contract: oceans re-bind post-frame on EVERY data rebuild (rename / SSE
+    // refetch) — bind keeps collapsed so a mid-scroll rebind cannot pop the breadcrumb open; the
+    // ocean/selection switch resets it explicitly (clear / setCollapsed(false) in the listeners).
+    // 新契约要害:海洋每次数据重建都重绑——bind 保留 collapsed,滚动中重绑不得弹开;换海洋/选区才显式复位。
+    n.bind('renamed', () {});
+    expect(c.read(shellHeadProvider).title, 'renamed');
+    expect(c.read(shellHeadProvider).collapsed, isTrue, reason: 'bind must preserve collapsed');
     n.clear();
     expect(c.read(shellHeadProvider).title, '');
     expect(c.read(shellHeadProvider).collapsed, isFalse);

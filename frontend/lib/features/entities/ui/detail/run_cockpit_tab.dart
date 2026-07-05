@@ -5,6 +5,7 @@ import '../../../../core/design/colors.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
 import '../../../../core/graph/flowrun_timeline.dart';
+import '../../../../core/contract/entities/workflow.dart';
 import '../../../../core/graph/graph_run_state.dart';
 import '../../../../core/ui/an_action_group.dart';
 import '../../../../core/ui/an_button.dart';
@@ -128,14 +129,14 @@ class RunCockpitTab extends ConsumerWidget {
     );
   }
 
-  Widget _runInfo(BuildContext context, WidgetRef ref, RunCockpitState st, run) {
+  Widget _runInfo(BuildContext context, WidgetRef ref, RunCockpitState st, Flowrun run) {
     final d = context.t.entities.detail;
     final kv = d.kv;
     final notifier = ref.read(runCockpitProvider(entityRef).notifier);
     final failed = run.status == 'failed';
     final live = run.status == 'running' || run.status == 'parked';
     final elapsed = (run.completedAt != null && run.startedAt != null)
-        ? '${run.completedAt!.difference(run.startedAt!).inMilliseconds}ms'
+        ? fmtDuration(run.completedAt!.difference(run.startedAt!))
         : '—';
     return AnInfoCard(
       title: d.cockpit.runInfo,
@@ -147,8 +148,8 @@ class RunCockpitTab extends ConsumerWidget {
           (kv.version, run.versionId),
           (kv.replay, '${run.replayCount}'),
           (kv.elapsed, elapsed),
-          if ((run.error as String?)?.isNotEmpty ?? false) (kv.error, run.error as String),
-        ]),
+          if (run.error?.isNotEmpty ?? false) (kv.error, run.error),
+        ], dense: true),
         if (failed || live) ...[
           const SizedBox(height: AnSpace.s8),
           AnActionGroup([
@@ -173,18 +174,18 @@ class RunCockpitTab extends ConsumerWidget {
     );
   }
 
-  Widget _nodeDebug(BuildContext context, WidgetRef ref, RunCockpitState st, node) {
+  Widget _nodeDebug(BuildContext context, WidgetRef ref, RunCockpitState st, FlowrunNode node) {
     final d = context.t.entities.detail;
     final kv = d.kv;
     final c = context.colors;
     final notifier = ref.read(runCockpitProvider(entityRef).notifier);
     final elapsed = (node.completedAt != null)
-        ? '${node.completedAt!.difference(node.createdAt).inMilliseconds}ms'
+        ? fmtDuration(node.completedAt!.difference(node.createdAt))
         : '—';
     final parked = node.status == 'parked';
     // Result minus the reserved routing/approval keys is the node's actual payload. 剔保留键的真实结果。
     final payload = <String, Object?>{
-      for (final e in (node.result as Map<String, Object?>).entries)
+      for (final e in node.result.entries)
         if (e.key != '__port' && e.key != 'rendered') e.key: e.value,
     };
     return AnInfoCard(
@@ -197,10 +198,10 @@ class RunCockpitTab extends ConsumerWidget {
           if (node.iteration > 0) (d.cockpit.iteration(n: node.iteration), '${node.iteration}'),
           (kv.ref, node.ref),
           (kv.elapsed, elapsed),
-        ]),
-        if ((node.error as String?) != null && (node.error as String).isNotEmpty) ...[
+        ], dense: true),
+        if (node.error?.isNotEmpty ?? false) ...[
           const SizedBox(height: AnSpace.s8),
-          AnCallout(node.error as String, severity: AnCalloutSeverity.danger),
+          AnCallout(node.error!, severity: AnCalloutSeverity.danger),
         ],
         if (payload.isNotEmpty) ...[
           const SizedBox(height: AnSpace.s8),

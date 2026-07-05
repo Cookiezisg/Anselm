@@ -16,6 +16,7 @@ import '../../data/entity_kind.dart';
 import '../../state/detail/entity_detail_provider.dart';
 import '../../state/run/run_fields.dart';
 import '../../state/run/run_terminal_controller.dart';
+import '../../state/run/run_terminal_state.dart';
 import '../../state/selected_entity.dart';
 
 /// The run terminal's typed input form — renders the bound entity's declared inputs as type-appropriate
@@ -110,7 +111,7 @@ class _RunInputFormState extends ConsumerState<RunInputForm> {
     );
   }
 
-  Widget _field(BuildContext context, RunTerminalController c, Field f, dynamic state) {
+  Widget _field(BuildContext context, RunTerminalController c, Field f, RunTerminalState state) {
     final key = ValueKey('${widget.entityRef}/${state.method}/${f.name}');
     final Widget input;
     if (f.type == 'boolean') {
@@ -168,7 +169,7 @@ class _RunInputFormState extends ConsumerState<RunInputForm> {
     );
   }
 
-  Widget _runButton(BuildContext context, RunTerminalController c, dynamic state) {
+  Widget _runButton(BuildContext context, RunTerminalController c, RunTerminalState state) {
     final r = context.t.entities.run;
     if (state.isRunning) {
       return AnButton(label: r.cancel, block: true, onPressed: c.cancel);

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import '../design/colors.dart';
@@ -69,16 +70,29 @@ class _AnTypewriterState extends State<AnTypewriter> with SingleTickerProviderSt
     _c = AnimationController(vsync: this)..addStatusListener(_onStatus);
   }
 
+  bool? _lastReduced;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _restart(); // reduced-motion lives in MediaQuery → re-evaluate here 降级标志在 MediaQuery
+    // Restart ONLY when the reduced-motion flag actually flipped — this fires on ANY inherited
+    // change (theme flip, MediaQuery resize), and an unconditional restart retyped the reveal from
+    // zero mid-stream. 仅在降级标志真翻转时重启——本钩子随任何继承变化触发(换主题/改窗),无条件重启
+    // 会让揭示中途从零重打。
+    final reduced = _reduced;
+    if (_lastReduced == reduced) return;
+    _lastReduced = reduced;
+    _restart();
   }
 
   @override
   void didUpdateWidget(AnTypewriter old) {
     super.didUpdateWidget(old);
-    if (old.phrases != widget.phrases || old.loop != widget.loop) _restart();
+    // CONTENT equality, not list identity — hosts (chat head / rail) build a fresh `[title]` list
+    // every build, and an identity compare restarted the reveal from zero on ANY parent rebuild
+    // (theme flip, provider tick mid-stream). 内容相等而非列表同一:宿主每 build 新建列表,按同一性比较
+    // 会在任何父重建时从零重打。
+    if (!listEquals(old.phrases, widget.phrases) || old.loop != widget.loop) _restart();
   }
 
   bool get _reduced => AnMotionPref.reducedOrAssistive(context);
@@ -189,7 +203,13 @@ class _AnTypewriterState extends State<AnTypewriter> with SingleTickerProviderSt
           const SizedBox(width: AnSpace.s2),
           Opacity(
             opacity: caretOpacity,
-            child: Container(width: AnSize.caret, height: AnSize.caretHeight, color: caretColor),
+            // Caret hugs the ACTIVE style's glyphs (fontSize + caretRise), same derivation as AnInput.
+            // 光标随有效样式(fontSize+caretRise),与 AnInput 同推导。
+            child: Container(
+              width: AnSize.caret,
+              height: (style.fontSize ?? AnText.body.fontSize)! + AnSize.caretRise,
+              color: caretColor,
+            ),
           ),
           const SizedBox(width: AnSize.caretEndPad), // end-of-line room (flutter#24612) 行尾留位
         ],

@@ -423,6 +423,7 @@ final GalleryCategory _g2Feedback = GalleryCategory('反馈态 Feedback', AnIcon
     GallerySpecimen('single (单值)', (_) => const _TagsDemo(initial: ['medium'], single: true)),
     GallerySpecimen('空 (placeholder)', (_) => const _TagsDemo()),
     GallerySpecimen('readOnly + tone/health', (_) => const AnTags(readOnly: true, tags: [AnTag('passed', tone: AnTone.ok, health: AnStatus.done), AnTag('pending', tone: AnTone.warn, health: AnStatus.wait), AnTag('failed', tone: AnTone.danger, health: AnStatus.err)]), span: true),
+    GallerySpecimen('reading (内容 KV 值位:24 高/13 字)', (_) => const AnTags(readOnly: true, reading: true, tags: [AnTag('util'), AnTag('io')]), span: true),
     GallerySpecimen('超长换行', (_) => const _TagsDemo(initial: ['a-very-long-tag', 'another-long-one', 'third', 'fourth-tag', 'fifth']), stress: true, maxWidth: 220),
   ]),
 ]);
@@ -502,6 +503,15 @@ final GalleryCategory _g3RowsCards = GalleryCategory('行与卡 Rows & Cards', A
     GallerySpecimen('wrap (只读长值换行,行级)', (_) => const AnKv(rows: [
           AnKvRow('Description', 'A deliberately long value that should wrap onto several lines instead of truncating.', wrap: true),
         ]), span: true),
+    GallerySpecimen('两级混排 (值15 · meta行13 · mono 13)', (_) => const AnKv(rows: [
+          AnKvRow('Description', 'Call the weather API'),
+          AnKvRow('Updated', '2026-07-05 16:02', meta: true),
+          AnKvRow('Ref count', '3', meta: true),
+        ]), span: true),
+    GallerySpecimen('dense (chrome 档,驾驶舱等)', (_) => const AnKv(dense: true, rows: [
+          AnKvRow('Status', 'running'),
+          AnKvRow('Elapsed', '2.4s'),
+        ]), span: true),
     GallerySpecimen('超长截断', (_) => const AnKv(rows: [
           AnKvRow('an-extremely-long-key-name-that-must-ellipsis', 'and-an-equally-long-value-that-also-truncates-on-the-right'),
         ]), stress: true, maxWidth: 240, span: true),
@@ -515,6 +525,7 @@ final GalleryCategory _g3RowsCards = GalleryCategory('行与卡 Rows & Cards', A
     GallerySpecimen('label + hint', (_) => const _FieldDemo(label: 'Timeout', hint: 'seconds before the run is aborted', value: '30'), span: true),
     GallerySpecimen('select 可编辑', (_) => const _FieldDemo(label: 'Effort', value: 'medium', editor: AnEditKind.select, options: _effortOptions), span: true),
     GallerySpecimen('只读', (_) => const AnField(label: 'Kind', value: 'function'), span: true),
+    GallerySpecimen('dense (chrome 档 13)', (_) => const AnField(label: 'Kind', value: 'function', dense: true), span: true),
     GallerySpecimen('控件槽 (value=null)', (_) => const AnField(label: 'Visibility', child: _DropdownDemo(initial: 'med', simple: true)), span: true),
     GallerySpecimen('超长 label/value', (_) => const _FieldDemo(label: 'an-extremely-long-field-label-that-must-ellipsis', value: 'and-a-very-long-value-that-truncates-on-the-right'), stress: true, maxWidth: 280, span: true),
   ]),
@@ -801,7 +812,8 @@ final GalleryCategory _g5CodeData = GalleryCategory('代码与数据 Code & Data
         stress: true, span: true),
   ]),
   GalleryItem('AnCodeEditor', '唯一代码块/轻编辑:高亮 + 行号 + 顶栏;只读/可编辑/内联/换行', [
-    GallerySpecimen('python 只读', (_) => const AnCodeEditor(code: _pyCode, lang: 'py'), span: true),
+    GallerySpecimen('python 只读 (机器窗档 12)', (_) => const AnCodeEditor(code: _pyCode, lang: 'py'), span: true),
+    GallerySpecimen('reading (内容档 13 — markdown/概览代码)', (_) => const AnCodeEditor(code: _pyCode, lang: 'py', reading: true), span: true),
     GallerySpecimen('CEL (插值上色)', (_) => const AnCodeEditor(code: _celCode, lang: 'cel'), span: true),
     GallerySpecimen('json 只读', (_) => const AnCodeEditor(code: _jsonCode, lang: 'json'), span: true),
     GallerySpecimen('可编辑 (铅笔→编辑)', (_) => const _CodeEditDemo(), span: true),
@@ -842,6 +854,7 @@ final GalleryCategory _g5CodeData = GalleryCategory('代码与数据 Code & Data
   ]),
   GalleryItem('AnVersionDiff', '版本 diff:单框 unified(增绿删红)+ 行内高亮(唯一 tokenizer);只读', [
     GallerySpecimen('范围 + 说明 + 计数', (_) => const AnVersionDiff(before: _diffBefore, after: _diffAfter, lang: 'py', range: 'v3 → v4', note: 'rename + add param'), span: true),
+    GallerySpecimen('reading (内容档 13 — 版本 tab)', (_) => const AnVersionDiff(before: _diffBefore, after: _diffAfter, lang: 'py', range: 'v3 → v4', reading: true), span: true),
     GallerySpecimen('最早版本 (整段 ctx)', (_) => const AnVersionDiff(before: null, after: _diffAfter, lang: 'py', range: 'v1'), span: true),
     GallerySpecimen('CEL diff', (_) => const AnVersionDiff(before: 'has(input.x)\n  ? input.x\n  : 0', after: 'has(input.user)\n  ? input.user.name\n  : "anon"', lang: 'cel', range: 'v2 → v3'), span: true),
     GallerySpecimen('bare (无框内联)', (_) => const AnVersionDiff(before: 'a = 1', after: 'a = 2', lang: 'py', bare: true), span: true),

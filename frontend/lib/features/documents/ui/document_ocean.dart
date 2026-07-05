@@ -45,6 +45,12 @@ class DocumentOcean extends ConsumerWidget {
         ref.read(shellHeadProvider.notifier).clear();
         ref.read(docOutlineProvider.notifier).clear();
         ref.read(docOutlineActiveProvider.notifier).set(null);
+      } else if (prev != null && prev != next) {
+        // Doc-to-doc switch: bind() PRESERVES collapsed (so mid-scroll rebinds can't pop the
+        // breadcrumb), so the selection change must reset it — a fresh page opens at the top with
+        // its big title visible. 换文档:bind 保留 collapsed(防滚动中弹开),故选区切换在此复位——
+        // 新页从顶部开、大标题在场。
+        ref.read(shellHeadProvider.notifier).setCollapsed(false);
       }
     });
     if (selected == null) {
@@ -282,11 +288,22 @@ class _DocEditViewState extends ConsumerState<_DocEditView> with _DocPageChrome 
 
   void _onChanged(String markdown) {
     feedOutlineOnEdit(markdown);
-    _save.run(() {
+    _save.run(() async {
       if (!mounted) return;
       // Content PATCH IS the save (no versioning). The editor already collapsed mention links → `[[id]]`.
-      // 存正文=PATCH content;编辑器已把 mention 链接塌回 `[[id]]`。
-      ref.read(documentsRepositoryProvider).updateDocument(widget.id, {'content': markdown});
+      // A FAILED save must surface (content PATCH is the document's ONLY persistence — silence loses
+      // edits past the last success while the user keeps typing believing they're saved); same
+      // try/catch + danger toast as every sibling writer in this file.
+      // 存正文=PATCH content;编辑器已把 mention 链接塌回 `[[id]]`。保存失败必须冒头(content PATCH 是
+      // 文档唯一持久化——静默失败让用户边打边丢),同本文件其余写手的 try/catch + danger toast。
+      try {
+        await ref.read(documentsRepositoryProvider).updateDocument(widget.id, {'content': markdown});
+      } catch (_) {
+        if (!mounted) return;
+        ref
+            .read(overlayProvider.notifier)
+            .showToast(context.t.documents.actionFailed, tone: AnToastTone.danger);
+      }
     });
   }
 
@@ -467,7 +484,8 @@ class _SkillEditViewState extends ConsumerState<_SkillEditView> with _DocPageChr
     final parts = <String>[
       if (skill.context.isNotEmpty) skill.context,
       if (skill.source.isNotEmpty) skill.source,
-      if (skill.frontmatter.allowedTools.isNotEmpty) '${skill.frontmatter.allowedTools.length} tools',
+      if (skill.frontmatter.allowedTools.isNotEmpty)
+        context.t.documents.toolCount(n: skill.frontmatter.allowedTools.length),
     ];
     return parts.join(' · ');
   }
@@ -494,7 +512,7 @@ class _SkillEditViewState extends ConsumerState<_SkillEditView> with _DocPageChr
                     crumbs: [t.documents.skills],
                     meta: [
                       if (_meta(skill).isNotEmpty)
-                        Text(_meta(skill), style: AnText.meta.copyWith(color: c.inkFaint)),
+                        Text(_meta(skill), style: AnText.label.copyWith(color: c.inkFaint)),
                     ],
                   ),
                   // The skill's description edits UNDER the title (same AnKv pattern as documents); the

@@ -15,12 +15,15 @@
 /// (传自定义列表时 SuperEditor 不再自动追加)。
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart' show Tooltip;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:super_editor/super_editor.dart';
 
+import '../../i18n/strings.g.dart';
 import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
@@ -354,13 +357,46 @@ class _AnCodeBlockComponent extends StatefulWidget {
 class _AnCodeBlockComponentState extends State<_AnCodeBlockComponent> {
   final _innerTextKey = GlobalKey();
   bool _copied = false;
+  bool _copyFailed = false;
+  Timer? _copyTimer;
 
-  Future<void> _copy() async {
-    await Clipboard.setData(ClipboardData(text: widget.viewModel.text.toPlainText()));
-    if (!mounted) return;
-    setState(() => _copied = true);
-    Future<void>.delayed(const Duration(seconds: 2), () {
-      if (mounted) setState(() => _copied = false);
+  @override
+  void dispose() {
+    _copyTimer?.cancel();
+    super.dispose();
+  }
+
+  // AnCodeEditor's copy contract, mirrored: honest failure (never claim success on a clipboard
+  // throw) + a CANCELLABLE 1200ms reset (an un-cancellable delay let a rapid double-copy's stale
+  // callback clear the fresh check early). 镜像 AnCodeEditor:失败如实标记 + 可取消 1200ms 复位
+  // (不可取消的延迟会让连点的旧回调提前清掉新 ✓)。
+  void _copy() {
+    Clipboard.setData(ClipboardData(text: widget.viewModel.text.toPlainText())).then((_) {
+      if (!mounted) return;
+      setState(() {
+        _copied = true;
+        _copyFailed = false;
+      });
+      _resetCopyAfterDelay();
+    }, onError: (_) {
+      if (!mounted) return;
+      setState(() {
+        _copyFailed = true;
+        _copied = false;
+      });
+      _resetCopyAfterDelay();
+    });
+  }
+
+  void _resetCopyAfterDelay() {
+    _copyTimer?.cancel();
+    _copyTimer = Timer(const Duration(milliseconds: 1200), () {
+      if (mounted) {
+        setState(() {
+          _copied = false;
+          _copyFailed = false;
+        });
+      }
     });
   }
 
@@ -390,7 +426,10 @@ class _AnCodeBlockComponentState extends State<_AnCodeBlockComponent> {
               child: Row(
                 children: [
                   Tooltip(
-                    message: widget.copyLabel,
+                    // Same three-state tip as AnCodeEditor's bar (copied / failed / copy). 与 AnCodeEditor 同三态提示。
+                    message: _copied
+                        ? context.t.feedback.copied
+                        : (_copyFailed ? context.t.feedback.copyFailed : widget.copyLabel),
                     child: AnButton.iconOnly(
                       _copied ? AnIcons.check : AnIcons.copy,
                       size: AnButtonSize.sm,
@@ -419,7 +458,7 @@ class _AnCodeBlockComponentState extends State<_AnCodeBlockComponent> {
                       child: Text(
                         [for (var i = 1; i <= lines; i++) '$i'].join('\n'),
                         textAlign: TextAlign.right,
-                        style: AnText.code.copyWith(color: c.inkFaint),
+                        style: AnText.codeReading.copyWith(color: c.inkFaint), // lockstep with the code rule (content rung) 与代码规则同档
                       ),
                     ),
                   ),

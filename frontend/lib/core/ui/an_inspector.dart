@@ -26,7 +26,7 @@ class AnInspector extends StatelessWidget {
     super.key,
   });
 
-  /// Head title (ink, w600, ellipsis). 头标题。
+  /// Head title (ink, w400 emphasis, ellipsis). 头标题。
   final String? title;
 
   /// Head icon (decorative, inkFaint). 头图标(装饰)。

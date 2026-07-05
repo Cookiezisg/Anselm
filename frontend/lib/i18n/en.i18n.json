@@ -36,6 +36,8 @@
       "recents": "Recents"
     },
     "placeholder": "Ask anything…",
+    "send": "Send message",
+    "stop": "Stop generating",
     "thinking": "thinking",
     "thought": "thought",
     "sendFailed": "Couldn't send",
@@ -447,6 +449,9 @@
         "dirTB": "Vertical",
         "save": "Save",
         "discard": "Discard",
+        "discardConfirmTitle": "Discard unsaved changes?",
+        "discardConfirmMessage": "The graph has edits that haven't been saved. Leaving now discards them.",
+        "discardConfirmAction": "Discard and leave",
         "saved": "New version saved",
         "unsaved": "Unsaved changes",
         "inspectorEmpty": "Select a node or edge to edit",
@@ -596,7 +601,8 @@
       "code": "Code block",
       "divider": "Divider",
       "todo": "To-do"
-    }
+    },
+    "toolCount": "$n tools"
   },
   "markdown": {
     "imageNotLoaded": "image not loaded"
@@ -607,6 +613,7 @@
     "tapToLoad": "Tap to load",
     "uploading": "Uploading…",
     "failedRetry": "Failed — tap to retry",
+    "failedUnreadable": "Couldn't read file",
     "remove": "Remove"
   }
 }

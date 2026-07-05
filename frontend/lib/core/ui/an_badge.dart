@@ -43,7 +43,7 @@ class AnBadge extends StatelessWidget {
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: AnText.meta.copyWith(color: tone.fg(c), fontWeight: FontWeight.w400),
+                style: AnText.meta.copyWith(color: tone.fg(c)).weight(AnText.emphasisWeight),
               ),
             ),
           ],

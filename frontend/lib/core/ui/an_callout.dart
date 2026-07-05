@@ -5,6 +5,7 @@ import '../../i18n/strings.g.dart';
 import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
+import 'an_action_group.dart';
 import '../model/status_state.dart';
 import 'an_button.dart';
 import 'icons.dart';
@@ -130,7 +131,9 @@ class _AnCalloutState extends State<AnCallout> {
         if (widget.actions.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: AnGap.block), // content → actions (12, unified with cards) 内容→动作
-            child: Wrap(spacing: AnGap.inline, runSpacing: AnGap.inline, children: widget.actions),
+            // AnActionGroup — D7's ONE action-row idiom (8px control gap, same as AnInfoCard); the
+            // hand-rolled 6px Wrap was the lone divergence. 动作行统一走 AnActionGroup(8px,同卡)。
+            child: AnActionGroup(widget.actions),
           ),
       ],
     );

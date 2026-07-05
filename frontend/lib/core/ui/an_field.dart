@@ -15,9 +15,12 @@ import 'icons.dart';
 /// [editable] (with the list's `onChanged`) makes a text value editable in place via
 /// [AnEditableValue]; [editor] picks free-text vs an enum dropdown. [wrap] lets a long READ-ONLY
 /// value fill + wrap left-aligned (label top-pinned) — it is per-row and excluded from editable rows
-/// (editable values are flush-right single-line by decree). The text field is named `label` (not
-/// `key`) to avoid clashing with [Widget.key].
+/// (editable values are flush-right single-line by decree). [meta] marks the value as METADATA
+/// (timestamps, counts, refCounts): it renders on the chrome 13 value tier even inside a content
+/// list (the locked two-tier — metadata never rides the 15 rung). The text field is named `label`
+/// (not `key`) to avoid clashing with [Widget.key].
 /// AnKv 行:文本行 / 标签行两种。editable=就地编辑;wrap 仅限只读文本行(长值左对齐换行);可编辑值恒贴右单行。
+/// meta=元数据值(时间戳/计数):即便在内容列表里也渲 13 值档(两级钦定——元数据不上 15)。
 class AnKvRow {
   const AnKvRow(
     this.label,
@@ -26,6 +29,7 @@ class AnKvRow {
     this.editor = AnEditKind.input,
     this.options = const [],
     this.wrap = false,
+    this.meta = false,
   })  : tags = null,
         tagsPlaceholder = null,
         assert(!(editable && wrap), 'wrap is for read-only display rows — editable values are flush-right. wrap 仅限只读行');
@@ -41,7 +45,8 @@ class AnKvRow {
         editable = false,
         editor = AnEditKind.input,
         options = const [],
-        wrap = false;
+        wrap = false,
+        meta = false;
 
   final String label;
   final String? value;
@@ -54,12 +59,15 @@ class AnKvRow {
   /// Long read-only value fills + wraps left-aligned. 只读长值换行。
   final bool wrap;
 
+  /// Metadata value (timestamp / count) — chrome 13 value tier even in a content list. 元数据值(恒 13 档)。
+  final bool meta;
+
   /// Non-null → this is a tags row (see [AnKvRow.tags]). 非空=标签行。
   final List<String>? tags;
   final String? tagsPlaceholder;
 
   AnKvRow _withValue(String v) =>
-      AnKvRow(label, v, editable: editable, editor: editor, options: options, wrap: wrap);
+      AnKvRow(label, v, editable: editable, editor: editor, options: options, wrap: wrap, meta: meta);
   AnKvRow _withTags(List<String> t) => AnKvRow.tags(label, t, tagsPlaceholder: tagsPlaceholder);
 }
 
@@ -73,24 +81,30 @@ class AnKvRow {
 /// [rows] are treated as position-stable (each row's edit state is reused by list position) — a
 /// consumer that reorders / filters rows must wrap them in keys.
 ///
-/// **The affordance rail**: every edit affordance (pencil, Cancel/Save, ➕, the select ghost's inset)
-/// lives in a far-right rail of width [AnSize.controlSm] (an iconOnly-sm button is a controlSm square
-/// by construction — see an_button.dart). When the list is EDITABLE (a non-null [onChanged] with at
-/// least one editable/tags row), read-only rows reserve the same rail so every value shares ONE right
-/// edge; a pure display list has no rail and its values sit flush to the true edge (unchanged). The
-/// one documented exception: the actively-edited row's Cancel/Save pair is transiently wider than the
-/// rail, so that row's value edge shifts left during the edit — approved far-right-affordance behavior.
+/// **Value tier (the two-tier default)**: keys stay on the 13 label tier; VALUES default to the
+/// CONTENT tier [AnText.valueReading] (15/1.4 + tabular; mono 13) — every current consumer is a
+/// content surface (entity overviews, document properties). [dense] opts a list back to the chrome
+/// tier ([AnText.value], 13/12) for operational panels (the run cockpit); [AnKvRow.meta] keeps a
+/// single metadata row (timestamp / count) on the chrome tier inside a content list. The 32px row
+/// holds the 15/1.4 value line (21 + 2×4 = 29) and the edit-frame bleed still fits.
+///
+/// **Two-end alignment**: at rest every value sits flush-right (NO reserved rail — the pencil/➕
+/// collapse to zero width and only take room on hover/focus); the actively-edited row's Cancel/Save
+/// pair transiently pushes that row's value left — the approved far-right-affordance behaviour.
 ///
 /// C3——紧凑定义列表:key 左 · value **贴右**,每行 row 高,靠字色 + 留白分层。可编辑文本行经 AnEditableValue
 /// (最右 hover 铅笔→框/下拉),标签行经 ➕/✕ 药丸;只读行单一 merge 语义节点。改一行→重建整列经 onChanged 派出。
-/// **触点轨**:一切编辑触点住在宽 controlSm 的最右轨(iconOnly-sm 按钮=controlSm 方块,构造性相等);列表可编辑时
-/// 只读行留同宽轨、全列值共一右缘;纯展示列表零轨、值贴真边。唯一例外:编辑中行的 取消/保存 短暂比轨宽,该行值缘
-/// 编辑期间左移——即钦定的「触点贴值最右」行为。
+/// **值档(两级默认)**:键守 13 标签档;值默认**内容档 valueReading**(15/1.4+tabular;mono 13)——现有消费者
+/// 全是内容面;dense=退回 chrome 档(驾驶舱等操作面板);AnKvRow.meta=单行元数据(时间戳/计数)在内容列表内
+/// 仍守 13。32 行放得下 15/1.4 值行(21+8=29),编辑框 bleed 依然成立。
+/// **两端对齐**:静态值贴右、不留轨(铅笔/➕ 收 0 宽、悬停才占位);编辑中行的 取消/保存 短暂把该行值缘挤左——
+/// 钦定的「触点贴值最右」行为。
 class AnKv extends StatelessWidget {
   const AnKv({
     required this.rows,
     this.onChanged,
     this.mono = false,
+    this.dense = false,
     super.key,
   });
 
@@ -100,11 +114,16 @@ class AnKv extends StatelessWidget {
   final ValueChanged<List<AnKvRow>>? onChanged;
   final bool mono;
 
-  /// The list carries edit affordances → all rows reserve the far-right rail (see class doc).
-  /// 列表带编辑触点 → 全列留最右轨。
-  bool get _railed => onChanged != null && rows.any((r) => r.editable || r.tags != null);
+  /// Chrome-tier list (values 13/12) — dense operational panels; default is the content tier (15).
+  /// chrome 档列表(值 13/12)——密集操作面板;默认内容档(15)。
+  final bool dense;
 
   void _emitRow(int i, AnKvRow next) => onChanged!([...rows]..[i] = next);
+
+  /// The row's value-tier style: chrome for [dense] lists and [AnKvRow.meta] rows, content otherwise.
+  /// 行值档:dense 列表与 meta 行走 chrome,其余内容档。
+  TextStyle _valueStyle(AnKvRow row) =>
+      (dense || row.meta) ? AnText.value(mono: mono) : AnText.valueReading(mono: mono);
 
   @override
   Widget build(BuildContext context) {
@@ -132,7 +151,7 @@ class AnKv extends StatelessWidget {
         fieldLabel: row.label,
         tags: row.tags!,
         placeholder: row.tagsPlaceholder,
-        railed: _railed,
+        reading: !dense,
         onChanged: onChanged == null ? null : (t) => _emitRow(i, row._withTags(t)),
       );
     }
@@ -144,6 +163,7 @@ class AnKv extends StatelessWidget {
         value: row.value ?? '',
         rowHeight: AnSize.row,
         valueColor: c.inkFaint,
+        valueStyle: _valueStyle(row),
         editor: row.editor,
         options: row.options,
         mono: mono,
@@ -153,8 +173,8 @@ class AnKv extends StatelessWidget {
 
     // Read-only row: one merged "label: value" node — no pencil, key→value connected for SR. 只读行单节点。
     final shown = (row.value == null || row.value!.isEmpty) ? '—' : row.value!;
-    // Value column → the shared tabular value style ("值列 tabular 铁律"); mono only switches family. 值列样式单源。
-    final valueStyle = AnText.value(mono: mono).copyWith(color: c.inkFaint);
+    // Value column → the shared tiered value style ("值列 tabular 铁律"); mono only switches family. 值列样式单源。
+    final valueStyle = _valueStyle(row).copyWith(color: c.inkFaint);
     return Semantics(
       label: '${row.label}: $shown',
       child: ExcludeSemantics(
@@ -203,6 +223,7 @@ class AnField extends StatelessWidget {
     this.editor = AnEditKind.input,
     this.options = const [],
     this.wrap = false,
+    this.dense = false,
     this.child,
     this.onChanged,
     super.key,
@@ -218,9 +239,16 @@ class AnField extends StatelessWidget {
   /// Long READ-ONLY value fills + wraps left-aligned. 只读长值换行。
   final bool wrap;
 
+  /// Chrome-tier field (value 13, hint 12) — mirrors [AnKv.dense]; the default is the content tier
+  /// (value [AnText.valueReading] 15, hint [AnText.label] 13). chrome 档(值 13/提示 12),镜像 AnKv.dense;
+  /// 默认内容档(值 15/提示 13)。
+  final bool dense;
+
   /// Control rendered when [value] is null (a dropdown / switch / button), right-aligned. value 为空时渲的控件。
   final Widget? child;
   final ValueChanged<String>? onChanged;
+
+  TextStyle get _valueStyle => dense ? AnText.value() : AnText.valueReading();
 
   @override
   Widget build(BuildContext context) {
@@ -235,6 +263,7 @@ class AnField extends StatelessWidget {
         value: value!,
         rowHeight: AnSize.islandHead,
         valueColor: c.inkMuted,
+        valueStyle: _valueStyle,
         editor: editor,
         options: options,
         onChanged: onChanged!, // guarded above (instance field isn't promoted by the null-check) 上文已判非空
@@ -253,7 +282,7 @@ class AnField extends StatelessWidget {
         maxLines: wrap ? null : 1,
         softWrap: wrap,
         overflow: wrap ? TextOverflow.clip : TextOverflow.ellipsis,
-        style: AnText.value().copyWith(color: c.inkMuted),
+        style: _valueStyle.copyWith(color: c.inkMuted),
       );
     } else {
       semValue = null;
@@ -292,8 +321,10 @@ class AnField extends StatelessWidget {
       children: [
         labelText,
         const SizedBox(height: AnSpace.s2), // demo .l gap = --grid/2 列内间距
-        // hint: faint meta, wraps onto multiple lines (word boundaries) — a long mechanism / description. hint 多行换行。
-        Text(hint!, softWrap: true, style: AnText.meta.copyWith(color: c.inkFaint)),
+        // hint: faint, wraps onto multiple lines (word boundaries) — a long mechanism / description.
+        // Content tier reads it at label 13 (metadata inside content is never 12); dense keeps meta 12.
+        // hint 多行换行;内容档 13(内容内元数据不用 12)、dense 守 12。
+        Text(hint!, softWrap: true, style: (dense ? AnText.meta : AnText.label).copyWith(color: c.inkFaint)),
       ],
     );
   }
@@ -307,8 +338,8 @@ class AnField extends StatelessWidget {
 /// pill gains its ✕ and the ➕ fades in on the rail. Pressing ➕ mounts the autofocused inline add
 /// input via [AnTags.showAddField]; Enter chains, Esc / blur dismisses ([AnTags.onAddDismissed] flips
 /// [_adding] back off; drafts are cleared by AnTags on every dismissal). Each add/remove emits live
-/// through [onChanged]. A null [onChanged] renders display-only pills (+ the rail placeholder when the
-/// surrounding list is railed).
+/// through [onChanged]. A null [onChanged] renders display-only pills, flush-right like every
+/// read-only value (no reserved rail — the 两端对齐 mechanic).
 /// 标签行体——AnEditableValue 的药丸对偶,同走非 wrap AnLeadValue(值贴右、全员垂直居中)+ 同一揭示手感:
 /// 静态干净药丸(空则 —);行 hover 或最右 opacity-0 常驻 ➕ 获键盘焦点(铅笔的可达性手法:触点先可聚焦、后可见,
 /// 否则键盘/读屏永远进不了编辑)→ 每丸 ✕ + ➕ 显形;按 ➕ 经 AnTags.showAddField 挂出自聚焦输入框,Enter 连加、
@@ -318,7 +349,7 @@ class _KvTagsRow extends StatefulWidget {
     required this.leading,
     required this.fieldLabel,
     required this.tags,
-    required this.railed,
+    required this.reading,
     this.placeholder,
     this.onChanged,
   });
@@ -326,7 +357,9 @@ class _KvTagsRow extends StatefulWidget {
   final Widget leading;
   final String fieldLabel;
   final List<String> tags;
-  final bool railed;
+
+  /// Content-tier pills (see [AnTags.reading]) — follows the host list's tier. 内容档药丸(随宿主列表档)。
+  final bool reading;
   final String? placeholder;
   final ValueChanged<List<String>>? onChanged;
 
@@ -387,19 +420,29 @@ class _KvTagsRowState extends State<_KvTagsRow> {
     );
   }
 
-  // The far-right rail slot: the ➕ (always in tree, opacity-revealed — keyboard-reachable before
-  // visible) when editable; a rail placeholder in a railed display list; nothing otherwise.
-  // 最右轨:可编辑=常驻 opacity ➕(先可达后可见);railed 只读=占位;否则无。
+  // The far-right rail slot: the ➕ when editable (always in tree, keyboard-reachable before
+  // visible); nothing otherwise. COLLAPSES to zero width at rest exactly like the pencil
+  // (ClipRect + Align widthFactor) — a bare Opacity keeps its 24px layout width and shoved the
+  // tags value zone 30px left of the sibling text rows' flush-right edge, breaking the 两端对齐
+  // invariant this file decrees.
+  // 最右轨:可编辑=常驻 ➕(先可达后可见),静态**收成 0 宽**(同铅笔的 ClipRect+widthFactor)——裸
+  // Opacity 保留 24px 布局宽,曾把标签值区推离右缘 30px、破本文件钦定的两端对齐;只读=无。
   Widget? _rail(bool editable, bool revealed) {
-    if (!editable) return widget.railed ? const SizedBox(width: AnSize.controlSm) : null;
-    return Opacity(
-      opacity: revealed ? 1 : 0,
-      child: AnButton.iconOnly(
-        AnIcons.plus,
-        size: AnButtonSize.sm,
-        semanticLabel: context.t.a11y.addTagTo(field: widget.fieldLabel),
-        focusNode: _plusFocus,
-        onPressed: () => setState(() => _adding = true),
+    if (!editable) return null;
+    return ClipRect(
+      child: Align(
+        alignment: Alignment.centerRight,
+        widthFactor: revealed ? 1.0 : 0.0,
+        child: Opacity(
+          opacity: revealed ? 1 : 0,
+          child: AnButton.iconOnly(
+            AnIcons.plus,
+            size: AnButtonSize.sm,
+            semanticLabel: context.t.a11y.addTagTo(field: widget.fieldLabel),
+            focusNode: _plusFocus,
+            onPressed: () => setState(() => _adding = true),
+          ),
+        ),
       ),
     );
   }
@@ -407,11 +450,14 @@ class _KvTagsRowState extends State<_KvTagsRow> {
   Widget _value(AnColors c, bool revealed) {
     if (widget.tags.isEmpty && !_adding) {
       // Empty at rest → em-dash flush right, exactly like an empty text row. 空静态显 —,与文本行同几何。
-      final dash = Text('—', textAlign: TextAlign.right, style: AnText.value().copyWith(color: c.inkFaint));
+      final dash = Text('—',
+          textAlign: TextAlign.right,
+          style: (widget.reading ? AnText.valueReading() : AnText.value()).copyWith(color: c.inkFaint));
       return revealed ? dash : Semantics(label: '${widget.fieldLabel}: —', child: ExcludeSemantics(child: dash));
     }
     final pills = AnTags(
       tags: [for (final t in widget.tags) AnTag(t)],
+      reading: widget.reading,
       readOnly: !revealed,
       end: true, // flush-right pill runs inside the flush-right value zone 值区贴右,行尾对齐
       placeholder: widget.placeholder,

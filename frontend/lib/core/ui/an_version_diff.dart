@@ -45,6 +45,7 @@ class AnVersionDiff extends StatelessWidget {
     this.range,
     this.note,
     this.bare = false,
+    this.reading = false,
     super.key,
   });
 
@@ -66,6 +67,13 @@ class AnVersionDiff extends StatelessWidget {
   /// Drop the frame + bar (an inline diff). 无框内联。
   final bool bare;
 
+  /// CONTENT-tier rows (mono 13/1.6, [AnText.codeReading]) — the entity version tab's diff, read
+  /// inside the 15 content page. Machine windows (the Edit tool card) keep [AnText.code] 12.
+  /// 内容档行(13/1.6):实体版本 tab 的 diff;机器窗(Edit tool 卡)守 12。
+  final bool reading;
+
+  TextStyle get _rowStyle => reading ? AnText.codeReading : AnText.code;
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
@@ -77,7 +85,7 @@ class AnVersionDiff extends StatelessWidget {
     // Gutter width: a SINGLE fixed width for every row (per-row ConstrainedBox-floor would let rows with
     // different digit counts diverge and misalign the sign/code columns). Measured from the largest line
     // number so 5+ digits don't clip, floored at AnSize.trail. 行号列统一固定宽(按最大行号测、floor=trail;逐行 floor 会错位)。
-    final gutterW = _gutterWidth(lastLn);
+    final gutterW = _gutterWidth(context, lastLn);
 
     final body = LayoutBuilder(
       builder: (ctx, constraints) {
@@ -197,12 +205,16 @@ class AnVersionDiff extends StatelessWidget {
     );
   }
 
-  // Width for the line-number column — the widest line number measured in the code style, floored at
-  // AnSize.trail (so it can't clip a 5+ digit number, and stays uniform across rows). 行号列宽(测最大号、floor trail)。
-  double _gutterWidth(int maxLn) {
+  // Width for the line-number column — the widest line number measured in the ACTIVE row style
+  // (a hard-wired AnText.code would misalign the reading rung) AND the ambient textScaler (the row
+  // Texts honour OS text scaling; an unscaled measurement clipped scaled digits), floored at
+  // AnSize.trail. 行号列宽:按**活动行样式**+环境 textScaler 量(钉死 code 会错配 reading 档;不带
+  // scaler 的测量在系统文字缩放下裁字),floor=trail。
+  double _gutterWidth(BuildContext context, int maxLn) {
     final tp = TextPainter(
-      text: TextSpan(text: '$maxLn', style: AnText.code),
+      text: TextSpan(text: '$maxLn', style: _rowStyle),
       textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
     )..layout();
     // INCLUDE the left s12 + right s8 inset in the column width, so the gutter matches AnCodeEditor's
     // (whose `ConstrainedBox(minWidth: trail)` wraps a `Padding(left s12, right s8)` — the trail floor
@@ -246,17 +258,17 @@ class AnVersionDiff extends StatelessWidget {
             width: gutterW,
             child: Padding(
               padding: const EdgeInsets.only(left: AnSpace.s12, right: AnSpace.s8),
-              child: Text(r.lineNo?.toString() ?? '', textAlign: TextAlign.right, style: AnText.code.copyWith(color: c.inkFaint)),
+              child: Text(r.lineNo?.toString() ?? '', textAlign: TextAlign.right, style: _rowStyle.copyWith(color: c.inkFaint)),
             ),
           ),
           // sign 符号
           SizedBox(
             width: AnSize.iconLg,
-            child: Text(sign, textAlign: TextAlign.center, style: AnText.code.copyWith(color: base)),
+            child: Text(sign, textAlign: TextAlign.center, style: _rowStyle.copyWith(color: base)),
           ),
           // code — base colour tinted by the op; token spans keep their syntax colours over it. 代码(基色染、token 覆盖)。
           Text.rich(
-            TextSpan(style: AnText.code.copyWith(color: base), children: highlightCode(r.text, lang: lang, colors: syntax)),
+            TextSpan(style: _rowStyle.copyWith(color: base), children: highlightCode(r.text, lang: lang, colors: syntax)),
             softWrap: false,
             maxLines: 1,
           ),

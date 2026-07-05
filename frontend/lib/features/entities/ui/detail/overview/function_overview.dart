@@ -36,7 +36,7 @@ class FunctionOverview extends ConsumerWidget {
   /// [_maxCollapsedLines] code lines at the code style's line box (from the token, not re-typed numbers),
   /// plus the editor's bar+padding chrome — the collapsed height. 收合高度=行数×代码样式行盒 + 编辑器 chrome。
   static final double _collapsedCodeHeight =
-      _maxCollapsedLines * AnText.code.fontSize! * AnText.code.height! + AnCodeEditor.chromeHeight;
+      _maxCollapsedLines * AnText.codeReading.fontSize! * AnText.codeReading.height! + AnCodeEditor.chromeHeight; // lockstep with the reading rung below 与下方 reading 档同步
 
   Future<void> _patchMeta(WidgetRef ref, Map<String, dynamic> patch) async {
     await ref.read(entityRepositoryProvider).patchFunctionMeta(fn.id, patch);
@@ -77,7 +77,7 @@ class FunctionOverview extends ConsumerWidget {
             collapsedHeight: _collapsedCodeHeight,
             expandLabel: d.codeToggle.expand(n: codeLines),
             collapseLabel: d.codeToggle.collapse,
-            child: AnCodeEditor(code: v.code, lang: 'py', wrap: true),
+            child: AnCodeEditor(code: v.code, lang: 'py', wrap: true, reading: true),
           ),
         ]),
         AnSection(label: d.sec.input, variant: AnSectionVariant.plain, grid: true, children: [
@@ -94,12 +94,14 @@ class FunctionOverview extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // Status word = content (15, cross-kind consistency); version/id/timestamp = meta.
+                // 状态词=内容 15(跨类一致);版本/id/时间戳=元数据 13。
+                kvList([(d.kv.status, v.envStatus)]),
                 kvList([
                   (d.kv.python, v.pythonVersion),
                   (d.kv.envId, v.envId),
-                  (d.kv.status, v.envStatus),
                   (d.kv.syncedAt, fmtTime(v.envSyncedAt)),
-                ]),
+                ], meta: true),
                 const SizedBox(height: AnSpace.s8),
                 if (v.dependencies.isEmpty)
                   insetEmpty(d.val.none) // the feature's one empty-state idiom 同一空态惯用法

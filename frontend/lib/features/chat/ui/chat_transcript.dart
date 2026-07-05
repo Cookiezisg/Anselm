@@ -311,7 +311,7 @@ class _TurnRow extends ConsumerWidget {
     if (blocks.isEmpty && banner == null && streaming) {
       // Turn opened, first block not yet — a quiet thinking shimmer placeholder. 回合已开首块未到:静占位。
       blocks.add(AnShimmerText(t.chat.thinking,
-          style: AnText.meta.copyWith(color: c.inkMuted), reveal: true));
+          style: AnText.label.copyWith(color: c.inkMuted), reveal: true));
     }
     return ChatTurn(
       role: ChatRole.assistant,
@@ -353,13 +353,13 @@ class _TurnRow extends ConsumerWidget {
       case BlockKind.compaction:
         return Center(
           child: Text('· ${b.displayText} ·',
-              style: AnText.meta.copyWith(color: c.inkFaint)),
+              style: AnText.label.copyWith(color: c.inkFaint)),
         );
       case BlockKind.message:
         return null; // nested subagent turns join the transcript at V5 嵌套 subagent 回合 V5 接入
       case BlockKind.unknown:
         return Text(b.displayText,
-            style: AnText.meta.copyWith(color: c.inkFaint)); // never a silent hole 绝不无声
+            style: AnText.label.copyWith(color: c.inkFaint)); // never a silent hole 绝不无声
     }
   }
 
@@ -382,7 +382,7 @@ class _TurnRow extends ConsumerWidget {
     final detail = [code, msg].where((s) => s.isNotEmpty).join(' · ');
     return Text(
       detail.isEmpty ? label : '$label · $detail',
-      style: AnText.meta.copyWith(color: color),
+      style: AnText.label.copyWith(color: color),
     );
   }
 }
@@ -420,9 +420,9 @@ class _PendingRow extends ConsumerWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(AnIcons.error, size: AnSize.iconSm, color: c.danger),
+                      Icon(AnIcons.error, size: AnSize.icon, color: c.danger),
                       const SizedBox(width: AnSpace.s6),
-                      Text(t.chat.sendFailed, style: AnText.meta.copyWith(color: c.danger)),
+                      Text(t.chat.sendFailed, style: AnText.label.copyWith(color: c.danger)),
                       const SizedBox(width: AnSpace.s8),
                       AnButton(
                         label: t.chat.retrySend,

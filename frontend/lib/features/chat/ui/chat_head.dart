@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/contract/model_capability.dart';
+import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
+import '../../../core/design/typography.dart';
 import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
 import '../state/conversation_header.dart';
@@ -60,6 +62,9 @@ class ChatHead extends ConsumerWidget {
         // Title — in-place rename, hugging its content (AnInlineEdit is min-sized under a loose host)
         // so the model button sits right after it; Flexible still caps runaway titles.
         // 标题:就地改名,收紧到内容宽(AnInlineEdit loose 下 min),模型钮贴题;Flexible 仍封超长。
+        // The title is the content area's identity — the 15/w400 content rung (readingH3), not the
+        // 13 chrome body; the reveal typewriter MUST ride the same style or the finish flashes 13→15.
+        // 标题=内容区身份:15/w400 内容档(readingH3),非 13 chrome;打字机揭示必须同式,否则收尾闪号。
         Flexible(
           child: revealing
               ? SizedBox(
@@ -72,6 +77,7 @@ class ChatHead extends ConsumerWidget {
                     child: AnTypewriter(
                       [conv.title],
                       loop: false,
+                      textStyle: AnText.readingH3.copyWith(color: context.colors.ink),
                       onDone: () => ref.read(titleRevealsProvider.notifier).remove(id),
                     ),
                   ),
@@ -79,6 +85,8 @@ class ChatHead extends ConsumerWidget {
               : AnInlineEdit(
                   key: ValueKey('chat-head-title-$id'),
                   value: conv.title.isEmpty ? t.chat.kNew : conv.title,
+                  style: AnText.readingH3,
+                  affordanceSize: AnButtonSize.md,
                   onCommit: (v) => ref.read(conversationHeaderProvider(id).notifier).rename(v),
                 ),
         ),
@@ -107,12 +115,23 @@ class ChatHead extends ConsumerWidget {
   }) {
     // The anchor lives at the head's LEFT (landing: far left; thread: right after the title), so the
     // menu opens DOWN-RIGHT (start-aligned — AnMenu defaults to end); the popover flips on overflow.
-    // 锚在头部左区,菜单**右下**展开(start 对齐——AnMenu 默认 end)、越界自翻。
+    // The anchor shows the capability's DISPLAY NAME (same label the menu row shows — a picked
+    // 'DeepSeek Chat' must not echo back as 'deepseek-chat'), falling back to the raw id for an
+    // override whose capability is gone. md tier: the 13 label rung beside the 15 title (sm's meta
+    // 12 sat a rung too low and a 24 box mis-centred in the 44 head band).
+    // 锚在头部左区,菜单**右下**展开(start 对齐)、越界自翻。锚显 displayName(与菜单行同名——选了
+    // 「DeepSeek Chat」不能回显 raw id;能力已失才回落 id)。md 档:15 标题旁的 13 标签档。
+    final anchorLabel = current == null
+        ? t.chat.modelAuto
+        : caps
+                .where((cap) => cap.modelId == current.modelId && cap.apiKeyId == current.apiKeyId)
+                .map((cap) => cap.displayName.isEmpty ? cap.modelId : cap.displayName)
+                .firstOrNull ??
+            current.modelId;
     return AnMenu(
       alignEnd: false,
       anchorBuilder: (context, toggle, isOpen) => AnButton(
-        label: current?.modelId ?? t.chat.modelAuto,
-        size: AnButtonSize.sm,
+        label: anchorLabel,
         onPressed: toggle,
       ),
       entries: [

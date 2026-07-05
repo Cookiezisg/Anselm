@@ -172,3 +172,19 @@ Future<FlowrunComposite> fetchFlowrunFull(
   }
   return FlowrunComposite(flowrun: first.flowrun, nodes: nodes, nextCursor: null);
 }
+/// Human-readable elapsed time — the cockpit's at-a-glance formatter (a raw `inMilliseconds` read
+/// '120000ms' for a two-minute run). <1s → Nms; <60s → N.Ns; else NmSSs (mirrors the tool cards'
+/// seconds idiom). 人类可读耗时:<1s 毫秒、<60s 秒(一位小数)、否则 分+秒——驾驶舱一眼可读。
+String fmtDuration(Duration d) {
+  final ms = d.inMilliseconds;
+  if (ms < 1000) return '${ms}ms';
+  // 59.95–59.999s would round-format to "60.0s" — roll into the minutes tier instead.
+  // 59.95s 会被格式化成「60.0s」——滚进分钟档。
+  if (ms < 59950) return '${(ms / 1000).toStringAsFixed(1)}s';
+  final m = d.inMinutes;
+  final s = d.inSeconds % 60;
+  // Hour-plus runs read as hours, not raw minutes ("2h 5m", never "125m 3s") — durable workflows
+  // legitimately run that long. 小时级显示小时档(durable 工作流真会跑这么久)。
+  if (m >= 60) return '${d.inHours}h ${m % 60}m';
+  return '${m}m ${s}s';
+}

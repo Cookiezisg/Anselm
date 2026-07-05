@@ -36,7 +36,7 @@ class AnToolbar extends StatelessWidget {
   /// Right actions (wrapped in an [AnActionGroup]). 右动作。
   final List<Widget> trailing;
 
-  /// Standard title (ink, w600, ellipsis). 标准标题。
+  /// Standard title (ink, w400 emphasis, ellipsis). 标准标题。
   final String? title;
 
   /// Secondary meta after the title. 次级 meta。

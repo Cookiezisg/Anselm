@@ -531,7 +531,7 @@ class AnDocEditorState extends State<AnDocEditor> {
         checkboxTheme: CheckboxThemeData(
           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(AnRadius.tag))),
-          side: BorderSide(color: c.lineStrong, width: 1.2),
+          side: BorderSide(color: c.lineStrong, width: AnSize.glyphStroke),
           fillColor: WidgetStateProperty.resolveWith(
               (states) => states.contains(WidgetState.selected) ? c.accent : const Color(0x00000000)),
           checkColor: WidgetStateProperty.all(c.surface),
@@ -638,9 +638,14 @@ Stylesheet _anStylesheet(AnColors c) {
         style = style.weight(AnText.emphasisWeight);
       }
       if (attributions.contains(codeAttribution)) {
+        // Pin size + leading to AnText.mono (13/1.5), not just the family — swapping the family
+        // alone inherited the base rule's 15 and forked inline code from AnMarkdown's 13 chip
+        // (the parity contract). 内联代码钉 mono 的 13/1.5,只换字族会继承 15、与 AnMarkdown 的 13 分叉。
         style = style.copyWith(
           fontFamily: AnText.mono.fontFamily,
           fontFamilyFallback: AnText.mono.fontFamilyFallback,
+          fontSize: AnText.mono.fontSize,
+          height: AnText.mono.height,
           backgroundColor: c.surfaceSunken,
         );
       }
@@ -657,7 +662,7 @@ Stylesheet _anStylesheet(AnColors c) {
     },
     inlineWidgetBuilders: defaultInlineWidgetBuilderChain,
     rules: [
-      // Base: reading body (13/1.6 w300, Notion air), the ocean's 720 reading column + page-X pad — the SAME
+      // Base: reading body (15/1.6 w300, Notion air), the ocean's 720 reading column + page-X pad — the SAME
       // numbers as AnPage, and the single-column layout centers each block in the full-width editor, so the
       // body lines up exactly with a `Center > 720 > pageX` header above. 基础:720 列+pageX(AnPage 同数),
       // 布局把每块在全宽编辑器里居中,与头精确对齐。
@@ -701,7 +706,7 @@ Stylesheet _anStylesheet(AnColors c) {
           }),
       // Fenced code — the code face + the uniform block gap (the custom component brings the frame). 代码块。
       StyleRule(const BlockSelector('code'), (doc, node) => {
-            Styles.textStyle: AnText.code.copyWith(color: c.ink),
+            Styles.textStyle: AnText.codeReading.copyWith(color: c.ink), // content code — lockstep with AnCodeEditor(reading) + the gutter 内容代码,与 chat 代码块/行号槽同档
             Styles.padding: const CascadingPadding.only(top: AnFlow.block),
           }),
       // Blockquote — the quiet-aside register (inkMuted prose), matching AnMarkdown; the custom component

@@ -68,9 +68,9 @@ class AnPageState extends State<AnPage> {
               child: Padding(
                 padding: const EdgeInsets.only(
                   top: AnSize.islandHead + AnSpace.s12,
-                  left: AnSpace.s24,
-                  right: AnSpace.s24,
-                  bottom: AnSpace.s48,
+                  left: AnInset.pageX,
+                  right: AnInset.pageX,
+                  bottom: AnInset.pageBottom,
                 ),
                 child: widget.child,
               ),

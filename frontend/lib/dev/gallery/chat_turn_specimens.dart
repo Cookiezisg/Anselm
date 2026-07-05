@@ -18,7 +18,7 @@ const double _turnW = 620;
 const double _turnGap = AnSpace.s24; // between turns — the airy value 轮间距(透气档)
 const double _blockGap = AnSpace.s12; // between blocks within one assistant turn 轮内块间距(更紧)
 
-TextStyle _ink(BuildContext c) => AnText.body.copyWith(color: c.colors.ink);
+TextStyle _ink(BuildContext c) => AnText.reading.copyWith(color: c.colors.ink);
 Widget _text(BuildContext c, String s) => Text(s, style: _ink(c));
 
 Widget _user(BuildContext c, String s, {bool sending = false}) =>

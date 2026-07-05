@@ -172,7 +172,7 @@ class _AnThinTableState extends State<AnThinTable> {
     final active = r == _selected || (_interactive && r == _hovered);
     final style = i == 0
         ? AnText.body.copyWith(color: c.ink)
-        : AnText.body.copyWith(color: active ? c.ink : c.inkMuted, fontFeatures: const [FontFeature.tabularFigures()]);
+        : AnText.value().copyWith(color: active ? c.ink : c.inkMuted); // the value-column single source 值列单源
 
     final content = Container(
       constraints: const BoxConstraints(minHeight: AnSize.row),

@@ -63,6 +63,7 @@ class AnTags extends StatefulWidget {
     this.showAddField,
     this.onAddDismissed,
     this.end = false,
+    this.reading = false,
     super.key,
   });
 
@@ -86,6 +87,12 @@ class AnTags extends StatefulWidget {
 
   /// End-align the pill runs — for a flush-right value zone (the KV tags row). 行尾对齐(贴右值区用)。
   final bool end;
+
+  /// Content-tier pills — tags standing as a VALUE inside a content KV row (document properties):
+  /// label 13 / pill 24 / padX 10, beside 15 sibling values. Chrome pills (rail, headers, inspector)
+  /// keep the default 12 / 22 / 9. 内容档药丸:作为内容 KV 值的标签(文档属性)——13 字/24 高/10 内距,
+  /// 与 15 值同列;chrome 处守默认 12/22/9。
+  final bool reading;
 
   @override
   State<AnTags> createState() => _AnTagsState();
@@ -218,8 +225,9 @@ class _AnTagsState extends State<AnTags> {
     final reduced = AnMotionPref.reduced(context);
     return AnimatedContainer(
       duration: reduced ? Duration.zero : AnMotion.fast,
-      height: AnSize.badge,
-      padding: const EdgeInsets.symmetric(horizontal: AnSize.badgePadX),
+      height: widget.reading ? AnSize.controlSm : AnSize.badge,
+      padding: EdgeInsets.symmetric(
+          horizontal: widget.reading ? AnSize.btnPadXSm : AnSize.badgePadX),
       decoration: BoxDecoration(
         color: flashing ? c.accentSoft : tone.softBg(c),
         borderRadius: BorderRadius.circular(AnRadius.pill),
@@ -239,7 +247,8 @@ class _AnTagsState extends State<AnTags> {
                 maxLines: 1,
                 softWrap: false,
                 overflow: TextOverflow.ellipsis,
-                style: AnText.meta.copyWith(color: tone == AnTone.none ? c.ink : tone.fg(c))),
+                style: (widget.reading ? AnText.label : AnText.meta)
+                    .copyWith(color: tone == AnTone.none ? c.ink : tone.fg(c))),
           ),
           if (_editable) ...[
             const SizedBox(width: AnSpace.s6),
@@ -268,17 +277,18 @@ class _AnTagsState extends State<AnTags> {
 
   Widget _addField(AnColors c) {
     // Grows with the typed content (DryIntrinsicWidth), floored at inlineEditMin so an empty field
-    // stays clickable; pinned to the pill height (badge) so the run never jumps when the field joins.
-    // Text at AnText.meta = the pill label size (baseline harmony). 随输入增长、空框不塌;钉药丸高、字号同药丸。
+    // stays clickable; pinned to the ACTIVE pill height (reading 24 / chrome badge 22) so the run
+    // never jumps when the field joins; text matches the active pill label size (reading label 13 /
+    // chrome meta 12 — baseline harmony). 随输入增长、空框不塌;钉当前档药丸高、字号同当前档药丸。
     return SizedBox(
-      height: AnSize.badge,
+      height: widget.reading ? AnSize.controlSm : AnSize.badge,
       child: Align(
         alignment: Alignment.centerLeft,
         // widthFactor 1: hug the field's width — a bare Align EXPANDS to the Wrap's full width and
         // forces the field onto its own run. widthFactor=1 贴字段宽;裸 Align 会撑满整行、把字段挤到独行。
         widthFactor: 1,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: AnSize.menuMaxWidth),
+          constraints: const BoxConstraints(maxWidth: AnSize.tagFieldMaxWidth),
           child: DryIntrinsicWidth(
             child: ConstrainedBox(
               constraints: const BoxConstraints(minWidth: AnSize.inlineEditMin),
@@ -288,7 +298,7 @@ class _AnTagsState extends State<AnTags> {
                   controller: _ctl,
                   focusNode: _focus,
                   seamless: true,
-                  style: AnText.meta,
+                  style: widget.reading ? AnText.label : AnText.meta,
                   placeholder: widget.placeholder,
                   onSubmitted: (_) => _add(),
                   // Suppress the framework's Enter-unfocus so Enter chains (add → keep typing). 压默认失焦,连加。

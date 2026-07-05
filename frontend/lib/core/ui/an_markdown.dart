@@ -18,8 +18,8 @@ import 'icons.dart';
 /// - **Bold → w400 via `.weight()`** ([_AnBoldMd] swaps the package component): the package's bare
 ///   `copyWith(fontWeight: bold)` is OVERRIDDEN by our pinned `wght` axis — the default would render
 ///   bold as w300, i.e. not bold at all (two-weight rule made load-bearing).
-/// - **Headings downshift**: md `#`/`##`/`###` → 20/16/13-w400 (a chat reading column must not shout;
-///   h4–h6 fold into the 13-w400 tier). Hierarchy = size + colour, never heavier weight.
+/// - **Headings downshift**: md `#`/`##`/`###` → 22/18/15-w400 (a chat reading column must not shout;
+///   h4–h6 fold into the readingH3 15-w400 tier). Hierarchy = size + colour, never heavier weight.
 /// - **Fenced code → [AnCodeEditor]** (read-only): the ONE code anatomy — AnCodeSurface frame, lang
 ///   label, copy, wrap, gutter, and the single `highlightCode` tokenizer. Never a second highlighter.
 /// - **Inline code** → mono on a [AnColors.surfaceSunken] chip (package default hardcodes bold → broken
@@ -41,7 +41,7 @@ import 'icons.dart';
 ///
 /// chat markdown 渲染器——gpt_markdown 的 token 锁定门面(钉死版本;全库仅此文件 import 它)。所有违反体系的
 /// 默认都被换掉:**粗体→w400 走 `.weight()`**(包默认裸 `copyWith(fontWeight:)` 被钉死的 wght 轴覆盖→会渲成
-/// w300 即根本不粗——两档字重在此是功能必需);**标题降档** 20/16/13-w400(阅读列不喊,h4–h6 并入 13 档);
+/// w300 即根本不粗——两档字重在此是功能必需);**标题降档** 22/18/15-w400(阅读列不喊,h4–h6 并入 readingH3 15 档);
 /// **围栏代码→AnCodeEditor 只读**(唯一代码解剖+唯一高亮器);**内联 code**→mono+surfaceSunken chip;**链接**
 /// accent、scheme 闸(http/https/mailto 之外一律惰性)、永不自动开(开链归宿主,本文件绝不 import url_launcher);
 /// **图片**惰性占位、永不取网;**表格→AnThinTable**(cell 拍平);**引用**=静默旁白(2px lineStrong 左条+inkMuted,
@@ -90,8 +90,8 @@ class AnMarkdown extends StatelessWidget {
     // The style MUST carry the theme ink: the package regenerates spans only when `style` differs
     // (isSame), so a colourless const style would go stale on a theme flip.
     // style 必须带主题墨色:包只在 style 不同才重生成 span(isSame),无色常量换主题会陈旧。
-    // Reading-column body — 13px w300 at the roomier 1.55 line-height (Notion-calibrated air for prose).
-    // 阅读列正文:13px w300 + 1.55 行高(照 Notion 校准给 prose 空气)。
+    // Reading-column body — 15px w300 at the roomier 1.6 line-height (Notion-calibrated air for prose).
+    // 阅读列正文:reading 15 w300 + 1.6 行高(照 Notion 校准给 prose 空气)。
     final body = AnText.reading.copyWith(color: c.ink);
     final h456 = AnText.readingH3.copyWith(color: c.ink);
     return GptMarkdownTheme(
@@ -139,7 +139,7 @@ class AnMarkdown extends StatelessWidget {
   // No outer padding — the flanking _AnNewLines gap (AnFlow.block) is the SINGLE block-separation term;
   // a padding here would stack on it and read too loose (the old inconsistency). 无外距,间距归换行统一。
   Widget _fencedCode(BuildContext context, String name, String code, bool closed) =>
-      AnCodeEditor(code: code.trimRight(), lang: name.trim().isEmpty ? null : name.trim());
+      AnCodeEditor(code: code.trimRight(), lang: name.trim().isEmpty ? null : name.trim(), reading: true);
 
   // Inline `code` → mono on a sunken chip (the package default is bold-only — broken on the pinned axis).
   // 内联 code→mono+凹陷 chip(包默认仅加粗——钉轴上渲错)。
@@ -286,10 +286,10 @@ class _AnBoldMd extends BoldMd {
   }
 }
 
-/// GFM task-list rows without the Material Checkbox (oversized + tap-target padding — off the 13px prose
+/// GFM task-list rows without the Material Checkbox (oversized + tap-target padding — off the reading prose
 /// rhythm): a quiet 16px glyph — `taskDone` in `ok` / `taskOpen` in `inkFaint` — beside the item, layout
 /// mirroring the list markers. Read-only prose, so no interactivity is lost. 任务勾:去 Material Checkbox
-/// (过大+触target空隙、不合 13px 律),换 16px 安静字形(勾=ok / 空=inkFaint),布局同列表记号;只读无损。
+/// (过大+触target空隙、不合阅读列律),换 16px 安静字形(勾=ok / 空=inkFaint),布局同列表记号;只读无损。
 class _AnCheckBoxMd extends CheckBoxMd {
   // Match the FULL task line INCLUDING the leading list marker (`- [x] …` / `* [ ] …`), so this component
   // claims the whole item and the checkbox is the ONE marker — the package default matches only `[x] …`,

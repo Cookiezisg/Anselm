@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/contract/entities/skill.dart';
+import '../../../core/model/byte_format.dart';
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
@@ -182,7 +183,7 @@ class _DocProperties extends ConsumerWidget {
           children: [
             const _OutlineSection(),
             _MetaRow(label: t.documents.props.path, value: doc.path),
-            _MetaRow(label: t.documents.props.size, value: _fmtSize(doc.sizeBytes)),
+            _MetaRow(label: t.documents.props.size, value: formatBytes(doc.sizeBytes)),
             _MetaRow(label: t.documents.props.modified, value: _fmtDate(doc.updatedAt)),
             const SizedBox(height: AnSpace.s12),
             const AnDivider(),
@@ -249,7 +250,7 @@ class _MetaRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(width: 72, child: Text(label, style: AnText.meta.copyWith(color: c.inkFaint))),
+          SizedBox(width: AnSize.inspectorMetaCol, child: Text(label, style: AnText.meta.copyWith(color: c.inkFaint))),
           Expanded(
             child: Text(value.isEmpty ? '—' : value, style: AnText.meta.copyWith(color: c.inkMuted)),
           ),
@@ -457,12 +458,7 @@ class _OnOff extends StatelessWidget {
       );
 }
 
-String _fmtSize(int bytes) {
-  if (bytes < 1024) return '$bytes B';
-  final kb = bytes / 1024;
-  if (kb < 1024) return '${kb.toStringAsFixed(kb < 10 ? 1 : 0)} KB';
-  return '${(kb / 1024).toStringAsFixed(1)} MB';
-}
+
 
 String _fmtDate(DateTime d) {
   String two(int n) => n.toString().padLeft(2, '0');

@@ -93,7 +93,7 @@ class WorkflowOverview extends ConsumerWidget {
             (d.kv.id, wf.id),
             (d.kv.currentVersion, 'v${v.version}'),
             if (g != null) (d.kv.nodes, '${g.nodes.length} · ${d.graph.edges} ${g.edges.length}'),
-          ]),
+          ], meta: true),
         ]),
         AnSection(label: d.sec.governance, variant: AnSectionVariant.plain, grid: true, children: [
           AnInfoCard(

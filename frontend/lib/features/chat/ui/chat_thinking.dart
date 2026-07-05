@@ -119,8 +119,13 @@ class _ChatThinkingState extends State<ChatThinking> {
     }
   }
 
-  TextStyle _prose(AnColors c) => AnText.body.copyWith(color: c.inkMuted);
-  TextStyle _label(AnColors c) => AnText.meta.copyWith(color: c.inkFaint);
+  // Thinking is CONTENT the person reads — the 15 reading rung like the answer beside it; the quiet
+  // secondary voice comes from inkMuted COLOUR alone (size+colour double-demotion over-suppressed it).
+  // The label ('thinking'/'thought for Ns') is content-tier metadata → label 13, never meta 12 inside
+  // the content column. thinking=人读的内容:与答案同 15 阅读档,「安静次要声」只靠 inkMuted 颜色降权
+  // (字号+颜色双重压制过了);标签=内容内元数据 → label 13(内容列内不用 12)。
+  TextStyle _prose(AnColors c) => AnText.reading.copyWith(color: c.inkMuted);
+  TextStyle _label(AnColors c) => AnText.label.copyWith(color: c.inkFaint);
 
   @override
   Widget build(BuildContext context) {

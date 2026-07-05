@@ -49,6 +49,7 @@ abstract final class AnInset {
   static const EdgeInsets tight = EdgeInsets.symmetric(horizontal: AnSpace.s8, vertical: AnSpace.s4); // dense card / toast
   static const EdgeInsets snug = EdgeInsets.symmetric(horizontal: AnSpace.s12, vertical: AnSpace.s8); // callout / medium alert
   static const EdgeInsets card = EdgeInsets.symmetric(horizontal: AnSpace.s16, vertical: AnSpace.s12); // standard bordered card / dialog body
+  static const EdgeInsets bubble = EdgeInsets.symmetric(horizontal: AnSpace.s16, vertical: AnSpace.s8 + AnSpace.s2); // chat user bubble around the 15/1.6 reading line (16h/10v — the s12/s8 machine inset reads pinched at 24px lines) 用户泡内距(15 阅读行盒配比)
   static const double island = AnSpace.s8; // island outer pad + inter-island gap (= AnSize.shellPad) 岛内距 + 岛间距
   static const double pageX = AnSpace.s24; // reading-column horizontal pad 阅读列水平内距
   static const double pageBottom = AnSpace.s48; // trailing scroll runway 尾部滚动余量
@@ -85,7 +86,7 @@ abstract final class AnSize {
   static const double row = 32; // standard row height (the one) 标准行高(唯一)
   static const double control = 28;
   static const double controlSm = 24;
-  static const double tab = 34; // AnTabs text-underline tab height — INTENTIONALLY 1u taller than row, a bespoke nav metric (demo --tab-h) 文字下划线 tab 高(有意比 row 高 1u)
+  static const double tab = 34; // AnTabs text-underline tab height — INTENTIONALLY 2px over row (half-u), a bespoke nav metric (demo --tab-h) 文字下划线 tab 高(有意比 row 高 2px、半 u)
   static const double icon = 16;
   static const double iconSm = 12;
   static const double iconLg = 20;
@@ -93,8 +94,14 @@ abstract final class AnSize {
   static const double dotPulse = 5; // run-status breath expansion radius 呼吸外扩半径
   static const double hairline = 1;
   static const double gripLine = 2; // drag-handle hover divider (2× hairline) 拖柄悬停分隔线
+  static const double ring = 1.5; // emphasis ring stroke (badge halo, canvas connect handle) 强调环描边(徽章环/画布接柄)
+  static const double glyphStroke = 1.2; // drawn-glyph side (editor task checkbox — optically matches the icon face's stroke) 手绘字形描边(编辑器任务框,光学对齐图标字面)
   static const double caret = 1.5; // text caret width 文本光标宽
-  static const double caretHeight = 16; // text caret height — under the 18.2 body line-height so the cursor hugs the text 文本光标高(小于正文行高 18.2、贴合文字)
+  // Text caret height is DERIVED, never fixed: fontSize + caretRise, so the cursor hugs whatever
+  // style the field renders (13→16 exactly the old constant; 15→18; an H2-24 rename→27). A fixed
+  // 16 left a stubby caret beside big glyphs. 光标高按有效样式推导(fontSize+caretRise),13→16 与旧
+  // 常量一致;定值 16 在大字旁显得矮短。
+  static const double caretRise = 3;
   static const double caretEndPad = 3; // end-of-line caret room (caret width + a hair) so the last glyph isn't clipped under the cursor (flutter#24612) 行尾光标留位(光标宽+一丝)
 
   // Primitive control metrics (the demo's PRIMITIVE METRICS group). 原语控件度量。
@@ -116,12 +123,16 @@ abstract final class AnSize {
   static const double menuMaxWidth = 360; // dropdown/menu popover max width 菜单浮层最大宽
   static const double menuMaxHeight = 320; // dropdown/menu popover max height (then scrolls) 菜单浮层最大高(超则滚)
   static const double toastMaxWidth = 360; // toast single-row max width (demo --island-w) — a SEPARATE token from menuMaxWidth/stateMaxWidth (same 360 value, distinct semantic axis: a retune of one must not drag the others) toast 单条最大宽(语义独立,勿与菜单/状态列共号)
+  static const double tagFieldMaxWidth = 360; // inline tag add-field cap — its own axis (same 360, NOT the menu axis) 标签就地输入宽上限(独立轴,勿与菜单共号)
+  static const double jsonViewport = 240; // tool-card JSON-tree window height (then scrolls) tool 卡 JSON 树视口高(超则滚)
+  static const double inspectorMetaCol = 72; // right-island meta-row label column (Path/Size/Modified) 右岛元数据行标签列宽
 
   // Sent-attachment surfaces (chat user bubble). 已发送附件面(用户泡)。
   static const double attachCard = 248; // file card fixed width (fits name + TYPE·SIZE meta) 文件卡定宽
+  static const double attachBodyH = 35; // card body height (28 icon tile vs name+meta lines maxed) — the resolving skeleton pins to it so the card can't shift on resolve 卡体高(骨架同高、解析落地不位移)
   static const double thumbTile = 96; // multi-image square tile 多图方瓦片
   static const double thumbMaxW = 280; // single-image bound (= block) 单图宽上限
-  static const double thumbMaxH = 240; // single-image height cap (≈9 body lines, keeps the column calm) 单图高上限
+  static const double thumbMaxH = 240; // single-image height cap (10 reading lines, keeps the column calm) 单图高上限(10 阅读行)
 
   // Code-surface line-number gutter FLOOR (G5). The demo's --trail=20px holds only ~2 digits at the
   // mono code size; widgets compute the gutter dynamically (digit count × mono advance + pad) and
@@ -191,6 +202,7 @@ abstract final class AnSize {
 /// Opacity tokens — the few semantic alpha values used as whole-widget dimmers. 整件透明度语义值。
 abstract final class AnOpacity {
   static const double disabled = 0.4; // dimmed disabled controls 禁用控件变暗
+  static const double dragDim = 0.35; // the row being drag-reordered (source ghost) 拖拽重排源行变暗
 }
 
 /// Motion — durations + easing. fast = hover, mid = reveals, slow = island slides; breath is
@@ -205,6 +217,10 @@ abstract final class AnMotion {
   // local sidecar) resolves first, so the indicator never flashes (appear-then-instantly-vanish).
   // 加载骨架/指示器显示前的延迟:亚阈值异步(本地 sidecar 常态)先返回,指示器不闪烁。
   static const Duration loaderDelay = Duration(milliseconds: 160);
+
+  // Dwell-to-act delay — hovering a drop target this long triggers its secondary action (a collapsed
+  // sidebar group expands under the dragged row). 悬停驻留触发时长(拖拽悬停展开折叠组)。
+  static const Duration dwell = Duration(milliseconds: 600);
 
   // AnTypewriter cadences. 打字机节奏。
   static const Duration typePerChar = Duration(milliseconds: 55); // per-grapheme reveal 每字素揭示

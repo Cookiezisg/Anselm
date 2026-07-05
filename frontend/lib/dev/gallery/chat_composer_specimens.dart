@@ -74,14 +74,17 @@ class _ComposerSpecimenState extends State<_ComposerSpecimen> {
   @override
   Widget build(BuildContext context) {
     // Key the trailing so AnComposer's AnimatedSwitcher cross-fades send↔stop (not a hard swap),
-    // and keep it the SAME control tier as lead (sm, the product arrangement) — a taller trailing
-    // popping in would grow the whole box. trailing 加 key + 与 lead 同档(sm,产品排布)——高档 trailing 出现会撑高整盒。
+    // and keep it the SAME control tier as lead (lg + primary round — the product arrangement) — a
+    // taller trailing popping in would grow the whole box. trailing 加 key + 与 lead 同档(lg,产品排布:
+    // 实心墨圆)——异档 trailing 出现会撑高整盒。
     final Widget? trailing = widget.generating
         ? AnButton.iconOnly(AnIcons.stop,
-            size: AnButtonSize.sm, semanticLabel: '停止', onPressed: () {}, key: const ValueKey('stop'))
+            variant: AnButtonVariant.primary, round: true,
+            size: AnButtonSize.lg, semanticLabel: '停止', onPressed: () {}, key: const ValueKey('stop'))
         : widget.send
             ? AnButton.iconOnly(AnIcons.send,
-                size: AnButtonSize.sm, semanticLabel: '发送', onPressed: () {}, key: const ValueKey('send'))
+                variant: AnButtonVariant.primary, round: true,
+                size: AnButtonSize.lg, semanticLabel: '发送', onPressed: () {}, key: const ValueKey('send'))
             : null;
     return AnComposer(
       controller: _ctrl,
@@ -89,19 +92,23 @@ class _ComposerSpecimenState extends State<_ComposerSpecimen> {
       placeholder: widget.hint,
       floating: widget.floating,
       lead: [
-        AnButton.iconOnly(AnIcons.mention, size: AnButtonSize.sm, semanticLabel: '提及', onPressed: () {}),
-        AnButton.iconOnly(AnIcons.attach, size: AnButtonSize.sm, semanticLabel: '附件', onPressed: () {}),
+        AnButton.iconOnly(AnIcons.mention, size: AnButtonSize.lg, semanticLabel: '提及', onPressed: () {}),
+        AnButton.iconOnly(AnIcons.attach, size: AnButtonSize.lg, semanticLabel: '附件', onPressed: () {}),
       ],
       trailing: trailing,
       attachments: widget.attachments ? _chips() : null,
     );
   }
 
-  // Placeholder attachment strip — the real AttachmentChip is a later module; two neutral badges stand in
-  // to show the strip SLOT + how the box grows with it. 附件条占位(真 chip 属后续模块),两枚中性徽章占位。
-  Widget _chips() => const Wrap(
+  // The REAL pending strip pieces (chip + failed chip) — the gallery must show the true arrangement,
+  // not badge stand-ins. 真附件条件(chip+失败 chip)——gallery 展示真排布,不用徽章占位。
+  Widget _chips() => Wrap(
         spacing: AnSpace.s6,
         runSpacing: AnSpace.s6,
-        children: [AnBadge('spec.md'), AnBadge('screenshot.png')],
+        children: [
+          AnAttachmentChip(kind: 'other', filename: 'spec.md', meta: 'MD · 4.2 KB', onRemove: () {}),
+          AnAttachmentChip(
+              kind: 'image', filename: 'screenshot.png', meta: '上传中…', uploading: true, onRemove: () {}),
+        ],
       );
 }

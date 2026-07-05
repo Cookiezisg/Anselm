@@ -33,13 +33,15 @@ import '../i18n/strings.g.dart';
 /// left island, NOT the center) · the [AnSidebarFooter] (workspace quick-actions menu | settings cell |
 /// bell cell). TWO independent axes: the selected OCEAN ([selectedOceanProvider] — top 4 + the
 /// gear-reached `settings`, drives the CENTER) and the notifications tray ([notificationsOpenProvider] —
-/// orthogonal, takes the left-island middle). Only [OceanKind.entities] is built; every other ocean +
-/// the notifications tray render a "coming soon" placeholder. Entity selection + the right island are
-/// URL-driven and gated to the entities ocean.
+/// orthogonal, takes the left-island middle). [OceanKind.isBuilt] oceans (chat / entities / documents)
+/// mount their features; the rest render a "coming soon" placeholder. The notifications tray mounts the
+/// cross-run approval INBOX. Entity selection + the right island are URL-driven and gated to the
+/// entities ocean.
 ///
 /// 左岛(自上而下,chrome 条下):海洋切换器(顶部 4 海洋)· 中段(当前海洋 rail,铃开时换成通知托盘——通知接管左岛、非中心)·
 /// 底栏(workspace 快捷菜单 | 设置格 | 铃格)。两条独立轴:选中海洋(顶部 4 + 齿轮进的 settings,驱动中心)与通知托盘(正交,占左岛中段)。
-/// 仅 entities 已建,其余海洋 + 通知托盘均「即将推出」占位。实体选区 + 右岛走 URL、仅 entities 生效。
+/// 已建海洋(chat/entities/documents,OceanKind.isBuilt)挂真 feature,其余「即将推出」占位;通知托盘=跨 run 审批收件箱。
+/// 实体选区 + 右岛走 URL、仅 entities 生效。
 class AppShell extends ConsumerWidget {
   const AppShell({super.key});
 
@@ -218,9 +220,8 @@ class _RailPlaceholder extends StatelessWidget {
       );
 }
 
-/// The notifications tray — takes over the left-island middle when the bell is on. Skeleton placeholder.
-/// 通知托盘——铃开时接管左岛中段。骨架占位。
-/// The bell tray — for now the cross-run approval INBOX (parked approvals awaiting a decision). A broader
+/// The notifications tray — takes over the left-island middle when the bell is on: for now the
+/// cross-run approval INBOX (parked approvals awaiting a decision). A broader
 /// notifications feed lands with the notifications feature; approvals are its first, most-actionable
 /// section. 铃托盘:当前=审批收件箱(跨 run 待审 parked 节点);更广的通知流随通知 feature 落地。
 class _NotificationsTray extends StatelessWidget {

@@ -61,13 +61,16 @@ class ControlOverview extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Content-column tier: when-CEL rides mono 13 (the inline-machine-text rung, same
+                // as the tool-card target), the emit summary label 13 — never 12 inside content.
+                // 内容列档:when-CEL 走 mono 13(行内机器文,同 tool 卡 target),emit 摘要 label 13。
                 Text(
                   isDefault ? d.editor.branchDefault : b.when,
-                  style: AnText.codeInline.copyWith(color: isDefault ? c.inkFaint : c.inkMuted),
+                  style: AnText.mono.copyWith(color: isDefault ? c.inkFaint : c.inkMuted),
                 ),
                 Text(
                   b.emit.isEmpty ? d.val.passthrough : '${d.editor.branchEmit}: ${b.emit.keys.join(', ')}',
-                  style: AnText.meta.copyWith(color: c.inkFaint),
+                  style: AnText.label.copyWith(color: c.inkFaint),
                 ),
               ],
             ),

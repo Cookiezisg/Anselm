@@ -30,14 +30,19 @@ class TriggerOverview extends StatelessWidget {
         ]),
         _config(context),
         AnSection(label: d.sec.listener, variant: AnSectionVariant.plain, children: [
+          // State words are CONTENT (15, like every sibling status value); counts/timestamps
+          // are metadata (13) — split lists, one visual stack. 状态词=内容 15(与他类 status 一致);
+          // 计数/时间戳=元数据 13——分两列表、视觉同栈。
           kvList([
             (d.trigger.listening, trigger.listening ? d.val.yes : d.val.no),
+          ]),
+          kvList([
             (d.trigger.refCount, '${trigger.refCount}'),
             (d.trigger.lastFired, trigger.lastFiredAt == null ? d.val.never : fmtTime(trigger.lastFiredAt)),
             // Next scheduled fire only makes sense for cron. 下次触发仅 cron 有意义。
             if (trigger.kind == TriggerSource.cron)
               (d.trigger.nextFire, trigger.nextFireAt == null ? '—' : fmtTime(trigger.nextFireAt)),
-          ]),
+          ], meta: true),
         ]),
         AnSection(label: d.sec.firePayload, variant: AnSectionVariant.plain, children: [
           fieldList(trigger.outputs, emptyTitle: d.val.none),
@@ -90,7 +95,7 @@ class TriggerOverview extends StatelessWidget {
     };
     final hasRows = rows.any((r) => (r.$2 ?? '').isNotEmpty);
     return AnSection(label: d.sec.config, variant: AnSectionVariant.plain, children: [
-      if (code.isNotEmpty) AnCodeEditor(code: code, lang: lang, wrap: true),
+      if (code.isNotEmpty) AnCodeEditor(code: code, lang: lang, wrap: true, reading: true),
       if (code.isNotEmpty && hasRows) const SizedBox(height: AnSpace.s8),
       if (hasRows) kvList(rows),
     ]);

@@ -26,7 +26,7 @@ class AnCodeBlock extends StatelessWidget {
       bare: bare,
       child: Padding(
         padding: const EdgeInsets.all(AnSpace.s8),
-        child: Text(text, style: AnText.value(mono: true).copyWith(color: context.colors.ink)),
+        child: Text(text, style: AnText.code.copyWith(color: context.colors.ink)),
       ),
     );
   }

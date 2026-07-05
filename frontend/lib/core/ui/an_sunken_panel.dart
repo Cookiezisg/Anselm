@@ -16,12 +16,18 @@ import '../design/tokens.dart';
 /// 间距压在 [child] 上方(命令回显 / 省略行提示)。收口此前在聊天用户泡、工具 ToolWindow、工具进度尾手抄的
 /// 凹陷 chrome(≥3 处)——surfaceSunken 语义色本就为此而设,包它的 widget 却被逐字复制。
 class AnSunkenPanel extends StatelessWidget {
-  const AnSunkenPanel({required this.child, this.header, super.key});
+  const AnSunkenPanel({required this.child, this.header, this.inset, super.key});
 
   final Widget child;
 
   /// Optional header above the child (e.g. a terminal-style command echo). 可选窗头。
   final Widget? header;
+
+  /// Well inset — defaults to the machine s12/s8 (ToolWindow's code-12 metric). A well holding 15
+  /// prose (the chat user bubble) passes [AnInset.bubble]: the 13-era padding read pinched around
+  /// the 24px reading line box. 内距:默认机器档 s12/s8(ToolWindow 的 code-12 度量);盛 15 prose 的
+  /// 槽(用户泡)传 [AnInset.bubble]——13 时代的内距在 24px 阅读行盒旁显得局促。
+  final EdgeInsets? inset;
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +38,7 @@ class AnSunkenPanel extends StatelessWidget {
         borderRadius: BorderRadius.circular(AnRadius.chip),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AnSpace.s12, vertical: AnSpace.s8),
+        padding: inset ?? const EdgeInsets.symmetric(horizontal: AnSpace.s12, vertical: AnSpace.s8),
         child: header == null
             ? child
             : Column(

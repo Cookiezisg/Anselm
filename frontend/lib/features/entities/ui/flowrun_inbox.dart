@@ -31,11 +31,14 @@ class FlowrunInbox extends ConsumerWidget {
     final async = ref.watch(flowrunInboxProvider);
     return async.when(
       loading: () => const AnDeferredLoading(child: AnRailSkeleton()),
+      // A failed load is an ERROR, not an empty inbox — the sibling error idiom (errorTitle + retry;
+      // the old copy said "No pending approvals / Load more" on a transport failure). 加载失败=错误态,
+      // 走兄弟面同款 errorTitle+重试(旧文案把故障说成「收件箱为空/加载更多」)。
       error: (_, _) => AnState(
         kind: AnStateKind.error,
         size: AnStateSize.inset,
-        title: r.inboxEmpty,
-        action: AnButton(label: context.t.entities.detail.state.loadMore, onPressed: () => ref.invalidate(flowrunInboxProvider)),
+        title: context.t.entities.detail.state.errorTitle,
+        action: AnButton(label: context.t.entities.detail.state.retry, onPressed: () => ref.invalidate(flowrunInboxProvider)),
       ),
       data: (parked) => parked.isEmpty
           ? AnState(

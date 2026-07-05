@@ -65,6 +65,7 @@ class VersionTab extends ConsumerWidget {
                 children: [
                   // Diff FIRST → its top is pinned; nothing below it can move it. diff 置顶、顶点恒定。
                   AnVersionDiff(
+            reading: true,
                     after: sel.src,
                     before: older?.src,
                     lang: sel.lang,

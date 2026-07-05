@@ -55,7 +55,7 @@ class ChatTurn extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: AnSize.content * _userMaxFraction),
         child: Opacity(
           opacity: sending ? _sendingOpacity : 1,
-          child: AnSunkenPanel(child: child),
+          child: AnSunkenPanel(inset: AnInset.bubble, child: child),
         ),
       ),
     );

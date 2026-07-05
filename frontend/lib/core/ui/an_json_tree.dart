@@ -242,7 +242,7 @@ class _AnJsonTreeState extends State<AnJsonTree> {
                   child: Text.rich(
                     TextSpan(children: [
                       TextSpan(text: n.label, style: AnText.code.copyWith(color: active ? c.ink : c.inkMuted)),
-                      TextSpan(text: '  ${n.summary}', style: AnText.metaTabular().copyWith(color: c.inkFaint, fontFamily: AnText.monoFamily)),
+                      TextSpan(text: '  ${n.summary}', style: AnText.codeInline.copyWith(color: c.inkFaint)),
                     ]),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

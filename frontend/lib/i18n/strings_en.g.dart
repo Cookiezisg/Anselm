@@ -148,6 +148,12 @@ class Translations$chat$en {
 	/// en: 'Ask anything…'
 	String get placeholder => 'Ask anything…';
 
+	/// en: 'Send message'
+	String get send => 'Send message';
+
+	/// en: 'Stop generating'
+	String get stop => 'Stop generating';
+
 	/// en: 'thinking'
 	String get thinking => 'thinking';
 
@@ -662,6 +668,9 @@ class Translations$documents$en {
 
 	late final Translations$documents$props$en props = Translations$documents$props$en.internal(_root);
 	late final Translations$documents$slash$en slash = Translations$documents$slash$en.internal(_root);
+
+	/// en: '$n tools'
+	String toolCount({required Object n}) => '${n} tools';
 }
 
 // Path: markdown
@@ -698,6 +707,9 @@ class Translations$attach$en {
 
 	/// en: 'Failed — tap to retry'
 	String get failedRetry => 'Failed — tap to retry';
+
+	/// en: 'Couldn't read file'
+	String get failedUnreadable => 'Couldn\'t read file';
 
 	/// en: 'Remove'
 	String get remove => 'Remove';
@@ -1917,6 +1929,15 @@ class Translations$entities$detail$editor$en {
 	/// en: 'Discard'
 	String get discard => 'Discard';
 
+	/// en: 'Discard unsaved changes?'
+	String get discardConfirmTitle => 'Discard unsaved changes?';
+
+	/// en: 'The graph has edits that haven't been saved. Leaving now discards them.'
+	String get discardConfirmMessage => 'The graph has edits that haven\'t been saved. Leaving now discards them.';
+
+	/// en: 'Discard and leave'
+	String get discardConfirmAction => 'Discard and leave';
+
 	/// en: 'New version saved'
 	String get saved => 'New version saved';
 
@@ -2090,6 +2111,8 @@ extension on Translations {
 			'chat.bucket.pinned' => 'Pinned',
 			'chat.bucket.recents' => 'Recents',
 			'chat.placeholder' => 'Ask anything…',
+			'chat.send' => 'Send message',
+			'chat.stop' => 'Stop generating',
 			'chat.thinking' => 'thinking',
 			'chat.thought' => 'thought',
 			'chat.sendFailed' => 'Couldn\'t send',
@@ -2441,6 +2464,9 @@ extension on Translations {
 			'entities.detail.editor.dirTB' => 'Vertical',
 			'entities.detail.editor.save' => 'Save',
 			'entities.detail.editor.discard' => 'Discard',
+			'entities.detail.editor.discardConfirmTitle' => 'Discard unsaved changes?',
+			'entities.detail.editor.discardConfirmMessage' => 'The graph has edits that haven\'t been saved. Leaving now discards them.',
+			'entities.detail.editor.discardConfirmAction' => 'Discard and leave',
 			'entities.detail.editor.saved' => 'New version saved',
 			'entities.detail.editor.unsaved' => 'Unsaved changes',
 			'entities.detail.editor.inspectorEmpty' => 'Select a node or edge to edit',
@@ -2565,13 +2591,13 @@ extension on Translations {
 			'documents.props.empty' => 'Nothing selected',
 			'documents.props.emptyHint' => 'Select a page or skill to see its properties.',
 			'documents.props.outline' => 'Outline',
+			_ => null,
+		} ?? switch (path) {
 			'documents.props.backlinks' => 'Backlinks',
 			'documents.props.noBacklinks' => 'No pages link here yet.',
 			'documents.slash.text' => 'Text',
 			'documents.slash.h1' => 'Heading 1',
 			'documents.slash.h2' => 'Heading 2',
-			_ => null,
-		} ?? switch (path) {
 			'documents.slash.h3' => 'Heading 3',
 			'documents.slash.bulleted' => 'Bulleted list',
 			'documents.slash.numbered' => 'Numbered list',
@@ -2579,12 +2605,14 @@ extension on Translations {
 			'documents.slash.code' => 'Code block',
 			'documents.slash.divider' => 'Divider',
 			'documents.slash.todo' => 'To-do',
+			'documents.toolCount' => ({required Object n}) => '${n} tools',
 			'markdown.imageNotLoaded' => 'image not loaded',
 			'attach.unavailable' => 'Unavailable',
 			'attach.retry' => 'Tap to retry',
 			'attach.tapToLoad' => 'Tap to load',
 			'attach.uploading' => 'Uploading…',
 			'attach.failedRetry' => 'Failed — tap to retry',
+			'attach.failedUnreadable' => 'Couldn\'t read file',
 			'attach.remove' => 'Remove',
 			_ => null,
 		};

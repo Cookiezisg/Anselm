@@ -38,6 +38,7 @@ class AnDropdown<T> extends StatefulWidget {
     this.block = false,
     this.enabled = true,
     this.menuAlignEnd = false,
+    this.triggerStyle,
     super.key,
   });
 
@@ -49,6 +50,15 @@ class AnDropdown<T> extends StatefulWidget {
   final bool block;
   final bool enabled;
   final bool menuAlignEnd;
+
+  /// GHOST-trigger label style override — the KV select editor passes its value-tier style (content
+  /// 15 / chrome 13) so a select value never sits a rung under its text-row siblings. The trigger
+  /// KEEPS controlSm (24): the 15/1.4 value line is 21px and fits — a taller trigger inside
+  /// AnEditableValue's v4-padded row grew content select rows to 36px, breaking the 32 row grid.
+  /// Boxed triggers ignore it. ghost 触发器样式覆写:KV select 编辑器传值档样式(内容 15/chrome 13),
+  /// select 值不再比同列文本值矮一档。触发器**守 controlSm 24**(15/1.4 行盒 21 放得下;更高的触发器曾把
+  /// 内容 select 行撑到 36、破 32 行律)。盒式忽略。
+  final TextStyle? triggerStyle;
 
   @override
   State<AnDropdown<T>> createState() => _AnDropdownState<T>();
@@ -116,28 +126,35 @@ class _AnDropdownState<T> extends State<AnDropdown<T>> {
     final open = _popover.isOpen;
     final active = open || states.isActive;
     final sel = _selected;
+    // Functional micro-feedback still snaps under reduced motion (AnMotionPref — the design system's
+    // single gate every animated primitive reads). reduced 下功能反馈即时(设计系统单一动效门)。
+    final feedback = AnMotionPref.reduced(context) ? Duration.zero : AnMotion.fast;
 
+    final ghostBase = widget.triggerStyle ?? AnText.meta;
     final label = Text(
       sel?.label ?? widget.placeholder,
       maxLines: 1,
       overflow: TextOverflow.ellipsis, // label hugs LEFT, ellipsis when long 标签靠左、超长省略
-      style: (ghost ? AnText.meta : AnText.body).copyWith(
+      style: (ghost ? ghostBase : AnText.body).copyWith(
         color: sel == null ? c.inkFaint : (ghost ? (active ? c.ink : c.inkMuted) : c.ink),
       ),
     );
 
     final caret = AnimatedRotation(
-      duration: AnMotion.fast,
+      duration: feedback,
       turns: open ? 0.5 : 0,
       child: Icon(AnIcons.chevronDown, size: AnSize.iconSm, color: c.inkFaint),
     );
 
     final metaStyle = AnText.metaTabular().copyWith(color: c.inkFaint);
 
-    // Ghost = compact, content-hugging (settings-style) — label + caret, intrinsic. Ghost 紧凑贴合内容。
+    // Ghost = compact, content-hugging (settings-style) — label + caret, intrinsic. ALWAYS
+    // controlSm: the 15/1.4 value line (21px) fits 24, and a taller trigger inside AnEditableValue's
+    // v4-padded 32 row grew select rows to 36 (the one row off the grid). Ghost 紧凑贴合内容;恒
+    // controlSm(15/1.4 行盒 21 入 24;更高触发器曾把 select 行撑到 36、独破 32 行律)。
     if (ghost) {
       return AnimatedContainer(
-        duration: AnMotion.fast,
+        duration: feedback,
         height: AnSize.controlSm,
         padding: const EdgeInsets.symmetric(horizontal: AnSize.btnPadXSm),
         decoration: BoxDecoration(
@@ -158,7 +175,7 @@ class _AnDropdownState<T> extends State<AnDropdown<T>> {
     // Boxed = TWO ZONES: label fills LEFT, meta caps RIGHT, caret pinned right (see AnTwoZone).
     // 盒式=两区:label 占满左、meta 上限右、箭头钉右。
     return AnimatedContainer(
-      duration: AnMotion.fast,
+      duration: feedback,
       height: AnSize.control,
       constraints: const BoxConstraints(minWidth: AnSize.inputMin),
       padding: const EdgeInsets.symmetric(horizontal: AnSize.btnPadXSm),

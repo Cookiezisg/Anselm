@@ -508,7 +508,7 @@ class _AnSidebarListState extends State<AnSidebarList> {
     // Rows inside the subtree being dragged ride along: dimmed + inert (they move as one unit with their
     // head — hover tints / row actions there would lie). 被拖子树内的行随行:变暗+惰性(与头一体,悬停/动作会撒谎)。
     if (_dragId != null && _dragSubtree.contains(r.id)) {
-      return IgnorePointer(child: Opacity(opacity: 0.35, child: row));
+      return IgnorePointer(child: Opacity(opacity: AnOpacity.dragDim, child: row));
     }
     if (!_rowDraggable(r.id)) return row;
     return _draggableRow(context, n, row);
@@ -594,7 +594,7 @@ class _AnSidebarListState extends State<AnSidebarList> {
     // 悬停折叠枝中段片刻自动展开,让其子成为落点(Notion)。
     _hoverExpand?.cancel();
     if (zone == AnRowDropZone.inside && n.isBranch && !_open(n.key)) {
-      _hoverExpand = Timer(const Duration(milliseconds: 600), () {
+      _hoverExpand = Timer(AnMotion.dwell, () {
         if (mounted && _dropRowId == id && !_open(n.key)) _toggle(n.key);
       });
     }
@@ -717,15 +717,15 @@ class _AnSidebarListState extends State<AnSidebarList> {
       onDragCompleted: _endDrag,
       onDraggableCanceled: (_, _) => _endDrag(),
       feedback: _dragFeedback(context, r),
-      childWhenDragging: Opacity(opacity: 0.35, child: SizedBox(height: AnSize.row, child: row)),
+      childWhenDragging: Opacity(opacity: AnOpacity.dragDim, child: SizedBox(height: AnSize.row, child: row)),
       child: target,
     );
   }
 
   Widget _insertLine(AnColors c) => IgnorePointer(
         child: Container(
-          height: 2,
-          decoration: BoxDecoration(color: c.accent, borderRadius: BorderRadius.circular(1)),
+          height: AnSize.gripLine,
+          decoration: BoxDecoration(color: c.accent, borderRadius: BorderRadius.circular(AnSize.gripLine / 2)),
         ),
       );
 

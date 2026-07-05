@@ -8,10 +8,16 @@
 //   2. TWO weights only (w300 / w400). `FontWeight.w500`/`w600`/`bold`/… and any `wght` axis value
 //      outside {300,400} break the two-weight rule. Code SYNTAX highlighting is the sole exception
 //      (a separate font system, not UI text).
+//   3. NO raw line-height literals (`height: 1.6`) — a bespoke leading forks the ladder as surely
+//      as a bespoke size (every rung pins its own height in typography.dart).
+//   4. NO bare `copyWith(fontWeight:` — on the pinned-axis variable font the wght axis OVERRIDES
+//      fontWeight, so a bare copyWith silently renders the base weight; every re-weight goes
+//      through `.weight()` (the double-axis idiom).
 //
-// 字号阶梯守卫:扫源码的门禁,锁住全应用单一字号体系——任何新代码都无法悄悄引入 bespoke 字号或违规字重。守两条
+// 字号阶梯守卫:扫源码的门禁,锁住全应用单一字号体系——任何新代码都无法悄悄引入 bespoke 字号或违规字重。守四条
 // 机械不变量(prose vs chrome 的语义判断是人的活、守卫管不了,它只保证原料集中在 typography.dart):①禁裸字号
-// 字面(一切走 AnText.*)②只两档字重(w300/w400;代码高亮是唯一例外)。
+// 字面(一切走 AnText.*)②只两档字重(w300/w400;代码高亮是唯一例外)③禁裸行高字面(bespoke leading 同样
+// 分叉阶梯)④禁裸 copyWith(fontWeight:)(VF 钉轴覆盖之、实渲底重;重定权必走 .weight())。
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -43,12 +49,17 @@ void main() {
   // Normalize to forward-slash repo-relative paths for stable membership checks. 归一路径。
   String rel(File f) => f.path.replaceAll(r'\', '/');
 
+  // Comment lines (// and ///) may NAME the banned idioms while documenting them — only code counts.
+  // 注释行可为说明而点名违规写法——只扫代码。
+  bool isComment(String line) => line.trimLeft().startsWith('//');
+
   test('no raw font-size literals outside typography.dart (single source of sizes)', () {
     final offenders = <String>[];
     for (final f in dartSources()) {
       if (rel(f).endsWith(sizeSource)) continue;
       final lines = f.readAsLinesSync();
       for (var i = 0; i < lines.length; i++) {
+        if (isComment(lines[i])) continue;
         if (rawSize.hasMatch(lines[i])) offenders.add('${rel(f)}:${i + 1}  ${lines[i].trim()}');
       }
     }
@@ -63,6 +74,7 @@ void main() {
       if (weightExceptions.contains(rel(f))) continue;
       final lines = f.readAsLinesSync();
       for (var i = 0; i < lines.length; i++) {
+        if (isComment(lines[i])) continue;
         if (bannedWeight.hasMatch(lines[i])) offenders.add('${rel(f)}:${i + 1}  ${lines[i].trim()}');
       }
     }
@@ -78,6 +90,7 @@ void main() {
       if (weightExceptions.contains(rel(f))) continue;
       final lines = f.readAsLinesSync();
       for (var i = 0; i < lines.length; i++) {
+        if (isComment(lines[i])) continue;
         for (final m in wghtAxis.allMatches(lines[i])) {
           final v = m.group(1);
           if (v != '300' && v != '400') offenders.add('${rel(f)}:${i + 1}  wght=$v  ${lines[i].trim()}');
@@ -87,4 +100,58 @@ void main() {
     expect(offenders, isEmpty,
         reason: 'The variable-font weight axis may only be 300 or 400 (two-weight rule):\n${offenders.join('\n')}');
   });
+
+  // TextStyle height: — a raw leading forks the ladder (body 1.4 / reading 1.6 / code 1.6 are all
+  // pinned in typography.dart). Only matches decimal literals so widget-layout `height: 32` props
+  // (SizedBox/Container) don't false-positive: a TextStyle leading is always fractional. `height: 1.0`
+  // is allowed — the NEUTRAL leading (the markdown block-gap trick sizes a blank line by fontSize,
+  // not a ladder leading). 裸 TextStyle 行高字面(小数才匹配,布局整数 height: 不误伤);1.0=中性行高放行
+  // (markdown 块间距 trick,非阶梯 leading)。
+  test('no raw line-height (TextStyle height) literals outside typography.dart', () {
+    // MATCH-level exemption: a line holding both `height: 1.0` and a real bespoke leading must
+    // still offend — a line-level skip would whitelist the whole line. 逐匹配豁免:同一行混 1.0 与
+    // 真 leading 仍须报,整行跳过会连带放行。
+    final heightValue = RegExp(r'height:\s*([0-9]+\.[0-9]+)');
+    final offenders = <String>[];
+    for (final f in dartSources()) {
+      if (rel(f).endsWith(sizeSource)) continue;
+      final lines = f.readAsLinesSync();
+      for (var i = 0; i < lines.length; i++) {
+        if (isComment(lines[i])) continue;
+        for (final m in heightValue.allMatches(lines[i])) {
+          if (double.parse(m.group(1)!) != 1.0) {
+            offenders.add('${rel(f)}:${i + 1}  ${lines[i].trim()}');
+          }
+        }
+      }
+    }
+    expect(offenders, isEmpty,
+        reason: 'A bespoke leading forks the type ladder — every rung pins its height in AnText.* '
+            '(mint a token if a new leading is genuinely needed):\n${offenders.join('\n')}');
+  });
+
+  // ANY `fontWeight:` argument outside typography.dart — the strongest form of the VF rule: a bare
+  // fontWeight (in copyWith OR a TextStyle ctor) silently loses to the pinned wght axis, and a
+  // line-scoped copyWith regex missed the multi-line form. Every legit re-weight goes through
+  // `.weight()`; the only raw uses live in typography.dart (the ramp) and the highlighter exception.
+  // typography 外一律禁 `fontWeight:` 实参——VF 规则最强形(裸 fontWeight 被钉轴覆盖;行级 copyWith
+  // 正则漏多行形)。合法重定权全走 .weight();裸用仅存 typography.dart(阶梯本体)与高亮例外。
+  final bareFontWeight = RegExp(r'fontWeight:');
+
+  test('re-weights go through .weight() — no bare fontWeight: outside typography.dart', () {
+    final offenders = <String>[];
+    for (final f in dartSources()) {
+      if (rel(f).endsWith(sizeSource)) continue; // the ramp + the extension live there 阶梯与扩展本体所在
+      if (weightExceptions.contains(rel(f))) continue;
+      final lines = f.readAsLinesSync();
+      for (var i = 0; i < lines.length; i++) {
+        if (isComment(lines[i])) continue;
+        if (bareFontWeight.hasMatch(lines[i])) offenders.add('${rel(f)}:${i + 1}  ${lines[i].trim()}');
+      }
+    }
+    expect(offenders, isEmpty,
+        reason: 'On the pinned-axis variable font a bare fontWeight renders the BASE weight '
+            '(the wght axis overrides it) — use `.weight(AnText.emphasisWeight)`:\n${offenders.join('\n')}');
+  });
+
 }

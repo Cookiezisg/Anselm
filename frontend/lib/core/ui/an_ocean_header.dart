@@ -44,7 +44,7 @@ class AnOceanHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final titleStyle = AnText.h2.weight(AnText.emphasisWeight);
+    final titleStyle = AnText.h2; // h2 is already w400 — a re-weight here was a no-op h2 本即 w400
     final onChange = onTitleChange;
 
     return Padding(
@@ -96,14 +96,14 @@ class AnOceanHeader extends StatelessWidget {
   Widget _crumb(AnColors c) {
     final spans = <InlineSpan>[];
     for (var i = 0; i < crumbs.length; i++) {
-      if (i > 0) spans.add(TextSpan(text: '  /  ', style: AnText.meta.copyWith(color: c.lineStrong)));
+      if (i > 0) spans.add(TextSpan(text: '  /  ', style: AnText.label.copyWith(color: c.lineStrong)));
       spans.add(TextSpan(text: crumbs[i]));
     }
     return Text.rich(
       TextSpan(children: spans),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: AnText.meta.copyWith(color: c.inkFaint),
+      style: AnText.label.copyWith(color: c.inkFaint),
     );
   }
 }

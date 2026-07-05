@@ -53,6 +53,7 @@ class AnCodeEditor extends StatefulWidget {
     this.inline = false,
     this.compact = false,
     this.wrap = false,
+    this.reading = false,
     this.onChanged,
     this.onInput,
     super.key,
@@ -75,6 +76,13 @@ class AnCodeEditor extends StatefulWidget {
 
   /// Wrap → soft-wrap long lines instead of horizontal scroll (read-only). 自动换行(只读)。
   final bool wrap;
+
+  /// CONTENT-tier code (mono 13/1.6, [AnText.codeReading]) — code the person READS inside the 15
+  /// column: markdown/doc fenced blocks, entity source/prompt blocks. Machine windows (tool cards,
+  /// terminal twins) keep the default [AnText.code] 12. Gutter and code area switch TOGETHER (they
+  /// share the token so line numbers stay row-aligned — WRK-040 §4). 内容档代码(13/1.6):15 列里人读
+  /// 的代码;机器窗守默认 12。行号槽与代码区同切(共 token 保行对齐)。
+  final bool reading;
 
   /// Commit callback (demo `an-change`) — fired on Save with the edited text. 保存提交。
   final ValueChanged<String>? onChanged;
@@ -227,7 +235,7 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
 
   // The code text style — mono code face; plain (untokenized) text is muted, tokens colour over it.
   // 代码字体样式;未着色文本走 muted、token 覆盖其上。
-  TextStyle _codeStyle(AnColors c) => AnText.code.copyWith(color: c.inkMuted);
+  TextStyle _codeStyle(AnColors c) => (widget.reading ? AnText.codeReading : AnText.code).copyWith(color: c.inkMuted);
 
   String _a11yLabel(BuildContext context, int lines) {
     final label = _langLabel(widget.lang);
@@ -340,7 +348,7 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
           child: Text(
             nums,
             textAlign: TextAlign.right,
-            style: AnText.code.copyWith(color: c.inkFaint),
+            style: (widget.reading ? AnText.codeReading : AnText.code).copyWith(color: c.inkFaint),
           ),
         ),
       ),

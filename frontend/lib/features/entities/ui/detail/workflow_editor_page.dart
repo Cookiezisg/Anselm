@@ -9,11 +9,13 @@ import '../../../../core/design/typography.dart';
 import '../../../../core/graph/graph_model.dart';
 import '../../../../core/overlay/an_overlay.dart';
 import '../../../../core/ui/an_button.dart';
+import '../../../../core/ui/an_deferred_loading.dart';
 import '../../../../core/ui/an_divider.dart';
 import '../../../../core/ui/an_floating_bar.dart';
 import '../../../../core/ui/an_graph_canvas.dart';
 import '../../../../core/ui/an_inspector.dart';
 import '../../../../core/ui/an_island.dart';
+import '../../../../core/ui/an_skeleton.dart';
 import '../../../../core/ui/an_menu.dart';
 import '../../../../core/ui/an_state.dart';
 import '../../../../core/ui/an_toast.dart';
@@ -68,7 +70,10 @@ class WorkflowEditorPage extends ConsumerWidget {
             // the top chrome + the OS lights. 画布满铺(无边框);缩放条落左下、让开顶部 chrome 与红绿灯。
             Positioned.fill(
               child: async.when(
-                loading: () => const Center(child: AnState(kind: AnStateKind.loading, title: '')),
+                // Deferred skeleton — the house loading idiom (a bare instant spinner flashed on
+                // every entry since the graph fetch resolves in milliseconds over loopback).
+                // 延迟骨架(房规):裸即时 spinner 在毫秒级 loopback 取图下每次进入都闪。
+                loading: () => const AnDeferredLoading(child: Center(child: AnSkeleton.card())),
                 error: (_, _) => Center(
                     child: AnState(
                         kind: AnStateKind.error, size: AnStateSize.inset, title: d.state.errorTitle)),
@@ -96,7 +101,7 @@ class WorkflowEditorPage extends ConsumerWidget {
             // Frameless top chrome: two independently-anchored transparent clusters (never one full-width
             // Spacer row that could overflow) — the left reserves the OS traffic-lights' zone. 无边框顶控:
             // 左右两簇各自锚定(无会溢出的满宽 Spacer 行),左簇预留红绿灯位。
-            _leftChrome(context, async.value, notifier),
+            _leftChrome(context, ref, async.value, notifier),
             _rightChrome(context, ref, async.value, notifier),
           ]),
         ),
@@ -108,7 +113,7 @@ class WorkflowEditorPage extends ConsumerWidget {
 
   /// The left chrome cluster: OS-lights reservation + the edit-tool pill. Anchored left, min-sized —
   /// it never fights the right cluster for width. 左簇:红绿灯预留 + 编辑工具药丸;左锚、min 宽,不与右簇争。
-  Widget _leftChrome(BuildContext context, WorkflowEditorState? st, WorkflowEditorNotifier notifier) {
+  Widget _leftChrome(BuildContext context, WidgetRef ref, WorkflowEditorState? st, WorkflowEditorNotifier notifier) {
     final e = context.t.entities.detail.editor;
     return Positioned(
       top: 0,
@@ -123,7 +128,7 @@ class WorkflowEditorPage extends ConsumerWidget {
             label: e.back,
             variant: AnButtonVariant.ghost,
             size: AnButtonSize.sm,
-            onPressed: () => _exit(context),
+            onPressed: () => _exit(context, ref, dirty: st?.dirty ?? false),
           ),
           const AnDivider.vertical(),
           AnMenu(
@@ -247,7 +252,25 @@ class WorkflowEditorPage extends ConsumerWidget {
     );
   }
 
-  void _exit(BuildContext context) => context.go(entityLocation(EntityKind.workflow, workflowId));
+  /// Back guards unsaved edits: the provider is autoDispose (popping destroys the working graph),
+  /// so a dirty exit confirms first — the page tracks the dirty flag two lines away; silently
+  /// discarding on Back contradicted its own model (Discard is an explicit action).
+  /// 返回带脏检查:provider autoDispose、pop 即毁 working 图——脏时先确认;页面本就持 dirty 标,
+  /// Back 静默丢弃与自身模型矛盾(丢弃是显式动作)。
+  Future<void> _exit(BuildContext context, WidgetRef ref, {required bool dirty}) async {
+    if (dirty) {
+      final e = context.t.entities.detail.editor;
+      final ok = await ref.read(overlayProvider.notifier).confirm(
+            title: e.discardConfirmTitle,
+            message: e.discardConfirmMessage,
+            confirmLabel: e.discardConfirmAction,
+            cancelLabel: context.t.action.cancel,
+            barrierLabel: context.t.action.cancel,
+          );
+      if (!ok || !context.mounted) return;
+    }
+    context.go(entityLocation(EntityKind.workflow, workflowId));
+  }
 
   static String _kindLabel(BuildContext context, NodeKind k) {
     final g = context.t.graph.kind;

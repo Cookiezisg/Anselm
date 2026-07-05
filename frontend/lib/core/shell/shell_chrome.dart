@@ -108,10 +108,16 @@ class ShellHeadController extends Notifier<ShellHead> {
   @override
   ShellHead build() => const ShellHead();
 
-  /// Bind the head to the current ocean's title + scroll-to-top callback (collapsed resets to false until
-  /// the user scrolls). 绑定当前海洋标题 + 回顶回调(collapsed 重置,待滚动)。
+  /// Bind the head to the current ocean's title + scroll-to-top callback. PRESERVES [collapsed] —
+  /// oceans re-bind post-frame on every data rebuild (rename / SSE refetch), and resetting it here
+  /// popped the breadcrumb open mid-scroll with nothing to restore it until the next scroll event;
+  /// the ocean-SWITCH reset goes through [clear] / the switch listeners. The onTap closure is always
+  /// refreshed (a remounted view brings a NEW scroll controller — a deduped stale closure would jump
+  /// a disposed one). 绑定当前海洋标题 + 回顶回调。**保留 collapsed**——海洋每次数据重建都后帧重绑
+  /// (改名/SSE 重取),在此重置会把滚动中的面包屑弹开且无人恢复;换海洋的重置走 clear()/切换监听。onTap
+  /// 恒刷新(重挂的视图带新 scroll controller,去重会留下指向已 dispose 控制器的旧闭包)。
   void bind(String title, VoidCallback onTap) =>
-      state = ShellHead(title: title, onTap: onTap);
+      state = ShellHead(title: title, collapsed: state.collapsed, onTap: onTap);
 
   void setCollapsed(bool collapsed) {
     if (state.collapsed == collapsed) return;

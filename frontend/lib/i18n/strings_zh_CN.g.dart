@@ -92,6 +92,8 @@ class _Translations$chat$zh_CN extends Translations$chat$en {
 	@override late final _Translations$chat$time$zh_CN time = _Translations$chat$time$zh_CN._(_root);
 	@override late final _Translations$chat$bucket$zh_CN bucket = _Translations$chat$bucket$zh_CN._(_root);
 	@override String get placeholder => 'Ask anything…';
+	@override String get send => '发送';
+	@override String get stop => '停止生成';
 	@override String get thinking => 'thinking';
 	@override String get thought => 'thought';
 	@override String get sendFailed => 'Couldn\'t send';
@@ -345,6 +347,7 @@ class _Translations$documents$zh_CN extends Translations$documents$en {
 	@override String get actionFailed => '操作失败';
 	@override late final _Translations$documents$props$zh_CN props = _Translations$documents$props$zh_CN._(_root);
 	@override late final _Translations$documents$slash$zh_CN slash = _Translations$documents$slash$zh_CN._(_root);
+	@override String toolCount({required Object n}) => '${n} 个工具';
 }
 
 // Path: markdown
@@ -369,6 +372,7 @@ class _Translations$attach$zh_CN extends Translations$attach$en {
 	@override String get tapToLoad => '点按加载';
 	@override String get uploading => 'Uploading…';
 	@override String get failedRetry => 'Failed — tap to retry';
+	@override String get failedUnreadable => '无法读取文件';
 	@override String get remove => 'Remove';
 }
 
@@ -935,6 +939,9 @@ class _Translations$entities$detail$editor$zh_CN extends Translations$entities$d
 	@override String get dirTB => '纵向';
 	@override String get save => '保存';
 	@override String get discard => '放弃更改';
+	@override String get discardConfirmTitle => '丢弃未保存的更改?';
+	@override String get discardConfirmMessage => '画布上有尚未保存的编辑,现在离开将丢弃它们。';
+	@override String get discardConfirmAction => '丢弃并离开';
 	@override String get saved => '已保存新版本';
 	@override String get unsaved => '未保存更改';
 	@override String get inspectorEmpty => '选中节点或连线进行编辑';
@@ -1027,6 +1034,8 @@ extension on TranslationsZhCn {
 			'chat.bucket.pinned' => '置顶',
 			'chat.bucket.recents' => '最近',
 			'chat.placeholder' => 'Ask anything…',
+			'chat.send' => '发送',
+			'chat.stop' => '停止生成',
 			'chat.thinking' => 'thinking',
 			'chat.thought' => 'thought',
 			'chat.sendFailed' => 'Couldn\'t send',
@@ -1378,6 +1387,9 @@ extension on TranslationsZhCn {
 			'entities.detail.editor.dirTB' => '纵向',
 			'entities.detail.editor.save' => '保存',
 			'entities.detail.editor.discard' => '放弃更改',
+			'entities.detail.editor.discardConfirmTitle' => '丢弃未保存的更改?',
+			'entities.detail.editor.discardConfirmMessage' => '画布上有尚未保存的编辑,现在离开将丢弃它们。',
+			'entities.detail.editor.discardConfirmAction' => '丢弃并离开',
 			'entities.detail.editor.saved' => '已保存新版本',
 			'entities.detail.editor.unsaved' => '未保存更改',
 			'entities.detail.editor.inspectorEmpty' => '选中节点或连线进行编辑',
@@ -1502,13 +1514,13 @@ extension on TranslationsZhCn {
 			'documents.props.empty' => '未选中',
 			'documents.props.emptyHint' => '选一个页面或技能查看它的属性。',
 			'documents.props.outline' => '大纲',
+			_ => null,
+		} ?? switch (path) {
 			'documents.props.backlinks' => '反向链接',
 			'documents.props.noBacklinks' => '还没有页面链接到这里。',
 			'documents.slash.text' => '正文',
 			'documents.slash.h1' => '标题 1',
 			'documents.slash.h2' => '标题 2',
-			_ => null,
-		} ?? switch (path) {
 			'documents.slash.h3' => '标题 3',
 			'documents.slash.bulleted' => '无序列表',
 			'documents.slash.numbered' => '有序列表',
@@ -1516,12 +1528,14 @@ extension on TranslationsZhCn {
 			'documents.slash.code' => '代码块',
 			'documents.slash.divider' => '分隔线',
 			'documents.slash.todo' => '待办',
+			'documents.toolCount' => ({required Object n}) => '${n} 个工具',
 			'markdown.imageNotLoaded' => '图片未加载',
 			'attach.unavailable' => '已不可用',
 			'attach.retry' => '点按重试',
 			'attach.tapToLoad' => '点按加载',
 			'attach.uploading' => 'Uploading…',
 			'attach.failedRetry' => 'Failed — tap to retry',
+			'attach.failedUnreadable' => '无法读取文件',
 			'attach.remove' => 'Remove',
 			_ => null,
 		};

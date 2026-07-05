@@ -172,7 +172,7 @@ class _Cell extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: c.danger,
                         shape: BoxShape.circle,
-                        border: Border.all(color: c.surface, width: 1.5),
+                        border: Border.all(color: c.surface, width: AnSize.ring),
                       ),
                     ),
                   ),

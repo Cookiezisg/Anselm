@@ -63,6 +63,9 @@ class AnMentionPanel extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: AnText.body.copyWith(color: c.ink)),
                   ),
+                  // No trailing Spacer on description-less rows — a Spacer(flex:2) capped the
+                  // loose name Flexible at 1/3 of the row while 2/3 sat empty (long names
+                  // ellipsized for nothing). 无描述行不放 Spacer——旧 flex:2 占位把名字压到 1/3 行宽。
                   if (items[i].description.isNotEmpty) ...[
                     const SizedBox(width: AnSpace.s8),
                     Expanded(
@@ -73,8 +76,7 @@ class AnMentionPanel extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: AnText.meta.copyWith(color: c.inkFaint)),
                     ),
-                  ] else
-                    const Spacer(flex: 2),
+                  ],
                 ],
               ),
             ),

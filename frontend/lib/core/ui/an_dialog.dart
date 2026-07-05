@@ -198,8 +198,8 @@ class _AnConfirmCard extends StatelessWidget {
       padding: const EdgeInsets.all(AnSpace.s16),
       child: Text(
         message!,
-        style: AnText.body.copyWith(color: c.inkMuted, height: 1.6),
-      ), // lh-prose 行高 prose
+        style: AnText.body.copyWith(color: c.inkMuted),
+      ), // chrome body 13/1.4 — dialogs are operational copy, not prose 对话框=操作文案、非 prose
     );
   }
 

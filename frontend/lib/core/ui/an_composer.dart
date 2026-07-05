@@ -63,13 +63,23 @@ class AnComposer extends StatefulWidget {
 
 class _AnComposerState extends State<AnComposer> {
   // Reserve for the single-line lead + tail + gaps, used to count wrapped lines AGAINST A FIXED width (so the
-  // multiline decision can't oscillate with the layout it drives). 单行 lead/tail/间距留位(固定参考宽防判定抖)。
-  static const double _singleLineReserve = 124;
+  // multiline decision can't oscillate with the layout it drives). Token-derived for the lg control tier:
+  // two lead buttons + trailing (3 × row) + the row gaps + the horizontal padding + a s24 slack (matches the
+  // old hand-tuned margin) — a button re-tier can no longer silently mis-tune the pill↔card threshold.
+  // 单行 lead/tail/间距留位(固定参考宽防判定抖)。按 lg 控件档从 token 推导:3 钮 + 行间距 + 横向内距 + s24
+  // 余量(对齐旧手调裕度)——按钮换档不再悄悄错调 pill↔card 阈值。
+  static const double _singleLineReserve =
+      3 * AnSize.row + AnSpace.s4 + AnSpace.s8 + 2 * AnSpace.s12 + AnSpace.s24;
 
   // Left inset for the wrapped-text line so its optical left edge lands flush with the lead icon glyph on the
-  // row below — derived from the button geometry so it self-heals if the control/icon sizes retune.
-  // 换行文字左内距,使其光学左缘与下排图标字形齐平;派生自按钮几何、尺寸重调自愈。
-  static const double _wrapTextInset = (AnSize.control - AnSize.icon) / 2 - AnSize.hairline;
+  // row below — derived from the lg pair (row-box · iconLg-glyph) THE LEAD BUTTONS ACTUALLY USE, so it
+  // self-heals if that tier retunes. 换行文字左内距,使其光学左缘与下排图标字形齐平;派生自 lead 按钮**实际用的**
+  // lg 档(row 盒 · iconLg 形),该档重调即自愈。
+  static const double _wrapTextInset = (AnSize.row - AnSize.iconLg) / 2 - AnSize.hairline;
+
+  // Internal scroll cap for the edit field — 7 reading lines (the 15/1.6 = 24px line box), then scroll.
+  // 编辑区滚动上限:7 个阅读行盒(24px),超则内滚。
+  static final double _editMaxHeight = AnText.reading.fontSize! * AnText.reading.height! * 7;
 
   @override
   void initState() {
@@ -164,7 +174,10 @@ class _AnComposerState extends State<AnComposer> {
                 border: Border.all(color: c.line, width: AnSize.hairline), // base border neutral 基础边中性
                 boxShadow: widget.floating ? c.shadowFloat : null,
               ),
-              padding: const EdgeInsets.all(AnSpace.s8),
+              // 12 horizontal / 8 vertical — the 15-input proportion (modern chat composers run
+              // 12-16h/10-12v; with the 32 lg controls the single-line pill lands at 50px, inside
+              // the 44-52 industry band). 横 12 纵 8:15 号输入的配比(单行药丸高 50,业界 44-52)。
+              padding: const EdgeInsets.symmetric(horizontal: AnSpace.s12, vertical: AnSpace.s8),
               // ONE size animation for the reflow / attachments height delta; radius co-times above. 一 size 动画。
               child: AnimatedSize(
                 duration: shape,
@@ -223,7 +236,7 @@ class _AnComposerState extends State<AnComposer> {
       );
 
   Widget _editField(BuildContext context, AnColors c) => ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: AnSize.row * 6 - AnSpace.s8 * 2), // ~6 lines then internal scroll
+        constraints: BoxConstraints(maxHeight: _editMaxHeight), // 7 reading lines then internal scroll 7 行后内滚
         child: TextField(
           controller: widget.controller,
           focusNode: widget.focusNode,
@@ -237,6 +250,9 @@ class _AnComposerState extends State<AnComposer> {
           style: AnText.reading.copyWith(color: c.ink),
           cursorColor: c.ink,
           cursorWidth: AnSize.caret,
+          // Hug the 15 glyphs (same fontSize+caretRise derivation as AnInput) — the default fills
+          // the whole 24px reading line box. 光标贴 15 字形(同 AnInput 推导),默认会顶满 24px 行盒。
+          cursorHeight: AnText.reading.fontSize! + AnSize.caretRise,
           decoration: InputDecoration(
             isCollapsed: true,
             border: InputBorder.none,

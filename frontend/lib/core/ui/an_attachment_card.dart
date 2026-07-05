@@ -79,7 +79,13 @@ class AnAttachmentCard extends StatelessWidget {
     final c = context.colors;
     final t = Translations.of(context);
     if (state == AnAttachmentState.resolving) {
-      return _frame(c, active: false, child: const AnSkeleton.row());
+      // Bone matches the READY body height (28 tile / two text lines ≈ 35) — an undersized skeleton
+      // made the card grow ~5px when metadata landed, a layout shift inside the centre-anchored
+      // transcript. 骨架高度对齐 ready 内容(35)——偏矮的骨架在元数据落地时把卡撑高 5px、移动锚定列。
+      return _frame(c,
+          active: false,
+          child: const SizedBox(
+              height: AnSize.attachBodyH, child: Center(child: AnSkeleton.row())));
     }
     final missing = state == AnAttachmentState.missing;
     final meta = switch (state) {
@@ -117,7 +123,7 @@ class AnAttachmentCard extends StatelessWidget {
                     .copyWith(color: missing ? c.inkFaint : c.ink),
               ),
               Text(meta, maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: AnText.meta.copyWith(color: c.inkFaint)),
+                  style: AnText.label.copyWith(color: c.inkFaint)),
             ],
           ),
         ),

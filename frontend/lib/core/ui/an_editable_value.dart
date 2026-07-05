@@ -37,14 +37,17 @@ enum AnEditKind {
 ///
 /// [AnEditKind.select]: the value zone is an always-present ghost [AnDropdown] (it IS the editor — a
 /// pick commits, outside-tap / Esc dismiss it harmlessly), so there's no dangling edit state to get
-/// stuck in; it reserves the same far-right rail width so mixed lists keep ONE right edge. [rowHeight]
-/// is parameterized (Field [AnSize.islandHead] / Kv [AnSize.row]) so one core serves both.
+/// stuck in; like every resting value it sits flush-right with NO reserved rail (the input rows'
+/// pencil only takes width on hover — the 两端对齐 mechanic). [rowHeight] is parameterized (Field
+/// [AnSize.islandHead] / Kv [AnSize.row]) and [valueStyle] carries the value TIER (content 15 /
+/// chrome 13), mirrored into the editing field so toggling never jumps.
 ///
 /// 就地值编辑核(AnField + AnKv 共用,= demo field.js)。input:平时只读,hover 时 value 最右冒铅笔 →
 /// 点铅笔值换 seamless 框、同一最右位置换 取消/保存(单锚贴值、绝不换边)。Enter/保存/失焦提交、Esc/取消 弃;
 /// abort 经一次性 _finished 守卫优先,取消/保存套 TextFieldTapRegion 不触发失焦提交;仅键盘完成回落焦点到铅笔;
 /// 进编辑礼貌宣告;展示值镜像编辑框样式不跳,且恒单行右省略(可编辑值钦定贴右)。select:值区=常驻 ghost 下拉
-/// (它即编辑器),同样保留最右轨宽使混排列表共一右缘。rowHeight 参数化(Field islandHead / Kv row)。
+/// (它即编辑器),与他行静态值同样贴右、不留轨(铅笔仅悬停占宽——两端对齐机制)。rowHeight 参数化(Field
+/// islandHead / Kv row);valueStyle 携值档(内容 15 / chrome 13)、镜像进编辑框,切换不跳。
 class AnEditableValue extends StatefulWidget {
   const AnEditableValue({
     required this.leading,
@@ -53,6 +56,7 @@ class AnEditableValue extends StatefulWidget {
     required this.onChanged,
     this.rowHeight = AnSize.row,
     this.valueColor,
+    this.valueStyle,
     this.editor = AnEditKind.input,
     this.options = const [],
     this.mono = false,
@@ -75,6 +79,11 @@ class AnEditableValue extends StatefulWidget {
 
   /// Display value colour (Field [AnColors.inkMuted] / Kv [AnColors.inkFaint]); defaults to inkMuted. 值色。
   final Color? valueColor;
+
+  /// The value TIER style, mirrored across display AND the editing field (the no-jump contract) —
+  /// content rows pass [AnText.valueReading], chrome rows the default [AnText.value]. 值档样式,
+  /// 展示与编辑框同镜像(不跳契约):内容行传 valueReading、chrome 行默认 value。
+  final TextStyle? valueStyle;
 
   final AnEditKind editor;
 
@@ -205,19 +214,19 @@ class _AnEditableValueState extends State<AnEditableValue> {
   }
 
   // select: the value zone is an always-present ghost dropdown — no pencil, no editing state, so no
-  // dangling state on dismiss (a pick commits; outside-tap / Esc just close it). It reserves the same
-  // far-right rail width as the input rows' pencil so a mixed list keeps ONE right edge.
-  // select:常驻 ghost 下拉;保留与铅笔同宽的最右轨,混排列表共一右缘。
+  // dangling state on dismiss (a pick commits; outside-tap / Esc just close it). The ghost dropdown
+  // IS the always-live editor (no hover-reveal), so it fills flush-right like every other value's
+  // resting state — no reserved rail. Its trigger renders the SAME tier style as the sibling text
+  // values (a mixed list must not show one value a rung small).
+  // select:常驻 ghost 下拉即编辑器,贴右填满、不留轨;触发器与同列文本值同档样式(混排列表不许有值矮一档)。
   Widget _selectRow() {
-    // The ghost dropdown IS the always-live editor (no hover-reveal), so it fills flush-right like every
-    // other value's resting state — no reserved rail. ghost 下拉本身即常活编辑器(无悬停揭示),同他行静态
-    // 一样贴右填满、不留轨。
     return AnLeadValue(
       leading: widget.leading,
       trailing: AnDropdown<String>(
         options: widget.options,
         value: widget.value,
         variant: AnDropdownVariant.ghost,
+        triggerStyle: widget.valueStyle ?? AnText.value(mono: widget.mono),
         menuAlignEnd: true,
         onChanged: widget.onChanged,
       ),
@@ -273,12 +282,14 @@ class _AnEditableValueState extends State<AnEditableValue> {
   }
 
   Widget _inputValueZone(AnColors c) {
+    final base = widget.valueStyle ?? AnText.value(mono: widget.mono);
     final color = widget.valueColor ?? c.inkMuted;
     if (_editing) {
       return AnSeamlessField(
         controller: _ctl,
         mono: widget.mono,
         tabular: true, // value column: digits always tabular (idle ↔ editing same width) 值列数字恒等宽
+        style: base, // the tier mirror — display and field MUST share it (no-jump) 值档镜像,展示/编辑同式
         framed: true, // demo edit frame (no row-height growth, right-only horizontal) 编辑框(不加行高、右生长)
         onCommit: () => _finish(true, returnFocus: true),
         onAbort: () => _finish(false, returnFocus: true),
@@ -288,7 +299,6 @@ class _AnEditableValueState extends State<AnEditableValue> {
     // Display mirrors the seamless field's style (shared value-column style) so idle ↔ editing never
     // changes size/face; empty shows an em-dash; always single-line right-ellipsis (flush-right decree).
     // 展示走值列样式单源(切换不跳),空显 —,恒单行右省略(贴右钦定)。
-    final base = AnText.value(mono: widget.mono);
     final display = widget.value.isEmpty ? '—' : widget.value;
     return Text(
       display,

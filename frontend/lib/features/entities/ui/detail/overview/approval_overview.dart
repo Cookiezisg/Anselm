@@ -32,7 +32,7 @@ class ApprovalOverview extends StatelessWidget {
           fieldList(v.inputs, emptyTitle: d.val.none),
         ]),
         AnSection(label: d.sec.template, variant: AnSectionVariant.plain, children: [
-          AnCodeEditor(code: v.template, lang: 'md', wrap: true),
+          AnCodeEditor(code: v.template, lang: 'md', wrap: true, reading: true),
         ]),
         AnSection(label: d.sec.decisionRules, variant: AnSectionVariant.plain, children: [
           kvList([

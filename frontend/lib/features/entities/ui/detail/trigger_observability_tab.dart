@@ -164,7 +164,7 @@ class _ObsScaffold extends StatelessWidget {
                           onToggle: () => onToggle(row.id),
                           onSelect: () => onToggle(row.id),
                         ),
-                        detail: kvList([for (final r in row.detailRows) (r.$1, r.$2)], wrap: true),
+                        detail: kvList([for (final r in row.detailRows) (r.$1, r.$2)], wrap: true, dense: true),
                       ),
                     if (st.loadingMore)
                       const AnSkeleton.row()

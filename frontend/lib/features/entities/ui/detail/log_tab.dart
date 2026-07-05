@@ -94,7 +94,9 @@ class LogTab extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        kvList([for (final r in row.detailRows) (r.$1, r.$2)], wrap: true),
+        // Machine telemetry (ids / timestamps / raw JSON dumps) — chrome tier like its cockpit twin.
+        // 机器遥测(id/时间戳/原始 JSON)——与驾驶舱孪生同守 chrome 档。
+        kvList([for (final r in row.detailRows) (r.$1, r.$2)], wrap: true, dense: true),
         if (comp != null)
           for (final n in comp.nodes)
             AnRow(

@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
+import 'an_button.dart';
 import 'an_edit_affordance.dart';
 import 'an_seamless_field.dart';
 
@@ -34,6 +35,7 @@ class AnInlineEdit extends StatefulWidget {
     this.startEditing = false,
     this.style,
     this.minHeight = AnSize.control,
+    this.affordanceSize = AnButtonSize.sm,
     super.key,
   });
 
@@ -57,6 +59,10 @@ class AnInlineEdit extends StatefulWidget {
 
   /// Row height — raise it for a tall [style] (e.g. [AnSize.islandHead] for an H2 title). 行高(高样式时调大)。
   final double minHeight;
+
+  /// Pencil tier — md beside content-tier titles (a 12px sm pencil reads a system too small next to
+  /// 15/w400), sm in dense rows. 铅笔档位:内容档标题旁用 md,密集行守 sm。
+  final AnButtonSize affordanceSize;
 
   @override
   State<AnInlineEdit> createState() => _AnInlineEditState();
@@ -147,6 +153,7 @@ class _AnInlineEditState extends State<AnInlineEdit> {
           const SizedBox(width: AnSpace.s8), // one gap, BOTH states — an unequal gap would twitch on toggle 同一间距、避免切换横抖
           AnEditAffordance(
             editing: _editing,
+            size: widget.affordanceSize,
             onEdit: widget.enabled ? _begin : null,
             onCommit: _commit,
             onAbort: _abort,

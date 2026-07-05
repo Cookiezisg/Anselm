@@ -21,14 +21,14 @@ Widget _md(String s) => AnMarkdown(s);
 
 final GalleryItem anMarkdownGalleryItem = GalleryItem(
   'AnMarkdown 渲染器',
-  'chat 文本块 markdown:标题降档 · 粗体 w400 · 围栏→AnCodeEditor · 表→AnThinTable · 链接闸 · 图不取网',
+  'chat 文本块 markdown:阅读档 22/18/15 · 粗体 w400 · 围栏→AnCodeEditor · 表→AnThinTable · 链接闸 · 图不取网',
   [
     GallerySpecimen('段落 + 行内混排', (_) => _md(
       '把 **sync_inventory** 的重试改成了*指数退避*,细节见 [PR #42](https://example.com/pr/42)。'
       '失败会抛 `SyncError`,由上游 workflow 决定是否降级——~~静默吞掉~~不再发生。',
     ), span: true, maxWidth: _mdW),
-    GallerySpecimen('标题阶梯(降档 20/16/13)', (_) => _md(
-      '# 一级 · 20\n\n正文一段。\n\n## 二级 · 16\n\n正文一段。\n\n### 三级 · 13 加粗\n\n#### 四级并入 13 档\n\n正文一段。',
+    GallerySpecimen('标题阶梯(阅读档 22/18/15)', (_) => _md(
+      '# 一级 · 22\n\n正文一段。\n\n## 二级 · 18\n\n正文一段。\n\n### 三级 · 15 加粗\n\n#### 四级并入 13 档\n\n正文一段。',
     ), span: true, maxWidth: _mdW),
     GallerySpecimen('列表(有序/无序/任务)', (_) => _md(
       '1. 拉取 line items\n2. 按季度聚合\n3. 标出超 10% 波动\n\n- 跨年边界:Q4 与次年 Q1 不混\n- 退款行计入当季\n\n'

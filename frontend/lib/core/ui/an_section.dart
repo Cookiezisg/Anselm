@@ -22,8 +22,8 @@ enum AnSectionVariant {
 
 /// D1 — a section: a small heading + an unbordered content area, organised by whitespace + hierarchy
 /// (never rule lines). [variant] caption = the uppercase faint-meta label (reuses [AnGroupLabel], the
-/// single caption source); plain = a document-tier heading ([AnText.strong] — a deliberate minimal
-/// heading tier below h3). [actions] sit at the head's right via [AnTwoZone] (label fills, actions pin
+/// single caption source); plain = a content section heading ([AnText.readingH2] 18 — the +3-over-body
+/// proportion above the 15 content prose). [actions] sit at the head's right via [AnTwoZone] (label fills, actions pin
 /// right) + [AnActionGroup]; the head renders whenever there's a [label] OR actions (so an actions-only
 /// head isn't silently dropped). [children] stack with a uniform inter-block gap — spacing is owned by
 /// the container, children never self-margin.
@@ -34,7 +34,7 @@ enum AnSectionVariant {
 /// text (the visual may be uppercased).
 ///
 /// D1——段:小标题 + 无边内容区,靠留白+层级组织(绝不横线)。caption=大写灰 meta(复用 AnGroupLabel 单源);
-/// plain=文档级标题(AnText.strong,h3 之下有意的最小标题档)。actions 经 AnTwoZone 居 head 右 + AnActionGroup;
+/// plain=内容分节头(AnText.readingH2 18,15 正文上的 +3 比例)。actions 经 AnTwoZone 居 head 右 + AnActionGroup;
 /// 有 label 或 actions 即渲 head(actions-only 不被吞)。children 统一间距堆叠(间距归容器、子件不自管外边距);
 /// grid=true 时 body 委托 AnAutoGrid 排成响应式块网格。
 /// a11y:Semantics 容器 + explicitChildNodes(子件各自可达、不 merge);label 为 header 节点、读原始大小写(视觉可能大写)。
@@ -144,7 +144,7 @@ class AnSection extends StatelessWidget {
     final visible = switch (variant) {
       AnSectionVariant.caption => AnGroupLabel(label!, padding: EdgeInsets.zero),
       AnSectionVariant.plain =>
-        Text(label!, maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.strong.copyWith(color: c.ink)),
+        Text(label!, maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.readingH2.copyWith(color: c.ink)),
       // quiet: a small lowercase faint-meta label (NOT uppercased like caption). 安静小写灰 meta。
       AnSectionVariant.quiet =>
         Text(label!, maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.meta.copyWith(color: c.inkFaint)),

@@ -70,7 +70,7 @@ class AnAttachmentChip extends StatelessWidget {
         Flexible(
           child: Text(meta,
               maxLines: 1, softWrap: false, overflow: TextOverflow.ellipsis,
-              style: AnText.meta.copyWith(color: failed ? c.danger : c.inkFaint)),
+              style: AnText.label.copyWith(color: failed ? c.danger : c.inkFaint)),
         ),
         if (onRemove != null) ...[
           const SizedBox(width: AnSpace.s2),

@@ -285,7 +285,7 @@ class _AnTabsState extends State<AnTabs> with WidgetsBindingObserver {
                 if (it.count != null && it.count!.isNotEmpty) ...[
                   const SizedBox(width: AnSpace.s6),
                   Text(it.count!,
-                      style: AnText.metaTabular().copyWith(color: selected ? c.inkMuted : c.inkFaint)),
+                      style: AnText.value().copyWith(color: selected ? c.inkMuted : c.inkFaint)),
                 ],
               ],
             ),

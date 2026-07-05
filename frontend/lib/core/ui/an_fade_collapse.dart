@@ -80,7 +80,7 @@ class _AnFadeCollapseState extends State<AnFadeCollapse> {
               child: Center(
                 child: Text(
                   _expanded ? widget.collapseLabel : widget.expandLabel,
-                  style: AnText.meta.copyWith(
+                  style: AnText.label.copyWith(
                     color: states.contains(WidgetState.hovered) ? context.colors.ink : context.colors.inkMuted,
                   ),
                 ),

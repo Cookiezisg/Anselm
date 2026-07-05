@@ -22,6 +22,7 @@ class AnEditAffordance extends StatelessWidget {
     this.onEdit,
     this.onCommit,
     this.onAbort,
+    this.size = AnButtonSize.sm,
     super.key,
   });
 
@@ -30,13 +31,19 @@ class AnEditAffordance extends StatelessWidget {
   final VoidCallback? onCommit;
   final VoidCallback? onAbort;
 
+  /// Control tier of the pencil/cancel/save — sm (default) inside dense 32px rows (a md pencil would
+  /// outgrow the row's slack); md beside content-tier text (the chat head's 15 title, where a 12px
+  /// glyph reads a system too small). 触点档位:密集 32 行守 sm(md 会撑破行余量);内容档文字旁(chat 头
+  /// 15 标题)用 md,12px 铅笔在那里小一个体系。
+  final AnButtonSize size;
+
   @override
   Widget build(BuildContext context) {
     final t = context.t;
     if (!editing) {
       return AnButton.iconOnly(
         AnIcons.edit,
-        size: AnButtonSize.sm,
+        size: size,
         semanticLabel: t.action.edit,
         onPressed: onEdit,
       );
@@ -85,7 +92,7 @@ class _SaveButton extends StatelessWidget {
                 color: c.accentSoft.whenActive(active),
                 borderRadius: BorderRadius.circular(AnRadius.button),
               ),
-              // accent + w500 via .weight (VF double-axis: copyWith(fontWeight) alone renders Light). 双轴重定权。
+              // accent + emphasis w400 via .weight (VF double-axis: copyWith(fontWeight) alone renders Light). 双轴重定权。
               child: Text(label, style: AnText.meta.weight(AnText.emphasisWeight).copyWith(color: c.accent)),
             );
           },

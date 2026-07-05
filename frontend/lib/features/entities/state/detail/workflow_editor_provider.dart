@@ -62,10 +62,10 @@ const _trialEdgeId = '__anselm_trial_edge__';
 }
 
 /// The graph editor (family over the workflow [EntityRef]). Loads the active-version graph into a
-/// working copy, applies local structural edits, and saves the diff as one `:edit`. Not autoDispose
+/// working copy, applies local structural edits, and saves the diff as one `:edit`. autoDispose
 /// — the editor is a full route the user is actively working in; it's released when the route pops.
 /// 图编辑器(按 workflow [EntityRef] family)。活跃版本图 → working 副本,本地结构编辑,保存 diff 成一个
-/// `:edit`。非 autoDispose(编辑器是活跃的整页路由,pop 时释放)。
+/// `:edit`。autoDispose(编辑器是活跃的整页路由,pop 时释放)。
 class WorkflowEditorNotifier extends AsyncNotifier<WorkflowEditorState> {
   WorkflowEditorNotifier(this.entityRef);
 

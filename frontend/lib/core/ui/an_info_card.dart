@@ -41,7 +41,7 @@ class AnInfoCard extends StatelessWidget {
       container: true,
       explicitChildNodes: true, // head / body / actions each individually reachable (NOT merged) 各自可达不 merge
       child: Padding(
-        padding: AnInset.tight, // dense caption-card interior (8/4) 密集卡内距
+        padding: AnInset.snug, // content-card interior (12/8) — 15-tier body must not sit flush to the edge 内容卡内距(15 值不贴边)
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
@@ -81,12 +81,12 @@ class AnInfoCard extends StatelessWidget {
                       title!,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: AnText.meta.weight(AnText.emphasisWeight).copyWith(color: c.inkFaint),
+                      style: AnText.label.weight(AnText.emphasisWeight).copyWith(color: c.inkFaint),
                     ),
                   )
                 : const SizedBox.shrink(),
             meta: _hasMeta ? meta : null,
-            metaStyle: AnText.meta.copyWith(color: c.inkFaint),
+            metaStyle: AnText.label.copyWith(color: c.inkFaint),
             trailing: const SizedBox.shrink(),
           ),
         ),

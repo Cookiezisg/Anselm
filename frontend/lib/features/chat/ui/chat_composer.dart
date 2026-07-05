@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pasteboard/pasteboard.dart';
 
+import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/entity/mention_source.dart';
 import '../../../core/perf/debouncer.dart';
@@ -299,9 +300,31 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
     fallthrough();
   }
 
-  /// Snapshots whose `@name` still lives in the text (deleted pills drop off). 仍在文本里的快照。
+  /// Snapshots whose `@name` still lives in the text AT A TOKEN BOUNDARY (deleted pills drop off).
+  /// Boundary-checked like the tint (`_tokenAt`) and the atomic backspace — a bare `contains` shipped
+  /// a deleted pill whenever its name survived as a substring ('@alice' deleted but '@alice2' typed).
+  /// 仍以 token 边界存在于文本的快照;与染色/整删同一边界规则——裸 contains 会把删掉的药丸当子串误发。
   List<MentionSnapshot> _liveMentions(String text) =>
-      [for (final m in _picked.values) if (text.contains('@${m.name}')) m];
+      [for (final m in _picked.values) if (_liveAtBoundary(text, m.name)) m];
+
+  // EXACTLY the tint's boundary class (space/\n/\t — mention_text_controller._ws): a wider \s
+  // (NBSP/\r/U+3000) shipped mentions that rendered untinted and weren't atomic-deletable.
+  // 与染色同一边界字符集(空格/换行/制表)——更宽的 \s 会发出未染色、不可整删的提及。
+  static bool _wsChar(String ch) => ch == ' ' || ch == '\n' || ch == '\t';
+
+  static bool _liveAtBoundary(String text, String name) {
+    final token = '@$name';
+    var from = 0;
+    while (true) {
+      final at = text.indexOf(token, from);
+      if (at < 0) return false;
+      final end = at + token.length;
+      final beforeOk = at == 0 || _wsChar(text[at - 1]);
+      final afterOk = end == text.length || _wsChar(text[end]);
+      if (beforeOk && afterOk) return true;
+      from = at + 1;
+    }
+  }
 
   Future<void> _send() async {
     final text = _ctrl.text.trim();
@@ -374,17 +397,34 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
     });
   }
 
+  // lg tier (32 box / 20 glyph) — the content-workspace control tier, proportioned to the 15 input.
+  // lg 档(32 盒/20 形):内容区控件档,与 15 号输入配比。
   List<Widget> _lead(Translations t) => [
         AnButton.iconOnly(AnIcons.mention,
-            size: AnButtonSize.sm, semanticLabel: t.chat.mentionEntity, onPressed: _insertMentionTrigger),
+            size: AnButtonSize.lg, semanticLabel: t.chat.mentionEntity, onPressed: _insertMentionTrigger),
         AnButton.iconOnly(AnIcons.attach,
-            size: AnButtonSize.sm, semanticLabel: t.chat.attachFile, onPressed: _pickFiles),
+            size: AnButtonSize.lg, semanticLabel: t.chat.attachFile, onPressed: _pickFiles),
       ];
+
+  /// The send/stop affordance — a FILLED ink circle (primary + round), the modern chat idiom, still
+  /// monochrome per the product's no-decorative-hue rule. Same lg tier as [_lead] (the single-row
+  /// height is child-maxed — a different tier would grow the pill on the first keystroke).
+  /// send/stop=实心墨圆(primary+round,现代聊天惯例、仍单色);与 lead 同 lg 档(单行高取子件 max,
+  /// 异档会首键撑高药丸)。
+  Widget _trailingButton({required Key key, required IconData icon, required String label, required VoidCallback onPressed}) =>
+      AnButton.iconOnly(icon,
+          key: key,
+          variant: AnButtonVariant.primary,
+          round: true,
+          size: AnButtonSize.lg,
+          semanticLabel: label,
+          onPressed: onPressed);
 
   /// The pending strip for [AnComposer.attachments] — null when empty (presence flips pill→card).
   /// 待发条(空=null,有即触发形变)。
-  Widget? _attachmentStrip(Translations t, List<PendingAttachment> pending) {
+  Widget? _attachmentStrip(BuildContext context, Translations t, List<PendingAttachment> pending) {
     if (pending.isEmpty) return null;
+    final c = context.colors;
     return Wrap(
       spacing: AnSpace.s6,
       runSpacing: AnSpace.s6,
@@ -403,10 +443,21 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
                 PositionedDirectional(
                   top: AnSpace.s2,
                   end: AnSpace.s2,
-                  child: AnButton.iconOnly(AnIcons.close,
-                      size: AnButtonSize.sm,
-                      semanticLabel: t.attach.remove,
-                      onPressed: () => _att.remove(a.localId)),
+                  // A surface disc under the ghost ✕ — a bare inkFaint glyph on arbitrary photo
+                  // pixels has no contrast guarantee (invisible on dark/busy images).
+                  // ✕ 垫 surface 圆底:裸淡墨字形压任意照片像素无对比度保证(深/花图上隐形)。
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: c.surface,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: c.line, width: AnSize.hairline),
+                    ),
+                    child: AnButton.iconOnly(AnIcons.close,
+                        size: AnButtonSize.sm,
+                        round: true,
+                        semanticLabel: t.attach.remove,
+                        onPressed: () => _att.remove(a.localId)),
+                  ),
                 ),
               ],
             )
@@ -417,13 +468,16 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
               filename: a.filename,
               meta: switch (a.status) {
                 'uploading' => t.attach.uploading,
-                'failed' => t.attach.failedRetry,
+                // Unreadable-at-intake failures kept no bytes — they are NOT retryable; only upload
+                // failures (bytes in hand) offer the tap-to-retry. 入口不可读的失败无字节、不可重试;
+                // 仅上传失败(字节在手)给「点按重试」。
+                'failed' => a.bytes != null ? t.attach.failedRetry : t.attach.failedUnreadable,
                 _ => attachmentMetaLine(
                     filename: a.filename, mimeType: a.mimeType, sizeBytes: a.sizeBytes),
               },
               uploading: a.status == 'uploading',
               failed: a.status == 'failed',
-              onRetry: () => _att.retry(a.localId),
+              onRetry: a.bytes != null ? () => _att.retry(a.localId) : null,
               onRemove: () => _att.remove(a.localId),
             ),
       ],
@@ -454,13 +508,10 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
           placeholder: t.chat.placeholder,
           floating: widget._floating,
           lead: _lead(t),
-          attachments: _attachmentStrip(t, pending),
+          attachments: _attachmentStrip(context, t, pending),
           trailing: (_hasText || ready) && !uploading && !_submittingNew
-              ? AnButton.iconOnly(AnIcons.send,
-                  key: const ValueKey('send'),
-                  size: AnButtonSize.sm,
-                  semanticLabel: t.chat.placeholder,
-                  onPressed: _send)
+              ? _trailingButton(
+                  key: const ValueKey('send'), icon: AnIcons.send, label: t.chat.send, onPressed: _send)
               : null,
         )),
       );
@@ -472,21 +523,15 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
       valueListenable: ctl.transcript,
       builder: (context, transcript, _) {
         final generating = transcript.hasInFlight;
-        // send/stop MUST be the same control tier as the lead buttons (sm) — a taller trailing
-        // popping in on the first keystroke re-maxes the single row and the whole composer grows.
-        // send/stop 必须与 lead 同档(sm)——更高的 trailing 首键出现会重定单行 max,整个 composer 长高。
         final Widget? trailing = generating
-            ? AnButton.iconOnly(AnIcons.stop,
+            ? _trailingButton(
                 key: const ValueKey('stop'),
-                size: AnButtonSize.sm,
-                semanticLabel: t.chat.stoppedCancelled,
+                icon: AnIcons.stop,
+                label: t.chat.stop,
                 onPressed: () => ctl.cancelTurn())
             : (_hasText || ready) && !uploading
-                ? AnButton.iconOnly(AnIcons.send,
-                    key: const ValueKey('send'),
-                    size: AnButtonSize.sm,
-                    semanticLabel: t.chat.placeholder,
-                    onPressed: _send)
+                ? _trailingButton(
+                    key: const ValueKey('send'), icon: AnIcons.send, label: t.chat.send, onPressed: _send)
                 : null;
         return _anchored(
           context,
@@ -495,7 +540,7 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
             focusNode: _focus,
             placeholder: t.chat.placeholder,
             lead: _lead(t),
-            attachments: _attachmentStrip(t, pending),
+            attachments: _attachmentStrip(context, t, pending),
             trailing: trailing,
           )),
         );

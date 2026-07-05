@@ -42,7 +42,7 @@ class HandlerOverview extends StatelessWidget {
             (d.kv.activeVersion, 'v${v.version}'),
             (d.kv.python, v.pythonVersion),
             (d.kv.updated, fmtTime(hd.updatedAt)),
-          ]),
+          ], meta: true),
         ]),
         AnSection(label: d.sec.runtime, variant: AnSectionVariant.plain, grid: true, children: [
           AnInfoCard(
@@ -79,7 +79,7 @@ class HandlerOverview extends StatelessWidget {
               hint: m.streaming ? d.val.generator : (m.timeout != null ? d.val.timeoutMs(ms: m.timeout!) : null),
               passive: true,
             ),
-          AnCodeEditor(code: handlerSourceOf(v), lang: 'py', wrap: true),
+          AnCodeEditor(code: handlerSourceOf(v), lang: 'py', wrap: true, reading: true),
         ]),
       ],
     );

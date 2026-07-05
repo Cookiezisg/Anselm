@@ -3,7 +3,6 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
-import '../../../core/contract/messages/block_content.dart';
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
@@ -48,7 +47,6 @@ class ChatToolCard extends StatefulWidget {
 const int _capChars = 4000;
 const int _progressTailLines = 12;
 const int _jsonInlineMaxLines = 14;
-const double _jsonTreeHeight = 240;
 
 /// The elapsed counter stays hidden for quick calls; only a call outliving this reads a timer
 /// (industry norm: quiet seconds after ~3s, never a progress bar).
@@ -65,10 +63,15 @@ class _ChatToolCardState extends State<ChatToolCard> {
   /// live 期挂载以来的秒数——按 tick 计数(非墙钟 Stopwatch),测试假钟可驱动、reduced 下自然不计。
   int _liveSeconds = 0;
 
-  bool get _live =>
-      widget.node.isOpen ||
-      (widget.node.status != 'cancelled' &&
-          !widget.node.children.any((c) => c.kind == BlockKind.toolResult));
+  // ONE live predicate — the same phase set the display uses (argsStreaming/running). The old
+  // isOpen/no-result heuristic diverged on awaitingConfirm: the ticker kept counting HUMAN wait
+  // time (and rebuilding every second) while the card sat parked on the gate, then reported it
+  // as tool elapsed. 单一 live 谓词=显示同款相位集;旧启发式在 awaitingConfirm 下把人等的时间计进
+  // 工具耗时、且停在门上仍每秒重建。
+  bool get _live {
+    final phase = ToolCardState.of(widget.node, awaitingConfirm: widget.awaitingConfirm).phase;
+    return phase == ToolCardPhase.argsStreaming || phase == ToolCardPhase.running;
+  }
 
   @override
   void didChangeDependencies() {
@@ -133,7 +136,7 @@ class _ChatToolCardState extends State<ChatToolCard> {
     // 活机器窗(F3 终端尾/F4 builds 内容流入):在飞可见,完成溶进展开体。
     final showLiveBody = spec.liveBody != null && live && !open;
 
-    const bodyInset = EdgeInsets.only(top: AnSpace.s4, left: AnSize.iconSm + AnSpace.s6);
+    const bodyInset = EdgeInsets.only(top: AnSpace.s4, left: AnSize.icon + AnSpace.s6);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -183,7 +186,11 @@ class _ChatToolCardState extends State<ChatToolCard> {
   Widget _line(BuildContext context, Translations t, AnColors c, ToolCardState state,
       ToolCardSpec spec, bool live, bool open, bool hasBody, ToolReceipt? familyReceipt) {
     final reduced = AnMotionPref.reduced(context);
-    final verbStyle = AnText.meta.copyWith(color: c.inkMuted);
+    // The primary line sits INSIDE the 15 content column — one-rung lift to the content label tier
+    // (verb 13 / icon 16 / target mono 13); the dimmed receipt tail STAYS meta 12 (true metadata).
+    // 主行在 15 内容列内——抬到内容标签档(动词 13/图标 16/target mono 13);灰回执尾守 meta 12(真元数据)。
+    final verbStyle = AnText.label.copyWith(color: c.inkMuted);
+    final verbFaint = AnText.label.copyWith(color: c.inkFaint);
     final faint = AnText.meta.copyWith(color: c.inkFaint);
 
     // Terminal overrides stay with the chassis; live/settled verbs come from the family spec.
@@ -223,20 +230,20 @@ class _ChatToolCardState extends State<ChatToolCard> {
         constraints: const BoxConstraints(minHeight: AnSize.row),
         child: Row(
           children: [
-            Icon(AnIcons.toolIcon(state.toolName), size: AnSize.iconSm,
+            Icon(AnIcons.toolIcon(state.toolName), size: AnSize.icon,
                 color: state.phase == ToolCardPhase.awaitingConfirm ? c.warn : c.inkFaint),
             const SizedBox(width: AnSpace.s6),
             live
                 ? AnShimmerText('$verb…', style: verbStyle)
                 : Text(verb,
-                    style: dimVerb ? faint : verbStyle),
+                    style: dimVerb ? verbFaint : verbStyle),
             if (target.isNotEmpty) ...[
               const SizedBox(width: AnSpace.s6),
               Flexible(
                 child: Text(target,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AnText.codeInline.copyWith(color: dimVerb ? c.inkFaint : c.inkMuted)),
+                    style: AnText.mono.copyWith(color: dimVerb ? c.inkFaint : c.inkMuted)),
               ),
             ],
             if (receipt.isNotEmpty)
@@ -358,7 +365,7 @@ class _GenericToolBody extends StatelessWidget {
         return Text(pretty, style: AnText.code.copyWith(color: c.inkMuted));
       }
       return SizedBox(
-          height: _jsonTreeHeight, child: AnJsonTree(data: decoded, showRoot: false));
+          height: AnSize.jsonViewport, child: AnJsonTree(data: decoded, showRoot: false));
     }
     final truncated = raw.length > _capChars;
     final shown = truncated ? raw.substring(0, _capChars) : raw;

@@ -29,14 +29,16 @@ class AgentOverview extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Identity keeps pure metadata only — the Model row was a verbatim dupe of the Model
+        // card below rendered at the OTHER tier (13 vs 15 for one datum on one page).
+        // 身份段只留纯元数据——Model 行与下方 Model 卡同数据异档(同页一数据两档),删重复。
         identitySection(d.kv.desc, agent.description, [
           (d.kv.id, agent.id),
           (d.kv.activeVersion, 'v${v.version}'),
-          (d.kv.model, mo != null ? mo.modelId : d.val.modelDefault),
           if (mh != null) (d.sec.mountHealth, mh.allHealthy ? d.mounts.healthy : d.mounts.unhealthy(count: unhealthy)),
         ]),
         AnSection(label: d.sec.prompt, variant: AnSectionVariant.plain, children: [
-          AnCodeEditor(code: v.prompt, lang: 'md', wrap: true),
+          AnCodeEditor(code: v.prompt, lang: 'md', wrap: true, reading: true),
         ]),
         AnSection(label: d.sec.capabilities, variant: AnSectionVariant.plain, grid: true, children: [
           AnInfoCard(

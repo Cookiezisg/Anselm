@@ -153,9 +153,12 @@ class _AnInputState extends State<AnInput> {
       expands: false,
       cursorColor: c.ink,
       cursorWidth: AnSize.caret,
-      // Single-line: hug the text, not the full line-height. Multiline keeps Flutter's default so the
-      // caret scales per line in the textarea. 单行:贴合文字、非顶满行高;多行用默认、随行缩放。
-      cursorHeight: widget.multiline ? null : AnSize.caretHeight,
+      // Single-line: hug the text, not the full line-height — derived from the EFFECTIVE style
+      // (fontSize + caretRise) so a style-overridden field (an H2-24 rename, a 15 content value)
+      // gets a caret that matches its glyphs, not the 13-body constant. Multiline keeps Flutter's
+      // default so the caret scales per line. 单行:按有效样式推导(fontSize+caretRise),大字改名/15 值
+      // 的光标随字走、不再是钉死的 13 号短光标;多行用默认、随行缩放。
+      cursorHeight: widget.multiline ? null : (style.fontSize ?? AnText.body.fontSize)! + AnSize.caretRise,
       style: style,
       decoration: InputDecoration(
         isDense: true,

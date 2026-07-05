@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart' show ImageProvider, VoidCallback;
 
+import '../../../core/model/byte_format.dart';
 import '../../../core/ui/an_attachment_card.dart' show AnAttachmentState;
 
 /// The sent-bubble view of one attachment — resolved metadata + (for images) a decoded thumb source. The
@@ -54,13 +55,8 @@ String attachmentMetaLine({required String filename, String? mimeType, int? size
     final slash = (mimeType ?? '').lastIndexOf('/');
     if (slash > 0) parts.add(mimeType!.substring(slash + 1).toUpperCase());
   }
-  if (sizeBytes != null && sizeBytes >= 0) parts.add(_humanBytes(sizeBytes));
+  if (sizeBytes != null && sizeBytes >= 0) parts.add(formatBytes(sizeBytes));
   return parts.join(' · ');
 }
 
-String _humanBytes(int bytes) {
-  if (bytes < 1024) return '$bytes B';
-  if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-  if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-  return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
-}
+
