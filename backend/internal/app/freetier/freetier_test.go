@@ -11,6 +11,7 @@ import (
 
 	apikeyapp "github.com/sunweilin/anselm/backend/internal/app/apikey"
 	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
+	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 )
 
@@ -58,8 +59,20 @@ func (f *fakeInstaller) Install(_ context.Context, baseURL, fingerprintHash, _ s
 func okFP() (string, error)  { return "machine-serial-123", nil }
 func errFP() (string, error) { return "", errors.New("no fingerprint") }
 
+// fakeDefaults records each seed call so a test can assert the ref (managed key id + model) the
+// provisioner would write as the workspace scenario defaults.
+type fakeDefaults struct {
+	seeded []modeldomain.ModelRef
+	err    error
+}
+
+func (f *fakeDefaults) SeedDefaultsIfUnset(_ context.Context, ref modeldomain.ModelRef) error {
+	f.seeded = append(f.seeded, ref)
+	return f.err
+}
+
 func newProv(keys Keys, inst Installer, fp Fingerprint) *Provisioner {
-	return NewProvisioner(keys, inst, fp, zap.NewNop())
+	return NewProvisioner(keys, nil, inst, fp, zap.NewNop()) // nil defaults → seeding skipped
 }
 
 func TestEnsure_ProvisionsManagedRow(t *testing.T) {
@@ -132,5 +145,39 @@ func TestEnsure_DisplayNameConflictIsIdempotent(t *testing.T) {
 	inst := &fakeInstaller{token: "gwk_x"}
 	if err := newProv(keys, inst, okFP).EnsureForWorkspace(context.Background()); err != nil {
 		t.Errorf("display-name conflict must be treated as idempotent no-op, got %v", err)
+	}
+}
+
+// On a fresh provision the just-created managed key becomes the seed for all three scenario defaults.
+func TestEnsure_SeedsWorkspaceDefaults(t *testing.T) {
+	keys := &fakeKeys{}
+	defs := &fakeDefaults{}
+	p := NewProvisioner(keys, defs, &fakeInstaller{token: "gwk_minted"}, okFP, zap.NewNop())
+	if err := p.EnsureForWorkspace(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(defs.seeded) != 1 {
+		t.Fatalf("SeedDefaultsIfUnset called %d times, want 1", len(defs.seeded))
+	}
+	if ref := defs.seeded[0]; ref.APIKeyID != "aki_x" || ref.ModelID != llminfra.AnselmModelID {
+		t.Errorf("seeded ref = %+v, want {aki_x, %s}", ref, llminfra.AnselmModelID)
+	}
+}
+
+// The already-provisioned path still seeds — a workspace whose managed key predates the seeding
+// self-heals its NULL defaults on the next boot, using the EXISTING key's id (not a fresh install).
+func TestEnsure_SeedsDefaultsOnSelfHeal(t *testing.T) {
+	keys := &fakeKeys{rows: []*apikeydomain.APIKey{{ID: "aki_existing", Provider: "anselm"}}}
+	defs := &fakeDefaults{}
+	inst := &fakeInstaller{token: "gwk_x"}
+	p := NewProvisioner(keys, defs, inst, okFP, zap.NewNop())
+	if err := p.EnsureForWorkspace(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(keys.created) != 0 || inst.gotHash != "" {
+		t.Error("existing key must not re-install / re-create")
+	}
+	if len(defs.seeded) != 1 || defs.seeded[0].APIKeyID != "aki_existing" {
+		t.Fatalf("existing key must still seed defaults with its own id, got %+v", defs.seeded)
 	}
 }

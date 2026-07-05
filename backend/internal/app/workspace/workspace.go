@@ -312,6 +312,44 @@ func (s *Service) SetDefault(ctx context.Context, id, scenario string, ref *mode
 	return w, nil
 }
 
+// SeedDefaultsIfUnset points every scenario default (dialogue/utility/agent) that is still UNSET at
+// ref, for the ctx workspace, in one Save. Free-tier provisioning calls this so the managed model is
+// the out-of-box default for all three scenarios — without it the columns stay NULL and utility-model
+// chores (auto-title, compaction) silently no-op. It only fills the blanks: a scenario a user has
+// already picked is left alone, so re-running on every boot never clobbers an explicit choice. ref is
+// our own managed ref (structural-check only, no keyChecker) — the caller ensured the key exists.
+//
+// SeedDefaultsIfUnset 把仍未设的 scenario 默认（dialogue/utility/agent）一次性设成 ref（ctx workspace）。
+// 免费档 provisioning 调它，使受管模型成三 scenario 的开箱默认——否则列恒 NULL、utility 杂活（自动标题、压缩）
+// 静默 no-op。只填空白：用户已选的 scenario 不动，故每次 boot 重跑绝不覆盖显式选择。ref 是自造受管 ref（仅结构
+// 校验、不过 keyChecker）——调用方已确保 key 存在。
+func (s *Service) SeedDefaultsIfUnset(ctx context.Context, ref modeldomain.ModelRef) error {
+	if err := ref.Validate(); err != nil {
+		return err
+	}
+	wsID, err := reqctxpkg.RequireWorkspaceID(ctx)
+	if err != nil {
+		return err
+	}
+	w, err := s.repo.Get(ctx, wsID)
+	if err != nil {
+		return err
+	}
+	changed := false
+	for _, scenario := range modeldomain.ListScenarios() {
+		if cur := w.DefaultFor(scenario); cur == nil || cur.IsZero() {
+			r := ref // fresh copy per scenario — never alias one *ModelRef across three columns
+			w.SetDefaultFor(scenario, &r)
+			changed = true
+		}
+	}
+	if !changed {
+		return nil
+	}
+	w.UpdatedAt = time.Now().UTC()
+	return s.repo.Save(ctx, w)
+}
+
 // DefaultSearchKeyID implements websearch.SearchKeyPicker: it returns the current
 // workspace's chosen search api-key id (workspace id from ctx); ok=false when none is
 // configured or the workspace can't be loaded — WebSearch then falls through to its

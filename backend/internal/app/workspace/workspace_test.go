@@ -288,6 +288,41 @@ func TestSetDefault_Clear(t *testing.T) {
 	}
 }
 
+// TestSeedDefaultsIfUnset: free-tier seeding fills ONLY the unset scenarios and never clobbers a
+// default the user already picked (dialogue here); a second seed is a no-op.
+func TestSeedDefaultsIfUnset(t *testing.T) {
+	s := newService()
+	w, _ := s.Create(context.Background(), CreateInput{Name: "WS"})
+	user := &modeldomain.ModelRef{APIKeyID: "aki_user", ModelID: "gpt-5.5"}
+	if _, err := s.SetDefault(context.Background(), w.ID, modeldomain.ScenarioDialogue, user); err != nil {
+		t.Fatalf("set dialogue: %v", err)
+	}
+	ctx := reqctxpkg.SetWorkspaceID(context.Background(), w.ID)
+	managed := modeldomain.ModelRef{APIKeyID: "aki_managed", ModelID: "deepseek-v4-flash"}
+	if err := s.SeedDefaultsIfUnset(ctx, managed); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	if dlg, _ := s.Pick(ctx, modeldomain.ScenarioDialogue); dlg.APIKeyID != "aki_user" {
+		t.Errorf("dialogue must keep the user's pick, got %+v", dlg)
+	}
+	for _, sc := range []string{modeldomain.ScenarioUtility, modeldomain.ScenarioAgent} {
+		got, err := s.Pick(ctx, sc)
+		if err != nil {
+			t.Fatalf("pick %s: %v", sc, err)
+		}
+		if got.APIKeyID != "aki_managed" || got.ModelID != "deepseek-v4-flash" {
+			t.Errorf("%s = %+v, want the seeded managed ref", sc, got)
+		}
+	}
+	// Idempotent: re-seeding with a different ref changes nothing (all three are now set).
+	if err := s.SeedDefaultsIfUnset(ctx, modeldomain.ModelRef{APIKeyID: "aki_other", ModelID: "x"}); err != nil {
+		t.Fatalf("re-seed: %v", err)
+	}
+	if u, _ := s.Pick(ctx, modeldomain.ScenarioUtility); u.APIKeyID != "aki_managed" {
+		t.Errorf("re-seed clobbered a set default, got %+v", u)
+	}
+}
+
 func TestSetDefaultSearch_AndPick(t *testing.T) {
 	s := newService()
 	w, _ := s.Create(context.Background(), CreateInput{Name: "WS"})

@@ -589,50 +589,6 @@ func TestAutoTitle_FirstTurn(t *testing.T) {
 	}
 }
 
-// utilityUnconfiguredResolver simulates the real app's model config: no workspace utility default
-// (ResolveUtility → MODEL_NOT_CONFIGURED), only a per-conversation model (ResolveChat succeeds).
-//
-// utilityUnconfiguredResolver 模拟真实 app 的模型配置：无 workspace utility 默认（ResolveUtility →
-// MODEL_NOT_CONFIGURED），只有对话级模型（ResolveChat 成功）。
-type utilityUnconfiguredResolver struct{ client llminfra.Client }
-
-func (r utilityUnconfiguredResolver) ResolveChat(_ context.Context, _ *modeldomain.ModelRef) (Bundle, error) {
-	return Bundle{Client: r.client, Request: llminfra.Request{ModelID: "conv-model"}, Provider: "fake"}, nil
-}
-
-func (r utilityUnconfiguredResolver) ResolveUtility(_ context.Context) (Bundle, error) {
-	return Bundle{}, modeldomain.ErrNotConfigured
-}
-
-// TestAutoTitle_FallsBackToConversationModel is the regression for the "app never auto-names" bug:
-// the app configures models per-conversation and never sets a workspace utility default, so
-// ResolveUtility returns MODEL_NOT_CONFIGURED. Auto-title must fall back to the conversation's own
-// model (ResolveChat) rather than silently giving up.
-func TestAutoTitle_FallsBackToConversationModel(t *testing.T) {
-	store := newStore(t)
-	titler := &fakeTitler{called: make(chan string, 1)}
-	svc := NewService(store, Deps{
-		Conversations: fakeConvs{conv: &conversationdomain.Conversation{
-			ModelOverride: &modeldomain.ModelRef{APIKeyID: "aki_x", ModelID: "deepseek-v4-flash"},
-		}}, // untitled, only a per-conversation model
-		Resolver: utilityUnconfiguredResolver{client: &fakeClient{script: titleTurn()}},
-		Bridge:   newRecordBridge(),
-		Titler:   titler,
-	}, zap.NewNop())
-
-	if _, err := svc.Send(ctxWS("ws_1"), "cv_1", SendInput{Content: "hi"}); err != nil {
-		t.Fatalf("Send: %v", err)
-	}
-	select {
-	case title := <-titler.called:
-		if title != "My Conversation Title" {
-			t.Fatalf("auto-title wrong: %q", title)
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("auto-title must fall back to the conversation model when no utility default is configured")
-	}
-}
-
 // TestListMessagesUsage_ForeignConversation404 — F72: a cross-ws / nonexistent conversation id must
 // 404 via the ownership pre-check (like SystemPromptPreview), not return 200-empty / 0-tokens.
 func TestListMessagesUsage_ForeignConversation404(t *testing.T) {

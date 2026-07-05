@@ -144,7 +144,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	notif := notificationapp.NewService(st.notification, bus.notifications, log)
 	ws := workspaceapp.NewService(st.workspace, log)
 	keys := apikeyapp.NewService(st.apikey, inf.encryptor, apikeyapp.NewHTTPTester(http.DefaultClient), log)
-	freetier := freetierapp.NewProvisioner(keys, llminfra.NewInstallClient(), cryptoinfra.MachineFingerprint, log)
+	freetier := freetierapp.NewProvisioner(keys, ws, llminfra.NewInstallClient(), cryptoinfra.MachineFingerprint, log)
 	freetierQuota := freetierapp.NewQuotaReader(keys, llminfra.NewQuotaClient(), log)
 	modelCaps := modelapp.NewCapabilityService(keys, log)
 	cat := catalogapp.NewService(log)

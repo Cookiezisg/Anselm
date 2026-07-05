@@ -2,7 +2,6 @@ package chat
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"time"
 
@@ -11,7 +10,6 @@ import (
 	loopapp "github.com/sunweilin/anselm/backend/internal/app/loop"
 	conversationdomain "github.com/sunweilin/anselm/backend/internal/domain/conversation"
 	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
-	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
@@ -43,16 +41,10 @@ func (s *Service) maybeAutoTitle(conv *conversationdomain.Conversation, workspac
 	if conv.AutoTitled || strings.TrimSpace(conv.Title) != "" {
 		return
 	}
-	// Carry the conversation's own model into the goroutine: the app configures models
-	// per-conversation (never a workspace-level utility default), so this override is the
-	// fallback that lets auto-title resolve a model at all. See resolveTitler.
-	// 把对话自己的模型带进 goroutine：app 按对话配模型（从不设 workspace 级 utility 默认），故此
-	// override 是让 auto-title 根本能解析出模型的回落。见 resolveTitler。
-	override := conv.ModelOverride
 	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
-		s.autoTitle(conv.ID, workspaceID, override)
+		s.autoTitle(conv.ID, workspaceID)
 	}()
 }
 
@@ -62,7 +54,7 @@ func (s *Service) maybeAutoTitle(conv *conversationdomain.Conversation, workspac
 //
 // autoTitle 在 detached + 限时 context 上从对话首次交流生成并落标题。任何失败（无线程 / 解析 /
 // 生成 / 落盘）记日志后丢弃——对话就保持无标题。
-func (s *Service) autoTitle(conversationID, workspaceID string, override *modeldomain.ModelRef) {
+func (s *Service) autoTitle(conversationID, workspaceID string) {
 	dctx := reqctxpkg.Detached(workspaceID)
 	dctx = reqctxpkg.SetConversationID(dctx, conversationID)
 	ctx, cancel := context.WithTimeout(dctx, autoTitleTimeout)
@@ -77,9 +69,12 @@ func (s *Service) autoTitle(conversationID, workspaceID string, override *modeld
 		return
 	}
 
-	bundle, err := s.resolveTitler(ctx, override)
+	// The workspace utility model (a small, cheap model, seeded to the managed default at
+	// provisioning). No utility default configured → MODEL_NOT_CONFIGURED, dropped best-effort.
+	// workspace utility 模型（小而廉价，provisioning 时已播成 managed 默认）。未配则 MODEL_NOT_CONFIGURED、best-effort 丢弃。
+	bundle, err := s.deps.Resolver.ResolveUtility(ctx)
 	if err != nil {
-		s.log.Warn("chatapp.autoTitle: resolve model failed", zap.Error(err))
+		s.log.Warn("chatapp.autoTitle: resolve utility failed", zap.Error(err))
 		return
 	}
 	req := bundle.Request
@@ -104,23 +99,6 @@ func (s *Service) autoTitle(conversationID, workspaceID string, override *modeld
 		s.log.Warn("chatapp.autoTitle: set title failed", zap.Error(err))
 		return
 	}
-}
-
-// resolveTitler picks the model for the background title: the workspace utility model when one is
-// configured (a cheap model is ideal for this throwaway call), else the conversation's own model.
-// The app configures models per-conversation and never sets a workspace-level utility default, so
-// without this fallback ResolveUtility returns MODEL_NOT_CONFIGURED and auto-title silently never
-// runs — leaving every thread stuck at "New chat".
-//
-// resolveTitler 为后台标题选模型：配了 workspace utility 模型就用它（这种一次性调用用廉价模型最好），
-// 否则回落到对话自己的模型。app 只按对话配模型、从不设 workspace 级 utility 默认，故无此回落
-// ResolveUtility 返 MODEL_NOT_CONFIGURED，auto-title 静默永不触发——每个线程卡在「New chat」。
-func (s *Service) resolveTitler(ctx context.Context, override *modeldomain.ModelRef) (Bundle, error) {
-	bundle, err := s.deps.Resolver.ResolveUtility(ctx)
-	if errors.Is(err, modeldomain.ErrNotConfigured) {
-		return s.deps.Resolver.ResolveChat(ctx, override)
-	}
-	return bundle, err
 }
 
 // titleExcerpt renders the first user + first assistant text into a compact prompt for titling.
