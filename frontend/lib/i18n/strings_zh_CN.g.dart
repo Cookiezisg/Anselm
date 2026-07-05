@@ -343,6 +343,7 @@ class _Translations$documents$zh_CN extends Translations$documents$en {
 	@override String get deleteSkillTitle => '删除这个技能?';
 	@override String deleteSkillBody({required Object name}) => '技能“${name}”会被删除。';
 	@override String get actionFailed => '操作失败';
+	@override late final _Translations$documents$props$zh_CN props = _Translations$documents$props$zh_CN._(_root);
 	@override late final _Translations$documents$slash$zh_CN slash = _Translations$documents$slash$zh_CN._(_root);
 }
 
@@ -547,6 +548,38 @@ class _Translations$entities$run$zh_CN extends Translations$entities$run$en {
 	@override String get reasonHint => '备注(可选)';
 	@override String get inboxEmpty => '没有待审批';
 	@override String get inboxEmptyHint => '等待决断的审批会出现在这里。';
+}
+
+// Path: documents.props
+class _Translations$documents$props$zh_CN extends Translations$documents$props$en {
+	_Translations$documents$props$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => '属性';
+	@override String get name => '名称';
+	@override String get description => '描述';
+	@override String get tags => '标签';
+	@override String get addTag => '添加标签';
+	@override String get path => '路径';
+	@override String get size => '大小';
+	@override String get modified => '修改时间';
+	@override String get context => '上下文';
+	@override String get contextInline => '内联';
+	@override String get contextFork => '分叉';
+	@override String get agent => 'Agent';
+	@override String get agentHint => '要派发的子 agent 类型——分叉技能必填。';
+	@override String get tools => '允许的工具';
+	@override String get addTool => '添加工具';
+	@override String get arguments => '参数';
+	@override String get addArg => '添加参数';
+	@override String get modelInvoke => '模型可调用';
+	@override String get userInvoke => '用户可调用';
+	@override String get on => '开';
+	@override String get off => '关';
+	@override String get empty => '未选中';
+	@override String get emptyHint => '选一个页面或技能查看它的属性。';
 }
 
 // Path: documents.slash
@@ -1439,12 +1472,37 @@ extension on TranslationsZhCn {
 			'documents.deleteSkillTitle' => '删除这个技能?',
 			'documents.deleteSkillBody' => ({required Object name}) => '技能“${name}”会被删除。',
 			'documents.actionFailed' => '操作失败',
+			'documents.props.title' => '属性',
+			'documents.props.name' => '名称',
+			'documents.props.description' => '描述',
+			'documents.props.tags' => '标签',
+			'documents.props.addTag' => '添加标签',
+			'documents.props.path' => '路径',
+			'documents.props.size' => '大小',
+			'documents.props.modified' => '修改时间',
+			'documents.props.context' => '上下文',
+			'documents.props.contextInline' => '内联',
+			'documents.props.contextFork' => '分叉',
+			'documents.props.agent' => 'Agent',
+			'documents.props.agentHint' => '要派发的子 agent 类型——分叉技能必填。',
+			'documents.props.tools' => '允许的工具',
+			'documents.props.addTool' => '添加工具',
+			'documents.props.arguments' => '参数',
+			'documents.props.addArg' => '添加参数',
+			'documents.props.modelInvoke' => '模型可调用',
+			'documents.props.userInvoke' => '用户可调用',
+			'documents.props.on' => '开',
+			'documents.props.off' => '关',
+			'documents.props.empty' => '未选中',
+			'documents.props.emptyHint' => '选一个页面或技能查看它的属性。',
 			'documents.slash.text' => '正文',
 			'documents.slash.h1' => '标题 1',
 			'documents.slash.h2' => '标题 2',
 			'documents.slash.h3' => '标题 3',
 			'documents.slash.bulleted' => '无序列表',
 			'documents.slash.numbered' => '有序列表',
+			_ => null,
+		} ?? switch (path) {
 			'documents.slash.quote' => '引用',
 			'markdown.imageNotLoaded' => '图片未加载',
 			'attach.unavailable' => '已不可用',

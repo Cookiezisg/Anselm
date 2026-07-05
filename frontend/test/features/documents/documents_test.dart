@@ -11,6 +11,7 @@ import 'package:anselm/features/documents/state/document_state.dart';
 import 'package:anselm/features/documents/ui/document_ocean.dart';
 import 'package:anselm/features/documents/ui/document_rail.dart';
 import 'package:anselm/features/documents/ui/document_rail_model.dart';
+import 'package:anselm/features/documents/ui/documents_inspector.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -165,6 +166,60 @@ void main() {
       // Text, so assert the editor is mounted + the title bar shows the doc name). 文档进可编辑器。
       expect(find.byType(AnDocEditor), findsOneWidget);
       expect(find.text('Getting Started'), findsOneWidget); // the title bar (doc name)
+    });
+  });
+
+  group('DocumentsInspector', () {
+    Widget host(FixtureDocumentsRepository repo, DocSelection sel) => ProviderScope(
+          overrides: [
+            documentsRepositoryProvider.overrideWithValue(repo),
+            selectedDocProvider.overrideWith(() => _PinnedSelection(sel)),
+          ],
+          child: TranslationProvider(
+            child: MaterialApp(
+              theme: AnTheme.light(),
+              home: const Scaffold(body: SizedBox(width: 320, height: 640, child: DocumentsInspector())),
+            ),
+          ),
+        );
+
+    testWidgets('a page shows its properties; editing the name PATCHes', (tester) async {
+      final repo = _repo();
+      await tester.pumpWidget(host(repo, (isSkill: false, id: 'doc_a')));
+      await tester.pumpAndSettle();
+      expect(find.text('Name'), findsOneWidget);
+      expect(find.text('Tags'), findsOneWidget);
+      expect(find.text('Modified'), findsOneWidget); // read-only meta 只读 meta
+      // The name field is the first text input; a debounced edit PATCHes through the repository. 改名去抖 PATCH。
+      await tester.enterText(find.byType(EditableText).first, 'Renamed page');
+      await tester.pump(const Duration(milliseconds: 600)); // past the 500ms debounce 过去抖
+      await tester.pumpAndSettle();
+      expect((await repo.getDocument('doc_a')).name, 'Renamed page');
+    });
+
+    testWidgets('a skill shows its frontmatter fields', (tester) async {
+      final repo = _repo();
+      await tester.pumpWidget(host(repo, (isSkill: true, id: 'commit-helper')));
+      await tester.pumpAndSettle();
+      expect(find.text('Context'), findsOneWidget);
+      expect(find.text('Allowed tools'), findsOneWidget);
+      expect(find.text('User-invocable'), findsOneWidget);
+      // The name is read-only (slug identity) — shown, not an input. name 只读展示。
+      expect(find.text('commit-helper'), findsWidgets);
+    });
+
+    testWidgets('editing a skill description PUTs the whole frontmatter, keeping the body', (tester) async {
+      final repo = _repo();
+      final bodyBefore = (await repo.getSkill('commit-helper')).body;
+      await tester.pumpWidget(host(repo, (isSkill: true, id: 'commit-helper')));
+      await tester.pumpAndSettle();
+      // The description field is the first (only) text input in the skill form. description=首个输入。
+      await tester.enterText(find.byType(EditableText).first, 'Reworded skill');
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pumpAndSettle();
+      final after = await repo.getSkill('commit-helper');
+      expect(after.description, 'Reworded skill');
+      expect(after.body, bodyBefore); // the untouched body survives the full-replace PUT. body 不被全覆盖抹掉。
     });
   });
 

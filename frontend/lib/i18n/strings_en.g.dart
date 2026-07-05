@@ -660,6 +660,7 @@ class Translations$documents$en {
 	/// en: 'Action failed'
 	String get actionFailed => 'Action failed';
 
+	late final Translations$documents$props$en props = Translations$documents$props$en.internal(_root);
 	late final Translations$documents$slash$en slash = Translations$documents$slash$en.internal(_root);
 }
 
@@ -1078,6 +1079,84 @@ class Translations$entities$run$en {
 
 	/// en: 'Approvals waiting for a decision will appear here.'
 	String get inboxEmptyHint => 'Approvals waiting for a decision will appear here.';
+}
+
+// Path: documents.props
+class Translations$documents$props$en {
+	Translations$documents$props$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Properties'
+	String get title => 'Properties';
+
+	/// en: 'Name'
+	String get name => 'Name';
+
+	/// en: 'Description'
+	String get description => 'Description';
+
+	/// en: 'Tags'
+	String get tags => 'Tags';
+
+	/// en: 'Add a tag'
+	String get addTag => 'Add a tag';
+
+	/// en: 'Path'
+	String get path => 'Path';
+
+	/// en: 'Size'
+	String get size => 'Size';
+
+	/// en: 'Modified'
+	String get modified => 'Modified';
+
+	/// en: 'Context'
+	String get context => 'Context';
+
+	/// en: 'Inline'
+	String get contextInline => 'Inline';
+
+	/// en: 'Fork'
+	String get contextFork => 'Fork';
+
+	/// en: 'Agent'
+	String get agent => 'Agent';
+
+	/// en: 'Subagent type to dispatch — required for a fork skill.'
+	String get agentHint => 'Subagent type to dispatch — required for a fork skill.';
+
+	/// en: 'Allowed tools'
+	String get tools => 'Allowed tools';
+
+	/// en: 'Add a tool'
+	String get addTool => 'Add a tool';
+
+	/// en: 'Arguments'
+	String get arguments => 'Arguments';
+
+	/// en: 'Add an argument'
+	String get addArg => 'Add an argument';
+
+	/// en: 'Model can invoke'
+	String get modelInvoke => 'Model can invoke';
+
+	/// en: 'User-invocable'
+	String get userInvoke => 'User-invocable';
+
+	/// en: 'On'
+	String get on => 'On';
+
+	/// en: 'Off'
+	String get off => 'Off';
+
+	/// en: 'Nothing selected'
+	String get empty => 'Nothing selected';
+
+	/// en: 'Select a page or skill to see its properties.'
+	String get emptyHint => 'Select a page or skill to see its properties.';
 }
 
 // Path: documents.slash
@@ -2444,12 +2523,37 @@ extension on Translations {
 			'documents.deleteSkillTitle' => 'Delete this skill?',
 			'documents.deleteSkillBody' => ({required Object name}) => 'The “${name}” skill will be removed.',
 			'documents.actionFailed' => 'Action failed',
+			'documents.props.title' => 'Properties',
+			'documents.props.name' => 'Name',
+			'documents.props.description' => 'Description',
+			'documents.props.tags' => 'Tags',
+			'documents.props.addTag' => 'Add a tag',
+			'documents.props.path' => 'Path',
+			'documents.props.size' => 'Size',
+			'documents.props.modified' => 'Modified',
+			'documents.props.context' => 'Context',
+			'documents.props.contextInline' => 'Inline',
+			'documents.props.contextFork' => 'Fork',
+			'documents.props.agent' => 'Agent',
+			'documents.props.agentHint' => 'Subagent type to dispatch — required for a fork skill.',
+			'documents.props.tools' => 'Allowed tools',
+			'documents.props.addTool' => 'Add a tool',
+			'documents.props.arguments' => 'Arguments',
+			'documents.props.addArg' => 'Add an argument',
+			'documents.props.modelInvoke' => 'Model can invoke',
+			'documents.props.userInvoke' => 'User-invocable',
+			'documents.props.on' => 'On',
+			'documents.props.off' => 'Off',
+			'documents.props.empty' => 'Nothing selected',
+			'documents.props.emptyHint' => 'Select a page or skill to see its properties.',
 			'documents.slash.text' => 'Text',
 			'documents.slash.h1' => 'Heading 1',
 			'documents.slash.h2' => 'Heading 2',
 			'documents.slash.h3' => 'Heading 3',
 			'documents.slash.bulleted' => 'Bulleted list',
 			'documents.slash.numbered' => 'Numbered list',
+			_ => null,
+		} ?? switch (path) {
 			'documents.slash.quote' => 'Quote',
 			'markdown.imageNotLoaded' => 'image not loaded',
 			'attach.unavailable' => 'Unavailable',

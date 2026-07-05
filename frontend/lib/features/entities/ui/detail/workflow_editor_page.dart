@@ -23,7 +23,7 @@ import '../../../../i18n/strings.g.dart';
 import '../../data/entity_kind.dart';
 import '../../state/detail/workflow_editor_provider.dart';
 import '../../state/detail/workflow_editor_state.dart';
-import '../../state/run/right_panel.dart';
+import '../../../../core/shell/right_panel.dart';
 import '../../state/selected_entity.dart';
 import 'workflow_editor_inspector.dart';
 

@@ -24,7 +24,7 @@ import '../../data/entity_kind.dart';
 import '../../data/entity_labels.dart';
 import '../../state/detail/entity_detail.dart';
 import '../../state/detail/entity_detail_provider.dart';
-import '../../state/run/right_panel.dart';
+import '../../../../core/shell/right_panel.dart';
 import '../../state/run/run_terminal_controller.dart';
 import '../../state/run/run_terminal_state.dart';
 import '../../state/selected_entity.dart';

@@ -21,7 +21,7 @@ import '../../../../core/ui/icons.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../state/detail/ref_candidates.dart';
 import '../../state/detail/workflow_editor_provider.dart';
-import '../../state/run/right_panel.dart';
+import '../../../../core/shell/right_panel.dart';
 import '../../state/selected_entity.dart';
 import 'node_ref_picker.dart';
 

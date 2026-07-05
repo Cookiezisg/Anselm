@@ -12,9 +12,11 @@ import '../features/chat/state/selected_conversation.dart';
 import '../features/chat/ui/chat_head.dart';
 import '../features/chat/ui/chat_ocean.dart';
 import '../features/chat/ui/conversation_rail.dart';
+import '../features/documents/state/document_state.dart';
 import '../features/documents/ui/document_ocean.dart';
 import '../features/documents/ui/document_rail.dart';
-import '../features/entities/state/run/right_panel.dart';
+import '../features/documents/ui/documents_inspector.dart';
+import '../core/shell/right_panel.dart';
 import '../features/entities/state/selected_entity.dart';
 import '../features/entities/ui/entity_ocean.dart';
 import '../features/entities/ui/entity_rail.dart';
@@ -68,8 +70,11 @@ class AppShell extends ConsumerWidget {
       if (next != null) ref.read(selectedOceanProvider.notifier).select(OceanKind.chat);
     });
     final notifOpen = ref.watch(notificationsOpenProvider);
-    // Entity selection + the right island are entities-only (URL-driven); dormant on other oceans.
-    final hasSelection = onEntities && ref.watch(selectedEntityProvider) != null;
+    // The right island reveals for entities (run terminal) OR documents (properties inspector) when that
+    // ocean has a selection. 右岛在 entities(run 终端)或 documents(属性面板)有选中时揭示。
+    final hasEntitySelection = onEntities && ref.watch(selectedEntityProvider) != null;
+    final hasDocSelection = onDocuments && ref.watch(selectedDocProvider) != null;
+    final hasSelection = hasEntitySelection || hasDocSelection;
     final rightCollapsed = ref.watch(rightPanelCollapsedProvider);
     final chrome = ref.watch(shellChromeProvider);
     final wsName = ref.watch(activeWorkspaceNameProvider) ?? context.t.shell.workspaceFallback;
@@ -175,7 +180,12 @@ class AppShell extends ConsumerWidget {
                 : onDocuments
                     ? const DocumentOcean()
                     : const _OceanPlaceholder(),
-        inspector: const AnInspector(headless: true, child: RunTerminal()),
+        // Documents → the properties inspector; entities → the run terminal (the shell only reveals it when
+        // that ocean has a selection). documents→属性面板;entities→run 终端。
+        inspector: AnInspector(
+          headless: true,
+          child: onDocuments ? const DocumentsInspector() : const RunTerminal(),
+        ),
         inspectorOpen: hasSelection && !rightCollapsed,
         leftCollapsed: chrome.leftCollapsed,
         leftWidth: chrome.leftWidth,
