@@ -12,19 +12,19 @@ String count(String n) => '$n 个';
 
 void main() {
   group('bashReceipt', () {
-    test('exit 0 → calm; non-zero → danger', () {
+    test('exit 0 → none tone; non-zero → danger tone', () {
       final ok = bashReceipt('out\n\n[exit code: 0]', exitLabel: exitLabel, timedOutLabel: '超时');
-      expect(ok, (text: 'exit 0', danger: false));
+      expect(ok, (text: 'exit 0', tone: ToolReceiptTone.none));
       final bad = bashReceipt('boom\n[exit code: 1]', exitLabel: exitLabel, timedOutLabel: '超时');
-      expect(bad, (text: 'exit 1', danger: true));
+      expect(bad, (text: 'exit 1', tone: ToolReceiptTone.danger));
       final neg = bashReceipt('x\n[exit code: -1]', exitLabel: exitLabel, timedOutLabel: '超时');
-      expect(neg!.danger, isTrue);
+      expect(neg!.tone, ToolReceiptTone.danger);
     });
 
     test('timeout note wins over the exit code', () {
       final r = bashReceipt('\n[command timed out after 120s]\n[exit code: -1]',
           exitLabel: exitLabel, timedOutLabel: '超时');
-      expect(r, (text: '超时', danger: true));
+      expect(r, (text: '超时', tone: ToolReceiptTone.danger));
     });
 
     test('no footer (background-start prose) → null, never guessed', () {
@@ -39,14 +39,14 @@ void main() {
     test('cat -n lines counted', () {
       final r = readReceipt('    1\ta\n    2\tb\n    3\tc\n',
           linesLabel: lines, truncatedLabel: truncated);
-      expect(r, (text: '3 行', danger: false));
+      expect(r, (text: '3 行', tone: ToolReceiptTone.none));
     });
 
     test('truncation footer wins with the emitted line count', () {
       final r = readReceipt(
           '    1\ta\n... [truncated at line 2000; use offset+limit to read more]\n',
           linesLabel: lines, truncatedLabel: truncated);
-      expect(r, (text: '前 2000 行(截断)', danger: false));
+      expect(r, (text: '前 2000 行(截断)', tone: ToolReceiptTone.none));
     });
 
     test('non-file prose (directory hint / access error) → null', () {
@@ -60,18 +60,18 @@ void main() {
   group('countReceipt', () {
     test('counts non-empty lines', () {
       final r = countReceipt('a.py\nb.py\nc.py\n', countLabel: count, noneLabel: '无匹配');
-      expect(r, (text: '3 个', danger: false));
+      expect(r, (text: '3 个', tone: ToolReceiptTone.none));
     });
 
     test('truncation marker → floor count N+', () {
       final r = countReceipt('a\nb\n... [truncated at 200 lines; raise head_limit to see more]\n',
           countLabel: count, noneLabel: '无匹配');
-      expect(r, (text: '2+ 个', danger: false));
+      expect(r, (text: '2+ 个', tone: ToolReceiptTone.none));
     });
 
     test('honest empties and errors', () {
       expect(countReceipt('No matches for "x" in /ws.', countLabel: count, noneLabel: '无匹配'),
-          (text: '无匹配', danger: false));
+          (text: '无匹配', tone: ToolReceiptTone.none));
       expect(countReceipt('Cannot access /nope: permission denied', countLabel: count, noneLabel: '无匹配'),
           isNull);
       expect(countReceipt('   ', countLabel: count, noneLabel: '无匹配'), isNull);

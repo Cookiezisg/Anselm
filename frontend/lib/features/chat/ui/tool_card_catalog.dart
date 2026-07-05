@@ -122,8 +122,8 @@ ToolCardSpec _build({
         if (out == null) return null;
         final v = out['version'];
         final envFailed = out['envStatus'] == 'failed' || (out['envError'] as String?)?.isNotEmpty == true;
-        if (envFailed) return (text: t.chat.tool.envFailed, danger: true);
-        return v == null ? null : (text: 'v$v', danger: false);
+        if (envFailed) return (text: t.chat.tool.envFailed, tone: ToolReceiptTone.danger);
+        return v == null ? null : (text: 'v$v', tone: ToolReceiptTone.none);
       },
       body: buildToolBody,
       liveBody: buildLiveBody,
@@ -146,7 +146,7 @@ final Map<String, ToolCardSpec> _catalog = {
     receipt: (t, s) {
       final content = argString(s.argsText, 'content');
       if (content == null || content.isEmpty) return null;
-      return (text: t.chat.tool.lines(n: '\n'.allMatches(content).length + 1), danger: false);
+      return (text: t.chat.tool.lines(n: '\n'.allMatches(content).length + 1), tone: ToolReceiptTone.none);
     },
     body: writeToolBody,
   ),

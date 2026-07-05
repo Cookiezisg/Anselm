@@ -7,10 +7,17 @@
 /// 命中数/exit code)。逐个钉死后端**精确**输出格式;不匹配即静默无回执——回执绝不猜。
 library;
 
-/// A parsed receipt: the suffix text (already localized by the caller's formatter) plus
-/// whether it carries the danger tone (non-zero exit, timeouts).
-/// 解析结果:后缀文本(调用方已本地化)+ 是否危险色(非零 exit/超时)。
-typedef ToolReceipt = ({String text, bool danger});
+/// The receipt tone — the collapsed row's dimmed suffix carries one of three voices:
+///   none   — neutral proof (line/match counts, exit 0): inkFaint;
+///   warn   — a soft half-state (env building, draining, not-activated, truncated): amber;
+///   danger — a failure the user should see (non-zero exit, timeout, env failed): red, and the
+///            chassis AUTO-EXPANDS the card once (warn never auto-expands — a soft state ≠ failure).
+/// 回执三声:none 中性凭据(inkFaint)/ warn 软半态(琥珀,不自动展开)/ danger 失败(红,自动展开一次)。
+enum ToolReceiptTone { none, warn, danger }
+
+/// A parsed receipt: the suffix text (already localized by the caller's formatter) + its tone.
+/// 解析结果:后缀文本(调用方已本地化)+ 声调。
+typedef ToolReceipt = ({String text, ToolReceiptTone tone});
 
 /// Bash: the backend ALWAYS appends `[exit code: N]` (optionally preceded by a note line
 /// `[cancelled]` / `[command timed out after Xs]` / `[exec failed: …]`).
@@ -22,8 +29,8 @@ ToolReceipt? bashReceipt(String output, {required String Function(int) exitLabel
   final m = _bashExit.firstMatch(output);
   if (m == null) return null;
   final code = int.parse(m.group(1)!);
-  if (_bashTimeout.hasMatch(output)) return (text: timedOutLabel, danger: true);
-  return (text: exitLabel(code), danger: code != 0);
+  if (_bashTimeout.hasMatch(output)) return (text: timedOutLabel, tone: ToolReceiptTone.danger);
+  return (text: exitLabel(code), tone: code != 0 ? ToolReceiptTone.danger : ToolReceiptTone.none);
 }
 
 /// Read: cat -n lines (`%5d\t…`), optionally ending with the truncation footer
@@ -35,10 +42,10 @@ final RegExp _readLine = RegExp(r'^\s*\d+\t', multiLine: true);
 ToolReceipt? readReceipt(String output,
     {required String Function(int) linesLabel, required String Function(int) truncatedLabel}) {
   final t = _readTruncated.firstMatch(output);
-  if (t != null) return (text: truncatedLabel(int.parse(t.group(1)!)), danger: false);
+  if (t != null) return (text: truncatedLabel(int.parse(t.group(1)!)), tone: ToolReceiptTone.none);
   final n = _readLine.allMatches(output).length;
   if (n == 0) return null; // not file content (directory hint / error prose) 非文件内容
-  return (text: linesLabel(n), danger: false);
+  return (text: linesLabel(n), tone: ToolReceiptTone.none);
 }
 
 /// Grep / Glob / LS: count-style receipts. "No matches for …" is the backend's honest empty;
@@ -54,15 +61,15 @@ ToolReceipt? countReceipt(String output,
       trimmed.startsWith('No files') ||
       trimmed.startsWith('Cannot access') ||
       trimmed.startsWith('Invalid glob')) {
-    return trimmed.startsWith('No ') ? (text: noneLabel, danger: false) : null;
+    return trimmed.startsWith('No ') ? (text: noneLabel, tone: ToolReceiptTone.none) : null;
   }
   final lines = trimmed.split('\n').where((l) => l.trim().isNotEmpty).toList();
   if (lines.isEmpty) return null;
   if (_capTruncated.hasMatch(trimmed)) {
     final n = lines.length - 1; // marker line itself 截断行自身不计
-    return (text: countLabel('$n+'), danger: false);
+    return (text: countLabel('$n+'), tone: ToolReceiptTone.none);
   }
-  return (text: countLabel('${lines.length}'), danger: false);
+  return (text: countLabel('${lines.length}'), tone: ToolReceiptTone.none);
 }
 
 /// Tolerant mid-stream arg extraction: pull a string field out of a (possibly PARTIAL) args

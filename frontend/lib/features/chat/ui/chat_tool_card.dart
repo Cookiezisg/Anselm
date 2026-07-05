@@ -125,7 +125,7 @@ class _ChatToolCardState extends State<ChatToolCard> {
     if (state.phase == ToolCardPhase.succeeded || state.phase == ToolCardPhase.failed) {
       familyReceipt = spec.receipt?.call(t, state);
     }
-    final failedLook = state.phase == ToolCardPhase.failed || (familyReceipt?.danger ?? false);
+    final failedLook = state.phase == ToolCardPhase.failed || familyReceipt?.tone == ToolReceiptTone.danger;
     if (failedLook && hasBody && !_autoExpandedOnce) {
       _autoExpandedOnce = true;
       _userExpanded ??= true;
@@ -213,11 +213,16 @@ class _ChatToolCardState extends State<ChatToolCard> {
           TextSpan(text: ' · ${t.chat.tool.elapsed(s: _liveSeconds)}', style: faint));
     }
     if (familyReceipt != null) {
-      receipt.add(TextSpan(
-          text: ' · ${familyReceipt.text}',
-          style: familyReceipt.danger ? AnText.meta.copyWith(color: c.danger) : faint));
+      // Tone → colour: none inkFaint / warn amber / danger red (the three receipt voices).
+      // 声调→色:none 灰 / warn 琥珀 / danger 红。
+      final toneColor = switch (familyReceipt.tone) {
+        ToolReceiptTone.danger => c.danger,
+        ToolReceiptTone.warn => c.warn,
+        ToolReceiptTone.none => c.inkFaint,
+      };
+      receipt.add(TextSpan(text: ' · ${familyReceipt.text}', style: AnText.meta.copyWith(color: toneColor)));
     }
-    if (state.phase == ToolCardPhase.failed && !(familyReceipt?.danger ?? false)) {
+    if (state.phase == ToolCardPhase.failed && familyReceipt?.tone != ToolReceiptTone.danger) {
       receipt.add(TextSpan(
           text: ' · ${t.chat.tool.failed}', style: AnText.meta.copyWith(color: c.danger)));
     }
