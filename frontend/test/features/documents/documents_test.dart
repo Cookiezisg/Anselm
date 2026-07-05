@@ -1,7 +1,9 @@
 import 'package:anselm/core/contract/entities/document.dart';
 import 'package:anselm/core/contract/entities/skill.dart';
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/entity/mention_source.dart';
 import 'package:anselm/core/ui/an_doc_editor.dart';
+import 'package:anselm/core/ui/an_mention_picker.dart';
 import 'package:anselm/features/documents/data/document_fixtures.dart';
 import 'package:anselm/features/documents/data/document_repository.dart';
 import 'package:anselm/features/documents/state/document_state.dart';
@@ -10,8 +12,12 @@ import 'package:anselm/features/documents/ui/document_rail.dart';
 import 'package:anselm/features/documents/ui/document_rail_model.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+// super_editor_test carries the caret/IME robot (placeCaretInParagraph / typeImeText) + the inspector.
+import 'package:super_editor/super_editor_test.dart';
+import 'package:super_text_layout/super_text_layout.dart' show BlinkController;
 
 final _t = DateTime.utc(2026, 7, 5);
 
@@ -119,6 +125,7 @@ void main() {
         overrides: [
           documentsRepositoryProvider.overrideWithValue(repo),
           selectedDocProvider.overrideWith(() => _PinnedSelection((isSkill: false, id: 'doc_a'))),
+          mentionSourceProvider.overrideWithValue(_FakeMentions()),
         ],
         child: TranslationProvider(
           child: MaterialApp(
@@ -135,6 +142,100 @@ void main() {
       expect(find.text('Getting Started'), findsOneWidget); // the title bar (doc name)
     });
   });
+
+  group('AnDocEditor @ mentions', () {
+    // Drives the real super_editor IME + caret so the @ typeahead runs end-to-end: type `@sy`, the
+    // caret-anchored panel opens with the name-filtered candidate, a pick commits `@sync_inventory` into
+    // the serialized markdown and closes the panel. 真驱动 IME/光标,@ 预输入端到端:打 @sy→面板→选→落 markdown。
+    // super_editor's caret blink is an indefinite Ticker, which forces Flutter into a perpetual-frame mode
+    // so pumpAndSettle (used inside placeCaretInParagraph) never settles. This is super_editor's own test
+    // knob to switch it off. 光标闪烁是永久 Ticker→逼永久帧→pumpAndSettle 永不静;这是 super_editor 官方测试开关。
+    void disableCaretBlink() {
+      BlinkController.indeterminateAnimationsEnabled = false;
+      addTearDown(() => BlinkController.indeterminateAnimationsEnabled = true);
+    }
+
+    testWidgets('typing @ opens the picker; a pick commits the mention + closes it', (tester) async {
+      disableCaretBlink();
+      String? lastMd;
+      await tester.pumpWidget(TranslationProvider(
+        child: MaterialApp(
+          theme: AnTheme.light(),
+          home: Scaffold(
+            body: SizedBox(
+              width: 720,
+              height: 600,
+              child: AnDocEditor(
+                initialMarkdown: 'Draft: ',
+                autofocus: true,
+                mentionSource: _FakeMentions(),
+                onChanged: (m) => lastMd = m,
+              ),
+            ),
+          ),
+        ),
+      ));
+      await tester.pump();
+
+      // Place the caret at the end of the single "Draft: " paragraph, then type the @ trigger + query.
+      final paragraphId = SuperEditorInspector.findDocument()!.first.id;
+      await tester.placeCaretInParagraph(paragraphId, 'Draft: '.length);
+      await tester.typeImeText('@sy');
+      await tester.pumpAndSettle();
+
+      // The panel is up, filtered to the name-matching candidate (report_writer doesn't match "sy").
+      expect(find.byType(AnMentionPanel), findsOneWidget);
+      expect(find.text('sync_inventory'), findsOneWidget);
+      expect(find.text('report_writer'), findsNothing);
+
+      await tester.tap(find.text('sync_inventory'));
+      await tester.pumpAndSettle();
+
+      // Picked → panel closed, mention committed into the markdown. 选中→面板关、mention 落 markdown。
+      expect(find.byType(AnMentionPanel), findsNothing);
+      expect(lastMd, contains('@sync_inventory'));
+    });
+
+    testWidgets('Escape dismisses the picker without inserting', (tester) async {
+      disableCaretBlink();
+      await tester.pumpWidget(TranslationProvider(
+        child: MaterialApp(
+          theme: AnTheme.light(),
+          home: Scaffold(
+            body: SizedBox(
+              width: 720,
+              height: 600,
+              child: AnDocEditor(initialMarkdown: 'Draft: ', autofocus: true, mentionSource: _FakeMentions()),
+            ),
+          ),
+        ),
+      ));
+      await tester.pump();
+      final paragraphId = SuperEditorInspector.findDocument()!.first.id;
+      await tester.placeCaretInParagraph(paragraphId, 'Draft: '.length);
+      await tester.typeImeText('@sy');
+      await tester.pumpAndSettle();
+      expect(find.byType(AnMentionPanel), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byType(AnMentionPanel), findsNothing);
+    });
+  });
+}
+
+/// The @ picker's data seam for the editor tests — two entities, name-substring filtered (mirrors the
+/// server-side `?search`). editor 测试的 @ 数据缝:两实体、名子串过滤(镜像服务端 ?search)。
+class _FakeMentions implements MentionSource {
+  @override
+  Future<List<MentionCandidate>> search(String query) async {
+    const all = [
+      MentionCandidate(type: 'function', id: 'fn_1', name: 'sync_inventory', description: 'sync stock'),
+      MentionCandidate(type: 'agent', id: 'ag_1', name: 'report_writer', description: 'writes reports'),
+    ];
+    final q = query.toLowerCase();
+    return [for (final c in all) if (q.isEmpty || c.name.toLowerCase().contains(q)) c];
+  }
 }
 
 class _PinnedSelection extends SelectedDocController {

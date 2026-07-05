@@ -73,6 +73,9 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   # Deterministic virtual clock for timer/debounce tests (no real waits). 定时器/防抖测试的确定性虚拟时钟。
   fake_async: ^1.3.0
+  # super_editor's blink controller — an_doc_editor tests flip `indeterminateAnimationsEnabled` off so the
+  # caret Ticker doesn't hang pumpAndSettle (super_editor's own test knob). super_editor 光标闪烁开关(测试用)。
+  super_text_layout: 0.1.21
   # Codegen for contract DTOs (NOT slang — slang stays on its own `dart run slang`, see build.yaml).
   # 契约 DTO 代码生成(不含 slang——slang 自走 dart run slang,见 build.yaml)。
   build_runner: ^2.15.0

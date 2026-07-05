@@ -1,9 +1,16 @@
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:super_editor/super_editor.dart';
 
 import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
+import '../entity/mention_source.dart';
+import 'an_mention_picker.dart';
+
+/// The @ mention trigger rule — Notion-style: `@` opens a token that ends on whitespace / a dot / a
+/// newline. Committed mentions may still contain spaces (they're frozen text, not re-parsed). @ 规则:空白/点/换行结束 token。
+const _mentionTagRule = TagRule(trigger: '@', excludedCharacters: {' ', '.', '\n'});
 
 /// AnDocEditor — the Notion-style WYSIWYG markdown editor, a token-locked FACADE over `super_editor`
 /// (pinned dev.40; only this file + the round-trip spike import it). **markdown is the source of truth**:
@@ -13,16 +20,21 @@ import '../design/typography.dart';
 /// vertical rhythm) — super_editor ships unstyled, so there is no Material chrome to fight. Headings breathe
 /// MORE above than below (AnFlow.headingTop), matching AnMarkdown's read rhythm.
 ///
-/// P3.1/P3.2 scope: editable WYSIWYG + round-trip + token stylesheet. @ mentions (StableTagPlugin →
-/// MentionSource), / slash (ActionTagsPlugin), fenced-code → AnCodeEditor, and the `[[id]]` wikilink chip
-/// codec are the P3.3–P3.5 follow-ups.
+/// **@ typeahead** (when [mentionSource] is supplied): typing `@` opens a caret-anchored [AnMentionPanel]
+/// fed by the shared [MentionSource] DIP (the SAME seam chat's composer uses — entities stay decoupled).
+/// Arrow keys move the active row, Enter/Tab pick, Esc cancels; a pick inserts `@name ` committed as an
+/// atomic mention span. The `[[id]]` round-trip codec (a mention serializing to a wikilink instead of plain
+/// `@name`) + the `/` slash block menu are the P3.3/P3.4 follow-ups on top of this.
 ///
 /// AnDocEditor:super_editor 的 Notion 式 token 锁定门面。markdown 为真相(load→edit→serialize);整套外观
 /// 走设计 token(reading 两字重 / AnColors / AnFlow 节奏),super_editor 无内建样式故不打架;标题上方留多。
+/// **@ 预输入**(给 [mentionSource] 时):打 `@` 弹 caret 锚定面板,复用 chat 同款 MentionSource 缝;方向键移动、
+/// 回车/Tab 选、Esc 取消;选中插 `@name ` 原子 mention。`[[id]]` 往返 codec + `/` 斜杠菜单是后续。
 class AnDocEditor extends StatefulWidget {
   const AnDocEditor({
     required this.initialMarkdown,
     this.onChanged,
+    this.mentionSource,
     this.focusNode,
     this.autofocus = false,
     super.key,
@@ -35,6 +47,10 @@ class AnDocEditor extends StatefulWidget {
   /// Fires the serialized markdown on every edit (the consumer debounces the PATCH-save). 每次编辑派出序列化 markdown。
   final ValueChanged<String>? onChanged;
 
+  /// The @ mention data seam (from the app's `mentionSourceProvider`). `null` → @ typeahead off (read-only /
+  /// preview surfaces pass null). @ 数据缝(app 的 mentionSourceProvider);null=关(只读/预览面传 null)。
+  final MentionSource? mentionSource;
+
   final FocusNode? focusNode;
   final bool autofocus;
 
@@ -46,7 +62,16 @@ class _AnDocEditorState extends State<AnDocEditor> {
   late MutableDocument _doc;
   late MutableDocumentComposer _composer;
   late Editor _editor;
+  StableTagPlugin? _mentionPlugin;
   FocusNode? _ownFocus;
+
+  // ── @ typeahead state @ 预输入态 ──
+  final GlobalKey _docLayoutKey = GlobalKey();
+  final OverlayPortalController _portal = OverlayPortalController();
+  List<MentionCandidate> _candidates = const [];
+  int _activeIndex = 0;
+  Offset _anchor = Offset.zero; // GLOBAL bottom-left of the @token span → the panel hangs just below. @token 全局左下。
+  int _queryToken = 0; // in-flight guard: a stale async result must not clobber a newer token. 异步竞态守卫。
 
   @override
   void initState() {
@@ -67,12 +92,16 @@ class _AnDocEditorState extends State<AnDocEditor> {
   void _build(String markdown) {
     _doc = deserializeMarkdownToDocument(markdown, syntax: MarkdownSyntax.normal);
     _composer = MutableDocumentComposer();
+    _mentionPlugin = widget.mentionSource == null ? null : StableTagPlugin(tagRule: _mentionTagRule);
     _editor = createDefaultDocumentEditor(document: _doc, composer: _composer);
     _doc.addListener(_onChange);
+    _mentionPlugin?.tagIndex.composingStableTag.addListener(_onComposingTag);
   }
 
   void _teardown() {
     _doc.removeListener(_onChange);
+    _mentionPlugin?.tagIndex.composingStableTag.removeListener(_onComposingTag);
+    if (_portal.isShowing) _portal.hide();
     _editor.dispose();
     _composer.dispose();
   }
@@ -91,15 +120,130 @@ class _AnDocEditorState extends State<AnDocEditor> {
     super.dispose();
   }
 
+  // ── @ typeahead ──
+
+  /// The plugin's composing-tag index changed: a `@token` opened / moved / closed. Recompute the anchor
+  /// and (re)run the query, or close the picker when the token is gone. 组合 tag 变更:重算锚点+查/关。
+  void _onComposingTag() {
+    final tag = _mentionPlugin?.tagIndex.composingStableTag.value;
+    if (tag == null || widget.mentionSource == null) {
+      _closePicker();
+      return;
+    }
+    // Layout may not be laid out on the very first frame — the next keystroke retries. 布局未就绪,下键重试。
+    if (!_updateAnchor(tag.contentBounds)) return;
+    _runQuery(tag.token);
+  }
+
+  /// Convert the `@token` span's document rect to a GLOBAL bottom-left offset (the app Overlay fills the
+  /// screen, so global coords place the follower directly). Returns false if layout isn't ready yet.
+  /// 把 @token 文档矩形转全局左下(Overlay 铺满屏,全局坐标直接定位);布局未就绪返 false。
+  bool _updateAnchor(DocumentRange bounds) {
+    final layout = _docLayoutKey.currentState as DocumentLayout?;
+    if (layout == null) return false;
+    final rect = layout.getRectForSelection(bounds.start, bounds.end);
+    if (rect == null) return false;
+    _anchor = layout.getGlobalOffsetFromDocumentOffset(rect.bottomLeft);
+    return true;
+  }
+
+  Future<void> _runQuery(String query) async {
+    final token = ++_queryToken;
+    final results = await widget.mentionSource!.search(query);
+    if (!mounted || token != _queryToken) return;
+    // The @token may have closed while the query was in flight. 查询在途中 @token 可能已关。
+    if (_mentionPlugin?.tagIndex.composingStableTag.value == null) {
+      _closePicker();
+      return;
+    }
+    setState(() {
+      _candidates = results;
+      _activeIndex = 0;
+    });
+    if (results.isEmpty) {
+      if (_portal.isShowing) _portal.hide();
+    } else if (!_portal.isShowing) {
+      _portal.show();
+    }
+  }
+
+  void _closePicker() {
+    if (_portal.isShowing) _portal.hide();
+    if (_candidates.isNotEmpty) setState(() => _candidates = const []);
+  }
+
+  void _pick(int index) {
+    if (index < 0 || index >= _candidates.length) return;
+    // Fill the composing @token with the committed mention (inserts "@name " as an atomic span). The
+    // composing-tag listener then fires null → the picker closes itself. 用提交 mention 填 @token;随后收 null 自关。
+    _editor.execute([FillInComposingStableTagRequest(_candidates[index].name, _mentionTagRule)]);
+  }
+
+  /// A [DocumentKeyboardAction] prepended before super_editor's defaults: while the picker is open it OWNS
+  /// arrows / Enter / Tab / Esc (halting super_editor's caret handling); everything else falls through so
+  /// typing keeps refining the query. 面板开时接管方向/回车/Tab/Esc,其余放行让继续打字精化查询。
+  ExecutionInstruction _pickerKeys({required SuperEditorContext editContext, required KeyEvent keyEvent}) {
+    if (!_portal.isShowing || _candidates.isEmpty) return ExecutionInstruction.continueExecution;
+    if (keyEvent is! KeyDownEvent && keyEvent is! KeyRepeatEvent) return ExecutionInstruction.continueExecution;
+    final k = keyEvent.logicalKey;
+    if (k == LogicalKeyboardKey.arrowDown) {
+      setState(() => _activeIndex = (_activeIndex + 1) % _candidates.length);
+      return ExecutionInstruction.haltExecution;
+    }
+    if (k == LogicalKeyboardKey.arrowUp) {
+      setState(() => _activeIndex = (_activeIndex - 1 + _candidates.length) % _candidates.length);
+      return ExecutionInstruction.haltExecution;
+    }
+    if (k == LogicalKeyboardKey.enter || k == LogicalKeyboardKey.numpadEnter || k == LogicalKeyboardKey.tab) {
+      _pick(_activeIndex);
+      return ExecutionInstruction.haltExecution;
+    }
+    if (k == LogicalKeyboardKey.escape) {
+      _editor.execute([const CancelComposingStableTagRequest(_mentionTagRule)]);
+      _closePicker();
+      return ExecutionInstruction.haltExecution;
+    }
+    return ExecutionInstruction.continueExecution;
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    return SuperEditor(
+    final editor = SuperEditor(
       editor: _editor,
       focusNode: widget.focusNode ?? (_ownFocus ??= FocusNode()),
       autofocus: widget.autofocus,
+      documentLayoutKey: _docLayoutKey,
       stylesheet: _anStylesheet(c),
       selectionStyle: SelectionStyles(selectionColor: c.accentSoft),
+      plugins: {?_mentionPlugin},
+      keyboardActions: [if (widget.mentionSource != null) _pickerKeys, ...defaultKeyboardActions],
+    );
+    if (widget.mentionSource == null) return editor;
+    return OverlayPortal(
+      controller: _portal,
+      overlayChildBuilder: _pickerOverlay,
+      child: editor,
+    );
+  }
+
+  /// The @ picker follower — anchored below the `@token` span in global coords, clamped to stay on-screen.
+  /// @ 面板 follower:全局坐标挂 @token 下方,夹取防出屏。
+  Widget _pickerOverlay(BuildContext context) {
+    final screen = MediaQuery.sizeOf(context);
+    final left = _anchor.dx.clamp(AnInset.pageX, screen.width - AnSize.menuMaxWidth - AnInset.pageX);
+    return Positioned(
+      left: left,
+      top: _anchor.dy + AnGap.inlineLoose,
+      width: AnSize.menuMaxWidth,
+      child: AnMentionPanel(
+        items: [
+          for (final cand in _candidates)
+            AnMentionRowData(kind: cand.type, name: cand.name, description: cand.description),
+        ],
+        activeIndex: _activeIndex,
+        onPick: _pick,
+      ),
     );
   }
 }

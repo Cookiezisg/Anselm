@@ -5,6 +5,7 @@ import '../../../core/contract/entities/skill.dart';
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
+import '../../../core/entity/mention_source.dart';
 import '../../../core/perf/debouncer.dart';
 import '../../../core/ui/an_deferred_loading.dart';
 import '../../../core/ui/an_doc_editor.dart';
@@ -133,7 +134,13 @@ class _DocEditViewState extends ConsumerState<_DocEditView> {
                 ),
                 const SizedBox(height: AnFlow.headBody),
                 Expanded(
-                  child: AnDocEditor(initialMarkdown: doc.content, onChanged: _onChanged),
+                  child: AnDocEditor(
+                    initialMarkdown: doc.content,
+                    onChanged: _onChanged,
+                    // The @ typeahead reuses chat's entity mention seam (function/handler/agent/workflow).
+                    // @ 预输入复用 chat 的实体 mention 缝。
+                    mentionSource: ref.watch(mentionSourceProvider),
+                  ),
                 ),
               ],
             );
