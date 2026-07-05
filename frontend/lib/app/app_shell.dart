@@ -47,11 +47,12 @@ class AppShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final ocean = ref.watch(selectedOceanProvider);
     final onEntities = ocean == OceanKind.entities;
-    // Leaving the entities ocean clears the floating-head breadcrumb it owns (other oceans have none) —
-    // breadcrumb lifecycle belongs to the ocean SWITCH, not to a side-effect-only placeholder widget.
-    // 离开实体海洋即清它拥有的浮层头面包屑(别的海洋没有)——面包屑生命周期属于海洋切换,不该塞进纯副作用占位件。
+    // Leaving an ocean that OWNS the floating-head breadcrumb (entities' entity detail / documents' page
+    // title) clears it — breadcrumb lifecycle belongs to the ocean SWITCH, not to a side-effect-only
+    // placeholder widget. 离开拥有浮层头的海洋(entities 详情/documents 页题)即清——生命周期属于海洋切换。
     ref.listen(selectedOceanProvider, (prev, next) {
-      if (prev == OceanKind.entities && next != OceanKind.entities) {
+      const headOwners = {OceanKind.entities, OceanKind.documents};
+      if (prev != null && headOwners.contains(prev) && prev != next) {
         ref.read(shellHeadProvider.notifier).clear();
       }
     });

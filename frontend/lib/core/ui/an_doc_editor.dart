@@ -79,7 +79,7 @@ class AnDocEditor extends StatefulWidget {
   final bool autofocus;
 
   @override
-  State<AnDocEditor> createState() => _AnDocEditorState();
+  State<AnDocEditor> createState() => AnDocEditorState();
 }
 
 /// Which typeahead currently owns the shared popover (they never compose at once). 当前占用共享 popover 的是哪种。
@@ -94,7 +94,7 @@ class _SlashBlock {
   final EditRequest Function(String nodeId) request;
 }
 
-class _AnDocEditorState extends State<AnDocEditor> {
+class AnDocEditorState extends State<AnDocEditor> {
   late MutableDocument _doc;
   late MutableDocumentComposer _composer;
   late Editor _editor;
@@ -104,8 +104,11 @@ class _AnDocEditorState extends State<AnDocEditor> {
   FocusNode? _ownFocus;
 
   // ── shared caret-anchored popover 共享 caret 锚定 popover ──
+  // A hand-managed OverlayEntry, NOT an OverlayPortal: the editor renders AS A SLIVER when embedded under
+  // an ancestor Scrollable, and OverlayPortal is a box widget — wrapping would break the sliver protocol.
+  // 手动 OverlayEntry、非 OverlayPortal:嵌入祖先滚动时编辑器渲染成 sliver,OverlayPortal 是盒件、包了会破坏协议。
   final GlobalKey _docLayoutKey = GlobalKey();
-  final OverlayPortalController _portal = OverlayPortalController();
+  OverlayEntry? _pickerEntry;
   _PopKind _popKind = _PopKind.none;
   Offset _anchor = Offset.zero; // GLOBAL bottom-left of the trigger token → the panel hangs just below. token 全局左下。
   int _activeIndex = 0;
@@ -123,10 +126,10 @@ class _AnDocEditorState extends State<AnDocEditor> {
   }
 
   @override
-  void didUpdateWidget(AnDocEditor old) {
-    super.didUpdateWidget(old);
+  void didUpdateWidget(AnDocEditor oldWidget) {
+    super.didUpdateWidget(oldWidget);
     // A different source (new document opened) → rebuild the block document from the new markdown. 换文档即重建。
-    if (widget.initialMarkdown != old.initialMarkdown) {
+    if (widget.initialMarkdown != oldWidget.initialMarkdown) {
       _teardown();
       setState(() => _build(widget.initialMarkdown));
     }
@@ -148,9 +151,44 @@ class _AnDocEditorState extends State<AnDocEditor> {
     _doc.removeListener(_onChange);
     _mentionPlugin?.tagIndex.composingStableTag.removeListener(_onMentionTag);
     _slashPlugin?.composingActionTag.removeListener(_onSlashTag);
-    if (_portal.isShowing) _portal.hide();
+    _hidePicker();
     _editor.dispose();
     _composer.dispose();
+  }
+
+  void _showPicker() {
+    if (_pickerEntry != null) return;
+    final entry = OverlayEntry(builder: _pickerOverlay);
+    _pickerEntry = entry;
+    Overlay.of(context).insert(entry);
+  }
+
+  void _hidePicker() {
+    _pickerEntry?.remove();
+    _pickerEntry = null;
+  }
+
+  /// GLOBAL top-left of the [index]-th HEADING block (header1/2/3, document order) — the outline panel's
+  /// jump anchor (the host converts to its scroll offset). null when out of range / layout not ready.
+  /// 第 [index] 个标题块(h1–h3,文档序)的全局左上——大纲跳转锚点(宿主换算滚动量);越界/未布局=null。
+  Offset? headingOriginGlobal(int index) {
+    final layout = _docLayoutKey.currentState as DocumentLayout?;
+    if (layout == null || index < 0) return null;
+    var seen = 0;
+    for (final node in _doc) {
+      if (node is! ParagraphNode) continue;
+      final blockType = node.metadata['blockType'];
+      if (blockType != header1Attribution && blockType != header2Attribution && blockType != header3Attribution) {
+        continue;
+      }
+      if (seen++ < index) continue;
+      final rect = layout.getRectForPosition(
+        DocumentPosition(nodeId: node.id, nodePosition: node.beginningPosition),
+      );
+      if (rect == null) return null;
+      return layout.getGlobalOffsetFromDocumentOffset(rect.topLeft);
+    }
+    return null;
   }
 
   // Built-in super_editor transform requests — no custom command needed (all in defaultRequestHandlers).
@@ -287,14 +325,15 @@ class _AnDocEditorState extends State<AnDocEditor> {
       _activeIndex = 0;
     });
     if (rows.isEmpty) {
-      if (_portal.isShowing) _portal.hide();
-    } else if (!_portal.isShowing) {
-      _portal.show();
+      _hidePicker();
+    } else {
+      _showPicker();
+      _pickerEntry?.markNeedsBuild();
     }
   }
 
   void _closePopover() {
-    if (_portal.isShowing) _portal.hide();
+    _hidePicker();
     if (_popKind != _PopKind.none || _rows.isNotEmpty) {
       setState(() {
         _popKind = _PopKind.none;
@@ -330,15 +369,17 @@ class _AnDocEditorState extends State<AnDocEditor> {
   /// arrows / Enter / Tab / Esc (halting super_editor's caret handling); everything else falls through so
   /// typing keeps refining the query. 面板开时接管方向/回车/Tab/Esc,其余放行让继续打字精化查询。
   ExecutionInstruction _pickerKeys({required SuperEditorContext editContext, required KeyEvent keyEvent}) {
-    if (!_portal.isShowing || _rows.isEmpty) return ExecutionInstruction.continueExecution;
+    if (_pickerEntry == null || _rows.isEmpty) return ExecutionInstruction.continueExecution;
     if (keyEvent is! KeyDownEvent && keyEvent is! KeyRepeatEvent) return ExecutionInstruction.continueExecution;
     final k = keyEvent.logicalKey;
     if (k == LogicalKeyboardKey.arrowDown) {
       setState(() => _activeIndex = (_activeIndex + 1) % _rows.length);
+      _pickerEntry?.markNeedsBuild();
       return ExecutionInstruction.haltExecution;
     }
     if (k == LogicalKeyboardKey.arrowUp) {
       setState(() => _activeIndex = (_activeIndex - 1 + _rows.length) % _rows.length);
+      _pickerEntry?.markNeedsBuild();
       return ExecutionInstruction.haltExecution;
     }
     if (k == LogicalKeyboardKey.enter || k == LogicalKeyboardKey.numpadEnter || k == LogicalKeyboardKey.tab) {
@@ -356,7 +397,10 @@ class _AnDocEditorState extends State<AnDocEditor> {
   Widget build(BuildContext context) {
     final c = context.colors;
     final hasTypeahead = _mentionPlugin != null || _slashPlugin != null;
-    final editor = SuperEditor(
+    // The bare SuperEditor IS the return value — under an ancestor Scrollable it renders as a sliver, so
+    // no box widget may wrap it here (the typeahead popover lives in a hand-managed OverlayEntry instead).
+    // 裸 SuperEditor 即返回值——祖先滚动下它渲染成 sliver,此处不得包任何盒件(浮层走手动 OverlayEntry)。
+    return SuperEditor(
       editor: _editor,
       focusNode: widget.focusNode ?? (_ownFocus ??= FocusNode()),
       autofocus: widget.autofocus,
@@ -365,12 +409,6 @@ class _AnDocEditorState extends State<AnDocEditor> {
       selectionStyle: SelectionStyles(selectionColor: c.accentSoft),
       plugins: {?_mentionPlugin, ?_slashPlugin},
       keyboardActions: [if (hasTypeahead) _pickerKeys, ...defaultKeyboardActions],
-    );
-    if (!hasTypeahead) return editor;
-    return OverlayPortal(
-      controller: _portal,
-      overlayChildBuilder: _pickerOverlay,
-      child: editor,
     );
   }
 
@@ -395,6 +433,9 @@ class _AnDocEditorState extends State<AnDocEditor> {
 Stylesheet _anStylesheet(AnColors c) {
   TextStyle ink(TextStyle s) => s.copyWith(color: c.ink);
   return defaultStylesheet.copyWith(
+    // No document-level padding — the vertical rhythm is authored entirely by the per-block token rules
+    // (and an embedding host brings its own page insets). 文档级 padding 归零:节奏全由每块 token 规则定。
+    documentPadding: EdgeInsets.zero,
     // Inline styling: keep the defaults, then paint an entity-ref mention (a link to `anselm-entity:…`) as an
     // accent chip — accent ink + emphasis weight, no link underline (it reads as a branded reference, not a
     // web link). 内联:留默认,再把实体 mention(anselm-entity 链接)画成 accent 药丸(accent 墨 + 加粗、无下划线)。
@@ -414,7 +455,8 @@ Stylesheet _anStylesheet(AnColors c) {
       return style;
     },
     addRulesAfter: [
-      // Base: reading body (13/1.6 w300, Notion air), a 720 reading column, page-X horizontal pad.
+      // Base: reading body (13/1.6 w300, Notion air), a 720 reading column, page-X horizontal pad (a no-op
+      // cap when embedded in an already-720 sliver — same numbers either way). 720 列+pageX(嵌入 720 sliver 时等值)。
       StyleRule(BlockSelector.all, (doc, node) => {
             Styles.maxWidth: AnSize.content,
             Styles.padding: const CascadingPadding.symmetric(horizontal: AnInset.pageX),

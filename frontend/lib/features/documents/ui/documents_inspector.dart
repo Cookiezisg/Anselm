@@ -47,6 +47,7 @@ class DocumentsInspector extends ConsumerWidget {
     if (sel == null) {
       return _InspectorShell(
         icon: AnIcons.doc,
+        title: context.t.documents.props.title,
         body: AnState(
           kind: AnStateKind.empty,
           size: AnStateSize.inset,
@@ -61,12 +62,15 @@ class DocumentsInspector extends ConsumerWidget {
   }
 }
 
-/// The shared inspector chrome — the "Properties" head band (close ✕ → collapse the right island) over a
-/// scrolling s16 body. 共享外壳:Properties 头带(✕→收右岛)+ s16 滚动 body。
+/// The shared inspector chrome — the head band carries the OPEN DOCUMENT'S NAME (the panel is "about this
+/// page", not a generic form; ✕ collapses the right island) over a scrolling s16 body whose FIRST section
+/// is the live outline. 共享外壳:头带=**打开文档的名字**(面板是「关于此页」,非泛型表单;✕ 收右岛)+ s16 滚动
+/// body,**首段=活大纲**。
 class _InspectorShell extends ConsumerWidget {
-  const _InspectorShell({required this.icon, required this.body});
+  const _InspectorShell({required this.icon, required this.title, required this.body});
 
   final IconData icon;
+  final String title;
   final Widget body;
 
   @override
@@ -76,7 +80,7 @@ class _InspectorShell extends ConsumerWidget {
       children: [
         AnInspectorHead(
           icon: icon,
-          title: context.t.documents.props.title,
+          title: title,
           trailing: AnButton.iconOnly(
             AnIcons.close,
             semanticLabel: context.t.shell.togglePanel,
@@ -90,6 +94,37 @@ class _InspectorShell extends ConsumerWidget {
             child: SingleChildScrollView(padding: const EdgeInsets.all(AnSpace.s16), child: body),
           ),
         ),
+      ],
+    );
+  }
+}
+
+/// The open document's OUTLINE — its headings as an indented, tappable table of contents (fed live by the
+/// editor; a tap scrolls the editor to that heading). Quietly absent when the document has no headings.
+/// 打开文档的大纲:标题作可点目录(编辑器活喂;点击滚到该标题);无标题时静默缺席。
+class _OutlineSection extends ConsumerWidget {
+  const _OutlineSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final outline = ref.watch(docOutlineProvider);
+    if (outline.isEmpty) return const SizedBox.shrink();
+    final c = context.colors;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(context.t.documents.props.outline,
+            style: AnText.meta.weight(AnText.emphasisWeight).copyWith(color: c.inkFaint)),
+        const SizedBox(height: AnGap.stackTight),
+        for (var i = 0; i < outline.length; i++)
+          AnRow(
+            depth: outline[i].level - 1,
+            label: outline[i].text,
+            onSelect: () => ref.read(outlineJumpProvider.notifier).jump(i),
+          ),
+        const SizedBox(height: AnSpace.s12),
+        const AnDivider(),
+        const SizedBox(height: AnSpace.s12),
       ],
     );
   }
@@ -120,14 +155,24 @@ class _DocProperties extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
+    final doc = ref.watch(openDocumentProvider(id));
+    final name = doc.value?.name.trim() ?? '';
     return _InspectorShell(
       icon: AnIcons.doc,
-      body: ref.watch(openDocumentProvider(id)).when(
-            loading: () => const AnSkeleton.lines(5),
-            error: (_, _) =>
-                AnState(kind: AnStateKind.error, size: AnStateSize.inset, title: t.documents.loadFailed),
-            data: (doc) => _DocForm(key: ValueKey(doc.id), doc: doc),
-          ),
+      // The head IS the open page's name (falls back while loading / for the unnamed). 头=页名。
+      title: name.isEmpty ? t.documents.untitled : name,
+      body: doc.when(
+        loading: () => const AnSkeleton.lines(5),
+        error: (_, _) =>
+            AnState(kind: AnStateKind.error, size: AnStateSize.inset, title: t.documents.loadFailed),
+        data: (doc) => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const _OutlineSection(),
+            _DocForm(key: ValueKey(doc.id), doc: doc),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -302,11 +347,19 @@ class _SkillProperties extends ConsumerWidget {
     final t = context.t;
     return _InspectorShell(
       icon: AnIcons.skill,
+      // The slug IS the identity — the head shows it directly. slug 即身份,头直显。
+      title: name,
       body: ref.watch(openSkillProvider(name)).when(
             loading: () => const AnSkeleton.lines(6),
             error: (_, _) =>
                 AnState(kind: AnStateKind.error, size: AnStateSize.inset, title: t.documents.loadFailed),
-            data: (skill) => _SkillForm(key: ValueKey(skill.name), skill: skill),
+            data: (skill) => Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const _OutlineSection(),
+                _SkillForm(key: ValueKey(skill.name), skill: skill),
+              ],
+            ),
           ),
     );
   }

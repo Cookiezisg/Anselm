@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/entity/mention_source.dart';
+import '../features/documents/data/document_repository.dart';
 import '../features/entities/data/entity_kind.dart';
 import '../features/entities/data/entity_providers.dart';
 
@@ -57,13 +58,18 @@ class EntityMentionSource implements MentionSource {
   @override
   Future<Map<String, String>> resolveNames(List<String> ids) async {
     final repo = _ref.read(entityRepositoryProvider);
-    final unique = ids.toSet();
     final entries = await Future.wait([
-      for (final id in unique)
+      for (final id in ids.toSet())
         () async {
-          final kind = _prefixKind[id.split('_').first];
-          if (kind == null) return null; // unknown prefix (e.g. a doc_ ref) → chip falls back to the id. 未知前缀→回落 id。
           try {
+            // A doc→doc wikilink is the Notion-core case — resolve `doc_` against the documents seam
+            // (the app layer may import both features). doc→doc wikilink 是 Notion 核心场景,doc_ 走文档缝。
+            if (id.startsWith('doc_')) {
+              final doc = await _ref.read(documentsRepositoryProvider).getDocument(id);
+              return MapEntry(id, doc.name);
+            }
+            final kind = _prefixKind[id.split('_').first];
+            if (kind == null) return null; // unknown prefix → chip falls back to the id. 未知前缀→回落 id。
             final row = await repo.getEntityRow(kind, id);
             return MapEntry(id, row.name);
           } catch (_) {

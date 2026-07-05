@@ -94,6 +94,16 @@ void main() {
       ),
     ));
     await tester.pumpAndSettle();
+    // The outline is fed by the CENTER editor view in the real app; feed it by hand here (panel-only shot).
+    // 大纲由中心编辑视图喂;单截右岛此处手动喂。
+    final container = ProviderScope.containerOf(tester.element(find.byType(DocumentsInspector)));
+    container.read(docOutlineProvider.notifier).set(const [
+      (level: 1, text: 'Commit helper'),
+      (level: 2, text: 'Inputs'),
+      (level: 2, text: 'Message shape'),
+      (level: 3, text: 'Scope rules'),
+    ]);
+    await tester.pumpAndSettle();
 
     late final Uint8List bytes;
     await tester.runAsync(() async {

@@ -22,17 +22,19 @@ FixtureDocumentsRepository demoDocumentsRepository() {
 
   return FixtureDocumentsRepository(
     documents: [
+      // Ids are LEGAL <prefix>_<16hex> (the wikilink codec + backend parser are strict about the shape — an
+      // illegal id renders as dead double-bracket text). id 须合法 16hex(wikilink 正则严格,非法=死文本)。
       // Content is the BODY only — the title is the document NAME (rendered by the center header), so the
       // body never repeats it (the real editor separates title field + body). 正文=纯 body,标题=name,不重复。
-      doc('doc_start00000000', null, 'Getting Started', 0, '/Getting Started',
-          content: 'Welcome to the Anselm knowledge base. See [[doc_concepts00000]] for the core ideas.\n\n'
+      doc('doc_00000000000a11ce', null, 'Getting Started', 0, '/Getting Started',
+          content: 'Welcome to the Anselm knowledge base. See [[doc_00000000000c33ef]] for the core ideas.\n\n'
               '- Local-first\n- Agentic\n- Durable execution'),
-      doc('doc_setup000000000', 'doc_start00000000', 'Setup', 0, '/Getting Started/Setup',
+      doc('doc_00000000000b22df', 'doc_00000000000a11ce', 'Setup', 0, '/Getting Started/Setup',
           content: '1. Install the app\n2. Configure your workspace\n3. Start building'),
-      doc('doc_concepts00000', 'doc_start00000000', 'Concepts', 1, '/Getting Started/Concepts',
+      doc('doc_00000000000c33ef', 'doc_00000000000a11ce', 'Concepts', 1, '/Getting Started/Concepts',
           content: '**Quadrinity** entities (Function / Handler / Agent / Workflow) plus durable execution.'),
-      doc('doc_playbooks0000', null, 'Playbooks', 1, '/Playbooks'),
-      doc('doc_deploy0000000', 'doc_playbooks0000', 'Deploy', 0, '/Playbooks/Deploy',
+      doc('doc_00000000000d44f0', null, 'Playbooks', 1, '/Playbooks'),
+      doc('doc_00000000000e55f1', 'doc_00000000000d44f0', 'Deploy', 0, '/Playbooks/Deploy',
           content: 'Run `make release` and confirm the smoke tests pass.'),
     ],
     skills: [

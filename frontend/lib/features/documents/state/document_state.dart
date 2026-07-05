@@ -9,6 +9,7 @@ import '../../../core/entity/mention_source.dart';
 import '../../../core/router/navigation.dart';
 import '../../../core/ui/entity_ref_codec.dart';
 import '../data/document_repository.dart';
+import '../model/doc_outline.dart';
 
 /// The Documents ocean's server-state, over the [documentsRepositoryProvider] seam. The rail watches the
 /// tree + skill lists; the center watches the selected node's full content. Selection derives ONE-WAY from
@@ -136,6 +137,34 @@ final openDocumentContentProvider = FutureProvider.autoDispose.family<String, St
 /// The open skill WITH body + frontmatter (fetched on select). 打开的 skill(带 body + frontmatter)。
 final openSkillProvider = FutureProvider.autoDispose
     .family<Skill, String>((ref, name) => ref.watch(documentsRepositoryProvider).getSkill(name));
+
+/// The LIVE outline of the open document/skill — the inspector's table of contents. FED by the editor
+/// view (seeded from the loaded markdown, re-fed on every edit) rather than derived from a provider: the
+/// open content provider is deliberately never invalidated mid-edit (cursor), so it can't be the source.
+/// 打开文档的**活**大纲(右岛目录)。由编辑视图喂(载入播种 + 每次编辑重喂)——打开内容 provider 编辑中刻意
+/// 不失效(保光标),当不了源。
+final docOutlineProvider =
+    NotifierProvider<DocOutlineController, List<DocOutlineEntry>>(DocOutlineController.new);
+
+class DocOutlineController extends Notifier<List<DocOutlineEntry>> {
+  @override
+  List<DocOutlineEntry> build() => const [];
+
+  void set(List<DocOutlineEntry> entries) => state = entries;
+  void clear() => state = const [];
+}
+
+/// An outline-row tap → "scroll the editor to the N-th heading". A (tick, index) pair so tapping the SAME
+/// heading twice still re-fires (state must change to notify). 大纲点击意图:(tick,index) 对,重复点同项也触发。
+final outlineJumpProvider =
+    NotifierProvider<OutlineJumpController, ({int tick, int index})?>(OutlineJumpController.new);
+
+class OutlineJumpController extends Notifier<({int tick, int index})?> {
+  @override
+  ({int tick, int index})? build() => null;
+
+  void jump(int index) => state = (tick: (state?.tick ?? 0) + 1, index: index);
+}
 
 /// The open document's BACKLINKS — incoming `link` edges (whose bodies `[[id]]`-wikilink it), names
 /// hydrated server-side. Watches the tree so a linker's rename/delete refreshes the panel (link edges
