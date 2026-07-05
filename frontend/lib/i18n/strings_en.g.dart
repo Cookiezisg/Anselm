@@ -1016,6 +1016,36 @@ class Translations$chat$tool$en {
 
 	/// en: 'incremental change (full graph in the entity panel)'
 	String get wfMorphNote => 'incremental change (full graph in the entity panel)';
+
+	/// en: 'otherwise'
+	String get ctlOtherwise => 'otherwise';
+
+	/// en: 'catch-all'
+	String get ctlWhenTrue => 'catch-all';
+
+	/// en: 'emit'
+	String get ctlEmit => 'emit';
+
+	/// en: 'no catch-all: last must be when:"true"'
+	String get ctlNoCatchall => 'no catch-all: last must be when:"true"';
+
+	/// en: 'never times out'
+	String get apfTimeoutNever => 'never times out';
+
+	/// en: 'note allowed'
+	String get apfAllowReason => 'note allowed';
+
+	/// en: 'Approve'
+	String get apfApprove => 'Approve';
+
+	/// en: 'Reject'
+	String get apfReject => 'Reject';
+
+	/// en: 'the approver will see'
+	String get apfPreviewHint => 'the approver will see';
+
+	/// en: 'on timeout →'
+	String get apfOnTimeout => 'on timeout →';
 }
 
 // Path: chat.gate
@@ -2394,6 +2424,16 @@ extension on Translations {
 			'chat.tool.wfEdgeUnit' => 'edges',
 			'chat.tool.wfDeltaEmpty' => 'metadata only (graph unchanged)',
 			'chat.tool.wfMorphNote' => 'incremental change (full graph in the entity panel)',
+			'chat.tool.ctlOtherwise' => 'otherwise',
+			'chat.tool.ctlWhenTrue' => 'catch-all',
+			'chat.tool.ctlEmit' => 'emit',
+			'chat.tool.ctlNoCatchall' => 'no catch-all: last must be when:"true"',
+			'chat.tool.apfTimeoutNever' => 'never times out',
+			'chat.tool.apfAllowReason' => 'note allowed',
+			'chat.tool.apfApprove' => 'Approve',
+			'chat.tool.apfReject' => 'Reject',
+			'chat.tool.apfPreviewHint' => 'the approver will see',
+			'chat.tool.apfOnTimeout' => 'on timeout →',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -2753,6 +2793,8 @@ extension on Translations {
 			'entities.run.traceHeading' => 'Trace',
 			'entities.run.reasoning' => 'Reasoning',
 			'entities.run.toolCall' => 'Tool call',
+			_ => null,
+		} ?? switch (path) {
 			'entities.run.nodesHeading' => 'Nodes',
 			'entities.run.noTrace' => 'Waiting for output…',
 			'entities.run.steps' => ({required Object n}) => '${n} steps',
@@ -2763,8 +2805,6 @@ extension on Translations {
 			'entities.run.approvalTitle' => 'Awaiting approval',
 			'entities.run.approve' => 'Approve',
 			'entities.run.reject' => 'Reject',
-			_ => null,
-		} ?? switch (path) {
 			'entities.run.approvalHint' => 'First decision wins.',
 			'entities.run.reasonHint' => 'Reason (optional)',
 			'entities.run.inboxEmpty' => 'No pending approvals',

@@ -130,5 +130,21 @@ final toolCardBuildsGalleryItem = GalleryItem(
                 summary: 'Simplify: drop the gate, add a Slack notify',
                 result: '{"id":"wf_00ff00ff00ff00ff","versionId":"wfv_5566778899aabbcc","version":5}')),
         span: true, stress: true),
+    GallerySpecimen('已创建控制 · 决策梯(有序 port/when/emit + 否则钉底)',
+        (c) => ChatToolCard(
+            node: _call('ctl', 'create_control',
+                args:
+                    '{"name":"金额路由","branches":[{"port":"高额","when":"input.amount > 10000","emit":{"tier":"\\"critical\\""}},{"port":"常规","when":"input.amount > 1000"},{"port":"直放","when":"true"}]}',
+                summary: 'Route invoices by amount tier',
+                result: '{"id":"ctl_7d4c9e0112233445","activeVersionId":"ctlv_1122334455667788","version":1}')),
+        span: true),
+    GallerySpecimen('已创建审批 · 表单预览(审批人视角 + 规则条 + mock 决策)',
+        (c) => ChatToolCard(
+            node: _call('apf', 'create_approval',
+                args:
+                    '{"name":"采购放行","template":"# 采购放行审批\\n\\n供应商 {{ input.vendor }} 提交金额 **{{ input.amount }}** 元的采购申请。\\n\\n请确认预算与合规后决定是否放行。","allowReason":true,"timeout":"30d","timeoutBehavior":"reject"}',
+                summary: 'Draft the spend approval form',
+                result: '{"id":"apf_2e9b5c3344556677","activeVersionId":"apfv_1122334455667788","version":1}')),
+        span: true),
   ],
 );

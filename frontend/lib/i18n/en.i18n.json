@@ -149,7 +149,17 @@
       "wfNodeUnit": "nodes",
       "wfEdgeUnit": "edges",
       "wfDeltaEmpty": "metadata only (graph unchanged)",
-      "wfMorphNote": "incremental change (full graph in the entity panel)"
+      "wfMorphNote": "incremental change (full graph in the entity panel)",
+      "ctlOtherwise": "otherwise",
+      "ctlWhenTrue": "catch-all",
+      "ctlEmit": "emit",
+      "ctlNoCatchall": "no catch-all: last must be when:\"true\"",
+      "apfTimeoutNever": "never times out",
+      "apfAllowReason": "note allowed",
+      "apfApprove": "Approve",
+      "apfReject": "Reject",
+      "apfPreviewHint": "the approver will see",
+      "apfOnTimeout": "on timeout →"
     },
     "gate": {
       "dangerBadge": "Dangerous",

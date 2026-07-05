@@ -1001,6 +1001,7 @@ active 指针移到旧版本号,然后**重启实例**跑它。name/description/
 
 > 代码源:`backend/internal/app/tool/control/`(6 工具)、`backend/internal/app/tool/approval/`(6 工具)。
 > **注意**:`decide_approval` 与 `list_approval_inbox` **不在 approval/ 目录**——物理住在 `backend/internal/app/tool/workflow/{runs.go,inbox.go}`(workflow 工具包),因为它们操作的是 flowrun 运行时(parked 节点),不是 approval 表实体。本文一并收录。
+> **⚠️ 补正(2026-07-06 读码,全域适用)**:下列各卡「错误」列的 **wire code(如 `CONTROL_INVALID_CEL`)不出现在 tool_result 文本里**——tool_result Content 是 `errorspkg.Surface(err)` 的**纯文本 = Message + `(k=v; k=v)` details(键按字母序)**,code 只在 REST N1 错误信封。前端**不能从 tool_result 内容按 code 串匹配**;要判失败读 block `status=error` / `error` 字段(仍无 code),要拿 details 靠解析 Message 文本。故构建卡的错误呈现:底盘错误段渲纯文本即诚实,CEL 红框定位须解析 details 文本(增强、非必需)。另:control/approval 都是**整体替换**(create/edit 传完整 branches / 完整 form,edit 无 set_meta、approval 省略字段归零值);返回键是 **`activeVersionId`**(非 versionId)+ `version`(int),`ToJSON` map 序列化按字母序、勿依赖插入序。before diff 端点 `GET /{controls,approvals}/{id}/versions/{version}`(返 branches / template)存在——取数缝增强。
 >
 > 共性(两族全适用):
 > - 全部 **lazy 工具**(Toolset.Lazy,经 search_tools 浮现,非常驻)。

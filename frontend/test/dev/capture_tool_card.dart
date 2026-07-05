@@ -89,7 +89,9 @@ void main() {
       find.textContaining('已更新智能体').last, // edit_agent prompt 窗(first=标签)
       find.text('npm test').at(1), // Bash · exit 0 (第 0 个是活尾巴卡) 成功终端窗
       find.text('已创建工作流'), // create_workflow 两幕:展开看图生长
-      find.text('已更新工作流').first, // edit_workflow morph 花名册(精确匹配行动词)
+      find.text('已更新工作流').first, // edit_workflow morph 花名册
+      find.text('已创建控制'), // control 决策梯
+      find.text('已创建审批'), // approval 表单预览(精确匹配行动词)
       find.text('quarters.py').first, // Write 代码窗
       find.text('rollup.py').at(1), // Edit diff 窗(第 0 个是 Read 回执卡的 chip)
       find.text('"amount"'), // Grep 命中窗

@@ -6,6 +6,7 @@ import '../../../i18n/strings.g.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
 import 'tool_card_skins.dart';
+import 'tool_card_control_approval.dart';
 import 'tool_card_workflow.dart';
 
 /// One tool's card grammar: the deterministic verb pair (decision #1 — the collapsed line's
@@ -229,10 +230,14 @@ final Map<String, ToolCardSpec> _catalog = {
     editIdKey: 'workflowId',
     body: editWorkflowBody,
   ),
-  'create_control': _build(kind: (t) => t.chat.tool.kind.control, create: true),
-  'edit_control': _build(kind: (t) => t.chat.tool.kind.control, create: false, editIdKey: 'controlId'),
-  'create_approval': _build(kind: (t) => t.chat.tool.kind.approval, create: true),
-  'edit_approval': _build(kind: (t) => t.chat.tool.kind.approval, create: false, editIdKey: 'approvalId'),
+  // control ★ decision ladder / approval ★ form preview — whole-set replace → always the full snapshot.
+  // control 决策梯 / approval 表单预览——整体替换,永远渲全新快照。
+  'create_control': _build(kind: (t) => t.chat.tool.kind.control, create: true, body: controlBranchBody),
+  'edit_control': _build(
+      kind: (t) => t.chat.tool.kind.control, create: false, editIdKey: 'controlId', body: controlBranchBody),
+  'create_approval': _build(kind: (t) => t.chat.tool.kind.approval, create: true, body: approvalFormBody),
+  'edit_approval': _build(
+      kind: (t) => t.chat.tool.kind.approval, create: false, editIdKey: 'approvalId', body: approvalFormBody),
   'create_document': _build(kind: (t) => t.chat.tool.kind.document, create: true),
   'edit_document': _build(kind: (t) => t.chat.tool.kind.document, create: false, editIdKey: 'id'),
   'create_skill': _build(kind: (t) => t.chat.tool.kind.skill, create: true),

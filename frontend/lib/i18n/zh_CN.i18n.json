@@ -149,7 +149,17 @@
       "wfNodeUnit": "节点",
       "wfEdgeUnit": "边",
       "wfDeltaEmpty": "仅改元数据(图未变)",
-      "wfMorphNote": "增量变换(图整体见实体面板)"
+      "wfMorphNote": "增量变换(图整体见实体面板)",
+      "ctlOtherwise": "否则",
+      "ctlWhenTrue": "兜底",
+      "ctlEmit": "emit",
+      "ctlNoCatchall": "缺兜底:末条须 when:\"true\"",
+      "apfTimeoutNever": "永不超时",
+      "apfAllowReason": "可填备注",
+      "apfApprove": "批准",
+      "apfReject": "拒绝",
+      "apfPreviewHint": "审批人将看到",
+      "apfOnTimeout": "超时 →"
     },
     "gate": {
       "dangerBadge": "危险",

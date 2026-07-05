@@ -494,6 +494,16 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get wfEdgeUnit => '边';
 	@override String get wfDeltaEmpty => '仅改元数据(图未变)';
 	@override String get wfMorphNote => '增量变换(图整体见实体面板)';
+	@override String get ctlOtherwise => '否则';
+	@override String get ctlWhenTrue => '兜底';
+	@override String get ctlEmit => 'emit';
+	@override String get ctlNoCatchall => '缺兜底:末条须 when:"true"';
+	@override String get apfTimeoutNever => '永不超时';
+	@override String get apfAllowReason => '可填备注';
+	@override String get apfApprove => '批准';
+	@override String get apfReject => '拒绝';
+	@override String get apfPreviewHint => '审批人将看到';
+	@override String get apfOnTimeout => '超时 →';
 }
 
 // Path: chat.gate
@@ -1209,6 +1219,16 @@ extension on TranslationsZhCn {
 			'chat.tool.wfEdgeUnit' => '边',
 			'chat.tool.wfDeltaEmpty' => '仅改元数据(图未变)',
 			'chat.tool.wfMorphNote' => '增量变换(图整体见实体面板)',
+			'chat.tool.ctlOtherwise' => '否则',
+			'chat.tool.ctlWhenTrue' => '兜底',
+			'chat.tool.ctlEmit' => 'emit',
+			'chat.tool.ctlNoCatchall' => '缺兜底:末条须 when:"true"',
+			'chat.tool.apfTimeoutNever' => '永不超时',
+			'chat.tool.apfAllowReason' => '可填备注',
+			'chat.tool.apfApprove' => '批准',
+			'chat.tool.apfReject' => '拒绝',
+			'chat.tool.apfPreviewHint' => '审批人将看到',
+			'chat.tool.apfOnTimeout' => '超时 →',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -1568,6 +1588,8 @@ extension on TranslationsZhCn {
 			'entities.run.traceHeading' => '轨迹',
 			'entities.run.reasoning' => '推理',
 			'entities.run.toolCall' => '工具调用',
+			_ => null,
+		} ?? switch (path) {
 			'entities.run.nodesHeading' => '节点',
 			'entities.run.noTrace' => '等待输出…',
 			'entities.run.steps' => ({required Object n}) => '${n} 步',
@@ -1578,8 +1600,6 @@ extension on TranslationsZhCn {
 			'entities.run.approvalTitle' => '等待审批',
 			'entities.run.approve' => '通过',
 			'entities.run.reject' => '驳回',
-			_ => null,
-		} ?? switch (path) {
 			'entities.run.approvalHint' => 'first-wins:先到的决断生效。',
 			'entities.run.reasonHint' => '备注(可选)',
 			'entities.run.inboxEmpty' => '没有待审批',
