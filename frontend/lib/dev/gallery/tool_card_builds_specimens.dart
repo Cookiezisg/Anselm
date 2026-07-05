@@ -146,5 +146,13 @@ final toolCardBuildsGalleryItem = GalleryItem(
                 summary: 'Draft the spend approval form',
                 result: '{"id":"apf_2e9b5c3344556677","activeVersionId":"apfv_1122334455667788","version":1}')),
         span: true),
+    GallerySpecimen('已创建技能 · 稿子 + allowedTools 警示药丸(预授权=权限让渡)',
+        (c) => ChatToolCard(
+            node: _call('skl', 'create_skill',
+                args:
+                    '{"name":"invoice-triage","description":"分类发票并标记退款行","body":"# 发票分类\\n\\n1. 读取行项目\\n2. 按季度归类\\n3. 标记退款(负额)\\n4. 金额异常时开 issue","context":"inline","allowedTools":["Read","Grep","edit_document"]}',
+                summary: 'Author the invoice-triage skill',
+                result: '{"created":"invoice-triage"}')),
+        span: true),
   ],
 );

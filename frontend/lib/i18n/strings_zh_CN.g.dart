@@ -504,6 +504,14 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get apfReject => '拒绝';
 	@override String get apfPreviewHint => '审批人将看到';
 	@override String get apfOnTimeout => '超时 →';
+	@override String get proseExpand => '展开全文';
+	@override String get proseCollapse => '收起';
+	@override String get docAutoRenamed => '请求名被占,已自动改名';
+	@override String get skillNoRevert => '整份覆盖 · 无版本可回退';
+	@override String get skillPreauth => '激活后免危险确认(预授权)';
+	@override String get skillInline => '内联';
+	@override String get skillFork => '派生';
+	@override String get docSoftFail => '未生效';
 }
 
 // Path: chat.gate
@@ -1229,6 +1237,14 @@ extension on TranslationsZhCn {
 			'chat.tool.apfReject' => '拒绝',
 			'chat.tool.apfPreviewHint' => '审批人将看到',
 			'chat.tool.apfOnTimeout' => '超时 →',
+			'chat.tool.proseExpand' => '展开全文',
+			'chat.tool.proseCollapse' => '收起',
+			'chat.tool.docAutoRenamed' => '请求名被占,已自动改名',
+			'chat.tool.skillNoRevert' => '整份覆盖 · 无版本可回退',
+			'chat.tool.skillPreauth' => '激活后免危险确认(预授权)',
+			'chat.tool.skillInline' => '内联',
+			'chat.tool.skillFork' => '派生',
+			'chat.tool.docSoftFail' => '未生效',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -1580,6 +1596,8 @@ extension on TranslationsZhCn {
 			'entities.run.cancel' => '取消',
 			'entities.run.close' => '关闭运行终端',
 			'entities.run.idleTitle' => '准备运行',
+			_ => null,
+		} ?? switch (path) {
 			'entities.run.idleHint' => '填好入参后运行。',
 			'entities.run.cancelled' => '已取消',
 			'entities.run.outputHeading' => '输出',
@@ -1588,8 +1606,6 @@ extension on TranslationsZhCn {
 			'entities.run.traceHeading' => '轨迹',
 			'entities.run.reasoning' => '推理',
 			'entities.run.toolCall' => '工具调用',
-			_ => null,
-		} ?? switch (path) {
 			'entities.run.nodesHeading' => '节点',
 			'entities.run.noTrace' => '等待输出…',
 			'entities.run.steps' => ({required Object n}) => '${n} 步',

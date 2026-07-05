@@ -159,7 +159,15 @@
       "apfApprove": "批准",
       "apfReject": "拒绝",
       "apfPreviewHint": "审批人将看到",
-      "apfOnTimeout": "超时 →"
+      "apfOnTimeout": "超时 →",
+      "proseExpand": "展开全文",
+      "proseCollapse": "收起",
+      "docAutoRenamed": "请求名被占,已自动改名",
+      "skillNoRevert": "整份覆盖 · 无版本可回退",
+      "skillPreauth": "激活后免危险确认(预授权)",
+      "skillInline": "内联",
+      "skillFork": "派生",
+      "docSoftFail": "未生效"
     },
     "gate": {
       "dangerBadge": "危险",

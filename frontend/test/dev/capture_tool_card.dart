@@ -91,7 +91,9 @@ void main() {
       find.text('已创建工作流'), // create_workflow 两幕:展开看图生长
       find.text('已更新工作流').first, // edit_workflow morph 花名册
       find.text('已创建控制'), // control 决策梯
-      find.text('已创建审批'), // approval 表单预览(精确匹配行动词)
+      find.text('已创建审批'), // approval 表单预览
+      find.text('已创建文档'), // document 稿子流
+      find.text('已创建技能'), // skill 稿子 + 警示药丸(精确匹配行动词)
       find.text('quarters.py').first, // Write 代码窗
       find.text('rollup.py').at(1), // Edit diff 窗(第 0 个是 Read 回执卡的 chip)
       find.text('"amount"'), // Grep 命中窗

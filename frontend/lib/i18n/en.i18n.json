@@ -159,7 +159,15 @@
       "apfApprove": "Approve",
       "apfReject": "Reject",
       "apfPreviewHint": "the approver will see",
-      "apfOnTimeout": "on timeout →"
+      "apfOnTimeout": "on timeout →",
+      "proseExpand": "Show all",
+      "proseCollapse": "Collapse",
+      "docAutoRenamed": "requested name was taken, auto-renamed",
+      "skillNoRevert": "whole overwrite · no version to revert to",
+      "skillPreauth": "pre-authorized after activation (no confirm)",
+      "skillInline": "inline",
+      "skillFork": "fork",
+      "docSoftFail": "did not take effect"
     },
     "gate": {
       "dangerBadge": "Dangerous",

@@ -7,6 +7,7 @@ import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
 import 'tool_card_skins.dart';
 import 'tool_card_control_approval.dart';
+import 'tool_card_document_skill.dart';
 import 'tool_card_workflow.dart';
 
 /// One tool's card grammar: the deterministic verb pair (decision #1 — the collapsed line's
@@ -238,10 +239,16 @@ final Map<String, ToolCardSpec> _catalog = {
   'create_approval': _build(kind: (t) => t.chat.tool.kind.approval, create: true, body: approvalFormBody),
   'edit_approval': _build(
       kind: (t) => t.chat.tool.kind.approval, create: false, editIdKey: 'approvalId', body: approvalFormBody),
-  'create_document': _build(kind: (t) => t.chat.tool.kind.document, create: true),
-  'edit_document': _build(kind: (t) => t.chat.tool.kind.document, create: false, editIdKey: 'id'),
-  'create_skill': _build(kind: (t) => t.chat.tool.kind.skill, create: true),
-  'edit_skill': _build(kind: (t) => t.chat.tool.kind.skill, create: false, editIdKey: 'name'),
+  // document ★ typeset prose window + soft-fail sentence receipt; skill ★ prose + allowedTools warn 药丸.
+  // document 排版稿子流 + 软失败句回执;skill 稿子 + allowedTools 警示药丸。
+  'create_document': _build(
+      kind: (t) => t.chat.tool.kind.document, create: true, body: documentBody, receipt: docSentenceReceipt),
+  'edit_document': _build(
+      kind: (t) => t.chat.tool.kind.document, create: false, editIdKey: 'id', body: documentBody, receipt: docSentenceReceipt),
+  'create_skill': _build(
+      kind: (t) => t.chat.tool.kind.skill, create: true, body: skillBody, receipt: skillReceipt),
+  'edit_skill': _build(
+      kind: (t) => t.chat.tool.kind.skill, create: false, editIdKey: 'name', body: skillBody, receipt: skillReceipt),
   'create_trigger': _build(kind: (t) => t.chat.tool.kind.trigger, create: true),
   'edit_trigger': _build(kind: (t) => t.chat.tool.kind.trigger, create: false, editIdKey: 'triggerId'),
 

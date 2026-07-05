@@ -1046,6 +1046,30 @@ class Translations$chat$tool$en {
 
 	/// en: 'on timeout →'
 	String get apfOnTimeout => 'on timeout →';
+
+	/// en: 'Show all'
+	String get proseExpand => 'Show all';
+
+	/// en: 'Collapse'
+	String get proseCollapse => 'Collapse';
+
+	/// en: 'requested name was taken, auto-renamed'
+	String get docAutoRenamed => 'requested name was taken, auto-renamed';
+
+	/// en: 'whole overwrite · no version to revert to'
+	String get skillNoRevert => 'whole overwrite · no version to revert to';
+
+	/// en: 'pre-authorized after activation (no confirm)'
+	String get skillPreauth => 'pre-authorized after activation (no confirm)';
+
+	/// en: 'inline'
+	String get skillInline => 'inline';
+
+	/// en: 'fork'
+	String get skillFork => 'fork';
+
+	/// en: 'did not take effect'
+	String get docSoftFail => 'did not take effect';
 }
 
 // Path: chat.gate
@@ -2434,6 +2458,14 @@ extension on Translations {
 			'chat.tool.apfReject' => 'Reject',
 			'chat.tool.apfPreviewHint' => 'the approver will see',
 			'chat.tool.apfOnTimeout' => 'on timeout →',
+			'chat.tool.proseExpand' => 'Show all',
+			'chat.tool.proseCollapse' => 'Collapse',
+			'chat.tool.docAutoRenamed' => 'requested name was taken, auto-renamed',
+			'chat.tool.skillNoRevert' => 'whole overwrite · no version to revert to',
+			'chat.tool.skillPreauth' => 'pre-authorized after activation (no confirm)',
+			'chat.tool.skillInline' => 'inline',
+			'chat.tool.skillFork' => 'fork',
+			'chat.tool.docSoftFail' => 'did not take effect',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -2785,6 +2817,8 @@ extension on Translations {
 			'entities.run.cancel' => 'Cancel',
 			'entities.run.close' => 'Close run terminal',
 			'entities.run.idleTitle' => 'Ready to run',
+			_ => null,
+		} ?? switch (path) {
 			'entities.run.idleHint' => 'Fill in the inputs, then run.',
 			'entities.run.cancelled' => 'Cancelled',
 			'entities.run.outputHeading' => 'Output',
@@ -2793,8 +2827,6 @@ extension on Translations {
 			'entities.run.traceHeading' => 'Trace',
 			'entities.run.reasoning' => 'Reasoning',
 			'entities.run.toolCall' => 'Tool call',
-			_ => null,
-		} ?? switch (path) {
 			'entities.run.nodesHeading' => 'Nodes',
 			'entities.run.noTrace' => 'Waiting for output…',
 			'entities.run.steps' => ({required Object n}) => '${n} steps',
