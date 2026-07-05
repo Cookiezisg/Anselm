@@ -112,6 +112,24 @@
         "skill": "技能",
         "trigger": "触发器"
       }
+    },
+    "gate": {
+      "dangerBadge": "危险",
+      "awaitingDanger": "等待你确认",
+      "awaitingAsk": "等待你回答",
+      "evidenceLabel": "参数",
+      "approve": "允许",
+      "approveAlways": "总是允许",
+      "approveAlwaysHint": "本对话内不再询问 $tool(重启即忘)",
+      "deny": "拒绝",
+      "decline": "不回答",
+      "submit": "发送",
+      "answerPlaceholder": "输入你的回答…",
+      "optionsHint": "选一项,或直接输入",
+      "decidedApproved": "已允许",
+      "decidedApprovedAlways": "已允许 · 本对话总是",
+      "decidedDenied": "已拒绝",
+      "decidedDeclined": "已跳过"
     }
   },
   "appName": "Anselm",

@@ -14,6 +14,7 @@ import 'chat_thinking_specimens.dart';
 import 'chat_tool_card_specimens.dart';
 import 'tool_card_builds_specimens.dart';
 import 'tool_card_family_specimens.dart';
+import 'tool_interaction_gate_specimens.dart';
 import 'chat_turn_specimens.dart';
 import 'markdown_specimens.dart';
 import 'specimen.dart';
@@ -182,6 +183,7 @@ final GalleryCategory _toolCards = GalleryCategory('工具卡 Tool Cards', AnIco
   toolCardBuildsGalleryItem,
   toolCardFsGalleryItem,
   toolCardSearchGalleryItem,
+  toolInteractionGateGalleryItem,
 ]);
 
 // ── Chat — the conversation rail's row, in every state ──

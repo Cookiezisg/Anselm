@@ -111,6 +111,7 @@ class _Translations$chat$zh_CN extends Translations$chat$en {
 	@override String get attachFile => 'Attach files';
 	@override String get dropToAttach => 'Drop files to attach';
 	@override late final _Translations$chat$tool$zh_CN tool = _Translations$chat$tool$zh_CN._(_root);
+	@override late final _Translations$chat$gate$zh_CN gate = _Translations$chat$gate$zh_CN._(_root);
 }
 
 // Path: status
@@ -455,6 +456,31 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get envFailed => 'env 失败';
 	@override String get restarted => '已重启';
 	@override late final _Translations$chat$tool$kind$zh_CN kind = _Translations$chat$tool$kind$zh_CN._(_root);
+}
+
+// Path: chat.gate
+class _Translations$chat$gate$zh_CN extends Translations$chat$gate$en {
+	_Translations$chat$gate$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get dangerBadge => '危险';
+	@override String get awaitingDanger => '等待你确认';
+	@override String get awaitingAsk => '等待你回答';
+	@override String get evidenceLabel => '参数';
+	@override String get approve => '允许';
+	@override String get approveAlways => '总是允许';
+	@override String approveAlwaysHint({required Object tool}) => '本对话内不再询问 ${tool}(重启即忘)';
+	@override String get deny => '拒绝';
+	@override String get decline => '不回答';
+	@override String get submit => '发送';
+	@override String get answerPlaceholder => '输入你的回答…';
+	@override String get optionsHint => '选一项,或直接输入';
+	@override String get decidedApproved => '已允许';
+	@override String get decidedApprovedAlways => '已允许 · 本对话总是';
+	@override String get decidedDenied => '已拒绝';
+	@override String get decidedDeclined => '已跳过';
 }
 
 // Path: shell.ocean
@@ -1107,6 +1133,22 @@ extension on TranslationsZhCn {
 			'chat.tool.kind.document' => '文档',
 			'chat.tool.kind.skill' => '技能',
 			'chat.tool.kind.trigger' => '触发器',
+			'chat.gate.dangerBadge' => '危险',
+			'chat.gate.awaitingDanger' => '等待你确认',
+			'chat.gate.awaitingAsk' => '等待你回答',
+			'chat.gate.evidenceLabel' => '参数',
+			'chat.gate.approve' => '允许',
+			'chat.gate.approveAlways' => '总是允许',
+			'chat.gate.approveAlwaysHint' => ({required Object tool}) => '本对话内不再询问 ${tool}(重启即忘)',
+			'chat.gate.deny' => '拒绝',
+			'chat.gate.decline' => '不回答',
+			'chat.gate.submit' => '发送',
+			'chat.gate.answerPlaceholder' => '输入你的回答…',
+			'chat.gate.optionsHint' => '选一项,或直接输入',
+			'chat.gate.decidedApproved' => '已允许',
+			'chat.gate.decidedApprovedAlways' => '已允许 · 本对话总是',
+			'chat.gate.decidedDenied' => '已拒绝',
+			'chat.gate.decidedDeclined' => '已跳过',
 			'appName' => 'Anselm',
 			'status.idle' => '空闲',
 			'status.run' => '运行中',
@@ -1498,6 +1540,8 @@ extension on TranslationsZhCn {
 			'documents.props.path' => '路径',
 			'documents.props.size' => '大小',
 			'documents.props.modified' => '修改时间',
+			_ => null,
+		} ?? switch (path) {
 			'documents.props.context' => '上下文',
 			'documents.props.contextInline' => '内联',
 			'documents.props.contextFork' => '分叉',
@@ -1514,8 +1558,6 @@ extension on TranslationsZhCn {
 			'documents.props.empty' => '未选中',
 			'documents.props.emptyHint' => '选一个页面或技能查看它的属性。',
 			'documents.props.outline' => '大纲',
-			_ => null,
-		} ?? switch (path) {
 			'documents.props.backlinks' => '反向链接',
 			'documents.props.noBacklinks' => '还没有页面链接到这里。',
 			'documents.slash.text' => '正文',

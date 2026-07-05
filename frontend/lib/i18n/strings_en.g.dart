@@ -203,6 +203,7 @@ class Translations$chat$en {
 	String get dropToAttach => 'Drop files to attach';
 
 	late final Translations$chat$tool$en tool = Translations$chat$tool$en.internal(_root);
+	late final Translations$chat$gate$en gate = Translations$chat$gate$en.internal(_root);
 }
 
 // Path: status
@@ -901,6 +902,63 @@ class Translations$chat$tool$en {
 	String get restarted => 'restarted';
 
 	late final Translations$chat$tool$kind$en kind = Translations$chat$tool$kind$en.internal(_root);
+}
+
+// Path: chat.gate
+class Translations$chat$gate$en {
+	Translations$chat$gate$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Dangerous'
+	String get dangerBadge => 'Dangerous';
+
+	/// en: 'Awaiting your approval'
+	String get awaitingDanger => 'Awaiting your approval';
+
+	/// en: 'Awaiting your answer'
+	String get awaitingAsk => 'Awaiting your answer';
+
+	/// en: 'Arguments'
+	String get evidenceLabel => 'Arguments';
+
+	/// en: 'Allow'
+	String get approve => 'Allow';
+
+	/// en: 'Always allow'
+	String get approveAlways => 'Always allow';
+
+	/// en: 'Don't ask again for $tool this conversation (forgotten on restart)'
+	String approveAlwaysHint({required Object tool}) => 'Don\'t ask again for ${tool} this conversation (forgotten on restart)';
+
+	/// en: 'Deny'
+	String get deny => 'Deny';
+
+	/// en: 'Don't answer'
+	String get decline => 'Don\'t answer';
+
+	/// en: 'Send'
+	String get submit => 'Send';
+
+	/// en: 'Type your answer…'
+	String get answerPlaceholder => 'Type your answer…';
+
+	/// en: 'Pick one, or type your own'
+	String get optionsHint => 'Pick one, or type your own';
+
+	/// en: 'Allowed'
+	String get decidedApproved => 'Allowed';
+
+	/// en: 'Allowed · always this conversation'
+	String get decidedApprovedAlways => 'Allowed · always this conversation';
+
+	/// en: 'Denied'
+	String get decidedDenied => 'Denied';
+
+	/// en: 'Skipped'
+	String get decidedDeclined => 'Skipped';
 }
 
 // Path: shell.ocean
@@ -2184,6 +2242,22 @@ extension on Translations {
 			'chat.tool.kind.document' => 'document',
 			'chat.tool.kind.skill' => 'skill',
 			'chat.tool.kind.trigger' => 'trigger',
+			'chat.gate.dangerBadge' => 'Dangerous',
+			'chat.gate.awaitingDanger' => 'Awaiting your approval',
+			'chat.gate.awaitingAsk' => 'Awaiting your answer',
+			'chat.gate.evidenceLabel' => 'Arguments',
+			'chat.gate.approve' => 'Allow',
+			'chat.gate.approveAlways' => 'Always allow',
+			'chat.gate.approveAlwaysHint' => ({required Object tool}) => 'Don\'t ask again for ${tool} this conversation (forgotten on restart)',
+			'chat.gate.deny' => 'Deny',
+			'chat.gate.decline' => 'Don\'t answer',
+			'chat.gate.submit' => 'Send',
+			'chat.gate.answerPlaceholder' => 'Type your answer…',
+			'chat.gate.optionsHint' => 'Pick one, or type your own',
+			'chat.gate.decidedApproved' => 'Allowed',
+			'chat.gate.decidedApprovedAlways' => 'Allowed · always this conversation',
+			'chat.gate.decidedDenied' => 'Denied',
+			'chat.gate.decidedDeclined' => 'Skipped',
 			'appName' => 'Anselm',
 			'status.idle' => 'Idle',
 			'status.run' => 'Running',
@@ -2575,6 +2649,8 @@ extension on Translations {
 			'documents.props.path' => 'Path',
 			'documents.props.size' => 'Size',
 			'documents.props.modified' => 'Modified',
+			_ => null,
+		} ?? switch (path) {
 			'documents.props.context' => 'Context',
 			'documents.props.contextInline' => 'Inline',
 			'documents.props.contextFork' => 'Fork',
@@ -2591,8 +2667,6 @@ extension on Translations {
 			'documents.props.empty' => 'Nothing selected',
 			'documents.props.emptyHint' => 'Select a page or skill to see its properties.',
 			'documents.props.outline' => 'Outline',
-			_ => null,
-		} ?? switch (path) {
 			'documents.props.backlinks' => 'Backlinks',
 			'documents.props.noBacklinks' => 'No pages link here yet.',
 			'documents.slash.text' => 'Text',

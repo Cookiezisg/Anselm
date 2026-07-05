@@ -112,6 +112,24 @@
         "skill": "skill",
         "trigger": "trigger"
       }
+    },
+    "gate": {
+      "dangerBadge": "Dangerous",
+      "awaitingDanger": "Awaiting your approval",
+      "awaitingAsk": "Awaiting your answer",
+      "evidenceLabel": "Arguments",
+      "approve": "Allow",
+      "approveAlways": "Always allow",
+      "approveAlwaysHint": "Don't ask again for $tool this conversation (forgotten on restart)",
+      "deny": "Deny",
+      "decline": "Don't answer",
+      "submit": "Send",
+      "answerPlaceholder": "Type your answer…",
+      "optionsHint": "Pick one, or type your own",
+      "decidedApproved": "Allowed",
+      "decidedApprovedAlways": "Allowed · always this conversation",
+      "decidedDenied": "Denied",
+      "decidedDeclined": "Skipped"
     }
   },
   "appName": "Anselm",
