@@ -158,6 +158,16 @@ final chatToolCardGalleryItem = GalleryItem(
                 args: '{"flowrunId":"flr_7a1b2c3d4e5f6a7b","nodeId":"approve_spend","decision":"yes"}',
                 resultError: 'approval node is not awaiting a decision')),
         span: true),
+    GallerySpecimen('list_approval_inbox · 待审薄表(ref/摘要/等待/run,最久在最上)',
+        (c) => ChatToolCard(
+            node: _call('list_approval_inbox',
+                result:
+                    '{"count":3,"parked":[{"flowrunId":"flr_aaa1112223334445","nodeId":"approve_spend","ref":"apf_spend","rendered":"# 采购审批\\n金额 ¥12,400,供应商 Acme,是否放行?","parkedAt":"2026-07-01T09:00:00Z"},{"flowrunId":"flr_bbb2223334445556","nodeId":"approve_deploy","ref":"apf_deploy","rendered":"生产部署审批:v3 → 生产,含 schema 迁移。","parkedAt":"2026-07-05T22:30:00Z"},{"flowrunId":"flr_ccc3334445556667","nodeId":"approve_refund","ref":"apf_refund","rendered":"退款审批 ¥800 给客户 C-1029。","parkedAt":"2026-07-06T00:15:00Z"}]}')),
+        span: true),
+    GallerySpecimen('list_approval_inbox · 空(诚实空态)',
+        (c) => ChatToolCard(
+            node: _call('list_approval_inbox', result: '{"count":0,"parked":[]}')),
+        span: true),
     GallerySpecimen('成功 · JSON 结果(点行展开:意图/参数/结果树)',
         (c) => ChatToolCard(
             node: _call('create_function',

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../../../core/contract/interaction.dart';
+import '../../../core/model/time_format.dart';
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
@@ -253,6 +254,63 @@ Widget decideApprovalBody(BuildContext context, ToolCardState state) {
                 style: AnText.meta.copyWith(color: c.inkFaint)),
           ),
       ],
+    ],
+  );
+}
+
+/// F16 list_approval_inbox — the parked-approvals snapshot as a thin table (ref · summary · waited ·
+/// run), oldest-first (backend-sorted), capped at 20 with an honest "+N more". The `rendered` markdown
+/// is FLATTENED to its first line (never rendered in a cell — AnThinTable is single-line). count 0 → a
+/// muted empty state. 停泊审批快照薄表(最久等的在最上,封顶 20+诚实 +N);rendered 只取首行拍平;空→静音空态。
+Widget listApprovalInboxBody(BuildContext context, ToolCardState state) {
+  final t = Translations.of(context);
+  final c = context.colors;
+  Map<String, dynamic>? out;
+  try {
+    final d = jsonDecode(state.resultText);
+    if (d is Map<String, dynamic>) out = d;
+  } catch (_) {}
+  final parked = (out?['parked'] as List?) ?? const [];
+  final count = (out?['count'] as num?)?.toInt() ?? parked.length;
+  if (count == 0) {
+    return Text(t.chat.tool.inboxEmptyState, style: AnText.reading.copyWith(color: c.inkFaint));
+  }
+  const cap = 20;
+  final rows = <Map<String, String>>[];
+  for (final p in parked.take(cap)) {
+    if (p is! Map) continue;
+    final rendered = p['rendered']?.toString() ?? '';
+    final first = rendered
+        .split('\n')
+        .map((l) => l.trim())
+        .firstWhere((l) => l.isNotEmpty, orElse: () => '—');
+    final parkedAt = DateTime.tryParse(p['parkedAt']?.toString() ?? '');
+    final flowrunId = p['flowrunId']?.toString() ?? '';
+    rows.add({
+      'ref': p['ref']?.toString() ?? '',
+      'summary': first,
+      'wait': fmtWaitedSince(parkedAt),
+      'run': flowrunId.length > 10 ? '${flowrunId.substring(0, 10)}…' : flowrunId,
+    });
+  }
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      AnThinTable(
+        columns: [
+          AnTableColumn('ref', label: t.chat.tool.inboxRef),
+          AnTableColumn('summary', label: t.chat.tool.inboxSummary),
+          AnTableColumn('wait', label: t.chat.tool.inboxWait),
+          AnTableColumn('run', label: t.chat.tool.inboxRun),
+        ],
+        rows: rows,
+      ),
+      if (count > cap)
+        Padding(
+          padding: const EdgeInsets.only(top: AnSpace.s4),
+          child: Text(t.chat.tool.inboxMore(n: '${count - cap}'),
+              style: AnText.meta.copyWith(color: c.inkFaint)),
+        ),
     ],
   );
 }

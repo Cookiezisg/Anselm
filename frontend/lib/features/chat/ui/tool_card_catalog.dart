@@ -273,6 +273,25 @@ final Map<String, ToolCardSpec> _catalog = {
     ownsError: true, // NOT_PARKED is a product-normal, not a red crash 首决胜非红崩
   ),
 
+  // ── F16 list_approval_inbox — zero-param, settle-only (no live window, no target chip) ──
+  'list_approval_inbox': ToolCardSpec(
+    verb: (t, {required bool live}) => live ? t.chat.tool.clearing : t.chat.tool.cleared,
+    receipt: (t, s) {
+      try {
+        final d = jsonDecode(s.resultText);
+        final count = d is Map<String, dynamic> ? (d['count'] as num?)?.toInt() : null;
+        if (count != null) {
+          return (
+            text: count == 0 ? t.chat.tool.inboxEmpty : t.chat.tool.inboxCount(n: '$count'),
+            tone: ToolReceiptTone.none
+          );
+        }
+      } catch (_) {}
+      return null;
+    },
+    body: listApprovalInboxBody,
+  ),
+
   // ── F3 shell ──
   'Bash': ToolCardSpec(
     verb: (t, {required bool live}) => live ? t.chat.tool.runningCmd : t.chat.tool.ranCmd,

@@ -4,6 +4,7 @@ import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/messages/block_tree_reducer.dart';
 import 'package:anselm/core/ui/an_badge.dart';
 import 'package:anselm/core/ui/an_button.dart';
+import 'package:anselm/core/ui/an_thin_table.dart';
 import 'package:anselm/features/chat/state/pending_interactions_provider.dart';
 import 'package:anselm/features/chat/ui/chat_tool_card.dart';
 import 'package:anselm/features/chat/ui/tool_interaction_gate.dart';
@@ -237,5 +238,49 @@ void main() {
     await tester.pumpAndSettle(); // failed auto-expands once
     expect(find.textContaining('本次裁决未生效'), findsOneWidget); // the reframed note
     expect(find.textContaining('approval node is not awaiting'), findsNothing); // raw prose suppressed
+  });
+
+  // ── F16 list_approval_inbox (settle-only thin table; count receipt; honest empty) ──
+
+  BlockNode inboxNode(String result) =>
+      BlockNode(id: 'tc_list_approval_inbox', kind: BlockKind.toolCall)
+        ..status = 'completed'
+        ..content = {'name': 'list_approval_inbox', 'arguments': '{}'}
+        ..children.add(BlockNode(id: 'tr_i', kind: BlockKind.toolResult)
+          ..status = 'completed'
+          ..content = {'content': result});
+
+  testWidgets('inbox receipt: N awaiting / none awaiting by count', (tester) async {
+    await tester.pumpWidget(_host(ChatToolCard(
+        node: inboxNode('{"count":2,"parked":[{"flowrunId":"flr_1","ref":"a","parkedAt":"2026-07-06T00:00:00Z"},{"flowrunId":"flr_2","ref":"b","parkedAt":"2026-07-06T00:00:00Z"}]}'))));
+    await tester.pump();
+    expect(find.textContaining('2 件待审'), findsOneWidget);
+
+    await tester.pumpWidget(_host(ChatToolCard(node: inboxNode('{"count":0,"parked":[]}'))));
+    await tester.pump();
+    expect(find.textContaining('无待审'), findsOneWidget);
+  });
+
+  testWidgets('inbox body: a thin table of parked approvals (flattened summary + ref + run)', (tester) async {
+    await tester.pumpWidget(_host(ChatToolCard(
+        node: inboxNode(
+            '{"count":1,"parked":[{"flowrunId":"flr_abcdefghij123","nodeId":"n","ref":"apf_spend","rendered":"# 采购审批\\n金额 ¥12,400","parkedAt":"2026-07-06T00:00:00Z"}]}'))));
+    await tester.pump();
+    await tester.tap(find.text('已清点'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AnThinTable), findsOneWidget);
+    expect(find.text('apf_spend'), findsOneWidget); // ref cell
+    expect(find.text('# 采购审批'), findsOneWidget); // rendered FIRST LINE only (flattened)
+    expect(find.textContaining('金额 ¥12,400'), findsNothing); // the 2nd line is NOT rendered in-cell
+    expect(find.text('flr_abcdef…'), findsOneWidget); // run id truncated
+  });
+
+  testWidgets('inbox empty → an honest muted empty state, no table', (tester) async {
+    await tester.pumpWidget(_host(ChatToolCard(node: inboxNode('{"count":0,"parked":[]}'))));
+    await tester.pump();
+    await tester.tap(find.text('已清点'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AnThinTable), findsNothing);
+    expect(find.textContaining('收件箱空'), findsOneWidget);
   });
 }

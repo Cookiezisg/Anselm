@@ -44,7 +44,7 @@ void main() {
     LocaleSettings.setLocaleRaw('zh-CN');
     const key = ValueKey('cap');
     tester.view.devicePixelRatio = 1.0;
-    tester.view.physicalSize = const Size(760, 4600);
+    tester.view.physicalSize = const Size(760, 5400);
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(RepaintBoundary(
@@ -96,6 +96,8 @@ void main() {
       find.text('已跳过'), // ask_user 已跳过
       find.text('已批准'), // decide_approval 批准判词+后果条
       find.text('已否决'), // decide_approval 否决判词
+      find.text('已清点').at(0), // list_approval_inbox 薄表
+      find.text('已清点').at(1), // list_approval_inbox 空态
     ]) {
       await tester.tap(f, warnIfMissed: false);
       await tester.pump(const Duration(milliseconds: 100));
