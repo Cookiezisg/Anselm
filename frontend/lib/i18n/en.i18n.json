@@ -337,7 +337,8 @@
       "readRangeFloor": "lines $f–$n+",
       "edited2": "$n replaced",
       "fsUnconfirmed": "result unconfirmed",
-      "emptyFile": "empty file"
+      "emptyFile": "empty file",
+      "replaceAllNote": "replaced all $n"
     },
     "gate": {
       "dangerBadge": "Dangerous",

@@ -1571,6 +1571,9 @@ class Translations$chat$tool$en {
 
 	/// en: 'empty file'
 	String get emptyFile => 'empty file';
+
+	/// en: 'replaced all $n'
+	String replaceAllNote({required Object n}) => 'replaced all ${n}';
 }
 
 // Path: chat.gate
@@ -3146,6 +3149,7 @@ extension on Translations {
 			'chat.tool.edited2' => ({required Object n}) => '${n} replaced',
 			'chat.tool.fsUnconfirmed' => 'result unconfirmed',
 			'chat.tool.emptyFile' => 'empty file',
+			'chat.tool.replaceAllNote' => ({required Object n}) => 'replaced all ${n}',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -3326,9 +3330,9 @@ extension on Translations {
 			'entities.detail.cockpit.noRunsHint' => 'Each run appears here once the workflow is triggered',
 			'entities.detail.cockpit.runGraph' => 'Run graph',
 			'entities.detail.cockpit.nodeDetail' => ({required Object id}) => 'Node · ${id}',
-			'entities.detail.cockpit.pickNode' => 'Pick a node to see its execution detail',
 			_ => null,
 		} ?? switch (path) {
+			'entities.detail.cockpit.pickNode' => 'Pick a node to see its execution detail',
 			'entities.detail.cockpit.replay' => 'Replay',
 			'entities.detail.cockpit.kill' => 'Kill',
 			'entities.detail.cockpit.runInfo' => 'Run info',

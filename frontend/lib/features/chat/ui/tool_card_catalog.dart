@@ -508,6 +508,8 @@ final Map<String, ToolCardSpec> _catalog = {
       return null;
     },
     body: editToolBody,
+    // The surgery two-act: − old_string streams in, then + new_string. 手术两幕:先切、再补。
+    liveBody: editLiveBody,
   ),
 
   // ── F2 fs-search 文件检索 ──

@@ -178,6 +178,8 @@ final toolCardFsGalleryItem = GalleryItem(
         span: true),
     GallerySpecimen('Write · 内容流入中(F01 生长秀:文件随打字长出)',
         (c) => ChatToolCard(node: _writeStreaming()), span: true),
+    GallerySpecimen('Edit · 两幕活窗(先 − old 流入,再 + new)',
+        (c) => ChatToolCard(node: _editStreaming()), span: true),
     GallerySpecimen('Edit · diff 窗(old→new,展开态)',
         (c) => ChatToolCard(
             node: _call('edit', 'Edit',
@@ -203,6 +205,23 @@ BlockNode _writeStreaming() {
             chunk: '{"file_path":"/ws/functions/quarters.py","content":"import datetime\\n\\n'
                 'def quarter_of(date):\\n    \\"\\"\\"Map a date to its fiscal quarter.\\"\\"\\"\\n'
                 '    return (date.month - 1) // 3 + 1\\n\\ndef quarter_start(y')));
+  return r.roots.single;
+}
+
+/// Mid-stream Edit: `old_string` fully arrived (the − segment), `new_string` still OPEN (+ growing).
+/// 流中 Edit:old_string 已到(− 段),new_string 未闭合(+ 生长中)。
+BlockNode _editStreaming() {
+  const scope = StreamScope(kind: 'conversation', id: 'cv_e');
+  final r = BlockTreeReducer()
+    ..apply(const StreamEnvelope(
+        seq: 1, scope: scope, id: 'tc_estream',
+        frame: FrameOpen(node: StreamNode(type: 'tool_call', content: {'name': 'Edit'}))))
+    ..apply(const StreamEnvelope(
+        seq: 0, scope: scope, id: 'tc_estream',
+        frame: FrameDelta(
+            chunk: '{"file_path":"/ws/functions/rollup.py",'
+                '"old_string":"    for it in items:\\n        by_quarter[q] += it.amount",'
+                '"new_string":"    for it in items:\\n        if it.refund:\\n            by_quarter[q] -= it.amoun')));
   return r.roots.single;
 }
 

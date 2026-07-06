@@ -679,6 +679,7 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String edited2({required Object n}) => '${n} 处替换';
 	@override String get fsUnconfirmed => '结果未确认';
 	@override String get emptyFile => '空文件';
+	@override String replaceAllNote({required Object n}) => '${n} 处全部替换';
 }
 
 // Path: chat.gate
@@ -1585,6 +1586,7 @@ extension on TranslationsZhCn {
 			'chat.tool.edited2' => ({required Object n}) => '${n} 处替换',
 			'chat.tool.fsUnconfirmed' => '结果未确认',
 			'chat.tool.emptyFile' => '空文件',
+			'chat.tool.replaceAllNote' => ({required Object n}) => '${n} 处全部替换',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -1765,9 +1767,9 @@ extension on TranslationsZhCn {
 			'entities.detail.cockpit.noRunsHint' => '触发此工作流后这里会列出每次运行',
 			'entities.detail.cockpit.runGraph' => '运行图',
 			'entities.detail.cockpit.nodeDetail' => ({required Object id}) => '节点 · ${id}',
-			'entities.detail.cockpit.pickNode' => '选择一个节点查看执行详情',
 			_ => null,
 		} ?? switch (path) {
+			'entities.detail.cockpit.pickNode' => '选择一个节点查看执行详情',
 			'entities.detail.cockpit.replay' => '重跑',
 			'entities.detail.cockpit.kill' => '终止',
 			'entities.detail.cockpit.runInfo' => '运行信息',

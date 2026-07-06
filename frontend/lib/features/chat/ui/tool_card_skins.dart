@@ -415,14 +415,64 @@ Widget writeToolBody(BuildContext context, ToolCardState state) {
 /// F1 Edit — old→new as a unified diff (AnVersionDiff: the machine window with green/red
 /// gutters, an existing primitive).
 /// F1 Edit——old→new 渲 unified diff(AnVersionDiff:带绿红软底的机器窗,现成原语)。
+/// Edit LIVE two-act pane (B4 F01.4, ToolEditLivePane) — the surgery in two acts as args stream: first
+/// `old_string` flows in (the `−` removed segment, danger-soft), then `new_string` (the `+` added
+/// segment, ok-soft). Each shows its last lines. You watch what's being cut, then what replaces it.
+/// Edit 两幕活窗:先 − old 流入、再 + new,看着切什么、换成什么。
+Widget editLiveBody(BuildContext context, ToolCardState state) {
+  final oldS = argStringPartial(state.argsText, 'old_string');
+  final newS = argStringPartial(state.argsText, 'new_string');
+  if ((oldS == null || oldS.isEmpty) && (newS == null || newS.isEmpty)) return const SizedBox.shrink();
+  final c = context.colors;
+  return ToolWindow(
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+      if (oldS != null && oldS.isNotEmpty) _editSeg(c, '−', oldS, c.dangerSoft, c.danger),
+      if (newS != null && newS.isNotEmpty) ...[
+        if (oldS != null && oldS.isNotEmpty) const SizedBox(height: AnSpace.s4),
+        _editSeg(c, '+', newS, c.okSoft, c.ok),
+      ],
+    ]),
+  );
+}
+
+Widget _editSeg(AnColors c, String sign, String text, Color bg, Color ink) {
+  final lines = text.split('\n');
+  const tail = 6;
+  final shown = lines.length > tail ? lines.sublist(lines.length - tail) : lines;
+  return Container(
+    width: double.infinity,
+    decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(AnRadius.tag)),
+    padding: const EdgeInsets.symmetric(horizontal: AnSpace.s6, vertical: AnSpace.s2),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final line in shown)
+          Text('$sign $line', maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.code.copyWith(color: ink)),
+      ],
+    ),
+  );
+}
+
+/// Edit SETTLED body (B4 F01.4) — the applied change as a unified [AnVersionDiff] (before=old_string,
+/// after=new_string, from the args); a `replace_all` edit adds an «N 处全部替换» note. new_string="" =
+/// a pure deletion (all-red diff). Edit 落定体:AnVersionDiff + replace_all 注记。
 Widget editToolBody(BuildContext context, ToolCardState state) {
+  final t = Translations.of(context);
   final path = argString(state.argsText, 'file_path') ?? '';
   final oldS = argString(state.argsText, 'old_string');
   final newS = argString(state.argsText, 'new_string');
   if (oldS == null && newS == null) return const SizedBox.shrink();
+  final replaceAll = RegExp(r'"replace_all"\s*:\s*true').hasMatch(state.argsText);
+  final replacedN = RegExp(r'Replaced (\d+) occurrence').firstMatch(state.resultText)?.group(1);
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
     if (path.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: AnSpace.s4), child: AnPathChip(path: path)),
-    AnVersionDiff(before: oldS ?? '', after: newS ?? '', lang: _langOf(path)),
+    AnVersionDiff(
+      before: oldS ?? '',
+      after: newS ?? '',
+      lang: _langOf(path),
+      note: (replaceAll && replacedN != null) ? t.chat.tool.replaceAllNote(n: replacedN) : null,
+    ),
   ]);
 }
 

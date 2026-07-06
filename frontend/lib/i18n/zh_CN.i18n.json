@@ -337,7 +337,8 @@
       "readRangeFloor": "行 $f–$n+",
       "edited2": "$n 处替换",
       "fsUnconfirmed": "结果未确认",
-      "emptyFile": "空文件"
+      "emptyFile": "空文件",
+      "replaceAllNote": "$n 处全部替换"
     },
     "gate": {
       "dangerBadge": "危险",
