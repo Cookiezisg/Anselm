@@ -69,4 +69,19 @@ void main() {
     expect(hydrateTranscriptTree([]).isEmpty, isTrue);
     expect(hydrateTranscriptTree(['not a map', 42]).isEmpty, isTrue);
   });
+
+  test('get_subagent_trace blockView shape: blockId (not id) + top-level tool key nest + label correctly', () {
+    // The leaner trace projection uses `blockId` and a top-level `tool` (no `attrs`) — children must
+    // STILL nest (not orphan on a synthetic id) and tool_call rows must carry the name. 精简 blockView 也要正确。
+    final roots = hydrateTranscriptTree([
+      {'blockId': 'tc_1', 'type': 'tool_call', 'content': '{"pattern":"x"}', 'tool': 'Grep', 'status': 'completed'},
+      {'blockId': 'tr_1', 'parentBlockId': 'tc_1', 'type': 'tool_result', 'content': '3 matches', 'status': 'completed'},
+      {'blockId': 'txt_1', 'type': 'text', 'content': 'done', 'status': 'completed'},
+    ]);
+    expect(roots.length, 2); // tool_call + text at top level; tool_result NESTS (does not orphan to root)
+    expect(roots[0].name, 'Grep'); // name from the top-level `tool` key
+    expect(roots[0].children.length, 1); // the tool_result nested under it (blockId parent lookup worked)
+    expect(roots[0].children[0].displayText, '3 matches');
+    expect(roots[1].displayText, 'done');
+  });
 }

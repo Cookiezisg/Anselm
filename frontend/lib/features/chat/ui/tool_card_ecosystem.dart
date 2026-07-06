@@ -212,13 +212,21 @@ Widget modelConfigBody(BuildContext context, ToolCardState state) {
   if (o == null) return Text(state.resultText, style: AnText.code.copyWith(color: c.inkMuted));
   final defaults = o['defaultModels'];
   final keys = (o['apiKeys'] as List?)?.length ?? 0;
-  final avail = (o['availableModels'] as List?)?.map((e) => e is Map ? '${e['id'] ?? e['name'] ?? e}' : '$e').toList() ?? const [];
+  // An available model is {apiKeyId, provider, modelId, displayName, contextWindow} — show the modelId,
+  // NEVER the whole map (which leaks apiKeyId). 可用模型取 modelId、绝不倾倒整 map(会泄漏 apiKeyId)。
+  final avail = (o['availableModels'] as List?)
+          ?.map((e) => e is Map ? '${e['modelId'] ?? e['displayName'] ?? e['id'] ?? e['name'] ?? ''}' : '$e')
+          .where((s) => s.isNotEmpty)
+          .toList() ??
+      const [];
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
     if (defaults is Map && defaults.isNotEmpty) ...[
       Text(t.chat.tool.modelDefaults, style: AnText.meta.copyWith(color: c.inkFaint)),
       const SizedBox(height: AnSpace.s2),
+      // A configured scenario's value is a {apiKeyId, modelId} map — show only the modelId (never the
+      // apiKeyId); an unconfigured scenario is the string "not configured". 只显 modelId、不泄 apiKeyId。
       for (final e in defaults.entries)
-        Text('${e.key}: ${e.value}', style: AnText.code.copyWith(color: c.inkMuted)),
+        Text('${e.key}: ${e.value is Map ? ((e.value as Map)['modelId'] ?? '') : e.value}', style: AnText.code.copyWith(color: c.inkMuted)),
       const SizedBox(height: AnSpace.s6),
     ],
     Text(t.chat.tool.modelKeys(n: '$keys'), style: AnText.meta.copyWith(color: c.inkFaint)),

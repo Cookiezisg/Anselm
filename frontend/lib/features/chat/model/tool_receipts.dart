@@ -169,9 +169,10 @@ ToolReceipt? readReceipt(
 }
 
 /// Grep / Glob / LS: count-style receipts. "No matches for …" is the backend's honest empty;
-/// a `[truncated at N lines…]` marker means the count is a floor ("N+").
-/// 检索族:计数回执。"No matches for" 是后端诚实空;截断标记时计数是下界(N+)。
-final RegExp _capTruncated = RegExp(r'\[truncated at (\d+) lines');
+/// a `[truncated at N …]` marker means the count is a floor ("N+"). Grep emits THREE markers by mode —
+/// `N lines` (content), `N files` (files_with_matches), `N matches` (count) — all mean truncated, so
+/// the receipt must recognize every unit. 检索族计数回执:三种截断单位(lines/files/matches)都算下界 N+。
+final RegExp _capTruncated = RegExp(r'\[truncated at (\d+) (?:lines|files|matches)');
 
 ToolReceipt? countReceipt(String output,
     {required String Function(String) countLabel, required String noneLabel}) {

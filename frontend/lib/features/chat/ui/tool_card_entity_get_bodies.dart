@@ -88,6 +88,22 @@ AnBadge _envBadge(Translations t, String? env) {
 Widget _pillWrap(BuildContext context, List<AnRefPill> pills) =>
     Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s4, children: pills);
 
+/// Parse an agent ToolRef `ref` into its entity kind + id. Format (agent.go): `fn_<id>` / `hd_<id>[.method]`
+/// / `mcp:<server>/<tool>` / `doc_<id>`. mcp has no entity panel → id null (inert). ToolRef ref 前缀解析。
+({String kind, String? id}) _parseToolRef(String ref) {
+  if (ref.startsWith('mcp:')) return (kind: 'mcp', id: null);
+  final m = RegExp(r'^(fn|hd|ag|doc)_[0-9a-fA-F]{16}').firstMatch(ref);
+  if (m == null) return (kind: 'tool', id: null);
+  final kind = switch (m.group(1)) {
+    'fn' => 'function',
+    'hd' => 'handler',
+    'ag' => 'agent',
+    'doc' => 'document',
+    _ => 'tool',
+  };
+  return (kind: kind, id: m.group(0));
+}
+
 AnRefPill _navPill(BuildContext context, String kind, String label, String? id) => AnRefPill(
       kind: kind,
       label: label,
@@ -177,7 +193,14 @@ GetProjection _agentProj(BuildContext context, Translations t, Map<String, dynam
     content: [
       if (tools.isNotEmpty)
         _pillWrap(context, [
-          for (final m in tools) _navPill(context, '${m['kind'] ?? 'tool'}', '${m['name']}', m['id'] as String?),
+          // An agent ToolRef is {ref, name} — the KIND + id live encoded in `ref` (fn_/hd_/mcp:/doc_),
+          // not as separate keys. Parse it so the pill gets the right glyph + navigation (mcp has no
+          // panel → inert). agent ToolRef 只有 {ref,name},kind+id 编在 ref 前缀里,解析出来给对图标+导航。
+          for (final m in tools)
+            () {
+              final r = _parseToolRef('${m['ref'] ?? ''}');
+              return _navPill(context, r.kind, '${m['name']}', r.id);
+            }(),
         ]),
       if (knowledge.isNotEmpty)
         _pillWrap(context, [for (final d in knowledge) _navPill(context, 'document', '$d', '$d')]),

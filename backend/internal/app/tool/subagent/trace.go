@@ -106,6 +106,7 @@ type blockView struct {
 	Status        string `json:"status,omitempty"`
 	Content       string `json:"content,omitempty"`
 	Error         string `json:"error,omitempty"`
+	Tool          string `json:"tool,omitempty"` // a tool_call's tool name (from Attrs["tool"]) — lets a trace reader label WHICH tool ran, not just show empty. tool_call 的工具名(供 trace 读者标注跑了哪个工具)
 	BlockID       string `json:"blockId,omitempty"`
 	ParentBlockID string `json:"parentBlockId,omitempty"`
 }
@@ -181,11 +182,13 @@ func (t *TraceTool) detail(m *messagesdomain.Message) string {
 	sort.SliceStable(blocks, func(i, j int) bool { return blocks[i].Seq < blocks[j].Seq })
 	views := make([]blockView, 0, len(blocks))
 	for _, b := range blocks {
+		tool, _ := b.Attrs["tool"].(string) // a tool_call carries its name in Attrs; empty for text/reasoning. tool_call 名在 Attrs。
 		views = append(views, blockView{
 			Type:          b.Type,
 			Status:        b.Status,
 			Content:       b.Content,
 			Error:         b.Error,
+			Tool:          tool,
 			BlockID:       b.ID,
 			ParentBlockID: b.ParentBlockID,
 		})

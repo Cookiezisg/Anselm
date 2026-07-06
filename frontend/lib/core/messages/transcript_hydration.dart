@@ -12,16 +12,28 @@ import 'block_tree_reducer.dart';
 // name/summary/danger in `attrs` (→ content['name'] off attrs['tool'], etc.); text/reasoning/tool_result
 // put their text in `content` (→ content['content']). 转写水合:把存储 block 数组重放成 live 同构树。
 
+/// The block's own id — a full messages.Block uses `id`; the leaner get_subagent_trace blockView uses
+/// `blockId`. Accept BOTH so a trace-detail's children nest (else they orphan on a synthetic id and
+/// vanish). block 自身 id:完整块用 id、精简 blockView 用 blockId,两者都收(否则子块孤儿消失)。
+String? _blockId(Map<String, dynamic> b) {
+  final id = b['id'] as String?;
+  if (id != null && id.isNotEmpty) return id;
+  final bid = b['blockId'] as String?;
+  return (bid != null && bid.isNotEmpty) ? bid : null;
+}
+
 /// Map ONE stored block to the frame node.content map BlockNode expects. 一 block → node.content 映射。
 Map<String, dynamic> _nodeContent(Map<String, dynamic> b, String type) {
   final raw = b['content'] as String? ?? '';
   if (type == 'tool_call') {
     final attrs = (b['attrs'] as Map?)?.cast<String, dynamic>() ?? const {};
+    // Full block: name in attrs['tool']. Leaner blockView (trace): no attrs — fall back to a top-level
+    // `tool` key if the projection carries one. 完整块名在 attrs['tool'];精简 blockView 回落顶层 tool 键。
     return {
-      if (attrs['tool'] != null) 'name': attrs['tool'],
+      'name': ?(attrs['tool'] ?? b['tool']),
       'arguments': raw,
-      if (attrs['summary'] != null) 'summary': attrs['summary'],
-      if (attrs['danger'] != null) 'danger': attrs['danger'],
+      'summary': ?attrs['summary'],
+      'danger': ?attrs['danger'],
     };
   }
   // text / reasoning / tool_result → the text sits in `content`. 文本类。
@@ -40,7 +52,7 @@ List<StreamEnvelope> hydrateTranscript(List<dynamic> blocks, {String scopeId = '
     final b = blocks[i];
     if (b is! Map) continue;
     final block = b.cast<String, dynamic>();
-    final id = (block['id'] as String?)?.isNotEmpty == true ? block['id'] as String : 'hblk_$i';
+    final id = _blockId(block) ?? 'hblk_$i';
     final parentId = block['parentBlockId'] as String?;
     final type = block['type'] as String? ?? '';
     final content = _nodeContent(block, type);

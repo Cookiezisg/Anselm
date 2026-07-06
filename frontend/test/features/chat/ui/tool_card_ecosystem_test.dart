@@ -89,15 +89,25 @@ void main() {
     expect(find.textContaining('MCP_SERVER_ENV_MISSING'), findsOneWidget); // auto-expanded
   });
 
-  testWidgets('get_model_config: default models + available chips', (tester) async {
+  testWidgets('get_model_config: reads modelId from the real wire — NEVER dumps the map or leaks apiKeyId', (tester) async {
+    // Real wire (config.go): defaultModels values are {apiKeyId, modelId} maps; availableModels entries
+    // are {apiKeyId, provider, modelId, displayName, contextWindow}. The card must show only the modelId.
+    // 真线缆:值是含 apiKeyId 的 map,卡片只显 modelId、绝不倾倒 map / 泄漏 apiKeyId。
     await tester.pumpWidget(_host(ChatToolCard(node: _n('get_model_config', '{}', {
-      'defaultModels': {'chat': 'claude-sonnet-5'}, 'apiKeys': [{'id': 'k1'}],
-      'availableModels': [{'id': 'claude-sonnet-5'}, {'id': 'claude-opus-4-8'}],
+      'defaultModels': {'chat': {'apiKeyId': 'key_SECRET_LEAK', 'modelId': 'claude-sonnet-5'}, 'agent': 'not configured'},
+      'apiKeys': [{'id': 'k1'}, {'id': 'k2'}],
+      'availableModels': [
+        {'apiKeyId': 'key_SECRET_LEAK', 'provider': 'anselm', 'modelId': 'claude-sonnet-5', 'displayName': 'Sonnet 5', 'contextWindow': 200000},
+        {'apiKeyId': 'key_SECRET_LEAK', 'provider': 'anselm', 'modelId': 'claude-opus-4-8', 'displayName': 'Opus 4.8', 'contextWindow': 200000},
+      ],
     }))));
     await tester.pump();
     await tester.tap(find.textContaining(t.chat.tool.gotModelConfig), warnIfMissed: false);
     await tester.pumpAndSettle();
-    expect(find.textContaining('claude-sonnet-5'), findsWidgets); // default + available chip
-    expect(find.text('claude-opus-4-8'), findsOneWidget);
+    expect(find.textContaining('claude-sonnet-5'), findsWidgets); // default row + available chip show the modelId
+    expect(find.text('claude-opus-4-8'), findsOneWidget); // available chip
+    // The apiKeyId must NEVER reach the widget tree (privacy) — no raw map dump either.
+    expect(find.textContaining('key_SECRET_LEAK'), findsNothing);
+    expect(find.textContaining('apiKeyId'), findsNothing);
   });
 }
