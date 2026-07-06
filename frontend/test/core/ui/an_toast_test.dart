@@ -1,6 +1,7 @@
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/i18n/strings.g.dart';
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -119,6 +120,26 @@ void main() {
     expect(dismissed, isTrue);
   });
 
+  testWidgets('hover PAUSES auto-dismiss, resuming from the remainder (WCAG 2.2.1)', (tester) async {
+    var dismissed = false;
+    await tester.pumpWidget(
+      host(AnToast(text: 'reading me', duration: const Duration(milliseconds: 300), onDismissed: () => dismissed = true)),
+    );
+    await tester.pump(); // enter + arm the 300ms timer
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await gesture.addPointer(location: Offset.zero);
+    addTearDown(gesture.removePointer);
+    await gesture.moveTo(tester.getCenter(find.byType(AnToast))); // hover → pause
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500)); // WELL past 300ms — but paused, so alive
+    expect(dismissed, isFalse, reason: 'hover must freeze the auto-dismiss countdown');
+    await gesture.moveTo(const Offset(2000, 2000)); // leave → resume from the remainder
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400)); // remainder elapses → dismiss
+    await tester.pumpAndSettle();
+    expect(dismissed, isTrue);
+  });
+
   testWidgets(
     'Duration.zero = sticky (no auto-dismiss, close-only — WCAG 2.2.1)',
     (tester) async {
@@ -219,7 +240,7 @@ void main() {
 
   // ── G6 adversarial-review addition: the real host + soft-cap eviction path (zero widget coverage before) ──
   testWidgets(
-    'soft cap via the real host: 8 fired → 5 shown, evicting a mid-enter toast is safe, settles',
+    'soft cap via the real host: 8 fired → 3 shown, evicting a mid-enter toast is safe, settles',
     (tester) async {
       final k = GlobalKey<NavigatorState>();
       late AnOverlayController ctrl;
@@ -251,7 +272,7 @@ void main() {
       expect(
         find.byType(AnToast),
         findsNWidgets(AnOverlayController.maxToasts),
-      ); // 8 → 5
+      ); // 8 → 3 (cap)
       await tester.pumpAndSettle(); // enters complete, no leftover ticker
       expect(tester.takeException(), isNull);
       // Drain the 4s auto-dismiss timers so none stay pending at teardown. 排空计时器。

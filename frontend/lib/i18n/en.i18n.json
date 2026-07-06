@@ -607,7 +607,8 @@
       "envFailed": "environment build failed"
     },
     "depBrokenOne": "left 1 reference dangling",
-    "depBrokenMany": "left $n references dangling"
+    "depBrokenMany": "left $n references dangling",
+    "view": "View"
   },
   "ref": {
     "function": "Function",

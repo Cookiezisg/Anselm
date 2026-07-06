@@ -25,10 +25,16 @@ class NotificationSignal {
     required this.type,
     required this.durable,
     required this.inboxCandidate,
+    this.payload = const {},
   });
 
   /// The `<domain>.<action>` event type off `node.type`. 事件类型。
   final String type;
+
+  /// The producer-defined detail off `node.content` — carried so the TOAST dispatcher can render a rich
+  /// line (name / error) off a frame WITHOUT a REST fetch (the badge/feed still reconcile via REST; this
+  /// is a live-only projection for the transient toast). payload:供 toast 据帧渲富行、免 REST 取。
+  final Map<String, dynamic> payload;
 
   /// seq>0 — a reconnect replays it. Non-durable notification frames don't exist today, but we guard so a
   /// hypothetical ephemeral one never advances the inbox. durable(seq>0);非 durable 帧不参与对账。
@@ -50,6 +56,7 @@ class NotificationSignal {
       type: type,
       durable: env.durable,
       inboxCandidate: !_isReconciliationEcho(type),
+      payload: frame.node.content ?? const {},
     );
   }
 

@@ -607,7 +607,8 @@
       "envFailed": "环境构建失败"
     },
     "depBrokenOne": "导致 1 处引用悬空",
-    "depBrokenMany": "导致 $n 处引用悬空"
+    "depBrokenMany": "导致 $n 处引用悬空",
+    "view": "查看"
   },
   "ref": {
     "function": "函数",

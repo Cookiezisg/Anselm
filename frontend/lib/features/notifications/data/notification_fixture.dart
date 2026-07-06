@@ -74,7 +74,7 @@ class FixtureNotificationRepository implements NotificationRepository {
   /// this, and tests assert the badge/list react. 前插新行并推信号(demo 脚本化通知、测试断言反应)。
   void emit(NotificationItem row) {
     _rows.insert(0, row);
-    _signals.add(NotificationSignal(type: row.type, durable: true, inboxCandidate: true));
+    _signals.add(NotificationSignal(type: row.type, durable: true, inboxCandidate: true, payload: row.payload));
   }
 
   /// Push a bare reconciliation nudge WITHOUT adding a row — models a frame-only Broadcast echo (the

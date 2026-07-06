@@ -74,6 +74,13 @@ class _AnToastState extends State<AnToast> with SingleTickerProviderStateMixin {
   bool _inited = false;
   bool _leaving = false;
 
+  // Auto-dismiss is PAUSED while the pointer is over the toast (WCAG 2.2.1 — a user reading / reaching for
+  // the action must not have it vanish). [_remaining] tracks the time left; [_sw] measures the run since
+  // the last (re)arm so pause can subtract it. Sticky toasts (duration ≤ 0) never arm — hover is a no-op.
+  // 指针悬停时暂停自动消隐(WCAG 2.2.1:正在读/够按钮的用户不该让它消失)。_remaining=剩余时长,_sw=本段计时。
+  Duration _remaining = Duration.zero;
+  final Stopwatch _sw = Stopwatch();
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -84,9 +91,34 @@ class _AnToastState extends State<AnToast> with SingleTickerProviderStateMixin {
       if (AnMotionPref.reduced(context)) _anim.duration = Duration.zero;
       _anim.forward();
       if (widget.duration > Duration.zero) {
-        _timer = Timer(widget.duration, _dismiss);
+        _remaining = widget.duration;
+        _arm(_remaining);
       }
     }
+  }
+
+  // Start (or restart) the auto-dismiss countdown for [d]. 起(或重起)消隐倒计时。
+  void _arm(Duration d) {
+    _timer?.cancel();
+    _sw
+      ..reset()
+      ..start();
+    _timer = Timer(d, _dismiss);
+  }
+
+  // Pointer entered → freeze the countdown, banking the time already run. 悬停→冻结,记下已跑时间。
+  void _pause() {
+    if (_leaving || _timer == null || !_sw.isRunning) return;
+    _timer?.cancel();
+    _remaining -= _sw.elapsed;
+    _sw.stop();
+    if (_remaining < Duration.zero) _remaining = Duration.zero;
+  }
+
+  // Pointer left → resume from the banked remainder (sticky/expired never re-arm). 离开→从剩余续跑。
+  void _resume() {
+    if (_leaving || widget.duration <= Duration.zero || _remaining <= Duration.zero) return;
+    _arm(_remaining);
   }
 
   void _dismiss() {
@@ -213,16 +245,20 @@ class _AnToastState extends State<AnToast> with SingleTickerProviderStateMixin {
     );
 
     // Enter: fade + an 8px upward nudge (spring). The polite liveRegion announce lives on the text node
-    // inside [chip] (not here — see above). 进场:淡入 + 8px 上移(spring);liveRegion 在内部文字节点。
-    return FadeTransition(
-      opacity: _anim,
-      child: AnimatedBuilder(
-        animation: curved,
-        builder: (context, child) => Transform.translate(
-          offset: Offset(0, (1 - curved.value) * AnSpace.s8),
-          child: child,
+    // inside [chip] (not here — see above). Hover pauses auto-dismiss (WCAG). 进场:淡入 + 8px 上移;悬停暂停消隐。
+    return MouseRegion(
+      onEnter: (_) => _pause(),
+      onExit: (_) => _resume(),
+      child: FadeTransition(
+        opacity: _anim,
+        child: AnimatedBuilder(
+          animation: curved,
+          builder: (context, child) => Transform.translate(
+            offset: Offset(0, (1 - curved.value) * AnSpace.s8),
+            child: child,
+          ),
+          child: chip,
         ),
-        child: chip,
       ),
     );
   }

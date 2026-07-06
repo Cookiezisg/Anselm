@@ -55,9 +55,10 @@ class AnOverlayState {
 }
 
 class AnOverlayController extends Notifier<AnOverlayState> {
-  /// Soft cap on simultaneous toasts (WRK-041 decision 2) — over this, the oldest is dropped at once
-  /// (demo's unbounded list would pile up under a burst). 海量软上限:超出立即移最旧(demo 不限会堆爆)。
-  static const int maxToasts = 5;
+  /// Soft cap on simultaneous toasts — over this, the oldest is dropped at once (a burst would pile up).
+  /// 3 = the Sonner-standard visible count (WRK-058 N3); the notification CENTER is the overflow home.
+  /// 海量软上限:超出立即移最旧;3=Sonner 标准可见数,溢出的家是通知中心。
+  static const int maxToasts = 3;
 
   int _seq = 0;
   GlobalKey<NavigatorState>? _navKey;
@@ -160,7 +161,8 @@ final overlayProvider = NotifierProvider<AnOverlayController, AnOverlayState>(
 /// The assembly-root overlay host — mounted via `MaterialApp.builder` (so it sits inside the app's
 /// Theme / MediaQuery / Directionality and above the [TranslationProvider]). It (a) registers the root
 /// navigator key with the controller so [AnOverlayController.confirm] can push dialogs, and (b) lays
-/// the toast stack in the bottom-right corner, ABOVE the app content.
+/// the toast stack in the TOP-RIGHT corner (WRK-058 N3, user-chosen — the macOS-consistent anchor,
+/// clear of the window chrome band), ABOVE the app content.
 ///
 /// Z-ORDER (WRK-041 decision 1, user-accepted): this host paints the toast layer ABOVE [child] (the
 /// MaterialApp's Navigator), so toasts float OVER a modal dialog (which is a route inside that
@@ -168,9 +170,8 @@ final overlayProvider = NotifierProvider<AnOverlayController, AnOverlayState>(
 /// and a toast firing while a modal is open is vanishingly rare; faithfully reproducing the demo order
 /// would mean dragging the toast layer into the `Overlay.of(rootOverlay)` LookupBoundary minefield.
 ///
-/// 装配根浮层宿主(MaterialApp.builder 挂)。(a) 注册 root navigator key 供 confirm push;(b) 右下角堆 toast 栈、在内容之上。
-/// z 序(决策 1,用户已认):toast 层画在 child(Navigator)之上 → toast 浮在 modal dialog 上(与 demo 相反)。已接受:
-/// toast 非阻断、modal 下弹 toast 极罕见;复刻 demo 序须把 toast 拖进 Overlay.of(rootOverlay) 的 LookupBoundary 雷区。
+/// 装配根浮层宿主(MaterialApp.builder 挂)。(a) 注册 root navigator key 供 confirm push;(b) **右上角**堆 toast 栈
+/// (N3,用户拍板——macOS 一致锚点、避开窗口 chrome 带)、在内容之上。z 序(决策 1):toast 层画在 child 之上 → 浮在 modal 上。
 class AnOverlayHost extends ConsumerStatefulWidget {
   const AnOverlayHost({
     required this.navigatorKey,
@@ -216,7 +217,9 @@ class _AnOverlayHostState extends ConsumerState<AnOverlayHost> {
         widget.child,
         Positioned(
           right: AnSpace.s24,
-          bottom: AnSpace.s24,
+          // Below the window chrome band (macOS traffic-light/titlebar ≈ 52), so toasts never overlap it.
+          // 在窗口 chrome 带(macOS 红绿灯/标题 ≈52)之下,不与之重叠。
+          top: AnSize.titlebar + AnSpace.s12,
           child: const _AnToastLayer(),
         ),
       ],
@@ -224,11 +227,11 @@ class _AnOverlayHostState extends ConsumerState<AnOverlayHost> {
   }
 }
 
-/// The toast stack — a column that grows UPWARD from the bottom-right (newest at the bottom, demo
-/// column-reverse). Only THIS widget watches the toast list, so a toast change repaints just the stack,
-/// never the app content. NOT clipped (so each chip's shadow spreads freely — the soft cap bounds the
-/// height); the small corner footprint keeps the rest of the screen click-through (no IgnorePointer).
-/// toast 栈:右下向上堆(最新在底)。仅此件 watch;不裁(阴影自由扩散,软上限兜高);角落小占位故余屏可穿透。
+/// The toast stack — a column that grows DOWNWARD from the top-right (newest at the TOP, older pushed
+/// down; the top-anchored counterpart of Sonner's stack). Only THIS widget watches the toast list, so a
+/// toast change repaints just the stack, never the app content. NOT clipped (so each chip's shadow
+/// spreads freely — the soft cap bounds the height); the small corner footprint keeps the rest of the
+/// screen click-through (no IgnorePointer). toast 栈:右上向下堆(最新在顶、旧的下推)。仅此件 watch;不裁。
 class _AnToastLayer extends ConsumerWidget {
   const _AnToastLayer();
 
@@ -242,14 +245,16 @@ class _AnToastLayer extends ConsumerWidget {
     // only bound we want is the host Stack's screen clip. 不裁/不限高:软上限已兜高度;裁会切掉 toast 四向阴影(真机复审揪出)。
     return Column(
       mainAxisSize: MainAxisSize.min,
-      verticalDirection:
-          VerticalDirection.up, // newest at the bottom, older pushed up 最新在底
+      // newest at the TOP, older pushed down (top-anchored). 最新在顶、旧的下推。
+      verticalDirection: VerticalDirection.down,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        for (final t in toasts)
+        // toasts is oldest→newest; reverse so the NEWEST sits at the top of the top-anchored stack.
+        // toasts 为旧→新;reverse 使最新居顶。
+        for (final t in toasts.reversed)
           Padding(
             padding: const EdgeInsets.only(
-              top: AnSpace.s8,
+              bottom: AnSpace.s8,
             ), // gap between stacked toasts 栈间距
             child: AnToast(
               key: ValueKey(t.id),

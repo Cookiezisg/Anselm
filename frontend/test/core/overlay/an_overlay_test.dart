@@ -21,12 +21,12 @@ void main() {
     expect(st().toasts.map((t) => t.text), ['one', 'two']);
   });
 
-  test('soft cap 5: a 6th toast drops the oldest (decision 2)', () {
+  test('soft cap (3): over the cap drops the oldest (N3 = Sonner visible count)', () {
     for (var i = 0; i < 6; i++) {
       ctrl().showToast('t$i');
     }
-    expect(st().toasts.length, AnOverlayController.maxToasts);
-    expect(st().toasts.first.text, 't1'); // t0 evicted 最旧被挤掉
+    expect(st().toasts.length, AnOverlayController.maxToasts); // 3
+    expect(st().toasts.first.text, 't3'); // t0..t2 evicted 最旧被挤掉
     expect(st().toasts.last.text, 't5');
   });
 

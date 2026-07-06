@@ -408,6 +408,9 @@ class Translations$notifications$en {
 
 	/// en: 'left $n references dangling'
 	String depBrokenMany({required Object n}) => 'left ${n} references dangling';
+
+	/// en: 'View'
+	String get view => 'View';
 }
 
 // Path: ref
@@ -4009,6 +4012,7 @@ extension on Translations {
 			'notifications.verb.envFailed' => 'environment build failed',
 			'notifications.depBrokenOne' => 'left 1 reference dangling',
 			'notifications.depBrokenMany' => ({required Object n}) => 'left ${n} references dangling',
+			'notifications.view' => 'View',
 			'ref.function' => 'Function',
 			'ref.handler' => 'Handler',
 			'ref.workflow' => 'Workflow',

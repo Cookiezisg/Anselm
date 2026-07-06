@@ -212,6 +212,7 @@ class _Translations$notifications$zh_CN extends Translations$notifications$en {
 	@override late final _Translations$notifications$verb$zh_CN verb = _Translations$notifications$verb$zh_CN._(_root);
 	@override String get depBrokenOne => '导致 1 处引用悬空';
 	@override String depBrokenMany({required Object n}) => '导致 ${n} 处引用悬空';
+	@override String get view => '查看';
 }
 
 // Path: ref
@@ -2061,6 +2062,7 @@ extension on TranslationsZhCn {
 			'notifications.verb.envFailed' => '环境构建失败',
 			'notifications.depBrokenOne' => '导致 1 处引用悬空',
 			'notifications.depBrokenMany' => ({required Object n}) => '导致 ${n} 处引用悬空',
+			'notifications.view' => '查看',
 			'ref.function' => '函数',
 			'ref.handler' => '处理器',
 			'ref.workflow' => '工作流',

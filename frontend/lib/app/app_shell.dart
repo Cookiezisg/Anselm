@@ -23,6 +23,7 @@ import '../features/entities/ui/entity_ocean.dart';
 import '../features/entities/ui/entity_rail.dart';
 import '../features/entities/ui/flowrun_inbox.dart';
 import '../features/entities/ui/run/run_terminal.dart';
+import '../features/notifications/state/toast_dispatcher.dart';
 import '../features/notifications/state/unread_count_provider.dart';
 import '../features/notifications/ui/notification_feed.dart';
 import '../i18n/strings.g.dart';
@@ -81,6 +82,9 @@ class AppShell extends ConsumerWidget {
       if (next != null) ref.read(selectedOceanProvider.notifier).select(OceanKind.documents);
     });
     final notifOpen = ref.watch(notificationsOpenProvider);
+    // Keep the event→toast dispatcher alive + subscribed for the whole session (it pops a top-right toast
+    // for important stream events). A bare watch — its value is void. 保活事件→toast 派发器(整会话订阅)。
+    ref.watch(toastDispatcherProvider);
     // The right island reveals for entities (run terminal) OR documents (properties inspector) when that
     // ocean has a selection. 右岛在 entities(run 终端)或 documents(属性面板)有选中时揭示。
     final hasEntitySelection = onEntities && ref.watch(selectedEntityProvider) != null;
