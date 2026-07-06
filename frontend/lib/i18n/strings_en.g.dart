@@ -1598,6 +1598,36 @@ class Translations$chat$tool$en {
 
 	/// en: '$pattern in $root'
 	String globHeader({required Object pattern, required Object root}) => '${pattern} in ${root}';
+
+	/// en: 'no return value'
+	String get noReturn => 'no return value';
+
+	/// en: 'ok'
+	String get execOk => 'ok';
+
+	/// en: 'failed'
+	String get execFailed => 'failed';
+
+	/// en: 'input'
+	String get ioInput => 'input';
+
+	/// en: 'output'
+	String get ioOutput => 'output';
+
+	/// en: 'logs · $n lines'
+	String execLogs({required Object n}) => 'logs · ${n} lines';
+
+	/// en: 'Running function'
+	String get runningFn => 'Running function';
+
+	/// en: 'Ran function'
+	String get ranFn => 'Ran function';
+
+	/// en: 'Calling method'
+	String get callingMethod => 'Calling method';
+
+	/// en: 'Called method'
+	String get calledMethod => 'Called method';
 }
 
 // Path: chat.gate
@@ -3182,6 +3212,16 @@ extension on Translations {
 			'chat.tool.hdResult' => 'result',
 			'chat.tool.lsEmpty' => '(empty)',
 			'chat.tool.globHeader' => ({required Object pattern, required Object root}) => '${pattern} in ${root}',
+			'chat.tool.noReturn' => 'no return value',
+			'chat.tool.execOk' => 'ok',
+			'chat.tool.execFailed' => 'failed',
+			'chat.tool.ioInput' => 'input',
+			'chat.tool.ioOutput' => 'output',
+			'chat.tool.execLogs' => ({required Object n}) => 'logs · ${n} lines',
+			'chat.tool.runningFn' => 'Running function',
+			'chat.tool.ranFn' => 'Ran function',
+			'chat.tool.callingMethod' => 'Calling method',
+			'chat.tool.calledMethod' => 'Called method',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -3344,6 +3384,8 @@ extension on Translations {
 			'entities.detail.card.config' => 'Config readiness',
 			'entities.detail.card.tools' => 'Tool mounts',
 			'entities.detail.card.skill' => 'Skill',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.card.knowledge' => 'Knowledge',
 			'entities.detail.card.model' => 'Model override',
 			'entities.detail.card.lifecycle' => 'Lifecycle',
@@ -3354,8 +3396,6 @@ extension on Translations {
 			'entities.detail.graph.openEditor' => 'Open graph editor',
 			'entities.detail.graph.unparseable' => 'Orchestration graph unparseable',
 			'entities.detail.cockpit.runs' => 'Runs',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.cockpit.runsCount' => ({required Object n}) => 'Runs · ${n}',
 			'entities.detail.cockpit.nodeGantt' => 'Node timeline',
 			'entities.detail.cockpit.notRun' => 'Not run',

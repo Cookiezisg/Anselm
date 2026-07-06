@@ -10,6 +10,7 @@ import 'tool_card_skins.dart';
 import 'tool_card_control_approval.dart';
 import 'tool_card_conversation.dart';
 import 'tool_card_document_skill.dart';
+import 'tool_card_exec.dart';
 import 'tool_card_fs_search.dart';
 import 'tool_card_entity_get_bodies.dart';
 import 'tool_card_lifecycle.dart';
@@ -811,6 +812,42 @@ final Map<String, ToolCardSpec> _catalog = {
     receipt: (t, s) => searchConversationsReceipt(t, s.resultText),
     hasBodyOf: (s) => conversationHasBody(s.resultText, isSearch: true),
     body: conversationHitBody(isSearch: true),
+  ),
+
+  // ── F08 exec: «input → black box → output» made auditable (ToolIOSection). run_function/call_handler
+  // share the ExecutionResult shape. F08 执行:输入→黑箱→输出的可核账凭据。──
+  'run_function': ToolCardSpec(
+    verb: (t, {required bool live}) => live ? t.chat.tool.runningFn : t.chat.tool.ranFn,
+    target: (s) {
+      final id = argStringPartial(s.argsText, 'functionId');
+      return id == null ? null : (id.length > 12 ? '${id.substring(0, 12)}…' : id);
+    },
+    receipt: (t, s) => execReceipt(t, s.resultText),
+    resultFailed: (s) => execResultFailed(s.resultText),
+    body: runFunctionBody,
+  ),
+  'call_handler': ToolCardSpec(
+    verb: (t, {required bool live}) => live ? t.chat.tool.callingMethod : t.chat.tool.calledMethod,
+    target: (s) {
+      final m = argString(s.argsText, 'method');
+      return m == null ? null : '$m()';
+    },
+    // A scalar result → a value preview `→ v`; else no receipt (the body shows it). 标量→值预览。
+    receipt: (t, s) {
+      try {
+        final d = jsonDecode(s.resultText);
+        if (d is Map && d.containsKey('result')) {
+          final r = d['result'];
+          if (r is String || r is num || r is bool) {
+            final v = r is String ? '"$r"' : '$r';
+            return (text: '→ ${v.length > 24 ? '${v.substring(0, 24)}…' : v}', tone: ToolReceiptTone.none);
+          }
+        }
+      } catch (_) {}
+      return null;
+    },
+    body: callHandlerBody,
+    liveBody: (context, s) => s.progressText.isEmpty ? const SizedBox.shrink() : AnTermTail(text: s.progressText),
   ),
 
   // ── F16 humanloop: ask_user (the danger gate is not a tool — it's the chassis awaitingConfirm phase) ──

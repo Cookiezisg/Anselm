@@ -346,7 +346,17 @@
       "hdCalled": "已调用方法",
       "hdResult": "返回",
       "lsEmpty": "空目录",
-      "globHeader": "$pattern 于 $root"
+      "globHeader": "$pattern 于 $root",
+      "noReturn": "无返回值",
+      "execOk": "运行成功",
+      "execFailed": "运行失败",
+      "ioInput": "输入",
+      "ioOutput": "输出",
+      "execLogs": "日志 · $n 行",
+      "runningFn": "正在运行函数",
+      "ranFn": "已运行函数",
+      "callingMethod": "正在调用方法",
+      "calledMethod": "已调用方法"
     },
     "gate": {
       "dangerBadge": "危险",

@@ -44,11 +44,13 @@ void main() {
   setUpAll(() => LocaleSettings.setLocaleRaw('zh-CN'));
 
   testWidgets('phases speak the registry verbs', (tester) async {
-    final running = _call('run_function');
+    // An UNCATALOGED name → the generic calling verb + toolName chip (run_function now has its own
+    // F08 verb 正在运行函数). 未编目名 → 通用动词 + 工具名 chip。
+    final running = _call('frobnicate');
     await tester.pumpWidget(_host(ChatToolCard(node: running), reduced: true));
     await tester.pumpAndSettle();
     expect(find.textContaining('正在调用'), findsOneWidget);
-    expect(find.text('run_function'), findsOneWidget);
+    expect(find.text('frobnicate'), findsOneWidget);
 
     final denied = _call('delete_agent')
       ..children.add(_result('The user denied running this tool. Do not retry it.'));

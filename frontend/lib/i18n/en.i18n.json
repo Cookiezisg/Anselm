@@ -346,7 +346,17 @@
       "hdCalled": "Called method",
       "hdResult": "result",
       "lsEmpty": "(empty)",
-      "globHeader": "$pattern in $root"
+      "globHeader": "$pattern in $root",
+      "noReturn": "no return value",
+      "execOk": "ok",
+      "execFailed": "failed",
+      "ioInput": "input",
+      "ioOutput": "output",
+      "execLogs": "logs · $n lines",
+      "runningFn": "Running function",
+      "ranFn": "Ran function",
+      "callingMethod": "Calling method",
+      "calledMethod": "Called method"
     },
     "gate": {
       "dangerBadge": "Dangerous",
