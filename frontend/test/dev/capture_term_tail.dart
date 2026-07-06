@@ -36,7 +36,7 @@ void main() {
     LocaleSettings.setLocaleRaw('zh-CN');
     const key = ValueKey('cap');
     tester.view.devicePixelRatio = 1.0;
-    tester.view.physicalSize = const Size(760, 2600);
+    tester.view.physicalSize = const Size(760, 1600);
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(RepaintBoundary(
@@ -51,7 +51,7 @@ void main() {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  for (final s in anTermTailGalleryItem.specimens) ...[
+                  for (final s in [...anTermTailGalleryItem.specimens, ...anTermViewportGalleryItem.specimens]) ...[
                     Builder(
                         builder: (context) => Text(s.label,
                             style: AnText.meta.copyWith(color: Theme.of(context).colorScheme.outline))),

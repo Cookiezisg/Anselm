@@ -313,7 +313,9 @@
       "polling": "Reading output",
       "polled": "Read output",
       "killing": "Terminating",
-      "killed3": "Terminated"
+      "killed3": "Terminated",
+      "backToLatest": "latest",
+      "showEarlier": "show $n earlier lines"
     },
     "gate": {
       "dangerBadge": "Dangerous",

@@ -655,6 +655,8 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get polled => '已读取输出';
 	@override String get killing => '正在终止';
 	@override String get killed3 => '已终止';
+	@override String get backToLatest => '回到最新';
+	@override String showEarlier({required Object n}) => '显示更早 ${n} 行';
 }
 
 // Path: chat.gate
@@ -1537,6 +1539,8 @@ extension on TranslationsZhCn {
 			'chat.tool.polled' => '已读取输出',
 			'chat.tool.killing' => '正在终止',
 			'chat.tool.killed3' => '已终止',
+			'chat.tool.backToLatest' => '回到最新',
+			'chat.tool.showEarlier' => ({required Object n}) => '显示更早 ${n} 行',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -1740,10 +1744,10 @@ extension on TranslationsZhCn {
 			'entities.detail.kv.model' => '模型',
 			'entities.detail.kv.provider' => '提供方',
 			'entities.detail.kv.instanceId' => '实例',
-			'entities.detail.kv.version' => '版本',
-			'entities.detail.kv.elapsed' => '耗时',
 			_ => null,
 		} ?? switch (path) {
+			'entities.detail.kv.version' => '版本',
+			'entities.detail.kv.elapsed' => '耗时',
 			'entities.detail.kv.time' => '时间',
 			'entities.detail.kv.replay' => '重放',
 			'entities.detail.kv.flowrunId' => 'Flowrun id',

@@ -208,6 +208,7 @@ final GalleryCategory _toolCards = GalleryCategory('工具卡 Tool Cards', AnIco
   toolCardLifecycleGalleryItem,
   toolCardConversationGalleryItem,
   anTermTailGalleryItem,
+  anTermViewportGalleryItem,
   toolInteractionGateGalleryItem,
 ]);
 

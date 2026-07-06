@@ -1499,6 +1499,12 @@ class Translations$chat$tool$en {
 
 	/// en: 'Terminated'
 	String get killed3 => 'Terminated';
+
+	/// en: 'latest'
+	String get backToLatest => 'latest';
+
+	/// en: 'show $n earlier lines'
+	String showEarlier({required Object n}) => 'show ${n} earlier lines';
 }
 
 // Path: chat.gate
@@ -3050,6 +3056,8 @@ extension on Translations {
 			'chat.tool.polled' => 'Read output',
 			'chat.tool.killing' => 'Terminating',
 			'chat.tool.killed3' => 'Terminated',
+			'chat.tool.backToLatest' => 'latest',
+			'chat.tool.showEarlier' => ({required Object n}) => 'show ${n} earlier lines',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -3253,10 +3261,10 @@ extension on Translations {
 			'entities.detail.kv.model' => 'Model',
 			'entities.detail.kv.provider' => 'Provider',
 			'entities.detail.kv.instanceId' => 'Instance',
-			'entities.detail.kv.version' => 'Version',
-			'entities.detail.kv.elapsed' => 'Elapsed',
 			_ => null,
 		} ?? switch (path) {
+			'entities.detail.kv.version' => 'Version',
+			'entities.detail.kv.elapsed' => 'Elapsed',
 			'entities.detail.kv.time' => 'Time',
 			'entities.detail.kv.replay' => 'Replay',
 			'entities.detail.kv.flowrunId' => 'Flowrun id',

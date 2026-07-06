@@ -1,3 +1,4 @@
+import '../../core/ui/an_term_viewport.dart';
 import '../../features/chat/ui/tool_card_skins.dart';
 import 'specimen.dart';
 
@@ -40,5 +41,23 @@ final anTermTailGalleryItem = GalleryItem(
         (c) => AnTermTail(text: _progressBar), span: true),
     GallerySpecimen('ANSI 彩色日志(红/绿/黄/暗 映 token)',
         (c) => AnTermTail(text: _ansiLog), span: true),
+  ],
+);
+
+// A long build log (> the 320 viewport → bounded + stick-to-bottom). 长日志→有界钉底。
+final _longLog = [
+  for (var i = 1; i <= 40; i++)
+    i == 30
+        ? '$_esc[32m✓$_esc[0m compiled module_$i.dart'
+        : (i == 37 ? '$_esc[31m✗ error in module_$i.dart:12$_esc[0m' : 'compiling module_$i.dart …')
+].join('\n');
+
+final anTermViewportGalleryItem = GalleryItem(
+  'AnTermViewport 有界回滚终端窗(#6)',
+  'Bash 落定体终端窗:termFold+ANSI + 有界(320)+ 钉底(终端语义,新输出在底)+ 上滚顶缘渐隐 + '
+      '「回到最新」浮标 + 超 6000 字只物化尾部 +「显示更早 N 行」懒加载(全文在内存、视口始终有界=逃生口)。',
+  [
+    GallerySpecimen('长日志(40 行 > 320 视口 → 有界钉底,末行在底)',
+        (c) => AnTermViewport(text: _longLog), span: true),
   ],
 );

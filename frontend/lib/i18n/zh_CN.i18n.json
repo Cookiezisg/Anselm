@@ -313,7 +313,9 @@
       "polling": "正在读取输出",
       "polled": "已读取输出",
       "killing": "正在终止",
-      "killed3": "已终止"
+      "killed3": "已终止",
+      "backToLatest": "回到最新",
+      "showEarlier": "显示更早 $n 行"
     },
     "gate": {
       "dangerBadge": "危险",
