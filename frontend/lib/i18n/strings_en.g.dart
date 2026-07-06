@@ -1115,6 +1115,15 @@ class Translations$chat$tool$en {
 
 	/// en: 'empty'
 	String get emptyList => 'empty';
+
+	/// en: 'current'
+	String get hitCurrent => 'current';
+
+	/// en: 'first $n of $total'
+	String cappedFooter({required Object n, required Object total}) => 'first ${n} of ${total}';
+
+	/// en: 'first $n of $total (server-truncated)'
+	String serverTruncatedNote({required Object n, required Object total}) => 'first ${n} of ${total} (server-truncated)';
 }
 
 // Path: chat.gate
@@ -2538,6 +2547,9 @@ extension on Translations {
 			'chat.tool.hits' => ({required Object n}) => '${n} found',
 			'chat.tool.hitsOfTotal' => ({required Object n, required Object total}) => '${n} of ${total}',
 			'chat.tool.emptyList' => 'empty',
+			'chat.tool.hitCurrent' => 'current',
+			'chat.tool.cappedFooter' => ({required Object n, required Object total}) => 'first ${n} of ${total}',
+			'chat.tool.serverTruncatedNote' => ({required Object n, required Object total}) => 'first ${n} of ${total} (server-truncated)',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -2868,11 +2880,11 @@ extension on Translations {
 			'entities.detail.editor.inspectorTitle' => 'Inspector',
 			'entities.detail.editor.inspectorEmptyHint' => 'Pick a node or edge on the canvas to edit it.',
 			'entities.detail.editor.edge' => 'Edge',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.editor.removeField' => 'Remove field',
 			'entities.detail.editor.refPickFamily' => 'Category…',
 			'entities.detail.editor.refFamilyFunction' => 'Function',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.editor.refFamilyHandler' => 'Handler',
 			'entities.detail.editor.refFamilyMcp' => 'MCP',
 			'entities.detail.editor.refPickTarget' => 'Select…',

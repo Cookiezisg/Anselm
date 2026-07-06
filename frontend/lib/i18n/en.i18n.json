@@ -185,7 +185,10 @@
       "listedKind": "Listed $kind",
       "hits": "$n found",
       "hitsOfTotal": "$n of $total",
-      "emptyList": "empty"
+      "emptyList": "empty",
+      "hitCurrent": "current",
+      "cappedFooter": "first $n of $total",
+      "serverTruncatedNote": "first $n of $total (server-truncated)"
     },
     "gate": {
       "dangerBadge": "Dangerous",

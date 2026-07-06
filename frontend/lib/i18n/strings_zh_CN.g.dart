@@ -527,6 +527,9 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String hits({required Object n}) => '${n} 个';
 	@override String hitsOfTotal({required Object n, required Object total}) => '${n}·共${total}';
 	@override String get emptyList => '空';
+	@override String get hitCurrent => '当前';
+	@override String cappedFooter({required Object n, required Object total}) => '前 ${n} · 共 ${total}';
+	@override String serverTruncatedNote({required Object n, required Object total}) => '前 ${n} · 共 ${total}(服务端截断)';
 }
 
 // Path: chat.gate
@@ -1281,6 +1284,9 @@ extension on TranslationsZhCn {
 			'chat.tool.hits' => ({required Object n}) => '${n} 个',
 			'chat.tool.hitsOfTotal' => ({required Object n, required Object total}) => '${n}·共${total}',
 			'chat.tool.emptyList' => '空',
+			'chat.tool.hitCurrent' => '当前',
+			'chat.tool.cappedFooter' => ({required Object n, required Object total}) => '前 ${n} · 共 ${total}',
+			'chat.tool.serverTruncatedNote' => ({required Object n, required Object total}) => '前 ${n} · 共 ${total}(服务端截断)',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -1611,11 +1617,11 @@ extension on TranslationsZhCn {
 			'entities.detail.editor.inspectorTitle' => '检查器',
 			'entities.detail.editor.inspectorEmptyHint' => '在画布上选一个节点或边来编辑。',
 			'entities.detail.editor.edge' => '边',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.editor.removeField' => '移除字段',
 			'entities.detail.editor.refPickFamily' => '选择类别…',
 			'entities.detail.editor.refFamilyFunction' => '函数',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.editor.refFamilyHandler' => '处理器',
 			'entities.detail.editor.refFamilyMcp' => 'MCP',
 			'entities.detail.editor.refPickTarget' => '选择…',

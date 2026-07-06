@@ -185,7 +185,10 @@
       "listedKind": "已列$kind",
       "hits": "$n 个",
       "hitsOfTotal": "$n·共$total",
-      "emptyList": "空"
+      "emptyList": "空",
+      "hitCurrent": "当前",
+      "cappedFooter": "前 $n · 共 $total",
+      "serverTruncatedNote": "前 $n · 共 $total(服务端截断)"
     },
     "gate": {
       "dangerBadge": "危险",
