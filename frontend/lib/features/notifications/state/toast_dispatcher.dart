@@ -8,6 +8,7 @@ import '../../../i18n/strings.g.dart';
 import '../data/notification_providers.dart';
 import '../data/notification_signal.dart';
 import '../ui/notification_copy.dart';
+import 'app_focus_provider.dart';
 
 /// The event→toast bridge (WRK-058 N3). Listens to the notifications stream and pops a top-right toast
 /// for the IMPORTANT events only — a notification whose rendered [NotificationLine] tone is warn/danger
@@ -33,6 +34,9 @@ class ToastDispatcher extends Notifier<void> {
     final repo = ref.watch(notificationRepositoryProvider);
     final sub = repo.signals().listen(_onSignal);
     ref.onDispose(sub.cancel);
+    // Init the OS-native notifier once (app root = LocalOsNotifier; demo/tests = Noop, a no-op). Tapping a
+    // posted OS notification deep-links via the same router the in-app toast uses. 初始化 OS 通知器(一次)。
+    ref.read(osNotifierProvider).init((location) => ref.read(goRouterProvider).go(location));
   }
 
   void _onSignal(NotificationSignal s) {
@@ -50,13 +54,23 @@ class ToastDispatcher extends Notifier<void> {
     if (last != null && now - last < _dedupWindowMs) return;
     _lastFired[key] = now;
 
+    final loc = notificationLocation(item);
+    final text = _flat(line);
+
+    // Route by focus, snapshotted AT dispatch time (never polled — the research's competing-race guard):
+    // focused → in-app toast; not focused → an OS-native notification the user sees while looking elsewhere.
+    // 按派发时刻的焦点快照路由:聚焦→in-app toast;未聚焦→OS 原生通知。
+    if (!ref.read(appFocusedProvider)) {
+      ref.read(osNotifierProvider).show(key: key, title: _osTitle(t), body: text, location: loc);
+      return;
+    }
+
     final tone = line.tone == NotificationTone.danger ? AnToastTone.danger : AnToastTone.warn;
     // danger = sticky (must be seen/actioned); warn = 8s. danger 常驻 / warn 8s。
     final duration = line.tone == NotificationTone.danger ? Duration.zero : const Duration(seconds: 8);
-    final loc = notificationLocation(item);
 
     ref.read(overlayProvider.notifier).showToast(
-          _flat(line),
+          text,
           tone: tone,
           duration: duration,
           action: loc == null
@@ -67,6 +81,8 @@ class ToastDispatcher extends Notifier<void> {
                 ),
         );
   }
+
+  String _osTitle(Translations t) => t.appName;
 
   /// A flat one-line toast string from the composed parts. 由 line 拼成单行 toast 文本。
   String _flat(NotificationLine line) {

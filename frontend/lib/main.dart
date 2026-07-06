@@ -8,6 +8,8 @@ import 'app/app.dart';
 import 'app/router.dart';
 import 'app/entity_mention_source.dart';
 import 'core/entity/mention_source.dart';
+import 'features/notifications/data/notification_providers.dart';
+import 'features/notifications/data/os_notifier.dart';
 import 'app/window_setup.dart';
 import 'core/error/error_boundary.dart';
 import 'core/platform/window_zoom.dart';
@@ -37,6 +39,9 @@ Future<void> main() async {
         overrides: [
           goRouterProvider.overrideWith(buildAppRouter),
           mentionSourceProvider.overrideWith(entityMentionSource),
+          // The real app posts OS-native notifications when unfocused (demo/gallery keep the Noop default).
+          // 真 app 未聚焦时发 OS 原生通知(demo/gallery 保持 Noop 默认)。
+          osNotifierProvider.overrideWithValue(LocalOsNotifier()),
         ],
         child: const AnApp(),
       ),
