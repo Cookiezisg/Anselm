@@ -167,7 +167,15 @@
       "skillPreauth": "激活后免危险确认(预授权)",
       "skillInline": "内联",
       "skillFork": "派生",
-      "docSoftFail": "未生效"
+      "docSoftFail": "未生效",
+      "trgNotListening": "未监听",
+      "trgHotUpdate": "热更新已生效",
+      "trgCreateNote": "创建不启动监听——active workflow 引用才开始听",
+      "copyDone": "已复制",
+      "trgSecret": "密钥",
+      "trgEvery": "每 $n 秒",
+      "trgCondition": "条件",
+      "trgOutput": "输出"
     },
     "gate": {
       "dangerBadge": "危险",

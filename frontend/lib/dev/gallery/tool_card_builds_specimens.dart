@@ -154,5 +154,39 @@ final toolCardBuildsGalleryItem = GalleryItem(
                 summary: 'Author the invoice-triage skill',
                 result: '{"created":"invoice-triage"}')),
         span: true),
+    // trigger ★ TriggerConfigCard — the four faces by kind (cron/webhook/fsnotify/sensor). create
+    // returns 未监听 (an active workflow reference starts it). trigger 四 kind 配置脸。
+    GallerySpecimen('已创建触发器 · cron(表达式加重 + 未监听注记)',
+        (c) => ChatToolCard(
+            node: _call('trg-cron', 'create_trigger',
+                args:
+                    '{"name":"每日收盘","kind":"cron","config":{"expression":"0 30 17 * * MON-FRI"}}',
+                summary: 'Fire at market close on weekdays',
+                result: '{"id":"trg_11aa22bb33cc44dd","version":1,"listening":false}')),
+        span: true),
+    GallerySpecimen('已创建触发器 · webhook(可复制 URL + 🔒密钥 + 签名算法)',
+        (c) => ChatToolCard(
+            node: _call('trg-hook', 'create_trigger',
+                args:
+                    '{"name":"发票入站","kind":"webhook","config":{"path":"invoice","secret":"whsec_abc123","signatureAlgo":"hmac-sha256"}}',
+                summary: 'Receive invoice posts',
+                result: '{"id":"trg_55ee66ff77aa88bb","version":1,"listening":false}')),
+        span: true),
+    GallerySpecimen('已创建触发器 · fsnotify(路径 + 事件 chips + glob)',
+        (c) => ChatToolCard(
+            node: _call('trg-fs', 'create_trigger',
+                args:
+                    '{"name":"落盘监听","kind":"fsnotify","config":{"path":"/inbox/invoices","events":["create","write"],"pattern":"*.pdf"}}',
+                summary: 'Watch the invoices inbox',
+                result: '{"id":"trg_99cc00dd11ee22ff","version":1,"listening":false}')),
+        span: true),
+    GallerySpecimen('已更新触发器 · sensor(目标药丸 + 轮询周期 + CEL 条件/输出 · 热更新)',
+        (c) => ChatToolCard(
+            node: _call('trg-sensor', 'edit_trigger',
+                args:
+                    '{"triggerId":"trg_aabb001122334455","kind":"sensor","config":{"targetKind":"function","targetId":"fn_1a2b3c4d5e6f7a8b","method":"rollup","intervalSec":60,"condition":"result.total > 10000","output":"{\\"total\\": result.total}"}}',
+                summary: 'Poll the rollup every minute',
+                result: '{"id":"trg_aabb001122334455","version":4,"listening":true}')),
+        span: true),
   ],
 );

@@ -512,6 +512,14 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get skillInline => '内联';
 	@override String get skillFork => '派生';
 	@override String get docSoftFail => '未生效';
+	@override String get trgNotListening => '未监听';
+	@override String get trgHotUpdate => '热更新已生效';
+	@override String get trgCreateNote => '创建不启动监听——active workflow 引用才开始听';
+	@override String get copyDone => '已复制';
+	@override String get trgSecret => '密钥';
+	@override String trgEvery({required Object n}) => '每 ${n} 秒';
+	@override String get trgCondition => '条件';
+	@override String get trgOutput => '输出';
 }
 
 // Path: chat.gate
@@ -1245,6 +1253,14 @@ extension on TranslationsZhCn {
 			'chat.tool.skillInline' => '内联',
 			'chat.tool.skillFork' => '派生',
 			'chat.tool.docSoftFail' => '未生效',
+			'chat.tool.trgNotListening' => '未监听',
+			'chat.tool.trgHotUpdate' => '热更新已生效',
+			'chat.tool.trgCreateNote' => '创建不启动监听——active workflow 引用才开始听',
+			'chat.tool.copyDone' => '已复制',
+			'chat.tool.trgSecret' => '密钥',
+			'chat.tool.trgEvery' => ({required Object n}) => '每 ${n} 秒',
+			'chat.tool.trgCondition' => '条件',
+			'chat.tool.trgOutput' => '输出',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -1588,6 +1604,8 @@ extension on TranslationsZhCn {
 			'entities.run.noInputs' => '无入参 —— 直接运行。',
 			'entities.run.payload' => '载荷(JSON,可选)',
 			'entities.run.payloadInvalid' => '载荷必须是合法 JSON。',
+			_ => null,
+		} ?? switch (path) {
 			'entities.run.payloadObject' => '载荷必须是 JSON 对象。',
 			'entities.run.fieldInvalid' => ({required Object name}) => '${name} 必须是合法 JSON。',
 			'entities.run.boolTrue' => 'true',
@@ -1596,8 +1614,6 @@ extension on TranslationsZhCn {
 			'entities.run.cancel' => '取消',
 			'entities.run.close' => '关闭运行终端',
 			'entities.run.idleTitle' => '准备运行',
-			_ => null,
-		} ?? switch (path) {
 			'entities.run.idleHint' => '填好入参后运行。',
 			'entities.run.cancelled' => '已取消',
 			'entities.run.outputHeading' => '输出',

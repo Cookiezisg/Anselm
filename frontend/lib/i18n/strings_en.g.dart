@@ -1070,6 +1070,30 @@ class Translations$chat$tool$en {
 
 	/// en: 'did not take effect'
 	String get docSoftFail => 'did not take effect';
+
+	/// en: 'not listening'
+	String get trgNotListening => 'not listening';
+
+	/// en: 'hot-updated live'
+	String get trgHotUpdate => 'hot-updated live';
+
+	/// en: 'created but not listening — an active workflow reference starts it'
+	String get trgCreateNote => 'created but not listening — an active workflow reference starts it';
+
+	/// en: 'Copied'
+	String get copyDone => 'Copied';
+
+	/// en: 'secret'
+	String get trgSecret => 'secret';
+
+	/// en: 'every $n s'
+	String trgEvery({required Object n}) => 'every ${n} s';
+
+	/// en: 'when'
+	String get trgCondition => 'when';
+
+	/// en: 'emit'
+	String get trgOutput => 'emit';
 }
 
 // Path: chat.gate
@@ -2466,6 +2490,14 @@ extension on Translations {
 			'chat.tool.skillInline' => 'inline',
 			'chat.tool.skillFork' => 'fork',
 			'chat.tool.docSoftFail' => 'did not take effect',
+			'chat.tool.trgNotListening' => 'not listening',
+			'chat.tool.trgHotUpdate' => 'hot-updated live',
+			'chat.tool.trgCreateNote' => 'created but not listening — an active workflow reference starts it',
+			'chat.tool.copyDone' => 'Copied',
+			'chat.tool.trgSecret' => 'secret',
+			'chat.tool.trgEvery' => ({required Object n}) => 'every ${n} s',
+			'chat.tool.trgCondition' => 'when',
+			'chat.tool.trgOutput' => 'emit',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -2809,6 +2841,8 @@ extension on Translations {
 			'entities.run.noInputs' => 'No inputs — run with no arguments.',
 			'entities.run.payload' => 'Payload (JSON, optional)',
 			'entities.run.payloadInvalid' => 'Payload must be valid JSON.',
+			_ => null,
+		} ?? switch (path) {
 			'entities.run.payloadObject' => 'Payload must be a JSON object.',
 			'entities.run.fieldInvalid' => ({required Object name}) => '${name} must be valid JSON.',
 			'entities.run.boolTrue' => 'true',
@@ -2817,8 +2851,6 @@ extension on Translations {
 			'entities.run.cancel' => 'Cancel',
 			'entities.run.close' => 'Close run terminal',
 			'entities.run.idleTitle' => 'Ready to run',
-			_ => null,
-		} ?? switch (path) {
 			'entities.run.idleHint' => 'Fill in the inputs, then run.',
 			'entities.run.cancelled' => 'Cancelled',
 			'entities.run.outputHeading' => 'Output',

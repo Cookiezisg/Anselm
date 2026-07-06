@@ -167,7 +167,15 @@
       "skillPreauth": "pre-authorized after activation (no confirm)",
       "skillInline": "inline",
       "skillFork": "fork",
-      "docSoftFail": "did not take effect"
+      "docSoftFail": "did not take effect",
+      "trgNotListening": "not listening",
+      "trgHotUpdate": "hot-updated live",
+      "trgCreateNote": "created but not listening — an active workflow reference starts it",
+      "copyDone": "Copied",
+      "trgSecret": "secret",
+      "trgEvery": "every $n s",
+      "trgCondition": "when",
+      "trgOutput": "emit"
     },
     "gate": {
       "dangerBadge": "Dangerous",

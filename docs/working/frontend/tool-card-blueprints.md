@@ -208,7 +208,7 @@ audience: [human, ai]
 | 27 | EnvFixTimeline | env 自愈 attempt 时间线 | F04 | 无 | S |
 | 28 | BranchRuleList | control 决策梯(catch-all 钉底 + 错误行定位 + diff 态) | F04 | 3 | M |
 | 29 | ApprovalFormPreview(+moustache 预处理) | 审批人视角预览 + `{{input.*}}` 占位投影(围栏跳过) | F04/06 | 11 | M |
-| 30 | TriggerConfigCard(+cronDescribe) | trigger 四 kind 脸 + config diff + cron 人话 | F04 | 3 | M |
+| 30 | TriggerConfigCard ✅(B2.9) | trigger 四 kind 脸(cron 加重 / webhook AnCopyChip URL+🔒密钥 / fsnotify 路径+事件 / sensor 目标药丸+CEL);cronDescribe 挂起 P2(裸表达式已够) | F04 | 3 | M |
 | 31 | ToolEntityHeader + EntityGetBody + RawResultDisclosure | get 族四段骨架(身份行/KV/内容折叠/原始底账永不过滤) | F06 | 9 | M |
 | 32 | 模板解析器×2(read_document 严格行序 / read_attachment 六形) | 串模板反解,一步不匹配整串降级 | F06 | 无 | S |
 | 33 | RunBeadStrip | 状态珠串(色表参数化) | F09 | 无 | S |

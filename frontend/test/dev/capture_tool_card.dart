@@ -94,6 +94,10 @@ void main() {
       find.text('已创建审批'), // approval 表单预览
       find.text('已创建文档'), // document 稿子流
       find.text('已创建技能'), // skill 稿子 + 警示药丸(精确匹配行动词)
+      find.text('已创建触发器').at(0), // trigger cron 脸
+      find.text('已创建触发器').at(1), // trigger webhook 脸(可复制 URL)
+      find.text('已创建触发器').at(2), // trigger fsnotify 脸
+      find.text('已更新触发器'), // trigger sensor 脸(CEL 条件/输出)
       find.text('quarters.py').first, // Write 代码窗
       find.text('rollup.py').at(1), // Edit diff 窗(第 0 个是 Read 回执卡的 chip)
       find.text('"amount"'), // Grep 命中窗
