@@ -661,6 +661,9 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get bashHeadTruncated => '输出过长,已弃头保尾';
 	@override String get bashNoOutput => '(无输出)';
 	@override String get ranBg => '已转入后台';
+	@override String get bashSessionGoneHint => '可能已被终止 / 已清理 / 后端已重启';
+	@override String get bashNoNew => '(无新输出)';
+	@override String bashDropped({required Object n}) => '丢弃 ${n} 字节(环缓冲溢出)';
 }
 
 // Path: chat.gate
@@ -1549,6 +1552,9 @@ extension on TranslationsZhCn {
 			'chat.tool.bashHeadTruncated' => '输出过长,已弃头保尾',
 			'chat.tool.bashNoOutput' => '(无输出)',
 			'chat.tool.ranBg' => '已转入后台',
+			'chat.tool.bashSessionGoneHint' => '可能已被终止 / 已清理 / 后端已重启',
+			'chat.tool.bashNoNew' => '(无新输出)',
+			'chat.tool.bashDropped' => ({required Object n}) => '丢弃 ${n} 字节(环缓冲溢出)',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -1745,11 +1751,11 @@ extension on TranslationsZhCn {
 			'entities.detail.kv.allowReason' => '允许备注',
 			'entities.detail.kv.timeout' => '超时',
 			'entities.detail.kv.timeoutBehavior' => '超时行为',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.kv.envId' => 'env id',
 			'entities.detail.kv.status' => '状态',
 			'entities.detail.kv.syncedAt' => '最近同步',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.kv.error' => '错误',
 			'entities.detail.kv.model' => '模型',
 			'entities.detail.kv.provider' => '提供方',

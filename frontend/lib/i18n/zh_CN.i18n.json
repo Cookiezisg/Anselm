@@ -319,7 +319,10 @@
       "bashBgHint": "用 BashOutput 轮询新输出,或 KillShell 终止",
       "bashHeadTruncated": "输出过长,已弃头保尾",
       "bashNoOutput": "(无输出)",
-      "ranBg": "已转入后台"
+      "ranBg": "已转入后台",
+      "bashSessionGoneHint": "可能已被终止 / 已清理 / 后端已重启",
+      "bashNoNew": "(无新输出)",
+      "bashDropped": "丢弃 $n 字节(环缓冲溢出)"
     },
     "gate": {
       "dangerBadge": "危险",

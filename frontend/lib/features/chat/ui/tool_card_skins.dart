@@ -275,6 +275,95 @@ Widget? _bashBottomBar(BuildContext context, Translations t, String result) {
 
 final _bashTimeoutBar = RegExp(r'\[command timed out after');
 
+// ── BashOutput (B4.6) ──
+final _statusFooterStrip = RegExp(r'\n*(\[note:[^\]]*\]\n?)?\[status: [^\]]*\]\s*$');
+final _statusFooterRe = RegExp(r'\[status: (running|exited \(code (-?\d+)\)|killed|errored)\]');
+final _dropNoteRe = RegExp(r'\[note: (\d+) bytes dropped');
+
+/// BashOutput settled body — a poll snapshot: bsh_id header (+ filter note) · the NEW output in a
+/// bounded terminal · a status bottom bar (running = STATIC accent, never breathing — R5) + a
+/// ring-overflow note chip. «no new output» / «session not found» degrade honestly. BashOutput 轮询体。
+Widget bashOutputBody(BuildContext context, ToolCardState state) {
+  final c = context.colors;
+  final t = Translations.of(context);
+  final result = state.resultText;
+  if (result.startsWith('Background shell process not found')) {
+    // The dead session: state the wire fact, then a neutral non-committal hint (never a single cause).
+    // 会话不存在:陈述线缆事实 + 中性穷举 hint。
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+      Text(result.trim(), style: AnText.code.copyWith(color: c.danger)),
+      Padding(
+        padding: const EdgeInsets.only(top: AnSpace.s4),
+        child: Text(t.chat.tool.bashSessionGoneHint, style: AnText.meta.copyWith(color: c.inkFaint)),
+      ),
+    ]);
+  }
+  final bashId = argString(state.argsText, 'bash_id') ?? '';
+  final filter = argString(state.argsText, 'filter');
+  final body = result.replaceFirst(_statusFooterStrip, '').trimRight();
+  final noNew = body.trim() == '(no new output since last poll)' || body.isEmpty;
+
+  return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+    Row(children: [
+      if (bashId.isNotEmpty) AnCopyChip(value: bashId),
+      if (filter != null && filter.isNotEmpty) ...[
+        const SizedBox(width: AnSpace.s6),
+        Text('filter /$filter/', style: AnText.meta.copyWith(color: c.inkFaint)),
+      ],
+    ]),
+    const SizedBox(height: AnSpace.s6),
+    ToolWindow(
+      actions: [WindowCopyButton(copyPayload: result)],
+      child: noNew
+          ? Text(t.chat.tool.bashNoNew, style: AnText.code.copyWith(color: c.inkFaint))
+          : AnTermViewport(text: body),
+    ),
+    ?_bashStatusBar(context, t, result),
+  ]);
+}
+
+/// The BashOutput status bottom bar — a STATIC status chip (running = accent, no breath) + a
+/// ring-overflow note. status 底条:静态状态 chip(运行中=accent 无呼吸)+ 溢出 note。
+Widget? _bashStatusBar(BuildContext context, Translations t, String result) {
+  final m = _statusFooterRe.firstMatch(result);
+  if (m == null) return null;
+  final s = m.group(1)!;
+  Widget chip;
+  if (s == 'running') {
+    chip = AnBadge(t.chat.tool.statusRunning, tone: AnTone.accent);
+  } else if (s == 'killed') {
+    chip = AnBadge(t.chat.tool.statusKilled, tone: AnTone.none);
+  } else if (s == 'errored') {
+    chip = AnBadge(t.chat.tool.statusErrored, tone: AnTone.danger);
+  } else {
+    chip = AnBadge(t.chat.tool.statusExited(code: int.parse(m.group(2)!)), tone: AnTone.danger);
+  }
+  final drop = _dropNoteRe.firstMatch(result);
+  return Padding(
+    padding: const EdgeInsets.only(top: AnSpace.s6),
+    child: Row(mainAxisSize: MainAxisSize.min, children: [
+      chip,
+      if (drop != null) ...[
+        const SizedBox(width: AnSpace.s6),
+        AnBadge(t.chat.tool.bashDropped(n: drop.group(1)!), tone: AnTone.warn),
+      ],
+    ]),
+  );
+}
+
+/// KillShell settled body (B4.7, thin) — the result sentence + a copyable bsh_id. KillShell 薄体。
+Widget killShellBody(BuildContext context, ToolCardState state) {
+  final c = context.colors;
+  final bashId = argString(state.argsText, 'bash_id') ?? '';
+  return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+    if (bashId.isNotEmpty) AnCopyChip(value: bashId),
+    Padding(
+      padding: const EdgeInsets.only(top: AnSpace.s6),
+      child: Text(state.resultText.trim(), style: AnText.code.copyWith(color: c.inkMuted)),
+    ),
+  ]);
+}
+
 /// F1 Write — the written content in a code window (language from the extension).
 /// F1 Write——写入内容装代码窗(语言按扩展名)。
 Widget writeToolBody(BuildContext context, ToolCardState state) {

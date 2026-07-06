@@ -36,7 +36,7 @@ void main() {
     LocaleSettings.setLocaleRaw('zh-CN');
     const key = ValueKey('cap');
     tester.view.devicePixelRatio = 1.0;
-    tester.view.physicalSize = const Size(760, 2600);
+    tester.view.physicalSize = const Size(760, 3600);
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(RepaintBoundary(
@@ -67,7 +67,7 @@ void main() {
       ),
     ));
     await tester.pump(const Duration(milliseconds: 60));
-    for (final f in [find.text('npm run dev'), find.text('已运行命令')]) {
+    for (final f in [find.text('npm run dev'), find.text('已读取输出'), find.text('已终止')]) {
       if (f.evaluate().isNotEmpty) {
         await tester.tap(f.first, warnIfMissed: false);
         await tester.pump(const Duration(milliseconds: 100));

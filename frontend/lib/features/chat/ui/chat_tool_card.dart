@@ -171,8 +171,11 @@ class _ChatToolCardState extends State<ChatToolCard> {
     // a failure (restart_handler's `error` key, a document soft-fail template) — the family reclassifies
     // it so the card doesn't render a lying success. 结果内失败重分类:工具绿但物已坏。
     final resultFailed = state.phase == ToolCardPhase.succeeded && (spec.resultFailed?.call(state) ?? false);
-    final failedLook =
-        state.phase == ToolCardPhase.failed || resultFailed || familyReceipt?.tone == ToolReceiptTone.danger;
+    // A danger receipt auto-expands — UNLESS the family suppresses it (BashOutput poll honesty: exited/
+    // errored are red but not re-opened each poll; session-gone still expands via resultFailed).
+    // 危险回执自动展开,除非族抑制(BashOutput 轮询诚实)。
+    final dangerReceiptExpands = familyReceipt?.tone == ToolReceiptTone.danger && !spec.suppressReceiptAutoExpand;
+    final failedLook = state.phase == ToolCardPhase.failed || resultFailed || dangerReceiptExpands;
     if (failedLook && hasBody && !_autoExpandedOnce) {
       _autoExpandedOnce = true;
       _userExpanded ??= true;

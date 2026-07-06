@@ -37,6 +37,7 @@ class ToolCardSpec {
     this.terminalVerb,
     this.verbOf,
     this.resultFailed,
+    this.suppressReceiptAutoExpand = false,
     this.ownsError = false,
   });
 
@@ -90,6 +91,13 @@ class ToolCardSpec {
   /// a green shell never hides a red fact. The family's [terminalVerb] should also switch the verb.
   /// 结果内失败重分类:工具绿但物已坏→按失败渲(自动展开),配 terminalVerb 换动词。
   final bool Function(ToolCardState state)? resultFailed;
+
+  /// Suppress the «danger receipt → auto-expand» rule for this family (WRK-056 §F03 poll honesty): a
+  /// BashOutput poll's `exited`/`errored` status is danger-COLORED but must NOT auto-expand (a dead
+  /// process returns the same status every poll — auto-expanding each history card re-opens the same
+  /// failure). The card can still auto-expand via [resultFailed] (BashOutput uses it only for «session
+  /// gone»). 抑制「危险回执→自动展开」(BashOutput exited/errored 染红但不展开;会话不存在经 resultFailed 展开)。
+  final bool suppressReceiptAutoExpand;
 
   /// The family body renders its OWN failure display (so the chassis skips the default error section) —
   /// for families where a non-zero terminal is a product-normal, not a red crash (decide_approval's
@@ -844,6 +852,37 @@ final Map<String, ToolCardSpec> _catalog = {
     // The soul of the family: the little live terminal under the row (termFold + ANSI). 族魂:活的小终端。
     liveBody: (context, s) =>
         s.progressText.isEmpty ? const SizedBox.shrink() : AnTermTail(text: s.progressText),
+  ),
+  // BashOutput (B4.6): poll a background session — bsh_id chip + status receipt + terminal body.
+  // BashOutput:轮询后台会话——bsh_id chip + status 回执 + 终端体。
+  'BashOutput': ToolCardSpec(
+    verb: (t, {required bool live}) => live ? t.chat.tool.polling : t.chat.tool.polled,
+    target: (s) {
+      final id = argStringPartial(s.argsText, 'bash_id');
+      return id == null ? null : (id.length > 12 ? '${id.substring(0, 12)}…' : id);
+    },
+    receipt: (t, s) => statusReceipt(s.resultText,
+        running: t.chat.tool.statusRunning,
+        exited: (code) => t.chat.tool.statusExited(code: code),
+        killed: t.chat.tool.statusKilled,
+        errored: t.chat.tool.statusErrored,
+        notFound: t.chat.tool.statusNotFound),
+    body: bashOutputBody,
+    // Poll honesty: exited/errored are danger-colored but don't auto-expand; only «session gone» does.
+    // 轮询诚实:exited/errored 染红不展开;仅会话不存在(resultFailed)展开。
+    suppressReceiptAutoExpand: true,
+    resultFailed: (s) => s.resultText.startsWith('Background shell process not found'),
+  ),
+  // KillShell (B4.7, thin): terminate a background session — three-state receipt + a thin session body.
+  // KillShell 薄卡:终止后台会话——三态回执 + 薄会话体。
+  'KillShell': ToolCardSpec(
+    verb: (t, {required bool live}) => live ? t.chat.tool.killing : t.chat.tool.killed3,
+    target: (s) {
+      final id = argStringPartial(s.argsText, 'bash_id');
+      return id == null ? null : (id.length > 12 ? '${id.substring(0, 12)}…' : id);
+    },
+    receipt: (t, s) => killShellReceipt(s.resultText, finished: t.chat.tool.killFinished, notFound: t.chat.tool.killNotFound),
+    body: killShellBody,
   ),
 };
 

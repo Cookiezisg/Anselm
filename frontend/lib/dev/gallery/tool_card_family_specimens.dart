@@ -106,6 +106,36 @@ final toolCardShellGalleryItem = GalleryItem(
                 result: 'Started background command (bash_id=bsh_1a2b3c4d5e6f7a8b): npm run dev\n'
                     'Use BashOutput with this bash_id to poll new output, or KillShell to terminate.')),
         span: true),
+    GallerySpecimen('BashOutput · running(bsh chip + 新输出 + 状态底条 静态 accent)',
+        (c) => ChatToolCard(
+            node: _call('bashout-run', 'BashOutput',
+                args: '{"bash_id":"bsh_1a2b3c4d5e6f7a8b"}',
+                result: 'VITE v5.0  ready in 312 ms\n  ➜  Local:   http://localhost:5173/\n\n[status: running]')),
+        span: true),
+    GallerySpecimen('BashOutput · 无新输出 + exited(code 0)(不自动展开)',
+        (c) => ChatToolCard(
+            node: _call('bashout-done', 'BashOutput',
+                args: '{"bash_id":"bsh_1a2b3c4d5e6f7a8b"}',
+                result: '(no new output since last poll)\n\n[status: exited (code 0)]')),
+        span: true),
+    GallerySpecimen('BashOutput · 会话不存在(danger + 中性穷举 hint)',
+        (c) => ChatToolCard(
+            node: _call('bashout-gone', 'BashOutput',
+                args: '{"bash_id":"bsh_dead"}',
+                result: 'Background shell process not found: bsh_dead')),
+        span: true),
+    GallerySpecimen('KillShell · 已终止(动词自足,无回执)',
+        (c) => ChatToolCard(
+            node: _call('kill-ok', 'KillShell',
+                args: '{"bash_id":"bsh_1a2b3c4d5e6f7a8b"}',
+                result: 'Killed background shell bsh_1a2b3c4d5e6f7a8b.')),
+        span: true),
+    GallerySpecimen('KillShell · 已自行结束(muted)',
+        (c) => ChatToolCard(
+            node: _call('kill-fin', 'KillShell',
+                args: '{"bash_id":"bsh_9"}',
+                result: 'Background shell bsh_9 already finished; removed from registry.')),
+        span: true),
   ],
 );
 

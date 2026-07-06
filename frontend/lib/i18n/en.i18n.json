@@ -319,7 +319,10 @@
       "bashBgHint": "poll with BashOutput, or KillShell to terminate",
       "bashHeadTruncated": "output too long — head dropped, tail kept",
       "bashNoOutput": "(no output)",
-      "ranBg": "moved to background"
+      "ranBg": "moved to background",
+      "bashSessionGoneHint": "may have been terminated / cleaned up / backend restarted",
+      "bashNoNew": "(no new output)",
+      "bashDropped": "$n bytes dropped (ring overflow)"
     },
     "gate": {
       "dangerBadge": "Dangerous",

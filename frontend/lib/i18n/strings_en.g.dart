@@ -1517,6 +1517,15 @@ class Translations$chat$tool$en {
 
 	/// en: 'moved to background'
 	String get ranBg => 'moved to background';
+
+	/// en: 'may have been terminated / cleaned up / backend restarted'
+	String get bashSessionGoneHint => 'may have been terminated / cleaned up / backend restarted';
+
+	/// en: '(no new output)'
+	String get bashNoNew => '(no new output)';
+
+	/// en: '$n bytes dropped (ring overflow)'
+	String bashDropped({required Object n}) => '${n} bytes dropped (ring overflow)';
 }
 
 // Path: chat.gate
@@ -3074,6 +3083,9 @@ extension on Translations {
 			'chat.tool.bashHeadTruncated' => 'output too long — head dropped, tail kept',
 			'chat.tool.bashNoOutput' => '(no output)',
 			'chat.tool.ranBg' => 'moved to background',
+			'chat.tool.bashSessionGoneHint' => 'may have been terminated / cleaned up / backend restarted',
+			'chat.tool.bashNoNew' => '(no new output)',
+			'chat.tool.bashDropped' => ({required Object n}) => '${n} bytes dropped (ring overflow)',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -3270,11 +3282,11 @@ extension on Translations {
 			'entities.detail.kv.allowReason' => 'Allow reason',
 			'entities.detail.kv.timeout' => 'Timeout',
 			'entities.detail.kv.timeoutBehavior' => 'On timeout',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.kv.envId' => 'env id',
 			'entities.detail.kv.status' => 'Status',
 			'entities.detail.kv.syncedAt' => 'Last synced',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.kv.error' => 'Error',
 			'entities.detail.kv.model' => 'Model',
 			'entities.detail.kv.provider' => 'Provider',
