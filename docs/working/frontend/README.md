@@ -70,14 +70,15 @@ Anselm 前端 = 一个 **Flutter 桌面 app**,是内嵌 **Go sidecar** 的纯客
 | **Phase 4.1 Entities** | ✅ | 实体导航 + 详情海洋 + 执行右岛(STEP 0–6 + 5.5) | [`features/entities`](../../references/frontend/features/entities.md) · 归档 [`WRK-046`](../../archive/entities/README.md) |
 | **Phase 4.2 Chat** | 🔨 在建 | **纯聊天骨干完整体已落**(rail + 中心海洋 transcript/composer/浮层头 + 自动命名 + @提及 + 附件三入口);**tool 卡 V3a–V3c 已落**(底盘 + 机器窗口 + shell·fs·builds 皮肤,WRK-053);**完美态蓝图已拍板 + B1 人闸全落**(2026-07-06:113 工具逐个设计 + 50 新原语,WRK-056 + 底册 WRK-057;**B1「人闸」F16 全族已建**——AnIcons 精确表 / ToolReceipt tone / pendingInteractionsProvider 三源合一 / ToolInteractionGate 人闸原语 / V6 危险门接底盘 / ask_user / decide_approval / list_approval_inbox,1747 测绿;**下一批 B2 builds 旗舰**);V5 特殊块/V8 右岛另计 | [`chat.md`](chat.md) · [`tool-cards.md`](tool-cards.md) · [`tool-card-blueprints.md`](tool-card-blueprints.md) |
 | **实体页雕琢 + 实体可视化** | 🔨 在建 | 逐实体 ideal 实体页;**function F1–F2 已落**(变换盒 hero + 代码渐隐 + 环境合卡 + meta 就地编辑 + 版本 tab,F3 暂缓);**workflow 站 W1–W5 全落**(图地基/页面/活运行/驾驶舱/编辑器) | [`entity-pages.md`](entity-pages.md) · [`workflow-page.md`](workflow-page.md) |
+| **Notifications(通知中心 + toast)** | 🔨 在建 | 左岛铃托盘(两段式:待你处理 + 通知流)+ 右上悬浮 toast(important-only)+ OS 原生通知;调研+四拍板已定(boring 后端分径 / 两段式 / toast 全体迁右上 / OS 通知进 v1),阶梯 N0–N5 | [`notifications.md`](notifications.md) |
 | **Phase 4.3 Scheduler** | ⏳ | 调度海洋(占位「即将推出」) | — |
 | **Phase 4.4 Documents** | ⏳ | 文档海洋(占位) | — |
 
 ### 3.2 当前焦点 + 下一步
 
-- **现在**:workflow 实体页(WRK-055)**W1–W5 全落**——图地基(GraphModel/AnGraphCanvas)→ 页面组装 → 活运行 → 驾驶舱 → 图编辑器全部完成、各批对抗复审收口。
-- **随后**:function F3 收尾(右岛按签名渲结果 + hero 活态)→ 逐个聊下一实体 → 各实体 chat 工具卡按定稿 revisit。
-- **chat 尾巴**:V6 人在环确认卡(interaction 重同步)· V3d–V3e 余族皮肤 · V5 特殊块 · V8 右岛(后端 touchpoint 台账已就绪)。
+- **现在**:**Notifications 模块**([`notifications.md`](notifications.md),WRK-058)——调研(10 agent 全对抗验证)+ 四拍板已定,按阶梯 N0(后端分径)→ N1(契约缝)→ N2(托盘)→ N3(toast 右上)→ N4(OS 通知)→ N5(组装)建。
+- **随后**:function F3 收尾(右岛按签名渲结果 + hero 活态)→ 逐个聊下一实体。
+- **chat 尾巴**:V5 特殊块 · V8 右岛(后端 touchpoint 台账已就绪)。
 - **远期弧线**:Chat/实体全成 → Scheduler 4.3 → Documents 4.4。
 
 ---
