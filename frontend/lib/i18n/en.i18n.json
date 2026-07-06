@@ -436,7 +436,15 @@
       "fireNo": "not fired",
       "gettingFlowrun": "Opening run",
       "gotFlowrun": "Opened run",
-      "runStatusRunning": "Running"
+      "runStatusRunning": "Running",
+      "gettingAgentExec": "Opening agent run",
+      "gotAgentExec": "Opened agent run",
+      "transcriptSteps": "Trajectory · $n steps",
+      "transcriptOpenFull": "View full trajectory",
+      "transcriptEmpty": "No trajectory recorded",
+      "transcriptCapped": "showing $shown/$total blocks",
+      "transcriptThought": "thought",
+      "transcriptReply": "reply"
     },
     "gate": {
       "dangerBadge": "Dangerous",

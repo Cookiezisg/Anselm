@@ -36,7 +36,7 @@ void main() {
     LocaleSettings.setLocaleRaw('zh-CN');
     const key = ValueKey('cap');
     tester.view.devicePixelRatio = 1.0;
-    tester.view.physicalSize = const Size(760, 3400);
+    tester.view.physicalSize = const Size(760, 4400);
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(RepaintBoundary(
@@ -78,6 +78,10 @@ void main() {
         await tester.pump(const Duration(milliseconds: 80));
       }
     }
+    // get_agent_execution: expand the OK one@0 (the failed@1 auto-expands). agent 执行:点非失败。
+    await tester.ensureVisible(find.text('已调阅智能体执行').at(0));
+    await tester.tap(find.text('已调阅智能体执行').at(0), warnIfMissed: false);
+    await tester.pump(const Duration(milliseconds: 80));
     // Open every log drawer to show the double-ended cap + the mcp stderr segment. 打开日志抽屉。
     for (var i = 0; i < find.text(t.chat.tool.dossierLogs).evaluate().length; i++) {
       await tester.ensureVisible(find.text(t.chat.tool.dossierLogs).at(i));

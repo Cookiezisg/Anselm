@@ -778,6 +778,14 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get gettingFlowrun => '正在调阅运行';
 	@override String get gotFlowrun => '已调阅运行';
 	@override String get runStatusRunning => '运行中';
+	@override String get gettingAgentExec => '正在调阅智能体执行';
+	@override String get gotAgentExec => '已调阅智能体执行';
+	@override String transcriptSteps({required Object n}) => '轨迹 · ${n} 步';
+	@override String get transcriptOpenFull => '查看完整轨迹';
+	@override String get transcriptEmpty => '无轨迹记录';
+	@override String transcriptCapped({required Object shown, required Object total}) => '显示 ${shown}/${total} 块';
+	@override String get transcriptThought => '思考';
+	@override String get transcriptReply => '回复';
 }
 
 // Path: chat.gate
@@ -1783,6 +1791,14 @@ extension on TranslationsZhCn {
 			'chat.tool.gettingFlowrun' => '正在调阅运行',
 			'chat.tool.gotFlowrun' => '已调阅运行',
 			'chat.tool.runStatusRunning' => '运行中',
+			'chat.tool.gettingAgentExec' => '正在调阅智能体执行',
+			'chat.tool.gotAgentExec' => '已调阅智能体执行',
+			'chat.tool.transcriptSteps' => ({required Object n}) => '轨迹 · ${n} 步',
+			'chat.tool.transcriptOpenFull' => '查看完整轨迹',
+			'chat.tool.transcriptEmpty' => '无轨迹记录',
+			'chat.tool.transcriptCapped' => ({required Object shown, required Object total}) => '显示 ${shown}/${total} 块',
+			'chat.tool.transcriptThought' => '思考',
+			'chat.tool.transcriptReply' => '回复',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -1857,6 +1873,8 @@ extension on TranslationsZhCn {
 			'graph.kind.agent' => '智能体',
 			'graph.kind.control' => '分支',
 			'graph.kind.approval' => '审批',
+			_ => null,
+		} ?? switch (path) {
 			'graph.kind.unknown' => '未知',
 			'a11y.editingField' => ({required Object field}) => '正在编辑 ${field}',
 			'a11y.editField' => ({required Object field}) => '编辑 ${field}',
@@ -1865,8 +1883,6 @@ extension on TranslationsZhCn {
 			'a11y.moreActions' => '更多操作',
 			'a11y.graphZoomIn' => '放大',
 			'a11y.graphZoomOut' => '缩小',
-			_ => null,
-		} ?? switch (path) {
 			'a11y.graphFit' => '适应画布',
 			'a11y.graphNode' => ({required Object id, required Object kind, required Object ref}) => '节点 ${id},${kind},${ref}',
 			'a11y.codeBlock' => ({required Object lang, required Object lines}) => '代码块,${lang},${lines} 行',

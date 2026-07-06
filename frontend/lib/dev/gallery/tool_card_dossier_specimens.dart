@@ -74,5 +74,31 @@ final toolCardDossierGalleryItem = GalleryItem(
               'createdAt': '2026-07-05T13:03:00Z',
             })),
         span: true),
+    GallerySpecimen('get_agent_execution · 成功(modelId/provider 微标 + TranscriptPeek 轨迹)',
+        (c) => ChatToolCard(node: _get('get_agent_execution', '{"executionId":"agexec_1a2b3c4d"}', {
+              'id': 'agexec_1a2b3c4d', 'agentId': 'ag_1', 'modelId': 'claude-sonnet-5', 'provider': 'anselm',
+              'status': 'ok', 'triggeredBy': 'chat', 'input': {'quarter': '2026Q2'},
+              'output': '共 312 张发票已归类,无异常。', 'elapsedMs': 8400,
+              'startedAt': '2026-07-05T14:03:00Z', 'endedAt': '2026-07-05T14:03:08Z', 'conversationId': 'conv_abc123',
+              'transcript': [
+                {'type': 'reasoning', 'content': '先取本季度全部发票,再按类目归并。', 'status': 'completed'},
+                {'id': 'tc_1', 'type': 'tool_call', 'content': '{"functionId":"fn_1","args":{}}', 'attrs': {'tool': 'run_function', 'summary': '取发票'}, 'status': 'completed'},
+                {'id': 'tr_1', 'parentBlockId': 'tc_1', 'type': 'tool_result', 'content': '{"ok":true,"output":312}', 'status': 'completed'},
+                {'type': 'text', 'content': '归并完成,输出汇总。', 'status': 'completed'},
+              ],
+            })),
+        span: true),
+    GallerySpecimen('get_agent_execution · 失败(auto-expand + 轨迹取首尾)',
+        (c) => ChatToolCard(node: _get('get_agent_execution', '{"executionId":"agexec_bad"}', {
+              'id': 'agexec_bad', 'agentId': 'ag_1', 'modelId': 'claude-sonnet-5', 'provider': 'anselm',
+              'status': 'failed', 'triggeredBy': 'workflow', 'input': {'quarter': 'bad'},
+              'errorMessage': 'AGENT_OUTPUT_NOT_STRUCTURED: model returned prose but outputSchema requires {total:int}',
+              'elapsedMs': 2400, 'startedAt': '2026-07-05T14:03:00Z', 'endedAt': '2026-07-05T14:03:02Z',
+              'transcript': [
+                {'type': 'reasoning', 'content': '解析 quarter 参数。', 'status': 'completed'},
+                {'type': 'text', 'content': '季度值无效,无法继续。', 'status': 'error'},
+              ],
+            })),
+        span: true),
   ],
 );

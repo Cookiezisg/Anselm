@@ -10,8 +10,11 @@ import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
+import '../../../core/messages/block_tree_reducer.dart';
+import '../../../core/messages/transcript_hydration.dart';
 import 'run_dossier.dart';
 import 'run_ledger.dart';
+import 'transcript_peek.dart';
 import 'tool_card_io_section.dart';
 import 'tool_card_skins.dart';
 
@@ -374,4 +377,46 @@ Widget getActivationBody(BuildContext context, ToolCardState s) {
     const SizedBox(height: AnSpace.s6),
     ProvenanceLine(triggerId: o['triggerId'] as String?),
   ]);
+}
+
+// ── get_agent_execution (B5.10): the heavy dossier with a TranscriptPeek ──
+// AgentExecution {status, triggeredBy, input, output?, transcript, errorMessage?, elapsedMs, modelId?,
+// provider?, ...provenance} — NO logs field (the transcript IS the record). The body is a RunDossier
+// (head + modelId/provider micro + input/output) with the hydrated trajectory as its extra section.
+// get_agent_execution 重卡:卷宗 + 轨迹目录。
+
+Widget getAgentExecBody(BuildContext context, ToolCardState s) {
+  final o = _obj(s.resultText);
+  if (o == null) {
+    return Text(s.resultText, style: AnText.code.copyWith(color: context.colors.inkMuted), maxLines: 40, overflow: TextOverflow.ellipsis);
+  }
+  final transcript = o['transcript'];
+  final roots = transcript is List ? hydrateTranscriptTree(transcript, scopeId: '${o['conversationId'] ?? ''}') : const <BlockNode>[];
+  final failed = o['status'] == 'failed' || o['status'] == 'timeout';
+  return RunDossier(
+    status: '${o['status']}',
+    triggeredBy: o['triggeredBy'] as String?,
+    elapsedMs: o['elapsedMs'] is int ? o['elapsedMs'] as int : null,
+    startedAt: o['startedAt'] as String?,
+    endedAt: o['endedAt'] as String?,
+    headChips: [
+      if ((o['modelId'] as String?)?.isNotEmpty ?? false) AnBadge('${o['modelId']}', tone: AnTone.none),
+      if ((o['provider'] as String?)?.isNotEmpty ?? false) AnBadge('${o['provider']}', tone: AnTone.none),
+    ],
+    input: o['input'],
+    output: o['output'],
+    errorMessage: o['errorMessage'] as String?,
+    // The trajectory — hydrated from Execution.transcript through the SHARED adapter (live-path parity).
+    // 轨迹:经共享适配器从 Execution.transcript 水合(与 live 路径同构)。
+    extra: transcript is List
+        ? TranscriptPeek(roots: roots, totalBlocks: transcript.length, failed: failed)
+        : null,
+    provenance: ProvenanceLine(
+      conversationId: o['conversationId'] as String?,
+      messageId: o['messageId'] as String?,
+      flowrunId: o['flowrunId'] as String?,
+      nodeId: o['flowrunNodeId'] as String?,
+      iteration: o['flowrunIteration'] is int ? o['flowrunIteration'] as int : null,
+    ),
+  );
 }

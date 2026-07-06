@@ -5,6 +5,7 @@ import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/messages/block_tree_reducer.dart';
 import 'package:anselm/features/chat/ui/chat_tool_card.dart';
 import 'package:anselm/features/chat/ui/run_dossier.dart';
+import 'package:anselm/features/chat/ui/transcript_peek.dart';
 import 'package:anselm/features/chat/ui/tool_card_runlog.dart';
 import 'package:anselm/features/chat/model/tool_receipts.dart';
 import 'package:anselm/i18n/strings.g.dart';
@@ -102,6 +103,28 @@ void main() {
     expect(find.textContaining('main log line'), findsOneWidget); // main segment
     // the separator line itself is consumed, not shown raw. 分隔行被吃掉、不裸显。
     expect(find.textContaining(mcpStderrSeparator), findsNothing);
+  });
+
+  testWidgets('get_agent_execution: modelId micro + hydrated TranscriptPeek (thought/tool/reply)', (tester) async {
+    await tester.pumpWidget(_host(ChatToolCard(node: _get('get_agent_execution', '{"executionId":"agexec_1"}', {
+      'id': 'agexec_1', 'agentId': 'ag_1', 'modelId': 'claude-sonnet-5', 'provider': 'anselm', 'status': 'ok',
+      'triggeredBy': 'chat', 'input': {'q': 1}, 'output': 'done', 'elapsedMs': 8400,
+      'startedAt': '2026-07-05T14:03:00Z', 'endedAt': '2026-07-05T14:03:08Z',
+      'transcript': [
+        {'type': 'reasoning', 'content': 'PLANNING_THE_WORK', 'status': 'completed'},
+        {'id': 'tc_1', 'type': 'tool_call', 'content': '{}', 'attrs': {'tool': 'run_function', 'summary': 'fetch'}, 'status': 'completed'},
+        {'type': 'text', 'content': 'FINAL_REPLY_TEXT', 'status': 'completed'},
+      ],
+    }))));
+    await tester.pump();
+    await tester.tap(find.textContaining(t.chat.tool.gotAgentExec), warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect(find.byType(TranscriptPeek), findsOneWidget);
+    expect(find.text('claude-sonnet-5'), findsOneWidget); // modelId micro badge
+    expect(find.textContaining(t.chat.tool.transcriptSteps(n: '3')), findsOneWidget); // 3 blocks
+    expect(find.textContaining('PLANNING_THE_WORK', findRichText: true), findsOneWidget); // reasoning line
+    expect(find.textContaining('run_function'), findsWidgets); // tool_call row
+    expect(find.textContaining('FINAL_REPLY_TEXT', findRichText: true), findsOneWidget); // text reply line
   });
 
   testWidgets('activation fired: fire conclusion + returnValue + payload + trigger provenance', (tester) async {

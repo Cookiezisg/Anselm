@@ -61,6 +61,7 @@ class RunDossier extends StatelessWidget {
     this.output,
     this.errorMessage,
     this.logs,
+    this.extra,
     this.provenance,
     super.key,
   });
@@ -75,6 +76,10 @@ class RunDossier extends StatelessWidget {
   final Object? output;
   final String? errorMessage;
   final String? logs;
+
+  /// An extra section between the log drawer and the provenance line (get_agent_execution's
+  /// TranscriptPeek). 日志抽屉与出处行之间的额外段(agent 执行的轨迹目录)。
+  final Widget? extra;
   final Widget? provenance;
 
   @override
@@ -103,6 +108,10 @@ class RunDossier extends StatelessWidget {
       if (logs != null && logs!.trim().isNotEmpty) ...[
         const SizedBox(height: AnSpace.s6),
         _LogDrawer(logs: logs!),
+      ],
+      if (extra != null) ...[
+        const SizedBox(height: AnSpace.s6),
+        extra!,
       ],
       if (provenance != null) ...[
         const SizedBox(height: AnSpace.s6),

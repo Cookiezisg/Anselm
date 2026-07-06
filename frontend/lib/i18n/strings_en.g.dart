@@ -1868,6 +1868,30 @@ class Translations$chat$tool$en {
 
 	/// en: 'Running'
 	String get runStatusRunning => 'Running';
+
+	/// en: 'Opening agent run'
+	String get gettingAgentExec => 'Opening agent run';
+
+	/// en: 'Opened agent run'
+	String get gotAgentExec => 'Opened agent run';
+
+	/// en: 'Trajectory · $n steps'
+	String transcriptSteps({required Object n}) => 'Trajectory · ${n} steps';
+
+	/// en: 'View full trajectory'
+	String get transcriptOpenFull => 'View full trajectory';
+
+	/// en: 'No trajectory recorded'
+	String get transcriptEmpty => 'No trajectory recorded';
+
+	/// en: 'showing $shown/$total blocks'
+	String transcriptCapped({required Object shown, required Object total}) => 'showing ${shown}/${total} blocks';
+
+	/// en: 'thought'
+	String get transcriptThought => 'thought';
+
+	/// en: 'reply'
+	String get transcriptReply => 'reply';
 }
 
 // Path: chat.gate
@@ -3542,6 +3566,14 @@ extension on Translations {
 			'chat.tool.gettingFlowrun' => 'Opening run',
 			'chat.tool.gotFlowrun' => 'Opened run',
 			'chat.tool.runStatusRunning' => 'Running',
+			'chat.tool.gettingAgentExec' => 'Opening agent run',
+			'chat.tool.gotAgentExec' => 'Opened agent run',
+			'chat.tool.transcriptSteps' => ({required Object n}) => 'Trajectory · ${n} steps',
+			'chat.tool.transcriptOpenFull' => 'View full trajectory',
+			'chat.tool.transcriptEmpty' => 'No trajectory recorded',
+			'chat.tool.transcriptCapped' => ({required Object shown, required Object total}) => 'showing ${shown}/${total} blocks',
+			'chat.tool.transcriptThought' => 'thought',
+			'chat.tool.transcriptReply' => 'reply',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -3616,6 +3648,8 @@ extension on Translations {
 			'graph.kind.agent' => 'Agent',
 			'graph.kind.control' => 'Branch',
 			'graph.kind.approval' => 'Approval',
+			_ => null,
+		} ?? switch (path) {
 			'graph.kind.unknown' => 'Unknown',
 			'a11y.editingField' => ({required Object field}) => 'Editing ${field}',
 			'a11y.editField' => ({required Object field}) => 'Edit ${field}',
@@ -3624,8 +3658,6 @@ extension on Translations {
 			'a11y.moreActions' => 'More actions',
 			'a11y.graphZoomIn' => 'Zoom in',
 			'a11y.graphZoomOut' => 'Zoom out',
-			_ => null,
-		} ?? switch (path) {
 			'a11y.graphFit' => 'Fit to view',
 			'a11y.graphNode' => ({required Object id, required Object kind, required Object ref}) => 'Node ${id}, ${kind}, ${ref}',
 			'a11y.codeBlock' => ({required Object lang, required Object lines}) => 'Code block, ${lang}, ${lines} lines',

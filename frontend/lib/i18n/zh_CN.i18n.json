@@ -436,7 +436,15 @@
       "fireNo": "未 fire",
       "gettingFlowrun": "正在调阅运行",
       "gotFlowrun": "已调阅运行",
-      "runStatusRunning": "运行中"
+      "runStatusRunning": "运行中",
+      "gettingAgentExec": "正在调阅智能体执行",
+      "gotAgentExec": "已调阅智能体执行",
+      "transcriptSteps": "轨迹 · $n 步",
+      "transcriptOpenFull": "查看完整轨迹",
+      "transcriptEmpty": "无轨迹记录",
+      "transcriptCapped": "显示 $shown/$total 块",
+      "transcriptThought": "思考",
+      "transcriptReply": "回复"
     },
     "gate": {
       "dangerBadge": "危险",

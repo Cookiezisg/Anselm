@@ -1008,6 +1008,11 @@ final Map<String, ToolCardSpec> _catalog = {
   'get_flowrun': _getRecord(
       running: (t) => t.chat.tool.gettingFlowrun, done: (t) => t.chat.tool.gotFlowrun,
       chipArg: 'flowrunId', receipt: getFlowrunReceipt, failed: getFlowrunFailed, body: getFlowrunBody),
+  // get_agent_execution — the heavy dossier (head + modelId/provider + input/output + TranscriptPeek).
+  // The transcript is hydrated through the shared adapter (live-path parity). get_agent_execution 重卡。
+  'get_agent_execution': _getRecord(
+      running: (t) => t.chat.tool.gettingAgentExec, done: (t) => t.chat.tool.gotAgentExec,
+      chipArg: 'executionId', receipt: execRecordReceipt, failed: execRecordFailed, body: getAgentExecBody),
 
   // ── F16 humanloop: ask_user (the danger gate is not a tool — it's the chassis awaitingConfirm phase) ──
   // 三段动词:正在提问(live)→ 等待你回答(awaiting,底盘渲门)→ 已回答/已跳过/空答案(按结果散文)。
