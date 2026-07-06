@@ -237,10 +237,22 @@ final toolCardSearchGalleryItem = GalleryItem(
   'F2:回执=计数(过去时的凭据,含截断下界 N+);展开=命中窗(行式等宽);"No matches"=诚实空回执、'
       '无展开体。目标=引号包 pattern / LS 用 basename。',
   [
-    GallerySpecimen('Grep · 4 处匹配(展开命中窗)',
+    GallerySpecimen('Grep · content(编辑器式全局搜索:分组 + 行号 + 行内点亮)',
         (c) => ChatToolCard(
             node: _call('grep', 'Grep',
-                args: '{"pattern":"amount","path":"/ws"}', result: _grepOutput)),
+                args: '{"pattern":"amount","path":"/ws","output_mode":"content","-n":true}', result: _grepOutput)),
+        span: true),
+    GallerySpecimen('Grep · count(热度条:一眼看出模式聚居地)',
+        (c) => ChatToolCard(
+            node: _call('grep-count', 'Grep',
+                args: '{"pattern":"amount","path":"/ws","output_mode":"count"}',
+                result: '/ws/functions/rollup.py:5\n/ws/handlers/invoice_sync.py:12\n/ws/functions/quarters.py:1\n')),
+        span: true),
+    GallerySpecimen('Grep · files_with_matches(路径清单)',
+        (c) => ChatToolCard(
+            node: _call('grep-files', 'Grep',
+                args: '{"pattern":"amount","path":"/ws"}',
+                result: '/ws/functions/rollup.py\n/ws/handlers/invoice_sync.py\n/ws/functions/quarters.py\n')),
         span: true),
     GallerySpecimen('Glob · JSON 命中窗(basename + size·mtime,mtime 降序)',
         (c) => ChatToolCard(

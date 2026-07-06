@@ -173,3 +173,230 @@ String _shortMtime(String rfc3339) {
 
 /// A count-up widget for a settle-only search count (the «计数揭示»). Used inside bodies. 计数揭示。
 Widget fsSearchCount(int n, {String? suffix}) => AnCountUp(n, suffix: suffix);
+
+// ── Grep (rg --no-heading style, three output modes) ──
+
+bool _grepNoise(String l) => l.isEmpty || l == '--' || l.startsWith('... [') || l.startsWith('No matches');
+
+/// files_with_matches: one absolute path per line. files 模式:每行一路径。
+List<String> parseGrepFiles(String output) =>
+    [for (final l in output.trimRight().split('\n')) if (!_grepNoise(l)) l];
+
+/// count mode: `path:N` per line (rg single-file target → bare `N`, path = the arg path). count 模式。
+typedef GrepCount = ({String path, int count});
+List<GrepCount> parseGrepCount(String output, String argPath) {
+  final out = <GrepCount>[];
+  for (final line in output.trimRight().split('\n')) {
+    if (_grepNoise(line)) continue;
+    final bare = int.tryParse(line.trim());
+    if (bare != null) {
+      out.add((path: argPath, count: bare)); // rg single-file bare N rg 单文件裸数字
+    } else {
+      final i = line.lastIndexOf(':');
+      final n = i < 0 ? null : int.tryParse(line.substring(i + 1));
+      if (n != null) out.add((path: line.substring(0, i), count: n));
+    }
+  }
+  return out;
+}
+
+/// content mode: one entry per line, grouped by file, preserving order. A match line uses `:` after the
+/// path/line; a context line uses `-`; a single-file result omits the path (line starts with a digit);
+/// without `-n` there's no line number. content 模式:逐行(匹配 `:` / 上下文 `-` / 单文件省 path / 无 -n 省行号)。
+typedef GrepLine = ({int? line, String text, bool isMatch});
+typedef GrepGroup = ({String path, List<GrepLine> lines});
+
+final _grepMatch = RegExp(r'^(.+?):(\d+):(.*)$'); // path:line:text
+final _grepCtx = RegExp(r'^(.+?)-(\d+)-(.*)$'); // path-line-text
+final _grepSfMatch = RegExp(r'^(\d+):(.*)$'); // line:text (single file)
+final _grepSfCtx = RegExp(r'^(\d+)-(.*)$'); // line-text (single file)
+final _grepNoLine = RegExp(r'^(.+?):(.*)$'); // path:text (no -n)
+
+List<GrepGroup> parseGrepContent(String output, String argPath) {
+  final lines = output.split('\n');
+  // Single-file mode iff the first content line starts with a digit + separator. 单文件模式判定。
+  final firstContent = lines.firstWhere((l) => !_grepNoise(l), orElse: () => '');
+  final singleFile = RegExp(r'^\d+[:-]').hasMatch(firstContent);
+  final order = <String>[];
+  final groups = <String, List<GrepLine>>{};
+  void add(String path, GrepLine gl) {
+    if (!order.contains(path)) order.add(path);
+    (groups[path] ??= []).add(gl);
+  }
+
+  for (final raw in lines) {
+    if (_grepNoise(raw)) continue;
+    if (singleFile) {
+      final m = _grepSfMatch.firstMatch(raw);
+      if (m != null) {
+        add(argPath, (line: int.parse(m.group(1)!), text: m.group(2)!, isMatch: true));
+        continue;
+      }
+      final ctx = _grepSfCtx.firstMatch(raw);
+      if (ctx != null) {
+        add(argPath, (line: int.parse(ctx.group(1)!), text: ctx.group(2)!, isMatch: false));
+        continue;
+      }
+      add(argPath, (line: null, text: raw, isMatch: true));
+    } else {
+      final m = _grepMatch.firstMatch(raw);
+      if (m != null) {
+        add(m.group(1)!, (line: int.parse(m.group(2)!), text: m.group(3)!, isMatch: true));
+        continue;
+      }
+      final ctx = _grepCtx.firstMatch(raw);
+      if (ctx != null) {
+        add(ctx.group(1)!, (line: int.parse(ctx.group(2)!), text: ctx.group(3)!, isMatch: false));
+        continue;
+      }
+      final nl = _grepNoLine.firstMatch(raw);
+      if (nl != null) add(nl.group(1)!, (line: null, text: nl.group(2)!, isMatch: true));
+    }
+  }
+  return [for (final p in order) (path: p, lines: groups[p]!)];
+}
+
+/// Highlight the [pattern] occurrences inside [text] (a case-insensitive literal-ish search). A pattern
+/// that won't compile as a regex, or a multiline flag, → no highlight (honest, never a wrong span). 行内
+/// 命中点亮(编译失败/multiline→不点亮)。
+List<InlineSpan> highlightMatches(String text, String pattern, AnColors c, {required TextStyle base, bool caseInsensitive = false, bool multiline = false}) {
+  if (pattern.isEmpty || multiline) return [TextSpan(text: text, style: base)];
+  RegExp? re;
+  try {
+    re = RegExp(pattern, caseSensitive: !caseInsensitive);
+  } catch (_) {
+    return [TextSpan(text: text, style: base)]; // uncompilable → plain 编译失败→纯文本
+  }
+  final spans = <InlineSpan>[];
+  var last = 0;
+  for (final m in re.allMatches(text)) {
+    if (m.start == m.end) continue; // zero-width → skip (would loop) 零宽跳过
+    if (m.start > last) spans.add(TextSpan(text: text.substring(last, m.start), style: base));
+    spans.add(TextSpan(
+      text: text.substring(m.start, m.end),
+      style: base.copyWith(backgroundColor: c.accentSoft, color: c.ink).weight(AnText.emphasisWeight),
+    ));
+    last = m.end;
+  }
+  if (spans.isEmpty) return [TextSpan(text: text, style: base)];
+  if (last < text.length) spans.add(TextSpan(text: text.substring(last), style: base));
+  return spans;
+}
+
+/// The GREP CONTENT VIEW — an editor-style global-search panel in the transcript: matches grouped by
+/// file (a path header), each line with its number gutter + inline match highlight; context lines dim;
+/// a `···` gap between non-contiguous line ranges. Capped at 200 lines. Grep content 视图:分组 + 行号 +
+/// 行内点亮 + 上下文降色。
+class GrepContentView extends StatelessWidget {
+  const GrepContentView({required this.groups, required this.pattern, this.caseInsensitive = false, this.multiline = false, super.key});
+
+  final List<GrepGroup> groups;
+  final String pattern;
+  final bool caseInsensitive;
+  final bool multiline;
+
+  static const int _cap = 200;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    var rendered = 0;
+    final children = <Widget>[];
+    for (final g in groups) {
+      if (rendered >= _cap) break;
+      children.add(Padding(
+        padding: EdgeInsets.only(top: children.isEmpty ? 0 : AnSpace.s6, bottom: AnSpace.s2),
+        child: Text(g.path, style: AnText.mono.copyWith(color: c.inkFaint)),
+      ));
+      int? prevLine;
+      for (final gl in g.lines) {
+        if (rendered >= _cap) break;
+        // A gap between non-contiguous lines → a `···` marker. 行号跳跃→···。
+        if (prevLine != null && gl.line != null && gl.line! > prevLine + 1) {
+          children.add(Text('···', style: AnText.code.copyWith(color: c.inkFaint)));
+        }
+        prevLine = gl.line;
+        rendered++;
+        children.add(_line(context, c, gl));
+      }
+    }
+    return ToolWindow(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: children),
+    );
+  }
+
+  Widget _line(BuildContext context, AnColors c, GrepLine gl) {
+    final base = AnText.code.copyWith(color: gl.isMatch ? c.inkMuted : c.inkFaint);
+    final spans = gl.isMatch
+        ? highlightMatches(gl.text, pattern, c, base: base, caseInsensitive: caseInsensitive, multiline: multiline)
+        : [TextSpan(text: gl.text, style: base)];
+    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      SizedBox(
+        width: AnSize.trail,
+        child: Text(gl.line?.toString() ?? '', textAlign: TextAlign.right, style: AnText.code.copyWith(color: c.inkFaint)),
+      ),
+      const SizedBox(width: AnSpace.s8),
+      Expanded(child: Text.rich(TextSpan(children: spans), maxLines: 1, overflow: TextOverflow.ellipsis)),
+    ]);
+  }
+}
+
+/// Grep settled body — dispatch by `output_mode`: content → [GrepContentView]; count → path·count heat
+/// rows; files_with_matches (default) → a plain path list. Grep 体:按 output_mode 分派。
+Widget grepToolBody(BuildContext context, ToolCardState state) {
+  final c = context.colors;
+  final result = state.resultText;
+  if (result.trimLeft().startsWith('No matches') || result.startsWith('Invalid regex')) {
+    return ToolWindow(child: Text(result.trim(), style: AnText.code.copyWith(color: result.startsWith('Invalid') ? c.danger : c.inkFaint)));
+  }
+  final mode = argString(state.argsText, 'output_mode') ?? 'files_with_matches';
+  final argPath = argString(state.argsText, 'path') ?? '';
+  final pattern = argString(state.argsText, 'pattern') ?? '';
+
+  if (mode == 'content') {
+    final groups = parseGrepContent(result, argPath);
+    if (groups.isEmpty) return ToolWindow(child: Text(result, style: AnText.code.copyWith(color: c.inkMuted), maxLines: 40, overflow: TextOverflow.ellipsis));
+    return GrepContentView(
+      groups: groups,
+      pattern: pattern,
+      caseInsensitive: RegExp(r'"-i"\s*:\s*true').hasMatch(state.argsText),
+      multiline: RegExp(r'"multiline"\s*:\s*true').hasMatch(state.argsText),
+    );
+  }
+  if (mode == 'count') {
+    final counts = parseGrepCount(result, argPath);
+    final maxN = counts.fold<int>(1, (m, e) => e.count > m ? e.count : m);
+    return ToolHitList(
+      rows: [
+        for (final e in counts)
+          ToolHitRow(
+            glyph: AnIcons.doc,
+            title: _basename(e.path),
+            subtitle: e.path,
+            trailing: _countHeat(context, c, e.count, maxN),
+          ),
+      ],
+      cap: 30,
+      rawJson: result,
+    );
+  }
+  // files_with_matches
+  final files = parseGrepFiles(result);
+  return ToolHitList(
+    rows: [for (final f in files) ToolHitRow(glyph: AnIcons.doc, title: _basename(f), subtitle: f)],
+    cap: 30,
+    rawJson: result,
+  );
+}
+
+Widget _countHeat(BuildContext context, AnColors c, int count, int maxN) {
+  return Row(mainAxisSize: MainAxisSize.min, children: [
+    Container(
+      width: 40 * (count / maxN).clamp(0.15, 1.0),
+      height: AnSpace.s4,
+      decoration: BoxDecoration(color: c.accentSoft, borderRadius: BorderRadius.circular(AnRadius.tag)),
+    ),
+    const SizedBox(width: AnSpace.s6),
+    Text('$count', style: AnText.value().copyWith(color: c.inkMuted)),
+  ]);
+}

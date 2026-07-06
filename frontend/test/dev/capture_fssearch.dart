@@ -67,7 +67,7 @@ void main() {
       ),
     ));
     await tester.pump(const Duration(milliseconds: 60));
-    for (final f in [find.text('已检索'), find.text('已列出')]) {
+    for (final f in [find.text('已搜索'), find.text('已检索'), find.text('已列出')]) {
       if (f.evaluate().isNotEmpty) { await tester.tap(f.first, warnIfMissed: false); await tester.pump(const Duration(milliseconds: 100)); }
     }
     await tester.pump(const Duration(seconds: 1));

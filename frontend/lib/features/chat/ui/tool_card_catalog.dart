@@ -537,7 +537,7 @@ final Map<String, ToolCardSpec> _catalog = {
     doneVerb: (t) => t.chat.tool.grepped,
     argKey: 'pattern',
     countLabel: (t, n) => t.chat.tool.matches(n: n),
-    body: listToolBody, // Grep content view lands in the next F02 step. Grep 命中窗下步落。
+    body: grepToolBody, // content view / count heat / files list by output_mode. 按 output_mode 分派。
   ),
   'LS': _search(
     liveVerb: (t) => t.chat.tool.listing,
