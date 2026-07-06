@@ -36,7 +36,7 @@ void main() {
     LocaleSettings.setLocaleRaw('zh-CN');
     const key = ValueKey('cap');
     tester.view.devicePixelRatio = 1.0;
-    tester.view.physicalSize = const Size(760, 3200);
+    tester.view.physicalSize = const Size(760, 4400);
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(RepaintBoundary(
@@ -76,6 +76,12 @@ void main() {
     for (var i = 0; i < find.text('已触发工作流').evaluate().length; i++) {
       await tester.ensureVisible(find.text('已触发工作流').at(i));
       await tester.tap(find.text('已触发工作流').at(i), warnIfMissed: false);
+      await tester.pump(const Duration(milliseconds: 80));
+    }
+    // get_flowrun: completed@0 + parked@2 need a tap; failed@1 auto-expands. get_flowrun 点非失败。
+    for (final i in [0, 2]) {
+      await tester.ensureVisible(find.text('已调阅运行').at(i));
+      await tester.tap(find.text('已调阅运行').at(i), warnIfMissed: false);
       await tester.pump(const Duration(milliseconds: 80));
     }
     await tester.pumpAndSettle();

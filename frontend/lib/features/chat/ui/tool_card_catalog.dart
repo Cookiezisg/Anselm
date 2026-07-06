@@ -1003,6 +1003,11 @@ final Map<String, ToolCardSpec> _catalog = {
   'get_activation': _getRecord(
       running: (t) => t.chat.tool.gettingActivation, done: (t) => t.chat.tool.gotActivation,
       chipArg: 'activationId', receipt: activationFireReceipt, failed: activationRecordFailed, body: getActivationBody),
+  // get_flowrun — the run cockpit read (run header + FlowrunNodeList + provenance). Same shape as
+  // replay; failed run → danger auto-expand. get_flowrun 运行解剖卡。
+  'get_flowrun': _getRecord(
+      running: (t) => t.chat.tool.gettingFlowrun, done: (t) => t.chat.tool.gotFlowrun,
+      chipArg: 'flowrunId', receipt: getFlowrunReceipt, failed: getFlowrunFailed, body: getFlowrunBody),
 
   // ── F16 humanloop: ask_user (the danger gate is not a tool — it's the chassis awaitingConfirm phase) ──
   // 三段动词:正在提问(live)→ 等待你回答(awaiting,底盘渲门)→ 已回答/已跳过/空答案(按结果散文)。

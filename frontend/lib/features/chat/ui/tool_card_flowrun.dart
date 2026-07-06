@@ -11,6 +11,7 @@ import '../../../i18n/strings.g.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
 import 'tool_card_io_section.dart';
+import 'run_dossier.dart';
 import 'tool_card_nav.dart';
 import 'tool_card_skins.dart';
 
@@ -266,4 +267,53 @@ class _FlowrunNodeListState extends State<FlowrunNodeList> {
       ]),
     );
   }
+}
+
+// ── get_flowrun (B5.9): the run cockpit read (run header + FlowrunNodeList + provenance) ──
+// Same {flowrun, nodes, nodeSummary?} shape as replay; nodes are record-once (createdAt≈completedAt →
+// no real duration bars) so FlowrunNodeList (event-point ledger) IS the honest visualization — no
+// separate time-axis waterfall. get_flowrun 运行解剖:头条 + 节点台账 + 出处。
+
+/// The get_flowrun receipt — `{status} · {shown}/{total} 节点`; failed/no-parked-running → danger
+/// auto-expand (you opened a run to inspect a problem). running → grey (a live snapshot). get_flowrun 回执。
+ToolReceipt? getFlowrunReceipt(Translations t, String output) {
+  final comp = decodeFlowrunResult(output);
+  if (comp == null) return null;
+  final total = flowrunTotalNodes(comp);
+  final shown = comp.nodeSummary?.shownNodes ?? comp.nodes.length;
+  final nodes = total == shown ? t.chat.tool.nodeCount(n: '$total') : '$shown/$total';
+  final status = comp.flowrun.status;
+  final word = switch (status) {
+    'completed' => t.chat.tool.runCompleted,
+    'failed' => t.chat.tool.runStillFailed,
+    'cancelled' => t.chat.tool.runCancelled,
+    'running' => flowrunHasParked(comp) ? t.chat.tool.runAwaitApproval : t.chat.tool.runStatusRunning,
+    _ => status,
+  };
+  final danger = status == 'failed';
+  return (text: '$word · $nodes', tone: danger ? ToolReceiptTone.danger : ToolReceiptTone.none);
+}
+
+bool getFlowrunFailed(String output) => decodeFlowrunResult(output)?.flowrun.status == 'failed';
+
+/// get_flowrun body — a run header (status badge · workflow pill · replay× · run-level error) + the node
+/// ledger + a provenance line (triggerId / firingId). get_flowrun 落定体。
+Widget getFlowrunBody(BuildContext context, ToolCardState state) {
+  final c = context.colors;
+  final comp = decodeFlowrunResult(state.resultText);
+  if (comp == null) {
+    return Text(state.resultText, style: AnText.code.copyWith(color: c.inkMuted), maxLines: 40, overflow: TextOverflow.ellipsis);
+  }
+  final run = comp.flowrun;
+  return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+    _RunFooter(run: run),
+    if (run.error != null && run.error!.isNotEmpty) ...[
+      const SizedBox(height: AnSpace.s6),
+      ToolWindow(child: Text(run.error!, style: AnText.code.copyWith(color: c.danger), maxLines: 12, overflow: TextOverflow.ellipsis)),
+    ],
+    const SizedBox(height: AnSpace.s6),
+    FlowrunNodeList(nodes: comp.nodes, summary: comp.nodeSummary),
+    const SizedBox(height: AnSpace.s6),
+    ProvenanceLine(triggerId: run.triggerId, firingId: run.firingId),
+  ]);
 }

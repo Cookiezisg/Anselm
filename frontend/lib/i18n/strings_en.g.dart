@@ -1859,6 +1859,15 @@ class Translations$chat$tool$en {
 
 	/// en: 'not fired'
 	String get fireNo => 'not fired';
+
+	/// en: 'Opening run'
+	String get gettingFlowrun => 'Opening run';
+
+	/// en: 'Opened run'
+	String get gotFlowrun => 'Opened run';
+
+	/// en: 'Running'
+	String get runStatusRunning => 'Running';
 }
 
 // Path: chat.gate
@@ -3530,6 +3539,9 @@ extension on Translations {
 			'chat.tool.provNode' => 'node',
 			'chat.tool.fireYes' => 'fired',
 			'chat.tool.fireNo' => 'not fired',
+			'chat.tool.gettingFlowrun' => 'Opening run',
+			'chat.tool.gotFlowrun' => 'Opened run',
+			'chat.tool.runStatusRunning' => 'Running',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -3612,11 +3624,11 @@ extension on Translations {
 			'a11y.moreActions' => 'More actions',
 			'a11y.graphZoomIn' => 'Zoom in',
 			'a11y.graphZoomOut' => 'Zoom out',
+			_ => null,
+		} ?? switch (path) {
 			'a11y.graphFit' => 'Fit to view',
 			'a11y.graphNode' => ({required Object id, required Object kind, required Object ref}) => 'Node ${id}, ${kind}, ${ref}',
 			'a11y.codeBlock' => ({required Object lang, required Object lines}) => 'Code block, ${lang}, ${lines} lines',
-			_ => null,
-		} ?? switch (path) {
 			'a11y.codeBlockPlain' => ({required Object lines}) => 'Code block, ${lines} lines',
 			'a11y.jsonTree' => ({required Object count}) => 'JSON tree, ${count} items',
 			'a11y.diff' => ({required Object added, required Object removed}) => 'Diff, ${added} added, ${removed} removed',

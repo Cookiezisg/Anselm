@@ -775,6 +775,9 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get provNode => '节点';
 	@override String get fireYes => '已 fire';
 	@override String get fireNo => '未 fire';
+	@override String get gettingFlowrun => '正在调阅运行';
+	@override String get gotFlowrun => '已调阅运行';
+	@override String get runStatusRunning => '运行中';
 }
 
 // Path: chat.gate
@@ -1777,6 +1780,9 @@ extension on TranslationsZhCn {
 			'chat.tool.provNode' => '节点',
 			'chat.tool.fireYes' => '已 fire',
 			'chat.tool.fireNo' => '未 fire',
+			'chat.tool.gettingFlowrun' => '正在调阅运行',
+			'chat.tool.gotFlowrun' => '已调阅运行',
+			'chat.tool.runStatusRunning' => '运行中',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -1859,11 +1865,11 @@ extension on TranslationsZhCn {
 			'a11y.moreActions' => '更多操作',
 			'a11y.graphZoomIn' => '放大',
 			'a11y.graphZoomOut' => '缩小',
+			_ => null,
+		} ?? switch (path) {
 			'a11y.graphFit' => '适应画布',
 			'a11y.graphNode' => ({required Object id, required Object kind, required Object ref}) => '节点 ${id},${kind},${ref}',
 			'a11y.codeBlock' => ({required Object lang, required Object lines}) => '代码块,${lang},${lines} 行',
-			_ => null,
-		} ?? switch (path) {
 			'a11y.codeBlockPlain' => ({required Object lines}) => '代码块,${lines} 行',
 			'a11y.jsonTree' => ({required Object count}) => 'JSON 树,${count} 项',
 			'a11y.diff' => ({required Object added, required Object removed}) => '差异,新增 ${added},删除 ${removed}',

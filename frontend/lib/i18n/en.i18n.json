@@ -433,7 +433,10 @@
       "provFiring": "firing",
       "provNode": "node",
       "fireYes": "fired",
-      "fireNo": "not fired"
+      "fireNo": "not fired",
+      "gettingFlowrun": "Opening run",
+      "gotFlowrun": "Opened run",
+      "runStatusRunning": "Running"
     },
     "gate": {
       "dangerBadge": "Dangerous",

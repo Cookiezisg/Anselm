@@ -433,7 +433,10 @@
       "provFiring": "派发",
       "provNode": "节点",
       "fireYes": "已 fire",
-      "fireNo": "未 fire"
+      "fireNo": "未 fire",
+      "gettingFlowrun": "正在调阅运行",
+      "gotFlowrun": "已调阅运行",
+      "runStatusRunning": "运行中"
     },
     "gate": {
       "dangerBadge": "危险",

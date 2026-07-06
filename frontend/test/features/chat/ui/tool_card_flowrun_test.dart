@@ -142,4 +142,42 @@ void main() {
       expect(find.text(t.chat.tool.emptyPayload), findsOneWidget);
     });
   });
+
+  group('get_flowrun', () {
+    BlockNode gfr(String result) => BlockNode(id: 'tc_g', kind: BlockKind.toolCall)
+      ..status = 'completed'
+      ..content = {'name': 'get_flowrun', 'arguments': '{"flowrunId":"fr_9a8b7c6d5e4f3a2b"}'}
+      ..children.add(BlockNode(id: 'tr_g', kind: BlockKind.toolResult)
+        ..status = 'completed'
+        ..content = {'content': result});
+
+    test('receipt: status·nodes; failed→danger; capped→shown/total', () {
+      expect(getFlowrunReceipt(t, _run('completed', [_node('a', 'action', 'completed')]))!.tone, isNot(ToolReceiptTone.danger));
+      expect(getFlowrunReceipt(t, _run('failed', [_node('a', 'action', 'failed')]))!.tone, ToolReceiptTone.danger);
+      final capped = getFlowrunReceipt(t, _run('completed', [_node('a', 'action', 'completed')],
+          nodeSummary: '{"totalNodes":213,"shownNodes":80,"byStatus":{"completed":213},"note":"x"}'))!;
+      expect(capped.text, contains('80/213')); // capped → shown/total, from summary
+      expect(getFlowrunFailed(_run('failed', [])), isTrue);
+    });
+
+    testWidgets('completed: run header + node ledger + trigger provenance', (tester) async {
+      await tester.pumpWidget(_host(ChatToolCard(node: gfr(
+          '{"flowrun":{"id":"fr_9a8b7c6d5e4f3a2b","workflowId":"wf_1a2b3c4d5e6f7a8b","versionId":"v1","status":"completed","replayCount":0,"triggerId":"trg_abc123def456","pinnedRefs":{},"updatedAt":"2026-07-05T14:05:00Z"},"nodes":[${_node('trigger', 'trigger', 'completed')},${_node('fetch', 'action', 'completed')}]}'))));
+      await tester.pump();
+      await tester.tap(find.textContaining(t.chat.tool.gotFlowrun), warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(find.byType(FlowrunNodeList), findsOneWidget);
+      expect(find.textContaining('wf_1a2b3c4d5e6f7a8b'), findsWidgets); // workflow pill in the header
+      expect(find.textContaining(t.chat.tool.provTrigger), findsOneWidget); // navigable trigger provenance
+    });
+
+    testWidgets('failed run auto-expands with the run-level error window', (tester) async {
+      await tester.pumpWidget(_host(ChatToolCard(node: gfr(_run('failed', [
+        _node('charge', 'action', 'failed', error: 'boom'),
+      ], runError: 'run halted at node charge')))));
+      await tester.pump();
+      await tester.pumpAndSettle();
+      expect(find.textContaining('run halted at node charge'), findsOneWidget); // auto-expanded run error
+    });
+  });
 }

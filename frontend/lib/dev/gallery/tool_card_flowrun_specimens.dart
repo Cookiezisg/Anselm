@@ -22,6 +22,13 @@ BlockNode _trigger(String args, String result) => BlockNode(id: 'tc_trig', kind:
     ..status = 'completed'
     ..content = {'content': result});
 
+BlockNode _getFlowrun(String result) => BlockNode(id: 'tc_gfr', kind: BlockKind.toolCall)
+  ..status = 'completed'
+  ..content = {'name': 'get_flowrun', 'arguments': '{"flowrunId":"fr_9a8b7c6d5e4f3a2b"}'}
+  ..children.add(BlockNode(id: 'tr_gfr', kind: BlockKind.toolResult)
+    ..status = 'completed'
+    ..content = {'content': result});
+
 String _node(String nodeId, String kind, String status, {int iteration = 0, String? error}) =>
     '{"id":"frn_${nodeId}_$iteration","flowrunId":"fr_9a8b7c6d5e4f3a2b","nodeId":"$nodeId","iteration":$iteration,'
     '"kind":"$kind","ref":"$kind:x","status":"$status",${error != null ? '"error":"$error",' : ''}'
@@ -78,6 +85,25 @@ final toolCardFlowrunGalleryItem = GalleryItem(
     GallerySpecimen('trigger_workflow · 空 payload(明说不装空树)',
         (c) => ChatToolCard(node: _trigger('{"workflowId":"wf_1a2b3c4d5e6f7a8b"}',
             '{"flowrunId":"fr_0f1e2d3c4b5a6987","workflowId":"wf_1a2b3c4d5e6f7a8b"}')),
+        span: true),
+    GallerySpecimen('get_flowrun · 完成(run 头条 + 节点台账 + 触发器出处)',
+        (c) => ChatToolCard(node: _getFlowrun(_run('completed', [
+              _node('trigger', 'trigger', 'completed'),
+              _node('fetch', 'action', 'completed'),
+              _node('route', 'control', 'completed'),
+            ], replayCount: 0))),
+        span: true),
+    GallerySpecimen('get_flowrun · 失败(auto-expand + run 级 error 窗)',
+        (c) => ChatToolCard(node: _getFlowrun(_run('failed', [
+              _node('trigger', 'trigger', 'completed'),
+              _node('charge', 'action', 'failed', error: 'HANDLER_RPC_TIMEOUT: charge() exceeded 30s'),
+            ], replayCount: 0, runError: 'run halted at node charge'))),
+        span: true),
+    GallerySpecimen('get_flowrun · 等待审批(running + parked 节点)',
+        (c) => ChatToolCard(node: _getFlowrun(_run('running', [
+              _node('trigger', 'trigger', 'completed'),
+              _node('approve', 'approval', 'parked'),
+            ], replayCount: 0))),
         span: true),
   ],
 );
