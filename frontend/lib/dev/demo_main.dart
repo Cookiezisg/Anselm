@@ -12,6 +12,8 @@ import '../features/documents/data/document_repository.dart';
 import '../features/documents/data/documents_demo_fixture.dart';
 import '../features/entities/data/entity_demo_fixture.dart';
 import '../features/entities/data/entity_providers.dart';
+import '../features/notifications/data/notification_demo_fixture.dart';
+import '../features/notifications/data/notification_providers.dart';
 import '../i18n/strings.g.dart';
 import '../app/entity_mention_source.dart';
 import '../core/entity/mention_source.dart';
@@ -37,6 +39,7 @@ Future<void> main() async {
         entityRepositoryProvider.overrideWithValue(demoEntityRepository()),
         chatRepositoryProvider.overrideWithValue(demoChatRepository()),
         documentsRepositoryProvider.overrideWithValue(demoDocumentsRepository()),
+        notificationRepositoryProvider.overrideWithValue(demoNotificationRepository()),
         mentionSourceProvider.overrideWith(entityMentionSource),
       ],
       child: TranslationProvider(child: const _DemoRoot()),

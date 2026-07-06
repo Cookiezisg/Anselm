@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../../../core/contract/notification.dart';
+import '../../../core/router/panel_registry.dart';
 import '../../../core/ui/icons.dart';
 import '../../../i18n/strings.g.dart';
 
@@ -132,6 +133,22 @@ NotificationLine notificationLine(NotificationItem n, Translations t) {
 
   // Unknown type (open vocab) → a generic, honest line. 未知 type → 通用诚实行。
   return NotificationLine(icon: AnIcons.bell, trail: nt.unknown);
+}
+
+/// The go_router deep-link for a notification's source object, or null if its kind has no panel (mcp /
+/// memory / sandbox / relation → an inert, non-navigating row — never a dead link). The id lives in the
+/// payload as `<domain>Id` (skill/document use name/documentId); workflow-scoped events (run_failed /
+/// approval_pending / attention / lifecycle) all target the workflow. 通知源对象的深链;无面板 kind → null。
+String? notificationLocation(NotificationItem n) {
+  final p = n.payload;
+  final domain = n.domain;
+  final id = switch (domain) {
+    'skill' => p['name'] as String?, // skill id = slug/name
+    'document' => p['documentId'] as String?,
+    _ => p['${domain}Id'] as String?, // functionId / handlerId / … / workflowId
+  };
+  if (id == null || id.isEmpty) return null;
+  return panelLocationFor(domain, id);
 }
 
 /// The joined dependent names for a dependency-broken detail line, or null if none carried a name.

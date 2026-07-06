@@ -23,6 +23,8 @@ import '../features/entities/ui/entity_ocean.dart';
 import '../features/entities/ui/entity_rail.dart';
 import '../features/entities/ui/flowrun_inbox.dart';
 import '../features/entities/ui/run/run_terminal.dart';
+import '../features/notifications/state/unread_count_provider.dart';
+import '../features/notifications/ui/notification_feed.dart';
 import '../i18n/strings.g.dart';
 
 /// THE single shell composition — which feature sits in which island. Mounted by BOTH entries so the real
@@ -167,8 +169,9 @@ class AppShell extends ConsumerWidget {
           settingsActive: ocean == OceanKind.settings,
           onNotifications: () => ref.read(notificationsOpenProvider.notifier).toggle(),
           notificationsActive: notifOpen,
-          // Skeleton: the unread count + red dot wire when the notifications feature lands. 骨架:未读数后续接。
-          unreadCount: 0,
+          // The bell's red dot lights when there are unread inbox rows (authoritative COUNT; frame-only
+          // reconciliation echoes never count). 铃红点=有未读收件箱行(权威 COUNT,仅帧回声不计)。
+          unreadCount: ref.watch(unreadCountProvider).value ?? 0,
         ),
       ],
     );
@@ -227,15 +230,26 @@ class _RailPlaceholder extends StatelessWidget {
       );
 }
 
-/// The notifications tray — takes over the left-island middle when the bell is on: for now the
-/// cross-run approval INBOX (parked approvals awaiting a decision). A broader
-/// notifications feed lands with the notifications feature; approvals are its first, most-actionable
-/// section. 铃托盘:当前=审批收件箱(跨 run 待审 parked 节点);更广的通知流随通知 feature 落地。
+/// The notifications tray — takes over the left-island middle when the bell is on. Two sections (the app
+/// shell composes them, since one is an entities-feature widget and the other a notifications-feature
+/// one): the top "Needs you" band = the cross-run approval INBOX ([FlowrunInbox] sectioned — collapses
+/// when there's nothing to decide), and below it the "Notifications" [NotificationFeed] (the newest-first
+/// inbox, time-grouped, tap-to-source). The feed owns the scroll; approvals sit compact on top.
+///
+/// 铃托盘:铃开接管左岛中段。两段(app 壳组合,因一个是 entities feature 件、一个是 notifications feature 件):
+/// 顶「待你处理」=审批收件箱(FlowrunInbox 分段,无待决则塌),下「通知」=NotificationFeed(最新优先、时间分组、
+/// 点行到源)。feed 独占滚动,审批紧凑置顶。
 class _NotificationsTray extends StatelessWidget {
   const _NotificationsTray();
 
   @override
-  Widget build(BuildContext context) => const FlowrunInbox();
+  Widget build(BuildContext context) => const Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          FlowrunInbox(sectioned: true),
+          Expanded(child: NotificationFeed()),
+        ],
+      );
 }
 
 /// Open-ocean placeholder for an unbuilt ocean (breadcrumb clearing lives at the ocean switch, see the

@@ -23,12 +23,42 @@ import '../state/flowrun_inbox_provider.dart';
 /// allows it). Decides via `:decide` (first-wins) then refreshes the list. Approval's runtime "second
 /// face" (the config form lives in the entities rail). 审批收件箱(铃托盘):跨 run 待审逐卡决断。
 class FlowrunInbox extends ConsumerWidget {
-  const FlowrunInbox({super.key});
+  const FlowrunInbox({this.sectioned = false, super.key});
+
+  /// SECTIONED mode = the notification tray's top "Needs you" band: this collapses to nothing when there
+  /// are no parked approvals (or while loading / on error) and renders a "Needs you" header + a
+  /// non-scrolling card stack when there are, so the notification FEED below owns the scroll. Standalone
+  /// mode (false) is the full-panel inbox with its own empty/loading/error states + internal scroll.
+  ///
+  /// 分段模式=通知托盘顶部「待你处理」带:无待审(或加载中/出错)时塌成空,有则渲「待你处理」头 + 不滚动卡叠,
+  /// 让下方通知 feed 独占滚动。独立模式(false)=整面板收件箱,自带空/加载/错误态 + 内部滚动。
+  final bool sectioned;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final r = context.t.entities.run;
     final async = ref.watch(flowrunInboxProvider);
+    if (sectioned) {
+      // Only surface when there's something to decide; everything else collapses. 有待决才显,余皆塌。
+      final parked = async.value ?? const [];
+      if (parked.isEmpty) return const SizedBox.shrink();
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(AnSpace.s12, AnSpace.s12, AnSpace.s12, AnSpace.s4),
+            child: Text(context.t.notifications.needsYou,
+                style: AnText.meta.copyWith(color: context.colors.inkFaint).weight(AnText.emphasisWeight)),
+          ),
+          for (final p in parked)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AnSpace.s12, AnSpace.s4, AnSpace.s12, AnSpace.s4),
+              child: _ApprovalCard(parked: p),
+            ),
+        ],
+      );
+    }
     return async.when(
       loading: () => const AnDeferredLoading(child: AnRailSkeleton()),
       // A failed load is an ERROR, not an empty inbox — the sibling error idiom (errorTitle + retry;
