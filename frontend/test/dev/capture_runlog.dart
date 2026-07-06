@@ -36,7 +36,7 @@ void main() {
     LocaleSettings.setLocaleRaw('zh-CN');
     const key = ValueKey('cap');
     tester.view.devicePixelRatio = 1.0;
-    tester.view.physicalSize = const Size(760, 2800);
+    tester.view.physicalSize = const Size(760, 3600);
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(RepaintBoundary(
@@ -67,10 +67,14 @@ void main() {
       ),
     ));
     await tester.pump(const Duration(milliseconds: 60));
-    for (final v in ['已翻查函数执行', '已翻查处理器调用', '已翻查智能体执行', '已翻查 MCP 调用']) {
-      await tester.tap(find.text(v).first, warnIfMissed: false);
+    for (final v in ['已翻查函数执行', '已翻查处理器调用', '已翻查智能体执行', '已翻查 MCP 调用', '已翻查运行', '已翻查派发', '已翻查活动']) {
+      final f = find.text(v).first;
+      await tester.ensureVisible(f);
+      await tester.tap(f, warnIfMissed: false);
       await tester.pump(const Duration(milliseconds: 80));
     }
+    // Expand the fired activation's returnValue tree (tap the row). 展开 fire 活化的 returnValue。
+    await tester.tap(find.text('act_01'), warnIfMissed: false);
     await tester.pumpAndSettle();
 
     late final Uint8List bytes;

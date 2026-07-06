@@ -149,3 +149,123 @@ Widget mcpCallsBody(BuildContext context, ToolCardState s) => _aggBody(context, 
           stamp: fmtStamp(r['startedAt'] as String?),
         ),
     ]);
+
+// ── count families (no aggregates: flowruns / firings / activations) ──
+
+/// The count receipt — `{n} 条` / `{n}+ 条` (hasMore). These families carry NO aggregates → we never
+/// fabricate a ✓/✗ split. Empty → 无记录 (this query found nothing). 计数回执:无聚合、不编造 ✓✗。
+ToolReceipt? countListReceipt(Translations t, String output, String listKey) {
+  final o = _obj(output);
+  if (o == null) return null;
+  final n = o['count'] is int ? o['count'] as int : (o[listKey] is List ? (o[listKey] as List).length : 0);
+  final more = o['hasMore'] == true || ((o['nextCursor'] as String?)?.isNotEmpty ?? false);
+  if (n == 0) return (text: t.chat.tool.logNoRecords, tone: ToolReceiptTone.none);
+  return (text: more ? t.chat.tool.logCountMore(n: '$n') : t.chat.tool.logCount(n: '$n'), tone: ToolReceiptTone.none);
+}
+
+bool countListHasBody(String output, String listKey) {
+  final o = _obj(output);
+  if (o == null) return false;
+  final n = o['count'] is int ? o['count'] as int : (o[listKey] is List ? (o[listKey] as List).length : 0);
+  return n > 0;
+}
+
+/// The shared count-family body — a page-scoped bead strip (no global aggregate) + a slim RunLedger.
+/// 计数族共享体(珠串标「本页」,无全局聚合)。
+Widget _countBody(BuildContext context, String output, String listKey,
+    {required List<RunLedgerRow> Function(Translations, AnColors, List<Map<String, dynamic>>) mapRows,
+    List<RunBead> Function(AnColors, List<Map<String, dynamic>>)? beads,
+    String? caption}) {
+  final c = context.colors;
+  final t = Translations.of(context);
+  final rows = _list(output, listKey);
+  final more = _obj(output)?['hasMore'] == true || ((_obj(output)?['nextCursor'] as String?)?.isNotEmpty ?? false);
+  if (rows.isEmpty) return Text(t.chat.tool.logNoMatch, style: AnText.code.copyWith(color: c.inkFaint));
+  return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+    RunBeadStrip(beads: beads?.call(c, rows) ?? [for (final r in rows) _bead(c, r)], pageScoped: true),
+    const SizedBox(height: AnSpace.s6),
+    ToolWindow(child: RunLedger(rows: mapRows(t, c, rows))),
+    if (caption != null) Padding(padding: const EdgeInsets.only(top: AnSpace.s4), child: Text(caption, style: AnText.meta.copyWith(color: c.inkFaint))),
+    if (more) Padding(padding: const EdgeInsets.only(top: AnSpace.s4), child: Text('${rows.length}+', style: AnText.meta.copyWith(color: c.inkFaint))),
+  ]);
+}
+
+// search_flowruns — {runs:[FlowRun]} (status running|completed|failed|cancelled; replayCount; error?).
+// pageScoped beads; a replay× micro-badge; the run-level error as subtext; a parked-run caption.
+Widget flowrunsBody(BuildContext context, ToolCardState s) => _countBody(context, s.resultText, 'runs',
+    caption: Translations.of(context).chat.tool.parkRunCaption,
+    mapRows: (t, c, rows) => [
+          for (final r in rows)
+            RunLedgerRow(
+              leading: RunLeading.status('${r['status']}'),
+              monoId: r['id'] as String?,
+              chips: [
+                if ((r['replayCount'] is int ? r['replayCount'] as int : 0) > 0)
+                  AnBadge(t.chat.tool.replayTimes(n: '${r['replayCount']}'), tone: AnTone.none),
+              ],
+              subText: r['error'] as String?,
+              stamp: fmtStamp(r['startedAt'] as String?),
+            ),
+        ]);
+
+/// A localized firing disposition (pending|started|skipped|superseded|shed). 派发处置词。
+String _firingWord(Translations t, String? status) => switch (status) {
+      'pending' => t.chat.tool.firingPending,
+      'started' => t.chat.tool.firingStarted,
+      'skipped' => t.chat.tool.firingSkipped,
+      'superseded' => t.chat.tool.firingSuperseded,
+      'shed' => t.chat.tool.firingShed,
+      _ => status ?? '',
+    };
+
+AnTone _firingTone(String? status) => switch (status) {
+      'started' => AnTone.ok,
+      'pending' => AnTone.warn,
+      _ => AnTone.none, // skipped / superseded / shed → grey
+    };
+
+// search_firings — {firings:[Firing]} (status pending|started|skipped|superseded|shed). A disposition
+// badge; started rows carry a flowrunId; the dedupKey is faint subtext.
+Widget firingsBody(BuildContext context, ToolCardState s) => _countBody(context, s.resultText, 'firings',
+    mapRows: (t, c, rows) => [
+          for (final r in rows)
+            RunLedgerRow(
+              leading: RunLeading.status('${r['status']}'),
+              monoId: r['id'] as String?,
+              chips: [
+                AnBadge(_firingWord(t, r['status'] as String?), tone: _firingTone(r['status'] as String?)),
+                if ((r['flowrunId'] as String?)?.isNotEmpty ?? false)
+                  AnBadge('${(r['flowrunId'] as String).length > 12 ? '${(r['flowrunId'] as String).substring(0, 12)}…' : r['flowrunId']}', tone: AnTone.none),
+              ],
+              subText: r['dedupKey'] as String?,
+              stamp: fmtStamp(r['createdAt'] as String?),
+            ),
+        ]);
+
+// search_activations — {activations:[Activation]} (fired bool; kind; returnValue?; firingCount; detail?).
+// The leading is a fired mark (not a status dot); the returnValue (which CAN be large) is a lazy inline
+// tree; detail is the subtext. 活化:fire 标记 + returnValue 惰性行内树。
+Widget activationsBody(BuildContext context, ToolCardState s) => _countBody(context, s.resultText, 'activations',
+    beads: (c, rows) => [
+          for (final r in rows)
+            RunBead(color: r['fired'] == true ? c.ok : c.inkFaint, tooltip: '${r['id']} · ${r['fired'] == true ? 'fired' : 'not fired'}'),
+        ],
+    mapRows: (t, c, rows) => [
+          for (final r in rows)
+            RunLedgerRow(
+              leading: RunLeading.fired(r['fired'] == true),
+              monoId: r['id'] as String?,
+              chips: [
+                if ((r['kind'] as String?)?.isNotEmpty ?? false) AnBadge('${r['kind']}', tone: AnTone.none),
+                if ((r['firingCount'] is int ? r['firingCount'] as int : 0) > 0)
+                  AnBadge(t.chat.tool.actFanout(n: '${r['firingCount']}'), tone: AnTone.none),
+              ],
+              subText: r['detail'] as String? ?? r['error'] as String?,
+              stamp: fmtStamp(r['createdAt'] as String?),
+              // The sensor probe value — kept even when not fired, and CAN be large → a lazy inline tree.
+              // 探测返回值(未 fire 也留、可大)→ 惰性行内树。
+              expandContent: (r['returnValue'] is Map && (r['returnValue'] as Map).isNotEmpty)
+                  ? ToolIOSection(label: t.chat.tool.actReturnValue, value: r['returnValue'])
+                  : null,
+            ),
+        ]);

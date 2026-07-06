@@ -740,6 +740,22 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get byAgent => '智能体';
 	@override String get byWorkflow => '工作流';
 	@override String get byManual => '手动';
+	@override String get searchingFlowruns => '正在翻查运行';
+	@override String get searchedFlowruns => '已翻查运行';
+	@override String get searchingFirings => '正在翻查派发';
+	@override String get searchedFirings => '已翻查派发';
+	@override String get searchingActivations => '正在翻查活动';
+	@override String get searchedActivations => '已翻查活动';
+	@override String get firingPending => '等待';
+	@override String get firingStarted => '已建 run';
+	@override String get firingSkipped => '跳过';
+	@override String get firingSuperseded => '被顶替';
+	@override String get firingShed => '丢弃';
+	@override String logCount({required Object n}) => '${n} 条';
+	@override String logCountMore({required Object n}) => '${n}+ 条';
+	@override String get parkRunCaption => 'park 在审批节点的 run,头仍为 running';
+	@override String get actReturnValue => '返回值';
+	@override String actFanout({required Object n}) => '扇出 ${n}';
 }
 
 // Path: chat.gate
@@ -1707,6 +1723,22 @@ extension on TranslationsZhCn {
 			'chat.tool.byAgent' => '智能体',
 			'chat.tool.byWorkflow' => '工作流',
 			'chat.tool.byManual' => '手动',
+			'chat.tool.searchingFlowruns' => '正在翻查运行',
+			'chat.tool.searchedFlowruns' => '已翻查运行',
+			'chat.tool.searchingFirings' => '正在翻查派发',
+			'chat.tool.searchedFirings' => '已翻查派发',
+			'chat.tool.searchingActivations' => '正在翻查活动',
+			'chat.tool.searchedActivations' => '已翻查活动',
+			'chat.tool.firingPending' => '等待',
+			'chat.tool.firingStarted' => '已建 run',
+			'chat.tool.firingSkipped' => '跳过',
+			'chat.tool.firingSuperseded' => '被顶替',
+			'chat.tool.firingShed' => '丢弃',
+			'chat.tool.logCount' => ({required Object n}) => '${n} 条',
+			'chat.tool.logCountMore' => ({required Object n}) => '${n}+ 条',
+			'chat.tool.parkRunCaption' => 'park 在审批节点的 run,头仍为 running',
+			'chat.tool.actReturnValue' => '返回值',
+			'chat.tool.actFanout' => ({required Object n}) => '扇出 ${n}',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -1811,6 +1843,8 @@ extension on TranslationsZhCn {
 			'entities.emptyTitle' => '还没有实体',
 			'entities.emptyHint' => '新建一个函数、处理器、智能体或工作流来开始。',
 			'entities.errorTitle' => '无法加载实体',
+			_ => null,
+		} ?? switch (path) {
 			'entities.errorHint' => '本地引擎没有返回实体列表。',
 			'entities.retry' => '重试',
 			'entities.selectTitle' => '选择一个实体',
@@ -1827,8 +1861,6 @@ extension on TranslationsZhCn {
 			'entities.detail.tab.logs' => '日志',
 			'entities.detail.tab.runs' => '运行',
 			'entities.detail.tab.activity' => '活动',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.tab.dispatch' => '派发',
 			'entities.detail.verb.run' => '运行',
 			'entities.detail.verb.call' => '调用',

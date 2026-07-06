@@ -68,5 +68,37 @@ final toolCardRunlogGalleryItem = GalleryItem(
         (c) => ChatToolCard(node: _search('search_function_executions', '{"functionId":"fn_never_run"}',
             _page('executions', [], ok: 0, failed: 0))),
         span: true),
+    GallerySpecimen('search_flowruns · 珠串本页 + replay 微章 + 失败 subtext',
+        (c) => ChatToolCard(node: _search('search_flowruns', '{"workflowId":"wf_1a2b3c4d5e6f7a8b"}',
+            jsonEncode({
+              'runs': [
+                {'id': 'fr_01', 'workflowId': 'wf_1', 'status': 'completed', 'replayCount': 0, 'startedAt': '2026-07-05T14:03:00Z', 'updatedAt': '2026-07-05T14:03:00Z'},
+                {'id': 'fr_02', 'workflowId': 'wf_1', 'status': 'failed', 'replayCount': 2, 'error': 'node charge failed', 'startedAt': '2026-07-05T14:02:00Z', 'updatedAt': '2026-07-05T14:02:00Z'},
+                {'id': 'fr_03', 'workflowId': 'wf_1', 'status': 'running', 'replayCount': 0, 'startedAt': '2026-07-05T14:01:00Z', 'updatedAt': '2026-07-05T14:01:00Z'},
+              ],
+              'hasMore': false,
+            }))),
+        span: true),
+    GallerySpecimen('search_firings · 处置词章五色 + started 缀 flowrunId',
+        (c) => ChatToolCard(node: _search('search_firings', '{"triggerId":"trg_7a8b9c0d1e2f3a4b"}',
+            jsonEncode({
+              'count': 3,
+              'firings': [
+                {'id': 'frg_01', 'triggerId': 'trg_1', 'workflowId': 'wf_1', 'activationId': 'act_1', 'status': 'started', 'flowrunId': 'fr_9a8b7c6d5e4f3a2b', 'dedupKey': 'cron:2026-07-05T14', 'createdAt': '2026-07-05T14:03:00Z'},
+                {'id': 'frg_02', 'triggerId': 'trg_1', 'workflowId': 'wf_1', 'activationId': 'act_2', 'status': 'skipped', 'dedupKey': 'cron:2026-07-05T13', 'createdAt': '2026-07-05T13:03:00Z'},
+                {'id': 'frg_03', 'triggerId': 'trg_1', 'workflowId': 'wf_1', 'activationId': 'act_3', 'status': 'pending', 'dedupKey': 'cron:2026-07-05T15', 'createdAt': '2026-07-05T15:03:00Z'},
+              ],
+            }))),
+        span: true),
+    GallerySpecimen('search_activations · fire 标记 + returnValue 惰性行内树',
+        (c) => ChatToolCard(node: _search('search_activations', '{"triggerId":"trg_7a8b9c0d1e2f3a4b"}',
+            jsonEncode({
+              'count': 2,
+              'activations': [
+                {'id': 'act_01', 'triggerId': 'trg_1', 'kind': 'sensor', 'fired': true, 'firingCount': 2, 'returnValue': {'temp': 31.4, 'threshold': 30}, 'createdAt': '2026-07-05T14:03:00Z'},
+                {'id': 'act_02', 'triggerId': 'trg_1', 'kind': 'sensor', 'fired': false, 'firingCount': 0, 'detail': 'condition evaluated false', 'returnValue': {'temp': 22.0, 'threshold': 30}, 'createdAt': '2026-07-05T13:03:00Z'},
+              ],
+            }))),
+        span: true),
   ],
 );

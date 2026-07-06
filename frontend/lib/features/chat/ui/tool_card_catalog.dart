@@ -189,6 +189,26 @@ ToolCardSpec _searchLog({
   );
 }
 
+/// F09 count-search entry (flowruns/firings/activations — no aggregates): verb pair + target chip +
+/// the `N 条`/`N+ 条` receipt + empty→no-body. F09 计数检索族条目工厂。
+ToolCardSpec _countLog({
+  required String Function(Translations) running,
+  required String Function(Translations) done,
+  required Widget Function(BuildContext, ToolCardState) body,
+  required String chipArg,
+  required String listKey,
+}) =>
+    ToolCardSpec(
+      verb: (t, {required bool live}) => live ? running(t) : done(t),
+      target: (s) {
+        final v = argStringPartial(s.argsText, chipArg);
+        return v == null || v.isEmpty ? null : (v.length > 12 ? '${v.substring(0, 12)}…' : v);
+      },
+      receipt: (t, s) => countListReceipt(t, s.resultText, listKey),
+      hasBodyOf: (s) => countListHasBody(s.resultText, listKey),
+      body: body,
+    );
+
 ToolCardSpec _search({
   required String Function(Translations) liveVerb,
   required String Function(Translations) doneVerb,
@@ -937,6 +957,16 @@ final Map<String, ToolCardSpec> _catalog = {
   'search_mcp_calls': _searchLog(
       running: (t) => t.chat.tool.searchingMcpCalls, done: (t) => t.chat.tool.searchedMcpCalls,
       chipArg: 'serverId', body: mcpCallsBody),
+  // Count families (no aggregates — never fabricate a ✓/✗ split): flowruns / firings / activations.
+  'search_flowruns': _countLog(
+      running: (t) => t.chat.tool.searchingFlowruns, done: (t) => t.chat.tool.searchedFlowruns,
+      chipArg: 'workflowId', listKey: 'runs', body: flowrunsBody),
+  'search_firings': _countLog(
+      running: (t) => t.chat.tool.searchingFirings, done: (t) => t.chat.tool.searchedFirings,
+      chipArg: 'triggerId', listKey: 'firings', body: firingsBody),
+  'search_activations': _countLog(
+      running: (t) => t.chat.tool.searchingActivations, done: (t) => t.chat.tool.searchedActivations,
+      chipArg: 'triggerId', listKey: 'activations', body: activationsBody),
 
   // ── F16 humanloop: ask_user (the danger gate is not a tool — it's the chassis awaitingConfirm phase) ──
   // 三段动词:正在提问(live)→ 等待你回答(awaiting,底盘渲门)→ 已回答/已跳过/空答案(按结果散文)。

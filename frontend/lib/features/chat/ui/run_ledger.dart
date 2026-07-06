@@ -23,8 +23,8 @@ Color runStatusColor(AnColors c, String status) => switch (status.toLowerCase())
       'ok' || 'completed' || 'started' || 'fired' || 'active' || 'done' => c.ok,
       'failed' || 'crashed' || 'error' => c.danger,
       'timeout' => c.warn,
-      'running' || 'pending' => c.accent,
-      'parked' || 'waiting' => c.warn,
+      'running' => c.accent,
+      'pending' || 'parked' || 'waiting' => c.warn, // queued/waiting → amber (matches the 等待 badge)
       _ => c.inkFaint, // cancelled / skipped / superseded / shed / unknown
     };
 

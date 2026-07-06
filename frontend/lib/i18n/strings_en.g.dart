@@ -1754,6 +1754,54 @@ class Translations$chat$tool$en {
 
 	/// en: 'manual'
 	String get byManual => 'manual';
+
+	/// en: 'Searching runs'
+	String get searchingFlowruns => 'Searching runs';
+
+	/// en: 'Searched runs'
+	String get searchedFlowruns => 'Searched runs';
+
+	/// en: 'Searching firings'
+	String get searchingFirings => 'Searching firings';
+
+	/// en: 'Searched firings'
+	String get searchedFirings => 'Searched firings';
+
+	/// en: 'Searching activations'
+	String get searchingActivations => 'Searching activations';
+
+	/// en: 'Searched activations'
+	String get searchedActivations => 'Searched activations';
+
+	/// en: 'pending'
+	String get firingPending => 'pending';
+
+	/// en: 'run started'
+	String get firingStarted => 'run started';
+
+	/// en: 'skipped'
+	String get firingSkipped => 'skipped';
+
+	/// en: 'superseded'
+	String get firingSuperseded => 'superseded';
+
+	/// en: 'shed'
+	String get firingShed => 'shed';
+
+	/// en: '$n'
+	String logCount({required Object n}) => '${n}';
+
+	/// en: '$n+'
+	String logCountMore({required Object n}) => '${n}+';
+
+	/// en: 'a run parked on an approval node stays running at the header'
+	String get parkRunCaption => 'a run parked on an approval node stays running at the header';
+
+	/// en: 'Return value'
+	String get actReturnValue => 'Return value';
+
+	/// en: 'fan-out $n'
+	String actFanout({required Object n}) => 'fan-out ${n}';
 }
 
 // Path: chat.gate
@@ -3390,6 +3438,22 @@ extension on Translations {
 			'chat.tool.byAgent' => 'agent',
 			'chat.tool.byWorkflow' => 'workflow',
 			'chat.tool.byManual' => 'manual',
+			'chat.tool.searchingFlowruns' => 'Searching runs',
+			'chat.tool.searchedFlowruns' => 'Searched runs',
+			'chat.tool.searchingFirings' => 'Searching firings',
+			'chat.tool.searchedFirings' => 'Searched firings',
+			'chat.tool.searchingActivations' => 'Searching activations',
+			'chat.tool.searchedActivations' => 'Searched activations',
+			'chat.tool.firingPending' => 'pending',
+			'chat.tool.firingStarted' => 'run started',
+			'chat.tool.firingSkipped' => 'skipped',
+			'chat.tool.firingSuperseded' => 'superseded',
+			'chat.tool.firingShed' => 'shed',
+			'chat.tool.logCount' => ({required Object n}) => '${n}',
+			'chat.tool.logCountMore' => ({required Object n}) => '${n}+',
+			'chat.tool.parkRunCaption' => 'a run parked on an approval node stays running at the header',
+			'chat.tool.actReturnValue' => 'Return value',
+			'chat.tool.actFanout' => ({required Object n}) => 'fan-out ${n}',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -3494,6 +3558,8 @@ extension on Translations {
 			'entities.emptyTitle' => 'No entities yet',
 			'entities.emptyHint' => 'Create a function, handler, agent, or workflow to get started.',
 			'entities.errorTitle' => 'Couldn\'t load entities',
+			_ => null,
+		} ?? switch (path) {
 			'entities.errorHint' => 'The local engine didn\'t return the entity list.',
 			'entities.retry' => 'Try again',
 			'entities.selectTitle' => 'Select an entity',
@@ -3510,8 +3576,6 @@ extension on Translations {
 			'entities.detail.tab.logs' => 'Logs',
 			'entities.detail.tab.runs' => 'Runs',
 			'entities.detail.tab.activity' => 'Activity',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.tab.dispatch' => 'Dispatch',
 			'entities.detail.verb.run' => 'Run',
 			'entities.detail.verb.call' => 'Call',

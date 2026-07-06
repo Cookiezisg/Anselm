@@ -97,4 +97,68 @@ void main() {
     expect(find.textContaining(t.chat.tool.logNoRecords), findsOneWidget);
     expect(find.byType(RunLedger), findsNothing); // no body
   });
+
+  group('count families (flowruns/firings/activations)', () {
+    test('countListReceipt: N 条 / N+ 条 (hasMore); no fabricated ✓✗; empty → 无记录', () {
+      final r = countListReceipt(t, jsonEncode({'count': 3, 'firings': [1, 2, 3]}), 'firings')!;
+      expect(r.text, contains('3'));
+      expect(r.text, isNot(contains('✓'))); // count families NEVER fabricate an ok/failed split
+      expect(countListReceipt(t, jsonEncode({'runs': [1], 'hasMore': true}), 'runs')!.text, contains('+'));
+      expect(countListReceipt(t, jsonEncode({'count': 0, 'firings': []}), 'firings')!.text, t.chat.tool.logNoRecords);
+    });
+
+    testWidgets('flowruns: pageScoped bead strip + replay badge + failed subtext + park caption', (tester) async {
+      await tester.pumpWidget(_host(ChatToolCard(node: _search('search_flowruns', '{"workflowId":"wf_1"}',
+          jsonEncode({
+            'runs': [
+              {'id': 'fr_02', 'workflowId': 'wf_1', 'status': 'failed', 'replayCount': 2, 'error': 'node charge failed', 'startedAt': '2026-07-05T14:00:00Z', 'updatedAt': '2026-07-05T14:00:00Z'},
+            ],
+            'hasMore': false,
+          })))));
+      await tester.pump();
+      await tester.tap(find.textContaining(t.chat.tool.searchedFlowruns), warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(find.text(t.chat.tool.beadPageScope), findsOneWidget); // 本页
+      expect(find.textContaining(t.chat.tool.replayTimes(n: '2')), findsOneWidget);
+      expect(find.textContaining('node charge failed'), findsOneWidget); // run-level error subtext
+      expect(find.textContaining(t.chat.tool.parkRunCaption), findsOneWidget);
+    });
+
+    testWidgets('firings: disposition badges (started/skipped/pending); started carries a flowrunId', (tester) async {
+      await tester.pumpWidget(_host(ChatToolCard(node: _search('search_firings', '{"triggerId":"trg_1"}',
+          jsonEncode({
+            'count': 2,
+            'firings': [
+              {'id': 'frg_01', 'triggerId': 'trg_1', 'status': 'started', 'flowrunId': 'fr_abc123def456', 'dedupKey': 'k1', 'createdAt': '2026-07-05T14:00:00Z'},
+              {'id': 'frg_02', 'triggerId': 'trg_1', 'status': 'skipped', 'dedupKey': 'k2', 'createdAt': '2026-07-05T13:00:00Z'},
+            ],
+          })))));
+      await tester.pump();
+      await tester.tap(find.textContaining(t.chat.tool.searchedFirings), warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(find.text(t.chat.tool.firingStarted), findsOneWidget);
+      expect(find.text(t.chat.tool.firingSkipped), findsOneWidget);
+      expect(find.textContaining('fr_abc123def'), findsOneWidget); // started → flowrunId chip (truncated to 12)
+    });
+
+    testWidgets('activations: fired mark + returnValue expands inline on tap', (tester) async {
+      await tester.pumpWidget(_host(ChatToolCard(node: _search('search_activations', '{"triggerId":"trg_1"}',
+          jsonEncode({
+            'count': 1,
+            'activations': [
+              {'id': 'act_01', 'triggerId': 'trg_1', 'kind': 'sensor', 'fired': true, 'firingCount': 2, 'returnValue': {'temp': 31.4}, 'createdAt': '2026-07-05T14:00:00Z'},
+            ],
+          })))));
+      await tester.pump();
+      await tester.tap(find.textContaining(t.chat.tool.searchedActivations), warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(find.text('act_01'), findsOneWidget);
+      expect(find.textContaining(t.chat.tool.actFanout(n: '2')), findsOneWidget);
+      // returnValue is behind a row tap (lazy) — not shown until the row is tapped. 惰性:点前不渲。
+      expect(find.textContaining('temp'), findsNothing);
+      await tester.tap(find.text('act_01'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('temp'), findsOneWidget); // now the returnValue tree is inline
+    });
+  });
 }
