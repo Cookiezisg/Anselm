@@ -80,10 +80,9 @@ void main() {
       ..children.add(_progress('line 1\nline 2\nline 3\nline 4', live: true));
     await tester.pumpWidget(_host(ChatToolCard(node: running, key: const ValueKey('run'))));
     await tester.pumpAndSettle();
-    expect(find.byType(ToolLiveTail), findsOneWidget);
-    // Tail shows the LAST 3 lines only. 尾巴只显末 3 行。
+    expect(find.byType(AnTermTail), findsOneWidget); // B4.3: ToolLiveTail → AnTermTail (termFold+ANSI)
+    // Tail shows the LAST lines only (4 lines ≤ tailLines 6, so all show; the 1st stays visible here).
     expect(find.textContaining('line 4'), findsOneWidget);
-    expect(find.textContaining('line 1'), findsNothing);
 
     final settled = _call('Bash', extra: {'arguments': '{"command":"npm test"}'})
       ..children.add(_progress('line 1\nline 2'))

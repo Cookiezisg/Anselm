@@ -28,6 +28,7 @@ export 'an_dropdown.dart';
 export 'an_edit_affordance.dart';
 export 'an_editable_value.dart';
 export 'an_edge_fade.dart';
+export 'term_fold.dart';
 export 'an_expand_reveal.dart';
 export 'an_fade_collapse.dart';
 export 'an_field.dart';

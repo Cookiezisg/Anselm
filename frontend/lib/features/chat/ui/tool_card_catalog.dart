@@ -832,9 +832,9 @@ final Map<String, ToolCardSpec> _catalog = {
         exitUnknownLabel: t.chat.tool.bashExitUnknown,
         backgroundLabel: (id) => t.chat.tool.bashBackground(id: id)),
     body: bashToolBody,
-    // The soul of the family: the little live terminal under the row. 族魂:行下活的小终端。
+    // The soul of the family: the little live terminal under the row (termFold + ANSI). 族魂:活的小终端。
     liveBody: (context, s) =>
-        s.progressText.isEmpty ? const SizedBox.shrink() : ToolLiveTail(text: s.progressText),
+        s.progressText.isEmpty ? const SizedBox.shrink() : AnTermTail(text: s.progressText),
   ),
 };
 

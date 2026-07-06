@@ -71,6 +71,49 @@ class ToolLiveTail extends StatelessWidget {
   }
 }
 
+/// The TERMINAL live tail (WRK-056 #46, ToolLiveTail v2) — the last [tailLines] terminal lines run
+/// through [termFold] (in-place cursor rewrites folded: a `\r` progress bar refreshes in place, not a
+/// heap of lines) + [ansiSpans] (SGR colors themed), with a top [AnEdgeFade] when output has scrolled
+/// off above. The strongest «it's really working» cue for Bash. reduced motion: line content just
+/// replaces (no AnimatedSize). 终端活尾:折叠 + ANSI 主题化 + 顶缘渐隐。
+class AnTermTail extends StatelessWidget {
+  const AnTermTail({required this.text, this.tailLines = 6, super.key});
+
+  final String text;
+  final int tailLines;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final folded = termFold(text);
+    while (folded.isNotEmpty && folded.last.isEmpty) {
+      folded.removeLast(); // trim trailing empties (the consumer's job) 裁尾空行
+    }
+    if (folded.isEmpty) return const SizedBox.shrink();
+    final hasMore = folded.length > tailLines;
+    final tail = hasMore ? folded.sublist(folded.length - tailLines) : folded;
+    final base = AnText.code.copyWith(color: c.inkMuted);
+    return ToolWindow(
+      child: Stack(
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final line in tail)
+                Text.rich(TextSpan(children: ansiSpans(line, c, base: base)),
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+            ],
+          ),
+          // A top fade when there's more output above the window. 窗上有更多输出→顶缘渐隐。
+          if (hasMore)
+            Positioned(top: 0, left: 0, right: 0, height: AnSpace.s16, child: AnEdgeFade(fromTop: true, color: c.surfaceSunken)),
+        ],
+      ),
+    );
+  }
+}
+
 /// Shared intent line (the LLM's self-reported summary) — shown above the window in the
 /// dangerous-leaning families (F3/F13/F14: the user judges the self-report).
 /// 共用意图行(LLM 自报 summary)——危险倾向族(F3/F13/F14)置于窗上,供用户判断自述。
