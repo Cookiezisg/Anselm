@@ -6,6 +6,7 @@ import '../../../core/contract/conversation.dart';
 import '../../../core/contract/messages/chat_message.dart';
 import '../../../core/sse/frame.dart';
 import 'chat_fixtures.dart';
+import 'chat_showcase_fixture.dart';
 import 'conversation_signal.dart';
 import 'turn_signal.dart';
 
@@ -248,9 +249,14 @@ DemoChatRepository demoChatRepository() {
   ChatBlock blk(String id, String type, String content, {Map<String, dynamic>? attrs}) =>
       ChatBlock(id: id, type: type, content: content, status: 'completed', attrs: attrs);
 
+  // The tool-card showcase conversations (B1–B7): each exercises a family group so `make demo` displays
+  // every tool card live. Folded into the rail (newest-first) + the messages map. 工具卡展台折入 demo。
+  final shows = showcaseConversations();
+
   return DemoChatRepository(
     conversations: [
       conv('cv_daily', '竞品日报流程', const Duration(minutes: 2), pinned: true, generating: true),
+      for (final s in shows) s.conv, // 展台对话(带工具卡)置于活跃段
       conv('cv_sync', 'AI 编辑 · sync_inventory 加重试', const Duration(minutes: 10)),
       conv('cv_diag', '诊断 · flowrun frn_8a1c 失败', const Duration(minutes: 25), awaiting: true),
       conv('cv_weekly', '周报初稿整理', const Duration(hours: 1), unread: true),
@@ -261,6 +267,7 @@ DemoChatRepository demoChatRepository() {
       conv('cv_migrate', '旧版迁移笔记', const Duration(days: 40), archived: true), // gray when shown
     ],
     messages: {
+      for (final s in shows) s.conv.id: s.messages,
       // Exercises every locked module: an @mention snapshot in the user bubble, thinking, markdown+code,
       // and a cancelled turn's honest banner. 触发每个已锁模块。
       'cv_sync': [
