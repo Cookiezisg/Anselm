@@ -520,6 +520,13 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String trgEvery({required Object n}) => '每 ${n} 秒';
 	@override String get trgCondition => '条件';
 	@override String get trgOutput => '输出';
+	@override String searchingKind({required Object kind}) => '正在搜索${kind}';
+	@override String searchedKind({required Object kind}) => '已搜索${kind}';
+	@override String listingKind({required Object kind}) => '正在列${kind}';
+	@override String listedKind({required Object kind}) => '已列${kind}';
+	@override String hits({required Object n}) => '${n} 个';
+	@override String hitsOfTotal({required Object n, required Object total}) => '${n}·共${total}';
+	@override String get emptyList => '空';
 }
 
 // Path: chat.gate
@@ -714,6 +721,9 @@ class _Translations$chat$tool$kind$zh_CN extends Translations$chat$tool$kind$en 
 	@override String get document => '文档';
 	@override String get skill => '技能';
 	@override String get trigger => '触发器';
+	@override String get blocks => '块';
+	@override String get attachment => '附件';
+	@override String get conversation => '对话';
 }
 
 // Path: entities.detail.tab
@@ -1197,6 +1207,9 @@ extension on TranslationsZhCn {
 			'chat.tool.kind.document' => '文档',
 			'chat.tool.kind.skill' => '技能',
 			'chat.tool.kind.trigger' => '触发器',
+			'chat.tool.kind.blocks' => '块',
+			'chat.tool.kind.attachment' => '附件',
+			'chat.tool.kind.conversation' => '对话',
 			'chat.tool.asking' => '正在提问',
 			'chat.tool.asked' => '已提问',
 			'chat.tool.answered' => '已回答',
@@ -1261,6 +1274,13 @@ extension on TranslationsZhCn {
 			'chat.tool.trgEvery' => ({required Object n}) => '每 ${n} 秒',
 			'chat.tool.trgCondition' => '条件',
 			'chat.tool.trgOutput' => '输出',
+			'chat.tool.searchingKind' => ({required Object kind}) => '正在搜索${kind}',
+			'chat.tool.searchedKind' => ({required Object kind}) => '已搜索${kind}',
+			'chat.tool.listingKind' => ({required Object kind}) => '正在列${kind}',
+			'chat.tool.listedKind' => ({required Object kind}) => '已列${kind}',
+			'chat.tool.hits' => ({required Object n}) => '${n} 个',
+			'chat.tool.hitsOfTotal' => ({required Object n, required Object total}) => '${n}·共${total}',
+			'chat.tool.emptyList' => '空',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -1594,6 +1614,8 @@ extension on TranslationsZhCn {
 			'entities.detail.editor.removeField' => '移除字段',
 			'entities.detail.editor.refPickFamily' => '选择类别…',
 			'entities.detail.editor.refFamilyFunction' => '函数',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.editor.refFamilyHandler' => '处理器',
 			'entities.detail.editor.refFamilyMcp' => 'MCP',
 			'entities.detail.editor.refPickTarget' => '选择…',
@@ -1604,8 +1626,6 @@ extension on TranslationsZhCn {
 			'entities.run.noInputs' => '无入参 —— 直接运行。',
 			'entities.run.payload' => '载荷(JSON,可选)',
 			'entities.run.payloadInvalid' => '载荷必须是合法 JSON。',
-			_ => null,
-		} ?? switch (path) {
 			'entities.run.payloadObject' => '载荷必须是 JSON 对象。',
 			'entities.run.fieldInvalid' => ({required Object name}) => '${name} 必须是合法 JSON。',
 			'entities.run.boolTrue' => 'true',

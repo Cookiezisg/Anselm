@@ -74,6 +74,57 @@ ToolReceipt? countReceipt(String output,
   return (text: countLabel('${lines.length}'), tone: ToolReceiptTone.none);
 }
 
+/// A parsed F07 entity-search result (WRK-056 §F07.5) — count + optional total + the hit rows. BOTH
+/// the collapsed receipt ([searchReceipt]) and the ToolHitList body read this ONE extractor.
+/// 一次 F07 搜索结果反解:count + 可选 total + 命中行。回执与命中窗同读此一处。
+typedef SearchHits = ({int count, int? total, List<Map<String, dynamic>> items});
+
+/// Parse a search tool's JSON output, tolerant of BOTH wire shapes it emits (the shape is probed by
+/// KEY EXISTENCE, never by guessing which path ran):
+///   • content-engine path `{count, total, <listKey>:[...], nextCursor?, hasMore?}` (has `total`);
+///   • substring-fallback path `{count, <listKey>:[...]}` (no `total`).
+/// nil-slice defense (F170-class): `{count:0, <listKey>:null}` (a Go nil slice) or the key absent is
+/// a VALID empty — `count==0` wins. But `count>0` with a missing/empty list is a BROKEN shape → null
+/// (a parse-miss the caller degrades on, never a phantom count). null also on no-JSON / no int `count`.
+/// 双形状(键存在性探测)+ null 列表防御:count==0 即有效空;count>0 但列表缺失=坏形状→null。
+SearchHits? parseSearchHits(String output, String listKey) {
+  final trimmed = output.trimRight();
+  if (trimmed.isEmpty) return null;
+  Map<String, dynamic>? d;
+  try {
+    final p = jsonDecode(trimmed);
+    if (p is Map<String, dynamic>) d = p;
+  } catch (_) {}
+  if (d == null) return null;
+  final count = d['count'];
+  if (count is! int) return null; // no parseable count → don't guess 无 count→不猜
+  final total = d['total'] is int ? d['total'] as int : null;
+  final raw = d[listKey];
+  final items = raw is List ? raw.whereType<Map<String, dynamic>>().toList() : const <Map<String, dynamic>>[];
+  if (count > 0 && items.isEmpty) return null; // count claims hits but no list → broken shape 坏形状
+  return (count: count, total: total, items: items);
+}
+
+/// The F07 entity-search collapsed-row receipt — `N` / `N·共M` (server-truncated) / empty. Reads
+/// [parseSearchHits] (double-shape, nil-slice safe); a known soft-empty string ("No blocks matched …",
+/// search_blocks) also → empty; anything else unparseable → null (never guess). count==0 → the honest
+/// empty label (the family's core empty state is «receipt IS the card» — it must never fall through to
+/// a generic empty window). F07 搜索回执:N / N·共M / 空;软空串也判空;解析不中→无回执。
+ToolReceipt? searchReceipt(
+  String output, {
+  required String listKey,
+  required String Function(int n) hits,
+  required String Function(int n, int total) hitsOfTotal,
+  required String empty,
+}) {
+  if (output.trimRight().startsWith('No blocks matched')) return (text: empty, tone: ToolReceiptTone.none);
+  final h = parseSearchHits(output, listKey);
+  if (h == null) return null;
+  if (h.count == 0) return (text: empty, tone: ToolReceiptTone.none);
+  if (h.total != null && h.total! > h.count) return (text: hitsOfTotal(h.count, h.total!), tone: ToolReceiptTone.none);
+  return (text: hits(h.count), tone: ToolReceiptTone.none);
+}
+
 /// Tolerant mid-stream arg extraction: pull a string field out of a (possibly PARTIAL) args
 /// JSON fragment so the collapsed line can name its target while args are still streaming.
 /// 容忍式流中参数提取:从(可能**不完整**的)args JSON 片段拉字符串字段,收起行在 args 流入期

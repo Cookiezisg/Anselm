@@ -1094,6 +1094,27 @@ class Translations$chat$tool$en {
 
 	/// en: 'emit'
 	String get trgOutput => 'emit';
+
+	/// en: 'Searching $kind'
+	String searchingKind({required Object kind}) => 'Searching ${kind}';
+
+	/// en: 'Searched $kind'
+	String searchedKind({required Object kind}) => 'Searched ${kind}';
+
+	/// en: 'Listing $kind'
+	String listingKind({required Object kind}) => 'Listing ${kind}';
+
+	/// en: 'Listed $kind'
+	String listedKind({required Object kind}) => 'Listed ${kind}';
+
+	/// en: '$n found'
+	String hits({required Object n}) => '${n} found';
+
+	/// en: '$n of $total'
+	String hitsOfTotal({required Object n, required Object total}) => '${n} of ${total}';
+
+	/// en: 'empty'
+	String get emptyList => 'empty';
 }
 
 // Path: chat.gate
@@ -1503,6 +1524,15 @@ class Translations$chat$tool$kind$en {
 
 	/// en: 'trigger'
 	String get trigger => 'trigger';
+
+	/// en: 'blocks'
+	String get blocks => 'blocks';
+
+	/// en: 'attachments'
+	String get attachment => 'attachments';
+
+	/// en: 'conversations'
+	String get conversation => 'conversations';
 }
 
 // Path: entities.detail.tab
@@ -2434,6 +2464,9 @@ extension on Translations {
 			'chat.tool.kind.document' => 'document',
 			'chat.tool.kind.skill' => 'skill',
 			'chat.tool.kind.trigger' => 'trigger',
+			'chat.tool.kind.blocks' => 'blocks',
+			'chat.tool.kind.attachment' => 'attachments',
+			'chat.tool.kind.conversation' => 'conversations',
 			'chat.tool.asking' => 'Asking',
 			'chat.tool.asked' => 'Asked',
 			'chat.tool.answered' => 'Answered',
@@ -2498,6 +2531,13 @@ extension on Translations {
 			'chat.tool.trgEvery' => ({required Object n}) => 'every ${n} s',
 			'chat.tool.trgCondition' => 'when',
 			'chat.tool.trgOutput' => 'emit',
+			'chat.tool.searchingKind' => ({required Object kind}) => 'Searching ${kind}',
+			'chat.tool.searchedKind' => ({required Object kind}) => 'Searched ${kind}',
+			'chat.tool.listingKind' => ({required Object kind}) => 'Listing ${kind}',
+			'chat.tool.listedKind' => ({required Object kind}) => 'Listed ${kind}',
+			'chat.tool.hits' => ({required Object n}) => '${n} found',
+			'chat.tool.hitsOfTotal' => ({required Object n, required Object total}) => '${n} of ${total}',
+			'chat.tool.emptyList' => 'empty',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -2831,6 +2871,8 @@ extension on Translations {
 			'entities.detail.editor.removeField' => 'Remove field',
 			'entities.detail.editor.refPickFamily' => 'Category…',
 			'entities.detail.editor.refFamilyFunction' => 'Function',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.editor.refFamilyHandler' => 'Handler',
 			'entities.detail.editor.refFamilyMcp' => 'MCP',
 			'entities.detail.editor.refPickTarget' => 'Select…',
@@ -2841,8 +2883,6 @@ extension on Translations {
 			'entities.run.noInputs' => 'No inputs — run with no arguments.',
 			'entities.run.payload' => 'Payload (JSON, optional)',
 			'entities.run.payloadInvalid' => 'Payload must be valid JSON.',
-			_ => null,
-		} ?? switch (path) {
 			'entities.run.payloadObject' => 'Payload must be a JSON object.',
 			'entities.run.fieldInvalid' => ({required Object name}) => '${name} must be valid JSON.',
 			'entities.run.boolTrue' => 'true',

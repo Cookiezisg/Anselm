@@ -29,6 +29,7 @@ class ToolCardSpec {
     this.liveBody,
     this.awaitingVerb,
     this.terminalVerb,
+    this.verbOf,
     this.ownsError = false,
   });
 
@@ -44,6 +45,16 @@ class ToolCardSpec {
   /// the first consumer of the verb-state seam (ask_user: 已回答/已跳过/空答案 off the result prose).
   /// 带结果覆盖终态动词(verb-state 缝首个消费者:ask_user 按结果散文分 已回答/已跳过/空答案)。
   final String Function(Translations t, ToolCardState state)? terminalVerb;
+
+  /// STATE-AWARE running/settled verb (verb-state seam extension) — replaces [verb] for the
+  /// running/argsStreaming/succeeded/failed channel when the verb depends on ARGS, not just live/settled.
+  /// F07 uses it for the search↔list dual channel (empty `query` ⇒ list channel); the channel is decided
+  /// only once args are COMPLETE (during argsStreaming, "query not yet arrived" vs "won't come" are
+  /// indistinguishable → the closure must lock the default channel and never flip mid-stream). Sits below
+  /// [terminalVerb] and above [verb] in resolution. null → plain [verb] is used.
+  /// 状态感知行动词(verb-state 缝扩展):动词依赖 args 时用它;F07 搜索↔列举双声道(空 query=列),仅
+  /// args 完整后判声道(流中锁默认、绝不翻面)。优先级在 terminalVerb 下、verb 上。
+  final String Function(Translations t, ToolCardState state, {required bool live})? verbOf;
 
   /// The mono target chip; null/empty → verb self-sufficient. Streaming-tolerant (args may be
   /// a partial fragment). 目标 chip;可空=动词自足。须容忍流中的不完整 args。
@@ -157,6 +168,53 @@ ToolCardSpec _build({
       liveBody: liveBody ?? buildLiveBody,
     );
 
+/// F07 entity searches (WRK-056 §F07): the collapsed row's dual channel — SEARCH when `query` is
+/// present, LIST when it's empty — decided ONLY after args complete (during argsStreaming the default
+/// search channel is locked, never flipped mid-stream). The query becomes the target chip; the receipt
+/// is [searchReceipt] (double-shape, nil-slice safe). `listOnly` = list_documents/list_attachments (no
+/// query arg → always the list channel). The settled body (ToolHitList) lands in B3.3 — until then the
+/// collapsed row is already fully specific over the generic body.
+/// F07 实体搜索:双声道(有 query=搜、空=列,仅 args 完整后判)+ query chip + searchReceipt;体 B3.3 落。
+ToolCardSpec _entitySearch({
+  required String Function(Translations) kind,
+  required String listKey,
+  bool listOnly = false,
+  Widget Function(BuildContext, ToolCardState)? body,
+}) =>
+    ToolCardSpec(
+      verb: (t, {required bool live}) {
+        final kw = kind(t);
+        return listOnly
+            ? (live ? t.chat.tool.listingKind(kind: kw) : t.chat.tool.listedKind(kind: kw))
+            : (live ? t.chat.tool.searchingKind(kind: kw) : t.chat.tool.searchedKind(kind: kw));
+      },
+      verbOf: listOnly
+          ? null
+          : (t, s, {required bool live}) {
+              final argsComplete = s.phase != ToolCardPhase.argsStreaming;
+              final q = argStringPartial(s.argsText, 'query');
+              final listChannel = argsComplete && (q == null || q.trim().isEmpty);
+              final kw = kind(t);
+              return listChannel
+                  ? (live ? t.chat.tool.listingKind(kind: kw) : t.chat.tool.listedKind(kind: kw))
+                  : (live ? t.chat.tool.searchingKind(kind: kw) : t.chat.tool.searchedKind(kind: kw));
+            },
+      target: listOnly
+          ? null
+          : (s) {
+              final q = argStringPartial(s.argsText, 'query');
+              if (q == null || q.trim().isEmpty) return null;
+              final first = q.split('\n').first.trim();
+              return '"${first.length > 40 ? '${first.substring(0, 40)}…' : first}"';
+            },
+      receipt: (t, s) => searchReceipt(s.resultText,
+          listKey: listKey,
+          hits: (n) => t.chat.tool.hits(n: '$n'),
+          hitsOfTotal: (n, total) => t.chat.tool.hitsOfTotal(n: '$n', total: '$total'),
+          empty: listOnly ? t.chat.tool.emptyList : t.chat.tool.noMatches),
+      body: body,
+    );
+
 /// The family table — keyed by exact tool name. 族表,按精确工具名键。
 final Map<String, ToolCardSpec> _catalog = {
   // ── F1 fs-ops 文件操作 ──
@@ -257,6 +315,22 @@ final Map<String, ToolCardSpec> _catalog = {
       kind: (t) => t.chat.tool.kind.trigger, create: true, body: triggerConfigBody, receipt: triggerReceipt),
   'edit_trigger': _build(
       kind: (t) => t.chat.tool.kind.trigger, create: false, editIdKey: 'triggerId', body: triggerConfigBody, receipt: triggerReceipt),
+
+  // ── F07 searches: dual-channel verb (search↔list) + query chip + searchReceipt (double-shape,
+  // nil-safe). listKey = the plural entity name; the settled ToolHitList body lands in B3.3.
+  // F07 检索:双声道动词 + query chip + searchReceipt(双形状、nil 安全);命中窗体 B3.3 落。──
+  'search_function': _entitySearch(kind: (t) => t.chat.tool.kind.function, listKey: 'functions'),
+  'search_handler': _entitySearch(kind: (t) => t.chat.tool.kind.handler, listKey: 'handlers'),
+  'search_agent': _entitySearch(kind: (t) => t.chat.tool.kind.agent, listKey: 'agents'),
+  'search_workflow': _entitySearch(kind: (t) => t.chat.tool.kind.workflow, listKey: 'workflows'),
+  'search_control': _entitySearch(kind: (t) => t.chat.tool.kind.control, listKey: 'controls'),
+  'search_approval': _entitySearch(kind: (t) => t.chat.tool.kind.approval, listKey: 'approvals'),
+  'search_documents': _entitySearch(kind: (t) => t.chat.tool.kind.document, listKey: 'documents'),
+  'search_triggers': _entitySearch(kind: (t) => t.chat.tool.kind.trigger, listKey: 'triggers'),
+  'search_blocks': _entitySearch(kind: (t) => t.chat.tool.kind.blocks, listKey: 'blocks'),
+  // The two bounded list_* tools carry no query — always the list channel. list_* 无 query,恒列声道。
+  'list_documents': _entitySearch(kind: (t) => t.chat.tool.kind.document, listKey: 'documents', listOnly: true),
+  'list_attachments': _entitySearch(kind: (t) => t.chat.tool.kind.attachment, listKey: 'attachments', listOnly: true),
 
   // ── F16 humanloop: ask_user (the danger gate is not a tool — it's the chassis awaitingConfirm phase) ──
   // 三段动词:正在提问(live)→ 等待你回答(awaiting,底盘渲门)→ 已回答/已跳过/空答案(按结果散文)。

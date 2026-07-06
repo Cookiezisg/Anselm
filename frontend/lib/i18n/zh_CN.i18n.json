@@ -110,7 +110,10 @@
         "approval": "审批",
         "document": "文档",
         "skill": "技能",
-        "trigger": "触发器"
+        "trigger": "触发器",
+        "blocks": "块",
+        "attachment": "附件",
+        "conversation": "对话"
       },
       "asking": "正在提问",
       "asked": "已提问",
@@ -175,7 +178,14 @@
       "trgSecret": "密钥",
       "trgEvery": "每 $n 秒",
       "trgCondition": "条件",
-      "trgOutput": "输出"
+      "trgOutput": "输出",
+      "searchingKind": "正在搜索$kind",
+      "searchedKind": "已搜索$kind",
+      "listingKind": "正在列$kind",
+      "listedKind": "已列$kind",
+      "hits": "$n 个",
+      "hitsOfTotal": "$n·共$total",
+      "emptyList": "空"
     },
     "gate": {
       "dangerBadge": "危险",

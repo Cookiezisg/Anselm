@@ -110,7 +110,10 @@
         "approval": "approval",
         "document": "document",
         "skill": "skill",
-        "trigger": "trigger"
+        "trigger": "trigger",
+        "blocks": "blocks",
+        "attachment": "attachments",
+        "conversation": "conversations"
       },
       "asking": "Asking",
       "asked": "Asked",
@@ -175,7 +178,14 @@
       "trgSecret": "secret",
       "trgEvery": "every $n s",
       "trgCondition": "when",
-      "trgOutput": "emit"
+      "trgOutput": "emit",
+      "searchingKind": "Searching $kind",
+      "searchedKind": "Searched $kind",
+      "listingKind": "Listing $kind",
+      "listedKind": "Listed $kind",
+      "hits": "$n found",
+      "hitsOfTotal": "$n of $total",
+      "emptyList": "empty"
     },
     "gate": {
       "dangerBadge": "Dangerous",

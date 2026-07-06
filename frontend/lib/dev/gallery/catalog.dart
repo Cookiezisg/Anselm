@@ -13,6 +13,7 @@ import 'chat_composer_specimens.dart';
 import 'chat_thinking_specimens.dart';
 import 'chat_tool_card_specimens.dart';
 import 'tool_card_builds_specimens.dart';
+import 'tool_card_entity_search_specimens.dart';
 import 'tool_card_family_specimens.dart';
 import 'tool_interaction_gate_specimens.dart';
 import 'chat_turn_specimens.dart';
@@ -194,6 +195,7 @@ final GalleryCategory _toolCards = GalleryCategory('工具卡 Tool Cards', AnIco
   toolCardBuildsGalleryItem,
   toolCardFsGalleryItem,
   toolCardSearchGalleryItem,
+  toolCardEntitySearchGalleryItem,
   toolInteractionGateGalleryItem,
 ]);
 

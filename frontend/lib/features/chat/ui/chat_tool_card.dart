@@ -262,7 +262,7 @@ class _ChatToolCardState extends State<ChatToolCard> {
       ToolCardPhase.awaitingConfirm => spec.awaitingVerb?.call(t) ?? t.chat.tool.awaitingConfirm,
       ToolCardPhase.denied => spec.terminalVerb?.call(t, state) ?? t.chat.tool.denied,
       ToolCardPhase.cancelled => spec.terminalVerb?.call(t, state) ?? t.chat.tool.cancelled,
-      _ => spec.terminalVerb?.call(t, state) ?? spec.verb(t, live: live),
+      _ => spec.terminalVerb?.call(t, state) ?? spec.verbOf?.call(t, state, live: live) ?? spec.verb(t, live: live),
     };
     final target = spec.target?.call(state) ?? '';
 
