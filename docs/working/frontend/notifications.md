@@ -61,7 +61,7 @@ audience: [human, ai]
 | control(5) / approval(5) | created/edited/updated/reverted/deleted | app/control/crud.go · app/approval/crud.go |
 | skill(3) | created/updated/deleted(name) | app/skill/mutate.go:44/67/82 |
 | memory(3) | created/updated(内容更新源)/deleted(name) | app/memory/memory.go:99/124 |
-| mcp(5) | installed×2 / updated / removed / reconnected(name;**N0 补 status 字段**——现 `_ = s.connectOne` 吞错无条件发、当不了警报) | app/mcp/install.go:96/143/141/192 + mcp.go:189 |
+| mcp(5) | installed×2 / updated / removed / reconnected(payload `{name, status, lastError?}`——**N0 已补 status**:reconnect 成败都发,status 载 ready/degraded/failed,通知中心分清恢复与仍坏) | app/mcp/install.go:96/143/141/192 + mcp.go:189 |
 | document(1) | deleted(裁决升档:破坏性、AI 可删用户文档) | app/document/document.go:421 |
 | sandbox(1) | env_status_changed(ready) | app/sandbox/sandbox.go:446 |
 
