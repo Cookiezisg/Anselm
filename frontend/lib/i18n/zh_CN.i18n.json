@@ -360,7 +360,19 @@
       "firingTrigger": "正在触发",
       "firedTrigger": "已触发",
       "fireActivation": "活化",
-      "firePayloadNote": "payload 恒为 {manual:true};扇出与处置见触发日志"
+      "firePayloadNote": "payload 恒为 {manual:true};扇出与处置见触发日志",
+      "replayingRun": "正在重放运行",
+      "replayedRun": "已重放运行",
+      "runCompleted": "完成",
+      "runStillFailed": "仍失败",
+      "runCancelled": "已取消",
+      "runAwaitApproval": "等待审批",
+      "nodeCount": "$n 节点",
+      "replayPinNote": "用原 pin 版本重跑,事后修的代码不生效",
+      "replayTimes": "第 $n 次重放",
+      "flowShown": "显示 $shown/$total 节点",
+      "flowExpandAll": "展开其余 $n 个",
+      "nodeWait": "等待"
     },
     "gate": {
       "dangerBadge": "危险",

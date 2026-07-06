@@ -1640,6 +1640,42 @@ class Translations$chat$tool$en {
 
 	/// en: 'Payload is always {manual:true}; see the trigger log for fan-out and disposition'
 	String get firePayloadNote => 'Payload is always {manual:true}; see the trigger log for fan-out and disposition';
+
+	/// en: 'Replaying run'
+	String get replayingRun => 'Replaying run';
+
+	/// en: 'Replayed run'
+	String get replayedRun => 'Replayed run';
+
+	/// en: 'Completed'
+	String get runCompleted => 'Completed';
+
+	/// en: 'Still failed'
+	String get runStillFailed => 'Still failed';
+
+	/// en: 'Cancelled'
+	String get runCancelled => 'Cancelled';
+
+	/// en: 'Awaiting approval'
+	String get runAwaitApproval => 'Awaiting approval';
+
+	/// en: '$n nodes'
+	String nodeCount({required Object n}) => '${n} nodes';
+
+	/// en: 'Re-run under the originally pinned versions; edits made after the failure do not take effect'
+	String get replayPinNote => 'Re-run under the originally pinned versions; edits made after the failure do not take effect';
+
+	/// en: 'Replay #$n'
+	String replayTimes({required Object n}) => 'Replay #${n}';
+
+	/// en: 'Showing $shown/$total nodes'
+	String flowShown({required Object shown, required Object total}) => 'Showing ${shown}/${total} nodes';
+
+	/// en: 'Show remaining $n'
+	String flowExpandAll({required Object n}) => 'Show remaining ${n}';
+
+	/// en: 'waiting'
+	String get nodeWait => 'waiting';
 }
 
 // Path: chat.gate
@@ -3238,6 +3274,18 @@ extension on Translations {
 			'chat.tool.firedTrigger' => 'Fired trigger',
 			'chat.tool.fireActivation' => 'Activation',
 			'chat.tool.firePayloadNote' => 'Payload is always {manual:true}; see the trigger log for fan-out and disposition',
+			'chat.tool.replayingRun' => 'Replaying run',
+			'chat.tool.replayedRun' => 'Replayed run',
+			'chat.tool.runCompleted' => 'Completed',
+			'chat.tool.runStillFailed' => 'Still failed',
+			'chat.tool.runCancelled' => 'Cancelled',
+			'chat.tool.runAwaitApproval' => 'Awaiting approval',
+			'chat.tool.nodeCount' => ({required Object n}) => '${n} nodes',
+			'chat.tool.replayPinNote' => 'Re-run under the originally pinned versions; edits made after the failure do not take effect',
+			'chat.tool.replayTimes' => ({required Object n}) => 'Replay #${n}',
+			'chat.tool.flowShown' => ({required Object shown, required Object total}) => 'Showing ${shown}/${total} nodes',
+			'chat.tool.flowExpandAll' => ({required Object n}) => 'Show remaining ${n}',
+			'chat.tool.nodeWait' => 'waiting',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -3384,6 +3432,8 @@ extension on Translations {
 			'entities.detail.sec.methods' => 'Methods',
 			'entities.detail.sec.prompt' => 'Prompt',
 			'entities.detail.sec.capabilities' => 'Capabilities',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.sec.mountHealth' => 'Mount health',
 			'entities.detail.sec.governance' => 'Run governance',
 			'entities.detail.sec.alerts' => 'Alerts',
@@ -3396,8 +3446,6 @@ extension on Translations {
 			'entities.detail.sec.firePayload' => 'Fire payload',
 			'entities.detail.card.deps' => 'Dependencies',
 			'entities.detail.card.venv' => 'venv status',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.card.runtime' => 'Runtime',
 			'entities.detail.card.config' => 'Config readiness',
 			'entities.detail.card.tools' => 'Tool mounts',

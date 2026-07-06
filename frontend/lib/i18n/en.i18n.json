@@ -360,7 +360,19 @@
       "firingTrigger": "Firing trigger",
       "firedTrigger": "Fired trigger",
       "fireActivation": "Activation",
-      "firePayloadNote": "Payload is always {manual:true}; see the trigger log for fan-out and disposition"
+      "firePayloadNote": "Payload is always {manual:true}; see the trigger log for fan-out and disposition",
+      "replayingRun": "Replaying run",
+      "replayedRun": "Replayed run",
+      "runCompleted": "Completed",
+      "runStillFailed": "Still failed",
+      "runCancelled": "Cancelled",
+      "runAwaitApproval": "Awaiting approval",
+      "nodeCount": "$n nodes",
+      "replayPinNote": "Re-run under the originally pinned versions; edits made after the failure do not take effect",
+      "replayTimes": "Replay #$n",
+      "flowShown": "Showing $shown/$total nodes",
+      "flowExpandAll": "Show remaining $n",
+      "nodeWait": "waiting"
     },
     "gate": {
       "dangerBadge": "Dangerous",

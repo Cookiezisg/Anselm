@@ -702,6 +702,18 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get firedTrigger => '已触发';
 	@override String get fireActivation => '活化';
 	@override String get firePayloadNote => 'payload 恒为 {manual:true};扇出与处置见触发日志';
+	@override String get replayingRun => '正在重放运行';
+	@override String get replayedRun => '已重放运行';
+	@override String get runCompleted => '完成';
+	@override String get runStillFailed => '仍失败';
+	@override String get runCancelled => '已取消';
+	@override String get runAwaitApproval => '等待审批';
+	@override String nodeCount({required Object n}) => '${n} 节点';
+	@override String get replayPinNote => '用原 pin 版本重跑,事后修的代码不生效';
+	@override String replayTimes({required Object n}) => '第 ${n} 次重放';
+	@override String flowShown({required Object shown, required Object total}) => '显示 ${shown}/${total} 节点';
+	@override String flowExpandAll({required Object n}) => '展开其余 ${n} 个';
+	@override String get nodeWait => '等待';
 }
 
 // Path: chat.gate
@@ -1631,6 +1643,18 @@ extension on TranslationsZhCn {
 			'chat.tool.firedTrigger' => '已触发',
 			'chat.tool.fireActivation' => '活化',
 			'chat.tool.firePayloadNote' => 'payload 恒为 {manual:true};扇出与处置见触发日志',
+			'chat.tool.replayingRun' => '正在重放运行',
+			'chat.tool.replayedRun' => '已重放运行',
+			'chat.tool.runCompleted' => '完成',
+			'chat.tool.runStillFailed' => '仍失败',
+			'chat.tool.runCancelled' => '已取消',
+			'chat.tool.runAwaitApproval' => '等待审批',
+			'chat.tool.nodeCount' => ({required Object n}) => '${n} 节点',
+			'chat.tool.replayPinNote' => '用原 pin 版本重跑,事后修的代码不生效',
+			'chat.tool.replayTimes' => ({required Object n}) => '第 ${n} 次重放',
+			'chat.tool.flowShown' => ({required Object shown, required Object total}) => '显示 ${shown}/${total} 节点',
+			'chat.tool.flowExpandAll' => ({required Object n}) => '展开其余 ${n} 个',
+			'chat.tool.nodeWait' => '等待',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -1777,6 +1801,8 @@ extension on TranslationsZhCn {
 			'entities.detail.sec.methods' => '方法',
 			'entities.detail.sec.prompt' => '提示词',
 			'entities.detail.sec.capabilities' => '能力挂载',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.sec.mountHealth' => '挂载健康',
 			'entities.detail.sec.governance' => '运行治理',
 			'entities.detail.sec.alerts' => '告警',
@@ -1789,8 +1815,6 @@ extension on TranslationsZhCn {
 			'entities.detail.sec.firePayload' => 'Fire 载荷',
 			'entities.detail.card.deps' => '依赖',
 			'entities.detail.card.venv' => 'venv 状态',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.card.runtime' => '运行时',
 			'entities.detail.card.config' => '配置完整度',
 			'entities.detail.card.tools' => '工具挂载',

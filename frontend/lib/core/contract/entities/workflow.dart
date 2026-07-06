@@ -87,14 +87,31 @@ abstract class FlowrunNode with _$FlowrunNode {
   factory FlowrunNode.fromJson(Map<String, dynamic> json) => _$FlowrunNodeFromJson(json);
 }
 
-/// The composite `data` of GET /flowruns/{id} = {flowrun, nodes, nextCursor} (a bespoke decode, NOT the
-/// standard bare-entity shape). flowrun.go。
+/// The F173 80-node cap summary — present in a get_flowrun / replay_flowrun tool result ONLY when the
+/// run was capped (`nodes` then holds every non-completed node + a recent-completed tail up to 80).
+/// ABSENT = `nodes` is the full set. Counts come from HERE, NEVER `nodes.length` (which is 80 when
+/// capped). runs.go:294. 80 封顶诚实账:计数取此、绝不数 nodes.length(截断时恒 80)。
+@freezed
+abstract class FlowrunNodeSummary with _$FlowrunNodeSummary {
+  const factory FlowrunNodeSummary({
+    @Default(0) int totalNodes,
+    @Default(0) int shownNodes,
+    @Default(<String, int>{}) Map<String, int> byStatus,
+    @Default('') String note,
+  }) = _FlowrunNodeSummary;
+  factory FlowrunNodeSummary.fromJson(Map<String, dynamic> json) => _$FlowrunNodeSummaryFromJson(json);
+}
+
+/// The composite `data` of GET /flowruns/{id} = {flowrun, nodes, nextCursor} AND the get_flowrun /
+/// replay_flowrun tool result = {flowrun, nodes, nodeSummary?} (one bespoke decode for both — the REST
+/// shape paginates via [nextCursor], the tool caps at 80 via [nodeSummary]; both optional). flowrun.go。
 @freezed
 abstract class FlowrunComposite with _$FlowrunComposite {
   const factory FlowrunComposite({
     required Flowrun flowrun,
     @Default(<FlowrunNode>[]) List<FlowrunNode> nodes,
     String? nextCursor,
+    FlowrunNodeSummary? nodeSummary,
   }) = _FlowrunComposite;
   factory FlowrunComposite.fromJson(Map<String, dynamic> json) => _$FlowrunCompositeFromJson(json);
 }

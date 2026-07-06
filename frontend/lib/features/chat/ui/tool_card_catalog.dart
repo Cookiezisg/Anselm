@@ -11,6 +11,7 @@ import 'tool_card_control_approval.dart';
 import 'tool_card_conversation.dart';
 import 'tool_card_document_skill.dart';
 import 'tool_card_exec.dart';
+import 'tool_card_flowrun.dart';
 import 'tool_card_fs_search.dart';
 import 'tool_card_entity_get_bodies.dart';
 import 'tool_card_lifecycle.dart';
@@ -858,6 +859,18 @@ final Map<String, ToolCardSpec> _catalog = {
     },
     receipt: (t, s) => fireReceipt(t, s.resultText),
     body: fireTriggerBody,
+  ),
+  // replay_flowrun — the node-ledger card (chip=flowrunId; failed→auto-expand; run header has no
+  // parked, so «awaiting approval» is read off the nodes). replay 节点台账卡。
+  'replay_flowrun': ToolCardSpec(
+    verb: (t, {required bool live}) => live ? t.chat.tool.replayingRun : t.chat.tool.replayedRun,
+    target: (s) {
+      final id = argStringPartial(s.argsText, 'flowrunId');
+      return id == null ? null : (id.length > 12 ? '${id.substring(0, 12)}…' : id);
+    },
+    receipt: (t, s) => replayReceipt(t, s.resultText),
+    resultFailed: (s) => replayResultFailed(s.resultText),
+    body: replayFlowrunBody,
   ),
 
   // ── F16 humanloop: ask_user (the danger gate is not a tool — it's the chassis awaitingConfirm phase) ──

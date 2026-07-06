@@ -1260,9 +1260,287 @@ as DateTime,
 
 
 /// @nodoc
+mixin _$FlowrunNodeSummary {
+
+ int get totalNodes; int get shownNodes; Map<String, int> get byStatus; String get note;
+/// Create a copy of FlowrunNodeSummary
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$FlowrunNodeSummaryCopyWith<FlowrunNodeSummary> get copyWith => _$FlowrunNodeSummaryCopyWithImpl<FlowrunNodeSummary>(this as FlowrunNodeSummary, _$identity);
+
+  /// Serializes this FlowrunNodeSummary to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is FlowrunNodeSummary&&(identical(other.totalNodes, totalNodes) || other.totalNodes == totalNodes)&&(identical(other.shownNodes, shownNodes) || other.shownNodes == shownNodes)&&const DeepCollectionEquality().equals(other.byStatus, byStatus)&&(identical(other.note, note) || other.note == note));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,totalNodes,shownNodes,const DeepCollectionEquality().hash(byStatus),note);
+
+@override
+String toString() {
+  return 'FlowrunNodeSummary(totalNodes: $totalNodes, shownNodes: $shownNodes, byStatus: $byStatus, note: $note)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $FlowrunNodeSummaryCopyWith<$Res>  {
+  factory $FlowrunNodeSummaryCopyWith(FlowrunNodeSummary value, $Res Function(FlowrunNodeSummary) _then) = _$FlowrunNodeSummaryCopyWithImpl;
+@useResult
+$Res call({
+ int totalNodes, int shownNodes, Map<String, int> byStatus, String note
+});
+
+
+
+
+}
+/// @nodoc
+class _$FlowrunNodeSummaryCopyWithImpl<$Res>
+    implements $FlowrunNodeSummaryCopyWith<$Res> {
+  _$FlowrunNodeSummaryCopyWithImpl(this._self, this._then);
+
+  final FlowrunNodeSummary _self;
+  final $Res Function(FlowrunNodeSummary) _then;
+
+/// Create a copy of FlowrunNodeSummary
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? totalNodes = null,Object? shownNodes = null,Object? byStatus = null,Object? note = null,}) {
+  return _then(_self.copyWith(
+totalNodes: null == totalNodes ? _self.totalNodes : totalNodes // ignore: cast_nullable_to_non_nullable
+as int,shownNodes: null == shownNodes ? _self.shownNodes : shownNodes // ignore: cast_nullable_to_non_nullable
+as int,byStatus: null == byStatus ? _self.byStatus : byStatus // ignore: cast_nullable_to_non_nullable
+as Map<String, int>,note: null == note ? _self.note : note // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [FlowrunNodeSummary].
+extension FlowrunNodeSummaryPatterns on FlowrunNodeSummary {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _FlowrunNodeSummary value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _FlowrunNodeSummary() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _FlowrunNodeSummary value)  $default,){
+final _that = this;
+switch (_that) {
+case _FlowrunNodeSummary():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _FlowrunNodeSummary value)?  $default,){
+final _that = this;
+switch (_that) {
+case _FlowrunNodeSummary() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int totalNodes,  int shownNodes,  Map<String, int> byStatus,  String note)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _FlowrunNodeSummary() when $default != null:
+return $default(_that.totalNodes,_that.shownNodes,_that.byStatus,_that.note);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int totalNodes,  int shownNodes,  Map<String, int> byStatus,  String note)  $default,) {final _that = this;
+switch (_that) {
+case _FlowrunNodeSummary():
+return $default(_that.totalNodes,_that.shownNodes,_that.byStatus,_that.note);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int totalNodes,  int shownNodes,  Map<String, int> byStatus,  String note)?  $default,) {final _that = this;
+switch (_that) {
+case _FlowrunNodeSummary() when $default != null:
+return $default(_that.totalNodes,_that.shownNodes,_that.byStatus,_that.note);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _FlowrunNodeSummary implements FlowrunNodeSummary {
+  const _FlowrunNodeSummary({this.totalNodes = 0, this.shownNodes = 0, final  Map<String, int> byStatus = const <String, int>{}, this.note = ''}): _byStatus = byStatus;
+  factory _FlowrunNodeSummary.fromJson(Map<String, dynamic> json) => _$FlowrunNodeSummaryFromJson(json);
+
+@override@JsonKey() final  int totalNodes;
+@override@JsonKey() final  int shownNodes;
+ final  Map<String, int> _byStatus;
+@override@JsonKey() Map<String, int> get byStatus {
+  if (_byStatus is EqualUnmodifiableMapView) return _byStatus;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableMapView(_byStatus);
+}
+
+@override@JsonKey() final  String note;
+
+/// Create a copy of FlowrunNodeSummary
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$FlowrunNodeSummaryCopyWith<_FlowrunNodeSummary> get copyWith => __$FlowrunNodeSummaryCopyWithImpl<_FlowrunNodeSummary>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$FlowrunNodeSummaryToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _FlowrunNodeSummary&&(identical(other.totalNodes, totalNodes) || other.totalNodes == totalNodes)&&(identical(other.shownNodes, shownNodes) || other.shownNodes == shownNodes)&&const DeepCollectionEquality().equals(other._byStatus, _byStatus)&&(identical(other.note, note) || other.note == note));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,totalNodes,shownNodes,const DeepCollectionEquality().hash(_byStatus),note);
+
+@override
+String toString() {
+  return 'FlowrunNodeSummary(totalNodes: $totalNodes, shownNodes: $shownNodes, byStatus: $byStatus, note: $note)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$FlowrunNodeSummaryCopyWith<$Res> implements $FlowrunNodeSummaryCopyWith<$Res> {
+  factory _$FlowrunNodeSummaryCopyWith(_FlowrunNodeSummary value, $Res Function(_FlowrunNodeSummary) _then) = __$FlowrunNodeSummaryCopyWithImpl;
+@override @useResult
+$Res call({
+ int totalNodes, int shownNodes, Map<String, int> byStatus, String note
+});
+
+
+
+
+}
+/// @nodoc
+class __$FlowrunNodeSummaryCopyWithImpl<$Res>
+    implements _$FlowrunNodeSummaryCopyWith<$Res> {
+  __$FlowrunNodeSummaryCopyWithImpl(this._self, this._then);
+
+  final _FlowrunNodeSummary _self;
+  final $Res Function(_FlowrunNodeSummary) _then;
+
+/// Create a copy of FlowrunNodeSummary
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? totalNodes = null,Object? shownNodes = null,Object? byStatus = null,Object? note = null,}) {
+  return _then(_FlowrunNodeSummary(
+totalNodes: null == totalNodes ? _self.totalNodes : totalNodes // ignore: cast_nullable_to_non_nullable
+as int,shownNodes: null == shownNodes ? _self.shownNodes : shownNodes // ignore: cast_nullable_to_non_nullable
+as int,byStatus: null == byStatus ? _self._byStatus : byStatus // ignore: cast_nullable_to_non_nullable
+as Map<String, int>,note: null == note ? _self.note : note // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+
+}
+
+
+/// @nodoc
 mixin _$FlowrunComposite {
 
- Flowrun get flowrun; List<FlowrunNode> get nodes; String? get nextCursor;
+ Flowrun get flowrun; List<FlowrunNode> get nodes; String? get nextCursor; FlowrunNodeSummary? get nodeSummary;
 /// Create a copy of FlowrunComposite
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -1275,16 +1553,16 @@ $FlowrunCompositeCopyWith<FlowrunComposite> get copyWith => _$FlowrunCompositeCo
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is FlowrunComposite&&(identical(other.flowrun, flowrun) || other.flowrun == flowrun)&&const DeepCollectionEquality().equals(other.nodes, nodes)&&(identical(other.nextCursor, nextCursor) || other.nextCursor == nextCursor));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is FlowrunComposite&&(identical(other.flowrun, flowrun) || other.flowrun == flowrun)&&const DeepCollectionEquality().equals(other.nodes, nodes)&&(identical(other.nextCursor, nextCursor) || other.nextCursor == nextCursor)&&(identical(other.nodeSummary, nodeSummary) || other.nodeSummary == nodeSummary));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,flowrun,const DeepCollectionEquality().hash(nodes),nextCursor);
+int get hashCode => Object.hash(runtimeType,flowrun,const DeepCollectionEquality().hash(nodes),nextCursor,nodeSummary);
 
 @override
 String toString() {
-  return 'FlowrunComposite(flowrun: $flowrun, nodes: $nodes, nextCursor: $nextCursor)';
+  return 'FlowrunComposite(flowrun: $flowrun, nodes: $nodes, nextCursor: $nextCursor, nodeSummary: $nodeSummary)';
 }
 
 
@@ -1295,11 +1573,11 @@ abstract mixin class $FlowrunCompositeCopyWith<$Res>  {
   factory $FlowrunCompositeCopyWith(FlowrunComposite value, $Res Function(FlowrunComposite) _then) = _$FlowrunCompositeCopyWithImpl;
 @useResult
 $Res call({
- Flowrun flowrun, List<FlowrunNode> nodes, String? nextCursor
+ Flowrun flowrun, List<FlowrunNode> nodes, String? nextCursor, FlowrunNodeSummary? nodeSummary
 });
 
 
-$FlowrunCopyWith<$Res> get flowrun;
+$FlowrunCopyWith<$Res> get flowrun;$FlowrunNodeSummaryCopyWith<$Res>? get nodeSummary;
 
 }
 /// @nodoc
@@ -1312,12 +1590,13 @@ class _$FlowrunCompositeCopyWithImpl<$Res>
 
 /// Create a copy of FlowrunComposite
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? flowrun = null,Object? nodes = null,Object? nextCursor = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? flowrun = null,Object? nodes = null,Object? nextCursor = freezed,Object? nodeSummary = freezed,}) {
   return _then(_self.copyWith(
 flowrun: null == flowrun ? _self.flowrun : flowrun // ignore: cast_nullable_to_non_nullable
 as Flowrun,nodes: null == nodes ? _self.nodes : nodes // ignore: cast_nullable_to_non_nullable
 as List<FlowrunNode>,nextCursor: freezed == nextCursor ? _self.nextCursor : nextCursor // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,nodeSummary: freezed == nodeSummary ? _self.nodeSummary : nodeSummary // ignore: cast_nullable_to_non_nullable
+as FlowrunNodeSummary?,
   ));
 }
 /// Create a copy of FlowrunComposite
@@ -1328,6 +1607,18 @@ $FlowrunCopyWith<$Res> get flowrun {
   
   return $FlowrunCopyWith<$Res>(_self.flowrun, (value) {
     return _then(_self.copyWith(flowrun: value));
+  });
+}/// Create a copy of FlowrunComposite
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$FlowrunNodeSummaryCopyWith<$Res>? get nodeSummary {
+    if (_self.nodeSummary == null) {
+    return null;
+  }
+
+  return $FlowrunNodeSummaryCopyWith<$Res>(_self.nodeSummary!, (value) {
+    return _then(_self.copyWith(nodeSummary: value));
   });
 }
 }
@@ -1411,10 +1702,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( Flowrun flowrun,  List<FlowrunNode> nodes,  String? nextCursor)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( Flowrun flowrun,  List<FlowrunNode> nodes,  String? nextCursor,  FlowrunNodeSummary? nodeSummary)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _FlowrunComposite() when $default != null:
-return $default(_that.flowrun,_that.nodes,_that.nextCursor);case _:
+return $default(_that.flowrun,_that.nodes,_that.nextCursor,_that.nodeSummary);case _:
   return orElse();
 
 }
@@ -1432,10 +1723,10 @@ return $default(_that.flowrun,_that.nodes,_that.nextCursor);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( Flowrun flowrun,  List<FlowrunNode> nodes,  String? nextCursor)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( Flowrun flowrun,  List<FlowrunNode> nodes,  String? nextCursor,  FlowrunNodeSummary? nodeSummary)  $default,) {final _that = this;
 switch (_that) {
 case _FlowrunComposite():
-return $default(_that.flowrun,_that.nodes,_that.nextCursor);case _:
+return $default(_that.flowrun,_that.nodes,_that.nextCursor,_that.nodeSummary);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -1452,10 +1743,10 @@ return $default(_that.flowrun,_that.nodes,_that.nextCursor);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( Flowrun flowrun,  List<FlowrunNode> nodes,  String? nextCursor)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( Flowrun flowrun,  List<FlowrunNode> nodes,  String? nextCursor,  FlowrunNodeSummary? nodeSummary)?  $default,) {final _that = this;
 switch (_that) {
 case _FlowrunComposite() when $default != null:
-return $default(_that.flowrun,_that.nodes,_that.nextCursor);case _:
+return $default(_that.flowrun,_that.nodes,_that.nextCursor,_that.nodeSummary);case _:
   return null;
 
 }
@@ -1467,7 +1758,7 @@ return $default(_that.flowrun,_that.nodes,_that.nextCursor);case _:
 @JsonSerializable()
 
 class _FlowrunComposite implements FlowrunComposite {
-  const _FlowrunComposite({required this.flowrun, final  List<FlowrunNode> nodes = const <FlowrunNode>[], this.nextCursor}): _nodes = nodes;
+  const _FlowrunComposite({required this.flowrun, final  List<FlowrunNode> nodes = const <FlowrunNode>[], this.nextCursor, this.nodeSummary}): _nodes = nodes;
   factory _FlowrunComposite.fromJson(Map<String, dynamic> json) => _$FlowrunCompositeFromJson(json);
 
 @override final  Flowrun flowrun;
@@ -1479,6 +1770,7 @@ class _FlowrunComposite implements FlowrunComposite {
 }
 
 @override final  String? nextCursor;
+@override final  FlowrunNodeSummary? nodeSummary;
 
 /// Create a copy of FlowrunComposite
 /// with the given fields replaced by the non-null parameter values.
@@ -1493,16 +1785,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _FlowrunComposite&&(identical(other.flowrun, flowrun) || other.flowrun == flowrun)&&const DeepCollectionEquality().equals(other._nodes, _nodes)&&(identical(other.nextCursor, nextCursor) || other.nextCursor == nextCursor));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _FlowrunComposite&&(identical(other.flowrun, flowrun) || other.flowrun == flowrun)&&const DeepCollectionEquality().equals(other._nodes, _nodes)&&(identical(other.nextCursor, nextCursor) || other.nextCursor == nextCursor)&&(identical(other.nodeSummary, nodeSummary) || other.nodeSummary == nodeSummary));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,flowrun,const DeepCollectionEquality().hash(_nodes),nextCursor);
+int get hashCode => Object.hash(runtimeType,flowrun,const DeepCollectionEquality().hash(_nodes),nextCursor,nodeSummary);
 
 @override
 String toString() {
-  return 'FlowrunComposite(flowrun: $flowrun, nodes: $nodes, nextCursor: $nextCursor)';
+  return 'FlowrunComposite(flowrun: $flowrun, nodes: $nodes, nextCursor: $nextCursor, nodeSummary: $nodeSummary)';
 }
 
 
@@ -1513,11 +1805,11 @@ abstract mixin class _$FlowrunCompositeCopyWith<$Res> implements $FlowrunComposi
   factory _$FlowrunCompositeCopyWith(_FlowrunComposite value, $Res Function(_FlowrunComposite) _then) = __$FlowrunCompositeCopyWithImpl;
 @override @useResult
 $Res call({
- Flowrun flowrun, List<FlowrunNode> nodes, String? nextCursor
+ Flowrun flowrun, List<FlowrunNode> nodes, String? nextCursor, FlowrunNodeSummary? nodeSummary
 });
 
 
-@override $FlowrunCopyWith<$Res> get flowrun;
+@override $FlowrunCopyWith<$Res> get flowrun;@override $FlowrunNodeSummaryCopyWith<$Res>? get nodeSummary;
 
 }
 /// @nodoc
@@ -1530,12 +1822,13 @@ class __$FlowrunCompositeCopyWithImpl<$Res>
 
 /// Create a copy of FlowrunComposite
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? flowrun = null,Object? nodes = null,Object? nextCursor = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? flowrun = null,Object? nodes = null,Object? nextCursor = freezed,Object? nodeSummary = freezed,}) {
   return _then(_FlowrunComposite(
 flowrun: null == flowrun ? _self.flowrun : flowrun // ignore: cast_nullable_to_non_nullable
 as Flowrun,nodes: null == nodes ? _self._nodes : nodes // ignore: cast_nullable_to_non_nullable
 as List<FlowrunNode>,nextCursor: freezed == nextCursor ? _self.nextCursor : nextCursor // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,nodeSummary: freezed == nodeSummary ? _self.nodeSummary : nodeSummary // ignore: cast_nullable_to_non_nullable
+as FlowrunNodeSummary?,
   ));
 }
 
@@ -1547,6 +1840,18 @@ $FlowrunCopyWith<$Res> get flowrun {
   
   return $FlowrunCopyWith<$Res>(_self.flowrun, (value) {
     return _then(_self.copyWith(flowrun: value));
+  });
+}/// Create a copy of FlowrunComposite
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$FlowrunNodeSummaryCopyWith<$Res>? get nodeSummary {
+    if (_self.nodeSummary == null) {
+    return null;
+  }
+
+  return $FlowrunNodeSummaryCopyWith<$Res>(_self.nodeSummary!, (value) {
+    return _then(_self.copyWith(nodeSummary: value));
   });
 }
 }

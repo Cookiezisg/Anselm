@@ -147,6 +147,26 @@ Map<String, dynamic> _$FlowrunNodeToJson(_FlowrunNode instance) =>
       'updatedAt': instance.updatedAt.toIso8601String(),
     };
 
+_FlowrunNodeSummary _$FlowrunNodeSummaryFromJson(Map<String, dynamic> json) =>
+    _FlowrunNodeSummary(
+      totalNodes: (json['totalNodes'] as num?)?.toInt() ?? 0,
+      shownNodes: (json['shownNodes'] as num?)?.toInt() ?? 0,
+      byStatus:
+          (json['byStatus'] as Map<String, dynamic>?)?.map(
+            (k, e) => MapEntry(k, (e as num).toInt()),
+          ) ??
+          const <String, int>{},
+      note: json['note'] as String? ?? '',
+    );
+
+Map<String, dynamic> _$FlowrunNodeSummaryToJson(_FlowrunNodeSummary instance) =>
+    <String, dynamic>{
+      'totalNodes': instance.totalNodes,
+      'shownNodes': instance.shownNodes,
+      'byStatus': instance.byStatus,
+      'note': instance.note,
+    };
+
 _FlowrunComposite _$FlowrunCompositeFromJson(Map<String, dynamic> json) =>
     _FlowrunComposite(
       flowrun: Flowrun.fromJson(json['flowrun'] as Map<String, dynamic>),
@@ -156,6 +176,11 @@ _FlowrunComposite _$FlowrunCompositeFromJson(Map<String, dynamic> json) =>
               .toList() ??
           const <FlowrunNode>[],
       nextCursor: json['nextCursor'] as String?,
+      nodeSummary: json['nodeSummary'] == null
+          ? null
+          : FlowrunNodeSummary.fromJson(
+              json['nodeSummary'] as Map<String, dynamic>,
+            ),
     );
 
 Map<String, dynamic> _$FlowrunCompositeToJson(_FlowrunComposite instance) =>
@@ -163,4 +188,5 @@ Map<String, dynamic> _$FlowrunCompositeToJson(_FlowrunComposite instance) =>
       'flowrun': instance.flowrun.toJson(),
       'nodes': instance.nodes.map((e) => e.toJson()).toList(),
       'nextCursor': instance.nextCursor,
+      'nodeSummary': instance.nodeSummary?.toJson(),
     };
