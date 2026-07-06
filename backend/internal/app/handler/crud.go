@@ -278,7 +278,9 @@ func (s *Service) Restart(ctx context.Context, id string) (string, error) {
 		s.publish(ctx, "restarted", id, map[string]any{"ok": false})
 		return s.manager.State(id), fmt.Errorf("handlerapp.Restart: %w", err)
 	}
-	s.publish(ctx, "restarted", id, map[string]any{"ok": true})
+	// Success is a button-press acknowledgement — frame-only (no inbox row); the failure
+	// above stays an inbox row. 成功=按钮回执，仅帧；上面的失败仍落收件箱行。
+	s.publishFrame(ctx, "restarted", id, map[string]any{"ok": true})
 	return s.manager.State(id), nil
 }
 

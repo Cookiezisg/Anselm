@@ -533,7 +533,14 @@ func (s *Service) publishEnv(ctx context.Context, env *sandboxdomain.Env) {
 	if env.ErrorMsg != "" {
 		payload["errorMsg"] = env.ErrorMsg
 	}
-	if err := s.emitter.Emit(ctx, "sandbox.env_status_changed", payload); err != nil {
+	// "installing" is a transient build-START echo (frame-only, no inbox row); the terminal
+	// states ready/failed are worth an inbox row. status comes from env.Status, so the tier
+	// is decided here. installing=构建开始的瞬时回声（仅帧、不落行）；终态 ready/failed 值得落行。
+	send := s.emitter.Emit
+	if env.Status == sandboxdomain.EnvStatusInstalling {
+		send = s.emitter.Broadcast
+	}
+	if err := send(ctx, "sandbox.env_status_changed", payload); err != nil {
 		s.log.Warn("sandbox: emit env status notification failed", zap.Error(err))
 	}
 }
@@ -542,7 +549,9 @@ func (s *Service) publishEnvDeleted(ctx context.Context, env *sandboxdomain.Env)
 	if s.emitter == nil {
 		return
 	}
-	if err := s.emitter.Emit(ctx, "sandbox.env_deleted", map[string]any{
+	// Env reclamation is a background-housekeeping echo (frame-only, no inbox row). env 回收=后台
+	// 内务回声（仅帧、不落行）。
+	if err := s.emitter.Broadcast(ctx, "sandbox.env_deleted", map[string]any{
 		"envId":     env.ID,
 		"ownerKind": env.OwnerKind,
 		"ownerId":   env.OwnerID,

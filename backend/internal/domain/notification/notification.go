@@ -45,14 +45,31 @@ var (
 	ErrInvalidType = errorspkg.New(errorspkg.KindInvalid, "NOTIFICATION_INVALID_TYPE", "notification type required (<domain>.<action>)")
 )
 
-// Emitter is the port any module calls to raise a notification. The app
-// implementation persists it and pushes the SSE signal; producers know nothing of
-// storage or transport — they only name the event and its payload.
+// Emitter is the port any module calls to raise a lifecycle event on the notifications
+// stream. It has two tiers, because the stream carries two kinds of durable signal:
 //
-// Emitter 是任何模块发通知调用的端口。app 实现持久化并推 SSE signal；producer 不知存储/
-// 传输——只声明事件名与 payload。
+//   - Emit persists a notification-center ROW and pushes a durable live signal. Use for
+//     events the user should find in their inbox later — failures, and entity lifecycle
+//     the AI may have driven (created/edited/deleted). The row is the source of truth,
+//     recoverable via the REST list; the signal is the live nudge.
+//   - Broadcast pushes ONLY the durable live signal — no row. Use for high-frequency
+//     reconciliation echoes that drive live UI (rail re-sort, tree refresh) but would be
+//     noise in the inbox (a rename, a pin toggle, a tree save). Their truth is the
+//     entity's OWN state, re-fetched on resync — not a notification row. On the wire the
+//     frame is shaped identically to Emit's (a transient id anchors it); it simply leaves
+//     no trace in the notification center.
+//
+// Both are best-effort on the push and know nothing of storage or transport — producers
+// only name the event and its payload, and pick the tier by whether it belongs in the inbox.
+//
+// Emitter 是任何模块在 notifications 流上发生命周期事件的端口。分两档，因为该流承载两种 durable
+// signal：Emit 落**收件箱行** + 推 durable live signal（值得事后在通知中心找到的事件——失败、
+// AI 可能干的实体生命周期；行是真相、REST 可兜回，信号是实时提示）；Broadcast **只推** durable
+// live signal、不落行（驱动实时 UI 但进收件箱即噪音的高频对账回声——改名、pin 翻转、树保存；其真相
+// 是实体**自身**状态、resync 时重取，非通知行；线缆帧形与 Emit 完全一致[临时 id 锚定]，只是通知中心不留痕）。
 type Emitter interface {
 	Emit(ctx context.Context, eventType string, payload map[string]any) error
+	Broadcast(ctx context.Context, eventType string, payload map[string]any) error
 }
 
 // Repository is the storage contract; workspace isolation is applied by the orm

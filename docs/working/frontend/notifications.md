@@ -136,7 +136,7 @@ audience: [human, ai]
 
 | 步 | 内容 | 状态 |
 |---|---|---|
-| **N0 后端分径** | Emitter 加仅帧方法 + §C boring 18 调用点换径(scope id 细节随设计定,前端消费者不读 scope.id 已核)+ `mcp.reconnected` 补 status + `handler.restarted` 按 ok 分径 + events.md/support-services.md 整体重述 + testend 黑盒(仅帧不落行/通知类落行) | ⏳ |
+| **N0 后端分径** | Emitter 加 `Broadcast`(仅帧不落行)与 `Emit`(落行+帧)并列;18 boring 调用点换径——conversation 全族(单 helper flip)· document created/updated/moved(deleted 留 Emit)· memory pin 回声(`notifyFrame`,与内容写共用 "memory.updated" 词故调用点分流)· handler.restarted ok:true(`publishFrame`)· sandbox installing/env_deleted(publishEnv 按 `env.Status` 分)。帧仍 durable(reconnect 补得回)、临时 `noti_` id 锚定、线缆帧形与 Emit 一致。文档三处同步(events.md ⊞/⤳ 两档表 · support-services.md · database.md);单测(notification app Broadcast×3 + conversation/memory 仅帧断言 + 4 fake 补 Broadcast)+ **testend `TestNotification_FrameOnlyFork`**(流有帧/list 无行)+ ripple 按 kind 分 created/deleted 断言。**真后端 E2E 亲验**:conversation.created 只上流不落 list · function.created 流+行都在 · sandbox 一类型 2 帧上流(installing+ready)但 1 行落库(ready)——细粒度按状态分径成立。`make verify` 全绿。 | ✅ |
 | **N1 契约+数据缝** | DTO + Repository(Live/Fixture)+ Signal 投影器 + unreadCountProvider(收帧 +1 / mark 本地扣 / resync 重拉)——纯管道全单测 | ⏳ |
 | **N2 托盘** | 通知行原语 + 两段式托盘 gallery specimen(未读/已读/hover/空态/节头/mark-all)→ 拍板 → 接壳(铃徽标真数 + FlowrunInbox 融入段1)+ i18n 模板表 | ⏳ |
 | **N3 toast** | host 右上迁移(全体)+ AnToast hover-pause 地基强化 + ToastDispatcher(coalesce/cap3/溢出/时长分级)+ gallery 动效 GIF + demo 风暴演示 | ⏳ |

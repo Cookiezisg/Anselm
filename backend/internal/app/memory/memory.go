@@ -145,7 +145,8 @@ func (s *Service) setPinned(ctx context.Context, name string, pinned bool) (*mem
 	if err := s.repo.Save(ctx, m); err != nil {
 		return nil, fmt.Errorf("memoryapp.setPinned: %w", err)
 	}
-	s.notify(ctx, "updated", name)
+	// Pin/unpin is a user-action echo (frame-only) — not an inbox-worthy content change. pin 回声仅帧。
+	s.notifyFrame(ctx, "updated", name)
 	return m, nil
 }
 
@@ -194,11 +195,31 @@ func (s *Service) ForSystemPrompt(ctx context.Context) string {
 //
 // notify 发一条 memory.<action> 通知（best-effort；emitter 为 nil 则跳过）。
 func (s *Service) notify(ctx context.Context, action, name string) {
+	s.send(ctx, action, name, true)
+}
+
+// notifyFrame broadcasts a memory.<action> live signal WITHOUT an inbox row — the pin/unpin
+// echo (setPinned). It shares the "memory.updated" word + {name} payload with a real content
+// update (Upsert), so the tier can't be told apart by action string: only the CALLSITE knows
+// a pin toggle is a user-action echo, not an inbox-worthy content change.
+//
+// notifyFrame 广播 memory.<动作> live signal、**不落行**——pin/unpin 回声（setPinned）。它与真正的
+// 内容更新（Upsert）共用 "memory.updated" 词 + {name} payload，故档位无法按 action 字符串区分：只有
+// **调用点**知道 pin 翻转是用户动作回声、非值得进收件箱的内容变更。
+func (s *Service) notifyFrame(ctx context.Context, action, name string) {
+	s.send(ctx, action, name, false)
+}
+
+func (s *Service) send(ctx context.Context, action, name string, persist bool) {
 	s.notifySearch(ctx, name)
 	if s.emitter == nil {
 		return
 	}
-	if err := s.emitter.Emit(ctx, "memory."+action, map[string]any{"name": name}); err != nil {
+	emit := s.emitter.Emit
+	if !persist {
+		emit = s.emitter.Broadcast
+	}
+	if err := emit(ctx, "memory."+action, map[string]any{"name": name}); err != nil {
 		s.log.Warn("memoryapp.notify failed", zap.String("name", name), zap.Error(err))
 	}
 }

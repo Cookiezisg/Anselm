@@ -102,6 +102,62 @@ func TestEmit_PersistsAndPushes(t *testing.T) {
 	}
 }
 
+func TestBroadcast_PushesButDoesNotPersist(t *testing.T) {
+	repo := &fakeRepo{}
+	bridge := &fakeBridge{}
+	svc := NewService(repo, bridge, zap.NewNop())
+
+	if err := svc.Broadcast(context.Background(), "conversation.created", map[string]any{"conversationId": "cv_1"}); err != nil {
+		t.Fatalf("broadcast: %v", err)
+	}
+
+	// NO inbox row — the whole point of the frame-only tier.
+	if len(repo.saved) != 0 {
+		t.Fatalf("broadcast must NOT persist a row, got %d", len(repo.saved))
+	}
+
+	// But a durable signal IS pushed, shaped exactly like Emit's: scope=notification:<id>,
+	// node.type=event type, durable. The id is transient (noti_ prefix, never a row).
+	if len(bridge.published) != 1 {
+		t.Fatalf("want 1 pushed, got %d", len(bridge.published))
+	}
+	e := bridge.published[0]
+	if e.Scope.Kind != streamdomain.KindNotification {
+		t.Errorf("scope kind = %v, want notification", e.Scope.Kind)
+	}
+	if !strings.HasPrefix(e.ID, "noti_") || e.Scope.ID != e.ID {
+		t.Errorf("wire anchor id = %q / scope.ID = %q, want matching noti_ prefix", e.ID, e.Scope.ID)
+	}
+	sig, ok := e.Frame.(streamdomain.Signal)
+	if !ok {
+		t.Fatalf("frame is %T, want Signal", e.Frame)
+	}
+	if sig.Node.Type != "conversation.created" {
+		t.Errorf("node.type = %q, want conversation.created", sig.Node.Type)
+	}
+	if sig.Ephemeral {
+		t.Error("broadcast signal must still be durable (survives reconnect via replay ring)")
+	}
+}
+
+func TestBroadcast_EmptyTypeRejected(t *testing.T) {
+	svc := NewService(&fakeRepo{}, &fakeBridge{}, zap.NewNop())
+	if err := svc.Broadcast(context.Background(), "", nil); !errors.Is(err, notificationdomain.ErrInvalidType) {
+		t.Errorf("want ErrInvalidType, got %v", err)
+	}
+}
+
+func TestBroadcast_NilBridge_NoOp(t *testing.T) {
+	repo := &fakeRepo{}
+	svc := NewService(repo, nil, zap.NewNop()) // nil bridge → nothing to push, no row either
+	if err := svc.Broadcast(context.Background(), "conversation.created", nil); err != nil {
+		t.Fatalf("broadcast with nil bridge: %v", err)
+	}
+	if len(repo.saved) != 0 {
+		t.Errorf("broadcast never persists, got %d saved", len(repo.saved))
+	}
+}
+
 func TestEmit_EmptyTypeRejected(t *testing.T) {
 	svc := NewService(&fakeRepo{}, &fakeBridge{}, zap.NewNop())
 	if err := svc.Emit(context.Background(), "", nil); !errors.Is(err, notificationdomain.ErrInvalidType) {

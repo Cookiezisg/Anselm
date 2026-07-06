@@ -234,6 +234,22 @@ func lastEnvError(history []envfixapp.Attempt) string {
 
 // publish emits a handler lifecycle notification; nil emitter is a no-op.
 func (s *Service) publish(ctx context.Context, action, handlerID string, extra map[string]any) {
+	s.sendNotif(ctx, action, handlerID, extra, true)
+}
+
+// publishFrame broadcasts a handler.<action> live signal WITHOUT an inbox row — the
+// restart-succeeded echo (ok:true), a user-action button acknowledgement. The failure
+// echo (ok:false) stays an Emit (inbox-worthy). Both carry "handler.restarted", so the
+// tier is chosen at the CALLSITE, not by action string.
+//
+// publishFrame 广播 handler.<动作> live signal、**不落行**——重启成功回执（ok:true），用户按钮动作
+// 回执。失败回执（ok:false）仍走 Emit（值得进收件箱）。两者都叫 "handler.restarted"，故档位在
+// **调用点**选、非按 action 字符串。
+func (s *Service) publishFrame(ctx context.Context, action, handlerID string, extra map[string]any) {
+	s.sendNotif(ctx, action, handlerID, extra, false)
+}
+
+func (s *Service) sendNotif(ctx context.Context, action, handlerID string, extra map[string]any, persist bool) {
 	s.notifySearch(ctx, handlerID)
 	if s.notif == nil {
 		return
@@ -242,7 +258,11 @@ func (s *Service) publish(ctx context.Context, action, handlerID string, extra m
 	for k, v := range extra {
 		payload[k] = v
 	}
-	if err := s.notif.Emit(ctx, "handler."+action, payload); err != nil {
+	emit := s.notif.Emit
+	if !persist {
+		emit = s.notif.Broadcast
+	}
+	if err := emit(ctx, "handler."+action, payload); err != nil {
 		s.log.Warn("handlerapp.publish: emit failed", zap.String("action", action), zap.Error(err))
 	}
 }

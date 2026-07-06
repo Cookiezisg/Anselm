@@ -466,11 +466,14 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-// emit raises a conversation.<action> notification (persisted + SSE signal); nil emitter is a
-// best-effort no-op, a soft-fail logs but never blocks the mutation.
+// emit broadcasts a conversation.<action> live signal (frame-only, NO inbox row) — every
+// conversation lifecycle change is a rail reconciliation echo (new/rename/pin/archive/…),
+// noise in the notification center; the rail re-reads the conversation's own row on the
+// signal. nil emitter is a best-effort no-op, a soft-fail logs but never blocks the mutation.
 //
-// emit 发一条 conversation.<动作> 通知（持久化 + SSE signal）；nil emitter 即 best-effort no-op，
-// 软失败只 log、绝不挡 mutation。
+// emit 广播一条 conversation.<动作> live signal（仅帧、**不落收件箱行**）——对话生命周期变更都是
+// rail 对账回声（新建/改名/置顶/归档…），进通知中心即噪音；rail 收信号后重读对话自身的行。
+// nil emitter 即 best-effort no-op，软失败只 log、绝不挡 mutation。
 func (s *Service) emit(ctx context.Context, convID, action string, extra map[string]any) {
 	s.notifySearch(ctx, convID)
 	if s.emitter == nil {
@@ -478,7 +481,7 @@ func (s *Service) emit(ctx context.Context, convID, action string, extra map[str
 	}
 	payload := map[string]any{"conversationId": convID}
 	maps.Copy(payload, extra)
-	if err := s.emitter.Emit(ctx, "conversation."+action, payload); err != nil {
+	if err := s.emitter.Broadcast(ctx, "conversation."+action, payload); err != nil {
 		s.log.Warn("conversation emit failed",
 			zap.String("conversationId", convID), zap.String("action", action), zap.Error(err))
 	}

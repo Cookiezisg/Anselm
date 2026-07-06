@@ -18,13 +18,27 @@ import (
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
-// fakeEmitter records every Emit so tests assert the broadcast action without a real bus.
+// fakeEmitter records every event so tests assert the action without a real bus. events
+// holds both tiers (what fired); persisted / broadcast split them so a test can prove a
+// conversation event took the frame-only tier (no inbox row).
 //
-// fakeEmitter 记录每次 Emit，使测试断言广播动作而无需真 bus。
-type fakeEmitter struct{ events []string }
+// fakeEmitter 记录每次事件，使测试断言动作而无需真 bus。events 含两档（何事发生）；persisted /
+// broadcast 分档，使测试能证明 conversation 事件走了仅帧径（不落收件箱行）。
+type fakeEmitter struct {
+	events    []string
+	persisted []string
+	broadcast []string
+}
 
 func (f *fakeEmitter) Emit(_ context.Context, eventType string, _ map[string]any) error {
 	f.events = append(f.events, eventType)
+	f.persisted = append(f.persisted, eventType)
+	return nil
+}
+
+func (f *fakeEmitter) Broadcast(_ context.Context, eventType string, _ map[string]any) error {
+	f.events = append(f.events, eventType)
+	f.broadcast = append(f.broadcast, eventType)
 	return nil
 }
 
@@ -92,6 +106,14 @@ func TestCreate_TrimsTitle_EmitsCreated(t *testing.T) {
 	}
 	if len(em.events) != 1 || em.events[0] != "conversation.created" {
 		t.Errorf("events = %v", em.events)
+	}
+	// N0 fork: every conversation lifecycle event is a rail reconciliation echo — it takes
+	// the frame-only tier (a live signal) and leaves NO inbox row. N0 分径:对话事件仅帧、不落行。
+	if len(em.broadcast) != 1 || em.broadcast[0] != "conversation.created" {
+		t.Errorf("conversation.created must broadcast (frame-only), got broadcast=%v", em.broadcast)
+	}
+	if len(em.persisted) != 0 {
+		t.Errorf("conversation events must NOT persist an inbox row, got persisted=%v", em.persisted)
 	}
 }
 
