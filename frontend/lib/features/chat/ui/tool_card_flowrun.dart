@@ -10,6 +10,7 @@ import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
+import 'tool_card_io_section.dart';
 import 'tool_card_nav.dart';
 import 'tool_card_skins.dart';
 
@@ -17,6 +18,57 @@ import 'tool_card_skins.dart';
 // nodeSummary?} composite (SAME shape as get_flowrun); the body's core is FlowrunNodeList — you SEE the
 // run's per-node record (what completed, what broke, what's parked). Counts always come from
 // nodeSummary (never nodes.length, which is 80 when the run was capped). F08 flowrun:节点台账,看见 run。
+
+Map<String, dynamic>? _obj(String s) {
+  try {
+    final d = jsonDecode(s);
+    if (d is Map<String, dynamic>) return d;
+  } catch (_) {}
+  return null;
+}
+
+// ── trigger_workflow — the async «run now» card ──
+// Wire: {flowrunId, workflowId} — starts a run and returns only the two ids (the run's fate is a
+// SEPARATE ledger; get_flowrun reads it back). NEVER danger — the tool only lights the run; a return IS
+// success. The version-pinned graph snapshot (FlowrunSnapshotPane) is deferred (no by-version graph
+// endpoint yet) — the card shows the launch credential + a get_flowrun pointer. trigger_workflow 薄卡。
+
+/// The flowrunId receipt (fr_… truncated); null if unparseable. Never danger (fire-and-return=success).
+/// trigger 回执:flowrun id 截断;永不危险色。
+ToolReceipt? triggerWorkflowReceipt(Translations t, String output) {
+  final fr = _obj(output)?['flowrunId'];
+  if (fr is! String || fr.isEmpty) return null;
+  return (text: fr.length > 12 ? '${fr.substring(0, 12)}…' : fr, tone: ToolReceiptTone.none);
+}
+
+/// trigger_workflow body — the payload input (empty → grey note) + a launch credential (navigable
+/// workflow pill + flowrunId copy) + a get_flowrun pointer. trigger 落定体:输入 + 启动凭据 + 指路。
+Widget triggerWorkflowBody(BuildContext context, ToolCardState state) {
+  final c = context.colors;
+  final t = Translations.of(context);
+  final out = _obj(state.resultText);
+  final flowrunId = out?['flowrunId'] as String?;
+  final workflowId = (out?['workflowId'] as String?) ?? argString(state.argsText, 'workflowId');
+  final payload = _obj(state.argsText)?['payload'];
+  final emptyPayload = payload == null || (payload is Map && payload.isEmpty);
+  return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+    if (state.summary.isNotEmpty)
+      Padding(padding: const EdgeInsets.only(bottom: AnSpace.s6), child: Text(state.summary, style: AnText.meta.copyWith(color: c.inkMuted))),
+    // The payload fed to the entry trigger — an empty {} is stated, never dressed as an empty tree.
+    // 喂给入口触发器的 payload;空 {} 明说、不装空树。
+    if (emptyPayload)
+      Text(t.chat.tool.emptyPayload, style: AnText.code.copyWith(color: c.inkFaint))
+    else
+      ToolIOSection(label: t.chat.tool.ioInput, value: payload),
+    const SizedBox(height: AnSpace.s6),
+    Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+      if (workflowId != null && workflowId.isNotEmpty) toolNavPill(context, kind: 'workflow', label: workflowId, id: workflowId),
+      if (flowrunId != null && flowrunId.isNotEmpty) AnCopyChip(value: flowrunId),
+    ]),
+    const SizedBox(height: AnSpace.s6),
+    Text(t.chat.tool.triggerStartedNote, style: AnText.meta.copyWith(color: c.inkFaint)),
+  ]);
+}
 
 /// Decode a {flowrun, nodes, nodeSummary?} tool result, or null if unparseable. 解码 flowrun 复合结果。
 FlowrunComposite? decodeFlowrunResult(String output) {

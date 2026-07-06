@@ -372,7 +372,11 @@
       "replayTimes": "第 $n 次重放",
       "flowShown": "显示 $shown/$total 节点",
       "flowExpandAll": "展开其余 $n 个",
-      "nodeWait": "等待"
+      "nodeWait": "等待",
+      "triggeringWf": "正在触发工作流",
+      "triggeredWf": "已触发工作流",
+      "emptyPayload": "空 payload",
+      "triggerStartedNote": "已启动运行——用 get_flowrun 看进展"
     },
     "gate": {
       "dangerBadge": "危险",

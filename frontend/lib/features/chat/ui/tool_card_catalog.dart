@@ -860,6 +860,17 @@ final Map<String, ToolCardSpec> _catalog = {
     receipt: (t, s) => fireReceipt(t, s.resultText),
     body: fireTriggerBody,
   ),
+  // trigger_workflow — the async «run now» card (chip=workflowId, receipt=flowrunId; never danger).
+  // 异步「立即运行」薄卡。
+  'trigger_workflow': ToolCardSpec(
+    verb: (t, {required bool live}) => live ? t.chat.tool.triggeringWf : t.chat.tool.triggeredWf,
+    target: (s) {
+      final id = argStringPartial(s.argsText, 'workflowId');
+      return id == null ? null : (id.length > 12 ? '${id.substring(0, 12)}…' : id);
+    },
+    receipt: (t, s) => triggerWorkflowReceipt(t, s.resultText),
+    body: triggerWorkflowBody,
+  ),
   // replay_flowrun — the node-ledger card (chip=flowrunId; failed→auto-expand; run header has no
   // parked, so «awaiting approval» is read off the nodes). replay 节点台账卡。
   'replay_flowrun': ToolCardSpec(

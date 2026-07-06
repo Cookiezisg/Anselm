@@ -372,7 +372,11 @@
       "replayTimes": "Replay #$n",
       "flowShown": "Showing $shown/$total nodes",
       "flowExpandAll": "Show remaining $n",
-      "nodeWait": "waiting"
+      "nodeWait": "waiting",
+      "triggeringWf": "Triggering workflow",
+      "triggeredWf": "Triggered workflow",
+      "emptyPayload": "empty payload",
+      "triggerStartedNote": "Run started — inspect with get_flowrun"
     },
     "gate": {
       "dangerBadge": "Dangerous",

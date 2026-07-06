@@ -714,6 +714,10 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String flowShown({required Object shown, required Object total}) => '显示 ${shown}/${total} 节点';
 	@override String flowExpandAll({required Object n}) => '展开其余 ${n} 个';
 	@override String get nodeWait => '等待';
+	@override String get triggeringWf => '正在触发工作流';
+	@override String get triggeredWf => '已触发工作流';
+	@override String get emptyPayload => '空 payload';
+	@override String get triggerStartedNote => '已启动运行——用 get_flowrun 看进展';
 }
 
 // Path: chat.gate
@@ -1655,6 +1659,10 @@ extension on TranslationsZhCn {
 			'chat.tool.flowShown' => ({required Object shown, required Object total}) => '显示 ${shown}/${total} 节点',
 			'chat.tool.flowExpandAll' => ({required Object n}) => '展开其余 ${n} 个',
 			'chat.tool.nodeWait' => '等待',
+			'chat.tool.triggeringWf' => '正在触发工作流',
+			'chat.tool.triggeredWf' => '已触发工作流',
+			'chat.tool.emptyPayload' => '空 payload',
+			'chat.tool.triggerStartedNote' => '已启动运行——用 get_flowrun 看进展',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -1797,12 +1805,12 @@ extension on TranslationsZhCn {
 			'entities.detail.sec.output' => '输出',
 			'entities.detail.sec.env' => '环境',
 			'entities.detail.sec.runtime' => '常驻状态',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.sec.initArgs' => 'init 参数',
 			'entities.detail.sec.methods' => '方法',
 			'entities.detail.sec.prompt' => '提示词',
 			'entities.detail.sec.capabilities' => '能力挂载',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.sec.mountHealth' => '挂载健康',
 			'entities.detail.sec.governance' => '运行治理',
 			'entities.detail.sec.alerts' => '告警',

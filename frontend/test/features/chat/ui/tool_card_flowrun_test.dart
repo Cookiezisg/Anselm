@@ -105,4 +105,41 @@ void main() {
     expect(find.textContaining('80/213'), findsOneWidget); // shown/total honest bar
     expect(find.textContaining('#42'), findsOneWidget); // loop turn index disambiguator
   });
+
+  group('trigger_workflow', () {
+    BlockNode trig(String args, String result) => BlockNode(id: 'tc_t', kind: BlockKind.toolCall)
+      ..status = 'completed'
+      ..content = {'name': 'trigger_workflow', 'arguments': args}
+      ..children.add(BlockNode(id: 'tr_t', kind: BlockKind.toolResult)
+        ..status = 'completed'
+        ..content = {'content': result});
+
+    test('receipt → flowrunId truncated, never danger; unparseable → null', () {
+      final r = triggerWorkflowReceipt(t, '{"flowrunId":"fr_9a8b7c6d5e4f3a2b","workflowId":"wf_1"}')!;
+      expect(r.text, 'fr_9a8b7c6d5…');
+      expect(r.tone, isNot(ToolReceiptTone.danger));
+      expect(triggerWorkflowReceipt(t, 'boom'), isNull);
+    });
+
+    testWidgets('body: payload input + navigable workflow pill + flowrunId copy + get_flowrun note', (tester) async {
+      await tester.pumpWidget(_host(ChatToolCard(node: trig(
+          '{"workflowId":"wf_1a2b3c4d5e6f7a8b","payload":{"body":{"amount":18240}}}',
+          '{"flowrunId":"fr_9a8b7c6d5e4f3a2b","workflowId":"wf_1a2b3c4d5e6f7a8b"}'))));
+      await tester.pump();
+      await tester.tap(find.textContaining(t.chat.tool.triggeredWf), warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('wf_1a2b3c4d5e6f7a8b'), findsWidgets); // navigable workflow pill
+      expect(find.textContaining('fr_9a8b7c6d5e4f3a2b'), findsWidgets); // flowrunId copy chip
+      expect(find.text(t.chat.tool.triggerStartedNote), findsOneWidget);
+    });
+
+    testWidgets('empty payload is stated, never dressed as an empty tree', (tester) async {
+      await tester.pumpWidget(_host(ChatToolCard(node: trig('{"workflowId":"wf_1"}',
+          '{"flowrunId":"fr_1","workflowId":"wf_1"}'))));
+      await tester.pump();
+      await tester.tap(find.textContaining(t.chat.tool.triggeredWf), warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(find.text(t.chat.tool.emptyPayload), findsOneWidget);
+    });
+  });
 }

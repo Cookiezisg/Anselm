@@ -1676,6 +1676,18 @@ class Translations$chat$tool$en {
 
 	/// en: 'waiting'
 	String get nodeWait => 'waiting';
+
+	/// en: 'Triggering workflow'
+	String get triggeringWf => 'Triggering workflow';
+
+	/// en: 'Triggered workflow'
+	String get triggeredWf => 'Triggered workflow';
+
+	/// en: 'empty payload'
+	String get emptyPayload => 'empty payload';
+
+	/// en: 'Run started — inspect with get_flowrun'
+	String get triggerStartedNote => 'Run started — inspect with get_flowrun';
 }
 
 // Path: chat.gate
@@ -3286,6 +3298,10 @@ extension on Translations {
 			'chat.tool.flowShown' => ({required Object shown, required Object total}) => 'Showing ${shown}/${total} nodes',
 			'chat.tool.flowExpandAll' => ({required Object n}) => 'Show remaining ${n}',
 			'chat.tool.nodeWait' => 'waiting',
+			'chat.tool.triggeringWf' => 'Triggering workflow',
+			'chat.tool.triggeredWf' => 'Triggered workflow',
+			'chat.tool.emptyPayload' => 'empty payload',
+			'chat.tool.triggerStartedNote' => 'Run started — inspect with get_flowrun',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -3428,12 +3444,12 @@ extension on Translations {
 			'entities.detail.sec.output' => 'Outputs',
 			'entities.detail.sec.env' => 'Environment',
 			'entities.detail.sec.runtime' => 'Resident state',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.sec.initArgs' => 'Init args',
 			'entities.detail.sec.methods' => 'Methods',
 			'entities.detail.sec.prompt' => 'Prompt',
 			'entities.detail.sec.capabilities' => 'Capabilities',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.sec.mountHealth' => 'Mount health',
 			'entities.detail.sec.governance' => 'Run governance',
 			'entities.detail.sec.alerts' => 'Alerts',
