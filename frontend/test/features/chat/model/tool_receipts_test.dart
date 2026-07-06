@@ -71,25 +71,46 @@ void main() {
     });
   });
 
-  group('readReceipt', () {
-    test('cat -n lines counted', () {
-      final r = readReceipt('    1\ta\n    2\tb\n    3\tc\n',
-          linesLabel: lines, truncatedLabel: truncated);
-      expect(r, (text: '3 行', tone: ToolReceiptTone.none));
+  group('readReceipt — four quadrants (F × truncated)', () {
+    ToolReceipt? r(String out) => readReceipt(out,
+        lines: (l) => '$l 行',
+        range: (f, l) => '行 $f–$l',
+        linesFloor: (n) => '$n+ 行',
+        rangeFloor: (f, n) => '行 $f–$n+');
+    test('F==1, no truncation → «L 行»', () {
+      expect(r('    1\ta\n    2\tb\n    3\tc\n')!.text, '3 行');
     });
-
-    test('truncation footer wins with the emitted line count', () {
-      final r = readReceipt(
-          '    1\ta\n... [truncated at line 2000; use offset+limit to read more]\n',
-          linesLabel: lines, truncatedLabel: truncated);
-      expect(r, (text: '前 2000 行(截断)', tone: ToolReceiptTone.none));
+    test('F>1, no truncation → «行 F–L» (offset read)', () {
+      expect(r('   50\ta\n   51\tb\n   52\tc\n')!.text, '行 50–52');
     });
+    test('F==1, truncated → «N+ 行»', () {
+      expect(r('    1\ta\n... [truncated at line 2000; use offset+limit to read more]\n')!.text, '2000+ 行');
+    });
+    test('F>1, truncated → «行 F–N+»', () {
+      expect(r('  100\ta\n... [truncated at line 2000; use offset+limit to read more]\n')!.text, '行 100–2000+');
+    });
+    test('non-file prose (directory hint / error) → null', () {
+      expect(r('Path is a directory, not a file: /ws. Use Glob…'), isNull);
+    });
+  });
 
-    test('non-file prose (directory hint / access error) → null', () {
-      expect(
-          readReceipt('Path is a directory, not a file: /ws. Use Glob…',
-              linesLabel: lines, truncatedLabel: truncated),
-          isNull);
+  group('fsErrorKind — classify every fs error prefix', () {
+    test('the nine kinds', () {
+      expect(fsErrorKind('File not found: /a')!.kind, FsErrorKind.notFound);
+      expect(fsErrorKind('Permission denied: /a')!.kind, FsErrorKind.denied);
+      expect(fsErrorKind('path is denied by safety guard: /a')!.kind, FsErrorKind.denied);
+      expect(fsErrorKind('File must be read first before editing: /a. Use the Read tool first.')!.kind, FsErrorKind.readFirst);
+      expect(fsErrorKind('old_string not found in the file. Verify …')!.kind, FsErrorKind.noMatch);
+      final amb = fsErrorKind('Found 3 matches of old_string in /a, but replace_all is false. …')!;
+      expect(amb.kind, FsErrorKind.ambiguous);
+      expect(amb.n, 3);
+      expect(fsErrorKind('File has been modified since last read (current size 10, expected 8): /a')!.kind, FsErrorKind.modified);
+      expect(fsErrorKind('Parent directory does not exist: /a. Use Bash …')!.kind, FsErrorKind.parentMissing);
+      expect(fsErrorKind('path must be absolute')!.kind, FsErrorKind.badPath);
+      expect(fsErrorKind('Write failed (writing temp): disk full')!.kind, FsErrorKind.failed);
+    });
+    test('a normal cat -n body is NOT an fs error', () {
+      expect(fsErrorKind('    1\timport json'), isNull);
     });
   });
 

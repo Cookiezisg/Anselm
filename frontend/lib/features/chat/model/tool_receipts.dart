@@ -95,19 +95,77 @@ ToolReceipt? killShellReceipt(String output, {required String finished, required
   return null;
 }
 
-/// Read: cat -n lines (`%5d\t…`), optionally ending with the truncation footer
-/// `... [truncated at line N; use offset+limit to read more]`.
-/// Read:cat -n 行,可尾缀截断 footer。
-final RegExp _readTruncated = RegExp(r'\.\.\. \[truncated at line (\d+);');
-final RegExp _readLine = RegExp(r'^\s*\d+\t', multiLine: true);
+/// The fs error KIND — every Read/Write/Edit error (and the shared PathGuard / fspath prefixes) is a
+/// normal (err==nil) tool_result STRING, classified here into one honest category (the caller maps it
+/// to a localized danger receipt). null = not a recognized fs error. fs 错误分类(纯,i18n 归调用方)。
+enum FsErrorKind {
+  notFound, // File not found / Cannot access / Path is a directory
+  denied, // Permission denied / path is denied by safety guard
+  readFirst, // must be read first (Write/Edit guard)
+  noMatch, // old_string not found
+  ambiguous, // Found N matches, replace_all is false
+  modified, // File has been modified since last read
+  parentMissing, // Parent directory does not exist / not a directory
+  badPath, // path must be absolute / required / cannot expand ~
+  failed, // Write failed / Edit failed / Failed to read
+}
 
-ToolReceipt? readReceipt(String output,
-    {required String Function(int) linesLabel, required String Function(int) truncatedLabel}) {
-  final t = _readTruncated.firstMatch(output);
-  if (t != null) return (text: truncatedLabel(int.parse(t.group(1)!)), tone: ToolReceiptTone.none);
-  final n = _readLine.allMatches(output).length;
-  if (n == 0) return null; // not file content (directory hint / error prose) 非文件内容
-  return (text: linesLabel(n), tone: ToolReceiptTone.none);
+final RegExp _fsAmbiguous = RegExp(r'^Found (\d+) match');
+
+/// Classify an fs error string into a [FsErrorKind] (+ the ambiguity count for [FsErrorKind.ambiguous]).
+/// Pinned to the backend's EXACT prefixes (census). null = not an fs error → not a danger receipt.
+/// fs 错误分类:钉后端精确前缀;未识别→null。
+({FsErrorKind kind, int n})? fsErrorKind(String output) {
+  final s = output.trimLeft();
+  if (s.startsWith('old_string not found')) return (kind: FsErrorKind.noMatch, n: 0);
+  final m = _fsAmbiguous.firstMatch(s);
+  if (m != null) return (kind: FsErrorKind.ambiguous, n: int.parse(m.group(1)!));
+  if (s.contains('must be read first') || s.startsWith('Cannot verify Read-first guard')) {
+    return (kind: FsErrorKind.readFirst, n: 0);
+  }
+  if (s.contains('has been modified since last read')) return (kind: FsErrorKind.modified, n: 0);
+  if (s.startsWith('File not found') || s.startsWith('Cannot access') || s.startsWith('Path is a directory')) {
+    return (kind: FsErrorKind.notFound, n: 0);
+  }
+  if (s.startsWith('Permission denied') || s.startsWith('path is denied by safety guard')) {
+    return (kind: FsErrorKind.denied, n: 0);
+  }
+  if (s.startsWith('Parent directory does not exist') || s.startsWith('Parent path exists but is not')) {
+    return (kind: FsErrorKind.parentMissing, n: 0);
+  }
+  if (s.startsWith('path must be absolute') || s.startsWith('path is required') || s.startsWith('cannot expand ~')) {
+    return (kind: FsErrorKind.badPath, n: 0);
+  }
+  if (s.startsWith('Write failed') || s.startsWith('Edit failed') || s.startsWith('Failed to read')) {
+    return (kind: FsErrorKind.failed, n: 0);
+  }
+  return null;
+}
+
+/// Read: cat -n lines (`%5d\t…`), optionally ending with the truncation footer
+/// `... [truncated at line N; use offset+limit to read more]`. The FOUR-QUADRANT receipt (census): by
+/// first line F (1 vs >1) × truncated (no vs yes) → `L 行` / `行 F–L` / `N+ 行` / `行 F–N+`. Read 四象限。
+/// Read:cat -n 行 + 截断 footer;四象限回执(首行 F × 是否截断)。
+final RegExp _readTruncated = RegExp(r'\.\.\. \[truncated at line (\d+);');
+final RegExp _readLine = RegExp(r'^\s*(\d+)\t', multiLine: true);
+
+ToolReceipt? readReceipt(
+  String output, {
+  required String Function(int lastLine) lines, // F==1, no trunc
+  required String Function(int firstLine, int lastLine) range, // F>1, no trunc
+  required String Function(int floorLine) linesFloor, // F==1, trunc → N+
+  required String Function(int firstLine, int floorLine) rangeFloor, // F>1, trunc
+}) {
+  final matches = _readLine.allMatches(output).toList();
+  if (matches.isEmpty) return null; // not file content (directory hint / error prose) 非文件内容
+  final first = int.parse(matches.first.group(1)!);
+  final trunc = _readTruncated.firstMatch(output);
+  if (trunc != null) {
+    final floor = int.parse(trunc.group(1)!);
+    return (text: first == 1 ? linesFloor(floor) : rangeFloor(first, floor), tone: ToolReceiptTone.none);
+  }
+  final last = int.parse(matches.last.group(1)!);
+  return (text: first == 1 ? lines(last) : range(first, last), tone: ToolReceiptTone.none);
 }
 
 /// Grep / Glob / LS: count-style receipts. "No matches for …" is the backend's honest empty;

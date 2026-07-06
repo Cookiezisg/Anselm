@@ -1526,6 +1526,51 @@ class Translations$chat$tool$en {
 
 	/// en: '$n bytes dropped (ring overflow)'
 	String bashDropped({required Object n}) => '${n} bytes dropped (ring overflow)';
+
+	/// en: 'not found'
+	String get fsNotFound => 'not found';
+
+	/// en: 'denied'
+	String get fsDenied => 'denied';
+
+	/// en: 'read first'
+	String get fsReadFirst => 'read first';
+
+	/// en: 'no match'
+	String get fsNoMatch => 'no match';
+
+	/// en: '$n matches'
+	String fsAmbiguous({required Object n}) => '${n} matches';
+
+	/// en: 'file changed'
+	String get fsModified => 'file changed';
+
+	/// en: 'no parent dir'
+	String get fsParentMissing => 'no parent dir';
+
+	/// en: 'bad path'
+	String get fsBadPath => 'bad path';
+
+	/// en: 'failed'
+	String get fsFailed => 'failed';
+
+	/// en: 'lines $f–$l'
+	String readRange({required Object f, required Object l}) => 'lines ${f}–${l}';
+
+	/// en: '$n+ lines'
+	String readFloor({required Object n}) => '${n}+ lines';
+
+	/// en: 'lines $f–$n+'
+	String readRangeFloor({required Object f, required Object n}) => 'lines ${f}–${n}+';
+
+	/// en: '$n replaced'
+	String edited2({required Object n}) => '${n} replaced';
+
+	/// en: 'result unconfirmed'
+	String get fsUnconfirmed => 'result unconfirmed';
+
+	/// en: 'empty file'
+	String get emptyFile => 'empty file';
 }
 
 // Path: chat.gate
@@ -3086,6 +3131,21 @@ extension on Translations {
 			'chat.tool.bashSessionGoneHint' => 'may have been terminated / cleaned up / backend restarted',
 			'chat.tool.bashNoNew' => '(no new output)',
 			'chat.tool.bashDropped' => ({required Object n}) => '${n} bytes dropped (ring overflow)',
+			'chat.tool.fsNotFound' => 'not found',
+			'chat.tool.fsDenied' => 'denied',
+			'chat.tool.fsReadFirst' => 'read first',
+			'chat.tool.fsNoMatch' => 'no match',
+			'chat.tool.fsAmbiguous' => ({required Object n}) => '${n} matches',
+			'chat.tool.fsModified' => 'file changed',
+			'chat.tool.fsParentMissing' => 'no parent dir',
+			'chat.tool.fsBadPath' => 'bad path',
+			'chat.tool.fsFailed' => 'failed',
+			'chat.tool.readRange' => ({required Object f, required Object l}) => 'lines ${f}–${l}',
+			'chat.tool.readFloor' => ({required Object n}) => '${n}+ lines',
+			'chat.tool.readRangeFloor' => ({required Object f, required Object n}) => 'lines ${f}–${n}+',
+			'chat.tool.edited2' => ({required Object n}) => '${n} replaced',
+			'chat.tool.fsUnconfirmed' => 'result unconfirmed',
+			'chat.tool.emptyFile' => 'empty file',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -3267,6 +3327,8 @@ extension on Translations {
 			'entities.detail.cockpit.runGraph' => 'Run graph',
 			'entities.detail.cockpit.nodeDetail' => ({required Object id}) => 'Node · ${id}',
 			'entities.detail.cockpit.pickNode' => 'Pick a node to see its execution detail',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.cockpit.replay' => 'Replay',
 			'entities.detail.cockpit.kill' => 'Kill',
 			'entities.detail.cockpit.runInfo' => 'Run info',
@@ -3282,8 +3344,6 @@ extension on Translations {
 			'entities.detail.kv.allowReason' => 'Allow reason',
 			'entities.detail.kv.timeout' => 'Timeout',
 			'entities.detail.kv.timeoutBehavior' => 'On timeout',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.kv.envId' => 'env id',
 			'entities.detail.kv.status' => 'Status',
 			'entities.detail.kv.syncedAt' => 'Last synced',

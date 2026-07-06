@@ -322,7 +322,22 @@
       "ranBg": "已转入后台",
       "bashSessionGoneHint": "可能已被终止 / 已清理 / 后端已重启",
       "bashNoNew": "(无新输出)",
-      "bashDropped": "丢弃 $n 字节(环缓冲溢出)"
+      "bashDropped": "丢弃 $n 字节(环缓冲溢出)",
+      "fsNotFound": "未找到",
+      "fsDenied": "无权限",
+      "fsReadFirst": "需先读",
+      "fsNoMatch": "未匹配",
+      "fsAmbiguous": "$n 处歧义",
+      "fsModified": "文件已变",
+      "fsParentMissing": "父目录缺",
+      "fsBadPath": "路径无效",
+      "fsFailed": "出错",
+      "readRange": "行 $f–$l",
+      "readFloor": "$n+ 行",
+      "readRangeFloor": "行 $f–$n+",
+      "edited2": "$n 处替换",
+      "fsUnconfirmed": "结果未确认",
+      "emptyFile": "空文件"
     },
     "gate": {
       "dangerBadge": "危险",

@@ -118,6 +118,25 @@ final ToolCardSpec genericToolCardSpec = ToolCardSpec(
   target: (s) => s.toolName,
 );
 
+/// Map an fs error string to a localized DANGER receipt (F01: every Read/Write/Edit error is a normal
+/// tool_result string — the card must端正 show the failure). null = not an fs error. fs 错误→红回执。
+ToolReceipt? fsErrorReceipt(Translations t, String output) {
+  final e = fsErrorKind(output);
+  if (e == null) return null;
+  final label = switch (e.kind) {
+    FsErrorKind.notFound => t.chat.tool.fsNotFound,
+    FsErrorKind.denied => t.chat.tool.fsDenied,
+    FsErrorKind.readFirst => t.chat.tool.fsReadFirst,
+    FsErrorKind.noMatch => t.chat.tool.fsNoMatch,
+    FsErrorKind.ambiguous => t.chat.tool.fsAmbiguous(n: '${e.n}'),
+    FsErrorKind.modified => t.chat.tool.fsModified,
+    FsErrorKind.parentMissing => t.chat.tool.fsParentMissing,
+    FsErrorKind.badPath => t.chat.tool.fsBadPath,
+    FsErrorKind.failed => t.chat.tool.fsFailed,
+  };
+  return (text: label, tone: ToolReceiptTone.danger);
+}
+
 ToolCardSpec _fsOp({
   required String Function(Translations) liveVerb,
   required String Function(Translations) doneVerb,
@@ -131,7 +150,9 @@ ToolCardSpec _fsOp({
         final p = argString(s.argsText, 'file_path');
         return p == null ? null : pathBasename(p);
       },
-      receipt: receipt,
+      // Every fs op checks for an error FIRST (danger receipt + auto-expand); else the success receipt.
+      // 每个 fs 操作先查错误(红回执+自动展开),否则成功回执。
+      receipt: (t, s) => fsErrorReceipt(t, s.resultText) ?? receipt?.call(t, s),
       body: body,
       bodyless: bodyless,
     );
@@ -447,24 +468,41 @@ final Map<String, ToolCardSpec> _catalog = {
   'Read': _fsOp(
     liveVerb: (t) => t.chat.tool.reading,
     doneVerb: (t) => t.chat.tool.read,
+    // Four-quadrant receipt: L 行 / 行 F–L / N+ 行 / 行 F–N+. 四象限。
     receipt: (t, s) => readReceipt(s.resultText,
-        linesLabel: (n) => t.chat.tool.lines(n: n),
-        truncatedLabel: (n) => t.chat.tool.linesTruncated(n: n)),
+        lines: (l) => t.chat.tool.lines(n: '$l'),
+        range: (f, l) => t.chat.tool.readRange(f: '$f', l: '$l'),
+        linesFloor: (n) => t.chat.tool.readFloor(n: '$n'),
+        rangeFloor: (f, n) => t.chat.tool.readRangeFloor(f: '$f', n: '$n')),
     bodyless: true, // the receipt IS the card 回执即卡
   ),
   'Write': _fsOp(
     liveVerb: (t) => t.chat.tool.writing,
     doneVerb: (t) => t.chat.tool.wrote,
     receipt: (t, s) {
+      // Write success = `Wrote <path>` — the receipt is the content's line count (empty → 空文件, body
+      // hidden). A non-«Wrote» / non-error result → grey «结果未确认» (a past-tense verb over an
+      // unconfirmed write would read as success). 写成功=行数;空→空文件;非确认→灰「结果未确认」。
       final content = argString(s.argsText, 'content');
-      if (content == null || content.isEmpty) return null;
-      return (text: t.chat.tool.lines(n: '\n'.allMatches(content).length + 1), tone: ToolReceiptTone.none);
+      if (s.resultText.isNotEmpty && !s.resultText.trimLeft().startsWith('Wrote ')) {
+        return (text: t.chat.tool.fsUnconfirmed, tone: ToolReceiptTone.warn);
+      }
+      if (content == null || content.isEmpty) return (text: t.chat.tool.emptyFile, tone: ToolReceiptTone.none);
+      return (text: t.chat.tool.lines(n: '${'\n'.allMatches(content).length + 1}'), tone: ToolReceiptTone.none);
     },
     body: writeToolBody,
   ),
   'Edit': _fsOp(
     liveVerb: (t) => t.chat.tool.editing,
     doneVerb: (t) => t.chat.tool.edited,
+    receipt: (t, s) {
+      // Edit success = `Replaced N occurrence(s) in <path>.` → «N 处替换»; a non-«Replaced» / non-error
+      // result → grey «结果未确认». Edit 成功=N 处替换;非确认→灰。
+      final m = RegExp(r'Replaced (\d+) occurrence').firstMatch(s.resultText);
+      if (m != null) return (text: t.chat.tool.edited2(n: m.group(1)!), tone: ToolReceiptTone.none);
+      if (s.resultText.isNotEmpty) return (text: t.chat.tool.fsUnconfirmed, tone: ToolReceiptTone.warn);
+      return null;
+    },
     body: editToolBody,
   ),
 

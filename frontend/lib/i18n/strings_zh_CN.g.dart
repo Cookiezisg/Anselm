@@ -664,6 +664,21 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get bashSessionGoneHint => '可能已被终止 / 已清理 / 后端已重启';
 	@override String get bashNoNew => '(无新输出)';
 	@override String bashDropped({required Object n}) => '丢弃 ${n} 字节(环缓冲溢出)';
+	@override String get fsNotFound => '未找到';
+	@override String get fsDenied => '无权限';
+	@override String get fsReadFirst => '需先读';
+	@override String get fsNoMatch => '未匹配';
+	@override String fsAmbiguous({required Object n}) => '${n} 处歧义';
+	@override String get fsModified => '文件已变';
+	@override String get fsParentMissing => '父目录缺';
+	@override String get fsBadPath => '路径无效';
+	@override String get fsFailed => '出错';
+	@override String readRange({required Object f, required Object l}) => '行 ${f}–${l}';
+	@override String readFloor({required Object n}) => '${n}+ 行';
+	@override String readRangeFloor({required Object f, required Object n}) => '行 ${f}–${n}+';
+	@override String edited2({required Object n}) => '${n} 处替换';
+	@override String get fsUnconfirmed => '结果未确认';
+	@override String get emptyFile => '空文件';
 }
 
 // Path: chat.gate
@@ -1555,6 +1570,21 @@ extension on TranslationsZhCn {
 			'chat.tool.bashSessionGoneHint' => '可能已被终止 / 已清理 / 后端已重启',
 			'chat.tool.bashNoNew' => '(无新输出)',
 			'chat.tool.bashDropped' => ({required Object n}) => '丢弃 ${n} 字节(环缓冲溢出)',
+			'chat.tool.fsNotFound' => '未找到',
+			'chat.tool.fsDenied' => '无权限',
+			'chat.tool.fsReadFirst' => '需先读',
+			'chat.tool.fsNoMatch' => '未匹配',
+			'chat.tool.fsAmbiguous' => ({required Object n}) => '${n} 处歧义',
+			'chat.tool.fsModified' => '文件已变',
+			'chat.tool.fsParentMissing' => '父目录缺',
+			'chat.tool.fsBadPath' => '路径无效',
+			'chat.tool.fsFailed' => '出错',
+			'chat.tool.readRange' => ({required Object f, required Object l}) => '行 ${f}–${l}',
+			'chat.tool.readFloor' => ({required Object n}) => '${n}+ 行',
+			'chat.tool.readRangeFloor' => ({required Object f, required Object n}) => '行 ${f}–${n}+',
+			'chat.tool.edited2' => ({required Object n}) => '${n} 处替换',
+			'chat.tool.fsUnconfirmed' => '结果未确认',
+			'chat.tool.emptyFile' => '空文件',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -1736,6 +1766,8 @@ extension on TranslationsZhCn {
 			'entities.detail.cockpit.runGraph' => '运行图',
 			'entities.detail.cockpit.nodeDetail' => ({required Object id}) => '节点 · ${id}',
 			'entities.detail.cockpit.pickNode' => '选择一个节点查看执行详情',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.cockpit.replay' => '重跑',
 			'entities.detail.cockpit.kill' => '终止',
 			'entities.detail.cockpit.runInfo' => '运行信息',
@@ -1751,8 +1783,6 @@ extension on TranslationsZhCn {
 			'entities.detail.kv.allowReason' => '允许备注',
 			'entities.detail.kv.timeout' => '超时',
 			'entities.detail.kv.timeoutBehavior' => '超时行为',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.kv.envId' => 'env id',
 			'entities.detail.kv.status' => '状态',
 			'entities.detail.kv.syncedAt' => '最近同步',

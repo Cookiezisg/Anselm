@@ -322,7 +322,22 @@
       "ranBg": "moved to background",
       "bashSessionGoneHint": "may have been terminated / cleaned up / backend restarted",
       "bashNoNew": "(no new output)",
-      "bashDropped": "$n bytes dropped (ring overflow)"
+      "bashDropped": "$n bytes dropped (ring overflow)",
+      "fsNotFound": "not found",
+      "fsDenied": "denied",
+      "fsReadFirst": "read first",
+      "fsNoMatch": "no match",
+      "fsAmbiguous": "$n matches",
+      "fsModified": "file changed",
+      "fsParentMissing": "no parent dir",
+      "fsBadPath": "bad path",
+      "fsFailed": "failed",
+      "readRange": "lines $f–$l",
+      "readFloor": "$n+ lines",
+      "readRangeFloor": "lines $f–$n+",
+      "edited2": "$n replaced",
+      "fsUnconfirmed": "result unconfirmed",
+      "emptyFile": "empty file"
     },
     "gate": {
       "dangerBadge": "Dangerous",
