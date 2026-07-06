@@ -14,6 +14,14 @@ void main() {
     expect(AnIcons.byKey('definitely-not-a-key'), AnIcons.fallback);
   });
 
+  test('entityKindGlyph: the shared named lookup (case-insensitive, degrades)', () {
+    expect(AnIcons.entityKindGlyph('function'), AnIcons.function);
+    expect(AnIcons.entityKindGlyph('Workflow'), AnIcons.workflow); // case-insensitive
+    expect(AnIcons.entityKindGlyph('document'), AnIcons.doc); // contract wire vocab, not demo alias
+    expect(AnIcons.entityKindGlyph('mcp'), AnIcons.mcp);
+    expect(AnIcons.entityKindGlyph('nope'), AnIcons.fallback);
+  });
+
   test('node: the 5 graph kinds + fallback', () {
     expect(AnIcons.node('trigger'), AnIcons.trigger);
     expect(AnIcons.node('approval'), AnIcons.approval);

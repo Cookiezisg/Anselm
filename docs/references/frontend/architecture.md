@@ -32,7 +32,7 @@ app/                       # 装配根
   window_setup.dart        # 桌面窗口:window_manager(尺寸/最小/居中 + hidden-at-launch:原生 order 钩子隐藏、show() 一次性显示、无启动闪烁 + 全屏监听 _FullScreenChrome)+ macos_window_utils(无边框 + 加高标题栏红绿灯)。**全屏适配**:进原生全屏 → removeToolbar(否则统一 toolbar 渲成不透明白带)+ 翻 core/platform/window_fullscreen 的 WindowFullScreen.active,出 → addToolbar+重设 unified 样式;启动带 launch-in-fullscreen 守卫(isFullScreen 时不加 toolbar)
 core/                      # 跨切共享层(不依赖上层)
   runtime.dart             # DI 装配:activeWorkspace(+ activeWorkspaceName 底栏显示名)+ backendController/Startup(BackendState phase 桥) + dio/apiClient + sseGateway(就绪前 null)
-  router/                  # 导航缝[STEP 6]:navigation.dart = rootNavigatorKeyProvider(GoRouter↔AnOverlayHost 共享根 navigator key)+ goRouterProvider(throw 默认,app 经 buildAppRouter override 注入;具体 router 认识壳+kind 故只能 app 装配、core 仅声明缝)
+  router/                  # 导航缝[STEP 6]:navigation.dart = rootNavigatorKeyProvider(GoRouter↔AnOverlayHost 共享根 navigator key)+ goRouterProvider(throw 默认,app 经 buildAppRouter override 注入;具体 router 认识壳+kind 故只能 app 装配、core 仅声明缝);panel_registry.dart[WRK-056 #8] = 面板能力注册表 panelLocationFor/hasPanelFor 纯函数——某 wire kind 有无可导航面板 + deep-link 位置的单一事实源(跨 feature 缝,镜像 router.dart 声明的路由式;tool 卡命中行/ref pill 据此决定可点否,无面板→onTap:null 惰性绝不放死链)
   workspace/               # 冷启动:workspace_bootstrap(后端就绪后 列/建 workspace + 设 activeWorkspace,否则全 API 401)
   contract/                # 后端投影 DTO(freezed/json,1:1 镜像后端):api_error(N1 信封 + AnselmErr 码) · page(N4 keyset/聚合) · workspace(+ModelRef) · entities/(Quadrinity ~22 DTO,见 contract.md)
   net/                     # api_client:唯一 HTTP 边界,标准契约只编码一次 + workspace/bearer(ANSELM_AUTH_TOKEN)拦截器

@@ -122,7 +122,7 @@ class AnRefPill extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(AnIcons.byKey(kind.toLowerCase()), size: AnSize.iconSm, color: c.inkFaint),
+            Icon(AnIcons.entityKindGlyph(kind), size: AnSize.iconSm, color: c.inkFaint),
             const SizedBox(width: AnSpace.s4),
             Flexible(
               child: Text(

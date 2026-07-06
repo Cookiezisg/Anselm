@@ -160,6 +160,13 @@ abstract final class AnIcons {
   /// Resolve a semantic key string to a glyph (unknown → [fallback]). 语义键字串 → 字形。
   static IconData byKey(String key) => _byKey[key] ?? fallback;
 
+  /// The glyph for a backend EntityKind wire string (WRK-056 #9) — the ONE named lookup shared by
+  /// AnRefPill, ToolHitList rows, and EntityGetBody headers so a hit for a `function` wears the same
+  /// face everywhere. Reuses [byKey]; the wire vocab is the contract's (`document`, `control`,
+  /// `approval` — not demo icon-aliases), unknown degrades to [fallback]. 实体 kind 字形:唯一命名查表,
+  /// AnRefPill/ToolHitList/EntityGetBody 共享同一张脸;复用 byKey,契约线缆词表,未知→兜底。
+  static IconData entityKindGlyph(String wireKind) => byKey(wireKind.toLowerCase());
+
   /// Exact tool-name → glyph, keyed lowercase. Covers every IRREGULAR tool (whose glyph isn't
   /// derivable from a create/edit/get/delete/revert × entity pattern) — the regular entity-CRUD
   /// families are resolved by rule in [toolIcon]. Real backend tool names (WRK-057 census §6),
