@@ -51,6 +51,18 @@ Widget triggerConfigBody(BuildContext context, ToolCardState state) {
   return Column(crossAxisAlignment: CrossAxisAlignment.start, children: rows);
 }
 
+/// The trigger config faces as a Column, from an ALREADY-parsed kind + config (get_trigger's JSON).
+/// Shared by F04 build + F06 get. 从已解析 kind+config 渲四 kind 脸(F04 建 + F06 get 共享)。
+Widget triggerConfigFaces(BuildContext context, String kind, Map config, String id) {
+  final t = Translations.of(context);
+  final c = context.colors;
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: _faceOf(context, t, c, kind, config, id),
+  );
+}
+
 List<Widget> _faceOf(BuildContext context, Translations t, AnColors c, String kind, Map config, String id) {
   switch (kind) {
     case 'cron':

@@ -8,6 +8,7 @@ import '../model/tool_receipts.dart';
 import 'tool_card_skins.dart';
 import 'tool_card_control_approval.dart';
 import 'tool_card_document_skill.dart';
+import 'tool_card_entity_get_bodies.dart';
 import 'tool_card_search.dart';
 import 'tool_card_trigger.dart';
 import 'tool_card_workflow.dart';
@@ -229,6 +230,39 @@ ToolCardSpec _entitySearch({
       },
     );
 
+/// F06 entity-get: «正在查看 X → 已查看 X»; the chip SETTLES from the args id to the output name
+/// (a directory line — `已查看函数 fetch-weather`); the body is the four-part exhibit ([EntityGetBody]).
+/// The receipt is the entity's version (get success ⇒ never danger — a bad env shows in the body, not
+/// by hijacking the row). F06 实体 get:动词带类名词 + chip 落定换名 + 四段陈列体 + vN 回执。
+ToolCardSpec _entityGet({
+  required String Function(Translations) kind,
+  required String idKey,
+  required Widget Function(BuildContext, ToolCardState) body,
+}) =>
+    ToolCardSpec(
+      verb: (t, {required bool live}) =>
+          live ? t.chat.tool.viewingKind(kind: kind(t)) : t.chat.tool.viewedKind(kind: kind(t)),
+      target: (s) {
+        // Settled: the chip changes from the id to the human name (the history reads like a directory).
+        // 落定:chip 从 id 换成人话名(历史读起来像目录)。
+        final name = argString(s.resultText, 'name');
+        if (name != null && name.isNotEmpty) return name;
+        return argStringPartial(s.argsText, idKey);
+      },
+      receipt: (t, s) {
+        Map<String, dynamic>? out;
+        try {
+          final d = jsonDecode(s.resultText);
+          if (d is Map<String, dynamic>) out = d;
+        } catch (_) {}
+        final v = (out?['activeVersion'] as Map?)?['version'] ?? out?['version'];
+        // get success ⇒ never danger (the entity's own bad state is INFORMATION, shown in the body).
+        // get 成功⇒绝不 danger(实体坏态是被看见的信息、体内讲)。
+        return v == null ? null : (text: 'v$v', tone: ToolReceiptTone.none);
+      },
+      body: body,
+    );
+
 /// The family table — keyed by exact tool name. 族表,按精确工具名键。
 final Map<String, ToolCardSpec> _catalog = {
   // ── F1 fs-ops 文件操作 ──
@@ -380,6 +414,33 @@ final Map<String, ToolCardSpec> _catalog = {
       listKey: 'attachments',
       listOnly: true,
       body: searchHitBody(listKey: 'attachments', cap: 30, row: (t, h) => attachmentListRow(h))),
+
+  // ── F06 entity-get: «正在查看 X → 已查看 X»; chip settles id→name; the four-part exhibit body.
+  // F06 实体 get:动词带类名词 + chip 落定换名 + 四段陈列体。──
+  'get_function': _entityGet(kind: (t) => t.chat.tool.kind.function, idKey: 'functionId', body: f06GetBodies['get_function']!),
+  'get_handler': _entityGet(kind: (t) => t.chat.tool.kind.handler, idKey: 'handlerId', body: f06GetBodies['get_handler']!),
+  'get_agent': _entityGet(kind: (t) => t.chat.tool.kind.agent, idKey: 'agentId', body: f06GetBodies['get_agent']!),
+  'get_workflow': _entityGet(kind: (t) => t.chat.tool.kind.workflow, idKey: 'workflowId', body: f06GetBodies['get_workflow']!),
+  'get_control': _entityGet(kind: (t) => t.chat.tool.kind.control, idKey: 'controlId', body: f06GetBodies['get_control']!),
+  'get_approval': _entityGet(kind: (t) => t.chat.tool.kind.approval, idKey: 'approvalId', body: f06GetBodies['get_approval']!),
+  'get_skill': _entityGet(kind: (t) => t.chat.tool.kind.skill, idKey: 'name', body: f06GetBodies['get_skill']!),
+  'get_trigger': _entityGet(kind: (t) => t.chat.tool.kind.trigger, idKey: 'triggerId', body: f06GetBodies['get_trigger']!),
+  // read_document / read_attachment — string TEMPLATE results (not JSON): the chip settles to the parsed
+  // name; the body renders the prose / the extracted text. read 串模板:chip 落定换名 + 排版/抽取正文体。
+  'read_document': ToolCardSpec(
+    verb: (t, {required bool live}) => live ? t.chat.tool.readingDoc : t.chat.tool.readDoc,
+    target: (s) {
+      // settled: the `# <name>` heading; live: the args id. 落定:# 标题;live:args id。
+      final first = s.resultText.startsWith('# ') ? s.resultText.split('\n').first.substring(2).trim() : null;
+      return (first != null && first.isNotEmpty) ? first : argStringPartial(s.argsText, 'id');
+    },
+    body: readDocumentBody,
+  ),
+  'read_attachment': ToolCardSpec(
+    verb: (t, {required bool live}) => live ? t.chat.tool.readingAtt : t.chat.tool.readAtt,
+    target: (s) => argStringPartial(s.argsText, 'id'),
+    body: readAttachmentBody,
+  ),
 
   // ── F16 humanloop: ask_user (the danger gate is not a tool — it's the chassis awaitingConfirm phase) ──
   // 三段动词:正在提问(live)→ 等待你回答(awaiting,底盘渲门)→ 已回答/已跳过/空答案(按结果散文)。

@@ -1142,6 +1142,75 @@ class Translations$chat$tool$en {
 
 	/// en: 'no active version'
 	String get noActiveVersion => 'no active version';
+
+	/// en: 'description'
+	String get kvDescription => 'description';
+
+	/// en: 'signature'
+	String get kvSignature => 'signature';
+
+	/// en: 'deps'
+	String get kvDeps => 'deps';
+
+	/// en: 'updated'
+	String get kvUpdated => 'updated';
+
+	/// en: 'methods'
+	String get kvMethods => 'methods';
+
+	/// en: 'model'
+	String get kvModel => 'model';
+
+	/// en: 'concurrency'
+	String get kvConcurrency => 'concurrency';
+
+	/// en: 'graph'
+	String get kvGraph => 'graph';
+
+	/// en: 'context'
+	String get kvContext => 'context';
+
+	/// en: 'source'
+	String get kvSource => 'source';
+
+	/// en: 'timeout'
+	String get apfTimeout => 'timeout';
+
+	/// en: 'on timeout'
+	String get apfBehavior => 'on timeout';
+
+	/// en: 'env failed'
+	String get envFailedShort => 'env failed';
+
+	/// en: 'env pending'
+	String get envPending => 'env pending';
+
+	/// en: 'allowedTools are pre-authorized (no danger confirm) for this run when active'
+	String get skillPreauthNote => 'allowedTools are pre-authorized (no danger confirm) for this run when active';
+
+	/// en: 'Viewing $kind'
+	String viewingKind({required Object kind}) => 'Viewing ${kind}';
+
+	/// en: 'Viewed $kind'
+	String viewedKind({required Object kind}) => 'Viewed ${kind}';
+
+	/// en: 'tags'
+	String get kvTags => 'tags';
+
+	/// en: 'truncated'
+	String get attachTruncated => 'truncated';
+
+	/// en: 'Reading document'
+	String get readingDoc => 'Reading document';
+
+	/// en: 'Read document'
+	String get readDoc => 'Read document';
+
+	/// en: 'Reading attachment'
+	String get readingAtt => 'Reading attachment';
+
+	/// en: 'Read attachment'
+	String get readAtt => 'Read attachment';
 }
 
 // Path: chat.gate
@@ -2574,6 +2643,29 @@ extension on Translations {
 			'chat.tool.rawResult' => 'raw result',
 			'chat.tool.contentTruncated' => 'content truncated — see the full text in the entity panel',
 			'chat.tool.noActiveVersion' => 'no active version',
+			'chat.tool.kvDescription' => 'description',
+			'chat.tool.kvSignature' => 'signature',
+			'chat.tool.kvDeps' => 'deps',
+			'chat.tool.kvUpdated' => 'updated',
+			'chat.tool.kvMethods' => 'methods',
+			'chat.tool.kvModel' => 'model',
+			'chat.tool.kvConcurrency' => 'concurrency',
+			'chat.tool.kvGraph' => 'graph',
+			'chat.tool.kvContext' => 'context',
+			'chat.tool.kvSource' => 'source',
+			'chat.tool.apfTimeout' => 'timeout',
+			'chat.tool.apfBehavior' => 'on timeout',
+			'chat.tool.envFailedShort' => 'env failed',
+			'chat.tool.envPending' => 'env pending',
+			'chat.tool.skillPreauthNote' => 'allowedTools are pre-authorized (no danger confirm) for this run when active',
+			'chat.tool.viewingKind' => ({required Object kind}) => 'Viewing ${kind}',
+			'chat.tool.viewedKind' => ({required Object kind}) => 'Viewed ${kind}',
+			'chat.tool.kvTags' => 'tags',
+			'chat.tool.attachTruncated' => 'truncated',
+			'chat.tool.readingDoc' => 'Reading document',
+			'chat.tool.readDoc' => 'Read document',
+			'chat.tool.readingAtt' => 'Reading attachment',
+			'chat.tool.readAtt' => 'Read attachment',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -2875,6 +2967,8 @@ extension on Translations {
 			'entities.detail.editor.discardConfirmAction' => 'Discard and leave',
 			'entities.detail.editor.saved' => 'New version saved',
 			'entities.detail.editor.unsaved' => 'Unsaved changes',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.editor.inspectorEmpty' => 'Select a node or edge to edit',
 			'entities.detail.editor.nodeRef' => 'Ref',
 			'entities.detail.editor.nodeKind' => 'Kind',
@@ -2898,8 +2992,6 @@ extension on Translations {
 			'entities.detail.editor.errSelfLoop' => 'No self-loops: a node cannot connect to itself',
 			'entities.detail.editor.errDuplicateEdge' => 'That edge already exists',
 			'entities.detail.editor.errBackEdgeSource' => 'A back edge may only leave a control / approval node',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.editor.errApprovalPortsFull' => 'An approval has only yes / no outputs',
 			'entities.detail.editor.on' => 'On',
 			'entities.detail.editor.off' => 'Off',

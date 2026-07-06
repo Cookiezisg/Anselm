@@ -58,6 +58,25 @@ Widget controlBranchBody(BuildContext context, ToolCardState state) {
   );
 }
 
+/// Render the decision ladder from an ALREADY-parsed branch list (get_control's active-version
+/// `branches` JSON — a list of `{port, when, emit?}` maps). Shared by F04 build + F06 get. 从已解析分支渲染梯。
+Widget controlBranchList(BuildContext context, List<dynamic> branches) {
+  final t = Translations.of(context);
+  final c = context.colors;
+  final parsed = <ControlBranch>[];
+  for (final raw in branches) {
+    if (raw is! Map) continue;
+    final emit = <String, String>{};
+    final e = raw['emit'];
+    if (e is Map) e.forEach((k, v) => emit[k.toString()] = v.toString());
+    parsed.add((port: (raw['port'] ?? '').toString(), when: (raw['when'] ?? '').toString(), emit: emit));
+  }
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [for (var i = 0; i < parsed.length; i++) _branchRow(context, t, c, i + 1, parsed[i])],
+  );
+}
+
 Widget _branchRow(BuildContext context, Translations t, AnColors c, int n, ControlBranch b) {
   final isCatchAll = b.when.trim() == 'true';
   return Padding(

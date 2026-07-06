@@ -536,6 +536,29 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get rawResult => '原始返回';
 	@override String get contentTruncated => '内容超长已截断——在实体面板看全文';
 	@override String get noActiveVersion => '无活跃版本';
+	@override String get kvDescription => '描述';
+	@override String get kvSignature => '签名';
+	@override String get kvDeps => '依赖';
+	@override String get kvUpdated => '更新';
+	@override String get kvMethods => '方法';
+	@override String get kvModel => '模型';
+	@override String get kvConcurrency => '并发';
+	@override String get kvGraph => '图';
+	@override String get kvContext => '上下文';
+	@override String get kvSource => '来源';
+	@override String get apfTimeout => '超时';
+	@override String get apfBehavior => '超时行为';
+	@override String get envFailedShort => 'env failed';
+	@override String get envPending => 'env pending';
+	@override String get skillPreauthNote => 'allowedTools 激活后本次运行预授权免危险确认';
+	@override String viewingKind({required Object kind}) => '正在查看${kind}';
+	@override String viewedKind({required Object kind}) => '已查看${kind}';
+	@override String get kvTags => '标签';
+	@override String get attachTruncated => '已截断';
+	@override String get readingDoc => '正在阅读文档';
+	@override String get readDoc => '已阅读文档';
+	@override String get readingAtt => '正在读取附件';
+	@override String get readAtt => '已读取附件';
 }
 
 // Path: chat.gate
@@ -1299,6 +1322,29 @@ extension on TranslationsZhCn {
 			'chat.tool.rawResult' => '原始返回',
 			'chat.tool.contentTruncated' => '内容超长已截断——在实体面板看全文',
 			'chat.tool.noActiveVersion' => '无活跃版本',
+			'chat.tool.kvDescription' => '描述',
+			'chat.tool.kvSignature' => '签名',
+			'chat.tool.kvDeps' => '依赖',
+			'chat.tool.kvUpdated' => '更新',
+			'chat.tool.kvMethods' => '方法',
+			'chat.tool.kvModel' => '模型',
+			'chat.tool.kvConcurrency' => '并发',
+			'chat.tool.kvGraph' => '图',
+			'chat.tool.kvContext' => '上下文',
+			'chat.tool.kvSource' => '来源',
+			'chat.tool.apfTimeout' => '超时',
+			'chat.tool.apfBehavior' => '超时行为',
+			'chat.tool.envFailedShort' => 'env failed',
+			'chat.tool.envPending' => 'env pending',
+			'chat.tool.skillPreauthNote' => 'allowedTools 激活后本次运行预授权免危险确认',
+			'chat.tool.viewingKind' => ({required Object kind}) => '正在查看${kind}',
+			'chat.tool.viewedKind' => ({required Object kind}) => '已查看${kind}',
+			'chat.tool.kvTags' => '标签',
+			'chat.tool.attachTruncated' => '已截断',
+			'chat.tool.readingDoc' => '正在阅读文档',
+			'chat.tool.readDoc' => '已阅读文档',
+			'chat.tool.readingAtt' => '正在读取附件',
+			'chat.tool.readAtt' => '已读取附件',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -1600,6 +1646,8 @@ extension on TranslationsZhCn {
 			'entities.detail.editor.discardConfirmAction' => '丢弃并离开',
 			'entities.detail.editor.saved' => '已保存新版本',
 			'entities.detail.editor.unsaved' => '未保存更改',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.editor.inspectorEmpty' => '选中节点或连线进行编辑',
 			'entities.detail.editor.nodeRef' => '引用',
 			'entities.detail.editor.nodeKind' => '类型',
@@ -1623,8 +1671,6 @@ extension on TranslationsZhCn {
 			'entities.detail.editor.errSelfLoop' => '不支持自环:节点不能连自身',
 			'entities.detail.editor.errDuplicateEdge' => '该连线已存在',
 			'entities.detail.editor.errBackEdgeSource' => '回边仅可从 control / approval 发出',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.editor.errApprovalPortsFull' => 'approval 仅有 yes / no 两个出口',
 			'entities.detail.editor.on' => '开',
 			'entities.detail.editor.off' => '关',

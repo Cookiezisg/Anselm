@@ -23,3 +23,16 @@ String fmtWaitedSince(DateTime? since, {DateTime? now}) {
   if (since == null) return '';
   return fmtWaited((now ?? DateTime.now()).difference(since));
 }
+
+/// An ABSOLUTE compact timepoint `YYYY-MM-DD HH:MM` from an ISO-8601 string (R6: timepoints —
+/// createdAt / updatedAt / mtime — render absolute, not relative; a settled card shows it statically,
+/// never live-refreshing). Parsed in LOCAL time. Unparseable / empty → the raw string (never throws).
+/// 绝对紧凑时点(R6:时点=绝对);本地时区解析;解析不了→原样返回(不抛)。
+String fmtStamp(String? iso) {
+  if (iso == null || iso.isEmpty) return '';
+  final dt = DateTime.tryParse(iso);
+  if (dt == null) return iso;
+  final l = dt.toLocal();
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${l.year}-${two(l.month)}-${two(l.day)} ${two(l.hour)}:${two(l.minute)}';
+}

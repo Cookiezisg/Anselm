@@ -106,7 +106,9 @@ void main() {
   testWidgets('big JSON result gets the virtualized tree inside a bounded viewport',
       (tester) async {
     final entries = [for (var i = 0; i < 40; i++) '"k$i":{"v":$i}'].join(',');
-    final big = _call('get_workflow', extra: {'arguments': '{"workflowId":"wf_1"}'})
+    // An UNCATALOGED tool (MCP-style) → the generic body (get_workflow now has its own F06 exhibit).
+    // 未编目工具 → 通用体(get_workflow 已有自己的 F06 陈列体)。
+    final big = _call('mcp:acme/analyze', extra: {'arguments': '{}'})
       ..children.add(_result('{$entries}'));
     await tester.pumpWidget(_host(ChatToolCard(node: big), reduced: true));
     await tester.pumpAndSettle();
@@ -135,7 +137,9 @@ void main() {
 
   testWidgets('oversized prose result is excerpted with the honest truncation note',
       (tester) async {
-    final big = _call('read_document')..children.add(_result('长' * 9000));
+    // An UNCATALOGED tool → the generic body's prose excerpt (read_document now parses its template).
+    // 未编目工具 → 通用体散文摘录(read_document 已解析自己的模板)。
+    final big = _call('mcp:acme/fetch')..children.add(_result('长' * 9000));
     await tester.pumpWidget(_host(ChatToolCard(node: big), reduced: true));
     await tester.pumpAndSettle();
     await tester.tap(find.byType(AnInteractive).first);

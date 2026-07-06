@@ -169,6 +169,15 @@ class RawResultDisclosure extends StatefulWidget {
 class _RawResultDisclosureState extends State<RawResultDisclosure> {
   bool _open = false;
 
+  // Auto-detect: a JSON object/array → the tree; anything else (a read_document / read_attachment
+  // string template) → capped mono text. 自动辨:JSON→树;否则(read 串模板)→ capped mono。
+  bool get _isJson {
+    final s = widget.rawJson.trimLeft();
+    if (s.isEmpty) return false;
+    final c = s.codeUnitAt(0);
+    return c == 0x7B || c == 0x5B; // { or [
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = Translations.of(context);
@@ -176,12 +185,17 @@ class _RawResultDisclosureState extends State<RawResultDisclosure> {
       label: t.chat.tool.rawResult,
       open: _open,
       onToggle: () => setState(() => _open = !_open),
-      child: _open
-          ? SizedBox(
-              height: AnSize.jsonViewport,
-              child: AnJsonTree(jsonString: widget.rawJson, showRoot: false),
-            )
-          : null,
+      child: !_open
+          ? null
+          : _isJson
+              ? SizedBox(
+                  height: AnSize.jsonViewport,
+                  child: AnJsonTree(jsonString: widget.rawJson, showRoot: false),
+                )
+              : ToolWindow(
+                  child: Text(widget.rawJson,
+                      maxLines: 200, overflow: TextOverflow.ellipsis, style: AnText.code.copyWith(color: context.colors.inkMuted)),
+                ),
     );
   }
 }
