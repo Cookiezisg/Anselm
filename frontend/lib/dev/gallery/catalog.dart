@@ -35,6 +35,7 @@ import 'markdown_specimens.dart';
 import 'notification_specimens.dart';
 import 'specimen.dart';
 import 'user_turn_specimens.dart';
+import '../../features/chat/ui/chat_context_mark.dart';
 
 // Gallery catalog — dev-only tool, so plain strings here are exempt from the i18n rule (like test
 // code; never shipped). Grows one category per build group (G0–G6).
@@ -262,6 +263,11 @@ final GalleryCategory _chatRail = GalleryCategory('对话 Chat', AnIcons.chat, [
   userTurnGalleryItem,
   anMarkdownGalleryItem,
   chatThinkingGalleryItem,
+  GalleryItem('ChatContextMark 上下文压缩低语', 'V5 特殊块:回合间的系统时间轴标记(发丝线夹 layers 图标 + 本地化文案,count 从后端英文 marker 解出);不借 thinking 左轨', [
+    GallerySpecimen('带数量', (_) => const ChatContextMark(marker: 'Context compacted — 42 earlier blocks folded into the running summary.'), span: true),
+    GallerySpecimen('无数量 (裸标签)', (_) => const ChatContextMark(marker: 'Context compacted.'), span: true),
+    GallerySpecimen('窄宽截断', (_) => const ChatContextMark(marker: 'Context compacted — 128 earlier blocks folded into the running summary.'), span: true, stress: true, maxWidth: 260),
+  ]),
   chatComposerGalleryItem,
   GalleryItem('AnAttachmentChip 待发附件', 'composer 附件条的一枚;上传中/就绪/失败(点体重试)', [
     GallerySpecimen('就绪 · 图片', (_) => AnAttachmentChip(kind: 'image', filename: 'screenshot.png', meta: 'PNG · 1.2 MB', onRemove: () {})),

@@ -512,7 +512,9 @@
       "decidedApprovedAlways": "已允许 · 本对话总是",
       "decidedDenied": "已拒绝",
       "decidedDeclined": "已跳过"
-    }
+    },
+    "contextCompacted": "上下文已压缩",
+    "contextCompactedCount": "上下文已压缩 · $n 条更早消息已折叠进摘要"
   },
   "appName": "Anselm",
   "status": {

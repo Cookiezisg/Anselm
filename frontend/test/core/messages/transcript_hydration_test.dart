@@ -32,6 +32,18 @@ void main() {
     expect(call.children[0].displayText, 'wrote 12 lines');
   });
 
+  test('progress block hydrates its text under `text` (not `content`) — renders on replay', () {
+    // A stored progress block's content is a raw string; the adapter must map it to `text` (matching the
+    // live close snapshot + displayText's fallback) so a replayed progress row is never empty. V5-A.
+    final roots = hydrateTranscriptTree([
+      {'id': 'tc', 'type': 'tool_call', 'content': '{}', 'attrs': {'tool': 'Bash'}},
+      {'id': 'pg', 'parentBlockId': 'tc', 'type': 'progress', 'content': '[1/4] installing numpy', 'status': 'completed'},
+    ]);
+    final progress = roots.single.children.single;
+    expect(progress.kind, BlockKind.progress);
+    expect(progress.displayText, '[1/4] installing numpy'); // not empty
+  });
+
   test('every block settles (status completed), never stuck open', () {
     final roots = hydrateTranscriptTree([
       {'type': 'text', 'content': 'x'},

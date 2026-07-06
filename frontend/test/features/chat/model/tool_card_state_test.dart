@@ -116,4 +116,33 @@ void main() {
     expect(s.danger, 'safe');
     expect(s.hasBody, isTrue);
   });
+
+  test('nested subagent MESSAGE wrapper is flattened into the trajectory (real backend shape)', () {
+    // Live E3: a Subagent turn arrives as a `message` node under the tool_call, whose reasoning/text/
+    // tool_call blocks are ITS children. of() must flatten it so the peek pane sees the trace, not an
+    // empty wrapper (subagent/emit.go). 真后端:嵌套回合是 message 包装,轨迹在其子块——须摊平。
+    final call = _call(content: {'name': 'Subagent'});
+    final msg = BlockNode(id: 'sub_msg', kind: BlockKind.message)..status = 'completed';
+    msg.children.addAll([
+      BlockNode(id: 'n1', kind: BlockKind.reasoning)..content = {'content': '先定位注册表'},
+      BlockNode(id: 'n2', kind: BlockKind.toolCall)..content = {'name': 'Grep'},
+      BlockNode(id: 'n3', kind: BlockKind.text)..content = {'content': '找到了'},
+    ]);
+    call.children.add(msg);
+
+    final s = ToolCardState.of(call);
+    expect(s.nested.length, 3, reason: 'the message wrapper must be flattened to its 3 trajectory blocks');
+    expect(s.nested.map((n) => n.kind), [BlockKind.reasoning, BlockKind.toolCall, BlockKind.text]);
+    // The wrapper itself must NOT appear (it would render as an empty shrink row). 包装本身不入 nested。
+    expect(s.nested.any((n) => n.kind == BlockKind.message), isFalse);
+  });
+
+  test('raw E3 blocks directly under the call still nest (fixture / reload path)', () {
+    final call = _call(content: {'name': 'invoke_agent'});
+    call.children.addAll([
+      BlockNode(id: 'n1', kind: BlockKind.reasoning)..content = {'content': 'x'},
+      BlockNode(id: 'n2', kind: BlockKind.text)..content = {'content': 'y'},
+    ]);
+    expect(ToolCardState.of(call).nested.length, 2);
+  });
 }

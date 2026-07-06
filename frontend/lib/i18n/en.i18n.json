@@ -512,7 +512,9 @@
       "decidedApprovedAlways": "Allowed · always this conversation",
       "decidedDenied": "Denied",
       "decidedDeclined": "Skipped"
-    }
+    },
+    "contextCompacted": "Context compacted",
+    "contextCompactedCount": "Context compacted · $n earlier messages folded into the summary"
   },
   "appName": "Anselm",
   "status": {

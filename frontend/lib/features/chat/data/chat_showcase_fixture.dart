@@ -94,11 +94,14 @@ List<({Conversation conv, List<ChatMessage> messages})> showcaseConversations() 
           assistantBlocks: [
             tc('sb1', 'Subagent', '{"subagent_type":"Explore","prompt":"找 catalog 注册表在哪个文件、如何加一条"}',
                 summary: '探查注册表位置', danger: 'safe'),
-            // The E3 nested trajectory — child blocks of the Subagent call (parentBlockId = 'sb1'), so the
-            // card renders the NestedRunPane. E3 嵌套轨迹子块(parentBlockId=sb1),卡片渲 NestedRunPane.
-            ChatBlock(id: 'sb1_n1', parentBlockId: 'sb1', type: 'reasoning', status: 'completed', content: '先定位 catalog 注册表在哪个文件,用 Grep 搜关键符号。'),
-            ChatBlock(id: 'sb1_n2', parentBlockId: 'sb1', type: 'tool_call', status: 'completed', content: '{"pattern":"toolCardSpecFor"}', attrs: const {'tool': 'Grep', 'summary': '搜注册表'}),
-            ChatBlock(id: 'sb1_n3', parentBlockId: 'sb1', type: 'text', status: 'completed', content: '找到 tool_card_catalog.dart,注册在 _catalog Map。'),
+            // The REAL backend E3 shape (subagent/emit.go): the subagent TURN is a `message` wrapper under
+            // the Subagent call (parentBlockId='sb1', subagent:true), and its reasoning/text/tool_call
+            // trajectory are the wrapper's children — the card flattens it into the NestedRunPane. 真后端形:
+            // 嵌套回合是 message 包装(挂 sb1),轨迹是它的子块;卡片摊平进 NestedRunPane。
+            ChatBlock(id: 'sb1_msg', parentBlockId: 'sb1', type: 'message', status: 'completed', content: '', attrs: const {'role': 'assistant', 'subagent': true}),
+            ChatBlock(id: 'sb1_n1', parentBlockId: 'sb1_msg', type: 'reasoning', status: 'completed', content: '先定位 catalog 注册表在哪个文件,用 Grep 搜关键符号。'),
+            ChatBlock(id: 'sb1_n2', parentBlockId: 'sb1_msg', type: 'tool_call', status: 'completed', content: '{"pattern":"toolCardSpecFor"}', attrs: const {'tool': 'Grep', 'summary': '搜注册表'}),
+            ChatBlock(id: 'sb1_n3', parentBlockId: 'sb1_msg', type: 'text', status: 'completed', content: '找到 tool_card_catalog.dart,注册在 _catalog Map。'),
             tr('sb1', '# 注册表位置\n\n`tool_card_catalog.dart` 的 `_catalog` Map。加一条:在 Map 里加 `\'tool_name\': ToolCardSpec(...)`,verb/target/receipt/body 四槽按需填。'),
             tc('sb2', 'get_subagent_trace', '{}',
                 summary: '列本对话的子代理运行', danger: 'safe'),

@@ -113,6 +113,8 @@ class _Translations$chat$zh_CN extends Translations$chat$en {
 	@override String get dropToAttach => 'Drop files to attach';
 	@override late final _Translations$chat$tool$zh_CN tool = _Translations$chat$tool$zh_CN._(_root);
 	@override late final _Translations$chat$gate$zh_CN gate = _Translations$chat$gate$zh_CN._(_root);
+	@override String get contextCompacted => '上下文已压缩';
+	@override String contextCompactedCount({required Object n}) => '上下文已压缩 · ${n} 条更早消息已折叠进摘要';
 }
 
 // Path: status
@@ -1981,6 +1983,8 @@ extension on TranslationsZhCn {
 			'chat.gate.decidedApprovedAlways' => '已允许 · 本对话总是',
 			'chat.gate.decidedDenied' => '已拒绝',
 			'chat.gate.decidedDeclined' => '已跳过',
+			'chat.contextCompacted' => '上下文已压缩',
+			'chat.contextCompactedCount' => ({required Object n}) => '上下文已压缩 · ${n} 条更早消息已折叠进摘要',
 			'appName' => 'Anselm',
 			'status.idle' => '空闲',
 			'status.run' => '运行中',
@@ -1988,10 +1992,10 @@ extension on TranslationsZhCn {
 			'status.err' => '失败',
 			'status.done' => '完成',
 			'action.edit' => '编辑',
-			'action.cancel' => '取消',
-			'action.save' => '保存',
 			_ => null,
 		} ?? switch (path) {
+			'action.cancel' => '取消',
+			'action.save' => '保存',
 			'action.copy' => '复制',
 			'action.wrap' => '自动换行',
 			'action.delete' => '删除',

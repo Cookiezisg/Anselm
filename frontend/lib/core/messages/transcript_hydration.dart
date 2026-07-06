@@ -36,6 +36,10 @@ Map<String, dynamic> _nodeContent(Map<String, dynamic> b, String type) {
       'danger': ?attrs['danger'],
     };
   }
+  // progress snapshots its text under `text` (loop/progress.go), NOT `content` — align with the live
+  // close frame + conversation_transcript's hydrateBlockContent so a replayed progress block (e.g. a
+  // get_subagent_trace detail) never renders empty. progress 快照在 `text` 键,与 live/另一水化路对齐。
+  if (type == 'progress') return {'text': raw};
   // text / reasoning / tool_result → the text sits in `content`. 文本类。
   return {'content': raw};
 }

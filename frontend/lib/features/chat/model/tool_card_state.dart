@@ -104,9 +104,15 @@ class ToolCardState {
         result ??= c;
       } else if (c.kind == BlockKind.progress) {
         progress ??= c;
+      } else if (c.kind == BlockKind.message) {
+        // A nested subagent TURN arrives (live, E3) as a `message` wrapper whose Open.ParentID is this
+        // tool_call; its real reasoning/text/tool_call trajectory is the wrapper's CHILDREN. Flatten so the
+        // peek pane renders the trace, not an empty wrapper — the actual backend shape (subagent/emit.go).
+        // The fixture / reload path already puts raw blocks directly under the call, so both still work.
+        // 嵌套 subagent 回合(live E3)是个 message 包装,其真轨迹在它的子块——摊平,否则真后端下 peek 渲空。
+        nested.addAll(c.children);
       } else {
-        // Anything else nested under a tool_call is the E3 trajectory (a subagent / invoke_agent run's
-        // reasoning/text/tool_call subtree). E3 嵌套轨迹子块。
+        // Raw E3 trajectory blocks nested directly under a tool_call (fixture / reload). 直接挂 call 下的轨迹块。
         nested.add(c);
       }
     }

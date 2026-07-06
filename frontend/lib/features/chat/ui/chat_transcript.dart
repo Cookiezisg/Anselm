@@ -19,6 +19,7 @@ import '../state/conversation_stream_state.dart';
 import '../state/pending_interactions_provider.dart';
 import 'chat_tool_card.dart';
 import 'chat_turn.dart';
+import 'chat_context_mark.dart';
 import 'chat_thinking.dart';
 import 'user_turn_content.dart';
 
@@ -366,10 +367,9 @@ class _TurnRow extends ConsumerWidget {
       case BlockKind.toolResult || BlockKind.progress:
         return null; // children of the tool card — never top-level noise 工具卡子块,不作顶层噪声
       case BlockKind.compaction:
-        return Center(
-          child: Text('· ${b.displayText} ·',
-              style: AnText.label.copyWith(color: c.inkFaint)),
-        );
+        // The context-compaction whisper — a system timeline marker, localized from the block's marker.
+        // 上下文压缩低语——系统时间轴标记,从块 marker 本地化。
+        return ChatContextMark(marker: b.displayText);
       case BlockKind.message:
         return null; // nested subagent turns join the transcript at V5 嵌套 subagent 回合 V5 接入
       case BlockKind.unknown:

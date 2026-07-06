@@ -205,6 +205,12 @@ class Translations$chat$en {
 
 	late final Translations$chat$tool$en tool = Translations$chat$tool$en.internal(_root);
 	late final Translations$chat$gate$en gate = Translations$chat$gate$en.internal(_root);
+
+	/// en: 'Context compacted'
+	String get contextCompacted => 'Context compacted';
+
+	/// en: 'Context compacted · $n earlier messages folded into the summary'
+	String contextCompactedCount({required Object n}) => 'Context compacted · ${n} earlier messages folded into the summary';
 }
 
 // Path: status
@@ -3931,6 +3937,8 @@ extension on Translations {
 			'chat.gate.decidedApprovedAlways' => 'Allowed · always this conversation',
 			'chat.gate.decidedDenied' => 'Denied',
 			'chat.gate.decidedDeclined' => 'Skipped',
+			'chat.contextCompacted' => 'Context compacted',
+			'chat.contextCompactedCount' => ({required Object n}) => 'Context compacted · ${n} earlier messages folded into the summary',
 			'appName' => 'Anselm',
 			'status.idle' => 'Idle',
 			'status.run' => 'Running',
@@ -3938,10 +3946,10 @@ extension on Translations {
 			'status.err' => 'Failed',
 			'status.done' => 'Done',
 			'action.edit' => 'Edit',
-			'action.cancel' => 'Cancel',
-			'action.save' => 'Save',
 			_ => null,
 		} ?? switch (path) {
+			'action.cancel' => 'Cancel',
+			'action.save' => 'Save',
 			'action.copy' => 'Copy',
 			'action.wrap' => 'Wrap',
 			'action.delete' => 'Delete',

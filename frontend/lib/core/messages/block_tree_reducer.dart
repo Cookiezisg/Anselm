@@ -25,10 +25,11 @@ class BlockNode {
   bool get isOpen => status == 'open';
   bool get isError => status == 'error';
 
-  /// The durable snapshot's `content` field if present, else the live delta buffer (text/reasoning).
-  /// 优先 close 快照的 content,否则实时 delta(text/reasoning)。
+  /// The durable snapshot's text, else the live delta buffer. Most blocks (text/reasoning/tool_result)
+  /// snapshot under `content`; a PROGRESS close snapshot uses `text` (loop/progress.go progressContent) —
+  /// so read both or a live-closed progress block renders empty. 优先快照(progress 用 `text` 键),否则 delta。
   String get displayText {
-    final snap = content?['content'];
+    final snap = content?['content'] ?? content?['text'];
     if (snap is String && snap.isNotEmpty) return snap;
     return deltaText;
   }
