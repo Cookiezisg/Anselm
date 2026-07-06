@@ -94,7 +94,7 @@ audience: [human, ai]
 
 > rail STEP 0–7 ✅;纯聊天骨干切片①–⑧ ✅(契约缝→管道→视图滚动→composer→landing→头→点灯→端到端,B.1/B.2)。剩余按视觉阶梯:
 
-1. **V3 tool 卡分批**(WRK-053 [`tool-cards.md`](tool-cards.md)):V3a 底盘 → V3b shell+fs → V3c builds → **V6 人在环卡**(内联确认卡 + interaction 重连补拉硬需求)→ V3d exec/searches/reads/web → V3e 薄卡+批量折叠+transcript 全接线(独立 V4 已取消,tool_result 呈现入族皮肤)
-2. **V5 特殊块**(progress 独立态/compaction whisper)
-3. **V8 右岛 entity-workspace**(后端 touchpoint 台账已落,前端数据缝随建)+ V7-composer 半(上传流/预览条/@ picker)
+1. **V3 tool 卡分批**(WRK-053 [`tool-cards.md`](tool-cards.md)):V3a 底盘 → V3b shell+fs → V3c builds → **V6 人在环卡**(内联确认卡 + interaction 重连补拉硬需求)→ V3d exec/searches/reads/web → V3e 薄卡+批量折叠+transcript 全接线(独立 V4 已取消,tool_result 呈现入族皮肤)—— ✅ 已落
+2. **V5 特殊块** ✅ 已落(2026-07-07,commit 92c9f8e1):**A** progress hygiene 修(close 快照字段 `text` 非 `content` → `displayText` 加 `content['text']` fallback + `transcript_hydration` 补 progress 特判,get_subagent_trace 回放不再空)· **B** compaction whisper `ChatContextMark`(发丝线夹 layers 图标 + 本地化文案[从后端英文 marker 解 count],不借 thinking 左轨;gallery+capture+4 测)· **C** 嵌套 subagent `message` 摊平(**真 bug**:真后端嵌套回合是 tool_call 下 `message` 包装、轨迹是孙节点,`transcriptBlockRow` default→shrink 吞它 → 真后端 NestedRunPane 渲空;`ToolCardState.of` 加 message 摊平;showcase 改真形截图验证)
+3. **V8 右岛 entity-workspace**(后端 touchpoint 台账已落,前端数据缝随建)+ V7-composer 半(上传流/预览条/@ picker)—— ⏳ **chat 唯一剩项**
 4. **每步照流水线**:扇出读后端 → best-practice → 规范 → 拍板 → gallery → 建 → 五电池 → 真机截图
