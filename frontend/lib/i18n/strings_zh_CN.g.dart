@@ -795,6 +795,46 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get gotSubTrace => '已调阅子代理轨迹';
 	@override String subTraceRuns({required Object n}) => '${n} 个子代理运行';
 	@override String get subTraceNoRuns => '本对话无子代理运行';
+	@override String get todoWriting => '正在更新任务清单';
+	@override String get todoWrote => '已更新任务清单';
+	@override String get todoReading => '正在读取任务清单';
+	@override String get todoRead => '已读取任务清单';
+	@override String todoRollup({required Object total, required Object done}) => '${total} 项 · ${done} 完成';
+	@override String get todoCleared => '清单已清空';
+	@override String todoActive({required Object n}) => '${n} 进行中';
+	@override String get gettingRelations => '正在查关系';
+	@override String get gotRelations => '已查关系';
+	@override String relCount({required Object n}) => '${n} 条关系';
+	@override String get relNoEdges => '无关系';
+	@override String get relArrow => '→';
+	@override String get checkingCapability => '正在体检工作流';
+	@override String get checkedCapability => '已体检工作流';
+	@override String get capRunnable => '结构可运行';
+	@override String capProblems({required Object n}) => '${n} 问题';
+	@override String capWarnings({required Object n}) => '${n} 警示';
+	@override String get capProblemsLabel => '问题';
+	@override String get capWarningsLabel => '警示';
+	@override String get capResolved => '依赖已解析';
+	@override String get capStructural => '结构有效';
+	@override String get installingMcp => '正在安装 MCP 服务器';
+	@override String get installedMcp => '已安装 MCP 服务器';
+	@override String get uninstallingMcp => '正在卸载 MCP 服务器';
+	@override String get uninstalledMcp => '已卸载 MCP 服务器';
+	@override String get reconnectingMcp => '正在重连 MCP';
+	@override String get reconnectedMcp => '已重连 MCP';
+	@override String get mcpConnected => '已连接';
+	@override String get mcpDisconnected => '未连接';
+	@override String mcpToolCount({required Object n}) => '${n} 工具';
+	@override String mcpFailures({required Object n}) => '${n} 次连续失败';
+	@override String get browsingMarket => '正在浏览市场';
+	@override String get browsedMarket => '已浏览市场';
+	@override String marketCount({required Object n}) => '${n} 个服务器';
+	@override String mcpEnvRequired({required Object n}) => '${n} 必填 env';
+	@override String get gettingModelConfig => '正在读模型配置';
+	@override String get gotModelConfig => '已读模型配置';
+	@override String get modelDefaults => '默认模型';
+	@override String modelKeys({required Object n}) => '${n} 个密钥';
+	@override String modelAvail({required Object n}) => '${n} 个可用模型';
 }
 
 // Path: chat.gate
@@ -1817,6 +1857,46 @@ extension on TranslationsZhCn {
 			'chat.tool.gotSubTrace' => '已调阅子代理轨迹',
 			'chat.tool.subTraceRuns' => ({required Object n}) => '${n} 个子代理运行',
 			'chat.tool.subTraceNoRuns' => '本对话无子代理运行',
+			'chat.tool.todoWriting' => '正在更新任务清单',
+			'chat.tool.todoWrote' => '已更新任务清单',
+			'chat.tool.todoReading' => '正在读取任务清单',
+			'chat.tool.todoRead' => '已读取任务清单',
+			'chat.tool.todoRollup' => ({required Object total, required Object done}) => '${total} 项 · ${done} 完成',
+			'chat.tool.todoCleared' => '清单已清空',
+			'chat.tool.todoActive' => ({required Object n}) => '${n} 进行中',
+			'chat.tool.gettingRelations' => '正在查关系',
+			'chat.tool.gotRelations' => '已查关系',
+			'chat.tool.relCount' => ({required Object n}) => '${n} 条关系',
+			'chat.tool.relNoEdges' => '无关系',
+			'chat.tool.relArrow' => '→',
+			'chat.tool.checkingCapability' => '正在体检工作流',
+			'chat.tool.checkedCapability' => '已体检工作流',
+			'chat.tool.capRunnable' => '结构可运行',
+			'chat.tool.capProblems' => ({required Object n}) => '${n} 问题',
+			'chat.tool.capWarnings' => ({required Object n}) => '${n} 警示',
+			'chat.tool.capProblemsLabel' => '问题',
+			'chat.tool.capWarningsLabel' => '警示',
+			'chat.tool.capResolved' => '依赖已解析',
+			'chat.tool.capStructural' => '结构有效',
+			'chat.tool.installingMcp' => '正在安装 MCP 服务器',
+			'chat.tool.installedMcp' => '已安装 MCP 服务器',
+			'chat.tool.uninstallingMcp' => '正在卸载 MCP 服务器',
+			'chat.tool.uninstalledMcp' => '已卸载 MCP 服务器',
+			'chat.tool.reconnectingMcp' => '正在重连 MCP',
+			'chat.tool.reconnectedMcp' => '已重连 MCP',
+			'chat.tool.mcpConnected' => '已连接',
+			'chat.tool.mcpDisconnected' => '未连接',
+			'chat.tool.mcpToolCount' => ({required Object n}) => '${n} 工具',
+			'chat.tool.mcpFailures' => ({required Object n}) => '${n} 次连续失败',
+			'chat.tool.browsingMarket' => '正在浏览市场',
+			'chat.tool.browsedMarket' => '已浏览市场',
+			'chat.tool.marketCount' => ({required Object n}) => '${n} 个服务器',
+			'chat.tool.mcpEnvRequired' => ({required Object n}) => '${n} 必填 env',
+			'chat.tool.gettingModelConfig' => '正在读模型配置',
+			'chat.tool.gotModelConfig' => '已读模型配置',
+			'chat.tool.modelDefaults' => '默认模型',
+			'chat.tool.modelKeys' => ({required Object n}) => '${n} 个密钥',
+			'chat.tool.modelAvail' => ({required Object n}) => '${n} 个可用模型',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -1842,6 +1922,8 @@ extension on TranslationsZhCn {
 			'action.edit' => '编辑',
 			'action.cancel' => '取消',
 			'action.save' => '保存',
+			_ => null,
+		} ?? switch (path) {
 			'action.copy' => '复制',
 			'action.wrap' => '自动换行',
 			'action.delete' => '删除',
@@ -1882,8 +1964,6 @@ extension on TranslationsZhCn {
 			'ref.document' => '文档',
 			'ref.conversation' => '会话',
 			'ref.skill' => '技能',
-			_ => null,
-		} ?? switch (path) {
 			'ref.mcp' => 'MCP',
 			'ref.trigger' => '触发器',
 			'ref.control' => '控制',

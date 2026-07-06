@@ -94,6 +94,7 @@ abstract final class AnIcons {
   static final IconData codeBlock = _thin(LucideIcons.code); // fenced code block 代码块
   static final IconData divider = _thin(LucideIcons.minus); // horizontal rule 分隔线
   static final IconData todo = _thin(LucideIcons.listTodo); // task checkbox block 待办
+  static final IconData circle = _thin(LucideIcons.circle); // an empty/pending mark (todo pending) 空/待办标记
 
   // ── composer (chat input) ──
   static final IconData mention = _thin(LucideIcons.atSign); // @ mention trigger @提及

@@ -23,6 +23,8 @@ import 'tool_card_get_specimens.dart';
 import 'tool_card_dossier_specimens.dart';
 import 'tool_card_runlog_specimens.dart';
 import 'tool_card_subagent_specimens.dart';
+import 'tool_card_ecosystem_specimens.dart';
+import 'tool_card_todo_specimens.dart';
 import 'tool_card_conversation_specimens.dart';
 import 'tool_card_lifecycle_specimens.dart';
 import 'tool_card_family_specimens.dart';
@@ -216,6 +218,8 @@ final GalleryCategory _toolCards = GalleryCategory('工具卡 Tool Cards', AnIco
   toolCardRunlogGalleryItem,
   toolCardDossierGalleryItem,
   toolCardSubagentGalleryItem,
+  toolCardTodoGalleryItem,
+  toolCardEcosystemGalleryItem,
   toolCardLifecycleGalleryItem,
   toolCardConversationGalleryItem,
   anTermTailGalleryItem,

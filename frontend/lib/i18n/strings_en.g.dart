@@ -1919,6 +1919,126 @@ class Translations$chat$tool$en {
 
 	/// en: 'No subagent runs in this conversation'
 	String get subTraceNoRuns => 'No subagent runs in this conversation';
+
+	/// en: 'Updating checklist'
+	String get todoWriting => 'Updating checklist';
+
+	/// en: 'Updated checklist'
+	String get todoWrote => 'Updated checklist';
+
+	/// en: 'Reading checklist'
+	String get todoReading => 'Reading checklist';
+
+	/// en: 'Read checklist'
+	String get todoRead => 'Read checklist';
+
+	/// en: '$total items · $done done'
+	String todoRollup({required Object total, required Object done}) => '${total} items · ${done} done';
+
+	/// en: 'Checklist cleared'
+	String get todoCleared => 'Checklist cleared';
+
+	/// en: '$n in progress'
+	String todoActive({required Object n}) => '${n} in progress';
+
+	/// en: 'Checking relations'
+	String get gettingRelations => 'Checking relations';
+
+	/// en: 'Checked relations'
+	String get gotRelations => 'Checked relations';
+
+	/// en: '$n edges'
+	String relCount({required Object n}) => '${n} edges';
+
+	/// en: 'No relations'
+	String get relNoEdges => 'No relations';
+
+	/// en: '→'
+	String get relArrow => '→';
+
+	/// en: 'Checking workflow'
+	String get checkingCapability => 'Checking workflow';
+
+	/// en: 'Checked workflow'
+	String get checkedCapability => 'Checked workflow';
+
+	/// en: 'structurally runnable'
+	String get capRunnable => 'structurally runnable';
+
+	/// en: '$n problems'
+	String capProblems({required Object n}) => '${n} problems';
+
+	/// en: '$n warnings'
+	String capWarnings({required Object n}) => '${n} warnings';
+
+	/// en: 'Problems'
+	String get capProblemsLabel => 'Problems';
+
+	/// en: 'Warnings'
+	String get capWarningsLabel => 'Warnings';
+
+	/// en: 'deps resolved'
+	String get capResolved => 'deps resolved';
+
+	/// en: 'structurally valid'
+	String get capStructural => 'structurally valid';
+
+	/// en: 'Installing MCP server'
+	String get installingMcp => 'Installing MCP server';
+
+	/// en: 'Installed MCP server'
+	String get installedMcp => 'Installed MCP server';
+
+	/// en: 'Uninstalling MCP server'
+	String get uninstallingMcp => 'Uninstalling MCP server';
+
+	/// en: 'Uninstalled MCP server'
+	String get uninstalledMcp => 'Uninstalled MCP server';
+
+	/// en: 'Reconnecting MCP'
+	String get reconnectingMcp => 'Reconnecting MCP';
+
+	/// en: 'Reconnected MCP'
+	String get reconnectedMcp => 'Reconnected MCP';
+
+	/// en: 'connected'
+	String get mcpConnected => 'connected';
+
+	/// en: 'disconnected'
+	String get mcpDisconnected => 'disconnected';
+
+	/// en: '$n tools'
+	String mcpToolCount({required Object n}) => '${n} tools';
+
+	/// en: '$n consecutive failures'
+	String mcpFailures({required Object n}) => '${n} consecutive failures';
+
+	/// en: 'Browsing marketplace'
+	String get browsingMarket => 'Browsing marketplace';
+
+	/// en: 'Browsed marketplace'
+	String get browsedMarket => 'Browsed marketplace';
+
+	/// en: '$n servers'
+	String marketCount({required Object n}) => '${n} servers';
+
+	/// en: '$n required env'
+	String mcpEnvRequired({required Object n}) => '${n} required env';
+
+	/// en: 'Reading model config'
+	String get gettingModelConfig => 'Reading model config';
+
+	/// en: 'Read model config'
+	String get gotModelConfig => 'Read model config';
+
+	/// en: 'Default models'
+	String get modelDefaults => 'Default models';
+
+	/// en: '$n keys'
+	String modelKeys({required Object n}) => '${n} keys';
+
+	/// en: '$n available models'
+	String modelAvail({required Object n}) => '${n} available models';
 }
 
 // Path: chat.gate
@@ -3610,6 +3730,46 @@ extension on Translations {
 			'chat.tool.gotSubTrace' => 'Opened subagent trace',
 			'chat.tool.subTraceRuns' => ({required Object n}) => '${n} subagent runs',
 			'chat.tool.subTraceNoRuns' => 'No subagent runs in this conversation',
+			'chat.tool.todoWriting' => 'Updating checklist',
+			'chat.tool.todoWrote' => 'Updated checklist',
+			'chat.tool.todoReading' => 'Reading checklist',
+			'chat.tool.todoRead' => 'Read checklist',
+			'chat.tool.todoRollup' => ({required Object total, required Object done}) => '${total} items · ${done} done',
+			'chat.tool.todoCleared' => 'Checklist cleared',
+			'chat.tool.todoActive' => ({required Object n}) => '${n} in progress',
+			'chat.tool.gettingRelations' => 'Checking relations',
+			'chat.tool.gotRelations' => 'Checked relations',
+			'chat.tool.relCount' => ({required Object n}) => '${n} edges',
+			'chat.tool.relNoEdges' => 'No relations',
+			'chat.tool.relArrow' => '→',
+			'chat.tool.checkingCapability' => 'Checking workflow',
+			'chat.tool.checkedCapability' => 'Checked workflow',
+			'chat.tool.capRunnable' => 'structurally runnable',
+			'chat.tool.capProblems' => ({required Object n}) => '${n} problems',
+			'chat.tool.capWarnings' => ({required Object n}) => '${n} warnings',
+			'chat.tool.capProblemsLabel' => 'Problems',
+			'chat.tool.capWarningsLabel' => 'Warnings',
+			'chat.tool.capResolved' => 'deps resolved',
+			'chat.tool.capStructural' => 'structurally valid',
+			'chat.tool.installingMcp' => 'Installing MCP server',
+			'chat.tool.installedMcp' => 'Installed MCP server',
+			'chat.tool.uninstallingMcp' => 'Uninstalling MCP server',
+			'chat.tool.uninstalledMcp' => 'Uninstalled MCP server',
+			'chat.tool.reconnectingMcp' => 'Reconnecting MCP',
+			'chat.tool.reconnectedMcp' => 'Reconnected MCP',
+			'chat.tool.mcpConnected' => 'connected',
+			'chat.tool.mcpDisconnected' => 'disconnected',
+			'chat.tool.mcpToolCount' => ({required Object n}) => '${n} tools',
+			'chat.tool.mcpFailures' => ({required Object n}) => '${n} consecutive failures',
+			'chat.tool.browsingMarket' => 'Browsing marketplace',
+			'chat.tool.browsedMarket' => 'Browsed marketplace',
+			'chat.tool.marketCount' => ({required Object n}) => '${n} servers',
+			'chat.tool.mcpEnvRequired' => ({required Object n}) => '${n} required env',
+			'chat.tool.gettingModelConfig' => 'Reading model config',
+			'chat.tool.gotModelConfig' => 'Read model config',
+			'chat.tool.modelDefaults' => 'Default models',
+			'chat.tool.modelKeys' => ({required Object n}) => '${n} keys',
+			'chat.tool.modelAvail' => ({required Object n}) => '${n} available models',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -3635,6 +3795,8 @@ extension on Translations {
 			'action.edit' => 'Edit',
 			'action.cancel' => 'Cancel',
 			'action.save' => 'Save',
+			_ => null,
+		} ?? switch (path) {
 			'action.copy' => 'Copy',
 			'action.wrap' => 'Wrap',
 			'action.delete' => 'Delete',
@@ -3675,8 +3837,6 @@ extension on Translations {
 			'ref.document' => 'Document',
 			'ref.conversation' => 'Conversation',
 			'ref.skill' => 'Skill',
-			_ => null,
-		} ?? switch (path) {
 			'ref.mcp' => 'MCP',
 			'ref.trigger' => 'Trigger',
 			'ref.control' => 'Control',

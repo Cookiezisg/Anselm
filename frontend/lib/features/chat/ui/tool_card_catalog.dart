@@ -13,12 +13,14 @@ import 'tool_card_document_skill.dart';
 import 'tool_card_exec.dart';
 import 'tool_card_flowrun.dart';
 import 'tool_card_fs_search.dart';
+import 'tool_card_ecosystem.dart';
 import 'tool_card_entity_get_bodies.dart';
 import 'tool_card_lifecycle.dart';
 import 'tool_card_mount.dart';
 import 'tool_card_runlog.dart';
 import 'tool_card_search.dart';
 import 'tool_card_subagent.dart';
+import 'tool_card_todo.dart';
 import 'tool_card_trigger.dart';
 import 'tool_card_workflow.dart';
 
@@ -1015,6 +1017,69 @@ final Map<String, ToolCardSpec> _catalog = {
   'get_agent_execution': _getRecord(
       running: (t) => t.chat.tool.gettingAgentExec, done: (t) => t.chat.tool.gotAgentExec,
       chipArg: 'executionId', receipt: execRecordReceipt, failed: execRecordFailed, body: getAgentExecBody),
+
+  // ── F12 relations + F13 mcp-mgmt + capability/model (B7.2 ecosystem tail) ──
+  'get_relations': ToolCardSpec(
+    verb: (t, {required bool live}) => live ? t.chat.tool.gettingRelations : t.chat.tool.gotRelations,
+    target: (s) {
+      final id = argStringPartial(s.argsText, 'id');
+      return id == null ? null : (id.length > 12 ? '${id.substring(0, 12)}…' : id);
+    },
+    receipt: (t, s) => relationsReceipt(t, s.resultText),
+    body: relationsBody,
+  ),
+  'capability_check_workflow': ToolCardSpec(
+    verb: (t, {required bool live}) => live ? t.chat.tool.checkingCapability : t.chat.tool.checkedCapability,
+    target: (s) {
+      final id = argStringPartial(s.argsText, 'workflowId');
+      return id == null ? null : (id.length > 12 ? '${id.substring(0, 12)}…' : id);
+    },
+    receipt: (t, s) => capabilityReceipt(t, s.resultText),
+    resultFailed: (s) => capabilityFailed(s.resultText),
+    body: capabilityBody,
+  ),
+  'install_mcp_server': ToolCardSpec(
+    verb: (t, {required bool live}) => live ? t.chat.tool.installingMcp : t.chat.tool.installedMcp,
+    target: (s) => argStringPartial(s.argsText, 'name'),
+    receipt: (t, s) => mcpStatusReceipt(t, s.resultText),
+    resultFailed: (s) => mcpStatusFailed(s.resultText),
+    body: mcpStatusBody,
+  ),
+  'uninstall_mcp_server': ToolCardSpec(
+    verb: (t, {required bool live}) => live ? t.chat.tool.uninstallingMcp : t.chat.tool.uninstalledMcp,
+    target: (s) => argStringPartial(s.argsText, 'name'),
+    receipt: (t, s) => mcpStatusReceipt(t, s.resultText),
+    body: mcpStatusBody,
+  ),
+  'reconnect_mcp': ToolCardSpec(
+    verb: (t, {required bool live}) => live ? t.chat.tool.reconnectingMcp : t.chat.tool.reconnectedMcp,
+    target: (s) => argStringPartial(s.argsText, 'name'),
+    receipt: (t, s) => mcpStatusReceipt(t, s.resultText),
+    resultFailed: (s) => mcpStatusFailed(s.resultText),
+    body: mcpStatusBody,
+  ),
+  'list_mcp_marketplace': ToolCardSpec(
+    verb: (t, {required bool live}) => live ? t.chat.tool.browsingMarket : t.chat.tool.browsedMarket,
+    receipt: (t, s) => marketplaceReceipt(t, s.resultText),
+    body: marketplaceBody,
+  ),
+  'get_model_config': ToolCardSpec(
+    verb: (t, {required bool live}) => live ? t.chat.tool.gettingModelConfig : t.chat.tool.gotModelConfig,
+    receipt: (t, s) => modelConfigReceipt(t, s.resultText),
+    body: modelConfigBody,
+  ),
+
+  // ── F11 todo: the task checklist (todo_write carries the full list in args; todo_read the rendered) ──
+  'todo_write': ToolCardSpec(
+    verb: (t, {required bool live}) => live ? t.chat.tool.todoWriting : t.chat.tool.todoWrote,
+    receipt: (t, s) => todoReceipt(t, argsJson: s.argsText, rendered: s.resultText),
+    body: todoWriteBody,
+  ),
+  'todo_read': ToolCardSpec(
+    verb: (t, {required bool live}) => live ? t.chat.tool.todoReading : t.chat.tool.todoRead,
+    receipt: (t, s) => todoReceipt(t, rendered: s.resultText),
+    body: todoReadBody,
+  ),
 
   // ── F15 nested conversation: Subagent (spawn a sub-task) + get_subagent_trace (read it back) ──
   // The Subagent's E3 trajectory streams live under the card (NestedRunPane); its result IS the final
