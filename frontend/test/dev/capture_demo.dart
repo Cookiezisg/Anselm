@@ -21,6 +21,8 @@ import 'package:anselm/features/chat/data/chat_demo_fixture.dart';
 import 'package:anselm/features/chat/data/chat_providers.dart';
 import 'package:anselm/features/chat/state/selected_conversation.dart';
 import 'package:anselm/features/entities/data/entity_demo_fixture.dart';
+import 'package:anselm/features/notifications/data/notification_demo_fixture.dart';
+import 'package:anselm/features/notifications/data/notification_providers.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
 import 'package:anselm/features/entities/data/entity_providers.dart';
 import 'package:anselm/i18n/strings.g.dart';
@@ -128,6 +130,7 @@ void main() {
       overrides: [
         entityRepositoryProvider.overrideWithValue(demoEntityRepository()),
         chatRepositoryProvider.overrideWithValue(demoChatRepository()),
+        notificationRepositoryProvider.overrideWithValue(demoNotificationRepository()),
         goRouterProvider.overrideWith(buildAppRouter),
       ],
       child: TranslationProvider(child: const _CaptureApp()),
