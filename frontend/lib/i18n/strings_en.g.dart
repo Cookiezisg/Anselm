@@ -1454,6 +1454,51 @@ class Translations$chat$tool$en {
 
 	/// en: 'sending a message auto-unarchives'
 	String get cvAutoUnarchive => 'sending a message auto-unarchives';
+
+	/// en: 'blocked'
+	String get bashBlocked => 'blocked';
+
+	/// en: 'cancelled'
+	String get bashCancelled => 'cancelled';
+
+	/// en: 'exit unknown'
+	String get bashExitUnknown => 'exit unknown';
+
+	/// en: '$id · bg'
+	String bashBackground({required Object id}) => '${id} · bg';
+
+	/// en: 'running'
+	String get statusRunning => 'running';
+
+	/// en: 'exit $code'
+	String statusExited({required Object code}) => 'exit ${code}';
+
+	/// en: 'killed'
+	String get statusKilled => 'killed';
+
+	/// en: 'errored'
+	String get statusErrored => 'errored';
+
+	/// en: 'session not found'
+	String get statusNotFound => 'session not found';
+
+	/// en: 'already finished'
+	String get killFinished => 'already finished';
+
+	/// en: 'session not found'
+	String get killNotFound => 'session not found';
+
+	/// en: 'Reading output'
+	String get polling => 'Reading output';
+
+	/// en: 'Read output'
+	String get polled => 'Read output';
+
+	/// en: 'Terminating'
+	String get killing => 'Terminating';
+
+	/// en: 'Terminated'
+	String get killed3 => 'Terminated';
 }
 
 // Path: chat.gate
@@ -2990,6 +3035,21 @@ extension on Translations {
 			'chat.tool.cvStatusPinned' => 'pinned',
 			'chat.tool.cvStatusTitle' => 'title',
 			'chat.tool.cvAutoUnarchive' => 'sending a message auto-unarchives',
+			'chat.tool.bashBlocked' => 'blocked',
+			'chat.tool.bashCancelled' => 'cancelled',
+			'chat.tool.bashExitUnknown' => 'exit unknown',
+			'chat.tool.bashBackground' => ({required Object id}) => '${id} · bg',
+			'chat.tool.statusRunning' => 'running',
+			'chat.tool.statusExited' => ({required Object code}) => 'exit ${code}',
+			'chat.tool.statusKilled' => 'killed',
+			'chat.tool.statusErrored' => 'errored',
+			'chat.tool.statusNotFound' => 'session not found',
+			'chat.tool.killFinished' => 'already finished',
+			'chat.tool.killNotFound' => 'session not found',
+			'chat.tool.polling' => 'Reading output',
+			'chat.tool.polled' => 'Read output',
+			'chat.tool.killing' => 'Terminating',
+			'chat.tool.killed3' => 'Terminated',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -3195,6 +3255,8 @@ extension on Translations {
 			'entities.detail.kv.instanceId' => 'Instance',
 			'entities.detail.kv.version' => 'Version',
 			'entities.detail.kv.elapsed' => 'Elapsed',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.kv.time' => 'Time',
 			'entities.detail.kv.replay' => 'Replay',
 			'entities.detail.kv.flowrunId' => 'Flowrun id',
@@ -3210,8 +3272,6 @@ extension on Translations {
 			'entities.detail.kv.ref' => 'Ref',
 			'entities.detail.kv.healthy' => 'Healthy',
 			'entities.detail.kv.method' => 'Method',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.kv.startedAt' => 'Started',
 			'entities.detail.kv.completedAt' => 'Completed',
 			'entities.detail.kv.triggeredBy' => 'Triggered by',

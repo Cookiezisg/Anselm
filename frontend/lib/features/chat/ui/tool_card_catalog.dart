@@ -825,7 +825,12 @@ final Map<String, ToolCardSpec> _catalog = {
       return c == null ? null : commandChip(c);
     },
     receipt: (t, s) => bashReceipt(s.resultText,
-        exitLabel: (code) => t.chat.tool.exit(code: code), timedOutLabel: t.chat.tool.timedOut),
+        exitLabel: (code) => t.chat.tool.exit(code: code),
+        timedOutLabel: t.chat.tool.timedOut,
+        blockedLabel: t.chat.tool.bashBlocked,
+        cancelledLabel: t.chat.tool.bashCancelled,
+        exitUnknownLabel: t.chat.tool.bashExitUnknown,
+        backgroundLabel: (id) => t.chat.tool.bashBackground(id: id)),
     body: bashToolBody,
     // The soul of the family: the little live terminal under the row. 族魂:行下活的小终端。
     liveBody: (context, s) =>

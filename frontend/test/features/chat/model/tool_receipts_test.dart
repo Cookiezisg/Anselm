@@ -11,27 +11,63 @@ String truncated(int n) => '前 $n 行(截断)';
 String count(String n) => '$n 个';
 
 void main() {
+  ToolReceipt? bashR(String out) => bashReceipt(out,
+      exitLabel: exitLabel,
+      timedOutLabel: '超时',
+      blockedLabel: '已拦截',
+      cancelledLabel: '已取消',
+      exitUnknownLabel: 'exit 未知',
+      backgroundLabel: (id) => '$id · 后台');
+
   group('bashReceipt', () {
     test('exit 0 → none tone; non-zero → danger tone', () {
-      final ok = bashReceipt('out\n\n[exit code: 0]', exitLabel: exitLabel, timedOutLabel: '超时');
-      expect(ok, (text: 'exit 0', tone: ToolReceiptTone.none));
-      final bad = bashReceipt('boom\n[exit code: 1]', exitLabel: exitLabel, timedOutLabel: '超时');
-      expect(bad, (text: 'exit 1', tone: ToolReceiptTone.danger));
-      final neg = bashReceipt('x\n[exit code: -1]', exitLabel: exitLabel, timedOutLabel: '超时');
-      expect(neg!.tone, ToolReceiptTone.danger);
+      expect(bashR('out\n\n[exit code: 0]'), (text: 'exit 0', tone: ToolReceiptTone.none));
+      expect(bashR('boom\n[exit code: 1]'), (text: 'exit 1', tone: ToolReceiptTone.danger));
+      expect(bashR('x\n[exit code: -1]')!.tone, ToolReceiptTone.danger);
     });
 
-    test('timeout note wins over the exit code', () {
-      final r = bashReceipt('\n[command timed out after 120s]\n[exit code: -1]',
-          exitLabel: exitLabel, timedOutLabel: '超时');
-      expect(r, (text: '超时', tone: ToolReceiptTone.danger));
+    test('note priority: blocked > timeout > cancelled (all close exit -1, note must win)', () {
+      expect(bashR('\n[command timed out after 2m0s]\n[exit code: -1]'), (text: '超时', tone: ToolReceiptTone.danger));
+      expect(bashR('\n[blocked: rm -rf / (refused; rephrase if intentional)]\n[exit code: -1]'),
+          (text: '已拦截', tone: ToolReceiptTone.danger));
+      // cancelled is MUTED (none) — never auto-expands. 取消=muted。
+      expect(bashR('partial\n\n[cancelled]\n[exit code: -1]'), (text: '已取消', tone: ToolReceiptTone.none));
     });
 
-    test('no footer (background-start prose) → null, never guessed', () {
-      expect(
-          bashReceipt('Started background command (bash_id=bsh_1): npm run dev',
-              exitLabel: exitLabel, timedOutLabel: '超时'),
-          isNull);
+    test('background spawn → «bsh_… · 后台» (muted), NOT null', () {
+      expect(bashR('Started background command (bash_id=bsh_1a2b3c): npm run dev\nUse BashOutput…'),
+          (text: 'bsh_1a2b3c · 后台', tone: ToolReceiptTone.none));
+    });
+
+    test('double-cap: the general tool-result cap ate the footer → exit unknown (warn)', () {
+      expect(bashR('huge output …[tool result truncated: 4096 bytes]')!.text, 'exit 未知');
+    });
+
+    test('no footer at all → null (never guessed)', () {
+      expect(bashR('just some prose'), isNull);
+    });
+  });
+
+  group('statusReceipt (BashOutput)', () {
+    ToolReceipt? st(String out) => statusReceipt(out,
+        running: '运行中', exited: (c) => '退出 $c', killed: '已终止', errored: '出错', notFound: '会话不存在');
+    test('four states + not-found; exited/errored danger, running/killed neutral', () {
+      expect(st('log\n\n[status: running]'), (text: '运行中', tone: ToolReceiptTone.none));
+      expect(st('done\n\n[status: exited (code 0)]'), (text: '退出 0', tone: ToolReceiptTone.danger));
+      expect(st('\n\n[status: killed]'), (text: '已终止', tone: ToolReceiptTone.none));
+      expect(st('\n\n[status: errored]'), (text: '出错', tone: ToolReceiptTone.danger));
+      expect(st('Background shell process not found: bsh_9'), (text: '会话不存在', tone: ToolReceiptTone.danger));
+      expect(st('no status footer'), isNull);
+    });
+  });
+
+  group('killShellReceipt', () {
+    ToolReceipt? kl(String out) => killShellReceipt(out, finished: '已自行结束', notFound: '会话不存在');
+    test('killed → null (verb self-sufficient); finished → muted; not-found → warn', () {
+      expect(kl('Killed background shell bsh_1.'), isNull);
+      expect(kl('Background shell bsh_1 already finished; removed from registry.'),
+          (text: '已自行结束', tone: ToolReceiptTone.none));
+      expect(kl('Background shell process not found: bsh_1'), (text: '会话不存在', tone: ToolReceiptTone.warn));
     });
   });
 

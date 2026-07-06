@@ -298,7 +298,22 @@
       "cvStatusArchived": "归档",
       "cvStatusPinned": "置顶",
       "cvStatusTitle": "标题",
-      "cvAutoUnarchive": "再发消息会自动取消归档"
+      "cvAutoUnarchive": "再发消息会自动取消归档",
+      "bashBlocked": "已拦截",
+      "bashCancelled": "已取消",
+      "bashExitUnknown": "exit 未知",
+      "bashBackground": "$id · 后台",
+      "statusRunning": "运行中",
+      "statusExited": "退出 $code",
+      "statusKilled": "已终止",
+      "statusErrored": "出错",
+      "statusNotFound": "会话不存在",
+      "killFinished": "已自行结束",
+      "killNotFound": "会话不存在",
+      "polling": "正在读取输出",
+      "polled": "已读取输出",
+      "killing": "正在终止",
+      "killed3": "已终止"
     },
     "gate": {
       "dangerBadge": "危险",

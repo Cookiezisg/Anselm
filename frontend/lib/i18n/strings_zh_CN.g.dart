@@ -640,6 +640,21 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get cvStatusPinned => '置顶';
 	@override String get cvStatusTitle => '标题';
 	@override String get cvAutoUnarchive => '再发消息会自动取消归档';
+	@override String get bashBlocked => '已拦截';
+	@override String get bashCancelled => '已取消';
+	@override String get bashExitUnknown => 'exit 未知';
+	@override String bashBackground({required Object id}) => '${id} · 后台';
+	@override String get statusRunning => '运行中';
+	@override String statusExited({required Object code}) => '退出 ${code}';
+	@override String get statusKilled => '已终止';
+	@override String get statusErrored => '出错';
+	@override String get statusNotFound => '会话不存在';
+	@override String get killFinished => '已自行结束';
+	@override String get killNotFound => '会话不存在';
+	@override String get polling => '正在读取输出';
+	@override String get polled => '已读取输出';
+	@override String get killing => '正在终止';
+	@override String get killed3 => '已终止';
 }
 
 // Path: chat.gate
@@ -1507,6 +1522,21 @@ extension on TranslationsZhCn {
 			'chat.tool.cvStatusPinned' => '置顶',
 			'chat.tool.cvStatusTitle' => '标题',
 			'chat.tool.cvAutoUnarchive' => '再发消息会自动取消归档',
+			'chat.tool.bashBlocked' => '已拦截',
+			'chat.tool.bashCancelled' => '已取消',
+			'chat.tool.bashExitUnknown' => 'exit 未知',
+			'chat.tool.bashBackground' => ({required Object id}) => '${id} · 后台',
+			'chat.tool.statusRunning' => '运行中',
+			'chat.tool.statusExited' => ({required Object code}) => '退出 ${code}',
+			'chat.tool.statusKilled' => '已终止',
+			'chat.tool.statusErrored' => '出错',
+			'chat.tool.statusNotFound' => '会话不存在',
+			'chat.tool.killFinished' => '已自行结束',
+			'chat.tool.killNotFound' => '会话不存在',
+			'chat.tool.polling' => '正在读取输出',
+			'chat.tool.polled' => '已读取输出',
+			'chat.tool.killing' => '正在终止',
+			'chat.tool.killed3' => '已终止',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -1712,6 +1742,8 @@ extension on TranslationsZhCn {
 			'entities.detail.kv.instanceId' => '实例',
 			'entities.detail.kv.version' => '版本',
 			'entities.detail.kv.elapsed' => '耗时',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.kv.time' => '时间',
 			'entities.detail.kv.replay' => '重放',
 			'entities.detail.kv.flowrunId' => 'Flowrun id',
@@ -1727,8 +1759,6 @@ extension on TranslationsZhCn {
 			'entities.detail.kv.ref' => '引用',
 			'entities.detail.kv.healthy' => '健康',
 			'entities.detail.kv.method' => '方法',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.kv.startedAt' => '开始',
 			'entities.detail.kv.completedAt' => '结束',
 			'entities.detail.kv.triggeredBy' => '触发方',

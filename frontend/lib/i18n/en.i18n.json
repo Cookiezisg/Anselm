@@ -298,7 +298,22 @@
       "cvStatusArchived": "archived",
       "cvStatusPinned": "pinned",
       "cvStatusTitle": "title",
-      "cvAutoUnarchive": "sending a message auto-unarchives"
+      "cvAutoUnarchive": "sending a message auto-unarchives",
+      "bashBlocked": "blocked",
+      "bashCancelled": "cancelled",
+      "bashExitUnknown": "exit unknown",
+      "bashBackground": "$id · bg",
+      "statusRunning": "running",
+      "statusExited": "exit $code",
+      "statusKilled": "killed",
+      "statusErrored": "errored",
+      "statusNotFound": "session not found",
+      "killFinished": "already finished",
+      "killNotFound": "session not found",
+      "polling": "Reading output",
+      "polled": "Read output",
+      "killing": "Terminating",
+      "killed3": "Terminated"
     },
     "gate": {
       "dangerBadge": "Dangerous",

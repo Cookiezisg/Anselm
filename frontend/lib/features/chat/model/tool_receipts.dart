@@ -21,18 +21,78 @@ enum ToolReceiptTone { none, warn, danger }
 /// 解析结果:后缀文本(调用方已本地化)+ 声调。
 typedef ToolReceipt = ({String text, ToolReceiptTone tone});
 
-/// Bash: the backend ALWAYS appends `[exit code: N]` (optionally preceded by a note line
-/// `[cancelled]` / `[command timed out after Xs]` / `[exec failed: …]`).
-/// Bash:后端恒尾缀 `[exit code: N]`(其前可有 note 行)。
+/// Bash (verified backend/…/shell/bash.go): the foreground result ALWAYS ends `[exit code: N]`,
+/// optionally preceded by a bracketed NOTE (`[command timed out after 2m0s]` / `[cancelled]` /
+/// `[exec failed: …]` / `[blocked: … (refused; rephrase if intentional)]`). A background spawn instead
+/// says `Started background command (bash_id=bsh_…): cmd`. Bash:前台恒尾缀 exit code、其前可有括号 note;
+/// 后台=Started background command。
 final RegExp _bashExit = RegExp(r'\[exit code: (-?\d+)\]\s*$');
 final RegExp _bashTimeout = RegExp(r'\[command timed out after [^\]]+\]');
+final RegExp _bashBlocked = RegExp(r'\[blocked: .*\(refused');
+final RegExp _bashCancelled = RegExp(r'\[cancelled\]');
+final RegExp _bashBackground = RegExp(r'Started background command \(bash_id=(bsh_[0-9a-f]+)\)');
+const String _toolResultTrunc = '[tool result truncated:';
 
-ToolReceipt? bashReceipt(String output, {required String Function(int) exitLabel, required String timedOutLabel}) {
+/// The Bash receipt with NOTE PRIORITY (cancel/timeout/block all close exit -1, so the note must be
+/// read BEFORE the exit code or -1 mis-reads as a plain failure): background > double-cap > blocked >
+/// timeout > cancelled > exit. cancelled = muted (never auto-expands, aligned with the chassis cancel
+/// phase); a non-zero exit (no note) = danger. 带 note 优先级的 Bash 回执。
+ToolReceipt? bashReceipt(
+  String output, {
+  required String Function(int code) exitLabel,
+  required String timedOutLabel,
+  required String blockedLabel,
+  required String cancelledLabel,
+  required String exitUnknownLabel,
+  required String Function(String bashId) backgroundLabel,
+}) {
+  final bg = _bashBackground.firstMatch(output);
+  if (bg != null) return (text: backgroundLabel(bg.group(1)!), tone: ToolReceiptTone.none);
+  // Double-cap collision: the general tool-result cap ate Bash's own footer → the exit is truly
+  // unknown (the content, not the exit, is what got dropped). 双 cap 冲突:footer 被砍→exit 未知。
+  if (output.contains(_toolResultTrunc)) return (text: exitUnknownLabel, tone: ToolReceiptTone.warn);
   final m = _bashExit.firstMatch(output);
   if (m == null) return null;
   final code = int.parse(m.group(1)!);
+  if (_bashBlocked.hasMatch(output)) return (text: blockedLabel, tone: ToolReceiptTone.danger);
   if (_bashTimeout.hasMatch(output)) return (text: timedOutLabel, tone: ToolReceiptTone.danger);
+  if (_bashCancelled.hasMatch(output)) return (text: cancelledLabel, tone: ToolReceiptTone.none);
   return (text: exitLabel(code), tone: code != 0 ? ToolReceiptTone.danger : ToolReceiptTone.none);
+}
+
+/// BashOutput (verified …/shell/output.go): a poll returns new output (or `(no new output since last
+/// poll)`) + an optional `[note: N bytes dropped …]` + a status footer `[status: running|exited (code
+/// N)|killed|errored]`; a dead session says «not found: id». HONESTY: status
+/// is a poll-time snapshot — `exited`/`errored` are DANGER but NEVER auto-expand (a dead process returns
+/// the same status every poll; only «session not found» auto-expands). BashOutput 状态回执:轮询时点快照。
+final RegExp _bashStatus = RegExp(r'\[status: (running|exited \(code (-?\d+)\)|killed|errored)\]\s*$');
+ToolReceipt? statusReceipt(
+  String output, {
+  required String running,
+  required String Function(int code) exited,
+  required String killed,
+  required String errored,
+  required String notFound,
+}) {
+  if (output.startsWith('Background shell process not found')) return (text: notFound, tone: ToolReceiptTone.danger);
+  final m = _bashStatus.firstMatch(output);
+  if (m == null) return null;
+  final s = m.group(1)!;
+  if (s == 'running') return (text: running, tone: ToolReceiptTone.none);
+  if (s == 'killed') return (text: killed, tone: ToolReceiptTone.none);
+  if (s == 'errored') return (text: errored, tone: ToolReceiptTone.danger);
+  return (text: exited(int.parse(m.group(2)!)), tone: ToolReceiptTone.danger); // exited (code N)
+}
+
+/// KillShell (verified …/shell/kill.go) — three positive (err==nil) strings: `Killed background shell
+/// id.` (verb self-sufficient → no receipt) / `… already finished; removed …` (已自行结束, muted) /
+/// `Background shell process not found: id` (会话不存在, warn). KillShell 三态。
+ToolReceipt? killShellReceipt(String output, {required String finished, required String notFound}) {
+  final t = output.trimRight();
+  if (t.startsWith('Killed background shell')) return null; // the verb «已终止» IS the proof 动词自足
+  if (t.contains('already finished')) return (text: finished, tone: ToolReceiptTone.none);
+  if (t.startsWith('Background shell process not found')) return (text: notFound, tone: ToolReceiptTone.warn);
+  return null;
 }
 
 /// Read: cat -n lines (`%5d\t…`), optionally ending with the truncation footer
