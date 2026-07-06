@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/widgets.dart';
 
+import '../../../core/design/colors.dart';
 import '../../../i18n/strings.g.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
@@ -9,6 +10,7 @@ import 'tool_card_skins.dart';
 import 'tool_card_control_approval.dart';
 import 'tool_card_document_skill.dart';
 import 'tool_card_entity_get_bodies.dart';
+import 'tool_card_lifecycle.dart';
 import 'tool_card_search.dart';
 import 'tool_card_trigger.dart';
 import 'tool_card_workflow.dart';
@@ -33,6 +35,7 @@ class ToolCardSpec {
     this.awaitingVerb,
     this.terminalVerb,
     this.verbOf,
+    this.resultFailed,
     this.ownsError = false,
   });
 
@@ -79,6 +82,13 @@ class ToolCardSpec {
   /// non-empty one expands to the hit list. null → the default `state.hasBody`. 条件式无体:F07 空结果
   /// 无体无 chevron(回执即卡),有命中才展开。
   final bool Function(ToolCardState state)? hasBodyOf;
+
+  /// «Green but broken» reclassification (F05 §4): the tool_result closed status=completed, but its
+  /// PAYLOAD says it failed (restart_handler's `error` key; a document soft-fail template). Returning
+  /// true makes the chassis treat this succeeded card as a FAILURE (auto-expand + error/body voice), so
+  /// a green shell never hides a red fact. The family's [terminalVerb] should also switch the verb.
+  /// 结果内失败重分类:工具绿但物已坏→按失败渲(自动展开),配 terminalVerb 换动词。
+  final bool Function(ToolCardState state)? resultFailed;
 
   /// The family body renders its OWN failure display (so the chassis skips the default error section) —
   /// for families where a non-zero terminal is a product-normal, not a red crash (decide_approval's
@@ -263,6 +273,165 @@ ToolCardSpec _entityGet({
       body: body,
     );
 
+// ── F05 lifecycle helpers: the «极薄卡» family — verb + honest receipt + a minimal body (ref pill +
+// note, or the delete audit). F05 极薄卡:动词 + 诚实回执 + 极薄体。──
+
+/// revert: `⤺ v{version}` + a thin ref-pill note. handler's note is amber (restart + memory wipe).
+/// revert:倒带徽标 + 薄 ref 注记(handler 琥珀:重启+内存抹)。
+ToolCardSpec _revert({
+  required String Function(Translations) kind,
+  required String kindWire,
+  required String idKey,
+  bool handler = false,
+}) =>
+    ToolCardSpec(
+      verb: (t, {required bool live}) =>
+          live ? t.chat.tool.revertingKind(kind: kind(t)) : t.chat.tool.revertedKind(kind: kind(t)),
+      target: (s) => argStringPartial(s.argsText, idKey),
+      receipt: (t, s) => revertReceipt(s.resultText, rewind: (v) => t.chat.tool.rewind(v: '$v')),
+      body: (context, s) {
+        final t = Translations.of(context);
+        return lifecycleRefNote(context,
+            kind: kindWire,
+            id: argString(s.argsText, idKey) ?? '',
+            note: handler ? t.chat.tool.noteRevertHd : t.chat.tool.noteRevertFn,
+            noteColor: handler ? context.colors.warn : null);
+      },
+    );
+
+/// delete: TOMBSTONE chip (mono, NOT a pill — a dead entity gets no live jump) + the impact audit.
+/// `agentForm` reads the string-tail dependents; `soft` = amber (document/trigger soft delete).
+/// delete:墓碑 chip(纯 mono 不可点)+ 删除审计。
+ToolCardSpec _delete({
+  required String Function(Translations) kind,
+  required String idKey,
+  bool agentForm = false,
+  bool soft = false,
+}) =>
+    ToolCardSpec(
+      verb: (t, {required bool live}) =>
+          live ? t.chat.tool.deletingKind(kind: kind(t)) : t.chat.tool.deletedKind2(kind: kind(t)),
+      // Tombstone: the id, plain mono — the target chip is NOT a ref pill. 墓碑:纯 mono id。
+      target: (s) => argStringPartial(s.argsText, idKey),
+      receipt: (t, s) => deleteReceipt(s.resultText,
+          deleted: t.chat.tool.deletedShort, affected: (n) => t.chat.tool.depsAffected(n: '$n'), agentForm: agentForm),
+      body: deleteBody(agentForm: agentForm),
+    );
+
+/// A generic lifecycle action: verb + a computed receipt + a ref-pill note body. 通用生命周期动作。
+ToolCardSpec _action({
+  required String Function(Translations, {required bool live}) verb,
+  required String idKey,
+  required String kindWire,
+  ToolReceipt? Function(Translations, ToolCardState)? receipt,
+  String Function(Translations)? note,
+  Color? Function(BuildContext)? noteColor,
+  bool Function(ToolCardState)? resultFailed,
+  String Function(Translations, ToolCardState)? terminalVerb,
+}) =>
+    ToolCardSpec(
+      verb: verb,
+      terminalVerb: terminalVerb,
+      resultFailed: resultFailed,
+      target: (s) => argStringPartial(s.argsText, idKey),
+      receipt: receipt,
+      body: (context, s) => lifecycleRefNote(context,
+          kind: kindWire,
+          id: argString(s.argsText, idKey) ?? '',
+          note: note?.call(Translations.of(context)),
+          noteColor: noteColor?.call(context)),
+    );
+
+Map<String, dynamic>? _result(String s) {
+  try {
+    final d = jsonDecode(s);
+    if (d is Map<String, dynamic>) return d;
+  } catch (_) {}
+  return null;
+}
+
+/// A receipt when a bool key holds the expected value (stage `{staged:true}`). bool 键回执。
+ToolReceipt? _lifecycleWord(String output, String key, bool expect, String label) {
+  final o = _result(output);
+  return o != null && o[key] == expect ? (text: label, tone: ToolReceiptTone.none) : null;
+}
+
+/// A receipt keyed off `lifecycleState` (activate → 监听中). lifecycleState 回执。
+ToolReceipt? _lifecycleState(String output, Map<String, String> byState) {
+  final ls = _result(output)?['lifecycleState'] as String?;
+  final label = ls == null ? null : byState[ls];
+  return label == null ? null : (text: label, tone: ToolReceiptTone.none);
+}
+
+/// deactivate — honest half-state: inactive → 已下线 (none) / draining → 排空中 (warn). 下线双态。
+ToolReceipt? _deactivateReceipt(Translations t, String output) {
+  final ls = _result(output)?['lifecycleState'] as String?;
+  if (ls == 'inactive') return (text: t.chat.tool.offline, tone: ToolReceiptTone.none);
+  if (ls == 'draining') return (text: t.chat.tool.draining, tone: ToolReceiptTone.warn);
+  return null;
+}
+
+/// update_handler_config — `N 键` from the args `config` top-level key count. 配置键数。
+ToolReceipt? _configKeysReceipt(Translations t, String argsText) {
+  try {
+    final d = jsonDecode(argsText);
+    if (d is Map && d['config'] is Map) {
+      final n = (d['config'] as Map).length;
+      return n == 0 ? null : (text: t.chat.tool.nKeys(n: '$n'), tone: ToolReceiptTone.warn);
+    }
+  } catch (_) {}
+  return null;
+}
+
+/// update_meta triplet: a DYNAMIC verb (rename when ONLY `name` is in args, else update-info — decided
+/// after args complete) + a changed-field receipt (the Chinese field names from the args keys) + a
+/// single-ended delta body. update_meta 三胞胎:动态动词 + 改字段回执 + 单端 delta 体。
+ToolCardSpec _meta({
+  required String Function(Translations) kind,
+  required String kindWire,
+  required String idKey,
+  bool handlerNote = false,
+}) =>
+    ToolCardSpec(
+      verb: (t, {required bool live}) => live ? t.chat.tool.updatingMeta : t.chat.tool.updatedMeta,
+      // Dynamic: only-name → rename; decided after args complete (argsStreaming locks the generic pair).
+      // 仅 name 键→改名对;args 完整后判(流中锁通用)。
+      verbOf: (t, s, {required bool live}) {
+        if (s.phase == ToolCardPhase.argsStreaming) return live ? t.chat.tool.updatingMeta : t.chat.tool.updatedMeta;
+        final keys = _metaChangedKeys(s.argsText, idKey);
+        final renameOnly = keys.length == 1 && keys.first == 'name';
+        if (renameOnly) return live ? t.chat.tool.renaming : t.chat.tool.renamed;
+        return live ? t.chat.tool.updatingMeta : t.chat.tool.updatedMeta;
+      },
+      target: (s) => argStringPartial(s.argsText, idKey),
+      receipt: (t, s) {
+        final labels = _metaChangedKeys(s.argsText, idKey)
+            .map((k) => switch (k) {
+                  'name' => t.chat.tool.kvName,
+                  'description' => t.chat.tool.kvDescription,
+                  'tags' => t.chat.tool.kvTags,
+                  _ => k,
+                })
+            .toList();
+        return labels.isEmpty ? null : (text: labels.join(' · '), tone: ToolReceiptTone.none);
+      },
+      body: (context, s) {
+        final t = Translations.of(context);
+        return metaDeltaBody(context, kindWire: kindWire, id: argString(s.argsText, idKey) ?? '',
+            argsText: s.argsText, idKey: idKey, note: handlerNote ? t.chat.tool.noteMetaHandler : null);
+      },
+    );
+
+/// The changed meta keys present in the args (excluding the id key). Rename detection + receipt source.
+/// args 里出现的可改元数据键(排除 id 键)。
+List<String> _metaChangedKeys(String argsText, String idKey) {
+  final keys = <String>[];
+  for (final k in ['name', 'description', 'tags']) {
+    if (RegExp('"$k"\\s*:').hasMatch(argsText)) keys.add(k);
+  }
+  return keys;
+}
+
 /// The family table — keyed by exact tool name. 族表,按精确工具名键。
 final Map<String, ToolCardSpec> _catalog = {
   // ── F1 fs-ops 文件操作 ──
@@ -440,6 +609,95 @@ final Map<String, ToolCardSpec> _catalog = {
     verb: (t, {required bool live}) => live ? t.chat.tool.readingAtt : t.chat.tool.readAtt,
     target: (s) => argStringPartial(s.argsText, 'id'),
     body: readAttachmentBody,
+  ),
+
+  // ── F05 lifecycle: 26 thin cards (revert×6 / delete×9 / workflow 生杀四将 / restart / activate_skill /
+  // move / update_meta×3 / config). 极薄卡:一行陈述 + 不可抵赖凭据。──
+  'revert_function': _revert(kind: (t) => t.chat.tool.kind.function, kindWire: 'function', idKey: 'functionId'),
+  'revert_handler': _revert(kind: (t) => t.chat.tool.kind.handler, kindWire: 'handler', idKey: 'handlerId', handler: true),
+  'revert_agent': _revert(kind: (t) => t.chat.tool.kind.agent, kindWire: 'agent', idKey: 'agentId'),
+  'revert_workflow': _revert(kind: (t) => t.chat.tool.kind.workflow, kindWire: 'workflow', idKey: 'workflowId'),
+  'revert_control': _revert(kind: (t) => t.chat.tool.kind.control, kindWire: 'control', idKey: 'controlId'),
+  'revert_approval': _revert(kind: (t) => t.chat.tool.kind.approval, kindWire: 'approval', idKey: 'approvalId'),
+  'delete_function': _delete(kind: (t) => t.chat.tool.kind.function, idKey: 'functionId'),
+  'delete_handler': _delete(kind: (t) => t.chat.tool.kind.handler, idKey: 'handlerId'),
+  'delete_agent': _delete(kind: (t) => t.chat.tool.kind.agent, idKey: 'agentId', agentForm: true),
+  'delete_workflow': _delete(kind: (t) => t.chat.tool.kind.workflow, idKey: 'workflowId'),
+  'delete_control': _delete(kind: (t) => t.chat.tool.kind.control, idKey: 'controlId'),
+  'delete_approval': _delete(kind: (t) => t.chat.tool.kind.approval, idKey: 'approvalId'),
+  'delete_skill': _delete(kind: (t) => t.chat.tool.kind.skill, idKey: 'name'),
+  'delete_trigger': _delete(kind: (t) => t.chat.tool.kind.trigger, idKey: 'triggerId', soft: true),
+  // delete_document: SOFT (amber, recoverable) — string template receipt + soft-fail reclassification.
+  'delete_document': ToolCardSpec(
+    verb: (t, {required bool live}) =>
+        live ? t.chat.tool.deletingKind(kind: t.chat.tool.kind.document) : t.chat.tool.deletedKind2(kind: t.chat.tool.kind.document),
+    target: (s) => argStringPartial(s.argsText, 'id'),
+    receipt: (t, s) => deletedDocReceipt(s.resultText,
+        deleted: t.chat.tool.deletedShort, withDescendants: (n) => t.chat.tool.docDescendants(n: '$n')),
+    body: (context, s) => lifecycleRefNote(context, kind: 'document', id: argString(s.argsText, 'id') ?? '', note: Translations.of(context).chat.tool.noteDeleteDocSoft),
+  ),
+  // workflow 生杀四将
+  'stage_workflow': _action(
+    verb: (t, {required bool live}) => live ? t.chat.tool.staging : t.chat.tool.staged,
+    idKey: 'workflowId', kindWire: 'workflow',
+    receipt: (t, s) => _lifecycleWord(s.resultText, 'staged', true, t.chat.tool.staged2),
+    note: (t) => t.chat.tool.noteStage,
+  ),
+  'activate_workflow': _action(
+    verb: (t, {required bool live}) => live ? t.chat.tool.activatingWf : t.chat.tool.activatedWf,
+    idKey: 'workflowId', kindWire: 'workflow',
+    receipt: (t, s) => _lifecycleState(s.resultText, {'active': t.chat.tool.listening2}),
+  ),
+  'deactivate_workflow': ToolCardSpec(
+    verb: (t, {required bool live}) => live ? t.chat.tool.deactivatingWf : t.chat.tool.deactivatedWf,
+    target: (s) => argStringPartial(s.argsText, 'workflowId'),
+    receipt: (t, s) => _deactivateReceipt(t, s.resultText),
+    // draining → an amber body note explaining the half-state (kept OUT of the row receipt). draining 注记。
+    body: (context, s) {
+      final draining = _result(s.resultText)?['lifecycleState'] == 'draining';
+      return lifecycleRefNote(context,
+          kind: 'workflow',
+          id: argString(s.argsText, 'workflowId') ?? '',
+          note: draining ? Translations.of(context).chat.tool.noteDraining : null,
+          noteColor: draining ? context.colors.warn : null);
+    },
+  ),
+  'kill_workflow': _action(
+    verb: (t, {required bool live}) => live ? t.chat.tool.killingWf : t.chat.tool.killedWf,
+    idKey: 'workflowId', kindWire: 'workflow',
+    receipt: (t, s) => killReceipt(s.resultText, killedN: (n) => t.chat.tool.killedN(n: '$n'), none: t.chat.tool.noInflight),
+    note: (t) => t.chat.tool.noteKill,
+  ),
+  // restart_handler — the «green but broken» flagship (error key → failed reclassification).
+  'restart_handler': _action(
+    verb: (t, {required bool live}) => live ? t.chat.tool.restarting : t.chat.tool.restarted,
+    idKey: 'handlerId', kindWire: 'handler',
+    receipt: (t, s) => restartReceipt(s.resultText, label: (rs) => rs, errored: t.chat.tool.restartFailed),
+    resultFailed: (s) => (_result(s.resultText)?['error'] as String?)?.isNotEmpty == true,
+    note: (t) => t.chat.tool.noteRestart, noteColor: (c) => c.colors.warn,
+  ),
+  'activate_skill': ToolCardSpec(
+    verb: (t, {required bool live}) => live ? t.chat.tool.activatingSkill : t.chat.tool.activatedSkill,
+    target: (s) => argStringPartial(s.argsText, 'name'),
+    // The injected output is an instruction payload → a capped machine window (fork answers have no
+    // panel; 6000 cap). 注入载荷→capped 机器窗。
+    body: (context, s) => activateSkillBody(context, s),
+  ),
+  'move_document': ToolCardSpec(
+    verb: (t, {required bool live}) => live ? t.chat.tool.movingDoc : t.chat.tool.movedDoc,
+    target: (s) => argStringPartial(s.argsText, 'id'),
+    receipt: (t, s) => movedReceipt(s.resultText, toPath: (p) => t.chat.tool.movedTo(path: p)),
+    body: (context, s) => lifecycleRefNote(context, kind: 'document', id: argString(s.argsText, 'id') ?? ''),
+  ),
+  // update_meta triplet — dynamic verb (rename when only `name` in args) + changed-field receipt.
+  'update_function_meta': _meta(kind: (t) => t.chat.tool.kind.function, kindWire: 'function', idKey: 'functionId'),
+  'update_handler_meta': _meta(kind: (t) => t.chat.tool.kind.handler, kindWire: 'handler', idKey: 'handlerId', handlerNote: true),
+  'update_agent_meta': _meta(kind: (t) => t.chat.tool.kind.agent, kindWire: 'agent', idKey: 'agentId'),
+  'update_handler_config': ToolCardSpec(
+    verb: (t, {required bool live}) => live ? t.chat.tool.configuring : t.chat.tool.configured,
+    target: (s) => argStringPartial(s.argsText, 'handlerId'),
+    receipt: (t, s) => _configKeysReceipt(t, s.argsText),
+    body: (context, s) => lifecycleRefNote(context, kind: 'handler', id: argString(s.argsText, 'handlerId') ?? '', note: Translations.of(context).chat.tool.noteConfig, noteColor: context.colors.warn),
   ),
 
   // ── F16 humanloop: ask_user (the danger gate is not a tool — it's the chassis awaitingConfirm phase) ──

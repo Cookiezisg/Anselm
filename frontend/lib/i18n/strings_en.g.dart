@@ -1211,6 +1211,153 @@ class Translations$chat$tool$en {
 
 	/// en: 'Read attachment'
 	String get readAtt => 'Read attachment';
+
+	/// en: 'Reverting $kind'
+	String revertingKind({required Object kind}) => 'Reverting ${kind}';
+
+	/// en: 'Reverted $kind'
+	String revertedKind({required Object kind}) => 'Reverted ${kind}';
+
+	/// en: 'Deleting $kind'
+	String deletingKind({required Object kind}) => 'Deleting ${kind}';
+
+	/// en: 'Deleted $kind'
+	String deletedKind2({required Object kind}) => 'Deleted ${kind}';
+
+	/// en: 'Staging'
+	String get staging => 'Staging';
+
+	/// en: 'Staged'
+	String get staged => 'Staged';
+
+	/// en: 'Activating'
+	String get activatingWf => 'Activating';
+
+	/// en: 'Activated'
+	String get activatedWf => 'Activated';
+
+	/// en: 'Deactivating'
+	String get deactivatingWf => 'Deactivating';
+
+	/// en: 'Stopped listening'
+	String get deactivatedWf => 'Stopped listening';
+
+	/// en: 'Killing'
+	String get killingWf => 'Killing';
+
+	/// en: 'Killed'
+	String get killedWf => 'Killed';
+
+	/// en: 'Restarting'
+	String get restarting => 'Restarting';
+
+	/// en: 'not running after restart'
+	String get restartFailed => 'not running after restart';
+
+	/// en: 'Activating skill'
+	String get activatingSkill => 'Activating skill';
+
+	/// en: 'Activated skill'
+	String get activatedSkill => 'Activated skill';
+
+	/// en: 'Moving document'
+	String get movingDoc => 'Moving document';
+
+	/// en: 'Moved document'
+	String get movedDoc => 'Moved document';
+
+	/// en: 'Updating info'
+	String get updatingMeta => 'Updating info';
+
+	/// en: 'Updated info'
+	String get updatedMeta => 'Updated info';
+
+	/// en: 'Renaming'
+	String get renaming => 'Renaming';
+
+	/// en: 'Renamed'
+	String get renamed => 'Renamed';
+
+	/// en: 'Configuring'
+	String get configuring => 'Configuring';
+
+	/// en: 'Configured'
+	String get configured => 'Configured';
+
+	/// en: '↩ v$v'
+	String rewind({required Object v}) => '↩ v${v}';
+
+	/// en: 'deleted'
+	String get deletedShort => 'deleted';
+
+	/// en: '$n refs affected'
+	String depsAffected({required Object n}) => '${n} refs affected';
+
+	/// en: 'deleted · $n descendants'
+	String docDescendants({required Object n}) => 'deleted · ${n} descendants';
+
+	/// en: '→ $path'
+	String movedTo({required Object path}) => '→ ${path}';
+
+	/// en: 'killed $n in-flight'
+	String killedN({required Object n}) => 'killed ${n} in-flight';
+
+	/// en: 'no in-flight runs'
+	String get noInflight => 'no in-flight runs';
+
+	/// en: '$n keys'
+	String nKeys({required Object n}) => '${n} keys';
+
+	/// en: 'awaiting next real trigger'
+	String get staged2 => 'awaiting next real trigger';
+
+	/// en: 'listening'
+	String get listening2 => 'listening';
+
+	/// en: 'offline'
+	String get offline => 'offline';
+
+	/// en: 'draining'
+	String get draining => 'draining';
+
+	/// en: '+$n more'
+	String moreHits({required Object n}) => '+${n} more';
+
+	/// en: 'restores code/IO/deps only; name·desc·tags do not follow versions'
+	String get noteRevertFn => 'restores code/IO/deps only; name·desc·tags do not follow versions';
+
+	/// en: 'restart triggered to run the new version; memory state cleared — see the handler panel'
+	String get noteRevertHd => 'restart triggered to run the new version; memory state cleared — see the handler panel';
+
+	/// en: 'memory state cleared'
+	String get noteRestart => 'memory state cleared';
+
+	/// en: 'listening stopped; killed runs are cancelled — see flowruns'
+	String get noteKill => 'listening stopped; killed runs are cancelled — see flowruns';
+
+	/// en: 'runs once on the next real trigger, then auto-unstages'
+	String get noteStage => 'runs once on the next real trigger, then auto-unstages';
+
+	/// en: 'to abort in-flight now, use kill_workflow'
+	String get noteDeactivateDrain => 'to abort in-flight now, use kill_workflow';
+
+	/// en: 'soft-deleted, recoverable'
+	String get noteDeleteDocSoft => 'soft-deleted, recoverable';
+
+	/// en: 'listening released'
+	String get noteTriggerRemoved => 'listening released';
+
+	/// en: 'restart triggered to take effect; see the handler panel'
+	String get noteConfig => 'restart triggered to take effect; see the handler panel';
+
+	/// en: 'no new version, no restart, memory state preserved'
+	String get noteMetaHandler => 'no new version, no restart, memory state preserved';
+
+	/// en: 'name'
+	String get kvName => 'name';
+
+	/// en: 'in-flight runs finish then stop; to abort now use kill_workflow'
+	String get noteDraining => 'in-flight runs finish then stop; to abort now use kill_workflow';
 }
 
 // Path: chat.gate
@@ -2666,6 +2813,55 @@ extension on Translations {
 			'chat.tool.readDoc' => 'Read document',
 			'chat.tool.readingAtt' => 'Reading attachment',
 			'chat.tool.readAtt' => 'Read attachment',
+			'chat.tool.revertingKind' => ({required Object kind}) => 'Reverting ${kind}',
+			'chat.tool.revertedKind' => ({required Object kind}) => 'Reverted ${kind}',
+			'chat.tool.deletingKind' => ({required Object kind}) => 'Deleting ${kind}',
+			'chat.tool.deletedKind2' => ({required Object kind}) => 'Deleted ${kind}',
+			'chat.tool.staging' => 'Staging',
+			'chat.tool.staged' => 'Staged',
+			'chat.tool.activatingWf' => 'Activating',
+			'chat.tool.activatedWf' => 'Activated',
+			'chat.tool.deactivatingWf' => 'Deactivating',
+			'chat.tool.deactivatedWf' => 'Stopped listening',
+			'chat.tool.killingWf' => 'Killing',
+			'chat.tool.killedWf' => 'Killed',
+			'chat.tool.restarting' => 'Restarting',
+			'chat.tool.restartFailed' => 'not running after restart',
+			'chat.tool.activatingSkill' => 'Activating skill',
+			'chat.tool.activatedSkill' => 'Activated skill',
+			'chat.tool.movingDoc' => 'Moving document',
+			'chat.tool.movedDoc' => 'Moved document',
+			'chat.tool.updatingMeta' => 'Updating info',
+			'chat.tool.updatedMeta' => 'Updated info',
+			'chat.tool.renaming' => 'Renaming',
+			'chat.tool.renamed' => 'Renamed',
+			'chat.tool.configuring' => 'Configuring',
+			'chat.tool.configured' => 'Configured',
+			'chat.tool.rewind' => ({required Object v}) => '↩ v${v}',
+			'chat.tool.deletedShort' => 'deleted',
+			'chat.tool.depsAffected' => ({required Object n}) => '${n} refs affected',
+			'chat.tool.docDescendants' => ({required Object n}) => 'deleted · ${n} descendants',
+			'chat.tool.movedTo' => ({required Object path}) => '→ ${path}',
+			'chat.tool.killedN' => ({required Object n}) => 'killed ${n} in-flight',
+			'chat.tool.noInflight' => 'no in-flight runs',
+			'chat.tool.nKeys' => ({required Object n}) => '${n} keys',
+			'chat.tool.staged2' => 'awaiting next real trigger',
+			'chat.tool.listening2' => 'listening',
+			'chat.tool.offline' => 'offline',
+			'chat.tool.draining' => 'draining',
+			'chat.tool.moreHits' => ({required Object n}) => '+${n} more',
+			'chat.tool.noteRevertFn' => 'restores code/IO/deps only; name·desc·tags do not follow versions',
+			'chat.tool.noteRevertHd' => 'restart triggered to run the new version; memory state cleared — see the handler panel',
+			'chat.tool.noteRestart' => 'memory state cleared',
+			'chat.tool.noteKill' => 'listening stopped; killed runs are cancelled — see flowruns',
+			'chat.tool.noteStage' => 'runs once on the next real trigger, then auto-unstages',
+			'chat.tool.noteDeactivateDrain' => 'to abort in-flight now, use kill_workflow',
+			'chat.tool.noteDeleteDocSoft' => 'soft-deleted, recoverable',
+			'chat.tool.noteTriggerRemoved' => 'listening released',
+			'chat.tool.noteConfig' => 'restart triggered to take effect; see the handler panel',
+			'chat.tool.noteMetaHandler' => 'no new version, no restart, memory state preserved',
+			'chat.tool.kvName' => 'name',
+			'chat.tool.noteDraining' => 'in-flight runs finish then stop; to abort now use kill_workflow',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -2918,6 +3114,8 @@ extension on Translations {
 			'entities.detail.trigger.signatureAlgo' => 'Signature',
 			'entities.detail.trigger.signatureHeader' => 'Signature header',
 			'entities.detail.trigger.events' => 'Events',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.trigger.pattern' => 'Pattern',
 			'entities.detail.trigger.target' => 'Target',
 			'entities.detail.trigger.interval' => 'Interval',
@@ -2967,8 +3165,6 @@ extension on Translations {
 			'entities.detail.editor.discardConfirmAction' => 'Discard and leave',
 			'entities.detail.editor.saved' => 'New version saved',
 			'entities.detail.editor.unsaved' => 'Unsaved changes',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.editor.inspectorEmpty' => 'Select a node or edge to edit',
 			'entities.detail.editor.nodeRef' => 'Ref',
 			'entities.detail.editor.nodeKind' => 'Kind',

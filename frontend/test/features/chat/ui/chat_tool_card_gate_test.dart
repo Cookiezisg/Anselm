@@ -90,7 +90,7 @@ void main() {
     expect(find.byType(ToolInteractionGate), findsNothing);
     expect(find.widgetWithText(AnBadge, '已允许'), findsNothing);
     // Expand → the provenance章 appears. 展开→出处章现。
-    await tester.tap(find.text('已调用').first); // generic verb (delete_agent uncataloged until B3)
+    await tester.tap(find.text('已删除智能体').first); // delete_agent cataloged in B3.6
     await tester.pumpAndSettle();
     expect(find.widgetWithText(AnBadge, '已允许'), findsOneWidget);
   });
@@ -101,7 +101,7 @@ void main() {
       interaction: _danger(decided: InteractionAction.approveAlways),
     )));
     await tester.pump();
-    await tester.tap(find.text('已调用').first);
+    await tester.tap(find.text('已删除智能体').first);
     await tester.pumpAndSettle();
     expect(find.textContaining('本对话总是'), findsOneWidget);
   });

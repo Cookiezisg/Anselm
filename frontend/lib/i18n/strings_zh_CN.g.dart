@@ -559,6 +559,55 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get readDoc => '已阅读文档';
 	@override String get readingAtt => '正在读取附件';
 	@override String get readAtt => '已读取附件';
+	@override String revertingKind({required Object kind}) => '正在回退${kind}';
+	@override String revertedKind({required Object kind}) => '已回退${kind}';
+	@override String deletingKind({required Object kind}) => '正在删除${kind}';
+	@override String deletedKind2({required Object kind}) => '已删除${kind}';
+	@override String get staging => '正在设为待命';
+	@override String get staged => '已待命';
+	@override String get activatingWf => '正在上线';
+	@override String get activatedWf => '已上线';
+	@override String get deactivatingWf => '正在下线';
+	@override String get deactivatedWf => '已停监听';
+	@override String get killingWf => '正在急停';
+	@override String get killedWf => '已急停';
+	@override String get restarting => '正在重启';
+	@override String get restartFailed => '重启后未运行';
+	@override String get activatingSkill => '正在激活技能';
+	@override String get activatedSkill => '已激活技能';
+	@override String get movingDoc => '正在移动文档';
+	@override String get movedDoc => '已移动文档';
+	@override String get updatingMeta => '正在更新信息';
+	@override String get updatedMeta => '已更新信息';
+	@override String get renaming => '正在改名';
+	@override String get renamed => '已改名';
+	@override String get configuring => '正在配置';
+	@override String get configured => '已配置';
+	@override String rewind({required Object v}) => '↩ v${v}';
+	@override String get deletedShort => '已删除';
+	@override String depsAffected({required Object n}) => '${n} 处引用受影响';
+	@override String docDescendants({required Object n}) => '已删除 · 含 ${n} 个后代';
+	@override String movedTo({required Object path}) => '→ ${path}';
+	@override String killedN({required Object n}) => '杀停 ${n} 个在途运行';
+	@override String get noInflight => '无在途运行';
+	@override String nKeys({required Object n}) => '${n} 键';
+	@override String get staged2 => '候下一发真实触发';
+	@override String get listening2 => '监听中';
+	@override String get offline => '已下线';
+	@override String get draining => '排空中';
+	@override String moreHits({required Object n}) => '另有 ${n}';
+	@override String get noteRevertFn => '仅还原代码/输入输出/依赖;名称·描述·标签不随版本';
+	@override String get noteRevertHd => '已触发重启以运行新版本;内存态已清空——运行状态见 handler 面板';
+	@override String get noteRestart => '内存态已清空';
+	@override String get noteKill => '监听已停;被杀 run 状态=cancelled,可在 flowruns 里查';
+	@override String get noteStage => '真实触发到来跑一次后自动解除';
+	@override String get noteDeactivateDrain => '要立即中止在途,用 kill_workflow';
+	@override String get noteDeleteDocSoft => '软删除,可恢复';
+	@override String get noteTriggerRemoved => '监听已解除';
+	@override String get noteConfig => '已触发重启以生效;运行状态见 handler 面板';
+	@override String get noteMetaHandler => '无新版本、无重启、内存态保全';
+	@override String get kvName => '名称';
+	@override String get noteDraining => '在途运行跑完即停;要立即中止用 kill_workflow';
 }
 
 // Path: chat.gate
@@ -1345,6 +1394,55 @@ extension on TranslationsZhCn {
 			'chat.tool.readDoc' => '已阅读文档',
 			'chat.tool.readingAtt' => '正在读取附件',
 			'chat.tool.readAtt' => '已读取附件',
+			'chat.tool.revertingKind' => ({required Object kind}) => '正在回退${kind}',
+			'chat.tool.revertedKind' => ({required Object kind}) => '已回退${kind}',
+			'chat.tool.deletingKind' => ({required Object kind}) => '正在删除${kind}',
+			'chat.tool.deletedKind2' => ({required Object kind}) => '已删除${kind}',
+			'chat.tool.staging' => '正在设为待命',
+			'chat.tool.staged' => '已待命',
+			'chat.tool.activatingWf' => '正在上线',
+			'chat.tool.activatedWf' => '已上线',
+			'chat.tool.deactivatingWf' => '正在下线',
+			'chat.tool.deactivatedWf' => '已停监听',
+			'chat.tool.killingWf' => '正在急停',
+			'chat.tool.killedWf' => '已急停',
+			'chat.tool.restarting' => '正在重启',
+			'chat.tool.restartFailed' => '重启后未运行',
+			'chat.tool.activatingSkill' => '正在激活技能',
+			'chat.tool.activatedSkill' => '已激活技能',
+			'chat.tool.movingDoc' => '正在移动文档',
+			'chat.tool.movedDoc' => '已移动文档',
+			'chat.tool.updatingMeta' => '正在更新信息',
+			'chat.tool.updatedMeta' => '已更新信息',
+			'chat.tool.renaming' => '正在改名',
+			'chat.tool.renamed' => '已改名',
+			'chat.tool.configuring' => '正在配置',
+			'chat.tool.configured' => '已配置',
+			'chat.tool.rewind' => ({required Object v}) => '↩ v${v}',
+			'chat.tool.deletedShort' => '已删除',
+			'chat.tool.depsAffected' => ({required Object n}) => '${n} 处引用受影响',
+			'chat.tool.docDescendants' => ({required Object n}) => '已删除 · 含 ${n} 个后代',
+			'chat.tool.movedTo' => ({required Object path}) => '→ ${path}',
+			'chat.tool.killedN' => ({required Object n}) => '杀停 ${n} 个在途运行',
+			'chat.tool.noInflight' => '无在途运行',
+			'chat.tool.nKeys' => ({required Object n}) => '${n} 键',
+			'chat.tool.staged2' => '候下一发真实触发',
+			'chat.tool.listening2' => '监听中',
+			'chat.tool.offline' => '已下线',
+			'chat.tool.draining' => '排空中',
+			'chat.tool.moreHits' => ({required Object n}) => '另有 ${n}',
+			'chat.tool.noteRevertFn' => '仅还原代码/输入输出/依赖;名称·描述·标签不随版本',
+			'chat.tool.noteRevertHd' => '已触发重启以运行新版本;内存态已清空——运行状态见 handler 面板',
+			'chat.tool.noteRestart' => '内存态已清空',
+			'chat.tool.noteKill' => '监听已停;被杀 run 状态=cancelled,可在 flowruns 里查',
+			'chat.tool.noteStage' => '真实触发到来跑一次后自动解除',
+			'chat.tool.noteDeactivateDrain' => '要立即中止在途,用 kill_workflow',
+			'chat.tool.noteDeleteDocSoft' => '软删除,可恢复',
+			'chat.tool.noteTriggerRemoved' => '监听已解除',
+			'chat.tool.noteConfig' => '已触发重启以生效;运行状态见 handler 面板',
+			'chat.tool.noteMetaHandler' => '无新版本、无重启、内存态保全',
+			'chat.tool.kvName' => '名称',
+			'chat.tool.noteDraining' => '在途运行跑完即停;要立即中止用 kill_workflow',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -1597,6 +1695,8 @@ extension on TranslationsZhCn {
 			'entities.detail.trigger.signatureAlgo' => '签名',
 			'entities.detail.trigger.signatureHeader' => '签名头',
 			'entities.detail.trigger.events' => '事件',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.trigger.pattern' => '匹配',
 			'entities.detail.trigger.target' => '目标',
 			'entities.detail.trigger.interval' => '间隔',
@@ -1646,8 +1746,6 @@ extension on TranslationsZhCn {
 			'entities.detail.editor.discardConfirmAction' => '丢弃并离开',
 			'entities.detail.editor.saved' => '已保存新版本',
 			'entities.detail.editor.unsaved' => '未保存更改',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.editor.inspectorEmpty' => '选中节点或连线进行编辑',
 			'entities.detail.editor.nodeRef' => '引用',
 			'entities.detail.editor.nodeKind' => '类型',

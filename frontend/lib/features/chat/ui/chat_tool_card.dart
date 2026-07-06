@@ -167,7 +167,12 @@ class _ChatToolCardState extends State<ChatToolCard> {
     if (state.phase == ToolCardPhase.succeeded || state.phase == ToolCardPhase.failed) {
       familyReceipt = spec.receipt?.call(t, state);
     }
-    final failedLook = state.phase == ToolCardPhase.failed || familyReceipt?.tone == ToolReceiptTone.danger;
+    // «green but broken» (F05 §4): a tool_result that closed status=completed but whose PAYLOAD carries
+    // a failure (restart_handler's `error` key, a document soft-fail template) — the family reclassifies
+    // it so the card doesn't render a lying success. 结果内失败重分类:工具绿但物已坏。
+    final resultFailed = state.phase == ToolCardPhase.succeeded && (spec.resultFailed?.call(state) ?? false);
+    final failedLook =
+        state.phase == ToolCardPhase.failed || resultFailed || familyReceipt?.tone == ToolReceiptTone.danger;
     if (failedLook && hasBody && !_autoExpandedOnce) {
       _autoExpandedOnce = true;
       _userExpanded ??= true;
