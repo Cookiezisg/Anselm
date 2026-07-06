@@ -24,6 +24,11 @@ class ProseWindow extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = Translations.of(context);
     final c = context.colors;
+    // Only clamp+fade when the prose is long enough to plausibly overflow the collapsed height —
+    // AnFadeCollapse always reserves its full height + a toggle, so a SHORT answer (invoke_agent's
+    // one-sentence result, a short doc) would otherwise sit in a tall empty box with a pointless
+    // «展开全文». Length-based (allowed — it's a size decision, not markdown sniffing). 短稿内联、不装长盒。
+    final long = markdown.length > 480 || '\n'.allMatches(markdown).length > 10;
     return Container(
       width: double.infinity,
       padding: AnInset.card,
@@ -32,14 +37,16 @@ class ProseWindow extends StatelessWidget {
         border: Border.all(color: c.line, width: AnSize.hairline),
         borderRadius: BorderRadius.circular(AnRadius.card),
       ),
-      child: AnFadeCollapse(
-        collapsible: true,
-        collapsedHeight: collapsedHeight,
-        expandLabel: t.chat.tool.proseExpand,
-        collapseLabel: t.chat.tool.proseCollapse,
-        fadeColor: c.surface,
-        child: AnMarkdown(markdown),
-      ),
+      child: long
+          ? AnFadeCollapse(
+              collapsible: true,
+              collapsedHeight: collapsedHeight,
+              expandLabel: t.chat.tool.proseExpand,
+              collapseLabel: t.chat.tool.proseCollapse,
+              fadeColor: c.surface,
+              child: AnMarkdown(markdown),
+            )
+          : AnMarkdown(markdown),
     );
   }
 }

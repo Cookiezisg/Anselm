@@ -850,6 +850,18 @@ final Map<String, ToolCardSpec> _catalog = {
     body: callHandlerBody,
     liveBody: (context, s) => s.progressText.isEmpty ? const SizedBox.shrink() : AnTermTail(text: s.progressText),
   ),
+  // invoke_agent — run an agent (chip=agentId; failed/timeout→auto-expand; cancelled stays grey). The
+  // LIVE nested trajectory (NestedRunPane) is B6; this is the settled body. invoke_agent 落定卡。
+  'invoke_agent': ToolCardSpec(
+    verb: (t, {required bool live}) => live ? t.chat.tool.invokingAgent : t.chat.tool.invokedAgent,
+    target: (s) {
+      final id = argStringPartial(s.argsText, 'agentId');
+      return id == null ? null : (id.length > 12 ? '${id.substring(0, 12)}…' : id);
+    },
+    receipt: (t, s) => invokeReceipt(t, s.resultText),
+    resultFailed: (s) => invokeResultFailed(s.resultText),
+    body: invokeAgentBody,
+  ),
   // fire_trigger — the thin activation card (chip=triggerId, receipt=activationId; never danger). 薄卡。
   'fire_trigger': ToolCardSpec(
     verb: (t, {required bool live}) => live ? t.chat.tool.firingTrigger : t.chat.tool.firedTrigger,

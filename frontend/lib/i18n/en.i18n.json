@@ -376,7 +376,12 @@
       "triggeringWf": "Triggering workflow",
       "triggeredWf": "Triggered workflow",
       "emptyPayload": "empty payload",
-      "triggerStartedNote": "Run started — inspect with get_flowrun"
+      "triggerStartedNote": "Run started — inspect with get_flowrun",
+      "invokingAgent": "Invoking agent",
+      "invokedAgent": "Invoked agent",
+      "agentSteps": "$n steps",
+      "agentTimeout": "Timed out",
+      "agentTrajectoryNote": "The trajectory streamed live; replay it from the execution record"
     },
     "gate": {
       "dangerBadge": "Dangerous",

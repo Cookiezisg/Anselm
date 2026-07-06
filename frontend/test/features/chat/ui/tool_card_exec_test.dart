@@ -133,6 +133,52 @@ void main() {
     expect(find.textContaining(t.chat.tool.execLogs(n: '3')), findsOneWidget); // progress folded as 日志 · 3 行
   });
 
+  group('invoke_agent', () {
+    String res(String status, {String? output, String? errorMsg, int steps = 5}) =>
+        '{"executionId":"agexec_1a2b3c4d5e6f7a8b","ok":${status == 'ok'},'
+        '"output":${output ?? 'null'},"status":"$status","steps":$steps,'
+        '"tokensIn":8420,"tokensOut":1203,${errorMsg != null ? '"errorMsg":"$errorMsg",' : ''}"elapsedMs":8400}';
+
+    test('receipt: ok→steps·elapsed (none); failed/timeout→danger; cancelled→grey', () {
+      expect(invokeReceipt(t, res('ok', output: '"done"', steps: 9))!.text, contains(t.chat.tool.agentSteps(n: '9')));
+      expect(invokeReceipt(t, res('ok', output: '"done"'))!.tone, isNot(ToolReceiptTone.danger));
+      expect(invokeReceipt(t, res('failed'))!.tone, ToolReceiptTone.danger);
+      expect(invokeReceipt(t, res('timeout'))!.tone, ToolReceiptTone.danger);
+      expect(invokeReceipt(t, res('cancelled'))!.tone, isNot(ToolReceiptTone.danger)); // user stop, not red
+      expect(invokeReceipt(t, 'boom'), isNull);
+    });
+
+    test('resultFailed: failed/timeout true; ok/cancelled false (cancelled never auto-expands)', () {
+      expect(invokeResultFailed(res('failed')), isTrue);
+      expect(invokeResultFailed(res('timeout')), isTrue);
+      expect(invokeResultFailed(res('ok', output: '"x"')), isFalse);
+      expect(invokeResultFailed(res('cancelled')), isFalse);
+    });
+
+    testWidgets('ok string output → prose; stat bar shows steps/tokens + agent pill + executionId', (tester) async {
+      await tester.pumpWidget(_host(ChatToolCard(node: _node('invoke_agent',
+          '{"agentId":"ag_9f8e7d6c5b4a3f2e","input":{"quarter":"2026Q2"}}',
+          res('ok', output: '"季度已归类,无异常。"', steps: 9)))));
+      await tester.pump();
+      await tester.tap(find.textContaining(t.chat.tool.invokedAgent), warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('季度已归类'), findsOneWidget); // the prose answer
+      expect(find.textContaining(t.chat.tool.agentSteps(n: '9')), findsWidgets); // steps in bar
+      expect(find.textContaining('↑8420 ↓1203'), findsOneWidget); // tokens
+      expect(find.textContaining('ag_9f8e7d6c5b4a3f2e'), findsWidgets); // navigable agent pill
+      expect(find.textContaining('agexec_1a2b3c4d5e6f7a8b'), findsWidgets); // executionId copy
+    });
+
+    testWidgets('failed auto-expands and shows the red errorMsg', (tester) async {
+      await tester.pumpWidget(_host(ChatToolCard(node: _node('invoke_agent',
+          '{"agentId":"ag_9f8e7d6c5b4a3f2e","input":{}}',
+          res('failed', errorMsg: 'AGENT_OUTPUT_NOT_STRUCTURED: prose but schema needs int')))));
+      await tester.pump();
+      await tester.pumpAndSettle();
+      expect(find.textContaining('AGENT_OUTPUT_NOT_STRUCTURED'), findsOneWidget); // auto-expanded
+    });
+  });
+
   group('fire_trigger', () {
     test('fireReceipt → activationId truncated, never danger', () {
       final r = fireReceipt(t, '{"fired":true,"triggerId":"trg_1","activationId":"act_1f2e3d4c5b6a7980"}')!;

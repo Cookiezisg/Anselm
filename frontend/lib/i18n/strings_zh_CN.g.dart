@@ -718,6 +718,11 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get triggeredWf => '已触发工作流';
 	@override String get emptyPayload => '空 payload';
 	@override String get triggerStartedNote => '已启动运行——用 get_flowrun 看进展';
+	@override String get invokingAgent => '正在调用智能体';
+	@override String get invokedAgent => '已调用智能体';
+	@override String agentSteps({required Object n}) => '${n} 步';
+	@override String get agentTimeout => '超时';
+	@override String get agentTrajectoryNote => '轨迹已流经,重载后于执行档案回放';
 }
 
 // Path: chat.gate
@@ -1663,6 +1668,11 @@ extension on TranslationsZhCn {
 			'chat.tool.triggeredWf' => '已触发工作流',
 			'chat.tool.emptyPayload' => '空 payload',
 			'chat.tool.triggerStartedNote' => '已启动运行——用 get_flowrun 看进展',
+			'chat.tool.invokingAgent' => '正在调用智能体',
+			'chat.tool.invokedAgent' => '已调用智能体',
+			'chat.tool.agentSteps' => ({required Object n}) => '${n} 步',
+			'chat.tool.agentTimeout' => '超时',
+			'chat.tool.agentTrajectoryNote' => '轨迹已流经,重载后于执行档案回放',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -1800,13 +1810,13 @@ extension on TranslationsZhCn {
 			'entities.detail.gate.instance' => 'instance',
 			'entities.detail.codeToggle.expand' => ({required Object n}) => '展开全部 (${n} 行)',
 			'entities.detail.codeToggle.collapse' => '收起',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.sec.code' => '代码',
 			'entities.detail.sec.input' => '输入',
 			'entities.detail.sec.output' => '输出',
 			'entities.detail.sec.env' => '环境',
 			'entities.detail.sec.runtime' => '常驻状态',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.sec.initArgs' => 'init 参数',
 			'entities.detail.sec.methods' => '方法',
 			'entities.detail.sec.prompt' => '提示词',

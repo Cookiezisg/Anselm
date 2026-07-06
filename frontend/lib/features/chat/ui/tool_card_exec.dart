@@ -93,6 +93,119 @@ Widget callHandlerBody(BuildContext context, ToolCardState state) {
   ]);
 }
 
+// ── invoke_agent — run an agent, SETTLED body (the live NestedRunPane is B6) ──
+// Wire: InvokeResult {executionId, ok, output, status(ok|failed|cancelled|timeout), stopReason?, steps,
+// tokensIn, tokensOut, errorMsg?, elapsedMs}. The E3 nested trajectory is EPHEMERAL (streamed only, not
+// in message_blocks) — on reload the card shows the collapsed summary + output + stat bar; the full
+// trajectory is replayed from the Execution record (get_agent_execution). invoke_agent 落定体。
+
+/// The invoke receipt — ok→`{steps} 步·{elapsed}`; failed/timeout→red status word (auto-expand);
+/// cancelled→grey `已取消` (NOT auto-expand — the user stopped it, red would be noise). invoke 回执。
+ToolReceipt? invokeReceipt(Translations t, String output) {
+  final o = _obj(output);
+  final status = o?['status'];
+  if (status is! String) return null;
+  final elapsed = o!['elapsedMs'] is int ? fmtElapsed(o['elapsedMs'] as int) : null;
+  final steps = o['steps'] is int ? o['steps'] as int : null;
+  switch (status) {
+    case 'ok':
+      final head = steps == null ? null : t.chat.tool.agentSteps(n: '$steps');
+      final txt = [head, elapsed].where((s) => s != null).join(' · ');
+      return txt.isEmpty ? null : (text: txt, tone: ToolReceiptTone.none);
+    case 'failed':
+      return (text: t.chat.tool.failed, tone: ToolReceiptTone.danger);
+    case 'timeout':
+      return (text: t.chat.tool.agentTimeout, tone: ToolReceiptTone.danger);
+    case 'cancelled':
+      return (text: t.chat.tool.runCancelled, tone: ToolReceiptTone.none);
+    default:
+      return null;
+  }
+}
+
+/// Whether the invoke failed/timed out (auto-expand for diagnosis; cancelled does NOT). 失败/超时→展开。
+bool invokeResultFailed(String output) {
+  final s = _obj(output)?['status'];
+  return s == 'failed' || s == 'timeout';
+}
+
+/// invoke_agent SETTLED body — input → (a trajectory-streamed note) → output (prose if a free-text
+/// string, per-key if a declared-output object) → errorMsg (red) → stat bar (status·steps·↑in ↓out·
+/// elapsed·agent pill·executionId copy). invoke_agent 落定体(活期 NestedRunPane 属 B6)。
+Widget invokeAgentBody(BuildContext context, ToolCardState state) {
+  final c = context.colors;
+  final t = Translations.of(context);
+  final out = _obj(state.resultText);
+  final input = _obj(state.argsText)?['input'];
+  final agentId = argString(state.argsText, 'agentId');
+  final status = out?['status'] as String?;
+  final ok = status == 'ok';
+  final outputVal = out?['output'];
+  final errorMsg = out?['errorMsg'] as String?;
+
+  return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+    if (state.summary.isNotEmpty)
+      Padding(padding: const EdgeInsets.only(bottom: AnSpace.s6), child: Text(state.summary, style: AnText.meta.copyWith(color: c.inkMuted))),
+    if (input != null) ToolIOSection(label: t.chat.tool.ioInput, value: input),
+    const SizedBox(height: AnSpace.s6),
+    // The nested trajectory streamed live but isn't persisted — a settled card states this honestly
+    // (the card never replays it; the execution record does). 轨迹仅流不落盘,诚实注明。
+    Text(t.chat.tool.agentTrajectoryNote, style: AnText.meta.copyWith(color: c.inkFaint)),
+    const SizedBox(height: AnSpace.s6),
+    if (!ok && errorMsg != null && errorMsg.isNotEmpty)
+      Padding(padding: const EdgeInsets.only(bottom: AnSpace.s2), child: Text(errorMsg, style: AnText.code.copyWith(color: c.danger), maxLines: 20, overflow: TextOverflow.ellipsis))
+    else
+      // A free-text final answer → prose; a declared-output object → per-key (ToolIOSection rules).
+      // 自由文本终答→散文;声明输出对象→逐键。
+      ToolIOSection(label: t.chat.tool.ioOutput, value: outputVal, renderAsProse: outputVal is String),
+    if (out != null) _InvokeStatBar(result: out, agentId: agentId),
+  ]);
+}
+
+/// The invoke stat bar — status word (colored) · steps · ↑tokensIn ↓tokensOut · elapsed · a navigable
+/// agent pill (agentId) · the executionId (copy). invoke 结果条。
+class _InvokeStatBar extends StatelessWidget {
+  const _InvokeStatBar({required this.result, this.agentId});
+  final Map<String, dynamic> result;
+  final String? agentId;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Translations.of(context);
+    final c = context.colors;
+    final status = result['status'] as String? ?? '';
+    final word = switch (status) {
+      'ok' => t.chat.tool.runCompleted,
+      'failed' => t.chat.tool.failed,
+      'timeout' => t.chat.tool.agentTimeout,
+      'cancelled' => t.chat.tool.runCancelled,
+      _ => status,
+    };
+    final tone = switch (status) {
+      'ok' => AnTone.ok,
+      'failed' || 'timeout' => AnTone.danger,
+      _ => AnTone.none,
+    };
+    final steps = result['steps'] is int ? result['steps'] as int : null;
+    final tin = result['tokensIn'] is int ? result['tokensIn'] as int : null;
+    final tout = result['tokensOut'] is int ? result['tokensOut'] as int : null;
+    final elapsed = result['elapsedMs'] is int ? fmtElapsed(result['elapsedMs'] as int) : null;
+    final execId = result['executionId'] as String?;
+    return Padding(
+      padding: const EdgeInsets.only(top: AnSpace.s6),
+      child: Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+        AnBadge(word, tone: tone),
+        if (steps != null) Text(t.chat.tool.agentSteps(n: '$steps'), style: AnText.metaTabular().copyWith(color: c.inkMuted)),
+        if (tin != null && tout != null)
+          Text('↑$tin ↓$tout', style: AnText.metaTabular().copyWith(color: c.inkFaint)),
+        if (elapsed != null) Text(elapsed, style: AnText.metaTabular().copyWith(color: c.inkMuted)),
+        if (agentId != null && agentId!.isNotEmpty) toolNavPill(context, kind: 'agent', label: agentId!, id: agentId),
+        if (execId != null && execId.isNotEmpty) AnCopyChip(value: execId),
+      ]),
+    );
+  }
+}
+
 // ── fire_trigger — the thin activation card ──
 // Wire: {fired:true, triggerId, activationId}. NO custom payload (the synthetic fire payload is always
 // {manual:true}); the fan-out count is NOT in the return (a zero-fan-out fire still records an

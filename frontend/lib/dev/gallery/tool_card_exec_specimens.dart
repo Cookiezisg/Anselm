@@ -60,5 +60,25 @@ final toolCardExecGalleryItem = GalleryItem(
             node: _node('fire_trigger', '{"triggerId":"trg_7a8b9c0d1e2f3a4b"}',
                 '{"fired":true,"triggerId":"trg_7a8b9c0d1e2f3a4b","activationId":"act_1f2e3d4c5b6a7980"}')),
         span: true),
+    GallerySpecimen('invoke_agent · 成功 + 散文终答(steps/tokens 结果条 + agent 药丸)',
+        (c) => ChatToolCard(
+            node: _node('invoke_agent', '{"agentId":"ag_9f8e7d6c5b4a3f2e","input":{"quarter":"2026Q2"}}',
+                '{"executionId":"agexec_1a2b3c4d5e6f7a8b","ok":true,"output":"本季度共 312 张发票已归类:退款 6 笔冲减,跨境 18 笔按当日中间价归一。无异常需人工复核。","status":"ok","steps":9,"tokensIn":8420,"tokensOut":1203,"elapsedMs":8400}')),
+        span: true),
+    GallerySpecimen('invoke_agent · 成功 + 声明输出对象(逐键陈列)',
+        (c) => ChatToolCard(
+            node: _node('invoke_agent', '{"agentId":"ag_9f8e7d6c5b4a3f2e","input":{}}',
+                '{"executionId":"agexec_2b3c4d5e6f7a8b9c","ok":true,"output":{"total":312,"refunds":6,"flagged":0},"status":"ok","steps":6,"tokensIn":4210,"tokensOut":402,"elapsedMs":3100}')),
+        span: true),
+    GallerySpecimen('invoke_agent · 失败(auto-expand,红 errorMsg)',
+        (c) => ChatToolCard(
+            node: _node('invoke_agent', '{"agentId":"ag_9f8e7d6c5b4a3f2e","input":{"quarter":"bad"}}',
+                '{"executionId":"agexec_3c4d5e6f7a8b9c0d","ok":false,"output":null,"status":"failed","stopReason":"error","steps":3,"tokensIn":1820,"tokensOut":88,"errorMsg":"AGENT_OUTPUT_NOT_STRUCTURED: model returned prose but outputSchema requires {total:int}","elapsedMs":2400}')),
+        span: true),
+    GallerySpecimen('invoke_agent · 已取消(中性灰,不自动展开)',
+        (c) => ChatToolCard(
+            node: _node('invoke_agent', '{"agentId":"ag_9f8e7d6c5b4a3f2e","input":{}}',
+                '{"executionId":"agexec_4d5e6f7a8b9c0d1e","ok":false,"output":null,"status":"cancelled","steps":2,"tokensIn":900,"tokensOut":40,"elapsedMs":1200}')),
+        span: true),
   ],
 );

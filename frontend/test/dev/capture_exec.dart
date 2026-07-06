@@ -36,7 +36,7 @@ void main() {
     LocaleSettings.setLocaleRaw('zh-CN');
     const key = ValueKey('cap');
     tester.view.devicePixelRatio = 1.0;
-    tester.view.physicalSize = const Size(760, 3000);
+    tester.view.physicalSize = const Size(760, 4200);
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(RepaintBoundary(
@@ -81,6 +81,13 @@ void main() {
     await tester.ensureVisible(find.text('已触发').first);
     await tester.pump(const Duration(milliseconds: 60));
     await tester.tap(find.text('已触发').first, warnIfMissed: false);
+    await tester.pump(const Duration(milliseconds: 80));
+    // invoke_agent: expand ok-prose@0, ok-object@1, cancelled@3; failed@2 auto-expands. invoke 展开非失败。
+    for (final i in [0, 1, 3]) {
+      await tester.ensureVisible(find.text('已调用智能体').at(i));
+      await tester.tap(find.text('已调用智能体').at(i), warnIfMissed: false);
+      await tester.pump(const Duration(milliseconds: 80));
+    }
     await tester.pumpAndSettle();
 
     late final Uint8List bytes;

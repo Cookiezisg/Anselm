@@ -1688,6 +1688,21 @@ class Translations$chat$tool$en {
 
 	/// en: 'Run started — inspect with get_flowrun'
 	String get triggerStartedNote => 'Run started — inspect with get_flowrun';
+
+	/// en: 'Invoking agent'
+	String get invokingAgent => 'Invoking agent';
+
+	/// en: 'Invoked agent'
+	String get invokedAgent => 'Invoked agent';
+
+	/// en: '$n steps'
+	String agentSteps({required Object n}) => '${n} steps';
+
+	/// en: 'Timed out'
+	String get agentTimeout => 'Timed out';
+
+	/// en: 'The trajectory streamed live; replay it from the execution record'
+	String get agentTrajectoryNote => 'The trajectory streamed live; replay it from the execution record';
 }
 
 // Path: chat.gate
@@ -3302,6 +3317,11 @@ extension on Translations {
 			'chat.tool.triggeredWf' => 'Triggered workflow',
 			'chat.tool.emptyPayload' => 'empty payload',
 			'chat.tool.triggerStartedNote' => 'Run started — inspect with get_flowrun',
+			'chat.tool.invokingAgent' => 'Invoking agent',
+			'chat.tool.invokedAgent' => 'Invoked agent',
+			'chat.tool.agentSteps' => ({required Object n}) => '${n} steps',
+			'chat.tool.agentTimeout' => 'Timed out',
+			'chat.tool.agentTrajectoryNote' => 'The trajectory streamed live; replay it from the execution record',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -3439,13 +3459,13 @@ extension on Translations {
 			'entities.detail.gate.instance' => 'instance',
 			'entities.detail.codeToggle.expand' => ({required Object n}) => 'Show all (${n} lines)',
 			'entities.detail.codeToggle.collapse' => 'Collapse',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.sec.code' => 'Code',
 			'entities.detail.sec.input' => 'Inputs',
 			'entities.detail.sec.output' => 'Outputs',
 			'entities.detail.sec.env' => 'Environment',
 			'entities.detail.sec.runtime' => 'Resident state',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.sec.initArgs' => 'Init args',
 			'entities.detail.sec.methods' => 'Methods',
 			'entities.detail.sec.prompt' => 'Prompt',
