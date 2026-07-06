@@ -1802,6 +1802,63 @@ class Translations$chat$tool$en {
 
 	/// en: 'fan-out $n'
 	String actFanout({required Object n}) => 'fan-out ${n}';
+
+	/// en: 'Opening function-run record'
+	String get gettingFnExec => 'Opening function-run record';
+
+	/// en: 'Opened function-run record'
+	String get gotFnExec => 'Opened function-run record';
+
+	/// en: 'Opening handler-call record'
+	String get gettingHdCall => 'Opening handler-call record';
+
+	/// en: 'Opened handler-call record'
+	String get gotHdCall => 'Opened handler-call record';
+
+	/// en: 'Opening MCP-call record'
+	String get gettingMcpCall => 'Opening MCP-call record';
+
+	/// en: 'Opened MCP-call record'
+	String get gotMcpCall => 'Opened MCP-call record';
+
+	/// en: 'Opening activation record'
+	String get gettingActivation => 'Opening activation record';
+
+	/// en: 'Opened activation record'
+	String get gotActivation => 'Opened activation record';
+
+	/// en: 'Logs'
+	String get dossierLogs => 'Logs';
+
+	/// en: 'server stderr (may predate this call)'
+	String get dossierStderr => 'server stderr (may predate this call)';
+
+	/// en: '… $n chars omitted …'
+	String logOmitted({required Object n}) => '… ${n} chars omitted …';
+
+	/// en: 'conversation'
+	String get provConversation => 'conversation';
+
+	/// en: 'message'
+	String get provMessage => 'message';
+
+	/// en: 'run'
+	String get provFlowrun => 'run';
+
+	/// en: 'trigger'
+	String get provTrigger => 'trigger';
+
+	/// en: 'firing'
+	String get provFiring => 'firing';
+
+	/// en: 'node'
+	String get provNode => 'node';
+
+	/// en: 'fired'
+	String get fireYes => 'fired';
+
+	/// en: 'not fired'
+	String get fireNo => 'not fired';
 }
 
 // Path: chat.gate
@@ -3454,6 +3511,25 @@ extension on Translations {
 			'chat.tool.parkRunCaption' => 'a run parked on an approval node stays running at the header',
 			'chat.tool.actReturnValue' => 'Return value',
 			'chat.tool.actFanout' => ({required Object n}) => 'fan-out ${n}',
+			'chat.tool.gettingFnExec' => 'Opening function-run record',
+			'chat.tool.gotFnExec' => 'Opened function-run record',
+			'chat.tool.gettingHdCall' => 'Opening handler-call record',
+			'chat.tool.gotHdCall' => 'Opened handler-call record',
+			'chat.tool.gettingMcpCall' => 'Opening MCP-call record',
+			'chat.tool.gotMcpCall' => 'Opened MCP-call record',
+			'chat.tool.gettingActivation' => 'Opening activation record',
+			'chat.tool.gotActivation' => 'Opened activation record',
+			'chat.tool.dossierLogs' => 'Logs',
+			'chat.tool.dossierStderr' => 'server stderr (may predate this call)',
+			'chat.tool.logOmitted' => ({required Object n}) => '… ${n} chars omitted …',
+			'chat.tool.provConversation' => 'conversation',
+			'chat.tool.provMessage' => 'message',
+			'chat.tool.provFlowrun' => 'run',
+			'chat.tool.provTrigger' => 'trigger',
+			'chat.tool.provFiring' => 'firing',
+			'chat.tool.provNode' => 'node',
+			'chat.tool.fireYes' => 'fired',
+			'chat.tool.fireNo' => 'not fired',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -3539,6 +3615,8 @@ extension on Translations {
 			'a11y.graphFit' => 'Fit to view',
 			'a11y.graphNode' => ({required Object id, required Object kind, required Object ref}) => 'Node ${id}, ${kind}, ${ref}',
 			'a11y.codeBlock' => ({required Object lang, required Object lines}) => 'Code block, ${lang}, ${lines} lines',
+			_ => null,
+		} ?? switch (path) {
 			'a11y.codeBlockPlain' => ({required Object lines}) => 'Code block, ${lines} lines',
 			'a11y.jsonTree' => ({required Object count}) => 'JSON tree, ${count} items',
 			'a11y.diff' => ({required Object added, required Object removed}) => 'Diff, ${added} added, ${removed} removed',
@@ -3558,8 +3636,6 @@ extension on Translations {
 			'entities.emptyTitle' => 'No entities yet',
 			'entities.emptyHint' => 'Create a function, handler, agent, or workflow to get started.',
 			'entities.errorTitle' => 'Couldn\'t load entities',
-			_ => null,
-		} ?? switch (path) {
 			'entities.errorHint' => 'The local engine didn\'t return the entity list.',
 			'entities.retry' => 'Try again',
 			'entities.selectTitle' => 'Select an entity',

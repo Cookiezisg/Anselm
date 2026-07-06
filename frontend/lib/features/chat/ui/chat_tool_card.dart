@@ -344,8 +344,11 @@ class _ChatToolCardState extends State<ChatToolCard> {
                     style: AnText.mono.copyWith(color: dimVerb ? c.inkFaint : c.inkMuted)),
               ),
             ],
+            // The dimmed receipt tail yields (clips) before overflowing a narrow row — metadata must
+            // never push the row past its cell (a long verb + long receipt would otherwise overflow).
+            // 灰回执尾在窄行里先让(裁切)、绝不把行撑破:长动词+长回执本会溢出。
             if (receipt.isNotEmpty)
-              Text.rich(TextSpan(children: receipt), maxLines: 1, overflow: TextOverflow.clip),
+              Flexible(child: Text.rich(TextSpan(children: receipt), maxLines: 1, overflow: TextOverflow.clip)),
             if (hasBody) ...[
               const SizedBox(width: AnSpace.s6),
               AnimatedRotation(

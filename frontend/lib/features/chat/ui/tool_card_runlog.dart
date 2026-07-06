@@ -10,6 +10,7 @@ import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
+import 'run_dossier.dart';
 import 'run_ledger.dart';
 import 'tool_card_io_section.dart';
 import 'tool_card_skins.dart';
@@ -269,3 +270,108 @@ Widget activationsBody(BuildContext context, ToolCardState s) => _countBody(cont
                   : null,
             ),
         ]);
+
+// ── F09 get-record cards (B5.8): the thin dossiers (fn exec / hd call / mcp call / activation) ──
+// fn/hd/mcp share the Execution/Call shape → RunDossier; activation is a distinct fire-record (no
+// input/output/logs) → a bespoke thin body. get 卷宗卡。
+
+/// The status·elapsed receipt for a fn/hd/mcp record (failed/timeout → danger auto-expand). get 回执。
+ToolReceipt? execRecordReceipt(Translations t, String output) {
+  final o = _obj(output);
+  if (o == null) return null;
+  return statusElapsedReceipt(t, o['status'] as String?, o['elapsedMs'] is int ? o['elapsedMs'] as int : null);
+}
+
+bool execRecordFailed(String output) {
+  final s = _obj(output)?['status'];
+  return s == 'failed' || s == 'timeout';
+}
+
+Widget _dossier(BuildContext context, ToolCardState s, {List<Widget> Function(Translations, Map<String, dynamic>)? headChips}) {
+  final t = Translations.of(context);
+  final o = _obj(s.resultText);
+  if (o == null) {
+    return Text(s.resultText, style: AnText.code.copyWith(color: context.colors.inkMuted), maxLines: 40, overflow: TextOverflow.ellipsis);
+  }
+  return RunDossier(
+    status: '${o['status']}',
+    triggeredBy: o['triggeredBy'] as String?,
+    elapsedMs: o['elapsedMs'] is int ? o['elapsedMs'] as int : null,
+    startedAt: o['startedAt'] as String?,
+    endedAt: o['endedAt'] as String?,
+    headChips: headChips?.call(t, o) ?? const [],
+    input: o['input'],
+    output: o['output'],
+    errorMessage: o['errorMessage'] as String?,
+    logs: o['logs'] as String?,
+    provenance: ProvenanceLine(
+      conversationId: o['conversationId'] as String?,
+      messageId: o['messageId'] as String?,
+      flowrunId: o['flowrunId'] as String?,
+      nodeId: o['flowrunNodeId'] as String?,
+      iteration: o['flowrunIteration'] is int ? o['flowrunIteration'] as int : null,
+    ),
+  );
+}
+
+Widget getFnExecBody(BuildContext context, ToolCardState s) => _dossier(context, s);
+
+Widget getHdCallBody(BuildContext context, ToolCardState s) => _dossier(context, s, headChips: (t, o) => [
+      if ((o['method'] as String?)?.isNotEmpty ?? false) AnBadge('${o['method']}()', tone: AnTone.accent),
+      if ((o['instanceId'] as String?)?.isNotEmpty ?? false) AnBadge('${o['instanceId']}', tone: AnTone.none),
+    ]);
+
+Widget getMcpCallBody(BuildContext context, ToolCardState s) => _dossier(context, s, headChips: (t, o) => [
+      if ((o['tool'] as String?)?.isNotEmpty ?? false) AnBadge('${o['tool']}', tone: AnTone.accent),
+    ]);
+
+/// The activation fire receipt — fired → `已 fire · 扇出 N`; not fired → grey `未 fire`; an error present
+/// (a probe failure) → danger. 活化回执:fire 结论。
+ToolReceipt? activationFireReceipt(Translations t, String output) {
+  final o = _obj(output);
+  if (o == null || o['fired'] is! bool) return null;
+  final err = (o['error'] as String?)?.isNotEmpty ?? false;
+  if (o['fired'] == true) {
+    final fanout = o['firingCount'] is int ? o['firingCount'] as int : 0;
+    final txt = fanout > 0 ? '${t.chat.tool.fireYes} · ${t.chat.tool.actFanout(n: '$fanout')}' : t.chat.tool.fireYes;
+    return (text: txt, tone: err ? ToolReceiptTone.danger : ToolReceiptTone.none);
+  }
+  return (text: t.chat.tool.fireNo, tone: err ? ToolReceiptTone.danger : ToolReceiptTone.none);
+}
+
+bool activationRecordFailed(String output) => (_obj(output)?['error'] as String?)?.isNotEmpty ?? false;
+
+/// get_activation body — a thin fire record (NO causal chain: the source is just a kind badge). Fire
+/// conclusion + kind + returnValue tree + payload window + error window + a trigger provenance pill.
+/// get_activation 薄卷宗:fire 结论 + returnValue + payload + error + 触发器出处。
+Widget getActivationBody(BuildContext context, ToolCardState s) {
+  final c = context.colors;
+  final t = Translations.of(context);
+  final o = _obj(s.resultText);
+  if (o == null) return Text(s.resultText, style: AnText.code.copyWith(color: c.inkMuted));
+  final fired = o['fired'] == true;
+  final err = o['error'] as String?;
+  final detail = o['detail'] as String?;
+  return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+    Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+      AnBadge(fired ? t.chat.tool.fireYes : t.chat.tool.fireNo, tone: fired ? AnTone.ok : AnTone.none),
+      if ((o['kind'] as String?)?.isNotEmpty ?? false) AnBadge('${o['kind']}', tone: AnTone.none),
+      if ((o['firingCount'] is int ? o['firingCount'] as int : 0) > 0) Text(t.chat.tool.actFanout(n: '${o['firingCount']}'), style: AnText.meta.copyWith(color: c.inkFaint)),
+    ]),
+    if (detail != null && detail.isNotEmpty) Padding(padding: const EdgeInsets.only(top: AnSpace.s4), child: Text(detail, style: AnText.meta.copyWith(color: c.inkMuted))),
+    if (o['returnValue'] is Map && (o['returnValue'] as Map).isNotEmpty) ...[
+      const SizedBox(height: AnSpace.s6),
+      ToolIOSection(label: t.chat.tool.actReturnValue, value: o['returnValue']),
+    ],
+    if (o['payload'] is Map && (o['payload'] as Map).isNotEmpty) ...[
+      const SizedBox(height: AnSpace.s6),
+      ToolIOSection(label: t.chat.tool.ioInput, value: o['payload']),
+    ],
+    if (err != null && err.isNotEmpty) ...[
+      const SizedBox(height: AnSpace.s6),
+      ToolWindow(child: Text(err, style: AnText.code.copyWith(color: c.danger), maxLines: 20, overflow: TextOverflow.ellipsis)),
+    ],
+    const SizedBox(height: AnSpace.s6),
+    ProvenanceLine(triggerId: o['triggerId'] as String?),
+  ]);
+}

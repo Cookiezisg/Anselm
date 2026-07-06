@@ -756,6 +756,25 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get parkRunCaption => 'park 在审批节点的 run,头仍为 running';
 	@override String get actReturnValue => '返回值';
 	@override String actFanout({required Object n}) => '扇出 ${n}';
+	@override String get gettingFnExec => '正在调阅函数执行档案';
+	@override String get gotFnExec => '已调阅函数执行档案';
+	@override String get gettingHdCall => '正在调阅处理器调用档案';
+	@override String get gotHdCall => '已调阅处理器调用档案';
+	@override String get gettingMcpCall => '正在调阅 MCP 调用档案';
+	@override String get gotMcpCall => '已调阅 MCP 调用档案';
+	@override String get gettingActivation => '正在调阅活动档案';
+	@override String get gotActivation => '已调阅活动档案';
+	@override String get dossierLogs => '日志';
+	@override String get dossierStderr => 'server stderr(可能早于本次调用)';
+	@override String logOmitted({required Object n}) => '…省略 ${n} 字符…';
+	@override String get provConversation => '对话';
+	@override String get provMessage => '消息';
+	@override String get provFlowrun => '运行';
+	@override String get provTrigger => '触发器';
+	@override String get provFiring => '派发';
+	@override String get provNode => '节点';
+	@override String get fireYes => '已 fire';
+	@override String get fireNo => '未 fire';
 }
 
 // Path: chat.gate
@@ -1739,6 +1758,25 @@ extension on TranslationsZhCn {
 			'chat.tool.parkRunCaption' => 'park 在审批节点的 run,头仍为 running',
 			'chat.tool.actReturnValue' => '返回值',
 			'chat.tool.actFanout' => ({required Object n}) => '扇出 ${n}',
+			'chat.tool.gettingFnExec' => '正在调阅函数执行档案',
+			'chat.tool.gotFnExec' => '已调阅函数执行档案',
+			'chat.tool.gettingHdCall' => '正在调阅处理器调用档案',
+			'chat.tool.gotHdCall' => '已调阅处理器调用档案',
+			'chat.tool.gettingMcpCall' => '正在调阅 MCP 调用档案',
+			'chat.tool.gotMcpCall' => '已调阅 MCP 调用档案',
+			'chat.tool.gettingActivation' => '正在调阅活动档案',
+			'chat.tool.gotActivation' => '已调阅活动档案',
+			'chat.tool.dossierLogs' => '日志',
+			'chat.tool.dossierStderr' => 'server stderr(可能早于本次调用)',
+			'chat.tool.logOmitted' => ({required Object n}) => '…省略 ${n} 字符…',
+			'chat.tool.provConversation' => '对话',
+			'chat.tool.provMessage' => '消息',
+			'chat.tool.provFlowrun' => '运行',
+			'chat.tool.provTrigger' => '触发器',
+			'chat.tool.provFiring' => '派发',
+			'chat.tool.provNode' => '节点',
+			'chat.tool.fireYes' => '已 fire',
+			'chat.tool.fireNo' => '未 fire',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -1824,6 +1862,8 @@ extension on TranslationsZhCn {
 			'a11y.graphFit' => '适应画布',
 			'a11y.graphNode' => ({required Object id, required Object kind, required Object ref}) => '节点 ${id},${kind},${ref}',
 			'a11y.codeBlock' => ({required Object lang, required Object lines}) => '代码块,${lang},${lines} 行',
+			_ => null,
+		} ?? switch (path) {
 			'a11y.codeBlockPlain' => ({required Object lines}) => '代码块,${lines} 行',
 			'a11y.jsonTree' => ({required Object count}) => 'JSON 树,${count} 项',
 			'a11y.diff' => ({required Object added, required Object removed}) => '差异,新增 ${added},删除 ${removed}',
@@ -1843,8 +1883,6 @@ extension on TranslationsZhCn {
 			'entities.emptyTitle' => '还没有实体',
 			'entities.emptyHint' => '新建一个函数、处理器、智能体或工作流来开始。',
 			'entities.errorTitle' => '无法加载实体',
-			_ => null,
-		} ?? switch (path) {
 			'entities.errorHint' => '本地引擎没有返回实体列表。',
 			'entities.retry' => '重试',
 			'entities.selectTitle' => '选择一个实体',

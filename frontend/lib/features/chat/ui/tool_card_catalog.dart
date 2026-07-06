@@ -209,6 +209,27 @@ ToolCardSpec _countLog({
       body: body,
     );
 
+/// F09 get-record entry — verb pair + a target chip (the record id) + the status·elapsed (or fire)
+/// receipt + failed→auto-expand. F09 卷宗卡条目工厂。
+ToolCardSpec _getRecord({
+  required String Function(Translations) running,
+  required String Function(Translations) done,
+  required String chipArg,
+  required ToolReceipt? Function(Translations, String) receipt,
+  required bool Function(String) failed,
+  required Widget Function(BuildContext, ToolCardState) body,
+}) =>
+    ToolCardSpec(
+      verb: (t, {required bool live}) => live ? running(t) : done(t),
+      target: (s) {
+        final v = argStringPartial(s.argsText, chipArg);
+        return v == null || v.isEmpty ? null : (v.length > 12 ? '${v.substring(0, 12)}…' : v);
+      },
+      receipt: (t, s) => receipt(t, s.resultText),
+      resultFailed: (s) => failed(s.resultText),
+      body: body,
+    );
+
 ToolCardSpec _search({
   required String Function(Translations) liveVerb,
   required String Function(Translations) doneVerb,
@@ -967,6 +988,21 @@ final Map<String, ToolCardSpec> _catalog = {
   'search_activations': _countLog(
       running: (t) => t.chat.tool.searchingActivations, done: (t) => t.chat.tool.searchedActivations,
       chipArg: 'triggerId', listKey: 'activations', body: activationsBody),
+  // ── F09 get-record (thin dossiers): fn exec / hd call / mcp call / activation ──
+  // The receipt is status·elapsed (failed/timeout → danger auto-expand — you opened it to triage); the
+  // body is a RunDossier (or, for activations, a bespoke fire record). F09 卷宗卡。
+  'get_function_execution': _getRecord(
+      running: (t) => t.chat.tool.gettingFnExec, done: (t) => t.chat.tool.gotFnExec,
+      chipArg: 'executionId', receipt: execRecordReceipt, failed: execRecordFailed, body: getFnExecBody),
+  'get_handler_call': _getRecord(
+      running: (t) => t.chat.tool.gettingHdCall, done: (t) => t.chat.tool.gotHdCall,
+      chipArg: 'callId', receipt: execRecordReceipt, failed: execRecordFailed, body: getHdCallBody),
+  'get_mcp_call': _getRecord(
+      running: (t) => t.chat.tool.gettingMcpCall, done: (t) => t.chat.tool.gotMcpCall,
+      chipArg: 'callId', receipt: execRecordReceipt, failed: execRecordFailed, body: getMcpCallBody),
+  'get_activation': _getRecord(
+      running: (t) => t.chat.tool.gettingActivation, done: (t) => t.chat.tool.gotActivation,
+      chipArg: 'activationId', receipt: activationFireReceipt, failed: activationRecordFailed, body: getActivationBody),
 
   // ── F16 humanloop: ask_user (the danger gate is not a tool — it's the chassis awaitingConfirm phase) ──
   // 三段动词:正在提问(live)→ 等待你回答(awaiting,底盘渲门)→ 已回答/已跳过/空答案(按结果散文)。
