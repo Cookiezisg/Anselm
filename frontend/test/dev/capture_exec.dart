@@ -78,7 +78,10 @@ void main() {
       await tester.tap(find.text('已调用方法').at(i), warnIfMissed: false);
       await tester.pump(const Duration(milliseconds: 80));
     }
-    await tester.pump(const Duration(seconds: 1));
+    await tester.ensureVisible(find.text('已触发').first);
+    await tester.pump(const Duration(milliseconds: 60));
+    await tester.tap(find.text('已触发').first, warnIfMissed: false);
+    await tester.pumpAndSettle();
 
     late final Uint8List bytes;
     await tester.runAsync(() async {

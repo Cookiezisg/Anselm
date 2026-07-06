@@ -849,6 +849,16 @@ final Map<String, ToolCardSpec> _catalog = {
     body: callHandlerBody,
     liveBody: (context, s) => s.progressText.isEmpty ? const SizedBox.shrink() : AnTermTail(text: s.progressText),
   ),
+  // fire_trigger — the thin activation card (chip=triggerId, receipt=activationId; never danger). 薄卡。
+  'fire_trigger': ToolCardSpec(
+    verb: (t, {required bool live}) => live ? t.chat.tool.firingTrigger : t.chat.tool.firedTrigger,
+    target: (s) {
+      final id = argStringPartial(s.argsText, 'triggerId');
+      return id == null ? null : (id.length > 12 ? '${id.substring(0, 12)}…' : id);
+    },
+    receipt: (t, s) => fireReceipt(t, s.resultText),
+    body: fireTriggerBody,
+  ),
 
   // ── F16 humanloop: ask_user (the danger gate is not a tool — it's the chassis awaitingConfirm phase) ──
   // 三段动词:正在提问(live)→ 等待你回答(awaiting,底盘渲门)→ 已回答/已跳过/空答案(按结果散文)。

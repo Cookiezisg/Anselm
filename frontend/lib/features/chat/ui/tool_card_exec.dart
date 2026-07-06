@@ -5,11 +5,12 @@ import 'package:flutter/widgets.dart';
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
-import '../../../core/ui/an_disclosure.dart';
+import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
 import 'tool_card_io_section.dart';
+import 'tool_card_nav.dart';
 import 'tool_card_skins.dart';
 
 // F08 exec bodies (B5) — «input → black box → output» made auditable. run_function / call_handler share
@@ -89,6 +90,40 @@ Widget callHandlerBody(BuildContext context, ToolCardState state) {
     ],
     const SizedBox(height: AnSpace.s6),
     ToolIOSection(label: t.chat.tool.ioOutput, value: out?['result']),
+  ]);
+}
+
+// ── fire_trigger — the thin activation card ──
+// Wire: {fired:true, triggerId, activationId}. NO custom payload (the synthetic fire payload is always
+// {manual:true}); the fan-out count is NOT in the return (a zero-fan-out fire still records an
+// activation) — so the card never fabricates a fan-out number, it points at the trigger log instead.
+// fire_trigger 薄卡:三键;无 payload、扇出不在返回里(绝不编造扇出数)。
+
+/// The activationId receipt (act_… truncated); null if unparseable. Never danger — the tool only
+/// lights the fuse, so a return IS success. fire 回执:活化 id 截断;永不危险色(点火即成功)。
+ToolReceipt? fireReceipt(Translations t, String output) {
+  final act = _obj(output)?['activationId'];
+  if (act is! String || act.isEmpty) return null;
+  return (text: act.length > 12 ? '${act.substring(0, 12)}…' : act, tone: ToolReceiptTone.none);
+}
+
+/// fire_trigger body — the fired conclusion + a navigable trigger pill + the full activationId (copy) +
+/// a fixed grey note (payload is always {manual:true}; fan-out lives in the trigger log). fire 落定体。
+Widget fireTriggerBody(BuildContext context, ToolCardState state) {
+  final c = context.colors;
+  final t = Translations.of(context);
+  final triggerId = argString(state.argsText, 'triggerId');
+  final act = _obj(state.resultText)?['activationId'] as String?;
+  return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+    // The navigable trigger (its icon reads «trigger X»; opens the trigger panel to see activations).
+    // 可导航触发器药丸(图标即「触发器 X」,点开去看活化)。
+    if (triggerId != null) toolNavPill(context, kind: 'trigger', label: triggerId, id: triggerId),
+    if (act != null && act.isNotEmpty) ...[
+      const SizedBox(height: AnSpace.s6),
+      AnCopyChip(value: act, label: t.chat.tool.fireActivation),
+    ],
+    const SizedBox(height: AnSpace.s6),
+    Text(t.chat.tool.firePayloadNote, style: AnText.meta.copyWith(color: c.inkFaint)),
   ]);
 }
 

@@ -698,6 +698,10 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get ranFn => '已运行函数';
 	@override String get callingMethod => '正在调用方法';
 	@override String get calledMethod => '已调用方法';
+	@override String get firingTrigger => '正在触发';
+	@override String get firedTrigger => '已触发';
+	@override String get fireActivation => '活化';
+	@override String get firePayloadNote => 'payload 恒为 {manual:true};扇出与处置见触发日志';
 }
 
 // Path: chat.gate
@@ -1623,6 +1627,10 @@ extension on TranslationsZhCn {
 			'chat.tool.ranFn' => '已运行函数',
 			'chat.tool.callingMethod' => '正在调用方法',
 			'chat.tool.calledMethod' => '已调用方法',
+			'chat.tool.firingTrigger' => '正在触发',
+			'chat.tool.firedTrigger' => '已触发',
+			'chat.tool.fireActivation' => '活化',
+			'chat.tool.firePayloadNote' => 'payload 恒为 {manual:true};扇出与处置见触发日志',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -1781,12 +1789,12 @@ extension on TranslationsZhCn {
 			'entities.detail.sec.firePayload' => 'Fire 载荷',
 			'entities.detail.card.deps' => '依赖',
 			'entities.detail.card.venv' => 'venv 状态',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.card.runtime' => '运行时',
 			'entities.detail.card.config' => '配置完整度',
 			'entities.detail.card.tools' => '工具挂载',
 			'entities.detail.card.skill' => '技能',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.card.knowledge' => '知识',
 			'entities.detail.card.model' => '模型覆盖',
 			'entities.detail.card.lifecycle' => '生命周期',

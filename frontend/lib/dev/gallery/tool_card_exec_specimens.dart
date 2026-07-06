@@ -55,5 +55,10 @@ final toolCardExecGalleryItem = GalleryItem(
                 '{"result":{"matched":312,"unmatched":4,"total":316}}',
                 progress: 'scanning ledger…\nmatched 312 rows\n4 rows need review')),
         span: true),
+    GallerySpecimen('fire_trigger · 薄卡(触发器药丸 + 活化 id + payload 灰注)',
+        (c) => ChatToolCard(
+            node: _node('fire_trigger', '{"triggerId":"trg_7a8b9c0d1e2f3a4b"}',
+                '{"fired":true,"triggerId":"trg_7a8b9c0d1e2f3a4b","activationId":"act_1f2e3d4c5b6a7980"}')),
+        span: true),
   ],
 );

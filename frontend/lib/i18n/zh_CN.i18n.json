@@ -356,7 +356,11 @@
       "runningFn": "正在运行函数",
       "ranFn": "已运行函数",
       "callingMethod": "正在调用方法",
-      "calledMethod": "已调用方法"
+      "calledMethod": "已调用方法",
+      "firingTrigger": "正在触发",
+      "firedTrigger": "已触发",
+      "fireActivation": "活化",
+      "firePayloadNote": "payload 恒为 {manual:true};扇出与处置见触发日志"
     },
     "gate": {
       "dangerBadge": "危险",

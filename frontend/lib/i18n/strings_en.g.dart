@@ -1628,6 +1628,18 @@ class Translations$chat$tool$en {
 
 	/// en: 'Called method'
 	String get calledMethod => 'Called method';
+
+	/// en: 'Firing trigger'
+	String get firingTrigger => 'Firing trigger';
+
+	/// en: 'Fired trigger'
+	String get firedTrigger => 'Fired trigger';
+
+	/// en: 'Activation'
+	String get fireActivation => 'Activation';
+
+	/// en: 'Payload is always {manual:true}; see the trigger log for fan-out and disposition'
+	String get firePayloadNote => 'Payload is always {manual:true}; see the trigger log for fan-out and disposition';
 }
 
 // Path: chat.gate
@@ -3222,6 +3234,10 @@ extension on Translations {
 			'chat.tool.ranFn' => 'Ran function',
 			'chat.tool.callingMethod' => 'Calling method',
 			'chat.tool.calledMethod' => 'Called method',
+			'chat.tool.firingTrigger' => 'Firing trigger',
+			'chat.tool.firedTrigger' => 'Fired trigger',
+			'chat.tool.fireActivation' => 'Activation',
+			'chat.tool.firePayloadNote' => 'Payload is always {manual:true}; see the trigger log for fan-out and disposition',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -3380,12 +3396,12 @@ extension on Translations {
 			'entities.detail.sec.firePayload' => 'Fire payload',
 			'entities.detail.card.deps' => 'Dependencies',
 			'entities.detail.card.venv' => 'venv status',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.card.runtime' => 'Runtime',
 			'entities.detail.card.config' => 'Config readiness',
 			'entities.detail.card.tools' => 'Tool mounts',
 			'entities.detail.card.skill' => 'Skill',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.card.knowledge' => 'Knowledge',
 			'entities.detail.card.model' => 'Model override',
 			'entities.detail.card.lifecycle' => 'Lifecycle',

@@ -1,6 +1,7 @@
 import 'package:anselm/core/contract/messages/block_content.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/messages/block_tree_reducer.dart';
+import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/features/chat/ui/chat_tool_card.dart';
 import 'package:anselm/features/chat/ui/tool_card_exec.dart';
 import 'package:anselm/features/chat/ui/tool_card_io_section.dart';
@@ -130,5 +131,30 @@ void main() {
     await tester.tap(find.textContaining(t.chat.tool.calledMethod), warnIfMissed: false);
     await tester.pumpAndSettle();
     expect(find.textContaining(t.chat.tool.execLogs(n: '3')), findsOneWidget); // progress folded as 日志 · 3 行
+  });
+
+  group('fire_trigger', () {
+    test('fireReceipt → activationId truncated, never danger', () {
+      final r = fireReceipt(t, '{"fired":true,"triggerId":"trg_1","activationId":"act_1f2e3d4c5b6a7980"}')!;
+      expect(r.text, 'act_1f2e3d4c…'); // 12 + …
+      expect(r.tone, isNot(ToolReceiptTone.danger)); // firing is success — never red
+      expect(fireReceipt(t, 'not json'), isNull);
+    });
+
+    testWidgets('body: navigable trigger pill + activation copy chip + payload note', (tester) async {
+      await tester.pumpWidget(_host(ChatToolCard(node: _node('fire_trigger',
+          '{"triggerId":"trg_7a8b9c0d1e2f3a4b"}',
+          '{"fired":true,"triggerId":"trg_7a8b9c0d1e2f3a4b","activationId":"act_1f2e3d4c5b6a7980"}'))));
+      await tester.pump();
+      expect(find.textContaining(t.chat.tool.firedTrigger), findsOneWidget);
+      await tester.tap(find.textContaining(t.chat.tool.firedTrigger), warnIfMissed: false);
+      await tester.pumpAndSettle();
+      // The trigger pill (full id label) is present + navigable; the activation copy chip shows the id;
+      // the fixed grey note never fabricates a fan-out count. 触发器药丸 + 活化 copy + payload 灰注。
+      expect(find.byType(AnRefPill), findsWidgets);
+      expect(find.byType(AnCopyChip), findsOneWidget);
+      expect(find.textContaining('act_1f2e3d4c5b6a7980'), findsWidgets); // full id in the copy chip
+      expect(find.text(t.chat.tool.firePayloadNote), findsOneWidget);
+    });
   });
 }

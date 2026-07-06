@@ -356,7 +356,11 @@
       "runningFn": "Running function",
       "ranFn": "Ran function",
       "callingMethod": "Calling method",
-      "calledMethod": "Called method"
+      "calledMethod": "Called method",
+      "firingTrigger": "Firing trigger",
+      "firedTrigger": "Fired trigger",
+      "fireActivation": "Activation",
+      "firePayloadNote": "Payload is always {manual:true}; see the trigger log for fan-out and disposition"
     },
     "gate": {
       "dangerBadge": "Dangerous",
