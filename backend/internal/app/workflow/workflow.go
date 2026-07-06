@@ -172,6 +172,16 @@ func (s *Service) SetRelationSyncer(r RelationSyncer) { s.relations = r }
 // scheduler/trigger 的 DI 环。
 func (s *Service) SetExecutionPorts(b Binder, r Runner) { s.binder, s.runner = b, r }
 
+// nameOfWorkflow returns w.Name, or "" when w is nil (best-effort notify name never breaks business).
+//
+// nameOfWorkflow 返 w.Name，w 为 nil 时返 ""（尽力而为的通知名绝不连累业务）。
+func nameOfWorkflow(w *workflowdomain.Workflow) string {
+	if w == nil {
+		return ""
+	}
+	return w.Name
+}
+
 // publish emits a workflow lifecycle notification; nil emitter is a no-op.
 //
 // publish 发一条 workflow 生命周期通知；nil emitter 为 no-op。

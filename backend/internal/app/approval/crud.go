@@ -78,7 +78,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*approvaldomain.A
 	if err := s.repo.CreateWithVersion(ctx, f, v); err != nil { // UNIQUE name → ErrDuplicateName
 		return nil, nil, fmt.Errorf("approvalapp.Create: %w", err)
 	}
-	s.publish(ctx, "created", formID, map[string]any{"versionId": versionID, "version": 1})
+	s.publish(ctx, "created", formID, map[string]any{"versionId": versionID, "version": 1, "name": f.Name})
 	s.syncBuiltEdge(ctx, formID, v.BuiltInConversationID)
 
 	f.ActiveVersion = v
@@ -89,7 +89,8 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*approvaldomain.A
 //
 // Edit 写新版本（整组新 template + 规则）并把 active 指针移到它。
 func (s *Service) Edit(ctx context.Context, in EditInput) (*approvaldomain.Version, error) {
-	if _, err := s.repo.GetForm(ctx, in.ID); err != nil {
+	f, err := s.repo.GetForm(ctx, in.ID)
+	if err != nil {
 		return nil, fmt.Errorf("approvalapp.Edit: %w", err)
 	}
 	if err := s.validateForm(in.Template, in.Timeout, in.TimeoutBehavior); err != nil {
@@ -111,7 +112,7 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*approvaldomain.Versi
 	if err := s.repo.TrimOldestVersions(ctx, in.ID, approvaldomain.VersionCap); err != nil {
 		s.log.Warn("approvalapp.Edit: trim versions failed", zap.String("approvalId", in.ID), zap.Error(err))
 	}
-	s.publish(ctx, "edited", in.ID, map[string]any{"versionId": versionID, "version": max + 1})
+	s.publish(ctx, "edited", in.ID, map[string]any{"versionId": versionID, "version": max + 1, "name": f.Name})
 	s.syncEditedEdge(ctx, in.ID)
 	return v, nil
 }
@@ -136,7 +137,7 @@ func (s *Service) UpdateMeta(ctx context.Context, in UpdateMetaInput) (*approval
 	if err := s.repo.SaveForm(ctx, f); err != nil {
 		return nil, fmt.Errorf("approvalapp.UpdateMeta: %w", err)
 	}
-	s.publish(ctx, "updated", f.ID, nil)
+	s.publish(ctx, "updated", f.ID, map[string]any{"name": f.Name})
 	return f, nil
 }
 
@@ -151,7 +152,8 @@ func (s *Service) Revert(ctx context.Context, id string, targetVersion int) (*ap
 	if err := s.repo.SetActiveVersion(ctx, id, target.ID); err != nil {
 		return nil, fmt.Errorf("approvalapp.Revert: %w", err)
 	}
-	s.publish(ctx, "reverted", id, map[string]any{"versionId": target.ID, "version": targetVersion})
+	f, _ := s.repo.GetForm(ctx, id)
+	s.publish(ctx, "reverted", id, map[string]any{"versionId": target.ID, "version": targetVersion, "name": nameOfForm(f)})
 	s.syncEditedEdge(ctx, id)
 	return target, nil
 }
@@ -207,10 +209,11 @@ func (s *Service) Search(ctx context.Context, query string) ([]*approvaldomain.A
 //
 // Delete 软删审批表并清理 relation 边。
 func (s *Service) Delete(ctx context.Context, id string) error {
+	f, _ := s.repo.GetForm(ctx, id)
 	if err := s.repo.DeleteForm(ctx, id); err != nil {
 		return fmt.Errorf("approvalapp.Delete: %w", err)
 	}
-	s.publish(ctx, "deleted", id, nil)
+	s.publish(ctx, "deleted", id, map[string]any{"name": nameOfForm(f)})
 	s.purgeRelations(ctx, id)
 	return nil
 }

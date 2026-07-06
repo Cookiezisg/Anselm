@@ -44,12 +44,14 @@ audience: [human, ai]
 
 下表 **⊞** = Emit（落行）· **⤳** = Broadcast（仅帧）。`Node.Type` 词表由 producer 定，登记当前全集、非穷举。
 
+**payload 带实体名**：所有实体生命周期通知（function/handler/agent/workflow/control/approval 的 created/edited/reverted/updated/deleted/env_rebuilt/config_* + skill/mcp/memory 的 name + workflow 的 run_failed/attention_changed/approval_pending/lifecycle_changed）payload 都携 **`name`**（实体显示名，删除类在删前捕获、best-effort 空回退），使通知中心能渲「Agent『triager』已创建」而非仅「Agent 已创建」；sandbox env 无实体名不带；document 用 `path`。前端不产文案、按 `type → 模板` + `payload.name` 渲染。
+
 | 域 | 事件 |
 |---|---|
 | function | ⊞ `function.{created, edited, reverted, updated, deleted, env_rebuilt}` |
 | handler | ⊞ `handler.{created, edited, reverted, updated, deleted, env_rebuilt, config_updated, config_cleared, crashed}` · `restarted` 分径：⊞ 失败（`{ok:false}`，值得进收件箱）/ ⤳ 成功（`{ok:true}`，纯按钮回执） |
 
-> `crashed` = 常驻进程在某次 `:call` 时被发现已死（manager 下次调用回收+重启）——让 handler 行此刻亮红点，而非等下个 :call 才暴露。payload `{handlerId}`。
+> `crashed` = 常驻进程在某次 `:call` 时被发现已死（manager 下次调用回收+重启）——让 handler 行此刻亮红点，而非等下个 :call 才暴露。payload `{handlerId, name}`。
 | agent | ⊞ `agent.{created, edited, reverted, updated, deleted}` |
 
 > `updated` = meta 变更（不升版本）；`edited` = 新版本生效。`env_rebuilt`（空 ops 的 edit 重建了 active env）只在 **function / handler** 发，agent 不发。
@@ -72,7 +74,7 @@ audience: [human, ai]
 
 ## P3 五域挂载
 
-**notifications**（全 ⊞ 落行）：workflow/control/approval 的 `<域>.{created, edited, reverted, updated, deleted}` 生命周期族；workflow 另有 `workflow.lifecycle_changed`（activate/deactivate/kill 的状态流转，payload {lifecycleState, active}）、`workflow.attention_changed`（payload {needsAttention, attentionReason}——调度器自愈语义：run 失败点亮、completed 熄灭，无 acknowledge 端点）、`workflow.run_failed`（payload {workflowId, flowrunId, error}）与 `workflow.approval_pending`（payload {workflowId, flowrunId, nodeId}，at-least-once——唤人决策）。trigger **无**生命周期通知（其活动经 activations 行 + entities 流 fire 信号呈现）。
+**notifications**（全 ⊞ 落行）：workflow/control/approval 的 `<域>.{created, edited, reverted, updated, deleted}` 生命周期族；workflow 另有 `workflow.lifecycle_changed`（activate/deactivate/kill 的状态流转，payload {lifecycleState, active}）、`workflow.attention_changed`（payload {needsAttention, attentionReason}——调度器自愈语义：run 失败点亮、completed 熄灭，无 acknowledge 端点）、`workflow.run_failed`（payload {workflowId, name, flowrunId, error}）与 `workflow.approval_pending`（payload {workflowId, name, flowrunId, nodeId}，at-least-once——唤人决策）。trigger **无**生命周期通知（其活动经 activations 行 + entities 流 fire 信号呈现）。
 
 **entities 流**：
 | 域 | 挂载 |

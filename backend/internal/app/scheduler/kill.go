@@ -185,8 +185,12 @@ func (s *Service) markRunTerminal(ctx context.Context, run *flowrundomain.FlowRu
 	// completed 熄灯。cancelled 两者皆不做——手动终止不是故障。
 	switch status {
 	case flowrundomain.StatusFailed:
+		name := ""
+		if w, werr := s.workflows.GetWorkflow(ctx, run.WorkflowID); werr == nil && w != nil {
+			name = w.Name
+		}
 		s.notify(ctx, "workflow.run_failed", map[string]any{
-			"workflowId": run.WorkflowID, "flowrunId": run.ID, "error": msg,
+			"workflowId": run.WorkflowID, "flowrunId": run.ID, "error": msg, "name": name,
 		})
 		if s.recon != nil {
 			if err := s.recon.MarkRunAttention(ctx, run.WorkflowID, true, msg); err != nil {

@@ -79,7 +79,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*controldomain.Co
 	if err := s.repo.CreateWithVersion(ctx, c, v); err != nil { // UNIQUE name → ErrDuplicateName
 		return nil, nil, fmt.Errorf("controlapp.Create: %w", err)
 	}
-	s.publish(ctx, "created", ctlID, map[string]any{"versionId": versionID, "version": 1})
+	s.publish(ctx, "created", ctlID, map[string]any{"versionId": versionID, "version": 1, "name": c.Name})
 	s.syncBuiltEdge(ctx, ctlID, v.BuiltInConversationID)
 
 	c.ActiveVersion = v
@@ -90,15 +90,16 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*controldomain.Co
 //
 // Edit 写新版本（整组新 branches）并把 active 指针移到它。
 func (s *Service) Edit(ctx context.Context, in EditInput) (*controldomain.Version, error) {
-	if _, err := s.repo.GetControl(ctx, in.ID); err != nil {
+	c, err := s.repo.GetControl(ctx, in.ID)
+	if err != nil {
 		return nil, fmt.Errorf("controlapp.Edit: %w", err)
 	}
 	if err := s.validateBranches(in.Branches); err != nil {
 		return nil, err
 	}
-	max, err := s.repo.MaxVersionNumber(ctx, in.ID)
-	if err != nil {
-		return nil, fmt.Errorf("controlapp.Edit: %w", err)
+	max, merr := s.repo.MaxVersionNumber(ctx, in.ID)
+	if merr != nil {
+		return nil, fmt.Errorf("controlapp.Edit: %w", merr)
 	}
 	now := time.Now().UTC()
 	versionID := idgenpkg.New("ctlv")
@@ -115,7 +116,7 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*controldomain.Versio
 	if err := s.repo.TrimOldestVersions(ctx, in.ID, controldomain.VersionCap); err != nil {
 		s.log.Warn("controlapp.Edit: trim versions failed", zap.String("controlId", in.ID), zap.Error(err))
 	}
-	s.publish(ctx, "edited", in.ID, map[string]any{"versionId": versionID, "version": max + 1})
+	s.publish(ctx, "edited", in.ID, map[string]any{"versionId": versionID, "version": max + 1, "name": c.Name})
 	s.syncEditedEdge(ctx, in.ID)
 	return v, nil
 }
@@ -140,7 +141,7 @@ func (s *Service) UpdateMeta(ctx context.Context, in UpdateMetaInput) (*controld
 	if err := s.repo.SaveControl(ctx, c); err != nil {
 		return nil, fmt.Errorf("controlapp.UpdateMeta: %w", err)
 	}
-	s.publish(ctx, "updated", c.ID, nil)
+	s.publish(ctx, "updated", c.ID, map[string]any{"name": c.Name})
 	return c, nil
 }
 
@@ -156,7 +157,8 @@ func (s *Service) Revert(ctx context.Context, id string, targetVersion int) (*co
 	if err := s.repo.SetActiveVersion(ctx, id, target.ID); err != nil {
 		return nil, fmt.Errorf("controlapp.Revert: %w", err)
 	}
-	s.publish(ctx, "reverted", id, map[string]any{"versionId": target.ID, "version": targetVersion})
+	c, _ := s.repo.GetControl(ctx, id)
+	s.publish(ctx, "reverted", id, map[string]any{"versionId": target.ID, "version": targetVersion, "name": nameOfControl(c)})
 	s.syncEditedEdge(ctx, id)
 	return target, nil
 }
@@ -212,10 +214,11 @@ func (s *Service) Search(ctx context.Context, query string) ([]*controldomain.Co
 //
 // Delete 软删 control 逻辑并清理 relation 边。
 func (s *Service) Delete(ctx context.Context, id string) error {
+	c, _ := s.repo.GetControl(ctx, id)
 	if err := s.repo.DeleteControl(ctx, id); err != nil {
 		return fmt.Errorf("controlapp.Delete: %w", err)
 	}
-	s.publish(ctx, "deleted", id, nil)
+	s.publish(ctx, "deleted", id, map[string]any{"name": nameOfControl(c)})
 	s.purgeRelations(ctx, id)
 	return nil
 }

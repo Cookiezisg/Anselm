@@ -62,6 +62,16 @@ func NewService(repo approvaldomain.Repository, notif notificationdomain.Emitter
 // SetRelationSyncer 装配后注入 relation Service（避 init 环）。
 func (s *Service) SetRelationSyncer(r RelationSyncer) { s.relations = r }
 
+// nameOfForm returns f.Name, or "" when f is nil (best-effort notify name never breaks business).
+//
+// nameOfForm 返 f.Name，f 为 nil 时返 ""（尽力而为的通知名绝不连累业务）。
+func nameOfForm(f *approvaldomain.ApprovalForm) string {
+	if f == nil {
+		return ""
+	}
+	return f.Name
+}
+
 // publish emits an approval lifecycle notification; nil emitter is a no-op.
 //
 // publish 发一条 approval 生命周期通知；nil emitter 为 no-op。

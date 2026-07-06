@@ -454,4 +454,24 @@ func TestNotification_FrameOnlyFork(t *testing.T) {
 			t.Fatalf("no conversation.* event may persist an inbox row, found %q", ty)
 		}
 	}
+
+	// N2a payload enrichment: the function.created row must carry the entity NAME so the notification
+	// center can render "Function «fork_fn» created" — not just the id. N2a:行 payload 带实体名。
+	var rows []struct {
+		Type    string         `json:"type"`
+		Payload map[string]any `json:"payload"`
+	}
+	wc.GET("/api/v1/notifications?limit=200").OK(t, &rows)
+	var named bool
+	for _, r := range rows {
+		if r.Type == "function.created" {
+			if r.Payload["name"] != "fork_fn" {
+				t.Fatalf("function.created payload must carry name=fork_fn, got %+v", r.Payload)
+			}
+			named = true
+		}
+	}
+	if !named {
+		t.Fatal("function.created row not found for the name-enrichment assertion")
+	}
 }

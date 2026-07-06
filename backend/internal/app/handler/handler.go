@@ -232,6 +232,16 @@ func lastEnvError(history []envfixapp.Attempt) string {
 	return history[len(history)-1].Error
 }
 
+// nameOfHandler returns h.Name, or "" when h is nil (best-effort notify name never breaks business).
+//
+// nameOfHandler 返 h.Name，h 为 nil 时返 ""（尽力而为的通知名绝不连累业务）。
+func nameOfHandler(h *handlerdomain.Handler) string {
+	if h == nil {
+		return ""
+	}
+	return h.Name
+}
+
 // publish emits a handler lifecycle notification; nil emitter is a no-op.
 func (s *Service) publish(ctx context.Context, action, handlerID string, extra map[string]any) {
 	s.sendNotif(ctx, action, handlerID, extra, true)

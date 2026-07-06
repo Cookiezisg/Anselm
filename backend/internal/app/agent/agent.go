@@ -174,6 +174,16 @@ func (s *Service) SetInvokeDeps(deps InvokeDeps) { s.invoke = deps }
 // 使 Create/Edit 在写时拒绝指向不存在 apiKeyId 的 modelOverride（F153）。nil → 跳过存在性校验。
 func (s *Service) SetKeyChecker(c modelrefapp.KeyExistenceChecker) { s.keyChecker = c }
 
+// nameOfAgent returns a.Name, or "" when a is nil (best-effort notify name never breaks business).
+//
+// nameOfAgent 返 a.Name，a 为 nil 时返 ""（尽力而为的通知名绝不连累业务）。
+func nameOfAgent(a *agentdomain.Agent) string {
+	if a == nil {
+		return ""
+	}
+	return a.Name
+}
+
 // publish emits an agent lifecycle notification; nil emitter is a no-op.
 //
 // publish 发一条 agent 生命周期通知；nil emitter 为 no-op。

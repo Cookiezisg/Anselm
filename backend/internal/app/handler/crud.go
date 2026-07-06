@@ -139,7 +139,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*handlerdomain.Ha
 	if err := s.repo.CreateWithVersion(ctx, h, v); err != nil {
 		return nil, nil, fmt.Errorf("handlerapp.Create: %w", err)
 	}
-	s.publish(ctx, "created", hID, map[string]any{"versionId": versionID, "version": 1})
+	s.publish(ctx, "created", hID, map[string]any{"versionId": versionID, "version": 1, "name": h.Name})
 
 	s.ensureEnv(ctx, v, in.Progress)
 	s.syncBuiltEdge(ctx, hID, v.BuiltInConversationID)
@@ -181,7 +181,7 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*handlerdomain.Versio
 		}
 		s.ensureEnv(ctx, active, in.Progress)
 		s.restart(ctx, in.ID)
-		s.publish(ctx, "env_rebuilt", in.ID, map[string]any{"versionId": active.ID})
+		s.publish(ctx, "env_rebuilt", in.ID, map[string]any{"versionId": active.ID, "name": h.Name})
 		return active, nil
 	}
 
@@ -212,7 +212,7 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*handlerdomain.Versio
 		if gerr != nil {
 			return nil, fmt.Errorf("handlerapp.Edit: %w", gerr)
 		}
-		s.publish(ctx, "updated", in.ID, nil)
+		s.publish(ctx, "updated", in.ID, map[string]any{"name": h.Name})
 		s.syncEditedEdge(ctx, in.ID)
 		return active, nil
 	}
@@ -240,7 +240,7 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*handlerdomain.Versio
 		s.log.Warn("handlerapp.Edit: trim versions failed", zap.String("handlerId", in.ID), zap.Error(err))
 	}
 	s.reclaimTrimmedEnvs(ctx, in.ID, trimmedEnvs)
-	s.publish(ctx, "edited", in.ID, map[string]any{"versionId": versionID, "version": nextN})
+	s.publish(ctx, "edited", in.ID, map[string]any{"versionId": versionID, "version": nextN, "name": h.Name})
 
 	s.ensureEnv(ctx, v, in.Progress)
 	s.restart(ctx, in.ID) // resident instance must reload the new class code
@@ -260,7 +260,8 @@ func (s *Service) Revert(ctx context.Context, id string, targetVersion int) (*ha
 	if err := s.repo.SetActiveVersion(ctx, id, target.ID); err != nil {
 		return nil, fmt.Errorf("handlerapp.Revert: %w", err)
 	}
-	s.publish(ctx, "reverted", id, map[string]any{"versionId": target.ID, "version": targetVersion})
+	h, _ := s.repo.GetHandler(ctx, id)
+	s.publish(ctx, "reverted", id, map[string]any{"versionId": target.ID, "version": targetVersion, "name": nameOfHandler(h)})
 	s.restart(ctx, id)
 	s.syncEditedEdge(ctx, id)
 	return target, nil
@@ -271,16 +272,17 @@ func (s *Service) Revert(ctx context.Context, id string, targetVersion int) (*ha
 //
 // Restart 手动重启常驻实例（LLM/用户"坏了重启"路径）。返回新的运行态。
 func (s *Service) Restart(ctx context.Context, id string) (string, error) {
-	if _, err := s.repo.GetHandler(ctx, id); err != nil {
+	h, err := s.repo.GetHandler(ctx, id)
+	if err != nil {
 		return "", fmt.Errorf("handlerapp.Restart: %w", err)
 	}
 	if _, err := s.manager.Restart(ctx, id); err != nil {
-		s.publish(ctx, "restarted", id, map[string]any{"ok": false})
+		s.publish(ctx, "restarted", id, map[string]any{"ok": false, "name": h.Name})
 		return s.manager.State(id), fmt.Errorf("handlerapp.Restart: %w", err)
 	}
 	// Success is a button-press acknowledgement — frame-only (no inbox row); the failure
 	// above stays an inbox row. 成功=按钮回执，仅帧；上面的失败仍落收件箱行。
-	s.publishFrame(ctx, "restarted", id, map[string]any{"ok": true})
+	s.publishFrame(ctx, "restarted", id, map[string]any{"ok": true, "name": h.Name})
 	return s.manager.State(id), nil
 }
 
@@ -313,7 +315,7 @@ func (s *Service) UpdateMeta(ctx context.Context, in UpdateMetaInput) (*handlerd
 	if err := s.repo.SaveHandler(ctx, h); err != nil {
 		return nil, fmt.Errorf("handlerapp.UpdateMeta: %w", err)
 	}
-	s.publish(ctx, "updated", h.ID, nil)
+	s.publish(ctx, "updated", h.ID, map[string]any{"name": h.Name})
 	return h, nil
 }
 
@@ -322,6 +324,7 @@ func (s *Service) UpdateMeta(ctx context.Context, in UpdateMetaInput) (*handlerd
 //
 // Delete 停常驻实例、软删 handler、销毁其 envs、清理 relation 边。
 func (s *Service) Delete(ctx context.Context, id string) error {
+	h, _ := s.repo.GetHandler(ctx, id)
 	s.manager.Stop(ctx, id)
 	if err := s.repo.DeleteHandler(ctx, id); err != nil {
 		return fmt.Errorf("handlerapp.Delete: %w", err)
@@ -329,7 +332,7 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 	if err := s.runner.Destroy(ctx, id); err != nil {
 		s.log.Warn("handlerapp.Delete: sandbox destroy failed (best-effort)", zap.String("handlerId", id), zap.Error(err))
 	}
-	s.publish(ctx, "deleted", id, nil)
+	s.publish(ctx, "deleted", id, map[string]any{"name": nameOfHandler(h)})
 	s.purgeRelations(ctx, id)
 	return nil
 }

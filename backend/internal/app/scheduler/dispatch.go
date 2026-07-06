@@ -79,8 +79,12 @@ func (s *Service) runNode(ctx context.Context, run *flowrundomain.FlowRun, senv 
 			// write and advance may re-emit); a duplicate summons beats a silent stall.
 			// 唤人：parked 审批把 run 堵到有人决策——光有收件箱只帮到主动去看的人。at-least-once
 			// （写行与 advance 之间崩溃可能重发）；重复唤起好过静默卡死。
+			name := ""
+			if w, werr := s.workflows.GetWorkflow(ctx, run.WorkflowID); werr == nil && w != nil {
+				name = w.Name
+			}
 			s.notify(ctx, "workflow.approval_pending", map[string]any{
-				"workflowId": run.WorkflowID, "flowrunId": run.ID, "nodeId": node.ID,
+				"workflowId": run.WorkflowID, "flowrunId": run.ID, "nodeId": node.ID, "name": name,
 			})
 		}
 		return row, status, werr

@@ -124,7 +124,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*workflowdomain.W
 	if err := s.repo.SaveVersion(ctx, v); err != nil {
 		return nil, nil, fmt.Errorf("workflowapp.Create: %w", err)
 	}
-	s.publish(ctx, "created", wfID, map[string]any{"versionId": versionID, "version": 1})
+	s.publish(ctx, "created", wfID, map[string]any{"versionId": versionID, "version": 1, "name": w.Name})
 	s.syncRelations(ctx, w, v, graph)
 
 	v.GraphParsed = graph
@@ -221,7 +221,7 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*workflowdomain.Versi
 	if err := s.repo.TrimOldestVersions(ctx, in.ID, workflowdomain.VersionCap); err != nil {
 		s.log.Warn("workflowapp.Edit: trim versions failed", zap.String("workflowId", in.ID), zap.Error(err))
 	}
-	s.publish(ctx, "edited", in.ID, map[string]any{"versionId": versionID, "version": max + 1})
+	s.publish(ctx, "edited", in.ID, map[string]any{"versionId": versionID, "version": max + 1, "name": w.Name})
 
 	s.syncRelations(ctx, w, v, graph) // w.ActiveVersionID already set to versionID above
 	v.GraphParsed = graph
@@ -249,7 +249,7 @@ func (s *Service) Revert(ctx context.Context, id string, targetVersion int) (*wo
 	if err := s.repo.SetActiveVersion(ctx, id, target.ID); err != nil {
 		return nil, fmt.Errorf("workflowapp.Revert: %w", err)
 	}
-	s.publish(ctx, "reverted", id, map[string]any{"versionId": target.ID, "version": targetVersion})
+	s.publish(ctx, "reverted", id, map[string]any{"versionId": target.ID, "version": targetVersion, "name": w.Name})
 
 	w.ActiveVersionID = target.ID
 	if g, perr := decodeGraph(target.Graph); perr == nil {
@@ -289,7 +289,7 @@ func (s *Service) UpdateMeta(ctx context.Context, in UpdateMetaInput) (*workflow
 	if err := s.repo.SaveWorkflow(ctx, w); err != nil {
 		return nil, fmt.Errorf("workflowapp.UpdateMeta: %w", err) // ErrDuplicateName
 	}
-	s.publish(ctx, "updated", w.ID, nil)
+	s.publish(ctx, "updated", w.ID, map[string]any{"name": w.Name})
 	return w, nil
 }
 
@@ -314,7 +314,8 @@ func (s *Service) SetLifecycle(ctx context.Context, id, state, actionBy string) 
 	}); err != nil {
 		return nil, fmt.Errorf("workflowapp.SetLifecycle: %w", err)
 	}
-	s.publish(ctx, "lifecycle_changed", id, map[string]any{"lifecycleState": state, "active": active})
+	w, _ := s.repo.GetWorkflow(ctx, id)
+	s.publish(ctx, "lifecycle_changed", id, map[string]any{"lifecycleState": state, "active": active, "name": nameOfWorkflow(w)})
 	return s.repo.GetWorkflow(ctx, id)
 }
 
@@ -334,7 +335,8 @@ func (s *Service) SetNeedsAttention(ctx context.Context, id string, needs bool, 
 	}); err != nil {
 		return nil, fmt.Errorf("workflowapp.SetNeedsAttention: %w", err)
 	}
-	s.publish(ctx, "attention_changed", id, map[string]any{"needsAttention": needs, "attentionReason": reason})
+	w, _ := s.repo.GetWorkflow(ctx, id)
+	s.publish(ctx, "attention_changed", id, map[string]any{"needsAttention": needs, "attentionReason": reason, "name": nameOfWorkflow(w)})
 	return s.repo.GetWorkflow(ctx, id)
 }
 
@@ -418,10 +420,11 @@ func (s *Service) Search(ctx context.Context, query string) ([]*workflowdomain.W
 //
 // Delete 软删 workflow 并清理 relation 边。
 func (s *Service) Delete(ctx context.Context, id string) error {
+	w, _ := s.repo.GetWorkflow(ctx, id)
 	if err := s.repo.DeleteWorkflow(ctx, id); err != nil {
 		return fmt.Errorf("workflowapp.Delete: %w", err)
 	}
-	s.publish(ctx, "deleted", id, nil)
+	s.publish(ctx, "deleted", id, map[string]any{"name": nameOfWorkflow(w)})
 	s.purgeRelations(ctx, id)
 	return nil
 }
