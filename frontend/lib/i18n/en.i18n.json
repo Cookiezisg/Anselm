@@ -344,7 +344,9 @@
       "mcpError": "MCP error",
       "hdCalling": "Calling method",
       "hdCalled": "Called method",
-      "hdResult": "result"
+      "hdResult": "result",
+      "lsEmpty": "(empty)",
+      "globHeader": "$pattern in $root"
     },
     "gate": {
       "dangerBadge": "Dangerous",

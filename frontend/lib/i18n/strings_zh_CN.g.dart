@@ -686,6 +686,8 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get hdCalling => '正在调用方法';
 	@override String get hdCalled => '已调用方法';
 	@override String get hdResult => '返回';
+	@override String get lsEmpty => '空目录';
+	@override String globHeader({required Object pattern, required Object root}) => '${pattern} 于 ${root}';
 }
 
 // Path: chat.gate
@@ -1599,6 +1601,8 @@ extension on TranslationsZhCn {
 			'chat.tool.hdCalling' => '正在调用方法',
 			'chat.tool.hdCalled' => '已调用方法',
 			'chat.tool.hdResult' => '返回',
+			'chat.tool.lsEmpty' => '空目录',
+			'chat.tool.globHeader' => ({required Object pattern, required Object root}) => '${pattern} 于 ${root}',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -1771,10 +1775,10 @@ extension on TranslationsZhCn {
 			'entities.detail.graph.openEditor' => '进入图编辑器',
 			'entities.detail.graph.unparseable' => '编排图无法解析',
 			'entities.detail.cockpit.runs' => '运行',
-			'entities.detail.cockpit.runsCount' => ({required Object n}) => '运行 · ${n} 次',
-			'entities.detail.cockpit.nodeGantt' => '节点甘特',
 			_ => null,
 		} ?? switch (path) {
+			'entities.detail.cockpit.runsCount' => ({required Object n}) => '运行 · ${n} 次',
+			'entities.detail.cockpit.nodeGantt' => '节点甘特',
 			'entities.detail.cockpit.notRun' => '未运行',
 			'entities.detail.cockpit.waitingApproval' => '等待审批',
 			'entities.detail.cockpit.noRuns' => '尚无运行',

@@ -344,7 +344,9 @@
       "mcpError": "MCP 错误",
       "hdCalling": "正在调用方法",
       "hdCalled": "已调用方法",
-      "hdResult": "返回"
+      "hdResult": "返回",
+      "lsEmpty": "空目录",
+      "globHeader": "$pattern 于 $root"
     },
     "gate": {
       "dangerBadge": "危险",

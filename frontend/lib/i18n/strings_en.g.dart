@@ -1592,6 +1592,12 @@ class Translations$chat$tool$en {
 
 	/// en: 'result'
 	String get hdResult => 'result';
+
+	/// en: '(empty)'
+	String get lsEmpty => '(empty)';
+
+	/// en: '$pattern in $root'
+	String globHeader({required Object pattern, required Object root}) => '${pattern} in ${root}';
 }
 
 // Path: chat.gate
@@ -3174,6 +3180,8 @@ extension on Translations {
 			'chat.tool.hdCalling' => 'Calling method',
 			'chat.tool.hdCalled' => 'Called method',
 			'chat.tool.hdResult' => 'result',
+			'chat.tool.lsEmpty' => '(empty)',
+			'chat.tool.globHeader' => ({required Object pattern, required Object root}) => '${pattern} in ${root}',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -3346,10 +3354,10 @@ extension on Translations {
 			'entities.detail.graph.openEditor' => 'Open graph editor',
 			'entities.detail.graph.unparseable' => 'Orchestration graph unparseable',
 			'entities.detail.cockpit.runs' => 'Runs',
-			'entities.detail.cockpit.runsCount' => ({required Object n}) => 'Runs · ${n}',
-			'entities.detail.cockpit.nodeGantt' => 'Node timeline',
 			_ => null,
 		} ?? switch (path) {
+			'entities.detail.cockpit.runsCount' => ({required Object n}) => 'Runs · ${n}',
+			'entities.detail.cockpit.nodeGantt' => 'Node timeline',
 			'entities.detail.cockpit.notRun' => 'Not run',
 			'entities.detail.cockpit.waitingApproval' => 'Awaiting approval',
 			'entities.detail.cockpit.noRuns' => 'No runs yet',

@@ -10,6 +10,7 @@ import 'tool_card_skins.dart';
 import 'tool_card_control_approval.dart';
 import 'tool_card_conversation.dart';
 import 'tool_card_document_skill.dart';
+import 'tool_card_fs_search.dart';
 import 'tool_card_entity_get_bodies.dart';
 import 'tool_card_lifecycle.dart';
 import 'tool_card_mount.dart';
@@ -167,6 +168,8 @@ ToolCardSpec _search({
   bool quote = true,
   required String Function(Translations, String) countLabel,
   Widget Function(BuildContext, ToolCardState)? body,
+  // A custom receipt (LS/Glob parse a structured total instead of counting lines). 自定义回执。
+  ToolReceipt? Function(Translations, ToolCardState)? receipt,
 }) =>
     ToolCardSpec(
       verb: (t, {required bool live}) => live ? liveVerb(t) : doneVerb(t),
@@ -175,8 +178,8 @@ ToolCardSpec _search({
         if (v == null) return null;
         return quote ? '"$v"' : pathBasename(v);
       },
-      receipt: (t, s) => countReceipt(s.resultText,
-          countLabel: (n) => countLabel(t, n), noneLabel: t.chat.tool.noMatches),
+      receipt: receipt ??
+          (t, s) => countReceipt(s.resultText, countLabel: (n) => countLabel(t, n), noneLabel: t.chat.tool.noMatches),
       body: body,
     );
 
@@ -518,15 +521,23 @@ final Map<String, ToolCardSpec> _catalog = {
     liveVerb: (t) => t.chat.tool.globbing,
     doneVerb: (t) => t.chat.tool.globbed,
     argKey: 'pattern',
-    countLabel: (t, n) => t.chat.tool.files(n: n),
-    body: listToolBody,
+    countLabel: (t, n) => t.chat.tool.items(n: n), // items, not files (matches include dir/link) 含目录/链接
+    // The count comes from the JSON `total` (truncated → N+); a non-JSON result → the error/timeout string
+    // is handled by the body. 计数取 JSON total(截断→N+);非 JSON=错误/超时。
+    receipt: (t, s) {
+      final g = parseGlobResult(s.resultText);
+      if (g == null) return null; // error/timeout string → no count receipt
+      if (g.total == 0) return (text: t.chat.tool.noMatches, tone: ToolReceiptTone.none);
+      return (text: t.chat.tool.items(n: g.truncated ? '${g.total}+' : '${g.total}'), tone: ToolReceiptTone.none);
+    },
+    body: globToolBody,
   ),
   'Grep': _search(
     liveVerb: (t) => t.chat.tool.grepping,
     doneVerb: (t) => t.chat.tool.grepped,
     argKey: 'pattern',
     countLabel: (t, n) => t.chat.tool.matches(n: n),
-    body: listToolBody,
+    body: listToolBody, // Grep content view lands in the next F02 step. Grep 命中窗下步落。
   ),
   'LS': _search(
     liveVerb: (t) => t.chat.tool.listing,
@@ -534,7 +545,14 @@ final Map<String, ToolCardSpec> _catalog = {
     argKey: 'path',
     quote: false,
     countLabel: (t, n) => t.chat.tool.items(n: n),
-    body: listToolBody,
+    // The count is the header's `(T entries)` total (truncated → N+). 计数=头部 entries 总数。
+    receipt: (t, s) {
+      final ls = parseLsListing(s.resultText);
+      if (ls == null) return null; // error string → no receipt
+      if (ls.total == 0) return (text: t.chat.tool.lsEmpty, tone: ToolReceiptTone.none);
+      return (text: t.chat.tool.items(n: ls.truncated ? '${ls.total}+' : '${ls.total}'), tone: ToolReceiptTone.none);
+    },
+    body: lsToolBody,
   ),
 
   // ── F4 builds 构建族 ──

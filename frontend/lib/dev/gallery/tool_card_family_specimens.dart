@@ -242,12 +242,14 @@ final toolCardSearchGalleryItem = GalleryItem(
             node: _call('grep', 'Grep',
                 args: '{"pattern":"amount","path":"/ws"}', result: _grepOutput)),
         span: true),
-    GallerySpecimen('Glob · 3 个文件',
+    GallerySpecimen('Glob · JSON 命中窗(basename + size·mtime,mtime 降序)',
         (c) => ChatToolCard(
             node: _call('glob', 'Glob',
-                args: '{"pattern":"**/*.py"}',
-                result:
-                    'functions/rollup.py\nfunctions/quarters.py\nhandlers/invoice_sync.py\n')),
+                args: '{"pattern":"**/*.py","path":"/ws"}',
+                result: '{"root":"/ws","total":3,"truncated":false,"matches":['
+                    '{"path":"/ws/functions/rollup.py","type":"file","size":1234,"mtime":"2026-07-05T14:00:00Z"},'
+                    '{"path":"/ws/functions/quarters.py","type":"file","size":310,"mtime":"2026-07-04T09:00:00Z"},'
+                    '{"path":"/ws/handlers/invoice_sync.py","type":"file","size":2480,"mtime":"2026-07-01T11:00:00Z"}]}')),
         span: true),
     GallerySpecimen('Grep · 无匹配(诚实空回执)',
         (c) => ChatToolCard(
@@ -255,11 +257,15 @@ final toolCardSearchGalleryItem = GalleryItem(
                 args: '{"pattern":"xyzzy"}',
                 result: 'No matches for "xyzzy" in /ws.')),
         span: true),
-    GallerySpecimen('LS · 截断下界 N+',
+    GallerySpecimen('LS · 目录清单(dir 优先 + file size·mtime)',
         (c) => ChatToolCard(
             node: _call('ls', 'LS',
                 args: '{"path":"/ws/functions"}',
-                result: 'rollup.py  1.2 KB\nquarters.py  310 B\n... [truncated at 200 lines; raise head_limit to see more]\n')),
-        span: true, stress: true),
+                result: '/ws/functions (4 entries)\n'
+                    '  dir   __pycache__\n'
+                    '  file  rollup.py   1.2 KB   2026-07-05 14:00\n'
+                    '  file  quarters.py   310 B   2026-07-04 09:00\n'
+                    '  link  latest.py')),
+        span: true),
   ],
 );
