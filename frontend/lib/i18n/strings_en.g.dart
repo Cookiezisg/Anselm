@@ -1358,6 +1358,102 @@ class Translations$chat$tool$en {
 
 	/// en: 'in-flight runs finish then stop; to abort now use kill_workflow'
 	String get noteDraining => 'in-flight runs finish then stop; to abort now use kill_workflow';
+
+	/// en: 'Archiving conversation'
+	String get cvArchiving => 'Archiving conversation';
+
+	/// en: 'Archived conversation'
+	String get cvArchived => 'Archived conversation';
+
+	/// en: 'Unarchiving'
+	String get cvUnarchiving => 'Unarchiving';
+
+	/// en: 'Unarchived'
+	String get cvUnarchived => 'Unarchived';
+
+	/// en: 'Pinning conversation'
+	String get cvPinning => 'Pinning conversation';
+
+	/// en: 'Pinned conversation'
+	String get cvPinned => 'Pinned conversation';
+
+	/// en: 'Unpinning'
+	String get cvUnpinning => 'Unpinning';
+
+	/// en: 'Unpinned'
+	String get cvUnpinned => 'Unpinned';
+
+	/// en: 'Renaming conversation'
+	String get cvRenaming => 'Renaming conversation';
+
+	/// en: 'Renamed conversation'
+	String get cvRenamed => 'Renamed conversation';
+
+	/// en: 'Managing conversation'
+	String get cvManaging => 'Managing conversation';
+
+	/// en: 'Managed conversation'
+	String get cvManaged => 'Managed conversation';
+
+	/// en: 'Listing conversations'
+	String get cvListing => 'Listing conversations';
+
+	/// en: 'Listed conversations'
+	String get cvListed => 'Listed conversations';
+
+	/// en: 'Searching conversations'
+	String get cvSearching => 'Searching conversations';
+
+	/// en: 'Searched conversations'
+	String get cvSearched => 'Searched conversations';
+
+	/// en: '$n'
+	String cvCount({required Object n}) => '${n}';
+
+	/// en: '$n+'
+	String cvCountMore({required Object n}) => '${n}+';
+
+	/// en: 'no conversations'
+	String get cvEmpty => 'no conversations';
+
+	/// en: '$n hits'
+	String cvHits({required Object n}) => '${n} hits';
+
+	/// en: 'no matches'
+	String get cvNoMatch => 'no matches';
+
+	/// en: 'incl. archived'
+	String get cvInclArchived => 'incl. archived';
+
+	/// en: 'next page'
+	String get cvNextPage => 'next page';
+
+	/// en: 'more pages'
+	String get cvMorePages => 'more pages';
+
+	/// en: 'archived'
+	String get cvArchivedBadge => 'archived';
+
+	/// en: 'pinned'
+	String get cvPinnedBadge => 'pinned';
+
+	/// en: '×$n'
+	String cvChunks({required Object n}) => '×${n}';
+
+	/// en: 'first $n of $total hits'
+	String cvShownOfTotal({required Object n, required Object total}) => 'first ${n} of ${total} hits';
+
+	/// en: 'archived'
+	String get cvStatusArchived => 'archived';
+
+	/// en: 'pinned'
+	String get cvStatusPinned => 'pinned';
+
+	/// en: 'title'
+	String get cvStatusTitle => 'title';
+
+	/// en: 'sending a message auto-unarchives'
+	String get cvAutoUnarchive => 'sending a message auto-unarchives';
 }
 
 // Path: chat.gate
@@ -2862,6 +2958,38 @@ extension on Translations {
 			'chat.tool.noteMetaHandler' => 'no new version, no restart, memory state preserved',
 			'chat.tool.kvName' => 'name',
 			'chat.tool.noteDraining' => 'in-flight runs finish then stop; to abort now use kill_workflow',
+			'chat.tool.cvArchiving' => 'Archiving conversation',
+			'chat.tool.cvArchived' => 'Archived conversation',
+			'chat.tool.cvUnarchiving' => 'Unarchiving',
+			'chat.tool.cvUnarchived' => 'Unarchived',
+			'chat.tool.cvPinning' => 'Pinning conversation',
+			'chat.tool.cvPinned' => 'Pinned conversation',
+			'chat.tool.cvUnpinning' => 'Unpinning',
+			'chat.tool.cvUnpinned' => 'Unpinned',
+			'chat.tool.cvRenaming' => 'Renaming conversation',
+			'chat.tool.cvRenamed' => 'Renamed conversation',
+			'chat.tool.cvManaging' => 'Managing conversation',
+			'chat.tool.cvManaged' => 'Managed conversation',
+			'chat.tool.cvListing' => 'Listing conversations',
+			'chat.tool.cvListed' => 'Listed conversations',
+			'chat.tool.cvSearching' => 'Searching conversations',
+			'chat.tool.cvSearched' => 'Searched conversations',
+			'chat.tool.cvCount' => ({required Object n}) => '${n}',
+			'chat.tool.cvCountMore' => ({required Object n}) => '${n}+',
+			'chat.tool.cvEmpty' => 'no conversations',
+			'chat.tool.cvHits' => ({required Object n}) => '${n} hits',
+			'chat.tool.cvNoMatch' => 'no matches',
+			'chat.tool.cvInclArchived' => 'incl. archived',
+			'chat.tool.cvNextPage' => 'next page',
+			'chat.tool.cvMorePages' => 'more pages',
+			'chat.tool.cvArchivedBadge' => 'archived',
+			'chat.tool.cvPinnedBadge' => 'pinned',
+			'chat.tool.cvChunks' => ({required Object n}) => '×${n}',
+			'chat.tool.cvShownOfTotal' => ({required Object n, required Object total}) => 'first ${n} of ${total} hits',
+			'chat.tool.cvStatusArchived' => 'archived',
+			'chat.tool.cvStatusPinned' => 'pinned',
+			'chat.tool.cvStatusTitle' => 'title',
+			'chat.tool.cvAutoUnarchive' => 'sending a message auto-unarchives',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -3082,6 +3210,8 @@ extension on Translations {
 			'entities.detail.kv.ref' => 'Ref',
 			'entities.detail.kv.healthy' => 'Healthy',
 			'entities.detail.kv.method' => 'Method',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.kv.startedAt' => 'Started',
 			'entities.detail.kv.completedAt' => 'Completed',
 			'entities.detail.kv.triggeredBy' => 'Triggered by',
@@ -3114,8 +3244,6 @@ extension on Translations {
 			'entities.detail.trigger.signatureAlgo' => 'Signature',
 			'entities.detail.trigger.signatureHeader' => 'Signature header',
 			'entities.detail.trigger.events' => 'Events',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.trigger.pattern' => 'Pattern',
 			'entities.detail.trigger.target' => 'Target',
 			'entities.detail.trigger.interval' => 'Interval',

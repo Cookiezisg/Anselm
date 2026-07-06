@@ -8,6 +8,7 @@ import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
 import 'tool_card_skins.dart';
 import 'tool_card_control_approval.dart';
+import 'tool_card_conversation.dart';
 import 'tool_card_document_skill.dart';
 import 'tool_card_entity_get_bodies.dart';
 import 'tool_card_lifecycle.dart';
@@ -698,6 +699,47 @@ final Map<String, ToolCardSpec> _catalog = {
     target: (s) => argStringPartial(s.argsText, 'handlerId'),
     receipt: (t, s) => _configKeysReceipt(t, s.argsText),
     body: (context, s) => lifecycleRefNote(context, kind: 'handler', id: argString(s.argsText, 'handlerId') ?? '', note: Translations.of(context).chat.tool.noteConfig, noteColor: context.colors.warn),
+  ),
+
+  // ── F17 conversation: 3 thin cards. manage = action-dispatched verb + status echo (rename plays
+  // through the autoname typewriter off-card); list/search = a mini-rail of tappable doors.
+  // F17 对话薄卡:manage 状态回显 / list·search 迷你 rail 命中门。──
+  'manage_conversation': ToolCardSpec(
+    verbOf: (t, s, {required bool live}) => manageConversationVerb(t, s, live: live),
+    verb: (t, {required bool live}) => live ? t.chat.tool.cvManaging : t.chat.tool.cvManaged,
+    // Only rename carries a target chip: the new title (args → output on settle). 仅 rename 显标题 chip。
+    target: (s) {
+      final live = argStringPartial(s.argsText, 'title');
+      final settled = argString(s.resultText, 'title');
+      return (settled != null && settled.isNotEmpty) ? settled : live;
+    },
+    body: manageConversationBody,
+  ),
+  'list_conversations': ToolCardSpec(
+    verb: (t, {required bool live}) => live ? t.chat.tool.cvListing : t.chat.tool.cvListed,
+    target: (s) {
+      // 含归档 / 续页 chips (argStringPartial can't read a bool/cursor cheaply — probe the args). chip。
+      final incl = RegExp(r'"includeArchived"\s*:\s*true').hasMatch(s.argsText);
+      final cursor = RegExp(r'"cursor"\s*:\s*"').hasMatch(s.argsText);
+      final parts = <String>[];
+      // (labels resolved lazily in the row; here we just signal presence via a mono word)
+      if (incl) parts.add('archived');
+      if (cursor) parts.add('cursor');
+      return parts.isEmpty ? null : parts.join(' · ');
+    },
+    receipt: (t, s) => listConversationsReceipt(t, s.resultText),
+    hasBodyOf: (s) => conversationHasBody(s.resultText, isSearch: false),
+    body: conversationHitBody(isSearch: false),
+  ),
+  'search_conversations': ToolCardSpec(
+    verb: (t, {required bool live}) => live ? t.chat.tool.cvSearching : t.chat.tool.cvSearched,
+    target: (s) {
+      final q = argStringPartial(s.argsText, 'query');
+      return (q == null || q.trim().isEmpty) ? null : '"${q.trim()}"';
+    },
+    receipt: (t, s) => searchConversationsReceipt(t, s.resultText),
+    hasBodyOf: (s) => conversationHasBody(s.resultText, isSearch: true),
+    body: conversationHitBody(isSearch: true),
   ),
 
   // ── F16 humanloop: ask_user (the danger gate is not a tool — it's the chassis awaitingConfirm phase) ──

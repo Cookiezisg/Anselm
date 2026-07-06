@@ -608,6 +608,38 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get noteMetaHandler => '无新版本、无重启、内存态保全';
 	@override String get kvName => '名称';
 	@override String get noteDraining => '在途运行跑完即停;要立即中止用 kill_workflow';
+	@override String get cvArchiving => '正在归档对话';
+	@override String get cvArchived => '已归档对话';
+	@override String get cvUnarchiving => '正在取消归档';
+	@override String get cvUnarchived => '已取消归档';
+	@override String get cvPinning => '正在置顶对话';
+	@override String get cvPinned => '已置顶对话';
+	@override String get cvUnpinning => '正在取消置顶';
+	@override String get cvUnpinned => '已取消置顶';
+	@override String get cvRenaming => '正在重命名对话';
+	@override String get cvRenamed => '已重命名对话';
+	@override String get cvManaging => '正在整理对话';
+	@override String get cvManaged => '已整理对话';
+	@override String get cvListing => '正在列出对话';
+	@override String get cvListed => '已列出对话';
+	@override String get cvSearching => '正在搜索对话';
+	@override String get cvSearched => '已搜索对话';
+	@override String cvCount({required Object n}) => '${n} 条';
+	@override String cvCountMore({required Object n}) => '${n}+ 条';
+	@override String get cvEmpty => '无对话';
+	@override String cvHits({required Object n}) => '${n} 命中';
+	@override String get cvNoMatch => '无匹配';
+	@override String get cvInclArchived => '含归档';
+	@override String get cvNextPage => '续页';
+	@override String get cvMorePages => '还有更多页';
+	@override String get cvArchivedBadge => '已归档';
+	@override String get cvPinnedBadge => '置顶';
+	@override String cvChunks({required Object n}) => '×${n}';
+	@override String cvShownOfTotal({required Object n, required Object total}) => '显示前 ${n} 条 · 共 ${total} 命中';
+	@override String get cvStatusArchived => '归档';
+	@override String get cvStatusPinned => '置顶';
+	@override String get cvStatusTitle => '标题';
+	@override String get cvAutoUnarchive => '再发消息会自动取消归档';
 }
 
 // Path: chat.gate
@@ -1443,6 +1475,38 @@ extension on TranslationsZhCn {
 			'chat.tool.noteMetaHandler' => '无新版本、无重启、内存态保全',
 			'chat.tool.kvName' => '名称',
 			'chat.tool.noteDraining' => '在途运行跑完即停;要立即中止用 kill_workflow',
+			'chat.tool.cvArchiving' => '正在归档对话',
+			'chat.tool.cvArchived' => '已归档对话',
+			'chat.tool.cvUnarchiving' => '正在取消归档',
+			'chat.tool.cvUnarchived' => '已取消归档',
+			'chat.tool.cvPinning' => '正在置顶对话',
+			'chat.tool.cvPinned' => '已置顶对话',
+			'chat.tool.cvUnpinning' => '正在取消置顶',
+			'chat.tool.cvUnpinned' => '已取消置顶',
+			'chat.tool.cvRenaming' => '正在重命名对话',
+			'chat.tool.cvRenamed' => '已重命名对话',
+			'chat.tool.cvManaging' => '正在整理对话',
+			'chat.tool.cvManaged' => '已整理对话',
+			'chat.tool.cvListing' => '正在列出对话',
+			'chat.tool.cvListed' => '已列出对话',
+			'chat.tool.cvSearching' => '正在搜索对话',
+			'chat.tool.cvSearched' => '已搜索对话',
+			'chat.tool.cvCount' => ({required Object n}) => '${n} 条',
+			'chat.tool.cvCountMore' => ({required Object n}) => '${n}+ 条',
+			'chat.tool.cvEmpty' => '无对话',
+			'chat.tool.cvHits' => ({required Object n}) => '${n} 命中',
+			'chat.tool.cvNoMatch' => '无匹配',
+			'chat.tool.cvInclArchived' => '含归档',
+			'chat.tool.cvNextPage' => '续页',
+			'chat.tool.cvMorePages' => '还有更多页',
+			'chat.tool.cvArchivedBadge' => '已归档',
+			'chat.tool.cvPinnedBadge' => '置顶',
+			'chat.tool.cvChunks' => ({required Object n}) => '×${n}',
+			'chat.tool.cvShownOfTotal' => ({required Object n, required Object total}) => '显示前 ${n} 条 · 共 ${total} 命中',
+			'chat.tool.cvStatusArchived' => '归档',
+			'chat.tool.cvStatusPinned' => '置顶',
+			'chat.tool.cvStatusTitle' => '标题',
+			'chat.tool.cvAutoUnarchive' => '再发消息会自动取消归档',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -1663,6 +1727,8 @@ extension on TranslationsZhCn {
 			'entities.detail.kv.ref' => '引用',
 			'entities.detail.kv.healthy' => '健康',
 			'entities.detail.kv.method' => '方法',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.kv.startedAt' => '开始',
 			'entities.detail.kv.completedAt' => '结束',
 			'entities.detail.kv.triggeredBy' => '触发方',
@@ -1695,8 +1761,6 @@ extension on TranslationsZhCn {
 			'entities.detail.trigger.signatureAlgo' => '签名',
 			'entities.detail.trigger.signatureHeader' => '签名头',
 			'entities.detail.trigger.events' => '事件',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.trigger.pattern' => '匹配',
 			'entities.detail.trigger.target' => '目标',
 			'entities.detail.trigger.interval' => '间隔',

@@ -16,6 +16,7 @@ import 'tool_card_builds_specimens.dart';
 import 'tool_card_entity_get_specimens.dart';
 import 'tool_card_entity_search_specimens.dart';
 import 'tool_card_get_specimens.dart';
+import 'tool_card_conversation_specimens.dart';
 import 'tool_card_lifecycle_specimens.dart';
 import 'tool_card_family_specimens.dart';
 import 'tool_hit_list_specimens.dart';
@@ -204,6 +205,7 @@ final GalleryCategory _toolCards = GalleryCategory('工具卡 Tool Cards', AnIco
   toolCardEntityGetGalleryItem,
   toolCardGetGalleryItem,
   toolCardLifecycleGalleryItem,
+  toolCardConversationGalleryItem,
   toolInteractionGateGalleryItem,
 ]);
 
