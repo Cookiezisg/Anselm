@@ -17,6 +17,7 @@ export 'an_callout.dart';
 export 'an_card.dart';
 export 'an_code_block.dart';
 export 'an_copy_chip.dart';
+export 'an_path_chip.dart';
 export 'an_code_editor.dart';
 export 'an_code_surface.dart';
 export 'an_composer.dart';

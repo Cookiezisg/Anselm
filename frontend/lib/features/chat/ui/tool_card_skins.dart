@@ -370,21 +370,24 @@ Widget writeToolBody(BuildContext context, ToolCardState state) {
   final path = argString(state.argsText, 'file_path') ?? '';
   final content = argString(state.argsText, 'content') ?? '';
   if (content.isEmpty) return const SizedBox.shrink();
-  return AnCodeEditor(code: content, lang: _langOf(path));
+  return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+    if (path.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: AnSpace.s4), child: AnPathChip(path: path)),
+    AnCodeEditor(code: content, lang: _langOf(path)),
+  ]);
 }
 
 /// F1 Edit — old→new as a unified diff (AnVersionDiff: the machine window with green/red
 /// gutters, an existing primitive).
 /// F1 Edit——old→new 渲 unified diff(AnVersionDiff:带绿红软底的机器窗,现成原语)。
 Widget editToolBody(BuildContext context, ToolCardState state) {
+  final path = argString(state.argsText, 'file_path') ?? '';
   final oldS = argString(state.argsText, 'old_string');
   final newS = argString(state.argsText, 'new_string');
   if (oldS == null && newS == null) return const SizedBox.shrink();
-  return AnVersionDiff(
-    before: oldS ?? '',
-    after: newS ?? '',
-    lang: _langOf(argString(state.argsText, 'file_path') ?? ''),
-  );
+  return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+    if (path.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: AnSpace.s4), child: AnPathChip(path: path)),
+    AnVersionDiff(before: oldS ?? '', after: newS ?? '', lang: _langOf(path)),
+  ]);
 }
 
 /// F2 Glob/Grep/LS — the hit-list window: raw result lines in mono (the backend's formats are
