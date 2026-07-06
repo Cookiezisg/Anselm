@@ -4,14 +4,15 @@ type: working
 status: active
 owner: @weilin
 created: 2026-07-06
-reviewed: 2026-07-06
+reviewed: 2026-07-07
 review-due: 2026-10-04
 audience: [human, ai]
+landed-into: references/frontend/features/notifications.md
 ---
 
-# Feature:Notifications(通知中心 + 悬浮 toast)—— 建造文档(在建)
+# Feature:Notifications(通知中心 + 悬浮 toast)—— 建造文档(全落)
 
-> chat B1–B7 收官后的下一模块。调研 workflow `wf_e4f43a45-d02`(10 agent:词表普查 / 契约深读 / 前端底盘 / 通知中心 bp / 桌面 toast bp,五份全对抗验证 confirmed)。四项拍板(§A)已定,按 §F 阶梯建;建完 → 结论提取进 `references/frontend/features/notifications.md` + 本页归 `archive/`。hub 见 [`README`](README.md)。
+> chat B1–B7 收官后的下一模块。调研 workflow `wf_e4f43a45-d02`(10 agent:词表普查 / 契约深读 / 前端底盘 / 通知中心 bp / 桌面 toast bp,五份全对抗验证 confirmed)。四项拍板(§A)已定,按 §F 阶梯 N0–N5 **全部落地**。**当前形态**提取进 [`references/frontend/features/notifications.md`](../../references/frontend/features/notifications.md)——本页留作**建造账**(词表台账 / 契约铁事实 / 决策 / 阶梯,供追溯「当初怎么建的」)。hub 见 [`README`](README.md)。
 
 ## 一句话 + IDEAL
 
@@ -143,4 +144,5 @@ audience: [human, ai]
 | **N2c 托盘组装 + 接壳** | ✅ NotificationFeedNotifier(KeysetQueryPaging + 信号并首/410 重翻 + markRead/All 乐观) · NotificationFeed(通知头+全部已读+时间分组今天/昨天/更早+点行深链顺手已读+空态+无限下滑) · FlowrunInbox sectioned 模式 · app_shell `_NotificationsTray` 组合两段(装配层) + 铃徽标接 unreadCountProvider · demo fixture 12 条 + capture_demo NOTIF 接线。14 测。**真壳 E2E 截图亲验**:铃开接管左岛、两段组合、footer 铃红点、时间分组、名字可扫读。fe-verify 2421 绿。 | ✅ |
 | **N3 toast** | ✅ **AnOverlayHost 迁右上**(全体 toast,用户拍板;Positioned bottom→top 避开 macOS chrome 带 + 栈 newest 顶插 + cap 5→3)· **AnToast hover 暂停消隐**(WCAG 2.2.1,Stopwatch 记已跑/从剩余续跑)· **ToastDispatcher**(core 事件→toast:听流、只 important[渲染 tone warn/danger]弹、neutral 静默归托盘、tone 定时长[danger 常驻/warn 8s]、action 查看深链、(type,entityId) 去抖窗吞风暴、coalesce 只在 dispatcher 绝不进 gateway、复用 notificationLine 文案层 + NotificationSignal 扩 payload 免 REST、app_shell eager watch 保活)· i18n view · capture_toasts 截图夹具。真机截图核对(右上栈/tone 色条/查看+关闭/堆叠)。测 dispatcher 5 + toast host 更新。fe-verify 2427 绿。 | ✅ |
 | **N4 OS 通知** | flutter_local_notifications 接入 + 焦点快照分工 + 深链 payload + macOS 签名 build 真机验证(不入 fe-verify) | ⏳ |
-| **N5 组装收尾** | demo fixture 种满各档通知 + 五电池 + 真机截图全流程(收帧→toast→托盘→深链→已读→badge 归零)+ landed-into | ⏳ |
+| **N4 OS 通知** | ✅ `OsNotifier` 端口(DIP:NoopOsNotifier 默认 / LocalOsNotifier=flutter_local_notifications v22)· `appFocusedProvider`(AppLifecycleState,默认聚焦)· ToastDispatcher 焦点路由(派发时刻快照:聚焦→toast / 未聚焦→OS 通知,点击深链回 app)· app 根 override Local + dispatcher build 一次性 init。**macOS debug build 已验证原生集成编译链接通过**(真投递需签名 build,不入 fe-verify)。测:焦点 provider + 未聚焦→OS 路由(FakeOsNotifier)。 | ✅ |
+| **N5 组装收尾** | ✅ demo fixture 12 条种满各档/时段 + 五电池(49 notifications 测)+ 真壳 E2E 截图(铃托盘)+ 右上 toast 截图 + **macOS debug build 全通** + landed-into 提取进 [`references/frontend/features/notifications.md`](../../references/frontend/features/notifications.md)。 | ✅ |
