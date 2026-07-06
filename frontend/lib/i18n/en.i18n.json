@@ -338,7 +338,13 @@
       "edited2": "$n replaced",
       "fsUnconfirmed": "result unconfirmed",
       "emptyFile": "empty file",
-      "replaceAllNote": "replaced all $n"
+      "replaceAllNote": "replaced all $n",
+      "mcpCalling": "Calling MCP tool",
+      "mcpCalled": "Called MCP tool",
+      "mcpError": "MCP error",
+      "hdCalling": "Calling method",
+      "hdCalled": "Called method",
+      "hdResult": "result"
     },
     "gate": {
       "dangerBadge": "Dangerous",

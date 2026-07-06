@@ -1574,6 +1574,24 @@ class Translations$chat$tool$en {
 
 	/// en: 'replaced all $n'
 	String replaceAllNote({required Object n}) => 'replaced all ${n}';
+
+	/// en: 'Calling MCP tool'
+	String get mcpCalling => 'Calling MCP tool';
+
+	/// en: 'Called MCP tool'
+	String get mcpCalled => 'Called MCP tool';
+
+	/// en: 'MCP error'
+	String get mcpError => 'MCP error';
+
+	/// en: 'Calling method'
+	String get hdCalling => 'Calling method';
+
+	/// en: 'Called method'
+	String get hdCalled => 'Called method';
+
+	/// en: 'result'
+	String get hdResult => 'result';
 }
 
 // Path: chat.gate
@@ -3150,6 +3168,12 @@ extension on Translations {
 			'chat.tool.fsUnconfirmed' => 'result unconfirmed',
 			'chat.tool.emptyFile' => 'empty file',
 			'chat.tool.replaceAllNote' => ({required Object n}) => 'replaced all ${n}',
+			'chat.tool.mcpCalling' => 'Calling MCP tool',
+			'chat.tool.mcpCalled' => 'Called MCP tool',
+			'chat.tool.mcpError' => 'MCP error',
+			'chat.tool.hdCalling' => 'Calling method',
+			'chat.tool.hdCalled' => 'Called method',
+			'chat.tool.hdResult' => 'result',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -3324,14 +3348,14 @@ extension on Translations {
 			'entities.detail.cockpit.runs' => 'Runs',
 			'entities.detail.cockpit.runsCount' => ({required Object n}) => 'Runs · ${n}',
 			'entities.detail.cockpit.nodeGantt' => 'Node timeline',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.cockpit.notRun' => 'Not run',
 			'entities.detail.cockpit.waitingApproval' => 'Awaiting approval',
 			'entities.detail.cockpit.noRuns' => 'No runs yet',
 			'entities.detail.cockpit.noRunsHint' => 'Each run appears here once the workflow is triggered',
 			'entities.detail.cockpit.runGraph' => 'Run graph',
 			'entities.detail.cockpit.nodeDetail' => ({required Object id}) => 'Node · ${id}',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.cockpit.pickNode' => 'Pick a node to see its execution detail',
 			'entities.detail.cockpit.replay' => 'Replay',
 			'entities.detail.cockpit.kill' => 'Kill',

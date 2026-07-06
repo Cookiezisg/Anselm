@@ -12,6 +12,7 @@ import 'tool_card_conversation.dart';
 import 'tool_card_document_skill.dart';
 import 'tool_card_entity_get_bodies.dart';
 import 'tool_card_lifecycle.dart';
+import 'tool_card_mount.dart';
 import 'tool_card_search.dart';
 import 'tool_card_trigger.dart';
 import 'tool_card_workflow.dart';
@@ -931,4 +932,7 @@ final Map<String, ToolCardSpec> _catalog = {
 };
 
 /// Resolve a tool's spec; unknown → generic. 解析工具规格;未知→通用。
-ToolCardSpec toolCardSpecFor(String toolName) => _catalog[toolName] ?? genericToolCardSpec;
+/// Resolve a tool's spec: an exact catalog match, else a NAME-ROUTED mount skin (`mcp__…` /
+/// `handler__method`), else the generic fallback. 解析:精确表 → mount 名路由 → 通用兜底。
+ToolCardSpec toolCardSpecFor(String toolName) =>
+    _catalog[toolName] ?? mountSpecFor(toolName) ?? genericToolCardSpec;

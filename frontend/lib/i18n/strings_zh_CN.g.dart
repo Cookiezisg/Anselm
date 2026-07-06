@@ -680,6 +680,12 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get fsUnconfirmed => '结果未确认';
 	@override String get emptyFile => '空文件';
 	@override String replaceAllNote({required Object n}) => '${n} 处全部替换';
+	@override String get mcpCalling => '正在调用 MCP 工具';
+	@override String get mcpCalled => '已调用 MCP 工具';
+	@override String get mcpError => 'MCP 错误';
+	@override String get hdCalling => '正在调用方法';
+	@override String get hdCalled => '已调用方法';
+	@override String get hdResult => '返回';
 }
 
 // Path: chat.gate
@@ -1587,6 +1593,12 @@ extension on TranslationsZhCn {
 			'chat.tool.fsUnconfirmed' => '结果未确认',
 			'chat.tool.emptyFile' => '空文件',
 			'chat.tool.replaceAllNote' => ({required Object n}) => '${n} 处全部替换',
+			'chat.tool.mcpCalling' => '正在调用 MCP 工具',
+			'chat.tool.mcpCalled' => '已调用 MCP 工具',
+			'chat.tool.mcpError' => 'MCP 错误',
+			'chat.tool.hdCalling' => '正在调用方法',
+			'chat.tool.hdCalled' => '已调用方法',
+			'chat.tool.hdResult' => '返回',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -1761,14 +1773,14 @@ extension on TranslationsZhCn {
 			'entities.detail.cockpit.runs' => '运行',
 			'entities.detail.cockpit.runsCount' => ({required Object n}) => '运行 · ${n} 次',
 			'entities.detail.cockpit.nodeGantt' => '节点甘特',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.cockpit.notRun' => '未运行',
 			'entities.detail.cockpit.waitingApproval' => '等待审批',
 			'entities.detail.cockpit.noRuns' => '尚无运行',
 			'entities.detail.cockpit.noRunsHint' => '触发此工作流后这里会列出每次运行',
 			'entities.detail.cockpit.runGraph' => '运行图',
 			'entities.detail.cockpit.nodeDetail' => ({required Object id}) => '节点 · ${id}',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.cockpit.pickNode' => '选择一个节点查看执行详情',
 			'entities.detail.cockpit.replay' => '重跑',
 			'entities.detail.cockpit.kill' => '终止',

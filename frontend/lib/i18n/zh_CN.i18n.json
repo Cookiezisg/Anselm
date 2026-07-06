@@ -338,7 +338,13 @@
       "edited2": "$n 处替换",
       "fsUnconfirmed": "结果未确认",
       "emptyFile": "空文件",
-      "replaceAllNote": "$n 处全部替换"
+      "replaceAllNote": "$n 处全部替换",
+      "mcpCalling": "正在调用 MCP 工具",
+      "mcpCalled": "已调用 MCP 工具",
+      "mcpError": "MCP 错误",
+      "hdCalling": "正在调用方法",
+      "hdCalled": "已调用方法",
+      "hdResult": "返回"
     },
     "gate": {
       "dangerBadge": "危险",

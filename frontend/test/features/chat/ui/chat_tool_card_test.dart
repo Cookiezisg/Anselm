@@ -148,15 +148,27 @@ void main() {
     expect(find.textContaining('9000'), findsOneWidget);
   });
 
-  testWidgets('schema-less fallback: absurd MCP names and unparseable args still render',
+  testWidgets('an absurd mcp__ name + unparseable args routes to the MCP skin and still renders',
       (tester) async {
+    // B4 F01.5: an mcp__ name now routes to the MCP skin (not the generic fallback). mcp__ 路由 MCP 皮。
     final weird = _call('mcp__x__y____z!!', extra: {'arguments': '{"broken": tru'})
       ..children.add(_result('not json at all'));
     await tester.pumpWidget(_host(ChatToolCard(node: weird), reduced: true));
     await tester.pumpAndSettle();
-    expect(find.text('mcp__x__y____z!!'), findsOneWidget);
+    expect(find.textContaining('MCP'), findsOneWidget); // the MCP verb / chip, not a crash
     await tester.tap(find.byType(AnInteractive).first);
     await tester.pumpAndSettle();
-    expect(find.textContaining('not json at all'), findsOneWidget); // mono fallback 等宽兜底
+    expect(find.textContaining('not json at all'), findsOneWidget); // raw mono body 原始等宽体
+  });
+
+  testWidgets('a genuinely un-cataloged name (no mount pattern) falls to the generic body', (tester) async {
+    final weird = _call('frobnicate!!', extra: {'arguments': '{"broken": tru'})
+      ..children.add(_result('not json at all'));
+    await tester.pumpWidget(_host(ChatToolCard(node: weird), reduced: true));
+    await tester.pumpAndSettle();
+    expect(find.text('frobnicate!!'), findsOneWidget); // generic target = the tool name
+    await tester.tap(find.byType(AnInteractive).first);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('not json at all'), findsOneWidget);
   });
 }
