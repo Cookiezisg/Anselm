@@ -71,7 +71,7 @@ List<({Conversation conv, List<ChatMessage> messages})> showcaseConversations() 
           assistantBlocks: [
             tc('ec1', 'run_function', '{"functionId":"fn_1a2b3c4d5e6f7a8b","args":{"url":"https://x.io/api","retries":3}}',
                 summary: '带重试抓取', danger: 'safe'),
-            tr('ec1', '{"ok":true,"output":{"status":200,"bytes":18422},"errorMsg":"","elapsedMs":942,"logs":"fetch page 1/3\nfetch page 2/3\nfetch page 3/3\ndone"}'),
+            tr('ec1', '{"ok":true,"output":{"status":200,"bytes":18422},"errorMsg":"","elapsedMs":942,"logs":"fetch page 1/3\\nfetch page 2/3\\nfetch page 3/3\\ndone"}'),
             tc('ec2', 'call_handler', '{"handlerId":"hd_5c4b3a2f1e0d9c8b","method":"reconcile","args":{"quarter":"2026Q2"}}',
                 summary: '对账季度账目', danger: 'safe'),
             tr('ec2', '{"result":{"matched":312,"unmatched":4,"total":316}}'),
