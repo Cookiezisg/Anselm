@@ -1,5 +1,6 @@
 import '../../core/contract/messages/block_content.dart';
 import '../../core/messages/block_tree_reducer.dart';
+import '../../core/sse/frame.dart';
 import '../../features/chat/ui/chat_tool_card.dart';
 import 'specimen.dart';
 
@@ -175,16 +176,35 @@ final toolCardFsGalleryItem = GalleryItem(
                     '{"file_path":"/ws/functions/quarters.py","content":"def quarter_of(date):\\n    return (date.month - 1) // 3 + 1\\n"}',
                 result: 'Wrote /ws/functions/quarters.py')),
         span: true),
+    GallerySpecimen('Write · 内容流入中(F01 生长秀:文件随打字长出)',
+        (c) => ChatToolCard(node: _writeStreaming()), span: true),
     GallerySpecimen('Edit · diff 窗(old→new,展开态)',
         (c) => ChatToolCard(
             node: _call('edit', 'Edit',
                 args: '{"file_path":"/ws/functions/rollup.py",'
                     '"old_string":"        by_quarter.setdefault(q, 0)\\n        by_quarter[q] += it.amount",'
                     '"new_string":"        by_quarter.setdefault(q, 0)\\n        # refunds count against the quarter 退款冲减当季\\n        by_quarter[q] += it.amount"}',
-                result: 'Edited /ws/functions/rollup.py')),
+                result: 'Replaced 1 occurrence in /ws/functions/rollup.py.')),
         span: true),
   ],
 );
+
+/// Mid-stream Write: the `content` value is still OPEN — the live window shows what has streamed so far.
+/// 流中 Write:content 未闭合,活窗显已流入部分。
+BlockNode _writeStreaming() {
+  const scope = StreamScope(kind: 'conversation', id: 'cv_w');
+  final r = BlockTreeReducer()
+    ..apply(const StreamEnvelope(
+        seq: 1, scope: scope, id: 'tc_wstream',
+        frame: FrameOpen(node: StreamNode(type: 'tool_call', content: {'name': 'Write'}))))
+    ..apply(const StreamEnvelope(
+        seq: 0, scope: scope, id: 'tc_wstream',
+        frame: FrameDelta(
+            chunk: '{"file_path":"/ws/functions/quarters.py","content":"import datetime\\n\\n'
+                'def quarter_of(date):\\n    \\"\\"\\"Map a date to its fiscal quarter.\\"\\"\\"\\n'
+                '    return (date.month - 1) // 3 + 1\\n\\ndef quarter_start(y')));
+  return r.roots.single;
+}
 
 // ── F2 fs-search fixtures 检索夹具 ──
 

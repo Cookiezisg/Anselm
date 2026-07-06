@@ -366,13 +366,49 @@ Widget killShellBody(BuildContext context, ToolCardState state) {
 
 /// F1 Write — the written content in a code window (language from the extension).
 /// F1 Write——写入内容装代码窗(语言按扩展名)。
+/// Write LIVE body (B4 F01.3) — the file content STREAMS into a window as the LLM types it (the F01
+/// «生长秀»: watch the file being written). Last 8 lines, plain mono while flowing. Write 活窗:内容随
+/// LLM 打字流入(F01 生长秀)。
+Widget writeLiveBody(BuildContext context, ToolCardState state) {
+  final content = argStringPartial(state.argsText, 'content');
+  if (content == null || content.isEmpty) return const SizedBox.shrink();
+  final c = context.colors;
+  final lines = content.split('\n');
+  const tail = 8;
+  final shown = lines.length > tail ? lines.sublist(lines.length - tail) : lines;
+  return ToolWindow(child: Text(shown.join('\n'), style: AnText.code.copyWith(color: c.inkMuted)));
+}
+
+/// Write SETTLED body (B4 F01.3) — the written file, highlighted (reading tier), folded past 50 lines
+/// ([AnFadeCollapse]) and capped at 6000 chars with an escape note; the COPY action carries the full
+/// untruncated content. content="" → an empty-file body hidden (the receipt says «空文件»). Write 落定体:
+/// 高亮代码 + 折叠 + 截头注记 + copy 全量。
 Widget writeToolBody(BuildContext context, ToolCardState state) {
+  final c = context.colors;
+  final t = Translations.of(context);
   final path = argString(state.argsText, 'file_path') ?? '';
   final content = argString(state.argsText, 'content') ?? '';
   if (content.isEmpty) return const SizedBox.shrink();
+  final lineCount = '\n'.allMatches(content).length + 1;
+  final over = content.length > 6000;
+  final shown = over ? content.substring(0, 6000) : content;
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
     if (path.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: AnSpace.s4), child: AnPathChip(path: path)),
-    AnCodeEditor(code: content, lang: _langOf(path)),
+    AnFadeCollapse(
+      collapsible: lineCount > 50,
+      expandLabel: t.chat.tool.proseExpand,
+      collapseLabel: t.chat.tool.proseCollapse,
+      fadeColor: c.surfaceSunken,
+      child: ToolWindow(
+        actions: [WindowCopyButton(copyPayload: content)],
+        child: AnCodeEditor(code: shown, lang: _langOf(path), reading: true),
+      ),
+    ),
+    if (over)
+      Padding(
+        padding: const EdgeInsets.only(top: AnSpace.s4),
+        child: Text(t.chat.tool.contentTruncated, style: AnText.meta.copyWith(color: c.inkFaint)),
+      ),
   ]);
 }
 

@@ -142,6 +142,7 @@ ToolCardSpec _fsOp({
   required String Function(Translations) doneVerb,
   ToolReceipt? Function(Translations, ToolCardState)? receipt,
   Widget Function(BuildContext, ToolCardState)? body,
+  Widget Function(BuildContext, ToolCardState)? liveBody,
   bool bodyless = false,
 }) =>
     ToolCardSpec(
@@ -154,6 +155,7 @@ ToolCardSpec _fsOp({
       // 每个 fs 操作先查错误(红回执+自动展开),否则成功回执。
       receipt: (t, s) => fsErrorReceipt(t, s.resultText) ?? receipt?.call(t, s),
       body: body,
+      liveBody: liveBody,
       bodyless: bodyless,
     );
 
@@ -491,6 +493,8 @@ final Map<String, ToolCardSpec> _catalog = {
       return (text: t.chat.tool.lines(n: '${'\n'.allMatches(content).length + 1}'), tone: ToolReceiptTone.none);
     },
     body: writeToolBody,
+    // The F01 «生长秀»: the file content streams into a window as the LLM types it. 生长秀:内容流入。
+    liveBody: writeLiveBody,
   ),
   'Edit': _fsOp(
     liveVerb: (t) => t.chat.tool.editing,

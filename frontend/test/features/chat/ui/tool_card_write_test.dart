@@ -1,0 +1,76 @@
+import 'package:anselm/core/contract/messages/block_content.dart';
+import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/messages/block_tree_reducer.dart';
+import 'package:anselm/core/sse/frame.dart';
+import 'package:anselm/core/ui/an_code_editor.dart';
+import 'package:anselm/core/ui/an_fade_collapse.dart';
+import 'package:anselm/core/ui/an_path_chip.dart';
+import 'package:anselm/features/chat/ui/chat_tool_card.dart';
+import 'package:anselm/i18n/strings.g.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+// Write live window + settled body (B4 F01.3) — the file streams in as the LLM types (last 8 lines),
+// then settles to a folded, capped, copyable code window. Write 活窗 + 落定体。
+
+BlockNode _settled(String args, String result) => BlockNode(id: 'tc_w', kind: BlockKind.toolCall)
+  ..status = 'completed'
+  ..content = {'name': 'Write', 'arguments': args}
+  ..children.add(BlockNode(id: 'tr_w', kind: BlockKind.toolResult)
+    ..status = 'completed'
+    ..content = {'content': result});
+
+BlockNode _streaming(String chunk) {
+  const scope = StreamScope(kind: 'conversation', id: 'cv_w');
+  final r = BlockTreeReducer()
+    ..apply(const StreamEnvelope(
+        seq: 1, scope: scope, id: 'tc_ws',
+        frame: FrameOpen(node: StreamNode(type: 'tool_call', content: {'name': 'Write'}))))
+    ..apply(StreamEnvelope(seq: 0, scope: scope, id: 'tc_ws', frame: FrameDelta(chunk: chunk)));
+  return r.roots.single;
+}
+
+Widget _host(Widget c) => TranslationProvider(
+    child: MaterialApp(theme: AnTheme.light(), home: Scaffold(body: SingleChildScrollView(child: SizedBox(width: 640, child: c)))));
+
+void main() {
+  setUpAll(() => LocaleSettings.setLocaleRaw('zh-CN'));
+
+  testWidgets('LIVE: the content streams into a window (last lines) while args flow', (tester) async {
+    // content value still OPEN — the live tail shows what has arrived. content 未闭合,活窗显已流入。
+    await tester.pumpWidget(_host(ChatToolCard(
+        node: _streaming('{"file_path":"/ws/a.py","content":"line1\\nline2\\nline3\\ndef f(): pass'))));
+    await tester.pump();
+    expect(find.textContaining('def f(): pass'), findsOneWidget); // the streamed-so-far tail
+  });
+
+  testWidgets('SETTLED: highlighted code window + path chip + copy full content', (tester) async {
+    await tester.pumpWidget(_host(ChatToolCard(node: _settled(
+        r'{"file_path":"/ws/functions/quarters.py","content":"def q(d):\n    return (d.month-1)//3+1\n"}',
+        'Wrote /ws/functions/quarters.py'))));
+    await tester.pump();
+    await tester.tap(find.textContaining('已写入'), warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect(find.byType(AnCodeEditor), findsOneWidget);
+    expect(find.byType(AnPathChip), findsOneWidget); // path header
+    // basename shows in BOTH the row target chip and the body path chip. row chip + body chip 两处。
+    expect(find.text('quarters.py'), findsWidgets);
+  });
+
+  testWidgets('SETTLED: a >50-line file folds under AnFadeCollapse', (tester) async {
+    final big = List.generate(80, (i) => 'line_$i = $i').join(r'\n');
+    await tester.pumpWidget(_host(ChatToolCard(node: _settled(
+        '{"file_path":"/ws/big.py","content":"$big"}', 'Wrote /ws/big.py'))));
+    await tester.pump();
+    await tester.tap(find.textContaining('已写入'), warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect(find.byType(AnFadeCollapse), findsOneWidget);
+  });
+
+  testWidgets('empty content → no body (receipt says 空文件)', (tester) async {
+    await tester.pumpWidget(_host(ChatToolCard(node: _settled('{"file_path":"/ws/empty.txt","content":""}', 'Wrote /ws/empty.txt'))));
+    await tester.pump();
+    expect(find.textContaining(t.chat.tool.emptyFile), findsOneWidget); // receipt
+    expect(find.byType(AnCodeEditor), findsNothing); // no code body
+  });
+}
