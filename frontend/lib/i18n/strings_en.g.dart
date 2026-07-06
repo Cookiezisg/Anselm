@@ -1703,6 +1703,57 @@ class Translations$chat$tool$en {
 
 	/// en: 'The trajectory streamed live; replay it from the execution record'
 	String get agentTrajectoryNote => 'The trajectory streamed live; replay it from the execution record';
+
+	/// en: 'this page'
+	String get beadPageScope => 'this page';
+
+	/// en: 'Searching function runs'
+	String get searchingFnExec => 'Searching function runs';
+
+	/// en: 'Searched function runs'
+	String get searchedFnExec => 'Searched function runs';
+
+	/// en: 'Searching handler calls'
+	String get searchingHdCalls => 'Searching handler calls';
+
+	/// en: 'Searched handler calls'
+	String get searchedHdCalls => 'Searched handler calls';
+
+	/// en: 'Searching agent runs'
+	String get searchingAgentExec => 'Searching agent runs';
+
+	/// en: 'Searched agent runs'
+	String get searchedAgentExec => 'Searched agent runs';
+
+	/// en: 'Searching MCP calls'
+	String get searchingMcpCalls => 'Searching MCP calls';
+
+	/// en: 'Searched MCP calls'
+	String get searchedMcpCalls => 'Searched MCP calls';
+
+	/// en: '$ok ✓ · $failed ✗'
+	String aggRollup({required Object ok, required Object failed}) => '${ok} ✓ · ${failed} ✗';
+
+	/// en: '✗ incl. cancelled/timeout'
+	String get aggNote => '✗ incl. cancelled/timeout';
+
+	/// en: 'No records'
+	String get logNoRecords => 'No records';
+
+	/// en: 'No matches'
+	String get logNoMatch => 'No matches';
+
+	/// en: 'chat'
+	String get byChat => 'chat';
+
+	/// en: 'agent'
+	String get byAgent => 'agent';
+
+	/// en: 'workflow'
+	String get byWorkflow => 'workflow';
+
+	/// en: 'manual'
+	String get byManual => 'manual';
 }
 
 // Path: chat.gate
@@ -3322,6 +3373,23 @@ extension on Translations {
 			'chat.tool.agentSteps' => ({required Object n}) => '${n} steps',
 			'chat.tool.agentTimeout' => 'Timed out',
 			'chat.tool.agentTrajectoryNote' => 'The trajectory streamed live; replay it from the execution record',
+			'chat.tool.beadPageScope' => 'this page',
+			'chat.tool.searchingFnExec' => 'Searching function runs',
+			'chat.tool.searchedFnExec' => 'Searched function runs',
+			'chat.tool.searchingHdCalls' => 'Searching handler calls',
+			'chat.tool.searchedHdCalls' => 'Searched handler calls',
+			'chat.tool.searchingAgentExec' => 'Searching agent runs',
+			'chat.tool.searchedAgentExec' => 'Searched agent runs',
+			'chat.tool.searchingMcpCalls' => 'Searching MCP calls',
+			'chat.tool.searchedMcpCalls' => 'Searched MCP calls',
+			'chat.tool.aggRollup' => ({required Object ok, required Object failed}) => '${ok} ✓ · ${failed} ✗',
+			'chat.tool.aggNote' => '✗ incl. cancelled/timeout',
+			'chat.tool.logNoRecords' => 'No records',
+			'chat.tool.logNoMatch' => 'No matches',
+			'chat.tool.byChat' => 'chat',
+			'chat.tool.byAgent' => 'agent',
+			'chat.tool.byWorkflow' => 'workflow',
+			'chat.tool.byManual' => 'manual',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -3442,6 +3510,8 @@ extension on Translations {
 			'entities.detail.tab.logs' => 'Logs',
 			'entities.detail.tab.runs' => 'Runs',
 			'entities.detail.tab.activity' => 'Activity',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.tab.dispatch' => 'Dispatch',
 			'entities.detail.verb.run' => 'Run',
 			'entities.detail.verb.call' => 'Call',
@@ -3459,8 +3529,6 @@ extension on Translations {
 			'entities.detail.gate.instance' => 'instance',
 			'entities.detail.codeToggle.expand' => ({required Object n}) => 'Show all (${n} lines)',
 			'entities.detail.codeToggle.collapse' => 'Collapse',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.sec.code' => 'Code',
 			'entities.detail.sec.input' => 'Inputs',
 			'entities.detail.sec.output' => 'Outputs',

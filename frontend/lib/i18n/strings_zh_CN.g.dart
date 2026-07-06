@@ -723,6 +723,23 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String agentSteps({required Object n}) => '${n} 步';
 	@override String get agentTimeout => '超时';
 	@override String get agentTrajectoryNote => '轨迹已流经,重载后于执行档案回放';
+	@override String get beadPageScope => '本页';
+	@override String get searchingFnExec => '正在翻查函数执行';
+	@override String get searchedFnExec => '已翻查函数执行';
+	@override String get searchingHdCalls => '正在翻查处理器调用';
+	@override String get searchedHdCalls => '已翻查处理器调用';
+	@override String get searchingAgentExec => '正在翻查智能体执行';
+	@override String get searchedAgentExec => '已翻查智能体执行';
+	@override String get searchingMcpCalls => '正在翻查 MCP 调用';
+	@override String get searchedMcpCalls => '已翻查 MCP 调用';
+	@override String aggRollup({required Object ok, required Object failed}) => '${ok} ✓ · ${failed} ✗';
+	@override String get aggNote => '✗ 含取消/超时';
+	@override String get logNoRecords => '无记录';
+	@override String get logNoMatch => '无匹配';
+	@override String get byChat => '对话';
+	@override String get byAgent => '智能体';
+	@override String get byWorkflow => '工作流';
+	@override String get byManual => '手动';
 }
 
 // Path: chat.gate
@@ -1673,6 +1690,23 @@ extension on TranslationsZhCn {
 			'chat.tool.agentSteps' => ({required Object n}) => '${n} 步',
 			'chat.tool.agentTimeout' => '超时',
 			'chat.tool.agentTrajectoryNote' => '轨迹已流经,重载后于执行档案回放',
+			'chat.tool.beadPageScope' => '本页',
+			'chat.tool.searchingFnExec' => '正在翻查函数执行',
+			'chat.tool.searchedFnExec' => '已翻查函数执行',
+			'chat.tool.searchingHdCalls' => '正在翻查处理器调用',
+			'chat.tool.searchedHdCalls' => '已翻查处理器调用',
+			'chat.tool.searchingAgentExec' => '正在翻查智能体执行',
+			'chat.tool.searchedAgentExec' => '已翻查智能体执行',
+			'chat.tool.searchingMcpCalls' => '正在翻查 MCP 调用',
+			'chat.tool.searchedMcpCalls' => '已翻查 MCP 调用',
+			'chat.tool.aggRollup' => ({required Object ok, required Object failed}) => '${ok} ✓ · ${failed} ✗',
+			'chat.tool.aggNote' => '✗ 含取消/超时',
+			'chat.tool.logNoRecords' => '无记录',
+			'chat.tool.logNoMatch' => '无匹配',
+			'chat.tool.byChat' => '对话',
+			'chat.tool.byAgent' => '智能体',
+			'chat.tool.byWorkflow' => '工作流',
+			'chat.tool.byManual' => '手动',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -1793,6 +1827,8 @@ extension on TranslationsZhCn {
 			'entities.detail.tab.logs' => '日志',
 			'entities.detail.tab.runs' => '运行',
 			'entities.detail.tab.activity' => '活动',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.tab.dispatch' => '派发',
 			'entities.detail.verb.run' => '运行',
 			'entities.detail.verb.call' => '调用',
@@ -1810,8 +1846,6 @@ extension on TranslationsZhCn {
 			'entities.detail.gate.instance' => 'instance',
 			'entities.detail.codeToggle.expand' => ({required Object n}) => '展开全部 (${n} 行)',
 			'entities.detail.codeToggle.collapse' => '收起',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.sec.code' => '代码',
 			'entities.detail.sec.input' => '输入',
 			'entities.detail.sec.output' => '输出',

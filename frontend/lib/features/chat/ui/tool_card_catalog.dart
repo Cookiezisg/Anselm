@@ -16,6 +16,7 @@ import 'tool_card_fs_search.dart';
 import 'tool_card_entity_get_bodies.dart';
 import 'tool_card_lifecycle.dart';
 import 'tool_card_mount.dart';
+import 'tool_card_runlog.dart';
 import 'tool_card_search.dart';
 import 'tool_card_trigger.dart';
 import 'tool_card_workflow.dart';
@@ -162,6 +163,31 @@ ToolCardSpec _fsOp({
       liveBody: liveBody,
       bodyless: bodyless,
     );
+
+/// F09 aggregate-search entry — verb pair + a target chip (first present of [chipArgs]/[chipArg]) +
+/// the ok✓/failed✗ rollup receipt + empty→no-body (the receipt IS the card). F09 检索族条目工厂。
+ToolCardSpec _searchLog({
+  required String Function(Translations) running,
+  required String Function(Translations) done,
+  required Widget Function(BuildContext, ToolCardState) body,
+  String? chipArg,
+  List<String> chipArgs = const [],
+}) {
+  final args = chipArg != null ? [chipArg] : chipArgs;
+  return ToolCardSpec(
+    verb: (t, {required bool live}) => live ? running(t) : done(t),
+    target: (s) {
+      for (final a in args) {
+        final v = argStringPartial(s.argsText, a);
+        if (v != null && v.isNotEmpty) return v.length > 12 ? '${v.substring(0, 12)}…' : v;
+      }
+      return null;
+    },
+    receipt: (t, s) => aggregatesReceipt(t, s.resultText),
+    hasBodyOf: (s) => aggregatesHasBody(s.resultText),
+    body: body,
+  );
+}
 
 ToolCardSpec _search({
   required String Function(Translations) liveVerb,
@@ -895,6 +921,22 @@ final Map<String, ToolCardSpec> _catalog = {
     resultFailed: (s) => replayResultFailed(s.resultText),
     body: replayFlowrunBody,
   ),
+
+  // ── F09 run-log search (aggregate families: fn exec / hd calls / agent runs / mcp calls) ──
+  // All share {list, nextCursor?, hasMore, aggregates}; body = bead strip + slim RunLedger; the receipt
+  // is the ok✓/failed✗ rollup (grey — archive failures aren't THIS call failing). F09 检索族。
+  'search_function_executions': _searchLog(
+      running: (t) => t.chat.tool.searchingFnExec, done: (t) => t.chat.tool.searchedFnExec,
+      chipArg: 'functionId', body: fnExecBody),
+  'search_handler_calls': _searchLog(
+      running: (t) => t.chat.tool.searchingHdCalls, done: (t) => t.chat.tool.searchedHdCalls,
+      chipArg: 'handlerId', body: hdCallsBody),
+  'search_agent_executions': _searchLog(
+      running: (t) => t.chat.tool.searchingAgentExec, done: (t) => t.chat.tool.searchedAgentExec,
+      chipArgs: const ['agentId', 'conversationId', 'flowrunId'], body: agentExecBody),
+  'search_mcp_calls': _searchLog(
+      running: (t) => t.chat.tool.searchingMcpCalls, done: (t) => t.chat.tool.searchedMcpCalls,
+      chipArg: 'serverId', body: mcpCallsBody),
 
   // ── F16 humanloop: ask_user (the danger gate is not a tool — it's the chassis awaitingConfirm phase) ──
   // 三段动词:正在提问(live)→ 等待你回答(awaiting,底盘渲门)→ 已回答/已跳过/空答案(按结果散文)。

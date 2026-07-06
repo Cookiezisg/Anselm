@@ -25,3 +25,10 @@ Widget toolNavPill(BuildContext context, {required String kind, required String 
         : null,
   );
 }
+
+/// Navigate to a {kind, id}'s panel if one exists (a no-op otherwise). Used by tappable rows that aren't
+/// pills (a RunLedger row). 跳到 {kind,id} 面板(无则 no-op);供非药丸的可点行用。
+void toolNavTo(BuildContext context, String kind, String id) {
+  final loc = panelLocationFor(kind, id);
+  if (loc != null && context.mounted) context.go(loc);
+}
