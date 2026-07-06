@@ -45,6 +45,7 @@ class TranslationsZhCn extends Translations with BaseTranslations<AppLocale, Tra
 	@override late final _Translations$action$zh_CN action = _Translations$action$zh_CN._(_root);
 	@override late final _Translations$feedback$zh_CN feedback = _Translations$feedback$zh_CN._(_root);
 	@override late final _Translations$shell$zh_CN shell = _Translations$shell$zh_CN._(_root);
+	@override late final _Translations$notifications$zh_CN notifications = _Translations$notifications$zh_CN._(_root);
 	@override late final _Translations$ref$zh_CN ref = _Translations$ref$zh_CN._(_root);
 	@override late final _Translations$graph$zh_CN graph = _Translations$graph$zh_CN._(_root);
 	@override late final _Translations$a11y$zh_CN a11y = _Translations$a11y$zh_CN._(_root);
@@ -186,6 +187,31 @@ class _Translations$shell$zh_CN extends Translations$shell$en {
 	@override String get workspaceFallback => '工作区';
 	@override String get newWorkspace => '新建工作区';
 	@override String get workspaceSettings => '工作区设置';
+}
+
+// Path: notifications
+class _Translations$notifications$zh_CN extends Translations$notifications$en {
+	_Translations$notifications$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => '通知';
+	@override String get needsYou => '待你处理';
+	@override String get feed => '通知';
+	@override String get markAllRead => '全部已读';
+	@override String get markRead => '标为已读';
+	@override String get emptyTitle => '都处理完了';
+	@override String get emptyHint => '新动态会出现在这里。';
+	@override String get today => '今天';
+	@override String get yesterday => '昨天';
+	@override String get earlier => '更早';
+	@override String get unnamed => '（未命名）';
+	@override String get unknown => '有新动态';
+	@override late final _Translations$notifications$kind$zh_CN kind = _Translations$notifications$kind$zh_CN._(_root);
+	@override late final _Translations$notifications$verb$zh_CN verb = _Translations$notifications$verb$zh_CN._(_root);
+	@override String get depBrokenOne => '导致 1 处引用悬空';
+	@override String depBrokenMany({required Object n}) => '导致 ${n} 处引用悬空';
 }
 
 // Path: ref
@@ -873,6 +899,47 @@ class _Translations$shell$ocean$zh_CN extends Translations$shell$ocean$en {
 	@override String get entities => '实体';
 	@override String get scheduler => '调度';
 	@override String get documents => '文档';
+}
+
+// Path: notifications.kind
+class _Translations$notifications$kind$zh_CN extends Translations$notifications$kind$en {
+	_Translations$notifications$kind$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get memory => '记忆';
+	@override String get sandbox => '环境';
+	@override String get relation => '依赖';
+}
+
+// Path: notifications.verb
+class _Translations$notifications$verb$zh_CN extends Translations$notifications$verb$en {
+	_Translations$notifications$verb$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get created => '已创建';
+	@override String get edited => '已编辑';
+	@override String get reverted => '已回滚';
+	@override String get updated => '已更新';
+	@override String get deleted => '已删除';
+	@override String get envRebuilt => '环境已重建';
+	@override String get configUpdated => '配置已更新';
+	@override String get configCleared => '配置已清空';
+	@override String get installed => '已安装';
+	@override String get removed => '已移除';
+	@override String get reconnected => '已重连';
+	@override String get reconnectFailed => '重连失败';
+	@override String get crashed => '崩溃了';
+	@override String get restartFailed => '重启失败';
+	@override String get runFailed => '运行失败';
+	@override String get needsAttention => '需要关注';
+	@override String get recovered => '已恢复';
+	@override String get waitingApproval => '等待审批';
+	@override String get envReady => '环境就绪';
+	@override String get envFailed => '环境构建失败';
 }
 
 // Path: graph.kind
@@ -1957,6 +2024,43 @@ extension on TranslationsZhCn {
 			'shell.workspaceFallback' => '工作区',
 			'shell.newWorkspace' => '新建工作区',
 			'shell.workspaceSettings' => '工作区设置',
+			'notifications.title' => '通知',
+			'notifications.needsYou' => '待你处理',
+			'notifications.feed' => '通知',
+			'notifications.markAllRead' => '全部已读',
+			'notifications.markRead' => '标为已读',
+			'notifications.emptyTitle' => '都处理完了',
+			'notifications.emptyHint' => '新动态会出现在这里。',
+			'notifications.today' => '今天',
+			'notifications.yesterday' => '昨天',
+			'notifications.earlier' => '更早',
+			'notifications.unnamed' => '（未命名）',
+			'notifications.unknown' => '有新动态',
+			'notifications.kind.memory' => '记忆',
+			'notifications.kind.sandbox' => '环境',
+			'notifications.kind.relation' => '依赖',
+			'notifications.verb.created' => '已创建',
+			'notifications.verb.edited' => '已编辑',
+			'notifications.verb.reverted' => '已回滚',
+			'notifications.verb.updated' => '已更新',
+			'notifications.verb.deleted' => '已删除',
+			'notifications.verb.envRebuilt' => '环境已重建',
+			'notifications.verb.configUpdated' => '配置已更新',
+			'notifications.verb.configCleared' => '配置已清空',
+			'notifications.verb.installed' => '已安装',
+			'notifications.verb.removed' => '已移除',
+			'notifications.verb.reconnected' => '已重连',
+			'notifications.verb.reconnectFailed' => '重连失败',
+			'notifications.verb.crashed' => '崩溃了',
+			'notifications.verb.restartFailed' => '重启失败',
+			'notifications.verb.runFailed' => '运行失败',
+			'notifications.verb.needsAttention' => '需要关注',
+			'notifications.verb.recovered' => '已恢复',
+			'notifications.verb.waitingApproval' => '等待审批',
+			'notifications.verb.envReady' => '环境就绪',
+			'notifications.verb.envFailed' => '环境构建失败',
+			'notifications.depBrokenOne' => '导致 1 处引用悬空',
+			'notifications.depBrokenMany' => ({required Object n}) => '导致 ${n} 处引用悬空',
 			'ref.function' => '函数',
 			'ref.handler' => '处理器',
 			'ref.workflow' => '工作流',

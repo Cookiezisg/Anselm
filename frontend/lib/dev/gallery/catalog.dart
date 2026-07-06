@@ -32,6 +32,7 @@ import 'tool_hit_list_specimens.dart';
 import 'tool_interaction_gate_specimens.dart';
 import 'chat_turn_specimens.dart';
 import 'markdown_specimens.dart';
+import 'notification_specimens.dart';
 import 'specimen.dart';
 import 'user_turn_specimens.dart';
 
@@ -48,7 +49,14 @@ final List<GalleryCategory> galleryCatalog = [
   _chatRail,
   _toolCards,
   _entityViz,
+  _notifications,
 ];
+
+// ── Notifications (WRK-058 N2) — the left-island bell tray content: the notification row across every
+// event family + tone, read/hover/stress. 通知——左岛铃托盘内容:通知行逐族×tone。
+final GalleryCategory _notifications = GalleryCategory('通知 Notifications', AnIcons.bell, [
+  GalleryItem('NotificationRow 通知行', '未读点·tone 图标·{类}「{名}」{动词}·相对时间 + 可选灰详情行;已读整行灰留列表;hover→mark-read', notificationRowSpecimens),
+]);
 
 // ── Entity viz — per-kind entity visualizations. Currently workflow (graph canvas / node gantt / run
 // board); function & handler use the plain KV-document overview (no bespoke hero).

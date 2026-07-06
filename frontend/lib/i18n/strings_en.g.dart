@@ -49,6 +49,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$action$en action = Translations$action$en.internal(_root);
 	late final Translations$feedback$en feedback = Translations$feedback$en.internal(_root);
 	late final Translations$shell$en shell = Translations$shell$en.internal(_root);
+	late final Translations$notifications$en notifications = Translations$notifications$en.internal(_root);
 	late final Translations$ref$en ref = Translations$ref$en.internal(_root);
 	late final Translations$graph$en graph = Translations$graph$en.internal(_root);
 	late final Translations$a11y$en a11y = Translations$a11y$en.internal(_root);
@@ -353,6 +354,60 @@ class Translations$shell$en {
 
 	/// en: 'Workspace settings'
 	String get workspaceSettings => 'Workspace settings';
+}
+
+// Path: notifications
+class Translations$notifications$en {
+	Translations$notifications$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Notifications'
+	String get title => 'Notifications';
+
+	/// en: 'Needs you'
+	String get needsYou => 'Needs you';
+
+	/// en: 'Notifications'
+	String get feed => 'Notifications';
+
+	/// en: 'Mark all read'
+	String get markAllRead => 'Mark all read';
+
+	/// en: 'Mark read'
+	String get markRead => 'Mark read';
+
+	/// en: 'You're all caught up'
+	String get emptyTitle => 'You\'re all caught up';
+
+	/// en: 'New activity shows up here.'
+	String get emptyHint => 'New activity shows up here.';
+
+	/// en: 'Today'
+	String get today => 'Today';
+
+	/// en: 'Yesterday'
+	String get yesterday => 'Yesterday';
+
+	/// en: 'Earlier'
+	String get earlier => 'Earlier';
+
+	/// en: '(unnamed)'
+	String get unnamed => '(unnamed)';
+
+	/// en: 'New activity'
+	String get unknown => 'New activity';
+
+	late final Translations$notifications$kind$en kind = Translations$notifications$kind$en.internal(_root);
+	late final Translations$notifications$verb$en verb = Translations$notifications$verb$en.internal(_root);
+
+	/// en: 'left 1 reference dangling'
+	String get depBrokenOne => 'left 1 reference dangling';
+
+	/// en: 'left $n references dangling'
+	String depBrokenMany({required Object n}) => 'left ${n} references dangling';
 }
 
 // Path: ref
@@ -2119,6 +2174,93 @@ class Translations$shell$ocean$en {
 	String get documents => 'Documents';
 }
 
+// Path: notifications.kind
+class Translations$notifications$kind$en {
+	Translations$notifications$kind$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Memory'
+	String get memory => 'Memory';
+
+	/// en: 'Environment'
+	String get sandbox => 'Environment';
+
+	/// en: 'Dependency'
+	String get relation => 'Dependency';
+}
+
+// Path: notifications.verb
+class Translations$notifications$verb$en {
+	Translations$notifications$verb$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'created'
+	String get created => 'created';
+
+	/// en: 'edited'
+	String get edited => 'edited';
+
+	/// en: 'reverted'
+	String get reverted => 'reverted';
+
+	/// en: 'updated'
+	String get updated => 'updated';
+
+	/// en: 'deleted'
+	String get deleted => 'deleted';
+
+	/// en: 'environment rebuilt'
+	String get envRebuilt => 'environment rebuilt';
+
+	/// en: 'config updated'
+	String get configUpdated => 'config updated';
+
+	/// en: 'config cleared'
+	String get configCleared => 'config cleared';
+
+	/// en: 'installed'
+	String get installed => 'installed';
+
+	/// en: 'removed'
+	String get removed => 'removed';
+
+	/// en: 'reconnected'
+	String get reconnected => 'reconnected';
+
+	/// en: 'reconnect failed'
+	String get reconnectFailed => 'reconnect failed';
+
+	/// en: 'crashed'
+	String get crashed => 'crashed';
+
+	/// en: 'restart failed'
+	String get restartFailed => 'restart failed';
+
+	/// en: 'run failed'
+	String get runFailed => 'run failed';
+
+	/// en: 'needs attention'
+	String get needsAttention => 'needs attention';
+
+	/// en: 'recovered'
+	String get recovered => 'recovered';
+
+	/// en: 'is waiting for approval'
+	String get waitingApproval => 'is waiting for approval';
+
+	/// en: 'environment ready'
+	String get envReady => 'environment ready';
+
+	/// en: 'environment build failed'
+	String get envFailed => 'environment build failed';
+}
+
 // Path: graph.kind
 class Translations$graph$kind$en {
 	Translations$graph$kind$en.internal(this._root);
@@ -3830,6 +3972,43 @@ extension on Translations {
 			'shell.workspaceFallback' => 'Workspace',
 			'shell.newWorkspace' => 'New workspace',
 			'shell.workspaceSettings' => 'Workspace settings',
+			'notifications.title' => 'Notifications',
+			'notifications.needsYou' => 'Needs you',
+			'notifications.feed' => 'Notifications',
+			'notifications.markAllRead' => 'Mark all read',
+			'notifications.markRead' => 'Mark read',
+			'notifications.emptyTitle' => 'You\'re all caught up',
+			'notifications.emptyHint' => 'New activity shows up here.',
+			'notifications.today' => 'Today',
+			'notifications.yesterday' => 'Yesterday',
+			'notifications.earlier' => 'Earlier',
+			'notifications.unnamed' => '(unnamed)',
+			'notifications.unknown' => 'New activity',
+			'notifications.kind.memory' => 'Memory',
+			'notifications.kind.sandbox' => 'Environment',
+			'notifications.kind.relation' => 'Dependency',
+			'notifications.verb.created' => 'created',
+			'notifications.verb.edited' => 'edited',
+			'notifications.verb.reverted' => 'reverted',
+			'notifications.verb.updated' => 'updated',
+			'notifications.verb.deleted' => 'deleted',
+			'notifications.verb.envRebuilt' => 'environment rebuilt',
+			'notifications.verb.configUpdated' => 'config updated',
+			'notifications.verb.configCleared' => 'config cleared',
+			'notifications.verb.installed' => 'installed',
+			'notifications.verb.removed' => 'removed',
+			'notifications.verb.reconnected' => 'reconnected',
+			'notifications.verb.reconnectFailed' => 'reconnect failed',
+			'notifications.verb.crashed' => 'crashed',
+			'notifications.verb.restartFailed' => 'restart failed',
+			'notifications.verb.runFailed' => 'run failed',
+			'notifications.verb.needsAttention' => 'needs attention',
+			'notifications.verb.recovered' => 'recovered',
+			'notifications.verb.waitingApproval' => 'is waiting for approval',
+			'notifications.verb.envReady' => 'environment ready',
+			'notifications.verb.envFailed' => 'environment build failed',
+			'notifications.depBrokenOne' => 'left 1 reference dangling',
+			'notifications.depBrokenMany' => ({required Object n}) => 'left ${n} references dangling',
 			'ref.function' => 'Function',
 			'ref.handler' => 'Handler',
 			'ref.workflow' => 'Workflow',
