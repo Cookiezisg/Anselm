@@ -28,20 +28,62 @@ import 'tool_interaction_gate.dart';
 ///
 /// [ToolWindow] is that container. 机器窗容器。
 class ToolWindow extends StatelessWidget {
-  const ToolWindow({required this.child, this.header, super.key});
+  const ToolWindow({required this.child, this.header, this.actions = const [], super.key});
 
   final Widget child;
 
   /// Optional window header (e.g. the command line echoed terminal-style). 可选窗头(命令回显)。
   final Widget? header;
 
+  /// Header-RIGHT action slot (R3 copy family — copy-full-output/command). Rendered flush-right on the
+  /// header row (or a lone row when there's no [header]). 头右动作槽(R3 复制家族:copy 全文/命令)。
+  final List<Widget> actions;
+
   @override
   Widget build(BuildContext context) {
-    // The machine window IS the shared sunken panel (its header slot carries the command echo).
-    // 机器窗即共享凹陷面板(header 槽承载命令回显)。
+    // The machine window IS the shared sunken panel (its header slot carries the command echo + actions).
+    // 机器窗即共享凹陷面板(header 槽承载命令回显 + 动作)。
+    final head = (header == null && actions.isEmpty)
+        ? null
+        : Row(children: [
+            if (header != null) Expanded(child: header!) else const Spacer(),
+            for (final a in actions) Padding(padding: const EdgeInsets.only(left: AnSpace.s4), child: a),
+          ]);
     return SizedBox(
       width: double.infinity,
-      child: AnSunkenPanel(header: header, child: child),
+      child: AnSunkenPanel(header: head, child: child),
+    );
+  }
+}
+
+/// A window COPY action (WRK-056 R3 / #7) — copies [copyPayload] (the UNTRUNCATED full text; a rendered
+/// view may cap, the copy never does) and flashes a ✓. Sits in a [ToolWindow.actions] header slot.
+/// 窗复制动作:复制未截断全量 + ✓ 一闪。
+class WindowCopyButton extends StatefulWidget {
+  const WindowCopyButton({required this.copyPayload, super.key});
+  final String copyPayload;
+  @override
+  State<WindowCopyButton> createState() => _WindowCopyButtonState();
+}
+
+class _WindowCopyButtonState extends State<WindowCopyButton> {
+  bool _done = false;
+  Future<void> _copy() async {
+    await Clipboard.setData(ClipboardData(text: widget.copyPayload));
+    if (!mounted) return;
+    setState(() => _done = true);
+    Future<void>.delayed(AnMotion.dwell, () {
+      if (mounted) setState(() => _done = false);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return AnInteractive(
+      onTap: _copy,
+      builder: (ctx, states) => Icon(_done ? AnIcons.check : AnIcons.copy,
+          size: AnSize.iconSm, color: _done ? c.ok : (states.isActive ? c.ink : c.inkFaint)),
     );
   }
 }
@@ -151,23 +193,87 @@ Widget _cappedMono(BuildContext context, String raw, {Color? color}) {
 /// F3 Bash — the terminal window: `$ command` echo header + combined output (progress while
 /// it ran, else the result), exit footer left intact (the honest raw record).
 /// F3 Bash——终端窗:`$ 命令` 回显头 + 合并输出(有 progress 用之,否则 result),exit footer 原样保留。
+final _bashFooterExit = RegExp(r'\[exit code: (-?\d+)\]');
+final _bashFooterStrip = RegExp(r'\n*(\[[^\]]*\]\n?)*\[exit code: -?\d+\]\s*$');
+final _bashBgSpawn = RegExp(r'Started background command \(bash_id=(bsh_[0-9a-f]+)\):\s*(.*)');
+const _bashHeadTrunc = '[truncated'; // '...[truncated N bytes from start]'
+
+/// The Bash settled body (B4.5): the command echo header + a copy action, the output in a bounded
+/// scrollback terminal ([AnTermViewport], ANSI + fold), and the footer STRIPPED into a colored bottom
+/// bar (exit / note chips). A background spawn shows a thin session-chip body instead. Bash 落定体:
+/// $ cmd 头 + copy + 有界终端窗 + 底条(exit/note chips);后台=薄会话 chip 体。
 Widget bashToolBody(BuildContext context, ToolCardState state) {
   final c = context.colors;
-  final cmd = argString(state.argsText, 'command') ?? '';
-  final output = state.progressText.isNotEmpty ? state.progressText : state.resultText;
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
+  final t = Translations.of(context);
+  final result = state.resultText;
+
+  // Background spawn → a thin session body (copyable bsh_id + the poll hint). 后台→薄会话体。
+  final bg = _bashBgSpawn.firstMatch(result);
+  if (bg != null) {
+    final id = bg.group(1)!;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
       _intent(context, state),
-      ToolWindow(
-        header: cmd.isEmpty
-            ? null
-            : Text('\$ $cmd', style: AnText.code.copyWith(color: c.ink)),
-        child: _cappedMono(context, output),
+      AnCopyChip(value: id),
+      Padding(
+        padding: const EdgeInsets.only(top: AnSpace.s6),
+        child: Text(t.chat.tool.bashBgHint, style: AnText.meta.copyWith(color: c.inkFaint)),
       ),
-    ],
-  );
+    ]);
+  }
+
+  final cmd = argString(state.argsText, 'command') ?? '';
+  final progress = state.progressText;
+  // The body source: progressText (full, no footer) is preferred; else strip the resultText footer.
+  // The COPY payload is the full untruncated text (incl. footer when from result). 体源 + 复制全量。
+  final usingProgress = progress.isNotEmpty;
+  final body = usingProgress ? progress : result.replaceFirst(_bashFooterStrip, '').trimRight();
+  final copyPayload = usingProgress ? progress : result;
+  // Head-truncation note ONLY when the body IS the resultText and carries the marker (progressText is
+  // full — never mark it truncated). 头截断注记仅当体=resultText 且带 marker(progressText 全量不标)。
+  final headTruncated = !usingProgress && result.contains(_bashHeadTrunc);
+
+  return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+    _intent(context, state),
+    ToolWindow(
+      header: cmd.isEmpty
+          ? null
+          : Text('\$ $cmd', style: AnText.code.copyWith(color: c.ink), maxLines: 8, overflow: TextOverflow.ellipsis),
+      actions: [WindowCopyButton(copyPayload: copyPayload)],
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+        if (headTruncated)
+          Padding(
+            padding: const EdgeInsets.only(bottom: AnSpace.s4),
+            child: Text(t.chat.tool.bashHeadTruncated, style: AnText.meta.copyWith(color: c.inkFaint)),
+          ),
+        body.isEmpty
+            ? Text(t.chat.tool.bashNoOutput, style: AnText.code.copyWith(color: c.inkFaint))
+            : AnTermViewport(text: body),
+      ]),
+    ),
+    ?_bashBottomBar(context, t, result),
+  ]);
 }
+
+/// The Bash bottom bar — the stripped footer as colored chips: a NOTE chip (blocked/timeout/cancelled)
+/// XOR the exit chip (exit -1 is redundant beside a note). null when there's no exit footer. 底条。
+Widget? _bashBottomBar(BuildContext context, Translations t, String result) {
+  final m = _bashFooterExit.firstMatch(result);
+  if (m == null) return null;
+  final code = int.parse(m.group(1)!);
+  Widget chip;
+  if (RegExp(r'\[blocked:').hasMatch(result)) {
+    chip = AnBadge(t.chat.tool.bashBlocked, tone: AnTone.danger);
+  } else if (_bashTimeoutBar.hasMatch(result)) {
+    chip = AnBadge(t.chat.tool.timedOut, tone: AnTone.danger);
+  } else if (RegExp(r'\[cancelled\]').hasMatch(result)) {
+    chip = AnBadge(t.chat.tool.bashCancelled, tone: AnTone.none);
+  } else {
+    chip = AnBadge(t.chat.tool.exit(code: code), tone: code == 0 ? AnTone.ok : AnTone.danger);
+  }
+  return Padding(padding: const EdgeInsets.only(top: AnSpace.s6), child: Align(alignment: Alignment.centerLeft, child: chip));
+}
+
+final _bashTimeoutBar = RegExp(r'\[command timed out after');
 
 /// F1 Write — the written content in a code window (language from the extension).
 /// F1 Write——写入内容装代码窗(语言按扩展名)。

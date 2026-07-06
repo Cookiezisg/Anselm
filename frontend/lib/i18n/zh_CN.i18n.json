@@ -315,7 +315,11 @@
       "killing": "正在终止",
       "killed3": "已终止",
       "backToLatest": "回到最新",
-      "showEarlier": "显示更早 $n 行"
+      "showEarlier": "显示更早 $n 行",
+      "bashBgHint": "用 BashOutput 轮询新输出,或 KillShell 终止",
+      "bashHeadTruncated": "输出过长,已弃头保尾",
+      "bashNoOutput": "(无输出)",
+      "ranBg": "已转入后台"
     },
     "gate": {
       "dangerBadge": "危险",

@@ -69,9 +69,12 @@ void main() {
       ..children.add(_result('boom\n[exit code: 1]'));
     await tester.pumpWidget(_host(ChatToolCard(node: bash)));
     await tester.pumpAndSettle();
-    expect(find.textContaining('exit 1'), findsOneWidget);
+    // B4.5: «exit 1» now appears TWICE — the collapsed-row receipt + the stripped-footer bottom bar chip.
+    expect(find.textContaining('exit 1'), findsNWidgets(2));
     expect(find.byType(ToolWindow), findsOneWidget); // auto-expanded 自动展开
     expect(find.textContaining('\$ npm test'), findsOneWidget); // command echo header 命令回显头
+    // The [exit code: 1] footer is STRIPPED from the terminal body (it's a chip now). footer 剥离出正文。
+    expect(find.textContaining('[exit code:'), findsNothing);
   });
 
   testWidgets('Bash live tail: machine window while running, gone when settled',

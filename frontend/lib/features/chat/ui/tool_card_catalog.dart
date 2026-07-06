@@ -820,6 +820,14 @@ final Map<String, ToolCardSpec> _catalog = {
   // ── F3 shell ──
   'Bash': ToolCardSpec(
     verb: (t, {required bool live}) => live ? t.chat.tool.runningCmd : t.chat.tool.ranCmd,
+    // Background variant: a `run_in_background:true` arg (or the settled background-spawn result) → «已转入
+    // 后台» instead of «已运行命令» (the command detached, it didn't complete). 后台变体动词。
+    verbOf: (t, s, {required bool live}) {
+      final bg = RegExp(r'"run_in_background"\s*:\s*true').hasMatch(s.argsText) ||
+          s.resultText.startsWith('Started background command');
+      if (!bg) return live ? t.chat.tool.runningCmd : t.chat.tool.ranCmd;
+      return live ? t.chat.tool.runningCmd : t.chat.tool.ranBg;
+    },
     target: (s) {
       final c = argString(s.argsText, 'command');
       return c == null ? null : commandChip(c);
@@ -830,7 +838,8 @@ final Map<String, ToolCardSpec> _catalog = {
         blockedLabel: t.chat.tool.bashBlocked,
         cancelledLabel: t.chat.tool.bashCancelled,
         exitUnknownLabel: t.chat.tool.bashExitUnknown,
-        backgroundLabel: (id) => t.chat.tool.bashBackground(id: id)),
+        // Short id in the row receipt (the full copyable bsh_id is in the body). 收起行短 id。
+        backgroundLabel: (id) => t.chat.tool.bashBackground(id: id.length > 10 ? '${id.substring(0, 10)}…' : id)),
     body: bashToolBody,
     // The soul of the family: the little live terminal under the row (termFold + ANSI). 族魂:活的小终端。
     liveBody: (context, s) =>

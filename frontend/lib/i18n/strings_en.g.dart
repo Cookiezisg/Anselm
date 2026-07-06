@@ -1505,6 +1505,18 @@ class Translations$chat$tool$en {
 
 	/// en: 'show $n earlier lines'
 	String showEarlier({required Object n}) => 'show ${n} earlier lines';
+
+	/// en: 'poll with BashOutput, or KillShell to terminate'
+	String get bashBgHint => 'poll with BashOutput, or KillShell to terminate';
+
+	/// en: 'output too long — head dropped, tail kept'
+	String get bashHeadTruncated => 'output too long — head dropped, tail kept';
+
+	/// en: '(no output)'
+	String get bashNoOutput => '(no output)';
+
+	/// en: 'moved to background'
+	String get ranBg => 'moved to background';
 }
 
 // Path: chat.gate
@@ -3058,6 +3070,10 @@ extension on Translations {
 			'chat.tool.killed3' => 'Terminated',
 			'chat.tool.backToLatest' => 'latest',
 			'chat.tool.showEarlier' => ({required Object n}) => 'show ${n} earlier lines',
+			'chat.tool.bashBgHint' => 'poll with BashOutput, or KillShell to terminate',
+			'chat.tool.bashHeadTruncated' => 'output too long — head dropped, tail kept',
+			'chat.tool.bashNoOutput' => '(no output)',
+			'chat.tool.ranBg' => 'moved to background',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -3257,12 +3273,12 @@ extension on Translations {
 			'entities.detail.kv.envId' => 'env id',
 			'entities.detail.kv.status' => 'Status',
 			'entities.detail.kv.syncedAt' => 'Last synced',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.kv.error' => 'Error',
 			'entities.detail.kv.model' => 'Model',
 			'entities.detail.kv.provider' => 'Provider',
 			'entities.detail.kv.instanceId' => 'Instance',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.kv.version' => 'Version',
 			'entities.detail.kv.elapsed' => 'Elapsed',
 			'entities.detail.kv.time' => 'Time',

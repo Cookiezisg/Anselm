@@ -54,13 +54,17 @@ const String _testRunTail = ' ✓ src/rollup.test.ts (8 tests) 214ms\n'
     'Test Files  3 passed (3)\n'
     '     Tests  16 passed (16)';
 
-const String _bashOkOutput = '$_testRunTail\n  Duration  1.92s\n\n[exit code: 0]';
+// progress = raw output (no footer, the Close snapshot); result = raw + the [exit code] footer (which
+// bashToolBody strips into the bottom bar). progress=原始输出(无 footer);result=原始+footer。
+const String _bashOkRaw = '$_testRunTail\n  Duration  1.92s';
+const String _bashOkResult = '$_bashOkRaw\n\n[exit code: 0]';
 
-const String _bashFailOutput = ' ✓ src/rollup.test.ts (8 tests) 214ms\n'
+const String _bashFailRaw = ' ✓ src/rollup.test.ts (8 tests) 214ms\n'
     ' ✗ src/quarters.test.ts (5 tests | 1 failed) 96ms\n'
     '   → expected Q4 total 143000, got 141200\n'
     'Test Files  1 failed | 1 passed (2)\n'
-    '     Tests  1 failed | 15 passed (16)\n\n[exit code: 1]';
+    '     Tests  1 failed | 15 passed (16)';
+const String _bashFailResult = '$_bashFailRaw\n\n[exit code: 1]';
 
 final toolCardShellGalleryItem = GalleryItem(
   'ChatToolCard · shell 族',
@@ -74,27 +78,34 @@ final toolCardShellGalleryItem = GalleryItem(
                 summary: 'Run the test suite', danger: 'cautious',
                 progress: _testRunTail, progressLive: true)),
         span: true),
-    GallerySpecimen('完成 · exit 0 回执(尾巴已溶进展开体)',
+    GallerySpecimen('完成 · exit 0(footer 剥离→底条 · \$ cmd 头 · copy)',
         (c) => ChatToolCard(
             node: _call('bash-ok', 'Bash',
                 args: '{"command":"npm test"}',
                 summary: 'Run the test suite', danger: 'cautious',
-                progress: _bashOkOutput, result: _bashOkOutput)),
+                progress: _bashOkRaw, result: _bashOkResult)),
         span: true),
-    GallerySpecimen('失败 · exit 1(自动展开终端窗,命令回显头)',
+    GallerySpecimen('失败 · exit 1(红底条自动展开,命令回显头)',
         (c) => ChatToolCard(
             node: _call('bash-fail', 'Bash',
                 args: '{"command":"npm test"}',
                 summary: 'Run the test suite', danger: 'cautious',
-                progress: _bashFailOutput,
-                result: _bashFailOutput)),
+                progress: _bashFailRaw,
+                result: _bashFailResult)),
         span: true),
-    GallerySpecimen('超时(note 解析成回执)',
+    GallerySpecimen('超时(note→底条 danger)',
         (c) => ChatToolCard(
             node: _call('bash-timeout', 'Bash',
                 args: '{"command":"sleep 999"}',
-                result: '\n[command timed out after 120s]\n[exit code: -1]')),
+                result: 'partial output\n\n[command timed out after 2m0s]\n[exit code: -1]')),
         span: true, stress: true),
+    GallerySpecimen('后台 spawn(薄会话体:可复制 bsh_id + 轮询提示)',
+        (c) => ChatToolCard(
+            node: _call('bash-bg', 'Bash',
+                args: '{"command":"npm run dev","run_in_background":true}',
+                result: 'Started background command (bash_id=bsh_1a2b3c4d5e6f7a8b): npm run dev\n'
+                    'Use BashOutput with this bash_id to poll new output, or KillShell to terminate.')),
+        span: true),
   ],
 );
 

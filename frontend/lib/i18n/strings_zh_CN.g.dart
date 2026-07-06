@@ -657,6 +657,10 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get killed3 => '已终止';
 	@override String get backToLatest => '回到最新';
 	@override String showEarlier({required Object n}) => '显示更早 ${n} 行';
+	@override String get bashBgHint => '用 BashOutput 轮询新输出,或 KillShell 终止';
+	@override String get bashHeadTruncated => '输出过长,已弃头保尾';
+	@override String get bashNoOutput => '(无输出)';
+	@override String get ranBg => '已转入后台';
 }
 
 // Path: chat.gate
@@ -1541,6 +1545,10 @@ extension on TranslationsZhCn {
 			'chat.tool.killed3' => '已终止',
 			'chat.tool.backToLatest' => '回到最新',
 			'chat.tool.showEarlier' => ({required Object n}) => '显示更早 ${n} 行',
+			'chat.tool.bashBgHint' => '用 BashOutput 轮询新输出,或 KillShell 终止',
+			'chat.tool.bashHeadTruncated' => '输出过长,已弃头保尾',
+			'chat.tool.bashNoOutput' => '(无输出)',
+			'chat.tool.ranBg' => '已转入后台',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -1740,12 +1748,12 @@ extension on TranslationsZhCn {
 			'entities.detail.kv.envId' => 'env id',
 			'entities.detail.kv.status' => '状态',
 			'entities.detail.kv.syncedAt' => '最近同步',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.kv.error' => '错误',
 			'entities.detail.kv.model' => '模型',
 			'entities.detail.kv.provider' => '提供方',
 			'entities.detail.kv.instanceId' => '实例',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.kv.version' => '版本',
 			'entities.detail.kv.elapsed' => '耗时',
 			'entities.detail.kv.time' => '时间',

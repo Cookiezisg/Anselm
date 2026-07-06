@@ -315,7 +315,11 @@
       "killing": "Terminating",
       "killed3": "Terminated",
       "backToLatest": "latest",
-      "showEarlier": "show $n earlier lines"
+      "showEarlier": "show $n earlier lines",
+      "bashBgHint": "poll with BashOutput, or KillShell to terminate",
+      "bashHeadTruncated": "output too long — head dropped, tail kept",
+      "bashNoOutput": "(no output)",
+      "ranBg": "moved to background"
     },
     "gate": {
       "dangerBadge": "Dangerous",
