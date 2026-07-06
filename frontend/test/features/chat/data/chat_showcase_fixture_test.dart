@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:anselm/core/contract/messages/block_content.dart';
-import 'package:anselm/core/messages/block_tree_reducer.dart';
 import 'package:anselm/features/chat/data/chat_showcase_fixture.dart';
 import 'package:anselm/features/chat/model/conversation_transcript.dart';
 import 'package:anselm/features/chat/ui/tool_card_catalog.dart';
