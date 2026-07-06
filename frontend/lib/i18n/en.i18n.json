@@ -191,7 +191,10 @@
       "serverTruncatedNote": "first $n of $total (server-truncated)",
       "wfActive": "active",
       "refCount": "$n refs",
-      "trgListening": "listening"
+      "trgListening": "listening",
+      "rawResult": "raw result",
+      "contentTruncated": "content truncated — see the full text in the entity panel",
+      "noActiveVersion": "no active version"
     },
     "gate": {
       "dangerBadge": "Dangerous",

@@ -533,6 +533,9 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get wfActive => '活跃';
 	@override String refCount({required Object n}) => '${n} 处引用';
 	@override String get trgListening => '监听中';
+	@override String get rawResult => '原始返回';
+	@override String get contentTruncated => '内容超长已截断——在实体面板看全文';
+	@override String get noActiveVersion => '无活跃版本';
 }
 
 // Path: chat.gate
@@ -1293,6 +1296,9 @@ extension on TranslationsZhCn {
 			'chat.tool.wfActive' => '活跃',
 			'chat.tool.refCount' => ({required Object n}) => '${n} 处引用',
 			'chat.tool.trgListening' => '监听中',
+			'chat.tool.rawResult' => '原始返回',
+			'chat.tool.contentTruncated' => '内容超长已截断——在实体面板看全文',
+			'chat.tool.noActiveVersion' => '无活跃版本',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -1617,11 +1623,11 @@ extension on TranslationsZhCn {
 			'entities.detail.editor.errSelfLoop' => '不支持自环:节点不能连自身',
 			'entities.detail.editor.errDuplicateEdge' => '该连线已存在',
 			'entities.detail.editor.errBackEdgeSource' => '回边仅可从 control / approval 发出',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.editor.errApprovalPortsFull' => 'approval 仅有 yes / no 两个出口',
 			'entities.detail.editor.on' => '开',
 			'entities.detail.editor.off' => '关',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.editor.inspectorTitle' => '检查器',
 			'entities.detail.editor.inspectorEmptyHint' => '在画布上选一个节点或边来编辑。',
 			'entities.detail.editor.edge' => '边',

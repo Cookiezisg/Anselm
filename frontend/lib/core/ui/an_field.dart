@@ -30,6 +30,7 @@ class AnKvRow {
     this.options = const [],
     this.wrap = false,
     this.meta = false,
+    this.mono = false,
   })  : tags = null,
         tagsPlaceholder = null,
         assert(!(editable && wrap), 'wrap is for read-only display rows — editable values are flush-right. wrap 仅限只读行');
@@ -46,7 +47,8 @@ class AnKvRow {
         editor = AnEditKind.input,
         options = const [],
         wrap = false,
-        meta = false;
+        meta = false,
+        mono = false;
 
   final String label;
   final String? value;
@@ -62,12 +64,18 @@ class AnKvRow {
   /// Metadata value (timestamp / count) — chrome 13 value tier even in a content list. 元数据值(恒 13 档)。
   final bool meta;
 
+  /// ROW-LEVEL monospace (WRK-056 #9) — this one value is mono (an id / CEL / signature / `modelId @
+  /// apiKeyId` / path) even in a prose-valued list, so an [EntityGetBody] can mix a wrapping
+  /// description with a mono id in ONE list. OR-ed with the list-level [AnKv.mono]. 行级 mono:单值等宽
+  /// (id/CEL/签名/path),与散文值混排一列;与列表级 mono 取或。
+  final bool mono;
+
   /// Non-null → this is a tags row (see [AnKvRow.tags]). 非空=标签行。
   final List<String>? tags;
   final String? tagsPlaceholder;
 
   AnKvRow _withValue(String v) =>
-      AnKvRow(label, v, editable: editable, editor: editor, options: options, wrap: wrap, meta: meta);
+      AnKvRow(label, v, editable: editable, editor: editor, options: options, wrap: wrap, meta: meta, mono: mono);
   AnKvRow _withTags(List<String> t) => AnKvRow.tags(label, t, tagsPlaceholder: tagsPlaceholder);
 }
 
@@ -121,9 +129,12 @@ class AnKv extends StatelessWidget {
   void _emitRow(int i, AnKvRow next) => onChanged!([...rows]..[i] = next);
 
   /// The row's value-tier style: chrome for [dense] lists and [AnKvRow.meta] rows, content otherwise.
-  /// 行值档:dense 列表与 meta 行走 chrome,其余内容档。
-  TextStyle _valueStyle(AnKvRow row) =>
-      (dense || row.meta) ? AnText.value(mono: mono) : AnText.valueReading(mono: mono);
+  /// Monospace is the list-level [mono] OR the row-level [AnKvRow.mono] (per-row ids/CEL in a prose
+  /// list). 行值档:dense/meta 走 chrome、余内容档;等宽=列表级 mono 或行级 row.mono。
+  TextStyle _valueStyle(AnKvRow row) {
+    final m = mono || row.mono;
+    return (dense || row.meta) ? AnText.value(mono: m) : AnText.valueReading(mono: m);
+  }
 
   @override
   Widget build(BuildContext context) {

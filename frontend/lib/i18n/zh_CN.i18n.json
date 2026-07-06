@@ -191,7 +191,10 @@
       "serverTruncatedNote": "前 $n · 共 $total(服务端截断)",
       "wfActive": "活跃",
       "refCount": "$n 处引用",
-      "trgListening": "监听中"
+      "trgListening": "监听中",
+      "rawResult": "原始返回",
+      "contentTruncated": "内容超长已截断——在实体面板看全文",
+      "noActiveVersion": "无活跃版本"
     },
     "gate": {
       "dangerBadge": "危险",

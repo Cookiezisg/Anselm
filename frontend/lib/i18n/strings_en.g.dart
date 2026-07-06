@@ -1133,6 +1133,15 @@ class Translations$chat$tool$en {
 
 	/// en: 'listening'
 	String get trgListening => 'listening';
+
+	/// en: 'raw result'
+	String get rawResult => 'raw result';
+
+	/// en: 'content truncated — see the full text in the entity panel'
+	String get contentTruncated => 'content truncated — see the full text in the entity panel';
+
+	/// en: 'no active version'
+	String get noActiveVersion => 'no active version';
 }
 
 // Path: chat.gate
@@ -2562,6 +2571,9 @@ extension on Translations {
 			'chat.tool.wfActive' => 'active',
 			'chat.tool.refCount' => ({required Object n}) => '${n} refs',
 			'chat.tool.trgListening' => 'listening',
+			'chat.tool.rawResult' => 'raw result',
+			'chat.tool.contentTruncated' => 'content truncated — see the full text in the entity panel',
+			'chat.tool.noActiveVersion' => 'no active version',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -2886,11 +2898,11 @@ extension on Translations {
 			'entities.detail.editor.errSelfLoop' => 'No self-loops: a node cannot connect to itself',
 			'entities.detail.editor.errDuplicateEdge' => 'That edge already exists',
 			'entities.detail.editor.errBackEdgeSource' => 'A back edge may only leave a control / approval node',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.editor.errApprovalPortsFull' => 'An approval has only yes / no outputs',
 			'entities.detail.editor.on' => 'On',
 			'entities.detail.editor.off' => 'Off',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.editor.inspectorTitle' => 'Inspector',
 			'entities.detail.editor.inspectorEmptyHint' => 'Pick a node or edge on the canvas to edit it.',
 			'entities.detail.editor.edge' => 'Edge',
