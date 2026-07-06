@@ -70,33 +70,17 @@ class TranscriptPeek extends StatelessWidget {
     ]);
   }
 
-  Widget _blockRow(BuildContext context, BlockNode n) {
-    final c = context.colors;
-    final t = Translations.of(context);
-    switch (n.kind) {
-      case BlockKind.reasoning:
-        return _line(c, t.chat.tool.transcriptThought, n.displayText, c.inkFaint);
-      case BlockKind.text:
-        return _line(c, t.chat.tool.transcriptReply, n.displayText, c.inkMuted);
-      case BlockKind.toolCall:
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: AnSpace.s2),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-            Icon(AnIcons.toolIcon(n.name ?? ''), size: AnSize.iconSm, color: c.inkFaint),
-            const SizedBox(width: AnSpace.s6),
-            Text(n.name ?? '', style: AnText.mono.copyWith(color: c.inkMuted)),
-            if ((n.summary ?? '').isNotEmpty) ...[
-              const SizedBox(width: AnSpace.s6),
-              Flexible(child: Text(n.summary!, maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.meta.copyWith(color: c.inkFaint))),
-            ],
-          ]),
-        );
-      default:
-        return const SizedBox.shrink(); // tool_result nests under a call; other kinds are not peeked. 其余不 peek。
-    }
-  }
+  Widget _blockRow(BuildContext context, BlockNode n) => transcriptBlockRow(context, n);
+}
 
-  Widget _line(AnColors c, String tag, String text, Color color) => Padding(
+/// One compact read-only row for a trajectory block — reasoning (dim tagged line) / text (tagged line) /
+/// tool_call (glyph + mono name + summary). Shared by [TranscriptPeek] (settled trace) and
+/// [NestedRunPane] (live E3 subtree). tool_result / other kinds render nothing (they nest / aren't
+/// peeked). 轨迹块紧凑只读行(思考/回复/工具调用)。
+Widget transcriptBlockRow(BuildContext context, BlockNode n) {
+  final c = context.colors;
+  final t = Translations.of(context);
+  Widget line(String tag, String text, Color color) => Padding(
         padding: const EdgeInsets.symmetric(vertical: AnSpace.s2),
         child: RichText(
           maxLines: 2,
@@ -107,4 +91,66 @@ class TranscriptPeek extends StatelessWidget {
           ]),
         ),
       );
+  switch (n.kind) {
+    case BlockKind.reasoning:
+      return line(t.chat.tool.transcriptThought, n.displayText, c.inkFaint);
+    case BlockKind.text:
+      return line(t.chat.tool.transcriptReply, n.displayText, c.inkMuted);
+    case BlockKind.toolCall:
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: AnSpace.s2),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+          Icon(AnIcons.toolIcon(n.name ?? ''), size: AnSize.iconSm, color: c.inkFaint),
+          const SizedBox(width: AnSpace.s6),
+          Text(n.name ?? '', style: AnText.mono.copyWith(color: c.inkMuted)),
+          if ((n.summary ?? '').isNotEmpty) ...[
+            const SizedBox(width: AnSpace.s6),
+            Flexible(child: Text(n.summary!, maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.meta.copyWith(color: c.inkFaint))),
+          ],
+        ]),
+      );
+    default:
+      return const SizedBox.shrink(); // tool_result nests under a call; other kinds are not peeked. 其余不 peek。
+  }
+}
+
+/// NestedRunPane (WRK-056 #47) — the LIVE E3 trajectory window under a Subagent / invoke_agent card while
+/// its run streams. A machine window (never thinking's whisper grammar) holding the nested reasoning/
+/// text/tool_call blocks as compact rows; the LAST row shimmers while the run is in flight. It reads
+/// state.nested (the tool_call's non-result child subtree) — present only DURING the live session (E3
+/// blocks aren't persisted), so on reload the card falls back to the «replay from record» note.
+/// NestedRunPane:嵌套运行活窗(机器窗内嵌套块紧凑行,末行 live 微光)。
+class NestedRunPane extends StatelessWidget {
+  const NestedRunPane({required this.nested, this.live = false, this.tail = 8, super.key});
+
+  final List<BlockNode> nested;
+  final bool live;
+
+  /// While live, show only the last [tail] rows (a growing tail, not the whole history). 活期只显尾。
+  final int tail;
+
+  @override
+  Widget build(BuildContext context) {
+    if (nested.isEmpty) return const SizedBox.shrink();
+    final rows = live && nested.length > tail ? nested.sublist(nested.length - tail) : nested;
+    return ToolWindow(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+        for (final (i, n) in rows.indexed)
+          if (live && i == rows.length - 1 && n.isOpen)
+            AnShimmerText(_peekText(context, n), style: AnText.code.copyWith(color: context.colors.inkFaint))
+          else
+            transcriptBlockRow(context, n),
+      ]),
+    );
+  }
+
+  String _peekText(BuildContext context, BlockNode n) {
+    final t = Translations.of(context);
+    return switch (n.kind) {
+      BlockKind.reasoning => '${t.chat.tool.transcriptThought}  ${n.displayText}',
+      BlockKind.text => '${t.chat.tool.transcriptReply}  ${n.displayText}',
+      BlockKind.toolCall => n.name ?? '',
+      _ => '',
+    };
+  }
 }

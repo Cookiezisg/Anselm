@@ -444,7 +444,16 @@
       "transcriptEmpty": "无轨迹记录",
       "transcriptCapped": "显示 $shown/$total 块",
       "transcriptThought": "思考",
-      "transcriptReply": "回复"
+      "transcriptReply": "回复",
+      "spawningSubagent": "正在派子代理",
+      "spawnedSubagent": "已派子代理",
+      "subagentTask": "任务",
+      "subagentAnswer": "回答",
+      "subagentTraceNote": "轨迹仅流不落盘——用 get_subagent_trace 回放",
+      "gettingSubTrace": "正在调阅子代理轨迹",
+      "gotSubTrace": "已调阅子代理轨迹",
+      "subTraceRuns": "$n 个子代理运行",
+      "subTraceNoRuns": "本对话无子代理运行"
     },
     "gate": {
       "dangerBadge": "危险",

@@ -57,6 +57,7 @@ class ToolCardState {
     required this.errorText,
     required this.progressText,
     required this.progressLive,
+    this.nested = const [],
   });
 
   final ToolCardPhase phase;
@@ -83,17 +84,31 @@ class ToolCardState {
   final String progressText;
   final bool progressLive;
 
+  /// The E3 nested trajectory — the tool_call's child blocks that are NOT its tool_result / progress
+  /// (a Subagent / invoke_agent run's streamed reasoning/text/tool_call subtree, nested by parentBlockId).
+  /// LIVE only (never persisted to message_blocks) → empty on a history reload; the durable record is the
+  /// run's transcript (get_subagent_trace / get_agent_execution). E3 嵌套轨迹:子块子树(仅流不落盘)。
+  final List<BlockNode> nested;
+
   bool get hasBody =>
-      summary.isNotEmpty || argsText.isNotEmpty || progressText.isNotEmpty || resultText.isNotEmpty || errorText.isNotEmpty;
+      summary.isNotEmpty || argsText.isNotEmpty || progressText.isNotEmpty || resultText.isNotEmpty || errorText.isNotEmpty || nested.isNotEmpty;
 
   /// Derive from a tool_call node. [awaitingConfirm] is the interaction-signal overlay (V6).
   /// 从 tool_call 节点派生;awaitingConfirm 是 interaction 信号覆盖层(V6 接线)。
   factory ToolCardState.of(BlockNode node, {bool awaitingConfirm = false}) {
     BlockNode? result;
     BlockNode? progress;
+    final nested = <BlockNode>[];
     for (final c in node.children) {
-      if (c.kind == BlockKind.toolResult) result ??= c;
-      if (c.kind == BlockKind.progress) progress ??= c;
+      if (c.kind == BlockKind.toolResult) {
+        result ??= c;
+      } else if (c.kind == BlockKind.progress) {
+        progress ??= c;
+      } else {
+        // Anything else nested under a tool_call is the E3 trajectory (a subagent / invoke_agent run's
+        // reasoning/text/tool_call subtree). E3 嵌套轨迹子块。
+        nested.add(c);
+      }
     }
     final resultText = result?.displayText ?? '';
     final phase = _phase(node, result, resultText, awaitingConfirm);
@@ -107,6 +122,7 @@ class ToolCardState {
       errorText: result?.error ?? '',
       progressText: _progressText(progress),
       progressLive: progress?.isOpen ?? false,
+      nested: nested,
     );
   }
 

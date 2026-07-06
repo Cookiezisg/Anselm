@@ -444,7 +444,16 @@
       "transcriptEmpty": "No trajectory recorded",
       "transcriptCapped": "showing $shown/$total blocks",
       "transcriptThought": "thought",
-      "transcriptReply": "reply"
+      "transcriptReply": "reply",
+      "spawningSubagent": "Spawning subagent",
+      "spawnedSubagent": "Spawned subagent",
+      "subagentTask": "Task",
+      "subagentAnswer": "Answer",
+      "subagentTraceNote": "The trajectory streamed live only — replay it with get_subagent_trace",
+      "gettingSubTrace": "Opening subagent trace",
+      "gotSubTrace": "Opened subagent trace",
+      "subTraceRuns": "$n subagent runs",
+      "subTraceNoRuns": "No subagent runs in this conversation"
     },
     "gate": {
       "dangerBadge": "Dangerous",

@@ -786,6 +786,15 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String transcriptCapped({required Object shown, required Object total}) => '显示 ${shown}/${total} 块';
 	@override String get transcriptThought => '思考';
 	@override String get transcriptReply => '回复';
+	@override String get spawningSubagent => '正在派子代理';
+	@override String get spawnedSubagent => '已派子代理';
+	@override String get subagentTask => '任务';
+	@override String get subagentAnswer => '回答';
+	@override String get subagentTraceNote => '轨迹仅流不落盘——用 get_subagent_trace 回放';
+	@override String get gettingSubTrace => '正在调阅子代理轨迹';
+	@override String get gotSubTrace => '已调阅子代理轨迹';
+	@override String subTraceRuns({required Object n}) => '${n} 个子代理运行';
+	@override String get subTraceNoRuns => '本对话无子代理运行';
 }
 
 // Path: chat.gate
@@ -1799,6 +1808,15 @@ extension on TranslationsZhCn {
 			'chat.tool.transcriptCapped' => ({required Object shown, required Object total}) => '显示 ${shown}/${total} 块',
 			'chat.tool.transcriptThought' => '思考',
 			'chat.tool.transcriptReply' => '回复',
+			'chat.tool.spawningSubagent' => '正在派子代理',
+			'chat.tool.spawnedSubagent' => '已派子代理',
+			'chat.tool.subagentTask' => '任务',
+			'chat.tool.subagentAnswer' => '回答',
+			'chat.tool.subagentTraceNote' => '轨迹仅流不落盘——用 get_subagent_trace 回放',
+			'chat.tool.gettingSubTrace' => '正在调阅子代理轨迹',
+			'chat.tool.gotSubTrace' => '已调阅子代理轨迹',
+			'chat.tool.subTraceRuns' => ({required Object n}) => '${n} 个子代理运行',
+			'chat.tool.subTraceNoRuns' => '本对话无子代理运行',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -1864,6 +1882,8 @@ extension on TranslationsZhCn {
 			'ref.document' => '文档',
 			'ref.conversation' => '会话',
 			'ref.skill' => '技能',
+			_ => null,
+		} ?? switch (path) {
 			'ref.mcp' => 'MCP',
 			'ref.trigger' => '触发器',
 			'ref.control' => '控制',
@@ -1873,8 +1893,6 @@ extension on TranslationsZhCn {
 			'graph.kind.agent' => '智能体',
 			'graph.kind.control' => '分支',
 			'graph.kind.approval' => '审批',
-			_ => null,
-		} ?? switch (path) {
 			'graph.kind.unknown' => '未知',
 			'a11y.editingField' => ({required Object field}) => '正在编辑 ${field}',
 			'a11y.editField' => ({required Object field}) => '编辑 ${field}',

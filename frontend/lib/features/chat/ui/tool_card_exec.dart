@@ -12,6 +12,7 @@ import '../model/tool_receipts.dart';
 import 'tool_card_io_section.dart';
 import 'tool_card_nav.dart';
 import 'tool_card_skins.dart';
+import 'transcript_peek.dart';
 
 // F08 exec bodies (B5) — «input → black box → output» made auditable. run_function / call_handler share
 // the ExecutionResult shape ({ok, output, errorMsg, elapsedMs, logs?}); the body is intent → input
@@ -148,9 +149,13 @@ Widget invokeAgentBody(BuildContext context, ToolCardState state) {
       Padding(padding: const EdgeInsets.only(bottom: AnSpace.s6), child: Text(state.summary, style: AnText.meta.copyWith(color: c.inkMuted))),
     if (input != null) ToolIOSection(label: t.chat.tool.ioInput, value: input),
     const SizedBox(height: AnSpace.s6),
-    // The nested trajectory streamed live but isn't persisted — a settled card states this honestly
-    // (the card never replays it; the execution record does). 轨迹仅流不落盘,诚实注明。
-    Text(t.chat.tool.agentTrajectoryNote, style: AnText.meta.copyWith(color: c.inkFaint)),
+    // The nested trajectory: while the E3 subtree is still in the tree (live session) show it; once it's
+    // gone (a history reload — E3 blocks aren't persisted) state that honestly (the durable record is
+    // get_agent_execution). 轨迹:在树上就显嵌套,重载后诚实注明去执行档案回放。
+    if (state.nested.isNotEmpty)
+      NestedRunPane(nested: state.nested)
+    else
+      Text(t.chat.tool.agentTrajectoryNote, style: AnText.meta.copyWith(color: c.inkFaint)),
     const SizedBox(height: AnSpace.s6),
     if (!ok && errorMsg != null && errorMsg.isNotEmpty)
       Padding(padding: const EdgeInsets.only(bottom: AnSpace.s2), child: Text(errorMsg, style: AnText.code.copyWith(color: c.danger), maxLines: 20, overflow: TextOverflow.ellipsis))
@@ -161,6 +166,11 @@ Widget invokeAgentBody(BuildContext context, ToolCardState state) {
     if (out != null) _InvokeStatBar(result: out, agentId: agentId),
   ]);
 }
+
+/// invoke_agent LIVE body — the E3 nested trajectory streaming under the card (empty until the first
+/// nested block arrives). invoke_agent 活期:嵌套轨迹活窗。
+Widget invokeAgentLiveBody(BuildContext context, ToolCardState state) =>
+    state.nested.isEmpty ? const SizedBox.shrink() : NestedRunPane(nested: state.nested, live: true);
 
 /// The invoke stat bar — status word (colored) · steps · ↑tokensIn ↓tokensOut · elapsed · a navigable
 /// agent pill (agentId) · the executionId (copy). invoke 结果条。

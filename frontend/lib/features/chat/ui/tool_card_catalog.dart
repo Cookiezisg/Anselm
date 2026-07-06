@@ -18,6 +18,7 @@ import 'tool_card_lifecycle.dart';
 import 'tool_card_mount.dart';
 import 'tool_card_runlog.dart';
 import 'tool_card_search.dart';
+import 'tool_card_subagent.dart';
 import 'tool_card_trigger.dart';
 import 'tool_card_workflow.dart';
 
@@ -928,6 +929,7 @@ final Map<String, ToolCardSpec> _catalog = {
     receipt: (t, s) => invokeReceipt(t, s.resultText),
     resultFailed: (s) => invokeResultFailed(s.resultText),
     body: invokeAgentBody,
+    liveBody: invokeAgentLiveBody,
   ),
   // fire_trigger — the thin activation card (chip=triggerId, receipt=activationId; never danger). 薄卡。
   'fire_trigger': ToolCardSpec(
@@ -1013,6 +1015,25 @@ final Map<String, ToolCardSpec> _catalog = {
   'get_agent_execution': _getRecord(
       running: (t) => t.chat.tool.gettingAgentExec, done: (t) => t.chat.tool.gotAgentExec,
       chipArg: 'executionId', receipt: execRecordReceipt, failed: execRecordFailed, body: getAgentExecBody),
+
+  // ── F15 nested conversation: Subagent (spawn a sub-task) + get_subagent_trace (read it back) ──
+  // The Subagent's E3 trajectory streams live under the card (NestedRunPane); its result IS the final
+  // answer string. get_subagent_trace reads the durable record (list / one run's hydrated blocks). F15。
+  'Subagent': ToolCardSpec(
+    verb: (t, {required bool live}) => live ? t.chat.tool.spawningSubagent : t.chat.tool.spawnedSubagent,
+    target: (s) => argStringPartial(s.argsText, 'subagent_type'),
+    body: subagentBody,
+    liveBody: subagentLiveBody,
+  ),
+  'get_subagent_trace': ToolCardSpec(
+    verb: (t, {required bool live}) => live ? t.chat.tool.gettingSubTrace : t.chat.tool.gotSubTrace,
+    target: (s) {
+      final v = argStringPartial(s.argsText, 'subagentRunId');
+      return v == null || v.isEmpty ? null : (v.length > 12 ? '${v.substring(0, 12)}…' : v);
+    },
+    receipt: (t, s) => subTraceReceipt(t, s.resultText),
+    body: getSubTraceBody,
+  ),
 
   // ── F16 humanloop: ask_user (the danger gate is not a tool — it's the chassis awaitingConfirm phase) ──
   // 三段动词:正在提问(live)→ 等待你回答(awaiting,底盘渲门)→ 已回答/已跳过/空答案(按结果散文)。

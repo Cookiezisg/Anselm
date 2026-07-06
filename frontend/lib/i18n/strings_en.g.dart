@@ -1892,6 +1892,33 @@ class Translations$chat$tool$en {
 
 	/// en: 'reply'
 	String get transcriptReply => 'reply';
+
+	/// en: 'Spawning subagent'
+	String get spawningSubagent => 'Spawning subagent';
+
+	/// en: 'Spawned subagent'
+	String get spawnedSubagent => 'Spawned subagent';
+
+	/// en: 'Task'
+	String get subagentTask => 'Task';
+
+	/// en: 'Answer'
+	String get subagentAnswer => 'Answer';
+
+	/// en: 'The trajectory streamed live only — replay it with get_subagent_trace'
+	String get subagentTraceNote => 'The trajectory streamed live only — replay it with get_subagent_trace';
+
+	/// en: 'Opening subagent trace'
+	String get gettingSubTrace => 'Opening subagent trace';
+
+	/// en: 'Opened subagent trace'
+	String get gotSubTrace => 'Opened subagent trace';
+
+	/// en: '$n subagent runs'
+	String subTraceRuns({required Object n}) => '${n} subagent runs';
+
+	/// en: 'No subagent runs in this conversation'
+	String get subTraceNoRuns => 'No subagent runs in this conversation';
 }
 
 // Path: chat.gate
@@ -3574,6 +3601,15 @@ extension on Translations {
 			'chat.tool.transcriptCapped' => ({required Object shown, required Object total}) => 'showing ${shown}/${total} blocks',
 			'chat.tool.transcriptThought' => 'thought',
 			'chat.tool.transcriptReply' => 'reply',
+			'chat.tool.spawningSubagent' => 'Spawning subagent',
+			'chat.tool.spawnedSubagent' => 'Spawned subagent',
+			'chat.tool.subagentTask' => 'Task',
+			'chat.tool.subagentAnswer' => 'Answer',
+			'chat.tool.subagentTraceNote' => 'The trajectory streamed live only — replay it with get_subagent_trace',
+			'chat.tool.gettingSubTrace' => 'Opening subagent trace',
+			'chat.tool.gotSubTrace' => 'Opened subagent trace',
+			'chat.tool.subTraceRuns' => ({required Object n}) => '${n} subagent runs',
+			'chat.tool.subTraceNoRuns' => 'No subagent runs in this conversation',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -3639,6 +3675,8 @@ extension on Translations {
 			'ref.document' => 'Document',
 			'ref.conversation' => 'Conversation',
 			'ref.skill' => 'Skill',
+			_ => null,
+		} ?? switch (path) {
 			'ref.mcp' => 'MCP',
 			'ref.trigger' => 'Trigger',
 			'ref.control' => 'Control',
@@ -3648,8 +3686,6 @@ extension on Translations {
 			'graph.kind.agent' => 'Agent',
 			'graph.kind.control' => 'Branch',
 			'graph.kind.approval' => 'Approval',
-			_ => null,
-		} ?? switch (path) {
 			'graph.kind.unknown' => 'Unknown',
 			'a11y.editingField' => ({required Object field}) => 'Editing ${field}',
 			'a11y.editField' => ({required Object field}) => 'Edit ${field}',
