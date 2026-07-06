@@ -188,7 +188,10 @@
       "emptyList": "empty",
       "hitCurrent": "current",
       "cappedFooter": "first $n of $total",
-      "serverTruncatedNote": "first $n of $total (server-truncated)"
+      "serverTruncatedNote": "first $n of $total (server-truncated)",
+      "wfActive": "active",
+      "refCount": "$n refs",
+      "trgListening": "listening"
     },
     "gate": {
       "dangerBadge": "Dangerous",

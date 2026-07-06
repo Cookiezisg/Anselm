@@ -37,7 +37,7 @@ void main() {
     LocaleSettings.setLocaleRaw('zh-CN');
     const key = ValueKey('cap');
     tester.view.devicePixelRatio = 1.0;
-    tester.view.physicalSize = const Size(720, 1400);
+    tester.view.physicalSize = const Size(720, 2400);
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(RepaintBoundary(
@@ -68,7 +68,16 @@ void main() {
       ),
     ));
     await tester.pump(const Duration(milliseconds: 60));
-    await tester.pump(const Duration(milliseconds: 400));
+    // Expand the cards that HAVE hits so the ToolHitList body shows. 展开有命中的卡看命中窗。
+    for (final f in [
+      find.text('已搜索函数'), // search_function → fn hit list
+      find.text('已搜索智能体'), // search_agent → agent hit list (server-truncated)
+      find.text('已列附件'), // list_attachments → inert attachment list
+    ]) {
+      await tester.tap(f, warnIfMissed: false);
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    await tester.pump(const Duration(seconds: 1));
 
     late final Uint8List bytes;
     await tester.runAsync(() async {

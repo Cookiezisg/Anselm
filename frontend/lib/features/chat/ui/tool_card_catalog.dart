@@ -8,6 +8,7 @@ import '../model/tool_receipts.dart';
 import 'tool_card_skins.dart';
 import 'tool_card_control_approval.dart';
 import 'tool_card_document_skill.dart';
+import 'tool_card_search.dart';
 import 'tool_card_trigger.dart';
 import 'tool_card_workflow.dart';
 
@@ -26,6 +27,7 @@ class ToolCardSpec {
     this.receipt,
     this.body,
     this.bodyless = false,
+    this.hasBodyOf,
     this.liveBody,
     this.awaitingVerb,
     this.terminalVerb,
@@ -69,6 +71,13 @@ class ToolCardSpec {
 
   /// Never expands (Read: the receipt IS the card — industry consensus). 永不展开(Read)。
   final bool bodyless;
+
+  /// CONDITIONAL bodylessness — overrides the default `state.hasBody` (which is true whenever any
+  /// output exists) so a family can be «receipt IS the card» for SOME results. F07 searches use it: an
+  /// empty result (count 0) has no body / no chevron (the receipt «无匹配» is the whole card), a
+  /// non-empty one expands to the hit list. null → the default `state.hasBody`. 条件式无体:F07 空结果
+  /// 无体无 chevron(回执即卡),有命中才展开。
+  final bool Function(ToolCardState state)? hasBodyOf;
 
   /// The family body renders its OWN failure display (so the chassis skips the default error section) —
   /// for families where a non-zero terminal is a product-normal, not a red crash (decide_approval's
@@ -213,6 +222,11 @@ ToolCardSpec _entitySearch({
           hitsOfTotal: (n, total) => t.chat.tool.hitsOfTotal(n: '$n', total: '$total'),
           empty: listOnly ? t.chat.tool.emptyList : t.chat.tool.noMatches),
       body: body,
+      // «receipt IS the card» when there are no hits — no chevron / no empty window. 空结果回执即卡。
+      hasBodyOf: (s) {
+        final h = parseSearchHits(s.resultText, listKey);
+        return h != null && h.items.isNotEmpty;
+      },
     );
 
 /// The family table — keyed by exact tool name. 族表,按精确工具名键。
@@ -319,18 +333,53 @@ final Map<String, ToolCardSpec> _catalog = {
   // ── F07 searches: dual-channel verb (search↔list) + query chip + searchReceipt (double-shape,
   // nil-safe). listKey = the plural entity name; the settled ToolHitList body lands in B3.3.
   // F07 检索:双声道动词 + query chip + searchReceipt(双形状、nil 安全);命中窗体 B3.3 落。──
-  'search_function': _entitySearch(kind: (t) => t.chat.tool.kind.function, listKey: 'functions'),
-  'search_handler': _entitySearch(kind: (t) => t.chat.tool.kind.handler, listKey: 'handlers'),
-  'search_agent': _entitySearch(kind: (t) => t.chat.tool.kind.agent, listKey: 'agents'),
-  'search_workflow': _entitySearch(kind: (t) => t.chat.tool.kind.workflow, listKey: 'workflows'),
-  'search_control': _entitySearch(kind: (t) => t.chat.tool.kind.control, listKey: 'controls'),
-  'search_approval': _entitySearch(kind: (t) => t.chat.tool.kind.approval, listKey: 'approvals'),
-  'search_documents': _entitySearch(kind: (t) => t.chat.tool.kind.document, listKey: 'documents'),
-  'search_triggers': _entitySearch(kind: (t) => t.chat.tool.kind.trigger, listKey: 'triggers'),
-  'search_blocks': _entitySearch(kind: (t) => t.chat.tool.kind.blocks, listKey: 'blocks'),
-  // The two bounded list_* tools carry no query — always the list channel. list_* 无 query,恒列声道。
-  'list_documents': _entitySearch(kind: (t) => t.chat.tool.kind.document, listKey: 'documents', listOnly: true),
-  'list_attachments': _entitySearch(kind: (t) => t.chat.tool.kind.attachment, listKey: 'attachments', listOnly: true),
+  'search_function': _entitySearch(
+      kind: (t) => t.chat.tool.kind.function,
+      listKey: 'functions',
+      body: searchHitBody(listKey: 'functions', cap: 20, row: (t, h) => entityHitRow('function', h))),
+  'search_handler': _entitySearch(
+      kind: (t) => t.chat.tool.kind.handler,
+      listKey: 'handlers',
+      body: searchHitBody(listKey: 'handlers', cap: 20, row: (t, h) => entityHitRow('handler', h))),
+  'search_agent': _entitySearch(
+      kind: (t) => t.chat.tool.kind.agent,
+      listKey: 'agents',
+      body: searchHitBody(listKey: 'agents', cap: 20, row: (t, h) => entityHitRow('agent', h))),
+  'search_workflow': _entitySearch(
+      kind: (t) => t.chat.tool.kind.workflow,
+      listKey: 'workflows',
+      body: searchHitBody(listKey: 'workflows', cap: 20, row: workflowHitRow)),
+  'search_control': _entitySearch(
+      kind: (t) => t.chat.tool.kind.control,
+      listKey: 'controls',
+      body: searchHitBody(listKey: 'controls', cap: 20, row: (t, h) => entityHitRow('control', h))),
+  'search_approval': _entitySearch(
+      kind: (t) => t.chat.tool.kind.approval,
+      listKey: 'approvals',
+      body: searchHitBody(listKey: 'approvals', cap: 20, row: (t, h) => entityHitRow('approval', h))),
+  'search_documents': _entitySearch(
+      kind: (t) => t.chat.tool.kind.document,
+      listKey: 'documents',
+      body: searchHitBody(listKey: 'documents', cap: 20, row: (t, h) => entityHitRow('document', h))),
+  'search_triggers': _entitySearch(
+      kind: (t) => t.chat.tool.kind.trigger,
+      listKey: 'triggers',
+      body: searchHitBody(listKey: 'triggers', cap: 20, row: triggerHitRow)),
+  'search_blocks': _entitySearch(
+      kind: (t) => t.chat.tool.kind.blocks,
+      listKey: 'blocks',
+      body: searchHitBody(listKey: 'blocks', cap: 20, row: (t, h) => blockHitRow(h))),
+  // The two bounded list_* tools carry no query — always the list channel (cap 30). list_* 无 query,恒列。
+  'list_documents': _entitySearch(
+      kind: (t) => t.chat.tool.kind.document,
+      listKey: 'documents',
+      listOnly: true,
+      body: searchHitBody(listKey: 'documents', cap: 30, row: (t, h) => documentListRow(h))),
+  'list_attachments': _entitySearch(
+      kind: (t) => t.chat.tool.kind.attachment,
+      listKey: 'attachments',
+      listOnly: true,
+      body: searchHitBody(listKey: 'attachments', cap: 30, row: (t, h) => attachmentListRow(h))),
 
   // ── F16 humanloop: ask_user (the danger gate is not a tool — it's the chassis awaitingConfirm phase) ──
   // 三段动词:正在提问(live)→ 等待你回答(awaiting,底盘渲门)→ 已回答/已跳过/空答案(按结果散文)。

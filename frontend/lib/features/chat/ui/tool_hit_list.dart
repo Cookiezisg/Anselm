@@ -8,6 +8,7 @@ import '../../../core/ui/an_interactive.dart';
 import '../../../core/ui/an_json_tree.dart';
 import '../../../core/ui/icons.dart';
 import '../../../i18n/strings.g.dart';
+import 'tool_card_reveal.dart';
 import 'tool_card_skins.dart';
 
 /// One row of a [ToolHitList] — an entity/hit line. 一行命中。
@@ -125,8 +126,10 @@ class _ToolHitListState extends State<ToolHitList> with SingleTickerProviderStat
     super.didChangeDependencies();
     if (_started) return;
     _started = true;
-    // reduced / not-animate / a re-mount → land settled, no motion. 即显(reduced/非亲历/重挂)。
-    if (!widget.animate || AnMotionPref.reducedOrAssistive(context)) {
+    // The one-time cascade plays iff EITHER animate is set explicitly (gallery) OR the chassis
+    // witnessed the settle this session ([ToolCardReveal]). Else instant. 亲历落定或显式 animate 才播。
+    final reveal = widget.animate || (ToolCardReveal.of(context)?.revealOnMount ?? false);
+    if (!reveal || AnMotionPref.reducedOrAssistive(context)) {
       _c.value = 1.0;
     } else {
       _c.forward(from: 0);

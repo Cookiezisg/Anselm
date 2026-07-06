@@ -188,7 +188,10 @@
       "emptyList": "空",
       "hitCurrent": "当前",
       "cappedFooter": "前 $n · 共 $total",
-      "serverTruncatedNote": "前 $n · 共 $total(服务端截断)"
+      "serverTruncatedNote": "前 $n · 共 $total(服务端截断)",
+      "wfActive": "活跃",
+      "refCount": "$n 处引用",
+      "trgListening": "监听中"
     },
     "gate": {
       "dangerBadge": "危险",

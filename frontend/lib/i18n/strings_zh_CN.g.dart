@@ -530,6 +530,9 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get hitCurrent => '当前';
 	@override String cappedFooter({required Object n, required Object total}) => '前 ${n} · 共 ${total}';
 	@override String serverTruncatedNote({required Object n, required Object total}) => '前 ${n} · 共 ${total}(服务端截断)';
+	@override String get wfActive => '活跃';
+	@override String refCount({required Object n}) => '${n} 处引用';
+	@override String get trgListening => '监听中';
 }
 
 // Path: chat.gate
@@ -1287,6 +1290,9 @@ extension on TranslationsZhCn {
 			'chat.tool.hitCurrent' => '当前',
 			'chat.tool.cappedFooter' => ({required Object n, required Object total}) => '前 ${n} · 共 ${total}',
 			'chat.tool.serverTruncatedNote' => ({required Object n, required Object total}) => '前 ${n} · 共 ${total}(服务端截断)',
+			'chat.tool.wfActive' => '活跃',
+			'chat.tool.refCount' => ({required Object n}) => '${n} 处引用',
+			'chat.tool.trgListening' => '监听中',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -1614,11 +1620,11 @@ extension on TranslationsZhCn {
 			'entities.detail.editor.errApprovalPortsFull' => 'approval 仅有 yes / no 两个出口',
 			'entities.detail.editor.on' => '开',
 			'entities.detail.editor.off' => '关',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.editor.inspectorTitle' => '检查器',
 			'entities.detail.editor.inspectorEmptyHint' => '在画布上选一个节点或边来编辑。',
 			'entities.detail.editor.edge' => '边',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.editor.removeField' => '移除字段',
 			'entities.detail.editor.refPickFamily' => '选择类别…',
 			'entities.detail.editor.refFamilyFunction' => '函数',

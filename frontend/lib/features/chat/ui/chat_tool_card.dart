@@ -14,6 +14,7 @@ import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
 import '../state/pending_interactions_provider.dart';
 import 'tool_card_catalog.dart';
+import 'tool_card_reveal.dart';
 import 'tool_card_skins.dart';
 import 'tool_interaction_gate.dart';
 
@@ -67,6 +68,14 @@ class _ChatToolCardState extends State<ChatToolCard> {
   bool _autoExpandedOnce = false;
   Timer? _ticker;
 
+  /// Did THIS widget instance witness the running→settled transition this session? A settle-only
+  /// family's body (ToolHitList) plays its one-time reveal ONLY when this is true — so a fresh mount
+  /// of an OLD card (history reload / scroll-back re-mount, phase already succeeded, no transition
+  /// seen) stays instant, never replaying. Card-level (not widget-local-below) because the collapsed
+  /// row outlives any body expansion. 本卡实例是否亲历 running→落定;settle-only 体据此播一次揭示,历史
+  /// 重载/滚回重挂(相位已 succeeded、未见过渡)即显不重放。
+  bool _transitionObserved = false;
+
   /// Seconds ticked since mount while live — tick-counted (not a wall-clock Stopwatch) so the
   /// fake test clock drives it and reduced motion simply never counts.
   /// live 期挂载以来的秒数——按 tick 计数(非墙钟 Stopwatch),测试假钟可驱动、reduced 下自然不计。
@@ -92,8 +101,16 @@ class _ChatToolCardState extends State<ChatToolCard> {
   @override
   void didUpdateWidget(covariant ChatToolCard old) {
     super.didUpdateWidget(old);
+    // Witness the running→settled transition (a fresh mount of an already-settled card never does).
+    // 亲历 running→落定(已落定卡的新挂载不会触发)。
+    final wasLive = _isLivePhase(ToolCardState.of(old.node).phase);
+    final nowSettled = ToolCardState.of(widget.node).phase == ToolCardPhase.succeeded;
+    if (wasLive && nowSettled) _transitionObserved = true;
     _syncTicker();
   }
+
+  static bool _isLivePhase(ToolCardPhase p) =>
+      p == ToolCardPhase.argsStreaming || p == ToolCardPhase.running;
 
   /// Run the 1s tick only while live AND motion is allowed — under reduced motion the counter
   /// must not keep the tree eternally busy (the gallery/test batteries pumpAndSettle there).
@@ -145,7 +162,7 @@ class _ChatToolCardState extends State<ChatToolCard> {
     // wants to see why). The user's explicit toggle wins after.
     // 失败自动展开一次(业界共识)——含**危险色族回执**(Bash 非零 exit/超时在线缆上是 completed,
     // 但用户要看原因);之后用户手动开关优先。
-    final hasBody = !spec.bodyless && state.hasBody;
+    final hasBody = !spec.bodyless && (spec.hasBodyOf?.call(state) ?? state.hasBody);
     ToolReceipt? familyReceipt;
     if (state.phase == ToolCardPhase.succeeded || state.phase == ToolCardPhase.failed) {
       familyReceipt = spec.receipt?.call(t, state);
@@ -193,7 +210,12 @@ class _ChatToolCardState extends State<ChatToolCard> {
                   // proof at the top of the body — the tool then ran its normal lifecycle below.
                   // 出处章:正向决议(允许/总是允许)在体首留会话级凭据,其下是工具正常生命周期。
                   ?_provenanceChip(context, c),
-                  spec.body?.call(context, state) ?? _GenericToolBody(state: state),
+                  // A settle-only family body (ToolHitList) reads [ToolCardReveal] to play its one-time
+                  // reveal only when THIS instance witnessed the settle. 族体读揭示信号:仅亲历落定时播。
+                  ToolCardReveal(
+                    revealOnMount: _transitionObserved,
+                    child: spec.body?.call(context, state) ?? _GenericToolBody(state: state),
+                  ),
                   // Family bodies get the error section from the CHASSIS — every family shows
                   // failures without re-implementing them (the generic body has its own). A family that
                   // OWNS its error display (spec.ownsError) opts out. 族体错误段由底盘追加;自管族退出。

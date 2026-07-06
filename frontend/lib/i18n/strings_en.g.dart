@@ -1124,6 +1124,15 @@ class Translations$chat$tool$en {
 
 	/// en: 'first $n of $total (server-truncated)'
 	String serverTruncatedNote({required Object n, required Object total}) => 'first ${n} of ${total} (server-truncated)';
+
+	/// en: 'active'
+	String get wfActive => 'active';
+
+	/// en: '$n refs'
+	String refCount({required Object n}) => '${n} refs';
+
+	/// en: 'listening'
+	String get trgListening => 'listening';
 }
 
 // Path: chat.gate
@@ -2550,6 +2559,9 @@ extension on Translations {
 			'chat.tool.hitCurrent' => 'current',
 			'chat.tool.cappedFooter' => ({required Object n, required Object total}) => 'first ${n} of ${total}',
 			'chat.tool.serverTruncatedNote' => ({required Object n, required Object total}) => 'first ${n} of ${total} (server-truncated)',
+			'chat.tool.wfActive' => 'active',
+			'chat.tool.refCount' => ({required Object n}) => '${n} refs',
+			'chat.tool.trgListening' => 'listening',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -2877,11 +2889,11 @@ extension on Translations {
 			'entities.detail.editor.errApprovalPortsFull' => 'An approval has only yes / no outputs',
 			'entities.detail.editor.on' => 'On',
 			'entities.detail.editor.off' => 'Off',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.editor.inspectorTitle' => 'Inspector',
 			'entities.detail.editor.inspectorEmptyHint' => 'Pick a node or edge on the canvas to edit it.',
 			'entities.detail.editor.edge' => 'Edge',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.editor.removeField' => 'Remove field',
 			'entities.detail.editor.refPickFamily' => 'Category…',
 			'entities.detail.editor.refFamilyFunction' => 'Function',
