@@ -13,10 +13,10 @@ import 'package:flutter_test/flutter_test.dart';
 // F08 exec (B5.1) — run_function / call_handler over their real ExecutionResult / {result} wire shapes.
 // F08 执行卡:输入→黑箱→输出 + 结果条(成功耗时 / 失败红 / call_handler 无耗时)。
 
-BlockNode _node(String name, String args, String result, {String? progress}) {
+BlockNode _node(String name, String args, String result, {String? progress, String? entityName}) {
   final call = BlockNode(id: 'tc_x', kind: BlockKind.toolCall)
     ..status = 'completed'
-    ..content = {'name': name, 'arguments': args};
+    ..content = {'name': name, 'arguments': args, 'entityName': ?entityName};
   if (progress != null) {
     call.children.add(BlockNode(id: 'pg_x', kind: BlockKind.progress)
       ..status = 'completed'
@@ -84,6 +84,25 @@ void main() {
     expect(find.byType(ExecResultBar), findsOneWidget);
     expect(find.text(t.chat.tool.execOk), findsOneWidget);
     expect(find.textContaining('942ms'), findsWidgets); // receipt + bar
+  });
+
+  testWidgets('run_function target chip shows the resolved entity NAME, not the id (B3/B4)', (tester) async {
+    await tester.pumpWidget(_host(ChatToolCard(node: _node('run_function',
+        '{"functionId":"fn_1a2b3c4d5e6f7a8b","args":{}}',
+        '{"ok":true,"output":1,"errorMsg":"","elapsedMs":10}',
+        entityName: 'sync_inventory'))));
+    await tester.pump();
+    // The collapsed header chip is the NAME; the bare functionId is nowhere on that row. 收起头 chip 显名、无裸 id。
+    expect(find.textContaining('sync_inventory'), findsOneWidget);
+    expect(find.textContaining('fn_1a2b3c4d'), findsNothing);
+  });
+
+  testWidgets('run_function falls back to the truncated id when no name is resolved', (tester) async {
+    await tester.pumpWidget(_host(ChatToolCard(node: _node('run_function',
+        '{"functionId":"fn_1a2b3c4d5e6f7a8b","args":{}}',
+        '{"ok":true,"output":1,"errorMsg":"","elapsedMs":10}')))); // no entityName
+    await tester.pump();
+    expect(find.textContaining('fn_1a2b3c4d'), findsOneWidget); // truncated id chip (12 + …)
   });
 
   testWidgets('run_function ok:false auto-expands, shows red errorMsg + 失败 bar', (tester) async {

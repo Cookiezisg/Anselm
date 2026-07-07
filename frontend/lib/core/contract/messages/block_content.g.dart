@@ -23,6 +23,7 @@ _ToolCallContent _$ToolCallContentFromJson(Map<String, dynamic> json) =>
       arguments: json['arguments'] as String?,
       summary: json['summary'] as String?,
       danger: json['danger'] as String?,
+      entityName: json['entityName'] as String?,
     );
 
 Map<String, dynamic> _$ToolCallContentToJson(_ToolCallContent instance) =>
@@ -31,6 +32,7 @@ Map<String, dynamic> _$ToolCallContentToJson(_ToolCallContent instance) =>
       'arguments': instance.arguments,
       'summary': instance.summary,
       'danger': instance.danger,
+      'entityName': instance.entityName,
     };
 
 _ToolResultContent _$ToolResultContentFromJson(Map<String, dynamic> json) =>

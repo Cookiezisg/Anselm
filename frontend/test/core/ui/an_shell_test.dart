@@ -2,6 +2,7 @@ import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/platform/host_platform.dart';
 import 'package:anselm/core/platform/window_fullscreen.dart';
+import 'package:anselm/core/ui/an_brand_icon.dart';
 import 'package:anselm/core/ui/an_island.dart';
 import 'package:anselm/core/ui/an_shell.dart';
 import 'package:anselm/core/ui/an_window_controls.dart';
@@ -35,6 +36,22 @@ void main() {
     expect(find.text('Sidebar'), findsOneWidget);
     expect(find.text('Ocean'), findsOneWidget);
     expect(find.text('Inspector'), findsOneWidget);
+  });
+
+  testWidgets('the ocean switcher sits one chrome-bar below the island top — no redundant spacer (B11)', (tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(wrap(const AnShell(sidebar: SizedBox.expand(key: ValueKey('sidebarProbe')))));
+    await tester.pump();
+
+    final islandTop = tester.getRect(find.byType(AnIsland).first).top;
+    final sidebarTop = tester.getRect(find.byKey(const ValueKey('sidebarProbe'))).top;
+    // The sidebar (→ the ocean switcher) starts exactly ONE chrome-bar height below the island top
+    // (islandHead 44), NOT islandHead + s8: the chrome bar's own ~12px slack below its controls is the gap,
+    // so the extra s8 spacer (which made the gap ~20px, «太大») was dropped. 顶距=1 个 chrome 带高、非 +s8。
+    expect(sidebarTop - islandTop, closeTo(AnSize.islandHead, 3));
   });
 
   testWidgets('left island drags within [min, max]; right stays fixed', (tester) async {
@@ -158,8 +175,12 @@ void main() {
   // collapse the reservations it makes FOR those lights: the vertical band (titlebarHeight → 0) and the
   // horizontal lights gutter (AnWindowControls → 0). Left un-collapsed they read as a blank strip.
 
-  testWidgets('fullscreen (titlebarHeight 0) pins the chrome controls to the top vs the windowed band',
+  testWidgets('titlebarHeight drives the chrome-control top inset (smaller band → controls sit higher)',
       (tester) async {
+    // The raw band mechanic. NOTE: AppShell now passes AnSize.titlebar in BOTH windowed and fullscreen
+    // (#10 fix — fullscreen no longer collapses the band to 0, which pinned the controls cramped to the
+    // screen top); this test still pins the widget-level contract that a smaller band lifts the controls.
+    // 带高机制:AppShell 现全屏也传 titlebar(#10 修:不再收 0 贴顶);此测仍钉「小带→顶控上移」的 widget 契约。
     tester.view.physicalSize = const Size(1400, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -170,26 +191,33 @@ void main() {
       return tester.getTopLeft(find.byIcon(AnIcons.panelLeft)).dy;
     }
 
-    final windowed = await collapseButtonTop(AnSize.titlebar); // offset onto the lights' line
-    final fullscreen = await collapseButtonTop(0); // no lights → pinned to the top
-    expect(fullscreen, lessThan(windowed),
-        reason: 'titlebarHeight 0 collapses the lights-centering inset so the header pins to the top');
+    final full = await collapseButtonTop(AnSize.titlebar); // the value AppShell now uses everywhere
+    final collapsed = await collapseButtonTop(0); // a zero band would pin higher (no longer used by AppShell)
+    expect(collapsed, lessThan(full),
+        reason: 'a 0 band collapses the centering inset; AnSize.titlebar keeps the comfortable top gap');
   });
 
-  testWidgets('AnWindowControls collapses its traffic-light gutter to 0 in fullscreen (macOS)',
+  testWidgets('AnWindowControls: windowed reserves the lights gutter; fullscreen shows the brand + name (#10)',
       (tester) async {
-    if (!HostPlatform.isMacOS) return; // the reserved gutter is macOS-only; elsewhere the slot is the brand
+    if (!HostPlatform.isMacOS) return; // the reserve↔brand swap is macOS-only; elsewhere it's always the brand
     addTearDown(() => WindowFullScreen.active.value = false);
 
-    Future<double> gutterWidth(bool fullScreen) async {
+    Future<void> pump(bool fullScreen) async {
       WindowFullScreen.active.value = fullScreen;
       await tester.pumpWidget(wrap(const Center(child: AnWindowControls())));
       await tester.pumpAndSettle();
-      return tester.getSize(find.byType(AnWindowControls)).width;
     }
 
-    expect(await gutterWidth(false), AnSize.windowControlsInset); // windowed → reserve 72 for the lights
-    expect(await gutterWidth(true), 0); // fullscreen → no lights → no gutter
+    // Windowed → reserve 72 for the OS traffic lights; no brand drawn (the OS draws the real lights).
+    await pump(false);
+    expect(tester.getSize(find.byType(AnWindowControls)).width, AnSize.windowControlsInset);
+    expect(find.byType(AnBrandIcon), findsNothing);
+
+    // Fullscreen → the OS hides the lights, so the freed spot carries the product mark + name (like Windows).
+    // 全屏:OS 藏灯 → 空位放产品标+名(像 Windows)。
+    await pump(true);
+    expect(find.byType(AnBrandIcon), findsOneWidget);
+    expect(find.text('Anselm'), findsOneWidget);
   });
 
   test('minimum window keeps the ocean ≥ its min column even with the left island at max', () {

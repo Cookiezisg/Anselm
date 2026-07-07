@@ -397,6 +397,6 @@ Widget _countHeat(BuildContext context, AnColors c, int count, int maxN) {
       decoration: BoxDecoration(color: c.accentSoft, borderRadius: BorderRadius.circular(AnRadius.tag)),
     ),
     const SizedBox(width: AnSpace.s6),
-    Text('$count', style: AnText.value().copyWith(color: c.inkMuted)),
+    Text('$count', style: AnText.body.copyWith(color: c.inkMuted)),
   ]);
 }

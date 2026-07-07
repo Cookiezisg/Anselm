@@ -281,7 +281,7 @@ as String?,
 /// @nodoc
 mixin _$ToolCallContent {
 
- String get name; String? get arguments; String? get summary; String? get danger;
+ String get name; String? get arguments; String? get summary; String? get danger; String? get entityName;
 /// Create a copy of ToolCallContent
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -294,16 +294,16 @@ $ToolCallContentCopyWith<ToolCallContent> get copyWith => _$ToolCallContentCopyW
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ToolCallContent&&(identical(other.name, name) || other.name == name)&&(identical(other.arguments, arguments) || other.arguments == arguments)&&(identical(other.summary, summary) || other.summary == summary)&&(identical(other.danger, danger) || other.danger == danger));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ToolCallContent&&(identical(other.name, name) || other.name == name)&&(identical(other.arguments, arguments) || other.arguments == arguments)&&(identical(other.summary, summary) || other.summary == summary)&&(identical(other.danger, danger) || other.danger == danger)&&(identical(other.entityName, entityName) || other.entityName == entityName));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,name,arguments,summary,danger);
+int get hashCode => Object.hash(runtimeType,name,arguments,summary,danger,entityName);
 
 @override
 String toString() {
-  return 'ToolCallContent(name: $name, arguments: $arguments, summary: $summary, danger: $danger)';
+  return 'ToolCallContent(name: $name, arguments: $arguments, summary: $summary, danger: $danger, entityName: $entityName)';
 }
 
 
@@ -314,7 +314,7 @@ abstract mixin class $ToolCallContentCopyWith<$Res>  {
   factory $ToolCallContentCopyWith(ToolCallContent value, $Res Function(ToolCallContent) _then) = _$ToolCallContentCopyWithImpl;
 @useResult
 $Res call({
- String name, String? arguments, String? summary, String? danger
+ String name, String? arguments, String? summary, String? danger, String? entityName
 });
 
 
@@ -331,12 +331,13 @@ class _$ToolCallContentCopyWithImpl<$Res>
 
 /// Create a copy of ToolCallContent
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? name = null,Object? arguments = freezed,Object? summary = freezed,Object? danger = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? name = null,Object? arguments = freezed,Object? summary = freezed,Object? danger = freezed,Object? entityName = freezed,}) {
   return _then(_self.copyWith(
 name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,arguments: freezed == arguments ? _self.arguments : arguments // ignore: cast_nullable_to_non_nullable
 as String?,summary: freezed == summary ? _self.summary : summary // ignore: cast_nullable_to_non_nullable
 as String?,danger: freezed == danger ? _self.danger : danger // ignore: cast_nullable_to_non_nullable
+as String?,entityName: freezed == entityName ? _self.entityName : entityName // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }
@@ -422,10 +423,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String name,  String? arguments,  String? summary,  String? danger)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String name,  String? arguments,  String? summary,  String? danger,  String? entityName)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _ToolCallContent() when $default != null:
-return $default(_that.name,_that.arguments,_that.summary,_that.danger);case _:
+return $default(_that.name,_that.arguments,_that.summary,_that.danger,_that.entityName);case _:
   return orElse();
 
 }
@@ -443,10 +444,10 @@ return $default(_that.name,_that.arguments,_that.summary,_that.danger);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String name,  String? arguments,  String? summary,  String? danger)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String name,  String? arguments,  String? summary,  String? danger,  String? entityName)  $default,) {final _that = this;
 switch (_that) {
 case _ToolCallContent():
-return $default(_that.name,_that.arguments,_that.summary,_that.danger);case _:
+return $default(_that.name,_that.arguments,_that.summary,_that.danger,_that.entityName);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -463,10 +464,10 @@ return $default(_that.name,_that.arguments,_that.summary,_that.danger);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String name,  String? arguments,  String? summary,  String? danger)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String name,  String? arguments,  String? summary,  String? danger,  String? entityName)?  $default,) {final _that = this;
 switch (_that) {
 case _ToolCallContent() when $default != null:
-return $default(_that.name,_that.arguments,_that.summary,_that.danger);case _:
+return $default(_that.name,_that.arguments,_that.summary,_that.danger,_that.entityName);case _:
   return null;
 
 }
@@ -478,13 +479,14 @@ return $default(_that.name,_that.arguments,_that.summary,_that.danger);case _:
 @JsonSerializable()
 
 class _ToolCallContent implements ToolCallContent {
-  const _ToolCallContent({this.name = '', this.arguments, this.summary, this.danger});
+  const _ToolCallContent({this.name = '', this.arguments, this.summary, this.danger, this.entityName});
   factory _ToolCallContent.fromJson(Map<String, dynamic> json) => _$ToolCallContentFromJson(json);
 
 @override@JsonKey() final  String name;
 @override final  String? arguments;
 @override final  String? summary;
 @override final  String? danger;
+@override final  String? entityName;
 
 /// Create a copy of ToolCallContent
 /// with the given fields replaced by the non-null parameter values.
@@ -499,16 +501,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ToolCallContent&&(identical(other.name, name) || other.name == name)&&(identical(other.arguments, arguments) || other.arguments == arguments)&&(identical(other.summary, summary) || other.summary == summary)&&(identical(other.danger, danger) || other.danger == danger));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ToolCallContent&&(identical(other.name, name) || other.name == name)&&(identical(other.arguments, arguments) || other.arguments == arguments)&&(identical(other.summary, summary) || other.summary == summary)&&(identical(other.danger, danger) || other.danger == danger)&&(identical(other.entityName, entityName) || other.entityName == entityName));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,name,arguments,summary,danger);
+int get hashCode => Object.hash(runtimeType,name,arguments,summary,danger,entityName);
 
 @override
 String toString() {
-  return 'ToolCallContent(name: $name, arguments: $arguments, summary: $summary, danger: $danger)';
+  return 'ToolCallContent(name: $name, arguments: $arguments, summary: $summary, danger: $danger, entityName: $entityName)';
 }
 
 
@@ -519,7 +521,7 @@ abstract mixin class _$ToolCallContentCopyWith<$Res> implements $ToolCallContent
   factory _$ToolCallContentCopyWith(_ToolCallContent value, $Res Function(_ToolCallContent) _then) = __$ToolCallContentCopyWithImpl;
 @override @useResult
 $Res call({
- String name, String? arguments, String? summary, String? danger
+ String name, String? arguments, String? summary, String? danger, String? entityName
 });
 
 
@@ -536,12 +538,13 @@ class __$ToolCallContentCopyWithImpl<$Res>
 
 /// Create a copy of ToolCallContent
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? name = null,Object? arguments = freezed,Object? summary = freezed,Object? danger = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? name = null,Object? arguments = freezed,Object? summary = freezed,Object? danger = freezed,Object? entityName = freezed,}) {
   return _then(_ToolCallContent(
 name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,arguments: freezed == arguments ? _self.arguments : arguments // ignore: cast_nullable_to_non_nullable
 as String?,summary: freezed == summary ? _self.summary : summary // ignore: cast_nullable_to_non_nullable
 as String?,danger: freezed == danger ? _self.danger : danger // ignore: cast_nullable_to_non_nullable
+as String?,entityName: freezed == entityName ? _self.entityName : entityName // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }

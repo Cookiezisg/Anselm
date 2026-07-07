@@ -101,8 +101,14 @@ class AnShell extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // No spacer below the chrome bar: the bar is [islandHead] (44) tall but its controls
+                    // occupy only [controlInset]+[control] (≈32) from the top, so it ALREADY carries ~12px
+                    // of intrinsic slack beneath the traffic-light/collapse row — that slack IS the gap to
+                    // the ocean switcher. The old s8 spacer double-padded it (~20px, too large per B11);
+                    // dropping it leaves a derived ~12px gap that reads consistent with the sidebar's own
+                    // s8 rhythm. 不加间距:chrome 带 44 高、控件仅占顶部 ≈32,自带 ≈12px slack=到切换器的间距;
+                    // 旧 s8 双重填充(≈20 过大);去掉留派生 ≈12px,与 sidebar 内 s8 节奏一致。
                     _ChromeBar(onCollapse: onToggleLeft, controlInset: controlInset),
-                    const SizedBox(height: AnSpace.s8),
                     Expanded(child: sidebar ?? const _Placeholder('Sidebar')),
                   ],
                 ),

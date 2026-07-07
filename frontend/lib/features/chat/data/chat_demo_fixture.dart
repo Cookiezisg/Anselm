@@ -18,18 +18,19 @@ String _demoTitle(String text) {
   return chars.length <= 12 ? line : chars.take(12).join();
 }
 
-/// The zero-backend chat repository for `make demo` / the gallery — a rail spread that exercises every
-/// signal at once (pinned+generating blue / awaiting amber / unread green / archived gray / time
-/// buckets), seeded transcripts that exercise every LOCKED module (markdown+code+table, thinking, a
-/// cancelled turn's honest banner, an @mention snapshot), and a SCRIPTED STREAMING REPLY: every send
-/// plays user-echo → thinking deltas → text deltas → close over ~4s through the same frame seam the live
-/// gateway uses, then settles the persisted rows so a reload shows the finished turn — `make demo`
-/// demonstrates the full plain-chat loop with zero backend. Stop mid-stream lands an honest `cancelled`.
+/// The zero-backend chat repository for `make demo` / the gallery. Every conversation is USEFUL — the
+/// tool-card showcase (every tool card, live) + a pinned chat that exercises the locked modules
+/// (markdown+code, thinking, a cancelled turn's honest banner, an @mention snapshot) + an unread
+/// markdown/table chat + one archived example; the empty rail-filler threads were pruned (#1). Rail signal
+/// states stay covered — pinned / unread green / archived gray, and generating blue plays LIVE on send via
+/// a SCRIPTED STREAMING REPLY: every send plays user-echo → thinking deltas → text deltas → close over ~4s
+/// through the same frame seam the live gateway uses, then settles the persisted rows so a reload shows the
+/// finished turn. Stop mid-stream lands an honest `cancelled`.
 ///
-/// 零后端 chat repository(make demo / gallery):rail 全信号铺开 + 种子 transcript 触发每个已锁模块
-/// (markdown+代码+表格 / thinking / 取消回合诚实横幅 / @提及快照)+ **脚本化流式回复**:每次发送经与真网关
-/// 同一帧缝回放 用户回声→thinking deltas→text deltas→close(约 4s),并定格持久行(重载见完成回合)——
-/// make demo 零后端演示完整纯聊天闭环;流中 Stop 落诚实 cancelled。
+/// 零后端 chat repository(make demo / gallery):每个对话都有用——工具卡展台(每卡)+ 置顶对话触发已锁模块
+/// (markdown+代码 / thinking / 取消回合诚实横幅 / @提及快照)+ 未读 markdown/表格对话 + 一个归档例;空 rail
+/// 填充对话已清(#1)。信号仍覆盖:置顶 / 未读绿 / 归档灰,生成蓝随**发送时**脚本流式回放(用户回声→thinking
+/// →text→close 约 4s、定格持久行),流中 Stop 落诚实 cancelled。
 class DemoChatRepository extends FixtureChatRepository {
   DemoChatRepository({super.conversations, super.messages});
 
@@ -255,16 +256,16 @@ DemoChatRepository demoChatRepository() {
 
   return DemoChatRepository(
     conversations: [
-      conv('cv_daily', '竞品日报流程', const Duration(minutes: 2), pinned: true, generating: true),
-      for (final s in shows) s.conv, // 展台对话(带工具卡)置于活跃段
-      conv('cv_sync', 'AI 编辑 · sync_inventory 加重试', const Duration(minutes: 10)),
-      conv('cv_diag', '诊断 · flowrun frn_8a1c 失败', const Duration(minutes: 25), awaiting: true),
-      conv('cv_weekly', '周报初稿整理', const Duration(hours: 1), unread: true),
-      conv('cv_keys', 'API key 轮换排查', const Duration(hours: 3)),
-      conv('cv_notes', '周会纪要整理', const Duration(hours: 26)), // yesterday
-      conv('cv_research', '市场调研问题清单', const Duration(days: 3)), // this week
-      conv('cv_kickoff', '项目启动 kickoff 讨论', const Duration(days: 20)), // older
-      conv('cv_migrate', '旧版迁移笔记', const Duration(days: 40), archived: true), // gray when shown
+      // Only conversations that DO something when opened (real transcripts) + the archived example — the
+      // empty rail-filler threads (daily / diag / keys / notes / research / kickoff, seeded no messages)
+      // were pruned so every rail row is useful (#1). Rail states stay covered: pinned (cv_sync) / unread
+      // green (cv_weekly) / archived gray (cv_migrate) / generating blue (plays live on send). The pinned
+      // demo carries a full transcript (mention + thinking + code + a cancelled turn), not an empty row.
+      // 只留打开有内容的对话 + 归档例;空 rail 填充对话已清(#1)。信号仍全覆盖:置顶/未读绿/归档灰/发送时生成蓝。
+      conv('cv_sync', 'AI 编辑 · sync_inventory 加重试', const Duration(minutes: 10), pinned: true),
+      for (final s in shows) s.conv, // the tool-card showcase — every tool card, live 工具卡展台(每卡)
+      conv('cv_weekly', '周报初稿整理', const Duration(hours: 1), unread: true), // unread green + markdown/table
+      conv('cv_migrate', '旧版迁移笔记', const Duration(days: 40), archived: true), // the archived (gray) example
     ],
     messages: {
       for (final s in shows) s.conv.id: s.messages,
@@ -299,6 +300,16 @@ DemoChatRepository demoChatRepository() {
         msg('m_w2', 'cv_weekly', 'assistant', const Duration(hours: 1), blocks: [
           blk('b_w2', 'text',
               '## 本周进展\n\n- 完成 sync_inventory 重试改造(v4 已激活)\n- flowrun 失败率从 4.2% 降到 0.8%\n\n| 指标 | 上周 | 本周 |\n|:--|--:|--:|\n| 失败率 | 4.2% | 0.8% |\n| 平均时延 | 3.1s | 2.4s |\n\n> 下周重点:告警渠道接入'),
+        ]),
+      ],
+      // The archived (gray) example — a short, done conversation so the archived filter isn't empty. 归档例。
+      'cv_migrate': [
+        msg('m_mig1', 'cv_migrate', 'user', const Duration(days: 40), blocks: [
+          blk('b_mig1', 'text', '把旧版三个 handler 的迁移笔记归档一下'),
+        ]),
+        msg('m_mig2', 'cv_migrate', 'assistant', const Duration(days: 40), blocks: [
+          blk('b_mig2', 'text',
+              '已整理:旧版 3 个 handler 全部迁到新契约,迁移要点记在文档《迁移笔记》。这条对话可以归档了。'),
         ]),
       ],
     },

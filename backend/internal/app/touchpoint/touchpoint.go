@@ -143,6 +143,29 @@ func (s *Service) lookupName(ctx context.Context, kind, id string) string {
 	return names[id]
 }
 
+// ResolveName returns the display name of the PRIMARY entity a tool call targets — derived from the SAME
+// (tool → arg-id → Namer) path the ledger uses (ExtractTouches + lookupName). The loop stamps a tool_call
+// block with this so the UI reads "Run Function «sync_inventory»" instead of a bare id. "" when the tool
+// touches no nameable entity (unknown tool / absent arg / no namer / id resolves to nothing) — the caller
+// keeps the id. PRE-EXECUTION safe: the exec tools carry their target id in ARGS (catalog argKey), so the
+// output is not needed here and passing "" is correct (output-keyed tools simply resolve to "" pre-exec).
+//
+// ResolveName 返回一次工具调用主目标实体的显示名——复用台账同款 (工具→arg-id→Namer) 路径。loop 用它给
+// tool_call 块盖目标名,使 UI 读「Run Function «sync_inventory»」而非裸 id。无可命名实体返 ""(调用方留 id)。
+// 执行前安全:exec 工具目标 id 在 args(catalog argKey),不需 output、传 "" 即对(output-keyed 工具执行前返 "")。
+func (s *Service) ResolveName(ctx context.Context, toolName string, args map[string]any) string {
+	refs := ExtractTouches(toolName, args, "")
+	if len(refs) == 0 {
+		return ""
+	}
+	// The first ref is the tool's PRIMARY target (run_function→functionId, …). 首个=主目标。
+	r := refs[0]
+	if r.Name != "" {
+		return r.Name // nameIsID kinds (mcp) already carry the name 名即 id 的 kind 已带名
+	}
+	return s.lookupName(ctx, r.Kind, r.ID)
+}
+
 // broadcast pushes the updated aggregate row as a durable signal on the messages stream,
 // anchored to its conversation. The payload is one row (idempotent upsert view), so replay
 // after reconnect converges — unlike a full-list push, it stays O(1) per touch. Best-effort:

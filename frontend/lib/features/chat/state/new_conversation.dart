@@ -18,9 +18,20 @@ Future<String> startConversation(Ref ref, String text,
     {List<MentionSnapshot> mentions = const [], List<String> attachmentIds = const []}) async {
   final repo = ref.read(chatRepositoryProvider);
   final conv = await repo.createConversation();
-  final model = ref.read(landingModelProvider);
-  if (model != null) await repo.setModelOverride(conv.id, model);
-  await ref.read(conversationStreamProvider(conv.id).notifier).send(text, mentions: mentions, attachmentIds: attachmentIds);
+  try {
+    final model = ref.read(landingModelProvider);
+    if (model != null) await repo.setModelOverride(conv.id, model);
+    await ref.read(conversationStreamProvider(conv.id).notifier).send(text, mentions: mentions, attachmentIds: attachmentIds);
+  } catch (_) {
+    // Roll back the just-created thread so a failed model-stamp / first-send never leaves an empty-title
+    // orphan in the rail (create succeeded but nothing rode it). Best-effort delete; RETHROW the original
+    // error so the landing composer keeps the user's text for a retry (its submit-failure contract).
+    // 回滚刚建线程:模型盖章/首发失败绝不留空标题孤儿(删尽力而为,重抛原错使 landing composer 留字供重试)。
+    try {
+      await repo.deleteConversation(conv.id);
+    } catch (_) {/* best-effort rollback — the original error still surfaces 尽力回滚,原错照冒 */}
+    rethrow;
+  }
   return conv.id;
 }
 

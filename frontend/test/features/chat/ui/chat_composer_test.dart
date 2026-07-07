@@ -6,6 +6,7 @@ import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/features/chat/data/chat_fixtures.dart';
 import 'package:anselm/features/chat/data/chat_providers.dart';
 import 'package:anselm/features/chat/state/chat_drafts.dart';
+import 'package:anselm/features/chat/state/conversation_header.dart';
 import 'package:anselm/features/chat/state/new_conversation.dart';
 import 'package:anselm/features/chat/state/pending_attachments.dart';
 import 'package:anselm/features/chat/state/selected_conversation.dart';
@@ -224,6 +225,34 @@ void main() {
     await sub.cancel();
   });
 
+  test('landing create rolls back the orphan when the modelOverride PATCH fails — no empty-title thread left (L4)', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    final repo = FixtureChatRepository(conversations: [], messages: {});
+    final container = ProviderContainer(overrides: [
+      chatRepositoryProvider.overrideWithValue(repo),
+      selectedConversationProvider.overrideWith(_FakeSelected.new),
+    ]);
+    addTearDown(container.dispose);
+
+    String? createdId;
+    final sub = repo.lifecycleSignals().listen((s) {
+      if (s.action.name == 'created') createdId = s.id;
+    });
+
+    // The landing had a model chosen → startConversation stamps it via PATCH between create and send. That
+    // PATCH throws here: create succeeded, the model-stamp fails, and there's a live orphan to roll back.
+    // (A SEND failure is NOT an orphan — that's the optimistic failed-bubble path, thread legitimately kept.)
+    container.read(landingModelProvider.notifier).set((apiKeyId: 'ak_1', modelId: 'm_1'));
+    repo.failNextModelOverride = true;
+    await expectLater(container.read(startConversationProvider)('第一句'), throwsA(isA<StateError>()));
+    await pumpEventQueue();
+    expect(createdId, isNotNull, reason: 'the thread WAS created before the model-stamp failed');
+    // The orphan must be rolled back — getConversation now 404s (StateError), so no empty-title row lingers
+    // in the rail. 孤儿已回滚:查不到(StateError),rail 不留空标题行。
+    await expectLater(repo.getConversation(createdId!), throwsA(isA<StateError>()));
+    await sub.cancel();
+  });
+
   group('@ typeahead', () {
     Future<void> pumpQuery(WidgetTester tester) async {
       await tester.pump(const Duration(milliseconds: 200)); // debounce 防抖
@@ -309,6 +338,42 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.backspace); // atomic 整删
       await tester.pump();
       expect(ctl.text, '');
+    });
+
+    testWidgets('mid-word backspace does NOT atomic-delete the pill (@name glued to more text) (L1)', (tester) async {
+      final repo = FixtureChatRepository(conversations: [_conv('cv_1')], messages: {'cv_1': []});
+      await tester.pumpWidget(_host(repo));
+      await tester.enterText(find.byType(TextField).last, '@syn');
+      await pumpQuery(tester);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter); // pick sync_inventory → pillNames has it
+      await pumpQuery(tester);
+      final ctl = tester.widget<TextField>(find.byType(TextField).last).controller!;
+      // Glue text right after the pill, caret sitting BETWEEN the pill and the glued text. 药丸后粘字、光标夹中。
+      ctl.value = const TextEditingValue(
+          text: '@sync_inventoryxyz', selection: TextSelection.collapsed(offset: '@sync_inventory'.length));
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      await tester.pump();
+      // The whole `@sync_inventory` must NOT be atomically eaten (that was the L1 bug). 药丸不被整删。
+      expect(ctl.text, isNot('xyz'));
+      expect(ctl.text, contains('sync_inventor'));
+    });
+
+    testWidgets('lead @ button on a REVERSE selection replaces it without duplicating text (L3)', (tester) async {
+      final repo = FixtureChatRepository(conversations: [_conv('cv_1')], messages: {'cv_1': []});
+      await tester.pumpWidget(_host(repo));
+      await _settle(tester);
+      final ctl = tester.widget<TextField>(find.byType(TextField).last).controller!;
+      // "hello world" with "world" selected RIGHT-TO-LEFT (base > extent). The old code used base/extent
+      // raw → `substring(0,base) + '@' + substring(extent)` DUPLICATED "world". 反向选区曾重复选中文本。
+      ctl.value = const TextEditingValue(
+        text: 'hello world',
+        selection: TextSelection(baseOffset: 11, extentOffset: 6),
+      );
+      await tester.pump();
+      await tester.tap(find.byIcon(AnIcons.mention));
+      await tester.pump();
+      expect(ctl.text, 'hello @'); // "world" replaced, NOT "hello world @world" 选中被替换、无重复
     });
   });
 

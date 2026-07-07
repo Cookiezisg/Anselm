@@ -99,12 +99,9 @@ audience: [human, ai]
 
 ## 🔵 LOW
 
-- **L1** `_atomicBackspace` 只校验左边界 → 词中 `@alicexyz` 一次退格误删 `@alice`(`chat_composer.dart:202-219` vs `mention_text_controller.dart:74`)。
-- **L2** 搜索失败保留过期候选、面板不关不清(`chat_composer.dart:141-145`)。
-- **L3** `_insertMentionTrigger` 反向选区下文本重复(`chat_composer.dart:172-183`)。
-- **L4** landing create→setModelOverride 之间 PATCH 抛错 → 空标题孤儿会话(`new_conversation.dart:20-23`,无 create 回滚)。
-- **L5** 附件泡内 chip 未在任何 demo 对话种(`chat_demo_fixture.dart:51,55` 仅形参)。
-- **L6** i18n 漏网:硬编英文「filter」(`tool_card_skins.dart:311`)。
+- **L5** 附件泡内 chip 未在任何 demo 对话种(`chat_demo_fixture.dart:51,55` 仅形参)。〔demo-data,连 B1 demo 故事重排一并做〕
+
+〔L1/L2/L3/L4/L6 已修,见下方「已修」区〕
 
 ## 过时注释 / 过度声称（顺手清）
 
@@ -120,4 +117,14 @@ audience: [human, ai]
 
 ## 已修（勾掉留痕）
 
+- ✅ **M1 琥珀「等你输入」点被蓝遮**(2026-07-07):`conversation_rail_model.dart` `conversationDot` 把 `awaitingInput` 提到 `isGenerating` **之前**(被人闸阻塞的回合两者同真,「需要你」琥珀点须赢蓝点否则生产不可达)。rail model 测同步改。
+- ✅ **M2 max_tokens 误染红**(2026-07-07):`chat_transcript.dart` `_stopBanner` 加 `'max_tokens'` 分支(amber `warn` 限额提示「Reached the output limit」,非红 error)。i18n 补 `stoppedMaxTokens`。
+- ✅ **M3 FIFO 回声不跳失败泡**(2026-07-07):`conversation_transcript.dart` `applyFrame` 的对账从 `removeAt(0)` 改 `indexWhere((p)=>!p.failed)`——回声对账最老**在飞(非失败)**泡,失败泡存活(保 retry/discard),真发送不留幻影重复泡、不卡 composer。加回归测。
+- ✅ **M5 失败附件静默丢**(2026-07-07):`chat_composer.dart` `_send` 前若 `_att.failedCount>0` 弹 toast(`attachmentsFailedDropped`)——发送仍进(取 readyIds)但用户被告知哪些没发,不再静默。`PendingAttachments` 加 `failedCount`。
+- ✅ **M6 人在环重连不重拉**(2026-07-07):`pending_interactions_provider.dart` build 订阅 `transcriptResync()` → `_reconcile(prune:true)`(重拉 GET interactions:增新门 + 删幻影待决,保本地已决章);`_seed` 重构成 `_reconcile({prune})`。加 2 回归测(重连拉回窗内起的门 / 剪幻影门)。
+- ✅ **L1 词中退格误删 @提及**(2026-07-07):`chat_composer.dart` `_atomicBackspace` 加**右边界**——光标后粘着词/中文字符(`@alicexyz`/`@alice你好`)则不整删 `@name`、退回逐字删。加 mid-word 回归测。
+- ✅ **L2 搜索失败留过期候选**(2026-07-07):`chat_composer.dart` `_syncMentionQuery` search catch 里 `_closePicker()`(若仍最新查询)——查询失败关面板、不留上个查询的过期候选(否则选中插错提及);不挡输入。
+- ✅ **L3 反向选区提及触发重复文本**(2026-07-07):`chat_composer.dart` `_insertMentionTrigger` 从 `base/extent` 直算改用**归一** `sel.start/end`——反向拖拽(base>extent)下 `substring(0,base)+'@'+substring(extent)` 会重复选中跨度(before 与 tail 交叠);归一后正确替换选区。加反向选区回归测。
+- ✅ **L6 硬编 filter**(2026-07-07):`tool_card_skins.dart` Grep 卡 `'filter /$x/'` → i18n `grepFilter(p:)`。
+- ✅ **L4 landing 首发孤儿回滚**(2026-07-07):`new_conversation.dart` `startConversation` 把 `setModelOverride`+`send` 包 try/catch——**modelOverride PATCH 抛错**(create 成功、盖章失败)时 best-effort `deleteConversation` 回滚刚建的空标题线程再 rethrow(landing composer 留字供重试)。**send 失败不回滚**(那是乐观失败泡路径、线程合理保留,`_post` 吞错不冒泡)。fixture 加 `failNextModelOverride` 钩 + 回滚回归测。
 - ✅ **V5-C 嵌套 subagent message 摊平**(2026-07-07,commit 92c9f8e1):真后端嵌套回合是 tool_call 下 `message` 包装、轨迹是孙节点,`transcriptBlockRow` default→shrink 吞它 → 真后端 NestedRunPane 渲空(B6 fixture 用 raw 形没测到)。`ToolCardState.of` 加 message 摊平修复。

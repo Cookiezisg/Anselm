@@ -216,14 +216,22 @@ class FixtureChatRepository implements ChatRepository {
     _mutate(conversationId, (c) => c.copyWith(hasUnread: false));
   }
 
+  /// One-shot scripted modelOverride PATCH failure (the landing-first-send orphan path). 一次性模型盖章失败脚本。
+  bool failNextModelOverride = false;
+
   @override
-  Future<Conversation> setModelOverride(String id, ({String apiKeyId, String modelId})? ref) async =>
-      _mutate(
-        id,
-        (c) => ref == null
-            ? c.copyWith(modelOverride: null)
-            : c.copyWith(modelOverride: ModelRef(apiKeyId: ref.apiKeyId, modelId: ref.modelId)),
-      );
+  Future<Conversation> setModelOverride(String id, ({String apiKeyId, String modelId})? ref) async {
+    if (failNextModelOverride) {
+      failNextModelOverride = false;
+      throw StateError('scripted modelOverride failure');
+    }
+    return _mutate(
+      id,
+      (c) => ref == null
+          ? c.copyWith(modelOverride: null)
+          : c.copyWith(modelOverride: ModelRef(apiKeyId: ref.apiKeyId, modelId: ref.modelId)),
+    );
+  }
 
   @override
   Stream<StreamEnvelope> conversationFrames(String conversationId) =>

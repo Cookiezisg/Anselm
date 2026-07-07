@@ -14,12 +14,13 @@ import 'package:flutter_test/flutter_test.dart';
 // F09 run-log search (B5.6) — aggregate families: ok✓/failed✗ rollup receipt, slim RunLedger, empty→no
 // body, and the SLIM PROJECTION invariant (input/output/logs/transcript never render). F09 检索族。
 
-BlockNode _search(String name, String args, String result) => BlockNode(id: 'tc_s', kind: BlockKind.toolCall)
-  ..status = 'completed'
-  ..content = {'name': name, 'arguments': args}
-  ..children.add(BlockNode(id: 'tr_s', kind: BlockKind.toolResult)
-    ..status = 'completed'
-    ..content = {'content': result});
+BlockNode _search(String name, String args, String result, {String? entityName}) =>
+    BlockNode(id: 'tc_s', kind: BlockKind.toolCall)
+      ..status = 'completed'
+      ..content = {'name': name, 'arguments': args, 'entityName': ?entityName}
+      ..children.add(BlockNode(id: 'tr_s', kind: BlockKind.toolResult)
+        ..status = 'completed'
+        ..content = {'content': result});
 
 String _exec(String id, String status, {int elapsed = 800, String? extra}) =>
     '{"id":"$id","status":"$status","triggeredBy":"chat","elapsedMs":$elapsed,"startedAt":"2026-07-05T14:03:00Z"${extra ?? ''}}';
@@ -67,6 +68,15 @@ void main() {
     expect(find.textContaining('SHOULD_NOT_RENDER'), findsNothing);
     expect(find.textContaining('LOGLINE_SHOULD_NOT_RENDER'), findsNothing);
     expect(find.textContaining(t.chat.tool.aggNote), findsOneWidget); // ✗ incl. cancelled/timeout note
+  });
+
+  testWidgets('fn executions header shows the resolved function NAME, not the id (B4)', (tester) async {
+    await tester.pumpWidget(_host(ChatToolCard(node: _search('search_function_executions', '{"functionId":"fn_1"}',
+        _page('executions', [_exec('fnexec_01', 'ok')], ok: 1, failed: 0),
+        entityName: 'sync_inventory'))));
+    await tester.pump();
+    // The collapsed header chip is the backend-resolved function name (search scoped to that function). 头 chip 显函数名。
+    expect(find.textContaining('sync_inventory'), findsOneWidget);
   });
 
   testWidgets('handler calls: method() chip renders', (tester) async {

@@ -145,6 +145,17 @@ ToolReceipt? fsErrorReceipt(Translations t, String output) {
   return (text: label, tone: ToolReceiptTone.danger);
 }
 
+/// The target chip for an entity-EXECUTING tool (run_function / invoke_agent / fire_trigger /
+/// trigger_workflow): the backend-resolved entity NAME when present (so the header reads "Run Function
+/// «sync_inventory»"), else the truncated arg id as a fallback — the name lands with the tool_call CLOSE,
+/// so mid-stream (or a non-nameable target) the id still shows. 实体执行工具的目标 chip:有后端解析名用名、
+/// 否则退回截断 arg id(名随 close 落定,流式中/无可命名目标时仍显 id)。
+String? _nameOrIdTarget(ToolCardState s, String idKey) {
+  if (s.entityName.isNotEmpty) return s.entityName;
+  final id = argStringPartial(s.argsText, idKey);
+  return id == null ? null : (id.length > 12 ? '${id.substring(0, 12)}…' : id);
+}
+
 ToolCardSpec _fsOp({
   required String Function(Translations) liveVerb,
   required String Function(Translations) doneVerb,
@@ -179,7 +190,10 @@ ToolCardSpec _searchLog({
   final args = chipArg != null ? [chipArg] : chipArgs;
   return ToolCardSpec(
     verb: (t, {required bool live}) => live ? running(t) : done(t),
+    // The backend-resolved entity NAME wins (search_function_executions scoped to a function → its name),
+    // else the first-present id arg truncated. 后端解析名优先(检索按实体域→显名)、否则首个 id 参截断。
     target: (s) {
+      if (s.entityName.isNotEmpty) return s.entityName;
       for (final a in args) {
         final v = argStringPartial(s.argsText, a);
         if (v != null && v.isNotEmpty) return v.length > 12 ? '${v.substring(0, 12)}…' : v;
@@ -204,6 +218,7 @@ ToolCardSpec _countLog({
     ToolCardSpec(
       verb: (t, {required bool live}) => live ? running(t) : done(t),
       target: (s) {
+        if (s.entityName.isNotEmpty) return s.entityName;
         final v = argStringPartial(s.argsText, chipArg);
         return v == null || v.isEmpty ? null : (v.length > 12 ? '${v.substring(0, 12)}…' : v);
       },
@@ -889,10 +904,9 @@ final Map<String, ToolCardSpec> _catalog = {
   // share the ExecutionResult shape. F08 执行:输入→黑箱→输出的可核账凭据。──
   'run_function': ToolCardSpec(
     verb: (t, {required bool live}) => live ? t.chat.tool.runningFn : t.chat.tool.ranFn,
-    target: (s) {
-      final id = argStringPartial(s.argsText, 'functionId');
-      return id == null ? null : (id.length > 12 ? '${id.substring(0, 12)}…' : id);
-    },
+    // Prefer the backend-resolved entity NAME (Run Function «sync_inventory»); fall back to the arg id
+    // while it's still streaming or when the target isn't nameable. 优先后端解析名、退回 arg id。
+    target: (s) => _nameOrIdTarget(s, 'functionId'),
     receipt: (t, s) => execReceipt(t, s.resultText),
     resultFailed: (s) => execResultFailed(s.resultText),
     body: runFunctionBody,
@@ -924,10 +938,7 @@ final Map<String, ToolCardSpec> _catalog = {
   // LIVE nested trajectory (NestedRunPane) is B6; this is the settled body. invoke_agent 落定卡。
   'invoke_agent': ToolCardSpec(
     verb: (t, {required bool live}) => live ? t.chat.tool.invokingAgent : t.chat.tool.invokedAgent,
-    target: (s) {
-      final id = argStringPartial(s.argsText, 'agentId');
-      return id == null ? null : (id.length > 12 ? '${id.substring(0, 12)}…' : id);
-    },
+    target: (s) => _nameOrIdTarget(s, 'agentId'),
     receipt: (t, s) => invokeReceipt(t, s.resultText),
     resultFailed: (s) => invokeResultFailed(s.resultText),
     body: invokeAgentBody,
@@ -936,10 +947,7 @@ final Map<String, ToolCardSpec> _catalog = {
   // fire_trigger — the thin activation card (chip=triggerId, receipt=activationId; never danger). 薄卡。
   'fire_trigger': ToolCardSpec(
     verb: (t, {required bool live}) => live ? t.chat.tool.firingTrigger : t.chat.tool.firedTrigger,
-    target: (s) {
-      final id = argStringPartial(s.argsText, 'triggerId');
-      return id == null ? null : (id.length > 12 ? '${id.substring(0, 12)}…' : id);
-    },
+    target: (s) => _nameOrIdTarget(s, 'triggerId'),
     receipt: (t, s) => fireReceipt(t, s.resultText),
     body: fireTriggerBody,
   ),
@@ -947,10 +955,7 @@ final Map<String, ToolCardSpec> _catalog = {
   // 异步「立即运行」薄卡。
   'trigger_workflow': ToolCardSpec(
     verb: (t, {required bool live}) => live ? t.chat.tool.triggeringWf : t.chat.tool.triggeredWf,
-    target: (s) {
-      final id = argStringPartial(s.argsText, 'workflowId');
-      return id == null ? null : (id.length > 12 ? '${id.substring(0, 12)}…' : id);
-    },
+    target: (s) => _nameOrIdTarget(s, 'workflowId'),
     receipt: (t, s) => triggerWorkflowReceipt(t, s.resultText),
     body: triggerWorkflowBody,
   ),

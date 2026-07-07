@@ -179,7 +179,7 @@ class _RunRowState extends State<_RunRow> {
               if (row.monoId != null)
                 Flexible(child: Text(row.monoId!, maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.mono.copyWith(color: c.inkMuted)))
               else if (row.text != null)
-                Flexible(child: Text(row.text!, maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.reading.copyWith(color: c.ink))),
+                Flexible(child: Text(row.text!, maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.body.copyWith(color: c.ink))),
               for (final chip in row.chips) ...[const SizedBox(width: AnSpace.s6), chip],
             ]),
             if (row.subText != null && row.subText!.trim().isNotEmpty)

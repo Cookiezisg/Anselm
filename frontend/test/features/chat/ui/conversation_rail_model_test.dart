@@ -52,15 +52,16 @@ void main() {
     expect(conversationDot(_c()), isNull);
   });
 
-  test('generating → run (blue), the highest precedence', () {
-    expect(conversationDot(_c(generating: true)), AnStatus.run);
-    // wins even when every flag is set at once
-    expect(conversationDot(_c(generating: true, awaiting: true, unread: true, archived: true)), AnStatus.run);
+  test('awaiting input → wait (amber), the HIGHEST precedence (over generating too)', () {
+    expect(conversationDot(_c(awaiting: true)), AnStatus.wait);
+    // A gate-blocked turn keeps isGenerating true AND awaitingInput true — the "needs you" amber must
+    // win over the blue, else it is unreachable in production. 等你优先于生成中(被闸回合两者同真)。
+    expect(conversationDot(_c(generating: true, awaiting: true, unread: true, archived: true)), AnStatus.wait);
   });
 
-  test('awaiting input → wait (amber), over unread + archived', () {
-    expect(conversationDot(_c(awaiting: true)), AnStatus.wait);
-    expect(conversationDot(_c(awaiting: true, unread: true, archived: true)), AnStatus.wait);
+  test('generating → run (blue), over unread + archived (but under awaiting)', () {
+    expect(conversationDot(_c(generating: true)), AnStatus.run);
+    expect(conversationDot(_c(generating: true, unread: true, archived: true)), AnStatus.run);
   });
 
   test('unread → done (green), over archived', () {

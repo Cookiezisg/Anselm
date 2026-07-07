@@ -98,12 +98,14 @@ class _Translations$chat$zh_CN extends Translations$chat$en {
 	@override String get thinking => 'thinking';
 	@override String get thought => 'thought';
 	@override String get sendFailed => 'Couldn\'t send';
+	@override String attachmentsFailedDropped({required Object n}) => '${n} 个附件上传失败,未随消息发送';
 	@override String get retrySend => 'Retry';
 	@override String get discard => 'Discard';
 	@override String get stoppedCancelled => 'Stopped';
 	@override String get stoppedError => 'Something went wrong';
 	@override String get stoppedMaxSteps => 'Paused — step limit reached';
 	@override String get stoppedBudget => 'Paused — context window is full';
+	@override String get stoppedMaxTokens => 'Reached the output limit';
 	@override String get transcriptErrorTitle => 'Couldn\'t load this conversation';
 	@override String get transcriptErrorHint => 'The local engine didn’t return the messages.';
 	@override String get landingGreeting => 'What should we dig into?';
@@ -315,7 +317,7 @@ class _Translations$entities$zh_CN extends Translations$entities$en {
 
 	// Translations
 	@override String get kNew => '新建';
-	@override String get filter => '筛选…';
+	@override String get filter => '搜索实体…';
 	@override String get emptyTitle => '还没有实体';
 	@override String get emptyHint => '新建一个函数、处理器、智能体或工作流来开始。';
 	@override String get errorTitle => '无法加载实体';
@@ -356,8 +358,8 @@ class _Translations$documents$zh_CN extends Translations$documents$en {
 	@override String get documents => '文档';
 	@override String get skills => '技能';
 	@override String get untitled => '未命名';
-	@override String get filter => '过滤';
-	@override String get kNew => '新建';
+	@override String get filter => '搜索文档…';
+	@override String get kNew => '新建页面';
 	@override String get errorTitle => '无法加载知识库';
 	@override String get errorHint => '本地引擎没有返回它。';
 	@override String get retry => '重试';
@@ -535,6 +537,7 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get apfOnTimeout => '超时 →';
 	@override String get proseExpand => '展开全文';
 	@override String get proseCollapse => '收起';
+	@override String grepFilter({required Object p}) => '过滤 /${p}/';
 	@override String get docAutoRenamed => '请求名被占,已自动改名';
 	@override String get skillNoRevert => '整份覆盖 · 无版本可回退';
 	@override String get skillPreauth => '激活后免危险确认(预授权)';
@@ -1517,12 +1520,14 @@ extension on TranslationsZhCn {
 			'chat.thinking' => 'thinking',
 			'chat.thought' => 'thought',
 			'chat.sendFailed' => 'Couldn\'t send',
+			'chat.attachmentsFailedDropped' => ({required Object n}) => '${n} 个附件上传失败,未随消息发送',
 			'chat.retrySend' => 'Retry',
 			'chat.discard' => 'Discard',
 			'chat.stoppedCancelled' => 'Stopped',
 			'chat.stoppedError' => 'Something went wrong',
 			'chat.stoppedMaxSteps' => 'Paused — step limit reached',
 			'chat.stoppedBudget' => 'Paused — context window is full',
+			'chat.stoppedMaxTokens' => 'Reached the output limit',
 			'chat.transcriptErrorTitle' => 'Couldn\'t load this conversation',
 			'chat.transcriptErrorHint' => 'The local engine didn’t return the messages.',
 			'chat.landingGreeting' => 'What should we dig into?',
@@ -1638,6 +1643,7 @@ extension on TranslationsZhCn {
 			'chat.tool.apfOnTimeout' => '超时 →',
 			'chat.tool.proseExpand' => '展开全文',
 			'chat.tool.proseCollapse' => '收起',
+			'chat.tool.grepFilter' => ({required Object p}) => '过滤 /${p}/',
 			'chat.tool.docAutoRenamed' => '请求名被占,已自动改名',
 			'chat.tool.skillNoRevert' => '整份覆盖 · 无版本可回退',
 			'chat.tool.skillPreauth' => '激活后免危险确认(预授权)',
@@ -1989,11 +1995,11 @@ extension on TranslationsZhCn {
 			'status.idle' => '空闲',
 			'status.run' => '运行中',
 			'status.wait' => '等待',
+			_ => null,
+		} ?? switch (path) {
 			'status.err' => '失败',
 			'status.done' => '完成',
 			'action.edit' => '编辑',
-			_ => null,
-		} ?? switch (path) {
 			'action.cancel' => '取消',
 			'action.save' => '保存',
 			'action.copy' => '复制',
@@ -2109,7 +2115,7 @@ extension on TranslationsZhCn {
 			'startup.errorTitle' => '出错了',
 			'startup.errorHint' => '渲染此视图时发生了意外错误。',
 			'entities.kNew' => '新建',
-			'entities.filter' => '筛选…',
+			'entities.filter' => '搜索实体…',
 			'entities.emptyTitle' => '还没有实体',
 			'entities.emptyHint' => '新建一个函数、处理器、智能体或工作流来开始。',
 			'entities.errorTitle' => '无法加载实体',
@@ -2389,8 +2395,8 @@ extension on TranslationsZhCn {
 			'documents.documents' => '文档',
 			'documents.skills' => '技能',
 			'documents.untitled' => '未命名',
-			'documents.filter' => '过滤',
-			'documents.kNew' => '新建',
+			'documents.filter' => '搜索文档…',
+			'documents.kNew' => '新建页面',
 			'documents.errorTitle' => '无法加载知识库',
 			'documents.errorHint' => '本地引擎没有返回它。',
 			'documents.retry' => '重试',

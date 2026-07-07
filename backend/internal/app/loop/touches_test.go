@@ -2,6 +2,7 @@ package loop
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"go.uber.org/zap"
@@ -78,6 +79,65 @@ func TestRecordTouches_SilentSkips(t *testing.T) {
 	recordTouches(touchpointapp.With(context.Background(), svc), fakeTool{name: "get_function"}, tc("get_function", map[string]any{"functionId": "fn_1"}), "", true)
 	if len(repo.touches) != 0 {
 		t.Error("conversation-less path must not record")
+	}
+}
+
+// --- entity-name stamping (B3/B4: the tool_call block carries its target's NAME, not just an id) ---
+
+type fakeNamer map[string]string
+
+func (f fakeNamer) NamesByIDs(_ context.Context, ids []string) (map[string]string, error) {
+	out := map[string]string{}
+	for _, id := range ids {
+		if n, ok := f[id]; ok {
+			out[id] = n
+		}
+	}
+	return out, nil
+}
+
+func TestResolveToolTargetName(t *testing.T) {
+	svc := touchpointapp.NewService(touchpointapp.Config{
+		Repo: &captureRepo{}, Log: zap.NewNop(),
+		Namers: map[string]touchpointapp.Namer{"function": fakeNamer{"fn_1": "sync_inventory"}},
+	})
+	ctx := touchpointapp.With(context.Background(), svc)
+	// run_function's target id (functionId) resolves to the function's display name PRE-execution.
+	if got := resolveToolTargetName(ctx, "run_function", map[string]any{"functionId": "fn_1"}); got != "sync_inventory" {
+		t.Errorf("name = %q, want sync_inventory", got)
+	}
+	// Recorder-less ctx → "" (the UI keeps the id). 无记账器返 ""(UI 留 id)。
+	if got := resolveToolTargetName(context.Background(), "run_function", map[string]any{"functionId": "fn_1"}); got != "" {
+		t.Errorf("recorder-less must be empty, got %q", got)
+	}
+}
+
+func TestToolCallSnapshotAndBlockCarryEntityName(t *testing.T) {
+	a := &toolAccum{id: "blk_1", name: "run_function", entityName: "sync_inventory"}
+	a.args.WriteString(`{"functionId":"fn_1"}`)
+
+	// The durable close snapshot carries entityName next to name/summary/danger. 关帧快照携带 entityName。
+	var c toolCallContent
+	if err := json.Unmarshal(toolCallSnapshot(a).Content, &c); err != nil {
+		t.Fatal(err)
+	}
+	if c.EntityName != "sync_inventory" {
+		t.Errorf("snapshot entityName = %q, want sync_inventory", c.EntityName)
+	}
+
+	// The persisted block carries it in attrs so a DB-rebuilt history shows the name. 落库块 attrs 也带。
+	blocks := assembleBlocks("", reasonAccum{}, map[int]*toolAccum{0: a})
+	var found bool
+	for _, b := range blocks {
+		if b.Type == messagesdomain.BlockTypeToolCall {
+			found = true
+			if b.Attrs["entityName"] != "sync_inventory" {
+				t.Errorf("block attrs entityName = %v, want sync_inventory", b.Attrs["entityName"])
+			}
+		}
+	}
+	if !found {
+		t.Fatal("no tool_call block assembled")
 	}
 }
 

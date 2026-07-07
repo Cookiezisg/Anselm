@@ -57,11 +57,17 @@ class ToolCardState {
     required this.errorText,
     required this.progressText,
     required this.progressLive,
+    this.entityName = '',
     this.nested = const [],
   });
 
   final ToolCardPhase phase;
   final String toolName;
+
+  /// The call's PRIMARY target entity's display name (backend-resolved from the arg id via the touchpoint
+  /// Namer), so a card's target chip shows "sync_inventory" instead of "fn_a1b2…". Empty when the tool
+  /// touches no nameable entity (the chip falls back to the arg id). 主目标实体显示名(后端解析),空则退回 id。
+  final String entityName;
 
   /// The LLM's self-reported one-line intent — lands with the tool_call CLOSE (decision #1:
   /// shown inside the expanded body, never the collapsed line for cataloged tools).
@@ -123,6 +129,7 @@ class ToolCardState {
       toolName: node.name ?? '',
       summary: node.summary ?? '',
       danger: node.danger ?? '',
+      entityName: node.entityName ?? '',
       argsText: node.argumentsText,
       resultText: resultText,
       errorText: result?.error ?? '',

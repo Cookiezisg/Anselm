@@ -1,0 +1,20 @@
+{
+  "name": "anselm-doc-editor",
+  "private": true,
+  "type": "module",
+  "description": "Anselm document editor — Milkdown/Crepe WYSIWYG-markdown, bundled to one offline self-contained HTML loaded into the Flutter macOS WKWebView. Source of truth for assets/editor/doc_editor.html (built via `make doc-editor`).",
+  "scripts": {
+    "build": "vite build",
+    "roundtrip": "node test/roundtrip.mjs"
+  },
+  "dependencies": {
+    "@milkdown/crepe": "^7.21.2",
+    "@milkdown/kit": "^7.21.2",
+    "remark-wiki-link": "^2.0.1"
+  },
+  "devDependencies": {
+    "playwright": "^1.61.1",
+    "vite": "^6.0.0",
+    "vite-plugin-singlefile": "^2.0.0"
+  }
+}

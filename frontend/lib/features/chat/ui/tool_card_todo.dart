@@ -93,7 +93,7 @@ class TodoChecklist extends StatelessWidget {
         const SizedBox(width: AnSpace.s8),
         Expanded(
           child: Text(it.text,
-              style: AnText.reading.copyWith(
+              style: AnText.body.copyWith(
                 color: textColor,
                 decoration: strike ? TextDecoration.lineThrough : null,
                 decorationColor: c.inkFaint,

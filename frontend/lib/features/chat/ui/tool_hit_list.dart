@@ -208,8 +208,10 @@ class _ToolHitListState extends State<ToolHitList> with SingleTickerProviderStat
                       child: Text(row.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          // content value tier (15) at emphasis weight (VF double-axis idiom). 内容值档 15 w400。
-                          style: AnText.reading.weight(AnText.emphasisWeight).copyWith(color: c.ink)),
+                          // Tool-card content rides the 13 UI anchor (NOT the 15 content-value tier) — every
+                          // string inside a tool card is dense chrome, distinguished from the 13 subtitle by
+                          // weight+colour, not size. tool 卡内容一律 13 锚(非 15 值档),靠字重+色分层。
+                          style: AnText.body.weight(AnText.emphasisWeight).copyWith(color: c.ink)),
                     ),
                     if (isCurrent) ...[
                       const SizedBox(width: AnSpace.s6),

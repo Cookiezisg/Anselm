@@ -80,14 +80,15 @@ void main() {
     expect(find.textContaining('未激活', findRichText: true), findsWidgets);
   });
 
-  testWidgets('settled body → the workflow graph (AnMiniGraphGrowth) replays its growth', (tester) async {
+  testWidgets('settled body → the workflow graph renders via AnGraphCanvas, 1:1 with the entity page (B5)', (tester) async {
     await tester.pumpWidget(_host(ChatToolCard(
         node: _wf(result: '{"id":"wf_1","version":1,"active":false,"lifecycleState":"inactive"}'))));
     await tester.pump();
     await tester.tap(find.textContaining('已创建工作流'), warnIfMissed: false);
-    await tester.pumpAndSettle(); // the growth animates then settles
-    expect(find.byType(AnMiniGraphGrowth), findsOneWidget);
-    expect(find.byType(AnMiniGraph), findsOneWidget);
+    await tester.pumpAndSettle();
+    // The SAME widget the entity page uses (not a bespoke mini-graph) → visual 1:1. 与实体页同款 widget。
+    expect(find.byType(AnGraphCanvas), findsOneWidget);
+    expect(find.byType(AnMiniGraphGrowth), findsNothing);
     // The graph's nodes are the workflow steps. 图节点=工作流步骤。
     expect(find.text('pr-merged'), findsOneWidget);
     expect(find.text('summarize'), findsOneWidget);

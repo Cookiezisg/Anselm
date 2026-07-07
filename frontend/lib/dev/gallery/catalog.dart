@@ -263,7 +263,7 @@ final GalleryCategory _chatRail = GalleryCategory('对话 Chat', AnIcons.chat, [
   userTurnGalleryItem,
   anMarkdownGalleryItem,
   chatThinkingGalleryItem,
-  GalleryItem('ChatContextMark 上下文压缩低语', 'V5 特殊块:回合间的系统时间轴标记(发丝线夹 layers 图标 + 本地化文案,count 从后端英文 marker 解出);不借 thinking 左轨', [
+  GalleryItem('ChatContextMark 上下文压缩低语', '回合间的系统时间轴标记(发丝线夹 layers 图标 + 本地化文案,count 从后端英文 marker 解出);不借 thinking 左轨', [
     GallerySpecimen('带数量', (_) => const ChatContextMark(marker: 'Context compacted — 42 earlier blocks folded into the running summary.'), span: true),
     GallerySpecimen('无数量 (裸标签)', (_) => const ChatContextMark(marker: 'Context compacted.'), span: true),
     GallerySpecimen('窄宽截断', (_) => const ChatContextMark(marker: 'Context compacted — 128 earlier blocks folded into the running summary.'), span: true, stress: true, maxWidth: 260),

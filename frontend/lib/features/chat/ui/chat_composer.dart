@@ -141,7 +141,11 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
       try {
         found = await ref.read(mentionSourceProvider).search(token.query);
       } catch (_) {
-        return; // a failed lookup just doesn't open — typing is never blocked 查询失败不弹、不挡输入
+        // A failed lookup must CLOSE the picker — never leave the PREVIOUS query's stale candidates
+        // showing (picking one would insert a wrong mention). Typing is never blocked. 查询失败关面板、
+        // 不留过期候选(否则会插错提及);不挡输入。
+        if (mounted && seq == _searchSeq) _closePicker();
+        return;
       }
       if (!mounted || seq != _searchSeq) return; // stale 迟到
       // Re-check the token still holds (text may have changed during the await). 复核 token 仍在。
@@ -171,13 +175,17 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
   /// holds); the listener then opens the panel. lead @ 钮=在光标处打 '@'(需要则补空格),listener 接手弹面板。
   void _insertMentionTrigger() {
     final sel = _ctrl.selection;
-    final at = sel.isValid ? sel.baseOffset : _ctrl.text.length;
-    final before = _ctrl.text.substring(0, at);
+    // Use the NORMALIZED selection bounds (sel.start/end, min/max), NOT base/extent — a reverse drag has
+    // base > extent, and `substring(0, base) + '@' + substring(extent)` would DUPLICATE the selected span
+    // (`before` and the tail overlap). 用归一边界(非 base/extent);反向选区直接用会重复选中文本。
+    final start = sel.isValid ? sel.start : _ctrl.text.length;
+    final end = sel.isValid ? sel.end : start;
+    final before = _ctrl.text.substring(0, start);
     final needsSpace = before.isNotEmpty && !before.endsWith(' ') && !before.endsWith('\n');
     final insert = needsSpace ? ' @' : '@';
     _ctrl.value = TextEditingValue(
-      text: before + insert + _ctrl.text.substring(sel.isValid ? sel.extentOffset : at),
-      selection: TextSelection.collapsed(offset: at + insert.length),
+      text: before + insert + _ctrl.text.substring(end),
+      selection: TextSelection.collapsed(offset: start + insert.length),
     );
     _focus.requestFocus();
   }
@@ -208,7 +216,11 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
     for (final name in _ctrl.pillNames) {
       final start = cursor - name.length - 1;
       if (start < 0 || _ctrl.text.substring(start, cursor) != '@$name') continue;
-      if (start > 0 && !RegExp(r'\s').hasMatch(_ctrl.text[start - 1])) continue; // boundary 边界
+      if (start > 0 && !RegExp(r'\s').hasMatch(_ctrl.text[start - 1])) continue; // left boundary 左边界
+      // Right boundary: the pill must END at the caret. If a word/CJK char is glued after (mid-word
+      // `@alicexyz` / `@alice你好`), `@name` isn't a standalone token — fall back to char-wise backspace,
+      // never atomic-delete the whole `@name`. 右边界:光标须在药丸末;后粘词/中文字符则逐字删、不整删。
+      if (cursor < _ctrl.text.length && RegExp('[\\w一-鿿]').hasMatch(_ctrl.text[cursor])) continue;
       _ctrl.value = TextEditingValue(
         text: _ctrl.text.replaceRange(start, cursor, ''),
         selection: TextSelection.collapsed(offset: start),
@@ -331,6 +343,14 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
     final attachmentIds = _att.readyIds;
     if ((text.isEmpty && attachmentIds.isEmpty) || _submittingNew) return;
     if (_att.hasUploading) return; // the button is disabled too — never send half a payload 上传中不发
+    // Don't SILENTLY drop failed attachments (M5): the send takes only readyIds and then clears everything
+    // (failed chips included) — tell the user which ones didn't make it before they vanish. 失败附件不静默丢。
+    final failedCount = _att.failedCount;
+    if (failedCount > 0) {
+      ref
+          .read(overlayProvider.notifier)
+          .showToast(Translations.of(context).chat.attachmentsFailedDropped(n: failedCount));
+    }
     final mentions = _liveMentions(text);
     _closePicker();
     final id = widget.conversationId;

@@ -43,6 +43,7 @@ class AnGraphCanvas extends StatefulWidget {
     this.dir = GraphDirection.lr,
     this.run,
     this.framed = false,
+    this.framedHeight,
     this.toolbar = true,
     this.toolbarAlignment = Alignment.topLeft,
     this.selectedNodeId,
@@ -64,9 +65,14 @@ class AnGraphCanvas extends StatefulWidget {
   /// definition view. 运行覆层:节点态 + 已走/活跃边;null = 纯定义视图。
   final GraphRunState? run;
 
-  /// Entity-page preview flavour: fixed [AnSize.graphPreview] height + hairline card frame.
+  /// Entity-page preview flavour: fixed height + hairline card frame.
   /// 实体页预览形态:定高 + hairline 卡框。
   final bool framed;
+
+  /// The [framed] height; null → [AnSize.graphPreview] (the entity-page default). A shorter override lets
+  /// an embedded preview (a chat tool card) share the SAME framed rendering at a more compact height.
+  /// framed 高;空=AnSize.graphPreview(实体页默认)。缩短值让内嵌预览(chat tool 卡)复用同款 framed 渲染、更紧凑。
+  final double? framedHeight;
 
   /// Floating zoom toolbar. 悬浮缩放工具条。
   final bool toolbar;
@@ -345,7 +351,7 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
 
     if (!widget.framed) return withTools;
     return Container(
-      height: AnSize.graphPreview,
+      height: widget.framedHeight ?? AnSize.graphPreview,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: c.surface,

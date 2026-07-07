@@ -77,8 +77,10 @@ abstract class TextContent with _$TextContent {
 }
 
 /// `tool_call` content: `name` on OPEN; `arguments` (the full args JSON, stringified) + the LLM's
-/// self-reported `summary`/`danger` on the CLOSE snapshot (args stream as deltas in between).
-/// stream.go:37-48。
+/// self-reported `summary`/`danger` + the backend-resolved `entityName` (the call's primary target
+/// entity's display name, from the arg id via the touchpoint Namer) on the CLOSE snapshot (args stream as
+/// deltas in between). `entityName` lets the UI show "Run Function «sync_inventory»" instead of a bare id;
+/// null when the tool touches no nameable entity. stream.go:37-49。
 @freezed
 abstract class ToolCallContent with _$ToolCallContent {
   const factory ToolCallContent({
@@ -86,6 +88,7 @@ abstract class ToolCallContent with _$ToolCallContent {
     String? arguments,
     String? summary,
     String? danger,
+    String? entityName,
   }) = _ToolCallContent;
   factory ToolCallContent.fromJson(Map<String, dynamic> json) =>
       _$ToolCallContentFromJson(json);

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// The four top-level oceans the left-island switcher chooses between (mirrors the demo's `manifest.js`
 /// nav). [chat], [entities] and [documents] are built; the rest are placeholders ("coming soon") until
@@ -25,18 +26,51 @@ enum OceanKind {
 }
 
 /// The currently selected ocean — left-island switcher state, owned at the app root (kept in `core/shell`
-/// like [shellChromeProvider] so it isn't an `app`-only concern). Default [OceanKind.entities], the app's
-/// home ocean. NOT routed yet (entity selection inside the entities ocean stays
-/// URL-driven; ocean switching is a follow-up to fold into go_router).
+/// like [shellChromeProvider] so it isn't an `app`-only concern). FIRST launch lands on [OceanKind.chat]
+/// (the chat landing / initial page); thereafter the LAST-selected ocean is restored (persisted via
+/// SharedPreferences, mirroring [shellChromeProvider]'s left-island restore). The app always boots at the
+/// router's `/` (no deep selection), so this provider is the sole "last page" memory — restore only sets
+/// the OCEAN, never a stale entity/conversation id, so it can't fight the URL. Ocean switching is NOT
+/// routed yet (in-ocean selection stays URL-driven; the go_router fold-in is a follow-up).
 ///
-/// 当前选中海洋——左岛切换器状态,在 app 根持有(放 core/shell,同 shellChromeProvider)。默认 entities(开机即落在唯一已建海洋)。
-/// 暂未路由化(entities 海洋内的实体选区仍走 URL;海洋切换并入 go_router 是后续)。
+/// 当前选中海洋——左岛切换器状态(放 core/shell,同 shellChromeProvider)。首次启动落 chat(对话初始页);此后恢复
+/// **上次选中的海洋**(SharedPreferences 持久化,镜像左岛恢复)。app 恒从 `/` 启(无深选区),故本 provider 是唯一
+/// 「上次页面」记忆;恢复只设海洋、不设过期 id,不与 URL 相顶。海洋切换暂未路由化(并入 go_router 是后续)。
 class SelectedOceanController extends Notifier<OceanKind> {
+  static const _kOcean = 'fy.ocean';
+
   @override
-  OceanKind build() => OceanKind.entities;
+  OceanKind build() {
+    _restore();
+    return OceanKind.chat;
+  }
+
+  Future<void> _restore() async {
+    try {
+      final saved = (await SharedPreferences.getInstance()).getString(_kOcean);
+      if (saved == null) return;
+      // Guard byName against a renamed/removed enum value (a stale pref from an older build). 防旧枚举名。
+      final restored = OceanKind.values.where((o) => o.name == saved).firstOrNull;
+      // Only override the chat default if the user never navigated away in this session yet (state still
+      // the seed) — a fast switch before restore lands must win. 仅当本会话尚未切换过(仍为种子)才覆盖:抢先手动切换优先。
+      if (restored != null && ref.mounted && state == OceanKind.chat) state = restored;
+    } catch (_) {
+      /* best-effort 尽力而为 */
+    }
+  }
 
   void select(OceanKind kind) {
-    if (kind != state) state = kind;
+    if (kind == state) return;
+    state = kind;
+    _persist(kind);
+  }
+
+  Future<void> _persist(OceanKind kind) async {
+    try {
+      (await SharedPreferences.getInstance()).setString(_kOcean, kind.name);
+    } catch (_) {
+      /* best-effort */
+    }
   }
 }
 

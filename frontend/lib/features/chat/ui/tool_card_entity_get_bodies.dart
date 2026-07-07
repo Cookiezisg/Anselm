@@ -138,7 +138,7 @@ GetProjection _fnProj(BuildContext context, Translations t, Map<String, dynamic>
       if (out['tags'] is List)
         for (final tag in (out['tags'] as List)) AnBadge('$tag', tone: AnTone.none),
     ]),
-    kv: rows.isEmpty ? null : AnKv(rows: rows),
+    kv: rows.isEmpty ? null : AnKv(rows: rows, dense: true),
     content: [
       if (envErr != null && envErr.isNotEmpty)
         Padding(padding: const EdgeInsets.only(top: AnSpace.s2), child: Text(envErr, style: AnText.mono.copyWith(color: context.colors.danger))),
@@ -165,7 +165,7 @@ GetProjection _handlerProj(BuildContext context, Translations t, Map<String, dyn
       _envBadge(t, av?['envStatus'] as String?),
       if (runtime != null) AnBadge(runtime, tone: runtime == 'crashed' ? AnTone.danger : (runtime == 'running' ? AnTone.ok : AnTone.none)),
     ]),
-    kv: rows.isEmpty ? null : AnKv(rows: rows),
+    kv: rows.isEmpty ? null : AnKv(rows: rows, dense: true),
     content: [
       if (av?['initBody'] is String && (av!['initBody'] as String).isNotEmpty)
         EntityCodeWindow(code: av['initBody'] as String, lang: 'python', label: '__init__'),
@@ -189,7 +189,7 @@ GetProjection _agentProj(BuildContext context, Translations t, Map<String, dynam
     name: '${out['name'] ?? out['id']}',
     meta: _versionMeta(out),
     badges: av == null ? AnCallout(t.chat.tool.noActiveVersion, severity: AnCalloutSeverity.warn) : null,
-    kv: rows.isEmpty ? null : AnKv(rows: rows),
+    kv: rows.isEmpty ? null : AnKv(rows: rows, dense: true),
     content: [
       if (tools.isNotEmpty)
         _pillWrap(context, [
@@ -227,7 +227,7 @@ GetProjection _workflowProj(BuildContext context, Translations t, Map<String, dy
     badges: Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s4, children: [
       if (ls != null) AnBadge(ls, tone: ls == 'active' ? AnTone.ok : (ls == 'draining' ? AnTone.warn : AnTone.none)),
     ]),
-    kv: rows.isEmpty ? null : AnKv(rows: rows),
+    kv: rows.isEmpty ? null : AnKv(rows: rows, dense: true),
     content: [
       if (attention && (out['attentionReason'] as String?)?.isNotEmpty == true)
         AnCallout('${out['attentionReason']}', severity: AnCalloutSeverity.warn),
@@ -243,7 +243,7 @@ GetProjection _controlProj(BuildContext context, Translations t, Map<String, dyn
     meta: _versionMeta(out),
     badges: null,
     kv: (out['description'] as String?)?.isNotEmpty == true
-        ? AnKv(rows: [AnKvRow(t.chat.tool.kvDescription, '${out['description']}', wrap: true)])
+        ? AnKv(rows: [AnKvRow(t.chat.tool.kvDescription, '${out['description']}', wrap: true)], dense: true)
         : null,
     content: [
       // Reuse the B2.7 decision ladder over the active version's branches. 复用 B2.7 决策梯。
@@ -265,7 +265,7 @@ GetProjection _approvalProj(BuildContext context, Translations t, Map<String, dy
     name: '${out['name'] ?? out['id']}',
     meta: _versionMeta(out),
     badges: null,
-    kv: rows.isEmpty ? null : AnKv(rows: rows),
+    kv: rows.isEmpty ? null : AnKv(rows: rows, dense: true),
     content: [
       // The template is the approver-facing markdown → render it (moustache → inline code). 渲染排版态。
       if (template != null && template.isNotEmpty) ProseWindow(markdown: approvalTemplateToMarkdown(template)),
@@ -291,7 +291,7 @@ GetProjection _skillProj(BuildContext context, Translations t, Map<String, dynam
         : Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s4, children: [
             for (final a in allowed) AnBadge(a, tone: AnTone.warn),
           ]),
-    kv: rows.isEmpty ? null : AnKv(rows: rows),
+    kv: rows.isEmpty ? null : AnKv(rows: rows, dense: true),
     content: [
       if (allowed.isNotEmpty)
         Text(t.chat.tool.skillPreauthNote, style: AnText.meta.copyWith(color: context.colors.warn)),
@@ -360,7 +360,7 @@ Widget readDocumentBody(BuildContext context, ToolCardState state) {
   ];
   return EntityGetBody(
     header: ToolEntityHeader(kind: 'document', name: name, id: id ?? ''),
-    kv: rows.isEmpty ? null : AnKv(rows: rows),
+    kv: rows.isEmpty ? null : AnKv(rows: rows, dense: true),
     // A document is human-facing prose → render it (unlike code/prompt source). 文档给人看→渲排版态。
     content: [if (content.isNotEmpty) ProseWindow(markdown: content)],
     rawJson: text,

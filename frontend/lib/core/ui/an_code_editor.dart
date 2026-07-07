@@ -56,11 +56,17 @@ class AnCodeEditor extends StatefulWidget {
     this.reading = false,
     this.onChanged,
     this.onInput,
+    this.copyPayload,
     super.key,
   });
 
   /// The source text (display value; the source of truth when not editing). 源文本(非编辑态即真相)。
   final String code;
+
+  /// Read-only override for what the COPY action puts on the clipboard — use when [code] is a capped
+  /// DISPLAY value but copy should carry the full untruncated content (e.g. the Write tool card).
+  /// Null = copy the displayed [code]. Ignored while editing. 复制载荷覆盖(显示截断但复制全量时用)。
+  final String? copyPayload;
 
   /// Language key (e.g. `py` / `cel` / `json`) — sets the bar label; v1 tokenization is unified. 语言键。
   final String? lang;
@@ -155,7 +161,9 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
 
   // ── bar actions ──
   void _copy() {
-    Clipboard.setData(ClipboardData(text: _currentText)).then((_) {
+    // Editing → copy the live edited text; else copy the full-content override if given, else the display.
+    final payload = _isEditing ? _currentText : (widget.copyPayload ?? widget.code);
+    Clipboard.setData(ClipboardData(text: payload)).then((_) {
       if (!mounted) return;
       setState(() {
         _copied = true;

@@ -130,6 +130,36 @@ void main() {
     expect(_map(c).containsKey('blk_x'), isFalse, reason: 'resolved live signal wins over snapshot');
   });
 
+  test('a mid-session resync RE-FETCHES interactions — a gate raised in the disconnect appears (M6)', () async {
+    final repo = FixtureChatRepository();
+    final c = _container(repo);
+    await _tick();
+    expect(_map(c), isEmpty); // cold build sees no gate
+    // A danger gate was raised while disconnected — its ephemeral signal was lost, but GET interactions
+    // now lists it. A resync must re-fetch it (else the gate never shows + the turn stays blocked).
+    repo.interactions[_conv] = [
+      const Interaction(toolCallId: 'blk_late', kind: InteractionKind.danger, tool: 'Bash', resolved: false),
+    ];
+    repo.emitResync();
+    await _tick();
+    expect(_map(c)['blk_late']?.isAwaiting, isTrue);
+  });
+
+  test('a resync PRUNES a phantom awaiting gate the snapshot no longer lists (M6)', () async {
+    final repo = FixtureChatRepository()
+      ..interactions[_conv] = [
+        const Interaction(toolCallId: 'blk_ph', kind: InteractionKind.danger, tool: 'delete_agent', resolved: false),
+      ];
+    final c = _container(repo);
+    await _tick();
+    expect(_map(c)['blk_ph']?.isAwaiting, isTrue);
+    // Resolved elsewhere during the disconnect → gone from the authoritative snapshot. A resync prunes it.
+    repo.interactions[_conv] = [];
+    repo.emitResync();
+    await _tick();
+    expect(_map(c).containsKey('blk_ph'), isFalse);
+  });
+
   test('resolve() freezes optimistically + records the POST action', () async {
     final repo = FixtureChatRepository();
     final c = _container(repo);

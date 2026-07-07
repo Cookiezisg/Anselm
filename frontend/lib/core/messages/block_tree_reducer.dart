@@ -45,6 +45,11 @@ class BlockNode {
   String? get name => content?['name'] as String?;
   String? get danger => content?['danger'] as String?;
   String? get summary => content?['summary'] as String?;
+
+  /// For tool_call: the display NAME of the call's primary target entity (backend-resolved from the arg
+  /// id via the touchpoint Namer at close), so the UI shows "Run Function «sync_inventory»" not a bare id.
+  /// null when the tool touches no nameable entity. tool_call 主目标实体显示名(后端关帧解析),空则 UI 留 id。
+  String? get entityName => content?['entityName'] as String?;
 }
 
 /// The framework-agnostic, widget-free reducer that folds the SSE block frames (open/delta/close) of ONE

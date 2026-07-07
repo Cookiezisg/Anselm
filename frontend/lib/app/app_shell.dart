@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/design/tokens.dart';
-import '../core/platform/window_fullscreen.dart';
 import '../core/runtime.dart';
 import '../core/shell/ocean_breadcrumb.dart';
 import '../core/shell/oceans.dart';
@@ -187,35 +186,35 @@ class AppShell extends ConsumerWidget {
         const SingleActivator(LogicalKeyboardKey.backslash, meta: true): toggleRight,
         const SingleActivator(LogicalKeyboardKey.backslash, control: true): toggleRight,
       },
-      // In native fullscreen the OS hides the traffic lights + taller title bar, so the shell's
-      // lights-centering band collapses to 0 (the header pins to the top instead of floating under a
-      // now-absent title bar; the toolbar itself is dropped natively in window_setup). 全屏无灯 → 带高归零。
-      child: ValueListenableBuilder<bool>(
-        valueListenable: WindowFullScreen.active,
-        builder: (context, fullScreen, _) => AnShell(
-          sidebar: sidebar,
-          ocean: onEntities
-              ? const EntityOcean()
-              : onChat
-                  ? const ChatOcean()
-                  : onDocuments
-                      ? const DocumentOcean()
-                      : const _OceanPlaceholder(),
-          // Documents → the properties inspector; entities → the run terminal (the shell only reveals it when
-          // that ocean has a selection). documents→属性面板;entities→run 终端。
-          inspector: AnInspector(
-            headless: true,
-            child: onDocuments ? const DocumentsInspector() : const RunTerminal(),
-          ),
-          inspectorOpen: hasSelection && !rightCollapsed,
-          leftCollapsed: chrome.leftCollapsed,
-          leftWidth: chrome.leftWidth,
-          onToggleLeft: toggleLeft,
-          onLeftWidthCommitted: (w) => ref.read(shellChromeProvider.notifier).setLeftWidth(w),
-          head: onChat ? const ChatHead() : const OceanBreadcrumb(),
-          titlebarHeight: fullScreen ? 0 : AnSize.titlebar,
-          onToggleRight: hasSelection ? toggleRight : null,
+      child: AnShell(
+        sidebar: sidebar,
+        ocean: onEntities
+            ? const EntityOcean()
+            : onChat
+                ? const ChatOcean()
+                : onDocuments
+                    ? const DocumentOcean()
+                    : const _OceanPlaceholder(),
+        // Documents → the properties inspector; entities → the run terminal (the shell only reveals it when
+        // that ocean has a selection). documents→属性面板;entities→run 终端。
+        inspector: AnInspector(
+          headless: true,
+          child: onDocuments ? const DocumentsInspector() : const RunTerminal(),
         ),
+        inspectorOpen: hasSelection && !rightCollapsed,
+        leftCollapsed: chrome.leftCollapsed,
+        leftWidth: chrome.leftWidth,
+        onToggleLeft: toggleLeft,
+        onLeftWidthCommitted: (w) => ref.read(shellChromeProvider.notifier).setLeftWidth(w),
+        head: onChat ? const ChatHead() : const OceanBreadcrumb(),
+        // The chrome control band stays [AnSize.titlebar] in fullscreen too, so the collapse button +
+        // breadcrumb keep the SAME comfortable top gap as windowed (#10: the old `fullScreen ? 0` collapsed
+        // the band and pinned them cramped to the screen top — the reported bug). AnWindowControls still
+        // collapses its HORIZONTAL traffic-light gutter in fullscreen on its own (a separate axis).
+        // 全屏也保持带高:顶控/面包屑与小窗同款舒适顶距(旧 fullScreen?0 贴顶=报告的 bug);横向红绿灯槽由
+        // AnWindowControls 自行在全屏收 0(另一轴)。
+        titlebarHeight: AnSize.titlebar,
+        onToggleRight: hasSelection ? toggleRight : null,
       ),
     );
   }

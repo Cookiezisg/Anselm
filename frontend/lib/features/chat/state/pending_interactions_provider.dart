@@ -47,29 +47,46 @@ class PendingInteractionsController extends Notifier<Map<String, InteractionReco
 
   late ChatRepository _repo;
   StreamSubscription<StreamEnvelope>? _sub;
+  StreamSubscription<void>? _resyncSub;
 
   @override
   Map<String, InteractionRecord> build() {
     _repo = ref.watch(chatRepositoryProvider);
     // Subscribe BEFORE the snapshot fetch so a signal landing mid-fetch is never lost (the merge in
-    // _seed keeps live signals over a stale snapshot row). 订阅先于快照:取窗内信号不丢(_seed 合并保 live)。
+    // _reconcile keeps live signals over a stale snapshot row). 订阅先于快照:取窗内信号不丢。
     _sub = _repo.conversationFrames(conversationId).listen(_onFrame);
-    ref.onDispose(() => _sub?.cancel());
-    unawaited(_seed());
+    // A mid-session 410 resync evicts the messages buffer past our cursor — the EPHEMERAL `interaction`
+    // signals (seq=0, unbuffered) that arrived in the disconnect window are gone, so a danger/ask gate
+    // raised then would never render and the turn would stay blocked forever. Re-fetch `GET interactions`
+    // + RECONCILE (add new + prune phantoms) on every resync. 断线重连:窗内 ephemeral 交互信号丢 → 重拉
+    // GET interactions 对账(增新 + 删幻影),否则门永不显、回合永阻塞。
+    _resyncSub = _repo.transcriptResync().listen((_) => unawaited(_reconcile(prune: true)));
+    ref.onDispose(() {
+      _sub?.cancel();
+      _resyncSub?.cancel();
+    });
+    unawaited(_reconcile());
     return const {};
   }
 
-  Future<void> _seed() async {
+  /// Fetch the authoritative `GET interactions` snapshot and merge it in. Additive on cold seed; on a
+  /// reconnect ([prune] = true) it also REMOVES local AWAITING records the snapshot no longer lists
+  /// (resolved / timed-out during the disconnect — phantom gates), while KEEPING locally-decided (frozen)
+  /// records (the provenance章 outlives the snapshot). 拉权威快照并入:冷启只增;重连还删幻影待决(保已决章)。
+  Future<void> _reconcile({bool prune = false}) async {
     try {
       final pending = await _repo.listInteractions(conversationId);
       if (!ref.mounted) return;
+      final authoritative = {for (final it in pending) it.toolCallId: it};
       final next = {...state};
-      for (final it in pending) {
-        // A live signal already recorded this toolCallId wins over the (possibly stale) snapshot;
-        // never overwrite a locally-decided record. 已有 live/已决记录优先于快照,绝不覆盖本地决议。
-        if (!next.containsKey(it.toolCallId)) {
-          next[it.toolCallId] = InteractionRecord(interaction: it);
+      for (final entry in authoritative.entries) {
+        // A live signal / locally-decided record for this toolCallId wins over the snapshot row. 已有优先。
+        if (!next.containsKey(entry.key)) {
+          next[entry.key] = InteractionRecord(interaction: entry.value);
         }
+      }
+      if (prune) {
+        next.removeWhere((id, rec) => rec.decided == null && !authoritative.containsKey(id));
       }
       state = next;
     } catch (_) {/* snapshot best-effort — live signals still flow 快照尽力,live 仍流 */}

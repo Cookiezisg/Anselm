@@ -10,27 +10,18 @@ import 'an_brand_icon.dart';
 
 /// The top-left window-controls zone of the left island's chrome bar.
 ///
-/// On macOS the OS draws the real traffic lights, centered by the OS in the taller title bar
-/// (macos_window_utils `addToolbar` — click-safe; see window_setup), so here we only RESERVE their
-/// horizontal room (`windowControlsInset`) and never draw fake dots. On Windows/Linux there are
-/// no left-side OS controls, so the same slot carries the product identity (mark + name).
+/// The product identity (mark + name) shows wherever there are NO OS traffic lights: always on
+/// Windows/Linux, and on macOS ONLY in native fullscreen (the OS hides the lights there, freeing this spot
+/// — #10, "like Windows"). Windowed macOS instead RESERVES the lights' horizontal room
+/// (`windowControlsInset`) and never draws fake dots (the OS draws the real lights, centered in the taller
+/// title bar by macos_window_utils `addToolbar`; see window_setup).
 ///
-/// 左岛顶栏左上的窗控区。macOS:OS 在加高标题栏里居中画真红绿灯(macos_window_utils addToolbar、点击不坏,
-/// 见 window_setup),这里只**留横向位**、绝不画假点。Windows/Linux:无左侧 OS 控件 → 同一槽放产品标 + 名。
+/// 左岛顶栏左上窗控区。产品标+名在**无 OS 红绿灯**处显示:Windows/Linux 恒显;macOS **仅全屏**显(OS 藏灯、
+/// 位空出——#10「像 Windows」)。macOS 小窗则只**留红绿灯横位**、绝不画假点(OS 画真灯)。
 class AnWindowControls extends StatelessWidget {
   const AnWindowControls({super.key});
 
-  @override
-  Widget build(BuildContext context) {
-    if (HostPlatform.isMacOS) {
-      // In native fullscreen the OS hides the traffic lights, so their reserved horizontal gutter
-      // collapses to 0 (else it's dead space that pushes the top row right). 全屏无红绿灯 → 灯位归零。
-      return ValueListenableBuilder<bool>(
-        valueListenable: WindowFullScreen.active,
-        builder: (_, fullScreen, _) =>
-            SizedBox(width: fullScreen ? 0 : AnSize.windowControlsInset),
-      );
-    }
+  Widget _brand(BuildContext context) {
     final c = context.colors;
     return Padding(
       padding: const EdgeInsets.only(left: AnSpace.s4, right: AnSpace.s8),
@@ -43,5 +34,20 @@ class AnWindowControls extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (HostPlatform.isMacOS) {
+      // Windowed: reserve the traffic-lights' horizontal room. Fullscreen: the OS hides the lights, so the
+      // freed spot carries the product identity — same mark + name as Windows/Linux (#10).
+      // 小窗:留红绿灯横位;全屏:灯消失、空位放产品标+名(与 Win/Linux 同款,#10)。
+      return ValueListenableBuilder<bool>(
+        valueListenable: WindowFullScreen.active,
+        builder: (context, fullScreen, _) =>
+            fullScreen ? _brand(context) : const SizedBox(width: AnSize.windowControlsInset),
+      );
+    }
+    return _brand(context);
   }
 }

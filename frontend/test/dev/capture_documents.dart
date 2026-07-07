@@ -10,6 +10,7 @@ import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/features/documents/data/document_repository.dart';
 import 'package:anselm/features/documents/data/documents_demo_fixture.dart';
 import 'package:anselm/features/documents/state/document_state.dart';
+import 'package:anselm/core/doc_editor/an_doc_editor.dart';
 import 'package:anselm/features/documents/ui/document_ocean.dart';
 import 'package:anselm/features/documents/ui/document_rail.dart';
 import 'package:anselm/i18n/strings.g.dart';
@@ -34,6 +35,8 @@ class _Pinned extends SelectedDocController {
 
 void main() {
   setUpAll(() async {
+    // The document editor is a WKWebView (no platform in headless test) — render a placeholder.
+    AnDocEditor.debugDisableWebview = true;
     await _load('Inter', 'assets/fonts/InterVariable.ttf');
     await _load('MiSans', 'assets/fonts/MiSansVF.ttf');
     await _load('JetBrains Mono', 'assets/fonts/JetBrainsMono.ttf');

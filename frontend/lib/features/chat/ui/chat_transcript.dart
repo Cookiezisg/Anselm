@@ -371,7 +371,9 @@ class _TurnRow extends ConsumerWidget {
         // 上下文压缩低语——系统时间轴标记,从块 marker 本地化。
         return ChatContextMark(marker: b.displayText);
       case BlockKind.message:
-        return null; // nested subagent turns join the transcript at V5 嵌套 subagent 回合 V5 接入
+        // A nested subagent's message wrapper is flattened INTO its parent tool card (ToolCardState.of),
+        // never rendered as a top-level transcript row. 嵌套 subagent 的 message 包装摊平进工具卡,不作顶层行。
+        return null;
       case BlockKind.unknown:
         return Text(b.displayText,
             style: AnText.label.copyWith(color: c.inkFaint)); // never a silent hole 绝不无声
@@ -390,6 +392,9 @@ class _TurnRow extends ConsumerWidget {
       'cancelled' => (t.chat.stoppedCancelled, c.inkFaint),
       'max_steps' => (t.chat.stoppedMaxSteps, c.warn),
       'context_budget' => (t.chat.stoppedBudget, c.warn),
+      // max_tokens = the response was TRUNCATED at the output-length limit — a normal (status=completed)
+      // turn, not an error. An amber limit note, NOT the red error banner. max_tokens 是正常截断非错误。
+      'max_tokens' => (t.chat.stoppedMaxTokens, c.warn),
       _ => (t.chat.stoppedError, c.danger),
     };
     final code = (turn.content?['errorCode'] as String?) ?? '';

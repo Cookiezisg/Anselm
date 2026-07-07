@@ -84,7 +84,7 @@ Widget documentBody(BuildContext context, ToolCardState state) {
     return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Icon(AnIcons.info, size: AnSize.icon, color: c.warn),
       const SizedBox(width: AnSpace.s6),
-      Expanded(child: Text(result, style: AnText.reading.copyWith(color: c.inkMuted))),
+      Expanded(child: Text(result, style: AnText.body.copyWith(color: c.inkMuted))),
     ]);
   }
   return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

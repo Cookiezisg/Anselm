@@ -13,15 +13,15 @@ import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
 import 'tool_card_skins.dart';
 
-/// F04 create_workflow — the two-act growth show (WRK-056 §create_workflow, ★pivot 场景「图一点点长
-/// 出来」). Act one (args streaming, [workflowOpLiveBody]): the graph is NOT drawn (streaming re-layout
-/// would jitter — graph.md); instead an OP TICKER counts add_node / add_edge as [partialJsonEvents]
-/// surfaces each completed op, and a kind-coloured chip lights per node. Act two (settled,
-/// [workflowBuildBody]): the full graph is built from the ops and [AnMiniGraphGrowth] REPLAYS its growth
-/// on a frozen layout — the blueprint moment.
+/// F04 create_workflow — a two-act show. Act one (args streaming, [workflowOpLiveBody]): the graph is NOT
+/// drawn (streaming re-layout would jitter — graph.md); instead an OP TICKER counts add_node / add_edge as
+/// [partialJsonEvents] surfaces each completed op, and a kind-coloured chip lights per node — the build is
+/// visible here. Act two (settled, [workflowBuildBody]): the full graph is built from the ops and rendered
+/// by [AnGraphCanvas] — the SAME widget the entity page uses, so the tool-card graph is 1:1 with it (B5).
 ///
-/// F04 create_workflow 两幕生长秀。幕一(args 流入):不画图(流中重布局跳变),op ticker 数 add_node/
-/// add_edge、每节点亮一枚 kind 色 chip;幕二(落定):ops 建全图,AnMiniGraphGrowth 在冻结布局上回放生长。
+/// F04 create_workflow 两幕。幕一(args 流入):不画图(流中重布局跳变),op ticker 数 add_node/add_edge、
+/// 每节点亮一枚 kind 色 chip——生长感在此;幕二(落定):ops 建全图,由 [AnGraphCanvas] 渲染(实体页同款
+/// widget),故 tool 卡图与实体页 1:1(B5)。
 
 /// create_workflow's collapsed-row receipt: `v1 · 未激活` — inactive is EXPECTED (create → deactivated),
 /// so it's a WARN (「建了≠上线」的诚实半态),not a failure; the row nudges toward activate_workflow.
@@ -283,8 +283,8 @@ Widget _morphChip(BuildContext context, {required IconData icon, required String
   );
 }
 
-/// Act two — the settled body: intent · the workflow graph replaying its growth · the result bar.
-/// 幕二 落定体:意图 · 工作流图回放生长 · 结果条。
+/// Act two — the settled body: intent · the workflow graph (1:1 with the entity page's AnGraphCanvas) ·
+/// the result bar. 幕二 落定体:意图 · 工作流图(与实体页 AnGraphCanvas 1:1)· 结果条。
 Widget workflowBuildBody(BuildContext context, ToolCardState state) {
   final c = context.colors;
   final graph = graphFromWorkflowOps(state.argsText);
@@ -297,7 +297,12 @@ Widget workflowBuildBody(BuildContext context, ToolCardState state) {
           child: Text(state.summary, style: AnText.meta.copyWith(color: c.inkMuted)),
         ),
       if (graph.nodes.isNotEmpty)
-        AnMiniGraphGrowth(graph: graph, height: _graphHeight)
+        // 1:1 with the entity page's workflow graph (B5): the SAME AnGraphCanvas rendering (node cards,
+        // orthogonal edges, kind colours, auto-fit) in a framed preview, just at a compact tool-card height.
+        // The build sense lives in act one's op ticker; the settled graph is static like the entity preview.
+        // 与实体页 workflow 图 1:1:同款 AnGraphCanvas 渲染(节点卡/正交边/kind 色/auto-fit),framed 预览、卡内紧凑高;
+        // 生长感在幕一 op ticker,落定图与实体预览一样静态。
+        AnGraphCanvas(graph: graph, framed: true, framedHeight: _graphHeight)
       else if (state.argsText.isNotEmpty)
         ToolWindow(child: Text(state.argsText, style: AnText.code.copyWith(color: c.inkMuted))),
       RunStatBar(state: state),

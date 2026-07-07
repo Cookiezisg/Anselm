@@ -1,11 +1,11 @@
 import '../../../core/contract/conversation.dart';
 import '../../../core/contract/messages/chat_message.dart';
 
-// The tool-card SHOWCASE seed (make demo) — themed conversations whose assistant turns exercise the
-// full 113-tool card catalog (B1–B7), so `make demo` displays every card family live in a real
-// transcript (not just the gallery). Each tool card = a tool_call block (attrs.tool = name, content =
-// argsJSON) + a nested tool_result block (parentBlockId = the call id, content = the wire result).
-// 工具卡展台种子:主题对话逐族触发全 113 工具卡,make demo 真 transcript 里看全部效果。
+// The tool-card SHOWCASE seed (make demo) — themed conversations whose assistant turns exercise a broad
+// slice of the tool-card catalog across all 7 families (B1–B7, ~33 tools), so `make demo` displays the
+// card families live in a real transcript (not just the gallery). Each tool card = a tool_call block
+// (attrs.tool = name, content = argsJSON) + a nested tool_result block (parentBlockId = the call id,
+// content = the wire result). 工具卡展台种子:主题对话跨 7 族触发一大片工具卡(~33 工具),make demo 真 transcript 里看。
 
 /// A tool_call block — the card's identity + args. tool_call 块。
 ChatBlock tc(String id, String tool, String args, {String summary = '', String danger = 'safe'}) => ChatBlock(

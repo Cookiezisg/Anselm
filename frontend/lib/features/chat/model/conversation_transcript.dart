@@ -125,8 +125,13 @@ class ConversationTranscript {
     // Consume the oldest bubble exactly once per echo node. 每回声节点恰消费一次最老泡。
     if (!_reconciledEchoes.contains(node.id)) {
       _reconciledEchoes.add(node.id);
-      if (pending.isNotEmpty) {
-        final p = pending.removeAt(0);
+      // Reconcile the oldest IN-FLIGHT (non-failed) bubble, NOT blindly removeAt(0): a leftover failed
+      // bubble (an earlier send the user hasn't retried/discarded) must survive — consuming it would lose
+      // its retry/discard AND leave the real send's optimistic bubble forever unreconciled (a permanent
+      // duplicate that also pins the composer in stop-state via hasInFlight). 跳过失败泡,对账最老在飞泡。
+      final idx = pending.indexWhere((p) => !p.failed);
+      if (idx >= 0) {
+        final p = pending.removeAt(idx);
         if (p.mentions.isNotEmpty) _echoMentions[node.id] = p.mentions;
       }
     }
@@ -253,6 +258,7 @@ class ConversationTranscript {
             'name': b.attrs?['tool'] ?? b.attrs?['name'] ?? '',
             if (b.attrs?['summary'] != null) 'summary': b.attrs?['summary'],
             if (b.attrs?['danger'] != null) 'danger': b.attrs?['danger'],
+            if (b.attrs?['entityName'] != null) 'entityName': b.attrs?['entityName'],
             'arguments': b.content,
           },
         BlockKind.progress => {...?b.attrs, 'text': b.content},

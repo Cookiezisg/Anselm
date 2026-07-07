@@ -85,3 +85,19 @@ func recordTouches(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCa
 		})
 	}
 }
+
+// resolveToolTargetName resolves the display name of a tool call's PRIMARY target entity for the tool_call
+// block, so the UI reads the name instead of a bare id. Best-effort: "" when no recorder is in ctx or the
+// tool touches no nameable entity (the front end keeps the id). Called at stream close, where the args are
+// complete. Reuses the ledger's own (tool → arg-id → Namer) path, so name resolution stays single-sourced.
+//
+// resolveToolTargetName 为 tool_call 块解析调用主目标实体的显示名,使 UI 读名而非裸 id。尽力而为:ctx 无
+// recorder 或工具无可命名目标时返 ""(前端留 id)。关帧时调用(args 已全)。复用台账同款 (工具→arg-id→Namer)
+// 路径,名解析单一来源。
+func resolveToolTargetName(ctx context.Context, toolName string, args map[string]any) string {
+	rec, found := touchpointapp.From(ctx)
+	if !found {
+		return ""
+	}
+	return rec.ResolveName(ctx, toolName, args)
+}

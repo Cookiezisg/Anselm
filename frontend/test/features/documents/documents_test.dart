@@ -5,10 +5,8 @@ import 'package:anselm/core/contract/entities/skill.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/router/navigation.dart';
 import 'package:anselm/core/entity/mention_source.dart';
-import 'package:anselm/core/ui/an_doc_editor.dart';
-import 'package:anselm/core/ui/an_mention_picker.dart';
+import 'package:anselm/core/doc_editor/an_doc_editor.dart';
 import 'package:anselm/core/ui/an_sidebar_list.dart' show AnRowDropZone;
-import 'package:anselm/core/ui/entity_ref_codec.dart';
 import 'package:anselm/features/documents/data/document_fixtures.dart';
 import 'package:anselm/features/documents/data/document_repository.dart';
 import 'package:anselm/features/documents/state/document_state.dart';
@@ -18,13 +16,8 @@ import 'package:anselm/features/documents/ui/document_rail_model.dart';
 import 'package:anselm/features/documents/ui/documents_inspector.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-// super_editor_test carries the caret/IME robot (placeCaretInParagraph / typeImeText) + the inspector.
-import 'package:super_editor/super_editor.dart' show TextComponent;
-import 'package:super_editor/super_editor_test.dart';
-import 'package:super_text_layout/super_text_layout.dart' show BlinkController;
 
 import '../../support/router_harness.dart';
 
@@ -72,6 +65,11 @@ Widget _host(FixtureDocumentsRepository repo, Widget child, {String initialLocat
 }
 
 void main() {
+  // The document editor is a WKWebView (no platform in headless test) — render a placeholder so any
+  // screen that mounts DocumentOcean can be tested. Editor behavior is covered by tool/doc-editor's
+  // headless round-trip + the manual harness. 编辑器是 webview,无头测试渲占位;编辑器行为由 round-trip 覆盖。
+  setUpAll(() => AnDocEditor.debugDisableWebview = true);
+
   group('buildDocumentsRailModel', () {
     test('assembles the nested document tree by parentId + a flat skill section', () {
       final model = buildDocumentsRailModel(
@@ -146,7 +144,7 @@ void main() {
       await tester.pump();
       await tester.pump();
       final before = (await repo.getTree()).length;
-      await tester.tap(find.text('New'));
+      await tester.tap(find.text('New page')); // the New row label (B9: unified to "New <thing>") 新建行标签
       await tester.pumpAndSettle();
       final tree = await repo.getTree();
       // A new root page was created and became the selection (dropping into inline-rename). 新根页建成+选中。
@@ -165,7 +163,7 @@ void main() {
       expect(find.text(t.documents.pickTitle), findsOneWidget);
     });
 
-    testWidgets('a selected document opens in the editable AnDocEditor', (tester) async {
+    testWidgets('a selected document opens in AnDocEditor with its content + meta', (tester) async {
       final repo = _repo();
       await tester.pumpWidget(ProviderScope(
         overrides: [
@@ -182,15 +180,17 @@ void main() {
       ));
       await tester.pump();
       await tester.pump();
-      // The doc opens in the Notion editor (super_editor renders text via its own layout, not a plain
-      // Text, so assert the editor is mounted + the title bar shows the doc name). 文档进可编辑器。
-      expect(find.byType(AnDocEditor), findsOneWidget);
-      expect(find.text('Getting Started'), findsOneWidget); // the title bar (doc name)
+      // The title/description/tags header lives INSIDE the webview (co-scroll), so assert the editor is
+      // mounted with the right props rather than looking for a Flutter Text. 标题头在 webview 内,验 props。
+      final editor = tester.widget<AnDocEditor>(find.byType(AnDocEditor));
+      expect(editor.name, 'Getting Started');
+      expect(editor.crumb, t.documents.documents);
+      expect(editor.initialMarkdown, contains('# Hello'));
+      expect(editor.nameEditable, isTrue);
+      expect(editor.mentionSource, isNotNull);
     });
 
-    testWidgets('a selected skill opens editable; a body edit PUTs keeping the frontmatter', (tester) async {
-      BlinkController.indeterminateAnimationsEnabled = false;
-      addTearDown(() => BlinkController.indeterminateAnimationsEnabled = true);
+    testWidgets('a selected skill opens read-only-name with its body', (tester) async {
       final repo = _repo();
       await tester.pumpWidget(ProviderScope(
         overrides: [
@@ -204,21 +204,12 @@ void main() {
       ));
       await tester.pump();
       await tester.pump();
-      expect(find.byType(AnDocEditor), findsOneWidget); // the skill body is editable now. skill 正文可编。
-
-      // Type into the body, wait past the 600ms save debounce: the PUT must carry the body edit AND the
-      // untouched frontmatter (read-modify-write — the inspector is a second writer). 编辑落 PUT、frontmatter 不丢。
-      final nodeId = SuperEditorInspector.findDocument()!.first.id;
-      final len = SuperEditorInspector.findTextInComponent(nodeId).length;
-      await tester.placeCaretInParagraph(nodeId, len);
-      await tester.typeImeText('!');
-      await tester.pump(const Duration(milliseconds: 700));
-      await tester.pumpAndSettle();
-
-      final after = await repo.getSkill('commit-helper');
-      expect(after.body, contains('!'));
-      expect(after.description, 'x'); // untouched frontmatter fields survive. 未动的 frontmatter 字段存活。
-      expect(after.context, 'inline');
+      final editor = tester.widget<AnDocEditor>(find.byType(AnDocEditor));
+      expect(editor.name, 'commit-helper');
+      expect(editor.crumb, t.documents.skills);
+      expect(editor.nameEditable, isFalse); // the skill name IS its identity — not renamable. 名即身份。
+      expect(editor.initialMarkdown, contains('commit-helper')); // the skill body '# commit-helper'
+      expect(editor.mentionSource, isNull); // no @ mentions on skills. skill 不接 @。
     });
   });
 
@@ -479,408 +470,7 @@ void main() {
     });
   });
 
-  group('AnDocEditor @ mentions', () {
-    // Drives the real super_editor IME + caret so the @ typeahead runs end-to-end: type `@sy`, the
-    // caret-anchored panel opens with the name-filtered candidate, a pick commits `@sync_inventory` into
-    // the serialized markdown and closes the panel. 真驱动 IME/光标,@ 预输入端到端:打 @sy→面板→选→落 markdown。
-    // super_editor's caret blink is an indefinite Ticker, which forces Flutter into a perpetual-frame mode
-    // so pumpAndSettle (used inside placeCaretInParagraph) never settles. This is super_editor's own test
-    // knob to switch it off. 光标闪烁是永久 Ticker→逼永久帧→pumpAndSettle 永不静;这是 super_editor 官方测试开关。
-    void disableCaretBlink() {
-      BlinkController.indeterminateAnimationsEnabled = false;
-      addTearDown(() => BlinkController.indeterminateAnimationsEnabled = true);
-    }
-
-    testWidgets('typing @ opens the picker; a pick commits the mention + closes it', (tester) async {
-      disableCaretBlink();
-      String? lastMd;
-      await tester.pumpWidget(TranslationProvider(
-        child: MaterialApp(
-          theme: AnTheme.light(),
-          home: Scaffold(
-            body: SizedBox(
-              width: 720,
-              height: 600,
-              child: AnDocEditor(
-                initialMarkdown: 'Draft: ',
-                autofocus: true,
-                mentionSource: _FakeMentions(),
-                onChanged: (m) => lastMd = m,
-              ),
-            ),
-          ),
-        ),
-      ));
-      await tester.pump();
-
-      // Place the caret at the end of the single "Draft: " paragraph, then type the @ trigger + query.
-      final paragraphId = SuperEditorInspector.findDocument()!.first.id;
-      await tester.placeCaretInParagraph(paragraphId, 'Draft: '.length);
-      await tester.typeImeText('@sy');
-      await tester.pumpAndSettle();
-
-      // The panel is up, filtered to the name-matching candidate (report_writer doesn't match "sy").
-      expect(find.byType(AnMentionPanel), findsOneWidget);
-      expect(find.text('sync_inventory'), findsOneWidget);
-      expect(find.text('report_writer'), findsNothing);
-
-      await tester.tap(find.text('sync_inventory'));
-      await tester.pumpAndSettle();
-
-      // Picked → panel closed; the mention serializes to the backend `[[id]]` wikilink (the display name is
-      // dropped, the bare id survives — what pkg/wikilink reads to build link edges). 选中→关、落 `[[id]]` 线缆形。
-      expect(find.byType(AnMentionPanel), findsNothing);
-      expect(lastMd, contains('[[$_fnId]]'));
-      expect(lastMd, isNot(contains('@'))); // the `@` trigger is gone — the chip is the bare name. 无 @。
-    });
-
-    // The window-bottom FLIP — the real-machine walkthrough caught the panel hanging below a caret near the
-    // window bottom, pushing the menu off-screen. With more space above than below, the panel must flip
-    // ABOVE the trigger line and stay fully inside the window. 窗口底部翻转回归:下方装不下即翻上方、整板在屏内。
-    testWidgets('the @ panel flips above a caret near the window bottom (never off-screen)', (tester) async {
-      disableCaretBlink();
-      tester.view.devicePixelRatio = 1.0;
-      tester.view.physicalSize = const Size(720, 300);
-      addTearDown(tester.view.reset);
-      final filler = List.generate(8, (i) => 'Paragraph $i').join('\n\n');
-      await tester.pumpWidget(TranslationProvider(
-        child: MaterialApp(
-          theme: AnTheme.light(),
-          home: Scaffold(
-            body: AnDocEditor(
-              initialMarkdown: '$filler\n\nDraft: ',
-              autofocus: true,
-              mentionSource: _FakeMentions(),
-            ),
-          ),
-        ),
-      ));
-      await tester.pump();
-
-      final lastId = SuperEditorInspector.findDocument()!.last.id;
-      await tester.placeCaretInParagraph(lastId, 'Draft: '.length);
-      await tester.typeImeText('@sy');
-      await tester.pumpAndSettle();
-
-      expect(find.byType(AnMentionPanel), findsOneWidget);
-      final panel = tester.getRect(find.byType(AnMentionPanel));
-      // The trigger lives in the LAST paragraph (super_editor text isn't visible to text finders).
-      // 触发行=末段组件(super_editor 文本对 text finder 不可见)。
-      final caretLine = tester.getRect(find.byType(TextComponent).last);
-      expect(panel.bottom, lessThanOrEqualTo(caretLine.top + 1),
-          reason: 'panel must sit ABOVE the trigger line when below-space runs out');
-      expect(panel.top, greaterThanOrEqualTo(0), reason: 'panel must stay fully on-screen');
-    });
-
-    // The wikilink round-trip: a document loaded with the EXPANDED editor form (what document_ocean produces
-    // from stored `[[id]]` + resolved names) must serialize back to the bare `[[id]]` wire form on edit.
-    // wikilink 往返:载入编辑内展开形(document_ocean 由 `[[id]]`+名产)→编辑→存回裸 `[[id]]`。
-    testWidgets('a loaded [name](anselm-entity:id) link round-trips back to [[id]] on save', (tester) async {
-      disableCaretBlink();
-      String? lastMd;
-      const expanded = 'Owner [sync_inventory]($kEntityRefScheme:$_fnId) ships it';
-      await tester.pumpWidget(TranslationProvider(
-        child: MaterialApp(
-          theme: AnTheme.light(),
-          home: Scaffold(
-            body: SizedBox(
-              width: 720,
-              height: 600,
-              child: AnDocEditor(
-                initialMarkdown: expanded,
-                autofocus: true,
-                mentionSource: _FakeMentions(),
-                onChanged: (m) => lastMd = m,
-              ),
-            ),
-          ),
-        ),
-      ));
-      await tester.pump();
-
-      // Edit (type a space at the end) to fire onChanged, then assert the link collapsed to `[[id]]`.
-      final nodeId = SuperEditorInspector.findDocument()!.first.id;
-      final end = SuperEditorInspector.findTextInComponent(nodeId).length;
-      await tester.placeCaretInParagraph(nodeId, end);
-      await tester.typeImeText('!');
-      await tester.pumpAndSettle();
-
-      expect(lastMd, contains('[[$_fnId]]'));
-      expect(lastMd, isNot(contains(kEntityRefScheme))); // the in-editor link scheme never persists. 链接 scheme 不落盘。
-    });
-
-    testWidgets('Escape dismisses the picker without inserting', (tester) async {
-      disableCaretBlink();
-      await tester.pumpWidget(TranslationProvider(
-        child: MaterialApp(
-          theme: AnTheme.light(),
-          home: Scaffold(
-            body: SizedBox(
-              width: 720,
-              height: 600,
-              child: AnDocEditor(initialMarkdown: 'Draft: ', autofocus: true, mentionSource: _FakeMentions()),
-            ),
-          ),
-        ),
-      ));
-      await tester.pump();
-      final paragraphId = SuperEditorInspector.findDocument()!.first.id;
-      await tester.placeCaretInParagraph(paragraphId, 'Draft: '.length);
-      await tester.typeImeText('@sy');
-      await tester.pumpAndSettle();
-      expect(find.byType(AnMentionPanel), findsOneWidget);
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
-      expect(find.byType(AnMentionPanel), findsNothing);
-    });
-
-    // The `/` slash block menu — type `/head`, the same shared popover opens filtered to the heading
-    // options, and picking Heading 1 submits (deletes `/head`) + converts the block → markdown `# `.
-    // `/` 块菜单:打 /head→同一 popover 过滤到标题→选 H1→删 /head + 变块→markdown 起始 `# `。
-    testWidgets('typing / opens the block menu; a pick converts the block', (tester) async {
-      disableCaretBlink();
-      String? lastMd;
-      await tester.pumpWidget(TranslationProvider(
-        child: MaterialApp(
-          theme: AnTheme.light(),
-          home: Scaffold(
-            body: SizedBox(
-              width: 720,
-              height: 600,
-              child: AnDocEditor(
-                initialMarkdown: 'Draft ',
-                autofocus: true,
-                slashLabels: _slashTestLabels,
-                onChanged: (m) => lastMd = m,
-              ),
-            ),
-          ),
-        ),
-      ));
-      await tester.pump();
-
-      final paragraphId = SuperEditorInspector.findDocument()!.first.id;
-      await tester.placeCaretInParagraph(paragraphId, 'Draft '.length);
-      await tester.typeImeText('/head');
-      await tester.pumpAndSettle();
-
-      // Panel up, filtered to the heading options ("Bulleted list" doesn't match "head").
-      expect(find.byType(AnMentionPanel), findsOneWidget);
-      expect(find.text('Heading 1'), findsOneWidget);
-      expect(find.text('Bulleted list'), findsNothing);
-
-      await tester.tap(find.text('Heading 1'));
-      await tester.pumpAndSettle();
-
-      // Picked → panel closed, the `/head` text is gone and the block is now a header. 选中→关、块变标题。
-      expect(find.byType(AnMentionPanel), findsNothing);
-      expect(lastMd, startsWith('# '));
-      expect(lastMd, contains('Draft'));
-      expect(lastMd, isNot(contains('/head')));
-    });
-
-    testWidgets('/ then Bulleted list converts to a list item', (tester) async {
-      disableCaretBlink();
-      String? lastMd;
-      await tester.pumpWidget(TranslationProvider(
-        child: MaterialApp(
-          theme: AnTheme.light(),
-          home: Scaffold(
-            body: SizedBox(
-              width: 720,
-              height: 600,
-              child: AnDocEditor(
-                initialMarkdown: 'Milk ',
-                autofocus: true,
-                slashLabels: _slashTestLabels,
-                onChanged: (m) => lastMd = m,
-              ),
-            ),
-          ),
-        ),
-      ));
-      await tester.pump();
-      final paragraphId = SuperEditorInspector.findDocument()!.first.id;
-      await tester.placeCaretInParagraph(paragraphId, 'Milk '.length);
-      await tester.typeImeText('/bul');
-      await tester.pumpAndSettle();
-      expect(find.text('Bulleted list'), findsOneWidget);
-      await tester.tap(find.text('Bulleted list'));
-      await tester.pumpAndSettle();
-      // Unordered list item → super_editor markdown emits a `*` bullet. 无序列表项(super_editor 用 `*`)。
-      expect(lastMd, contains('* Milk'));
-      expect(lastMd, isNot(contains('/bul')));
-    });
-
-    // The remaining block families — code fence / horizontal rule / GitHub task — all round-trip through
-    // the markdown serializer. 其余块族(代码栏/分隔线/待办)全经 markdown 序列化往返。
-    Future<String?> slashPick(WidgetTester tester,
-        {required String seed, required String query, required String pick}) async {
-      String? lastMd;
-      await tester.pumpWidget(TranslationProvider(
-        child: MaterialApp(
-          theme: AnTheme.light(),
-          home: Scaffold(
-            body: SizedBox(
-              width: 720,
-              height: 600,
-              child: AnDocEditor(
-                initialMarkdown: seed,
-                autofocus: true,
-                slashLabels: _slashTestLabels,
-                onChanged: (m) => lastMd = m,
-              ),
-            ),
-          ),
-        ),
-      ));
-      await tester.pump();
-      final paragraphId = SuperEditorInspector.findDocument()!.first.id;
-      await tester.placeCaretInParagraph(paragraphId, seed.length);
-      await tester.typeImeText(query);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(pick));
-      await tester.pumpAndSettle();
-      return lastMd;
-    }
-
-    testWidgets('/ Code block converts and serializes to a fenced block', (tester) async {
-      disableCaretBlink();
-      final md = await slashPick(tester, seed: 'Snippet ', query: '/cod', pick: 'Code block');
-      expect(md, contains('```'));
-      expect(md, contains('Snippet'));
-    });
-
-    testWidgets('/ Divider replaces the block with a rule and typing continues below', (tester) async {
-      disableCaretBlink();
-      final md = await slashPick(tester, seed: 'Above ', query: '/div', pick: 'Divider');
-      expect(md, contains('---'));
-      // The caret re-seated into the fresh paragraph after the rule — typing lands there. 光标已落 HR 后新段。
-      await tester.typeImeText('below');
-      await tester.pumpAndSettle();
-      final doc = SuperEditorInspector.findDocument()!;
-      expect(SuperEditorInspector.findTextInComponent(doc.last.id).toPlainText(), 'below');
-    });
-
-    testWidgets('/ To-do converts to a GitHub task line', (tester) async {
-      disableCaretBlink();
-      final md = await slashPick(tester, seed: 'Ship ', query: '/to', pick: 'To-do');
-      expect(md, contains('- [ ] Ship'));
-    });
-
-    // The fence LANGUAGE survives an edit — super_editor's built-in parser drops it (```python would
-    // save back as bare ```); the custom converter/serializer pair keeps it on node metadata.
-    // 围栏语言在编辑后存活——上游解析器丢弃(```python 存回裸 ```);自定义 converter/serializer 经 metadata 保真。
-    testWidgets('a fenced code block round-trips its language tag', (tester) async {
-      disableCaretBlink();
-      String? lastMd;
-      await tester.pumpWidget(TranslationProvider(
-        child: MaterialApp(
-          theme: AnTheme.light(),
-          home: Scaffold(
-            body: SizedBox(
-              width: 720,
-              height: 600,
-              child: AnDocEditor(
-                initialMarkdown: '```python\nprint(1)\n```',
-                autofocus: true,
-                onChanged: (m) => lastMd = m,
-              ),
-            ),
-          ),
-        ),
-      ));
-      await tester.pump();
-      final nodeId = SuperEditorInspector.findDocument()!.first.id;
-      await tester.placeCaretInParagraph(nodeId, 0);
-      await tester.typeImeText('# ');
-      await tester.pumpAndSettle();
-      expect(lastMd, contains('```python')); // the language tag survived the edit 语言标存活
-      expect(lastMd, contains('print(1)# ')); // …and the typed chars landed inside the block 输入落块内
-    });
-
-    // Chip integrity — a picked mention behaves as ONE token: the caret continues AFTER it, and a
-    // backspace at its edge deletes the whole chip. chip 完整性:光标续在其后;缘上退格整删。
-    testWidgets('a picked mention seats the caret after the chip; typing continues outside', (tester) async {
-      disableCaretBlink();
-      String? lastMd;
-      await tester.pumpWidget(TranslationProvider(
-        child: MaterialApp(
-          theme: AnTheme.light(),
-          home: Scaffold(
-            body: SizedBox(
-              width: 720,
-              height: 600,
-              child: AnDocEditor(
-                initialMarkdown: 'Draft: ',
-                autofocus: true,
-                mentionSource: _FakeMentions(),
-                onChanged: (m) => lastMd = m,
-              ),
-            ),
-          ),
-        ),
-      ));
-      await tester.pump();
-      final paragraphId = SuperEditorInspector.findDocument()!.first.id;
-      await tester.placeCaretInParagraph(paragraphId, 'Draft: '.length);
-      await tester.typeImeText('@sy');
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('sync_inventory'));
-      await tester.pumpAndSettle();
-      await tester.typeImeText('x');
-      await tester.pumpAndSettle();
-      // 'x' landed after the chip + its trailing space — never inside the link span. x 落在 chip+空格后。
-      expect(lastMd, contains('[[$_fnId]] x'));
-    });
-
-    testWidgets('backspace at the chip edge deletes the whole chip', (tester) async {
-      disableCaretBlink();
-      String? lastMd;
-      const expanded = 'Owner [sync_inventory]($kEntityRefScheme:$_fnId) ships';
-      await tester.pumpWidget(TranslationProvider(
-        child: MaterialApp(
-          theme: AnTheme.light(),
-          home: Scaffold(
-            body: SizedBox(
-              width: 720,
-              height: 600,
-              child: AnDocEditor(
-                initialMarkdown: expanded,
-                autofocus: true,
-                mentionSource: _FakeMentions(),
-                onChanged: (m) => lastMd = m,
-              ),
-            ),
-          ),
-        ),
-      ));
-      await tester.pump();
-      final nodeId = SuperEditorInspector.findDocument()!.first.id;
-      // Caret right at the chip's trailing edge ('Owner sync_inventory|'). 光标贴 chip 尾缘。
-      await tester.placeCaretInParagraph(nodeId, 'Owner sync_inventory'.length);
-      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
-      await tester.pumpAndSettle();
-      expect(lastMd, isNot(contains(_fnId))); // the WHOLE chip died as one token 整体删除
-      expect(lastMd, contains('Owner'));
-      expect(lastMd, contains('ships'));
-    });
-  });
 }
-
-const _slashTestLabels = SlashMenuLabels(
-  text: 'Text',
-  h1: 'Heading 1',
-  h2: 'Heading 2',
-  h3: 'Heading 3',
-  bulleted: 'Bulleted list',
-  numbered: 'Numbered list',
-  quote: 'Quote',
-  code: 'Code block',
-  divider: 'Divider',
-  todo: 'To-do',
-);
 
 const _fnId = 'fn_0123456789abcdef';
 const _agId = 'ag_fedcba9876543210';

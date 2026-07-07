@@ -164,6 +164,9 @@ class Translations$chat$en {
 	/// en: 'Couldn't send'
 	String get sendFailed => 'Couldn\'t send';
 
+	/// en: '$n attachment(s) failed to upload and weren't sent'
+	String attachmentsFailedDropped({required Object n}) => '${n} attachment(s) failed to upload and weren\'t sent';
+
 	/// en: 'Retry'
 	String get retrySend => 'Retry';
 
@@ -181,6 +184,9 @@ class Translations$chat$en {
 
 	/// en: 'Paused — context window is full'
 	String get stoppedBudget => 'Paused — context window is full';
+
+	/// en: 'Reached the output limit'
+	String get stoppedMaxTokens => 'Reached the output limit';
 
 	/// en: 'Couldn't load this conversation'
 	String get transcriptErrorTitle => 'Couldn\'t load this conversation';
@@ -590,8 +596,8 @@ class Translations$entities$en {
 	/// en: 'New'
 	String get kNew => 'New';
 
-	/// en: 'Filter…'
-	String get filter => 'Filter…';
+	/// en: 'Search entities…'
+	String get filter => 'Search entities…';
 
 	/// en: 'No entities yet'
 	String get emptyTitle => 'No entities yet';
@@ -674,11 +680,11 @@ class Translations$documents$en {
 	/// en: 'Untitled'
 	String get untitled => 'Untitled';
 
-	/// en: 'Filter'
-	String get filter => 'Filter';
+	/// en: 'Search documents…'
+	String get filter => 'Search documents…';
 
-	/// en: 'New'
-	String get kNew => 'New';
+	/// en: 'New page'
+	String get kNew => 'New page';
 
 	/// en: 'Couldn't load your library'
 	String get errorTitle => 'Couldn\'t load your library';
@@ -1116,6 +1122,9 @@ class Translations$chat$tool$en {
 
 	/// en: 'Collapse'
 	String get proseCollapse => 'Collapse';
+
+	/// en: 'filter /$p/'
+	String grepFilter({required Object p}) => 'filter /${p}/';
 
 	/// en: 'requested name was taken, auto-renamed'
 	String get docAutoRenamed => 'requested name was taken, auto-renamed';
@@ -3471,12 +3480,14 @@ extension on Translations {
 			'chat.thinking' => 'thinking',
 			'chat.thought' => 'thought',
 			'chat.sendFailed' => 'Couldn\'t send',
+			'chat.attachmentsFailedDropped' => ({required Object n}) => '${n} attachment(s) failed to upload and weren\'t sent',
 			'chat.retrySend' => 'Retry',
 			'chat.discard' => 'Discard',
 			'chat.stoppedCancelled' => 'Stopped',
 			'chat.stoppedError' => 'Something went wrong',
 			'chat.stoppedMaxSteps' => 'Paused — step limit reached',
 			'chat.stoppedBudget' => 'Paused — context window is full',
+			'chat.stoppedMaxTokens' => 'Reached the output limit',
 			'chat.transcriptErrorTitle' => 'Couldn\'t load this conversation',
 			'chat.transcriptErrorHint' => 'The local engine didn’t return the messages.',
 			'chat.landingGreeting' => 'What should we dig into?',
@@ -3592,6 +3603,7 @@ extension on Translations {
 			'chat.tool.apfOnTimeout' => 'on timeout →',
 			'chat.tool.proseExpand' => 'Show all',
 			'chat.tool.proseCollapse' => 'Collapse',
+			'chat.tool.grepFilter' => ({required Object p}) => 'filter /${p}/',
 			'chat.tool.docAutoRenamed' => 'requested name was taken, auto-renamed',
 			'chat.tool.skillNoRevert' => 'whole overwrite · no version to revert to',
 			'chat.tool.skillPreauth' => 'pre-authorized after activation (no confirm)',
@@ -3943,11 +3955,11 @@ extension on Translations {
 			'status.idle' => 'Idle',
 			'status.run' => 'Running',
 			'status.wait' => 'Waiting',
+			_ => null,
+		} ?? switch (path) {
 			'status.err' => 'Failed',
 			'status.done' => 'Done',
 			'action.edit' => 'Edit',
-			_ => null,
-		} ?? switch (path) {
 			'action.cancel' => 'Cancel',
 			'action.save' => 'Save',
 			'action.copy' => 'Copy',
@@ -4063,7 +4075,7 @@ extension on Translations {
 			'startup.errorTitle' => 'Something went wrong',
 			'startup.errorHint' => 'An unexpected error occurred while rendering this view.',
 			'entities.kNew' => 'New',
-			'entities.filter' => 'Filter…',
+			'entities.filter' => 'Search entities…',
 			'entities.emptyTitle' => 'No entities yet',
 			'entities.emptyHint' => 'Create a function, handler, agent, or workflow to get started.',
 			'entities.errorTitle' => 'Couldn\'t load entities',
@@ -4343,8 +4355,8 @@ extension on Translations {
 			'documents.documents' => 'Documents',
 			'documents.skills' => 'Skills',
 			'documents.untitled' => 'Untitled',
-			'documents.filter' => 'Filter',
-			'documents.kNew' => 'New',
+			'documents.filter' => 'Search documents…',
+			'documents.kNew' => 'New page',
 			'documents.errorTitle' => 'Couldn\'t load your library',
 			'documents.errorHint' => 'The local engine didn\'t return it.',
 			'documents.retry' => 'Retry',

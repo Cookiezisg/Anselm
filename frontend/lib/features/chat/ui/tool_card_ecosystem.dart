@@ -175,7 +175,7 @@ Widget marketplaceBody(BuildContext context, ToolCardState state) {
             Row(children: [
               Icon(AnIcons.mcp, size: AnSize.iconSm, color: c.inkFaint),
               const SizedBox(width: AnSpace.s6),
-              Flexible(child: Text('${srv['name']}', maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.reading.weight(AnText.emphasisWeight).copyWith(color: c.ink))),
+              Flexible(child: Text('${srv['name']}', maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.body.weight(AnText.emphasisWeight).copyWith(color: c.ink))),
               if ((srv['runtime'] as String?)?.isNotEmpty ?? false) ...[
                 const SizedBox(width: AnSpace.s6),
                 AnBadge('${srv['runtime']}', tone: AnTone.none),

@@ -133,7 +133,7 @@ Widget metaDeltaBody(BuildContext context,
   final tags = argStringList(argsText, 'tags');
   if (RegExp('"tags"\\s*:').hasMatch(argsText)) rows.add(AnKvRow.tags(t.chat.tool.kvTags, tags));
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-    if (rows.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: AnSpace.s6), child: AnKv(rows: rows)),
+    if (rows.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: AnSpace.s6), child: AnKv(rows: rows, dense: true)),
     lifecycleRefNote(context, kind: kindWire, id: id, note: note),
   ]);
 }

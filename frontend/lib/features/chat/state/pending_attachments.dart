@@ -63,6 +63,7 @@ class PendingAttachments extends Notifier<List<PendingAttachment>> {
   List<PendingAttachment> build() => const [];
 
   bool get hasUploading => state.any((a) => a.status == 'uploading');
+  int get failedCount => state.where((a) => a.status == 'failed').length;
   List<String> get readyIds =>
       [for (final a in state) if (a.status == 'ready' && a.attachmentId != null) a.attachmentId!];
 

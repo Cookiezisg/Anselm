@@ -308,7 +308,7 @@ Widget bashOutputBody(BuildContext context, ToolCardState state) {
       if (bashId.isNotEmpty) AnCopyChip(value: bashId),
       if (filter != null && filter.isNotEmpty) ...[
         const SizedBox(width: AnSpace.s6),
-        Text('filter /$filter/', style: AnText.meta.copyWith(color: c.inkFaint)),
+        Text(t.chat.tool.grepFilter(p: filter), style: AnText.meta.copyWith(color: c.inkFaint)),
       ],
     ]),
     const SizedBox(height: AnSpace.s6),
@@ -398,11 +398,13 @@ Widget writeToolBody(BuildContext context, ToolCardState state) {
       collapsible: lineCount > 50,
       expandLabel: t.chat.tool.proseExpand,
       collapseLabel: t.chat.tool.proseCollapse,
-      fadeColor: c.surfaceSunken,
-      child: ToolWindow(
-        actions: [WindowCopyButton(copyPayload: content)],
-        child: AnCodeEditor(code: shown, lang: _langOf(path), reading: true),
-      ),
+      // AnCodeEditor's own AnCodeSurface fill (white surface), so the collapse fade blends to it.
+      fadeColor: c.surface,
+      // The code box IS the frame — AnCodeEditor already has its own border + copy bar. NO ToolWindow
+      // around it (that added a second, grey `surfaceSunken` sunken panel = the doubled frame B6). The
+      // copyPayload carries the FULL untruncated content (display is capped at 6000). 代码框自带框+copy,
+      // 不再套 ToolWindow(那是多出的灰框);copyPayload 保全量复制。
+      child: AnCodeEditor(code: shown, copyPayload: content, lang: _langOf(path), reading: true),
     ),
     if (over)
       Padding(
@@ -517,7 +519,7 @@ Widget decideApprovalBody(BuildContext context, ToolCardState state) {
     return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Icon(AnIcons.info, size: AnSize.icon, color: c.warn),
       const SizedBox(width: AnSpace.s6),
-      Expanded(child: Text(t.chat.tool.notParked, style: AnText.reading.copyWith(color: c.inkMuted))),
+      Expanded(child: Text(t.chat.tool.notParked, style: AnText.body.copyWith(color: c.inkMuted))),
     ]);
   }
 
@@ -560,7 +562,7 @@ Widget decideApprovalBody(BuildContext context, ToolCardState state) {
           tone: isYes ? AnTone.ok : AnTone.danger),
       if (reason != null && reason.isNotEmpty) ...[
         const SizedBox(height: AnGap.stack),
-        Text(reason, style: AnText.reading.copyWith(color: c.ink)),
+        Text(reason, style: AnText.body.copyWith(color: c.ink)),
       ],
       // Consequence bar: the flowrun's status + per-status node counts. 后果条:flowrun 状态 + 节点计数。
       if (flowStatus != null || counts.isNotEmpty) ...[
@@ -601,7 +603,7 @@ Widget listApprovalInboxBody(BuildContext context, ToolCardState state) {
   final parked = (out?['parked'] as List?) ?? const [];
   final count = (out?['count'] as num?)?.toInt() ?? parked.length;
   if (count == 0) {
-    return Text(t.chat.tool.inboxEmptyState, style: AnText.reading.copyWith(color: c.inkFaint));
+    return Text(t.chat.tool.inboxEmptyState, style: AnText.body.copyWith(color: c.inkFaint));
   }
   const cap = 20;
   final rows = <Map<String, String>>[];

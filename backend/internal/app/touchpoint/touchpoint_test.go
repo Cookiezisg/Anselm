@@ -144,6 +144,43 @@ func TestRecord_HydrationMissThenSnapshotStaysEmpty(t *testing.T) {
 	}
 }
 
+// --- ResolveName ---------------------------------------------------------------
+
+func TestResolveName(t *testing.T) {
+	svc := newSvc(&fakeRepo{}, nil, map[string]Namer{
+		"function": fakeNamer{"fn_1": "sync_inventory"},
+		"agent":    fakeNamer{"ag_1": "report_writer"},
+	})
+	ctx := context.Background()
+
+	// An exec tool resolves its ARGS id → the entity name PRE-execution (output not needed). exec 工具执行前解析。
+	if got := svc.ResolveName(ctx, "run_function", map[string]any{"functionId": "fn_1"}); got != "sync_inventory" {
+		t.Errorf("run_function name = %q, want sync_inventory", got)
+	}
+	if got := svc.ResolveName(ctx, "invoke_agent", map[string]any{"agentId": "ag_1"}); got != "report_writer" {
+		t.Errorf("invoke_agent name = %q, want report_writer", got)
+	}
+	// A nameIsID kind (create_skill) carries its name in the arg itself — no namer needed. 名即 id 的 kind 直取。
+	if got := svc.ResolveName(ctx, "create_skill", map[string]any{"name": "deploy"}); got != "deploy" {
+		t.Errorf("create_skill name = %q, want deploy", got)
+	}
+	// Falls back to "" (caller keeps the id) for: unknown tool / absent arg / id-miss / no namer for kind.
+	// 回退 ""(调用方留 id):未知工具 / 缺参 / id 查不到 / 该类无 namer。
+	for _, c := range []struct {
+		name, tool string
+		args       map[string]any
+	}{
+		{"unknown tool", "no_such_tool", map[string]any{"x": "y"}},
+		{"absent arg", "run_function", map[string]any{}},
+		{"id not in namer", "run_function", map[string]any{"functionId": "fn_missing"}},
+		{"no namer for kind", "trigger_workflow", map[string]any{"workflowId": "wf_1"}},
+	} {
+		if got := svc.ResolveName(ctx, c.tool, c.args); got != "" {
+			t.Errorf("%s: name = %q, want empty", c.name, got)
+		}
+	}
+}
+
 // --- List --------------------------------------------------------------------
 
 func TestList_FilterValidation(t *testing.T) {

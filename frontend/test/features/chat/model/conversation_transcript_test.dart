@@ -181,6 +181,19 @@ void main() {
       t.removePending('l1');
       expect(t.pending, isEmpty);
     });
+
+    test('a durable echo SKIPS a leftover failed bubble and reconciles the real in-flight send (M3)', () {
+      final t = ConversationTranscript('cv_1')..setHistory(const []);
+      // send1 failed and is still shown (its retry/discard); send2 is now in flight. send1 失败仍在,send2 在飞。
+      t.addPending(PendingSend(localId: 'l1', text: 'send1'));
+      t.markPendingFailed('l1');
+      t.addPending(PendingSend(localId: 'l2', text: 'send2'));
+      // send2's durable echo arrives — it must consume l2 (the real send), NOT the failed l1. send2 回声到。
+      t.applyFrame(_open('msg_1', 'message', content: {'role': 'user'}));
+      expect(t.pending.map((p) => p.localId), ['l1']); // l2 consumed; the failed l1 survives 失败泡存活
+      expect(t.pending.single.failed, isTrue);
+      expect(t.hasInFlight, isFalse); // only a failed bubble remains → composer NOT pinned in stop 不卡 composer
+    });
   });
 
   group('resync', () {
