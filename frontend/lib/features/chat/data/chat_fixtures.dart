@@ -282,7 +282,20 @@ class FixtureChatRepository implements ChatRepository {
       }
     }
     flush();
-    return _page(anchors.reversed.toList(), cursor, limit ?? 50);
+    var page = _page(anchors.reversed.toList(), cursor, limit ?? 50);
+    if ((cursor ?? '').isEmpty) {
+      // Live gates ride the first page's top, outside the keyset — the backend's broker rule
+      // mirrored (they are live state, not journal rows). 活人闸骑首页顶,keyset 之外(镜像 broker 规则)。
+      final gates = [
+        for (final i in interactions[conversationId] ?? const <Interaction>[])
+          if (!i.resolved)
+            TranscriptAnchor(kind: 'gate', blockId: i.toolCallId, title: i.tool, at: DateTime.now()),
+      ];
+      if (gates.isNotEmpty) {
+        page = Page(items: [...gates, ...page.items], nextCursor: page.nextCursor, hasMore: page.hasMore);
+      }
+    }
+    return page;
   }
 
   /// One-shot scripted send failure (the optimistic bubble's failed path). 一次性发送失败脚本。

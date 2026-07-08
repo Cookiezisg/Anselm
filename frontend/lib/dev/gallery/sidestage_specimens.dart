@@ -29,6 +29,17 @@ def normalize(row):
 
 final List<GallerySpecimen> sidestageSpecimens = [
   GallerySpecimen(
+      'Tooltip 提示条 — 500ms 悬停现,岛面+发丝边+meta 档(企业级克制,无箭头)',
+      (_) => Row(mainAxisSize: MainAxisSize.min, children: [
+            AnTooltip(
+                message: '跳到发生处',
+                child: AnButton.iconOnly(AnIcons.locate, semanticLabel: '跳到发生处', onPressed: () {})),
+            const SizedBox(width: 8),
+            AnTooltip(
+                message: '自动登台 · 每次都跟',
+                child: AnButton.iconOnly(AnIcons.eye, semanticLabel: '自动登台', onPressed: () {})),
+          ])),
+  GallerySpecimen(
       'LiveCodeWindow 活代码窗 — 整行释放·尾行按住·行数滚动',
       (_) => const AnLiveCodeWindow(text: '$_demoCode    row["price"] = rou'), // held tail 未完尾行按住
       span: true),

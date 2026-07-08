@@ -9,6 +9,7 @@ import '../../../../core/contract/messages/block_content.dart';
 import '../../../../core/ui/ui.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../model/tool_receipts.dart';
+import '../tool_card_skins.dart';
 import '../../state/conversation_stream_provider.dart';
 import '../../state/stage_director_provider.dart';
 import 'stage_scene.dart';
@@ -43,13 +44,13 @@ class SubagentStageBody extends ConsumerWidget {
     ];
 
     if (peers.isEmpty) {
-      return _SubagentCard(node: scene.node, dense: false);
+      return _SubagentCard(node: scene.node, dense: false, showTerminal: true);
     }
     final director = ref.read(stageDirectorProvider(scene.conversationId).notifier);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
       Text(t.chat.stage.ensembleTitle, style: AnText.label.copyWith(color: c.inkFaint)),
       const SizedBox(height: AnSpace.s4),
-      _SubagentCard(node: scene.node, dense: true),
+      _SubagentCard(node: scene.node, dense: true, showTerminal: true),
       for (final blockId in peers)
         if (transcript.value.liveBlock(blockId) case final BlockNode peer) ...[
           const SizedBox(height: AnSpace.s6),
@@ -60,7 +61,7 @@ class SubagentStageBody extends ConsumerWidget {
                 color: states.isActive ? c.surfaceHover : null,
                 borderRadius: BorderRadius.circular(AnRadius.button),
               ),
-              child: _SubagentCard(node: peer, dense: true),
+              child: _SubagentCard(node: peer, dense: true, showTerminal: false),
             ),
           ),
         ],
@@ -71,10 +72,14 @@ class SubagentStageBody extends ConsumerWidget {
 /// One delegate's card: task name → current action (tail pointer) → the compact ReAct tail → the
 /// settle line. 一席分身卡:任务名→当前动作(尾指针)→紧凑 ReAct 尾→结算行。
 class _SubagentCard extends StatelessWidget {
-  const _SubagentCard({required this.node, required this.dense});
+  const _SubagentCard({required this.node, required this.dense, this.showTerminal = false});
 
   final BlockNode node;
   final bool dense;
+
+  /// The SUBJECT card rolls its live tool progress as an inline terminal; peer cards stay quiet
+  /// (tap to bring theirs on stage). 主体卡滚内联终端;同席卡安静(点卡上台再看)。
+  final bool showTerminal;
 
   @override
   Widget build(BuildContext context) {
@@ -110,6 +115,16 @@ class _SubagentCard extends StatelessWidget {
           const SizedBox(height: AnSpace.s4),
           AnShimmerText(_lineOf(context, current), style: AnText.meta.copyWith(color: c.inkMuted)),
         ],
+        // The inner terminal, live: when the delegate's current tool streams progress (Bash tee,
+        // env-fix log…), its tail rolls right here — the restrained take on «the page is the
+        // terminal's» (an inline bounded window, no takeover theatrics). 内层终端活窗:分身当前工具
+        // 流出 progress 时尾部就地滚动——「一整页是终端用的」的克制版(内联有界窗,不做接管戏)。
+        if (live && showTerminal) ...[
+          if (_liveProgressTail(node) case final String term when term.isNotEmpty) ...[
+            const SizedBox(height: AnSpace.s6),
+            AnTermTail(text: term),
+          ],
+        ],
         if (tail.isNotEmpty) ...[
           const SizedBox(height: AnSpace.s6),
           for (final b in tail)
@@ -130,6 +145,32 @@ class _SubagentCard extends StatelessWidget {
         if (!live) _settleLine(context, c, t),
       ]),
     );
+  }
+
+  // The newest OPEN tool's streaming progress text (depth-first through message wrappers) — ''
+  // when nothing streams. A tool_call's progress children carry bash/yield tees (persisted blocks,
+  // so a reload replays them too). 最新 open 工具的 progress 流文本;无流为 ''。
+  String _liveProgressTail(BlockNode n) {
+    BlockNode? openTool;
+    void walk(BlockNode x) {
+      for (final child in x.children) {
+        if (child.kind == BlockKind.message) {
+          walk(child);
+        } else if (child.kind == BlockKind.toolCall && child.isOpen) {
+          openTool = child;
+        }
+      }
+    }
+
+    walk(n);
+    final tool = openTool;
+    if (tool == null) return '';
+    final buf = StringBuffer();
+    for (final child in tool.children) {
+      if (child.kind == BlockKind.progress) buf.write(child.displayText);
+    }
+    final text = buf.toString();
+    return text.isEmpty ? '' : tailLines(text, 10);
   }
 
   // The E3 trajectory (nested blocks minus result/progress; message wrappers flattened — the

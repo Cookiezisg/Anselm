@@ -931,6 +931,7 @@ class _Translations$chat$stage$zh_CN extends Translations$chat$stage$en {
 	@override String get ribbonLive => '实时聆听中 · 落定以真相为准';
 	@override String get ribbonGap => '实时流有缺口 · 以执行记录为准';
 	@override String get ribbonFailed => '草稿未保存 · 真相仍是上一版';
+	@override late final _Translations$chat$stage$run$zh_CN run = _Translations$chat$stage$run$zh_CN._(_root);
 	@override late final _Translations$chat$stage$a11y$zh_CN a11y = _Translations$chat$stage$a11y$zh_CN._(_root);
 	@override late final _Translations$chat$stage$follow$zh_CN follow = _Translations$chat$stage$follow$zh_CN._(_root);
 	@override String get castEmpty => '这场对话还没碰过什么';
@@ -1181,6 +1182,20 @@ class _Translations$chat$tool$kind$zh_CN extends Translations$chat$tool$kind$en 
 	@override String get blocks => '块';
 	@override String get attachment => '附件';
 	@override String get conversation => '对话';
+}
+
+// Path: chat.stage.run
+class _Translations$chat$stage$run$zh_CN extends Translations$chat$stage$run$en {
+	_Translations$chat$stage$run$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get queued => '已入队 · 聆听节点回报…';
+	@override String get done => '运行完成';
+	@override String get failed => '运行失败';
+	@override String get cancelled => '运行已取消';
+	@override String get parked => '等待审批';
 }
 
 // Path: chat.stage.a11y
@@ -2131,6 +2146,11 @@ extension on TranslationsZhCn {
 			'chat.stage.ribbonLive' => '实时聆听中 · 落定以真相为准',
 			'chat.stage.ribbonGap' => '实时流有缺口 · 以执行记录为准',
 			'chat.stage.ribbonFailed' => '草稿未保存 · 真相仍是上一版',
+			'chat.stage.run.queued' => '已入队 · 聆听节点回报…',
+			'chat.stage.run.done' => '运行完成',
+			'chat.stage.run.failed' => '运行失败',
+			'chat.stage.run.cancelled' => '运行已取消',
+			'chat.stage.run.parked' => '等待审批',
 			'chat.stage.a11y.staged' => ({required Object name}) => '${name} 登台',
 			'chat.stage.a11y.gate' => 'AI 在等你决定',
 			'chat.stage.a11y.failed' => '操作失败,舞台驻留',
@@ -2623,13 +2643,13 @@ extension on TranslationsZhCn {
 			'documents.props.userInvoke' => '用户可调用',
 			'documents.props.on' => '开',
 			'documents.props.off' => '关',
+			_ => null,
+		} ?? switch (path) {
 			'documents.props.empty' => '未选中',
 			'documents.props.emptyHint' => '选一个页面或技能查看它的属性。',
 			'documents.props.outline' => '大纲',
 			'documents.props.backlinks' => '反向链接',
 			'documents.props.noBacklinks' => '还没有页面链接到这里。',
-			_ => null,
-		} ?? switch (path) {
 			'documents.slash.text' => '正文',
 			'documents.slash.h1' => '标题 1',
 			'documents.slash.h2' => '标题 2',

@@ -7,6 +7,7 @@ import '../../../core/sse/frame.dart';
 import '../data/chat_providers.dart';
 import '../data/chat_repository.dart';
 import '../model/stage_director.dart';
+import 'flowrun_progress.dart';
 import 'pending_interactions_provider.dart';
 
 /// The user's standing follow intent (WRK-061 §12-1, default «每次») — persisted (`fy.stage.follow`,
@@ -123,21 +124,44 @@ class StageDirectorController extends Notifier<StageState> {
     _publish();
   }
 
-  /// Subscribe ONE workflow's entities frames and settle the poll stage when ITS run's durable
-  /// `run_terminal` lands (matched by flowrunId; a missing receipt id falls back to first-terminal
-  /// — better one honest settle than an eternal hold). 订阅该 workflow 帧,按 flowrunId 匹配终态。
+  /// Subscribe ONE workflow's entities frames for the held poll stage: node `run` ticks (matched
+  /// by flowrunId) feed the live run-progress scroll, and the durable `run_terminal` settles the
+  /// stage (R-10 retires). A missing receipt id falls back to first-terminal for the settle —
+  /// better one honest settle than an eternal hold — but ticks NEVER guess (a wrong run's
+  /// progress would be a lie; a missing scroll is only a gap).
+  ///
+  /// 为驻留的 poll 舞台订阅该 workflow 帧:节点 `run` tick(按 flowrunId 匹配)喂活进度卷,durable
+  /// `run_terminal` 落定舞台(R-10 退役)。回执缺 id 时终态退化为先到先落——一次诚实落定胜过永久驻留;
+  /// 但 tick **绝不猜**(错 run 的进度是谎言,缺卷只是缺口)。
   void _watchTerminal(String blockId, String workflowId) {
     _terminalSubs[blockId]?.cancel();
+    final flowrunId = _pollFlowrun[blockId];
+    if (flowrunId != null) {
+      ref.read(flowrunProgressProvider(blockId).notifier).begin(flowrunId);
+    }
     _terminalSubs[blockId] = _repo.workflowFrames(workflowId).listen((env) {
       final frame = env.frame;
-      if (frame is! FrameSignal || frame.node.type != 'run_terminal') return;
+      if (frame is! FrameSignal) return;
       final content = frame.node.content ?? const {};
       final wanted = _pollFlowrun[blockId];
-      if (wanted != null && '${content['flowrunId'] ?? ''}' != wanted) return;
+      final frameRun = '${content['flowrunId'] ?? ''}';
+      if (frame.node.type == 'run' && wanted != null && frameRun == wanted) {
+        ref.read(flowrunProgressProvider(blockId).notifier).tick(NodeTick(
+              nodeId: '${content['nodeId'] ?? ''}',
+              iteration: (content['iteration'] as num?)?.toInt() ?? 0,
+              status: '${content['status'] ?? ''}',
+              port: '${content['port'] ?? ''}',
+            ));
+        return;
+      }
+      if (frame.node.type != 'run_terminal') return;
+      if (wanted != null && frameRun != wanted) return;
+      final status = '${content['status'] ?? ''}';
+      ref.read(flowrunProgressProvider(blockId).notifier).terminal(status);
       _terminalSubs.remove(blockId)?.cancel();
       _pollBlocks.remove(blockId);
       _pollFlowrun.remove(blockId);
-      _director.onRunTerminal(blockId, DateTime.now(), ok: '${content['status'] ?? ''}' == 'completed');
+      _director.onRunTerminal(blockId, DateTime.now(), ok: status == 'completed');
       _publish();
     });
   }

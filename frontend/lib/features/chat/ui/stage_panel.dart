@@ -25,6 +25,7 @@ import 'stages/stage_registry.dart';
 import 'stages/stage_scene.dart';
 import 'tool_card_skins.dart';
 import 'exhibit_stage.dart';
+import '../state/flowrun_progress.dart';
 import 'tool_card_nav.dart';
 
 /// The SIDESTAGE (WRK-061 §1/§6) — the chat right island's content: head band → channel strip →
@@ -232,7 +233,17 @@ class _GenericStageState extends State<_GenericStage> {
           state: state,
           session: session,
         );
-        return GestureDetector(
+        return NotificationListener<ScrollStartNotification>(
+          // Reading = holding the camera: scrolling INSIDE the stage pins it just like a tap
+          // (§2 anchored — a user mid-read must never be auto-switched away). Only USER-initiated
+          // scrolls count (dragDetails != null); programmatic settles stay free.
+          // 阅读即持镜:舞台内滚动与点按同样占用(§2 anchored——读到一半的人绝不被自动换台)。只认用户
+          // 手势(dragDetails != null),程序性滚动不占。
+          onNotification: (n) {
+            if (n.dragDetails != null) widget.onPin();
+            return false;
+          },
+          child: GestureDetector(
           // ANY stage interaction = the user occupies the camera (§2 following→pinned d). 舞台交互=占用。
           onTapDown: (_) => widget.onPin(),
           behavior: HitTestBehavior.translucent,
@@ -245,6 +256,12 @@ class _GenericStageState extends State<_GenericStage> {
               AnHonestyRibbon(failed ? AnHonesty.failed : AnHonesty.live),
               const SizedBox(height: AnSpace.s6),
             ],
+            // A poll-type subject (trigger_workflow) carries the LIVE RUN SCROLL: node ticks off
+            // the entities stream roll in as quiet rows while the 202 hold listens (the streaming
+            // centerpiece — calm, line-by-line, no theatrics). poll 主体带活运行卷:节点 tick 逐行
+            // 静静落下(流式核心——克制、逐行、不演)。
+            if (stageRouteOf(widget.subject.toolName)?.lifecycle == LifecycleSource.poll)
+              _RunProgressSection(blockId: widget.subject.blockId),
             // LIVE streaming content is semantics-noise for a screen reader (word-by-word churn) —
             // the four announcements + the settled truth carry the meaning (a11y 章). 流式区静音。
             ExcludeSemantics(
@@ -263,6 +280,7 @@ class _GenericStageState extends State<_GenericStage> {
               ),
             ),
           ]),
+          ),
         );
       },
     );
@@ -312,11 +330,14 @@ class _GenericStageState extends State<_GenericStage> {
         if (!live) ...[
           const SizedBox(width: AnSpace.s4),
           // R-14: the settled stage's handoff to the transcript anchor. 落定舞台交棒 transcript 锚。
-          AnButton.iconOnly(
-            AnIcons.locate,
-            size: AnButtonSize.sm,
-            semanticLabel: t.chat.stage.jumpToScene,
-            onPressed: widget.onJumpAnchor,
+          AnTooltip(
+            message: t.chat.stage.jumpToScene,
+            child: AnButton.iconOnly(
+              AnIcons.locate,
+              size: AnButtonSize.sm,
+              semanticLabel: t.chat.stage.jumpToScene,
+              onPressed: widget.onJumpAnchor,
+            ),
           ),
         ],
       ]),
@@ -562,11 +583,14 @@ class _FollowMenu extends ConsumerWidget {
           FollowMode.never => t.chat.stage.follow.never,
         };
     return AnMenu(
-      anchorBuilder: (context, toggle, isOpen) => AnButton.iconOnly(
-        AnIcons.eye,
-        size: AnButtonSize.sm,
-        semanticLabel: '${t.chat.stage.follow.label} · ${word(mode)}',
-        onPressed: toggle,
+      anchorBuilder: (context, toggle, isOpen) => AnTooltip(
+        message: '${t.chat.stage.follow.label} · ${word(mode)}',
+        child: AnButton.iconOnly(
+          AnIcons.eye,
+          size: AnButtonSize.sm,
+          semanticLabel: '${t.chat.stage.follow.label} · ${word(mode)}',
+          onPressed: toggle,
+        ),
       ),
       entries: [
         AnMenuSection(t.chat.stage.follow.label),
@@ -577,6 +601,89 @@ class _FollowMenu extends ConsumerWidget {
             onTap: () => ref.read(followModeProvider.notifier).set(m),
           ),
       ],
+    );
+  }
+}
+
+/// The live run scroll of a poll-type stage: the flowrun's node ticks, newest last — node id in
+/// mono, a status word, the taken `port` as a quiet accent badge; the durable terminal closes the
+/// scroll with one honest line. Bounded to the last 12 rows (enterprise calm, not a firehose).
+///
+/// poll 型舞台的活运行卷:flowrun 节点 tick 新者在后——节点 id mono、状态词、选中 `port` 一枚安静
+/// accent 徽;durable 终态以一行诚实收卷。只留末 12 行(企业级的静,不做火喉)。
+class _RunProgressSection extends ConsumerWidget {
+  const _RunProgressSection({required this.blockId});
+
+  final String blockId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final t = Translations.of(context);
+    final progress = ref.watch(flowrunProgressProvider(blockId));
+    if (progress == null) return const SizedBox.shrink();
+    final rows = progress.ticks.length > 12
+        ? progress.ticks.sublist(progress.ticks.length - 12)
+        : progress.ticks;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AnSpace.s8),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+        if (rows.isEmpty && progress.terminal.isEmpty)
+          AnShimmerText(t.chat.stage.run.queued,
+              style: AnText.meta.copyWith(color: c.inkFaint), reveal: true),
+        for (final n in rows)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: AnSpace.s2),
+            child: Row(children: [
+              Icon(
+                switch (n.status) {
+                  'completed' => AnIcons.success,
+                  'failed' => AnIcons.error,
+                  _ => AnIcons.circle, // parked 等待
+                },
+                size: AnSize.iconSm - 2,
+                color: switch (n.status) {
+                  'completed' => c.ok,
+                  'failed' => c.danger,
+                  _ => c.warn,
+                },
+              ),
+              const SizedBox(width: AnSpace.s6),
+              Expanded(
+                child: Text(
+                  n.iteration > 0 ? '${n.nodeId} · ${n.iteration}' : n.nodeId,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AnText.mono.copyWith(color: c.inkMuted),
+                ),
+              ),
+              if (n.status == 'parked') ...[
+                const SizedBox(width: AnSpace.s6),
+                Text(t.chat.stage.run.parked, style: AnText.meta.copyWith(color: c.warn)),
+              ],
+              if (n.port.isNotEmpty) ...[
+                const SizedBox(width: AnSpace.s6),
+                AnBadge('→ ${n.port}', tone: AnTone.accent),
+              ],
+            ]),
+          ),
+        if (progress.terminal.isNotEmpty) ...[
+          const SizedBox(height: AnSpace.s4),
+          Text(
+            switch (progress.terminal) {
+              'completed' => t.chat.stage.run.done,
+              'failed' => t.chat.stage.run.failed,
+              _ => t.chat.stage.run.cancelled,
+            },
+            style: AnText.meta.copyWith(
+                color: switch (progress.terminal) {
+              'completed' => c.ok,
+              'failed' => c.danger,
+              _ => c.inkFaint,
+            }),
+          ),
+        ],
+      ]),
     );
   }
 }

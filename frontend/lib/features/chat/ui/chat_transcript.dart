@@ -223,6 +223,18 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
     ref.listen(transcriptJumpProvider(widget.conversationId), (_, req) {
       if (req != null) unawaited(_executeJump(req));
     });
+    // Leaving the jump window (the pill / an implicit send) re-docks to the present. A fast
+    // re-hydrate can keep this SAME State alive (no initState re-dock), so the transition must
+    // re-pin explicitly — rejoining without re-docking maroons the reader mid-history.
+    // 离开跳转窗(pill/发送隐式)即重新贴底。快速重拉可能不换 State(无 initState 重靠),转变必须显式
+    // 重钉——归队不贴底=把读者晾在史中。
+    ref.listen(conversationStreamProvider(widget.conversationId).select((s) => s.windowMode),
+        (prev, next) {
+      if (prev == true && next == false) {
+        _pinned = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) => _jumpToBottom());
+      }
+    });
     // Re-read the listenable each build — it is a NEW instance after a controller rebuild (the
     // documented coalescer discipline). 每 build 重取 listenable(controller 重建后是新实例)。
     final transcript = ctl.transcript;

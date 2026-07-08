@@ -540,6 +540,13 @@
       "ribbonLive": "实时聆听中 · 落定以真相为准",
       "ribbonGap": "实时流有缺口 · 以执行记录为准",
       "ribbonFailed": "草稿未保存 · 真相仍是上一版",
+      "run": {
+        "queued": "已入队 · 聆听节点回报…",
+        "done": "运行完成",
+        "failed": "运行失败",
+        "cancelled": "运行已取消",
+        "parked": "等待审批"
+      },
       "a11y": {
         "staged": "$name 登台",
         "gate": "AI 在等你决定",

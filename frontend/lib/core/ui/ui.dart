@@ -87,6 +87,7 @@ export 'an_status_dot.dart';
 export 'an_stepper.dart';
 export 'an_sunken_panel.dart';
 export 'an_tabs.dart';
+export 'an_tooltip.dart';
 export 'an_tags.dart';
 export 'an_thin_table.dart';
 export 'an_toast.dart';

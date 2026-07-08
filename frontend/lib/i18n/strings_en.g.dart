@@ -2249,6 +2249,7 @@ class Translations$chat$stage$en {
 	/// en: 'Draft unsaved · truth is still the last version'
 	String get ribbonFailed => 'Draft unsaved · truth is still the last version';
 
+	late final Translations$chat$stage$run$en run = Translations$chat$stage$run$en.internal(_root);
 	late final Translations$chat$stage$a11y$en a11y = Translations$chat$stage$a11y$en.internal(_root);
 	late final Translations$chat$stage$follow$en follow = Translations$chat$stage$follow$en.internal(_root);
 
@@ -2803,6 +2804,30 @@ class Translations$chat$tool$kind$en {
 
 	/// en: 'conversations'
 	String get conversation => 'conversations';
+}
+
+// Path: chat.stage.run
+class Translations$chat$stage$run$en {
+	Translations$chat$stage$run$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Enqueued · listening for nodes…'
+	String get queued => 'Enqueued · listening for nodes…';
+
+	/// en: 'Run completed'
+	String get done => 'Run completed';
+
+	/// en: 'Run failed'
+	String get failed => 'Run failed';
+
+	/// en: 'Run cancelled'
+	String get cancelled => 'Run cancelled';
+
+	/// en: 'Awaiting approval'
+	String get parked => 'Awaiting approval';
 }
 
 // Path: chat.stage.a11y
@@ -4233,6 +4258,11 @@ extension on Translations {
 			'chat.stage.ribbonLive' => 'Listening live · settle follows the truth',
 			'chat.stage.ribbonGap' => 'Stream gap · trust the execution record',
 			'chat.stage.ribbonFailed' => 'Draft unsaved · truth is still the last version',
+			'chat.stage.run.queued' => 'Enqueued · listening for nodes…',
+			'chat.stage.run.done' => 'Run completed',
+			'chat.stage.run.failed' => 'Run failed',
+			'chat.stage.run.cancelled' => 'Run cancelled',
+			'chat.stage.run.parked' => 'Awaiting approval',
 			'chat.stage.a11y.staged' => ({required Object name}) => '${name} took the stage',
 			'chat.stage.a11y.gate' => 'The AI is waiting on you',
 			'chat.stage.a11y.failed' => 'The operation failed; the stage holds',
@@ -4725,13 +4755,13 @@ extension on Translations {
 			'documents.props.userInvoke' => 'User-invocable',
 			'documents.props.on' => 'On',
 			'documents.props.off' => 'Off',
+			_ => null,
+		} ?? switch (path) {
 			'documents.props.empty' => 'Nothing selected',
 			'documents.props.emptyHint' => 'Select a page or skill to see its properties.',
 			'documents.props.outline' => 'Outline',
 			'documents.props.backlinks' => 'Backlinks',
 			'documents.props.noBacklinks' => 'No pages link here yet.',
-			_ => null,
-		} ?? switch (path) {
 			'documents.slash.text' => 'Text',
 			'documents.slash.h1' => 'Heading 1',
 			'documents.slash.h2' => 'Heading 2',

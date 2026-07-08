@@ -88,6 +88,29 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
     expect(container.read(stageDirectorProvider(_conv)).stageOpen, isTrue);
 
+    // Node ticks roll the LIVE RUN SCROLL: mono node rows + the taken port badge; a foreign
+    // run's tick never shows (ticks NEVER guess). 节点 tick 滚活运行卷;外 run 的 tick 绝不显。
+    repo.emitWorkflowFrame('wf_9', const StreamEnvelope(
+        seq: 0, scope: StreamScope(kind: 'workflow', id: 'wf_9'), id: 't1',
+        frame: FrameSignal(node: StreamNode(type: 'run', content: {
+          'flowrunId': 'fr_1', 'nodeId': 'pull', 'iteration': 0, 'status': 'completed',
+        }))));
+    repo.emitWorkflowFrame('wf_9', const StreamEnvelope(
+        seq: 0, scope: StreamScope(kind: 'workflow', id: 'wf_9'), id: 't2',
+        frame: FrameSignal(node: StreamNode(type: 'run', content: {
+          'flowrunId': 'fr_1', 'nodeId': 'gate', 'iteration': 0, 'status': 'completed', 'port': 'pass',
+        }))));
+    repo.emitWorkflowFrame('wf_9', const StreamEnvelope(
+        seq: 0, scope: StreamScope(kind: 'workflow', id: 'wf_9'), id: 't3',
+        frame: FrameSignal(node: StreamNode(type: 'run', content: {
+          'flowrunId': 'fr_other', 'nodeId': 'ghost', 'iteration': 0, 'status': 'completed',
+        }))));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('pull'), findsOneWidget);
+    expect(find.text('gate'), findsOneWidget);
+    expect(find.text('→ pass'), findsOneWidget); // the taken branch, live 选中分支实时可见
+    expect(find.text('ghost'), findsNothing); // ticks never guess 绝不猜
+
     // OUR terminal settles it: breath then curtain. 我们的终态:停拍→谢幕。
     repo.emitWorkflowFrame('wf_9', const StreamEnvelope(
         seq: 11, scope: StreamScope(kind: 'workflow', id: 'wf_9'), id: 's2',
@@ -95,6 +118,7 @@ void main() {
           'flowrunId': 'fr_1', 'status': 'completed',
         }))));
     await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text(t.chat.stage.run.done), findsOneWidget); // the honest closing line 收卷行
     await tester.pump(const Duration(milliseconds: 1900)); // settleBreath 停拍
     await tester.pump(const Duration(milliseconds: 400)); // curtain 谢幕
     expect(container.read(stageDirectorProvider(_conv)).stageOpen, isFalse,

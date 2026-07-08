@@ -64,20 +64,26 @@ class ExhibitStage extends ConsumerWidget {
             ),
           ),
           if (subject.lastMessageId.isNotEmpty)
-            AnButton.iconOnly(
-              AnIcons.locate,
-              size: AnButtonSize.sm,
-              semanticLabel: t.chat.stage.jumpToScene,
-              onPressed: () => ref
-                  .read(transcriptJumpProvider(conversationId).notifier)
-                  .request(subject.lastMessageId),
+            AnTooltip(
+              message: t.chat.stage.jumpToScene,
+              child: AnButton.iconOnly(
+                AnIcons.locate,
+                size: AnButtonSize.sm,
+                semanticLabel: t.chat.stage.jumpToScene,
+                onPressed: () => ref
+                    .read(transcriptJumpProvider(conversationId).notifier)
+                    .request(subject.lastMessageId),
+              ),
             ),
           if (hasPanelFor(subject.kind) && !subject.tombstoned)
-            AnButton.iconOnly(
-              AnIcons.open,
-              size: AnButtonSize.sm,
-              semanticLabel: t.chat.stage.goToEntity,
-              onPressed: () => toolNavTo(context, subject.kind, subject.id),
+            AnTooltip(
+              message: t.chat.stage.goToEntity,
+              child: AnButton.iconOnly(
+                AnIcons.open,
+                size: AnButtonSize.sm,
+                semanticLabel: t.chat.stage.goToEntity,
+                onPressed: () => toolNavTo(context, subject.kind, subject.id),
+              ),
             ),
           AnButton.iconOnly(
             AnIcons.close,

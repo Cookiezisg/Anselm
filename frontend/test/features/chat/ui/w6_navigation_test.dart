@@ -102,11 +102,19 @@ void main() {
     // The live turn is HIDDEN while detached (it belongs to the present). 离场藏 live。
     expect(find.textContaining('新内容涌来', findRichText: true), findsNothing);
 
-    // The pill rejoins the live present. pill 归队现场。
+    // The pill rejoins the live present — AND docks back to the bottom (the newest turn visible;
+    // rejoining without re-docking would maroon the reader mid-history). pill 归队现场——且**重新贴底**
+    // (最新回合可见;归队不贴底=把读者晾在史中)。
     await tester.tap(find.text(t.chat.backToPresent));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
     expect(find.text(t.chat.backToPresent), findsNothing);
+    final pos = tester.widget<Scrollable>(find.byType(Scrollable).first).controller!.position;
+    expect((pos.maxScrollExtent - pos.pixels).abs() < 2, isTrue,
+        reason: 'rejoin docks to the present 归队即贴底 (pixels=${pos.pixels}, max=${pos.maxScrollExtent})');
+    expect(find.textContaining('第 59 回内容', findRichText: true), findsOneWidget,
+        reason: 'the newest turn is on screen 最新回合在屏');
   });
 
   testWidgets('场次条: the drawer groups anchors and a tap fires the jump', (tester) async {

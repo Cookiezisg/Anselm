@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -90,8 +91,7 @@ class TriggerStageBody extends ConsumerWidget {
                   style: AnText.meta.copyWith(color: trig.listening ? c.ok : c.inkFaint)),
             ]),
             if (trig.nextFireAt != null)
-              Text(t.chat.stage.nextFire(t: AnCastRow.timeLabel(context, trig.nextFireAt!)),
-                  style: AnText.meta.copyWith(color: c.inkMuted)),
+              _LiveClock(at: trig.nextFireAt!),
             if (trig.refCount > 0)
               Text(t.chat.stage.refCountWord(n: trig.refCount),
                   style: AnText.meta.copyWith(color: c.inkFaint)),
@@ -122,5 +122,43 @@ class TriggerStageBody extends ConsumerWidget {
     final r = scene.state.resultText;
     final m = RegExp(r'"id"\s*:\s*"(tg_\w+)"').firstMatch(r);
     return m?.group(1);
+  }
+}
+
+/// The next-fire clock, honest by the minute: the settle face is static, but «in 3 minutes» must
+/// not still read «in 3 minutes» five minutes later — a quiet per-minute re-render, no animation.
+/// 下次点火钟,按分钟诚实:落定面是静态的,但「3 分钟后」不能五分钟后还写着 3 分钟——每分钟安静重渲,无动画。
+class _LiveClock extends StatefulWidget {
+  const _LiveClock({required this.at});
+
+  final DateTime at;
+
+  @override
+  State<_LiveClock> createState() => _LiveClockState();
+}
+
+class _LiveClockState extends State<_LiveClock> {
+  Timer? _tick;
+
+  @override
+  void initState() {
+    super.initState();
+    _tick = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final t = Translations.of(context);
+    return Text(t.chat.stage.nextFire(t: AnCastRow.timeLabel(context, widget.at)),
+        style: AnText.meta.copyWith(color: c.inkMuted));
   }
 }

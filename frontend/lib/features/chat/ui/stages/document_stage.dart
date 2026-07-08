@@ -10,6 +10,7 @@ import '../../../../core/ui/ui.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../model/tool_receipts.dart';
 import '../../state/stage_truth.dart';
+import '../../state/mention_names.dart';
 import '../tool_card_document_skill.dart';
 import '../tool_card_skins.dart';
 import 'stage_scene.dart';
@@ -135,7 +136,7 @@ class _DocumentStageBodyState extends ConsumerState<DocumentStageBody> {
         maxHeight: 260,
         child: Padding(
           padding: const EdgeInsets.all(AnSpace.s8),
-          child: _pilledText(context, c, text.isEmpty ? baseline : text),
+          child: _PilledProse(text: text.isEmpty ? baseline : text),
         ),
       );
     }
@@ -164,21 +165,32 @@ class _DocumentStageBodyState extends ConsumerState<DocumentStageBody> {
   static String _kb(int bytes) =>
       bytes < 1024 ? '${bytes}B' : '${(bytes / 1024).toStringAsFixed(1)}KB';
 
-  // [[id]] pills inline (live tier: id-styled; real-name resolution is the editor's MentionSource,
-  // polish tier). [[id]] 内联药丸(live 档渲 id 样式;真名解析归 polish)。
-  static Widget _pilledText(BuildContext context, AnColors c, String text) {
-    return Text.rich(
-      TextSpan(children: _mentionSpans(context, c, text)),
-      style: AnText.reading.copyWith(color: c.inkMuted),
-    );
-  }
+}
 
-  static List<InlineSpan> _mentionSpans(BuildContext context, AnColors c, String text) {
+/// Prose with `[[id]]` pilled inline — names resolved through the composer/editor's ONE
+/// [MentionSource] seam (`stageMentionNamesProvider`); an unresolved id renders as itself
+/// (a missing name is a gap, never a block). The id-set key is computed off the SLICE being
+/// rendered (the ~40-line tail while live), so streaming never regex-scans megabytes per frame.
+///
+/// 散文 + `[[id]]` 内联药丸——名字走 composer/编辑器同一条 [MentionSource] 缝;解析不到渲 id 本身
+/// (缺名是缺口,绝不挡路)。id 集键按**被渲切片**算(live 期 ~40 行尾),流式绝不每帧扫兆级正文。
+class _PilledProse extends ConsumerWidget {
+  const _PilledProse({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final key = mentionIdsKeyOf(text);
+    final names = key.isEmpty
+        ? const <String, String>{}
+        : ref.watch(stageMentionNamesProvider(key)).value ?? const <String, String>{};
     final spans = <InlineSpan>[];
-    final re = RegExp(r'\[\[([^\]]{1,64})\]\]');
     var last = 0;
-    for (final m in re.allMatches(text)) {
+    for (final m in mentionIdRe.allMatches(text)) {
       if (m.start > last) spans.add(TextSpan(text: text.substring(last, m.start)));
+      final id = m.group(1)!;
       spans.add(WidgetSpan(
         alignment: PlaceholderAlignment.middle,
         child: Container(
@@ -187,13 +199,16 @@ class _DocumentStageBodyState extends ConsumerState<DocumentStageBody> {
             color: c.accentSoft,
             borderRadius: BorderRadius.circular(AnRadius.tag),
           ),
-          child: Text(m.group(1)!, style: AnText.meta.copyWith(color: c.accent)),
+          child: Text(names[id] ?? id, style: AnText.meta.copyWith(color: c.accent)),
         ),
       ));
       last = m.end;
     }
     if (last < text.length) spans.add(TextSpan(text: text.substring(last)));
-    return spans;
+    return Text.rich(
+      TextSpan(children: spans),
+      style: AnText.reading.copyWith(color: c.inkMuted),
+    );
   }
 }
 
@@ -205,7 +220,6 @@ class _ProseTail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
     final tail = tailLines(text, 40);
     return AnSunkenPanel(
       child: Align(
@@ -214,7 +228,7 @@ class _ProseTail extends StatelessWidget {
           child: SingleChildScrollView(
             reverse: true, // pinned to the frontier 钉在前沿
             physics: const NeverScrollableScrollPhysics(),
-            child: _DocumentStageBodyState._pilledText(context, c, tail),
+            child: _PilledProse(text: tail),
           ),
         ),
       ),

@@ -540,6 +540,13 @@
       "ribbonLive": "Listening live · settle follows the truth",
       "ribbonGap": "Stream gap · trust the execution record",
       "ribbonFailed": "Draft unsaved · truth is still the last version",
+      "run": {
+        "queued": "Enqueued · listening for nodes…",
+        "done": "Run completed",
+        "failed": "Run failed",
+        "cancelled": "Run cancelled",
+        "parked": "Awaiting approval"
+      },
       "a11y": {
         "staged": "$name took the stage",
         "gate": "The AI is waiting on you",

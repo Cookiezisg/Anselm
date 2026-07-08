@@ -156,6 +156,7 @@ abstract final class AnIcons {
     'trigger': trigger, 'control': control, 'action': action, 'approval': approval,
     'mcp': mcp, 'skill': skill, 'doc': doc, 'document': doc, 'entities': entities, // 'document' = backend EntityKind wire 后端实体 kind 线缆值
     'chat': chat, 'conversation': chat, 'scheduler': scheduler, 'gear': gear,
+    'attachment': attach, 'memory': memory, // touchpoint kinds (Cast/exhibit faces) 触点 kind 的脸
     'reasoning': reasoning, 'tool': tool, 'subagent': subagent, 'turnend': turnEnd, 'terminal': terminal,
     // editor slash block menu 斜杠块菜单
     'paragraph': paragraph, 'heading1': heading1, 'heading2': heading2, 'heading3': heading3,

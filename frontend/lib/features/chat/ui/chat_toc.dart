@@ -73,10 +73,13 @@ class _TranscriptTocState extends ConsumerState<TranscriptToc> {
     return AnPopover(
       controller: _pop,
       alignEnd: false,
-      anchor: AnButton.iconOnly(
-        AnIcons.listBulleted,
-        onPressed: _toggle,
-        semanticLabel: t.chat.toc.button,
+      anchor: AnTooltip(
+        message: t.chat.toc.button,
+        child: AnButton.iconOnly(
+          AnIcons.listBulleted,
+          onPressed: _toggle,
+          semanticLabel: t.chat.toc.button,
+        ),
       ),
       overlayBuilder: (context, _) => _TocPanel(
         conversationId: widget.conversationId,
@@ -105,8 +108,10 @@ class _TocPanel extends ConsumerWidget {
     final t = Translations.of(context);
     final anchors = ref.watch(transcriptAnchorsProvider(conversationId));
     return ConstrainedBox(
-      constraints:
-          const BoxConstraints(maxHeight: AnSize.menuMaxHeight, maxWidth: 340, minWidth: 280),
+      // Taller than a command menu on purpose: a NAVIGATION surface earns its height — more
+      // scenes visible per glance, deeper anchors reachable without scrolling. 比命令菜单高是
+      // 有意的:导航面配得上高度——一眼更多场次、更深锚点免滚可达。
+      constraints: const BoxConstraints(maxHeight: 560, maxWidth: 340, minWidth: 280),
       child: AnMenuSurface(
         children: switch (anchors) {
           AsyncData(value: final rows) when rows.isEmpty => [

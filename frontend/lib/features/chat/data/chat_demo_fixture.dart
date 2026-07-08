@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:characters/characters.dart';
 
+import '../../../core/contract/attachment.dart';
 import '../../../core/contract/conversation.dart';
 import '../../../core/contract/entities/function.dart';
 import '../../../core/contract/messages/chat_message.dart';
@@ -356,6 +357,63 @@ class DemoChatRepository extends FixtureChatRepository {
       ), seq: 860 + _demoSeq);
     }));
 
+    // ACT 2.9 — trigger_workflow: the LIVE RUN SCROLL (W7): the 202 receipt holds the stage,
+    // node ticks roll in quiet rows (the gate's taken port visible), the durable terminal settles.
+    // 幕 2.9:活运行卷——202 回执驻台,节点 tick 逐行静落(门的选中 port 可见),durable 终态落定。
+    final twId = 'blk_demo_tw${_demoSeq++}';
+    final twRes = 'blk_demo_twr${_demoSeq++}';
+    frame(33, twId,
+        FrameOpen(parentId: assistantId,
+            node: const StreamNode(type: 'tool_call', content: {'name': 'trigger_workflow', 'danger': 'safe'})),
+        step: 300);
+    frame(0, twId, const FrameDelta(chunk: '{"workflowId":"wf_night","payload":{"date":"2026-07-08"}}'), step: 250);
+    frame(34, twRes,
+        FrameOpen(parentId: twId, node: const StreamNode(type: 'tool_result', content: {
+          'content': '{"flowrunId":"fr_demo_1","status":"running"}',
+        })),
+        step: 200);
+    frame(35, twRes,
+        const FrameClose(status: 'completed', result: StreamNode(type: 'tool_result', content: {
+          'content': '{"flowrunId":"fr_demo_1","status":"running"}',
+        })),
+        step: 100);
+    frame(36, twId,
+        const FrameClose(status: 'completed', result: StreamNode(type: 'tool_call', content: {
+          'name': 'trigger_workflow',
+          'arguments': '{"workflowId":"wf_night","payload":{"date":"2026-07-08"}}',
+          'entityName': 'nightly_rollup',
+        })),
+        step: 150);
+    void runTick(int atMs, String nodeId, String status, {String port = ''}) {
+      _timers.add(Timer(Duration(milliseconds: atMs), () {
+        emitWorkflowFrame('wf_night', StreamEnvelope(
+          seq: 0,
+          scope: const StreamScope(kind: 'workflow', id: 'wf_night'),
+          id: 'demo_tick_${_demoSeq++}',
+          frame: FrameSignal(node: StreamNode(type: 'run', content: {
+            'flowrunId': 'fr_demo_1', 'nodeId': nodeId, 'iteration': 0, 'status': status,
+            if (port.isNotEmpty) 'port': port,
+          })),
+        ));
+      }));
+    }
+
+    runTick(at + 700, 'pull_invoices', 'completed');
+    runTick(at + 1500, 'fix_timezone', 'completed');
+    runTick(at + 2300, 'quality_gate', 'completed', port: 'pass');
+    runTick(at + 3100, 'rollup', 'completed');
+    _timers.add(Timer(Duration(milliseconds: at + 3900), () {
+      emitWorkflowFrame('wf_night', StreamEnvelope(
+        seq: 900 + _demoSeq,
+        scope: const StreamScope(kind: 'workflow', id: 'wf_night'),
+        id: 'demo_term_${_demoSeq++}',
+        frame: const FrameSignal(node: StreamNode(type: 'run_terminal', content: {
+          'flowrunId': 'fr_demo_1', 'status': 'completed',
+        })),
+      ));
+    }));
+    at += 4200;
+
     // ACT THREE — create_workflow: the graph GROWS on the canvas op by op (分镜 b). 第三幕:图逐 op 生长。
     final wfToolId = 'blk_demo_w${_demoSeq++}';
     final wfResultId = 'blk_demo_wr${_demoSeq++}';
@@ -588,11 +646,11 @@ DemoChatRepository demoChatRepository() {
     ],
     messages: {
       for (final s in shows) s.conv.id: s.messages,
-      // W6 深跳长卷: 48 turns so the head page (30) can't hold it — the 场次条 jumps ?around= for real.
+      // W6 深跳长卷: 64 turns so the head page (30) can't hold it and the TALLER drawer's bottom rows land beyond it — the 场次条 jumps ?around= for real.
       // A folded tool cluster + one dangerous call + an abnormal terminal give the drawer every row kind.
       // 48 回合,头页装不下——场次条真走 ?around=;折叠簇+危险调用+异常终态让抽屉五 kind 齐活。
       'cv_scroll': [
-        for (var i = 0; i < 48; i++)
+        for (var i = 0; i < 64; i++)
           if (i == 11)
             msg('m_l$i', 'cv_scroll', 'assistant', Duration(hours: 3, minutes: 96 - 2 * i), blocks: [
               blk('b_l${i}a', 'tool_call', '{"query":"库存同步"}', attrs: {'tool': 'search_entities'}),
@@ -696,6 +754,17 @@ DemoChatRepository demoChatRepository() {
         const Duration(hours: 2)),
     tp('tp_d4', 'document', 'doc_runbook', '值班手册', TouchpointVerb.mentioned,
         const Duration(days: 1), actor: TouchpointActor.user),
+    // The exhibit pedestal's still life — tapping this Cast row lights the 展品座. 展品座静物。
+    tp('tp_d5', 'attachment', 'att_demo_shelf', 'shelf-audit.csv', TouchpointVerb.attached,
+        const Duration(minutes: 14), actor: TouchpointActor.user),
   ];
+  repo.attachmentMetas['att_demo_shelf'] = const AttachmentMeta(
+    id: 'att_demo_shelf',
+    filename: 'shelf-audit.csv',
+    mimeType: 'text/csv',
+    sizeBytes: 48213,
+    kind: 'text',
+    sha256: '9f86d081884c7d65a0f0b3c2',
+  );
   return repo;
 }
