@@ -46,6 +46,7 @@
     "discard": "Discard",
     "stoppedCancelled": "Stopped",
     "stoppedError": "Something went wrong",
+    "repickModel": "Choose another model",
     "stoppedMaxSteps": "Paused — step limit reached",
     "stoppedBudget": "Paused — context window is full",
     "stoppedMaxTokens": "Reached the output limit",

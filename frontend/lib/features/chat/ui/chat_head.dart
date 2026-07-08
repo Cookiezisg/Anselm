@@ -37,7 +37,7 @@ class ChatHead extends ConsumerWidget {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _modelMenu(
+          chatModelMenu(
             t: t,
             caps: caps,
             current: choice,
@@ -96,7 +96,7 @@ class ChatHead extends ConsumerWidget {
                 ),
         ),
         const SizedBox(width: AnSpace.s8),
-        _modelMenu(
+        chatModelMenu(
           t: t,
           caps: caps,
           current: override == null ? null : (apiKeyId: override.apiKeyId, modelId: override.modelId),
@@ -114,13 +114,19 @@ class ChatHead extends ConsumerWidget {
     );
   }
 
-  /// The one model menu both states share: Auto (clear) + one entry per capability. 两态共用的模型菜单。
-  Widget _modelMenu({
-    required Translations t,
-    required List<ModelCapability> caps,
-    required ({String apiKeyId, String modelId})? current,
-    required ValueChanged<({String apiKeyId, String modelId})?> onSelect,
-  }) {
+}
+
+/// The one model menu every chat surface shares — the head's landing/thread pickers AND the
+/// LLM_RESOLVE_ERROR banner's「重选模型」CTA (拍板 #16): Auto (clear) + one entry per capability.
+/// [anchorBuilder] swaps the anchor face (default: a button labeled with the current choice).
+/// 各 chat 面共用的模型菜单(头部两态 + 解析失败横幅 CTA):Auto+每能力一项;anchorBuilder 换锚脸。
+Widget chatModelMenu({
+  required Translations t,
+  required List<ModelCapability> caps,
+  required ({String apiKeyId, String modelId})? current,
+  required ValueChanged<({String apiKeyId, String modelId})?> onSelect,
+  Widget Function(BuildContext context, VoidCallback toggle, bool isOpen)? anchorBuilder,
+}) {
     // The anchor lives at the head's LEFT (landing: far left; thread: right after the title), so the
     // menu opens DOWN-RIGHT (start-aligned — AnMenu defaults to end); the popover flips on overflow.
     // The anchor shows the capability's DISPLAY NAME (same label the menu row shows — a picked
@@ -129,33 +135,33 @@ class ChatHead extends ConsumerWidget {
     // 12 sat a rung too low and a 24 box mis-centred in the 44 head band).
     // 锚在头部左区,菜单**右下**展开(start 对齐)、越界自翻。锚显 displayName(与菜单行同名——选了
     // 「DeepSeek Chat」不能回显 raw id;能力已失才回落 id)。md 档:15 标题旁的 13 标签档。
-    final anchorLabel = current == null
-        ? t.chat.modelAuto
-        : caps
-                .where((cap) => cap.modelId == current.modelId && cap.apiKeyId == current.apiKeyId)
-                .map((cap) => cap.displayName.isEmpty ? cap.modelId : cap.displayName)
-                .firstOrNull ??
-            current.modelId;
-    return AnMenu(
-      alignEnd: false,
-      anchorBuilder: (context, toggle, isOpen) => AnButton(
-        label: anchorLabel,
-        onPressed: toggle,
+  final anchorLabel = current == null
+      ? t.chat.modelAuto
+      : caps
+              .where((cap) => cap.modelId == current.modelId && cap.apiKeyId == current.apiKeyId)
+              .map((cap) => cap.displayName.isEmpty ? cap.modelId : cap.displayName)
+              .firstOrNull ??
+          current.modelId;
+  return AnMenu(
+    alignEnd: false,
+    anchorBuilder: anchorBuilder ??
+        (context, toggle, isOpen) => AnButton(
+              label: anchorLabel,
+              onPressed: toggle,
+            ),
+    entries: [
+      AnMenuItem(
+        label: t.chat.modelAuto,
+        checked: current == null,
+        onTap: () => onSelect(null),
       ),
-      entries: [
+      for (final cap in caps)
         AnMenuItem(
-          label: t.chat.modelAuto,
-          checked: current == null,
-          onTap: () => onSelect(null),
+          label: cap.displayName.isEmpty ? cap.modelId : cap.displayName,
+          meta: cap.keyName.isEmpty ? cap.provider : cap.keyName,
+          checked: current?.modelId == cap.modelId && current?.apiKeyId == cap.apiKeyId,
+          onTap: () => onSelect((apiKeyId: cap.apiKeyId, modelId: cap.modelId)),
         ),
-        for (final cap in caps)
-          AnMenuItem(
-            label: cap.displayName.isEmpty ? cap.modelId : cap.displayName,
-            meta: cap.keyName.isEmpty ? cap.provider : cap.keyName,
-            checked: current?.modelId == cap.modelId && current?.apiKeyId == cap.apiKeyId,
-            onTap: () => onSelect((apiKeyId: cap.apiKeyId, modelId: cap.modelId)),
-          ),
-      ],
-    );
-  }
+    ],
+  );
 }

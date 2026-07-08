@@ -180,6 +180,9 @@ class Translations$chat$en {
 	/// en: 'Something went wrong'
 	String get stoppedError => 'Something went wrong';
 
+	/// en: 'Choose another model'
+	String get repickModel => 'Choose another model';
+
 	/// en: 'Paused — step limit reached'
 	String get stoppedMaxSteps => 'Paused — step limit reached';
 
@@ -4288,6 +4291,7 @@ extension on Translations {
 			'chat.discard' => 'Discard',
 			'chat.stoppedCancelled' => 'Stopped',
 			'chat.stoppedError' => 'Something went wrong',
+			'chat.repickModel' => 'Choose another model',
 			'chat.stoppedMaxSteps' => 'Paused — step limit reached',
 			'chat.stoppedBudget' => 'Paused — context window is full',
 			'chat.stoppedMaxTokens' => 'Reached the output limit',
@@ -4757,9 +4761,9 @@ extension on Translations {
 			'chat.tool.capWarningsLabel' => 'Warnings',
 			'chat.tool.capResolved' => 'deps resolved',
 			'chat.tool.capStructural' => 'structurally valid',
-			'chat.tool.installingMcp' => 'Installing MCP server',
 			_ => null,
 		} ?? switch (path) {
+			'chat.tool.installingMcp' => 'Installing MCP server',
 			'chat.tool.installedMcp' => 'Installed MCP server',
 			'chat.tool.uninstallingMcp' => 'Uninstalling MCP server',
 			'chat.tool.uninstalledMcp' => 'Uninstalled MCP server',
@@ -5271,9 +5275,9 @@ extension on Translations {
 			'documents.errorHint' => 'The local engine didn\'t return it.',
 			'documents.retry' => 'Retry',
 			'documents.emptyTitle' => 'Nothing here yet',
-			'documents.emptyHint' => 'Create a document or a skill to get started.',
 			_ => null,
 		} ?? switch (path) {
+			'documents.emptyHint' => 'Create a document or a skill to get started.',
 			'documents.pickTitle' => 'Pick a document',
 			'documents.pickHint' => 'Choose a document or skill on the left to read or edit it.',
 			'documents.loadFailed' => 'Couldn\'t open this',

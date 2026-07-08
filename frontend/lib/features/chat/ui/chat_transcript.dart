@@ -20,6 +20,9 @@ import '../state/conversation_stream_provider.dart';
 import '../state/conversation_stream_state.dart';
 import '../state/pending_interactions_provider.dart';
 import '../state/transcript_jump_provider.dart';
+import '../../../core/models/model_capabilities.dart';
+import '../state/conversation_header.dart';
+import 'chat_head.dart';
 import 'chat_tool_card.dart';
 import 'chat_turn.dart';
 import 'chat_context_mark.dart';
@@ -464,7 +467,7 @@ class _TurnRow extends ConsumerWidget {
     final blocks = <Widget>[
       for (final b in turn.children) ?_block(context, ref, b),
     ];
-    final banner = _stopBanner(context);
+    final banner = _stopBanner(context, ref);
     if (blocks.isEmpty && banner == null && streaming) {
       // Turn opened, first block not yet — a quiet thinking shimmer placeholder. 回合已开首块未到:静占位。
       blocks.add(AnShimmerText(t.chat.thinking,
@@ -533,8 +536,11 @@ class _TurnRow extends ConsumerWidget {
   }
 
   /// The honest turn-end line for non-clean terminals (cancelled / error / limits). end_turn = nothing.
-  /// 非干净终态的诚实一行(取消/错误/限额);end_turn 无横幅。
-  Widget? _stopBanner(BuildContext context) {
+  /// LLM_RESOLVE_ERROR grows a「重选模型」CTA (拍板 #16): a deleted key's session override must stay
+  /// sacred, so the fix is offered where the failure shows — the same model menu the head carries.
+  /// 非干净终态的诚实一行;end_turn 无横幅。LLM_RESOLVE_ERROR 长出「重选模型」CTA(拍板 #16):删 key 后
+  /// 会话覆写神圣不动,修复入口就长在失败处——与头部同一份模型菜单。
+  Widget? _stopBanner(BuildContext context, WidgetRef ref) {
     if (streaming) return null;
     final t = Translations.of(context);
     final c = context.colors;
@@ -552,10 +558,29 @@ class _TurnRow extends ConsumerWidget {
     final code = (turn.content?['errorCode'] as String?) ?? '';
     final msg = (turn.content?['errorMessage'] as String?) ?? '';
     final detail = [code, msg].where((s) => s.isNotEmpty).join(' · ');
-    return Text(
+    final line = Text(
       detail.isEmpty ? label : '$label · $detail',
       style: AnText.label.copyWith(color: color),
     );
+    if (code != 'LLM_RESOLVE_ERROR') return line;
+    final caps = ref.watch(modelCapabilitiesProvider).value ?? const [];
+    final override =
+        ref.watch(conversationHeaderProvider(conversationId)).value?.modelOverride;
+    return Row(children: [
+      Flexible(child: line),
+      const SizedBox(width: AnSpace.s8),
+      chatModelMenu(
+        t: t,
+        caps: caps,
+        current: override == null
+            ? null
+            : (apiKeyId: override.apiKeyId, modelId: override.modelId),
+        onSelect: (v) =>
+            ref.read(conversationHeaderProvider(conversationId).notifier).setModel(v),
+        anchorBuilder: (context, toggle, isOpen) =>
+            AnButton(label: t.chat.repickModel, size: AnButtonSize.sm, onPressed: toggle),
+      ),
+    ]);
   }
 }
 

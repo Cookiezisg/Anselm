@@ -104,6 +104,7 @@ class _Translations$chat$zh_CN extends Translations$chat$en {
 	@override String get discard => 'Discard';
 	@override String get stoppedCancelled => 'Stopped';
 	@override String get stoppedError => 'Something went wrong';
+	@override String get repickModel => '重选模型';
 	@override String get stoppedMaxSteps => 'Paused — step limit reached';
 	@override String get stoppedBudget => 'Paused — context window is full';
 	@override String get stoppedMaxTokens => 'Reached the output limit';
@@ -1864,6 +1865,7 @@ extension on TranslationsZhCn {
 			'chat.discard' => 'Discard',
 			'chat.stoppedCancelled' => 'Stopped',
 			'chat.stoppedError' => 'Something went wrong',
+			'chat.repickModel' => '重选模型',
 			'chat.stoppedMaxSteps' => 'Paused — step limit reached',
 			'chat.stoppedBudget' => 'Paused — context window is full',
 			'chat.stoppedMaxTokens' => 'Reached the output limit',
@@ -2333,9 +2335,9 @@ extension on TranslationsZhCn {
 			'chat.tool.capWarningsLabel' => '警示',
 			'chat.tool.capResolved' => '依赖已解析',
 			'chat.tool.capStructural' => '结构有效',
-			'chat.tool.installingMcp' => '正在安装 MCP 服务器',
 			_ => null,
 		} ?? switch (path) {
+			'chat.tool.installingMcp' => '正在安装 MCP 服务器',
 			'chat.tool.installedMcp' => '已安装 MCP 服务器',
 			'chat.tool.uninstallingMcp' => '正在卸载 MCP 服务器',
 			'chat.tool.uninstalledMcp' => '已卸载 MCP 服务器',
@@ -2847,9 +2849,9 @@ extension on TranslationsZhCn {
 			'documents.errorHint' => '本地引擎没有返回它。',
 			'documents.retry' => '重试',
 			'documents.emptyTitle' => '这里还什么都没有',
-			'documents.emptyHint' => '新建一篇文档或一个技能开始。',
 			_ => null,
 		} ?? switch (path) {
+			'documents.emptyHint' => '新建一篇文档或一个技能开始。',
 			'documents.pickTitle' => '选一篇文档',
 			'documents.pickHint' => '在左侧选一篇文档或技能来阅读或编辑。',
 			'documents.loadFailed' => '打不开这个',

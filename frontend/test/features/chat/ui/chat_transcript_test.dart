@@ -1,4 +1,6 @@
 import 'package:anselm/core/contract/attachment.dart';
+import 'package:anselm/core/contract/model_capability.dart';
+import 'package:anselm/core/models/model_capabilities.dart';
 import 'package:anselm/core/contract/conversation.dart';
 import 'package:anselm/core/contract/messages/chat_message.dart';
 import 'package:anselm/core/design/theme.dart';
@@ -321,5 +323,74 @@ void main() {
     await tester.pump(const Duration(milliseconds: 20));
     expect(repo.lastSend?.content, '会失败的'); // re-posted 已重发
     expect(find.text(t.chat.sendFailed), findsNothing);
+  });
+
+  testWidgets('LLM_RESOLVE_ERROR banner grows the repick-model CTA that PATCHes the override (拍板 #16)',
+      (tester) async {
+    final repo = FixtureChatRepository(conversations: [_conv('cv_1')], messages: {
+      'cv_1': [
+        ChatMessage(
+            id: 'msg_e',
+            conversationId: 'cv_1',
+            role: 'assistant',
+            status: 'error',
+            stopReason: 'error',
+            errorCode: 'LLM_RESOLVE_ERROR',
+            errorMessage: 'api key gone',
+            blocks: const [],
+            createdAt: DateTime.utc(2026, 7, 2, 10)),
+      ],
+    });
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        chatRepositoryProvider.overrideWithValue(repo),
+        selectedConversationProvider.overrideWith(_FakeSelected.new),
+        modelCapabilitiesProvider.overrideWith((ref) async => const [
+              ModelCapability(
+                  apiKeyId: 'ak_2', modelId: 'deepseek-chat', displayName: 'DeepSeek Chat', provider: 'deepseek'),
+            ]),
+      ],
+      child: TranslationProvider(
+        child: MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: AnTheme.light(),
+          home: const Scaffold(body: ChatTranscriptView(conversationId: 'cv_1')),
+        ),
+      ),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    final t = Translations.of(tester.element(find.byType(ChatTranscriptView)));
+    expect(find.textContaining('LLM_RESOLVE_ERROR'), findsOneWidget, reason: '诚实横幅带 code');
+    expect(find.text(t.chat.repickModel), findsOneWidget, reason: 'CTA 只长在解析失败横幅上');
+
+    await tester.tap(find.text(t.chat.repickModel));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('DeepSeek Chat'));
+    await tester.pumpAndSettle();
+    final conv = await repo.getConversation('cv_1');
+    expect(conv.modelOverride?.modelId, 'deepseek-chat', reason: '选中即 PATCH 线程覆写');
+  });
+
+  testWidgets('a plain error banner carries NO repick CTA', (tester) async {
+    final repo = FixtureChatRepository(conversations: [_conv('cv_1')], messages: {
+      'cv_1': [
+        ChatMessage(
+            id: 'msg_e2',
+            conversationId: 'cv_1',
+            role: 'assistant',
+            status: 'error',
+            stopReason: 'error',
+            errorCode: 'HANDLER_RPC_TIMEOUT',
+            blocks: const [],
+            createdAt: DateTime.utc(2026, 7, 2, 10)),
+      ],
+    });
+    await tester.pumpWidget(_host(repo));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    final t = Translations.of(tester.element(find.byType(ChatTranscriptView)));
+    expect(find.text(t.chat.repickModel), findsNothing);
   });
 }
