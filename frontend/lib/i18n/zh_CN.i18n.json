@@ -1167,9 +1167,11 @@
       "numbered": "有序列表",
       "quote": "引用",
       "code": "代码块",
+      "table": "表格",
       "divider": "分隔线",
       "todo": "待办"
     },
+    "linkHint": "输入或粘贴链接,回车确定",
     "toolCount": "$n 个工具"
   },
   "markdown": {

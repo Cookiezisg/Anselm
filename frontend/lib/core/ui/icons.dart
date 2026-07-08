@@ -86,7 +86,7 @@ abstract final class AnIcons {
   static final IconData gavel = _thin(LucideIcons.gavel); // decide_approval 裁决
   static final IconData inbox = _thin(LucideIcons.inbox); // list_approval_inbox 审批收件箱
 
-  // ── editor / slash block menu (AnDocEditor `/`) 编辑器斜杠块菜单 ──
+  // ── editor / slash block menu (AnEditor `/`) 编辑器斜杠块菜单 ──
   static final IconData paragraph = _thin(LucideIcons.type); // Text block 段落
   static final IconData heading1 = _thin(LucideIcons.heading1);
   static final IconData heading2 = _thin(LucideIcons.heading2);
@@ -96,6 +96,7 @@ abstract final class AnIcons {
   static final IconData quote = _thin(LucideIcons.textQuote);
   static final IconData codeBlock = _thin(LucideIcons.code); // fenced code block 代码块
   static final IconData divider = _thin(LucideIcons.minus); // horizontal rule 分隔线
+  static final IconData table = _thin(LucideIcons.table); // table block 表格块
   static final IconData todo = _thin(LucideIcons.listTodo); // task checkbox block 待办
   static final IconData circle = _thin(LucideIcons.circle); // an empty/pending mark (todo pending) 空/待办标记
   // Inline-format toolbar (editor selection bar) 行内格式工具条(编辑器划选条)

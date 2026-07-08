@@ -9,6 +9,7 @@ import 'package:anselm/core/entity/mention_source.dart';
 import 'package:anselm/core/ui/an_code_surface.dart';
 import 'package:anselm/core/ui/an_mention_picker.dart';
 import 'package:anselm/core/ui/icons.dart';
+import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -51,16 +52,20 @@ MutableDocument _ladderDoc() => MutableDocument(
       ],
     );
 
-// AnTheme registers the AnColors extension the stylesheet reads via context.colors. 真 An 主题(供样式表取色)。
-Widget _host([MutableDocument? doc]) => MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: AnTheme.light(),
-      home: Scaffold(body: AnEditor.withDocument(doc ?? _doc())),
+// AnTheme registers the AnColors extension the stylesheet reads via context.colors; TranslationProvider
+// feeds the slash palette's slang labels. 真 An 主题(供样式表取色)+ slang(slash 标签)。
+Widget _host([MutableDocument? doc]) => TranslationProvider(
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: AnTheme.light(),
+        home: Scaffold(body: AnEditor.withDocument(doc ?? _doc())),
+      ),
     );
 
 int _off(DocumentPosition p) => (p.nodePosition as TextNodePosition).offset;
 
 void main() {
+  setUpAll(() => LocaleSettings.setLocaleRaw('zh-CN')); // slash 标签断言走中文 the tests assert zh labels
   setUp(() => BlinkController.indeterminateAnimationsEnabled = false);
   tearDown(() => BlinkController.indeterminateAnimationsEnabled = true);
 
@@ -264,11 +269,12 @@ void main() {
   group('E4 slash menu', () {
     // A single empty paragraph so `/` yields an empty query → all commands match. 空段:`/`→空查询→全命中。
     MutableDocument emptyDoc() => MutableDocument(nodes: [ParagraphNode(id: 'p1', text: AttributedText(''))]);
-    Widget slashHost() => MaterialApp(
+    Widget slashHost() => TranslationProvider(
+        child: MaterialApp(
           debugShowCheckedModeBanner: false,
           theme: AnTheme.light(),
           home: Scaffold(body: AnEditor.withDocument(emptyDoc())),
-        );
+        ));
 
     testWidgets('typing "/" opens the slash menu at the caret', (tester) async {
       await tester.pumpWidget(slashHost());
@@ -330,6 +336,42 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets('divider on an EMPTY paragraph replaces it with an HR + a fresh trailing paragraph',
+        (tester) async {
+      await tester.pumpWidget(slashHost());
+      await tester.pumpAndSettle();
+      await tester.placeCaretInParagraph('p1', 0);
+      await tester.typeImeText('/fenge'); // keyword filters to the one row (the full palette overflows the panel)
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('分隔线'));
+      await tester.pumpAndSettle();
+      final doc = tester.state<AnEditorState>(find.byType(AnEditor)).document;
+      expect(doc.toList().whereType<HorizontalRuleNode>(), hasLength(1));
+      expect(doc.toList().last, isA<ParagraphNode>()); // the writer keeps typing below 尾随新段收光标
+      expect(doc.toList().whereType<ParagraphNode>().where((n) => n.id == 'p1'), isEmpty,
+          reason: 'the empty trigger paragraph was REPLACED');
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('table on a NON-empty paragraph inserts BELOW, preserving the text', (tester) async {
+      final doc = MutableDocument(nodes: [ParagraphNode(id: 'p1', text: AttributedText('前文'))]);
+      await tester.pumpWidget(_host(doc));
+      await tester.pumpAndSettle();
+      await tester.placeCaretInParagraph('p1', 2);
+      await tester.typeImeText('/biaoge'); // pinyin keyword hits 表格 拼音关键词命中
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('表格'));
+      await tester.pumpAndSettle();
+      final nodes = doc.toList();
+      expect(nodes.whereType<TableBlockNode>(), hasLength(1));
+      final p1 = doc.getNodeById('p1');
+      expect(p1, isA<TextNode>());
+      expect((p1 as TextNode).text.toPlainText(), '前文', reason: 'non-empty paragraph preserved 非空段保留');
+      expect(nodes.indexWhere((n) => n is TableBlockNode), greaterThan(nodes.indexWhere((n) => n.id == 'p1')));
+      expect(nodes.last, isA<ParagraphNode>());
+      expect(tester.takeException(), isNull);
+    });
   });
 
   // E5a — an entity @mention embedded as an inline placeholder renders as an icon+name pill (not styled
@@ -356,11 +398,12 @@ void main() {
   group('E5 @ mention flow', () {
     Widget mentionHost() {
       final doc = MutableDocument(nodes: [ParagraphNode(id: 'p1', text: AttributedText(''))]);
-      return MaterialApp(
+      return TranslationProvider(
+          child: MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: AnTheme.light(),
         home: Scaffold(body: AnEditor.withDocument(doc, mentionSource: _FakeMentionSource())),
-      );
+      ));
     }
 
     testWidgets('typing "@" opens the mention picker with candidates', (tester) async {
@@ -431,6 +474,74 @@ void main() {
       expect(find.byIcon(AnIcons.bold), findsNothing);
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets('the link button opens the URL input; Enter applies a LinkAttribution (https:// added)',
+        (tester) async {
+      final doc = MutableDocument(nodes: [ParagraphNode(id: 'p1', text: AttributedText('hello world'))]);
+      await tester.pumpWidget(_host(doc));
+      await tester.pumpAndSettle();
+      await tester.doubleTapInParagraph('p1', 2); // select "hello"
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(AnIcons.link));
+      await tester.pumpAndSettle();
+      // The bar swapped into the URL input (the format buttons are gone, a text field is up). 原位换输入。
+      expect(find.byType(TextField), findsOneWidget);
+      expect(find.byIcon(AnIcons.bold), findsNothing);
+
+      await tester.enterText(find.byType(TextField), 'anselm.website/docs');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      final text = SuperEditorInspector.findTextInComponent('p1');
+      final links =
+          text.getAllAttributionsThroughout(const SpanRange(0, 4)).whereType<LinkAttribution>().toList();
+      expect(links, hasLength(1));
+      expect(links.single.plainTextUri.toString(), 'https://anselm.website/docs'); // bare domain normalized
+      expect(find.byType(TextField), findsNothing); // session closed 会话已收
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('tapping OUTSIDE the URL input dismisses it without linking', (tester) async {
+      final doc = MutableDocument(nodes: [ParagraphNode(id: 'p1', text: AttributedText('hello world'))]);
+      await tester.pumpWidget(_host(doc));
+      await tester.pumpAndSettle();
+      await tester.doubleTapInParagraph('p1', 2);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(AnIcons.link));
+      await tester.pumpAndSettle();
+      expect(find.byType(TextField), findsOneWidget);
+
+      await tester.tapAt(const Offset(500, 500)); // far from the bar 远离浮条
+      await tester.pumpAndSettle();
+      expect(find.byType(TextField), findsNothing, reason: 'outside tap cancels the session 外点即取消');
+      final text = SuperEditorInspector.findTextInComponent('p1');
+      expect(text.getAllAttributionsThroughout(const SpanRange(0, 4)).whereType<LinkAttribution>(), isEmpty);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('on an already-linked selection the same button UNLINKS', (tester) async {
+      final doc = MutableDocument(nodes: [
+        ParagraphNode(
+          id: 'p1',
+          text: AttributedText('hello world', AttributedSpans(attributions: [
+            SpanMarker(attribution: LinkAttribution('https://a.b'), offset: 0, markerType: SpanMarkerType.start),
+            SpanMarker(attribution: LinkAttribution('https://a.b'), offset: 4, markerType: SpanMarkerType.end),
+          ])),
+        ),
+      ]);
+      await tester.pumpWidget(_host(doc));
+      await tester.pumpAndSettle();
+      await tester.doubleTapInParagraph('p1', 2); // select "hello" (fully linked)
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(AnIcons.link));
+      await tester.pumpAndSettle();
+      expect(find.byType(TextField), findsNothing, reason: 'linked selection unlinks directly — no input');
+      final text = SuperEditorInspector.findTextInComponent('p1');
+      expect(text.getAllAttributionsThroughout(const SpanRange(0, 4)).whereType<LinkAttribution>(), isEmpty);
+      expect(tester.takeException(), isNull);
+    });
   });
 
   // E9b — the markdown bridge: AnEditor loads a document from markdown (mentions inflate to named pills)
@@ -438,7 +549,7 @@ void main() {
   group('E9b markdown bridge', () {
     testWidgets('loads a [[id]] mention from markdown, inflated to a named pill (kind from the prefix)',
         (tester) async {
-      await tester.pumpWidget(MaterialApp(
+      await tester.pumpWidget(TranslationProvider(child: MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: AnTheme.light(),
         home: Scaffold(
@@ -447,7 +558,7 @@ void main() {
             resolvedNames: const {'wf_00000000000000a1': '每日销量对账'},
           ),
         ),
-      ));
+      )));
       await tester.pumpAndSettle();
       // The pill's label + glyph are real widgets (the paragraph text is RichText, so we assert via the
       // pill) → proves the markdown parsed AND the [[id]] inflated with the resolved name + derived kind.
@@ -459,11 +570,11 @@ void main() {
     testWidgets('reports edits back as markdown (onChangedMarkdown)', (tester) async {
       String? latest;
       final doc = MutableDocument(nodes: [ParagraphNode(id: 'p1', text: AttributedText('正文'))]);
-      await tester.pumpWidget(MaterialApp(
+      await tester.pumpWidget(TranslationProvider(child: MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: AnTheme.light(),
         home: Scaffold(body: AnEditor.withDocument(doc, onChangedMarkdown: (md) => latest = md)),
-      ));
+      )));
       await tester.pumpAndSettle();
       await tester.placeCaretInParagraph('p1', 2); // caret after "正文"
       await tester.typeImeText('X');
@@ -499,10 +610,12 @@ void main() {
   // E8 — a markdown table loads (built-in codec) and renders as a real Flutter Table with the An grid.
   // markdown 表格载入 + 渲成真 Flutter Table(An 网格)。
   testWidgets('E8 a markdown table loads and renders as a Table', (tester) async {
-    await tester.pumpWidget(MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: AnTheme.light(),
-      home: const Scaffold(body: AnEditor(initialMarkdown: '| A | B |\n| --- | --- |\n| 1 | 2 |')),
+    await tester.pumpWidget(TranslationProvider(
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: AnTheme.light(),
+        home: const Scaffold(body: AnEditor(initialMarkdown: '| A | B |\n| --- | --- |\n| 1 | 2 |')),
+      ),
     ));
     await tester.pumpAndSettle();
     expect(find.byType(Table), findsWidgets); // the table rendered

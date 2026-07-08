@@ -56,17 +56,15 @@ dependencies:
   desktop_drop: ^0.7.1
   mime: ^2.0.0
   flutter_local_notifications: ^22.0.1
-  webview_flutter: ^4.14.0
   # Native document editor (the pivot off Milkdown-in-webview — a webview can only CSS-approximate the
   # An primitives, never pixel-match them; super_editor renders every block as a REAL Flutter widget so
   # each element is drawn with our own An widgets/tokens = true 1:1). PINNED EXACT: the dev channel has
   # no semver, a caret would jump; companions (super_text_layout/attributed_text/overlord/follow_the_leader)
-  # come transitively. Used ONLY through a facade (原则 #8). Markdown codec (super_editor_markdown) is
-  # deferred — it lags the main package (<dev.40); we add it (pinned) or write our own when we wire the
-  # documents feature. 原生编辑器,钉死 dev 版;仅经门面用;markdown 编解码后置。
-  # dev.52 (2026-06-11) targets a Flutter newer than the project's 3.41.9 (uses TextInputConnection.
-  # updateStyle absent here) → pinned dev.51 (2026-03-27, pre-dates our Flutter) = newest compatible.
-  # dev.41+ 引用了本项目 Flutter 3.41.9 没有的 TextInputConnection.updateStyle → 钉 dev.40(旧码同版、本 Flutter 上已验证可编)。
+  # come transitively, and the markdown codec (serialize/deserialize + table builder) ships inside this
+  # package's barrel. Used ONLY through a facade (lib/core/editor/, 原则 #8). dev.41+ references
+  # TextInputConnection.updateStyle, absent from this project's Flutter 3.41.9 → dev.40 is the newest
+  # compatible. 原生编辑器,钉死 dev 版;markdown 编解码随包内置;仅经 core/editor 门面用;
+  # dev.41+ 引用本 Flutter 没有的 TextInputConnection.updateStyle → 钉 dev.40(本机已验证可编)。
   super_editor: 0.3.0-dev.40
   url_launcher: ^6.3.2
 
@@ -97,12 +95,6 @@ flutter:
   # 随包品牌标——app 图标 SVG,AnBrandIcon 在 UI 内渲染。
   assets:
     - assets/brand/
-    # The document editor — a self-contained offline Milkdown/Crepe WYSIWYG-markdown bundle loaded into
-    # a WKWebView by AnDocEditor. Source of truth = tool/doc-editor/ (built via `make doc-editor`).
-    # 文档编辑器离线单文件包(WKWebView 加载);源在 tool/doc-editor/,`make doc-editor` 重建。
-    - assets/editor/doc_editor.html
-    # Bundled fonts, ALSO injected into the editor webview at runtime over the bridge (@font-face) so
-    # CJK renders in MiSans 1:1 with the app. 字体亦经桥注入编辑器 webview,CJK 与产品一致。
     - assets/fonts/
   # Bundled fonts so the bilingual UI + code render deterministically on every machine (no drift
   # from whatever is installed). MiSans VF = UI face (Latin + Simplified Chinese); JetBrains Mono =

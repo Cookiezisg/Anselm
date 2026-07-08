@@ -8,14 +8,17 @@ import '../../../core/entity/mention_source.dart';
 import '../../../core/ui/an_inline_edit.dart';
 import '../../../core/ui/an_tags.dart';
 
-/// The native documents view (E9c) — the Flutter replacement for the webview `AnDocEditor`. A co-scroll
-/// column (the product characteristic): the header (crumb + renamable title + description + tags) scrolls
-/// WITH the body inside ONE outer scrollable, and the body is the native [AnEditor] (shrink-wrapped so the
-/// outer scroll owns the whole page). It forwards edits as markdown (the host debounces the save), reports
-/// the scroll offset (the shell collapses its floating breadcrumb) + the active heading (the inspector
-/// outline's live focus), and answers scroll-to-top / scroll-to-heading via its [GlobalKey] state.
-/// 原生文档视图:替 webview AnDocEditor。同滚列(头随正文同滚于一个外层),正文=native AnEditor(shrinkWrap、外层滚);
-/// 吐 markdown(宿主防抖存)、报滚动位(壳折叠浮标)+ 活动标题(右岛大纲焦点),应答 scrollToTop/scrollToHeading。
+/// The native documents view — a CO-SCROLL column (the product characteristic): the header (crumb +
+/// renamable title + description + tags) scrolls WITH the body inside ONE outer scrollable, and the body
+/// is the native [AnEditor] (shrink-wrapped, so this widget's scrollable owns the whole page — the big
+/// title genuinely scrolls under, which is what makes the shell's floating-breadcrumb collapse honest).
+/// It forwards edits as markdown (the host debounces the save), reports the scroll offset (the shell
+/// collapses its floating breadcrumb) + the active heading (the inspector outline's live focus), and
+/// answers scroll-to-top / scroll-to-heading via its [GlobalKey] state. Heading math converts between the
+/// editor's content space and the page's scroll space via the viewport's reveal offset (layout-agnostic).
+/// 原生文档视图:**同滚列**(头随正文同滚于一个外层滚动;大标题真滚走,浮层头折叠才诚实),正文=AnEditor
+/// (shrinkWrap,页滚动归本件);吐 markdown(宿主防抖存)、报滚动位 + 活动标题,应答 scrollToTop/scrollToHeading;
+/// 标题坐标经 viewport reveal-offset 在编辑器内容空间↔页面滚动空间换算(对布局不敏感)。
 class AnDocumentEditor extends StatefulWidget {
   const AnDocumentEditor({
     required this.crumb,
@@ -55,6 +58,7 @@ class AnDocumentEditor extends StatefulWidget {
 class AnDocumentEditorState extends State<AnDocumentEditor> {
   final ScrollController _scroll = ScrollController();
   final GlobalKey<AnEditorState> _editorKey = GlobalKey<AnEditorState>();
+  final GlobalKey _headerKey = GlobalKey();
 
   static const double _measure = 720; // the An reading column 阅读列
   static const double _activeBand = 72; // a heading within this of the viewport top is "active" 活动带
@@ -81,14 +85,24 @@ class AnDocumentEditorState extends State<AnDocumentEditor> {
     if (_scroll.hasClients) _scroll.animateTo(0, duration: AnMotion.mid, curve: Curves.easeOutCubic);
   }
 
-  /// Scroll so the index-th heading sits near the viewport top. Its content-space Y IS the scroll offset.
-  /// 滚到第 index 个标题:其内容 Y 即滚动位。
+  /// The page-scroll offset where the EDITOR's content begins — the bridge between the editor's content
+  /// space (contentTopForNode) and the page's scroll space. The editor sliver starts right after the
+  /// header sliver, so this is simply the header's laid-out height (its own padding included).
+  /// 编辑器内容在页滚动空间的起点(两空间换算桥)——编辑器 sliver 紧跟头 sliver,即头的实测高。
+  double? _editorRevealOffset() {
+    final box = _headerKey.currentContext?.findRenderObject();
+    return (box is RenderBox && box.hasSize) ? box.size.height : null;
+  }
+
+  /// Scroll so the index-th heading sits near the viewport top. Page target = the editor's reveal offset
+  /// + the heading's content-space Y. 滚到第 index 个标题:页目标=编辑器 reveal 位+标题内容 Y。
   void scrollToHeading(int index) {
     final ids = _editorKey.currentState?.headingNodeIds ?? const [];
     if (index < 0 || index >= ids.length || !_scroll.hasClients) return;
     final top = _editorKey.currentState?.contentTopForNode(ids[index]);
-    if (top == null) return;
-    final target = (top - AnSpace.s16).clamp(0.0, _scroll.position.maxScrollExtent);
+    final editorTop = _editorRevealOffset();
+    if (top == null || editorTop == null) return;
+    final target = (editorTop + top - AnSpace.s16).clamp(0.0, _scroll.position.maxScrollExtent);
     _scroll.animateTo(target, duration: AnMotion.mid, curve: Curves.easeOutCubic);
   }
 
@@ -96,7 +110,10 @@ class AnDocumentEditorState extends State<AnDocumentEditor> {
     final cb = widget.onActiveHeading;
     if (cb == null || !_scroll.hasClients) return;
     final ids = _editorKey.currentState?.headingNodeIds ?? const [];
-    final scrolled = _scroll.offset + _activeBand;
+    final editorTop = _editorRevealOffset();
+    if (editorTop == null) return;
+    // Compare in the editor's content space: how far the page has scrolled INTO the editor. 换算进内容空间比。
+    final scrolled = _scroll.offset - editorTop + _activeBand;
     var active = -1;
     for (var i = 0; i < ids.length; i += 1) {
       final top = _editorKey.currentState?.contentTopForNode(ids[i]);
@@ -112,36 +129,39 @@ class AnDocumentEditorState extends State<AnDocumentEditor> {
 
   @override
   Widget build(BuildContext context) {
-    // A fixed header over the scrolling body: the editor owns its own vertical scroll (its content is a
-    // sliver, so it can't be co-nested in a box-sliver page). We hook the editor's [_scroll] for the
-    // floating-breadcrumb collapse + outline focus. 固定头 + 正文自滚(编辑器内容是 sliver、不能盒嵌);挂其滚动。
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _centered(_header(context)),
-        Expanded(
-          child: _centered(
-            AnEditor(
+    // ONE outer CustomScrollView owns the page. SuperEditor with shrinkWrap renders as a SLIVER (box
+    // hosts can't nest it — the fixed-head era's constraint), so header + editor ride the same sliver
+    // list: the header co-scrolls with the body, and the caret's keep-visible auto-scroll drives this
+    // scrollable. The 720 reading measure is a computed symmetric SliverPadding on both slivers.
+    // 单一外层 CustomScrollView:shrinkWrap 的 SuperEditor 是 sliver(盒宿主嵌不了——固定头时代的约束),
+    // 头与编辑器同列同滚,光标跟随自动滚驱动本滚动;720 阅读列=两 sliver 对称算距。
+    return LayoutBuilder(builder: (context, box) {
+      final side = box.maxWidth > _measure + AnSpace.s24 * 2
+          ? (box.maxWidth - _measure) / 2
+          : AnSpace.s24;
+      final hpad = EdgeInsets.symmetric(horizontal: side);
+      return CustomScrollView(
+        controller: _scroll,
+        slivers: [
+          SliverPadding(
+            padding: hpad,
+            sliver: SliverToBoxAdapter(child: KeyedSubtree(key: _headerKey, child: _header(context))),
+          ),
+          SliverPadding(
+            padding: hpad,
+            sliver: AnEditor(
               key: _editorKey,
               initialMarkdown: widget.initialMarkdown,
               resolvedNames: widget.resolvedNames,
               mentionSource: widget.mentionSource,
               onChangedMarkdown: widget.onChangedMarkdown,
-              scrollController: _scroll, // the editor owns the scroll; we listen for offset + heading nav
+              shrinkWrap: true,
             ),
           ),
-        ),
-      ],
-    );
-  }
-
-  // The 720 reading measure, centred, with the editor's own horizontal padding matched by the header. 居中 720。
-  Widget _centered(Widget child) => Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: _measure),
-          child: Padding(padding: const EdgeInsets.symmetric(horizontal: AnSpace.s24), child: child),
-        ),
+        ],
       );
+    });
+  }
 
   Widget _header(BuildContext context) {
     final c = context.colors;

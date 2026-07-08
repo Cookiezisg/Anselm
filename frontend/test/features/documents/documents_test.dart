@@ -165,7 +165,7 @@ void main() {
       expect(find.text(t.documents.pickTitle), findsOneWidget);
     });
 
-    testWidgets('a selected document opens in AnDocEditor with its content + meta', (tester) async {
+    testWidgets('a selected document opens in the native editor with its content + meta', (tester) async {
       final repo = _repo();
       await tester.pumpWidget(ProviderScope(
         overrides: [

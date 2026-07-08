@@ -51,9 +51,10 @@ class AnBlockquoteComponentBuilder extends BlockquoteComponentBuilder {
 /// wrapping the real editable [ParagraphComponent] (its [componentContext.componentKey] rides it, so
 /// selection/caret geometry is the default paragraph's). A code node is a `ParagraphNode` whose
 /// blockType is [codeAttribution]; super_editor ships NO code component, so this IS the code block. The
-/// mono 13/1.6 text colour is set by the stylesheet's `code` rule; syntax highlight is deferred (E7).
+/// mono 13/1.6 text colour is set by the stylesheet's `code` rule; syntax highlight rides the memoized
+/// [AnCodeSyntaxStylePhase] (an_editor_syntax.dart).
 /// 围栏代码块:复用产品统一的 AnCodeSurface(白岛+发丝边+card 圆角+裁剪),裹住真可编辑 ParagraphComponent;
-/// code 节点=blockType 为 code 的段落(super_editor 无代码组件,这就是代码块);mono 文字色由样式表 code 规则给,高亮后置。
+/// code 节点=blockType 为 code 的段落(super_editor 无代码组件,这就是代码块);mono 文字色由样式表 code 规则给,高亮走记忆化 style phase。
 class AnCodeBlockComponentBuilder extends ParagraphComponentBuilder {
   const AnCodeBlockComponentBuilder(this.colors);
 

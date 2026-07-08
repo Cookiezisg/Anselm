@@ -16,7 +16,7 @@ import 'package:flutter/material.dart';
 ///     (22/18/15) content headings, [valueReading] (15/1.4 + tabular; mono 13) content KV values,
 ///     [codeReading] (mono 13/1.6) content code blocks. The registry: composer input + placeholder,
 ///     user bubble (live + optimistic), assistant answer (AnMarkdown), the THINKING aside (15,
-///     demoted by inkMuted COLOUR — never by size), document/skill body (AnDocEditor), content KV
+///     demoted by inkMuted COLOUR — never by size), document/skill body (AnEditor), content KV
 ///     values (entity overviews + document properties via AnKv/AnField default tier), content code
 ///     (markdown/doc fenced blocks, entity source/prompt blocks, the version tab's diff), the chat
 ///     head title (readingH3), content section heads (AnSection plain → readingH2).
@@ -49,7 +49,7 @@ import 'package:flutter/material.dart';
 ///   • **内容 15 体系**:[reading] 15/1.6 正文、[readingH1/H2/H3] 22/18/15 内容标题、[valueReading]
 ///     15/1.4+tabular(mono 13)内容 KV 值、[codeReading] mono 13/1.6 内容代码。登记:composer 输入+占位、
 ///     用户气泡、助手答案(AnMarkdown)、**thinking 旁白(15,靠 inkMuted 颜色降权、绝不靠字号)**、文档/skill
-///     正文(AnDocEditor)、实体 overview + 文档属性的 KV 值(AnKv/AnField 默认档)、内容代码(markdown/doc
+///     正文(AnEditor)、实体 overview + 文档属性的 KV 值(AnKv/AnField 默认档)、内容代码(markdown/doc
 ///     代码块、实体源码/提示块、版本 tab diff)、chat 头标题(readingH3)、内容分节头(AnSection plain→readingH2)。
 ///   • **内容内标签/元数据 = 13**([label]/[body]):KV 键、tab 标签+计数、值列时间戳/计数(AnKvRow.meta)、
 ///     面包屑、tool 卡动词行、thinking 的 thought 标签、终止横幅、附件 chip/卡、ref 药丸、InfoCard 头。

@@ -27,12 +27,12 @@ final documentMentionNamesProvider = FutureProvider.family<Map<String, String>, 
   return ref.read(mentionSourceProvider).resolveNames(ids);
 });
 
-/// The Documents ocean center — the webview [AnDocEditor] fills the ocean, and its title/description/tags
-/// header co-scrolls INSIDE it with the body (a product characteristic). The Flutter side is thin: it
-/// binds the doc name to the shell's floating breadcrumb, collapses it as the webview scrolls (onScroll),
+/// The Documents ocean center — the native [AnDocumentEditor] fills the ocean, its title/description/tags
+/// header co-scrolling with the body in one page scroll (a product characteristic). This host stays thin:
+/// it binds the doc name to the shell's floating breadcrumb, collapses it as the page scrolls (onScroll),
 /// drives the inspector's live outline focus (onActiveHeading), and answers outline jumps
-/// (scrollToHeading). No selection → an empty "pick" state. 文档海洋中心:webview 编辑器填满海洋,标题头在
-/// 内部同滚;Flutter 侧只绑浮层头 + 随滚折叠 + 喂大纲焦点 + 应答跳转。
+/// (scrollToHeading). No selection → an empty "pick" state. 文档海洋中心:原生 AnDocumentEditor 填满海洋,
+/// 标题头与正文同页同滚;宿主只绑浮层头 + 随滚折叠 + 喂大纲焦点 + 应答跳转。
 class DocumentOcean extends ConsumerWidget {
   const DocumentOcean({super.key});
 
@@ -62,18 +62,18 @@ class DocumentOcean extends ConsumerWidget {
   }
 }
 
-/// The thin Flutter chrome shared by both edit views: it binds the doc name to the shell's floating
-/// breadcrumb (tap = scroll the webview to top), collapses it past the header height as the webview
-/// scrolls, mirrors the webview's active-heading into the inspector outline, seeds/refeeds the outline
-/// LIST from the markdown, and forwards an outline-jump to the webview. 薄壳:绑浮层头 + 随滚折叠 +
-/// 镜像活动标题 + 从 markdown 播种大纲 + 转发跳转。
+/// The thin chrome shared by both edit views: it binds the doc name to the shell's floating breadcrumb
+/// (tap = scroll the page to top), collapses it past the header height as the page scrolls, mirrors the
+/// editor's active-heading into the inspector outline, seeds/refeeds the outline LIST from the markdown,
+/// and forwards an outline-jump to the editor. 薄壳:绑浮层头 + 随滚折叠 + 镜像活动标题 + 从 markdown
+/// 播种大纲 + 转发跳转。
 mixin _DocPageChrome<T extends ConsumerStatefulWidget> on ConsumerState<T> {
   final GlobalKey<AnDocumentEditorState> editorKey = GlobalKey<AnDocumentEditorState>();
   // Header height (crumb + big title + description + tags) past which the floating breadcrumb takes over.
   static const double _collapseAt = 120;
   String? _seededOutlineFor;
 
-  /// Bind the doc name to the floating breadcrumb; tapping it scrolls the webview back to the top.
+  /// Bind the doc name to the floating breadcrumb; tapping it scrolls the page back to the top.
   void bindHead(String title) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -81,13 +81,13 @@ mixin _DocPageChrome<T extends ConsumerStatefulWidget> on ConsumerState<T> {
     });
   }
 
-  /// The webview scroll offset → collapse the floating breadcrumb once the big title has scrolled under.
+  /// The page scroll offset → collapse the floating breadcrumb once the big title has scrolled under.
   void onScroll(double offset) {
     if (!mounted) return;
     ref.read(shellHeadProvider.notifier).setCollapsed(offset > _collapseAt);
   }
 
-  /// The webview's active heading → the inspector outline's live focus (-1 = none).
+  /// The editor's active heading → the inspector outline's live focus (-1 = none).
   void onActive(int index) {
     if (!mounted) return;
     ref.read(docOutlineActiveProvider.notifier).set(index >= 0 ? index : null);
@@ -116,11 +116,11 @@ mixin _DocPageChrome<T extends ConsumerStatefulWidget> on ConsumerState<T> {
   }
 }
 
-/// The editable document view — the webview [AnDocEditor] (crumb `Documents` + renamable title +
+/// The editable document view — the native [AnDocumentEditor] (crumb `Documents` + renamable title +
 /// description + tags in its co-scroll header, over the body). Content saves via `updateDocument`
 /// (debounced 600ms; the open provider is NOT invalidated on a content save, so the editor keeps its
 /// cursor). Title/description edits in the header report via onMetaChanged → a partial meta PATCH.
-/// 可编辑文档视图:webview 编辑器(头含面包屑/可改名标题/描述/标签,同滚)。存正文去抖 600ms 不 invalidate;
+/// 可编辑文档视图:原生编辑器(头含面包屑/可改名标题/描述/标签,同滚)。存正文去抖 600ms 不 invalidate;
 /// 头部改名/描述经 onMetaChanged → 分部 PATCH。
 class _DocEditView extends ConsumerStatefulWidget {
   const _DocEditView({required this.id, super.key});
@@ -218,10 +218,10 @@ class _DocEditViewState extends ConsumerState<_DocEditView> with _DocPageChrome 
   }
 }
 
-/// The editable SKILL view — the same webview page: crumb `Skills` + the slug title (NOT renamable —
-/// the name IS the identity) + description, over the body. A save is a PUT full-replace, so the CURRENT
+/// The editable SKILL view — the same native editor page: crumb `Skills` + the slug title (NOT renamable
+/// — the name IS the identity) + description, over the body. A save is a PUT full-replace, so the CURRENT
 /// frontmatter is fetched right before the write and carried through (read-modify-write). No @ mentions
-/// here: the backend only parses `[[id]]` on DOCUMENTS. skill 可编辑视图:同款 webview 页,标题不可改名;
+/// here: the backend only parses `[[id]]` on DOCUMENTS. skill 可编辑视图:同款原生编辑器页,标题不可改名;
 /// 存=PUT 全覆盖(写前取最新 frontmatter);不接 @。
 class _SkillEditView extends ConsumerStatefulWidget {
   const _SkillEditView({required this.name, super.key});

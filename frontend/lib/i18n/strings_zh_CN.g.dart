@@ -382,6 +382,7 @@ class _Translations$documents$zh_CN extends Translations$documents$en {
 	@override String get actionFailed => '操作失败';
 	@override late final _Translations$documents$props$zh_CN props = _Translations$documents$props$zh_CN._(_root);
 	@override late final _Translations$documents$slash$zh_CN slash = _Translations$documents$slash$zh_CN._(_root);
+	@override String get linkHint => '输入或粘贴链接,回车确定';
 	@override String toolCount({required Object n}) => '${n} 个工具';
 }
 
@@ -1192,6 +1193,7 @@ class _Translations$documents$slash$zh_CN extends Translations$documents$slash$e
 	@override String get numbered => '有序列表';
 	@override String get quote => '引用';
 	@override String get code => '代码块';
+	@override String get table => '表格';
 	@override String get divider => '分隔线';
 	@override String get todo => '待办';
 }
@@ -2724,8 +2726,10 @@ extension on TranslationsZhCn {
 			'documents.slash.numbered' => '有序列表',
 			'documents.slash.quote' => '引用',
 			'documents.slash.code' => '代码块',
+			'documents.slash.table' => '表格',
 			'documents.slash.divider' => '分隔线',
 			'documents.slash.todo' => '待办',
+			'documents.linkHint' => '输入或粘贴链接,回车确定',
 			'documents.toolCount' => ({required Object n}) => '${n} 个工具',
 			'markdown.imageNotLoaded' => '图片未加载',
 			'attach.unavailable' => '已不可用',

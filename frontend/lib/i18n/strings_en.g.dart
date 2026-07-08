@@ -747,6 +747,9 @@ class Translations$documents$en {
 	late final Translations$documents$props$en props = Translations$documents$props$en.internal(_root);
 	late final Translations$documents$slash$en slash = Translations$documents$slash$en.internal(_root);
 
+	/// en: 'Type or paste a link, Enter to apply'
+	String get linkHint => 'Type or paste a link, Enter to apply';
+
 	/// en: '$n tools'
 	String toolCount({required Object n}) => '${n} tools';
 }
@@ -2853,6 +2856,9 @@ class Translations$documents$slash$en {
 	/// en: 'Code block'
 	String get code => 'Code block';
 
+	/// en: 'Table'
+	String get table => 'Table';
+
 	/// en: 'Divider'
 	String get divider => 'Divider';
 
@@ -4902,8 +4908,10 @@ extension on Translations {
 			'documents.slash.numbered' => 'Numbered list',
 			'documents.slash.quote' => 'Quote',
 			'documents.slash.code' => 'Code block',
+			'documents.slash.table' => 'Table',
 			'documents.slash.divider' => 'Divider',
 			'documents.slash.todo' => 'To-do',
+			'documents.linkHint' => 'Type or paste a link, Enter to apply',
 			'documents.toolCount' => ({required Object n}) => '${n} tools',
 			'markdown.imageNotLoaded' => 'image not loaded',
 			'attach.unavailable' => 'Unavailable',

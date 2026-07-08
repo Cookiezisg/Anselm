@@ -86,16 +86,4 @@ shot-app:
 shot-app-real:
 	@bash test/dev/shot_app_real.sh
 
-# doc-editor — 构建文档编辑器 bundle(Milkdown/Crepe → 单文件离线 HTML)。源 = tool/doc-editor/
-# (checked-in),产物 = assets/editor/doc_editor.html(入库,WKWebView 经 loadFlutterAsset 加载)。
-# 改编辑器源(src/*.js·*.css / index.html)后跑此目标重建。首次自动 npm install。
-doc-editor:
-	@cd tool/doc-editor && (test -d node_modules || npm install) && npm run build
-	@mkdir -p assets/editor && cp tool/doc-editor/dist/index.html assets/editor/doc_editor.html
-	@echo "" && echo "✓ assets/editor/doc_editor.html 已更新 ($$(wc -c < assets/editor/doc_editor.html) bytes)"
-
-# doc-editor-rt — 文档编辑器 round-trip 保真检查(headless playwright)。
-doc-editor-rt:
-	@cd tool/doc-editor && npm run roundtrip
-
-.PHONY: help setup gen analyze test verify demo gallery app shots shot-app shot-app-real doc-editor doc-editor-rt
+.PHONY: help setup gen analyze test verify demo gallery app shots shot-app shot-app-real

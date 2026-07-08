@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:super_editor/super_editor.dart';
 
+import '../../i18n/strings.g.dart';
 import '../design/colors.dart';
 import '../entity/mention_source.dart';
 import '../ui/an_mention_picker.dart';
@@ -33,8 +34,9 @@ import 'an_editor_toolbar.dart';
 ///     wrapping it in a box breaks that protocol (and overlays must be hand-managed, not Stack/Positioned).
 ///  4. [inputSource] = IME (CJK's lifeline — only the IME path handles the composing region).
 ///
-/// Visual 1:1 (An-primitive component builders), the from-scratch stylesheet, slash / @ / the selection
-/// toolbar, syntax highlight and the markdown codec all land in E2+.
+/// Everything above the floor is layered on: An-primitive component builders + the from-scratch
+/// stylesheet, slash / @ / the selection toolbar (with link input), syntax highlight, tables, and the
+/// markdown codec (an_editor_markdown.dart).
 ///
 /// 原生编辑器 E1:最小可编辑面。先证「挂载+编辑+双击选词+狂点+中文 IME 不卡死」,再逐层往上盖(严格增量二分,
 /// 哪层引卡当场抓),而非像上次攒齐所有层后对着「点两下卡死」猜。避坑铁律见上。
@@ -79,11 +81,13 @@ class AnEditor extends StatefulWidget {
   /// picker (e.g. tests that don't exercise mentions). @ 提及数据缝;null=无 picker(不测提及时)。
   final MentionSource? mentionSource;
 
-  /// Size the editor to its content instead of owning its own scroll — so a header can co-scroll with the
-  /// body inside ONE outer scrollable (the documents ocean characteristic). 随内容高(与头同滚于外层)。
+  /// Size the editor to its content instead of owning its own scroll — the documents ocean sets this so
+  /// its header co-scrolls with the body inside ONE outer scrollable (super_editor then attaches its
+  /// caret keep-visible auto-scroll to that ancestor scrollable). 随内容高、滚动归外层(文档海洋同滚头)。
   final bool shrinkWrap;
 
-  /// The outer scroll controller (when [shrinkWrap] + an ancestor scrollable own the scroll). 外层滚动控。
+  /// The editor-owned scroll controller (standalone hosts, e.g. the harness, when NOT [shrinkWrap]).
+  /// 编辑器自持滚动时的控制器(独立宿主用;shrinkWrap 时不传)。
   final ScrollController? scrollController;
 
   @override
@@ -114,8 +118,17 @@ class AnEditorState extends State<AnEditor> {
     return rect?.top;
   }
 
+  // ALL six ATX depths count — the outline extractor (extractDocOutline) lists h4–h6 too (folded into
+  // level 3), and the outline's jump key is the SHARED document-order index: excluding any depth here
+  // would misalign every jump after the first deep heading. 六档全算——大纲提取含 h4–h6(并入 3 级),跳转键
+  // 是共享的文档序下标,漏任何一档都会让其后的跳转全体错位。
   static bool _isHeader(Object? blockType) =>
-      blockType == header1Attribution || blockType == header2Attribution || blockType == header3Attribution;
+      blockType == header1Attribution ||
+      blockType == header2Attribution ||
+      blockType == header3Attribution ||
+      blockType == header4Attribution ||
+      blockType == header5Attribution ||
+      blockType == header6Attribution;
 
   late final Editor _editor;
   late final MutableDocument _document;
@@ -125,6 +138,12 @@ class AnEditorState extends State<AnEditor> {
   // Fresh per State — never shared across document rebuilds (old build reused one GlobalKey → crash on
   // document swap). E1 never swaps the document, but the key discipline is set from the start. 每 State 一把。
   final GlobalKey _docLayoutKey = GlobalKey();
+
+  // The live locale's translations, cached here because the slash listener fires OUTSIDE build (a
+  // ValueNotifier dispatch mid-edit) where an inherited lookup is unreliable — didChangeDependencies is
+  // the sanctioned refresh point (also re-runs on a locale flip). 监听器在 build 外跑,inherited 查询不可靠
+  // ——在 didChangeDependencies 缓存(换语言也会重跑)。
+  late Translations _t;
 
   // ── E4 slash menu ──────────────────────────────────────────────────────────────────────────────
   // The official ActionTagsPlugin tokenizes the `/` trigger (detect / track query / cancel-on-space) so
@@ -178,6 +197,12 @@ class AnEditorState extends State<AnEditor> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _t = Translations.of(context);
+  }
+
+  @override
   void dispose() {
     _slashTags.composingActionTag.removeListener(_onSlashComposingChanged);
     _mentionTags?.tagIndex.composingStableTag.removeListener(_onMentionComposingChanged);
@@ -197,7 +222,8 @@ class AnEditorState extends State<AnEditor> {
   void _onSlashComposingChanged() {
     if (!mounted) return;
     final tag = _slashTags.composingActionTag.value;
-    final matches = tag == null ? const <SlashCommand>[] : slashCommands.where((c) => c.matches(tag.tag.token)).toList();
+    final matches =
+        tag == null ? const <SlashCommand>[] : slashCommands.where((c) => c.matches(tag.tag.token, _t)).toList();
     setState(() {
       _slashTag = tag;
       _slashMatches = matches;
@@ -213,9 +239,15 @@ class AnEditorState extends State<AnEditor> {
   void _selectSlash(SlashCommand command) {
     final tag = _slashTag;
     if (tag == null) return;
+    // The requests are built BEFORE the submit deletes the `/query`, so pre-compute whether the trigger
+    // paragraph will be EMPTY afterwards: it is iff the whole node IS the tag text. 请求在删 tag 前构建,
+    // 预判提交后是否空段:整节点即 tag 文本时为空。
+    final node = _document.getNodeById(tag.nodeId);
+    final plain = node is TextNode ? node.text.toPlainText() : '';
+    final emptyAfterSubmit = plain == '/${tag.tag.token}';
     _editor.execute([
       const SubmitComposingActionTagRequest(),
-      ...command.requests(tag.nodeId),
+      ...command.requests((nodeId: tag.nodeId, document: _document, emptyAfterSubmit: emptyAfterSubmit)),
     ]);
     // The plugin clears composingActionTag → _onSlashComposingChanged hides the portal. 词法归零→自动隐。
   }
@@ -366,7 +398,8 @@ class AnEditorState extends State<AnEditor> {
       documentOverlayBuilders: [
         ...defaultSuperEditorDocumentOverlayBuilders,
         FunctionalSuperEditorLayerBuilder(
-          (context, editContext) => AnSelectionToolbar(editor: _editor, document: _document, composer: _composer),
+          (context, editContext) => AnSelectionToolbar(
+              editor: _editor, document: _document, composer: _composer, editorFocusNode: _focusNode),
         ),
         FunctionalSuperEditorLayerBuilder(
           (context, editContext) => AnSlashMenuOverlay(
@@ -389,9 +422,9 @@ class AnEditorState extends State<AnEditor> {
   }
 }
 
-/// A small seed document exercising the block ladder (h1/h2/h3 + body) so the harness screenshot shows
-/// the An prose voice. Later steps build the document from the documents feature's markdown content.
-/// 种子文档:走一遍标题阶梯 + 正文,让 harness 截图看得见 An prose 声;markdown 编解码后置。
+/// A small seed document exercising the block ladder (h1/h2/h3 + body) — ONLY the dev harness sees it
+/// (production always passes initialMarkdown), so the harness screenshot shows the An prose voice.
+/// 种子文档:走一遍标题阶梯+正文——仅 dev harness 用(生产总传 initialMarkdown),供截图看 An prose 声。
 ParagraphNode _heading(String text, Attribution level) => ParagraphNode(
       id: Editor.createNodeId(),
       text: AttributedText(text),
