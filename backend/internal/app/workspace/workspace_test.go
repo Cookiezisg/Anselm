@@ -74,6 +74,14 @@ func (f *fakeRepo) TouchLastUsed(_ context.Context, id string) error {
 	return nil
 }
 
+func (f *fakeRepo) Stats(_ context.Context, id string, generatingIDs []string) (*workspacedomain.Stats, error) {
+	if _, ok := f.items[id]; !ok {
+		return nil, workspacedomain.ErrNotFound
+	}
+	return &workspacedomain.Stats{Conversations: 3, RunningFlowruns: 1,
+		GeneratingConversations: len(generatingIDs)}, nil
+}
+
 func newService() *Service { return NewService(newFakeRepo(), zap.NewNop()) }
 
 func TestCreate_TrimsName_DefaultsLanguageAndID(t *testing.T) {
@@ -423,5 +431,60 @@ func TestSetDefault_RejectsDanglingKey(t *testing.T) {
 	}
 	if _, err := s.SetDefault(context.Background(), w.ID, modeldomain.ScenarioDialogue, nil); err != nil {
 		t.Fatalf("clearing (nil ref) must skip existence, got %v", err)
+	}
+}
+
+type fakeBlobSizer struct {
+	n    int64
+	err  error
+	slow bool
+}
+
+func (b fakeBlobSizer) TotalBytes(ctx context.Context) (int64, error) {
+	if b.slow {
+		<-ctx.Done() // burn the whole budget 烧光预算
+		return 0, ctx.Err()
+	}
+	return b.n, b.err
+}
+
+// TestStats_AssemblesPortsAndDegradesHonestly: counts come from the repo; blob bytes from the sizer;
+// a blown budget or missing port reports -1 (never a fake 0); unknown id → ErrNotFound.
+// 端口拼装与诚实退化:计数出 repo、字节出 sizer;超预算/缺端口=-1;未知 id=ErrNotFound。
+func TestStats_AssemblesPortsAndDegradesHonestly(t *testing.T) {
+	ctx := context.Background()
+	repo := newFakeRepo()
+	svc := NewService(repo, zap.NewNop())
+	if _, err := svc.Create(ctx, CreateInput{Name: "one"}); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	id := ""
+	for k := range repo.items {
+		id = k
+	}
+
+	// Full wiring. 全接线。
+	svc.SetStatsPorts(fakeBlobSizer{n: 4096}, func() []string { return []string{"cv_a", "cv_b"} })
+	st, err := svc.Stats(ctx, id)
+	if err != nil {
+		t.Fatalf("stats: %v", err)
+	}
+	if st.Conversations != 3 || st.BlobBytes != 4096 || st.GeneratingConversations != 2 {
+		t.Errorf("assembled stats wrong: %+v", st)
+	}
+
+	// A blown walk budget is an honest -1. 超预算=-1。
+	svc.SetStatsPorts(fakeBlobSizer{slow: true}, nil)
+	if st, err = svc.Stats(ctx, id); err != nil {
+		t.Fatalf("stats slow: %v", err)
+	}
+	if st.BlobBytes != -1 {
+		t.Errorf("blob bytes on timeout = %d, want -1", st.BlobBytes)
+	}
+
+	// Unwired ports degrade, never panic. 缺端口退化不炸。
+	svc2 := NewService(newFakeRepo(), zap.NewNop())
+	if _, err := svc2.Stats(ctx, id); !errors.Is(err, workspacedomain.ErrNotFound) {
+		t.Errorf("unknown id: got %v, want ErrNotFound", err)
 	}
 }

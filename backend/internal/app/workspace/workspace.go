@@ -58,6 +58,31 @@ type Service struct {
 	// scenario 默认（API_KEY_NOT_FOUND）。与 ReferencesAPIKey（已挡删被默认引用的 key）对称——两向现一致。
 	// nil → 跳过存在性校验。（F153）
 	keyChecker modelrefapp.KeyExistenceChecker
+
+	// Stats ports (bootstrap, post-build; both optional — nil degrades honestly): blobSizer walks
+	// the workspace file tree under a time budget; generating snapshots chat's in-flight ids.
+	// stats 端口(bootstrap 后注入,皆可选、nil 诚实退化):blobSizer 带预算走文件树;generating 快照
+	// chat 在飞会话 id。
+	blobSizer  BlobSizer
+	generating GeneratingLister
+}
+
+// BlobSizer sums one workspace's stored blob bytes (ctx carries the workspace + the deadline).
+// BlobSizer 求一个 workspace 的 blob 总字节(ctx 带 workspace 与 deadline)。
+type BlobSizer interface {
+	TotalBytes(ctx context.Context) (int64, error)
+}
+
+// GeneratingLister snapshots the conversation ids with an in-flight assistant turn (chatapp).
+// GeneratingLister 快照在飞 assistant 回合的会话 id(chatapp)。
+type GeneratingLister func() []string
+
+// SetStatsPorts injects the stats dependencies (bootstrap, post-build).
+//
+// SetStatsPorts 注入 stats 依赖(bootstrap 后注入)。
+func (s *Service) SetStatsPorts(b BlobSizer, g GeneratingLister) {
+	s.blobSizer = b
+	s.generating = g
 }
 
 // Reaper destroys everything a workspace owns beyond its row: in-flight runs, trigger
@@ -165,6 +190,38 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*workspacedomain.
 // Get 按 id 取 workspace。
 func (s *Service) Get(ctx context.Context, id string) (*workspacedomain.Workspace, error) {
 	return s.repo.Get(ctx, id)
+}
+
+// Stats inventories one workspace — the delete confirmation's REAL numbers (WRK-062 S-11). Counts
+// come from the store in one batch; BlobBytes walks the file tree under a 500ms budget and reports
+// -1 on overrun (an honest "unknown"); the generating intersection uses chat's in-flight snapshot.
+// The path id is minted into ctx here — the route is workspace-exempt (it names its subject).
+//
+// Stats 盘点一个 workspace——删除确认的真数字(S-11)。计数 store 一批出;BlobBytes 500ms 预算内走文件树、
+// 超时报 -1(诚实「未知」);generating 交集用 chat 在飞快照。path id 在此铸进 ctx——路由属 workspace 豁免
+// (它自己点名对象)。
+func (s *Service) Stats(ctx context.Context, id string) (*workspacedomain.Stats, error) {
+	if _, err := s.repo.Get(ctx, id); err != nil {
+		return nil, err
+	}
+	ctx = reqctxpkg.SetWorkspaceID(ctx, id)
+	var generating []string
+	if s.generating != nil {
+		generating = s.generating()
+	}
+	st, err := s.repo.Stats(ctx, id, generating)
+	if err != nil {
+		return nil, err
+	}
+	st.BlobBytes = -1 // unknown until measured 量到前=未知
+	if s.blobSizer != nil {
+		walkCtx, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
+		defer cancel()
+		if n, err := s.blobSizer.TotalBytes(walkCtx); err == nil {
+			st.BlobBytes = n
+		}
+	}
+	return st, nil
 }
 
 // List returns all workspaces (small set, no pagination).

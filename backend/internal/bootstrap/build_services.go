@@ -367,6 +367,8 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	ag.SetKeyChecker(keys)
 	conv.SetKeyChecker(keys)
 	ws.SetKeyChecker(keys)
+	// stats ports: blob walk + chat's in-flight snapshot (WRK-062 S-11). stats 端口。
+	ws.SetStatsPorts(st.blob, chat.GeneratingIDs)
 
 	// apikey delete-guard (RefScanner): refuse to delete a key still referenced, so the
 	// reference never dangles. Two real sources — a workspace's scenario default models /

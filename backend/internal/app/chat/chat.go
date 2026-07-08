@@ -428,6 +428,27 @@ func (q *convQueue) setRunning(v bool) {
 // 走 :cancel 同款 per-conversation 队列登记；对拆卸竞争安全（缺失/已拆条目 → false，因拆卸在删除前于
 // q.mu 下清 running + 抽干 channel）。conversation.List/Get 调它填每行派生 IsGenerating，使重连客户端
 // 冷启动圆点。
+// GeneratingIDs snapshots the conversation ids with an in-flight assistant turn — the memory-state
+// side of the workspace stats endpoint (the store intersects them with one workspace's rows; ids
+// here span all workspaces). Same race posture as IsGenerating.
+//
+// GeneratingIDs 快照有在飞 assistant 回合的会话 id——workspace stats 的内存态一侧(store 与单个
+// workspace 的行求交;这里的 id 横跨全部 workspace)。竞态姿态同 IsGenerating。
+func (s *Service) GeneratingIDs() []string {
+	var ids []string
+	s.queues.Range(func(k, v any) bool {
+		q := v.(*convQueue)
+		q.mu.Lock()
+		live := q.running || len(q.ch) > 0
+		q.mu.Unlock()
+		if live {
+			ids = append(ids, k.(string))
+		}
+		return true
+	})
+	return ids
+}
+
 func (s *Service) IsGenerating(conversationID string) bool {
 	v, ok := s.queues.Load(conversationID)
 	if !ok {

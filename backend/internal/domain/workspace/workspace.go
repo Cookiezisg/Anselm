@@ -153,6 +153,27 @@ var (
 	ErrWebFetchModeInvalid = errorspkg.New(errorspkg.KindInvalid, "WORKSPACE_WEB_FETCH_MODE_INVALID", "webFetchMode must be one of local, jina")
 )
 
+// Stats is one workspace's content inventory — what a delete would destroy. Pure counts (the
+// store fills them in one query batch); BlobBytes is filled by the app layer from the file tree
+// and is -1 when the walk exceeded its time budget (an honest "unknown", never a fake 0).
+//
+// Stats 是一个 workspace 的内容盘点——删除将销毁之物。纯计数(store 一批查询填充);BlobBytes 由 app 层
+// 从文件树填充,walk 超预算时为 -1(诚实的「未知」,绝不假 0)。
+type Stats struct {
+	Conversations int `json:"conversations"`
+	Functions     int `json:"functions"`
+	Handlers      int `json:"handlers"`
+	Agents        int `json:"agents"`
+	Workflows     int `json:"workflows"`
+	Documents     int `json:"documents"`
+	// RunningFlowruns and GeneratingConversations are the DYNAMIC hazard: >0 means a delete
+	// terminates live work (the confirm dialog leads with it, WRK-062 S-11).
+	// 动态危险项:>0 = 删除将终止进行中的工作(确认框以它开头)。
+	RunningFlowruns         int   `json:"runningFlowruns"`
+	GeneratingConversations int   `json:"generatingConversations"`
+	BlobBytes               int64 `json:"blobBytes"`
+}
+
 // Repository is the storage contract for Workspace. Like the entity it is not
 // workspace-scoped — these are the only queries that span all workspaces.
 //
@@ -164,4 +185,8 @@ type Repository interface {
 	Delete(ctx context.Context, id string) error
 	Count(ctx context.Context) (int, error)
 	TouchLastUsed(ctx context.Context, id string) error
+	// Stats counts the workspace's contents in one batch. generatingIDs are the chat app's
+	// in-flight conversation ids (memory state, not a column) — the store intersects them with
+	// this workspace's live rows. 一批数完;generatingIDs 是 chat 内存在飞集,store 与本 ws 活行求交。
+	Stats(ctx context.Context, id string, generatingIDs []string) (*Stats, error)
 }
