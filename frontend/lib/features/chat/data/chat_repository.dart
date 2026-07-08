@@ -4,8 +4,19 @@ import '../../../core/contract/attachment.dart';
 import '../../../core/contract/conversation.dart';
 import '../../../core/contract/interaction.dart';
 import '../../../core/contract/messages/chat_message.dart';
+import '../../../core/contract/messages/transcript_nav.dart';
 import '../../../core/contract/model_capability.dart';
 import '../../../core/contract/page.dart';
+import '../../../core/contract/entities/agent.dart';
+import '../../../core/contract/entities/approval.dart';
+import '../../../core/contract/entities/control.dart';
+import '../../../core/contract/entities/handler.dart';
+import '../../../core/contract/entities/document.dart';
+import '../../../core/contract/entities/function.dart';
+import '../../../core/contract/entities/trigger.dart';
+import '../../../core/contract/entities/workflow.dart';
+import '../../../core/contract/todo.dart';
+import '../../../core/contract/touchpoint.dart';
 import '../../../core/net/api_client.dart';
 import '../../../core/sse/frame.dart';
 import '../../../core/sse/sse_gateway.dart';
@@ -122,6 +133,22 @@ abstract interface class ChatRepository {
   /// hydration reverses to chronological. 回合历史一页(含 blocks);线缆新→旧,水化反转为时间序。
   Future<Page<ChatMessage>> listMessages(String conversationId, {String? cursor, int? limit});
 
+  /// The deep-jump window (`GET /{id}/messages?around=<messageId>`): a newest-first slice centered
+  /// on the target + both continuation cursors. The jump path REPLACES the transcript window with
+  /// this (re-anchor) — never stitches. An unknown target surfaces the backend's 404 (identity
+  /// anchoring). 深跳窗(?around=):以目标为中心的切片+双向游标;跳转径整窗替换、绝不缝合;未知目标 404。
+  Future<MessagesWindow> messagesAround(String conversationId, String messageId, {int? limit});
+
+  /// One keyset page walking FORWARD in time (`GET /{id}/messages?dir=newer&cursor=`) — the window's
+  /// newerCursor continuation; data stays newest-first (the wire's single ordering rule).
+  /// 沿时间向前的一页(?dir=newer);data 恒新→旧(线缆唯一排序规则)。
+  Future<Page<ChatMessage>> listMessagesNewer(String conversationId, {required String cursor, int? limit});
+
+  /// One keyset page of navigation anchors (`GET /{id}/anchors`, newest-first) — the 场次条 source:
+  /// user turns / folded tool clusters / dangerous calls / compaction marks / abnormal terminals;
+  /// pending gates ride the first page's top outside the keyset. 场次条锚点一页(最新在前)。
+  Future<Page<TranscriptAnchor>> listAnchors(String conversationId, {String? cursor, int? limit});
+
   /// Send a user turn (`POST /{id}/messages` → 202): lands the user message, opens the assistant turn,
   /// enqueues the run; returns the ASSISTANT message id. [mentions] are `{type,id}` wire inputs
   /// (freeze-on-send happens server-side). 发送(202,返 assistant msg id);mentions 为 {type,id} 线缆输入。
@@ -153,6 +180,13 @@ abstract interface class ChatRepository {
   /// refetch the durable head, resubscribe-fresh. messages 流 410 重同步信号:丢 live 层、重拉耐久头。
   Stream<void> transcriptResync();
 
+  /// ONE workflow's entities-stream frames (scope `workflow:{id}`) — the sidestage listens for the
+  /// durable `run_terminal` signal so a poll-type stage (trigger_workflow's 202) settles the moment
+  /// the run truly ends instead of holding forever (R-10 retires, W6 backend).
+  /// 单 workflow 的 entities 流帧(scope workflow:{id})——侧幕借它听 durable `run_terminal`,poll 型舞台
+  /// (trigger_workflow 202)在 run 真结束的瞬间落定、不再无限驻留(R-10 退役,W6 后端)。
+  Stream<StreamEnvelope> workflowFrames(String workflowId);
+
   /// Workspace-wide TURN lifecycle for the rail's activity dots: durable top-level `message`
   /// open/close + `interaction` signals from the messages stream (E1: unfiltered, client-filtered).
   /// The row re-read this drives is the ONLY realtime path for isGenerating / awaitingInput /
@@ -165,6 +199,60 @@ abstract interface class ChatRepository {
   /// Every runnable model option (`GET /model-capabilities`: probed key × served model) — the head's
   /// per-thread model picker. 全部可跑模型选项(已探测 key × 模型)——头部线程级选择器的数据源。
   Future<List<ModelCapability>> listModelCapabilities();
+
+  // ── right island: the touchpoint ledger (WRK-061) 右岛触点台账 ──
+
+  /// One keyset page of the conversation's touchpoint ledger (`GET /{id}/touchpoints`, sorted
+  /// last_at DESC, id DESC). NOTE the sort key MUTATES (a re-touched row jumps pages) — the ledger
+  /// provider dedupes by row id and lets the durable touchpoint Signal deliver rows that moved into
+  /// the loaded region. [kind]/[verb] are the server-side enum filters (wrong values = 400).
+  /// 台账一页(last_at 降序,排序键会变——再触碰行跳页):provider 按行 id 去重,升区行由 durable 信号送达;
+  /// kind/verb 是服务端枚举过滤(拼错=400)。
+  Future<Page<Touchpoint>> listTouchpoints(
+    String conversationId, {
+    String? cursor,
+    int? limit,
+    String? kind,
+    TouchpointVerb? verb,
+  });
+
+  // ── the sidestage's old-truth reads (WRK-061 R-5) 侧幕旧真相单读 ──
+
+  /// One function WITH its active version embedded (`GET /functions/{id}`) — the edit stage's
+  /// entrance GET: name while the args stream is still nameless, the AnLayerDiff old-code layer, and
+  /// the settle diff's `before` — one fetch, three uses. 函数单读(带 activeVersion):edit 登台一石三鸟。
+  Future<FunctionEntity> getFunctionSnapshot(String id);
+
+  /// One document WITH content (`GET /documents/{id}`) — the document stage's prefix fast-forward
+  /// baseline (and the settle size badge's `before`). 文档单读(带 content):前缀快进基线+尺寸徽 before。
+  Future<DocumentNode> getDocumentSnapshot(String id);
+
+  /// One workflow WITH graphParsed (`GET /workflows/{id}`) — the edit stage's resting canvas + the
+  /// settle reconcile truth (W3). 工作流单读(带 graphParsed):edit 静置底座+落定对账真相。
+  Future<WorkflowEntity> getWorkflowSnapshot(String id);
+
+  /// One control WITH branches (`GET /controls/{id}`) — the edit ladder's 40% understratum (W3).
+  /// control 单读(带 branches):edit 旧梯垫底。
+  Future<ControlLogic> getControlSnapshot(String id);
+
+  /// One approval WITH template (`GET /approvals/{id}`) — the settle reconcile (W3). approval 单读。
+  Future<ApprovalForm> getApprovalSnapshot(String id);
+
+  /// One agent WITH its active version (`GET /agents/{id}`) — the edit stage's R-9 progressive
+  /// disclosure baseline + the settle reconcile. agent 单读:R-9 渐进开区基线+落定对账。
+  Future<AgentEntity> getAgentSnapshot(String id);
+
+  /// One handler WITH methods (`GET /handlers/{id}`) — the edit rack's old truth + the settle's
+  /// config/runtime state. handler 单读:旧方法架+落定配置/运行态。
+  Future<HandlerEntity> getHandlerSnapshot(String id);
+
+  /// One trigger (`GET /triggers/{id}`) — the settle's listening dot / nextFireAt countdown / refCount
+  /// (R-16: counts come from GET only). trigger 单读:落定的监听点/倒计时/引用数(R-16 只信 GET)。
+  Future<TriggerEntity> getTriggerSnapshot(String id);
+
+  /// The conversation's own todo list (`GET /{id}/todos`, whole-list semantics) — the rundown's
+  /// reconnect hydration; live updates ride the durable `todo` Signal. 主清单水化(重连兜底);实时走信号。
+  Future<ConversationTodos> getTodos(String conversationId);
 
   // ── human-loop interactions (V6 danger gate + ask_user) 人在环交互 ──
 
@@ -290,6 +378,22 @@ class LiveChatRepository implements ChatRepository {
           query: {'cursor': ?cursor, 'limit': ?limit});
 
   @override
+  Future<MessagesWindow> messagesAround(String conversationId, String messageId, {int? limit}) async =>
+      MessagesWindow.fromJson(await _api.getEnvelope('${_path(conversationId)}/messages',
+          query: {'around': messageId, 'limit': ?limit}));
+
+  @override
+  Future<Page<ChatMessage>> listMessagesNewer(String conversationId,
+          {required String cursor, int? limit}) =>
+      _api.getPage('${_path(conversationId)}/messages', ChatMessage.fromJson,
+          query: {'dir': 'newer', 'cursor': cursor, 'limit': ?limit});
+
+  @override
+  Future<Page<TranscriptAnchor>> listAnchors(String conversationId, {String? cursor, int? limit}) =>
+      _api.getPage('${_path(conversationId)}/anchors', TranscriptAnchor.fromJson,
+          query: {'cursor': ?cursor, 'limit': ?limit});
+
+  @override
   Future<String> sendMessage(
     String conversationId, {
     required String content,
@@ -331,6 +435,13 @@ class LiveChatRepository implements ChatRepository {
   Stream<void> transcriptResync() => _sse?.resync(StreamName.messages) ?? const Stream.empty();
 
   @override
+  Stream<StreamEnvelope> workflowFrames(String workflowId) {
+    final sse = _sse;
+    if (sse == null) return const Stream.empty();
+    return sse.scopeStream(StreamScope(kind: 'workflow', id: workflowId));
+  }
+
+  @override
   Stream<TurnSignal> turnSignals() {
     final sse = _sse;
     if (sse == null) return const Stream.empty();
@@ -349,6 +460,57 @@ class LiveChatRepository implements ChatRepository {
     final page = await _api.getPage('/api/v1/model-capabilities', ModelCapability.fromJson);
     return page.items;
   }
+
+  @override
+  Future<FunctionEntity> getFunctionSnapshot(String id) =>
+      _api.getEntity('/api/v1/functions/$id', FunctionEntity.fromJson);
+
+  @override
+  Future<DocumentNode> getDocumentSnapshot(String id) =>
+      _api.getEntity('/api/v1/documents/$id', DocumentNode.fromJson);
+
+  @override
+  Future<WorkflowEntity> getWorkflowSnapshot(String id) =>
+      _api.getEntity('/api/v1/workflows/$id', WorkflowEntity.fromJson);
+
+  @override
+  Future<ControlLogic> getControlSnapshot(String id) =>
+      _api.getEntity('/api/v1/controls/$id', ControlLogic.fromJson);
+
+  @override
+  Future<ApprovalForm> getApprovalSnapshot(String id) =>
+      _api.getEntity('/api/v1/approvals/$id', ApprovalForm.fromJson);
+
+  @override
+  Future<TriggerEntity> getTriggerSnapshot(String id) =>
+      _api.getEntity('/api/v1/triggers/$id', TriggerEntity.fromJson);
+
+  @override
+  Future<AgentEntity> getAgentSnapshot(String id) =>
+      _api.getEntity('/api/v1/agents/$id', AgentEntity.fromJson);
+
+  @override
+  Future<HandlerEntity> getHandlerSnapshot(String id) =>
+      _api.getEntity('/api/v1/handlers/$id', HandlerEntity.fromJson);
+
+  @override
+  Future<Page<Touchpoint>> listTouchpoints(
+    String conversationId, {
+    String? cursor,
+    int? limit,
+    String? kind,
+    TouchpointVerb? verb,
+  }) =>
+      _api.getPage('${_path(conversationId)}/touchpoints', Touchpoint.fromJson, query: {
+        'cursor': ?cursor,
+        'limit': ?limit,
+        'kind': ?kind,
+        if (verb != null) 'verb': verb.name,
+      });
+
+  @override
+  Future<ConversationTodos> getTodos(String conversationId) =>
+      _api.getEntity('${_path(conversationId)}/todos', ConversationTodos.fromJson);
 
   @override
   Future<List<Interaction>> listInteractions(String conversationId) async {

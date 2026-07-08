@@ -42,12 +42,15 @@ class AnShell extends StatelessWidget {
     this.ocean,
     this.inspector,
     this.inspectorOpen = true,
+    this.rightWidth = AnSize.rightIsland,
+    this.onRightWidthCommitted,
     this.leftCollapsed = false,
     this.leftWidth = AnSize.sidebar,
     this.onToggleLeft,
     this.onLeftWidthCommitted,
     this.head,
     this.onToggleRight,
+    this.rightActivity = false,
     this.titlebarHeight = AnSize.titlebar,
   });
 
@@ -62,6 +65,13 @@ class AnShell extends StatelessWidget {
 
   /// Reveal / hide the right island (a feature opens it for a selected entity). 右岛揭示/收起。
   final bool inspectorOpen;
+
+  /// The right island's drag width (user-owned, mirrors [leftWidth]; persisted by the caller).
+  /// 右岛拖宽(用户所有,镜像左岛;调用方持久化)。
+  final double rightWidth;
+
+  /// Commit a right-island drag width on release. 右岛拖宽提交(松手)。
+  final ValueChanged<double>? onRightWidthCommitted;
 
   /// Left island collapsed → slides away; the ocean head shows a reopen button. 左岛收起。
   final bool leftCollapsed;
@@ -79,6 +89,13 @@ class AnShell extends StatelessWidget {
   /// 手动切换右岛(panel-right 钮,仅有 inspector 时显)。
   final VoidCallback? onToggleRight;
 
+  /// A LIVE activity is happening behind a COLLAPSED right island (WRK-061 R-15: the collapsed
+  /// state keeps only this bit) — a soft accent dot rides the panel-right button so the user knows
+  /// the sidestage has something to show without being interrupted.
+  /// 收起的右岛后面有 live 活动(R-15:收起只留此位)——panel-right 钮伴一枚柔 accent 点,告知侧幕
+  /// 有戏可看、又不打扰。
+  final bool rightActivity;
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
@@ -87,7 +104,14 @@ class AnShell extends StatelessWidget {
       color: c.surface,
       child: Padding(
         padding: const EdgeInsets.all(AnSize.shellPad),
-        child: Row(
+        child: LayoutBuilder(builder: (context, box) {
+          // The right island may be dragged wide (rightIslandMax) but the OCEAN keeps its floor: the
+          // live drag ceiling is whatever width remains after the left island + oceanMin + gaps.
+          // 右岛可拖宽,但海洋保底优先:动态上限=扣除左岛/海洋下限/间距后的余宽。
+          final leftTaken = leftCollapsed ? 0.0 : leftWidth + AnSize.shellGap;
+          final rightCeiling = (box.maxWidth - leftTaken - AnSize.oceanMin - AnSize.shellGap)
+              .clamp(AnSize.rightIslandMin, AnSize.rightIslandMax);
+          return Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _LeftReveal(
@@ -125,14 +149,19 @@ class AnShell extends StatelessWidget {
                 // an entity is selected) — mirrors the demo's has-right gate. 仅有绑定右岛时显(对齐 demo has-right)。
                 showRightToggle: onToggleRight != null,
                 onToggleRight: onToggleRight,
+                rightActivity: rightActivity,
               ),
             ),
             _RightReveal(
               open: inspectorOpen,
+              width: rightWidth,
+              maxWidth: rightCeiling,
+              onWidthCommitted: onRightWidthCommitted,
               child: inspector ?? const _Placeholder('Inspector'),
             ),
           ],
-        ),
+        );
+        }),
       ),
     );
   }
@@ -185,6 +214,7 @@ class _OceanRegion extends StatelessWidget {
     this.onReopen,
     required this.showRightToggle,
     this.onToggleRight,
+    this.rightActivity = false,
     required this.controlInset,
   });
 
@@ -194,6 +224,7 @@ class _OceanRegion extends StatelessWidget {
   final VoidCallback? onReopen;
   final bool showRightToggle;
   final VoidCallback? onToggleRight;
+  final bool rightActivity;
   final double controlInset;
 
   @override
@@ -268,11 +299,26 @@ class _OceanRegion extends StatelessWidget {
                   ),
                 ),
                 if (showRightToggle)
-                  AnButton.iconOnly(
-                    AnIcons.panelRight,
-                    semanticLabel: context.t.shell.togglePanel,
-                    onPressed: onToggleRight,
-                  ),
+                  Stack(clipBehavior: Clip.none, children: [
+                    AnButton.iconOnly(
+                      AnIcons.panelRight,
+                      semanticLabel: context.t.shell.togglePanel,
+                      onPressed: onToggleRight,
+                    ),
+                    // R-15 activity bit: live work behind a collapsed island. 收起态活动位。
+                    if (rightActivity)
+                      Positioned(
+                        top: AnSpace.s2,
+                        right: AnSpace.s2,
+                        child: IgnorePointer(
+                          child: Container(
+                            width: AnSize.dot,
+                            height: AnSize.dot,
+                            decoration: BoxDecoration(color: c.accent, shape: BoxShape.circle),
+                          ),
+                        ),
+                      ),
+                  ]),
               ],
             ),
           ),
@@ -393,12 +439,25 @@ class _LeftRevealState extends State<_LeftReveal>
   }
 }
 
-/// Animated reveal / hide of the fixed-width right island (slides 0↔[AnSize.rightIsland]).
-/// 右岛揭示/收起(滑 0↔320)。
+/// Animated reveal / hide of the USER-WIDTH right island (slides 0↔width; the width itself is dragged
+/// via the gap grip, mirroring the left island — one grip grammar, both edges). The live drag clamps to
+/// [maxWidth] (the shell's dynamic ceiling: the ocean's floor wins over a wide island).
+/// 右岛揭示/收起(滑 0↔用户宽);宽度经间隙 grip 拖调,镜像左岛——同一套把手文法。拖拽实时钳到动态上限
+/// (海洋保底优先)。
 class _RightReveal extends StatefulWidget {
-  const _RightReveal({required this.open, required this.child});
+  const _RightReveal({
+    required this.open,
+    required this.width,
+    required this.maxWidth,
+    required this.child,
+    this.onWidthCommitted,
+  });
+
   final bool open;
+  final double width;
+  final double maxWidth;
   final Widget child;
+  final ValueChanged<double>? onWidthCommitted;
 
   @override
   State<_RightReveal> createState() => _RightRevealState();
@@ -407,10 +466,13 @@ class _RightReveal extends StatefulWidget {
 class _RightRevealState extends State<_RightReveal>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctl;
+  late double _w; // local width (drag-tracked); committed on release 本地宽,松手提交
+  bool _dragging = false;
 
   @override
   void initState() {
     super.initState();
+    _w = widget.width;
     _ctl = AnimationController(
       vsync: this,
       duration: AnMotion.mid,
@@ -428,6 +490,7 @@ class _RightRevealState extends State<_RightReveal>
         widget.open ? _ctl.forward() : _ctl.reverse();
       }
     }
+    if (widget.width != old.width && !_dragging) _w = widget.width;
   }
 
   @override
@@ -436,8 +499,23 @@ class _RightRevealState extends State<_RightReveal>
     super.dispose();
   }
 
+  // Trailing-edge grip: dragging LEFT (negative dx) widens. 右缘把手:向左拖=加宽。
+  void _onDrag(double dx) {
+    setState(() {
+      _dragging = true;
+      _w = (_w - dx).clamp(AnSize.rightIslandMin, widget.maxWidth);
+    });
+  }
+
+  void _onDragEnd() {
+    _dragging = false;
+    widget.onWidthCommitted?.call(_w);
+  }
+
   @override
   Widget build(BuildContext context) {
+    // A ceiling that shrank below the resting width (window resize) squeezes honestly. 上限收窄如实挤。
+    final w = _w.clamp(AnSize.rightIslandMin, widget.maxWidth);
     final island = AnIsland(
       child: widget.open
           ? widget.child
@@ -454,18 +532,24 @@ class _RightRevealState extends State<_RightReveal>
         if (t == 0) return const SizedBox.shrink();
         final fullyOpen = t >= 1.0;
         final slot = SizedBox(
-          width: AnSize.rightIsland * t,
+          width: w * t,
           child: OverflowBox(
-            minWidth: AnSize.rightIsland,
-            maxWidth: AnSize.rightIsland,
+            minWidth: w,
+            maxWidth: w,
             alignment: AlignmentDirectional.centerEnd,
-            child: SizedBox(width: AnSize.rightIsland, child: island),
+            child: SizedBox(width: w, child: island),
           ),
         );
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(width: AnSize.shellGap * t),
+            // The gap doubles as the width grip (mirrors the left island's grammar). 间隙即把手。
+            SizedBox(
+              width: AnSize.shellGap * t,
+              child: fullyOpen && widget.onWidthCommitted != null
+                  ? _Grip(key: const ValueKey('anShellRightGrip'), onDrag: _onDrag, onDragEnd: _onDragEnd)
+                  : null,
+            ),
             ClipRect(
               clipper: fullyOpen ? const _UnclippedRect() : null,
               child: slot,

@@ -7,6 +7,7 @@ import '../../../../core/design/colors.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
 import '../../../../core/graph/graph_model.dart';
+import '../../../../core/shell/shell_chrome.dart';
 import '../../../../core/overlay/an_overlay.dart';
 import '../../../../core/ui/an_button.dart';
 import '../../../../core/ui/an_deferred_loading.dart';
@@ -298,22 +299,25 @@ class WorkflowEditorPage extends ConsumerWidget {
 
 /// The editor's right island — the SAME skin + reveal as the shell's inspector (app_shell.dart:168 +
 /// an_shell _RightReveal): `AnIsland(child: AnInspector(headless: WorkflowEditorInspector))`, revealed
-/// by animating the wrapper width 0↔[AnSize.rightIsland] on the shared [rightPanelCollapsedProvider].
+/// by animating the wrapper width 0↔the shared user-dragged width ([ShellChrome.rightWidth], WRK-061:
+/// one width for ALL right islands).
 /// When collapsed the content is excluded from focus/semantics/pointer (twin of the shell), and it
 /// keeps only the shell's standard 8px breathing on top/right/bottom (flush to the canvas seam on the
 /// left) — no titlebar-height gap, since the OS lights are on the LEFT, not over this island.
 /// 编辑器右岛——与壳右岛同皮同揭示:`AnIsland(AnInspector(headless: 检查器))`,按共享 collapse 态动画收放
 /// 0↔右岛宽;收起时内容排除出焦点/语义/指针(同壳);只留壳标准的 8px 顶/右/下留白(左缘贴画布缝)——无
 /// 标题栏高的空洞(红绿灯在左、不压此岛)。
-class _CollapsibleInspector extends StatelessWidget {
+class _CollapsibleInspector extends ConsumerWidget {
   const _CollapsibleInspector({required this.entityRef, required this.collapsed});
 
   final EntityRef entityRef;
   final bool collapsed;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final reduced = AnMotionPref.reduced(context);
+    // The shared user-dragged right width (one chrome across oceans). 共享用户拖宽(全海洋一份)。
+    final rightWidth = ref.watch(shellChromeProvider.select((s) => s.rightWidth));
     final content = AnInspector(headless: true, child: WorkflowEditorInspector(entityRef: entityRef));
     final island = AnIsland(
       child: collapsed
@@ -323,16 +327,16 @@ class _CollapsibleInspector extends StatelessWidget {
     return AnimatedContainer(
       duration: reduced ? Duration.zero : AnMotion.mid,
       curve: Curves.easeOutCubic,
-      width: collapsed ? 0 : AnSize.rightIsland,
+      width: collapsed ? 0 : rightWidth,
       child: ClipRect(
         // Keep the island at its full width while the wrapper animates 0↔rightIsland (no reflow of the
         // inspector as it slides). 岛保持满宽,外层动画收放(滑动时检查器不重排)。
         child: OverflowBox(
           alignment: Alignment.centerLeft,
-          minWidth: AnSize.rightIsland,
-          maxWidth: AnSize.rightIsland,
+          minWidth: rightWidth,
+          maxWidth: rightWidth,
           child: SizedBox(
-            width: AnSize.rightIsland,
+            width: rightWidth,
             child: Padding(
               padding: const EdgeInsets.only(
                 top: AnSize.shellPad,

@@ -15,5 +15,8 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   LocaleSettings.useDeviceLocaleSync();
   await initWindow(title: 'Anselm · Gallery');
-  runApp(TranslationProvider(child: const ProviderScope(child: GalleryApp())));
+  // Dev drive-by seams: --dart-define=GALLERY_CAT=<index> opens a category directly (real-machine perf
+  // verification navigates without UI scripting). 开发直达缝:GALLERY_CAT 直开类目(真机验证免 UI 脚本)。
+  const cat = int.fromEnvironment('GALLERY_CAT');
+  runApp(TranslationProvider(child: const ProviderScope(child: GalleryApp(initialCategory: cat))));
 }

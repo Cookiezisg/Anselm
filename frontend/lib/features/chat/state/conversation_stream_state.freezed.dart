@@ -14,7 +14,12 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$ConversationStreamState {
 
- TranscriptPhase get phase; String? get error; String? get nextCursor; bool get hasMoreOlder; bool get loadingOlder;
+ TranscriptPhase get phase; String? get error; String? get nextCursor; bool get hasMoreOlder; bool get loadingOlder;// ── deep-jump window mode (W6 re-anchor) 深跳窗口模式 ──
+// windowMode: settled holds a DISJOINT ?around= window; the view hides live/pending and shows
+// the「回到现场」pill. newerCursor/hasMoreNewer/loadingNewer mirror the older trio FORWARD in
+// time; jumping gates concurrent jump requests. windowMode=settled 持非连续窗;向前三件套镜像向上;
+// jumping 挡并发跳。
+ bool get windowMode; String? get newerCursor; bool get hasMoreNewer; bool get loadingNewer; bool get jumping;
 /// Create a copy of ConversationStreamState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -25,16 +30,16 @@ $ConversationStreamStateCopyWith<ConversationStreamState> get copyWith => _$Conv
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ConversationStreamState&&(identical(other.phase, phase) || other.phase == phase)&&(identical(other.error, error) || other.error == error)&&(identical(other.nextCursor, nextCursor) || other.nextCursor == nextCursor)&&(identical(other.hasMoreOlder, hasMoreOlder) || other.hasMoreOlder == hasMoreOlder)&&(identical(other.loadingOlder, loadingOlder) || other.loadingOlder == loadingOlder));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ConversationStreamState&&(identical(other.phase, phase) || other.phase == phase)&&(identical(other.error, error) || other.error == error)&&(identical(other.nextCursor, nextCursor) || other.nextCursor == nextCursor)&&(identical(other.hasMoreOlder, hasMoreOlder) || other.hasMoreOlder == hasMoreOlder)&&(identical(other.loadingOlder, loadingOlder) || other.loadingOlder == loadingOlder)&&(identical(other.windowMode, windowMode) || other.windowMode == windowMode)&&(identical(other.newerCursor, newerCursor) || other.newerCursor == newerCursor)&&(identical(other.hasMoreNewer, hasMoreNewer) || other.hasMoreNewer == hasMoreNewer)&&(identical(other.loadingNewer, loadingNewer) || other.loadingNewer == loadingNewer)&&(identical(other.jumping, jumping) || other.jumping == jumping));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,phase,error,nextCursor,hasMoreOlder,loadingOlder);
+int get hashCode => Object.hash(runtimeType,phase,error,nextCursor,hasMoreOlder,loadingOlder,windowMode,newerCursor,hasMoreNewer,loadingNewer,jumping);
 
 @override
 String toString() {
-  return 'ConversationStreamState(phase: $phase, error: $error, nextCursor: $nextCursor, hasMoreOlder: $hasMoreOlder, loadingOlder: $loadingOlder)';
+  return 'ConversationStreamState(phase: $phase, error: $error, nextCursor: $nextCursor, hasMoreOlder: $hasMoreOlder, loadingOlder: $loadingOlder, windowMode: $windowMode, newerCursor: $newerCursor, hasMoreNewer: $hasMoreNewer, loadingNewer: $loadingNewer, jumping: $jumping)';
 }
 
 
@@ -45,7 +50,7 @@ abstract mixin class $ConversationStreamStateCopyWith<$Res>  {
   factory $ConversationStreamStateCopyWith(ConversationStreamState value, $Res Function(ConversationStreamState) _then) = _$ConversationStreamStateCopyWithImpl;
 @useResult
 $Res call({
- TranscriptPhase phase, String? error, String? nextCursor, bool hasMoreOlder, bool loadingOlder
+ TranscriptPhase phase, String? error, String? nextCursor, bool hasMoreOlder, bool loadingOlder, bool windowMode, String? newerCursor, bool hasMoreNewer, bool loadingNewer, bool jumping
 });
 
 
@@ -62,13 +67,18 @@ class _$ConversationStreamStateCopyWithImpl<$Res>
 
 /// Create a copy of ConversationStreamState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? phase = null,Object? error = freezed,Object? nextCursor = freezed,Object? hasMoreOlder = null,Object? loadingOlder = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? phase = null,Object? error = freezed,Object? nextCursor = freezed,Object? hasMoreOlder = null,Object? loadingOlder = null,Object? windowMode = null,Object? newerCursor = freezed,Object? hasMoreNewer = null,Object? loadingNewer = null,Object? jumping = null,}) {
   return _then(_self.copyWith(
 phase: null == phase ? _self.phase : phase // ignore: cast_nullable_to_non_nullable
 as TranscriptPhase,error: freezed == error ? _self.error : error // ignore: cast_nullable_to_non_nullable
 as String?,nextCursor: freezed == nextCursor ? _self.nextCursor : nextCursor // ignore: cast_nullable_to_non_nullable
 as String?,hasMoreOlder: null == hasMoreOlder ? _self.hasMoreOlder : hasMoreOlder // ignore: cast_nullable_to_non_nullable
 as bool,loadingOlder: null == loadingOlder ? _self.loadingOlder : loadingOlder // ignore: cast_nullable_to_non_nullable
+as bool,windowMode: null == windowMode ? _self.windowMode : windowMode // ignore: cast_nullable_to_non_nullable
+as bool,newerCursor: freezed == newerCursor ? _self.newerCursor : newerCursor // ignore: cast_nullable_to_non_nullable
+as String?,hasMoreNewer: null == hasMoreNewer ? _self.hasMoreNewer : hasMoreNewer // ignore: cast_nullable_to_non_nullable
+as bool,loadingNewer: null == loadingNewer ? _self.loadingNewer : loadingNewer // ignore: cast_nullable_to_non_nullable
+as bool,jumping: null == jumping ? _self.jumping : jumping // ignore: cast_nullable_to_non_nullable
 as bool,
   ));
 }
@@ -154,10 +164,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( TranscriptPhase phase,  String? error,  String? nextCursor,  bool hasMoreOlder,  bool loadingOlder)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( TranscriptPhase phase,  String? error,  String? nextCursor,  bool hasMoreOlder,  bool loadingOlder,  bool windowMode,  String? newerCursor,  bool hasMoreNewer,  bool loadingNewer,  bool jumping)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _ConversationStreamState() when $default != null:
-return $default(_that.phase,_that.error,_that.nextCursor,_that.hasMoreOlder,_that.loadingOlder);case _:
+return $default(_that.phase,_that.error,_that.nextCursor,_that.hasMoreOlder,_that.loadingOlder,_that.windowMode,_that.newerCursor,_that.hasMoreNewer,_that.loadingNewer,_that.jumping);case _:
   return orElse();
 
 }
@@ -175,10 +185,10 @@ return $default(_that.phase,_that.error,_that.nextCursor,_that.hasMoreOlder,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( TranscriptPhase phase,  String? error,  String? nextCursor,  bool hasMoreOlder,  bool loadingOlder)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( TranscriptPhase phase,  String? error,  String? nextCursor,  bool hasMoreOlder,  bool loadingOlder,  bool windowMode,  String? newerCursor,  bool hasMoreNewer,  bool loadingNewer,  bool jumping)  $default,) {final _that = this;
 switch (_that) {
 case _ConversationStreamState():
-return $default(_that.phase,_that.error,_that.nextCursor,_that.hasMoreOlder,_that.loadingOlder);case _:
+return $default(_that.phase,_that.error,_that.nextCursor,_that.hasMoreOlder,_that.loadingOlder,_that.windowMode,_that.newerCursor,_that.hasMoreNewer,_that.loadingNewer,_that.jumping);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -195,10 +205,10 @@ return $default(_that.phase,_that.error,_that.nextCursor,_that.hasMoreOlder,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( TranscriptPhase phase,  String? error,  String? nextCursor,  bool hasMoreOlder,  bool loadingOlder)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( TranscriptPhase phase,  String? error,  String? nextCursor,  bool hasMoreOlder,  bool loadingOlder,  bool windowMode,  String? newerCursor,  bool hasMoreNewer,  bool loadingNewer,  bool jumping)?  $default,) {final _that = this;
 switch (_that) {
 case _ConversationStreamState() when $default != null:
-return $default(_that.phase,_that.error,_that.nextCursor,_that.hasMoreOlder,_that.loadingOlder);case _:
+return $default(_that.phase,_that.error,_that.nextCursor,_that.hasMoreOlder,_that.loadingOlder,_that.windowMode,_that.newerCursor,_that.hasMoreNewer,_that.loadingNewer,_that.jumping);case _:
   return null;
 
 }
@@ -210,7 +220,7 @@ return $default(_that.phase,_that.error,_that.nextCursor,_that.hasMoreOlder,_tha
 
 
 class _ConversationStreamState implements ConversationStreamState {
-  const _ConversationStreamState({this.phase = TranscriptPhase.hydrating, this.error, this.nextCursor, this.hasMoreOlder = false, this.loadingOlder = false});
+  const _ConversationStreamState({this.phase = TranscriptPhase.hydrating, this.error, this.nextCursor, this.hasMoreOlder = false, this.loadingOlder = false, this.windowMode = false, this.newerCursor, this.hasMoreNewer = false, this.loadingNewer = false, this.jumping = false});
   
 
 @override@JsonKey() final  TranscriptPhase phase;
@@ -218,6 +228,16 @@ class _ConversationStreamState implements ConversationStreamState {
 @override final  String? nextCursor;
 @override@JsonKey() final  bool hasMoreOlder;
 @override@JsonKey() final  bool loadingOlder;
+// ── deep-jump window mode (W6 re-anchor) 深跳窗口模式 ──
+// windowMode: settled holds a DISJOINT ?around= window; the view hides live/pending and shows
+// the「回到现场」pill. newerCursor/hasMoreNewer/loadingNewer mirror the older trio FORWARD in
+// time; jumping gates concurrent jump requests. windowMode=settled 持非连续窗;向前三件套镜像向上;
+// jumping 挡并发跳。
+@override@JsonKey() final  bool windowMode;
+@override final  String? newerCursor;
+@override@JsonKey() final  bool hasMoreNewer;
+@override@JsonKey() final  bool loadingNewer;
+@override@JsonKey() final  bool jumping;
 
 /// Create a copy of ConversationStreamState
 /// with the given fields replaced by the non-null parameter values.
@@ -229,16 +249,16 @@ _$ConversationStreamStateCopyWith<_ConversationStreamState> get copyWith => __$C
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ConversationStreamState&&(identical(other.phase, phase) || other.phase == phase)&&(identical(other.error, error) || other.error == error)&&(identical(other.nextCursor, nextCursor) || other.nextCursor == nextCursor)&&(identical(other.hasMoreOlder, hasMoreOlder) || other.hasMoreOlder == hasMoreOlder)&&(identical(other.loadingOlder, loadingOlder) || other.loadingOlder == loadingOlder));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ConversationStreamState&&(identical(other.phase, phase) || other.phase == phase)&&(identical(other.error, error) || other.error == error)&&(identical(other.nextCursor, nextCursor) || other.nextCursor == nextCursor)&&(identical(other.hasMoreOlder, hasMoreOlder) || other.hasMoreOlder == hasMoreOlder)&&(identical(other.loadingOlder, loadingOlder) || other.loadingOlder == loadingOlder)&&(identical(other.windowMode, windowMode) || other.windowMode == windowMode)&&(identical(other.newerCursor, newerCursor) || other.newerCursor == newerCursor)&&(identical(other.hasMoreNewer, hasMoreNewer) || other.hasMoreNewer == hasMoreNewer)&&(identical(other.loadingNewer, loadingNewer) || other.loadingNewer == loadingNewer)&&(identical(other.jumping, jumping) || other.jumping == jumping));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,phase,error,nextCursor,hasMoreOlder,loadingOlder);
+int get hashCode => Object.hash(runtimeType,phase,error,nextCursor,hasMoreOlder,loadingOlder,windowMode,newerCursor,hasMoreNewer,loadingNewer,jumping);
 
 @override
 String toString() {
-  return 'ConversationStreamState(phase: $phase, error: $error, nextCursor: $nextCursor, hasMoreOlder: $hasMoreOlder, loadingOlder: $loadingOlder)';
+  return 'ConversationStreamState(phase: $phase, error: $error, nextCursor: $nextCursor, hasMoreOlder: $hasMoreOlder, loadingOlder: $loadingOlder, windowMode: $windowMode, newerCursor: $newerCursor, hasMoreNewer: $hasMoreNewer, loadingNewer: $loadingNewer, jumping: $jumping)';
 }
 
 
@@ -249,7 +269,7 @@ abstract mixin class _$ConversationStreamStateCopyWith<$Res> implements $Convers
   factory _$ConversationStreamStateCopyWith(_ConversationStreamState value, $Res Function(_ConversationStreamState) _then) = __$ConversationStreamStateCopyWithImpl;
 @override @useResult
 $Res call({
- TranscriptPhase phase, String? error, String? nextCursor, bool hasMoreOlder, bool loadingOlder
+ TranscriptPhase phase, String? error, String? nextCursor, bool hasMoreOlder, bool loadingOlder, bool windowMode, String? newerCursor, bool hasMoreNewer, bool loadingNewer, bool jumping
 });
 
 
@@ -266,13 +286,18 @@ class __$ConversationStreamStateCopyWithImpl<$Res>
 
 /// Create a copy of ConversationStreamState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? phase = null,Object? error = freezed,Object? nextCursor = freezed,Object? hasMoreOlder = null,Object? loadingOlder = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? phase = null,Object? error = freezed,Object? nextCursor = freezed,Object? hasMoreOlder = null,Object? loadingOlder = null,Object? windowMode = null,Object? newerCursor = freezed,Object? hasMoreNewer = null,Object? loadingNewer = null,Object? jumping = null,}) {
   return _then(_ConversationStreamState(
 phase: null == phase ? _self.phase : phase // ignore: cast_nullable_to_non_nullable
 as TranscriptPhase,error: freezed == error ? _self.error : error // ignore: cast_nullable_to_non_nullable
 as String?,nextCursor: freezed == nextCursor ? _self.nextCursor : nextCursor // ignore: cast_nullable_to_non_nullable
 as String?,hasMoreOlder: null == hasMoreOlder ? _self.hasMoreOlder : hasMoreOlder // ignore: cast_nullable_to_non_nullable
 as bool,loadingOlder: null == loadingOlder ? _self.loadingOlder : loadingOlder // ignore: cast_nullable_to_non_nullable
+as bool,windowMode: null == windowMode ? _self.windowMode : windowMode // ignore: cast_nullable_to_non_nullable
+as bool,newerCursor: freezed == newerCursor ? _self.newerCursor : newerCursor // ignore: cast_nullable_to_non_nullable
+as String?,hasMoreNewer: null == hasMoreNewer ? _self.hasMoreNewer : hasMoreNewer // ignore: cast_nullable_to_non_nullable
+as bool,loadingNewer: null == loadingNewer ? _self.loadingNewer : loadingNewer // ignore: cast_nullable_to_non_nullable
+as bool,jumping: null == jumping ? _self.jumping : jumping // ignore: cast_nullable_to_non_nullable
 as bool,
   ));
 }

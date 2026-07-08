@@ -108,3 +108,35 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(body)
 }
+
+// windowEnvelope is the on-wire shape for a bidirectional history window (?around=): data plus
+// BOTH continuation coordinates at the top level (never inside data, same rule as pagedEnvelope).
+// olderCursor feeds the plain ?cursor= list, newerCursor feeds ?cursor=&dir=newer; "" (omitted)
+// = that direction is exhausted. Data is NOT omitempty for the same reason as pagedEnvelope.
+//
+// windowEnvelope 是双向历史窗（?around=）的线上形状：data + **双向**续翻坐标都在顶层（绝不进
+// data，同 pagedEnvelope 规则）。olderCursor 喂普通 ?cursor=、newerCursor 喂 ?cursor=&dir=newer；
+// ""（缺省）= 该方向已尽。Data 不 omitempty，理由同 pagedEnvelope。
+type windowEnvelope struct {
+	Data        any     `json:"data"`
+	TargetID    string  `json:"targetId"`
+	OlderCursor *string `json:"olderCursor,omitempty"`
+	NewerCursor *string `json:"newerCursor,omitempty"`
+	HasOlder    bool    `json:"hasOlder"`
+	HasNewer    bool    `json:"hasNewer"`
+}
+
+// Window writes a bidirectional history window: {data, targetId, olderCursor?, newerCursor?,
+// hasOlder, hasNewer}.
+//
+// Window 写出双向历史窗：{data, targetId, olderCursor?, newerCursor?, hasOlder, hasNewer}。
+func Window(w http.ResponseWriter, items any, targetID, olderCursor, newerCursor string, hasOlder, hasNewer bool) {
+	env := windowEnvelope{Data: emptySliceIfNil(items), TargetID: targetID, HasOlder: hasOlder, HasNewer: hasNewer}
+	if olderCursor != "" {
+		env.OlderCursor = &olderCursor
+	}
+	if newerCursor != "" {
+		env.NewerCursor = &newerCursor
+	}
+	writeJSON(w, http.StatusOK, env)
+}

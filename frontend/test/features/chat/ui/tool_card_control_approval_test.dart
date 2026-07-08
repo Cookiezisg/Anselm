@@ -1,4 +1,5 @@
 import 'package:anselm/core/contract/messages/block_content.dart';
+import 'package:anselm/core/model/partial_json.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/messages/block_tree_reducer.dart';
 import 'package:anselm/core/ui/an_badge.dart';
@@ -42,7 +43,7 @@ void main() {
   setUpAll(() => LocaleSettings.setLocaleRaw('zh-CN'));
 
   test('controlBranches parses port / when / emit (whole set)', () {
-    final b = controlBranches(_ctlArgs);
+    final b = controlBranches(PartialJsonSession()..append(_ctlArgs));
     expect(b.length, 3);
     expect(b[0].port, 'hot');
     expect(b[0].when, 'input.amount > 1000');

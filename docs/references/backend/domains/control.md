@@ -19,7 +19,7 @@ audience: [human, ai]
 
 ## 2. 行为 / 求值
 
-create/edit 时：domain `ValidateBranches`（结构）+ app 编译每条 when/emit CEL（`CONTROL_INVALID_CEL`——原则 #3，domain 不碰 cel-go）。运行时：scheduler 经 `Resolve(id, pinnedVersionID)` 取**钉死版本**的分支，对节点解析出的 `input` 求值；result = emit 字段扁平 + 保留键 `__port`（下游直接读 `gate.feedback`，解释器读 `gate.__port` 路由）。
+create/edit 时：domain `ValidateBranches`（结构）+ app 编译每条 when/emit CEL（`CONTROL_INVALID_CEL`——原则 #3，domain 不碰 cel-go）。运行时：scheduler 经 `Resolve(id, pinnedVersionID)` 取**钉死版本**的分支，对节点解析出的 `input` 求值；result = emit 字段扁平 + 保留键 `__port`（下游直接读 `gate.feedback`，解释器读 `gate.__port` 路由；节点 tick 以 `port` 捎带选中分支到 entities 流——workflow 面板实时渲走向，见 [events.md](../events.md)）。
 
 ## 3. 契约（引用）
 

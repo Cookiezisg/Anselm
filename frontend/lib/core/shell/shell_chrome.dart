@@ -17,17 +17,28 @@ import '../design/tokens.dart';
 
 const _kCollapsed = 'fy.side.collapsed';
 const _kWidth = 'fy.side.w';
+const _kRightWidth = 'fy.side.rightw';
 
 @immutable
 class ShellChrome {
-  const ShellChrome({required this.leftCollapsed, required this.leftWidth});
+  const ShellChrome({
+    required this.leftCollapsed,
+    required this.leftWidth,
+    this.rightWidth = AnSize.rightIsland,
+  });
 
   final bool leftCollapsed;
   final double leftWidth;
 
-  ShellChrome copyWith({bool? leftCollapsed, double? leftWidth}) => ShellChrome(
+  /// The right island's user-dragged width (one width for ALL right islands — the panel is one piece
+  /// of chrome across oceans; per-ocean only the COLLAPSE axis differs, WRK-061 W0). 右岛用户拖宽
+  /// (全海洋一份——右岛是同一件 chrome;分海洋的只有收起轴)。
+  final double rightWidth;
+
+  ShellChrome copyWith({bool? leftCollapsed, double? leftWidth, double? rightWidth}) => ShellChrome(
     leftCollapsed: leftCollapsed ?? this.leftCollapsed,
     leftWidth: leftWidth ?? this.leftWidth,
+    rightWidth: rightWidth ?? this.rightWidth,
   );
 }
 
@@ -42,6 +53,7 @@ class ShellChromeController extends Notifier<ShellChrome> {
     try {
       final p = await SharedPreferences.getInstance();
       final w = p.getDouble(_kWidth);
+      final rw = p.getDouble(_kRightWidth);
       final collapsed = p.getBool(_kCollapsed) ?? false;
       state = state.copyWith(
         leftCollapsed: collapsed,
@@ -49,6 +61,10 @@ class ShellChromeController extends Notifier<ShellChrome> {
             (w != null && w >= AnSize.sidebarMin && w <= AnSize.sidebarMax)
             ? w
             : state.leftWidth,
+        rightWidth:
+            (rw != null && rw >= AnSize.rightIslandMin && rw <= AnSize.rightIslandMax)
+            ? rw
+            : state.rightWidth,
       );
     } catch (_) {
       /* best-effort 尽力而为 */
@@ -68,6 +84,14 @@ class ShellChromeController extends Notifier<ShellChrome> {
     if (w == state.leftWidth) return;
     state = state.copyWith(leftWidth: w);
     _persistDouble(_kWidth, w);
+  }
+
+  /// Commit the right island's drag width (drag-END, mirrors [setLeftWidth]). 右岛拖宽提交。
+  void setRightWidth(double width) {
+    final w = width.clamp(AnSize.rightIslandMin, AnSize.rightIslandMax);
+    if (w == state.rightWidth) return;
+    state = state.copyWith(rightWidth: w);
+    _persistDouble(_kRightWidth, w);
   }
 
   Future<void> _persistBool(String k, bool v) async {

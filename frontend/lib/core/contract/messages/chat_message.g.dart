@@ -17,6 +17,9 @@ _ChatBlock _$ChatBlockFromJson(Map<String, dynamic> json) => _ChatBlock(
   content: json['content'] as String? ?? '',
   status: json['status'] as String? ?? '',
   error: json['error'] as String? ?? '',
+  createdAt: json['createdAt'] == null
+      ? null
+      : DateTime.parse(json['createdAt'] as String),
 );
 
 Map<String, dynamic> _$ChatBlockToJson(_ChatBlock instance) =>
@@ -31,6 +34,7 @@ Map<String, dynamic> _$ChatBlockToJson(_ChatBlock instance) =>
       'content': instance.content,
       'status': instance.status,
       'error': instance.error,
+      'createdAt': instance.createdAt?.toIso8601String(),
     };
 
 _ChatMessage _$ChatMessageFromJson(Map<String, dynamic> json) => _ChatMessage(

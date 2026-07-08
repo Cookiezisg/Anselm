@@ -58,4 +58,33 @@ void main() {
     }
     expect(tester.takeException(), isNull);
   });
+
+  // ── WRK-061 W0: fill-parent mode (the right island's full-page terminal) ────────────────────────
+
+  testWidgets('fill mode: a SHORT log still owns the whole parent height (maxHeight ignored)', (tester) async {
+    await tester.pumpWidget(TranslationProvider(
+        child: MaterialApp(
+            theme: AnTheme.light(),
+            home: Scaffold(
+                body: Center(
+                    child: SizedBox(
+                        width: 500,
+                        height: 480,
+                        child: AnTermViewport(text: 'one\ntwo', maxHeight: 200, fill: true)))))));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(find.byType(AnTermViewport)).height, 480);
+    expect(find.text('one'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('fill mode: a long log stays pinned to the bottom inside the filled page', (tester) async {
+    final many = List.generate(200, (i) => 'row $i').join('\n');
+    await tester.pumpWidget(TranslationProvider(
+        child: MaterialApp(
+            theme: AnTheme.light(),
+            home: Scaffold(body: SizedBox(height: 400, child: AnTermViewport(text: many, fill: true))))));
+    await tester.pumpAndSettle();
+    expect(find.text('row 199'), findsOneWidget); // pinned to bottom 钉底:末行可见
+    expect(tester.takeException(), isNull);
+  });
 }

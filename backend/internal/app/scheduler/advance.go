@@ -108,7 +108,7 @@ func (s *Service) Advance(ctx context.Context, flowrunID string) error {
 				// 否则 computeReady 见无行会永远重排该节点。
 				staleRows = true
 			}
-			s.emitNodeProgress(ctx, run, rn, status) // SSE-C: workflow panel run terminal
+			s.emitNodeProgress(ctx, run, rn.node.ID, rn.iter, status, row) // SSE-C: workflow panel run terminal (+port)
 			if status == flowrundomain.NodeFailed {
 				return nil // fail-fast: the run was already marked failed inside failNode
 			}
@@ -130,22 +130,60 @@ func (s *Service) Advance(ctx context.Context, flowrunID string) error {
 
 // emitNodeProgress streams one node's terminal status onto the entities stream scoped to the
 // workflow, so the workflow panel shows a flowrun progressing node by node (SSE-C). A point Signal
-// keyed by flowrunId; the durable record is flowrun_nodes. nil bridge → no-op.
+// keyed by flowrunId; the durable record is flowrun_nodes. When the just-written row carries a
+// routing decision (control's chosen branch / approval's decision under the reserved __port key)
+// the tick carries it as `port` — the client renders the taken branch live without a lazy GET
+// per tick (R-11 retires). nil bridge → no-op.
 //
 // emitNodeProgress 把一个节点的终态流到 workflow scope 的 entities 流，使 workflow 面板逐节点显示 flowrun
-// 推进（SSE-C）。按 flowrunId 的点 Signal；耐久记录是 flowrun_nodes。nil bridge → no-op。
-func (s *Service) emitNodeProgress(ctx context.Context, run *flowrundomain.FlowRun, rn readyNode, status string) {
+// 推进（SSE-C）。按 flowrunId 的点 Signal；耐久记录是 flowrun_nodes。刚落的行携路由决策（control 选中分支 /
+// approval 决定，存保留键 __port 下）时 tick 以 `port` 捎带——客户端实时渲选中分支、免逐 tick 惰性 GET
+// （R-11 退役）。nil bridge → no-op。
+func (s *Service) emitNodeProgress(ctx context.Context, run *flowrundomain.FlowRun, nodeID string, iteration int, status string, row *flowrundomain.FlowRunNode) {
 	if s.entities == nil {
 		return
 	}
-	content, _ := json.Marshal(map[string]any{
+	payload := map[string]any{
 		"flowrunId": run.ID,
-		"nodeId":    rn.node.ID,
-		"iteration": rn.iter,
+		"nodeId":    nodeID,
+		"iteration": iteration,
 		"status":    status,
-	})
+	}
+	if row != nil {
+		// control routes under the reserved __port key; an approval's decision IS its port
+		// (edges route on yes/no). control 走保留键 __port；approval 的 decision 即其 port。
+		if port, _ := row.Result[flowrundomain.ResultKeyPort].(string); port != "" {
+			payload["port"] = port
+		} else if d, _ := row.Result[flowrundomain.ResultKeyDecision].(string); d != "" {
+			payload["port"] = d
+		}
+	}
+	content, _ := json.Marshal(payload)
 	// ephemeral=true：flowrun_nodes 行是重连真相，tick 仅实时呈现、丢弃无妨、不占 replay 环(E2)。
 	entitystreamapp.Signal(ctx, s.entities, streamdomain.Scope{Kind: streamdomain.KindWorkflow, ID: run.WorkflowID}, entitystreamapp.NodeRun, content, true)
+}
+
+// emitRunTerminal streams a flowrun's terminal status as the one DURABLE flowrun signal (seq +
+// replay ring, E2): node ticks may be dropped, but "the run is over" must survive a reconnect so
+// a client tracking a run (the chat sidestage's trigger_workflow poll fallback, the workflow
+// cockpit) never spins on a terminal it missed. errMsg rides only a failed terminal.
+//
+// emitRunTerminal 把 flowrun 终态作为唯一 **durable** flowrun 信号流出（入 seq + replay 环，E2）：
+// 节点 tick 可丢，但「run 结束了」必须活过重连，使追踪 run 的客户端（chat 侧幕 trigger_workflow 的
+// poll 兜底、workflow 驾驶舱）绝不因错过终态而空转。errMsg 只随 failed 终态。
+func (s *Service) emitRunTerminal(ctx context.Context, workflowID, flowrunID, status, errMsg string) {
+	if s.entities == nil {
+		return
+	}
+	payload := map[string]any{
+		"flowrunId": flowrunID,
+		"status":    status,
+	}
+	if errMsg != "" && status == flowrundomain.StatusFailed {
+		payload["error"] = errMsg
+	}
+	content, _ := json.Marshal(payload)
+	entitystreamapp.Signal(ctx, s.entities, streamdomain.Scope{Kind: streamdomain.KindWorkflow, ID: workflowID}, entitystreamapp.NodeRunTerminal, content, false)
 }
 
 // finalize settles a run that has no ready nodes left: still-running if any node is parked (awaiting

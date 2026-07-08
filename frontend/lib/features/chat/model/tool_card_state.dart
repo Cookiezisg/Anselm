@@ -1,5 +1,7 @@
 import '../../../core/contract/messages/block_content.dart';
+import '../../../core/messages/args_session.dart';
 import '../../../core/messages/block_tree_reducer.dart';
+import '../../../core/model/partial_json.dart';
 
 /// The tool card's lifecycle phase — derived, never stored (WRK-053 §2). Wire anchors:
 /// argsStreaming = tool_call still open (args flow as deltas); running = tool_call closed but no
@@ -42,10 +44,12 @@ const String askEmptyAnswerProse = '(the user submitted an empty answer)';
 const String notParkedProse = 'approval node is not awaiting a decision';
 
 /// One tool call's render-ready projection of its [BlockNode] subtree (tool_call + nested
-/// progress / tool_result children). Pure and cheap — recomputed per build, no caching.
+/// progress / tool_result children). Pure — and memoized on the node's subtree [BlockNode.revision]
+/// (WRK-061 W0): the same node at the same revision returns the SAME instance, so a card that reads
+/// the state several times per build (and every build between frames) derives it once per change.
 ///
-/// 一次工具调用的渲染投影:tool_call 及其嵌套 progress/tool_result 子块。纯且廉价——每 build
-/// 重算、不缓存。
+/// 一次工具调用的渲染投影:tool_call 及其嵌套 progress/tool_result 子块。纯——且按节点子树
+/// [BlockNode.revision] 记忆化(WRK-061 W0):同节点同版本返回**同一实例**,变更一次才派生一次。
 class ToolCardState {
   const ToolCardState({
     required this.phase,
@@ -59,7 +63,8 @@ class ToolCardState {
     required this.progressLive,
     this.entityName = '',
     this.nested = const [],
-  });
+    PartialJsonSession? session,
+  }) : _session = session;
 
   final ToolCardPhase phase;
   final String toolName;
@@ -82,6 +87,19 @@ class ToolCardState {
   /// 最终参数 JSON;argsStreaming 期为原始流片段(中途可能不可解析、且仍含框架键——须容忍渲染)。
   final String argsText;
 
+  /// The node-scoped INCREMENTAL args parse session (WRK-061 W0) — live windows read
+  /// [PartialJsonSession.liveStringAt] / [PartialJsonSession.arrayItemsAt] instead of re-scanning
+  /// [argsText] every build. Null only for directly-constructed states (gallery fixtures): the
+  /// [argsSession] getter then builds one from [argsText], cached per instance (settled = one feed ever).
+  /// 节点级增量 args 会话——活窗读它而非每 build 重扫 argsText。直构 state(gallery fixture)为 null,
+  /// getter 按实例惰建缓存(settled 只喂一次)。
+  final PartialJsonSession? _session;
+
+  PartialJsonSession get argsSession =>
+      _session ?? (_fallbackSessions[this] ??= PartialJsonSession()..append(argsText));
+
+  static final Expando<PartialJsonSession> _fallbackSessions = Expando('toolCardArgs');
+
   final String resultText;
   final String errorText;
 
@@ -100,8 +118,22 @@ class ToolCardState {
       summary.isNotEmpty || argsText.isNotEmpty || progressText.isNotEmpty || resultText.isNotEmpty || errorText.isNotEmpty || nested.isNotEmpty;
 
   /// Derive from a tool_call node. [awaitingConfirm] is the interaction-signal overlay (V6).
-  /// 从 tool_call 节点派生;awaitingConfirm 是 interaction 信号覆盖层(V6 接线)。
+  /// Memoized in the node's revision-keyed slot — same (revision, awaitingConfirm) → cached instance.
+  /// 从 tool_call 节点派生;awaitingConfirm 是 interaction 信号覆盖层(V6 接线)。同 (版本,人闸旗) 返缓存实例。
   factory ToolCardState.of(BlockNode node, {bool awaitingConfirm = false}) {
+    final cached = node.derivedCache;
+    if (node.derivedCacheRev == node.revision &&
+        cached is (bool, ToolCardState) &&
+        cached.$1 == awaitingConfirm) {
+      return cached.$2;
+    }
+    final state = ToolCardState._derive(node, awaitingConfirm);
+    node.derivedCache = (awaitingConfirm, state);
+    node.derivedCacheRev = node.revision;
+    return state;
+  }
+
+  factory ToolCardState._derive(BlockNode node, bool awaitingConfirm) {
     BlockNode? result;
     BlockNode? progress;
     final nested = <BlockNode>[];
@@ -131,6 +163,7 @@ class ToolCardState {
       danger: node.danger ?? '',
       entityName: node.entityName ?? '',
       argsText: node.argumentsText,
+      session: argsSessionOf(node),
       resultText: resultText,
       errorText: result?.error ?? '',
       progressText: _progressText(progress),

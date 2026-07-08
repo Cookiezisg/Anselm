@@ -21,5 +21,15 @@ abstract class ConversationStreamState with _$ConversationStreamState {
     String? nextCursor,
     @Default(false) bool hasMoreOlder,
     @Default(false) bool loadingOlder,
+    // ── deep-jump window mode (W6 re-anchor) 深跳窗口模式 ──
+    // windowMode: settled holds a DISJOINT ?around= window; the view hides live/pending and shows
+    // the「回到现场」pill. newerCursor/hasMoreNewer/loadingNewer mirror the older trio FORWARD in
+    // time; jumping gates concurrent jump requests. windowMode=settled 持非连续窗;向前三件套镜像向上;
+    // jumping 挡并发跳。
+    @Default(false) bool windowMode,
+    String? newerCursor,
+    @Default(false) bool hasMoreNewer,
+    @Default(false) bool loadingNewer,
+    @Default(false) bool jumping,
   }) = _ConversationStreamState;
 }

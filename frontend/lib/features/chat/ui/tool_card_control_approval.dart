@@ -23,9 +23,9 @@ import 'tool_card_skins.dart';
 typedef ControlBranch = ({String port, String when, Map<String, String> emit});
 
 /// Parse the branches from a control build's args (whole-set) — tolerant of a partial stream. 解析分支。
-List<ControlBranch> controlBranches(String argsText) {
+List<ControlBranch> controlBranches(PartialJsonSession args) {
   final out = <ControlBranch>[];
-  for (final raw in partialJsonArrayItems(argsText, ['branches'])) {
+  for (final raw in args.arrayItemsAt(['branches'])) {
     if (raw is! Map) continue;
     final emit = <String, String>{};
     final e = raw['emit'];
@@ -43,7 +43,7 @@ List<ControlBranch> controlBranches(String argsText) {
 Widget controlBranchBody(BuildContext context, ToolCardState state) {
   final t = Translations.of(context);
   final c = context.colors;
-  final branches = controlBranches(state.argsText);
+  final branches = controlBranches(state.argsSession);
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [

@@ -29,6 +29,7 @@ import (
 	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
 	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
 	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
+	paginationpkg "github.com/sunweilin/anselm/backend/internal/pkg/pagination"
 )
 
 // Schema is the two tables' DDL, exported as ordered idempotent statements for bootstrap to
@@ -173,6 +174,138 @@ func (s *Store) ListMessages(ctx context.Context, conversationID, cursor string,
 		return nil, "", err
 	}
 	return rows, next, nil
+}
+
+// ListMessagesNewer returns one keyset page WALKING FORWARD in time from the cursor (orm
+// PageTimeAsc, `(created_at, id) > cursor` ascending) — the ?dir=newer continuation of an
+// ?around= window. Rows come back oldest-first (the query's natural order); the app layer
+// reverses to the wire's single newest-first rule. An empty cursor would mean "everything from
+// the dawn of the conversation" — the app layer rejects it before reaching here.
+//
+// ListMessagesNewer 返回沿时间**向前**走的一页 keyset（orm PageTimeAsc，`(created_at, id) >
+// cursor` 升序）——?around= 窗口的 ?dir=newer 续翻。行按查询自然序（最旧在前）返回；app 层反转成
+// 线缆唯一的 newest-first 规则。空 cursor 意为「从对话开天辟地起」——app 层在到达此处前拒绝。
+func (s *Store) ListMessagesNewer(ctx context.Context, conversationID, cursor string, limit int) ([]*messagesdomain.Message, string, error) {
+	rows, next, err := s.msgs.WhereEq("conversation_id", conversationID).PageTimeAsc(ctx, cursor, limit)
+	if err != nil {
+		return nil, "", fmt.Errorf("messagesstore.ListMessagesNewer: %w", err)
+	}
+	if err := s.hydrate(ctx, rows); err != nil {
+		return nil, "", err
+	}
+	return rows, next, nil
+}
+
+// ListMessagesAround returns a window of turns centered on target — the deep-history jump read
+// (?around=). The target's (created_at, id) tuple becomes the pivot cursor for BOTH halves:
+// the older half rides Page (DESC, `< pivot`), the newer half rides PageTimeAsc (ASC,
+// `> pivot`); limit splits limit/2 older + the rest newer (the target itself is extra and
+// always included, Matrix /context semantics; limit is clamped to ≥ 2 so both halves get a
+// real query). The window is assembled newest-first (the wire's single ordering rule) and
+// hydrated in one query. olderCursor/newerCursor are the two continuation cursors ("" =
+// that direction is exhausted): older feeds the plain ?cursor= list, newer feeds ?dir=newer.
+// A target that does not exist — or belongs to another conversation (identity anchoring: our
+// anchor ids all come from within the transcript) — is ErrMessageNotFound.
+//
+// ListMessagesAround 返回以 target 为中心的一窗回合——深历史跳转读（?around=）。target 的
+// (created_at, id) 元组作两半的支点游标：旧半走 Page（降序 `< pivot`）、新半走 PageTimeAsc
+// （升序 `> pivot`）；limit 按 limit/2 旧 + 余数新拆分（target 本身额外、恒返回，Matrix
+// /context 语义；limit 钳到 ≥ 2 使两半都有真查询）。窗口按 newest-first（线缆唯一排序规则）
+// 组装、一次 hydrate。olderCursor/newerCursor 是两枚续翻游标（"" = 该方向已尽）：旧喂普通
+// ?cursor=、新喂 ?dir=newer。target 不存在——或属别的对话（身份锚点派：锚 id 全来自转录内）
+// ——即 ErrMessageNotFound。
+func (s *Store) ListMessagesAround(ctx context.Context, conversationID, targetID string, limit int) (window []*messagesdomain.Message, olderCursor, newerCursor string, hasOlder, hasNewer bool, err error) {
+	if limit < 2 {
+		limit = 2
+	}
+	target, err := s.msgs.Get(ctx, targetID)
+	if errors.Is(err, ormpkg.ErrNotFound) {
+		return nil, "", "", false, false, messagesdomain.ErrMessageNotFound
+	}
+	if err != nil {
+		return nil, "", "", false, false, fmt.Errorf("messagesstore.ListMessagesAround: get target: %w", err)
+	}
+	if target.ConversationID != conversationID {
+		return nil, "", "", false, false, messagesdomain.ErrMessageNotFound
+	}
+	pivot, err := paginationpkg.EncodeCursor(paginationpkg.Cursor{Key: target.CreatedAt, ID: target.ID})
+	if err != nil {
+		return nil, "", "", false, false, fmt.Errorf("messagesstore.ListMessagesAround: pivot: %w", err)
+	}
+	beforeN := limit / 2
+	afterN := limit - beforeN
+	older, olderNext, err := s.msgs.WhereEq("conversation_id", conversationID).Page(ctx, pivot, beforeN)
+	if err != nil {
+		return nil, "", "", false, false, fmt.Errorf("messagesstore.ListMessagesAround: older half: %w", err)
+	}
+	newer, newerNext, err := s.msgs.WhereEq("conversation_id", conversationID).PageTimeAsc(ctx, pivot, afterN)
+	if err != nil {
+		return nil, "", "", false, false, fmt.Errorf("messagesstore.ListMessagesAround: newer half: %w", err)
+	}
+	window = make([]*messagesdomain.Message, 0, len(older)+len(newer)+1)
+	for i := len(newer) - 1; i >= 0; i-- { // ASC → newest-first
+		window = append(window, newer[i])
+	}
+	window = append(window, target)
+	window = append(window, older...) // already newest-first
+	if err := s.hydrate(ctx, window); err != nil {
+		return nil, "", "", false, false, err
+	}
+	return window, olderNext, newerNext, olderNext != "", newerNext != "", nil
+}
+
+// ListAnchorSource returns the lean projections the anchors builder walks: every turn row
+// (oldest-first, NO block hydrate — the whole point is not to pull tool_result payloads) plus
+// the anchor-relevant blocks only — machine anchors (tool_call + compaction, whole
+// conversation) and the text blocks of user turns (excerpt source), merged seq-ascending.
+// Assistant prose / tool_result / progress blocks are never read.
+//
+// ListAnchorSource 返回 anchors 构建器要走的 lean 投影：全部回合行（最旧在前、**不** hydrate
+// block——要义正是不拉 tool_result 大体）+ 仅锚点相关的 block——机器锚（tool_call + compaction，
+// 全对话）与 user 回合的 text block（节选来源），按 seq 升序归并。assistant 散文 / tool_result /
+// progress 永不读盘。
+func (s *Store) ListAnchorSource(ctx context.Context, conversationID string) ([]*messagesdomain.Message, []*messagesdomain.Block, error) {
+	msgs, err := s.msgs.WhereEq("conversation_id", conversationID).Order("created_at ASC, id ASC").Find(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("messagesstore.ListAnchorSource: messages: %w", err)
+	}
+	machine, err := s.blocks.WhereEq("conversation_id", conversationID).
+		WhereIn("type", messagesdomain.BlockTypeToolCall, messagesdomain.BlockTypeCompaction).
+		Order("seq ASC").Find(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("messagesstore.ListAnchorSource: machine blocks: %w", err)
+	}
+	var userIDs []any
+	for _, m := range msgs {
+		if m.Role == messagesdomain.RoleUser {
+			userIDs = append(userIDs, m.ID)
+		}
+	}
+	var userText []*messagesdomain.Block
+	if len(userIDs) > 0 {
+		userText, err = s.blocks.WhereIn("message_id", userIDs...).
+			WhereEq("type", messagesdomain.BlockTypeText).
+			Order("seq ASC").Find(ctx)
+		if err != nil {
+			return nil, nil, fmt.Errorf("messagesstore.ListAnchorSource: user text: %w", err)
+		}
+	}
+	// Merge the two seq-sorted streams (seq is conversation-global, so one ordered walk).
+	// 归并两条按 seq 有序的流（seq 全对话单调，可单次有序走）。
+	blocks := make([]*messagesdomain.Block, 0, len(machine)+len(userText))
+	i, j := 0, 0
+	for i < len(machine) && j < len(userText) {
+		if machine[i].Seq < userText[j].Seq {
+			blocks = append(blocks, machine[i])
+			i++
+		} else {
+			blocks = append(blocks, userText[j])
+			j++
+		}
+	}
+	blocks = append(blocks, machine[i:]...)
+	blocks = append(blocks, userText[j:]...)
+	return msgs, blocks, nil
 }
 
 // LoadThread returns the whole conversation oldest-first (Find with an ASC order, not Page) —

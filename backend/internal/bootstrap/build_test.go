@@ -2,6 +2,8 @@ package bootstrap
 
 import (
 	"context"
+	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -76,4 +78,94 @@ func TestApp_BootShutdownNoPanic(t *testing.T) {
 	}
 	app.Boot(context.Background())
 	app.Shutdown(context.Background())
+}
+
+// TestBuild_MessagesAroundAndAnchors drives the two W6 navigation endpoints over the fully
+// assembled server (real routes + middleware + envelope): the around/dir/cursor mutual-exclusion
+// contract rejects cleanly (400 INVALID_REQUEST), an unknown around target on a real conversation
+// is 404 MESSAGE_NOT_FOUND, and GET anchors serves the N4 empty page (data:[]) for a fresh
+// conversation while a foreign conversation id is 404 CONVERSATION_NOT_FOUND.
+//
+// TestBuild_MessagesAroundAndAnchors 在整装 server 上驱动两个 W6 导航端点（真路由 + 中间件 +
+// envelope）：around/dir/cursor 互斥契约干净拒绝（400 INVALID_REQUEST）、真对话上未知 around 目标
+// 404 MESSAGE_NOT_FOUND、新对话 GET anchors 返 N4 空页（data:[]）、外来对话 id 404
+// CONVERSATION_NOT_FOUND。
+func TestBuild_MessagesAroundAndAnchors(t *testing.T) {
+	app, err := Build(Config{})
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	srv := httptest.NewServer(app.Handler)
+	defer srv.Close()
+	client := srv.Client()
+	var wsID string
+
+	post := func(path, body string) map[string]any {
+		t.Helper()
+		req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, srv.URL+path, strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		if wsID != "" {
+			req.Header.Set("X-Anselm-Workspace-ID", wsID)
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatalf("POST %s: %v", path, err)
+		}
+		defer resp.Body.Close()
+		var out struct {
+			Data map[string]any `json:"data"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+			t.Fatalf("POST %s decode: %v", path, err)
+		}
+		return out.Data
+	}
+	get := func(path string) (int, string) {
+		t.Helper()
+		req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL+path, nil)
+		req.Header.Set("X-Anselm-Workspace-ID", wsID)
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatalf("GET %s: %v", path, err)
+		}
+		defer resp.Body.Close()
+		buf := new(strings.Builder)
+		_, _ = io.Copy(buf, resp.Body)
+		return resp.StatusCode, buf.String()
+	}
+
+	ws := post("/api/v1/workspaces", `{"name":"w6"}`)
+	wsID, _ = ws["id"].(string)
+	if wsID == "" {
+		t.Fatalf("workspace create returned no id: %v", ws)
+	}
+	conv := post("/api/v1/conversations", `{}`)
+	convID, _ := conv["id"].(string)
+	if convID == "" {
+		t.Fatalf("conversation create returned no id: %v", conv)
+	}
+
+	// Mutual exclusion + dir validation (the contract pins these verbatim). 互斥 + dir 校验。
+	if code, body := get("/api/v1/conversations/" + convID + "/messages?around=msg_x&cursor=abc"); code != http.StatusBadRequest || !strings.Contains(body, "INVALID_REQUEST") {
+		t.Fatalf("around+cursor = %d %s, want 400 INVALID_REQUEST", code, body)
+	}
+	if code, body := get("/api/v1/conversations/" + convID + "/messages?dir=sideways"); code != http.StatusBadRequest || !strings.Contains(body, "INVALID_REQUEST") {
+		t.Fatalf("bad dir = %d %s, want 400 INVALID_REQUEST", code, body)
+	}
+	if code, body := get("/api/v1/conversations/" + convID + "/messages?dir=newer"); code != http.StatusBadRequest || !strings.Contains(body, "INVALID_REQUEST") {
+		t.Fatalf("dir=newer without cursor = %d %s, want 400 INVALID_REQUEST", code, body)
+	}
+
+	// Identity anchoring: an unknown target on a real conversation is a clean 404. 身份锚点 404。
+	if code, body := get("/api/v1/conversations/" + convID + "/messages?around=msg_nope"); code != http.StatusNotFound || !strings.Contains(body, "MESSAGE_NOT_FOUND") {
+		t.Fatalf("around unknown target = %d %s, want 404 MESSAGE_NOT_FOUND", code, body)
+	}
+
+	// Anchors: fresh conversation → the N4 empty page; unknown conversation → 404. 空页 / 404。
+	if code, body := get("/api/v1/conversations/" + convID + "/anchors"); code != http.StatusOK || !strings.Contains(body, `"data":[]`) {
+		t.Fatalf("anchors fresh = %d %s, want 200 data:[]", code, body)
+	}
+	if code, body := get("/api/v1/conversations/cv_nope/anchors"); code != http.StatusNotFound || !strings.Contains(body, "CONVERSATION_NOT_FOUND") {
+		t.Fatalf("anchors unknown conv = %d %s, want 404 CONVERSATION_NOT_FOUND", code, body)
+	}
 }

@@ -42,6 +42,34 @@ void main() {
     expect(c.read(shellChromeProvider).leftWidth, 360.0);
   });
 
+  test('setRightWidth clamps to [min, max] + persists (WRK-061: user-owned right width)', () async {
+    final c = ProviderContainer();
+    addTearDown(c.dispose);
+    expect(c.read(shellChromeProvider).rightWidth, AnSize.rightIsland); // default 默认
+    c.read(shellChromeProvider.notifier).setRightWidth(9999);
+    expect(c.read(shellChromeProvider).rightWidth, AnSize.rightIslandMax);
+    c.read(shellChromeProvider.notifier).setRightWidth(10);
+    expect(c.read(shellChromeProvider).rightWidth, AnSize.rightIslandMin);
+    await pumpEventQueue();
+    expect((await SharedPreferences.getInstance()).getDouble('fy.side.rightw'), AnSize.rightIslandMin);
+  });
+
+  test('restore reads the persisted right width (bad values fall back to default)', () async {
+    SharedPreferences.setMockInitialValues({'fy.side.rightw': 480.0});
+    final c = ProviderContainer();
+    addTearDown(c.dispose);
+    c.read(shellChromeProvider);
+    await pumpEventQueue();
+    expect(c.read(shellChromeProvider).rightWidth, 480.0);
+
+    SharedPreferences.setMockInitialValues({'fy.side.rightw': 9999.0}); // out of range 越界
+    final c2 = ProviderContainer();
+    addTearDown(c2.dispose);
+    c2.read(shellChromeProvider);
+    await pumpEventQueue();
+    expect(c2.read(shellChromeProvider).rightWidth, AnSize.rightIsland);
+  });
+
   test('shellHead: bind sets title AND PRESERVES collapsed (mid-scroll rebinds must not pop the head), clear resets', () {
     final c = ProviderContainer();
     addTearDown(c.dispose);

@@ -377,6 +377,9 @@ func (s *Service) DecideApproval(ctx context.Context, flowrunID, nodeID, decisio
 	if !won {
 		return flowrundomain.ErrNodeNotParked // already decided / timed out — first-wins loser
 	}
+	if run, gerr := s.runs.GetRun(ctx, flowrunID); gerr == nil {
+		s.emitApprovalDecided(ctx, run, nodeID)
+	}
 	return s.drive(ctx, flowrunID) // manual path — inline (this run is parked, not pool-driven; sole driver)
 }
 
@@ -428,6 +431,7 @@ func (s *Service) settleTimeout(ctx context.Context, run *flowrundomain.FlowRun,
 		if err != nil || !won {
 			return err
 		}
+		s.emitApprovalDecided(ctx, run, p.NodeID)
 		return s.markRunTerminal(ctx, run, flowrundomain.StatusFailed, fmt.Sprintf("approval %s timed out", p.NodeID))
 	}
 	decision := workflowdomain.ApprovalPortNo
@@ -438,8 +442,38 @@ func (s *Service) settleTimeout(ctx context.Context, run *flowrundomain.FlowRun,
 	if err != nil || !won {
 		return err
 	}
+	s.emitApprovalDecided(ctx, run, p.NodeID)
 	s.enqueueAdvance(ctx, p.FlowRunID) // pooled — CheckTimeouts must not block on the re-driven run (F174)
 	return nil
+}
+
+// emitApprovalDecided re-reads the just-resolved node row from disk (record-once truth) and emits
+// its tick with the decision port. Approvals need this dedicated emit: Advance never ticks them
+// past parked — the resolved row already exists when the run re-enters, so computeReady skips it
+// and emitNodeProgress never fires for the decided transition. Best-effort presentation (read
+// errors are swallowed; flowrun_nodes stays the reconnect truth).
+//
+// emitApprovalDecided 从盘重读刚落定的节点行（record-once 真相）、带决策 port 发其 tick。approval 需要
+// 这条专用 emit：Advance 从不 tick 它越过 parked——run 重入时已决行已存在，computeReady 跳过它、
+// emitNodeProgress 对「已决」转变永不触发。best-effort 呈现（读错吞掉；flowrun_nodes 仍是重连真相）。
+func (s *Service) emitApprovalDecided(ctx context.Context, run *flowrundomain.FlowRun, nodeID string) {
+	if s.entities == nil {
+		return
+	}
+	rows, err := s.runs.GetNodes(ctx, run.ID)
+	if err != nil {
+		return
+	}
+	var row *flowrundomain.FlowRunNode
+	for _, r := range rows {
+		if r.NodeID == nodeID && (row == nil || r.Iteration > row.Iteration) {
+			row = r
+		}
+	}
+	if row == nil {
+		return
+	}
+	s.emitNodeProgress(ctx, run, nodeID, row.Iteration, row.Status, row)
 }
 
 // Replay fixes a failed run: clear its failed node rows (a non-result), reopen the run to running +

@@ -43,6 +43,7 @@ func (h *ChatHandler) Register(mux Registrar) {
 	mux.HandleFunc("GET /api/v1/conversations/{id}/usage", h.Usage)
 	mux.HandleFunc("GET /api/v1/conversations/{id}/interactions", h.ListInteractions)
 	mux.HandleFunc("POST /api/v1/conversations/{id}/interactions/{toolCallId}", h.ResolveInteraction)
+	mux.HandleFunc("GET /api/v1/conversations/{id}/anchors", h.Anchors)
 }
 
 // sendMessageRequest is the user turn: text + referenced attachments + @-mentions.
@@ -79,16 +80,74 @@ func (h *ChatHandler) Send(w http.ResponseWriter, r *http.Request) {
 }
 
 // List returns one keyset page of the conversation's history (newest-first), each message with
-// its blocks. N4 pagination via ?cursor & ?limit.
+// its blocks. N4 pagination via ?cursor & ?limit. Two extra query forms share the route:
+// ?around=<messageId> opens a deep-jump window centered on the target (bidirectional coordinates
+// in a window envelope; around is mutually exclusive with cursor and dir — only one read form
+// may be requested at a time), and ?dir=newer walks a cursor FORWARD in time (the window's
+// newerCursor continuation; requires a cursor). Every form keeps the same newest-first data
+// ordering — one rule, no direction-dependent reversals on the wire.
 //
-// List 返回对话历史的一页 keyset（最新在前），每条带 blocks。N4 分页经 ?cursor & ?limit。
+// List 返回对话历史的一页 keyset（最新在前），每条带 blocks。N4 分页经 ?cursor & ?limit。同路由
+// 另有两种查询形态：?around=<messageId> 开以目标为中心的深跳窗（窗 envelope 带双向坐标；around 与
+// cursor、dir **互斥**——一次只可请求一种读形态），?dir=newer 让 cursor 沿时间**向前**走（窗口
+// newerCursor 的续翻；必须带 cursor）。所有形态保持同一 newest-first 排序——单一规则，线缆无随
+// 方向反转。
 func (h *ChatHandler) List(w http.ResponseWriter, r *http.Request) {
 	p, err := responsehttpapi.ParsePage(r)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	items, next, err := h.svc.ListMessages(r.Context(), r.PathValue("id"), p.Cursor, p.Limit)
+	q := r.URL.Query()
+	around, dir := q.Get("around"), q.Get("dir")
+	if around != "" {
+		if p.Cursor != "" || dir != "" {
+			responsehttpapi.Error(w, http.StatusBadRequest, "INVALID_REQUEST", "around is mutually exclusive with cursor and dir", nil)
+			return
+		}
+		win, err := h.svc.MessagesAround(r.Context(), r.PathValue("id"), around, p.Limit)
+		if err != nil {
+			responsehttpapi.FromDomainError(w, h.log, err)
+			return
+		}
+		responsehttpapi.Window(w, win.Messages, win.TargetID, win.OlderCursor, win.NewerCursor, win.HasOlder, win.HasNewer)
+		return
+	}
+	switch dir {
+	case "", "older":
+		items, next, err := h.svc.ListMessages(r.Context(), r.PathValue("id"), p.Cursor, p.Limit)
+		if err != nil {
+			responsehttpapi.FromDomainError(w, h.log, err)
+			return
+		}
+		responsehttpapi.Paged(w, items, next, next != "")
+	case "newer":
+		items, next, err := h.svc.ListMessagesNewer(r.Context(), r.PathValue("id"), p.Cursor, p.Limit)
+		if err != nil {
+			responsehttpapi.FromDomainError(w, h.log, err)
+			return
+		}
+		responsehttpapi.Paged(w, items, next, next != "")
+	default:
+		responsehttpapi.Error(w, http.StatusBadRequest, "INVALID_REQUEST", "dir must be omitted, 'older' or 'newer'", nil)
+	}
+}
+
+// Anchors returns one keyset page of the conversation's navigation anchors (场次条), newest-first
+// — user turns (first-line excerpt), folded machine-action clusters, dangerous tool calls,
+// compaction marks, abnormal terminal turns; pending human gates ride the first page's top
+// (live broker state, outside the keyset). N4 pagination via ?cursor & ?limit.
+//
+// Anchors 返回对话导航锚点（场次条）的一页 keyset（最新在前）——user 回合（首行节选）、折叠的机器
+// 动作簇、危险工具调用、压缩标记、异常终态回合；待决人闸骑首页顶（broker 活状态、keyset 之外）。
+// N4 分页经 ?cursor & ?limit。
+func (h *ChatHandler) Anchors(w http.ResponseWriter, r *http.Request) {
+	p, err := responsehttpapi.ParsePage(r)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	items, next, err := h.svc.ListAnchors(r.Context(), r.PathValue("id"), p.Cursor, p.Limit)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return

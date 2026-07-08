@@ -357,19 +357,56 @@ ToolReceipt? restartReceipt(String output,
 
 /// Tolerant mid-stream arg extraction: pull a string field out of a (possibly PARTIAL) args
 /// JSON fragment so the collapsed line can name its target while args are still streaming.
-/// 容忍式流中参数提取:从(可能**不完整**的)args JSON 片段拉字符串字段,收起行在 args 流入期
-/// 就能点名目标。
+/// HAND-ROLLED, not a regex: a backtracking capture group (`((?:[^"\\]|\\.)*)`) STACK-OVERFLOWS the
+/// Dart regex engine on MB-scale values (found live on the W0 1MB pressure bed) — the scan below is
+/// O(n) with zero recursion. Only a CLOSED value is returned.
+/// 容忍式流中参数提取(收起行在流入期就能点名目标)。**手写扫描、非正则**:回溯捕获组在 MB 级值上
+/// 会把 Dart 正则引擎干爆栈(W0 1MB 压力床真机实锤)——此实现 O(n) 零递归。只接受闭合值。
 String? argString(String argsFragment, String key) {
-  final m = RegExp('"$key"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"').firstMatch(argsFragment);
-  if (m == null) return null;
-  final raw = m.group(1)!;
-  // Unescape the common JSON escapes (enough for paths/commands/patterns). 常用转义即可。
-  return raw
-      .replaceAll(r'\"', '"')
-      .replaceAll(r'\\', r'\')
-      .replaceAll(r'\n', '\n')
-      .replaceAll(r'\t', '\t');
+  final start = _argValueStart(argsFragment, key);
+  if (start < 0) return null;
+  final buf = StringBuffer();
+  var escaped = false;
+  for (var i = start; i < argsFragment.length; i++) {
+    final ch = argsFragment[i];
+    if (escaped) {
+      buf.write(switch (ch) { 'n' => '\n', 't' => '\t', _ => ch });
+      escaped = false;
+    } else if (ch == r'\') {
+      escaped = true;
+    } else if (ch == '"') {
+      return buf.toString(); // closing quote — a complete value 闭合值
+    } else {
+      buf.write(ch);
+    }
+  }
+  return null; // ran off the end — still streaming (argStringPartial's business) 未闭合归 partial 管
 }
+
+// The index just past `"key" <ws> : <ws> "` — the string value's first char; -1 when the pattern
+// never occurs. Skips non-value occurrences of `"key"` honestly. 值起点定位(跳过非取值形态的同名串)。
+int _argValueStart(String argsFragment, String key) {
+  final anchor = '"$key"';
+  var from = 0;
+  while (true) {
+    final at = argsFragment.indexOf(anchor, from);
+    if (at < 0) return -1;
+    var i = at + anchor.length;
+    while (i < argsFragment.length && _isJsonWs(argsFragment.codeUnitAt(i))) {
+      i++;
+    }
+    if (i < argsFragment.length && argsFragment.codeUnitAt(i) == 0x3a) {
+      i++;
+      while (i < argsFragment.length && _isJsonWs(argsFragment.codeUnitAt(i))) {
+        i++;
+      }
+      if (i < argsFragment.length && argsFragment.codeUnitAt(i) == 0x22) return i + 1;
+    }
+    from = at + 1;
+  }
+}
+
+bool _isJsonWs(int c) => c == 0x20 || c == 0x09 || c == 0x0a || c == 0x0d;
 
 /// Like [argString] but ALSO accepts a still-open value: when the closing quote hasn't
 /// streamed in yet, returns everything emitted so far — the builds family streams its code
@@ -380,11 +417,11 @@ String? argString(String argsFragment, String key) {
 String? argStringPartial(String argsFragment, String key) {
   final closed = argString(argsFragment, key);
   if (closed != null) return closed;
-  final start = RegExp('"$key"\\s*:\\s*"').firstMatch(argsFragment);
-  if (start == null) return null;
+  final start = _argValueStart(argsFragment, key);
+  if (start < 0) return null;
   final buf = StringBuffer();
   var escaped = false;
-  for (var i = start.end; i < argsFragment.length; i++) {
+  for (var i = start; i < argsFragment.length; i++) {
     final ch = argsFragment[i];
     if (escaped) {
       buf.write(switch (ch) { 'n' => '\n', 't' => '\t', _ => ch });
@@ -399,6 +436,20 @@ String? argStringPartial(String argsFragment, String key) {
   }
   final v = buf.toString();
   return v.isEmpty ? null : v;
+}
+
+/// The last [n] lines of [text] WITHOUT splitting the whole string — live windows call this every
+/// frame on possibly-MB-scale streaming content, so it must be O(tail), not O(text) (WRK-061 W0).
+/// 取末 n 行且不整段 split——活窗每帧调、内容可 MB 级,必须 O(tail) 而非 O(全文)。
+String tailLines(String text, int n) {
+  if (text.isEmpty || n <= 0) return '';
+  var idx = text.length;
+  for (var remaining = n; remaining > 0 && idx > 0; remaining--) {
+    final nl = text.lastIndexOf('\n', idx - 1);
+    if (nl < 0) return text; // fewer than n lines — whole text 不足 n 行,给全文
+    idx = nl;
+  }
+  return text.substring(idx + 1);
 }
 
 /// Parse a JSON string-array arg (e.g. ask_user's `options`) from a COMPLETE args fragment. Returns

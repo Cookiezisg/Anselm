@@ -1,0 +1,119 @@
+import 'package:flutter/widgets.dart';
+
+import '../../../../core/design/colors.dart';
+import '../../../../core/design/tokens.dart';
+import '../../../../core/design/typography.dart';
+import '../../../../core/ui/ui.dart';
+import '../../../../i18n/strings.g.dart';
+import '../tool_card_control_approval.dart';
+import 'stage_scene.dart';
+
+/// The APPROVAL stage (WRK-061 §7-7, W3) — the letter being written: the template's markdown prose
+/// grows in a paper card while `{{ input.* }}` interpolations CONDENSE INTO AMBER CAPSULES the moment
+/// they stream in (prose and discriminant bilingually mixed — approval's signature). The three-axis
+/// meta lights as its keys close: allowReason → the dashed reason slot, timeout → the humane sentence
+/// («30d 后自动拒绝», '' = 永不超时). A ghost «预览 · 尚未寄出» seal frames the live act. Settle
+/// delegates to the B2 form-preview body (the rehearsal frame: what the approver WILL see).
+///
+/// approval 舞台(W3)——正在写的信笺:template 散文在纸质卡里生长,{{ input.* }} 流中即凝琥珀插值药囊
+/// (散文与判别式双语混排——approval 独有)。三轴随键闭合点亮:allowReason→虚线理由栏,timeout→人话
+/// (「30d 后自动拒绝」,空=永不超时)。live 盖幽灵「预览·尚未寄出」章。落定复用 B2 表单预览(预演帧)。
+class ApprovalStageBody extends StatelessWidget {
+  const ApprovalStageBody({required this.scene, super.key});
+
+  final StageScene scene;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final t = Translations.of(context);
+    final session = scene.session;
+
+    if (!scene.live && !scene.failed) {
+      // Settle: the rehearsal frame — B2's form preview IS what the approver will see. 落定=预演帧。
+      return approvalFormBody(context, scene.state);
+    }
+
+    final template = session.liveStringNamed('template') ?? '';
+    final allowReason = session.closedValueAt(['allowReason']);
+    final timeout = session.closedStringAt(['timeout']);
+    final behavior = session.closedStringAt(['timeoutBehavior']);
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+      Row(children: [
+        Icon(AnIcons.approval, size: AnSize.iconSm, color: c.inkFaint),
+        const SizedBox(width: AnSpace.s4),
+        Text(t.chat.stage.previewUnsent, style: AnText.meta.copyWith(color: c.inkFaint)),
+      ]),
+      const SizedBox(height: AnSpace.s4),
+      if (template.isNotEmpty)
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(AnSpace.s12),
+          decoration: BoxDecoration(
+            color: c.surface,
+            border: Border.all(color: c.line, width: AnSize.hairline),
+            borderRadius: BorderRadius.circular(AnRadius.button),
+          ),
+          child: _letter(context, c, template),
+        ),
+      if (timeout != null) ...[
+        const SizedBox(height: AnSpace.s6),
+        Text(
+          timeout.isEmpty
+              ? t.chat.stage.neverTimeout
+              : switch (behavior) {
+                  'approve' => t.chat.stage.timeoutApprove(d: timeout),
+                  'fail' => t.chat.stage.timeoutFail(d: timeout),
+                  _ => t.chat.stage.timeoutReject(d: timeout),
+                },
+          style: AnText.meta.copyWith(color: c.inkMuted),
+        ),
+      ],
+      if (allowReason == true) ...[
+        const SizedBox(height: AnSpace.s4),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(AnSpace.s6),
+          decoration: BoxDecoration(
+            border: Border.all(color: c.line, width: AnSize.hairline, style: BorderStyle.solid),
+            borderRadius: BorderRadius.circular(AnRadius.tag),
+          ),
+          child: Text(t.chat.stage.allowReason, style: AnText.meta.copyWith(color: c.inkFaint)),
+        ),
+      ],
+    ]);
+  }
+
+  // The letter: markdown-ish prose with {{ CEL }} condensed into amber capsules. 信笺:{{ }} 凝琥珀药囊。
+  Widget _letter(BuildContext context, AnColors c, String template) {
+    final spans = <InlineSpan>[];
+    final re = RegExp(r'\{\{\s*([^}]{1,120}?)\s*\}\}');
+    var last = 0;
+    for (final m in re.allMatches(template)) {
+      if (m.start > last) {
+        spans.add(TextSpan(
+            text: template.substring(last, m.start),
+            style: AnText.reading.copyWith(color: c.inkMuted)));
+      }
+      spans.add(WidgetSpan(
+        alignment: PlaceholderAlignment.middle,
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 1),
+          padding: const EdgeInsets.symmetric(horizontal: AnSpace.s4, vertical: 1),
+          decoration: BoxDecoration(
+            color: c.warnSoft,
+            borderRadius: BorderRadius.circular(AnRadius.tag),
+          ),
+          child: Text(m.group(1)!, style: AnText.meta.copyWith(color: c.warn)),
+        ),
+      ));
+      last = m.end;
+    }
+    if (last < template.length) {
+      spans.add(TextSpan(
+          text: template.substring(last), style: AnText.reading.copyWith(color: c.inkMuted)));
+    }
+    return Text.rich(TextSpan(children: spans));
+  }
+}

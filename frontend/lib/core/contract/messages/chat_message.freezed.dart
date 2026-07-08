@@ -15,7 +15,13 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$ChatBlock {
 
- String get id; String get conversationId; String get messageId; String get parentBlockId; int get seq; String get type; Map<String, dynamic>? get attrs; String get content; String get status; String get error;
+ String get id; String get conversationId; String get messageId; String get parentBlockId; int get seq; String get type; Map<String, dynamic>? get attrs; String get content; String get status; String get error;// The row's write time (P1-e) — the backend has always serialized it; anchors/场次条 order
+// turns by message createdAt and blocks WITHIN a turn by seq, but a block-born anchor (a
+// dangerous tool, a compaction mark) timestamps by this. Nullable: live frames have no row
+// time until the close snapshot lands.
+// 行落盘时刻(P1-e)——后端一直在序列化;场次条按回合 createdAt 排、回合内按 seq,块生锚点
+// (危险工具/压缩标记)以此计时。可空:live 帧在 close 快照前无行时刻。
+ DateTime? get createdAt;
 /// Create a copy of ChatBlock
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +34,16 @@ $ChatBlockCopyWith<ChatBlock> get copyWith => _$ChatBlockCopyWithImpl<ChatBlock>
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ChatBlock&&(identical(other.id, id) || other.id == id)&&(identical(other.conversationId, conversationId) || other.conversationId == conversationId)&&(identical(other.messageId, messageId) || other.messageId == messageId)&&(identical(other.parentBlockId, parentBlockId) || other.parentBlockId == parentBlockId)&&(identical(other.seq, seq) || other.seq == seq)&&(identical(other.type, type) || other.type == type)&&const DeepCollectionEquality().equals(other.attrs, attrs)&&(identical(other.content, content) || other.content == content)&&(identical(other.status, status) || other.status == status)&&(identical(other.error, error) || other.error == error));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ChatBlock&&(identical(other.id, id) || other.id == id)&&(identical(other.conversationId, conversationId) || other.conversationId == conversationId)&&(identical(other.messageId, messageId) || other.messageId == messageId)&&(identical(other.parentBlockId, parentBlockId) || other.parentBlockId == parentBlockId)&&(identical(other.seq, seq) || other.seq == seq)&&(identical(other.type, type) || other.type == type)&&const DeepCollectionEquality().equals(other.attrs, attrs)&&(identical(other.content, content) || other.content == content)&&(identical(other.status, status) || other.status == status)&&(identical(other.error, error) || other.error == error)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,conversationId,messageId,parentBlockId,seq,type,const DeepCollectionEquality().hash(attrs),content,status,error);
+int get hashCode => Object.hash(runtimeType,id,conversationId,messageId,parentBlockId,seq,type,const DeepCollectionEquality().hash(attrs),content,status,error,createdAt);
 
 @override
 String toString() {
-  return 'ChatBlock(id: $id, conversationId: $conversationId, messageId: $messageId, parentBlockId: $parentBlockId, seq: $seq, type: $type, attrs: $attrs, content: $content, status: $status, error: $error)';
+  return 'ChatBlock(id: $id, conversationId: $conversationId, messageId: $messageId, parentBlockId: $parentBlockId, seq: $seq, type: $type, attrs: $attrs, content: $content, status: $status, error: $error, createdAt: $createdAt)';
 }
 
 
@@ -48,7 +54,7 @@ abstract mixin class $ChatBlockCopyWith<$Res>  {
   factory $ChatBlockCopyWith(ChatBlock value, $Res Function(ChatBlock) _then) = _$ChatBlockCopyWithImpl;
 @useResult
 $Res call({
- String id, String conversationId, String messageId, String parentBlockId, int seq, String type, Map<String, dynamic>? attrs, String content, String status, String error
+ String id, String conversationId, String messageId, String parentBlockId, int seq, String type, Map<String, dynamic>? attrs, String content, String status, String error, DateTime? createdAt
 });
 
 
@@ -65,7 +71,7 @@ class _$ChatBlockCopyWithImpl<$Res>
 
 /// Create a copy of ChatBlock
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? conversationId = null,Object? messageId = null,Object? parentBlockId = null,Object? seq = null,Object? type = null,Object? attrs = freezed,Object? content = null,Object? status = null,Object? error = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? conversationId = null,Object? messageId = null,Object? parentBlockId = null,Object? seq = null,Object? type = null,Object? attrs = freezed,Object? content = null,Object? status = null,Object? error = null,Object? createdAt = freezed,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,conversationId: null == conversationId ? _self.conversationId : conversationId // ignore: cast_nullable_to_non_nullable
@@ -77,7 +83,8 @@ as String,attrs: freezed == attrs ? _self.attrs : attrs // ignore: cast_nullable
 as Map<String, dynamic>?,content: null == content ? _self.content : content // ignore: cast_nullable_to_non_nullable
 as String,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as String,error: null == error ? _self.error : error // ignore: cast_nullable_to_non_nullable
-as String,
+as String,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
+as DateTime?,
   ));
 }
 
@@ -162,10 +169,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String conversationId,  String messageId,  String parentBlockId,  int seq,  String type,  Map<String, dynamic>? attrs,  String content,  String status,  String error)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String conversationId,  String messageId,  String parentBlockId,  int seq,  String type,  Map<String, dynamic>? attrs,  String content,  String status,  String error,  DateTime? createdAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _ChatBlock() when $default != null:
-return $default(_that.id,_that.conversationId,_that.messageId,_that.parentBlockId,_that.seq,_that.type,_that.attrs,_that.content,_that.status,_that.error);case _:
+return $default(_that.id,_that.conversationId,_that.messageId,_that.parentBlockId,_that.seq,_that.type,_that.attrs,_that.content,_that.status,_that.error,_that.createdAt);case _:
   return orElse();
 
 }
@@ -183,10 +190,10 @@ return $default(_that.id,_that.conversationId,_that.messageId,_that.parentBlockI
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String conversationId,  String messageId,  String parentBlockId,  int seq,  String type,  Map<String, dynamic>? attrs,  String content,  String status,  String error)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String conversationId,  String messageId,  String parentBlockId,  int seq,  String type,  Map<String, dynamic>? attrs,  String content,  String status,  String error,  DateTime? createdAt)  $default,) {final _that = this;
 switch (_that) {
 case _ChatBlock():
-return $default(_that.id,_that.conversationId,_that.messageId,_that.parentBlockId,_that.seq,_that.type,_that.attrs,_that.content,_that.status,_that.error);case _:
+return $default(_that.id,_that.conversationId,_that.messageId,_that.parentBlockId,_that.seq,_that.type,_that.attrs,_that.content,_that.status,_that.error,_that.createdAt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -203,10 +210,10 @@ return $default(_that.id,_that.conversationId,_that.messageId,_that.parentBlockI
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String conversationId,  String messageId,  String parentBlockId,  int seq,  String type,  Map<String, dynamic>? attrs,  String content,  String status,  String error)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String conversationId,  String messageId,  String parentBlockId,  int seq,  String type,  Map<String, dynamic>? attrs,  String content,  String status,  String error,  DateTime? createdAt)?  $default,) {final _that = this;
 switch (_that) {
 case _ChatBlock() when $default != null:
-return $default(_that.id,_that.conversationId,_that.messageId,_that.parentBlockId,_that.seq,_that.type,_that.attrs,_that.content,_that.status,_that.error);case _:
+return $default(_that.id,_that.conversationId,_that.messageId,_that.parentBlockId,_that.seq,_that.type,_that.attrs,_that.content,_that.status,_that.error,_that.createdAt);case _:
   return null;
 
 }
@@ -218,7 +225,7 @@ return $default(_that.id,_that.conversationId,_that.messageId,_that.parentBlockI
 @JsonSerializable()
 
 class _ChatBlock implements ChatBlock {
-  const _ChatBlock({required this.id, this.conversationId = '', this.messageId = '', this.parentBlockId = '', this.seq = 0, required this.type, final  Map<String, dynamic>? attrs, this.content = '', this.status = '', this.error = ''}): _attrs = attrs;
+  const _ChatBlock({required this.id, this.conversationId = '', this.messageId = '', this.parentBlockId = '', this.seq = 0, required this.type, final  Map<String, dynamic>? attrs, this.content = '', this.status = '', this.error = '', this.createdAt}): _attrs = attrs;
   factory _ChatBlock.fromJson(Map<String, dynamic> json) => _$ChatBlockFromJson(json);
 
 @override final  String id;
@@ -239,6 +246,13 @@ class _ChatBlock implements ChatBlock {
 @override@JsonKey() final  String content;
 @override@JsonKey() final  String status;
 @override@JsonKey() final  String error;
+// The row's write time (P1-e) — the backend has always serialized it; anchors/场次条 order
+// turns by message createdAt and blocks WITHIN a turn by seq, but a block-born anchor (a
+// dangerous tool, a compaction mark) timestamps by this. Nullable: live frames have no row
+// time until the close snapshot lands.
+// 行落盘时刻(P1-e)——后端一直在序列化;场次条按回合 createdAt 排、回合内按 seq,块生锚点
+// (危险工具/压缩标记)以此计时。可空:live 帧在 close 快照前无行时刻。
+@override final  DateTime? createdAt;
 
 /// Create a copy of ChatBlock
 /// with the given fields replaced by the non-null parameter values.
@@ -253,16 +267,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ChatBlock&&(identical(other.id, id) || other.id == id)&&(identical(other.conversationId, conversationId) || other.conversationId == conversationId)&&(identical(other.messageId, messageId) || other.messageId == messageId)&&(identical(other.parentBlockId, parentBlockId) || other.parentBlockId == parentBlockId)&&(identical(other.seq, seq) || other.seq == seq)&&(identical(other.type, type) || other.type == type)&&const DeepCollectionEquality().equals(other._attrs, _attrs)&&(identical(other.content, content) || other.content == content)&&(identical(other.status, status) || other.status == status)&&(identical(other.error, error) || other.error == error));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ChatBlock&&(identical(other.id, id) || other.id == id)&&(identical(other.conversationId, conversationId) || other.conversationId == conversationId)&&(identical(other.messageId, messageId) || other.messageId == messageId)&&(identical(other.parentBlockId, parentBlockId) || other.parentBlockId == parentBlockId)&&(identical(other.seq, seq) || other.seq == seq)&&(identical(other.type, type) || other.type == type)&&const DeepCollectionEquality().equals(other._attrs, _attrs)&&(identical(other.content, content) || other.content == content)&&(identical(other.status, status) || other.status == status)&&(identical(other.error, error) || other.error == error)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,conversationId,messageId,parentBlockId,seq,type,const DeepCollectionEquality().hash(_attrs),content,status,error);
+int get hashCode => Object.hash(runtimeType,id,conversationId,messageId,parentBlockId,seq,type,const DeepCollectionEquality().hash(_attrs),content,status,error,createdAt);
 
 @override
 String toString() {
-  return 'ChatBlock(id: $id, conversationId: $conversationId, messageId: $messageId, parentBlockId: $parentBlockId, seq: $seq, type: $type, attrs: $attrs, content: $content, status: $status, error: $error)';
+  return 'ChatBlock(id: $id, conversationId: $conversationId, messageId: $messageId, parentBlockId: $parentBlockId, seq: $seq, type: $type, attrs: $attrs, content: $content, status: $status, error: $error, createdAt: $createdAt)';
 }
 
 
@@ -273,7 +287,7 @@ abstract mixin class _$ChatBlockCopyWith<$Res> implements $ChatBlockCopyWith<$Re
   factory _$ChatBlockCopyWith(_ChatBlock value, $Res Function(_ChatBlock) _then) = __$ChatBlockCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String conversationId, String messageId, String parentBlockId, int seq, String type, Map<String, dynamic>? attrs, String content, String status, String error
+ String id, String conversationId, String messageId, String parentBlockId, int seq, String type, Map<String, dynamic>? attrs, String content, String status, String error, DateTime? createdAt
 });
 
 
@@ -290,7 +304,7 @@ class __$ChatBlockCopyWithImpl<$Res>
 
 /// Create a copy of ChatBlock
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? conversationId = null,Object? messageId = null,Object? parentBlockId = null,Object? seq = null,Object? type = null,Object? attrs = freezed,Object? content = null,Object? status = null,Object? error = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? conversationId = null,Object? messageId = null,Object? parentBlockId = null,Object? seq = null,Object? type = null,Object? attrs = freezed,Object? content = null,Object? status = null,Object? error = null,Object? createdAt = freezed,}) {
   return _then(_ChatBlock(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,conversationId: null == conversationId ? _self.conversationId : conversationId // ignore: cast_nullable_to_non_nullable
@@ -302,7 +316,8 @@ as String,attrs: freezed == attrs ? _self._attrs : attrs // ignore: cast_nullabl
 as Map<String, dynamic>?,content: null == content ? _self.content : content // ignore: cast_nullable_to_non_nullable
 as String,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as String,error: null == error ? _self.error : error // ignore: cast_nullable_to_non_nullable
-as String,
+as String,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
+as DateTime?,
   ));
 }
 

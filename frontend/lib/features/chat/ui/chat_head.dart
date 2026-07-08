@@ -10,6 +10,7 @@ import '../../../i18n/strings.g.dart';
 import '../state/conversation_header.dart';
 import '../state/selected_conversation.dart';
 import '../state/title_reveals.dart';
+import 'chat_toc.dart';
 
 /// The chat ocean's floating-head content. On a THREAD: the title (in-place renameable — the same PATCH
 /// as the rail's ⋯ rename) then the per-thread MODEL picker nudged right by it. On the LANDING: the
@@ -97,6 +98,9 @@ class ChatHead extends ConsumerWidget {
           current: override == null ? null : (apiKeyId: override.apiKeyId, modelId: override.modelId),
           onSelect: (v) => ref.read(conversationHeaderProvider(id).notifier).setModel(v),
         ),
+        // The 场次条 (scene strip) — jump to any depth of this thread's history. 场次目录钮。
+        const SizedBox(width: AnSpace.s4),
+        TranscriptToc(conversationId: id),
         // Quiet hint while the reply streams — mirrors the rail's blue dot for the OPEN thread. 打开线程的蓝点镜像。
         if (conv.isGenerating) ...[
           const SizedBox(width: AnSpace.s6),

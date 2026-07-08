@@ -145,4 +145,28 @@ void main() {
     ]);
     expect(ToolCardState.of(call).nested.length, 2);
   });
+
+  // ── WRK-061 W0: revision-keyed memoization ──────────────────────────────────────────────────────
+
+  test('memoization: same (revision, awaitingConfirm) returns the SAME instance; a frame re-derives', () {
+    const scope = StreamScope(kind: 'conversation', id: 'cv_1');
+    final r = BlockTreeReducer()
+      ..apply(const StreamEnvelope(
+          seq: 1, scope: scope, id: 'tc_1',
+          frame: FrameOpen(node: StreamNode(type: 'tool_call', content: {'name': 'Bash'}))));
+    final node = r.nodeById('tc_1')!;
+    final a = ToolCardState.of(node);
+    expect(identical(a, ToolCardState.of(node)), isTrue); // cached 命中缓存
+
+    // A different awaitingConfirm flag is a different projection — never served from the other's cache.
+    // 人闸旗不同=不同投影,不得串缓存。
+    final gated = ToolCardState.of(node, awaitingConfirm: true);
+    expect(identical(gated, a), isFalse);
+
+    r.apply(const StreamEnvelope(
+        seq: 0, scope: scope, id: 'tc_1', frame: FrameDelta(chunk: '{"command":"ls"}')));
+    final b = ToolCardState.of(node);
+    expect(identical(b, a), isFalse); // frame → re-derive 帧后重派生
+    expect(b.argsText, '{"command":"ls"}');
+  });
 }

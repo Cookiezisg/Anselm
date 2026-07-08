@@ -31,7 +31,7 @@ audience: [human, ai]
 
 | 流 | node.type 当前全集 |
 |---|---|
-| entities | `build`（create/edit 内容镜像）· `run`（执行中间产出 / flowrun tick）· `fire`（trigger 扇出）· `status`（ephemeral：mcp 连接态转移） |
+| entities | `build`（create/edit 内容镜像）· `run`（执行中间产出 / flowrun tick，路由节点带 `port`）· `run_terminal`（**durable**：flowrun 终态 completed/failed/cancelled）· `fire`（trigger 扇出）· `status`（ephemeral：mcp 连接态转移） |
 | messages | `message`（start/stop，durable 带快照）· `text` · `reasoning` · `tool_call` · `tool_result` · `progress`（块级 open/delta/close）· `interaction`（ephemeral 信号：create + resolve 两态，resolve 帧带 `resolved:true`）· `todo`（信号）· `touchpoint`（信号） |
 | notifications | node.type = 事件类型字符串 `<domain>.<action>`（见下方各域登记） |
 
@@ -79,7 +79,7 @@ audience: [human, ai]
 **entities 流**：
 | 域 | 挂载 |
 |---|---|
-| workflow | **flowrun 节点进度**：advance 每节点终态发一条 **ephemeral** Signal（`{flowrunId, nodeId, iteration, status}`）→ workflow scope——面板实时看 run 逐节点推进；flowrun_nodes 行是真相、tick 不占 replay 环（E2）；build 镜像（create/edit_workflow 的图 ops） |
+| workflow | **flowrun 节点进度**：advance 每节点终态发一条 **ephemeral** Signal（`{flowrunId, nodeId, iteration, status, port?}`——`port` 仅路由节点携：control 取 result 保留键 `__port`、approval 取 `decision`[yes/no 即其 port]，客户端实时渲选中分支免逐 tick 惰性 GET）→ workflow scope；approval 越过 parked 的「已决」tick 由 DecideApproval/timeout 落定径**专发**（Advance 重入时已决行既存、computeReady 跳过、不再 tick）；flowrun_nodes 行是真相、tick 不占 replay 环（E2）。**flowrun 终态**：run 到 completed/failed/cancelled 发一条 **durable** Signal（`node.type="run_terminal"`，`{flowrunId, status, error?}`，error 仅 failed）→ workflow scope——「run 结束了」必须活过重连（入 seq+replay 环），发点 = markRunTerminal（completed/failed/approval 超时 fail）+ kill/replace 的 cancelled 写。build 镜像（create/edit_workflow 的图 ops） |
 | trigger | **fire 信号**：每次扇出（全 4 源 + manual）发 **ephemeral** Signal `{activationId, kind, fired, firingCount, error}` → trigger scope；durable 记录 = Activation/Firing 行（信号丢弃无妨） |
 | control / approval | build 镜像（create/edit 的 branches/template） |
 

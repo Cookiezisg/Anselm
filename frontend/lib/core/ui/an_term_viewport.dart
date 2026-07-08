@@ -15,14 +15,21 @@ import 'term_fold.dart';
 /// Short content (≤ maxHeight) shows in full with no scroll, no fades, no floater. Reused by
 /// [AnTermViewport] and (later) the nested-transcript frame. reduced motion: the return-to-latest jumps.
 ///
+/// [fill] (WRK-061 W0): instead of capping, EXPAND to the parent's full height (the right island's
+/// full-page terminal). The parent must give bounded height; [maxHeight] is ignored.
+///
 /// 有界贴底滚动区(R10 底座):限高 + 初始钉底 + 顶缘渐隐(上方有内容)+ 「回到最新」浮标(用户上滚时)。
 /// 短内容全显无滚动。AnTermViewport 与嵌套 transcript 帧复用。reduced:回到最新跳底。
+/// [fill](WRK-061 W0):不限高、撑满父高(右岛整页终端);父须给有界高,此时 [maxHeight] 失效。
 class AnStickViewport extends StatefulWidget {
-  const AnStickViewport({required this.child, this.maxHeight = 320, this.header, super.key});
+  const AnStickViewport({required this.child, this.maxHeight = 320, this.fill = false, this.header, super.key});
 
   /// The scrollable content (usually a Column of lines). 可滚内容。
   final Widget child;
   final double maxHeight;
+
+  /// Expand to the parent's height instead of capping at [maxHeight]. 撑满父高而非限高。
+  final bool fill;
 
   /// An optional pinned header row above the scroll region (e.g. copy actions). 可选钉头行。
   final Widget? header;
@@ -85,25 +92,31 @@ class _AnStickViewportState extends State<AnStickViewport> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final region = Stack(
+      children: [
+        // In fill mode the scroll region must PAINT the full parent height too (a short log still owns
+        // the page), hence the stretching SizedBox. fill 下滚动区须占满父高(短日志也占整页)。
+        SizedBox(
+          height: widget.fill ? double.infinity : null,
+          child: SingleChildScrollView(controller: _scroll, child: widget.child),
+        ),
+        if (_above)
+          Positioned(top: 0, left: 0, right: 0, height: AnSpace.s16, child: AnEdgeFade(fromTop: true, color: c.surfaceSunken)),
+        if (_below) ...[
+          Positioned(bottom: 0, left: 0, right: 0, height: AnSpace.s16, child: AnEdgeFade(fromTop: false, color: c.surfaceSunken)),
+          Positioned(bottom: AnSpace.s4, right: AnSpace.s4, child: _backToLatest(context)),
+        ],
+      ],
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
+      mainAxisSize: widget.fill ? MainAxisSize.max : MainAxisSize.min,
       children: [
         if (widget.header != null) widget.header!,
-        ConstrainedBox(
-          constraints: BoxConstraints(maxHeight: widget.maxHeight),
-          child: Stack(
-            children: [
-              SingleChildScrollView(controller: _scroll, child: widget.child),
-              if (_above)
-                Positioned(top: 0, left: 0, right: 0, height: AnSpace.s16, child: AnEdgeFade(fromTop: true, color: c.surfaceSunken)),
-              if (_below) ...[
-                Positioned(bottom: 0, left: 0, right: 0, height: AnSpace.s16, child: AnEdgeFade(fromTop: false, color: c.surfaceSunken)),
-                Positioned(bottom: AnSpace.s4, right: AnSpace.s4, child: _backToLatest(context)),
-              ],
-            ],
-          ),
-        ),
+        if (widget.fill)
+          Expanded(child: region)
+        else
+          ConstrainedBox(constraints: BoxConstraints(maxHeight: widget.maxHeight), child: region),
       ],
     );
   }
@@ -134,12 +147,19 @@ class _AnStickViewportState extends State<AnStickViewport> {
 /// is bounded ([maxHeight]) + stick-to-bottom ([AnStickViewport]). For a huge (MB-scale) log only the
 /// last [initialCharCap] chars materialize; a «显示更早 N 行» button at the top lazily reveals the rest
 /// (the whole text is in memory, the viewport stays bounded — a look-at-everything escape hatch that
-/// never dumps an unbounded wall into the transcript). 有界回滚终端窗:折叠+ANSI+钉底+懒加载更早。
+/// never dumps an unbounded wall into the transcript). [fill] passes through to [AnStickViewport]:
+/// expand to the parent's height (the right island's full-page terminal, WRK-061) instead of capping.
+/// 有界回滚终端窗:折叠+ANSI+钉底+懒加载更早。[fill] 透传:撑满父高(右岛整页终端)而非限高。
 class AnTermViewport extends StatefulWidget {
-  const AnTermViewport({required this.text, this.maxHeight = 320, this.initialCharCap = 6000, this.header, super.key});
+  const AnTermViewport(
+      {required this.text, this.maxHeight = 320, this.fill = false, this.initialCharCap = 6000, this.header, super.key});
 
   final String text;
   final double maxHeight;
+
+  /// Expand to the parent's height instead of capping at [maxHeight]. 撑满父高而非限高。
+  final bool fill;
+
   final int initialCharCap;
 
   /// An optional pinned header (copy actions). 可选钉头(复制)。
@@ -167,6 +187,7 @@ class _AnTermViewportState extends State<AnTermViewport> {
 
     return AnStickViewport(
       maxHeight: widget.maxHeight,
+      fill: widget.fill,
       header: widget.header,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

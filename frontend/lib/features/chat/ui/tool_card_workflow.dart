@@ -52,10 +52,10 @@ NodeKind workflowNodeKind(Object? k) => switch (k) {
     };
 
 /// Build a [Graph] from a create_workflow ops fragment (add_node / add_edge) — tolerant of a PARTIAL
-/// mid-stream fragment (only COMPLETED ops surface via [partialJsonArrayItems]). For CREATE the ops ARE
+/// mid-stream fragment (only COMPLETED ops surface via [PartialJsonSession.arrayItemsAt]). For CREATE the ops ARE
 /// the whole graph (from zero); edit_workflow's after-graph needs the fetch seam (B2.6). 从 ops 建全图。
-Graph graphFromWorkflowOps(String argsText) {
-  final ops = partialJsonArrayItems(argsText, ['ops']);
+Graph graphFromWorkflowOps(PartialJsonSession args) {
+  final ops = args.arrayItemsAt(['ops']);
   final nodes = <Node>[];
   final edges = <Edge>[];
   for (final raw in ops) {
@@ -90,10 +90,10 @@ const double _graphHeight = 200;
 
 typedef _OpCounts = ({int nodes, int edges, List<NodeKind> kinds});
 
-_OpCounts _countOps(String argsText) {
+_OpCounts _countOps(PartialJsonSession args) {
   var nodes = 0, edges = 0;
   final kinds = <NodeKind>[];
-  for (final raw in partialJsonArrayItems(argsText, ['ops'])) {
+  for (final raw in args.arrayItemsAt(['ops'])) {
     if (raw is! Map) continue;
     if (raw['op'] == 'add_node') {
       nodes++;
@@ -111,7 +111,7 @@ _OpCounts _countOps(String argsText) {
 Widget workflowOpLiveBody(BuildContext context, ToolCardState state) {
   final t = Translations.of(context);
   final c = context.colors;
-  final counts = _countOps(state.argsText);
+  final counts = _countOps(state.argsSession);
   if (counts.nodes == 0 && counts.edges == 0) return const SizedBox.shrink();
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -156,13 +156,13 @@ typedef WorkflowDelta = ({
   bool metaOnly,
 });
 
-WorkflowDelta workflowEditDelta(String argsText) {
+WorkflowDelta workflowEditDelta(PartialJsonSession args) {
   final added = <Node>[];
   final updated = <String>[];
   final deleted = <String>[];
   var addedE = 0, updatedE = 0, deletedE = 0;
   var sawGraphOp = false;
-  for (final raw in partialJsonArrayItems(argsText, ['ops'])) {
+  for (final raw in args.arrayItemsAt(['ops'])) {
     if (raw is! Map) continue;
     switch (raw['op']) {
       case 'add_node':
@@ -209,7 +209,7 @@ WorkflowDelta workflowEditDelta(String argsText) {
 Widget editWorkflowBody(BuildContext context, ToolCardState state) {
   final t = Translations.of(context);
   final c = context.colors;
-  final d = workflowEditDelta(state.argsText);
+  final d = workflowEditDelta(state.argsSession);
 
   if (d.metaOnly && state.resultText.isNotEmpty) {
     // Only set_meta ops — the graph didn't change. 仅 set_meta:图未变。
@@ -287,7 +287,7 @@ Widget _morphChip(BuildContext context, {required IconData icon, required String
 /// the result bar. 幕二 落定体:意图 · 工作流图(与实体页 AnGraphCanvas 1:1)· 结果条。
 Widget workflowBuildBody(BuildContext context, ToolCardState state) {
   final c = context.colors;
-  final graph = graphFromWorkflowOps(state.argsText);
+  final graph = graphFromWorkflowOps(state.argsSession);
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [

@@ -60,6 +60,9 @@ abstract final class AnIcons {
   // ── block / conversation semantics ──
   static final IconData reasoning = _thin(LucideIcons.brain);
   static final IconData tool = _thin(LucideIcons.wrench);
+  static final IconData locate = _thin(LucideIcons.locate); // Cast「跳到发生处」jump-to-occurrence 定位
+  static final IconData eye = _thin(LucideIcons.eye); // sidestage follow-mode 侧幕跟随三档
+  static final IconData open = _thin(LucideIcons.arrowUpRight); // Cast「去实体页」cross-ocean nav 外跳
   static final IconData subagent = _thin(LucideIcons.gitFork);
   static final IconData turnEnd = _thin(LucideIcons.flag);
   static final IconData terminal = _thin(LucideIcons.squareTerminal);
@@ -95,6 +98,11 @@ abstract final class AnIcons {
   static final IconData divider = _thin(LucideIcons.minus); // horizontal rule 分隔线
   static final IconData todo = _thin(LucideIcons.listTodo); // task checkbox block 待办
   static final IconData circle = _thin(LucideIcons.circle); // an empty/pending mark (todo pending) 空/待办标记
+  // Inline-format toolbar (editor selection bar) 行内格式工具条(编辑器划选条)
+  static final IconData bold = _thin(LucideIcons.bold);
+  static final IconData italic = _thin(LucideIcons.italic);
+  static final IconData strikethrough = _thin(LucideIcons.strikethrough);
+  static final IconData link = _thin(LucideIcons.link);
 
   // ── composer (chat input) ──
   static final IconData mention = _thin(LucideIcons.atSign); // @ mention trigger @提及

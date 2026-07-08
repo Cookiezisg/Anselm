@@ -5,7 +5,8 @@ import 'package:anselm/core/contract/entities/skill.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/router/navigation.dart';
 import 'package:anselm/core/entity/mention_source.dart';
-import 'package:anselm/core/doc_editor/an_doc_editor.dart';
+import 'package:anselm/features/documents/ui/an_document_editor.dart';
+import 'package:super_text_layout/super_text_layout.dart' show BlinkController;
 import 'package:anselm/core/ui/an_sidebar_list.dart' show AnRowDropZone;
 import 'package:anselm/features/documents/data/document_fixtures.dart';
 import 'package:anselm/features/documents/data/document_repository.dart';
@@ -65,10 +66,11 @@ Widget _host(FixtureDocumentsRepository repo, Widget child, {String initialLocat
 }
 
 void main() {
-  // The document editor is a WKWebView (no platform in headless test) — render a placeholder so any
-  // screen that mounts DocumentOcean can be tested. Editor behavior is covered by tool/doc-editor's
-  // headless round-trip + the manual harness. 编辑器是 webview,无头测试渲占位;编辑器行为由 round-trip 覆盖。
-  setUpAll(() => AnDocEditor.debugDisableWebview = true);
+  // The document editor is now the native super_editor AnDocumentEditor (E9). Disable the caret blink
+  // ticker so pumpAndSettle doesn't hang on it. Editor behavior is covered by test/core/editor/*.
+  // 编辑器=原生 super_editor;关光标 ticker 免 pumpAndSettle 挂;编辑器行为由 core/editor 测覆盖。
+  setUp(() => BlinkController.indeterminateAnimationsEnabled = false);
+  tearDown(() => BlinkController.indeterminateAnimationsEnabled = true);
 
   group('buildDocumentsRailModel', () {
     test('assembles the nested document tree by parentId + a flat skill section', () {
@@ -178,11 +180,9 @@ void main() {
           ),
         ),
       ));
-      await tester.pump();
-      await tester.pump();
-      // The title/description/tags header lives INSIDE the webview (co-scroll), so assert the editor is
-      // mounted with the right props rather than looking for a Flutter Text. 标题头在 webview 内,验 props。
-      final editor = tester.widget<AnDocEditor>(find.byType(AnDocEditor));
+      await tester.pumpAndSettle(); // resolve the async mention-name batch, then mount the editor 解析提及名后挂载
+      // The native editor mounts with the doc's props (its header is Flutter now). 原生编辑器带 doc props 挂载。
+      final editor = tester.widget<AnDocumentEditor>(find.byType(AnDocumentEditor));
       expect(editor.name, 'Getting Started');
       expect(editor.crumb, t.documents.documents);
       expect(editor.initialMarkdown, contains('# Hello'));
@@ -202,9 +202,8 @@ void main() {
           child: MaterialApp(theme: AnTheme.light(), home: const Scaffold(body: DocumentOcean())),
         ),
       ));
-      await tester.pump();
-      await tester.pump();
-      final editor = tester.widget<AnDocEditor>(find.byType(AnDocEditor));
+      await tester.pumpAndSettle();
+      final editor = tester.widget<AnDocumentEditor>(find.byType(AnDocumentEditor));
       expect(editor.name, 'commit-helper');
       expect(editor.crumb, t.documents.skills);
       expect(editor.nameEditable, isFalse); // the skill name IS its identity — not renamable. 名即身份。

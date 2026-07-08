@@ -1,9 +1,26 @@
 import { Crepe } from '@milkdown/crepe';
 import { replaceAll } from '@milkdown/kit/utils';
+import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
+import { tags as t } from '@lezer/highlight';
 import '@milkdown/crepe/theme/common/style.css'; // structural CSS only — NOT frame.css (we own the vars)
 import './theme.css'; // our design tokens + selector overrides + two-weight rule
 import { installBridge } from './bridge.js';
 import { mentionPlugins, mentionSlashPlugin } from './mention.js';
+
+// Code syntax highlight (One Light / One Dark) — colours are read from CSS vars (--syntax-*, defined per
+// theme in theme.css), so the highlighting follows the light/dark toggle without reconfiguring CodeMirror.
+// Replaces Crepe's basicSetup default (a stray One-Dark that read wrong in light). 语法色走 CSS 变量、随亮暗切换。
+const anHighlight = HighlightStyle.define([
+  { tag: [t.lineComment, t.blockComment, t.comment, t.docComment], color: 'var(--syntax-comment)', fontStyle: 'italic' },
+  { tag: [t.keyword, t.controlKeyword, t.moduleKeyword, t.operatorKeyword, t.definitionKeyword, t.self], color: 'var(--syntax-keyword)' },
+  { tag: [t.string, t.special(t.string), t.regexp, t.escape], color: 'var(--syntax-string)' },
+  { tag: [t.number, t.bool, t.atom, t.null], color: 'var(--syntax-number)' },
+  { tag: [t.function(t.variableName), t.function(t.propertyName), t.definition(t.function(t.variableName))], color: 'var(--syntax-function)' },
+  { tag: [t.className, t.typeName, t.namespace], color: 'var(--syntax-type)' },
+  { tag: [t.propertyName, t.attributeName], color: 'var(--syntax-function)' },
+  { tag: [t.tagName], color: 'var(--syntax-tag)' },
+  { tag: [t.special(t.brace)], color: 'var(--syntax-interp)', fontWeight: '400' },
+]);
 
 // A1 sample — only used when running STANDALONE (no Flutter host), for headless build/render checks.
 // In the real app the host pushes content via setMarkdown after the ready handshake. 独立运行时的样本。
@@ -71,6 +88,8 @@ if (!hasHost) {
     },
     featureConfigs: {
       [Crepe.Feature.Placeholder]: { text: '输入内容,或按 / 唤起命令…', mode: 'block' },
+      // One Light/Dark syntax highlight over the code block (colours via CSS vars → theme-aware). 语法主题。
+      [Crepe.Feature.CodeMirror]: { theme: syntaxHighlighting(anHighlight) },
       [Crepe.Feature.BlockEdit]: {
         // Kill the Notion-style left drag/add handle; keep the "/" slash menu. 关拖拽把手、保 slash。
         blockHandle: { shouldShow: () => false },

@@ -194,6 +194,11 @@ class Translations$chat$en {
 	/// en: 'The local engine didn’t return the messages.'
 	String get transcriptErrorHint => 'The local engine didn’t return the messages.';
 
+	/// en: 'Jump to present'
+	String get backToPresent => 'Jump to present';
+
+	late final Translations$chat$toc$en toc = Translations$chat$toc$en.internal(_root);
+
 	/// en: 'What should we dig into?'
 	String get landingGreeting => 'What should we dig into?';
 
@@ -217,6 +222,8 @@ class Translations$chat$en {
 
 	/// en: 'Context compacted · $n earlier messages folded into the summary'
 	String contextCompactedCount({required Object n}) => 'Context compacted · ${n} earlier messages folded into the summary';
+
+	late final Translations$chat$stage$en stage = Translations$chat$stage$en.internal(_root);
 }
 
 // Path: status
@@ -823,6 +830,33 @@ class Translations$chat$bucket$en {
 
 	/// en: 'Recents'
 	String get recents => 'Recents';
+}
+
+// Path: chat.toc
+class Translations$chat$toc$en {
+	Translations$chat$toc$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Scenes'
+	String get button => 'Scenes';
+
+	/// en: 'Waiting on you'
+	String get gates => 'Waiting on you';
+
+	/// en: '⚙ $n operations'
+	String toolCluster({required Object n}) => '⚙ ${n} operations';
+
+	/// en: 'Context compacted'
+	String get compaction => 'Context compacted';
+
+	/// en: 'Ended abnormally'
+	String get abnormal => 'Ended abnormally';
+
+	/// en: 'Nothing to jump to yet'
+	String get empty => 'Nothing to jump to yet';
 }
 
 // Path: chat.tool
@@ -2171,6 +2205,158 @@ class Translations$chat$gate$en {
 	String get decidedDeclined => 'Skipped';
 }
 
+// Path: chat.stage
+class Translations$chat$stage$en {
+	Translations$chat$stage$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Sidestage'
+	String get title => 'Sidestage';
+
+	/// en: 'Follow'
+	String get following => 'Follow';
+
+	/// en: 'Pinned'
+	String get pinned => 'Pinned';
+
+	/// en: 'Live'
+	String get live => 'Live';
+
+	/// en: 'Settled'
+	String get settled => 'Settled';
+
+	/// en: 'Unsaved'
+	String get failed => 'Unsaved';
+
+	/// en: 'AI is editing $name →'
+	String livePill({required Object name}) => 'AI is editing ${name} →';
+
+	/// en: 'AI awaits your decision →'
+	String get gatePill => 'AI awaits your decision →';
+
+	/// en: 'Back to live'
+	String get backToLive => 'Back to live';
+
+	/// en: 'Listening live · settle follows the truth'
+	String get ribbonLive => 'Listening live · settle follows the truth';
+
+	/// en: 'Stream gap · trust the execution record'
+	String get ribbonGap => 'Stream gap · trust the execution record';
+
+	/// en: 'Draft unsaved · truth is still the last version'
+	String get ribbonFailed => 'Draft unsaved · truth is still the last version';
+
+	late final Translations$chat$stage$a11y$en a11y = Translations$chat$stage$a11y$en.internal(_root);
+	late final Translations$chat$stage$follow$en follow = Translations$chat$stage$follow$en.internal(_root);
+
+	/// en: 'This conversation hasn't touched anything yet'
+	String get castEmpty => 'This conversation hasn\'t touched anything yet';
+
+	/// en: 'Things the AI creates, edits or runs are recorded here'
+	String get castEmptyHint => 'Things the AI creates, edits or runs are recorded here';
+
+	/// en: 'Deleted'
+	String get tombstone => 'Deleted';
+
+	/// en: 'Open entity'
+	String get goToEntity => 'Open entity';
+
+	/// en: 'Jump to occurrence'
+	String get jumpToScene => 'Jump to occurrence';
+
+	/// en: '+$n'
+	String moreChannels({required Object n}) => '+${n}';
+
+	late final Translations$chat$stage$verb$en verb = Translations$chat$stage$verb$en.internal(_root);
+
+	/// en: 'before this edit'
+	String get beforeEdit => 'before this edit';
+
+	/// en: 'content untouched by this edit'
+	String get proseUntouched => 'content untouched by this edit';
+
+	/// en: 'first $n chars match the old version · fast-forwarded'
+	String prefixKept({required Object n}) => 'first ${n} chars match the old version · fast-forwarded';
+
+	/// en: 'matching the old version · fast-forwarding…'
+	String get fastForwarding => 'matching the old version · fast-forwarding…';
+
+	/// en: 'whole replace · $from → $to'
+	String wholeReplace({required Object from, required Object to}) => 'whole replace · ${from} → ${to}';
+
+	/// en: 'Latest discriminant'
+	String get latestDiscriminant => 'Latest discriminant';
+
+	/// en: 'editing from v$n'
+	String basedOn({required Object n}) => 'editing from v${n}';
+
+	/// en: 'otherwise'
+	String get elseFallback => 'otherwise';
+
+	/// en: 'pass-through'
+	String get passThrough => 'pass-through';
+
+	/// en: 'Preview · not yet sent'
+	String get previewUnsent => 'Preview · not yet sent';
+
+	/// en: 'never times out'
+	String get neverTimeout => 'never times out';
+
+	/// en: 'auto-rejects after $d'
+	String timeoutReject({required Object d}) => 'auto-rejects after ${d}';
+
+	/// en: 'auto-approves after $d'
+	String timeoutApprove({required Object d}) => 'auto-approves after ${d}';
+
+	/// en: 'fails after $d'
+	String timeoutFail({required Object d}) => 'fails after ${d}';
+
+	/// en: 'approver may attach a reason'
+	String get allowReason => 'approver may attach a reason';
+
+	/// en: 'Listening'
+	String get listening => 'Listening';
+
+	/// en: 'Not listening'
+	String get notListening => 'Not listening';
+
+	/// en: 'next fire · $t'
+	String nextFire({required Object t}) => 'next fire · ${t}';
+
+	/// en: 'referenced by $n workflows'
+	String refCountWord({required Object n}) => 'referenced by ${n} workflows';
+
+	/// en: 'awaiting the receipt…'
+	String get awaitingReceipt => 'awaiting the receipt…';
+
+	/// en: 'the ladder before this edit'
+	String get oldLadder => 'the ladder before this edit';
+
+	/// en: 'Subagent'
+	String get subagentUnnamed => 'Subagent';
+
+	/// en: '$tin in · $tout out'
+	String tokensInOut({required Object tin, required Object tout}) => '${tin} in · ${tout} out';
+
+	/// en: 'stopped: $r'
+	String stopReasonWord({required Object r}) => 'stopped: ${r}';
+
+	/// en: 'Running in parallel'
+	String get ensembleTitle => 'Running in parallel';
+
+	/// en: '$name's board'
+	String boardOf({required Object name}) => '${name}\'s board';
+
+	/// en: 'human-invoked only'
+	String get humanOnly => 'human-invoked only';
+
+	/// en: 'tools discovered'
+	String get toolsDiscovered => 'tools discovered';
+}
+
 // Path: shell.ocean
 class Translations$shell$ocean$en {
 	Translations$shell$ocean$en.internal(this._root);
@@ -2617,6 +2803,81 @@ class Translations$chat$tool$kind$en {
 
 	/// en: 'conversations'
 	String get conversation => 'conversations';
+}
+
+// Path: chat.stage.a11y
+class Translations$chat$stage$a11y$en {
+	Translations$chat$stage$a11y$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: '$name took the stage'
+	String staged({required Object name}) => '${name} took the stage';
+
+	/// en: 'The AI is waiting on you'
+	String get gate => 'The AI is waiting on you';
+
+	/// en: 'The operation failed; the stage holds'
+	String get failed => 'The operation failed; the stage holds';
+
+	/// en: '$name settled'
+	String settled({required Object name}) => '${name} settled';
+}
+
+// Path: chat.stage.follow
+class Translations$chat$stage$follow$en {
+	Translations$chat$stage$follow$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Auto-staging'
+	String get label => 'Auto-staging';
+
+	/// en: 'Every time'
+	String get always => 'Every time';
+
+	/// en: 'First per conversation'
+	String get first => 'First per conversation';
+
+	/// en: 'Never'
+	String get never => 'Never';
+}
+
+// Path: chat.stage.verb
+class Translations$chat$stage$verb$en {
+	Translations$chat$stage$verb$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Mentioned'
+	String get mentioned => 'Mentioned';
+
+	/// en: 'Created'
+	String get created => 'Created';
+
+	/// en: 'Edited'
+	String get edited => 'Edited';
+
+	/// en: 'Viewed'
+	String get viewed => 'Viewed';
+
+	/// en: 'Ran'
+	String get executed => 'Ran';
+
+	/// en: 'Attached'
+	String get attached => 'Attached';
+
+	/// en: 'Deleted'
+	String get deleted => 'Deleted';
+
+	/// en: 'Touched'
+	String get unknown => 'Touched';
 }
 
 // Path: entities.detail.tab
@@ -3490,6 +3751,13 @@ extension on Translations {
 			'chat.stoppedMaxTokens' => 'Reached the output limit',
 			'chat.transcriptErrorTitle' => 'Couldn\'t load this conversation',
 			'chat.transcriptErrorHint' => 'The local engine didn’t return the messages.',
+			'chat.backToPresent' => 'Jump to present',
+			'chat.toc.button' => 'Scenes',
+			'chat.toc.gates' => 'Waiting on you',
+			'chat.toc.toolCluster' => ({required Object n}) => '⚙ ${n} operations',
+			'chat.toc.compaction' => 'Context compacted',
+			'chat.toc.abnormal' => 'Ended abnormally',
+			'chat.toc.empty' => 'Nothing to jump to yet',
 			'chat.landingGreeting' => 'What should we dig into?',
 			'chat.modelAuto' => 'Auto',
 			'chat.mentionEntity' => 'Mention an entity',
@@ -3948,15 +4216,77 @@ extension on Translations {
 			'chat.gate.decidedApproved' => 'Allowed',
 			'chat.gate.decidedApprovedAlways' => 'Allowed · always this conversation',
 			'chat.gate.decidedDenied' => 'Denied',
+			_ => null,
+		} ?? switch (path) {
 			'chat.gate.decidedDeclined' => 'Skipped',
 			'chat.contextCompacted' => 'Context compacted',
 			'chat.contextCompactedCount' => ({required Object n}) => 'Context compacted · ${n} earlier messages folded into the summary',
+			'chat.stage.title' => 'Sidestage',
+			'chat.stage.following' => 'Follow',
+			'chat.stage.pinned' => 'Pinned',
+			'chat.stage.live' => 'Live',
+			'chat.stage.settled' => 'Settled',
+			'chat.stage.failed' => 'Unsaved',
+			'chat.stage.livePill' => ({required Object name}) => 'AI is editing ${name} →',
+			'chat.stage.gatePill' => 'AI awaits your decision →',
+			'chat.stage.backToLive' => 'Back to live',
+			'chat.stage.ribbonLive' => 'Listening live · settle follows the truth',
+			'chat.stage.ribbonGap' => 'Stream gap · trust the execution record',
+			'chat.stage.ribbonFailed' => 'Draft unsaved · truth is still the last version',
+			'chat.stage.a11y.staged' => ({required Object name}) => '${name} took the stage',
+			'chat.stage.a11y.gate' => 'The AI is waiting on you',
+			'chat.stage.a11y.failed' => 'The operation failed; the stage holds',
+			'chat.stage.a11y.settled' => ({required Object name}) => '${name} settled',
+			'chat.stage.follow.label' => 'Auto-staging',
+			'chat.stage.follow.always' => 'Every time',
+			'chat.stage.follow.first' => 'First per conversation',
+			'chat.stage.follow.never' => 'Never',
+			'chat.stage.castEmpty' => 'This conversation hasn\'t touched anything yet',
+			'chat.stage.castEmptyHint' => 'Things the AI creates, edits or runs are recorded here',
+			'chat.stage.tombstone' => 'Deleted',
+			'chat.stage.goToEntity' => 'Open entity',
+			'chat.stage.jumpToScene' => 'Jump to occurrence',
+			'chat.stage.moreChannels' => ({required Object n}) => '+${n}',
+			'chat.stage.verb.mentioned' => 'Mentioned',
+			'chat.stage.verb.created' => 'Created',
+			'chat.stage.verb.edited' => 'Edited',
+			'chat.stage.verb.viewed' => 'Viewed',
+			'chat.stage.verb.executed' => 'Ran',
+			'chat.stage.verb.attached' => 'Attached',
+			'chat.stage.verb.deleted' => 'Deleted',
+			'chat.stage.verb.unknown' => 'Touched',
+			'chat.stage.beforeEdit' => 'before this edit',
+			'chat.stage.proseUntouched' => 'content untouched by this edit',
+			'chat.stage.prefixKept' => ({required Object n}) => 'first ${n} chars match the old version · fast-forwarded',
+			'chat.stage.fastForwarding' => 'matching the old version · fast-forwarding…',
+			'chat.stage.wholeReplace' => ({required Object from, required Object to}) => 'whole replace · ${from} → ${to}',
+			'chat.stage.latestDiscriminant' => 'Latest discriminant',
+			'chat.stage.basedOn' => ({required Object n}) => 'editing from v${n}',
+			'chat.stage.elseFallback' => 'otherwise',
+			'chat.stage.passThrough' => 'pass-through',
+			'chat.stage.previewUnsent' => 'Preview · not yet sent',
+			'chat.stage.neverTimeout' => 'never times out',
+			'chat.stage.timeoutReject' => ({required Object d}) => 'auto-rejects after ${d}',
+			'chat.stage.timeoutApprove' => ({required Object d}) => 'auto-approves after ${d}',
+			'chat.stage.timeoutFail' => ({required Object d}) => 'fails after ${d}',
+			'chat.stage.allowReason' => 'approver may attach a reason',
+			'chat.stage.listening' => 'Listening',
+			'chat.stage.notListening' => 'Not listening',
+			'chat.stage.nextFire' => ({required Object t}) => 'next fire · ${t}',
+			'chat.stage.refCountWord' => ({required Object n}) => 'referenced by ${n} workflows',
+			'chat.stage.awaitingReceipt' => 'awaiting the receipt…',
+			'chat.stage.oldLadder' => 'the ladder before this edit',
+			'chat.stage.subagentUnnamed' => 'Subagent',
+			'chat.stage.tokensInOut' => ({required Object tin, required Object tout}) => '${tin} in · ${tout} out',
+			'chat.stage.stopReasonWord' => ({required Object r}) => 'stopped: ${r}',
+			'chat.stage.ensembleTitle' => 'Running in parallel',
+			'chat.stage.boardOf' => ({required Object name}) => '${name}\'s board',
+			'chat.stage.humanOnly' => 'human-invoked only',
+			'chat.stage.toolsDiscovered' => 'tools discovered',
 			'appName' => 'Anselm',
 			'status.idle' => 'Idle',
 			'status.run' => 'Running',
 			'status.wait' => 'Waiting',
-			_ => null,
-		} ?? switch (path) {
 			'status.err' => 'Failed',
 			'status.done' => 'Done',
 			'action.edit' => 'Edit',
@@ -4400,6 +4730,8 @@ extension on Translations {
 			'documents.props.outline' => 'Outline',
 			'documents.props.backlinks' => 'Backlinks',
 			'documents.props.noBacklinks' => 'No pages link here yet.',
+			_ => null,
+		} ?? switch (path) {
 			'documents.slash.text' => 'Text',
 			'documents.slash.h1' => 'Heading 1',
 			'documents.slash.h2' => 'Heading 2',

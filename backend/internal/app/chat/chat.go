@@ -532,6 +532,71 @@ func (s *Service) ListMessages(ctx context.Context, conversationID, cursor strin
 	return s.messages.ListMessages(ctx, conversationID, cursor, limit)
 }
 
+// ListMessagesNewer is ListMessages walking FORWARD in time — the ?dir=newer continuation of an
+// ?around= window. Same ownership pre-check; the store's oldest-first page is reversed here so
+// the wire keeps its single newest-first ordering rule (the around window's newerCursor feeds
+// this). An empty cursor is rejected (400): "newer than nothing" has no meaning — the first
+// page of history is ListMessages' job.
+//
+// ListMessagesNewer 是沿时间**向前**走的 ListMessages——?around= 窗口的 ?dir=newer 续翻。同款
+// 归属前置校验；store 的最旧在前页在此反转，线缆保持唯一的 newest-first 排序规则（around 窗口的
+// newerCursor 喂进这里）。空 cursor 拒绝（400）：「比无更新」无意义——历史首页是 ListMessages 的事。
+func (s *Service) ListMessagesNewer(ctx context.Context, conversationID, cursor string, limit int) ([]*messagesdomain.Message, string, error) {
+	if cursor == "" {
+		return nil, "", errorspkg.ErrInvalidRequest
+	}
+	if _, err := s.deps.Conversations.Get(ctx, conversationID); err != nil {
+		return nil, "", err
+	}
+	rows, next, err := s.messages.ListMessagesNewer(ctx, conversationID, cursor, limit)
+	if err != nil {
+		return nil, "", err
+	}
+	for i, j := 0, len(rows)-1; i < j; i, j = i+1, j-1 {
+		rows[i], rows[j] = rows[j], rows[i]
+	}
+	return rows, next, nil
+}
+
+// MessagesWindow is the ?around= deep-jump read: a newest-first window centered on TargetID plus
+// both continuation cursors — OlderCursor feeds the plain ?cursor= list, NewerCursor feeds
+// ?dir=newer ("" = that direction exhausted).
+//
+// MessagesWindow 是 ?around= 深跳读：以 TargetID 为中心的 newest-first 窗口 + 双向续翻游标——
+// OlderCursor 喂普通 ?cursor=、NewerCursor 喂 ?dir=newer（"" = 该方向已尽）。
+type MessagesWindow struct {
+	Messages    []*messagesdomain.Message
+	TargetID    string
+	OlderCursor string
+	NewerCursor string
+	HasOlder    bool
+	HasNewer    bool
+}
+
+// MessagesAround returns the deep-jump window centered on targetID (same ownership pre-check as
+// ListMessages; a target outside this conversation is MESSAGE_NOT_FOUND from the store — identity
+// anchoring, our anchor ids all come from within the transcript).
+//
+// MessagesAround 返回以 targetID 为中心的深跳窗口（与 ListMessages 同款归属前置校验；target 不属
+// 本对话由 store 返 MESSAGE_NOT_FOUND——身份锚点派，锚 id 全来自转录内）。
+func (s *Service) MessagesAround(ctx context.Context, conversationID, targetID string, limit int) (*MessagesWindow, error) {
+	if _, err := s.deps.Conversations.Get(ctx, conversationID); err != nil {
+		return nil, err
+	}
+	window, olderCursor, newerCursor, hasOlder, hasNewer, err := s.messages.ListMessagesAround(ctx, conversationID, targetID, limit)
+	if err != nil {
+		return nil, err
+	}
+	return &MessagesWindow{
+		Messages:    window,
+		TargetID:    targetID,
+		OlderCursor: olderCursor,
+		NewerCursor: newerCursor,
+		HasOlder:    hasOlder,
+		HasNewer:    hasNewer,
+	}, nil
+}
+
 // SystemPromptPreview builds the system prompt a turn in this conversation would receive — the
 // GET /system-prompt-preview endpoint (transparency / debugging). Reuses buildSystemPrompt; no
 // model is resolved (the prompt doesn't depend on the model).

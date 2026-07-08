@@ -160,7 +160,9 @@ abstract final class AnSize {
   static const double sidebar = 320; // left island default 左岛默认
   static const double sidebarMin = 240; // left island min (drag) 左岛最小
   static const double sidebarMax = 400; // left island max (drag) 左岛最大
-  static const double rightIsland = 320; // right island — FIXED 右岛固定宽
+  static const double rightIsland = 320; // right island default 右岛默认
+  static const double rightIslandMin = 280; // right island min (drag) 右岛最小
+  static const double rightIslandMax = 640; // right island max (drag; ocean floor still wins) 右岛最大(海洋保底优先)
   static const double content = 720; // 6u · ocean content column MAX (centers when wider) 内容列最大(更宽则居中)
   static const double oceanMin = 480; // ocean content column MIN (elastic 480–720) 内容列最小(弹性 480–720)
   static const double islandHead = 44; // floating header height 浮动头高
@@ -180,13 +182,13 @@ abstract final class AnSize {
 
   // Window minimum — in LOGICAL POINTS. Sized to GUARANTEE the ocean keeps its minimum content
   // column (`oceanMin` = 480) even with the left island dragged to its MAX (worst case):
-  // pad + sidebarMax(400) + gap + oceanMin(480) + gap + rightIsland(320) + pad = 1232. Min HEIGHT
+  // pad + sidebarMax(400) + gap + oceanMin(480) + gap + rightIslandMin(280) + pad = 1192. Min HEIGHT
   // = golden-ratio complement. Comfortably fits a 1512pt laptop with margin.
   // 窗口最小(逻辑点):保证即便左岛拖到最大(worst case)、海洋仍有最小内容列 480 =
   // 8+400+8+480+8+320+8 = 1232。高=黄金比例补。1512 屏上留有余量。
   static const double goldenRatio = 1.618;
   static const double windowMinWidth =
-      shellPad + sidebarMax + shellGap + oceanMin + shellGap + rightIsland + shellPad; // 1232
+      shellPad + sidebarMax + shellGap + oceanMin + shellGap + rightIslandMin + shellPad; // 1192
   static const double windowMinHeight = windowMinWidth / goldenRatio; // ≈ 761
   static const double windowInitialWidth = 1280; // comfortable default, margin on a 1512pt screen 舒适默认、留余量
   static const double windowInitialHeight = windowInitialWidth / goldenRatio; // ≈ 791

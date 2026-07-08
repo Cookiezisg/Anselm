@@ -1,4 +1,5 @@
 import 'package:anselm/core/contract/messages/block_content.dart';
+import 'package:anselm/core/model/partial_json.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/messages/block_tree_reducer.dart';
 import 'package:anselm/core/sse/frame.dart';
@@ -50,10 +51,10 @@ void main() {
   });
 
   test('buildContentOf routes per entity kind', () {
-    expect(buildContentOf('create_function', '{"ops":[{"op":"set_code","code":"x = 1"}]}'), 'x = 1');
-    expect(buildContentOf('edit_agent', '{"agentId":"ag_1","prompt":"be sharp"}'), 'be sharp');
-    expect(buildContentOf('create_document', '{"name":"n","content":"# t"}'), '# t');
-    expect(buildContentOf('create_workflow', '{"graph":{}}'), isNull); // JSON fallback 配置走 JSON
+    expect(buildContentOf('create_function', PartialJsonSession()..append('{"ops":[{"op":"set_code","code":"x = 1"}]}')), 'x = 1');
+    expect(buildContentOf('edit_agent', PartialJsonSession()..append('{"agentId":"ag_1","prompt":"be sharp"}')), 'be sharp');
+    expect(buildContentOf('create_document', PartialJsonSession()..append('{"name":"n","content":"# t"}')), '# t');
+    expect(buildContentOf('create_workflow', PartialJsonSession()..append('{"graph":{}}')), isNull); // JSON fallback 配置走 JSON
   });
 
   testWidgets('mid-stream: kind-noun verb + streaming name target + LIVE code window',

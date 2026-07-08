@@ -33,6 +33,8 @@ import 'tool_interaction_gate_specimens.dart';
 import 'chat_turn_specimens.dart';
 import 'markdown_specimens.dart';
 import 'notification_specimens.dart';
+import 'perf_specimens.dart';
+import 'sidestage_specimens.dart';
 import 'specimen.dart';
 import 'user_turn_specimens.dart';
 import '../../features/chat/ui/chat_context_mark.dart';
@@ -51,7 +53,14 @@ final List<GalleryCategory> galleryCatalog = [
   _toolCards,
   _entityViz,
   _notifications,
+  _perf,
 ];
+
+// ── Perf (WRK-061 W0) — the streaming pressure beds gating the right-island stages: real ChatToolCard
+// pipeline + frame HUD, must stay <16ms while streaming. W0 性能门禁:真卡管线 + 帧时 HUD,流入期须全绿。
+final GalleryCategory _perf = GalleryCategory('性能 Perf', AnIcons.trigger, [
+  GalleryItem('W0 流式压力床', '1MB content / 50 op每秒 / 5000 词 prompt——增量 args 会话 + revision 记忆化走真卡;▶ 开跑,HUD 绿(<16ms)即门禁过', perfSpecimens),
+]);
 
 // ── Notifications (WRK-058 N2) — the left-island bell tray content: the notification row across every
 // event family + tone, read/hover/stress. 通知——左岛铃托盘内容:通知行逐族×tone。
@@ -247,6 +256,7 @@ final GalleryCategory _toolCards = GalleryCategory('工具卡 Tool Cards', AnIco
 // 点编码活态(生成蓝呼吸/等你琥珀/未读绿/归档灰/无),feature 里走 conversationDot();此处显式列每态供视觉审,按 rail 宽显以真截断。
 const double _railW = 260;
 final GalleryCategory _chatRail = GalleryCategory('对话 Chat', AnIcons.chat, [
+  GalleryItem('侧幕 Sidestage(W1 原语)', '右岛伴生舞台的地基件:演员表行(新鲜度晕/多动词/墓碑)+频道条+跟随/人闸药丸+诚实丝带;编排在真壳验', sidestageSpecimens),
   GalleryItem('会话行 Conversation row', '状态点 · 标题 · 时间/⋯;rail 列表的一行', [
     GallerySpecimen('普通 (无点)', (_) => const AnRow(label: '周报初稿整理', meta: '1 小时前'), span: true, maxWidth: _railW),
     GallerySpecimen('生成中 (蓝呼吸)', (_) => const AnRow(dot: AnStatus.run, label: '竞品日报流程', meta: '刚刚'), span: true, maxWidth: _railW),

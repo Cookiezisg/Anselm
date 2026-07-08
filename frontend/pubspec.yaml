@@ -57,6 +57,17 @@ dependencies:
   mime: ^2.0.0
   flutter_local_notifications: ^22.0.1
   webview_flutter: ^4.14.0
+  # Native document editor (the pivot off Milkdown-in-webview — a webview can only CSS-approximate the
+  # An primitives, never pixel-match them; super_editor renders every block as a REAL Flutter widget so
+  # each element is drawn with our own An widgets/tokens = true 1:1). PINNED EXACT: the dev channel has
+  # no semver, a caret would jump; companions (super_text_layout/attributed_text/overlord/follow_the_leader)
+  # come transitively. Used ONLY through a facade (原则 #8). Markdown codec (super_editor_markdown) is
+  # deferred — it lags the main package (<dev.40); we add it (pinned) or write our own when we wire the
+  # documents feature. 原生编辑器,钉死 dev 版;仅经门面用;markdown 编解码后置。
+  # dev.52 (2026-06-11) targets a Flutter newer than the project's 3.41.9 (uses TextInputConnection.
+  # updateStyle absent here) → pinned dev.51 (2026-03-27, pre-dates our Flutter) = newest compatible.
+  # dev.41+ 引用了本项目 Flutter 3.41.9 没有的 TextInputConnection.updateStyle → 钉 dev.40(旧码同版、本 Flutter 上已验证可编)。
+  super_editor: 0.3.0-dev.40
 
 dev_dependencies:
   flutter_test:
@@ -69,6 +80,15 @@ dev_dependencies:
   build_runner: ^2.15.0
   freezed: ^3.2.5
   json_serializable: ^6.14.0
+  # WidgetTester extensions from Flutter Bounty Hunters (same authors as super_editor) — ime.typeText,
+  # pressEnter/pressBackspace, doubleTapInParagraph/tripleTapInParagraph — for the editor interaction
+  # test matrix (Layer 1). Real IME/CJK composition still can't be automated (Flutter #131510 → manual).
+  # super_editor 同源测试扩展:打字/双三击等交互 widget-test;真 CJK 组字仍须真机(#131510)。
+  flutter_test_robots: ^0.0.24
+  # super_editor's text-layout companion (transitively resolved) — pinned explicit ONLY so tests can
+  # reach BlinkController.indeterminateAnimationsEnabled (super_editor's barrel `show`-excludes it) to
+  # halt the caret ticker, or pumpAndSettle hangs on the infinite blink. 测试关光标 ticker 用。
+  super_text_layout: 0.1.21
 
 flutter:
   uses-material-design: true

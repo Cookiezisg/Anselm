@@ -31,7 +31,7 @@ audience: [human, ai]
 | **软删** | 有 `deleted` 列且非 `Unscoped` → `Delete` 设 `deleted_at`、查询自动 `deleted_at IS NULL`；否则物理删 | D1；逃生 `Unscoped()` |
 | **时间戳** | `stamp`：`created`（首次/零值）+ `updated`（每次）自动设 | — |
 | **UNIQUE 冲突 → `ErrConflict`** | `writeErr` 翻译 SQLite 约束错 | 业务层不手搓（强化地基，CLAUDE 原则 #8） |
-| **keyset 分页** | `Page`（时间键、降序）/ `PageAsc`（字符串键、升序、`COLLATE NOCASE`）两条路径：`(keyset, pk)` 元组游标、`limit+1` 探下页；keyset 列默认 `created`、`PageKeyset(col)` 可改（`Page` 用 `time.Time` 列如 conversation 的 `last_message_at`；`PageAsc` 用字符串列如 `?sort=name` 的 `title`） | N4；两者都给**默认**序、**可被先前 `.Order()` 覆盖**（如 conversation 置顶优先）；`PageKeyset` 让游标列与 `.Order()` 排序列对齐；游标编码 `Cursor`（time）/ `StringCursor`（string），同紧凑线缆形状 `{c,i}` |
+| **keyset 分页** | `Page`（时间键、降序）/ `PageAsc`（字符串键、升序、`COLLATE NOCASE`）/ `PageTimeAsc`（时间键、**升序**——窗口式历史读的向前续翻）三条路径：`(keyset, pk)` 元组游标、`limit+1` 探下页；keyset 列默认 `created`、`PageKeyset(col)` 可改（`Page` 用 `time.Time` 列如 conversation 的 `last_message_at`；`PageAsc` 用字符串列如 `?sort=name` 的 `title`） | N4；两者都给**默认**序、**可被先前 `.Order()` 覆盖**（如 conversation 置顶优先）；`PageKeyset` 让游标列与 `.Order()` 排序列对齐；游标编码 `Cursor`（time）/ `StringCursor`（string），同紧凑线缆形状 `{c,i}` |
 
 ## 4. API 面
 
@@ -49,6 +49,7 @@ audience: [human, ai]
 - **边界（可接受取舍）**：`Where`/`Order`/`Pluck`/`WhereEq` 的列名是**裸字符串**、不对 meta 校验——拼错是运行时错而非编译期。精简换灵活的取舍（要编译期列名安全得上重得多的 API，单用户本地不值）。
 - `Page` 给**默认** `(created, pk)` DESC 序，但**可被先前 `.Order()` 覆盖**（conversation 置顶优先列表 `pinned DESC, last_message_at DESC` 即如此）。游标默认键 `created`；当排序列不是 created 时用 **`PageKeyset(col)`** 把游标列对齐到该列（conversation 用 `last_message_at`），否则游标 WHERE 与 ORDER BY 不一致会跨页漏/重行。前导 `pinned DESC` 分区靠「置顶少、都在首页」成立（单用户）——是这个假设、而非默认序，让置顶优先安全。
 - **`PageAsc`** 是 `Page` 的**字符串键、升序**对应物（`?sort=name` 按 `title` A–Z）：keyset 列按 **`COLLATE NOCASE`** 比较（「A–Z」符合人类直觉、大小写不敏感），pk tiebreaker 升序；游标用 `StringCursor`（`c` 是普通字符串而非 RFC3339 时间）。**`Page` 逐字不动**——纯 additive 的第二条 keyset 路径，每个既有 `(time, DESC)` List 端点零回归（原则 #8：强化地基、别在 store 手搓 title 游标）。调用方 `.Order()` 必须为 `<keyset> COLLATE NOCASE ASC, <pk> ASC`、**覆盖索引也须同 `COLLATE NOCASE`**（如 `idx_conversations_ws_title`），否则跨页漏/重（keyset 不变量，此处对 collation 敏感）。
+- **`PageTimeAsc`** 是 `Page` 的**时间键、升序**镜像（第三条 keyset 路径）：游标元组是下界（`(keyset, pk) > (?, ?)`）、页沿时间向前走——为窗口式历史读而生（messages `?around=` 的新半 / `?dir=newer` 续翻：同一枚支点游标喂 `Page` 得严格更旧、喂 `PageTimeAsc` 得严格更新，支点行不落任何一半）。游标同 `Cursor`（time）；`Page` 逐字不动、纯 additive（原则 #8）。
 
 ## 6. 集成
 

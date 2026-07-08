@@ -4,8 +4,19 @@ import '../../../core/contract/attachment.dart';
 import '../../../core/contract/conversation.dart';
 import '../../../core/contract/interaction.dart';
 import '../../../core/contract/messages/chat_message.dart';
+import '../../../core/contract/messages/transcript_nav.dart';
 import '../../../core/contract/model_capability.dart';
 import '../../../core/contract/page.dart';
+import '../../../core/contract/entities/agent.dart';
+import '../../../core/contract/entities/approval.dart';
+import '../../../core/contract/entities/control.dart';
+import '../../../core/contract/entities/handler.dart';
+import '../../../core/contract/entities/document.dart';
+import '../../../core/contract/entities/function.dart';
+import '../../../core/contract/entities/trigger.dart';
+import '../../../core/contract/entities/workflow.dart';
+import '../../../core/contract/todo.dart';
+import '../../../core/contract/touchpoint.dart';
 import '../../../core/sse/frame.dart';
 import 'chat_repository.dart';
 import 'conversation_signal.dart';
@@ -159,6 +170,121 @@ class FixtureChatRepository implements ChatRepository {
     return _page(newestFirst, cursor, limit);
   }
 
+  @override
+  Future<MessagesWindow> messagesAround(String conversationId, String messageId, {int? limit}) async {
+    if (!_all.any((c) => c.id == conversationId)) {
+      throw StateError('conversation not found: $conversationId');
+    }
+    final chrono = _messages[conversationId] ?? const <ChatMessage>[];
+    final idx = chrono.indexWhere((m) => m.id == messageId);
+    if (idx < 0) {
+      throw StateError('message not found: $messageId'); // identity anchoring: the backend 404s 身份锚点
+    }
+    final n = (limit ?? 50).clamp(2, 200);
+    final beforeN = n ~/ 2;
+    final lo = (idx - beforeN).clamp(0, chrono.length);
+    final hi = (idx + (n - beforeN) + 1).clamp(0, chrono.length);
+    // olderCursor feeds listMessages (newest-first offset); newerCursor feeds listMessagesNewer
+    // (chronological offset) — the same closed loop as the backend's two cursors.
+    // olderCursor 喂 listMessages(新→旧偏移)、newerCursor 喂 listMessagesNewer(时间序偏移)——与后端双游标同一闭环。
+    return MessagesWindow(
+      messages: chrono.sublist(lo, hi).reversed.toList(),
+      targetId: messageId,
+      olderCursor: lo > 0 ? '${chrono.length - lo}' : '',
+      newerCursor: hi < chrono.length ? '$hi' : '',
+      hasOlder: lo > 0,
+      hasNewer: hi < chrono.length,
+    );
+  }
+
+  @override
+  Future<Page<ChatMessage>> listMessagesNewer(String conversationId,
+      {required String cursor, int? limit}) async {
+    if (!_all.any((c) => c.id == conversationId)) {
+      throw StateError('conversation not found: $conversationId');
+    }
+    final chrono = _messages[conversationId] ?? const <ChatMessage>[];
+    final start = (int.tryParse(cursor) ?? 0).clamp(0, chrono.length);
+    final end = (start + (limit ?? 50)).clamp(0, chrono.length);
+    final more = end < chrono.length;
+    // Data stays newest-first (the wire's single ordering rule). data 恒新→旧(线缆唯一排序规则)。
+    return Page(
+      items: chrono.sublist(start, end).reversed.toList(),
+      nextCursor: more ? '$end' : null,
+      hasMore: more,
+    );
+  }
+
+  @override
+  Future<Page<TranscriptAnchor>> listAnchors(String conversationId, {String? cursor, int? limit}) async {
+    if (!_all.any((c) => c.id == conversationId)) {
+      throw StateError('conversation not found: $conversationId');
+    }
+    // A lite mirror of the backend's buildAnchors taxonomy over the seeded turns (no gate rows —
+    // the fixture has no broker). 后端锚分类学的 lite 镜像(无 gate 行——fixture 无 broker)。
+    final chrono = _messages[conversationId] ?? const <ChatMessage>[];
+    final anchors = <TranscriptAnchor>[];
+    var clusterCount = 0;
+    ChatBlock? clusterFirst;
+    var clusterMsg = '';
+    DateTime clusterAt = DateTime.now();
+    void flush() {
+      if (clusterCount == 0) return;
+      anchors.add(TranscriptAnchor(
+          kind: 'tools', messageId: clusterMsg, blockId: clusterFirst!.id, count: clusterCount, at: clusterAt));
+      clusterCount = 0;
+      clusterFirst = null;
+    }
+
+    String firstLine(String s) {
+      for (final line in s.split('\n')) {
+        final t = line.trim();
+        if (t.isNotEmpty) return t.length > 120 ? '${t.substring(0, 120)}…' : t;
+      }
+      return '';
+    }
+
+    for (final m in chrono) {
+      if (m.role == 'user') {
+        flush();
+        final text = m.blocks.where((b) => b.type == 'text').map((b) => b.content).join();
+        anchors.add(TranscriptAnchor(kind: 'user', messageId: m.id, title: firstLine(text), at: m.createdAt));
+        continue;
+      }
+      for (final b in m.blocks) {
+        if (b.type == 'compaction') {
+          flush();
+          anchors.add(TranscriptAnchor(
+              kind: 'compaction', messageId: m.id, blockId: b.id, title: firstLine(b.content), at: b.createdAt ?? m.createdAt));
+        } else if (b.type == 'tool_call' && b.attrs?['danger'] == 'dangerous') {
+          flush();
+          final name = '${b.attrs?['tool'] ?? ''}';
+          final entity = '${b.attrs?['entityName'] ?? ''}';
+          anchors.add(TranscriptAnchor(
+              kind: 'danger',
+              messageId: m.id,
+              blockId: b.id,
+              title: entity.isEmpty ? name : '$name · $entity',
+              at: b.createdAt ?? m.createdAt));
+        } else if (b.type == 'tool_call') {
+          if (clusterCount == 0) {
+            clusterFirst = b;
+            clusterMsg = m.id;
+            clusterAt = b.createdAt ?? m.createdAt;
+          }
+          clusterCount++;
+        }
+      }
+      if (m.status == 'error' || m.status == 'cancelled') {
+        flush();
+        final title = m.stopReason.isNotEmpty ? m.stopReason : (m.errorCode.isNotEmpty ? m.errorCode : m.status);
+        anchors.add(TranscriptAnchor(kind: 'abnormal', messageId: m.id, title: title, at: m.createdAt));
+      }
+    }
+    flush();
+    return _page(anchors.reversed.toList(), cursor, limit ?? 50);
+  }
+
   /// One-shot scripted send failure (the optimistic bubble's failed path). 一次性发送失败脚本。
   bool failNextSend = false;
 
@@ -256,6 +382,120 @@ class FixtureChatRepository implements ChatRepository {
   @override
   Future<List<ModelCapability>> listModelCapabilities() async => capabilities;
 
+  // ── the sidestage's old-truth reads (seedable, WRK-061 R-5) 侧幕旧真相(可种) ──
+
+  /// Seedable single-read snapshots; a missing id throws like the backend's 404. 可种单读;缺 id 抛(如 404)。
+  final Map<String, FunctionEntity> functions = {};
+  final Map<String, DocumentNode> documents = {};
+  final Map<String, WorkflowEntity> workflows = {};
+  final Map<String, ControlLogic> controls = {};
+  final Map<String, ApprovalForm> approvals = {};
+  final Map<String, TriggerEntity> triggers = {};
+  final Map<String, AgentEntity> agents = {};
+  final Map<String, HandlerEntity> handlers = {};
+
+  @override
+  Future<FunctionEntity> getFunctionSnapshot(String id) async =>
+      functions[id] ?? (throw StateError('function not found: $id'));
+
+  @override
+  Future<DocumentNode> getDocumentSnapshot(String id) async =>
+      documents[id] ?? (throw StateError('document not found: $id'));
+
+  @override
+  Future<WorkflowEntity> getWorkflowSnapshot(String id) async =>
+      workflows[id] ?? (throw StateError('workflow not found: $id'));
+
+  @override
+  Future<ControlLogic> getControlSnapshot(String id) async =>
+      controls[id] ?? (throw StateError('control not found: $id'));
+
+  @override
+  Future<ApprovalForm> getApprovalSnapshot(String id) async =>
+      approvals[id] ?? (throw StateError('approval not found: $id'));
+
+  @override
+  Future<TriggerEntity> getTriggerSnapshot(String id) async =>
+      triggers[id] ?? (throw StateError('trigger not found: $id'));
+
+  @override
+  Future<AgentEntity> getAgentSnapshot(String id) async =>
+      agents[id] ?? (throw StateError('agent not found: $id'));
+
+  @override
+  Future<HandlerEntity> getHandlerSnapshot(String id) async =>
+      handlers[id] ?? (throw StateError('handler not found: $id'));
+
+  // ── the rundown (seedable + scriptable) 场记清单(可种+可脚本化) ──
+
+  /// Seedable per-conversation main todo list. 可种主清单。
+  final Map<String, ConversationTodos> todos = {};
+
+  @override
+  Future<ConversationTodos> getTodos(String conversationId) async =>
+      todos[conversationId] ?? ConversationTodos(conversationId: conversationId);
+
+  /// Script one whole-list todo frame (durable, payload = the full list — the backend shape).
+  /// 脚本化一帧 todo 整表(durable,payload=完整清单)。
+  void emitTodos(ConversationTodos list, {int seq = 1}) {
+    todos[list.conversationId] = list;
+    emitFrame(
+      list.conversationId,
+      StreamEnvelope(
+        seq: seq,
+        scope: StreamScope(kind: 'conversation', id: list.conversationId),
+        id: 'todo_${list.subagentId.isEmpty ? 'main' : list.subagentId}',
+        frame: FrameSignal(node: StreamNode(type: 'todo', content: list.toJson())),
+      ),
+    );
+  }
+
+  // ── right island: the touchpoint ledger (scriptable) 触点台账(可脚本化) ──
+
+  /// Seedable ledger rows per conversation — served sorted (lastAt DESC, id DESC) with keyset paging,
+  /// mirroring the backend. 可种台账行;按后端同款排序分页。
+  final Map<String, List<Touchpoint>> touchpoints = {};
+
+  @override
+  Future<Page<Touchpoint>> listTouchpoints(
+    String conversationId, {
+    String? cursor,
+    int? limit,
+    String? kind,
+    TouchpointVerb? verb,
+  }) async {
+    final rows = List.of(touchpoints[conversationId] ?? const <Touchpoint>[])
+      ..sort((a, b) {
+        final t = b.lastAt.compareTo(a.lastAt);
+        return t != 0 ? t : b.id.compareTo(a.id);
+      });
+    final filtered = rows
+        .where((r) => (kind == null || r.itemKind == kind) && (verb == null || r.verb == verb))
+        .toList(growable: false);
+    return _page(filtered, cursor, limit ?? 50);
+  }
+
+  /// Script one ledger upsert AND its durable touchpoint Signal frame (payload = the full row), the
+  /// way the backend records + pushes. 脚本化一次记账:落行 + 推 durable touchpoint 信号帧(payload=整行)。
+  void touch(Touchpoint row, {int seq = 1}) {
+    final rows = touchpoints[row.conversationId] ??= [];
+    final i = rows.indexWhere((r) => r.id == row.id);
+    if (i >= 0) {
+      rows[i] = row;
+    } else {
+      rows.add(row);
+    }
+    emitFrame(
+      row.conversationId,
+      StreamEnvelope(
+        seq: seq,
+        scope: StreamScope(kind: 'conversation', id: row.conversationId),
+        id: row.id,
+        frame: FrameSignal(node: StreamNode(type: 'touchpoint', content: row.toJson())),
+      ),
+    );
+  }
+
   // ── human-loop interactions (scriptable) 人在环交互(可脚本化) ──
 
   /// Seedable pending snapshot per conversation (what [listInteractions] returns). 可种的待决快照。
@@ -287,6 +527,18 @@ class FixtureChatRepository implements ChatRepository {
     resolvedInteractions
         .add((conversationId: conversationId, toolCallId: toolCallId, action: action, answer: answer));
   }
+
+  final Map<String, StreamController<StreamEnvelope>> _workflowStreams = {};
+
+  @override
+  Stream<StreamEnvelope> workflowFrames(String workflowId) => _workflowStreams
+      .putIfAbsent(workflowId, StreamController<StreamEnvelope>.broadcast)
+      .stream;
+
+  /// Script one entities-stream frame onto a workflow scope (the run_terminal path). 脚本 workflow 帧。
+  void emitWorkflowFrame(String workflowId, StreamEnvelope env) => _workflowStreams
+      .putIfAbsent(workflowId, StreamController<StreamEnvelope>.broadcast)
+      .add(env);
 
   @override
   Stream<void> transcriptResync() => _resync.stream;

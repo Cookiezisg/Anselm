@@ -77,7 +77,10 @@ Widget documentBody(BuildContext context, ToolCardState state) {
   final t = Translations.of(context);
   final c = context.colors;
   final result = state.resultText.trim();
-  final content = argString(state.argsText, 'content') ?? '';
+  // Session read, closed-only: this settled body is CONSTRUCTED every frame while streaming (hidden
+  // inside the collapsed reveal) — an O(bytes) argsText rescan per frame melts on MB-scale content.
+  // 会话闭合值:settled 体在流入期每帧被隐形构造——O(字节) 重扫在 MB 级必炸。
+  final content = state.argsSession.closedStringAt(['content']) ?? '';
 
   if (result.isNotEmpty && !_docSucceeded(result)) {
     // Soft failure — the backend's English prompt, framed calmly (not red). 软失败:后端英文提示,琥珀。
@@ -122,8 +125,8 @@ ToolReceipt? skillReceipt(Translations t, ToolCardState state) {
 Widget skillBody(BuildContext context, ToolCardState state) {
   final t = Translations.of(context);
   final c = context.colors;
-  final body = argString(state.argsText, 'body') ?? '';
-  final ctx = argString(state.argsText, 'context') ?? 'inline';
+  final body = state.argsSession.closedStringAt(['body']) ?? '';
+  final ctx = state.argsSession.closedStringAt(['context']) ?? 'inline';
   final allowed = argStringList(state.argsText, 'allowedTools');
   final isEdit = state.toolName == 'edit_skill';
 

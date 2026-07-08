@@ -108,6 +108,8 @@ class _Translations$chat$zh_CN extends Translations$chat$en {
 	@override String get stoppedMaxTokens => 'Reached the output limit';
 	@override String get transcriptErrorTitle => 'Couldn\'t load this conversation';
 	@override String get transcriptErrorHint => 'The local engine didn’t return the messages.';
+	@override String get backToPresent => '回到现场';
+	@override late final _Translations$chat$toc$zh_CN toc = _Translations$chat$toc$zh_CN._(_root);
 	@override String get landingGreeting => 'What should we dig into?';
 	@override String get modelAuto => 'Auto';
 	@override String get mentionEntity => 'Mention an entity';
@@ -117,6 +119,7 @@ class _Translations$chat$zh_CN extends Translations$chat$en {
 	@override late final _Translations$chat$gate$zh_CN gate = _Translations$chat$gate$zh_CN._(_root);
 	@override String get contextCompacted => '上下文已压缩';
 	@override String contextCompactedCount({required Object n}) => '上下文已压缩 · ${n} 条更早消息已折叠进摘要';
+	@override late final _Translations$chat$stage$zh_CN stage = _Translations$chat$stage$zh_CN._(_root);
 }
 
 // Path: status
@@ -431,6 +434,21 @@ class _Translations$chat$bucket$zh_CN extends Translations$chat$bucket$en {
 	// Translations
 	@override String get pinned => '置顶';
 	@override String get recents => '最近';
+}
+
+// Path: chat.toc
+class _Translations$chat$toc$zh_CN extends Translations$chat$toc$en {
+	_Translations$chat$toc$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get button => '场次目录';
+	@override String get gates => '待你决定';
+	@override String toolCluster({required Object n}) => '⚙ ${n} 项操作';
+	@override String get compaction => '上下文已压缩';
+	@override String get abnormal => '异常终止';
+	@override String get empty => '还没有可跳转的场次';
 }
 
 // Path: chat.tool
@@ -894,6 +912,64 @@ class _Translations$chat$gate$zh_CN extends Translations$chat$gate$en {
 	@override String get decidedDeclined => '已跳过';
 }
 
+// Path: chat.stage
+class _Translations$chat$stage$zh_CN extends Translations$chat$stage$en {
+	_Translations$chat$stage$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => '侧幕';
+	@override String get following => '跟随';
+	@override String get pinned => '已锁定';
+	@override String get live => '进行中';
+	@override String get settled => '已落定';
+	@override String get failed => '未保存';
+	@override String livePill({required Object name}) => 'AI 正在编辑 ${name} →';
+	@override String get gatePill => 'AI 在等你决定 →';
+	@override String get backToLive => '回到直播';
+	@override String get ribbonLive => '实时聆听中 · 落定以真相为准';
+	@override String get ribbonGap => '实时流有缺口 · 以执行记录为准';
+	@override String get ribbonFailed => '草稿未保存 · 真相仍是上一版';
+	@override late final _Translations$chat$stage$a11y$zh_CN a11y = _Translations$chat$stage$a11y$zh_CN._(_root);
+	@override late final _Translations$chat$stage$follow$zh_CN follow = _Translations$chat$stage$follow$zh_CN._(_root);
+	@override String get castEmpty => '这场对话还没碰过什么';
+	@override String get castEmptyHint => 'AI 创建、编辑或执行的东西会记在这里';
+	@override String get tombstone => '已删除';
+	@override String get goToEntity => '去实体页';
+	@override String get jumpToScene => '跳到发生处';
+	@override String moreChannels({required Object n}) => '+${n}';
+	@override late final _Translations$chat$stage$verb$zh_CN verb = _Translations$chat$stage$verb$zh_CN._(_root);
+	@override String get beforeEdit => '改之前';
+	@override String get proseUntouched => '本次未改动正文';
+	@override String prefixKept({required Object n}) => '前 ${n} 字与旧版一致 · 已快进';
+	@override String get fastForwarding => '与旧版一致 · 快进中…';
+	@override String wholeReplace({required Object from, required Object to}) => '全量替换 · ${from} → ${to}';
+	@override String get latestDiscriminant => '最新判别式';
+	@override String basedOn({required Object n}) => '基于 v${n} 起改';
+	@override String get elseFallback => '否则';
+	@override String get passThrough => '透传';
+	@override String get previewUnsent => '预览 · 尚未寄出';
+	@override String get neverTimeout => '永不超时';
+	@override String timeoutReject({required Object d}) => '${d} 后自动拒绝';
+	@override String timeoutApprove({required Object d}) => '${d} 后自动通过';
+	@override String timeoutFail({required Object d}) => '${d} 后置失败';
+	@override String get allowReason => '审批者可附理由';
+	@override String get listening => '监听中';
+	@override String get notListening => '未监听';
+	@override String nextFire({required Object t}) => '下次点火 · ${t}';
+	@override String refCountWord({required Object n}) => '被 ${n} 条 workflow 引用';
+	@override String get awaitingReceipt => '等待回执…';
+	@override String get oldLadder => '改之前的梯';
+	@override String get subagentUnnamed => '子代理';
+	@override String tokensInOut({required Object tin, required Object tout}) => '${tin} 入 · ${tout} 出';
+	@override String stopReasonWord({required Object r}) => '止因 ${r}';
+	@override String get ensembleTitle => '并行群像';
+	@override String boardOf({required Object name}) => '${name} 的清单';
+	@override String get humanOnly => '仅人可唤';
+	@override String get toolsDiscovered => '个工具已发现';
+}
+
 // Path: shell.ocean
 class _Translations$shell$ocean$zh_CN extends Translations$shell$ocean$en {
 	_Translations$shell$ocean$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
@@ -1105,6 +1181,49 @@ class _Translations$chat$tool$kind$zh_CN extends Translations$chat$tool$kind$en 
 	@override String get blocks => '块';
 	@override String get attachment => '附件';
 	@override String get conversation => '对话';
+}
+
+// Path: chat.stage.a11y
+class _Translations$chat$stage$a11y$zh_CN extends Translations$chat$stage$a11y$en {
+	_Translations$chat$stage$a11y$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String staged({required Object name}) => '${name} 登台';
+	@override String get gate => 'AI 在等你决定';
+	@override String get failed => '操作失败,舞台驻留';
+	@override String settled({required Object name}) => '${name} 已落定';
+}
+
+// Path: chat.stage.follow
+class _Translations$chat$stage$follow$zh_CN extends Translations$chat$stage$follow$en {
+	_Translations$chat$stage$follow$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get label => '自动登台';
+	@override String get always => '每次都跟';
+	@override String get first => '每会话首次';
+	@override String get never => '从不';
+}
+
+// Path: chat.stage.verb
+class _Translations$chat$stage$verb$zh_CN extends Translations$chat$stage$verb$en {
+	_Translations$chat$stage$verb$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get mentioned => '提及';
+	@override String get created => '创建';
+	@override String get edited => '编辑';
+	@override String get viewed => '查看';
+	@override String get executed => '执行';
+	@override String get attached => '附上';
+	@override String get deleted => '删除';
+	@override String get unknown => '触碰';
 }
 
 // Path: entities.detail.tab
@@ -1530,6 +1649,13 @@ extension on TranslationsZhCn {
 			'chat.stoppedMaxTokens' => 'Reached the output limit',
 			'chat.transcriptErrorTitle' => 'Couldn\'t load this conversation',
 			'chat.transcriptErrorHint' => 'The local engine didn’t return the messages.',
+			'chat.backToPresent' => '回到现场',
+			'chat.toc.button' => '场次目录',
+			'chat.toc.gates' => '待你决定',
+			'chat.toc.toolCluster' => ({required Object n}) => '⚙ ${n} 项操作',
+			'chat.toc.compaction' => '上下文已压缩',
+			'chat.toc.abnormal' => '异常终止',
+			'chat.toc.empty' => '还没有可跳转的场次',
 			'chat.landingGreeting' => 'What should we dig into?',
 			'chat.modelAuto' => 'Auto',
 			'chat.mentionEntity' => 'Mention an entity',
@@ -1988,15 +2114,77 @@ extension on TranslationsZhCn {
 			'chat.gate.decidedApproved' => '已允许',
 			'chat.gate.decidedApprovedAlways' => '已允许 · 本对话总是',
 			'chat.gate.decidedDenied' => '已拒绝',
+			_ => null,
+		} ?? switch (path) {
 			'chat.gate.decidedDeclined' => '已跳过',
 			'chat.contextCompacted' => '上下文已压缩',
 			'chat.contextCompactedCount' => ({required Object n}) => '上下文已压缩 · ${n} 条更早消息已折叠进摘要',
+			'chat.stage.title' => '侧幕',
+			'chat.stage.following' => '跟随',
+			'chat.stage.pinned' => '已锁定',
+			'chat.stage.live' => '进行中',
+			'chat.stage.settled' => '已落定',
+			'chat.stage.failed' => '未保存',
+			'chat.stage.livePill' => ({required Object name}) => 'AI 正在编辑 ${name} →',
+			'chat.stage.gatePill' => 'AI 在等你决定 →',
+			'chat.stage.backToLive' => '回到直播',
+			'chat.stage.ribbonLive' => '实时聆听中 · 落定以真相为准',
+			'chat.stage.ribbonGap' => '实时流有缺口 · 以执行记录为准',
+			'chat.stage.ribbonFailed' => '草稿未保存 · 真相仍是上一版',
+			'chat.stage.a11y.staged' => ({required Object name}) => '${name} 登台',
+			'chat.stage.a11y.gate' => 'AI 在等你决定',
+			'chat.stage.a11y.failed' => '操作失败,舞台驻留',
+			'chat.stage.a11y.settled' => ({required Object name}) => '${name} 已落定',
+			'chat.stage.follow.label' => '自动登台',
+			'chat.stage.follow.always' => '每次都跟',
+			'chat.stage.follow.first' => '每会话首次',
+			'chat.stage.follow.never' => '从不',
+			'chat.stage.castEmpty' => '这场对话还没碰过什么',
+			'chat.stage.castEmptyHint' => 'AI 创建、编辑或执行的东西会记在这里',
+			'chat.stage.tombstone' => '已删除',
+			'chat.stage.goToEntity' => '去实体页',
+			'chat.stage.jumpToScene' => '跳到发生处',
+			'chat.stage.moreChannels' => ({required Object n}) => '+${n}',
+			'chat.stage.verb.mentioned' => '提及',
+			'chat.stage.verb.created' => '创建',
+			'chat.stage.verb.edited' => '编辑',
+			'chat.stage.verb.viewed' => '查看',
+			'chat.stage.verb.executed' => '执行',
+			'chat.stage.verb.attached' => '附上',
+			'chat.stage.verb.deleted' => '删除',
+			'chat.stage.verb.unknown' => '触碰',
+			'chat.stage.beforeEdit' => '改之前',
+			'chat.stage.proseUntouched' => '本次未改动正文',
+			'chat.stage.prefixKept' => ({required Object n}) => '前 ${n} 字与旧版一致 · 已快进',
+			'chat.stage.fastForwarding' => '与旧版一致 · 快进中…',
+			'chat.stage.wholeReplace' => ({required Object from, required Object to}) => '全量替换 · ${from} → ${to}',
+			'chat.stage.latestDiscriminant' => '最新判别式',
+			'chat.stage.basedOn' => ({required Object n}) => '基于 v${n} 起改',
+			'chat.stage.elseFallback' => '否则',
+			'chat.stage.passThrough' => '透传',
+			'chat.stage.previewUnsent' => '预览 · 尚未寄出',
+			'chat.stage.neverTimeout' => '永不超时',
+			'chat.stage.timeoutReject' => ({required Object d}) => '${d} 后自动拒绝',
+			'chat.stage.timeoutApprove' => ({required Object d}) => '${d} 后自动通过',
+			'chat.stage.timeoutFail' => ({required Object d}) => '${d} 后置失败',
+			'chat.stage.allowReason' => '审批者可附理由',
+			'chat.stage.listening' => '监听中',
+			'chat.stage.notListening' => '未监听',
+			'chat.stage.nextFire' => ({required Object t}) => '下次点火 · ${t}',
+			'chat.stage.refCountWord' => ({required Object n}) => '被 ${n} 条 workflow 引用',
+			'chat.stage.awaitingReceipt' => '等待回执…',
+			'chat.stage.oldLadder' => '改之前的梯',
+			'chat.stage.subagentUnnamed' => '子代理',
+			'chat.stage.tokensInOut' => ({required Object tin, required Object tout}) => '${tin} 入 · ${tout} 出',
+			'chat.stage.stopReasonWord' => ({required Object r}) => '止因 ${r}',
+			'chat.stage.ensembleTitle' => '并行群像',
+			'chat.stage.boardOf' => ({required Object name}) => '${name} 的清单',
+			'chat.stage.humanOnly' => '仅人可唤',
+			'chat.stage.toolsDiscovered' => '个工具已发现',
 			'appName' => 'Anselm',
 			'status.idle' => '空闲',
 			'status.run' => '运行中',
 			'status.wait' => '等待',
-			_ => null,
-		} ?? switch (path) {
 			'status.err' => '失败',
 			'status.done' => '完成',
 			'action.edit' => '编辑',
@@ -2440,6 +2628,8 @@ extension on TranslationsZhCn {
 			'documents.props.outline' => '大纲',
 			'documents.props.backlinks' => '反向链接',
 			'documents.props.noBacklinks' => '还没有页面链接到这里。',
+			_ => null,
+		} ?? switch (path) {
 			'documents.slash.text' => '正文',
 			'documents.slash.h1' => '标题 1',
 			'documents.slash.h2' => '标题 2',

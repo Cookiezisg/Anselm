@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/doc_editor/an_doc_editor.dart';
 import '../../../core/entity/mention_source.dart';
 import '../../../core/overlay/an_overlay.dart';
 import '../../../core/perf/debouncer.dart';
@@ -12,10 +11,21 @@ import '../../../core/ui/an_page.dart';
 import '../../../core/ui/an_skeleton.dart';
 import '../../../core/ui/an_state.dart';
 import '../../../core/ui/an_toast.dart';
+import '../../../core/ui/entity_ref_codec.dart';
 import '../../../i18n/strings.g.dart';
 import '../data/document_repository.dart';
 import '../model/doc_outline.dart';
 import '../state/document_state.dart';
+import 'an_document_editor.dart';
+
+/// Resolves the display names for the `[[id]]` mentions in a document's markdown [content] — batched once
+/// so the native editor can inflate its mention pills with names (not bare ids) at load. Keyed by content:
+/// a content SAVE doesn't invalidate `openDocumentProvider`, so this stays cached across edits. `[[id]]`→名批解析。
+final documentMentionNamesProvider = FutureProvider.family<Map<String, String>, String>((ref, content) async {
+  final ids = extractEntityRefIds(content);
+  if (ids.isEmpty) return const {};
+  return ref.read(mentionSourceProvider).resolveNames(ids);
+});
 
 /// The Documents ocean center — the webview [AnDocEditor] fills the ocean, and its title/description/tags
 /// header co-scrolls INSIDE it with the body (a product characteristic). The Flutter side is thin: it
@@ -58,7 +68,7 @@ class DocumentOcean extends ConsumerWidget {
 /// LIST from the markdown, and forwards an outline-jump to the webview. 薄壳:绑浮层头 + 随滚折叠 +
 /// 镜像活动标题 + 从 markdown 播种大纲 + 转发跳转。
 mixin _DocPageChrome<T extends ConsumerStatefulWidget> on ConsumerState<T> {
-  final GlobalKey<AnDocEditorState> editorKey = GlobalKey<AnDocEditorState>();
+  final GlobalKey<AnDocumentEditorState> editorKey = GlobalKey<AnDocumentEditorState>();
   // Header height (crumb + big title + description + tags) past which the floating breadcrumb takes over.
   static const double _collapseAt = 120;
   String? _seededOutlineFor;
@@ -174,29 +184,35 @@ class _DocEditViewState extends ConsumerState<_DocEditView> with _DocPageChrome 
             final title = doc.name.isEmpty ? t.documents.untitled : doc.name;
             bindHead(title);
             seedOutline(doc.content);
-            return AnDocEditor(
-              key: editorKey,
-              crumb: t.documents.documents,
-              name: title,
-              description: doc.description,
-              tags: doc.tags,
-              initialMarkdown: doc.content,
-              onChanged: _onChanged,
-              onScroll: onScroll,
-              onActiveHeading: onActive,
-              // The @ typeahead reuses chat's entity mention seam (function/handler/agent/workflow).
-              mentionSource: ref.watch(mentionSourceProvider),
-              onMetaChanged: (m) {
-                final patch = <String, dynamic>{};
-                final name = (m['name'] as String?)?.trim();
-                final desc = m['description'] as String?;
-                final tags = (m['tags'] as List?)?.cast<String>();
-                if (name != null && name.isNotEmpty && name != doc.name) patch['name'] = name;
-                if (desc != null && desc != doc.description) patch['description'] = desc;
-                if (tags != null && !listEquals(tags, doc.tags)) patch['tags'] = tags;
-                if (patch.isNotEmpty) _patchMeta(patch);
-              },
-            );
+            // Resolve the `[[id]]` mention names BEFORE mounting the editor, so its pills load with names
+            // (the editor reads names once at initState). A skeleton covers the batch. 载入前先解析提及名。
+            return ref.watch(documentMentionNamesProvider(doc.content)).maybeWhen(
+                  orElse: () => const AnPage(child: AnDeferredLoading(child: AnSkeleton.lines(8))),
+                  data: (names) => AnDocumentEditor(
+                    key: editorKey,
+                    crumb: t.documents.documents,
+                    name: title,
+                    description: doc.description,
+                    tags: doc.tags,
+                    initialMarkdown: doc.content,
+                    resolvedNames: names,
+                    onChangedMarkdown: _onChanged,
+                    onScroll: onScroll,
+                    onActiveHeading: onActive,
+                    // The @ typeahead reuses chat's entity mention seam (function/handler/agent/workflow).
+                    mentionSource: ref.watch(mentionSourceProvider),
+                    onMetaChanged: (m) {
+                      final patch = <String, dynamic>{};
+                      final name = (m['name'] as String?)?.trim();
+                      final desc = m['description'] as String?;
+                      final tags = (m['tags'] as List?)?.cast<String>();
+                      if (name != null && name.isNotEmpty && name != doc.name) patch['name'] = name;
+                      if (desc != null && desc != doc.description) patch['description'] = desc;
+                      if (tags != null && !listEquals(tags, doc.tags)) patch['tags'] = tags;
+                      if (patch.isNotEmpty) _patchMeta(patch);
+                    },
+                  ),
+                );
           },
         );
   }
@@ -291,14 +307,16 @@ class _SkillEditViewState extends ConsumerState<_SkillEditView> with _DocPageChr
           data: (skill) {
             bindHead(skill.name);
             seedOutline(skill.body);
-            return AnDocEditor(
+            // Skills carry no @ mentions (the backend only parses `[[id]]` on DOCUMENTS) → no name resolve.
+            // skill 不含 @(后端只在 document 上解析 `[[id]]`)→无需解析名。
+            return AnDocumentEditor(
               key: editorKey,
               crumb: t.documents.skills,
               name: skill.name,
               nameEditable: false, // the name IS the identity — not renamable in place
               description: skill.description,
               initialMarkdown: skill.body,
-              onChanged: _onChanged,
+              onChangedMarkdown: _onChanged,
               onScroll: onScroll,
               onActiveHeading: onActive,
               onMetaChanged: (m) {

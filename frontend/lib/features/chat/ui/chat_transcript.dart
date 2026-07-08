@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -17,6 +19,7 @@ import '../model/user_attachment.dart';
 import '../state/conversation_stream_provider.dart';
 import '../state/conversation_stream_state.dart';
 import '../state/pending_interactions_provider.dart';
+import '../state/transcript_jump_provider.dart';
 import 'chat_tool_card.dart';
 import 'chat_turn.dart';
 import 'chat_context_mark.dart';
@@ -113,6 +116,8 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
   CoalescingNotifier<ConversationTranscript>? _attached;
   bool _pinned = true;
   int _lastPendingCount = 0;
+  String? _highlightId; // the jump target's temporary wash 跳转目标的临时高亮
+  Timer? _highlightTimer;
 
   @override
   void initState() {
@@ -123,11 +128,47 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
 
   @override
   void dispose() {
+    _highlightTimer?.cancel();
     _attached?.removeListener(_onTick);
     _scroll
       ..removeListener(_onScroll)
       ..dispose();
     super.dispose();
+  }
+
+  // ── the jump (W6 re-anchor) 跳转 ──
+
+  /// Execute one jump command: near = the anchor re-centers on the loaded row; deep = the
+  /// `?around=` window replaces the transcript (re-anchor). Either way the target lands at scroll
+  /// offset 0 — the center anchor's first row — so there is NO extent estimation; we then seat it
+  /// just below the floating head and wash it briefly (hold + fade, the Slack-permalink rhythm).
+  /// The pin is released first: a jump means READING HISTORY, and streaming frames must never
+  /// yank the viewport back to the bottom (the 抢镜 covenant).
+  ///
+  /// 执行一次跳转:近跳=锚移到已加载行;深跳=`?around=` 窗整扇替换(重锚)。两径目标都落在 offset 0
+  /// (center 锚首行)——零 extent 估算;随后把它安放在浮层头下、短暂洗亮(hold+fade,Slack permalink
+  /// 节奏)。先解钉:跳转即读史,流式帧绝不许把视口拽回底(抢镜公约)。
+  Future<void> _executeJump(TranscriptJumpRequest req) async {
+    ref.read(transcriptJumpProvider(widget.conversationId).notifier).clear();
+    final ok = await ref
+        .read(conversationStreamProvider(widget.conversationId).notifier)
+        .jumpTo(req.messageId);
+    if (!ok || !mounted) return;
+    _pinned = false;
+    // Offset 0 (= the anchor) is always in range on a center-anchored list; refine after layout.
+    // offset 0(=锚)在 center 锚列表上恒有效;布局后再精调。
+    if (_scroll.hasClients) _scroll.jumpTo(0);
+    setState(() => _highlightId = req.messageId);
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted || !_scroll.hasClients) return;
+    final pos = _scroll.position;
+    _scroll.jumpTo((-(AnSize.islandHead + AnSpace.s12))
+        .clamp(pos.minScrollExtent, pos.maxScrollExtent)
+        .toDouble());
+    _highlightTimer?.cancel();
+    _highlightTimer = Timer(const Duration(milliseconds: 2200), () {
+      if (mounted) setState(() => _highlightId = null);
+    });
   }
 
   void _attach(CoalescingNotifier<ConversationTranscript> t) {
@@ -168,6 +209,10 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
       // Guarded inside the controller (cursor/loading/hasMore). 控制器内自守。
       ref.read(conversationStreamProvider(widget.conversationId).notifier).loadOlder();
     }
+    if (pos.maxScrollExtent - pos.pixels <= _loadOlderSlack) {
+      // Window mode's forward continuation — same guard style, downward. 窗口模式向前续翻,同守卫。
+      ref.read(conversationStreamProvider(widget.conversationId).notifier).loadNewer();
+    }
   }
 
   @override
@@ -175,6 +220,9 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
     final ctl = ref.watch(conversationStreamProvider(widget.conversationId).notifier);
     final loadingOlder = ref.watch(
         conversationStreamProvider(widget.conversationId).select((s) => s.loadingOlder));
+    ref.listen(transcriptJumpProvider(widget.conversationId), (_, req) {
+      if (req != null) unawaited(_executeJump(req));
+    });
     // Re-read the listenable each build — it is a NEW instance after a controller rebuild (the
     // documented coalescer discipline). 每 build 重取 listenable(controller 重建后是新实例)。
     final transcript = ctl.transcript;
@@ -183,10 +231,17 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
       valueListenable: transcript,
       builder: (context, t, _) {
         TranscriptProbe.hit('list');
+        // Window mode: settled IS the detached jump window — live turns and optimistic bubbles
+        // belong to the present and hide until the「回到现场」pill (or a send) rejoins it.
+        // 窗口模式:settled 即被跳离的窗——live 回合与乐观泡属于现场,藏到「回到现场」pill(或发送)归队。
+        final windowMode = t.windowMode;
         final older = t.settled.take(t.olderCount).toList(growable: false);
-        final head = [...t.settled.skip(t.olderCount), ...t.liveTurns];
-        final pending = t.pending;
-        return CustomScrollView(
+        final head = [
+          ...t.settled.skip(t.olderCount),
+          if (!windowMode) ...t.liveTurns,
+        ];
+        final pending = windowMode ? const <PendingSend>[] : t.pending;
+        final list = CustomScrollView(
           controller: _scroll,
           center: _centerKey,
           slivers: [
@@ -232,6 +287,24 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
             ),
           ],
         );
+        if (!windowMode) return list;
+        // The detached-window chrome: the「回到现场」pill floats over the list (Discord's
+        // jump-to-present shape); a send exits implicitly. 离场态:「回到现场」pill 浮于列表上。
+        return Stack(children: [
+          list,
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: AnSpace.s16,
+            child: Center(
+              child: _BackToLivePill(
+                onTap: () => ref
+                    .read(conversationStreamProvider(widget.conversationId).notifier)
+                    .backToLive(),
+              ),
+            ),
+          ),
+        ]);
       },
     );
   }
@@ -240,12 +313,79 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
   // rebuild — settled turns cost ZERO builds during streaming); the open turn builds fresh per tick.
   // 终态行走身份缓存(同实例短路重建——流式中 settled 行零 build);open 回合逐 tick 新建。
   Widget _rowFor(BlockNode turn) {
+    Widget row;
     if (!turn.isOpen) {
-      return _settledRowCache[turn.id] ??= _TurnRow(
+      row = _settledRowCache[turn.id] ??= _TurnRow(
           turn: turn, streaming: false, conversationId: widget.conversationId, key: ValueKey(turn.id));
+    } else {
+      row = _TurnRow(
+          turn: turn, streaming: true, conversationId: widget.conversationId, key: ValueKey(turn.id));
     }
-    return _TurnRow(
-        turn: turn, streaming: true, conversationId: widget.conversationId, key: ValueKey(turn.id));
+    if (turn.id == _highlightId) {
+      row = _JumpHighlight(key: ValueKey('hl-${turn.id}'), child: row);
+    }
+    return row;
+  }
+}
+
+/// The jump target's landing wash: hold, then ease out (the Slack-permalink rhythm Stream Chat
+/// converged on). Purely decorative — reduced motion collapses it to the end state instantly.
+/// 跳转落点洗亮:先驻留后淡出(Slack permalink 节奏)。纯装饰——reduced motion 直接落终态。
+class _JumpHighlight extends StatelessWidget {
+  const _JumpHighlight({required this.child, super.key});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final reduced = MediaQuery.disableAnimationsOf(context);
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 1, end: 0),
+      duration: reduced ? Duration.zero : const Duration(milliseconds: 2200),
+      // Hold for ~1s (the flat half), then ease out. 前半驻留,后半淡出。
+      curve: const Interval(0.45, 1, curve: Curves.easeOut),
+      builder: (context, wash, child) => DecoratedBox(
+        decoration: BoxDecoration(
+          color: c.accentSoft.withValues(alpha: c.accentSoft.a * wash),
+          borderRadius: BorderRadius.circular(AnRadius.card),
+        ),
+        child: child,
+      ),
+      child: child,
+    );
+  }
+}
+
+/// The「回到现场」pill — floats over a detached jump window; tapping re-hydrates the head and
+/// rejoins the live present (a send does the same implicitly). 回到现场 pill。
+class _BackToLivePill extends StatelessWidget {
+  const _BackToLivePill({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final t = Translations.of(context);
+    return Material(
+      color: c.surface,
+      shape: StadiumBorder(side: BorderSide(color: c.line, width: AnSize.hairline)),
+      elevation: 2,
+      shadowColor: c.ink.withValues(alpha: 0.12),
+      child: InkWell(
+        customBorder: const StadiumBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AnSpace.s12, vertical: AnSpace.s6),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(AnIcons.chevronDown, size: AnSize.iconSm, color: c.accent),
+            const SizedBox(width: AnSpace.s6),
+            Text(t.chat.backToPresent, style: AnText.label.copyWith(color: c.ink)),
+          ]),
+        ),
+      ),
+    );
   }
 }
 

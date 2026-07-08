@@ -123,6 +123,20 @@ class ApiClient {
         return _data(r.data);
       });
 
+  /// GET the WHOLE envelope body — for reads whose coordinates ride top-level BESIDE `data`
+  /// (the `?around=` window envelope `{data, targetId, olderCursor?, newerCursor?, hasOlder,
+  /// hasNewer}`). [getData] strips to `data` and would drop them.
+  ///
+  /// GET **整个** envelope 体——供坐标在顶层与 `data` 并列的读(`?around=` 窗 envelope)。
+  /// [getData] 只剥 `data`、会丢坐标。
+  Future<Map<String, dynamic>> getEnvelope(String path,
+          {Map<String, dynamic>? query}) =>
+      _send(() async {
+        final r = await _dio.get<Map<String, dynamic>>(path,
+            queryParameters: query);
+        return r.data ?? const {};
+      });
+
   /// POST returning a created/edited entity: `{data:<obj>}` → [parse]. Covers Create
   /// (201) and state-change actions (`:activate` … return the post-action snapshot).
   ///

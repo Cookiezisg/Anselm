@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/contract/interaction.dart';
+import '../../../core/model/partial_json.dart';
 import '../../../core/model/time_format.dart';
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
@@ -370,13 +371,12 @@ Widget killShellBody(BuildContext context, ToolCardState state) {
 /// «生长秀»: watch the file being written). Last 8 lines, plain mono while flowing. Write 活窗:内容随
 /// LLM 打字流入(F01 生长秀)。
 Widget writeLiveBody(BuildContext context, ToolCardState state) {
-  final content = argStringPartial(state.argsText, 'content');
+  // Incremental session read + O(tail) extraction — this runs every frame on MB-scale content (W0).
+  // 增量会话读 + O(tail) 取尾——每帧跑、内容可 MB 级。
+  final content = state.argsSession.liveStringNamed('content');
   if (content == null || content.isEmpty) return const SizedBox.shrink();
   final c = context.colors;
-  final lines = content.split('\n');
-  const tail = 8;
-  final shown = lines.length > tail ? lines.sublist(lines.length - tail) : lines;
-  return ToolWindow(child: Text(shown.join('\n'), style: AnText.code.copyWith(color: c.inkMuted)));
+  return ToolWindow(child: Text(tailLines(content, 8), style: AnText.code.copyWith(color: c.inkMuted)));
 }
 
 /// Write SETTLED body (B4 F01.3) — the written file, highlighted (reading tier), folded past 50 lines
@@ -386,8 +386,8 @@ Widget writeLiveBody(BuildContext context, ToolCardState state) {
 Widget writeToolBody(BuildContext context, ToolCardState state) {
   final c = context.colors;
   final t = Translations.of(context);
-  final path = argString(state.argsText, 'file_path') ?? '';
-  final content = argString(state.argsText, 'content') ?? '';
+  final path = state.argsSession.closedStringAt(['file_path']) ?? '';
+  final content = state.argsSession.closedStringAt(['content']) ?? '';
   if (content.isEmpty) return const SizedBox.shrink();
   final lineCount = '\n'.allMatches(content).length + 1;
   final over = content.length > 6000;
@@ -422,8 +422,8 @@ Widget writeToolBody(BuildContext context, ToolCardState state) {
 /// segment, ok-soft). Each shows its last lines. You watch what's being cut, then what replaces it.
 /// Edit 两幕活窗:先 − old 流入、再 + new,看着切什么、换成什么。
 Widget editLiveBody(BuildContext context, ToolCardState state) {
-  final oldS = argStringPartial(state.argsText, 'old_string');
-  final newS = argStringPartial(state.argsText, 'new_string');
+  final oldS = state.argsSession.liveStringNamed('old_string');
+  final newS = state.argsSession.liveStringNamed('new_string');
   if ((oldS == null || oldS.isEmpty) && (newS == null || newS.isEmpty)) return const SizedBox.shrink();
   final c = context.colors;
   return ToolWindow(
@@ -438,9 +438,7 @@ Widget editLiveBody(BuildContext context, ToolCardState state) {
 }
 
 Widget _editSeg(AnColors c, String sign, String text, Color bg, Color ink) {
-  final lines = text.split('\n');
-  const tail = 6;
-  final shown = lines.length > tail ? lines.sublist(lines.length - tail) : lines;
+  final shown = tailLines(text, 6).split('\n'); // O(tail): extract before splitting 先取尾再 split
   return Container(
     width: double.infinity,
     decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(AnRadius.tag)),
@@ -461,9 +459,9 @@ Widget _editSeg(AnColors c, String sign, String text, Color bg, Color ink) {
 /// a pure deletion (all-red diff). Edit 落定体:AnVersionDiff + replace_all 注记。
 Widget editToolBody(BuildContext context, ToolCardState state) {
   final t = Translations.of(context);
-  final path = argString(state.argsText, 'file_path') ?? '';
-  final oldS = argString(state.argsText, 'old_string');
-  final newS = argString(state.argsText, 'new_string');
+  final path = state.argsSession.closedStringAt(['file_path']) ?? '';
+  final oldS = state.argsSession.closedStringAt(['old_string']);
+  final newS = state.argsSession.closedStringAt(['new_string']);
   if (oldS == null && newS == null) return const SizedBox.shrink();
   final replaceAll = RegExp(r'"replace_all"\s*:\s*true').hasMatch(state.argsText);
   final replacedN = RegExp(r'Replaced (\d+) occurrence').firstMatch(state.resultText)?.group(1);
@@ -668,16 +666,19 @@ String? _langOf(String path) {
 /// streams into the window as the LLM types it.
 /// 从 args 提取构建调用的**主内容**(被创作之物)——容忍流中不完整片段;这正是本族的重头戏:
 /// 代码/提示词/文档随 LLM 打字流进窗里。
-String? buildContentOf(String toolName, String argsFragment) {
+String? buildContentOf(String toolName, PartialJsonSession args) {
   if (toolName.endsWith('_function') || toolName.endsWith('_handler')) {
     // ops-based: the set_code op's `code` (functions); handlers are structured ops — fall
-    // through to `code` too (add_method carries `body`, try it second).
-    // ops 型:set_code 的 `code`;handler 结构化 ops——先试 `code` 再试 add_method 的 `body`。
-    return argStringPartial(argsFragment, 'code') ?? argStringPartial(argsFragment, 'body');
+    // through to `code` too (add_method carries `body`, try it second). liveStringNamed matches the
+    // key at ANY depth, in-flight first — so a multi-method handler's window follows whichever body
+    // is growing RIGHT NOW (the old first-match regex froze on the first one).
+    // ops 型:set_code 的 `code`;handler 的 `body` 次之。liveStringNamed 任意深度按键匹配、在途优先——
+    // 多 method 的窗跟着**正在生长**的那个 body(旧正则首匹配会冻在第一个)。
+    return args.liveStringNamed('code') ?? args.liveStringNamed('body');
   }
-  if (toolName.endsWith('_agent')) return argStringPartial(argsFragment, 'prompt');
-  if (toolName.endsWith('_document')) return argStringPartial(argsFragment, 'content');
-  if (toolName.endsWith('_skill')) return argStringPartial(argsFragment, 'body');
+  if (toolName.endsWith('_agent')) return args.liveStringNamed('prompt');
+  if (toolName.endsWith('_document')) return args.liveStringNamed('content');
+  if (toolName.endsWith('_skill')) return args.liveStringNamed('body');
   return null; // workflow/control/approval/trigger: JSON config — the body shows args 图/配置走 JSON
 }
 
@@ -693,14 +694,13 @@ String? _buildLang(String toolName) {
 /// builds 活窗:内容随 LLM 吐 args 流入——流动期纯等宽(逐 delta 重新高亮烧帧预算),落定后
 /// (在 [buildToolBody])换高亮编辑器。
 Widget buildLiveBody(BuildContext context, ToolCardState state) {
-  final content = buildContentOf(state.toolName, state.argsText);
+  final content = buildContentOf(state.toolName, state.argsSession);
   if (content == null || content.isEmpty) return const SizedBox.shrink();
   final c = context.colors;
-  final lines = content.split('\n');
-  const tail = 8; // a taller window than the terminal tail — code is the show 代码是主角,窗更高
-  final shown = lines.length > tail ? lines.sublist(lines.length - tail) : lines;
+  // O(tail) extraction — code is the show, the window is taller than the terminal tail (8 lines).
+  // O(tail) 取尾——代码是主角,窗比终端尾高(8 行)。
   return ToolWindow(
-    child: Text(shown.join('\n'), style: AnText.code.copyWith(color: c.inkMuted)),
+    child: Text(tailLines(content, 8), style: AnText.code.copyWith(color: c.inkMuted)),
   );
 }
 
@@ -710,7 +710,7 @@ Widget buildLiveBody(BuildContext context, ToolCardState state) {
 /// builds 落定体:意图 · 创作内容(高亮)· **结果条**——id/版本/env 结局。envStatus 是本族的
 /// 诚实半成功:实体落了、沙箱 env 可能还在构建或已失败(envError 红显)。
 Widget buildToolBody(BuildContext context, ToolCardState state) {
-  final content = buildContentOf(state.toolName, state.argsText);
+  final content = buildContentOf(state.toolName, state.argsSession);
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [

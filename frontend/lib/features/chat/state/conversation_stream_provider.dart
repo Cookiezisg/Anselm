@@ -145,8 +145,88 @@ class ConversationStreamController extends Notifier<ConversationStreamState> {
   void _onResync() {
     if (!ref.mounted) return;
     _prelude = []; // re-buffer while the head refetches 重拉头期间再缓冲
+    // A 410 resync trumps a jump window: the head re-hydrate lands head-attached pages (setHistory
+    // clears windowMode on the model). 410 重同步压过跳转窗:重拉头即贴头分页。
+    state = state.copyWith(windowMode: false, newerCursor: null, hasMoreNewer: false, loadingNewer: false);
     transcript.mutate((t) => t..dropLive());
     unawaited(_hydrate());
+  }
+
+  // ── deep jump (W6 re-anchor) 深跳 ──
+
+  /// Jump the transcript to [messageId]. A NEAR jump (the row is already loaded) just re-centers the
+  /// anchor — no fetch, no mode change. A DEEP jump fetches the `?around=` window and REPLACES the
+  /// transcript window (re-anchor; both directions page on). Returns false when the jump could not
+  /// run (already jumping / fetch failed / unknown target — the backend 404s identity anchors).
+  ///
+  /// 跳转到 [messageId]。近跳(行已加载)只移锚——零拉取零换模;深跳拉 `?around=` 窗**整扇替换**
+  /// (re-anchor,双向可续翻)。跳不动返 false(在跳/拉失败/目标未知——身份锚点后端 404)。
+  Future<bool> jumpTo(String messageId) async {
+    var retargeted = false;
+    transcript.mutate((t) {
+      retargeted = t.retargetCenter(messageId);
+      return t;
+    });
+    if (retargeted) return true;
+    if (state.jumping) return false;
+    state = state.copyWith(jumping: true);
+    try {
+      final win = await _repo.messagesAround(conversationId, messageId, limit: _pageSize);
+      if (!ref.mounted) return false;
+      transcript.mutate((t) => t..setWindow(win.messages, messageId));
+      state = state.copyWith(
+        jumping: false,
+        windowMode: true,
+        nextCursor: win.olderCursor.isEmpty ? null : win.olderCursor,
+        hasMoreOlder: win.hasOlder,
+        newerCursor: win.newerCursor.isEmpty ? null : win.newerCursor,
+        hasMoreNewer: win.hasNewer,
+      );
+      return true;
+    } catch (_) {
+      if (ref.mounted) state = state.copyWith(jumping: false);
+      return false;
+    }
+  }
+
+  /// Window mode's forward continuation (`?dir=newer`) — the mirror of [loadOlder] downward.
+  /// 窗口模式的向前续翻(?dir=newer)——loadOlder 的向下镜像。
+  Future<void> loadNewer() async {
+    final cursor = state.newerCursor;
+    if (!state.windowMode || cursor == null || state.loadingNewer || !state.hasMoreNewer) return;
+    state = state.copyWith(loadingNewer: true);
+    try {
+      final page = await _repo.listMessagesNewer(conversationId, cursor: cursor, limit: _pageSize);
+      if (!ref.mounted) return;
+      transcript.mutate((t) => t..appendNewer(page.items));
+      state = state.copyWith(
+        newerCursor: page.nextCursor,
+        hasMoreNewer: !page.isLastPage,
+        loadingNewer: false,
+      );
+    } catch (_) {
+      if (ref.mounted) state = state.copyWith(loadingNewer: false);
+    }
+  }
+
+  /// Leave the jump window and rejoin the live present (the「回到现场」pill / an implicit send):
+  /// re-buffer + drop the live layer + re-hydrate the head — the SAME battle-tested path as a 410
+  /// resync, so a still-streaming turn re-seeds and nothing is fabricated.
+  ///
+  /// 离开跳转窗、归队现场(「回到现场」pill / 发送隐式触发):再缓冲 + 丢 live 层 + 重拉头——与 410
+  /// 重同步同一条久经沙场的路径,在流回合重种、零伪造。
+  Future<void> backToLive() async {
+    if (!state.windowMode) return;
+    _prelude = [];
+    state = state.copyWith(
+      windowMode: false,
+      newerCursor: null,
+      hasMoreNewer: false,
+      loadingNewer: false,
+      phase: TranscriptPhase.hydrating,
+    );
+    transcript.mutate((t) => t..dropLive());
+    await _hydrate();
   }
 
   // ── sends 发送 ──
@@ -158,6 +238,9 @@ class ConversationStreamController extends Notifier<ConversationStreamState> {
       {List<MentionSnapshot> mentions = const [], List<String> attachmentIds = const []}) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty && attachmentIds.isEmpty) return; // attachments alone may send 后端允许纯附件
+    // A send speaks to the PRESENT — leave a jump window first (implicit「回到现场」).
+    // 发送面向现场——先离开跳转窗(隐式回到现场)。
+    if (state.windowMode) await backToLive();
     final localId = 'local_${_localSeq++}';
     transcript.mutate((t) => t
       ..addPending(PendingSend(

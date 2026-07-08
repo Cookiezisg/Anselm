@@ -115,6 +115,8 @@ func (s *Service) KillWorkflow(ctx context.Context, workflowID string) (int, err
 		// 的 mark-failed 匹配 0 行 no-op。顺序决定 run 记录的终态。
 		if err := s.runs.MarkRunTerminal(ctx, r.ID, flowrundomain.StatusCancelled, "killed by user"); err != nil {
 			s.log.Warn("schedulerapp.KillWorkflow: mark cancelled", zap.String("flowrun", r.ID), zap.Error(err))
+		} else {
+			s.emitRunTerminal(ctx, workflowID, r.ID, flowrundomain.StatusCancelled, "")
 		}
 		// Resolve any approval the run was parked on so it doesn't linger as a dead inbox entry.
 		// 收掉 run 所 park 的审批，免其作为死收件箱项滞留。
@@ -145,6 +147,8 @@ func (s *Service) cancelRunningForReplace(ctx context.Context, workflowID string
 	for _, r := range runs {
 		if err := s.runs.MarkRunTerminal(ctx, r.ID, flowrundomain.StatusCancelled, "replaced by a newer trigger"); err != nil {
 			s.log.Warn("schedulerapp.cancelRunningForReplace: mark cancelled", zap.String("flowrun", r.ID), zap.Error(err))
+		} else {
+			s.emitRunTerminal(ctx, workflowID, r.ID, flowrundomain.StatusCancelled, "")
 		}
 		// Resolve any approval the run was parked on so it doesn't linger as a dead inbox entry.
 		// 收掉 run 所 park 的审批，免其作为死收件箱项滞留。
@@ -177,6 +181,7 @@ func (s *Service) markRunTerminal(ctx context.Context, run *flowrundomain.FlowRu
 	if err := s.runs.MarkRunTerminal(ctx, run.ID, status, msg); err != nil {
 		return err
 	}
+	s.emitRunTerminal(ctx, run.WorkflowID, run.ID, status, msg) // durable: the run is over survives reconnect
 	s.afterRunSettled(ctx, run.WorkflowID)
 	// Self-healing attention + summons: a failed run lights the workflow banner and lands a
 	// notification (the user may have left the panel); a completed run clears the banner.

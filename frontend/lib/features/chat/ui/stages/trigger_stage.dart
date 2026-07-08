@@ -1,0 +1,126 @@
+import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../../core/design/colors.dart';
+import '../../../../core/design/tokens.dart';
+import '../../../../core/design/typography.dart';
+import '../../../../core/ui/ui.dart';
+import '../../../../i18n/strings.g.dart';
+import '../../state/stage_truth.dart';
+import '../tool_card_skins.dart';
+import '../tool_card_trigger.dart';
+import 'stage_scene.dart';
+
+/// The TRIGGER stage (WRK-061 §7-5, W3) — the sentry post: the first closed key (`kind`) swaps in the
+/// right FACE (cron / webhook / fsnotify / sensor — the B2 [triggerConfigFaces] reused verbatim), the
+/// sensor face's condition/output CELs grow through [AnCelGrow], and while the receipt is pending an
+/// [AnRadarSweep] spins — honest waiting, never fabricated progress. Settle reconciles from GET
+/// (R-16: listening / nextFireAt / refCount come from the truth, never from frames): the listening
+/// dot, the next-fire countdown word, the reference count.
+///
+/// trigger 舞台(W3)——哨位:首个闭合键 kind 换上对应脸(四脸逐字复用 B2),sensor 的 condition/output CEL
+/// 走 AnCelGrow,等回执期 AnRadarSweep 转(诚实等待,不伪造进度)。落定按 GET 对账(R-16:listening/
+/// nextFireAt/refCount 只信真相):监听点+下次点火人话+引用数。
+class TriggerStageBody extends ConsumerWidget {
+  const TriggerStageBody({required this.scene, super.key});
+
+  final StageScene scene;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final t = Translations.of(context);
+    final session = scene.session;
+
+    final kind = session.closedStringAt(['kind']) ?? '';
+    final config = _closedObject(session, 'config');
+    final resultId = _resultId();
+
+    // R-16: the settle facts come from the reconciled GET only. 落定事实只从 GET。
+    final truthId = resultId ?? scene.editTargetId;
+    final truth = (!scene.live && truthId != null) ? ref.watch(triggerTruthProvider(truthId)) : null;
+    final trig = truth?.asData?.value;
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+      if (kind.isEmpty && scene.live)
+        Row(children: [
+          AnRadarSweep(size: AnSize.icon.toDouble()),
+          const SizedBox(width: AnSpace.s6),
+          Text(t.chat.stage.awaitingReceipt, style: AnText.meta.copyWith(color: c.inkFaint)),
+        ])
+      else if (kind.isNotEmpty) ...[
+        triggerConfigFaces(context, kind, config, truthId ?? ''),
+        // The sensor face is the discriminant special: its CELs get the grow treatment on top.
+        // sensor=判别式专场:condition/output 以 AnCelGrow 加演。
+        if (kind == 'sensor') ...[
+          for (final key in const ['condition', 'output'])
+            if (config[key] is String && (config[key] as String).isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: AnSpace.s2),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('$key ', style: AnText.meta.copyWith(color: c.inkFaint)),
+                  Expanded(child: AnCelGrow(expression: config[key] as String, live: scene.live)),
+                ]),
+              ),
+        ],
+      ],
+      if (scene.live && kind.isNotEmpty) ...[
+        const SizedBox(height: AnSpace.s6),
+        Row(children: [
+          AnRadarSweep(size: AnSize.iconSm.toDouble()),
+          const SizedBox(width: AnSpace.s6),
+          Text(t.chat.stage.awaitingReceipt, style: AnText.meta.copyWith(color: c.inkFaint)),
+        ]),
+      ],
+      if (!scene.live && !scene.failed) ...[
+        const SizedBox(height: AnSpace.s6),
+        if (trig != null)
+          Wrap(spacing: AnSpace.s8, runSpacing: AnSpace.s4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              Container(
+                width: AnSize.dot,
+                height: AnSize.dot,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: trig.listening ? c.ok : c.inkFaint,
+                ),
+              ),
+              const SizedBox(width: AnSpace.s4),
+              Text(trig.listening ? t.chat.stage.listening : t.chat.stage.notListening,
+                  style: AnText.meta.copyWith(color: trig.listening ? c.ok : c.inkFaint)),
+            ]),
+            if (trig.nextFireAt != null)
+              Text(t.chat.stage.nextFire(t: AnCastRow.timeLabel(context, trig.nextFireAt!)),
+                  style: AnText.meta.copyWith(color: c.inkMuted)),
+            if (trig.refCount > 0)
+              Text(t.chat.stage.refCountWord(n: trig.refCount),
+                  style: AnText.meta.copyWith(color: c.inkFaint)),
+          ]),
+        const SizedBox(height: AnSpace.s4),
+        RunStatBar(state: scene.state),
+      ],
+    ]);
+  }
+
+  // The config object's CLOSED keys so far (progressive while streaming). 已闭合的 config 键(流中渐进)。
+  Map<String, Object?> _closedObject(dynamic session, String key) {
+    final out = <String, Object?>{};
+    for (final e in session.events) {
+      final path = e.path as List<Object>;
+      if (path.length == 2 && path.first == key && path.last is String) {
+        out[path.last as String] = e.value;
+      } else if (path.length == 1 && path.first == key && e.value is Map) {
+        for (final me in (e.value as Map).entries) {
+          out['${me.key}'] = me.value;
+        }
+      }
+    }
+    return out;
+  }
+
+  String? _resultId() {
+    final r = scene.state.resultText;
+    final m = RegExp(r'"id"\s*:\s*"(tg_\w+)"').firstMatch(r);
+    return m?.group(1);
+  }
+}

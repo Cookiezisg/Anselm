@@ -57,6 +57,15 @@ func (f *fakeMessages) GetMessage(context.Context, string) (*messagesdomain.Mess
 func (f *fakeMessages) ListMessages(context.Context, string, string, int) ([]*messagesdomain.Message, string, error) {
 	return nil, "", nil
 }
+func (f *fakeMessages) ListMessagesNewer(context.Context, string, string, int) ([]*messagesdomain.Message, string, error) {
+	return nil, "", nil
+}
+func (f *fakeMessages) ListMessagesAround(context.Context, string, string, int) ([]*messagesdomain.Message, string, string, bool, bool, error) {
+	return nil, "", "", false, false, nil
+}
+func (f *fakeMessages) ListAnchorSource(context.Context, string) ([]*messagesdomain.Message, []*messagesdomain.Block, error) {
+	return nil, nil, nil
+}
 func (f *fakeMessages) SumTokens(context.Context, string) (int, int, error) { return 0, 0, nil }
 
 func (f *fakeMessages) idsForRole(role string) []string {

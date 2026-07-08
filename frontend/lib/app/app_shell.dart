@@ -9,6 +9,8 @@ import '../core/shell/oceans.dart';
 import '../core/shell/shell_chrome.dart';
 import '../core/ui/ui.dart';
 import '../features/chat/state/selected_conversation.dart';
+import '../features/chat/state/stage_director_provider.dart';
+import '../features/chat/ui/stage_panel.dart';
 import '../features/chat/ui/chat_head.dart';
 import '../features/chat/ui/chat_ocean.dart';
 import '../features/chat/ui/conversation_rail.dart';
@@ -84,12 +86,20 @@ class AppShell extends ConsumerWidget {
     // Keep the event→toast dispatcher alive + subscribed for the whole session (it pops a top-right toast
     // for important stream events). A bare watch — its value is void. 保活事件→toast 派发器(整会话订阅)。
     ref.watch(toastDispatcherProvider);
-    // The right island reveals for entities (run terminal) OR documents (properties inspector) when that
-    // ocean has a selection. 右岛在 entities(run 终端)或 documents(属性面板)有选中时揭示。
+    // The right island reveals for entities (run terminal), documents (properties inspector) OR chat
+    // (the sidestage, WRK-061) when that ocean has a selection. 右岛在 entities(run 终端)/documents(属性
+    // 面板)/chat(侧幕)有选中时揭示。
     final hasEntitySelection = onEntities && ref.watch(selectedEntityProvider) != null;
     final hasDocSelection = onDocuments && ref.watch(selectedDocProvider) != null;
-    final hasSelection = hasEntitySelection || hasDocSelection;
+    final chatConversation = onChat ? ref.watch(selectedConversationProvider)?.id : null;
+    final hasSelection = hasEntitySelection || hasDocSelection || chatConversation != null;
     final rightCollapsed = ref.watch(rightPanelCollapsedProvider);
+    // R-15: a collapsed sidestage keeps only the activity bit — a live channel behind the fold
+    // lights a dot on the panel-right button. 收起的侧幕只留活动位:折叠后有 live 频道即点亮右钮点。
+    final rightActivity = rightCollapsed &&
+        chatConversation != null &&
+        ref.watch(stageDirectorProvider(chatConversation)
+            .select((st) => st.channels.any((ch) => ch.live)));
     final chrome = ref.watch(shellChromeProvider);
     final wsName = ref.watch(activeWorkspaceNameProvider) ?? context.t.shell.workspaceFallback;
 
@@ -195,13 +205,19 @@ class AppShell extends ConsumerWidget {
                 : onDocuments
                     ? const DocumentOcean()
                     : const _OceanPlaceholder(),
-        // Documents → the properties inspector; entities → the run terminal (the shell only reveals it when
-        // that ocean has a selection). documents→属性面板;entities→run 终端。
+        // Documents → the properties inspector; chat → the sidestage; entities → the run terminal (the
+        // shell only reveals it when that ocean has a selection). documents→属性面板;chat→侧幕;entities→run 终端。
         inspector: AnInspector(
           headless: true,
-          child: onDocuments ? const DocumentsInspector() : const RunTerminal(),
+          child: onDocuments
+              ? const DocumentsInspector()
+              : chatConversation != null
+                  ? StagePanel(conversationId: chatConversation)
+                  : const RunTerminal(),
         ),
         inspectorOpen: hasSelection && !rightCollapsed,
+        rightWidth: chrome.rightWidth,
+        onRightWidthCommitted: (w) => ref.read(shellChromeProvider.notifier).setRightWidth(w),
         leftCollapsed: chrome.leftCollapsed,
         leftWidth: chrome.leftWidth,
         onToggleLeft: toggleLeft,
@@ -215,6 +231,7 @@ class AppShell extends ConsumerWidget {
         // AnWindowControls 自行在全屏收 0(另一轴)。
         titlebarHeight: AnSize.titlebar,
         onToggleRight: hasSelection ? toggleRight : null,
+        rightActivity: rightActivity,
       ),
     );
   }

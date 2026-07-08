@@ -29,6 +29,13 @@ abstract class ChatBlock with _$ChatBlock {
     @Default('') String content,
     @Default('') String status,
     @Default('') String error,
+    // The row's write time (P1-e) — the backend has always serialized it; anchors/场次条 order
+    // turns by message createdAt and blocks WITHIN a turn by seq, but a block-born anchor (a
+    // dangerous tool, a compaction mark) timestamps by this. Nullable: live frames have no row
+    // time until the close snapshot lands.
+    // 行落盘时刻(P1-e)——后端一直在序列化;场次条按回合 createdAt 排、回合内按 seq,块生锚点
+    // (危险工具/压缩标记)以此计时。可空:live 帧在 close 快照前无行时刻。
+    DateTime? createdAt,
   }) = _ChatBlock;
 
   factory ChatBlock.fromJson(Map<String, dynamic> json) => _$ChatBlockFromJson(json);

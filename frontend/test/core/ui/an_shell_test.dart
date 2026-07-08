@@ -12,16 +12,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Skeleton guards for the three-island shell: a draggable left island (240–400, default 320) +
-/// a fixed right island (320) + the open ocean, and the window minimum guarantees the ocean's
-/// content column never drops below its minimum even with the left island at its max.
-/// 三岛 shell 骨架守卫:左岛可拖(240–400 默认 320)+ 右岛固定(320)+ 敞开海洋;窗口最小保证即便左岛
-/// 拖到最大、海洋内容列仍不低于最小。
+/// a USER-DRAGGABLE right island (280–640, default 320, live-clamped so the ocean keeps its floor) +
+/// the open ocean. 三岛 shell 骨架守卫:左岛可拖(240–400 默认 320)+ 右岛可拖(280–640 默认 320,
+/// 实时钳制保海洋下限)+ 敞开海洋。
 void main() {
   // AnShell now reads context.t for the panel-button labels → wrap in TranslationProvider. 套件读 i18n。
   Widget wrap(Widget shell) => TranslationProvider(child: MaterialApp(theme: AnTheme.light(), home: shell));
   Widget harness() => wrap(const AnShell());
 
-  testWidgets('renders left(default 320, draggable) + right(fixed 320) islands + ocean',
+  testWidgets('renders left(default 320, draggable) + right(default 320, draggable) islands + ocean',
       (tester) async {
     tester.view.physicalSize = const Size(1400, 900);
     tester.view.devicePixelRatio = 1.0;
@@ -32,7 +31,7 @@ void main() {
 
     expect(find.byType(AnIsland), findsNWidgets(2));
     expect(tester.getSize(find.byType(AnIsland).first).width, AnSize.sidebar); // left default 320
-    expect(tester.getSize(find.byType(AnIsland).last).width, AnSize.rightIsland); // right fixed 320
+    expect(tester.getSize(find.byType(AnIsland).last).width, AnSize.rightIsland); // right default 320
     expect(find.text('Sidebar'), findsOneWidget);
     expect(find.text('Ocean'), findsOneWidget);
     expect(find.text('Inspector'), findsOneWidget);
@@ -54,7 +53,7 @@ void main() {
     expect(sidebarTop - islandTop, closeTo(AnSize.islandHead, 3));
   });
 
-  testWidgets('left island drags within [min, max]; right stays fixed', (tester) async {
+  testWidgets('left island drags within [min, max]; the right island does not move with it', (tester) async {
     tester.view.physicalSize = const Size(1400, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -69,6 +68,33 @@ void main() {
     await tester.drag(find.byKey(const ValueKey('anShellLeftGrip')), const Offset(999, 0));
     await tester.pump();
     expect(tester.getSize(find.byType(AnIsland).first).width, AnSize.sidebarMax); // clamped 400
+  });
+
+  testWidgets('right island drags leftward to widen, clamped to the OCEAN-FLOOR ceiling and to min',
+      (tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    final committed = <double>[];
+    await tester.pumpWidget(wrap(AnShell(onRightWidthCommitted: committed.add)));
+    await tester.pump();
+
+    // Dragging LEFT widens (the grip sits on the island's leading gap). 向左拖=加宽。
+    await tester.drag(find.byKey(const ValueKey('anShellRightGrip')), const Offset(-60, 0));
+    await tester.pump();
+    expect(tester.getSize(find.byType(AnIsland).last).width, AnSize.rightIsland + 60); // 380
+    expect(committed.single, AnSize.rightIsland + 60);
+
+    // A huge widen clamps to the DYNAMIC ceiling: window 1400 − pad(16) − left(320+8) − oceanMin(480)
+    // − gap(8) = 568 (below rightIslandMax 640 — the ocean's floor wins). 动态上限:海洋保底优先。
+    await tester.drag(find.byKey(const ValueKey('anShellRightGrip')), const Offset(-999, 0));
+    await tester.pump();
+    expect(tester.getSize(find.byType(AnIsland).last).width, 568);
+
+    // And a huge narrow clamps to min. 收窄钳到最小。
+    await tester.drag(find.byKey(const ValueKey('anShellRightGrip')), const Offset(999, 0));
+    await tester.pump();
+    expect(tester.getSize(find.byType(AnIsland).last).width, AnSize.rightIslandMin);
   });
 
   testWidgets('inspectorOpen reveals/hides the right island; the ocean reclaims its width',
@@ -221,6 +247,9 @@ void main() {
   });
 
   test('minimum window keeps the ocean ≥ its min column even with the left island at max', () {
+    // The right term is rightIslandMIN: at the window minimum the user can always narrow the right
+    // island to fit (its live drag ceiling squeezes wider values honestly). 右项取右岛最小:最小窗下
+    // 用户总能把右岛收窄适配(更宽值被动态上限如实压缩)。
     expect(
       AnSize.windowMinWidth,
       AnSize.shellPad +
@@ -228,15 +257,17 @@ void main() {
           AnSize.shellGap +
           AnSize.oceanMin +
           AnSize.shellGap +
-          AnSize.rightIsland +
+          AnSize.rightIslandMin +
           AnSize.shellPad,
     );
-    // Worst case: left at MAX → ocean at the minimum window is exactly oceanMin (never below).
+    // Worst case: left at MAX + right at its MIN → the ocean at the minimum window is exactly
+    // oceanMin (a wider right island is squeezed by the live drag ceiling, never the ocean).
+    // 最坏情形:左最大+右最小 → 最小窗下海洋恰为 oceanMin(右岛更宽被动态上限压,海洋不受挤)。
     final oceanWorstCase = AnSize.windowMinWidth -
         2 * AnSize.shellPad -
         AnSize.sidebarMax -
         2 * AnSize.shellGap -
-        AnSize.rightIsland;
+        AnSize.rightIslandMin;
     expect(oceanWorstCase, greaterThanOrEqualTo(AnSize.oceanMin));
     expect(AnSize.windowMinHeight, closeTo(AnSize.windowMinWidth / AnSize.goldenRatio, 0.01));
     expect(AnSize.windowMinWidth, lessThan(1512)); // fits a scaled 14" MacBook with margin 留余量

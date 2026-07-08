@@ -42,7 +42,9 @@ audience: [human, ai]
 
 ## 6. 契约（引用）
 
-端点（send/cancel/interactions/usage/system-prompt-preview）→ [api.md](../api.md) · 码 4 个（`EMPTY_CONTENT` 400 / `STREAM_IN_PROGRESS` 409 / `NO_PENDING_INTERACTION` 404 / `INTERACTION_INVALID_ACTION` 422）→ [error-codes.md](../error-codes.md)。注：message 行的 `error_code` 字段（如 `LLM_RESOLVE_ERROR`/`MAX_STEPS_REACHED`）是**回合级错误码**（前端展示），与 HTTP wire code 是两个命名空间。
+端点（send/cancel/interactions/usage/system-prompt-preview/messages 三读形态[cursor·around·dir=newer]/anchors）→ [api.md](../api.md) · 码 4 个（`EMPTY_CONTENT` 400 / `STREAM_IN_PROGRESS` 409 / `NO_PENDING_INTERACTION` 404 / `INTERACTION_INVALID_ACTION` 422）→ [error-codes.md](../error-codes.md)。注：message 行的 `error_code` 字段（如 `LLM_RESOLVE_ERROR`/`MAX_STEPS_REACHED`）是**回合级错误码**（前端展示），与 HTTP wire code 是两个命名空间。
+
+**导航锚点（`GET /{id}/anchors`，场次条）**：`chatapp.ListAnchors` 归属前置校验后走 `ListAnchorSource` lean 扫描 → `buildAnchors` 建锚（oldest-first）→ 反转 newest-first → 内存 keyset 分页（游标键 `(at, blockId|messageId)`）。锚点分类学（业界收敛 + WRK-061）：**人类内容是主锚与硬边界**——`user`（回合首行节选 ≤120 rune）；锚点间连续非危险 tool_call 折叠为一条 `tools` 簇（count 计数、钉簇首块，跨回合可并）；`danger`（attrs.danger=dangerous 逐条露出，title=工具名·entityName）/ `compaction`（块型）/ `abnormal`（回合 status error/cancelled，title=stopReason→errorCode→status 回退）同样打断簇；`gate`（待决人闸）来自 broker.Pending——**无日志行的活状态**，只前置首页顶、不占 limit、置身 keyset 之外（重连本就重拉首页）。落在 chatapp（而非独立 service）正因 gate 只有 broker 可给。
 
 ## 7. 跨域集成
 

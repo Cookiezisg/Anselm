@@ -1,4 +1,5 @@
 import 'package:anselm/core/contract/entities/values.dart';
+import 'package:anselm/core/model/partial_json.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/messages/block_tree_reducer.dart';
 import 'package:anselm/core/contract/messages/block_content.dart';
@@ -45,7 +46,7 @@ void main() {
   setUpAll(() => LocaleSettings.setLocaleRaw('zh-CN'));
 
   test('graphFromWorkflowOps builds the full graph from add_node/add_edge ops', () {
-    final g = graphFromWorkflowOps(_ops);
+    final g = graphFromWorkflowOps(PartialJsonSession()..append(_ops));
     expect(g.nodes.length, 3);
     expect(g.edges.length, 2);
     expect(g.nodes[0].kind, NodeKind.trigger);
@@ -57,7 +58,7 @@ void main() {
   test('graphFromWorkflowOps is tolerant of a partial stream (only completed ops)', () {
     // The last add_edge is cut off mid-object → only the completed ops surface. 末 op 截断→只取已闭合。
     const partial = '{"ops":[{"op":"add_node","node":{"id":"a","kind":"trigger","ref":"t"}},{"op":"add_e';
-    final g = graphFromWorkflowOps(partial);
+    final g = graphFromWorkflowOps(PartialJsonSession()..append(partial));
     expect(g.nodes.length, 1);
     expect(g.edges, isEmpty);
   });
@@ -114,7 +115,7 @@ void main() {
   }
 
   test('workflowEditDelta derives added / updated / deleted from the ops (zero before-graph)', () {
-    final d = workflowEditDelta(editOps);
+    final d = workflowEditDelta(PartialJsonSession()..append(editOps));
     expect(d.addedNodes.length, 1);
     expect(d.addedNodes.first.ref, 'notify-slack');
     expect(d.updatedNodes, ['n2']);
@@ -125,7 +126,7 @@ void main() {
   });
 
   test('a set_meta-only edit is metaOnly (graph unchanged)', () {
-    final d = workflowEditDelta('{"workflowId":"wf_1","ops":[{"op":"set_meta","name":"renamed"}]}');
+    final d = workflowEditDelta(PartialJsonSession()..append('{"workflowId":"wf_1","ops":[{"op":"set_meta","name":"renamed"}]}'));
     expect(d.metaOnly, isTrue);
     expect(d.addedNodes, isEmpty);
   });

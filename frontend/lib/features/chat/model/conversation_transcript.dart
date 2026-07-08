@@ -55,6 +55,26 @@ class ConversationTranscript {
   // 并入会被抹)。
   final Map<String, List<MentionSnapshot>> _echoMentions = {};
 
+  /// One live block by id (any depth) — the sidestage renders its subject straight off the reducer
+  /// (WRK-061; live turns never migrate, so a streamed tool_call stays reachable here all session).
+  /// 按 id 取 live 块(任意深)——侧幕直读 reducer 渲主角(live 回合永不搬迁,流过的 tool_call 全程可达)。
+  BlockNode? liveBlock(String id) => _live.nodeById(id);
+
+  /// The transcript turn containing [blockId] (any depth) — the jump anchor for a live-born block
+  /// (R-14: a settle hands off to the transcript anchor; a role-式 Subagent has no Cast shadow, so
+  /// this IS its only anchor). null when the block is unknown to the live layer.
+  /// 含 [blockId] 的回合(任意深)——live 生块的跳转锚(R-14:谢幕交棒 transcript 锚;role 式 Subagent
+  /// 台账无影,这就是它唯一的锚)。live 层不识该块时 null。
+  String? messageIdOf(String blockId) {
+    var node = _live.nodeById(blockId);
+    while (node != null) {
+      if (node.kind == BlockKind.message) return node.id;
+      final p = node.parentId;
+      node = (p == null || p.isEmpty) ? null : _live.nodeById(p);
+    }
+    return null;
+  }
+
   /// Top-level live turns (message-kind roots only — orphan block frames are defensive no-shows).
   /// live 顶层回合(仅 message 根;孤儿块帧防御性不显)。
   List<BlockNode> get liveTurns =>
@@ -90,6 +110,7 @@ class ConversationTranscript {
   void setHistory(List<ChatMessage> newestFirst) {
     settled.clear();
     olderCount = 0;
+    windowMode = false;
     final chronological =
         newestFirst.reversed.where((m) => m.subagentId.isEmpty).toList(growable: false);
     for (var i = 0; i < chronological.length; i++) {
@@ -111,6 +132,52 @@ class ConversationTranscript {
         .toList(growable: false);
     settled.insertAll(0, rows);
     olderCount += rows.length;
+  }
+
+  // ── deep-jump window mode (W6 re-anchor) 深跳窗口模式 ──
+
+  /// [settled] holds a DISJOINT `?around=` window instead of the head-attached pages. The view hides
+  /// live/pending (they belong to the detached present — the「回到现场」pill restores them via a head
+  /// re-hydrate); the live reducer keeps folding frames untouched so nothing is lost for the rejoin.
+  /// The window is REPLACED wholesale, never stitched into contiguous pages (prependOlder is blind —
+  /// a disjoint merge would duplicate rows or leave silent gaps).
+  ///
+  /// settled 持一扇非连续 `?around=` 窗、而非贴头分页。视图藏 live/pending(它们属于被离开的「现场」——
+  /// 「回到现场」pill 经重拉头恢复);live reducer 照常折帧,归队时零损失。窗**整扇替换**、绝不与连续分页
+  /// 缝合(prependOlder 是盲插——非连续合并必重复行或留静默断层)。
+  bool windowMode = false;
+
+  /// Replace [settled] with a jump window ([newestFirst] wire order), RE-ANCHORED on [targetId]: the
+  /// target becomes the center sliver's first row (scroll offset 0 = the target at the anchor — zero
+  /// extent estimation, the re-anchor move production chat apps converge on; older rows grow upward,
+  /// newer rows downward, both directions page on).
+  ///
+  /// 用跳转窗([newestFirst] 线缆序)替换 settled、以 [targetId] **重锚**:目标成为 center sliver 首行
+  /// (offset 0 = 目标落锚——零 extent 估算,生产级聊天收敛的 re-anchor 形;更旧向上长、更新向下长,双向续翻)。
+  void setWindow(List<ChatMessage> newestFirst, String targetId) {
+    settled.clear();
+    windowMode = true;
+    settled.addAll(
+        newestFirst.reversed.where((m) => m.subagentId.isEmpty).map(hydrateTurn));
+    final i = settled.indexWhere((n) => n.id == targetId);
+    olderCount = i < 0 ? 0 : i;
+  }
+
+  /// Re-center the anchor on an ALREADY-LOADED settled row — the near jump (no fetch, no mode
+  /// change): the view then lands the target at offset 0. False when the id isn't loaded (the
+  /// caller falls back to the deep window). 近跳:锚移到已加载行(零拉取零换模);未加载返 false 走深窗。
+  bool retargetCenter(String targetId) {
+    final i = settled.indexWhere((n) => n.id == targetId);
+    if (i < 0) return false;
+    olderCount = i;
+    return true;
+  }
+
+  /// Append one NEWER page below the window ([newestFirst] wire order) — window mode's forward
+  /// continuation (the `?dir=newer` closed loop). 窗下接一页更新(向前续翻闭环)。
+  void appendNewer(List<ChatMessage> newestFirst) {
+    settled.addAll(
+        newestFirst.reversed.where((m) => m.subagentId.isEmpty).map(hydrateTurn));
   }
 
   // ── live ──

@@ -98,4 +98,72 @@ void main() {
     expect(r.roots.length, 1);
     expect(r.nodeCount, 1);
   });
+
+  // ── WRK-061 W0: revision / memoization / delta release ──────────────────────────────────────────
+
+  test('revision: every frame bumps the node AND its ancestor chain (subtree version)', () {
+    final r = BlockTreeReducer();
+    r.apply(_open('tc', 'tool_call'));
+    final tc = r.nodeById('tc')!;
+    final r0 = tc.revision;
+    r.apply(_open('tr', 'tool_result', parent: 'tc'));
+    expect(tc.revision, greaterThan(r0)); // child open bumps the parent 子块 open 抬父版本
+    final r1 = tc.revision;
+    r.apply(_delta('tr', 'partial'));
+    expect(tc.revision, greaterThan(r1)); // child delta bumps the parent 子块 delta 抬父版本
+    final r2 = tc.revision;
+    r.apply(_closeBare('tr'));
+    expect(tc.revision, greaterThan(r2)); // child close bumps the parent 子块 close 抬父版本
+  });
+
+  test('deltaText is memoized by length (same instance until the buffer grows)', () {
+    final r = BlockTreeReducer();
+    r.apply(_open('b1', 'text'));
+    r.apply(_delta('b1', 'abc'));
+    final n = r.nodeById('b1')!;
+    expect(identical(n.deltaText, n.deltaText), isTrue); // 同长→同实例
+    final before = n.deltaText;
+    r.apply(_delta('b1', 'd'));
+    expect(n.deltaText, 'abcd');
+    expect(identical(n.deltaText, before), isFalse);
+  });
+
+  test('close WITH a covering snapshot releases the delta buffer (no double residency)', () {
+    final r = BlockTreeReducer();
+    r.apply(_open('b1', 'text'));
+    r.apply(_delta('b1', 'Hello'));
+    r.apply(_close('b1', 'text', {'content': 'Hello world'}));
+    final n = r.nodeById('b1')!;
+    expect(n.deltaText, isEmpty); // buffer freed 缓冲已释放
+    expect(n.displayText, 'Hello world'); // snapshot is the truth 快照即真相
+
+    // tool_call: the covering key is `arguments`. tool_call 的覆盖键是 arguments。
+    r.apply(_open('tc', 'tool_call', content: {'name': 'rm'}));
+    r.apply(_delta('tc', '{"path"'));
+    r.apply(_close('tc', 'tool_call', {'name': 'rm', 'arguments': '{"path":"/"}'}));
+    final tc = r.nodeById('tc')!;
+    expect(tc.deltaText, isEmpty);
+    expect(tc.argumentsText, '{"path":"/"}');
+  });
+
+  test('close WITHOUT a covering snapshot keeps the delta buffer (honest fallback intact)', () {
+    final r = BlockTreeReducer();
+    r.apply(_open('tc', 'tool_call', content: {'name': 'rm'}));
+    r.apply(_delta('tc', '{"path":"/tmp"}'));
+    // close snapshot lacks `arguments` — argumentsText must still render the streamed fragment.
+    // close 快照缺 arguments——argumentsText 仍须渲已流入片段。
+    r.apply(_close('tc', 'tool_call', {'name': 'rm'}));
+    expect(r.nodeById('tc')!.argumentsText, '{"path":"/tmp"}');
+  });
+
+  test('derivedCache slot: a frame invalidates the owner\'s revision key', () {
+    final r = BlockTreeReducer();
+    r.apply(_open('tc', 'tool_call'));
+    final n = r.nodeById('tc')!;
+    n.derivedCache = 'projection';
+    n.derivedCacheRev = n.revision;
+    expect(n.derivedCacheRev == n.revision, isTrue);
+    r.apply(_delta('tc', '{'));
+    expect(n.derivedCacheRev == n.revision, isFalse); // stale → owner re-derives 过期→重派生
+  });
 }
