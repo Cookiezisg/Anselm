@@ -16,6 +16,27 @@ class WorkspacePrefsController extends AsyncNotifier<Workspace> {
 
   Future<void> setWebFetchMode(String mode) => _patch(webFetchMode: mode);
 
+  // ── S2 scenario defaults (dedicated endpoints return the fresh workspace row) 场景默认 ──
+
+  Future<void> setDefaultModel(String scenario,
+      {required String apiKeyId, required String modelId}) async {
+    state = AsyncData(await ref
+        .read(settingsRepositoryProvider)
+        .putDefaultModel(scenario, apiKeyId: apiKeyId, modelId: modelId));
+  }
+
+  Future<void> clearDefaultModel(String scenario) async {
+    state = AsyncData(await ref.read(settingsRepositoryProvider).deleteDefaultModel(scenario));
+  }
+
+  Future<void> setDefaultSearch(String apiKeyId) async {
+    state = AsyncData(await ref.read(settingsRepositoryProvider).putDefaultSearch(apiKeyId));
+  }
+
+  Future<void> clearDefaultSearch() async {
+    state = AsyncData(await ref.read(settingsRepositoryProvider).deleteDefaultSearch());
+  }
+
   Future<void> _patch({String? language, String? webFetchMode}) async {
     // A write may arrive before the first fetch resolves (a panel that only READS on demand) —
     // await the row instead of silently dropping the write. 写可能先于首取完成——等行,绝不静默弃写。

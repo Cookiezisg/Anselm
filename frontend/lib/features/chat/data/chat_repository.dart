@@ -5,7 +5,6 @@ import '../../../core/contract/conversation.dart';
 import '../../../core/contract/interaction.dart';
 import '../../../core/contract/messages/chat_message.dart';
 import '../../../core/contract/messages/transcript_nav.dart';
-import '../../../core/contract/model_capability.dart';
 import '../../../core/contract/page.dart';
 import '../../../core/contract/entities/agent.dart';
 import '../../../core/contract/entities/approval.dart';
@@ -198,7 +197,6 @@ abstract interface class ChatRepository {
 
   /// Every runnable model option (`GET /model-capabilities`: probed key × served model) — the head's
   /// per-thread model picker. 全部可跑模型选项(已探测 key × 模型)——头部线程级选择器的数据源。
-  Future<List<ModelCapability>> listModelCapabilities();
 
   // ── right island: the touchpoint ledger (WRK-061) 右岛触点台账 ──
 
@@ -453,12 +451,6 @@ class LiveChatRepository implements ChatRepository {
         .map(turnSignalFromEnvelope)
         .where((s) => s != null)
         .cast<TurnSignal>();
-  }
-
-  @override
-  Future<List<ModelCapability>> listModelCapabilities() async {
-    final page = await _api.getPage('/api/v1/model-capabilities', ModelCapability.fromJson);
-    return page.items;
   }
 
   @override

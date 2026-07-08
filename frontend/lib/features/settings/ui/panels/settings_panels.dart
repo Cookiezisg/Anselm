@@ -4,6 +4,7 @@ import '../../model/settings_catalog.dart';
 import '../settings_ocean.dart';
 import 'chat_panel.dart';
 import 'general_panel.dart';
+import 'models_keys_panel.dart';
 import 'notifications_panel.dart';
 
 /// The panel-body registry — one builder per [SettingsPanel]. Panels light up slice by slice
@@ -16,7 +17,7 @@ Widget buildSettingsPanelBody(BuildContext context, SettingsPanel panel) {
     SettingsPanel.general => const GeneralPanel(),
     SettingsPanel.notifications => const NotificationsPanel(),
     SettingsPanel.chat => const ChatPanel(),
-    SettingsPanel.modelsKeys => const SettingsPanelPlaceholder(),
+    SettingsPanel.modelsKeys => const ModelsKeysPanel(),
     SettingsPanel.mcp => const SettingsPanelPlaceholder(),
     SettingsPanel.memory => const SettingsPanelPlaceholder(),
     SettingsPanel.sandbox => const SettingsPanelPlaceholder(),

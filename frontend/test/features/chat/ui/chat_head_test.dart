@@ -1,5 +1,7 @@
 import 'package:anselm/core/contract/conversation.dart';
+import 'package:anselm/core/contract/model_capability.dart';
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/models/model_capabilities.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/features/chat/data/chat_fixtures.dart';
 import 'package:anselm/features/chat/data/chat_providers.dart';
@@ -32,6 +34,9 @@ class _Selected extends SelectedConversation {
   final container = ProviderContainer(overrides: [
     chatRepositoryProvider.overrideWithValue(repo),
     selectedConversationProvider.overrideWith(() => _Selected(selected)),
+    // Capabilities live in core (S-15) — feed them here or the picker hits real HTTP + retry timers.
+    // 能力目录在 core(S-15)——不喂就打真 HTTP 还挂重试 timer。
+    modelCapabilitiesProvider.overrideWith((ref) async => const <ModelCapability>[]),
   ]);
   addTearDown(container.dispose);
   final w = UncontrolledProviderScope(

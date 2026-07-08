@@ -58,12 +58,6 @@ class ConversationHeaderController extends AsyncNotifier<Conversation> {
 final conversationHeaderProvider = AsyncNotifierProvider.autoDispose
     .family<ConversationHeaderController, Conversation, String>(ConversationHeaderController.new);
 
-/// The model picker's options — fetched once per session (capabilities change only when keys change;
-/// a stale list self-heals on next app run, acceptable for v1). 选择器选项(会话期取一次;key 变更后下次启动自愈)。
-final modelCapabilitiesProvider = FutureProvider((ref) async {
-  return ref.watch(chatRepositoryProvider).listModelCapabilities();
-});
-
 /// The LANDING's model choice — sticky across new chats (null = Auto). The backend's create endpoint
 /// takes only a title, so the first send stamps this via PATCH between create and send (see
 /// startConversation); it stays put afterwards so the next new chat inherits the choice.

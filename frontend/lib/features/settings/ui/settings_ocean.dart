@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,6 +10,7 @@ import '../../../core/ui/an_page.dart';
 import '../../../core/ui/an_state.dart';
 import '../../../i18n/strings.g.dart';
 import '../model/settings_catalog.dart';
+import '../state/settings_detail_provider.dart';
 import '../state/settings_panel_provider.dart';
 import 'panels/settings_panels.dart';
 
@@ -57,32 +59,54 @@ class _SettingsOceanState extends ConsumerState<SettingsOcean> {
     });
   }
 
+  /// The pushed-in detail's crumb segment (WRK-062 §1 third level). 推入级面包屑段。
+  String? _detailLabel(Translations t, SettingsDetail? d) => switch (d?.kind) {
+        'addKey' => t.settings.keys.addKey,
+        'editKey' => t.settings.keys.editKey,
+        _ => null,
+      };
+
   @override
   Widget build(BuildContext context) {
     final t = Translations.of(context);
     final c = context.colors;
     final panel = ref.watch(settingsPanelProvider);
+    final detail = ref.watch(settingsDetailProvider);
     final entry = settingsCatalog.firstWhere((e) => e.panel == panel);
     final label = entry.labelOf(t);
-    _bindHead('${t.settings.title} / $label');
-    // Panel switch: fresh page opens at the top with its big title visible. 换面板从顶部开。
+    final detailLabel = _detailLabel(t, detail);
+    _bindHead(
+        '${t.settings.title} / $label${detailLabel == null ? '' : ' / $detailLabel'}');
+    // Panel switch: pop any pushed detail + fresh page opens at the top. 换面板弹出详情+回顶。
     ref.listen(settingsPanelProvider, (prev, next) {
-      if (prev != next && _scroll.hasClients) {
-        _scroll.jumpTo(0);
+      if (prev != next) {
+        ref.read(settingsDetailProvider.notifier).pop();
+        if (_scroll.hasClients) _scroll.jumpTo(0);
         ref.read(shellHeadProvider.notifier).setCollapsed(false);
       }
     });
-    return AnPage(
-      controller: _scroll,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(top: AnSpace.s24, bottom: AnSpace.s16),
-            child: Text(label, style: AnText.readingH1.copyWith(color: c.ink)),
+    return CallbackShortcuts(
+      bindings: {
+        // Esc returns from the pushed third level (§1). Esc 从推入级返回。
+        if (detail != null)
+          const SingleActivator(LogicalKeyboardKey.escape): () =>
+              ref.read(settingsDetailProvider.notifier).pop(),
+      },
+      child: Focus(
+        autofocus: false,
+        child: AnPage(
+          controller: _scroll,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: AnSpace.s24, bottom: AnSpace.s16),
+                child: Text(detailLabel ?? label, style: AnText.readingH1.copyWith(color: c.ink)),
+              ),
+              buildSettingsPanelBody(context, panel),
+            ],
           ),
-          buildSettingsPanelBody(context, panel),
-        ],
+        ),
       ),
     );
   }

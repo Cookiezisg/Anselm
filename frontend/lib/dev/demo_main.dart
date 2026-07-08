@@ -8,6 +8,8 @@ import '../core/overlay/an_overlay.dart';
 import '../core/router/navigation.dart';
 import '../core/settings/app_prefs_providers.dart';
 import '../core/settings/settings_prefs.dart';
+import '../core/models/model_capabilities.dart';
+import '../features/settings/data/settings_demo_fixture.dart';
 import '../features/settings/data/settings_repository.dart';
 import '../features/chat/data/chat_demo_fixture.dart';
 import '../features/chat/data/chat_providers.dart';
@@ -47,7 +49,10 @@ Future<void> main() async {
         chatRepositoryProvider.overrideWithValue(demoChatRepository()),
         documentsRepositoryProvider.overrideWithValue(demoDocumentsRepository()),
         notificationRepositoryProvider.overrideWithValue(demoNotificationRepository()),
-        settingsRepositoryProvider.overrideWithValue(FixtureSettingsRepository()),
+        settingsRepositoryProvider.overrideWithValue(demoSettingsRepository()),
+        // Capabilities are core-level (S-15): zero-backend demo feeds them directly, never HTTP.
+        // 能力目录在 core(S-15):零后端 demo 直喂,绝不打 HTTP。
+        modelCapabilitiesProvider.overrideWith((ref) async => demoModelCapabilities),
         mentionSourceProvider.overrideWith(entityMentionSource),
       ],
       child: TranslationProvider(child: const _DemoRoot()),

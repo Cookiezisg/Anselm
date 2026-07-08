@@ -191,6 +191,25 @@ class ApiClient {
   Future<void> postNoContent(String path, {Object? body}) =>
       _send(() async => _dio.post<void>(path, data: body));
 
+  /// POST returning a `{data:<obj>}` map (an action whose product is a small ad-hoc object, e.g.
+  /// `:provision` → `{provisioned}`). POST 返 data 对象(小型即席产物动作)。
+  Future<Map<String, dynamic>> postData(String path, {Object? body}) => _send(() async {
+        final r = await _dio.post<Map<String, dynamic>>(path, data: body);
+        return _data(r.data);
+      });
+
+  /// PUT returning the updated entity snapshot (sugar over [patchEntity] put:true). PUT 返实体快照。
+  Future<T> putEntity<T>(String path, T Function(Map<String, dynamic>) parse, {Object? body}) =>
+      patchEntity(path, parse, body: body, put: true);
+
+  /// DELETE returning the post-delete entity snapshot (e.g. clearing a workspace default returns
+  /// the fresh workspace row). DELETE 返删后实体快照(如清默认返新 workspace 行)。
+  Future<T> deleteEntity<T>(String path, T Function(Map<String, dynamic>) parse) =>
+      _send(() async {
+        final r = await _dio.delete<Map<String, dynamic>>(path);
+        return parse(_data(r.data));
+      });
+
   /// DELETE (204).
   Future<void> delete(String path) =>
       _send(() async => _dio.delete<void>(path));

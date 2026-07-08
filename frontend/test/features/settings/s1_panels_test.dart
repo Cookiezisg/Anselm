@@ -1,7 +1,6 @@
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/overlay/an_overlay.dart';
 import 'package:anselm/core/platform/window_bounds.dart';
-import 'package:anselm/core/settings/app_prefs_providers.dart';
 import 'package:anselm/core/settings/settings_prefs.dart';
 import 'package:anselm/features/chat/model/stage_director.dart';
 import 'package:anselm/features/chat/state/stage_director_provider.dart';

@@ -1,6 +1,8 @@
 import 'package:flutter/widgets.dart';
 
+import '../../core/ui/an_meter.dart';
 import '../../core/ui/an_scope_badge.dart';
+import '../../core/ui/an_secret_field.dart';
 import '../../core/ui/an_segmented.dart';
 import '../../core/ui/an_setting_row.dart';
 import '../../core/ui/an_switch.dart';
@@ -113,6 +115,19 @@ final GalleryCategory settingsCategory = GalleryCategory('设置 Settings', AnIc
           desc: '描述' * 40,
           child: const AnSwitch(value: false, onChanged: _noopBool),
         ), stress: true, span: true),
+  ]),
+  GalleryItem('AnSecretField', '密钥输入——默认掩码+可见切换;粘贴 trim;三条可兑现承诺', [
+    GallerySpecimen('empty', (_) => const AnSecretField(
+        placeholder: 'sk-…', revealLabel: 'reveal', concealLabel: 'conceal'), span: true),
+    GallerySpecimen('禁用', (_) => const AnSecretField(
+        placeholder: 'sk-…', enabled: false, revealLabel: 'reveal', concealLabel: 'conceal'), span: true),
+  ]),
+  GalleryItem('AnMeter', '用量条——accent→warn(0.85)→danger(0.97);null=空轨', [
+    GallerySpecimen('正常', (_) => const AnMeter(ratio: 0.42, label: '2 100 / 5 000 · 8/1 重置'), span: true),
+    GallerySpecimen('warn', (_) => const AnMeter(ratio: 0.9, label: '4 500 / 5 000'), span: true),
+    GallerySpecimen('danger', (_) => const AnMeter(ratio: 0.99, label: '4 950 / 5 000'), span: true),
+    GallerySpecimen('未知', (_) => const AnMeter(ratio: null, label: '——'), span: true),
+    GallerySpecimen('零', (_) => const AnMeter(ratio: 0), stress: true, maxWidth: 160),
   ]),
   GalleryItem('AnScopeBadge', '作用域徽——本机/工作区/全机(AnSection 级,禁页头单枚)', [
     GallerySpecimen('三域', (_) => const Wrap(spacing: 8, runSpacing: 8, children: [

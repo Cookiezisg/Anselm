@@ -3,6 +3,7 @@ import 'package:anselm/core/contract/model_capability.dart';
 import 'package:anselm/features/chat/data/chat_fixtures.dart';
 import 'package:anselm/features/chat/data/chat_providers.dart';
 import 'package:anselm/features/chat/data/conversation_signal.dart';
+import 'package:anselm/core/models/model_capabilities.dart';
 import 'package:anselm/features/chat/state/conversation_header.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -65,11 +66,14 @@ void main() {
     expect(c.read(conversationHeaderProvider('cv_1')).value!.modelOverride, isNull);
   });
 
-  test('model capability options come through the seam', () async {
-    final (c, repo) = setup();
-    repo.capabilities = const [
-      ModelCapability(apiKeyId: 'ak_1', modelId: 'deepseek-chat', displayName: 'DeepSeek', provider: 'anselm'),
-    ];
+  test('model capability options come through the CORE seam (S-15 moved off the chat repo)', () async {
+    final c = ProviderContainer(overrides: [
+      modelCapabilitiesProvider.overrideWith((ref) async => const [
+            ModelCapability(
+                apiKeyId: 'ak_1', modelId: 'deepseek-chat', displayName: 'DeepSeek', provider: 'anselm'),
+          ]),
+    ]);
+    addTearDown(c.dispose);
     final caps = await c.read(modelCapabilitiesProvider.future);
     expect(caps.single.modelId, 'deepseek-chat');
   });

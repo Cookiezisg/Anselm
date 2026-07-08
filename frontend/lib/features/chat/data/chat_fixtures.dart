@@ -5,7 +5,6 @@ import '../../../core/contract/conversation.dart';
 import '../../../core/contract/interaction.dart';
 import '../../../core/contract/messages/chat_message.dart';
 import '../../../core/contract/messages/transcript_nav.dart';
-import '../../../core/contract/model_capability.dart';
 import '../../../core/contract/page.dart';
 import '../../../core/contract/entities/agent.dart';
 import '../../../core/contract/entities/approval.dart';
@@ -397,10 +396,6 @@ class FixtureChatRepository implements ChatRepository {
       (_frames[conversationId] ??= StreamController<StreamEnvelope>.broadcast()).add(envelope);
 
   /// Seedable picker options. 可种的选择器选项。
-  List<ModelCapability> capabilities = const [];
-
-  @override
-  Future<List<ModelCapability>> listModelCapabilities() async => capabilities;
 
   // ── the sidestage's old-truth reads (seedable, WRK-061 R-5) 侧幕旧真相(可种) ──
 

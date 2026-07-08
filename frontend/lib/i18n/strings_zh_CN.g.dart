@@ -450,6 +450,7 @@ class _Translations$settings$zh_CN extends Translations$settings$en {
 	@override String get defaultModelLink => '默认对话模型 → 模型与密钥';
 	@override String get langEn => 'English';
 	@override String get langZh => '简体中文';
+	@override late final _Translations$settings$keys$zh_CN keys = _Translations$settings$keys$zh_CN._(_root);
 }
 
 // Path: markdown
@@ -1308,6 +1309,63 @@ class _Translations$settings$panels$zh_CN extends Translations$settings$panels$e
 	@override String get network => '网络';
 	@override String get shortcuts => '快捷键';
 	@override String get about => '关于';
+}
+
+// Path: settings.keys
+class _Translations$settings$keys$zh_CN extends Translations$settings$keys$en {
+	_Translations$settings$keys$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get freeTier => '免费档';
+	@override String get freeTierName => 'Anselm Free · deepseek-v4-flash';
+	@override String freeUsage({required Object used, required Object limit, required Object reset}) => '${used} / ${limit} · ${reset} 重置';
+	@override String get freeUnavailable => '网关今日预算已满,明日恢复';
+	@override String get freeEnable => '启用免费档';
+	@override String get freeEnableHint => '将向 Anselm 网关注册本机匿名指纹以分配额度';
+	@override String get freeProvisioning => '正在开通…';
+	@override String get freeRefresh => '刷新';
+	@override String get freeFailed => '开通未完成(离线或网关不可达),稍后可重试';
+	@override String get keysSection => 'API 密钥';
+	@override String get addKey => '添加密钥';
+	@override String get testKey => '测试';
+	@override String get editKey => '编辑';
+	@override String get deleteKey => '删除';
+	@override String get statusOk => '可用';
+	@override String get statusPending => '待测';
+	@override String get statusError => '失败';
+	@override String get managedBadge => '受管';
+	@override String get provider => '提供方';
+	@override String get displayNameLabel => '名称';
+	@override String get secretLabel => '密钥';
+	@override String get baseUrlLabel => 'Base URL';
+	@override String get apiFormatLabel => 'API 方言';
+	@override String get saveKey => '保存并测试';
+	@override String get cancel => '取消';
+	@override String get reveal => '显示';
+	@override String get conceal => '隐藏';
+	@override String get rotateWarn => '替换即生效,原密钥不可恢复';
+	@override String get rotatePlaceholder => '留空则不更换密钥';
+	@override String get inUseTitle => '此密钥仍被引用';
+	@override String get inUseHint => '先在以下位置解除引用:';
+	@override String get deleteKeyTitle => '删除密钥';
+	@override String deleteKeyBody({required Object name}) => '将删除「${name}」,不可恢复。';
+	@override String get confirmDelete => '删除';
+	@override String get defaults => '场景默认模型';
+	@override String get scenarioDialogue => '对话';
+	@override String get scenarioUtility => '工具';
+	@override String get scenarioAgent => 'Agent';
+	@override String get scenarioDialogueDesc => '聊天回复所用模型;Auto 依赖它,不可清除';
+	@override String get scenarioUtilityDesc => '自动命名、上下文压缩等轻任务';
+	@override String get scenarioAgentDesc => 'invoke_agent 执行所用';
+	@override String get noDefault => '未配置';
+	@override String get clearDefault => '清除';
+	@override String get notConfiguredWarn => '未配置——相关执行将报 MODEL_NOT_CONFIGURED';
+	@override String get searchDefault => '默认搜索密钥';
+	@override String get searchDefaultDesc => 'WebSearch 工具所用(category=search 的可用密钥)';
+	@override String get keyOpFailed => '操作失败';
+	@override String get refreshModels => '刷新模型列表';
 }
 
 // Path: chat.tool.kind
@@ -2915,6 +2973,54 @@ extension on TranslationsZhCn {
 			'settings.defaultModelLink' => '默认对话模型 → 模型与密钥',
 			'settings.langEn' => 'English',
 			'settings.langZh' => '简体中文',
+			'settings.keys.freeTier' => '免费档',
+			'settings.keys.freeTierName' => 'Anselm Free · deepseek-v4-flash',
+			'settings.keys.freeUsage' => ({required Object used, required Object limit, required Object reset}) => '${used} / ${limit} · ${reset} 重置',
+			'settings.keys.freeUnavailable' => '网关今日预算已满,明日恢复',
+			'settings.keys.freeEnable' => '启用免费档',
+			'settings.keys.freeEnableHint' => '将向 Anselm 网关注册本机匿名指纹以分配额度',
+			'settings.keys.freeProvisioning' => '正在开通…',
+			'settings.keys.freeRefresh' => '刷新',
+			'settings.keys.freeFailed' => '开通未完成(离线或网关不可达),稍后可重试',
+			'settings.keys.keysSection' => 'API 密钥',
+			'settings.keys.addKey' => '添加密钥',
+			'settings.keys.testKey' => '测试',
+			'settings.keys.editKey' => '编辑',
+			'settings.keys.deleteKey' => '删除',
+			'settings.keys.statusOk' => '可用',
+			'settings.keys.statusPending' => '待测',
+			'settings.keys.statusError' => '失败',
+			'settings.keys.managedBadge' => '受管',
+			'settings.keys.provider' => '提供方',
+			'settings.keys.displayNameLabel' => '名称',
+			'settings.keys.secretLabel' => '密钥',
+			'settings.keys.baseUrlLabel' => 'Base URL',
+			'settings.keys.apiFormatLabel' => 'API 方言',
+			'settings.keys.saveKey' => '保存并测试',
+			'settings.keys.cancel' => '取消',
+			'settings.keys.reveal' => '显示',
+			'settings.keys.conceal' => '隐藏',
+			'settings.keys.rotateWarn' => '替换即生效,原密钥不可恢复',
+			'settings.keys.rotatePlaceholder' => '留空则不更换密钥',
+			'settings.keys.inUseTitle' => '此密钥仍被引用',
+			'settings.keys.inUseHint' => '先在以下位置解除引用:',
+			'settings.keys.deleteKeyTitle' => '删除密钥',
+			'settings.keys.deleteKeyBody' => ({required Object name}) => '将删除「${name}」,不可恢复。',
+			'settings.keys.confirmDelete' => '删除',
+			'settings.keys.defaults' => '场景默认模型',
+			'settings.keys.scenarioDialogue' => '对话',
+			'settings.keys.scenarioUtility' => '工具',
+			'settings.keys.scenarioAgent' => 'Agent',
+			'settings.keys.scenarioDialogueDesc' => '聊天回复所用模型;Auto 依赖它,不可清除',
+			'settings.keys.scenarioUtilityDesc' => '自动命名、上下文压缩等轻任务',
+			'settings.keys.scenarioAgentDesc' => 'invoke_agent 执行所用',
+			'settings.keys.noDefault' => '未配置',
+			'settings.keys.clearDefault' => '清除',
+			'settings.keys.notConfiguredWarn' => '未配置——相关执行将报 MODEL_NOT_CONFIGURED',
+			'settings.keys.searchDefault' => '默认搜索密钥',
+			'settings.keys.searchDefaultDesc' => 'WebSearch 工具所用(category=search 的可用密钥)',
+			'settings.keys.keyOpFailed' => '操作失败',
+			'settings.keys.refreshModels' => '刷新模型列表',
 			'markdown.imageNotLoaded' => '图片未加载',
 			'attach.unavailable' => '已不可用',
 			'attach.retry' => '点按重试',

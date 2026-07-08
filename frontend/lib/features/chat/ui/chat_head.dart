@@ -7,6 +7,7 @@ import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
 import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
+import '../../../core/models/model_capabilities.dart';
 import '../state/conversation_header.dart';
 import '../state/selected_conversation.dart';
 import '../state/title_reveals.dart';

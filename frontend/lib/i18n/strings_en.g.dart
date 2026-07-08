@@ -925,6 +925,8 @@ class Translations$settings$en {
 
 	/// en: '简体中文'
 	String get langZh => '简体中文';
+
+	late final Translations$settings$keys$en keys = Translations$settings$keys$en.internal(_root);
 }
 
 // Path: markdown
@@ -3123,6 +3125,159 @@ class Translations$settings$panels$en {
 	String get about => 'About';
 }
 
+// Path: settings.keys
+class Translations$settings$keys$en {
+	Translations$settings$keys$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Free tier'
+	String get freeTier => 'Free tier';
+
+	/// en: 'Anselm Free · deepseek-v4-flash'
+	String get freeTierName => 'Anselm Free · deepseek-v4-flash';
+
+	/// en: '$used / $limit · resets $reset'
+	String freeUsage({required Object used, required Object limit, required Object reset}) => '${used} / ${limit} · resets ${reset}';
+
+	/// en: 'Gateway day budget exhausted — back tomorrow'
+	String get freeUnavailable => 'Gateway day budget exhausted — back tomorrow';
+
+	/// en: 'Enable free tier'
+	String get freeEnable => 'Enable free tier';
+
+	/// en: 'Registers this machine's anonymous fingerprint with the Anselm gateway for a quota'
+	String get freeEnableHint => 'Registers this machine\'s anonymous fingerprint with the Anselm gateway for a quota';
+
+	/// en: 'Provisioning…'
+	String get freeProvisioning => 'Provisioning…';
+
+	/// en: 'Refresh'
+	String get freeRefresh => 'Refresh';
+
+	/// en: 'Provisioning incomplete (offline or gateway unreachable) — retry later'
+	String get freeFailed => 'Provisioning incomplete (offline or gateway unreachable) — retry later';
+
+	/// en: 'API keys'
+	String get keysSection => 'API keys';
+
+	/// en: 'Add key'
+	String get addKey => 'Add key';
+
+	/// en: 'Test'
+	String get testKey => 'Test';
+
+	/// en: 'Edit'
+	String get editKey => 'Edit';
+
+	/// en: 'Delete'
+	String get deleteKey => 'Delete';
+
+	/// en: 'OK'
+	String get statusOk => 'OK';
+
+	/// en: 'Untested'
+	String get statusPending => 'Untested';
+
+	/// en: 'Failed'
+	String get statusError => 'Failed';
+
+	/// en: 'Managed'
+	String get managedBadge => 'Managed';
+
+	/// en: 'Provider'
+	String get provider => 'Provider';
+
+	/// en: 'Name'
+	String get displayNameLabel => 'Name';
+
+	/// en: 'Key'
+	String get secretLabel => 'Key';
+
+	/// en: 'Base URL'
+	String get baseUrlLabel => 'Base URL';
+
+	/// en: 'API dialect'
+	String get apiFormatLabel => 'API dialect';
+
+	/// en: 'Save & test'
+	String get saveKey => 'Save & test';
+
+	/// en: 'Cancel'
+	String get cancel => 'Cancel';
+
+	/// en: 'Reveal'
+	String get reveal => 'Reveal';
+
+	/// en: 'Conceal'
+	String get conceal => 'Conceal';
+
+	/// en: 'Replacing takes effect immediately; the old key can't be recovered'
+	String get rotateWarn => 'Replacing takes effect immediately; the old key can\'t be recovered';
+
+	/// en: 'Leave empty to keep the current key'
+	String get rotatePlaceholder => 'Leave empty to keep the current key';
+
+	/// en: 'This key is still referenced'
+	String get inUseTitle => 'This key is still referenced';
+
+	/// en: 'Unlink it here first:'
+	String get inUseHint => 'Unlink it here first:';
+
+	/// en: 'Delete key'
+	String get deleteKeyTitle => 'Delete key';
+
+	/// en: 'This deletes “$name” permanently.'
+	String deleteKeyBody({required Object name}) => 'This deletes “${name}” permanently.';
+
+	/// en: 'Delete'
+	String get confirmDelete => 'Delete';
+
+	/// en: 'Scenario default models'
+	String get defaults => 'Scenario default models';
+
+	/// en: 'Dialogue'
+	String get scenarioDialogue => 'Dialogue';
+
+	/// en: 'Utility'
+	String get scenarioUtility => 'Utility';
+
+	/// en: 'Agent'
+	String get scenarioAgent => 'Agent';
+
+	/// en: 'The chat reply model; Auto depends on it — can't be cleared'
+	String get scenarioDialogueDesc => 'The chat reply model; Auto depends on it — can\'t be cleared';
+
+	/// en: 'Light tasks: auto-titling, context compaction'
+	String get scenarioUtilityDesc => 'Light tasks: auto-titling, context compaction';
+
+	/// en: 'Used by invoke_agent runs'
+	String get scenarioAgentDesc => 'Used by invoke_agent runs';
+
+	/// en: 'Not set'
+	String get noDefault => 'Not set';
+
+	/// en: 'Clear'
+	String get clearDefault => 'Clear';
+
+	/// en: 'Not set — related runs will fail with MODEL_NOT_CONFIGURED'
+	String get notConfiguredWarn => 'Not set — related runs will fail with MODEL_NOT_CONFIGURED';
+
+	/// en: 'Default search key'
+	String get searchDefault => 'Default search key';
+
+	/// en: 'Used by the WebSearch tool (category=search keys)'
+	String get searchDefaultDesc => 'Used by the WebSearch tool (category=search keys)';
+
+	/// en: 'Operation failed'
+	String get keyOpFailed => 'Operation failed';
+
+	/// en: 'Refresh model list'
+	String get refreshModels => 'Refresh model list';
+}
+
 // Path: chat.tool.kind
 class Translations$chat$tool$kind$en {
 	Translations$chat$tool$kind$en.internal(this._root);
@@ -5242,6 +5397,54 @@ extension on Translations {
 			'settings.defaultModelLink' => 'Default chat model → Models & keys',
 			'settings.langEn' => 'English',
 			'settings.langZh' => '简体中文',
+			'settings.keys.freeTier' => 'Free tier',
+			'settings.keys.freeTierName' => 'Anselm Free · deepseek-v4-flash',
+			'settings.keys.freeUsage' => ({required Object used, required Object limit, required Object reset}) => '${used} / ${limit} · resets ${reset}',
+			'settings.keys.freeUnavailable' => 'Gateway day budget exhausted — back tomorrow',
+			'settings.keys.freeEnable' => 'Enable free tier',
+			'settings.keys.freeEnableHint' => 'Registers this machine\'s anonymous fingerprint with the Anselm gateway for a quota',
+			'settings.keys.freeProvisioning' => 'Provisioning…',
+			'settings.keys.freeRefresh' => 'Refresh',
+			'settings.keys.freeFailed' => 'Provisioning incomplete (offline or gateway unreachable) — retry later',
+			'settings.keys.keysSection' => 'API keys',
+			'settings.keys.addKey' => 'Add key',
+			'settings.keys.testKey' => 'Test',
+			'settings.keys.editKey' => 'Edit',
+			'settings.keys.deleteKey' => 'Delete',
+			'settings.keys.statusOk' => 'OK',
+			'settings.keys.statusPending' => 'Untested',
+			'settings.keys.statusError' => 'Failed',
+			'settings.keys.managedBadge' => 'Managed',
+			'settings.keys.provider' => 'Provider',
+			'settings.keys.displayNameLabel' => 'Name',
+			'settings.keys.secretLabel' => 'Key',
+			'settings.keys.baseUrlLabel' => 'Base URL',
+			'settings.keys.apiFormatLabel' => 'API dialect',
+			'settings.keys.saveKey' => 'Save & test',
+			'settings.keys.cancel' => 'Cancel',
+			'settings.keys.reveal' => 'Reveal',
+			'settings.keys.conceal' => 'Conceal',
+			'settings.keys.rotateWarn' => 'Replacing takes effect immediately; the old key can\'t be recovered',
+			'settings.keys.rotatePlaceholder' => 'Leave empty to keep the current key',
+			'settings.keys.inUseTitle' => 'This key is still referenced',
+			'settings.keys.inUseHint' => 'Unlink it here first:',
+			'settings.keys.deleteKeyTitle' => 'Delete key',
+			'settings.keys.deleteKeyBody' => ({required Object name}) => 'This deletes “${name}” permanently.',
+			'settings.keys.confirmDelete' => 'Delete',
+			'settings.keys.defaults' => 'Scenario default models',
+			'settings.keys.scenarioDialogue' => 'Dialogue',
+			'settings.keys.scenarioUtility' => 'Utility',
+			'settings.keys.scenarioAgent' => 'Agent',
+			'settings.keys.scenarioDialogueDesc' => 'The chat reply model; Auto depends on it — can\'t be cleared',
+			'settings.keys.scenarioUtilityDesc' => 'Light tasks: auto-titling, context compaction',
+			'settings.keys.scenarioAgentDesc' => 'Used by invoke_agent runs',
+			'settings.keys.noDefault' => 'Not set',
+			'settings.keys.clearDefault' => 'Clear',
+			'settings.keys.notConfiguredWarn' => 'Not set — related runs will fail with MODEL_NOT_CONFIGURED',
+			'settings.keys.searchDefault' => 'Default search key',
+			'settings.keys.searchDefaultDesc' => 'Used by the WebSearch tool (category=search keys)',
+			'settings.keys.keyOpFailed' => 'Operation failed',
+			'settings.keys.refreshModels' => 'Refresh model list',
 			'markdown.imageNotLoaded' => 'image not loaded',
 			'attach.unavailable' => 'Unavailable',
 			'attach.retry' => 'Tap to retry',

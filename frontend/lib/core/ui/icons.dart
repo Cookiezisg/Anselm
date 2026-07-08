@@ -91,6 +91,9 @@ abstract final class AnIcons {
   static final IconData workspaceScope = _thin(LucideIcons.briefcase); // workspace-scope 工作区域
   static final IconData machineScope = _thin(LucideIcons.hardDrive); // machine-wide settings.json 全机域
   static final IconData undo = _thin(LucideIcons.undo2); // single-row reset 单项重置
+  static final IconData eyeOff = _thin(LucideIcons.eyeOff); // secret conceal 掩码
+  static final IconData apiKey = _thin(LucideIcons.keyRound); // api key row 密钥行
+  static final IconData lock = _thin(LucideIcons.lock); // managed row 受管锁
   static final IconData keyboard = _thin(LucideIcons.keyboard); // shortcuts panel 快捷键
   static final IconData globe = _thin(LucideIcons.globe); // network panel 网络(settings)
 
