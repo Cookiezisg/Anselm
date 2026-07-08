@@ -67,6 +67,7 @@ class BackendController {
     Duration restartBackoffBase = const Duration(milliseconds: 300),
     Duration shutdownGrace = const Duration(seconds: 8),
     Random? random,
+    this.masterKey,
   })  : _probe = probe ?? Dio(),
         _launch = launcher ??
             ((exe, args, {environment}) =>
@@ -85,6 +86,11 @@ class BackendController {
   /// executable. Ignored when `ANSELM_BACKEND_URL` is set. 内置二进制绝对路径(null=app 旁解析)。
   final String? binaryPath;
   final String? dataDir;
+
+  /// Optional at-rest master-key resolver (ADR 0006): a non-null result is injected as
+  /// `ANSELM_MASTER_KEY`; null keeps the backend's legacy machine-fingerprint seed. Resolved per
+  /// spawn (restarts re-read the keychain). 落盘主密钥解析缝;非 null 注入 env,null 走旧径。
+  final Future<String?> Function()? masterKey;
   final Dio _probe;
   final ProcessLauncher _launch;
   final String? Function() _externalUrl;
@@ -153,6 +159,8 @@ class BackendController {
       'ANSELM_AUTH_TOKEN': token,
     };
     if (dataDir != null) env['ANSELM_DATA_DIR'] = dataDir!;
+    final mk = masterKey == null ? null : await masterKey!();
+    if (mk != null && mk.isNotEmpty) env['ANSELM_MASTER_KEY'] = mk;
     final child = await _launch(exe, const [], environment: env);
     _child = child;
     // Drain stderr into the debug console (an undrained pipe can deadlock the child).

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'net/api_client.dart';
 import 'process/backend_controller.dart';
+import 'process/master_key.dart';
 import 'sse/sse_gateway.dart';
 
 /// DI assembly for the Phase-4.0 runtime backbone: it wires the sidecar supervisor → contract/net →
@@ -48,7 +49,8 @@ final activeWorkspaceNameProvider =
 
 /// The sidecar supervisor. A plain Provider so tests can override it with a fake-launcher controller.
 /// sidecar 监督器;Provider 便于测试 override 假 launcher。
-final backendControllerProvider = Provider<BackendController>((ref) => BackendController());
+final backendControllerProvider = Provider<BackendController>(
+    (ref) => BackendController(masterKey: () => MasterKey().resolve()));
 
 /// Bridges the controller's [BackendState] ValueNotifier into a reactive provider so the WHOLE app gates
 /// on one phase (starting / ready / crashed) — features never each handle "backend down". Kicks off
