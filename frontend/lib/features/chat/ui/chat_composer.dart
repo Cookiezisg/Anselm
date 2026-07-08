@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pasteboard/pasteboard.dart';
 
 import '../../../core/design/colors.dart';
+import '../../../core/settings/settings_prefs.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/entity/mention_source.dart';
 import '../../../core/perf/debouncer.dart';
@@ -274,6 +275,14 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
     }
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
     if (HardwareKeyboard.instance.isShiftPressed) return KeyEventResult.ignored; // newline 换行
+    // The send-key preference (S1 对话面板): `enter` (default) = bare Enter sends; `cmdEnter` =
+    // Enter inserts a newline, only ⌘Enter (Ctrl on non-mac) sends. IME-composing guard stays
+    // upstream either way. 发送键偏好:enter=裸回车发;cmdEnter=回车换行、仅 ⌘Enter 发。
+    final wantsCmd =
+        ref.read(settingsPrefsProvider).getString(SettingsKeys.chatSendKey) == 'cmdEnter';
+    final cmdHeld =
+        HardwareKeyboard.instance.isMetaPressed || HardwareKeyboard.instance.isControlPressed;
+    if (wantsCmd && !cmdHeld) return KeyEventResult.ignored; // newline 换行
     // While generating the send affordance is a STOP button — the keyboard path must agree: swallow
     // (never a concurrent turn), don't insert a newline either. 生成中键盘同 UI:吞掉、不发也不换行。
     if (_generating) return KeyEventResult.handled;

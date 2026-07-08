@@ -9,6 +9,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
   # Assembly-root state container (classic Riverpod, not codegen — see ADR 0004).
   flutter_riverpod: ^3.3.2
   # Window GEOMETRY (size / min / center / resize) — the purpose-built desktop package; handles
@@ -67,6 +69,9 @@ dependencies:
   # dev.41+ 引用本 Flutter 没有的 TextInputConnection.updateStyle → 钉 dev.40(本机已验证可编)。
   super_editor: 0.3.0-dev.40
   url_launcher: ^6.3.2
+  launch_at_startup: ^0.5.1
+  package_info_plus: ^9.0.1
+  screen_retriever: ^0.2.2
 
 dev_dependencies:
   flutter_test:

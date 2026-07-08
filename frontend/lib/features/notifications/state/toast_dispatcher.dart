@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/contract/notification.dart';
 import '../../../core/overlay/an_overlay.dart';
+import '../../../core/settings/settings_prefs.dart';
 import '../../../core/router/navigation.dart';
 import '../../../core/ui/an_toast.dart';
 import '../../../i18n/strings.g.dart';
@@ -41,11 +42,20 @@ class ToastDispatcher extends Notifier<void> {
 
   void _onSignal(NotificationSignal s) {
     if (!s.durable) return;
+    // The user's notification level (S1 通知面板): silent → nothing pops (the tray still collects);
+    // important (default) → warn/danger only; all → every INBOX event (the Emit `inbox:true` marker —
+    // Broadcast reconciliation echoes are never toast candidates, S-8). 用户通知级别:静音→不弹(托盘照收);
+    // 仅需处理(默认)→只弹 warn/danger;全部→一切**收件箱**事件(Emit inbox:true 标;Broadcast 对账回声
+    // 永不是 toast 候选)。
+    final prefs = ref.read(settingsPrefsProvider);
+    final level = prefs.getString(SettingsKeys.notifyLevel);
+    if (level == 'silent') return;
     // Reuse the tray's copy layer: build a synthetic row and render its line. A neutral tone = not
-    // toast-worthy (lives silently in the tray). 复用托盘文案层;neutral=不弹(静默入托盘)。
+    // toast-worthy on the default level (lives silently in the tray). 复用托盘文案层;默认级别下 neutral 不弹。
     final item = NotificationItem(id: 'toast', type: s.type, payload: s.payload, createdAt: _epoch);
     final line = notificationLine(item, t); // slang global t — locale-aware, context-free
-    if (line.tone == NotificationTone.neutral) return;
+    final inboxEvent = s.payload['inbox'] == true;
+    if (line.tone == NotificationTone.neutral && !(level == 'all' && inboxEvent)) return;
 
     // Dedup by (type, entity) within the window — a flapping source can't spam the corner. 去抖防刷屏。
     final key = '${s.type}:${_entityId(s.payload)}';
@@ -61,9 +71,17 @@ class ToastDispatcher extends Notifier<void> {
     // focused → in-app toast; not focused → an OS-native notification the user sees while looking elsewhere.
     // 按派发时刻的焦点快照路由:聚焦→in-app toast;未聚焦→OS 原生通知。
     if (!ref.read(appFocusedProvider)) {
-      ref.read(osNotifierProvider).show(key: key, title: _osTitle(t), body: text, location: loc);
+      // The OS-notification switch (S1) gates the unfocused path; danger still shows IN-APP on
+      // refocus via the tray — honesty keeps the bell. OS 通知开关只闸未聚焦路径;托盘照收保诚实。
+      if (prefs.getBool(SettingsKeys.notifyOs)) {
+        ref.read(osNotifierProvider).show(key: key, title: _osTitle(t), body: text, location: loc);
+      }
       return;
     }
+
+    // The in-app toast switch (S1): danger-level errors BYPASS it (honesty over quiet). 应用内 toast
+    // 开关:danger 级穿透(诚实高于安静)。
+    if (!prefs.getBool(SettingsKeys.notifyToast) && line.tone != NotificationTone.danger) return;
 
     final tone = line.tone == NotificationTone.danger ? AnToastTone.danger : AnToastTone.warn;
     // danger = sticky (must be seen/actioned); warn = 8s. danger 常驻 / warn 8s。

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,6 +7,7 @@ import '../core/design/theme.dart';
 import '../core/overlay/an_overlay.dart';
 import '../core/platform/window_zoom.dart';
 import '../core/router/navigation.dart';
+import '../core/settings/app_prefs_providers.dart';
 import '../i18n/strings.g.dart';
 import 'app_startup_gate.dart';
 import 'workspace_gate.dart';
@@ -40,6 +42,15 @@ class AnApp extends ConsumerWidget {
       title: context.t.appName,
       debugShowCheckedModeBanner: false,
       theme: AnTheme.light(),
+      // Dark ships with S1b (the lighting pass); the mode axis is wired NOW so the preference is
+      // honest end-to-end. 暗色随 S1b 点亮;mode 轴现在接好,偏好端到端诚实。
+      darkTheme: AnTheme.dark(),
+      themeMode: ref.watch(themeModeProvider),
+      // Material component-level localization follows the slang locale (previously unwired — the
+      // runtime language switch needs it). Material 组件级本地化跟随 slang(此前未接;运行时切语言需要)。
+      locale: TranslationProvider.of(context).flutterLocale,
+      supportedLocales: AppLocaleUtils.supportedLocales,
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       routerConfig: router,
       builder: (context, child) => AnOverlayHost(
         navigatorKey: navigatorKey,

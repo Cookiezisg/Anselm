@@ -1,6 +1,7 @@
 import 'package:anselm/core/contract/conversation.dart';
 import 'package:anselm/core/entity/mention_source.dart';
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/settings/settings_prefs.dart';
 import 'package:anselm/core/sse/frame.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/features/chat/data/chat_fixtures.dart';
@@ -39,11 +40,12 @@ class _FakeSelected extends SelectedConversation {
   ConversationRef? build() => const ConversationRef('cv_1');
 }
 
-Widget _host(FixtureChatRepository repo, {Widget? child}) => ProviderScope(
+Widget _host(FixtureChatRepository repo, {Widget? child, SettingsPrefs? prefs}) => ProviderScope(
       overrides: [
         chatRepositoryProvider.overrideWithValue(repo),
         selectedConversationProvider.overrideWith(_FakeSelected.new),
         mentionSourceProvider.overrideWithValue(_FakeMentions()),
+        if (prefs != null) settingsPrefsProvider.overrideWithValue(prefs),
       ],
       child: TranslationProvider(
         child: MaterialApp(
@@ -84,6 +86,25 @@ void main() {
     await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
     await tester.pump();
     expect(repo.lastSend?.content, '你好'); // unchanged — no second send 没发第二条
+  });
+
+  testWidgets('sendKey=cmdEnter: bare Enter is a newline, ⌘Enter sends (S1 偏好)', (tester) async {
+    final repo = FixtureChatRepository(conversations: [_conv('cv_1')], messages: {'cv_1': []});
+    final prefs = SettingsPrefs.inMemory({'an.chat.sendKey': 'cmdEnter'});
+    await tester.pumpWidget(_host(repo, prefs: prefs));
+    await _settle(tester);
+
+    await tester.enterText(find.byType(TextField), 'hello');
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await _settle(tester);
+    expect(repo.lastSend, isNull, reason: 'cmdEnter 模式下裸回车不发');
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+    await _settle(tester);
+    expect(repo.lastSend?.content, 'hello', reason: '⌘Enter 发送');
   });
 
   testWidgets('an IME-composing Enter never sends', (tester) async {

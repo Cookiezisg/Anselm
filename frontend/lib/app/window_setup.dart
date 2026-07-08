@@ -4,6 +4,8 @@ import 'package:window_manager/window_manager.dart';
 
 import '../core/design/tokens.dart';
 import '../core/platform/host_platform.dart';
+import '../core/platform/window_bounds.dart';
+import '../core/settings/settings_prefs.dart';
 import '../core/platform/window_fullscreen.dart';
 
 /// Configures the desktop window before the app runs — using the RIGHT package for each job
@@ -26,7 +28,7 @@ import '../core/platform/window_fullscreen.dart';
 /// 800×600/off-center rect. `waitUntilReadyToShow` applies size + min + center to the still-hidden
 /// window, then its callback's `show()` is the SINGLE reveal — the first frame the user sees is already
 /// at the final geometry. 无启动闪烁:原生窗口启动即隐藏(order 钩子),几何就绪后由下方 show() 一次性显示到最终位置。
-Future<void> initWindow({String? title}) async {
+Future<void> initWindow({String? title, SettingsPrefs? prefs}) async {
   WidgetsFlutterBinding.ensureInitialized();
   if (!HostPlatform.isMacOS) return;
 
@@ -65,17 +67,27 @@ Future<void> initWindow({String? title}) async {
   // AFTER ensureInitialized (required). 随全屏切换适配 chrome:进则撤 toolbar(否则白带)+ 收灯位,出则还原。
   windowManager.addListener(_FullScreenChrome());
 
-  // GEOMETRY (window_manager): scale-correct size / min / center. Title-bar style stays untouched
-  // here — the frameless look is owned by macos_window_utils above. 尺寸由 window_manager 管(标题栏不碰)。
+  // GEOMETRY (window_manager): scale-correct size / min / center — OR the remembered bounds
+  // (拍板 #13): a stored rect only wins when its title bar still lands on a live display
+  // (WindowBounds.restoreTarget's multi-display clamp); otherwise default size, centered.
+  // 尺寸由 window_manager 管;「记住窗口」开且存的矩形仍落在在线显示器上→按其恢复,否则默认居中。
+  final remembered = prefs == null ? null : await WindowBounds.restoreTarget(prefs);
   final options = WindowOptions(
-    size: const Size(AnSize.windowInitialWidth, AnSize.windowInitialHeight),
+    size: remembered == null
+        ? const Size(AnSize.windowInitialWidth, AnSize.windowInitialHeight)
+        : Size(remembered.width, remembered.height),
     minimumSize: const Size(AnSize.windowMinWidth, AnSize.windowMinHeight),
-    center: true,
+    center: remembered == null,
   );
   await windowManager.waitUntilReadyToShow(options, () async {
+    if (remembered != null) {
+      await windowManager.setBounds(remembered);
+    }
     await windowManager.show();
     await windowManager.focus();
   });
+  // Start capturing moved/resized geometry (debounced; honours the switch live). 开始捕获几何。
+  if (prefs != null) WindowBounds.attach(prefs);
 }
 
 /// Keeps the macOS chrome consistent across native fullscreen transitions (window_manager fires

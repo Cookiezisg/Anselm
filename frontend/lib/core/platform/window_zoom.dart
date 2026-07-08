@@ -66,6 +66,13 @@ abstract final class WindowZoom {
     return i < 0 ? steps.indexOf(defaultFactor) : i;
   }
 
+  /// Jump straight to a step (the settings segmented control) — capped at the live [maxFactor],
+  /// same as the shortcuts. 直设某档(设置分段器用);同快捷键受当前屏 cap。
+  static void set(double step) {
+    if (!steps.contains(step)) return;
+    _apply(step.clamp(steps.first, maxFactor()));
+  }
+
   static void zoomIn() => _apply(nextUp(maxFactor()));
   static void zoomOut() => _apply(nextDown());
   static void reset() => _apply(defaultFactor);

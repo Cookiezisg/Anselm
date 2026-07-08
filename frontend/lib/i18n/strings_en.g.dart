@@ -778,6 +778,153 @@ class Translations$settings$en {
 
 	/// en: 'This panel lights up slice by slice.'
 	String get buildingHint => 'This panel lights up slice by slice.';
+
+	/// en: 'Appearance'
+	String get appearance => 'Appearance';
+
+	/// en: 'Theme'
+	String get theme => 'Theme';
+
+	/// en: 'Light'
+	String get themeLight => 'Light';
+
+	/// en: 'Dark'
+	String get themeDark => 'Dark';
+
+	/// en: 'System'
+	String get themeSystem => 'System';
+
+	/// en: 'Dark theme coming soon'
+	String get themeDesc => 'Dark theme coming soon';
+
+	/// en: 'UI zoom'
+	String get zoom => 'UI zoom';
+
+	/// en: 'Scales the whole UI, synced with ⌘+ / ⌘− / ⌘0'
+	String get zoomDesc => 'Scales the whole UI, synced with ⌘+ / ⌘− / ⌘0';
+
+	/// en: 'Language'
+	String get language => 'Language';
+
+	/// en: 'Language'
+	String get languageRow => 'Language';
+
+	/// en: 'Sets both the UI language and this workspace's AI output language'
+	String get languageDesc => 'Sets both the UI language and this workspace\'s AI output language';
+
+	/// en: 'System'
+	String get langSystem => 'System';
+
+	/// en: 'Window & startup'
+	String get window => 'Window & startup';
+
+	/// en: 'Remember window size & position'
+	String get rememberWindow => 'Remember window size & position';
+
+	/// en: 'Restore the last window geometry on launch'
+	String get rememberWindowDesc => 'Restore the last window geometry on launch';
+
+	/// en: 'Launch at login'
+	String get launchAtLogin => 'Launch at login';
+
+	/// en: 'Start Anselm automatically after login'
+	String get launchAtLoginDesc => 'Start Anselm automatically after login';
+
+	/// en: 'Updates'
+	String get updates => 'Updates';
+
+	/// en: 'Check for updates automatically'
+	String get updateCheck => 'Check for updates automatically';
+
+	/// en: 'Query GitHub Releases on launch; never installs by itself'
+	String get updateCheckDesc => 'Query GitHub Releases on launch; never installs by itself';
+
+	/// en: 'Reset to default'
+	String get resetToDefault => 'Reset to default';
+
+	/// en: 'Save failed — value restored'
+	String get patchFailed => 'Save failed — value restored';
+
+	/// en: 'Notification level'
+	String get notifLevel => 'Notification level';
+
+	/// en: 'Which events pop up'
+	String get notifLevelDesc => 'Which events pop up';
+
+	/// en: 'All'
+	String get levelAll => 'All';
+
+	/// en: 'Needs you'
+	String get levelImportant => 'Needs you';
+
+	/// en: 'Silent'
+	String get levelSilent => 'Silent';
+
+	/// en: 'Items that need your action are always delivered and can't be turned off'
+	String get alwaysDelivered => 'Items that need your action are always delivered and can\'t be turned off';
+
+	/// en: 'System notifications'
+	String get notifOs => 'System notifications';
+
+	/// en: 'Delivered via the OS notification center while unfocused'
+	String get notifOsDesc => 'Delivered via the OS notification center while unfocused';
+
+	/// en: 'In-app toasts'
+	String get notifToast => 'In-app toasts';
+
+	/// en: 'Top-right pop-ups; danger-level errors bypass this'
+	String get notifToastDesc => 'Top-right pop-ups; danger-level errors bypass this';
+
+	/// en: 'Silenced — important items still land in the bell inbox'
+	String get silentHint => 'Silenced — important items still land in the bell inbox';
+
+	/// en: 'Sidestage auto-open'
+	String get autoStage => 'Sidestage auto-open';
+
+	/// en: 'The right island stages tool runs automatically'
+	String get autoStageDesc => 'The right island stages tool runs automatically';
+
+	/// en: 'Never'
+	String get stageNever => 'Never';
+
+	/// en: 'First per chat'
+	String get stageFirst => 'First per chat';
+
+	/// en: 'Every time'
+	String get stageAlways => 'Every time';
+
+	/// en: 'Send key'
+	String get sendKey => 'Send key';
+
+	/// en: 'Shift+Enter always inserts a newline'
+	String get sendKeyDesc => 'Shift+Enter always inserts a newline';
+
+	/// en: 'Enter sends'
+	String get sendEnter => 'Enter sends';
+
+	/// en: '⌘Enter sends'
+	String get sendCmdEnter => '⌘Enter sends';
+
+	/// en: 'Web fetch mode'
+	String get webFetch => 'Web fetch mode';
+
+	/// en: 'Local fetch is more private; the Jina proxy reads dynamic pages better'
+	String get webFetchDesc => 'Local fetch is more private; the Jina proxy reads dynamic pages better';
+
+	/// en: 'Local fetch'
+	String get webLocal => 'Local fetch';
+
+	/// en: 'Jina proxy'
+	String get webJina => 'Jina proxy';
+
+	/// en: 'Default chat model → Models & keys'
+	String get defaultModelLink => 'Default chat model → Models & keys';
+
+	/// en: 'English'
+	String get langEn => 'English';
+
+	/// en: '简体中文'
+	String get langZh => '简体中文';
 }
 
 // Path: markdown
@@ -5046,6 +5193,55 @@ extension on Translations {
 			'settings.filter' => 'Search settings…',
 			'settings.building' => 'Panel under construction',
 			'settings.buildingHint' => 'This panel lights up slice by slice.',
+			'settings.appearance' => 'Appearance',
+			'settings.theme' => 'Theme',
+			'settings.themeLight' => 'Light',
+			'settings.themeDark' => 'Dark',
+			'settings.themeSystem' => 'System',
+			'settings.themeDesc' => 'Dark theme coming soon',
+			'settings.zoom' => 'UI zoom',
+			'settings.zoomDesc' => 'Scales the whole UI, synced with ⌘+ / ⌘− / ⌘0',
+			'settings.language' => 'Language',
+			'settings.languageRow' => 'Language',
+			'settings.languageDesc' => 'Sets both the UI language and this workspace\'s AI output language',
+			'settings.langSystem' => 'System',
+			'settings.window' => 'Window & startup',
+			'settings.rememberWindow' => 'Remember window size & position',
+			'settings.rememberWindowDesc' => 'Restore the last window geometry on launch',
+			'settings.launchAtLogin' => 'Launch at login',
+			'settings.launchAtLoginDesc' => 'Start Anselm automatically after login',
+			'settings.updates' => 'Updates',
+			'settings.updateCheck' => 'Check for updates automatically',
+			'settings.updateCheckDesc' => 'Query GitHub Releases on launch; never installs by itself',
+			'settings.resetToDefault' => 'Reset to default',
+			'settings.patchFailed' => 'Save failed — value restored',
+			'settings.notifLevel' => 'Notification level',
+			'settings.notifLevelDesc' => 'Which events pop up',
+			'settings.levelAll' => 'All',
+			'settings.levelImportant' => 'Needs you',
+			'settings.levelSilent' => 'Silent',
+			'settings.alwaysDelivered' => 'Items that need your action are always delivered and can\'t be turned off',
+			'settings.notifOs' => 'System notifications',
+			'settings.notifOsDesc' => 'Delivered via the OS notification center while unfocused',
+			'settings.notifToast' => 'In-app toasts',
+			'settings.notifToastDesc' => 'Top-right pop-ups; danger-level errors bypass this',
+			'settings.silentHint' => 'Silenced — important items still land in the bell inbox',
+			'settings.autoStage' => 'Sidestage auto-open',
+			'settings.autoStageDesc' => 'The right island stages tool runs automatically',
+			'settings.stageNever' => 'Never',
+			'settings.stageFirst' => 'First per chat',
+			'settings.stageAlways' => 'Every time',
+			'settings.sendKey' => 'Send key',
+			'settings.sendKeyDesc' => 'Shift+Enter always inserts a newline',
+			'settings.sendEnter' => 'Enter sends',
+			'settings.sendCmdEnter' => '⌘Enter sends',
+			'settings.webFetch' => 'Web fetch mode',
+			'settings.webFetchDesc' => 'Local fetch is more private; the Jina proxy reads dynamic pages better',
+			'settings.webLocal' => 'Local fetch',
+			'settings.webJina' => 'Jina proxy',
+			'settings.defaultModelLink' => 'Default chat model → Models & keys',
+			'settings.langEn' => 'English',
+			'settings.langZh' => '简体中文',
 			'markdown.imageNotLoaded' => 'image not loaded',
 			'attach.unavailable' => 'Unavailable',
 			'attach.retry' => 'Tap to retry',

@@ -7,6 +7,7 @@ import '../core/design/theme.dart';
 import '../core/overlay/an_overlay.dart';
 import '../core/router/navigation.dart';
 import '../core/settings/settings_prefs.dart';
+import '../features/settings/data/settings_repository.dart';
 import '../features/chat/data/chat_demo_fixture.dart';
 import '../features/chat/data/chat_providers.dart';
 import '../features/documents/data/document_repository.dart';
@@ -32,10 +33,10 @@ import '../core/entity/mention_source.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   LocaleSettings.useDeviceLocaleSync();
-  await initWindow(title: 'Anselm · Demo (fixtures)');
-  // Real persisted prefs in the demo too — chrome memory (island widths / last ocean) survives a
-  // relaunch, same as the app. demo 也用真持久偏好:壳记忆(岛宽/上次海洋)重启不丢,与 app 同。
+  // Real persisted prefs in the demo too — chrome memory (island widths / last ocean / window
+  // geometry) survives a relaunch, same as the app. demo 也用真持久偏好,与 app 同。
   final prefs = await SettingsPrefs.load();
+  await initWindow(title: 'Anselm · Demo (fixtures)', prefs: prefs);
   runApp(
     ProviderScope(
       overrides: [
@@ -45,6 +46,7 @@ Future<void> main() async {
         chatRepositoryProvider.overrideWithValue(demoChatRepository()),
         documentsRepositoryProvider.overrideWithValue(demoDocumentsRepository()),
         notificationRepositoryProvider.overrideWithValue(demoNotificationRepository()),
+        settingsRepositoryProvider.overrideWithValue(FixtureSettingsRepository()),
         mentionSourceProvider.overrideWith(entityMentionSource),
       ],
       child: TranslationProvider(child: const _DemoRoot()),

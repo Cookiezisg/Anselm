@@ -9,4 +9,8 @@ abstract final class HostPlatform {
   static bool get isMacOS => io.Platform.isMacOS;
   static bool get isWindows => io.Platform.isWindows;
   static bool get isLinux => io.Platform.isLinux;
+  static bool get isDesktop => isMacOS || isWindows || isLinux;
+
+  /// The running executable's path (launch-at-login registration). 可执行文件路径(自启注册用)。
+  static String get executablePath => io.Platform.resolvedExecutable;
 }

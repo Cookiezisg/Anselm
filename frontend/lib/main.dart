@@ -12,6 +12,7 @@ import 'features/notifications/data/notification_providers.dart';
 import 'features/notifications/data/os_notifier.dart';
 import 'app/window_setup.dart';
 import 'core/error/error_boundary.dart';
+import 'core/platform/launch_at_login.dart';
 import 'core/platform/window_zoom.dart';
 import 'core/router/navigation.dart';
 import 'core/settings/settings_prefs.dart';
@@ -31,11 +32,12 @@ Future<void> main() async {
     ScaledWidgetsFlutterBinding.ensureInitialized(scaleFactor: WindowZoom.scaleFactorCallback);
     installErrorHandlers();
     LocaleSettings.useDeviceLocaleSync();
-    await initWindow();
-    await WindowZoom.restore();
-    // Central preferences load ONCE before runApp — every consumer reads synchronously after this.
-    // 中央偏好 runApp 前载入一次,此后全员同步读。
+    // Central preferences load ONCE before the window opens — geometry restore + every later
+    // consumer read synchronously. 中央偏好在开窗前载入:几何恢复要用,此后全员同步读。
     final prefs = await SettingsPrefs.load();
+    await initWindow(prefs: prefs);
+    await WindowZoom.restore();
+    await initLaunchAtLogin();
     runApp(TranslationProvider(
       child: ProviderScope(
         // The GoRouter (which references the shell + entity kinds) is assembled in the app layer and
