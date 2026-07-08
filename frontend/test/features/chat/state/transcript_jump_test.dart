@@ -143,6 +143,43 @@ void main() {
       expect(c.read(conversationStreamProvider('cv_1')).windowMode, isFalse);
     });
 
+    test('M4: a resync re-hydrate consumes the pending bubble whose send already landed', () async {
+      final (c, repo) = _setup(count: 4);
+      c.listen(conversationStreamProvider('cv_1'), (_, _) {});
+      await pumpEventQueue();
+      final ctl = c.read(conversationStreamProvider('cv_1').notifier);
+
+      // A send whose echo never arrives (the 410 gap ate it)… 回声被 410 缺口吃掉的发送。
+      await ctl.send('缺口里的发送');
+      await pumpEventQueue();
+      expect(ctl.transcript.value.pending.length, 1);
+      expect(ctl.transcript.value.hasInFlight, isTrue);
+
+      // …but it DID land server-side (the fixture's send writes the row; the echo frame never
+      // came). The resync re-hydrate must consume the bubble off the terminal settled turn.
+      // 但它落了盘(fixture 发送即落行;回声帧没来)。重同步重拉须凭终态 settled 回合消费泡。
+      repo.emitResync();
+      await pumpEventQueue();
+
+      expect(ctl.transcript.value.pending, isEmpty,
+          reason: 'the landed send\'s bubble is consumed by the re-hydrate 落盘泡被重拉消费');
+      expect(
+          ctl.transcript.value.turns.where((n) =>
+              ConversationTranscript.turnRole(n) == 'user' &&
+              ConversationTranscript.turnText(n).contains('缺口里的发送')).length,
+          1,
+          reason: 'exactly one copy — no duplicate bubble 恰一份,无重复泡');
+
+      // A FAILED bubble with the same text is NOT touched (retry/discard must survive). 失败泡不动。
+      await ctl.send('失败的发送');
+      await pumpEventQueue();
+      ctl.transcript.value.pending.single.failed = true;
+      repo.emitResync();
+      await pumpEventQueue();
+      expect(ctl.transcript.value.pending.length, 1,
+          reason: 'failed bubbles keep their retry/discard 失败泡保留');
+    });
+
     test('a send exits the window first (a send speaks to the present)', () async {
       final (c, _) = _setup();
       c.listen(conversationStreamProvider('cv_1'), (_, _) {});

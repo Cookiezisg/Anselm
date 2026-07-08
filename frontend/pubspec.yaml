@@ -68,6 +68,7 @@ dependencies:
   # updateStyle absent here) → pinned dev.51 (2026-03-27, pre-dates our Flutter) = newest compatible.
   # dev.41+ 引用了本项目 Flutter 3.41.9 没有的 TextInputConnection.updateStyle → 钉 dev.40(旧码同版、本 Flutter 上已验证可编)。
   super_editor: 0.3.0-dev.40
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:

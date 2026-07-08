@@ -553,6 +553,39 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get apfReject => '拒绝';
 	@override String get apfPreviewHint => '审批人将看到';
 	@override String get apfOnTimeout => '超时 →';
+	@override String get memorizing => '正在记忆';
+	@override String get memorized => '已记忆';
+	@override String get recalling => '正在回忆';
+	@override String get recalled => '已回忆';
+	@override String get forgetting => '正在遗忘';
+	@override String get forgot => '已遗忘';
+	@override String get fetchingWeb => '正在抓取';
+	@override String get fetchedWeb => '已抓取';
+	@override String get searchingWeb => '正在搜索';
+	@override String get searchedWeb => '已搜索';
+	@override String get searchingTools => '正在检索工具';
+	@override String get searchedTools => '已检索工具';
+	@override String get memNotSaved => '未保存';
+	@override String get memNotFound => '未找到';
+	@override String get memAlreadyGone => '本就不存在';
+	@override String get irreversible => '不可逆';
+	@override String webHits({required Object n}) => '${n} 条';
+	@override String webHitsPlus({required Object n}) => '${n}+ 条';
+	@override String get webEmpty => '无结果';
+	@override String get webEmptyBody => '没有找到结果';
+	@override String get webNoBackend => '未配置搜索';
+	@override String get webMisconfig => '搜索 key 配置有误';
+	@override String get webProviderFail => '搜索失败';
+	@override String fetchChars({required Object n}) => '${n} 字';
+	@override String get fetchEmpty => '空页面';
+	@override String get fetchRawFallback => '摘要不可用 · 附原文';
+	@override String get fetchJsShell => 'JS 页面';
+	@override String get fetchFailed => '抓取失败';
+	@override String get fetchRefused => '已拒绝';
+	@override String get fetchAsk => '问:';
+	@override String toolsFound({required Object n}) => '${n} 工具';
+	@override String get toolsNoMatch => '无匹配';
+	@override String get toolSchema => '参数 schema';
 	@override String get proseExpand => '展开全文';
 	@override String get proseCollapse => '收起';
 	@override String grepFilter({required Object p}) => '过滤 /${p}/';
@@ -1782,6 +1815,39 @@ extension on TranslationsZhCn {
 			'chat.tool.apfReject' => '拒绝',
 			'chat.tool.apfPreviewHint' => '审批人将看到',
 			'chat.tool.apfOnTimeout' => '超时 →',
+			'chat.tool.memorizing' => '正在记忆',
+			'chat.tool.memorized' => '已记忆',
+			'chat.tool.recalling' => '正在回忆',
+			'chat.tool.recalled' => '已回忆',
+			'chat.tool.forgetting' => '正在遗忘',
+			'chat.tool.forgot' => '已遗忘',
+			'chat.tool.fetchingWeb' => '正在抓取',
+			'chat.tool.fetchedWeb' => '已抓取',
+			'chat.tool.searchingWeb' => '正在搜索',
+			'chat.tool.searchedWeb' => '已搜索',
+			'chat.tool.searchingTools' => '正在检索工具',
+			'chat.tool.searchedTools' => '已检索工具',
+			'chat.tool.memNotSaved' => '未保存',
+			'chat.tool.memNotFound' => '未找到',
+			'chat.tool.memAlreadyGone' => '本就不存在',
+			'chat.tool.irreversible' => '不可逆',
+			'chat.tool.webHits' => ({required Object n}) => '${n} 条',
+			'chat.tool.webHitsPlus' => ({required Object n}) => '${n}+ 条',
+			'chat.tool.webEmpty' => '无结果',
+			'chat.tool.webEmptyBody' => '没有找到结果',
+			'chat.tool.webNoBackend' => '未配置搜索',
+			'chat.tool.webMisconfig' => '搜索 key 配置有误',
+			'chat.tool.webProviderFail' => '搜索失败',
+			'chat.tool.fetchChars' => ({required Object n}) => '${n} 字',
+			'chat.tool.fetchEmpty' => '空页面',
+			'chat.tool.fetchRawFallback' => '摘要不可用 · 附原文',
+			'chat.tool.fetchJsShell' => 'JS 页面',
+			'chat.tool.fetchFailed' => '抓取失败',
+			'chat.tool.fetchRefused' => '已拒绝',
+			'chat.tool.fetchAsk' => '问:',
+			'chat.tool.toolsFound' => ({required Object n}) => '${n} 工具',
+			'chat.tool.toolsNoMatch' => '无匹配',
+			'chat.tool.toolSchema' => '参数 schema',
 			'chat.tool.proseExpand' => '展开全文',
 			'chat.tool.proseCollapse' => '收起',
 			'chat.tool.grepFilter' => ({required Object p}) => '过滤 /${p}/',
@@ -2096,6 +2162,8 @@ extension on TranslationsZhCn {
 			'chat.tool.capResolved' => '依赖已解析',
 			'chat.tool.capStructural' => '结构有效',
 			'chat.tool.installingMcp' => '正在安装 MCP 服务器',
+			_ => null,
+		} ?? switch (path) {
 			'chat.tool.installedMcp' => '已安装 MCP 服务器',
 			'chat.tool.uninstallingMcp' => '正在卸载 MCP 服务器',
 			'chat.tool.uninstalledMcp' => '已卸载 MCP 服务器',
@@ -2129,8 +2197,6 @@ extension on TranslationsZhCn {
 			'chat.gate.decidedApproved' => '已允许',
 			'chat.gate.decidedApprovedAlways' => '已允许 · 本对话总是',
 			'chat.gate.decidedDenied' => '已拒绝',
-			_ => null,
-		} ?? switch (path) {
 			'chat.gate.decidedDeclined' => '已跳过',
 			'chat.contextCompacted' => '上下文已压缩',
 			'chat.contextCompactedCount' => ({required Object n}) => '上下文已压缩 · ${n} 条更早消息已折叠进摘要',
@@ -2610,6 +2676,8 @@ extension on TranslationsZhCn {
 			'documents.retry' => '重试',
 			'documents.emptyTitle' => '这里还什么都没有',
 			'documents.emptyHint' => '新建一篇文档或一个技能开始。',
+			_ => null,
+		} ?? switch (path) {
 			'documents.pickTitle' => '选一篇文档',
 			'documents.pickHint' => '在左侧选一篇文档或技能来阅读或编辑。',
 			'documents.loadFailed' => '打不开这个',
@@ -2643,8 +2711,6 @@ extension on TranslationsZhCn {
 			'documents.props.userInvoke' => '用户可调用',
 			'documents.props.on' => '开',
 			'documents.props.off' => '关',
-			_ => null,
-		} ?? switch (path) {
 			'documents.props.empty' => '未选中',
 			'documents.props.emptyHint' => '选一个页面或技能查看它的属性。',
 			'documents.props.outline' => '大纲',

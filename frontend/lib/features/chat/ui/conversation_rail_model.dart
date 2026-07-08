@@ -106,6 +106,7 @@ SidebarModel buildConversationRailModel(
   bool showTime = true,
   bool hasMore = false,
   bool loadingMore = false,
+  bool loadMoreFailed = false,
 }) {
   // showTime/showCount are the ⚙ "show time" / "show counts" toggles: a null meta/count renders nothing
   // (AnRow omits the trailing time; the section head omits the count). showTime/showCount = ⚙ 开关:meta/count 为 null 则不渲。
@@ -137,6 +138,8 @@ SidebarModel buildConversationRailModel(
             pageKey: 'recents', // the single paginated axis (pinned all land on page one) 唯一分页轴
             hasMore: hasMore,
             loadingMore: loadingMore,
+            loadError: loadMoreFailed, // M9: failure = a manual retry row, never an auto-refire 失败=手动重试行
+
             rows: recents,
           ),
       ]),

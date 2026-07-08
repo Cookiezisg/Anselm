@@ -78,6 +78,9 @@ class ChatHead extends ConsumerWidget {
                     child: AnTypewriter(
                       [conv.title],
                       loop: false,
+                      // No caret — matched with the rail's twin player (a title is not a terminal;
+                      // one reveal, one look). 与 rail 同款无 caret(标题不是终端;一次揭示一种脸)。
+                      showCaret: false,
                       textStyle: AnText.readingH3.copyWith(color: context.colors.ink),
                       onDone: () => ref.read(titleRevealsProvider.notifier).remove(id),
                     ),

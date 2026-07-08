@@ -26,12 +26,15 @@ const Set<String> _payloadKeys = {
 ///
 /// Two modes off [decided]: **awaiting** (amber wait dot, live buttons, fail-safe order) ↔ **resolved**
 /// (frozen: buttons become the decision章, the chosen option pins + others fade — never re-interactive).
-/// fail-safe is the visual order: the negative action is LEFT+ghost, the positive is RIGHT+primary; Esc
+/// fail-safe is the visual order: the negative action sits LEFT (ask's decline = ghost; the danger
+/// gate's deny = the DANGER variant — refusing an irreversible act deserves the loud color), the
+/// positive RIGHT+primary; Esc
 /// is not a decision (refusal must be explicit). Number keys 1–9 quick-select an option ONLY while THIS
 /// gate holds focus (never a global binding — answering the wrong gate = answering for the user).
 ///
 /// 人闸——全产品「机器请求人类动手」的唯一形状。白岛身份(非凹陷;机器 payload 仍住凹陷窗、但问题与钮绝不);
-/// 双模式(awaiting 琥珀活态 ↔ resolved 冻结决议章)。fail-safe 视觉序:消极左 ghost / 积极右 primary;数字键
+/// 双模式(awaiting 琥珀活态 ↔ resolved 冻结决议章)。fail-safe 视觉序:消极居左(ask 的 decline=ghost;危险门的
+/// deny=danger 变体——拒绝不可逆动作配得上响色)/ 积极右 primary;数字键
 /// 快选仅持焦点门响应。纯 prop、零网络(gallery-first);reduced 下浮现即时。
 class ToolInteractionGate extends StatefulWidget {
   const ToolInteractionGate({
@@ -325,7 +328,7 @@ class _ToolInteractionGateState extends State<ToolInteractionGate> {
     );
   }
 
-  // ── awaiting: the fail-safe button row (negative LEFT + ghost, positive RIGHT + primary) ──
+  // ── awaiting: the fail-safe button row (negative LEFT — deny wears danger, decline ghost; positive RIGHT + primary) ──
   Widget _actions(BuildContext context, Translations t, AnColors c, bool danger) {
     if (danger) {
       return Row(

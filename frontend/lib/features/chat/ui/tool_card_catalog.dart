@@ -21,6 +21,7 @@ import 'tool_card_runlog.dart';
 import 'tool_card_search.dart';
 import 'tool_card_subagent.dart';
 import 'tool_card_todo.dart';
+import 'tool_card_memory_web.dart';
 import 'tool_card_trigger.dart';
 import 'tool_card_workflow.dart';
 
@@ -1238,6 +1239,73 @@ final Map<String, ToolCardSpec> _catalog = {
     },
     receipt: (t, s) => killShellReceipt(s.resultText, finished: t.chat.tool.killFinished, notFound: t.chat.tool.killNotFound),
     body: killShellBody,
+  ),
+
+  // ── F11 memory 记忆三件(WRK-059 H2):一张索引卡两次现身;write 有生长秀,forget 刻意薄 ──
+  'write_memory': ToolCardSpec(
+    verb: (t, {required bool live}) => live ? t.chat.tool.memorizing : t.chat.tool.memorized,
+    target: (s) => argStringPartial(s.argsText, 'name'),
+    receipt: memoryWriteReceipt,
+    liveBody: memoryLiveBody,
+    body: writeMemoryBody,
+    // The result-payload soft-reject is the failure fact (status stays completed). 软拒即失败事实。
+    resultFailed: (s) => s.resultText.trimLeft().startsWith('Cannot save memory'),
+  ),
+  'read_memory': ToolCardSpec(
+    verb: (t, {required bool live}) => live ? t.chat.tool.recalling : t.chat.tool.recalled,
+    target: (s) => argStringPartial(s.argsText, 'name'),
+    receipt: memoryReadReceipt,
+    body: readMemoryBody,
+    // A read miss is an honest empty — receipt IS the card (no body, no chevron). 读空回执即卡。
+    hasBodyOf: (s) => !s.resultText.contains('not found') || parseMemoryTemplate(s.resultText) != null,
+  ),
+  'forget_memory': ToolCardSpec(
+    verb: (t, {required bool live}) => live ? t.chat.tool.forgetting : t.chat.tool.forgot,
+    target: (s) => argStringPartial(s.argsText, 'name'),
+    receipt: memoryForgetReceipt,
+    body: forgetMemoryBody,
+  ),
+
+  // ── F10 web 双件(WRK-059 H2):soft-fail 诚实是要点——status=completed 的失败句绝不渲中性绿 ──
+  'WebFetch': ToolCardSpec(
+    verb: (t, {required bool live}) => live ? t.chat.tool.fetchingWeb : t.chat.tool.fetchedWeb,
+    target: (s) {
+      final url = argStringPartial(s.argsText, 'url');
+      if (url == null || url.isEmpty) return null;
+      final bare = url.replaceFirst(RegExp(r'^https?://'), '');
+      return bare.length > 48 ? '${bare.substring(0, 48)}…' : bare;
+    },
+    receipt: webFetchReceipt,
+    liveBody: webFetchLiveBody,
+    body: webFetchBody,
+    resultFailed: (s) => webFetchOutcome(s.resultText) == WebFetchOutcome.fail,
+  ),
+  'WebSearch': ToolCardSpec(
+    verb: (t, {required bool live}) => live ? t.chat.tool.searchingWeb : t.chat.tool.searchedWeb,
+    target: (s) {
+      final q = argStringPartial(s.argsText, 'query');
+      if (q == null || q.isEmpty) return null;
+      return '"${q.length > 48 ? '${q.substring(0, 48)}…' : q}"';
+    },
+    receipt: webSearchReceipt,
+    body: webSearchBody,
+    resultFailed: (s) => switch (webSearchOutcome(s.resultText)) {
+      WebSearchOutcome.noBackend || WebSearchOutcome.misconfig || WebSearchOutcome.providerFail => true,
+      _ => false,
+    },
+  ),
+
+  // ── search_tools 翻工具箱(WRK-059 H2):命中=逐卡陈列;无匹配=回执即卡 ──
+  'search_tools': ToolCardSpec(
+    verb: (t, {required bool live}) => live ? t.chat.tool.searchingTools : t.chat.tool.searchedTools,
+    target: (s) {
+      final q = argStringPartial(s.argsText, 'query');
+      if (q == null || q.isEmpty) return null;
+      return '"${q.length > 48 ? '${q.substring(0, 48)}…' : q}"';
+    },
+    receipt: searchToolsReceipt,
+    body: searchToolsBody,
+    hasBodyOf: (s) => !s.resultText.trimLeft().startsWith('No tools matched'),
   ),
 };
 

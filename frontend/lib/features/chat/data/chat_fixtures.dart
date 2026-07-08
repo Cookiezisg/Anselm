@@ -79,6 +79,9 @@ class FixtureChatRepository implements ChatRepository {
         return sort == ConvSort.name ? a.id.compareTo(b.id) : b.id.compareTo(a.id);
       };
 
+  /// One-shot scripted list failure (the M9 loadMore retry path). 一次性列表失败脚本(M9)。
+  bool failNextListConversations = false;
+
   @override
   Future<Page<Conversation>> listConversations({
     String? cursor,
@@ -87,6 +90,10 @@ class FixtureChatRepository implements ChatRepository {
     ConvArchive archive = ConvArchive.active,
     String? search,
   }) async {
+    if (failNextListConversations) {
+      failNextListConversations = false;
+      throw StateError('scripted list failure');
+    }
     final term = search?.trim().toLowerCase() ?? '';
     final rows = _all.where((c) {
       final scopeOk = switch (archive) {

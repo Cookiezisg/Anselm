@@ -282,4 +282,29 @@ void main() {
     await pumpEventQueue();
     expect(c.read(conversationListProvider).value!.rows.map((r) => r.id), ['cv_b']);
   });
+
+  test('M9: a loadMore failure raises the retry flag (no rethrow storm); retry re-arms and succeeds',
+      () async {
+    // 40 rows → the first page (backend default window) leaves more behind a cursor. 首页留尾。
+    final repo = FixtureChatRepository(
+        conversations: [for (var i = 0; i < 40; i++) _c('cv_$i', 'C$i', hour: i % 24)]);
+    final c = _container(repo);
+    await c.read(conversationListProvider.future);
+    final ctl = c.read(conversationListProvider.notifier);
+    final first = c.read(conversationListProvider).value!;
+    expect(first.hasMore, isTrue, reason: 'the tail exists 有尾可翻');
+
+    repo.failNextListConversations = true;
+    await ctl.loadMore(); // must NOT throw into the void (the old storm) 绝不向虚空抛
+    var s = c.read(conversationListProvider).value!;
+    expect(s.loadMoreFailed, isTrue, reason: 'failure raises the manual-retry flag 失败置旗');
+    expect(s.hasMore, isTrue);
+    expect(s.loadingMore, isFalse);
+
+    await ctl.loadMore(); // the manual retry: clears the flag and pages on 手动重试:清旗续翻
+    s = c.read(conversationListProvider).value!;
+    expect(s.loadMoreFailed, isFalse);
+    expect(s.rows.length, greaterThan(first.rows.length), reason: 'the next page landed 下一页落地');
+  });
+
 }

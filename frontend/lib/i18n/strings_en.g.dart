@@ -1151,6 +1151,105 @@ class Translations$chat$tool$en {
 	/// en: 'on timeout →'
 	String get apfOnTimeout => 'on timeout →';
 
+	/// en: 'Memorizing'
+	String get memorizing => 'Memorizing';
+
+	/// en: 'Memorized'
+	String get memorized => 'Memorized';
+
+	/// en: 'Recalling'
+	String get recalling => 'Recalling';
+
+	/// en: 'Recalled'
+	String get recalled => 'Recalled';
+
+	/// en: 'Forgetting'
+	String get forgetting => 'Forgetting';
+
+	/// en: 'Forgot'
+	String get forgot => 'Forgot';
+
+	/// en: 'Fetching'
+	String get fetchingWeb => 'Fetching';
+
+	/// en: 'Fetched'
+	String get fetchedWeb => 'Fetched';
+
+	/// en: 'Searching the web'
+	String get searchingWeb => 'Searching the web';
+
+	/// en: 'Searched the web'
+	String get searchedWeb => 'Searched the web';
+
+	/// en: 'Searching tools'
+	String get searchingTools => 'Searching tools';
+
+	/// en: 'Searched tools'
+	String get searchedTools => 'Searched tools';
+
+	/// en: 'Not saved'
+	String get memNotSaved => 'Not saved';
+
+	/// en: 'Not found'
+	String get memNotFound => 'Not found';
+
+	/// en: 'Already gone'
+	String get memAlreadyGone => 'Already gone';
+
+	/// en: 'Irreversible'
+	String get irreversible => 'Irreversible';
+
+	/// en: '$n hits'
+	String webHits({required Object n}) => '${n} hits';
+
+	/// en: '$n+ hits'
+	String webHitsPlus({required Object n}) => '${n}+ hits';
+
+	/// en: 'No results'
+	String get webEmpty => 'No results';
+
+	/// en: 'No results found'
+	String get webEmptyBody => 'No results found';
+
+	/// en: 'No search backend'
+	String get webNoBackend => 'No search backend';
+
+	/// en: 'Search key misconfigured'
+	String get webMisconfig => 'Search key misconfigured';
+
+	/// en: 'Search failed'
+	String get webProviderFail => 'Search failed';
+
+	/// en: '$n chars'
+	String fetchChars({required Object n}) => '${n} chars';
+
+	/// en: 'Empty page'
+	String get fetchEmpty => 'Empty page';
+
+	/// en: 'Summary unavailable · raw attached'
+	String get fetchRawFallback => 'Summary unavailable · raw attached';
+
+	/// en: 'JS page'
+	String get fetchJsShell => 'JS page';
+
+	/// en: 'Fetch failed'
+	String get fetchFailed => 'Fetch failed';
+
+	/// en: 'Refused'
+	String get fetchRefused => 'Refused';
+
+	/// en: 'Q:'
+	String get fetchAsk => 'Q:';
+
+	/// en: '$n tools'
+	String toolsFound({required Object n}) => '${n} tools';
+
+	/// en: 'No match'
+	String get toolsNoMatch => 'No match';
+
+	/// en: 'Parameter schema'
+	String get toolSchema => 'Parameter schema';
+
 	/// en: 'Show all'
 	String get proseExpand => 'Show all';
 
@@ -3894,6 +3993,39 @@ extension on Translations {
 			'chat.tool.apfReject' => 'Reject',
 			'chat.tool.apfPreviewHint' => 'the approver will see',
 			'chat.tool.apfOnTimeout' => 'on timeout →',
+			'chat.tool.memorizing' => 'Memorizing',
+			'chat.tool.memorized' => 'Memorized',
+			'chat.tool.recalling' => 'Recalling',
+			'chat.tool.recalled' => 'Recalled',
+			'chat.tool.forgetting' => 'Forgetting',
+			'chat.tool.forgot' => 'Forgot',
+			'chat.tool.fetchingWeb' => 'Fetching',
+			'chat.tool.fetchedWeb' => 'Fetched',
+			'chat.tool.searchingWeb' => 'Searching the web',
+			'chat.tool.searchedWeb' => 'Searched the web',
+			'chat.tool.searchingTools' => 'Searching tools',
+			'chat.tool.searchedTools' => 'Searched tools',
+			'chat.tool.memNotSaved' => 'Not saved',
+			'chat.tool.memNotFound' => 'Not found',
+			'chat.tool.memAlreadyGone' => 'Already gone',
+			'chat.tool.irreversible' => 'Irreversible',
+			'chat.tool.webHits' => ({required Object n}) => '${n} hits',
+			'chat.tool.webHitsPlus' => ({required Object n}) => '${n}+ hits',
+			'chat.tool.webEmpty' => 'No results',
+			'chat.tool.webEmptyBody' => 'No results found',
+			'chat.tool.webNoBackend' => 'No search backend',
+			'chat.tool.webMisconfig' => 'Search key misconfigured',
+			'chat.tool.webProviderFail' => 'Search failed',
+			'chat.tool.fetchChars' => ({required Object n}) => '${n} chars',
+			'chat.tool.fetchEmpty' => 'Empty page',
+			'chat.tool.fetchRawFallback' => 'Summary unavailable · raw attached',
+			'chat.tool.fetchJsShell' => 'JS page',
+			'chat.tool.fetchFailed' => 'Fetch failed',
+			'chat.tool.fetchRefused' => 'Refused',
+			'chat.tool.fetchAsk' => 'Q:',
+			'chat.tool.toolsFound' => ({required Object n}) => '${n} tools',
+			'chat.tool.toolsNoMatch' => 'No match',
+			'chat.tool.toolSchema' => 'Parameter schema',
 			'chat.tool.proseExpand' => 'Show all',
 			'chat.tool.proseCollapse' => 'Collapse',
 			'chat.tool.grepFilter' => ({required Object p}) => 'filter /${p}/',
@@ -4208,6 +4340,8 @@ extension on Translations {
 			'chat.tool.capResolved' => 'deps resolved',
 			'chat.tool.capStructural' => 'structurally valid',
 			'chat.tool.installingMcp' => 'Installing MCP server',
+			_ => null,
+		} ?? switch (path) {
 			'chat.tool.installedMcp' => 'Installed MCP server',
 			'chat.tool.uninstallingMcp' => 'Uninstalling MCP server',
 			'chat.tool.uninstalledMcp' => 'Uninstalled MCP server',
@@ -4241,8 +4375,6 @@ extension on Translations {
 			'chat.gate.decidedApproved' => 'Allowed',
 			'chat.gate.decidedApprovedAlways' => 'Allowed · always this conversation',
 			'chat.gate.decidedDenied' => 'Denied',
-			_ => null,
-		} ?? switch (path) {
 			'chat.gate.decidedDeclined' => 'Skipped',
 			'chat.contextCompacted' => 'Context compacted',
 			'chat.contextCompactedCount' => ({required Object n}) => 'Context compacted · ${n} earlier messages folded into the summary',
@@ -4722,6 +4854,8 @@ extension on Translations {
 			'documents.retry' => 'Retry',
 			'documents.emptyTitle' => 'Nothing here yet',
 			'documents.emptyHint' => 'Create a document or a skill to get started.',
+			_ => null,
+		} ?? switch (path) {
 			'documents.pickTitle' => 'Pick a document',
 			'documents.pickHint' => 'Choose a document or skill on the left to read or edit it.',
 			'documents.loadFailed' => 'Couldn\'t open this',
@@ -4755,8 +4889,6 @@ extension on Translations {
 			'documents.props.userInvoke' => 'User-invocable',
 			'documents.props.on' => 'On',
 			'documents.props.off' => 'Off',
-			_ => null,
-		} ?? switch (path) {
 			'documents.props.empty' => 'Nothing selected',
 			'documents.props.emptyHint' => 'Select a page or skill to see its properties.',
 			'documents.props.outline' => 'Outline',

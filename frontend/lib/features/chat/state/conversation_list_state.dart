@@ -19,5 +19,9 @@ abstract class ConversationListState with _$ConversationListState {
     String? nextCursor,
     @Default(false) bool hasMore,
     @Default(false) bool loadingMore,
+    // The loadMore tail FAILED (WRK-059 M9): the rail swaps the auto-firing sentinel for a manual
+    // retry row — a persistent server error must not become a per-RTT retry storm.
+    // loadMore 尾部失败(M9):rail 把自动触发哨兵换成手动重试行——持久服务端错误绝不成 per-RTT 风暴。
+    @Default(false) bool loadMoreFailed,
   }) = _ConversationListState;
 }

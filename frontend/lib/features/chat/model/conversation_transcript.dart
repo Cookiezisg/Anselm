@@ -122,6 +122,44 @@ class ConversationTranscript {
         settled.add(hydrateTurn(m));
       }
     }
+    _reconcilePendingWithSettled();
+  }
+
+  /// After a head re-hydrate (410 resync / back-to-live): a pending bubble whose send actually
+  /// LANDED sits in the refetched head as a TERMINAL user turn — and terminal turns never re-echo
+  /// on the live stream, so the FIFO echo reconcile can never consume it. Left alone it becomes a
+  /// permanent duplicate bubble AND pins the composer in stop-state via hasInFlight (WRK-059 M4).
+  /// Consume here instead: match in-flight (non-failed) bubbles FIFO against the TRAILING settled
+  /// user turns by exact text (trailing only — deep history legitimately repeats phrases; the
+  /// just-landed send is by construction near the end). Failed bubbles stay (retry/discard).
+  ///
+  /// 重拉头之后(410 重同步/回到现场):真落了盘的发送在新头页里是**终态** user 回合——终态回合不再产
+  /// live 回声,FIFO 回声对账永远消费不到它,留下=永久重复泡+经 hasInFlight 卡死 composer(M4)。
+  /// 在此消费:在飞(非失败)泡按 FIFO 与 settled **尾部** user 回合按原文匹配(只看尾部——深历史合理
+  /// 重复短语,刚落的发送按构造必在尾部)。失败泡保留(retry/discard 不动)。
+  void _reconcilePendingWithSettled() {
+    final inFlight = pending.where((p) => !p.failed).length;
+    if (inFlight == 0) return;
+    // The trailing window: enough user turns to cover every in-flight bubble, plus slack for the
+    // assistant replies interleaved between them. 尾窗:覆盖全部在飞泡的 user 回合数+穿插余量。
+    final tailTexts = <String, int>{};
+    var seen = 0;
+    for (var i = settled.length - 1; i >= 0 && seen < inFlight + 2; i--) {
+      final n = settled[i];
+      if (turnRole(n) != 'user') continue;
+      final txt = turnText(n).trim();
+      tailTexts[txt] = (tailTexts[txt] ?? 0) + 1;
+      seen++;
+    }
+    pending.removeWhere((p) {
+      if (p.failed) return false;
+      final c = tailTexts[p.text] ?? 0;
+      if (c > 0) {
+        tailTexts[p.text] = c - 1;
+        return true;
+      }
+      return false;
+    });
   }
 
   /// Prepend one older REST page ([newestFirst] wire order) above the loaded history. 上翻一页,插史前。

@@ -70,6 +70,9 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
   // ── @ typeahead state @ 预输入态 ──
   final LayerLink _link = LayerLink();
   late final OverlayPortalController _portal = OverlayPortalController();
+
+  /// TapRegion group linking the panel + composer: taps inside either never dismiss. 面板与壳同组。
+  static const Object _mentionPanelGroup = 'chat-mention-panel';
   final Debouncer _searchDebounce = Debouncer(const Duration(milliseconds: 150));
   List<MentionCandidate> _candidates = const [];
   int _activeIndex = 0;
@@ -402,17 +405,26 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
             followerAnchor: Alignment.bottomLeft,
             offset: const Offset(0, -AnSpace.s8),
             showWhenUnlinked: false,
-            child: AnMentionPanel(
-              items: [
-                for (final c in _candidates)
-                  AnMentionRowData(kind: c.type, name: c.name, description: c.description),
-              ],
-              activeIndex: _activeIndex,
-              onPick: _pick,
+            // An outside click dismisses the panel (the combobox norm — a floating list must never
+            // outlive the user's attention); typing in the field keeps it (the field is inside the
+            // group via the target wrapper below). 点外即收(combobox 常规);输入框在组内,打字不收。
+            child: TapRegion(
+              groupId: _mentionPanelGroup,
+              onTapOutside: (_) => _closePicker(),
+              child: AnMentionPanel(
+                items: [
+                  for (final c in _candidates)
+                    AnMentionRowData(kind: c.type, name: c.name, description: c.description),
+                ],
+                activeIndex: _activeIndex,
+                onPick: _pick,
+              ),
             ),
           ),
         ),
-        child: CompositedTransformTarget(link: _link, child: composer),
+        child: CompositedTransformTarget(
+            link: _link,
+            child: TapRegion(groupId: _mentionPanelGroup, child: composer)),
       );
     });
   }

@@ -126,6 +126,28 @@ class ConversationListNotifier extends AsyncNotifier<ConversationListState>
 
   // KeysetQueryPaging hooks — the sort/archived/search-scoped fetch + this state's cursor/append shape. 钩子。
   @override
+  /// [KeysetQueryPaging.loadMore] with the M9 failure contract: an error RAISES the state flag
+  /// (the rail swaps to a manual retry row) instead of rethrowing into the void — the old path
+  /// left hasMore true + no error surface, so the tail sentinel re-fired every rebuild: a
+  /// per-RTT request storm with an uncaught async error per round. A retry call clears the flag.
+  ///
+  /// 带 M9 失败契约的 loadMore:出错**置状态旗**(rail 换手动重试行)而非向虚空 rethrow——旧径 hasMore
+  /// 仍真且无错误面,尾哨兵每次重建都再触发:per-RTT 请求风暴+每轮一个未捕获错误。重试调用清旗。
+  @override
+  Future<void> loadMore() async {
+    final cur = state.value;
+    if (cur != null && cur.loadMoreFailed) {
+      state = AsyncData(cur.copyWith(loadMoreFailed: false)); // a manual retry re-arms 手动重试重上膛
+    }
+    try {
+      await super.loadMore();
+    } catch (_) {
+      final s = state.value;
+      if (s != null) state = AsyncData(s.copyWith(loadMoreFailed: true));
+    }
+  }
+
+  @override
   ({bool hasMore, bool loadingMore, String? nextCursor}) pageCursor(ConversationListState s) =>
       (hasMore: s.hasMore, loadingMore: s.loadingMore, nextCursor: s.nextCursor);
 
@@ -219,6 +241,19 @@ class ConversationListNotifier extends AsyncNotifier<ConversationListState>
       rows.removeAt(i);
     } else if (i >= 0) {
       rows[i] = c;
+      // Under ?sort=name a rename must RESEAT the row (an in-place patch would leave it parked at
+      // its old letter — the list quietly lies about its own ordering). Local re-sort mirrors the
+      // backend collation (pinned-first, title case-insensitive, id tiebreaker); the paging cursor
+      // is untouched — it was minted from the fetched page, not the displayed order.
+      // ?sort=name 下改名须**重新落座**(就地替换会停旧字母位——列表对自身排序撒谎)。本地重排镜像后端
+      // collation(置顶优先/标题大小写不敏感/id tiebreak);分页游标不动(铸自已取页,非显示序)。
+      if (ref.read(conversationSortProvider) == ConvSort.name) {
+        rows.sort((a, b) {
+          if (a.pinned != b.pinned) return a.pinned ? -1 : 1;
+          final byTitle = a.title.toLowerCase().compareTo(b.title.toLowerCase());
+          return byTitle != 0 ? byTitle : a.id.compareTo(b.id);
+        });
+      }
     } else {
       return; // not in the loaded window (e.g. unarchived into view) — a fresh page brings it 不在已载窗,留给重翻
     }

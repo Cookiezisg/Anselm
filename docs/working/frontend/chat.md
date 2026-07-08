@@ -40,9 +40,9 @@ audience: [human, ai]
 
 ---
 
-## B. 中心海洋 —— ✅ 纯聊天骨干已落(切片①–⑧,真后端免费模型端到端亲测);tool 卡/人在环/右岛 ⏳ 待建
+## B. 中心海洋 —— ✅ 纯聊天骨干 + tool 卡 + 人在环 + 右岛侧幕全落;剩 B5/B6/B7 完美态深化(tool-cards §6)
 
-> **建法(2026-07,用户拍板)**:视觉阶梯 **V0–V8 逐模块 gallery-first 锁死长相再组装**。**模块已锁**:V0 `AnComposer`(发送框原语+完整转场动效,`b8f2f7a4`+`5ca606b5`)· V1 `ChatTurn`(回合韵律:用户泡/助手裸 + `surfaceSunken` token,`e688d7f2`)· V2 `ChatThinking`(推理块「低语+流窗」完整生命线 + `AnShimmerText` 流光原语,`78b30c79`)+ `AnMarkdown`(`a157dec9`)· **V7-transcript 半(用户泡完整体)**:`AnAttachmentCard`/`AnAttachmentThumb` + `UserTurnContent`(附件在上、提及 `AnRefPill` 内联、文本在下;五态降级诚实)。**待建**:**V3 tool 卡分批建**(规范+17+1 族全表+四拍板决策见 [`tool-cards.md`](tool-cards.md),WRK-053;**V3a 底盘 ✅**——`ChatToolCard` 全生命周期裸行[流光动词+等宽目标+灰回执+tick 计数读秒]+ 通用展开体[意图/参数/进度尾/结果/错误,小 JSON 美化 mono·大 JSON 有界虚拟树·超限诚实截断]+ `ToolCardState` 纯派生[拒绝/取消散文=线缆契约]+ 目录缝 + transcript 接线 + capture 夹具;mono 回退链 MiSans 置首[地基修]→ **V3b shell+fs ✅**(机器窗口身份[拍板 #5]:`ToolWindow` 容器+活终端尾+回执解析器纯函数+Read 回执即卡+Edit diff 窗)→ **V3c builds ✅**(活代码窗 argStringPartial 流入+结果条 id·vN·env 三色+liveBody 缝+错误段上提底盘)→ **V6 人在环卡紧随**(interaction 重连补拉硬需求)→ V3d exec/searches/reads/web → V3e 薄卡+批量折叠;**独立 V4 已取消**——tool_result 呈现被各族皮肤吸收)→ V5 特殊块 → V8 右岛 entity-workspace(数据地基已落:后端 touchpoint 台账,`domains/touchpoint.md`)→ V7-composer 半(上传流/预览条/@ picker)。
+> **建法(2026-07,用户拍板)**:视觉阶梯 **V0–V8 逐模块 gallery-first 锁死长相再组装**。**模块已锁**:V0 `AnComposer`(发送框原语+完整转场动效,`b8f2f7a4`+`5ca606b5`)· V1 `ChatTurn`(回合韵律:用户泡/助手裸 + `surfaceSunken` token,`e688d7f2`)· V2 `ChatThinking`(推理块「低语+流窗」完整生命线 + `AnShimmerText` 流光原语,`78b30c79`)+ `AnMarkdown`(`a157dec9`)· **V7-transcript 半(用户泡完整体)**:`AnAttachmentCard`/`AnAttachmentThumb` + `UserTurnContent`(附件在上、提及 `AnRefPill` 内联、文本在下;五态降级诚实)。**V3 tool 卡已全落**(规范 [`tool-cards.md`](tool-cards.md) WRK-053 + 蓝图 [`tool-card-blueprints.md`](tool-card-blueprints.md) WRK-056:V3a 底盘 → V3b shell·fs → V3c builds → V6 人在环 → B1–B4 完美态批次;**独立 V4 已取消**——tool_result 呈现被各族皮肤吸收)· **V5 特殊块 ✅** · **V8 右岛「侧幕」✅**(WRK-061 W0–W7,归档 [`archive/chat-right-island`](../../archive/chat-right-island/README.md),当前形态 [`features/chat-sidestage.md`](../../references/frontend/features/chat-sidestage.md))· **V7-composer 半 ✅**(附件三入口 + @ picker,见 B.1)。**剩**:B5 执行档案 / B6 嵌套对话 / B7 生态收尾 的完美态深化(蓝图 §6 建造顺序)。
 
 ### B.1 已落形态(纯聊天组装,切片①–⑧)
 
@@ -96,5 +96,7 @@ audience: [human, ai]
 
 1. **V3 tool 卡分批**(WRK-053 [`tool-cards.md`](tool-cards.md)):V3a 底盘 → V3b shell+fs → V3c builds → **V6 人在环卡**(内联确认卡 + interaction 重连补拉硬需求)→ V3d exec/searches/reads/web → V3e 薄卡+批量折叠+transcript 全接线(独立 V4 已取消,tool_result 呈现入族皮肤)—— ✅ 已落
 2. **V5 特殊块** ✅ 已落(2026-07-07,commit 92c9f8e1):**A** progress hygiene 修(close 快照字段 `text` 非 `content` → `displayText` 加 `content['text']` fallback + `transcript_hydration` 补 progress 特判,get_subagent_trace 回放不再空)· **B** compaction whisper `ChatContextMark`(发丝线夹 layers 图标 + 本地化文案[从后端英文 marker 解 count],不借 thinking 左轨;gallery+capture+4 测)· **C** 嵌套 subagent `message` 摊平(**真 bug**:真后端嵌套回合是 tool_call 下 `message` 包装、轨迹是孙节点,`transcriptBlockRow` default→shrink 吞它 → 真后端 NestedRunPane 渲空;`ToolCardState.of` 加 message 摊平;showcase 改真形截图验证)
-3. **V8 右岛 entity-workspace**(后端 touchpoint 台账已落,前端数据缝随建)+ V7-composer 半(上传流/预览条/@ picker)—— ⏳ **chat 唯一剩项**
-4. **每步照流水线**:扇出读后端 → best-practice → 规范 → 拍板 → gallery → 建 → 五电池 → 真机截图
+3. **V8 右岛「侧幕」** ✅ 已落(2026-07-08,WRK-061 W0–W7 整段:增量 JSON 引擎+StageDirector 导演器+touchpoint ledger+12/13 kind 舞台+W6 导航+W7 polish;归档 [`archive/chat-right-island`](../../archive/chat-right-island/README.md),当前形态 [`features/chat-sidestage.md`](../../references/frontend/features/chat-sidestage.md));V7-composer 半(附件三入口/@ picker)已随切片 C/D 落
+4. **WRK-059 审计清账** ✅ 全清(2026-07-08):34-agent 对抗审计 17 confirmed + 7 注释/polish 全修——H2 六工具编目(memory 三件/WebSearch·WebFetch soft-fail 诚实/search_tools 薄卡)+ M1–M9 + L1–L6 + 注释七条;台账归档 [`archive/chat-review-backlog`](../../archive/chat-review-backlog/README.md)
+5. **剩**:B5 执行档案 / B6 嵌套对话 / B7 生态收尾 完美态深化([`tool-card-blueprints.md`](tool-card-blueprints.md) §6);需用户在场的口味/native 项等用户
+6. **每步照流水线**:扇出读后端 → best-practice → 规范 → 拍板 → gallery → 建 → 五电池 → 真机截图

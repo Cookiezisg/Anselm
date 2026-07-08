@@ -14,7 +14,10 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$ConversationListState {
 
- List<Conversation> get rows; String? get nextCursor; bool get hasMore; bool get loadingMore;
+ List<Conversation> get rows; String? get nextCursor; bool get hasMore; bool get loadingMore;// The loadMore tail FAILED (WRK-059 M9): the rail swaps the auto-firing sentinel for a manual
+// retry row — a persistent server error must not become a per-RTT retry storm.
+// loadMore 尾部失败(M9):rail 把自动触发哨兵换成手动重试行——持久服务端错误绝不成 per-RTT 风暴。
+ bool get loadMoreFailed;
 /// Create a copy of ConversationListState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -25,16 +28,16 @@ $ConversationListStateCopyWith<ConversationListState> get copyWith => _$Conversa
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ConversationListState&&const DeepCollectionEquality().equals(other.rows, rows)&&(identical(other.nextCursor, nextCursor) || other.nextCursor == nextCursor)&&(identical(other.hasMore, hasMore) || other.hasMore == hasMore)&&(identical(other.loadingMore, loadingMore) || other.loadingMore == loadingMore));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ConversationListState&&const DeepCollectionEquality().equals(other.rows, rows)&&(identical(other.nextCursor, nextCursor) || other.nextCursor == nextCursor)&&(identical(other.hasMore, hasMore) || other.hasMore == hasMore)&&(identical(other.loadingMore, loadingMore) || other.loadingMore == loadingMore)&&(identical(other.loadMoreFailed, loadMoreFailed) || other.loadMoreFailed == loadMoreFailed));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(rows),nextCursor,hasMore,loadingMore);
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(rows),nextCursor,hasMore,loadingMore,loadMoreFailed);
 
 @override
 String toString() {
-  return 'ConversationListState(rows: $rows, nextCursor: $nextCursor, hasMore: $hasMore, loadingMore: $loadingMore)';
+  return 'ConversationListState(rows: $rows, nextCursor: $nextCursor, hasMore: $hasMore, loadingMore: $loadingMore, loadMoreFailed: $loadMoreFailed)';
 }
 
 
@@ -45,7 +48,7 @@ abstract mixin class $ConversationListStateCopyWith<$Res>  {
   factory $ConversationListStateCopyWith(ConversationListState value, $Res Function(ConversationListState) _then) = _$ConversationListStateCopyWithImpl;
 @useResult
 $Res call({
- List<Conversation> rows, String? nextCursor, bool hasMore, bool loadingMore
+ List<Conversation> rows, String? nextCursor, bool hasMore, bool loadingMore, bool loadMoreFailed
 });
 
 
@@ -62,12 +65,13 @@ class _$ConversationListStateCopyWithImpl<$Res>
 
 /// Create a copy of ConversationListState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? rows = null,Object? nextCursor = freezed,Object? hasMore = null,Object? loadingMore = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? rows = null,Object? nextCursor = freezed,Object? hasMore = null,Object? loadingMore = null,Object? loadMoreFailed = null,}) {
   return _then(_self.copyWith(
 rows: null == rows ? _self.rows : rows // ignore: cast_nullable_to_non_nullable
 as List<Conversation>,nextCursor: freezed == nextCursor ? _self.nextCursor : nextCursor // ignore: cast_nullable_to_non_nullable
 as String?,hasMore: null == hasMore ? _self.hasMore : hasMore // ignore: cast_nullable_to_non_nullable
 as bool,loadingMore: null == loadingMore ? _self.loadingMore : loadingMore // ignore: cast_nullable_to_non_nullable
+as bool,loadMoreFailed: null == loadMoreFailed ? _self.loadMoreFailed : loadMoreFailed // ignore: cast_nullable_to_non_nullable
 as bool,
   ));
 }
@@ -153,10 +157,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<Conversation> rows,  String? nextCursor,  bool hasMore,  bool loadingMore)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<Conversation> rows,  String? nextCursor,  bool hasMore,  bool loadingMore,  bool loadMoreFailed)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _ConversationListState() when $default != null:
-return $default(_that.rows,_that.nextCursor,_that.hasMore,_that.loadingMore);case _:
+return $default(_that.rows,_that.nextCursor,_that.hasMore,_that.loadingMore,_that.loadMoreFailed);case _:
   return orElse();
 
 }
@@ -174,10 +178,10 @@ return $default(_that.rows,_that.nextCursor,_that.hasMore,_that.loadingMore);cas
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<Conversation> rows,  String? nextCursor,  bool hasMore,  bool loadingMore)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<Conversation> rows,  String? nextCursor,  bool hasMore,  bool loadingMore,  bool loadMoreFailed)  $default,) {final _that = this;
 switch (_that) {
 case _ConversationListState():
-return $default(_that.rows,_that.nextCursor,_that.hasMore,_that.loadingMore);case _:
+return $default(_that.rows,_that.nextCursor,_that.hasMore,_that.loadingMore,_that.loadMoreFailed);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -194,10 +198,10 @@ return $default(_that.rows,_that.nextCursor,_that.hasMore,_that.loadingMore);cas
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<Conversation> rows,  String? nextCursor,  bool hasMore,  bool loadingMore)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<Conversation> rows,  String? nextCursor,  bool hasMore,  bool loadingMore,  bool loadMoreFailed)?  $default,) {final _that = this;
 switch (_that) {
 case _ConversationListState() when $default != null:
-return $default(_that.rows,_that.nextCursor,_that.hasMore,_that.loadingMore);case _:
+return $default(_that.rows,_that.nextCursor,_that.hasMore,_that.loadingMore,_that.loadMoreFailed);case _:
   return null;
 
 }
@@ -209,7 +213,7 @@ return $default(_that.rows,_that.nextCursor,_that.hasMore,_that.loadingMore);cas
 
 
 class _ConversationListState implements ConversationListState {
-  const _ConversationListState({final  List<Conversation> rows = const <Conversation>[], this.nextCursor, this.hasMore = false, this.loadingMore = false}): _rows = rows;
+  const _ConversationListState({final  List<Conversation> rows = const <Conversation>[], this.nextCursor, this.hasMore = false, this.loadingMore = false, this.loadMoreFailed = false}): _rows = rows;
   
 
  final  List<Conversation> _rows;
@@ -222,6 +226,10 @@ class _ConversationListState implements ConversationListState {
 @override final  String? nextCursor;
 @override@JsonKey() final  bool hasMore;
 @override@JsonKey() final  bool loadingMore;
+// The loadMore tail FAILED (WRK-059 M9): the rail swaps the auto-firing sentinel for a manual
+// retry row — a persistent server error must not become a per-RTT retry storm.
+// loadMore 尾部失败(M9):rail 把自动触发哨兵换成手动重试行——持久服务端错误绝不成 per-RTT 风暴。
+@override@JsonKey() final  bool loadMoreFailed;
 
 /// Create a copy of ConversationListState
 /// with the given fields replaced by the non-null parameter values.
@@ -233,16 +241,16 @@ _$ConversationListStateCopyWith<_ConversationListState> get copyWith => __$Conve
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ConversationListState&&const DeepCollectionEquality().equals(other._rows, _rows)&&(identical(other.nextCursor, nextCursor) || other.nextCursor == nextCursor)&&(identical(other.hasMore, hasMore) || other.hasMore == hasMore)&&(identical(other.loadingMore, loadingMore) || other.loadingMore == loadingMore));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ConversationListState&&const DeepCollectionEquality().equals(other._rows, _rows)&&(identical(other.nextCursor, nextCursor) || other.nextCursor == nextCursor)&&(identical(other.hasMore, hasMore) || other.hasMore == hasMore)&&(identical(other.loadingMore, loadingMore) || other.loadingMore == loadingMore)&&(identical(other.loadMoreFailed, loadMoreFailed) || other.loadMoreFailed == loadMoreFailed));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_rows),nextCursor,hasMore,loadingMore);
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_rows),nextCursor,hasMore,loadingMore,loadMoreFailed);
 
 @override
 String toString() {
-  return 'ConversationListState(rows: $rows, nextCursor: $nextCursor, hasMore: $hasMore, loadingMore: $loadingMore)';
+  return 'ConversationListState(rows: $rows, nextCursor: $nextCursor, hasMore: $hasMore, loadingMore: $loadingMore, loadMoreFailed: $loadMoreFailed)';
 }
 
 
@@ -253,7 +261,7 @@ abstract mixin class _$ConversationListStateCopyWith<$Res> implements $Conversat
   factory _$ConversationListStateCopyWith(_ConversationListState value, $Res Function(_ConversationListState) _then) = __$ConversationListStateCopyWithImpl;
 @override @useResult
 $Res call({
- List<Conversation> rows, String? nextCursor, bool hasMore, bool loadingMore
+ List<Conversation> rows, String? nextCursor, bool hasMore, bool loadingMore, bool loadMoreFailed
 });
 
 
@@ -270,12 +278,13 @@ class __$ConversationListStateCopyWithImpl<$Res>
 
 /// Create a copy of ConversationListState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? rows = null,Object? nextCursor = freezed,Object? hasMore = null,Object? loadingMore = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? rows = null,Object? nextCursor = freezed,Object? hasMore = null,Object? loadingMore = null,Object? loadMoreFailed = null,}) {
   return _then(_ConversationListState(
 rows: null == rows ? _self._rows : rows // ignore: cast_nullable_to_non_nullable
 as List<Conversation>,nextCursor: freezed == nextCursor ? _self.nextCursor : nextCursor // ignore: cast_nullable_to_non_nullable
 as String?,hasMore: null == hasMore ? _self.hasMore : hasMore // ignore: cast_nullable_to_non_nullable
 as bool,loadingMore: null == loadingMore ? _self.loadingMore : loadingMore // ignore: cast_nullable_to_non_nullable
+as bool,loadMoreFailed: null == loadMoreFailed ? _self.loadMoreFailed : loadMoreFailed // ignore: cast_nullable_to_non_nullable
 as bool,
   ));
 }

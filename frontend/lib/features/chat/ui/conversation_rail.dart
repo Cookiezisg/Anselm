@@ -111,6 +111,7 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
             showTime: showTime,
             hasMore: async.value?.hasMore ?? false,
             loadingMore: async.value?.loadingMore ?? false,
+            loadMoreFailed: async.value?.loadMoreFailed ?? false,
             labels: ConvRailLabels(
               newLabel: t.chat.kNew,
               filter: t.chat.filter,

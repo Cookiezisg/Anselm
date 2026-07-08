@@ -4,6 +4,7 @@ import 'package:characters/characters.dart';
 
 import '../../../core/contract/attachment.dart';
 import '../../../core/contract/conversation.dart';
+import '../../../core/contract/interaction.dart';
 import '../../../core/contract/entities/function.dart';
 import '../../../core/contract/messages/chat_message.dart';
 import '../../../core/contract/todo.dart';
@@ -640,12 +641,29 @@ DemoChatRepository demoChatRepository() {
       // 只留打开有内容的对话 + 归档例;空 rail 填充对话已清(#1)。信号仍全覆盖:置顶/未读绿/归档灰/发送时生成蓝。
       conv('cv_sync', 'AI 编辑 · sync_inventory 加重试', const Duration(minutes: 10), pinned: true),
       for (final s in shows) s.conv, // the tool-card showcase — every tool card, live 工具卡展台(每卡)
+      conv('cv_gate', '展台 · 活人闸', const Duration(minutes: 2), awaiting: true), // M8: the LIVE gate 活门(琥珀点)
       conv('cv_weekly', '周报初稿整理', const Duration(hours: 1), unread: true), // unread green + markdown/table
       conv('cv_scroll', '展台 · 长卷与深跳', const Duration(hours: 3)), // W6: 场次条 + ?around= deep jump 深跳长卷
       conv('cv_migrate', '旧版迁移笔记', const Duration(days: 40), archived: true), // the archived (gray) example
     ],
     messages: {
       for (final s in shows) s.conv.id: s.messages,
+      // M8 活人闸: the gate's REAL wire shape — the tool_call block CLOSED (args final; an open
+      // block is argsStreaming and can never reach awaitingConfirm), no tool_result yet, the message
+      // still streaming, plus a seeded pending interaction. The amber gate (approve/deny) is finally
+      // demo-able live, and the rail shows the amber dot (M1 order).
+      // M8 活人闸:门的真实线缆形——tool_call 块已关帧(args 定稿;开着=argsStreaming,永远到不了
+      // awaitingConfirm)、尚无 tool_result、message 仍 streaming,再种待决 interaction。琥珀门
+      // (批/拒)终于可在 demo 活演,rail 同框演琥珀点(M1 顺序)。
+      'cv_gate': [
+        msg('m_hg1', 'cv_gate', 'user', const Duration(minutes: 3), blocks: [
+          blk('b_hg1', 'text', '把废弃的 legacy_sync 函数删掉吧'),
+        ]),
+        msg('m_hg2', 'cv_gate', 'assistant', const Duration(minutes: 2), status: 'streaming', blocks: [
+          blk('b_hg_gate', 'tool_call', '{"functionId":"fn_legacy_sync"}',
+              attrs: {'tool': 'delete_function', 'danger': 'dangerous', 'summary': '删除废弃函数 legacy_sync(不可逆)'}),
+        ]),
+      ],
       // W6 深跳长卷: 64 turns so the head page (30) can't hold it and the TALLER drawer's bottom rows land beyond it — the 场次条 jumps ?around= for real.
       // A folded tool cluster + one dangerous call + an abnormal terminal give the drawer every row kind.
       // 48 回合,头页装不下——场次条真走 ?around=;折叠簇+危险调用+异常终态让抽屉五 kind 齐活。
@@ -656,6 +674,12 @@ DemoChatRepository demoChatRepository() {
               blk('b_l${i}a', 'tool_call', '{"query":"库存同步"}', attrs: {'tool': 'search_entities'}),
               blk('b_l${i}b', 'tool_call', '{"functionId":"fn_sync"}', attrs: {'tool': 'get_function'}),
               blk('b_l${i}c', 'text', '查到了,旧版同步函数还挂在两个 workflow 上。'),
+            ])
+          else if (i == 21)
+            // M7: the context-compaction whisper, finally visible in make demo. 压缩低语 demo 可见。
+            msg('m_l$i', 'cv_scroll', 'assistant', Duration(hours: 3, minutes: 96 - 2 * i), blocks: [
+              blk('b_l${i}k', 'compaction', 'Compacted 18 earlier turns into the running summary.'),
+              blk('b_l$i', 'text', '第 ${i ~/ 2 + 1} 答:这一段保持现状即可,理由记在盘点手册。'),
             ])
           else if (i == 23)
             msg('m_l$i', 'cv_scroll', 'assistant', Duration(hours: 3, minutes: 96 - 2 * i), blocks: [
@@ -695,7 +719,9 @@ DemoChatRepository demoChatRepository() {
           blk('b_s2t', 'text',
               '加好了,要点:\n\n1. **指数退避**:`1s → 2s → 4s`,最多 3 次\n2. 超限抛 `SyncError`,上游 workflow 决定是否降级\n\n```py\n@retry(times=3, backoff=[1, 2, 4])\ndef sync_inventory():\n    ...\n```\n\n已生成新版本 v4 并激活。'),
         ]),
-        msg('m_s3', 'cv_sync', 'user', const Duration(minutes: 12), blocks: [
+        msg('m_s3', 'cv_sync', 'user', const Duration(minutes: 12), attrs: {
+          'attachments': ['att_demo_shelf'], // L5: the in-bubble chip rides the seeded still life 泡内 chip
+        }, blocks: [
           blk('b_s3', 'text', '再帮我把失败告警也加上'),
         ]),
         msg('m_s4', 'cv_sync', 'assistant', const Duration(minutes: 11),
@@ -757,6 +783,16 @@ DemoChatRepository demoChatRepository() {
     // The exhibit pedestal's still life — tapping this Cast row lights the 展品座. 展品座静物。
     tp('tp_d5', 'attachment', 'att_demo_shelf', 'shelf-audit.csv', TouchpointVerb.attached,
         const Duration(minutes: 14), actor: TouchpointActor.user),
+  ];
+  repo.interactions['cv_gate'] = const [
+    Interaction(
+      toolCallId: 'b_hg_gate',
+      kind: InteractionKind.danger,
+      tool: 'delete_function',
+      resolved: false,
+      summary: '删除废弃函数 legacy_sync(不可逆)',
+      args: {'functionId': 'fn_legacy_sync'},
+    ),
   ];
   repo.attachmentMetas['att_demo_shelf'] = const AttachmentMeta(
     id: 'att_demo_shelf',
