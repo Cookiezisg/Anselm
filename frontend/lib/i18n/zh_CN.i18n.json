@@ -1209,7 +1209,7 @@
     "themeLight": "浅色",
     "themeDark": "深色",
     "themeSystem": "跟随系统",
-    "themeDesc": "深色主题即将推出",
+    "themeDesc": "跟随系统将随 macOS 外观自动切换",
     "zoom": "界面缩放",
     "zoomDesc": "整体缩放界面,与 ⌘+ / ⌘− / ⌘0 同步",
     "language": "语言",

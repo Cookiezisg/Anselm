@@ -406,7 +406,7 @@ class _Translations$settings$zh_CN extends Translations$settings$en {
 	@override String get themeLight => '浅色';
 	@override String get themeDark => '深色';
 	@override String get themeSystem => '跟随系统';
-	@override String get themeDesc => '深色主题即将推出';
+	@override String get themeDesc => '跟随系统将随 macOS 外观自动切换';
 	@override String get zoom => '界面缩放';
 	@override String get zoomDesc => '整体缩放界面,与 ⌘+ / ⌘− / ⌘0 同步';
 	@override String get language => '语言';
@@ -2871,7 +2871,7 @@ extension on TranslationsZhCn {
 			'settings.themeLight' => '浅色',
 			'settings.themeDark' => '深色',
 			'settings.themeSystem' => '跟随系统',
-			'settings.themeDesc' => '深色主题即将推出',
+			'settings.themeDesc' => '跟随系统将随 macOS 外观自动切换',
 			'settings.zoom' => '界面缩放',
 			'settings.zoomDesc' => '整体缩放界面,与 ⌘+ / ⌘− / ⌘0 同步',
 			'settings.language' => '语言',

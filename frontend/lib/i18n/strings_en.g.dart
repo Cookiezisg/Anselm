@@ -794,8 +794,8 @@ class Translations$settings$en {
 	/// en: 'System'
 	String get themeSystem => 'System';
 
-	/// en: 'Dark theme coming soon'
-	String get themeDesc => 'Dark theme coming soon';
+	/// en: 'System follows the macOS appearance'
+	String get themeDesc => 'System follows the macOS appearance';
 
 	/// en: 'UI zoom'
 	String get zoom => 'UI zoom';
@@ -5198,7 +5198,7 @@ extension on Translations {
 			'settings.themeLight' => 'Light',
 			'settings.themeDark' => 'Dark',
 			'settings.themeSystem' => 'System',
-			'settings.themeDesc' => 'Dark theme coming soon',
+			'settings.themeDesc' => 'System follows the macOS appearance',
 			'settings.zoom' => 'UI zoom',
 			'settings.zoomDesc' => 'Scales the whole UI, synced with ⌘+ / ⌘− / ⌘0',
 			'settings.language' => 'Language',

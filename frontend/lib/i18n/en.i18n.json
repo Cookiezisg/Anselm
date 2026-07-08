@@ -1209,7 +1209,7 @@
     "themeLight": "Light",
     "themeDark": "Dark",
     "themeSystem": "System",
-    "themeDesc": "Dark theme coming soon",
+    "themeDesc": "System follows the macOS appearance",
     "zoom": "UI zoom",
     "zoomDesc": "Scales the whole UI, synced with ⌘+ / ⌘− / ⌘0",
     "language": "Language",

@@ -38,6 +38,22 @@ void main() {
             );
           });
 
+          // Dark axis (S1b, 拍板 #1): every specimen must build + lay out under AnTheme.dark too —
+          // a primitive that hardcodes a light-only colour or derives from a missing dark extension
+          // crashes/overflows HERE, not in a user's night session. Colour AESTHETICS stay a
+          // real-machine eyeball pass; this gate is structural. dark 轴:每 specimen 须在暗色下同样
+          // build+布局(硬编亮色/缺暗色扩展在此炸);色彩审美归真机走查,本门禁管结构。
+          testWidgets('${item.name} · ${s.label} · dark', (tester) async {
+            await tester.pumpWidget(_host(s, dark: true));
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 50));
+            expect(
+              tester.takeException(),
+              isNull,
+              reason: '${item.name}/${s.label} threw or overflowed under dark',
+            );
+          });
+
           // Reduced-motion axis: under disableAnimations EVERY specimen must SETTLE — a component that
           // forgot to gate a `.repeat()` loop leaves a ticker running so pumpAndSettle never settles
           // (→ timeout = FAIL). This is the machine enforcement of the reduced-motion static-fallback
@@ -72,7 +88,7 @@ void main() {
 
 const _specimen = ValueKey('specimen');
 
-Widget _host(GallerySpecimen s, {bool reduced = false}) {
+Widget _host(GallerySpecimen s, {bool reduced = false, bool dark = false}) {
   // Constrain to the gallery's real render width (narrow stress specimen / span / 280 grid track) so
   // overflow + truncation surface exactly as in the gallery. 用画廊真实渲染宽约束,溢出与截断如实暴露。
   final width = s.maxWidth ?? (s.span ? 600.0 : 280.0);
@@ -83,7 +99,7 @@ Widget _host(GallerySpecimen s, {bool reduced = false}) {
     child: TranslationProvider(
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        theme: AnTheme.light(),
+        theme: dark ? AnTheme.dark() : AnTheme.light(),
         home: Scaffold(
           body: Center(
             // height: s.height bounds the cell for scroll-hosting components (else unbounded-height crash). 有界高。

@@ -39,7 +39,7 @@ void main() {
   setUpAll(() => LocaleSettings.setLocaleRaw('zh-CN'));
 
   group('GeneralPanel 通用', () {
-    testWidgets('theme segmented: system applies + persists; dark stays un-pickable', (tester) async {
+    testWidgets('theme segmented: all three notches apply + persist (dark live since S1b)', (tester) async {
       final prefs = SettingsPrefs.inMemory();
       await tester.pumpWidget(_host(prefs, const GeneralPanel(), repo: FixtureSettingsRepository()));
       await tester.pumpAndSettle();
@@ -48,10 +48,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(prefs.getString(SettingsKeys.theme), 'system', reason: '即时持久化');
 
-      await tester.tap(find.text(t.settings.themeDark).first, warnIfMissed: false);
+      await tester.tap(find.text(t.settings.themeDark).first);
       await tester.pumpAndSettle();
-      expect(prefs.getString(SettingsKeys.theme), 'system',
-          reason: 'dark disabled until S1b — the tap must not stick dark 不可点');
+      expect(prefs.getString(SettingsKeys.theme), 'dark', reason: 'dark 已随 S1b 点亮,可选可存');
     });
 
     testWidgets('language double-writes: UI locale + workspace.language', (tester) async {

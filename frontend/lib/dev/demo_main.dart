@@ -6,6 +6,7 @@ import '../app/window_setup.dart';
 import '../core/design/theme.dart';
 import '../core/overlay/an_overlay.dart';
 import '../core/router/navigation.dart';
+import '../core/settings/app_prefs_providers.dart';
 import '../core/settings/settings_prefs.dart';
 import '../features/settings/data/settings_repository.dart';
 import '../features/chat/data/chat_demo_fixture.dart';
@@ -66,6 +67,8 @@ class _DemoRoot extends ConsumerWidget {
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       theme: AnTheme.light(),
+      darkTheme: AnTheme.dark(),
+      themeMode: ref.watch(themeModeProvider),
       routerConfig: router,
       builder: (context, child) =>
           AnOverlayHost(navigatorKey: navigatorKey, child: child!),

@@ -53,9 +53,7 @@ class GeneralPanel extends ConsumerWidget {
                 child: AnSegmented<ThemePreference>(
                   options: [
                     AnSegmentedOption(value: ThemePreference.light, label: t.settings.themeLight),
-                    // Declared but un-pickable until the S1b lighting pass — honest roadmap. S1b 前不可点。
-                    AnSegmentedOption(
-                        value: ThemePreference.dark, label: t.settings.themeDark, disabled: true),
+                    AnSegmentedOption(value: ThemePreference.dark, label: t.settings.themeDark),
                     AnSegmentedOption(value: ThemePreference.system, label: t.settings.themeSystem),
                   ],
                   value: theme,
