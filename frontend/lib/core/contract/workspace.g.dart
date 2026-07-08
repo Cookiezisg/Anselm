@@ -60,3 +60,30 @@ Map<String, dynamic> _$WorkspaceToJson(_Workspace instance) =>
       'createdAt': instance.createdAt.toIso8601String(),
       'updatedAt': instance.updatedAt.toIso8601String(),
     };
+
+_WorkspaceStats _$WorkspaceStatsFromJson(Map<String, dynamic> json) =>
+    _WorkspaceStats(
+      conversations: (json['conversations'] as num?)?.toInt() ?? 0,
+      functions: (json['functions'] as num?)?.toInt() ?? 0,
+      handlers: (json['handlers'] as num?)?.toInt() ?? 0,
+      agents: (json['agents'] as num?)?.toInt() ?? 0,
+      workflows: (json['workflows'] as num?)?.toInt() ?? 0,
+      documents: (json['documents'] as num?)?.toInt() ?? 0,
+      runningFlowruns: (json['runningFlowruns'] as num?)?.toInt() ?? 0,
+      generatingConversations:
+          (json['generatingConversations'] as num?)?.toInt() ?? 0,
+      blobBytes: (json['blobBytes'] as num?)?.toInt() ?? 0,
+    );
+
+Map<String, dynamic> _$WorkspaceStatsToJson(_WorkspaceStats instance) =>
+    <String, dynamic>{
+      'conversations': instance.conversations,
+      'functions': instance.functions,
+      'handlers': instance.handlers,
+      'agents': instance.agents,
+      'workflows': instance.workflows,
+      'documents': instance.documents,
+      'runningFlowruns': instance.runningFlowruns,
+      'generatingConversations': instance.generatingConversations,
+      'blobBytes': instance.blobBytes,
+    };

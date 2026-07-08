@@ -101,6 +101,16 @@ void main() {
     expect(c.read(activeWorkspaceProvider), 'ws_2',
         reason: 'watch(apiClient) 的响应环会把选区拽回 ws_1——bootstrap 必须 read');
     expect(adapter.listCalls, listsAfterBoot, reason: '切换不得重跑 bootstrap');
+
+    // REGRESSION PIN (S3 first real-machine run): after a switch the REBUILT client must serve
+    // requests. With the pulse on a shared Dio, the stale client's interceptor (closing over a
+    // disposed Ref) stayed installed and killed every call. The pulse lives on the Dio itself now.
+    // 回归钉:切换后重建的客户端必须能发请求——脉搏若在共享 Dio 上,旧拦截器(捏着已废 Ref)会杀掉
+    // 所有调用;脉搏已下沉到 Dio 层。
+    final page = await c
+        .read(apiClientProvider)
+        .getPage('/api/v1/workspaces', (j) => j['id'] as String);
+    expect(page.items, isNotEmpty, reason: '切换后的请求绝不能死在旧拦截器里');
   });
 
   test('chat sticky state self-heals: landing model + title reveals reset on switch', () {

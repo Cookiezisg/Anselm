@@ -5,6 +5,7 @@ import '../../../core/model/sidebar_model.dart';
 import '../../../core/ui/an_sidebar_list.dart';
 import '../../../i18n/strings.g.dart';
 import '../model/settings_catalog.dart';
+import '../state/settings_detail_provider.dart';
 import '../state/settings_panel_provider.dart';
 
 /// PURE projection: the settings directory as a sidebar model — one flat group, three static
@@ -46,6 +47,13 @@ class SettingsRail extends ConsumerWidget {
       selectedId: selected.name,
       showNew: false,
       onSelect: (id) {
+        // Re-selecting the CURRENT panel returns to its root (pops the pushed detail) — the
+        // ocean's panel-switch listener only fires on a real change. 重点当前面板=回面板根。
+        final currentDetail = ref.read(settingsDetailProvider);
+        if (id == ref.read(settingsPanelProvider).name && currentDetail != null) {
+          ref.read(settingsDetailProvider.notifier).pop();
+          return;
+        }
         final panel = SettingsPanel.values.asNameMap()[id];
         if (panel != null) ref.read(settingsPanelProvider.notifier).select(panel);
       },

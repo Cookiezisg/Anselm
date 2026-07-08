@@ -656,4 +656,291 @@ $ModelRefCopyWith<$Res>? get defaultAgent {
 }
 }
 
+
+/// @nodoc
+mixin _$WorkspaceStats {
+
+ int get conversations; int get functions; int get handlers; int get agents; int get workflows; int get documents; int get runningFlowruns; int get generatingConversations; int get blobBytes;
+/// Create a copy of WorkspaceStats
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$WorkspaceStatsCopyWith<WorkspaceStats> get copyWith => _$WorkspaceStatsCopyWithImpl<WorkspaceStats>(this as WorkspaceStats, _$identity);
+
+  /// Serializes this WorkspaceStats to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is WorkspaceStats&&(identical(other.conversations, conversations) || other.conversations == conversations)&&(identical(other.functions, functions) || other.functions == functions)&&(identical(other.handlers, handlers) || other.handlers == handlers)&&(identical(other.agents, agents) || other.agents == agents)&&(identical(other.workflows, workflows) || other.workflows == workflows)&&(identical(other.documents, documents) || other.documents == documents)&&(identical(other.runningFlowruns, runningFlowruns) || other.runningFlowruns == runningFlowruns)&&(identical(other.generatingConversations, generatingConversations) || other.generatingConversations == generatingConversations)&&(identical(other.blobBytes, blobBytes) || other.blobBytes == blobBytes));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,conversations,functions,handlers,agents,workflows,documents,runningFlowruns,generatingConversations,blobBytes);
+
+@override
+String toString() {
+  return 'WorkspaceStats(conversations: $conversations, functions: $functions, handlers: $handlers, agents: $agents, workflows: $workflows, documents: $documents, runningFlowruns: $runningFlowruns, generatingConversations: $generatingConversations, blobBytes: $blobBytes)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $WorkspaceStatsCopyWith<$Res>  {
+  factory $WorkspaceStatsCopyWith(WorkspaceStats value, $Res Function(WorkspaceStats) _then) = _$WorkspaceStatsCopyWithImpl;
+@useResult
+$Res call({
+ int conversations, int functions, int handlers, int agents, int workflows, int documents, int runningFlowruns, int generatingConversations, int blobBytes
+});
+
+
+
+
+}
+/// @nodoc
+class _$WorkspaceStatsCopyWithImpl<$Res>
+    implements $WorkspaceStatsCopyWith<$Res> {
+  _$WorkspaceStatsCopyWithImpl(this._self, this._then);
+
+  final WorkspaceStats _self;
+  final $Res Function(WorkspaceStats) _then;
+
+/// Create a copy of WorkspaceStats
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? conversations = null,Object? functions = null,Object? handlers = null,Object? agents = null,Object? workflows = null,Object? documents = null,Object? runningFlowruns = null,Object? generatingConversations = null,Object? blobBytes = null,}) {
+  return _then(_self.copyWith(
+conversations: null == conversations ? _self.conversations : conversations // ignore: cast_nullable_to_non_nullable
+as int,functions: null == functions ? _self.functions : functions // ignore: cast_nullable_to_non_nullable
+as int,handlers: null == handlers ? _self.handlers : handlers // ignore: cast_nullable_to_non_nullable
+as int,agents: null == agents ? _self.agents : agents // ignore: cast_nullable_to_non_nullable
+as int,workflows: null == workflows ? _self.workflows : workflows // ignore: cast_nullable_to_non_nullable
+as int,documents: null == documents ? _self.documents : documents // ignore: cast_nullable_to_non_nullable
+as int,runningFlowruns: null == runningFlowruns ? _self.runningFlowruns : runningFlowruns // ignore: cast_nullable_to_non_nullable
+as int,generatingConversations: null == generatingConversations ? _self.generatingConversations : generatingConversations // ignore: cast_nullable_to_non_nullable
+as int,blobBytes: null == blobBytes ? _self.blobBytes : blobBytes // ignore: cast_nullable_to_non_nullable
+as int,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [WorkspaceStats].
+extension WorkspaceStatsPatterns on WorkspaceStats {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _WorkspaceStats value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _WorkspaceStats() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _WorkspaceStats value)  $default,){
+final _that = this;
+switch (_that) {
+case _WorkspaceStats():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _WorkspaceStats value)?  $default,){
+final _that = this;
+switch (_that) {
+case _WorkspaceStats() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int conversations,  int functions,  int handlers,  int agents,  int workflows,  int documents,  int runningFlowruns,  int generatingConversations,  int blobBytes)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _WorkspaceStats() when $default != null:
+return $default(_that.conversations,_that.functions,_that.handlers,_that.agents,_that.workflows,_that.documents,_that.runningFlowruns,_that.generatingConversations,_that.blobBytes);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int conversations,  int functions,  int handlers,  int agents,  int workflows,  int documents,  int runningFlowruns,  int generatingConversations,  int blobBytes)  $default,) {final _that = this;
+switch (_that) {
+case _WorkspaceStats():
+return $default(_that.conversations,_that.functions,_that.handlers,_that.agents,_that.workflows,_that.documents,_that.runningFlowruns,_that.generatingConversations,_that.blobBytes);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int conversations,  int functions,  int handlers,  int agents,  int workflows,  int documents,  int runningFlowruns,  int generatingConversations,  int blobBytes)?  $default,) {final _that = this;
+switch (_that) {
+case _WorkspaceStats() when $default != null:
+return $default(_that.conversations,_that.functions,_that.handlers,_that.agents,_that.workflows,_that.documents,_that.runningFlowruns,_that.generatingConversations,_that.blobBytes);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _WorkspaceStats implements WorkspaceStats {
+  const _WorkspaceStats({this.conversations = 0, this.functions = 0, this.handlers = 0, this.agents = 0, this.workflows = 0, this.documents = 0, this.runningFlowruns = 0, this.generatingConversations = 0, this.blobBytes = 0});
+  factory _WorkspaceStats.fromJson(Map<String, dynamic> json) => _$WorkspaceStatsFromJson(json);
+
+@override@JsonKey() final  int conversations;
+@override@JsonKey() final  int functions;
+@override@JsonKey() final  int handlers;
+@override@JsonKey() final  int agents;
+@override@JsonKey() final  int workflows;
+@override@JsonKey() final  int documents;
+@override@JsonKey() final  int runningFlowruns;
+@override@JsonKey() final  int generatingConversations;
+@override@JsonKey() final  int blobBytes;
+
+/// Create a copy of WorkspaceStats
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$WorkspaceStatsCopyWith<_WorkspaceStats> get copyWith => __$WorkspaceStatsCopyWithImpl<_WorkspaceStats>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$WorkspaceStatsToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _WorkspaceStats&&(identical(other.conversations, conversations) || other.conversations == conversations)&&(identical(other.functions, functions) || other.functions == functions)&&(identical(other.handlers, handlers) || other.handlers == handlers)&&(identical(other.agents, agents) || other.agents == agents)&&(identical(other.workflows, workflows) || other.workflows == workflows)&&(identical(other.documents, documents) || other.documents == documents)&&(identical(other.runningFlowruns, runningFlowruns) || other.runningFlowruns == runningFlowruns)&&(identical(other.generatingConversations, generatingConversations) || other.generatingConversations == generatingConversations)&&(identical(other.blobBytes, blobBytes) || other.blobBytes == blobBytes));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,conversations,functions,handlers,agents,workflows,documents,runningFlowruns,generatingConversations,blobBytes);
+
+@override
+String toString() {
+  return 'WorkspaceStats(conversations: $conversations, functions: $functions, handlers: $handlers, agents: $agents, workflows: $workflows, documents: $documents, runningFlowruns: $runningFlowruns, generatingConversations: $generatingConversations, blobBytes: $blobBytes)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$WorkspaceStatsCopyWith<$Res> implements $WorkspaceStatsCopyWith<$Res> {
+  factory _$WorkspaceStatsCopyWith(_WorkspaceStats value, $Res Function(_WorkspaceStats) _then) = __$WorkspaceStatsCopyWithImpl;
+@override @useResult
+$Res call({
+ int conversations, int functions, int handlers, int agents, int workflows, int documents, int runningFlowruns, int generatingConversations, int blobBytes
+});
+
+
+
+
+}
+/// @nodoc
+class __$WorkspaceStatsCopyWithImpl<$Res>
+    implements _$WorkspaceStatsCopyWith<$Res> {
+  __$WorkspaceStatsCopyWithImpl(this._self, this._then);
+
+  final _WorkspaceStats _self;
+  final $Res Function(_WorkspaceStats) _then;
+
+/// Create a copy of WorkspaceStats
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? conversations = null,Object? functions = null,Object? handlers = null,Object? agents = null,Object? workflows = null,Object? documents = null,Object? runningFlowruns = null,Object? generatingConversations = null,Object? blobBytes = null,}) {
+  return _then(_WorkspaceStats(
+conversations: null == conversations ? _self.conversations : conversations // ignore: cast_nullable_to_non_nullable
+as int,functions: null == functions ? _self.functions : functions // ignore: cast_nullable_to_non_nullable
+as int,handlers: null == handlers ? _self.handlers : handlers // ignore: cast_nullable_to_non_nullable
+as int,agents: null == agents ? _self.agents : agents // ignore: cast_nullable_to_non_nullable
+as int,workflows: null == workflows ? _self.workflows : workflows // ignore: cast_nullable_to_non_nullable
+as int,documents: null == documents ? _self.documents : documents // ignore: cast_nullable_to_non_nullable
+as int,runningFlowruns: null == runningFlowruns ? _self.runningFlowruns : runningFlowruns // ignore: cast_nullable_to_non_nullable
+as int,generatingConversations: null == generatingConversations ? _self.generatingConversations : generatingConversations // ignore: cast_nullable_to_non_nullable
+as int,blobBytes: null == blobBytes ? _self.blobBytes : blobBytes // ignore: cast_nullable_to_non_nullable
+as int,
+  ));
+}
+
+
+}
+
 // dart format on

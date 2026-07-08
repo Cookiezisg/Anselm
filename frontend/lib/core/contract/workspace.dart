@@ -49,3 +49,23 @@ abstract class Workspace with _$Workspace {
   factory Workspace.fromJson(Map<String, dynamic> json) =>
       _$WorkspaceFromJson(json);
 }
+
+/// One workspace's content inventory — `GET /workspaces/{id}/stats` (the delete confirmation's real
+/// numbers, WRK-062 S-11). blobBytes == -1 means the walk blew its budget (honest unknown).
+/// 一个 workspace 的内容盘点(删除确认的真数字);blobBytes==-1=超预算的诚实未知。
+@freezed
+abstract class WorkspaceStats with _$WorkspaceStats {
+  const factory WorkspaceStats({
+    @Default(0) int conversations,
+    @Default(0) int functions,
+    @Default(0) int handlers,
+    @Default(0) int agents,
+    @Default(0) int workflows,
+    @Default(0) int documents,
+    @Default(0) int runningFlowruns,
+    @Default(0) int generatingConversations,
+    @Default(0) int blobBytes,
+  }) = _WorkspaceStats;
+
+  factory WorkspaceStats.fromJson(Map<String, dynamic> json) => _$WorkspaceStatsFromJson(json);
+}

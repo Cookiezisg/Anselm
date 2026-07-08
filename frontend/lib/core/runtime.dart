@@ -79,21 +79,30 @@ class BackendStartup extends Notifier<BackendState> {
 final backendStartupProvider =
     NotifierProvider<BackendStartup, BackendState>(BackendStartup.new);
 
-/// A Dio bound to the live backend base URL — rebuilt when it appears/changes. dio,绑活动 baseUrl(变则重建)。
+/// A Dio bound to the live backend base URL — rebuilt when it appears/changes AND on a workspace
+/// switch. The switch watch is the HOT-SWITCH PULSE (WRK-062 S3-pre) and it must live HERE, on the
+/// Dio itself: ApiClient installs its header interceptor onto the Dio it receives, so rebuilding
+/// the client on a SHARED Dio would stack a second interceptor whose closure holds the previous
+/// provider's now-disposed Ref — every request then dies in the stale interceptor (found live on
+/// S3's first real-machine run). A fresh Dio per switch retires the old interceptor with it; the
+/// old instance closes after its in-flight requests settle.
+///
+/// dio:绑活动 baseUrl,且随 workspace 切换重建。切换 watch 即热切换脉搏(S3-pre),它必须在 Dio 这层:
+/// ApiClient 把 header 拦截器装到收到的 Dio 上,共享 Dio 重建 client 会**叠**第二个拦截器,而旧拦截器
+/// 闭包捏着已废 provider Ref——之后每个请求都死在旧拦截器里(S3 首次真机即抓)。每切换换新 Dio,旧拦截器
+/// 随旧实例退役;旧实例等在途请求结清后关闭。
 final dioProvider = Provider<Dio>((ref) {
   final st = ref.watch(backendStartupProvider);
-  return Dio(BaseOptions(baseUrl: st.baseUrl ?? ''));
+  ref.watch(activeWorkspaceProvider);
+  final dio = Dio(BaseOptions(baseUrl: st.baseUrl ?? ''));
+  ref.onDispose(dio.close);
+  return dio;
 });
 
 /// The single HTTP boundary, wired with the workspace header + per-launch bearer token (both read
-/// lazily so every request sees the current value). 唯一 HTTP 边界(workspace + bearer 懒读,每请求取当前值)。
+/// lazily so every request sees the current value). Rebuilds with its Dio — the switch cascade every
+/// Live repository rides. 唯一 HTTP 边界(workspace+bearer 懒读);随 Dio 重建=全部 Live repo 的切换级联。
 final apiClientProvider = Provider<ApiClient>((ref) {
-  // HOT-SWITCH PULSE (WRK-062 S3-pre): the workspace id itself is still read lazily per request, but
-  // WATCHING it makes this provider rebuild on switch — every Live repository watches this client, so
-  // the whole server-state tree re-fetches under the new workspace with zero per-feature wiring.
-  // 热切换脉搏:id 仍每请求懒读,但 watch 使本 provider 随切换重建——全部 Live repo watch 本客户端,
-  // 整棵 server-state 树零逐处接线地在新 workspace 下重取。
-  ref.watch(activeWorkspaceProvider);
   return ApiClient(
     dio: ref.watch(dioProvider),
     workspaceId: () => ref.read(activeWorkspaceProvider),

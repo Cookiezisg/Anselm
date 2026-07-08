@@ -930,6 +930,8 @@ class Translations$settings$en {
 	String get langZh => '简体中文';
 
 	late final Translations$settings$keys$en keys = Translations$settings$keys$en.internal(_root);
+	late final Translations$settings$ws$en ws = Translations$settings$ws$en.internal(_root);
+	late final Translations$settings$about$en about = Translations$settings$about$en.internal(_root);
 }
 
 // Path: markdown
@@ -3281,6 +3283,117 @@ class Translations$settings$keys$en {
 	String get refreshModels => 'Refresh model list';
 }
 
+// Path: settings.ws
+class Translations$settings$ws$en {
+	Translations$settings$ws$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Workspaces'
+	String get section => 'Workspaces';
+
+	/// en: 'Current'
+	String get current => 'Current';
+
+	/// en: 'New workspace'
+	String get newWorkspace => 'New workspace';
+
+	/// en: 'Name'
+	String get name => 'Name';
+
+	/// en: 'Color'
+	String get color => 'Color';
+
+	/// en: 'Create'
+	String get create => 'Create';
+
+	/// en: 'Save'
+	String get save => 'Save';
+
+	/// en: 'Edit'
+	String get edit => 'Edit';
+
+	/// en: 'Switch'
+	String get switchTo => 'Switch';
+
+	/// en: 'Delete this workspace'
+	String get dangerTitle => 'Delete this workspace';
+
+	/// en: 'Permanently deletes everything in “$name”: $conversations conversations · $entities entities · $documents documents · $blob of attachments.'
+	String dangerBody({required Object name, required Object conversations, required Object entities, required Object documents, required Object blob}) => 'Permanently deletes everything in “${name}”: ${conversations} conversations · ${entities} entities · ${documents} documents · ${blob} of attachments.';
+
+	/// en: '$n runs in progress — deleting terminates them immediately'
+	String runningWarn({required Object n}) => '${n} runs in progress — deleting terminates them immediately';
+
+	/// en: '$n conversations are generating replies — deleting interrupts them'
+	String generatingWarn({required Object n}) => '${n} conversations are generating replies — deleting interrupts them';
+
+	/// en: 'Type “$name” to confirm'
+	String typeNameHint({required Object name}) => 'Type “${name}” to confirm';
+
+	/// en: 'Delete forever'
+	String get confirmDelete => 'Delete forever';
+
+	/// en: 'The only workspace can't be deleted'
+	String get lastOne => 'The only workspace can\'t be deleted';
+
+	/// en: 'Delete failed'
+	String get deleteFailed => 'Delete failed';
+
+	/// en: 'size unknown'
+	String get blobUnknown => 'size unknown';
+
+	/// en: 'Taking inventory…'
+	String get statsLoading => 'Taking inventory…';
+}
+
+// Path: settings.about
+class Translations$settings$about$en {
+	Translations$settings$about$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'App version'
+	String get appVersion => 'App version';
+
+	/// en: 'Engine version'
+	String get backendVersion => 'Engine version';
+
+	/// en: 'Versions'
+	String get versions => 'Versions';
+
+	/// en: 'Check for updates'
+	String get checkUpdates => 'Check for updates';
+
+	/// en: 'Checking…'
+	String get checking => 'Checking…';
+
+	/// en: 'Up to date ($v)'
+	String upToDate({required Object v}) => 'Up to date (${v})';
+
+	/// en: 'Version $v available'
+	String updateAvailable({required Object v}) => 'Version ${v} available';
+
+	/// en: 'Download'
+	String get download => 'Download';
+
+	/// en: 'Couldn't check for updates (offline or nothing published yet)'
+	String get cantCheck => 'Couldn\'t check for updates (offline or nothing published yet)';
+
+	/// en: 'Diagnostics'
+	String get diagnostics => 'Diagnostics';
+
+	/// en: 'Copy diagnostics'
+	String get copyDiagnostics => 'Copy diagnostics';
+
+	/// en: 'Copied'
+	String get copied => 'Copied';
+}
+
 // Path: chat.tool.kind
 class Translations$chat$tool$kind$en {
 	Translations$chat$tool$kind$en.internal(this._root);
@@ -5449,6 +5562,37 @@ extension on Translations {
 			'settings.keys.searchDefaultDesc' => 'Used by the WebSearch tool (category=search keys)',
 			'settings.keys.keyOpFailed' => 'Operation failed',
 			'settings.keys.refreshModels' => 'Refresh model list',
+			'settings.ws.section' => 'Workspaces',
+			'settings.ws.current' => 'Current',
+			'settings.ws.newWorkspace' => 'New workspace',
+			'settings.ws.name' => 'Name',
+			'settings.ws.color' => 'Color',
+			'settings.ws.create' => 'Create',
+			'settings.ws.save' => 'Save',
+			'settings.ws.edit' => 'Edit',
+			'settings.ws.switchTo' => 'Switch',
+			'settings.ws.dangerTitle' => 'Delete this workspace',
+			'settings.ws.dangerBody' => ({required Object name, required Object conversations, required Object entities, required Object documents, required Object blob}) => 'Permanently deletes everything in “${name}”: ${conversations} conversations · ${entities} entities · ${documents} documents · ${blob} of attachments.',
+			'settings.ws.runningWarn' => ({required Object n}) => '${n} runs in progress — deleting terminates them immediately',
+			'settings.ws.generatingWarn' => ({required Object n}) => '${n} conversations are generating replies — deleting interrupts them',
+			'settings.ws.typeNameHint' => ({required Object name}) => 'Type “${name}” to confirm',
+			'settings.ws.confirmDelete' => 'Delete forever',
+			'settings.ws.lastOne' => 'The only workspace can\'t be deleted',
+			'settings.ws.deleteFailed' => 'Delete failed',
+			'settings.ws.blobUnknown' => 'size unknown',
+			'settings.ws.statsLoading' => 'Taking inventory…',
+			'settings.about.appVersion' => 'App version',
+			'settings.about.backendVersion' => 'Engine version',
+			'settings.about.versions' => 'Versions',
+			'settings.about.checkUpdates' => 'Check for updates',
+			'settings.about.checking' => 'Checking…',
+			'settings.about.upToDate' => ({required Object v}) => 'Up to date (${v})',
+			'settings.about.updateAvailable' => ({required Object v}) => 'Version ${v} available',
+			'settings.about.download' => 'Download',
+			'settings.about.cantCheck' => 'Couldn\'t check for updates (offline or nothing published yet)',
+			'settings.about.diagnostics' => 'Diagnostics',
+			'settings.about.copyDiagnostics' => 'Copy diagnostics',
+			'settings.about.copied' => 'Copied',
 			'markdown.imageNotLoaded' => 'image not loaded',
 			'attach.unavailable' => 'Unavailable',
 			'attach.retry' => 'Tap to retry',

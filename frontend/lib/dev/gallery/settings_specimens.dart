@@ -6,6 +6,7 @@ import '../../core/ui/an_secret_field.dart';
 import '../../core/ui/an_segmented.dart';
 import '../../core/ui/an_setting_row.dart';
 import '../../core/ui/an_switch.dart';
+import '../../core/ui/an_type_to_confirm.dart';
 import '../../core/ui/icons.dart';
 import 'specimen.dart';
 
@@ -121,6 +122,42 @@ final GalleryCategory settingsCategory = GalleryCategory('设置 Settings', AnIc
         placeholder: 'sk-…', revealLabel: 'reveal', concealLabel: 'conceal'), span: true),
     GallerySpecimen('禁用', (_) => const AnSecretField(
         placeholder: 'sk-…', enabled: false, revealLabel: 'reveal', concealLabel: 'conceal'), span: true),
+  ]),
+  GalleryItem('AnTypeToConfirm', '分布式危险区——输入对象名解锁毁灭钮;动态警示红字置顶', [
+    GallerySpecimen(
+        '基本',
+        (_) => AnTypeToConfirm(
+              title: '删除此工作区',
+              expected: 'Side',
+              inputHint: '输入「Side」以确认',
+              confirmLabel: '永久删除',
+              body: const Text('将永久删除「Side」的全部内容:7 对话 · 3 实体 · 2 文档。'),
+              onConfirm: () {},
+            ),
+        span: true),
+    GallerySpecimen(
+        '动态警示',
+        (_) => AnTypeToConfirm(
+              title: '删除此工作区',
+              warning: '有 2 个执行进行中,删除将立即终止它们',
+              expected: 'Side',
+              inputHint: '输入「Side」以确认',
+              confirmLabel: '永久删除',
+              onConfirm: () {},
+            ),
+        span: true),
+    GallerySpecimen(
+        'busy',
+        (_) => AnTypeToConfirm(
+              title: '删除此工作区',
+              expected: 'Side',
+              inputHint: '输入「Side」以确认',
+              confirmLabel: '永久删除',
+              busy: true,
+              onConfirm: () {},
+            ),
+        stress: true,
+        span: true),
   ]),
   GalleryItem('AnMeter', '用量条——accent→warn(0.85)→danger(0.97);null=空轨', [
     GallerySpecimen('正常', (_) => const AnMeter(ratio: 0.42, label: '2 100 / 5 000 · 8/1 重置'), span: true),

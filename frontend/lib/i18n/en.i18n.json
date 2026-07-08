@@ -1303,6 +1303,41 @@
       "searchDefaultDesc": "Used by the WebSearch tool (category=search keys)",
       "keyOpFailed": "Operation failed",
       "refreshModels": "Refresh model list"
+    },
+    "ws": {
+      "section": "Workspaces",
+      "current": "Current",
+      "newWorkspace": "New workspace",
+      "name": "Name",
+      "color": "Color",
+      "create": "Create",
+      "save": "Save",
+      "edit": "Edit",
+      "switchTo": "Switch",
+      "dangerTitle": "Delete this workspace",
+      "dangerBody": "Permanently deletes everything in “$name”: $conversations conversations · $entities entities · $documents documents · $blob of attachments.",
+      "runningWarn": "$n runs in progress — deleting terminates them immediately",
+      "generatingWarn": "$n conversations are generating replies — deleting interrupts them",
+      "typeNameHint": "Type “$name” to confirm",
+      "confirmDelete": "Delete forever",
+      "lastOne": "The only workspace can't be deleted",
+      "deleteFailed": "Delete failed",
+      "blobUnknown": "size unknown",
+      "statsLoading": "Taking inventory…"
+    },
+    "about": {
+      "appVersion": "App version",
+      "backendVersion": "Engine version",
+      "versions": "Versions",
+      "checkUpdates": "Check for updates",
+      "checking": "Checking…",
+      "upToDate": "Up to date ($v)",
+      "updateAvailable": "Version $v available",
+      "download": "Download",
+      "cantCheck": "Couldn't check for updates (offline or nothing published yet)",
+      "diagnostics": "Diagnostics",
+      "copyDiagnostics": "Copy diagnostics",
+      "copied": "Copied"
     }
   },
   "markdown": {

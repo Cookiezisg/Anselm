@@ -8,6 +8,7 @@ import '../core/overlay/an_overlay.dart';
 import '../core/platform/window_zoom.dart';
 import '../core/router/navigation.dart';
 import '../core/settings/app_prefs_providers.dart';
+import '../features/settings/ui/startup_update_check.dart';
 import '../i18n/strings.g.dart';
 import 'app_startup_gate.dart';
 import 'workspace_gate.dart';
@@ -62,8 +63,12 @@ class AnApp extends ConsumerWidget {
               const SingleActivator(LogicalKeyboardKey.minus, meta: true): WindowZoom.zoomOut,
               const SingleActivator(LogicalKeyboardKey.digit0, meta: true): WindowZoom.reset,
             },
-            // Backend ready → cold-start resolves the workspace → the routed shell. 后端就绪 → 冷启动定工作区 → 路由壳。
-            child: Focus(autofocus: true, child: WorkspaceGate(child: child!)),
+            // Backend ready → cold-start resolves the workspace → the routed shell; the launch-time
+            // update check rides inside (one toast when a release is newer, 拍板 #7).
+            // 后端就绪 → 冷启动定工作区 → 路由壳;启动更新检查随行(有新版一条 toast)。
+            child: Focus(
+                autofocus: true,
+                child: WorkspaceGate(child: StartupUpdateCheck(child: child!))),
           ),
         ),
       ),

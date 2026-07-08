@@ -54,6 +54,25 @@ abstract class SettingsRepository {
   Future<Workspace> deleteDefaultModel(String scenario);
   Future<Workspace> putDefaultSearch(String apiKeyId);
   Future<Workspace> deleteDefaultSearch();
+
+  // ── S3 工作区与关于 workspaces & about ──
+
+  /// Every workspace (bounded set — the switcher's world). 全部 workspace。
+  Future<List<Workspace>> listWorkspaces();
+
+  Future<Workspace> createWorkspace({required String name, String? avatarColor});
+
+  /// PATCH any workspace by id (name / avatarColor / language). 按 id 分部 PATCH。
+  Future<Workspace> patchWorkspaceById(String id, {String? name, String? avatarColor});
+
+  /// Cascade destroy. Throws `CANNOT_DELETE_LAST_WORKSPACE` on the last one. 级联销毁。
+  Future<void> deleteWorkspace(String id);
+
+  /// The delete confirmation's REAL numbers (S-11). 删除确认的真数字。
+  Future<WorkspaceStats> workspaceStats(String id);
+
+  /// The backend build version (`GET /version`, bearer-only). 后端版本。
+  Future<String> backendVersion();
 }
 
 class LiveSettingsRepository implements SettingsRepository {
@@ -159,6 +178,35 @@ class LiveSettingsRepository implements SettingsRepository {
   @override
   Future<Workspace> deleteDefaultSearch() =>
       api.deleteEntity('/api/v1/workspaces/$_id/default-search', Workspace.fromJson);
+
+  @override
+  Future<List<Workspace>> listWorkspaces() async =>
+      (await api.getPage('/api/v1/workspaces', Workspace.fromJson)).items;
+
+  @override
+  Future<Workspace> createWorkspace({required String name, String? avatarColor}) =>
+      api.postEntity('/api/v1/workspaces', Workspace.fromJson, body: {
+        'name': name,
+        'avatarColor': ?avatarColor,
+      });
+
+  @override
+  Future<Workspace> patchWorkspaceById(String id, {String? name, String? avatarColor}) =>
+      api.patchEntity('/api/v1/workspaces/$id', Workspace.fromJson, body: {
+        'name': ?name,
+        'avatarColor': ?avatarColor,
+      });
+
+  @override
+  Future<void> deleteWorkspace(String id) => api.delete('/api/v1/workspaces/$id');
+
+  @override
+  Future<WorkspaceStats> workspaceStats(String id) =>
+      api.getEntity('/api/v1/workspaces/$id/stats', WorkspaceStats.fromJson);
+
+  @override
+  Future<String> backendVersion() async =>
+      (await api.getData('/api/v1/version'))['version'] as String? ?? '';
 }
 
 /// In-memory double — demo + tests. 内存替身。
@@ -316,6 +364,61 @@ class FixtureSettingsRepository implements SettingsRepository {
   @override
   Future<Workspace> deleteDefaultSearch() async =>
       workspace = workspace.copyWith(defaultSearchKeyId: null);
+
+  // ── S3 workspaces & about (scriptable) ──
+
+  final List<Workspace> extraWorkspaces = [];
+  WorkspaceStats stats = const WorkspaceStats();
+  String version = '0.0.0-fixture';
+
+  /// Script hook: fail the next workspace delete with this code. 脚本钩:下次删 ws 抛此码。
+  String? failNextWorkspaceDelete;
+
+  @override
+  Future<List<Workspace>> listWorkspaces() async => [workspace, ...extraWorkspaces];
+
+  @override
+  Future<Workspace> createWorkspace({required String name, String? avatarColor}) async {
+    final row = Workspace(
+      id: 'ws_fix${extraWorkspaces.length + 1}',
+      name: name,
+      avatarColor: avatarColor,
+      language: 'zh-CN',
+      createdAt: DateTime.utc(2026, 7, 9),
+      updatedAt: DateTime.utc(2026, 7, 9),
+    );
+    extraWorkspaces.add(row);
+    return row;
+  }
+
+  @override
+  Future<Workspace> patchWorkspaceById(String id, {String? name, String? avatarColor}) async {
+    Workspace patch(Workspace w) => w.copyWith(
+        name: name ?? w.name,
+        avatarColor: avatarColor ?? w.avatarColor,
+        updatedAt: DateTime.utc(2026, 7, 9, 1));
+    if (workspace.id == id) return workspace = patch(workspace);
+    final i = extraWorkspaces.indexWhere((w) => w.id == id);
+    if (i < 0) throw StateError('unknown workspace $id');
+    return extraWorkspaces[i] = patch(extraWorkspaces[i]);
+  }
+
+  @override
+  Future<void> deleteWorkspace(String id) async {
+    if (failNextWorkspaceDelete != null) {
+      final code = failNextWorkspaceDelete!;
+      failNextWorkspaceDelete = null;
+      throw ApiException(code: code, message: 'scripted failure', httpStatus: 422);
+    }
+    extraWorkspaces.removeWhere((w) => w.id == id);
+  }
+
+  @override
+  Future<WorkspaceStats> workspaceStats(String id) async => stats;
+
+  @override
+  Future<String> backendVersion() async => version;
+
 }
 
 final settingsRepositoryProvider = Provider<SettingsRepository>((ref) {

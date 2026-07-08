@@ -1303,6 +1303,41 @@
       "searchDefaultDesc": "WebSearch 工具所用(category=search 的可用密钥)",
       "keyOpFailed": "操作失败",
       "refreshModels": "刷新模型列表"
+    },
+    "ws": {
+      "section": "工作区",
+      "current": "当前",
+      "newWorkspace": "新建工作区",
+      "name": "名称",
+      "color": "颜色",
+      "create": "创建",
+      "save": "保存",
+      "edit": "编辑",
+      "switchTo": "切换",
+      "dangerTitle": "删除此工作区",
+      "dangerBody": "将永久删除「$name」的全部内容:$conversations 对话 · $entities 实体 · $documents 文档 · $blob 附件。",
+      "runningWarn": "有 $n 个执行进行中,删除将立即终止它们",
+      "generatingWarn": "有 $n 个对话正在生成回复,删除将立即打断",
+      "typeNameHint": "输入「$name」以确认",
+      "confirmDelete": "永久删除",
+      "lastOne": "唯一的工作区不可删除",
+      "deleteFailed": "删除失败",
+      "blobUnknown": "体积未知",
+      "statsLoading": "正在盘点内容…"
+    },
+    "about": {
+      "appVersion": "应用版本",
+      "backendVersion": "引擎版本",
+      "versions": "版本",
+      "checkUpdates": "检查更新",
+      "checking": "检查中…",
+      "upToDate": "已是最新($v)",
+      "updateAvailable": "新版本 $v 可用",
+      "download": "前往下载",
+      "cantCheck": "无法检查更新(离线或尚未发布)",
+      "diagnostics": "诊断",
+      "copyDiagnostics": "复制诊断信息",
+      "copied": "已复制"
     }
   },
   "markdown": {

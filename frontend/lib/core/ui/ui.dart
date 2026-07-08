@@ -93,6 +93,7 @@ export 'an_thin_table.dart';
 export 'an_toast.dart';
 export 'an_toolbar.dart';
 export 'an_two_zone.dart';
+export 'an_type_to_confirm.dart';
 export 'an_typewriter.dart';
 export 'an_version_diff.dart';
 export 'an_window_controls.dart';

@@ -452,6 +452,8 @@ class _Translations$settings$zh_CN extends Translations$settings$en {
 	@override String get langEn => 'English';
 	@override String get langZh => '简体中文';
 	@override late final _Translations$settings$keys$zh_CN keys = _Translations$settings$keys$zh_CN._(_root);
+	@override late final _Translations$settings$ws$zh_CN ws = _Translations$settings$ws$zh_CN._(_root);
+	@override late final _Translations$settings$about$zh_CN about = _Translations$settings$about$zh_CN._(_root);
 }
 
 // Path: markdown
@@ -1367,6 +1369,55 @@ class _Translations$settings$keys$zh_CN extends Translations$settings$keys$en {
 	@override String get searchDefaultDesc => 'WebSearch 工具所用(category=search 的可用密钥)';
 	@override String get keyOpFailed => '操作失败';
 	@override String get refreshModels => '刷新模型列表';
+}
+
+// Path: settings.ws
+class _Translations$settings$ws$zh_CN extends Translations$settings$ws$en {
+	_Translations$settings$ws$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get section => '工作区';
+	@override String get current => '当前';
+	@override String get newWorkspace => '新建工作区';
+	@override String get name => '名称';
+	@override String get color => '颜色';
+	@override String get create => '创建';
+	@override String get save => '保存';
+	@override String get edit => '编辑';
+	@override String get switchTo => '切换';
+	@override String get dangerTitle => '删除此工作区';
+	@override String dangerBody({required Object name, required Object conversations, required Object entities, required Object documents, required Object blob}) => '将永久删除「${name}」的全部内容:${conversations} 对话 · ${entities} 实体 · ${documents} 文档 · ${blob} 附件。';
+	@override String runningWarn({required Object n}) => '有 ${n} 个执行进行中,删除将立即终止它们';
+	@override String generatingWarn({required Object n}) => '有 ${n} 个对话正在生成回复,删除将立即打断';
+	@override String typeNameHint({required Object name}) => '输入「${name}」以确认';
+	@override String get confirmDelete => '永久删除';
+	@override String get lastOne => '唯一的工作区不可删除';
+	@override String get deleteFailed => '删除失败';
+	@override String get blobUnknown => '体积未知';
+	@override String get statsLoading => '正在盘点内容…';
+}
+
+// Path: settings.about
+class _Translations$settings$about$zh_CN extends Translations$settings$about$en {
+	_Translations$settings$about$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get appVersion => '应用版本';
+	@override String get backendVersion => '引擎版本';
+	@override String get versions => '版本';
+	@override String get checkUpdates => '检查更新';
+	@override String get checking => '检查中…';
+	@override String upToDate({required Object v}) => '已是最新(${v})';
+	@override String updateAvailable({required Object v}) => '新版本 ${v} 可用';
+	@override String get download => '前往下载';
+	@override String get cantCheck => '无法检查更新(离线或尚未发布)';
+	@override String get diagnostics => '诊断';
+	@override String get copyDiagnostics => '复制诊断信息';
+	@override String get copied => '已复制';
 }
 
 // Path: chat.tool.kind
@@ -3023,6 +3074,37 @@ extension on TranslationsZhCn {
 			'settings.keys.searchDefaultDesc' => 'WebSearch 工具所用(category=search 的可用密钥)',
 			'settings.keys.keyOpFailed' => '操作失败',
 			'settings.keys.refreshModels' => '刷新模型列表',
+			'settings.ws.section' => '工作区',
+			'settings.ws.current' => '当前',
+			'settings.ws.newWorkspace' => '新建工作区',
+			'settings.ws.name' => '名称',
+			'settings.ws.color' => '颜色',
+			'settings.ws.create' => '创建',
+			'settings.ws.save' => '保存',
+			'settings.ws.edit' => '编辑',
+			'settings.ws.switchTo' => '切换',
+			'settings.ws.dangerTitle' => '删除此工作区',
+			'settings.ws.dangerBody' => ({required Object name, required Object conversations, required Object entities, required Object documents, required Object blob}) => '将永久删除「${name}」的全部内容:${conversations} 对话 · ${entities} 实体 · ${documents} 文档 · ${blob} 附件。',
+			'settings.ws.runningWarn' => ({required Object n}) => '有 ${n} 个执行进行中,删除将立即终止它们',
+			'settings.ws.generatingWarn' => ({required Object n}) => '有 ${n} 个对话正在生成回复,删除将立即打断',
+			'settings.ws.typeNameHint' => ({required Object name}) => '输入「${name}」以确认',
+			'settings.ws.confirmDelete' => '永久删除',
+			'settings.ws.lastOne' => '唯一的工作区不可删除',
+			'settings.ws.deleteFailed' => '删除失败',
+			'settings.ws.blobUnknown' => '体积未知',
+			'settings.ws.statsLoading' => '正在盘点内容…',
+			'settings.about.appVersion' => '应用版本',
+			'settings.about.backendVersion' => '引擎版本',
+			'settings.about.versions' => '版本',
+			'settings.about.checkUpdates' => '检查更新',
+			'settings.about.checking' => '检查中…',
+			'settings.about.upToDate' => ({required Object v}) => '已是最新(${v})',
+			'settings.about.updateAvailable' => ({required Object v}) => '新版本 ${v} 可用',
+			'settings.about.download' => '前往下载',
+			'settings.about.cantCheck' => '无法检查更新(离线或尚未发布)',
+			'settings.about.diagnostics' => '诊断',
+			'settings.about.copyDiagnostics' => '复制诊断信息',
+			'settings.about.copied' => '已复制',
 			'markdown.imageNotLoaded' => '图片未加载',
 			'attach.unavailable' => '已不可用',
 			'attach.retry' => '点按重试',

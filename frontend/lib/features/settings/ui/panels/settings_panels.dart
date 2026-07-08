@@ -4,8 +4,10 @@ import '../../model/settings_catalog.dart';
 import '../settings_ocean.dart';
 import 'chat_panel.dart';
 import 'general_panel.dart';
+import 'about_panel.dart';
 import 'models_keys_panel.dart';
 import 'notifications_panel.dart';
+import 'workspaces_panel.dart';
 
 /// The panel-body registry — one builder per [SettingsPanel]. Panels light up slice by slice
 /// (S1 偏好域 → S2 模型与密钥 → …); an unbuilt panel renders the shared placeholder so the
@@ -21,11 +23,11 @@ Widget buildSettingsPanelBody(BuildContext context, SettingsPanel panel) {
     SettingsPanel.mcp => const SettingsPanelPlaceholder(),
     SettingsPanel.memory => const SettingsPanelPlaceholder(),
     SettingsPanel.sandbox => const SettingsPanelPlaceholder(),
-    SettingsPanel.workspaces => const SettingsPanelPlaceholder(),
+    SettingsPanel.workspaces => const WorkspacesPanel(),
     SettingsPanel.storage => const SettingsPanelPlaceholder(),
     SettingsPanel.limits => const SettingsPanelPlaceholder(),
     SettingsPanel.network => const SettingsPanelPlaceholder(),
     SettingsPanel.shortcuts => const SettingsPanelPlaceholder(),
-    SettingsPanel.about => const SettingsPanelPlaceholder(),
+    SettingsPanel.about => const AboutPanel(),
   };
 }
