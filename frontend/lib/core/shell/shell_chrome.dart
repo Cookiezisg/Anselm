@@ -1,23 +1,19 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../design/tokens.dart';
+import '../settings/settings_prefs.dart';
 
 /// Shell chrome state shared across the app + features (kept in `core/shell` so a feature ocean may feed
 /// the floating-head breadcrumb without importing `app`). Two concerns:
-///  - [ShellChromeController] — the LEFT island collapse + drag width, persisted (mirrors the demo's
-///    `fy.side.collapsed` / `fy.side.w`). Restore is async (best-effort) after first frame.
+///  - [ShellChromeController] — the LEFT island collapse + drag width, persisted via [SettingsPrefs]
+///    (`an.side.*`, read synchronously at build — the instance loads before runApp).
 ///  - [ShellHeadController] — the OCEAN floating-head breadcrumb (compact title + scroll-collapse flag +
 ///    scroll-to-top tap), SET by whichever ocean is mounted (the demo's `setHeadTitle`/`setHeadCollapsed`
 ///    in Riverpod form). The RIGHT island's reveal lives with the run terminal (`rightPanelProvider`).
 ///
 /// 壳 chrome 状态(放 core/shell,使 feature 海洋无需 import app 即可喂面包屑)。左岛收起+拖宽(持久化,对齐 demo 键);
 /// 海洋浮层头面包屑(紧凑标题 + 滚动折叠标志 + 回顶点击,由当前海洋设入)。右岛揭示在 run 终端的 rightPanelProvider。
-
-const _kCollapsed = 'fy.side.collapsed';
-const _kWidth = 'fy.side.w';
-const _kRightWidth = 'fy.side.rightw';
 
 @immutable
 class ShellChrome {
@@ -43,38 +39,26 @@ class ShellChrome {
 }
 
 class ShellChromeController extends Notifier<ShellChrome> {
+  SettingsPrefs get _prefs => ref.read(settingsPrefsProvider);
+
   @override
   ShellChrome build() {
-    _restore();
-    return const ShellChrome(leftCollapsed: false, leftWidth: AnSize.sidebar);
-  }
-
-  Future<void> _restore() async {
-    try {
-      final p = await SharedPreferences.getInstance();
-      final w = p.getDouble(_kWidth);
-      final rw = p.getDouble(_kRightWidth);
-      final collapsed = p.getBool(_kCollapsed) ?? false;
-      state = state.copyWith(
-        leftCollapsed: collapsed,
-        leftWidth:
-            (w != null && w >= AnSize.sidebarMin && w <= AnSize.sidebarMax)
-            ? w
-            : state.leftWidth,
-        rightWidth:
-            (rw != null && rw >= AnSize.rightIslandMin && rw <= AnSize.rightIslandMax)
-            ? rw
-            : state.rightWidth,
-      );
-    } catch (_) {
-      /* best-effort 尽力而为 */
-    }
+    // Synchronous restore off the central prefs (loaded before runApp) — out-of-range widths fall
+    // back to the token defaults. 同步恢复(中央偏好 runApp 前已载);越界宽度回落 token 默认。
+    final w = _prefs.getDouble(SettingsKeys.sideWidth);
+    final rw = _prefs.getDouble(SettingsKeys.rightWidth);
+    return ShellChrome(
+      leftCollapsed: _prefs.getBool(SettingsKeys.sideCollapsed),
+      leftWidth: (w >= AnSize.sidebarMin && w <= AnSize.sidebarMax) ? w : AnSize.sidebar,
+      rightWidth:
+          (rw >= AnSize.rightIslandMin && rw <= AnSize.rightIslandMax) ? rw : AnSize.rightIsland,
+    );
   }
 
   void toggleLeft() {
     final next = !state.leftCollapsed;
     state = state.copyWith(leftCollapsed: next);
-    _persistBool(_kCollapsed, next);
+    _prefs.setBool(SettingsKeys.sideCollapsed, next);
   }
 
   /// Commit a drag-resized width (called on drag-END, not per move — the demo persists on pointerup).
@@ -83,7 +67,7 @@ class ShellChromeController extends Notifier<ShellChrome> {
     final w = width.clamp(AnSize.sidebarMin, AnSize.sidebarMax);
     if (w == state.leftWidth) return;
     state = state.copyWith(leftWidth: w);
-    _persistDouble(_kWidth, w);
+    _prefs.setDouble(SettingsKeys.sideWidth, w);
   }
 
   /// Commit the right island's drag width (drag-END, mirrors [setLeftWidth]). 右岛拖宽提交。
@@ -91,23 +75,7 @@ class ShellChromeController extends Notifier<ShellChrome> {
     final w = width.clamp(AnSize.rightIslandMin, AnSize.rightIslandMax);
     if (w == state.rightWidth) return;
     state = state.copyWith(rightWidth: w);
-    _persistDouble(_kRightWidth, w);
-  }
-
-  Future<void> _persistBool(String k, bool v) async {
-    try {
-      (await SharedPreferences.getInstance()).setBool(k, v);
-    } catch (_) {
-      /* best-effort */
-    }
-  }
-
-  Future<void> _persistDouble(String k, double v) async {
-    try {
-      (await SharedPreferences.getInstance()).setDouble(k, v);
-    } catch (_) {
-      /* best-effort */
-    }
+    _prefs.setDouble(SettingsKeys.rightWidth, w);
   }
 }
 

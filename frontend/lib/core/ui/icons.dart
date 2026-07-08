@@ -86,6 +86,14 @@ abstract final class AnIcons {
   static final IconData gavel = _thin(LucideIcons.gavel); // decide_approval 裁决
   static final IconData inbox = _thin(LucideIcons.inbox); // list_approval_inbox 审批收件箱
 
+  // ── settings 设置 ──
+  static final IconData laptop = _thin(LucideIcons.laptop); // device-scope prefs 本机域
+  static final IconData workspaceScope = _thin(LucideIcons.briefcase); // workspace-scope 工作区域
+  static final IconData machineScope = _thin(LucideIcons.hardDrive); // machine-wide settings.json 全机域
+  static final IconData undo = _thin(LucideIcons.undo2); // single-row reset 单项重置
+  static final IconData keyboard = _thin(LucideIcons.keyboard); // shortcuts panel 快捷键
+  static final IconData globe = _thin(LucideIcons.globe); // network panel 网络(settings)
+
   // ── editor / slash block menu (AnEditor `/`) 编辑器斜杠块菜单 ──
   static final IconData paragraph = _thin(LucideIcons.type); // Text block 段落
   static final IconData heading1 = _thin(LucideIcons.heading1);

@@ -59,6 +59,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$entities$en entities = Translations$entities$en.internal(_root);
 	late final Translations$coldStart$en coldStart = Translations$coldStart$en.internal(_root);
 	late final Translations$documents$en documents = Translations$documents$en.internal(_root);
+	late final Translations$settings$en settings = Translations$settings$en.internal(_root);
 	late final Translations$markdown$en markdown = Translations$markdown$en.internal(_root);
 	late final Translations$attach$en attach = Translations$attach$en.internal(_root);
 }
@@ -752,6 +753,31 @@ class Translations$documents$en {
 
 	/// en: '$n tools'
 	String toolCount({required Object n}) => '${n} tools';
+}
+
+// Path: settings
+class Translations$settings$en {
+	Translations$settings$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Settings'
+	String get title => 'Settings';
+
+	late final Translations$settings$scope$en scope = Translations$settings$scope$en.internal(_root);
+	late final Translations$settings$sections$en sections = Translations$settings$sections$en.internal(_root);
+	late final Translations$settings$panels$en panels = Translations$settings$panels$en.internal(_root);
+
+	/// en: 'Search settings…'
+	String get filter => 'Search settings…';
+
+	/// en: 'Panel under construction'
+	String get building => 'Panel under construction';
+
+	/// en: 'This panel lights up slice by slice.'
+	String get buildingHint => 'This panel lights up slice by slice.';
 }
 
 // Path: markdown
@@ -2866,6 +2892,90 @@ class Translations$documents$slash$en {
 	String get todo => 'To-do';
 }
 
+// Path: settings.scope
+class Translations$settings$scope$en {
+	Translations$settings$scope$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'This device'
+	String get device => 'This device';
+
+	/// en: 'Workspace'
+	String get workspace => 'Workspace';
+
+	/// en: 'This machine'
+	String get machine => 'This machine';
+}
+
+// Path: settings.sections
+class Translations$settings$sections$en {
+	Translations$settings$sections$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Preferences'
+	String get prefs => 'Preferences';
+
+	/// en: 'Resources'
+	String get resources => 'Resources';
+
+	/// en: 'System'
+	String get system => 'System';
+}
+
+// Path: settings.panels
+class Translations$settings$panels$en {
+	Translations$settings$panels$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'General'
+	String get general => 'General';
+
+	/// en: 'Notifications'
+	String get notifications => 'Notifications';
+
+	/// en: 'Chat'
+	String get chat => 'Chat';
+
+	/// en: 'Models & keys'
+	String get modelsKeys => 'Models & keys';
+
+	/// en: 'MCP servers'
+	String get mcp => 'MCP servers';
+
+	/// en: 'Memory'
+	String get memory => 'Memory';
+
+	/// en: 'Sandbox'
+	String get sandbox => 'Sandbox';
+
+	/// en: 'Workspaces'
+	String get workspaces => 'Workspaces';
+
+	/// en: 'Storage & logs'
+	String get storage => 'Storage & logs';
+
+	/// en: 'Advanced limits'
+	String get limits => 'Advanced limits';
+
+	/// en: 'Network'
+	String get network => 'Network';
+
+	/// en: 'Shortcuts'
+	String get shortcuts => 'Shortcuts';
+
+	/// en: 'About'
+	String get about => 'About';
+}
+
 // Path: chat.tool.kind
 class Translations$chat$tool$kind$en {
 	Translations$chat$tool$kind$en.internal(this._root);
@@ -4913,6 +5023,29 @@ extension on Translations {
 			'documents.slash.todo' => 'To-do',
 			'documents.linkHint' => 'Type or paste a link, Enter to apply',
 			'documents.toolCount' => ({required Object n}) => '${n} tools',
+			'settings.title' => 'Settings',
+			'settings.scope.device' => 'This device',
+			'settings.scope.workspace' => 'Workspace',
+			'settings.scope.machine' => 'This machine',
+			'settings.sections.prefs' => 'Preferences',
+			'settings.sections.resources' => 'Resources',
+			'settings.sections.system' => 'System',
+			'settings.panels.general' => 'General',
+			'settings.panels.notifications' => 'Notifications',
+			'settings.panels.chat' => 'Chat',
+			'settings.panels.modelsKeys' => 'Models & keys',
+			'settings.panels.mcp' => 'MCP servers',
+			'settings.panels.memory' => 'Memory',
+			'settings.panels.sandbox' => 'Sandbox',
+			'settings.panels.workspaces' => 'Workspaces',
+			'settings.panels.storage' => 'Storage & logs',
+			'settings.panels.limits' => 'Advanced limits',
+			'settings.panels.network' => 'Network',
+			'settings.panels.shortcuts' => 'Shortcuts',
+			'settings.panels.about' => 'About',
+			'settings.filter' => 'Search settings…',
+			'settings.building' => 'Panel under construction',
+			'settings.buildingHint' => 'This panel lights up slice by slice.',
 			'markdown.imageNotLoaded' => 'image not loaded',
 			'attach.unavailable' => 'Unavailable',
 			'attach.retry' => 'Tap to retry',

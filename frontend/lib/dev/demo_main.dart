@@ -6,6 +6,7 @@ import '../app/window_setup.dart';
 import '../core/design/theme.dart';
 import '../core/overlay/an_overlay.dart';
 import '../core/router/navigation.dart';
+import '../core/settings/settings_prefs.dart';
 import '../features/chat/data/chat_demo_fixture.dart';
 import '../features/chat/data/chat_providers.dart';
 import '../features/documents/data/document_repository.dart';
@@ -32,9 +33,13 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   LocaleSettings.useDeviceLocaleSync();
   await initWindow(title: 'Anselm · Demo (fixtures)');
+  // Real persisted prefs in the demo too — chrome memory (island widths / last ocean) survives a
+  // relaunch, same as the app. demo 也用真持久偏好:壳记忆(岛宽/上次海洋)重启不丢,与 app 同。
+  final prefs = await SettingsPrefs.load();
   runApp(
     ProviderScope(
       overrides: [
+        settingsPrefsProvider.overrideWithValue(prefs),
         goRouterProvider.overrideWith(buildAppRouter),
         entityRepositoryProvider.overrideWithValue(demoEntityRepository()),
         chatRepositoryProvider.overrideWithValue(demoChatRepository()),

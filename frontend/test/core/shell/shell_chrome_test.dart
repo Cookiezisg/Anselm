@@ -1,72 +1,64 @@
 import 'package:anselm/core/design/tokens.dart';
+import 'package:anselm/core/settings/settings_prefs.dart';
 import 'package:anselm/core/shell/shell_chrome.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-// STEP 5.5 gate — shell chrome state: left collapse + drag width persist (shared_preferences), and the
-// floating-head breadcrumb (bind / scroll-collapse / clear, collapse flag independent of the bound title).
+// STEP 5.5 gate — shell chrome state: left collapse + drag width persist (via SettingsPrefs,
+// WRK-062 S-13 收编), and the floating-head breadcrumb (bind / scroll-collapse / clear, collapse
+// flag independent of the bound title).
+
+ProviderContainer _container(SettingsPrefs prefs) {
+  final c = ProviderContainer(overrides: [settingsPrefsProvider.overrideWithValue(prefs)]);
+  addTearDown(c.dispose);
+  return c;
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  test('toggleLeft flips + persists', () async {
-    final c = ProviderContainer();
-    addTearDown(c.dispose);
+  test('toggleLeft flips + persists', () {
+    final prefs = SettingsPrefs.inMemory();
+    final c = _container(prefs);
     expect(c.read(shellChromeProvider).leftCollapsed, isFalse);
     c.read(shellChromeProvider.notifier).toggleLeft();
     expect(c.read(shellChromeProvider).leftCollapsed, isTrue);
-    await pumpEventQueue();
-    expect((await SharedPreferences.getInstance()).getBool('fy.side.collapsed'), isTrue);
+    expect(prefs.getBool(SettingsKeys.sideCollapsed), isTrue);
   });
 
-  test('setLeftWidth clamps to [min, max] + persists', () async {
-    final c = ProviderContainer();
-    addTearDown(c.dispose);
+  test('setLeftWidth clamps to [min, max] + persists', () {
+    final prefs = SettingsPrefs.inMemory();
+    final c = _container(prefs);
     c.read(shellChromeProvider.notifier).setLeftWidth(999);
     expect(c.read(shellChromeProvider).leftWidth, AnSize.sidebarMax);
     c.read(shellChromeProvider.notifier).setLeftWidth(100);
     expect(c.read(shellChromeProvider).leftWidth, AnSize.sidebarMin);
-    await pumpEventQueue();
-    expect((await SharedPreferences.getInstance()).getDouble('fy.side.w'), AnSize.sidebarMin);
+    expect(prefs.getDouble(SettingsKeys.sideWidth), AnSize.sidebarMin);
   });
 
-  test('restore reads the persisted collapsed + width', () async {
-    SharedPreferences.setMockInitialValues({'fy.side.collapsed': true, 'fy.side.w': 360.0});
-    final c = ProviderContainer();
-    addTearDown(c.dispose);
-    c.read(shellChromeProvider); // trigger build → async _restore
-    await pumpEventQueue();
+  test('restore reads the persisted collapsed + width SYNCHRONOUSLY at build', () {
+    final prefs = SettingsPrefs.inMemory({'an.side.collapsed': true, 'an.side.w': 360.0});
+    final c = _container(prefs);
     expect(c.read(shellChromeProvider).leftCollapsed, isTrue);
     expect(c.read(shellChromeProvider).leftWidth, 360.0);
   });
 
-  test('setRightWidth clamps to [min, max] + persists (WRK-061: user-owned right width)', () async {
-    final c = ProviderContainer();
-    addTearDown(c.dispose);
+  test('setRightWidth clamps to [min, max] + persists (WRK-061: user-owned right width)', () {
+    final prefs = SettingsPrefs.inMemory();
+    final c = _container(prefs);
     expect(c.read(shellChromeProvider).rightWidth, AnSize.rightIsland); // default 默认
     c.read(shellChromeProvider.notifier).setRightWidth(9999);
     expect(c.read(shellChromeProvider).rightWidth, AnSize.rightIslandMax);
     c.read(shellChromeProvider.notifier).setRightWidth(10);
     expect(c.read(shellChromeProvider).rightWidth, AnSize.rightIslandMin);
-    await pumpEventQueue();
-    expect((await SharedPreferences.getInstance()).getDouble('fy.side.rightw'), AnSize.rightIslandMin);
+    expect(prefs.getDouble(SettingsKeys.rightWidth), AnSize.rightIslandMin);
   });
 
-  test('restore reads the persisted right width (bad values fall back to default)', () async {
-    SharedPreferences.setMockInitialValues({'fy.side.rightw': 480.0});
-    final c = ProviderContainer();
-    addTearDown(c.dispose);
-    c.read(shellChromeProvider);
-    await pumpEventQueue();
+  test('restore reads the persisted right width (bad values fall back to default)', () {
+    final c = _container(SettingsPrefs.inMemory({'an.side.rightw': 480.0}));
     expect(c.read(shellChromeProvider).rightWidth, 480.0);
 
-    SharedPreferences.setMockInitialValues({'fy.side.rightw': 9999.0}); // out of range 越界
-    final c2 = ProviderContainer();
-    addTearDown(c2.dispose);
-    c2.read(shellChromeProvider);
-    await pumpEventQueue();
+    final c2 = _container(SettingsPrefs.inMemory({'an.side.rightw': 9999.0})); // out of range 越界
     expect(c2.read(shellChromeProvider).rightWidth, AnSize.rightIsland);
   });
 

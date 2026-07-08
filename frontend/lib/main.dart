@@ -14,6 +14,7 @@ import 'app/window_setup.dart';
 import 'core/error/error_boundary.dart';
 import 'core/platform/window_zoom.dart';
 import 'core/router/navigation.dart';
+import 'core/settings/settings_prefs.dart';
 import 'i18n/strings.g.dart';
 
 /// Entry point. The scaled_app binding enables app-wide UI zoom (Cmd +/-): its scaleFactor reads
@@ -32,11 +33,15 @@ Future<void> main() async {
     LocaleSettings.useDeviceLocaleSync();
     await initWindow();
     await WindowZoom.restore();
+    // Central preferences load ONCE before runApp — every consumer reads synchronously after this.
+    // 中央偏好 runApp 前载入一次,此后全员同步读。
+    final prefs = await SettingsPrefs.load();
     runApp(TranslationProvider(
       child: ProviderScope(
         // The GoRouter (which references the shell + entity kinds) is assembled in the app layer and
         // injected into the core seam. 路由(引用壳 + 实体 kind)在 app 层装配、注入 core 缝。
         overrides: [
+          settingsPrefsProvider.overrideWithValue(prefs),
           goRouterProvider.overrideWith(buildAppRouter),
           mentionSourceProvider.overrideWith(entityMentionSource),
           // The real app posts OS-native notifications when unfocused (demo/gallery keep the Noop default).

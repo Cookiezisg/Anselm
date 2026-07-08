@@ -1,6 +1,7 @@
 import 'package:anselm/core/contract/conversation.dart';
 import 'package:anselm/core/contract/touchpoint.dart';
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/settings/settings_prefs.dart';
 import 'package:anselm/core/sse/frame.dart';
 import 'package:anselm/features/chat/data/chat_fixtures.dart';
 import 'package:anselm/features/chat/data/chat_providers.dart';
@@ -11,7 +12,6 @@ import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 // W7 polish batteries: the R-10 retirement end-to-end (a poll stage settles on the durable
 // run_terminal entities signal, matched by flowrunId), the persisted follow three-notch, and the
@@ -32,8 +32,11 @@ FixtureChatRepository _repo() => FixtureChatRepository(conversations: [
       ),
     ]);
 
-Widget _host(FixtureChatRepository repo) => ProviderScope(
-      overrides: [chatRepositoryProvider.overrideWithValue(repo)],
+Widget _host(FixtureChatRepository repo, {SettingsPrefs? prefs}) => ProviderScope(
+      overrides: [
+        chatRepositoryProvider.overrideWithValue(repo),
+        if (prefs != null) settingsPrefsProvider.overrideWithValue(prefs),
+      ],
       child: TranslationProvider(
         child: MaterialApp(
           theme: AnTheme.light(),
@@ -126,20 +129,19 @@ void main() {
   });
 
   testWidgets('the follow three-notch persists (restore + write-through)', (tester) async {
-    SharedPreferences.setMockInitialValues({'fy.stage.follow': 'never'});
+    final prefs = SettingsPrefs.inMemory({'an.stage.follow': 'never'});
     final repo = _repo();
-    await tester.pumpWidget(_host(repo));
+    await tester.pumpWidget(_host(repo, prefs: prefs));
     await tester.pump();
     final el = tester.element(find.byType(StagePanel));
     final container = ProviderScope.containerOf(el, listen: false);
     await tester.pump(const Duration(milliseconds: 50));
     expect(container.read(followModeProvider), FollowMode.never,
-        reason: 'restored from fy.stage.follow 持久恢复');
+        reason: 'restored from an.stage.follow 持久恢复');
 
     container.read(followModeProvider.notifier).set(FollowMode.firstPerConversation);
     await tester.pump(const Duration(milliseconds: 50));
-    final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getString('fy.stage.follow'), 'firstPerConversation');
+    expect(prefs.getString(SettingsKeys.chatAutoStage), 'firstPerConversation');
   });
 
   testWidgets('curtain call: a clean settle washes the subject\'s Cast row', (tester) async {

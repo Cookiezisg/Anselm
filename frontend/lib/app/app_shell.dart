@@ -25,6 +25,8 @@ import '../features/entities/ui/entity_rail.dart';
 import '../features/entities/ui/flowrun_inbox.dart';
 import '../features/entities/ui/run/run_terminal.dart';
 import '../features/notifications/state/toast_dispatcher.dart';
+import '../features/settings/ui/settings_ocean.dart';
+import '../features/settings/ui/settings_rail.dart';
 import '../features/notifications/state/unread_count_provider.dart';
 import '../features/notifications/ui/notification_feed.dart';
 import '../i18n/strings.g.dart';
@@ -69,6 +71,7 @@ class AppShell extends ConsumerWidget {
     // Documents ocean: the file-like knowledge library (document tree + skills) in the left island +
     // a read/edit center. 文档海洋:文件式知识库(文档树 + skill)左岛 + 中心读/编。
     final onDocuments = ocean == OceanKind.documents;
+    final onSettings = ocean == OceanKind.settings;
     // A /chat/:id navigation (deep link, restored URL) pulls the ocean to chat — the URL is the
     // conversation-selection truth, so the ocean must follow it, never fight it. (Full ocean routing is
     // the planned go_router fold-in; this is the one coherence rule needed until then.)
@@ -131,7 +134,9 @@ class AppShell extends ConsumerWidget {
                 ? const ConversationRail()
                 : onDocuments
                     ? const DocumentRail()
-                    : const _RailPlaceholder();
+                    : onSettings
+                        ? const SettingsRail()
+                        : const _RailPlaceholder();
 
     final sidebar = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -195,6 +200,11 @@ class AppShell extends ConsumerWidget {
         const SingleActivator(LogicalKeyboardKey.keyB, control: true): toggleLeft,
         const SingleActivator(LogicalKeyboardKey.backslash, meta: true): toggleRight,
         const SingleActivator(LogicalKeyboardKey.backslash, control: true): toggleRight,
+        // Cmd+, — the platform-standard settings shortcut. 平台标准设置快捷键。
+        const SingleActivator(LogicalKeyboardKey.comma, meta: true): () =>
+            selectOcean(OceanKind.settings),
+        const SingleActivator(LogicalKeyboardKey.comma, control: true): () =>
+            selectOcean(OceanKind.settings),
       },
       child: AnShell(
         sidebar: sidebar,
@@ -204,7 +214,9 @@ class AppShell extends ConsumerWidget {
                 ? const ChatOcean()
                 : onDocuments
                     ? const DocumentOcean()
-                    : const _OceanPlaceholder(),
+                    : onSettings
+                        ? const SettingsOcean()
+                        : const _OceanPlaceholder(),
         // Documents → the properties inspector; chat → the sidestage; entities → the run terminal (the
         // shell only reveals it when that ocean has a selection). documents→属性面板;chat→侧幕;entities→run 终端。
         inspector: AnInspector(

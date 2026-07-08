@@ -48,6 +48,7 @@ core/                      # 跨切共享层(不依赖上层)
   graph/                   # 框架无关纯模型:graph_model(图→定位几何)+ graph_run_state(节点行→运行覆层)+ flowrun_timeline(节点行→甘特时段)+ graph_edit_ops(working diff→:edit ops);全脱 widget 单测
   contract/messages/       # block_content(BlockKind 6 sealed + Text/ToolCall/ToolResult/Message Content,run 轨迹 / messages 块投影)
   ui/                      # An* 套件 G0–G6(49 原语:控件/行卡/导航壳/代码数据/浮层)+ 三岛壳;桶=ui.dart(见 design-system.md)
+  settings/                # SettingsPrefs 中央偏好服务(S-13):an.* 键声明表+类型化读写+fy.* 一次性迁移+声明集 resetAll;main 载入一次全员同步读
   editor/                  # 原生文档编辑器门面(super_editor 钉 dev.40 仅经此用):an_editor(装配+几何缝)+ components/stylesheet(An 块皮+prose 声)+ markdown([[id]]+语言标保真 codec)+ slash_menu(11 命令,slang)+ mention(@ 药丸)+ toolbar(划选条+link URL 输入)+ syntax(记忆化高亮);见 design-system.md AnEditor 条
   overlay/                 # 命令式浮层派发(G6):AnOverlayController(NotifierProvider) + overlayProvider + AnOverlayHost
 i18n/                      # slang:en/zh_CN 双语 + 生成 strings.g.dart（dart run slang,入库）
@@ -64,6 +65,7 @@ features/                  # ★中间层:每域 data+state+ui+model（随 featu
   documents/state/         # documentTreeProvider(400ms 去抖 invalidateSelf)· skillListProvider · selectedDocProvider(URL 派生)· openDocument/openSkill · 大纲三件(list/active/jump)· backlinksProvider
   documents/model/         # doc_outline:extractDocOutline(纯正则、围栏感知、h4-6 并 3 级;下标=跳转键,与编辑器 headingNodeIds 对齐不变式)
   documents/ui/            # DocumentRail(树 CRUD+拖拽 planDocMove)+ DocumentOcean(薄壳:浮层头绑定/随滚折叠/大纲喂接)+ AnDocumentEditor(同滚页:头 sliver+AnEditor sliver)+ DocumentsInspector(大纲/meta/backlinks/skill 表单);见 features/documents.md
+  settings/                # Settings feature(WRK-062,建造中):model/settings_catalog(13 面板目录表+三相等门禁原料)+ state/settings_panel_provider(provider 先行导航,持久化)+ ui/(SettingsRail 目录三段 / SettingsOcean 每面板一页 / panels/ 注册表)
 ```
 **运行时骨干(Phase 4.0)**:sidecar 进程托管(`core/process`)+ 契约/net/SSE(`core/{contract,net,sse}`,PORT 自 main + 加固)+ Riverpod 装配(`core/runtime.dart`)+ 错误边界(`core/error`)+ 启动门控(`app/app_startup_gate.dart`)+ L0–L2 流式性能原语(`core/sse` demux + `core/perf` coalescer)。loopback 安全在后端(绑 127.0.0.1 + bearer + Host 校验,见 `references/backend/api.md`)。建造规范见 [`WRK-045`](../../archive/phase-4.0-runtime-backbone/README.md)。
 **dev 工具**:截图夹具 `test/dev/capture_shell.dart` + `capture_demo.dart`(无头渲染 PNG;STEP 6 起预选 = deep-link 导航,非 provider override)+ 真跑 `test/dev/shot_app_real.sh`(真后端端到端);产物 `test/dev/out/` **gitignore**。**测试支撑**(`test/support/`):`router_harness`(路由化 widget 测:测试 GoRouter 镜像 app 两 location、`routedHost` 注入 goRouter+repository 缝)+ `five_batteries`(五电池矩阵 空/超长/海量/极值/注入,STEP 6 加固)。

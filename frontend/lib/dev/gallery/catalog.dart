@@ -34,6 +34,7 @@ import 'chat_turn_specimens.dart';
 import 'markdown_specimens.dart';
 import 'notification_specimens.dart';
 import 'perf_specimens.dart';
+import 'settings_specimens.dart';
 import 'sidestage_specimens.dart';
 import 'specimen.dart';
 import 'user_turn_specimens.dart';
@@ -53,6 +54,7 @@ final List<GalleryCategory> galleryCatalog = [
   _toolCards,
   _entityViz,
   _notifications,
+  settingsCategory,
   _perf,
 ];
 

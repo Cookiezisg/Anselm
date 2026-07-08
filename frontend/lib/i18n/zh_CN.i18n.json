@@ -1174,6 +1174,37 @@
     "linkHint": "输入或粘贴链接,回车确定",
     "toolCount": "$n 个工具"
   },
+  "settings": {
+    "title": "设置",
+    "scope": {
+      "device": "本机",
+      "workspace": "工作区",
+      "machine": "全机"
+    },
+    "sections": {
+      "prefs": "偏好",
+      "resources": "资源",
+      "system": "系统"
+    },
+    "panels": {
+      "general": "通用",
+      "notifications": "通知",
+      "chat": "对话",
+      "modelsKeys": "模型与密钥",
+      "mcp": "MCP 服务器",
+      "memory": "记忆",
+      "sandbox": "沙箱",
+      "workspaces": "工作区",
+      "storage": "存储与日志",
+      "limits": "高级限额",
+      "network": "网络",
+      "shortcuts": "快捷键",
+      "about": "关于"
+    },
+    "filter": "搜索设置…",
+    "building": "面板建设中",
+    "buildingHint": "此面板随建造切片逐步点亮。"
+  },
   "markdown": {
     "imageNotLoaded": "图片未加载"
   },

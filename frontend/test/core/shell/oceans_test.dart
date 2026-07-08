@@ -1,3 +1,4 @@
+import 'package:anselm/core/settings/settings_prefs.dart';
 import 'package:anselm/core/shell/oceans.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,32 +20,31 @@ void main() {
     expect(c.read(selectedOceanProvider), OceanKind.chat); // restore of an empty pref is a no-op
   });
 
-  test('restore reads the persisted last ocean (entities) after first frame', () async {
-    SharedPreferences.setMockInitialValues({'fy.ocean': 'entities'});
-    final c = ProviderContainer();
+  test('restore reads the persisted last ocean (entities) SYNCHRONOUSLY at build', () {
+    final c = ProviderContainer(overrides: [
+      settingsPrefsProvider.overrideWithValue(SettingsPrefs.inMemory({'an.ocean': 'entities'})),
+    ]);
     addTearDown(c.dispose);
-    c.read(selectedOceanProvider); // trigger build → async _restore
-    await pumpEventQueue();
     expect(c.read(selectedOceanProvider), OceanKind.entities);
   });
 
-  test('select persists the chosen ocean (becomes the next launch default)', () async {
-    final c = ProviderContainer();
+  test('select persists the chosen ocean (becomes the next launch default)', () {
+    final prefs = SettingsPrefs.inMemory();
+    final c = ProviderContainer(overrides: [settingsPrefsProvider.overrideWithValue(prefs)]);
     addTearDown(c.dispose);
     c.read(selectedOceanProvider.notifier).select(OceanKind.documents);
     expect(c.read(selectedOceanProvider), OceanKind.documents);
-    await pumpEventQueue();
-    expect((await SharedPreferences.getInstance()).getString('fy.ocean'), 'documents');
+    expect(prefs.getString(SettingsKeys.ocean), 'documents');
   });
 
-  test('a manual switch that lands BEFORE the async restore wins (restore never clobbers it)', () async {
-    SharedPreferences.setMockInitialValues({'fy.ocean': 'entities'});
-    final c = ProviderContainer();
+  test('restore is synchronous — a manual switch can never race it', () {
+    final c = ProviderContainer(overrides: [
+      settingsPrefsProvider.overrideWithValue(SettingsPrefs.inMemory({'an.ocean': 'entities'})),
+    ]);
     addTearDown(c.dispose);
-    c.read(selectedOceanProvider); // build kicks off async _restore (still pending)
-    c.read(selectedOceanProvider.notifier).select(OceanKind.documents); // user taps before restore lands
-    await pumpEventQueue();
-    expect(c.read(selectedOceanProvider), OceanKind.documents, reason: 'manual interaction outranks restore');
+    expect(c.read(selectedOceanProvider), OceanKind.entities); // restored at build 建时即恢复
+    c.read(selectedOceanProvider.notifier).select(OceanKind.documents);
+    expect(c.read(selectedOceanProvider), OceanKind.documents, reason: 'manual interaction sticks');
   });
 
   test('a stale / unknown persisted enum name is ignored (stays on the chat default)', () async {

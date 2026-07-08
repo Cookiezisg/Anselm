@@ -55,6 +55,7 @@ class TranslationsZhCn extends Translations with BaseTranslations<AppLocale, Tra
 	@override late final _Translations$entities$zh_CN entities = _Translations$entities$zh_CN._(_root);
 	@override late final _Translations$coldStart$zh_CN coldStart = _Translations$coldStart$zh_CN._(_root);
 	@override late final _Translations$documents$zh_CN documents = _Translations$documents$zh_CN._(_root);
+	@override late final _Translations$settings$zh_CN settings = _Translations$settings$zh_CN._(_root);
 	@override late final _Translations$markdown$zh_CN markdown = _Translations$markdown$zh_CN._(_root);
 	@override late final _Translations$attach$zh_CN attach = _Translations$attach$zh_CN._(_root);
 }
@@ -384,6 +385,22 @@ class _Translations$documents$zh_CN extends Translations$documents$en {
 	@override late final _Translations$documents$slash$zh_CN slash = _Translations$documents$slash$zh_CN._(_root);
 	@override String get linkHint => '输入或粘贴链接,回车确定';
 	@override String toolCount({required Object n}) => '${n} 个工具';
+}
+
+// Path: settings
+class _Translations$settings$zh_CN extends Translations$settings$en {
+	_Translations$settings$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => '设置';
+	@override late final _Translations$settings$scope$zh_CN scope = _Translations$settings$scope$zh_CN._(_root);
+	@override late final _Translations$settings$sections$zh_CN sections = _Translations$settings$sections$zh_CN._(_root);
+	@override late final _Translations$settings$panels$zh_CN panels = _Translations$settings$panels$zh_CN._(_root);
+	@override String get filter => '搜索设置…';
+	@override String get building => '面板建设中';
+	@override String get buildingHint => '此面板随建造切片逐步点亮。';
 }
 
 // Path: markdown
@@ -1196,6 +1213,52 @@ class _Translations$documents$slash$zh_CN extends Translations$documents$slash$e
 	@override String get table => '表格';
 	@override String get divider => '分隔线';
 	@override String get todo => '待办';
+}
+
+// Path: settings.scope
+class _Translations$settings$scope$zh_CN extends Translations$settings$scope$en {
+	_Translations$settings$scope$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get device => '本机';
+	@override String get workspace => '工作区';
+	@override String get machine => '全机';
+}
+
+// Path: settings.sections
+class _Translations$settings$sections$zh_CN extends Translations$settings$sections$en {
+	_Translations$settings$sections$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get prefs => '偏好';
+	@override String get resources => '资源';
+	@override String get system => '系统';
+}
+
+// Path: settings.panels
+class _Translations$settings$panels$zh_CN extends Translations$settings$panels$en {
+	_Translations$settings$panels$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get general => '通用';
+	@override String get notifications => '通知';
+	@override String get chat => '对话';
+	@override String get modelsKeys => '模型与密钥';
+	@override String get mcp => 'MCP 服务器';
+	@override String get memory => '记忆';
+	@override String get sandbox => '沙箱';
+	@override String get workspaces => '工作区';
+	@override String get storage => '存储与日志';
+	@override String get limits => '高级限额';
+	@override String get network => '网络';
+	@override String get shortcuts => '快捷键';
+	@override String get about => '关于';
 }
 
 // Path: chat.tool.kind
@@ -2731,6 +2794,29 @@ extension on TranslationsZhCn {
 			'documents.slash.todo' => '待办',
 			'documents.linkHint' => '输入或粘贴链接,回车确定',
 			'documents.toolCount' => ({required Object n}) => '${n} 个工具',
+			'settings.title' => '设置',
+			'settings.scope.device' => '本机',
+			'settings.scope.workspace' => '工作区',
+			'settings.scope.machine' => '全机',
+			'settings.sections.prefs' => '偏好',
+			'settings.sections.resources' => '资源',
+			'settings.sections.system' => '系统',
+			'settings.panels.general' => '通用',
+			'settings.panels.notifications' => '通知',
+			'settings.panels.chat' => '对话',
+			'settings.panels.modelsKeys' => '模型与密钥',
+			'settings.panels.mcp' => 'MCP 服务器',
+			'settings.panels.memory' => '记忆',
+			'settings.panels.sandbox' => '沙箱',
+			'settings.panels.workspaces' => '工作区',
+			'settings.panels.storage' => '存储与日志',
+			'settings.panels.limits' => '高级限额',
+			'settings.panels.network' => '网络',
+			'settings.panels.shortcuts' => '快捷键',
+			'settings.panels.about' => '关于',
+			'settings.filter' => '搜索设置…',
+			'settings.building' => '面板建设中',
+			'settings.buildingHint' => '此面板随建造切片逐步点亮。',
 			'markdown.imageNotLoaded' => '图片未加载',
 			'attach.unavailable' => '已不可用',
 			'attach.retry' => '点按重试',

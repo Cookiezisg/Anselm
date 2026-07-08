@@ -1174,6 +1174,37 @@
     "linkHint": "Type or paste a link, Enter to apply",
     "toolCount": "$n tools"
   },
+  "settings": {
+    "title": "Settings",
+    "scope": {
+      "device": "This device",
+      "workspace": "Workspace",
+      "machine": "This machine"
+    },
+    "sections": {
+      "prefs": "Preferences",
+      "resources": "Resources",
+      "system": "System"
+    },
+    "panels": {
+      "general": "General",
+      "notifications": "Notifications",
+      "chat": "Chat",
+      "modelsKeys": "Models & keys",
+      "mcp": "MCP servers",
+      "memory": "Memory",
+      "sandbox": "Sandbox",
+      "workspaces": "Workspaces",
+      "storage": "Storage & logs",
+      "limits": "Advanced limits",
+      "network": "Network",
+      "shortcuts": "Shortcuts",
+      "about": "About"
+    },
+    "filter": "Search settings…",
+    "building": "Panel under construction",
+    "buildingHint": "This panel lights up slice by slice."
+  },
   "markdown": {
     "imageNotLoaded": "image not loaded"
   },

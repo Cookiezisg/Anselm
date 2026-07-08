@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/settings/settings_prefs.dart';
 import '../../../core/sse/frame.dart';
 import '../data/chat_providers.dart';
 import '../data/chat_repository.dart';
@@ -10,28 +10,21 @@ import '../model/stage_director.dart';
 import 'flowrun_progress.dart';
 import 'pending_interactions_provider.dart';
 
-/// The user's standing follow intent (WRK-061 §12-1, default «每次») — persisted (`fy.stage.follow`,
-/// the shell-chrome pattern: default now, best-effort async restore) so the choice survives a
-/// relaunch. The sidestage head carries the three-notch menu; a settings-panel home lands with the
-/// settings module (路线⑤) and reads THIS provider.
-/// 跟随三档(默认「每次」)——持久化(fy.stage.follow,壳同款:先默认、异步 best-effort 恢复),重启不丢。
-/// 三档菜单在侧幕头带;settings 面板落位随 settings 模块(路线⑤)、读同一 provider。
+/// The user's standing follow intent (WRK-061 §12-1, default «每次») — persisted via [SettingsPrefs]
+/// (`an.stage.follow`, synchronous read) so the choice survives a relaunch. The sidestage head
+/// carries the three-notch menu; the settings chat panel reads THIS provider (same state, two homes).
+/// 跟随三档(默认「每次」)——经 SettingsPrefs(`an.stage.follow`)持久化、同步恢复。三档菜单在侧幕头带;
+/// settings 对话面板读同一 provider(一份状态两处家)。
 class FollowModeController extends Notifier<FollowMode> {
-  static const _key = 'fy.stage.follow';
-
   @override
   FollowMode build() {
-    Future(() async {
-      final v = (await SharedPreferences.getInstance()).getString(_key);
-      final restored = FollowMode.values.where((m) => m.name == v).firstOrNull;
-      if (restored != null && ref.mounted) state = restored;
-    });
-    return FollowMode.always;
+    final v = ref.read(settingsPrefsProvider).getString(SettingsKeys.chatAutoStage);
+    return FollowMode.values.asNameMap()[v] ?? FollowMode.always;
   }
 
   void set(FollowMode mode) {
     state = mode;
-    Future(() async => (await SharedPreferences.getInstance()).setString(_key, mode.name));
+    ref.read(settingsPrefsProvider).setString(SettingsKeys.chatAutoStage, mode.name);
   }
 }
 
