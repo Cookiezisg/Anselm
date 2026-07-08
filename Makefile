@@ -97,11 +97,14 @@ docs:
 
 # ── 出包 ────────────────────────────────────────────────────────────
 
-# build — 后端 host 二进制。TODO：打包时把它作为 sidecar 二进制随 Flutter app 分发（flutter build
-# <platform> + 把 anselm-server 放进 bundle，客户端经 ANSELM_ADDR 拉起，见 ADR 0004 §1）。
+# build — 后端 host 二进制。VERSION 经 ldflags 盖进 main.version(GET /api/v1/version 下发;
+# 默认取 git describe,无 tag 回落 dev-<sha>)。TODO：打包时把它作为 sidecar 二进制随 Flutter app
+# 分发（flutter build <platform> + 把 anselm-server 放进 bundle，客户端经 ANSELM_ADDR 拉起，
+# 见 ADR 0004 §1）。
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 build:
-	@cd backend && $(RUN) go build -o bin/anselm-server ./cmd/server
-	@echo "✓ backend/bin/anselm-server"
+	@cd backend && $(RUN) go build -ldflags "-X main.version=$(VERSION)" -o bin/anselm-server ./cmd/server
+	@echo "✓ backend/bin/anselm-server ($(VERSION))"
 
 # ── 门禁 ────────────────────────────────────────────────────────────
 

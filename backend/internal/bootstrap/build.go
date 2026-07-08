@@ -43,6 +43,9 @@ type Config struct {
 	AuthToken   string
 	Fingerprint string
 	Dev         bool
+	// Version is the build-stamped app version served by GET /api/v1/version ("dev" un-stamped).
+	// 构建期盖章的版本号(GET /api/v1/version 下发;未盖章="dev")。
+	Version string
 }
 
 // App is the assembled application: the HTTP handler plus the boot/shutdown lifecycle for the
@@ -107,7 +110,7 @@ func Build(cfg Config) (*App, error) {
 	mux := http.NewServeMux()
 	svc := buildServices(st, inf, bus, mux, cfg.DataDir, log)
 	svc.settings = settingsSvc
-	registerHandlers(mux, svc, bus, log)
+	registerHandlers(mux, svc, bus, cfg, log)
 	registerDebug(mux, cfg.Dev, log) // dev-only /debug/pprof + /debug/stats (observability)
 
 	addr := cfg.Addr
@@ -127,7 +130,7 @@ func Build(cfg Config) (*App, error) {
 // the shared mux, plus the static health probe (exempt from RequireWorkspace).
 //
 // registerHandlers 用各自 Service 构造每个资源 handler 并把路由注册到共享 mux，外加静态 health 探针。
-func registerHandlers(mux *http.ServeMux, s *services, bus buses, log *zap.Logger) {
+func registerHandlers(mux *http.ServeMux, s *services, bus buses, cfg Config, log *zap.Logger) {
 	mux.HandleFunc("GET /api/v1/health", handleHealth)
 
 	regs := []interface {
@@ -135,7 +138,7 @@ func registerHandlers(mux *http.ServeMux, s *services, bus buses, log *zap.Logge
 	}{
 		handlershttpapi.NewWorkspacesHandler(s.workspace, log),
 		handlershttpapi.NewSearchHandler(s.search, log),
-		handlershttpapi.NewAPIKeyHandler(s.apikey, log),
+		handlershttpapi.NewAPIKeyHandler(s.apikey, cfg.Dev, log),
 		handlershttpapi.NewModelCapabilitiesHandler(s.modelCaps, log),
 		handlershttpapi.NewScenariosHandler(),
 		handlershttpapi.NewRelationHandler(s.relation, log),
@@ -145,8 +148,8 @@ func registerHandlers(mux *http.ServeMux, s *services, bus buses, log *zap.Logge
 		handlershttpapi.NewMemoryHandler(s.memory, log),
 		handlershttpapi.NewSandboxHandler(s.sandbox, log),
 		handlershttpapi.NewLimitsHandler(s.settings, log),
-		handlershttpapi.NewSystemHandler(s.settings, log),
-		handlershttpapi.NewFreetierHandler(s.freetierQuota, log),
+		handlershttpapi.NewSystemHandler(s.settings, cfg.Version, log),
+		handlershttpapi.NewFreetierHandler(s.freetierQuota, s.freetier, log),
 		handlershttpapi.NewDocumentHandler(s.document, s.aispawn, log),
 		handlershttpapi.NewTodoHandler(s.todo, log),
 		handlershttpapi.NewTouchpointHandler(s.touchpoint, log),

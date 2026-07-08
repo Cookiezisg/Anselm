@@ -47,8 +47,9 @@ type platformC_keyRow struct {
 	TestStatus  string `json:"testStatus"`
 }
 
-// platformC_deleteKeys 删掉 ws 里指定 provider（空=全部）的所有 key，返回删除数。
-// 用于消掉 freetier provisioner 异步落的受管 anselm 行，制造「零 key / 无受管行」态。
+// platformC_deleteKeys 删掉 ws 里指定 provider（空=全部）的所有**非受管** key，返回删除数。
+// 受管 anselm 行自 S-1 起 DELETE 422 不可删——「无受管行」态只在 provisioner 未落行（离线/网关不可达）
+// 时天然存在，测试须按「有无受管行」分支断言而非强造。
 func platformC_deleteKeys(t *testing.T, wc *harness.Client, provider string) int {
 	t.Helper()
 	path := "/api/v1/api-keys?limit=200"
@@ -59,6 +60,9 @@ func platformC_deleteKeys(t *testing.T, wc *harness.Client, provider string) int
 	wc.GET(path).OK(t, &rows)
 	n := 0
 	for _, k := range rows {
+		if k.Provider == "anselm" {
+			continue // managed — immutable (S-1) 受管行不可删
+		}
 		if r := wc.Do("DELETE", "/api/v1/api-keys/"+k.ID, nil); r.Status == 204 {
 			n++
 		}
@@ -307,7 +311,8 @@ func TestContractPlatform_APIKeyRotationManagedAPIFormat(t *testing.T) {
 	}).Field(t, "id")
 	wc.Do("PATCH", "/api/v1/api-keys/"+managedID, map[string]any{"displayName": "hijack"}).
 		Fail(t, 422, "API_KEY_IMMUTABLE")
-	wc.DELETE("/api/v1/api-keys/" + managedID) // 无引用仍可删（守卫只挡编辑，删除走 RefScanner）
+	// 零引用也不可删（WRK-062 S-1：DELETE 与 PATCH 对称守卫——受管 gwk_ 凭证无用户侧重开通入口）。
+	wc.Do("DELETE", "/api/v1/api-keys/"+managedID, nil).Fail(t, 422, "API_KEY_IMMUTABLE")
 
 	// ③ apiFormat 白名单（仅 custom provider 强制）。
 	wc.Do("POST", "/api/v1/api-keys", map[string]any{
@@ -335,11 +340,21 @@ func TestContractPlatform_ModelCapabilitiesEmptyAndIsolation(t *testing.T) {
 	_, wa := platformC_ws(t, c, "caps-a")
 	_, wb := platformC_ws(t, c, "caps-b")
 
-	// ① wsB 制成零 key 后空态必须是 []。provisioner 异步落行，故删+验在同一轮询里收敛。
-	harness.Eventually(t, 30000, "capabilities settle to [] once wsB has zero keys", func() bool {
+	// ① wsB 删尽非受管 key 后：无受管行→恰 []；受管行落了（在线网关）→只可能剩 anselm 目录项。
+	//   （受管行自 S-1 不可删,「零 key」态不再可强造——按有无受管行分支断言。）
+	harness.Eventually(t, 30000, "capabilities settle to baseline once wsB has no BYOK keys", func() bool {
 		platformC_deleteKeys(t, wb, "")
+		var rows []platformC_keyRow
+		wb.GET("/api/v1/api-keys?limit=200").OK(t, &rows)
 		r := wb.Do("GET", "/api/v1/model-capabilities", nil)
-		return r.Status == 200 && strings.TrimSpace(string(r.Data)) == "[]"
+		if r.Status != 200 {
+			return false
+		}
+		if len(rows) == 0 {
+			return strings.TrimSpace(string(r.Data)) == "[]"
+		}
+		// Managed row present — the only capabilities allowed are the anselm ones. 只许 anselm 项。
+		return !strings.Contains(string(r.Raw), "gpt-4o")
 	})
 
 	// ② wsA 配 mock key + 探测 → 目录现身；wsB 不串。
@@ -536,8 +551,8 @@ func TestContractPlatform_SandboxGovernanceEdges(t *testing.T) {
 // ── A-free-2 + A-free-4 + A-free-5 + B-sup-6：freetier 配额代理 REST 面 ─────────
 
 // TestContractPlatform_FreetierQuota:
-// ① NotProvisioned：删尽 ws 的受管 anselm 行 → GET /freetier/quota 404 FREETIER_NOT_PROVISIONED
-//   （受管行按 ws 隔离——B ws 无行即 404，与 A ws 是否有行无关）。
+// ① NotProvisioned：受管行自 S-1 不可删——404 态只在 provisioner 未落行（离线/网关不可达）时天然
+//   存在，按「有无受管行」分支断言：无行→404 FREETIER_NOT_PROVISIONED；有行→跳过（404 面不可造）。
 // ② QuotaShape：等 provisioner 落行后打 quota——200 时 data 必须五字段全在
 //   {limit,used,remaining,resetAt,available} 且 remaining≥0；网关自身失败必须按
 //   LLM_AUTH_FAILED/LLM_RATE_LIMITED/LLM_PROVIDER_ERROR 分类冒泡（绝不本地翻行）。
@@ -551,12 +566,23 @@ func TestContractPlatform_FreetierQuota(t *testing.T) {
 	_, wb := platformC_ws(t, c, "free-b")
 
 	t.Run("NotProvisioned404", func(t *testing.T) {
-		// provisioner 异步落行：删+验同一轮询收敛（行只在 ws 创建时开通一次，删后不再重生）。
-		harness.Eventually(t, 30000, "quota 404 FREETIER_NOT_PROVISIONED once managed row is gone", func() bool {
-			platformC_deleteKeys(t, wb, "anselm")
+		// 受管行不可删（S-1）→ 404 态不可强造。给 provisioner 一个短窗:窗内落了行=在线环境,
+		// 断言该行 DELETE 422(守卫)并跳过 404 分支;窗尽无行=离线环境,404 必现。
+		deadline := time.Now().Add(10 * time.Second)
+		for time.Now().Before(deadline) {
+			var rows []platformC_keyRow
+			wb.GET("/api/v1/api-keys?provider=anselm&limit=1").OK(t, &rows)
+			if len(rows) > 0 {
+				wb.Do("DELETE", "/api/v1/api-keys/"+rows[0].ID, nil).Fail(t, 422, "API_KEY_IMMUTABLE")
+				t.Skip("managed row provisioned (gateway reachable) — the 404 face is not constructible by design (S-1)")
+			}
 			r := wb.Do("GET", "/api/v1/freetier/quota", nil)
-			return r.Status == 404 && r.Code == "FREETIER_NOT_PROVISIONED"
-		})
+			if r.Status == 404 && r.Code == "FREETIER_NOT_PROVISIONED" {
+				return // offline path pinned 离线面钉死
+			}
+			time.Sleep(300 * time.Millisecond)
+		}
+		t.Fatal("neither a managed row nor FREETIER_NOT_PROVISIONED within the window")
 	})
 
 	t.Run("QuotaShapeOrClassifiedError", func(t *testing.T) {

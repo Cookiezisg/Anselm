@@ -2,6 +2,7 @@ package notification
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -137,6 +138,45 @@ func TestBroadcast_PushesButDoesNotPersist(t *testing.T) {
 	}
 	if sig.Ephemeral {
 		t.Error("broadcast signal must still be durable (survives reconnect via replay ring)")
+	}
+}
+
+// The inbox marker (WRK-062 S-8): Emit frames carry inbox:true, Broadcast frames must NOT — the
+// client's "all" level keys off it, and the two tiers are otherwise identically shaped.
+// inbox 标(S-8):Emit 帧带 inbox:true、Broadcast 绝不带——「全部」档据此分流,两档其余帧形全同。
+func TestPush_InboxMarkerSplitsTheTiers(t *testing.T) {
+	repo := &fakeRepo{}
+	bridge := &fakeBridge{}
+	svc := NewService(repo, bridge, zap.NewNop())
+
+	payload := map[string]any{"name": "foo"}
+	if err := svc.Emit(context.Background(), "memory.updated", payload); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	if err := svc.Broadcast(context.Background(), "conversation.updated", payload); err != nil {
+		t.Fatalf("broadcast: %v", err)
+	}
+
+	var emitContent, bcastContent map[string]any
+	if err := json.Unmarshal(bridge.published[0].Frame.(streamdomain.Signal).Node.Content, &emitContent); err != nil {
+		t.Fatalf("emit content: %v", err)
+	}
+	if err := json.Unmarshal(bridge.published[1].Frame.(streamdomain.Signal).Node.Content, &bcastContent); err != nil {
+		t.Fatalf("broadcast content: %v", err)
+	}
+	if emitContent["inbox"] != true {
+		t.Errorf("Emit frame must carry inbox:true, got %v", emitContent)
+	}
+	if _, has := bcastContent["inbox"]; has {
+		t.Errorf("Broadcast frame must NOT carry inbox, got %v", bcastContent)
+	}
+	// The caller's map is never mutated (push copies before marking). 调用方 map 不被原地改。
+	if _, has := payload["inbox"]; has {
+		t.Error("push must copy the payload, not mutate the caller's map")
+	}
+	// The persisted row's payload stays unmarked (inbox is a WIRE marker only). 落行 payload 不带标。
+	if _, has := repo.saved[0].Payload["inbox"]; has {
+		t.Error("the persisted payload must not carry the wire-only inbox marker")
 	}
 }
 

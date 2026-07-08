@@ -62,6 +62,7 @@ func requireWorkspaceExempt(next http.Handler) http.Handler {
 			strings.HasPrefix(p, "/api/v1/workspaces") ||
 			strings.HasPrefix(p, "/api/v1/webhooks/") ||
 			p == "/api/v1/health" ||
+			p == "/api/v1/version" ||
 			p == "/api/v1/providers" ||
 			p == "/api/v1/scenarios" {
 			next.ServeHTTP(w, r)

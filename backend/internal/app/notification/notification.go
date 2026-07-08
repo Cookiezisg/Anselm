@@ -65,7 +65,7 @@ func (s *Service) Emit(ctx context.Context, eventType string, payload map[string
 	if err := s.repo.Save(ctx, n); err != nil {
 		return fmt.Errorf("notificationapp.Emit: %w", err)
 	}
-	s.push(ctx, n.ID, n.Type, n.Payload)
+	s.push(ctx, n.ID, n.Type, n.Payload, true)
 	return nil
 }
 
@@ -76,13 +76,13 @@ func (s *Service) Emit(ctx context.Context, eventType string, payload map[string
 // is swallowed (best-effort, same as Emit's push).
 //
 // Broadcast 推一条 durable live signal、**不落行**——对账回声的仅帧档（见 Emitter 端口文档）。
-// 临时 id 锚定线缆帧（不再被引用——无行可 mark-read）；帧形与 Emit 完全一致，只是没有落行。
+// 临时 id 锚定线缆帧（不再被引用——无行可 mark-read）；帧形与 Emit 的差异仅 `inbox` 标（见 push）。
 // 唯一失败是推送失败、已吞（best-effort，同 Emit 的 push）。
 func (s *Service) Broadcast(ctx context.Context, eventType string, payload map[string]any) error {
 	if eventType == "" {
 		return notificationdomain.ErrInvalidType
 	}
-	s.push(ctx, idgenpkg.New("noti"), eventType, payload)
+	s.push(ctx, idgenpkg.New("noti"), eventType, payload, false)
 	return nil
 }
 
@@ -94,9 +94,23 @@ func (s *Service) Broadcast(ctx context.Context, eventType string, payload map[s
 // push 把生命周期事件作为 durable signal 推到 notifications SSE 流；失败只 log 不传播（调用方
 // 已做—或刻意跳过—耐久写）。id 锚定线缆帧（Emit 用行 id、Broadcast 用临时 id）；前端按 node.type
 // 自滤、不按 scope.id。
-func (s *Service) push(ctx context.Context, id, eventType string, payload map[string]any) {
+func (s *Service) push(ctx context.Context, id, eventType string, payload map[string]any, inbox bool) {
 	if s.bridge == nil {
 		return
+	}
+	// The inbox marker (WRK-062 S-8): Emit frames (persisted, user-relevant) carry `inbox:true` so
+	// the client's "all" notification level has an honest denominator — Broadcast reconciliation
+	// echoes are shaped identically otherwise and must never become toast candidates. The payload is
+	// COPIED (callers may reuse their map).
+	// inbox 标(S-8):Emit 帧(落行、用户相关)带 inbox:true,客户端「全部」档才有诚实分母——Broadcast
+	// 对账回声帧形其余全同、绝不能进 toast 候选。payload 复制后再加(调用方可能复用其 map)。
+	if inbox {
+		p := make(map[string]any, len(payload)+1)
+		for k, v := range payload {
+			p[k] = v
+		}
+		p["inbox"] = true
+		payload = p
 	}
 	var content json.RawMessage
 	if len(payload) > 0 {

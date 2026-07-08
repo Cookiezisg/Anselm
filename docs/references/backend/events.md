@@ -40,7 +40,7 @@ audience: [human, ai]
 **两档 durable 信号**（`notificationapp.Emitter` 分径，全部 `Ephemeral:false`）：
 
 - **Emit = 落收件箱行 + 推帧**——值得用户事后在通知中心找到的事件（失败、AI 可能干的实体生命周期 created/edited/deleted）。行是真相、REST `GET /notifications` 兜回。
-- **Broadcast = 只推帧、不落行**——高频对账回声：驱动实时 UI（rail 重排、documents 树刷新）但进收件箱即噪音（改名、pin 翻转、树保存、env 装配开始）。其真相是**实体自身状态**（消费者收帧后重取实体的 REST 行/整树，见下方各流挂载），非通知行；线缆帧形与 Emit 完全一致（临时 `noti_` id 锚定），只是通知中心不留痕、`GET /notifications` 里查不到。
+- **Broadcast = 只推帧、不落行**——高频对账回声：驱动实时 UI（rail 重排、documents 树刷新）但进收件箱即噪音（改名、pin 翻转、树保存、env 装配开始）。其真相是**实体自身状态**（消费者收帧后重取实体的 REST 行/整树，见下方各流挂载），非通知行；临时 `noti_` id 锚定线缆帧，通知中心不留痕、`GET /notifications` 里查不到。**两档帧形唯一差异 = `inbox` 标**（WRK-062 S-8）：Emit 帧的 payload 带 `inbox:true`（落行、用户相关——客户端「全部」通知档的诚实分母），Broadcast 帧**永不带**——对账回声绝不能成为 toast 候选。标只在线缆上（push 时复制 payload 加入），落库的通知行 payload 不带。N0 裁决不变：未读徽标仍绝不据帧 +1、靠权威 `unread-count` refetch。
 
 下表 **⊞** = Emit（落行）· **⤳** = Broadcast（仅帧）。`Node.Type` 词表由 producer 定，登记当前全集、非穷举。
 

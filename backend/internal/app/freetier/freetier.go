@@ -18,6 +18,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 
 	"go.uber.org/zap"
 
@@ -94,6 +95,24 @@ func NewProvisioner(keys Keys, defaults Defaults, installer Installer, fp Finger
 // breaks boot or workspace creation. ctx MUST carry the workspace (the managed row is
 // workspace-scoped — orm stamps workspace_id on Save and filters List).
 //
+// ProvisionNow is the user-facing variant (POST /freetier:provision, WRK-062 S-7): same idempotent
+// ensure, but it REPORTS — true when a managed row exists afterwards (pre-existing or just created),
+// false when provisioning degraded (offline / gateway down / no fingerprint). Never errors for the
+// degraded paths (they are states, not faults); only a store failure propagates.
+//
+// ProvisionNow 是用户侧变体(POST /freetier:provision,S-7):同一幂等 ensure,但**报告结果**——之后存在
+// 受管行(原有或新建)返 true,开通降级(离线/网关挂/无指纹)返 false。降级路径不是错误、不抛;仅存储失败冒泡。
+func (p *Provisioner) ProvisionNow(ctx context.Context) (bool, error) {
+	if err := p.EnsureForWorkspace(ctx); err != nil {
+		return false, err
+	}
+	existing, _, err := p.keys.List(ctx, apikeydomain.ListFilter{Provider: providerName, Limit: 1})
+	if err != nil {
+		return false, fmt.Errorf("freetier.ProvisionNow: list: %w", err)
+	}
+	return len(existing) > 0, nil
+}
+
 // EnsureForWorkspace 幂等确保 workspace 有受管 anselm 凭证。契约 best-effort：每个失败路径都 log 并返
 // nil，使降级的免费档绝不挂 boot 或建 workspace。ctx 必须携带 workspace（受管行按 workspace 隔离——orm
 // 在 Save 时盖 workspace_id、List 时过滤）。

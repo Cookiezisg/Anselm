@@ -18,12 +18,23 @@ import (
 	bootstrappkg "github.com/sunweilin/anselm/backend/internal/bootstrap"
 )
 
+// version is stamped at build time (`-ldflags "-X main.version=..."`, see Makefile); "dev" for a
+// plain `go run`. version 由构建期 ldflags 盖章;裸 go run 为 "dev"。
+var version = "dev"
+
 func main() {
 	app, err := bootstrappkg.Build(bootstrappkg.Config{
 		DataDir:   dataDir(),
 		Addr:      os.Getenv("ANSELM_ADDR"),       // "" → 127.0.0.1:8080 (loopback-only)
 		AuthToken: os.Getenv("ANSELM_AUTH_TOKEN"), // "" → bearer enforcement off (dev / testend)
-		Dev:       os.Getenv("ANSELM_DEV") != "",
+		// The at-rest master-key seed: ANSELM_MASTER_KEY (keychain-managed, WRK-062 拍板 #14) wins;
+		// empty falls back to the machine fingerprint inside newEncryptor. ⚠️ changing the seed makes
+		// EXISTING ciphertexts undecryptable — keys must be re-entered.
+		// 静态加密主密钥种子:ANSELM_MASTER_KEY(钥匙串管理)优先,空则回落机器指纹。⚠️ 换种子=旧密文
+		// 全部解不开,已录 key 须重录。
+		Fingerprint: os.Getenv("ANSELM_MASTER_KEY"),
+		Dev:         os.Getenv("ANSELM_DEV") != "",
+		Version:     version,
 	})
 	if err != nil {
 		log.Fatalf("bootstrap: %v", err)

@@ -274,6 +274,20 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*apike
 //
 // Delete 命中任一引用 scanner 即拒删（ErrInUse）。
 func (s *Service) Delete(ctx context.Context, id string) error {
+	k, err := s.repo.Get(ctx, id)
+	if err != nil {
+		return err
+	}
+	// Managed rows (free-tier gateway) are immutable — deletion included (WRK-062 S-1): the gwk_
+	// credential is backend-provisioned; once the defaults referencing it are cleared, RefScanner
+	// alone would wave the DELETE through and destroy the token with no user-facing re-provision
+	// path. Symmetric with Update's guard above.
+	//
+	// 受管行（免费档网关）不可变——删除同样在内（S-1）：gwk_ 凭证由后端开通;一旦指向它的默认被清空,
+	// 仅靠 RefScanner 就会放行 DELETE、毁掉 token 且用户无重开通入口。与 Update 的守卫对称。
+	if meta, ok := GetProviderMeta(k.Provider); ok && meta.Managed {
+		return apikeydomain.ErrManaged
+	}
 	var refs []apikeydomain.APIKeyRef
 	for _, sc := range s.scanners {
 		found, err := sc.ReferencesAPIKey(ctx, id)

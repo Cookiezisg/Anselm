@@ -85,13 +85,20 @@ func isValidProvider(name string) bool {
 	return ok
 }
 
-// ListProviders returns all supported providers, sorted by name for a stable
-// response (the GET /providers config endpoint).
+// ListProviders returns the supported providers, sorted by name for a stable response (the
+// GET /providers config endpoint). `mock` is a T6 test fixture, NOT a product provider — it is
+// filtered from the CATALOG outside dev (WRK-062 S-5) while staying valid for key CREATION
+// (testend provisions mock keys without ANSELM_DEV; only the user-facing dropdown must not show it).
 //
-// ListProviders 返回所有支持的 provider，按 name 排序保证响应稳定（GET /providers 配置端点）。
-func ListProviders() []ProviderMeta {
+// ListProviders 返回支持的 provider,按 name 排序保证响应稳定(GET /providers 配置端点)。mock 是 T6
+// 测试设施、非产品 provider——非 dev 从**目录**滤除(S-5),但仍可用于建 key(testend 不带 ANSELM_DEV
+// 也要 POST mock key;只是用户可见的下拉不得出现它)。
+func ListProviders(dev bool) []ProviderMeta {
 	out := make([]ProviderMeta, 0, len(providers))
 	for _, m := range providers {
+		if m.Name == "mock" && !dev {
+			continue
+		}
 		out = append(out, m)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })

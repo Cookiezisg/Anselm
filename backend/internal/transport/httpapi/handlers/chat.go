@@ -102,7 +102,10 @@ func (h *ChatHandler) List(w http.ResponseWriter, r *http.Request) {
 	around, dir := q.Get("around"), q.Get("dir")
 	if around != "" {
 		if p.Cursor != "" || dir != "" {
-			responsehttpapi.Error(w, http.StatusBadRequest, "INVALID_REQUEST", "around is mutually exclusive with cursor and dir", nil)
+			// The shared INVALID_REQUEST sentinel (wire codes are globally unique; the message detail
+			// rides details). 共享 sentinel(线缆码全局唯一;具体原因走 details)。
+			responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrInvalidRequest.WithDetails(
+				map[string]any{"reason": "around is mutually exclusive with cursor and dir"}))
 			return
 		}
 		win, err := h.svc.MessagesAround(r.Context(), r.PathValue("id"), around, p.Limit)
@@ -129,7 +132,8 @@ func (h *ChatHandler) List(w http.ResponseWriter, r *http.Request) {
 		}
 		responsehttpapi.Paged(w, items, next, next != "")
 	default:
-		responsehttpapi.Error(w, http.StatusBadRequest, "INVALID_REQUEST", "dir must be omitted, 'older' or 'newer'", nil)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrInvalidRequest.WithDetails(
+			map[string]any{"reason": "dir must be omitted, 'older' or 'newer'"}))
 	}
 }
 

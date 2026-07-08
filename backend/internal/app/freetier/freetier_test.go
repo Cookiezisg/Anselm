@@ -75,6 +75,32 @@ func newProv(keys Keys, inst Installer, fp Fingerprint) *Provisioner {
 	return NewProvisioner(keys, nil, inst, fp, zap.NewNop()) // nil defaults → seeding skipped
 }
 
+// ProvisionNow (S-7): reports true when a managed row exists afterwards (created or pre-existing),
+// false when provisioning degraded — the states, not faults, discipline.
+// ProvisionNow(S-7):事后有受管行返 true(新建或原有),开通降级返 false——状态非错误。
+func TestProvisionNow_ReportsHonestly(t *testing.T) {
+	// Fresh install path → row lands → true. 新装→落行→true。
+	keys := &fakeKeys{}
+	ok, err := newProv(keys, &fakeInstaller{token: "gwk_minted"}, okFP).ProvisionNow(context.Background())
+	if err != nil || !ok {
+		t.Fatalf("fresh provision → (%v,%v), want (true,nil)", ok, err)
+	}
+	// Idempotent short-circuit → still true, no second install. 幂等短路→仍 true。
+	inst2 := &fakeInstaller{token: "gwk_other"}
+	ok, err = newProv(keys, inst2, okFP).ProvisionNow(context.Background())
+	if err != nil || !ok {
+		t.Fatalf("idempotent provision → (%v,%v), want (true,nil)", ok, err)
+	}
+	if inst2.gotHash != "" {
+		t.Error("existing row must short-circuit BEFORE the installer is called")
+	}
+	// Degraded path (gateway down) → false, nil. 降级(网关挂)→(false,nil)。
+	ok, err = newProv(&fakeKeys{}, &fakeInstaller{err: errors.New("gateway down")}, okFP).ProvisionNow(context.Background())
+	if err != nil || ok {
+		t.Fatalf("degraded provision → (%v,%v), want (false,nil)", ok, err)
+	}
+}
+
 func TestEnsure_ProvisionsManagedRow(t *testing.T) {
 	keys := &fakeKeys{}
 	inst := &fakeInstaller{token: "gwk_minted"}

@@ -57,6 +57,25 @@ func TestCreateManaged_Validation(t *testing.T) {
 	}
 }
 
+func TestDelete_ManagedImmutable(t *testing.T) {
+	s, _ := newSvc(nil)
+	k, _ := s.CreateManaged(ctxWS(), ManagedCreateInput{
+		Provider: "anselm", DisplayName: "Anselm Free (DeepSeek)", Key: "gwk_x123456789",
+		BaseURL: "https://api.anselm.website/v1", TestResponse: anselmModelsBody,
+	})
+	// Even with ZERO references (RefScanner would wave it through) the managed row must survive —
+	// the gwk_ token has no user-facing re-provision path (WRK-062 S-1).
+	// 零引用（RefScanner 会放行）时受管行也必须存活——gwk_ token 无用户侧重开通入口（S-1）。
+	if err := s.Delete(ctxWS(), k.ID); !errors.Is(err, apikeydomain.ErrManaged) {
+		t.Errorf("deleting managed key → %v, want ErrManaged", err)
+	}
+	// A normal key still deletes — the guard must not over-reach.
+	ok, _ := s.Create(ctxWS(), CreateInput{Provider: "openai", DisplayName: "mine", Key: "sk-1234567890"})
+	if err := s.Delete(ctxWS(), ok.ID); err != nil {
+		t.Errorf("deleting normal key should work, got %v", err)
+	}
+}
+
 func TestUpdate_ManagedImmutable(t *testing.T) {
 	s, _ := newSvc(nil)
 	k, _ := s.CreateManaged(ctxWS(), ManagedCreateInput{
