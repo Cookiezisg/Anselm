@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/runtime.dart';
+
 /// Threads whose FRESH auto-title should land as a one-shot typewriter (the "fake stream") — in the
 /// rail row AND the head, together. Fed by ONE detector: the list notifier's fold-in (title went
 /// empty→non-empty AND `autoTitled`; a user rename never matches — the row being renamed already has a
@@ -14,7 +16,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// (「第一次出现」的时刻已过)。
 class TitleReveals extends Notifier<Set<String>> {
   @override
-  Set<String> build() => const {};
+  Set<String> build() {
+    // A workspace switch empties the queue — the ids are the old workspace's threads (S3-pre).
+    // 切 workspace 清队:id 是旧 workspace 的线程。
+    ref.watch(activeWorkspaceProvider);
+    return const {};
+  }
 
   void add(String id) => state = {...state, id};
 

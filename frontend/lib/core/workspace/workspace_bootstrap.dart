@@ -17,7 +17,12 @@ import '../runtime.dart';
 class WorkspaceBootstrap extends AsyncNotifier<String> {
   @override
   Future<String> build() async {
-    final api = ref.watch(apiClientProvider);
+    // read, NOT watch — this notifier PRODUCES the active workspace, and apiClientProvider now
+    // rebuilds on workspace change (S3-pre). Watching it would close a reactive loop that re-runs
+    // the bootstrap after every switch and yanks the selection back to the first workspace.
+    // read 而非 watch——本 notifier 是 activeWorkspace 的生产者,而 apiClientProvider 已随切换重建;
+    // watch 会闭合响应环:每次切换后 bootstrap 重跑,把选区拽回第一个 workspace。
+    final api = ref.read(apiClientProvider);
     final page = await api.getPage('/api/v1/workspaces', Workspace.fromJson);
     final ws = page.items.isNotEmpty
         ? page.items.first

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/contract/conversation.dart';
+import '../../../core/runtime.dart';
 import '../data/chat_providers.dart';
 import '../data/chat_repository.dart';
 import '../data/conversation_signal.dart';
@@ -66,7 +67,12 @@ final conversationHeaderProvider = AsyncNotifierProvider.autoDispose
 /// PATCH 盖章(见 startConversation);选择保留,下一个新对话继承。
 class LandingModel extends Notifier<({String apiKeyId, String modelId})?> {
   @override
-  ({String apiKeyId, String modelId})? build() => null;
+  ({String apiKeyId, String modelId})? build() {
+    // A workspace switch voids the sticky choice — the (apiKeyId, modelId) pair belongs to the OLD
+    // workspace's key set (S3-pre self-heal). 切 workspace 即作废:键对属旧 workspace 的 key 集。
+    ref.watch(activeWorkspaceProvider);
+    return null;
+  }
 
   void set(({String apiKeyId, String modelId})? value) => state = value;
 }

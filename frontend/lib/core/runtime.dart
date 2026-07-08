@@ -88,6 +88,12 @@ final dioProvider = Provider<Dio>((ref) {
 /// The single HTTP boundary, wired with the workspace header + per-launch bearer token (both read
 /// lazily so every request sees the current value). 唯一 HTTP 边界(workspace + bearer 懒读,每请求取当前值)。
 final apiClientProvider = Provider<ApiClient>((ref) {
+  // HOT-SWITCH PULSE (WRK-062 S3-pre): the workspace id itself is still read lazily per request, but
+  // WATCHING it makes this provider rebuild on switch — every Live repository watches this client, so
+  // the whole server-state tree re-fetches under the new workspace with zero per-feature wiring.
+  // 热切换脉搏:id 仍每请求懒读,但 watch 使本 provider 随切换重建——全部 Live repo watch 本客户端,
+  // 整棵 server-state 树零逐处接线地在新 workspace 下重取。
+  ref.watch(activeWorkspaceProvider);
   return ApiClient(
     dio: ref.watch(dioProvider),
     workspaceId: () => ref.read(activeWorkspaceProvider),
@@ -101,6 +107,10 @@ final apiClientProvider = Provider<ApiClient>((ref) {
 final sseGatewayProvider = Provider<SseGateway?>((ref) {
   final st = ref.watch(backendStartupProvider);
   if (!st.isReady) return null;
+  // HOT-SWITCH: a live SSE connection was OPENED under one workspace — switching must tear it down
+  // and reconnect all three streams, or the old workspace's frames keep flowing (the backend scopes
+  // by the header AT CONNECT TIME). 热切换:SSE 连接按建立时的 workspace 定域,切换必须重连三流。
+  ref.watch(activeWorkspaceProvider);
   final gw = SseGateway(
     baseUrl: st.baseUrl!,
     workspaceId: () => ref.read(activeWorkspaceProvider),
