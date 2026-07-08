@@ -455,6 +455,7 @@ class _Translations$settings$zh_CN extends Translations$settings$en {
 	@override late final _Translations$settings$ws$zh_CN ws = _Translations$settings$ws$zh_CN._(_root);
 	@override late final _Translations$settings$about$zh_CN about = _Translations$settings$about$zh_CN._(_root);
 	@override late final _Translations$settings$mem$zh_CN mem = _Translations$settings$mem$zh_CN._(_root);
+	@override late final _Translations$settings$mcp$zh_CN mcp = _Translations$settings$mcp$zh_CN._(_root);
 }
 
 // Path: markdown
@@ -1453,6 +1454,70 @@ class _Translations$settings$mem$zh_CN extends Translations$settings$mem$en {
 	@override String get sourceUser => '用户';
 	@override String get sourceAi => 'AI';
 	@override String get searchHint => '搜索记忆…';
+}
+
+// Path: settings.mcp
+class _Translations$settings$mcp$zh_CN extends Translations$settings$mcp$en {
+	_Translations$settings$mcp$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String statBar({required Object n, required Object ready, required Object failed}) => '${n} 台 · 就绪 ${ready} · 失败 ${failed}';
+	@override String get browse => '浏览市场';
+	@override String get manualAdd => '手动添加';
+	@override String get importJson => '导入 mcp.json';
+	@override String get empty => '还没有 MCP 服务器';
+	@override String get emptyHint => '从市场安装、手动添加或导入 mcp.json。';
+	@override String get reconnect => '重连';
+	@override String get detail => '详情';
+	@override String get deleteServer => '删除';
+	@override String get deleteTitle => '删除 MCP 服务器';
+	@override String deleteBody({required Object name}) => '将移除「${name}」及其配置(软删)。';
+	@override String get confirmDelete => '删除';
+	@override String tools({required Object n}) => '${n} 工具';
+	@override String calls({required Object n}) => '${n} 次调用';
+	@override String get statusReady => '就绪';
+	@override String get statusFailed => '失败';
+	@override String get statusDegraded => '降级';
+	@override String get statusConnecting => '连接中';
+	@override String get statusDisconnected => '未连接';
+	@override String get name => '名称';
+	@override String get transport => '传输';
+	@override String get runtime => '运行时';
+	@override String get command => '命令';
+	@override String get args => '参数(每行一个)';
+	@override String get url => 'URL';
+	@override String get envKv => '环境变量(KEY=VALUE,每行一个)';
+	@override String get headersKv => '请求头(KEY=VALUE,每行一个)';
+	@override String get timeoutSec => '超时(秒)';
+	@override String get add => '添加';
+	@override String get addFailedHonest => '连接失败也会落盘为 failed,可稍后重连';
+	@override String get importTitle => '导入 mcp.json';
+	@override String get importHint => '粘贴 Claude Desktop 的 mcpServers 片段';
+	@override String get overwrite => '覆盖同名';
+	@override String get doImport => '导入';
+	@override String importResult({required Object n, required Object m}) => '导入 ${n} · 跳过 ${m}';
+	@override String get importInvalid => 'JSON 无法解析';
+	@override String get market => '市场';
+	@override String get searchMarket => '搜索市场…';
+	@override String get installed => '已安装';
+	@override String get install => '安装';
+	@override String get installing => '安装中…';
+	@override String get prerequisite => '前置';
+	@override String get requiredMark => '必填';
+	@override String get oauthConnect => '连接并授权';
+	@override String get oauthWaiting => '等待浏览器授权…(最长 120 秒)';
+	@override String get planLoading => '正在解析安装计划…';
+	@override String get tabTools => '工具';
+	@override String get tabCalls => '调用历史';
+	@override String get tabStderr => 'stderr';
+	@override String get lastError => '最近错误';
+	@override String get consecutiveFailures => '连续失败';
+	@override String get noTools => '无工具';
+	@override String get noCalls => '暂无调用';
+	@override String get noStderr => '暂无输出';
+	@override String callsAgg({required Object ok, required Object failed}) => '✓ ${ok} · ✗ ${failed}';
 }
 
 // Path: chat.tool.kind
@@ -3165,6 +3230,61 @@ extension on TranslationsZhCn {
 			'settings.mem.sourceUser' => '用户',
 			'settings.mem.sourceAi' => 'AI',
 			'settings.mem.searchHint' => '搜索记忆…',
+			'settings.mcp.statBar' => ({required Object n, required Object ready, required Object failed}) => '${n} 台 · 就绪 ${ready} · 失败 ${failed}',
+			'settings.mcp.browse' => '浏览市场',
+			'settings.mcp.manualAdd' => '手动添加',
+			'settings.mcp.importJson' => '导入 mcp.json',
+			'settings.mcp.empty' => '还没有 MCP 服务器',
+			'settings.mcp.emptyHint' => '从市场安装、手动添加或导入 mcp.json。',
+			'settings.mcp.reconnect' => '重连',
+			'settings.mcp.detail' => '详情',
+			'settings.mcp.deleteServer' => '删除',
+			'settings.mcp.deleteTitle' => '删除 MCP 服务器',
+			'settings.mcp.deleteBody' => ({required Object name}) => '将移除「${name}」及其配置(软删)。',
+			'settings.mcp.confirmDelete' => '删除',
+			'settings.mcp.tools' => ({required Object n}) => '${n} 工具',
+			'settings.mcp.calls' => ({required Object n}) => '${n} 次调用',
+			'settings.mcp.statusReady' => '就绪',
+			'settings.mcp.statusFailed' => '失败',
+			'settings.mcp.statusDegraded' => '降级',
+			'settings.mcp.statusConnecting' => '连接中',
+			'settings.mcp.statusDisconnected' => '未连接',
+			'settings.mcp.name' => '名称',
+			'settings.mcp.transport' => '传输',
+			'settings.mcp.runtime' => '运行时',
+			'settings.mcp.command' => '命令',
+			'settings.mcp.args' => '参数(每行一个)',
+			'settings.mcp.url' => 'URL',
+			'settings.mcp.envKv' => '环境变量(KEY=VALUE,每行一个)',
+			'settings.mcp.headersKv' => '请求头(KEY=VALUE,每行一个)',
+			'settings.mcp.timeoutSec' => '超时(秒)',
+			'settings.mcp.add' => '添加',
+			'settings.mcp.addFailedHonest' => '连接失败也会落盘为 failed,可稍后重连',
+			'settings.mcp.importTitle' => '导入 mcp.json',
+			'settings.mcp.importHint' => '粘贴 Claude Desktop 的 mcpServers 片段',
+			'settings.mcp.overwrite' => '覆盖同名',
+			'settings.mcp.doImport' => '导入',
+			'settings.mcp.importResult' => ({required Object n, required Object m}) => '导入 ${n} · 跳过 ${m}',
+			'settings.mcp.importInvalid' => 'JSON 无法解析',
+			'settings.mcp.market' => '市场',
+			'settings.mcp.searchMarket' => '搜索市场…',
+			'settings.mcp.installed' => '已安装',
+			'settings.mcp.install' => '安装',
+			'settings.mcp.installing' => '安装中…',
+			'settings.mcp.prerequisite' => '前置',
+			'settings.mcp.requiredMark' => '必填',
+			'settings.mcp.oauthConnect' => '连接并授权',
+			'settings.mcp.oauthWaiting' => '等待浏览器授权…(最长 120 秒)',
+			'settings.mcp.planLoading' => '正在解析安装计划…',
+			'settings.mcp.tabTools' => '工具',
+			'settings.mcp.tabCalls' => '调用历史',
+			'settings.mcp.tabStderr' => 'stderr',
+			'settings.mcp.lastError' => '最近错误',
+			'settings.mcp.consecutiveFailures' => '连续失败',
+			'settings.mcp.noTools' => '无工具',
+			'settings.mcp.noCalls' => '暂无调用',
+			'settings.mcp.noStderr' => '暂无输出',
+			'settings.mcp.callsAgg' => ({required Object ok, required Object failed}) => '✓ ${ok} · ✗ ${failed}',
 			'markdown.imageNotLoaded' => '图片未加载',
 			'attach.unavailable' => '已不可用',
 			'attach.retry' => '点按重试',

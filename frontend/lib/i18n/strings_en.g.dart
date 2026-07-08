@@ -933,6 +933,7 @@ class Translations$settings$en {
 	late final Translations$settings$ws$en ws = Translations$settings$ws$en.internal(_root);
 	late final Translations$settings$about$en about = Translations$settings$about$en.internal(_root);
 	late final Translations$settings$mem$en mem = Translations$settings$mem$en.internal(_root);
+	late final Translations$settings$mcp$en mcp = Translations$settings$mcp$en.internal(_root);
 }
 
 // Path: markdown
@@ -3479,6 +3480,180 @@ class Translations$settings$mem$en {
 	String get searchHint => 'Search memories…';
 }
 
+// Path: settings.mcp
+class Translations$settings$mcp$en {
+	Translations$settings$mcp$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: '$n servers · $ready ready · $failed failed'
+	String statBar({required Object n, required Object ready, required Object failed}) => '${n} servers · ${ready} ready · ${failed} failed';
+
+	/// en: 'Browse marketplace'
+	String get browse => 'Browse marketplace';
+
+	/// en: 'Add manually'
+	String get manualAdd => 'Add manually';
+
+	/// en: 'Import mcp.json'
+	String get importJson => 'Import mcp.json';
+
+	/// en: 'No MCP servers yet'
+	String get empty => 'No MCP servers yet';
+
+	/// en: 'Install from the marketplace, add manually, or import mcp.json.'
+	String get emptyHint => 'Install from the marketplace, add manually, or import mcp.json.';
+
+	/// en: 'Reconnect'
+	String get reconnect => 'Reconnect';
+
+	/// en: 'Details'
+	String get detail => 'Details';
+
+	/// en: 'Delete'
+	String get deleteServer => 'Delete';
+
+	/// en: 'Delete MCP server'
+	String get deleteTitle => 'Delete MCP server';
+
+	/// en: 'Removes “$name” and its config (soft delete).'
+	String deleteBody({required Object name}) => 'Removes “${name}” and its config (soft delete).';
+
+	/// en: 'Delete'
+	String get confirmDelete => 'Delete';
+
+	/// en: '$n tools'
+	String tools({required Object n}) => '${n} tools';
+
+	/// en: '$n calls'
+	String calls({required Object n}) => '${n} calls';
+
+	/// en: 'ready'
+	String get statusReady => 'ready';
+
+	/// en: 'failed'
+	String get statusFailed => 'failed';
+
+	/// en: 'degraded'
+	String get statusDegraded => 'degraded';
+
+	/// en: 'connecting'
+	String get statusConnecting => 'connecting';
+
+	/// en: 'disconnected'
+	String get statusDisconnected => 'disconnected';
+
+	/// en: 'Name'
+	String get name => 'Name';
+
+	/// en: 'Transport'
+	String get transport => 'Transport';
+
+	/// en: 'Runtime'
+	String get runtime => 'Runtime';
+
+	/// en: 'Command'
+	String get command => 'Command';
+
+	/// en: 'Args (one per line)'
+	String get args => 'Args (one per line)';
+
+	/// en: 'URL'
+	String get url => 'URL';
+
+	/// en: 'Env (KEY=VALUE per line)'
+	String get envKv => 'Env (KEY=VALUE per line)';
+
+	/// en: 'Headers (KEY=VALUE per line)'
+	String get headersKv => 'Headers (KEY=VALUE per line)';
+
+	/// en: 'Timeout (s)'
+	String get timeoutSec => 'Timeout (s)';
+
+	/// en: 'Add'
+	String get add => 'Add';
+
+	/// en: 'A failed connection still lands as failed — reconnect later'
+	String get addFailedHonest => 'A failed connection still lands as failed — reconnect later';
+
+	/// en: 'Import mcp.json'
+	String get importTitle => 'Import mcp.json';
+
+	/// en: 'Paste a Claude Desktop mcpServers snippet'
+	String get importHint => 'Paste a Claude Desktop mcpServers snippet';
+
+	/// en: 'Overwrite same names'
+	String get overwrite => 'Overwrite same names';
+
+	/// en: 'Import'
+	String get doImport => 'Import';
+
+	/// en: 'Imported $n · skipped $m'
+	String importResult({required Object n, required Object m}) => 'Imported ${n} · skipped ${m}';
+
+	/// en: 'Couldn't parse the JSON'
+	String get importInvalid => 'Couldn\'t parse the JSON';
+
+	/// en: 'Marketplace'
+	String get market => 'Marketplace';
+
+	/// en: 'Search the marketplace…'
+	String get searchMarket => 'Search the marketplace…';
+
+	/// en: 'Installed'
+	String get installed => 'Installed';
+
+	/// en: 'Install'
+	String get install => 'Install';
+
+	/// en: 'Installing…'
+	String get installing => 'Installing…';
+
+	/// en: 'Prerequisite'
+	String get prerequisite => 'Prerequisite';
+
+	/// en: 'required'
+	String get requiredMark => 'required';
+
+	/// en: 'Connect & authorize'
+	String get oauthConnect => 'Connect & authorize';
+
+	/// en: 'Waiting for the browser… (up to 120s)'
+	String get oauthWaiting => 'Waiting for the browser… (up to 120s)';
+
+	/// en: 'Resolving the install plan…'
+	String get planLoading => 'Resolving the install plan…';
+
+	/// en: 'Tools'
+	String get tabTools => 'Tools';
+
+	/// en: 'Call history'
+	String get tabCalls => 'Call history';
+
+	/// en: 'stderr'
+	String get tabStderr => 'stderr';
+
+	/// en: 'Last error'
+	String get lastError => 'Last error';
+
+	/// en: 'Consecutive failures'
+	String get consecutiveFailures => 'Consecutive failures';
+
+	/// en: 'No tools'
+	String get noTools => 'No tools';
+
+	/// en: 'No calls yet'
+	String get noCalls => 'No calls yet';
+
+	/// en: 'No output yet'
+	String get noStderr => 'No output yet';
+
+	/// en: '✓ $ok · ✗ $failed'
+	String callsAgg({required Object ok, required Object failed}) => '✓ ${ok} · ✗ ${failed}';
+}
+
 // Path: chat.tool.kind
 class Translations$chat$tool$kind$en {
 	Translations$chat$tool$kind$en.internal(this._root);
@@ -5703,6 +5878,61 @@ extension on Translations {
 			'settings.mem.sourceUser' => 'user',
 			'settings.mem.sourceAi' => 'AI',
 			'settings.mem.searchHint' => 'Search memories…',
+			'settings.mcp.statBar' => ({required Object n, required Object ready, required Object failed}) => '${n} servers · ${ready} ready · ${failed} failed',
+			'settings.mcp.browse' => 'Browse marketplace',
+			'settings.mcp.manualAdd' => 'Add manually',
+			'settings.mcp.importJson' => 'Import mcp.json',
+			'settings.mcp.empty' => 'No MCP servers yet',
+			'settings.mcp.emptyHint' => 'Install from the marketplace, add manually, or import mcp.json.',
+			'settings.mcp.reconnect' => 'Reconnect',
+			'settings.mcp.detail' => 'Details',
+			'settings.mcp.deleteServer' => 'Delete',
+			'settings.mcp.deleteTitle' => 'Delete MCP server',
+			'settings.mcp.deleteBody' => ({required Object name}) => 'Removes “${name}” and its config (soft delete).',
+			'settings.mcp.confirmDelete' => 'Delete',
+			'settings.mcp.tools' => ({required Object n}) => '${n} tools',
+			'settings.mcp.calls' => ({required Object n}) => '${n} calls',
+			'settings.mcp.statusReady' => 'ready',
+			'settings.mcp.statusFailed' => 'failed',
+			'settings.mcp.statusDegraded' => 'degraded',
+			'settings.mcp.statusConnecting' => 'connecting',
+			'settings.mcp.statusDisconnected' => 'disconnected',
+			'settings.mcp.name' => 'Name',
+			'settings.mcp.transport' => 'Transport',
+			'settings.mcp.runtime' => 'Runtime',
+			'settings.mcp.command' => 'Command',
+			'settings.mcp.args' => 'Args (one per line)',
+			'settings.mcp.url' => 'URL',
+			'settings.mcp.envKv' => 'Env (KEY=VALUE per line)',
+			'settings.mcp.headersKv' => 'Headers (KEY=VALUE per line)',
+			'settings.mcp.timeoutSec' => 'Timeout (s)',
+			'settings.mcp.add' => 'Add',
+			'settings.mcp.addFailedHonest' => 'A failed connection still lands as failed — reconnect later',
+			'settings.mcp.importTitle' => 'Import mcp.json',
+			'settings.mcp.importHint' => 'Paste a Claude Desktop mcpServers snippet',
+			'settings.mcp.overwrite' => 'Overwrite same names',
+			'settings.mcp.doImport' => 'Import',
+			'settings.mcp.importResult' => ({required Object n, required Object m}) => 'Imported ${n} · skipped ${m}',
+			'settings.mcp.importInvalid' => 'Couldn\'t parse the JSON',
+			'settings.mcp.market' => 'Marketplace',
+			'settings.mcp.searchMarket' => 'Search the marketplace…',
+			'settings.mcp.installed' => 'Installed',
+			'settings.mcp.install' => 'Install',
+			'settings.mcp.installing' => 'Installing…',
+			'settings.mcp.prerequisite' => 'Prerequisite',
+			'settings.mcp.requiredMark' => 'required',
+			'settings.mcp.oauthConnect' => 'Connect & authorize',
+			'settings.mcp.oauthWaiting' => 'Waiting for the browser… (up to 120s)',
+			'settings.mcp.planLoading' => 'Resolving the install plan…',
+			'settings.mcp.tabTools' => 'Tools',
+			'settings.mcp.tabCalls' => 'Call history',
+			'settings.mcp.tabStderr' => 'stderr',
+			'settings.mcp.lastError' => 'Last error',
+			'settings.mcp.consecutiveFailures' => 'Consecutive failures',
+			'settings.mcp.noTools' => 'No tools',
+			'settings.mcp.noCalls' => 'No calls yet',
+			'settings.mcp.noStderr' => 'No output yet',
+			'settings.mcp.callsAgg' => ({required Object ok, required Object failed}) => '✓ ${ok} · ✗ ${failed}',
 			'markdown.imageNotLoaded' => 'image not loaded',
 			'attach.unavailable' => 'Unavailable',
 			'attach.retry' => 'Tap to retry',

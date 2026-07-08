@@ -63,6 +63,11 @@ class _SettingsOceanState extends ConsumerState<SettingsOcean> {
   String? _detailLabel(Translations t, SettingsDetail? d) => switch (d?.kind) {
         'addKey' => t.settings.keys.addKey,
         'editKey' => t.settings.keys.editKey,
+        'mcpServer' => d?.id,
+        'mcpAdd' => t.settings.mcp.manualAdd,
+        'mcpImport' => t.settings.mcp.importTitle,
+        'mcpMarket' => t.settings.mcp.market,
+        'mcpInstall' => (d?.id ?? '').split('/').last,
         'addMemory' => t.settings.mem.newMemory,
         'memory' => d?.id,
         'addWorkspace' => t.settings.ws.newWorkspace,

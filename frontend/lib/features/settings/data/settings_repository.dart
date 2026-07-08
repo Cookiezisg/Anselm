@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/contract/api_error.dart';
 import '../../../core/contract/api_key.dart';
+import '../../../core/contract/mcp.dart';
 import '../../../core/contract/memory.dart';
 import '../../../core/contract/workspace.dart';
 import '../../../core/net/api_client.dart';
@@ -87,6 +90,33 @@ abstract class SettingsRepository {
   Future<Memory> pinMemory(String name, {required bool pinned});
 
   Future<void> deleteMemory(String name);
+
+  // ── S4b MCP ──
+
+  Future<List<McpServerStatus>> listMcpServers();
+  Future<McpServerStatus> getMcpServer(String name);
+
+  /// Manual PUT (same name replaces). A connect failure still lands the row (failed, honest).
+  /// 手动 PUT(同名替换);连接失败仍落盘(failed 诚实态)。
+  Future<McpServerStatus> putMcpServer(String name, Map<String, dynamic> config);
+  Future<void> deleteMcpServer(String name);
+  Future<McpServerStatus> reconnectMcpServer(String name);
+
+  /// The 256KB stderr tail. stderr 尾。
+  Future<String> mcpStderr(String name);
+
+  /// One page of the call log + ok/failed aggregates. 调用日志一页+聚合。
+  Future<({List<McpCall> calls, int okCount, int failedCount, String? nextCursor})> listMcpCalls(
+      String name,
+      {String? cursor});
+
+  Future<List<McpRegistryEntry>> listMcpRegistry();
+  Future<McpRegistryPlan> planMcpInstall(String fullName);
+  Future<McpServerStatus> installMcp(String fullName, Map<String, String> env);
+
+  /// Claude Desktop mcp.json import. 导入。
+  Future<({List<String> imported, List<String> skipped})> importMcpJson(String json,
+      {bool overwrite});
 }
 
 class LiveSettingsRepository implements SettingsRepository {
@@ -246,6 +276,76 @@ class LiveSettingsRepository implements SettingsRepository {
 
   @override
   Future<void> deleteMemory(String name) => api.delete('/api/v1/memories/$name');
+
+  @override
+  Future<List<McpServerStatus>> listMcpServers() async =>
+      (await api.getPage('/api/v1/mcp-servers', McpServerStatus.fromJson)).items;
+
+  @override
+  Future<McpServerStatus> getMcpServer(String name) =>
+      api.getEntity('/api/v1/mcp-servers/$name', McpServerStatus.fromJson);
+
+  @override
+  Future<McpServerStatus> putMcpServer(String name, Map<String, dynamic> config) =>
+      api.putEntity('/api/v1/mcp-servers/$name', McpServerStatus.fromJson, body: config);
+
+  @override
+  Future<void> deleteMcpServer(String name) => api.delete('/api/v1/mcp-servers/$name');
+
+  @override
+  Future<McpServerStatus> reconnectMcpServer(String name) => api
+      .postData('/api/v1/mcp-servers/$name:reconnect')
+      .then(McpServerStatus.fromJson);
+
+  @override
+  Future<String> mcpStderr(String name) async =>
+      (await api.getData('/api/v1/mcp-servers/$name/stderr'))['stderr'] as String? ?? '';
+
+  @override
+  Future<({List<McpCall> calls, int okCount, int failedCount, String? nextCursor})>
+      listMcpCalls(String name, {String? cursor}) async {
+    final page = await api.getPageWithAggregate(
+      '/api/v1/mcp-servers/$name/calls',
+      'calls',
+      McpCall.fromJson,
+      (agg) => (
+        ok: (agg['okCount'] as num?)?.toInt() ?? 0,
+        failed: (agg['failedCount'] as num?)?.toInt() ?? 0,
+      ),
+      query: {'cursor': ?cursor},
+    );
+    return (
+      calls: page.items,
+      okCount: page.aggregate.ok,
+      failedCount: page.aggregate.failed,
+      nextCursor: page.nextCursor,
+    );
+  }
+
+  @override
+  Future<List<McpRegistryEntry>> listMcpRegistry() async =>
+      (await api.getPage('/api/v1/mcp-registry', McpRegistryEntry.fromJson)).items;
+
+  @override
+  Future<McpRegistryPlan> planMcpInstall(String fullName) => api
+      .postData('/api/v1/mcp-registry:plan', body: {'name': fullName})
+      .then(McpRegistryPlan.fromJson);
+
+  @override
+  Future<McpServerStatus> installMcp(String fullName, Map<String, String> env) => api
+      .postData('/api/v1/mcp-registry:install', body: {'name': fullName, 'env': env})
+      .then(McpServerStatus.fromJson);
+
+  @override
+  Future<({List<String> imported, List<String> skipped})> importMcpJson(String json,
+      {bool overwrite = false}) async {
+    final data = await api.postData('/api/v1/mcp-servers:import?overwrite=$overwrite',
+        body: jsonDecode(json));
+    return (
+      imported: ((data['imported'] as List?) ?? const []).cast<String>(),
+      skipped: ((data['skipped'] as List?) ?? const []).cast<String>(),
+    );
+  }
 }
 
 /// In-memory double — demo + tests. 内存替身。
@@ -487,6 +587,81 @@ class FixtureSettingsRepository implements SettingsRepository {
   @override
   Future<void> deleteMemory(String name) async =>
       memories.removeWhere((m) => m.name == name);
+
+  // ── S4b MCP (scriptable) ──
+
+  final List<McpServerStatus> mcpServers = [];
+  final List<McpRegistryEntry> mcpRegistry = [];
+  McpRegistryPlan mcpPlan = const McpRegistryPlan(transport: 'stdio');
+
+  /// Script hook: what PUT/install lands as (honest failed faces). 脚本钩:落盘态。
+  String nextMcpStatus = 'ready';
+
+  @override
+  Future<List<McpServerStatus>> listMcpServers() async => List.of(mcpServers);
+
+  @override
+  Future<McpServerStatus> getMcpServer(String name) async =>
+      mcpServers.firstWhere((s) => s.name == name);
+
+  @override
+  Future<McpServerStatus> putMcpServer(String name, Map<String, dynamic> config) async {
+    final row = McpServerStatus(
+        id: 'mcp_fix${mcpServers.length}', name: name, status: nextMcpStatus,
+        lastError: nextMcpStatus == 'failed' ? 'connect refused' : null);
+    mcpServers.removeWhere((s) => s.name == name);
+    mcpServers.add(row);
+    return row;
+  }
+
+  @override
+  Future<void> deleteMcpServer(String name) async =>
+      mcpServers.removeWhere((s) => s.name == name);
+
+  @override
+  Future<McpServerStatus> reconnectMcpServer(String name) async {
+    final i = mcpServers.indexWhere((s) => s.name == name);
+    return mcpServers[i] = mcpServers[i].copyWith(status: nextMcpStatus);
+  }
+
+  @override
+  Future<String> mcpStderr(String name) async => '';
+
+  @override
+  Future<({List<McpCall> calls, int okCount, int failedCount, String? nextCursor})>
+      listMcpCalls(String name, {String? cursor}) async =>
+          (calls: <McpCall>[], okCount: 0, failedCount: 0, nextCursor: null);
+
+  @override
+  Future<List<McpRegistryEntry>> listMcpRegistry() async => List.of(mcpRegistry);
+
+  @override
+  Future<McpRegistryPlan> planMcpInstall(String fullName) async => mcpPlan;
+
+  @override
+  Future<McpServerStatus> installMcp(String fullName, Map<String, String> env) async {
+    final short = fullName.split('/').last;
+    final row = McpServerStatus(
+        id: 'mcp_fix${mcpServers.length}', name: short, status: nextMcpStatus);
+    mcpServers.add(row);
+    return row;
+  }
+
+  @override
+  Future<({List<String> imported, List<String> skipped})> importMcpJson(String json,
+      {bool overwrite = false}) async {
+    final map = (jsonDecode(json) as Map<String, dynamic>)['mcpServers'] as Map<String, dynamic>? ?? {};
+    final imported = <String>[], skipped = <String>[];
+    for (final name in map.keys) {
+      if (!overwrite && mcpServers.any((s) => s.name == name)) {
+        skipped.add(name);
+        continue;
+      }
+      await putMcpServer(name, const {});
+      imported.add(name);
+    }
+    return (imported: imported, skipped: skipped);
+  }
 
 }
 

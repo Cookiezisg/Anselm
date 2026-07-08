@@ -5,6 +5,7 @@ import '../settings_ocean.dart';
 import 'chat_panel.dart';
 import 'general_panel.dart';
 import 'about_panel.dart';
+import 'mcp_panel.dart';
 import 'memory_panel.dart';
 import 'models_keys_panel.dart';
 import 'notifications_panel.dart';
@@ -21,7 +22,7 @@ Widget buildSettingsPanelBody(BuildContext context, SettingsPanel panel) {
     SettingsPanel.notifications => const NotificationsPanel(),
     SettingsPanel.chat => const ChatPanel(),
     SettingsPanel.modelsKeys => const ModelsKeysPanel(),
-    SettingsPanel.mcp => const SettingsPanelPlaceholder(),
+    SettingsPanel.mcp => const McpPanel(),
     SettingsPanel.memory => const MemoryPanel(),
     SettingsPanel.sandbox => const SettingsPanelPlaceholder(),
     SettingsPanel.workspaces => const WorkspacesPanel(),

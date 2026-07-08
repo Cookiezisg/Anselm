@@ -65,8 +65,8 @@ void main() {
   });
 
   testWidgets('an unbuilt panel renders the honest placeholder', (tester) async {
-    // Seed an UNBUILT panel (general is live since S1). 种未建面板(general S1 起已活)。
-    await tester.pumpWidget(_host(SettingsPrefs.inMemory({'an.settings.panel': 'mcp'})));
+    // Seed an UNBUILT panel (sandbox lands with S5). 种未建面板(sandbox 归 S5)。
+    await tester.pumpWidget(_host(SettingsPrefs.inMemory({'an.settings.panel': 'sandbox'})));
     await tester.pumpAndSettle();
     expect(find.text(t.settings.building), findsOneWidget);
     expect(find.text(t.settings.buildingHint), findsOneWidget);
