@@ -49,6 +49,7 @@ func (h *MCPHandler) Register(mux Registrar) {
 	mux.HandleFunc("GET /api/v1/mcp-calls/{id}", h.GetCall) // Log 单读路径变量统一 {id}(MD-id4)
 	mux.HandleFunc("GET /api/v1/mcp-registry", h.ListRegistry)
 	mux.HandleFunc("POST /api/v1/mcp-registry:install", h.Install)
+	mux.HandleFunc("POST /api/v1/mcp-registry:plan", h.Plan)
 }
 
 // GetCall returns one call-log record — the only HTTP surface that carries the call's logs
@@ -264,6 +265,26 @@ func (h *MCPHandler) ListRegistry(w http.ResponseWriter, r *http.Request) {
 // Install installs a marketplace entry by full name (in body, since slugs contain '/').
 //
 // Install 按完整名（在 body，因 slug 含 '/'）安装一个市场条目。
+// Plan resolves one registry entry's install plan (transport/runtime/env vars to collect) without
+// installing — the marketplace form's data source (WRK-062 工单⑨).
+//
+// Plan 解析一条 registry 条目的安装计划(不安装)——市场表单的数据源(工单⑨)。
+func (h *MCPHandler) Plan(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Name string `json:"name"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	plan, err := h.svc.PlanFromRegistry(r.Context(), req.Name)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, plan)
+}
+
 func (h *MCPHandler) Install(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Name string            `json:"name"`

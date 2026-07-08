@@ -239,6 +239,50 @@ func (s *Service) ensureEnv(ctx context.Context, srv *mcpdomain.Server) error {
 // ListRegistry returns every marketplace entry (global/public; HTTP + list_mcp_marketplace).
 //
 // ListRegistry 返回所有市场条目（全局公共；HTTP + list_mcp_marketplace）。
+// RegistryPlan is the wire projection of one entry's install plan — what the marketplace form
+// needs BEFORE installing: which transport/runtime the backend would pick and exactly which env
+// vars to collect (isSecret → masked input, required → starred). Centralizes the package-selection
+// logic server-side so the client never re-implements Plan() (WRK-062 工单⑨).
+//
+// RegistryPlan 是安装计划的线上投影——市场表单安装前所需:后端会选哪个 transport/runtime、要收集哪些
+// env(isSecret→掩码,required→星标)。选包逻辑集中在服务端,客户端绝不复刻 Plan()(工单⑨)。
+type RegistryPlan struct {
+	Transport    string             `json:"transport"` // stdio | sse | streamable-http
+	Runtime      string             `json:"runtime,omitempty"`
+	OAuth        bool               `json:"oauth"`
+	EnvVars      []mcpdomain.EnvVar `json:"envVars"`
+	Prerequisite string             `json:"prerequisite,omitempty"`
+}
+
+// PlanFromRegistry resolves one entry's install plan without installing anything.
+//
+// PlanFromRegistry 解析一条条目的安装计划,不装任何东西。
+func (s *Service) PlanFromRegistry(ctx context.Context, fullName string) (*RegistryPlan, error) {
+	entry, err := s.registry.Get(ctx, fullName)
+	if err != nil {
+		return nil, fmt.Errorf("mcpapp.PlanFromRegistry %s: %w", fullName, err)
+	}
+	plan, ok := entry.Plan()
+	if !ok {
+		return nil, fmt.Errorf("mcpapp.PlanFromRegistry %s: %w", fullName, mcpdomain.ErrNoRunnablePackage)
+	}
+	transport := plan.Transport
+	if !plan.Remote {
+		transport = mcpdomain.TransportStdio
+	}
+	envVars := plan.EnvVars
+	if envVars == nil {
+		envVars = []mcpdomain.EnvVar{} // wire [] not null 线上空数组非 null
+	}
+	return &RegistryPlan{
+		Transport:    transport,
+		Runtime:      plan.Runtime,
+		OAuth:        plan.OAuth,
+		EnvVars:      envVars,
+		Prerequisite: entry.Prerequisite,
+	}, nil
+}
+
 func (s *Service) ListRegistry(ctx context.Context) ([]mcpdomain.RegistryEntry, error) {
 	return s.registry.List(ctx)
 }

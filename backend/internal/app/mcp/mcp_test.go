@@ -376,3 +376,26 @@ func TestInstall_NameConflict(t *testing.T) {
 		t.Fatalf("want ErrNameConflict on re-install, got %v", err)
 	}
 }
+
+// TestPlanFromRegistry: the wire plan mirrors Plan()'s pick without installing anything; envVars is
+// [] never nil; unknown entries error. 计划投影一致且零副作用;envVars 恒 [] 非 nil;未知条目报错。
+func TestPlanFromRegistry(t *testing.T) {
+	repo := newFakeRepo()
+	svc := svcWith(repo, ctx7Registry(), &fakeClient{})
+	plan, err := svc.PlanFromRegistry(ctxWS("ws_1"), "io.github.upstash/context7")
+	if err != nil {
+		t.Fatalf("plan: %v", err)
+	}
+	if plan.Transport != mcpdomain.TransportStdio {
+		t.Errorf("transport = %q, want stdio", plan.Transport)
+	}
+	if plan.EnvVars == nil {
+		t.Error("envVars must be [] not nil")
+	}
+	if n := len(repo.byID); n != 0 {
+		t.Errorf("plan must not install: repo has %d rows", n)
+	}
+	if _, err := svc.PlanFromRegistry(ctxWS("ws_1"), "io.github.nope/none"); err == nil {
+		t.Error("unknown entry must error")
+	}
+}
