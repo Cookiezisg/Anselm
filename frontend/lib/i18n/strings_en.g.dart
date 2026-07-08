@@ -932,6 +932,7 @@ class Translations$settings$en {
 	late final Translations$settings$keys$en keys = Translations$settings$keys$en.internal(_root);
 	late final Translations$settings$ws$en ws = Translations$settings$ws$en.internal(_root);
 	late final Translations$settings$about$en about = Translations$settings$about$en.internal(_root);
+	late final Translations$settings$mem$en mem = Translations$settings$mem$en.internal(_root);
 }
 
 // Path: markdown
@@ -3394,6 +3395,90 @@ class Translations$settings$about$en {
 	String get copied => 'Copied';
 }
 
+// Path: settings.mem
+class Translations$settings$mem$en {
+	Translations$settings$mem$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Memories'
+	String get section => 'Memories';
+
+	/// en: 'All'
+	String get filterAll => 'All';
+
+	/// en: 'Pinned'
+	String get filterPinned => 'Pinned';
+
+	/// en: 'New memory'
+	String get newMemory => 'New memory';
+
+	/// en: 'Name'
+	String get name => 'Name';
+
+	/// en: 'starts lowercase; a-z 0-9 - _'
+	String get nameHint => 'starts lowercase; a-z 0-9 - _';
+
+	/// en: 'The name is the filename — immutable'
+	String get nameLocked => 'The name is the filename — immutable';
+
+	/// en: 'Must start with a lowercase letter; only a-z 0-9 - _ (≤64)'
+	String get invalidName => 'Must start with a lowercase letter; only a-z 0-9 - _ (≤64)';
+
+	/// en: 'Description'
+	String get description => 'Description';
+
+	/// en: 'Content'
+	String get content => 'Content';
+
+	/// en: 'Save'
+	String get save => 'Save';
+
+	/// en: 'Pinned memories ride every conversation's context'
+	String get pinTip => 'Pinned memories ride every conversation\'s context';
+
+	/// en: 'Pinned'
+	String get pinned => 'Pinned';
+
+	/// en: 'Delete memory'
+	String get deleteTitle => 'Delete memory';
+
+	/// en: 'Physically deletes the file for “$name”. This can't be undone.'
+	String deleteBody({required Object name}) => 'Physically deletes the file for “${name}”. This can\'t be undone.';
+
+	/// en: 'Delete'
+	String get confirmDelete => 'Delete';
+
+	/// en: 'No memories yet'
+	String get empty => 'No memories yet';
+
+	/// en: 'Memories let the AI remember things across conversations.'
+	String get emptyHint => 'Memories let the AI remember things across conversations.';
+
+	/// en: 'Discard unsaved changes?'
+	String get dirtyTitle => 'Discard unsaved changes?';
+
+	/// en: 'The content has unsaved edits.'
+	String get dirtyBody => 'The content has unsaved edits.';
+
+	/// en: 'Discard'
+	String get discard => 'Discard';
+
+	/// en: 'Keep editing'
+	String get keepEditing => 'Keep editing';
+
+	/// en: 'user'
+	String get sourceUser => 'user';
+
+	/// en: 'AI'
+	String get sourceAi => 'AI';
+
+	/// en: 'Search memories…'
+	String get searchHint => 'Search memories…';
+}
+
 // Path: chat.tool.kind
 class Translations$chat$tool$kind$en {
 	Translations$chat$tool$kind$en.internal(this._root);
@@ -5593,6 +5678,31 @@ extension on Translations {
 			'settings.about.diagnostics' => 'Diagnostics',
 			'settings.about.copyDiagnostics' => 'Copy diagnostics',
 			'settings.about.copied' => 'Copied',
+			'settings.mem.section' => 'Memories',
+			'settings.mem.filterAll' => 'All',
+			'settings.mem.filterPinned' => 'Pinned',
+			'settings.mem.newMemory' => 'New memory',
+			'settings.mem.name' => 'Name',
+			'settings.mem.nameHint' => 'starts lowercase; a-z 0-9 - _',
+			'settings.mem.nameLocked' => 'The name is the filename — immutable',
+			'settings.mem.invalidName' => 'Must start with a lowercase letter; only a-z 0-9 - _ (≤64)',
+			'settings.mem.description' => 'Description',
+			'settings.mem.content' => 'Content',
+			'settings.mem.save' => 'Save',
+			'settings.mem.pinTip' => 'Pinned memories ride every conversation\'s context',
+			'settings.mem.pinned' => 'Pinned',
+			'settings.mem.deleteTitle' => 'Delete memory',
+			'settings.mem.deleteBody' => ({required Object name}) => 'Physically deletes the file for “${name}”. This can\'t be undone.',
+			'settings.mem.confirmDelete' => 'Delete',
+			'settings.mem.empty' => 'No memories yet',
+			'settings.mem.emptyHint' => 'Memories let the AI remember things across conversations.',
+			'settings.mem.dirtyTitle' => 'Discard unsaved changes?',
+			'settings.mem.dirtyBody' => 'The content has unsaved edits.',
+			'settings.mem.discard' => 'Discard',
+			'settings.mem.keepEditing' => 'Keep editing',
+			'settings.mem.sourceUser' => 'user',
+			'settings.mem.sourceAi' => 'AI',
+			'settings.mem.searchHint' => 'Search memories…',
 			'markdown.imageNotLoaded' => 'image not loaded',
 			'attach.unavailable' => 'Unavailable',
 			'attach.retry' => 'Tap to retry',

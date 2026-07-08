@@ -63,6 +63,8 @@ class _SettingsOceanState extends ConsumerState<SettingsOcean> {
   String? _detailLabel(Translations t, SettingsDetail? d) => switch (d?.kind) {
         'addKey' => t.settings.keys.addKey,
         'editKey' => t.settings.keys.editKey,
+        'addMemory' => t.settings.mem.newMemory,
+        'memory' => d?.id,
         'addWorkspace' => t.settings.ws.newWorkspace,
         'workspace' => t.settings.ws.edit,
         _ => null,

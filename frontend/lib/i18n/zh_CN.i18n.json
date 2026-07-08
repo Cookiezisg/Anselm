@@ -1338,6 +1338,33 @@
       "diagnostics": "诊断",
       "copyDiagnostics": "复制诊断信息",
       "copied": "已复制"
+    },
+    "mem": {
+      "section": "记忆",
+      "filterAll": "全部",
+      "filterPinned": "已固定",
+      "newMemory": "新建记忆",
+      "name": "名称",
+      "nameHint": "小写字母开头,可用 a-z 0-9 - _",
+      "nameLocked": "名称即文件名,不可改",
+      "invalidName": "名称须以小写字母开头,仅含 a-z 0-9 - _(≤64)",
+      "description": "描述",
+      "content": "内容",
+      "save": "保存",
+      "pinTip": "固定的记忆常驻每次对话上下文",
+      "pinned": "已固定",
+      "deleteTitle": "删除记忆",
+      "deleteBody": "将物理删除「$name」的记忆文件,无法撤销。",
+      "confirmDelete": "删除",
+      "empty": "还没有记忆",
+      "emptyHint": "记忆让 AI 跨对话记住重要的事。",
+      "dirtyTitle": "放弃未保存的修改?",
+      "dirtyBody": "内容有改动尚未保存。",
+      "discard": "放弃",
+      "keepEditing": "继续编辑",
+      "sourceUser": "用户",
+      "sourceAi": "AI",
+      "searchHint": "搜索记忆…"
     }
   },
   "markdown": {

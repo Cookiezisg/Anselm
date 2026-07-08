@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/contract/api_error.dart';
 import '../../../core/contract/api_key.dart';
+import '../../../core/contract/memory.dart';
 import '../../../core/contract/workspace.dart';
 import '../../../core/net/api_client.dart';
 import '../../../core/runtime.dart';
@@ -73,6 +74,19 @@ abstract class SettingsRepository {
 
   /// The backend build version (`GET /version`, bearer-only). 后端版本。
   Future<String> backendVersion();
+
+  // ── S4 记忆 memories ──
+
+  /// All memories, optionally pinned-only (bounded set). 全部记忆(可只取已固定)。
+  Future<List<Memory>> listMemories({bool? pinned});
+
+  /// PUT create-or-update. UPDATE ignores pinned/source server-side (F147) — never send them from
+  /// an edit. 建或改;更新时后端忽略 pinned/source,编辑绝不送。
+  Future<Memory> putMemory(String name, {required String description, required String content});
+
+  Future<Memory> pinMemory(String name, {required bool pinned});
+
+  Future<void> deleteMemory(String name);
 }
 
 class LiveSettingsRepository implements SettingsRepository {
@@ -207,6 +221,31 @@ class LiveSettingsRepository implements SettingsRepository {
   @override
   Future<String> backendVersion() async =>
       (await api.getData('/api/v1/version'))['version'] as String? ?? '';
+
+  @override
+  Future<List<Memory>> listMemories({bool? pinned}) async => (await api.getPage(
+        '/api/v1/memories',
+        Memory.fromJson,
+        query: {if (pinned != null) 'pinned': '$pinned'},
+      ))
+          .items;
+
+  @override
+  Future<Memory> putMemory(String name,
+          {required String description, required String content}) =>
+      // source is REQUIRED at create and ignored on update (F147) — sending 'user' is safe on both
+      // paths (an AI-authored memory keeps source=ai when edited). 创建必带 source,更新被忽略——
+      // 恒送 user 两径皆安全(编辑 AI 记忆时 source 保留 ai)。
+      api.putEntity('/api/v1/memories/$name', Memory.fromJson,
+          body: {'description': description, 'content': content, 'source': 'user'});
+
+  @override
+  Future<Memory> pinMemory(String name, {required bool pinned}) => api
+      .postData('/api/v1/memories/$name/${pinned ? 'pin' : 'unpin'}')
+      .then(Memory.fromJson);
+
+  @override
+  Future<void> deleteMemory(String name) => api.delete('/api/v1/memories/$name');
 }
 
 /// In-memory double — demo + tests. 内存替身。
@@ -418,6 +457,36 @@ class FixtureSettingsRepository implements SettingsRepository {
 
   @override
   Future<String> backendVersion() async => version;
+
+  final List<Memory> memories = [];
+
+  @override
+  Future<List<Memory>> listMemories({bool? pinned}) async =>
+      pinned == null ? List.of(memories) : memories.where((m) => m.pinned == pinned).toList();
+
+  @override
+  Future<Memory> putMemory(String name,
+      {required String description, required String content}) async {
+    final i = memories.indexWhere((m) => m.name == name);
+    if (i >= 0) {
+      // UPDATE keeps pinned/source (F147). 更新保留 pinned/source。
+      return memories[i] =
+          memories[i].copyWith(description: description, content: content);
+    }
+    final m = Memory(name: name, description: description, content: content);
+    memories.add(m);
+    return m;
+  }
+
+  @override
+  Future<Memory> pinMemory(String name, {required bool pinned}) async {
+    final i = memories.indexWhere((m) => m.name == name);
+    return memories[i] = memories[i].copyWith(pinned: pinned);
+  }
+
+  @override
+  Future<void> deleteMemory(String name) async =>
+      memories.removeWhere((m) => m.name == name);
 
 }
 

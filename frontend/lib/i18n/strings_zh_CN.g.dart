@@ -454,6 +454,7 @@ class _Translations$settings$zh_CN extends Translations$settings$en {
 	@override late final _Translations$settings$keys$zh_CN keys = _Translations$settings$keys$zh_CN._(_root);
 	@override late final _Translations$settings$ws$zh_CN ws = _Translations$settings$ws$zh_CN._(_root);
 	@override late final _Translations$settings$about$zh_CN about = _Translations$settings$about$zh_CN._(_root);
+	@override late final _Translations$settings$mem$zh_CN mem = _Translations$settings$mem$zh_CN._(_root);
 }
 
 // Path: markdown
@@ -1418,6 +1419,40 @@ class _Translations$settings$about$zh_CN extends Translations$settings$about$en 
 	@override String get diagnostics => '诊断';
 	@override String get copyDiagnostics => '复制诊断信息';
 	@override String get copied => '已复制';
+}
+
+// Path: settings.mem
+class _Translations$settings$mem$zh_CN extends Translations$settings$mem$en {
+	_Translations$settings$mem$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get section => '记忆';
+	@override String get filterAll => '全部';
+	@override String get filterPinned => '已固定';
+	@override String get newMemory => '新建记忆';
+	@override String get name => '名称';
+	@override String get nameHint => '小写字母开头,可用 a-z 0-9 - _';
+	@override String get nameLocked => '名称即文件名,不可改';
+	@override String get invalidName => '名称须以小写字母开头,仅含 a-z 0-9 - _(≤64)';
+	@override String get description => '描述';
+	@override String get content => '内容';
+	@override String get save => '保存';
+	@override String get pinTip => '固定的记忆常驻每次对话上下文';
+	@override String get pinned => '已固定';
+	@override String get deleteTitle => '删除记忆';
+	@override String deleteBody({required Object name}) => '将物理删除「${name}」的记忆文件,无法撤销。';
+	@override String get confirmDelete => '删除';
+	@override String get empty => '还没有记忆';
+	@override String get emptyHint => '记忆让 AI 跨对话记住重要的事。';
+	@override String get dirtyTitle => '放弃未保存的修改?';
+	@override String get dirtyBody => '内容有改动尚未保存。';
+	@override String get discard => '放弃';
+	@override String get keepEditing => '继续编辑';
+	@override String get sourceUser => '用户';
+	@override String get sourceAi => 'AI';
+	@override String get searchHint => '搜索记忆…';
 }
 
 // Path: chat.tool.kind
@@ -3105,6 +3140,31 @@ extension on TranslationsZhCn {
 			'settings.about.diagnostics' => '诊断',
 			'settings.about.copyDiagnostics' => '复制诊断信息',
 			'settings.about.copied' => '已复制',
+			'settings.mem.section' => '记忆',
+			'settings.mem.filterAll' => '全部',
+			'settings.mem.filterPinned' => '已固定',
+			'settings.mem.newMemory' => '新建记忆',
+			'settings.mem.name' => '名称',
+			'settings.mem.nameHint' => '小写字母开头,可用 a-z 0-9 - _',
+			'settings.mem.nameLocked' => '名称即文件名,不可改',
+			'settings.mem.invalidName' => '名称须以小写字母开头,仅含 a-z 0-9 - _(≤64)',
+			'settings.mem.description' => '描述',
+			'settings.mem.content' => '内容',
+			'settings.mem.save' => '保存',
+			'settings.mem.pinTip' => '固定的记忆常驻每次对话上下文',
+			'settings.mem.pinned' => '已固定',
+			'settings.mem.deleteTitle' => '删除记忆',
+			'settings.mem.deleteBody' => ({required Object name}) => '将物理删除「${name}」的记忆文件,无法撤销。',
+			'settings.mem.confirmDelete' => '删除',
+			'settings.mem.empty' => '还没有记忆',
+			'settings.mem.emptyHint' => '记忆让 AI 跨对话记住重要的事。',
+			'settings.mem.dirtyTitle' => '放弃未保存的修改?',
+			'settings.mem.dirtyBody' => '内容有改动尚未保存。',
+			'settings.mem.discard' => '放弃',
+			'settings.mem.keepEditing' => '继续编辑',
+			'settings.mem.sourceUser' => '用户',
+			'settings.mem.sourceAi' => 'AI',
+			'settings.mem.searchHint' => '搜索记忆…',
 			'markdown.imageNotLoaded' => '图片未加载',
 			'attach.unavailable' => '已不可用',
 			'attach.retry' => '点按重试',

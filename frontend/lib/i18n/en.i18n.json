@@ -1338,6 +1338,33 @@
       "diagnostics": "Diagnostics",
       "copyDiagnostics": "Copy diagnostics",
       "copied": "Copied"
+    },
+    "mem": {
+      "section": "Memories",
+      "filterAll": "All",
+      "filterPinned": "Pinned",
+      "newMemory": "New memory",
+      "name": "Name",
+      "nameHint": "starts lowercase; a-z 0-9 - _",
+      "nameLocked": "The name is the filename — immutable",
+      "invalidName": "Must start with a lowercase letter; only a-z 0-9 - _ (≤64)",
+      "description": "Description",
+      "content": "Content",
+      "save": "Save",
+      "pinTip": "Pinned memories ride every conversation's context",
+      "pinned": "Pinned",
+      "deleteTitle": "Delete memory",
+      "deleteBody": "Physically deletes the file for “$name”. This can't be undone.",
+      "confirmDelete": "Delete",
+      "empty": "No memories yet",
+      "emptyHint": "Memories let the AI remember things across conversations.",
+      "dirtyTitle": "Discard unsaved changes?",
+      "dirtyBody": "The content has unsaved edits.",
+      "discard": "Discard",
+      "keepEditing": "Keep editing",
+      "sourceUser": "user",
+      "sourceAi": "AI",
+      "searchHint": "Search memories…"
     }
   },
   "markdown": {
