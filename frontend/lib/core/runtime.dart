@@ -49,8 +49,11 @@ final activeWorkspaceNameProvider =
 
 /// The sidecar supervisor. A plain Provider so tests can override it with a fake-launcher controller.
 /// sidecar 监督器;Provider 便于测试 override 假 launcher。
-final backendControllerProvider = Provider<BackendController>(
-    (ref) => BackendController(masterKey: () => MasterKey().resolve()));
+final backendControllerProvider = Provider<BackendController>((ref) {
+  final c = BackendController(masterKey: () => MasterKey().resolve());
+  ref.onDispose(c.dispose); // dispose the state notifier + probe Dio if the provider is ever torn down
+  return c;
+});
 
 /// Bridges the controller's [BackendState] ValueNotifier into a reactive provider so the WHOLE app gates
 /// on one phase (starting / ready / crashed) — features never each handle "backend down". Kicks off

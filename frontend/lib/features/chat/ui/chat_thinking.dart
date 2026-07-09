@@ -206,8 +206,10 @@ class _ChatThinkingState extends State<ChatThinking> {
         final tp = TextPainter(text: TextSpan(text: widget.text, style: style), textDirection: TextDirection.ltr)
           ..layout(maxWidth: constraints.maxWidth);
         final lineH = tp.preferredLineHeight;
+        final contentH = tp.height;
+        tp.dispose(); // TextPainter holds a native paragraph — dispose or leak it per layout. 释放原生段落。
         final cap = lineH * widget.maxLiveLines;
-        final overflows = tp.height > cap + 0.5;
+        final overflows = contentH > cap + 0.5;
         if (!overflows) return Text(widget.text, style: style);
 
         if (widget.streaming && !_pinned) {
@@ -245,7 +247,10 @@ class _ChatThinkingState extends State<ChatThinking> {
         child: AnEdgeFade(fromTop: top, color: c.surface),
       );
 
-  double _lineHeight(TextStyle s) =>
-      (TextPainter(text: TextSpan(text: 'x', style: s), textDirection: TextDirection.ltr)..layout())
-          .preferredLineHeight;
+  double _lineHeight(TextStyle s) {
+    final tp = TextPainter(text: TextSpan(text: 'x', style: s), textDirection: TextDirection.ltr)..layout();
+    final h = tp.preferredLineHeight;
+    tp.dispose();
+    return h;
+  }
 }

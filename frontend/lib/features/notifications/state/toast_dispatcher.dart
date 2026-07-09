@@ -60,6 +60,9 @@ class ToastDispatcher extends Notifier<void> {
     // Dedup by (type, entity) within the window — a flapping source can't spam the corner. 去抖防刷屏。
     final key = '${s.type}:${_entityId(s.payload)}';
     final now = _nowMs();
+    // Prune entries past the window before checking — an entry older than the window is dead weight, so
+    // this keeps the map bounded to «keys seen in the last window» over a long session. 剪过窗条目,界住 map。
+    _lastFired.removeWhere((_, t) => now - t >= _dedupWindowMs);
     final last = _lastFired[key];
     if (last != null && now - last < _dedupWindowMs) return;
     _lastFired[key] = now;

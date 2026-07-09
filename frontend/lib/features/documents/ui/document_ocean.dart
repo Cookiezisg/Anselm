@@ -19,9 +19,12 @@ import '../state/document_state.dart';
 import 'an_document_editor.dart';
 
 /// Resolves the display names for the `[[id]]` mentions in a document's markdown [content] — batched once
-/// so the native editor can inflate its mention pills with names (not bare ids) at load. Keyed by content:
-/// a content SAVE doesn't invalidate `openDocumentProvider`, so this stays cached across edits. `[[id]]`→名批解析。
-final documentMentionNamesProvider = FutureProvider.family<Map<String, String>, String>((ref, content) async {
+/// so the native editor can inflate its mention pills with names (not bare ids) at load. Keyed by the
+/// load-time content (stable across edits, since a save doesn't invalidate `openDocumentProvider`), so it
+/// stays cached while the doc is open; autoDispose frees it when you leave (else one instance per doc
+/// opened lingers for the session). `[[id]]`→名批解析,autoDispose 与兄弟一致。
+final documentMentionNamesProvider =
+    FutureProvider.autoDispose.family<Map<String, String>, String>((ref, content) async {
   final ids = extractEntityRefIds(content);
   if (ids.isEmpty) return const {};
   return ref.read(mentionSourceProvider).resolveNames(ids);

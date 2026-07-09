@@ -250,6 +250,7 @@ class BackendController {
 
   void dispose() {
     state.dispose();
+    _probe.close(); // close the health-probe Dio too, not just the state notifier 一并关探测 Dio
   }
 
   /// 32 random bytes, base64url — the per-launch loopback bearer token. 每次启动的 loopback token。

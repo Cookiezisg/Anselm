@@ -34,12 +34,14 @@ class AnCodeSyntaxStylePhase extends SingleColumnLayoutStylePhase {
 
   @override
   SingleColumnLayoutViewModel style(Document document, SingleColumnLayoutViewModel viewModel) {
+    final seen = <String>{};
     for (final vm in viewModel.componentViewModels) {
       if (vm is! ParagraphComponentViewModel || vm.blockType != codeAttribution) continue;
       final plain = vm.text.toPlainText();
       final cached = _cache[vm.nodeId];
       final tokens = (cached != null && cached.plain == plain) ? cached.tokens : _tokenize(plain);
       _cache[vm.nodeId] = (plain: plain, tokens: tokens);
+      seen.add(vm.nodeId);
       if (tokens.isEmpty) continue;
       // Apply onto a COPY of the vm text (the vm is the pipeline's; we colour our view of it). 着色副本。
       final colored = vm.text.copy();
@@ -48,6 +50,9 @@ class AnCodeSyntaxStylePhase extends SingleColumnLayoutStylePhase {
       }
       vm.text = colored;
     }
+    // Prune entries for code nodes that no longer exist — else deleted blocks' tokens linger for the
+    // session (the cache is bounded to LIVE code nodes, not every one ever created). 删已消失节点的陈旧条目。
+    if (_cache.length > seen.length) _cache.removeWhere((id, _) => !seen.contains(id));
     return viewModel;
   }
 

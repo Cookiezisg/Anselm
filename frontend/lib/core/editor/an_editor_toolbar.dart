@@ -282,10 +282,13 @@ class _LinkInputBar extends StatefulWidget {
 
 class _LinkInputBarState extends State<_LinkInputBar> {
   final TextEditingController _controller = TextEditingController();
+  // Own ONE FocusNode — building it inline in build() leaks a node per rebuild. 一个焦点节点,勿在 build 里新建。
+  final FocusNode _keyFocus = FocusNode(skipTraversal: true);
 
   @override
   void dispose() {
     _controller.dispose();
+    _keyFocus.dispose();
     super.dispose();
   }
 
@@ -318,7 +321,7 @@ class _LinkInputBarState extends State<_LinkInputBar> {
                 const SizedBox(width: AnSpace.s6),
                 Expanded(
                   child: KeyboardListener(
-                    focusNode: FocusNode(skipTraversal: true),
+                    focusNode: _keyFocus,
                     onKeyEvent: (e) {
                       if (e.logicalKey.keyLabel == 'Escape') widget.onCancel();
                     },
