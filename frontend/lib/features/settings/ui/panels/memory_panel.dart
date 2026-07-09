@@ -7,6 +7,7 @@ import '../../../../core/contract/memory.dart';
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
+import '../../../../core/model/time_format.dart';
 import '../../../../core/ui/an_segmented.dart';
 import '../../../../core/ui/ui.dart';
 import '../../../../i18n/strings.g.dart';
@@ -141,7 +142,7 @@ class _MemoryRow extends ConsumerWidget {
       ]),
       label: m.name,
       meta:
-          '${m.source == 'ai' ? t.settings.mem.sourceAi : t.settings.mem.sourceUser} · ${_fmtDate(m.updatedAt)}',
+          '${m.source == 'ai' ? t.settings.mem.sourceAi : t.settings.mem.sourceUser} · ${fmtDate(m.updatedAt)}',
       onSelect: () =>
           ref.read(settingsDetailProvider.notifier).push('memory', id: m.name),
       actions: [
@@ -172,8 +173,6 @@ class _MemoryRow extends ConsumerWidget {
     }
   }
 
-  static String _fmtDate(DateTime? d) =>
-      d == null ? '' : '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 }
 
 /// The pushed-in editor. Create validates the slug live; edit LOCKS the name (it is the filename).

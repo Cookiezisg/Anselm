@@ -32,7 +32,22 @@ String fmtStamp(String? iso) {
   if (iso == null || iso.isEmpty) return '';
   final dt = DateTime.tryParse(iso);
   if (dt == null) return iso;
-  final l = dt.toLocal();
+  return fmtDateTime(dt);
+}
+
+/// A local `YYYY-MM-DD HH:MM` wall-clock stamp from a [DateTime]. Shared so features stop growing their
+/// own copies. 本地日期时间戳,供各 feature 共用(勿再各写一份)。
+String fmtDateTime(DateTime? d) {
+  if (d == null) return '';
+  final l = d.toLocal();
   String two(int n) => n.toString().padLeft(2, '0');
   return '${l.year}-${two(l.month)}-${two(l.day)} ${two(l.hour)}:${two(l.minute)}';
+}
+
+/// A local `YYYY-MM-DD` date (no time). 本地日期(无时刻)。
+String fmtDate(DateTime? d) {
+  if (d == null) return '';
+  final l = d.toLocal();
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${l.year}-${two(l.month)}-${two(l.day)}';
 }

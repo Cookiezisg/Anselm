@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/design/typography.dart';
+import '../../../core/model/byte_format.dart';
 import '../../../core/model/status_state.dart';
 import '../../../core/router/panel_registry.dart';
 import '../../../core/ui/an_badge.dart';
@@ -137,7 +138,7 @@ ToolHitRow attachmentListRow(Map<String, dynamic> hit) {
   final filename = (hit['filename'] ?? hit['id'] ?? '?').toString();
   final mime = (hit['mime'] ?? '').toString();
   final size = hit['sizeBytes'];
-  final sub = [if (mime.isNotEmpty) mime, if (size is int) _humanBytes(size)].join(' · ');
+  final sub = [if (mime.isNotEmpty) mime, if (size is int) formatBytes(size)].join(' · ');
   return ToolHitRow(
     glyph: AnIcons.attach,
     title: filename,
@@ -146,10 +147,4 @@ ToolHitRow attachmentListRow(Map<String, dynamic> hit) {
     kind: 'attachment',
     id: (hit['id'] ?? '').toString(),
   );
-}
-
-String _humanBytes(int n) {
-  if (n < 1024) return '$n B';
-  if (n < 1024 * 1024) return '${(n / 1024).toStringAsFixed(0)} KB';
-  return '${(n / (1024 * 1024)).toStringAsFixed(1)} MB';
 }

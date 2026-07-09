@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
+import '../../../core/model/byte_format.dart';
 import '../../../core/router/panel_registry.dart';
 import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
@@ -146,7 +147,7 @@ class _AttachmentPedestal extends ConsumerWidget {
               const SizedBox(height: AnSpace.s8),
             ],
             AnKv(dense: true, rows: [
-              AnKvRow('size', fmtBytes(m.sizeBytes)),
+              AnKvRow('size', formatBytes(m.sizeBytes)),
               if (m.mimeType.isNotEmpty) AnKvRow('mime', m.mimeType, mono: true),
               if (m.sha256.isNotEmpty)
                 AnKvRow('sha256',
@@ -160,11 +161,6 @@ class _AttachmentPedestal extends ConsumerWidget {
     };
   }
 
-  static String fmtBytes(int b) {
-    if (b < 1024) return '$b B';
-    if (b < 1024 * 1024) return '${(b / 1024).toStringAsFixed(1)} KB';
-    return '${(b / (1024 * 1024)).toStringAsFixed(1)} MB';
-  }
 }
 
 /// The entity identity face — the Cast row's aggregation unfolded: every verb with its count and

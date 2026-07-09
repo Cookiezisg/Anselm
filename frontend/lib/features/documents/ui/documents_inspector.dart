@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/contract/entities/skill.dart';
 import '../../../core/model/byte_format.dart';
+import '../../../core/model/time_format.dart';
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
@@ -184,7 +185,7 @@ class _DocProperties extends ConsumerWidget {
             const _OutlineSection(),
             _MetaRow(label: t.documents.props.path, value: doc.path),
             _MetaRow(label: t.documents.props.size, value: formatBytes(doc.sizeBytes)),
-            _MetaRow(label: t.documents.props.modified, value: _fmtDate(doc.updatedAt)),
+            _MetaRow(label: t.documents.props.modified, value: fmtDateTime(doc.updatedAt)),
             const SizedBox(height: AnSpace.s12),
             const AnDivider(),
             const SizedBox(height: AnSpace.s12),
@@ -460,8 +461,3 @@ class _OnOff extends StatelessWidget {
 
 
 
-String _fmtDate(DateTime d) {
-  String two(int n) => n.toString().padLeft(2, '0');
-  final l = d.toLocal();
-  return '${l.year}-${two(l.month)}-${two(l.day)} ${two(l.hour)}:${two(l.minute)}';
-}

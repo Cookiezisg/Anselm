@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
+import '../../../core/model/byte_format.dart';
 import '../../../core/ui/an_count_up.dart';
 import '../../../core/ui/icons.dart';
 import '../../../i18n/strings.g.dart';
@@ -146,7 +147,7 @@ Widget globToolBody(BuildContext context, ToolCardState state) {
             glyph: _fsGlyph(m.type),
             title: _basename(m.path),
             subtitle: m.path,
-            trailing: Text('${_humanBytes(m.size)}  ·  ${_shortMtime(m.mtime)}', style: AnText.meta.copyWith(color: c.inkFaint)),
+            trailing: Text('${formatBytes(m.size)}  ·  ${_shortMtime(m.mtime)}', style: AnText.meta.copyWith(color: c.inkFaint)),
           ),
       ],
       cap: 30,
@@ -155,12 +156,6 @@ Widget globToolBody(BuildContext context, ToolCardState state) {
       rawJson: state.resultText,
     ),
   ]);
-}
-
-String _humanBytes(int n) {
-  if (n < 1024) return '$n B';
-  if (n < 1024 * 1024) return '${(n / 1024).toStringAsFixed(0)} KB';
-  return '${(n / (1024 * 1024)).toStringAsFixed(1)} MB';
 }
 
 String _shortMtime(String rfc3339) {

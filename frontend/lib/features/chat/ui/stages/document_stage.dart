@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
+import '../../../../core/model/byte_format.dart';
 import '../../../../core/ui/ui.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../model/tool_receipts.dart';
@@ -153,7 +154,7 @@ class _DocumentStageBodyState extends ConsumerState<DocumentStageBody> {
       const SizedBox(height: AnSpace.s6),
       Row(children: [
         if (editId != null) ...[
-          Text(t.chat.stage.wholeReplace(from: _kb(oldBytes), to: _kb(settled.length)),
+          Text(t.chat.stage.wholeReplace(from: formatBytes(oldBytes), to: formatBytes(settled.length)),
               style: AnText.meta.copyWith(color: c.inkFaint)),
           const SizedBox(width: AnSpace.s8),
         ],
@@ -161,9 +162,6 @@ class _DocumentStageBodyState extends ConsumerState<DocumentStageBody> {
       ]),
     ]);
   }
-
-  static String _kb(int bytes) =>
-      bytes < 1024 ? '${bytes}B' : '${(bytes / 1024).toStringAsFixed(1)}KB';
 
 }
 
