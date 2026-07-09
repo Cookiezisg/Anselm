@@ -1,4 +1,5 @@
 import 'package:anselm/core/sse/frame.dart';
+import 'package:anselm/core/settings/app_prefs_providers.dart';
 import 'package:anselm/features/chat/data/chat_fixtures.dart';
 import 'package:anselm/features/chat/data/chat_providers.dart';
 import 'package:anselm/features/chat/model/stage_director.dart';

@@ -6,6 +6,7 @@ import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
 import '../../../../core/overlay/an_overlay.dart';
 import '../../../../core/settings/app_prefs_providers.dart';
+import '../../../../core/settings/follow_mode.dart';
 import '../../../../core/settings/settings_prefs.dart';
 import '../../../../core/ui/an_button.dart';
 import '../../../../core/ui/an_scope_badge.dart';
@@ -14,16 +15,14 @@ import '../../../../core/ui/an_segmented.dart';
 import '../../../../core/ui/an_setting_row.dart';
 import '../../../../core/ui/an_toast.dart';
 import '../../../../i18n/strings.g.dart';
-import '../../../chat/model/stage_director.dart';
-import '../../../chat/state/stage_director_provider.dart';
 import '../../model/settings_catalog.dart';
 import '../../state/settings_panel_provider.dart';
 import '../../state/workspace_prefs_provider.dart';
 
-/// ③ 对话 — the sidestage auto-open three-notch (READS the chat feature's [followModeProvider]:
+/// ③ 对话 — the sidestage auto-open three-notch (READS the shared core [followModeProvider]:
 /// one state, two homes — the sidestage head menu and this row must never diverge), the send key,
 /// and the workspace-scope web-fetch mode. Tail ghost link jumps to Models & keys (single source
-/// for the default model — never re-rendered here). 对话面板:右岛自动登台三档(读 chat 的
+/// for the default model — never re-rendered here). 对话面板:右岛自动登台三档(读 core 的
 /// followModeProvider——一份状态两处家)/发送键/工作区级抓取模式;尾部 ghost 链跳模型与密钥(默认模型
 /// 单一事实源,绝不在此重复渲)。
 class ChatPanel extends ConsumerWidget {

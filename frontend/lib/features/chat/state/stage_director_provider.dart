@@ -2,34 +2,13 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/settings/settings_prefs.dart';
+import '../../../core/settings/app_prefs_providers.dart';
 import '../../../core/sse/frame.dart';
 import '../data/chat_providers.dart';
 import '../data/chat_repository.dart';
 import '../model/stage_director.dart';
 import 'flowrun_progress.dart';
 import 'pending_interactions_provider.dart';
-
-/// The user's standing follow intent (WRK-061 §12-1, default «每次») — persisted via [SettingsPrefs]
-/// (`an.stage.follow`, synchronous read) so the choice survives a relaunch. The sidestage head
-/// carries the three-notch menu; the settings chat panel reads THIS provider (same state, two homes).
-/// 跟随三档(默认「每次」)——经 SettingsPrefs(`an.stage.follow`)持久化、同步恢复。三档菜单在侧幕头带;
-/// settings 对话面板读同一 provider(一份状态两处家)。
-class FollowModeController extends Notifier<FollowMode> {
-  @override
-  FollowMode build() {
-    final v = ref.read(settingsPrefsProvider).getString(SettingsKeys.chatAutoStage);
-    return FollowMode.values.asNameMap()[v] ?? FollowMode.always;
-  }
-
-  void set(FollowMode mode) {
-    state = mode;
-    ref.read(settingsPrefsProvider).setString(SettingsKeys.chatAutoStage, mode.name);
-  }
-}
-
-final followModeProvider =
-    NotifierProvider<FollowModeController, FollowMode>(FollowModeController.new);
 
 /// One conversation's stage director as a provider: projects the conversation's frame feed onto the
 /// pure [StageDirector] (tool_call open/delta/close), threads the human-gate flag from

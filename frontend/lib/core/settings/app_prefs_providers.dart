@@ -2,6 +2,7 @@ import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../i18n/strings.g.dart';
+import 'follow_mode.dart';
 import 'settings_prefs.dart';
 
 /// App-level preference state (WRK-062 S1) — the theme / UI-locale axes both the MaterialApp root
@@ -130,3 +131,22 @@ class StringSettingController extends Notifier<String> {
 final stringSettingProvider =
     NotifierProvider.family<StringSettingController, String, SettingsKey<String>>(
         StringSettingController.new);
+
+/// The sidestage follow intent (default «每次»), persisted via [SettingsPrefs] (`an.stage.follow`,
+/// synchronous read). The chat sidestage head sets it; the settings chat panel mirrors it — one state,
+/// two homes, and neither feature imports the other. 跟随三档;一份状态两处家,两 feature 互不 import。
+class FollowModeController extends Notifier<FollowMode> {
+  @override
+  FollowMode build() {
+    final v = ref.read(settingsPrefsProvider).getString(SettingsKeys.chatAutoStage);
+    return FollowMode.values.asNameMap()[v] ?? FollowMode.always;
+  }
+
+  void set(FollowMode mode) {
+    state = mode;
+    ref.read(settingsPrefsProvider).setString(SettingsKeys.chatAutoStage, mode.name);
+  }
+}
+
+final followModeProvider =
+    NotifierProvider<FollowModeController, FollowMode>(FollowModeController.new);

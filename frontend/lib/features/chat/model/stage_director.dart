@@ -10,9 +10,12 @@
 /// 全程可毫秒级单测。两维正交:FollowMode 承载用户全局意愿、pin 绝不写它;镜头锁归用户。
 library;
 
-/// The user's standing follow intent (three notches, default «每次»; lives in settings later).
-/// 用户全局跟随意愿三档(默认「每次」;后续进 settings)。
-enum FollowMode { never, firstPerConversation, always }
+// FollowMode lives in core (settings/follow_mode.dart) so this pure model imports it without Riverpod,
+// and the settings panel + chat both consume it without importing each other. Re-exported so existing
+// consumers of this file keep seeing FollowMode. 跟随枚举在 core;re-export 保持既有消费者可见。
+import '../../../core/settings/follow_mode.dart';
+
+export '../../../core/settings/follow_mode.dart' show FollowMode;
 
 /// §2 six states. [anchored] is a SUBSTATE of pinned handled by the viewport (scroll = occupied →
 /// pinned), not a phase here. 六态;anchored 是 pinned 的视口子态,不单列相位。

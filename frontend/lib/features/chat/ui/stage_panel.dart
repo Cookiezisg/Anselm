@@ -9,6 +9,7 @@ import '../../../core/design/typography.dart';
 import '../../../core/model/partial_json.dart';
 import '../../../core/perf/coalescing_notifier.dart';
 import '../../../core/router/panel_registry.dart';
+import '../../../core/settings/app_prefs_providers.dart';
 import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
 import '../model/conversation_transcript.dart';

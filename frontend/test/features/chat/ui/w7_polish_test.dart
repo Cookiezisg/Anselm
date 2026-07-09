@@ -1,6 +1,7 @@
 import 'package:anselm/core/contract/conversation.dart';
 import 'package:anselm/core/contract/touchpoint.dart';
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/settings/app_prefs_providers.dart';
 import 'package:anselm/core/settings/settings_prefs.dart';
 import 'package:anselm/core/sse/frame.dart';
 import 'package:anselm/features/chat/data/chat_fixtures.dart';
