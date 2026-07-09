@@ -80,6 +80,24 @@ landed-into:
 
 ---
 
-## 建造进展
+## 建造进展 —— ✅ 全 64 条清账(2026-07-09,9 批,fe-verify 3312 全绿)
 
-- **P0 批 ✅(2026-07-09,5a375647)**:6 个 CONFIRMED bug(#1/#2/#3/#4/#7/#8)已修 + 回归测(notification tone 分流覆盖 ok:true 盲区 / stages_w3 fixture 前缀纠正),fe-verify 3312 全绿。剩 #5(行为待定)+ #6(待修)。
+- **P0 批(5a375647)**:6 CONFIRMED bug(#1/#2/#3/#4/#7/#8)+ 回归测(notification tone 分流覆盖 ok:true 盲区 / stages_w3 fixture 前缀纠正)。
+- **批1(c60bce49)**:P0 收尾 #5(重置本地偏好→relaunch 彻底生效,抽 `app_relaunch`)+#6(restart 错因浮现)+ #23 api_client 裸 cast + #14 skill tags 幻影编辑 + secret 光标 + #62 headOwners + mcp reconnect 兜错 + about launchUrl 闸 + limits onTapOutside。
+- **批2(bc121e3a)**:资源泄漏 7 处(编辑器 toolbar FocusNode / chat_thinking TextPainter×2 / syntax 缓存剪枝 / toast dedup map 剪枝 / backendController probe Dio / documentMentionNames autoDispose)。
+- **批3(d09c415d)**:字节格式化 4 分叉 → `formatBytes`;时间格式化 2 份 → `fmtDateTime`/`fmtDate`。
+- **批4(8dd1a539)**:#16 FollowMode/followModeProvider 上提 core(settings 不再 import chat)。
+- **批5(98ba0589)**:#18 WindowZoom 走中央 SettingsPrefs;#20 auto-title 迟播门控海洋;#15 head 蓝点取活 transcript;#19 skill config didUpdateWidget 同步。
+- **批6(8826cefb)**:i18n 硬编码(#13 attachment removeLabel / #17 notifications errorTitle·retry / workflow yes-no / memory source / handler 状态词 / an_editor 中文 lorem 移 dev harness)+ 41 死键清理。
+- **批7(71d71baa)**:token nit(0.45→AnOpacity.disabled / easeOutCubic→AnMotion.easeOut / width:1→AnSize.hairline / slash 328→menuMaxHeight / 阅读列 720→AnSize.content / 注释订正)。
+- **批8(5483e54c)**:a11y 重置钮 focus-within 可达;ui.dart 桶补 8 export;core/models→core/model 目录并归。
+- **批9(6caa0493)**:#22 表单错误 idiom 对齐;地层透明度 agent/control 0.4→`AnOpacity.stratum`。
+
+**判为技术标识符/角色差异/成本不匹配,记录接受(engineering judgment,非遗漏)**:
+- catalog `list_conversations` 的 `archived`/`cursor`:`target:(s)` 回调无 `t`、mono 技术指示符,豁免。
+- workflow_stage 0.55 / AnLayerDiff 0.5:与 stratum 0.4 是**不同视觉角色**(morph 旧图 / 层 diff),非同值漂移,保留。
+- 旋钮/分段阴影 `Color(0x33/14000000)`:小旋钮 theme-blind 阴影肉眼近不可辨,主题感知化需 `AnColors` ThemeExtension 六处手术,成本远超价值,保留(如后续做暗色阴影统一再一并处理)。
+- 编辑器浮层宽 208/268/232/280:各自 bespoke 浮层尺寸,非共享语义,保留。
+- documents 阅读列是否收窄到 672(对齐 AnPage):**口味决策留产品**(纯阅读面 vs 记录页 chrome 宽度),已 token 化不再是魔数。
+
+> 全部 P0/P1/P2 + §4 跨模块主题落地;§5 待真机项(notification 假失败/右岛门控/handler 默认/提及竞态等)代码已修,用户可感后果建议真机 E2E 复核。
