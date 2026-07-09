@@ -64,10 +64,11 @@ class AnDocumentEditorState extends State<AnDocumentEditor> {
   final GlobalKey<AnEditorState> _editorKey = GlobalKey<AnEditorState>();
   final GlobalKey _headerKey = GlobalKey();
 
-  // The An reading column. Uses the same [AnSize.content] token as AnPage oceans. NOTE: AnPage subtracts
-  // 2×pageX for its text (→672) whereas this pure reading surface uses the full column — whether documents
-  // should match 672 is a taste call left to the product. 阅读列(与 AnPage 同 token;是否收到 672 是口味,留给产品)。
-  static const double _measure = AnSize.content; // 720
+  // The An reading text column — aligned pixel-for-pixel with the AnPage oceans (chat/entities/settings):
+  // AnPage renders an [AnSize.content] (720) region with [AnInset.pageX] (24) padding, so its TEXT is
+  // 672 wide. This surface centers a bare 672 column, and since (vw−672)/2 == (vw−720)/2 + pageX the text
+  // occupies the exact same centered band. 阅读文字列与 AnPage 海洋逐像素对齐(720 列−2×24 内距=672 文字)。
+  static const double _measure = AnSize.content - AnInset.pageX * 2; // 672
   static const double _activeBand = 72; // a heading within this of the viewport top is "active" 活动带
 
   @override
