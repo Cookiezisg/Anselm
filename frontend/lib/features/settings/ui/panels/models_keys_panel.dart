@@ -456,8 +456,9 @@ class _KeyFormState extends ConsumerState<KeyForm> {
         ],
         if (_error != null)
           Padding(
-            padding: const EdgeInsets.only(top: AnSpace.s12),
-            child: Text(_error!, style: AnText.meta.copyWith(color: c.danger)),
+            // Match the other settings forms' inline-error idiom (label + s8), not meta + s12. 与其余设置表一致。
+            padding: const EdgeInsets.only(top: AnSpace.s8),
+            child: Text(_error!, style: AnText.label.copyWith(color: c.danger)),
           ),
         const SizedBox(height: AnSpace.s16),
         Row(children: [

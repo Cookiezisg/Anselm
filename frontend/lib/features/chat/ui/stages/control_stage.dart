@@ -42,7 +42,7 @@ class ControlStageBody extends ConsumerWidget {
         Text(t.chat.stage.oldLadder, style: AnText.meta.copyWith(color: c.inkFaint)),
         const SizedBox(height: AnSpace.s2),
         Opacity(
-          opacity: 0.4,
+          opacity: AnOpacity.stratum,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             for (var i = 0; i < oldBranches.length; i++)
               Padding(

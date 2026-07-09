@@ -66,7 +66,7 @@ class AgentStageBody extends ConsumerWidget {
         ])
       else if (scene.live && old != null && old.tools.isNotEmpty)
         Opacity(
-          opacity: 0.4,
+          opacity: AnOpacity.stratum,
           child: Wrap(spacing: AnSpace.s4, runSpacing: AnSpace.s4, children: [
             for (final ref_ in old.tools) _beltChip(c, {'ref': ref_.ref, 'name': ref_.name}, live: false),
           ]),

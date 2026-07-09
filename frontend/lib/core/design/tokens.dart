@@ -205,6 +205,7 @@ abstract final class AnSize {
 abstract final class AnOpacity {
   static const double disabled = 0.4; // dimmed disabled controls 禁用控件变暗
   static const double dragDim = 0.35; // the row being drag-reordered (source ghost) 拖拽重排源行变暗
+  static const double stratum = 0.4; // a faded prior/inactive layer (R-5 sidestage stratum) 淡化的旧/静置层
 }
 
 /// Motion — durations + easing. fast = hover, mid = reveals, slow = island slides; breath is
