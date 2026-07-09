@@ -1,0 +1,113 @@
+import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../../core/contract/api_error.dart';
+import '../../../../core/contract/network.dart';
+import '../../../../core/design/colors.dart';
+import '../../../../core/design/tokens.dart';
+import '../../../../core/design/typography.dart';
+import '../../../../core/ui/an_scope_badge.dart';
+import '../../../../core/ui/ui.dart';
+import '../../../../i18n/strings.g.dart';
+import '../../data/settings_repository.dart';
+
+/// ⑪ 网络 (WRK-062 §3, S5, 拍板 #19): the machine-level outbound proxy (settings.json `network`
+/// section). Edits PATCH the whole config; a restart note is always shown (the backend caches the
+/// proxy in its HTTP transports). Empty = direct. Also the home of 工单⑦ (shell env passthrough is
+/// automatic via the sidecar inheriting the parent env — nothing to configure).
+///
+/// 网络面板:机器级出站代理(settings.json network 段)。编辑整体 PATCH;常驻重启提示;空=直连。
+class NetworkPanel extends ConsumerStatefulWidget {
+  const NetworkPanel({super.key});
+
+  @override
+  ConsumerState<NetworkPanel> createState() => _NetworkPanelState();
+}
+
+class _NetworkPanelState extends ConsumerState<NetworkPanel> {
+  final _http = TextEditingController();
+  final _https = TextEditingController();
+  final _no = TextEditingController();
+  bool _hydrated = false;
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _http.dispose();
+    _https.dispose();
+    _no.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    final t = Translations.of(context);
+    try {
+      await ref.read(settingsRepositoryProvider).patchNetwork(NetworkConfig(
+            httpProxy: _http.text.trim(),
+            httpsProxy: _https.text.trim(),
+            noProxy: _no.text.trim(),
+          ));
+      ref.invalidate(networkConfigProvider);
+      ref.read(overlayProvider.notifier).showToast(t.settings.network.saved, tone: AnToastTone.ok);
+    } on ApiException catch (e) {
+      ref.read(overlayProvider.notifier).showToast(e.message, tone: AnToastTone.danger);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Translations.of(context);
+    final c = context.colors;
+    final cfg = ref.watch(networkConfigProvider).value;
+    if (cfg != null && !_hydrated) {
+      _http.text = cfg.httpProxy;
+      _https.text = cfg.httpsProxy;
+      _no.text = cfg.noProxy;
+      _hydrated = true;
+    }
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        const AnScopeBadge(AnSettingScope.machine),
+        const SizedBox(width: AnSpace.s8),
+        Expanded(
+            child: Text(t.settings.network.proxyHint,
+                style: AnText.label.copyWith(color: c.inkMuted))),
+      ]),
+      const SizedBox(height: AnSpace.s16),
+      ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          _field(t.settings.network.httpProxy, _http, t.settings.network.proxyPlaceholder, c),
+          _field(t.settings.network.httpsProxy, _https, t.settings.network.proxyPlaceholder, c),
+          _field(t.settings.network.noProxy, _no, 'localhost,127.0.0.1', c),
+          const SizedBox(height: AnSpace.s4),
+          Text(t.settings.network.restartNote, style: AnText.label.copyWith(color: c.warn)),
+          const SizedBox(height: AnSpace.s16),
+          AnButton(
+            label: t.settings.network.save,
+            variant: AnButtonVariant.primary,
+            onPressed: cfg == null || _saving ? null : _save,
+          ),
+        ]),
+      ),
+    ]);
+  }
+
+  Widget _field(String label, TextEditingController ctl, String hint, AnColors c) => Padding(
+        padding: const EdgeInsets.only(bottom: AnSpace.s12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label, style: AnText.label.copyWith(color: c.inkMuted)),
+          const SizedBox(height: AnSpace.s4),
+          AnInput(controller: ctl, mono: true, placeholder: hint),
+        ]),
+      );
+}
+
+/// The live network config. 活动网络配置。
+final networkConfigProvider =
+    FutureProvider<NetworkConfig>((ref) => ref.watch(settingsRepositoryProvider).getNetwork());

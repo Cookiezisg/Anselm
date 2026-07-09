@@ -1422,6 +1422,42 @@
       "noCalls": "No calls yet",
       "noStderr": "No output yet",
       "callsAgg": "✓ $ok · ✗ $failed"
+    },
+    "storage": {
+      "dataDir": "Data directory",
+      "revealFinder": "Reveal in Finder",
+      "diskUsage": "Disk usage",
+      "diskSandbox": "Sandbox runtimes & envs",
+      "diskMore": "Breakdown coming soon",
+      "openLogs": "Open logs folder",
+      "logsDesc": "Rolling logs, 10MB×3 per file, gzip archived",
+      "resetPrefs": "Reset local preferences",
+      "resetPrefsDesc": "Clears this machine's UI preferences (theme/window/zoom…) only — never touches workspace data",
+      "resetPrefsTitle": "Reset local preferences?",
+      "resetPrefsDone": "Local preferences reset",
+      "factoryTitle": "Factory reset",
+      "factoryWarn": "Stops the engine, permanently deletes the ENTIRE data directory (all workspaces / conversations / entities / documents / keys) and relaunches the app.",
+      "factoryHint": "Type “Anselm” to confirm",
+      "factoryConfirm": "Erase everything & relaunch"
+    },
+    "limits": {
+      "scopeNote": "Machine-wide — every workspace edits this machine's single set of limits",
+      "resetAll": "Reset all to defaults",
+      "resetAllTitle": "Reset every limit to its default?",
+      "patchFailed": "Save failed",
+      "modified": "modified"
+    },
+    "network": {
+      "section": "Network",
+      "proxyHint": "Outbound proxy — AI requests reach LLM / MCP / search providers through it",
+      "httpProxy": "HTTP proxy",
+      "httpsProxy": "HTTPS proxy",
+      "noProxy": "Bypass (comma-separated)",
+      "proxyPlaceholder": "http://127.0.0.1:7890",
+      "save": "Save",
+      "saved": "Saved — fully effective after an engine restart",
+      "restartNote": "The proxy fully takes effect after restarting the engine",
+      "empty": "Empty = direct connection"
     }
   },
   "markdown": {

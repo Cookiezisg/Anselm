@@ -1422,6 +1422,42 @@
       "noCalls": "暂无调用",
       "noStderr": "暂无输出",
       "callsAgg": "✓ $ok · ✗ $failed"
+    },
+    "storage": {
+      "dataDir": "数据目录",
+      "revealFinder": "在访达中显示",
+      "diskUsage": "磁盘占用",
+      "diskSandbox": "沙箱运行时与环境",
+      "diskMore": "明细即将提供",
+      "openLogs": "打开日志文件夹",
+      "logsDesc": "滚动日志,单文件 10MB×3,gzip 归档",
+      "resetPrefs": "重置本地偏好",
+      "resetPrefsDesc": "只清除本机的界面偏好(主题/窗口/缩放等),不碰任何工作区数据",
+      "resetPrefsTitle": "重置本地偏好?",
+      "resetPrefsDone": "本地偏好已重置",
+      "factoryTitle": "恢复出厂设置",
+      "factoryWarn": "将停止引擎、永久删除整个数据目录(所有工作区/对话/实体/文档/密钥)并重启应用。",
+      "factoryHint": "输入「Anselm」以确认",
+      "factoryConfirm": "抹掉一切并重启"
+    },
+    "limits": {
+      "scopeNote": "全机生效——任一工作区修改的都是这台机器的同一份上限",
+      "resetAll": "全部恢复默认",
+      "resetAllTitle": "恢复全部默认限额?",
+      "patchFailed": "保存失败",
+      "modified": "已修改"
+    },
+    "network": {
+      "section": "网络",
+      "proxyHint": "出站代理——AI 请求经它到达 LLM / MCP / 搜索服务",
+      "httpProxy": "HTTP 代理",
+      "httpsProxy": "HTTPS 代理",
+      "noProxy": "绕过代理(逗号分隔)",
+      "proxyPlaceholder": "http://127.0.0.1:7890",
+      "save": "保存",
+      "saved": "已保存,重启引擎后完整生效",
+      "restartNote": "代理配置在重启引擎后完整生效",
+      "empty": "留空=直连"
     }
   },
   "markdown": {

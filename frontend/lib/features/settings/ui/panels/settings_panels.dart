@@ -5,10 +5,13 @@ import '../settings_ocean.dart';
 import 'chat_panel.dart';
 import 'general_panel.dart';
 import 'about_panel.dart';
+import 'limits_panel.dart';
 import 'mcp_panel.dart';
+import 'network_panel.dart';
 import 'memory_panel.dart';
 import 'models_keys_panel.dart';
 import 'notifications_panel.dart';
+import 'storage_panel.dart';
 import 'workspaces_panel.dart';
 
 /// The panel-body registry — one builder per [SettingsPanel]. Panels light up slice by slice
@@ -26,9 +29,9 @@ Widget buildSettingsPanelBody(BuildContext context, SettingsPanel panel) {
     SettingsPanel.memory => const MemoryPanel(),
     SettingsPanel.sandbox => const SettingsPanelPlaceholder(),
     SettingsPanel.workspaces => const WorkspacesPanel(),
-    SettingsPanel.storage => const SettingsPanelPlaceholder(),
-    SettingsPanel.limits => const SettingsPanelPlaceholder(),
-    SettingsPanel.network => const SettingsPanelPlaceholder(),
+    SettingsPanel.storage => const StoragePanel(),
+    SettingsPanel.limits => const LimitsPanel(),
+    SettingsPanel.network => const NetworkPanel(),
     SettingsPanel.shortcuts => const SettingsPanelPlaceholder(),
     SettingsPanel.about => const AboutPanel(),
   };

@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/contract/api_error.dart';
 import '../../../core/contract/api_key.dart';
+import '../../../core/contract/limits.dart';
 import '../../../core/contract/mcp.dart';
+import '../../../core/contract/network.dart';
 import '../../../core/contract/memory.dart';
 import '../../../core/contract/workspace.dart';
 import '../../../core/net/api_client.dart';
@@ -117,6 +119,29 @@ abstract class SettingsRepository {
   /// Claude Desktop mcp.json import. 导入。
   Future<({List<String> imported, List<String> skipped})> importMcpJson(String json,
       {bool overwrite});
+
+  // ── S5 存储与限额 storage & limits ──
+
+  /// The backend-resolved data root (never guessed client-side). 后端解析的数据根(前端绝不猜)。
+  Future<String> dataDir();
+
+  /// Machine-wide sandbox disk usage. 全机沙箱磁盘占用。
+  Future<int> sandboxDiskUsage();
+
+  /// The nested limits JSON (dotted schema keys index into it). 嵌套限额 JSON。
+  Future<Map<String, dynamic>> getLimits();
+
+  Future<List<LimitField>> limitsSchema();
+
+  /// Partial nested merge; 400 SETTINGS_LIMITS_INVALID on violations. 部分合并;越界 400。
+  Future<Map<String, dynamic>> patchLimits(Map<String, dynamic> partial);
+
+  Future<Map<String, dynamic>> resetLimits();
+
+  Future<NetworkConfig> getNetwork();
+
+  /// PATCH replaces the whole config (three optional strings). 整体替换。
+  Future<NetworkConfig> patchNetwork(NetworkConfig config);
 }
 
 class LiveSettingsRepository implements SettingsRepository {
@@ -346,6 +371,45 @@ class LiveSettingsRepository implements SettingsRepository {
       skipped: ((data['skipped'] as List?) ?? const []).cast<String>(),
     );
   }
+
+  @override
+  Future<String> dataDir() async =>
+      (await api.getData('/api/v1/system/data-dir'))['dataDir'] as String? ?? '';
+
+  @override
+  Future<int> sandboxDiskUsage() async =>
+      ((await api.getData('/api/v1/sandbox/disk-usage'))['totalBytes'] as num?)?.toInt() ?? 0;
+
+  @override
+  Future<Map<String, dynamic>> getLimits() => api.getData('/api/v1/limits');
+
+  @override
+  Future<List<LimitField>> limitsSchema() async =>
+      (await api.getPage('/api/v1/limits/schema', LimitField.fromJson)).items;
+
+  @override
+  Future<Map<String, dynamic>> patchLimits(Map<String, dynamic> partial) async {
+    await api.patchEntity('/api/v1/limits', (j) => j, body: partial);
+    return getLimits();
+  }
+
+  @override
+  Future<Map<String, dynamic>> resetLimits() async {
+    await api.postData('/api/v1/limits:reset');
+    return getLimits();
+  }
+
+  @override
+  Future<NetworkConfig> getNetwork() =>
+      api.getEntity('/api/v1/network', NetworkConfig.fromJson);
+
+  @override
+  Future<NetworkConfig> patchNetwork(NetworkConfig config) =>
+      api.patchEntity('/api/v1/network', NetworkConfig.fromJson, body: {
+        'httpProxy': config.httpProxy,
+        'httpsProxy': config.httpsProxy,
+        'noProxy': config.noProxy,
+      });
 }
 
 /// In-memory double — demo + tests. 内存替身。
@@ -662,6 +726,64 @@ class FixtureSettingsRepository implements SettingsRepository {
     }
     return (imported: imported, skipped: skipped);
   }
+
+  // ── S5 (scriptable) ──
+
+  String fixtureDataDir = '/tmp/anselm-fixture';
+  int fixtureDisk = 42 * 1024 * 1024;
+  List<LimitField> fixtureSchema = const [
+    LimitField(key: 'agent.maxSteps', group: 'agent', defaultValue: 30, min: 1, unit: 'steps', desc: 'Max steps.'),
+    LimitField(key: 'context.triggerRatio', group: 'context', defaultValue: 0.8, min: 0, max: 1, exclusive: true, unit: 'ratio', desc: 'Compaction trigger.'),
+  ];
+  Map<String, dynamic> fixtureLimits = {
+    'agent': {'maxSteps': 30},
+    'context': {'triggerRatio': 0.8},
+  };
+
+  @override
+  Future<String> dataDir() async => fixtureDataDir;
+
+  @override
+  Future<int> sandboxDiskUsage() async => fixtureDisk;
+
+  @override
+  Future<Map<String, dynamic>> getLimits() async => fixtureLimits;
+
+  @override
+  Future<List<LimitField>> limitsSchema() async => fixtureSchema;
+
+  @override
+  Future<Map<String, dynamic>> patchLimits(Map<String, dynamic> partial) async {
+    void merge(Map<String, dynamic> into, Map<String, dynamic> from) {
+      from.forEach((k, v) {
+        if (v is Map<String, dynamic> && into[k] is Map<String, dynamic>) {
+          merge(into[k] as Map<String, dynamic>, v);
+        } else {
+          into[k] = v;
+        }
+      });
+    }
+
+    merge(fixtureLimits, partial);
+    return fixtureLimits;
+  }
+
+  @override
+  Future<Map<String, dynamic>> resetLimits() async {
+    fixtureLimits = {
+      'agent': {'maxSteps': 30},
+      'context': {'triggerRatio': 0.8},
+    };
+    return fixtureLimits;
+  }
+
+  NetworkConfig fixtureNetwork = const NetworkConfig();
+
+  @override
+  Future<NetworkConfig> getNetwork() async => fixtureNetwork;
+
+  @override
+  Future<NetworkConfig> patchNetwork(NetworkConfig config) async => fixtureNetwork = config;
 
 }
 

@@ -934,6 +934,9 @@ class Translations$settings$en {
 	late final Translations$settings$about$en about = Translations$settings$about$en.internal(_root);
 	late final Translations$settings$mem$en mem = Translations$settings$mem$en.internal(_root);
 	late final Translations$settings$mcp$en mcp = Translations$settings$mcp$en.internal(_root);
+	late final Translations$settings$storage$en storage = Translations$settings$storage$en.internal(_root);
+	late final Translations$settings$limits$en limits = Translations$settings$limits$en.internal(_root);
+	late final Translations$settings$network$en network = Translations$settings$network$en.internal(_root);
 }
 
 // Path: markdown
@@ -3654,6 +3657,123 @@ class Translations$settings$mcp$en {
 	String callsAgg({required Object ok, required Object failed}) => '✓ ${ok} · ✗ ${failed}';
 }
 
+// Path: settings.storage
+class Translations$settings$storage$en {
+	Translations$settings$storage$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Data directory'
+	String get dataDir => 'Data directory';
+
+	/// en: 'Reveal in Finder'
+	String get revealFinder => 'Reveal in Finder';
+
+	/// en: 'Disk usage'
+	String get diskUsage => 'Disk usage';
+
+	/// en: 'Sandbox runtimes & envs'
+	String get diskSandbox => 'Sandbox runtimes & envs';
+
+	/// en: 'Breakdown coming soon'
+	String get diskMore => 'Breakdown coming soon';
+
+	/// en: 'Open logs folder'
+	String get openLogs => 'Open logs folder';
+
+	/// en: 'Rolling logs, 10MB×3 per file, gzip archived'
+	String get logsDesc => 'Rolling logs, 10MB×3 per file, gzip archived';
+
+	/// en: 'Reset local preferences'
+	String get resetPrefs => 'Reset local preferences';
+
+	/// en: 'Clears this machine's UI preferences (theme/window/zoom…) only — never touches workspace data'
+	String get resetPrefsDesc => 'Clears this machine\'s UI preferences (theme/window/zoom…) only — never touches workspace data';
+
+	/// en: 'Reset local preferences?'
+	String get resetPrefsTitle => 'Reset local preferences?';
+
+	/// en: 'Local preferences reset'
+	String get resetPrefsDone => 'Local preferences reset';
+
+	/// en: 'Factory reset'
+	String get factoryTitle => 'Factory reset';
+
+	/// en: 'Stops the engine, permanently deletes the ENTIRE data directory (all workspaces / conversations / entities / documents / keys) and relaunches the app.'
+	String get factoryWarn => 'Stops the engine, permanently deletes the ENTIRE data directory (all workspaces / conversations / entities / documents / keys) and relaunches the app.';
+
+	/// en: 'Type “Anselm” to confirm'
+	String get factoryHint => 'Type “Anselm” to confirm';
+
+	/// en: 'Erase everything & relaunch'
+	String get factoryConfirm => 'Erase everything & relaunch';
+}
+
+// Path: settings.limits
+class Translations$settings$limits$en {
+	Translations$settings$limits$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Machine-wide — every workspace edits this machine's single set of limits'
+	String get scopeNote => 'Machine-wide — every workspace edits this machine\'s single set of limits';
+
+	/// en: 'Reset all to defaults'
+	String get resetAll => 'Reset all to defaults';
+
+	/// en: 'Reset every limit to its default?'
+	String get resetAllTitle => 'Reset every limit to its default?';
+
+	/// en: 'Save failed'
+	String get patchFailed => 'Save failed';
+
+	/// en: 'modified'
+	String get modified => 'modified';
+}
+
+// Path: settings.network
+class Translations$settings$network$en {
+	Translations$settings$network$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Network'
+	String get section => 'Network';
+
+	/// en: 'Outbound proxy — AI requests reach LLM / MCP / search providers through it'
+	String get proxyHint => 'Outbound proxy — AI requests reach LLM / MCP / search providers through it';
+
+	/// en: 'HTTP proxy'
+	String get httpProxy => 'HTTP proxy';
+
+	/// en: 'HTTPS proxy'
+	String get httpsProxy => 'HTTPS proxy';
+
+	/// en: 'Bypass (comma-separated)'
+	String get noProxy => 'Bypass (comma-separated)';
+
+	/// en: 'http://127.0.0.1:7890'
+	String get proxyPlaceholder => 'http://127.0.0.1:7890';
+
+	/// en: 'Save'
+	String get save => 'Save';
+
+	/// en: 'Saved — fully effective after an engine restart'
+	String get saved => 'Saved — fully effective after an engine restart';
+
+	/// en: 'The proxy fully takes effect after restarting the engine'
+	String get restartNote => 'The proxy fully takes effect after restarting the engine';
+
+	/// en: 'Empty = direct connection'
+	String get empty => 'Empty = direct connection';
+}
+
 // Path: chat.tool.kind
 class Translations$chat$tool$kind$en {
 	Translations$chat$tool$kind$en.internal(this._root);
@@ -5933,6 +6053,36 @@ extension on Translations {
 			'settings.mcp.noCalls' => 'No calls yet',
 			'settings.mcp.noStderr' => 'No output yet',
 			'settings.mcp.callsAgg' => ({required Object ok, required Object failed}) => '✓ ${ok} · ✗ ${failed}',
+			'settings.storage.dataDir' => 'Data directory',
+			'settings.storage.revealFinder' => 'Reveal in Finder',
+			'settings.storage.diskUsage' => 'Disk usage',
+			'settings.storage.diskSandbox' => 'Sandbox runtimes & envs',
+			'settings.storage.diskMore' => 'Breakdown coming soon',
+			'settings.storage.openLogs' => 'Open logs folder',
+			'settings.storage.logsDesc' => 'Rolling logs, 10MB×3 per file, gzip archived',
+			'settings.storage.resetPrefs' => 'Reset local preferences',
+			'settings.storage.resetPrefsDesc' => 'Clears this machine\'s UI preferences (theme/window/zoom…) only — never touches workspace data',
+			'settings.storage.resetPrefsTitle' => 'Reset local preferences?',
+			'settings.storage.resetPrefsDone' => 'Local preferences reset',
+			'settings.storage.factoryTitle' => 'Factory reset',
+			'settings.storage.factoryWarn' => 'Stops the engine, permanently deletes the ENTIRE data directory (all workspaces / conversations / entities / documents / keys) and relaunches the app.',
+			'settings.storage.factoryHint' => 'Type “Anselm” to confirm',
+			'settings.storage.factoryConfirm' => 'Erase everything & relaunch',
+			'settings.limits.scopeNote' => 'Machine-wide — every workspace edits this machine\'s single set of limits',
+			'settings.limits.resetAll' => 'Reset all to defaults',
+			'settings.limits.resetAllTitle' => 'Reset every limit to its default?',
+			'settings.limits.patchFailed' => 'Save failed',
+			'settings.limits.modified' => 'modified',
+			'settings.network.section' => 'Network',
+			'settings.network.proxyHint' => 'Outbound proxy — AI requests reach LLM / MCP / search providers through it',
+			'settings.network.httpProxy' => 'HTTP proxy',
+			'settings.network.httpsProxy' => 'HTTPS proxy',
+			'settings.network.noProxy' => 'Bypass (comma-separated)',
+			'settings.network.proxyPlaceholder' => 'http://127.0.0.1:7890',
+			'settings.network.save' => 'Save',
+			'settings.network.saved' => 'Saved — fully effective after an engine restart',
+			'settings.network.restartNote' => 'The proxy fully takes effect after restarting the engine',
+			'settings.network.empty' => 'Empty = direct connection',
 			'markdown.imageNotLoaded' => 'image not loaded',
 			'attach.unavailable' => 'Unavailable',
 			'attach.retry' => 'Tap to retry',

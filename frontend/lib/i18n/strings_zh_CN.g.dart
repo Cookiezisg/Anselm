@@ -456,6 +456,9 @@ class _Translations$settings$zh_CN extends Translations$settings$en {
 	@override late final _Translations$settings$about$zh_CN about = _Translations$settings$about$zh_CN._(_root);
 	@override late final _Translations$settings$mem$zh_CN mem = _Translations$settings$mem$zh_CN._(_root);
 	@override late final _Translations$settings$mcp$zh_CN mcp = _Translations$settings$mcp$zh_CN._(_root);
+	@override late final _Translations$settings$storage$zh_CN storage = _Translations$settings$storage$zh_CN._(_root);
+	@override late final _Translations$settings$limits$zh_CN limits = _Translations$settings$limits$zh_CN._(_root);
+	@override late final _Translations$settings$network$zh_CN network = _Translations$settings$network$zh_CN._(_root);
 }
 
 // Path: markdown
@@ -1518,6 +1521,63 @@ class _Translations$settings$mcp$zh_CN extends Translations$settings$mcp$en {
 	@override String get noCalls => '暂无调用';
 	@override String get noStderr => '暂无输出';
 	@override String callsAgg({required Object ok, required Object failed}) => '✓ ${ok} · ✗ ${failed}';
+}
+
+// Path: settings.storage
+class _Translations$settings$storage$zh_CN extends Translations$settings$storage$en {
+	_Translations$settings$storage$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get dataDir => '数据目录';
+	@override String get revealFinder => '在访达中显示';
+	@override String get diskUsage => '磁盘占用';
+	@override String get diskSandbox => '沙箱运行时与环境';
+	@override String get diskMore => '明细即将提供';
+	@override String get openLogs => '打开日志文件夹';
+	@override String get logsDesc => '滚动日志,单文件 10MB×3,gzip 归档';
+	@override String get resetPrefs => '重置本地偏好';
+	@override String get resetPrefsDesc => '只清除本机的界面偏好(主题/窗口/缩放等),不碰任何工作区数据';
+	@override String get resetPrefsTitle => '重置本地偏好?';
+	@override String get resetPrefsDone => '本地偏好已重置';
+	@override String get factoryTitle => '恢复出厂设置';
+	@override String get factoryWarn => '将停止引擎、永久删除整个数据目录(所有工作区/对话/实体/文档/密钥)并重启应用。';
+	@override String get factoryHint => '输入「Anselm」以确认';
+	@override String get factoryConfirm => '抹掉一切并重启';
+}
+
+// Path: settings.limits
+class _Translations$settings$limits$zh_CN extends Translations$settings$limits$en {
+	_Translations$settings$limits$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get scopeNote => '全机生效——任一工作区修改的都是这台机器的同一份上限';
+	@override String get resetAll => '全部恢复默认';
+	@override String get resetAllTitle => '恢复全部默认限额?';
+	@override String get patchFailed => '保存失败';
+	@override String get modified => '已修改';
+}
+
+// Path: settings.network
+class _Translations$settings$network$zh_CN extends Translations$settings$network$en {
+	_Translations$settings$network$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get section => '网络';
+	@override String get proxyHint => '出站代理——AI 请求经它到达 LLM / MCP / 搜索服务';
+	@override String get httpProxy => 'HTTP 代理';
+	@override String get httpsProxy => 'HTTPS 代理';
+	@override String get noProxy => '绕过代理(逗号分隔)';
+	@override String get proxyPlaceholder => 'http://127.0.0.1:7890';
+	@override String get save => '保存';
+	@override String get saved => '已保存,重启引擎后完整生效';
+	@override String get restartNote => '代理配置在重启引擎后完整生效';
+	@override String get empty => '留空=直连';
 }
 
 // Path: chat.tool.kind
@@ -3285,6 +3345,36 @@ extension on TranslationsZhCn {
 			'settings.mcp.noCalls' => '暂无调用',
 			'settings.mcp.noStderr' => '暂无输出',
 			'settings.mcp.callsAgg' => ({required Object ok, required Object failed}) => '✓ ${ok} · ✗ ${failed}',
+			'settings.storage.dataDir' => '数据目录',
+			'settings.storage.revealFinder' => '在访达中显示',
+			'settings.storage.diskUsage' => '磁盘占用',
+			'settings.storage.diskSandbox' => '沙箱运行时与环境',
+			'settings.storage.diskMore' => '明细即将提供',
+			'settings.storage.openLogs' => '打开日志文件夹',
+			'settings.storage.logsDesc' => '滚动日志,单文件 10MB×3,gzip 归档',
+			'settings.storage.resetPrefs' => '重置本地偏好',
+			'settings.storage.resetPrefsDesc' => '只清除本机的界面偏好(主题/窗口/缩放等),不碰任何工作区数据',
+			'settings.storage.resetPrefsTitle' => '重置本地偏好?',
+			'settings.storage.resetPrefsDone' => '本地偏好已重置',
+			'settings.storage.factoryTitle' => '恢复出厂设置',
+			'settings.storage.factoryWarn' => '将停止引擎、永久删除整个数据目录(所有工作区/对话/实体/文档/密钥)并重启应用。',
+			'settings.storage.factoryHint' => '输入「Anselm」以确认',
+			'settings.storage.factoryConfirm' => '抹掉一切并重启',
+			'settings.limits.scopeNote' => '全机生效——任一工作区修改的都是这台机器的同一份上限',
+			'settings.limits.resetAll' => '全部恢复默认',
+			'settings.limits.resetAllTitle' => '恢复全部默认限额?',
+			'settings.limits.patchFailed' => '保存失败',
+			'settings.limits.modified' => '已修改',
+			'settings.network.section' => '网络',
+			'settings.network.proxyHint' => '出站代理——AI 请求经它到达 LLM / MCP / 搜索服务',
+			'settings.network.httpProxy' => 'HTTP 代理',
+			'settings.network.httpsProxy' => 'HTTPS 代理',
+			'settings.network.noProxy' => '绕过代理(逗号分隔)',
+			'settings.network.proxyPlaceholder' => 'http://127.0.0.1:7890',
+			'settings.network.save' => '保存',
+			'settings.network.saved' => '已保存,重启引擎后完整生效',
+			'settings.network.restartNote' => '代理配置在重启引擎后完整生效',
+			'settings.network.empty' => '留空=直连',
 			'markdown.imageNotLoaded' => '图片未加载',
 			'attach.unavailable' => '已不可用',
 			'attach.retry' => '点按重试',
