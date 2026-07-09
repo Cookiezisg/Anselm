@@ -728,37 +728,55 @@ final GalleryCategory _g4NavShell = GalleryCategory('导航与壳 Nav & Shell', 
           ),
         ), height: 200, stress: true, span: true),
   ]),
-  GalleryItem('AnInspectorHead', '右岛内容头带:icon + 标题 + 尾部动作 + 可选 meta 次行;run 终端头 + 编辑器检查器头共用', [
-    GallerySpecimen('title + subhead + collapse action', (_) => SizedBox(
+  GalleryItem('AnInspectorHead', '右岛统一头带:小字 label(meta/inkFaint) + 动作槽 + ✕ 收岛 + 可选 meta 次行;无分隔线', [
+    GallerySpecimen('label + subhead + close', (_) => SizedBox(
           width: 320,
           child: AnIsland(
             padding: EdgeInsets.zero,
             child: AnInspectorHead(
               icon: AnIcons.node('action'),
-              title: 'run_tests',
+              label: 'run_tests',
               subLeading: '动作',
               subTrailing: 'mcp:github/create_issue',
-              trailing: AnButton.iconOnly(AnIcons.close, semanticLabel: 'Collapse', onPressed: () {}),
+              onClose: () {},
+              closeSemantics: 'Collapse',
             ),
           ),
         ), span: true),
-    GallerySpecimen('title only (no subhead)', (_) => SizedBox(
+    GallerySpecimen('label + actions + close', (_) => SizedBox(
           width: 320,
           child: AnIsland(
             padding: EdgeInsets.zero,
-            child: AnInspectorHead(icon: AnIcons.workflow, title: '检查器'),
+            child: AnInspectorHead(
+              label: '活动',
+              actions: [
+                AnButton.iconOnly(AnIcons.activity, semanticLabel: '自动展示', onPressed: () {}),
+                AnButton.iconOnly(AnIcons.unfold, semanticLabel: '展开全部', onPressed: () {}),
+                AnButton.iconOnly(AnIcons.fold, semanticLabel: '收起全部', onPressed: () {}),
+              ],
+              onClose: () {},
+              closeSemantics: 'Close',
+            ),
           ),
         ), span: true),
-    GallerySpecimen('超长标题省略 + 超长 ref', (_) => SizedBox(
+    GallerySpecimen('label only (no subhead)', (_) => SizedBox(
+          width: 320,
+          child: AnIsland(
+            padding: EdgeInsets.zero,
+            child: AnInspectorHead(icon: AnIcons.workflow, label: '检查器'),
+          ),
+        ), span: true),
+    GallerySpecimen('超长 label 省略 + 超长 ref', (_) => SizedBox(
           width: 280,
           child: AnIsland(
             padding: EdgeInsets.zero,
             child: AnInspectorHead(
               icon: AnIcons.node('agent'),
-              title: 'an-extremely-long-node-identifier-that-must-ellipsis-and-hold',
+              label: 'an-extremely-long-node-identifier-that-must-ellipsis-and-hold',
               subLeading: '智能体',
               subTrailing: 'ag_an_extremely_long_reference_that_also_ellipsis',
-              trailing: AnButton.iconOnly(AnIcons.close, semanticLabel: 'x', onPressed: () {}),
+              onClose: () {},
+              closeSemantics: 'x',
             ),
           ),
         ), stress: true, span: true),

@@ -11,7 +11,6 @@ import '../../../../core/ui/an_button.dart';
 import '../../../../core/ui/an_action_group.dart';
 import '../../../../core/ui/an_callout.dart';
 import '../../../../core/ui/an_code_block.dart';
-import '../../../../core/ui/an_divider.dart';
 import '../../../../core/ui/an_info_card.dart';
 import '../../../../core/ui/an_row.dart';
 import '../../../../core/ui/an_scroll_behavior.dart';
@@ -89,7 +88,6 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _head(context, sel, state, detail),
-        const AnDivider(),
         Expanded(
           child: ScrollConfiguration(
             behavior: const AnScrollBehavior(),
@@ -136,13 +134,13 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
         children: [
           Row(
             children: [
-              Icon(AnIcons.byKey(sel.kind.scopeKind), size: AnSize.icon, color: c.inkMuted),
+              Icon(AnIcons.byKey(sel.kind.scopeKind), size: AnSize.icon, color: c.inkFaint),
               const SizedBox(width: AnSpace.s8),
               Expanded(
                 child: Text(name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AnText.body.weight(AnText.emphasisWeight).copyWith(color: c.ink)),
+                    style: AnText.meta.weight(AnText.emphasisWeight).copyWith(color: c.inkFaint)),
               ),
               AnButton.iconOnly(
                 AnIcons.close,

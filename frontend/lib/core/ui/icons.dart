@@ -62,6 +62,9 @@ abstract final class AnIcons {
   static final IconData tool = _thin(LucideIcons.wrench);
   static final IconData locate = _thin(LucideIcons.locate); // Cast「跳到发生处」jump-to-occurrence 定位
   static final IconData eye = _thin(LucideIcons.eye); // sidestage follow-mode 侧幕跟随三档
+  static final IconData activity = _thin(LucideIcons.activity); // sidestage auto-reveal (follow) 侧幕自动展示(脉冲)
+  static final IconData unfold = _thin(LucideIcons.unfoldVertical); // sidestage expand-all 展开全部
+  static final IconData fold = _thin(LucideIcons.foldVertical); // sidestage collapse-all 收起全部
   static final IconData open = _thin(LucideIcons.arrowUpRight); // Cast「去实体页」cross-ocean nav 外跳
   static final IconData subagent = _thin(LucideIcons.gitFork);
   static final IconData turnEnd = _thin(LucideIcons.flag);

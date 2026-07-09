@@ -3,32 +3,36 @@ import 'package:flutter/widgets.dart';
 import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
+import 'an_button.dart';
+import 'icons.dart';
 
-/// The right-island content HEAD band — icon + title on row one (with an optional trailing action, e.g.
-/// a collapse button), and an optional meta sub-row (a leading label + an end-aligned trailing value,
-/// e.g. kind + resolved ref). It is the shared shape behind the run terminal's head and the workflow
-/// editor's inspector head, so both read identically. Draws NO divider itself — the caller puts a
-/// hairline [Container] below it (the run-terminal idiom), then the scrolling body. Icon + texts are
-/// [ExcludeSemantics]-free but the title is the natural heading; keep it a real string.
+/// The right-island content HEAD band (unified across every right island) — a small quiet [label] saying
+/// what the panel IS (the left-island group-head vocabulary: meta size · emphasis weight · inkFaint),
+/// an optional leading kind glyph, an [actions] slot for panel-scoped quick controls, and a first-class
+/// [onClose] ✕ (md, 16px glyph) that collapses the island. An optional meta sub-row (leading label +
+/// end-aligned trailing value). Draws NO divider — content follows directly. This is the Claude-style
+/// header: label · actions · ✕, then the body — one shape behind every island so they read identically.
 ///
-/// 右岛内容头带——第一行 icon + 标题(可带尾部动作,如收起钮),可选 meta 次行(前置标签 + 右对齐值,如
-/// kind + 已解析 ref)。run 终端头与 workflow 编辑器检查器头共用此形,二者读来一致。**不自画分隔线**(调用方
-/// 在其下放一条发丝 [Container],同 run 终端做法),再接滚动 body。
+/// 右岛统一头带——小字安静 [label](左岛组头语汇:meta 字号 · emphasis 字重 · inkFaint)说明「这面板是干啥的」;
+/// 可选前导 kind 图标、[actions] 面板级快捷动作槽、一等公民 [onClose] ✕(md/16px)收岛;可选 meta 次行。
+/// **不画分隔线**,内容直接跟随。Claude 式头:label · 动作 · ✕,后接 body——每个岛同一形,读来一致。
 class AnInspectorHead extends StatelessWidget {
   const AnInspectorHead({
-    required this.icon,
-    required this.title,
+    required this.label,
+    this.icon,
     this.subLeading,
     this.subTrailing,
-    this.trailing,
+    this.actions = const <Widget>[],
+    this.onClose,
+    this.closeSemantics,
     super.key,
   });
 
-  /// Leading kind/scope glyph (decorative, inkMuted). 前导 kind 图标(装饰)。
-  final IconData icon;
+  /// The quiet panel label — what this island IS (meta · emphasis weight · inkFaint · ellipsis). 面板小字标签。
+  final String label;
 
-  /// The heading — the entity/node name (ink, emphasis weight, ellipsis). 标题(ink 加粗省略)。
-  final String title;
+  /// Optional leading kind/scope glyph (16, inkFaint). 可选前导 kind 图标。
+  final IconData? icon;
 
   /// Optional meta sub-row leading label (inkMuted) — e.g. the kind word. 次行前置标签(灰)。
   final String? subLeading;
@@ -37,13 +41,21 @@ class AnInspectorHead extends StatelessWidget {
   /// 次行右对齐值(浅灰省略),如已解析 ref。
   final String? subTrailing;
 
-  /// Optional trailing action on the title row — e.g. a bare `AnButton.iconOnly` collapse button.
-  /// 标题行尾部动作,如裸 iconOnly 收起钮。
-  final Widget? trailing;
+  /// Panel-scoped quick actions on the head row, spread before the ✕ (e.g. a follow toggle / expand-all).
+  /// 头行快捷动作,置于 ✕ 之前(如自动展示 / 展开全部)。
+  final List<Widget> actions;
+
+  /// Collapses the right island — renders a first-class ✕ (md) after [actions] when non-null. 收岛 ✕。
+  final VoidCallback? onClose;
+
+  /// The ✕ button's semantic label — the caller passes the localized string. ✕ 语义标签(调用方传本地化串)。
+  final String? closeSemantics;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final ic = icon;
+    final close = onClose;
     final sl = subLeading;
     final stt = subTrailing;
     final leading = (sl != null && sl.isNotEmpty)
@@ -54,27 +66,35 @@ class AnInspectorHead extends StatelessWidget {
         : null;
     final hasSub = leading != null || (stt != null && stt.isNotEmpty);
     return Padding(
-      // Same band metrics as the run terminal head (an_shell inspector top band). 同 run 终端头带度量。
+      // Same band metrics as the ocean floating head / inspector top band. 同浮层头 / 检查器头带度量。
       padding: const EdgeInsets.fromLTRB(AnSpace.s16, AnSpace.s12, AnSpace.s8, AnSpace.s8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
-              Icon(icon, size: AnSize.icon, color: c.inkMuted),
-              const SizedBox(width: AnSpace.s8),
+              if (ic != null) ...[
+                Icon(ic, size: AnSize.icon, color: c.inkFaint),
+                const SizedBox(width: AnSpace.s8),
+              ],
               Expanded(
                 child: Semantics(
                   header: true,
                   child: Text(
-                    title,
+                    label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AnText.body.weight(AnText.emphasisWeight).copyWith(color: c.ink),
+                    style: AnText.meta.weight(AnText.emphasisWeight).copyWith(color: c.inkFaint),
                   ),
                 ),
               ),
-              ?trailing,
+              ...actions,
+              if (close != null)
+                AnButton.iconOnly(
+                  AnIcons.close,
+                  semanticLabel: closeSemantics ?? '',
+                  onPressed: close,
+                ),
             ],
           ),
           if (hasSub) ...[

@@ -10,7 +10,6 @@ import '../../../../core/model/status_state.dart';
 import '../../../../core/ui/an_action_group.dart';
 import '../../../../core/ui/an_badge.dart';
 import '../../../../core/ui/an_button.dart';
-import '../../../../core/ui/an_divider.dart';
 import '../../../../core/ui/an_dropdown.dart';
 import '../../../../core/ui/an_form_field.dart';
 import '../../../../core/ui/an_input.dart';
@@ -72,16 +71,12 @@ class WorkflowEditorInspector extends ConsumerWidget {
       children: [
         AnInspectorHead(
           icon: headIcon,
-          title: headTitle,
+          label: headTitle,
           subLeading: subLeading,
           subTrailing: subTrailing,
-          trailing: AnButton.iconOnly(
-            AnIcons.close,
-            semanticLabel: context.t.shell.togglePanel,
-            onPressed: () => ref.read(rightPanelCollapsedProvider.notifier).set(true),
-          ),
+          onClose: () => ref.read(rightPanelCollapsedProvider.notifier).set(true),
+          closeSemantics: context.t.shell.togglePanel,
         ),
-        const AnDivider(),
         Expanded(
           child: node != null
               ? _body(_NodeEditor(node: node, notifier: notifier))

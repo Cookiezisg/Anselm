@@ -11,7 +11,6 @@ import '../../../core/design/typography.dart';
 import '../../../core/overlay/an_overlay.dart';
 import '../../../core/perf/debouncer.dart';
 import '../../../core/shell/right_panel.dart';
-import '../../../core/ui/an_button.dart';
 import '../../../core/ui/an_divider.dart';
 import '../../../core/ui/an_dropdown.dart';
 import '../../../core/ui/an_form_field.dart';
@@ -81,14 +80,10 @@ class _InspectorShell extends ConsumerWidget {
       children: [
         AnInspectorHead(
           icon: icon,
-          title: title,
-          trailing: AnButton.iconOnly(
-            AnIcons.close,
-            semanticLabel: context.t.shell.togglePanel,
-            onPressed: () => ref.read(rightPanelCollapsedProvider.notifier).set(true),
-          ),
+          label: title,
+          onClose: () => ref.read(rightPanelCollapsedProvider.notifier).set(true),
+          closeSemantics: context.t.shell.togglePanel,
         ),
-        const AnDivider(),
         Expanded(
           child: ScrollConfiguration(
             behavior: const AnScrollBehavior(),

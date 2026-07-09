@@ -78,16 +78,13 @@ class StagePanel extends ConsumerWidget {
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       AnInspectorHead(
         icon: AnIcons.subagent,
-        title: t.chat.stage.title,
-        trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-          // The follow three-notch (WRK-061 §12-1): every-time / first-per-conversation / never —
-          // persisted, and the settings module (路线⑤) will read the same provider.
-          // 跟随三档:每次/每会话首次/从不——持久化;settings 模块读同一 provider。
-          _FollowMenu(),
-          if (stage.stageOpen)
-            AnButton.iconOnly(AnIcons.close,
-                size: AnButtonSize.sm, semanticLabel: t.chat.stage.title, onPressed: director.dismiss),
-        ]),
+        label: t.chat.stage.title,
+        // The follow three-notch (WRK-061 §12-1): every-time / first-per-conversation / never —
+        // persisted, and the settings module (路线⑤) reads the same provider. (Step-7 rebuild adds
+        // expand-all / collapse-all here.) 跟随三档;步7 重构在此加展开/收起全部。
+        actions: [_FollowMenu()],
+        onClose: stage.stageOpen ? director.dismiss : null,
+        closeSemantics: t.chat.stage.title,
       ),
       if (stage.channels.isNotEmpty)
         Padding(
