@@ -1014,6 +1014,10 @@ class _Translations$chat$stage$zh_CN extends Translations$chat$stage$en {
 
 	// Translations
 	@override String get title => '侧幕';
+	@override String get island => '活动';
+	@override String get tasks => '待办';
+	@override String get expandAll => '展开全部';
+	@override String get collapseAll => '收起全部';
 	@override String get following => '跟随';
 	@override String get pinned => '已锁定';
 	@override String get live => '进行中';
@@ -2627,6 +2631,10 @@ extension on TranslationsZhCn {
 			'chat.contextCompacted' => '上下文已压缩',
 			'chat.contextCompactedCount' => ({required Object n}) => '上下文已压缩 · ${n} 条更早消息已折叠进摘要',
 			'chat.stage.title' => '侧幕',
+			'chat.stage.island' => '活动',
+			'chat.stage.tasks' => '待办',
+			'chat.stage.expandAll' => '展开全部',
+			'chat.stage.collapseAll' => '收起全部',
 			'chat.stage.following' => '跟随',
 			'chat.stage.pinned' => '已锁定',
 			'chat.stage.live' => '进行中',
@@ -3111,12 +3119,12 @@ extension on TranslationsZhCn {
 			'documents.props.description' => '描述',
 			'documents.props.tags' => '标签',
 			'documents.props.addTag' => '添加标签',
+			_ => null,
+		} ?? switch (path) {
 			'documents.props.path' => '路径',
 			'documents.props.size' => '大小',
 			'documents.props.modified' => '修改时间',
 			'documents.props.context' => '上下文',
-			_ => null,
-		} ?? switch (path) {
 			'documents.props.contextInline' => '内联',
 			'documents.props.contextFork' => '分叉',
 			'documents.props.agent' => 'Agent',

@@ -1,6 +1,5 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/design/colors.dart';
@@ -10,6 +9,7 @@ import '../../../core/model/partial_json.dart';
 import '../../../core/perf/coalescing_notifier.dart';
 import '../../../core/router/panel_registry.dart';
 import '../../../core/settings/app_prefs_providers.dart';
+import '../../../core/shell/right_panel.dart';
 import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
 import '../model/conversation_transcript.dart';
@@ -19,23 +19,25 @@ import '../model/tool_receipts.dart';
 import '../state/conversation_stream_provider.dart';
 import '../state/rundown_provider.dart';
 import '../state/stage_director_provider.dart';
+import '../state/stage_expansion.dart';
 import '../state/touchpoint_ledger.dart';
-import '../state/exhibit_provider.dart';
 import '../state/transcript_jump_provider.dart';
 import 'stages/stage_registry.dart';
 import 'stages/stage_scene.dart';
 import 'tool_card_skins.dart';
-import 'exhibit_stage.dart';
 import '../state/flowrun_progress.dart';
 import 'tool_card_nav.dart';
 
-/// The SIDESTAGE (WRK-061 §1/§6) — the chat right island's content: head band → channel strip →
-/// the stage (the director's subject rendered live) → follow/gate pills → the Cast (touchpoint
-/// ledger). W1 ships the spine + the GENERIC STAGE (subject brow + closed-args KV + live tail window
-/// + RunStatBar) — the per-kind bespoke stages replace the generic body from W2 onward.
+/// The SIDESTAGE (WRK-061 · rebuilt WRK-064) — the chat right island's content, now a STICKY ACCORDION
+/// LIST: the unified head (label · follow · expand/collapse-all · ✕) over one scroll where every touchpoint
+/// (the R-2 ledger entity) is a left-island [AnRow] that expands IN PLACE to the carefully-built kind stage.
+/// A todo board pins as row zero (a progress-ring lead). A LIVE activity auto-expands its own row + scrolls
+/// it into view ONCE — the director's single-subject arbitration is the "which one auto-opens" signal, so
+/// parallel tool calls never make the viewport jump; a user who grabs the scroll is never fought (§4 rules).
 ///
-/// 侧幕——chat 右岛内容:头带→频道条→舞台(导演器主角活渲)→跟随/人闸药丸→演员表(触点台账)。
-/// W1 落脊柱+**通用舞台**(主角眉+闭合 args KV 陈列+活尾窗+RunStatBar);逐 kind 量身舞台自 W2 起替换通用体。
+/// 侧幕(重构):chat 右岛内容=**粘性手风琴列表**。统一头 + 单滚:每个 touchpoint(R-2 台账实体)是一条左岛 AnRow,
+/// 就地展开精心做的 kind 舞台;todo 板置顶为第 0 行(进度环 lead)。live 活动自动展开自身行 + 滚入一次——导演器
+/// 单主角仲裁=「自动展开谁」的信号,并行 tool call 绝不让视口跳;用户接管滚动绝不抢(§4)。
 class StagePanel extends ConsumerWidget {
   const StagePanel({required this.conversationId, super.key});
 
@@ -43,19 +45,15 @@ class StagePanel extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final c = context.colors;
     final t = Translations.of(context);
-    final stage = ref.watch(stageDirectorProvider(conversationId));
-    final director = ref.read(stageDirectorProvider(conversationId).notifier);
-    // The a11y four announcements (WRK-061 §11 a11y 章): staging / human gate / failure / settle —
-    // polite interruptions for screen-reader users who cannot see the silent stage swaps.
-    // a11y 四播报:登台/人闸/失败/落定——对看不见无声换台的读屏用户礼貌插话。
+    // The a11y four announcements (WRK-061 §11): staging / human gate / failure / settle — polite
+    // interruptions for screen-reader users who cannot see the silent auto-expands. a11y 四播报。
     ref.listen(stageDirectorProvider(conversationId), (prev, next) {
       if (prev == null) return;
       final t2 = Translations.of(context);
       String subjectWord(StageActivityView? a) => a?.itemId ?? a?.kind ?? '';
-      void announce(String msg) => SemanticsService.sendAnnouncement(
-          View.of(context), msg, Directionality.of(context));
+      void announce(String msg) =>
+          SemanticsService.sendAnnouncement(View.of(context), msg, Directionality.of(context));
       if (next.subject != null &&
           (prev.subject?.blockId != next.subject!.blockId || (!prev.stageOpen && next.stageOpen))) {
         announce(t2.chat.stage.a11y.staged(name: subjectWord(next.subject)));
@@ -68,100 +66,512 @@ class StagePanel extends ConsumerWidget {
         announce(t2.chat.stage.a11y.settled(name: subjectWord(prev.subject)));
       }
     });
-    // The user-held exhibit wins the stage area until dismissed (pinned semantics — automatic
-    // staging never displaces it; live activity stays visible on the channel strip).
-    // 用户持有的展品占舞台区直到关闭(pinned 语义——自动登台不顶;活动仍在频道条)。
-    final exhibit = ref.watch(exhibitProvider(conversationId));
-    final transcript =
-        ref.watch(conversationStreamProvider(conversationId).notifier).transcript;
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       AnInspectorHead(
-        icon: AnIcons.subagent,
-        label: t.chat.stage.title,
-        // The follow three-notch (WRK-061 §12-1): every-time / first-per-conversation / never —
-        // persisted, and the settings module (路线⑤) reads the same provider. (Step-7 rebuild adds
-        // expand-all / collapse-all here.) 跟随三档;步7 重构在此加展开/收起全部。
-        actions: [_FollowMenu()],
-        onClose: stage.stageOpen ? director.dismiss : null,
-        closeSemantics: t.chat.stage.title,
+        label: t.chat.stage.island,
+        // The follow three-notch + expand-all / collapse-all (all 16px, left-island icon language).
+        // 跟随三档 + 展开/收起全部(皆 16px,左岛 icon 语言)。
+        actions: [
+          _FollowMenu(),
+          _ExpandAllButton(conversationId: conversationId),
+          _CollapseAllButton(conversationId: conversationId),
+        ],
+        // ✕ collapses the right island (unified across every island, WRK-064). ✕ 收岛(统一)。
+        onClose: () => ref.read(rightPanelCollapsedProvider.notifier).set(true),
+        closeSemantics: t.shell.togglePanel,
       ),
-      if (stage.channels.isNotEmpty)
-        Padding(
-          padding: const EdgeInsets.fromLTRB(AnSpace.s8, AnSpace.s4, AnSpace.s8, AnSpace.s4),
-          child: AnChannelStrip(
-            channels: [
-              for (final ch in stage.channels)
-                AnChannel(id: ch.blockId, kind: ch.kind, unread: ch.unread, live: ch.live, failed: ch.failed),
-            ],
-            activeId: stage.subject?.blockId,
-            onTap: (id) => director.pin(blockId: id),
-          ),
-        ),
-      if (exhibit != null)
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8),
-          child: ExhibitStage(conversationId: conversationId, subject: exhibit),
-        ),
-      AnExpandReveal(
-        open: exhibit == null && stage.stageOpen,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8),
-          child: stage.subject == null
-              ? const SizedBox.shrink()
-              : _GenericStage(
-                  conversationId: conversationId,
-                  subject: stage.subject!,
-                  phase: stage.phase,
-                  transcript: transcript,
-                  onPin: () => director.pin(),
-                  onItemResolved: (itemId) => director.itemResolved(stage.subject!.blockId, itemId),
-                  // R-14: a settle hands off to the transcript anchor — jump to the turn that
-                  // contains the subject block (a role-式 Subagent's ONLY anchor).
-                  // R-14:谢幕交棒 transcript 锚——跳到含主角块的回合(role 式 Subagent 唯一的锚)。
-                  onJumpAnchor: () {
-                    final mid = transcript.value.messageIdOf(stage.subject!.blockId);
-                    if (mid != null) {
-                      ref
-                          .read(transcriptJumpProvider(conversationId).notifier)
-                          .request(mid, blockId: stage.subject!.blockId);
-                    }
-                  },
-                ),
-        ),
-      ),
-      if (stage.gateWaiting || stage.followPillTarget != null)
-        Padding(
-          padding: const EdgeInsets.fromLTRB(AnSpace.s8, AnSpace.s4, AnSpace.s8, 0),
-          child: Row(children: [
-            Flexible(
-              child: stage.gateWaiting
-                  // The amber pill pierces everything; deciding happens in the transcript gate only.
-                  // 琥珀药丸破一切静默;决策只在 transcript 白岛门。
-                  ? AnFollowPill(kind: AnFollowPillKind.gate, onTap: () {})
-                  : AnFollowPill(
-                      kind: AnFollowPillKind.live,
-                      subjectName: stage.followPillTarget!.itemId ?? stage.followPillTarget!.kind,
-                      onTap: director.resume,
-                    ),
-            ),
-          ]),
-        ),
-      _RundownSection(conversationId: conversationId),
-      const SizedBox(height: AnSpace.s6),
-      Container(height: AnSize.hairline, color: c.line),
-      Expanded(child: _CastList(conversationId: conversationId, stage: stage)),
+      Expanded(child: _AccordionList(conversationId: conversationId)),
     ]);
   }
 }
 
-/// The generic stage body — every kind's fallback until its bespoke stage lands (W2–W5). Designed,
-/// not a stub (§10-W1): subject brow (kind glyph + resolving name + phase章 + pin), the honesty
-/// ribbon, closed top-level args as a KV list, the in-flight tail in a machine window, RunStatBar on
-/// settle. Rides the transcript coalescer (≤1 rebuild/frame) — content cost is session-incremental.
-///
-/// 通用舞台——量身舞台落地前的兜底,但按设计做非空窗:主角眉(kind 字形+候名+相位章+pin)、诚实丝带、
-/// 闭合顶层 args KV 陈列、在途尾值机器窗、落定 RunStatBar。骑 transcript coalescer(每帧≤1 重建)。
+/// The head's «展开全部» — opens the todo row + every ledger row. 展开全部。
+class _ExpandAllButton extends ConsumerWidget {
+  const _ExpandAllButton({required this.conversationId});
+
+  final String conversationId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = Translations.of(context);
+    return AnButton.iconOnly(
+      AnIcons.unfold,
+      semanticLabel: t.chat.stage.expandAll,
+      onPressed: () {
+        final ledger = ref.read(touchpointLedgerProvider(conversationId));
+        ref.read(stageExpansionProvider(conversationId).notifier).expandAll([
+          'todo',
+          for (final e in ledger.entities) '${e.kind}:${e.key}',
+        ]);
+      },
+    );
+  }
+}
+
+/// The head's «收起全部» — an explicit collapse that wins over the sticky-open rule. 收起全部。
+class _CollapseAllButton extends ConsumerWidget {
+  const _CollapseAllButton({required this.conversationId});
+
+  final String conversationId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = Translations.of(context);
+    return AnButton.iconOnly(
+      AnIcons.fold,
+      semanticLabel: t.chat.stage.collapseAll,
+      onPressed: () => ref.read(stageExpansionProvider(conversationId).notifier).collapseAll(),
+    );
+  }
+}
+
+/// One accordion row's spec — a ledger [entity] and/or a [view] (the live activity overlaying it). A
+/// pure-live row (no ledger yet) has [entity] null; a settled row has [view] null. 一行的规格。
+class _RowSpec {
+  const _RowSpec({required this.rowId, this.entity, this.view});
+
+  final String rowId;
+  final CastEntity? entity;
+  final StageActivityView? view;
+
+  bool get live => view != null;
+}
+
+/// The accordion list itself — the scroll + the §4 follow rules (auto-expand once per live block, scroll it
+/// into view only when off-screen, never steal a user-held scroll). 手风琴列表:滚动 + §4 跟随规则。
+class _AccordionList extends ConsumerStatefulWidget {
+  const _AccordionList({required this.conversationId});
+
+  final String conversationId;
+
+  @override
+  ConsumerState<_AccordionList> createState() => _AccordionListState();
+}
+
+class _AccordionListState extends ConsumerState<_AccordionList> {
+  final ScrollController _scroll = ScrollController();
+
+  /// Live blocks already auto-opened once — each live activity claims the viewport at most once (§4-2).
+  /// 已自动展开过的 live block(每 live 一生一次)。
+  final Set<String> _autoHandled = {};
+
+  /// The user grabbed the scroll → suspend all auto-scroll until they return to the bottom (§4-3).
+  /// 用户接管滚动 → 挂起自动滚,回底才恢复。
+  bool _takeover = false;
+
+  /// Per-row keys for [Scrollable.ensureVisible]. 每行 key(用于滚入视口)。
+  final Map<String, GlobalKey> _rowKeys = {};
+
+  String get conversationId => widget.conversationId;
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  GlobalKey _keyFor(String rowId) => _rowKeys.putIfAbsent(rowId, () => GlobalKey());
+
+  // §4-3 — a USER-initiated scroll (direction ≠ idle) suspends auto-scroll; returning near the bottom
+  // resumes it. ScrollUpdateNotification is NEVER treated as takeover (else a programmatic ensureVisible
+  // would self-lock). 用户手动滚即挂起,回底恢复;update 帧一律不当接管(否则 ensureVisible 自锁)。
+  bool _onScroll(ScrollNotification n) {
+    if (n is UserScrollNotification && n.direction != ScrollDirection.idle) {
+      _takeover = true;
+    } else if (n is ScrollEndNotification && _isNearBottom) {
+      _takeover = false;
+    }
+    return false;
+  }
+
+  bool get _isNearBottom {
+    if (!_scroll.hasClients) return false;
+    final p = _scroll.position;
+    if (!p.hasContentDimensions || !p.maxScrollExtent.isFinite) return false;
+    return p.pixels >= p.maxScrollExtent - 80; // threshold, never atEdge/exact 阈值,不用 atEdge
+  }
+
+  // §4-1/§4-2 — the director staged a NEW subject (follow already gated it): open its row (sticky) and
+  // scroll it into view ONCE. Also migrate the expansion key when a subject's itemId finally resolves
+  // (block:<id> → kind:<itemId>) so the auto-opened row stays open across the key change.
+  // 导演器登了新主角(follow 已放行):展开其行(粘性)+ 滚入视口一次;itemId 解出时迁移展开键。
+  void _onDirector(StageState? prev, StageState next) {
+    final subj = next.subject;
+    if (subj == null) return;
+    final block = subj.blockId;
+    final id = subj.itemId;
+    final resolvedRow = (id != null && id.isNotEmpty) ? '${subj.kind}:$id' : null;
+    final blockRow = 'block:$block';
+    final expNotifier = ref.read(stageExpansionProvider(conversationId).notifier);
+    if (resolvedRow != null) {
+      final exp = ref.read(stageExpansionProvider(conversationId));
+      if (exp.contains(blockRow) && !exp.contains(resolvedRow)) {
+        expNotifier.close(blockRow);
+        expNotifier.open(resolvedRow);
+        _autoHandled.add(block); // already handled — the migrate is the open 迁移即已处理
+      }
+    }
+    if (!next.stageOpen || _autoHandled.contains(block)) return;
+    _autoHandled.add(block);
+    final rowId = resolvedRow ?? blockRow;
+    expNotifier.open(rowId);
+    _scrollToRow(rowId);
+  }
+
+  void _scrollToRow(String rowId) {
+    if (_takeover) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _takeover || !_scroll.hasClients) return;
+      final ctx = _rowKeys[rowId]?.currentContext;
+      if (ctx == null) return; // not built = far off-screen → don't chase (§4-2) 未构建=远在视口外,不追
+      final box = ctx.findRenderObject();
+      if (box is! RenderBox || !box.hasSize) return;
+      final viewport = RenderAbstractViewport.of(box);
+      final lead = viewport.getOffsetToReveal(box, 0.0).offset;
+      final trail = viewport.getOffsetToReveal(box, 1.0).offset;
+      final px = _scroll.position.pixels;
+      // Already fully visible (row shorter than the viewport, current offset between the two reveals) → skip.
+      // 已完整可见 → 不动。
+      if (lead >= trail && px >= trail && px <= lead) return;
+      Scrollable.ensureVisible(
+        ctx,
+        alignment: 0.5, // centre-reveal, so it never brushes the bottom edge + re-arms follow 居中揭示
+        alignmentPolicy: ScrollPositionAlignmentPolicy.explicit,
+        duration: AnMotion.mid,
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
+  List<_RowSpec> _computeRows(StageState stage, TouchpointLedgerState ledger) {
+    // Live activities by rowId (resolved itemId → kind:itemId; else block:<blockId> so it still shows +
+    // can be auto-expanded — resolving migrates the key). 活动按 rowId(未解出用 blockId 键)。
+    final viewByRow = <String, StageActivityView>{};
+    void addView(StageActivityView? a, {required bool gate}) {
+      if (a == null || (gate && !stage.stageOpen)) return;
+      final id = a.itemId;
+      final rid = (id != null && id.isNotEmpty) ? '${a.kind}:$id' : 'block:${a.blockId}';
+      viewByRow.putIfAbsent(rid, () => a); // subject added first wins its slot 主角先占
+    }
+    addView(stage.subject, gate: true);
+    for (final ch in stage.channels) {
+      addView(ch, gate: false);
+    }
+
+    final specs = <_RowSpec>[];
+    final ledgerKeys = {for (final e in ledger.entities) '${e.kind}:${e.key}'};
+    // Synthetic live rows (a live activity with no ledger row yet) ride on top, in insertion order
+    // (subject first). 合成 live 行置顶(主角先)。
+    for (final entry in viewByRow.entries) {
+      if (!ledgerKeys.contains(entry.key)) {
+        specs.add(_RowSpec(rowId: entry.key, view: entry.value));
+      }
+    }
+    for (final e in ledger.entities) {
+      specs.add(_RowSpec(rowId: '${e.kind}:${e.key}', entity: e, view: viewByRow['${e.kind}:${e.key}']));
+    }
+    return specs;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen(stageDirectorProvider(conversationId), _onDirector);
+    final t = Translations.of(context);
+    final stage = ref.watch(stageDirectorProvider(conversationId));
+    final ledger = ref.watch(touchpointLedgerProvider(conversationId));
+    final expanded = ref.watch(stageExpansionProvider(conversationId));
+    final boards = ref.watch(rundownProvider(conversationId));
+    final transcript = ref.watch(conversationStreamProvider(conversationId).notifier).transcript;
+
+    final hasTodo = boards.values.any((b) => b.todos.isNotEmpty);
+    final rows = _computeRows(stage, ledger);
+
+    // Empty / loading / failed — only when there's nothing to show at all (no rows, no todo, no live).
+    // 空/加载/失败:仅当无行、无 todo、无 live。
+    if (rows.isEmpty && !hasTodo) {
+      if (!ledger.hydrated && ledger.loading) {
+        return const Padding(padding: EdgeInsets.all(AnSpace.s8), child: AnSkeleton.row());
+      }
+      if (ledger.failed) {
+        return AnState(
+          kind: AnStateKind.error,
+          size: AnStateSize.inset,
+          title: t.chat.stage.castEmpty,
+          action: AnButton(
+            label: t.chat.retry,
+            size: AnButtonSize.sm,
+            onPressed: () => ref.read(touchpointLedgerProvider(conversationId).notifier).retry(),
+          ),
+        );
+      }
+      return AnState(
+        kind: AnStateKind.empty,
+        size: AnStateSize.inset,
+        icon: AnIcons.entities,
+        title: t.chat.stage.castEmpty,
+        hint: t.chat.stage.castEmptyHint,
+      );
+    }
+
+    final todoCount = hasTodo ? 1 : 0;
+    return NotificationListener<ScrollNotification>(
+      onNotification: _onScroll,
+      child: ListView.builder(
+        controller: _scroll,
+        padding: const EdgeInsets.symmetric(horizontal: AnSpace.s4, vertical: AnSpace.s4),
+        itemCount: todoCount + rows.length + (ledger.hasMore ? 1 : 0),
+        itemBuilder: (context, i) {
+          if (hasTodo && i == 0) {
+            return KeyedSubtree(
+              key: _keyFor('todo'),
+              child: _TodoRow(conversationId: conversationId, open: expanded.contains('todo')),
+            );
+          }
+          final idx = i - todoCount;
+          if (idx >= rows.length) {
+            // load-more foot — fires on becoming visible. 载更多脚。
+            ref.read(touchpointLedgerProvider(conversationId).notifier).loadMore();
+            return const Padding(padding: EdgeInsets.all(AnSpace.s8), child: AnSkeleton.row());
+          }
+          final spec = rows[idx];
+          return KeyedSubtree(
+            key: _keyFor(spec.rowId),
+            child: _StageRow(
+              conversationId: conversationId,
+              spec: spec,
+              open: expanded.contains(spec.rowId),
+              transcript: transcript,
+              stagePhase: stage.phase,
+              subjectBlockId: stage.subject?.blockId,
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// The todo board pinned as row zero — a progress-RING lead (blue = done), «Tasks» + done/total, a
+/// rotating chevron, opening to the read-only checklist(s). Composed to the [AnRow] metrics (32 · 8-radius ·
+/// surfaceActive when open) but with the ring where a kind glyph would sit. 置顶待办行(进度环 lead)。
+class _TodoRow extends ConsumerWidget {
+  const _TodoRow({required this.conversationId, required this.open});
+
+  final String conversationId;
+  final bool open;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final t = Translations.of(context);
+    final reduced = AnMotionPref.reduced(context);
+    final boards = ref.watch(rundownProvider(conversationId));
+    final nonEmpty = [
+      for (final e in boards.entries)
+        if (e.value.todos.isNotEmpty) e.value,
+    ]..sort((a, b) => a.subagentId.compareTo(b.subagentId)); // main ("") first 主清单在前
+    if (nonEmpty.isEmpty) return const SizedBox.shrink();
+    final total = nonEmpty.fold(0, (n, b) => n + b.todos.length);
+    final done = nonEmpty.fold(0, (n, b) => n + b.completed);
+    void toggle() => ref.read(stageExpansionProvider(conversationId).notifier).toggle('todo');
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      AnInteractive(
+        onTap: toggle,
+        selected: open,
+        expanded: open,
+        builder: (ctx, states) => ClipRRect(
+          borderRadius: BorderRadius.circular(AnRadius.button),
+          child: AnimatedContainer(
+            duration: reduced ? Duration.zero : AnMotion.fast,
+            constraints: const BoxConstraints(minHeight: AnSize.row),
+            color: open ? c.surfaceActive : c.surfaceHover.whenActive(states.isActive),
+            padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8),
+            child: Row(children: [
+              AnTaskRing(completed: done, total: total),
+              const SizedBox(width: AnSpace.s8),
+              Expanded(
+                child: Text(t.chat.stage.tasks,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AnText.body.copyWith(color: open || states.isActive ? c.ink : c.inkMuted)),
+              ),
+              const SizedBox(width: AnSpace.s8),
+              Text('$done/$total', style: AnText.metaTabular().copyWith(color: c.inkFaint)),
+              const SizedBox(width: AnSpace.s6),
+              AnimatedRotation(
+                duration: reduced ? Duration.zero : AnMotion.fast,
+                turns: open ? 0.25 : 0,
+                child: Icon(AnIcons.chevronRight, size: AnSize.iconSm, color: c.inkFaint),
+              ),
+            ]),
+          ),
+        ),
+      ),
+      AnExpandReveal(
+        open: open,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(AnSpace.s8, AnSpace.s4, AnSpace.s8, AnSpace.s8),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+            for (final board in nonEmpty) ...[
+              if (board.subagentId.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: AnSpace.s4, bottom: AnSpace.s2),
+                  child: Text(t.chat.stage.boardOf(name: board.subagentId),
+                      style: AnText.meta.copyWith(color: c.inkFaint)),
+                ),
+              AnRundownList(todos: board.todos),
+            ],
+          ]),
+        ),
+      ),
+    ]);
+  }
+}
+
+/// One touchpoint row — a left-island [AnRow] header (kind glyph · name · verb·count · live dot · hover-swap
+/// chevron; surfaceActive box when open) over a de-indented [AnExpandReveal] body: the LIVE stage
+/// ([_GenericStage], streaming) when a live activity backs it, else the settled identity summary. The body
+/// is flush-left with the row (no extra indent — the belonging is obvious, WRK-064). touchpoint 行。
+class _StageRow extends ConsumerWidget {
+  const _StageRow({
+    required this.conversationId,
+    required this.spec,
+    required this.open,
+    required this.transcript,
+    required this.stagePhase,
+    required this.subjectBlockId,
+  });
+
+  final String conversationId;
+  final _RowSpec spec;
+  final bool open;
+  final CoalescingNotifier<ConversationTranscript> transcript;
+  final StagePhase stagePhase;
+  final String? subjectBlockId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = Translations.of(context);
+    final director = ref.read(stageDirectorProvider(conversationId).notifier);
+    final entity = spec.entity;
+    final view = spec.view;
+    final kind = entity?.kind ?? view?.kind ?? 'tool';
+    final name = entity?.displayName ?? view?.itemId ?? view?.toolName ?? spec.rowId;
+    final tombstoned = entity?.tombstoned ?? false;
+
+    final String meta;
+    if (entity != null) {
+      final p = entity.primary;
+      meta = p.count > 1
+          ? '${AnCastRow.verbWord(t, p.verb)} ×${p.count}'
+          : AnCastRow.verbWord(t, p.verb);
+    } else {
+      meta = t.chat.stage.live;
+    }
+
+    void toggle() => ref.read(stageExpansionProvider(conversationId).notifier).toggle(spec.rowId);
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      AnRow(
+        icon: AnIcons.entityKindGlyph(kind),
+        label: name,
+        meta: meta,
+        selected: open,
+        collapsible: true,
+        open: open,
+        // A live activity earns the persistent blue dot; a clean tombstone/settled row stays quiet.
+        // live 得常驻蓝点;落定/墓碑安静。
+        trailingDot: spec.live ? AnStatus.run : null,
+        onSelect: toggle,
+        onToggle: toggle,
+      ),
+      AnExpandReveal(
+        open: open,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(AnSpace.s8, AnSpace.s2, AnSpace.s8, AnSpace.s8),
+          child: spec.live && view != null
+              ? _GenericStage(
+                  conversationId: conversationId,
+                  subject: view,
+                  phase: view.blockId == subjectBlockId
+                      ? stagePhase
+                      : (view.failed ? StagePhase.failedHold : StagePhase.following),
+                  transcript: transcript,
+                  onPin: () => director.pin(blockId: view.blockId),
+                  onItemResolved: (itemId) => director.itemResolved(view.blockId, itemId),
+                )
+              : entity != null
+                  ? _SettledBody(conversationId: conversationId, entity: entity, tombstoned: tombstoned)
+                  : const SizedBox.shrink(),
+        ),
+      ),
+    ]);
+  }
+}
+
+/// A settled touchpoint's inline summary — the entity's verb history (each verb · count · last-touch) over
+/// the id, plus the two navigation actions (jump-to-occurrence / open the entity page). No GET on a
+/// tombstone. 落定触点摘要:动词史 + id + 双导航动作(墓碑不 GET)。
+class _SettledBody extends ConsumerWidget {
+  const _SettledBody({required this.conversationId, required this.entity, required this.tombstoned});
+
+  final String conversationId;
+  final CastEntity entity;
+  final bool tombstoned;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final t = Translations.of(context);
+    final lastMessageId = entity.primary.lastMessageId;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+      AnKv(dense: true, rows: [
+        AnKvRow('id', entity.key, mono: true),
+        for (final r in entity.byVerb.values)
+          AnKvRow(
+            AnCastRow.verbWord(t, r.verb),
+            r.count > 1
+                ? '×${r.count} · ${AnCastRow.timeLabel(context, r.lastAt)}'
+                : AnCastRow.timeLabel(context, r.lastAt),
+          ),
+      ]),
+      if (tombstoned)
+        Padding(
+          padding: const EdgeInsets.only(top: AnSpace.s4),
+          child: Text(t.chat.stage.tombstone, style: AnText.meta.copyWith(color: c.danger)),
+        ),
+      if (!tombstoned && (lastMessageId.isNotEmpty || hasPanelFor(entity.kind))) ...[
+        const SizedBox(height: AnSpace.s6),
+        Row(children: [
+          if (lastMessageId.isNotEmpty)
+            AnButton(
+              label: t.chat.stage.jumpToScene,
+              icon: AnIcons.locate,
+              size: AnButtonSize.sm,
+              onPressed: () =>
+                  ref.read(transcriptJumpProvider(conversationId).notifier).request(lastMessageId),
+            ),
+          if (hasPanelFor(entity.kind)) ...[
+            const SizedBox(width: AnSpace.s6),
+            AnButton(
+              label: t.chat.stage.goToEntity,
+              icon: AnIcons.open,
+              size: AnButtonSize.sm,
+              onPressed: () => toolNavTo(context, entity.kind, entity.key),
+            ),
+          ],
+        ]),
+      ],
+    ]);
+  }
+}
+
+/// The GENERIC STAGE — the fallback before a kind's bespoke stage lands, but a designed non-empty window:
+/// the subject brow (kind glyph + resolved name + phase badge + jump), an honesty ribbon, closed top-level
+/// args as a KV list, the in-flight tail in a machine window, RunStatBar on settle. Rides the transcript
+/// coalescer (≤1 rebuild/frame). 通用舞台(兜底,但按设计做非空窗)。
 class _GenericStage extends StatefulWidget {
   const _GenericStage({
     required this.conversationId,
@@ -170,7 +580,6 @@ class _GenericStage extends StatefulWidget {
     required this.transcript,
     required this.onPin,
     required this.onItemResolved,
-    required this.onJumpAnchor,
   });
 
   final String conversationId;
@@ -179,7 +588,6 @@ class _GenericStage extends StatefulWidget {
   final CoalescingNotifier<ConversationTranscript> transcript;
   final VoidCallback onPin;
   final void Function(String itemId) onItemResolved;
-  final VoidCallback onJumpAnchor;
 
   @override
   State<_GenericStage> createState() => _GenericStageState();
@@ -193,14 +601,12 @@ class _GenericStageState extends State<_GenericStage> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final t = Translations.of(context);
     return ValueListenableBuilder<ConversationTranscript>(
       valueListenable: widget.transcript,
       builder: (context, transcript, _) {
         final node = transcript.liveBlock(widget.subject.blockId);
         if (node == null) {
-          // Not in the live reducer (island opened mid-run after a reload) — honest placeholder.
-          // live reducer 里没有(重载后中途开岛)——诚实占位。
+          // Not in the live reducer (row expanded after a reload) — honest placeholder. 诚实占位。
           return Padding(
             padding: const EdgeInsets.all(AnSpace.s8),
             child: AnHonestyRibbon(widget.subject.live ? AnHonesty.gap : AnHonesty.live),
@@ -209,7 +615,8 @@ class _GenericStageState extends State<_GenericStage> {
         final state = ToolCardState.of(node);
         final session = state.argsSession;
         final name = _subjectName(state, session);
-        // R-6: hand the resolved primary id to the director for the Cast pulse. 主目标 id 喂导演器。
+        // R-6: hand the resolved primary id to the director for the Cast pulse + row-key migration.
+        // 主目标 id 喂导演器(Cast 脉冲 + 行键迁移)。
         final id = session.liveStringNamed('id') ??
             session.closedValueAt(['functionId']) as String? ??
             (name.isNotEmpty ? name : null);
@@ -221,7 +628,6 @@ class _GenericStageState extends State<_GenericStage> {
         }
         final live = node.isOpen;
         final failed = widget.phase == StagePhase.failedHold;
-        // The bespoke stage for this kind (W2+), else the designed generic body. 量身舞台,缺则通用体。
         final bespoke = stageBodies[widget.subject.kind];
         final scene = StageScene(
           conversationId: widget.conversationId,
@@ -232,52 +638,39 @@ class _GenericStageState extends State<_GenericStage> {
           session: session,
         );
         return NotificationListener<ScrollStartNotification>(
-          // Reading = holding the camera: scrolling INSIDE the stage pins it just like a tap
-          // (§2 anchored — a user mid-read must never be auto-switched away). Only USER-initiated
-          // scrolls count (dragDetails != null); programmatic settles stay free.
-          // 阅读即持镜:舞台内滚动与点按同样占用(§2 anchored——读到一半的人绝不被自动换台)。只认用户
-          // 手势(dragDetails != null),程序性滚动不占。
+          // Reading INSIDE a stage = holding the camera: a user mid-read is never auto-switched away.
+          // Only user gestures count. 舞台内滚动=持镜(只认用户手势)。
           onNotification: (n) {
             if (n.dragDetails != null) widget.onPin();
             return false;
           },
           child: GestureDetector(
-          // ANY stage interaction = the user occupies the camera (§2 following→pinned d). 舞台交互=占用。
-          onTapDown: (_) => widget.onPin(),
-          behavior: HitTestBehavior.translucent,
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            _brow(context, c, t, name, live, failed),
-            const SizedBox(height: AnSpace.s4),
-            // The ribbon guards LIVE dictation and holds the failure truth; a clean settle IS the
-            // truth — no ribbon. 丝带守活听写与失败真相;干净落定即真相,无丝带。
-            if (failed || live) ...[
-              AnHonestyRibbon(failed ? AnHonesty.failed : AnHonesty.live),
-              const SizedBox(height: AnSpace.s6),
-            ],
-            // A poll-type subject (trigger_workflow) carries the LIVE RUN SCROLL: node ticks off
-            // the entities stream roll in as quiet rows while the 202 hold listens (the streaming
-            // centerpiece — calm, line-by-line, no theatrics). poll 主体带活运行卷:节点 tick 逐行
-            // 静静落下(流式核心——克制、逐行、不演)。
-            if (stageRouteOf(widget.subject.toolName)?.lifecycle == LifecycleSource.poll)
-              _RunProgressSection(blockId: widget.subject.blockId),
-            // LIVE streaming content is semantics-noise for a screen reader (word-by-word churn) —
-            // the four announcements + the settled truth carry the meaning (a11y 章). 流式区静音。
-            ExcludeSemantics(
-              excluding: live,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (bespoke != null)
-                    Padding(
-                        padding: const EdgeInsets.only(bottom: AnSpace.s8),
-                        child: bespoke(context, scene))
-                  else
-                    ..._body(context, c, state, session, live, failed),
-                ],
+            onTapDown: (_) => widget.onPin(),
+            behavior: HitTestBehavior.translucent,
+            // No brow — the accordion ROW HEADER is the identity (kind glyph · name · live dot); the body
+            // is just the stage content + the honesty ribbon (live/failed truth). 无眉:行头即身份。
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              if (failed || live) ...[
+                AnHonestyRibbon(failed ? AnHonesty.failed : AnHonesty.live),
+                const SizedBox(height: AnSpace.s6),
+              ],
+              if (stageRouteOf(widget.subject.toolName)?.lifecycle == LifecycleSource.poll)
+                _RunProgressSection(blockId: widget.subject.blockId),
+              // Live streaming churn is semantics-noise — the four announcements carry meaning. 流式区静音。
+              ExcludeSemantics(
+                excluding: live,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (bespoke != null)
+                      Padding(padding: const EdgeInsets.only(bottom: AnSpace.s8), child: bespoke(context, scene))
+                    else
+                      ..._body(context, c, state, session, live, failed),
+                  ],
+                ),
               ),
-            ),
-          ]),
+            ]),
           ),
         );
       },
@@ -286,66 +679,13 @@ class _GenericStageState extends State<_GenericStage> {
 
   String _subjectName(ToolCardState state, PartialJsonSession session) {
     if (state.entityName.isNotEmpty) return state.entityName;
-    // TOP-LEVEL name only — a depth-blind lookup would grab nested names (agent tools[0].name).
-    // 只取顶层 name:深度盲查会误抓嵌套名(agent 的 tools[0].name)。
     final n = session.closedStringAt(['name']) ?? session.inFlightStringAt(['name']);
     if (n != null && n.isNotEmpty) return n;
     return '';
   }
 
-  Widget _brow(BuildContext context, AnColors c, Translations t, String name, bool live, bool failed) {
-    final subject = widget.subject;
-    return SizedBox(
-      height: AnSize.row,
-      child: Row(children: [
-        Icon(AnIcons.entityKindGlyph(subject.kind), size: AnSize.icon, color: c.inkMuted),
-        const SizedBox(width: AnSpace.s6),
-        Expanded(
-          child: name.isEmpty
-              ? AnShimmerText(subject.toolName, style: AnText.body.copyWith(color: c.inkFaint))
-              : Text(name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AnText.body.weight(AnText.emphasisWeight).copyWith(color: c.ink)),
-        ),
-        const SizedBox(width: AnSpace.s6),
-        AnBadge(
-          failed
-              ? t.chat.stage.failed
-              : live
-                  ? t.chat.stage.live
-                  : t.chat.stage.settled,
-          tone: failed
-              ? AnTone.danger
-              : live
-                  ? AnTone.accent
-                  : AnTone.ok,
-        ),
-        if (widget.phase == StagePhase.pinned) ...[
-          const SizedBox(width: AnSpace.s4),
-          Text(t.chat.stage.pinned, style: AnText.meta.copyWith(color: c.inkFaint)),
-        ],
-        if (!live) ...[
-          const SizedBox(width: AnSpace.s4),
-          // R-14: the settled stage's handoff to the transcript anchor. 落定舞台交棒 transcript 锚。
-          AnTooltip(
-            message: t.chat.stage.jumpToScene,
-            child: AnButton.iconOnly(
-              AnIcons.locate,
-              size: AnButtonSize.sm,
-              semanticLabel: t.chat.stage.jumpToScene,
-              onPressed: widget.onJumpAnchor,
-            ),
-          ),
-        ],
-      ]),
-    );
-  }
-
   List<Widget> _body(BuildContext context, AnColors c, ToolCardState state, PartialJsonSession session,
       bool live, bool failed) {
-    // Closed TOP-LEVEL scalar args → the KV display (framework keys stripped, long values elided —
-    // the full text belongs to the tail window / the bespoke stages). 闭合顶层标量 → KV(剥框架键)。
     final kv = <AnKvRow>[];
     for (final e in session.events) {
       if (e.path.length != 1 || e.path.first is! String) continue;
@@ -362,12 +702,7 @@ class _GenericStageState extends State<_GenericStage> {
       if (kv.isNotEmpty) AnKv(rows: kv, dense: true),
       if (live && tail != null && tail.text.isNotEmpty) ...[
         const SizedBox(height: AnSpace.s6),
-        ToolWindow(
-          child: Text(
-            tailLines(tail.text, 8),
-            style: AnText.code.copyWith(color: c.inkMuted),
-          ),
-        ),
+        ToolWindow(child: Text(tailLines(tail.text, 8), style: AnText.code.copyWith(color: c.inkMuted))),
       ],
       if (!live && !failed) ...[
         const SizedBox(height: AnSpace.s6),
@@ -375,199 +710,16 @@ class _GenericStageState extends State<_GenericStage> {
       ],
       if (failed && state.errorText.isNotEmpty) ...[
         const SizedBox(height: AnSpace.s6),
-        Text(state.errorText, maxLines: 3, overflow: TextOverflow.ellipsis,
-            style: AnText.meta.copyWith(color: c.danger)),
+        Text(state.errorText,
+            maxLines: 3, overflow: TextOverflow.ellipsis, style: AnText.meta.copyWith(color: c.danger)),
       ],
       const SizedBox(height: AnSpace.s8),
     ];
   }
 }
 
-/// The RUNDOWN under the stage (WRK-061 §6-②): appears only when a board exists — the task-ring brow
-/// (completed/total) + the read-only list; subagent boards follow with their own micro-titles.
-/// 场记(舞台下沿):有清单才现——进度环眉(完成/总数)+只读清单;subagent 清单随后,各带微标题。
-class _RundownSection extends ConsumerWidget {
-  const _RundownSection({required this.conversationId});
-
-  final String conversationId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final c = context.colors;
-    final t = Translations.of(context);
-    final boards = ref.watch(rundownProvider(conversationId));
-    final nonEmpty = [
-      for (final e in boards.entries)
-        if (e.value.todos.isNotEmpty) e.value,
-    ]..sort((a, b) => a.subagentId.compareTo(b.subagentId)); // main ("") first 主清单在前
-    if (nonEmpty.isEmpty) return const SizedBox.shrink();
-    final total = nonEmpty.fold(0, (n, b) => n + b.todos.length);
-    final done = nonEmpty.fold(0, (n, b) => n + b.completed);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(AnSpace.s8, AnSpace.s6, AnSpace.s8, 0),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          AnTaskRing(completed: done, total: total),
-          const SizedBox(width: AnSpace.s6),
-          Text('$done/$total', style: AnText.meta.copyWith(color: c.inkFaint)),
-        ]),
-        const SizedBox(height: AnSpace.s4),
-        for (final board in nonEmpty) ...[
-          if (board.subagentId.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: AnSpace.s4, bottom: AnSpace.s2),
-              child: Text(t.chat.stage.boardOf(name: board.subagentId),
-                  style: AnText.meta.copyWith(color: c.inkFaint)),
-            ),
-          AnRundownList(todos: board.todos),
-        ],
-      ]),
-    );
-  }
-}
-
-/// The backstage Cast — the aggregated ledger as [AnCastRow]s, with the empty state and load-more.
-/// 后台演员表:聚合台账渲 AnCastRow,空态+翻页。
-class _CastList extends ConsumerStatefulWidget {
-  const _CastList({required this.conversationId, required this.stage});
-
-  final String conversationId;
-  final StageState stage;
-
-  @override
-  ConsumerState<_CastList> createState() => _CastListState();
-}
-
-class _CastListState extends ConsumerState<_CastList> {
-  String get conversationId => widget.conversationId;
-  StageState get stage => widget.stage;
-
-  // The curtain-call landing (AnCurtainCall-lite): a clean settle's subject row takes a soft
-  // accent wash that decays over ~1.8s — «the stage folded INTO this ledger row». The full
-  // fly-into-row choreography stays a recorded luxury (W7 尾巴).
-  // 谢幕落账(AnCurtainCall-lite):干净落定的主角行洗上柔 accent、~1.8s 衰减——「舞台收进了这行台账」。
-  // 完整飞入行编舞仍是记账的奢侈项(W7 尾巴)。
-  String? _curtainWash;
-  Timer? _washTimer;
-
-  @override
-  void dispose() {
-    _washTimer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    ref.listen(stageDirectorProvider(conversationId), (prev, next) {
-      final subject = prev?.subject;
-      if (prev == null || subject == null) return;
-      final cleanClose = prev.stageOpen && !next.stageOpen && prev.phase != StagePhase.failedHold;
-      final item = subject.itemId;
-      if (!cleanClose || item == null) return;
-      setState(() => _curtainWash = item);
-      _washTimer?.cancel();
-      _washTimer = Timer(const Duration(milliseconds: 1800), () {
-        if (mounted) setState(() => _curtainWash = null);
-      });
-    });
-    final t = Translations.of(context);
-    final ledger = ref.watch(touchpointLedgerProvider(conversationId));
-    if (!ledger.hydrated && ledger.loading) {
-      return const Padding(padding: EdgeInsets.all(AnSpace.s8), child: AnSkeleton.row());
-    }
-    if (ledger.failed) {
-      return AnState(
-        kind: AnStateKind.error,
-        size: AnStateSize.inset,
-        title: t.chat.stage.castEmpty,
-        action: AnButton(
-          label: t.chat.retry,
-          size: AnButtonSize.sm,
-          onPressed: () => ref.read(touchpointLedgerProvider(conversationId).notifier).retry(),
-        ),
-      );
-    }
-    if (ledger.isEmpty) {
-      return AnState(
-        kind: AnStateKind.empty,
-        size: AnStateSize.inset,
-        icon: AnIcons.entities,
-        title: t.chat.stage.castEmpty,
-        hint: t.chat.stage.castEmptyHint,
-      );
-    }
-    final subjectItem = stage.subject?.itemId;
-    final entities = ledger.entities;
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: AnSpace.s4, vertical: AnSpace.s4),
-      itemCount: entities.length + (ledger.hasMore ? 1 : 0),
-      itemBuilder: (context, i) {
-        if (i >= entities.length) {
-          // The load-more foot — fires on becoming visible. 载更多脚,可见即拉。
-          ref.read(touchpointLedgerProvider(conversationId).notifier).loadMore();
-          return const Padding(
-            padding: EdgeInsets.all(AnSpace.s8),
-            child: AnSkeleton.row(),
-          );
-        }
-        final e = entities[i];
-        final named = e.displayName != e.key || e.byVerb.values.any((r) => r.itemName.isNotEmpty);
-        final lastMessageId = e.primary.lastMessageId;
-        final row = AnCastRow(
-          kind: e.kind,
-          name: e.displayName,
-          nameIsRawId: !named,
-          verb: e.primary.verb,
-          count: e.primary.count,
-          secondaryVerbs: [for (final r in e.secondary) r.verb],
-          lastAt: e.primary.lastAt,
-          tombstoned: e.tombstoned,
-          pulsing: subjectItem != null && subjectItem == e.key,
-          // Tap = pin the exhibit (settled-truth stage, no tool block needed). 点行=钉展品。
-          onTap: () => ref.read(exhibitProvider(conversationId).notifier).pin(ExhibitSubject(
-                kind: e.kind,
-                id: e.key,
-                name: e.displayName,
-                lastMessageId: lastMessageId,
-                tombstoned: e.tombstoned,
-              )),
-          // 「跳到发生处」— '' lastMessageId hides it (the contract's own rule). 空即藏。
-          onJump: lastMessageId.isEmpty
-              ? null
-              : () => ref
-                  .read(transcriptJumpProvider(conversationId).notifier)
-                  .request(lastMessageId),
-          // 「去实体页」— hidden for kinds without a panel (the pill rule). 无面板即藏。
-          onNav: hasPanelFor(e.kind) && !e.tombstoned
-              ? () => toolNavTo(context, e.kind, e.key)
-              : null,
-        );
-        if (e.key != _curtainWash) return row;
-        // The landing wash — reduced motion collapses to the end state instantly. 落账洗亮。
-        return TweenAnimationBuilder<double>(
-          key: ValueKey('curtain-${e.key}'),
-          tween: Tween(begin: 1, end: 0),
-          duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 1800),
-          curve: Curves.easeOut,
-          builder: (context, wash, child) => DecoratedBox(
-            decoration: BoxDecoration(
-              color: context.colors.accentSoft
-                  .withValues(alpha: context.colors.accentSoft.a * wash),
-              borderRadius: BorderRadius.circular(AnRadius.button),
-            ),
-            child: child,
-          ),
-          child: row,
-        );
-      },
-    );
-  }
-}
-
-/// The follow-mode three-notch menu on the sidestage head — the standing «AI 干活自动登台» consent.
-/// 侧幕头带跟随三档菜单——「AI 干活自动登台」的常设授权。
+/// The follow-mode three-notch menu on the sidestage head — the standing «AI 干活自动展开» consent, its
+/// pulse (activity) icon at the 16px chrome tier. 跟随三档菜单(activity 脉冲 icon)。
 class _FollowMenu extends ConsumerWidget {
   const _FollowMenu();
 
@@ -584,8 +736,7 @@ class _FollowMenu extends ConsumerWidget {
       anchorBuilder: (context, toggle, isOpen) => AnTooltip(
         message: '${t.chat.stage.follow.label} · ${word(mode)}',
         child: AnButton.iconOnly(
-          AnIcons.eye,
-          size: AnButtonSize.sm,
+          AnIcons.activity,
           semanticLabel: '${t.chat.stage.follow.label} · ${word(mode)}',
           onPressed: toggle,
         ),
@@ -603,12 +754,9 @@ class _FollowMenu extends ConsumerWidget {
   }
 }
 
-/// The live run scroll of a poll-type stage: the flowrun's node ticks, newest last — node id in
-/// mono, a status word, the taken `port` as a quiet accent badge; the durable terminal closes the
-/// scroll with one honest line. Bounded to the last 12 rows (enterprise calm, not a firehose).
-///
-/// poll 型舞台的活运行卷:flowrun 节点 tick 新者在后——节点 id mono、状态词、选中 `port` 一枚安静
-/// accent 徽;durable 终态以一行诚实收卷。只留末 12 行(企业级的静,不做火喉)。
+/// The live run scroll of a poll-type stage: the flowrun's node ticks, newest last — node id in mono, a
+/// status word, the taken `port` as a quiet accent badge; the durable terminal closes with one honest
+/// line. Bounded to the last 12 rows. poll 型舞台的活运行卷。
 class _RunProgressSection extends ConsumerWidget {
   const _RunProgressSection({required this.blockId});
 
@@ -627,8 +775,7 @@ class _RunProgressSection extends ConsumerWidget {
       padding: const EdgeInsets.only(bottom: AnSpace.s8),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
         if (rows.isEmpty && progress.terminal.isEmpty)
-          AnShimmerText(t.chat.stage.run.queued,
-              style: AnText.meta.copyWith(color: c.inkFaint), reveal: true),
+          AnShimmerText(t.chat.stage.run.queued, style: AnText.meta.copyWith(color: c.inkFaint), reveal: true),
         for (final n in rows)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: AnSpace.s2),
@@ -637,7 +784,7 @@ class _RunProgressSection extends ConsumerWidget {
                 switch (n.status) {
                   'completed' => AnIcons.success,
                   'failed' => AnIcons.error,
-                  _ => AnIcons.circle, // parked 等待
+                  _ => AnIcons.circle,
                 },
                 size: AnSize.iconSm - 2,
                 color: switch (n.status) {

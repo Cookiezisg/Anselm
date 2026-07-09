@@ -10,7 +10,6 @@ import 'package:anselm/features/chat/state/selected_conversation.dart';
 import 'package:anselm/features/chat/state/transcript_jump_provider.dart';
 import 'package:anselm/features/chat/ui/chat_toc.dart';
 import 'package:anselm/features/chat/ui/chat_transcript.dart';
-import 'package:anselm/features/chat/ui/exhibit_stage.dart';
 import 'package:anselm/features/chat/ui/stage_panel.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
@@ -183,22 +182,18 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
+    // Tapping the row EXPANDS it in place (accordion, WRK-064) to the settled identity summary — the id
+    // KV + the verb history — no separate exhibit surface. 点行就地展开为 settled 身份摘要(id KV + 动词史)。
     await tester.tap(find.text('sync_inventory'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.byType(ExhibitStage), findsOneWidget);
     expect(find.text('fn_1'), findsOneWidget); // the id KV row 身份 KV
     expect(find.text(t.chat.stage.verb.edited), findsWidgets); // verb history 动词史
 
-    // Switch to the attachment — the 展品座 with byte size. 换附件——展品座。
-    await tester.tap(find.text('photo.png'));
+    // Tapping it again collapses the row (sticky until re-toggled). 再点收起(粘性)。
+    await tester.tap(find.text('sync_inventory'));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('3 B'), findsOneWidget);
-
-    // Dismiss returns the stage area. 关闭归还舞台区。
-    await tester.tap(find.byIcon(AnIcons.close).last);
-    await tester.pump();
-    expect(find.byType(ExhibitStage), findsNothing);
+    await tester.pump(const Duration(milliseconds: 500)); // collapse reveal 收起揭示
+    expect(find.text('fn_1'), findsNothing);
   });
 }

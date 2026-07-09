@@ -549,6 +549,10 @@
     "contextCompactedCount": "Context compacted · $n earlier messages folded into the summary",
     "stage": {
       "title": "Sidestage",
+      "island": "Activity",
+      "tasks": "Tasks",
+      "expandAll": "Expand all",
+      "collapseAll": "Collapse all",
       "following": "Follow",
       "pinned": "Pinned",
       "live": "Live",

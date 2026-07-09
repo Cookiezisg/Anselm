@@ -145,7 +145,8 @@ void main() {
     expect(prefs.getString(SettingsKeys.chatAutoStage), 'firstPerConversation');
   });
 
-  testWidgets('curtain call: a clean settle washes the subject\'s Cast row', (tester) async {
+  testWidgets('a clean settle keeps the touchpoint row in place (no curtain removal, WRK-064)',
+      (tester) async {
     final repo = _repo();
     final at = DateTime.now().toUtc();
     repo.touchpoints[_conv] = [
@@ -173,13 +174,11 @@ void main() {
           'entityName': 'weekly.md',
         }))));
     await tester.pump(const Duration(milliseconds: 1900)); // breath 停拍
-    await tester.pump(const Duration(milliseconds: 400)); // curtain 谢幕
+    await tester.pump(const Duration(milliseconds: 400)); // the director dismisses the subject 导演器谢幕
     await tester.pump(const Duration(milliseconds: 50));
 
-    // The landing wash wraps the row that just took the settle. 落账洗亮包住刚收账的行。
-    expect(find.byKey(const ValueKey('curtain-weekly.md')), findsOneWidget);
-    await tester.pump(const Duration(milliseconds: 1900)); // decay 衰减
-    await tester.pump(const Duration(milliseconds: 50));
-    expect(find.byKey(const ValueKey('curtain-weekly.md')), findsNothing);
+    // The accordion keeps the settled row — the ledger touchpoint persists, nothing auto-collapses or
+    // removes it (§8-3 手风琴心智=同屏可见). 手风琴保留落定行(行头名 + 展开摘要 id,都是 weekly.md)。
+    expect(find.text('weekly.md'), findsWidgets);
   });
 }

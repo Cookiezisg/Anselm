@@ -44,6 +44,7 @@ class AnRow extends StatelessWidget {
     this.mono = false,
     this.leadless = false,
     this.actions = const [],
+    this.trailingDot,
     this.onSelect,
     this.onToggle,
     super.key,
@@ -79,6 +80,11 @@ class AnRow extends StatelessWidget {
   /// 整个去掉 lead 图标槽——无图标列表(大纲目录)里空槽读作莫名缩进;默认保留槽,混合列表纵向对齐。
   final bool leadless;
   final List<Widget> actions;
+
+  /// A persistent status dot pinned at the very end of the trail (after [meta]) — a live/gate signal that
+  /// stays visible at rest (unlike hover-revealed [actions]). Mirrors the rail's row signal dots.
+  /// 尾端常驻状态点(在 meta 之后)——静息也在的 live/gate 信号(异于 hover 才现的 actions),同 rail 行信号点。
+  final AnStatus? trailingDot;
   final VoidCallback? onSelect;
   final VoidCallback? onToggle;
 
@@ -215,15 +221,24 @@ class AnRow extends StatelessWidget {
         ? Text(meta!, maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.right,
             style: AnText.metaTabular().copyWith(color: c.inkFaint))
         : null;
-    if (actions.isEmpty) return metaWidget ?? const SizedBox.shrink();
     // meta ↔ actions at the same right anchor; actions revealed on hover (opacity cross-fade, no reflow).
     // meta↔actions 同右锚;hover 揭示 actions(opacity 交叉、不重排)。
-    return _HoverSwap(
-      alignment: Alignment.centerRight,
-      showSecond: active,
-      first: metaWidget ?? const SizedBox.shrink(),
-      second: Row(mainAxisSize: MainAxisSize.min, children: actions),
-    );
+    final Widget? core = actions.isEmpty
+        ? metaWidget
+        : _HoverSwap(
+            alignment: Alignment.centerRight,
+            showSecond: active,
+            first: metaWidget ?? const SizedBox.shrink(),
+            second: Row(mainAxisSize: MainAxisSize.min, children: actions),
+          );
+    final td = trailingDot;
+    if (td == null) return core ?? const SizedBox.shrink();
+    // The persistent status dot rides after the meta/actions slot (excluded from a11y — the row's own
+    // label carries the meaning). 状态点在 meta/actions 之后常驻(a11y 排除,含义归行 label)。
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      if (core != null) ...[core, const SizedBox(width: AnSpace.s6)],
+      ExcludeSemantics(child: AnStatusDot(td)),
+    ]);
   }
 }
 

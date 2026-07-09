@@ -549,6 +549,10 @@
     "contextCompactedCount": "上下文已压缩 · $n 条更早消息已折叠进摘要",
     "stage": {
       "title": "侧幕",
+      "island": "活动",
+      "tasks": "待办",
+      "expandAll": "展开全部",
+      "collapseAll": "收起全部",
       "following": "跟随",
       "pinned": "已锁定",
       "live": "进行中",

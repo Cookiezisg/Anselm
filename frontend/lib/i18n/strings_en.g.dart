@@ -2452,6 +2452,18 @@ class Translations$chat$stage$en {
 	/// en: 'Sidestage'
 	String get title => 'Sidestage';
 
+	/// en: 'Activity'
+	String get island => 'Activity';
+
+	/// en: 'Tasks'
+	String get tasks => 'Tasks';
+
+	/// en: 'Expand all'
+	String get expandAll => 'Expand all';
+
+	/// en: 'Collapse all'
+	String get collapseAll => 'Collapse all';
+
 	/// en: 'Follow'
 	String get following => 'Follow';
 
@@ -5385,6 +5397,10 @@ extension on Translations {
 			'chat.contextCompacted' => 'Context compacted',
 			'chat.contextCompactedCount' => ({required Object n}) => 'Context compacted · ${n} earlier messages folded into the summary',
 			'chat.stage.title' => 'Sidestage',
+			'chat.stage.island' => 'Activity',
+			'chat.stage.tasks' => 'Tasks',
+			'chat.stage.expandAll' => 'Expand all',
+			'chat.stage.collapseAll' => 'Collapse all',
 			'chat.stage.following' => 'Follow',
 			'chat.stage.pinned' => 'Pinned',
 			'chat.stage.live' => 'Live',
@@ -5869,12 +5885,12 @@ extension on Translations {
 			'documents.props.description' => 'Description',
 			'documents.props.tags' => 'Tags',
 			'documents.props.addTag' => 'Add a tag',
+			_ => null,
+		} ?? switch (path) {
 			'documents.props.path' => 'Path',
 			'documents.props.size' => 'Size',
 			'documents.props.modified' => 'Modified',
 			'documents.props.context' => 'Context',
-			_ => null,
-		} ?? switch (path) {
 			'documents.props.contextInline' => 'Inline',
 			'documents.props.contextFork' => 'Fork',
 			'documents.props.agent' => 'Agent',

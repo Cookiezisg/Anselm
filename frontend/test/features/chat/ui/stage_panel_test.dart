@@ -6,6 +6,7 @@ import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/features/chat/data/chat_fixtures.dart';
 import 'package:anselm/features/chat/data/chat_providers.dart';
 import 'package:anselm/features/chat/ui/stage_panel.dart';
+import 'package:anselm/features/chat/ui/stages/document_stage.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -68,7 +69,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     expect(find.text('sync_inventory'), findsOneWidget);
     expect(find.text('值班手册'), findsOneWidget);
-    expect(find.byType(AnCastRow), findsNWidgets(2));
+    // Each touchpoint is a left-island AnRow (WRK-064 — the sidestage speaks the rail's row language).
+    // 每个触点是一条左岛 AnRow。
+    expect(find.byType(AnRow), findsNWidgets(2));
 
     final empty = _repo();
     await tester.pumpWidget(_host(empty));
@@ -76,7 +79,7 @@ void main() {
     expect(find.text(t.chat.stage.castEmpty), findsOneWidget);
   });
 
-  testWidgets('a streamed create_document STAGES (brow + honesty ribbon + live tail), then settles',
+  testWidgets('a streamed create_document auto-expands its live row to the document stage, then settles',
       (tester) async {
     final repo = _repo();
     await tester.pumpWidget(_host(repo));
@@ -92,14 +95,17 @@ void main() {
         const StreamEnvelope(
             seq: 0, scope: _scope, id: 'tc_1',
             frame: FrameDelta(chunk: '{"name":"runbook.md","content":"# 手册\\\\n第一行')));
-    await tester.pump(const Duration(milliseconds: 600)); // entrance debounce 防抖
-    await tester.pump(const Duration(milliseconds: 300)); // reveal animation 揭示动画
-    // Once: the brow name (the DOCUMENT stage renders a prose curtain, not the generic KV — W2).
-    // 一次:眉名(document 舞台渲散文幕而非通用 KV,W2)。
-    expect(find.text('runbook.md'), findsOneWidget);
-    expect(find.byType(AnMinimapSpine), findsOneWidget); // the spine 书脊
-    expect(find.text(t.chat.stage.ribbonLive), findsOneWidget); // honesty 丝带
-    expect(find.textContaining('第一行'), findsOneWidget); // live tail 活尾窗
+    await tester.pump(const Duration(milliseconds: 600)); // entrance debounce → director stages 防抖→登台
+    // follow=always auto-opens the row; the body resolves itemId → the row-key migrates; each step needs a
+    // frame, so pump generously. follow=always 自动展开 → body 解 itemId → 行键迁移,逐步各需一帧。
+    for (var k = 0; k < 6; k++) {
+      await tester.pump(const Duration(milliseconds: 200));
+    }
+    // The DOCUMENT stage renders IN the expanded row (no brow — the row header is the identity, WRK-064).
+    // 文档舞台在展开行内渲染(无眉——行头即身份)。
+    expect(find.byType(DocumentStageBody), findsOneWidget); // the document kind stage 文档舞台
+    expect(find.text(t.chat.stage.ribbonLive), findsOneWidget); // live honesty ribbon 活丝带
+    expect(find.textContaining('第一行'), findsWidgets); // live tail 活尾窗
 
     repo.emitFrame(
         _conv,
@@ -111,11 +117,10 @@ void main() {
               'entityName': 'runbook.md',
             }))));
     await tester.pump(const Duration(milliseconds: 100));
-    expect(find.text(t.chat.stage.settled), findsOneWidget); // settled章 落定章
-    // Curtain: after the breath the stage returns to idle. 停拍后谢幕回静场。
-    await tester.pump(const Duration(milliseconds: 2200));
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(find.text(t.chat.stage.settled), findsNothing);
+    // Clean settle drops the live ribbon; the row (and its settled document stage) stay — nothing curtains
+    // it away (§8-3 落定不自动收). 干净落定去活丝带;行与落定文档舞台留存,绝不谢幕移除。
+    expect(find.text(t.chat.stage.ribbonLive), findsNothing);
+    expect(find.byType(DocumentStageBody), findsOneWidget);
   });
 
   testWidgets('a durable touchpoint signal lands a Cast row live', (tester) async {

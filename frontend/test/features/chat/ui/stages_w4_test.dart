@@ -68,8 +68,13 @@ void main() {
       TodoEntry(content: '写修复方案', status: 'pending'),
     ]));
     await tester.pump(const Duration(milliseconds: 100));
+    // The todo pins as row zero — a progress-ring lead + done/total, collapsed by default (WRK-064).
+    // todo 置顶为第 0 行(进度环 lead + done/total),默认收起。
     expect(find.byType(AnTaskRing), findsOneWidget);
     expect(find.text('1/3'), findsOneWidget);
+    // Expand it to reveal the checklist. 展开见清单。
+    await tester.tap(find.text(t.chat.stage.tasks));
+    await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('正在定位根因…'), findsOneWidget); // activeForm fronts in_progress 进行时文案
     expect(find.text('扫描日志'), findsOneWidget); // struck completed 划线完成
     expect(find.text('写修复方案'), findsOneWidget);
