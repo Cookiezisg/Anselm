@@ -207,7 +207,15 @@ class _McpServerDetailState extends ConsumerState<McpServerDetail> {
         AnButton(
           label: t.settings.mcp.reconnect,
           size: AnButtonSize.sm,
-          onPressed: () => ref.read(mcpServersProvider.notifier).reconnect(s.name),
+          // Error-handle like the roster row — a throwing reconnect must toast, not escape unhandled.
+          // 与名册行同款兜错:reconnect 抛错须 toast、不裸逃。
+          onPressed: () async {
+            try {
+              await ref.read(mcpServersProvider.notifier).reconnect(s.name);
+            } on ApiException catch (e) {
+              ref.read(overlayProvider.notifier).showToast(e.message, tone: AnToastTone.danger);
+            }
+          },
         ),
         const SizedBox(width: AnSpace.s8),
         AnButton(

@@ -26,6 +26,7 @@ class AnDocumentEditor extends StatefulWidget {
     this.nameEditable = true,
     this.description = '',
     this.tags = const [],
+    this.showTags = true,
     required this.initialMarkdown,
     this.resolvedNames = const {},
     this.mentionSource,
@@ -41,6 +42,9 @@ class AnDocumentEditor extends StatefulWidget {
   final bool nameEditable;
   final String description;
   final List<String> tags;
+  /// Whether the tags editor renders. Skills have no `tags` frontmatter — showing an editable tags row
+  /// there is a phantom edit (typed tags are silently dropped by the skill meta handler). skill 无 tags。
+  final bool showTags;
   final String initialMarkdown;
   final Map<String, String> resolvedNames;
   final MentionSource? mentionSource;
@@ -187,7 +191,7 @@ class AnDocumentEditorState extends State<AnDocumentEditor> {
             style: AnText.reading.copyWith(color: c.inkMuted),
             onCommit: (v) => meta('description', v),
           ),
-          if (widget.tags.isNotEmpty || widget.onMetaChanged != null) ...[
+          if (widget.showTags && (widget.tags.isNotEmpty || widget.onMetaChanged != null)) ...[
             const SizedBox(height: AnSpace.s8),
             AnTags(
               tags: [for (final tag in widget.tags) AnTag(tag)],

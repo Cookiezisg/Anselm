@@ -202,6 +202,9 @@ class _LimitRowState extends State<_LimitRow> {
           mono: true,
           onSubmitted: (_) => _commit(),
           onEditingComplete: _commit,
+          // Commit on tap-away too — else typing a value then clicking elsewhere (no Enter) loses it.
+          // 点走也提交,否则输入后不按 Enter 直接点别处会丢值。
+          onTapOutside: (_) => _commit(),
         ),
       ),
     );

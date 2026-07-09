@@ -7,6 +7,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../../core/design/tokens.dart';
 import '../../../../core/model/byte_format.dart';
+import '../../../../core/platform/app_relaunch.dart';
 import '../../../../core/platform/factory_reset.dart';
 import '../../../../core/runtime.dart';
 import '../../../../core/settings/settings_prefs.dart';
@@ -129,9 +130,10 @@ class StoragePanel extends ConsumerWidget {
         );
     if (!ok) return;
     await ref.read(settingsPrefsProvider).resetAll();
-    ref
-        .read(overlayProvider.notifier)
-        .showToast(t.settings.storage.resetPrefsDone, tone: AnToastTone.ok);
+    // Relaunch so every startup-applied derived value (theme / zoom / window geometry / shortcuts)
+    // actually reverts — an in-place invalidate would leave those live values stale until restart, so
+    // the reset would look like it did nothing. 重启使启动时应用的派生态(主题/缩放/窗口/快捷键)真回退。
+    relaunchApp();
   }
 }
 

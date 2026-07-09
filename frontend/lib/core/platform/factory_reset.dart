@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../runtime.dart';
 import '../settings/settings_prefs.dart';
+import 'app_relaunch.dart';
 
 /// The factory reset choreography (WRK-062 拍板 #12) — FRONTEND-orchestrated (a single-user local
 /// app already holds the process + directory handles; no backend destruction endpoint): ① stop the
@@ -26,19 +27,7 @@ class FactoryReset {
       if (dir.existsSync()) dir.deleteSync(recursive: true);
     }
     await _ref.read(settingsPrefsProvider).resetAll();
-    _relaunch();
-  }
-
-  void _relaunch() {
-    if (Platform.isMacOS) {
-      // resolvedExecutable = <bundle>.app/Contents/MacOS/<bin> — walk up to the bundle. 上溯到 bundle。
-      final bundle =
-          File(Platform.resolvedExecutable).parent.parent.parent.path;
-      if (bundle.endsWith('.app')) {
-        Process.start('open', ['-n', bundle], mode: ProcessStartMode.detached);
-      }
-    }
-    exit(0);
+    relaunchApp();
   }
 }
 

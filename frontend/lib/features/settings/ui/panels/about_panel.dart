@@ -4,11 +4,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
+import '../../../../core/platform/open_external_url.dart';
 import '../../../../core/ui/ui.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../state/update_check_provider.dart';
@@ -111,7 +111,7 @@ class _CheckOutcome extends StatelessWidget {
             label: t.settings.about.download,
             size: AnButtonSize.sm,
             variant: AnButtonVariant.primary,
-            onPressed: () => launchUrl(Uri.parse(s.url)),
+            onPressed: () => openExternalUrl(s.url),
           ),
         ]),
     };

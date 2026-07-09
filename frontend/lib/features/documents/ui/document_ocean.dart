@@ -314,6 +314,7 @@ class _SkillEditViewState extends ConsumerState<_SkillEditView> with _DocPageChr
               crumb: t.documents.skills,
               name: skill.name,
               nameEditable: false, // the name IS the identity — not renamable in place
+              showTags: false, // skills have no tags frontmatter — no phantom tags editor 无 tags 字段
               description: skill.description,
               initialMarkdown: skill.body,
               onChangedMarkdown: _onChanged,

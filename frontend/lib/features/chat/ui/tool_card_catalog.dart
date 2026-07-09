@@ -832,7 +832,8 @@ final Map<String, ToolCardSpec> _catalog = {
   'restart_handler': _action(
     verb: (t, {required bool live}) => live ? t.chat.tool.restarting : t.chat.tool.restarted,
     idKey: 'handlerId', kindWire: 'handler',
-    receipt: (t, s) => restartReceipt(s.resultText, label: (rs) => rs, errored: t.chat.tool.restartFailed),
+    receipt: (t, s) => restartReceipt(s.resultText, label: (rs) => rs,
+        errored: (e) => '${t.chat.tool.restartFailed}: $e'),
     resultFailed: (s) => (_result(s.resultText)?['error'] as String?)?.isNotEmpty == true,
     note: (t) => t.chat.tool.noteRestart, noteColor: (c) => c.colors.warn,
   ),

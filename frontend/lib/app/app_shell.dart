@@ -59,7 +59,9 @@ class AppShell extends ConsumerWidget {
     // title) clears it — breadcrumb lifecycle belongs to the ocean SWITCH, not to a side-effect-only
     // placeholder widget. 离开拥有浮层头的海洋(entities 详情/documents 页题)即清——生命周期属于海洋切换。
     ref.listen(selectedOceanProvider, (prev, next) {
-      const headOwners = {OceanKind.entities, OceanKind.documents};
+      // settings also binds the floating head ('设置 / <panel>') + collapses it on scroll but never
+      // clears on dispose — omit it and its stale crumb ghosts over the next ocean. settings 亦拥浮层头。
+      const headOwners = {OceanKind.entities, OceanKind.documents, OceanKind.settings};
       if (prev != null && headOwners.contains(prev) && prev != next) {
         ref.read(shellHeadProvider.notifier).clear();
       }

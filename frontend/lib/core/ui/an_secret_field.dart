@@ -90,6 +90,10 @@ class _AnSecretFieldState extends State<AnSecretField> {
             obscuringCharacter: '•',
             autocorrect: false,
             enableSuggestions: false,
+            // Match the kit's single-color caret (an_input/an_composer/an_code_editor all pin these) —
+            // else it falls back to the Material blue seeded from accent. 钉套件单色光标,否则回落 Material 蓝。
+            cursorColor: c.ink,
+            cursorWidth: AnSize.caret,
             style: AnText.mono.copyWith(color: c.ink),
             decoration: InputDecoration(
               isDense: true,

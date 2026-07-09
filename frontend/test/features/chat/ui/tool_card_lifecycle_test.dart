@@ -70,10 +70,13 @@ void main() {
       expect(killReceipt('{"killed":0}', killedN: (n) => 'k$n', none: 'z')!.text, 'z');
     });
 
-    test('restartReceipt: error key → danger; runtimeState words', () {
-      expect(restartReceipt('{"error":"boom"}', label: (s) => s, errored: 'ERR')!.tone, ToolReceiptTone.danger);
-      expect(restartReceipt('{"runtimeState":"running"}', label: (s) => s, errored: 'ERR')!.tone, ToolReceiptTone.none);
-      expect(restartReceipt('{"runtimeState":"crashed"}', label: (s) => s, errored: 'ERR')!.tone, ToolReceiptTone.danger);
+    test('restartReceipt: error key → danger + surfaces the actual error; runtimeState words', () {
+      // The real error must surface (not a generic label) — the «green but broken» reason was invisible.
+      final e = restartReceipt('{"error":"boom"}', label: (s) => s, errored: (err) => 'ERR: $err')!;
+      expect(e.tone, ToolReceiptTone.danger);
+      expect(e.text, contains('boom'));
+      expect(restartReceipt('{"runtimeState":"running"}', label: (s) => s, errored: (err) => err)!.tone, ToolReceiptTone.none);
+      expect(restartReceipt('{"runtimeState":"crashed"}', label: (s) => s, errored: (err) => err)!.tone, ToolReceiptTone.danger);
     });
 
     test('movedReceipt / deletedDocReceipt templates', () {

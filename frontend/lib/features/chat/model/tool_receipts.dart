@@ -346,10 +346,13 @@ ToolReceipt? killReceipt(String output, {required String Function(int n) killedN
 /// restart_handler — the `runtimeState` word (running none / stopped warn / crashed danger); the
 /// `error` key is the «green but broken» signal. restart 回执。
 ToolReceipt? restartReceipt(String output,
-    {required String Function(String state) label, required String errored}) {
+    {required String Function(String state) label, required String Function(String error) errored}) {
   final o = _obj(output);
   if (o == null) return null;
-  if ((o['error'] as String?)?.isNotEmpty == true) return (text: errored, tone: ToolReceiptTone.danger);
+  // Surface the ACTUAL error (the «green but broken» reason), not a generic "restart failed" label —
+  // otherwise the failure cause is invisible (thin action card, no body). 渲真实错因、非通用「重启失败」。
+  final err = (o['error'] as String?)?.trim();
+  if (err != null && err.isNotEmpty) return (text: errored(err), tone: ToolReceiptTone.danger);
   final rs = o['runtimeState'] as String?;
   if (rs == null) return null;
   return (text: label(rs), tone: rs == 'crashed' ? ToolReceiptTone.danger : (rs == 'running' ? ToolReceiptTone.none : ToolReceiptTone.warn));

@@ -173,7 +173,17 @@ class ApiClient {
   /// POST 返单产物 id 的异步动作 → id 字符串(MD3)。如发消息、`:trigger`、`:fire`、`:iterate`。
   Future<String> postForId(String path, {Object? body}) => _send(() async {
         final r = await _dio.post<Map<String, dynamic>>(path, data: body);
-        return _data(r.data)['id'] as String;
+        // Validate rather than bare-cast: a malformed 202 (missing/non-string id) must surface as a typed
+        // ApiException, not a raw TypeError escaping the typed-error contract. 校验非裸 cast,守 typed-error 契约。
+        final id = _data(r.data)['id'];
+        if (id is! String || id.isEmpty) {
+          throw ApiException(
+            code: AnselmErr.unknown,
+            message: 'response data had no id string',
+            httpStatus: 200,
+          );
+        }
+        return id;
       });
 
   /// POST a synchronous executor (`:run`/`:call`/`:invoke`) that returns a BARE result
