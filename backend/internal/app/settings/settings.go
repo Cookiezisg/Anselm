@@ -31,7 +31,20 @@ var ErrLimitsInvalid = errorspkg.New(errorspkg.KindInvalid, "SETTINGS_LIMITS_INV
 //
 // fileShape 是 settings.json 布局（为未来非 limits 段留位）。
 type fileShape struct {
-	Limits limitspkg.Limits `json:"limits"`
+	Limits  limitspkg.Limits `json:"limits"`
+	Network Network          `json:"network,omitempty"`
+}
+
+// Network is the settings.json "network" block (WRK-062 工单⑩): an OUTBOUND HTTP proxy the sidecar
+// uses to reach LLM / MCP / search providers. Applied to the process environment at boot (Go's
+// http.ProxyFromEnvironment reads it) — hence "restart to take effect". Empty = direct.
+//
+// Network 是 settings.json 的 "network" 段(工单⑩):sidecar 出站到 LLM/MCP/搜索 provider 的 HTTP 代理。
+// boot 时应用到进程环境(Go 的 http.ProxyFromEnvironment 读它)——故「重启生效」;空=直连。
+type Network struct {
+	HTTPProxy  string `json:"httpProxy,omitempty"`
+	HTTPSProxy string `json:"httpsProxy,omitempty"`
+	NoProxy    string `json:"noProxy,omitempty"`
 }
 
 // Service loads, serves and patches the settings file.
@@ -41,6 +54,7 @@ type Service struct {
 	mu   sync.Mutex
 	path string
 	cur  limitspkg.Limits
+	net  Network
 }
 
 // Load reads <dataDir>/settings.json (absent file = pure defaults), installs the result
@@ -63,11 +77,13 @@ func Load(dataDir string) (*Service, error) {
 			return nil, fmt.Errorf("settings: parse %s: %w", s.path, err)
 		}
 		s.cur = limitspkg.WithDefaults(f.Limits)
+		s.net = f.Network
 		if err := validate(s.cur); err != nil {
 			return nil, fmt.Errorf("settings: %s: %w", s.path, err)
 		}
 	}
 	s.install()
+	s.applyProxy()
 	return s, nil
 }
 
@@ -127,7 +143,7 @@ func (s *Service) PatchLimits(patch json.RawMessage) (limitspkg.Limits, error) {
 	if err := validate(next); err != nil {
 		return limitspkg.Limits{}, err
 	}
-	if err := s.persist(next); err != nil {
+	if err := s.persist(next, s.net); err != nil {
 		return limitspkg.Limits{}, err
 	}
 	s.cur = next
@@ -147,7 +163,7 @@ func (s *Service) ResetLimits() (limitspkg.Limits, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	next := limitspkg.Default()
-	if err := s.persist(next); err != nil {
+	if err := s.persist(next, s.net); err != nil {
 		return limitspkg.Limits{}, err
 	}
 	s.cur = next
@@ -163,11 +179,48 @@ func (s *Service) install() {
 	limitspkg.SetProvider(func() limitspkg.Limits { return cur })
 }
 
+// Net returns the live network config. Net 返活动网络配置。
+func (s *Service) Net() Network {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.net
+}
+
+// PatchNetwork replaces the network config, persists atomically and applies the proxy env. The
+// change is fully in effect only after a sidecar restart (existing HTTP clients cache the proxy);
+// the desktop UI says so. PatchNetwork 替换网络配置、原子持久化并应用代理 env;完整生效须重启 sidecar。
+func (s *Service) PatchNetwork(n Network) (Network, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.persist(s.cur, n); err != nil {
+		return Network{}, err
+	}
+	s.net = n
+	s.applyProxy()
+	return n, nil
+}
+
+// applyProxy pushes the configured proxy into the process environment so Go's
+// http.ProxyFromEnvironment (used by the default transport) routes outbound calls through it. Empty
+// fields are cleared. Caller holds mu (or is single-threaded boot). applyProxy 把代理写进进程环境。
+func (s *Service) applyProxy() {
+	set := func(key, val string) {
+		if val == "" {
+			_ = os.Unsetenv(key)
+			return
+		}
+		_ = os.Setenv(key, val)
+	}
+	set("HTTP_PROXY", s.net.HTTPProxy)
+	set("HTTPS_PROXY", s.net.HTTPSProxy)
+	set("NO_PROXY", s.net.NoProxy)
+}
+
 // persist writes the file atomically (temp + rename).
 //
 // persist 原子写文件（临时文件 + rename）。
-func (s *Service) persist(l limitspkg.Limits) error {
-	b, err := json.MarshalIndent(fileShape{Limits: l}, "", "  ")
+func (s *Service) persist(l limitspkg.Limits, n Network) error {
+	b, err := json.MarshalIndent(fileShape{Limits: l, Network: n}, "", "  ")
 	if err != nil {
 		return fmt.Errorf("settings: marshal: %w", err)
 	}

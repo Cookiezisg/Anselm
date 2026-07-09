@@ -191,3 +191,45 @@ func TestLoad_MalformedFileFails(t *testing.T) {
 		t.Fatalf("want parse error, got %v", err)
 	}
 }
+
+// TestPatchNetwork: persist + reload round-trips the proxy config, applies the proxy env, and a
+// limits patch never drops the network block (both share fileShape). TestPatchNetwork:代理配置
+// 持久化+重载往返、应用代理 env,且 limits patch 绝不丢网络段(共用 fileShape)。
+func TestPatchNetwork(t *testing.T) {
+	defer limitspkg.SetProvider(limitspkg.Default)
+	t.Setenv("HTTP_PROXY", "")
+	dir := t.TempDir()
+	s, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if _, err := s.PatchNetwork(Network{HTTPProxy: "http://127.0.0.1:7890", NoProxy: "localhost"}); err != nil {
+		t.Fatalf("PatchNetwork: %v", err)
+	}
+	if os.Getenv("HTTP_PROXY") != "http://127.0.0.1:7890" {
+		t.Errorf("proxy env not applied: %q", os.Getenv("HTTP_PROXY"))
+	}
+
+	// A limits patch must not wipe the network block. limits patch 不得抹掉网络段。
+	if _, err := s.PatchLimits(json.RawMessage(`{"agent":{"maxSteps":42}}`)); err != nil {
+		t.Fatalf("PatchLimits: %v", err)
+	}
+	s2, err := Load(dir)
+	if err != nil {
+		t.Fatalf("re-Load: %v", err)
+	}
+	if s2.Net().HTTPProxy != "http://127.0.0.1:7890" {
+		t.Errorf("network block lost after a limits patch: %+v", s2.Net())
+	}
+	if s2.Limits().Agent.MaxSteps != 42 {
+		t.Errorf("limits lost: %+v", s2.Limits())
+	}
+
+	// Clearing the proxy unsets the env. 清空即 unset。
+	if _, err := s2.PatchNetwork(Network{}); err != nil {
+		t.Fatalf("clear: %v", err)
+	}
+	if os.Getenv("HTTP_PROXY") != "" {
+		t.Errorf("proxy env not cleared: %q", os.Getenv("HTTP_PROXY"))
+	}
+}

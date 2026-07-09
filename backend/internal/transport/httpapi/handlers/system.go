@@ -35,6 +35,8 @@ func NewSystemHandler(svc *settingsapp.Service, version string, log *zap.Logger)
 func (h *SystemHandler) Register(mux Registrar) {
 	mux.HandleFunc("GET /api/v1/system/data-dir", h.DataDir)
 	mux.HandleFunc("GET /api/v1/version", h.Version)
+	mux.HandleFunc("GET /api/v1/network", h.GetNetwork)
+	mux.HandleFunc("PATCH /api/v1/network", h.PatchNetwork)
 }
 
 type dataDirResponse struct {
@@ -51,4 +53,25 @@ type versionResponse struct {
 
 func (h *SystemHandler) Version(w http.ResponseWriter, r *http.Request) {
 	responsehttpapi.Success(w, http.StatusOK, versionResponse{Version: h.version})
+}
+
+// GetNetwork returns the outbound-proxy config (WRK-062 工单⑩). GetNetwork 返出站代理配置。
+func (h *SystemHandler) GetNetwork(w http.ResponseWriter, r *http.Request) {
+	responsehttpapi.Success(w, http.StatusOK, h.svc.Net())
+}
+
+// PatchNetwork REPLACES the network config (a full object, not a merge — three optional string
+// fields) and applies the proxy env; a sidecar restart fully activates it. PatchNetwork 整体替换。
+func (h *SystemHandler) PatchNetwork(w http.ResponseWriter, r *http.Request) {
+	var req settingsapp.Network
+	if err := decodeJSON(r, &req); err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	next, err := h.svc.PatchNetwork(req)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, next)
 }
