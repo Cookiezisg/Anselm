@@ -1,9 +1,9 @@
 import 'package:flutter/widgets.dart';
 import 'package:scaled_app/scaled_app.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../design/tokens.dart';
+import '../settings/settings_prefs.dart';
 import 'host_platform.dart';
 
 /// In-app UI zoom (Cmd +/- / 0) — scales the ENTIRE UI reflow-correct, browser-style.
@@ -23,8 +23,13 @@ abstract final class WindowZoom {
   /// Discrete zoom stops (like a browser). 1.0 = 100% (default). 离散缩放档,1.0=默认。
   static const List<double> steps = [0.8, 0.9, 1.0, 1.1, 1.25, 1.5];
   static const double defaultFactor = 1.0;
-  static const String _prefKey = 'an.window.zoom';
   static const double _menuBarInset = 40; // approx macOS menu bar + margin (height不可用部分)
+
+  /// The central preference store (persist via [SettingsKeys.windowZoom], not a private SharedPreferences
+  /// key — else a factory-reset of the declared key set wouldn't clear the zoom). Bound once at startup.
+  /// 中央偏好(经 SettingsKeys.windowZoom 持久化,非私有 SharedPreferences 键——否则出厂重置清不掉缩放)。
+  static SettingsPrefs? _prefs;
+  static void useSettingsPrefs(SettingsPrefs prefs) => _prefs = prefs;
 
   /// Current zoom factor; the [scaleFactorCallback] reads this. UI may listen. 当前缩放因子。
   static final ValueNotifier<double> factor = ValueNotifier<double>(defaultFactor);
@@ -94,24 +99,19 @@ abstract final class WindowZoom {
     _persist(z);
   }
 
-  static Future<void> _persist(double z) async {
-    try {
-      (await SharedPreferences.getInstance()).setDouble(_prefKey, z);
-    } catch (_) {/* persistence is best-effort 持久化尽力而为 */}
-  }
+  static void _persist(double z) => _prefs?.setDouble(SettingsKeys.windowZoom, z);
 
   /// Restore the persisted zoom before the first frame, clamped to what the current screen fits
   /// (a level saved on a big monitor won't break a smaller one). 首帧前恢复持久化缩放,并按当前屏可容上限收敛。
-  static Future<void> restore() async {
-    try {
-      final z = (await SharedPreferences.getInstance()).getDouble(_prefKey);
-      if (z == null) return;
-      final cap = maxFactor();
-      final target = steps.lastWhere(
-        (s) => s <= z + 1e-6 && s <= cap + 1e-6,
-        orElse: () => defaultFactor,
-      );
-      if (target != factor.value) _apply(target);
-    } catch (_) {/* defaults to 100% 退回 100% */}
+  static void restore() {
+    final prefs = _prefs;
+    if (prefs == null) return;
+    final z = prefs.getDouble(SettingsKeys.windowZoom); // returns the 1.0 default when unset
+    final cap = maxFactor();
+    final target = steps.lastWhere(
+      (s) => s <= z + 1e-6 && s <= cap + 1e-6,
+      orElse: () => defaultFactor,
+    );
+    if (target != factor.value) _apply(target);
   }
 }

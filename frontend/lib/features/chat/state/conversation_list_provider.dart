@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/contract/conversation.dart';
 import '../../../core/contract/page.dart';
+import '../../../core/shell/oceans.dart';
 import '../../../core/state/bool_pref.dart';
 import '../../../core/state/keyset_paging.dart';
 import '../data/chat_providers.dart';
@@ -232,7 +233,14 @@ class ConversationListNotifier extends AsyncNotifier<ConversationListState>
     // A FRESH auto-title (empty→non-empty + autoTitled; a user rename never matches — the renamed row
     // already had a title and rename responses carry autoTitled=false) → queue the one-shot typewriter
     // for the rail row + head. 新自动命名(空→非空 + autoTitled;改名不命中)→ 入打字机队列(rail+头同播)。
-    if (i >= 0 && rows[i].title.trim().isEmpty && c.title.trim().isNotEmpty && c.autoTitled) {
+    // Gate on the chat ocean being active: a title landing while another ocean is open must appear
+    // static on return (the "first appearance" moment has passed) — else the reveal id lingers unplayed
+    // and the typewriter fires LATE when you come back. 仅 chat 海洋活跃时入队,否则回来即静态(不迟播)。
+    if (i >= 0 &&
+        rows[i].title.trim().isEmpty &&
+        c.title.trim().isNotEmpty &&
+        c.autoTitled &&
+        ref.read(selectedOceanProvider) == OceanKind.chat) {
       ref.read(titleRevealsProvider.notifier).add(c.id);
     }
     final showArchived = ref.read(showArchivedProvider);

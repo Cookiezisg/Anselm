@@ -8,7 +8,9 @@ import '../../../core/design/typography.dart';
 import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../core/models/model_capabilities.dart';
+import '../model/conversation_transcript.dart';
 import '../state/conversation_header.dart';
+import '../state/conversation_stream_provider.dart';
 import '../state/selected_conversation.dart';
 import '../state/title_reveals.dart';
 import 'chat_toc.dart';
@@ -105,11 +107,19 @@ class ChatHead extends ConsumerWidget {
         // The 场次条 (scene strip) — jump to any depth of this thread's history. 场次目录钮。
         const SizedBox(width: AnSpace.s4),
         TranscriptToc(conversationId: id),
-        // Quiet hint while the reply streams — mirrors the rail's blue dot for the OPEN thread. 打开线程的蓝点镜像。
-        if (conv.isGenerating) ...[
-          const SizedBox(width: AnSpace.s6),
-          const AnStatusDot(AnStatus.run),
-        ],
+        // Quiet hint while the reply streams. Driven by the LIVE transcript (the coalesced messages-stream
+        // isGenerating, the same source the composer's send↔stop reads) — NOT the header row's field, which
+        // is fed by notification lifecycle signals and lags / lingers vs the actual turn open/close.
+        // 生成中蓝点取活 transcript(messages 流,与 composer send↔stop 同源),非 header 行字段(通知信号滞后/滞留)。
+        ValueListenableBuilder<ConversationTranscript>(
+          valueListenable: ref.watch(conversationStreamProvider(id).notifier).transcript,
+          builder: (context, transcript, _) => transcript.isGenerating
+              ? const Padding(
+                  padding: EdgeInsets.only(left: AnSpace.s6),
+                  child: AnStatusDot(AnStatus.run),
+                )
+              : const SizedBox.shrink(),
+        ),
       ],
     );
   }

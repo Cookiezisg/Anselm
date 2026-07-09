@@ -35,8 +35,9 @@ Future<void> main() async {
     // Central preferences load ONCE before the window opens — geometry restore + every later
     // consumer read synchronously. 中央偏好在开窗前载入:几何恢复要用,此后全员同步读。
     final prefs = await SettingsPrefs.load();
+    WindowZoom.useSettingsPrefs(prefs); // zoom persists via the central prefs, not a private key
     await initWindow(prefs: prefs);
-    await WindowZoom.restore();
+    WindowZoom.restore();
     await initLaunchAtLogin();
     runApp(TranslationProvider(
       child: ProviderScope(

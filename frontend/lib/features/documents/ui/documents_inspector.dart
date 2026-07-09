@@ -324,6 +324,23 @@ class _SkillFormState extends ConsumerState<_SkillForm> {
   }
 
   @override
+  void didUpdateWidget(_SkillForm old) {
+    super.didUpdateWidget(old);
+    // Adopt an EXTERNAL config change (e.g. an edit_skill via chat refreshing this skill) so the form's
+    // mount-time snapshot can't silently clobber it on the next save. Same skill, changed frontmatter →
+    // re-sync the config fields this island owns. 外部改动即同步,防本岛快照下次保存 clobber。
+    final f = widget.skill.frontmatter;
+    if (old.skill.name == widget.skill.name && f != old.skill.frontmatter) {
+      _agent.text = f.agent;
+      _context = f.context.isEmpty ? kSkillContextInline : f.context;
+      _tools = [...f.allowedTools];
+      _args = [...f.arguments];
+      _disableModelInvocation = f.disableModelInvocation;
+      _userInvocable = f.userInvocable;
+    }
+  }
+
+  @override
   void dispose() {
     _save.dispose();
     _agent.dispose();
