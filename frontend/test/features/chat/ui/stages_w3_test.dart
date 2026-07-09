@@ -137,8 +137,8 @@ void main() {
   testWidgets('TRIGGER: radar while kind is unknown → the cron face; R-16 settle facts come from GET',
       (tester) async {
     final repo = _repo();
-    repo.triggers['tg_1'] = TriggerEntity(
-      id: 'tg_1',
+    repo.triggers['trg_1'] = TriggerEntity(
+      id: 'trg_1',
       name: 'daily',
       kind: TriggerSource.cron,
       listening: true,
@@ -172,12 +172,12 @@ void main() {
         _conv,
         const StreamEnvelope(
             seq: 3, scope: _scope, id: 'tr',
-            frame: FrameOpen(parentId: 'tc', node: StreamNode(type: 'tool_result', content: {'content': '{"id":"tg_1","listening":false}'}))));
+            frame: FrameOpen(parentId: 'tc', node: StreamNode(type: 'tool_result', content: {'content': '{"id":"trg_1","listening":false}'}))));
     repo.emitFrame(
         _conv,
         const StreamEnvelope(
             seq: 4, scope: _scope, id: 'tr',
-            frame: FrameClose(status: 'completed', result: StreamNode(type: 'tool_result', content: {'content': '{"id":"tg_1","listening":false}'}))));
+            frame: FrameClose(status: 'completed', result: StreamNode(type: 'tool_result', content: {'content': '{"id":"trg_1","listening":false}'}))));
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pump(const Duration(milliseconds: 200));
 

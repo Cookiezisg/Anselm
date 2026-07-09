@@ -40,9 +40,14 @@ void main() {
     expect(notificationLine(_n('workflow.approval_pending', payload: {'name': 'w'}), t).tone, NotificationTone.warn);
   });
 
-  test('handler.restarted (inbox row = the failure) → danger restart-failed', () {
-    // Only ok:false persists a row (ok:true is frame-only), so a restarted ROW is always the failure.
-    expect(notificationLine(_n('handler.restarted', payload: {'name': 'h', 'ok': false}), t).tone, NotificationTone.danger);
+  test('handler.restarted splits by outcome — ok:true → neutral, ok:false → danger', () {
+    // Regression: the tone must honor payload['ok']. ok:true is frame-only but the toast dispatcher reads
+    // this line's tone, so rendering a success as danger pops a false "restart failed" toast/OS notification.
+    final ok = notificationLine(_n('handler.restarted', payload: {'name': 'h', 'ok': true}), t);
+    expect(ok.tone, NotificationTone.neutral, reason: '成功重启绝不渲成失败');
+    final failed = notificationLine(_n('handler.restarted', payload: {'name': 'h', 'ok': false}), t);
+    expect(failed.tone, NotificationTone.danger);
+    expect(failed.trail, isNotEmpty);
   });
 
   test('attention_changed: needs → warn+reason, cleared → neutral', () {

@@ -82,12 +82,17 @@ NotificationLine notificationLine(NotificationItem n, Translations t) {
         detail: _dependentNames(deps));
   }
 
-  // handler.restarted splits by outcome (ok:false is the only inbox row; ok:true is frame-only).
-  // handler.restarted 按结局分(仅 ok:false 落行)。
+  // handler.restarted splits by outcome (ok:false is the only inbox row; ok:true is frame-only). The tone
+  // matters even for the frame-only success: the toast dispatcher reads this line's tone, so a success
+  // rendered as danger would pop a false "restart failed" toast (+ OS notification when unfocused).
+  // handler.restarted 按结局分(仅 ok:false 落行);ok:true 虽仅帧,tone 决定 toast——成功渲成 danger 会弹假失败。
   if (n.type == 'handler.restarted') {
+    final ok = payload['ok'] == true;
     return NotificationLine(
-      icon: AnIcons.error, lead: kindLead, name: nameOf(), trail: nt.verb.restartFailed,
-      tone: NotificationTone.danger);
+      icon: ok ? AnIcons.success : AnIcons.error,
+      lead: kindLead, name: nameOf(),
+      trail: ok ? nt.verb.recovered : nt.verb.restartFailed,
+      tone: ok ? NotificationTone.neutral : NotificationTone.danger);
   }
 
   // workflow.attention_changed: needsAttention true → warn "needs attention"; the self-heal clear

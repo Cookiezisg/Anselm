@@ -69,6 +69,15 @@ class _RunInputFormState extends ConsumerState<RunInputForm> {
     final p = runTerminalProvider(widget.entityRef);
     final state = ref.watch(p);
     final c = ref.read(p.notifier);
+    // initState defaults the method only if detail is already loaded — if it lands AFTER mount, catch it
+    // here so the dropdown never sticks on placeholder (Run with an empty method → backend error).
+    // initState 只在 detail 已载时设默认;detail 后到则在此补,否则下拉停 placeholder、空 method 点 Run 报错。
+    if (widget.entityRef.kind == EntityKind.handler) {
+      ref.listen(entityDetailProvider(widget.entityRef), (_, next) {
+        final ms = runMethods(next.value);
+        if (ms.isNotEmpty && ref.read(p).method.isEmpty) c.setMethod(ms.first.name);
+      });
+    }
     // Render fields + method list read from the SAME canonical source the controller coerces from — no
     // props threading, so render and coerce can't drift. 渲染字段/方法与 controller 强转同源,不经 props、不会漂移。
     final detail = ref.watch(entityDetailProvider(widget.entityRef)).value;

@@ -91,7 +91,12 @@ class AppShell extends ConsumerWidget {
     // The right island reveals for entities (run terminal), documents (properties inspector) OR chat
     // (the sidestage, WRK-061) when that ocean has a selection. 右岛在 entities(run 终端)/documents(属性
     // 面板)/chat(侧幕)有选中时揭示。
-    final hasEntitySelection = onEntities && ref.watch(selectedEntityProvider) != null;
+    // Only executable kinds (the four Quadrinity) get the run-terminal right island — support kinds
+    // (control/approval/trigger, verb=null) have no execution face, so revealing a run terminal for them
+    // shows a dead empty pane with a no-op run button. Mirror the verb-CTA `executable` gate.
+    // 仅可执行 kind 揭示 run 终端右岛;支撑 kind 无执行面,揭示=死空板+空动作钮。延用动词 CTA 的 executable 门控。
+    final hasEntitySelection =
+        onEntities && (ref.watch(selectedEntityProvider)?.kind.executable ?? false);
     final hasDocSelection = onDocuments && ref.watch(selectedDocProvider) != null;
     final chatConversation = onChat ? ref.watch(selectedConversationProvider)?.id : null;
     final hasSelection = hasEntitySelection || hasDocSelection || chatConversation != null;

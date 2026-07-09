@@ -208,6 +208,11 @@ class AnEditorState extends State<AnEditor> {
     _mentionTags?.tagIndex.composingStableTag.removeListener(_onMentionComposingChanged);
     if (widget.onChangedMarkdown != null) _document.removeListener(_onDocumentChanged);
     _editor.dispose();
+    // Editor.dispose() does NOT cascade to its editables — dispose them explicitly or leak a broadcast
+    // StreamController + notifier per mount. The composer is always ours; the document is only ours when
+    // no debugDocument was injected. Editor.dispose 不级联 editable,须显式释放;debugDocument 归调用方。
+    _composer.dispose();
+    if (widget.debugDocument == null) _document.dispose();
     _focusNode.dispose();
     super.dispose();
   }
@@ -291,6 +296,9 @@ class AnEditorState extends State<AnEditor> {
     if (!mounted || source == null) return;
     final composing = _mentionTags!.tagIndex.composingStableTag.value;
     if (composing == null) {
+      // Bump the seq so any in-flight search from the just-cleared query is discarded when it resolves —
+      // else a stale result would re-open the picker at a gone anchor. 作废在途搜索,防清空后 picker 复活。
+      ++_mentionSearchSeq;
       setState(() {
         _mentionComposing = null;
         _mentionMatches = const [];
@@ -313,6 +321,8 @@ class AnEditorState extends State<AnEditor> {
   void _selectMention(int index) {
     final composing = _mentionComposing;
     if (composing == null || index < 0 || index >= _mentionMatches.length) return;
+    // Discard any in-flight search so it can't re-open the picker after we commit the pill. 作废在途搜索。
+    ++_mentionSearchSeq;
     final c = _mentionMatches[index];
     // contentBounds starts AFTER the `@` trigger (startOffset+1), so extend the delete back one char to
     // swallow the `@` itself; the pill is inserted where the `@` was. contentBounds 不含 `@`,故起点退一位吞掉 `@`。

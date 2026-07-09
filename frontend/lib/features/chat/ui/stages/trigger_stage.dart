@@ -120,7 +120,7 @@ class TriggerStageBody extends ConsumerWidget {
 
   String? _resultId() {
     final r = scene.state.resultText;
-    final m = RegExp(r'"id"\s*:\s*"(tg_\w+)"').firstMatch(r);
+    final m = RegExp(r'"id"\s*:\s*"(trg_\w+)"').firstMatch(r);
     return m?.group(1);
   }
 }
