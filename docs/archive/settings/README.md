@@ -1,18 +1,19 @@
 ---
 id: WRK-062
 type: working
-status: active
+status: archived
 owner: @weilin
 created: 2026-07-08
 reviewed: 2026-07-09
 review-due: 2026-10-06
 audience: [human, ai]
+landed-into: references/frontend/features/settings.md, references/frontend/architecture.md, references/frontend/contract.md, references/backend/api.md, references/backend/domains/support-services.md, decisions/0008-master-key-keychain.md
 ---
 
 # Settings 模块 —— 建造规范(资源·偏好双骨架)
 
 > **出身**:20-agent 五段扇出(6 读码 + 4 联网 + 3 设计概念 + 3 评审 + 4 对抗,170 万 token)。冠军=「资源·偏好双骨架」(3 评审 2 票;总分王「系统设置正统全案」的穷尽目录与端点缺口全部嫁接进来),吸收 52 条对抗挑刺(多条读后端源码实证)的全部修法。本文=唯一施工蓝图。
-> **状态**:设计已完成;**§8 决策清单待用户拍板(总路线④)后开建(路线⑤)**。
+> **状态**:✅ **全落并归档**(S0–S6 + 后端工单①–⑩,2026-07-09)。当前形态见 [`features/settings.md`](../../references/frontend/features/settings.md)(DOC-054);本文留作建造史。逐片落账见 §6b。
 
 ---
 
