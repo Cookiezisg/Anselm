@@ -23,7 +23,7 @@ class AnSegmentedOption<T> {
 /// as [AnOceanSwitcher]'s sliding pill, horizontal and generic). Controlled: [value] + [onChanged].
 /// NOT tabs (no panes — a value picker), NOT the ocean switcher (that one is bespoke chrome).
 ///
-/// 水平分段器(2–4 段)——设置行的枚举选择器。凹底轨 + 等宽段;选中段驮一张白卡在段间滑动
+/// 水平分段器(2–6 段)——设置行的枚举选择器。凹底轨 + 等宽段;选中段驮一张白卡在段间滑动
 /// (AnimatedAlign matched-geometry,reduced 直跳——与海洋切换器同文法、横排通用化)。受控:value+
 /// onChanged。不是 tabs(无面板,是取值器),也不是海洋切换器(那是专用 chrome)。
 class AnSegmented<T> extends StatelessWidget {
@@ -54,7 +54,7 @@ class AnSegmented<T> extends StatelessWidget {
       label: semanticLabel,
       container: true,
       child: Opacity(
-        opacity: enabled ? 1 : 0.45,
+        opacity: enabled ? 1 : AnOpacity.disabled,
         child: Container(
           height: AnSize.control,
           padding: const EdgeInsets.all(2),
@@ -70,7 +70,7 @@ class AnSegmented<T> extends StatelessWidget {
               if (index >= 0)
                 AnimatedAlign(
                   duration: reduced ? Duration.zero : AnMotion.fast,
-                  curve: Curves.easeOutCubic,
+                  curve: AnMotion.easeOut,
                   alignment: align,
                   child: Container(
                     width: segW,

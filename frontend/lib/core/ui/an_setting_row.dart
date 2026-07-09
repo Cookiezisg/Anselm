@@ -62,7 +62,7 @@ class _AnSettingRowState extends State<AnSettingRow> {
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: Opacity(
-        opacity: widget.enabled ? 1 : 0.45,
+        opacity: widget.enabled ? 1 : AnOpacity.disabled,
         child: Container(
           constraints: const BoxConstraints(minHeight: AnSize.row),
           decoration: BoxDecoration(

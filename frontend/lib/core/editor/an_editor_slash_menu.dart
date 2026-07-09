@@ -156,7 +156,7 @@ class _AnSlashMenuOverlayState extends DocumentLayoutLayerState<AnSlashMenuOverl
 
     // Estimated menu height (rows + the panel's s4 top/bottom padding), capped at the panel's maxHeight.
     // 菜单估高(行 + 面板上下 s4 内距),不超面板 maxHeight。
-    final menuHeight = (widget.matches.length * AnSize.row + AnSpace.s8).clamp(0.0, 328.0);
+    final menuHeight = (widget.matches.length * AnSize.row + AnSpace.s8).clamp(0.0, AnSize.menuMaxHeight);
     final box = context.findRenderObject() as RenderBox?;
     final layerHeight = (box != null && box.hasSize) ? box.size.height : double.infinity;
 
@@ -207,7 +207,7 @@ class AnSlashMenu extends StatelessWidget {
     final c = context.colors;
     final t = Translations.of(context);
     return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: 208, maxWidth: 268, maxHeight: 328),
+      constraints: const BoxConstraints(minWidth: 208, maxWidth: 268, maxHeight: AnSize.menuMaxHeight),
       child: AnMenuSurface(
         children: [
           for (var i = 0; i < commands.length; i++)

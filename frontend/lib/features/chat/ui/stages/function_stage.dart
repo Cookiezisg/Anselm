@@ -135,7 +135,7 @@ class _OpTicker extends StatelessWidget {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: live ? null : c.ok,
-                  border: live ? Border.all(color: c.inkFaint, width: 1) : null,
+                  border: live ? Border.all(color: c.inkFaint, width: AnSize.hairline) : null,
                 ),
               ),
               const SizedBox(width: AnSpace.s4),

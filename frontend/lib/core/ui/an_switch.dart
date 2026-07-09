@@ -48,7 +48,7 @@ class AnSwitch extends StatelessWidget {
         builder: (context, states) {
           final hovered = states.contains(WidgetState.hovered);
           return Opacity(
-            opacity: enabled ? 1 : 0.45,
+            opacity: enabled ? 1 : AnOpacity.disabled,
             child: AnimatedContainer(
               duration: reduced ? Duration.zero : AnMotion.fast,
               width: _trackW,
@@ -63,7 +63,7 @@ class AnSwitch extends StatelessWidget {
               ),
               child: AnimatedAlign(
                 duration: reduced ? Duration.zero : AnMotion.fast,
-                curve: Curves.easeOutCubic,
+                curve: AnMotion.easeOut,
                 alignment: value ? Alignment.centerRight : Alignment.centerLeft,
                 child: Container(
                   width: _knob,

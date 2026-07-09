@@ -106,7 +106,7 @@ class HandlerStageBody extends ConsumerWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: lit ? c.accent : null,
-              border: lit ? null : Border.all(color: c.line, width: 1),
+              border: lit ? null : Border.all(color: c.line, width: AnSize.hairline),
             ),
           ),
           const SizedBox(width: AnSpace.s6),

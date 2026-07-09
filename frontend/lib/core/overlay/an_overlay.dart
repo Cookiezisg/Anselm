@@ -11,7 +11,7 @@ import '../ui/an_toast.dart';
 /// A classic Riverpod [NotifierProvider] (NOT the legacy `ChangeNotifierProvider`, which only lives in
 /// `riverpod/legacy.dart` and clashes with the widget-local `AnPopoverController extends ChangeNotifier`):
 ///   - [showToast] is fully context-free — it just appends to the toast stack the [AnOverlayHost]
-///     renders. A soft cap (5) drops the oldest immediately (WRK-041 decision 2).
+///     renders. A soft cap ([maxToasts]) drops the oldest immediately (WRK-041 decision 2).
 ///   - [confirm] needs a Navigator to push the dialog route; the host registers the root navigator key
 ///     ([attachNavigator]) so the controller can push without holding a BuildContext. This is the
 ///     ADR-0004-clean alternative to a global rootNavigatorKey (app-created, tree-injected, ref-wired,
@@ -239,7 +239,7 @@ class _AnToastLayer extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final toasts = ref.watch(overlayProvider.select((s) => s.toasts));
     if (toasts.isEmpty) return const SizedBox.shrink();
-    // NO ClipRect / maxHeight ConstrainedBox: the soft cap (5) already bounds the stack height, and any
+    // NO ClipRect / maxHeight ConstrainedBox: the soft cap ([maxToasts]) already bounds the stack height, and any
     // clip here CUTS the toasts' shadows — each chip's shadowPop must spread freely past the column on
     // all four sides (the real-machine review caught the shadow being sliced at the column box). The
     // only bound we want is the host Stack's screen clip. 不裁/不限高:软上限已兜高度;裁会切掉 toast 四向阴影(真机复审揪出)。
