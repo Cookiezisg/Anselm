@@ -8,7 +8,7 @@ import '../core/overlay/an_overlay.dart';
 import '../core/router/navigation.dart';
 import '../core/settings/app_prefs_providers.dart';
 import '../core/settings/settings_prefs.dart';
-import '../core/models/model_capabilities.dart';
+import '../core/model/model_capabilities.dart';
 import '../features/settings/data/settings_demo_fixture.dart';
 import '../features/settings/data/settings_repository.dart';
 import '../features/chat/data/chat_demo_fixture.dart';

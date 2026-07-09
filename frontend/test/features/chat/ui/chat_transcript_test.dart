@@ -1,6 +1,6 @@
 import 'package:anselm/core/contract/attachment.dart';
 import 'package:anselm/core/contract/model_capability.dart';
-import 'package:anselm/core/models/model_capabilities.dart';
+import 'package:anselm/core/model/model_capabilities.dart';
 import 'package:anselm/core/contract/conversation.dart';
 import 'package:anselm/core/contract/messages/chat_message.dart';
 import 'package:anselm/core/design/theme.dart';

@@ -3,7 +3,7 @@ import 'package:anselm/core/contract/model_capability.dart';
 import 'package:anselm/features/chat/data/chat_fixtures.dart';
 import 'package:anselm/features/chat/data/chat_providers.dart';
 import 'package:anselm/features/chat/data/conversation_signal.dart';
-import 'package:anselm/core/models/model_capabilities.dart';
+import 'package:anselm/core/model/model_capabilities.dart';
 import 'package:anselm/features/chat/state/conversation_header.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

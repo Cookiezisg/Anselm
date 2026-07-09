@@ -20,7 +20,7 @@ import '../state/conversation_stream_provider.dart';
 import '../state/conversation_stream_state.dart';
 import '../state/pending_interactions_provider.dart';
 import '../state/transcript_jump_provider.dart';
-import '../../../core/models/model_capabilities.dart';
+import '../../../core/model/model_capabilities.dart';
 import '../state/conversation_header.dart';
 import 'chat_head.dart';
 import 'chat_tool_card.dart';

@@ -11,8 +11,6 @@ import '../../../../core/platform/app_relaunch.dart';
 import '../../../../core/platform/factory_reset.dart';
 import '../../../../core/runtime.dart';
 import '../../../../core/settings/settings_prefs.dart';
-import '../../../../core/ui/an_meter.dart';
-import '../../../../core/ui/an_setting_row.dart';
 import '../../../../core/ui/ui.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../data/settings_repository.dart';

@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/contract/api_key.dart';
-import '../../../core/models/model_capabilities.dart';
+import '../../../core/model/model_capabilities.dart';
 import '../data/settings_repository.dart';
 
 /// The provider catalog (static; mock hidden outside dev). provider 目录。

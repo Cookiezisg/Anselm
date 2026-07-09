@@ -1,6 +1,6 @@
 import 'package:anselm/core/contract/api_key.dart';
 import 'package:anselm/core/design/theme.dart';
-import 'package:anselm/core/models/model_capabilities.dart';
+import 'package:anselm/core/model/model_capabilities.dart';
 import 'package:anselm/core/contract/model_capability.dart';
 import 'package:anselm/core/settings/settings_prefs.dart';
 import 'package:anselm/core/ui/an_dropdown.dart';

@@ -7,7 +7,7 @@ import '../../../../core/contract/workspace.dart';
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
-import '../../../../core/models/model_capabilities.dart';
+import '../../../../core/model/model_capabilities.dart';
 import '../../../../core/overlay/an_overlay.dart';
 import '../../../../core/ui/an_badge.dart';
 import '../../../../core/ui/an_button.dart';

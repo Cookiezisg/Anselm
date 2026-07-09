@@ -1,7 +1,7 @@
 import 'package:anselm/core/contract/conversation.dart';
 import 'package:anselm/core/contract/model_capability.dart';
 import 'package:anselm/core/design/theme.dart';
-import 'package:anselm/core/models/model_capabilities.dart';
+import 'package:anselm/core/model/model_capabilities.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/features/chat/data/chat_fixtures.dart';
 import 'package:anselm/features/chat/data/chat_providers.dart';

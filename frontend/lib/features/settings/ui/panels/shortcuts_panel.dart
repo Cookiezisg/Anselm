@@ -7,8 +7,6 @@ import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
 import '../../../../core/shortcuts/shortcut_bindings.dart';
 import '../../../../core/shortcuts/shortcut_catalog.dart';
-import '../../../../core/ui/an_scope_badge.dart';
-import '../../../../core/ui/an_setting_row.dart';
 import '../../../../core/ui/ui.dart';
 import '../../../../i18n/strings.g.dart';
 

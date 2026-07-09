@@ -6,7 +6,6 @@ import '../../../../core/contract/network.dart';
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
-import '../../../../core/ui/an_scope_badge.dart';
 import '../../../../core/ui/ui.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../data/settings_repository.dart';
