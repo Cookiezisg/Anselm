@@ -1,7 +1,6 @@
 import 'package:flutter/widgets.dart';
 
 import '../../model/settings_catalog.dart';
-import '../settings_ocean.dart';
 import 'chat_panel.dart';
 import 'general_panel.dart';
 import 'about_panel.dart';
@@ -12,6 +11,7 @@ import 'sandbox_panel.dart';
 import 'memory_panel.dart';
 import 'models_keys_panel.dart';
 import 'notifications_panel.dart';
+import 'shortcuts_panel.dart';
 import 'storage_panel.dart';
 import 'workspaces_panel.dart';
 
@@ -33,7 +33,7 @@ Widget buildSettingsPanelBody(BuildContext context, SettingsPanel panel) {
     SettingsPanel.storage => const StoragePanel(),
     SettingsPanel.limits => const LimitsPanel(),
     SettingsPanel.network => const NetworkPanel(),
-    SettingsPanel.shortcuts => const SettingsPanelPlaceholder(),
+    SettingsPanel.shortcuts => const ShortcutsPanel(),
     SettingsPanel.about => const AboutPanel(),
   };
 }

@@ -460,6 +460,7 @@ class _Translations$settings$zh_CN extends Translations$settings$en {
 	@override late final _Translations$settings$limits$zh_CN limits = _Translations$settings$limits$zh_CN._(_root);
 	@override late final _Translations$settings$network$zh_CN network = _Translations$settings$network$zh_CN._(_root);
 	@override late final _Translations$settings$sandbox$zh_CN sandbox = _Translations$settings$sandbox$zh_CN._(_root);
+	@override late final _Translations$settings$shortcuts$zh_CN shortcuts = _Translations$settings$shortcuts$zh_CN._(_root);
 }
 
 // Path: markdown
@@ -1628,6 +1629,30 @@ class _Translations$settings$sandbox$zh_CN extends Translations$settings$sandbox
 	@override String get statusReady => '就绪';
 	@override String get statusInstalling => '安装中';
 	@override String get statusFailed => '失败';
+}
+
+// Path: settings.shortcuts
+class _Translations$settings$shortcuts$zh_CN extends Translations$settings$shortcuts$en {
+	_Translations$settings$shortcuts$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get section => '快捷键';
+	@override String get scope => '本机';
+	@override String get resetAll => '全部恢复默认';
+	@override String get reset => '恢复默认';
+	@override String get rebind => '改绑';
+	@override String get recording => '按下新组合键…';
+	@override String conflict({required Object cmd}) => '与「${cmd}」冲突';
+	@override String get escToCancel => 'Esc 取消';
+	@override String get cmdToggleLeft => '折叠/展开左岛';
+	@override String get cmdToggleRight => '折叠/展开右岛';
+	@override String get cmdOpenSettings => '打开设置';
+	@override String get cmdZoomIn => '放大界面';
+	@override String get cmdZoomOut => '缩小界面';
+	@override String get cmdZoomReset => '重置缩放';
+	@override String get hintModifier => '组合键须含 ⌘/Ctrl 等修饰键';
 }
 
 // Path: chat.tool.kind
@@ -3465,6 +3490,21 @@ extension on TranslationsZhCn {
 			'settings.sandbox.statusReady' => '就绪',
 			'settings.sandbox.statusInstalling' => '安装中',
 			'settings.sandbox.statusFailed' => '失败',
+			'settings.shortcuts.section' => '快捷键',
+			'settings.shortcuts.scope' => '本机',
+			'settings.shortcuts.resetAll' => '全部恢复默认',
+			'settings.shortcuts.reset' => '恢复默认',
+			'settings.shortcuts.rebind' => '改绑',
+			'settings.shortcuts.recording' => '按下新组合键…',
+			'settings.shortcuts.conflict' => ({required Object cmd}) => '与「${cmd}」冲突',
+			'settings.shortcuts.escToCancel' => 'Esc 取消',
+			'settings.shortcuts.cmdToggleLeft' => '折叠/展开左岛',
+			'settings.shortcuts.cmdToggleRight' => '折叠/展开右岛',
+			'settings.shortcuts.cmdOpenSettings' => '打开设置',
+			'settings.shortcuts.cmdZoomIn' => '放大界面',
+			'settings.shortcuts.cmdZoomOut' => '缩小界面',
+			'settings.shortcuts.cmdZoomReset' => '重置缩放',
+			'settings.shortcuts.hintModifier' => '组合键须含 ⌘/Ctrl 等修饰键',
 			'markdown.imageNotLoaded' => '图片未加载',
 			'attach.unavailable' => '已不可用',
 			'attach.retry' => '点按重试',

@@ -166,12 +166,16 @@ abstract final class SettingsKeys {
   static const chatShowGroupCount = SettingsKey<bool>('an.chat.showGroupCount', true);
   static const chatShowTime = SettingsKey<bool>('an.chat.showTime', true);
 
+  // ── shortcuts 快捷键 (S6: JSON map of rebound global commands) ──
+  static const shortcuts = SettingsKey<String>('an.shortcuts', ''); // {"commandId":"cmd+keyB"}
+
   /// Every declared single key (the resetAll walk + the gate's denominator). 全部声明单键。
   static const List<SettingsKey<dynamic>> all = [
     sideCollapsed, sideWidth, rightWidth, ocean, settingsPanel,
     theme, locale, windowZoom, windowRemember, windowBounds, launchAtStartup, updateCheck,
     notifyLevel, notifyOs, notifyToast,
     chatSendKey, chatAutoStage, chatShowArchived, chatShowGroupCount, chatShowTime,
+    shortcuts,
   ];
 
   /// Declared dynamic-member prefix families (e.g. per-ocean right-island collapse). 声明前缀族。

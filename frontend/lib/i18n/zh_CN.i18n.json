@@ -1500,6 +1500,23 @@
       "statusReady": "就绪",
       "statusInstalling": "安装中",
       "statusFailed": "失败"
+    },
+    "shortcuts": {
+      "section": "快捷键",
+      "scope": "本机",
+      "resetAll": "全部恢复默认",
+      "reset": "恢复默认",
+      "rebind": "改绑",
+      "recording": "按下新组合键…",
+      "conflict": "与「$cmd」冲突",
+      "escToCancel": "Esc 取消",
+      "cmdToggleLeft": "折叠/展开左岛",
+      "cmdToggleRight": "折叠/展开右岛",
+      "cmdOpenSettings": "打开设置",
+      "cmdZoomIn": "放大界面",
+      "cmdZoomOut": "缩小界面",
+      "cmdZoomReset": "重置缩放",
+      "hintModifier": "组合键须含 ⌘/Ctrl 等修饰键"
     }
   },
   "markdown": {

@@ -1500,6 +1500,23 @@
       "statusReady": "ready",
       "statusInstalling": "installing",
       "statusFailed": "failed"
+    },
+    "shortcuts": {
+      "section": "Shortcuts",
+      "scope": "This machine",
+      "resetAll": "Reset all to defaults",
+      "reset": "Reset",
+      "rebind": "Rebind",
+      "recording": "Press a new chord…",
+      "conflict": "Conflicts with “$cmd”",
+      "escToCancel": "Esc to cancel",
+      "cmdToggleLeft": "Collapse / expand the left island",
+      "cmdToggleRight": "Collapse / expand the right island",
+      "cmdOpenSettings": "Open settings",
+      "cmdZoomIn": "Zoom in",
+      "cmdZoomOut": "Zoom out",
+      "cmdZoomReset": "Reset zoom",
+      "hintModifier": "A chord must include a modifier (⌘/Ctrl…)"
     }
   },
   "markdown": {

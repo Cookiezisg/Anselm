@@ -64,9 +64,17 @@ void main() {
     expect(find.text(t.settings.panels.limits), findsNWidgets(2));
   });
 
-  testWidgets('an unbuilt panel renders the honest placeholder', (tester) async {
-    // Seed an UNBUILT panel (shortcuts lands with S6). 种未建面板(shortcuts 归 S6)。
-    await tester.pumpWidget(_host(SettingsPrefs.inMemory({'an.settings.panel': 'shortcuts'})));
+  testWidgets('the placeholder body is honest (every panel now built — component-level check)',
+      (tester) async {
+    // All 13 panels shipped (S0–S6), so no panel routes to the placeholder anymore. Assert the
+    // placeholder component itself renders its honest copy — kept so a future new panel that lands
+    // as a placeholder still has coverage. 13 面板全建;直测占位组件本身的诚实文案。
+    await tester.pumpWidget(TranslationProvider(
+      child: MaterialApp(
+        theme: AnTheme.light(),
+        home: const Scaffold(body: SettingsPanelPlaceholder()),
+      ),
+    ));
     await tester.pumpAndSettle();
     expect(find.text(t.settings.building), findsOneWidget);
     expect(find.text(t.settings.buildingHint), findsOneWidget);

@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/design/theme.dart';
 import '../core/overlay/an_overlay.dart';
-import '../core/platform/window_zoom.dart';
 import '../core/router/navigation.dart';
 import '../core/settings/app_prefs_providers.dart';
+import '../core/shortcuts/global_shortcuts.dart';
 import '../features/settings/ui/startup_update_check.dart';
 import '../i18n/strings.g.dart';
 import 'app_startup_gate.dart';
@@ -22,9 +21,11 @@ import 'workspace_gate.dart';
 /// config is attached from launch and the gate only withholds the UI subtree until ready.
 ///
 /// Wrap order (outer → inner): [AnOverlayHost] (registers the root navigator key — shared with the
-/// GoRouter, NOT passed to MaterialApp.router which has no `navigatorKey`) → [AppStartupGate] → zoom
-/// [CallbackShortcuts] → autofocus [Focus] (live only once the shell shows) → [WorkspaceGate] → the routed
-/// `child` (the shell). Kept thin: assembly (DI overrides) accretes in `main.dart`.
+/// GoRouter, NOT passed to MaterialApp.router which has no `navigatorKey`) → [AppStartupGate] →
+/// [GlobalShortcuts] (the S6 rebindable command catalog) → autofocus [Focus] → [WorkspaceGate] → the
+/// routed `child` (the shell). [GlobalShortcuts] MUST sit ABOVE the autofocus [Focus] so the very first
+/// keystroke on cold start reaches the global chords (a CallbackShortcuts only fires for events bubbling
+/// up from a focused DESCENDANT). Kept thin: assembly (DI overrides) accretes in `main.dart`.
 ///
 /// 根 widget(4.1 STEP 6)——MaterialApp.router 由 goRouterProvider 驱动(deep-link + 前进后退;壳永不重挂)。门控 + 浮层宿主
 /// 放 builder(非 home:.router 无 home)。builder 的 `child` **即 Router widget**:门控扣住它时 Router 尚未挂载,门控开启时 Router
@@ -56,16 +57,11 @@ class AnApp extends ConsumerWidget {
       builder: (context, child) => AnOverlayHost(
         navigatorKey: navigatorKey,
         child: AppStartupGate(
-          child: CallbackShortcuts(
-            bindings: <ShortcutActivator, VoidCallback>{
-              const SingleActivator(LogicalKeyboardKey.equal, meta: true): WindowZoom.zoomIn,
-              const SingleActivator(LogicalKeyboardKey.equal, meta: true, shift: true): WindowZoom.zoomIn,
-              const SingleActivator(LogicalKeyboardKey.minus, meta: true): WindowZoom.zoomOut,
-              const SingleActivator(LogicalKeyboardKey.digit0, meta: true): WindowZoom.reset,
-            },
-            // Backend ready → cold-start resolves the workspace → the routed shell; the launch-time
-            // update check rides inside (one toast when a release is newer, 拍板 #7).
-            // 后端就绪 → 冷启动定工作区 → 路由壳;启动更新检查随行(有新版一条 toast)。
+          // The rebindable global command catalog (S6) — ABOVE the autofocus Focus so cold-start
+          // keystrokes reach it. Backend ready → cold-start resolves the workspace → the routed shell;
+          // the launch-time update check rides inside (one toast when a release is newer, 拍板 #7).
+          // 可改绑全局命令目录(S6)在 autofocus Focus 之上,冷启动按键即达。后端就绪 → 冷启动定工作区 → 路由壳。
+          child: GlobalShortcuts(
             child: Focus(
                 autofocus: true,
                 child: WorkspaceGate(child: StartupUpdateCheck(child: child!))),

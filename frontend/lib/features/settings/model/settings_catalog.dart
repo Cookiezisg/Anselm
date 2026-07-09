@@ -121,6 +121,7 @@ final List<SettingsCatalogEntry> settingsCatalog = [
     section: SettingsSection.system,
     labelOf: (t) => t.settings.panels.shortcuts,
     icon: AnIcons.keyboard,
+    ownedKeys: const [SettingsKeys.shortcuts],
   ),
   SettingsCatalogEntry(
     panel: SettingsPanel.about,

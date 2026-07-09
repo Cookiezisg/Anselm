@@ -938,6 +938,7 @@ class Translations$settings$en {
 	late final Translations$settings$limits$en limits = Translations$settings$limits$en.internal(_root);
 	late final Translations$settings$network$en network = Translations$settings$network$en.internal(_root);
 	late final Translations$settings$sandbox$en sandbox = Translations$settings$sandbox$en.internal(_root);
+	late final Translations$settings$shortcuts$en shortcuts = Translations$settings$shortcuts$en.internal(_root);
 }
 
 // Path: markdown
@@ -3904,6 +3905,60 @@ class Translations$settings$sandbox$en {
 	String get statusFailed => 'failed';
 }
 
+// Path: settings.shortcuts
+class Translations$settings$shortcuts$en {
+	Translations$settings$shortcuts$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Shortcuts'
+	String get section => 'Shortcuts';
+
+	/// en: 'This machine'
+	String get scope => 'This machine';
+
+	/// en: 'Reset all to defaults'
+	String get resetAll => 'Reset all to defaults';
+
+	/// en: 'Reset'
+	String get reset => 'Reset';
+
+	/// en: 'Rebind'
+	String get rebind => 'Rebind';
+
+	/// en: 'Press a new chord…'
+	String get recording => 'Press a new chord…';
+
+	/// en: 'Conflicts with “$cmd”'
+	String conflict({required Object cmd}) => 'Conflicts with “${cmd}”';
+
+	/// en: 'Esc to cancel'
+	String get escToCancel => 'Esc to cancel';
+
+	/// en: 'Collapse / expand the left island'
+	String get cmdToggleLeft => 'Collapse / expand the left island';
+
+	/// en: 'Collapse / expand the right island'
+	String get cmdToggleRight => 'Collapse / expand the right island';
+
+	/// en: 'Open settings'
+	String get cmdOpenSettings => 'Open settings';
+
+	/// en: 'Zoom in'
+	String get cmdZoomIn => 'Zoom in';
+
+	/// en: 'Zoom out'
+	String get cmdZoomOut => 'Zoom out';
+
+	/// en: 'Reset zoom'
+	String get cmdZoomReset => 'Reset zoom';
+
+	/// en: 'A chord must include a modifier (⌘/Ctrl…)'
+	String get hintModifier => 'A chord must include a modifier (⌘/Ctrl…)';
+}
+
 // Path: chat.tool.kind
 class Translations$chat$tool$kind$en {
 	Translations$chat$tool$kind$en.internal(this._root);
@@ -6253,6 +6308,21 @@ extension on Translations {
 			'settings.sandbox.statusReady' => 'ready',
 			'settings.sandbox.statusInstalling' => 'installing',
 			'settings.sandbox.statusFailed' => 'failed',
+			'settings.shortcuts.section' => 'Shortcuts',
+			'settings.shortcuts.scope' => 'This machine',
+			'settings.shortcuts.resetAll' => 'Reset all to defaults',
+			'settings.shortcuts.reset' => 'Reset',
+			'settings.shortcuts.rebind' => 'Rebind',
+			'settings.shortcuts.recording' => 'Press a new chord…',
+			'settings.shortcuts.conflict' => ({required Object cmd}) => 'Conflicts with “${cmd}”',
+			'settings.shortcuts.escToCancel' => 'Esc to cancel',
+			'settings.shortcuts.cmdToggleLeft' => 'Collapse / expand the left island',
+			'settings.shortcuts.cmdToggleRight' => 'Collapse / expand the right island',
+			'settings.shortcuts.cmdOpenSettings' => 'Open settings',
+			'settings.shortcuts.cmdZoomIn' => 'Zoom in',
+			'settings.shortcuts.cmdZoomOut' => 'Zoom out',
+			'settings.shortcuts.cmdZoomReset' => 'Reset zoom',
+			'settings.shortcuts.hintModifier' => 'A chord must include a modifier (⌘/Ctrl…)',
 			'markdown.imageNotLoaded' => 'image not loaded',
 			'attach.unavailable' => 'Unavailable',
 			'attach.retry' => 'Tap to retry',
