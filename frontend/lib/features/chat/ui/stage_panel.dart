@@ -166,6 +166,20 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
   String get conversationId => widget.conversationId;
 
   @override
+  void didUpdateWidget(_AccordionList old) {
+    super.didUpdateWidget(old);
+    // The shell mounts StagePanel WITHOUT a per-conversation key, so this State is REUSED across a
+    // conversation switch while the per-conversation providers (director / expansion) rebuild. Reset the
+    // scroll-follow bookkeeping so a stale takeover / auto-open set from thread A never governs thread B.
+    // 壳不按会话给 key → 切会话时本 State 复用而 provider 重建;重置滚动跟随记账,免 A 的残留管到 B。
+    if (old.conversationId != widget.conversationId) {
+      _takeover = false;
+      _autoHandled.clear();
+      _rowKeys.clear();
+    }
+  }
+
+  @override
   void dispose() {
     _scroll.dispose();
     super.dispose();
@@ -179,17 +193,20 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
   bool _onScroll(ScrollNotification n) {
     if (n is UserScrollNotification && n.direction != ScrollDirection.idle) {
       _takeover = true;
-    } else if (n is ScrollEndNotification && _isNearBottom) {
+    } else if (n is ScrollEndNotification && _isNearTop) {
       _takeover = false;
     }
     return false;
   }
 
-  bool get _isNearBottom {
+  // The list is TOP-anchored (todo + live rows ride offset≈0; the oldest ledger + load-more foot sit at the
+  // bottom), so auto-follow re-arms when the user returns to the TOP — where live activity lands — NOT the
+  // bottom (that would demand scrolling past every paged-in old entity to re-arm). 顶锚列表:回顶即重武装。
+  bool get _isNearTop {
     if (!_scroll.hasClients) return false;
     final p = _scroll.position;
-    if (!p.hasContentDimensions || !p.maxScrollExtent.isFinite) return false;
-    return p.pixels >= p.maxScrollExtent - 80; // threshold, never atEdge/exact 阈值,不用 atEdge
+    if (!p.hasContentDimensions) return false;
+    return p.pixels <= p.minScrollExtent + 80; // threshold, never atEdge/exact 阈值,不用 atEdge
   }
 
   // §4-1/§4-2 — the director staged a NEW subject (follow already gated it): open its row (sticky) and
@@ -330,8 +347,13 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
           }
           final idx = i - todoCount;
           if (idx >= rows.length) {
-            // load-more foot — fires on becoming visible. 载更多脚。
-            ref.read(touchpointLedgerProvider(conversationId).notifier).loadMore();
+            // load-more foot — fires on becoming visible, DEFERRED out of build: loadMore() synchronously
+            // mutates the ledger provider this widget watches, and calling it inside itemBuilder (a build
+            // phase) trips Riverpod's «modify a provider while building» guard. 载更多脚:post-frame 延迟出
+            // build——loadMore 同步变异本 widget watch 的 provider,build 期直调会触发 Riverpod 守卫。
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) ref.read(touchpointLedgerProvider(conversationId).notifier).loadMore();
+            });
             return const Padding(padding: EdgeInsets.all(AnSpace.s8), child: AnSkeleton.row());
           }
           final spec = rows[idx];

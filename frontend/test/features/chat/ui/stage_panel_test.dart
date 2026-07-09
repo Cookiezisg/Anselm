@@ -123,6 +123,27 @@ void main() {
     expect(find.byType(DocumentStageBody), findsOneWidget);
   });
 
+  testWidgets('load-more foot paginates WITHOUT a build-phase provider mutation (HIGH regression)',
+      (tester) async {
+    final repo = _repo();
+    // 60 touchpoints → the first page is 50 with hasMore, so the load-more foot renders. 60 触点→首页 50 有脚。
+    repo.touchpoints[_conv] = [
+      for (var i = 0; i < 60; i++)
+        _tp('tp_$i', 'function', 'fn_$i', 'fn_num_$i', TouchpointVerb.edited),
+    ];
+    await tester.pumpWidget(_host(repo));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    // Scroll the foot into view — its loadMore() is DEFERRED to a post-frame callback; a build-phase call
+    // (the pre-fix bug) would trip Riverpod's «modify a provider while building» guard and surface as a
+    // thrown exception here. 滚出脚:loadMore 已 post-frame 延迟;build 期调用(修复前)会触发 Riverpod 守卫抛错。
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -6000));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(tester.takeException(), isNull); // no build-phase mutation throw 无 build 期变异抛错
+  });
+
   testWidgets('a durable touchpoint signal lands a Cast row live', (tester) async {
     final repo = _repo();
     await tester.pumpWidget(_host(repo));
