@@ -349,9 +349,9 @@ class _EdgeEditor extends ConsumerWidget {
           child: AnDropdown<String>(
             value: edge.fromPort ?? 'yes',
             block: true,
-            options: const [
-              AnDropdownOption(value: 'yes', label: 'yes'),
-              AnDropdownOption(value: 'no', label: 'no'),
+            options: [
+              AnDropdownOption(value: 'yes', label: t.entities.val.yes),
+              AnDropdownOption(value: 'no', label: t.entities.val.no),
             ],
             onChanged: (p) => notifier.setEdgePort(edge.id, p),
           ),

@@ -97,14 +97,12 @@
       "runningCmd": "Running command",
       "ranCmd": "Ran",
       "lines": "$n lines",
-      "linesTruncated": "first $n lines (truncated)",
       "matches": "$n matches",
       "files": "$n files",
       "items": "$n items",
       "noMatches": "no matches",
       "exit": "exit $code",
       "timedOut": "timed out",
-      "wroteBytes": "$n bytes",
       "creatingKind": "Creating $kind",
       "createdKind": "Created $kind",
       "updatingKind": "Updating $kind",
@@ -128,7 +126,6 @@
         "conversation": "conversations"
       },
       "asking": "Asking",
-      "asked": "Asked",
       "answered": "Answered",
       "skipped": "Skipped",
       "emptyAnswer": "Empty answer",
@@ -155,20 +152,15 @@
       "runtimeStopped": "Instance not running",
       "runtimeCrashed": "Instance crashed",
       "envFixAttempt": "attempt $n",
-      "envFixHealing": "revised deps, retried",
       "envFixTitle": "Environment self-heal",
       "wfInactive": "Not activated",
       "wfGraphCounts": "$nodes nodes · $edges edges",
-      "wfActivateHint": "activate_workflow to go live · trigger_workflow to test",
-      "wfGrowing": "Composing",
       "wfNodeUnit": "nodes",
       "wfEdgeUnit": "edges",
       "wfDeltaEmpty": "metadata only (graph unchanged)",
       "wfMorphNote": "incremental change (full graph in the entity panel)",
       "ctlOtherwise": "otherwise",
       "ctlWhenTrue": "catch-all",
-      "ctlEmit": "emit",
-      "ctlNoCatchall": "no catch-all: last must be when:\"true\"",
       "apfTimeoutNever": "never times out",
       "apfAllowReason": "note allowed",
       "apfApprove": "Approve",
@@ -306,9 +298,7 @@
       "noteRestart": "memory state cleared",
       "noteKill": "listening stopped; killed runs are cancelled — see flowruns",
       "noteStage": "runs once on the next real trigger, then auto-unstages",
-      "noteDeactivateDrain": "to abort in-flight now, use kill_workflow",
       "noteDeleteDocSoft": "soft-deleted, recoverable",
-      "noteTriggerRemoved": "listening released",
       "noteConfig": "restart triggered to take effect; see the handler panel",
       "noteMetaHandler": "no new version, no restart, memory state preserved",
       "kvName": "name",
@@ -334,11 +324,8 @@
       "cvEmpty": "no conversations",
       "cvHits": "$n hits",
       "cvNoMatch": "no matches",
-      "cvInclArchived": "incl. archived",
-      "cvNextPage": "next page",
       "cvMorePages": "more pages",
       "cvArchivedBadge": "archived",
-      "cvPinnedBadge": "pinned",
       "cvChunks": "×$n",
       "cvShownOfTotal": "first $n of $total hits",
       "cvStatusArchived": "archived",
@@ -506,7 +493,6 @@
       "todoRead": "Read checklist",
       "todoRollup": "$total items · $done done",
       "todoCleared": "Checklist cleared",
-      "todoActive": "$n in progress",
       "gettingRelations": "Checking relations",
       "gotRelations": "Checked relations",
       "relCount": "$n edges",
@@ -539,13 +525,14 @@
       "gotModelConfig": "Read model config",
       "modelDefaults": "Default models",
       "modelKeys": "$n keys",
-      "modelAvail": "$n available models"
+      "modelAvail": "$n available models",
+      "memSourceUser": "you",
+      "memSourceAi": "AI"
     },
     "gate": {
       "dangerBadge": "Dangerous",
       "awaitingDanger": "Awaiting your approval",
       "awaitingAsk": "Awaiting your answer",
-      "evidenceLabel": "Arguments",
       "approve": "Allow",
       "approveAlways": "Always allow",
       "approveAlwaysHint": "Don't ask again for $tool this conversation (forgotten on restart)",
@@ -553,7 +540,6 @@
       "decline": "Don't answer",
       "submit": "Send",
       "answerPlaceholder": "Type your answer…",
-      "optionsHint": "Pick one, or type your own",
       "decidedApproved": "Allowed",
       "decidedApprovedAlways": "Allowed · always this conversation",
       "decidedDenied": "Denied",
@@ -636,7 +622,12 @@
       "ensembleTitle": "Running in parallel",
       "boardOf": "$name's board",
       "humanOnly": "human-invoked only",
-      "toolsDiscovered": "tools discovered"
+      "toolsDiscovered": "tools discovered",
+      "cfgReady": "config ready",
+      "cfgPending": "config pending",
+      "rtRunning": "running",
+      "rtCrashed": "crashed",
+      "rtStopped": "stopped"
     }
   },
   "appName": "Anselm",
@@ -675,7 +666,6 @@
     "collapseSidebar": "Collapse sidebar",
     "expandSidebar": "Expand sidebar",
     "togglePanel": "Toggle panel",
-    "backToTop": "Back to top",
     "ocean": {
       "chat": "Chat",
       "entities": "Entities",
@@ -686,7 +676,6 @@
     "comingSoonHint": "This ocean isn't built yet.",
     "settings": "Settings",
     "notifications": "Notifications",
-    "notificationsHint": "You're all caught up.",
     "workspaceFallback": "Workspace",
     "newWorkspace": "New workspace",
     "workspaceSettings": "Workspace settings"
@@ -702,7 +691,6 @@
     "today": "Today",
     "yesterday": "Yesterday",
     "earlier": "Earlier",
-    "unnamed": "(unnamed)",
     "unknown": "New activity",
     "kind": {
       "memory": "Memory",
@@ -733,7 +721,9 @@
     },
     "depBrokenOne": "left 1 reference dangling",
     "depBrokenMany": "left $n references dangling",
-    "view": "View"
+    "view": "View",
+    "errorTitle": "Couldn't load notifications",
+    "retry": "Retry"
   },
   "ref": {
     "function": "Function",
@@ -825,9 +815,6 @@
       "hero": {
         "envStatus": "env $status",
         "noInputs": "no inputs",
-        "noOutputs": "no outputs",
-        "noConfig": "no config",
-        "noMethods": "no methods",
         "methods": "$n methods",
         "deps": "$n deps"
       },
@@ -890,7 +877,6 @@
         "noRunsHint": "Each run appears here once the workflow is triggered",
         "runGraph": "Run graph",
         "nodeDetail": "Node · $id",
-        "pickNode": "Pick a node to see its execution detail",
         "replay": "Replay",
         "kill": "Kill",
         "runInfo": "Run info",
@@ -952,7 +938,6 @@
         "defaultPrefix": "default",
         "generator": "generator",
         "modelDefault": "Workspace default",
-        "modelOverridden": "Overridden",
         "none": "—"
       },
       "mounts": {
@@ -1000,11 +985,9 @@
         "noFirings": "Nothing dispatched",
         "noFiringsHint": "When a fire fans out to a workflow, its disposition shows here.",
         "noActiveVersion": "No active version",
-        "notFoundTitle": "Entity not found",
         "errorTitle": "Couldn't load this entity",
         "errorHint": "The local engine didn't return it.",
         "loadMore": "Load more",
-        "endOfList": "End of list",
         "loadFailed": "Load failed — tap to retry",
         "earliest": "earliest version"
       },
@@ -1013,7 +996,6 @@
         "back": "Back",
         "addNode": "Add node",
         "autoLayout": "Auto layout",
-        "direction": "Direction",
         "dirLR": "Horizontal",
         "dirTB": "Vertical",
         "save": "Save",
@@ -1029,8 +1011,6 @@
         "nodeInput": "Input mapping",
         "nodeRetry": "Retry",
         "edgePort": "Port",
-        "edgeFrom": "From",
-        "edgeTo": "To",
         "deleteNode": "Delete node",
         "deleteEdge": "Delete edge",
         "portHint": "A control port must match a branch name; approval is yes/no",
@@ -1038,9 +1018,7 @@
         "branches": "Routing branches",
         "branchDefault": "default (all else)",
         "branchEmit": "emit",
-        "addField": "Add field",
         "field": "Field",
-        "expr": "CEL expression",
         "retryEnable": "Enable retry",
         "maxAttempts": "Max attempts",
         "errSelfLoop": "No self-loops: a node cannot connect to itself",
@@ -1100,6 +1078,10 @@
       "reasonHint": "Reason (optional)",
       "inboxEmpty": "No pending approvals",
       "inboxEmptyHint": "Approvals waiting for a decision will appear here."
+    },
+    "val": {
+      "yes": "yes",
+      "no": "no"
     }
   },
   "coldStart": {
@@ -1122,8 +1104,6 @@
     "pickTitle": "Pick a document",
     "pickHint": "Choose a document or skill on the left to read or edit it.",
     "loadFailed": "Couldn't open this",
-    "emptyDoc": "This document is empty.",
-    "newSkill": "New skill",
     "rename": "Rename",
     "duplicate": "Duplicate",
     "deleteDocTitle": "Delete this page?",
@@ -1172,8 +1152,7 @@
       "divider": "Divider",
       "todo": "To-do"
     },
-    "linkHint": "Type or paste a link, Enter to apply",
-    "toolCount": "$n tools"
+    "linkHint": "Type or paste a link, Enter to apply"
   },
   "settings": {
     "title": "Settings",
@@ -1394,7 +1373,6 @@
       "url": "URL",
       "envKv": "Env (KEY=VALUE per line)",
       "headersKv": "Headers (KEY=VALUE per line)",
-      "timeoutSec": "Timeout (s)",
       "add": "Add",
       "addFailedHonest": "A failed connection still lands as failed — reconnect later",
       "importTitle": "Import mcp.json",
@@ -1430,11 +1408,9 @@
       "diskSandbox": "Sandbox runtimes & envs",
       "diskMore": "Breakdown coming soon",
       "openLogs": "Open logs folder",
-      "logsDesc": "Rolling logs, 10MB×3 per file, gzip archived",
       "resetPrefs": "Reset local preferences",
-      "resetPrefsDesc": "Clears this machine's UI preferences (theme/window/zoom…) only — never touches workspace data",
+      "resetPrefsDesc": "Clears this machine's UI preferences (theme/window/zoom…) only — never touches workspace data. The app will restart to apply the reset.",
       "resetPrefsTitle": "Reset local preferences?",
-      "resetPrefsDone": "Local preferences reset",
       "factoryTitle": "Factory reset",
       "factoryWarn": "Stops the engine, permanently deletes the ENTIRE data directory (all workspaces / conversations / entities / documents / keys) and relaunches the app.",
       "factoryHint": "Type “Anselm” to confirm",
@@ -1460,11 +1436,9 @@
       "empty": "Empty = direct connection"
     },
     "sandbox": {
-      "bootstrapOk": "Sandbox ready",
       "bootstrapFail": "Sandbox bootstrap failed",
       "retry": "Retry",
       "runtimes": "Runtimes",
-      "runtimeScope": "This machine",
       "install": "Install",
       "installing": "Installing…",
       "installTitle": "Install runtime",
@@ -1498,7 +1472,6 @@
       "gcAll": "Reclaim all now",
       "running": "running",
       "statusReady": "ready",
-      "statusInstalling": "installing",
       "statusFailed": "failed"
     },
     "shortcuts": {
@@ -1509,7 +1482,6 @@
       "rebind": "Rebind",
       "recording": "Press a new chord…",
       "conflict": "Conflicts with “$cmd”",
-      "escToCancel": "Esc to cancel",
       "cmdToggleLeft": "Collapse / expand the left island",
       "cmdToggleRight": "Collapse / expand the right island",
       "cmdOpenSettings": "Open settings",

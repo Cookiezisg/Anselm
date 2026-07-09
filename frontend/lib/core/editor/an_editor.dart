@@ -67,7 +67,7 @@ class AnEditor extends StatefulWidget {
   final MutableDocument? debugDocument;
 
   /// The document's markdown content to load (E9). Mentions (`[[id]]`) inflate to pills, resolving display
-  /// names from [resolvedNames]. Null → the built-in demo seed. 载入的 markdown(`[[id]]`→药丸,名从 resolvedNames)。
+  /// names from [resolvedNames]. Null → an EMPTY document. 载入的 markdown(`[[id]]`→药丸);null=空文档。
   final String? initialMarkdown;
 
   /// id→name for the `[[id]]` mentions in [initialMarkdown] (from `MentionSource.resolveNames`, resolved by
@@ -178,11 +178,13 @@ class AnEditorState extends State<AnEditor> {
     _slashTags = ActionTagsPlugin();
     // The `@` plugin only exists when a mention source is wired (no source → no picker). 有源才建 @ 插件。
     if (widget.mentionSource != null) _mentionTags = StableTagPlugin();
-    // Load order: a test-supplied document, else markdown (E9), else the demo seed. 载入优先级。
+    // Load order: a test/harness-supplied document, else markdown (E9), else an EMPTY doc. No demo seed
+    // lives in this production file — the dev harness supplies its own content. 无 demo 种子在生产文件;
+    // harness 自带内容,兜底为空文档(单空段)。
     _document = widget.debugDocument ??
         (widget.initialMarkdown != null
             ? documentFromMarkdown(widget.initialMarkdown!, names: widget.resolvedNames)
-            : _seedDocument());
+            : MutableDocument(nodes: [ParagraphNode(id: Editor.createNodeId(), text: AttributedText())]));
     // NO initial selection — the composer starts with a null selection (#2995 discipline). A caret appears
     // on the first tap / focus. 起手不给选区(#2995)。
     _composer = MutableDocumentComposer();
@@ -431,105 +433,3 @@ class AnEditorState extends State<AnEditor> {
     );
   }
 }
-
-/// A small seed document exercising the block ladder (h1/h2/h3 + body) — ONLY the dev harness sees it
-/// (production always passes initialMarkdown), so the harness screenshot shows the An prose voice.
-/// 种子文档:走一遍标题阶梯+正文——仅 dev harness 用(生产总传 initialMarkdown),供截图看 An prose 声。
-ParagraphNode _heading(String text, Attribution level) => ParagraphNode(
-      id: Editor.createNodeId(),
-      text: AttributedText(text),
-      metadata: {'blockType': level},
-    );
-
-/// One table cell — a plain [TextNode] (the table grid holds these). 表格单元=纯文本节点。
-ParagraphNode _cell(String text) => ParagraphNode(id: Editor.createNodeId(), text: AttributedText(text));
-
-/// Builds an [AttributedText] from (text, inline-attribution?) runs, tracking offsets so each run's
-/// [SpanRange] is exact (inclusive end). Lets a seed paragraph carry bold/italic/code/link spans without
-/// hand-counting CJK indices. 从 (文本,行内属性?) 段拼 AttributedText,自动算 span 偏移(含 CJK)。
-AttributedText _spans(List<(String, Attribution?)> runs) {
-  final buffer = StringBuffer();
-  final marks = <(Attribution, int, int)>[];
-  var i = 0;
-  for (final (text, attr) in runs) {
-    if (attr != null) marks.add((attr, i, i + text.length - 1));
-    buffer.write(text);
-    i += text.length;
-  }
-  final at = AttributedText(buffer.toString());
-  for (final (attr, start, end) in marks) {
-    at.addAttribution(attr, SpanRange(start, end));
-  }
-  return at;
-}
-
-MutableDocument _seedDocument() => MutableDocument(
-      nodes: [
-        _heading('产品需求文档', header1Attribution),
-        ParagraphNode(
-          id: Editor.createNodeId(),
-          text: AttributedText('原生 super_editor 编辑器 —— 每个块都是真 Flutter widget,用我们自己的 An 原语绘制,'
-              '与产品其它面像素级一致。在这里直接打字,试试中文输入、双击选词、三击选段、狂点都不卡死。'),
-        ),
-        _heading('设计目标', header2Attribution),
-        ParagraphNode(
-          id: Editor.createNodeId(),
-          text: AttributedText('视觉是第一标准:正文 15/1.6 的阅读声、标题阶梯靠字号与颜色分层,而非更重的字重。'),
-        ),
-        ParagraphNode(
-          id: Editor.createNodeId(),
-          text: _spans([
-            ('行内格式:', null),
-            ('加粗', boldAttribution),
-            ('(w400 两字重)、', null),
-            ('斜体', italicsAttribution),
-            ('、', null),
-            ('删除线', strikethroughAttribution),
-            ('、行内代码 ', null),
-            ('print()', codeAttribution),
-            (' 、以及', null),
-            ('一条链接', LinkAttribution('https://anselm.website')),
-            ('。', null),
-          ]),
-        ),
-        // A @mention pill — the entity reference embedded inline (E5a). 内联实体提及药丸。
-        ParagraphNode(
-          id: Editor.createNodeId(),
-          text: AttributedText('输入 @ 可提及实体,如 。', null, {
-            13: const MentionPlaceholder(id: 'wf_00000000000000a1', name: '每日销量对账', kind: 'workflow'),
-          }),
-        ),
-        _heading('实现要点', header3Attribution),
-        ParagraphNode(
-          id: Editor.createNodeId(),
-          text: AttributedText('这是第三层标题下的正文,用来验证跨块选区、光标落位与块间节奏。'),
-        ),
-        ParagraphNode(
-          id: Editor.createNodeId(),
-          text: AttributedText('引用是静默的旁白 —— 一条 2px 左边条 + 降一档的墨色,把补充说明从正文里轻轻托起,又不喧宾夺主。'),
-          metadata: {'blockType': blockquoteAttribution},
-        ),
-        ParagraphNode(
-          id: Editor.createNodeId(),
-          text: AttributedText('void main() {\n  print("你好, super_editor");\n}'),
-          metadata: {'blockType': codeAttribution},
-        ),
-        _heading('列表', header3Attribution),
-        ListItemNode.unordered(id: Editor.createNodeId(), text: AttributedText('无序项一 —— 圆点是 inkMuted 的静默标记。')),
-        ListItemNode.unordered(id: Editor.createNodeId(), text: AttributedText('无序项二 —— 连续项收紧节奏。')),
-        ListItemNode.ordered(id: Editor.createNodeId(), text: AttributedText('有序项一 —— 序号随 reading 正文声。')),
-        ListItemNode.ordered(id: Editor.createNodeId(), text: AttributedText('有序项二。')),
-        _heading('表格', header3Attribution),
-        TableBlockNode(id: Editor.createNodeId(), cells: [
-          [_cell('实体'), _cell('说明')],
-          [_cell('工作流'), _cell('可 @ 提及、可 /trigger')],
-          [_cell('函数'), _cell('可 /run')],
-        ]),
-        _heading('任务', header3Attribution),
-        TaskNode(id: Editor.createNodeId(), text: AttributedText('未完成的任务 —— 方框可点切换。'), isComplete: false),
-        TaskNode(id: Editor.createNodeId(), text: AttributedText('已完成的任务 —— 打勾变 ok 绿 + inkFaint 删除线。'), isComplete: true),
-        // A trailing empty paragraph — a clean spot to type `/` (empty query → the whole slash palette).
-        // 末尾空段:干净的 `/` 落点(空查询→整张 slash 表)。
-        ParagraphNode(id: Editor.createNodeId(), text: AttributedText('')),
-      ],
-    );

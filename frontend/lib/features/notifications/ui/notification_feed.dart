@@ -81,9 +81,9 @@ class _NotificationFeedState extends ConsumerState<NotificationFeed> {
             error: (_, _) => AnState(
               kind: AnStateKind.error,
               size: AnStateSize.inset,
-              title: context.t.entities.detail.state.errorTitle,
+              title: context.t.notifications.errorTitle,
               action: AnButton(
-                label: context.t.entities.detail.state.retry,
+                label: context.t.notifications.retry,
                 onPressed: () => ref.invalidate(notificationFeedProvider),
               ),
             ),

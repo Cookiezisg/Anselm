@@ -148,13 +148,21 @@ class HandlerStageBody extends ConsumerWidget {
 
   Widget _settleStates(BuildContext context, AnColors c, dynamic handler) {
     if (handler == null) return const SizedBox.shrink();
+    final t = context.t;
     final config = handler.configState as String?;
     final runtime = handler.runtimeState as String?;
+    String rtLabel(String s) => switch (s) {
+          'running' => t.chat.stage.rtRunning,
+          'crashed' => t.chat.stage.rtCrashed,
+          'stopped' => t.chat.stage.rtStopped,
+          _ => s,
+        };
     return Wrap(spacing: AnSpace.s6, children: [
       if (config != null)
-        AnBadge(config, tone: config == 'ready' ? AnTone.ok : AnTone.warn),
+        AnBadge(config == 'ready' ? t.chat.stage.cfgReady : t.chat.stage.cfgPending,
+            tone: config == 'ready' ? AnTone.ok : AnTone.warn),
       if (runtime != null)
-        AnBadge(runtime,
+        AnBadge(rtLabel(runtime),
             tone: runtime == 'running'
                 ? AnTone.ok
                 : runtime == 'crashed'

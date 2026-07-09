@@ -186,13 +186,11 @@ class _Translations$shell$zh_CN extends Translations$shell$en {
 	@override String get collapseSidebar => '收起侧栏';
 	@override String get expandSidebar => '展开侧栏';
 	@override String get togglePanel => '切换面板';
-	@override String get backToTop => '回到顶部';
 	@override late final _Translations$shell$ocean$zh_CN ocean = _Translations$shell$ocean$zh_CN._(_root);
 	@override String get comingSoonTitle => '即将推出';
 	@override String get comingSoonHint => '该海洋尚未构建。';
 	@override String get settings => '设置';
 	@override String get notifications => '通知';
-	@override String get notificationsHint => '没有新通知。';
 	@override String get workspaceFallback => '工作区';
 	@override String get newWorkspace => '新建工作区';
 	@override String get workspaceSettings => '工作区设置';
@@ -215,13 +213,14 @@ class _Translations$notifications$zh_CN extends Translations$notifications$en {
 	@override String get today => '今天';
 	@override String get yesterday => '昨天';
 	@override String get earlier => '更早';
-	@override String get unnamed => '（未命名）';
 	@override String get unknown => '有新动态';
 	@override late final _Translations$notifications$kind$zh_CN kind = _Translations$notifications$kind$zh_CN._(_root);
 	@override late final _Translations$notifications$verb$zh_CN verb = _Translations$notifications$verb$zh_CN._(_root);
 	@override String get depBrokenOne => '导致 1 处引用悬空';
 	@override String depBrokenMany({required Object n}) => '导致 ${n} 处引用悬空';
 	@override String get view => '查看';
+	@override String get errorTitle => '通知加载失败';
+	@override String get retry => '重试';
 }
 
 // Path: ref
@@ -338,6 +337,7 @@ class _Translations$entities$zh_CN extends Translations$entities$en {
 	@override String get showCount => '显示分组计数';
 	@override late final _Translations$entities$detail$zh_CN detail = _Translations$entities$detail$zh_CN._(_root);
 	@override late final _Translations$entities$run$zh_CN run = _Translations$entities$run$zh_CN._(_root);
+	@override late final _Translations$entities$val$zh_CN val = _Translations$entities$val$zh_CN._(_root);
 }
 
 // Path: coldStart
@@ -373,8 +373,6 @@ class _Translations$documents$zh_CN extends Translations$documents$en {
 	@override String get pickTitle => '选一篇文档';
 	@override String get pickHint => '在左侧选一篇文档或技能来阅读或编辑。';
 	@override String get loadFailed => '打不开这个';
-	@override String get emptyDoc => '这篇文档是空的。';
-	@override String get newSkill => '新建技能';
 	@override String get rename => '改名';
 	@override String get duplicate => '创建副本';
 	@override String get deleteDocTitle => '删除这个页面?';
@@ -385,7 +383,6 @@ class _Translations$documents$zh_CN extends Translations$documents$en {
 	@override late final _Translations$documents$props$zh_CN props = _Translations$documents$props$zh_CN._(_root);
 	@override late final _Translations$documents$slash$zh_CN slash = _Translations$documents$slash$zh_CN._(_root);
 	@override String get linkHint => '输入或粘贴链接,回车确定';
-	@override String toolCount({required Object n}) => '${n} 个工具';
 }
 
 // Path: settings
@@ -566,14 +563,12 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get runningCmd => '正在执行命令';
 	@override String get ranCmd => '已执行';
 	@override String lines({required Object n}) => '${n} 行';
-	@override String linesTruncated({required Object n}) => '前 ${n} 行(截断)';
 	@override String matches({required Object n}) => '${n} 处匹配';
 	@override String files({required Object n}) => '${n} 个文件';
 	@override String items({required Object n}) => '${n} 项';
 	@override String get noMatches => '无匹配';
 	@override String exit({required Object code}) => 'exit ${code}';
 	@override String get timedOut => '超时';
-	@override String wroteBytes({required Object n}) => '${n} 字节';
 	@override String creatingKind({required Object kind}) => '正在创建${kind}';
 	@override String createdKind({required Object kind}) => '已创建${kind}';
 	@override String updatingKind({required Object kind}) => '正在修改${kind}';
@@ -584,7 +579,6 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get restarted => '已重启';
 	@override late final _Translations$chat$tool$kind$zh_CN kind = _Translations$chat$tool$kind$zh_CN._(_root);
 	@override String get asking => '正在提问';
-	@override String get asked => '已提问';
 	@override String get answered => '已回答';
 	@override String get skipped => '已跳过';
 	@override String get emptyAnswer => '空答案';
@@ -611,20 +605,15 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get runtimeStopped => '实例未运行';
 	@override String get runtimeCrashed => '实例已崩溃';
 	@override String envFixAttempt({required Object n}) => '尝试 ${n}';
-	@override String get envFixHealing => '改依赖重试';
 	@override String get envFixTitle => '环境自愈';
 	@override String get wfInactive => '未激活';
 	@override String wfGraphCounts({required Object nodes, required Object edges}) => '节点 ${nodes} · 边 ${edges}';
-	@override String get wfActivateHint => 'activate_workflow 上线 · trigger_workflow 试跑';
-	@override String get wfGrowing => '正在编排';
 	@override String get wfNodeUnit => '节点';
 	@override String get wfEdgeUnit => '边';
 	@override String get wfDeltaEmpty => '仅改元数据(图未变)';
 	@override String get wfMorphNote => '增量变换(图整体见实体面板)';
 	@override String get ctlOtherwise => '否则';
 	@override String get ctlWhenTrue => '兜底';
-	@override String get ctlEmit => 'emit';
-	@override String get ctlNoCatchall => '缺兜底:末条须 when:"true"';
 	@override String get apfTimeoutNever => '永不超时';
 	@override String get apfAllowReason => '可填备注';
 	@override String get apfApprove => '批准';
@@ -762,9 +751,7 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get noteRestart => '内存态已清空';
 	@override String get noteKill => '监听已停;被杀 run 状态=cancelled,可在 flowruns 里查';
 	@override String get noteStage => '真实触发到来跑一次后自动解除';
-	@override String get noteDeactivateDrain => '要立即中止在途,用 kill_workflow';
 	@override String get noteDeleteDocSoft => '软删除,可恢复';
-	@override String get noteTriggerRemoved => '监听已解除';
 	@override String get noteConfig => '已触发重启以生效;运行状态见 handler 面板';
 	@override String get noteMetaHandler => '无新版本、无重启、内存态保全';
 	@override String get kvName => '名称';
@@ -790,11 +777,8 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get cvEmpty => '无对话';
 	@override String cvHits({required Object n}) => '${n} 命中';
 	@override String get cvNoMatch => '无匹配';
-	@override String get cvInclArchived => '含归档';
-	@override String get cvNextPage => '续页';
 	@override String get cvMorePages => '还有更多页';
 	@override String get cvArchivedBadge => '已归档';
-	@override String get cvPinnedBadge => '置顶';
 	@override String cvChunks({required Object n}) => '×${n}';
 	@override String cvShownOfTotal({required Object n, required Object total}) => '显示前 ${n} 条 · 共 ${total} 命中';
 	@override String get cvStatusArchived => '归档';
@@ -962,7 +946,6 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get todoRead => '已读取任务清单';
 	@override String todoRollup({required Object total, required Object done}) => '${total} 项 · ${done} 完成';
 	@override String get todoCleared => '清单已清空';
-	@override String todoActive({required Object n}) => '${n} 进行中';
 	@override String get gettingRelations => '正在查关系';
 	@override String get gotRelations => '已查关系';
 	@override String relCount({required Object n}) => '${n} 条关系';
@@ -996,6 +979,8 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get modelDefaults => '默认模型';
 	@override String modelKeys({required Object n}) => '${n} 个密钥';
 	@override String modelAvail({required Object n}) => '${n} 个可用模型';
+	@override String get memSourceUser => '你';
+	@override String get memSourceAi => 'AI';
 }
 
 // Path: chat.gate
@@ -1008,7 +993,6 @@ class _Translations$chat$gate$zh_CN extends Translations$chat$gate$en {
 	@override String get dangerBadge => '危险';
 	@override String get awaitingDanger => '等待你确认';
 	@override String get awaitingAsk => '等待你回答';
-	@override String get evidenceLabel => '参数';
 	@override String get approve => '允许';
 	@override String get approveAlways => '总是允许';
 	@override String approveAlwaysHint({required Object tool}) => '本对话内不再询问 ${tool}(重启即忘)';
@@ -1016,7 +1000,6 @@ class _Translations$chat$gate$zh_CN extends Translations$chat$gate$en {
 	@override String get decline => '不回答';
 	@override String get submit => '发送';
 	@override String get answerPlaceholder => '输入你的回答…';
-	@override String get optionsHint => '选一项,或直接输入';
 	@override String get decidedApproved => '已允许';
 	@override String get decidedApprovedAlways => '已允许 · 本对话总是';
 	@override String get decidedDenied => '已拒绝';
@@ -1080,6 +1063,11 @@ class _Translations$chat$stage$zh_CN extends Translations$chat$stage$en {
 	@override String boardOf({required Object name}) => '${name} 的清单';
 	@override String get humanOnly => '仅人可唤';
 	@override String get toolsDiscovered => '个工具已发现';
+	@override String get cfgReady => '配置就绪';
+	@override String get cfgPending => '配置待建';
+	@override String get rtRunning => '运行中';
+	@override String get rtCrashed => '已崩溃';
+	@override String get rtStopped => '已停止';
 }
 
 // Path: shell.ocean
@@ -1218,6 +1206,17 @@ class _Translations$entities$run$zh_CN extends Translations$entities$run$en {
 	@override String get reasonHint => '备注(可选)';
 	@override String get inboxEmpty => '没有待审批';
 	@override String get inboxEmptyHint => '等待决断的审批会出现在这里。';
+}
+
+// Path: entities.val
+class _Translations$entities$val$zh_CN extends Translations$entities$val$en {
+	_Translations$entities$val$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get yes => '是';
+	@override String get no => '否';
 }
 
 // Path: documents.props
@@ -1495,7 +1494,6 @@ class _Translations$settings$mcp$zh_CN extends Translations$settings$mcp$en {
 	@override String get url => 'URL';
 	@override String get envKv => '环境变量(KEY=VALUE,每行一个)';
 	@override String get headersKv => '请求头(KEY=VALUE,每行一个)';
-	@override String get timeoutSec => '超时(秒)';
 	@override String get add => '添加';
 	@override String get addFailedHonest => '连接失败也会落盘为 failed,可稍后重连';
 	@override String get importTitle => '导入 mcp.json';
@@ -1538,11 +1536,9 @@ class _Translations$settings$storage$zh_CN extends Translations$settings$storage
 	@override String get diskSandbox => '沙箱运行时与环境';
 	@override String get diskMore => '明细即将提供';
 	@override String get openLogs => '打开日志文件夹';
-	@override String get logsDesc => '滚动日志,单文件 10MB×3,gzip 归档';
 	@override String get resetPrefs => '重置本地偏好';
-	@override String get resetPrefsDesc => '只清除本机的界面偏好(主题/窗口/缩放等),不碰任何工作区数据';
+	@override String get resetPrefsDesc => '只清除本机的界面偏好(主题/窗口/缩放等),不碰任何工作区数据将重启应用以生效。';
 	@override String get resetPrefsTitle => '重置本地偏好?';
-	@override String get resetPrefsDone => '本地偏好已重置';
 	@override String get factoryTitle => '恢复出厂设置';
 	@override String get factoryWarn => '将停止引擎、永久删除整个数据目录(所有工作区/对话/实体/文档/密钥)并重启应用。';
 	@override String get factoryHint => '输入「Anselm」以确认';
@@ -1589,11 +1585,9 @@ class _Translations$settings$sandbox$zh_CN extends Translations$settings$sandbox
 	final TranslationsZhCn _root; // ignore: unused_field
 
 	// Translations
-	@override String get bootstrapOk => '沙箱就绪';
 	@override String get bootstrapFail => '沙箱引导失败';
 	@override String get retry => '重试';
 	@override String get runtimes => '运行时';
-	@override String get runtimeScope => '全机';
 	@override String get install => '安装';
 	@override String get installing => '安装中…';
 	@override String get installTitle => '安装运行时';
@@ -1627,7 +1621,6 @@ class _Translations$settings$sandbox$zh_CN extends Translations$settings$sandbox
 	@override String get gcAll => '立即全部回收';
 	@override String get running => '运行中';
 	@override String get statusReady => '就绪';
-	@override String get statusInstalling => '安装中';
 	@override String get statusFailed => '失败';
 }
 
@@ -1645,7 +1638,6 @@ class _Translations$settings$shortcuts$zh_CN extends Translations$settings$short
 	@override String get rebind => '改绑';
 	@override String get recording => '按下新组合键…';
 	@override String conflict({required Object cmd}) => '与「${cmd}」冲突';
-	@override String get escToCancel => 'Esc 取消';
 	@override String get cmdToggleLeft => '折叠/展开左岛';
 	@override String get cmdToggleRight => '折叠/展开右岛';
 	@override String get cmdOpenSettings => '打开设置';
@@ -1770,9 +1762,6 @@ class _Translations$entities$detail$hero$zh_CN extends Translations$entities$det
 	// Translations
 	@override String envStatus({required Object status}) => 'env ${status}';
 	@override String get noInputs => '无入参';
-	@override String get noOutputs => '无返回';
-	@override String get noConfig => '无 config';
-	@override String get noMethods => '无方法';
 	@override String methods({required Object n}) => '${n} 个方法';
 	@override String deps({required Object n}) => '${n} 依赖';
 }
@@ -1877,7 +1866,6 @@ class _Translations$entities$detail$cockpit$zh_CN extends Translations$entities$
 	@override String get noRunsHint => '触发此工作流后这里会列出每次运行';
 	@override String get runGraph => '运行图';
 	@override String nodeDetail({required Object id}) => '节点 · ${id}';
-	@override String get pickNode => '选择一个节点查看执行详情';
 	@override String get replay => '重跑';
 	@override String get kill => '终止';
 	@override String get runInfo => '运行信息';
@@ -1953,7 +1941,6 @@ class _Translations$entities$detail$val$zh_CN extends Translations$entities$deta
 	@override String get defaultPrefix => '默认';
 	@override String get generator => '生成器';
 	@override String get modelDefault => '工作区默认';
-	@override String get modelOverridden => '已覆盖';
 	@override String get none => '—';
 }
 
@@ -2021,11 +2008,9 @@ class _Translations$entities$detail$state$zh_CN extends Translations$entities$de
 	@override String get noFirings => '无派发';
 	@override String get noFiringsHint => '一次触发扇给 workflow 后,其处置显示在此。';
 	@override String get noActiveVersion => '无活动版本';
-	@override String get notFoundTitle => '未找到该实体';
 	@override String get errorTitle => '无法加载该实体';
 	@override String get errorHint => '本地引擎没有返回它。';
 	@override String get loadMore => '加载更多';
-	@override String get endOfList => '已到底';
 	@override String get loadFailed => '加载失败,点此重试';
 	@override String get earliest => '最早版本';
 }
@@ -2041,7 +2026,6 @@ class _Translations$entities$detail$editor$zh_CN extends Translations$entities$d
 	@override String get back => '返回';
 	@override String get addNode => '添加节点';
 	@override String get autoLayout => '自动布局';
-	@override String get direction => '方向';
 	@override String get dirLR => '横向';
 	@override String get dirTB => '纵向';
 	@override String get save => '保存';
@@ -2057,8 +2041,6 @@ class _Translations$entities$detail$editor$zh_CN extends Translations$entities$d
 	@override String get nodeInput => '输入映射';
 	@override String get nodeRetry => '重试';
 	@override String get edgePort => '端口';
-	@override String get edgeFrom => '从';
-	@override String get edgeTo => '到';
 	@override String get deleteNode => '删除节点';
 	@override String get deleteEdge => '删除连线';
 	@override String get portHint => 'control 端口须匹配分支名;approval 为 yes/no';
@@ -2066,9 +2048,7 @@ class _Translations$entities$detail$editor$zh_CN extends Translations$entities$d
 	@override String get branches => '路由分支';
 	@override String get branchDefault => '兜底(其余情况)';
 	@override String get branchEmit => 'emit';
-	@override String get addField => '添加字段';
 	@override String get field => '字段';
-	@override String get expr => 'CEL 表达式';
 	@override String get retryEnable => '启用重试';
 	@override String get maxAttempts => '最大次数';
 	@override String get errSelfLoop => '不支持自环:节点不能连自身';
@@ -2199,14 +2179,12 @@ extension on TranslationsZhCn {
 			'chat.tool.runningCmd' => '正在执行命令',
 			'chat.tool.ranCmd' => '已执行',
 			'chat.tool.lines' => ({required Object n}) => '${n} 行',
-			'chat.tool.linesTruncated' => ({required Object n}) => '前 ${n} 行(截断)',
 			'chat.tool.matches' => ({required Object n}) => '${n} 处匹配',
 			'chat.tool.files' => ({required Object n}) => '${n} 个文件',
 			'chat.tool.items' => ({required Object n}) => '${n} 项',
 			'chat.tool.noMatches' => '无匹配',
 			'chat.tool.exit' => ({required Object code}) => 'exit ${code}',
 			'chat.tool.timedOut' => '超时',
-			'chat.tool.wroteBytes' => ({required Object n}) => '${n} 字节',
 			'chat.tool.creatingKind' => ({required Object kind}) => '正在创建${kind}',
 			'chat.tool.createdKind' => ({required Object kind}) => '已创建${kind}',
 			'chat.tool.updatingKind' => ({required Object kind}) => '正在修改${kind}',
@@ -2228,7 +2206,6 @@ extension on TranslationsZhCn {
 			'chat.tool.kind.attachment' => '附件',
 			'chat.tool.kind.conversation' => '对话',
 			'chat.tool.asking' => '正在提问',
-			'chat.tool.asked' => '已提问',
 			'chat.tool.answered' => '已回答',
 			'chat.tool.skipped' => '已跳过',
 			'chat.tool.emptyAnswer' => '空答案',
@@ -2255,20 +2232,15 @@ extension on TranslationsZhCn {
 			'chat.tool.runtimeStopped' => '实例未运行',
 			'chat.tool.runtimeCrashed' => '实例已崩溃',
 			'chat.tool.envFixAttempt' => ({required Object n}) => '尝试 ${n}',
-			'chat.tool.envFixHealing' => '改依赖重试',
 			'chat.tool.envFixTitle' => '环境自愈',
 			'chat.tool.wfInactive' => '未激活',
 			'chat.tool.wfGraphCounts' => ({required Object nodes, required Object edges}) => '节点 ${nodes} · 边 ${edges}',
-			'chat.tool.wfActivateHint' => 'activate_workflow 上线 · trigger_workflow 试跑',
-			'chat.tool.wfGrowing' => '正在编排',
 			'chat.tool.wfNodeUnit' => '节点',
 			'chat.tool.wfEdgeUnit' => '边',
 			'chat.tool.wfDeltaEmpty' => '仅改元数据(图未变)',
 			'chat.tool.wfMorphNote' => '增量变换(图整体见实体面板)',
 			'chat.tool.ctlOtherwise' => '否则',
 			'chat.tool.ctlWhenTrue' => '兜底',
-			'chat.tool.ctlEmit' => 'emit',
-			'chat.tool.ctlNoCatchall' => '缺兜底:末条须 when:"true"',
 			'chat.tool.apfTimeoutNever' => '永不超时',
 			'chat.tool.apfAllowReason' => '可填备注',
 			'chat.tool.apfApprove' => '批准',
@@ -2406,9 +2378,7 @@ extension on TranslationsZhCn {
 			'chat.tool.noteRestart' => '内存态已清空',
 			'chat.tool.noteKill' => '监听已停;被杀 run 状态=cancelled,可在 flowruns 里查',
 			'chat.tool.noteStage' => '真实触发到来跑一次后自动解除',
-			'chat.tool.noteDeactivateDrain' => '要立即中止在途,用 kill_workflow',
 			'chat.tool.noteDeleteDocSoft' => '软删除,可恢复',
-			'chat.tool.noteTriggerRemoved' => '监听已解除',
 			'chat.tool.noteConfig' => '已触发重启以生效;运行状态见 handler 面板',
 			'chat.tool.noteMetaHandler' => '无新版本、无重启、内存态保全',
 			'chat.tool.kvName' => '名称',
@@ -2434,11 +2404,8 @@ extension on TranslationsZhCn {
 			'chat.tool.cvEmpty' => '无对话',
 			'chat.tool.cvHits' => ({required Object n}) => '${n} 命中',
 			'chat.tool.cvNoMatch' => '无匹配',
-			'chat.tool.cvInclArchived' => '含归档',
-			'chat.tool.cvNextPage' => '续页',
 			'chat.tool.cvMorePages' => '还有更多页',
 			'chat.tool.cvArchivedBadge' => '已归档',
-			'chat.tool.cvPinnedBadge' => '置顶',
 			'chat.tool.cvChunks' => ({required Object n}) => '×${n}',
 			'chat.tool.cvShownOfTotal' => ({required Object n, required Object total}) => '显示前 ${n} 条 · 共 ${total} 命中',
 			'chat.tool.cvStatusArchived' => '归档',
@@ -2606,7 +2573,6 @@ extension on TranslationsZhCn {
 			'chat.tool.todoRead' => '已读取任务清单',
 			'chat.tool.todoRollup' => ({required Object total, required Object done}) => '${total} 项 · ${done} 完成',
 			'chat.tool.todoCleared' => '清单已清空',
-			'chat.tool.todoActive' => ({required Object n}) => '${n} 进行中',
 			'chat.tool.gettingRelations' => '正在查关系',
 			'chat.tool.gotRelations' => '已查关系',
 			'chat.tool.relCount' => ({required Object n}) => '${n} 条关系',
@@ -2621,8 +2587,6 @@ extension on TranslationsZhCn {
 			'chat.tool.capWarningsLabel' => '警示',
 			'chat.tool.capResolved' => '依赖已解析',
 			'chat.tool.capStructural' => '结构有效',
-			_ => null,
-		} ?? switch (path) {
 			'chat.tool.installingMcp' => '正在安装 MCP 服务器',
 			'chat.tool.installedMcp' => '已安装 MCP 服务器',
 			'chat.tool.uninstallingMcp' => '正在卸载 MCP 服务器',
@@ -2637,15 +2601,18 @@ extension on TranslationsZhCn {
 			'chat.tool.browsedMarket' => '已浏览市场',
 			'chat.tool.marketCount' => ({required Object n}) => '${n} 个服务器',
 			'chat.tool.mcpEnvRequired' => ({required Object n}) => '${n} 必填 env',
+			_ => null,
+		} ?? switch (path) {
 			'chat.tool.gettingModelConfig' => '正在读模型配置',
 			'chat.tool.gotModelConfig' => '已读模型配置',
 			'chat.tool.modelDefaults' => '默认模型',
 			'chat.tool.modelKeys' => ({required Object n}) => '${n} 个密钥',
 			'chat.tool.modelAvail' => ({required Object n}) => '${n} 个可用模型',
+			'chat.tool.memSourceUser' => '你',
+			'chat.tool.memSourceAi' => 'AI',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
-			'chat.gate.evidenceLabel' => '参数',
 			'chat.gate.approve' => '允许',
 			'chat.gate.approveAlways' => '总是允许',
 			'chat.gate.approveAlwaysHint' => ({required Object tool}) => '本对话内不再询问 ${tool}(重启即忘)',
@@ -2653,7 +2620,6 @@ extension on TranslationsZhCn {
 			'chat.gate.decline' => '不回答',
 			'chat.gate.submit' => '发送',
 			'chat.gate.answerPlaceholder' => '输入你的回答…',
-			'chat.gate.optionsHint' => '选一项,或直接输入',
 			'chat.gate.decidedApproved' => '已允许',
 			'chat.gate.decidedApprovedAlways' => '已允许 · 本对话总是',
 			'chat.gate.decidedDenied' => '已拒绝',
@@ -2727,6 +2693,11 @@ extension on TranslationsZhCn {
 			'chat.stage.boardOf' => ({required Object name}) => '${name} 的清单',
 			'chat.stage.humanOnly' => '仅人可唤',
 			'chat.stage.toolsDiscovered' => '个工具已发现',
+			'chat.stage.cfgReady' => '配置就绪',
+			'chat.stage.cfgPending' => '配置待建',
+			'chat.stage.rtRunning' => '运行中',
+			'chat.stage.rtCrashed' => '已崩溃',
+			'chat.stage.rtStopped' => '已停止',
 			'appName' => 'Anselm',
 			'status.idle' => '空闲',
 			'status.run' => '运行中',
@@ -2756,7 +2727,6 @@ extension on TranslationsZhCn {
 			'shell.collapseSidebar' => '收起侧栏',
 			'shell.expandSidebar' => '展开侧栏',
 			'shell.togglePanel' => '切换面板',
-			'shell.backToTop' => '回到顶部',
 			'shell.ocean.chat' => '对话',
 			'shell.ocean.entities' => '实体',
 			'shell.ocean.scheduler' => '调度',
@@ -2765,7 +2735,6 @@ extension on TranslationsZhCn {
 			'shell.comingSoonHint' => '该海洋尚未构建。',
 			'shell.settings' => '设置',
 			'shell.notifications' => '通知',
-			'shell.notificationsHint' => '没有新通知。',
 			'shell.workspaceFallback' => '工作区',
 			'shell.newWorkspace' => '新建工作区',
 			'shell.workspaceSettings' => '工作区设置',
@@ -2779,7 +2748,6 @@ extension on TranslationsZhCn {
 			'notifications.today' => '今天',
 			'notifications.yesterday' => '昨天',
 			'notifications.earlier' => '更早',
-			'notifications.unnamed' => '（未命名）',
 			'notifications.unknown' => '有新动态',
 			'notifications.kind.memory' => '记忆',
 			'notifications.kind.sandbox' => '环境',
@@ -2807,6 +2775,8 @@ extension on TranslationsZhCn {
 			'notifications.depBrokenOne' => '导致 1 处引用悬空',
 			'notifications.depBrokenMany' => ({required Object n}) => '导致 ${n} 处引用悬空',
 			'notifications.view' => '查看',
+			'notifications.errorTitle' => '通知加载失败',
+			'notifications.retry' => '重试',
 			'ref.function' => '函数',
 			'ref.handler' => '处理器',
 			'ref.workflow' => '工作流',
@@ -2876,9 +2846,6 @@ extension on TranslationsZhCn {
 			'entities.detail.verb.trigger' => '触发',
 			'entities.detail.hero.envStatus' => ({required Object status}) => 'env ${status}',
 			'entities.detail.hero.noInputs' => '无入参',
-			'entities.detail.hero.noOutputs' => '无返回',
-			'entities.detail.hero.noConfig' => '无 config',
-			'entities.detail.hero.noMethods' => '无方法',
 			'entities.detail.hero.methods' => ({required Object n}) => '${n} 个方法',
 			'entities.detail.hero.deps' => ({required Object n}) => '${n} 依赖',
 			'entities.detail.gate.config' => 'config',
@@ -2929,7 +2896,6 @@ extension on TranslationsZhCn {
 			'entities.detail.cockpit.noRunsHint' => '触发此工作流后这里会列出每次运行',
 			'entities.detail.cockpit.runGraph' => '运行图',
 			'entities.detail.cockpit.nodeDetail' => ({required Object id}) => '节点 · ${id}',
-			'entities.detail.cockpit.pickNode' => '选择一个节点查看执行详情',
 			'entities.detail.cockpit.replay' => '重跑',
 			'entities.detail.cockpit.kill' => '终止',
 			'entities.detail.cockpit.runInfo' => '运行信息',
@@ -2987,7 +2953,6 @@ extension on TranslationsZhCn {
 			'entities.detail.val.defaultPrefix' => '默认',
 			'entities.detail.val.generator' => '生成器',
 			'entities.detail.val.modelDefault' => '工作区默认',
-			'entities.detail.val.modelOverridden' => '已覆盖',
 			'entities.detail.val.none' => '—',
 			'entities.detail.mounts.healthy' => '挂载正常',
 			'entities.detail.mounts.unhealthy' => ({required Object count}) => '${count} 项异常',
@@ -3029,18 +2994,15 @@ extension on TranslationsZhCn {
 			'entities.detail.state.noFirings' => '无派发',
 			'entities.detail.state.noFiringsHint' => '一次触发扇给 workflow 后,其处置显示在此。',
 			'entities.detail.state.noActiveVersion' => '无活动版本',
-			'entities.detail.state.notFoundTitle' => '未找到该实体',
 			'entities.detail.state.errorTitle' => '无法加载该实体',
 			'entities.detail.state.errorHint' => '本地引擎没有返回它。',
 			'entities.detail.state.loadMore' => '加载更多',
-			'entities.detail.state.endOfList' => '已到底',
 			'entities.detail.state.loadFailed' => '加载失败,点此重试',
 			'entities.detail.state.earliest' => '最早版本',
 			'entities.detail.editor.title' => '图编辑器',
 			'entities.detail.editor.back' => '返回',
 			'entities.detail.editor.addNode' => '添加节点',
 			'entities.detail.editor.autoLayout' => '自动布局',
-			'entities.detail.editor.direction' => '方向',
 			'entities.detail.editor.dirLR' => '横向',
 			'entities.detail.editor.dirTB' => '纵向',
 			'entities.detail.editor.save' => '保存',
@@ -3056,8 +3018,6 @@ extension on TranslationsZhCn {
 			'entities.detail.editor.nodeInput' => '输入映射',
 			'entities.detail.editor.nodeRetry' => '重试',
 			'entities.detail.editor.edgePort' => '端口',
-			'entities.detail.editor.edgeFrom' => '从',
-			'entities.detail.editor.edgeTo' => '到',
 			'entities.detail.editor.deleteNode' => '删除节点',
 			'entities.detail.editor.deleteEdge' => '删除连线',
 			'entities.detail.editor.portHint' => 'control 端口须匹配分支名;approval 为 yes/no',
@@ -3065,9 +3025,7 @@ extension on TranslationsZhCn {
 			'entities.detail.editor.branches' => '路由分支',
 			'entities.detail.editor.branchDefault' => '兜底(其余情况)',
 			'entities.detail.editor.branchEmit' => 'emit',
-			'entities.detail.editor.addField' => '添加字段',
 			'entities.detail.editor.field' => '字段',
-			'entities.detail.editor.expr' => 'CEL 表达式',
 			'entities.detail.editor.retryEnable' => '启用重试',
 			'entities.detail.editor.maxAttempts' => '最大次数',
 			'entities.detail.editor.errSelfLoop' => '不支持自环:节点不能连自身',
@@ -3122,6 +3080,8 @@ extension on TranslationsZhCn {
 			'entities.run.reasonHint' => '备注(可选)',
 			'entities.run.inboxEmpty' => '没有待审批',
 			'entities.run.inboxEmptyHint' => '等待决断的审批会出现在这里。',
+			'entities.val.yes' => '是',
+			'entities.val.no' => '否',
 			'coldStart.connecting' => '正在准备工作区…',
 			'coldStart.errorTitle' => '无法准备工作区',
 			'coldStart.errorHint' => '本地引擎已连通,但工作区未就绪。',
@@ -3135,14 +3095,10 @@ extension on TranslationsZhCn {
 			'documents.errorHint' => '本地引擎没有返回它。',
 			'documents.retry' => '重试',
 			'documents.emptyTitle' => '这里还什么都没有',
-			_ => null,
-		} ?? switch (path) {
 			'documents.emptyHint' => '新建一篇文档或一个技能开始。',
 			'documents.pickTitle' => '选一篇文档',
 			'documents.pickHint' => '在左侧选一篇文档或技能来阅读或编辑。',
 			'documents.loadFailed' => '打不开这个',
-			'documents.emptyDoc' => '这篇文档是空的。',
-			'documents.newSkill' => '新建技能',
 			'documents.rename' => '改名',
 			'documents.duplicate' => '创建副本',
 			'documents.deleteDocTitle' => '删除这个页面?',
@@ -3159,6 +3115,8 @@ extension on TranslationsZhCn {
 			'documents.props.size' => '大小',
 			'documents.props.modified' => '修改时间',
 			'documents.props.context' => '上下文',
+			_ => null,
+		} ?? switch (path) {
 			'documents.props.contextInline' => '内联',
 			'documents.props.contextFork' => '分叉',
 			'documents.props.agent' => 'Agent',
@@ -3188,7 +3146,6 @@ extension on TranslationsZhCn {
 			'documents.slash.divider' => '分隔线',
 			'documents.slash.todo' => '待办',
 			'documents.linkHint' => '输入或粘贴链接,回车确定',
-			'documents.toolCount' => ({required Object n}) => '${n} 个工具',
 			'settings.title' => '设置',
 			'settings.scope.device' => '本机',
 			'settings.scope.workspace' => '工作区',
@@ -3392,7 +3349,6 @@ extension on TranslationsZhCn {
 			'settings.mcp.url' => 'URL',
 			'settings.mcp.envKv' => '环境变量(KEY=VALUE,每行一个)',
 			'settings.mcp.headersKv' => '请求头(KEY=VALUE,每行一个)',
-			'settings.mcp.timeoutSec' => '超时(秒)',
 			'settings.mcp.add' => '添加',
 			'settings.mcp.addFailedHonest' => '连接失败也会落盘为 failed,可稍后重连',
 			'settings.mcp.importTitle' => '导入 mcp.json',
@@ -3426,11 +3382,9 @@ extension on TranslationsZhCn {
 			'settings.storage.diskSandbox' => '沙箱运行时与环境',
 			'settings.storage.diskMore' => '明细即将提供',
 			'settings.storage.openLogs' => '打开日志文件夹',
-			'settings.storage.logsDesc' => '滚动日志,单文件 10MB×3,gzip 归档',
 			'settings.storage.resetPrefs' => '重置本地偏好',
-			'settings.storage.resetPrefsDesc' => '只清除本机的界面偏好(主题/窗口/缩放等),不碰任何工作区数据',
+			'settings.storage.resetPrefsDesc' => '只清除本机的界面偏好(主题/窗口/缩放等),不碰任何工作区数据将重启应用以生效。',
 			'settings.storage.resetPrefsTitle' => '重置本地偏好?',
-			'settings.storage.resetPrefsDone' => '本地偏好已重置',
 			'settings.storage.factoryTitle' => '恢复出厂设置',
 			'settings.storage.factoryWarn' => '将停止引擎、永久删除整个数据目录(所有工作区/对话/实体/文档/密钥)并重启应用。',
 			'settings.storage.factoryHint' => '输入「Anselm」以确认',
@@ -3450,11 +3404,9 @@ extension on TranslationsZhCn {
 			'settings.network.saved' => '已保存,重启引擎后完整生效',
 			'settings.network.restartNote' => '代理配置在重启引擎后完整生效',
 			'settings.network.empty' => '留空=直连',
-			'settings.sandbox.bootstrapOk' => '沙箱就绪',
 			'settings.sandbox.bootstrapFail' => '沙箱引导失败',
 			'settings.sandbox.retry' => '重试',
 			'settings.sandbox.runtimes' => '运行时',
-			'settings.sandbox.runtimeScope' => '全机',
 			'settings.sandbox.install' => '安装',
 			'settings.sandbox.installing' => '安装中…',
 			'settings.sandbox.installTitle' => '安装运行时',
@@ -3488,7 +3440,6 @@ extension on TranslationsZhCn {
 			'settings.sandbox.gcAll' => '立即全部回收',
 			'settings.sandbox.running' => '运行中',
 			'settings.sandbox.statusReady' => '就绪',
-			'settings.sandbox.statusInstalling' => '安装中',
 			'settings.sandbox.statusFailed' => '失败',
 			'settings.shortcuts.section' => '快捷键',
 			'settings.shortcuts.scope' => '本机',
@@ -3497,7 +3448,6 @@ extension on TranslationsZhCn {
 			'settings.shortcuts.rebind' => '改绑',
 			'settings.shortcuts.recording' => '按下新组合键…',
 			'settings.shortcuts.conflict' => ({required Object cmd}) => '与「${cmd}」冲突',
-			'settings.shortcuts.escToCancel' => 'Esc 取消',
 			'settings.shortcuts.cmdToggleLeft' => '折叠/展开左岛',
 			'settings.shortcuts.cmdToggleRight' => '折叠/展开右岛',
 			'settings.shortcuts.cmdOpenSettings' => '打开设置',

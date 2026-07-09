@@ -27,6 +27,7 @@ class AnAttachmentChip extends StatelessWidget {
     this.failed = false,
     this.onRetry,
     this.onRemove,
+    this.removeLabel,
     super.key,
   });
 
@@ -42,6 +43,9 @@ class AnAttachmentChip extends StatelessWidget {
   final bool failed;
   final VoidCallback? onRetry;
   final VoidCallback? onRemove;
+
+  /// a11y label for the remove ✕ — worded by the host (core/ui never hardcodes copy). 移除的读屏文案由宿主给。
+  final String? removeLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -75,7 +79,7 @@ class AnAttachmentChip extends StatelessWidget {
         if (onRemove != null) ...[
           const SizedBox(width: AnSpace.s2),
           AnButton.iconOnly(AnIcons.close, size: AnButtonSize.sm,
-              semanticLabel: 'Remove', onPressed: onRemove),
+              semanticLabel: removeLabel ?? '', onPressed: onRemove),
         ],
       ],
     );

@@ -520,6 +520,7 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
               failed: a.status == 'failed',
               onRetry: a.bytes != null ? () => _att.retry(a.localId) : null,
               onRemove: () => _att.remove(a.localId),
+              removeLabel: t.feedback.dismiss,
             ),
       ],
     );

@@ -131,7 +131,7 @@ void main() {
     ));
     await tester.pump();
     expect(find.text('retry-policy'), findsOneWidget);
-    expect(find.text('source: user'), findsOneWidget);
+    expect(find.text(t.chat.tool.memSourceUser), findsOneWidget);
     expect(find.text('口径'), findsOneWidget);
     expect(find.textContaining('退避', findRichText: true), findsOneWidget); // markdown 渲染态
   });

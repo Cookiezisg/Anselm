@@ -18,6 +18,38 @@ Future<void> main() async {
   runApp(const _EditorHarnessApp());
 }
 
+/// The harness's own seed content (dev fixture — NOT production; it lives here, not in the editor). Walks
+/// the block ladder so hand-testing sees the An prose voice. 手动验证台的种子(dev 固件,不在生产编辑器里)。
+const String _harnessSeed = '''
+# 产品需求文档
+
+原生 super_editor 编辑器 —— 每个块都是真 Flutter widget,用我们自己的 An 原语绘制,与产品其它面像素级一致。在这里直接打字,试试中文输入、双击选词、三击选段、狂点都不卡死。
+
+## 设计目标
+
+视觉是第一标准:正文 15/1.6 的阅读声、标题阶梯靠字号与颜色分层,而非更重的字重。
+
+行内格式:**加粗**(w400 两字重)、*斜体*、~~删除线~~、行内代码 `print()`、以及[一条链接](https://anselm.website)。
+
+### 实现要点
+
+这是第三层标题下的正文,用来验证跨块选区、光标落位与块间节奏。
+
+> 引用是静默的旁白 —— 一条 2px 左边条 + 降一档的墨色。
+
+```python
+def main():
+    print("你好, super_editor")
+```
+
+### 列表
+
+- 无序项一 —— 圆点是 inkMuted 的静默标记。
+- 无序项二 —— 连续项收紧节奏。
+1. 有序项一 —— 序号随 reading 正文声。
+2. 有序项二。
+''';
+
 class _EditorHarnessApp extends StatelessWidget {
   const _EditorHarnessApp();
 
@@ -39,7 +71,7 @@ class _EditorHarnessApp extends StatelessWidget {
                 color: Colors.white,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: AnEditor(mentionSource: _HarnessMentionSource()),
+                  child: AnEditor(initialMarkdown: _harnessSeed, mentionSource: _HarnessMentionSource()),
                 ),
               ),
             ),

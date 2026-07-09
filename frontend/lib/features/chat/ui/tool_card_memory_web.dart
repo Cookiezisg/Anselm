@@ -117,7 +117,10 @@ class MemoryNoteCard extends StatelessWidget {
               maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.mono.copyWith(color: c.ink)),
         ),
         const SizedBox(width: AnSpace.s6),
-        AnBadge('source: ${note.source}',
+        AnBadge(
+            note.source == 'user'
+                ? context.t.chat.tool.memSourceUser
+                : context.t.chat.tool.memSourceAi,
             tone: note.source == 'user' ? AnTone.accent : AnTone.none),
       ]),
       if (note.description.isNotEmpty) ...[

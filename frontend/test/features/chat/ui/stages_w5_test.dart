@@ -96,8 +96,8 @@ void main() {
     repo.emitFrame(_conv, _close('tc', finalArgs));
     await tester.pump(const Duration(milliseconds: 200));
     await tester.pump(const Duration(milliseconds: 200));
-    expect(find.text('ready'), findsOneWidget); // configState from the truth 配置态
-    expect(find.text('running'), findsOneWidget); // runtimeState heartbeat 运行态
+    expect(find.text(t.chat.stage.cfgReady), findsOneWidget); // configState from the truth 配置态
+    expect(find.text(t.chat.stage.rtRunning), findsOneWidget); // runtimeState heartbeat 运行态
   });
 
   testWidgets('AGENT R-9: touching only tools keeps the OLD prompt as the 40% stratum', (tester) async {

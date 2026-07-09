@@ -349,9 +349,6 @@ class Translations$shell$en {
 	/// en: 'Toggle panel'
 	String get togglePanel => 'Toggle panel';
 
-	/// en: 'Back to top'
-	String get backToTop => 'Back to top';
-
 	late final Translations$shell$ocean$en ocean = Translations$shell$ocean$en.internal(_root);
 
 	/// en: 'Coming soon'
@@ -365,9 +362,6 @@ class Translations$shell$en {
 
 	/// en: 'Notifications'
 	String get notifications => 'Notifications';
-
-	/// en: 'You're all caught up.'
-	String get notificationsHint => 'You\'re all caught up.';
 
 	/// en: 'Workspace'
 	String get workspaceFallback => 'Workspace';
@@ -417,9 +411,6 @@ class Translations$notifications$en {
 	/// en: 'Earlier'
 	String get earlier => 'Earlier';
 
-	/// en: '(unnamed)'
-	String get unnamed => '(unnamed)';
-
 	/// en: 'New activity'
 	String get unknown => 'New activity';
 
@@ -434,6 +425,12 @@ class Translations$notifications$en {
 
 	/// en: 'View'
 	String get view => 'View';
+
+	/// en: 'Couldn't load notifications'
+	String get errorTitle => 'Couldn\'t load notifications';
+
+	/// en: 'Retry'
+	String get retry => 'Retry';
 }
 
 // Path: ref
@@ -651,6 +648,7 @@ class Translations$entities$en {
 
 	late final Translations$entities$detail$en detail = Translations$entities$detail$en.internal(_root);
 	late final Translations$entities$run$en run = Translations$entities$run$en.internal(_root);
+	late final Translations$entities$val$en val = Translations$entities$val$en.internal(_root);
 }
 
 // Path: coldStart
@@ -721,12 +719,6 @@ class Translations$documents$en {
 	/// en: 'Couldn't open this'
 	String get loadFailed => 'Couldn\'t open this';
 
-	/// en: 'This document is empty.'
-	String get emptyDoc => 'This document is empty.';
-
-	/// en: 'New skill'
-	String get newSkill => 'New skill';
-
 	/// en: 'Rename'
 	String get rename => 'Rename';
 
@@ -753,9 +745,6 @@ class Translations$documents$en {
 
 	/// en: 'Type or paste a link, Enter to apply'
 	String get linkHint => 'Type or paste a link, Enter to apply';
-
-	/// en: '$n tools'
-	String toolCount({required Object n}) => '${n} tools';
 }
 
 // Path: settings
@@ -1147,9 +1136,6 @@ class Translations$chat$tool$en {
 	/// en: '$n lines'
 	String lines({required Object n}) => '${n} lines';
 
-	/// en: 'first $n lines (truncated)'
-	String linesTruncated({required Object n}) => 'first ${n} lines (truncated)';
-
 	/// en: '$n matches'
 	String matches({required Object n}) => '${n} matches';
 
@@ -1167,9 +1153,6 @@ class Translations$chat$tool$en {
 
 	/// en: 'timed out'
 	String get timedOut => 'timed out';
-
-	/// en: '$n bytes'
-	String wroteBytes({required Object n}) => '${n} bytes';
 
 	/// en: 'Creating $kind'
 	String creatingKind({required Object kind}) => 'Creating ${kind}';
@@ -1199,9 +1182,6 @@ class Translations$chat$tool$en {
 
 	/// en: 'Asking'
 	String get asking => 'Asking';
-
-	/// en: 'Asked'
-	String get asked => 'Asked';
 
 	/// en: 'Answered'
 	String get answered => 'Answered';
@@ -1281,9 +1261,6 @@ class Translations$chat$tool$en {
 	/// en: 'attempt $n'
 	String envFixAttempt({required Object n}) => 'attempt ${n}';
 
-	/// en: 'revised deps, retried'
-	String get envFixHealing => 'revised deps, retried';
-
 	/// en: 'Environment self-heal'
 	String get envFixTitle => 'Environment self-heal';
 
@@ -1292,12 +1269,6 @@ class Translations$chat$tool$en {
 
 	/// en: '$nodes nodes · $edges edges'
 	String wfGraphCounts({required Object nodes, required Object edges}) => '${nodes} nodes · ${edges} edges';
-
-	/// en: 'activate_workflow to go live · trigger_workflow to test'
-	String get wfActivateHint => 'activate_workflow to go live · trigger_workflow to test';
-
-	/// en: 'Composing'
-	String get wfGrowing => 'Composing';
 
 	/// en: 'nodes'
 	String get wfNodeUnit => 'nodes';
@@ -1316,12 +1287,6 @@ class Translations$chat$tool$en {
 
 	/// en: 'catch-all'
 	String get ctlWhenTrue => 'catch-all';
-
-	/// en: 'emit'
-	String get ctlEmit => 'emit';
-
-	/// en: 'no catch-all: last must be when:"true"'
-	String get ctlNoCatchall => 'no catch-all: last must be when:"true"';
 
 	/// en: 'never times out'
 	String get apfTimeoutNever => 'never times out';
@@ -1734,14 +1699,8 @@ class Translations$chat$tool$en {
 	/// en: 'runs once on the next real trigger, then auto-unstages'
 	String get noteStage => 'runs once on the next real trigger, then auto-unstages';
 
-	/// en: 'to abort in-flight now, use kill_workflow'
-	String get noteDeactivateDrain => 'to abort in-flight now, use kill_workflow';
-
 	/// en: 'soft-deleted, recoverable'
 	String get noteDeleteDocSoft => 'soft-deleted, recoverable';
-
-	/// en: 'listening released'
-	String get noteTriggerRemoved => 'listening released';
 
 	/// en: 'restart triggered to take effect; see the handler panel'
 	String get noteConfig => 'restart triggered to take effect; see the handler panel';
@@ -1818,20 +1777,11 @@ class Translations$chat$tool$en {
 	/// en: 'no matches'
 	String get cvNoMatch => 'no matches';
 
-	/// en: 'incl. archived'
-	String get cvInclArchived => 'incl. archived';
-
-	/// en: 'next page'
-	String get cvNextPage => 'next page';
-
 	/// en: 'more pages'
 	String get cvMorePages => 'more pages';
 
 	/// en: 'archived'
 	String get cvArchivedBadge => 'archived';
-
-	/// en: 'pinned'
-	String get cvPinnedBadge => 'pinned';
 
 	/// en: '×$n'
 	String cvChunks({required Object n}) => '×${n}';
@@ -2334,9 +2284,6 @@ class Translations$chat$tool$en {
 	/// en: 'Checklist cleared'
 	String get todoCleared => 'Checklist cleared';
 
-	/// en: '$n in progress'
-	String todoActive({required Object n}) => '${n} in progress';
-
 	/// en: 'Checking relations'
 	String get gettingRelations => 'Checking relations';
 
@@ -2435,6 +2382,12 @@ class Translations$chat$tool$en {
 
 	/// en: '$n available models'
 	String modelAvail({required Object n}) => '${n} available models';
+
+	/// en: 'you'
+	String get memSourceUser => 'you';
+
+	/// en: 'AI'
+	String get memSourceAi => 'AI';
 }
 
 // Path: chat.gate
@@ -2453,9 +2406,6 @@ class Translations$chat$gate$en {
 
 	/// en: 'Awaiting your answer'
 	String get awaitingAsk => 'Awaiting your answer';
-
-	/// en: 'Arguments'
-	String get evidenceLabel => 'Arguments';
 
 	/// en: 'Allow'
 	String get approve => 'Allow';
@@ -2477,9 +2427,6 @@ class Translations$chat$gate$en {
 
 	/// en: 'Type your answer…'
 	String get answerPlaceholder => 'Type your answer…';
-
-	/// en: 'Pick one, or type your own'
-	String get optionsHint => 'Pick one, or type your own';
 
 	/// en: 'Allowed'
 	String get decidedApproved => 'Allowed';
@@ -2645,6 +2592,21 @@ class Translations$chat$stage$en {
 
 	/// en: 'tools discovered'
 	String get toolsDiscovered => 'tools discovered';
+
+	/// en: 'config ready'
+	String get cfgReady => 'config ready';
+
+	/// en: 'config pending'
+	String get cfgPending => 'config pending';
+
+	/// en: 'running'
+	String get rtRunning => 'running';
+
+	/// en: 'crashed'
+	String get rtCrashed => 'crashed';
+
+	/// en: 'stopped'
+	String get rtStopped => 'stopped';
 }
 
 // Path: shell.ocean
@@ -2922,6 +2884,21 @@ class Translations$entities$run$en {
 
 	/// en: 'Approvals waiting for a decision will appear here.'
 	String get inboxEmptyHint => 'Approvals waiting for a decision will appear here.';
+}
+
+// Path: entities.val
+class Translations$entities$val$en {
+	Translations$entities$val$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'yes'
+	String get yes => 'yes';
+
+	/// en: 'no'
+	String get no => 'no';
 }
 
 // Path: documents.props
@@ -3574,9 +3551,6 @@ class Translations$settings$mcp$en {
 	/// en: 'Headers (KEY=VALUE per line)'
 	String get headersKv => 'Headers (KEY=VALUE per line)';
 
-	/// en: 'Timeout (s)'
-	String get timeoutSec => 'Timeout (s)';
-
 	/// en: 'Add'
 	String get add => 'Add';
 
@@ -3685,20 +3659,14 @@ class Translations$settings$storage$en {
 	/// en: 'Open logs folder'
 	String get openLogs => 'Open logs folder';
 
-	/// en: 'Rolling logs, 10MB×3 per file, gzip archived'
-	String get logsDesc => 'Rolling logs, 10MB×3 per file, gzip archived';
-
 	/// en: 'Reset local preferences'
 	String get resetPrefs => 'Reset local preferences';
 
-	/// en: 'Clears this machine's UI preferences (theme/window/zoom…) only — never touches workspace data'
-	String get resetPrefsDesc => 'Clears this machine\'s UI preferences (theme/window/zoom…) only — never touches workspace data';
+	/// en: 'Clears this machine's UI preferences (theme/window/zoom…) only — never touches workspace data. The app will restart to apply the reset.'
+	String get resetPrefsDesc => 'Clears this machine\'s UI preferences (theme/window/zoom…) only — never touches workspace data. The app will restart to apply the reset.';
 
 	/// en: 'Reset local preferences?'
 	String get resetPrefsTitle => 'Reset local preferences?';
-
-	/// en: 'Local preferences reset'
-	String get resetPrefsDone => 'Local preferences reset';
 
 	/// en: 'Factory reset'
 	String get factoryTitle => 'Factory reset';
@@ -3784,9 +3752,6 @@ class Translations$settings$sandbox$en {
 
 	// Translations
 
-	/// en: 'Sandbox ready'
-	String get bootstrapOk => 'Sandbox ready';
-
 	/// en: 'Sandbox bootstrap failed'
 	String get bootstrapFail => 'Sandbox bootstrap failed';
 
@@ -3795,9 +3760,6 @@ class Translations$settings$sandbox$en {
 
 	/// en: 'Runtimes'
 	String get runtimes => 'Runtimes';
-
-	/// en: 'This machine'
-	String get runtimeScope => 'This machine';
 
 	/// en: 'Install'
 	String get install => 'Install';
@@ -3898,9 +3860,6 @@ class Translations$settings$sandbox$en {
 	/// en: 'ready'
 	String get statusReady => 'ready';
 
-	/// en: 'installing'
-	String get statusInstalling => 'installing';
-
 	/// en: 'failed'
 	String get statusFailed => 'failed';
 }
@@ -3933,9 +3892,6 @@ class Translations$settings$shortcuts$en {
 
 	/// en: 'Conflicts with “$cmd”'
 	String conflict({required Object cmd}) => 'Conflicts with “${cmd}”';
-
-	/// en: 'Esc to cancel'
-	String get escToCancel => 'Esc to cancel';
 
 	/// en: 'Collapse / expand the left island'
 	String get cmdToggleLeft => 'Collapse / expand the left island';
@@ -4165,15 +4121,6 @@ class Translations$entities$detail$hero$en {
 	/// en: 'no inputs'
 	String get noInputs => 'no inputs';
 
-	/// en: 'no outputs'
-	String get noOutputs => 'no outputs';
-
-	/// en: 'no config'
-	String get noConfig => 'no config';
-
-	/// en: 'no methods'
-	String get noMethods => 'no methods';
-
 	/// en: '$n methods'
 	String methods({required Object n}) => '${n} methods';
 
@@ -4378,9 +4325,6 @@ class Translations$entities$detail$cockpit$en {
 	/// en: 'Node · $id'
 	String nodeDetail({required Object id}) => 'Node · ${id}';
 
-	/// en: 'Pick a node to see its execution detail'
-	String get pickNode => 'Pick a node to see its execution detail';
-
 	/// en: 'Replay'
 	String get replay => 'Replay';
 
@@ -4570,9 +4514,6 @@ class Translations$entities$detail$val$en {
 	/// en: 'Workspace default'
 	String get modelDefault => 'Workspace default';
 
-	/// en: 'Overridden'
-	String get modelOverridden => 'Overridden';
-
 	/// en: '—'
 	String get none => '—';
 }
@@ -4720,9 +4661,6 @@ class Translations$entities$detail$state$en {
 	/// en: 'No active version'
 	String get noActiveVersion => 'No active version';
 
-	/// en: 'Entity not found'
-	String get notFoundTitle => 'Entity not found';
-
 	/// en: 'Couldn't load this entity'
 	String get errorTitle => 'Couldn\'t load this entity';
 
@@ -4731,9 +4669,6 @@ class Translations$entities$detail$state$en {
 
 	/// en: 'Load more'
 	String get loadMore => 'Load more';
-
-	/// en: 'End of list'
-	String get endOfList => 'End of list';
 
 	/// en: 'Load failed — tap to retry'
 	String get loadFailed => 'Load failed — tap to retry';
@@ -4761,9 +4696,6 @@ class Translations$entities$detail$editor$en {
 
 	/// en: 'Auto layout'
 	String get autoLayout => 'Auto layout';
-
-	/// en: 'Direction'
-	String get direction => 'Direction';
 
 	/// en: 'Horizontal'
 	String get dirLR => 'Horizontal';
@@ -4810,12 +4742,6 @@ class Translations$entities$detail$editor$en {
 	/// en: 'Port'
 	String get edgePort => 'Port';
 
-	/// en: 'From'
-	String get edgeFrom => 'From';
-
-	/// en: 'To'
-	String get edgeTo => 'To';
-
 	/// en: 'Delete node'
 	String get deleteNode => 'Delete node';
 
@@ -4837,14 +4763,8 @@ class Translations$entities$detail$editor$en {
 	/// en: 'emit'
 	String get branchEmit => 'emit';
 
-	/// en: 'Add field'
-	String get addField => 'Add field';
-
 	/// en: 'Field'
 	String get field => 'Field';
-
-	/// en: 'CEL expression'
-	String get expr => 'CEL expression';
 
 	/// en: 'Enable retry'
 	String get retryEnable => 'Enable retry';
@@ -5017,14 +4937,12 @@ extension on Translations {
 			'chat.tool.runningCmd' => 'Running command',
 			'chat.tool.ranCmd' => 'Ran',
 			'chat.tool.lines' => ({required Object n}) => '${n} lines',
-			'chat.tool.linesTruncated' => ({required Object n}) => 'first ${n} lines (truncated)',
 			'chat.tool.matches' => ({required Object n}) => '${n} matches',
 			'chat.tool.files' => ({required Object n}) => '${n} files',
 			'chat.tool.items' => ({required Object n}) => '${n} items',
 			'chat.tool.noMatches' => 'no matches',
 			'chat.tool.exit' => ({required Object code}) => 'exit ${code}',
 			'chat.tool.timedOut' => 'timed out',
-			'chat.tool.wroteBytes' => ({required Object n}) => '${n} bytes',
 			'chat.tool.creatingKind' => ({required Object kind}) => 'Creating ${kind}',
 			'chat.tool.createdKind' => ({required Object kind}) => 'Created ${kind}',
 			'chat.tool.updatingKind' => ({required Object kind}) => 'Updating ${kind}',
@@ -5046,7 +4964,6 @@ extension on Translations {
 			'chat.tool.kind.attachment' => 'attachments',
 			'chat.tool.kind.conversation' => 'conversations',
 			'chat.tool.asking' => 'Asking',
-			'chat.tool.asked' => 'Asked',
 			'chat.tool.answered' => 'Answered',
 			'chat.tool.skipped' => 'Skipped',
 			'chat.tool.emptyAnswer' => 'Empty answer',
@@ -5073,20 +4990,15 @@ extension on Translations {
 			'chat.tool.runtimeStopped' => 'Instance not running',
 			'chat.tool.runtimeCrashed' => 'Instance crashed',
 			'chat.tool.envFixAttempt' => ({required Object n}) => 'attempt ${n}',
-			'chat.tool.envFixHealing' => 'revised deps, retried',
 			'chat.tool.envFixTitle' => 'Environment self-heal',
 			'chat.tool.wfInactive' => 'Not activated',
 			'chat.tool.wfGraphCounts' => ({required Object nodes, required Object edges}) => '${nodes} nodes · ${edges} edges',
-			'chat.tool.wfActivateHint' => 'activate_workflow to go live · trigger_workflow to test',
-			'chat.tool.wfGrowing' => 'Composing',
 			'chat.tool.wfNodeUnit' => 'nodes',
 			'chat.tool.wfEdgeUnit' => 'edges',
 			'chat.tool.wfDeltaEmpty' => 'metadata only (graph unchanged)',
 			'chat.tool.wfMorphNote' => 'incremental change (full graph in the entity panel)',
 			'chat.tool.ctlOtherwise' => 'otherwise',
 			'chat.tool.ctlWhenTrue' => 'catch-all',
-			'chat.tool.ctlEmit' => 'emit',
-			'chat.tool.ctlNoCatchall' => 'no catch-all: last must be when:"true"',
 			'chat.tool.apfTimeoutNever' => 'never times out',
 			'chat.tool.apfAllowReason' => 'note allowed',
 			'chat.tool.apfApprove' => 'Approve',
@@ -5224,9 +5136,7 @@ extension on Translations {
 			'chat.tool.noteRestart' => 'memory state cleared',
 			'chat.tool.noteKill' => 'listening stopped; killed runs are cancelled — see flowruns',
 			'chat.tool.noteStage' => 'runs once on the next real trigger, then auto-unstages',
-			'chat.tool.noteDeactivateDrain' => 'to abort in-flight now, use kill_workflow',
 			'chat.tool.noteDeleteDocSoft' => 'soft-deleted, recoverable',
-			'chat.tool.noteTriggerRemoved' => 'listening released',
 			'chat.tool.noteConfig' => 'restart triggered to take effect; see the handler panel',
 			'chat.tool.noteMetaHandler' => 'no new version, no restart, memory state preserved',
 			'chat.tool.kvName' => 'name',
@@ -5252,11 +5162,8 @@ extension on Translations {
 			'chat.tool.cvEmpty' => 'no conversations',
 			'chat.tool.cvHits' => ({required Object n}) => '${n} hits',
 			'chat.tool.cvNoMatch' => 'no matches',
-			'chat.tool.cvInclArchived' => 'incl. archived',
-			'chat.tool.cvNextPage' => 'next page',
 			'chat.tool.cvMorePages' => 'more pages',
 			'chat.tool.cvArchivedBadge' => 'archived',
-			'chat.tool.cvPinnedBadge' => 'pinned',
 			'chat.tool.cvChunks' => ({required Object n}) => '×${n}',
 			'chat.tool.cvShownOfTotal' => ({required Object n, required Object total}) => 'first ${n} of ${total} hits',
 			'chat.tool.cvStatusArchived' => 'archived',
@@ -5424,7 +5331,6 @@ extension on Translations {
 			'chat.tool.todoRead' => 'Read checklist',
 			'chat.tool.todoRollup' => ({required Object total, required Object done}) => '${total} items · ${done} done',
 			'chat.tool.todoCleared' => 'Checklist cleared',
-			'chat.tool.todoActive' => ({required Object n}) => '${n} in progress',
 			'chat.tool.gettingRelations' => 'Checking relations',
 			'chat.tool.gotRelations' => 'Checked relations',
 			'chat.tool.relCount' => ({required Object n}) => '${n} edges',
@@ -5439,8 +5345,6 @@ extension on Translations {
 			'chat.tool.capWarningsLabel' => 'Warnings',
 			'chat.tool.capResolved' => 'deps resolved',
 			'chat.tool.capStructural' => 'structurally valid',
-			_ => null,
-		} ?? switch (path) {
 			'chat.tool.installingMcp' => 'Installing MCP server',
 			'chat.tool.installedMcp' => 'Installed MCP server',
 			'chat.tool.uninstallingMcp' => 'Uninstalling MCP server',
@@ -5455,15 +5359,18 @@ extension on Translations {
 			'chat.tool.browsedMarket' => 'Browsed marketplace',
 			'chat.tool.marketCount' => ({required Object n}) => '${n} servers',
 			'chat.tool.mcpEnvRequired' => ({required Object n}) => '${n} required env',
+			_ => null,
+		} ?? switch (path) {
 			'chat.tool.gettingModelConfig' => 'Reading model config',
 			'chat.tool.gotModelConfig' => 'Read model config',
 			'chat.tool.modelDefaults' => 'Default models',
 			'chat.tool.modelKeys' => ({required Object n}) => '${n} keys',
 			'chat.tool.modelAvail' => ({required Object n}) => '${n} available models',
+			'chat.tool.memSourceUser' => 'you',
+			'chat.tool.memSourceAi' => 'AI',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
-			'chat.gate.evidenceLabel' => 'Arguments',
 			'chat.gate.approve' => 'Allow',
 			'chat.gate.approveAlways' => 'Always allow',
 			'chat.gate.approveAlwaysHint' => ({required Object tool}) => 'Don\'t ask again for ${tool} this conversation (forgotten on restart)',
@@ -5471,7 +5378,6 @@ extension on Translations {
 			'chat.gate.decline' => 'Don\'t answer',
 			'chat.gate.submit' => 'Send',
 			'chat.gate.answerPlaceholder' => 'Type your answer…',
-			'chat.gate.optionsHint' => 'Pick one, or type your own',
 			'chat.gate.decidedApproved' => 'Allowed',
 			'chat.gate.decidedApprovedAlways' => 'Allowed · always this conversation',
 			'chat.gate.decidedDenied' => 'Denied',
@@ -5545,6 +5451,11 @@ extension on Translations {
 			'chat.stage.boardOf' => ({required Object name}) => '${name}\'s board',
 			'chat.stage.humanOnly' => 'human-invoked only',
 			'chat.stage.toolsDiscovered' => 'tools discovered',
+			'chat.stage.cfgReady' => 'config ready',
+			'chat.stage.cfgPending' => 'config pending',
+			'chat.stage.rtRunning' => 'running',
+			'chat.stage.rtCrashed' => 'crashed',
+			'chat.stage.rtStopped' => 'stopped',
 			'appName' => 'Anselm',
 			'status.idle' => 'Idle',
 			'status.run' => 'Running',
@@ -5574,7 +5485,6 @@ extension on Translations {
 			'shell.collapseSidebar' => 'Collapse sidebar',
 			'shell.expandSidebar' => 'Expand sidebar',
 			'shell.togglePanel' => 'Toggle panel',
-			'shell.backToTop' => 'Back to top',
 			'shell.ocean.chat' => 'Chat',
 			'shell.ocean.entities' => 'Entities',
 			'shell.ocean.scheduler' => 'Scheduler',
@@ -5583,7 +5493,6 @@ extension on Translations {
 			'shell.comingSoonHint' => 'This ocean isn\'t built yet.',
 			'shell.settings' => 'Settings',
 			'shell.notifications' => 'Notifications',
-			'shell.notificationsHint' => 'You\'re all caught up.',
 			'shell.workspaceFallback' => 'Workspace',
 			'shell.newWorkspace' => 'New workspace',
 			'shell.workspaceSettings' => 'Workspace settings',
@@ -5597,7 +5506,6 @@ extension on Translations {
 			'notifications.today' => 'Today',
 			'notifications.yesterday' => 'Yesterday',
 			'notifications.earlier' => 'Earlier',
-			'notifications.unnamed' => '(unnamed)',
 			'notifications.unknown' => 'New activity',
 			'notifications.kind.memory' => 'Memory',
 			'notifications.kind.sandbox' => 'Environment',
@@ -5625,6 +5533,8 @@ extension on Translations {
 			'notifications.depBrokenOne' => 'left 1 reference dangling',
 			'notifications.depBrokenMany' => ({required Object n}) => 'left ${n} references dangling',
 			'notifications.view' => 'View',
+			'notifications.errorTitle' => 'Couldn\'t load notifications',
+			'notifications.retry' => 'Retry',
 			'ref.function' => 'Function',
 			'ref.handler' => 'Handler',
 			'ref.workflow' => 'Workflow',
@@ -5694,9 +5604,6 @@ extension on Translations {
 			'entities.detail.verb.trigger' => 'Trigger',
 			'entities.detail.hero.envStatus' => ({required Object status}) => 'env ${status}',
 			'entities.detail.hero.noInputs' => 'no inputs',
-			'entities.detail.hero.noOutputs' => 'no outputs',
-			'entities.detail.hero.noConfig' => 'no config',
-			'entities.detail.hero.noMethods' => 'no methods',
 			'entities.detail.hero.methods' => ({required Object n}) => '${n} methods',
 			'entities.detail.hero.deps' => ({required Object n}) => '${n} deps',
 			'entities.detail.gate.config' => 'config',
@@ -5747,7 +5654,6 @@ extension on Translations {
 			'entities.detail.cockpit.noRunsHint' => 'Each run appears here once the workflow is triggered',
 			'entities.detail.cockpit.runGraph' => 'Run graph',
 			'entities.detail.cockpit.nodeDetail' => ({required Object id}) => 'Node · ${id}',
-			'entities.detail.cockpit.pickNode' => 'Pick a node to see its execution detail',
 			'entities.detail.cockpit.replay' => 'Replay',
 			'entities.detail.cockpit.kill' => 'Kill',
 			'entities.detail.cockpit.runInfo' => 'Run info',
@@ -5805,7 +5711,6 @@ extension on Translations {
 			'entities.detail.val.defaultPrefix' => 'default',
 			'entities.detail.val.generator' => 'generator',
 			'entities.detail.val.modelDefault' => 'Workspace default',
-			'entities.detail.val.modelOverridden' => 'Overridden',
 			'entities.detail.val.none' => '—',
 			'entities.detail.mounts.healthy' => 'All mounts healthy',
 			'entities.detail.mounts.unhealthy' => ({required Object count}) => '${count} unhealthy',
@@ -5847,18 +5752,15 @@ extension on Translations {
 			'entities.detail.state.noFirings' => 'Nothing dispatched',
 			'entities.detail.state.noFiringsHint' => 'When a fire fans out to a workflow, its disposition shows here.',
 			'entities.detail.state.noActiveVersion' => 'No active version',
-			'entities.detail.state.notFoundTitle' => 'Entity not found',
 			'entities.detail.state.errorTitle' => 'Couldn\'t load this entity',
 			'entities.detail.state.errorHint' => 'The local engine didn\'t return it.',
 			'entities.detail.state.loadMore' => 'Load more',
-			'entities.detail.state.endOfList' => 'End of list',
 			'entities.detail.state.loadFailed' => 'Load failed — tap to retry',
 			'entities.detail.state.earliest' => 'earliest version',
 			'entities.detail.editor.title' => 'Graph editor',
 			'entities.detail.editor.back' => 'Back',
 			'entities.detail.editor.addNode' => 'Add node',
 			'entities.detail.editor.autoLayout' => 'Auto layout',
-			'entities.detail.editor.direction' => 'Direction',
 			'entities.detail.editor.dirLR' => 'Horizontal',
 			'entities.detail.editor.dirTB' => 'Vertical',
 			'entities.detail.editor.save' => 'Save',
@@ -5874,8 +5776,6 @@ extension on Translations {
 			'entities.detail.editor.nodeInput' => 'Input mapping',
 			'entities.detail.editor.nodeRetry' => 'Retry',
 			'entities.detail.editor.edgePort' => 'Port',
-			'entities.detail.editor.edgeFrom' => 'From',
-			'entities.detail.editor.edgeTo' => 'To',
 			'entities.detail.editor.deleteNode' => 'Delete node',
 			'entities.detail.editor.deleteEdge' => 'Delete edge',
 			'entities.detail.editor.portHint' => 'A control port must match a branch name; approval is yes/no',
@@ -5883,9 +5783,7 @@ extension on Translations {
 			'entities.detail.editor.branches' => 'Routing branches',
 			'entities.detail.editor.branchDefault' => 'default (all else)',
 			'entities.detail.editor.branchEmit' => 'emit',
-			'entities.detail.editor.addField' => 'Add field',
 			'entities.detail.editor.field' => 'Field',
-			'entities.detail.editor.expr' => 'CEL expression',
 			'entities.detail.editor.retryEnable' => 'Enable retry',
 			'entities.detail.editor.maxAttempts' => 'Max attempts',
 			'entities.detail.editor.errSelfLoop' => 'No self-loops: a node cannot connect to itself',
@@ -5940,6 +5838,8 @@ extension on Translations {
 			'entities.run.reasonHint' => 'Reason (optional)',
 			'entities.run.inboxEmpty' => 'No pending approvals',
 			'entities.run.inboxEmptyHint' => 'Approvals waiting for a decision will appear here.',
+			'entities.val.yes' => 'yes',
+			'entities.val.no' => 'no',
 			'coldStart.connecting' => 'Setting up your workspace…',
 			'coldStart.errorTitle' => 'Couldn\'t set up the workspace',
 			'coldStart.errorHint' => 'The local engine is reachable but the workspace didn\'t resolve.',
@@ -5953,14 +5853,10 @@ extension on Translations {
 			'documents.errorHint' => 'The local engine didn\'t return it.',
 			'documents.retry' => 'Retry',
 			'documents.emptyTitle' => 'Nothing here yet',
-			_ => null,
-		} ?? switch (path) {
 			'documents.emptyHint' => 'Create a document or a skill to get started.',
 			'documents.pickTitle' => 'Pick a document',
 			'documents.pickHint' => 'Choose a document or skill on the left to read or edit it.',
 			'documents.loadFailed' => 'Couldn\'t open this',
-			'documents.emptyDoc' => 'This document is empty.',
-			'documents.newSkill' => 'New skill',
 			'documents.rename' => 'Rename',
 			'documents.duplicate' => 'Duplicate',
 			'documents.deleteDocTitle' => 'Delete this page?',
@@ -5977,6 +5873,8 @@ extension on Translations {
 			'documents.props.size' => 'Size',
 			'documents.props.modified' => 'Modified',
 			'documents.props.context' => 'Context',
+			_ => null,
+		} ?? switch (path) {
 			'documents.props.contextInline' => 'Inline',
 			'documents.props.contextFork' => 'Fork',
 			'documents.props.agent' => 'Agent',
@@ -6006,7 +5904,6 @@ extension on Translations {
 			'documents.slash.divider' => 'Divider',
 			'documents.slash.todo' => 'To-do',
 			'documents.linkHint' => 'Type or paste a link, Enter to apply',
-			'documents.toolCount' => ({required Object n}) => '${n} tools',
 			'settings.title' => 'Settings',
 			'settings.scope.device' => 'This device',
 			'settings.scope.workspace' => 'Workspace',
@@ -6210,7 +6107,6 @@ extension on Translations {
 			'settings.mcp.url' => 'URL',
 			'settings.mcp.envKv' => 'Env (KEY=VALUE per line)',
 			'settings.mcp.headersKv' => 'Headers (KEY=VALUE per line)',
-			'settings.mcp.timeoutSec' => 'Timeout (s)',
 			'settings.mcp.add' => 'Add',
 			'settings.mcp.addFailedHonest' => 'A failed connection still lands as failed — reconnect later',
 			'settings.mcp.importTitle' => 'Import mcp.json',
@@ -6244,11 +6140,9 @@ extension on Translations {
 			'settings.storage.diskSandbox' => 'Sandbox runtimes & envs',
 			'settings.storage.diskMore' => 'Breakdown coming soon',
 			'settings.storage.openLogs' => 'Open logs folder',
-			'settings.storage.logsDesc' => 'Rolling logs, 10MB×3 per file, gzip archived',
 			'settings.storage.resetPrefs' => 'Reset local preferences',
-			'settings.storage.resetPrefsDesc' => 'Clears this machine\'s UI preferences (theme/window/zoom…) only — never touches workspace data',
+			'settings.storage.resetPrefsDesc' => 'Clears this machine\'s UI preferences (theme/window/zoom…) only — never touches workspace data. The app will restart to apply the reset.',
 			'settings.storage.resetPrefsTitle' => 'Reset local preferences?',
-			'settings.storage.resetPrefsDone' => 'Local preferences reset',
 			'settings.storage.factoryTitle' => 'Factory reset',
 			'settings.storage.factoryWarn' => 'Stops the engine, permanently deletes the ENTIRE data directory (all workspaces / conversations / entities / documents / keys) and relaunches the app.',
 			'settings.storage.factoryHint' => 'Type “Anselm” to confirm',
@@ -6268,11 +6162,9 @@ extension on Translations {
 			'settings.network.saved' => 'Saved — fully effective after an engine restart',
 			'settings.network.restartNote' => 'The proxy fully takes effect after restarting the engine',
 			'settings.network.empty' => 'Empty = direct connection',
-			'settings.sandbox.bootstrapOk' => 'Sandbox ready',
 			'settings.sandbox.bootstrapFail' => 'Sandbox bootstrap failed',
 			'settings.sandbox.retry' => 'Retry',
 			'settings.sandbox.runtimes' => 'Runtimes',
-			'settings.sandbox.runtimeScope' => 'This machine',
 			'settings.sandbox.install' => 'Install',
 			'settings.sandbox.installing' => 'Installing…',
 			'settings.sandbox.installTitle' => 'Install runtime',
@@ -6306,7 +6198,6 @@ extension on Translations {
 			'settings.sandbox.gcAll' => 'Reclaim all now',
 			'settings.sandbox.running' => 'running',
 			'settings.sandbox.statusReady' => 'ready',
-			'settings.sandbox.statusInstalling' => 'installing',
 			'settings.sandbox.statusFailed' => 'failed',
 			'settings.shortcuts.section' => 'Shortcuts',
 			'settings.shortcuts.scope' => 'This machine',
@@ -6315,7 +6206,6 @@ extension on Translations {
 			'settings.shortcuts.rebind' => 'Rebind',
 			'settings.shortcuts.recording' => 'Press a new chord…',
 			'settings.shortcuts.conflict' => ({required Object cmd}) => 'Conflicts with “${cmd}”',
-			'settings.shortcuts.escToCancel' => 'Esc to cancel',
 			'settings.shortcuts.cmdToggleLeft' => 'Collapse / expand the left island',
 			'settings.shortcuts.cmdToggleRight' => 'Collapse / expand the right island',
 			'settings.shortcuts.cmdOpenSettings' => 'Open settings',

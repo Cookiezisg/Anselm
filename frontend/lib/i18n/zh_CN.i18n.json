@@ -97,14 +97,12 @@
       "runningCmd": "正在执行命令",
       "ranCmd": "已执行",
       "lines": "$n 行",
-      "linesTruncated": "前 $n 行(截断)",
       "matches": "$n 处匹配",
       "files": "$n 个文件",
       "items": "$n 项",
       "noMatches": "无匹配",
       "exit": "exit $code",
       "timedOut": "超时",
-      "wroteBytes": "$n 字节",
       "creatingKind": "正在创建$kind",
       "createdKind": "已创建$kind",
       "updatingKind": "正在修改$kind",
@@ -128,7 +126,6 @@
         "conversation": "对话"
       },
       "asking": "正在提问",
-      "asked": "已提问",
       "answered": "已回答",
       "skipped": "已跳过",
       "emptyAnswer": "空答案",
@@ -155,20 +152,15 @@
       "runtimeStopped": "实例未运行",
       "runtimeCrashed": "实例已崩溃",
       "envFixAttempt": "尝试 $n",
-      "envFixHealing": "改依赖重试",
       "envFixTitle": "环境自愈",
       "wfInactive": "未激活",
       "wfGraphCounts": "节点 $nodes · 边 $edges",
-      "wfActivateHint": "activate_workflow 上线 · trigger_workflow 试跑",
-      "wfGrowing": "正在编排",
       "wfNodeUnit": "节点",
       "wfEdgeUnit": "边",
       "wfDeltaEmpty": "仅改元数据(图未变)",
       "wfMorphNote": "增量变换(图整体见实体面板)",
       "ctlOtherwise": "否则",
       "ctlWhenTrue": "兜底",
-      "ctlEmit": "emit",
-      "ctlNoCatchall": "缺兜底:末条须 when:\"true\"",
       "apfTimeoutNever": "永不超时",
       "apfAllowReason": "可填备注",
       "apfApprove": "批准",
@@ -306,9 +298,7 @@
       "noteRestart": "内存态已清空",
       "noteKill": "监听已停;被杀 run 状态=cancelled,可在 flowruns 里查",
       "noteStage": "真实触发到来跑一次后自动解除",
-      "noteDeactivateDrain": "要立即中止在途,用 kill_workflow",
       "noteDeleteDocSoft": "软删除,可恢复",
-      "noteTriggerRemoved": "监听已解除",
       "noteConfig": "已触发重启以生效;运行状态见 handler 面板",
       "noteMetaHandler": "无新版本、无重启、内存态保全",
       "kvName": "名称",
@@ -334,11 +324,8 @@
       "cvEmpty": "无对话",
       "cvHits": "$n 命中",
       "cvNoMatch": "无匹配",
-      "cvInclArchived": "含归档",
-      "cvNextPage": "续页",
       "cvMorePages": "还有更多页",
       "cvArchivedBadge": "已归档",
-      "cvPinnedBadge": "置顶",
       "cvChunks": "×$n",
       "cvShownOfTotal": "显示前 $n 条 · 共 $total 命中",
       "cvStatusArchived": "归档",
@@ -506,7 +493,6 @@
       "todoRead": "已读取任务清单",
       "todoRollup": "$total 项 · $done 完成",
       "todoCleared": "清单已清空",
-      "todoActive": "$n 进行中",
       "gettingRelations": "正在查关系",
       "gotRelations": "已查关系",
       "relCount": "$n 条关系",
@@ -539,13 +525,14 @@
       "gotModelConfig": "已读模型配置",
       "modelDefaults": "默认模型",
       "modelKeys": "$n 个密钥",
-      "modelAvail": "$n 个可用模型"
+      "modelAvail": "$n 个可用模型",
+      "memSourceUser": "你",
+      "memSourceAi": "AI"
     },
     "gate": {
       "dangerBadge": "危险",
       "awaitingDanger": "等待你确认",
       "awaitingAsk": "等待你回答",
-      "evidenceLabel": "参数",
       "approve": "允许",
       "approveAlways": "总是允许",
       "approveAlwaysHint": "本对话内不再询问 $tool(重启即忘)",
@@ -553,7 +540,6 @@
       "decline": "不回答",
       "submit": "发送",
       "answerPlaceholder": "输入你的回答…",
-      "optionsHint": "选一项,或直接输入",
       "decidedApproved": "已允许",
       "decidedApprovedAlways": "已允许 · 本对话总是",
       "decidedDenied": "已拒绝",
@@ -636,7 +622,12 @@
       "ensembleTitle": "并行群像",
       "boardOf": "$name 的清单",
       "humanOnly": "仅人可唤",
-      "toolsDiscovered": "个工具已发现"
+      "toolsDiscovered": "个工具已发现",
+      "cfgReady": "配置就绪",
+      "cfgPending": "配置待建",
+      "rtRunning": "运行中",
+      "rtCrashed": "已崩溃",
+      "rtStopped": "已停止"
     }
   },
   "appName": "Anselm",
@@ -675,7 +666,6 @@
     "collapseSidebar": "收起侧栏",
     "expandSidebar": "展开侧栏",
     "togglePanel": "切换面板",
-    "backToTop": "回到顶部",
     "ocean": {
       "chat": "对话",
       "entities": "实体",
@@ -686,7 +676,6 @@
     "comingSoonHint": "该海洋尚未构建。",
     "settings": "设置",
     "notifications": "通知",
-    "notificationsHint": "没有新通知。",
     "workspaceFallback": "工作区",
     "newWorkspace": "新建工作区",
     "workspaceSettings": "工作区设置"
@@ -702,7 +691,6 @@
     "today": "今天",
     "yesterday": "昨天",
     "earlier": "更早",
-    "unnamed": "（未命名）",
     "unknown": "有新动态",
     "kind": {
       "memory": "记忆",
@@ -733,7 +721,9 @@
     },
     "depBrokenOne": "导致 1 处引用悬空",
     "depBrokenMany": "导致 $n 处引用悬空",
-    "view": "查看"
+    "view": "查看",
+    "errorTitle": "通知加载失败",
+    "retry": "重试"
   },
   "ref": {
     "function": "函数",
@@ -825,9 +815,6 @@
       "hero": {
         "envStatus": "env $status",
         "noInputs": "无入参",
-        "noOutputs": "无返回",
-        "noConfig": "无 config",
-        "noMethods": "无方法",
         "methods": "$n 个方法",
         "deps": "$n 依赖"
       },
@@ -890,7 +877,6 @@
         "noRunsHint": "触发此工作流后这里会列出每次运行",
         "runGraph": "运行图",
         "nodeDetail": "节点 · $id",
-        "pickNode": "选择一个节点查看执行详情",
         "replay": "重跑",
         "kill": "终止",
         "runInfo": "运行信息",
@@ -952,7 +938,6 @@
         "defaultPrefix": "默认",
         "generator": "生成器",
         "modelDefault": "工作区默认",
-        "modelOverridden": "已覆盖",
         "none": "—"
       },
       "mounts": {
@@ -1000,11 +985,9 @@
         "noFirings": "无派发",
         "noFiringsHint": "一次触发扇给 workflow 后,其处置显示在此。",
         "noActiveVersion": "无活动版本",
-        "notFoundTitle": "未找到该实体",
         "errorTitle": "无法加载该实体",
         "errorHint": "本地引擎没有返回它。",
         "loadMore": "加载更多",
-        "endOfList": "已到底",
         "loadFailed": "加载失败,点此重试",
         "earliest": "最早版本"
       },
@@ -1013,7 +996,6 @@
         "back": "返回",
         "addNode": "添加节点",
         "autoLayout": "自动布局",
-        "direction": "方向",
         "dirLR": "横向",
         "dirTB": "纵向",
         "save": "保存",
@@ -1029,8 +1011,6 @@
         "nodeInput": "输入映射",
         "nodeRetry": "重试",
         "edgePort": "端口",
-        "edgeFrom": "从",
-        "edgeTo": "到",
         "deleteNode": "删除节点",
         "deleteEdge": "删除连线",
         "portHint": "control 端口须匹配分支名;approval 为 yes/no",
@@ -1038,9 +1018,7 @@
         "branches": "路由分支",
         "branchDefault": "兜底(其余情况)",
         "branchEmit": "emit",
-        "addField": "添加字段",
         "field": "字段",
-        "expr": "CEL 表达式",
         "retryEnable": "启用重试",
         "maxAttempts": "最大次数",
         "errSelfLoop": "不支持自环:节点不能连自身",
@@ -1100,6 +1078,10 @@
       "reasonHint": "备注(可选)",
       "inboxEmpty": "没有待审批",
       "inboxEmptyHint": "等待决断的审批会出现在这里。"
+    },
+    "val": {
+      "yes": "是",
+      "no": "否"
     }
   },
   "coldStart": {
@@ -1122,8 +1104,6 @@
     "pickTitle": "选一篇文档",
     "pickHint": "在左侧选一篇文档或技能来阅读或编辑。",
     "loadFailed": "打不开这个",
-    "emptyDoc": "这篇文档是空的。",
-    "newSkill": "新建技能",
     "rename": "改名",
     "duplicate": "创建副本",
     "deleteDocTitle": "删除这个页面?",
@@ -1172,8 +1152,7 @@
       "divider": "分隔线",
       "todo": "待办"
     },
-    "linkHint": "输入或粘贴链接,回车确定",
-    "toolCount": "$n 个工具"
+    "linkHint": "输入或粘贴链接,回车确定"
   },
   "settings": {
     "title": "设置",
@@ -1394,7 +1373,6 @@
       "url": "URL",
       "envKv": "环境变量(KEY=VALUE,每行一个)",
       "headersKv": "请求头(KEY=VALUE,每行一个)",
-      "timeoutSec": "超时(秒)",
       "add": "添加",
       "addFailedHonest": "连接失败也会落盘为 failed,可稍后重连",
       "importTitle": "导入 mcp.json",
@@ -1430,11 +1408,9 @@
       "diskSandbox": "沙箱运行时与环境",
       "diskMore": "明细即将提供",
       "openLogs": "打开日志文件夹",
-      "logsDesc": "滚动日志,单文件 10MB×3,gzip 归档",
       "resetPrefs": "重置本地偏好",
-      "resetPrefsDesc": "只清除本机的界面偏好(主题/窗口/缩放等),不碰任何工作区数据",
+      "resetPrefsDesc": "只清除本机的界面偏好(主题/窗口/缩放等),不碰任何工作区数据将重启应用以生效。",
       "resetPrefsTitle": "重置本地偏好?",
-      "resetPrefsDone": "本地偏好已重置",
       "factoryTitle": "恢复出厂设置",
       "factoryWarn": "将停止引擎、永久删除整个数据目录(所有工作区/对话/实体/文档/密钥)并重启应用。",
       "factoryHint": "输入「Anselm」以确认",
@@ -1460,11 +1436,9 @@
       "empty": "留空=直连"
     },
     "sandbox": {
-      "bootstrapOk": "沙箱就绪",
       "bootstrapFail": "沙箱引导失败",
       "retry": "重试",
       "runtimes": "运行时",
-      "runtimeScope": "全机",
       "install": "安装",
       "installing": "安装中…",
       "installTitle": "安装运行时",
@@ -1498,7 +1472,6 @@
       "gcAll": "立即全部回收",
       "running": "运行中",
       "statusReady": "就绪",
-      "statusInstalling": "安装中",
       "statusFailed": "失败"
     },
     "shortcuts": {
@@ -1509,7 +1482,6 @@
       "rebind": "改绑",
       "recording": "按下新组合键…",
       "conflict": "与「$cmd」冲突",
-      "escToCancel": "Esc 取消",
       "cmdToggleLeft": "折叠/展开左岛",
       "cmdToggleRight": "折叠/展开右岛",
       "cmdOpenSettings": "打开设置",
