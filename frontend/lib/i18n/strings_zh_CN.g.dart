@@ -459,6 +459,7 @@ class _Translations$settings$zh_CN extends Translations$settings$en {
 	@override late final _Translations$settings$storage$zh_CN storage = _Translations$settings$storage$zh_CN._(_root);
 	@override late final _Translations$settings$limits$zh_CN limits = _Translations$settings$limits$zh_CN._(_root);
 	@override late final _Translations$settings$network$zh_CN network = _Translations$settings$network$zh_CN._(_root);
+	@override late final _Translations$settings$sandbox$zh_CN sandbox = _Translations$settings$sandbox$zh_CN._(_root);
 }
 
 // Path: markdown
@@ -1578,6 +1579,55 @@ class _Translations$settings$network$zh_CN extends Translations$settings$network
 	@override String get saved => '已保存,重启引擎后完整生效';
 	@override String get restartNote => '代理配置在重启引擎后完整生效';
 	@override String get empty => '留空=直连';
+}
+
+// Path: settings.sandbox
+class _Translations$settings$sandbox$zh_CN extends Translations$settings$sandbox$en {
+	_Translations$settings$sandbox$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get bootstrapOk => '沙箱就绪';
+	@override String get bootstrapFail => '沙箱引导失败';
+	@override String get retry => '重试';
+	@override String get runtimes => '运行时';
+	@override String get runtimeScope => '全机';
+	@override String get install => '安装';
+	@override String get installing => '安装中…';
+	@override String get installTitle => '安装运行时';
+	@override String get kind => '类型';
+	@override String get version => '版本';
+	@override String get versionHint => '如 22 / 3.12';
+	@override String get add => '安装';
+	@override String get delete => '删除';
+	@override String get deleteRtTitle => '删除运行时';
+	@override String deleteRtBody({required Object kind, required Object version}) => '将删除「${kind} ${version}」;仍被环境引用会被拒。';
+	@override String get confirmDelete => '删除';
+	@override String get inUse => '仍有环境引用此运行时,先清理环境';
+	@override String get envs => '环境';
+	@override String get envRebuild => '下次执行时自动重建';
+	@override String get deleteEnvTitle => '删除环境';
+	@override String get deleteEnvBody => '将删除此环境。';
+	@override String get ownerFunction => '函数';
+	@override String get ownerHandler => '处理器';
+	@override String get ownerMcp => 'MCP';
+	@override String get ownerSkill => '技能';
+	@override String get ownerConversation => '对话';
+	@override String get noRuntimes => '还没有运行时';
+	@override String get noRuntimesHint => 'AI 首次执行时会按需自动下载。';
+	@override String get noEnvs => '暂无环境';
+	@override String get disk => '磁盘占用';
+	@override String get gc => '回收空闲环境';
+	@override String get gcDays => '回收超过 N 天未用的环境';
+	@override String get gcRun => '回收';
+	@override String gcDone({required Object n}) => '已回收 ${n} 个';
+	@override String get gcAllTitle => '立即回收全部空闲环境?';
+	@override String get gcAll => '立即全部回收';
+	@override String get running => '运行中';
+	@override String get statusReady => '就绪';
+	@override String get statusInstalling => '安装中';
+	@override String get statusFailed => '失败';
 }
 
 // Path: chat.tool.kind
@@ -3375,6 +3425,46 @@ extension on TranslationsZhCn {
 			'settings.network.saved' => '已保存,重启引擎后完整生效',
 			'settings.network.restartNote' => '代理配置在重启引擎后完整生效',
 			'settings.network.empty' => '留空=直连',
+			'settings.sandbox.bootstrapOk' => '沙箱就绪',
+			'settings.sandbox.bootstrapFail' => '沙箱引导失败',
+			'settings.sandbox.retry' => '重试',
+			'settings.sandbox.runtimes' => '运行时',
+			'settings.sandbox.runtimeScope' => '全机',
+			'settings.sandbox.install' => '安装',
+			'settings.sandbox.installing' => '安装中…',
+			'settings.sandbox.installTitle' => '安装运行时',
+			'settings.sandbox.kind' => '类型',
+			'settings.sandbox.version' => '版本',
+			'settings.sandbox.versionHint' => '如 22 / 3.12',
+			'settings.sandbox.add' => '安装',
+			'settings.sandbox.delete' => '删除',
+			'settings.sandbox.deleteRtTitle' => '删除运行时',
+			'settings.sandbox.deleteRtBody' => ({required Object kind, required Object version}) => '将删除「${kind} ${version}」;仍被环境引用会被拒。',
+			'settings.sandbox.confirmDelete' => '删除',
+			'settings.sandbox.inUse' => '仍有环境引用此运行时,先清理环境',
+			'settings.sandbox.envs' => '环境',
+			'settings.sandbox.envRebuild' => '下次执行时自动重建',
+			'settings.sandbox.deleteEnvTitle' => '删除环境',
+			'settings.sandbox.deleteEnvBody' => '将删除此环境。',
+			'settings.sandbox.ownerFunction' => '函数',
+			'settings.sandbox.ownerHandler' => '处理器',
+			'settings.sandbox.ownerMcp' => 'MCP',
+			'settings.sandbox.ownerSkill' => '技能',
+			'settings.sandbox.ownerConversation' => '对话',
+			'settings.sandbox.noRuntimes' => '还没有运行时',
+			'settings.sandbox.noRuntimesHint' => 'AI 首次执行时会按需自动下载。',
+			'settings.sandbox.noEnvs' => '暂无环境',
+			'settings.sandbox.disk' => '磁盘占用',
+			'settings.sandbox.gc' => '回收空闲环境',
+			'settings.sandbox.gcDays' => '回收超过 N 天未用的环境',
+			'settings.sandbox.gcRun' => '回收',
+			'settings.sandbox.gcDone' => ({required Object n}) => '已回收 ${n} 个',
+			'settings.sandbox.gcAllTitle' => '立即回收全部空闲环境?',
+			'settings.sandbox.gcAll' => '立即全部回收',
+			'settings.sandbox.running' => '运行中',
+			'settings.sandbox.statusReady' => '就绪',
+			'settings.sandbox.statusInstalling' => '安装中',
+			'settings.sandbox.statusFailed' => '失败',
 			'markdown.imageNotLoaded' => '图片未加载',
 			'attach.unavailable' => '已不可用',
 			'attach.retry' => '点按重试',

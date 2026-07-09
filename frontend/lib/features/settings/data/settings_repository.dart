@@ -7,6 +7,7 @@ import '../../../core/contract/api_key.dart';
 import '../../../core/contract/limits.dart';
 import '../../../core/contract/mcp.dart';
 import '../../../core/contract/network.dart';
+import '../../../core/contract/sandbox.dart';
 import '../../../core/contract/memory.dart';
 import '../../../core/contract/workspace.dart';
 import '../../../core/net/api_client.dart';
@@ -142,6 +143,26 @@ abstract class SettingsRepository {
 
   /// PATCH replaces the whole config (three optional strings). 整体替换。
   Future<NetworkConfig> patchNetwork(NetworkConfig config);
+
+  // ── S5 沙箱 sandbox ──
+
+  Future<SandboxBootstrap> sandboxBootstrap();
+  Future<void> retrySandboxBootstrap();
+  Future<List<SandboxRuntime>> sandboxRuntimes();
+  Future<List<RuntimeAvailability>> sandboxAvailable();
+
+  /// 201 Runtime; installs (async → status via refetch). 装运行时。
+  Future<SandboxRuntime> installRuntime({required String kind, required String version});
+
+  /// 204; 409 SANDBOX_ENV_IN_USE when envs still reference it. 删运行时。
+  Future<void> deleteRuntime(String id);
+
+  /// ownerKind ∈ function|handler|mcp|skill|conversation (required). 按 owner 列环境。
+  Future<List<SandboxEnv>> sandboxEnvs(String ownerKind);
+  Future<void> deleteEnv(String id);
+
+  /// olderThanDays: 0 = reap ALL idle now; returns removed count. GC。
+  Future<int> sandboxGc(int olderThanDays);
 }
 
 class LiveSettingsRepository implements SettingsRepository {
@@ -410,6 +431,45 @@ class LiveSettingsRepository implements SettingsRepository {
         'httpsProxy': config.httpsProxy,
         'noProxy': config.noProxy,
       });
+
+  @override
+  Future<SandboxBootstrap> sandboxBootstrap() =>
+      api.getEntity('/api/v1/sandbox/bootstrap-status', SandboxBootstrap.fromJson);
+
+  @override
+  Future<void> retrySandboxBootstrap() => api.postData('/api/v1/sandbox:retry-bootstrap');
+
+  @override
+  Future<List<SandboxRuntime>> sandboxRuntimes() async =>
+      (await api.getPage('/api/v1/sandbox/runtimes', SandboxRuntime.fromJson)).items;
+
+  @override
+  Future<List<RuntimeAvailability>> sandboxAvailable() async =>
+      (await api.getPage('/api/v1/sandbox/runtimes/available', RuntimeAvailability.fromJson))
+          .items;
+
+  @override
+  Future<SandboxRuntime> installRuntime({required String kind, required String version}) =>
+      api.postData('/api/v1/sandbox/runtimes', body: {'kind': kind, 'version': version})
+          .then(SandboxRuntime.fromJson);
+
+  @override
+  Future<void> deleteRuntime(String id) => api.delete('/api/v1/sandbox/runtimes/$id');
+
+  @override
+  Future<List<SandboxEnv>> sandboxEnvs(String ownerKind) async =>
+      (await api.getPage('/api/v1/sandbox/envs', SandboxEnv.fromJson,
+              query: {'ownerKind': ownerKind}))
+          .items;
+
+  @override
+  Future<void> deleteEnv(String id) => api.delete('/api/v1/sandbox/envs/$id');
+
+  @override
+  Future<int> sandboxGc(int olderThanDays) async =>
+      ((await api.postData('/api/v1/sandbox:gc?olderThanDays=$olderThanDays'))['removed'] as num?)
+          ?.toInt() ??
+      0;
 }
 
 /// In-memory double — demo + tests. 内存替身。
@@ -784,6 +844,58 @@ class FixtureSettingsRepository implements SettingsRepository {
 
   @override
   Future<NetworkConfig> patchNetwork(NetworkConfig config) async => fixtureNetwork = config;
+
+  // ── S5 sandbox (scriptable) ──
+
+  SandboxBootstrap fixtureBootstrap = const SandboxBootstrap(ok: true);
+  final List<SandboxRuntime> runtimes = [];
+  List<RuntimeAvailability> available = const [
+    RuntimeAvailability(kind: 'node', defaultVersion: '22', versions: ['22', '20'], pinned: true),
+    RuntimeAvailability(kind: 'python', defaultVersion: '3.12', versions: ['3.12', '3.11'], pinned: true),
+  ];
+  final Map<String, List<SandboxEnv>> envsByOwner = {};
+  int gcRemoved = 3;
+  String? failNextRuntimeDelete;
+
+  @override
+  Future<SandboxBootstrap> sandboxBootstrap() async => fixtureBootstrap;
+
+  @override
+  Future<void> retrySandboxBootstrap() async => fixtureBootstrap = const SandboxBootstrap(ok: true);
+
+  @override
+  Future<List<SandboxRuntime>> sandboxRuntimes() async => List.of(runtimes);
+
+  @override
+  Future<List<RuntimeAvailability>> sandboxAvailable() async => available;
+
+  @override
+  Future<SandboxRuntime> installRuntime({required String kind, required String version}) async {
+    final r = SandboxRuntime(id: 'srt_fix${runtimes.length}', kind: kind, version: version);
+    runtimes.add(r);
+    return r;
+  }
+
+  @override
+  Future<void> deleteRuntime(String id) async {
+    if (failNextRuntimeDelete != null) {
+      final code = failNextRuntimeDelete!;
+      failNextRuntimeDelete = null;
+      throw ApiException(code: code, message: 'scripted', httpStatus: 409);
+    }
+    runtimes.removeWhere((r) => r.id == id);
+  }
+
+  @override
+  Future<List<SandboxEnv>> sandboxEnvs(String ownerKind) async =>
+      envsByOwner[ownerKind] ?? const [];
+
+  @override
+  Future<void> deleteEnv(String id) async =>
+      envsByOwner.forEach((_, list) => list.removeWhere((e) => e.id == id));
+
+  @override
+  Future<int> sandboxGc(int olderThanDays) async => gcRemoved;
 
 }
 

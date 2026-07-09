@@ -8,6 +8,7 @@ import 'about_panel.dart';
 import 'limits_panel.dart';
 import 'mcp_panel.dart';
 import 'network_panel.dart';
+import 'sandbox_panel.dart';
 import 'memory_panel.dart';
 import 'models_keys_panel.dart';
 import 'notifications_panel.dart';
@@ -27,7 +28,7 @@ Widget buildSettingsPanelBody(BuildContext context, SettingsPanel panel) {
     SettingsPanel.modelsKeys => const ModelsKeysPanel(),
     SettingsPanel.mcp => const McpPanel(),
     SettingsPanel.memory => const MemoryPanel(),
-    SettingsPanel.sandbox => const SettingsPanelPlaceholder(),
+    SettingsPanel.sandbox => const SandboxPanel(),
     SettingsPanel.workspaces => const WorkspacesPanel(),
     SettingsPanel.storage => const StoragePanel(),
     SettingsPanel.limits => const LimitsPanel(),

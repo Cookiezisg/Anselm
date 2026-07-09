@@ -63,6 +63,7 @@ class _SettingsOceanState extends ConsumerState<SettingsOcean> {
   String? _detailLabel(Translations t, SettingsDetail? d) => switch (d?.kind) {
         'addKey' => t.settings.keys.addKey,
         'editKey' => t.settings.keys.editKey,
+        'sandboxInstall' => t.settings.sandbox.installTitle,
         'mcpServer' => d?.id,
         'mcpAdd' => t.settings.mcp.manualAdd,
         'mcpImport' => t.settings.mcp.importTitle,

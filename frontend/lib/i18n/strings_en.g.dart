@@ -937,6 +937,7 @@ class Translations$settings$en {
 	late final Translations$settings$storage$en storage = Translations$settings$storage$en.internal(_root);
 	late final Translations$settings$limits$en limits = Translations$settings$limits$en.internal(_root);
 	late final Translations$settings$network$en network = Translations$settings$network$en.internal(_root);
+	late final Translations$settings$sandbox$en sandbox = Translations$settings$sandbox$en.internal(_root);
 }
 
 // Path: markdown
@@ -3774,6 +3775,135 @@ class Translations$settings$network$en {
 	String get empty => 'Empty = direct connection';
 }
 
+// Path: settings.sandbox
+class Translations$settings$sandbox$en {
+	Translations$settings$sandbox$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Sandbox ready'
+	String get bootstrapOk => 'Sandbox ready';
+
+	/// en: 'Sandbox bootstrap failed'
+	String get bootstrapFail => 'Sandbox bootstrap failed';
+
+	/// en: 'Retry'
+	String get retry => 'Retry';
+
+	/// en: 'Runtimes'
+	String get runtimes => 'Runtimes';
+
+	/// en: 'This machine'
+	String get runtimeScope => 'This machine';
+
+	/// en: 'Install'
+	String get install => 'Install';
+
+	/// en: 'Installing…'
+	String get installing => 'Installing…';
+
+	/// en: 'Install runtime'
+	String get installTitle => 'Install runtime';
+
+	/// en: 'Kind'
+	String get kind => 'Kind';
+
+	/// en: 'Version'
+	String get version => 'Version';
+
+	/// en: 'e.g. 22 / 3.12'
+	String get versionHint => 'e.g. 22 / 3.12';
+
+	/// en: 'Install'
+	String get add => 'Install';
+
+	/// en: 'Delete'
+	String get delete => 'Delete';
+
+	/// en: 'Delete runtime'
+	String get deleteRtTitle => 'Delete runtime';
+
+	/// en: 'Deletes “$kind $version”; rejected if envs still reference it.'
+	String deleteRtBody({required Object kind, required Object version}) => 'Deletes “${kind} ${version}”; rejected if envs still reference it.';
+
+	/// en: 'Delete'
+	String get confirmDelete => 'Delete';
+
+	/// en: 'Envs still reference this runtime — clear them first'
+	String get inUse => 'Envs still reference this runtime — clear them first';
+
+	/// en: 'Environments'
+	String get envs => 'Environments';
+
+	/// en: 'Rebuilt automatically on the next run'
+	String get envRebuild => 'Rebuilt automatically on the next run';
+
+	/// en: 'Delete environment'
+	String get deleteEnvTitle => 'Delete environment';
+
+	/// en: 'Deletes this environment.'
+	String get deleteEnvBody => 'Deletes this environment.';
+
+	/// en: 'Functions'
+	String get ownerFunction => 'Functions';
+
+	/// en: 'Handlers'
+	String get ownerHandler => 'Handlers';
+
+	/// en: 'MCP'
+	String get ownerMcp => 'MCP';
+
+	/// en: 'Skills'
+	String get ownerSkill => 'Skills';
+
+	/// en: 'Conversations'
+	String get ownerConversation => 'Conversations';
+
+	/// en: 'No runtimes yet'
+	String get noRuntimes => 'No runtimes yet';
+
+	/// en: 'Auto-downloaded on demand the first time the AI runs code.'
+	String get noRuntimesHint => 'Auto-downloaded on demand the first time the AI runs code.';
+
+	/// en: 'No environments'
+	String get noEnvs => 'No environments';
+
+	/// en: 'Disk usage'
+	String get disk => 'Disk usage';
+
+	/// en: 'Reclaim idle environments'
+	String get gc => 'Reclaim idle environments';
+
+	/// en: 'Reclaim envs idle for more than N days'
+	String get gcDays => 'Reclaim envs idle for more than N days';
+
+	/// en: 'Reclaim'
+	String get gcRun => 'Reclaim';
+
+	/// en: 'Reclaimed $n'
+	String gcDone({required Object n}) => 'Reclaimed ${n}';
+
+	/// en: 'Reclaim every idle environment now?'
+	String get gcAllTitle => 'Reclaim every idle environment now?';
+
+	/// en: 'Reclaim all now'
+	String get gcAll => 'Reclaim all now';
+
+	/// en: 'running'
+	String get running => 'running';
+
+	/// en: 'ready'
+	String get statusReady => 'ready';
+
+	/// en: 'installing'
+	String get statusInstalling => 'installing';
+
+	/// en: 'failed'
+	String get statusFailed => 'failed';
+}
+
 // Path: chat.tool.kind
 class Translations$chat$tool$kind$en {
 	Translations$chat$tool$kind$en.internal(this._root);
@@ -6083,6 +6213,46 @@ extension on Translations {
 			'settings.network.saved' => 'Saved — fully effective after an engine restart',
 			'settings.network.restartNote' => 'The proxy fully takes effect after restarting the engine',
 			'settings.network.empty' => 'Empty = direct connection',
+			'settings.sandbox.bootstrapOk' => 'Sandbox ready',
+			'settings.sandbox.bootstrapFail' => 'Sandbox bootstrap failed',
+			'settings.sandbox.retry' => 'Retry',
+			'settings.sandbox.runtimes' => 'Runtimes',
+			'settings.sandbox.runtimeScope' => 'This machine',
+			'settings.sandbox.install' => 'Install',
+			'settings.sandbox.installing' => 'Installing…',
+			'settings.sandbox.installTitle' => 'Install runtime',
+			'settings.sandbox.kind' => 'Kind',
+			'settings.sandbox.version' => 'Version',
+			'settings.sandbox.versionHint' => 'e.g. 22 / 3.12',
+			'settings.sandbox.add' => 'Install',
+			'settings.sandbox.delete' => 'Delete',
+			'settings.sandbox.deleteRtTitle' => 'Delete runtime',
+			'settings.sandbox.deleteRtBody' => ({required Object kind, required Object version}) => 'Deletes “${kind} ${version}”; rejected if envs still reference it.',
+			'settings.sandbox.confirmDelete' => 'Delete',
+			'settings.sandbox.inUse' => 'Envs still reference this runtime — clear them first',
+			'settings.sandbox.envs' => 'Environments',
+			'settings.sandbox.envRebuild' => 'Rebuilt automatically on the next run',
+			'settings.sandbox.deleteEnvTitle' => 'Delete environment',
+			'settings.sandbox.deleteEnvBody' => 'Deletes this environment.',
+			'settings.sandbox.ownerFunction' => 'Functions',
+			'settings.sandbox.ownerHandler' => 'Handlers',
+			'settings.sandbox.ownerMcp' => 'MCP',
+			'settings.sandbox.ownerSkill' => 'Skills',
+			'settings.sandbox.ownerConversation' => 'Conversations',
+			'settings.sandbox.noRuntimes' => 'No runtimes yet',
+			'settings.sandbox.noRuntimesHint' => 'Auto-downloaded on demand the first time the AI runs code.',
+			'settings.sandbox.noEnvs' => 'No environments',
+			'settings.sandbox.disk' => 'Disk usage',
+			'settings.sandbox.gc' => 'Reclaim idle environments',
+			'settings.sandbox.gcDays' => 'Reclaim envs idle for more than N days',
+			'settings.sandbox.gcRun' => 'Reclaim',
+			'settings.sandbox.gcDone' => ({required Object n}) => 'Reclaimed ${n}',
+			'settings.sandbox.gcAllTitle' => 'Reclaim every idle environment now?',
+			'settings.sandbox.gcAll' => 'Reclaim all now',
+			'settings.sandbox.running' => 'running',
+			'settings.sandbox.statusReady' => 'ready',
+			'settings.sandbox.statusInstalling' => 'installing',
+			'settings.sandbox.statusFailed' => 'failed',
 			'markdown.imageNotLoaded' => 'image not loaded',
 			'attach.unavailable' => 'Unavailable',
 			'attach.retry' => 'Tap to retry',
