@@ -9,6 +9,7 @@ import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
+import 'tool_card_skins.dart';
 
 /// A PROSE READING WINDOW (WRK-056 #11) — settled rendered content (AnMarkdown 15/1.6) inside a bordered
 /// surface, FadeCollapse'd past a height so a long document/skill/approval body doesn't own an unbounded
@@ -76,6 +77,14 @@ ToolReceipt? docSentenceReceipt(Translations t, ToolCardState state) {
 Widget documentBody(BuildContext context, ToolCardState state) {
   final t = Translations.of(context);
   final c = context.colors;
+  // LIVE face (WRK-065): the prose streaming in as the LLM types it — plain mono tail (typesetting a
+  // half-written markdown would render broken), O(tail) via the in-flight channel.
+  // 活脸:稿子随打字流入——纯 mono 尾(半截 markdown 排版会碎),在途通道 O(tail)。
+  if (toolLive(state)) {
+    final draft = state.argsSession.liveStringNamed('content');
+    if (draft == null || draft.isEmpty) return const SizedBox.shrink();
+    return ToolWindow(child: Text(tailLines(draft, 8), style: AnText.code.copyWith(color: c.inkMuted)));
+  }
   final result = state.resultText.trim();
   // Session read, closed-only: this settled body is CONSTRUCTED every frame while streaming (hidden
   // inside the collapsed reveal) — an O(bytes) argsText rescan per frame melts on MB-scale content.
@@ -125,6 +134,13 @@ ToolReceipt? skillReceipt(Translations t, ToolCardState state) {
 Widget skillBody(BuildContext context, ToolCardState state) {
   final t = Translations.of(context);
   final c = context.colors;
+  // LIVE face (WRK-065): the SKILL.md body streaming in — plain mono tail, same rationale as document.
+  // 活脸:SKILL.md 正文流入——纯 mono 尾,与 document 同理。
+  if (toolLive(state)) {
+    final draft = state.argsSession.liveStringNamed('body');
+    if (draft == null || draft.isEmpty) return const SizedBox.shrink();
+    return ToolWindow(child: Text(tailLines(draft, 8), style: AnText.code.copyWith(color: c.inkMuted)));
+  }
   final body = state.argsSession.closedStringAt(['body']) ?? '';
   final ctx = state.argsSession.closedStringAt(['context']) ?? 'inline';
   final allowed = argStringList(state.argsText, 'allowedTools');
