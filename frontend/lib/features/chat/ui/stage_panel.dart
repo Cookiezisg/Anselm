@@ -484,7 +484,8 @@ class _TodoRow extends ConsumerWidget {
       AnExpandReveal(
         open: open,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(AnSpace.s8, AnSpace.s4, AnSpace.s8, AnSpace.s8),
+          // Same breathing shape as the stage rows: symmetric 8 vertical, full box width. 与舞台行同形。
+          padding: const EdgeInsets.symmetric(vertical: AnSpace.s8),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
             for (final board in nonEmpty) ...[
               if (board.subagentId.isNotEmpty)
@@ -505,7 +506,8 @@ class _TodoRow extends ConsumerWidget {
 /// One touchpoint row — a left-island [AnRow] header (kind glyph · name · verb·count · live dot · hover-swap
 /// chevron; surfaceActive box when open) over a de-indented [AnExpandReveal] body: the LIVE stage
 /// ([_GenericStage], streaming) when a live activity backs it, else the settled identity summary. The body
-/// is flush-left with the row (no extra indent — the belonging is obvious, WRK-064). touchpoint 行。
+/// spans the FULL header-box width (no inset — hierarchy reads from position; a narrower body just looks
+/// misaligned, WRK-064). touchpoint 行(体与行头框同宽,不缩一圈)。
 class _StageRow extends ConsumerWidget {
   const _StageRow({
     required this.conversationId,
@@ -570,7 +572,10 @@ class _StageRow extends ConsumerWidget {
       AnExpandReveal(
         open: open,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(AnSpace.s8, AnSpace.s2, AnSpace.s8, AnSpace.s8),
+          // Symmetric 8 above/below (the card must not glue to its header row), 0 left/right — the body
+          // spans the FULL header-box width: hierarchy reads from position, a narrower card just looks
+          // misaligned (user-tuned). 上下对称 8(卡不贴行头)、左右 0——体与行头框同宽;瘦一圈反显没对齐。
+          padding: const EdgeInsets.symmetric(vertical: AnSpace.s8),
           child: spec.live && view != null
               ? _GenericStage(
                   conversationId: conversationId,
