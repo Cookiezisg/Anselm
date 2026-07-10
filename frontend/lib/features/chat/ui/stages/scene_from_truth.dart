@@ -9,9 +9,11 @@ import '../../../../core/contract/entities/control.dart';
 import '../../../../core/contract/entities/document.dart';
 import '../../../../core/contract/entities/function.dart';
 import '../../../../core/contract/entities/handler.dart';
+import '../../../../core/contract/entities/skill.dart';
 import '../../../../core/contract/entities/trigger.dart';
 import '../../../../core/contract/entities/values.dart';
 import '../../../../core/contract/entities/workflow.dart';
+import '../../../../core/contract/mcp.dart';
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
@@ -46,10 +48,12 @@ import 'stage_scene.dart';
 /// edit_KIND 点亮活事实条 / 字节徽。
 
 /// The kinds that have a truth snapshot provider AND a bespoke stage worth rendering from that truth.
-/// Others (attachment=pedestal, subagent=nested rehydration, mcp/memory/conversation=no snapshot) keep the
-/// summary. 有真身 provider + 值得渲的 bespoke 舞台的 kind;其余留摘要。
+/// Excluded: attachment (its own pedestal, no stage) · subagent (truth = the LIVE-only nested transcript,
+/// needs B6 reload-rehydration) · memory (backend `noTouch` → never produces a settled ledger row, so
+/// unreachable) · conversation (no bespoke stage). 有真身 provider + bespoke 舞台的 kind;其余各有原因留摘要。
 bool hasTruthStage(String kind) => const {
       'function', 'handler', 'agent', 'workflow', 'control', 'approval', 'trigger', 'document',
+      'skill', 'mcp',
     }.contains(kind);
 
 /// Watch the kind's truth snapshot (autoDispose family — a collapsed row frees the GET). 观该 kind 真身。
@@ -62,6 +66,8 @@ AsyncValue<Object> _watchTruth(WidgetRef ref, String kind, String id) => switch 
       'approval' => ref.watch(approvalTruthProvider(id)),
       'trigger' => ref.watch(triggerTruthProvider(id)),
       'document' => ref.watch(documentTruthProvider(id)),
+      'skill' => ref.watch(skillTruthProvider(id)),
+      'mcp' => ref.watch(mcpTruthProvider(id)),
       _ => const AsyncValue<Object>.data(<String, Object?>{}),
     };
 
@@ -185,6 +191,26 @@ Map<String, Object?>? _argsFromTruth(String kind, Object truth) {
         final trig = truth as TriggerEntity;
         return {'triggerId': trig.id, 'kind': trig.kind.name, 'config': trig.config};
       }
+    case 'skill':
+      {
+        final sk = truth as Skill;
+        // SkillStageBody reads name / context / allowedTools / disableModelInvocation / body. 逐字核 body 读的键。
+        if (sk.body.isEmpty && sk.frontmatter.allowedTools.isEmpty && sk.context.isEmpty) return null;
+        return {
+          'name': sk.name,
+          'context': sk.context,
+          'allowedTools': sk.frontmatter.allowedTools,
+          'disableModelInvocation': sk.frontmatter.disableModelInvocation,
+          'body': sk.body,
+        };
+      }
+    case 'mcp':
+      {
+        final s = truth as McpServerStatus;
+        // The tool shelf. Disconnected / cached-empty (no tools) → the summary, not a bare header. 无工具降摘要。
+        if (s.tools.isEmpty) return null;
+        return {'name': s.name, 'tools': [for (final t in s.tools) t.name]};
+      }
     default:
       return null;
   }
@@ -200,6 +226,8 @@ String _nameFromTruth(String kind, Object truth, String id) => switch (kind) {
       'handler' => (truth as HandlerEntity).name,
       'document' => (truth as DocumentNode).name,
       'trigger' => (truth as TriggerEntity).name,
+      'skill' => (truth as Skill).name,
+      'mcp' => (truth as McpServerStatus).name,
       _ => id,
     };
 

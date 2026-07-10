@@ -12,8 +12,10 @@ import '../../../core/contract/entities/control.dart';
 import '../../../core/contract/entities/handler.dart';
 import '../../../core/contract/entities/document.dart';
 import '../../../core/contract/entities/function.dart';
+import '../../../core/contract/entities/skill.dart';
 import '../../../core/contract/entities/trigger.dart';
 import '../../../core/contract/entities/workflow.dart';
+import '../../../core/contract/mcp.dart';
 import '../../../core/contract/todo.dart';
 import '../../../core/contract/touchpoint.dart';
 import '../../../core/sse/frame.dart';
@@ -408,6 +410,8 @@ class FixtureChatRepository implements ChatRepository {
   final Map<String, TriggerEntity> triggers = {};
   final Map<String, AgentEntity> agents = {};
   final Map<String, HandlerEntity> handlers = {};
+  final Map<String, Skill> skills = {};
+  final Map<String, McpServerStatus> mcpServers = {};
 
   @override
   Future<FunctionEntity> getFunctionSnapshot(String id) async =>
@@ -436,6 +440,14 @@ class FixtureChatRepository implements ChatRepository {
   @override
   Future<AgentEntity> getAgentSnapshot(String id) async =>
       agents[id] ?? (throw StateError('agent not found: $id'));
+
+  @override
+  Future<Skill> getSkillSnapshot(String name) async =>
+      skills[name] ?? (throw StateError('skill not found: $name'));
+
+  @override
+  Future<McpServerStatus> getMcpSnapshot(String name) async =>
+      mcpServers[name] ?? (throw StateError('mcp server not found: $name'));
 
   @override
   Future<HandlerEntity> getHandlerSnapshot(String id) async =>

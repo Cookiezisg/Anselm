@@ -6,8 +6,10 @@ import '../../../core/contract/entities/control.dart';
 import '../../../core/contract/entities/document.dart';
 import '../../../core/contract/entities/function.dart';
 import '../../../core/contract/entities/handler.dart';
+import '../../../core/contract/entities/skill.dart';
 import '../../../core/contract/entities/trigger.dart';
 import '../../../core/contract/entities/workflow.dart';
+import '../../../core/contract/mcp.dart';
 import '../data/chat_providers.dart';
 
 /// R-5 (WRK-061): an EDIT's stage fetches the OLD TRUTH once, the moment the args stream resolves the
@@ -49,4 +51,14 @@ final agentTruthProvider = FutureProvider.autoDispose.family<AgentEntity, String
 
 final handlerTruthProvider = FutureProvider.autoDispose.family<HandlerEntity, String>(
   (ref, id) => ref.watch(chatRepositoryProvider).getHandlerSnapshot(id),
+);
+
+/// The sidestage's edge-kind truth reads (WRK-064): a settled skill / mcp row's full stage. id = the
+/// name (skills & mcp servers are name-addressed). 边缘 kind 真身:落定 skill/mcp 行的完整舞台(id=name)。
+final skillTruthProvider = FutureProvider.autoDispose.family<Skill, String>(
+  (ref, name) => ref.watch(chatRepositoryProvider).getSkillSnapshot(name),
+);
+
+final mcpTruthProvider = FutureProvider.autoDispose.family<McpServerStatus, String>(
+  (ref, name) => ref.watch(chatRepositoryProvider).getMcpSnapshot(name),
 );

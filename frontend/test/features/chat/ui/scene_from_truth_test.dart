@@ -2,8 +2,10 @@ import 'package:anselm/core/contract/entities/agent.dart';
 import 'package:anselm/core/contract/entities/document.dart';
 import 'package:anselm/core/contract/entities/function.dart';
 import 'package:anselm/core/contract/entities/handler.dart';
+import 'package:anselm/core/contract/entities/skill.dart';
 import 'package:anselm/core/contract/entities/trigger.dart';
 import 'package:anselm/core/contract/entities/values.dart';
+import 'package:anselm/core/contract/mcp.dart';
 import 'package:anselm/core/contract/entities/workflow.dart';
 import 'package:anselm/features/chat/ui/stages/scene_from_truth.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -45,12 +47,14 @@ void main() {
         isNull);
   });
 
-  test('hasTruthStage gates the truth-stage kinds; a summary-only kind stays out', () {
-    expect(hasTruthStage('function'), isTrue);
-    expect(hasTruthStage('workflow'), isTrue);
-    expect(hasTruthStage('mcp'), isFalse);
-    expect(hasTruthStage('attachment'), isFalse);
-    expect(hasTruthStage('subagent'), isFalse);
+  test('hasTruthStage gates the truth-stage kinds; the summary/pedestal/unreachable kinds stay out', () {
+    for (final k in ['function', 'workflow', 'control', 'approval', 'agent', 'handler', 'document', 'trigger', 'skill', 'mcp']) {
+      expect(hasTruthStage(k), isTrue, reason: k);
+    }
+    // attachment=pedestal · memory=noTouch(never a settled row) · subagent=B6 rehydration · conversation=no stage
+    for (final k in ['attachment', 'memory', 'subagent', 'conversation']) {
+      expect(hasTruthStage(k), isFalse, reason: k);
+    }
   });
 
   test('workflow → the final graph replayed as add_node / add_edge ops (the settled canvas)', () {
@@ -190,6 +194,34 @@ void main() {
     final scene = sceneFromTruth(kind: 'workflow', truth: wf, id: 'wf_1', conversationId: 'cv', rowId: 'r');
     final node = (scene!.session.arrayItemsAt(['ops']).first as Map)['node'] as Map;
     expect((node['input'] as Map)['rows'], 'pull.result');
+  });
+
+  test('skill → a create_skill scene carrying the frontmatter tools + full body', () {
+    final sk = Skill(
+      name: 'commit-helper',
+      context: 'inline',
+      body: '# Commit Helper\nWrite good messages.',
+      frontmatter: const Frontmatter(allowedTools: ['read', 'bash']),
+      updatedAt: _now,
+    );
+    final scene = sceneFromTruth(kind: 'skill', truth: sk, id: 'commit-helper', conversationId: 'cv', rowId: 'r');
+    expect(scene, isNotNull);
+    expect(scene!.editTargetId, isNull); // create_skill
+    expect(scene.session.liveStringNamed('body'), '# Commit Helper\nWrite good messages.');
+    expect(scene.session.arrayItemsAt(['allowedTools']).length, 2);
+  });
+
+  test('mcp → a create_mcp scene carrying the tool shelf names; no tools → null', () {
+    final srv = McpServerStatus(id: 'mcp_1', name: 'github', status: 'ready', tools: const [
+      McpToolDef(name: 'create_issue'),
+      McpToolDef(name: 'list_repos'),
+    ]);
+    final scene = sceneFromTruth(kind: 'mcp', truth: srv, id: 'github', conversationId: 'cv', rowId: 'r');
+    expect(scene, isNotNull);
+    expect(scene!.session.arrayItemsAt(['tools']), containsAll(<String>['create_issue', 'list_repos']));
+
+    final empty = McpServerStatus(id: 'mcp_2', name: 'idle', status: 'disconnected');
+    expect(sceneFromTruth(kind: 'mcp', truth: empty, id: 'idle', conversationId: 'cv', rowId: 'r'), isNull);
   });
 
   test('trigger → an edit_trigger scene carrying kind + config', () {

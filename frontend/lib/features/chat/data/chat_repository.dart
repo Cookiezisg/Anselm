@@ -5,6 +5,7 @@ import '../../../core/contract/conversation.dart';
 import '../../../core/contract/interaction.dart';
 import '../../../core/contract/messages/chat_message.dart';
 import '../../../core/contract/messages/transcript_nav.dart';
+import '../../../core/contract/mcp.dart';
 import '../../../core/contract/page.dart';
 import '../../../core/contract/entities/agent.dart';
 import '../../../core/contract/entities/approval.dart';
@@ -12,6 +13,7 @@ import '../../../core/contract/entities/control.dart';
 import '../../../core/contract/entities/handler.dart';
 import '../../../core/contract/entities/document.dart';
 import '../../../core/contract/entities/function.dart';
+import '../../../core/contract/entities/skill.dart';
 import '../../../core/contract/entities/trigger.dart';
 import '../../../core/contract/entities/workflow.dart';
 import '../../../core/contract/todo.dart';
@@ -248,6 +250,14 @@ abstract interface class ChatRepository {
   /// (R-16: counts come from GET only). trigger 单读:落定的监听点/倒计时/引用数(R-16 只信 GET)。
   Future<TriggerEntity> getTriggerSnapshot(String id);
 
+  /// One skill WITH body (`GET /skills/{name}`) — the sidestage settled row's full stage (WRK-064). id=name.
+  /// skill 单读(带 body):侧幕落定行的完整真身舞台。id=name。
+  Future<Skill> getSkillSnapshot(String name);
+
+  /// One MCP server (`GET /mcp-servers/{name}`) — the settled row's tool shelf (WRK-064). id=name.
+  /// mcp 单读:侧幕落定行的工具货架。id=name。
+  Future<McpServerStatus> getMcpSnapshot(String name);
+
   /// The conversation's own todo list (`GET /{id}/todos`, whole-list semantics) — the rundown's
   /// reconnect hydration; live updates ride the durable `todo` Signal. 主清单水化(重连兜底);实时走信号。
   Future<ConversationTodos> getTodos(String conversationId);
@@ -472,6 +482,14 @@ class LiveChatRepository implements ChatRepository {
   @override
   Future<ApprovalForm> getApprovalSnapshot(String id) =>
       _api.getEntity('/api/v1/approvals/$id', ApprovalForm.fromJson);
+
+  @override
+  Future<Skill> getSkillSnapshot(String name) =>
+      _api.getEntity('/api/v1/skills/$name', Skill.fromJson);
+
+  @override
+  Future<McpServerStatus> getMcpSnapshot(String name) =>
+      _api.getEntity('/api/v1/mcp-servers/$name', McpServerStatus.fromJson);
 
   @override
   Future<TriggerEntity> getTriggerSnapshot(String id) =>

@@ -61,7 +61,8 @@ class SkillStageBody extends StatelessWidget {
         AnSunkenPanel(
           child: Align(
             alignment: Alignment.bottomLeft,
-            child: _placeholderText(c, tailLines(body, 12)),
+            // Live streaming bounds to the tail; a settled truth render shows the FULL body. 落定显全文。
+            child: _placeholderText(c, scene.live ? tailLines(body, 12) : body),
           ),
         ),
       ],
@@ -222,6 +223,14 @@ class McpStageBody extends StatelessWidget {
     for (final m in RegExp(r'"name"\s*:\s*"([^"]{1,64})"').allMatches(r)) {
       final v = m.group(1)!;
       if (!out.contains(v)) out.add(v);
+    }
+    // A settled truth render (sceneFromTruth) has no tool_result — fall back to the shelf carried in the
+    // args session (`tools: [name…]`); the live install/reconnect path has no top-level `tools` key, so
+    // it's unaffected. 落定真身无 tool_result → 回退 args 里的货架;live 路径无顶层 tools 键,不受影响。
+    if (out.isEmpty) {
+      for (final t in scene.session.arrayItemsAt(['tools'])) {
+        out.add('$t');
+      }
     }
     return out;
   }

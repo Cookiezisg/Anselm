@@ -20,6 +20,7 @@ import '../state/rundown_provider.dart';
 import '../state/stage_director_provider.dart';
 import '../state/stage_expansion.dart';
 import '../state/touchpoint_ledger.dart';
+import 'stages/attachment_pedestal.dart';
 import 'stages/scene_from_truth.dart';
 import 'stages/stage_registry.dart';
 import 'stages/stage_scene.dart';
@@ -523,16 +524,20 @@ class _StageRow extends ConsumerWidget {
                   onItemResolved: (itemId) => director.itemResolved(view.blockId, itemId),
                 )
               : entity != null
-                  ? (!tombstoned && hasTruthStage(entity.kind)
-                      // Any settled row opens to its FULL bespoke stage rendered from the entity's current
-                      // truth (WRK-064) — code / graph / ladder, not a summary. 任何落定行都渲完整真身舞台。
-                      ? StageBodyFromTruth(
-                          conversationId: conversationId,
-                          kind: entity.kind,
-                          id: entity.key,
-                          rowId: 'truth_${spec.rowId}',
-                          fallback: entity)
-                      : SettledBody(conversationId: conversationId, entity: entity, tombstoned: tombstoned))
+                  ? (!tombstoned && entity.kind == 'attachment'
+                      // Attachments enter via the composer, not a build tool — their settled face is the
+                      // pedestal (thumbnail · size · fingerprint), not a stage. 附件=展品座静物卡,非舞台。
+                      ? AttachmentPedestal(attachmentId: entity.key)
+                      // Any other settled row opens to its FULL bespoke stage rendered from the entity's
+                      // current truth (WRK-064) — code / graph / ladder, not a summary. 其余落定行渲完整真身舞台。
+                      : !tombstoned && hasTruthStage(entity.kind)
+                          ? StageBodyFromTruth(
+                              conversationId: conversationId,
+                              kind: entity.kind,
+                              id: entity.key,
+                              rowId: 'truth_${spec.rowId}',
+                              fallback: entity)
+                          : SettledBody(conversationId: conversationId, entity: entity, tombstoned: tombstoned))
                   : const SizedBox.shrink(),
         ),
       ),

@@ -7,8 +7,10 @@ import '../../../core/contract/conversation.dart';
 import '../../../core/contract/interaction.dart';
 import '../../../core/contract/entities/document.dart';
 import '../../../core/contract/entities/function.dart';
+import '../../../core/contract/entities/skill.dart';
 import '../../../core/contract/entities/values.dart';
 import '../../../core/contract/entities/workflow.dart';
+import '../../../core/contract/mcp.dart';
 import '../../../core/contract/messages/chat_message.dart';
 import '../../../core/contract/todo.dart';
 import '../../../core/contract/touchpoint.dart';
@@ -809,6 +811,30 @@ DemoChatRepository demoChatRepository() {
     createdAt: ago(const Duration(days: 30)),
     updatedAt: ago(const Duration(days: 3)),
   );
+  repo.skills['commit-helper'] = Skill(
+    name: 'commit-helper',
+    source: 'ai',
+    context: 'inline',
+    body: '# Commit Helper\n\n为暂存的改动写一条 Conventional Commit:\n\n- 先 `git diff --staged` 看改了什么\n- 类型:feat / fix / refactor / docs / chore\n- 首行 ≤ 72 字,祈使句;正文说清 why 而非 what\n',
+    frontmatter: const Frontmatter(
+      allowedTools: ['bash', 'read'],
+      context: 'inline',
+      arguments: ['scope'],
+    ),
+    updatedAt: ago(const Duration(days: 5)),
+  );
+  repo.mcpServers['github'] = McpServerStatus(
+    id: 'mcp_github',
+    name: 'github',
+    status: 'ready',
+    connectedAt: ago(const Duration(hours: 3)),
+    tools: const [
+      McpToolDef(name: 'create_issue'),
+      McpToolDef(name: 'list_pull_requests'),
+      McpToolDef(name: 'get_file_contents'),
+      McpToolDef(name: 'search_code'),
+    ],
+  );
 
   // The pinned demo's quiet ledger — what this conversation has touched (the Cast's idle body).
   // 置顶 demo 的静场台账——演员表的安静台账。
@@ -824,6 +850,9 @@ DemoChatRepository demoChatRepository() {
     // The exhibit pedestal's still life — tapping this Cast row lights the 展品座. 展品座静物。
     tp('tp_d5', 'attachment', 'att_demo_shelf', 'shelf-audit.csv', TouchpointVerb.attached,
         const Duration(minutes: 14), actor: TouchpointActor.user),
+    tp('tp_d6', 'skill', 'commit-helper', 'commit-helper', TouchpointVerb.edited,
+        const Duration(minutes: 9)),
+    tp('tp_d7', 'mcp', 'github', 'github', TouchpointVerb.mentioned, const Duration(minutes: 7)),
   ];
   repo.interactions['cv_gate'] = const [
     Interaction(
