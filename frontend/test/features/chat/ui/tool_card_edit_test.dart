@@ -34,11 +34,17 @@ Widget _host(Widget c) => TranslationProvider(
 void main() {
   setUpAll(() => LocaleSettings.setLocaleRaw('zh-CN'));
 
-  testWidgets('LIVE two-act: − old_string shows first; + new_string appears as it streams', (tester) async {
+  testWidgets('LIVE two-act behind the chevron: collapsed by default, TAP opens − old then + new (WRK-065)',
+      (tester) async {
     // old_string arrived, new_string still open. old 到、new 未闭合。
     await tester.pumpWidget(_host(ChatToolCard(
         node: _streaming('{"file_path":"/ws/a.py","old_string":"return x","new_string":"return y + z'))));
     await tester.pump();
+    expect(find.textContaining('− return x'), findsNothing); // default collapsed 默认收起
+    await tester.tap(find.textContaining('正在编辑'), warnIfMissed: false);
+    // Bounded pumps — the live shimmer never settles. 有界 pump(活流光永不安定)。
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 300));
     expect(find.textContaining('− return x'), findsOneWidget); // the removed segment
     expect(find.textContaining('+ return y + z'), findsOneWidget); // the added segment (streaming)
   });

@@ -49,9 +49,11 @@ class HandlerStageBody extends ConsumerWidget {
           final m = raw['method'];
           if (m is Map) methods.add(m);
         case 'set_init':
-          initCode = raw['code'] as String? ?? raw['body'] as String?;
+          // REAL wire key first (`initBody`, backend apply.go); code/body kept as legacy fallbacks.
+          // 真线缆键 initBody 优先;code/body 兜历史。
+          initCode = raw['initBody'] as String? ?? raw['code'] as String? ?? raw['body'] as String?;
         case 'set_shutdown':
-          shutdownCode = raw['code'] as String? ?? raw['body'] as String?;
+          shutdownCode = raw['shutdownBody'] as String? ?? raw['code'] as String? ?? raw['body'] as String?;
         case 'set_init_args_schema':
           final f = raw['schema'] ?? raw['fields'];
           if (f is List) schema = f;

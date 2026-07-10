@@ -36,11 +36,17 @@ Widget _host(Widget c) => TranslationProvider(
 void main() {
   setUpAll(() => LocaleSettings.setLocaleRaw('zh-CN'));
 
-  testWidgets('LIVE: the content streams into a window (last lines) while args flow', (tester) async {
-    // content value still OPEN — the live tail shows what has arrived. content 未闭合,活窗显已流入。
+  testWidgets('LIVE: collapsed by default; TAP opens the growth show (WRK-065)', (tester) async {
+    // content value still OPEN — nothing shows until the user opens the card; the live tail then
+    // shows what has arrived. content 未闭合——默认收起;点开后活尾显已流入。
     await tester.pumpWidget(_host(ChatToolCard(
         node: _streaming('{"file_path":"/ws/a.py","content":"line1\\nline2\\nline3\\ndef f(): pass'))));
     await tester.pump();
+    expect(find.textContaining('def f(): pass'), findsNothing); // default collapsed 默认收起
+    await tester.tap(find.textContaining('正在写入'), warnIfMissed: false);
+    // Bounded pumps — the live shimmer never settles. 有界 pump(活流光永不安定)。
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 300));
     expect(find.textContaining('def f(): pass'), findsOneWidget); // the streamed-so-far tail
   });
 

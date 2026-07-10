@@ -51,20 +51,34 @@ ToolCardSpec _mcpToolSpec(String toolName) {
     // An MCP resolution error is a danger receipt (auto-expand). MCP 解析错→红回执自动展开。
     receipt: (t, s) => _mcpErr.hasMatch(s.resultText) ? (text: t.chat.tool.mcpError, tone: ToolReceiptTone.danger) : null,
     body: _mcpToolBody,
-    liveBody: (context, s) => s.progressText.isEmpty ? const SizedBox.shrink() : ToolLiveTail(text: s.progressText),
   );
 }
 
-/// MCP tool body — the result is the server's RAW string (no JSON wrapper, unbounded size): a capped
-/// mono window, NEVER rendered as markdown (it's opaque server output). An error string → red. MCP 体:
-/// 纯 mono 封顶,绝不当 markdown;错误红。
+/// MCP tool body — LIVE: the progress stream as a rolling terminal tail (the server's only live
+/// signal; the result window is withheld — an empty mono shell mid-call says nothing, WRK-065).
+/// SETTLED: the progress record (if any) over the result — the server's RAW string (no JSON wrapper,
+/// unbounded size) in a capped mono window, NEVER rendered as markdown (opaque server output); an
+/// error string → red. MCP 体:活=progress 滚动尾(结果窗留落定——空壳窗什么都没说);落定=progress
+/// 记录 + 结果纯 mono 封顶(绝不当 markdown;错误红)。
 Widget _mcpToolBody(BuildContext context, ToolCardState state) {
   final c = context.colors;
+  final live = toolLive(state);
+  if (live) {
+    return state.progressText.isEmpty
+        ? const SizedBox.shrink()
+        : ToolLiveTail(text: state.progressText, tailLines: 12);
+  }
   final result = state.resultText;
   final isErr = _mcpErr.hasMatch(result);
   final over = result.length > 6000;
   final shown = over ? result.substring(0, 6000) : result;
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+    // The streamed progress survives the settle as the call's record (above the result). 进度记录留档。
+    if (state.progressText.trim().isNotEmpty)
+      Padding(
+        padding: const EdgeInsets.only(bottom: AnSpace.s6),
+        child: ToolWindow(child: Text(state.progressText.trimRight(), style: AnText.code.copyWith(color: c.inkFaint), maxLines: 40, overflow: TextOverflow.ellipsis)),
+      ),
     ToolWindow(child: Text(shown, style: AnText.code.copyWith(color: isErr ? c.danger : c.inkMuted), maxLines: 200, overflow: TextOverflow.ellipsis)),
     if (over)
       Padding(padding: const EdgeInsets.only(top: AnSpace.s4), child: Text(Translations.of(context).chat.tool.contentTruncated, style: AnText.meta.copyWith(color: c.inkFaint))),
@@ -78,14 +92,22 @@ ToolCardSpec _handlerToolSpec(String toolName) {
     verb: (t, {required bool live}) => live ? t.chat.tool.hdCalling : t.chat.tool.hdCalled,
     target: (s) => '${p.handler}.${p.method}()',
     body: _handlerToolBody,
-    liveBody: (context, s) => s.progressText.isEmpty ? const SizedBox.shrink() : ToolLiveTail(text: s.progressText),
   );
 }
 
-/// Handler-method body — the result JSON `{result: <any>}` + any streamed yields. handler 方法体:{result}。
+/// Handler-method body — LIVE: the streamed yields as a rolling terminal tail (the result section is
+/// withheld — a labelled empty «结果» window mid-call would lie, WRK-065). SETTLED: the yields record
+/// + the result JSON `{result: <any>}`. handler 方法体:活=yield 滚动尾(结果段留落定——带标签的空窗
+/// =撒谎);落定=yield 记录 + {result}。
 Widget _handlerToolBody(BuildContext context, ToolCardState state) {
   final c = context.colors;
   final t = Translations.of(context);
+  final live = toolLive(state);
+  if (live) {
+    return state.progressText.isEmpty
+        ? const SizedBox.shrink()
+        : ToolLiveTail(text: state.progressText, tailLines: 12);
+  }
   Object? result;
   try {
     final d = jsonDecode(state.resultText);

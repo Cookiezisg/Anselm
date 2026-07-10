@@ -42,10 +42,13 @@ ToolReceipt? execReceipt(Translations t, String output) {
 bool execResultFailed(String output) => _obj(output)?['ok'] == false;
 
 /// run_function body — intent → input (`args.args`) → logs drawer → output → exec result bar. The
-/// output uses ToolIOSection's hard render rules (NEVER markdown-sniffed). run_function 执行体。
+/// output uses ToolIOSection's hard render rules (NEVER markdown-sniffed). While IN FLIGHT the
+/// output section is withheld — «无返回值» before the tool returned would be a lie (WRK-065).
+/// run_function 执行体;在飞不渲输出段(工具还没返回,渲「无返回值」=撒谎)。
 Widget runFunctionBody(BuildContext context, ToolCardState state) {
   final c = context.colors;
   final t = Translations.of(context);
+  final live = toolLive(state);
   final out = _obj(state.resultText);
   final input = _obj(state.argsText)?['args'];
   final logs = out?['logs'] as String?;
@@ -60,23 +63,29 @@ Widget runFunctionBody(BuildContext context, ToolCardState state) {
       const SizedBox(height: AnSpace.s6),
       _LogsDrawer(logs: logs),
     ],
-    const SizedBox(height: AnSpace.s6),
-    if (!ok && errorMsg != null && errorMsg.isNotEmpty)
-      Padding(padding: const EdgeInsets.only(bottom: AnSpace.s2), child: Text(errorMsg, style: AnText.code.copyWith(color: c.danger), maxLines: 20, overflow: TextOverflow.ellipsis))
-    else
-      ToolIOSection(label: t.chat.tool.ioOutput, value: out?['output']),
-    if (out != null) ExecResultBar(ok: ok, elapsedMs: out['elapsedMs'] is int ? out['elapsedMs'] as int : null),
+    if (!live) ...[
+      const SizedBox(height: AnSpace.s6),
+      if (!ok && errorMsg != null && errorMsg.isNotEmpty)
+        Padding(padding: const EdgeInsets.only(bottom: AnSpace.s2), child: Text(errorMsg, style: AnText.code.copyWith(color: c.danger), maxLines: 20, overflow: TextOverflow.ellipsis))
+      else
+        ToolIOSection(label: t.chat.tool.ioOutput, value: out?['output']),
+      if (out != null) ExecResultBar(ok: ok, elapsedMs: out['elapsedMs'] is int ? out['elapsedMs'] as int : null),
+    ],
   ]);
 }
 
-/// call_handler body — intent → input (`method` label + `args`) → streamed-output drawer (progress) →
-/// output (`result`) → exec result bar (no elapsed — the wire has none, never fabricate one). call_handler
-/// 执行体(无耗时字段,绝不编造)。
+/// call_handler body — intent → input (`method` label + `args`) → the yields (LIVE: a directly-visible
+/// terminal tail — the streaming show must not hide behind a second click; SETTLED: the logs drawer) →
+/// output (`result`, settled only — «无返回值» before the tool returned would be a lie, WRK-065) →
+/// exec result bar (no elapsed — the wire has none, never fabricate one).
+/// call_handler 执行体:活期 yields 直显终端尾(流式主秀不藏第二次点击后)、落定收进日志抽屉;输出段仅落定
+/// 渲(在飞渲「无返回值」=撒谎);无耗时字段,绝不编造。
 Widget callHandlerBody(BuildContext context, ToolCardState state) {
   final c = context.colors;
   final t = Translations.of(context);
+  final live = toolLive(state);
   final out = _obj(state.resultText);
-  final method = argString(state.argsText, 'method');
+  final method = argStringPartial(state.argsText, 'method');
   final input = _obj(state.argsText)?['args'];
 
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
@@ -84,13 +93,16 @@ Widget callHandlerBody(BuildContext context, ToolCardState state) {
       Padding(padding: const EdgeInsets.only(bottom: AnSpace.s6), child: Text(state.summary, style: AnText.meta.copyWith(color: c.inkMuted))),
     if (method != null) Padding(padding: const EdgeInsets.only(bottom: AnSpace.s2), child: Text('$method()', style: AnText.mono.copyWith(color: c.inkMuted))),
     if (input != null) ToolIOSection(label: t.chat.tool.ioInput, value: input),
-    // The streamed yields (if any) are the progress log. yield 流(如有)。
+    // The streamed yields: LIVE = the rolling terminal tail (the show), SETTLED = the drawer (record).
+    // yield 流:活=滚动终端尾(主秀),落定=抽屉(档案)。
     if (state.progressText.isNotEmpty) ...[
       const SizedBox(height: AnSpace.s6),
-      _LogsDrawer(logs: state.progressText),
+      live ? AnTermTail(text: state.progressText, tailLines: 12) : _LogsDrawer(logs: state.progressText),
     ],
-    const SizedBox(height: AnSpace.s6),
-    ToolIOSection(label: t.chat.tool.ioOutput, value: out?['result']),
+    if (!live) ...[
+      const SizedBox(height: AnSpace.s6),
+      ToolIOSection(label: t.chat.tool.ioOutput, value: out?['result']),
+    ],
   ]);
 }
 
@@ -130,12 +142,15 @@ bool invokeResultFailed(String output) {
   return s == 'failed' || s == 'timeout';
 }
 
-/// invoke_agent SETTLED body — input → (a trajectory-streamed note) → output (prose if a free-text
-/// string, per-key if a declared-output object) → errorMsg (red) → stat bar (status·steps·↑in ↓out·
-/// elapsed·agent pill·executionId copy). invoke_agent 落定体(活期 NestedRunPane 属 B6)。
+/// invoke_agent body — input → the nested trajectory (LIVE: streaming with the shimmer tail; SETTLED
+/// in-tree: the full pane; reloaded: the get_agent_execution replay note) → output (prose if a free-text
+/// string, per-key if a declared-output object; settled only — «无返回值» mid-run would lie, WRK-065) →
+/// errorMsg (red) → stat bar (status·steps·↑in ↓out·elapsed·agent pill·executionId copy).
+/// invoke_agent 体:活=嵌套轨迹流式(shimmer 尾);落定在树=全轨迹、重载=档案回放注;输出段仅落定渲。
 Widget invokeAgentBody(BuildContext context, ToolCardState state) {
   final c = context.colors;
   final t = Translations.of(context);
+  final live = toolLive(state);
   final out = _obj(state.resultText);
   final input = _obj(state.argsText)?['input'];
   final agentId = argString(state.argsText, 'agentId');
@@ -148,29 +163,29 @@ Widget invokeAgentBody(BuildContext context, ToolCardState state) {
     if (state.summary.isNotEmpty)
       Padding(padding: const EdgeInsets.only(bottom: AnSpace.s6), child: Text(state.summary, style: AnText.meta.copyWith(color: c.inkMuted))),
     if (input != null) ToolIOSection(label: t.chat.tool.ioInput, value: input),
-    const SizedBox(height: AnSpace.s6),
-    // The nested trajectory: while the E3 subtree is still in the tree (live session) show it; once it's
-    // gone (a history reload — E3 blocks aren't persisted) state that honestly (the durable record is
-    // get_agent_execution). 轨迹:在树上就显嵌套,重载后诚实注明去执行档案回放。
-    if (state.nested.isNotEmpty)
-      NestedRunPane(nested: state.nested)
-    else
+    // The nested trajectory: streaming (live) or still in the tree (settled this session). Once gone
+    // (a history reload — E3 blocks aren't persisted) state that honestly — but only when SETTLED: the
+    // replay note mid-run would misread as «already archived». 轨迹:活=流式嵌套;重载注仅落定渲(在飞渲
+    // 「档案回放」误读)。
+    if (state.nested.isNotEmpty) ...[
+      const SizedBox(height: AnSpace.s6),
+      NestedRunPane(nested: state.nested, live: live),
+    ] else if (!live) ...[
+      const SizedBox(height: AnSpace.s6),
       Text(t.chat.tool.agentTrajectoryNote, style: AnText.meta.copyWith(color: c.inkFaint)),
-    const SizedBox(height: AnSpace.s6),
-    if (!ok && errorMsg != null && errorMsg.isNotEmpty)
-      Padding(padding: const EdgeInsets.only(bottom: AnSpace.s2), child: Text(errorMsg, style: AnText.code.copyWith(color: c.danger), maxLines: 20, overflow: TextOverflow.ellipsis))
-    else
-      // A free-text final answer → prose; a declared-output object → per-key (ToolIOSection rules).
-      // 自由文本终答→散文;声明输出对象→逐键。
-      ToolIOSection(label: t.chat.tool.ioOutput, value: outputVal, renderAsProse: outputVal is String),
-    if (out != null) _InvokeStatBar(result: out, agentId: agentId),
+    ],
+    if (!live) ...[
+      const SizedBox(height: AnSpace.s6),
+      if (!ok && errorMsg != null && errorMsg.isNotEmpty)
+        Padding(padding: const EdgeInsets.only(bottom: AnSpace.s2), child: Text(errorMsg, style: AnText.code.copyWith(color: c.danger), maxLines: 20, overflow: TextOverflow.ellipsis))
+      else
+        // A free-text final answer → prose; a declared-output object → per-key (ToolIOSection rules).
+        // 自由文本终答→散文;声明输出对象→逐键。
+        ToolIOSection(label: t.chat.tool.ioOutput, value: outputVal, renderAsProse: outputVal is String),
+      if (out != null) _InvokeStatBar(result: out, agentId: agentId),
+    ],
   ]);
 }
-
-/// invoke_agent LIVE body — the E3 nested trajectory streaming under the card (empty until the first
-/// nested block arrives). invoke_agent 活期:嵌套轨迹活窗。
-Widget invokeAgentLiveBody(BuildContext context, ToolCardState state) =>
-    state.nested.isEmpty ? const SizedBox.shrink() : NestedRunPane(nested: state.nested, live: true);
 
 /// The invoke stat bar — status word (colored) · steps · ↑tokensIn ↓tokensOut · elapsed · a navigable
 /// agent pill (agentId) · the executionId (copy). invoke 结果条。

@@ -169,11 +169,14 @@ Map<String, Object?>? _argsFromTruth(String kind, Object truth) {
         // ONLY emit a lifecycle op when its body actually exists — `set_init/set_shutdown` with a default-
         // empty body would light the rail dot + render an empty editor, fabricating structure the handler
         // has none of (the live path only emits when the LLM set code). 只有真有 body 才发轨 op,免捏造空段。
+        // REAL wire keys: set_init carries `initBody`, set_shutdown carries `shutdownBody` (backend
+        // apply.go — a synthetic `code` key would diverge from what a live edit_handler streams).
+        // 真线缆键:set_init=initBody、set_shutdown=shutdownBody(合成 code 键会与活 edit_handler 流不一致)。
         final ops = <Map<String, Object?>>[
-          if (v.initBody.isNotEmpty) {'op': 'set_init', 'code': v.initBody},
+          if (v.initBody.isNotEmpty) {'op': 'set_init', 'initBody': v.initBody},
           for (final m in v.methods)
             {'op': 'add_method', 'method': {'name': m.name, 'streaming': m.streaming, 'timeout': m.timeout, 'body': m.body}},
-          if (v.shutdownBody.isNotEmpty) {'op': 'set_shutdown', 'code': v.shutdownBody},
+          if (v.shutdownBody.isNotEmpty) {'op': 'set_shutdown', 'shutdownBody': v.shutdownBody},
           if (v.initArgsSchema.isNotEmpty)
             {'op': 'set_init_args_schema', 'schema': [for (final a in v.initArgsSchema) {'name': a.name, 'sensitive': a.sensitive}]},
         ];

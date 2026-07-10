@@ -41,7 +41,6 @@ class ToolCardSpec {
     this.body,
     this.bodyless = false,
     this.hasBodyOf,
-    this.liveBody,
     this.awaitingVerb,
     this.terminalVerb,
     this.verbOf,
@@ -112,13 +111,6 @@ class ToolCardSpec {
   /// for families where a non-zero terminal is a product-normal, not a red crash (decide_approval's
   /// NOT_PARKED first-decision-wins). 族体自管失败显示(底盘跳默认错误段)——如 decide_approval 的 NOT_PARKED。
   final bool ownsError;
-
-  /// The LIVE machine window under the row while the call is in flight and not user-expanded:
-  /// F3 = the terminal tail (progress lines); F4 builds = the content window streaming in as
-  /// args flow. null → nothing shows while live.
-  /// 在飞且未被用户展开时行下的**活机器窗**:F3=终端尾巴(progress 行);F4 builds=随 args 流入
-  /// 的内容窗。null=live 期无窗。
-  final Widget Function(BuildContext context, ToolCardState state)? liveBody;
 }
 
 /// The generic fallback (V3a behavior, unchanged). 通用兜底(V3a 行为不变)。
@@ -162,7 +154,6 @@ ToolCardSpec _fsOp({
   required String Function(Translations) doneVerb,
   ToolReceipt? Function(Translations, ToolCardState)? receipt,
   Widget Function(BuildContext, ToolCardState)? body,
-  Widget Function(BuildContext, ToolCardState)? liveBody,
   bool bodyless = false,
 }) =>
     ToolCardSpec(
@@ -175,7 +166,6 @@ ToolCardSpec _fsOp({
       // 每个 fs 操作先查错误(红回执+自动展开),否则成功回执。
       receipt: (t, s) => fsErrorReceipt(t, s.resultText) ?? receipt?.call(t, s),
       body: body,
-      liveBody: liveBody,
       bodyless: bodyless,
     );
 
@@ -283,7 +273,6 @@ ToolCardSpec _build({
   String? editIdKey,
   // Per-kind overrides: workflow swaps the code window for the growing graph (B2.5). 族覆盖:workflow 换图。
   Widget Function(BuildContext, ToolCardState)? body,
-  Widget Function(BuildContext, ToolCardState)? liveBody,
   ToolReceipt? Function(Translations, ToolCardState)? receipt,
 }) =>
     ToolCardSpec(
@@ -309,7 +298,6 @@ ToolCardSpec _build({
         return v == null ? null : (text: 'v$v', tone: ToolReceiptTone.none);
       },
       body: body ?? buildToolBody,
-      liveBody: liveBody ?? buildLiveBody,
     );
 
 /// F07 entity searches (WRK-056 §F07): the collapsed row's dual channel — SEARCH when `query` is
@@ -584,9 +572,8 @@ final Map<String, ToolCardSpec> _catalog = {
       if (content == null || content.isEmpty) return (text: t.chat.tool.emptyFile, tone: ToolReceiptTone.none);
       return (text: t.chat.tool.lines(n: '${'\n'.allMatches(content).length + 1}'), tone: ToolReceiptTone.none);
     },
+    // The F01 «生长秀» lives in the body's in-flight face (WRK-065). 生长秀在体的活脸里。
     body: writeToolBody,
-    // The F01 «生长秀»: the file content streams into a window as the LLM types it. 生长秀:内容流入。
-    liveBody: writeLiveBody,
   ),
   'Edit': _fsOp(
     liveVerb: (t) => t.chat.tool.editing,
@@ -599,9 +586,8 @@ final Map<String, ToolCardSpec> _catalog = {
       if (s.resultText.isNotEmpty) return (text: t.chat.tool.fsUnconfirmed, tone: ToolReceiptTone.warn);
       return null;
     },
+    // The surgery two-act lives in the body's in-flight face (WRK-065). 手术两幕在体的活脸里。
     body: editToolBody,
-    // The surgery two-act: − old_string streams in, then + new_string. 手术两幕:先切、再补。
-    liveBody: editLiveBody,
   ),
 
   // ── F2 fs-search 文件检索 ──
@@ -656,7 +642,6 @@ final Map<String, ToolCardSpec> _catalog = {
     kind: (t) => t.chat.tool.kind.workflow,
     create: true,
     body: workflowBuildBody,
-    liveBody: workflowOpLiveBody,
     receipt: workflowCreateReceipt,
   ),
   // edit_workflow ★ morph roster: the delta (added/updated/deleted from the ops) — the pure-delta form
@@ -934,7 +919,6 @@ final Map<String, ToolCardSpec> _catalog = {
       return null;
     },
     body: callHandlerBody,
-    liveBody: (context, s) => s.progressText.isEmpty ? const SizedBox.shrink() : AnTermTail(text: s.progressText),
   ),
   // invoke_agent — run an agent (chip=agentId; failed/timeout→auto-expand; cancelled stays grey). The
   // LIVE nested trajectory (NestedRunPane) is B6; this is the settled body. invoke_agent 落定卡。
@@ -944,7 +928,6 @@ final Map<String, ToolCardSpec> _catalog = {
     receipt: (t, s) => invokeReceipt(t, s.resultText),
     resultFailed: (s) => invokeResultFailed(s.resultText),
     body: invokeAgentBody,
-    liveBody: invokeAgentLiveBody,
   ),
   // fire_trigger — the thin activation card (chip=triggerId, receipt=activationId; never danger). 薄卡。
   'fire_trigger': ToolCardSpec(
@@ -1095,7 +1078,6 @@ final Map<String, ToolCardSpec> _catalog = {
     verb: (t, {required bool live}) => live ? t.chat.tool.spawningSubagent : t.chat.tool.spawnedSubagent,
     target: (s) => argStringPartial(s.argsText, 'subagent_type'),
     body: subagentBody,
-    liveBody: subagentLiveBody,
   ),
   'get_subagent_trace': ToolCardSpec(
     verb: (t, {required bool live}) => live ? t.chat.tool.gettingSubTrace : t.chat.tool.gotSubTrace,
@@ -1205,10 +1187,8 @@ final Map<String, ToolCardSpec> _catalog = {
         exitUnknownLabel: t.chat.tool.bashExitUnknown,
         // Short id in the row receipt (the full copyable bsh_id is in the body). 收起行短 id。
         backgroundLabel: (id) => t.chat.tool.bashBackground(id: id.length > 10 ? '${id.substring(0, 10)}…' : id)),
+    // The family's soul — the live terminal — is the body's in-flight face (WRK-065). 族魂活终端在体内。
     body: bashToolBody,
-    // The soul of the family: the little live terminal under the row (termFold + ANSI). 族魂:活的小终端。
-    liveBody: (context, s) =>
-        s.progressText.isEmpty ? const SizedBox.shrink() : AnTermTail(text: s.progressText),
   ),
   // BashOutput (B4.6): poll a background session — bsh_id chip + status receipt + terminal body.
   // BashOutput:轮询后台会话——bsh_id chip + status 回执 + 终端体。
@@ -1247,7 +1227,6 @@ final Map<String, ToolCardSpec> _catalog = {
     verb: (t, {required bool live}) => live ? t.chat.tool.memorizing : t.chat.tool.memorized,
     target: (s) => argStringPartial(s.argsText, 'name'),
     receipt: memoryWriteReceipt,
-    liveBody: memoryLiveBody,
     body: writeMemoryBody,
     // The result-payload soft-reject is the failure fact (status stays completed). 软拒即失败事实。
     resultFailed: (s) => s.resultText.trimLeft().startsWith('Cannot save memory'),
@@ -1277,7 +1256,6 @@ final Map<String, ToolCardSpec> _catalog = {
       return bare.length > 48 ? '${bare.substring(0, 48)}…' : bare;
     },
     receipt: webFetchReceipt,
-    liveBody: webFetchLiveBody,
     body: webFetchBody,
     resultFailed: (s) => webFetchOutcome(s.resultText) == WebFetchOutcome.fail,
   ),

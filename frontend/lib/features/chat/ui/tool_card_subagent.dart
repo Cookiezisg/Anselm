@@ -31,17 +31,16 @@ Map<String, dynamic>? _obj(String s) {
 
 // ── Subagent (spawn a focused sub-task) ──
 
-/// Subagent LIVE body — the nested trajectory streaming under the card (the E3 subtree). Subagent 活期。
-Widget subagentLiveBody(BuildContext context, ToolCardState state) =>
-    state.nested.isEmpty ? const SizedBox.shrink() : NestedRunPane(nested: state.nested, live: true);
-
-/// Subagent settled body — the task (prompt) → the nested trajectory (if still in the tree) / a
-/// get_subagent_trace note → the final answer (prose; the whole tool_result IS the answer string).
-/// Subagent 落定体:任务 + 轨迹 + 回答。
+/// Subagent body — the task (prompt, in-flight readable) → the nested trajectory (LIVE: streaming
+/// with the shimmer tail; SETTLED in-tree: the full pane; reloaded: the get_subagent_trace replay
+/// note — settled only, mid-run it would misread as «already archived», WRK-065) → the final answer
+/// (prose; the whole tool_result IS the answer string). Subagent 体:任务 + 轨迹(活=流式;重载注仅落定)
+/// + 回答。
 Widget subagentBody(BuildContext context, ToolCardState state) {
   final c = context.colors;
   final t = Translations.of(context);
-  final prompt = argString(state.argsText, 'prompt');
+  final live = toolLive(state);
+  final prompt = argStringPartial(state.argsText, 'prompt');
   final answer = state.resultText;
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
     if (prompt != null && prompt.isNotEmpty) ...[
@@ -51,8 +50,8 @@ Widget subagentBody(BuildContext context, ToolCardState state) {
       const SizedBox(height: AnSpace.s6),
     ],
     if (state.nested.isNotEmpty)
-      NestedRunPane(nested: state.nested)
-    else
+      NestedRunPane(nested: state.nested, live: live)
+    else if (!live)
       Text(t.chat.tool.subagentTraceNote, style: AnText.meta.copyWith(color: c.inkFaint)),
     if (answer.isNotEmpty) ...[
       const SizedBox(height: AnSpace.s6),

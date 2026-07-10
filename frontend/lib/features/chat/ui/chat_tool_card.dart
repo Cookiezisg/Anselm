@@ -18,20 +18,20 @@ import 'tool_card_reveal.dart';
 import 'tool_card_skins.dart';
 import 'tool_interaction_gate.dart';
 
-/// The V3a tool-call CHASSIS (WRK-053) — one borderless 32px-register line per tool call
-/// (decision #2: bare row, the expanded body owns the only container), carrying the whole
-/// lifecycle: args-streaming / awaiting-confirm / running (shimmer verb + quiet elapsed
-/// counter after 3s) / succeeded / failed (auto-expands once) / denied / cancelled. The verb
-/// comes from the registry ([toolCardStrings], decision #1); the body is the GENERIC skin —
-/// intent (LLM summary) · args JSON · progress tail · result (JSON tree when parseable) ·
-/// error — with hard display caps + an honest truncation note. Family skins (V3b+) replace
-/// the body per family; the line grammar and state plumbing stay here.
+/// The V3a tool-call CHASSIS (WRK-053 · WRK-065) — one borderless 32px-register line per tool
+/// call (decision #2: bare row, the expanded body owns the only container), carrying the whole
+/// lifecycle: args-streaming / awaiting-confirm / running (shimmer verb + quiet elapsed counter
+/// after 3s) / succeeded / failed (auto-expands once) / denied / cancelled. DEFAULT COLLAPSED,
+/// always (WRK-065, user decree): nothing auto-opens while running — the family body owns TWO
+/// faces behind the user's chevron (in flight = the live streaming stage; settled = the record).
+/// The only auto-expansions: a failure (once) and the human gate (locked open). The verb comes
+/// from the registry ([toolCardStrings], decision #1); the GENERIC body — intent · args JSON ·
+/// progress tail · result · error — caps hard with honest truncation notes.
 ///
-/// V3a 工具卡**底盘**(WRK-053)——每次调用一条无边框 32px 档的裸行(拍板 #2:行裸、容器只属于
-/// 展开体),承载完整生命周期:args 流入 / 等待确认 / 执行中(动词流光 + 3s 后安静计时)/ 成功 /
-/// 失败(自动展开一次)/ 已拒绝 / 已中断。动词出自注册表(拍板 #1);体=**通用皮肤**——意图
-/// (LLM summary)· 参数 JSON · 进度尾巴 · 结果(可解析即 JSON 树)· 错误——硬显示上限 + 诚实
-/// 截断注记。族皮肤(V3b+)按族替换体;行文法与状态管道恒在此。
+/// V3a 工具卡**底盘**(WRK-053 · WRK-065)——每次调用一条无边框 32px 档的裸行(拍板 #2:行裸、容器
+/// 只属于展开体),承载完整生命周期。**默认永远收起**(WRK-065,用户定调):运行中绝不自动弹窗——族体
+/// 在用户 chevron 后拥有**两张脸**(在飞=流式舞台;落定=档案)。仅有的自动展开:失败(一次)与人闸
+/// (锁开)。动词出自注册表(拍板 #1);通用体硬上限 + 诚实截断注记。
 class ChatToolCard extends StatefulWidget {
   const ChatToolCard({required this.node, this.interaction, this.onResolve, super.key});
 
@@ -181,27 +181,12 @@ class _ChatToolCardState extends State<ChatToolCard> {
       _userExpanded ??= true;
     }
     final open = (_userExpanded ?? false) && hasBody;
-    // The live machine window (F3 terminal tail / F4 builds content streaming in): visible
-    // while in flight, dissolves into the expanded body on completion.
-    // 活机器窗(F3 终端尾/F4 builds 内容流入):在飞可见,完成溶进展开体。
-    final showLiveBody = spec.liveBody != null && live && !open;
 
     const bodyInset = EdgeInsets.only(top: AnSpace.s4, left: AnSize.icon + AnSpace.s6);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _line(context, t, c, state, spec, live, open, hasBody, familyReceipt),
-        AnExpandReveal(
-          open: showLiveBody,
-          child: Padding(
-            padding: bodyInset,
-            child: SizedBox(
-                width: double.infinity,
-                child: showLiveBody
-                    ? spec.liveBody!(context, state)
-                    : const SizedBox.shrink()),
-          ),
-        ),
         AnExpandReveal(
           open: open,
           child: Padding(

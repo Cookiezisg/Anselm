@@ -57,7 +57,7 @@ void main() {
     expect(buildContentOf('create_workflow', PartialJsonSession()..append('{"graph":{}}')), isNull); // JSON fallback 配置走 JSON
   });
 
-  testWidgets('mid-stream: kind-noun verb + streaming name target + LIVE code window',
+  testWidgets('mid-stream: collapsed by default; TAP opens the live code window (WRK-065)',
       (tester) async {
     const scope = StreamScope(kind: 'conversation', id: 'cv_1');
     final r = BlockTreeReducer()
@@ -72,6 +72,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('正在创建函数'), findsOneWidget);
     expect(find.text('rollup'), findsOneWidget); // streaming name target 流中名字目标
+    // Default collapsed — no auto machine window while running (WRK-065 user decree). 默认收起,不自动弹窗。
+    expect(find.byType(ToolWindow), findsNothing);
+    // TAP → the body's live face: the streaming code window. 点开=活脸(流式代码窗)。
+    await tester.tap(find.textContaining('正在创建函数'), warnIfMissed: false);
+    await tester.pumpAndSettle();
     expect(find.byType(ToolWindow), findsOneWidget); // live code window 活代码窗
     expect(find.textContaining('def rol'), findsOneWidget); // still-open value streams 未闭合值在流
   });

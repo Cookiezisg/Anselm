@@ -13,15 +13,16 @@ import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
 import 'tool_card_skins.dart';
 
-/// F04 create_workflow — a two-act show. Act one (args streaming, [workflowOpLiveBody]): the graph is NOT
-/// drawn (streaming re-layout would jitter — graph.md); instead an OP TICKER counts add_node / add_edge as
+/// F04 create_workflow — a two-act show, both acts inside the ONE body ([workflowBuildBody], behind the
+/// user's chevron — WRK-065: nothing auto-expands). Act one (in flight): the graph is NOT drawn
+/// (streaming re-layout would jitter — graph.md); instead an OP TICKER counts add_node / add_edge as
 /// [partialJsonEvents] surfaces each completed op, and a kind-coloured chip lights per node — the build is
-/// visible here. Act two (settled, [workflowBuildBody]): the full graph is built from the ops and rendered
-/// by [AnGraphCanvas] — the SAME widget the entity page uses, so the tool-card graph is 1:1 with it (B5).
+/// visible here. Act two (settled): the full graph is built from the ops and rendered by [AnGraphCanvas]
+/// — the SAME widget the entity page uses, so the tool-card graph is 1:1 with it (B5).
 ///
-/// F04 create_workflow 两幕。幕一(args 流入):不画图(流中重布局跳变),op ticker 数 add_node/add_edge、
-/// 每节点亮一枚 kind 色 chip——生长感在此;幕二(落定):ops 建全图,由 [AnGraphCanvas] 渲染(实体页同款
-/// widget),故 tool 卡图与实体页 1:1(B5)。
+/// F04 create_workflow 两幕,同住**一个体**(在用户 chevron 后——WRK-065:绝不自动展开)。幕一(在飞):
+/// 不画图(流中重布局跳变),op ticker 数 add_node/add_edge、每节点亮一枚 kind 色 chip——生长感在此;
+/// 幕二(落定):ops 建全图,由 [AnGraphCanvas] 渲染(实体页同款 widget),故 tool 卡图与实体页 1:1(B5)。
 
 /// create_workflow's collapsed-row receipt: `v1 · 未激活` — inactive is EXPECTED (create → deactivated),
 /// so it's a WARN (「建了≠上线」的诚实半态),not a failure; the row nudges toward activate_workflow.
@@ -108,7 +109,7 @@ _OpCounts _countOps(PartialJsonSession args) {
 
 /// Act one — the live OP TICKER (no graph while streaming): `节点 N · 边 M` + a kind-coloured dot per
 /// add_node op, lighting up as ops complete. 幕一 op ticker(流中不画图):计数 + kind 色点逐个亮。
-Widget workflowOpLiveBody(BuildContext context, ToolCardState state) {
+Widget _opTicker(BuildContext context, ToolCardState state) {
   final t = Translations.of(context);
   final c = context.colors;
   final counts = _countOps(state.argsSession);
@@ -283,9 +284,11 @@ Widget _morphChip(BuildContext context, {required IconData icon, required String
   );
 }
 
-/// Act two — the settled body: intent · the workflow graph (1:1 with the entity page's AnGraphCanvas) ·
-/// the result bar. 幕二 落定体:意图 · 工作流图(与实体页 AnGraphCanvas 1:1)· 结果条。
+/// The create_workflow body — act one (in flight): the op ticker; act two (settled): intent · the
+/// workflow graph (1:1 with the entity page's AnGraphCanvas) · the result bar.
+/// create_workflow 体——幕一(在飞):op ticker;幕二(落定):意图 · 工作流图(与实体页 1:1)· 结果条。
 Widget workflowBuildBody(BuildContext context, ToolCardState state) {
+  if (toolLive(state)) return _opTicker(context, state);
   final c = context.colors;
   final graph = graphFromWorkflowOps(state.argsSession);
   return Column(

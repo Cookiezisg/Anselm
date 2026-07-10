@@ -89,13 +89,12 @@ class _WindowCopyButtonState extends State<WindowCopyButton> {
   }
 }
 
-/// The live tail: the last [tailLines] progress lines inside a small machine window while the
-/// tool runs — the strongest "it's really working" cue (industry: Claude Code / Cursor). The
-/// window grows/shrinks with its content (AnimatedSize via AnExpandReveal host) and dissolves
-/// into the expanded body's full window on completion.
+/// The live tail: the last [tailLines] progress lines inside a small machine window — rendered
+/// INSIDE the expanded body while the tool runs (the user opened the card; WRK-065: nothing
+/// auto-expands). The strongest "it's really working" cue (industry: Claude Code / Cursor).
 ///
-/// 活尾巴:执行中把 progress 尾 [tailLines] 行装进小机器窗——最强「真的在干活」信号(业界:
-/// Claude Code/Cursor)。窗随内容长缩,完成后溶进展开体的完整窗。
+/// 活尾巴:progress 尾 [tailLines] 行装进小机器窗——**在展开体内**渲染(用户点开才见;WRK-065:
+/// 绝不自动展开)。最强「真的在干活」信号(业界:Claude Code/Cursor)。
 class ToolLiveTail extends StatelessWidget {
   const ToolLiveTail({required this.text, this.tailLines = 3, super.key});
 
@@ -105,6 +104,9 @@ class ToolLiveTail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    // Whitespace-only progress (a first "\n" yield) must not paint an empty machine window —
+    // the caller's isEmpty guard passes it, so trim-check here. 纯空白首帧不渲空窗。
+    if (text.trim().isEmpty) return const SizedBox.shrink();
     final lines = text.trimRight().split('\n');
     final tail = lines.length > tailLines ? lines.sublist(lines.length - tailLines) : lines;
     return ToolWindow(
@@ -156,6 +158,12 @@ class AnTermTail extends StatelessWidget {
     );
   }
 }
+
+/// Whether the call is still IN FLIGHT (args streaming / running) — the family bodies branch on
+/// this to render their LIVE stage vs the settled record (WRK-065: the body owns both faces;
+/// there is no separate auto-shown live window). 是否在飞——族体据此分流式舞台/落定记录两张脸。
+bool toolLive(ToolCardState state) =>
+    state.phase == ToolCardPhase.argsStreaming || state.phase == ToolCardPhase.running;
 
 /// Shared intent line (the LLM's self-reported summary) — shown above the window in the
 /// dangerous-leaning families (F3/F13/F14: the user judges the self-report).
@@ -222,7 +230,9 @@ Widget bashToolBody(BuildContext context, ToolCardState state) {
     ]);
   }
 
-  final cmd = argString(state.argsText, 'command') ?? '';
+  // In-flight read: the command echoes in the header WHILE args stream (the live face's identity
+  // line — closed-only left the header blank mid-stream). 在途读:流式期命令即回显。
+  final cmd = argStringPartial(state.argsText, 'command') ?? '';
   final progress = state.progressText;
   // The body source: progressText (full, no footer) is preferred; else strip the resultText footer.
   // The COPY payload is the full untruncated text (incl. footer when from result). 体源 + 复制全量。
@@ -365,27 +375,27 @@ Widget killShellBody(BuildContext context, ToolCardState state) {
   ]);
 }
 
-/// F1 Write — the written content in a code window (language from the extension).
-/// F1 Write——写入内容装代码窗(语言按扩展名)。
-/// Write LIVE body (B4 F01.3) — the file content STREAMS into a window as the LLM types it (the F01
-/// «生长秀»: watch the file being written). Last 8 lines, plain mono while flowing. Write 活窗:内容随
-/// LLM 打字流入(F01 生长秀)。
-Widget writeLiveBody(BuildContext context, ToolCardState state) {
-  // Incremental session read + O(tail) extraction — this runs every frame on MB-scale content (W0).
-  // 增量会话读 + O(tail) 取尾——每帧跑、内容可 MB 级。
-  final content = state.argsSession.liveStringNamed('content');
-  if (content == null || content.isEmpty) return const SizedBox.shrink();
-  final c = context.colors;
-  return ToolWindow(child: Text(tailLines(content, 8), style: AnText.code.copyWith(color: c.inkMuted)));
-}
-
-/// Write SETTLED body (B4 F01.3) — the written file, highlighted (reading tier), folded past 50 lines
-/// ([AnFadeCollapse]) and capped at 6000 chars with an escape note; the COPY action carries the full
-/// untruncated content. content="" → an empty-file body hidden (the receipt says «空文件»). Write 落定体:
-/// 高亮代码 + 折叠 + 截头注记 + copy 全量。
+/// F1 Write — the written content in a code window (language from the extension). TWO faces
+/// (WRK-065): LIVE = the F01 «生长秀» (the file content streams into a plain-mono window as the
+/// LLM types it, last 8 lines, O(tail)); SETTLED = the highlighted reading editor, folded past 50
+/// lines ([AnFadeCollapse]), capped at 6000 chars, COPY carrying the full content.
+/// F1 Write——两张脸:活=生长秀(内容随 LLM 打字流入,纯 mono 尾 8 行);落定=高亮编辑器+折叠+copy 全量。
 Widget writeToolBody(BuildContext context, ToolCardState state) {
   final c = context.colors;
   final t = Translations.of(context);
+  if (toolLive(state)) {
+    // Incremental session read + O(tail) extraction — this runs every frame on MB-scale content (W0).
+    // 增量会话读 + O(tail) 取尾——每帧跑、内容可 MB 级。
+    final path = state.argsSession.closedStringAt(['file_path']) ?? '';
+    final content = state.argsSession.liveStringNamed('content') ?? '';
+    if (path.isEmpty && content.isEmpty) return const SizedBox.shrink();
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+      if (path.isNotEmpty)
+        Padding(padding: const EdgeInsets.only(bottom: AnSpace.s4), child: AnPathChip(path: path)),
+      if (content.isNotEmpty)
+        ToolWindow(child: Text(tailLines(content, 8), style: AnText.code.copyWith(color: c.inkMuted))),
+    ]);
+  }
   final path = state.argsSession.closedStringAt(['file_path']) ?? '';
   final content = state.argsSession.closedStringAt(['content']) ?? '';
   if (content.isEmpty) return const SizedBox.shrink();
@@ -414,28 +424,13 @@ Widget writeToolBody(BuildContext context, ToolCardState state) {
   ]);
 }
 
-/// F1 Edit — old→new as a unified diff (AnVersionDiff: the machine window with green/red
-/// gutters, an existing primitive).
-/// F1 Edit——old→new 渲 unified diff(AnVersionDiff:带绿红软底的机器窗,现成原语)。
-/// Edit LIVE two-act pane (B4 F01.4, ToolEditLivePane) — the surgery in two acts as args stream: first
-/// `old_string` flows in (the `−` removed segment, danger-soft), then `new_string` (the `+` added
-/// segment, ok-soft). Each shows its last lines. You watch what's being cut, then what replaces it.
-/// Edit 两幕活窗:先 − old 流入、再 + new,看着切什么、换成什么。
-Widget editLiveBody(BuildContext context, ToolCardState state) {
-  final oldS = state.argsSession.liveStringNamed('old_string');
-  final newS = state.argsSession.liveStringNamed('new_string');
-  if ((oldS == null || oldS.isEmpty) && (newS == null || newS.isEmpty)) return const SizedBox.shrink();
-  final c = context.colors;
-  return ToolWindow(
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-      if (oldS != null && oldS.isNotEmpty) _editSeg(c, '−', oldS, c.dangerSoft, c.danger),
-      if (newS != null && newS.isNotEmpty) ...[
-        if (oldS != null && oldS.isNotEmpty) const SizedBox(height: AnSpace.s4),
-        _editSeg(c, '+', newS, c.okSoft, c.ok),
-      ],
-    ]),
-  );
-}
+/// F1 Edit — TWO faces (WRK-065). LIVE = the two-act surgery as args stream: first `old_string`
+/// flows in (the `−` removed segment, danger-soft), then `new_string` (the `+` added segment,
+/// ok-soft) — you watch what's being cut, then what replaces it (the settled diff mid-stream would
+/// lie: an in-flight replace reads as a pure deletion). SETTLED = old→new as a unified
+/// [AnVersionDiff] (green/red gutters).
+/// F1 Edit——两张脸:活=两幕手术(先 − old 流入、再 + new;半途渲落定 diff 会撒谎——进行中的替换看着像
+/// 整段删除);落定=unified diff。
 
 Widget _editSeg(AnColors c, String sign, String text, Color bg, Color ink) {
   final shown = tailLines(text, 6).split('\n'); // O(tail): extract before splitting 先取尾再 split
@@ -454,11 +449,27 @@ Widget _editSeg(AnColors c, String sign, String text, Color bg, Color ink) {
   );
 }
 
-/// Edit SETTLED body (B4 F01.4) — the applied change as a unified [AnVersionDiff] (before=old_string,
-/// after=new_string, from the args); a `replace_all` edit adds an «N 处全部替换» note. new_string="" =
-/// a pure deletion (all-red diff). Edit 落定体:AnVersionDiff + replace_all 注记。
+/// Edit body (B4 F01.4 · WRK-065) — LIVE: the two-act surgery pane; SETTLED: the applied change as a
+/// unified [AnVersionDiff] (before=old_string, after=new_string, from the args); a `replace_all` edit
+/// adds an «N 处全部替换» note. new_string="" = a pure deletion (all-red diff). Edit 体:活=两幕手术;
+/// 落定=AnVersionDiff + replace_all 注记。
 Widget editToolBody(BuildContext context, ToolCardState state) {
   final t = Translations.of(context);
+  if (toolLive(state)) {
+    final c = context.colors;
+    final oldS = state.argsSession.liveStringNamed('old_string');
+    final newS = state.argsSession.liveStringNamed('new_string');
+    if ((oldS == null || oldS.isEmpty) && (newS == null || newS.isEmpty)) return const SizedBox.shrink();
+    return ToolWindow(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+        if (oldS != null && oldS.isNotEmpty) _editSeg(c, '−', oldS, c.dangerSoft, c.danger),
+        if (newS != null && newS.isNotEmpty) ...[
+          if (oldS != null && oldS.isNotEmpty) const SizedBox(height: AnSpace.s4),
+          _editSeg(c, '+', newS, c.okSoft, c.ok),
+        ],
+      ]),
+    );
+  }
   final path = state.argsSession.closedStringAt(['file_path']) ?? '';
   final oldS = state.argsSession.closedStringAt(['old_string']);
   final newS = state.argsSession.closedStringAt(['new_string']);
@@ -667,14 +678,25 @@ String? _langOf(String path) {
 /// 从 args 提取构建调用的**主内容**(被创作之物)——容忍流中不完整片段;这正是本族的重头戏:
 /// 代码/提示词/文档随 LLM 打字流进窗里。
 String? buildContentOf(String toolName, PartialJsonSession args) {
-  if (toolName.endsWith('_function') || toolName.endsWith('_handler')) {
-    // ops-based: the set_code op's `code` (functions); handlers are structured ops — fall
-    // through to `code` too (add_method carries `body`, try it second). liveStringNamed matches the
-    // key at ANY depth, in-flight first — so a multi-method handler's window follows whichever body
-    // is growing RIGHT NOW (the old first-match regex froze on the first one).
-    // ops 型:set_code 的 `code`;handler 的 `body` 次之。liveStringNamed 任意深度按键匹配、在途优先——
-    // 多 method 的窗跟着**正在生长**的那个 body(旧正则首匹配会冻在第一个)。
-    return args.liveStringNamed('code') ?? args.liveStringNamed('body');
+  if (toolName.endsWith('_function')) {
+    // ops-based: the set_code op's `code`. liveStringNamed matches the key at ANY depth,
+    // in-flight first. ops 型:set_code 的 `code`,任意深度、在途优先。
+    return args.liveStringNamed('code');
+  }
+  if (toolName.endsWith('_handler')) {
+    // Handler wire keys: add_method carries `body`, set_init carries `initBody`, set_shutdown
+    // carries `shutdownBody` (backend apply.go — there is NO `code` key on the handler wire; the
+    // old `code ?? body` chain left init/shutdown streaming INVISIBLE). Only one value streams at
+    // a time, so the window follows the IN-FLIGHT one first (whichever is growing right now),
+    // else the newest closed of the three. handler 线缆键:body/initBody/shutdownBody(线缆无 code
+    // 键——旧链让 init/shutdown 流入期全盲)。同一时刻只有一个值在流:窗先跟在途者,否则取最新闭合。
+    const keys = {'body', 'initBody', 'shutdownBody'};
+    final inFlight = args.inFlightString;
+    final last = inFlight?.path.lastOrNull;
+    if (inFlight != null && last is String && keys.contains(last)) return inFlight.text;
+    return args.liveStringNamed('body') ??
+        args.liveStringNamed('initBody') ??
+        args.liveStringNamed('shutdownBody');
   }
   if (toolName.endsWith('_agent')) return args.liveStringNamed('prompt');
   if (toolName.endsWith('_document')) return args.liveStringNamed('content');
@@ -688,29 +710,24 @@ String? _buildLang(String toolName) {
   return null;
 }
 
-/// The LIVE builds window: the content streaming in as the LLM emits args — plain mono while
-/// flowing (a re-highlight per delta would burn the frame budget), swapped for the highlighted
-/// editor once settled (in [buildToolBody]).
-/// builds 活窗:内容随 LLM 吐 args 流入——流动期纯等宽(逐 delta 重新高亮烧帧预算),落定后
-/// (在 [buildToolBody])换高亮编辑器。
-Widget buildLiveBody(BuildContext context, ToolCardState state) {
-  final content = buildContentOf(state.toolName, state.argsSession);
-  if (content == null || content.isEmpty) return const SizedBox.shrink();
-  final c = context.colors;
-  // O(tail) extraction — code is the show, the window is taller than the terminal tail (8 lines).
-  // O(tail) 取尾——代码是主角,窗比终端尾高(8 行)。
-  return ToolWindow(
-    child: Text(tailLines(content, 8), style: AnText.code.copyWith(color: c.inkMuted)),
-  );
-}
-
-/// The settled builds body: intent · authored content (highlighted) · the RESULT BAR — id,
-/// version, env outcome. envStatus is the family's honest half-success: the entity landed but
-/// its sandbox env may still be building or have failed (envError shown red).
-/// builds 落定体:意图 · 创作内容(高亮)· **结果条**——id/版本/env 结局。envStatus 是本族的
-/// 诚实半成功:实体落了、沙箱 env 可能还在构建或已失败(envError 红显)。
+/// The builds body — TWO faces (WRK-065). LIVE: the authored content streaming in as the LLM emits
+/// args, plain mono tail (a re-highlight per delta would burn the frame budget). SETTLED: intent ·
+/// the authored content (highlighted editor) · the RESULT BAR — id, version, env outcome. envStatus
+/// is the family's honest half-success: the entity landed but its sandbox env may still be building
+/// or have failed (envError shown red).
+/// builds 体——两张脸:活=内容随 args 流入的纯等宽尾窗(逐 delta 重新高亮烧帧预算);落定=意图 · 创作
+/// 内容(高亮)· **结果条**(id/版本/env 结局;envStatus=诚实半成功)。
 Widget buildToolBody(BuildContext context, ToolCardState state) {
   final content = buildContentOf(state.toolName, state.argsSession);
+  if (toolLive(state)) {
+    if (content == null || content.isEmpty) return const SizedBox.shrink();
+    final c = context.colors;
+    // O(tail) extraction — code is the show, the window is taller than the terminal tail (8 lines).
+    // O(tail) 取尾——代码是主角,窗比终端尾高(8 行)。
+    return ToolWindow(
+      child: Text(tailLines(content, 8), style: AnText.code.copyWith(color: c.inkMuted)),
+    );
+  }
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [

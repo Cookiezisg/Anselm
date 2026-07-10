@@ -150,21 +150,28 @@ class MemoryNoteCard extends StatelessWidget {
   }
 }
 
-/// write_memory's LIVE window: the note being written stroke by stroke — the args session's
-/// unescaped `content` tail, 6 mono lines (the W0 engine already handles split escapes).
-/// write_memory 活窗:便笺一笔一笔被写下——session 反转义 content 尾 6 行(W0 引擎已处理劈半转义)。
-Widget memoryLiveBody(BuildContext context, ToolCardState state) {
-  final content = state.argsSession.liveStringNamed('content');
-  if (content == null || content.isEmpty) return const SizedBox.shrink();
-  final c = context.colors;
-  return ToolWindow(
-    child: Text(tailLines(content, 6), style: AnText.code.copyWith(color: c.inkMuted)),
-  );
-}
-
-/// write settled: the card off ARGS (the structural truth the model authored); soft-reject shows
-/// the backend sentence in a mono window. 写落定:args 成卡;软拒原句进机器窗。
+/// write_memory body — LIVE: the note being written stroke by stroke (the args session's unescaped
+/// `content` tail, 6 mono lines — the W0 engine already handles split escapes; the raw-args dump
+/// stays a SETTLED-only fallback, mid-stream it's just unreadable JSON shrapnel, WRK-065). SETTLED:
+/// the card off ARGS (the structural truth the model authored); soft-reject shows the backend
+/// sentence in a mono window. write_memory 体:活=便笺一笔一笔被写下(生 JSON 倾倒仅落定兜底——流中
+/// 是不可读残片);落定=args 成卡;软拒原句进机器窗。
 Widget writeMemoryBody(BuildContext context, ToolCardState state) {
+  if (toolLive(state)) {
+    final name = state.argsSession.closedStringAt(['name']) ?? '';
+    final content = state.argsSession.liveStringNamed('content') ?? '';
+    if (name.isEmpty && content.isEmpty) return const SizedBox.shrink();
+    final c = context.colors;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+      if (name.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(bottom: AnSpace.s4),
+          child: Text(name, style: AnText.mono.copyWith(color: c.inkMuted)),
+        ),
+      if (content.isNotEmpty)
+        ToolWindow(child: Text(tailLines(content, 6), style: AnText.code.copyWith(color: c.inkMuted))),
+    ]);
+  }
   final out = state.resultText.trimLeft();
   if (out.startsWith('Cannot save memory')) {
     return ToolWindow(
@@ -428,43 +435,48 @@ ToolReceipt? webFetchReceipt(Translations t, ToolCardState s) {
   }
 }
 
-/// WebFetch LIVE: the summary being distilled word by word — the progress tee in a FIXED-HEIGHT
-/// viewport (prose has few newlines; a line-tail would let one paragraph wrap unbounded), text
-/// pinned bottom-left so only the newest lines show. 抓取活窗:定高视口+贴底=散文尾钳。
-Widget webFetchLiveBody(BuildContext context, ToolCardState state) {
-  if (state.progressText.isEmpty) return const SizedBox.shrink();
-  final c = context.colors;
-  return AnSunkenPanel(
-    child: SizedBox(
-      height: 144, // ≈6 reading lines 约 6 行阅读排版
-      child: ClipRect(
-        child: Align(
-          alignment: Alignment.bottomLeft,
-          child: Text(state.progressText, style: AnText.reading.copyWith(color: c.inkMuted)),
-        ),
-      ),
-    ),
-  );
-}
-
-/// WebFetch settled: the question line (`args.prompt`, the deterministic half of the
-/// summary+prompt pair) over the typeset summary; degraded outcomes land verbatim in a mono
-/// window — a raw-fallback page is MACHINE text and lives in the machine window.
-/// 抓取落定:问句行 + 排版摘要;退化态原样机器窗(生页文本归机器窗)。
+/// WebFetch body — LIVE: the summary being distilled word by word (the progress tee in a
+/// MAX-HEIGHT-capped viewport pinned bottom — prose has few newlines, a line-tail would let one
+/// paragraph wrap unbounded; a short first delta no longer inflates a mostly-empty fixed panel,
+/// WRK-065). SETTLED: the question line (`args.prompt`) over the typeset summary; degraded outcomes
+/// land verbatim in a mono window — a raw-fallback page is MACHINE text.
+/// WebFetch 体:活=摘要逐词蒸馏(限高贴底视口——短首帧不再撑出大片留白的定高面板);落定=问句行 + 排版
+/// 摘要;退化态原样机器窗。
 Widget webFetchBody(BuildContext context, ToolCardState state) {
   final t = Translations.of(context);
   final c = context.colors;
-  final outcome = webFetchOutcome(state.resultText);
   final prompt = state.argsSession.closedStringAt(['prompt']) ?? '';
+  final promptLine = prompt.isEmpty
+      ? null
+      : Padding(
+          padding: const EdgeInsets.only(bottom: AnSpace.s6),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('${t.chat.tool.fetchAsk} ', style: AnText.label.copyWith(color: c.inkFaint)),
+            Expanded(child: Text(prompt, style: AnText.label.copyWith(color: c.inkMuted))),
+          ]),
+        );
+  if (toolLive(state)) {
+    if (promptLine == null && state.progressText.trim().isEmpty) return const SizedBox.shrink();
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      ?promptLine,
+      if (state.progressText.trim().isNotEmpty)
+        AnSunkenPanel(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 144), // ≈6 reading lines,短内容收身 约 6 行封顶
+            child: ClipRect(
+              child: Align(
+                alignment: Alignment.bottomLeft,
+                heightFactor: 1, // shrink-wrap below the cap 低于上限即贴内容高
+                child: Text(state.progressText, style: AnText.reading.copyWith(color: c.inkMuted)),
+              ),
+            ),
+          ),
+        ),
+    ]);
+  }
+  final outcome = webFetchOutcome(state.resultText);
   return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    if (prompt.isNotEmpty)
-      Padding(
-        padding: const EdgeInsets.only(bottom: AnSpace.s6),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('${t.chat.tool.fetchAsk} ', style: AnText.label.copyWith(color: c.inkFaint)),
-          Expanded(child: Text(prompt, style: AnText.label.copyWith(color: c.inkMuted))),
-        ]),
-      ),
+    ?promptLine,
     switch (outcome) {
       WebFetchOutcome.summary => ProseWindow(markdown: state.resultText),
       _ => ToolWindow(

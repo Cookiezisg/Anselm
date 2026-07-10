@@ -77,14 +77,21 @@ void main() {
     expect(find.textContaining('[exit code:'), findsNothing);
   });
 
-  testWidgets('Bash live tail: machine window while running, gone when settled',
+  testWidgets('Bash running: collapsed by default; TAP opens the live terminal (WRK-065)',
       (tester) async {
     final running = _call('Bash', extra: {'arguments': '{"command":"npm test"}'})
       ..children.add(_progress('line 1\nline 2\nline 3\nline 4', live: true));
     await tester.pumpWidget(_host(ChatToolCard(node: running, key: const ValueKey('run'))));
     await tester.pumpAndSettle();
-    expect(find.byType(AnTermTail), findsOneWidget); // B4.3: ToolLiveTail → AnTermTail (termFold+ANSI)
-    // Tail shows the LAST lines only (4 lines ≤ tailLines 6, so all show; the 1st stays visible here).
+    // Default collapsed while running — no auto machine window (WRK-065). 运行中默认收起,不自动弹窗。
+    expect(find.byType(ToolWindow), findsNothing);
+    expect(find.textContaining('line 4'), findsNothing);
+    // TAP → the body's live face: the full live terminal (progress preferred, $ cmd echo header).
+    // 点开=活脸:完整活终端(progress 优先、$ 命令回显头)。
+    await tester.tap(find.textContaining('正在执行'), warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect(find.byType(ToolWindow), findsOneWidget);
+    expect(find.textContaining('\$ npm test'), findsOneWidget); // in-flight command echo 在途命令回显
     expect(find.textContaining('line 4'), findsOneWidget);
 
     final settled = _call('Bash', extra: {'arguments': '{"command":"npm test"}'})
@@ -149,5 +156,40 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('正在执行命令'), findsOneWidget);
     expect(find.text('npm test'), findsOneWidget); // closed field extracted mid-stream 流中提取
+  });
+
+  testWidgets('call_handler RUNNING opened: live yields directly visible, NO fake «无返回值» (WRK-065)',
+      (tester) async {
+    // args closed, no result yet = running; yields streaming. args 闭、无 result=running,yield 在流。
+    final running = _call('call_handler',
+        extra: {'arguments': '{"handlerId":"hd_1","method":"run","args":{}}'})
+      ..children.add(_progress('yield 1\nyield 2', live: true));
+    await tester.pumpWidget(_host(ChatToolCard(node: running)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(AnInteractive).first, warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('yield 2'), findsOneWidget); // live tail direct, not behind a drawer 直显
+    expect(find.text(t.chat.tool.noReturn), findsNothing); // never lie mid-run 在飞绝不渲「无返回值」
+  });
+
+  testWidgets('mcp mount RUNNING opened: the progress tail shows, no empty result shell (WRK-065)',
+      (tester) async {
+    final running = _call('mcp__github__create_issue',
+        extra: {'arguments': '{"title":"bug"}'})
+      ..children.add(_progress('contacting server…', live: true));
+    await tester.pumpWidget(_host(ChatToolCard(node: running)));
+    await tester.pumpAndSettle();
+    // Collapsed by default. 默认收起。
+    expect(find.byType(ToolWindow), findsNothing);
+    await tester.tap(find.byType(AnInteractive).first, warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('contacting server'), findsOneWidget); // live progress 活进度
+    expect(find.byType(ToolWindow), findsOneWidget); // ONLY the tail — no empty result shell 无空结果壳
+  });
+
+  testWidgets('ToolLiveTail: whitespace-only progress renders NO empty machine window', (tester) async {
+    await tester.pumpWidget(_host(const ToolLiveTail(text: '\n')));
+    await tester.pumpAndSettle();
+    expect(find.byType(ToolWindow), findsNothing); // trim guard 空白守卫
   });
 }
