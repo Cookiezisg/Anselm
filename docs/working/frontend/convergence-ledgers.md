@@ -291,7 +291,7 @@ audience: [human, ai]
 | D-020 | chat-transcript · tool_result 硬失败(status=error 红回执/ownsError) | 全 fixture 无 error:true 结果块(tr() 的 error 参数从未用,chat_showcase_fixture.dart:20-27);展台补一张失败卡 | open |
 | D-021 | chat-transcript · 发送失败泡(重试/丢弃) | failNextSend 仅脚本钩(chat_fixtures.dart:310);_PendingRow 失败态(chat_transcript.dart:614-629)demo 不可达 | open |
 | D-022 | chat-transcript · 红色 error 横幅(errorCode·errorMessage) | 无通用 error 终态种子(danger 分支 chat_transcript.dart:556 无演示);种一条 stopReason=error+errorCode 消息 | open |
-| D-023 | documents · 编辑器表格块 + URL 链接 + h1/h4–h6 标题档 | 种子正文无表格、无 [x](url)、只有 h2/h3;补一篇全块型样章锁大纲六档下标 | open |
+| D-023 | documents · 编辑器表格块 + URL 链接 + h1/h4–h6 标题档 | 种子正文无表格、无 markdown 链接、只有 h2/h3;补一篇全块型样章锁大纲六档下标 | open |
 | D-024 | entities · approval 详情页 | 未传 approvalForms→rail approval 段恒空;补 ApprovalForm 种子(表单 schema) | open |
 | D-025 | entities · control 详情页 | demoEntityRepository 未传 controlLogics(entity_demo_fixture.dart:169-318)→rail control 段恒空;补 ControlLogic 种子(决策梯/分支) | open |
 | D-026 | entities · flowrun parked 停车态(人闸待决 :decide) | 种带 approval 节点的 workflow 图+parked flowrunDetail(fixture 已支持 _walkFlowrun 停车,entity_fixtures.dart:345-352) | open |
