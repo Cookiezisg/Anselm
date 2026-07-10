@@ -50,7 +50,9 @@ class AgentStageBody extends ConsumerWidget {
           child: Align(
             alignment: Alignment.bottomLeft,
             child: Text(
-              tailLines(prompt, 14),
+              // Live streaming bounds to the word-tail (R-13); a settled truth render shows the FULL prompt
+              // (「看真身」应见全貌,WRK-064). 活流限尾 14 行;落定真身显全文。
+              scene.live ? tailLines(prompt, 14) : prompt,
               style: AnText.reading.copyWith(color: c.inkMuted),
             ),
           ),

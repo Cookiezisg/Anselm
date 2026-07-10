@@ -7,7 +7,6 @@ import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
 import '../../../core/model/partial_json.dart';
 import '../../../core/perf/coalescing_notifier.dart';
-import '../../../core/router/panel_registry.dart';
 import '../../../core/settings/app_prefs_providers.dart';
 import '../../../core/shell/right_panel.dart';
 import '../../../core/ui/ui.dart';
@@ -21,12 +20,11 @@ import '../state/rundown_provider.dart';
 import '../state/stage_director_provider.dart';
 import '../state/stage_expansion.dart';
 import '../state/touchpoint_ledger.dart';
-import '../state/transcript_jump_provider.dart';
+import 'stages/scene_from_truth.dart';
 import 'stages/stage_registry.dart';
 import 'stages/stage_scene.dart';
 import 'tool_card_skins.dart';
 import '../state/flowrun_progress.dart';
-import 'tool_card_nav.dart';
 
 /// The SIDESTAGE (WRK-061 · rebuilt WRK-064) — the chat right island's content, now a STICKY ACCORDION
 /// LIST: the unified head (label · follow · expand/collapse-all · ✕) over one scroll where every touchpoint
@@ -525,67 +523,19 @@ class _StageRow extends ConsumerWidget {
                   onItemResolved: (itemId) => director.itemResolved(view.blockId, itemId),
                 )
               : entity != null
-                  ? _SettledBody(conversationId: conversationId, entity: entity, tombstoned: tombstoned)
+                  ? (!tombstoned && hasTruthStage(entity.kind)
+                      // Any settled row opens to its FULL bespoke stage rendered from the entity's current
+                      // truth (WRK-064) — code / graph / ladder, not a summary. 任何落定行都渲完整真身舞台。
+                      ? StageBodyFromTruth(
+                          conversationId: conversationId,
+                          kind: entity.kind,
+                          id: entity.key,
+                          rowId: 'truth_${spec.rowId}',
+                          fallback: entity)
+                      : SettledBody(conversationId: conversationId, entity: entity, tombstoned: tombstoned))
                   : const SizedBox.shrink(),
         ),
       ),
-    ]);
-  }
-}
-
-/// A settled touchpoint's inline summary — the entity's verb history (each verb · count · last-touch) over
-/// the id, plus the two navigation actions (jump-to-occurrence / open the entity page). No GET on a
-/// tombstone. 落定触点摘要:动词史 + id + 双导航动作(墓碑不 GET)。
-class _SettledBody extends ConsumerWidget {
-  const _SettledBody({required this.conversationId, required this.entity, required this.tombstoned});
-
-  final String conversationId;
-  final CastEntity entity;
-  final bool tombstoned;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final c = context.colors;
-    final t = Translations.of(context);
-    final lastMessageId = entity.primary.lastMessageId;
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-      AnKv(dense: true, rows: [
-        AnKvRow('id', entity.key, mono: true),
-        for (final r in entity.byVerb.values)
-          AnKvRow(
-            AnCastRow.verbWord(t, r.verb),
-            r.count > 1
-                ? '×${r.count} · ${AnCastRow.timeLabel(context, r.lastAt)}'
-                : AnCastRow.timeLabel(context, r.lastAt),
-          ),
-      ]),
-      if (tombstoned)
-        Padding(
-          padding: const EdgeInsets.only(top: AnSpace.s4),
-          child: Text(t.chat.stage.tombstone, style: AnText.meta.copyWith(color: c.danger)),
-        ),
-      if (!tombstoned && (lastMessageId.isNotEmpty || hasPanelFor(entity.kind))) ...[
-        const SizedBox(height: AnSpace.s6),
-        Row(children: [
-          if (lastMessageId.isNotEmpty)
-            AnButton(
-              label: t.chat.stage.jumpToScene,
-              icon: AnIcons.locate,
-              size: AnButtonSize.sm,
-              onPressed: () =>
-                  ref.read(transcriptJumpProvider(conversationId).notifier).request(lastMessageId),
-            ),
-          if (hasPanelFor(entity.kind)) ...[
-            const SizedBox(width: AnSpace.s6),
-            AnButton(
-              label: t.chat.stage.goToEntity,
-              icon: AnIcons.open,
-              size: AnButtonSize.sm,
-              onPressed: () => toolNavTo(context, entity.kind, entity.key),
-            ),
-          ],
-        ]),
-      ],
     ]);
   }
 }

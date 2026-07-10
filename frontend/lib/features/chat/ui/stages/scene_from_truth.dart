@@ -1,0 +1,343 @@
+import 'dart:convert';
+
+import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../../core/contract/entities/agent.dart';
+import '../../../../core/contract/entities/approval.dart';
+import '../../../../core/contract/entities/control.dart';
+import '../../../../core/contract/entities/document.dart';
+import '../../../../core/contract/entities/function.dart';
+import '../../../../core/contract/entities/handler.dart';
+import '../../../../core/contract/entities/trigger.dart';
+import '../../../../core/contract/entities/values.dart';
+import '../../../../core/contract/entities/workflow.dart';
+import '../../../../core/design/colors.dart';
+import '../../../../core/design/tokens.dart';
+import '../../../../core/design/typography.dart';
+import '../../../../core/messages/block_tree_reducer.dart';
+import '../../../../core/contract/messages/block_content.dart';
+import '../../../../core/router/panel_registry.dart';
+import '../../../../core/ui/ui.dart';
+import '../../../../i18n/strings.g.dart';
+import '../../model/stage_director.dart';
+import '../../model/tool_card_state.dart';
+import '../../state/stage_truth.dart';
+import '../../state/touchpoint_ledger.dart';
+import '../../state/transcript_jump_provider.dart';
+import '../tool_card_nav.dart';
+import 'stage_registry.dart';
+import 'stage_scene.dart';
+
+/// «Any row shows its full stage» (WRK-064) — the sceneFromTruth seam. A SETTLED touchpoint row (no live
+/// tool block) still opens to its carefully-built kind stage (function → the code editor, workflow → the
+/// graph, control → the discriminant ladder…), NOT a bare verb-history summary. It does this by REPLICATING
+/// the production recipe the live path uses (stage_panel `_GenericStage`): serialize the entity's current
+/// truth into an args-JSON, pack it into a synthetic completed tool_call [BlockNode], let [ToolCardState.of]
+/// derive the args session, and hand a `live:false` [StageScene] to the SAME bespoke body — zero behaviour
+/// fork. The tool name is `create_KIND` so `editTargetId` stays null (no GET / no diff / no old-stratum —
+/// just «render the current truth»); trigger/document use `edit_KIND` so the body's read-only live-facts
+/// bar / byte badge light up.
+///
+/// 「点任何行都渲完整 stage」的 sceneFromTruth 缝。落定行(无 live tool 块)照样展开出精心 kind 舞台而非
+/// 光秃摘要:复刻活路的生产 recipe——真身序列化成 args-JSON,塞进合成的 completed tool_call BlockNode,
+/// ToolCardState.of 自派生 session,把 live:false 的 StageScene 交给同一 bespoke 体,零行为分叉。toolName
+/// 用 create_KIND 让 editTargetId 恒 null(不 GET/无 diff/无地层,纯渲当前真身);trigger/document 用
+/// edit_KIND 点亮活事实条 / 字节徽。
+
+/// The kinds that have a truth snapshot provider AND a bespoke stage worth rendering from that truth.
+/// Others (attachment=pedestal, subagent=nested rehydration, mcp/memory/conversation=no snapshot) keep the
+/// summary. 有真身 provider + 值得渲的 bespoke 舞台的 kind;其余留摘要。
+bool hasTruthStage(String kind) => const {
+      'function', 'handler', 'agent', 'workflow', 'control', 'approval', 'trigger', 'document',
+    }.contains(kind);
+
+/// Watch the kind's truth snapshot (autoDispose family — a collapsed row frees the GET). 观该 kind 真身。
+AsyncValue<Object> _watchTruth(WidgetRef ref, String kind, String id) => switch (kind) {
+      'function' => ref.watch(functionTruthProvider(id)),
+      'handler' => ref.watch(handlerTruthProvider(id)),
+      'agent' => ref.watch(agentTruthProvider(id)),
+      'workflow' => ref.watch(workflowTruthProvider(id)),
+      'control' => ref.watch(controlTruthProvider(id)),
+      'approval' => ref.watch(approvalTruthProvider(id)),
+      'trigger' => ref.watch(triggerTruthProvider(id)),
+      'document' => ref.watch(documentTruthProvider(id)),
+      _ => const AsyncValue<Object>.data(<String, Object?>{}),
+    };
+
+/// trigger/document want the body's edit-only read-adds (facts bar / byte badge); everyone else renders as a
+/// pure create so no diff / old-stratum leaks in. trigger/document 用 edit 点亮只读附加件,余用 create。
+String _toolNameFor(String kind) =>
+    (kind == 'trigger' || kind == 'document') ? 'edit_$kind' : 'create_$kind';
+
+/// The workflow graph from its version — `graphParsed` if the backend sent it (null in production), else
+/// the decoded raw `graph` blob (empty → an empty graph, unparseable → null). Inlined from
+/// entity_format's `graphOf` to avoid a cross-feature import (features 互不依赖). 工作流图(内联 graphOf,免跨 feature)。
+Graph? _graphOf(WorkflowVersion v) {
+  if (v.graphParsed != null) return v.graphParsed;
+  if (v.graph.trim().isEmpty) return const Graph();
+  try {
+    return Graph.fromJson(jsonDecode(v.graph) as Map<String, dynamic>);
+  } catch (_) {
+    return null;
+  }
+}
+
+/// The current-truth → args-JSON projection, per kind (null = no active version / no renderable graph →
+/// caller degrades to the summary). Each case is `{}`-scoped so it may reuse `v` (the switch block is
+/// flat-scoped in Dart). Keys mirror EXACTLY what each bespoke body reads off its args session.
+/// 真身→args-JSON 投影(null=无活版本/无图,降摘要)。每 case 独立作用域;键与各 body 读的逐字吻合。
+Map<String, Object?>? _argsFromTruth(String kind, Object truth) {
+  switch (kind) {
+    case 'function':
+      {
+        final v = (truth as FunctionEntity).activeVersion;
+        if (v == null) return null;
+        return {'code': v.code};
+      }
+    case 'workflow':
+      {
+        final v = (truth as WorkflowEntity).activeVersion;
+        if (v == null) return null;
+        final g = _graphOf(v);
+        if (g == null) return null;
+        // graphFromWorkflowOps replays add_node / add_edge into the final graph — the settled canvas.
+        // 合成 add_node/add_edge → 静态整图。
+        return {
+          'ops': [
+            for (final n in g.nodes)
+              {
+                'op': 'add_node',
+                'node': {'id': n.id, 'kind': n.kind.name, 'ref': n.ref},
+              },
+            for (final e in g.edges)
+              {
+                'op': 'add_edge',
+                'edge': {
+                  'id': e.id,
+                  'from': e.from,
+                  'to': e.to,
+                  if (e.fromPort != null) 'fromPort': e.fromPort,
+                },
+              },
+          ],
+        };
+      }
+    case 'control':
+      {
+        final v = (truth as ControlLogic).activeVersion;
+        if (v == null) return null;
+        return {
+          'branches': [
+            for (final b in v.branches) {'port': b.port, 'when': b.when, 'emit': b.emit},
+          ],
+        };
+      }
+    case 'approval':
+      {
+        final v = (truth as ApprovalForm).activeVersion;
+        if (v == null) return null;
+        return {
+          'template': v.template,
+          'allowReason': v.allowReason,
+          'timeout': v.timeout,
+          'timeoutBehavior': v.timeoutBehavior,
+        };
+      }
+    case 'agent':
+      {
+        final v = (truth as AgentEntity).activeVersion;
+        if (v == null) return null;
+        return {
+          'prompt': v.prompt,
+          'tools': [for (final t in v.tools) {'ref': t.ref, 'name': t.name}],
+          'knowledge': v.knowledge,
+          'modelOverride': v.modelOverride?.modelId, // project ModelRef → its id string, else the badge drops
+        };
+      }
+    case 'handler':
+      {
+        final v = (truth as HandlerEntity).activeVersion;
+        if (v == null) return null;
+        return {
+          'ops': [
+            {'op': 'set_init', 'code': v.initBody},
+            for (final m in v.methods)
+              {
+                'op': 'add_method',
+                'method': {'name': m.name, 'streaming': m.streaming, 'timeout': m.timeout, 'body': m.body},
+              },
+            {'op': 'set_shutdown', 'code': v.shutdownBody},
+            {
+              'op': 'set_init_args_schema',
+              'schema': [for (final a in v.initArgsSchema) {'name': a.name, 'sensitive': a.sensitive}],
+            },
+          ],
+        };
+      }
+    case 'document':
+      {
+        final doc = truth as DocumentNode;
+        return {'id': doc.id, 'content': doc.content};
+      }
+    case 'trigger':
+      {
+        final trig = truth as TriggerEntity;
+        return {'triggerId': trig.id, 'kind': trig.kind.name, 'config': trig.config};
+      }
+    default:
+      return null;
+  }
+}
+
+/// The subject's display name (the entity name, else the id). 主体显示名(实体名,兜底 id)。
+String _nameFromTruth(String kind, Object truth, String id) => switch (kind) {
+      'function' => (truth as FunctionEntity).name,
+      'workflow' => (truth as WorkflowEntity).name,
+      'control' => (truth as ControlLogic).name,
+      'approval' => (truth as ApprovalForm).name,
+      'agent' => (truth as AgentEntity).name,
+      'handler' => (truth as HandlerEntity).name,
+      'document' => (truth as DocumentNode).name,
+      'trigger' => (truth as TriggerEntity).name,
+      _ => id,
+    };
+
+/// Build a `live:false` [StageScene] that makes the [kind]'s bespoke body render the entity's current truth.
+/// PURE (no Ref / no async) so it unit-tests against a fixture DTO. Returns null when the truth has no
+/// renderable content (e.g. no active version) → the caller falls back to the summary.
+/// 合成 live:false StageScene 让 bespoke 体渲当前真身。纯函数(可单测)。无可渲内容→null→调用方降摘要。
+StageScene? sceneFromTruth({
+  required String kind,
+  required Object truth,
+  required String id,
+  required String conversationId,
+  required String rowId,
+}) {
+  final args = _argsFromTruth(kind, truth);
+  if (args == null) return null;
+
+  // Replicate the production recipe (stage_panel `_GenericStage`): a completed tool_call node carrying the
+  // args JSON + a completed result child (→ phase succeeded, not «running»), then derive the state ONCE
+  // (fresh node, so the revision-memo can't hand back a stale projection). 复刻生产 recipe。
+  final node = BlockNode(id: rowId, kind: BlockKind.toolCall)
+    ..status = 'completed'
+    ..content = {'name': _nameFromTruth(kind, truth, id), 'arguments': jsonEncode(args)};
+  node.children.add(BlockNode(id: '${rowId}_r', kind: BlockKind.toolResult, parentId: rowId)
+    ..status = 'completed'
+    ..content = {'content': ''});
+  final state = ToolCardState.of(node);
+
+  return StageScene(
+    conversationId: conversationId,
+    subject: StageActivityView(
+      blockId: rowId,
+      toolName: _toolNameFor(kind),
+      kind: kind,
+      live: false,
+      failed: false,
+      unread: 0,
+      itemId: id,
+    ),
+    phase: StagePhase.following, // ≠ failedHold ⇒ scene.failed = false
+    node: node,
+    state: state,
+    session: state.argsSession,
+  );
+}
+
+/// The settled row's body when the kind has a truth stage: watch the snapshot, and on data render the
+/// bespoke stage from the synthesized scene; loading / error / no-active-version all degrade honestly to
+/// the [SettledBody] summary (the summary IS a natural skeleton — no flash). Only built inside an OPEN
+/// row, so a collapsed row never fires the GET. 落定行的真身舞台体:观快照→渲 bespoke;加载/失败/无活版本
+/// 诚实降级摘要。只在展开行构建,收起零请求。
+class StageBodyFromTruth extends ConsumerWidget {
+  const StageBodyFromTruth({
+    required this.conversationId,
+    required this.kind,
+    required this.id,
+    required this.rowId,
+    required this.fallback,
+    super.key,
+  });
+
+  final String conversationId;
+  final String kind;
+  final String id;
+  final String rowId;
+  final CastEntity fallback;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    Widget summary() =>
+        SettledBody(conversationId: conversationId, entity: fallback, tombstoned: fallback.tombstoned);
+    return _watchTruth(ref, kind, id).when(
+      data: (truth) {
+        final scene = sceneFromTruth(
+            kind: kind, truth: truth, id: id, conversationId: conversationId, rowId: rowId);
+        final body = stageBodies[kind];
+        if (scene == null || body == null) return summary();
+        return body(context, scene);
+      },
+      loading: summary,
+      error: (_, _) => summary(),
+    );
+  }
+}
+
+/// A settled touchpoint's inline SUMMARY — the entity's verb history (each verb · count · last-touch) over
+/// the id, plus the two navigation actions. The fallback when a kind has no truth stage, is tombstoned, or
+/// its snapshot is still loading / failed. No GET on a tombstone. 落定触点摘要(动词史+id+双导航;墓碑不 GET)。
+class SettledBody extends ConsumerWidget {
+  const SettledBody({required this.conversationId, required this.entity, required this.tombstoned, super.key});
+
+  final String conversationId;
+  final CastEntity entity;
+  final bool tombstoned;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final t = Translations.of(context);
+    final lastMessageId = entity.primary.lastMessageId;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+      AnKv(dense: true, rows: [
+        AnKvRow('id', entity.key, mono: true),
+        for (final r in entity.byVerb.values)
+          AnKvRow(
+            AnCastRow.verbWord(t, r.verb),
+            r.count > 1
+                ? '×${r.count} · ${AnCastRow.timeLabel(context, r.lastAt)}'
+                : AnCastRow.timeLabel(context, r.lastAt),
+          ),
+      ]),
+      if (tombstoned)
+        Padding(
+          padding: const EdgeInsets.only(top: AnSpace.s4),
+          child: Text(t.chat.stage.tombstone, style: AnText.meta.copyWith(color: c.danger)),
+        ),
+      if (!tombstoned && (lastMessageId.isNotEmpty || hasPanelFor(entity.kind))) ...[
+        const SizedBox(height: AnSpace.s6),
+        Row(children: [
+          if (lastMessageId.isNotEmpty)
+            AnButton(
+              label: t.chat.stage.jumpToScene,
+              icon: AnIcons.locate,
+              size: AnButtonSize.sm,
+              onPressed: () =>
+                  ref.read(transcriptJumpProvider(conversationId).notifier).request(lastMessageId),
+            ),
+          if (hasPanelFor(entity.kind)) ...[
+            const SizedBox(width: AnSpace.s6),
+            AnButton(
+              label: t.chat.stage.goToEntity,
+              icon: AnIcons.open,
+              size: AnButtonSize.sm,
+              onPressed: () => toolNavTo(context, entity.kind, entity.key),
+            ),
+          ],
+        ]),
+      ],
+    ]);
+  }
+}

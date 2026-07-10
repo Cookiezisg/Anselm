@@ -5,7 +5,10 @@ import 'package:characters/characters.dart';
 import '../../../core/contract/attachment.dart';
 import '../../../core/contract/conversation.dart';
 import '../../../core/contract/interaction.dart';
+import '../../../core/contract/entities/document.dart';
 import '../../../core/contract/entities/function.dart';
+import '../../../core/contract/entities/values.dart';
+import '../../../core/contract/entities/workflow.dart';
 import '../../../core/contract/messages/chat_message.dart';
 import '../../../core/contract/todo.dart';
 import '../../../core/contract/touchpoint.dart';
@@ -767,6 +770,44 @@ DemoChatRepository demoChatRepository() {
     ),
     createdAt: ago(const Duration(days: 9)),
     updatedAt: ago(const Duration(days: 2)),
+  );
+  // Truth snapshots so the pinned demo's SETTLED rows open to their full stage (WRK-064 sceneFromTruth):
+  // sync_inventory → code, nightly_rollup → the graph, 值班手册 → the prose. 落定行渲完整真身舞台的真身。
+  repo.workflows['wf_night'] = WorkflowEntity(
+    id: 'wf_night',
+    name: 'nightly_rollup',
+    activeVersionId: 'wv_2',
+    activeVersion: WorkflowVersion(
+      id: 'wv_2',
+      workflowId: 'wf_night',
+      version: 2,
+      graphParsed: const Graph(
+        nodes: [
+          Node(id: 'trg', kind: NodeKind.trigger, ref: 'cron_nightly'),
+          Node(id: 'pull', kind: NodeKind.action, ref: 'fn_sync'),
+          Node(id: 'gate', kind: NodeKind.control, ref: 'amount_gate'),
+          Node(id: 'emit', kind: NodeKind.action, ref: 'post_summary'),
+        ],
+        edges: [
+          Edge(id: 'e1', from: 'trg', to: 'pull'),
+          Edge(id: 'e2', from: 'pull', to: 'gate'),
+          Edge(id: 'e3', from: 'gate', to: 'emit', fromPort: 'ok'),
+        ],
+      ),
+      createdAt: ago(const Duration(days: 3)),
+      updatedAt: ago(const Duration(days: 1)),
+    ),
+    createdAt: ago(const Duration(days: 20)),
+    updatedAt: ago(const Duration(days: 1)),
+  );
+  repo.documents['doc_runbook'] = DocumentNode(
+    id: 'doc_runbook',
+    name: '值班手册',
+    content: '# 值班手册\n\n## 告警响应\n\n1. 先看 dashboard 的 error rate\n2. 确认影响范围与租户\n3. 能自处理则处理,否则升级\n\n## 常见故障\n\n- 同步超时 → 检查 `sync_inventory` 的重试配置\n- 库存漂移 → 手动跑一次 `nightly_rollup`\n',
+    path: '/runbook',
+    sizeBytes: 268,
+    createdAt: ago(const Duration(days: 30)),
+    updatedAt: ago(const Duration(days: 3)),
   );
 
   // The pinned demo's quiet ledger — what this conversation has touched (the Cast's idle body).

@@ -63,7 +63,11 @@ class HandlerStageBody extends ConsumerWidget {
       if (initCode != null)
         Padding(
           padding: const EdgeInsets.only(left: AnSpace.s12, bottom: AnSpace.s4),
-          child: AnLiveCodeWindow(text: initCode, tailLines: 12),
+          // Settle → the reading editor (whole code), matching the method spines; live → the tail window.
+          // 落定=reading 编辑器(整段,与方法书脊一致);活=尾窗。
+          child: scene.live
+              ? AnLiveCodeWindow(text: initCode, tailLines: 12)
+              : AnCodeEditor(code: initCode, lang: 'python', reading: true),
         ),
       for (final m in methods) _spine(context, c, t, m),
       if (scene.live && liveBody != null && liveBody.isNotEmpty && methods.isEmpty)
@@ -76,7 +80,9 @@ class HandlerStageBody extends ConsumerWidget {
       if (shutdownCode != null)
         Padding(
           padding: const EdgeInsets.only(left: AnSpace.s12, bottom: AnSpace.s4),
-          child: AnLiveCodeWindow(text: shutdownCode, tailLines: 12),
+          child: scene.live
+              ? AnLiveCodeWindow(text: shutdownCode, tailLines: 12)
+              : AnCodeEditor(code: shutdownCode, lang: 'python', reading: true),
         ),
       if (schema.isNotEmpty) ...[
         const SizedBox(height: AnSpace.s4),
