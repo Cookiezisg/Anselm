@@ -278,6 +278,31 @@ StageScene? sceneFromTruth({
   );
 }
 
+/// The SUBAGENT settled scene (WRK-064 B6) — unlike the 12 entity kinds, a subagent has no entity GET:
+/// its «truth» is the FOLDED nested transcript already in memory ([ConversationTranscript._foldSubagents]
+/// rebuilt it under the spawning tool_call). So build a `live:false` [StageScene] STRAIGHT off that
+/// [BlockNode] (no args projection, no Ref, no async) and hand it to [SubagentStageBody], which renders its
+/// ReAct trajectory tail off `scene.node.children` alone. subagent 落定场景:真身=已折进内存的嵌套 transcript
+/// 节点(非实体 GET),直接包成 live:false 场景交 SubagentStageBody。
+StageScene sceneFromSubagentNode(BlockNode node, String conversationId) {
+  final state = ToolCardState.of(node);
+  return StageScene(
+    conversationId: conversationId,
+    subject: StageActivityView(
+      blockId: node.id,
+      toolName: 'Subagent',
+      kind: 'subagent',
+      live: node.isOpen,
+      failed: node.isError,
+      unread: 0,
+    ),
+    phase: node.isError ? StagePhase.failedHold : StagePhase.following,
+    node: node,
+    state: state,
+    session: state.argsSession,
+  );
+}
+
 /// The settled row's body when the kind has a truth stage: watch the snapshot, and on data render the
 /// bespoke stage from the synthesized scene; loading / error / no-active-version all degrade honestly to
 /// the [SettledBody] summary (the summary IS a natural skeleton — no flash). Only built inside an OPEN

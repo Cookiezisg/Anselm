@@ -1061,6 +1061,7 @@ class _Translations$chat$stage$zh_CN extends Translations$chat$stage$en {
 	@override String get awaitingReceipt => '等待回执…';
 	@override String get oldLadder => '改之前的梯';
 	@override String get subagentUnnamed => '子代理';
+	@override String get delegated => '委派';
 	@override String tokensInOut({required Object tin, required Object tout}) => '${tin} 入 · ${tout} 出';
 	@override String stopReasonWord({required Object r}) => '止因 ${r}';
 	@override String get ensembleTitle => '并行群像';
@@ -2695,6 +2696,7 @@ extension on TranslationsZhCn {
 			'chat.stage.awaitingReceipt' => '等待回执…',
 			'chat.stage.oldLadder' => '改之前的梯',
 			'chat.stage.subagentUnnamed' => '子代理',
+			'chat.stage.delegated' => '委派',
 			'chat.stage.tokensInOut' => ({required Object tin, required Object tout}) => '${tin} 入 · ${tout} 出',
 			'chat.stage.stopReasonWord' => ({required Object r}) => '止因 ${r}',
 			'chat.stage.ensembleTitle' => '并行群像',
@@ -3118,9 +3120,9 @@ extension on TranslationsZhCn {
 			'documents.props.name' => '名称',
 			'documents.props.description' => '描述',
 			'documents.props.tags' => '标签',
-			'documents.props.addTag' => '添加标签',
 			_ => null,
 		} ?? switch (path) {
+			'documents.props.addTag' => '添加标签',
 			'documents.props.path' => '路径',
 			'documents.props.size' => '大小',
 			'documents.props.modified' => '修改时间',

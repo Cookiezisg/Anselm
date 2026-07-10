@@ -733,6 +733,32 @@ DemoChatRepository demoChatRepository() {
             status: 'cancelled', stopReason: 'cancelled', blocks: [
           blk('b_s4', 'text', '好的,告警可以挂在第 3 次失败的分支上,先看下现有的通知渠道…'),
         ]),
+        msg('m_s4b', 'cv_sync', 'user', const Duration(minutes: 10, seconds: 40), blocks: [
+          blk('b_s4b', 'text', '你先并行调研一下现有的通知渠道有哪些可接入'),
+        ]),
+        // WRK-064 B6: a DELEGATED subagent run. The Subagent tool_call closes on the top-level turn; the
+        // delegate's own reasoning/tool_call/text land on a SIBLING sub-message (subagentId ≠ '',
+        // attrs.parentBlockId = the tool_call). The transcript folds that trajectory back under the
+        // tool_call so the settled subagent row on the sidestage rehydrates its full nested ReAct tail —
+        // no touchpoint, no entity, the transcript IS its truth. 落定 subagent 行(嵌套轨迹重水合)。
+        msg('m_s5', 'cv_sync', 'assistant', const Duration(minutes: 10, seconds: 20), blocks: [
+          blk('b_s5_sa', 'tool_call', '{"description":"调研现有通知渠道并列出可接入项"}',
+              attrs: {'tool': 'Subagent'}),
+          blk('b_s5_t', 'text', '调研完成:可用渠道有 Slack、企业微信、邮件三种,建议先接 Slack(成本最低)。'),
+        ]),
+        ChatMessage(
+          id: 'm_s5_sub', conversationId: 'cv_sync', role: 'assistant', status: 'completed',
+          stopReason: 'end_turn', subagentId: 'sa_demo', inputTokens: 1840, outputTokens: 320,
+          attrs: {'parentBlockId': 'b_s5_sa'},
+          blocks: [
+            blk('b_sa_r', 'reasoning', '先看代码里注册了哪些 notifier,再查各渠道的鉴权成本,挑最省事的。'),
+            blk('b_sa_t1', 'tool_call', '{"pattern":"notifier","path":"backend/"}', attrs: {'tool': 'grep'}),
+            blk('b_sa_t2', 'tool_call', '{"file":"backend/internal/infra/notify/registry.go"}',
+                attrs: {'tool': 'read'}),
+            blk('b_sa_x', 'text', '注册表里有 slack / wecom / email 三个 notifier;slack 只要一个 webhook URL,接入成本最低。'),
+          ],
+          createdAt: ago(const Duration(minutes: 10, seconds: 5)),
+        ),
       ],
       'cv_weekly': [
         msg('m_w1', 'cv_weekly', 'user', const Duration(hours: 2), blocks: [

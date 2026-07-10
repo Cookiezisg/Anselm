@@ -55,6 +55,12 @@ class ConversationTranscript {
   // 并入会被抹)。
   final Map<String, List<MentionSnapshot>> _echoMentions = {};
 
+  // Subagent sub-messages (subagentId ≠ '') held aside from [settled] until folded under their spawning
+  // tool_call by [attrs.parentBlockId] (WRK-064 B6). A sub whose parent hasn't loaded yet stays PENDING
+  // (re-tried on every later page); [_foldedSubs] guards each from folding twice. 待折子消息 + 已折账。
+  final List<ChatMessage> _subMessages = [];
+  final Set<String> _foldedSubs = {};
+
   /// One live block by id (any depth) — the sidestage renders its subject straight off the reducer
   /// (WRK-061; live turns never migrate, so a streamed tool_call stays reachable here all session).
   /// 按 id 取 live 块(任意深)——侧幕直读 reducer 渲主角(live 回合永不搬迁,流过的 tool_call 全程可达)。
@@ -83,6 +89,29 @@ class ConversationTranscript {
   /// The full render order: settled history, then everything live. 渲染全序:settled 史 + live。
   List<BlockNode> get turns => [...settled, ...liveTurns];
 
+  /// Every `Subagent` tool_call across BOTH layers (settled history + the live reducer) — the sidestage
+  /// lists each as a row (id=`block:<toolCallId>`): a live one rides its director channel, a
+  /// closed/reloaded one rehydrates its folded nested trajectory as a settled subagent stage (WRK-064 B6).
+  /// Deduped by id (a block lives in exactly one layer). 两层所有 Subagent tool_call(侧幕逐个列行)。
+  List<BlockNode> get subagentBlocks {
+    final out = <BlockNode>[];
+    final seen = <String>{};
+    void walk(BlockNode n) {
+      if (n.kind == BlockKind.toolCall && n.name == 'Subagent' && seen.add(n.id)) out.add(n);
+      for (final c in n.children) {
+        walk(c);
+      }
+    }
+
+    for (final root in settled) {
+      walk(root);
+    }
+    for (final root in _live.roots) {
+      walk(root);
+    }
+    return out;
+  }
+
   /// An assistant turn is streaming right now. 有 assistant 回合正在流。
   bool get isGenerating =>
       liveTurns.any((n) => n.isOpen && turnRole(n) == 'assistant');
@@ -102,26 +131,33 @@ class ConversationTranscript {
 
   /// Replace history with one REST head page ([newestFirst], the wire order). Terminal turns hydrate to
   /// [settled] (chronological); ONE trailing non-terminal turn (a reply in flight when we loaded) is
-  /// seeded into the live reducer so the ongoing stream continues it. Top-level only — subagent rows
-  /// (subagentId ≠ '') never render as transcript turns.
+  /// seeded into the live reducer so the ongoing stream continues it. Subagent sub-messages (subagentId ≠
+  /// '') are NOT transcript turns — they fold under their spawning tool_call ([_foldSubagents]) so a
+  /// settled subagent's nested trajectory rehydrates on the sidestage (WRK-064 B6).
   ///
   /// 用一页 REST 头([newestFirst] 线缆序)重置历史。终态回合水化进 settled(时间序);**一条**尾部未完回合
-  /// (载入时在飞的回复)种进 live reducer,由进行中的流续写。仅顶层——subagent 行不入 transcript。
+  /// (载入时在飞的回复)种进 live reducer,由进行中的流续写。subagent 子消息不入 transcript 回合——按
+  /// parentBlockId 折进派它的 tool_call,使落定 subagent 的嵌套轨迹在侧幕重水合。
   void setHistory(List<ChatMessage> newestFirst) {
     settled.clear();
+    _subMessages.clear();
+    _foldedSubs.clear();
     olderCount = 0;
     windowMode = false;
-    final chronological =
-        newestFirst.reversed.where((m) => m.subagentId.isEmpty).toList(growable: false);
-    for (var i = 0; i < chronological.length; i++) {
-      final m = chronological[i];
-      final isTail = i == chronological.length - 1;
+    final tops = <ChatMessage>[];
+    for (final m in newestFirst.reversed) {
+      (m.subagentId.isEmpty ? tops : _subMessages).add(m);
+    }
+    for (var i = 0; i < tops.length; i++) {
+      final m = tops[i];
+      final isTail = i == tops.length - 1;
       if (isTail && !_isTerminal(m.status)) {
         _seedLive(m);
       } else {
         settled.add(hydrateTurn(m));
       }
     }
+    _foldSubagents();
     _reconcilePendingWithSettled();
   }
 
@@ -164,12 +200,17 @@ class ConversationTranscript {
 
   /// Prepend one older REST page ([newestFirst] wire order) above the loaded history. 上翻一页,插史前。
   void prependOlder(List<ChatMessage> newestFirst) {
-    final rows = newestFirst.reversed
-        .where((m) => m.subagentId.isEmpty)
-        .map(hydrateTurn)
-        .toList(growable: false);
+    final rows = <BlockNode>[];
+    for (final m in newestFirst.reversed) {
+      if (m.subagentId.isEmpty) {
+        rows.add(hydrateTurn(m));
+      } else {
+        _subMessages.add(m); // an older page may carry a subagent whose parent is already loaded 折向已载父
+      }
+    }
     settled.insertAll(0, rows);
     olderCount += rows.length;
+    _foldSubagents();
   }
 
   // ── deep-jump window mode (W6 re-anchor) 深跳窗口模式 ──
@@ -194,9 +235,17 @@ class ConversationTranscript {
   /// (offset 0 = 目标落锚——零 extent 估算,生产级聊天收敛的 re-anchor 形;更旧向上长、更新向下长,双向续翻)。
   void setWindow(List<ChatMessage> newestFirst, String targetId) {
     settled.clear();
+    _subMessages.clear();
+    _foldedSubs.clear();
     windowMode = true;
-    settled.addAll(
-        newestFirst.reversed.where((m) => m.subagentId.isEmpty).map(hydrateTurn));
+    for (final m in newestFirst.reversed) {
+      if (m.subagentId.isEmpty) {
+        settled.add(hydrateTurn(m));
+      } else {
+        _subMessages.add(m);
+      }
+    }
+    _foldSubagents();
     final i = settled.indexWhere((n) => n.id == targetId);
     olderCount = i < 0 ? 0 : i;
   }
@@ -214,8 +263,14 @@ class ConversationTranscript {
   /// Append one NEWER page below the window ([newestFirst] wire order) — window mode's forward
   /// continuation (the `?dir=newer` closed loop). 窗下接一页更新(向前续翻闭环)。
   void appendNewer(List<ChatMessage> newestFirst) {
-    settled.addAll(
-        newestFirst.reversed.where((m) => m.subagentId.isEmpty).map(hydrateTurn));
+    for (final m in newestFirst.reversed) {
+      if (m.subagentId.isEmpty) {
+        settled.add(hydrateTurn(m));
+      } else {
+        _subMessages.add(m);
+      }
+    }
+    _foldSubagents();
   }
 
   // ── live ──
@@ -369,6 +424,46 @@ class ConversationTranscript {
         BlockKind.progress => {...?b.attrs, 'text': b.content},
         _ => {...?b.attrs, 'content': b.content},
       };
+
+  /// Fold every pending subagent sub-message under its spawning tool_call — by `attrs.parentBlockId`, as a
+  /// `message` child so [SubagentStageBody]'s trajectory flattens it to the same E3 shape the live stream
+  /// produces (WRK-064 B6). Idempotent: a sub folds ONCE ([_foldedSubs]); an ORPHAN (parent tool_call not
+  /// in the loaded window yet) stays pending, re-tried when a later page brings the parent in. The sub's
+  /// settle metadata (tokens / stopReason) lifts onto the tool_call so the card's settle line reads it.
+  /// 把待折子消息按 parentBlockId 折进派它的 tool_call(作 message 子,复现 live E3 形)。幂等;孤儿待后页;
+  /// 抬结算元数据到 tool_call。
+  void _foldSubagents() {
+    if (_subMessages.isEmpty) return;
+    final byBlockId = <String, BlockNode>{};
+    void index(BlockNode n) {
+      if (n.kind == BlockKind.toolCall) byBlockId[n.id] = n;
+      for (final c in n.children) {
+        index(c);
+      }
+    }
+
+    for (final root in settled) {
+      index(root);
+    }
+    for (final sub in _subMessages) {
+      if (_foldedSubs.contains(sub.id)) continue;
+      final parentBlockId = sub.attrs?['parentBlockId'] as String?;
+      if (parentBlockId == null || parentBlockId.isEmpty) continue;
+      final parent = byBlockId[parentBlockId];
+      if (parent == null) continue; // orphan — parent tool_call not loaded yet 孤儿,待后页
+      _foldedSubs.add(sub.id);
+      parent.children.add(hydrateTurn(sub)); // the sub-run's message wrapper (its blocks nested) 子运行包装
+      final content = parent.content;
+      if (content != null) {
+        if (content['tokens'] == null && (sub.inputTokens > 0 || sub.outputTokens > 0)) {
+          content['tokens'] = {'in': sub.inputTokens, 'out': sub.outputTokens};
+        }
+        if (content['stopReason'] == null && sub.stopReason.isNotEmpty) {
+          content['stopReason'] = sub.stopReason;
+        }
+      }
+    }
+  }
 
   /// Seed a non-terminal REST turn into the live reducer via synthetic frames, so the ongoing stream's
   /// deltas / closes / child-opens land on known ids. Blocks already terminal get a synthetic close.

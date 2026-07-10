@@ -1,4 +1,5 @@
 import 'package:anselm/core/contract/conversation.dart';
+import 'package:anselm/core/contract/messages/chat_message.dart';
 import 'package:anselm/core/contract/touchpoint.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/sse/frame.dart';
@@ -7,6 +8,7 @@ import 'package:anselm/features/chat/data/chat_fixtures.dart';
 import 'package:anselm/features/chat/data/chat_providers.dart';
 import 'package:anselm/features/chat/ui/stage_panel.dart';
 import 'package:anselm/features/chat/ui/stages/document_stage.dart';
+import 'package:anselm/features/chat/ui/stages/subagent_stage.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -142,6 +144,59 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pump(const Duration(milliseconds: 100));
     expect(tester.takeException(), isNull); // no build-phase mutation throw 无 build 期变异抛错
+  });
+
+  testWidgets('a settled subagent run rehydrates as a row that expands to its nested trajectory (B6)',
+      (tester) async {
+    // A delegated run persists as a top-level Subagent tool_call + a SIBLING sub-message (subagentId ≠ '',
+    // attrs.parentBlockId). The transcript folds the trajectory back under the tool_call; the sidestage
+    // lists it as a settled row WITHOUT any touchpoint. 落定 subagent 行(无触点,嵌套轨迹重水合)。
+    final repo = FixtureChatRepository(
+      conversations: [
+        Conversation(
+          id: _conv,
+          title: 'x',
+          createdAt: DateTime.utc(2026, 7, 8),
+          updatedAt: DateTime.utc(2026, 7, 8),
+          lastMessageAt: DateTime.utc(2026, 7, 8),
+        ),
+      ],
+      messages: {
+        _conv: [
+          ChatMessage(
+            id: 'msg_top', conversationId: _conv, role: 'assistant', status: 'completed',
+            createdAt: DateTime.utc(2026, 7, 8, 10),
+            blocks: [
+              ChatBlock(id: 'call_1', type: 'tool_call', content: '{"description":"调研通知渠道"}',
+                  status: 'completed', attrs: {'tool': 'Subagent'}),
+            ],
+          ),
+          ChatMessage(
+            id: 'msg_sub', conversationId: _conv, role: 'assistant', status: 'completed',
+            subagentId: 'sa_1', attrs: {'parentBlockId': 'call_1'},
+            createdAt: DateTime.utc(2026, 7, 8, 11),
+            blocks: [
+              ChatBlock(id: 'r1', type: 'reasoning', content: '想一想', status: 'completed'),
+              ChatBlock(id: 't1', type: 'tool_call', content: '{"pattern":"x"}', status: 'completed',
+                  attrs: {'tool': 'grep'}),
+              ChatBlock(id: 'x1', type: 'text', content: '找到 slack 渠道最省事', status: 'completed'),
+            ],
+          ),
+        ],
+      },
+    );
+    await tester.pumpWidget(_host(repo));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100)); // hydrate + fold → transcript listener rebuilds
+    // The settled subagent surfaces as a row labelled with the delegate's description — no touchpoint.
+    // 落定 subagent 成行(标题=委派描述),无触点。
+    expect(find.text('调研通知渠道'), findsOneWidget);
+    // Tap to expand → the SUBAGENT stage renders its folded ReAct trajectory tail (the sub-run's text).
+    // 点开 → subagent 舞台渲折好的 ReAct 轨迹尾(子运行文本)。
+    await tester.tap(find.text('调研通知渠道'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byType(SubagentStageBody), findsOneWidget);
+    expect(find.textContaining('找到 slack'), findsWidgets);
   });
 
   testWidgets('a durable touchpoint signal lands a Cast row live', (tester) async {

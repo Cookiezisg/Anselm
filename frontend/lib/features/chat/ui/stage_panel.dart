@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
+import '../../../core/messages/block_tree_reducer.dart';
 import '../../../core/model/partial_json.dart';
 import '../../../core/perf/coalescing_notifier.dart';
 import '../../../core/settings/app_prefs_providers.dart';
@@ -24,6 +25,7 @@ import 'stages/attachment_pedestal.dart';
 import 'stages/scene_from_truth.dart';
 import 'stages/stage_registry.dart';
 import 'stages/stage_scene.dart';
+import 'stages/subagent_stage.dart';
 import 'tool_card_skins.dart';
 import '../state/flowrun_progress.dart';
 
@@ -125,14 +127,20 @@ class _CollapseAllButton extends ConsumerWidget {
   }
 }
 
-/// One accordion row's spec — a ledger [entity] and/or a [view] (the live activity overlaying it). A
-/// pure-live row (no ledger yet) has [entity] null; a settled row has [view] null. 一行的规格。
+/// One accordion row's spec — a ledger [entity] and/or a [view] (the live activity overlaying it), OR a
+/// settled [subagentNode] (a closed `Subagent` run rehydrated from the transcript — no touchpoint, no
+/// ledger row, WRK-064 B6). A pure-live row (no ledger yet) has [entity] null; a settled entity row has
+/// [view] null; a settled subagent row has both null and [subagentNode] set. 一行的规格。
 class _RowSpec {
-  const _RowSpec({required this.rowId, this.entity, this.view});
+  const _RowSpec({required this.rowId, this.entity, this.view, this.subagentNode});
 
   final String rowId;
   final CastEntity? entity;
   final StageActivityView? view;
+
+  /// A closed subagent tool_call (folded nested trajectory) — the settled subagent row's whole payload.
+  /// 落定 subagent 的折好节点(整行载荷)。
+  final BlockNode? subagentNode;
 
   bool get live => view != null;
 }
@@ -162,7 +170,35 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
   /// Per-row keys for [Scrollable.ensureVisible]. 每行 key(用于滚入视口)。
   final Map<String, GlobalKey> _rowKeys = {};
 
+  // The settled-subagent rows (WRK-064 B6) come from the transcript, which the director / ledger the list
+  // watches do NOT track — a reload folds subagents in, a scroll pages more, neither firing a watched
+  // provider. Subscribe to the transcript coalescer and rebuild ONLY when the set of subagent runs (or an
+  // open→closed flip) changes — NOT on every streaming delta, keeping the ≤1-rebuild-per-meaningful-change
+  // discipline the coalescer exists for. 订阅 transcript,仅 subagent 集/开合变化才重建(非逐帧)。
+  CoalescingNotifier<ConversationTranscript>? _tx;
+  String _subagentSig = '';
+
   String get conversationId => widget.conversationId;
+
+  void _syncTranscript(CoalescingNotifier<ConversationTranscript> tx) {
+    if (identical(tx, _tx)) return;
+    _tx?.removeListener(_onTranscript);
+    _tx = tx;
+    tx.addListener(_onTranscript);
+    _subagentSig = _sigOf(tx.value);
+  }
+
+  void _onTranscript() {
+    final tx = _tx;
+    if (tx == null) return;
+    final sig = _sigOf(tx.value);
+    if (sig != _subagentSig && mounted) {
+      setState(() => _subagentSig = sig);
+    }
+  }
+
+  static String _sigOf(ConversationTranscript t) =>
+      [for (final n in t.subagentBlocks) '${n.id}:${n.isOpen}'].join(',');
 
   @override
   void didUpdateWidget(_AccordionList old) {
@@ -180,6 +216,7 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
 
   @override
   void dispose() {
+    _tx?.removeListener(_onTranscript);
     _scroll.dispose();
     super.dispose();
   }
@@ -260,7 +297,8 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
     });
   }
 
-  List<_RowSpec> _computeRows(StageState stage, TouchpointLedgerState ledger) {
+  List<_RowSpec> _computeRows(
+      StageState stage, TouchpointLedgerState ledger, ConversationTranscript transcript) {
     // Live activities by rowId (resolved itemId → kind:itemId; else block:<blockId> so it still shows +
     // can be auto-expanded — resolving migrates the key). 活动按 rowId(未解出用 blockId 键)。
     final viewByRow = <String, StageActivityView>{};
@@ -284,6 +322,18 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
         specs.add(_RowSpec(rowId: entry.key, view: entry.value));
       }
     }
+    // Third source (WRK-064 B6): SETTLED subagent runs. A `Subagent` tool_call has no touchpoint (never a
+    // ledger row); once CLOSED and its director channel dropped, list it here with its folded nested
+    // trajectory. LIVE subagents ride the director path above (same `block:<id>` rowId → the row stays put
+    // through its settle, zero jump); skip any rowId a live view / ledger already covers. Kept in the top
+    // region beside the synthetic live rows so a live→settled transition never relocates the row.
+    // 第三源:落定 subagent(无触点无 ledger)——谢幕后按 block:<id> 列此,同 live 合成行键→归队零跳。
+    for (final node in transcript.subagentBlocks) {
+      if (node.isOpen) continue; // a live subagent is the director's job 活的归 director
+      final rid = 'block:${node.id}';
+      if (viewByRow.containsKey(rid) || ledgerKeys.contains(rid)) continue;
+      specs.add(_RowSpec(rowId: rid, subagentNode: node));
+    }
     for (final e in ledger.entities) {
       specs.add(_RowSpec(rowId: '${e.kind}:${e.key}', entity: e, view: viewByRow['${e.kind}:${e.key}']));
     }
@@ -299,9 +349,10 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
     final expanded = ref.watch(stageExpansionProvider(conversationId));
     final boards = ref.watch(rundownProvider(conversationId));
     final transcript = ref.watch(conversationStreamProvider(conversationId).notifier).transcript;
+    _syncTranscript(transcript);
 
     final hasTodo = boards.values.any((b) => b.todos.isNotEmpty);
-    final rows = _computeRows(stage, ledger);
+    final rows = _computeRows(stage, ledger, transcript.value);
 
     // Empty / loading / failed — only when there's nothing to show at all (no rows, no todo, no live).
     // 空/加载/失败:仅当无行、无 todo、无 live。
@@ -478,8 +529,14 @@ class _StageRow extends ConsumerWidget {
     final director = ref.read(stageDirectorProvider(conversationId).notifier);
     final entity = spec.entity;
     final view = spec.view;
-    final kind = entity?.kind ?? view?.kind ?? 'tool';
-    final name = entity?.displayName ?? view?.itemId ?? view?.toolName ?? spec.rowId;
+    final subNode = spec.subagentNode;
+    final kind = entity?.kind ?? view?.kind ?? (subNode != null ? 'subagent' : 'tool');
+    final name = entity?.displayName ??
+        view?.itemId ??
+        view?.toolName ??
+        (subNode != null
+            ? (argStringPartial(subNode.argumentsText, 'description') ?? t.chat.stage.subagentUnnamed)
+            : spec.rowId);
     final tombstoned = entity?.tombstoned ?? false;
 
     final String meta;
@@ -488,6 +545,8 @@ class _StageRow extends ConsumerWidget {
       meta = p.count > 1
           ? '${AnCastRow.verbWord(t, p.verb)} ×${p.count}'
           : AnCastRow.verbWord(t, p.verb);
+    } else if (subNode != null) {
+      meta = t.chat.stage.delegated; // a settled delegated run — quiet, no live dot 落定委派,无蓝点
     } else {
       meta = t.chat.stage.live;
     }
@@ -523,7 +582,11 @@ class _StageRow extends ConsumerWidget {
                   onPin: () => director.pin(blockId: view.blockId),
                   onItemResolved: (itemId) => director.itemResolved(view.blockId, itemId),
                 )
-              : entity != null
+              // A settled subagent run — its folded nested trajectory rendered as a live:false stage (no
+              // entity, no touchpoint; the transcript IS its truth, WRK-064 B6). 落定 subagent 嵌套轨迹。
+              : subNode != null
+                  ? SubagentStageBody(scene: sceneFromSubagentNode(subNode, conversationId))
+                  : entity != null
                   ? (!tombstoned && entity.kind == 'attachment'
                       // Attachments enter via the composer, not a build tool — their settled face is the
                       // pedestal (thumbnail · size · fingerprint), not a stage. 附件=展品座静物卡,非舞台。

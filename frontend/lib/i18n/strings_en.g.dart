@@ -2587,6 +2587,9 @@ class Translations$chat$stage$en {
 	/// en: 'Subagent'
 	String get subagentUnnamed => 'Subagent';
 
+	/// en: 'Delegated'
+	String get delegated => 'Delegated';
+
 	/// en: '$tin in · $tout out'
 	String tokensInOut({required Object tin, required Object tout}) => '${tin} in · ${tout} out';
 
@@ -5461,6 +5464,7 @@ extension on Translations {
 			'chat.stage.awaitingReceipt' => 'awaiting the receipt…',
 			'chat.stage.oldLadder' => 'the ladder before this edit',
 			'chat.stage.subagentUnnamed' => 'Subagent',
+			'chat.stage.delegated' => 'Delegated',
 			'chat.stage.tokensInOut' => ({required Object tin, required Object tout}) => '${tin} in · ${tout} out',
 			'chat.stage.stopReasonWord' => ({required Object r}) => 'stopped: ${r}',
 			'chat.stage.ensembleTitle' => 'Running in parallel',
@@ -5884,9 +5888,9 @@ extension on Translations {
 			'documents.props.name' => 'Name',
 			'documents.props.description' => 'Description',
 			'documents.props.tags' => 'Tags',
-			'documents.props.addTag' => 'Add a tag',
 			_ => null,
 		} ?? switch (path) {
+			'documents.props.addTag' => 'Add a tag',
 			'documents.props.path' => 'Path',
 			'documents.props.size' => 'Size',
 			'documents.props.modified' => 'Modified',

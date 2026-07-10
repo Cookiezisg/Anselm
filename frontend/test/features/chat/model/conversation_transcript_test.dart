@@ -1,3 +1,4 @@
+import 'package:anselm/core/contract/messages/block_content.dart';
 import 'package:anselm/core/contract/messages/chat_message.dart';
 import 'package:anselm/core/sse/frame.dart';
 import 'package:anselm/features/chat/model/conversation_transcript.dart';
@@ -219,6 +220,102 @@ void main() {
       expect(t.liveTurns.single.id, 'msg_a');
       expect(t.liveTurns.single.children.single.displayText, '半截(耐久快照)');
       expect(t.isGenerating, isTrue);
+    });
+  });
+
+  // WRK-064 B6: a subagent run is persisted as a SIBLING sub-message (subagentId ≠ '', attrs.parentBlockId
+  // = the spawning Subagent tool_call). The transcript folds each under its tool_call so a settled
+  // subagent's nested trajectory rehydrates on the sidestage. Batteries: fold, empty, orphan (cross-page),
+  // out-of-order, settle-metadata lift, live-reducer inclusion. subagent 折树。
+  group('subagent fold', () {
+    // A top-level assistant turn carrying a Subagent tool_call, plus its sibling sub-message (the run's
+    // reasoning/tool_call/text). 顶层含 Subagent tool_call + 兄弟子消息。
+    List<ChatMessage> thread({String parentBlockId = 'call_1', int inTok = 0, int outTok = 0, String stop = ''}) => [
+          _turn('msg_top', 'assistant', hour: 10, blocks: [
+            _blk('call_1', 'tool_call', '{"description":"research the spec"}', attrs: {'tool': 'Subagent'}),
+          ]),
+          ChatMessage(
+            id: 'msg_sa', conversationId: 'cv_1', role: 'assistant', status: 'completed',
+            subagentId: 'sa_1', stopReason: stop, inputTokens: inTok, outputTokens: outTok,
+            attrs: {'parentBlockId': parentBlockId},
+            blocks: [
+              _blk('r1', 'reasoning', '想一想'),
+              _blk('t1', 'tool_call', '{"pattern":"spec"}', attrs: {'tool': 'grep'}),
+              _blk('x1', 'text', '找到了'),
+            ],
+            createdAt: DateTime.utc(2026, 7, 2, 11),
+          ),
+        ];
+
+    test('folds the sub-message under its Subagent tool_call as a message wrapper (E3 shape)', () {
+      final t = ConversationTranscript('cv_1');
+      t.setHistory(thread().reversed.toList()); // pass in wire order (newest-first)
+      // The subagent run is NOT a top-level turn — only msg_top renders. 子运行不作顶层回合。
+      expect(t.turns.map((n) => n.id), ['msg_top']);
+      // subagentBlocks surfaces the tool_call; its folded child is the sub-run message wrapper.
+      final subs = t.subagentBlocks;
+      expect(subs, hasLength(1));
+      expect(subs.single.id, 'call_1');
+      expect(subs.single.name, 'Subagent');
+      final wrappers = subs.single.children.where((c) => c.kind == BlockKind.message).toList();
+      expect(wrappers, hasLength(1)); // the sub-run message wrapper 子运行消息包装
+      expect(wrappers.single.children.map((c) => c.kind),
+          [BlockKind.reasoning, BlockKind.toolCall, BlockKind.text]); // the trajectory 轨迹
+    });
+
+    test('empty — a thread with no subagent has no subagent blocks, tops untouched', () {
+      final t = ConversationTranscript('cv_1');
+      t.setHistory([_turn('msg_1', 'assistant', blocks: [_blk('b1', 'text', '答')])]);
+      expect(t.subagentBlocks, isEmpty);
+      expect(t.turns.map((n) => n.id), ['msg_1']);
+    });
+
+    test('orphan — a sub whose parent is not loaded stays pending, then folds when a later page brings it', () {
+      final t = ConversationTranscript('cv_1');
+      // Head page: ONLY the sub-message (its parent tool_call is in an older, not-yet-loaded page).
+      t.setHistory([
+        _turn('msg_sa', 'assistant', subagentId: 'sa_1', hour: 11, attrs: {'parentBlockId': 'call_1'}, blocks: [
+          _blk('x1', 'text', '找到了'),
+        ]),
+      ]);
+      expect(t.subagentBlocks, isEmpty); // orphan — nothing to fold onto 孤儿,无处可折
+      expect(t.turns, isEmpty);
+      // An older page brings the spawning turn → the pending sub now folds in. 上翻带来父回合→补折。
+      t.prependOlder([
+        _turn('msg_top', 'assistant', hour: 10, blocks: [
+          _blk('call_1', 'tool_call', '{"description":"x"}', attrs: {'tool': 'Subagent'}),
+        ]),
+      ]);
+      final subs = t.subagentBlocks;
+      expect(subs, hasLength(1));
+      expect(subs.single.children.where((c) => c.kind == BlockKind.message), hasLength(1));
+    });
+
+    test('lifts the sub-run settle metadata (tokens / stopReason) onto the tool_call for the settle line', () {
+      final t = ConversationTranscript('cv_1');
+      t.setHistory(thread(inTok: 120, outTok: 45, stop: 'max_tokens').reversed.toList());
+      final call = t.subagentBlocks.single;
+      expect(call.content?['tokens'], {'in': 120, 'out': 45});
+      expect(call.content?['stopReason'], 'max_tokens');
+    });
+
+    test('a fold never double-applies across re-fold passes (idempotent)', () {
+      final t = ConversationTranscript('cv_1');
+      t.setHistory(thread().reversed.toList());
+      // A later older page (no new subagent) re-runs the fold — the already-folded sub must not duplicate.
+      t.prependOlder([_turn('msg_old', 'user', hour: 9, blocks: [_blk('bo', 'text', '早问')])]);
+      final wrappers = t.subagentBlocks.single.children.where((c) => c.kind == BlockKind.message);
+      expect(wrappers, hasLength(1)); // still exactly one wrapper 仍恰一个包装
+    });
+
+    test('a LIVE subagent tool_call (open, in the live reducer) is surfaced too', () {
+      final t = ConversationTranscript('cv_1');
+      t.applyFrame(_open('msg_a', 'message', content: {'role': 'assistant'}));
+      t.applyFrame(_open('call_live', 'tool_call', parentId: 'msg_a', content: {'name': 'Subagent'}));
+      final subs = t.subagentBlocks;
+      expect(subs, hasLength(1));
+      expect(subs.single.id, 'call_live');
+      expect(subs.single.isOpen, isTrue); // still streaming 仍在流
     });
   });
 }

@@ -621,6 +621,7 @@
       "awaitingReceipt": "awaiting the receipt…",
       "oldLadder": "the ladder before this edit",
       "subagentUnnamed": "Subagent",
+      "delegated": "Delegated",
       "tokensInOut": "$tin in · $tout out",
       "stopReasonWord": "stopped: $r",
       "ensembleTitle": "Running in parallel",
