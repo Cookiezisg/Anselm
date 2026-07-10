@@ -84,6 +84,8 @@ Anselm 前端 = 一个 **Flutter 桌面 app**,是内嵌 **Go sidecar** 的纯客
 4. **④⑤ settings 模块 ✅ 全落并归档(2026-07-09)**——决策问答(§8 的 20 条清单用户逐条拍板)→ S0–S6 全建 + 后端工单①–⑩,归档 [`WRK-062`](../../archive/settings/README.md)(当前形态 [`features/settings.md`](../../references/frontend/features/settings.md)):双骨架 IA 13 面板(偏好/资源/系统三段)+ 机器/工作区两持久化轴 + 平台地基(热切换 `dioProvider` 脉搏 / master key 铸钥 [ADR 0008] / 出厂重置 / 更新检查 / 可改绑全局快捷键 `GlobalShortcuts`)+ 危险动作 `AnTypeToConfirm` 双闸;逐片真机 E2E 累计修出 hover 不可达/dio disposed-Ref/Memory PUT 缺 source/快捷键录后吞键/快捷键冷启动焦点序等真 bug。fe-verify 3312 绿。
 5. **⑥ 遗留 todos 清账(进行中)**——经代码核对,大半「遗留」其实早已完成(approval 配置面+收件箱 ✅、工具卡 B5/B6/B7 ✅[CLAUDE.md 陈旧账已修]、documents 编辑器 4/6 余项 ✅)。用户拍板发起**全前端完整排查**(14 区 finder + 对抗证伪,64 CONFIRMED,见 [`audit-backlog.md`](audit-backlog.md) WRK-063):**P0 批 ✅**(6/8 CONFIRMED bug 修毕,fe-verify 3312 绿,5a375647),剩 P0 #5(行为待定)/#6 + P1/P2/跨模块系统性主题(§4 最值得成批修)。仍待用户拍板:function hero 形态/`:iterate` 入口/scheduler 海洋/skill `:activate`;间距 P3 verdict=不投专项 sweep 改机会主义迁移。
 
+6. **⑦ 全 App 收敛战役(P0 定纲 ✅,2026-07-11 拍板开战)**——用户四点批评(手搓泛滥/原语只生不收/版式无文法/绕开地基)定性为原则性失守,开 [`convergence.md`](convergence.md)(WRK-066)四轨一伞:**A 视觉收敛**(原语六族收敛+手搓清剿)/**B 规范科学化**(间距续账·色调·圆角·图标·动效·状态模式→文法成文+guard)/**C 性能**(测量先行:release 复现→trace→预算→修→预算入门禁)/**D demo 全展示**(可达性矩阵+补种)。**harness 六层**约束建造者(法典冻结/台账三关闭方式[AI 无权单方关闭]/**棘轮基线**[新违规=测试红,进度=基线行数递减,完成=空]/全新上下文对抗复审/3–5 帧抽查/goal Stop hook)。下一步 P1 四轨一把普查 + 棘轮 guard 上线。
+
 远期弧线不变:全部收敛 → Scheduler 4.3 海洋。
 
 ---
