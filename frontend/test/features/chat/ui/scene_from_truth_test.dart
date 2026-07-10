@@ -1,6 +1,7 @@
 import 'package:anselm/core/contract/entities/agent.dart';
 import 'package:anselm/core/contract/entities/document.dart';
 import 'package:anselm/core/contract/entities/function.dart';
+import 'package:anselm/core/contract/entities/handler.dart';
 import 'package:anselm/core/contract/entities/trigger.dart';
 import 'package:anselm/core/contract/entities/values.dart';
 import 'package:anselm/core/contract/entities/workflow.dart';
@@ -118,6 +119,77 @@ void main() {
     expect(scene, isNotNull);
     expect(scene!.editTargetId, 'doc_1'); // edit_document → 'id' key → the byte badge / path light up
     expect(scene.session.closedStringAt(['content']), '# 模板\n第一行');
+  });
+
+  test('handler → ops only for present bodies (empty init/shutdown fabricate no rail segment)', () {
+    final hd = HandlerEntity(
+      id: 'hd_1',
+      name: 'on_order_paid',
+      createdAt: _now,
+      updatedAt: _now,
+      activeVersion: HandlerVersion(
+        id: 'v1',
+        handlerId: 'hd_1',
+        version: 1,
+        initBody: '', // no init → no set_init op (else a phantom lit rail + empty editor)
+        shutdownBody: '', // no shutdown
+        methods: const [MethodSpec(name: 'run', streaming: false, body: 'return ok')],
+        createdAt: _now,
+        updatedAt: _now,
+      ),
+    );
+    final scene = sceneFromTruth(kind: 'handler', truth: hd, id: 'hd_1', conversationId: 'cv', rowId: 'r');
+    expect(scene, isNotNull);
+    final ops = scene!.session.arrayItemsAt(['ops']).whereType<Map>().toList();
+    expect(ops.map((o) => o['op']), ['add_method']); // no set_init / set_shutdown fabricated 无捏造轨段
+  });
+
+  test('handler with no init/shutdown/methods/schema → null (degrades to the summary)', () {
+    final hd = HandlerEntity(
+      id: 'hd_1',
+      name: 'x',
+      createdAt: _now,
+      updatedAt: _now,
+      activeVersion: HandlerVersion(id: 'v1', handlerId: 'hd_1', version: 1, createdAt: _now, updatedAt: _now),
+    );
+    expect(sceneFromTruth(kind: 'handler', truth: hd, id: 'hd_1', conversationId: 'cv', rowId: 'r'), isNull);
+  });
+
+  test('content-less versions degrade to the summary (empty graph / empty doc → null, not a blank stage)', () {
+    final wf = WorkflowEntity(
+      id: 'wf_1',
+      name: 'x',
+      createdAt: _now,
+      updatedAt: _now,
+      activeVersion: WorkflowVersion(
+          id: 'v1', workflowId: 'wf_1', version: 1, createdAt: _now, updatedAt: _now, graphParsed: const Graph()),
+    );
+    expect(sceneFromTruth(kind: 'workflow', truth: wf, id: 'wf_1', conversationId: 'cv', rowId: 'r'), isNull);
+    final emptyDoc = DocumentNode(id: 'd', name: 'x', content: '', createdAt: _now, updatedAt: _now);
+    expect(sceneFromTruth(kind: 'document', truth: emptyDoc, id: 'd', conversationId: 'cv', rowId: 'r'), isNull);
+  });
+
+  test('workflow add_node carries the node input CEL map (the discriminant drawer reads it)', () {
+    final wf = WorkflowEntity(
+      id: 'wf_1',
+      name: 'x',
+      createdAt: _now,
+      updatedAt: _now,
+      activeVersion: WorkflowVersion(
+        id: 'v1',
+        workflowId: 'wf_1',
+        version: 1,
+        createdAt: _now,
+        updatedAt: _now,
+        graphParsed: const Graph(
+          nodes: [Node(id: 'g', kind: NodeKind.control, ref: 'gate', input: {'rows': 'pull.result'})],
+          edges: [],
+        ),
+      ),
+    );
+    final scene = sceneFromTruth(kind: 'workflow', truth: wf, id: 'wf_1', conversationId: 'cv', rowId: 'r');
+    final node = (scene!.session.arrayItemsAt(['ops']).first as Map)['node'] as Map;
+    expect((node['input'] as Map)['rows'], 'pull.result');
   });
 
   test('trigger → an edit_trigger scene carrying kind + config', () {

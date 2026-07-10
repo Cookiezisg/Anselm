@@ -92,7 +92,7 @@ Map<String, Object?>? _argsFromTruth(String kind, Object truth) {
     case 'function':
       {
         final v = (truth as FunctionEntity).activeVersion;
-        if (v == null) return null;
+        if (v == null || v.code.isEmpty) return null; // no code → the summary, not a blank editor 空码降摘要
         return {'code': v.code};
       }
     case 'workflow':
@@ -100,15 +100,16 @@ Map<String, Object?>? _argsFromTruth(String kind, Object truth) {
         final v = (truth as WorkflowEntity).activeVersion;
         if (v == null) return null;
         final g = _graphOf(v);
-        if (g == null) return null;
-        // graphFromWorkflowOps replays add_node / add_edge into the final graph — the settled canvas.
-        // 合成 add_node/add_edge → 静态整图。
+        if (g == null || g.nodes.isEmpty) return null; // empty graph → the summary, not a blank canvas 空图降摘要
+        // graphFromWorkflowOps replays add_node / add_edge into the final graph — the settled canvas. Carry
+        // each node's `input` CEL map so the 「最新判别式」drawer renders (the body reads node['input']).
+        // 合成 add_node/add_edge → 静态整图;带 input CEL 让判别式抽屉可渲。
         return {
           'ops': [
             for (final n in g.nodes)
               {
                 'op': 'add_node',
-                'node': {'id': n.id, 'kind': n.kind.name, 'ref': n.ref},
+                'node': {'id': n.id, 'kind': n.kind.name, 'ref': n.ref, 'input': n.input},
               },
             for (final e in g.edges)
               {
@@ -126,7 +127,7 @@ Map<String, Object?>? _argsFromTruth(String kind, Object truth) {
     case 'control':
       {
         final v = (truth as ControlLogic).activeVersion;
-        if (v == null) return null;
+        if (v == null || v.branches.isEmpty) return null; // no branches → the summary 无分支降摘要
         return {
           'branches': [
             for (final b in v.branches) {'port': b.port, 'when': b.when, 'emit': b.emit},
@@ -136,7 +137,7 @@ Map<String, Object?>? _argsFromTruth(String kind, Object truth) {
     case 'approval':
       {
         final v = (truth as ApprovalForm).activeVersion;
-        if (v == null) return null;
+        if (v == null || v.template.isEmpty) return null; // no letter → the summary 无信笺降摘要
         return {
           'template': v.template,
           'allowReason': v.allowReason,
@@ -147,7 +148,7 @@ Map<String, Object?>? _argsFromTruth(String kind, Object truth) {
     case 'agent':
       {
         final v = (truth as AgentEntity).activeVersion;
-        if (v == null) return null;
+        if (v == null || (v.prompt.isEmpty && v.tools.isEmpty && v.knowledge.isEmpty)) return null; // 空降摘要
         return {
           'prompt': v.prompt,
           'tools': [for (final t in v.tools) {'ref': t.ref, 'name': t.name}],
@@ -159,25 +160,24 @@ Map<String, Object?>? _argsFromTruth(String kind, Object truth) {
       {
         final v = (truth as HandlerEntity).activeVersion;
         if (v == null) return null;
-        return {
-          'ops': [
-            {'op': 'set_init', 'code': v.initBody},
-            for (final m in v.methods)
-              {
-                'op': 'add_method',
-                'method': {'name': m.name, 'streaming': m.streaming, 'timeout': m.timeout, 'body': m.body},
-              },
-            {'op': 'set_shutdown', 'code': v.shutdownBody},
-            {
-              'op': 'set_init_args_schema',
-              'schema': [for (final a in v.initArgsSchema) {'name': a.name, 'sensitive': a.sensitive}],
-            },
-          ],
-        };
+        // ONLY emit a lifecycle op when its body actually exists — `set_init/set_shutdown` with a default-
+        // empty body would light the rail dot + render an empty editor, fabricating structure the handler
+        // has none of (the live path only emits when the LLM set code). 只有真有 body 才发轨 op,免捏造空段。
+        final ops = <Map<String, Object?>>[
+          if (v.initBody.isNotEmpty) {'op': 'set_init', 'code': v.initBody},
+          for (final m in v.methods)
+            {'op': 'add_method', 'method': {'name': m.name, 'streaming': m.streaming, 'timeout': m.timeout, 'body': m.body}},
+          if (v.shutdownBody.isNotEmpty) {'op': 'set_shutdown', 'code': v.shutdownBody},
+          if (v.initArgsSchema.isNotEmpty)
+            {'op': 'set_init_args_schema', 'schema': [for (final a in v.initArgsSchema) {'name': a.name, 'sensitive': a.sensitive}]},
+        ];
+        if (ops.isEmpty) return null; // nothing to show → the summary 无内容降摘要
+        return {'ops': ops};
       }
     case 'document':
       {
         final doc = truth as DocumentNode;
+        if (doc.content.isEmpty) return null; // empty doc → the summary, not a blank prose curtain 空文降摘要
         return {'id': doc.id, 'content': doc.content};
       }
     case 'trigger':

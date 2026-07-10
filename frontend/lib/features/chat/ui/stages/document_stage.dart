@@ -153,7 +153,9 @@ class _DocumentStageBodyState extends ConsumerState<DocumentStageBody> {
       if (settled.isNotEmpty) ProseWindow(markdown: settled),
       const SizedBox(height: AnSpace.s6),
       Row(children: [
-        if (editId != null) ...[
+        // The whole-replace byte badge only when the content ACTUALLY changed — a pure current-truth render
+        // (sceneFromTruth: settled == baseline) is not an edit, so no phantom «X B → Y B». 内容真变才显字节徽。
+        if (editId != null && settled != baseline) ...[
           Text(t.chat.stage.wholeReplace(from: formatBytes(oldBytes), to: formatBytes(settled.length)),
               style: AnText.meta.copyWith(color: c.inkFaint)),
           const SizedBox(width: AnSpace.s8),
