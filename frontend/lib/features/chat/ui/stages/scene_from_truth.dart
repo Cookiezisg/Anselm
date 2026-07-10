@@ -194,8 +194,12 @@ Map<String, Object?>? _argsFromTruth(String kind, Object truth) {
     case 'skill':
       {
         final sk = truth as Skill;
-        // SkillStageBody reads name / context / allowedTools / disableModelInvocation / body. 逐字核 body 读的键。
-        if (sk.body.isEmpty && sk.frontmatter.allowedTools.isEmpty && sk.context.isEmpty) return null;
+        // SkillStageBody reads name / context / allowedTools / disableModelInvocation / body. Degrade to the
+        // summary only when there's no real CONTENT (body + allowedTools). `context` is NOT content — the
+        // backend defaults it to 'inline' on every write (app/skill/mutate.go), so `context.isEmpty` is
+        // always false for API-created skills and would defeat the guard, leaving a bare「inline」nameplate.
+        // context 恒有后端默认值(inline)、非真内容,不能算进空判据——否则空 skill 渲稀薄铭牌而非降摘要。
+        if (sk.body.isEmpty && sk.frontmatter.allowedTools.isEmpty) return null;
         return {
           'name': sk.name,
           'context': sk.context,

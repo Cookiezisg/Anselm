@@ -211,6 +211,20 @@ void main() {
     expect(scene.session.arrayItemsAt(['allowedTools']).length, 2);
   });
 
+  test('content-less skill degrades to the summary despite the backend-defaulted context', () {
+    // The backend defaults an empty context to 'inline' on every write, so context is never empty for an
+    // API-created skill — the guard must key off body + allowedTools ONLY, else an empty skill opens to a
+    // bare「inline」nameplate instead of the verb-history summary. 空 body 空 tools 即降摘要,不看 context。
+    final sk = Skill(
+      name: 'empty-skill',
+      context: 'inline',
+      body: '',
+      frontmatter: const Frontmatter(allowedTools: []),
+      updatedAt: _now,
+    );
+    expect(sceneFromTruth(kind: 'skill', truth: sk, id: 'empty-skill', conversationId: 'cv', rowId: 'r'), isNull);
+  });
+
   test('mcp → a create_mcp scene carrying the tool shelf names; no tools → null', () {
     final srv = McpServerStatus(id: 'mcp_1', name: 'github', status: 'ready', tools: const [
       McpToolDef(name: 'create_issue'),
@@ -219,6 +233,9 @@ void main() {
     final scene = sceneFromTruth(kind: 'mcp', truth: srv, id: 'github', conversationId: 'cv', rowId: 'r');
     expect(scene, isNotNull);
     expect(scene!.session.arrayItemsAt(['tools']), containsAll(<String>['create_issue', 'list_repos']));
+    // McpStageBody's args-`tools` shelf fallback is GATED on exactly this synthetic name, so a live
+    // `mcp__srv__tool` execution never mislabels its own `tools` input arg. 回退门依赖此合成名。
+    expect(scene.subject.toolName, 'create_mcp');
 
     final empty = McpServerStatus(id: 'mcp_2', name: 'idle', status: 'disconnected');
     expect(sceneFromTruth(kind: 'mcp', truth: empty, id: 'idle', conversationId: 'cv', rowId: 'r'), isNull);

@@ -224,10 +224,13 @@ class McpStageBody extends StatelessWidget {
       final v = m.group(1)!;
       if (!out.contains(v)) out.add(v);
     }
-    // A settled truth render (sceneFromTruth) has no tool_result — fall back to the shelf carried in the
-    // args session (`tools: [name…]`); the live install/reconnect path has no top-level `tools` key, so
-    // it's unaffected. 落定真身无 tool_result → 回退 args 里的货架;live 路径无顶层 tools 键,不受影响。
-    if (out.isEmpty) {
+    // A settled truth render (sceneFromTruth, toolName `create_mcp`) has no tool_result — fall back to the
+    // shelf carried in its args session (`tools: [name…]`). GATE on `create_mcp` so a live `mcp__srv__tool`
+    // EXECUTION call (same McpStageBody, held live ~1.8s past close) whose own args happen to declare a
+    // top-level `tools` param is never mislabelled as「发现的工具」; the live install/reconnect path has no
+    // top-level `tools` key and reads its shelf from the result, so neither needs this fallback.
+    // 仅 create_mcp 真身渲染走回退(它无 tool_result);活 mcp__ 执行调用的 tools 入参不误标为「发现的工具」。
+    if (out.isEmpty && scene.subject.toolName == 'create_mcp') {
       for (final t in scene.session.arrayItemsAt(['tools'])) {
         out.add('$t');
       }
