@@ -142,19 +142,18 @@ audience: [human, ai]
 
 D 轨随时插批(纯加法零风险),矩阵测试随最后一批收口。
 
-## §6 台账(P1 普查填充;状态:open / done / refuted / 豁免→§7)
+## §6 台账(P1 已填充 → 本体在 [`convergence-ledgers.md`](convergence-ledgers.md) WRK-067)
 
-### 6-A 视觉收敛台账
-> 待 P1。格式:`A-### · 文件 · 违规/收敛项 · 状态 · 证据(commit/复审)`
+P1 普查完成(2026-07-11,11 区 finder + 20 条抽样对抗审计,**假阳率 0/20**):
 
-### 6-B 规范科学化台账
-> 待 P1。同上格式;间距旧账 P3 项并入。
+| 轨 | 规模 | 摘要 |
+|---|---|---|
+| **A 视觉收敛** | **115 条** open | 按族:行 34 · 芯片 25 · 窗 18 · 其它 17 · 条 9 · 活尾 7 · 代码 5;工作量 S70/M41/L4。§4-A 初表全数坐实,另普查补录第四条结果条(`_RunFooter`)、双日志抽屉、状态点/状态色双系统等 |
+| **B 规范科学化** | **75 条** open | 按域:间距 30(魔数视口高/裸算术/私铸常量)· 状态 14 · 动效 11 · 色调 9(含 feature 层私铸 hex 色盘)· 图标 5 · 圆角 2 · i18n 2 |
+| **C 性能嫌疑** | **43 条** open(高危 8) | 嫌疑非定罪,P5 测量后转正式/赦免;高危含:收起卡体每帧陪跑构建、每卡 1s Timer、AnStatusDot 每实例常驻 AnimationController、切海洋整树替换 |
+| **D demo 矩阵** | **35 GAP** open + 79 已可达 | 已可达行=矩阵测试断言底稿;GAP 集中在 entities 的 trigger/control/approval/flowrun 面、settings fixture 数据、notifications 各态 |
 
-### 6-C 性能台账
-> 待 P1(嫌疑人)+ P5(测量定罪后转正式条目)。格式:`C-### · 场景 · 测量值→预算 · 状态`
-
-### 6-D demo 可达性矩阵
-> 待 P1。格式:`D-### · feature × 状态 · 到达路径(或 GAP) · 状态`
+**机器账**(与本台账相交不相等):棘轮基线 `frontend/test/guards/convergence_baseline.txt` = 46 条目 · 62 处五类硬违规(guard 已上线,commit 8243538a)。
 
 ## §7 豁免记录(唯一合法的「不做」;用户签字才生效)
 
