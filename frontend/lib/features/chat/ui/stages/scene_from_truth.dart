@@ -204,6 +204,7 @@ Map<String, Object?>? _argsFromTruth(String kind, Object truth) {
           'name': sk.name,
           'context': sk.context,
           'allowedTools': sk.frontmatter.allowedTools,
+          'arguments': sk.frontmatter.arguments, // the accepted args (the header's「可传什么」) 可传参数
           'disableModelInvocation': sk.frontmatter.disableModelInvocation,
           'body': sk.body,
         };

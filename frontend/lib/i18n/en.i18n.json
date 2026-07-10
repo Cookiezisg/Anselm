@@ -622,6 +622,8 @@
       "oldLadder": "the ladder before this edit",
       "subagentUnnamed": "Subagent",
       "delegated": "Delegated",
+      "skillArgs": "Arguments",
+      "skillTools": "Tools",
       "tokensInOut": "$tin in · $tout out",
       "stopReasonWord": "stopped: $r",
       "ensembleTitle": "Running in parallel",

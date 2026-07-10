@@ -9,16 +9,18 @@ import '../../model/tool_receipts.dart';
 import '../tool_card_skins.dart';
 import 'stage_scene.dart';
 
-/// The SKILL stage (WRK-061 §7-9, W5) — the binding bench: the nameplate zone (the slug in mono — the
-/// ONE ceremonial letter-by-letter spot in the system, identity itself), context inline|fork badge,
-/// allowedTools as AMBER-EDGED pills (activation pre-authorizes them past the danger gate — a power
-/// grant the user must see), disableModelInvocation as a «仅人可唤» micro-seal, then the body prose
-/// with `$ARGUMENTS`/`$1`/`${…}` placeholders as accent slots (the template's bloodline visible).
-/// Settle: the slug seal — a name IS the identity, no vN.
+/// The SKILL stage (WRK-061 §7-9, W5 · reprose WRK-064) — a SKILL.md read as its two natural parts inside
+/// ONE bordered prose card: a METADATA HEADER (what the skill can use — context inline|fork, allowedTools
+/// as AMBER pills [activation pre-authorizes them past the danger gate, a power grant the user must see],
+/// the accepted `arguments`, a «仅人可唤» seal) over a hairline divider, then the instruction body rendered
+/// as REAL MARKDOWN ([AnMarkdown], FadeCollapse'd past a height) — the same typeset prose the transcript
+/// tool card shows, never a raw `#`/`-` source wall. Streaming bounds to a plain tail (partial markdown
+/// renders broken); the settled truth typesets in full.
 ///
-/// skill 舞台(W5)——装订台:铭牌区(slug mono=全系统唯一逐字仪式处)、context 徽、allowedTools **琥珀细边**
-/// 药丸(预授权免确认=权力让渡必须可见)、disableModelInvocation「仅人可唤」微章;body 散文,$ 占位渲
-/// accent 空槽(模板血统可见)。落定:slug 印章——名即身份,无 vN。
+/// skill 舞台(reprose)——SKILL.md 读成两部分、装进**一张**带边散文卡:元数据头(这技能能用什么:context
+/// 徽、allowedTools 琥珀药丸[激活预授权免确认=权力让渡必须可见]、接受的 arguments、「仅人可唤」章)+ 细线
+/// 分隔 + 指令体**真 markdown 排版**(AnMarkdown,超高 FadeCollapse)——与工具卡同款排版,绝不裸 `#`/`-` 源码墙。
+/// 流式退到纯文本尾(半截 markdown 渲染会碎);落定真身全文排版。
 class SkillStageBody extends StatelessWidget {
   const SkillStageBody({required this.scene, super.key});
 
@@ -29,74 +31,82 @@ class SkillStageBody extends StatelessWidget {
     final c = context.colors;
     final t = Translations.of(context);
     final session = scene.session;
-    final name = session.liveStringNamed('name') ?? '';
     final ctx = session.closedStringAt(['context']);
     final allowed = session.arrayItemsAt(['allowedTools']);
+    final args = session.arrayItemsAt(['arguments']);
     final noModel = session.closedValueAt(['disableModelInvocation']) == true;
-    final body = session.liveStringNamed('body');
+    final body = session.liveStringNamed('body') ?? '';
+    final hasHeader = ctx != null || allowed.isNotEmpty || args.isNotEmpty || noModel;
 
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-      AnSunkenPanel(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-          if (name.isNotEmpty)
-            Text(name, style: AnText.mono.copyWith(color: c.ink)),
-          const SizedBox(height: AnSpace.s4),
-          Wrap(spacing: AnSpace.s4, runSpacing: AnSpace.s4, children: [
+    return Container(
+      width: double.infinity,
+      padding: AnInset.card,
+      decoration: BoxDecoration(
+        color: c.surface,
+        border: Border.all(color: c.line, width: AnSize.hairline),
+        borderRadius: BorderRadius.circular(AnRadius.card),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+        if (hasHeader) ...[
+          // What the skill can use — the header the SKILL.md's frontmatter deserves. 技能能用什么。
+          Wrap(spacing: AnSpace.s4, runSpacing: AnSpace.s4, crossAxisAlignment: WrapCrossAlignment.center, children: [
             if (ctx != null) AnBadge(ctx == 'fork' ? t.chat.tool.skillFork : t.chat.tool.skillInline, tone: AnTone.none),
-            for (final tool in allowed)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: AnSpace.s6, vertical: AnSpace.s2),
-                decoration: BoxDecoration(
-                  border: Border.all(color: c.warn, width: AnSize.hairline),
-                  borderRadius: BorderRadius.circular(AnRadius.chip),
-                ),
-                child: Text('$tool', style: AnText.meta.copyWith(color: c.warn)),
-              ),
             if (noModel) AnBadge(t.chat.stage.humanOnly, tone: AnTone.none),
           ]),
-        ]),
-      ),
-      if (body != null && body.isNotEmpty) ...[
-        const SizedBox(height: AnSpace.s6),
-        AnSunkenPanel(
-          child: Align(
-            alignment: Alignment.bottomLeft,
-            // Live streaming bounds to the tail; a settled truth render shows the FULL body. 落定显全文。
-            child: _placeholderText(c, scene.live ? tailLines(body, 12) : body),
-          ),
-        ),
-      ],
-      if (!scene.live && !scene.failed) ...[
-        const SizedBox(height: AnSpace.s6),
-        RunStatBar(state: scene.state),
-      ],
-    ]);
+          if (allowed.isNotEmpty) ...[
+            const SizedBox(height: AnSpace.s6),
+            _metaRow(c, t.chat.stage.skillTools, [
+              // AMBER — activation pre-authorizes these tools past the danger gate. 琥珀:预授权免确认。
+              for (final tool in allowed) AnBadge('$tool', tone: AnTone.warn),
+            ]),
+            Padding(
+              padding: const EdgeInsets.only(top: AnSpace.s2),
+              child: Text(t.chat.tool.skillPreauth, style: AnText.meta.copyWith(color: c.warn)),
+            ),
+          ],
+          if (args.isNotEmpty) ...[
+            const SizedBox(height: AnSpace.s6),
+            _metaRow(c, t.chat.stage.skillArgs, [
+              for (final a in args) AnBadge('\$$a', tone: AnTone.accent),
+            ]),
+          ],
+          if (body.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: AnSpace.s8),
+              child: Container(height: AnSize.hairline, color: c.line),
+            ),
+        ],
+        if (body.isNotEmpty)
+          // Streaming shows a plain tail (partial markdown renders broken); the settled truth typesets in
+          // full. 流式纯文本尾,落定真 markdown 排版。
+          scene.live
+              ? Text(tailLines(body, 12), style: AnText.reading.copyWith(color: c.inkMuted))
+              : (body.length > 480 || '\n'.allMatches(body).length > 10)
+                  ? AnFadeCollapse(
+                      collapsible: true,
+                      collapsedHeight: 320,
+                      expandLabel: t.chat.tool.proseExpand,
+                      collapseLabel: t.chat.tool.proseCollapse,
+                      fadeColor: c.surface,
+                      child: AnMarkdown(body),
+                    )
+                  : AnMarkdown(body),
+      ]),
+    );
   }
 
-  // $ARGUMENTS / $1 / ${VAR} placeholders as accent slots. $ 占位渲 accent 槽。
-  Widget _placeholderText(AnColors c, String text) {
-    final spans = <InlineSpan>[];
-    final re = RegExp(r'\$(?:\{[^}]{1,48}\}|[A-Z_]{2,}|\d)');
-    var last = 0;
-    for (final m in re.allMatches(text)) {
-      if (m.start > last) {
-        spans.add(TextSpan(text: text.substring(last, m.start), style: AnText.reading.copyWith(color: c.inkMuted)));
-      }
-      spans.add(WidgetSpan(
-        alignment: PlaceholderAlignment.middle,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: AnSpace.s4, vertical: 1),
-          decoration: BoxDecoration(color: c.accentSoft, borderRadius: BorderRadius.circular(AnRadius.tag)),
-          child: Text(m.group(0)!, style: AnText.meta.copyWith(color: c.accent)),
-        ),
-      ));
-      last = m.end;
-    }
-    if (last < text.length) {
-      spans.add(TextSpan(text: text.substring(last), style: AnText.reading.copyWith(color: c.inkMuted)));
-    }
-    return Text.rich(TextSpan(children: spans));
-  }
+  // A labelled metadata row: a muted label leading the wrapping chips (tools / arguments). Inline (not a
+  // fixed-width column) so a long EN label never mid-word wraps and a short CN one leaves no dead gap.
+  // 一行元数据:muted 标签领起换行芯片;内联(非定宽列)——长英文标签不断词、短中文不留空。
+  Widget _metaRow(AnColors c, String label, List<Widget> chips) => Wrap(
+        spacing: AnSpace.s6,
+        runSpacing: AnSpace.s4,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Text(label, style: AnText.meta.copyWith(color: c.inkFaint)),
+          ...chips,
+        ],
+      );
 }
 
 /// The MEMORY stage (WRK-061 §7-10, W5) — the memo slip: a light note card with the slug in its

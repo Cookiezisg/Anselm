@@ -2590,6 +2590,12 @@ class Translations$chat$stage$en {
 	/// en: 'Delegated'
 	String get delegated => 'Delegated';
 
+	/// en: 'Arguments'
+	String get skillArgs => 'Arguments';
+
+	/// en: 'Tools'
+	String get skillTools => 'Tools';
+
 	/// en: '$tin in · $tout out'
 	String tokensInOut({required Object tin, required Object tout}) => '${tin} in · ${tout} out';
 
@@ -5465,6 +5471,8 @@ extension on Translations {
 			'chat.stage.oldLadder' => 'the ladder before this edit',
 			'chat.stage.subagentUnnamed' => 'Subagent',
 			'chat.stage.delegated' => 'Delegated',
+			'chat.stage.skillArgs' => 'Arguments',
+			'chat.stage.skillTools' => 'Tools',
 			'chat.stage.tokensInOut' => ({required Object tin, required Object tout}) => '${tin} in · ${tout} out',
 			'chat.stage.stopReasonWord' => ({required Object r}) => 'stopped: ${r}',
 			'chat.stage.ensembleTitle' => 'Running in parallel',
@@ -5886,10 +5894,10 @@ extension on Translations {
 			'documents.actionFailed' => 'Action failed',
 			'documents.props.title' => 'Properties',
 			'documents.props.name' => 'Name',
-			'documents.props.description' => 'Description',
-			'documents.props.tags' => 'Tags',
 			_ => null,
 		} ?? switch (path) {
+			'documents.props.description' => 'Description',
+			'documents.props.tags' => 'Tags',
 			'documents.props.addTag' => 'Add a tag',
 			'documents.props.path' => 'Path',
 			'documents.props.size' => 'Size',

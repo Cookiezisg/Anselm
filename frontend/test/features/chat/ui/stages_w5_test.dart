@@ -4,6 +4,7 @@ import 'package:anselm/core/contract/entities/handler.dart';
 import 'package:anselm/core/contract/entities/values.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/sse/frame.dart';
+import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/features/chat/data/chat_fixtures.dart';
 import 'package:anselm/features/chat/data/chat_providers.dart';
 import 'package:anselm/features/chat/ui/stage_panel.dart';
@@ -130,23 +131,27 @@ void main() {
     expect(find.text('sum_rollup'), findsOneWidget); // the fresh belt chip 新腰带扣
   });
 
-  testWidgets('SKILL: amber allowedTools + \$ placeholder slots + the human-only seal', (tester) async {
+  testWidgets(r'SKILL: metadata header (amber tools · $ args · human-only) + the body as MARKDOWN prose',
+      (tester) async {
     final repo = _repo();
     await tester.pumpWidget(_host(repo));
     await tester.pump();
+    const args =
+        '{"name":"deploy-runbook","context":"fork","allowedTools":["Bash","run_function"],'
+        '"arguments":["stage"],"disableModelInvocation":true,'
+        '"body":"# Deploy Runbook\\n\\nRun against the target stage, then report."}';
     repo.emitFrame(_conv, _open('tc', 'create_skill'));
-    repo.emitFrame(
-        _conv,
-        _delta('tc',
-            '{"name":"deploy-runbook","context":"fork","allowedTools":["Bash","run_function"],'
-            '"disableModelInvocation":true,"body":"Run \$ARGUMENTS against \${STAGE} then report \$1.'));
+    repo.emitFrame(_conv, _delta('tc', args));
     await _stageFrames(tester);
+    repo.emitFrame(_conv, _close('tc', args)); // settle → the body typesets as markdown 落定排版
+    await tester.pump(const Duration(milliseconds: 120)); // within settleBreath → the settled body renders
 
-    expect(find.text('deploy-runbook'), findsWidgets); // the mono slug 铭牌
-    expect(find.text('Bash'), findsOneWidget); // amber pill 琥珀药丸
-    expect(find.text('仅人可唤'), findsOneWidget);
-    expect(find.text(r'$ARGUMENTS'), findsOneWidget); // placeholder slot 占位槽
-    expect(find.text(r'${STAGE}'), findsOneWidget);
+    expect(find.text('Bash'), findsOneWidget); // amber pre-authorized tool pill 琥珀预授权工具
+    expect(find.text('仅人可唤'), findsOneWidget); // human-only seal
+    expect(find.text(r'$stage'), findsOneWidget); // the accepted argument, in the header 参数头
+    // The body is REAL markdown (AnMarkdown), not a raw `#`/`-` source wall (WRK-064 reprose). 真 markdown。
+    expect(find.byType(AnMarkdown), findsWidgets);
+    expect(find.textContaining('Deploy Runbook'), findsWidgets);
   });
 
   testWidgets('MEMORY: the slip carries the slug corner + growing content', (tester) async {

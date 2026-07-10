@@ -622,6 +622,8 @@
       "oldLadder": "改之前的梯",
       "subagentUnnamed": "子代理",
       "delegated": "委派",
+      "skillArgs": "参数",
+      "skillTools": "工具",
       "tokensInOut": "$tin 入 · $tout 出",
       "stopReasonWord": "止因 $r",
       "ensembleTitle": "并行群像",
