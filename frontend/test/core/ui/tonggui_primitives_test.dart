@@ -80,6 +80,28 @@ void main() {
       expect(pos.maxScrollExtent, greaterThan(0)); // content really overflows the clamp 内容真超钳
     });
 
+    testWidgets('bare face drops the window shell (thinking stays inline prose, 批1)', (tester) async {
+      await tester.pumpWidget(_host(const AnLiveTail('思考中的一句话', style: AnLiveTailStyle.prose, bare: true)));
+      await tester.pump();
+      expect(find.byType(AnWindow), findsNothing); // no machine-window chrome 无机器窗
+      expect(find.text('思考中的一句话'), findsOneWidget);
+    });
+
+    testWidgets('prose face grows a TOP fade only when the text actually overflows (批1)', (tester) async {
+      // Short: no fade. 短文无渐隐。
+      await tester.pumpWidget(_host(const AnLiveTail('short', style: AnLiveTailStyle.prose, bare: true)));
+      await tester.pump();
+      await tester.pump(); // post-frame flip settles 后帧翻稳
+      expect(find.byType(AnEdgeFade), findsNothing);
+      // Long: overflow → fade (geometry-driven via scroll metrics, NOT TextPainter — C-004).
+      // 长文溢出→渐隐(滚动几何驱动,非 TextPainter)。
+      final long = List.generate(40, (i) => '第 $i 句蒸馏。').join(' ');
+      await tester.pumpWidget(_host(AnLiveTail(long, style: AnLiveTailStyle.prose, bare: true)));
+      await tester.pump();
+      await tester.pump();
+      expect(find.byType(AnEdgeFade), findsOneWidget);
+    });
+
     testWidgets('mono face clips each logical line to one visual line (复审 #23)', (tester) async {
       final longLine = 'x' * 500;
       await tester.pumpWidget(_host(AnLiveTail('$longLine\nsecond', style: AnLiveTailStyle.mono, tailLines: 2)));
@@ -121,6 +143,52 @@ void main() {
       await tester.pumpWidget(_host(AnVersionDiff(live: true, before: '', after: long)));
       await tester.pump();
       expect(find.byType(AnStickViewport), findsOneWidget);
+    });
+  });
+
+  group('AnLiveTail O(tail)', () {
+    testWidgets('a huge buffer renders only its tail — the head owns the slice (批1 复审)', (tester) async {
+      // 50k logical lines — layout must stay bounded (the slice is a reverse scan + AnCap.window).
+      // 5 万逻辑行——layout 必须有界(切尾=反向扫+字符帽)。
+      final huge = List.generate(50000, (i) => 'line $i').join('\n');
+      await tester.pumpWidget(_host(AnLiveTail(huge, style: AnLiveTailStyle.mono, tailLines: 3)));
+      await tester.pump();
+      expect(find.text('line 49999'), findsOneWidget); // the newest line 最新行
+      expect(find.text('line 49996'), findsNothing); // beyond the 3-line tail 尾外
+      // Whole-text materialization would be ~600k chars; the tree must hold only the tail.
+      final texts = tester.widgetList<Text>(find.byType(Text)).length;
+      expect(texts, lessThan(10));
+    });
+
+    testWidgets('bare + windowed faces both survive a single giant no-newline line (帽兜底)', (tester) async {
+      final spam = 'x' * 200000; // one logical line — the char cap is the real bound 单逻辑行,靠字符帽
+      await tester.pumpWidget(_host(AnLiveTail(spam, style: AnLiveTailStyle.prose, bare: true)));
+      await tester.pump();
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('AnWindow header-only', () {
+    testWidgets('child:null renders header without the dead body gap (批1 复审)', (tester) async {
+      await tester.pumpWidget(_host(const AnWindow(header: Text('刚开播'))));
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      expect(find.text('刚开播'), findsOneWidget);
+    });
+  });
+
+  group('AnFocusRing', () {
+    testWidgets('ring paints only when active (opaque-card affordance, WCAG 2.4.7)', (tester) async {
+      await tester.pumpWidget(_host(const AnFocusRing(active: false, child: AnWindow(child: Text('卡')))));
+      await tester.pump();
+      Container ringBox() => tester.widget<Container>(find
+          .descendant(of: find.byType(AnFocusRing), matching: find.byType(Container))
+          .first);
+      expect(ringBox().foregroundDecoration, isNull);
+      await tester.pumpWidget(_host(const AnFocusRing(active: true, child: AnWindow(child: Text('卡')))));
+      await tester.pump();
+      expect(ringBox().foregroundDecoration, isNotNull);
     });
   });
 

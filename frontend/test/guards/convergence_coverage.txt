@@ -134,6 +134,7 @@ lib/core/ui/an_fade_collapse.dart	pending
 lib/core/ui/an_field.dart	pending
 lib/core/ui/an_field_section.dart	reviewed
 lib/core/ui/an_floating_bar.dart	pending
+lib/core/ui/an_focus_ring.dart	reviewed
 lib/core/ui/an_follow_pill.dart	pending
 lib/core/ui/an_form_field.dart	pending
 lib/core/ui/an_freshness_halo.dart	pending
@@ -289,7 +290,7 @@ lib/features/chat/ui/chat_composer.dart	ledgered
 lib/features/chat/ui/chat_context_mark.dart	ledgered
 lib/features/chat/ui/chat_head.dart	pending
 lib/features/chat/ui/chat_ocean.dart	ledgered
-lib/features/chat/ui/chat_thinking.dart	ledgered
+lib/features/chat/ui/chat_thinking.dart	converged
 lib/features/chat/ui/chat_toc.dart	ledgered
 lib/features/chat/ui/chat_tool_card.dart	ledgered
 lib/features/chat/ui/chat_transcript.dart	ledgered
@@ -311,7 +312,7 @@ lib/features/chat/ui/stages/scene_from_truth.dart	ledgered
 lib/features/chat/ui/stages/skill_memory_mcp_stage.dart	ledgered
 lib/features/chat/ui/stages/stage_registry.dart	pending
 lib/features/chat/ui/stages/stage_scene.dart	pending
-lib/features/chat/ui/stages/subagent_stage.dart	ledgered
+lib/features/chat/ui/stages/subagent_stage.dart	converged
 lib/features/chat/ui/stages/trigger_stage.dart	pending
 lib/features/chat/ui/stages/workflow_stage.dart	ledgered
 lib/features/chat/ui/tool_card_catalog.dart	ledgered

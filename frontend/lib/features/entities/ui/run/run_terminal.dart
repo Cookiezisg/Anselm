@@ -12,6 +12,7 @@ import '../../../../core/ui/an_action_group.dart';
 import '../../../../core/ui/an_callout.dart';
 import '../../../../core/ui/an_code_block.dart';
 import '../../../../core/ui/an_info_card.dart';
+import '../../../../core/ui/an_term_viewport.dart';
 import '../../../../core/ui/an_row.dart';
 import '../../../../core/ui/an_scroll_behavior.dart';
 import '../../../../core/ui/an_section.dart';
@@ -234,8 +235,16 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
         return const []; // support kinds — no run body 支撑 kind 无 run body
       case EntityKind.function:
       case EntityKind.handler:
+        // ONE component for BOTH faces (A-095, 批1 复审: no live↔settled material flip, and mid-run
+        // scroll-back survives): the bounded scrollback terminal — termFold+ANSI, stick-to-bottom
+        // while streaming, «回到最新» pill, only the tail materialized for huge logs. The old path
+        // re-laid the WHOLE buffer every frame and dumped raw ANSI escapes once settled.
+        // 两脸同件(A-095,批1 复审:活/落定不换材质,运行中可回看):有界回滚终端窗——折叠+ANSI+钉底跟随+
+        // 「回到最新」+大日志只物化尾部。旧径每帧全文重排、落定还裸渲转义字节。
+        final text = s.text;
         return [
-          if (s.text.isNotEmpty) _section(context, r.outputHeading, _mono(context, s.text)),
+          if (text.trim().isNotEmpty)
+            _section(context, r.outputHeading, AnTermViewport(text: text, fadeColor: context.colors.surface)),
           if (state.isTerminal && state.output != null)
             _section(context, r.resultHeading, _mono(context, prettyJson(state.output))),
           if ((state.logs ?? '').isNotEmpty) _section(context, r.logsHeading, _mono(context, state.logs!)),

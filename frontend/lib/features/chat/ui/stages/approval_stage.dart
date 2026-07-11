@@ -11,12 +11,12 @@ import 'stage_scene.dart';
 /// The APPROVAL stage (WRK-061 §7-7, W3) — the letter being written: the template's markdown prose
 /// grows in a paper card while `{{ input.* }}` interpolations CONDENSE INTO AMBER CAPSULES the moment
 /// they stream in (prose and discriminant bilingually mixed — approval's signature). The three-axis
-/// meta lights as its keys close: allowReason → the dashed reason slot, timeout → the humane sentence
+/// meta lights as its keys close: allowReason → the reason-slot window, timeout → the humane sentence
 /// («30d 后自动拒绝», '' = 永不超时). A ghost «预览 · 尚未寄出» seal frames the live act. Settle
 /// delegates to the B2 form-preview body (the rehearsal frame: what the approver WILL see).
 ///
 /// approval 舞台(W3)——正在写的信笺:template 散文在纸质卡里生长,{{ input.* }} 流中即凝琥珀插值药囊
-/// (散文与判别式双语混排——approval 独有)。三轴随键闭合点亮:allowReason→虚线理由栏,timeout→人话
+/// (散文与判别式双语混排——approval 独有)。三轴随键闭合点亮:allowReason→理由栏窗,timeout→人话
 /// (「30d 后自动拒绝」,空=永不超时)。live 盖幽灵「预览·尚未寄出」章。落定复用 B2 表单预览(预演帧)。
 class ApprovalStageBody extends StatelessWidget {
   const ApprovalStageBody({required this.scene, super.key});
@@ -47,16 +47,7 @@ class ApprovalStageBody extends StatelessWidget {
       ]),
       const SizedBox(height: AnSpace.s4),
       if (template.isNotEmpty)
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(AnSpace.s12),
-          decoration: BoxDecoration(
-            color: c.surface,
-            border: Border.all(color: c.line, width: AnSize.hairline),
-            borderRadius: BorderRadius.circular(AnRadius.button),
-          ),
-          child: _letter(context, c, template),
-        ),
+        AnWindow(child: _letter(context, c, template)),
       if (timeout != null) ...[
         const SizedBox(height: AnSpace.s6),
         Text(
@@ -72,13 +63,11 @@ class ApprovalStageBody extends StatelessWidget {
       ],
       if (allowReason == true) ...[
         const SizedBox(height: AnSpace.s4),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(AnSpace.s6),
-          decoration: BoxDecoration(
-            border: Border.all(color: c.line, width: AnSize.hairline, style: BorderStyle.solid),
-            borderRadius: BorderRadius.circular(AnRadius.tag),
-          ),
+        // A sibling window, not the letter's footer: the reason slot may close before the
+        // template's first character (stream key order is free — a footer would vanish with its
+        // window), and it must stay BELOW the timeout sentence. 同胞窗而非信笺 footer:流式键序不定
+        // (理由可先于信笺首字闭合,挂 footer 会随窗消失),且须排在 timeout 句之下。
+        AnWindow(
           child: Text(t.chat.stage.allowReason, style: AnText.meta.copyWith(color: c.inkFaint)),
         ),
       ],

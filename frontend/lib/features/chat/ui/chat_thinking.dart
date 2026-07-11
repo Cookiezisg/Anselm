@@ -6,10 +6,9 @@ import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
 import '../../../core/model/status_state.dart';
-import '../../../core/ui/an_edge_fade.dart';
 import '../../../core/ui/an_expand_reveal.dart';
 import '../../../core/ui/an_interactive.dart';
-import '../../../core/ui/an_scroll_behavior.dart';
+import '../../../core/ui/an_live_tail.dart';
 import '../../../core/ui/an_shimmer_text.dart';
 import '../../../core/ui/an_status_dot.dart';
 
@@ -20,22 +19,23 @@ import '../../../core/ui/an_status_dot.dart';
 /// It is ONE cohesive animated entity across its whole life:
 /// - **BORN** (streaming mounts): the label WIPES in left→right ([AnShimmerText.reveal]) while the body
 ///   EXPANDS open ([AnExpandReveal]).
-/// - **STREAMING**: prose flows up in a height-capped window (last [maxLiveLines] lines, bottom-pinned, NO
-///   scrollbar, narrow edge-fades) while the label shimmers and the dot breathes.
+/// - **STREAMING**: prose flows up in the live-tail family's BARE prose face ([AnLiveTail] — bottom-
+///   pinned clamp, top fade on overflow, no window chrome: thinking stays inline prose, WRK-066 族六)
+///   while the label shimmers and the dot breathes.
 /// - **SETTLE** (streaming→false): as one dissolve — shimmer stops, the label crossfades "thinking"→
 ///   "thought for Ns" ([AnimatedSwitcher]), the dot fades out, the window collapses to one quiet line.
 /// - **COLLAPSED** (default): just "thought for Ns" — TAP THE TEXT to toggle (no link, no dot).
 /// - **EXPAND / COLLAPSE**: a standard reveal ([AnExpandReveal]) of the full thought on the rail.
 ///
 /// Every loop is reduced-motion-gated (shimmer/breath → static) and every reveal snaps under reduced motion.
-/// Labels are injected so this stays i18n-agnostic. 纯呈现;标签注入。整条生命线一体、标准动效、无硬切。
+/// Labels are injected so this stays i18n-agnostic. 纯呈现;标签注入;流式体=活尾族 prose 无框脸(贴底钳+
+/// 溢出顶渐隐,thinking 保持内联散文、不披机器窗)。
 class ChatThinking extends StatefulWidget {
   const ChatThinking({
     required this.text,
     required this.streaming,
     required this.liveLabel,
     required this.settledLabel,
-    this.maxLiveLines = 5,
     this.initiallyExpanded = false,
     super.key,
   });
@@ -44,7 +44,6 @@ class ChatThinking extends StatefulWidget {
   final bool streaming;
   final String liveLabel; // "thinking"
   final String settledLabel; // "thought for 12s"
-  final int maxLiveLines;
   final bool initiallyExpanded;
 
   @override
@@ -52,22 +51,15 @@ class ChatThinking extends StatefulWidget {
 }
 
 class _ChatThinkingState extends State<ChatThinking> {
-  static const double _fadeLineFraction = 0.55; // narrow edge fade 窄边渐隐
-
   late bool _expanded = widget.initiallyExpanded;
   late bool _bodyOpen; // BORN driver (streaming window opens) 诞生:窗展开
   bool _settling = false; // keep the flow-window child while the settle-collapse plays 融解时保持流窗内容
   Timer? _settleTimer;
 
-  final ScrollController _scroll = ScrollController();
-  bool _hiddenAbove = false, _hiddenBelow = false;
-  bool _pinned = false;
-
   @override
   void initState() {
     super.initState();
     _bodyOpen = !widget.streaming && widget.initiallyExpanded; // streaming is born CLOSED then opens 流式生而关、随后开
-    _scroll.addListener(_onScroll);
     if (widget.streaming) _armBorn();
   }
 
@@ -80,7 +72,6 @@ class _ChatThinkingState extends State<ChatThinking> {
   void didUpdateWidget(ChatThinking old) {
     super.didUpdateWidget(old);
     if (widget.streaming && !old.streaming) {
-      _pinned = false;
       _settling = false;
       _bodyOpen = false;
       _armBorn(); // replay → re-born
@@ -99,25 +90,10 @@ class _ChatThinkingState extends State<ChatThinking> {
   @override
   void dispose() {
     _settleTimer?.cancel();
-    _scroll.dispose();
     super.dispose();
   }
 
   void _toggle() => setState(() => _expanded = !_expanded);
-
-  void _onScroll() {
-    if (!_scroll.hasClients) return;
-    final max = _scroll.position.maxScrollExtent;
-    final off = _scroll.offset;
-    final above = off > 1.0;
-    final below = off < max - 1.0;
-    if (above != _hiddenAbove || below != _hiddenBelow) {
-      setState(() {
-        _hiddenAbove = above;
-        _hiddenBelow = below;
-      });
-    }
-  }
 
   // Thinking is CONTENT the person reads — the 15 reading rung like the answer beside it; the quiet
   // secondary voice comes from inkMuted COLOUR alone (size+colour double-demotion over-suppressed it).
@@ -133,7 +109,14 @@ class _ChatThinkingState extends State<ChatThinking> {
     final reduced = AnMotionPref.reduced(context);
     final headH = _lineHeight(_label(c));
     final bodyOpen = widget.streaming ? _bodyOpen : _expanded;
-    final bodyChild = (widget.streaming || _settling) ? _scrollWindow(c) : Text(widget.text, style: _prose(c));
+    // STREAMING: the family's bare prose face — bottom-pinned clamp (the newest words stay visible),
+    // top fade only on real overflow. C-004 dies on BOTH counts: the TextPainter probe is gone AND
+    // the head slices its own O(tail) before layout (a long thought no longer re-shapes in full
+    // every delta frame). 流式=族六 prose 无框脸:贴底钳(最新字恒可见)+真溢出顶渐隐。C-004 两半皆灭:
+    // TextPainter 探针没了,且族头先切尾再排版(长思考不再每 delta 全文重排)。
+    final bodyChild = (widget.streaming || _settling)
+        ? AnLiveTail(widget.text, style: AnLiveTailStyle.prose, bare: true)
+        : Text(widget.text, style: _prose(c));
 
     // Header: `● thinking` (dot + shimmer) while streaming ⇄ a FLUSH-left, tappable "thought for Ns" once
     // settled. The dot lives INSIDE the streaming child, so the settle crossfade fades it out and the label
@@ -173,8 +156,8 @@ class _ChatThinkingState extends State<ChatThinking> {
           ],
         ),
         // The rail: a hairline under the dot's centre, spanning ONLY the body — so its height IS the body's
-        // live height (streaming: grows 1→maxLiveLines; expanded: the full thought; collapsed: gone).
-        // 旁白细线:圆点正下,仅贯穿正文→高度=正文实时高(流式 1→5 行;展开=全文;收起=无)。
+        // live height (streaming: grows to the prose clamp; expanded: the full thought; collapsed: gone).
+        // 旁白细线:圆点正下,仅贯穿正文→高度=正文实时高(流式长到 prose 钳;展开=全文;收起=无)。
         if (railVisible)
           Positioned(
             left: AnSize.dot / 2 - AnSize.hairline / 2,
@@ -197,57 +180,9 @@ class _ChatThinkingState extends State<ChatThinking> {
         ),
       );
 
-  // The height-capped, bottom-pinned, top/bottom edge-fading flow window — NO scrollbar. Short prose (≤ cap)
-  // shows in full. 限高、钉底、边缘渐隐的流窗,无滚动条;短正文全显。
-  Widget _scrollWindow(AnColors c) {
-    final style = _prose(c);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final tp = TextPainter(text: TextSpan(text: widget.text, style: style), textDirection: TextDirection.ltr)
-          ..layout(maxWidth: constraints.maxWidth);
-        final lineH = tp.preferredLineHeight;
-        final contentH = tp.height;
-        tp.dispose(); // TextPainter holds a native paragraph — dispose or leak it per layout. 释放原生段落。
-        final cap = lineH * widget.maxLiveLines;
-        final overflows = contentH > cap + 0.5;
-        if (!overflows) return Text(widget.text, style: style);
-
-        if (widget.streaming && !_pinned) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted || !_scroll.hasClients) return;
-            _scroll.jumpTo(_scroll.position.maxScrollExtent);
-            _pinned = true;
-            _onScroll();
-          });
-        }
-        final fadeH = lineH * _fadeLineFraction;
-        return SizedBox(
-          height: cap,
-          child: Stack(
-            children: [
-              ScrollConfiguration(
-                behavior: const AnScrollBehavior(), // no scrollbar 无滚动条
-                child: SingleChildScrollView(controller: _scroll, child: Text(widget.text, style: style)),
-              ),
-              if (_hiddenAbove) _edgeFade(c, top: true, height: fadeH),
-              if (_hiddenBelow) _edgeFade(c, top: false, height: fadeH),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _edgeFade(AnColors c, {required bool top, required double height}) => Positioned(
-        top: top ? 0 : null,
-        bottom: top ? null : 0,
-        left: 0,
-        right: 0,
-        height: height,
-        child: AnEdgeFade(fromTop: top, color: c.surface),
-      );
-
   double _lineHeight(TextStyle s) {
+    // A single-glyph paint for the label's line box — O(1) per build, NOT the C-004 whole-text path.
+    // 单字形量行盒,O(1)/build,非 C-004 全文路径。
     final tp = TextPainter(text: TextSpan(text: 'x', style: s), textDirection: TextDirection.ltr)..layout();
     final h = tp.preferredLineHeight;
     tp.dispose();

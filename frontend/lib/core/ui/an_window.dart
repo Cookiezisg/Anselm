@@ -14,26 +14,33 @@ import 'an_fade_collapse.dart';
 /// [actions] row (chip family), an [AnSize]-tier [maxHeight] clamp — [collapsible] fades past it
 /// with the standard expand affordance, otherwise the crop is SILENT-SAFE (an inner unbounded
 /// scroll region, so a flex child never overflows — 复审 #3) and signalled by a bottom edge fade —
-/// and an optional [footer] (the truncation-note slot, codex rule ④). Windows are LEAF containers:
-/// window-in-window is a defect, enforced by a debug assert (复审 #48 — the rule is executable).
+/// and an optional [footer] (the muted NOTE slot under the body: truncation notes, settle lines —
+/// codex rule ④). A null [child] is a HEADER-ONLY window (no dead body gap — 批1 复审). Windows are
+/// LEAF containers: window-in-window is a defect, enforced by a debug assert (复审 #48).
 ///
 /// 窗族当家件(拍板)——唯一内容容器唯一脸:白底+发丝边+card 圆角;灰凹面退役(用户泡唯一例外)。槽:
 /// 左 header(单行省略)、右 actions、AnSize 档 maxHeight 钳(collapsible=标准折叠;否则**静默安全**
-/// 硬裁——内层无界滚动区,flex 子不溢出——并以底缘渐隐示意)、footer(截断注记槽,法典规则④)。
-/// **窗是叶子容器:窗内套窗=缺陷,debug assert 强制**(规则可执行)。
+/// 硬裁——内层无界滚动区,flex 子不溢出——并以底缘渐隐示意)、footer(体下 muted 注记槽:截断注/结算行,
+/// 法典规则④)。child=null 即**头独窗**(无死体距,批1 复审)。**窗是叶子容器:窗内套窗=缺陷,debug
+/// assert 强制**(规则可执行)。
 class AnWindow extends StatelessWidget {
   const AnWindow({
-    required this.child,
+    this.child,
     this.header,
     this.actions = const [],
     this.maxHeight,
     this.collapsible = false,
     this.footer,
     super.key,
-  }) : assert(!collapsible || maxHeight != null,
-            'collapsible needs a maxHeight tier (else it silently does nothing) 折叠须配钳高档');
+  })  : assert(!collapsible || maxHeight != null,
+            'collapsible needs a maxHeight tier (else it silently does nothing) 折叠须配钳高档'),
+        assert(child != null || header != null || footer != null,
+            'an AnWindow needs at least one of child/header/footer 至少给一个槽');
 
-  final Widget child;
+  /// The body. null = a header-only window (e.g. a just-opened card with nothing to say yet) —
+  /// the head↔body gap is skipped so no dead space is paid. 体;null=头独窗(刚开播无话可说的卡),
+  /// 免付头体死距。
+  final Widget? child;
 
   /// Left header slot (command echo / title line) — single line, ellipsized. 左头槽(单行省略)。
   final Widget? header;
@@ -48,8 +55,8 @@ class AnWindow extends StatelessWidget {
   /// silent crop). 超高时 FadeCollapse(标准展开/收起),替代静默硬裁。
   final bool collapsible;
 
-  /// Footer slot under the body — the built-in home for truncation notes (codex 族一规则 ④).
-  /// 体下 footer 槽——截断注记的内建居所(法典规则④)。
+  /// Footer slot under the body — the muted note voice (truncation notes, settle lines; codex 族一
+  /// 规则 ④). 体下 footer 槽——muted 注记声(截断注/结算行,法典规则④)。
   final Widget? footer;
 
   @override
@@ -80,8 +87,8 @@ class AnWindow extends StatelessWidget {
               Padding(padding: const EdgeInsets.only(left: AnSpace.s4), child: a),
           ]);
 
-    Widget body = child;
-    if (maxHeight != null) {
+    Widget? body = child;
+    if (body != null && maxHeight != null) {
       body = collapsible
           ? AnFadeCollapse(
               collapsible: true,
@@ -89,7 +96,7 @@ class AnWindow extends StatelessWidget {
               expandLabel: context.t.action.expand,
               collapseLabel: context.t.action.collapse,
               fadeColor: c.surface,
-              child: child,
+              child: body,
             )
           // Silent-SAFE crop: the inner scroll region hands the child unbounded height (a flex child
           // never RenderFlex-overflows — 复审 #3, AnFadeCollapse's own idiom), the clamp crops the
@@ -99,7 +106,7 @@ class AnWindow extends StatelessWidget {
               constraints: BoxConstraints(maxHeight: maxHeight!),
               child: ClipRect(
                 child: Stack(children: [
-                  SingleChildScrollView(physics: const NeverScrollableScrollPhysics(), child: child),
+                  SingleChildScrollView(physics: const NeverScrollableScrollPhysics(), child: body),
                   Positioned(
                     left: 0, right: 0, bottom: 0, height: AnSpace.s16,
                     child: AnEdgeFade(fromTop: false, color: c.surface),
@@ -113,10 +120,13 @@ class AnWindow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (head != null) ...[head, const SizedBox(height: AnSpace.s6)],
-        body,
+        ?head,
+        // The head↔body gap is only paid when there IS a body (复审: a header-only window must not
+        // carry a dead 6px). 头体距只在有体时付(头独窗不背死距)。
+        if (head != null && body != null) const SizedBox(height: AnSpace.s6),
+        ?body,
         if (footer != null) ...[
-          const SizedBox(height: AnSpace.s4),
+          if (head != null || body != null) const SizedBox(height: AnSpace.s4),
           DefaultTextStyle.merge(style: AnText.meta.copyWith(color: c.inkFaint), child: footer!),
         ],
       ],

@@ -157,7 +157,13 @@ class _AnStickViewportState extends State<AnStickViewport> {
 /// 有界回滚终端窗:折叠+ANSI+钉底+懒加载更早。[fill] 透传:撑满父高(右岛整页终端)而非限高。
 class AnTermViewport extends StatefulWidget {
   const AnTermViewport(
-      {required this.text, this.maxHeight = 320, this.fill = false, this.initialCharCap = 6000, this.header, super.key});
+      {required this.text,
+      this.maxHeight = 320,
+      this.fill = false,
+      this.initialCharCap = 6000,
+      this.header,
+      this.fadeColor,
+      super.key});
 
   final String text;
   final double maxHeight;
@@ -169,6 +175,10 @@ class AnTermViewport extends StatefulWidget {
 
   /// An optional pinned header (copy actions). 可选钉头(复制)。
   final Widget? header;
+
+  /// Edge-fade blend colour — pass the hosting surface (white hosts pass `c.surface`; default =
+  /// the terminal well grey). 渐隐融色——传宿主底色(白宿主传 surface;默认终端灰井)。
+  final Color? fadeColor;
 
   @override
   State<AnTermViewport> createState() => _AnTermViewportState();
@@ -194,6 +204,7 @@ class _AnTermViewportState extends State<AnTermViewport> {
       maxHeight: widget.maxHeight,
       fill: widget.fill,
       header: widget.header,
+      fadeColor: widget.fadeColor,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,

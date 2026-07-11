@@ -97,7 +97,7 @@ Widget callHandlerBody(BuildContext context, ToolCardState state) {
     // yield 流:活=滚动终端尾(主秀),落定=抽屉(档案)。
     if (state.progressText.isNotEmpty) ...[
       const SizedBox(height: AnSpace.s6),
-      live ? AnTermTail(text: state.progressText, tailLines: 12) : _LogsDrawer(logs: state.progressText),
+      live ? AnLiveTail(state.progressText, tailLines: 12) : _LogsDrawer(logs: state.progressText),
     ],
     if (!live) ...[
       const SizedBox(height: AnSpace.s6),

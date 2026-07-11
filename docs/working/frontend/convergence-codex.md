@@ -27,6 +27,16 @@ audience: [human, ai]
 - **AnStickViewport 增 `fadeColor`**(白宿主传 surface,灰底退役)。bar 同构补齐:编辑器 copy 驻留走 AnMotion.dwell + AnTooltip。
 - AnLedgerRow 补 `expandChild`;「展开全部 N」列表壳 **deferred → P4 吸收四套台账时落**。
 
+## 批1 落地与复审整改(2026-07-12,活尾族+描边卡)
+
+批1 = 活尾族收敛 + stages 五处手搓描边卡。落地后 35-agent 全新上下文对抗复审(6 维)26 confirmed / 3 refuted,全修。法典增量裁决:
+
+- **族六 API 增量**:①`bare` 无框脸——内容流内联尾(thinking)不披机器窗(拍板 #6「随窗白框」限机器产物尾,内联散文豁免);②**O(tail) 内建**——三脸先反向扫切尾(+`AnCap.window`=6000 字符帽,新铸档)再折叠/排版,调用方可直喂 MB 级缓冲(复审:调用侧契约必被忘,族头自己扛);③prose 脸补**溢出顶渐隐**(滚动 metrics 几何驱动,绝不 TextPainter 预排版);④**prose/mono/term 流式期只读不可滚**是族契约——回看=落定后展开(thinking 旧「可上滑回看」能力刻意退役,复审记档)。
+- **族一 API 增量**:`child` 可空=**头独窗**(刚开播无话可说的卡不付头体死距);`footer` 语义放宽为**体下 muted 注记槽**(截断注+结算行——原「仅截断注」被同批 subagent 结算行用法证明过窄)。
+- **新原语 `AnFocusRing`**:不透明可点面(AnWindow 同席卡)的 hover/键盘焦点示能——窗面不透明透不出背后着色,改画卡外 accent 环(WCAG 2.4.7);与 AnInteractive 配对;gallery 有形。
+- **AnTermViewport 增 `fadeColor`**;run_terminal fn/hd 采用**两脸同件**(运行中回看不丢+落定不裸渲 ANSI+零换脸)——「有界回滚终端窗」确立为流式 log 的档案级形态,6 行尾只配 progress 级信号。
+- **过渡态记档**:mount/exec 等活脸已白窗、settled 仍 ToolWindow 灰凹面——同卡两材质是批次序的过渡态,窗族批(ToolWindow 整体替换)愈合,不单修。
+
 ## 拍板记录(2026-07-11,用户看六族真帧后修订)
 
 1. **灰底内容容器材质全废**:除**用户消息泡**(气泡语义,非窗)外,全 App 不再有灰底内容块——含 GitHub 式无边框浅灰。窗族从「两脸」改为**一脸:白底 + hairline 边**(业内白卡派:Linear/现代 macOS;与 AnCodeSurface 天然统一)。交互态灰(hover/输入框/选中)不在范围。

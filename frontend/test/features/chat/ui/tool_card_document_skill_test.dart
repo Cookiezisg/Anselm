@@ -2,6 +2,8 @@ import 'package:anselm/core/contract/messages/block_content.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/messages/block_tree_reducer.dart';
 import 'package:anselm/core/ui/an_badge.dart';
+import 'package:anselm/core/ui/an_live_tail.dart';
+import 'package:anselm/core/ui/an_window.dart';
 import 'package:anselm/features/chat/model/tool_card_state.dart';
 import 'package:anselm/features/chat/model/tool_receipts.dart';
 import 'package:anselm/features/chat/ui/chat_tool_card.dart';
@@ -54,6 +56,43 @@ void main() {
   test('skillReceipt: created / updated slug', () {
     expect(skillReceipt(t, _state('create_skill', '{}', '{"created":"invoice-triage"}'))!.text, 'invoice-triage');
     expect(skillReceipt(t, _state('edit_skill', '{}', '{"updated":"invoice-triage"}'))!.text, 'invoice-triage');
+  });
+
+  testWidgets('document LIVE face: the prose tail (family head, own window) — no hand-rolled shell (批1)',
+      (tester) async {
+    final live = ToolCardState(
+      phase: ToolCardPhase.argsStreaming,
+      toolName: 'create_document',
+      summary: '',
+      danger: '',
+      argsText: '{"title":"口径","content":"# 口径\\n第一句正在流入',
+      resultText: '',
+      errorText: '',
+      progressText: '',
+      progressLive: false,
+    );
+    await tester.pumpWidget(_host(Builder(builder: (ctx) => documentBody(ctx, live))));
+    await tester.pump();
+    expect(find.byType(AnLiveTail), findsOneWidget); // the family head 族六当家件
+    expect(find.byType(AnWindow), findsOneWidget); // exactly ONE window (the tail's own) 只有尾自带的一扇窗
+    expect(find.textContaining('第一句正在流入'), findsOneWidget); // newest words visible 最新字可见
+  });
+
+  testWidgets('skill LIVE face: whitespace-only draft renders NOTHING (批1)', (tester) async {
+    final live = ToolCardState(
+      phase: ToolCardPhase.argsStreaming,
+      toolName: 'create_skill',
+      summary: '',
+      danger: '',
+      argsText: '{"name":"x","body":"\\n',
+      resultText: '',
+      errorText: '',
+      progressText: '',
+      progressLive: false,
+    );
+    await tester.pumpWidget(_host(Builder(builder: (ctx) => skillBody(ctx, live))));
+    await tester.pump();
+    expect(find.byType(AnWindow), findsNothing); // built-in empty-shell guard 空壳守卫内建
   });
 
   testWidgets('document body: typeset prose window + auto-rename note', (tester) async {

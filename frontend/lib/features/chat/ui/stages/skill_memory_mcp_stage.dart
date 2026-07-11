@@ -38,14 +38,7 @@ class SkillStageBody extends StatelessWidget {
     final body = session.liveStringNamed('body') ?? '';
     final hasHeader = ctx != null || allowed.isNotEmpty || args.isNotEmpty || noModel;
 
-    return Container(
-      width: double.infinity,
-      padding: AnInset.card,
-      decoration: BoxDecoration(
-        color: c.surface,
-        border: Border.all(color: c.line, width: AnSize.hairline),
-        borderRadius: BorderRadius.circular(AnRadius.card),
-      ),
+    return AnWindow(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
         if (hasHeader) ...[
           // What the skill can use — the header the SKILL.md's frontmatter deserves. 技能能用什么。
@@ -71,16 +64,17 @@ class SkillStageBody extends StatelessWidget {
             ]),
           ],
           if (body.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: AnSpace.s8),
-              child: Container(height: AnSize.hairline, color: c.line),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: AnSpace.s8),
+              child: AnDivider(),
             ),
         ],
         if (body.isNotEmpty)
-          // Streaming shows a plain tail (partial markdown renders broken); the settled truth typesets in
-          // full. 流式纯文本尾,落定真 markdown 排版。
+          // Streaming shows the prose tail face BARE (this card IS the window — leaf law; the head
+          // slices its own O(tail)); the settled truth typesets in full. 流式=prose 尾无框脸(本卡即窗,
+          // 叶子律;O(tail) 族头内建);落定真 markdown 排版。
           scene.live
-              ? Text(tailLines(body, 12), style: AnText.reading.copyWith(color: c.inkMuted))
+              ? AnLiveTail(body, style: AnLiveTailStyle.prose, bare: true)
               : (body.length > 480 || '\n'.allMatches(body).length > 10)
                   ? AnFadeCollapse(
                       collapsible: true,
@@ -129,14 +123,7 @@ class MemoryStageBody extends StatelessWidget {
     final content = session.liveStringNamed('content');
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-      Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(AnSpace.s12),
-        decoration: BoxDecoration(
-          color: c.surface,
-          border: Border.all(color: c.line, width: AnSize.hairline),
-          borderRadius: BorderRadius.circular(AnRadius.button),
-        ),
+      AnWindow(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
           if (slug.isNotEmpty)
             Align(
@@ -193,7 +180,7 @@ class McpStageBody extends StatelessWidget {
       ],
       if (scene.live && scene.state.progressText.isNotEmpty) ...[
         const SizedBox(height: AnSpace.s6),
-        AnTermTail(text: scene.state.progressText),
+        AnLiveTail(scene.state.progressText),
       ],
       if (!scene.live && !scene.failed) ...[
         if (tools.isNotEmpty) ...[
@@ -207,7 +194,7 @@ class McpStageBody extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(bottom: AnSpace.s2),
               child: Row(children: [
-                Icon(AnIcons.tool, size: AnSize.iconSm - 4, color: c.inkFaint),
+                Icon(AnIcons.tool, size: AnSize.iconXs, color: c.inkFaint),
                 const SizedBox(width: AnSpace.s4),
                 Expanded(
                   child: Text(tool,

@@ -1,10 +1,11 @@
+import '../../core/ui/an_live_tail.dart';
 import '../../core/ui/an_term_viewport.dart';
-import '../../features/chat/ui/tool_card_skins.dart';
 import 'specimen.dart';
 
-// AnTermTail (B4.3, WRK-056 #46) — the terminal live tail: termFold folds in-place cursor rewrites
-// (\r progress bars, cursor-up multi-line docker-pull) into their final frame; ansiSpans themes SGR
-// colors. 终端活尾:折叠 + ANSI 主题化。
+// AnLiveTail term face (WRK-066 族六, absorbed the old AnTermTail) — the terminal live tail: termFold
+// folds in-place cursor rewrites (\r progress bars, cursor-up multi-line docker-pull) into their final
+// frame; ansiSpans themes SGR colors; white window face. 活尾族 term 脸(吸收旧 AnTermTail):折叠+ANSI
+// 主题化+白窗面。
 
 const _esc = '\x1B';
 
@@ -31,16 +32,17 @@ final _ansiLog = '$_esc[32m✓$_esc[0m 24 passed\n'
     '$_esc[2m  expected 3, got 4$_esc[0m';
 
 final anTermTailGalleryItem = GalleryItem(
-  'AnTermTail 终端活尾(#46)',
-  'Bash 前台活期的活尾:termFold 折叠原地重写(\\r 进度条整行刷新、cursor-up 多行 docker-pull 折成最终帧,'
-      '不堆行)+ ansiSpans 把 SGR 色映 design token(红 danger/绿 ok/黄 warn/暗 faint,bold→w400)+ 顶缘渐隐。',
+  'AnLiveTail term 脸(族六终端尾)',
+  'Bash 前台活期的活尾(吸收旧 AnTermTail):termFold 折叠原地重写(\\r 进度条整行刷新、cursor-up 多行 '
+      'docker-pull 折成最终帧,不堆行)+ ansiSpans 把 SGR 色映 design token(红 danger/绿 ok/黄 warn/暗 faint,'
+      'bold→w400)+ 顶缘渐隐融白窗面。',
   [
     GallerySpecimen('docker-pull cursor-up(多行原地重写→最终帧,顶缘渐隐)',
-        (c) => AnTermTail(text: _dockerPull), span: true),
+        (c) => AnLiveTail(_dockerPull), span: true),
     GallerySpecimen('\\r 进度条(整行重写只留最终帧)',
-        (c) => AnTermTail(text: _progressBar), span: true),
+        (c) => AnLiveTail(_progressBar), span: true),
     GallerySpecimen('ANSI 彩色日志(红/绿/黄/暗 映 token)',
-        (c) => AnTermTail(text: _ansiLog), span: true),
+        (c) => AnLiveTail(_ansiLog), span: true),
   ],
 );
 

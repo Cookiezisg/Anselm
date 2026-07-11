@@ -132,6 +132,35 @@ void main() {
     expect(find.text('input.amount'), findsOneWidget); // amber capsule 琥珀药囊
     expect(find.textContaining('30d 后自动拒绝'), findsOneWidget); // humane timeout 人话
     expect(find.textContaining('审批者可附理由'), findsOneWidget);
+    // 批1: letter + reason slot are SIBLING windows (leaf law — never nested; the assert would
+    // have thrown above if they nested). 批1:信笺与理由栏=同胞双窗(叶子律,嵌套则上面已炸 assert)。
+    expect(find.byType(AnWindow), findsNWidgets(2));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('SUBAGENT live term: the tool progress rolls as a SIBLING window below the card (批1 叶子律)',
+      (tester) async {
+    final repo = _repo();
+    await tester.pumpWidget(_host(repo));
+    await tester.pump();
+    repo.emitFrame(_conv, _open('tc', 'Subagent'));
+    repo.emitFrame(_conv, _delta('tc', '{"description":"调研通知渠道","prompt":"survey'));
+    // The delegate's nested open tool streams progress. 分身嵌套工具流出 progress。
+    repo.emitFrame(_conv, StreamEnvelope(
+        seq: 1, scope: _scope, id: 'inner',
+        frame: FrameOpen(parentId: 'tc', node: StreamNode(type: 'tool_call', content: {'name': 'Bash'}))));
+    repo.emitFrame(_conv, StreamEnvelope(
+        seq: 1, scope: _scope, id: 'prog',
+        frame: FrameOpen(parentId: 'inner', node: StreamNode(type: 'progress', content: {}))));
+    repo.emitFrame(_conv, StreamEnvelope(
+        seq: 0, scope: _scope, id: 'prog', frame: FrameDelta(chunk: 'compiling module_1\n')));
+    await _stageAndSettleFrames(tester);
+
+    // Card window + the live tail's own window = TWO SIBLINGS; nesting would throw the leaf assert.
+    // 卡窗 + 活尾自带窗 = 同胞双窗;嵌套则叶子 assert 已炸。
+    expect(find.textContaining('compiling module_1'), findsWidgets);
+    expect(find.byType(AnWindow), findsNWidgets(2));
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('TRIGGER: radar while kind is unknown → the cron face; R-16 settle facts come from GET',

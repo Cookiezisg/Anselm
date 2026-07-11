@@ -8,7 +8,7 @@ lib/features/chat/ui/chat_transcript.dart	boxdecoration	1
 lib/features/chat/ui/run_ledger.dart	boxdecoration	3
 lib/features/chat/ui/stage_panel.dart	token-arith	1
 lib/features/chat/ui/stages/agent_stage.dart	boxdecoration	1
-lib/features/chat/ui/stages/approval_stage.dart	boxdecoration	3
+lib/features/chat/ui/stages/approval_stage.dart	boxdecoration	1
 lib/features/chat/ui/stages/approval_stage.dart	edgeinsets-literal	2
 lib/features/chat/ui/stages/control_stage.dart	alpha-tweak	1
 lib/features/chat/ui/stages/control_stage.dart	boxdecoration	1
@@ -17,10 +17,6 @@ lib/features/chat/ui/stages/document_stage.dart	edgeinsets-literal	1
 lib/features/chat/ui/stages/function_stage.dart	boxdecoration	2
 lib/features/chat/ui/stages/function_stage.dart	token-arith	2
 lib/features/chat/ui/stages/handler_stage.dart	boxdecoration	1
-lib/features/chat/ui/stages/skill_memory_mcp_stage.dart	boxdecoration	2
-lib/features/chat/ui/stages/skill_memory_mcp_stage.dart	token-arith	1
-lib/features/chat/ui/stages/subagent_stage.dart	boxdecoration	2
-lib/features/chat/ui/stages/subagent_stage.dart	token-arith	1
 lib/features/chat/ui/stages/trigger_stage.dart	boxdecoration	1
 lib/features/chat/ui/tool_card_control_approval.dart	boxdecoration	1
 lib/features/chat/ui/tool_card_document_skill.dart	boxdecoration	1

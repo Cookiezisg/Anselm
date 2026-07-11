@@ -31,9 +31,9 @@ audience: [human, ai]
 | A-010 | `lib/features/entities/ui/run/run_terminal.dart:125` | 窗 | run 终端右岛头带 _head 手搓(icon+名+✕ 行 + 动词/meta/badge 次行),而当家件 AnInspectorHead 已存在且编辑器检查器自称其「视觉孪生」 | 换 AnInspectorHead,给它长 badge/trailing 槽承接相位徽 | M | open |
 | A-011 | `lib/features/entities/ui/run/run_terminal.dart:286` | 窗 | 审批决断门三处各自手拼:run_terminal._approvalGate、run_cockpit_tab.dart:213 parked 块、flowrun_inbox.dart:139 _ApprovalCard,内容/hint/reason 输入各有差异 | 抽一件共享 ApprovalGate(prompt+reason?+approve/reject)三处复用 | M | open |
 | A-012 | `lib/features/settings/ui/panels/models_keys_panel.dart:136` | 窗 | _FreeTierCard 裸 Container+BoxDecoration(surface+card 圆角+hairline 边)手搓卡壳 | 换 AnCard(其注释明言收口 settings 卡皮) | S | open |
-| A-013 | `lib/features/chat/ui/stages/approval_stage.dart:50` | 窗 | 手搓带边容器 ×2:信笺纸卡(:50)与理由栏(:75),Container+Border.all+圆角——§4-A 点名的「approval 信笺」窗族对象 | 窗族当家件 prose/tone 槽吃掉 | M | open |
-| A-014 | `lib/features/chat/ui/stages/skill_memory_mcp_stage.dart:41` | 窗 | 手搓带边卡 ×2:skill 装订台卡(:41,AnRadius.card)与 memory 记忆笺(:132,AnRadius.button),同文件两种圆角档;:76 再手搓 hairline 分隔线 | 窗族当家件 prose 模式吃掉,分隔用 AnDivider | M | open |
-| A-015 | `lib/features/chat/ui/stages/subagent_stage.dart:95` | 窗 | _SubagentCard 手搓带边卡(Container+Border.all+圆角)——§4-A 点名「subagent 卡」窗族对象;:134 又见 AnSize.iconSm - 4 | 窗族当家件 header/tone 槽吃掉 | M | open |
+| A-013 | `lib/features/chat/ui/stages/approval_stage.dart:50` | 窗 | 手搓带边容器 ×2:信笺纸卡(:50)与理由栏(:75),Container+Border.all+圆角——§4-A 点名的「approval 信笺」窗族对象 | 窗族当家件 prose/tone 槽吃掉 | M | **done·批1**(信笺+理由栏=同胞双 AnWindow;stages_w3_test 钉双窗) |
+| A-014 | `lib/features/chat/ui/stages/skill_memory_mcp_stage.dart:41` | 窗 | 手搓带边卡 ×2:skill 装订台卡(:41,AnRadius.card)与 memory 记忆笺(:132,AnRadius.button),同文件两种圆角档;:76 再手搓 hairline 分隔线 | 窗族当家件 prose 模式吃掉,分隔用 AnDivider | M | **done·批1**(skill/memory 双卡→AnWindow 圆角归一 card;分隔线→AnDivider;流式体→prose bare 尾) |
+| A-015 | `lib/features/chat/ui/stages/subagent_stage.dart:95` | 窗 | _SubagentCard 手搓带边卡(Container+Border.all+圆角)——§4-A 点名「subagent 卡」窗族对象;:134 又见 AnSize.iconSm - 4 | 窗族当家件 header/tone 槽吃掉 | M | **done·批1**(→AnWindow header/actions/footer 槽;iconXs 铸档清 iconSm-4 ×3;peer 卡 AnFocusRing 激活环[复审:窗面不透明丢 hover/焦点];活终端=同胞 AnLiveTail) |
 | A-016 | `lib/features/chat/ui/tool_card_exec.dart:269` | 窗 | _LogsDrawer 与 run_dossier._LogDrawer 两套日志抽屉:尾截 6000 vs 双端 2000+4000+stderr 分段,同角色两做法 | 合成一个 log drawer 件(双端截断为准) | S | open |
 | A-017 | `lib/features/chat/ui/tool_card_memory_web.dart:105` | 窗 | MemoryNoteCard 手搓描边卡壳(§4-A 指名):自拼头行+裸 Container 发丝线(132,AnDivider 已有)+折叠阈 900/400 魔数 | 窗族卡壳吃掉;发丝线换 AnDivider;阈值进档 | M | open |
 | A-018 | `lib/features/chat/ui/tool_card_skins.dart:31` | 窗 | ToolWindow=窗族收敛对象(§4-A 指名):feature 层薄壳自拼 header/actions 包 AnSunkenPanel,全 chat 机器窗身份压其上 | P3 窗壳(header/actions/tone+term/code/prose/json/diff 内容模式)落地后整体替换并物理删除 | L | open |
@@ -110,13 +110,13 @@ audience: [human, ai]
 | A-089 | `lib/features/chat/ui/tool_card_flowrun.dart:145` | 条 | _RunFooter 第四条同角色状态条(badge+重放数+workflow pill+copy),§4-A 初表未列、普查补录 | 并入 AnStatBar 收敛清单 | S | open |
 | A-090 | `lib/features/chat/ui/tool_card_io_section.dart:100` | 条 | ExecResultBar 第二条结果条(§4-A 指名),状态词+耗时+trailing 自拼 | 并入 AnStatBar 槽位化 | S | open |
 | A-091 | `lib/features/chat/ui/tool_card_skins.dart:827` | 条 | RunStatBar=条族三合一对象(§4-A 指名),手拼 ' · ' InlineSpan 链;envFix 行 797 还带 AnSize.iconSm+AnGap.inline 裸算术缩进 | 并入槽位化 AnStatBar;缩进收 token 档 | M | open |
-| A-092 | `lib/features/chat/ui/chat_thinking.dart:202` | 活尾 | _scrollWindow 手搓限高钉底边缘渐隐流窗(TextPainter 量行高+jumpTo 钉底),活尾第三形 | 并入活尾族 flow-window 变体 | M | open |
-| A-093 | `lib/features/chat/ui/tool_card_document_skill.dart:86` | 活尾 | document/skill 活脸=ToolWindow+tailLines(draft,8) mono 尾 ×2 处(86/142),手搓活尾非当家件 | 换活尾当家件(AnTermTail 类)统一活流形 | S | open |
-| A-094 | `lib/features/chat/ui/transcript_peek.dart:139` | 活尾 | NestedRunPane 活尾自实现(末行换 AnShimmerText 微光),与 ToolLiveTail/AnTermTail 并存成活尾第三形 | 活尾族收敛时并入统一微光尾 | S | open |
-| A-095 | `lib/features/entities/ui/run/run_terminal.dart:238` | 活尾 | fn/hd 流式输出 s.text 每帧整体塞静态 AnCodeBlock(_mono,行341)重渲,无活尾;chat 已有 AnTermTail/AnTermViewport 有界回滚活尾 | 接活尾族当家件(AnTermTail 收进 core 后),流动期只渲尾部 | M | open |
-| A-096 | `lib/features/chat/ui/chat_thinking.dart:202` | 活尾 | _scrollWindow 手搓限高·钉底·上下边缘渐隐的活散文流窗(TextPainter 量行+双 edge fade),与 AnTermTail/活尾族同角色 | 活尾当家件长 prose 模式,ChatThinking 换装 | L | open |
-| A-097 | `lib/features/chat/ui/tool_card_skins.dart:98` | 活尾 | ToolLiveTail(v1) 与 AnTermTail(v2) 两个活尾并存(§4-A 指名二合一),v1 仅剩 mount:69/109 两处在用 | mount 两处换 AnTermTail 后物理删 v1 | S | open |
-| A-098 | `lib/features/chat/ui/tool_card_skins.dart:124` | 活尾 | AnTermTail(§4-A 活尾族当家件)定义在 feature 层 tool_card_skins.dart 而非 core/ui,逃出原语库治理;AnDocumentEditor 同病(features/documents) | 迁 core/ui 独立文件,与 ToolLiveTail 二合一 | M | open |
+| A-092 | `lib/features/chat/ui/chat_thinking.dart:202` | 活尾 | _scrollWindow 手搓限高钉底边缘渐隐流窗(TextPainter 量行高+jumpTo 钉底),活尾第三形 | 并入活尾族 flow-window 变体 | M | **done·批1**(→AnLiveTail prose bare;与 A-096 同修) |
+| A-093 | `lib/features/chat/ui/tool_card_document_skill.dart:86` | 活尾 | document/skill 活脸=ToolWindow+tailLines(draft,8) mono 尾 ×2 处(86/142),手搓活尾非当家件 | 换活尾当家件(AnTermTail 类)统一活流形 | S | **done·批1**(→AnLiveTail prose[贴底=最新字可见,复审改判 prose 非 mono];O(tail) 族头内建) |
+| A-094 | `lib/features/chat/ui/transcript_peek.dart:139` | 活尾 | NestedRunPane 活尾自实现(末行换 AnShimmerText 微光),与 ToolLiveTail/AnTermTail 并存成活尾第三形 | 活尾族收敛时并入统一微光尾 | S | open·**建造者请求证伪**(批1 scout+复审:此处是结构化轨迹行目录+AnShimmerText 原语组合,压成纯文本尾丢 6 项能力[微光/isOpen/图标/双色 tag/…];建议改判非活尾第三形,待确认) |
+| A-095 | `lib/features/entities/ui/run/run_terminal.dart:238` | 活尾 | fn/hd 流式输出 s.text 每帧整体塞静态 AnCodeBlock(_mono,行341)重渲,无活尾;chat 已有 AnTermTail/AnTermViewport 有界回滚活尾 | 接活尾族当家件(AnTermTail 收进 core 后),流动期只渲尾部 | M | **done·批1**(两脸同件 AnTermViewport[复审改判:6 行尾丢运行中回看+落定裸渲 ANSI→有界回滚终端窗两脸零换脸];running 期有测) |
+| A-096 | `lib/features/chat/ui/chat_thinking.dart:202` | 活尾 | _scrollWindow 手搓限高·钉底·上下边缘渐隐的活散文流窗(TextPainter 量行+双 edge fade),与 AnTermTail/活尾族同角色 | 活尾当家件长 prose 模式,ChatThinking 换装 | L | **done·批1**(prose bare 脸+溢出顶渐隐[族头新能力];删 _scrollWindow/双向渐隐/ScrollController 全套;**流式期改只读不可滚**[族契约,回看=落定展开],刻意裁决记档) |
+| A-097 | `lib/features/chat/ui/tool_card_skins.dart:98` | 活尾 | ToolLiveTail(v1) 与 AnTermTail(v2) 两个活尾并存(§4-A 指名二合一),v1 仅剩 mount:69/109 两处在用 | mount 两处换 AnTermTail 后物理删 v1 | S | **done·批1**(mount ×2→AnLiveTail.mono;v1 物理删除) |
+| A-098 | `lib/features/chat/ui/tool_card_skins.dart:124` | 活尾 | AnTermTail(§4-A 活尾族当家件)定义在 feature 层 tool_card_skins.dart 而非 core/ui,逃出原语库治理;AnDocumentEditor 同病(features/documents) | 迁 core/ui 独立文件,与 ToolLiveTail 二合一 | M | **done·批1**(feature 版 AnTermTail 物理删除;core AnLiveTail.term 即合体;gallery 反向 import 顺手斩) |
 | A-099 | `lib/features/chat/ui/tool_card_ecosystem.dart:95` | 其它 | _issue 用 RichText(不继承 textScaler/DefaultTextStyle),fs_search:334 同类用 Text.rich;transcript_peek:85 同病 | 统一 Text.rich(a11y 缩放才生效) | S | open |
 | A-100 | `lib/features/chat/ui/tool_card_lifecycle.dart:149` | 其它 | activate_skill 6000 字符顶再度硬编码,entity_get.kEntityContentCap 已有同值共享常量 | 复用 kEntityContentCap | S | open |
 | A-101 | `lib/features/chat/ui/tool_interaction_gate.dart:322` | 其它 | 自由答复引用块手搓:左 BorderSide 用 AnSize.ring(强调环描边 token)当引用线宽,语义误用 | 造/复用 blockquote 原语,ring 归位 | S | open |
@@ -134,6 +134,8 @@ audience: [human, ai]
 | A-113 | `lib/features/documents/ui/an_document_editor.dart:174` | 其它 | _header 手搓文档页头(crumb Text+AnInlineEdit 标题+描述+AnTags),与 AnOceanHeader(crumb+大标题+meta)同角色两种做法;元件是原语但排布文法现场发明 | 给 AnOceanHeader 长 reading 变体(描述/tags 槽)或立文档头原语进 gallery | M | open |
 | A-114 | `lib/features/notifications/ui/notification_feed.dart:178` | 其它 | _Header 的「全部已读」文字链用 AnInteractive+Text+accent/accentHover 手搓,绕开按钮原语 | 换 AnButton ghost/sm 或立文字链 variant | S | open |
 | A-115 | `lib/features/notifications/ui/notification_feed.dart:194` | 其它 | _SectionLabel 手搓分组小标(Padding+meta+emphasis 墨),与 AnGroupLabel 单源职责完全重合 | 删 _SectionLabel 换 AnGroupLabel(padding 可覆) | S | open |
+| A-116 | `lib/features/chat/ui/tool_card_memory_web.dart:463` | 活尾 | (批1 复审补录)WebFetch 活蒸馏手搓 Align(bottomLeft)+钳=段落钉头,最新字不可见——正是族头修的 HIGH 同病 | 换 AnLiveTail prose | S | **done·批1** |
+| A-117 | `lib/core/ui/an_term_viewport.dart` | 活尾 | (批1 复审补录)AnTermViewport 渐隐色写死灰井,白宿主发灰 | 增 fadeColor 透传 | S | **done·批1** |
 
 ## B 规范科学化台账(75 条,按域分组)
 
@@ -222,7 +224,7 @@ audience: [human, ai]
 | C-001 | `lib/core/editor/an_editor.dart:224` | high | 每键 markdownFromDocument 序列化整篇文档 | _onDocumentChanged 同步在 document listener 里全文序列化,只有『存』防抖、序列化本身不防抖;大文档打字=每键 O(doc) 主线程 | 编辑器打字 | open |
 | C-002 | `lib/core/ui/an_markdown.dart:119` | high | GptMarkdown 每 tick 全量重解析流式 markdown,无任何增量/记忆化 | live text 块逐 tick 换更长串→整段正则解析+span 重生成,O(n)/帧→全程 O(n²);且开回合内已闭合的 text 块也一并重解析(粒度=整回合) | 流式 | open |
 | C-003 | `lib/features/chat/model/stage_director.dart:305` | high | 并行工具流式时非主角 unread++ 每 delta 破坏 StageState 值相等 | StageActivityView.== 含 unread(:114);channel 每 delta unread++ → updateShouldNotify 过 → _AccordionList(watch :347)整列表每帧全重建+_computeRows 重跑 | 手风琴 | open |
-| C-004 | `lib/features/chat/ui/chat_thinking.dart:206` | high | 流式 thinking 每 tick 用 TextPainter 全文 layout 测高,再由 ScrollView 二次全文 layout | _scrollWindow 每 build 建 TextPainter.layout(全文)只为判溢出;窗只显 5 行却双份整段落 shaping,reasoning 长文时每帧两次 O(全文) 排版 | 流式 | open |
+| C-004 | `lib/features/chat/ui/chat_thinking.dart:206` | high | 流式 thinking 每 tick 用 TextPainter 全文 layout 测高,再由 ScrollView 二次全文 layout | _scrollWindow 每 build 建 TextPainter.layout(全文)只为判溢出;窗只显 5 行却双份整段落 shaping,reasoning 长文时每帧两次 O(全文) 排版 | 流式 | **done·批1**(两半皆灭:TextPainter 探针删除+族头 O(tail) 切尾[复审抓获只杀一半后补];P5 场景套件复测钉预算) |
 | C-005 | `lib/features/chat/ui/chat_tool_card.dart:168` | high | spec.receipt 每 build 重算,内部 jsonDecode(resultText) 无记忆化 | tool_receipts.dart:249 _obj / tool_card_workflow.dart:33 等逐 build 全量 jsonDecode 结果 JSON;开回合内的已落定卡每 tick 重建→每帧 N 次 KB~百KB 级 decode | 流式 | open |
 | C-006 | `lib/features/chat/ui/chat_tool_card.dart:210` | high | 收起卡体每帧陪跑构建:spec.body 函数在 open=false 时也全量执行 | 族体是函数非 widget 类,bashToolBody/decideApprovalBody/subagentBody 等在函数内立即做正则/jsonDecode/argStringPartial;live 回合内每张卡逐 tick 重建,N 张收起卡×每帧全量体构建 | 流式 | open |
 | C-007 | `lib/features/chat/ui/stages/scene_from_truth.dart:259` | high | StageBodyFromTruth 每次 rebuild 全量 jsonEncode 真身+全量重 parse | sceneFromTruth 每次造全新 BlockNode,故意绕开 revision memo;ToolCardState.of→argsSessionOf 整段 JSON 重扫。展开的 workflow/doc/fn 行在手风琴每帧重建时按 O(内容) 重付 | 手风琴 | open |

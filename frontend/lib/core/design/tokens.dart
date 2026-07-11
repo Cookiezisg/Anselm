@@ -90,6 +90,7 @@ abstract final class AnSize {
   static const double icon = 16;
   static const double iconSm = 12;
   static const double iconLg = 20;
+  static const double iconXs = 8; // sub-row trajectory glyph (subagent tail rows — below iconSm) 次级尾行字形(iconSm 之下)
   static const double dot = 7;
   static const double dotPulse = 5; // run-status breath expansion radius 呼吸外扩半径
   static const double hairline = 1;
@@ -201,6 +202,14 @@ abstract final class AnSize {
   // 左岛 chrome 条给红绿灯留此横向位;灯由 OS 在(加高的)标题栏绘制居中(见 window_setup 的 addToolbar),
   // 纵向位置 OS 托管、点击安全;绝不手动挪原生按钮。
   static const double windowControlsInset = 72;
+}
+
+/// Content caps — how many CHARACTERS a machine window materializes per frame/page (grammar #5:
+/// display caps are tiers, not scattered literals). The full text stays in memory; caps bound what
+/// LAYOUT sees. 内容封顶档——机器窗单帧/单页物化的字符上限(文法 #5:封顶走档,不散置裸数)。全文仍在
+/// 内存,封顶只约束进 layout 的量。
+abstract final class AnCap {
+  static const int window = 6000; // machine-window materialization cap (live tails, term scrollback pages) 机器窗物化上限
 }
 
 /// Opacity tokens — the few semantic alpha values used as whole-widget dimmers. 整件透明度语义值。

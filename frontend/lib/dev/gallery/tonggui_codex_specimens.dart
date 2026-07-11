@@ -129,16 +129,33 @@ final tongguiCodexCategory = GalleryCategory('同轨法典', AnIcons.entities, [
   ),
   GalleryItem(
     '族六 · AnLiveTail 活尾',
-    '唯一滚动活尾(随窗一脸白框),三张脸:term(ANSI+折叠+顶缘渐隐)/mono(纯等宽)/prose(阅读排版贴底钳);空白守卫内建;代码流归族二。',
+    '唯一滚动活尾(随窗一脸白框;bare=内容流内联无框脸),三张脸:term(ANSI+折叠+顶缘渐隐)/mono(纯等宽)/'
+        'prose(阅读排版贴底钳+溢出顶渐隐);空白守卫与 O(tail) 切尾皆内建(可直喂 MB 级缓冲);代码流归族二。',
     [
       GallerySpecimen('term(ANSI 色+折叠)', (c) => AnLiveTail(_term, tailLines: 4), span: true),
       GallerySpecimen('mono(便笺逐笔)', (c) => const AnLiveTail('先拉最近十条失败记录\n按错误码分桶\n再对时间轴找共因', style: AnLiveTailStyle.mono), span: true),
-      GallerySpecimen('prose(蒸馏流,贴底钳高)', (c) => AnLiveTail(List.filled(6, _prose).join(' '), style: AnLiveTailStyle.prose), span: true),
+      GallerySpecimen('prose(蒸馏流,贴底钳高,溢出顶渐隐)', (c) => AnLiveTail(List.filled(6, _prose).join(' '), style: AnLiveTailStyle.prose), span: true),
+      GallerySpecimen('prose bare(thinking 的内联无框脸)', (c) => AnLiveTail(List.filled(6, _prose).join(' '), style: AnLiveTailStyle.prose, bare: true), span: true),
       GallerySpecimen('空白守卫(纯 \\n 渲空,右侧应无窗)', (c) => Row(children: [
             Text('AnLiveTail("\\n") →', style: AnText.meta.copyWith(color: c.colors.inkFaint)),
             const AnLiveTail('\n'), // renders nothing — the built-in empty-shell guard 内建空壳守卫
             Text('(空)', style: AnText.meta.copyWith(color: c.colors.inkFaint)),
           ]), stress: true),
+    ],
+  ),
+  GalleryItem(
+    'AnFocusRing 激活环',
+    '不透明可点面(AnWindow 同席卡等)的 hover/键盘焦点示能:背后着色透不出 → 卡外 accent 环(WCAG 2.4.7),'
+        'foregroundDecoration 零位移;与 AnInteractive 配对用。',
+    [
+      GallerySpecimen('active=false(静息)', (c) => const AnFocusRing(
+            active: false,
+            child: AnWindow(child: Text('同席分身卡')),
+          ), span: true),
+      GallerySpecimen('active=true(hover/焦点环)', (c) => const AnFocusRing(
+            active: true,
+            child: AnWindow(child: Text('同席分身卡')),
+          ), span: true),
     ],
   ),
 ]);

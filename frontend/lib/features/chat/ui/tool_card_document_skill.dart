@@ -77,13 +77,15 @@ ToolReceipt? docSentenceReceipt(Translations t, ToolCardState state) {
 Widget documentBody(BuildContext context, ToolCardState state) {
   final t = Translations.of(context);
   final c = context.colors;
-  // LIVE face (WRK-065): the prose streaming in as the LLM types it — plain mono tail (typesetting a
-  // half-written markdown would render broken), O(tail) via the in-flight channel.
-  // 活脸:稿子随打字流入——纯 mono 尾(半截 markdown 排版会碎),在途通道 O(tail)。
+  // LIVE face (WRK-066 族六): the prose streaming in as the LLM types it — the prose tail face
+  // (bottom-pinned: the newest words stay visible; typesetting a half-written markdown would render
+  // broken). The head slices its own O(tail) — the possibly-MB draft is safe to hand over (批1 复审:
+  // caller-side contracts get forgotten). 活脸:稿子随打字流入——prose 尾脸(贴底=最新字恒可见;半截
+  // markdown 排版会碎)。O(tail) 族头内建,全稿可直喂(批1 复审:调用侧契约必有人忘)。
   if (toolLive(state)) {
     final draft = state.argsSession.liveStringNamed('content');
-    if (draft == null || draft.isEmpty) return const SizedBox.shrink();
-    return ToolWindow(child: Text(tailLines(draft, 8), style: AnText.code.copyWith(color: c.inkMuted)));
+    if (draft == null) return const SizedBox.shrink();
+    return AnLiveTail(draft, style: AnLiveTailStyle.prose);
   }
   final result = state.resultText.trim();
   // Session read, closed-only: this settled body is CONSTRUCTED every frame while streaming (hidden
@@ -134,12 +136,12 @@ ToolReceipt? skillReceipt(Translations t, ToolCardState state) {
 Widget skillBody(BuildContext context, ToolCardState state) {
   final t = Translations.of(context);
   final c = context.colors;
-  // LIVE face (WRK-065): the SKILL.md body streaming in — plain mono tail, same rationale as document.
-  // 活脸:SKILL.md 正文流入——纯 mono 尾,与 document 同理。
+  // LIVE face (WRK-066 族六): the SKILL.md body streaming in — the prose tail face, same rationale
+  // as document (the head owns O(tail)). 活脸:正文流入——prose 尾脸,与 document 同理(族头扛 O(tail))。
   if (toolLive(state)) {
     final draft = state.argsSession.liveStringNamed('body');
-    if (draft == null || draft.isEmpty) return const SizedBox.shrink();
-    return ToolWindow(child: Text(tailLines(draft, 8), style: AnText.code.copyWith(color: c.inkMuted)));
+    if (draft == null) return const SizedBox.shrink();
+    return AnLiveTail(draft, style: AnLiveTailStyle.prose);
   }
   final body = state.argsSession.closedStringAt(['body']) ?? '';
   final ctx = state.argsSession.closedStringAt(['context']) ?? 'inline';

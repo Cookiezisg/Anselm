@@ -149,7 +149,7 @@ class AnCastRow extends StatelessWidget {
             for (final v in secondaryVerbs.take(2))
               Padding(
                 padding: const EdgeInsets.only(left: AnSpace.s2),
-                child: Icon(verbGlyph(v), size: AnSize.iconSm - 4, color: c.inkFaint),
+                child: Icon(verbGlyph(v), size: AnSize.iconXs, color: c.inkFaint),
               ),
           ],
           const SizedBox(width: AnSpace.s6),

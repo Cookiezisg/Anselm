@@ -109,6 +109,7 @@ export 'syntax_highlighter.dart';
 export 'tone.dart';
 export 'an_chip.dart';
 export 'an_field_section.dart';
+export 'an_focus_ring.dart';
 export 'an_ledger_row.dart';
 export 'an_live_tail.dart';
 export 'an_stat_bar.dart';

@@ -184,12 +184,14 @@ void main() {
     await tester.tap(find.byType(AnInteractive).first, warnIfMissed: false);
     await tester.pumpAndSettle();
     expect(find.textContaining('contacting server'), findsOneWidget); // live progress 活进度
-    expect(find.byType(ToolWindow), findsOneWidget); // ONLY the tail — no empty result shell 无空结果壳
+    // ONLY the tail (the family head brings its own window) — no empty result shell. 只有尾,无空结果壳。
+    expect(find.byType(AnLiveTail), findsOneWidget);
+    expect(find.byType(ToolWindow), findsNothing);
   });
 
-  testWidgets('ToolLiveTail: whitespace-only progress renders NO empty machine window', (tester) async {
-    await tester.pumpWidget(_host(const ToolLiveTail(text: '\n')));
+  testWidgets('live mono tail: whitespace-only progress renders NO empty machine window', (tester) async {
+    await tester.pumpWidget(_host(const AnLiveTail('\n', style: AnLiveTailStyle.mono)));
     await tester.pumpAndSettle();
-    expect(find.byType(ToolWindow), findsNothing); // trim guard 空白守卫
+    expect(find.byType(AnWindow), findsNothing); // built-in trim guard 内建空白守卫
   });
 }

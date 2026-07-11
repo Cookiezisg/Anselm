@@ -457,21 +457,12 @@ Widget webFetchBody(BuildContext context, ToolCardState state) {
         );
   if (toolLive(state)) {
     if (promptLine == null && state.progressText.trim().isEmpty) return const SizedBox.shrink();
+    // The distillation rolls in the family's prose tail (批1: the old hand-rolled Align clamp pinned
+    // the paragraph HEAD — the newest words were invisible, the family fixed exactly this).
+    // 蒸馏走族六 prose 尾(批1:旧手搓 Align 钳把段落钉头,最新字不可见——族头修的正是它)。
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       ?promptLine,
-      if (state.progressText.trim().isNotEmpty)
-        AnSunkenPanel(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 144), // ≈6 reading lines,短内容收身 约 6 行封顶
-            child: ClipRect(
-              child: Align(
-                alignment: Alignment.bottomLeft,
-                heightFactor: 1, // shrink-wrap below the cap 低于上限即贴内容高
-                child: Text(state.progressText, style: AnText.reading.copyWith(color: c.inkMuted)),
-              ),
-            ),
-          ),
-        ),
+      AnLiveTail(state.progressText, style: AnLiveTailStyle.prose),
     ]);
   }
   final outcome = webFetchOutcome(state.resultText);

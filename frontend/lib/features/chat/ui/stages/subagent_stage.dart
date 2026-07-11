@@ -9,7 +9,6 @@ import '../../../../core/contract/messages/block_content.dart';
 import '../../../../core/ui/ui.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../model/tool_receipts.dart';
-import '../tool_card_skins.dart';
 import '../../state/conversation_stream_provider.dart';
 import '../../state/stage_director_provider.dart';
 import 'stage_scene.dart';
@@ -56,11 +55,11 @@ class SubagentStageBody extends ConsumerWidget {
           const SizedBox(height: AnSpace.s6),
           AnInteractive(
             onTap: () => director.pin(blockId: blockId),
-            builder: (ctx, states) => Container(
-              decoration: BoxDecoration(
-                color: states.isActive ? c.surfaceHover : null,
-                borderRadius: BorderRadius.circular(AnRadius.button),
-              ),
+            // The window face is opaque — a behind-tint can never show through, so hover/keyboard
+            // focus draw the engaged ring AROUND the card (WCAG 2.4.7, 批1 复审). 窗面不透明透不出
+            // 背后着色 → hover/键盘焦点改画卡外激活环(批1 复审)。
+            builder: (ctx, states) => AnFocusRing(
+              active: states.isActive,
               child: _SubagentCard(node: peer, dense: true, showTerminal: false),
             ),
           ),
@@ -91,60 +90,58 @@ class _SubagentCard extends StatelessWidget {
     final trail = _trajectory(node);
     final tail = trail.length > tailCount ? trail.sublist(trail.length - tailCount) : trail;
     final current = node.lastDescendant;
+    final term = (live && showTerminal) ? _liveProgressTail(node) : '';
+    final showCurrent = live && current != null && !identical(current, node);
+    // A just-opened delegate has nothing to say yet — header-only window, no dead body gap (复审).
+    // 刚开播的分身无话可说——头独窗,不付死体距(复审)。
+    final hasBody = showCurrent || tail.isNotEmpty;
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AnSpace.s8),
-      decoration: BoxDecoration(
-        border: Border.all(color: c.line, width: AnSize.hairline),
-        borderRadius: BorderRadius.circular(AnRadius.button),
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-        Row(children: [
-          Icon(AnIcons.subagent, size: AnSize.iconSm, color: c.inkMuted),
-          const SizedBox(width: AnSpace.s4),
-          Expanded(
-            child: Text(desc,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AnText.label.weight(AnText.emphasisWeight).copyWith(color: c.ink)),
-          ),
-          if (!live) _settleMark(c),
-        ]),
-        if (live && current != null && !identical(current, node)) ...[
-          const SizedBox(height: AnSpace.s4),
+    final card = AnWindow(
+      header: Row(children: [
+        Icon(AnIcons.subagent, size: AnSize.iconSm, color: c.inkMuted),
+        const SizedBox(width: AnSpace.s4),
+        Expanded(
+          child: Text(desc,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AnText.label.weight(AnText.emphasisWeight).copyWith(color: c.ink)),
+        ),
+      ]),
+      actions: [if (!live) _settleMark(c)],
+      footer: live ? null : _settleLine(context, c, t),
+      child: !hasBody
+          ? null
+          : Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+        if (showCurrent) ...[
           AnShimmerText(_lineOf(context, current), style: AnText.meta.copyWith(color: c.inkMuted)),
+          if (tail.isNotEmpty) const SizedBox(height: AnSpace.s6),
         ],
-        // The inner terminal, live: when the delegate's current tool streams progress (Bash tee,
-        // env-fix log…), its tail rolls right here — the restrained take on «the page is the
-        // terminal's» (an inline bounded window, no takeover theatrics). 内层终端活窗:分身当前工具
-        // 流出 progress 时尾部就地滚动——「一整页是终端用的」的克制版(内联有界窗,不做接管戏)。
-        if (live && showTerminal) ...[
-          if (_liveProgressTail(node) case final String term when term.isNotEmpty) ...[
-            const SizedBox(height: AnSpace.s6),
-            AnTermTail(text: term),
-          ],
-        ],
-        if (tail.isNotEmpty) ...[
-          const SizedBox(height: AnSpace.s6),
-          for (final b in tail)
-            Padding(
-              padding: const EdgeInsets.only(bottom: AnSpace.s2),
-              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Icon(_glyphOf(b), size: AnSize.iconSm - 4, color: c.inkFaint),
-                const SizedBox(width: AnSpace.s4),
-                Expanded(
-                  child: Text(_lineOf(context, b),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AnText.meta.copyWith(color: c.inkFaint)),
-                ),
-              ]),
-            ),
-        ],
-        if (!live) _settleLine(context, c, t),
+        for (final b in tail)
+          Padding(
+            padding: const EdgeInsets.only(bottom: AnSpace.s2),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Icon(_glyphOf(b), size: AnSize.iconXs, color: c.inkFaint),
+              const SizedBox(width: AnSpace.s4),
+              Expanded(
+                child: Text(_lineOf(context, b),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AnText.meta.copyWith(color: c.inkFaint)),
+              ),
+            ]),
+          ),
       ]),
     );
+    if (term.trim().isEmpty) return card;
+    // The inner terminal, live: when the delegate's current tool streams progress (Bash tee,
+    // env-fix log…), its tail rolls right below the card — a SIBLING window (leaf law: AnLiveTail
+    // carries its own AnWindow shell, windows never nest). 内层终端:分身当前工具流出 progress 时
+    // 尾部在卡下就地滚动——同胞窗(叶子律:活尾自带窗壳,窗禁套窗)。
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+      card,
+      const SizedBox(height: AnSpace.s6),
+      AnLiveTail(term),
+    ]);
   }
 
   // The newest OPEN tool's streaming progress text (depth-first through message wrappers) — ''
@@ -219,15 +216,13 @@ class _SubagentCard extends StatelessWidget {
     final tin = tokens is Map ? (tokens['in'] ?? tokens['inputTokens']) : null;
     final tout = tokens is Map ? (tokens['out'] ?? tokens['outputTokens']) : null;
     final stop = node.content?['stopReason'] as String? ?? '';
-    return Padding(
-      padding: const EdgeInsets.only(top: AnSpace.s4),
-      child: Wrap(spacing: AnSpace.s8, crossAxisAlignment: WrapCrossAlignment.center, children: [
-        if (tin is int && tout is int)
-          Text(t.chat.stage.tokensInOut(tin: tin, tout: tout),
-              style: AnText.meta.copyWith(color: c.inkFaint)),
-        if (stop.isNotEmpty && stop != 'end_turn')
-          Text(t.chat.stage.stopReasonWord(r: stop), style: AnText.meta.copyWith(color: c.warn)),
-      ]),
-    );
+    // No outer Padding — the AnWindow footer slot brings its own s4 gap. footer 槽自带 s4 前距。
+    return Wrap(spacing: AnSpace.s8, crossAxisAlignment: WrapCrossAlignment.center, children: [
+      if (tin is int && tout is int)
+        Text(t.chat.stage.tokensInOut(tin: tin, tout: tout),
+            style: AnText.meta.copyWith(color: c.inkFaint)),
+      if (stop.isNotEmpty && stop != 'end_turn')
+        Text(t.chat.stage.stopReasonWord(r: stop), style: AnText.meta.copyWith(color: c.warn)),
+    ]);
   }
 }

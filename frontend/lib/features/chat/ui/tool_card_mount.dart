@@ -6,6 +6,7 @@ import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
 import '../../../core/ui/an_json_tree.dart';
+import '../../../core/ui/an_live_tail.dart';
 import '../../../i18n/strings.g.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
@@ -54,7 +55,7 @@ ToolCardSpec _mcpToolSpec(String toolName) {
   );
 }
 
-/// MCP tool body — LIVE: the progress stream as a rolling terminal tail (the server's only live
+/// MCP tool body — LIVE: the progress stream as a rolling mono tail (the server's only live
 /// signal; the result window is withheld — an empty mono shell mid-call says nothing, WRK-065).
 /// SETTLED: the progress record (if any) over the result — the server's RAW string (no JSON wrapper,
 /// unbounded size) in a capped mono window, NEVER rendered as markdown (opaque server output); an
@@ -64,9 +65,8 @@ Widget _mcpToolBody(BuildContext context, ToolCardState state) {
   final c = context.colors;
   final live = toolLive(state);
   if (live) {
-    return state.progressText.isEmpty
-        ? const SizedBox.shrink()
-        : ToolLiveTail(text: state.progressText, tailLines: 12);
+    // Empty-shell guard is built into the family head (whitespace-only renders nothing). 守卫内建。
+    return AnLiveTail(state.progressText, style: AnLiveTailStyle.mono, tailLines: 12);
   }
   final result = state.resultText;
   final isErr = _mcpErr.hasMatch(result);
@@ -95,7 +95,7 @@ ToolCardSpec _handlerToolSpec(String toolName) {
   );
 }
 
-/// Handler-method body — LIVE: the streamed yields as a rolling terminal tail (the result section is
+/// Handler-method body — LIVE: the streamed yields as a rolling mono tail (the result section is
 /// withheld — a labelled empty «结果» window mid-call would lie, WRK-065). SETTLED: the yields record
 /// + the result JSON `{result: <any>}`. handler 方法体:活=yield 滚动尾(结果段留落定——带标签的空窗
 /// =撒谎);落定=yield 记录 + {result}。
@@ -104,9 +104,7 @@ Widget _handlerToolBody(BuildContext context, ToolCardState state) {
   final t = Translations.of(context);
   final live = toolLive(state);
   if (live) {
-    return state.progressText.isEmpty
-        ? const SizedBox.shrink()
-        : ToolLiveTail(text: state.progressText, tailLines: 12);
+    return AnLiveTail(state.progressText, style: AnLiveTailStyle.mono, tailLines: 12);
   }
   Object? result;
   try {
