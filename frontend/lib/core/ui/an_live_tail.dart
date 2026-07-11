@@ -69,7 +69,8 @@ class AnLiveTail extends StatelessWidget {
             if (hasMore)
               Positioned(
                   top: 0, left: 0, right: 0, height: AnSpace.s16,
-                  child: AnEdgeFade(fromTop: true, color: c.surfaceSunken)),
+                  // Fade blends to the WHITE window face (灰底退役,拍板 #1). 渐隐融白窗面。
+                  child: AnEdgeFade(fromTop: true, color: c.surface)),
           ]),
         );
 

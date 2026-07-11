@@ -9,6 +9,7 @@ import '../design/tokens.dart';
 import '../design/typography.dart';
 import 'an_button.dart';
 import 'an_code_surface.dart';
+import 'an_term_viewport.dart';
 import 'icons.dart';
 import 'syntax_highlighter.dart';
 
@@ -55,7 +56,6 @@ class AnCodeEditor extends StatefulWidget {
     this.wrap = false,
     this.reading = false,
     this.live = false,
-    this.tailLines = 8,
     this.onChanged,
     this.onInput,
     this.copyPayload,
@@ -92,16 +92,16 @@ class AnCodeEditor extends StatefulWidget {
   /// 的代码;机器窗守默认 12。行号槽与代码区同切(共 token 保行对齐)。
   final bool reading;
 
-  /// LIVE face (WRK-066 族二「换脸不换壳」): the SAME frame/bar/copy chrome, but the body renders the
-  /// last [tailLines] lines as PLAIN mono (a re-highlight per streaming delta would burn the frame
-  /// budget) with no gutter (line numbers of a tail mislead). live→settled swaps the face only —
-  /// zero border/copy-position jump. Ignored when [inline] or [editable].
-  /// 活脸(族二「换脸不换壳」):同框同栏同 copy 位,体渲尾 [tailLines] 行纯等宽(逐 delta 重高亮烧帧)、
-  /// 无行号槽(尾巴的行号误导)。live→settled 只换脸,边框/copy 位零跳变。inline/editable 下忽略。
+  /// LIVE face (WRK-066 族二 · 2026-07-11 拍板): the SAME frame/bar/gutter/highlighting — FULL content
+  /// inside a bounded stick-to-bottom viewport ([AnStickViewport]: everything present, scrollable,
+  /// pinned to the newest line while streaming; a transcript row never owns an unbounded wall).
+  /// live→settled is a ZERO-jump swap: same shell, same highlight, same line numbers — the only
+  /// difference is the viewport un-pins. Streaming highlight cost is handled by per-line memoization
+  /// (C-track). Ignored when [inline] or [editable].
+  /// 活脸(族二 · 拍板):同框同栏同行号同高亮——**全量内容**装有界贴底视口(AnStickViewport:全在、可滚、
+  /// 流入期钉底跟最新行;transcript 行不背无界墙)。live→settled 零跳变(唯一区别=视口解除钉底)。流式
+  /// 高亮成本走逐行记忆化(C 轨)。inline/editable 下忽略。
   final bool live;
-
-  /// The live face's tail line count. 活脸尾行数。
-  final int tailLines;
 
   /// Commit callback (demo `an-change`) — fired on Save with the edited text. 保存提交。
   final ValueChanged<String>? onChanged;
@@ -256,25 +256,28 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
     return _framed(context);
   }
 
-  // ── live face: same chrome, plain mono tail, no gutter (WRK-066 族二) 活脸:同壳/纯 mono 尾/无行号 ──
+  // ── live face (拍板): FULL content + highlight + gutter in a bounded stick-to-bottom viewport —
+  // the SAME body as settled, pinned to the newest line. 活脸:全量+高亮+行号,有界贴底视口钉最新行。──
   Widget _framedLive(BuildContext context) {
     final c = context.colors;
-    final text = widget.code;
-    final lines = text.trimRight().split('\n');
-    final tail = lines.length > widget.tailLines ? lines.sublist(lines.length - widget.tailLines) : lines;
+    final lines = _lineCount;
+    final bodyRow = Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _gutter(c, lines),
+        Expanded(child: _area(context, c)),
+      ],
+    );
     return Semantics(
       container: true,
-      label: _a11yLabel(context, lines.length),
+      label: _a11yLabel(context, lines),
       child: AnCodeSurface(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _bar(context, c),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AnSpace.s12, vertical: AnSpace.s8),
-              child: Text(tail.join('\n'), style: _codeStyle(c)),
-            ),
+            AnStickViewport(child: bodyRow),
           ],
         ),
       ),

@@ -5,26 +5,22 @@ import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
 import 'an_fade_collapse.dart';
-import 'an_sunken_panel.dart';
 
-/// The WINDOW family head (WRK-066「同轨」族一) — the ONE container every machine product and every
-/// typeset artifact lives in. Two looks only: [AnWindowLook.sunken] (grey well — raw machine output:
-/// terminal, code tails, JSON, logs) and [AnWindowLook.card] (white bordered — finished typesetting:
-/// prose, letters, note cards, form previews). A left [header] slot (command echo / title), a right
-/// [actions] slot (chip-family copy etc.), an [AnSize]-tier [maxHeight] clamp, and an optional
-/// [collapsible] fade past the clamp. The window NEVER sniffs content — children compose
-/// AnCodeEditor / AnMarkdown / AnJsonTree / AnLiveTail inside it.
+/// The WINDOW family head (WRK-066「同轨」族一 · 2026-07-11 拍板修订) — the ONE content container, with
+/// ONE face: white surface + hairline border + card radius. The grey «sunken well» material is RETIRED
+/// app-wide (the user chat bubble is the only grey survivor — it's a bubble, not a window; interaction
+/// greys like hover/inputs are controls, not containers). A left [header] slot (command echo / title),
+/// a right [actions] slot (chip-family copy etc.), an [AnSize]-tier [maxHeight] clamp, an optional
+/// [collapsible] fade. Windows are LEAF containers: never nest a window in a window (double hairlines
+/// touching read as a defect) — and code/diff bring their own [AnCodeSurface] shell, never wrapped.
 ///
-/// 窗族当家件(「同轨」族一)——一切机器产物与成品排版的唯一容器。只有两张脸:sunken(灰凹面=机器原料:
-/// 终端/代码尾/JSON/日志)与 card(白底描边=成品排版:prose/信笺/便笺卡/表单预览)。左 header 槽(命令
-/// 回显/标题)、右 actions 槽(chip 族 copy 等)、AnSize 档 maxHeight 钳制、超高可 FadeCollapse。窗绝不
-/// 嗅探内容——内容由 AnCodeEditor/AnMarkdown/AnJsonTree/AnLiveTail 组合进来。
-enum AnWindowLook { sunken, card }
-
+/// 窗族当家件(「同轨」族一 · 拍板修订)——唯一内容容器,唯一的脸:白底+发丝边+card 圆角。灰凹面材质全 App
+/// 退役(用户消息泡是唯一灰底幸存者——它是气泡不是窗;hover/输入等交互灰是控件不是容器)。左 header 槽、
+/// 右 actions 槽、AnSize 档钳高、可折叠。**窗是叶子容器:窗内禁套窗**(双发丝边贴脸读作缺陷);代码/diff
+/// 自带 AnCodeSurface 壳,绝不再包窗。
 class AnWindow extends StatelessWidget {
   const AnWindow({
     required this.child,
-    this.look = AnWindowLook.sunken,
     this.header,
     this.actions = const [],
     this.maxHeight,
@@ -33,7 +29,6 @@ class AnWindow extends StatelessWidget {
   });
 
   final Widget child;
-  final AnWindowLook look;
 
   /// Left header slot (command echo / title line). 左头槽。
   final Widget? header;
@@ -54,7 +49,13 @@ class AnWindow extends StatelessWidget {
     final head = (header == null && actions.isEmpty)
         ? null
         : Row(children: [
-            if (header != null) Expanded(child: header!) else const Spacer(),
+            if (header != null)
+              Expanded(
+                child: DefaultTextStyle.merge(
+                    style: AnText.label.copyWith(color: c.inkFaint), child: header!),
+              )
+            else
+              const Spacer(),
             for (final a in actions)
               Padding(padding: const EdgeInsets.only(left: AnSpace.s4), child: a),
           ]);
@@ -67,7 +68,7 @@ class AnWindow extends StatelessWidget {
               collapsedHeight: maxHeight!,
               expandLabel: context.t.chat.tool.proseExpand,
               collapseLabel: context.t.chat.tool.proseCollapse,
-              fadeColor: look == AnWindowLook.sunken ? c.surfaceSunken : c.surface,
+              fadeColor: c.surface,
               child: child,
             )
           : ConstrainedBox(
@@ -76,11 +77,6 @@ class AnWindow extends StatelessWidget {
             );
     }
 
-    if (look == AnWindowLook.sunken) {
-      return SizedBox(width: double.infinity, child: AnSunkenPanel(header: head, child: body));
-    }
-    // card — the finished-typesetting face (white surface, hairline border, card radius/inset).
-    // card 脸:成品排版(白底/发丝边/card 圆角内距)。
     return Container(
       width: double.infinity,
       padding: AnInset.card,
@@ -92,7 +88,7 @@ class AnWindow extends StatelessWidget {
       child: head == null
           ? body
           : Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-              DefaultTextStyle.merge(style: AnText.label.copyWith(color: c.inkFaint), child: head),
+              head,
               const SizedBox(height: AnSpace.s6),
               body,
             ]),
