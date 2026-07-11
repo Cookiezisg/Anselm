@@ -125,6 +125,7 @@ abstract final class AnSize {
   static const double toastMaxWidth = 360; // toast single-row max width (demo --island-w) — a SEPARATE token from menuMaxWidth/stateMaxWidth (same 360 value, distinct semantic axis: a retune of one must not drag the others) toast 单条最大宽(语义独立,勿与菜单/状态列共号)
   static const double tagFieldMaxWidth = 360; // inline tag add-field cap — its own axis (same 360, NOT the menu axis) 标签就地输入宽上限(独立轴,勿与菜单共号)
   static const double jsonViewport = 240; // tool-card JSON-tree window height (then scrolls) tool 卡 JSON 树视口高(超则滚)
+  static const double codeViewport = 320; // live/settled bounded code viewport (transcript contexts) 代码有界视口(transcript 语境两脸同钳)
   static const double proseClamp = 144; // live prose tail bottom-pinned clamp ≈6 reading lines (WRK-066 族六) 活散文尾贴底钳高≈6 阅读行
   static const double inspectorMetaCol = 72; // right-island meta-row label column (Path/Size/Modified) 右岛元数据行标签列宽
 

@@ -30,7 +30,8 @@ class AnFieldSection extends StatelessWidget {
       _ => c.inkFaint,
     };
     return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-      Text(label, style: AnText.meta.copyWith(color: ink)),
+      // 13-tier label — the codex's「13 灰标签」(复审 #14: meta-12 drifted from the spec). 13 档标签。
+      Text(label, style: AnText.label.copyWith(color: ink)),
       const SizedBox(height: AnSpace.s4),
       child,
     ]);

@@ -650,6 +650,8 @@
     "cancel": "Cancel",
     "save": "Save",
     "copy": "Copy",
+    "expand": "Expand",
+    "collapse": "Collapse",
     "wrap": "Wrap",
     "delete": "Delete"
   },

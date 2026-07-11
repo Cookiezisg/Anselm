@@ -3,17 +3,17 @@ import 'package:flutter/widgets.dart';
 import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
+import 'an_expand_reveal.dart';
 import 'an_interactive.dart';
 
 /// The ROW family's LEDGER ROW head (WRK-066「同轨」族四) — the ONE run/hit/node line: a left [lead]
-/// (status dot / kind glyph — ALWAYS left, 文法 rule), a [primary] (mono id or text), trailing [chips]
-/// (chip family), a right-muted [meta] (time / elapsed / count), optional [onTap]. Converges the four
-/// hand-rolled layouts (RunLedger rows / FlowrunNodeList rows / web hits / tool-box cards) so every
-/// ledger in the app reads identically.
-///
-/// 行族「台账/命中行」当家件(「同轨」族四)——唯一的运行/命中/节点行:左 lead(状态点/kind 字形,**一律居左**,
-/// 文法定案)、primary(mono id 或文本)、尾随 chips(芯片族)、右灰 meta(时刻/耗时/计数)、可点。收敛四套
-/// 手搓排布(RunLedger 行/FlowrunNodeList 行/web 命中/工具箱卡),全 App 台账同一张脸。
+/// (status dot / kind glyph — ALWAYS left, 文法), a [primary] (mono id or text), trailing [chips]
+/// (chip family), a right-muted [meta] whose right edge lands on ONE vertical line across rows
+/// (右缘铁线, 拍板 #4), an optional [expandChild] disclosure body. Flex discipline (复审两案后立法):
+/// the LEFT CLUSTER is the row's only flex region — primary AND every chip are individually
+/// shrinkable, so a narrow host ellipsizes instead of overflowing, and the meta never moves off
+/// the right edge. 行族台账/命中行当家件:lead 恒左、meta 右缘铁线、expandChild 披露体。弹性纪律
+/// (两案后立法):左簇是唯一弹性区——primary 与每枚 chip 都可收缩,窄宿主裁切绝不溢出,meta 恒贴右缘。
 class AnLedgerRow extends StatelessWidget {
   const AnLedgerRow({
     required this.primary,
@@ -22,11 +22,12 @@ class AnLedgerRow extends StatelessWidget {
     this.meta,
     this.mono = true,
     this.onTap,
+    this.expandChild,
+    this.expanded = false,
     super.key,
   });
 
-  /// Left slot: status dot / kind glyph — always LEFT (the census found one-left-one-right drift).
-  /// 左槽:状态点/字形——一律居左(普查抓到过一左一右)。
+  /// Left slot: status dot / kind glyph — always LEFT. 左槽(状态点/字形,一律居左)。
   final Widget? lead;
 
   final String primary;
@@ -34,25 +35,28 @@ class AnLedgerRow extends StatelessWidget {
   /// Mono primary (ids); false = text primary (titles). 等宽主文(id);false=文本(标题)。
   final bool mono;
 
-  /// Trailing chip-family credentials. 尾随芯片族凭据。
+  /// Trailing chip-family credentials — each shrinkable (never overflow the row). 尾随芯片(可缩不溢)。
   final List<Widget> chips;
 
-  /// Right-aligned muted metadata (time / elapsed / ×N). 右灰元数据。
+  /// Right-aligned muted metadata (time / elapsed / ×N) — flush on the iron line. 右灰元数据(铁线)。
   final String? meta;
 
   final VoidCallback? onTap;
 
+  /// Disclosure body under the row (codex 族四 signature) — shown when [expanded]. 行下披露体。
+  final Widget? expandChild;
+  final bool expanded;
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    // ONE flex child only (the left cluster) so the right meta is ALWAYS flush to the row's right
-    // edge — a second flex (Flexible primary + Spacer) would split the slack and leave the meta
-    // ragged (右缘铁线, 拍板 #4: every row's meta right edge forms one vertical line).
-    // 单一弹性子(左簇)——两个 flex 平分空闲会让 meta 锯齿;右缘铁线:meta 恒贴行右缘成一条线。
     final row = ConstrainedBox(
       constraints: const BoxConstraints(minHeight: AnSize.row),
       child: Row(children: [
         if (lead != null) ...[lead!, const SizedBox(width: AnSpace.s6)],
+        // The ONE flex region. Inside it primary and every chip are individually Flexible (loose) —
+        // under width pressure each ellipsizes; rigid chips overflowed a 280px host (复审 HIGH #2).
+        // 唯一弹性区:primary 与每枚 chip 各自 Flexible(loose)——窄时各自裁切;刚性 chips 曾在 280 宿主溢出。
         Expanded(
           child: Row(children: [
             Flexible(
@@ -61,7 +65,10 @@ class AnLedgerRow extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: (mono ? AnText.mono : AnText.body).copyWith(color: c.inkMuted)),
             ),
-            for (final chip in chips) ...[const SizedBox(width: AnSpace.s6), chip],
+            for (final chip in chips) ...[
+              const SizedBox(width: AnSpace.s6),
+              Flexible(child: chip),
+            ],
           ]),
         ),
         if (meta != null) ...[
@@ -70,7 +77,13 @@ class AnLedgerRow extends StatelessWidget {
         ],
       ]),
     );
-    if (onTap == null) return row;
-    return AnInteractive(onTap: onTap, builder: (ctx, states) => row);
+    final tappable = onTap == null
+        ? row
+        : AnInteractive(onTap: onTap, expanded: expandChild != null ? expanded : null, builder: (ctx, states) => row);
+    if (expandChild == null) return tappable;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+      tappable,
+      AnExpandReveal(open: expanded, child: expandChild!),
+    ]);
   }
 }

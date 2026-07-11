@@ -6,6 +6,7 @@ import '../design/tokens.dart';
 import '../design/typography.dart';
 import '../model/status_state.dart';
 import 'an_badge.dart';
+import 'tone.dart';
 
 /// One stat in the ' · ' metadata chain. [tabular] = numeric (tabular figures); [tone] colours the
 /// text (env 三色 etc.). ' · ' 链中的一节;tabular=数字;tone 上色(env 三色等)。
@@ -14,6 +15,16 @@ class AnStat {
 
   final String text;
   final bool tabular;
+  final AnTone tone;
+}
+
+/// One note line under the bar. danger notes speak mono (error payloads); warn notes speak the
+/// 13 label voice (human heads-ups like restartNote) — the two existing voices (复审 #24/#33).
+/// 条下注记一行:danger=mono(错误载荷)、warn=13 label(人话提醒)——既有两种声音。
+class AnStatNote {
+  const AnStatNote(this.text, {this.tone = AnTone.danger});
+
+  final String text;
   final AnTone tone;
 }
 
@@ -32,8 +43,7 @@ class AnStatBar extends StatelessWidget {
     this.statusLabel,
     this.stats = const [],
     this.chips = const [],
-    this.note,
-    this.noteTone = AnTone.danger,
+    this.notes = const [],
     super.key,
   });
 
@@ -47,9 +57,9 @@ class AnStatBar extends StatelessWidget {
   final List<AnStat> stats;
   final List<Widget> chips;
 
-  /// A note line under the bar (env error / restart warning). 条下注记行。
-  final String? note;
-  final AnTone noteTone;
+  /// Note lines under the bar (env error / restart warning / runtime warning — RunStatBar carries
+  /// several at once, 复审 #33). 条下注记(可多条并存)。
+  final List<AnStatNote> notes;
 
   String _word(BuildContext context, AnStatus s) => switch (s) {
         AnStatus.idle => context.t.status.idle,
@@ -64,20 +74,12 @@ class AnStatBar extends StatelessWidget {
     final c = context.colors;
     final faint = AnText.meta.copyWith(color: c.inkFaint);
 
-    Color inkOf(AnTone tone) => switch (tone) {
-          AnTone.ok => c.ok,
-          AnTone.warn => c.warn,
-          AnTone.danger => c.danger,
-          AnTone.accent => c.accent,
-          AnTone.none => c.inkMuted,
-        };
-
     final spans = <InlineSpan>[];
     for (final s in stats) {
       if (spans.isNotEmpty) spans.add(TextSpan(text: ' · ', style: faint));
       spans.add(TextSpan(
         text: s.text,
-        style: (s.tabular ? AnText.metaTabular() : AnText.meta).copyWith(color: inkOf(s.tone)),
+        style: (s.tabular ? AnText.metaTabular() : AnText.meta).copyWith(color: s.tone.fg(c)),
       ));
     }
 
@@ -95,11 +97,13 @@ class AnStatBar extends StatelessWidget {
             ...chips,
           ],
         ),
-        if (note != null && note!.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: AnSpace.s4),
-            child: Text(note!, style: AnText.code.copyWith(color: inkOf(noteTone))),
-          ),
+        for (final n in notes)
+          if (n.text.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: AnSpace.s4),
+              child: Text(n.text,
+                  style: (n.tone == AnTone.warn ? AnText.label : AnText.code).copyWith(color: n.tone.fg(c))),
+            ),
       ]),
     );
   }

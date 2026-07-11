@@ -10,6 +10,7 @@ import '../design/typography.dart';
 import 'an_button.dart';
 import 'an_code_surface.dart';
 import 'an_term_viewport.dart';
+import 'an_tooltip.dart';
 import 'icons.dart';
 import 'syntax_highlighter.dart';
 
@@ -56,6 +57,7 @@ class AnCodeEditor extends StatefulWidget {
     this.wrap = false,
     this.reading = false,
     this.live = false,
+    this.maxHeight,
     this.onChanged,
     this.onInput,
     this.copyPayload,
@@ -102,6 +104,15 @@ class AnCodeEditor extends StatefulWidget {
   /// 流入期钉底跟最新行;transcript 行不背无界墙)。live→settled 零跳变(唯一区别=视口解除钉底)。流式
   /// 高亮成本走逐行记忆化(C 轨)。inline/editable 下忽略。
   final bool live;
+
+  /// Bounded viewport for BOTH faces (an [AnSize] tier, e.g. [AnSize.codeViewport]) — the zero-jump
+  /// contract (拍板 #2): a transcript consumer passes the SAME tier for live and settled, so the
+  /// settle only un-pins the viewport, never changes the height. null = content height when the
+  /// parent is unbounded (entity pages). live defaults to [AnSize.codeViewport] when null (a
+  /// transcript row never owns an unbounded wall).
+  /// 双脸同钳的有界视口(AnSize 档):transcript 消费方两脸传同档 → 落定只解除钉底、高度零跳变;
+  /// null=无界父下内容高(实体页)。live 期 null 时兜底 codeViewport(transcript 行不背无界墙)。
+  final double? maxHeight;
 
   /// Commit callback (demo `an-change`) — fired on Save with the edited text. 保存提交。
   final ValueChanged<String>? onChanged;
@@ -196,7 +207,9 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
 
   void _resetCopyAfterDelay() {
     _copyTimer?.cancel();
-    _copyTimer = Timer(const Duration(milliseconds: 1200), () {
+    // Bar isomorphism (复审 #38): the ✓ dwell is the ONE AnMotion tier, same as AnVersionDiff/AnChip.
+    // bar 同构:✓ 驻留走唯一 AnMotion 档,与 diff/chip 一致。
+    _copyTimer = Timer(AnMotion.dwell, () {
       if (mounted) {
         setState(() {
           _copied = false;
@@ -277,7 +290,11 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _bar(context, c),
-            AnStickViewport(child: bodyRow),
+            // White-face fades (拍板 #1 灰底退役) + the shared viewport tier. 白面渐隐+共享视口档。
+            AnStickViewport(
+                maxHeight: widget.maxHeight ?? AnSize.codeViewport,
+                fadeColor: c.surface,
+                child: bodyRow),
           ],
         ),
       ),
@@ -310,6 +327,9 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
   Widget _framed(BuildContext context) {
     final c = context.colors;
     final lines = _lineCount;
+    // The zero-jump clamp (拍板 #2): with a maxHeight tier the settled face keeps the SAME bounded
+    // window the live face had — the existing bounded-height branch below turns it into a fixed
+    // viewport with an inner scroll. 零跳变钳:传档时落定保留 live 同款有界窗(下方有界分支变内滚视口)。
     final bodyRow = Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -317,7 +337,7 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
         Expanded(child: _area(context, c)),
       ],
     );
-    return Semantics(
+    final framed = Semantics(
       container: true,
       label: _a11yLabel(context, lines),
       child: AnCodeSurface(
@@ -341,6 +361,10 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
         ),
       ),
     );
+    // Apply the zero-jump clamp: the bounded branch above then owns the scroll. 施钳,内滚接管。
+    return widget.maxHeight == null
+        ? framed
+        : ConstrainedBox(constraints: BoxConstraints(maxHeight: widget.maxHeight!), child: framed);
   }
 
   Widget _bar(BuildContext context, AnColors c) {
@@ -378,7 +402,8 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
   // A small icon action (copy / wrap / edit) — AnButton.iconOnly carries the a11y label + hover; a
   // Tooltip mirrors the demo's title. 小图标动作:复用 AnButton.iconOnly(带 a11y 标签 + hover)+ Tooltip。
   Widget _barIcon(IconData icon, String label, VoidCallback onTap) {
-    return Tooltip(
+    // AnTooltip, not Material Tooltip — bar isomorphism with AnVersionDiff (复审 #38). 同构用 AnTooltip。
+    return AnTooltip(
       message: label,
       child: AnButton.iconOnly(icon, size: AnButtonSize.sm, semanticLabel: label, onPressed: onTap),
     );

@@ -11,6 +11,7 @@ import '../design/typography.dart';
 import '../model/code_diff.dart';
 import 'an_button.dart';
 import 'an_code_surface.dart';
+import 'an_term_viewport.dart';
 import 'an_tooltip.dart';
 import 'icons.dart';
 import 'syntax_highlighter.dart';
@@ -45,7 +46,7 @@ class AnVersionDiff extends StatefulWidget {
     this.bare = false,
     this.reading = false,
     this.live = false,
-    this.liveTailLines = 6,
+    this.maxHeight,
     super.key,
   });
 
@@ -72,12 +73,18 @@ class AnVersionDiff extends StatefulWidget {
   /// 内容档行(13/1.6):实体版本 tab 的 diff;机器窗(Edit tool 卡)守 12。
   final bool reading;
 
-  /// LIVE two-act face (WRK-066 拍板): while args stream, render − [before] then + [after] as tinted
-  /// tail segments inside the SAME shell + bar. 活两幕脸(同壳同 bar)。
+  /// LIVE two-act face (WRK-066 拍板 · 统一向落定对齐): while args stream, the rows render EXACTLY like
+  /// the settled unified diff (same gutter/sign/code columns, row style, paddings, bar, scroll/wrap) —
+  /// only the ROW ORDER differs: all − [before] lines, then all + [after] lines (no LCS mid-stream —
+  /// diffing half-arrived text would lie). live→settled changes nothing but the interleaving.
+  /// 活两幕脸(拍板·统一向落定对齐):行渲染与落定 unified 完全同构(同行号/符号/代码三列、同行高内距、
+  /// 同 bar、同滚动/wrap),仅行序不同——先全部 −旧、再全部 +新(流中不做 LCS,半截文本上 diff 会撒谎)。
   final bool live;
 
-  /// Tail lines per act while live. 活期每幕尾行数。
-  final int liveTailLines;
+  /// Bounded viewport for BOTH faces (an [AnSize] tier) — the code family's zero-jump contract:
+  /// transcript consumers pass the SAME tier live+settled. live defaults to [AnSize.codeViewport]
+  /// (a transcript row never owns an unbounded wall — 复审 #6). 双脸同钳;live 兜底 codeViewport。
+  final double? maxHeight;
 
   @override
   State<AnVersionDiff> createState() => _AnVersionDiffState();
@@ -131,11 +138,12 @@ class _AnVersionDiffState extends State<AnVersionDiff> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    if (widget.live) return _liveFace(context, c);
     final syntax = context.syntax;
     final t = context.t;
 
     final (:rows, :added, :removed, :lastLn) = _assembleRows();
+    // Live empty guard (复审 #29): nothing streamed yet → no bar-only empty shell. 空流不渲空壳。
+    if (widget.live && rows.isEmpty) return const SizedBox.shrink();
 
     // Gutter width: a SINGLE fixed width for every row (per-row ConstrainedBox-floor would let rows with
     // different digit counts diverge and misalign the sign/code columns). Measured from the largest line
@@ -169,7 +177,7 @@ class _AnVersionDiffState extends State<AnVersionDiff> {
             },
           );
 
-    return Semantics(
+    final framed = Semantics(
       container: true,
       label: t.a11y.diff(added: added, removed: removed),
       child: AnCodeSurface(
@@ -181,8 +189,16 @@ class _AnVersionDiffState extends State<AnVersionDiff> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (!widget.bare) _bar(context, c, t, added, removed),
-                // Content-height when unbounded (parent scrolls); scroll the body when bounded. 无界=内容高;有界=纵滚。
-                if (constraints.maxHeight.isFinite)
+                // LIVE: the bounded stick-to-bottom viewport (the code family's one law — the newest
+                // + line stays visible while streaming, 复审 #6; white-face fades per 拍板 #1).
+                // SETTLED: content-height when unbounded, scroll when bounded.
+                // live=有界贴底视口(最新 + 行流入期恒可见;白面渐隐);settled=无界内容高/有界纵滚。
+                if (widget.live)
+                  AnStickViewport(
+                      maxHeight: widget.maxHeight ?? AnSize.codeViewport,
+                      fadeColor: c.surface,
+                      child: body)
+                else if (constraints.maxHeight.isFinite)
                   Flexible(child: SingleChildScrollView(child: body))
                 else
                   body,
@@ -197,73 +213,39 @@ class _AnVersionDiffState extends State<AnVersionDiff> {
         ),
       ),
     );
+    // The zero-jump clamp on the SETTLED face (live's stick viewport already bounds itself). 落定亦施钳。
+    return widget.maxHeight == null || widget.live
+        ? framed
+        : ConstrainedBox(constraints: BoxConstraints(maxHeight: widget.maxHeight!), child: framed);
   }
 
-  // ── the live two-act face: − old tail then + new tail, SAME shell + SAME bar. 活两幕(同壳同 bar)。──
-  Widget _liveFace(BuildContext context, AnColors c) {
-    final t = context.t;
-    List<String> tailOf(String? s) {
-      if (s == null || s.isEmpty) return const [];
-      final lines = s.split('\n');
-      return lines.length > widget.liveTailLines ? lines.sublist(lines.length - widget.liveTailLines) : lines;
-    }
-
-    Widget seg(List<String> lines, String sign, Color bg, Color ink) => ColoredBox(
-          color: bg,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AnSpace.s12, vertical: AnSpace.s4),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final line in lines)
-                  Text('$sign $line',
-                      maxLines: _wrap ? null : 1,
-                      overflow: _wrap ? null : TextOverflow.ellipsis,
-                      style: _rowStyle.copyWith(color: ink)),
-              ],
-            ),
-          ),
-        );
-
-    final old = tailOf(widget.before);
-    final neu = tailOf(widget.after);
-    if (old.isEmpty && neu.isEmpty) return const SizedBox.shrink();
-    // Live counts = the lines streamed so far per act (the settled LCS counts land on close). 活计数=已流行数。
-    final removed = widget.before == null || widget.before!.isEmpty ? 0 : '\n'.allMatches(widget.before!).length + 1;
-    final added = widget.after.isEmpty ? 0 : '\n'.allMatches(widget.after).length + 1;
-    return AnCodeSurface(
-      bare: widget.bare,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (!widget.bare) _bar(context, c, t, added, removed),
-          Padding(
-            padding: const EdgeInsets.only(top: AnSpace.s8, bottom: AnSpace.s8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (old.isNotEmpty) seg(old, '−', c.dangerSoft, c.danger),
-                if (old.isNotEmpty && neu.isNotEmpty) const SizedBox(height: AnSpace.s4),
-                if (neu.isNotEmpty) seg(neu, '+', c.okSoft, c.ok),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Assemble the diff rows + add/remove counts (no `before`, or empty → all-context first render). Kept out
-  // of build() so build reads as pure layout. 装配 diff 行 + 增删计数;移出 build 使其纯布局。
+  // Assemble the diff rows + add/remove counts. SETTLED = line-by-line LCS ([lineDiff]). LIVE = the
+  // two-act order — every − [before] line then every + [after] line, NO LCS (diffing half-arrived
+  // text lies); the rows then flow through the ONE render path, so live and settled share every
+  // metric. Kept out of build() so build reads as pure layout.
+  // 装配 diff 行+增删计数。落定=逐行 LCS;live=两幕序(先全部 −旧再全部 +新,不做 LCS——半截文本 diff
+  // 会撒谎),行走同一条渲染路径,live/落定全度量共享。移出 build 使其纯布局。
   ({List<_DiffRow> rows, int added, int removed, int lastLn}) _assembleRows() {
     final rows = <_DiffRow>[];
     var added = 0;
     var removed = 0;
     var ln = 0;
     final b = widget.before;
+    if (widget.live) {
+      if (b != null && b.isNotEmpty) {
+        for (final line in b.split('\n')) {
+          removed++;
+          rows.add(_DiffRow(DiffOp.del, null, line));
+        }
+      }
+      if (widget.after.isNotEmpty) {
+        for (final line in widget.after.split('\n')) {
+          added++;
+          rows.add(_DiffRow(DiffOp.add, ++ln, line));
+        }
+      }
+      return (rows: rows, added: added, removed: removed, lastLn: ln);
+    }
     if (b == null || b.isEmpty) {
       for (final line in widget.after.split('\n')) {
         rows.add(_DiffRow(DiffOp.context, ++ln, line));
@@ -318,12 +300,16 @@ class _AnVersionDiffState extends State<AnVersionDiff> {
           else
             const Spacer(),
           if (added > 0 || removed > 0)
-            Text.rich(
-              TextSpan(children: [
-                TextSpan(text: '+$added', style: AnText.value(mono: true).copyWith(color: c.ok)),
-                const TextSpan(text: ' '),
-                TextSpan(text: '−$removed', style: AnText.value(mono: true).copyWith(color: c.danger)),
-              ]),
+            // The container a11y label already speaks the counts — don't read them twice (复审 #49).
+            // 容器 a11y 已念计数,不念两遍。
+            ExcludeSemantics(
+              child: Text.rich(
+                TextSpan(children: [
+                  TextSpan(text: '+$added', style: AnText.value(mono: true).copyWith(color: c.ok)),
+                  const TextSpan(text: ' '),
+                  TextSpan(text: '−$removed', style: AnText.value(mono: true).copyWith(color: c.danger)),
+                ]),
+              ),
             ),
         ],
       ),

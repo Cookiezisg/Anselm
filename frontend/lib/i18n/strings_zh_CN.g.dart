@@ -149,6 +149,8 @@ class _Translations$action$zh_CN extends Translations$action$en {
 	@override String get cancel => '取消';
 	@override String get save => '保存';
 	@override String get copy => '复制';
+	@override String get expand => '展开';
+	@override String get collapse => '收起';
 	@override String get wrap => '自动换行';
 	@override String get delete => '删除';
 }
@@ -2722,6 +2724,8 @@ extension on TranslationsZhCn {
 			'action.cancel' => '取消',
 			'action.save' => '保存',
 			'action.copy' => '复制',
+			'action.expand' => '展开',
+			'action.collapse' => '收起',
 			'action.wrap' => '自动换行',
 			'action.delete' => '删除',
 			'feedback.info' => '提示',
@@ -3120,10 +3124,10 @@ extension on TranslationsZhCn {
 			'documents.deleteSkillTitle' => '删除这个技能?',
 			'documents.deleteSkillBody' => ({required Object name}) => '技能“${name}”会被删除。',
 			'documents.actionFailed' => '操作失败',
-			'documents.props.title' => '属性',
-			'documents.props.name' => '名称',
 			_ => null,
 		} ?? switch (path) {
+			'documents.props.title' => '属性',
+			'documents.props.name' => '名称',
 			'documents.props.description' => '描述',
 			'documents.props.tags' => '标签',
 			'documents.props.addTag' => '添加标签',

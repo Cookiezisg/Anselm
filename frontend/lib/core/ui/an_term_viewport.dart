@@ -22,7 +22,7 @@ import 'term_fold.dart';
 /// 短内容全显无滚动。AnTermViewport 与嵌套 transcript 帧复用。reduced:回到最新跳底。
 /// [fill](WRK-061 W0):不限高、撑满父高(右岛整页终端);父须给有界高,此时 [maxHeight] 失效。
 class AnStickViewport extends StatefulWidget {
-  const AnStickViewport({required this.child, this.maxHeight = 320, this.fill = false, this.header, super.key});
+  const AnStickViewport({required this.child, this.maxHeight = 320, this.fill = false, this.header, this.fadeColor, super.key});
 
   /// The scrollable content (usually a Column of lines). 可滚内容。
   final Widget child;
@@ -33,6 +33,11 @@ class AnStickViewport extends StatefulWidget {
 
   /// An optional pinned header row above the scroll region (e.g. copy actions). 可选钉头行。
   final Widget? header;
+
+  /// The edge-fade blend colour — MUST match the hosting surface (AnEdgeFade's contract). Default =
+  /// the terminal well grey; a white host (AnCodeSurface live faces, WRK-066 拍板 #1) passes
+  /// `c.surface`. 渐隐融色——须配宿主底色;默认终端灰井,白宿主(live 代码脸)传 c.surface。
+  final Color? fadeColor;
 
   @override
   State<AnStickViewport> createState() => _AnStickViewportState();
@@ -101,9 +106,9 @@ class _AnStickViewportState extends State<AnStickViewport> {
           child: SingleChildScrollView(controller: _scroll, child: widget.child),
         ),
         if (_above)
-          Positioned(top: 0, left: 0, right: 0, height: AnSpace.s16, child: AnEdgeFade(fromTop: true, color: c.surfaceSunken)),
+          Positioned(top: 0, left: 0, right: 0, height: AnSpace.s16, child: AnEdgeFade(fromTop: true, color: widget.fadeColor ?? c.surfaceSunken)),
         if (_below) ...[
-          Positioned(bottom: 0, left: 0, right: 0, height: AnSpace.s16, child: AnEdgeFade(fromTop: false, color: c.surfaceSunken)),
+          Positioned(bottom: 0, left: 0, right: 0, height: AnSpace.s16, child: AnEdgeFade(fromTop: false, color: widget.fadeColor ?? c.surfaceSunken)),
           Positioned(bottom: AnSpace.s4, right: AnSpace.s4, child: _backToLatest(context)),
         ],
       ],

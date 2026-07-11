@@ -274,6 +274,12 @@ class Translations$action$en {
 	/// en: 'Copy'
 	String get copy => 'Copy';
 
+	/// en: 'Expand'
+	String get expand => 'Expand';
+
+	/// en: 'Collapse'
+	String get collapse => 'Collapse';
+
 	/// en: 'Wrap'
 	String get wrap => 'Wrap';
 
@@ -5494,6 +5500,8 @@ extension on Translations {
 			'action.cancel' => 'Cancel',
 			'action.save' => 'Save',
 			'action.copy' => 'Copy',
+			'action.expand' => 'Expand',
+			'action.collapse' => 'Collapse',
 			'action.wrap' => 'Wrap',
 			'action.delete' => 'Delete',
 			'feedback.info' => 'Info',
@@ -5892,10 +5900,10 @@ extension on Translations {
 			'documents.deleteSkillTitle' => 'Delete this skill?',
 			'documents.deleteSkillBody' => ({required Object name}) => 'The “${name}” skill will be removed.',
 			'documents.actionFailed' => 'Action failed',
-			'documents.props.title' => 'Properties',
-			'documents.props.name' => 'Name',
 			_ => null,
 		} ?? switch (path) {
+			'documents.props.title' => 'Properties',
+			'documents.props.name' => 'Name',
 			'documents.props.description' => 'Description',
 			'documents.props.tags' => 'Tags',
 			'documents.props.addTag' => 'Add a tag',

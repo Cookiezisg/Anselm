@@ -16,6 +16,9 @@ final _term = '$_esc[32m✓$_esc[0m compiled 42 modules\n'
     'linking…\n[=========>     ] 63%';
 const _code = 'def sync_inventory():\n    for attempt in range(3):\n        try:\n'
     '            return _pull_and_merge()\n        except SyncError:\n            time.sleep(2 ** attempt)';
+// Long enough to overflow the codeViewport — the live pin-to-bottom must be VISIBLE in the frame.
+// 超视口长码:live 贴底在帧里物理可见。
+final _longCode = [for (var i = 1; i <= 40; i++) i == 40 ? 'return merged  # newest line 最新行' : 'step_$i = transform(step_${i - 1})'].join('\n');
 const _prose = '归因先行:issue_date 未做时区归一,跨年边界上 Q4 与次年 Q1 混桶。'
     '修法是先归一到本位时区,再按季度聚合;顺手把展示层的季度徽标改读聚合结果。';
 
@@ -47,9 +50,10 @@ final tongguiCodexCategory = GalleryCategory('同轨法典', AnIcons.entities, [
     'AnCodeEditor.live(拍板):全量+高亮+行号,有界贴底视口;AnVersionDiff:bar 与编辑器同构(copy+wrap 左,+N −N 右),live 两幕同壳同 bar。',
     [
       GallerySpecimen('AnCodeEditor 落定脸(高亮+行号)', (c) => AnCodeEditor(code: _code, lang: 'python', reading: true), span: true),
-      GallerySpecimen('AnCodeEditor live 脸(全量+高亮+行号,贴底视口)', (c) => AnCodeEditor(code: _code, lang: 'python', live: true), span: true),
-      GallerySpecimen('AnVersionDiff live 两幕(−切什么 → +换什么)', (c) => const AnVersionDiff(
+      GallerySpecimen('AnCodeEditor live 脸(全量+高亮+行号,超视口贴底跟最新行)', (c) => AnCodeEditor(code: _longCode, lang: 'python', live: true), span: true),
+      GallerySpecimen('AnVersionDiff live 两幕(与落定同行结构,仅行序不同)', (c) => const AnVersionDiff(
             live: true,
+            lang: 'python',
             before: 'return _pull_and_merge()',
             after: 'for attempt in range(3):\n    try:\n        return _pull_and_merge()',
           ), span: true),
@@ -115,7 +119,7 @@ final tongguiCodexCategory = GalleryCategory('同轨法典', AnIcons.entities, [
       GallerySpecimen('失败+红注记行', (c) => const AnStatBar(
             status: AnStatus.err,
             stats: [AnStat('3 步', tabular: true), AnStat('↑1840 ↓620', tabular: true)],
-            note: 'ModuleNotFoundError: no module named requests',
+            notes: [AnStatNote('ModuleNotFoundError: no module named requests')],
           ), span: true),
       GallerySpecimen('域词覆盖(timeout 声调仍单源)', (c) => const AnStatBar(
             status: AnStatus.err, statusLabel: '超时',

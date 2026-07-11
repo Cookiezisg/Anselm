@@ -1,5 +1,4 @@
 import 'package:anselm/core/design/theme.dart';
-import 'package:anselm/core/model/status_state.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';

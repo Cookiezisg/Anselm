@@ -78,17 +78,31 @@ class AnLiveTail extends StatelessWidget {
         final lines = text.trimRight().split('\n');
         final tail = lines.length > tailLines ? lines.sublist(lines.length - tailLines) : lines;
         return AnWindow(
-          child: Text(tail.join('\n'), style: AnText.code.copyWith(color: c.inkMuted)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // One visual line per logical line — the term face's metric contract (复审 #23: a
+              // wrapping long line must not blow the tailLines height). 与 term 同契约:行不折、超长裁。
+              for (final line in tail)
+                Text(line, maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.code.copyWith(color: c.inkMuted)),
+            ],
+          ),
         );
 
       case AnLiveTailStyle.prose:
+        // Bottom-pinned clamp done RIGHT (复审 HIGH #1): a reverse non-interactive scroll view gives
+        // the text UNBOUNDED height and shows its BOTTOM. Align(bottomLeft) under a maxHeight clamp
+        // clamps the paragraph ITSELF and freezes the HEAD — the exact opposite of a live tail.
+        // Same idiom as document_stage's prose tail. 贴底钳正确惯用式:reverse 只读滚动给子树无界高、
+        // 视口示底;Align 会把段落本身钳住冻结开头(与活尾背道而驰)。
         return AnWindow(
           child: ConstrainedBox(
             constraints: BoxConstraints(maxHeight: maxHeight ?? AnSize.proseClamp),
             child: ClipRect(
-              child: Align(
-                alignment: Alignment.bottomLeft,
-                heightFactor: 1, // shrink-wrap below the clamp 低于钳即贴内容高
+              child: SingleChildScrollView(
+                reverse: true,
+                physics: const NeverScrollableScrollPhysics(),
                 child: Text(text, style: AnText.reading.copyWith(color: c.inkMuted)),
               ),
             ),
