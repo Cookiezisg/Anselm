@@ -33,7 +33,7 @@ audience: [human, ai]
 
 ## §1 项目全貌(本节文字比重 ≈ 各项工作量)
 
-**P4 批量迁移是这场仗的主体,约四成体量。** 全 App 每一处手搓视觉点——初步估计横跨 chat 二十多个工具卡族体文件、侧幕十二个 kind 舞台、entities 详情页与编辑器、documents 右岛、settings 十三个面板、notifications 托盘、shell 与 gallery 自身——逐个替换成当家原语。每一批都是完整闭环:机械替换 → 全新上下文对抗复审 → 真机 3–5 帧截图 → 台账与棘轮基线同提交递减;被吃掉的旧原语(三条结果条、两个活尾、四种描边容器、各私有 chip/行/窗)**物理删除**,死码清零。这一相位的风险也最典型:批次多、后半程质量易衰减——所以它是 harness 六层火力最集中的地方,基线不到 0 不算完,第二轮全新普查还要回来对账。
+**P4 批量迁移是这场仗的主体,约四成体量。** 全 App 每一处手搓视觉点——初步估计横跨 chat 二十多个工具卡族体文件、侧幕十二个 kind 舞台、entities 详情页与编辑器、documents 右岛、settings 十三个面板、notifications 托盘、shell 与 gallery 自身——逐个替换成当家原语。每一批都是完整闭环:机械替换 → 全新上下文对抗复审 → 真机 3–5 帧截图 → 台账与棘轮基线同提交递减、**覆盖分母状态同提交推进**(§3.3b);被吃掉的旧原语(三条结果条、两个活尾、四种描边容器、各私有 chip/行/窗)**物理删除**,死码清零。批次之外还有**全量扫尾批**:451 个文件的分母台账里从未被任何族批碰到的文件(P1 只点名了 114 个——发现驱动不等于全覆盖)逐个过审,视觉承载文件按六族+文法全查、state/data 层按轻表查(i18n/魔数/死码),每文件终局 converged / reviewed-clean / 用户签字 exempt 三者其一。这一相位的风险也最典型:批次多、后半程质量易衰减——所以它是 harness 火力最集中的地方,基线不到 0、分母 pending 不清零都不算完,第二轮全新普查还要回来对账。
 
 **P3 地基改造与 C 性能轨各占约一成五。** P3 把六族当家件真正喂饱:窗壳长出 header/actions/tone 槽与 term/code/prose/json/diff 内容模式;AnCodeEditor 长出 live 形态(同壳同框同 copy 位,流动 mono 尾、落定高亮,换脸不换壳);chip 族收拢 tone/icon/mono/copy/nav 热插拔;AnKv 吃下全部标签-值排布;结果条三合一;活尾二合一——全部 gallery 先行、全 variant 展示页齐活。C 轨**不等任何人给靶子、全覆盖自驱**:先建 trace 采集基建(release 模式脚本化跑主场景),给**全部主面**定帧预算——长对话流式、transcript 滚动、海洋切换、documents 打字、entities 图渲染、右岛手风琴、冷启动——已知嫌疑人(收起卡体每帧陪跑构建、族体每帧全量 jsonDecode、常驻 timer/shimmer 群)测量定罪后修,预算测试常驻 fe-verify;此外 P4 每一批迁移**顺手清掉所在文件的性能违规**(反正正在动它)。
 
@@ -43,7 +43,7 @@ audience: [human, ai]
 
 **D demo 全展示约百分之七。** 可达性矩阵(每 feature × 关键状态 → demo 怎么到达)、补 fixture 种子(entities 的 trigger/control/approval/flowrun 面、documents 编辑器各状态、settings 面板数据、notifications 托盘各状态、右岛各 kind 舞台稳定入口),矩阵测试收口;守住「不加 per-feature 入口」规范,随时可插批。
 
-**P6 收口约百分之五。** 第二轮全新普查对空账(抓第一轮盲区)、design-system.md 整体重述、landed-into、归档。
+**P6 收口约百分之五。** 第二轮全新普查对空账(抓第一轮盲区)、覆盖分母 451/451 终局核验、design-system.md 整体重述、landed-into、归档。
 
 ## §2 已拍板决策(2026-07-11 用户)
 
@@ -84,18 +84,35 @@ audience: [human, ai]
 - **进度 = 基线总计数单调递减,完成 = 基线为空**。任何人任何时刻 `wc -l` 可查,不依赖 AI 汇报。
 - 先例:`type_scale_guard_test` 已证明此模式能长期守住(字重纪律)。
 
+### 3.3b 覆盖分母台账(「全部都看过」的证据轴)
+
+棘轮只证明**找到的债在收缩**;它证明不了**每个文件都被看过**(P1 普查点名 114/451 文件——发现驱动
+≠ 全覆盖,这正是重测战役 COVERAGE.md 的教训)。补分母轴:
+
+- **位置**:`frontend/test/guards/convergence_coverage.txt`(入库)+ `convergence_coverage_guard_test.dart`。
+- **格式**:全部非生成 `lib/**.dart` 逐文件一行 `path<TAB>status`;status ∈ `pending`(未审)/
+  `ledgered`(普查在案,随 P4 批走)/ `reviewed`(已对抗复审、findings 已修,但尚未完全落当家件)/
+  `converged`(终态:已审**且**完全同轨)/ `exempt`(用户签字豁免,AI 无权自判)。
+- **guard 规则**:与真实文件树**集合相等**——新文件必登记(`UPDATE_COVERAGE=1` 以 pending 加入)、
+  删文件必销账;`UPDATE_COVERAGE` **绝不改既有状态**,状态推进=手改、每次都在 commit diff 里可审。
+- **审查深度分层**:视觉承载文件(features/ui·core/ui·design·editor·app·gallery,约 272)按六族+文法
+  全查;state/data/契约层按轻表查(i18n 硬编码/魔数/死码)——分母都进,checklist 不同。
+- **进度 = `grep -c pending` 单调递减;完成 = pending 与 ledgered 双清零**(每文件终局:converged /
+  reviewed-clean / exempt 三者其一)。P4 每批迁移完的文件同提交推状态;从未被任何批碰到的文件由
+  **全量扫尾批**(P4 尾段)逐个清。
+
 ### 3.4 四轨完成判据(机器可判定)
 
 | 轨 | 完成 = | 判定者 |
 |---|---|---|
-| A 视觉收敛 | 手搓类基线 = 0 **且** 被吃掉的旧原语物理删除(死码清零) | guard 测试 + 死码扫描 |
+| A 视觉收敛 | 手搓类基线 = 0 **且** 被吃掉的旧原语物理删除(死码清零) **且** 覆盖台账 pending/ledgered 双清零(§3.3b) | guard 测试 + 死码扫描 + coverage guard |
 | B 规范科学化 | token/文法类基线 = 0 **且** 文法入 `design-system.md` 与代码逐字同步 | guard + `make docs` |
 | C 性能 | 主面场景套件(流式/滚动/切海洋/编辑器打字/图渲染/手风琴/冷启动)release trace 全部达预算 **且** 预算测试常驻 fe-verify **且** 嫌疑人台账清零(测量定罪或测量赦免) | 预算测试 |
 | D demo 全展示 | 可达性矩阵测试绿(每 feature × 关键状态在 demo fixture 可达) | 矩阵测试(仿 `chat_showcase_fixture_test` 先例) |
 
 ### 3.5 /goal 判据(供设 goal 用)
 
-`A/B 基线为空 ∧ C 预算测试绿(主面场景套件全覆盖) ∧ D 矩阵测试绿 ∧ §6 台账无 open 条目 ∧ §7 之外无未记录跳过`
+`A/B 基线为空 ∧ 覆盖分母 pending·ledgered 双清零(§3.3b) ∧ C 预算测试绿(主面场景套件全覆盖) ∧ D 矩阵测试绿 ∧ §6 台账无 open 条目 ∧ §7 之外无未记录跳过`
 
 ## §4 四轨 scope
 
@@ -136,7 +153,7 @@ audience: [human, ai]
 | **P1 四轨一把普查** | workflow 大扇出读全码,**一次出四份**:①手搓点全量台账 ②token/文法违规台账 ③性能嫌疑人清单(标注:仅嫌疑,测量定罪) ④demo 可达性矩阵缺口表;全部对抗核实;**棘轮 guard + 基线 v0 同批上线**(冻结现状) | 台账落 §6;guard 红绿可跑;fe-verify 绿 |
 | **P2 法典** | 六族当家件 API 设计 + 版式文法成文;gallery mockup 逐族 | **🙋 用户逐族拍板**后冻结 |
 | **P3 地基改造** | 当家原语长出 variant/slot(gallery 先行),旧件标记 deprecated | gallery 全 variant 展示;fe-verify 绿 |
-| **P4 批量迁移** | 按族逐批机械替换;每批=建 → 对抗复审 → 真机 3–5 帧 → 台账/基线降(同提交);**顺手清所在文件性能违规**;死件物理删除 | **基线到 0**;死码零 |
+| **P4 批量迁移** | 按族逐批机械替换;每批=建 → 对抗复审 → 真机 3–5 帧 → 台账/基线降+**覆盖状态推进**(同提交);**顺手清所在文件性能违规**;死件物理删除;尾段**全量扫尾批**清分母 pending | **基线到 0**;死码零;**coverage pending·ledgered 双清零** |
 | **P5 性能轨** | 与 P2–P4 并行,按 §4-C 方法论推进(全覆盖场景套件) | 预算测试绿;嫌疑人台账清零 |
 | **P6 收口** | **第二轮全新普查对空账**(抓第一轮盲区)→ design-system.md 整体重述 → landed-into → 归档 | `make docs` 绿;/goal 判据全满足 |
 
