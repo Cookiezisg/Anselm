@@ -19,7 +19,7 @@ const _code = 'def sync_inventory():\n    for attempt in range(3):\n        try:
 const _prose = '归因先行:issue_date 未做时区归一,跨年边界上 Q4 与次年 Q1 混桶。'
     '修法是先归一到本位时区,再按季度聚合;顺手把展示层的季度徽标改读聚合结果。';
 
-final tongguiCodexCategory = GalleryCategory('同轨法典(草案)', AnIcons.entities, [
+final tongguiCodexCategory = GalleryCategory('同轨法典', AnIcons.entities, [
   GalleryItem(
     '族一 · AnWindow 窗',
     '唯一容器唯一脸:白底+发丝边(拍板:灰底材质全废,用户泡例外);header/actions 槽 + AnSize 档钳高 + 可折叠;窗禁套窗。',

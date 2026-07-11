@@ -45,19 +45,26 @@ class AnLedgerRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    // ONE flex child only (the left cluster) so the right meta is ALWAYS flush to the row's right
+    // edge — a second flex (Flexible primary + Spacer) would split the slack and leave the meta
+    // ragged (右缘铁线, 拍板 #4: every row's meta right edge forms one vertical line).
+    // 单一弹性子(左簇)——两个 flex 平分空闲会让 meta 锯齿;右缘铁线:meta 恒贴行右缘成一条线。
     final row = ConstrainedBox(
       constraints: const BoxConstraints(minHeight: AnSize.row),
       child: Row(children: [
         if (lead != null) ...[lead!, const SizedBox(width: AnSpace.s6)],
-        Flexible(
-          child: Text(primary,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: (mono ? AnText.mono : AnText.body).copyWith(color: c.inkMuted)),
+        Expanded(
+          child: Row(children: [
+            Flexible(
+              child: Text(primary,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: (mono ? AnText.mono : AnText.body).copyWith(color: c.inkMuted)),
+            ),
+            for (final chip in chips) ...[const SizedBox(width: AnSpace.s6), chip],
+          ]),
         ),
-        for (final chip in chips) ...[const SizedBox(width: AnSpace.s6), chip],
         if (meta != null) ...[
-          const Spacer(),
           const SizedBox(width: AnSpace.s8),
           Text(meta!, style: AnText.metaTabular().copyWith(color: c.inkFaint)),
         ],
