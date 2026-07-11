@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../core/contract/entities/function.dart';
 import '../../../../../core/design/tokens.dart';
-import '../../../../../core/design/typography.dart';
 import '../../../../../core/ui/an_callout.dart';
 import '../../../../../core/ui/an_code_editor.dart';
 import '../../../../../core/ui/an_fade_collapse.dart';
@@ -32,11 +31,6 @@ class FunctionOverview extends ConsumerWidget {
 
   /// Code longer than this many lines gets a fade-collapse (the single threshold source). 超此行数收合(阈值单源)。
   static const int _maxCollapsedLines = 50;
-
-  /// [_maxCollapsedLines] code lines at the code style's line box (from the token, not re-typed numbers),
-  /// plus the editor's bar+padding chrome — the collapsed height. 收合高度=行数×代码样式行盒 + 编辑器 chrome。
-  static final double _collapsedCodeHeight =
-      _maxCollapsedLines * AnText.codeReading.fontSize! * AnText.codeReading.height! + AnCodeEditor.chromeHeight; // lockstep with the reading rung below 与下方 reading 档同步
 
   Future<void> _patchMeta(WidgetRef ref, Map<String, dynamic> patch) async {
     await ref.read(entityRepositoryProvider).patchFunctionMeta(fn.id, patch);
@@ -74,7 +68,9 @@ class FunctionOverview extends ConsumerWidget {
         AnSection(label: d.sec.code, variant: AnSectionVariant.plain, children: [
           AnFadeCollapse(
             collapsible: codeLines > _maxCollapsedLines,
-            collapsedHeight: _collapsedCodeHeight,
+            // Geometry from the family head (B-002); `reading` matches the child editor below.
+            // 几何归族头(B-002);reading 与下方子件同档。
+            collapsedHeight: AnCodeEditor.collapsedHeightFor(_maxCollapsedLines, reading: true),
             expandLabel: d.codeToggle.expand(n: codeLines),
             collapseLabel: d.codeToggle.collapse,
             child: AnCodeEditor(code: v.code, lang: 'py', wrap: true, reading: true),

@@ -87,9 +87,10 @@ void main() {
     expect(find.text('send'), findsOneWidget); // spine 1 书脊一
     expect(find.text('~'), findsOneWidget); // streaming wave 波浪
     expect(find.textContaining('⏱ 30'), findsOneWidget);
-    expect(find.text('    push()'), findsOneWidget); // method 1's CLOSED body 一号方法已闭 body
-    // Method 2's body is still streaming: its whole line is unreleased and NOT bleeding into spine 1.
-    // 二号 body 仍在流:未完行按住,且绝不串进一号书脊。
+    expect(find.textContaining('push()'), findsOneWidget); // method 1's CLOSED body 一号方法已闭 body
+    // Method 2's body is still streaming and its op hasn't closed: the in-flight body only renders
+    // while NO method has closed (the rack guard), so nothing bleeds into spine 1. 批2:二号 body
+    // 仍在流且 op 未闭——在途 body 仅在无已闭方法时渲(架守卫),绝不串进一号书脊。
     expect(find.textContaining('fl'), findsNothing);
 
     const finalArgs =

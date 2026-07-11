@@ -152,7 +152,6 @@ lib/core/ui/an_json_tree.dart	pending
 lib/core/ui/an_layer_diff.dart	pending
 lib/core/ui/an_lead_value.dart	ledgered
 lib/core/ui/an_ledger_row.dart	reviewed
-lib/core/ui/an_live_code_window.dart	ledgered
 lib/core/ui/an_live_tail.dart	reviewed
 lib/core/ui/an_markdown.dart	ledgered
 lib/core/ui/an_mention_picker.dart	pending
@@ -389,7 +388,7 @@ lib/features/entities/ui/detail/ocean_header.dart	pending
 lib/features/entities/ui/detail/overview/agent_overview.dart	pending
 lib/features/entities/ui/detail/overview/approval_overview.dart	pending
 lib/features/entities/ui/detail/overview/control_overview.dart	ledgered
-lib/features/entities/ui/detail/overview/function_overview.dart	ledgered
+lib/features/entities/ui/detail/overview/function_overview.dart	converged
 lib/features/entities/ui/detail/overview/handler_overview.dart	ledgered
 lib/features/entities/ui/detail/overview/trigger_overview.dart	pending
 lib/features/entities/ui/detail/overview/workflow_overview.dart	pending

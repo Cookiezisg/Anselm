@@ -41,7 +41,6 @@ export 'an_follow_pill.dart';
 export 'an_freshness_halo.dart';
 export 'an_honesty_ribbon.dart';
 export 'an_layer_diff.dart';
-export 'an_live_code_window.dart';
 export 'an_minimap_spine.dart';
 export 'an_floating_bar.dart';
 export 'an_form_field.dart';

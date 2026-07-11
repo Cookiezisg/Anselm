@@ -127,6 +127,7 @@ abstract final class AnSize {
   static const double tagFieldMaxWidth = 360; // inline tag add-field cap — its own axis (same 360, NOT the menu axis) 标签就地输入宽上限(独立轴,勿与菜单共号)
   static const double jsonViewport = 240; // tool-card JSON-tree window height (then scrolls) tool 卡 JSON 树视口高(超则滚)
   static const double codeViewport = 320; // live/settled bounded code viewport (transcript contexts) 代码有界视口(transcript 语境两脸同钳)
+  static const double codeViewportSm = 160; // nested/secondary code viewport ≈8 code lines (handler rack spines stay scannable) 嵌套次级代码视口≈8 行(方法架书脊可扫读)
   static const double proseClamp = 144; // live prose tail bottom-pinned clamp ≈6 reading lines (WRK-066 族六) 活散文尾贴底钳高≈6 阅读行
   static const double inspectorMetaCol = 72; // right-island meta-row label column (Path/Size/Modified) 右岛元数据行标签列宽
 

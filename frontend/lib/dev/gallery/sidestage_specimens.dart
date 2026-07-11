@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../../core/contract/touchpoint.dart';
+import '../../core/design/tokens.dart';
 import '../../core/perf/pulse_clock.dart';
 import '../../core/ui/ui.dart';
 import 'specimen.dart';
@@ -40,12 +41,16 @@ final List<GallerySpecimen> sidestageSpecimens = [
                 child: AnButton.iconOnly(AnIcons.eye, semanticLabel: '自动登台', onPressed: () {})),
           ])),
   GallerySpecimen(
-      'LiveCodeWindow 活代码窗 — 整行释放·尾行按住·行数滚动',
-      (_) => const AnLiveCodeWindow(text: '$_demoCode    row["price"] = rou'), // held tail 未完尾行按住
+      'AnCodeEditor.live 活代码脸(族二:同壳同高亮同行号,贴底跟随)',
+      (_) => const AnCodeEditor(
+          code: '$_demoCode    row["price"] = rou',
+          lang: 'python', reading: true, live: true, maxHeight: AnSize.codeViewportSm),
       span: true),
   GallerySpecimen(
-      'LiveCodeWindow 长码贴尾(尾 24 行窗)',
-      (_) => AnLiveCodeWindow(text: '${List.generate(60, (i) => 'line_${i + 1} = compute(${i + 1})').join('\n')}\n'),
+      'AnCodeEditor.live 长码贴尾(有界视口钉底)',
+      (_) => AnCodeEditor(
+          code: List.generate(60, (i) => 'line_${i + 1} = compute(${i + 1})').join('\n'),
+          lang: 'python', reading: true, live: true, maxHeight: AnSize.codeViewport),
       span: true,
       stress: true),
   GallerySpecimen(

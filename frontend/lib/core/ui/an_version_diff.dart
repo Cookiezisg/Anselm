@@ -198,8 +198,22 @@ class _AnVersionDiffState extends State<AnVersionDiff> {
                       maxHeight: widget.maxHeight ?? AnSize.codeViewport,
                       fadeColor: c.surface,
                       child: body)
+                // The settled zero-jump clamp sits on the BODY — mirroring the live viewport position
+                // (bar OUTSIDE the clamp) so the settle only un-pins and the total height is identical
+                // across faces (批2 复审: the whole-frame clamp made settle 32px shorter). In a bounded
+                // host the Flexible keeps the crop silent-safe. 落定钳在 body(与 live 视口同位,bar 在
+                // 钳外):两脸总高全等(批2 复审:整框钳曾令落定矮 32px);有界宿主经 Flexible 静默安全。
                 else if (constraints.maxHeight.isFinite)
-                  Flexible(child: SingleChildScrollView(child: body))
+                  Flexible(
+                      child: widget.maxHeight == null
+                          ? SingleChildScrollView(child: body)
+                          : ConstrainedBox(
+                              constraints: BoxConstraints(maxHeight: widget.maxHeight!),
+                              child: SingleChildScrollView(child: body)))
+                else if (widget.maxHeight != null)
+                  ConstrainedBox(
+                      constraints: BoxConstraints(maxHeight: widget.maxHeight!),
+                      child: SingleChildScrollView(child: body))
                 else
                   body,
               ],
@@ -213,10 +227,7 @@ class _AnVersionDiffState extends State<AnVersionDiff> {
         ),
       ),
     );
-    // The zero-jump clamp on the SETTLED face (live's stick viewport already bounds itself). 落定亦施钳。
-    return widget.maxHeight == null || widget.live
-        ? framed
-        : ConstrainedBox(constraints: BoxConstraints(maxHeight: widget.maxHeight!), child: framed);
+    return framed;
   }
 
   // Assemble the diff rows + add/remove counts. SETTLED = line-by-line LCS ([lineDiff]). LIVE = the

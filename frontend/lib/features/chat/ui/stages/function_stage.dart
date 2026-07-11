@@ -12,15 +12,15 @@ import 'stage_scene.dart';
 
 /// The FUNCTION stage (WRK-061 §7-1, W2 flagship) — code being authored, live. Streaming: the op
 /// ticker drops a NEUTRAL chip per completed op (R-4: dictated, not succeeded), `set_code`'s code
-/// grows through [AnLiveCodeWindow] (whole-line release, tail-anchored, line CountUp), signature
-/// pills light as set_inputs/outputs close, dependency chips likewise. An EDIT opens over the old
-/// truth (R-5): [AnLayerDiff] keeps "改之前的它" on stage at low ink. Settle: the full highlighted
-/// editor + an HONEST diff badge (+n −m computed from the fetched before vs the landed after) +
-/// [RunStatBar]. Failure keeps the streamed draft readable (failed-hold).
+/// grows through the live editor face (AnCodeEditor.live — bounded stick-to-bottom viewport, same
+/// shell/highlight/gutter as settled), signature pills light as set_inputs/outputs close, dependency
+/// chips likewise. An EDIT opens over the old truth (R-5): [AnLayerDiff] keeps "改之前的它" on stage
+/// at low ink. Settle: the SAME editor un-pins + an HONEST diff badge (+n −m computed from the
+/// fetched before vs the landed after) + [RunStatBar]. Failure keeps the streamed draft readable.
 ///
-/// function 舞台(W2 旗舰)——代码正在被写成。流式:op ticker 逐 op 落中性芯片(R-4)、set_code 走活代码窗
-/// (整行释放/贴尾/行数滚动)、签名药丸/依赖芯片随闭合点亮;edit 先铺旧真相地层(R-5)。落定:全量高亮编辑器
-/// +真 diff 徽(+n −m,fetched before vs landed after)+RunStatBar。失败保留可读草稿。
+/// function 舞台(W2 旗舰)——代码正在被写成。流式:op ticker 逐 op 落中性芯片(R-4)、set_code 走编辑器
+/// live 脸(有界贴底视口,同壳同高亮同行号)、签名药丸/依赖芯片随闭合点亮;edit 先铺旧真相地层(R-5)。
+/// 落定:同一编辑器解除钉底+真 diff 徽(+n −m)+RunStatBar。失败保留可读草稿。
 class FunctionStageBody extends ConsumerWidget {
   const FunctionStageBody({required this.scene, super.key});
 
@@ -52,21 +52,21 @@ class FunctionStageBody extends ConsumerWidget {
         _OpTicker(ops: ops, live: scene.live),
         const SizedBox(height: AnSpace.s6),
       ],
-      if (scene.live && code.isNotEmpty)
-        AnLiveCodeWindow(text: code)
-      else if (!scene.live && !scene.failed && code.isNotEmpty) ...[
-        AnCodeEditor(code: code, lang: 'python', reading: true),
-        const SizedBox(height: AnSpace.s6),
-        Row(children: [
-          if (oldCode.isNotEmpty) ...[
-            _DiffBadge(before: oldCode, after: code),
-            const SizedBox(width: AnSpace.s8),
-          ],
-          Expanded(child: RunStatBar(state: scene.state)),
-        ]),
-      ] else if (scene.failed && code.isNotEmpty) ...[
-        // The wreck stays readable — the draft that never saved (failed-hold). 残稿可读。
-        AnCodeEditor(code: code, lang: 'python', reading: true),
+      if (code.isNotEmpty) ...[
+        // ONE shell, two faces (A-020): live pins the SAME bounded viewport to the newest line; the
+        // settle only un-pins — zero jump. Failed keeps the draft readable in the same shell.
+        // 两脸一壳(A-020):live 同视口钉底,落定仅解除钉底、零跳变;失败残稿同壳可读。
+        AnCodeEditor(code: code, lang: 'python', reading: true, live: scene.live, maxHeight: AnSize.codeViewport),
+        if (!scene.live && !scene.failed) ...[
+          const SizedBox(height: AnSpace.s6),
+          Row(children: [
+            if (oldCode.isNotEmpty) ...[
+              _DiffBadge(before: oldCode, after: code),
+              const SizedBox(width: AnSpace.s8),
+            ],
+            Expanded(child: RunStatBar(state: scene.state)),
+          ]),
+        ],
       ],
       ..._signaturePills(context, c, session),
       if (!scene.live && !scene.failed && code.isEmpty) RunStatBar(state: scene.state),

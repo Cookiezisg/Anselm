@@ -305,47 +305,37 @@ Widget killShellBody(BuildContext context, ToolCardState state) {
   ]);
 }
 
-/// F1 Write — the written content in a code window (language from the extension). TWO faces
-/// (WRK-065): LIVE = the F01 «生长秀» (the file content streams into a plain-mono window as the
-/// LLM types it, last 8 lines, O(tail)); SETTLED = the highlighted reading editor, folded past 50
-/// lines ([AnFadeCollapse]), capped at 6000 chars, COPY carrying the full content.
-/// F1 Write——两张脸:活=生长秀(内容随 LLM 打字流入,纯 mono 尾 8 行);落定=高亮编辑器+折叠+copy 全量。
+/// F1 Write — TWO faces, ONE shell (WRK-066 族二): LIVE = the file content streams through the
+/// editor's live face (full highlight + gutter, bounded stick-to-bottom viewport; the head slices
+/// its own O(tail)); SETTLED = the SAME editor un-pinned at the SAME tier (zero jump), display
+/// capped at [AnCap.window] with COPY carrying the full content.
+/// F1 Write——两脸一壳(族二):活=编辑器 live 脸(全量高亮+行号,有界贴底视口,O(tail) 族头内建);
+/// 落定=同一编辑器同档解除钉底(零跳变),显示按 AnCap.window 封顶、copy 保全量。
 Widget writeToolBody(BuildContext context, ToolCardState state) {
   final c = context.colors;
   final t = Translations.of(context);
+  final path = state.argsSession.closedStringAt(['file_path']) ?? '';
   if (toolLive(state)) {
-    // Incremental session read + O(tail) extraction — this runs every frame on MB-scale content (W0).
-    // 增量会话读 + O(tail) 取尾——每帧跑、内容可 MB 级。
-    final path = state.argsSession.closedStringAt(['file_path']) ?? '';
     final content = state.argsSession.liveStringNamed('content') ?? '';
     if (path.isEmpty && content.isEmpty) return const SizedBox.shrink();
     return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
       if (path.isNotEmpty)
         Padding(padding: const EdgeInsets.only(bottom: AnSpace.s4), child: AnPathChip(path: path)),
       if (content.isNotEmpty)
-        ToolWindow(child: Text(tailLines(content, 8), style: AnText.code.copyWith(color: c.inkMuted))),
+        AnCodeEditor(code: content, lang: langOf(path), reading: true, live: true, maxHeight: AnSize.codeViewport),
     ]);
   }
-  final path = state.argsSession.closedStringAt(['file_path']) ?? '';
   final content = state.argsSession.closedStringAt(['content']) ?? '';
   if (content.isEmpty) return const SizedBox.shrink();
-  final lineCount = '\n'.allMatches(content).length + 1;
-  final over = content.length > 6000;
-  final shown = over ? content.substring(0, 6000) : content;
+  final over = content.length > AnCap.window;
+  final shown = over ? content.substring(0, AnCap.window) : content;
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
     if (path.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: AnSpace.s4), child: AnPathChip(path: path)),
-    AnFadeCollapse(
-      collapsible: lineCount > 50,
-      expandLabel: t.chat.tool.proseExpand,
-      collapseLabel: t.chat.tool.proseCollapse,
-      // AnCodeEditor's own AnCodeSurface fill (white surface), so the collapse fade blends to it.
-      fadeColor: c.surface,
-      // The code box IS the frame — AnCodeEditor already has its own border + copy bar. NO ToolWindow
-      // around it (that added a second, grey `surfaceSunken` sunken panel = the doubled frame B6). The
-      // copyPayload carries the FULL untruncated content (display is capped at 6000). 代码框自带框+copy,
-      // 不再套 ToolWindow(那是多出的灰框);copyPayload 保全量复制。
-      child: AnCodeEditor(code: shown, copyPayload: content, lang: _langOf(path), reading: true),
-    ),
+    // 拍板 #2 zero jump: both faces share the SAME viewport tier — the settle only un-pins; the old
+    // AnFadeCollapse is retired here (an expanding fold is a height jump by definition). copyPayload
+    // keeps copy = full content while display is capped. 零跳变:两脸同档,落定仅解除钉底;折叠退役
+    // (展开即高度跳变);copy 保全量。
+    AnCodeEditor(code: shown, copyPayload: content, lang: langOf(path), reading: true, maxHeight: AnSize.codeViewport),
     if (over)
       Padding(
         padding: const EdgeInsets.only(top: AnSpace.s4),
@@ -354,53 +344,26 @@ Widget writeToolBody(BuildContext context, ToolCardState state) {
   ]);
 }
 
-/// F1 Edit — TWO faces (WRK-065). LIVE = the two-act surgery as args stream: first `old_string`
-/// flows in (the `−` removed segment, danger-soft), then `new_string` (the `+` added segment,
-/// ok-soft) — you watch what's being cut, then what replaces it (the settled diff mid-stream would
-/// lie: an in-flight replace reads as a pure deletion). SETTLED = old→new as a unified
-/// [AnVersionDiff] (green/red gutters).
-/// F1 Edit——两张脸:活=两幕手术(先 − old 流入、再 + new;半途渲落定 diff 会撒谎——进行中的替换看着像
-/// 整段删除);落定=unified diff。
-
-Widget _editSeg(AnColors c, String sign, String text, Color bg, Color ink) {
-  final shown = tailLines(text, 6).split('\n'); // O(tail): extract before splitting 先取尾再 split
-  return Container(
-    width: double.infinity,
-    decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(AnRadius.tag)),
-    padding: const EdgeInsets.symmetric(horizontal: AnSpace.s6, vertical: AnSpace.s2),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (final line in shown)
-          Text('$sign $line', maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.code.copyWith(color: ink)),
-      ],
-    ),
-  );
-}
-
-/// Edit body (B4 F01.4 · WRK-065) — LIVE: the two-act surgery pane; SETTLED: the applied change as a
-/// unified [AnVersionDiff] (before=old_string, after=new_string, from the args); a `replace_all` edit
-/// adds an «N 处全部替换» note. new_string="" = a pure deletion (all-red diff). Edit 体:活=两幕手术;
-/// 落定=AnVersionDiff + replace_all 注记。
+/// F1 Edit — TWO faces, ONE diff shell (WRK-066 族二): LIVE = the two-act surgery through
+/// [AnVersionDiff]'s live face (all − rows then all + rows, the SAME row pipeline/bar as settled —
+/// a mid-stream LCS would lie); SETTLED = the unified diff at the SAME tier (zero jump); a
+/// `replace_all` edit adds an «N 处全部替换» note. new_string="" = a pure deletion (all-red).
+/// F1 Edit——两脸一壳(族二):活=diff live 两幕(先全 − 后全 +,与落定同行管线同 bar;流中 LCS 会撒谎);
+/// 落定=同档 unified diff(零跳变)+replace_all 注记。
 Widget editToolBody(BuildContext context, ToolCardState state) {
   final t = Translations.of(context);
-  if (toolLive(state)) {
-    final c = context.colors;
-    final oldS = state.argsSession.liveStringNamed('old_string');
-    final newS = state.argsSession.liveStringNamed('new_string');
-    if ((oldS == null || oldS.isEmpty) && (newS == null || newS.isEmpty)) return const SizedBox.shrink();
-    return ToolWindow(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-        if (oldS != null && oldS.isNotEmpty) _editSeg(c, '−', oldS, c.dangerSoft, c.danger),
-        if (newS != null && newS.isNotEmpty) ...[
-          if (oldS != null && oldS.isNotEmpty) const SizedBox(height: AnSpace.s4),
-          _editSeg(c, '+', newS, c.okSoft, c.ok),
-        ],
-      ]),
-    );
-  }
   final path = state.argsSession.closedStringAt(['file_path']) ?? '';
+  if (toolLive(state)) {
+    final oldS = state.argsSession.liveStringNamed('old_string') ?? '';
+    final newS = state.argsSession.liveStringNamed('new_string') ?? '';
+    if (path.isEmpty && oldS.isEmpty && newS.isEmpty) return const SizedBox.shrink();
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+      if (path.isNotEmpty)
+        Padding(padding: const EdgeInsets.only(bottom: AnSpace.s4), child: AnPathChip(path: path)),
+      // Empty-stream guard is built into the diff (rows.isEmpty → shrink, 复审 #29). 空流守卫内建。
+      AnVersionDiff(before: oldS, after: newS, lang: langOf(path), live: true, maxHeight: AnSize.codeViewport),
+    ]);
+  }
   final oldS = state.argsSession.closedStringAt(['old_string']);
   final newS = state.argsSession.closedStringAt(['new_string']);
   if (oldS == null && newS == null) return const SizedBox.shrink();
@@ -411,7 +374,8 @@ Widget editToolBody(BuildContext context, ToolCardState state) {
     AnVersionDiff(
       before: oldS ?? '',
       after: newS ?? '',
-      lang: _langOf(path),
+      lang: langOf(path),
+      maxHeight: AnSize.codeViewport,
       note: (replaceAll && replacedN != null) ? t.chat.tool.replaceAllNote(n: replacedN) : null,
     ),
   ]);
@@ -584,22 +548,6 @@ Widget listApprovalInboxBody(BuildContext context, ToolCardState state) {
   );
 }
 
-String? _langOf(String path) {
-  final i = path.lastIndexOf('.');
-  if (i < 0) return null;
-  return switch (path.substring(i + 1).toLowerCase()) {
-    'dart' => 'dart',
-    'py' => 'python',
-    'go' => 'go',
-    'js' || 'ts' || 'tsx' || 'jsx' => 'javascript',
-    'json' => 'json',
-    'md' => 'markdown',
-    'sh' || 'bash' => 'bash',
-    'yaml' || 'yml' => 'yaml',
-    _ => null,
-  };
-}
-
 // ── F4 builds 构建族 ────────────────────────────────────────────────────────
 
 /// Extract a build call's MAIN CONTENT (the thing being authored) from its args — tolerant of
@@ -634,36 +582,26 @@ String? buildContentOf(String toolName, PartialJsonSession args) {
   return null; // workflow/control/approval/trigger: JSON config — the body shows args 图/配置走 JSON
 }
 
-String? _buildLang(String toolName) {
-  if (toolName.endsWith('_function') || toolName.endsWith('_handler')) return 'python';
-  if (toolName.endsWith('_document') || toolName.endsWith('_skill')) return 'markdown';
-  return null;
-}
-
-/// The builds body — TWO faces (WRK-065). LIVE: the authored content streaming in as the LLM emits
-/// args, plain mono tail (a re-highlight per delta would burn the frame budget). SETTLED: intent ·
-/// the authored content (highlighted editor) · the RESULT BAR — id, version, env outcome. envStatus
-/// is the family's honest half-success: the entity landed but its sandbox env may still be building
-/// or have failed (envError shown red).
-/// builds 体——两张脸:活=内容随 args 流入的纯等宽尾窗(逐 delta 重新高亮烧帧预算);落定=意图 · 创作
-/// 内容(高亮)· **结果条**(id/版本/env 结局;envStatus=诚实半成功)。
+/// The builds body — TWO faces, ONE shell (WRK-066 族二). LIVE: the authored content streaming
+/// through the editor's live face (full highlight + gutter, bounded stick-to-bottom viewport —
+/// the head slices its own O(tail)). SETTLED: intent · the SAME editor un-pinned at the SAME tier
+/// (zero jump) · the RESULT BAR — id, version, env outcome (envStatus = the family's honest
+/// half-success). Machine window: default 12 face (no `reading`).
+/// builds 体——两脸一壳(族二):活=编辑器 live 脸(全量高亮+行号,有界贴底,O(tail) 族头内建);落定=
+/// 意图 · 同一编辑器同档解除钉底(零跳变)· 结果条(env 诚实半成功)。机器窗守 12 档。
 Widget buildToolBody(BuildContext context, ToolCardState state) {
   final content = buildContentOf(state.toolName, state.argsSession);
+  final lang = langOfEntityKind(buildEntityKind(state.toolName));
   if (toolLive(state)) {
     if (content == null || content.isEmpty) return const SizedBox.shrink();
-    final c = context.colors;
-    // O(tail) extraction — code is the show, the window is taller than the terminal tail (8 lines).
-    // O(tail) 取尾——代码是主角,窗比终端尾高(8 行)。
-    return ToolWindow(
-      child: Text(tailLines(content, 8), style: AnText.code.copyWith(color: c.inkMuted)),
-    );
+    return AnCodeEditor(code: content, lang: lang, live: true, maxHeight: AnSize.codeViewport);
   }
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       _intent(context, state),
       if (content != null && content.isNotEmpty)
-        AnCodeEditor(code: content, lang: _buildLang(state.toolName))
+        AnCodeEditor(code: content, lang: lang, maxHeight: AnSize.codeViewport)
       else if (state.argsText.isNotEmpty)
         ToolWindow(child: _cappedMono(context, state.argsText)),
       RunStatBar(state: state),

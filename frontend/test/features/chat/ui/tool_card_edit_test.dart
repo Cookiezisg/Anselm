@@ -40,13 +40,20 @@ void main() {
     await tester.pumpWidget(_host(ChatToolCard(
         node: _streaming('{"file_path":"/ws/a.py","old_string":"return x","new_string":"return y + z'))));
     await tester.pump();
-    expect(find.textContaining('− return x'), findsNothing); // default collapsed 默认收起
+    expect(find.byType(AnVersionDiff), findsNothing); // default collapsed 默认收起
     await tester.tap(find.textContaining('正在编辑'), warnIfMissed: false);
     // Bounded pumps — the live shimmer never settles. 有界 pump(活流光永不安定)。
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.textContaining('− return x'), findsOneWidget); // the removed segment
-    expect(find.textContaining('+ return y + z'), findsOneWidget); // the added segment (streaming)
+    // 批2: the two-act runs through the SETTLED diff pipeline (AnVersionDiff.live) — − rows before
+    // + rows, same shell/bar. 批2:两幕走落定同管线(diff live 脸),先 − 后 +,同壳同 bar。
+    final diff = tester.widget<AnVersionDiff>(find.byType(AnVersionDiff));
+    expect(diff.live, isTrue);
+    expect(find.textContaining('return x'), findsOneWidget); // the removed row 删行
+    expect(find.textContaining('return y + z'), findsOneWidget); // the added row (streaming) 加行
+    final oldY = tester.getTopLeft(find.textContaining('return x')).dy;
+    final newY = tester.getTopLeft(find.textContaining('return y + z')).dy;
+    expect(oldY, lessThan(newY)); // all − before all + 先全 − 后全 +
   });
 
   testWidgets('SETTLED: a unified AnVersionDiff (before=old, after=new)', (tester) async {

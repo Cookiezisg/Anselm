@@ -90,9 +90,12 @@ void main() {
     expect(find.byType(AnLayerDiff), findsOneWidget); // R-5 stratum 地层
     expect(find.textContaining('v3'), findsOneWidget); // provenance tag 出处签
     expect(find.text('set_meta'), findsOneWidget); // neutral ticker 中性芯片
-    expect(find.byType(AnLiveCodeWindow), findsOneWidget);
-    expect(find.text('    for a in range(3):'), findsOneWidget); // whole line released 整行已释放
-    expect(find.textContaining('run(a'), findsNothing); // incomplete tail held 未完尾行按住
+    // 批2: the live face IS the editor (one shell, two faces) — full content incl. the streaming
+    // tail is shown honestly (the old whole-line hold was retired with AnLiveCodeWindow).
+    // 批2:live 脸即编辑器(两脸一壳)——含流式尾行的全量内容诚实可见(整行按住随旧窗退役)。
+    final liveEditor = tester.widget<AnCodeEditor>(find.byType(AnCodeEditor));
+    expect(liveEditor.live, isTrue);
+    expect(find.textContaining('for a in range(3):'), findsOneWidget); // content present 内容在场
 
     const finalArgs =
         '{"functionId":"fn_1","ops":[{"op":"set_meta","description":"retry"},{"op":"set_code","code":"def sync():\\n    for a in range(3):\\n        run(a)\\n    return 3\\n"}]}';

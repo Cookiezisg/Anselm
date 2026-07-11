@@ -27,6 +27,24 @@ audience: [human, ai]
 - **AnStickViewport 增 `fadeColor`**(白宿主传 surface,灰底退役)。bar 同构补齐:编辑器 copy 驻留走 AnMotion.dwell + AnTooltip。
 - AnLedgerRow 补 `expandChild`;「展开全部 N」列表壳 **deferred → P4 吸收四套台账时落**。
 
+## 批2 落地(2026-07-12,代码族)
+
+A-019/020/021/022/023 + B-002 全关。法典增量裁决:
+- **族二两脸一壳全落**:Write/builds/Edit/fn·hd 舞台全部 live↔settled 同一 AnCodeEditor/AnVersionDiff、同 AnSize 档(codeViewport=320;新铸 **codeViewportSm=160**≈8 行给 handler 方法架书脊)。**缺口 A 真 bug 修**:落定钳移到 body 层(bar 在钳外,与 live 视口同位)——旧整框钳让落定矮 44px,违零跳变;有测锁死。
+- **live 脸 O(tail) 内建**:切尾(尾 AnCap.window 字符对齐行首)+**行号续排**(增量头行计数,行号从真实行号续、诚实示「上有更多」);MB 级 Write 流式期不再 O(全文)/帧。
+- **AnLiveCodeWindow 四能力退役判决**(逐项记档):整行按住(对内容撒谎+行号错位)/尾窗物化(由切尾替代)/行数 CountUp(行号槽即诚实计数器,bar 加 live-only 件违零跳变)/逐行淡入(逐行 widget 与落定体结构分叉违同体律)。
+- **AnFadeCollapse 在代码两脸场景退役**(展开即高度跳变,与同档钳互斥);实体页(settled-only,无 live 脸)保留折叠+**collapsedHeightFor(lines,reading)** 几何口(B-002:算术归族头,chromeHeight 降私有)。
+- **langOf/langOfEntityKind 归 core**(族二规则④落地);memory_web 活便笺**归族改判**:散文非代码,走 AnLiveTail prose(与 doc/skill 稿同判)。
+
+### 批2 对抗复审整改(23-agent,16 confirmed 全修)
+
+- **diff 孪生件同病**(HIGH,探针 352↔320px):AnVersionDiff 落定钳同修到 body 层(bar 在钳外)——两族头钳位同构,diff 零跳变有测锁死。
+- **有界宿主静默安全回归**(探针 72/152px 溢出):编辑器/diff 的 body 钳在有界宿主下骑 Flexible(矮宿主裁不炸),无界宿主才裸钳。
+- **live 换源守卫强化**:仅比切点的守卫漏「同 State 等长/变长整替」(在途→close 快照字节可不同)→ 增 O(1) 头部采样探针+裸长度缩短门,任一失配全量重算;**多帧增量与换源有测**(突变 `+=`→`=` 可杀)。
+- **handler 舞台落定脸补同档钳**(复审:落定不传 maxHeight=160→2100px 跳变,违自家新立文法)。
+- **「落定仅解除钉底」措辞失实改判**:高度与 chrome 零跳变;**落定视口静置于顶**(档案从第 1 行读起)——记录在案的裁决,API 文档同步。
+- coverage 诚实性:function/handler_stage 撤回 converged(基线仍挂活违规)→ ledgered;台账例证引用已删文件清理。
+
 ## 批1 落地与复审整改(2026-07-12,活尾族+描边卡)
 
 批1 = 活尾族收敛 + stages 五处手搓描边卡。落地后 35-agent 全新上下文对抗复审(6 维)26 confirmed / 3 refuted,全修。法典增量裁决:

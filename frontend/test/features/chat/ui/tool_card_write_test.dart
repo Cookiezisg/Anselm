@@ -1,5 +1,6 @@
 import 'package:anselm/core/contract/messages/block_content.dart';
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/messages/block_tree_reducer.dart';
 import 'package:anselm/core/sse/frame.dart';
 import 'package:anselm/core/ui/an_code_editor.dart';
@@ -63,14 +64,20 @@ void main() {
     expect(find.text('quarters.py'), findsWidgets);
   });
 
-  testWidgets('SETTLED: a >50-line file folds under AnFadeCollapse', (tester) async {
+  testWidgets('SETTLED: a long file stays in the SAME bounded viewport tier (批2 零跳变,折叠退役)',
+      (tester) async {
     final big = List.generate(80, (i) => 'line_$i = $i').join(r'\n');
     await tester.pumpWidget(_host(ChatToolCard(node: _settled(
         '{"file_path":"/ws/big.py","content":"$big"}', 'Wrote /ws/big.py'))));
     await tester.pump();
     await tester.tap(find.textContaining('已写入'), warnIfMissed: false);
     await tester.pumpAndSettle();
-    expect(find.byType(AnFadeCollapse), findsOneWidget);
+    // Zero-jump (拍板 #2): both faces share AnSize.codeViewport — no expanding fold (a fold IS a
+    // height jump). 零跳变:两脸同档,折叠退役(展开即跳变)。
+    expect(find.byType(AnFadeCollapse), findsNothing);
+    final editor = tester.widget<AnCodeEditor>(find.byType(AnCodeEditor));
+    expect(editor.maxHeight, AnSize.codeViewport);
+    expect(editor.live, isFalse);
   });
 
   testWidgets('empty content → no body (receipt says 空文件)', (tester) async {

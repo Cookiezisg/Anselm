@@ -169,7 +169,10 @@ Widget writeMemoryBody(BuildContext context, ToolCardState state) {
           child: Text(name, style: AnText.mono.copyWith(color: c.inkMuted)),
         ),
       if (content.isNotEmpty)
-        ToolWindow(child: Text(tailLines(content, 6), style: AnText.code.copyWith(color: c.inkMuted))),
+        // The memo is PROSE being authored — the family's prose tail (bottom-pinned: the newest
+        // words visible), same verdict as document/skill drafts (A-022 归族改判,台账记录). 便笺是
+        // 正在写的散文——族六 prose 尾(贴底示新),与 doc/skill 稿同判。
+        AnLiveTail(content, style: AnLiveTailStyle.prose),
     ]);
   }
   final out = state.resultText.trimLeft();

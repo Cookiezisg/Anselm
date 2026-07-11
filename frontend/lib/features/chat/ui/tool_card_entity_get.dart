@@ -8,6 +8,7 @@ import '../../../core/router/panel_registry.dart';
 import '../../../core/ui/an_code_editor.dart';
 import '../../../core/ui/an_disclosure.dart';
 import '../../../core/ui/an_fade_collapse.dart';
+import '../../../core/ui/an_field_section.dart';
 import '../../../core/ui/an_json_tree.dart';
 import '../../../core/ui/an_ref_pill.dart';
 import '../../../i18n/strings.g.dart';
@@ -107,18 +108,20 @@ class ToolEntityHeader extends StatelessWidget {
   }
 }
 
-/// ③ A code content window: the entity's stored source (code / prompt), verbatim, in a machine window
-/// at the reading tier, folded past [AnFadeCollapse]'s height. Over [kEntityContentCap] chars it shows
-/// the head + an honest truncation note (the full text lives in the entity panel — AnCodeEditor has no
-/// virtualization). The window content is a REAL stored field, copy-out = verbatim (machine-window
-/// rule — no synthetic bytes). 代码内容窗:真实存储字段原文,超顶截头+诚实注记。
+/// ③ A code content window: the entity's stored source (code / prompt), verbatim, in the reading-tier
+/// code editor — AnCodeEditor IS the frame (its own AnCodeSurface + copy bar; never a second ToolWindow
+/// shell, WRK-066 族二叶子律), folded past [AnFadeCollapse]'s height. Over [kEntityContentCap] chars
+/// the DISPLAY shows the head + an honest truncation note (the full text lives in the entity panel —
+/// AnCodeEditor has no virtualization) while COPY carries the FULL stored field (machine-window rule).
+/// 代码内容窗:真实存储字段原文住编辑器壳(自带框,绝不再套 ToolWindow);显示超顶截头+诚实注记,copy 保全量。
 class EntityCodeWindow extends StatelessWidget {
   const EntityCodeWindow({required this.code, this.lang, this.label, super.key});
 
   final String code;
   final String? lang;
 
-  /// An optional grey section label OUTSIDE the window (imports / __init__ / shutdown). 窗外灰小节标签。
+  /// An optional grey section label above the window (imports / __init__ / shutdown) — the ONE
+  /// 13-tier label primitive ([AnFieldSection]). 窗上灰小节标签(唯一 13 档标签原语)。
   final String? label;
 
   @override
@@ -128,22 +131,19 @@ class EntityCodeWindow extends StatelessWidget {
     final over = code.length > kEntityContentCap;
     final shown = over ? code.substring(0, kEntityContentCap) : code;
     final lineCount = '\n'.allMatches(code).length + 1;
+    final window = AnFadeCollapse(
+      collapsible: lineCount > 50,
+      expandLabel: t.chat.tool.proseExpand,
+      collapseLabel: t.chat.tool.proseCollapse,
+      // The fade blends to the editor's own WHITE surface (the grey sunken shell is retired). 渐隐融白面。
+      fadeColor: c.surface,
+      child: AnCodeEditor(code: shown, copyPayload: code, lang: lang, reading: true),
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (label != null)
-          Padding(
-            padding: const EdgeInsets.only(bottom: AnSpace.s2),
-            child: Text(label!, style: AnText.meta.copyWith(color: c.inkFaint)),
-          ),
-        AnFadeCollapse(
-          collapsible: lineCount > 50,
-          expandLabel: t.chat.tool.proseExpand,
-          collapseLabel: t.chat.tool.proseCollapse,
-          fadeColor: c.surfaceSunken,
-          child: ToolWindow(child: AnCodeEditor(code: shown, lang: lang, reading: true)),
-        ),
+        if (label != null) AnFieldSection(label: label!, child: window) else window,
         if (over)
           Padding(
             padding: const EdgeInsets.only(top: AnSpace.s4),

@@ -27,7 +27,6 @@ lib/features/chat/ui/tool_card_fs_search.dart	edgeinsets-literal	1
 lib/features/chat/ui/tool_card_memory_web.dart	boxdecoration	1
 lib/features/chat/ui/tool_card_mount.dart	edgeinsets-literal	1
 lib/features/chat/ui/tool_card_search.dart	edgeinsets-literal	1
-lib/features/chat/ui/tool_card_skins.dart	boxdecoration	1
 lib/features/chat/ui/tool_card_trigger.dart	boxdecoration	1
 lib/features/chat/ui/tool_card_workflow.dart	alpha-tweak	1
 lib/features/chat/ui/tool_card_workflow.dart	boxdecoration	2

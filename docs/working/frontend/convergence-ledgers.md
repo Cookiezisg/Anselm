@@ -37,11 +37,11 @@ audience: [human, ai]
 | A-016 | `lib/features/chat/ui/tool_card_exec.dart:269` | 窗 | _LogsDrawer 与 run_dossier._LogDrawer 两套日志抽屉:尾截 6000 vs 双端 2000+4000+stderr 分段,同角色两做法 | 合成一个 log drawer 件(双端截断为准) | S | open |
 | A-017 | `lib/features/chat/ui/tool_card_memory_web.dart:105` | 窗 | MemoryNoteCard 手搓描边卡壳(§4-A 指名):自拼头行+裸 Container 发丝线(132,AnDivider 已有)+折叠阈 900/400 魔数 | 窗族卡壳吃掉;发丝线换 AnDivider;阈值进档 | M | open |
 | A-018 | `lib/features/chat/ui/tool_card_skins.dart:31` | 窗 | ToolWindow=窗族收敛对象(§4-A 指名):feature 层薄壳自拼 header/actions 包 AnSunkenPanel,全 chat 机器窗身份压其上 | P3 窗壳(header/actions/tone+term/code/prose/json/diff 内容模式)落地后整体替换并物理删除 | L | open |
-| A-019 | `lib/features/chat/ui/tool_card_entity_get.dart:115` | 代码 | EntityCodeWindow 手拼代码窗组合:ToolWindow 塞 AnCodeEditor+窗外灰标签+截断注,正是 #8 批评的形态 | AnCodeEditor 窗形态长 label/截断槽吃掉 | S | open |
-| A-020 | `lib/core/ui/an_live_code_window.dart:98` | 代码 | 活代码窗骑 AnSunkenPanel(陷底、chip 圆角),落定代码骑 AnCodeSurface(framed、card 圆角)——live→settled 换脸也换壳,违「同壳同框」蓝图 | 按 §4-A 给 AnCodeEditor 长 live 形态,吃掉 AnLiveCodeWindow | L | open |
-| A-021 | `lib/features/chat/ui/tool_card_skins.dart:435` | 代码 | _editSeg 裸 Container+BoxDecoration 拼 ±diff 色块段(Edit live 两幕手术) | 归入代码族 diff 的 live 形态(AnVersionDiff live 面) | M | open |
-| A-022 | `lib/features/chat/ui/tool_card_skins.dart:396` | 代码 | Write/builds live 脸=ToolWindow 塞裸 mono Text ×2(396/728;同模式 memory_web:172)——§0 批评#4 原型场景 | AnCodeEditor 长 live 形态(同壳同框同 copy 位)后替换 | M | open |
-| A-023 | `lib/features/chat/ui/tool_card_skins.dart:657` | 代码 | _langOf 扩展名→语言映射手搓于 feature 层(707 _buildLang 又一张表),属地基能力 | 归 AnCodeEditor/core 侧 langOf,删两处私表 | S | open |
+| A-019 | `lib/features/chat/ui/tool_card_entity_get.dart:115` | 代码 | EntityCodeWindow 手拼代码窗组合:ToolWindow 塞 AnCodeEditor+窗外灰标签+截断注,正是 #8 批评的形态 | AnCodeEditor 窗形态长 label/截断槽吃掉 | S | **done·批2**(双壳拆除[编辑器即框];标签→AnFieldSection 13 档;渐隐融白面;copyPayload 保全量) |
+| A-020 | `lib/core/ui/an_live_code_window.dart:98`(已删) | 代码 | 活代码窗骑 AnSunkenPanel(陷底、chip 圆角),落定代码骑 AnCodeSurface(framed、card 圆角)——live→settled 换脸也换壳,违「同壳同框」蓝图 | 按 §4-A 给 AnCodeEditor 长 live 形态,吃掉 AnLiveCodeWindow | L | **done·批2**(fn/hd 五用点+gallery 换 live 脸;整行按住/行数 CountUp/逐行淡入四能力经逐项判决弃[记法典];AnLiveCodeWindow 物理删除;codeViewportSm=160 铸档) |
+| A-021 | `lib/features/chat/ui/tool_card_skins.dart:435` | 代码 | _editSeg 裸 Container+BoxDecoration 拼 ±diff 色块段(Edit live 两幕手术) | 归入代码族 diff 的 live 形态(AnVersionDiff live 面) | M | **done·批2**(_editSeg 物理删除;两幕走 AnVersionDiff.live 同管线同 bar) |
+| A-022 | `lib/features/chat/ui/tool_card_skins.dart:396` | 代码 | Write/builds live 脸=ToolWindow 塞裸 mono Text ×2(396/728;同模式 memory_web:172)——§0 批评#4 原型场景 | AnCodeEditor 长 live 形态(同壳同框同 copy 位)后替换 | M | **done·批2**(Write/builds 两脸一壳同档零跳变;live O(tail) 族头内建[切尾+行号续排];memory_web:172 归族改判→AnLiveTail prose[便笺是散文,与 doc/skill 稿同判]) |
+| A-023 | `lib/features/chat/ui/tool_card_skins.dart:657` | 代码 | _langOf 扩展名→语言映射手搓于 feature 层(707 _buildLang 又一张表),属地基能力 | 归 AnCodeEditor/core 侧 langOf,删两处私表 | S | **done·批2**(core langOf/langOfEntityKind;两私表删;ts→typescript 改判有测钉死) |
 | A-024 | `lib/features/chat/ui/tool_card_entity_get_bodies.dart:107` | 芯片 | 导航 pill onTap 闭包(panelLocationFor+context.go)重抄 ×6 处跨 5 文件,tool_card_nav.toolNavPill 已存在 | 全改用 toolNavPill,删私抄 | S | open |
 | A-025 | `lib/features/chat/ui/tool_card_trigger.dart:138` | 芯片 | _lockChip 手搓芯片:Container+Border.all+radius.tag+icon+label,chip 族分外私铸 | 换 chip 族当家件 icon+label 变体 | S | open |
 | A-026 | `lib/features/chat/ui/tool_hit_list.dart:256` | 芯片 | _currentMarker「当前」手搓芯片:Container+accentSoft+radius.tag+label 文本 | 换 chip 族 tone=accent 变体 | S | open |
@@ -142,7 +142,7 @@ audience: [human, ai]
 | # | 位置 | 域 | 问题 | 修法 | 量 | 状态 |
 |---|---|---|---|---|---|---|
 | B-001 | `lib/features/chat/ui/tool_card_document_skill.dart:19` | 窗 | collapsedHeight 默认 340 裸数字视觉高度,无尺寸档 | 收进 AnSize 折叠高档位 | S | open |
-| B-002 | `lib/features/entities/ui/detail/overview/function_overview.dart:38` | 代码 | 收合高度 feature 层算术:_maxCollapsedLines(50)× codeReading.fontSize × height + chromeHeight——AnFadeCollapse 只收 double 高度,缺行数 API 逼出补偿 | AnFadeCollapse/AnCodeEditor 长 collapsedLines 参数,feature 不算高度 | M | open |
+| B-002 | `lib/features/entities/ui/detail/overview/function_overview.dart:38` | 代码 | 收合高度 feature 层算术:_maxCollapsedLines(50)× codeReading.fontSize × height + chromeHeight——AnFadeCollapse 只收 double 高度,缺行数 API 逼出补偿 | AnFadeCollapse/AnCodeEditor 长 collapsedLines 参数,feature 不算高度 | M | **done·批2**(AnCodeEditor.collapsedHeightFor(lines,reading) 几何口+chromeHeight 降私有;几何锁死有测;features 零字体算术[rg 归零]) |
 | B-003 | `lib/features/chat/ui/chat_thinking.dart:170` | 间距 | token 裸算术 ×2:缩进 AnSize.dot+AnSpace.s6(170)/rail 定位 dot/2-hairline/2(181) | 定 rail 缩进/对轴语义 token | S | open |
 | B-004 | `lib/features/chat/ui/tool_card_control_approval.dart:105` | 间距 | emit 行悬挂缩进用 AnSize.icon(图标尺寸 token)当左 padding,尺寸档挪作间距 | 定悬挂缩进语义 token 并成文对齐文法 | S | open |
 | B-005 | `lib/features/chat/ui/tool_card_ecosystem.dart:189` | 间距 | 描述行悬挂缩进 EdgeInsets.only(left: AnSize.iconSm+AnSpace.s6) token 裸算术 | 定悬挂缩进语义 token | S | open |
@@ -194,7 +194,7 @@ audience: [human, ai]
 | B-051 | `lib/features/entities/ui/detail/workflow_editor_page.dart:329` | 动效 | AnimatedContainer 用裸 Curves.easeOutCubic,而 AnMotion.easeOut 曲线档存在且同文件他处(entity_ocean:75)已用,曲线值还不同 | 换 AnMotion.easeOut | S | open |
 | B-052 | `lib/features/entities/ui/entity_rail.dart:35` | 动效 | 搜索防抖裸 Duration(250ms);与 chat rail 同值但全仓防抖时长(150/250/500/600)无档位,各处现场发明 | 防抖时长入 AnMotion 档(如 searchDebounce),全仓统一 | S | open |
 | B-053 | `lib/core/ui/an_code_editor.dart:186` | 动效 | 裸 Duration:copy-✓ 复位 1200ms(同手势 AnCopyChip/AnPathChip 用 AnMotion.dwell 600ms,一个动作两种速度)、tooltip 500ms、graph_canvas comet 1100ms、toast 4s | copy 复位收单一 AnMotion 档,余者入令牌 | S | open |
-| B-054 | `lib/core/ui/an_state.dart:77` | 动效 | reduced-motion 双闸门混用:an_skeleton/an_shimmer_text 用 reducedOrAssistive,an_state/an_live_code_window/breadcrumb 等用 reduced——何时用哪档无成文规则 | B 轨成文:装饰循环用 orAssistive,过渡用 reduced | S | open |
+| B-054 | `lib/core/ui/an_state.dart:77` | 动效 | reduced-motion 双闸门混用:an_skeleton/an_shimmer_text 用 reducedOrAssistive,an_state/breadcrumb 等用 reduced(例证 an_live_code_window 已于批2 删除)——何时用哪档无成文规则 | B 轨成文:装饰循环用 orAssistive,过渡用 reduced | S | open |
 | B-055 | `lib/features/chat/ui/chat_composer.dart:77` | 动效 | 裸 Duration 防抖:composer 150ms 与 conversation_rail.dart:51 250ms,同角色(搜索防抖)两个私值 | 防抖档入 AnMotion(或 core Debouncer 默认档) | S | open |
 | B-056 | `lib/features/chat/ui/chat_ocean.dart:162` | 动效 | _FadeRiseIn 私有入场动效件(淡入+6px 上移)在 feature 层手搓,不进 gallery 不受审 | 抽 AnEntranceReveal 类原语入 core/ui | S | open |
 | B-057 | `lib/features/chat/ui/chat_transcript.dart:360` | 动效 | 跳转洗亮:裸 Duration 2200ms ×2(:172/:360)不在 AnMotion;:357 直读 MediaQuery.disableAnimationsOf(tokens.dart 明令禁止,应走 AnMotionPref) | 洗亮时长入 AnMotion,改用 AnMotionPref.reduced | S | open |

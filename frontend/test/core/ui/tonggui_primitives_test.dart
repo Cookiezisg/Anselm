@@ -1,4 +1,6 @@
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/design/tokens.dart';
+import 'package:anselm/core/design/typography.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
@@ -214,6 +216,135 @@ void main() {
       final out = truncate(s, AnTrunc.id);
       expect(out.contains('�'), isFalse);
       expect(out.endsWith('…'), isTrue);
+    });
+  });
+
+  group('AnCodeEditor 批2', () {
+    test('collapsedHeightFor locks the family geometry (B-002: features never re-derive font math)', () {
+      expect(AnCodeEditor.collapsedHeightFor(50, reading: true),
+          50 * AnText.codeReading.fontSize! * AnText.codeReading.height! + 44);
+      expect(AnCodeEditor.collapsedHeightFor(8),
+          8 * AnText.code.fontSize! * AnText.code.height! + 44);
+    });
+
+    test('langOf / langOfEntityKind — the ONE ext→lang table (A-023)', () {
+      expect(langOf('/ws/a.py'), 'python');
+      expect(langOf('x.ts'), 'typescript'); // 批2 改判钉死(旧私表误标 javascript)
+      expect(langOf('SKILL.md'), 'markdown');
+      expect(langOf('noext'), isNull);
+      expect(langOfEntityKind('function'), 'python');
+      expect(langOfEntityKind('skill'), 'markdown');
+      expect(langOfEntityKind('workflow'), isNull);
+    });
+
+    testWidgets('zero-jump: live and settled faces have the SAME frame height at the same tier (缺口A)',
+        (tester) async {
+      final code = List.generate(60, (i) => 'line_$i = $i').join('\n');
+      Future<double> frameH({required bool live}) async {
+        await tester.pumpWidget(_host(AnCodeEditor(
+            code: code, lang: 'python', live: live, maxHeight: AnSize.codeViewportSm)));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+        return tester.getSize(find.byType(AnCodeSurface)).height;
+      }
+
+      final liveH = await frameH(live: true);
+      final settledH = await frameH(live: false);
+      // The settle only un-pins — the whole-frame clamp used to make settled 44px SHORTER (复审).
+      // 落定仅解除钉底——旧整框钳曾让落定矮 44px。
+      expect(settledH, liveH);
+    });
+
+    testWidgets('live face slices its own O(tail): huge code renders, gutter numbers stay honest',
+        (tester) async {
+      final huge = List.generate(20000, (i) => 'v${i + 1} = ${i + 1}').join('\n');
+      await tester.pumpWidget(_host(AnCodeEditor(code: huge, live: true, maxHeight: AnSize.codeViewport)));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(tester.takeException(), isNull);
+      // The newest line is present; the head is sliced away (AnCap.window). 最新行在场,头部已切。
+      expect(find.textContaining('v20000 = 20000'), findsOneWidget);
+      expect(find.textContaining('v1 = 1\n'), findsNothing);
+      // Gutter continues from the true line number (not restarting at 1). 行号续排不归一。
+      final gutter = tester.widgetList<Text>(find.byType(Text)).map((t) => t.data ?? '').firstWhere(
+          (d) => d.contains('\n') && RegExp(r'^\d+\n').hasMatch(d), orElse: () => '');
+      expect(gutter.startsWith('1\n'), isFalse);
+    });
+  });
+
+  group('AnVersionDiff 批2', () {
+    testWidgets('zero-jump: live and settled diff faces have the SAME frame height (复审: diff 孪生件同病)',
+        (tester) async {
+      final before = List.generate(40, (i) => 'old_$i').join('\n');
+      final after = List.generate(40, (i) => 'new_$i').join('\n');
+      Future<double> frameH({required bool live}) async {
+        await tester.pumpWidget(_host(AnVersionDiff(
+            before: before, after: after, live: live, maxHeight: AnSize.codeViewport)));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+        return tester.getSize(find.byType(AnCodeSurface)).height;
+      }
+
+      expect(await frameH(live: false), await frameH(live: true)); // 落定瞬间不再矮 32px
+    });
+
+    testWidgets('bounded host + maxHeight stays silent-safe (复审: 裸钳曾溢出)', (tester) async {
+      final after = List.generate(60, (i) => 'l$i').join('\n');
+      await tester.pumpWidget(_host(SizedBox(
+          height: 120,
+          child: AnVersionDiff(before: '', after: after, maxHeight: AnSize.codeViewport))));
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('AnCodeEditor live 增量与换源 批2', () {
+    testWidgets('gutter numbering stays honest across APPEND frames (kills the += → = mutation)',
+        (tester) async {
+      String make(int lines) => List.generate(lines, (i) => 'ln${(i + 1).toString().padLeft(5, '0')}').join('\n');
+      int firstGutterLine(WidgetTester t) {
+        final g = t.widgetList<Text>(find.byType(Text)).map((w) => w.data ?? '').firstWhere(
+            (d) => d.contains('\n') && RegExp(r'^\d+\n').hasMatch(d));
+        return int.parse(g.split('\n').first);
+      }
+
+      // Frame 1: 1200 lines × 8 chars ≈ 9.6k chars > AnCap.window → sliced. 首帧已切。
+      await tester.pumpWidget(_host(AnCodeEditor(code: make(1200), live: true, maxHeight: AnSize.codeViewport)));
+      await tester.pump();
+      final start1 = firstGutterLine(tester);
+      expect(start1, greaterThan(1)); // head sliced 头已切
+      // Frame 2: SAME State, 300 more lines appended → the gutter start must advance by exactly 300
+      // (the incremental count; a `=` mutation would reset the head count and lie). 追加 300 行,
+      // 起始行号必须恰好前进 300(增量计数;`=` 突变会重置头计数撒谎)。
+      await tester.pumpWidget(_host(AnCodeEditor(code: make(1500), live: true, maxHeight: AnSize.codeViewport)));
+      await tester.pump();
+      expect(firstGutterLine(tester), start1 + 300);
+    });
+
+    testWidgets('a same-State SOURCE SWAP recounts from scratch (复审: 仅比切点的守卫铸假行号)',
+        (tester) async {
+      final a = List.generate(1200, (i) => 'aaaaaaa').join('\n'); // 8 chars/line
+      final b = List.generate(4000, (i) => 'bbb').join('\n'); // 4 chars/line, LONGER text
+      await tester.pumpWidget(_host(AnCodeEditor(code: a, live: true, maxHeight: AnSize.codeViewport)));
+      await tester.pump();
+      // Swap to unrelated content on the SAME State. 同 State 整替。
+      await tester.pumpWidget(_host(AnCodeEditor(code: b, live: true, maxHeight: AnSize.codeViewport)));
+      await tester.pump();
+      final gutter = tester.widgetList<Text>(find.byType(Text)).map((w) => w.data ?? '').firstWhere(
+          (d) => d.contains('\n') && RegExp(r'^\d+\n').hasMatch(d));
+      final start = int.parse(gutter.split('\n').first);
+      // Fresh-mount truth for B: 16k chars, cap 6000 → head ≈ 10k chars ≈ 2500 lines. The stale-count
+      // failure mode produced a start near A's head count (~500) instead. B 的真值起始 ≈ 2501。
+      final freshHeadLines = ((b.length - AnCap.window) / 4).ceil();
+      expect((start - (freshHeadLines + 1)).abs(), lessThan(3)); // within alignment slack 对齐容差
+    });
+
+    testWidgets('bounded host + maxHeight stays silent-safe (复审: 裸钳曾溢出 152px)', (tester) async {
+      final code = List.generate(60, (i) => 'line_$i').join('\n');
+      await tester.pumpWidget(_host(SizedBox(
+          height: 120, child: AnCodeEditor(code: code, maxHeight: AnSize.codeViewport))));
+      await tester.pump();
+      expect(tester.takeException(), isNull);
     });
   });
 

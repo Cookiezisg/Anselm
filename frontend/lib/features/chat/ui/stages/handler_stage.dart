@@ -68,23 +68,23 @@ class HandlerStageBody extends ConsumerWidget {
           // Settle → the reading editor (whole code), matching the method spines; live → the tail window.
           // 落定=reading 编辑器(整段,与方法书脊一致);活=尾窗。
           child: scene.live
-              ? AnLiveCodeWindow(text: initCode, tailLines: 12)
-              : AnCodeEditor(code: initCode, lang: 'python', reading: true),
+              ? AnCodeEditor(code: initCode, lang: 'python', reading: true, live: true, maxHeight: AnSize.codeViewportSm)
+              : AnCodeEditor(code: initCode, lang: 'python', reading: true, maxHeight: AnSize.codeViewportSm),
         ),
       for (final m in methods) _spine(context, c, t, m),
       if (scene.live && liveBody != null && liveBody.isNotEmpty && methods.isEmpty)
-        // A body streaming before its method op closes — honest small window. 方法未闭前的在途 body。
+        // A body streaming before its method op closes — honest small viewport. 方法未闭前的在途 body。
         Padding(
           padding: const EdgeInsets.only(left: AnSpace.s12, bottom: AnSpace.s4),
-          child: AnLiveCodeWindow(text: liveBody, tailLines: 8),
+          child: AnCodeEditor(code: liveBody, lang: 'python', reading: true, live: true, maxHeight: AnSize.codeViewportSm),
         ),
       _railSegment(context, c, 'shutdown', lit: shutdownCode != null),
       if (shutdownCode != null)
         Padding(
           padding: const EdgeInsets.only(left: AnSpace.s12, bottom: AnSpace.s4),
           child: scene.live
-              ? AnLiveCodeWindow(text: shutdownCode, tailLines: 12)
-              : AnCodeEditor(code: shutdownCode, lang: 'python', reading: true),
+              ? AnCodeEditor(code: shutdownCode, lang: 'python', reading: true, live: true, maxHeight: AnSize.codeViewportSm)
+              : AnCodeEditor(code: shutdownCode, lang: 'python', reading: true, maxHeight: AnSize.codeViewportSm),
         ),
       if (schema.isNotEmpty) ...[
         const SizedBox(height: AnSpace.s4),
@@ -147,8 +147,8 @@ class HandlerStageBody extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.only(top: AnSpace.s2),
             child: scene.live
-                ? AnLiveCodeWindow(text: '$body\n', tailLines: 8)
-                : AnCodeEditor(code: body, lang: 'python', reading: true),
+                ? AnCodeEditor(code: body, lang: 'python', reading: true, live: true, maxHeight: AnSize.codeViewportSm)
+                : AnCodeEditor(code: body, lang: 'python', reading: true, maxHeight: AnSize.codeViewportSm),
           ),
       ]),
     );
