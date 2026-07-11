@@ -28,6 +28,7 @@ import 'tool_card_todo_specimens.dart';
 import 'tool_card_conversation_specimens.dart';
 import 'tool_card_lifecycle_specimens.dart';
 import 'tool_card_family_specimens.dart';
+import 'tonggui_codex_specimens.dart';
 import 'tool_hit_list_specimens.dart';
 import 'tool_interaction_gate_specimens.dart';
 import 'chat_turn_specimens.dart';
@@ -56,6 +57,7 @@ final List<GalleryCategory> galleryCatalog = [
   _notifications,
   settingsCategory,
   _perf,
+  tongguiCodexCategory,
 ];
 
 // ── Perf (WRK-061 W0) — the streaming pressure beds gating the right-island stages: real ChatToolCard

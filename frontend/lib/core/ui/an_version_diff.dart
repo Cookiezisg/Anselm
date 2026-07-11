@@ -46,8 +46,20 @@ class AnVersionDiff extends StatelessWidget {
     this.note,
     this.bare = false,
     this.reading = false,
+    this.live = false,
+    this.liveTailLines = 6,
     super.key,
   });
+
+  /// LIVE two-act face (WRK-066 族二): while args stream, render − [before] then + [after] as tinted
+  /// tail segments inside the SAME diff shell — the settled unified diff mid-stream would LIE (an
+  /// in-flight replace reads as a pure deletion). live→settled swaps the face, never the shell.
+  /// 活两幕脸(族二):流入期先 − before 再 + after,同壳染色尾段——半途渲落定 diff 会撒谎(进行中的替换
+  /// 看着像整段删除)。live→settled 换脸不换壳。
+  final bool live;
+
+  /// Tail lines per act while live. 活期每幕尾行数。
+  final int liveTailLines;
 
   /// The new text (required). 新文本。
   final String after;
@@ -77,6 +89,7 @@ class AnVersionDiff extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    if (live) return _liveFace(context, c);
     final syntax = context.syntax;
     final t = context.t;
 
@@ -141,6 +154,50 @@ class AnVersionDiff extends StatelessWidget {
                 ? SizedBox(width: constraints.maxWidth, child: column)
                 : column;
           },
+        ),
+      ),
+    );
+  }
+
+  // ── the live two-act face: − old tail then + new tail, tinted rows in the same shell. 活两幕。──
+  Widget _liveFace(BuildContext context, AnColors c) {
+    List<String> tailOf(String? s) {
+      if (s == null || s.isEmpty) return const [];
+      final lines = s.split('\n');
+      return lines.length > liveTailLines ? lines.sublist(lines.length - liveTailLines) : lines;
+    }
+
+    Widget seg(List<String> lines, String sign, Color bg, Color ink) => ColoredBox(
+          color: bg,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AnSpace.s12, vertical: AnSpace.s4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final line in lines)
+                  Text('$sign $line',
+                      maxLines: 1, overflow: TextOverflow.ellipsis, style: _rowStyle.copyWith(color: ink)),
+              ],
+            ),
+          ),
+        );
+
+    final old = tailOf(before);
+    final neu = tailOf(after);
+    if (old.isEmpty && neu.isEmpty) return const SizedBox.shrink();
+    return AnCodeSurface(
+      bare: bare,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AnSpace.s8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (old.isNotEmpty) seg(old, '−', c.dangerSoft, c.danger),
+            if (old.isNotEmpty && neu.isNotEmpty) const SizedBox(height: AnSpace.s4),
+            if (neu.isNotEmpty) seg(neu, '+', c.okSoft, c.ok),
+          ],
         ),
       ),
     );

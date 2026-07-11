@@ -54,6 +54,8 @@ class AnCodeEditor extends StatefulWidget {
     this.compact = false,
     this.wrap = false,
     this.reading = false,
+    this.live = false,
+    this.tailLines = 8,
     this.onChanged,
     this.onInput,
     this.copyPayload,
@@ -89,6 +91,17 @@ class AnCodeEditor extends StatefulWidget {
   /// share the token so line numbers stay row-aligned — WRK-040 §4). 内容档代码(13/1.6):15 列里人读
   /// 的代码;机器窗守默认 12。行号槽与代码区同切(共 token 保行对齐)。
   final bool reading;
+
+  /// LIVE face (WRK-066 族二「换脸不换壳」): the SAME frame/bar/copy chrome, but the body renders the
+  /// last [tailLines] lines as PLAIN mono (a re-highlight per streaming delta would burn the frame
+  /// budget) with no gutter (line numbers of a tail mislead). live→settled swaps the face only —
+  /// zero border/copy-position jump. Ignored when [inline] or [editable].
+  /// 活脸(族二「换脸不换壳」):同框同栏同 copy 位,体渲尾 [tailLines] 行纯等宽(逐 delta 重高亮烧帧)、
+  /// 无行号槽(尾巴的行号误导)。live→settled 只换脸,边框/copy 位零跳变。inline/editable 下忽略。
+  final bool live;
+
+  /// The live face's tail line count. 活脸尾行数。
+  final int tailLines;
 
   /// Commit callback (demo `an-change`) — fired on Save with the edited text. 保存提交。
   final ValueChanged<String>? onChanged;
@@ -238,7 +251,34 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
 
   @override
   Widget build(BuildContext context) {
-    return widget.inline ? _inlineBody(context) : _framed(context);
+    if (widget.inline) return _inlineBody(context);
+    if (widget.live && !widget.editable) return _framedLive(context);
+    return _framed(context);
+  }
+
+  // ── live face: same chrome, plain mono tail, no gutter (WRK-066 族二) 活脸:同壳/纯 mono 尾/无行号 ──
+  Widget _framedLive(BuildContext context) {
+    final c = context.colors;
+    final text = widget.code;
+    final lines = text.trimRight().split('\n');
+    final tail = lines.length > widget.tailLines ? lines.sublist(lines.length - widget.tailLines) : lines;
+    return Semantics(
+      container: true,
+      label: _a11yLabel(context, lines.length),
+      child: AnCodeSurface(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _bar(context, c),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AnSpace.s12, vertical: AnSpace.s8),
+              child: Text(tail.join('\n'), style: _codeStyle(c)),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   // The code text style — mono code face; plain (untokenized) text is muted, tokens colour over it.

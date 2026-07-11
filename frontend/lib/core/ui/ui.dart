@@ -1,7 +1,6 @@
 /// Barrel for the An* UI kit — one import for features + gallery. Grows per group (G0–G6).
 /// An* 套件桶文件——features + gallery 一行导入,随组(G0–G6)扩充。
 library;
-
 export '../overlay/an_overlay.dart';
 export '../model/code_diff.dart';
 export '../model/sidebar_model.dart';
@@ -108,3 +107,9 @@ export 'an_window_controls.dart';
 export 'icons.dart';
 export 'syntax_highlighter.dart';
 export 'tone.dart';
+export 'an_chip.dart';
+export 'an_field_section.dart';
+export 'an_ledger_row.dart';
+export 'an_live_tail.dart';
+export 'an_stat_bar.dart';
+export 'an_window.dart';
