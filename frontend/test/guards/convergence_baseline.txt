@@ -1,6 +1,5 @@
 # WRK-066「同轨」convergence ratchet baseline — counts may ONLY decrease.
 # 基线只许收缩。降到 0 的条目必须删除;新违规=guard 红。格式: path<TAB>category<TAB>count
-lib/features/chat/ui/chat_ocean.dart	alpha-tweak	1
 lib/features/chat/ui/chat_thinking.dart	token-arith	1
 lib/features/chat/ui/chat_transcript.dart	alpha-tweak	1
 lib/features/chat/ui/chat_transcript.dart	boxdecoration	1

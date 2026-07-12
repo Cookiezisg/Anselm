@@ -129,6 +129,7 @@ abstract final class AnIcons {
   static final IconData enter = _thin(LucideIcons.cornerDownLeft);
   static final IconData stop = _thin(LucideIcons.square);
   static final IconData spin = _thin(LucideIcons.loaderCircle);
+  static final IconData timeout = _thin(LucideIcons.timer); // duration budget / timed-out (批7 B-047) 时限/超时
   static final IconData forge = _thin(LucideIcons.hammer);
   static final IconData edit = _thin(LucideIcons.squarePen);
   static final IconData trash = _thin(LucideIcons.trash2);

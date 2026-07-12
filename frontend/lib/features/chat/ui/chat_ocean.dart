@@ -73,38 +73,14 @@ class _ChatOceanState extends ConsumerState<ChatOcean> {
         fit: StackFit.expand,
         children: [
           content,
-          if (_dragging) const _DropOverlay(),
+          if (_dragging)
+            AnDropVeil(icon: AnIcons.attach, label: Translations.of(context).chat.dropToAttach),
         ],
       ),
     );
   }
 }
 
-/// The drag-hover veil: a translucent surface + a centered hint. 拖放悬停面纱:半透明面+居中提示。
-class _DropOverlay extends StatelessWidget {
-  const _DropOverlay();
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    final t = Translations.of(context);
-    return IgnorePointer(
-      child: ColoredBox(
-        color: c.surface.withValues(alpha: 0.85),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(AnIcons.attach, size: AnSize.iconLg, color: c.inkMuted),
-              const SizedBox(height: AnSpace.s8),
-              Text(t.chat.dropToAttach, style: AnText.strong.copyWith(color: c.inkMuted)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 /// The New-chat landing: a STATIC greeting over a centered floating composer (heart ≈ upper-middle,
 /// the 2:3 split). ChatGPT/Claude/Gemini all render the greeting static — a typewriter delays the
@@ -133,7 +109,7 @@ class _ChatLanding extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Center(
-                    child: _FadeRiseIn(
+                    child: AnFadeRiseIn(
                       child: Text(t.chat.landingGreeting, style: AnText.h2.copyWith(color: c.ink)),
                     ),
                   ),
@@ -157,25 +133,3 @@ class _ChatLanding extends ConsumerWidget {
   }
 }
 
-/// One entry-only fade + 6px rise (mid, easeOut); renders static under reduced motion.
-/// 仅入场一次的淡入+6px 上移(mid, easeOut);reduced motion 直接静态。
-class _FadeRiseIn extends StatelessWidget {
-  const _FadeRiseIn({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    if (AnMotionPref.reduced(context)) return child;
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: 1),
-      duration: AnMotion.mid,
-      curve: AnMotion.easeOut,
-      builder: (context, v, child) => Opacity(
-        opacity: v,
-        child: Transform.translate(offset: Offset(0, (1 - v) * AnSpace.s6), child: child),
-      ),
-      child: child,
-    );
-  }
-}

@@ -68,6 +68,17 @@ abstract final class AnFlow {
   static const double subheadingTop = AnSpace.s16; // h3 space-above h3 上方留白
 }
 
+/// HANGING INDENT tier (批7 B 轨) — a wrapped/second line aligns under the text that follows a lead
+/// marker, so the indent = marker slot + its inline gap. Named by MARKER so feature code never sums
+/// tokens (grammar #4): a dot-led hang is [dot], an icon-led hang is [icon]. The row family's OWN
+/// expandChild indent stays primitive-internal (iconSm-cell, AnLedgerRow).
+/// 悬挂缩进档:换行/次行对齐到 lead 记号后的文字——缩进=记号槽+行内距。按记号命名,feature 层不再
+/// token 算术;行族披露体缩进仍原语自持。
+abstract final class AnIndent {
+  static const double dot = AnSize.dot + AnGap.inline; // 13 — dot-led hang (thinking rail, emit rows) 点式悬挂
+  static const double icon = AnSize.icon + AnGap.inline; // 22 — icon-led hang (tool-card bodies) 图标式悬挂
+}
+
 /// Corner radii (4-grid). Each tier maps to a surface class: tag→button→chip→card→island.
 /// 圆角(4 网格)。每级对应一类表面。
 abstract final class AnRadius {
@@ -163,6 +174,28 @@ abstract final class AnSize {
   static const double inspectorKeyCol = 96;
   static const double inspectorNumField = 72;
 
+  // Settings form metrics (批7 B 轨定档 — absorbs the panels' scattered literals). 设置表单度量档。
+  static const double formMaxWidth = 480; // field-stack form reading column (network/keys/ws/sandbox/mcp) 字段栈表单列
+  static const double formMaxWidthWide = 640; // long-text / paste editing surface (memory editor, JSON import) 长文编辑面
+  static const double ctlSlot = 240; // standard control slot (2-seg segmented, dropdowns) 标准控件槽
+  static const double ctlSlotLg = 320; // wide control slot (3+-seg segmented, model dropdowns) 宽控件槽
+  static const double ctlSlotXl = 380; // extra-wide slot (long-label 3-seg: «streamable-http») 特宽槽(长标签三段)
+  static const double numField = 140; // standalone numeric input (limits values) 独立数字输入
+  static const double tabPane = 480; // settings tab-pane fixed height (mcp/sandbox aligned, 批7 拍板) tab 面板定高
+  static const double followSlop = 32; // ≈one row from the bottom still counts as pinned-to-tail 贴底判定容差(≈一行)
+  static const double opticalNudge = 1; // 1px optical baseline nudge (icon-beside-text rows) 光学微调(图标旁基线)
+
+  // Chat scene-strip (toc) popover — its own axis beside menuMaxWidth. 场次条浮层(独立轴)。
+  static const double tocPaneMaxHeight = 560;
+  static const double tocPaneWidth = 340;
+
+  // In-card embedded graph stage height (workflow tool cards / stages — smaller than the entity
+  // page's graphPreview). 卡内嵌图台高(小于实体页 graphPreview)。
+  static const double graphStage = 200;
+
+  // Editor toolbar link-input width. 编辑器划选条 URL 输入宽。
+  static const double linkField = 280;
+
   // Three-island layout columns. The LEFT island is elastic (draggable, 240–400, default 320);
   // the RIGHT island is fixed; the ocean is the flex remainder whose content column is elastic
   // 480–720 (`oceanMin`..`content`). 三岛列:左岛弹性(可拖 240–400,默认 320);右岛固定;
@@ -228,6 +261,8 @@ abstract final class AnOpacity {
   static const double shadow = 0.12; // floating-pill soft shadow ink 浮丸柔影墨
   static const double dragDim = 0.35; // the row being drag-reordered (source ghost) 拖拽重排源行变暗
   static const double stratum = 0.4; // a faded prior/inactive layer (R-5 sidestage stratum) 淡化的旧/静置层
+  static const double sending = 0.55; // an optimistic in-flight turn (visible but tentative) 乐观在途回合
+  static const double veil = 0.85; // full-surface veil that must still hint at content beneath (drop overlay) 全面纱(微透底)
 }
 
 /// Motion — durations + easing. fast = hover, mid = reveals, slow = island slides; breath is
@@ -252,6 +287,21 @@ abstract final class AnMotion {
   static const Duration deletePerChar = Duration(milliseconds: 28); // delete (faster than typing) 删除(快于打字)
   static const Duration typeHold = Duration(milliseconds: 1400); // pause at a full phrase 满句停顿
   static const Duration typeGap = Duration(milliseconds: 400); // blank gap before the next phrase 换句空隙
+
+  // Debounce tiers (批7 B 轨) — RESPONSE classes, not animation lengths: inline typeahead must feel
+  // attached to the keystroke; list filtering may lag a beat; autosave waits for the pause.
+  // 防抖档——响应级而非动画时长:行内预输入要贴手,列表过滤可缓半拍,自动存等停顿。
+  static const Duration typeahead = Duration(milliseconds: 150); // @-mention / inline completion 行内预输入
+  static const Duration searchDebounce = Duration(milliseconds: 250); // rail search filtering rail 搜索过滤
+  static const Duration autosave = Duration(milliseconds: 600); // document/frontmatter autosave 文档自动存
+
+  // Long one-shot / loop tiers (批7). 长一次性/循环档。
+  static const Duration wash = Duration(milliseconds: 2200); // deep-jump highlight wash (W6 编舞值) 深跳洗亮
+  static const Duration stagger = Duration(milliseconds: 30); // list cascade per-row offset 级联逐行错峰
+  static const Duration revealCap = Duration(milliseconds: 3000); // content-scaled reveal HARD CAP 内容揭示总长封顶
+  static const Duration travel = Duration(milliseconds: 1100); // live-edge comet circuit (≠breath) 活边彗星巡回
+  static const Duration toast = Duration(seconds: 4); // UI-feedback toast (user present) 操作反馈 toast
+  static const Duration toastLong = Duration(seconds: 8); // event-notification toast (user may be away) 事件通知 toast
 
   static const Cubic easeOut = Cubic(0.16, 1, 0.3, 1);
   static const Cubic spring = Cubic(0.2, 0.9, 0.25, 1);

@@ -36,6 +36,15 @@ A-032/A-033/A-034/A-036/A-038/A-046/A-048 关账(A-031 剩 AnAttachmentChip、A-
 - **拍板点记档(建造者裁决,帧供否决)**:①RefPill 字面 body13 w400→族 meta12 w300(全族一字面;帧核可读性,否决则退半降级);②copy 芯片族声=outlined(与 path chip 一致);③AnSize.capsulePadY=1 新档(行内药囊竖距,inline 脸用)。
 - 新 variant 全部 gallery-first(raw 点四形/outlined·copy·icon-only·strikethrough·tooltip 五 specimen/inline 嵌文本/jump 双态)+ tonggui 电池 7 测(dot 槽/空标签/host-agnostic/a11y/raw 尺寸/空心零帧/jump 静态)。
 
+### 批7a 落地(2026-07-13,B 轨扫尾·铸档+原语地基)
+
+四组 scout(spacing/tone/icon-radius/motion-state)手术图定稿后先落地基,61 fix 行的档位与件一次备齐:
+- **铸档 21 枚**:`AnIndent` 新语义类(dot=13/icon=22,悬挂缩进按记号命名——feature 层 token 算术的结构性替代);AnSize +12(formMaxWidth 480/formMaxWidthWide 640/ctlSlot 240/ctlSlotLg 320/ctlSlotXl 380[长标签三段]/numField/tabPane 480[拍板记档:sandbox 360→480 对齐 mcp,帧供否决]/followSlop 32/opticalNudge 1/tocPane 双档/graphStage 200[190·200 两近值归并]/linkField 280);AnOpacity +2(sending 0.55/veil 0.85);AnMotion +9(**防抖三档** typeahead 150·searchDebounce 250·autosave 600[500 归并,+100ms 不可感] + wash 2200·stagger 30·revealCap 3000·travel 1100·toast 4s·toastLong 8s[UI 反馈 vs 事件通知双档,语义真实不归并])。
+- **AnColors.dangerLine**(0.30 light/0.40 dark,镜像 accentLine 七点管线)——线级 danger 需明暗分歧 alpha,透明档编码不了;不投机铸 warn/okLine(零消费者)。
+- **AnMenuSurface.estHeight(rows)**:浮层估高归面板自报(rows×row+2×s4),editor mention/slash 两处漂移拼算术退役在即。
+- **新原语三枚**(gallery-first+电池):`AnSpinner`(唯一小转圈,strokeWidth 2 原语自持;**a11y 门=orAssistive**——收编即顺手修 an_state 误门 reduced 与 transcript/toc 两处零门控裸 spinner,B-071 关账)/`AnFadeRiseIn`(入场淡升,chat landing 私件升格,B-056 关账;与命中列级联角色不同不并)/`AnDropVeil`(拖放面纱,veil 档+指针穿透,B-070 关账)。
+- **AnIcons.timeout**(lucide timer,B-047 备件)。
+
 ### 批6 对抗复审整改(36-agent 六维,30 findings 证伪后 25 confirmed 全修)
 
 - **sub 归一进原语**(MED,探针实证):_RunRow 迁移丢 trim 防线——线缆 sub 常带首换行(LLM finalText/后端 error),maxLines:1 下唯一渲染行全空白「数据在而屏上撒谎」;纯空白 sub 还切双行几何留幽灵道(渲染门 isNotEmpty 与五处几何判据 `sub==null` 不同源)。修在 AnLedgerRow 内部:`effectiveSub`(trim+空白归 null)同源喂渲染与全部几何分支,同治 flowrun/subagent/runlog 全用点;两枚回归钉(首换行渲可见文本/纯空白行高=无 sub 行)。

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
+import 'an_spinner.dart';
 import 'icons.dart';
 
 /// C2 — the full-block placeholder for empty / loading / error: a big muted glyph + title + optional
@@ -72,18 +73,10 @@ class AnState extends StatelessWidget {
 
     final Widget leading;
     if (kind == AnStateKind.loading) {
-      // Spinner owns its own ticker (keeps AnState Stateless); reduced-motion freezes to a still glyph.
-      // 转圈自带 ticker(保持 Stateless);降级冻成静态字形。
-      leading = AnMotionPref.reduced(context)
-          ? Icon(AnIcons.spin, size: glyphSize, color: c.inkFaint)
-          : SizedBox(
-              width: glyphSize,
-              height: glyphSize,
-              child: CircularProgressIndicator.adaptive(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(c.inkFaint),
-              ),
-            );
+      // The family spinner (批7 B-071) — its a11y gate is orAssistive (a decorative loop, B-054),
+      // which also fixes this branch's earlier reduced-only gating. 族转圈;门=orAssistive(装饰循环),
+      // 顺带修正此前只门 reduced 的档位。
+      leading = AnSpinner(size: glyphSize);
     } else {
       leading = Icon(
         icon ?? (kind == AnStateKind.empty ? AnIcons.empty : AnIcons.error),

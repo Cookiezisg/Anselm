@@ -387,6 +387,23 @@ final GalleryCategory _g1Controls = GalleryCategory('基础控件 Controls', AnI
     GallerySpecimen('recording (录制中)', (_) => const AnKeycap('按下快捷键…', state: AnKeycapState.recording)),
     GallerySpecimen('error (冲突)', (_) => const AnKeycap('⌘ C', state: AnKeycapState.error)),
   ]),
+  GalleryItem('AnSpinner 转圈', '唯一小型不定转圈(批7 B-071):icon 档淡环 strokeWidth 2;a11y 门=orAssistive(装饰循环冻成静态 spin 字形);行脚/面板加载用,整面占位归 AnState', [
+    GallerySpecimen('default (icon 16)', (_) => const AnSpinner()),
+    GallerySpecimen('iconLg 20', (_) => const AnSpinner(size: AnSize.iconLg)),
+    GallerySpecimen('stateIcon 40 (AnState loading 同款)', (_) => const AnSpinner(size: AnSize.stateIcon)),
+  ]),
+  GalleryItem('AnFadeRiseIn 入场淡升', '仅入场一次的淡入上移(批7 B-056,chat landing 升格):mid/easeOut/默认 s6;reduced 静态;与命中列级联(单控制器错峰)角色不同', [
+    GallerySpecimen('replayable (换 key 重播)', (_) => AnFadeRiseIn(key: UniqueKey(), child: const Text('欢迎回来'))),
+  ]),
+  GalleryItem('AnDropVeil 拖放面纱', '拖放悬停面纱(批7 B-070,chat 升格):AnOpacity.veil 表面洗微透底+居中字形提示;IgnorePointer 指针穿透,文案字形归调用方', [
+    GallerySpecimen('over content (盖在内容上)', (context) => SizedBox(
+          height: 160,
+          child: Stack(fit: StackFit.expand, children: [
+            Center(child: Text('底下的内容', style: AnText.body.copyWith(color: context.colors.inkMuted))),
+            AnDropVeil(icon: AnIcons.attach, label: '拖到这里作为附件'),
+          ]),
+        ), span: true),
+  ]),
   GalleryItem('AnSwatch 色板件', '「色即内容」原语(与 AnStatusDot 语义状态色两类):身份点 dot 10 / 取色格 pick 22 + 选中环 ring 档', [
     GallerySpecimen('dot (身份点)', (context) => AnSwatch(parseHexColor(kAvatarPalette.first, context.colors.accent), size: AnSwatchSize.dot)),
     GallerySpecimen('pick 色盘 (选中环)', (context) => Row(mainAxisSize: MainAxisSize.min, children: [

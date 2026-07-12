@@ -196,7 +196,7 @@ audience: [human, ai]
 | B-053 | `lib/core/ui/an_code_editor.dart:186` | 动效 | 裸 Duration:copy-✓ 复位 1200ms(同手势 AnCopyChip/AnPathChip 用 AnMotion.dwell 600ms,一个动作两种速度)、tooltip 500ms、graph_canvas comet 1100ms、toast 4s | copy 复位收单一 AnMotion 档,余者入令牌 | S | open |
 | B-054 | `lib/core/ui/an_state.dart:77` | 动效 | reduced-motion 双闸门混用:an_skeleton/an_shimmer_text 用 reducedOrAssistive,an_state/breadcrumb 等用 reduced(例证 an_live_code_window 已于批2 删除)——何时用哪档无成文规则 | B 轨成文:装饰循环用 orAssistive,过渡用 reduced | S | open |
 | B-055 | `lib/features/chat/ui/chat_composer.dart:77` | 动效 | 裸 Duration 防抖:composer 150ms 与 conversation_rail.dart:51 250ms,同角色(搜索防抖)两个私值 | 防抖档入 AnMotion(或 core Debouncer 默认档) | S | open |
-| B-056 | `lib/features/chat/ui/chat_ocean.dart:162` | 动效 | _FadeRiseIn 私有入场动效件(淡入+6px 上移)在 feature 层手搓,不进 gallery 不受审 | 抽 AnEntranceReveal 类原语入 core/ui | S | open |
+| B-056 | `lib/features/chat/ui/chat_ocean.dart:162` | 动效 | _FadeRiseIn 私有入场动效件(淡入+6px 上移)在 feature 层手搓,不进 gallery 不受审 | 抽 AnEntranceReveal 类原语入 core/ui | S | done·批7a |
 | B-057 | `lib/features/chat/ui/chat_transcript.dart:360` | 动效 | 跳转洗亮:裸 Duration 2200ms ×2(:172/:360)不在 AnMotion;:357 直读 MediaQuery.disableAnimationsOf(tokens.dart 明令禁止,应走 AnMotionPref) | 洗亮时长入 AnMotion,改用 AnMotionPref.reduced | S | open |
 | B-058 | `lib/features/documents/ui/document_ocean.dart:138` | 动效 | 同角色自动存防抖两档:正文/skill 存 600ms(:138,:239)vs 右岛 frontmatter 存 500ms(documents_inspector.dart:305),裸 Duration 各写各 | 统一 autosave 防抖档为一常量 | S | open |
 | B-059 | `lib/features/notifications/state/toast_dispatcher.dart:91` | 动效 | 裸 Duration(seconds: 8) 定 toast 时长,与 an_toast 的 anToastDefaultDuration(4s) 并存两处私铸 | toast 时长档收进 AnMotion/toast 令牌 | S | open |
@@ -210,8 +210,8 @@ audience: [human, ai]
 | B-067 | `lib/features/settings/ui/panels/mcp_panel.dart:273` | 状态 | tools/calls/stderr 三 tab 空态手搓 Text ×3(273/303/336),名册却用 AnState | 换 AnState(empty, inset) | S | open |
 | B-068 | `lib/features/settings/ui/panels/sandbox_panel.dart:181` | 状态 | '…' Text 当 loading(181)+ AnMeter '…' 兜底(64)+ noEnvs 空态手搓(278)×3 | 换 AnState/AnSkeleton,禁 '…' 哨兵 | S | open |
 | B-069 | `lib/features/settings/ui/panels/storage_panel.dart:31` | 状态 | '…' 哨兵串当 loading 且用 dir=='…' 判可用(31/52/58/71/159)+ width 240 裸数(67) | AsyncValue 显式判 loading,禁哨兵串 | M | open |
-| B-070 | `lib/features/chat/ui/chat_ocean.dart:93` | 状态 | _DropOverlay 手搓拖放面纱(ColoredBox+icon+text),surface.withValues(alpha:0.85) 私铸透明档 | 抽 drop-veil 原语进 gallery,alpha 入 AnOpacity | S | open |
-| B-071 | `lib/features/chat/ui/chat_transcript.dart:277` | 状态 | 手搓 loading:SizedBox(icon)+CircularProgressIndicator.adaptive(strokeWidth:2),chat_toc.dart:138 同型 ×2 | 抽 AnState/loader 原语统一小型加载点 | S | open |
+| B-070 | `lib/features/chat/ui/chat_ocean.dart:93` | 状态 | _DropOverlay 手搓拖放面纱(ColoredBox+icon+text),surface.withValues(alpha:0.85) 私铸透明档 | 抽 drop-veil 原语进 gallery,alpha 入 AnOpacity | S | done·批7a |
+| B-071 | `lib/features/chat/ui/chat_transcript.dart:277` | 状态 | 手搓 loading:SizedBox(icon)+CircularProgressIndicator.adaptive(strokeWidth:2),chat_toc.dart:138 同型 ×2 | 抽 AnState/loader 原语统一小型加载点 | S | done·批7a |
 | B-072 | `lib/features/chat/ui/tool_card_skins.dart:528` | 状态 | decideApprovalBody NOT_PARKED 提示行手搓(warn Icon+Text Row),该用 AnState/note 类原语 | 换共享 note/callout 原语 | S | open |
 | B-073 | `lib/features/notifications/ui/notification_feed.dart:79` | 状态 | feed 首屏 loading/error/empty/list 四态在 async.when 里手拼(AnDeferredLoading+AnRailSkeleton+AnState 逐个摆),AnRailStates 正是为此而生 | 换 AnRailStates(strings+onRetry+builder) | S | open |
 | B-074 | `lib/features/chat/ui/run_dossier.dart:33` | i18n | status→本地化词 switch 手搓 ×4(dossier:35/123、flowrun:154、exec:202),同一映射四处重复 | 收进共享 statusWord helper(挂 AnStatus) | S | open |

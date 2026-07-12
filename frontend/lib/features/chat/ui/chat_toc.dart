@@ -131,11 +131,7 @@ class _TocPanel extends ConsumerWidget {
           _ => const [
               Padding(
                 padding: EdgeInsets.all(AnSpace.s16),
-                child: Center(
-                    child: SizedBox(
-                        width: AnSize.icon,
-                        height: AnSize.icon,
-                        child: CircularProgressIndicator.adaptive(strokeWidth: 2))),
+                child: Center(child: AnSpinner()),
               ),
             ],
         },

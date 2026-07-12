@@ -1,3 +1,4 @@
+import 'package:anselm/core/design/colors.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/design/typography.dart';
@@ -599,6 +600,79 @@ void main() {
       await tester.pump();
       expect(find.text('ModuleNotFoundError: x'), findsOneWidget);
       expect(find.text('实例状态已重置'), findsOneWidget);
+    });
+  });
+
+  group('AnSpinner 批7', () {
+    testWidgets('spins live; freezes to the still glyph under assistive tech (orAssistive gate, B-054)',
+        (tester) async {
+      await tester.pumpWidget(_host(const AnSpinner()));
+      await tester.pump();
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      // accessibleNavigation ON → the DECORATIVE loop must freeze (a reduced-only gate misses this).
+      // 读屏活跃→装饰循环必须冻结(只门 reduced 会漏)。
+      await tester.pumpWidget(MediaQuery(
+        data: const MediaQueryData(accessibleNavigation: true),
+        child: _host(const AnSpinner()),
+      ));
+      await tester.pump();
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.byIcon(AnIcons.spin), findsOneWidget);
+      expect(tester.binding.transientCallbackCount, 0); // truly zero frames 真零帧
+    });
+  });
+
+  group('AnFadeRiseIn 批7', () {
+    testWidgets('animates entry once; renders static (no ticker) under reduced motion', (tester) async {
+      await tester.pumpWidget(_host(const AnFadeRiseIn(child: Text('hi'))));
+      await tester.pump();
+      expect(tester.binding.transientCallbackCount, greaterThan(0)); // entry in flight 入场在飞
+      await tester.pumpAndSettle();
+      expect(tester.widget<Opacity>(find.byType(Opacity).first).opacity, 1.0);
+      await tester.pumpWidget(MediaQuery(
+        data: const MediaQueryData(disableAnimations: true),
+        child: _host(const AnFadeRiseIn(key: Key('r'), child: Text('hi2'))),
+      ));
+      await tester.pump();
+      expect(find.byType(Opacity), findsNothing); // static path 静态径
+      expect(tester.binding.transientCallbackCount, 0);
+    });
+  });
+
+  group('AnDropVeil 批7', () {
+    testWidgets('veils at the token alpha and never intercepts the pointer', (tester) async {
+      var taps = 0;
+      await tester.pumpWidget(_host(SizedBox(
+        width: 200,
+        height: 120,
+        child: Stack(fit: StackFit.expand, children: [
+          GestureDetector(onTap: () => taps++, behavior: HitTestBehavior.opaque),
+          AnDropVeil(icon: AnIcons.attach, label: 'drop here'),
+        ]),
+      )));
+      await tester.pump();
+      expect(find.text('drop here'), findsOneWidget);
+      final box = tester.widget<ColoredBox>(find.descendant(
+          of: find.byType(AnDropVeil), matching: find.byType(ColoredBox)));
+      expect(box.color.a, closeTo(AnOpacity.veil, 0.005)); // token alpha, not a private literal 走档
+      await tester.tap(find.text('drop here'), warnIfMissed: false);
+      expect(taps, 1); // IgnorePointer holds 指针穿透
+    });
+  });
+
+  group('批7 铸档', () {
+    test('AnIndent derives marker+gap; AnMenuSurface reports its own height', () {
+      expect(AnIndent.dot, AnSize.dot + AnGap.inline);
+      expect(AnIndent.icon, AnSize.icon + AnGap.inline);
+      expect(AnMenuSurface.estHeight(3), 3 * AnSize.row + AnSpace.s4 * 2);
+    });
+    test('dangerLine exists in BOTH themes as a line-weight danger (镜像 accentLine)', () {
+      // Read the extensions straight off the ThemeData — pumping two MaterialApps lerps the
+      // extension across the theme transition and reads a mid-flight value. 直接读扩展,避开主题过渡 lerp。
+      final light = AnTheme.light().extension<AnColors>()!;
+      final dark = AnTheme.dark().extension<AnColors>()!;
+      expect(light.dangerLine.a, closeTo(0.30, 0.005));
+      expect(dark.dangerLine.a, closeTo(0.40, 0.005));
     });
   });
 }

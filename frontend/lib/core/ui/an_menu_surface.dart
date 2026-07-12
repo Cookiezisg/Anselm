@@ -16,6 +16,12 @@ import 'an_interactive.dart';
 class AnMenuSurface extends StatelessWidget {
   const AnMenuSurface({required this.children, super.key});
 
+  /// The surface's own height estimate for [rows] standard menu rows — row height plus the s4
+  /// all-side inset. Popover positioners consume this instead of re-deriving the panel's geometry
+  /// (批7 B-019/020: three drifting hand-summed copies retire). 面板自报估高(rows×行高+四周 s4)——
+  /// 浮层定位方消费,不再各自拼几何。
+  static double estHeight(int rows) => rows * AnSize.row + AnSpace.s4 * 2;
+
   final List<Widget> children;
 
   @override

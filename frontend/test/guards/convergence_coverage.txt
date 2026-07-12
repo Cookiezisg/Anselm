@@ -123,12 +123,14 @@ lib/core/ui/an_deferred_loading.dart	pending
 lib/core/ui/an_dialog.dart	pending
 lib/core/ui/an_disclosure.dart	pending
 lib/core/ui/an_divider.dart	pending
+lib/core/ui/an_drop_veil.dart	converged
 lib/core/ui/an_dropdown.dart	pending
 lib/core/ui/an_edge_fade.dart	pending
 lib/core/ui/an_edit_affordance.dart	pending
 lib/core/ui/an_editable_value.dart	pending
 lib/core/ui/an_expand_reveal.dart	pending
 lib/core/ui/an_fade_collapse.dart	pending
+lib/core/ui/an_fade_rise_in.dart	converged
 lib/core/ui/an_field.dart	pending
 lib/core/ui/an_field_section.dart	reviewed
 lib/core/ui/an_floating_bar.dart	pending
@@ -189,6 +191,7 @@ lib/core/ui/an_shimmer_text.dart	ledgered
 lib/core/ui/an_sidebar_footer.dart	pending
 lib/core/ui/an_sidebar_list.dart	pending
 lib/core/ui/an_skeleton.dart	pending
+lib/core/ui/an_spinner.dart	converged
 lib/core/ui/an_stat_bar.dart	reviewed
 lib/core/ui/an_state.dart	ledgered
 lib/core/ui/an_status_dot.dart	ledgered

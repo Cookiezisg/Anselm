@@ -30,6 +30,7 @@ class AnColors extends ThemeExtension<AnColors> {
     required this.accentHover,
     required this.accentSoft,
     required this.accentLine,
+    required this.dangerLine,
     required this.ok,
     required this.okSoft,
     required this.warn,
@@ -76,6 +77,7 @@ class AnColors extends ThemeExtension<AnColors> {
   final Color accentHover;
   final Color accentSoft;
   final Color accentLine; // hairline-weight accent for emphatic borders/insets (demo --accent-line); accentSoft 太浅做不了线
+  final Color dangerLine; // hairline-weight danger for warning borders (批7 B-034 — dangerSoft 太浅做不了线,镜像 accentLine)
 
   // Functional status semantics. 功能状态语义。
   final Color ok;
@@ -119,6 +121,7 @@ class AnColors extends ThemeExtension<AnColors> {
     accentHover: Color(0xFF0077ED),
     accentSoft: Color.fromRGBO(0, 113, 227, 0.10),
     accentLine: Color.fromRGBO(0, 113, 227, 0.30),
+    dangerLine: Color.fromRGBO(215, 0, 21, 0.30),
     ok: Color(0xFF2DA44E),
     okSoft: Color.fromRGBO(45, 164, 78, 0.12),
     warn: Color(0xFFBF6A02),
@@ -164,6 +167,7 @@ class AnColors extends ThemeExtension<AnColors> {
     accentHover: Color(0xFF409CFF),
     accentSoft: Color.fromRGBO(10, 132, 255, 0.16),
     accentLine: Color.fromRGBO(10, 132, 255, 0.40),
+    dangerLine: Color.fromRGBO(255, 69, 58, 0.40),
     ok: Color(0xFF30D158),
     okSoft: Color.fromRGBO(48, 209, 88, 0.16),
     warn: Color(0xFFFF9F0A),
@@ -209,6 +213,7 @@ class AnColors extends ThemeExtension<AnColors> {
     Color? accentHover,
     Color? accentSoft,
     Color? accentLine,
+    Color? dangerLine,
     Color? ok,
     Color? okSoft,
     Color? warn,
@@ -241,6 +246,7 @@ class AnColors extends ThemeExtension<AnColors> {
       accentHover: accentHover ?? this.accentHover,
       accentSoft: accentSoft ?? this.accentSoft,
       accentLine: accentLine ?? this.accentLine,
+      dangerLine: dangerLine ?? this.dangerLine,
       ok: ok ?? this.ok,
       okSoft: okSoft ?? this.okSoft,
       warn: warn ?? this.warn,
@@ -280,6 +286,7 @@ class AnColors extends ThemeExtension<AnColors> {
       accentHover: c(accentHover, other.accentHover),
       accentSoft: c(accentSoft, other.accentSoft),
       accentLine: c(accentLine, other.accentLine),
+      dangerLine: c(dangerLine, other.dangerLine),
       ok: c(ok, other.ok),
       okSoft: c(okSoft, other.okSoft),
       warn: c(warn, other.warn),

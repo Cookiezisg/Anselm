@@ -270,11 +270,7 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
                     if (i == older.length) {
                       return const Padding(
                         padding: EdgeInsets.symmetric(vertical: AnSpace.s12),
-                        child: Center(
-                            child: SizedBox(
-                                width: AnSize.icon,
-                                height: AnSize.icon,
-                                child: CircularProgressIndicator.adaptive(strokeWidth: 2))),
+                        child: Center(child: AnSpinner()),
                       );
                     }
                     return _rowFor(older[older.length - 1 - i]);
