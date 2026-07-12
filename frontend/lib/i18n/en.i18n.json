@@ -668,7 +668,8 @@
     "addTag": "Add tag",
     "copied": "Copied",
     "showAll": "Show remaining $n",
-    "copyFailed": "Copy failed"
+    "copyFailed": "Copy failed",
+    "retry": "Retry"
   },
   "shell": {
     "collapseSidebar": "Collapse sidebar",

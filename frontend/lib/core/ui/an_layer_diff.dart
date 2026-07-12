@@ -37,8 +37,11 @@ class AnLayerDiff extends StatelessWidget {
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(AnSpace.s8),
+        // White face + hairline like every machine surface (拍板 #1 灰底退役,批8 普查) — the
+        // «prior layer» reading is carried by the stratum dim + faint ink, not a grey well.
+        // 白面+发丝随族;「旧层」语义由 stratum 淡墨承载,不靠灰底。
         decoration: BoxDecoration(
-          color: c.surfaceSunken,
+          color: c.surface,
           borderRadius: BorderRadius.circular(AnRadius.tag),
           border: Border.all(color: c.line, width: AnSize.hairline),
         ),

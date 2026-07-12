@@ -76,11 +76,11 @@ class AnChannelStrip extends StatelessWidget {
     return AnInteractive(
       onTap: onTap == null ? null : () => onTap!(ch.id),
       builder: (ctx, states) => Container(
-        height: AnSize.row - AnSpace.s8,
+        height: AnSize.controlSm,
         padding: const EdgeInsets.symmetric(horizontal: AnSpace.s6),
         decoration: BoxDecoration(
           color: selected || states.isActive ? c.surfaceHover : null,
-          border: Border.all(color: selected ? c.line : const Color(0x00000000), width: AnSize.hairline),
+          border: Border.all(color: c.line.whenActive(selected), width: AnSize.hairline),
           borderRadius: BorderRadius.circular(AnRadius.chip),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [

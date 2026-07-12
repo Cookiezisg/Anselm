@@ -177,6 +177,7 @@ class _Translations$feedback$zh_CN extends Translations$feedback$en {
 	@override String get copied => '已复制';
 	@override String showAll({required Object n}) => '展开其余 ${n} 个';
 	@override String get copyFailed => '复制失败';
+	@override String get retry => '重试';
 }
 
 // Path: shell
@@ -2747,6 +2748,7 @@ extension on TranslationsZhCn {
 			'feedback.copied' => '已复制',
 			'feedback.showAll' => ({required Object n}) => '展开其余 ${n} 个',
 			'feedback.copyFailed' => '复制失败',
+			'feedback.retry' => '重试',
 			'shell.collapseSidebar' => '收起侧栏',
 			'shell.expandSidebar' => '展开侧栏',
 			'shell.togglePanel' => '切换面板',
@@ -3129,9 +3131,9 @@ extension on TranslationsZhCn {
 			'documents.pickHint' => '在左侧选一篇文档或技能来阅读或编辑。',
 			'documents.loadFailed' => '打不开这个',
 			'documents.rename' => '改名',
-			'documents.duplicate' => '创建副本',
 			_ => null,
 		} ?? switch (path) {
+			'documents.duplicate' => '创建副本',
 			'documents.deleteDocTitle' => '删除这个页面?',
 			'documents.deleteDocBody' => ({required Object name}) => '“${name}”及其下嵌套的所有内容都会被删除。',
 			'documents.deleteSkillTitle' => '删除这个技能?',

@@ -1,4 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../design/tokens.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// The central app-level preferences service (WRK-062 S-13) — the ONE seam every `an.*` key goes
@@ -140,8 +142,8 @@ class SettingsKey<T> {
 abstract final class SettingsKeys {
   // ── shell chrome 壳 ──
   static const sideCollapsed = SettingsKey<bool>('an.side.collapsed', false);
-  static const sideWidth = SettingsKey<double>('an.side.w', 320);
-  static const rightWidth = SettingsKey<double>('an.side.rightw', 320);
+  static const sideWidth = SettingsKey<double>('an.side.w', AnSize.sidebar);
+  static const rightWidth = SettingsKey<double>('an.side.rightw', AnSize.rightIsland);
   static const ocean = SettingsKey<String>('an.ocean', 'chat');
   static const settingsPanel = SettingsKey<String>('an.settings.panel', 'general');
 

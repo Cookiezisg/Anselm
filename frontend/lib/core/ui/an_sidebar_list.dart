@@ -8,6 +8,7 @@ import '../design/tokens.dart';
 import '../design/typography.dart';
 import '../model/sidebar_flatten.dart';
 import '../model/sidebar_model.dart';
+import 'an_spinner.dart';
 import 'an_button.dart';
 import 'an_inline_edit.dart';
 import 'an_input.dart';
@@ -815,13 +816,20 @@ class _AnSidebarListState extends State<AnSidebarList> {
     final pageKey = t.pageKey!;
     if (t.loadError) {
       // Stage-C polishes the tail states (i18n label, look); B1 = a tappable retry glyph. 阶段 C 完善尾态。
-      return AnInteractive(
-        onTap: () => widget.onRetryLoad?.call(pageKey),
-        builder: (ctx, states) => Container(
-          height: AnSize.row,
-          alignment: Alignment.center,
-          color: c.surfaceHover.whenActive(states.isActive),
-          child: Icon(AnIcons.stop, size: AnSize.iconSm, color: c.danger),
+      // The failed tail is a real retry control — fold the button semantics in (批8 普查:裸图标
+      // 曾无语义承载). 失败尾=真重试控件,折叠 button 语义。
+      return MergeSemantics(
+        child: Semantics(
+          label: context.t.feedback.retry,
+          child: AnInteractive(
+            onTap: () => widget.onRetryLoad?.call(pageKey),
+            builder: (ctx, states) => Container(
+              height: AnSize.row,
+              alignment: Alignment.center,
+              color: c.surfaceHover.whenActive(states.isActive),
+              child: ExcludeSemantics(child: Icon(AnIcons.stop, size: AnSize.iconSm, color: c.danger)),
+            ),
+          ),
         ),
       );
     }
@@ -831,13 +839,7 @@ class _AnSidebarListState extends State<AnSidebarList> {
       child: SizedBox(
         height: AnSize.row,
         child: t.loadingMore
-            ? Center(
-                child: SizedBox(
-                  width: AnSize.iconSm,
-                  height: AnSize.iconSm,
-                  child: Icon(AnIcons.run, size: AnSize.iconSm, color: c.inkFaint),
-                ),
-              )
+            ? Center(child: AnSpinner(size: AnSize.iconSm, semanticLabel: context.t.a11y.loading))
             : const SizedBox.shrink(),
       ),
     );

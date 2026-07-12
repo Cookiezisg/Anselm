@@ -82,7 +82,7 @@ class _AnSettingRowState extends State<AnSettingRow> {
               border: Border(
                 left: BorderSide(
                   color: widget.modified ? c.accent : const Color(0x00000000),
-                  width: 2,
+                  width: AnSize.gripLine,
                 ),
               ),
             ),

@@ -59,7 +59,7 @@ List<TextSpan> highlightCode(String code, {String? lang, required SyntaxColors c
     } else if (string != null) {
       spans.add(TextSpan(text: string, style: TextStyle(color: colors.string)));
     } else if (arg != null) {
-      spans.add(TextSpan(text: arg, style: TextStyle(color: colors.arg, fontWeight: FontWeight.w600)));
+      spans.add(TextSpan(text: arg, style: TextStyle(color: colors.arg, fontWeight: FontWeight.w400)));
     } else if (number != null) {
       spans.add(TextSpan(text: number, style: TextStyle(color: colors.number)));
     } else {

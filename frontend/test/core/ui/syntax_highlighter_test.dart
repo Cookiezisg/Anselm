@@ -68,7 +68,8 @@ void main() {
   test('CEL / interpolation → arg colour + bold ({{ }} / \${ } / \$n) [decision 4]', () {
     final tpl = highlightCode('{{ user.name }}', colors: c);
     expect(colorOf(tpl, '{{ user.name }}'), c.arg);
-    expect(spanFor(tpl, '{{ user.name }}').style?.fontWeight, FontWeight.w600);
+    // Two-weight law (批8 普查): emphasis is w400, never a heavier third tier. 两档字重铁律。
+    expect(spanFor(tpl, '{{ user.name }}').style?.fontWeight, FontWeight.w400);
     expect(colorOf(highlightCode('\${env}', colors: c), '\${env}'), c.arg);
     expect(colorOf(highlightCode('\$1', colors: c), '\$1'), c.arg);
   });

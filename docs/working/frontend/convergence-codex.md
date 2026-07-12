@@ -52,6 +52,13 @@ A-032/A-033/A-034/A-036/A-038/A-046/A-048 关账(A-031 剩 AnAttachmentChip、A-
 3. **reduced 双闸选档**:装饰循环(shimmer/呼吸/雷达/转圈/打字机)=reducedOrAssistive;功能性一次揭示(展开/洗亮/入场)=reduced。
 4. **表单内联错误=label(13)+danger+top:s8;整面载入失败=AnState(error)**;行内空态=AnState inset;rail 整面四态=AnRailStates。
 
+### 批8 落地(2026-07-13,全量扫尾——coverage 分母 pending 清零)
+
+27-agent 扇出对 321 pending 文件逐个过审(法典全条款为准绳)+2 件漏检主线亲审:**264 converged + 47 reviewed(边角记档) + 8 violation 全修**;ledgered 100 件按台账关账状态推进(55→reviewed,45 保留=仍被 A/C/D open 行引用)。分母现状:**294 converged / 121 reviewed / 45 ledgered / 0 pending**。
+- **8 处违规修**:settings_prefs 岛宽默认 320 双源→引 AnSize.sidebar/rightIsland(防 token 改档静默分叉);an_channel_strip row−s8 算术→controlSm+透明边→whenActive 惯用式;**an_layer_diff 灰底退役**(surfaceSunken→白面+发丝,拍板 #1;「旧层」语义由 stratum 淡墨承载——**可见变化帧核**:agent/function/document 三舞台旧真相节选);an_setting_row modified 边 2→gripLine;an_sidebar_list loadingMore 假转圈(静态 run 字形!)→AnSpinner(a11y.loading)+失败尾补 button 语义(新 core 键 feedback.retry 双语);**syntax_highlighter w600→w400**(两档字重铁律,arg 组字重微降可见,测试同步);specimen spacing 裸 6→AnGap.inline;mount 6000×2→AnCap.window。
+- **reviewed 边角记档五类**(过审员如实存疑,不为清账放水):①core 四件(honesty_ribbon/cast_row/channel_strip/follow_pill)引 chat.stage.* 命名空间——与批6a「core 禁引 chat.*」相抵,系统性遗留,**批9 统一迁 feedback.***;②error_boundary 预 theme 自含件直读 AnColors.light/AnSpace(取舍注释锚定);③an_overlay 浮层宿主定位 token 算术(core 结构性,注释锚定);④os_notifier Linux defaultActionName 'Open'(插件装配层无 Translations 管线);⑤brand_icon lg=islandHead*2 派生(注释锚定)。
+- 漏检二件(interaction/limits 契约 DTO)主线亲审 converged。
+
 ### 批7 对抗复审整改(32-agent 六维,26 findings 证伪后 24 confirmed 全修)
 
 - **台账 done 诚实性四清**(MED×2+LOW×2):B-016 锚点站点自己没迁(network/workspaces ×3 裸 480→formMaxWidth 补落);B-069 width 240 残站(storage 磁盘槽→ctlSlot,与 sandbox 同源);B-032 分诊补记档(notification ×2=opticalNudge 恒等,an_setting_row desc=inlineHair 1→2 **+1px 可见**,语义正确[label→hint 微对既有档]、波及全 settings desc 行,帧供否决);B-013 补记 stderr 视口 360→320(−40 可见,原语默认)。

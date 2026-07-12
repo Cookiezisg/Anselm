@@ -339,6 +339,9 @@ class Translations$feedback$en {
 
 	/// en: 'Copy failed'
 	String get copyFailed => 'Copy failed';
+
+	/// en: 'Retry'
+	String get retry => 'Retry';
 }
 
 // Path: shell
@@ -5535,6 +5538,7 @@ extension on Translations {
 			'feedback.copied' => 'Copied',
 			'feedback.showAll' => ({required Object n}) => 'Show remaining ${n}',
 			'feedback.copyFailed' => 'Copy failed',
+			'feedback.retry' => 'Retry',
 			'shell.collapseSidebar' => 'Collapse sidebar',
 			'shell.expandSidebar' => 'Expand sidebar',
 			'shell.togglePanel' => 'Toggle panel',
@@ -5917,9 +5921,9 @@ extension on Translations {
 			'documents.pickHint' => 'Choose a document or skill on the left to read or edit it.',
 			'documents.loadFailed' => 'Couldn\'t open this',
 			'documents.rename' => 'Rename',
-			'documents.duplicate' => 'Duplicate',
 			_ => null,
 		} ?? switch (path) {
+			'documents.duplicate' => 'Duplicate',
 			'documents.deleteDocTitle' => 'Delete this page?',
 			'documents.deleteDocBody' => ({required Object name}) => '“${name}” and everything nested inside it will be removed.',
 			'documents.deleteSkillTitle' => 'Delete this skill?',

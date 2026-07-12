@@ -71,8 +71,8 @@ Widget _mcpToolBody(BuildContext context, ToolCardState state) {
   }
   final result = state.resultText;
   final isErr = _mcpErr.hasMatch(result);
-  final over = result.length > 6000;
-  final shown = over ? result.substring(0, 6000) : result;
+  final over = result.length > AnCap.window;
+  final shown = over ? result.substring(0, AnCap.window) : result;
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
     // The streamed progress survives the settle as the call's record (above the result). 进度记录留档。
     if (state.progressText.trim().isNotEmpty)
