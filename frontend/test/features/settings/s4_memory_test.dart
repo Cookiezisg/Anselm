@@ -56,6 +56,24 @@ void main() {
     await tester.tap(pins.last);
     await tester.pumpAndSettle();
     expect(repo.memories.every((m) => m.pinned), isTrue, reason: '行内 toggle 即时生效');
+
+    // The pin is a REAL control (批6 复审): button semantics + toggled state + keyboard-focusable —
+    // a bare GestureDetector left setPinned's ONLY entry point keyboard-unreachable. pin 是真控件:
+    // button+toggled+可聚焦(裸 GestureDetector 曾使唯一入口键盘不可达)。
+    final pinNode = tester.getSemantics(pins.first);
+    expect(
+        pinNode,
+        matchesSemantics(
+            isButton: true,
+            hasToggledState: true,
+            isToggled: true,
+            isFocusable: true,
+            hasEnabledState: true,
+            isEnabled: true,
+            hasSelectedState: true, // AnInteractive 基座恒带 selected 轴 base substrate always carries it
+            hasTapAction: true,
+            hasFocusAction: true,
+            label: t.settings.mem.pinTip));
   });
 
   testWidgets('create validates the slug; a good one lands in the roster', (tester) async {

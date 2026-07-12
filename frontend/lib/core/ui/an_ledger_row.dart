@@ -74,17 +74,25 @@ class AnLedgerRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    // ONE sub truth for geometry AND rendering (批6 复审): wire subs arrive with leading '\n'
+    // (LLM finalText, backend errors) — untrimmed they paint an empty first line under maxLines:1,
+    // and a whitespace-only sub must not switch the row to two-line geometry with a ghost lane.
+    // 副行单一真相:线缆 sub 常带首换行——不 trim 则唯一渲染行全空白;纯空白 sub 也绝不能把行切成
+    // 双行几何留幽灵道。几何与渲染同源判据。
+    final effectiveSub = (sub == null || sub!.trim().isEmpty) ? null : sub!.trim();
     final subStyle = subTone == AnTone.danger
         ? AnText.code.copyWith(color: c.danger)
         : AnText.meta.copyWith(color: c.inkFaint);
     final row = ConstrainedBox(
       constraints: const BoxConstraints(minHeight: AnSize.row),
-      child: Row(crossAxisAlignment: sub == null ? CrossAxisAlignment.center : CrossAxisAlignment.start, children: [
+      child: Row(
+          crossAxisAlignment: effectiveSub == null ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+          children: [
         if (lead != null) ...[
           // Fixed lead cell: dots (7) and glyphs (12) mix in one list — a bare lead drifts the
           // primary's left edge row to row. 定宽 lead 格:点/字形混列时主文左缘不漂。
           Padding(
-            padding: sub == null ? EdgeInsets.zero : const EdgeInsets.only(top: AnSpace.s8),
+            padding: effectiveSub == null ? EdgeInsets.zero : const EdgeInsets.only(top: AnSpace.s8),
             child: SizedBox(width: AnSize.iconSm, child: Center(child: lead!)),
           ),
           const SizedBox(width: AnSpace.s6),
@@ -95,7 +103,7 @@ class AnLedgerRow extends StatelessWidget {
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
             Padding(
-              padding: sub == null ? EdgeInsets.zero : const EdgeInsets.only(top: AnSpace.s6),
+              padding: effectiveSub == null ? EdgeInsets.zero : const EdgeInsets.only(top: AnSpace.s6),
               child: Row(children: [
                 Flexible(
                   child: Text(primary,
@@ -109,24 +117,24 @@ class AnLedgerRow extends StatelessWidget {
                 ],
               ]),
             ),
-            if (sub != null && sub!.isNotEmpty)
+            if (effectiveSub != null)
               Padding(
                 padding: const EdgeInsets.only(top: AnSpace.s2, bottom: AnSpace.s4),
-                child: Text(sub!, maxLines: 1, overflow: TextOverflow.ellipsis, style: subStyle),
+                child: Text(effectiveSub, maxLines: 1, overflow: TextOverflow.ellipsis, style: subStyle),
               ),
           ]),
         ),
         if (measure != null) ...[
           const SizedBox(width: AnSpace.s8),
           Padding(
-            padding: sub == null ? EdgeInsets.zero : const EdgeInsets.only(top: AnSpace.s8),
+            padding: effectiveSub == null ? EdgeInsets.zero : const EdgeInsets.only(top: AnSpace.s8),
             child: Text(measure!, style: AnText.metaTabular().copyWith(color: c.inkMuted)),
           ),
         ],
         if (meta != null) ...[
           const SizedBox(width: AnSpace.s8),
           Padding(
-            padding: sub == null ? EdgeInsets.zero : const EdgeInsets.only(top: AnSpace.s8),
+            padding: effectiveSub == null ? EdgeInsets.zero : const EdgeInsets.only(top: AnSpace.s8),
             child: Text(meta!, style: AnText.metaTabular().copyWith(color: c.inkFaint)),
           ),
         ],
@@ -142,9 +150,12 @@ class AnLedgerRow extends StatelessWidget {
         open: expanded,
         // The disclosure body indents to the primary's left edge — the lead-cell offset lives in
         // the primitive (its OWN structural constant), never as caller arithmetic (文法 #4 targets
-        // feature-layer sums). 披露体缩进到主文左缘——偏移量原语自持,非调用方算术。
+        // feature-layer sums). A lead-less row has its primary at 0, so the offset only applies
+        // when the lead cell exists (批6 复审). 披露体缩进到主文左缘——偏移量原语自持、非调用方
+        // 算术;无 lead 行主文在 0,缩进随 lead 存在与否。
         child: Padding(
-          padding: const EdgeInsetsDirectional.only(start: AnSize.iconSm + AnSpace.s6, bottom: AnSpace.s4),
+          padding: EdgeInsetsDirectional.only(
+              start: lead != null ? AnSize.iconSm + AnSpace.s6 : 0, bottom: AnSpace.s4),
           child: expandChild!,
         ),
       ),

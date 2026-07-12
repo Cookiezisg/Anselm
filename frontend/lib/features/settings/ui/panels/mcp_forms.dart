@@ -360,27 +360,22 @@ class _McpInstallFormState extends ConsumerState<McpInstallForm> {
                 style: AnText.label.copyWith(color: c.warn)),
           ],
           const SizedBox(height: AnSpace.s12),
+          // The env-var group is the ONE form block too (批6 复审 — monoLabel 的声明用途在此,
+          // A-059 关账落到实处): mono env name + required mark on the label baseline + description
+          // as the desc sub-line. env 组同走唯一表单字段块:mono 名+required 骑基线+描述走 desc。
           for (final v in plan.envVars) ...[
-            Padding(
-              padding: const EdgeInsets.only(bottom: AnSpace.s4),
-              child: Row(children: [
-                Text(v.name, style: AnText.mono.copyWith(color: c.inkMuted)),
-                if (v.required) ...[
-                  const SizedBox(width: AnSpace.s4),
-                  Text('* ${t.settings.mcp.requiredMark}',
-                      style: AnText.label.copyWith(color: c.danger)),
-                ],
-              ]),
+            AnFormField(
+              label: v.name,
+              monoLabel: true,
+              labelTrailing: v.required
+                  ? Text('* ${t.settings.mcp.requiredMark}',
+                      style: AnText.label.copyWith(color: c.danger))
+                  : null,
+              desc: v.description.isEmpty ? null : v.description,
+              child: v.isSecret
+                  ? AnSecretField(controller: _ctl(v.name))
+                  : AnInput(controller: _ctl(v.name), mono: true),
             ),
-            if (v.description.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: AnSpace.s4),
-                child: Text(v.description, style: AnText.label.copyWith(color: c.inkFaint)),
-              ),
-            if (v.isSecret)
-              AnSecretField(controller: _ctl(v.name))
-            else
-              AnInput(controller: _ctl(v.name), mono: true),
             const SizedBox(height: AnSpace.s12),
           ],
           if (_installing && plan.oauth)

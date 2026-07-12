@@ -325,8 +325,15 @@ Widget webSearchBody(BuildContext context, ToolCardState state) {
                 glyph: AnIcons.web,
                 title: h.title.isEmpty ? h.url : h.title,
                 subtitle: h.snippet,
-                trailing: Text(Uri.tryParse(h.url)?.host ?? h.url,
-                    maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.mono.copyWith(color: c.inkFaint)),
+                // The host — or NO trailing at all: Uri.tryParse returns null on realistic scraped
+                // URLs (bad port, unclosed IPv6) and the raw-string fallback once crushed the title
+                // column in a 280px host; a mangled URL is no credential, so the cell is omitted,
+                // never truncated-raw (批6 复审:尾格契约刚性——喂不出短凭据就不喂). host 或不渲。
+                trailing: switch (Uri.tryParse(h.url)?.host) {
+                  null || '' => null,
+                  final host => Text(host,
+                      maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.mono.copyWith(color: c.inkFaint)),
+                },
                 onOpen: h.url.isEmpty ? null : () => openExternalUrl(h.url),
               ),
           ],
@@ -519,7 +526,10 @@ class _ToolHitCardState extends State<_ToolHitCard> {
           Text(schemaParamDigest(params.cast<String, dynamic>()),
               maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.meta.copyWith(color: c.inkFaint)),
       ],
-      sub: desc.isEmpty ? null : desc,
+      // The tease hides while open — the disclosure body carries the FULL description, so keeping
+      // the one-line sub would double-print its first line (批6 复审). 展开时藏 tease:披露体已载
+      // 全文,再留副行=同屏双显。
+      sub: (desc.isEmpty || _open) ? null : desc,
       onTap: (desc.isNotEmpty || params is Map) ? () => setState(() => _open = !_open) : null,
       expanded: _open,
       expandChild: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [

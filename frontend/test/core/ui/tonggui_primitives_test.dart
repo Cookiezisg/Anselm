@@ -308,10 +308,36 @@ void main() {
       expect(tester.getTopLeft(find.text('BODY')).dx - tester.getTopLeft(find.byType(AnLedgerRow)).dx,
           AnSize.iconSm + AnSpace.s6);
     });
+    testWidgets('a lead-less row expands flush-left — the indent follows the lead cell (批6 复审)', (tester) async {
+      await tester.pumpWidget(_host(const AnLedgerRow(
+          primary: 'row',
+          expanded: true,
+          expandChild: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [Text('BODY')]))));
+      await tester.pump();
+      // No lead → primary at 0 → the disclosure aligns to 0, not a phantom 18px. 无 lead 缩进为 0。
+      expect(tester.getTopLeft(find.text('BODY')).dx, tester.getTopLeft(find.byType(AnLedgerRow)).dx);
+    });
+    testWidgets('sub is trimmed for render AND geometry: leading \\n paints, whitespace-only stays one line (批6 复审)',
+        (tester) async {
+      // Wire subs arrive with leading '\n' (LLM finalText) — untrimmed, maxLines:1 paints the empty
+      // first line and the whole sub vanishes. 线缆 sub 常带首换行,不 trim 则整行空白。
+      await tester.pumpWidget(_host(const Column(children: [
+        AnLedgerRow(primary: 'a', sub: '\nDone — created 3 functions.', key: Key('nl')),
+        AnLedgerRow(primary: 'b', sub: '   ', key: Key('ws')),
+        AnLedgerRow(primary: 'c', key: Key('none')),
+      ])));
+      await tester.pump();
+      // The trimmed text is what renders (find.text matches the FULL data payload). 渲 trim 后文本。
+      expect(find.text('Done — created 3 functions.'), findsOneWidget);
+      // A whitespace-only sub must not switch the row to two-line geometry with a ghost lane.
+      // 纯空白 sub 不得切双行几何留幽灵道。
+      expect(tester.getSize(find.byKey(const Key('ws'))).height,
+          tester.getSize(find.byKey(const Key('none'))).height);
+    });
   });
 
   group('AnLedgerList 批6', () {
-    testWidgets('caps at N, escape reveals the rest in place; exactly-cap shows no escape', (tester) async {
+    testWidgets('caps at N, escape reveals the rest in place', (tester) async {
       await tester.pumpWidget(_host(AnLedgerList(cap: 2, children: [
         for (var i = 0; i < 5; i++) AnLedgerRow(primary: 'r$i'),
       ])));
@@ -321,10 +347,23 @@ void main() {
       await tester.tap(find.textContaining('3'));
       await tester.pump();
       expect(find.text('r4'), findsOneWidget);
-      // exactly cap → no escape 正好等于 cap 不出逃生行
-      await tester.pumpWidget(_host(AnLedgerList(cap: 2, children: [AnLedgerRow(primary: 'a'), AnLedgerRow(primary: 'b')])));
+    });
+    testWidgets('exactly-cap shows no escape; cap+1 does (批6 复审 — a reused State kept _showAll and voided this pin)',
+        (tester) async {
+      // Fresh State per pump (distinct Keys) — the earlier same-slot pump let a stale _showAll=true
+      // suppress the escape row regardless of the boundary. 每泵新 State,防陈旧 _showAll 空真。
+      await tester.pumpWidget(_host(AnLedgerList(
+          key: const Key('exact'),
+          cap: 2,
+          children: [AnLedgerRow(primary: 'a'), AnLedgerRow(primary: 'b')])));
       await tester.pump();
       expect(find.textContaining('展开'), findsNothing);
+      await tester.pumpWidget(_host(AnLedgerList(
+          key: const Key('over'),
+          cap: 2,
+          children: [AnLedgerRow(primary: 'a'), AnLedgerRow(primary: 'b'), AnLedgerRow(primary: 'x')])));
+      await tester.pump();
+      expect(find.textContaining('展开'), findsOneWidget);
     });
   });
 
@@ -334,7 +373,14 @@ void main() {
       await tester.pump();
       expect(find.text('1'), findsOneWidget);
       expect(find.text('3'), findsOneWidget);
-      expect(tester.takeException(), isNull);
+      // The descent line is the ONE Expanded-Container in each rung's number column — 3 rungs bind
+      // with exactly 2 lines, the last rung ends clean (批6 复审:此前测试名主张、测试体零断言).
+      // 降线=序号列唯一 Expanded-Container:3 级恰 2 线,末级收线。
+      expect(
+          find.descendant(
+              of: find.byType(AnLadder),
+              matching: find.byWidgetPredicate((w) => w is Expanded && w.child is Container)),
+          findsNWidgets(2));
     });
   });
 
@@ -344,7 +390,16 @@ void main() {
       await tester.pump();
       expect(find.text('✓'), findsOneWidget);
       expect(find.text('—'), findsOneWidget);
-      expect(find.bySemanticsLabel(RegExp('listening')), findsOneWidget);
+      // EXACT labels — a bare-glyph regression ('listening: ✓') must go red, which a RegExp
+      // contains-match never did (批6 复审空真). 精确整标签,裸字形回归必红。
+      expect(find.bySemanticsLabel('listening: 是'), findsOneWidget);
+      expect(find.bySemanticsLabel('archived: 否'), findsOneWidget);
+    });
+    testWidgets('the flag row wears the family inset — edges align with sibling rows (批6 复审)', (tester) async {
+      await tester.pumpWidget(_host(const AnKv(rows: [AnKvRow('plain', 'v'), AnKvRow.flag('listening', true)])));
+      await tester.pump();
+      // Same h-inset as the read-only row: keys align on one left edge. 与只读行同水平内距,键同缘。
+      expect(tester.getTopLeft(find.text('listening')).dx, tester.getTopLeft(find.text('plain')).dx);
     });
   });
 

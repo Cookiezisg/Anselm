@@ -103,7 +103,10 @@ class SandboxPanel extends ConsumerWidget {
       // on this panel (批6 A-064 — the lone hand-rolled readingH3 head + s24 spacers retire; the
       // 360 magic stays on the B-track ledger). 环境五 owner tab;节律归 AnSection(孤例手搓头+手排
       // spacer 退役;360 魔数留 B 轨)。
-      AnSection(label: t.settings.sandbox.envs, children: [SizedBox(height: 360, child: _EnvTabs())]),
+      AnSection(
+          label: t.settings.sandbox.envs,
+          variant: AnSectionVariant.quiet,
+          children: [SizedBox(height: 360, child: _EnvTabs())]),
       _GcZone(),
     ]);
   }

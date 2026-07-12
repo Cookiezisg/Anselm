@@ -1,4 +1,5 @@
-import 'package:anselm/core/ui/an_lead_value.dart';import 'package:flutter/material.dart';
+import 'package:anselm/core/ui/an_lead_value.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // AnLeadValue = dynamic label/value geometry: leading hugs content (capped), value fills the remainder

@@ -156,6 +156,28 @@ void main() {
     expect(find.text('brave'), findsOneWidget); // source badge
   });
 
+  testWidgets('an unparseable hit URL never crushes the title in a 280px host (批6 复审 — 尾格契约刚性)',
+      (tester) async {
+    // Uri.tryParse returns null on realistic scraped URLs (bad port here) → the fallback must be
+    // WORD-truncated, never the full raw string (it measured 1600px+, zeroed the title and threw
+    // RenderFlex overflow). 畸形 URL 回落必须词档截断,全原始串曾压垮标题列。
+    final rawUrl = 'http://example.com:notaport/${'segment/' * 30}?q=1';
+    final state = _settled(
+        result: '{"source":"brave","results":[{"title":"A readable page title","url":"$rawUrl","snippet":"s"}]}');
+    await tester.pumpWidget(TranslationProvider(
+      child: MaterialApp(
+        theme: AnTheme.light(),
+        home: Scaffold(
+            body: SingleChildScrollView(
+                child: SizedBox(width: 280, child: Builder(builder: (c) => webSearchBody(c, state))))),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull); // no overflow 无溢出
+    expect(tester.getSize(find.text('A readable page title')).width, greaterThan(0));
+    expect(find.textContaining(rawUrl), findsNothing); // the raw string never renders 原始串绝不上屏
+  });
+
   testWidgets('searchToolsBody renders the thin hit card: mono name + digest + description',
       (tester) async {
     final state = _settled(

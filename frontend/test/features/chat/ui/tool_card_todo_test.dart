@@ -10,7 +10,8 @@ import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-// F11 todo (B7.1) — parse both sources (structured write args / rendered read), TodoChecklist, receipt.
+// F11 todo (B7.1) — parse both sources (structured write args / rendered read), the AnRundownList
+// board (批6 A-053 — TodoChecklist retired into it), receipt.
 
 BlockNode _todoWrite(List<Map<String, String>> items) => BlockNode(id: 'tc_w', kind: BlockKind.toolCall)
   ..status = 'completed'

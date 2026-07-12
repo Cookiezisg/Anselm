@@ -108,4 +108,5 @@ void main() {
     final op = tester.widgetList<Opacity>(find.byType(Opacity)).map((o) => o.opacity);
     expect(op.every((o) => o == 1.0), isTrue, reason: 'no cascade when not animating');
   });
+
 }

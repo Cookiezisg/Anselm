@@ -11,9 +11,10 @@ import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
 
 // F11 todo (B7.1) — the task checklist. todo_write carries the FULL list in its args ({content,
-// activeForm, status}); todo_read returns the rendered `- [x]/[→]/[ ]` markdown. Both project onto a
-// The checklist renders via AnRundownList (批6 A-053 — one three-state face app-wide), the in_progress
-// one showing its activeForm. The user sees the board live. F11 任务清单。
+// activeForm, status}); todo_read returns the rendered `- [x]/[→]/[ ]` markdown. Both parse into
+// the same item list and render via AnRundownList (批6 A-053 — one three-state face app-wide;
+// parseTodos already folds the in_progress activeForm into the item text). The user sees the board
+// live. F11 任务清单:双源同 parse,渲染归 AnRundownList(parseTodos 已折 activeForm 进 text)。
 
 /// One checklist item (its display text + status). 一条清单项。
 typedef TodoItem = ({String text, String status});

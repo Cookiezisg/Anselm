@@ -240,7 +240,17 @@ class _ToolHitListState extends State<ToolHitList> with SingleTickerProviderStat
           ),
           if (row.trailing != null) ...[
             const SizedBox(width: AnSpace.s8),
-            DefaultTextStyle.merge(style: AnText.label.copyWith(color: c.inkFaint), child: row.trailing!),
+            // The trailing cell is rigid BY CONTRACT — callers pass short credentials (host, id,
+            // ×N · time); anything unbounded must be truncated at the source (AnTrunc — the web
+            // raw-URL fallback did exactly this after 批6 复审). A slot-level width cap broke the
+            // legitimate wide trailings (conversation badge+time rows), and a loose Flexible would
+            // steal the title's flex share even when short. 尾格契约刚性:调用方喂短凭据,无界内容
+            // 在源头 AnTrunc 截断;槽级硬顶界砸中合法宽尾,Flexible 又抢标题份额。
+            DefaultTextStyle.merge(
+                style: AnText.label.copyWith(color: c.inkFaint),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                child: row.trailing!),
           ],
           if (tappable) ...[
             const SizedBox(width: AnSpace.s4),

@@ -114,15 +114,24 @@ class _MemoryRow extends ConsumerWidget {
     final t = Translations.of(context);
     final c = context.colors;
     // The pin rides the lead slot (批6c A-060 — the inline labelWidget Row retires); the
-    // description becomes the wrapping hint, the same face as the MCP tool rows. pin 进 lead 槽;
-    // 描述走 hint 换行(与 mcp 工具行同脸)。
+    // description becomes the wrapping hint, the same face as the MCP tool rows. The pin is a real
+    // control — AnInteractive (keyboard focus + Enter/Space + button semantics) with the toggled
+    // state folded in, NOT a bare GestureDetector (批5 缩略图 ✕ 立法; setPinned 全仓唯一入口在此,
+    // 键盘不可达=功能锁死). pin 进 lead 槽;描述走 hint 换行(与 mcp 工具行同脸);pin 是真控件。
     return AnRow(
       leadWidget: AnTooltip(
         message: t.settings.mem.pinTip,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => ref.read(memoriesProvider.notifier).setPinned(m.name, !m.pinned),
-          child: Icon(AnIcons.pin, size: AnSize.icon, color: m.pinned ? c.warn : c.inkFaint),
+        child: MergeSemantics(
+          child: Semantics(
+            toggled: m.pinned,
+            label: t.settings.mem.pinTip,
+            child: AnInteractive(
+              onTap: () => ref.read(memoriesProvider.notifier).setPinned(m.name, !m.pinned),
+              builder: (ctx, states) => Icon(AnIcons.pin,
+                  size: AnSize.icon,
+                  color: m.pinned ? c.warn : (states.isActive ? c.inkMuted : c.inkFaint)),
+            ),
+          ),
         ),
       ),
       mono: true,

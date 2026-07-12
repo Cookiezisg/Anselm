@@ -10,8 +10,14 @@ import '../design/typography.dart';
 /// consumer. Distinct from [AnStepper] (a HORIZONTAL discrete progress indicator with a «current
 /// step» — a ladder has no progress: all rungs coexist as priority order).
 ///
+/// CONSTRAINT: each rung is wrapped in [IntrinsicHeight] (the descent line stretches to the rung's
+/// height), so rung content must support intrinsic sizing — no [AnWindow] / [LayoutBuilder] /
+/// lazy viewports inside a rung (they throw at layout in debug). Text, chips, KV grids are fine.
+///
 /// 判别梯骨架(批6 A-075)——纵向有序结构:每级=序号圆+发丝降线+内容槽。梯只 owns 骨架,级内容
 /// (CEL/端口/emit 格)归消费方。与 AnStepper(横向离散进度器,有「当前步」)角色不同,不并件。
+/// **约束**:级裹 IntrinsicHeight(降线随级同高),级内容须支持固有尺寸——禁 AnWindow/LayoutBuilder/
+/// 懒视口(布局期即抛);文本/芯片/KV 格安全。
 class AnLadder extends StatelessWidget {
   const AnLadder({required this.children, super.key});
 

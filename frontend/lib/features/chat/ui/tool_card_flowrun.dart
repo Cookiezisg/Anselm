@@ -11,7 +11,8 @@ import '../../../i18n/strings.g.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
 import 'tool_card_io_section.dart';
-import 'tool_card_skins.dart';import 'run_dossier.dart';
+import 'tool_card_skins.dart';
+import 'run_dossier.dart';
 import 'tool_card_nav.dart';
 
 // F08 flowrun bodies (B5.3) — replay_flowrun's node ledger. The tool result is the {flowrun, nodes,

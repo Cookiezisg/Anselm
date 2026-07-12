@@ -182,13 +182,16 @@ class AnKv extends StatelessWidget {
     );
 
     if (row.flag != null) {
-      // The ONE bool rendering: ✓/— glyph, a11y speaks localized yes/no (批6 A-051). 唯一布尔渲法。
+      // The ONE bool rendering: ✓/— glyph, a11y speaks localized yes/no (批6 A-051). The row wears
+      // the family inset (h:s8 v:s4) like its siblings — a bare row would misalign both edges by
+      // 8px in mixed lists (批6 复审). 唯一布尔渲法;行内距随族(混排两缘不错位)。
       final t = Translations.of(context);
-      return SizedBox(
-        height: AnSize.row,
-        child: Semantics(
-          label: '${row.label}: ${row.flag! ? t.a11y.flagYes : t.a11y.flagNo}',
-          child: ExcludeSemantics(
+      return Semantics(
+        label: '${row.label}: ${row.flag! ? t.a11y.flagYes : t.a11y.flagNo}',
+        child: ExcludeSemantics(
+          child: Container(
+            constraints: const BoxConstraints(minHeight: AnSize.row),
+            padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8, vertical: AnSpace.s4),
             child: AnLeadValue(
               leading: keyText,
               trailing: Text(row.flag! ? '✓' : '—', style: _valueStyle(row).copyWith(color: row.flag! ? c.ok : c.inkFaint)),

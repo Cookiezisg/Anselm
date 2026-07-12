@@ -36,9 +36,24 @@ A-032/A-033/A-034/A-036/A-038/A-046/A-048 关账(A-031 剩 AnAttachmentChip、A-
 - **拍板点记档(建造者裁决,帧供否决)**:①RefPill 字面 body13 w400→族 meta12 w300(全族一字面;帧核可读性,否决则退半降级);②copy 芯片族声=outlined(与 path chip 一致);③AnSize.capsulePadY=1 新档(行内药囊竖距,inline 脸用)。
 - 新 variant 全部 gallery-first(raw 点四形/outlined·copy·icon-only·strikethrough·tooltip 五 specimen/inline 嵌文本/jump 双态)+ tonggui 电池 7 测(dot 槽/空标签/host-agnostic/a11y/raw 尺寸/空心零帧/jump 静态)。
 
+### 批6 对抗复审整改(36-agent 六维,30 findings 证伪后 25 confirmed 全修)
+
+- **sub 归一进原语**(MED,探针实证):_RunRow 迁移丢 trim 防线——线缆 sub 常带首换行(LLM finalText/后端 error),maxLines:1 下唯一渲染行全空白「数据在而屏上撒谎」;纯空白 sub 还切双行几何留幽灵道(渲染门 isNotEmpty 与五处几何判据 `sub==null` 不同源)。修在 AnLedgerRow 内部:`effectiveSub`(trim+空白归 null)同源喂渲染与全部几何分支,同治 flowrun/subagent/runlog 全用点;两枚回归钉(首换行渲可见文本/纯空白行高=无 sub 行)。
+- **expandChild 缩进随 lead**(LOW):无 lead 行主文在 0,披露体曾仍缩 18px 违「与主文左对齐」自述;缩进条件化+lead-less 钉。
+- **AnKvRow.flag 补族内距**(MED):flag 行曾裸壳,混排列表两缘各错 8px;补 h:s8/v:s4 同胞内距+同缘钉。
+- **ToolHitList 尾格契约刚性**(LOW→实伤):Uri.tryParse 对畸形 URL 返 null→全原始 URL 进无弹性 trailing,280 宿主标题压 0+RenderFlex 溢出(批6 真回归:旧 _WebHits 自占一行有界)。**修在源头非槽**:host 解析不出(null/空)即**不渲尾格**——畸形串不是凭据,截断渲染也不诚实;槽只加 ellipsis 兜底。两版错解记档:槽级硬顶界(首版 180)被全量测揭穿砸中合法宽尾(conversation 徽+时间行=widget Row,任何宽帽都让其内部刚性子件溢出),词档截断(次版)被 Ahem 字体测揭穿 24 字 mono=288px 仍溢 280 宿主;「尾格契约刚性——喂不出短凭据就不喂」成文进槽注释。webSearchBody 280px 回归钉(无溢出+原始串绝不上屏)。
+- **_ToolHitCard 展开藏 tease**(LOW):展开态副行与披露体全文同屏双显;`_open` 时 sub 归 null(信息后移不丢)。
+- **AnLadder 约束成文**(LOW):级裹 IntrinsicHeight,级内容含 AnWindow/LayoutBuilder 布局期即抛——禁令写进 doc 注释。
+- **A-059 落到实处**(MED):monoLabel 曾零消费者(其声明用途 McpInstallForm env 动态标签组仍手搓)——env 组迁 AnFormField(monoLabel+required 骑基线+desc 副行)。
+- **A-064 补漏**(MED):sandbox envs 节漏配 quiet(同面板其余 12 处全 quiet,双头脸)。
+- **memory pin 真控件**(LOW,承批5 ✕ 立法):裸 GestureDetector 键盘不可达且 setPinned 全仓唯一入口在此=功能锁死;换 AnInteractive+MergeSemantics(button+toggled+label)。
+- **测试假钉五清**(HIGH×1+MED×3+LOW×1,全部 mutation 实证再修再验杀):①批4 bare 缝钉被值形二分掏空(Map 全数在 _jsonTree 之前出口)→List 夹具重钉+反向边;②值形二分两分支零直测→AnKv 路径(bool 走 flag、绝不裸渲 true)+长值逐键路径两钉;③AnLedgerList exactly-cap 断言空真(同槽 State 复用陈旧 _showAll)→独立 Key 双泵+cap/cap+1 双边界;④flag a11y RegExp contains 空真→精确整标签「listening: 是」;⑤AnLadder 末级无降线零断言→Expanded-Container 计数钉。修后 7 突变体全部杀死。
+- **杂项**:双 import 同行×3 拆行(批量迁移手误)/todo 头注释断句复原+测试注释旧名清/ToolIOSection 头注释决策树重述(值形二分后)/docsync 六处(CLAUDE.md 批6 行重述/A-067 关账落台账/34 行加总 32 勘误/族四现状段重述/契约 §4 行族行标结/chat-sidestage 活运行卷换语义点/design-system 行族条目重述)。
+- **证伪五条记档**:serverTruncated 未接线(web payload 无 truncated 字段,兄弟用点形不同)/marketplace cast 可炸(上游已 stringify)/raw JSON 逃生口单向(设计如此,pin 有档)/hover 进度环(可接受记档)/tool-cards.md §6=冻结历史台账非现行规范(批1–5 先例一致)。
+
 ### 批6c 落地(2026-07-13,settings 字段块面板批——行族 34 行全清)
 
-A-057/059/060/061/062/063/065/066 关账,**行族 34 行台账全数了结**(30 done+A-056 defer+A-069 豁免):
+A-057/059/060/061/062/063/065/066 关账,**行族 34 行台账全数了结**(32 done+A-056 defer+A-069 豁免):
 - settings 五面板 ~24 个字段块全走 AnFormField(mcp_forms._label ×7 删/network._field ×3 删/models_keys ×5/sandbox ×2[pinned 下拉↔自由输入条件子树两分支同壳]/workspaces ×4/memory ×3[Cmd+S 贴身包不动])——**可见变化:标签 13/w300/muted→族脸 strong/ink**(台账定性「偏离回正」,真机帧关卡)。
 - A-057:retry 开关/数值行→AnField child 槽(「标签左·控件右」唯一行;标签在上的开关=反模式)。
 - A-060:memory rail pin 进 AnRow leadWidget 槽、描述走 hint 换行(与 mcp 工具行同脸);**顺手修 leadWidget 语义剥除**(ExcludeSemantics 会重蹈批5 缩略图 ✕ a11y 覆辙——交互 lead 自带语义,原语不剥)。
@@ -215,7 +230,7 @@ AnRefPill/AnPathChip 降级为 AnChip 的薄预设(保留名字,内部全走 AnC
 
 ## 族四 · 行(键值/标签-值/台账行)—— 台账最大族(34 条)
 
-**现状**:AnKv 在,但逐键排布另有 ToolIOSection 私排、_metaRow、各 stage 手搓 label-value;台账/命中行四套(_RunRow/_nodeRow/_WebHits/_ToolHitCard),状态点一左一右;「展开全部 N」escape 手搓 ×2;intent 行三套。
+**现状(批6 收敛后)**:排布选型查表定分工——身份行/头=AnTwoZone、键值列表=AnKv(`an_kv.dart`,含 `AnKvRow.flag` 唯一 bool 渲法)、标签在上=AnFieldSection(工具卡值形二分:全短标量 map→AnKv dense)、表单字段=AnFormField(含 monoLabel)、台账/命中行=AnLedgerRow(+AnLedgerList 唯一「展开全部 N」)、判别梯=AnLadder;四套手搓台账行/双 escape/三套 intent 行已物理消亡(_RunRow/_nodeRow/_WebHits/_ToolHitCard→当家件,toolIntent 单源)。AnLeadValue=core 内部几何引擎,feature 禁直用。
 
 **当家件**(行族三件 + 既有 AnDisclosure):
 ```dart

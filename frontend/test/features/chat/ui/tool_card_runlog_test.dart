@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:anselm/core/contract/messages/block_content.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/messages/block_tree_reducer.dart';
+import 'package:anselm/core/ui/an_kv.dart';
 import 'package:anselm/core/ui/an_window.dart';
 import 'package:anselm/features/chat/ui/chat_tool_card.dart';
 import 'package:anselm/features/chat/ui/run_ledger.dart';
@@ -183,13 +184,35 @@ void main() {
   });
 
   group('ToolIOSection bare 缝 (批4 复审 HIGH 的修法)', () {
-    testWidgets('bare: nested JSON renders the tree with NO window of its own', (tester) async {
-      // ≥2 keys + a non-scalar value → the JSON-tree branch (the bare-gated seam); a scalar map
-      // walks per-key inline and proves nothing (复审:空真). 嵌套夹具才覆盖 bare 承重分支。
-      await tester.pumpWidget(_host(const ToolIOSection(label: 'v', value: {'k': {'x': 1}, 'n': 2}, bare: true)));
+    testWidgets('bare: a LIST renders the JSON tree with NO window of its own', (tester) async {
+      // Since 批6's value-shape split EVERY Map exits before _jsonTree (AnKv / per-key recursion) —
+      // only a List still reaches the bare-gated tree, so this pin rides a List fixture
+      // (批6 复审:旧 Map 夹具再不进树,门空真). List 才进 bare 承重分支。
+      await tester.pumpWidget(_host(const ToolIOSection(label: 'v', value: [1, 2, 'x'], bare: true)));
       await tester.pumpAndSettle();
       expect(find.byType(AnWindow), findsNothing);
-      expect(find.textContaining('k'), findsWidgets);
+    });
+    testWidgets('not bare: the same list wears its own window (the inverse edge)', (tester) async {
+      await tester.pumpWidget(_host(const ToolIOSection(label: 'v', value: [1, 2, 'x'])));
+      await tester.pumpAndSettle();
+      expect(find.byType(AnWindow), findsOneWidget);
+    });
+    testWidgets('value-shape split: an all-short-scalar map rides the family AnKv, bools on the flag row (批6 A-077)',
+        (tester) async {
+      await tester.pumpWidget(_host(const ToolIOSection(
+          label: 'v', value: {'status': 200, 'ok': true, 'path': '/tmp/a'}, bare: true)));
+      await tester.pumpAndSettle();
+      expect(find.byType(AnKv), findsOneWidget); // the KV branch, not per-key sections KV 分支
+      expect(find.text('✓'), findsOneWidget); // the bool routed to the flag row bool 走 flag 行
+      expect(find.text('true'), findsNothing); // never the raw literal 绝不裸渲字面量
+    });
+    testWidgets('value-shape split: a map holding a long value keeps per-key label-above recursion', (tester) async {
+      final long = List.filled(90, 'word').join(' ');
+      await tester.pumpWidget(_host(ToolIOSection(label: 'v', value: {'summary': long, 'n': 2}, bare: true)));
+      await tester.pumpAndSettle();
+      expect(find.byType(AnKv), findsNothing); // a long value never squeezes into the KV face 长值不进 KV 脸
+      expect(find.text('summary'), findsOneWidget); // its own per-key section head 逐键节头
+      expect(find.text('n'), findsOneWidget);
     });
     testWidgets('bare + renderAsProse inside a host window: typeset bare, no nested window (leaf law)', (tester) async {
       final long = 'paragraph\n\n' * 30;

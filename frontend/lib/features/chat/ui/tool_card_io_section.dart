@@ -18,15 +18,17 @@ import 'tool_card_skins.dart';
 /// runtime). Reused by run_function / call_handler / invoke_agent AND the mount function skin (they all
 /// carry the same ExecutionResult shape). 输入/输出节:13 灰标签 + 机器窗;值渲染是显式硬规则、绝非内容嗅探。
 ///
-/// Render decision tree:
+/// Render decision tree (批6 A-077 值形二分后):
 ///   • null → «无返回值» grey note.
 ///   • bool / num / short single-line String → inline mono.
 ///   • long String → a capped mono window (NEVER markdown-sniffed) + truncation note + copy.
 ///   • renderAsProse + String → typeset prose (ONLY when the spec explicitly opts in — invoke_agent's
 ///     string final answer).
-///   • Map whose values are all scalars (or a single key) → a per-key list (13 grey key + value by the
-///     same rules) — NOT an AnJsonTree (its 500-char single-value cap would shred a long declared value).
-///   • Map/List with a genuine nested container → a bounded AnJsonTree.
+///   • Map, >1 key, ALL values short scalars (≤80, single-line — the string branch's threshold) →
+///     the family AnKv (dense; bools ride the flag row).
+///   • any other Map (single key / a long or multi-line value / a nested container) → per-key
+///     label-above recursion (each value re-enters this tree).
+///   • List / anything else → a bounded AnJsonTree.
 class ToolIOSection extends StatelessWidget {
   const ToolIOSection(
       {required this.label, required this.value, this.renderAsProse = false, this.bare = false, this.textCap = 6000, super.key});

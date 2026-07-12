@@ -21,7 +21,7 @@ audience: [human, ai]
 |---|---|
 | 头带 | `AnInspectorHead` + **跟随三档菜单**(`_FollowMenu`:每次/每会话首次/从不,持久化 `fy.stage.follow`,settings 模块读同一 `followModeProvider`)+ 舞台开着时 ✕ 收场 |
 | 频道条 | `AnChannelStrip`(≥2 并发活动时,cap 4 + 溢出;点 tab=pin 换台;failed 挤台成红点 tab) |
-| 舞台 | `AnExpandReveal` 揭示 `_GenericStage`(眉+诚实丝带+kind 量身体);poll 型主体带**活运行卷**(`_RunProgressSection`:flowrun 节点 tick 逐行静落,mono 节点+状态字形+选中 `port` accent 徽,≤12 行,durable 终态一行收卷);**exhibit 置位时让位 `ExhibitStage`**;舞台内滚动=pinned(阅读即持镜,只认用户手势) |
+| 舞台 | `AnExpandReveal` 揭示 `_GenericStage`(眉+诚实丝带+kind 量身体);poll 型主体带**活运行卷**(`_RunProgressSection`:flowrun 节点 tick 逐行静落,AnLedgerRow 行+语义状态点(WRK-066 批6,字形三态退役)+选中 `port` accent 徽,≤12 行,durable 终态一行收卷);**exhibit 置位时让位 `ExhibitStage`**;舞台内滚动=pinned(阅读即持镜,只认用户手势) |
 | 药丸行 | `AnFollowPill`(gate 琥珀「AI 在等你决定」压一切 / live「AI 正在编辑 X」点回跟随) |
 | Rundown | `_RundownSection`(`AnTaskRing` 补弧 + `AnRundownList` 三态行,todo 整表帧,按 subagentId 分板) |
 | 演员表 | `_CastList`(触点台账 R-2 实体聚合行:`AnCastRow` 新鲜度晕+动词微词+×count;**hover 尾位换双微动作**「跳到发生处」(''=藏)/「去实体页」(无面板即藏);**点行=exhibit 登台**;主角行 R-6 静态脉点;**谢幕落账洗亮** ~1.8s 衰减) |
