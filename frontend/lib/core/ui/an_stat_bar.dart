@@ -28,19 +28,20 @@ class AnStatNote {
   final AnTone tone;
 }
 
-/// The BAR family head (WRK-066「同轨」族五) — the ONE settled result/status bar, converging the four
-/// hand-rolled bars (RunStatBar / ExecResultBar / _InvokeStatBar / _RunFooter) and every hand-joined
-/// ' · ' InlineSpan chain. Slots: a [status] word badge (colour = AnStatus.tone, the ONE status→colour
-/// source), the [stats] chain, trailing [chips] (chip family: ref pills / copies), and a [note] line
-/// below (envError red / restartNote amber).
+/// The BAR family head (WRK-066「同轨」族五) — the ONE settled result/status bar. The four hand-rolled
+/// bars (RunStatBar / ExecResultBar / _InvokeStatBar / _RunFooter) were absorbed and physically deleted
+/// in 批3; every rendered ' · ' chain lives HERE (文法 #3). Slots: [leading] credentials (the bar's
+/// subject pill), a [status] word badge (colour = AnStatus.tone, the ONE status→colour source), the
+/// [stats] chain, trailing [chips], and [notes] below (envError red mono / restartNote amber label).
 ///
-/// 条族当家件(「同轨」族五)——唯一落定结果/状态条,收敛四条手搓条与一切手拼 ' · ' 链。槽:status 状态词徽
-/// (色=AnStatus.tone,状态→色唯一源)、stats 链、尾随 chips(芯片族凭据)、下挂 note 行(envError 红/
-/// restartNote 琥珀)。
+/// 条族当家件(「同轨」族五)——唯一落定结果/状态条;四条手搓条已于批3 吸收并物理删除,一切渲染态 ' · ' 链
+/// 只住这里(文法 #3)。槽:leading 前导凭据(条的主语 pill)、status 状态词徽(色=AnStatus.tone 单源)、
+/// stats 链、尾随 chips、下挂 notes(envError 红 mono/restartNote 琥珀 label)。
 class AnStatBar extends StatelessWidget {
   const AnStatBar({
     this.status,
     this.statusLabel,
+    this.leading = const [],
     this.stats = const [],
     this.chips = const [],
     this.notes = const [],
@@ -54,11 +55,16 @@ class AnStatBar extends StatelessWidget {
   /// 域词覆盖(如「超时」),声调仍取 status。
   final String? statusLabel;
 
+  /// Leading credential slot BEFORE the status badge/chain — the bar's subject (the built entity's
+  /// ref pill). Trailing credentials stay in [chips]. 前导凭据槽(词徽/链之前)——条的主语(所建实体
+  /// pill);尾随凭据仍走 chips。
+  final List<Widget> leading;
+
   final List<AnStat> stats;
   final List<Widget> chips;
 
-  /// Note lines under the bar (env error / restart warning / runtime warning — RunStatBar carries
-  /// several at once, 复审 #33). 条下注记(可多条并存)。
+  /// Note lines under the bar (env error / restart warning / runtime warning — a build receipt
+  /// carries several at once, 复审 #33). 条下注记(可多条并存)。
   final List<AnStatNote> notes;
 
   String _word(BuildContext context, AnStatus s) => switch (s) {
@@ -91,6 +97,7 @@ class AnStatBar extends StatelessWidget {
           runSpacing: AnSpace.s4,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
+            ...leading,
             if (status != null)
               AnBadge(statusLabel ?? _word(context, status!), tone: status!.tone),
             if (spans.isNotEmpty) Text.rich(TextSpan(children: spans)),

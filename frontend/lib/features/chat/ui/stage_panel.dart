@@ -615,7 +615,7 @@ class _StageRow extends ConsumerWidget {
 
 /// The GENERIC STAGE — the fallback before a kind's bespoke stage lands, but a designed non-empty window:
 /// the subject brow (kind glyph + resolved name + phase badge + jump), an honesty ribbon, closed top-level
-/// args as a KV list, the in-flight tail in a machine window, RunStatBar on settle. Rides the transcript
+/// args as a KV list, the in-flight tail in a machine window, the result bar on settle. Rides the transcript
 /// coalescer (≤1 rebuild/frame). 通用舞台(兜底,但按设计做非空窗)。
 class _GenericStage extends StatefulWidget {
   const _GenericStage({
@@ -751,7 +751,7 @@ class _GenericStageState extends State<_GenericStage> {
       ],
       if (!live && !failed) ...[
         const SizedBox(height: AnSpace.s6),
-        RunStatBar(state: state),
+        runStatBarOf(context, state),
       ],
       if (failed && state.errorText.isNotEmpty) ...[
         const SizedBox(height: AnSpace.s6),

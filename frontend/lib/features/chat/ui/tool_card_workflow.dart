@@ -218,33 +218,33 @@ Widget editWorkflowBody(BuildContext context, ToolCardState state) {
       if (state.summary.isNotEmpty)
         Padding(padding: const EdgeInsets.only(bottom: AnSpace.s6), child: Text(state.summary, style: AnText.meta.copyWith(color: c.inkMuted))),
       Text(t.chat.tool.wfDeltaEmpty, style: AnText.label.copyWith(color: c.inkFaint)),
-      RunStatBar(state: state),
+      runStatBarOf(context, state),
     ]);
   }
 
-  final legend = <InlineSpan>[];
-  void part(String text, Color color) {
-    if (legend.isNotEmpty) legend.add(TextSpan(text: ' · ', style: AnText.meta.copyWith(color: c.inkFaint)));
-    legend.add(TextSpan(text: text, style: AnText.metaTabular().copyWith(color: color)));
-  }
   final nodeParts = <String>[];
   if (d.addedNodes.isNotEmpty) nodeParts.add('+${d.addedNodes.length}');
   if (d.updatedNodes.isNotEmpty) nodeParts.add('~${d.updatedNodes.length}');
   if (d.deletedNodes.isNotEmpty) nodeParts.add('−${d.deletedNodes.length}');
-  if (nodeParts.isNotEmpty) part('${nodeParts.join(' ')} ${t.chat.tool.wfNodeUnit}', c.ink);
   final edgeParts = <String>[];
   if (d.addedEdges > 0) edgeParts.add('+${d.addedEdges}');
   if (d.updatedEdges > 0) edgeParts.add('~${d.updatedEdges}');
   if (d.deletedEdges > 0) edgeParts.add('−${d.deletedEdges}');
-  if (edgeParts.isNotEmpty) part('${edgeParts.join(' ')} ${t.chat.tool.wfEdgeUnit}', c.inkMuted);
 
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
+      // No bottom padding on the summary — the family bar below brings its own top s6 (复审:
+      // 双距 12px,与同卡 metaOnly 分支不齐). summary 不带底距,条自带 s6。
       if (state.summary.isNotEmpty)
-        Padding(padding: const EdgeInsets.only(bottom: AnSpace.s6), child: Text(state.summary, style: AnText.meta.copyWith(color: c.inkMuted))),
-      if (legend.isNotEmpty) Text.rich(TextSpan(children: legend)),
-      const SizedBox(height: AnGap.stack),
+        Text(state.summary, style: AnText.meta.copyWith(color: c.inkMuted)),
+      // 批3 文法 #3: the ' · ' chain lives ONLY in the family bar. ' · ' 链只住当家条。
+      if (nodeParts.isNotEmpty || edgeParts.isNotEmpty)
+        AnStatBar(stats: [
+          if (nodeParts.isNotEmpty) AnStat('${nodeParts.join(' ')} ${t.chat.tool.wfNodeUnit}', tabular: true),
+          if (edgeParts.isNotEmpty) AnStat('${edgeParts.join(' ')} ${t.chat.tool.wfEdgeUnit}', tabular: true),
+        ]),
+      const SizedBox(height: AnGap.stackTight),
       Wrap(
         spacing: AnGap.inline,
         runSpacing: AnGap.stackTight,
@@ -258,7 +258,7 @@ Widget editWorkflowBody(BuildContext context, ToolCardState state) {
         padding: const EdgeInsets.only(top: AnSpace.s6),
         child: Text(t.chat.tool.wfMorphNote, style: AnText.meta.copyWith(color: c.inkFaint)),
       ),
-      RunStatBar(state: state),
+      runStatBarOf(context, state),
     ],
   );
 }
@@ -308,7 +308,7 @@ Widget workflowBuildBody(BuildContext context, ToolCardState state) {
         AnGraphCanvas(graph: graph, framed: true, framedHeight: _graphHeight)
       else if (state.argsText.isNotEmpty)
         ToolWindow(child: Text(state.argsText, style: AnText.code.copyWith(color: c.inkMuted))),
-      RunStatBar(state: state),
+      runStatBarOf(context, state),
     ],
   );
 }

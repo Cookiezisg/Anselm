@@ -604,7 +604,7 @@ Widget buildToolBody(BuildContext context, ToolCardState state) {
         AnCodeEditor(code: content, lang: lang, maxHeight: AnSize.codeViewport)
       else if (state.argsText.isNotEmpty)
         ToolWindow(child: _cappedMono(context, state.argsText)),
-      RunStatBar(state: state),
+      runStatBarOf(context, state),
     ],
   );
 }
@@ -637,44 +637,54 @@ Widget _envFixRow(BuildContext context, Map<dynamic, dynamic> a) {
   final ok = a['ok'] == true;
   final deps = (a['deps'] as List?)?.map((e) => e.toString()).join(' ') ?? '';
   final error = a['error']?.toString() ?? '';
+  // Hanging indent by STRUCTURE (批3 文法 #4: no token arithmetic) — the icon is its own column,
+  // head + error share the Expanded so the error naturally aligns under the text, not the glyph.
+  // 结构化悬挂缩进(文法 #4 禁 token 算术):图标独立列,头行与错误行同住 Expanded 自然对齐。
   return Padding(
     padding: const EdgeInsets.only(bottom: AnSpace.s4),
-    child: Column(
+    child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Icon(ok ? AnIcons.check : AnIcons.close,
-                size: AnSize.iconSm, color: ok ? c.ok : c.danger),
-            const SizedBox(width: AnGap.inline),
-            Text(t.chat.tool.envFixAttempt(n: '${a['attempt']}'),
-                style: AnText.label.copyWith(color: c.inkMuted)),
-            if (deps.isNotEmpty) ...[
-              const SizedBox(width: AnGap.inline),
-              Flexible(
-                child: Text(deps,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AnText.codeInline.copyWith(color: c.inkFaint)),
+        Icon(ok ? AnIcons.check : AnIcons.close,
+            size: AnSize.iconSm, color: ok ? c.ok : c.danger),
+        const SizedBox(width: AnGap.inline),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(t.chat.tool.envFixAttempt(n: '${a['attempt']}'),
+                      style: AnText.label.copyWith(color: c.inkMuted)),
+                  if (deps.isNotEmpty) ...[
+                    const SizedBox(width: AnGap.inline),
+                    Flexible(
+                      child: Text(deps,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AnText.codeInline.copyWith(color: c.inkFaint)),
+                    ),
+                  ],
+                ],
               ),
+              if (!ok && error.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: AnSpace.s2),
+                  child: Text(error,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AnText.code.copyWith(color: c.danger)),
+                ),
             ],
-          ],
-        ),
-        if (!ok && error.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(left: AnSize.iconSm + AnGap.inline, top: AnSpace.s2),
-            child: Text(error,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: AnText.code.copyWith(color: c.danger)),
           ),
+        ),
       ],
     ),
   );
 }
 
 /// The backend EntityKind wire value a build tool operates on (create_function → 'function'), used by
-/// [RunStatBar] for the provenance RefPill + the dual-key id fallback. null = not an entity-CRUD build.
+/// the result-bar adapter [runStatBarOf] for the provenance RefPill + the dual-key id fallback. null = not an entity-CRUD build.
 /// 构建工具作用的实体 kind 线缆值(RefPill + 双键 id 用);null=非 entity-CRUD。
 String? buildEntityKind(String toolName) {
   const kinds = ['function', 'handler', 'agent', 'workflow', 'control', 'approval', 'document', 'skill', 'trigger'];
@@ -684,138 +694,86 @@ String? buildEntityKind(String toolName) {
   return null;
 }
 
-/// The settled RESULT BAR (公共化 from the old _BuildResultBar) — the outcome in one line: a provenance
-/// [AnRefPill] (the entity just built; label = its name from args, else id) + version + env 三色 +
-/// restarted, plus an optional envError line. The pill's onTap DEGRADES to copy-id until the panel-nav
-/// registry lands (B3 #8); it will then become a real select-intent deep-link. Reused across F4 builds;
-/// F8 exec extends it (B5).
+/// The settled RESULT-BAR adapter (WRK-066 批3 条族四并一) — parses the build receipt out of
+/// resultText and projects it onto the family head [AnStatBar]: the provenance [AnRefPill] →
+/// leading (the bar's subject; onTap DEGRADES to copy-id until the panel-nav registry lands),
+/// vN / env / runtime / restarted → stats (colour exits ONLY through AnTone — 文法 #6),
+/// envError / restartNote / runtimeWarning → notes. The env self-heal timeline is F4 domain
+/// furniture — a SIBLING below the bar, never a family slot.
 ///
-/// 结果条(旧 _BuildResultBar 公共化):凭据 RefPill(刚建的实体,label=args.name 否则 id)+ vN + env 三色
-/// + 重启 + envError 行。pill 的 onTap 在面板注册表(B3 #8)就绪前**降级复制 id**,届时升级为真 select 深链。
-class RunStatBar extends StatelessWidget {
-  const RunStatBar({required this.state, super.key});
+/// 结果条适配器(批3 四并一):回执 → AnStatBar 槽位投影——凭据 pill 进 leading(条的主语;深链降级
+/// 复制 id)、vN/env/runtime/重启进 stats(色只经 AnTone 出口,文法 #6)、三注记进 notes;env 自愈
+/// 时间线是 F4 域家具,挂条下同胞、不进当家件。
+Widget runStatBarOf(BuildContext context, ToolCardState state) {
+  final t = Translations.of(context);
+  final c = context.colors;
+  Map<String, dynamic>? out;
+  try {
+    final d = jsonDecode(state.resultText);
+    if (d is Map<String, dynamic>) out = d;
+  } catch (_) {}
+  if (out == null) return const SizedBox.shrink();
 
-  final ToolCardState state;
+  final kind = buildEntityKind(state.toolName);
+  // Dual-key id: create returns `id`, edit returns `<entity>Id` (agentId / functionId / …). 双键兜。
+  final id = (out['id'] ?? (kind == null ? null : out['${kind}Id'])) as String?;
+  // Label: only CREATE's args.name is the entity name; on EDIT the first "name" in args is a nested
+  // op field — use the id there. label:仅 create 的 args.name 是实体名;edit 用 id。
+  final label = state.toolName.startsWith('create_') ? (argStringPartial(state.argsText, 'name') ?? id) : id;
+  final envStatus = out['envStatus'] as String?;
+  // handler-edit only: crashed = the honest brick; stopped is BENIGN (never-spawned — census
+  // correction, don't over-alarm); running = healthy RESIDENT state (ok green, deliberately NOT
+  // AnStatus.fromRaw's in-flight accent — 域覆盖,勿"顺手统一"). handler edit 专属声调域覆盖。
+  final runtimeState = out['runtimeState'] as String?;
+  final runtimeWarning = out['runtimeWarning'] as String?;
+  final envFixAttempts = out['envFixAttempts'] as List?;
 
-  @override
-  Widget build(BuildContext context) {
-    final t = Translations.of(context);
-    final c = context.colors;
-    Map<String, dynamic>? out;
-    try {
-      final d = jsonDecode(state.resultText);
-      if (d is Map<String, dynamic>) out = d;
-    } catch (_) {}
-    if (out == null) return const SizedBox.shrink();
-
-    final kind = buildEntityKind(state.toolName);
-    // Dual-key id: create returns `id`, edit returns `<entity>Id` (agentId / functionId / …). 双键兜。
-    final id = (out['id'] ?? (kind == null ? null : out['${kind}Id'])) as String?;
-    // Label: only CREATE's args.name is the entity name (top-level or in set_meta); on EDIT the first
-    // "name" in args is a nested op field (e.g. add_method's method.name) — use the id there.
-    // label:仅 create 的 args.name 是实体名;edit 的首个 "name" 是嵌套 op 字段(如方法名)→ 用 id。
-    final label = state.toolName.startsWith('create_') ? (argStringPartial(state.argsText, 'name') ?? id) : id;
-    final version = out['version'];
-    final envStatus = out['envStatus'] as String?;
-    final envError = out['envError'] as String?;
-    final restarted = out['restarted'] == true;
-    // handler-edit only: the resident instance's state after the edit. crashed = the honest brick
-    // (env ready but __init__ broke); stopped is BENIGN (a never-spawned handler — census correction,
-    // don't over-alarm); running = healthy. handler edit 专属:crashed=真 brick,stopped=良性(未 spawn)。
-    final runtimeState = out['runtimeState'] as String?;
-    final runtimeWarning = out['runtimeWarning'] as String?;
-    final restartNote = out['restartNote'] as String?;
-    final envFixAttempts = out['envFixAttempts'] as List?;
-
-    final faint = AnText.meta.copyWith(color: c.inkFaint);
-    final metaSpans = <InlineSpan>[];
-    void sep() {
-      if (metaSpans.isNotEmpty) metaSpans.add(TextSpan(text: ' · ', style: faint));
-    }
-    if (version != null) {
-      sep();
-      metaSpans.add(TextSpan(text: 'v$version', style: AnText.metaTabular().copyWith(color: c.inkMuted)));
-    }
-    if (envStatus != null) {
-      sep();
-      metaSpans.add(TextSpan(
-          text: switch (envStatus) {
+  final stats = <AnStat>[
+    if (out['version'] != null) AnStat('v${out['version']}', tabular: true),
+    if (envStatus != null)
+      AnStat(
+          switch (envStatus) {
             'ready' => t.chat.tool.envReady,
             'failed' => t.chat.tool.envFailed,
             _ => t.chat.tool.envBuilding,
           },
-          style: AnText.meta.copyWith(color: switch (envStatus) {
-            'ready' => c.ok,
-            'failed' => c.danger,
-            _ => c.warn,
-          })));
-    }
-    if (runtimeState != null) {
-      sep();
-      metaSpans.add(TextSpan(
-          text: switch (runtimeState) {
+          tone: switch (envStatus) { 'ready' => AnTone.ok, 'failed' => AnTone.danger, _ => AnTone.warn }),
+    if (runtimeState != null)
+      AnStat(
+          switch (runtimeState) {
             'running' => t.chat.tool.runtimeRunning,
             'crashed' => t.chat.tool.runtimeCrashed,
             _ => t.chat.tool.runtimeStopped,
           },
-          style: AnText.meta.copyWith(color: switch (runtimeState) {
-            'running' => c.ok,
-            'crashed' => c.danger,
-            _ => c.inkFaint, // stopped = benign muted 良性静音
-          })));
-    }
-    if (restarted) {
-      sep();
-      metaSpans.add(TextSpan(text: t.chat.tool.restarted, style: faint));
-    }
+          tone: switch (runtimeState) { 'running' => AnTone.ok, 'crashed' => AnTone.danger, _ => AnTone.none }),
+    if (out['restarted'] == true) AnStat(t.chat.tool.restarted),
+  ];
+  final leading = <Widget>[
+    if (id != null && kind != null)
+      AnRefPill(
+          kind: kind,
+          label: label ?? id,
+          id: id,
+          // Degrade: copy the id until the panel-nav registry lands (B3). 深链降级:复制 id。
+          onTap: (tgt) => Clipboard.setData(ClipboardData(text: tgt.id)))
+    else if (id != null)
+      Text(id, style: AnText.codeInline.copyWith(color: c.inkMuted)),
+  ];
+  if (leading.isEmpty && stats.isEmpty) return const SizedBox.shrink();
 
-    final chips = <Widget>[
-      if (id != null && kind != null)
-        AnRefPill(
-            kind: kind,
-            label: label ?? id,
-            id: id,
-            // Degrade: copy the id until the panel-nav registry lands (B3). 深链降级:复制 id。
-            onTap: (tgt) => Clipboard.setData(ClipboardData(text: tgt.id)))
-      else if (id != null)
-        Text(id, style: AnText.codeInline.copyWith(color: c.inkMuted)),
-      if (metaSpans.isNotEmpty) Text.rich(TextSpan(children: metaSpans)),
-    ];
-    if (chips.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(top: AnSpace.s6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Wrap(
-            spacing: AnSpace.s6,
-            runSpacing: AnSpace.s4,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: chips,
-          ),
-          if (envError != null && envError.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: AnSpace.s4),
-              child: Text(envError, style: AnText.code.copyWith(color: c.danger)),
-            ),
-          // restartNote (empty-ops rebuild wiped in-memory state) = an amber heads-up, not an error.
-          // restartNote(空 ops 重建抹内存态)= 琥珀提醒、非错。
-          if (restartNote != null && restartNote.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: AnSpace.s4),
-              child: Text(restartNote, style: AnText.label.copyWith(color: c.warn)),
-            ),
-          // runtimeWarning ONLY for a real crash (census correction: stopped false-alarms on a
-          // never-spawned handler, so a stopped badge alone suffices there). runtimeWarning 仅 crashed 显。
-          if (runtimeState == 'crashed' && runtimeWarning != null && runtimeWarning.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: AnSpace.s4),
-              child: Text(runtimeWarning, style: AnText.code.copyWith(color: c.danger)),
-            ),
-          if (envFixAttempts != null && envFixAttempts.length > 1)
-            envFixTimeline(context, envFixAttempts),
-        ],
-      ),
-    );
-  }
+  final bar = AnStatBar(leading: leading, stats: stats, notes: [
+    if (out['envError'] case final String e when e.isNotEmpty) AnStatNote(e), // danger = mono voice
+    // restartNote (empty-ops rebuild wiped in-memory state) = an amber heads-up, not an error.
+    // restartNote(空 ops 重建抹内存态)= 琥珀提醒、非错。
+    if (out['restartNote'] case final String n when n.isNotEmpty) AnStatNote(n, tone: AnTone.warn),
+    // runtimeWarning ONLY for a real crash (stopped false-alarms on a never-spawned handler).
+    // runtimeWarning 仅 crashed 显。
+    if (runtimeState == 'crashed' && runtimeWarning != null && runtimeWarning.isNotEmpty)
+      AnStatNote(runtimeWarning),
+  ]);
+  if (envFixAttempts == null || envFixAttempts.length <= 1) return bar;
+  return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [bar, envFixTimeline(context, envFixAttempts)]);
 }

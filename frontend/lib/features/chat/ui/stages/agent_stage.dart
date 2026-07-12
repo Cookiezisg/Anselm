@@ -15,11 +15,11 @@ import 'stage_scene.dart';
 /// faces, neutral while live per R-4), knowledge ids chip in shimmer-named, and the model override
 /// flips its plate. An EDIT discloses PROGRESSIVELY (R-9): slots the args never mention keep the OLD
 /// truth at 40% ink — «AI 只动了这些» readable at a glance. Settle: the reconciled GET's belt +
-/// knowledge as full-ink chips + RunStatBar (mount-health lamps ride the entity page tier).
+/// knowledge as full-ink chips + the result bar (mount-health lamps ride the entity page tier).
 ///
 /// agent 舞台(W5)——人格装配台:prompt 散文中央窗(词尾生长),ToolRef 闭合即扣腰带芯片(live 中性 R-4),
 /// knowledge 芯片候名,modelOverride 翻牌。edit 按 R-9 渐进开区:args 未提及的槽以 40% 墨保留旧真相——
-/// 「AI 只动了这些」一眼可读。落定:GET 对账腰带+知识全墨芯片+RunStatBar(mount 体检灯归实体页档)。
+/// 「AI 只动了这些」一眼可读。落定:GET 对账腰带+知识全墨芯片+结果条(mount 体检灯归实体页档)。
 class AgentStageBody extends ConsumerWidget {
   const AgentStageBody({required this.scene, super.key});
 
@@ -86,7 +86,7 @@ class AgentStageBody extends ConsumerWidget {
       ],
       if (!scene.live && !scene.failed) ...[
         const SizedBox(height: AnSpace.s6),
-        RunStatBar(state: scene.state),
+        runStatBarOf(context, scene.state),
       ],
     ]);
   }

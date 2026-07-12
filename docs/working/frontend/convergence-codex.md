@@ -27,6 +27,14 @@ audience: [human, ai]
 - **AnStickViewport 增 `fadeColor`**(白宿主传 surface,灰底退役)。bar 同构补齐:编辑器 copy 驻留走 AnMotion.dwell + AnTooltip。
 - AnLedgerRow 补 `expandChild`;「展开全部 N」列表壳 **deferred → P4 吸收四套台账时落**。
 
+## 批3 落地(2026-07-12,条族四并一)
+
+A-088/A-089/A-090/A-091 四条关账:_InvokeStatBar/_RunFooter/ExecResultBar/RunStatBar **物理删除**(注释层残留同批清尽),全部并入 AnStatBar;workflow legend 手链同批并入(stats-only 条);块级 ' · ' 渲染链只此一源(文法 #3;残余记 A-087 收窄:收起行回执尾=行内尾注豁免、flowrun _summaryBar=窗首表头待窗族批)。法典增量:
+- **AnStatBar 长 `leading` 槽**(前导凭据=条的主语 pill,词徽之前;尾随凭据仍走 chips);gallery 补 leading 样张。
+- **timeout 陷阱记档**:AnStatus.fromRaw 无 'timeout' 别名(会折 idle 丢危险色),invoke 站点显式 err 映射承重、有测钉死;runtime 'running'=驻留健康绿(域覆盖,非 fromRaw 在飞 accent)。
+- runStatBarOf 适配器接 **18 用点**;envFix 缩进改**结构化悬挂**(icon 独立列+Expanded,文法 #4 裸算术清;icon 改顶对齐,光学差 ~3px 接受);exec 彩字→词徽、invoke 空格→' · ' 链、灰阶归一(restarted/stopped/tokens faint→muted;legend 节点计数 ink→muted)——刻意收敛。
+- **间距记档**:条自带 top s6 为族节奏——replay 侧删手工 SizedBox 防双距;legend 侧 summary 去底距对齐 metaOnly 分支;**getFlowrunBody 体首多 6px 前导=接受**(统一节奏,不为单点加 flush 开关)。
+
 ## 批2 落地(2026-07-12,代码族)
 
 A-019/020/021/022/023 + B-002 全关。法典增量裁决:

@@ -16,11 +16,11 @@ import 'stage_scene.dart';
 /// node/edge counters roll, and the LATEST DISCRIMINANT drawer shows the newest node's `input` CELs
 /// through [AnCelGrow] (data inlets as accent capsules). An EDIT rests on the old truth first (R-5):
 /// before any op closes, the CURRENT graph sits on the canvas with a «基于 vN 起改» word — the change
-/// then grows over it. Settle: counts + RunStatBar + the lifecycle badge from the reconciled GET.
+/// then grows over it. Settle: counts + the result bar + the lifecycle badge from the reconciled GET.
 ///
 /// workflow 舞台(W3)——图在真画布上随 ops 闭合生长:add_node 落点/add_edge 画线(只有闭合 op 上台),
 /// 节点/边计数滚动,「最新判别式」抽屉以 AnCelGrow 渲最新节点的 input CEL。edit 先静置旧真相(R-5):
-/// 首 op 闭合前画布上是现图+「基于 vN 起改」;改动长在其上。落定:计数+RunStatBar+生命周期徽(对账 GET)。
+/// 首 op 闭合前画布上是现图+「基于 vN 起改」;改动长在其上。落定:计数+结果条+生命周期徽(对账 GET)。
 class WorkflowStageBody extends ConsumerWidget {
   const WorkflowStageBody({required this.scene, super.key});
 
@@ -64,7 +64,7 @@ class WorkflowStageBody extends ConsumerWidget {
       ..._discriminantDrawer(context, c, t, session),
       if (!scene.live && !scene.failed) ...[
         const SizedBox(height: AnSpace.s6),
-        RunStatBar(state: scene.state),
+        runStatBarOf(context, scene.state),
       ],
     ]);
   }

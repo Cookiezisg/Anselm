@@ -97,7 +97,7 @@ class TriggerStageBody extends ConsumerWidget {
                   style: AnText.meta.copyWith(color: c.inkFaint)),
           ]),
         const SizedBox(height: AnSpace.s4),
-        RunStatBar(state: scene.state),
+        runStatBarOf(context, scene.state),
       ],
     ]);
   }

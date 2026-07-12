@@ -109,12 +109,16 @@ final tongguiCodexCategory = GalleryCategory('同轨法典', AnIcons.entities, [
   ),
   GalleryItem(
     '族五 · AnStatBar 条',
-    '唯一结果/状态条(吃四条手搓):状态词徽(色=AnStatus.tone 单源)+ 点分链 + 尾随芯片凭据 + 下挂注记。',
+    '唯一结果/状态条(四条手搓已于批3 物理删除):leading 前导凭据(条的主语 pill)+ 状态词徽(色=AnStatus.tone 单源)+ 点分链 + 尾随芯片凭据 + 下挂注记。',
     [
       GallerySpecimen('成功:词徽+链+凭据 pill', (c) => AnStatBar(
             status: AnStatus.done,
             stats: const [AnStat('v4', tabular: true), AnStat('env ready', tone: AnTone.ok), AnStat('1.2s', tabular: true)],
             chips: [AnChip('sync_inventory', mono: true, icon: AnIcons.function, look: AnChipLook.outlined)],
+          ), span: true),
+      GallerySpecimen('建造条:leading 主语 pill 领跑(批3)', (c) => AnStatBar(
+            leading: [AnChip('fn_sync', mono: true, icon: AnIcons.function, look: AnChipLook.outlined)],
+            stats: const [AnStat('v4', tabular: true), AnStat('env ready', tone: AnTone.ok)],
           ), span: true),
       GallerySpecimen('失败+红注记行', (c) => const AnStatBar(
             status: AnStatus.err,

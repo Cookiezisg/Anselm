@@ -93,7 +93,7 @@ class _DocumentStageBodyState extends ConsumerState<DocumentStageBody> {
           AnLayerDiff(oldText: baseline, versionLabel: t.chat.stage.proseUntouched, maxLines: 5),
           const SizedBox(height: AnSpace.s6),
         ],
-        RunStatBar(state: scene.state),
+        runStatBarOf(context, scene.state),
       ]);
     }
 
@@ -160,7 +160,7 @@ class _DocumentStageBodyState extends ConsumerState<DocumentStageBody> {
               style: AnText.meta.copyWith(color: c.inkFaint)),
           const SizedBox(width: AnSpace.s8),
         ],
-        Expanded(child: RunStatBar(state: scene.state)),
+        Expanded(child: runStatBarOf(context, scene.state)),
       ]),
     ]);
   }

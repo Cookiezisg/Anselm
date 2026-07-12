@@ -81,7 +81,7 @@ void main() {
     expect(find.byType(ToolIOSection), findsWidgets); // input + output sections
     expect(find.text('输入'), findsOneWidget);
     expect(find.text('输出'), findsOneWidget);
-    expect(find.byType(ExecResultBar), findsOneWidget);
+    expect(find.byType(AnStatBar), findsOneWidget);
     expect(find.text(t.chat.tool.execOk), findsOneWidget);
     expect(find.textContaining('942ms'), findsWidgets); // receipt + bar
   });
@@ -138,7 +138,7 @@ void main() {
     await tester.tap(find.textContaining(t.chat.tool.calledMethod), warnIfMissed: false);
     await tester.pumpAndSettle();
     // No exec bar (call_handler carries no ok/elapsed — never fabricated). 无结果条(无耗时字段)。
-    expect(find.byType(ExecResultBar), findsNothing);
+    expect(find.byType(AnStatBar), findsNothing);
   });
 
   testWidgets('call_handler streamed progress → logs drawer', (tester) async {
@@ -221,5 +221,20 @@ void main() {
       expect(find.textContaining('act_1f2e3d4c5b6a7980'), findsWidgets); // full id in the copy chip
       expect(find.text(t.chat.tool.firePayloadNote), findsOneWidget);
     });
+  });
+
+  testWidgets('invoke TIMEOUT keeps the danger tone (fromRaw has no timeout alias — 批3 突变闸)',
+      (tester) async {
+    await tester.pumpWidget(_host(ChatToolCard(node: _node('invoke_agent',
+        '{"agentId":"ag_1","input":{}}',
+        '{"executionId":"exec_9","ok":false,"status":"timeout","steps":2,"elapsedMs":60000}'))));
+    // timeout = failure → the card auto-expands ONCE (no tap needed; a tap would re-collapse).
+    // 超时=失败→自动展开一次(点了反而收起)。
+    await tester.pumpAndSettle();
+    final bar = tester.widget<AnStatBar>(find.byType(AnStatBar));
+    // The mutation `AnStatus.fromRaw(status)` folds timeout to idle (grey) — this pins err (red).
+    // fromRaw 突变会把 timeout 折成 idle 灰;此断言钉死 err 红。
+    expect(bar.status, AnStatus.err);
+    expect(bar.statusLabel, t.chat.tool.agentTimeout);
   });
 }

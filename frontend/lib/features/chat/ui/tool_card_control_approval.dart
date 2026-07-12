@@ -53,7 +53,7 @@ Widget controlBranchBody(BuildContext context, ToolCardState state) {
           child: Text(state.summary, style: AnText.meta.copyWith(color: c.inkMuted)),
         ),
       for (var i = 0; i < branches.length; i++) _branchRow(context, t, c, i + 1, branches[i]),
-      RunStatBar(state: state),
+      runStatBarOf(context, state),
     ],
   );
 }
@@ -183,7 +183,7 @@ Widget approvalFormBody(BuildContext context, ToolCardState state) {
           ],
         ),
       ),
-      RunStatBar(state: state),
+      runStatBarOf(context, state),
     ],
   );
 }

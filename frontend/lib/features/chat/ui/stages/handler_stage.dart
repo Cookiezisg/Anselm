@@ -16,11 +16,11 @@ import 'stage_scene.dart';
 /// path-aware channel keeps同名 `body` values apart, so each spine follows ITS OWN code. set_init /
 /// set_shutdown light their rail段 with a live window; set_init_args_schema previews the config form
 /// (sensitive keys ALWAYS masked ••••). Settle: configState badge + runtimeState heartbeat +
-/// RunStatBar. NO match discriminant — the contract has none (勿设想).
+/// the result bar. NO match discriminant — the contract has none (勿设想).
 ///
 /// handler 舞台(W5)——竖向生命周期轨上的方法架。add_method 上架书脊(名 w400+streaming 波浪+timeout 钟),
 /// body 在小窗续长(W0 带路径通道让同名 body 各归其位);set_init/shutdown 点亮轨段;initArgsSchema 预览
-/// 配置面(sensitive 恒 ••••)。落定:configState 徽+runtimeState 心跳+RunStatBar。无 match 判别式(契约如此)。
+/// 配置面(sensitive 恒 ••••)。落定:configState 徽+runtimeState 心跳+结果条(runStatBarOf)。无 match 判别式(契约如此)。
 class HandlerStageBody extends ConsumerWidget {
   const HandlerStageBody({required this.scene, super.key});
 
@@ -100,7 +100,7 @@ class HandlerStageBody extends ConsumerWidget {
         const SizedBox(height: AnSpace.s6),
         _settleStates(context, c, truth?.asData?.value),
         const SizedBox(height: AnSpace.s4),
-        RunStatBar(state: scene.state),
+        runStatBarOf(context, scene.state),
       ],
     ]);
   }

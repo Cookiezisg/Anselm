@@ -16,11 +16,11 @@ import 'stage_scene.dart';
 /// rung = ① priority ordinal · port name (w400) · the `when` CEL growing through [AnCelGrow] · the
 /// emit grid (`field ← CEL`; an empty emit reads «透传» in ghost ink). The catch-all (`when:"true"`)
 /// pins as a grey «否则» rung, never rendered as code. An EDIT lays the OLD LADDER at 40% first
-/// (whole-replace semantics made visible, R-5). Settle: RunStatBar (vN rides the receipt).
+/// (whole-replace semantics made visible, R-5). Settle: the result bar (vN rides the receipt).
 ///
 /// control 舞台(W3)——判别式生长正殿:左缘求值顺序丝线,梯级随 branch 闭合滑入(只闭合者上台),每级=
 /// 序号·port 名牌(w400)·when CEL(AnCelGrow)·emit 出射格(空 emit=幽灵「透传」);末级 when:"true" 渲灰徽
-/// 「否则」,不渲成代码。edit 先铺旧梯 40%(全量替换语义可见,R-5)。落定:RunStatBar。
+/// 「否则」,不渲成代码。edit 先铺旧梯 40%(全量替换语义可见,R-5)。落定:结果条(runStatBarOf)。
 class ControlStageBody extends ConsumerWidget {
   const ControlStageBody({required this.scene, super.key});
 
@@ -57,7 +57,7 @@ class ControlStageBody extends ConsumerWidget {
       for (var i = 0; i < branches.length; i++) _rung(context, c, t, i, branches[i]),
       if (!scene.live && !scene.failed) ...[
         const SizedBox(height: AnSpace.s6),
-        RunStatBar(state: scene.state),
+        runStatBarOf(context, scene.state),
       ],
     ]);
   }

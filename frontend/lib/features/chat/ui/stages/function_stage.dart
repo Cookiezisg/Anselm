@@ -16,11 +16,11 @@ import 'stage_scene.dart';
 /// shell/highlight/gutter as settled), signature pills light as set_inputs/outputs close, dependency
 /// chips likewise. An EDIT opens over the old truth (R-5): [AnLayerDiff] keeps "改之前的它" on stage
 /// at low ink. Settle: the SAME editor un-pins + an HONEST diff badge (+n −m computed from the
-/// fetched before vs the landed after) + [RunStatBar]. Failure keeps the streamed draft readable.
+/// fetched before vs the landed after) + the result-bar adapter [runStatBarOf]. Failure keeps the streamed draft readable.
 ///
 /// function 舞台(W2 旗舰)——代码正在被写成。流式:op ticker 逐 op 落中性芯片(R-4)、set_code 走编辑器
 /// live 脸(有界贴底视口,同壳同高亮同行号)、签名药丸/依赖芯片随闭合点亮;edit 先铺旧真相地层(R-5)。
-/// 落定:同一编辑器解除钉底+真 diff 徽(+n −m)+RunStatBar。失败保留可读草稿。
+/// 落定:同一编辑器解除钉底+真 diff 徽(+n −m)+结果条(runStatBarOf)。失败保留可读草稿。
 class FunctionStageBody extends ConsumerWidget {
   const FunctionStageBody({required this.scene, super.key});
 
@@ -64,12 +64,12 @@ class FunctionStageBody extends ConsumerWidget {
               _DiffBadge(before: oldCode, after: code),
               const SizedBox(width: AnSpace.s8),
             ],
-            Expanded(child: RunStatBar(state: scene.state)),
+            Expanded(child: runStatBarOf(context, scene.state)),
           ]),
         ],
       ],
       ..._signaturePills(context, c, session),
-      if (!scene.live && !scene.failed && code.isEmpty) RunStatBar(state: scene.state),
+      if (!scene.live && !scene.failed && code.isEmpty) runStatBarOf(context, scene.state),
     ]);
   }
 

@@ -93,40 +93,6 @@ class ToolIOSection extends StatelessWidget {
       ToolWindow(child: SizedBox(height: AnSize.jsonViewport, child: AnJsonTree(data: v, showRoot: false)));
 }
 
-/// The EXEC RESULT BAR — a lightweight status line for an ExecutionResult (`{ok, elapsedMs, …}`): a
-/// status word (ok / 失败, colored) + the elapsed time + an optional trailing credential (a deep-link
-/// pill or a note). Distinct from the builds [RunStatBar] (which reads version/env/runtime); the exec
-/// families share THIS. 执行结果条:状态词 + 耗时 + 可选凭据。
-class ExecResultBar extends StatelessWidget {
-  const ExecResultBar({required this.ok, this.elapsedMs, this.trailing, this.failLabel, super.key});
-
-  final bool ok;
-  final int? elapsedMs;
-  final Widget? trailing;
-  final String? failLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = Translations.of(context);
-    final c = context.colors;
-    final spans = <Widget>[
-      Text(ok ? t.chat.tool.execOk : (failLabel ?? t.chat.tool.execFailed),
-          style: AnText.label.copyWith(color: ok ? c.ok : c.danger).weight(AnText.emphasisWeight)),
-      if (elapsedMs != null) ...[
-        Text(' · ', style: AnText.meta.copyWith(color: c.inkFaint)),
-        Text(fmtElapsed(elapsedMs!), style: AnText.metaTabular().copyWith(color: c.inkMuted)),
-      ],
-    ];
-    return Padding(
-      padding: const EdgeInsets.only(top: AnSpace.s6),
-      child: Row(children: [
-        ...spans,
-        if (trailing != null) ...[const Spacer(), trailing!],
-      ]),
-    );
-  }
-}
-
 /// Format elapsed ms as human time (`940ms` / `1.2s` / `2m 3s`). 耗时人话。
 String fmtElapsed(int ms) {
   if (ms < 1000) return '${ms}ms';

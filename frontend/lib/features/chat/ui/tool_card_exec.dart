@@ -69,7 +69,13 @@ Widget runFunctionBody(BuildContext context, ToolCardState state) {
         Padding(padding: const EdgeInsets.only(bottom: AnSpace.s2), child: Text(errorMsg, style: AnText.code.copyWith(color: c.danger), maxLines: 20, overflow: TextOverflow.ellipsis))
       else
         ToolIOSection(label: t.chat.tool.ioOutput, value: out?['output']),
-      if (out != null) ExecResultBar(ok: ok, elapsedMs: out['elapsedMs'] is int ? out['elapsedMs'] as int : null),
+      if (out != null)
+        // 批3 条族:the family head with the exec domain words (状态→色单源 AnStatus). 域词覆盖。
+        AnStatBar(
+          status: ok ? AnStatus.done : AnStatus.err,
+          statusLabel: ok ? t.chat.tool.execOk : t.chat.tool.execFailed,
+          stats: [if (out['elapsedMs'] is int) AnStat(fmtElapsed(out['elapsedMs'] as int), tabular: true)],
+        ),
     ],
   ]);
 }
@@ -182,53 +188,44 @@ Widget invokeAgentBody(BuildContext context, ToolCardState state) {
         // A free-text final answer → prose; a declared-output object → per-key (ToolIOSection rules).
         // 自由文本终答→散文;声明输出对象→逐键。
         ToolIOSection(label: t.chat.tool.ioOutput, value: outputVal, renderAsProse: outputVal is String),
-      if (out != null) _InvokeStatBar(result: out, agentId: agentId),
+      if (out != null) _invokeStatBar(context, out, agentId),
     ],
   ]);
 }
 
-/// The invoke stat bar — status word (colored) · steps · ↑tokensIn ↓tokensOut · elapsed · a navigable
-/// agent pill (agentId) · the executionId (copy). invoke 结果条。
-class _InvokeStatBar extends StatelessWidget {
-  const _InvokeStatBar({required this.result, this.agentId});
-  final Map<String, dynamic> result;
-  final String? agentId;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = Translations.of(context);
-    final c = context.colors;
-    final status = result['status'] as String? ?? '';
-    final word = switch (status) {
+/// The invoke stat bar (批3 条族: a mapping onto the family head) — status word · steps ·
+/// ↑tokensIn ↓tokensOut · elapsed · a navigable agent pill · the executionId (copy).
+/// invoke 结果条:映射进当家件。
+Widget _invokeStatBar(BuildContext context, Map<String, dynamic> result, String? agentId) {
+  final t = Translations.of(context);
+  final status = result['status'] as String? ?? '';
+  final execId = result['executionId'] as String?;
+  return AnStatBar(
+    // 'timeout' has NO AnStatus.fromRaw alias (it would fold to idle and LOSE the danger tone) —
+    // the explicit switch is load-bearing. timeout 无 fromRaw 别名(会折 idle 丢危险色),显式映射承重。
+    status: switch (status) {
+      'ok' => AnStatus.done,
+      'failed' || 'timeout' => AnStatus.err,
+      _ => AnStatus.idle,
+    },
+    statusLabel: switch (status) {
       'ok' => t.chat.tool.runCompleted,
       'failed' => t.chat.tool.failed,
       'timeout' => t.chat.tool.agentTimeout,
       'cancelled' => t.chat.tool.runCancelled,
       _ => status,
-    };
-    final tone = switch (status) {
-      'ok' => AnTone.ok,
-      'failed' || 'timeout' => AnTone.danger,
-      _ => AnTone.none,
-    };
-    final steps = result['steps'] is int ? result['steps'] as int : null;
-    final tin = result['tokensIn'] is int ? result['tokensIn'] as int : null;
-    final tout = result['tokensOut'] is int ? result['tokensOut'] as int : null;
-    final elapsed = result['elapsedMs'] is int ? fmtElapsed(result['elapsedMs'] as int) : null;
-    final execId = result['executionId'] as String?;
-    return Padding(
-      padding: const EdgeInsets.only(top: AnSpace.s6),
-      child: Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s4, crossAxisAlignment: WrapCrossAlignment.center, children: [
-        AnBadge(word, tone: tone),
-        if (steps != null) Text(t.chat.tool.agentSteps(n: '$steps'), style: AnText.metaTabular().copyWith(color: c.inkMuted)),
-        if (tin != null && tout != null)
-          Text('↑$tin ↓$tout', style: AnText.metaTabular().copyWith(color: c.inkFaint)),
-        if (elapsed != null) Text(elapsed, style: AnText.metaTabular().copyWith(color: c.inkMuted)),
-        if (agentId != null && agentId!.isNotEmpty) toolNavPill(context, kind: 'agent', label: agentId!, id: agentId),
-        if (execId != null && execId.isNotEmpty) AnCopyChip(value: execId),
-      ]),
-    );
-  }
+    },
+    stats: [
+      if (result['steps'] is int) AnStat(t.chat.tool.agentSteps(n: '${result['steps']}'), tabular: true),
+      if (result['tokensIn'] is int && result['tokensOut'] is int)
+        AnStat('↑${result['tokensIn']} ↓${result['tokensOut']}', tabular: true),
+      if (result['elapsedMs'] is int) AnStat(fmtElapsed(result['elapsedMs'] as int), tabular: true),
+    ],
+    chips: [
+      if (agentId != null && agentId.isNotEmpty) toolNavPill(context, kind: 'agent', label: agentId, id: agentId),
+      if (execId != null && execId.isNotEmpty) AnCopyChip(value: execId),
+    ],
+  );
 }
 
 // ── fire_trigger — the thin activation card ──

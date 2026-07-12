@@ -349,6 +349,19 @@ void main() {
   });
 
   group('AnStatBar', () {
+    testWidgets('leading credential renders BEFORE the status badge (批3: the bar subject leads)',
+        (tester) async {
+      await tester.pumpWidget(_host(const AnStatBar(
+        leading: [AnChip('fn_1', mono: true)],
+        status: AnStatus.done,
+        stats: [AnStat('v4', tabular: true)],
+      )));
+      await tester.pump();
+      final pillX = tester.getTopLeft(find.text('fn_1')).dx;
+      final badgeX = tester.getTopLeft(find.text(Translations.of(tester.element(find.byType(AnStatBar))).status.done)).dx;
+      expect(pillX, lessThan(badgeX));
+    });
+
     testWidgets('multiple notes render with per-tone voices (复审 #33/#24)', (tester) async {
       await tester.pumpWidget(_host(const AnStatBar(
         notes: [

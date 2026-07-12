@@ -106,10 +106,10 @@ class SkillStageBody extends StatelessWidget {
 /// The MEMORY stage (WRK-061 §7-10, W5) — the memo slip: a light note card with the slug in its
 /// corner, the content filling the slip word by word. The pin is the USER's privilege (REST-only —
 /// the stage never renders a pin control; «AI 动不了你的图钉» is the brand). Settle: the closed
-/// content rests on the slip + RunStatBar.
+/// content rests on the slip + the result bar.
 ///
 /// memory 舞台(W5)——记忆笺:便笺小卡+slug 笺角,content 逐词长满。图钉是用户特权(REST-only,舞台不渲
-/// pin 控件——「AI 动不了你的图钉」)。落定:闭合 content 静置+RunStatBar。
+/// pin 控件——「AI 动不了你的图钉」)。落定:闭合 content 静置+结果条(runStatBarOf)。
 class MemoryStageBody extends StatelessWidget {
   const MemoryStageBody({required this.scene, super.key});
 
@@ -139,7 +139,7 @@ class MemoryStageBody extends StatelessWidget {
       ),
       if (!scene.live && !scene.failed) ...[
         const SizedBox(height: AnSpace.s6),
-        RunStatBar(state: scene.state),
+        runStatBarOf(context, scene.state),
       ],
     ]);
   }
@@ -204,7 +204,7 @@ class McpStageBody extends StatelessWidget {
             ),
         ],
         const SizedBox(height: AnSpace.s4),
-        RunStatBar(state: scene.state),
+        runStatBarOf(context, scene.state),
       ],
       if (scene.failed && scene.state.errorText.isNotEmpty) ...[
         const SizedBox(height: AnSpace.s6),

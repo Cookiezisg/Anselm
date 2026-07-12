@@ -134,37 +134,31 @@ Widget replayFlowrunBody(BuildContext context, ToolCardState state) {
       const SizedBox(height: AnSpace.s6),
     ],
     FlowrunNodeList(nodes: comp.nodes, summary: comp.nodeSummary),
-    const SizedBox(height: AnSpace.s6),
-    _RunFooter(run: run),
+    // No SizedBox — the family bar brings its own top s6 (批3: a kept one doubles the gap). 条自带前距。
+    _runFooter(context, run),
   ]);
 }
 
-/// The run footer — status badge + replay count + a navigable workflow pill + the flowrunId (copy). The
-/// flowrun itself has no panel, but the result carries workflowId → the pill deep-links the workflow.
-/// run 页脚:状态词 + 重放数 + 可导航 workflow 药丸 + flowrunId(复制)。flowrun 无面板,借 workflowId 深链。
-class _RunFooter extends StatelessWidget {
-  const _RunFooter({required this.run});
-  final Flowrun run;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = Translations.of(context);
-    final c = context.colors;
-    final st = AnStatus.fromRaw(run.status);
-    final word = switch (run.status) {
+/// The run footer (批3 条族: a mapping onto the family head) — status badge (AnStatus.fromRaw 单源;
+/// domain words: failed=仍失败, running=等待审批) + replay count + a navigable workflow pill + the
+/// flowrunId (copy). run 页脚:状态词徽(fromRaw 单源+域词)+重放数+workflow 药丸+flowrunId 复制。
+Widget _runFooter(BuildContext context, Flowrun run) {
+  final t = Translations.of(context);
+  return AnStatBar(
+    status: AnStatus.fromRaw(run.status),
+    statusLabel: switch (run.status) {
       'completed' => t.chat.tool.runCompleted,
       'failed' => t.chat.tool.runStillFailed,
       'cancelled' => t.chat.tool.runCancelled,
       'running' => t.chat.tool.runAwaitApproval,
       _ => run.status,
-    };
-    return Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s4, crossAxisAlignment: WrapCrossAlignment.center, children: [
-      AnBadge(word, tone: st.tone),
-      if (run.replayCount > 0) Text(t.chat.tool.replayTimes(n: '${run.replayCount}'), style: AnText.meta.copyWith(color: c.inkMuted)),
+    },
+    stats: [if (run.replayCount > 0) AnStat(t.chat.tool.replayTimes(n: '${run.replayCount}'), tabular: true)],
+    chips: [
       if (run.workflowId.isNotEmpty) toolNavPill(context, kind: 'workflow', label: run.workflowId, id: run.workflowId),
       AnCopyChip(value: run.id),
-    ]);
-  }
+    ],
+  );
 }
 
 /// FlowrunNodeList (WRK-056 #38) — the per-node record of a run: one row per node (kind glyph · nodeId ·
@@ -306,7 +300,7 @@ Widget getFlowrunBody(BuildContext context, ToolCardState state) {
   }
   final run = comp.flowrun;
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-    _RunFooter(run: run),
+    _runFooter(context, run),
     if (run.error != null && run.error!.isNotEmpty) ...[
       const SizedBox(height: AnSpace.s6),
       ToolWindow(child: Text(run.error!, style: AnText.code.copyWith(color: c.danger), maxLines: 12, overflow: TextOverflow.ellipsis)),
