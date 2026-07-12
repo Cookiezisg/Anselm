@@ -140,7 +140,7 @@ class _CreateFormState extends ConsumerState<_CreateForm> {
     final t = Translations.of(context);
     final c = context.colors;
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 480),
+      constraints: const BoxConstraints(maxWidth: AnSize.formMaxWidth),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         AnFormField(label: t.settings.ws.name, child: AnInput(controller: _name, autofocus: true, onChanged: (_) => setState(() {}))),
         const SizedBox(height: AnSpace.s12),
@@ -255,7 +255,7 @@ class _WorkspaceEditorState extends ConsumerState<WorkspaceEditor> {
     final deletable = w.id != active && rows.length > 1;
 
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 480),
+      constraints: const BoxConstraints(maxWidth: AnSize.formMaxWidth),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         AnFormField(label: t.settings.ws.name, child: AnInput(
             controller: _name,

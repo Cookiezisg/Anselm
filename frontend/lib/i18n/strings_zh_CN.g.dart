@@ -280,6 +280,8 @@ class _Translations$a11y$zh_CN extends Translations$a11y$en {
 	@override String codeBlockPlain({required Object lines}) => '代码块,${lines} 行';
 	@override String jsonTree({required Object count}) => 'JSON 树,${count} 项';
 	@override String diff({required Object added, required Object removed}) => '差异,新增 ${added},删除 ${removed}';
+	@override String get loading => '加载中';
+	@override String get timeoutBudget => '时限';
 }
 
 // Path: diff
@@ -985,6 +987,7 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String modelAvail({required Object n}) => '${n} 个可用模型';
 	@override String get memSourceUser => '你';
 	@override String get memSourceAi => 'AI';
+	@override String get firingClaimed => '已认领';
 }
 
 // Path: chat.gate
@@ -2619,6 +2622,7 @@ extension on TranslationsZhCn {
 			'chat.tool.modelAvail' => ({required Object n}) => '${n} 个可用模型',
 			'chat.tool.memSourceUser' => '你',
 			'chat.tool.memSourceAi' => 'AI',
+			'chat.tool.firingClaimed' => '已认领',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -2830,6 +2834,8 @@ extension on TranslationsZhCn {
 			'a11y.codeBlockPlain' => ({required Object lines}) => '代码块,${lines} 行',
 			'a11y.jsonTree' => ({required Object count}) => 'JSON 树,${count} 项',
 			'a11y.diff' => ({required Object added, required Object removed}) => '差异,新增 ${added},删除 ${removed}',
+			'a11y.loading' => '加载中',
+			'a11y.timeoutBudget' => '时限',
 			'diff.added' => '新增',
 			'diff.removed' => '删除',
 			'tree.invalidJson' => '无效 JSON',
@@ -3124,11 +3130,11 @@ extension on TranslationsZhCn {
 			'documents.loadFailed' => '打不开这个',
 			'documents.rename' => '改名',
 			'documents.duplicate' => '创建副本',
+			_ => null,
+		} ?? switch (path) {
 			'documents.deleteDocTitle' => '删除这个页面?',
 			'documents.deleteDocBody' => ({required Object name}) => '“${name}”及其下嵌套的所有内容都会被删除。',
 			'documents.deleteSkillTitle' => '删除这个技能?',
-			_ => null,
-		} ?? switch (path) {
 			'documents.deleteSkillBody' => ({required Object name}) => '技能“${name}”会被删除。',
 			'documents.actionFailed' => '操作失败',
 			'documents.props.title' => '属性',

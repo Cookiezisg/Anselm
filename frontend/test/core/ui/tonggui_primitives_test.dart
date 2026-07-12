@@ -622,6 +622,24 @@ void main() {
     });
   });
 
+  group('装饰循环 orAssistive 门 批7 复审', () {
+    testWidgets('AnFollowPill live + AnRadarSweep freeze under assistive tech (立法3, mutation-locked)',
+        (tester) async {
+      // A reduced-only gate misses the screen-reader case — this pin goes red if either site
+      // regresses to AnMotionPref.reduced. 只门 reduced 会漏读屏——回退即红。
+      await tester.pumpWidget(MediaQuery(
+        data: const MediaQueryData(accessibleNavigation: true),
+        child: _host(Column(children: [
+          AnFollowPill(kind: AnFollowPillKind.live, subjectName: 'x', onTap: () {}),
+          const AnRadarSweep(),
+        ])),
+      ));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(tester.binding.transientCallbackCount, 0); // both loops frozen 双循环冻结
+    });
+  });
+
   group('AnFadeRiseIn 批7', () {
     testWidgets('animates entry once; renders static (no ticker) under reduced motion', (tester) async {
       await tester.pumpWidget(_host(const AnFadeRiseIn(child: Text('hi'))));

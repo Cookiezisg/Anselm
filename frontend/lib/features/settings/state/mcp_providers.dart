@@ -36,6 +36,7 @@ class McpServersController extends AsyncNotifier<List<McpServerStatus>> {
 
   void _schedule() {
     _coalesce?.cancel();
+    // 批7 立法1 豁免锚:state 层合帧节流。exempt: state-layer coalescing.
     _coalesce = Timer(const Duration(milliseconds: 300), refresh);
   }
 

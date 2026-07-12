@@ -224,6 +224,8 @@ class StageDirector {
   });
 
   FollowMode followMode;
+  // BEHAVIOURAL timing (W2 拍板值) — director semantics, NOT visual motion: exempt from the
+  // AnMotion tier law (批7 立法1 成文豁免). 导演器行为时长,非视觉动效——立法1 豁免锚。
   final Duration entranceDebounce;
   final Duration switchIdle;
   final Duration minDwell;

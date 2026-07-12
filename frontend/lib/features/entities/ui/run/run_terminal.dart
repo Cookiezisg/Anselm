@@ -287,7 +287,12 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
         for (final e in s.liveNodes.entries) (label: e.key, status: e.value),
       ]));
     }
-    return AnState(kind: AnStateKind.empty, size: AnStateSize.inset, title: r.noTrace);
+    // Mirror the agent branch (批7 复审): a RUNNING flowrun with no node rows yet is a waiting
+    // state, not an empty archive. 运行中无节点=等待态,非空档案。
+    return AnState(
+        kind: state.isRunning ? AnStateKind.loading : AnStateKind.empty,
+        size: AnStateSize.inset,
+        title: r.noTrace);
   }
 
   /// The durable approval gate — the parked node's rendered prompt + Approve/Reject firing the

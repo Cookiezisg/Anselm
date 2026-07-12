@@ -70,6 +70,7 @@ class RunTerminalController extends Notifier<RunTerminalState> {
   // 且无 result——DB 行是真相,每 tick 去抖重取,慢轮询兜底全丢;终态/取消/释放即停。
   Timer? _reconcileDebounce;
   Timer? _poll;
+  // 批7 立法1 豁免锚:state 层合帧节流。exempt: state-layer coalescing.
   static const Duration _reconcileDelay = Duration(milliseconds: 300);
   static const Duration _pollEvery = Duration(seconds: 4);
 

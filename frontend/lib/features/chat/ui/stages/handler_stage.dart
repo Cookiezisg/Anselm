@@ -132,7 +132,7 @@ class HandlerStageBody extends ConsumerWidget {
           ],
           if (timeout != null) ...[
             const SizedBox(width: AnSpace.s6),
-            Icon(AnIcons.timeout, size: AnSize.iconSm, color: c.inkFaint),
+            Icon(AnIcons.timeout, size: AnSize.iconSm, color: c.inkFaint, semanticLabel: context.t.a11y.timeoutBudget),
             const SizedBox(width: AnSpace.s4),
             Text('$timeout', style: AnText.meta.copyWith(color: c.inkFaint)),
           ],

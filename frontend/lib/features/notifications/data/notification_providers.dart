@@ -22,6 +22,7 @@ final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {
 /// `Duration.zero` in tests so the debounce fires on the next microtask.
 ///
 /// 未读徽标合并一簇通知 tick 多久再重读权威计数。一簇帧同时到,一次 refetch 即够。测试 override 成 zero。
+// 批7 立法1 豁免锚:state 层合帧节流。exempt: state-layer coalescing.
 final notificationDebounceProvider = Provider<Duration>((_) => const Duration(milliseconds: 300));
 
 /// The OS-native notifier seam. Defaults to [NoopOsNotifier] (tests / gallery / demo — nothing fires a

@@ -115,7 +115,11 @@ class ToastDispatcher extends Notifier<void> {
   String _flat(NotificationLine line) {
     final b = StringBuffer();
     if (line.lead != null && line.lead!.isNotEmpty) b.write('${line.lead} ');
-    if (line.name != null && line.name!.isNotEmpty) b.write('「${line.name}」 ');
+    // The quotes ride the locale (批7 B-075 — the row face already does; toast/OS text follows).
+    // 引号随 locale(行面已改,toast/OS 文本跟上)。
+    if (line.name != null && line.name!.isNotEmpty) {
+      b.write('${t.notifications.nameQuoted(name: line.name!)} ');
+    }
     b.write(line.trail);
     return b.toString();
   }

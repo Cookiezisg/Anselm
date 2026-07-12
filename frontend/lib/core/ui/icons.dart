@@ -130,6 +130,10 @@ abstract final class AnIcons {
   static final IconData stop = _thin(LucideIcons.square);
   static final IconData spin = _thin(LucideIcons.loaderCircle);
   static final IconData timeout = _thin(LucideIcons.timer); // duration budget / timed-out (批7 B-047) 时限/超时
+
+  /// The ONE task-state glyph pair (B-045 — editor checkbox & markdown task li read the same
+  /// source). 唯一任务态字形对(编辑器复选框与 markdown 任务项同源)。
+  static IconData task({required bool done}) => done ? taskDone : taskOpen;
   static final IconData forge = _thin(LucideIcons.hammer);
   static final IconData edit = _thin(LucideIcons.squarePen);
   static final IconData trash = _thin(LucideIcons.trash2);

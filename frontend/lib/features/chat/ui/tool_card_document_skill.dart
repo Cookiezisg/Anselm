@@ -132,7 +132,7 @@ Widget skillBody(BuildContext context, ToolCardState state) {
 
   return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
     toolIntent(context, state),
-    Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+    Wrap(spacing: AnGap.inline, runSpacing: AnGap.stackTight, crossAxisAlignment: WrapCrossAlignment.center, children: [
       AnChip(ctx == 'fork' ? t.chat.tool.skillFork : t.chat.tool.skillInline, tone: AnTone.none),
       // allowedTools in WARN — activation pre-authorizes these, skipping the danger gate. 警示色:权限让渡。
       for (final tool in allowed) AnChip(tool, tone: AnTone.warn),

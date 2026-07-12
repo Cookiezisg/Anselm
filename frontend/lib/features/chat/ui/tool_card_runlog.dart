@@ -214,6 +214,7 @@ Widget flowrunsBody(BuildContext context, ToolCardState s) => _countBody(context
 /// A localized firing disposition (pending|started|skipped|superseded|shed). 派发处置词。
 String _firingWord(Translations t, String? status) => switch (status) {
       'pending' => t.chat.tool.firingPending,
+      'claimed' => t.chat.tool.firingClaimed,
       'started' => t.chat.tool.firingStarted,
       'skipped' => t.chat.tool.firingSkipped,
       'superseded' => t.chat.tool.firingSuperseded,
@@ -223,7 +224,9 @@ String _firingWord(Translations t, String? status) => switch (status) {
 
 AnTone _firingTone(String? status) => switch (status) {
       'started' => AnTone.ok,
-      'pending' => AnTone.warn,
+      // claimed = the claim-transaction transient (visible if a worker crashed mid-claim) — amber,
+      // same source as the row's fromRaw wait dot (批7 复审:点章同源). claimed 瞬态=琥珀,与 lead 点同源。
+      'pending' || 'claimed' => AnTone.warn,
       _ => AnTone.none, // skipped / superseded / shed → grey
     };
 
@@ -359,7 +362,7 @@ Widget getActivationBody(BuildContext context, ToolCardState s) {
   final err = o['error'] as String?;
   final detail = o['detail'] as String?;
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-    Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+    Wrap(spacing: AnGap.inline, runSpacing: AnGap.stackTight, crossAxisAlignment: WrapCrossAlignment.center, children: [
       AnChip(fired ? t.chat.tool.fireYes : t.chat.tool.fireNo, tone: fired ? AnTone.ok : AnTone.none),
       if ((o['kind'] as String?)?.isNotEmpty ?? false) AnChip('${o['kind']}', tone: AnTone.none),
       if ((o['firingCount'] is int ? o['firingCount'] as int : 0) > 0) Text(t.chat.tool.actFanout(n: '${o['firingCount']}'), style: AnText.meta.copyWith(color: c.inkFaint)),

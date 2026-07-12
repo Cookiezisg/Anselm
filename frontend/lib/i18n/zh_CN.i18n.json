@@ -524,7 +524,8 @@
       "modelKeys": "$n 个密钥",
       "modelAvail": "$n 个可用模型",
       "memSourceUser": "你",
-      "memSourceAi": "AI"
+      "memSourceAi": "AI",
+      "firingClaimed": "已认领"
     },
     "gate": {
       "dangerBadge": "危险",
@@ -772,7 +773,9 @@
     "codeBlock": "代码块,$lang,$lines 行",
     "codeBlockPlain": "代码块,$lines 行",
     "jsonTree": "JSON 树,$count 项",
-    "diff": "差异,新增 $added,删除 $removed"
+    "diff": "差异,新增 $added,删除 $removed",
+    "loading": "加载中",
+    "timeoutBudget": "时限"
   },
   "diff": {
     "added": "新增",

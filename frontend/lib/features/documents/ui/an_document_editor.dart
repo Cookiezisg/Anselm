@@ -90,7 +90,7 @@ class AnDocumentEditorState extends State<AnDocumentEditor> {
 
   /// Scroll the whole page back to the big title. 滚回大标题。
   void scrollToTop() {
-    if (_scroll.hasClients) _scroll.animateTo(0, duration: AnMotion.mid, curve: Curves.easeOutCubic);
+    if (_scroll.hasClients) _scroll.animateTo(0, duration: AnMotion.mid, curve: AnMotion.easeOut);
   }
 
   /// The page-scroll offset where the EDITOR's content begins — the bridge between the editor's content
@@ -118,7 +118,7 @@ class AnDocumentEditorState extends State<AnDocumentEditor> {
     // s16 = breathing room left above the heading after the jump (scroll-coordinate composition, not a
     // spacing tier). s16=跳转后标题上方呼吸位(滚动坐标合成,非档位)。
     final target = (editorTop + top - AnSpace.s16).clamp(0.0, _scroll.position.maxScrollExtent);
-    _scroll.animateTo(target, duration: AnMotion.mid, curve: Curves.easeOutCubic);
+    _scroll.animateTo(target, duration: AnMotion.mid, curve: AnMotion.easeOut);
   }
 
   void _emitActiveHeading() {

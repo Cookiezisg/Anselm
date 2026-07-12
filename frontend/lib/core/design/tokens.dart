@@ -302,6 +302,7 @@ abstract final class AnMotion {
   static const Duration travel = Duration(milliseconds: 1100); // live-edge comet circuit (≠breath) 活边彗星巡回
   static const Duration toast = Duration(seconds: 4); // UI-feedback toast (user present) 操作反馈 toast
   static const Duration toastLong = Duration(seconds: 8); // event-notification toast (user may be away) 事件通知 toast
+  static const Duration elapsedReveal = Duration(seconds: 3); // running tool card starts showing its ticking elapsed 运行卡读秒登场阈
 
   static const Cubic easeOut = Cubic(0.16, 1, 0.3, 1);
   static const Cubic spring = Cubic(0.2, 0.9, 0.25, 1);

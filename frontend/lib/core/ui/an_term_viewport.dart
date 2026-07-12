@@ -75,7 +75,7 @@ class _AnStickViewportState extends State<AnStickViewport> {
     if (jump || AnMotionPref.reduced(context)) {
       _scroll.jumpTo(max);
     } else {
-      _scroll.animateTo(max, duration: AnMotion.mid, curve: Curves.easeOut);
+      _scroll.animateTo(max, duration: AnMotion.mid, curve: AnMotion.easeOut);
     }
     _onScroll();
   }

@@ -73,7 +73,7 @@ class ToolDependentsBlock extends StatelessWidget {
         // The count is the FULL N (never truncated) — honest impact. 计数报全量,诚实损伤。
         Text(t.chat.tool.depsAffected(n: '${deps.count}'), style: AnText.label.copyWith(color: c.danger)),
         const SizedBox(height: AnSpace.s6),
-        Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s4, children: [
+        Wrap(spacing: AnGap.inline, runSpacing: AnGap.stackTight, children: [
           for (final r in shown) _depPill(context, r),
           if (overflow > 0)
             Text(t.chat.tool.moreHits(n: '$overflow'), style: AnText.meta.copyWith(color: c.inkFaint)),

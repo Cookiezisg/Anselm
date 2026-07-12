@@ -83,7 +83,7 @@ AnChip _envBadge(Translations t, String? env) {
 }
 
 Widget _pillWrap(BuildContext context, List<Widget> pills) =>
-    Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s4, children: pills);
+    Wrap(spacing: AnGap.inline, runSpacing: AnGap.stackTight, children: pills);
 
 /// Parse an agent ToolRef `ref` into its entity kind + id. Format (agent.go): `fn_<id>` / `hd_<id>[.method]`
 /// / `mcp:<server>/<tool>` / `doc_<id>`. mcp has no entity panel → id null (inert). ToolRef ref 前缀解析。
@@ -119,7 +119,7 @@ GetProjection _fnProj(BuildContext context, Translations t, Map<String, dynamic>
   return (
     name: '${out['name'] ?? out['id']}',
     meta: _versionMeta(out),
-    badges: Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s4, children: [
+    badges: Wrap(spacing: AnGap.inline, runSpacing: AnGap.stackTight, children: [
       _envBadge(t, av?['envStatus'] as String?),
       if (out['tags'] is List)
         for (final tag in (out['tags'] as List)) AnChip('$tag', tone: AnTone.none),
@@ -147,7 +147,7 @@ GetProjection _handlerProj(BuildContext context, Translations t, Map<String, dyn
   return (
     name: '${out['name'] ?? out['id']}',
     meta: _versionMeta(out),
-    badges: Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s4, children: [
+    badges: Wrap(spacing: AnGap.inline, runSpacing: AnGap.stackTight, children: [
       _envBadge(t, av?['envStatus'] as String?),
       if (runtime != null) AnChip(runtime, tone: runtime == 'crashed' ? AnTone.danger : (runtime == 'running' ? AnTone.ok : AnTone.none)),
     ]),
@@ -210,7 +210,7 @@ GetProjection _workflowProj(BuildContext context, Translations t, Map<String, dy
   return (
     name: '${out['name'] ?? out['id']}',
     meta: _versionMeta(out),
-    badges: Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s4, children: [
+    badges: Wrap(spacing: AnGap.inline, runSpacing: AnGap.stackTight, children: [
       if (ls != null) AnChip(ls, tone: ls == 'active' ? AnTone.ok : (ls == 'draining' ? AnTone.warn : AnTone.none)),
     ]),
     kv: rows.isEmpty ? null : AnKv(rows: rows, dense: true),
@@ -274,7 +274,7 @@ GetProjection _skillProj(BuildContext context, Translations t, Map<String, dynam
     meta: fmtStamp(out['updatedAt'] as String?),
     badges: allowed.isEmpty
         ? null
-        : Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s4, children: [
+        : Wrap(spacing: AnGap.inline, runSpacing: AnGap.stackTight, children: [
             for (final a in allowed) AnChip(a, tone: AnTone.warn),
           ]),
     kv: rows.isEmpty ? null : AnKv(rows: rows, dense: true),

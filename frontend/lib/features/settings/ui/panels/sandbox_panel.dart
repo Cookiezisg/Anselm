@@ -173,7 +173,22 @@ class _InstallFormState extends ConsumerState<_InstallForm> {
   Widget build(BuildContext context) {
     final t = Translations.of(context);
     final c = context.colors;
-    final avail = ref.watch(sandboxAvailableProvider).value ?? const <RuntimeAvailability>[];
+    final availAsync = ref.watch(sandboxAvailableProvider);
+    // A dead :available must not read as eternal loading (批7 复审 — 立法四:整面载入失败=AnState).
+    // 取选项失败=诚实错误面,绝不永久骨架。
+    if (availAsync.hasError) {
+      return AnState(
+        kind: AnStateKind.error,
+        size: AnStateSize.inset,
+        title: t.settings.sandbox.installTitle,
+        action: AnButton(
+          label: t.settings.sandbox.retry,
+          size: AnButtonSize.sm,
+          onPressed: () => ref.invalidate(sandboxAvailableProvider),
+        ),
+      );
+    }
+    final avail = availAsync.value ?? const <RuntimeAvailability>[];
     if (avail.isEmpty) {
       // Install-form options still loading = the deferred-skeleton idiom. 选项载入中走骨架。
       return const AnDeferredLoading(child: AnSkeleton.lines(2));

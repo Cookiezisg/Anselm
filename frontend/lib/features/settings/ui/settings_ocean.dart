@@ -53,7 +53,7 @@ class _SettingsOceanState extends ConsumerState<SettingsOcean> {
       if (!mounted) return;
       ref.read(shellHeadProvider.notifier).bind(crumb, () {
         if (_scroll.hasClients) {
-          _scroll.animateTo(0, duration: AnMotion.mid, curve: Curves.easeOutCubic);
+          _scroll.animateTo(0, duration: AnMotion.mid, curve: AnMotion.easeOut);
         }
       });
     });

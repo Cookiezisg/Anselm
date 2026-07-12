@@ -60,7 +60,7 @@ const int _jsonInlineMaxLines = 14;
 /// The elapsed counter stays hidden for quick calls; only a call outliving this reads a timer
 /// (industry norm: quiet seconds after ~3s, never a progress bar).
 /// 快调用不显计时;超过此时长才读秒(业界惯例:~3s 后安静读秒,绝不进度条)。
-const Duration _elapsedRevealAfter = Duration(seconds: 3);
+const Duration _elapsedRevealAfter = AnMotion.elapsedReveal;
 
 class _ChatToolCardState extends State<ChatToolCard> {
   bool? _userExpanded; // null until the user touches the chevron 用户未碰前为 null

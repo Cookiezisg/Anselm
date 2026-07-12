@@ -79,7 +79,7 @@ class _NetworkPanelState extends ConsumerState<NetworkPanel> {
       ]),
       const SizedBox(height: AnSpace.s16),
       ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 480),
+        constraints: const BoxConstraints(maxWidth: AnSize.formMaxWidth),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           // The ONE label-above form block (批6c A-063 — the second private «label+input» dies;
           // the quiet 13 label steps up to the family face, 刻意收敛帧核). 唯一表单字段块。

@@ -67,7 +67,7 @@ class StoragePanel extends ConsumerWidget {
             desc:
                 '${t.settings.storage.diskSandbox} · ${t.settings.storage.diskMore}',
             child: SizedBox(
-              width: 240,
+              width: AnSize.ctlSlot,
               child: AnMeter(
                 ratio: null,
                 // ratio:null already shows indeterminate — no '…' sentinel. 不定态示能已在,免哨兵。

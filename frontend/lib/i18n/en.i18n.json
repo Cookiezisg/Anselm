@@ -524,7 +524,8 @@
       "modelKeys": "$n keys",
       "modelAvail": "$n available models",
       "memSourceUser": "you",
-      "memSourceAi": "AI"
+      "memSourceAi": "AI",
+      "firingClaimed": "claimed"
     },
     "gate": {
       "dangerBadge": "Dangerous",
@@ -772,7 +773,9 @@
     "codeBlock": "Code block, $lang, $lines lines",
     "codeBlockPlain": "Code block, $lines lines",
     "jsonTree": "JSON tree, $count items",
-    "diff": "Diff, $added added, $removed removed"
+    "diff": "Diff, $added added, $removed removed",
+    "loading": "Loading",
+    "timeoutBudget": "time budget"
   },
   "diff": {
     "added": "Added",

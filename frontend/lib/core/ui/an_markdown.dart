@@ -310,7 +310,7 @@ class _AnCheckBoxMd extends CheckBoxMd {
         Padding(
           padding: const EdgeInsetsDirectional.only(start: AnSpace.s12, end: AnSpace.s8),
           child: Icon(
-            checked ? AnIcons.taskDone : AnIcons.taskOpen,
+            AnIcons.task(done: checked),
             size: AnSize.icon,
             color: checked ? c.ok : c.inkFaint,
           ),

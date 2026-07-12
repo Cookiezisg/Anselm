@@ -292,6 +292,8 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
         alignment: 0.5, // centre-reveal, so it never brushes the bottom edge + re-arms follow 居中揭示
         alignmentPolicy: ScrollPositionAlignmentPolicy.explicit,
         duration: AnMotion.mid,
+        // ensureVisible scroll = double-ended easing — the ONE legislated curve exemption
+        // (批7 立法2). 滚动双端缓动=成文豁免。
         curve: Curves.easeInOut,
       );
     });

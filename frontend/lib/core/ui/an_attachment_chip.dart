@@ -1,9 +1,9 @@
-import 'package:flutter/material.dart' show CircularProgressIndicator;
 import 'package:flutter/widgets.dart';
 
 import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
+import 'an_spinner.dart';
 import 'an_attachment_card.dart';
 import 'an_button.dart';
 import 'an_interactive.dart';
@@ -50,17 +50,14 @@ class AnAttachmentChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    // Reduced motion: a spinner is a decorative loop (and never settles) — the muted glyph + the
-    // host's "Uploading…" meta carry the state. reduced:转圈是装饰循环(且永不 settle)——字形+meta 已达意。
-    final spin = uploading && !AnMotionPref.reduced(context);
+    // Uploading rides the family spinner (批7 复审 — its orAssistive gate replaces the local
+    // reduced-only gate; the host's "Uploading…" meta still carries the state under AT).
+    // 上传走族转圈(orAssistive 门替换本地 reduced 门;AT 下状态仍由 meta 文本承载)。
     final body = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (spin)
-          const SizedBox(
-              width: AnSize.icon,
-              height: AnSize.icon,
-              child: CircularProgressIndicator.adaptive(strokeWidth: 2))
+        if (uploading)
+          const AnSpinner()
         else
           Icon(AnAttachmentCard.glyph(kind), size: AnSize.icon,
               color: failed ? c.danger : c.inkMuted),

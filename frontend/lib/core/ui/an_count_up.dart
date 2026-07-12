@@ -62,7 +62,7 @@ class _AnCountUpState extends State<AnCountUp> with SingleTickerProviderStateMix
     return AnimatedBuilder(
       animation: _c,
       builder: (context, _) {
-        final shown = (widget.value * Curves.easeOut.transform(_c.value)).round();
+        final shown = (widget.value * AnMotion.easeOut.transform(_c.value)).round();
         return Text.rich(TextSpan(children: [
           TextSpan(text: '$shown', style: style),
           if (widget.suffix != null) TextSpan(text: widget.suffix, style: widget.style ?? AnText.value()),

@@ -270,9 +270,9 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
                   childCount: older.length + (loadingOlder ? 1 : 0),
                   (context, i) {
                     if (i == older.length) {
-                      return const Padding(
-                        padding: EdgeInsets.symmetric(vertical: AnSpace.s12),
-                        child: Center(child: AnSpinner()),
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: AnSpace.s12),
+                        child: Center(child: AnSpinner(semanticLabel: context.t.a11y.loading)),
                       );
                     }
                     return _rowFor(older[older.length - 1 - i]);
@@ -361,7 +361,7 @@ class _JumpHighlight extends StatelessWidget {
       tween: Tween(begin: 1, end: 0),
       duration: reduced ? Duration.zero : AnMotion.wash,
       // Hold for ~1s (the flat half), then ease out. 前半驻留,后半淡出。
-      curve: const Interval(0.45, 1, curve: Curves.easeOut),
+      curve: const Interval(0.45, 1, curve: AnMotion.easeOut),
       builder: (context, wash, child) => DecoratedBox(
         decoration: BoxDecoration(
           color: c.accentSoft.withValues(alpha: c.accentSoft.a * wash),

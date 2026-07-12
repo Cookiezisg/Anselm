@@ -171,6 +171,7 @@ class ConversationListNotifier extends AsyncNotifier<ConversationListState>
 
   // ── activity-dot turn pulse 活态点回合脉冲 ──
 
+  // 批7 立法1 豁免锚:state 层合帧节流,非视觉动效。exempt: state-layer coalescing, not visual motion.
   static const _turnDebounce = Duration(milliseconds: 300);
   final Map<String, Timer> _refreshTimers = {};
 

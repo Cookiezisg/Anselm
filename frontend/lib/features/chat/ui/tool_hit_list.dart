@@ -188,7 +188,7 @@ class _ToolHitListState extends State<ToolHitList> with SingleTickerProviderStat
     final total = _c.duration!.inMilliseconds;
     final start = (index * _stagger.inMilliseconds) / total;
     final end = (index * _stagger.inMilliseconds + _fade.inMilliseconds) / total;
-    final t = CurvedAnimation(parent: _c, curve: Interval(start.clamp(0, 1), end.clamp(0, 1), curve: Curves.easeOut)).value;
+    final t = CurvedAnimation(parent: _c, curve: Interval(start.clamp(0, 1), end.clamp(0, 1), curve: AnMotion.easeOut)).value;
     return Opacity(
       opacity: t,
       child: Transform.translate(offset: Offset(0, (1 - t) * AnSpace.s4), child: child),

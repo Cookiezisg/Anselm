@@ -159,7 +159,7 @@ class _AnTaskComponentState extends State<_AnTaskComponent>
               behavior: HitTestBehavior.opaque,
               onTap: vm.setComplete != null ? () => vm.setComplete!(!done) : null,
               child: Icon(
-                done ? AnIcons.taskDone : AnIcons.taskOpen,
+                AnIcons.task(done: done),
                 size: AnSize.icon,
                 color: done ? widget.colors.ok : widget.colors.inkFaint,
               ),

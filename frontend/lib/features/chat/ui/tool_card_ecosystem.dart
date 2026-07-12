@@ -82,7 +82,7 @@ Widget capabilityBody(BuildContext context, ToolCardState state) {
   final problems = (o['problems'] as List?)?.map((e) => '$e').toList() ?? const [];
   final warnings = (o['warnings'] as List?)?.map((e) => '$e').toList() ?? const [];
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-    Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s4, children: [
+    Wrap(spacing: AnGap.inline, runSpacing: AnGap.stackTight, children: [
       AnChip(o['ok'] == true ? t.chat.tool.capRunnable : t.chat.tool.capProblems(n: '${problems.length}'), tone: o['ok'] == true ? AnTone.ok : AnTone.danger),
       if (o['structurallyValid'] == true) AnChip(t.chat.tool.capStructural, tone: AnTone.none),
       if (o['resolved'] == true) AnChip(t.chat.tool.capResolved, tone: AnTone.none),
@@ -133,7 +133,7 @@ Widget mcpStatusBody(BuildContext context, ToolCardState state) {
   final lastError = o['lastError'] as String?;
   final failures = o['consecutiveFailures'] is int ? o['consecutiveFailures'] as int : 0;
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-    Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+    Wrap(spacing: AnGap.inline, runSpacing: AnGap.stackTight, crossAxisAlignment: WrapCrossAlignment.center, children: [
       AnChip(connected ? t.chat.tool.mcpConnected : t.chat.tool.mcpDisconnected, tone: connected ? AnTone.ok : AnTone.danger),
       Text(t.chat.tool.mcpToolCount(n: '${tools.length}'), style: AnText.meta.copyWith(color: c.inkFaint)),
       if (!connected && failures > 0) Text(t.chat.tool.mcpFailures(n: '$failures'), style: AnText.meta.copyWith(color: c.danger)),

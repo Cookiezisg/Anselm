@@ -87,6 +87,7 @@ class _BoundsListener with WindowListener {
 
   void _capture() {
     _debounce?.cancel();
+    // 批7 立法1 豁免锚:持久化防抖,非视觉动效。exempt: persistence debounce.
     _debounce = Timer(const Duration(milliseconds: 400), () async {
       if (!_prefs.getBool(SettingsKeys.windowRemember)) return;
       try {

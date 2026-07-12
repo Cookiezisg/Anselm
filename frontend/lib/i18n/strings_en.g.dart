@@ -552,6 +552,12 @@ class Translations$a11y$en {
 
 	/// en: 'Diff, $added added, $removed removed'
 	String diff({required Object added, required Object removed}) => 'Diff, ${added} added, ${removed} removed';
+
+	/// en: 'Loading'
+	String get loading => 'Loading';
+
+	/// en: 'time budget'
+	String get timeoutBudget => 'time budget';
 }
 
 // Path: diff
@@ -2400,6 +2406,9 @@ class Translations$chat$tool$en {
 
 	/// en: 'AI'
 	String get memSourceAi => 'AI';
+
+	/// en: 'claimed'
+	String get firingClaimed => 'claimed';
 }
 
 // Path: chat.gate
@@ -5401,6 +5410,7 @@ extension on Translations {
 			'chat.tool.modelAvail' => ({required Object n}) => '${n} available models',
 			'chat.tool.memSourceUser' => 'you',
 			'chat.tool.memSourceAi' => 'AI',
+			'chat.tool.firingClaimed' => 'claimed',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -5612,6 +5622,8 @@ extension on Translations {
 			'a11y.codeBlockPlain' => ({required Object lines}) => 'Code block, ${lines} lines',
 			'a11y.jsonTree' => ({required Object count}) => 'JSON tree, ${count} items',
 			'a11y.diff' => ({required Object added, required Object removed}) => 'Diff, ${added} added, ${removed} removed',
+			'a11y.loading' => 'Loading',
+			'a11y.timeoutBudget' => 'time budget',
 			'diff.added' => 'Added',
 			'diff.removed' => 'Removed',
 			'tree.invalidJson' => 'Invalid JSON',
@@ -5906,11 +5918,11 @@ extension on Translations {
 			'documents.loadFailed' => 'Couldn\'t open this',
 			'documents.rename' => 'Rename',
 			'documents.duplicate' => 'Duplicate',
+			_ => null,
+		} ?? switch (path) {
 			'documents.deleteDocTitle' => 'Delete this page?',
 			'documents.deleteDocBody' => ({required Object name}) => '“${name}” and everything nested inside it will be removed.',
 			'documents.deleteSkillTitle' => 'Delete this skill?',
-			_ => null,
-		} ?? switch (path) {
 			'documents.deleteSkillBody' => ({required Object name}) => 'The “${name}” skill will be removed.',
 			'documents.actionFailed' => 'Action failed',
 			'documents.props.title' => 'Properties',

@@ -97,7 +97,7 @@ class VersionTab extends ConsumerWidget {
         label: showChips
             ? Wrap(
                 spacing: AnSpace.s6,
-                runSpacing: AnSpace.s4,
+                runSpacing: AnGap.stackTight,
                 children: [for (final s in sel.summary) AnChip(s, tone: AnTone.none)],
               )
             : const SizedBox.shrink(),

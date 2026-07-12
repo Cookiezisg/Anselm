@@ -129,10 +129,10 @@ class _TocPanel extends ConsumerWidget {
                     style: AnText.label.copyWith(color: c.inkFaint)),
               ),
             ],
-          _ => const [
+          _ => [
               Padding(
-                padding: EdgeInsets.all(AnSpace.s16),
-                child: Center(child: AnSpinner()),
+                padding: const EdgeInsets.all(AnSpace.s16),
+                child: Center(child: AnSpinner(semanticLabel: context.t.a11y.loading)),
               ),
             ],
         },

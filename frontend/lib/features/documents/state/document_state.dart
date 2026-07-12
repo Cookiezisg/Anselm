@@ -35,6 +35,7 @@ class DocumentTreeList extends AsyncNotifier<List<DocumentNode>> {
     final sub = repo.lifecycleSignals().listen((domain) {
       if (domain != 'document') return;
       _debounce?.cancel();
+      // 批7 立法1 豁免锚:state 层树刷新防抖。exempt: state-layer refresh debounce.
       _debounce = Timer(const Duration(milliseconds: 400), () => ref.invalidateSelf());
     });
     ref.onDispose(() {

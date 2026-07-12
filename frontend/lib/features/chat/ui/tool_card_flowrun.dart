@@ -61,7 +61,7 @@ Widget triggerWorkflowBody(BuildContext context, ToolCardState state) {
     else
       ToolIOSection(label: t.chat.tool.ioInput, value: payload),
     const SizedBox(height: AnSpace.s6),
-    Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+    Wrap(spacing: AnGap.inline, runSpacing: AnGap.stackTight, crossAxisAlignment: WrapCrossAlignment.center, children: [
       if (workflowId != null && workflowId.isNotEmpty) toolNavPill(context, kind: 'workflow', label: workflowId, id: workflowId),
       if (flowrunId != null && flowrunId.isNotEmpty) AnChip(flowrunId, look: AnChipLook.outlined, mono: true, copyValue: flowrunId, tooltip: flowrunId),
     ]),

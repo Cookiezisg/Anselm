@@ -82,7 +82,7 @@ class RunDossier extends StatelessWidget {
     final ok = status == 'ok';
     return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
       // Head: status badge · head chips (method/tool) · triggeredBy. 头条(词章行)。
-      Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+      Wrap(spacing: AnGap.inline, runSpacing: AnGap.stackTight, crossAxisAlignment: WrapCrossAlignment.center, children: [
         AnChip(runStatusWord(t, status), tone: AnStatus.fromRaw(status).tone),
         ...headChips,
         if (triggeredBy != null && triggeredBy!.isNotEmpty) Text(triggeredBy!, style: AnText.meta.copyWith(color: c.inkFaint)),
@@ -168,6 +168,6 @@ class ProvenanceLine extends StatelessWidget {
             look: AnChipLook.outlined, mono: true, copyValue: nodeId!),
     ];
     if (items.isEmpty) return const SizedBox.shrink();
-    return Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s4, crossAxisAlignment: WrapCrossAlignment.center, children: items);
+    return Wrap(spacing: AnGap.inline, runSpacing: AnGap.stackTight, crossAxisAlignment: WrapCrossAlignment.center, children: items);
   }
 }

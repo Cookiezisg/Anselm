@@ -149,14 +149,14 @@ audience: [human, ai]
 | B-006 | `lib/features/chat/ui/tool_card_entity_get_bodies.dart:136` | 间距 | 徽章行 Wrap 间距三样并存:inline+s4(此处/ecosystem 85)/inline+s2(trigger 103/control 108)/s6+s4(ecosystem 143) | 定徽章行 Wrap 文法一档,或造 badge-row 件 | S | done·批7b |
 | B-007 | `lib/features/chat/ui/tool_card_search.dart:101` | 间距 | 尾徽章排 Padding(left: 4) 裸数字,conversation.dart:122 同位用 AnSpace.s4 | 换 AnSpace.s4 | S | done·批7b |
 | B-008 | `lib/features/entities/ui/entity_ocean.dart:54` | 间距 | 浮层头折叠阈值裸数字:种子 _threshold = 64,行 144-147 clamp(8.0, 600.0) 三个裸几何值 | 种子用 AnSize.islandHead 派生,clamp 界限入 token 或具名常量 | S | done·批7b |
-| B-009 | `lib/features/entities/ui/run/run_terminal.dart:68` | 间距 | 贴底判定裸数字 (maxScrollExtent - pixels) < 32,滚动 stick 阈值现场发明 | 阈值入具名常量/token,与 chat 贴底判定共享 | S | done·批7b |
+| B-009 | `lib/features/entities/ui/run/run_terminal.dart:68` | 间距 | 贴底判定裸数字 (maxScrollExtent - pixels) < 32,滚动 stick 阈值现场发明 | 阈值入具名常量/token,与 chat 贴底判定共享 | S (复审记档:chat _pinSlack=48 刻意不共享——泡列几何不同) |
 | B-010 | `lib/features/settings/ui/panels/chat_panel.dart:53` | 间距 | 控件槽裸宽 300/260/240 ×3(53/75/103),同面板三行三个宽 | 统一走控件宽 token 档 | S | done·批7b |
 | B-011 | `lib/features/settings/ui/panels/general_panel.dart:51` | 间距 | 控件槽 SizedBox 裸宽 280/200/320 ×3(51/80/195),无控件宽度档 | 定控件宽 token 档(segmented/dropdown) | S | done·批7b |
 | B-012 | `lib/features/settings/ui/panels/mcp_forms.dart:89` | 间距 | maxWidth 560/640/560(89/200/342)+ transport 槽 width 380 裸数 ×4 | 表单宽收敛成 token 档 | S | done·批7b |
-| B-013 | `lib/features/settings/ui/panels/mcp_panel.dart:238` | 间距 | tab 区 SizedBox(height:480) + stderr maxHeight 360(343)裸数;与 sandbox tab 区 360 不一 | 定 tab 面板高度档,两面板对齐 | S | done·批7(拍板记档:tabPane=480 两面板对齐,sandbox +120;帧供否决) |
+| B-013 | `lib/features/settings/ui/panels/mcp_panel.dart:238` | 间距 | tab 区 SizedBox(height:480) + stderr maxHeight 360(343)裸数;与 sandbox tab 区 360 不一 | 定 tab 面板高度档,两面板对齐 | S (复审补记:stderr 视口 360→320 −40 可见) |
 | B-014 | `lib/features/settings/ui/panels/memory_panel.dart:66` | 间距 | 过滤 segmented width 200 + 编辑器 maxWidth 640(264)裸数 ×2 | 走控件/表单宽 token 档 | S | done·批7b |
 | B-015 | `lib/features/settings/ui/panels/models_keys_panel.dart:401` | 间距 | 表单 maxWidth 480 + 场景下拉 width 320 ×2(510/574)裸数 | 表单宽/控件宽走 token 档 | S | done·批7b |
-| B-016 | `lib/features/settings/ui/panels/network_panel.dart:81` | 间距 | 推入表单 maxWidth 三种:480(network/ws/keys/sandbox)/560(mcp)/640(memory/import) | 定一档表单阅读宽,全 settings 对齐 | S | done·批7b(拍板记档:两档 formMaxWidth 480+Wide 640,非台账原文一档;mcp 560→480 −80 帧供否决) |
+| B-016 | `lib/features/settings/ui/panels/network_panel.dart:81` | 间距 | 推入表单 maxWidth 三种:480(network/ws/keys/sandbox)/560(mcp)/640(memory/import) | 定一档表单阅读宽,全 settings 对齐 | S (复审补落:network/ws ×3 锚点站补迁 formMaxWidth) |
 | B-017 | `lib/features/settings/ui/panels/notifications_panel.dart:47` | 间距 | 级别 segmented 槽 SizedBox(width:280) 裸数 | 改控件宽 token 档 | S | done·批7b |
 | B-018 | `lib/features/settings/ui/panels/sandbox_panel.dart:112` | 间距 | env tab 区 height 360 + 磁盘槽 240(62)+ GC 输入 90(355)+ maxWidth 480(188)裸数 ×4 | 尺寸全走 token 档 | S | done·批7b |
 | B-019 | `lib/core/editor/an_editor_mention.dart:103` | 间距 | @ 提及弹层 BoxConstraints minWidth:232/maxWidth:320 私铸宽档;:82 同款行高估算裸算术 | 与 slash 弹层共用同一 popover 宽档 token | S | done·批7b |
@@ -170,9 +170,9 @@ audience: [human, ai]
 | B-027 | `lib/features/chat/ui/stages/document_stage.dart:119` | 间距 | 裸视口高 ×2:活窗 height:220(:119)、失败卷 maxHeight:260(:137),私铸档(jsonViewport=240 旁另立两号) | 视口高入 AnSize 语义轴 | S | 证伪·批7(前批已修,scout 现场核实) |
 | B-028 | `lib/features/chat/ui/tool_card_memory_web.dart:465` | 间距 | maxHeight:144 魔数视口高(注释≈6 行),私铸尺寸档(同角色 AnSize.jsonViewport 已有先例) | 进 AnSize 视口档 | S | 证伪·批7(前批已修,scout 现场核实) |
 | B-029 | `lib/features/chat/ui/tool_card_workflow.dart:90` | 间距 | _graphHeight=200 私铸卡内图高常数 | 进 AnSize 档(与 jsonViewport 同列) | S | done·批7b |
-| B-030 | `lib/features/documents/ui/an_document_editor.dart:72` | 间距 | _activeBand=72 私铸活动带阈值;:147 AnSpace.s24*2 裸算术;:113 target-AnSpace.s16 现场减法 | 几何阈值入语义常量/token,算术收进原语 | S | done·批7b |
+| B-030 | `lib/features/documents/ui/an_document_editor.dart:72` | 间距 | _activeBand=72 私铸活动带阈值;:147 AnSpace.s24*2 裸算术;:113 target-AnSpace.s16 现场减法 | 几何阈值入语义常量/token,算术收进原语 | S (复审补记:活动带 72→64 −8px 行为变化,帧供否决) |
 | B-031 | `lib/features/documents/ui/document_ocean.dart:76` | 间距 | _collapseAt=120 私铸浮层头折叠阈值(注释称=头高,实为拍脑袋数,头高本可实测) | 用 _headerKey 实测头高替代魔数,或入 token | S | done·批7b |
-| B-032 | `lib/features/notifications/ui/notification_row.dart:73` | 间距 | EdgeInsets.only(top: 1) 裸 1px 光学微调 ×2 处(73/133),an_setting_row.dart:104 同款——无光学微调档 | 立 opticalNudge 档或统一进行原语 | S | done·批7b |
+| B-032 | `lib/features/notifications/ui/notification_row.dart:73` | 间距 | EdgeInsets.only(top: 1) 裸 1px 光学微调 ×2 处(73/133),an_setting_row.dart:104 同款——无光学微调档 | 立 opticalNudge 档或统一进行原语 | S (复审补记:an_setting_row=inlineHair 1→2 +1px 可见,分诊正确) |
 | B-033 | `lib/features/settings/ui/panels/workspaces_panel.dart:41` | 色调 | kWorkspaceColors 6 枚私铸 hex + parseWorkspaceColor 裸 Color(0xFF…) 构造(126)在 feature 层 | 色盘挪 core design token/常量层 | S | 证伪·批7(前批已修,scout 现场核实) |
 | B-034 | `lib/core/ui/an_segmented.dart:108` | 色调 | withValues 私调透明:segmented 0.5 禁用暗化(≠AnOpacity.disabled 0.4)×2 处、an_switch:59 hover 0.9、an_type_to_confirm:66 边框 0.35——皆绕 AnOpacity 档 | 对齐/扩 AnOpacity 档,删私值 | S | done·批7c |
 | B-035 | `lib/core/ui/an_toast.dart:141` | 色调 | an_toast 私设 AnToastTone{neutral,ok,warn,danger} 并自写 tone→色 switch,tone.dart 宣称唯一映射源且命名对不上(neutral vs AnTone.none) | AnToastTone 删掉,直接吃 AnTone+AnToneColors | S | done·批7c |
@@ -185,7 +185,7 @@ audience: [human, ai]
 | B-042 | `lib/features/chat/ui/tool_interaction_gate.dart:160` | 圆角 | Border.all 未给 width(默认 1.0 逻辑像素),他处描边一律 AnSize.hairline | 补 width: AnSize.hairline 或按边框档选档 | S | done·批7c |
 | B-043 | `lib/core/ui/an_code_surface.dart:43` | 圆角 | framed 容器圆角分裂:AnCodeSurface 用 AnRadius.card,AnCard/AnMenuSurface/AnSunkenPanel/AnIsland 皆 chip,AnTooltip 面又用 button——同族面三档圆角无选档规则 | P2 成文圆角选档规则,窗族归一 | M | done·批7(法典增补拍板记档:五档=尺度阶梯成文;唯一真出格 models_keys freeTier 手搓卡→AnCard[16→12 帧核];同心嵌套=内半径+内缩距唯一合法算术) |
 | B-044 | `lib/features/settings/ui/panels/memory_panel.dart:122` | 图标 | 金 pin 行内开关裸 GestureDetector+Icon,无 hover/焦点态、点击域仅图标 | 用/新增 icon-button 原语(带命中域+焦点态) | S | 证伪·批7(前批已修,scout 现场核实) |
-| B-045 | `lib/core/editor/an_editor_components.dart:162` | 图标 | 任务勾字形规则(done→taskDone/ok,open→taskOpen/inkFaint,AnSize.icon)在编辑器组件与 an_markdown.dart:313 两处各写一遍 | 抽共享 AnTaskGlyph 微件,两处消费 | S | open |
+| B-045 | `lib/core/editor/an_editor_components.dart:162` | 图标 | 任务勾字形规则(done→taskDone/ok,open→taskOpen/inkFaint,AnSize.icon)在编辑器组件与 an_markdown.dart:313 两处各写一遍 | 抽共享 AnTaskGlyph 微件,两处消费 | S | done·批7复审(AnIcons.task 单源字形对) |
 | B-046 | `lib/core/ui/an_cast_row.dart:119` | 图标 | 微尺寸减法私铸成风:AnSize.dot-2 ×3 文件(cast_row:119/channel_strip:89/follow_pill:115)、iconSm-2 ×3(follow_pill:127/honesty_ribbon:52/rundown_list:122)、iconSm-4(cast_row:152)、dot+2/iconSm+2(rundown_list:129/97)、hairline*1.5(mini_graph:333) | 立 dotSm/iconXs 档,全库替换禁减法 | M | done·批7c |
 | B-047 | `lib/features/chat/ui/stages/handler_stage.dart:143` | 图标 | 用文本字形当图标:'⏱ '(:143)与流式波浪 '~'(:139),绕开 AnIcons 精确表 | 换 AnIcons 对应字形 | S | done·批7c |
 | B-048 | `lib/features/chat/ui/stages/skill_memory_mcp_stage.dart:210` | 图标 | AnSize.iconSm - 4 裸算术(=私铸 8px 图标档,战役原文案例);:87 AnFadeCollapse collapsedHeight:320 裸数 | 补 iconXs 档;折叠高入 AnSize | S | 证伪·批7(前批已修,scout 现场核实) |
@@ -209,7 +209,7 @@ audience: [human, ai]
 | B-066 | `lib/features/settings/ui/panels/mcp_forms.dart:353` | 状态 | :plan loading 与市场空结果手搓 Text(353/279)非 AnState ×2 | 换 AnState(loading/empty, inset) | S | done·批7d |
 | B-067 | `lib/features/settings/ui/panels/mcp_panel.dart:273` | 状态 | tools/calls/stderr 三 tab 空态手搓 Text ×3(273/303/336),名册却用 AnState | 换 AnState(empty, inset) | S | done·批7d |
 | B-068 | `lib/features/settings/ui/panels/sandbox_panel.dart:181` | 状态 | '…' Text 当 loading(181)+ AnMeter '…' 兜底(64)+ noEnvs 空态手搓(278)×3 | 换 AnState/AnSkeleton,禁 '…' 哨兵 | S | done·批7d |
-| B-069 | `lib/features/settings/ui/panels/storage_panel.dart:31` | 状态 | '…' 哨兵串当 loading 且用 dir=='…' 判可用(31/52/58/71/159)+ width 240 裸数(67) | AsyncValue 显式判 loading,禁哨兵串 | M | done·批7d |
+| B-069 | `lib/features/settings/ui/panels/storage_panel.dart:31` | 状态 | '…' 哨兵串当 loading 且用 dir=='…' 判可用(31/52/58/71/159)+ width 240 裸数(67) | AsyncValue 显式判 loading,禁哨兵串 | M (复审补落:width 240→ctlSlot) |
 | B-070 | `lib/features/chat/ui/chat_ocean.dart:93` | 状态 | _DropOverlay 手搓拖放面纱(ColoredBox+icon+text),surface.withValues(alpha:0.85) 私铸透明档 | 抽 drop-veil 原语进 gallery,alpha 入 AnOpacity | S | done·批7a |
 | B-071 | `lib/features/chat/ui/chat_transcript.dart:277` | 状态 | 手搓 loading:SizedBox(icon)+CircularProgressIndicator.adaptive(strokeWidth:2),chat_toc.dart:138 同型 ×2 | 抽 AnState/loader 原语统一小型加载点 | S | done·批7a |
 | B-072 | `lib/features/chat/ui/tool_card_skins.dart:528` | 状态 | decideApprovalBody NOT_PARKED 提示行手搓(warn Icon+Text Row),该用 AnState/note 类原语 | 换共享 note/callout 原语 | S | done·批7d |
