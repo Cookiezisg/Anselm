@@ -10,6 +10,7 @@ import '../../../i18n/strings.g.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
 import 'tool_card_nav.dart';
+import 'tool_hit_list.dart';
 
 // F12 relations + F13 mcp-mgmt + capability/model config (B7.2) — the ecosystem-tail cards. Each is a
 // thin projection of a structured JSON result: get_relations = a dependency edge list; capability_check
@@ -165,30 +166,28 @@ Widget marketplaceBody(BuildContext context, ToolCardState state) {
   final t = Translations.of(context);
   final servers = (_obj(state.resultText)?['servers'] as List?)?.whereType<Map>().toList() ?? const [];
   if (servers.isEmpty) return Text(t.chat.tool.marketCount(n: '0'), style: AnText.meta.copyWith(color: c.inkFaint));
-  return AnWindow(
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-      for (final srv in servers.take(30))
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: AnSpace.s4),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-            Row(children: [
-              Icon(AnIcons.mcp, size: AnSize.iconSm, color: c.inkFaint),
+  // The shared hit gate (批6 A-049: a marketplace IS a directory listing — the hand-rolled rows and
+  // their indent arithmetic retire; the gate carries its own window, the outer AnWindow is removed
+  // with it — leaf law). 共享命中门(市场=目录枚举;手搓行+缩进算术退役;门自带窗,外窗随撤防套窗)。
+  return ToolHitList(
+    rows: [
+      for (final srv in servers)
+        ToolHitRow(
+          glyph: AnIcons.mcp,
+          title: '${srv['name']}',
+          subtitle: srv['description'] as String?,
+          trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+            if ((srv['runtime'] as String?)?.isNotEmpty ?? false) AnChip('${srv['runtime']}', tone: AnTone.none),
+            if (((srv['env'] as List?)?.where((e) => e is Map && e['required'] == true).length ?? 0) > 0) ...[
               const SizedBox(width: AnSpace.s6),
-              Flexible(child: Text('${srv['name']}', maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.body.weight(AnText.emphasisWeight).copyWith(color: c.ink))),
-              if ((srv['runtime'] as String?)?.isNotEmpty ?? false) ...[
-                const SizedBox(width: AnSpace.s6),
-                AnChip('${srv['runtime']}', tone: AnTone.none),
-              ],
-              if (((srv['env'] as List?)?.where((e) => e is Map && e['required'] == true).length ?? 0) > 0) ...[
-                const SizedBox(width: AnSpace.s6),
-                AnChip(t.chat.tool.mcpEnvRequired(n: '${(srv['env'] as List).where((e) => e is Map && e['required'] == true).length}'), tone: AnTone.warn),
-              ],
-            ]),
-            if ((srv['description'] as String?)?.isNotEmpty ?? false)
-              Padding(padding: const EdgeInsets.only(left: AnSize.iconSm + AnSpace.s6), child: Text('${srv['description']}', maxLines: 2, overflow: TextOverflow.ellipsis, style: AnText.meta.copyWith(color: c.inkMuted))),
+              AnChip(t.chat.tool.mcpEnvRequired(n: '${(srv['env'] as List).where((e) => e is Map && e['required'] == true).length}'), tone: AnTone.warn),
+            ],
           ]),
         ),
-    ]),
+    ],
+    cap: 30,
+    total: servers.length,
+    rawJson: state.resultText,
   );
 }
 
@@ -220,12 +219,16 @@ Widget modelConfigBody(BuildContext context, ToolCardState state) {
       const [];
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
     if (defaults is Map && defaults.isNotEmpty) ...[
-      Text(t.chat.tool.modelDefaults, style: AnText.meta.copyWith(color: c.inkFaint)),
-      const SizedBox(height: AnSpace.s2),
-      // A configured scenario's value is a {apiKeyId, modelId} map — show only the modelId (never the
-      // apiKeyId); an unconfigured scenario is the string "not configured". 只显 modelId、不泄 apiKeyId。
-      for (final e in defaults.entries)
-        Text('${e.key}: ${e.value is Map ? ((e.value as Map)['modelId'] ?? '') : e.value}', style: AnText.code.copyWith(color: c.inkMuted)),
+      // A configured scenario's value is a {apiKeyId, modelId} map — show only the modelId (never
+      // the apiKeyId); an unconfigured scenario is the string "not configured". Family KV list
+      // (批6 A-050 — the bare mono colon lines retire). 只显 modelId、不泄 apiKeyId;族键值列。
+      AnFieldSection(
+        label: t.chat.tool.modelDefaults,
+        child: AnKv(dense: true, rows: [
+          for (final e in defaults.entries)
+            AnKvRow('${e.key}', '${e.value is Map ? ((e.value as Map)['modelId'] ?? '') : e.value}', mono: true),
+        ]),
+      ),
       const SizedBox(height: AnSpace.s6),
     ],
     Text(t.chat.tool.modelKeys(n: '$keys'), style: AnText.meta.copyWith(color: c.inkFaint)),

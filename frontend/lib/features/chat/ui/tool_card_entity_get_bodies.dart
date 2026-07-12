@@ -244,7 +244,7 @@ GetProjection _approvalProj(BuildContext context, Translations t, Map<String, dy
     if ((out['description'] as String?)?.isNotEmpty == true) AnKvRow(t.chat.tool.kvDescription, '${out['description']}', wrap: true),
     if (av?['timeout'] != null) AnKvRow(t.chat.tool.apfTimeout, '${av!['timeout']}'),
     if (av?['timeoutBehavior'] != null) AnKvRow(t.chat.tool.apfBehavior, '${av!['timeoutBehavior']}', mono: true),
-    if (av?['allowReason'] != null) AnKvRow(t.chat.tool.apfAllowReason, av!['allowReason'] == true ? '✓' : '—'),
+    if (av?['allowReason'] != null) AnKvRow.flag(t.chat.tool.apfAllowReason, av!['allowReason'] == true),
   ];
   final template = av?['template'] as String?;
   return (

@@ -12,6 +12,8 @@ import '../../../core/overlay/an_overlay.dart';
 import '../../../core/perf/debouncer.dart';
 import '../../../core/shell/right_panel.dart';
 import '../../../core/ui/an_divider.dart';
+import '../../../core/ui/an_kv.dart';
+import '../../../core/ui/an_group_label.dart';
 import '../../../core/ui/an_dropdown.dart';
 import '../../../core/ui/an_form_field.dart';
 import '../../../core/ui/an_inspector_head.dart';
@@ -107,7 +109,6 @@ class _OutlineSection extends ConsumerWidget {
     final outline = ref.watch(docOutlineProvider);
     if (outline.isEmpty) return const SizedBox.shrink();
     final active = ref.watch(docOutlineActiveProvider);
-    final c = context.colors;
     // Indent RELATIVE to the shallowest heading present — a document whose sections start at h2 reads
     // flush-left, not pre-indented one step. 缩进按最浅层级归一:从 h2 起头的文档顶格,不预缩一级。
     var minLevel = 6;
@@ -117,9 +118,8 @@ class _OutlineSection extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(context.t.documents.props.outline,
-            style: AnText.meta.weight(AnText.emphasisWeight).copyWith(color: c.inkFaint)),
-        const SizedBox(height: AnGap.stackTight),
+        // The ONE group label (批6 A-081 — two hand-rolls with two different gaps unify). 唯一段标。
+        AnGroupLabel(context.t.documents.props.outline),
         for (var i = 0; i < outline.length; i++)
           AnRow(
             depth: outline[i].level - minLevel,
@@ -178,9 +178,14 @@ class _DocProperties extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const _OutlineSection(),
-            _MetaRow(label: t.documents.props.path, value: doc.path),
-            _MetaRow(label: t.documents.props.size, value: formatBytes(doc.sizeBytes)),
-            _MetaRow(label: t.documents.props.modified, value: fmtDateTime(doc.updatedAt)),
+            // The family KV list (批6 A-082 — the hand-rolled fixed-column label-value retires;
+            // the path wraps: a flush-right ellipsis would cut its most useful tail). 族键值列
+            // (定宽列手搓退役;path 换行——贴右省略会砍最有用的尾段)。
+            AnKv(dense: true, rows: [
+              AnKvRow(t.documents.props.path, doc.path, mono: true, wrap: true),
+              AnKvRow(t.documents.props.size, formatBytes(doc.sizeBytes)),
+              AnKvRow(t.documents.props.modified, fmtDateTime(doc.updatedAt)),
+            ]),
             const SizedBox(height: AnSpace.s12),
             const AnDivider(),
             const SizedBox(height: AnSpace.s12),
@@ -211,9 +216,7 @@ class _Backlinks extends ConsumerWidget {
           data: (links) => Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(t.documents.props.backlinks,
-                  style: AnText.meta.weight(AnText.emphasisWeight).copyWith(color: c.inkFaint)),
-              const SizedBox(height: AnGap.stack),
+              AnGroupLabel(t.documents.props.backlinks),
               if (links.isEmpty)
                 Text(t.documents.props.noBacklinks, style: AnText.meta.copyWith(color: c.inkFaint))
               else
@@ -231,30 +234,6 @@ class _Backlinks extends ConsumerWidget {
   }
 }
 
-/// A read-only meta line (faint label · value), for path/size/modified. 只读 meta 行(淡标签·值)。
-class _MetaRow extends StatelessWidget {
-  const _MetaRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AnGap.stackTight),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(width: AnSize.inspectorMetaCol, child: Text(label, style: AnText.meta.copyWith(color: c.inkFaint))),
-          Expanded(
-            child: Text(value.isEmpty ? '—' : value, style: AnText.meta.copyWith(color: c.inkMuted)),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 // ── skill frontmatter properties ──
 

@@ -7,6 +7,7 @@ import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
 import '../../../core/ui/an_button.dart';
+import '../../../core/ui/an_group_label.dart';
 import '../../../core/ui/an_deferred_loading.dart';
 import '../../../core/ui/an_divider.dart';
 import '../../../core/ui/an_interactive.dart';
@@ -106,7 +107,9 @@ class _NotificationFeedState extends ConsumerState<NotificationFeed> {
         itemBuilder: (_, i) {
           final it = items[i];
           return switch (it) {
-            _GroupHeader(:final label) => _SectionLabel(label),
+            // The tray group header is the ONE rail group label (批6 A-058 — the pixel-identical
+            // hand-rolls in the inbox and here fold together). 托盘段头=唯一 rail 分组标题。
+            _GroupHeader(:final label) => AnGroupLabel(label, padding: const EdgeInsets.fromLTRB(AnSpace.s12, AnSpace.s12, AnSpace.s12, AnSpace.s4)),
             _RowItem(:final item) => NotificationRow(
                 item: item,
                 onTap: () => _open(item),
@@ -191,16 +194,3 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel(this.label);
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(AnSpace.s12, AnSpace.s12, AnSpace.s12, AnSpace.s4),
-      child: Text(label, style: AnText.meta.copyWith(color: c.inkFaint).weight(AnText.emphasisWeight)),
-    );
-  }
-}

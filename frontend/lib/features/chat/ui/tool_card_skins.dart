@@ -66,16 +66,20 @@ class _WindowCopyButtonState extends State<WindowCopyButton> {
 bool toolLive(ToolCardState state) =>
     state.phase == ToolCardPhase.argsStreaming || state.phase == ToolCardPhase.running;
 
-/// Shared intent line (the LLM's self-reported summary) — shown above the window in the
-/// dangerous-leaning families (F3/F13/F14: the user judges the self-report).
-/// 共用意图行(LLM 自报 summary)——危险倾向族(F3/F13/F14)置于窗上,供用户判断自述。
-Widget _intent(BuildContext context, ToolCardState state) {
+/// The ONE intent line (the LLM's self-reported summary; 批6 A-080 — three implementations and 12
+/// inline copies fold here). Empty summary → zero footprint (callers keep it unguarded in Columns,
+/// NEVER in Wrap/Row where a shrink still pays spacing). [gap]=false renders bare (the one legal
+/// site: workflow edit, where the stat bar brings its own top gap — the locked double-gap fix).
+/// A deliberate thin helper, not AnFieldSection: an intent line has NO label (文法 #2 manages label
+/// layouts, not bare meta lines), and it binds ToolCardState so it lives in the feature layer.
+/// 唯一意图行(批6 A-080,三实现+12 内联抄并此):空 summary=零足迹(Column 免守卫;禁进 Wrap/Row);
+/// gap:false=裸渲(唯一合法位:workflow edit,条自带上距——已锁双距修复)。刻意薄 helper 非
+/// AnFieldSection:意图行无标签,且绑 feature 模型只能住此。
+Widget toolIntent(BuildContext context, ToolCardState state, {bool gap = true}) {
   final c = context.colors;
   if (state.summary.isEmpty) return const SizedBox.shrink();
-  return Padding(
-    padding: const EdgeInsets.only(bottom: AnSpace.s6),
-    child: Text(state.summary, style: AnText.meta.copyWith(color: c.inkMuted)),
-  );
+  final text = Text(state.summary, style: AnText.meta.copyWith(color: c.inkMuted));
+  return gap ? Padding(padding: const EdgeInsets.only(bottom: AnSpace.s6), child: text) : text;
 }
 
 /// Cap + honest truncation note for window content. 窗内容封顶+诚实截断注记。
@@ -117,7 +121,7 @@ Widget bashToolBody(BuildContext context, ToolCardState state) {
   if (bg != null) {
     final id = bg.group(1)!;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-      _intent(context, state),
+      toolIntent(context, state),
       AnChip(id, look: AnChipLook.outlined, mono: true, copyValue: id, tooltip: id),
       Padding(
         padding: const EdgeInsets.only(top: AnSpace.s6),
@@ -143,7 +147,7 @@ Widget bashToolBody(BuildContext context, ToolCardState state) {
   final headTruncated = !usingProgress && result.contains(_bashHeadTrunc);
 
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-    _intent(context, state),
+    toolIntent(context, state),
     AnWindow(
       // The command echo keeps the terminal's mono voice; the header slot enforces single-line
       // ellipsis (族一 header 律). 命令回显保 mono 声;单行省略由 header 槽强制。
@@ -568,7 +572,7 @@ Widget buildToolBody(BuildContext context, ToolCardState state) {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      _intent(context, state),
+      toolIntent(context, state),
       if (content != null && content.isNotEmpty)
         AnCodeEditor(code: content, lang: lang, maxHeight: AnSize.codeViewport)
       else if (state.argsText.isNotEmpty)

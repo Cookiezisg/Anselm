@@ -28,7 +28,6 @@ class SandboxPanel extends ConsumerWidget {
       return const _InstallForm();
     }
     final t = Translations.of(context);
-    final c = context.colors;
     final boot = ref.watch(sandboxBootstrapProvider).value;
     final runtimes = ref.watch(sandboxRuntimesProvider).value ?? const <SandboxRuntime>[];
     final disk = ref.watch(sandboxDiskProvider).value;
@@ -100,12 +99,11 @@ class SandboxPanel extends ConsumerWidget {
               ),
         ],
       ),
-      const SizedBox(height: AnSpace.s24),
-      // Envs — five owner tabs. 环境五 owner tab。
-      Text(t.settings.sandbox.envs, style: AnText.readingH3.copyWith(color: c.ink)),
-      const SizedBox(height: AnSpace.s8),
-      SizedBox(height: 360, child: _EnvTabs()),
-      const SizedBox(height: AnSpace.s24),
+      // Envs — five owner tabs; the section rhythm belongs to AnSection like every other section
+      // on this panel (批6 A-064 — the lone hand-rolled readingH3 head + s24 spacers retire; the
+      // 360 magic stays on the B-track ledger). 环境五 owner tab;节律归 AnSection(孤例手搓头+手排
+      // spacer 退役;360 魔数留 B 轨)。
+      AnSection(label: t.settings.sandbox.envs, children: [SizedBox(height: 360, child: _EnvTabs())]),
       _GcZone(),
     ]);
   }

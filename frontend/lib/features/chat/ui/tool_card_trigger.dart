@@ -9,6 +9,7 @@ import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
+import 'tool_card_skins.dart';
 
 /// F04 create/edit_trigger — the TriggerConfigCard (WRK-056 §trigger): one of FOUR faces by kind
 /// (cron / webhook / fsnotify / sensor). Config is a whole-set replace, so the card always renders the
@@ -33,8 +34,7 @@ Widget triggerConfigBody(BuildContext context, ToolCardState state) {
   final id = (result?['id'] ?? '').toString();
 
   final rows = <Widget>[
-    if (state.summary.isNotEmpty)
-      Padding(padding: const EdgeInsets.only(bottom: AnSpace.s6), child: Text(state.summary, style: AnText.meta.copyWith(color: c.inkMuted))),
+    toolIntent(context, state),
     ..._faceOf(context, t, c, kind, config, id),
   ];
 

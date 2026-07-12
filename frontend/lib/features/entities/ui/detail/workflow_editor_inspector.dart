@@ -6,9 +6,7 @@ import '../../../../core/contract/entities/values.dart';
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
-import '../../../../core/model/status_state.dart';
 import '../../../../core/ui/an_action_group.dart';
-import '../../../../core/ui/an_chip.dart';
 import '../../../../core/ui/an_button.dart';
 import '../../../../core/ui/an_dropdown.dart';
 import '../../../../core/ui/an_form_field.dart';
@@ -23,6 +21,7 @@ import '../../state/detail/workflow_editor_provider.dart';
 import '../../../../core/shell/right_panel.dart';
 import '../../state/selected_entity.dart';
 import 'node_ref_picker.dart';
+import 'control_branch_row.dart';
 
 /// The editor's inspector (WRK-055) — the visual twin of the run terminal's right-island content: a
 /// head band (kind glyph + node.id + a bare collapse button) → a hairline → a full-height scrolling
@@ -425,35 +424,9 @@ class _ControlBranches extends ConsumerWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Text(e.branches, style: AnText.strong.copyWith(color: c.ink)),
         const SizedBox(height: AnSpace.s6),
-        for (final b in branches) _row(context, b),
+        for (final b in branches) ControlBranchRow(branch: b),
       ]),
     );
   }
 
-  Widget _row(BuildContext context, Branch b) {
-    final e = context.t.entities.detail.editor;
-    final c = context.colors;
-    // The last branch's when is always `"true"` — the catch-all (routes when nothing else matched).
-    // 末条 when=="true" 是兜底出口。
-    final isDefault = b.when == 'true';
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AnSpace.s2),
-      child: Row(children: [
-        AnChip(b.port, tone: isDefault ? AnTone.none : AnTone.accent),
-        const SizedBox(width: AnSpace.s8),
-        Expanded(
-          child: Text(
-            isDefault ? e.branchDefault : b.when,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: AnText.codeInline.copyWith(color: isDefault ? c.inkFaint : c.inkMuted),
-          ),
-        ),
-        if (b.emit.isNotEmpty) ...[
-          const SizedBox(width: AnSpace.s6),
-          AnChip(e.branchEmit, tone: AnTone.warn),
-        ],
-      ]),
-    );
-  }
 }

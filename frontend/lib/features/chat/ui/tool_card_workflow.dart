@@ -209,8 +209,7 @@ Widget editWorkflowBody(BuildContext context, ToolCardState state) {
   if (d.metaOnly && state.resultText.isNotEmpty) {
     // Only set_meta ops — the graph didn't change. 仅 set_meta:图未变。
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      if (state.summary.isNotEmpty)
-        Padding(padding: const EdgeInsets.only(bottom: AnSpace.s6), child: Text(state.summary, style: AnText.meta.copyWith(color: c.inkMuted))),
+      toolIntent(context, state),
       Text(t.chat.tool.wfDeltaEmpty, style: AnText.label.copyWith(color: c.inkFaint)),
       runStatBarOf(context, state),
     ]);
@@ -230,8 +229,7 @@ Widget editWorkflowBody(BuildContext context, ToolCardState state) {
     children: [
       // No bottom padding on the summary — the family bar below brings its own top s6 (复审:
       // 双距 12px,与同卡 metaOnly 分支不齐). summary 不带底距,条自带 s6。
-      if (state.summary.isNotEmpty)
-        Text(state.summary, style: AnText.meta.copyWith(color: c.inkMuted)),
+      toolIntent(context, state, gap: false),
       // 批3 文法 #3: the ' · ' chain lives ONLY in the family bar. ' · ' 链只住当家条。
       if (nodeParts.isNotEmpty || edgeParts.isNotEmpty)
         AnStatBar(stats: [
@@ -273,11 +271,7 @@ Widget workflowBuildBody(BuildContext context, ToolCardState state) {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      if (state.summary.isNotEmpty)
-        Padding(
-          padding: const EdgeInsets.only(bottom: AnSpace.s6),
-          child: Text(state.summary, style: AnText.meta.copyWith(color: c.inkMuted)),
-        ),
+      toolIntent(context, state),
       if (graph.nodes.isNotEmpty)
         // 1:1 with the entity page's workflow graph (B5): the SAME AnGraphCanvas rendering (node cards,
         // orthogonal edges, kind colours, auto-fit) in a framed preview, just at a compact tool-card height.

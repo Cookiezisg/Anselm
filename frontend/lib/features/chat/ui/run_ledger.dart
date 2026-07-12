@@ -104,38 +104,17 @@ class RunLedgerRow {
   final String? tapId;
 }
 
-/// The RunLedger — a bounded record list inside its machine window (the caller wraps it). Rows past
-/// [cap] hide behind an expand-all escape; a row deep-links iff its kind has a panel. RunLedger 记录列。
-class RunLedger extends StatefulWidget {
+/// The RunLedger — a bounded record list inside its machine window (the caller wraps it). The cap
+/// escape is the family list shell's (批6 A-071 — the hand-rolled «show all» retires); a row
+/// deep-links iff its kind has a panel. RunLedger 记录列(逃生口=族列表壳)。
+class RunLedger extends StatelessWidget {
   const RunLedger({required this.rows, this.cap = 14, super.key});
   final List<RunLedgerRow> rows;
   final int cap;
 
   @override
-  State<RunLedger> createState() => _RunLedgerState();
-}
-
-class _RunLedgerState extends State<RunLedger> {
-  bool _showAll = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = Translations.of(context);
-    final over = widget.rows.length > widget.cap;
-    final visible = _showAll ? widget.rows : widget.rows.take(widget.cap).toList();
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-      for (final r in visible) _RunRow(row: r),
-      if (over && !_showAll)
-        Padding(
-          padding: const EdgeInsets.only(top: AnSpace.s4),
-          child: AnInteractive(
-            onTap: () => setState(() => _showAll = true),
-            builder: (context, _) => Text(t.chat.tool.flowExpandAll(n: '${widget.rows.length - widget.cap}'),
-                style: AnText.meta.weight(AnText.emphasisWeight).copyWith(color: context.colors.accent)),
-          ),
-        ),
-    ]);
-  }
+  Widget build(BuildContext context) =>
+      AnLedgerList(cap: cap, children: [for (final r in rows) _RunRow(row: r)]);
 }
 
 class _RunRow extends StatefulWidget {
@@ -155,6 +134,9 @@ class _RunRowState extends State<_RunRow> {
     final navigable = row.tapKind != null && row.tapId != null && hasPanelFor(row.tapKind!);
     final expandable = row.expandContent != null;
 
+    // Lead colour keeps runStatusColor (this file's own map) — AnStatus.fromRaw has no
+    // started/fired/timeout aliases and would shift colours. lead 色续走 runStatusColor(fromRaw
+    // 缺别名会变色)。
     Widget lead;
     if (row.leading.fired != null) {
       // fired → a green check; not-fired (a sensor probe that didn't fire) → a hollow grey dot. fire 标记。
@@ -165,53 +147,21 @@ class _RunRowState extends State<_RunRow> {
       lead = AnStatusDot.raw(runStatusColor(c, row.leading.status));
     }
 
-    final core = Padding(
-      padding: const EdgeInsets.symmetric(vertical: AnSpace.s4),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-        SizedBox(width: AnSize.iconSm, child: Center(child: lead)),
-        const SizedBox(width: AnSpace.s8),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-            Row(children: [
-              if (row.monoId != null)
-                Flexible(child: Text(row.monoId!, maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.mono.copyWith(color: c.inkMuted)))
-              else if (row.text != null)
-                Flexible(child: Text(row.text!, maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.body.copyWith(color: c.ink))),
-              for (final chip in row.chips) ...[const SizedBox(width: AnSpace.s6), chip],
-            ]),
-            if (row.subText != null && row.subText!.trim().isNotEmpty)
-              Text(row.subText!.trim(), maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.meta.copyWith(color: c.inkFaint)),
-          ]),
-        ),
-        if (row.elapsed != null) ...[
-          const SizedBox(width: AnSpace.s8),
-          Text(row.elapsed!, style: AnText.metaTabular().copyWith(color: c.inkMuted)),
-        ],
-        if (row.stamp != null) ...[
-          const SizedBox(width: AnSpace.s8),
-          Text(row.stamp!, style: AnText.metaTabular().copyWith(color: c.inkFaint)),
-        ],
-      ]),
+    // The family ledger row (批6 A-070/072 — the hand-rolled line and its indent arithmetic retire).
+    // 族台账行(手拼行与缩进算术退役)。
+    return AnLedgerRow(
+      lead: lead,
+      primary: row.monoId ?? row.text ?? '',
+      mono: row.monoId != null,
+      chips: row.chips,
+      sub: row.subText,
+      measure: row.elapsed,
+      meta: row.stamp,
+      onTap: expandable
+          ? () => setState(() => _open = !_open)
+          : (navigable ? () => toolNavTo(context, row.tapKind!, row.tapId!) : null),
+      expandChild: row.expandContent,
+      expanded: _open,
     );
-
-    final tappable = navigable || expandable;
-    final content = tappable
-        ? AnInteractive(
-            onTap: () {
-              if (expandable) {
-                setState(() => _open = !_open);
-              } else if (navigable) {
-                toolNavTo(context, row.tapKind!, row.tapId!);
-              }
-            },
-            builder: (context, _) => core,
-          )
-        : core;
-
-    if (!expandable) return content;
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-      content,
-      if (_open) Padding(padding: const EdgeInsets.only(left: AnSize.iconSm + AnSpace.s8, bottom: AnSpace.s4), child: row.expandContent!),
-    ]);
   }
 }

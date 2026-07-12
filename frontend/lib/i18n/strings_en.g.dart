@@ -2029,9 +2029,6 @@ class Translations$chat$tool$en {
 	/// en: 'Showing $shown/$total nodes'
 	String flowShown({required Object shown, required Object total}) => 'Showing ${shown}/${total} nodes';
 
-	/// en: 'Show remaining $n'
-	String flowExpandAll({required Object n}) => 'Show remaining ${n}';
-
 	/// en: 'waiting'
 	String get nodeWait => 'waiting';
 
@@ -5271,7 +5268,6 @@ extension on Translations {
 			'chat.tool.replayPinNote' => 'Re-run under the originally pinned versions; edits made after the failure do not take effect',
 			'chat.tool.replayTimes' => ({required Object n}) => 'Replay #${n}',
 			'chat.tool.flowShown' => ({required Object shown, required Object total}) => 'Showing ${shown}/${total} nodes',
-			'chat.tool.flowExpandAll' => ({required Object n}) => 'Show remaining ${n}',
 			'chat.tool.nodeWait' => 'waiting',
 			'chat.tool.triggeringWf' => 'Triggering workflow',
 			'chat.tool.triggeredWf' => 'Triggered workflow',
@@ -5389,9 +5385,9 @@ extension on Translations {
 			'chat.tool.mcpEnvRequired' => ({required Object n}) => '${n} required env',
 			'chat.tool.gettingModelConfig' => 'Reading model config',
 			'chat.tool.gotModelConfig' => 'Read model config',
+			'chat.tool.modelDefaults' => 'Default models',
 			_ => null,
 		} ?? switch (path) {
-			'chat.tool.modelDefaults' => 'Default models',
 			'chat.tool.modelKeys' => ({required Object n}) => '${n} keys',
 			'chat.tool.modelAvail' => ({required Object n}) => '${n} available models',
 			'chat.tool.memSourceUser' => 'you',
@@ -5903,9 +5899,9 @@ extension on Translations {
 			'documents.deleteDocBody' => ({required Object name}) => '“${name}” and everything nested inside it will be removed.',
 			'documents.deleteSkillTitle' => 'Delete this skill?',
 			'documents.deleteSkillBody' => ({required Object name}) => 'The “${name}” skill will be removed.',
+			'documents.actionFailed' => 'Action failed',
 			_ => null,
 		} ?? switch (path) {
-			'documents.actionFailed' => 'Action failed',
 			'documents.props.title' => 'Properties',
 			'documents.props.name' => 'Name',
 			'documents.props.description' => 'Description',

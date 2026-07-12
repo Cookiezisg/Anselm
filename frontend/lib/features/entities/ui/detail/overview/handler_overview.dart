@@ -4,7 +4,6 @@ import '../../../../../core/contract/entities/handler.dart';
 import '../../../../../core/contract/entities/values.dart';
 import '../../../../../core/model/status_state.dart';
 import '../../../../../core/ui/an_code_editor.dart';
-import '../../../../../core/ui/an_field.dart';
 import '../../../../../core/ui/an_info_card.dart';
 import '../../../../../core/ui/an_row.dart';
 import '../../../../../core/ui/an_section.dart';
@@ -35,14 +34,13 @@ class HandlerOverview extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        AnSection(variant: AnSectionVariant.plain, children: [
-          if (hd.description.isNotEmpty) AnField(label: d.kv.desc, value: hd.description, wrap: true),
-          kvList([
-            (d.kv.id, hd.id),
-            (d.kv.activeVersion, 'v${v.version}'),
-            (d.kv.python, v.pythonVersion),
-            (d.kv.updated, fmtTime(hd.updatedAt)),
-          ], meta: true),
+        // The shared identity section (批6 A-055 — its own dartdoc names agent+handler, this was
+        // the verbatim hand-copy). 共享身份段(助手自述 agent+handler 共用,此处曾逐字重抄)。
+        identitySection(d.kv.desc, hd.description, [
+          (d.kv.id, hd.id),
+          (d.kv.activeVersion, 'v${v.version}'),
+          (d.kv.python, v.pythonVersion),
+          (d.kv.updated, fmtTime(hd.updatedAt)),
         ]),
         AnSection(label: d.sec.runtime, variant: AnSectionVariant.plain, grid: true, children: [
           AnInfoCard(

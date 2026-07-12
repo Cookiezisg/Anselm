@@ -88,8 +88,7 @@ Widget documentBody(BuildContext context, ToolCardState state) {
     ]);
   }
   return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    if (state.summary.isNotEmpty)
-      Padding(padding: const EdgeInsets.only(bottom: AnSpace.s6), child: Text(state.summary, style: AnText.meta.copyWith(color: c.inkMuted))),
+    toolIntent(context, state),
     if (content.isNotEmpty) ProseWindow(markdown: content),
     if (result.contains('auto-renamed'))
       Padding(
@@ -135,8 +134,7 @@ Widget skillBody(BuildContext context, ToolCardState state) {
   final isEdit = state.toolName == 'edit_skill';
 
   return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    if (state.summary.isNotEmpty)
-      Padding(padding: const EdgeInsets.only(bottom: AnSpace.s6), child: Text(state.summary, style: AnText.meta.copyWith(color: c.inkMuted))),
+    toolIntent(context, state),
     Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s4, crossAxisAlignment: WrapCrossAlignment.center, children: [
       AnChip(ctx == 'fork' ? t.chat.tool.skillFork : t.chat.tool.skillInline, tone: AnTone.none),
       // allowedTools in WARN — activation pre-authorizes these, skipping the danger gate. 警示色:权限让渡。

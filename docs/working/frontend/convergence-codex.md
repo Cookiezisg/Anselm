@@ -36,6 +36,16 @@ A-032/A-033/A-034/A-036/A-038/A-046/A-048 关账(A-031 剩 AnAttachmentChip、A-
 - **拍板点记档(建造者裁决,帧供否决)**:①RefPill 字面 body13 w400→族 meta12 w300(全族一字面;帧核可读性,否决则退半降级);②copy 芯片族声=outlined(与 path chip 一致);③AnSize.capsulePadY=1 新档(行内药囊竖距,inline 脸用)。
 - 新 variant 全部 gallery-first(raw 点四形/outlined·copy·icon-only·strikethrough·tooltip 五 specimen/inline 嵌文本/jump 双态)+ tonggui 电池 7 测(dot 槽/空标签/host-agnostic/a11y/raw 尺寸/空心零帧/jump 静态)。
 
+### 批6b 落地(2026-07-13,行族迁移 23 行关账)
+
+A-049/050/051/052/053/054/055/058/064/068/070/071/072/073/074/075/076/077/078/079/080/081/082 关账(A-056 defer 记档:map 编辑器=表单机器非键值陈列,单消费者过早抽象,AnKv.map 规格留档待第二消费者;A-069 主行豁免=契约 §7):
+- **台账双件四并一**:RunLedger/_RunRow(A-070/071半/072)与 FlowrunNodeList/_nodeRow(A-071另半/076)全走 AnLedgerRow+AnLedgerList;flowrun 状态点**归左**(法典②,曾是族内唯一右点)、kind 字形降首枚 chip、错误行走 danger 副行;两处「展开全部」手搓删,flowExpandAll 键退役;lead 色续走 runStatusColor(fromRaw 缺 started/fired/timeout 别名,换源会变色——记档)。
+- **命中门收编**:_WebHits(A-078:15 档越锚/私铸拼字体/420 魔数三宗随行退役)与 marketplace(A-049:目录枚举归门,外层 AnWindow 随撤防套窗)投 ToolHitList(onOpen 外链通道);_ToolHitCard(A-079)→AnLedgerRow(描述 3 行→1 行 tease+点行展开全文+schema 树,信息后移一击不丢)。
+- **清单归一**(A-053 改道):TodoChecklist 渲染退役并入 AnRundownList(chat 泡与侧幕 Rundown 两副面孔归一,原则 #8);stage_panel._TodoRow(A-073)→AnRow leadWidget(度量重抄退役,chevron 随行惯用式 hover 换 lead=与同列舞台行同脸);_RunProgressSection(A-074)→AnLedgerRow(语义点替三态图标,iconSm-2 算术亡;' · ' 手拼亡)。
+- **共件两枚**:ControlBranchRow(A-054:概览双行脸胜出——inspector 单行省略丢 CEL、emit warn 徽违文法 #6 随脸退役;独立小文件自带 i18n,detail_sections 成文 i18n-free 不进);control_stage 判别梯(A-075)迁 AnLadder(骨架归梯,级内容自持;chat 第二套梯 tool_card_control_approval 记扫尾批+法典防第三套)。
+- **toolIntent 升公**(A-080):_intent/×2 私件+12 内联抄收编 17 用点;gap:false 唯一合法位=workflow edit(条自带上距);**建造事故记档:批量脚本在裸 Text 位吃掉 morph 块,diff 审查抓回手工复原**——批量文本手术后必须逐文件 diff 目检。
+- 小点波:双空格中点×2(A-052)/托盘段头双件→AnGroupLabel(A-058,en 大写化记档)/documents 段标×2(A-081)/sandbox envs 节头→AnSection(A-064)/gallery _navRow 吃 AnRow 狗粮+侧栏面证伪(A-068:AnIsland=浮卡角色不符,dev 壳豁免)/bool flag 行×3(A-051)/handler 身份段去重(A-055)/model defaults→AnFieldSection+AnKv(A-050)/_MetaRow→AnKv dense(A-082,path wrap 保尾段)/**ToolIOSection 两刀**(A-077:节头 12→13 回正;逐键列值形二分——全短标量 map→AnKv dense+flag,长值→逐键 AnFieldSection;批4 bare 缝零接触)。
+
 ### 批6a 落地(2026-07-12,行族地基九件)
 
 行族当家件长全后续迁移所需的槽,全部 gallery-first+电池:

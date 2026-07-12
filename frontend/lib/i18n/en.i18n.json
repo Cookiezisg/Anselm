@@ -403,7 +403,6 @@
       "replayPinNote": "Re-run under the originally pinned versions; edits made after the failure do not take effect",
       "replayTimes": "Replay #$n",
       "flowShown": "Showing $shown/$total nodes",
-      "flowExpandAll": "Show remaining $n",
       "nodeWait": "waiting",
       "triggeringWf": "Triggering workflow",
       "triggeredWf": "Triggered workflow",

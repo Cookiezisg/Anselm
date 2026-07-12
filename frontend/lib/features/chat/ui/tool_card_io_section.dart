@@ -4,7 +4,9 @@ import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
 import '../../../core/ui/an_window.dart';
+import '../../../core/ui/an_field_section.dart';
 import '../../../core/ui/an_json_tree.dart';
+import '../../../core/ui/an_kv.dart';
 import '../../../core/ui/an_markdown.dart';
 import '../../../i18n/strings.g.dart';
 import 'tool_card_document_skill.dart';
@@ -44,11 +46,9 @@ class ToolIOSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-      Text(label, style: AnText.meta.copyWith(color: c.inkFaint)),
-      const SizedBox(height: AnSpace.s2),
-      _content(context, c, value, renderAsProse),
-    ]);
+    // The ONE label-above layout (批6 A-077 — the private head retires; the 12-meta head steps up
+    // to the family's 13 label, 复审 #14 偏差回正). 唯一「标签在上」排布(私排头退役,12→13 回正)。
+    return AnFieldSection(label: label, child: _content(context, c, value, renderAsProse));
   }
 
   Widget _content(BuildContext context, AnColors c, Object? v, bool prose) {
@@ -65,28 +65,40 @@ class ToolIOSection extends StatelessWidget {
       return _monoWindow(context, c, v);
     }
     if (v is Map) {
-      // A per-key list only when EVERY value is a scalar (or it's a single key) — else a real nested
-      // structure → the JSON tree. 全标量值(或单键)→逐键;真嵌套→JSON 树。
-      final scalarish = v.values.every((x) => x == null || x is String || x is num || x is bool);
-      if (v.length == 1 || scalarish) {
-        return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+      // Value-shape split (批6 A-077): an all-SHORT-scalar map is a key/value list — the family AnKv
+      // (dense; bools ride the flag row); a single key or any long/multi-line value keeps the
+      // per-key label-above layout (a flush-right long value would be crushed — the >80/multiline
+      // rule mirrors the string branch). 值形二分:全短标量 map→族 AnKv(dense,bool 走 flag 行);
+      // 单键/含长值→逐键标签在上(长值贴右会被挤瘪,阈随字符串分支)。
+      bool shortScalar(Object? x) =>
+          x == null || x is num || x is bool || (x is String && !x.contains('\n') && x.length <= 80);
+      final allShort = v.values.every(shortScalar);
+      if (v.length > 1 && allShort) {
+        return AnKv(dense: true, rows: [
           for (final e in v.entries)
-            Padding(
-              padding: const EdgeInsets.only(bottom: AnSpace.s4),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                Text('${e.key}', style: AnText.label.copyWith(color: c.inkFaint)),
-                _content(context, c, e.value, false),
-              ]),
-            ),
+            if (e.value is bool)
+              AnKvRow.flag('${e.key}', e.value as bool)
+            else
+              AnKvRow('${e.key}', '${e.value ?? '—'}', mono: e.value is String && _monoish('${e.value}')),
         ]);
       }
-      return _jsonTree(context, v);
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+        for (final e in v.entries)
+          Padding(
+            padding: const EdgeInsets.only(bottom: AnSpace.s4),
+            child: AnFieldSection(label: '${e.key}', child: _content(context, c, e.value, false)),
+          ),
+      ]);
     }
     // List / anything else → the bounded tree. 列表等→有界树。
     return _jsonTree(context, v);
   }
 
   Widget _inline(AnColors c, String s) => Text(s, style: AnText.code.copyWith(color: c.inkMuted));
+
+  /// Machine-string sniff for the KV mono face: spaceless tokens (ids/paths/urls) read mono, prose
+  /// reads text. KV mono 嗅探:无空格 token(id/路径/URL)走等宽,散文走正文。
+  static bool _monoish(String s) => !s.contains(' ');
 
   Widget _monoWindow(BuildContext context, AnColors c, String s) {
     final t = Translations.of(context);

@@ -437,7 +437,6 @@ class _TodoRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
     final t = Translations.of(context);
-    final reduced = AnMotionPref.reduced(context);
     final boards = ref.watch(rundownProvider(conversationId));
     final nonEmpty = [
       for (final e in boards.entries)
@@ -449,37 +448,19 @@ class _TodoRow extends ConsumerWidget {
     void toggle() => ref.read(stageExpansionProvider(conversationId).notifier).toggle('todo');
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      AnInteractive(
-        onTap: toggle,
+      // The family row (批6 A-073 — the metric re-roll retires; its own note admitted «Composed to
+      // the AnRow metrics»). The chevron follows the row idiom: hover swaps the ring for it — the
+      // same face as the sibling stage rows, which is the convergence itself. 族行(度量重抄退役);
+      // 箭头随行惯用式 hover 换 lead,与同列舞台行同脸=收敛本意。
+      AnRow(
+        leadWidget: AnTaskRing(completed: done, total: total),
+        label: t.chat.stage.tasks,
+        meta: '$done/$total',
+        collapsible: true,
+        open: open,
         selected: open,
-        expanded: open,
-        builder: (ctx, states) => ClipRRect(
-          borderRadius: BorderRadius.circular(AnRadius.button),
-          child: AnimatedContainer(
-            duration: reduced ? Duration.zero : AnMotion.fast,
-            constraints: const BoxConstraints(minHeight: AnSize.row),
-            color: open ? c.surfaceActive : c.surfaceHover.whenActive(states.isActive),
-            padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8),
-            child: Row(children: [
-              AnTaskRing(completed: done, total: total),
-              const SizedBox(width: AnSpace.s8),
-              Expanded(
-                child: Text(t.chat.stage.tasks,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AnText.body.copyWith(color: open || states.isActive ? c.ink : c.inkMuted)),
-              ),
-              const SizedBox(width: AnSpace.s8),
-              Text('$done/$total', style: AnText.metaTabular().copyWith(color: c.inkFaint)),
-              const SizedBox(width: AnSpace.s6),
-              AnimatedRotation(
-                duration: reduced ? Duration.zero : AnMotion.fast,
-                turns: open ? 0.25 : 0,
-                child: Icon(AnIcons.chevronRight, size: AnSize.iconSm, color: c.inkFaint),
-              ),
-            ]),
-          ),
-        ),
+        onSelect: toggle,
+        onToggle: toggle,
       ),
       AnExpandReveal(
         open: open,
@@ -821,41 +802,19 @@ class _RunProgressSection extends ConsumerWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
         if (rows.isEmpty && progress.terminal.isEmpty)
           AnShimmerText(t.chat.stage.run.queued, style: AnText.meta.copyWith(color: c.inkFaint), reveal: true),
+        // Family rows (批6 A-074): the semantic dot replaces the icon trio (its iconSm-2 arithmetic
+        // dies; fromRaw folds parked→wait amber, running→run accent — truer than «every non-terminal
+        // amber»); the loop turn joins the chips ('#N', the hand-glued ' · ' dies, 文法 #3). 族行:
+        // 语义点替三态图标(算术亡;fromRaw 语义更真);轮次进 chips(手拼点链亡)。
         for (final n in rows)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: AnSpace.s2),
-            child: Row(children: [
-              Icon(
-                switch (n.status) {
-                  'completed' => AnIcons.success,
-                  'failed' => AnIcons.error,
-                  _ => AnIcons.circle,
-                },
-                size: AnSize.iconSm - 2,
-                color: switch (n.status) {
-                  'completed' => c.ok,
-                  'failed' => c.danger,
-                  _ => c.warn,
-                },
-              ),
-              const SizedBox(width: AnSpace.s6),
-              Expanded(
-                child: Text(
-                  n.iteration > 0 ? '${n.nodeId} · ${n.iteration}' : n.nodeId,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AnText.mono.copyWith(color: c.inkMuted),
-                ),
-              ),
-              if (n.status == 'parked') ...[
-                const SizedBox(width: AnSpace.s6),
-                Text(t.chat.stage.run.parked, style: AnText.meta.copyWith(color: c.warn)),
-              ],
-              if (n.port.isNotEmpty) ...[
-                const SizedBox(width: AnSpace.s6),
-                AnChip('→ ${n.port}', tone: AnTone.accent),
-              ],
-            ]),
+          AnLedgerRow(
+            lead: AnStatusDot(AnStatus.fromRaw(n.status)),
+            primary: n.nodeId,
+            chips: [
+              if (n.iteration > 0) Text('#${n.iteration}', style: AnText.metaTabular().copyWith(color: c.inkFaint)),
+              if (n.status == 'parked') Text(t.chat.stage.run.parked, style: AnText.meta.copyWith(color: c.warn)),
+              if (n.port.isNotEmpty) AnChip('→ ${n.port}', tone: AnTone.accent),
+            ],
           ),
         if (progress.terminal.isNotEmpty) ...[
           const SizedBox(height: AnSpace.s4),

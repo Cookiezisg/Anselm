@@ -4,6 +4,7 @@ import 'package:anselm/core/contract/messages/block_content.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/messages/block_tree_reducer.dart';
 import 'package:anselm/features/chat/ui/chat_tool_card.dart';
+import 'package:anselm/core/ui/an_rundown_list.dart';
 import 'package:anselm/features/chat/ui/tool_card_todo.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
@@ -68,7 +69,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.textContaining(t.chat.tool.todoWrote), warnIfMissed: false);
     await tester.pumpAndSettle();
-    expect(find.byType(TodoChecklist), findsOneWidget);
+    expect(find.byType(AnRundownList), findsOneWidget); // 批6 A-053:全 App 一张清单脸
     expect(find.text('DONE_TASK'), findsOneWidget);
     expect(find.text('DOING_TASK'), findsOneWidget); // in_progress → activeForm, not content
     expect(find.text('PENDING_LABEL'), findsNothing);

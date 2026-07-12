@@ -86,7 +86,7 @@ Widget lsToolBody(BuildContext context, ToolCardState state) {
           ToolHitRow(
             glyph: _fsGlyph(e.type),
             title: e.type == 'dir' ? '${e.name}/' : e.name,
-            trailing: e.size == null ? null : Text('${e.size}  ·  ${e.mtime}', style: AnText.meta.copyWith(color: c.inkFaint)),
+            trailing: e.size == null ? null : Text('${e.size} · ${e.mtime}', style: AnText.meta.copyWith(color: c.inkFaint)),
           ),
       ],
       cap: 30,
@@ -147,7 +147,7 @@ Widget globToolBody(BuildContext context, ToolCardState state) {
             glyph: _fsGlyph(m.type),
             title: _basename(m.path),
             subtitle: m.path,
-            trailing: Text('${formatBytes(m.size)}  ·  ${_shortMtime(m.mtime)}', style: AnText.meta.copyWith(color: c.inkFaint)),
+            trailing: Text('${formatBytes(m.size)} · ${_shortMtime(m.mtime)}', style: AnText.meta.copyWith(color: c.inkFaint)),
           ),
       ],
       cap: 30,

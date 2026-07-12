@@ -4,15 +4,11 @@ lib/features/chat/ui/chat_ocean.dart	alpha-tweak	1
 lib/features/chat/ui/chat_thinking.dart	token-arith	1
 lib/features/chat/ui/chat_transcript.dart	alpha-tweak	1
 lib/features/chat/ui/chat_transcript.dart	boxdecoration	1
-lib/features/chat/ui/stage_panel.dart	token-arith	1
 lib/features/chat/ui/stages/control_stage.dart	alpha-tweak	1
-lib/features/chat/ui/stages/control_stage.dart	boxdecoration	1
 lib/features/chat/ui/tool_card_control_approval.dart	boxdecoration	1
-lib/features/chat/ui/tool_card_ecosystem.dart	edgeinsets-literal	1
 lib/features/chat/ui/tool_card_exec.dart	edgeinsets-literal	2
 lib/features/chat/ui/tool_card_fs_search.dart	boxdecoration	1
 lib/features/chat/ui/tool_card_fs_search.dart	edgeinsets-literal	1
-lib/features/chat/ui/tool_card_memory_web.dart	boxdecoration	1
 lib/features/chat/ui/tool_card_mount.dart	edgeinsets-literal	1
 lib/features/chat/ui/tool_card_search.dart	edgeinsets-literal	1
 lib/features/chat/ui/tool_hit_list.dart	boxdecoration	1

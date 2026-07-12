@@ -6,7 +6,7 @@ import '../../features/chat/ui/chat_tool_card.dart';
 import 'specimen.dart';
 
 // F11 todo (B7.1) — the task checklist. todo_write projects its args' structured items; todo_read parses
-// the rendered `- [x]/[→]/[ ]` markdown. Both → a TodoChecklist (✓ done / ▶ in-progress / ☐ pending).
+// the rendered `- [x]/[→]/[ ]` markdown. Both → AnRundownList (批6:全 App 一张三态清单脸).
 // F11 任务清单真机。
 
 BlockNode _todoWrite(List<Map<String, String>> items) => BlockNode(id: 'tc_tw', kind: BlockKind.toolCall)
@@ -26,7 +26,7 @@ BlockNode _todoRead(String rendered) => BlockNode(id: 'tc_tr', kind: BlockKind.t
 final toolCardTodoGalleryItem = GalleryItem(
   'ChatToolCard · F11 任务清单',
   'F11 todo:todo_write 投影 args 结构项(content/activeForm/status),todo_read 解析渲染的 - [x]/[→]/[ ] 行。'
-      '皆成 TodoChecklist:✓ 完成(划线灰)/ ▶ 进行中(activeForm、accent)/ ☐ 待办。回执 N 项·M 完成。',
+      '皆成 AnRundownList(批6 归一):✓ 完成(划线灰)/ 进行中(accent 实点、activeForm)/ ☐ 待办。回执 N 项·M 完成。',
   [
     GallerySpecimen('todo_write · 混合状态(进行中显 activeForm)',
         (c) => ChatToolCard(node: _todoWrite([

@@ -47,11 +47,7 @@ Widget controlBranchBody(BuildContext context, ToolCardState state) {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      if (state.summary.isNotEmpty)
-        Padding(
-          padding: const EdgeInsets.only(bottom: AnSpace.s6),
-          child: Text(state.summary, style: AnText.meta.copyWith(color: c.inkMuted)),
-        ),
+      toolIntent(context, state),
       for (var i = 0; i < branches.length; i++) _branchRow(context, t, c, i + 1, branches[i]),
       runStatBarOf(context, state),
     ],

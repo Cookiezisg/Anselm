@@ -11,7 +11,7 @@ import '../../../i18n/strings.g.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
 import 'tool_card_io_section.dart';
-import 'run_dossier.dart';
+import 'tool_card_skins.dart';import 'run_dossier.dart';
 import 'tool_card_nav.dart';
 
 // F08 flowrun bodies (B5.3) — replay_flowrun's node ledger. The tool result is the {flowrun, nodes,
@@ -52,8 +52,7 @@ Widget triggerWorkflowBody(BuildContext context, ToolCardState state) {
   final payload = _obj(state.argsText)?['payload'];
   final emptyPayload = payload == null || (payload is Map && payload.isEmpty);
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-    if (state.summary.isNotEmpty)
-      Padding(padding: const EdgeInsets.only(bottom: AnSpace.s6), child: Text(state.summary, style: AnText.meta.copyWith(color: c.inkMuted))),
+    toolIntent(context, state),
     // The payload fed to the entry trigger — an empty {} is stated, never dressed as an empty tree.
     // 喂给入口触发器的 payload;空 {} 明说、不装空树。
     if (emptyPayload)
@@ -177,14 +176,11 @@ class FlowrunNodeList extends StatefulWidget {
 }
 
 class _FlowrunNodeListState extends State<FlowrunNodeList> {
-  bool _showAll = false;
-
   // failed (0) → parked (1) → everything completed (2); stable within a rank. 失败→park→完成,组内稳定。
   static int _rank(FlowrunNode n) => switch (n.status) { 'failed' => 0, 'parked' => 1, _ => 2 };
 
   @override
   Widget build(BuildContext context) {
-    final t = Translations.of(context);
     final sorted = [...widget.nodes];
     // A stable sort by rank (Dart's sort is not stable — pair with the original index). 稳定按 rank 排。
     final indexed = [for (final (i, n) in sorted.indexed) (i, n)]
@@ -193,24 +189,15 @@ class _FlowrunNodeListState extends State<FlowrunNodeList> {
         return r != 0 ? r : a.$1.compareTo(b.$1);
       });
     final ordered = [for (final e in indexed) e.$2];
-    final over = ordered.length > widget.cap;
-    final visible = _showAll ? ordered : ordered.take(widget.cap).toList();
     return AnWindow(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+        // The honest-count header stays OUTSIDE the list shell (heterogeneous headers are the
+        // caller's, 批6 A-071). 诚实账头件留壳外。
         if (widget.summary != null) ...[
           _summaryBar(context, widget.summary!),
           const SizedBox(height: AnSpace.s4),
         ],
-        for (final n in visible) _nodeRow(context, n),
-        if (over && !_showAll)
-          Padding(
-            padding: const EdgeInsets.only(top: AnSpace.s4),
-            child: AnInteractive(
-              onTap: () => setState(() => _showAll = true),
-              builder: (context, _) => Text(t.chat.tool.flowExpandAll(n: '${ordered.length - widget.cap}'),
-                  style: AnText.meta.weight(AnText.emphasisWeight).copyWith(color: context.colors.accent)),
-            ),
-          ),
+        AnLedgerList(cap: widget.cap, children: [for (final n in ordered) _nodeRow(context, n)]),
       ]),
     );
   }
@@ -233,31 +220,20 @@ class _FlowrunNodeListState extends State<FlowrunNodeList> {
   Widget _nodeRow(BuildContext context, FlowrunNode n) {
     final c = context.colors;
     final failed = n.status == 'failed';
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AnSpace.s2),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-        Row(children: [
-          Icon(AnIcons.node(n.kind), size: AnSize.iconSm, color: c.inkFaint),
-          const SizedBox(width: AnSpace.s8),
-          Flexible(
-            child: Text(n.nodeId, maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: AnText.mono.copyWith(color: c.inkMuted)),
-          ),
-          // A loop turn > 0 → the 0-based iteration index (disambiguates repeated nodeId rows). 循环轮次。
-          if (n.iteration > 0) ...[
-            const SizedBox(width: AnSpace.s6),
-            Text('#${n.iteration}', style: AnText.metaTabular().copyWith(color: c.inkFaint)),
-          ],
-          const SizedBox(width: AnSpace.s8),
-          AnStatusDot(AnStatus.fromRaw(n.status)),
-        ]),
-        if (failed && (n.error ?? '').isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(left: AnSize.iconSm + AnSpace.s8, top: AnSpace.s2),
-            child: Text(n.error!, maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: AnText.code.copyWith(color: c.danger)),
-          ),
-      ]),
+    // Family row (批6 A-076): the status dot moves LEFT (法典族四②——was the family's one
+    // right-side dot), the kind glyph steps down to the first chip, the error line rides the
+    // danger sub voice (its indent arithmetic died with it). 族行:状态点归左,kind 字形降为首枚
+    // chip,错误行走 danger 副行(缩进算术随行退役)。
+    return AnLedgerRow(
+      lead: AnStatusDot(AnStatus.fromRaw(n.status)),
+      primary: n.nodeId,
+      chips: [
+        Icon(AnIcons.node(n.kind), size: AnSize.iconSm, color: c.inkFaint),
+        // A loop turn > 0 → the 0-based iteration index (disambiguates repeated nodeId rows). 循环轮次。
+        if (n.iteration > 0) Text('#${n.iteration}', style: AnText.metaTabular().copyWith(color: c.inkFaint)),
+      ],
+      sub: failed ? n.error : null,
+      subTone: AnTone.danger,
     );
   }
 }

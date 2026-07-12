@@ -396,7 +396,7 @@ void main() {
       // File meta + backlinks stay; the page's OWN properties (name/description/tags) edit in the
       // CENTER under the big title now. 文件 meta+反链留;页自身属性(名/描述/标签)已归中心大标题下。
       expect(find.text('Modified'), findsOneWidget);
-      expect(find.text('Backlinks'), findsOneWidget);
+      expect(find.text('BACKLINKS'), findsOneWidget); // AnGroupLabel 大写脸(批6 A-081)
       expect(find.text('Name'), findsNothing);
       expect(find.text('Tags'), findsNothing);
       expect(find.byType(EditableText), findsNothing); // nothing edits on this panel anymore 本岛无输入
@@ -434,7 +434,7 @@ void main() {
         ),
       ));
       await tester.pumpAndSettle();
-      expect(find.text('Backlinks'), findsOneWidget);
+      expect(find.text('BACKLINKS'), findsOneWidget); // AnGroupLabel 大写脸(批6 A-081)
       expect(find.text('Playbooks'), findsOneWidget);
 
       await tester.tap(find.text('Playbooks'));

@@ -13,6 +13,7 @@ import 'dart:convert';
 
 import 'tool_card_document_skill.dart' show ProseWindow;
 import 'tool_card_skins.dart';
+import 'tool_hit_list.dart';
 
 // The last uncataloged REAL tools (WRK-059 H2): the memory trio (write/read/forget — one index
 // card, two appearances), the web pair (WebFetch/WebSearch — soft-fail HONESTY is the point:
@@ -184,7 +185,7 @@ Widget writeMemoryBody(BuildContext context, ToolCardState state) {
             style: AnText.code.copyWith(color: context.colors.inkFaint)));
   }
   return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    _summaryLine(context, state),
+    toolIntent(context, state),
     MemoryNoteCard(note: (
       name: name,
       source: 'ai', // writes are always the model's hand 写入恒 ai
@@ -216,7 +217,7 @@ Widget forgetMemoryBody(BuildContext context, ToolCardState state) {
   final c = context.colors;
   final name = state.argsSession.closedStringAt(['name']) ?? '';
   return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    _summaryLine(context, state),
+    toolIntent(context, state),
     Row(children: [
       if (name.isNotEmpty) ...[
         Text(name, style: AnText.mono.copyWith(color: c.inkMuted)),
@@ -232,14 +233,6 @@ Widget forgetMemoryBody(BuildContext context, ToolCardState state) {
 }
 
 /// The LLM's self-reported intent line (shown in expanded bodies). 自报意图行。
-Widget _summaryLine(BuildContext context, ToolCardState state) {
-  if (state.summary.isEmpty) return const SizedBox.shrink();
-  return Padding(
-    padding: const EdgeInsets.only(bottom: AnSpace.s6),
-    child: Text(state.summary,
-        style: AnText.meta.copyWith(color: context.colors.inkMuted)),
-  );
-}
 
 // ── web 网页 ────────────────────────────────────────────────────────────────
 
@@ -322,7 +315,25 @@ Widget webSearchBody(BuildContext context, ToolCardState state) {
             padding: const EdgeInsets.only(bottom: AnSpace.s4),
             child: AnChip(source, tone: AnTone.none),
           ),
-        _WebHits(hits: hits),
+        // The shared hit gate (批6 A-078 — the hand-rolled hover rows, the 15-tier breach, the
+        // private mono-meta blend and the 420 magic all retire; onOpen is the gate's external-link
+        // channel). 共享命中门(手搓 hover 行/15 档越锚/私铸拼字体/420 魔数全退役;onOpen=外链通道)。
+        ToolHitList(
+          rows: [
+            for (final h in hits)
+              ToolHitRow(
+                glyph: AnIcons.web,
+                title: h.title.isEmpty ? h.url : h.title,
+                subtitle: h.snippet,
+                trailing: Text(Uri.tryParse(h.url)?.host ?? h.url,
+                    maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.mono.copyWith(color: c.inkFaint)),
+                onOpen: h.url.isEmpty ? null : () => openExternalUrl(h.url),
+              ),
+          ],
+          cap: 10,
+          total: hits.length,
+          rawJson: state.resultText,
+        ),
       ]);
     case WebSearchOutcome.empty:
       return Padding(
@@ -339,53 +350,6 @@ Widget webSearchBody(BuildContext context, ToolCardState state) {
   }
 }
 
-class _WebHits extends StatelessWidget {
-  const _WebHits({required this.hits});
-
-  final List<({String title, String url, String snippet})> hits;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    final rows = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      for (final h in hits.take(30))
-        AnInteractive(
-          onTap: h.url.isEmpty ? null : () => openExternalUrl(h.url),
-          builder: (ctx, states) => Container(
-            padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8, vertical: AnSpace.s6),
-            decoration: BoxDecoration(
-              color: states.isActive ? c.surfaceHover : null,
-              borderRadius: BorderRadius.circular(AnRadius.button),
-            ),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(h.title.isEmpty ? h.url : h.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AnText.valueReading().copyWith(color: c.ink).weight(AnText.emphasisWeight)),
-              if (h.snippet.isNotEmpty)
-                Text(h.snippet,
-                    maxLines: 2, overflow: TextOverflow.ellipsis,
-                    style: AnText.label.copyWith(color: c.inkMuted)),
-              if (h.url.isNotEmpty)
-                Text(Uri.tryParse(h.url)?.host ?? h.url,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AnText.meta.copyWith(color: c.inkFaint, fontFamily: AnText.mono.fontFamily)),
-            ]),
-          ),
-        ),
-    ]);
-    if (hits.length <= 10) return rows;
-    final t = Translations.of(context);
-    return AnFadeCollapse(
-        collapsible: true,
-        collapsedHeight: 420,
-        expandLabel: t.chat.tool.proseExpand,
-        collapseLabel: t.chat.tool.proseCollapse,
-        fadeColor: context.colors.surface,
-        child: rows);
-  }
-}
 
 enum WebFetchOutcome { summary, empty, raw, jsShell, fail }
 
@@ -524,9 +488,11 @@ Widget searchToolsBody(BuildContext context, ToolCardState state) {
   ]);
 }
 
-/// One toolbox hit — a whisper-thin card: mono name + the param digest line + the description,
-/// with a per-card schema disclosure (bounded JSON tree; the framework fields stay IN the escape
-/// hatch — it never edits). 一张工具箱命中薄卡+独立 schema 逃生口。
+/// One toolbox hit — since 批6 A-079 a family LEDGER ROW: mono name + the param-digest chip +
+/// the description as the sub line (one-line tease); tapping the row expands the FULL description
+/// + the bounded schema tree (the framework fields stay IN the escape hatch — it never edits).
+/// 工具箱命中——批6 起为族台账行:mono 名+参数摘要 chip+描述副行(一行预览);点行展开全描述+有界
+/// schema 树(逃生口保横切字段,绝不编辑)。
 class _ToolHitCard extends StatefulWidget {
   const _ToolHitCard({required this.hit});
 
@@ -537,7 +503,7 @@ class _ToolHitCard extends StatefulWidget {
 }
 
 class _ToolHitCardState extends State<_ToolHitCard> {
-  bool _schemaOpen = false;
+  bool _open = false;
 
   @override
   Widget build(BuildContext context) {
@@ -545,39 +511,30 @@ class _ToolHitCardState extends State<_ToolHitCard> {
     final t = Translations.of(context);
     final e = widget.hit;
     final params = e['parameters'];
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AnSpace.s8),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
-          Text('${e['name'] ?? ''}', style: AnText.mono.copyWith(color: c.ink)),
-          const SizedBox(width: AnSpace.s8),
-          if (params is Map)
-            Expanded(
-              child: Text(
-                schemaParamDigest(params.cast<String, dynamic>()),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AnText.meta.copyWith(color: c.inkFaint),
-              ),
-            ),
-        ]),
-        if ('${e['description'] ?? ''}'.isNotEmpty)
+    final desc = '${e['description'] ?? ''}';
+    return AnLedgerRow(
+      primary: '${e['name'] ?? ''}',
+      chips: [
+        if (params is Map)
+          Text(schemaParamDigest(params.cast<String, dynamic>()),
+              maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.meta.copyWith(color: c.inkFaint)),
+      ],
+      sub: desc.isEmpty ? null : desc,
+      onTap: (desc.isNotEmpty || params is Map) ? () => setState(() => _open = !_open) : null,
+      expanded: _open,
+      expandChild: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+        if (desc.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.only(top: AnSpace.s2),
-            child: Text('${e['description']}',
-                maxLines: 3, overflow: TextOverflow.ellipsis,
-                style: AnText.label.copyWith(color: c.inkMuted)),
+            padding: const EdgeInsets.only(bottom: AnSpace.s6),
+            child: Text(desc, style: AnText.label.copyWith(color: c.inkMuted)),
           ),
         if (params is Map)
-          AnDisclosure(
+          AnFieldSection(
             label: t.chat.tool.toolSchema,
-            open: _schemaOpen,
-            onToggle: () => setState(() => _schemaOpen = !_schemaOpen),
-            child: SizedBox(
-                height: AnSize.jsonViewport,
-                child: AnJsonTree(data: params, showRoot: false)),
+            child: SizedBox(height: AnSize.jsonViewport, child: AnJsonTree(data: params, showRoot: false)),
           ),
       ]),
     );
   }
 }
+

@@ -13,7 +13,7 @@ import '../../../core/ui/an_window.dart';
 import '../../../core/ui/icons.dart';
 import '../../../i18n/strings.g.dart';
 import 'tool_card_nav.dart';
-import '../model/tool_card_state.dart';
+import 'tool_card_skins.dart';import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
 import 'tool_hit_list.dart';
 
@@ -79,12 +79,11 @@ Widget manageConversationBody(BuildContext context, ToolCardState state) {
   }
   final rows = <AnKvRow>[
     if ((o['title'] as String?)?.isNotEmpty == true) AnKvRow(t.chat.tool.cvStatusTitle, '${o['title']}', wrap: true),
-    AnKvRow(t.chat.tool.cvStatusArchived, o['archived'] == true ? '✓' : '—'),
-    AnKvRow(t.chat.tool.cvStatusPinned, o['pinned'] == true ? '✓' : '—'),
+    AnKvRow.flag(t.chat.tool.cvStatusArchived, o['archived'] == true),
+    AnKvRow.flag(t.chat.tool.cvStatusPinned, o['pinned'] == true),
   ];
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-    if (state.summary.isNotEmpty)
-      Padding(padding: const EdgeInsets.only(bottom: AnSpace.s6), child: Text(state.summary, style: AnText.meta.copyWith(color: c.inkMuted))),
+    toolIntent(context, state),
     AnKv(rows: rows, dense: true),
     // archive is a no-op on the live thread — an honest product fact. 归档产品事实。
     if (o['action'] == 'archive')

@@ -403,7 +403,6 @@
       "replayPinNote": "用原 pin 版本重跑,事后修的代码不生效",
       "replayTimes": "第 $n 次重放",
       "flowShown": "显示 $shown/$total 节点",
-      "flowExpandAll": "展开其余 $n 个",
       "nodeWait": "等待",
       "triggeringWf": "正在触发工作流",
       "triggeredWf": "已触发工作流",

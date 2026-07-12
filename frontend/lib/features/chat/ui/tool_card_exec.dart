@@ -57,8 +57,7 @@ Widget runFunctionBody(BuildContext context, ToolCardState state) {
   final ok = out?['ok'] == true;
 
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-    if (state.summary.isNotEmpty)
-      Padding(padding: const EdgeInsets.only(bottom: AnSpace.s6), child: Text(state.summary, style: AnText.meta.copyWith(color: c.inkMuted))),
+    toolIntent(context, state),
     if (input != null) ToolIOSection(label: t.chat.tool.ioInput, value: input),
     if (logs != null && logs.isNotEmpty) ...[
       const SizedBox(height: AnSpace.s6),
@@ -96,8 +95,7 @@ Widget callHandlerBody(BuildContext context, ToolCardState state) {
   final input = _obj(state.argsText)?['args'];
 
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-    if (state.summary.isNotEmpty)
-      Padding(padding: const EdgeInsets.only(bottom: AnSpace.s6), child: Text(state.summary, style: AnText.meta.copyWith(color: c.inkMuted))),
+    toolIntent(context, state),
     if (method != null) Padding(padding: const EdgeInsets.only(bottom: AnSpace.s2), child: Text('$method()', style: AnText.mono.copyWith(color: c.inkMuted))),
     if (input != null) ToolIOSection(label: t.chat.tool.ioInput, value: input),
     // The streamed yields: LIVE = the rolling terminal tail (the show), SETTLED = the drawer (record).
@@ -167,8 +165,7 @@ Widget invokeAgentBody(BuildContext context, ToolCardState state) {
   final errorMsg = out?['errorMsg'] as String?;
 
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-    if (state.summary.isNotEmpty)
-      Padding(padding: const EdgeInsets.only(bottom: AnSpace.s6), child: Text(state.summary, style: AnText.meta.copyWith(color: c.inkMuted))),
+    toolIntent(context, state),
     if (input != null) ToolIOSection(label: t.chat.tool.ioInput, value: input),
     // The nested trajectory: streaming (live) or still in the tree (settled this session). Once gone
     // (a history reload — E3 blocks aren't persisted) state that honestly — but only when SETTLED: the

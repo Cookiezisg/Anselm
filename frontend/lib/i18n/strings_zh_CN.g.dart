@@ -861,7 +861,6 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get replayPinNote => '用原 pin 版本重跑,事后修的代码不生效';
 	@override String replayTimes({required Object n}) => '第 ${n} 次重放';
 	@override String flowShown({required Object shown, required Object total}) => '显示 ${shown}/${total} 节点';
-	@override String flowExpandAll({required Object n}) => '展开其余 ${n} 个';
 	@override String get nodeWait => '等待';
 	@override String get triggeringWf => '正在触发工作流';
 	@override String get triggeredWf => '已触发工作流';
@@ -2493,7 +2492,6 @@ extension on TranslationsZhCn {
 			'chat.tool.replayPinNote' => '用原 pin 版本重跑,事后修的代码不生效',
 			'chat.tool.replayTimes' => ({required Object n}) => '第 ${n} 次重放',
 			'chat.tool.flowShown' => ({required Object shown, required Object total}) => '显示 ${shown}/${total} 节点',
-			'chat.tool.flowExpandAll' => ({required Object n}) => '展开其余 ${n} 个',
 			'chat.tool.nodeWait' => '等待',
 			'chat.tool.triggeringWf' => '正在触发工作流',
 			'chat.tool.triggeredWf' => '已触发工作流',
@@ -2611,9 +2609,9 @@ extension on TranslationsZhCn {
 			'chat.tool.mcpEnvRequired' => ({required Object n}) => '${n} 必填 env',
 			'chat.tool.gettingModelConfig' => '正在读模型配置',
 			'chat.tool.gotModelConfig' => '已读模型配置',
+			'chat.tool.modelDefaults' => '默认模型',
 			_ => null,
 		} ?? switch (path) {
-			'chat.tool.modelDefaults' => '默认模型',
 			'chat.tool.modelKeys' => ({required Object n}) => '${n} 个密钥',
 			'chat.tool.modelAvail' => ({required Object n}) => '${n} 个可用模型',
 			'chat.tool.memSourceUser' => '你',
@@ -3125,9 +3123,9 @@ extension on TranslationsZhCn {
 			'documents.deleteDocBody' => ({required Object name}) => '“${name}”及其下嵌套的所有内容都会被删除。',
 			'documents.deleteSkillTitle' => '删除这个技能?',
 			'documents.deleteSkillBody' => ({required Object name}) => '技能“${name}”会被删除。',
+			'documents.actionFailed' => '操作失败',
 			_ => null,
 		} ?? switch (path) {
-			'documents.actionFailed' => '操作失败',
 			'documents.props.title' => '属性',
 			'documents.props.name' => '名称',
 			'documents.props.description' => '描述',

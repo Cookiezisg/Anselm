@@ -109,37 +109,14 @@ class _GalleryAppState extends State<GalleryApp> {
     );
   }
 
+  // Gallery eats the row family's own dog food (批6 A-068 — the metric re-roll retires). 吃自家狗粮。
   Widget _navRow(BuildContext context, int i) {
     final cat = galleryCatalog[i];
-    final selected = i == _categoryIndex;
-    return AnInteractive(
-      onTap: () => setState(() => _categoryIndex = i),
-      selected: selected,
-      builder: (context, states) {
-        final c = context.colors;
-        final hovered = states.contains(WidgetState.hovered);
-        return AnimatedContainer(
-          duration: AnMotion.fast,
-          height: AnSize.row,
-          padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8),
-          decoration: BoxDecoration(
-            color: selected ? c.surfaceActive : (hovered ? c.surfaceHover : c.surfaceHover.withValues(alpha: 0)),
-            borderRadius: BorderRadius.circular(AnRadius.button),
-          ),
-          child: Row(
-            children: [
-              Icon(cat.icon, size: AnSize.icon, color: selected ? c.ink : c.inkMuted),
-              const SizedBox(width: AnSpace.s8),
-              Expanded(
-                child: Text(cat.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AnText.body.copyWith(color: selected ? c.ink : c.inkMuted)),
-              ),
-            ],
-          ),
-        );
-      },
+    return AnRow(
+      icon: cat.icon,
+      label: cat.label,
+      selected: i == _categoryIndex,
+      onSelect: () => setState(() => _categoryIndex = i),
     );
   }
 

@@ -6,6 +6,7 @@ import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
 import '../../../core/ui/an_action_group.dart';
+import '../../../core/ui/an_group_label.dart';
 import '../../../core/ui/an_button.dart';
 import '../../../core/ui/an_deferred_loading.dart';
 import '../../../core/ui/an_info_card.dart';
@@ -46,11 +47,7 @@ class FlowrunInbox extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(AnSpace.s12, AnSpace.s12, AnSpace.s12, AnSpace.s4),
-            child: Text(context.t.notifications.needsYou,
-                style: AnText.meta.copyWith(color: context.colors.inkFaint).weight(AnText.emphasisWeight)),
-          ),
+          AnGroupLabel(context.t.notifications.needsYou, padding: const EdgeInsets.fromLTRB(AnSpace.s12, AnSpace.s12, AnSpace.s12, AnSpace.s4)),
           for (final p in parked)
             Padding(
               padding: const EdgeInsets.fromLTRB(AnSpace.s12, AnSpace.s4, AnSpace.s12, AnSpace.s4),

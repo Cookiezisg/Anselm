@@ -54,7 +54,9 @@ class ControlStageBody extends ConsumerWidget {
         ),
         const SizedBox(height: AnSpace.s6),
       ],
-      for (var i = 0; i < branches.length; i++) _rung(context, c, t, i, branches[i]),
+      // The family ladder skeleton (批6 A-075 — the hand-rolled numbered circle + evaluation
+      // thread retire; rung content stays here). 族梯骨架(手搓序号圆+求值丝线退役;级内容自持)。
+      AnLadder(children: [for (final b in branches) _rungContent(context, c, t, b)]),
       if (!scene.live && !scene.failed) ...[
         const SizedBox(height: AnSpace.s6),
         runStatBarOf(context, scene.state),
@@ -62,65 +64,42 @@ class ControlStageBody extends ConsumerWidget {
     ]);
   }
 
-  Widget _rung(BuildContext context, AnColors c, Translations t, int index, ControlBranch b) {
+  // The rung's CONTENT only — the skeleton (numbered circle + thread) is AnLadder's. 级内容(骨架归梯)。
+  Widget _rungContent(BuildContext context, AnColors c, Translations t, ControlBranch b) {
     final isCatchAll = b.when.trim() == 'true';
-    return IntrinsicHeight(
-      child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        // The evaluation-order thread: first-true-wins runs TOP-DOWN. 求值顺序丝线(自上而下先真先赢)。
-        Column(children: [
-          Container(
-            width: AnSize.icon,
-            height: AnSize.icon,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: c.line, width: AnSize.hairline),
-            ),
-            child: Text('${index + 1}', style: AnText.meta.copyWith(color: c.inkFaint)),
-          ),
-          Expanded(child: Container(width: AnSize.hairline, color: c.line)),
-        ]),
-        const SizedBox(width: AnSpace.s8),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: AnSpace.s8),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Flexible(
-                  child: Text(b.port,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AnText.body.weight(AnText.emphasisWeight).copyWith(color: c.ink)),
-                ),
-                if (isCatchAll) ...[
-                  const SizedBox(width: AnSpace.s6),
-                  AnChip(t.chat.stage.elseFallback, tone: AnTone.none),
-                ],
-              ]),
-              if (!isCatchAll)
-                Padding(
-                  padding: const EdgeInsets.only(top: AnSpace.s2),
-                  child: AnCelGrow(expression: b.when, live: scene.live),
-                ),
-              if (b.emit.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: AnSpace.s2),
-                  child: Text(t.chat.stage.passThrough,
-                      style: AnText.meta.copyWith(color: c.inkFaint.withValues(alpha: c.inkFaint.a * 0.7))),
-                )
-              else
-                for (final e in b.emit.entries)
-                  Padding(
-                    padding: const EdgeInsets.only(top: AnSpace.s2),
-                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('${e.key} ← ', style: AnText.code.copyWith(color: c.inkFaint)),
-                      Expanded(child: AnCelGrow(expression: e.value, live: scene.live)),
-                    ]),
-                  ),
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Flexible(
+          child: Text(b.port,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AnText.body.weight(AnText.emphasisWeight).copyWith(color: c.ink)),
+        ),
+        if (isCatchAll) ...[
+          const SizedBox(width: AnSpace.s6),
+          AnChip(t.chat.stage.elseFallback, tone: AnTone.none),
+        ],
+      ]),
+      if (!isCatchAll)
+        Padding(
+          padding: const EdgeInsets.only(top: AnSpace.s2),
+          child: AnCelGrow(expression: b.when, live: scene.live),
+        ),
+      if (b.emit.isEmpty)
+        Padding(
+          padding: const EdgeInsets.only(top: AnSpace.s2),
+          child: Text(t.chat.stage.passThrough,
+              style: AnText.meta.copyWith(color: c.inkFaint.withValues(alpha: c.inkFaint.a * 0.7))),
+        )
+      else
+        for (final e in b.emit.entries)
+          Padding(
+            padding: const EdgeInsets.only(top: AnSpace.s2),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('${e.key} ← ', style: AnText.code.copyWith(color: c.inkFaint)),
+              Expanded(child: AnCelGrow(expression: e.value, live: scene.live)),
             ]),
           ),
-        ),
-      ]),
-    );
+    ]);
   }
 }
