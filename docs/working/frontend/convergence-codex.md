@@ -58,7 +58,7 @@ A-057/059/060/061/062/063/065/066 关账,**行族 34 行台账全数了结**(32 
 - A-057:retry 开关/数值行→AnField child 槽(「标签左·控件右」唯一行;标签在上的开关=反模式)。
 - A-060:memory rail pin 进 AnRow leadWidget 槽、描述走 hint 换行(与 mcp 工具行同脸);**顺手修 leadWidget 语义剥除**(ExcludeSemantics 会重蹈批5 缩略图 ✕ a11y 覆辙——交互 lead 自带语义,原语不剥)。
 - **建造事故二记档**:字段块批量扫描器在条件子树(sandbox version)与注记行(models_keys rotateWarn)两处搅坏代码——**逐文件 diff 目检抓回**;含条件/多行子树的站点必须手工。
-- **帧欠账记档**:批6c settings 五面板真机帧关卡被机器锁屏物理阻断(用户睡眠)——五面板标签脸变化帧**欠账待补**(解锁后第一动作:mcp 添加表/models key 表/memory 编辑器/workspaces 建面/network 三框逐帧,快捷键录制链与 memory pin/hint 行同验)。代码/测试/门禁全绿先行落盘,不假装帧已核。
+- **帧欠账已清偿**(0713 复审整改后真机九帧逐个目检):workspaces 建面(Name/Color+AnSwatch 选中环)/network 三框+橙注记/mcp 手动表五字段块(transport segmented 同壳+诚实注记)/memory 编辑器三字段块(mono slug placeholder)+建行 pin·hint·meta 行+pin 点击变金+hover 揭示 Delete/models scenario defaults AnField 四行+Add key 四字段块(secret 眼)/sandbox Runtimes·Environments 双节头同 quiet 脸(A-064 补漏可见生效)。标签族脸(strong/ink)全面板落地无一破版。sandbox version 条件子树帧受 fixture 限(demo 无 runtime),widget test 已锁两分支同壳。曾记档的锁屏阻断始末留此为凭。
 
 ### 批6b 落地(2026-07-13,行族迁移 23 行关账)
 
