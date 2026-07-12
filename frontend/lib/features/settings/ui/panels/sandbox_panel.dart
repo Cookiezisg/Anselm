@@ -35,17 +35,12 @@ class SandboxPanel extends ConsumerWidget {
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       if (boot != null && !boot.ok)
-        Container(
-          padding: const EdgeInsets.all(AnSpace.s12),
-          decoration: BoxDecoration(
-            color: c.dangerSoft,
-            borderRadius: BorderRadius.circular(AnRadius.card),
-          ),
-          child: Row(children: [
-            Expanded(
-              child: Text('${t.settings.sandbox.bootstrapFail} · ${boot.error ?? ''}',
-                  style: AnText.label.copyWith(color: c.danger)),
-            ),
+        // The failure banner is the callout family's job (WRK-066 A-084) — no hand-rolled shell.
+        // 失败横幅归 callout 族(A-084),不手搓壳。
+        AnCallout(
+          '${t.settings.sandbox.bootstrapFail} · ${boot.error ?? ''}',
+          severity: AnCalloutSeverity.danger,
+          actions: [
             AnButton(
               label: t.settings.sandbox.retry,
               size: AnButtonSize.sm,
@@ -54,7 +49,7 @@ class SandboxPanel extends ConsumerWidget {
                 ref.invalidate(sandboxBootstrapProvider);
               },
             ),
-          ]),
+          ],
         ),
       // Disk. 磁盘。
       AnSettingRow(

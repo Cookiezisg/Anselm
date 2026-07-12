@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../design/colors.dart';
 import '../design/tokens.dart';
+import '../design/typography.dart';
 
 /// A hairline rule ([AnSize.hairline] thick, [AnColors.line]). Horizontal = a full-bleed head↔body /
 /// section separator (fills its cross axis). [AnDivider.vertical] = an in-line segment separator (a
@@ -17,17 +18,33 @@ class AnDivider extends StatelessWidget {
   const AnDivider({super.key})
       : vertical = false,
         length = null,
-        margin = EdgeInsets.zero;
+        margin = EdgeInsets.zero,
+        label = null,
+        icon = null;
 
   const AnDivider.vertical({
     this.length = AnSize.controlSm,
     this.margin = const EdgeInsets.symmetric(horizontal: AnSpace.s4),
     super.key,
-  }) : vertical = true;
+  })  : vertical = true,
+        label = null,
+        icon = null;
+
+  /// A rule with a centred whisper label (optional leading icon) — the «context compacted» seam
+  /// mark and friends (WRK-066 A-086: the ONE labelled-rule implementation; features stop
+  /// sandwiching hand-drawn hairlines around text). The label ellipsizes at narrow widths.
+  /// 带居中低语标签的分隔线(可带前导 icon)——「上下文已压缩」缝标等(A-086:唯一带标线实现,
+  /// features 不再手夹发丝线);窄宽下标签省略。
+  const AnDivider.labeled(String this.label, {this.icon, super.key})
+      : vertical = false,
+        length = null,
+        margin = EdgeInsets.zero;
 
   final bool vertical;
   final double? length;
   final EdgeInsetsGeometry margin;
+  final String? label;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
@@ -35,6 +52,38 @@ class AnDivider extends StatelessWidget {
     if (vertical) {
       return Container(width: AnSize.hairline, height: length, margin: margin, color: c.line);
     }
-    return Container(height: AnSize.hairline, color: c.line);
+    final rule = Container(height: AnSize.hairline, color: c.line);
+    if (label == null) return rule;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(child: rule),
+        // Flexible (not a fixed Padding) so a long label ellipsizes instead of overflowing narrow
+        // hosts. Flexible:窄宽省略不溢出。
+        Flexible(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (icon != null) ...[
+                  Icon(icon, size: AnSize.iconSm, color: c.inkFaint),
+                  const SizedBox(width: AnSpace.s6),
+                ],
+                Flexible(
+                  child: Text(
+                    label!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AnText.meta.copyWith(color: c.inkFaint),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Expanded(child: Container(height: AnSize.hairline, color: c.line)),
+      ],
+    );
   }
 }

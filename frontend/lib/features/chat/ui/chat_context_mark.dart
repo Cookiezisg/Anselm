@@ -1,8 +1,7 @@
 import 'package:flutter/widgets.dart';
 
-import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
-import '../../../core/design/typography.dart';
+import '../../../core/ui/an_divider.dart';
 import '../../../core/ui/icons.dart';
 import '../../../i18n/strings.g.dart';
 
@@ -26,43 +25,13 @@ class ChatContextMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
-    final label = _label(context);
+    // The labelled rule is the divider family's job (WRK-066 A-086) — this widget only owns the
+    // marker parsing + i18n. 带标线归分隔线族(A-086);本件只管 marker 解析与 i18n。
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AnSpace.s8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(child: _rule(c)),
-          // Flexible (not a fixed Padding) so a long label ellipsizes instead of forcing an overflow at a
-          // narrow width. Flexible(非定宽 Padding),窄宽时省略号而非溢出。
-          Flexible(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(AnIcons.layers, size: AnSize.iconSm, color: c.inkFaint),
-                  const SizedBox(width: AnSpace.s6),
-                  Flexible(
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AnText.meta.copyWith(color: c.inkFaint),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Expanded(child: _rule(c)),
-        ],
-      ),
+      child: AnDivider.labeled(_label(context), icon: AnIcons.layers),
     );
   }
-
-  Widget _rule(AnColors c) => Container(height: AnSize.hairline, color: c.line);
 
   /// Localized whisper text: the count parsed off the marker → "…N earlier messages folded…", or the bare
   /// "Context compacted" when there is no count, or the raw marker if it doesn't look like ours.
