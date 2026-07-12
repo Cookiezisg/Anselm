@@ -382,6 +382,21 @@ final GalleryCategory _g1Controls = GalleryCategory('基础控件 Controls', AnI
     GallerySpecimen('tooltip 覆盖 (hover 全值)', (_) => const AnChip('lexer.dart', look: AnChipLook.outlined, mono: true, copyValue: '/src/parser/lexer.dart', tooltip: '/src/parser/lexer.dart')),
     GallerySpecimen('icon-only (空标签纯示能)', (_) => const AnChip('', look: AnChipLook.outlined, copyValue: 'the-full-payload')),
   ]),
+  GalleryItem('AnKeycap 键帽', '快捷键弦控件脸:mono kbd 板三态(静息/录制/冲突);刻意不可聚焦(键盘归宿主,settings 焦点序教训)、不进 AnChip(输入控件非标签)', [
+    GallerySpecimen('idle', (_) => AnKeycap('⌘ K', onTap: () {})),
+    GallerySpecimen('recording (录制中)', (_) => const AnKeycap('按下快捷键…', state: AnKeycapState.recording)),
+    GallerySpecimen('error (冲突)', (_) => const AnKeycap('⌘ C', state: AnKeycapState.error)),
+  ]),
+  GalleryItem('AnSwatch 色板件', '「色即内容」原语(与 AnStatusDot 语义状态色两类):身份点 dot 10 / 取色格 pick 22 + 选中环 ring 档', [
+    GallerySpecimen('dot (身份点)', (context) => AnSwatch(parseHexColor(kAvatarPalette.first, context.colors.accent), size: AnSwatchSize.dot)),
+    GallerySpecimen('pick 色盘 (选中环)', (context) => Row(mainAxisSize: MainAxisSize.min, children: [
+          for (final (i, hex) in kAvatarPalette.indexed)
+            Padding(
+              padding: const EdgeInsets.only(right: AnSpace.s8),
+              child: AnSwatch(parseHexColor(hex, context.colors.accent), selected: i == 1, onTap: () {}),
+            ),
+        ]), span: true),
+  ]),
   GalleryItem('AnInlineCapsule 行内药囊', '唯一贴基线文内壳(WidgetSpan 专用):软 tone 底+tag 圆角+宿主字体;{{CEL}} 琥珀囊/[[id]] 药丸/编辑器提及皆骑它', [
     GallerySpecimen('accent (默认,[[id]] 药丸)', (context) => Text.rich(TextSpan(children: [
           TextSpan(text: '引用 ', style: AnText.reading.copyWith(color: context.colors.ink)),

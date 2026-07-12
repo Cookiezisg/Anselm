@@ -36,12 +36,6 @@ class WorkspacesPanel extends ConsumerWidget {
   }
 }
 
-/// The preset avatar palette — free-text hex on the wire, a fixed tasteful set in the UI.
-/// 预设色盘(线上自由 hex,UI 给定集)。
-const kWorkspaceColors = [
-  '#5B8DEF', '#4CAF7D', '#E2A93B', '#D96C6C', '#9B7EDE', '#5FB3C9',
-];
-
 class _Roster extends ConsumerWidget {
   const _Roster();
 
@@ -70,7 +64,7 @@ class _Roster extends ConsumerWidget {
               AnRow(
                 leadless: true,
                 labelWidget: Row(mainAxisSize: MainAxisSize.min, children: [
-                  _ColorDot(w.avatarColor),
+                  AnSwatch(parseHexColor(w.avatarColor, context.colors.accent), size: AnSwatchSize.dot),
                   const SizedBox(width: AnSpace.s8),
                   Text(w.name,
                       maxLines: 1,
@@ -101,30 +95,6 @@ class _Roster extends ConsumerWidget {
   }
 }
 
-class _ColorDot extends StatelessWidget {
-  const _ColorDot(this.hex);
-
-  final String? hex;
-  static const double size = 10;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(color: parseWorkspaceColor(hex, c.accent), shape: BoxShape.circle),
-    );
-  }
-}
-
-/// Hex → Color with an accent fallback (bad/absent strings never crash a row). 坏值回退 accent。
-Color parseWorkspaceColor(String? hex, Color fallback) {
-  final h = (hex ?? '').replaceFirst('#', '');
-  if (h.length != 6) return fallback;
-  final v = int.tryParse(h, radix: 16);
-  return v == null ? fallback : Color(0xFF000000 | v);
-}
 
 class _CreateForm extends ConsumerStatefulWidget {
   const _CreateForm();
@@ -135,7 +105,7 @@ class _CreateForm extends ConsumerStatefulWidget {
 
 class _CreateFormState extends ConsumerState<_CreateForm> {
   final TextEditingController _name = TextEditingController();
-  String _color = kWorkspaceColors.first;
+  String _color = kAvatarPalette.first;
   bool _saving = false;
   String? _error;
 
@@ -210,22 +180,12 @@ class _ColorPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    // Family swatch cells (批5c A-028 — the hand-rolled 22×22 discs retire). 族色板格。
     return Row(children: [
-      for (final hex in kWorkspaceColors)
+      for (final hex in kAvatarPalette)
         Padding(
           padding: const EdgeInsets.only(right: AnSpace.s8),
-          child: GestureDetector(
-            onTap: () => onChanged(hex),
-            child: Container(
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                color: parseWorkspaceColor(hex, c.accent),
-                shape: BoxShape.circle,
-                border: value == hex ? Border.all(color: c.ink, width: 2) : null,
-              ),
-            ),
-          ),
+          child: AnSwatch(parseHexColor(hex, c.accent), selected: value == hex, onTap: () => onChanged(hex)),
         ),
     ]);
   }

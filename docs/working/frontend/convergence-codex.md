@@ -36,6 +36,14 @@ A-032/A-033/A-034/A-036/A-038/A-046/A-048 关账(A-031 剩 AnAttachmentChip、A-
 - **拍板点记档(建造者裁决,帧供否决)**:①RefPill 字面 body13 w400→族 meta12 w300(全族一字面;帧核可读性,否决则退半降级);②copy 芯片族声=outlined(与 path chip 一致);③AnSize.capsulePadY=1 新档(行内药囊竖距,inline 脸用)。
 - 新 variant 全部 gallery-first(raw 点四形/outlined·copy·icon-only·strikethrough·tooltip 五 specimen/inline 嵌文本/jump 双态)+ tonggui 电池 7 测(dot 槽/空标签/host-agnostic/a11y/raw 尺寸/空心零帧/jump 静态)。
 
+### 批5c 落地(2026-07-12,settings 键帽/色板专批+尾项裁决)
+
+A-027/A-028 关账 + A-031 尾项改判关账 + A-045 归属改判:
+- **新原语 `AnKeycap`**(独立原语,刻意不进 AnChip——芯片=被动小标签,键帽=带 idle/recording/error 状态机的按钮级输入控件):mono kbd 板三态;**刻意不可聚焦**(不渲 Focus/AnInteractive,仅 MouseRegion+GestureDetector——settings 战役焦点序教训:录制 Focus 不容抢焦,回归钉断言子树零可聚焦节点);录制状态机/Focus/i18n 全留面板层。边宽默认 1→hairline 归档。
+- **新原语 `AnSwatch`**(「色即内容」原语,与 AnStatusDot 语义状态色两类不并件):dot 10 身份点/pick 22 取色格(badge 档)+选中环(手搓 2px→**AnSize.ring 1.5 档位归一**,记档);可点格 AnInteractive+selected 语义(不透明色盘透不出 hover 墨,环即信号)。**kAvatarPalette 六色 hex 表+parseHexColor 从 workspaces feature 迁 core**(文法 #6:feature 不私铸色表);_ColorDot/_ColorPicker 手搓删。
+- **A-031 尾项改判**:AnAttachmentChip=两行复合附件控件(字形+文件名+meta+✕+上传生命周期),非小标签芯片——几何自持合理(LTRB 全 token,右缩因 ✕ 自带命中距),判非族内,A-031 全项关账。
+- **A-045 归属改判**:批5 后三套复制件已并两套;WindowCopyButton=窗 chrome 示能(与 AnCodeEditor copy 条同类),非芯片单元——芯片壳(即便 icon-only)会给每扇机器窗头加边框重量,违轻盈;剩余「窗头 vs 编辑器条」双 chrome 记 B 轨扫尾候选。
+
 ### 批5 对抗复审整改(37-agent 六维,29 findings 证伪后去重 20 修理点全修)
 
 - **a11y 双修**(MED×2,探针实证):①AnAttachmentThumb.onRemove 曾把 ✕ 塞进像素的 ExcludeSemantics——读屏摸不到唯一移除口;重构为语义核先组、✕ 后叠 Stack 同胞活按钮,回归钉 bySemanticsLabel 锁死。②AnChip 交互径裸 Semantics 包 AnInteractive 分叉「死标签节点+丢词按钮」双节点→ MergeSemantics+ExcludeSemantics 并单节点(承旧 AnRefPill 契约)。

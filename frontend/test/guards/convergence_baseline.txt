@@ -21,6 +21,3 @@ lib/features/chat/ui/tool_interaction_gate.dart	edgeinsets-literal	1
 lib/features/documents/ui/an_document_editor.dart	token-arith	1
 lib/features/notifications/ui/notification_row.dart	edgeinsets-literal	2
 lib/features/settings/ui/panels/models_keys_panel.dart	boxdecoration	1
-lib/features/settings/ui/panels/shortcuts_panel.dart	boxdecoration	1
-lib/features/settings/ui/panels/workspaces_panel.dart	boxdecoration	2
-lib/features/settings/ui/panels/workspaces_panel.dart	raw-color	1

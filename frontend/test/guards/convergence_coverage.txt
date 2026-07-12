@@ -148,6 +148,7 @@ lib/core/ui/an_inspector_head.dart	pending
 lib/core/ui/an_interactive.dart	pending
 lib/core/ui/an_island.dart	pending
 lib/core/ui/an_json_tree.dart	pending
+lib/core/ui/an_keycap.dart	converged
 lib/core/ui/an_layer_diff.dart	pending
 lib/core/ui/an_lead_value.dart	ledgered
 lib/core/ui/an_ledger_row.dart	reviewed
@@ -190,6 +191,7 @@ lib/core/ui/an_state.dart	ledgered
 lib/core/ui/an_status_dot.dart	ledgered
 lib/core/ui/an_stepper.dart	pending
 lib/core/ui/an_sunken_panel.dart	converged
+lib/core/ui/an_swatch.dart	converged
 lib/core/ui/an_switch.dart	pending
 lib/core/ui/an_tabs.dart	pending
 lib/core/ui/an_tags.dart	pending

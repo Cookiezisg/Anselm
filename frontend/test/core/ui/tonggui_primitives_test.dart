@@ -281,6 +281,34 @@ void main() {
     });
   });
 
+  group('AnKeycap 批5c', () {
+    testWidgets('tri-state renders and taps; the keycap is NEVER focusable (host owns the keyboard)', (tester) async {
+      var taps = 0;
+      await tester.pumpWidget(_host(AnKeycap('⌘ K', onTap: () => taps++)));
+      await tester.pump();
+      await tester.tap(find.text('⌘ K'));
+      expect(taps, 1);
+      // Focus-order contract: the keycap SUBTREE hosts no Focus/AnInteractive node — the shortcuts
+      // panel's recording Focus must not compete (settings 战役教训). 键帽子树零可聚焦节点。
+      expect(find.descendant(of: find.byType(AnKeycap), matching: find.byType(Focus)), findsNothing);
+      expect(find.descendant(of: find.byType(AnKeycap), matching: find.byType(AnInteractive)), findsNothing);
+    });
+  });
+
+  group('AnSwatch 批5c', () {
+    testWidgets('pick cell speaks selected semantics; dot face is inert', (tester) async {
+      await tester.pumpWidget(_host(Row(mainAxisSize: MainAxisSize.min, children: [
+        AnSwatch(const Color(0xFF5B8DEF), selected: true, onTap: () {}),
+        const AnSwatch(Color(0xFF4CAF7D), size: AnSwatchSize.dot),
+      ])));
+      await tester.pump();
+      // ONE merged node: selected flag + real button/tap together (双节点病回归钉). 并单节点钉。
+      final node = tester.getSemantics(find.byType(AnSwatch).first);
+      expect(node, matchesSemantics(hasSelectedState: true, isSelected: true, isButton: true, hasTapAction: true, isFocusable: true, hasFocusAction: true, hasEnabledState: true, isEnabled: true));
+      expect(tester.getSize(find.byType(AnSwatch).last), const Size(AnSize.swatch, AnSize.swatch));
+    });
+  });
+
   group('AnFollowPill.jump 批5', () {
     testWidgets('static: renders label + never subscribes to the pulse clock', (tester) async {
       var taps = 0;

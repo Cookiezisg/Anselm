@@ -2,9 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/design/colors.dart';
 import '../../../../core/design/tokens.dart';
-import '../../../../core/design/typography.dart';
 import '../../../../core/shortcuts/shortcut_bindings.dart';
 import '../../../../core/shortcuts/shortcut_catalog.dart';
 import '../../../../core/ui/ui.dart';
@@ -143,7 +141,6 @@ class _ShortcutRowState extends ConsumerState<_ShortcutRow> {
   @override
   Widget build(BuildContext context) {
     final t = Translations.of(context);
-    final c = context.colors;
     final isDefault = widget.chord == kShortcutDefaults[widget.command];
 
     return AnSettingRow(
@@ -158,28 +155,17 @@ class _ShortcutRowState extends ConsumerState<_ShortcutRow> {
         onFocusChange: (has) {
           if (!has && _recording) _stop();
         },
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
+        // The keycap primitive (批5c A-027) renders the tri-state plate; the recording Focus and
+        // state machine stay HERE untouched — the keycap is deliberately non-focusable (settings
+        // 战役焦点序教训:录制 Focus 不容抢焦). 键帽只管脸;录制焦点与状态机原地不动。
+        child: AnKeycap(
+          _recording ? t.settings.shortcuts.recording : widget.chord.display,
+          state: _hint != null
+              ? AnKeycapState.error
+              : _recording
+                  ? AnKeycapState.recording
+                  : AnKeycapState.idle,
           onTap: _startRecording,
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-                horizontal: AnSpace.s12, vertical: AnSpace.s6),
-            decoration: BoxDecoration(
-              color: _recording ? c.accentSoft : c.surfaceHover,
-              borderRadius: BorderRadius.circular(AnRadius.button),
-              border: Border.all(
-                  color: _hint != null
-                      ? c.danger
-                      : _recording
-                          ? c.accent
-                          : c.line),
-            ),
-            child: Text(
-              _recording ? t.settings.shortcuts.recording : widget.chord.display,
-              style: AnText.mono.copyWith(
-                  color: _recording ? c.accent : c.ink),
-            ),
-          ),
         ),
       ),
     );
