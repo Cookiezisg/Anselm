@@ -3,6 +3,7 @@ import 'package:anselm/core/contract/entities/agent.dart';
 import 'package:anselm/core/contract/entities/handler.dart';
 import 'package:anselm/core/contract/entities/values.dart';
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/sse/frame.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/features/chat/data/chat_fixtures.dart';
@@ -85,8 +86,16 @@ void main() {
     await _stageFrames(tester);
 
     expect(find.text('send'), findsOneWidget); // spine 1 书脊一
-    expect(find.text('~'), findsOneWidget); // streaming wave 波浪
-    expect(find.textContaining('⏱ 30'), findsOneWidget);
+    // 批7 B-047: the hand-rolled '~' / '⏱ ' text glyphs retired for AnIcons.activity / AnIcons.timeout.
+    // The spine's pulse is the iconXs one (the sidestage header carries its own 16px activity icon).
+    // 手搓字形退役,换 AnIcons 线形;书脊脉冲=iconXs 那枚(侧幕头另有 16px activity)。
+    expect(
+        find.byWidgetPredicate(
+            (w) => w is Icon && w.icon == AnIcons.activity && w.size == AnSize.iconXs),
+        findsOneWidget); // streaming pulse 流式脉冲
+    expect(find.byIcon(AnIcons.timeout), findsOneWidget);
+    expect(find.text('30'), findsOneWidget); // the timeout value beside the clock 时限值
+
     expect(find.textContaining('push()'), findsOneWidget); // method 1's CLOSED body 一号方法已闭 body
     // Method 2's body is still streaming and its op hasn't closed: the in-flight body only renders
     // while NO method has closed (the rack guard), so nothing bleeds into spine 1. 批2:二号 body

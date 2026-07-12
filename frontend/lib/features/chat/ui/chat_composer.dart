@@ -73,7 +73,7 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
 
   /// TapRegion group linking the panel + composer: taps inside either never dismiss. 面板与壳同组。
   static const Object _mentionPanelGroup = 'chat-mention-panel';
-  final Debouncer _searchDebounce = Debouncer(const Duration(milliseconds: 150));
+  final Debouncer _searchDebounce = Debouncer(AnMotion.typeahead);
   List<MentionCandidate> _candidates = const [];
   int _activeIndex = 0;
   int _tokenStart = -1; // the open token's '@' index 活跃 token 的 @ 下标

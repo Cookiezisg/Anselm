@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
+import '../../../../core/model/status_state.dart';
 import '../../../../core/overlay/an_overlay.dart';
 import '../../../../core/settings/app_prefs_providers.dart';
 import '../../../../core/settings/follow_mode.dart';
@@ -13,7 +14,6 @@ import '../../../../core/ui/an_scope_badge.dart';
 import '../../../../core/ui/an_section.dart';
 import '../../../../core/ui/an_segmented.dart';
 import '../../../../core/ui/an_setting_row.dart';
-import '../../../../core/ui/an_toast.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../model/settings_catalog.dart';
 import '../../state/settings_panel_provider.dart';
@@ -51,7 +51,7 @@ class ChatPanel extends ConsumerWidget {
               onReset: () => ref.read(followModeProvider.notifier).set(FollowMode.always),
               resetLabel: t.settings.resetToDefault,
               child: SizedBox(
-                width: 300,
+                width: AnSize.ctlSlotLg,
                 child: AnSegmented<FollowMode>(
                   options: [
                     AnSegmentedOption(value: FollowMode.never, label: t.settings.stageNever),
@@ -73,7 +73,7 @@ class ChatPanel extends ConsumerWidget {
                   ref.read(stringSettingProvider(SettingsKeys.chatSendKey).notifier).reset(),
               resetLabel: t.settings.resetToDefault,
               child: SizedBox(
-                width: 260,
+                width: AnSize.ctlSlot,
                 child: AnSegmented<String>(
                   options: [
                     AnSegmentedOption(value: 'enter', label: t.settings.sendEnter),
@@ -101,7 +101,7 @@ class ChatPanel extends ConsumerWidget {
               resetLabel: t.settings.resetToDefault,
               enabled: ws.hasValue,
               child: SizedBox(
-                width: 240,
+                width: AnSize.ctlSlot,
                 child: AnSegmented<String>(
                   options: [
                     AnSegmentedOption(value: 'local', label: t.settings.webLocal),
@@ -123,11 +123,12 @@ class ChatPanel extends ConsumerWidget {
           onPressed: () =>
               ref.read(settingsPanelProvider.notifier).select(SettingsPanel.modelsKeys),
         ),
-        // The async row's error voice (load failure) — quiet meta, not a red wall. 载入失败静默行。
+        // The async row's error voice (load failure) — the settings inline-error grammar:
+        // label(13)+danger, not a red wall. 载入失败行:行内错文法 label+danger。
         if (ws.hasError)
           Padding(
             padding: const EdgeInsets.only(top: AnSpace.s8),
-            child: Text(t.settings.patchFailed, style: AnText.meta.copyWith(color: c.danger)),
+            child: Text(t.settings.patchFailed, style: AnText.label.copyWith(color: c.danger)),
           ),
       ],
     );
@@ -136,7 +137,7 @@ class ChatPanel extends ConsumerWidget {
   void _setWebFetch(WidgetRef ref, BuildContext context, String mode) {
     final t = Translations.of(context);
     ref.read(workspacePrefsProvider.notifier).setWebFetchMode(mode).catchError((_) {
-      ref.read(overlayProvider.notifier).showToast(t.settings.patchFailed, tone: AnToastTone.danger);
+      ref.read(overlayProvider.notifier).showToast(t.settings.patchFailed, tone: AnTone.danger);
     });
   }
 }

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/contract/entities/skill.dart';
 import '../../../core/model/byte_format.dart';
+import '../../../core/model/status_state.dart';
 import '../../../core/model/time_format.dart';
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
@@ -23,7 +24,6 @@ import '../../../core/ui/an_scroll_behavior.dart';
 import '../../../core/ui/an_skeleton.dart';
 import '../../../core/ui/an_state.dart';
 import '../../../core/ui/an_tags.dart';
-import '../../../core/ui/an_toast.dart';
 import '../../../core/ui/icons.dart';
 import '../../../i18n/strings.g.dart';
 import '../data/document_repository.dart';
@@ -281,7 +281,7 @@ class _SkillFormState extends ConsumerState<_SkillForm> {
   late List<String> _args;
   late bool _disableModelInvocation;
   late bool _userInvocable;
-  final _save = Debouncer(const Duration(milliseconds: 500));
+  final _save = Debouncer(AnMotion.autosave);
 
   DocumentsRepository get _repo => ref.read(documentsRepositoryProvider);
 
@@ -342,7 +342,7 @@ class _SkillFormState extends ConsumerState<_SkillForm> {
           if (!mounted) return;
           ref.invalidate(skillListProvider);
         } catch (_) {
-          if (mounted) ref.read(overlayProvider.notifier).showToast(context.t.documents.actionFailed, tone: AnToastTone.danger);
+          if (mounted) ref.read(overlayProvider.notifier).showToast(context.t.documents.actionFailed, tone: AnTone.danger);
         }
       });
 

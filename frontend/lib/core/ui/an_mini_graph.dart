@@ -166,9 +166,10 @@ class _AnMiniGraphGrowthState extends State<AnMiniGraphGrowth>
   @override
   void initState() {
     super.initState();
-    // Duration scales with the number of columns (each rank gets ~250ms), capped at 3s. 时长随列数。
+    // Duration scales with the number of columns (each rank gets ~250ms — a scaling-formula
+    // coefficient anchored here, not a tier), hard-capped at [AnMotion.revealCap]. 时长随列数(250=公式系数),封顶走档。
     final rankCount = widget.graph.nodes.isEmpty ? 1 : graphRanks(layoutGraph(widget.graph, dir: widget.dir)).values.fold<int>(0, (m, r) => r > m ? r : m) + 1;
-    final ms = (rankCount * 250).clamp(250, 3000);
+    final ms = (rankCount * 250).clamp(250, AnMotion.revealCap.inMilliseconds);
     _c = AnimationController(vsync: this, duration: Duration(milliseconds: ms));
   }
 
@@ -330,7 +331,7 @@ class _MiniEdgePainter extends CustomPainter {
       if (frac <= 0.0) continue;
       final paint = Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = AnSize.hairline * 1.5
+        ..strokeWidth = AnSize.ring
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round
         ..color = route.isBack ? back : color;

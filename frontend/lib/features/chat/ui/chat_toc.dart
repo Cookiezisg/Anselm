@@ -111,7 +111,8 @@ class _TocPanel extends ConsumerWidget {
       // Taller than a command menu on purpose: a NAVIGATION surface earns its height — more
       // scenes visible per glance, deeper anchors reachable without scrolling. 比命令菜单高是
       // 有意的:导航面配得上高度——一眼更多场次、更深锚点免滚可达。
-      constraints: const BoxConstraints(maxHeight: 560, maxWidth: 340, minWidth: 280),
+      constraints: const BoxConstraints(
+          maxHeight: AnSize.tocPaneMaxHeight, maxWidth: AnSize.tocPaneWidth, minWidth: AnSize.menuMinWidth),
       child: AnMenuSurface(
         children: switch (anchors) {
           AsyncData(value: final rows) when rows.isEmpty => [

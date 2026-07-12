@@ -45,7 +45,7 @@ class NotificationsPanel extends ConsumerWidget {
               ref.read(stringSettingProvider(SettingsKeys.notifyLevel).notifier).reset(),
           resetLabel: t.settings.resetToDefault,
           child: SizedBox(
-            width: 280,
+            width: AnSize.ctlSlotLg,
             child: AnSegmented<String>(
               options: [
                 AnSegmentedOption(value: 'all', label: t.settings.levelAll),

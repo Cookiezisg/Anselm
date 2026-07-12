@@ -390,13 +390,10 @@ Widget decideApprovalBody(BuildContext context, ToolCardState state) {
   final t = Translations.of(context);
   final c = context.colors;
 
-  // NOT_PARKED — first-decision-wins / timed out / wrong node id: a calm amber note, never red. 友好呈现。
+  // NOT_PARKED — first-decision-wins / timed out / wrong node id: a calm amber note, never red —
+  // the one soft-fail face (AnCallout warn). 友好呈现:琥珀 callout 唯一脸。
   if (state.resultText.contains(notParkedProse)) {
-    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Icon(AnIcons.info, size: AnSize.icon, color: c.warn),
-      const SizedBox(width: AnSpace.s6),
-      Expanded(child: Text(t.chat.tool.notParked, style: AnText.body.copyWith(color: c.inkMuted))),
-    ]);
+    return AnCallout(t.chat.tool.notParked, severity: AnCalloutSeverity.warn);
   }
 
   final decision = argString(state.argsText, 'decision');
@@ -444,8 +441,8 @@ Widget decideApprovalBody(BuildContext context, ToolCardState state) {
       if (flowStatus != null || counts.isNotEmpty) ...[
         const SizedBox(height: AnGap.block),
         Wrap(
-          spacing: AnSpace.s6,
-          runSpacing: AnSpace.s4,
+          spacing: AnGap.inline,
+          runSpacing: AnGap.stackTight,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             if (flowStatus != null) AnChip(flowStatus, tone: AnStatus.fromRaw(flowStatus).tone),

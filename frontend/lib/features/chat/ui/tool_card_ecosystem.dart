@@ -46,7 +46,7 @@ Widget relationsBody(BuildContext context, ToolCardState state) {
       for (final e in edges)
         Padding(
           padding: const EdgeInsets.symmetric(vertical: AnSpace.s4),
-          child: Wrap(spacing: AnSpace.s6, runSpacing: AnSpace.s4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+          child: Wrap(spacing: AnGap.inline, runSpacing: AnGap.stackTight, crossAxisAlignment: WrapCrossAlignment.center, children: [
             toolNavPill(context, kind: '${e['fromKind']}', label: '${e['fromName'] ?? e['fromId']}', id: e['fromId'] as String?),
             Text(t.chat.tool.relArrow, style: AnText.meta.copyWith(color: c.inkFaint)),
             toolNavPill(context, kind: '${e['toKind']}', label: '${e['toName'] ?? e['toId']}', id: e['toId'] as String?),
@@ -140,7 +140,7 @@ Widget mcpStatusBody(BuildContext context, ToolCardState state) {
     ]),
     if (tools.isNotEmpty) ...[
       const SizedBox(height: AnSpace.s4),
-      Wrap(spacing: AnSpace.s6, runSpacing: AnSpace.s4, children: [for (final tool in tools.take(20)) AnChip('${tool['name']}', tone: AnTone.none)]),
+      Wrap(spacing: AnGap.inline, runSpacing: AnGap.stackTight, children: [for (final tool in tools.take(20)) AnChip('${tool['name']}', tone: AnTone.none)]),
     ],
     if (!connected && (lastError ?? '').isNotEmpty) ...[
       const SizedBox(height: AnSpace.s6),
@@ -234,7 +234,7 @@ Widget modelConfigBody(BuildContext context, ToolCardState state) {
     Text(t.chat.tool.modelKeys(n: '$keys'), style: AnText.meta.copyWith(color: c.inkFaint)),
     if (avail.isNotEmpty) ...[
       const SizedBox(height: AnSpace.s6),
-      Wrap(spacing: AnSpace.s6, runSpacing: AnSpace.s4, children: [for (final m in avail.take(30)) AnChip(m, tone: AnTone.none)]),
+      Wrap(spacing: AnGap.inline, runSpacing: AnGap.stackTight, children: [for (final m in avail.take(30)) AnChip(m, tone: AnTone.none)]),
     ],
   ]);
 }

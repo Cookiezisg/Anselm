@@ -45,9 +45,6 @@ typedef ToolbarPlacement = ({Rect rect, bool below});
 
 class _AnSelectionToolbarState
     extends DocumentLayoutLayerState<AnSelectionToolbar, ToolbarPlacement?> {
-  static const double _barHeight =
-      AnSize.row + AnSpace.s4 * 2; // row + panel padding 估条高
-
   // The open URL-input session: the SNAPSHOTTED selection + placement (survives the editor's selection
   // clearing when the input field takes focus). Null = the normal format bar. URL 输入会话快照;null=常规条。
   ({DocumentSelection sel, ToolbarPlacement placement})? _linkSession;
@@ -124,7 +121,7 @@ class _AnSelectionToolbarState
     final rect = documentLayout.getRectForSelection(sel.base, sel.extent);
     if (rect == null) return null;
     // Hang above by default; flip below when above would sit off the top of the content. 默认上方,贴顶翻下。
-    return (rect: rect, below: rect.top - AnSpace.s8 - _barHeight < 0);
+    return (rect: rect, below: rect.top - AnSpace.s8 - _AnFormatBar.kHeight < 0);
   }
 
   @override
@@ -180,6 +177,12 @@ class _AnFormatBar extends StatelessWidget {
   final Document document;
   final DocumentSelection selection;
   final VoidCallback onLink;
+
+  /// The bar's SELF-REPORTED height for the placement flip: row-tall content inside the s4 vertical
+  /// inset — bound to this widget's own padding (build: `EdgeInsets.all(s4)` around row-tall buttons);
+  /// the swapped-in [_LinkInputBar] shares the identical vertical structure (`vertical: s4` + row-tall
+  /// field). 条自报高(定位翻转用):row 内容 + 上下 s4 内距——绑定本条自身 padding 结构,URL 输入脸同构。
+  static const double kHeight = AnSize.row + AnSpace.s4 * 2;
 
   // Which of the toggle attributions are applied THROUGHOUT the (single-node) selection → shown active.
   // Cross-node selections skip active-state (the toggle still works). 单节点选区内通贯的属性=激活态。
@@ -313,7 +316,7 @@ class _LinkInputBarState extends State<_LinkInputBar> {
             vertical: AnSpace.s4,
           ),
           child: SizedBox(
-            width: 280,
+            width: AnSize.linkField,
             height: AnSize.row,
             child: Row(
               children: [

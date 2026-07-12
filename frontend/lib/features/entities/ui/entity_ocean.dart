@@ -1,7 +1,10 @@
+import 'dart:math' as math;
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/design/tokens.dart';
+import '../../../core/model/status_state.dart';
 import '../../../core/overlay/an_overlay.dart';
 import '../../../core/shell/shell_chrome.dart';
 import '../../../core/ui/an_button.dart';
@@ -10,7 +13,6 @@ import '../../../core/ui/an_page.dart';
 import '../../../core/ui/an_skeleton.dart';
 import '../../../core/ui/an_state.dart';
 import '../../../core/ui/an_tabs.dart';
-import '../../../core/ui/an_toast.dart';
 import '../../../i18n/strings.g.dart';
 import '../data/entity_kind.dart';
 import '../data/entity_providers.dart';
@@ -51,7 +53,7 @@ class _EntityOceanState extends ConsumerState<EntityOcean> {
   // in-content title scrolls past the head). 海洋唯一滚动控制器,驱动浮层头面包屑折叠。
   final ScrollController _scroll = ScrollController();
   final GlobalKey _headerKey = GlobalKey();
-  double _threshold = 64; // recomputed from the measured header height 据测得头高重算
+  double _threshold = AnSpace.s64; // pre-measure fallback; recomputed from the measured header height 测量前兜底,据测得头高重算
 
   @override
   void initState() {
@@ -125,7 +127,7 @@ class _EntityOceanState extends ConsumerState<EntityOcean> {
           title: d.state.errorTitle,
           hint: d.state.errorHint,
           action: AnButton(
-            label: d.state.loadMore,
+            label: d.state.retry,
             onPressed: () => ref.invalidate(entityDetailProvider(selected)),
           ),
         ),
@@ -141,10 +143,10 @@ class _EntityOceanState extends ConsumerState<EntityOcean> {
           final box =
               _headerKey.currentContext?.findRenderObject() as RenderBox?;
           if (box != null && box.hasSize) {
-            _threshold = (box.size.height - AnSize.islandHead).clamp(
-              8.0,
-              600.0,
-            );
+            // Measured height is trusted — floor only (a giant header simply collapses later).
+            // 实测头高可信——只设下界(巨头正常晚折叠)。
+            _threshold =
+                math.max(AnSpace.s8, box.size.height - AnSize.islandHead);
           }
           ref.read(shellHeadProvider.notifier).bind(detail.name, _scrollToTop);
         });
@@ -182,7 +184,7 @@ class _EntityOceanState extends ConsumerState<EntityOcean> {
                             ref.invalidate(entityDetailProvider(detail.ref));
                             overlay.showToast(tr.firedToast(id: actId));
                           } catch (_) {
-                            overlay.showToast(tr.fireFailed, tone: AnToastTone.danger);
+                            overlay.showToast(tr.fireFailed, tone: AnTone.danger);
                           }
                         }
                       : null,

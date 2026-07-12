@@ -7,9 +7,11 @@ import '../../i18n/strings.g.dart';
 import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
+import '../model/status_state.dart';
 import 'an_button.dart';
 import 'an_interactive.dart';
 import 'icons.dart';
+import 'tone.dart';
 
 /// F3 — ONE toast (WRK-041 G6.2). A self-contained, presentational, Riverpod-FREE chip: it owns its
 /// own enter/exit animation + auto-dismiss [Timer] and calls [onDismissed] when it has finished
@@ -25,7 +27,7 @@ import 'icons.dart';
 /// (host 只管堆列 + 收到通知后移数据)。纯 widget(不耦合 controller)→ 可单独进 gallery / 单测(duration=zero=常驻)。
 /// 非锚定 / 非阻断 / 不夺焦(polite liveRegion 播报,绝不用桌面失效且会被 VoiceOver 抢读的 announce)。tone 仅左色条;
 /// 面=白岛(同 AnMenuSurface)+ 浮影。自动消隐缺省 4s;Duration.zero=常驻(仅手动关,WCAG 2.2.1 兜底)。
-enum AnToastTone { neutral, ok, warn, danger }
+/// Tone is the shared semantic [AnTone] (批7 B-035 — the toast enum was a strict subset). tone=公共 AnTone。
 
 /// An optional inline action on a toast (e.g. "Undo"). 可选行内动作(如「撤销」)。
 @immutable
@@ -35,14 +37,16 @@ class AnToastAction {
   final VoidCallback onPressed;
 }
 
-/// Auto-dismiss default. [Duration.zero] (or any non-positive) = sticky. 自动消隐缺省;非正=常驻。
-const Duration anToastDefaultDuration = Duration(seconds: 4);
+/// Auto-dismiss default — the [AnMotion.toast] tier (public alias kept so consumers keep a
+/// zero-import name). [Duration.zero] (or any non-positive) = sticky.
+/// 自动消隐缺省=AnMotion.toast 档(公开别名保留);非正=常驻。
+const Duration anToastDefaultDuration = AnMotion.toast;
 
 class AnToast extends StatefulWidget {
   const AnToast({
     required this.text,
     required this.onDismissed,
-    this.tone = AnToastTone.neutral,
+    this.tone = AnTone.none,
     this.action,
     this.duration = anToastDefaultDuration,
     super.key,
@@ -52,7 +56,7 @@ class AnToast extends StatefulWidget {
 
   /// Called AFTER the exit animation completes (the host removes the data then). 离场动画完成后回调。
   final VoidCallback onDismissed;
-  final AnToastTone tone;
+  final AnTone tone;
   final AnToastAction? action;
 
   /// Auto-dismiss delay; [Duration.zero]/non-positive = sticky. 自动消隐延时;非正=常驻。
@@ -138,14 +142,10 @@ class _AnToastState extends State<AnToast> with SingleTickerProviderStateMixin {
     super.dispose();
   }
 
-  Color _barColor(AnColors c) => switch (widget.tone) {
-    // none → inkFaint (demo --ink-3), NOT AnToneColors.none's inkMuted: the resting bar is the
-    // faintest neutral, brighter only when toned. none→inkFaint(非 AnToneColors 的 inkMuted)。
-    AnToastTone.neutral => c.inkFaint,
-    AnToastTone.ok => c.ok,
-    AnToastTone.warn => c.warn,
-    AnToastTone.danger => c.danger,
-  };
+  // none → inkFaint (demo --ink-3), NOT AnToneColors.none's inkMuted: the resting bar is the
+  // faintest neutral, brighter only when toned. none→inkFaint(非 AnToneColors 的 inkMuted)。
+  Color _barColor(AnColors c) =>
+      widget.tone == AnTone.none ? c.inkFaint : widget.tone.fg(c);
 
   @override
   Widget build(BuildContext context) {

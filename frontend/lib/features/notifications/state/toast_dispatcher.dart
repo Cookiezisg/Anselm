@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/contract/notification.dart';
+import '../../../core/design/tokens.dart';
+import '../../../core/model/status_state.dart';
 import '../../../core/overlay/an_overlay.dart';
 import '../../../core/settings/settings_prefs.dart';
 import '../../../core/router/navigation.dart';
@@ -15,7 +17,7 @@ import 'app_focus_provider.dart';
 /// for the IMPORTANT events only — a notification whose rendered [NotificationLine] tone is warn/danger
 /// (failures, crashes, approval-waits, attention). Neutral lifecycle (created/edited/…) stays SILENT —
 /// it belongs in the tray, not in your face (Microsoft "notifications should not be noisy"). Tone drives
-/// the duration: danger = sticky (Carbon: error toasts never auto-dismiss), warn = 8s. A short per-key
+/// the duration: danger = sticky (Carbon: error toasts never auto-dismiss), warn = [AnMotion.toastLong]. A short per-key
 /// dedup window swallows a storm (the same entity+event firing repeatedly) so a flapping workflow can't
 /// spam the corner — the tray + badge still carry every row. Coalescing lives HERE, never in the SSE
 /// gateway (which must never filter — the badge needs every durable truth).
@@ -55,7 +57,7 @@ class ToastDispatcher extends Notifier<void> {
     final item = NotificationItem(id: 'toast', type: s.type, payload: s.payload, createdAt: _epoch);
     final line = notificationLine(item, t); // slang global t — locale-aware, context-free
     final inboxEvent = s.payload['inbox'] == true;
-    if (line.tone == NotificationTone.neutral && !(level == 'all' && inboxEvent)) return;
+    if (line.tone == AnTone.none && !(level == 'all' && inboxEvent)) return;
 
     // Dedup by (type, entity) within the window — a flapping source can't spam the corner. 去抖防刷屏。
     final key = '${s.type}:${_entityId(s.payload)}';
@@ -84,11 +86,15 @@ class ToastDispatcher extends Notifier<void> {
 
     // The in-app toast switch (S1): danger-level errors BYPASS it (honesty over quiet). 应用内 toast
     // 开关:danger 级穿透(诚实高于安静)。
-    if (!prefs.getBool(SettingsKeys.notifyToast) && line.tone != NotificationTone.danger) return;
+    if (!prefs.getBool(SettingsKeys.notifyToast) && line.tone != AnTone.danger) return;
 
-    final tone = line.tone == NotificationTone.danger ? AnToastTone.danger : AnToastTone.warn;
-    // danger = sticky (must be seen/actioned); warn = 8s. danger 常驻 / warn 8s。
-    final duration = line.tone == NotificationTone.danger ? Duration.zero : const Duration(seconds: 8);
+    // Both sides speak AnTone now (批7 B-035/B-041) — no enum conversion, but the toast tone still clamps
+    // to warn/danger (an 'all'-level neutral inbox event pops as warn, never a toneless bar).
+    // 两侧同讲 AnTone(换算层消失),但仍钳制 warn/danger('all' 级中性事件弹 warn、不弹无调条)。
+    final tone = line.tone == AnTone.danger ? AnTone.danger : AnTone.warn;
+    // danger = sticky (must be seen/actioned); warn = the long event-notification tier (the user
+    // may be away — distinct from the 4s UI-feedback tier). danger 常驻 / warn 走事件通知长档。
+    final duration = line.tone == AnTone.danger ? Duration.zero : AnMotion.toastLong;
 
     ref.read(overlayProvider.notifier).showToast(
           text,

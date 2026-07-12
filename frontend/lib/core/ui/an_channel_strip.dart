@@ -5,6 +5,7 @@ import '../design/tokens.dart';
 import '../design/typography.dart';
 import '../../i18n/strings.g.dart';
 import 'an_interactive.dart';
+import 'an_status_dot.dart';
 import 'icons.dart';
 
 /// One parallel activity in the strip. 频道条一项。
@@ -85,11 +86,7 @@ class AnChannelStrip extends StatelessWidget {
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           Icon(AnIcons.entityKindGlyph(ch.kind), size: AnSize.iconSm, color: c.inkMuted),
           const SizedBox(width: AnSpace.s4),
-          Container(
-            width: AnSize.dot - 2,
-            height: AnSize.dot - 2,
-            decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
-          ),
+          AnStatusDot.raw(dot, size: AnSize.dotSm),
           if (ch.unread > 0) ...[
             const SizedBox(width: AnSpace.s4),
             Text('${ch.unread > 99 ? '99+' : ch.unread}',

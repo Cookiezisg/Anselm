@@ -38,7 +38,7 @@ class LogTab extends ConsumerWidget {
         kind: AnStateKind.error,
         size: AnStateSize.inset,
         title: d.state.errorTitle,
-        action: AnButton(label: d.state.loadMore, onPressed: () => ref.invalidate(logListProvider(entityRef))),
+        action: AnButton(label: d.state.retry, onPressed: () => ref.invalidate(logListProvider(entityRef))),
       ),
       data: (st) {
         if (st.rows.isEmpty) {

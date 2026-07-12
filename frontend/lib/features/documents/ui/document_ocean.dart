@@ -2,7 +2,9 @@ import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/design/tokens.dart';
 import '../../../core/entity/mention_source.dart';
+import '../../../core/model/status_state.dart';
 import '../../../core/overlay/an_overlay.dart';
 import '../../../core/perf/debouncer.dart';
 import '../../../core/shell/shell_chrome.dart';
@@ -10,7 +12,6 @@ import '../../../core/ui/an_deferred_loading.dart';
 import '../../../core/ui/an_page.dart';
 import '../../../core/ui/an_skeleton.dart';
 import '../../../core/ui/an_state.dart';
-import '../../../core/ui/an_toast.dart';
 import '../../../core/ui/entity_ref_codec.dart';
 import '../../../i18n/strings.g.dart';
 import '../data/document_repository.dart';
@@ -72,8 +73,6 @@ class DocumentOcean extends ConsumerWidget {
 /// 播种大纲 + 转发跳转。
 mixin _DocPageChrome<T extends ConsumerStatefulWidget> on ConsumerState<T> {
   final GlobalKey<AnDocumentEditorState> editorKey = GlobalKey<AnDocumentEditorState>();
-  // Header height (crumb + big title + description + tags) past which the floating breadcrumb takes over.
-  static const double _collapseAt = 120;
   String? _seededOutlineFor;
 
   /// Bind the doc name to the floating breadcrumb; tapping it scrolls the page back to the top.
@@ -85,9 +84,14 @@ mixin _DocPageChrome<T extends ConsumerStatefulWidget> on ConsumerState<T> {
   }
 
   /// The page scroll offset → collapse the floating breadcrumb once the big title has scrolled under.
+  /// Threshold = the editor's MEASURED header height (crumb + big title + desc + tags) past the island
+  /// head — the entity ocean's formula, so both oceans fold at the same moment; s64 pre-measure fallback.
+  /// 阈值=实测头高−岛头(同 entity 公式,两海洋同刻折叠);测量前兜底 s64。
   void onScroll(double offset) {
     if (!mounted) return;
-    ref.read(shellHeadProvider.notifier).setCollapsed(offset > _collapseAt);
+    final h = editorKey.currentState?.headerHeight;
+    final threshold = h == null ? AnSpace.s64 : h - AnSize.islandHead;
+    ref.read(shellHeadProvider.notifier).setCollapsed(offset > threshold);
   }
 
   /// The editor's active heading → the inspector outline's live focus (-1 = none).
@@ -135,7 +139,7 @@ class _DocEditView extends ConsumerStatefulWidget {
 }
 
 class _DocEditViewState extends ConsumerState<_DocEditView> with _DocPageChrome {
-  final _save = Debouncer(const Duration(milliseconds: 600));
+  final _save = Debouncer(AnMotion.autosave);
 
   @override
   void dispose() {
@@ -155,7 +159,7 @@ class _DocEditViewState extends ConsumerState<_DocEditView> with _DocPageChrome 
         if (!mounted) return;
         ref
             .read(overlayProvider.notifier)
-            .showToast(context.t.documents.actionFailed, tone: AnToastTone.danger);
+            .showToast(context.t.documents.actionFailed, tone: AnTone.danger);
       }
     });
   }
@@ -170,7 +174,7 @@ class _DocEditViewState extends ConsumerState<_DocEditView> with _DocPageChrome 
       ref.invalidate(openDocumentProvider(widget.id));
     } catch (_) {
       if (mounted) {
-        ref.read(overlayProvider.notifier).showToast(context.t.documents.actionFailed, tone: AnToastTone.danger);
+        ref.read(overlayProvider.notifier).showToast(context.t.documents.actionFailed, tone: AnTone.danger);
       }
     }
   }
@@ -236,7 +240,7 @@ class _SkillEditView extends ConsumerStatefulWidget {
 }
 
 class _SkillEditViewState extends ConsumerState<_SkillEditView> with _DocPageChrome {
-  final _save = Debouncer(const Duration(milliseconds: 600));
+  final _save = Debouncer(AnMotion.autosave);
 
   @override
   void dispose() {
@@ -266,7 +270,7 @@ class _SkillEditViewState extends ConsumerState<_SkillEditView> with _DocPageChr
         });
       } catch (_) {
         if (mounted) {
-          ref.read(overlayProvider.notifier).showToast(context.t.documents.actionFailed, tone: AnToastTone.danger);
+          ref.read(overlayProvider.notifier).showToast(context.t.documents.actionFailed, tone: AnTone.danger);
         }
       }
     });
@@ -294,7 +298,7 @@ class _SkillEditViewState extends ConsumerState<_SkillEditView> with _DocPageChr
       ref.invalidate(openSkillProvider(widget.name));
     } catch (_) {
       if (mounted) {
-        ref.read(overlayProvider.notifier).showToast(context.t.documents.actionFailed, tone: AnToastTone.danger);
+        ref.read(overlayProvider.notifier).showToast(context.t.documents.actionFailed, tone: AnTone.danger);
       }
     }
   }

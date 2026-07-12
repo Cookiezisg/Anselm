@@ -65,7 +65,7 @@ class AnBrandIcon extends StatelessWidget {
 
   double get _glyphSize => switch (size) {
         AnBrandSize.sm => AnSize.icon, // 16
-        AnBrandSize.md => AnSize.icon + AnSpace.s4, // 20
+        AnBrandSize.md => AnSize.iconLg, // 20
         AnBrandSize.lg => AnSize.islandHead, // 44
       };
 

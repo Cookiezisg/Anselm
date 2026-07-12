@@ -3,12 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/contract/entities/document.dart';
+import '../../../core/model/status_state.dart';
 import '../../../core/overlay/an_overlay.dart';
 import '../../../core/ui/an_button.dart';
 import '../../../core/ui/an_menu.dart';
 import '../../../core/ui/an_rail_states.dart';
 import '../../../core/ui/an_sidebar_list.dart';
-import '../../../core/ui/an_toast.dart';
 import '../../../core/ui/icons.dart';
 import '../../../i18n/strings.g.dart';
 import '../data/document_repository.dart';
@@ -253,6 +253,6 @@ class _DocumentRailState extends ConsumerState<DocumentRail> {
 
   void _toastFail() {
     if (!mounted) return;
-    ref.read(overlayProvider.notifier).showToast(context.t.documents.actionFailed, tone: AnToastTone.danger);
+    ref.read(overlayProvider.notifier).showToast(context.t.documents.actionFailed, tone: AnTone.danger);
   }
 }

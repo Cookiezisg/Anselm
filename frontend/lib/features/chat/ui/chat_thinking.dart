@@ -150,7 +150,7 @@ class _ChatThinkingState extends State<ChatThinking> {
             // COLLAPSE. Full-width child so short prose stays left-aligned (AnExpandReveal centres narrow
             // content). 正文缩进于 rail;一 reveal 通吃四态;满宽使短正文左对齐。
             Padding(
-              padding: const EdgeInsets.only(left: AnSize.dot + AnSpace.s6),
+              padding: const EdgeInsets.only(left: AnIndent.dot),
               child: AnExpandReveal(open: bodyOpen, child: SizedBox(width: double.infinity, child: bodyChild)),
             ),
           ],
@@ -160,10 +160,14 @@ class _ChatThinkingState extends State<ChatThinking> {
         // 旁白细线:圆点正下,仅贯穿正文→高度=正文实时高(流式长到 prose 钳;展开=全文;收起=无)。
         if (railVisible)
           Positioned(
-            left: AnSize.dot / 2 - AnSize.hairline / 2,
+            left: 0,
             top: headH + AnSpace.s6,
             bottom: 0,
-            child: Container(width: AnSize.hairline, color: c.line),
+            // Centred structurally inside the dot's slot — no /2 arithmetic. 结构化居中于点槽,无除法算术。
+            child: SizedBox(
+              width: AnSize.dot,
+              child: Center(child: Container(width: AnSize.hairline, color: c.line)),
+            ),
           ),
       ],
     );

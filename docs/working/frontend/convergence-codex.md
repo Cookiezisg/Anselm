@@ -36,6 +36,22 @@ A-032/A-033/A-034/A-036/A-038/A-046/A-048 关账(A-031 剩 AnAttachmentChip、A-
 - **拍板点记档(建造者裁决,帧供否决)**:①RefPill 字面 body13 w400→族 meta12 w300(全族一字面;帧核可读性,否决则退半降级);②copy 芯片族声=outlined(与 path chip 一致);③AnSize.capsulePadY=1 新档(行内药囊竖距,inline 脸用)。
 - 新 variant 全部 gallery-first(raw 点四形/outlined·copy·icon-only·strikethrough·tooltip 五 specimen/inline 嵌文本/jump 双态)+ tonggui 电池 7 测(dot 槽/空标签/host-agnostic/a11y/raw 尺寸/空心零帧/jump 静态)。
 
+### 批7b/c/d 落地(2026-07-13,B 轨扫尾·70 行关账——B 台账全清,唯余 B-021 签字)
+
+三组单作者顺序建(间距→色调·图标→动效·状态),逐站点手工+逐文件 diff 目检,61 fix+11 证伪+4 拍板全落:
+- **批7b 间距/尺寸(24 行)**:悬挂缩进走 AnIndent(emit 16→13 可见);徽章行 Wrap 文法定档(spacing=inline/runSpacing=stackTight,三处 s2→s4 可见);settings 控件槽/表单宽全走档(mcp 两表单 −80/envs tab +120/若干 ±20~50 可见,拍板记档);编辑器弹层入菜单轴+estHeight 自报;entity/document 浮层头折叠阈=实测头高替魔数;贴底 followSlop/光学微调 opticalNudge/图框 graphStage。**建造发现记档**:tool_card_search 原不 import tokens(map 假设破,analyze 抓回);B-025 map 与 7a 铸档冲突以 7a 拍板为准(tocPaneWidth)。
+- **批7c 色调/图标(11 行)**:**AnToastTone/NotificationTone 双枚举物理删除**(64+n 处改型,toast/通知全走 AnTone+AnToneColors 单源;dispatcher 保留 warn/danger 钳);**runStatusColor 平行色系删除**(fromRaw 补 started/fired/timeout/claimed 四别名+三钉,珠串/台账/exec 全走语义脸——**timeout 琥珀→红**=唯一实质语义色变,帧核签字·轻);私 alpha 清(segmented 0.5→disabled/switch→accentHover/TTC→dangerLine);微尺寸减法八站点清(dotSm/iconXs/ring 档,honesty 勾 10→8/rundown 环 9→7 帧核);handler '⏱'/'~' 文本字形→AnIcons.timeout/activity。
+- **批7d 动效/状态(25 行)**:全裸 Duration 入 AnMotion 档(stagger/revealCap/travel/wash/autosave[500→600 归并]/searchDebounce/typeahead/toast 双档;**tooltip 500→dwell 600 归并**=唯一带行为感项,帧后手感否决则退 hoverIntent);reduced 双闸落位(follow_pill/radar_sweep→orAssistive);chat_transcript 裸 MediaQuery 禁令违例修;状态件归位十二站点(手搓灰字/哨兵 '…' →AnState inset/AnDeferredLoading+骨架/AnRailStates[notifications 托盘整面化,回正];storage 哨兵串作 factory-reset 判据→null 化主刑);loadMore→retry 四处;软失败双站点→AnCallout(warn);runStatusWord 三份并一+flowrun 域词两份并一(顺带修 running-未停车 误显「等待审批」);通知名引号入 locale(en 「」→“”)。
+- **i18n**:+notifications.errorHint/nameQuoted、settings.limits.errorTitle/retry;−settings.mcp.planLoading;slang 产物入库。
+- **B-043 圆角选档立法(拍板记档)**:84 用点普查证实五档=**尺度阶梯**(半径随表面尺度爬升):行内嵌体=tag4 / 控件·行悬浮·微浮层=button8 / chrome 面·流内轻卡·中浮层=chip12 / 机器窗·图框·transcript 白岛=card16 / 模态·壳=island20;胶囊恒 pill;**同心嵌套=内半径+内缩距是唯一合法圆角算术**(an_segmented 先例);无边框洗亮覆层不入面族。唯一真出格 models_keys freeTier 手搓 card-16 白卡→AnCard(16→12+竖距 −4,帧核)。
+- 棘轮基线 16→**10 条目/12 处**;唯余 B-021(标题上距三方分裂)交用户签字。
+
+**B 轨立法四条(scout risks 收编,随批成文)**:
+1. **时长档铁律限视觉层**:widget 动效/防抖/驻留时长只用 AnMotion 档;state 层节流(300 合帧/400 持久化防抖)与导演器行为时长(stage_director 四常量=W2 拍板值)**成文豁免**(行为语义非视觉动效,注释锚定)。
+2. **曲线档**:曲线只用 AnMotion.easeOut/spring;滚动 ensureVisible 的 easeInOut 豁免(双端缓动语义);count-up/mini-graph 的**幅度缩放公式系数**原语内注释锚定豁免(防机械清零打死自适应)。
+3. **reduced 双闸选档**:装饰循环(shimmer/呼吸/雷达/转圈/打字机)=reducedOrAssistive;功能性一次揭示(展开/洗亮/入场)=reduced。
+4. **表单内联错误=label(13)+danger+top:s8;整面载入失败=AnState(error)**;行内空态=AnState inset;rail 整面四态=AnRailStates。
+
 ### 批7a 落地(2026-07-13,B 轨扫尾·铸档+原语地基)
 
 四组 scout(spacing/tone/icon-radius/motion-state)手术图定稿后先落地基,61 fix 行的档位与件一次备齐:

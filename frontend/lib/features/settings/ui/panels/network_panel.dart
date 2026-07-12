@@ -49,9 +49,9 @@ class _NetworkPanelState extends ConsumerState<NetworkPanel> {
             noProxy: _no.text.trim(),
           ));
       ref.invalidate(networkConfigProvider);
-      ref.read(overlayProvider.notifier).showToast(t.settings.network.saved, tone: AnToastTone.ok);
+      ref.read(overlayProvider.notifier).showToast(t.settings.network.saved, tone: AnTone.ok);
     } on ApiException catch (e) {
-      ref.read(overlayProvider.notifier).showToast(e.message, tone: AnToastTone.danger);
+      ref.read(overlayProvider.notifier).showToast(e.message, tone: AnTone.danger);
     } finally {
       if (mounted) setState(() => _saving = false);
     }

@@ -53,10 +53,10 @@ class AnSwitch extends StatelessWidget {
               duration: reduced ? Duration.zero : AnMotion.fast,
               width: _trackW,
               height: _trackH,
-              padding: const EdgeInsets.all(2),
+              padding: const EdgeInsets.all(AnSpace.s2),
               decoration: BoxDecoration(
                 color: value
-                    ? (hovered ? c.accent.withValues(alpha: 0.9) : c.accent)
+                    ? (hovered ? c.accentHover : c.accent)
                     : (hovered ? c.surfaceHover : c.surfaceSunken),
                 borderRadius: BorderRadius.circular(_trackH / 2),
                 border: value ? null : Border.all(color: c.line, width: AnSize.hairline),

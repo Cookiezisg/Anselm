@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../../../core/contract/notification.dart';
+import '../../../core/model/status_state.dart';
 import '../../../core/router/panel_registry.dart';
 import '../../../core/ui/icons.dart';
 import '../../../i18n/strings.g.dart';
@@ -21,7 +22,7 @@ class NotificationLine {
     this.lead,
     this.name,
     required this.trail,
-    this.tone = NotificationTone.neutral,
+    this.tone = AnTone.none,
     this.detail,
   });
 
@@ -29,13 +30,13 @@ class NotificationLine {
   final String? lead;
   final String? name;
   final String trail;
-  final NotificationTone tone;
+
+  /// The visual weight — none (most lifecycle), warn (attention / approval-pending / dependency-broken),
+  /// danger (failures / crashes). The shared semantic [AnTone] (批7 B-041 — the private enum was a strict
+  /// subset). 通知视觉权重=公共 AnTone(私有枚举是真子集)。
+  final AnTone tone;
   final String? detail;
 }
-
-/// The visual weight of a notification — neutral (most lifecycle), warn (attention / approval-pending /
-/// dependency-broken), danger (failures / crashes). Maps to icon + dot color. 通知视觉权重。
-enum NotificationTone { neutral, warn, danger }
 
 /// Project a notification row into a rendered line. Never throws — every payload key is read
 /// defensively and an unrecognized type degrades to a generic "New activity" line (open vocab +
@@ -62,15 +63,15 @@ NotificationLine notificationLine(NotificationItem n, Translations t) {
     case 'workflow.run_failed':
       return NotificationLine(
         icon: AnIcons.error, lead: kindLead, name: nameOf(), trail: nt.verb.runFailed,
-        tone: NotificationTone.danger, detail: (payload['error'] as String?)?.trim().nullIfEmpty);
+        tone: AnTone.danger, detail: (payload['error'] as String?)?.trim().nullIfEmpty);
     case 'handler.crashed':
       return NotificationLine(
         icon: AnIcons.error, lead: kindLead, name: nameOf(), trail: nt.verb.crashed,
-        tone: NotificationTone.danger);
+        tone: AnTone.danger);
     case 'workflow.approval_pending':
       return NotificationLine(
         icon: AnIcons.inbox, lead: kindLead, name: nameOf(), trail: nt.verb.waitingApproval,
-        tone: NotificationTone.warn);
+        tone: AnTone.warn);
     case 'relation.dependency_broken':
       final deps = (payload['dependents'] as List?) ?? const [];
       // No kind lead — the trail ("left N references dangling") is a full clause on its own. 无 kind lead。
@@ -78,7 +79,7 @@ NotificationLine notificationLine(NotificationItem n, Translations t) {
         icon: AnIcons.relations,
         name: nameOf(),
         trail: deps.length == 1 ? nt.depBrokenOne : nt.depBrokenMany(n: deps.length),
-        tone: NotificationTone.warn,
+        tone: AnTone.warn,
         detail: _dependentNames(deps));
   }
 
@@ -92,7 +93,7 @@ NotificationLine notificationLine(NotificationItem n, Translations t) {
       icon: ok ? AnIcons.success : AnIcons.error,
       lead: kindLead, name: nameOf(),
       trail: ok ? nt.verb.recovered : nt.verb.restartFailed,
-      tone: ok ? NotificationTone.neutral : NotificationTone.danger);
+      tone: ok ? AnTone.none : AnTone.danger);
   }
 
   // workflow.attention_changed: needsAttention true → warn "needs attention"; the self-heal clear
@@ -103,7 +104,7 @@ NotificationLine notificationLine(NotificationItem n, Translations t) {
       icon: needs ? AnIcons.warning : AnIcons.success,
       lead: kindLead, name: nameOf(),
       trail: needs ? nt.verb.needsAttention : nt.verb.recovered,
-      tone: needs ? NotificationTone.warn : NotificationTone.neutral,
+      tone: needs ? AnTone.warn : AnTone.none,
       detail: needs ? (payload['attentionReason'] as String?)?.trim().nullIfEmpty : null);
   }
 
@@ -116,7 +117,7 @@ NotificationLine notificationLine(NotificationItem n, Translations t) {
     return NotificationLine(
       icon: failed ? AnIcons.error : AnIcons.success,
       trail: failed ? nt.verb.envFailed : nt.verb.envReady,
-      tone: failed ? NotificationTone.danger : NotificationTone.neutral,
+      tone: failed ? AnTone.danger : AnTone.none,
       detail: failed ? (payload['errorMsg'] as String?)?.trim().nullIfEmpty : null);
   }
 
@@ -127,7 +128,7 @@ NotificationLine notificationLine(NotificationItem n, Translations t) {
     return NotificationLine(
       icon: AnIcons.mcp, lead: kindLead, name: nameOf(),
       trail: ok ? nt.verb.reconnected : nt.verb.reconnectFailed,
-      tone: ok ? NotificationTone.neutral : NotificationTone.danger);
+      tone: ok ? AnTone.none : AnTone.danger);
   }
 
   // ── the compositional lifecycle bulk: kind icon + name + a verb from the action ──

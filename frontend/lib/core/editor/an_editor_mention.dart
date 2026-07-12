@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:super_editor/super_editor.dart';
 
 import '../design/tokens.dart';
+import '../ui/an_menu_surface.dart';
 import '../ui/an_mention_picker.dart';
 import '../ui/an_ref_pill.dart';
 import '../ui/icons.dart';
@@ -78,7 +79,7 @@ class _AnMentionOverlayState extends DocumentLayoutLayerState<AnMentionOverlay, 
     if (anchor == null) return null;
 
     // Flip above when hanging below would overflow the content (same rule as the slash menu). 同 slash 翻转。
-    final menuHeight = (widget.items.length * AnSize.row + AnSpace.s8).clamp(0.0, AnSize.menuMaxHeight);
+    final menuHeight = AnMenuSurface.estHeight(widget.items.length).clamp(0.0, AnSize.menuMaxHeight);
     final box = context.findRenderObject() as RenderBox?;
     final layerHeight = (box != null && box.hasSize) ? box.size.height : double.infinity;
     final overflow = anchor.bottom + AnSpace.s4 + menuHeight > layerHeight;
@@ -99,7 +100,7 @@ class _AnMentionOverlayState extends DocumentLayoutLayerState<AnMentionOverlay, 
           // AnMentionPanel only caps its HEIGHT (it's normally sized to the composer's width); floating at
           // the caret it needs a bounded width or it lays out unbounded. 面板只封高,浮层处须给定宽。
           child: ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 232, maxWidth: 320),
+            constraints: const BoxConstraints(minWidth: AnSize.menuMinWidth, maxWidth: AnSize.menuMaxWidth),
             child: AnMentionPanel(items: widget.items, activeIndex: widget.activeIndex, onPick: widget.onPick),
           ),
         ),

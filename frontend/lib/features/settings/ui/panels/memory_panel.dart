@@ -64,7 +64,7 @@ class _RosterState extends ConsumerState<_Roster> {
       children: [
         Row(children: [
           SizedBox(
-            width: 200,
+            width: AnSize.ctlSlot,
             child: AnSegmented<bool>(
               options: [
                 AnSegmentedOption(value: false, label: t.settings.mem.filterAll),
@@ -165,7 +165,7 @@ class _MemoryRow extends ConsumerWidget {
     try {
       await ref.read(memoriesProvider.notifier).remove(m.name);
     } on ApiException catch (e) {
-      ref.read(overlayProvider.notifier).showToast(e.message, tone: AnToastTone.danger);
+      ref.read(overlayProvider.notifier).showToast(e.message, tone: AnTone.danger);
     }
   }
 
@@ -258,7 +258,7 @@ class _MemoryEditorState extends ConsumerState<MemoryEditor> {
     }
 
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 640),
+      constraints: const BoxConstraints(maxWidth: AnSize.formMaxWidthWide),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         // The ONE form block ×3 (批6c A-061); the Cmd+S shortcut stays wrapped TIGHT around the
         // content input (scout 风险注记). 唯一表单字段块×3;Cmd+S 贴身包不动。

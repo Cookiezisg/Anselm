@@ -15,23 +15,11 @@ import 'tool_card_nav.dart';
 // render here (a search page carries them all in memory; rendering them would be a size disaster).
 // F09 台账原语:珠串一眼看健康 + RunLedger 记录列(slim 投影,绝不渲 input/output/logs)。
 
-/// A universal run-status → semantic color (parameterized: the caller passes the raw status word). The
-/// four families' statuses fold here — ok/completed/started/fired/active→green; failed→red; timeout→
-/// amber; running/pending→accent; parked/waiting→amber; cancelled/skipped/superseded/shed→faint grey.
-/// 运行状态→语义色:四族状态统一折入。
-Color runStatusColor(AnColors c, String status) => switch (status.toLowerCase()) {
-      'ok' || 'completed' || 'started' || 'fired' || 'active' || 'done' => c.ok,
-      'failed' || 'crashed' || 'error' => c.danger,
-      'timeout' => c.warn,
-      'running' => c.accent,
-      'pending' || 'parked' || 'waiting' => c.warn, // queued/waiting → amber (matches the 等待 badge)
-      _ => c.inkFaint, // cancelled / skipped / superseded / shed / unknown
-    };
-
-/// One bead — a run's status as a colored dot with a hover tooltip (id · status · time). 一颗珠。
+/// One bead — a run's status as a semantic status dot with a hover tooltip (id · status · time). The
+/// raw→state fold is [AnStatus.fromRaw] (批7 B-037/038 — this file's parallel colour map retired). 一颗珠。
 class RunBead {
-  const RunBead({required this.color, required this.tooltip});
-  final Color color;
+  const RunBead({required this.status, required this.tooltip});
+  final AnStatus status;
   final String tooltip;
 }
 
@@ -58,7 +46,7 @@ class RunBeadStrip extends StatelessWidget {
             Tooltip(
               message: b.tooltip,
               waitDuration: AnMotion.dwell,
-              child: AnStatusDot.raw(b.color),
+              child: AnStatusDot(b.status),
             ),
         ]),
       ),
@@ -134,9 +122,6 @@ class _RunRowState extends State<_RunRow> {
     final navigable = row.tapKind != null && row.tapId != null && hasPanelFor(row.tapKind!);
     final expandable = row.expandContent != null;
 
-    // Lead colour keeps runStatusColor (this file's own map) — AnStatus.fromRaw has no
-    // started/fired/timeout aliases and would shift colours. lead 色续走 runStatusColor(fromRaw
-    // 缺别名会变色)。
     Widget lead;
     if (row.leading.fired != null) {
       // fired → a green check; not-fired (a sensor probe that didn't fire) → a hollow grey dot. fire 标记。
@@ -144,7 +129,7 @@ class _RunRowState extends State<_RunRow> {
           ? Icon(AnIcons.check, size: AnSize.iconSm, color: c.ok)
           : const AnStatusDot.raw(null, hollow: true);
     } else {
-      lead = AnStatusDot.raw(runStatusColor(c, row.leading.status));
+      lead = AnStatusDot(AnStatus.fromRaw(row.leading.status));
     }
 
     // The family ledger row (批6 A-070/072 — the hand-rolled line and its indent arithmetic retire).

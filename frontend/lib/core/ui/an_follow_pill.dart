@@ -81,10 +81,13 @@ class _AnFollowPillState extends State<AnFollowPill> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Arriving IS activity — but under reduced motion the pill never pokes (the static pose must
-    // settle); the jump face never pokes at all. MediaQuery lives here, not initState.
-    // 出现即起搏;reduced 完全不起搏;jump 脸永不起搏。
-    if (widget.kind != AnFollowPillKind.jump && !AnMotionPref.reduced(context)) _clock.poke();
+    // Arriving IS activity — but the breath pulse is a DECORATIVE loop, so it gates on
+    // reducedOrAssistive (screen readers get the static pose; the live/gate text carries the
+    // meaning); the jump face never pokes at all. MediaQuery lives here, not initState.
+    // 出现即起搏;呼吸=装饰循环走 reducedOrAssistive(读屏拿静态姿态,语义由文案承载);jump 脸永不起搏。
+    if (widget.kind != AnFollowPillKind.jump && !AnMotionPref.reducedOrAssistive(context)) {
+      _clock.poke();
+    }
   }
 
   @override
@@ -98,7 +101,7 @@ class _AnFollowPillState extends State<AnFollowPill> {
     final tone = amber ? c.warn : c.accent;
     final label =
         amber ? t.chat.stage.gatePill : t.chat.stage.livePill(name: widget.subjectName);
-    if (AnMotionPref.reduced(context)) {
+    if (AnMotionPref.reducedOrAssistive(context)) {
       // Static pose, no clock subscription — zero frames requested. 静态姿态,零帧请求。
       return _PillShell(tone: tone, label: label, swell: 0, onTap: widget.onTap);
     }

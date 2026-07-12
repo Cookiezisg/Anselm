@@ -56,10 +56,13 @@ enum AnStatus {
     'draining': AnStatus.wait,
     'listening': AnStatus.run,
     'fired': AnStatus.done,
+    'started': AnStatus.done, // trigger firing terminal-ok (trigger.md — a fired run that launched)
     'pending': AnStatus.wait,
     'waiting': AnStatus.wait,
+    'claimed': AnStatus.wait, // trigger firing in-flight (claim-transaction transient)
     'ok': AnStatus.done,
     'error': AnStatus.err,
+    'timeout': AnStatus.err, // exec/call Log-table failure terminal (CHECK lists it beside failed/cancelled)
     'future': AnStatus.idle,
   };
 }

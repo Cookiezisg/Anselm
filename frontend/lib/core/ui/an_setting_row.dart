@@ -101,7 +101,7 @@ class _AnSettingRowState extends State<AnSettingRow> {
                       ),
                       if (widget.desc != null && widget.desc!.isNotEmpty)
                         Padding(
-                          padding: const EdgeInsets.only(top: 1),
+                          padding: const EdgeInsets.only(top: AnGap.inlineHair),
                           child: Text(
                             widget.desc!,
                             style: AnText.meta.copyWith(color: c.inkMuted),

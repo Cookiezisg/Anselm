@@ -112,7 +112,7 @@ class ToolHitList extends StatefulWidget {
 }
 
 class _ToolHitListState extends State<ToolHitList> with SingleTickerProviderStateMixin {
-  static const Duration _stagger = Duration(milliseconds: 30);
+  static const Duration _stagger = AnMotion.stagger;
   static const Duration _fade = AnMotion.mid;
 
   late final AnimationController _c;
@@ -126,7 +126,8 @@ class _ToolHitListState extends State<ToolHitList> with SingleTickerProviderStat
     super.initState();
     // Total run = the last row's start (n·stagger) + its fade. 总时长=末行起点+淡入。
     final n = _visibleCount;
-    final ms = (n * _stagger.inMilliseconds + _fade.inMilliseconds).clamp(_fade.inMilliseconds, 3000);
+    final ms = (n * _stagger.inMilliseconds + _fade.inMilliseconds)
+        .clamp(_fade.inMilliseconds, AnMotion.revealCap.inMilliseconds);
     _c = AnimationController(vsync: this, duration: Duration(milliseconds: ms));
   }
 
@@ -190,7 +191,7 @@ class _ToolHitListState extends State<ToolHitList> with SingleTickerProviderStat
     final t = CurvedAnimation(parent: _c, curve: Interval(start.clamp(0, 1), end.clamp(0, 1), curve: Curves.easeOut)).value;
     return Opacity(
       opacity: t,
-      child: Transform.translate(offset: Offset(0, (1 - t) * 4), child: child),
+      child: Transform.translate(offset: Offset(0, (1 - t) * AnSpace.s4), child: child),
     );
   }
 

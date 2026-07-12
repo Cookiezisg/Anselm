@@ -86,9 +86,6 @@ Graph graphFromWorkflowOps(PartialJsonSession args) {
   return Graph(nodes: nodes, edges: edges);
 }
 
-// The embedded graph height inside a tool card (shorter than the entity-page preview). 卡内图高。
-const double _graphHeight = 200;
-
 typedef _OpCounts = ({int nodes, int edges, List<NodeKind> kinds});
 
 _OpCounts _countOps(PartialJsonSession args) {
@@ -278,7 +275,7 @@ Widget workflowBuildBody(BuildContext context, ToolCardState state) {
         // The build sense lives in act one's op ticker; the settled graph is static like the entity preview.
         // 与实体页 workflow 图 1:1:同款 AnGraphCanvas 渲染(节点卡/正交边/kind 色/auto-fit),framed 预览、卡内紧凑高;
         // 生长感在幕一 op ticker,落定图与实体预览一样静态。
-        AnGraphCanvas(graph: graph, framed: true, framedHeight: _graphHeight)
+        AnGraphCanvas(graph: graph, framed: true, framedHeight: AnSize.graphStage)
       else if (state.argsText.isNotEmpty)
         AnWindow(child: Text(state.argsText, style: AnText.code.copyWith(color: c.inkMuted))),
       runStatBarOf(context, state),

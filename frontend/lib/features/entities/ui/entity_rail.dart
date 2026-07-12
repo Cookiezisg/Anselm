@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/design/tokens.dart';
 import '../../../core/perf/debouncer.dart';
 import '../../../core/ui/an_menu.dart';
 import '../../../core/ui/an_rail_states.dart';
@@ -32,7 +33,7 @@ class EntityRail extends ConsumerStatefulWidget {
 }
 
 class _EntityRailState extends ConsumerState<EntityRail> {
-  final _debounce = Debouncer(const Duration(milliseconds: 250));
+  final _debounce = Debouncer(AnMotion.searchDebounce);
 
   @override
   void dispose() {

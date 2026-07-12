@@ -63,7 +63,7 @@ class _AnTypeToConfirmState extends State<AnTypeToConfirm> {
       decoration: BoxDecoration(
         color: c.dangerSoft,
         borderRadius: BorderRadius.circular(AnRadius.card),
-        border: Border.all(color: c.danger.withValues(alpha: 0.35)),
+        border: Border.all(color: c.dangerLine, width: AnSize.hairline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

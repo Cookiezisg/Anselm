@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/contract/conversation.dart';
+import '../../../core/design/tokens.dart';
+import '../../../core/model/status_state.dart';
 import '../../../core/perf/debouncer.dart';
 import '../../../core/overlay/an_overlay.dart';
 import '../../../core/ui/an_button.dart';
@@ -10,7 +12,6 @@ import '../../../core/ui/an_menu.dart';
 import '../../../core/ui/an_rail_states.dart';
 import '../../../core/ui/an_sidebar_list.dart';
 import '../../../core/ui/an_typewriter.dart';
-import '../../../core/ui/an_toast.dart';
 import '../../../core/ui/icons.dart';
 import '../../../i18n/strings.g.dart';
 import '../data/chat_providers.dart';
@@ -48,7 +49,7 @@ class ConversationRail extends ConsumerStatefulWidget {
 class _ConversationRailState extends ConsumerState<ConversationRail> {
   // Which row is mid-rename (its label slot becomes an AnInlineEdit). null = none. 哪行在改名中。
   String? _editingId;
-  final _debounce = Debouncer(const Duration(milliseconds: 250));
+  final _debounce = Debouncer(AnMotion.searchDebounce);
 
   @override
   void dispose() {
@@ -273,6 +274,6 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
 
   void _toastFail() {
     if (!mounted) return;
-    ref.read(overlayProvider.notifier).showToast(context.t.chat.actionFailed, tone: AnToastTone.danger);
+    ref.read(overlayProvider.notifier).showToast(context.t.chat.actionFailed, tone: AnTone.danger);
   }
 }

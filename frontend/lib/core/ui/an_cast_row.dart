@@ -6,6 +6,7 @@ import '../design/tokens.dart';
 import '../design/typography.dart';
 import '../../i18n/strings.g.dart';
 import 'an_button.dart';
+import 'an_status_dot.dart';
 import 'an_tooltip.dart';
 import 'an_freshness_halo.dart';
 import 'an_interactive.dart';
@@ -114,13 +115,7 @@ class AnCastRow extends StatelessWidget {
           SizedBox(
             width: AnSpace.s6,
             child: pulsing
-                ? Center(
-                    child: Container(
-                      width: AnSize.dot - 2,
-                      height: AnSize.dot - 2,
-                      decoration: BoxDecoration(color: c.accent, shape: BoxShape.circle),
-                    ),
-                  )
+                ? Center(child: AnStatusDot.raw(c.accent, size: AnSize.dotSm))
                 : null,
           ),
           const SizedBox(width: AnSpace.s4),

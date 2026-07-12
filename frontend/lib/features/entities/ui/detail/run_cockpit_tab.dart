@@ -59,7 +59,7 @@ class RunCockpitTab extends ConsumerWidget {
         kind: AnStateKind.error,
         size: AnStateSize.inset,
         title: d.state.errorTitle,
-        action: AnButton(label: d.state.loadMore, onPressed: () => ref.invalidate(runCockpitProvider(entityRef))),
+        action: AnButton(label: d.state.retry, onPressed: () => ref.invalidate(runCockpitProvider(entityRef))),
       ),
       data: (st) {
         final comp = st.selected;

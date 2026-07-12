@@ -69,7 +69,7 @@ class AnDocumentEditorState extends State<AnDocumentEditor> {
   // 672 wide. This surface centers a bare 672 column, and since (vw−672)/2 == (vw−720)/2 + pageX the text
   // occupies the exact same centered band. 阅读文字列与 AnPage 海洋逐像素对齐(720 列−2×24 内距=672 文字)。
   static const double _measure = AnSize.content - AnInset.pageX * 2; // 672
-  static const double _activeBand = 72; // a heading within this of the viewport top is "active" 活动带
+  static const double _activeBand = AnSpace.s64; // a heading within this of the viewport top is "active" 活动带
 
   @override
   void initState() {
@@ -102,6 +102,11 @@ class AnDocumentEditorState extends State<AnDocumentEditor> {
     return (box is RenderBox && box.hasSize) ? box.size.height : null;
   }
 
+  /// The measured header height, published for the ocean's chrome: the floating-head collapse threshold
+  /// derives from the REAL header (title + desc + tags), same source as the entity ocean's measure —
+  /// null until laid out. 实测头高(公开给海洋 chrome):浮层头折叠阈值据真实头高派生,未布局前为 null。
+  double? get headerHeight => _editorRevealOffset();
+
   /// Scroll so the index-th heading sits near the viewport top. Page target = the editor's reveal offset
   /// + the heading's content-space Y. 滚到第 index 个标题:页目标=编辑器 reveal 位+标题内容 Y。
   void scrollToHeading(int index) {
@@ -110,6 +115,8 @@ class AnDocumentEditorState extends State<AnDocumentEditor> {
     final top = _editorKey.currentState?.contentTopForNode(ids[index]);
     final editorTop = _editorRevealOffset();
     if (top == null || editorTop == null) return;
+    // s16 = breathing room left above the heading after the jump (scroll-coordinate composition, not a
+    // spacing tier). s16=跳转后标题上方呼吸位(滚动坐标合成,非档位)。
     final target = (editorTop + top - AnSpace.s16).clamp(0.0, _scroll.position.maxScrollExtent);
     _scroll.animateTo(target, duration: AnMotion.mid, curve: Curves.easeOutCubic);
   }
@@ -144,9 +151,9 @@ class AnDocumentEditorState extends State<AnDocumentEditor> {
     // 单一外层 CustomScrollView:shrinkWrap 的 SuperEditor 是 sliver(盒宿主嵌不了——固定头时代的约束),
     // 头与编辑器同列同滚,光标跟随自动滚驱动本滚动;720 阅读列=两 sliver 对称算距。
     return LayoutBuilder(builder: (context, box) {
-      final side = box.maxWidth > _measure + AnSpace.s24 * 2
+      final side = box.maxWidth > AnSize.content // ≡ _measure + 2×pageX 恒等
           ? (box.maxWidth - _measure) / 2
-          : AnSpace.s24;
+          : AnInset.pageX;
       final hpad = EdgeInsets.symmetric(horizontal: side);
       return CustomScrollView(
         controller: _scroll,

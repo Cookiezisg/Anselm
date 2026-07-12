@@ -40,11 +40,11 @@ void main() {
 
   test('toast carries tone / action / duration', () {
     ctrl().showToast('a',
-        tone: AnToastTone.danger,
+        tone: AnTone.danger,
         duration: Duration.zero,
         action: AnToastAction(label: 'undo', onPressed: () {}));
     final t = st().toasts.single;
-    expect(t.tone, AnToastTone.danger);
+    expect(t.tone, AnTone.danger);
     expect(t.duration, Duration.zero);
     expect(t.action?.label, 'undo');
   });

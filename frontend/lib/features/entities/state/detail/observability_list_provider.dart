@@ -141,15 +141,11 @@ class FiringListNotifier extends AsyncNotifier<LogListState>
   }
 }
 
-/// A firing status → status-dot mapping (the 6 sealed dispositions aren't in [AnStatus.fromRaw]'s alias
-/// table, so map them explicitly): started = ran (ok); pending/claimed = in-flight (wait); the drops
-/// (skipped/superseded/shed) = idle. firing 状态→点:started 绿、在途黄、被丢灰。
-AnStatus firingDot(FiringStatus s) => switch (s) {
-      FiringStatus.started => AnStatus.done,
-      FiringStatus.pending || FiringStatus.claimed => AnStatus.wait,
-      FiringStatus.skipped || FiringStatus.superseded || FiringStatus.shed => AnStatus.idle,
-      FiringStatus.unknown => AnStatus.idle,
-    };
+/// A firing status → status-dot fold — [AnStatus.fromRaw] carries started/claimed now (批7 B-037), so
+/// the explicit parallel switch retired value-identical: started = ran (done); pending/claimed =
+/// in-flight (wait); the drops (skipped/superseded/shed) and unknown fold to idle.
+/// firing 状态→点:并入 fromRaw(别名齐后逐值恒等;被丢/未知折 idle)。
+AnStatus firingDot(FiringStatus s) => AnStatus.fromRaw(s.name);
 
 final activationListProvider = AsyncNotifierProvider.autoDispose
     .family<ActivationListNotifier, LogListState, ({String triggerId, bool firedOnly})>(

@@ -57,8 +57,8 @@ class WorkflowStageBody extends ConsumerWidget {
         Opacity(
           // The resting old truth reads as the stratum (R-5) — full ink returns with the first op.
           // 静置旧图=地层(R-5);首 op 后回全墨。
-          opacity: showsOld ? 0.55 : 1,
-          child: AnGraphCanvas(graph: graph, framed: true, framedHeight: 190, toolbar: false),
+          opacity: showsOld ? AnOpacity.stratum : 1,
+          child: AnGraphCanvas(graph: graph, framed: true, framedHeight: AnSize.graphStage, toolbar: false),
         ),
       ],
       ..._discriminantDrawer(context, c, t, session),

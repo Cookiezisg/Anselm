@@ -38,7 +38,6 @@ class ChatTurn extends StatelessWidget {
   // The user bubble caps at 80% of the reading column, so a long turn wraps rather than spanning
   // edge-to-edge (which would read like an assistant turn). 气泡上限=阅读列 80%,超了换行、不占满宽。
   static const double _userMaxFraction = 0.8;
-  static const double _sendingOpacity = 0.55;
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +53,7 @@ class ChatTurn extends StatelessWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: AnSize.content * _userMaxFraction),
         child: Opacity(
-          opacity: sending ? _sendingOpacity : 1,
+          opacity: sending ? AnOpacity.sending : 1,
           child: AnSunkenPanel(inset: AnInset.bubble, child: child),
         ),
       ),

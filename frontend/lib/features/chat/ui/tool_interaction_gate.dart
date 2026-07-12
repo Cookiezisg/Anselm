@@ -157,7 +157,7 @@ class _ToolInteractionGateState extends State<ToolInteractionGate> {
         decoration: BoxDecoration(
           color: c.surface,
           borderRadius: BorderRadius.circular(AnRadius.card),
-          border: Border.all(color: borderColor),
+          border: Border.all(color: borderColor, width: AnSize.hairline),
         ),
         padding: AnInset.card,
         child: Column(

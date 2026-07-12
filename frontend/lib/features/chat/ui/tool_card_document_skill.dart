@@ -80,12 +80,9 @@ Widget documentBody(BuildContext context, ToolCardState state) {
   final content = state.argsSession.closedStringAt(['content']) ?? '';
 
   if (result.isNotEmpty && !_docSucceeded(result)) {
-    // Soft failure — the backend's English prompt, framed calmly (not red). 软失败:后端英文提示,琥珀。
-    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Icon(AnIcons.info, size: AnSize.icon, color: c.warn),
-      const SizedBox(width: AnSpace.s6),
-      Expanded(child: Text(result, style: AnText.body.copyWith(color: c.inkMuted))),
-    ]);
+    // Soft failure — the backend's English prompt, framed calmly (not red): the one soft-fail face
+    // (AnCallout warn, same as entity_get_bodies ×6). 软失败:后端英文提示,琥珀 callout 唯一脸。
+    return AnCallout(result, severity: AnCalloutSeverity.warn);
   }
   return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
     toolIntent(context, state),

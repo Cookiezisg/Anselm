@@ -10,6 +10,7 @@ import 'dart:ui' as ui;
 import 'package:anselm/core/design/colors.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/design/typography.dart';
+import 'package:anselm/core/model/status_state.dart';
 import 'package:anselm/core/overlay/an_overlay.dart';
 import 'package:anselm/core/ui/an_toast.dart';
 import 'package:anselm/i18n/strings.g.dart';
@@ -71,11 +72,11 @@ void main() {
     ));
     await tester.pump();
     // Fire (oldest first) — newest ends up on top of the top-anchored stack. 旧→新弹,最新居顶。
-    ctrl.showToast('工作流「nightly_sync」运行失败', tone: AnToastTone.danger, duration: Duration.zero,
+    ctrl.showToast('工作流「nightly_sync」运行失败', tone: AnTone.danger, duration: Duration.zero,
         action: AnToastAction(label: '查看', onPressed: () {}));
-    ctrl.showToast('工作流「deploy_prod」等待审批', tone: AnToastTone.warn, duration: Duration.zero,
+    ctrl.showToast('工作流「deploy_prod」等待审批', tone: AnTone.warn, duration: Duration.zero,
         action: AnToastAction(label: '查看', onPressed: () {}));
-    ctrl.showToast('处理器「api_host」崩溃了', tone: AnToastTone.danger, duration: Duration.zero);
+    ctrl.showToast('处理器「api_host」崩溃了', tone: AnTone.danger, duration: Duration.zero);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400)); // enters settle
 

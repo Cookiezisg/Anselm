@@ -30,13 +30,15 @@ class _AnRadarSweepState extends State<AnRadarSweep> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (!AnMotionPref.reduced(context)) _clock.poke();
+    // Sweep = decorative loop → reducedOrAssistive gate (static ring for screen readers too).
+    // 扫光=装饰循环→reducedOrAssistive 门控(读屏同拿静态环)。
+    if (!AnMotionPref.reducedOrAssistive(context)) _clock.poke();
   }
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    if (AnMotionPref.reduced(context)) {
+    if (AnMotionPref.reducedOrAssistive(context)) {
       return _Ring(size: widget.size, phase: null, tone: c.accent, soft: c.accentSoft);
     }
     return RepaintBoundary(

@@ -12,7 +12,6 @@ import '../../../../core/ui/an_deferred_loading.dart';
 import '../../../../core/ui/an_row.dart';
 import '../../../../core/ui/an_skeleton.dart';
 import '../../../../core/ui/an_state.dart';
-import '../../../../core/ui/an_toast.dart';
 import '../../../../core/ui/an_version_diff.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../data/entity_format.dart';
@@ -116,7 +115,7 @@ class VersionTab extends ConsumerWidget {
                           } catch (_) {
                             ref
                                 .read(overlayProvider.notifier)
-                                .showToast(d.state.setActiveFailed, tone: AnToastTone.danger);
+                                .showToast(d.state.setActiveFailed, tone: AnTone.danger);
                           }
                         },
                 ),

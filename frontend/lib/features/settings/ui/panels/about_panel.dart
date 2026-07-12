@@ -23,8 +23,10 @@ class AboutPanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = Translations.of(context);
-    final engine = ref.watch(backendVersionProvider).value ?? '…';
-    final app = ref.watch(appVersionProvider).value ?? '…';
+    // Local sidecar answers sub-threshold — an empty meta for a frame is honest, a '…' sentinel is
+    // theater (AnDeferredLoading philosophy). 本地 sidecar 亚阈返回:空串诚实,'…' 哨兵是剧场。
+    final engine = ref.watch(backendVersionProvider).value ?? '';
+    final app = ref.watch(appVersionProvider).value ?? '';
     final check = ref.watch(updateCheckProvider);
 
     return Column(
@@ -72,7 +74,7 @@ class AboutPanel extends ConsumerWidget {
                   if (context.mounted) {
                     ref
                         .read(overlayProvider.notifier)
-                        .showToast(t.settings.about.copied, tone: AnToastTone.ok);
+                        .showToast(t.settings.about.copied, tone: AnTone.ok);
                   }
                 },
               ),

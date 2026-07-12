@@ -15,17 +15,23 @@ import 'tool_card_nav.dart';
 // output windows → a double-ended-capped log drawer → a provenance line) + the ProvenanceLine (where
 // this run came from: navigable conversation/trigger, mono-only message/firing/node). F09 卷宗。
 
+/// The ok/failed/timeout/cancelled execution status → its word — the ONE map (B-074: the dossier head,
+/// its receipt and exec's invoke stat bar carried three verbatim copies). Lives in chat/ui because the
+/// words are chat.tool.* keys (core primitives must not reach into feature namespaces, 批6a).
+/// 执行状态词唯一映射(卷宗头/回执/invoke 条同词);词表在 chat.tool.*,故 helper 落 chat/ui 层。
+String runStatusWord(Translations t, String status) => switch (status) {
+      'ok' => t.chat.tool.runCompleted,
+      'failed' => t.chat.tool.failed,
+      'timeout' => t.chat.tool.agentTimeout,
+      'cancelled' => t.chat.tool.runCancelled,
+      _ => status,
+    };
+
 /// The record status → elapsed receipt: `{status} · {elapsed}`; failed/timeout → danger (auto-expand —
 /// you opened a failed record to triage). null when unparseable. 卷宗回执:状态·耗时,失败/超时红。
 ToolReceipt? statusElapsedReceipt(Translations t, String? status, int? elapsedMs) {
   if (status == null || status.isEmpty) return null;
-  final word = switch (status) {
-    'ok' => t.chat.tool.runCompleted,
-    'failed' => t.chat.tool.failed,
-    'timeout' => t.chat.tool.agentTimeout,
-    'cancelled' => t.chat.tool.runCancelled,
-    _ => status,
-  };
+  final word = runStatusWord(t, status);
   final elapsed = elapsedMs != null ? fmtElapsed(elapsedMs) : null;
   final txt = elapsed == null ? word : '$word · $elapsed';
   final danger = status == 'failed' || status == 'timeout';
@@ -77,7 +83,7 @@ class RunDossier extends StatelessWidget {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
       // Head: status badge · head chips (method/tool) · triggeredBy. 头条(词章行)。
       Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s4, crossAxisAlignment: WrapCrossAlignment.center, children: [
-        AnChip(_statusWord(t), tone: AnStatus.fromRaw(status).tone),
+        AnChip(runStatusWord(t, status), tone: AnStatus.fromRaw(status).tone),
         ...headChips,
         if (triggeredBy != null && triggeredBy!.isNotEmpty) Text(triggeredBy!, style: AnText.meta.copyWith(color: c.inkFaint)),
       ]),
@@ -106,14 +112,6 @@ class RunDossier extends StatelessWidget {
       ],
     ]);
   }
-
-  String _statusWord(Translations t) => switch (status) {
-        'ok' => t.chat.tool.runCompleted,
-        'failed' => t.chat.tool.failed,
-        'timeout' => t.chat.tool.agentTimeout,
-        'cancelled' => t.chat.tool.runCancelled,
-        _ => status,
-      };
 
   String _span() {
     final s = fmtStamp(startedAt);

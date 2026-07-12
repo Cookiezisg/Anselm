@@ -1,6 +1,6 @@
 import 'package:anselm/core/contract/notification.dart';
+import 'package:anselm/core/model/status_state.dart';
 import 'package:anselm/core/overlay/an_overlay.dart';
-import 'package:anselm/core/ui/an_toast.dart';
 import 'package:anselm/features/notifications/data/notification_fixture.dart';
 import 'package:anselm/features/notifications/data/notification_providers.dart';
 import 'package:anselm/features/notifications/data/os_notifier.dart';
@@ -47,7 +47,7 @@ void main() {
     repo.emit(_n('workflow.run_failed', {'name': 'w', 'workflowId': 'wf_1', 'error': 'boom'}));
     await pumpEventQueue();
     expect(toasts(c).length, 1);
-    expect(toasts(c).single.tone, AnToastTone.danger);
+    expect(toasts(c).single.tone, AnTone.danger);
     expect(toasts(c).single.duration, Duration.zero); // sticky
     expect(toasts(c).single.text, contains('w'));
   });
@@ -56,7 +56,7 @@ void main() {
     final (c, repo) = setup();
     repo.emit(_n('workflow.approval_pending', {'name': 'deploy', 'workflowId': 'wf_2'}));
     await pumpEventQueue();
-    expect(toasts(c).single.tone, AnToastTone.warn);
+    expect(toasts(c).single.tone, AnTone.warn);
     expect(toasts(c).single.duration, const Duration(seconds: 8));
   });
 

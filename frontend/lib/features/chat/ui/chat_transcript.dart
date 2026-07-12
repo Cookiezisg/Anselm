@@ -169,7 +169,9 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
         .clamp(pos.minScrollExtent, pos.maxScrollExtent)
         .toDouble());
     _highlightTimer?.cancel();
-    _highlightTimer = Timer(const Duration(milliseconds: 2200), () {
+    // Same tier as _JumpHighlight's fade — the wash dwell and its fade are one gesture.
+    // 与 _JumpHighlight 同档同值:洗亮驻留与褪色一体。
+    _highlightTimer = Timer(AnMotion.wash, () {
       if (mounted) setState(() => _highlightId = null);
     });
   }
@@ -352,10 +354,12 @@ class _JumpHighlight extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final reduced = MediaQuery.disableAnimationsOf(context);
+    // Wash = a functional one-shot reveal → the plain `reduced` gate is the right tier.
+    // 洗亮=功能性一次揭示→reduced 档正确。
+    final reduced = AnMotionPref.reduced(context);
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 1, end: 0),
-      duration: reduced ? Duration.zero : const Duration(milliseconds: 2200),
+      duration: reduced ? Duration.zero : AnMotion.wash,
       // Hold for ~1s (the flat half), then ease out. 前半驻留,后半淡出。
       curve: const Interval(0.45, 1, curve: Curves.easeOut),
       builder: (context, wash, child) => DecoratedBox(

@@ -223,7 +223,9 @@ class _Translations$notifications$zh_CN extends Translations$notifications$en {
 	@override String depBrokenMany({required Object n}) => '导致 ${n} 处引用悬空';
 	@override String get view => '查看';
 	@override String get errorTitle => '通知加载失败';
+	@override String get errorHint => '本地引擎没有返回通知列表。';
 	@override String get retry => '重试';
+	@override String nameQuoted({required Object name}) => '「${name}」';
 }
 
 // Path: ref
@@ -1520,7 +1522,6 @@ class _Translations$settings$mcp$zh_CN extends Translations$settings$mcp$en {
 	@override String get requiredMark => '必填';
 	@override String get oauthConnect => '连接并授权';
 	@override String get oauthWaiting => '等待浏览器授权…(最长 120 秒)';
-	@override String get planLoading => '正在解析安装计划…';
 	@override String get tabTools => '工具';
 	@override String get tabCalls => '调用历史';
 	@override String get tabStderr => 'stderr';
@@ -1566,6 +1567,8 @@ class _Translations$settings$limits$zh_CN extends Translations$settings$limits$e
 	@override String get resetAllTitle => '恢复全部默认限额?';
 	@override String get patchFailed => '保存失败';
 	@override String get modified => '已修改';
+	@override String get errorTitle => '限额加载失败';
+	@override String get retry => '重试';
 }
 
 // Path: settings.network
@@ -2792,7 +2795,9 @@ extension on TranslationsZhCn {
 			'notifications.depBrokenMany' => ({required Object n}) => '导致 ${n} 处引用悬空',
 			'notifications.view' => '查看',
 			'notifications.errorTitle' => '通知加载失败',
+			'notifications.errorHint' => '本地引擎没有返回通知列表。',
 			'notifications.retry' => '重试',
+			'notifications.nameQuoted' => ({required Object name}) => '「${name}」',
 			'ref.function' => '函数',
 			'ref.handler' => '处理器',
 			'ref.workflow' => '工作流',
@@ -3122,10 +3127,10 @@ extension on TranslationsZhCn {
 			'documents.deleteDocTitle' => '删除这个页面?',
 			'documents.deleteDocBody' => ({required Object name}) => '“${name}”及其下嵌套的所有内容都会被删除。',
 			'documents.deleteSkillTitle' => '删除这个技能?',
-			'documents.deleteSkillBody' => ({required Object name}) => '技能“${name}”会被删除。',
-			'documents.actionFailed' => '操作失败',
 			_ => null,
 		} ?? switch (path) {
+			'documents.deleteSkillBody' => ({required Object name}) => '技能“${name}”会被删除。',
+			'documents.actionFailed' => '操作失败',
 			'documents.props.title' => '属性',
 			'documents.props.name' => '名称',
 			'documents.props.description' => '描述',
@@ -3384,7 +3389,6 @@ extension on TranslationsZhCn {
 			'settings.mcp.requiredMark' => '必填',
 			'settings.mcp.oauthConnect' => '连接并授权',
 			'settings.mcp.oauthWaiting' => '等待浏览器授权…(最长 120 秒)',
-			'settings.mcp.planLoading' => '正在解析安装计划…',
 			'settings.mcp.tabTools' => '工具',
 			'settings.mcp.tabCalls' => '调用历史',
 			'settings.mcp.tabStderr' => 'stderr',
@@ -3412,6 +3416,8 @@ extension on TranslationsZhCn {
 			'settings.limits.resetAllTitle' => '恢复全部默认限额?',
 			'settings.limits.patchFailed' => '保存失败',
 			'settings.limits.modified' => '已修改',
+			'settings.limits.errorTitle' => '限额加载失败',
+			'settings.limits.retry' => '重试',
 			'settings.network.section' => '网络',
 			'settings.network.proxyHint' => '出站代理——AI 请求经它到达 LLM / MCP / 搜索服务',
 			'settings.network.httpProxy' => 'HTTP 代理',

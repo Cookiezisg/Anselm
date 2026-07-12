@@ -4,6 +4,7 @@ import '../contract/todo.dart';
 import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
+import 'an_status_dot.dart';
 import 'icons.dart';
 
 /// The TASK RING (WRK-061 §6-②) — the rundown's progress brow: a small arc ring filling
@@ -94,7 +95,7 @@ class AnRundownList extends StatelessWidget {
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             SizedBox(
               width: AnSize.iconSm,
-              height: AnSize.iconSm + 2,
+              height: AnSize.icon,
               child: Center(child: _lead(c, todo.status)),
             ),
             const SizedBox(width: AnSpace.s6),
@@ -119,19 +120,9 @@ class AnRundownList extends StatelessWidget {
   }
 
   Widget _lead(AnColors c, String status) => switch (status) {
-        'completed' => Icon(AnIcons.check, size: AnSize.iconSm - 2, color: c.inkFaint),
-        'in_progress' => Container(
-            width: AnSize.dot,
-            height: AnSize.dot,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: c.accent),
-          ),
-        _ => Container(
-            width: AnSize.dot + 2,
-            height: AnSize.dot + 2,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: c.inkFaint, width: 1),
-            ),
-          ),
+        'completed' => Icon(AnIcons.check, size: AnSize.iconXs, color: c.inkFaint),
+        'in_progress' => AnStatusDot.raw(c.accent),
+        // hollow + null colour = the faint ring (pending marker). 空心无色即 faint 环(待办记号)。
+        _ => const AnStatusDot.raw(null, hollow: true),
       };
 }

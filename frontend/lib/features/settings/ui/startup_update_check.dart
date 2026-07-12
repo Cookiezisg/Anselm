@@ -1,10 +1,10 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/model/status_state.dart';
 import '../../../core/overlay/an_overlay.dart';
 import '../../../core/settings/app_prefs_providers.dart';
 import '../../../core/settings/settings_prefs.dart';
-import '../../../core/ui/an_toast.dart';
 import '../../../i18n/strings.g.dart';
 import '../state/update_check_provider.dart';
 
@@ -33,7 +33,7 @@ class _StartupUpdateCheckState extends ConsumerState<StartupUpdateCheck> {
       if (!mounted || s.outcome != UpdateOutcome.available) return;
       ref.read(overlayProvider.notifier).showToast(
             t.settings.about.updateAvailable(v: s.latest),
-            tone: AnToastTone.neutral,
+            tone: AnTone.none,
           );
     });
   }

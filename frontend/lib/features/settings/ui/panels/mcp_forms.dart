@@ -86,7 +86,7 @@ class _McpManualFormState extends ConsumerState<McpManualForm> {
     final c = context.colors;
     final stdio = _transport == 'stdio';
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 560),
+      constraints: const BoxConstraints(maxWidth: AnSize.formMaxWidth),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         // The ONE form block (批6c A-059 — the private «label above» dies; the quiet 13 label
         // steps up to the family face). 唯一表单字段块(私排退役,字面升族脸)。
@@ -95,7 +95,7 @@ class _McpManualFormState extends ConsumerState<McpManualForm> {
         AnFormField(
           label: t.settings.mcp.transport,
           child: SizedBox(
-            width: 380,
+            width: AnSize.ctlSlotXl,
             child: AnSegmented<String>(
             options: const [
               AnSegmentedOption(value: 'stdio', label: 'stdio'),
@@ -175,12 +175,12 @@ class _McpImportFormState extends ConsumerState<McpImportForm> {
           .importJson(_json.text, overwrite: _overwrite);
       overlay.showToast(
           t.settings.mcp.importResult(n: r.imported.length, m: r.skipped.length),
-          tone: AnToastTone.ok);
+          tone: AnTone.ok);
       if (mounted) ref.read(settingsDetailProvider.notifier).pop();
     } on FormatException {
-      overlay.showToast(t.settings.mcp.importInvalid, tone: AnToastTone.danger);
+      overlay.showToast(t.settings.mcp.importInvalid, tone: AnTone.danger);
     } on ApiException catch (e) {
-      overlay.showToast(e.message, tone: AnToastTone.danger);
+      overlay.showToast(e.message, tone: AnTone.danger);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -191,7 +191,7 @@ class _McpImportFormState extends ConsumerState<McpImportForm> {
     final t = Translations.of(context);
     final c = context.colors;
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 640),
+      constraints: const BoxConstraints(maxWidth: AnSize.formMaxWidthWide),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         AnInput(
           controller: _json,
@@ -240,7 +240,6 @@ class _McpMarketState extends ConsumerState<McpMarket> {
   @override
   Widget build(BuildContext context) {
     final t = Translations.of(context);
-    final c = context.colors;
     final entries = ref.watch(mcpRegistryProvider).value ?? const <McpRegistryEntry>[];
     final installed = {
       for (final s in ref.watch(mcpServersProvider).value ?? const <McpServerStatus>[]) s.name,
@@ -271,10 +270,7 @@ class _McpMarketState extends ConsumerState<McpMarket> {
               ref.read(settingsDetailProvider.notifier).push('mcpInstall', id: e.name),
         ),
       if (rows.isEmpty)
-        Padding(
-          padding: const EdgeInsets.only(top: AnSpace.s16),
-          child: Text(t.settings.mcp.empty, style: AnText.label.copyWith(color: c.inkFaint)),
-        ),
+        AnState(kind: AnStateKind.empty, size: AnStateSize.inset, title: t.settings.mcp.empty),
     ]);
   }
 }
@@ -333,7 +329,7 @@ class _McpInstallFormState extends ConsumerState<McpInstallForm> {
     final plan = planAsync.value;
 
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 560),
+      constraints: const BoxConstraints(maxWidth: AnSize.formMaxWidth),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(widget.fullName, style: AnText.mono.copyWith(color: c.ink)),
         const SizedBox(height: AnSpace.s8),
@@ -345,7 +341,8 @@ class _McpInstallFormState extends ConsumerState<McpInstallForm> {
                   : '${planAsync.error}',
               style: AnText.label.copyWith(color: c.danger))
         else if (plan == null)
-          Text(t.settings.mcp.planLoading, style: AnText.label.copyWith(color: c.inkMuted))
+          // :plan resolving = the deferred-skeleton idiom, not a prose sentinel. 取回中走骨架。
+          const AnDeferredLoading(child: AnSkeleton.lines(3))
         else ...[
           Row(children: [
             AnChip(plan.transport),

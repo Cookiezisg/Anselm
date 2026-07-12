@@ -127,7 +127,7 @@ class _ServerRow extends ConsumerWidget {
             } on ApiException catch (e) {
               ref
                   .read(overlayProvider.notifier)
-                  .showToast(e.message, tone: AnToastTone.danger);
+                  .showToast(e.message, tone: AnTone.danger);
             }
           },
         ),
@@ -164,7 +164,7 @@ Future<void> deleteMcpServer(BuildContext context, WidgetRef ref, String name) a
     await ref.read(mcpServersProvider.notifier).remove(name);
     ref.read(settingsDetailProvider.notifier).pop();
   } on ApiException catch (e) {
-    ref.read(overlayProvider.notifier).showToast(e.message, tone: AnToastTone.danger);
+    ref.read(overlayProvider.notifier).showToast(e.message, tone: AnTone.danger);
   }
 }
 
@@ -213,7 +213,7 @@ class _McpServerDetailState extends ConsumerState<McpServerDetail> {
             try {
               await ref.read(mcpServersProvider.notifier).reconnect(s.name);
             } on ApiException catch (e) {
-              ref.read(overlayProvider.notifier).showToast(e.message, tone: AnToastTone.danger);
+              ref.read(overlayProvider.notifier).showToast(e.message, tone: AnTone.danger);
             }
           },
         ),
@@ -236,7 +236,7 @@ class _McpServerDetailState extends ConsumerState<McpServerDetail> {
       const SizedBox(height: AnSpace.s16),
       // AnTabs' pane stack needs a bounded height inside the document flow. tab 区在文档流中定高。
       SizedBox(
-          height: 480,
+          height: AnSize.tabPane,
           child: AnTabs(
         value: _tab,
         onSelect: (k) => setState(() => _tab = k),
@@ -268,12 +268,8 @@ class _ToolsPane extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = Translations.of(context);
-    final c = context.colors;
     if (tools.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.only(top: AnSpace.s16),
-        child: Text(t.settings.mcp.noTools, style: AnText.label.copyWith(color: c.inkFaint)),
-      );
+      return AnState(kind: AnStateKind.empty, size: AnStateSize.inset, title: t.settings.mcp.noTools);
     }
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       const SizedBox(height: AnSpace.s8),
@@ -300,10 +296,7 @@ class _CallsPane extends ConsumerWidget {
     final c = context.colors;
     final page = ref.watch(mcpCallsProvider(name)).value;
     if (page == null || page.calls.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.only(top: AnSpace.s16),
-        child: Text(t.settings.mcp.noCalls, style: AnText.label.copyWith(color: c.inkFaint)),
-      );
+      return AnState(kind: AnStateKind.empty, size: AnStateSize.inset, title: t.settings.mcp.noCalls);
     }
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       const SizedBox(height: AnSpace.s8),
@@ -330,17 +323,13 @@ class _StderrPane extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = Translations.of(context);
-    final c = context.colors;
     final text = ref.watch(mcpStderrProvider(name)).value ?? '';
     if (text.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.only(top: AnSpace.s16),
-        child: Text(t.settings.mcp.noStderr, style: AnText.label.copyWith(color: c.inkFaint)),
-      );
+      return AnState(kind: AnStateKind.empty, size: AnStateSize.inset, title: t.settings.mcp.noStderr);
     }
     return Padding(
       padding: const EdgeInsets.only(top: AnSpace.s8),
-      child: AnTermViewport(text: text, maxHeight: 360),
+      child: AnTermViewport(text: text),
     );
   }
 }

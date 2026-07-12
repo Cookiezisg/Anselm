@@ -438,8 +438,14 @@ class Translations$notifications$en {
 	/// en: 'Couldn't load notifications'
 	String get errorTitle => 'Couldn\'t load notifications';
 
+	/// en: 'The local engine didn't return the notification feed.'
+	String get errorHint => 'The local engine didn\'t return the notification feed.';
+
 	/// en: 'Retry'
 	String get retry => 'Retry';
+
+	/// en: '“$name”'
+	String nameQuoted({required Object name}) => '“${name}”';
 }
 
 // Path: ref
@@ -3629,9 +3635,6 @@ class Translations$settings$mcp$en {
 	/// en: 'Waiting for the browser… (up to 120s)'
 	String get oauthWaiting => 'Waiting for the browser… (up to 120s)';
 
-	/// en: 'Resolving the install plan…'
-	String get planLoading => 'Resolving the install plan…';
-
 	/// en: 'Tools'
 	String get tabTools => 'Tools';
 
@@ -3730,6 +3733,12 @@ class Translations$settings$limits$en {
 
 	/// en: 'modified'
 	String get modified => 'modified';
+
+	/// en: 'Couldn't load limits'
+	String get errorTitle => 'Couldn\'t load limits';
+
+	/// en: 'Retry'
+	String get retry => 'Retry';
 }
 
 // Path: settings.network
@@ -5568,7 +5577,9 @@ extension on Translations {
 			'notifications.depBrokenMany' => ({required Object n}) => 'left ${n} references dangling',
 			'notifications.view' => 'View',
 			'notifications.errorTitle' => 'Couldn\'t load notifications',
+			'notifications.errorHint' => 'The local engine didn\'t return the notification feed.',
 			'notifications.retry' => 'Retry',
+			'notifications.nameQuoted' => ({required Object name}) => '“${name}”',
 			'ref.function' => 'Function',
 			'ref.handler' => 'Handler',
 			'ref.workflow' => 'Workflow',
@@ -5898,10 +5909,10 @@ extension on Translations {
 			'documents.deleteDocTitle' => 'Delete this page?',
 			'documents.deleteDocBody' => ({required Object name}) => '“${name}” and everything nested inside it will be removed.',
 			'documents.deleteSkillTitle' => 'Delete this skill?',
-			'documents.deleteSkillBody' => ({required Object name}) => 'The “${name}” skill will be removed.',
-			'documents.actionFailed' => 'Action failed',
 			_ => null,
 		} ?? switch (path) {
+			'documents.deleteSkillBody' => ({required Object name}) => 'The “${name}” skill will be removed.',
+			'documents.actionFailed' => 'Action failed',
 			'documents.props.title' => 'Properties',
 			'documents.props.name' => 'Name',
 			'documents.props.description' => 'Description',
@@ -6160,7 +6171,6 @@ extension on Translations {
 			'settings.mcp.requiredMark' => 'required',
 			'settings.mcp.oauthConnect' => 'Connect & authorize',
 			'settings.mcp.oauthWaiting' => 'Waiting for the browser… (up to 120s)',
-			'settings.mcp.planLoading' => 'Resolving the install plan…',
 			'settings.mcp.tabTools' => 'Tools',
 			'settings.mcp.tabCalls' => 'Call history',
 			'settings.mcp.tabStderr' => 'stderr',
@@ -6188,6 +6198,8 @@ extension on Translations {
 			'settings.limits.resetAllTitle' => 'Reset every limit to its default?',
 			'settings.limits.patchFailed' => 'Save failed',
 			'settings.limits.modified' => 'modified',
+			'settings.limits.errorTitle' => 'Couldn\'t load limits',
+			'settings.limits.retry' => 'Retry',
 			'settings.network.section' => 'Network',
 			'settings.network.proxyHint' => 'Outbound proxy — AI requests reach LLM / MCP / search providers through it',
 			'settings.network.httpProxy' => 'HTTP proxy',

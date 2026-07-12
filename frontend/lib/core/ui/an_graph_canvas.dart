@@ -154,16 +154,16 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
   String? _hoverNodeId; // the node whose connect handles are shown (edit mode) 显连接柄的节点
 
   // Run-plane animation drivers, created lazily and only while needed: the comet rides the live
-  // edges (1.1s lap, demo cadence), the pulse breathes the running nodes' rings (AnMotion.breath).
+  // edges ([AnMotion.travel] lap), the pulse breathes the running nodes' rings (AnMotion.breath).
   // Both feed painters/transitions via `repaint`/Listenable — never AnimatedBuilder-rebuild storms.
-  // 运行面动画驱动,按需惰性创建:彗星沿活跃边(1.1s/圈)、脉冲呼吸 running 环(breath)。都走
+  // 运行面动画驱动,按需惰性创建:彗星沿活跃边([AnMotion.travel]/圈)、脉冲呼吸 running 环(breath)。都走
   // repaint/Listenable 直驱,绝不 AnimatedBuilder 重建风暴。
   AnimationController? _comet;
   AnimationController? _pulse;
 
   void _syncTickers({required bool wantComet, required bool wantPulse}) {
     if (wantComet) {
-      (_comet ??= AnimationController(vsync: this, duration: const Duration(milliseconds: 1100)))
+      (_comet ??= AnimationController(vsync: this, duration: AnMotion.travel))
           .repeat();
     } else {
       _comet?.stop();

@@ -143,7 +143,7 @@ class _ObsScaffold extends StatelessWidget {
             kind: AnStateKind.error,
             size: AnStateSize.inset,
             title: d.state.errorTitle,
-            action: AnButton(label: d.state.loadMore, onPressed: onRetry),
+            action: AnButton(label: d.state.retry, onPressed: onRetry),
           ),
           data: (st) => st.rows.isEmpty
               ? AnState(kind: AnStateKind.empty, size: AnStateSize.inset, title: emptyTitle, hint: emptyHint)

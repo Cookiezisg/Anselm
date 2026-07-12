@@ -49,7 +49,7 @@ class AnHonestyRibbon extends StatelessWidget {
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         if (honesty != AnHonesty.live) ...[
-          Icon(AnIcons.error, size: AnSize.iconSm - 2, color: tone),
+          Icon(AnIcons.error, size: AnSize.iconXs, color: tone),
           const SizedBox(width: AnSpace.s4),
         ],
         Flexible(

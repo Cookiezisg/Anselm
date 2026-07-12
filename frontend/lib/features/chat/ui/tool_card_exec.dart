@@ -10,6 +10,7 @@ import '../../../i18n/strings.g.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
 import 'log_drawer.dart';
+import 'run_dossier.dart';
 import 'tool_card_io_section.dart';
 import 'tool_card_nav.dart';
 import 'tool_card_skins.dart';
@@ -199,20 +200,11 @@ Widget _invokeStatBar(BuildContext context, Map<String, dynamic> result, String?
   final status = result['status'] as String? ?? '';
   final execId = result['executionId'] as String?;
   return AnStatBar(
-    // 'timeout' has NO AnStatus.fromRaw alias (it would fold to idle and LOSE the danger tone) —
-    // the explicit switch is load-bearing. timeout 无 fromRaw 别名(会折 idle 丢危险色),显式映射承重。
-    status: switch (status) {
-      'ok' => AnStatus.done,
-      'failed' || 'timeout' => AnStatus.err,
-      _ => AnStatus.idle,
-    },
-    statusLabel: switch (status) {
-      'ok' => t.chat.tool.runCompleted,
-      'failed' => t.chat.tool.failed,
-      'timeout' => t.chat.tool.agentTimeout,
-      'cancelled' => t.chat.tool.runCancelled,
-      _ => status,
-    },
+    // fromRaw carries ok/failed/timeout/cancelled (批7 B-037 — the timeout alias landed; the local
+    // switch retired value-identical). fromRaw 已带全别名,本地映射逐值恒等退役。
+    status: AnStatus.fromRaw(status),
+    // The word map is the shared runStatusWord (B-074 — was a verbatim third copy). 状态词单源。
+    statusLabel: runStatusWord(t, status),
     stats: [
       if (result['steps'] is int) AnStat(t.chat.tool.agentSteps(n: '${result['steps']}'), tabular: true),
       if (result['tokensIn'] is int && result['tokensOut'] is int)

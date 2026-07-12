@@ -128,11 +128,13 @@ class HandlerStageBody extends ConsumerWidget {
           Text(name, style: AnText.label.weight(AnText.emphasisWeight).copyWith(color: c.ink)),
           if (streaming) ...[
             const SizedBox(width: AnSpace.s4),
-            Text('~', style: AnText.code.copyWith(color: c.accent)),
+            Icon(AnIcons.activity, size: AnSize.iconXs, color: c.accent),
           ],
           if (timeout != null) ...[
             const SizedBox(width: AnSpace.s6),
-            Text('⏱ $timeout', style: AnText.meta.copyWith(color: c.inkFaint)),
+            Icon(AnIcons.timeout, size: AnSize.iconSm, color: c.inkFaint),
+            const SizedBox(width: AnSpace.s4),
+            Text('$timeout', style: AnText.meta.copyWith(color: c.inkFaint)),
           ],
         ]),
         if (body != null && body.isNotEmpty)

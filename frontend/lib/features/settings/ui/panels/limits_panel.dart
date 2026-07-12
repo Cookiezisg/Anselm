@@ -74,7 +74,7 @@ class _LimitsPanelState extends ConsumerState<LimitsPanel> {
       if (mounted) setState(() => _limits = fresh);
     } on ApiException catch (e) {
       // Violation: inline toast + reload (roll the field back to server truth). 越界:回滚到服务端真相。
-      ref.read(overlayProvider.notifier).showToast(e.message, tone: AnToastTone.danger);
+      ref.read(overlayProvider.notifier).showToast(e.message, tone: AnTone.danger);
       await _load();
     }
   }
@@ -99,10 +99,24 @@ class _LimitsPanelState extends ConsumerState<LimitsPanel> {
     final c = context.colors;
     final schema = _schema;
     if (_error != null) {
-      return Text(_error!, style: AnText.label.copyWith(color: c.danger));
+      // Whole-pane load failure = AnState (the inline label+danger voice is reserved for form
+      // save errors). 整面载入失败归 AnState;行内 label+danger 留给表单保存错。
+      return AnState(
+        kind: AnStateKind.error,
+        size: AnStateSize.inset,
+        title: t.settings.limits.errorTitle,
+        hint: _error,
+        action: AnButton(
+          label: t.settings.limits.retry,
+          onPressed: () {
+            setState(() => _error = null);
+            _load();
+          },
+        ),
+      );
     }
     if (schema == null || _limits == null) {
-      return Text('…', style: AnText.label.copyWith(color: c.inkFaint));
+      return const AnDeferredLoading(child: AnSkeleton.lines(6));
     }
     final groups = <String, List<LimitField>>{};
     for (final f in schema) {

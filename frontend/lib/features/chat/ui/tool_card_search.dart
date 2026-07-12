@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
 import '../../../core/model/byte_format.dart';
 import '../../../core/model/status_state.dart';
@@ -94,7 +95,7 @@ ToolHitRow triggerHitRow(Translations t, Map<String, dynamic> hit) {
     trailing: badges.isEmpty
         ? (id.isEmpty ? null : Text(id, style: AnText.mono))
         : Row(mainAxisSize: MainAxisSize.min, children: [
-            for (final b in badges) Padding(padding: const EdgeInsets.only(left: 4), child: b),
+            for (final b in badges) Padding(padding: const EdgeInsets.only(left: AnSpace.s4), child: b),
           ]),
   );
 }

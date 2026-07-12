@@ -9,6 +9,7 @@ import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
 import '../../../../core/model/model_capabilities.dart';
 import '../../../../core/overlay/an_overlay.dart';
+import '../../../../core/ui/an_card.dart';
 import '../../../../core/ui/an_chip.dart';
 import '../../../../core/ui/an_form_field.dart';
 import '../../../../core/ui/an_button.dart';
@@ -22,7 +23,6 @@ import '../../../../core/ui/an_secret_field.dart';
 import '../../../../core/ui/an_segmented.dart';
 import '../../../../core/ui/an_setting_row.dart';
 import '../../../../core/ui/an_state.dart';
-import '../../../../core/ui/an_toast.dart';
 import '../../../../core/ui/icons.dart';
 import '../../../../core/model/status_state.dart';
 import '../../../../i18n/strings.g.dart';
@@ -122,7 +122,7 @@ class _FreeTierCardState extends ConsumerState<_FreeTierCard> {
       if (!ok && mounted) {
         ref.read(overlayProvider.notifier).showToast(
             Translations.of(context).settings.keys.freeFailed,
-            tone: AnToastTone.warn);
+            tone: AnTone.warn);
       }
     } finally {
       if (mounted) setState(() => _provisioning = false);
@@ -134,13 +134,9 @@ class _FreeTierCardState extends ConsumerState<_FreeTierCard> {
     final t = Translations.of(context);
     final c = context.colors;
     final quota = ref.watch(freetierQuotaProvider);
-    return Container(
-      padding: const EdgeInsets.all(AnSpace.s16),
-      decoration: BoxDecoration(
-        color: c.surface,
-        borderRadius: BorderRadius.circular(AnRadius.card),
-        border: Border.all(color: c.line, width: AnSize.hairline),
-      ),
+    // The family card — a content-flow card is chip-tier (批7 B-043 圆角选档:settings 流内卡=AnCard,
+    // 手搓 card-16 白卡是尺度阶梯下唯一真出格). 族卡:流内卡=chip 档,手搓 16 圆角卡收编。
+    return AnCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Text(t.settings.keys.freeTier, style: AnText.label.copyWith(color: c.inkMuted)),
@@ -187,7 +183,7 @@ class _FreeTierCardState extends ConsumerState<_FreeTierCard> {
               ],
             ),
           AsyncError() => Text(t.settings.keys.keyOpFailed,
-              style: AnText.meta.copyWith(color: c.danger)),
+              style: AnText.label.copyWith(color: c.danger)),
           _ => const AnMeter(ratio: null),
         },
       ]),
@@ -232,7 +228,7 @@ class _KeyRow extends ConsumerWidget {
           barrierLabel: t.settings.keys.inUseTitle,
         );
       } else {
-        overlay.showToast(e.message, tone: AnToastTone.danger);
+        overlay.showToast(e.message, tone: AnTone.danger);
       }
     }
   }
@@ -269,7 +265,7 @@ class _KeyRow extends ConsumerWidget {
               try {
                 await ref.read(apiKeysProvider.notifier).test(row.id);
               } on ApiException catch (e) {
-                ref.read(overlayProvider.notifier).showToast(e.message, tone: AnToastTone.danger);
+                ref.read(overlayProvider.notifier).showToast(e.message, tone: AnTone.danger);
               }
             },
           ),
@@ -399,7 +395,7 @@ class _KeyFormState extends ConsumerState<KeyForm> {
     final editing = widget.editingId != null;
 
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 480),
+      constraints: const BoxConstraints(maxWidth: AnSize.formMaxWidth),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         if (!editing) ...[
           AnFormField(label: t.settings.keys.provider, child: AnDropdown<String>(
@@ -499,7 +495,7 @@ class _DefaultsSection extends ConsumerWidget {
         label: label,
         desc: desc,
         child: SizedBox(
-          width: 320,
+          width: AnSize.ctlSlotLg,
           child: AnDropdown<String>(
             options: [
               if (clearable)
@@ -524,7 +520,7 @@ class _DefaultsSection extends ConsumerWidget {
                       apiKeyId: parts[0], modelId: parts.sublist(1).join('::'));
                 }
               } on ApiException catch (e) {
-                ref.read(overlayProvider.notifier).showToast(e.message, tone: AnToastTone.danger);
+                ref.read(overlayProvider.notifier).showToast(e.message, tone: AnTone.danger);
               }
             },
           ),
@@ -563,7 +559,7 @@ class _DefaultsSection extends ConsumerWidget {
           label: t.settings.keys.searchDefault,
           desc: t.settings.keys.searchDefaultDesc,
           child: SizedBox(
-            width: 320,
+            width: AnSize.ctlSlotLg,
             child: AnDropdown<String>(
               options: [
                 AnDropdownOption(value: '', label: t.settings.keys.clearDefault),
@@ -583,7 +579,7 @@ class _DefaultsSection extends ConsumerWidget {
                 } on ApiException catch (e) {
                   ref
                       .read(overlayProvider.notifier)
-                      .showToast(e.message, tone: AnToastTone.danger);
+                      .showToast(e.message, tone: AnTone.danger);
                 }
               },
             ),

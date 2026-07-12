@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/tokens.dart';
+import '../../../../core/model/status_state.dart';
 import '../../../../core/overlay/an_overlay.dart';
 import '../../../../core/platform/launch_at_login.dart';
 import '../../../../core/platform/window_zoom.dart';
@@ -13,7 +14,6 @@ import '../../../../core/ui/an_section.dart';
 import '../../../../core/ui/an_segmented.dart';
 import '../../../../core/ui/an_setting_row.dart';
 import '../../../../core/ui/an_switch.dart';
-import '../../../../core/ui/an_toast.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../state/workspace_prefs_provider.dart';
 
@@ -49,7 +49,7 @@ class GeneralPanel extends ConsumerWidget {
               onReset: () => ref.read(themePreferenceProvider.notifier).set(ThemePreference.light),
               resetLabel: t.settings.resetToDefault,
               child: SizedBox(
-                width: 280,
+                width: AnSize.ctlSlotLg,
                 child: AnSegmented<ThemePreference>(
                   options: [
                     AnSegmentedOption(value: ThemePreference.light, label: t.settings.themeLight),
@@ -78,7 +78,7 @@ class GeneralPanel extends ConsumerWidget {
               onReset: () => _setLanguage(ref, context, 'system'),
               resetLabel: t.settings.resetToDefault,
               child: SizedBox(
-                width: 200,
+                width: AnSize.ctlSlot,
                 child: AnDropdown<String>(
                   options: [
                     AnDropdownOption(value: 'system', label: t.settings.langSystem),
@@ -162,7 +162,7 @@ class GeneralPanel extends ConsumerWidget {
         ? (LocaleSettings.currentLocale == AppLocale.zhCn ? 'zh-CN' : 'en')
         : value;
     ref.read(workspacePrefsProvider.notifier).setLanguage(resolved).catchError((_) {
-      ref.read(overlayProvider.notifier).showToast(t.settings.patchFailed, tone: AnToastTone.danger);
+      ref.read(overlayProvider.notifier).showToast(t.settings.patchFailed, tone: AnTone.danger);
     });
   }
 
@@ -193,7 +193,7 @@ class _ZoomRow extends StatelessWidget {
           onReset: WindowZoom.reset,
           resetLabel: t.settings.resetToDefault,
           child: SizedBox(
-            width: 320,
+            width: AnSize.ctlSlotLg,
             child: AnSegmented<double>(
               options: [
                 for (final s in WindowZoom.steps)

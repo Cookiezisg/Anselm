@@ -98,10 +98,10 @@ Widget _branchRow(BuildContext context, Translations t, AnColors c, int n, Contr
         ),
         if (b.emit.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.only(left: AnSize.icon, top: AnSpace.s2),
+            padding: const EdgeInsets.only(left: AnIndent.dot, top: AnSpace.s2),
             child: Wrap(
               spacing: AnGap.inline,
-              runSpacing: AnSpace.s2,
+              runSpacing: AnGap.stackTight,
               children: [
                 for (final e in b.emit.entries)
                   Text('${e.key} ← ${e.value}',

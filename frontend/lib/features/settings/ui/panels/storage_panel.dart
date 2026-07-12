@@ -28,7 +28,9 @@ class StoragePanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = Translations.of(context);
-    final dir = ref.watch(dataDirProvider).value ?? '…';
+    // null = not resolved yet — the TYPE carries availability (buttons/factory gate key off it);
+    // no '…' sentinel string doubling as a logic value. null=未解析,可用性由类型承载、不设哨兵串。
+    final String? dir = ref.watch(dataDirProvider).value;
     final disk = ref.watch(sandboxDiskProvider).value;
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -40,7 +42,7 @@ class StoragePanel extends ConsumerWidget {
             leadless: true,
             label: t.settings.storage.dataDir,
             mono: true,
-            meta: dir,
+            meta: dir ?? '',
             passive: true,
           ),
           Align(
@@ -49,13 +51,13 @@ class StoragePanel extends ConsumerWidget {
               AnButton(
                 label: t.settings.storage.revealFinder,
                 size: AnButtonSize.sm,
-                onPressed: dir == '…' ? null : () => _reveal(dir),
+                onPressed: dir == null ? null : () => _reveal(dir),
               ),
               const SizedBox(width: AnSpace.s8),
               AnButton(
                 label: t.settings.storage.openLogs,
                 size: AnButtonSize.sm,
-                onPressed: dir == '…' ? null : () => _reveal('$dir/logs'),
+                onPressed: dir == null ? null : () => _reveal('$dir/logs'),
               ),
             ]),
           ),
@@ -68,7 +70,8 @@ class StoragePanel extends ConsumerWidget {
               width: 240,
               child: AnMeter(
                 ratio: null,
-                label: disk == null ? '…' : formatBytes(disk),
+                // ratio:null already shows indeterminate — no '…' sentinel. 不定态示能已在,免哨兵。
+                label: disk == null ? '' : formatBytes(disk),
               ),
             ),
           ),
@@ -78,7 +81,7 @@ class StoragePanel extends ConsumerWidget {
             child: AnButton(
               label: t.settings.about.copyDiagnostics,
               size: AnButtonSize.sm,
-              onPressed: () => _copyDiagnostics(context, ref, dir),
+              onPressed: () => _copyDiagnostics(context, ref, dir ?? ''),
             ),
           ),
         ],
@@ -114,7 +117,7 @@ class StoragePanel extends ConsumerWidget {
     final text = 'Anselm $app · engine $engine · ${Platform.operatingSystem} '
         '${Platform.operatingSystemVersion} · data $dir · ${backend.baseUrl ?? 'backend down'}';
     await Clipboard.setData(ClipboardData(text: text));
-    ref.read(overlayProvider.notifier).showToast(t.settings.about.copied, tone: AnToastTone.ok);
+    ref.read(overlayProvider.notifier).showToast(t.settings.about.copied, tone: AnTone.ok);
   }
 
   Future<void> _resetPrefs(BuildContext context, WidgetRef ref) async {
@@ -138,7 +141,9 @@ class StoragePanel extends ConsumerWidget {
 class _FactoryZone extends ConsumerStatefulWidget {
   const _FactoryZone({required this.dataDir});
 
-  final String dataDir;
+  /// null until the backend resolves the data root — the DANGER action's availability rides the
+  /// type, never a sentinel string. 后端未解析前为 null:危险动作可用性由类型兜底,绝不判哨兵串。
+  final String? dataDir;
 
   @override
   ConsumerState<_FactoryZone> createState() => _FactoryZoneState();
@@ -150,17 +155,19 @@ class _FactoryZoneState extends ConsumerState<_FactoryZone> {
   @override
   Widget build(BuildContext context) {
     final t = Translations.of(context);
+    final dataDir = widget.dataDir;
     return AnTypeToConfirm(
       title: t.settings.storage.factoryTitle,
       warning: t.settings.storage.factoryWarn,
       expected: 'Anselm',
       inputHint: t.settings.storage.factoryHint,
       confirmLabel: t.settings.storage.factoryConfirm,
-      busy: _busy || widget.dataDir == '…',
+      busy: _busy || dataDir == null,
       onConfirm: () async {
+        if (dataDir == null) return;
         setState(() => _busy = true);
         // No return: stops the sidecar, deletes the tree, relaunches. 不归路:停引擎删树重启。
-        await ref.read(factoryResetProvider).run(dataDir: widget.dataDir);
+        await ref.read(factoryResetProvider).run(dataDir: dataDir);
       },
     );
   }

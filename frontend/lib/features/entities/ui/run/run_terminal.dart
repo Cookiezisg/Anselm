@@ -66,7 +66,7 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
   void _onScroll() {
     if (!_scroll.hasClients) return;
     final p = _scroll.position;
-    final atBottom = (p.maxScrollExtent - p.pixels) < 32;
+    final atBottom = (p.maxScrollExtent - p.pixels) < AnSize.followSlop;
     if (atBottom != _stick) setState(() => _stick = atBottom);
   }
 
@@ -252,7 +252,9 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
       case EntityKind.agent:
         return [
           if (s.tree.isEmpty && state.isRunning)
-            _hint(context, r.noTrace)
+            // Running with no first block yet = a WAITING state — an honest spinner, not a hint.
+            // 运行中等首块=等待态,spinner 诚实。
+            AnState(kind: AnStateKind.loading, size: AnStateSize.inset, title: r.noTrace)
           else if (!s.tree.isEmpty)
             _section(context, r.traceHeading, BlockTreeView(roots: s.tree.roots)),
           if (state.isTerminal && state.output != null)
@@ -285,7 +287,7 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
         for (final e in s.liveNodes.entries) (label: e.key, status: e.value),
       ]));
     }
-    return _hint(context, r.noTrace);
+    return AnState(kind: AnStateKind.empty, size: AnStateSize.inset, title: r.noTrace);
   }
 
   /// The durable approval gate — the parked node's rendered prompt + Approve/Reject firing the
@@ -348,8 +350,4 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
 
   // Plain Text — the whole scroll body is one SelectionArea (best-practice over per-row SelectableText).
   Widget _mono(BuildContext context, String text) => AnCodeBlock(text);
-
-  Widget _hint(BuildContext context, String text) =>
-      Text(text, style: AnText.meta.copyWith(color: context.colors.inkFaint));
-
 }

@@ -104,12 +104,12 @@ abstract final class AnSize {
   static const double iconXs = 8; // sub-row trajectory glyph (subagent tail rows — below iconSm) 次级尾行字形(iconSm 之下)
   static const double dot = 7;
   static const double dotPulse = 5; // run-status breath expansion radius 呼吸外扩半径
-  static const double dotSm = 5; // small in-chip dot (op ticker) 芯片内小点(op ticker)
+  static const double dotSm = 5; // small dot tier (in-chip op ticker, cast pulse, channel dot) 小点档(芯片内/主角点/频道点)
   static const double swatch = 10; // colour swatch dot (workspace colour) 色板圆点(工作区色)
   static const double capsulePadY = 1; // inline baseline-capsule hair inset (v-pad + h-breathing margin) 行内药囊发丝距(竖内距+横呼吸边距)
   static const double hairline = 1;
   static const double gripLine = 2; // drag-handle hover divider (2× hairline) 拖柄悬停分隔线
-  static const double ring = 1.5; // emphasis ring stroke (badge halo, canvas connect handle) 强调环描边(徽章环/画布接柄)
+  static const double ring = 1.5; // thin stroke tier (badge halo, canvas connect handle, mini-graph edge) 1.5 细描边档(强调环/接柄/mini 图边)
   static const double glyphStroke = 1.2; // drawn-glyph side (editor task checkbox — optically matches the icon face's stroke) 手绘字形描边(编辑器任务框,光学对齐图标字面)
   static const double caret = 1.5; // text caret width 文本光标宽
   // Text caret height is DERIVED, never fixed: fontSize + caretRise, so the cursor hugs whatever

@@ -86,11 +86,13 @@ TextStyle anInlineTextStyler(AnColors colors, Set<Attribution> attributions, Tex
 List<StyleRule> _rules(AnColors colors, TextStyle Function(TextStyle) ink) {
   return [
       // Base cascade — the An reading measure (720) + the body voice every block inherits. Horizontal
-      // padding is the CONTAINER's job (the reading column / ocean), so 0 here. 基底:720 阅读列 + 正文声。
+      // padding is the CONTAINER's job (the reading column / ocean), so 0 here. In-app the host sliver's
+      // symmetric pageX padding already clamps the text column to 672 — this cap only bites in a
+      // standalone host. 基底:720 阅读列 + 正文声;app 内宿主 sliver 两侧 pageX 已钳 672,此帽为独立宿主兜底。
       StyleRule(
         BlockSelector.all,
         (doc, node) => {
-          Styles.maxWidth: 720.0,
+          Styles.maxWidth: AnSize.content,
           Styles.padding: const CascadingPadding.symmetric(horizontal: 0),
           Styles.textStyle: ink(AnText.reading),
         },

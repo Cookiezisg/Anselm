@@ -730,7 +730,9 @@
     "depBrokenMany": "left $n references dangling",
     "view": "View",
     "errorTitle": "Couldn't load notifications",
-    "retry": "Retry"
+    "errorHint": "The local engine didn't return the notification feed.",
+    "retry": "Retry",
+    "nameQuoted": "“$name”"
   },
   "ref": {
     "function": "Function",
@@ -1399,7 +1401,6 @@
       "requiredMark": "required",
       "oauthConnect": "Connect & authorize",
       "oauthWaiting": "Waiting for the browser… (up to 120s)",
-      "planLoading": "Resolving the install plan…",
       "tabTools": "Tools",
       "tabCalls": "Call history",
       "tabStderr": "stderr",
@@ -1430,7 +1431,9 @@
       "resetAll": "Reset all to defaults",
       "resetAllTitle": "Reset every limit to its default?",
       "patchFailed": "Save failed",
-      "modified": "modified"
+      "modified": "modified",
+      "errorTitle": "Couldn't load limits",
+      "retry": "Retry"
     },
     "network": {
       "section": "Network",

@@ -33,7 +33,7 @@ class AnLayerDiff extends StatelessWidget {
     final shown = lines.length > maxLines ? lines.sublist(0, maxLines) : lines;
     final elided = lines.length - shown.length;
     return Opacity(
-      opacity: 0.5,
+      opacity: AnOpacity.stratum,
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(AnSpace.s8),

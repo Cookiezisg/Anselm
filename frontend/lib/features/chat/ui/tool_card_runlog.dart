@@ -68,8 +68,8 @@ bool aggregatesHasBody(String output) {
 
 // ── row mappers (one per family; SLIM only) ──
 
-RunBead _bead(AnColors c, Map<String, dynamic> row) =>
-    RunBead(color: runStatusColor(c, '${row['status']}'), tooltip: '${row['id']} · ${row['status']}');
+RunBead _bead(Map<String, dynamic> row) =>
+    RunBead(status: AnStatus.fromRaw('${row['status']}'), tooltip: '${row['id']} · ${row['status']}');
 
 RunLedgerRow _execRow(Translations t, Map<String, dynamic> row, {List<Widget> extraChips = const []}) => RunLedgerRow(
       leading: RunLeading.status('${row['status']}'),
@@ -105,7 +105,7 @@ Widget _aggBody(BuildContext context, String output, String listKey, List<RunLed
     if (rows.isEmpty)
       Text(t.chat.tool.logNoMatch, style: AnText.code.copyWith(color: c.inkFaint))
     else ...[
-      RunBeadStrip(beads: [for (final r in rows) _bead(c, r)]),
+      RunBeadStrip(beads: [for (final r in rows) _bead(r)]),
       const SizedBox(height: AnSpace.s6),
       AnWindow(child: RunLedger(rows: mapRows(t, c, rows))),
       if (hasMore)
@@ -185,7 +185,7 @@ Widget _countBody(BuildContext context, String output, String listKey,
   final more = _obj(output)?['hasMore'] == true || ((_obj(output)?['nextCursor'] as String?)?.isNotEmpty ?? false);
   if (rows.isEmpty) return Text(t.chat.tool.logNoMatch, style: AnText.code.copyWith(color: c.inkFaint));
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-    RunBeadStrip(beads: beads?.call(c, rows) ?? [for (final r in rows) _bead(c, r)], pageScoped: true),
+    RunBeadStrip(beads: beads?.call(c, rows) ?? [for (final r in rows) _bead(r)], pageScoped: true),
     const SizedBox(height: AnSpace.s6),
     AnWindow(child: RunLedger(rows: mapRows(t, c, rows))),
     if (caption != null) Padding(padding: const EdgeInsets.only(top: AnSpace.s4), child: Text(caption, style: AnText.meta.copyWith(color: c.inkFaint))),
@@ -250,8 +250,10 @@ Widget firingsBody(BuildContext context, ToolCardState s) => _countBody(context,
 // tree; detail is the subtext. 活化:fire 标记 + returnValue 惰性行内树。
 Widget activationsBody(BuildContext context, ToolCardState s) => _countBody(context, s.resultText, 'activations',
     beads: (c, rows) => [
+          // fired → done (ok green) / not-fired → idle (faint grey): colour-identical to the old raw pair.
+          // fired→done/not→idle,色值与旧 raw 对逐值恒等。
           for (final r in rows)
-            RunBead(color: r['fired'] == true ? c.ok : c.inkFaint, tooltip: '${r['id']} · ${r['fired'] == true ? 'fired' : 'not fired'}'),
+            RunBead(status: r['fired'] == true ? AnStatus.done : AnStatus.idle, tooltip: '${r['id']} · ${r['fired'] == true ? 'fired' : 'not fired'}'),
         ],
     mapRows: (t, c, rows) => [
           for (final r in rows)

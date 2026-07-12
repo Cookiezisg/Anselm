@@ -223,7 +223,7 @@ void main() {
     });
   });
 
-  testWidgets('invoke TIMEOUT keeps the danger tone (fromRaw has no timeout alias — 批3 突变闸)',
+  testWidgets('invoke TIMEOUT keeps the danger tone (批7 B-037 突变闸 — 钉 fromRaw 的 timeout 别名)',
       (tester) async {
     await tester.pumpWidget(_host(ChatToolCard(node: _node('invoke_agent',
         '{"agentId":"ag_1","input":{}}',
@@ -232,8 +232,9 @@ void main() {
     // 超时=失败→自动展开一次(点了反而收起)。
     await tester.pumpAndSettle();
     final bar = tester.widget<AnStatBar>(find.byType(AnStatBar));
-    // The mutation `AnStatus.fromRaw(status)` folds timeout to idle (grey) — this pins err (red).
-    // fromRaw 突变会把 timeout 折成 idle 灰;此断言钉死 err 红。
+    // The invoke bar now reads AnStatus.fromRaw(status) (批7 B-037): the mutation «delete fromRaw's
+    // 'timeout' alias» would fold timeout to idle (grey) — this pins err (red).
+    // 结果条已走 fromRaw;突变「删 timeout 别名」会把 timeout 折成 idle 灰,此断言钉死 err 红。
     expect(bar.status, AnStatus.err);
     expect(bar.statusLabel, t.chat.tool.agentTimeout);
   });

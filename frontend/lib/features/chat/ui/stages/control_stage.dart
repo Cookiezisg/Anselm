@@ -89,7 +89,7 @@ class ControlStageBody extends ConsumerWidget {
         Padding(
           padding: const EdgeInsets.only(top: AnSpace.s2),
           child: Text(t.chat.stage.passThrough,
-              style: AnText.meta.copyWith(color: c.inkFaint.withValues(alpha: c.inkFaint.a * 0.7))),
+              style: AnText.meta.copyWith(color: c.inkFaint)),
         )
       else
         for (final e in b.emit.entries)

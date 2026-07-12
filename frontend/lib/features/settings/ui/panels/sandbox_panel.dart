@@ -54,8 +54,10 @@ class SandboxPanel extends ConsumerWidget {
       AnSettingRow(
         label: t.settings.sandbox.disk,
         child: SizedBox(
-          width: 240,
-          child: AnMeter(ratio: null, label: disk == null ? '…' : formatBytes(disk)),
+          width: AnSize.ctlSlot,
+          // ratio:null already SHOWS indeterminate — an empty label is honest, no '…' sentinel.
+          // ratio:null 本身即不定态示能,空标即诚实。
+          child: AnMeter(ratio: null, label: disk == null ? '' : formatBytes(disk)),
         ),
       ),
       const SizedBox(height: AnSpace.s16),
@@ -100,13 +102,12 @@ class SandboxPanel extends ConsumerWidget {
         ],
       ),
       // Envs — five owner tabs; the section rhythm belongs to AnSection like every other section
-      // on this panel (批6 A-064 — the lone hand-rolled readingH3 head + s24 spacers retire; the
-      // 360 magic stays on the B-track ledger). 环境五 owner tab;节律归 AnSection(孤例手搓头+手排
-      // spacer 退役;360 魔数留 B 轨)。
+      // on this panel (批6 A-064 — the lone hand-rolled readingH3 head + s24 spacers retire).
+      // 环境五 owner tab;节律归 AnSection(孤例手搓头+手排 spacer 退役)。
       AnSection(
           label: t.settings.sandbox.envs,
           variant: AnSectionVariant.quiet,
-          children: [SizedBox(height: 360, child: _EnvTabs())]),
+          children: [SizedBox(height: AnSize.tabPane, child: _EnvTabs())]),
       _GcZone(),
     ]);
   }
@@ -125,7 +126,7 @@ class SandboxPanel extends ConsumerWidget {
       await ref.read(sandboxRuntimesProvider.notifier).remove(r.id);
     } on ApiException catch (e) {
       final msg = e.code == 'SANDBOX_ENV_IN_USE' ? t.settings.sandbox.inUse : e.message;
-      ref.read(overlayProvider.notifier).showToast(msg, tone: AnToastTone.danger);
+      ref.read(overlayProvider.notifier).showToast(msg, tone: AnTone.danger);
     }
   }
 }
@@ -174,14 +175,15 @@ class _InstallFormState extends ConsumerState<_InstallForm> {
     final c = context.colors;
     final avail = ref.watch(sandboxAvailableProvider).value ?? const <RuntimeAvailability>[];
     if (avail.isEmpty) {
-      return Text('…', style: AnText.label.copyWith(color: c.inkFaint));
+      // Install-form options still loading = the deferred-skeleton idiom. 选项载入中走骨架。
+      return const AnDeferredLoading(child: AnSkeleton.lines(2));
     }
     _kind ??= avail.first.kind;
     final sel = avail.firstWhere((a) => a.kind == _kind, orElse: () => avail.first);
     if (_version.isEmpty) _version = sel.defaultVersion;
 
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 480),
+      constraints: const BoxConstraints(maxWidth: AnSize.formMaxWidth),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         AnFormField(label: t.settings.sandbox.kind, child: AnDropdown<String>(
           value: _kind,
@@ -266,13 +268,9 @@ class _EnvList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = Translations.of(context);
-    final c = context.colors;
     final envs = ref.watch(sandboxEnvsProvider(ownerKind)).value;
     if (envs == null || envs.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.only(top: AnSpace.s16),
-        child: Text(t.settings.sandbox.noEnvs, style: AnText.label.copyWith(color: c.inkFaint)),
-      );
+      return AnState(kind: AnStateKind.empty, size: AnStateSize.inset, title: t.settings.sandbox.noEnvs);
     }
     return ListView(
       children: [
@@ -314,7 +312,7 @@ class _EnvList extends ConsumerWidget {
       await ref.read(settingsRepositoryProvider).deleteEnv(e.id);
       ref.invalidate(sandboxEnvsProvider(ownerKind));
     } on ApiException catch (err) {
-      ref.read(overlayProvider.notifier).showToast(err.message, tone: AnToastTone.danger);
+      ref.read(overlayProvider.notifier).showToast(err.message, tone: AnTone.danger);
     }
   }
 }
@@ -337,7 +335,7 @@ class _GcZoneState extends ConsumerState<_GcZone> {
     final t = Translations.of(context);
     final n = await ref.read(settingsRepositoryProvider).sandboxGc(days);
     ref.invalidate(sandboxEnvsProvider);
-    ref.read(overlayProvider.notifier).showToast(t.settings.sandbox.gcDone(n: n), tone: AnToastTone.ok);
+    ref.read(overlayProvider.notifier).showToast(t.settings.sandbox.gcDone(n: n), tone: AnTone.ok);
   }
 
   @override
@@ -348,7 +346,7 @@ class _GcZoneState extends ConsumerState<_GcZone> {
         label: t.settings.sandbox.gc,
         desc: t.settings.sandbox.gcDays,
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          SizedBox(width: 90, child: AnInput(controller: _days, mono: true)),
+          SizedBox(width: AnSize.numField, child: AnInput(controller: _days, mono: true)),
           const SizedBox(width: AnSpace.s8),
           AnButton(
             label: t.settings.sandbox.gcRun,

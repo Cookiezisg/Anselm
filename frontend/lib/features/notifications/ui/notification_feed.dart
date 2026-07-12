@@ -6,14 +6,11 @@ import '../../../core/contract/notification.dart';
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
-import '../../../core/ui/an_button.dart';
 import '../../../core/ui/an_group_label.dart';
-import '../../../core/ui/an_deferred_loading.dart';
 import '../../../core/ui/an_divider.dart';
 import '../../../core/ui/an_interactive.dart';
-import '../../../core/ui/an_rail_skeleton.dart';
+import '../../../core/ui/an_rail_states.dart';
 import '../../../core/ui/an_scroll_behavior.dart';
-import '../../../core/ui/an_state.dart';
 import '../../../i18n/strings.g.dart';
 import '../state/notification_feed_provider.dart';
 import '../state/unread_count_provider.dart';
@@ -68,6 +65,7 @@ class _NotificationFeedState extends ConsumerState<NotificationFeed> {
   Widget build(BuildContext context) {
     final t = context.t.notifications;
     final async = ref.watch(notificationFeedProvider);
+    final rows = async.value?.rows ?? const <NotificationItem>[];
     final hasUnread = ref.watch(unreadCountProvider).value != null &&
         ref.watch(unreadCountProvider).value! > 0;
 
@@ -76,21 +74,22 @@ class _NotificationFeedState extends ConsumerState<NotificationFeed> {
       children: [
         _Header(title: t.feed, showMarkAll: hasUnread, onMarkAll: () => ref.read(notificationFeedProvider.notifier).markAllRead()),
         const AnDivider(),
+        // The four first-screen outcomes ride the ONE rail resolver (same face as the
+        // conversation/entity rails); header + divider stay outside it. 首屏四态走唯一 rail 件,头留外围。
         Expanded(
-          child: async.when(
-            loading: () => const AnDeferredLoading(child: AnRailSkeleton()),
-            error: (_, _) => AnState(
-              kind: AnStateKind.error,
-              size: AnStateSize.inset,
-              title: context.t.notifications.errorTitle,
-              action: AnButton(
-                label: context.t.notifications.retry,
-                onPressed: () => ref.invalidate(notificationFeedProvider),
-              ),
+          child: AnRailStates(
+            loading: async.isLoading && !async.hasValue,
+            error: async.hasError && !async.hasValue,
+            empty: rows.isEmpty,
+            strings: AnRailStrings(
+              errorTitle: t.errorTitle,
+              errorHint: t.errorHint,
+              retry: t.retry,
+              emptyTitle: t.emptyTitle,
+              emptyHint: t.emptyHint,
             ),
-            data: (s) => s.rows.isEmpty
-                ? AnState(kind: AnStateKind.empty, size: AnStateSize.inset, title: t.emptyTitle, hint: t.emptyHint)
-                : _list(context, s.rows),
+            onRetry: () => ref.invalidate(notificationFeedProvider),
+            builder: () => _list(context, rows),
           ),
         ),
       ],

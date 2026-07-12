@@ -57,7 +57,7 @@ class AnSegmented<T> extends StatelessWidget {
         opacity: enabled ? 1 : AnOpacity.disabled,
         child: Container(
           height: AnSize.control,
-          padding: const EdgeInsets.all(2),
+          padding: const EdgeInsets.all(AnSpace.s2),
           decoration: BoxDecoration(
             color: c.surfaceSunken,
             borderRadius: BorderRadius.circular(AnRadius.button + 2),
@@ -105,7 +105,7 @@ class AnSegmented<T> extends StatelessWidget {
                                 if (o.icon != null) ...[
                                   Icon(o.icon, size: AnSize.iconSm,
                                       color: o.disabled
-                                          ? c.inkFaint.withValues(alpha: 0.5)
+                                          ? c.inkFaint.withValues(alpha: AnOpacity.disabled)
                                           : active ? c.ink : (hovered ? c.inkMuted : c.inkFaint)),
                                   const SizedBox(width: AnSpace.s4),
                                 ],
@@ -116,7 +116,7 @@ class AnSegmented<T> extends StatelessWidget {
                                     overflow: TextOverflow.ellipsis,
                                     style: AnText.body.copyWith(
                                       color: o.disabled
-                                          ? c.inkFaint.withValues(alpha: 0.5)
+                                          ? c.inkFaint.withValues(alpha: AnOpacity.disabled)
                                           : active ? c.ink : (hovered ? c.inkMuted : c.inkFaint),
                                     ),
                                   ),

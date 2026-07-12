@@ -216,7 +216,7 @@ class _WorkspaceEditorState extends ConsumerState<WorkspaceEditor> {
     try {
       await ref.read(workspacesProvider.notifier).rename(w.id, name);
     } on ApiException catch (e) {
-      ref.read(overlayProvider.notifier).showToast(e.message, tone: AnToastTone.danger);
+      ref.read(overlayProvider.notifier).showToast(e.message, tone: AnTone.danger);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -234,7 +234,7 @@ class _WorkspaceEditorState extends ConsumerState<WorkspaceEditor> {
       ref.invalidate(workspacesProvider);
       ref
           .read(overlayProvider.notifier)
-          .showToast('${t.settings.ws.deleteFailed} · ${e.message}', tone: AnToastTone.danger);
+          .showToast('${t.settings.ws.deleteFailed} · ${e.message}', tone: AnTone.danger);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -270,7 +270,7 @@ class _WorkspaceEditorState extends ConsumerState<WorkspaceEditor> {
             } on ApiException catch (e) {
               ref
                   .read(overlayProvider.notifier)
-                  .showToast(e.message, tone: AnToastTone.danger);
+                  .showToast(e.message, tone: AnTone.danger);
             }
           },
         )),

@@ -1,4 +1,5 @@
 import 'package:anselm/core/contract/notification.dart';
+import 'package:anselm/core/model/status_state.dart';
 import 'package:anselm/features/notifications/ui/notification_copy.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -18,7 +19,7 @@ void main() {
     expect(l.lead, 'Function');
     expect(l.name, 'fetch');
     expect(l.trail, 'created');
-    expect(l.tone, NotificationTone.neutral);
+    expect(l.tone, AnTone.none);
   });
 
   test('every lifecycle verb resolves (no silent empty trail)', () {
@@ -30,45 +31,45 @@ void main() {
 
   test('run_failed → danger + error detail', () {
     final l = notificationLine(_n('workflow.run_failed', payload: {'name': 'w', 'error': 'boom'}), t);
-    expect(l.tone, NotificationTone.danger);
+    expect(l.tone, AnTone.danger);
     expect(l.name, 'w');
     expect(l.detail, 'boom');
   });
 
   test('crashed → danger; approval_pending → warn', () {
-    expect(notificationLine(_n('handler.crashed', payload: {'name': 'h'}), t).tone, NotificationTone.danger);
-    expect(notificationLine(_n('workflow.approval_pending', payload: {'name': 'w'}), t).tone, NotificationTone.warn);
+    expect(notificationLine(_n('handler.crashed', payload: {'name': 'h'}), t).tone, AnTone.danger);
+    expect(notificationLine(_n('workflow.approval_pending', payload: {'name': 'w'}), t).tone, AnTone.warn);
   });
 
   test('handler.restarted splits by outcome — ok:true → neutral, ok:false → danger', () {
     // Regression: the tone must honor payload['ok']. ok:true is frame-only but the toast dispatcher reads
     // this line's tone, so rendering a success as danger pops a false "restart failed" toast/OS notification.
     final ok = notificationLine(_n('handler.restarted', payload: {'name': 'h', 'ok': true}), t);
-    expect(ok.tone, NotificationTone.neutral, reason: '成功重启绝不渲成失败');
+    expect(ok.tone, AnTone.none, reason: '成功重启绝不渲成失败');
     final failed = notificationLine(_n('handler.restarted', payload: {'name': 'h', 'ok': false}), t);
-    expect(failed.tone, NotificationTone.danger);
+    expect(failed.tone, AnTone.danger);
     expect(failed.trail, isNotEmpty);
   });
 
   test('attention_changed: needs → warn+reason, cleared → neutral', () {
     final needs = notificationLine(_n('workflow.attention_changed', payload: {'name': 'w', 'needsAttention': true, 'attentionReason': 'r'}), t);
-    expect(needs.tone, NotificationTone.warn);
+    expect(needs.tone, AnTone.warn);
     expect(needs.detail, 'r');
     final cleared = notificationLine(_n('workflow.attention_changed', payload: {'name': 'w', 'needsAttention': false}), t);
-    expect(cleared.tone, NotificationTone.neutral);
+    expect(cleared.tone, AnTone.none);
   });
 
   test('sandbox env: failed → danger (no kind lead — verb self-describes), ready → neutral', () {
     final f = notificationLine(_n('sandbox.env_status_changed', payload: {'status': 'failed', 'errorMsg': 'e'}), t);
-    expect(f.tone, NotificationTone.danger);
+    expect(f.tone, AnTone.danger);
     expect(f.lead, isNull);
     expect(f.detail, 'e');
-    expect(notificationLine(_n('sandbox.env_status_changed', payload: {'status': 'ready'}), t).tone, NotificationTone.neutral);
+    expect(notificationLine(_n('sandbox.env_status_changed', payload: {'status': 'ready'}), t).tone, AnTone.none);
   });
 
   test('mcp.reconnected splits by outcome status', () {
-    expect(notificationLine(_n('mcp.reconnected', payload: {'name': 'm', 'status': 'ready'}), t).tone, NotificationTone.neutral);
-    expect(notificationLine(_n('mcp.reconnected', payload: {'name': 'm', 'status': 'failed'}), t).tone, NotificationTone.danger);
+    expect(notificationLine(_n('mcp.reconnected', payload: {'name': 'm', 'status': 'ready'}), t).tone, AnTone.none);
+    expect(notificationLine(_n('mcp.reconnected', payload: {'name': 'm', 'status': 'failed'}), t).tone, AnTone.danger);
   });
 
   test('dependency_broken: count in trail, dependent names in detail, no kind lead', () {
@@ -77,7 +78,7 @@ void main() {
       'dependents': [{'kind': 'agent', 'name': 'a1'}, {'kind': 'workflow', 'name': 'w1'}],
     }), t);
     expect(l.lead, isNull);
-    expect(l.tone, NotificationTone.warn);
+    expect(l.tone, AnTone.warn);
     expect(l.detail, 'a1 · w1');
     expect(l.trail, contains('2'));
   });

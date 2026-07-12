@@ -142,7 +142,7 @@ class _ChatToolCardState extends State<ChatToolCard> {
     final live = state.phase == ToolCardPhase.argsStreaming || state.phase == ToolCardPhase.running;
     if (!live && _ticker != null) _syncTicker();
 
-    const bodyInsetGate = EdgeInsets.only(top: AnSpace.s6, left: AnSize.icon + AnSpace.s6);
+    const bodyInsetGate = EdgeInsets.only(top: AnSpace.s6, left: AnIndent.icon);
     // The HUMAN GATE (WRK-053 §V6): an awaiting danger/ask interaction renders the gate LOCKED-OPEN
     // under a bare amber verb line — a question the user MUST act on can never hide behind a chevron.
     // 人闸:待决交互在琥珀动词裸行下锁定展开门——必须动手的问题不能藏在 chevron 后。
@@ -181,7 +181,7 @@ class _ChatToolCardState extends State<ChatToolCard> {
     }
     final open = (_userExpanded ?? false) && hasBody;
 
-    const bodyInset = EdgeInsets.only(top: AnSpace.s4, left: AnSize.icon + AnSpace.s6);
+    const bodyInset = EdgeInsets.only(top: AnSpace.s4, left: AnIndent.icon);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

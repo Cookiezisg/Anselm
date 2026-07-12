@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../design/colors.dart';
 import '../design/tokens.dart';
+import '../model/status_state.dart';
 import '../ui/an_dialog.dart';
 import '../ui/an_toast.dart';
 
@@ -33,14 +34,14 @@ class AnToastData {
   const AnToastData({
     required this.id,
     required this.text,
-    this.tone = AnToastTone.neutral,
+    this.tone = AnTone.none,
     this.action,
     this.duration = anToastDefaultDuration,
   });
 
   final String id;
   final String text;
-  final AnToastTone tone;
+  final AnTone tone;
   final AnToastAction? action;
   final Duration duration;
 }
@@ -84,7 +85,7 @@ class AnOverlayController extends Notifier<AnOverlayState> {
   /// Fire a toast. Returns its id (so a caller can [dismissToast] early). fire-and-forget;返回 id。
   String showToast(
     String text, {
-    AnToastTone tone = AnToastTone.neutral,
+    AnTone tone = AnTone.none,
     AnToastAction? action,
     Duration duration = anToastDefaultDuration,
   }) {

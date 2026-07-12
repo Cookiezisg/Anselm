@@ -100,7 +100,7 @@ List<Widget> _faceOf(BuildContext context, Translations t, AnColors c, String ki
         if (events.isNotEmpty || pattern.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: AnSpace.s4),
-            child: Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s2, children: [
+            child: Wrap(spacing: AnGap.inline, runSpacing: AnGap.stackTight, children: [
               for (final e in events) AnChip(e, tone: AnTone.none),
               if (pattern.isNotEmpty) Text(pattern, style: AnText.mono.copyWith(color: c.inkFaint)),
             ]),
@@ -114,7 +114,7 @@ List<Widget> _faceOf(BuildContext context, Translations t, AnColors c, String ki
       final condition = (config['condition'] ?? '').toString();
       final output = (config['output'] ?? '').toString();
       return [
-        Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s2, crossAxisAlignment: WrapCrossAlignment.center, children: [
+        Wrap(spacing: AnGap.inline, runSpacing: AnGap.stackTight, crossAxisAlignment: WrapCrossAlignment.center, children: [
           if (targetKind.isNotEmpty && targetId.isNotEmpty)
             AnRefPill(kind: targetKind, label: method.isEmpty ? targetId : '$targetId.$method()', id: targetId),
           if (interval != null) AnChip(t.chat.tool.trgEvery(n: '$interval'), tone: AnTone.none),

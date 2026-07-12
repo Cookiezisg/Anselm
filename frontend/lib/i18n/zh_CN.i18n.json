@@ -730,7 +730,9 @@
     "depBrokenMany": "导致 $n 处引用悬空",
     "view": "查看",
     "errorTitle": "通知加载失败",
-    "retry": "重试"
+    "errorHint": "本地引擎没有返回通知列表。",
+    "retry": "重试",
+    "nameQuoted": "「$name」"
   },
   "ref": {
     "function": "函数",
@@ -1399,7 +1401,6 @@
       "requiredMark": "必填",
       "oauthConnect": "连接并授权",
       "oauthWaiting": "等待浏览器授权…(最长 120 秒)",
-      "planLoading": "正在解析安装计划…",
       "tabTools": "工具",
       "tabCalls": "调用历史",
       "tabStderr": "stderr",
@@ -1430,7 +1431,9 @@
       "resetAll": "全部恢复默认",
       "resetAllTitle": "恢复全部默认限额?",
       "patchFailed": "保存失败",
-      "modified": "已修改"
+      "modified": "已修改",
+      "errorTitle": "限额加载失败",
+      "retry": "重试"
     },
     "network": {
       "section": "网络",

@@ -16,10 +16,13 @@ void main() {
       expect(AnStatus.fromRaw('listening'), AnStatus.run);
       expect(AnStatus.fromRaw('completed'), AnStatus.done);
       expect(AnStatus.fromRaw('fired'), AnStatus.done);
+      expect(AnStatus.fromRaw('started'), AnStatus.done); // firing terminal-ok (批7 B-037)
       expect(AnStatus.fromRaw('failed'), AnStatus.err);
       expect(AnStatus.fromRaw('error'), AnStatus.err);
+      expect(AnStatus.fromRaw('timeout'), AnStatus.err); // Log-table failure terminal (批7 B-037 — 删此别名=timeout 红变灰,exec 突变闸同钉)
       expect(AnStatus.fromRaw('parked'), AnStatus.wait);
       expect(AnStatus.fromRaw('pending'), AnStatus.wait);
+      expect(AnStatus.fromRaw('claimed'), AnStatus.wait); // firing claim-transaction transient (批7 B-037)
       expect(AnStatus.fromRaw('cancelled'), AnStatus.idle);
       expect(AnStatus.fromRaw('future'), AnStatus.idle);
     });

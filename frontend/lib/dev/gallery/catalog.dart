@@ -1016,12 +1016,12 @@ final GalleryCategory _g6Overlays = GalleryCategory('浮层 Overlays', AnIcons.m
   GalleryItem('AnToast', '屏角瞬时提示:tone 色条 + action + 自动消隐;命令式 showToast()', [
     // Static, sticky specimens (duration: zero → no auto-dismiss) — the chip in every tone. 静态常驻 specimen。
     GallerySpecimen('neutral', (_) => AnToast(text: '已保存', duration: Duration.zero, onDismissed: () {}), span: true),
-    GallerySpecimen('ok', (_) => AnToast(text: '已保存 · flowrun fne_5e1a 运行完成', tone: AnToastTone.ok, duration: Duration.zero, onDismissed: () {}), span: true),
-    GallerySpecimen('warn', (_) => AnToast(text: '已暂停调度', tone: AnToastTone.warn, duration: Duration.zero, onDismissed: () {}), span: true),
-    GallerySpecimen('danger', (_) => AnToast(text: '运行失败:连接超时', tone: AnToastTone.danger, duration: Duration.zero, onDismissed: () {}), span: true),
-    GallerySpecimen('含 action (撤销)', (_) => AnToast(text: '已删除「订单处理」', tone: AnToastTone.danger, action: AnToastAction(label: '撤销', onPressed: () {}), duration: Duration.zero, onDismissed: () {}), span: true),
+    GallerySpecimen('ok', (_) => AnToast(text: '已保存 · flowrun fne_5e1a 运行完成', tone: AnTone.ok, duration: Duration.zero, onDismissed: () {}), span: true),
+    GallerySpecimen('warn', (_) => AnToast(text: '已暂停调度', tone: AnTone.warn, duration: Duration.zero, onDismissed: () {}), span: true),
+    GallerySpecimen('danger', (_) => AnToast(text: '运行失败:连接超时', tone: AnTone.danger, duration: Duration.zero, onDismissed: () {}), span: true),
+    GallerySpecimen('含 action (撤销)', (_) => AnToast(text: '已删除「订单处理」', tone: AnTone.danger, action: AnToastAction(label: '撤销', onPressed: () {}), duration: Duration.zero, onDismissed: () {}), span: true),
     GallerySpecimen('超长文本 (2 行省略)', (_) => AnToast(text: 'a really long toast message that wraps to two lines and then ellipsizes when it exceeds the available width of the toast chip surface', duration: Duration.zero, onDismissed: () {}), stress: true, span: true),
-    GallerySpecimen('注入转义', (_) => AnToast(text: '<b>not</b> & <i>html</i> — \${raw}', tone: AnToastTone.warn, duration: Duration.zero, onDismissed: () {}), stress: true, span: true),
+    GallerySpecimen('注入转义', (_) => AnToast(text: '<b>not</b> & <i>html</i> — \${raw}', tone: AnTone.warn, duration: Duration.zero, onDismissed: () {}), stress: true, span: true),
     // Live trigger — fires into the real bottom-right corner overlay (auto-dismiss + soft cap). 命令式触发(真弹右下角)。
     GallerySpecimen('命令式触发 (弹到右下角)', (_) => const _ToastTriggerDemo(), span: true),
   ]),
@@ -1041,8 +1041,8 @@ class _ToastTriggerDemo extends StatelessWidget {
       builder: (context, ref, _) {
         final ctrl = ref.read(overlayProvider.notifier);
         return AnActionGroup([
-          AnButton(label: '弹一条', icon: AnIcons.info, onPressed: () => ctrl.showToast('已保存 · flowrun fne_5e1a 运行完成', tone: AnToastTone.ok)),
-          AnButton(label: '含撤销', onPressed: () => ctrl.showToast('已删除「订单处理」', tone: AnToastTone.danger, action: AnToastAction(label: '撤销', onPressed: () => ctrl.showToast('已恢复', tone: AnToastTone.ok)))),
+          AnButton(label: '弹一条', icon: AnIcons.info, onPressed: () => ctrl.showToast('已保存 · flowrun fne_5e1a 运行完成', tone: AnTone.ok)),
+          AnButton(label: '含撤销', onPressed: () => ctrl.showToast('已删除「订单处理」', tone: AnTone.danger, action: AnToastAction(label: '撤销', onPressed: () => ctrl.showToast('已恢复', tone: AnTone.ok)))),
           AnButton(label: '连发 8 条 (验上限 5)', onPressed: () {
             for (var i = 1; i <= 8; i++) {
               ctrl.showToast('通知 #$i · 批量操作进行中');
@@ -1079,7 +1079,7 @@ class _DialogTriggerDemo extends StatelessWidget {
               barrierLabel: '关闭对话框',
               confirmTone: tone,
             );
-            ctrl.showToast(ok ? '已执行' : '已取消', tone: ok ? AnToastTone.ok : AnToastTone.neutral);
+            ctrl.showToast(ok ? '已执行' : '已取消', tone: ok ? AnTone.ok : AnTone.none);
           },
         );
       },
