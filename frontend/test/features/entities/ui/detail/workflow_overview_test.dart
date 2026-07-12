@@ -1,7 +1,7 @@
 import 'package:anselm/core/contract/entities/workflow.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/ui/an_editable_value.dart';
-import 'package:anselm/core/ui/an_field.dart';
+import 'package:anselm/core/ui/an_kv.dart';
 import 'package:anselm/core/ui/an_graph_canvas.dart';
 import 'package:anselm/core/ui/an_tags.dart';
 import 'package:anselm/core/ui/icons.dart';

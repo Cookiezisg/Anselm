@@ -1,6 +1,6 @@
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/design/typography.dart';
-import 'package:anselm/core/ui/an_field.dart';
+import 'package:anselm/core/ui/an_kv.dart';
 import 'package:anselm/core/ui/an_json_tree.dart';
 import 'package:anselm/core/ui/an_ref_pill.dart';
 import 'package:anselm/features/chat/ui/tool_card_entity_get.dart';

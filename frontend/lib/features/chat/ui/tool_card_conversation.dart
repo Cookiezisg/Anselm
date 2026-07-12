@@ -8,7 +8,7 @@ import '../../../core/design/typography.dart';
 import '../../../core/model/status_state.dart';
 import '../../../core/model/time_format.dart';
 import '../../../core/ui/an_chip.dart';
-import '../../../core/ui/an_field.dart';
+import '../../../core/ui/an_kv.dart';
 import '../../../core/ui/an_window.dart';
 import '../../../core/ui/icons.dart';
 import '../../../i18n/strings.g.dart';

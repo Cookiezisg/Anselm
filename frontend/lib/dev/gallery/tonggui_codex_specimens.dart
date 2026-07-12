@@ -105,6 +105,24 @@ final tongguiCodexCategory = GalleryCategory('同轨法典', AnIcons.entities, [
             AnLedgerRow(lead: const AnStatusDot(AnStatus.err), primary: 'exec_01H8…e9', chips: const [AnChip('SyncError', tone: AnTone.danger)], meta: '5 分钟前'),
             AnLedgerRow(lead: const AnStatusDot(AnStatus.wait), primary: 'node.approval_gate', meta: '等待审批'),
           ]), span: true),
+      GallerySpecimen('AnLedgerRow 批6 三槽:sub 副行 / danger 副行 / measure 计量', (c) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            const AnLedgerRow(lead: AnStatusDot(AnStatus.done), primary: 'fnexec_01ab', sub: 'chat 触发 · 第 3 次重试', measure: '942ms', meta: '2 分钟前'),
+            const AnLedgerRow(lead: AnStatusDot(AnStatus.err), primary: 'charge', sub: 'HANDLER_RPC_TIMEOUT: charge() exceeded 30s', subTone: AnTone.danger, meta: '5 分钟前'),
+            AnLedgerRow(primary: 'search_tools', mono: true, chips: const [AnChip('2 args', tone: AnTone.none)], onTap: () {}, expanded: true, expandChild: Text('展开体缩进到主文左缘(原语自持,非调用方算术)', style: AnText.meta.copyWith(color: c.colors.inkFaint))),
+          ]), span: true),
+      GallerySpecimen('AnLedgerList 列表壳(cap+展开全部 N)', (_) => AnLedgerList(cap: 3, children: [
+            for (var i = 1; i <= 7; i++)
+              AnLedgerRow(lead: const AnStatusDot(AnStatus.done), primary: 'exec_0$i', meta: '${i}m ago'),
+          ]), span: true),
+      GallerySpecimen('AnKvRow.flag 布尔行(唯一 ✓/— 渲法)', (_) => const AnKv(rows: [
+            AnKvRow.flag('listening', true),
+            AnKvRow.flag('archived', false),
+          ]), span: true),
+      GallerySpecimen('AnLadder 判别梯骨架(序号圆+降线+内容槽)', (c) => AnLadder(children: [
+            Text('amount > 10000 → approval', style: AnText.code.copyWith(color: c.colors.inkMuted)),
+            Text('amount > 1000 → review', style: AnText.code.copyWith(color: c.colors.inkMuted)),
+            Text('默认 → pass', style: AnText.meta.copyWith(color: c.colors.inkFaint)),
+          ]), span: true),
     ],
   ),
   GalleryItem(

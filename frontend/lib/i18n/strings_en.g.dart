@@ -334,6 +334,9 @@ class Translations$feedback$en {
 	/// en: 'Copied'
 	String get copied => 'Copied';
 
+	/// en: 'Show remaining $n'
+	String showAll({required Object n}) => 'Show remaining ${n}';
+
 	/// en: 'Copy failed'
 	String get copyFailed => 'Copy failed';
 }
@@ -498,6 +501,12 @@ class Translations$a11y$en {
 	final Translations _root; // ignore: unused_field
 
 	// Translations
+
+	/// en: 'yes'
+	String get flagYes => 'yes';
+
+	/// en: 'no'
+	String get flagNo => 'no';
 
 	/// en: 'Editing $field'
 	String editingField({required Object field}) => 'Editing ${field}';
@@ -5509,6 +5518,7 @@ extension on Translations {
 			'feedback.removeTag' => ({required Object name}) => 'Remove ${name}',
 			'feedback.addTag' => 'Add tag',
 			'feedback.copied' => 'Copied',
+			'feedback.showAll' => ({required Object n}) => 'Show remaining ${n}',
 			'feedback.copyFailed' => 'Copy failed',
 			'shell.collapseSidebar' => 'Collapse sidebar',
 			'shell.expandSidebar' => 'Expand sidebar',
@@ -5580,6 +5590,8 @@ extension on Translations {
 			'graph.kind.control' => 'Branch',
 			'graph.kind.approval' => 'Approval',
 			'graph.kind.unknown' => 'Unknown',
+			'a11y.flagYes' => 'yes',
+			'a11y.flagNo' => 'no',
 			'a11y.editingField' => ({required Object field}) => 'Editing ${field}',
 			'a11y.editField' => ({required Object field}) => 'Edit ${field}',
 			'a11y.addTagTo' => ({required Object field}) => 'Add tag: ${field}',
@@ -5891,11 +5903,11 @@ extension on Translations {
 			'documents.deleteDocBody' => ({required Object name}) => '“${name}” and everything nested inside it will be removed.',
 			'documents.deleteSkillTitle' => 'Delete this skill?',
 			'documents.deleteSkillBody' => ({required Object name}) => 'The “${name}” skill will be removed.',
+			_ => null,
+		} ?? switch (path) {
 			'documents.actionFailed' => 'Action failed',
 			'documents.props.title' => 'Properties',
 			'documents.props.name' => 'Name',
-			_ => null,
-		} ?? switch (path) {
 			'documents.props.description' => 'Description',
 			'documents.props.tags' => 'Tags',
 			'documents.props.addTag' => 'Add a tag',

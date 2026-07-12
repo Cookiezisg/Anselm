@@ -31,6 +31,7 @@ class AnRow extends StatelessWidget {
   const AnRow({
     this.icon,
     this.dot,
+    this.leadWidget,
     required this.label,
     this.labelWidget,
     this.hint,
@@ -48,11 +49,22 @@ class AnRow extends StatelessWidget {
     this.onSelect,
     this.onToggle,
     super.key,
-  }) : assert(!leadless || (icon == null && dot == null && !collapsible),
-            'leadless drops the lead slot — it cannot carry an icon/dot/chevron. leadless 无 lead 槽,不可带图标/点/箭头。');
+  })  : assert(!leadless || (icon == null && dot == null && leadWidget == null && !collapsible),
+            'leadless drops the lead slot — it cannot carry an icon/dot/chevron. leadless 无 lead 槽,不可带图标/点/箭头。'),
+        // icon+dot may legally coexist (dot precedence, legacy sites); leadWidget is exclusive.
+        // icon+dot 合法共存(dot 优先,旧用点);leadWidget 独占槽。
+        assert(leadWidget == null || (icon == null && dot == null),
+            'leadWidget owns the lead slot — no icon/dot beside it. leadWidget 独占 lead 槽。');
 
   final IconData? icon;
   final AnStatus? dot;
+
+  /// Custom lead widget (a progress ring, a swatch) — seated in the SAME fixed [AnSize.icon] cell
+  /// as icon/dot (批6 A-073: the slot that used to force whole-row re-rolls). With [collapsible] it
+  /// hover-swaps for the chevron like an icon does. 自定义 lead(进度环/色点)——与 icon/dot 同定宽格;
+  /// collapsible 时与 icon 同法 hover 换箭头。
+  final Widget? leadWidget;
+
   final String label;
 
   /// Optional label OVERRIDE widget (e.g. a one-shot typewriter while a fresh auto-title lands) —
@@ -171,6 +183,22 @@ class AnRow extends StatelessWidget {
     final Widget glyph;
     if (dot != null) {
       glyph = ExcludeSemantics(child: AnStatusDot(dot!)); // status conveyed by the dot's own a11y elsewhere; here decorative 装饰
+    } else if (leadWidget != null && collapsible) {
+      // Custom lead hover-swaps for the chevron exactly like an icon (zero new metrics). 自定义 lead
+      // 与 icon 同法换箭头(零新度量)。
+      glyph = _HoverSwap(
+        alignment: Alignment.center,
+        showSecond: active,
+        first: ExcludeSemantics(child: leadWidget!),
+        second: AnimatedRotation(
+          duration: reduced ? Duration.zero : AnMotion.mid,
+          curve: AnMotion.spring,
+          turns: open ? 0.25 : 0,
+          child: Icon(AnIcons.chevronRight, size: AnSize.icon, color: c.inkFaint),
+        ),
+      );
+    } else if (leadWidget != null) {
+      glyph = ExcludeSemantics(child: leadWidget!);
     } else if (collapsible) {
       // icon ↔ chevron swap on hover; chevron rotates 90° when open. icon↔chevron 互换 + 旋转。
       glyph = _HoverSwap(

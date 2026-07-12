@@ -281,6 +281,73 @@ void main() {
     });
   });
 
+  group('AnLedgerRow 批6 三槽', () {
+    testWidgets('sub renders under the primary, left-aligned with it (lead offset structural)', (tester) async {
+      await tester.pumpWidget(_host(const AnLedgerRow(
+          lead: AnStatusDot(AnStatus.done), primary: 'fnexec_01', sub: 'chat 触发', measure: '942ms', meta: '2m')));
+      await tester.pump();
+      expect(tester.getTopLeft(find.text('chat 触发')).dx, tester.getTopLeft(find.text('fnexec_01')).dx);
+      // measure sits LEFT of the meta iron line. measure 居铁线之左。
+      expect(tester.getTopRight(find.text('942ms')).dx, lessThan(tester.getTopLeft(find.text('2m')).dx));
+    });
+    testWidgets('danger sub wears the error-code voice', (tester) async {
+      await tester.pumpWidget(_host(const AnLedgerRow(primary: 'charge', sub: 'TIMEOUT', subTone: AnTone.danger)));
+      await tester.pump();
+      final t = tester.widget<Text>(find.text('TIMEOUT'));
+      expect(t.style!.fontFamily, AnText.code.fontFamily);
+    });
+    testWidgets('expandChild indents to the primary edge (the caller arithmetic died here)', (tester) async {
+      // The reveal Align(topCenter) centres shrink-wrapped children — feed a stretched child like
+      // real bodies are. 揭示层水平居中收身子件,喂撑满子件如真实用点。
+      await tester.pumpWidget(_host(const AnLedgerRow(
+          lead: AnStatusDot(AnStatus.done),
+          primary: 'row',
+          expanded: true,
+          expandChild: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [Text('BODY')]))));
+      await tester.pump();
+      expect(tester.getTopLeft(find.text('BODY')).dx - tester.getTopLeft(find.byType(AnLedgerRow)).dx,
+          AnSize.iconSm + AnSpace.s6);
+    });
+  });
+
+  group('AnLedgerList 批6', () {
+    testWidgets('caps at N, escape reveals the rest in place; exactly-cap shows no escape', (tester) async {
+      await tester.pumpWidget(_host(AnLedgerList(cap: 2, children: [
+        for (var i = 0; i < 5; i++) AnLedgerRow(primary: 'r$i'),
+      ])));
+      await tester.pump();
+      expect(find.text('r1'), findsOneWidget);
+      expect(find.text('r2'), findsNothing);
+      await tester.tap(find.textContaining('3'));
+      await tester.pump();
+      expect(find.text('r4'), findsOneWidget);
+      // exactly cap → no escape 正好等于 cap 不出逃生行
+      await tester.pumpWidget(_host(AnLedgerList(cap: 2, children: [AnLedgerRow(primary: 'a'), AnLedgerRow(primary: 'b')])));
+      await tester.pump();
+      expect(find.textContaining('展开'), findsNothing);
+    });
+  });
+
+  group('AnLadder 批6', () {
+    testWidgets('numbers every rung; the last rung has no descent line', (tester) async {
+      await tester.pumpWidget(_host(const AnLadder(children: [Text('one'), Text('two'), Text('three')])));
+      await tester.pump();
+      expect(find.text('1'), findsOneWidget);
+      expect(find.text('3'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('AnKvRow.flag 批6', () {
+    testWidgets('renders ✓/— and speaks localized yes/no (never «check mark»)', (tester) async {
+      await tester.pumpWidget(_host(const AnKv(rows: [AnKvRow.flag('listening', true), AnKvRow.flag('archived', false)])));
+      await tester.pump();
+      expect(find.text('✓'), findsOneWidget);
+      expect(find.text('—'), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp('listening')), findsOneWidget);
+    });
+  });
+
   group('AnKeycap 批5c', () {
     testWidgets('tri-state renders and taps; the keycap is NEVER focusable (host owns the keyboard)', (tester) async {
       var taps = 0;

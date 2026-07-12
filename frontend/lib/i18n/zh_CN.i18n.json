@@ -667,6 +667,7 @@
     "removeTag": "移除 $name",
     "addTag": "添加标签",
     "copied": "已复制",
+    "showAll": "展开其余 $n 个",
     "copyFailed": "复制失败"
   },
   "shell": {
@@ -756,6 +757,8 @@
     }
   },
   "a11y": {
+    "flagYes": "是",
+    "flagNo": "否",
     "editingField": "正在编辑 $field",
     "editField": "编辑 $field",
     "addTagTo": "添加标签:$field",

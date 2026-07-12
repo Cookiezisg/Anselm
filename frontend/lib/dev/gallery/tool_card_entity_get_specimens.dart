@@ -2,7 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../core/model/status_state.dart';
 import '../../core/ui/an_chip.dart';
-import '../../core/ui/an_field.dart';
+import '../../core/ui/an_kv.dart';
 import '../../features/chat/ui/tool_card_entity_get.dart';
 import 'specimen.dart';
 

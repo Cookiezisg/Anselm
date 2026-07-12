@@ -36,6 +36,17 @@ A-032/A-033/A-034/A-036/A-038/A-046/A-048 关账(A-031 剩 AnAttachmentChip、A-
 - **拍板点记档(建造者裁决,帧供否决)**:①RefPill 字面 body13 w400→族 meta12 w300(全族一字面;帧核可读性,否决则退半降级);②copy 芯片族声=outlined(与 path chip 一致);③AnSize.capsulePadY=1 新档(行内药囊竖距,inline 脸用)。
 - 新 variant 全部 gallery-first(raw 点四形/outlined·copy·icon-only·strikethrough·tooltip 五 specimen/inline 嵌文本/jump 双态)+ tonggui 电池 7 测(dot 槽/空标签/host-agnostic/a11y/raw 尺寸/空心零帧/jump 静态)。
 
+### 批6a 落地(2026-07-12,行族地基九件)
+
+行族当家件长全后续迁移所需的槽,全部 gallery-first+电池:
+- **A-067 关账**:AnKv/AnKvRow/_KvTagsRow 物理拆出 an_field.dart→`an_kv.dart`(API 逐字零变,埋件难寻即解);barrel 加 an_kv、**撤 an_lead_value**(几何引擎内化,feature 禁直用——全仓零 feature 消费已核);**族四排布选型查表入法典**:身份行/头=AnTwoZone|键值列表=AnKv|标签在上=AnFieldSection|台账·命中行=AnLedgerRow|AnLeadValue=core 内部键值几何引擎。三套并存=成文分工非收敛对象(几何角色互斥)。
+- **AnLedgerRow 三槽**:`sub`+`subTone`(主文下副行,danger=错误码声;与主文左对齐——feature 层 iconSm+s8 缩进算术自动消灭)/`measure`(右簇 tabular 耗时,居 meta 铁线之左——拍板 #4 不破)/lead 定宽 iconSm 格(点/字形混列主文左缘不漂)/mono:false 标题脸→全墨(族内既有裁决)/expandChild 缩进原语自持(文法 #4 的禁令针对 feature 层算术)。
+- **新原语 `AnLedgerList`**(法典族四④):唯一「展开全部 N」逃生口(cap 是列表级关切,行件无从知晓兄弟数;异构头件留壳外);i18n `feedback.showAll` 新键(core 件禁引 chat.* 命名空间),chat.tool.flowExpandAll 待迁移后退役。
+- **新原语 `AnLadder`**(A-075 裁决:两 scout 相左,自裁=建):判别梯骨架(序号圆+发丝降线+内容槽),只 owns 骨架;与 AnStepper(横向进度器,有「当前步」)角色不同不并;「决策梯骨架=AnLadder」入法典防第三套。
+- **AnRow `leadWidget` 槽**(A-073 前置):自定义 lead(进度环)进既有 icon 定宽格,collapsible 同法 hover 换箭头;assert=leadWidget 独占(icon+dot 合法共存为旧约,dot 优先——复审抓过紧 assert 破 12 测,放宽记档)。
+- **AnKvRow.flag** 具名构造(A-051 前置):唯一 bool 渲法(✓ ok/— faint),a11y 念本地化 是/否(裸字形读屏念「对勾」;新 a11y.flagYes/flagNo 双语键)。
+- **AnFormField `monoLabel`**(A-059 env 动态标签组前置)。**ToolHitRow `onOpen`** 外链通道(A-078 前置:web 命中当年绕门真因;优先于 kind/id 面板深链)。
+
 ### 批5c 落地(2026-07-12,settings 键帽/色板专批+尾项裁决)
 
 A-027/A-028 关账 + A-031 尾项改判关账 + A-045 归属改判:

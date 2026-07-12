@@ -22,6 +22,7 @@ class ToolHitRow {
     this.trailing,
     this.kind,
     this.id,
+    this.onOpen,
   });
 
   /// The leading glyph (usually [AnIcons.entityKindGlyph] of [kind]). 前导字形。
@@ -39,6 +40,12 @@ class ToolHitRow {
   /// The backend wire kind — decides tappability via the panel registry (a kind with no panel makes
   /// the row inert, NEVER a dead link). null → inert. 线缆 kind:据面板注册表决定可点否;无面板→惰性。
   final String? kind;
+
+  /// An EXTERNAL open action (a web hit's URL) — the second tap channel beside the panel deep link
+  /// (批6 A-078: web hits used to bypass the shared gate for lack of this). Takes precedence over
+  /// kind/id navigation. 外链动作(网页命中)——面板深链旁的第二通道(当年 _WebHits 绕门的真因);
+  /// 优先于 kind/id 导航。
+  final VoidCallback? onOpen;
 
   /// The entity id — the navigation intent target AND the «当前» badge match. null → inert.
   final String? id;
@@ -189,7 +196,8 @@ class _ToolHitListState extends State<ToolHitList> with SingleTickerProviderStat
 
   Widget _row(BuildContext context, ToolHitRow row) {
     final c = context.colors;
-    final tappable = row.kind != null && row.id != null && hasPanelFor(row.kind!) && widget.onRowTap != null;
+    final tappable = row.onOpen != null ||
+        (row.kind != null && row.id != null && hasPanelFor(row.kind!) && widget.onRowTap != null);
     final isCurrent = row.id != null && row.id == widget.currentId;
 
     final body = Padding(
@@ -244,7 +252,7 @@ class _ToolHitListState extends State<ToolHitList> with SingleTickerProviderStat
 
     if (!tappable) return body;
     return AnInteractive(
-      onTap: () => widget.onRowTap!(row.kind!, row.id!),
+      onTap: row.onOpen ?? () => widget.onRowTap!(row.kind!, row.id!),
       builder: (ctx, states) => Container(
         decoration: BoxDecoration(
           color: states.isActive ? c.surfaceHover : null,

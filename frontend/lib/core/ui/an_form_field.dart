@@ -21,10 +21,14 @@ class AnFormField extends StatelessWidget {
     required this.child,
     this.desc,
     this.labelTrailing,
+    this.monoLabel = false,
     super.key,
   });
 
   final String label;
+
+  /// Mono label face (env var names, wire keys — 批6 A-059 的 MCP env 动态标签组). 等宽标签脸。
+  final bool monoLabel;
   final String? desc;
 
   /// Optional widget on the label baseline (e.g. a type badge). 标签基线上的可选件(如类型徽章)。
@@ -38,7 +42,7 @@ class AnFormField extends StatelessWidget {
       label,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: AnText.strong.copyWith(color: c.ink),
+      style: (monoLabel ? AnText.mono : AnText.strong).copyWith(color: c.ink),
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

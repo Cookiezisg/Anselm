@@ -667,6 +667,7 @@
     "removeTag": "Remove $name",
     "addTag": "Add tag",
     "copied": "Copied",
+    "showAll": "Show remaining $n",
     "copyFailed": "Copy failed"
   },
   "shell": {
@@ -756,6 +757,8 @@
     }
   },
   "a11y": {
+    "flagYes": "yes",
+    "flagNo": "no",
     "editingField": "Editing $field",
     "editField": "Edit $field",
     "addTagTo": "Add tag: $field",

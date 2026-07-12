@@ -175,6 +175,7 @@ class _Translations$feedback$zh_CN extends Translations$feedback$en {
 	@override String removeTag({required Object name}) => '移除 ${name}';
 	@override String get addTag => '添加标签';
 	@override String get copied => '已复制';
+	@override String showAll({required Object n}) => '展开其余 ${n} 个';
 	@override String get copyFailed => '复制失败';
 }
 
@@ -262,6 +263,8 @@ class _Translations$a11y$zh_CN extends Translations$a11y$en {
 	final TranslationsZhCn _root; // ignore: unused_field
 
 	// Translations
+	@override String get flagYes => '是';
+	@override String get flagNo => '否';
 	@override String editingField({required Object field}) => '正在编辑 ${field}';
 	@override String editField({required Object field}) => '编辑 ${field}';
 	@override String addTagTo({required Object field}) => '添加标签:${field}';
@@ -2737,6 +2740,7 @@ extension on TranslationsZhCn {
 			'feedback.removeTag' => ({required Object name}) => '移除 ${name}',
 			'feedback.addTag' => '添加标签',
 			'feedback.copied' => '已复制',
+			'feedback.showAll' => ({required Object n}) => '展开其余 ${n} 个',
 			'feedback.copyFailed' => '复制失败',
 			'shell.collapseSidebar' => '收起侧栏',
 			'shell.expandSidebar' => '展开侧栏',
@@ -2808,6 +2812,8 @@ extension on TranslationsZhCn {
 			'graph.kind.control' => '分支',
 			'graph.kind.approval' => '审批',
 			'graph.kind.unknown' => '未知',
+			'a11y.flagYes' => '是',
+			'a11y.flagNo' => '否',
 			'a11y.editingField' => ({required Object field}) => '正在编辑 ${field}',
 			'a11y.editField' => ({required Object field}) => '编辑 ${field}',
 			'a11y.addTagTo' => ({required Object field}) => '添加标签:${field}',
@@ -3119,11 +3125,11 @@ extension on TranslationsZhCn {
 			'documents.deleteDocBody' => ({required Object name}) => '“${name}”及其下嵌套的所有内容都会被删除。',
 			'documents.deleteSkillTitle' => '删除这个技能?',
 			'documents.deleteSkillBody' => ({required Object name}) => '技能“${name}”会被删除。',
+			_ => null,
+		} ?? switch (path) {
 			'documents.actionFailed' => '操作失败',
 			'documents.props.title' => '属性',
 			'documents.props.name' => '名称',
-			_ => null,
-		} ?? switch (path) {
 			'documents.props.description' => '描述',
 			'documents.props.tags' => '标签',
 			'documents.props.addTag' => '添加标签',
