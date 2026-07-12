@@ -15,7 +15,7 @@ audience: [human, ai]
 > **怎么来的**:64-agent 编队——12 路普查(9 路后端契约逐工具提取 + 框架机制 + 前端乐器盘点 + 图画布勘探,见底册 [`tool-card-census.md`](tool-card-census.md))→ 17 族设计师(共同宪法约束)→ 17 路对抗审察(可行性谎言 / 诚实违规 / 性能陷阱 / 文法破坏)→ 修订落回 → 总合成裁决 12 处族间冲突。
 > **状态**:**已拍板(2026-07-06)**——B1–B7 建造顺序认可;第四章 10 题:**第 1 题用户改判「保留两套」**(Subagent=SubTranscriptFrame / invoke_agent=NestedRunPane,R1 裁决被推翻),其余 9 题按推荐(取数缝允许统一一条、后端小改包 6 项全做、时间语义/chip 单热区/settled 禁呼吸/HitList 归一/generic 地板 B2 后穿插/P2 挂起)。拍板已重述进 [`tool-cards.md`](tool-cards.md)(WRK-053)§1/§6;本文是逐族实施的设计事实源,随批次落地逐族勾销、终归 archive。
 > **引用约定**:族文内「census 01–10 / palette / graph」指底册对应章;「palette 缺口 #N」指底册 palette 章缺口清单。母文档 [`chat.md`](chat.md)。
-> **读法勘误(2026-07-12,WRK-066 批4)**:本文写于窗族收敛前——文中所有 `ToolWindow`(灰凹机器窗)读作 **`AnWindow`**(白框窗族当家件,[法典](convergence-codex.md) 族一;ToolWindow 已物理删除),`AnSunkenPanel` 作容器的呈现读作 AnWindow(凹面唯一住户=用户聊天泡);`WindowCopyButton` 挂 `AnWindow.actions`。设计意图(机器窗身份/内容模式/copy 语义)全部不变,仅壳的物理实现已换。
+> **读法勘误(2026-07-12,WRK-066 批4)**:本文写于窗族收敛前——文中所有 `ToolWindow`(灰凹机器窗)读作 **`AnWindow`**(白框窗族当家件,[法典](convergence-codex.md) 族一;ToolWindow 已物理删除),`AnSunkenPanel` 作容器的呈现读作 AnWindow(凹面唯一住户=用户聊天泡);`WindowCopyButton` 挂 `AnWindow.actions`;**批5 追记**:文中 `AnBadge` 读作 `AnChip`(filled 形)、`AnCopyChip` 读作 `AnChip(mono+copyValue)`(两件已物理删除并入芯片族当家件)。设计意图(机器窗身份/内容模式/copy 语义)全部不变,仅壳的物理实现已换。
 
 ---
 

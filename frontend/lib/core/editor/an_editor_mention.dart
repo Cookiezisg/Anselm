@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:super_editor/super_editor.dart';
 
-import '../design/colors.dart';
 import '../design/tokens.dart';
-import '../design/typography.dart';
 import '../ui/an_mention_picker.dart';
+import '../ui/an_ref_pill.dart';
 import '../ui/icons.dart';
 
 /// An entity @mention embedded INLINE in the editor's text as an [AttributedText] placeholder object (not
@@ -117,28 +116,16 @@ class _MentionPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
     final label = mention.name.isEmpty ? mention.id : mention.name;
-    // LineHeight sizes the inline box to the surrounding line so the pill sits ON the text baseline (the
-    // same wrapper the package's inline image builder uses). LineHeight 让药丸贴文字基线(同包内图片 builder)。
+    // LineHeight sizes the inline box to the surrounding line so the pill sits ON the text baseline
+    // (the same wrapper the package's inline image builder uses) — it MUST stay here in core/editor
+    // (core/ui never imports super_editor). The shell inside is the family inline face (批5 A-029 —
+    // the hand-rolled capsule retires; display-only, no gestures: caret hit-testing/IME stay whole).
+    // LineHeight 让药丸贴基线(须留 editor 层,core/ui 不进 super_editor);内壳=族行内脸(纯展示,
+    // 无手势——光标命中/IME 不破)。
     return LineHeight(
       style: textStyle,
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 1),
-        padding: const EdgeInsets.symmetric(horizontal: AnSpace.s4),
-        decoration: BoxDecoration(
-          color: c.accentSoft,
-          borderRadius: BorderRadius.circular(AnRadius.tag),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(AnIcons.byKey(mention.kind), size: AnSize.iconSm, color: c.accent),
-            const SizedBox(width: 3),
-            Text(label, style: AnText.reading.copyWith(color: c.accent, height: 1.0)),
-          ],
-        ),
-      ),
+      child: AnRefPill.inline(kind: mention.kind, label: label),
     );
   }
 }

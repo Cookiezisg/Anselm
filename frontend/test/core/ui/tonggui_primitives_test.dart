@@ -239,10 +239,12 @@ void main() {
       expect(find.text('quiet'), findsOneWidget);
     });
 
-    testWidgets('批5: semanticLabel carries a11y on a STILL chip (scope-badge preset contract)', (tester) async {
-      await tester.pumpWidget(_host(const AnChip('本机', semanticLabel: '本机')));
+    testWidgets('批5: semanticLabel OVERRIDES a11y on a STILL chip (scope-badge preset contract)', (tester) async {
+      // The override must differ from the visible label — a same-string fixture is a tautology
+      // that stays green when the override channel breaks (复审 #24). 覆盖标签须异串,同串=空真。
+      await tester.pumpWidget(_host(const AnChip('本机', semanticLabel: '存储域: 本机')));
       await tester.pump();
-      expect(find.bySemanticsLabel('本机'), findsOneWidget);
+      expect(find.bySemanticsLabel('存储域: 本机'), findsOneWidget);
     });
   });
 
@@ -259,7 +261,23 @@ void main() {
       final deco = box.decoration! as BoxDecoration;
       expect(deco.color, isNull);
       expect(deco.border, isNotNull);
-      await tester.pump(const Duration(seconds: 2)); // raw face requests no frames raw 形零帧
+      await tester.pump(const Duration(seconds: 2));
+      // REAL zero-frame assertion: no live tickers after settle (复审 #25:注释宣称≠断言). 真断言。
+      expect(tester.binding.transientCallbackCount, 0);
+    });
+  });
+
+  group('AnAttachmentThumb onRemove a11y 批5', () {
+    testWidgets('the remove button is a LIVE semantic node (never excluded with the pixels)', (tester) async {
+      await tester.pumpWidget(_host(AnAttachmentThumb(
+        image: null,
+        filename: 'photo.png',
+        state: AnAttachmentState.failed,
+        onRemove: () {},
+        removeLabel: '移除附件',
+      )));
+      await tester.pump();
+      expect(find.bySemanticsLabel('移除附件'), findsOneWidget); // 复审 MED:曾整体被 ExcludeSemantics 剥除
     });
   });
 
@@ -269,7 +287,10 @@ void main() {
       await tester.pumpWidget(_host(AnFollowPill.jump(label: '回到最新', onTap: () => taps++)));
       await tester.pump();
       expect(find.text('回到最新'), findsOneWidget);
-      await tester.pump(const Duration(seconds: 2)); // no pending timers/frames 无挂钟
+      await tester.pump(const Duration(seconds: 2));
+      // REAL no-clock assertion: zero live tickers (the breathing faces subscribe; jump must not).
+      // 真断言:零活 ticker(呼吸脸挂钟,jump 绝不)。
+      expect(tester.binding.transientCallbackCount, 0);
       await tester.tap(find.text('回到最新'));
       expect(taps, 1);
     });

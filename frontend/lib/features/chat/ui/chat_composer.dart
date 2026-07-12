@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pasteboard/pasteboard.dart';
 
-import '../../../core/design/colors.dart';
 import '../../../core/settings/settings_prefs.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/entity/mention_source.dart';
@@ -465,7 +464,6 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
   /// 待发条(空=null,有即触发形变)。
   Widget? _attachmentStrip(BuildContext context, Translations t, List<PendingAttachment> pending) {
     if (pending.isEmpty) return null;
-    final c = context.colors;
     return Wrap(
       spacing: AnSpace.s6,
       runSpacing: AnSpace.s6,
@@ -474,33 +472,14 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
           // A pending IMAGE with bytes in hand shows a real thumbnail tile (memory-decoded, ✕ on the
           // corner); everything else is the filename chip. 有字节的图=真缩略瓦片(角上 ✕);其余=文件名 chip。
           if (a.isImage && a.bytes != null && a.status != 'failed')
-            Stack(
+            // The remove affordance is the primitive's own slot (批5 A-035 — the hand-rolled Stack
+            // retires). 移除示能=原语自有槽(手搓 Stack 退役)。
+            AnAttachmentThumb(
               key: ValueKey(a.localId),
-              children: [
-                AnAttachmentThumb(
-                  image: MemoryImage(Uint8List.fromList(a.bytes!)),
-                  filename: a.filename,
-                ),
-                PositionedDirectional(
-                  top: AnSpace.s2,
-                  end: AnSpace.s2,
-                  // A surface disc under the ghost ✕ — a bare inkFaint glyph on arbitrary photo
-                  // pixels has no contrast guarantee (invisible on dark/busy images).
-                  // ✕ 垫 surface 圆底:裸淡墨字形压任意照片像素无对比度保证(深/花图上隐形)。
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: c.surface,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: c.line, width: AnSize.hairline),
-                    ),
-                    child: AnButton.iconOnly(AnIcons.close,
-                        size: AnButtonSize.sm,
-                        round: true,
-                        semanticLabel: t.attach.remove,
-                        onPressed: () => _att.remove(a.localId)),
-                  ),
-                ),
-              ],
+              image: MemoryImage(Uint8List.fromList(a.bytes!)),
+              filename: a.filename,
+              onRemove: () => _att.remove(a.localId),
+              removeLabel: t.attach.remove,
             )
           else
             AnAttachmentChip(

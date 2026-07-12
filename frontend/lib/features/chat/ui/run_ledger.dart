@@ -158,7 +158,6 @@ class _RunRowState extends State<_RunRow> {
     Widget lead;
     if (row.leading.fired != null) {
       // fired → a green check; not-fired (a sensor probe that didn't fire) → a hollow grey dot. fire 标记。
-      // fired → a green check; not-fired (a sensor probe that didn't fire) → a hollow grey dot. fire 标记。
       lead = row.leading.fired!
           ? Icon(AnIcons.check, size: AnSize.iconSm, color: c.ok)
           : const AnStatusDot.raw(null, hollow: true);

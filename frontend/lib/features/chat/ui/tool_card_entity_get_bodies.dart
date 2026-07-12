@@ -1,26 +1,23 @@
 import 'dart:convert';
 
 import 'package:flutter/widgets.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
 import '../../../core/model/status_state.dart';
 import '../../../core/model/time_format.dart';
-import '../../../core/router/panel_registry.dart';
 import '../../../core/ui/an_chip.dart';
 import '../../../core/ui/an_callout.dart';
 import '../../../core/ui/an_field.dart';
 import '../../../core/ui/an_window.dart';
-import '../../../core/ui/an_ref_pill.dart';
 import '../../../i18n/strings.g.dart';
 import '../model/tool_card_state.dart';
 import 'tool_card_control_approval.dart';
 import 'tool_card_document_skill.dart';
 import 'tool_card_entity_get.dart';
 import 'tool_card_trigger.dart';
-
+import 'tool_card_nav.dart';
 // F06 get bodies (B3.5) — each get tool projects its entity JSON onto the EntityGetBody four-part
 // skeleton: identity + vitals + content + raw. Every projection reads only wire-truth fields (census
 // §02–07); a parse miss degrades to a raw mono window. F06 get 卡逐工具投影(读线缆事实,解析失败降级)。
@@ -85,7 +82,7 @@ AnChip _envBadge(Translations t, String? env) {
   }
 }
 
-Widget _pillWrap(BuildContext context, List<AnRefPill> pills) =>
+Widget _pillWrap(BuildContext context, List<Widget> pills) =>
     Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s4, children: pills);
 
 /// Parse an agent ToolRef `ref` into its entity kind + id. Format (agent.go): `fn_<id>` / `hd_<id>[.method]`
@@ -104,17 +101,6 @@ Widget _pillWrap(BuildContext context, List<AnRefPill> pills) =>
   return (kind: kind, id: m.group(0));
 }
 
-AnRefPill _navPill(BuildContext context, String kind, String label, String? id) => AnRefPill(
-      kind: kind,
-      label: label,
-      id: (id != null && id.isNotEmpty && hasPanelFor(kind)) ? id : null,
-      onTap: (id != null && id.isNotEmpty && hasPanelFor(kind))
-          ? (target) {
-              final loc = panelLocationFor(target.kind, target.id);
-              if (loc != null && context.mounted) context.go(loc);
-            }
-          : null,
-    );
 
 // ── function / handler (env-bearing code entities) ──
 GetProjection _fnProj(BuildContext context, Translations t, Map<String, dynamic> out) {
@@ -199,11 +185,11 @@ GetProjection _agentProj(BuildContext context, Translations t, Map<String, dynam
           for (final m in tools)
             () {
               final r = _parseToolRef('${m['ref'] ?? ''}');
-              return _navPill(context, r.kind, '${m['name']}', r.id);
+              return toolNavPill(context, kind: r.kind, label: '${m['name']}', id: r.id);
             }(),
         ]),
       if (knowledge.isNotEmpty)
-        _pillWrap(context, [for (final d in knowledge) _navPill(context, 'document', '$d', '$d')]),
+        _pillWrap(context, [for (final d in knowledge) toolNavPill(context, kind: 'document', label: '$d', id: '$d')]),
       if (prompt != null && prompt.isNotEmpty) EntityCodeWindow(code: prompt, lang: 'markdown'),
     ],
   );

@@ -184,7 +184,10 @@ class _AnChipState extends State<AnChip> {
         style = style.weight(AnText.emphasisWeight);
       }
 
-      return Container(
+      // Hover tint animates (functional micro-feedback, the ref-pill behaviour the family absorbs);
+      // reduced motion snaps. hover 渐变(功能性微反馈,承 ref pill);reduced 即时。
+      return AnimatedContainer(
+        duration: AnMotionPref.reduced(context) ? Duration.zero : AnMotion.fast,
         height: AnSize.badge,
         padding: const EdgeInsets.symmetric(horizontal: AnSize.badgePadX),
         // ONE radius family-wide: pill (a 12-radius on a 22-high box collapses to ~pill anyway —
@@ -233,14 +236,18 @@ class _AnChipState extends State<AnChip> {
             ? t.feedback.copied
             : (_copyFailed ? t.feedback.copyFailed : (widget.tooltip ?? t.action.copy)))
         : widget.tooltip;
+    // MergeSemantics folds the outer label with AnInteractive's own button node — ONE actionable
+    // node carrying the full label (a bare Semantics wrapper forks a dead labelled node beside the
+    // real button, 批5 复审 a11y). MergeSemantics 并单节点:裸 Semantics 会分叉出死标签节点。
     final chip = ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: AnSize.block),
-      child: Semantics(
-        button: true,
-        label: widget.semanticLabel ?? (copyable ? '${t.action.copy} ${widget.label}' : null),
-        child: AnInteractive(
-          onTap: copyable ? _copy : widget.onTap,
-          builder: (ctx, states) => chipOf(states.isActive),
+      child: MergeSemantics(
+        child: Semantics(
+          label: widget.semanticLabel ?? (copyable ? '${t.action.copy} ${widget.label}' : null),
+          child: AnInteractive(
+            onTap: copyable ? _copy : widget.onTap,
+            builder: (ctx, states) => ExcludeSemantics(child: chipOf(states.isActive)),
+          ),
         ),
       ),
     );

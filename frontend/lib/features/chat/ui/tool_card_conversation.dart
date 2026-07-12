@@ -1,19 +1,18 @@
 import 'dart:convert';
 
 import 'package:flutter/widgets.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
 import '../../../core/model/status_state.dart';
 import '../../../core/model/time_format.dart';
-import '../../../core/router/panel_registry.dart';
 import '../../../core/ui/an_chip.dart';
 import '../../../core/ui/an_field.dart';
 import '../../../core/ui/an_window.dart';
 import '../../../core/ui/icons.dart';
 import '../../../i18n/strings.g.dart';
+import 'tool_card_nav.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
 import 'tool_hit_list.dart';
@@ -34,12 +33,9 @@ Map<String, dynamic>? _json(String s) {
   return null;
 }
 
-String _shortId(String id) => id.length > 12 ? '${id.substring(0, 12)}…' : id;
+String _shortId(String id) => truncate(id, AnTrunc.id);
 
-void _navConversation(BuildContext context, String kind, String id) {
-  final loc = panelLocationFor(kind, id);
-  if (loc != null && context.mounted) context.go(loc);
-}
+void _navConversation(BuildContext context, String kind, String id) => goToPanel(context, kind, id);
 
 /// The manage_conversation verb — dispatched by ACTION (5 pairs + fallback). Settled reads
 /// `output.action` (the wire truth); live reads `args.action` (partial). A soft-fail (no conversation

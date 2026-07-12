@@ -148,22 +148,28 @@ class ProvenanceLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = Translations.of(context);
-    final c = context.colors;
     final items = <Widget>[
       if (conversationId != null && conversationId!.isNotEmpty)
-        toolNavPill(context, kind: 'conversation', label: '${t.chat.tool.provConversation} ${_short(conversationId!)}', id: conversationId),
+        toolNavPill(context, kind: 'conversation', label: '${t.chat.tool.provConversation} ${truncate(conversationId!, AnTrunc.id)}', id: conversationId),
       if (triggerId != null && triggerId!.isNotEmpty)
-        toolNavPill(context, kind: 'trigger', label: '${t.chat.tool.provTrigger} ${_short(triggerId!)}', id: triggerId),
-      // flowrun has no panel registry entry (cockpit needs workflowId) → a mono badge for now. flowrun 无面板→mono。
-      if (flowrunId != null && flowrunId!.isNotEmpty) _mono(c, '${t.chat.tool.provFlowrun} ${_short(flowrunId!)}'),
-      if (messageId != null && messageId!.isNotEmpty) _mono(c, '${t.chat.tool.provMessage} ${_short(messageId!)}'),
-      if (firingId != null && firingId!.isNotEmpty) _mono(c, '${t.chat.tool.provFiring} ${_short(firingId!)}'),
-      if (nodeId != null && nodeId!.isNotEmpty) _mono(c, '${t.chat.tool.provNode} $nodeId${(iteration ?? 0) > 0 ? '#$iteration' : ''}'),
+        toolNavPill(context, kind: 'trigger', label: '${t.chat.tool.provTrigger} ${truncate(triggerId!, AnTrunc.id)}', id: triggerId),
+      // Non-navigable coordinates become COPY chips (批5 A-047 关联 A-037 — the bare grey text
+      // lied about being «mono copy-badges»; flowrun has no panel entry, cockpit needs workflowId).
+      // 非导航坐标改真复制芯片(旧裸灰字谎称 mono copy-badges);截断走族档、copy 保全量。
+      if (flowrunId != null && flowrunId!.isNotEmpty)
+        AnChip('${t.chat.tool.provFlowrun} ${truncate(flowrunId!, AnTrunc.id)}',
+            look: AnChipLook.outlined, mono: true, copyValue: flowrunId!),
+      if (messageId != null && messageId!.isNotEmpty)
+        AnChip('${t.chat.tool.provMessage} ${truncate(messageId!, AnTrunc.id)}',
+            look: AnChipLook.outlined, mono: true, copyValue: messageId!),
+      if (firingId != null && firingId!.isNotEmpty)
+        AnChip('${t.chat.tool.provFiring} ${truncate(firingId!, AnTrunc.id)}',
+            look: AnChipLook.outlined, mono: true, copyValue: firingId!),
+      if (nodeId != null && nodeId!.isNotEmpty)
+        AnChip('${t.chat.tool.provNode} $nodeId${(iteration ?? 0) > 0 ? '#$iteration' : ''}',
+            look: AnChipLook.outlined, mono: true, copyValue: nodeId!),
     ];
     if (items.isEmpty) return const SizedBox.shrink();
     return Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s4, crossAxisAlignment: WrapCrossAlignment.center, children: items);
   }
-
-  Widget _mono(AnColors c, String s) => Text(s, style: AnText.meta.copyWith(color: c.inkFaint));
-  String _short(String id) => id.length > 12 ? '${id.substring(0, 12)}…' : id;
 }

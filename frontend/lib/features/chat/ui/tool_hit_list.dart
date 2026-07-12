@@ -4,6 +4,8 @@ import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
 import '../../../core/router/panel_registry.dart';
+import '../../../core/model/status_state.dart';
+import '../../../core/ui/an_chip.dart';
 import '../../../core/ui/an_interactive.dart';
 import '../../../core/ui/an_json_tree.dart';
 import '../../../core/ui/an_window.dart';
@@ -215,7 +217,8 @@ class _ToolHitListState extends State<ToolHitList> with SingleTickerProviderStat
                     ),
                     if (isCurrent) ...[
                       const SizedBox(width: AnSpace.s6),
-                      _currentMarker(context),
+                      // Family chip (批5 A-026 — the hand-rolled accent pill retires). 族芯片。
+                      AnChip(Translations.of(context).chat.tool.hitCurrent, tone: AnTone.accent),
                     ],
                   ],
                 ),
@@ -252,15 +255,6 @@ class _ToolHitListState extends State<ToolHitList> with SingleTickerProviderStat
     );
   }
 
-  Widget _currentMarker(BuildContext context) {
-    final c = context.colors;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AnSpace.s6, vertical: AnSpace.s2),
-      decoration: BoxDecoration(color: c.accentSoft, borderRadius: BorderRadius.circular(AnRadius.tag)),
-      child: Text(Translations.of(context).chat.tool.hitCurrent,
-          style: AnText.label.copyWith(color: c.accent)),
-    );
-  }
 
   // LOCAL over-cap: an escape hatch to the full bounded JSON (nothing is lost). 本地超封顶逃生口。
   Widget _localOverCapFooter(BuildContext context) {

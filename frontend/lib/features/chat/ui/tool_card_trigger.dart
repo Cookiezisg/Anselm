@@ -86,7 +86,7 @@ List<Widget> _faceOf(BuildContext context, Translations t, AnColors c, String ki
             padding: const EdgeInsets.only(top: AnSpace.s4),
             child: Wrap(spacing: AnGap.inline, children: [
               // The secret value is NEVER shown — only that it's set. 密钥值绝不显、只显有无。
-              if (hasSecret) _lockChip(context, t.chat.tool.trgSecret),
+              if (hasSecret) AnChip(t.chat.tool.trgSecret, look: AnChipLook.outlined, icon: AnIcons.approval),
               if (algo.isNotEmpty) AnChip(algo, tone: AnTone.none),
             ]),
           ),
@@ -131,25 +131,11 @@ List<Widget> _faceOf(BuildContext context, Translations t, AnColors c, String ki
           ),
       ];
     default:
-      return [AnWindow(child: Text(const JsonEncoder.withIndent('  ').convert(config), style: AnText.code.copyWith(color: c.inkMuted)))];
+      // Raw JSON goes to the bounded tree like everywhere else (批5 顺手关 A-005). JSON 走有界树。
+      return [AnWindow(child: SizedBox(height: AnSize.jsonViewport, child: AnJsonTree(data: config, showRoot: false)))];
   }
 }
 
-Widget _lockChip(BuildContext context, String label) {
-  final c = context.colors;
-  return Container(
-    padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8, vertical: AnSpace.s2),
-    decoration: BoxDecoration(
-      border: Border.all(color: c.line, width: AnSize.hairline),
-      borderRadius: BorderRadius.circular(AnRadius.tag),
-    ),
-    child: Row(mainAxisSize: MainAxisSize.min, children: [
-      Icon(AnIcons.approval, size: AnSize.iconSm, color: c.inkFaint),
-      const SizedBox(width: AnGap.inlineHair),
-      Text(label, style: AnText.label.copyWith(color: c.inkFaint)),
-    ]),
-  );
-}
 
 /// The trigger collapsed-row receipt: the kind + its listening state. create → `未监听` (expected — an
 /// active workflow reference starts it); edit on a live trigger → `热更新已生效` (its config took effect

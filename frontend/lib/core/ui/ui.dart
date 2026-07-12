@@ -50,6 +50,7 @@ export 'an_input.dart';
 export 'an_node_gantt.dart';
 export 'an_inspector.dart';
 export 'an_inspector_head.dart';
+export 'an_inline_capsule.dart';
 export 'an_interactive.dart';
 export 'an_island.dart';
 export 'an_json_tree.dart';

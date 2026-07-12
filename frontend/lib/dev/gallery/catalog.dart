@@ -380,6 +380,23 @@ final GalleryCategory _g1Controls = GalleryCategory('基础控件 Controls', AnI
     GallerySpecimen('outlined + mono + copy (id 芯片)', (_) => const AnChip('fn_3a9f0e88', look: AnChipLook.outlined, mono: true, copyValue: 'fn_3a9f0e88')),
     GallerySpecimen('strikethrough (删除态)', (_) => const AnChip('old-tool', look: AnChipLook.outlined, strikethrough: true)),
     GallerySpecimen('tooltip 覆盖 (hover 全值)', (_) => const AnChip('lexer.dart', look: AnChipLook.outlined, mono: true, copyValue: '/src/parser/lexer.dart', tooltip: '/src/parser/lexer.dart')),
+    GallerySpecimen('icon-only (空标签纯示能)', (_) => const AnChip('', look: AnChipLook.outlined, copyValue: 'the-full-payload')),
+  ]),
+  GalleryItem('AnInlineCapsule 行内药囊', '唯一贴基线文内壳(WidgetSpan 专用):软 tone 底+tag 圆角+宿主字体;{{CEL}} 琥珀囊/[[id]] 药丸/编辑器提及皆骑它', [
+    GallerySpecimen('accent (默认,[[id]] 药丸)', (context) => Text.rich(TextSpan(children: [
+          TextSpan(text: '引用 ', style: AnText.reading.copyWith(color: context.colors.ink)),
+          const WidgetSpan(alignment: PlaceholderAlignment.middle, child: AnInlineCapsule('quarterly-fix.md')),
+          TextSpan(text: ' 的模板。', style: AnText.reading.copyWith(color: context.colors.ink)),
+        ])), span: true),
+    GallerySpecimen('warn ({{CEL}} 琥珀囊)', (context) => Text.rich(TextSpan(children: [
+          TextSpan(text: '金额超过 ', style: AnText.reading.copyWith(color: context.colors.ink)),
+          const WidgetSpan(alignment: PlaceholderAlignment.middle, child: AnInlineCapsule('{{amount}}', tone: AnTone.warn)),
+          TextSpan(text: ' 时进审批。', style: AnText.reading.copyWith(color: context.colors.ink)),
+        ])), span: true),
+    GallerySpecimen('带字形 (提及,经 AnRefPill.inline)', (_) => AnInlineCapsule('sync_inventory', icon: AnIcons.function)),
+    GallerySpecimen('超长换行 (禁截断)', (context) => SizedBox(width: 220, child: Text.rich(TextSpan(children: [
+          const WidgetSpan(alignment: PlaceholderAlignment.middle, child: AnInlineCapsule('an-extremely-long-inline-reference-name-that-wraps-not-truncates')),
+        ]))), stress: true),
   ]),
   GalleryItem('AnGroupLabel', '极薄分组小标题', [
     GallerySpecimen('default', (_) => const AnGroupLabel('Entities'), span: true),

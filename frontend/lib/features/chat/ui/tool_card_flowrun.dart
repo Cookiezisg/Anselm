@@ -38,7 +38,7 @@ Map<String, dynamic>? _obj(String s) {
 ToolReceipt? triggerWorkflowReceipt(Translations t, String output) {
   final fr = _obj(output)?['flowrunId'];
   if (fr is! String || fr.isEmpty) return null;
-  return (text: fr.length > 12 ? '${fr.substring(0, 12)}…' : fr, tone: ToolReceiptTone.none);
+  return (text: truncate(fr, AnTrunc.id), tone: ToolReceiptTone.none);
 }
 
 /// trigger_workflow body — the payload input (empty → grey note) + a launch credential (navigable

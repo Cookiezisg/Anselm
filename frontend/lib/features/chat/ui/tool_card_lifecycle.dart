@@ -7,6 +7,7 @@ import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
 import '../../../core/router/panel_registry.dart';
+import '../../../core/ui/an_chip.dart';
 import '../../../core/ui/an_field.dart';
 import '../../../core/ui/an_window.dart';
 import '../../../core/ui/an_ref_pill.dart';
@@ -129,7 +130,7 @@ Widget metaDeltaBody(BuildContext context,
   final name = argString(argsText, 'name');
   if (name != null) rows.add(AnKvRow(t.chat.tool.kvName, '→ $name', mono: true));
   final desc = argString(argsText, 'description');
-  if (desc != null) rows.add(AnKvRow(t.chat.tool.kvDescription, '→ ${desc.length > 48 ? '${desc.substring(0, 48)}…' : desc}', wrap: true));
+  if (desc != null) rows.add(AnKvRow(t.chat.tool.kvDescription, '→ ${truncate(desc, AnTrunc.line)}', wrap: true));
   final tags = argStringList(argsText, 'tags');
   if (RegExp('"tags"\\s*:').hasMatch(argsText)) rows.add(AnKvRow.tags(t.chat.tool.kvTags, tags));
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [

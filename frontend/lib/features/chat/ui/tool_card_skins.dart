@@ -492,7 +492,7 @@ Widget listApprovalInboxBody(BuildContext context, ToolCardState state) {
       'ref': p['ref']?.toString() ?? '',
       'summary': first,
       'wait': fmtWaitedSince(parkedAt),
-      'run': flowrunId.length > 10 ? '${flowrunId.substring(0, 10)}…' : flowrunId,
+      'run': truncate(flowrunId, AnTrunc.id),
     });
   }
   return Column(
@@ -673,7 +673,7 @@ String? buildEntityKind(String toolName) {
 /// 结果条适配器(批3 四并一):回执 → AnStatBar 槽位投影——凭据 pill 进 leading(条的主语;深链降级
 /// 复制 id)、vN/env/runtime/重启进 stats(色只经 AnTone 出口,文法 #6)、三注记进 notes;env 自愈
 /// 时间线是 F4 域家具,挂条下同胞、不进当家件。
-Widget runStatBarOf(BuildContext context, ToolCardState state) {
+Widget runStatBarOf(BuildContext context, ToolCardState state, {List<AnStat> extraStats = const []}) {
   final t = Translations.of(context);
   final c = context.colors;
   Map<String, dynamic>? out;
@@ -681,7 +681,11 @@ Widget runStatBarOf(BuildContext context, ToolCardState state) {
     final d = jsonDecode(state.resultText);
     if (d is Map<String, dynamic>) out = d;
   } catch (_) {}
-  if (out == null) return const SizedBox.shrink();
+  // Domain-fed stats must survive an unparsable result (the fn stage's diff counts render even
+  // when the receipt JSON is absent — the old sibling badge did). 域外挂 stat 不随回执缺席而消失。
+  if (out == null) {
+    return extraStats.isEmpty ? const SizedBox.shrink() : AnStatBar(stats: extraStats);
+  }
 
   final kind = buildEntityKind(state.toolName);
   // Dual-key id: create returns `id`, edit returns `<entity>Id` (agentId / functionId / …). 双键兜。
@@ -698,6 +702,8 @@ Widget runStatBarOf(BuildContext context, ToolCardState state) {
   final envFixAttempts = out['envFixAttempts'] as List?;
 
   final stats = <AnStat>[
+    // Domain-fed leading stats (the fn stage's +n/−m diff counts — 批5 A-043). 域外挂前置 stat。
+    ...extraStats,
     if (out['version'] != null) AnStat('v${out['version']}', tabular: true),
     if (envStatus != null)
       AnStat(

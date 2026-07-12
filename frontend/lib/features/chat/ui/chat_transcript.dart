@@ -374,8 +374,6 @@ class _JumpHighlight extends StatelessWidget {
   }
 }
 
-/// The「回到现场」pill — floats over a detached jump window; tapping re-hydrates the head and
-/// rejoins the live present (a send does the same implicitly). 回到现场 pill。
 
 /// One transcript turn, centered in the reading column with the inter-turn gap. 一条回合(阅读列+轮距)。
 class _TurnRow extends ConsumerWidget {

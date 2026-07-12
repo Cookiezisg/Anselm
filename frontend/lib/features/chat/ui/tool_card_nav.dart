@@ -11,18 +11,20 @@ import '../../../core/ui/ui.dart';
 
 /// A ref pill that deep-links to its entity panel when navigable, else renders as a plain annotation.
 /// 可导航→深链面板;否则纯标注。
+/// Navigate to an entity's panel (registry-gated; a kind with no panel is a no-op). The ONE
+/// go-closure — call sites stop re-rolling `panelLocationFor + context.go` (A-024). 唯一导航闭包。
+void goToPanel(BuildContext context, String kind, String id) {
+  final loc = panelLocationFor(kind, id);
+  if (loc != null && context.mounted) context.go(loc);
+}
+
 Widget toolNavPill(BuildContext context, {required String kind, required String label, String? id}) {
   final can = id != null && id.isNotEmpty && hasPanelFor(kind);
   return AnRefPill(
     kind: kind,
     label: label,
     id: can ? id : null,
-    onTap: can
-        ? (target) {
-            final loc = panelLocationFor(target.kind, target.id);
-            if (loc != null && context.mounted) context.go(loc);
-          }
-        : null,
+    onTap: can ? (target) => goToPanel(context, target.kind, target.id) : null,
   );
 }
 

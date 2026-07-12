@@ -64,13 +64,13 @@ class AgentStageBody extends ConsumerWidget {
       // The tool belt: closed refs click on; untouched slots keep the old belt at 40% (R-9). 腰带。
       if (toolsTouched)
         Wrap(spacing: AnSpace.s4, runSpacing: AnSpace.s4, children: [
-          for (final ref_ in tools) _beltChip(c, ref_, live: scene.live),
+          for (final ref_ in tools) _beltChip(ref_),
         ])
       else if (scene.live && old != null && old.tools.isNotEmpty)
         Opacity(
           opacity: AnOpacity.stratum,
           child: Wrap(spacing: AnSpace.s4, runSpacing: AnSpace.s4, children: [
-            for (final ref_ in old.tools) _beltChip(c, {'ref': ref_.ref, 'name': ref_.name}, live: false),
+            for (final ref_ in old.tools) _beltChip({'ref': ref_.ref, 'name': ref_.name}),
           ]),
         ),
       if (knowledgeTouched) ...[
@@ -91,23 +91,17 @@ class AgentStageBody extends ConsumerWidget {
     ]);
   }
 
-  Widget _beltChip(AnColors c, Object? ref_, {required bool live}) {
-    String label;
+  // Shell deleted, brain kept (批5 A-040): the wire ToolRef is {ref, name} (values.dart) — show
+  // the resolved name, ref as fallback; the chip itself is the family head (ONE voice both faces —
+  // the settled full-ink face yields to the family ink, 刻意裁决帧核). 删壳留脑:标签解析自有,壳走
+  // 当家件;live/settled 同声零跳变。
+  String _beltLabel(Object? ref_) {
     if (ref_ is Map) {
-      // The wire ToolRef is {ref, name} (values.dart) — show the resolved name, ref as fallback.
-      // 线缆 ToolRef={ref,name}:显示名优先,ref 兜底。
       final name = '${ref_['name'] ?? ''}';
-      label = name.isNotEmpty ? name : '${ref_['ref'] ?? ''}';
-    } else {
-      label = '$ref_';
+      return name.isNotEmpty ? name : '${ref_['ref'] ?? ''}';
     }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AnSpace.s6, vertical: AnSpace.s2),
-      decoration: BoxDecoration(
-        border: Border.all(color: c.line, width: AnSize.hairline),
-        borderRadius: BorderRadius.circular(AnRadius.chip),
-      ),
-      child: Text(label, style: AnText.meta.copyWith(color: live ? c.inkMuted : c.ink)),
-    );
+    return '$ref_';
   }
+
+  Widget _beltChip(Object? ref_) => AnChip(_beltLabel(ref_), look: AnChipLook.outlined);
 }

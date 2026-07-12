@@ -238,7 +238,7 @@ Widget firingsBody(BuildContext context, ToolCardState s) => _countBody(context,
               chips: [
                 AnChip(_firingWord(t, r['status'] as String?), tone: _firingTone(r['status'] as String?)),
                 if ((r['flowrunId'] as String?)?.isNotEmpty ?? false)
-                  AnChip('${(r['flowrunId'] as String).length > 12 ? '${(r['flowrunId'] as String).substring(0, 12)}…' : r['flowrunId']}', tone: AnTone.none),
+                  AnChip(truncate(r['flowrunId'] as String, AnTrunc.id), tone: AnTone.none),
               ],
               subText: r['dedupKey'] as String?,
               stamp: fmtStamp(r['createdAt'] as String?),

@@ -240,7 +240,7 @@ Widget _invokeStatBar(BuildContext context, Map<String, dynamic> result, String?
 ToolReceipt? fireReceipt(Translations t, String output) {
   final act = _obj(output)?['activationId'];
   if (act is! String || act.isEmpty) return null;
-  return (text: act.length > 12 ? '${act.substring(0, 12)}…' : act, tone: ToolReceiptTone.none);
+  return (text: truncate(act, AnTrunc.id), tone: ToolReceiptTone.none);
 }
 
 /// fire_trigger body — the fired conclusion + a navigable trigger pill + the full activationId (copy) +

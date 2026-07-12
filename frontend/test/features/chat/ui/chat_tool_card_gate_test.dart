@@ -272,7 +272,7 @@ void main() {
     expect(find.text('apf_spend'), findsOneWidget); // ref cell
     expect(find.text('# 采购审批'), findsOneWidget); // rendered FIRST LINE only (flattened)
     expect(find.textContaining('金额 ¥12,400'), findsNothing); // the 2nd line is NOT rendered in-cell
-    expect(find.text('flr_abcdef…'), findsOneWidget); // run id truncated
+    expect(find.text('flr_abcdefgh…'), findsOneWidget); // run id truncated at the family id tier (12, 批5 A-044) 族档截断
   });
 
   testWidgets('inbox empty → an honest muted empty state, no table', (tester) async {

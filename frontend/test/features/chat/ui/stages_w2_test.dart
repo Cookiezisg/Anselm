@@ -105,9 +105,10 @@ void main() {
 
     expect(find.byType(AnLayerDiff), findsNothing); // the diff badge takes over 地层退场
     expect(find.byType(AnCodeEditor), findsOneWidget); // highlighted settle 高亮落定
-    // Real diff vs the fetched before: shared def+trailing lines, −1 old return, +3 new lines. 真 diff。
-    expect(find.text('+3'), findsOneWidget);
-    expect(find.text('−1'), findsOneWidget);
+    // Real diff vs the fetched before: shared def+trailing lines, −1 old return, +3 new lines —
+    // now leading stats on the ONE bar (批5 A-043,AnStatBar 渲 rich text). 真 diff 计数进当家条。
+    expect(find.textContaining('+3', findRichText: true), findsOneWidget);
+    expect(find.textContaining('−1', findRichText: true), findsOneWidget);
   });
 
   testWidgets(

@@ -196,14 +196,8 @@ class _PilledProse extends ConsumerWidget {
       final id = m.group(1)!;
       spans.add(WidgetSpan(
         alignment: PlaceholderAlignment.middle,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: AnSpace.s4, vertical: 1),
-          decoration: BoxDecoration(
-            color: c.accentSoft,
-            borderRadius: BorderRadius.circular(AnRadius.tag),
-          ),
-          child: Text(names[id] ?? id, style: AnText.meta.copyWith(color: c.accent)),
-        ),
+        // The ONE inline-capsule shell (批5 A-042 — the hand-rolled [[id]] pill retires). 唯一行内壳。
+        child: AnInlineCapsule(names[id] ?? id),
       ));
       last = m.end;
     }

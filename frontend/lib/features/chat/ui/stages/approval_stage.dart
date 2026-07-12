@@ -87,15 +87,8 @@ class ApprovalStageBody extends StatelessWidget {
       }
       spans.add(WidgetSpan(
         alignment: PlaceholderAlignment.middle,
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 1),
-          padding: const EdgeInsets.symmetric(horizontal: AnSpace.s4, vertical: 1),
-          decoration: BoxDecoration(
-            color: c.warnSoft,
-            borderRadius: BorderRadius.circular(AnRadius.tag),
-          ),
-          child: Text(m.group(1)!, style: AnText.meta.copyWith(color: c.warn)),
-        ),
+        // The ONE inline-capsule shell (批5 A-041 — the hand-rolled amber pill retires). 唯一行内壳。
+        child: AnInlineCapsule(m.group(1)!, tone: AnTone.warn),
       ));
       last = m.end;
     }

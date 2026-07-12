@@ -243,9 +243,14 @@ Widget editWorkflowBody(BuildContext context, ToolCardState state) {
         spacing: AnGap.inline,
         runSpacing: AnGap.stackTight,
         children: [
-          for (final n in d.addedNodes) _morphChip(context, icon: nodeKindIcon(n.kind), label: n.ref.isEmpty ? n.id : n.ref, tone: c.ok, deco: false),
-          for (final id in d.updatedNodes) _morphChip(context, icon: AnIcons.edit, label: id, tone: c.warn, deco: false),
-          for (final id in d.deletedNodes) _morphChip(context, icon: AnIcons.trash, label: id, tone: c.danger, deco: true),
+          // Family chips (批5 A-047 — the hand-rolled morph shell retires; the alpha-0.5 border
+          // tint becomes the family's full tone stroke, 刻意裁决帧核). 族芯片:半透边→全 tone 边。
+          for (final n in d.addedNodes)
+            AnChip(n.ref.isEmpty ? n.id : n.ref, look: AnChipLook.outlined, tone: AnTone.ok, icon: nodeKindIcon(n.kind), mono: true),
+          for (final id in d.updatedNodes)
+            AnChip(id, look: AnChipLook.outlined, tone: AnTone.warn, icon: AnIcons.edit, mono: true),
+          for (final id in d.deletedNodes)
+            AnChip(id, look: AnChipLook.outlined, tone: AnTone.danger, icon: AnIcons.trash, mono: true, strikethrough: true),
         ],
       ),
       Padding(
@@ -257,26 +262,6 @@ Widget editWorkflowBody(BuildContext context, ToolCardState state) {
   );
 }
 
-/// A morph change chip: kind/action glyph + label, tinted by tone; [deco]=true strikes the label
-/// through (a deleted node — its ref is gone, only the id remains). morph 变更 chip;deco=删除划线。
-Widget _morphChip(BuildContext context, {required IconData icon, required String label, required Color tone, required bool deco}) {
-  return Container(
-    padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8, vertical: AnSpace.s2),
-    decoration: BoxDecoration(
-      border: Border.all(color: tone.withValues(alpha: 0.5), width: AnSize.hairline),
-      borderRadius: BorderRadius.circular(AnRadius.tag),
-    ),
-    child: Row(mainAxisSize: MainAxisSize.min, children: [
-      Icon(icon, size: AnSize.iconSm, color: tone),
-      const SizedBox(width: AnGap.inlineHair),
-      Text(label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: AnText.label.copyWith(
-              color: tone, decoration: deco ? TextDecoration.lineThrough : null)),
-    ]),
-  );
-}
 
 /// The create_workflow body — act one (in flight): the op ticker; act two (settled): intent · the
 /// workflow graph (1:1 with the entity page's AnGraphCanvas) · the result bar.

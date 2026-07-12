@@ -95,7 +95,7 @@ abstract final class AnSize {
   static const double dotPulse = 5; // run-status breath expansion radius 呼吸外扩半径
   static const double dotSm = 5; // small in-chip dot (op ticker) 芯片内小点(op ticker)
   static const double swatch = 10; // colour swatch dot (workspace colour) 色板圆点(工作区色)
-  static const double capsulePadY = 1; // inline baseline-capsule vertical inset 行内贴基线药囊竖内距
+  static const double capsulePadY = 1; // inline baseline-capsule hair inset (v-pad + h-breathing margin) 行内药囊发丝距(竖内距+横呼吸边距)
   static const double hairline = 1;
   static const double gripLine = 2; // drag-handle hover divider (2× hairline) 拖柄悬停分隔线
   static const double ring = 1.5; // emphasis ring stroke (badge halo, canvas connect handle) 强调环描边(徽章环/画布接柄)

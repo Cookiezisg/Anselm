@@ -1,10 +1,8 @@
 import 'package:flutter/widgets.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
-import '../../../core/router/panel_registry.dart';
 import '../../../core/ui/an_code_editor.dart';
 import '../../../core/ui/an_disclosure.dart';
 import '../../../core/ui/an_fade_collapse.dart';
@@ -13,6 +11,7 @@ import '../../../core/ui/an_json_tree.dart';
 import '../../../core/ui/an_window.dart';
 import '../../../core/ui/an_ref_pill.dart';
 import '../../../i18n/strings.g.dart';
+import 'tool_card_nav.dart';
 
 /// The content window's hard char cap — beyond it the window shows the head + a truncation note that
 /// points to the entity panel for the full text (AnCodeEditor has no virtualization). 内容窗字符硬顶。
@@ -78,23 +77,10 @@ class ToolEntityHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final navigable = hasPanelFor(kind);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Flexible(
-          child: AnRefPill(
-            kind: kind,
-            label: name,
-            id: navigable ? id : null,
-            onTap: navigable
-                ? (target) {
-                    final loc = panelLocationFor(target.kind, target.id);
-                    if (loc != null && context.mounted) context.go(loc);
-                  }
-                : null,
-          ),
-        ),
+        Flexible(child: toolNavPill(context, kind: kind, label: name, id: id)),
         const SizedBox(width: AnSpace.s6),
         Flexible(
           child: Text(id, maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.mono.copyWith(color: c.inkFaint)),

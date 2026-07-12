@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
+import 'an_inline_capsule.dart';
 
 /// A CEL expression, DISPLAYED AS A DISCRIMINANT (WRK-061 §7 — the graph-and-logic stages' shared
 /// grammar): dotted-path references (`input.total`, `payload.sku`, `normalize.result`) condense into
@@ -73,18 +74,11 @@ class _AnCelGrowState extends State<AnCelGrow> with SingleTickerProviderStateMix
       var last = 0;
       for (final m in AnCelGrow.referenceRe.allMatches(text)) {
         if (m.start > last) spans.add(TextSpan(text: text.substring(last, m.start), style: base));
+        // The ONE inline-capsule shell (批5 A-030 — the hand-rolled [[ref]] pill retires; the
+        // compact 2px h-pad folds into the family 4px, 刻意归档). 唯一行内壳;compact 内距归族档。
         spans.add(WidgetSpan(
           alignment: PlaceholderAlignment.middle,
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 1),
-            padding: EdgeInsets.symmetric(horizontal: widget.compact ? AnSpace.s2 : AnSpace.s4, vertical: 1),
-            decoration: BoxDecoration(
-              color: c.accentSoft,
-              borderRadius: BorderRadius.circular(AnRadius.tag),
-            ),
-            child: Text(m.group(0)!,
-                style: (widget.compact ? AnText.meta : AnText.code).copyWith(color: c.accent)),
-          ),
+          child: AnInlineCapsule(m.group(0)!, textStyle: widget.compact ? AnText.meta : AnText.code),
         ));
         last = m.end;
       }

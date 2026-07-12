@@ -1,10 +1,9 @@
 import 'package:flutter/widgets.dart';
 
 import '../../i18n/strings.g.dart';
-import '../design/colors.dart';
-import '../design/tokens.dart';
 import '../design/typography.dart';
 import 'an_chip.dart';
+import 'an_inline_capsule.dart';
 import 'icons.dart';
 
 /// The target of a reference tap: the entity [kind] + its [id]. 提及目标:实体 kind + id。
@@ -114,28 +113,16 @@ class AnRefPill extends StatelessWidget {
     );
   }
 
-  // The baseline capsule: soft accent fill + tag radius + the host's text style — collapses the
-  // three hand-rolled in-text pills (editor mention / [[id]] prose / CEL ref). height:1.0 keeps the
-  // capsule from inflating the host line box. 贴基线药囊:收编三处手搓行内伪药丸;height 1.0 不撑行。
-  Widget _inline(BuildContext context) {
-    final c = context.colors;
-    final style = (textStyle ?? AnText.reading).copyWith(color: c.accent, height: 1.0);
-    return Semantics(
-      label: '${_kindWord(context)}: $label',
-      child: ExcludeSemantics(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: AnSpace.s4, vertical: AnSize.capsulePadY),
-          decoration: BoxDecoration(
-            color: c.accentSoft,
-            borderRadius: BorderRadius.circular(AnRadius.tag),
+  // Rides the ONE inline-capsule shell (kind glyph fed as its icon) — a second in-text shell would
+  // be the disease this family cures. 骑唯一行内壳(kind 字形作 icon)——第二个文内壳=本族要治的病。
+  Widget _inline(BuildContext context) => Semantics(
+        label: '${_kindWord(context)}: $label',
+        child: ExcludeSemantics(
+          child: AnInlineCapsule(
+            label,
+            icon: AnIcons.entityKindGlyph(kind),
+            textStyle: (textStyle ?? AnText.reading),
           ),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(AnIcons.entityKindGlyph(kind), size: AnSize.iconSm, color: c.accent),
-            const SizedBox(width: AnGap.inlineHair),
-            Flexible(child: Text(label, maxLines: 1, softWrap: false, overflow: TextOverflow.ellipsis, style: style)),
-          ]),
         ),
-      ),
-    );
-  }
+      );
 }

@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/tokens.dart';
-import '../../../../core/design/typography.dart';
 import '../../../../core/ui/ui.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../state/stage_truth.dart';
@@ -59,13 +58,8 @@ class FunctionStageBody extends ConsumerWidget {
         AnCodeEditor(code: code, lang: 'python', reading: true, live: scene.live, maxHeight: AnSize.codeViewport),
         if (!scene.live && !scene.failed) ...[
           const SizedBox(height: AnSpace.s6),
-          Row(children: [
-            if (oldCode.isNotEmpty) ...[
-              _DiffBadge(before: oldCode, after: code),
-              const SizedBox(width: AnSpace.s8),
-            ],
-            Expanded(child: runStatBarOf(context, scene.state)),
-          ]),
+          // The +n/−m counts join the ONE stat bar (条族规则③:stat 链唯一实现)。计数并入当家条。
+          runStatBarOf(context, scene.state, extraStats: oldCode.isEmpty ? const [] : _diffStats(oldCode, code)),
         ],
       ],
       ..._signaturePills(context, c, session),
@@ -119,53 +113,33 @@ class _OpTicker extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.colors;
     return Wrap(spacing: AnSpace.s4, runSpacing: AnSpace.s4, children: [
+      // Family chip, TWO faces in the SAME construction (zero jump): the typed dot slot is present
+      // on both — live hollow neutral, settled solid ok; only the fill flips. 族芯片双脸同构零跳变:
+      // dot 槽两脸恒在,live 空心中性/落定实心 ok,只翻填充。
       for (final raw in ops)
         if (raw is Map && raw['op'] is String)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: AnSpace.s6, vertical: AnSpace.s2),
-            decoration: BoxDecoration(
-              border: Border.all(color: c.line, width: AnSize.hairline),
-              borderRadius: BorderRadius.circular(AnRadius.tag),
-            ),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              // Neutral while live (outline dot); solid ok only after the settle. live 轮廓点;落定实心。
-              Container(
-                width: AnSize.dot - 2,
-                height: AnSize.dot - 2,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: live ? null : c.ok,
-                  border: live ? Border.all(color: c.inkFaint, width: AnSize.hairline) : null,
-                ),
-              ),
-              const SizedBox(width: AnSpace.s4),
-              Text('${raw['op']}', style: AnText.meta.copyWith(color: c.inkMuted)),
-            ]),
+          AnChip(
+            '${raw['op']}',
+            look: AnChipLook.outlined,
+            mono: true,
+            dot: live
+                ? const AnStatusDot.raw(null, hollow: true, size: AnSize.dotSm)
+                : AnStatusDot.raw(c.ok, size: AnSize.dotSm),
           ),
     ]);
   }
 }
 
-/// The settle's honest «+n −m» — a REAL line diff of the fetched before vs the landed after (R-5's
-/// fourth use). 落定 diff 徽:真 lineDiff(+n −m)。
-class _DiffBadge extends StatelessWidget {
-  const _DiffBadge({required this.before, required this.after});
-
-  final String before;
-  final String after;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    var add = 0, del = 0;
-    for (final l in lineDiff(before, after)) {
-      if (l.op == DiffOp.add) add++;
-      if (l.op == DiffOp.del) del++;
-    }
-    return Row(mainAxisSize: MainAxisSize.min, children: [
-      Text('+$add', style: AnText.meta.copyWith(color: c.ok)),
-      const SizedBox(width: AnSpace.s4),
-      Text('−$del', style: AnText.meta.copyWith(color: c.danger)),
-    ]);
+/// The settle's honest «+n −m» — a REAL line diff of the fetched before vs the landed after,
+/// projected as leading stats on the family bar (批5 A-043,_DiffBadge 并轨). 真 lineDiff 计数进当家条。
+List<AnStat> _diffStats(String before, String after) {
+  var add = 0, del = 0;
+  for (final l in lineDiff(before, after)) {
+    if (l.op == DiffOp.add) add++;
+    if (l.op == DiffOp.del) del++;
   }
+  return [
+    AnStat('+$add', tone: AnTone.ok, tabular: true),
+    AnStat('−$del', tone: AnTone.danger, tabular: true),
+  ];
 }

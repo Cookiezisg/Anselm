@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/widgets.dart';
 
 import '../../../core/design/colors.dart';
+import '../../../core/ui/an_chip.dart';
 import '../../../i18n/strings.g.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
@@ -146,7 +147,7 @@ ToolReceipt? fsErrorReceipt(Translations t, String output) {
 String? _nameOrIdTarget(ToolCardState s, String idKey) {
   if (s.entityName.isNotEmpty) return s.entityName;
   final id = argStringPartial(s.argsText, idKey);
-  return id == null ? null : (id.length > 12 ? '${id.substring(0, 12)}…' : id);
+  return id == null ? null : (truncate(id, AnTrunc.id));
 }
 
 ToolCardSpec _fsOp({
@@ -187,7 +188,7 @@ ToolCardSpec _searchLog({
       if (s.entityName.isNotEmpty) return s.entityName;
       for (final a in args) {
         final v = argStringPartial(s.argsText, a);
-        if (v != null && v.isNotEmpty) return v.length > 12 ? '${v.substring(0, 12)}…' : v;
+        if (v != null && v.isNotEmpty) return truncate(v, AnTrunc.id);
       }
       return null;
     },
@@ -211,7 +212,7 @@ ToolCardSpec _countLog({
       target: (s) {
         if (s.entityName.isNotEmpty) return s.entityName;
         final v = argStringPartial(s.argsText, chipArg);
-        return v == null || v.isEmpty ? null : (v.length > 12 ? '${v.substring(0, 12)}…' : v);
+        return v == null || v.isEmpty ? null : (truncate(v, AnTrunc.id));
       },
       receipt: (t, s) => countListReceipt(t, s.resultText, listKey),
       hasBodyOf: (s) => countListHasBody(s.resultText, listKey),
@@ -232,7 +233,7 @@ ToolCardSpec _getRecord({
       verb: (t, {required bool live}) => live ? running(t) : done(t),
       target: (s) {
         final v = argStringPartial(s.argsText, chipArg);
-        return v == null || v.isEmpty ? null : (v.length > 12 ? '${v.substring(0, 12)}…' : v);
+        return v == null || v.isEmpty ? null : (truncate(v, AnTrunc.id));
       },
       receipt: (t, s) => receipt(t, s.resultText),
       resultFailed: (s) => failed(s.resultText),
@@ -337,7 +338,7 @@ ToolCardSpec _entitySearch({
               final q = argStringPartial(s.argsText, 'query');
               if (q == null || q.trim().isEmpty) return null;
               final first = q.split('\n').first.trim();
-              return '"${first.length > 40 ? '${first.substring(0, 40)}…' : first}"';
+              return '"${truncate(first, AnTrunc.line)}"';
             },
       receipt: (t, s) => searchReceipt(s.resultText,
           listKey: listKey,
@@ -912,7 +913,7 @@ final Map<String, ToolCardSpec> _catalog = {
           final r = d['result'];
           if (r is String || r is num || r is bool) {
             final v = r is String ? '"$r"' : '$r';
-            return (text: '→ ${v.length > 24 ? '${v.substring(0, 24)}…' : v}', tone: ToolReceiptTone.none);
+            return (text: '→ ${truncate(v, AnTrunc.word)}', tone: ToolReceiptTone.none);
           }
         }
       } catch (_) {}
@@ -950,7 +951,7 @@ final Map<String, ToolCardSpec> _catalog = {
     verb: (t, {required bool live}) => live ? t.chat.tool.replayingRun : t.chat.tool.replayedRun,
     target: (s) {
       final id = argStringPartial(s.argsText, 'flowrunId');
-      return id == null ? null : (id.length > 12 ? '${id.substring(0, 12)}…' : id);
+      return id == null ? null : (truncate(id, AnTrunc.id));
     },
     receipt: (t, s) => replayReceipt(t, s.resultText),
     resultFailed: (s) => replayResultFailed(s.resultText),
@@ -1013,7 +1014,7 @@ final Map<String, ToolCardSpec> _catalog = {
     verb: (t, {required bool live}) => live ? t.chat.tool.gettingRelations : t.chat.tool.gotRelations,
     target: (s) {
       final id = argStringPartial(s.argsText, 'id');
-      return id == null ? null : (id.length > 12 ? '${id.substring(0, 12)}…' : id);
+      return id == null ? null : (truncate(id, AnTrunc.id));
     },
     receipt: (t, s) => relationsReceipt(t, s.resultText),
     body: relationsBody,
@@ -1022,7 +1023,7 @@ final Map<String, ToolCardSpec> _catalog = {
     verb: (t, {required bool live}) => live ? t.chat.tool.checkingCapability : t.chat.tool.checkedCapability,
     target: (s) {
       final id = argStringPartial(s.argsText, 'workflowId');
-      return id == null ? null : (id.length > 12 ? '${id.substring(0, 12)}…' : id);
+      return id == null ? null : (truncate(id, AnTrunc.id));
     },
     receipt: (t, s) => capabilityReceipt(t, s.resultText),
     resultFailed: (s) => capabilityFailed(s.resultText),
@@ -1083,7 +1084,7 @@ final Map<String, ToolCardSpec> _catalog = {
     verb: (t, {required bool live}) => live ? t.chat.tool.gettingSubTrace : t.chat.tool.gotSubTrace,
     target: (s) {
       final v = argStringPartial(s.argsText, 'subagentRunId');
-      return v == null || v.isEmpty ? null : (v.length > 12 ? '${v.substring(0, 12)}…' : v);
+      return v == null || v.isEmpty ? null : (truncate(v, AnTrunc.id));
     },
     receipt: (t, s) => subTraceReceipt(t, s.resultText),
     body: getSubTraceBody,
@@ -1103,7 +1104,7 @@ final Map<String, ToolCardSpec> _catalog = {
       final m = argString(s.argsText, 'message');
       if (m == null) return null;
       final first = m.split('\n').first.trim();
-      return '"${first.length > 40 ? '${first.substring(0, 40)}…' : first}"';
+      return '"${truncate(first, AnTrunc.line)}"';
     },
     receipt: (t, s) {
       // The answer's first line is the past tense's proof (only for a real answer). 答案首行=凭据。
@@ -1112,7 +1113,7 @@ final Map<String, ToolCardSpec> _catalog = {
       }
       final first = s.resultText.split('\n').first.trim();
       if (first.isEmpty) return null;
-      final short = first.length > 48 ? '${first.substring(0, 48)}…' : first;
+      final short = truncate(first, AnTrunc.line);
       return (text: '"$short"', tone: ToolReceiptTone.none);
     },
     body: askUserBody,
@@ -1186,7 +1187,7 @@ final Map<String, ToolCardSpec> _catalog = {
         cancelledLabel: t.chat.tool.bashCancelled,
         exitUnknownLabel: t.chat.tool.bashExitUnknown,
         // Short id in the row receipt (the full copyable bsh_id is in the body). 收起行短 id。
-        backgroundLabel: (id) => t.chat.tool.bashBackground(id: id.length > 10 ? '${id.substring(0, 10)}…' : id)),
+        backgroundLabel: (id) => t.chat.tool.bashBackground(id: truncate(id, AnTrunc.id))),
     // The family's soul — the live terminal — is the body's in-flight face (WRK-065). 族魂活终端在体内。
     body: bashToolBody,
   ),
@@ -1196,7 +1197,7 @@ final Map<String, ToolCardSpec> _catalog = {
     verb: (t, {required bool live}) => live ? t.chat.tool.polling : t.chat.tool.polled,
     target: (s) {
       final id = argStringPartial(s.argsText, 'bash_id');
-      return id == null ? null : (id.length > 12 ? '${id.substring(0, 12)}…' : id);
+      return id == null ? null : (truncate(id, AnTrunc.id));
     },
     receipt: (t, s) => statusReceipt(s.resultText,
         running: t.chat.tool.statusRunning,
@@ -1216,7 +1217,7 @@ final Map<String, ToolCardSpec> _catalog = {
     verb: (t, {required bool live}) => live ? t.chat.tool.killing : t.chat.tool.killed3,
     target: (s) {
       final id = argStringPartial(s.argsText, 'bash_id');
-      return id == null ? null : (id.length > 12 ? '${id.substring(0, 12)}…' : id);
+      return id == null ? null : (truncate(id, AnTrunc.id));
     },
     receipt: (t, s) => killShellReceipt(s.resultText, finished: t.chat.tool.killFinished, notFound: t.chat.tool.killNotFound),
     body: killShellBody,
@@ -1253,7 +1254,7 @@ final Map<String, ToolCardSpec> _catalog = {
       final url = argStringPartial(s.argsText, 'url');
       if (url == null || url.isEmpty) return null;
       final bare = url.replaceFirst(RegExp(r'^https?://'), '');
-      return bare.length > 48 ? '${bare.substring(0, 48)}…' : bare;
+      return truncate(bare, AnTrunc.line);
     },
     receipt: webFetchReceipt,
     body: webFetchBody,
@@ -1264,7 +1265,7 @@ final Map<String, ToolCardSpec> _catalog = {
     target: (s) {
       final q = argStringPartial(s.argsText, 'query');
       if (q == null || q.isEmpty) return null;
-      return '"${q.length > 48 ? '${q.substring(0, 48)}…' : q}"';
+      return '"${truncate(q, AnTrunc.line)}"';
     },
     receipt: webSearchReceipt,
     body: webSearchBody,
@@ -1280,7 +1281,7 @@ final Map<String, ToolCardSpec> _catalog = {
     target: (s) {
       final q = argStringPartial(s.argsText, 'query');
       if (q == null || q.isEmpty) return null;
-      return '"${q.length > 48 ? '${q.substring(0, 48)}…' : q}"';
+      return '"${truncate(q, AnTrunc.line)}"';
     },
     receipt: searchToolsReceipt,
     body: searchToolsBody,
