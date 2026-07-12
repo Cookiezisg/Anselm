@@ -8,11 +8,11 @@ import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
 import '../../../core/router/panel_registry.dart';
 import '../../../core/ui/an_field.dart';
+import '../../../core/ui/an_window.dart';
 import '../../../core/ui/an_ref_pill.dart';
 import '../../../i18n/strings.g.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
-import 'tool_card_skins.dart';
 
 // F05 lifecycle bodies (B3.6) — the family soul is THE THIN CARD: one statement + an undeniable
 // receipt. The bodies are minimal: a live ref pill to the entity panel + a grey contract note, or —
@@ -151,8 +151,10 @@ Widget activateSkillBody(BuildContext context, ToolCardState state) {
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
     Text(t.chat.tool.skillPreauthNote, style: AnText.meta.copyWith(color: c.warn)),
     const SizedBox(height: AnSpace.s6),
-    ToolWindow(child: Text(shown, style: AnText.code.copyWith(color: c.inkMuted), maxLines: 200, overflow: TextOverflow.ellipsis)),
-    if (over)
-      Padding(padding: const EdgeInsets.only(top: AnSpace.s4), child: Text(t.chat.tool.contentTruncated, style: AnText.meta.copyWith(color: c.inkFaint))),
+    // The truncation note rides the window's footer slot (codex 族一 规则④,批4 复审). 注记进 footer 槽。
+    AnWindow(
+      footer: over ? Text(t.chat.tool.contentTruncated) : null,
+      child: Text(shown, style: AnText.code.copyWith(color: c.inkMuted), maxLines: 200, overflow: TextOverflow.ellipsis),
+    ),
   ]);
 }

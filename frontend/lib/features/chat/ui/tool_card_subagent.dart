@@ -98,7 +98,7 @@ Widget getSubTraceBody(BuildContext context, ToolCardState state) {
   // List form: {count, subagentRuns:[{subagentRunId, status, finalText?, blockCount, ...}]}. 列表形态。
   final runs = (o['subagentRuns'] as List?)?.whereType<Map>().toList() ?? const [];
   if (runs.isEmpty) return Text(t.chat.tool.subTraceNoRuns, style: AnText.meta.copyWith(color: c.inkFaint));
-  return ToolWindow(
+  return AnWindow(
     child: RunLedger(rows: [
       for (final r in runs)
         RunLedgerRow(

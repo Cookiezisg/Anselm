@@ -183,7 +183,8 @@ audience: [human, ai]
 
 > 审计发现 feature 层反复手写同款视觉 chrome(BoxDecoration / 裸着色线 / 重造按钮),按「≥2 才抽」上收成原语,feature 回到纯组装、零 bespoke 样式。
 
-- **AnSunkenPanel** — 凹陷面板(`surfaceSunken` 底 + `AnRadius.chip` + s12/s8 内距 + 可选 `header` 槽,s4 gap)。浮起 `AnCard`/`AnIsland` 的**语义对偶**:contained 非交互填充。收口聊天用户泡(`ChatTurn`)/ 机器工具窗(`ToolWindow`)/ tool 进度尾三处逐字同款 well chrome。`inset` 参数:默认 s12/s8=机器档(ToolWindow 的 code-12 度量);盛 15 prose 的槽(用户泡)传 `AnInset.bubble`(16h/10v,13 时代内距在 24px 阅读行盒旁显局促)。宽由调用方定(泡贴内容 ≤80%、机器窗 `width:infinity`)。
+- **AnSunkenPanel** — 凹陷面板(`surfaceSunken` 底 + `AnRadius.chip`)。灰凹面退役后(WRK-066 族一)**唯一住户=聊天用户泡**(`ChatTurn`;泡非窗,灰=「我说的」材质);header 槽随 ToolWindow 一并退役。`inset` 参数:默认 s12/s8;15 prose 泡传 `AnInset.bubble`(16h/10v)。
+- **AnWindow** — 窗族当家件(WRK-066 族一,`core/ui/an_window.dart`):全 App **唯一机器/内容容器**,一脸=白底 + hairline 边 + card 圆角。槽:`header`(单行省略)/`actions`(chip 族)/`maxHeight`(AnSize 档钳,`collapsible` 折叠否则静默安全裁+底缘渐隐)/`footer`(muted 注记)/`child` 可空(头独窗)。**窗禁套窗**(叶子容器,debug assert 强制)。
 - **AnFloatingBar** — 浮动 chrome 药丸(`surface` + hairline `line` 边 + `AnRadius.button` + `shadowFloat` + s4 内距 + `Row(min)`)。浮在繁忙内容(点阵图画布)上可读。收口图画布缩放条 与 工作流编辑器顶控药丸(逐字同款)。段间放 `AnDivider.vertical`。
 - **AnDivider** — 发丝分隔(`hairline` + `line`)。横向=通栏 head↔body / 段分隔(填满交叉轴);`.vertical`=行内段分隔(默认 `controlSm` 高 + s4 侧距,可 `length`/`margin` 覆写)。收口 inspector/run 终端横线 + 编辑器/画布竖线。`AnInspectorHead` 等刻意不自画线、委托此(原则 #8)。
 - **AnFormField** — 纵向表单字段(label 上 `AnText.strong` ink + 可选 `desc` `AnText.meta` muted + 可选 `labelTrailing` 类型徽章骑基线 + s6 gap + block 控件)。**区别于横向** `AnField`/`AnKv`(值经 `AnLeadValue` 贴右)。字段间纵向间距归调用方(父 Padding),保原语纯净。收口编辑器检查器 `_Field`(降为薄间距封装)+ run 输入表单 `_label`。

@@ -2179,9 +2179,6 @@ class Translations$chat$tool$en {
 	/// en: 'Opened activation record'
 	String get gotActivation => 'Opened activation record';
 
-	/// en: 'Logs'
-	String get dossierLogs => 'Logs';
-
 	/// en: 'server stderr (may predate this call)'
 	String get dossierStderr => 'server stderr (may predate this call)';
 
@@ -5321,7 +5318,6 @@ extension on Translations {
 			'chat.tool.gotMcpCall' => 'Opened MCP-call record',
 			'chat.tool.gettingActivation' => 'Opening activation record',
 			'chat.tool.gotActivation' => 'Opened activation record',
-			'chat.tool.dossierLogs' => 'Logs',
 			'chat.tool.dossierStderr' => 'server stderr (may predate this call)',
 			'chat.tool.logOmitted' => ({required Object n}) => '… ${n} chars omitted …',
 			'chat.tool.provConversation' => 'conversation',
@@ -5386,9 +5382,9 @@ extension on Translations {
 			'chat.tool.browsedMarket' => 'Browsed marketplace',
 			'chat.tool.marketCount' => ({required Object n}) => '${n} servers',
 			'chat.tool.mcpEnvRequired' => ({required Object n}) => '${n} required env',
+			'chat.tool.gettingModelConfig' => 'Reading model config',
 			_ => null,
 		} ?? switch (path) {
-			'chat.tool.gettingModelConfig' => 'Reading model config',
 			'chat.tool.gotModelConfig' => 'Read model config',
 			'chat.tool.modelDefaults' => 'Default models',
 			'chat.tool.modelKeys' => ({required Object n}) => '${n} keys',
@@ -5900,9 +5896,9 @@ extension on Translations {
 			'documents.deleteSkillTitle' => 'Delete this skill?',
 			'documents.deleteSkillBody' => ({required Object name}) => 'The “${name}” skill will be removed.',
 			'documents.actionFailed' => 'Action failed',
+			'documents.props.title' => 'Properties',
 			_ => null,
 		} ?? switch (path) {
-			'documents.props.title' => 'Properties',
 			'documents.props.name' => 'Name',
 			'documents.props.description' => 'Description',
 			'documents.props.tags' => 'Tags',

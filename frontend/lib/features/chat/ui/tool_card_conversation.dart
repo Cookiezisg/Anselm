@@ -11,11 +11,11 @@ import '../../../core/model/time_format.dart';
 import '../../../core/router/panel_registry.dart';
 import '../../../core/ui/an_badge.dart';
 import '../../../core/ui/an_field.dart';
+import '../../../core/ui/an_window.dart';
 import '../../../core/ui/icons.dart';
 import '../../../i18n/strings.g.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
-import 'tool_card_skins.dart';
 import 'tool_hit_list.dart';
 
 // F17 conversation (B3.7) — the «thin card» family (constitution #9: restraint IS perfection). manage
@@ -75,11 +75,11 @@ Widget manageConversationBody(BuildContext context, ToolCardState state) {
   final t = Translations.of(context);
   final c = context.colors;
   if (state.resultText.startsWith(_manageSoftFail)) {
-    return ToolWindow(child: Text(state.resultText, style: AnText.code.copyWith(color: c.inkMuted)));
+    return AnWindow(child: Text(state.resultText, style: AnText.code.copyWith(color: c.inkMuted)));
   }
   final o = _json(state.resultText);
   if (o == null) {
-    return ToolWindow(child: Text(state.resultText, style: AnText.code.copyWith(color: c.inkMuted), maxLines: 20, overflow: TextOverflow.ellipsis));
+    return AnWindow(child: Text(state.resultText, style: AnText.code.copyWith(color: c.inkMuted), maxLines: 20, overflow: TextOverflow.ellipsis));
   }
   final rows = <AnKvRow>[
     if ((o['title'] as String?)?.isNotEmpty == true) AnKvRow(t.chat.tool.cvStatusTitle, '${o['title']}', wrap: true),

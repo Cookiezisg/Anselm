@@ -11,43 +11,29 @@ import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
 import 'tool_card_skins.dart';
 
-/// A PROSE READING WINDOW (WRK-056 #11) — settled rendered content (AnMarkdown 15/1.6) inside a bordered
-/// surface, FadeCollapse'd past a height so a long document/skill/approval body doesn't own an unbounded
-/// wall. What the model authored, read as a TYPESET page (not a source wall). 散文阅读窗:落定排版态 +
-/// 超高 FadeCollapse(长文不背无界墙);读成成品排版、非源码。
+/// A PROSE READING WINDOW (WRK-056 #11) — settled rendered content (AnMarkdown 15/1.6) inside the ONE
+/// window shell ([AnWindow], WRK-066 族一 — the hand-rolled surface+hairline Container is retired),
+/// fade-collapsed past [AnSize.proseViewport] so a long document/skill/approval body doesn't own an
+/// unbounded wall. What the model authored, read as a TYPESET page (not a source wall).
+/// 散文阅读窗:落定排版态住唯一窗壳(手搓白框退役,批4)+ 超高 FadeCollapse(长文不背无界墙);
+/// 读成成品排版、非源码。
 class ProseWindow extends StatelessWidget {
-  const ProseWindow({required this.markdown, this.collapsedHeight = 340, super.key});
+  const ProseWindow({required this.markdown, this.collapsedHeight = AnSize.proseViewport, super.key});
 
   final String markdown;
   final double collapsedHeight;
 
   @override
   Widget build(BuildContext context) {
-    final t = Translations.of(context);
-    final c = context.colors;
     // Only clamp+fade when the prose is long enough to plausibly overflow the collapsed height —
     // AnFadeCollapse always reserves its full height + a toggle, so a SHORT answer (invoke_agent's
     // one-sentence result, a short doc) would otherwise sit in a tall empty box with a pointless
     // «展开全文». Length-based (allowed — it's a size decision, not markdown sniffing). 短稿内联、不装长盒。
-    final long = markdown.length > 480 || '\n'.allMatches(markdown).length > 10;
-    return Container(
-      width: double.infinity,
-      padding: AnInset.card,
-      decoration: BoxDecoration(
-        color: c.surface,
-        border: Border.all(color: c.line, width: AnSize.hairline),
-        borderRadius: BorderRadius.circular(AnRadius.card),
-      ),
-      child: long
-          ? AnFadeCollapse(
-              collapsible: true,
-              collapsedHeight: collapsedHeight,
-              expandLabel: t.chat.tool.proseExpand,
-              collapseLabel: t.chat.tool.proseCollapse,
-              fadeColor: c.surface,
-              child: AnMarkdown(markdown),
-            )
-          : AnMarkdown(markdown),
+    final long = markdown.length > AnCap.proseFoldChars || '\n'.allMatches(markdown).length > AnCap.proseFoldLines;
+    return AnWindow(
+      maxHeight: long ? collapsedHeight : null,
+      collapsible: long,
+      child: AnMarkdown(markdown),
     );
   }
 }

@@ -67,14 +67,8 @@ void main() {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _label(c, 'AnSunkenPanel — 凹陷面板 (聊天泡 / 机器窗)'),
+                      _label(c, 'AnSunkenPanel — 凹陷面板 (用户泡,唯一灰幸存者)'),
                       const AnSunkenPanel(child: Text('A contained non-interactive well — the chat user bubble.')),
-                      const SizedBox(height: AnSpace.s8),
-                      AnSunkenPanel(
-                        header: Text('\$ ls -la', style: AnText.codeInline.copyWith(color: c.colors.inkMuted)),
-                        child: Text('total 4\ndrwxr-xr-x  lib\n-rw-r--r--  README.md',
-                            style: AnText.code.copyWith(color: c.colors.inkMuted)),
-                      ),
                       _label(c, 'AnFloatingBar + AnDivider.vertical — 浮动工具条'),
                       Align(
                         alignment: Alignment.centerLeft,

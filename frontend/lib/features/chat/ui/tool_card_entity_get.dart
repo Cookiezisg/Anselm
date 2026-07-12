@@ -10,9 +10,9 @@ import '../../../core/ui/an_disclosure.dart';
 import '../../../core/ui/an_fade_collapse.dart';
 import '../../../core/ui/an_field_section.dart';
 import '../../../core/ui/an_json_tree.dart';
+import '../../../core/ui/an_window.dart';
 import '../../../core/ui/an_ref_pill.dart';
 import '../../../i18n/strings.g.dart';
-import 'tool_card_skins.dart';
 
 /// The content window's hard char cap — beyond it the window shows the head + a truncation note that
 /// points to the entity panel for the full text (AnCodeEditor has no virtualization). 内容窗字符硬顶。
@@ -192,7 +192,7 @@ class _RawResultDisclosureState extends State<RawResultDisclosure> {
                   height: AnSize.jsonViewport,
                   child: AnJsonTree(jsonString: widget.rawJson, showRoot: false),
                 )
-              : ToolWindow(
+              : AnWindow(
                   child: Text(widget.rawJson,
                       maxLines: 200, overflow: TextOverflow.ellipsis, style: AnText.code.copyWith(color: context.colors.inkMuted)),
                 ),

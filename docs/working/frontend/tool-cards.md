@@ -25,7 +25,7 @@ audience: [human, ai]
 | 2 | 行形态 | **无边框裸行**(32px,与 thinking 低语同韵);展开体才有容器 |
 | 3 | 批次顺序 | V3a 底盘 → V3b shell+fs → V3c builds(三批已落)→ **B1–B7**(2026-07-06 蓝图拍板重排,取代旧 V3d/V3e 划分,见 §6) |
 | 4 | 路线图 | **取消独立 V4**(tool_result 三形状被族皮肤吸收);V6 人在环紧随 V3c(底盘先留「等待确认」态) |
-| 5 | **机器窗口身份**(2026-07-03 截图拍板「对味」) | tool call 是对外部世界的**操作**、非模型内心低语——机器输出**绝不**借 thinking 的低语语法(无左竖线 rail、无裸散文);一切机器产物住**凹陷圆角容器窗**(`ToolWindow`:终端/diff/命中列表同容器不同内容),行保持裸动词行。Bash 执行中=收起行下的**活终端窗**(progress 尾 3 行) |
+| 5 | **机器窗口身份**(2026-07-03 截图拍板「对味」;容器 2026-07-12 随 WRK-066 批4 换白框 `AnWindow`) | tool call 是对外部世界的**操作**、非模型内心低语——机器输出**绝不**借 thinking 的低语语法(无左竖线 rail、无裸散文);一切机器产物住**唯一白框容器窗**(`AnWindow`:终端/diff/命中列表同容器不同内容;旧灰凹 ToolWindow 已物理删除),行保持裸动词行。Bash 执行中=收起行下的**活终端窗**(progress 尾 3 行) |
 | 6 | **完美态蓝图 + B1–B7 顺序**(2026-07-06) | 113 工具逐个完美态设计定稿于 [`tool-card-blueprints.md`](tool-card-blueprints.md)(WRK-056,含六种生长母语/五种 morph 笔法/50 新原语总表/R1–R12 裁决);建造顺序 **B1–B7 认可**(见 §6) |
 | 7 | **嵌套运行身份**(2026-07-06,改判 R1) | **保留两套**:Subagent = `SubTranscriptFrame` 嵌套对话框(全注册表递归);invoke_agent = `NestedRunPane` 轻量运行窗(F08 专属) |
 | 8 | **取数缝**(2026-07-06) | 允许工具卡越出「块状态纯函数」边界,开**统一一条 fetch-on-expand repository 缝**(before 懒取 diff / edit_workflow after 图 / 运行快照图 / mount map),取不到一律诚实降级 |

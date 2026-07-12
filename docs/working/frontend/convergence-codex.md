@@ -27,6 +27,27 @@ audience: [human, ai]
 - **AnStickViewport 增 `fadeColor`**(白宿主传 surface,灰底退役)。bar 同构补齐:编辑器 copy 驻留走 AnMotion.dwell + AnTooltip。
 - AnLedgerRow 补 `expandChild`;「展开全部 N」列表壳 **deferred → P4 吸收四套台账时落**。
 
+## 批4 落地(2026-07-12,窗族整体替换)
+
+A-002/A-008/A-016/A-017/A-018 五条关账:**ToolWindow 物理删除**(19 文件 44 用点机械换 AnWindow,含 12 处独用 import 清尽),ProseWindow/MemoryNoteCard 白卡壳并入 AnWindow(阈值进 AnCap 档),gate payload 窗/agent 舞台 prompt 窗/document 舞台活散文尾换窗,双日志抽屉合成唯一 `LogDrawer`(双端 2000+4000+stderr 分段为准,`dossierLogs` i18n 键退役并 execLogs 计行统一)。法典增量:
+- **ToolIOSection 长 `bare` 槽**(复审 HIGH 的修法):台账行展开内容已居窗内,值渲染须作者态显式无壳——**叶子律禁嗅探兜底**,谁在窗内谁声明;runlog 回归测钉死(展开后全卡恒一扇窗)。
+- **IntrinsicHeight×AnWindow 禁忌记档**:窗内有 LayoutBuilder,固有尺寸询问必炸——双列同高一律显式 SizedBox 档高(document 舞台脊+窗 = AnSize.proseStage 双侧同传)。
+- **AnSunkenPanel header 槽随 ToolWindow 退役**:唯一住户=用户聊天泡(泡非窗,灰=「我说的」材质);gallery/capture 样张同步。
+- **AnStickViewport/AnTermViewport 渐隐默认融白**(fadeColor ?? surface,灰井默认随族一退役);bash 命令回显交 header 槽单行省略(mono 声保留)。
+- **新铸档**:AnSize.proseViewport=340(落定散文窗折叠高)/proseStage=220(侧幕活散文尾)/proseStageFail=260(失败救援视口);AnCap.proseFoldChars=480/proseFoldLines=10/noteFoldChars=900(三处同款长文折叠阈归一)。
+- 批1 记档的**过渡态**(mount/exec 活白窗、settled 灰凹面)如期愈合——全 App 机器产物容器自此一脸。
+
+### 批4 对抗复审整改(22-agent 六维,16 findings 证伪后 14 confirmed 全修)
+
+- **单体窗约束直通**(HIGH,探针实证 RenderFlex 溢出+贴底钉死亡):AnWindow 夹层 content Column 给非弹性子**无界主轴**(Flex 布局规则)——紧高宿主(侧幕活散文尾的 proseStage SizedBox)的内视口失界即溢出 500px+ 且短内容钉头。修法=head/footer 皆空时**跳过夹层、约束直通 body**;回归钉入 convergence_primitives(40 行尾不炸+短尾贴底),mutation 亲测可杀。
+- **假钉清算**(HIGH,mutation 实证):runlog「展开后恒一扇窗」回归钉的标量夹具走逐键内联路径、bare 从未被消费,删掉 bare:true 测试照样绿——夹具改**嵌套 Map**(≥2 键+非标量值)踩到 _jsonTree 出窗缝,两处 mutation(删 bare 用点/让 _jsonTree 无视 bare)均可杀。**教训:回归钉必须 mutation 验杀,「断言过了」不等于「钉住了」**。
+- **bare 合同补洞**:①prose 分支曾无视 bare(ProseWindow 即窗,窗内 prose 值必套窗)→ bare 时渲裸 AnMarkdown;②bare 脸曾随壳丢掉全量 copy(显示可截、copy 永不截)→ 截断注记行尾补 WindowCopyButton;各有回归钉。
+- **注记进 footer 槽贯彻**(规则④):io_section/_monoWindow、lifecycle activate、mount MCP 体三处窗外兄弟注记全部移入 AnWindow.footer。
+- **bash 命令出口**:单行省略 header(族一律)后长命令无处看全 → copy payload 改**完整终端记录**(`$ 命令\n输出`)。
+- **LogDrawer stderr 分段改 opt-in**:exec 日志是任意函数打印,无条件切分会给撞串行贴假「server stderr」红标——仅卷宗(splitStderr:true)开启,exec 侧回到合并前语义。
+- skill 舞台落定散文折叠高 320 裸数→AnSize.proseViewport 同档;A-017 关账注记「三处」勘正为「两处」;契约 §4 窗族行/census 缺口 #1·#3·#12·活尾行随批关账。
+- 证伪 2 条记档:LogDrawer 私有截断常量组=从 dossier 逐字迁入非新散置(A-112 open 在案);「19 文件 44 用点」按「原位机械换」口径机器可复现(51 用点全账=44 机械+3 迁 LogDrawer+4 壳并入)。
+
 ## 批3 落地(2026-07-12,条族四并一)
 
 A-088/A-089/A-090/A-091 四条关账:_InvokeStatBar/_RunFooter/ExecResultBar/RunStatBar **物理删除**(注释层残留同批清尽),全部并入 AnStatBar;workflow legend 手链同批并入(stats-only 条);块级 ' · ' 渲染链只此一源(文法 #3;残余记 A-087 收窄:收起行回执尾=行内尾注豁免、flowrun _summaryBar=窗首表头待窗族批)。法典增量:
@@ -76,16 +97,17 @@ A-019/020/021/022/023 + B-002 全关。法典增量裁决:
 
 ## 族一 · 窗(机器产物容器)—— `AnWindow`
 
-**现状**:同角色至少 6 种壳并存——`ToolWindow`(feature 层薄壳包 AnSunkenPanel,A-001)、`ProseWindow`(白底描边+FadeCollapse)、`MemoryNoteCard` 手搓卡壳(A 系)、approval 信笺/subagent 卡手搓 Container、双日志抽屉(`_LogsDrawer` vs `_LogDrawer`,截断策略还不同)。
+**现状(批4 后)**:一壳定于一尊——`AnWindow` 是全 App 唯一机器/内容容器;ToolWindow/双日志抽屉/ProseWindow·MemoryNoteCard 手搓白卡壳已物理删除或并入(approval 信笺/subagent 卡批1 已并;ProseWindow/MemoryNoteCard/LogDrawer 保留为族一之上的**具名薄投影**——排版/折叠/截断策略,不再自带壳)。
 
 **当家件**(拍板修订:一脸):
 ```dart
 AnWindow({
-  required Widget child,
-  Widget? header,            // 左头槽(命令回显/标题行)
+  Widget? child,             // 可空=头独窗(刚开播无话可说的卡)
+  Widget? header,            // 左头槽(命令回显/标题行;强制单行省略)
   List<Widget> actions,      // 右动作槽(copy 等,chip 族件)
   double? maxHeight,         // 封顶(AnSize 视口档,禁裸数)
   bool collapsible,          // 超高 FadeCollapse(展开/收起文案内建)
+  Widget? footer,            // 体下 muted 注记槽(截断注/结算行)
 })
 ```
 **规则**:①**唯一脸=白底+hairline 边+card 圆角**;灰底容器材质全 App 退役(用户消息泡唯一例外,气泡非窗)。②**窗禁套窗**(叶子容器;窗间距分隔,不嵌套)。③内容不嗅探——窗是纯壳,内容由 AnCodeEditor/AnMarkdown/AnJsonTree/AnLiveTail 等组合进 child;**代码/diff 自带 AnCodeSurface 壳,不再套窗**。④截断注记("已截断,N 字符")作为窗的内建 footer 形态。⑤日志抽屉 = `AnDisclosure + AnWindow` 固定组合,双端截断统一(head 2000 + tail 4000)。

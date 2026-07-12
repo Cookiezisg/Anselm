@@ -4,29 +4,22 @@ import '../design/colors.dart';
 import '../design/tokens.dart';
 
 /// The SUNKEN panel — a neutral inset well one rung below the base surface ([AnColors.surfaceSunken] +
-/// [AnRadius.chip] + a standard s12/s8 inset). The semantic opposite of the raised [AnCard]/[AnIsland]:
-/// a contained, non-interactive fill for chat bubbles / machine tool windows / embedded panels. An
-/// optional [header] rides above the [child] with an s4 gap (a command echo, an omitted-lines note).
-/// Collapses the well chrome that was hand-inlined in the chat user bubble, the tool [ToolWindow], and
-/// the tool progress tail (≥3 sites) into one place — the surfaceSunken colour existed for exactly this
-/// but the widget wrapping it was copied by hand.
+/// [AnRadius.chip]). Since the grey-well retirement (WRK-066 族一: every machine/content container is
+/// the white-framed AnWindow) its ONE remaining tenant is the chat USER BUBBLE — a bubble, not a
+/// window; it keeps the grey so «what I said» reads as material apart from «what the machine made».
+/// The header slot died with ToolWindow.
 ///
-/// 凹陷面板——比 base surface 轻降一档的中性内嵌槽(surfaceSunken 底 + r-chip + 标准 s12/s8 内距)。是浮起
-/// AnCard/AnIsland 的语义对偶:contained、非交互的填充,供聊天泡 / 机器工具窗 / 内嵌面板。可选 [header] 以 s4
-/// 间距压在 [child] 上方(命令回显 / 省略行提示)。收口此前在聊天用户泡、工具 ToolWindow、工具进度尾手抄的
-/// 凹陷 chrome(≥3 处)——surfaceSunken 语义色本就为此而设,包它的 widget 却被逐字复制。
+/// 凹陷面板——比 base surface 轻降一档的中性内嵌槽(surfaceSunken 底 + r-chip)。灰凹面退役后(族一:
+/// 一切机器/内容容器=白框 AnWindow),唯一住户=聊天**用户泡**——泡不是窗,留灰让「我说的」与「机器产的」
+/// 材质分明。header 槽随 ToolWindow 一并退役。
 class AnSunkenPanel extends StatelessWidget {
-  const AnSunkenPanel({required this.child, this.header, this.inset, super.key});
+  const AnSunkenPanel({required this.child, this.inset, super.key});
 
   final Widget child;
 
-  /// Optional header above the child (e.g. a terminal-style command echo). 可选窗头。
-  final Widget? header;
-
-  /// Well inset — defaults to the machine s12/s8 (ToolWindow's code-12 metric). A well holding 15
-  /// prose (the chat user bubble) passes [AnInset.bubble]: the 13-era padding read pinched around
-  /// the 24px reading line box. 内距:默认机器档 s12/s8(ToolWindow 的 code-12 度量);盛 15 prose 的
-  /// 槽(用户泡)传 [AnInset.bubble]——13 时代的内距在 24px 阅读行盒旁显得局促。
+  /// Well inset — defaults to the machine s12/s8. The 15-prose bubble passes [AnInset.bubble]:
+  /// the 13-era padding read pinched around the 24px reading line box. 内距:默认 s12/s8;15 prose
+  /// 泡传 [AnInset.bubble](13 时代内距在 24px 阅读行盒旁显局促)。
   final EdgeInsets? inset;
 
   @override
@@ -39,13 +32,7 @@ class AnSunkenPanel extends StatelessWidget {
       ),
       child: Padding(
         padding: inset ?? const EdgeInsets.symmetric(horizontal: AnSpace.s12, vertical: AnSpace.s8),
-        child: header == null
-            ? child
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [header!, const SizedBox(height: AnSpace.s4), child],
-              ),
+        child: child,
       ),
     );
   }

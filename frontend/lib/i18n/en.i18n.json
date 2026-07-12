@@ -456,7 +456,6 @@
       "gotMcpCall": "Opened MCP-call record",
       "gettingActivation": "Opening activation record",
       "gotActivation": "Opened activation record",
-      "dossierLogs": "Logs",
       "dossierStderr": "server stderr (may predate this call)",
       "logOmitted": "… $n chars omitted …",
       "provConversation": "conversation",

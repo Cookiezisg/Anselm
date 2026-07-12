@@ -83,9 +83,9 @@ void main() {
     await tester.tap(find.text('已调阅智能体执行').at(0), warnIfMissed: false);
     await tester.pump(const Duration(milliseconds: 80));
     // Open every log drawer to show the double-ended cap + the mcp stderr segment. 打开日志抽屉。
-    for (var i = 0; i < find.text(t.chat.tool.dossierLogs).evaluate().length; i++) {
-      await tester.ensureVisible(find.text(t.chat.tool.dossierLogs).at(i));
-      await tester.tap(find.text(t.chat.tool.dossierLogs).at(i), warnIfMissed: false);
+    for (var i = 0; i < find.textContaining('日志').evaluate().length; i++) {
+      await tester.ensureVisible(find.textContaining('日志').at(i));
+      await tester.tap(find.textContaining('日志').at(i), warnIfMissed: false);
       await tester.pump(const Duration(milliseconds: 80));
     }
     await tester.pumpAndSettle();

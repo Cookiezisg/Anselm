@@ -15,50 +15,21 @@ import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
 import 'tool_interaction_gate.dart';
 
-/// Family bodies for the tool card — the MACHINE-WINDOW identity (user decree, 2026-07-03):
-/// a tool call is an OPERATION against the outside world, not the model's inner voice, so its
-/// machine output NEVER borrows thinking's whisper grammar (no left rail, no bare prose).
-/// Everything a machine produced lives inside an explicit contained window — a sunken rounded
-/// panel in mono — while the row above stays a bare verb line. Terminal output, diffs, hit
-/// lists: same container, different content.
-///
-/// 工具卡族体——**机器窗口**身份(用户定调,2026-07-03):tool call 是对外部世界的**操作**、不是
-/// 模型的内心低语,机器输出**绝不**借用 thinking 的低语语法(无左 rail、无裸散文)。一切机器产物
-/// 都住在明确的容器窗里——凹陷圆角等宽面板;上方的行保持裸动词行。终端输出/diff/命中列表:
-/// 同一容器、不同内容。
-///
-/// [ToolWindow] is that container. 机器窗容器。
-class ToolWindow extends StatelessWidget {
-  const ToolWindow({required this.child, this.header, this.actions = const [], super.key});
-
-  final Widget child;
-
-  /// Optional window header (e.g. the command line echoed terminal-style). 可选窗头(命令回显)。
-  final Widget? header;
-
-  /// Header-RIGHT action slot (R3 copy family — copy-full-output/command). Rendered flush-right on the
-  /// header row (or a lone row when there's no [header]). 头右动作槽(R3 复制家族:copy 全文/命令)。
-  final List<Widget> actions;
-
-  @override
-  Widget build(BuildContext context) {
-    // The machine window IS the shared sunken panel (its header slot carries the command echo + actions).
-    // 机器窗即共享凹陷面板(header 槽承载命令回显 + 动作)。
-    final head = (header == null && actions.isEmpty)
-        ? null
-        : Row(children: [
-            if (header != null) Expanded(child: header!) else const Spacer(),
-            for (final a in actions) Padding(padding: const EdgeInsets.only(left: AnSpace.s4), child: a),
-          ]);
-    return SizedBox(
-      width: double.infinity,
-      child: AnSunkenPanel(header: head, child: child),
-    );
-  }
-}
+// Family bodies for the tool card — the MACHINE-WINDOW identity (user decree, 2026-07-03):
+// a tool call is an OPERATION against the outside world, not the model's inner voice, so its
+// machine output NEVER borrows thinking's whisper grammar (no left rail, no bare prose).
+// Everything a machine produced lives inside an explicit contained window while the row above
+// stays a bare verb line. Terminal output, diffs, hit lists: same container, different content.
+// That container IS the family head [AnWindow] (WRK-066 族一 — the old grey ToolWindow/sunken
+// shell is retired; ONE face: white surface + hairline + card radius).
+//
+// 工具卡族体——**机器窗口**身份(用户定调,2026-07-03):tool call 是对外部世界的**操作**、不是
+// 模型的内心低语,机器输出**绝不**借用 thinking 的低语语法(无左 rail、无裸散文)。一切机器产物
+// 都住在明确的容器窗里;上方的行保持裸动词行。终端输出/diff/命中列表:同一容器、不同内容。
+// 容器即族一当家件 [AnWindow](旧灰 ToolWindow/凹陷壳退役;唯一脸:白底+发丝边+card 圆角)。
 
 /// A window COPY action (WRK-056 R3 / #7) — copies [copyPayload] (the UNTRUNCATED full text; a rendered
-/// view may cap, the copy never does) and flashes a ✓. Sits in a [ToolWindow.actions] header slot.
+/// view may cap, the copy never does) and flashes a ✓. Sits in an [AnWindow.actions] header slot.
 /// 窗复制动作:复制未截断全量 + ✓ 一闪。
 class WindowCopyButton extends StatefulWidget {
   const WindowCopyButton({required this.copyPayload, super.key});
@@ -110,22 +81,17 @@ Widget _intent(BuildContext context, ToolCardState state) {
 /// Cap + honest truncation note for window content. 窗内容封顶+诚实截断注记。
 const int _windowCapChars = 6000;
 
-Widget _cappedMono(BuildContext context, String raw, {Color? color}) {
+/// A capped mono machine window — the raw text (display capped at [_windowCapChars]) inside the
+/// family window, the truncation note riding the window's own [AnWindow.footer] note slot (codex
+/// 族一 规则④). 封顶 mono 机器窗:截断注记走窗自己的 footer 注记槽(法典规则④)。
+Widget _cappedMonoWindow(BuildContext context, String raw, {Color? color}) {
   final t = Translations.of(context);
   final c = context.colors;
   final truncated = raw.length > _windowCapChars;
   final shown = truncated ? raw.substring(0, _windowCapChars) : raw;
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(shown.trimRight(), style: AnText.code.copyWith(color: color ?? c.inkMuted)),
-      if (truncated)
-        Padding(
-          padding: const EdgeInsets.only(top: AnSpace.s4),
-          child: Text(t.chat.tool.truncatedNote(chars: raw.length),
-              style: AnText.meta.copyWith(color: c.inkFaint)),
-        ),
-    ],
+  return AnWindow(
+    footer: truncated ? Text(t.chat.tool.truncatedNote(chars: raw.length)) : null,
+    child: Text(shown.trimRight(), style: AnText.code.copyWith(color: color ?? c.inkMuted)),
   );
 }
 
@@ -168,17 +134,20 @@ Widget bashToolBody(BuildContext context, ToolCardState state) {
   // The COPY payload is the full untruncated text (incl. footer when from result). 体源 + 复制全量。
   final usingProgress = progress.isNotEmpty;
   final body = usingProgress ? progress : result.replaceFirst(_bashFooterStrip, '').trimRight();
-  final copyPayload = usingProgress ? progress : result;
+  // Copy = the full terminal RECORD, command line included — the header slot ellipsizes a long
+  // command to one line (族一 header 律), so the copy action is its only full-text escape hatch
+  // (批4 复审:多行命令不可恢复). copy=完整终端记录含命令行——单行省略后 copy 是命令唯一全文出口。
+  final copyPayload = (cmd.isEmpty ? '' : '\$ $cmd\n') + (usingProgress ? progress : result);
   // Head-truncation note ONLY when the body IS the resultText and carries the marker (progressText is
   // full — never mark it truncated). 头截断注记仅当体=resultText 且带 marker(progressText 全量不标)。
   final headTruncated = !usingProgress && result.contains(_bashHeadTrunc);
 
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
     _intent(context, state),
-    ToolWindow(
-      header: cmd.isEmpty
-          ? null
-          : Text('\$ $cmd', style: AnText.code.copyWith(color: c.ink), maxLines: 8, overflow: TextOverflow.ellipsis),
+    AnWindow(
+      // The command echo keeps the terminal's mono voice; the header slot enforces single-line
+      // ellipsis (族一 header 律). 命令回显保 mono 声;单行省略由 header 槽强制。
+      header: cmd.isEmpty ? null : Text('\$ $cmd', style: AnText.code.copyWith(color: c.ink)),
       actions: [WindowCopyButton(copyPayload: copyPayload)],
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
         if (headTruncated)
@@ -253,7 +222,7 @@ Widget bashOutputBody(BuildContext context, ToolCardState state) {
       ],
     ]),
     const SizedBox(height: AnSpace.s6),
-    ToolWindow(
+    AnWindow(
       actions: [WindowCopyButton(copyPayload: result)],
       child: noNew
           ? Text(t.chat.tool.bashNoNew, style: AnText.code.copyWith(color: c.inkFaint))
@@ -386,7 +355,7 @@ Widget editToolBody(BuildContext context, ToolCardState state) {
 /// F2 检索族——命中窗:结果行等宽原样(后端格式本就按行;分模式精修等真线缆核验后再上)。
 Widget listToolBody(BuildContext context, ToolCardState state) {
   if (state.resultText.trim().isEmpty) return const SizedBox.shrink();
-  return ToolWindow(child: _cappedMono(context, state.resultText));
+  return _cappedMonoWindow(context, state.resultText);
 }
 
 /// F16 ask_user — the frozen Q/A record, reconstructed from the SETTLED block (the interaction signal
@@ -603,7 +572,7 @@ Widget buildToolBody(BuildContext context, ToolCardState state) {
       if (content != null && content.isNotEmpty)
         AnCodeEditor(code: content, lang: lang, maxHeight: AnSize.codeViewport)
       else if (state.argsText.isNotEmpty)
-        ToolWindow(child: _cappedMono(context, state.argsText)),
+        _cappedMonoWindow(context, state.argsText),
       runStatBarOf(context, state),
     ],
   );

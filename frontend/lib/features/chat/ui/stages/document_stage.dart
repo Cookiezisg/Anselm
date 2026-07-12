@@ -115,26 +115,29 @@ class _DocumentStageBodyState extends ConsumerState<DocumentStageBody> {
           Text(t.chat.stage.fastForwarding, style: AnText.meta.copyWith(color: c.inkFaint)),
           const SizedBox(height: AnSpace.s4),
         ],
-        SizedBox(
-          height: 220,
-          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            AnMinimapSpine(
+        // Explicit twin heights instead of stretch/IntrinsicHeight — AnWindow's internal
+        // LayoutBuilder cannot answer intrinsic queries (they throw). 双侧显式同高:AnWindow 内有
+        // LayoutBuilder,IntrinsicHeight 会炸。
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          SizedBox(
+            height: AnSize.proseStage,
+            child: AnMinimapSpine(
               totalUnits: math.max(baseline.length, text.length),
               inkedUnits: text.length,
               prefixUnits: _prefixLen,
               paragraphOffsets: _paragraphs,
             ),
-            const SizedBox(width: AnSpace.s6),
-            Expanded(child: _ProseTail(text: text)),
-          ]),
-        ),
+          ),
+          const SizedBox(width: AnSpace.s6),
+          Expanded(child: SizedBox(height: AnSize.proseStage, child: _ProseTail(text: text))),
+        ]),
       ]);
     }
 
     if (scene.failed) {
       // The unsaved draft, whole and scrollable — rescue over spectacle. 整篇残稿可滚可救。
       return AnStickViewport(
-        maxHeight: 260,
+        maxHeight: AnSize.proseStageFail,
         child: Padding(
           padding: const EdgeInsets.all(AnSpace.s8),
           child: _PilledProse(text: text.isEmpty ? baseline : text),
@@ -221,7 +224,7 @@ class _ProseTail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tail = tailLines(text, 40);
-    return AnSunkenPanel(
+    return AnWindow(
       child: Align(
         alignment: Alignment.bottomLeft,
         child: ClipRect(

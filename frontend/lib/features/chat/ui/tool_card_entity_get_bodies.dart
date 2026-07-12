@@ -12,13 +12,13 @@ import '../../../core/router/panel_registry.dart';
 import '../../../core/ui/an_badge.dart';
 import '../../../core/ui/an_callout.dart';
 import '../../../core/ui/an_field.dart';
+import '../../../core/ui/an_window.dart';
 import '../../../core/ui/an_ref_pill.dart';
 import '../../../i18n/strings.g.dart';
 import '../model/tool_card_state.dart';
 import 'tool_card_control_approval.dart';
 import 'tool_card_document_skill.dart';
 import 'tool_card_entity_get.dart';
-import 'tool_card_skins.dart';
 import 'tool_card_trigger.dart';
 
 // F06 get bodies (B3.5) — each get tool projects its entity JSON onto the EntityGetBody four-part
@@ -46,7 +46,7 @@ Widget Function(BuildContext, ToolCardState) getEntityBody({
     (context, state) {
       final out = _json(state.resultText);
       if (out == null) {
-        return ToolWindow(child: Text(state.resultText, style: AnText.code, maxLines: 40, overflow: TextOverflow.ellipsis));
+        return AnWindow(child: Text(state.resultText, style: AnText.code, maxLines: 40, overflow: TextOverflow.ellipsis));
       }
       final t = Translations.of(context);
       final p = project(context, t, out);
@@ -333,7 +333,7 @@ Widget readDocumentBody(BuildContext context, ToolCardState state) {
     return AnCallout(text, severity: AnCalloutSeverity.warn);
   }
   if (!text.startsWith('# ')) {
-    return ToolWindow(child: Text(text, style: AnText.code, maxLines: 40, overflow: TextOverflow.ellipsis));
+    return AnWindow(child: Text(text, style: AnText.code, maxLines: 40, overflow: TextOverflow.ellipsis));
   }
   final splitIdx = text.indexOf('\n---\n');
   final head = splitIdx >= 0 ? text.substring(0, splitIdx) : text;
@@ -398,11 +398,11 @@ Widget readAttachmentBody(BuildContext context, ToolCardState state) {
       badges: text.contains('truncated')
           ? AnBadge(Translations.of(context).chat.tool.attachTruncated, tone: AnTone.warn)
           : null,
-      content: [ToolWindow(child: Text(body, style: AnText.code, maxLines: 200, overflow: TextOverflow.ellipsis))],
+      content: [AnWindow(child: Text(body, style: AnText.code, maxLines: 200, overflow: TextOverflow.ellipsis))],
       rawJson: text,
     );
   }
-  return ToolWindow(child: Text(text, style: AnText.code, maxLines: 40, overflow: TextOverflow.ellipsis));
+  return AnWindow(child: Text(text, style: AnText.code, maxLines: 40, overflow: TextOverflow.ellipsis));
 }
 
 /// The F06 get body table (WRK-056 §F06). F06 get 体表。

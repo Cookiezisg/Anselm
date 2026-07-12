@@ -13,7 +13,6 @@ import '../model/tool_receipts.dart';
 import 'tool_card_io_section.dart';
 import 'run_dossier.dart';
 import 'tool_card_nav.dart';
-import 'tool_card_skins.dart';
 
 // F08 flowrun bodies (B5.3) — replay_flowrun's node ledger. The tool result is the {flowrun, nodes,
 // nodeSummary?} composite (SAME shape as get_flowrun); the body's core is FlowrunNodeList — you SEE the
@@ -130,7 +129,7 @@ Widget replayFlowrunBody(BuildContext context, ToolCardState state) {
     Text(t.chat.tool.replayPinNote, style: AnText.meta.copyWith(color: c.inkFaint)),
     const SizedBox(height: AnSpace.s6),
     if (run.error != null && run.error!.isNotEmpty) ...[
-      ToolWindow(child: Text(run.error!, style: AnText.code.copyWith(color: c.danger), maxLines: 12, overflow: TextOverflow.ellipsis)),
+      AnWindow(child: Text(run.error!, style: AnText.code.copyWith(color: c.danger), maxLines: 12, overflow: TextOverflow.ellipsis)),
       const SizedBox(height: AnSpace.s6),
     ],
     FlowrunNodeList(nodes: comp.nodes, summary: comp.nodeSummary),
@@ -196,7 +195,7 @@ class _FlowrunNodeListState extends State<FlowrunNodeList> {
     final ordered = [for (final e in indexed) e.$2];
     final over = ordered.length > widget.cap;
     final visible = _showAll ? ordered : ordered.take(widget.cap).toList();
-    return ToolWindow(
+    return AnWindow(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
         if (widget.summary != null) ...[
           _summaryBar(context, widget.summary!),
@@ -303,7 +302,7 @@ Widget getFlowrunBody(BuildContext context, ToolCardState state) {
     _runFooter(context, run),
     if (run.error != null && run.error!.isNotEmpty) ...[
       const SizedBox(height: AnSpace.s6),
-      ToolWindow(child: Text(run.error!, style: AnText.code.copyWith(color: c.danger), maxLines: 12, overflow: TextOverflow.ellipsis)),
+      AnWindow(child: Text(run.error!, style: AnText.code.copyWith(color: c.danger), maxLines: 12, overflow: TextOverflow.ellipsis)),
     ],
     const SizedBox(height: AnSpace.s6),
     FlowrunNodeList(nodes: comp.nodes, summary: comp.nodeSummary),

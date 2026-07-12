@@ -502,14 +502,9 @@ final GalleryCategory _g2Feedback = GalleryCategory('反馈态 Feedback', AnIcon
 
 // ── G3 — Rows & cards ──
 final GalleryCategory _g3RowsCards = GalleryCategory('行与卡 Rows & Cards', AnIcons.entities, [
-  GalleryItem('AnSunkenPanel 凹陷面板', 'surfaceSunken 底 + chip 圆角 + s12/s8 内距;可选 header(命令回显);聊天泡 / 机器窗 / 内嵌板', [
-    GallerySpecimen('纯内容 (聊天泡 / 内嵌板)', (_) => const AnSunkenPanel(
+  GalleryItem('AnSunkenPanel 凹陷面板', 'surfaceSunken 底 + chip 圆角 + s12/s8 内距;灰凹面退役后唯一住户=聊天用户泡(机器窗一律 AnWindow)', [
+    GallerySpecimen('用户泡 (唯一灰幸存者)', (_) => const AnSunkenPanel(
           child: Text('A contained, non-interactive well one rung below the surface.'),
-        ), span: true),
-    GallerySpecimen('带 header (机器窗)', (context) => AnSunkenPanel(
-          header: Text('\$ ls -la', style: AnText.codeInline.copyWith(color: context.colors.inkMuted)),
-          child: Text('total 4\ndrwxr-xr-x  lib\n-rw-r--r--  README.md',
-              style: AnText.code.copyWith(color: context.colors.inkMuted)),
         ), span: true),
   ]),
   GalleryItem('AnFormField 纵向表单字段', '标签在上 + 可选 desc + 可选类型徽章 + block 控件在下(区别于横向 AnField)', [

@@ -8,25 +8,12 @@ import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
 import '../model/tool_receipts.dart';
 import 'tool_card_io_section.dart';
+import 'log_drawer.dart';
 import 'tool_card_nav.dart';
-import 'tool_card_skins.dart';
 
 // F09 get-record furniture (B5.8) — the RunDossier (one execution's full record: status head → input/
 // output windows → a double-ended-capped log drawer → a provenance line) + the ProvenanceLine (where
 // this run came from: navigable conversation/trigger, mono-only message/firing/node). F09 卷宗。
-
-const int _logCap = 6000;
-const int _logHead = 2000;
-const int _logTail = 4000;
-const String mcpStderrSeparator = '--- server stderr tail (server-level, may predate this call) ---';
-
-/// Cap a log to head+tail with a middle elision (the tail — last yields / stderr / dying output — is the
-/// most diagnostic, so NEVER head-truncate). Returns (head, omittedChars, tail); omitted=0 when it fits.
-/// 日志双端保留:头+尾+中缝省略(尾最诊断,绝不头截)。
-({String head, int omitted, String tail}) capLog(String log) {
-  if (log.length <= _logCap) return (head: log, omitted: 0, tail: '');
-  return (head: log.substring(0, _logHead), omitted: log.length - _logHead - _logTail, tail: log.substring(log.length - _logTail));
-}
 
 /// The record status → elapsed receipt: `{status} · {elapsed}`; failed/timeout → danger (auto-expand —
 /// you opened a failed record to triage). null when unparseable. 卷宗回执:状态·耗时,失败/超时红。
@@ -102,12 +89,12 @@ class RunDossier extends StatelessWidget {
       if (input != null) ToolIOSection(label: t.chat.tool.ioInput, value: input),
       const SizedBox(height: AnSpace.s6),
       if (!ok && errorMessage != null && errorMessage!.isNotEmpty)
-        ToolWindow(child: Text(errorMessage!, style: AnText.code.copyWith(color: c.danger), maxLines: 30, overflow: TextOverflow.ellipsis))
+        AnWindow(child: Text(errorMessage!, style: AnText.code.copyWith(color: c.danger), maxLines: 30, overflow: TextOverflow.ellipsis))
       else
         ToolIOSection(label: t.chat.tool.ioOutput, value: output),
       if (logs != null && logs!.trim().isNotEmpty) ...[
         const SizedBox(height: AnSpace.s6),
-        _LogDrawer(logs: logs!),
+        LogDrawer(logs: logs!, splitStderr: true),
       ],
       if (extra != null) ...[
         const SizedBox(height: AnSpace.s6),
@@ -132,57 +119,6 @@ class RunDossier extends StatelessWidget {
     final s = fmtStamp(startedAt);
     final e = endedAt != null ? fmtStamp(endedAt) : '';
     return e.isEmpty ? s : '$s → $e';
-  }
-}
-
-/// A «日志» disclosure over a double-ended-capped mono window; an MCP stderr tail (split on the fixed
-/// separator) becomes its own danger-colored segment carrying the backend's own caveat. 日志抽屉:双端保留 + stderr 分段。
-class _LogDrawer extends StatefulWidget {
-  const _LogDrawer({required this.logs});
-  final String logs;
-  @override
-  State<_LogDrawer> createState() => _LogDrawerState();
-}
-
-class _LogDrawerState extends State<_LogDrawer> {
-  bool _open = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = Translations.of(context);
-    final c = context.colors;
-    // Split off an MCP stderr tail (server-level; the caveat matters — it may predate this call).
-    // 切出 MCP stderr 尾(server 级;段头告诫要保留:可能早于本次调用)。
-    final sepIdx = widget.logs.indexOf(mcpStderrSeparator);
-    final main = sepIdx >= 0 ? widget.logs.substring(0, sepIdx) : widget.logs;
-    final stderr = sepIdx >= 0 ? widget.logs.substring(sepIdx + mcpStderrSeparator.length).trimLeft() : null;
-    final capped = capLog(main);
-    return AnDisclosure(
-      label: t.chat.tool.dossierLogs,
-      open: _open,
-      onToggle: () => setState(() => _open = !_open),
-      child: _open
-          ? Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-              ToolWindow(
-                actions: [WindowCopyButton(copyPayload: widget.logs)],
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                  Text(capped.head, style: AnText.code.copyWith(color: c.inkMuted)),
-                  if (capped.omitted > 0) ...[
-                    Text(t.chat.tool.logOmitted(n: '${capped.omitted}'), style: AnText.meta.copyWith(color: c.inkFaint)),
-                    Text(capped.tail, style: AnText.code.copyWith(color: c.inkMuted)),
-                  ],
-                ]),
-              ),
-              if (stderr != null && stderr.isNotEmpty) ...[
-                const SizedBox(height: AnSpace.s4),
-                Text(t.chat.tool.dossierStderr, style: AnText.meta.copyWith(color: c.danger)),
-                const SizedBox(height: AnSpace.s2),
-                ToolWindow(child: Text(stderr.length > 8192 ? stderr.substring(stderr.length - 8192) : stderr,
-                    style: AnText.code.copyWith(color: c.danger), maxLines: 60, overflow: TextOverflow.ellipsis)),
-              ],
-            ])
-          : null,
-    );
   }
 }
 

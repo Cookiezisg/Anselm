@@ -190,7 +190,7 @@ lib/core/ui/an_stat_bar.dart	reviewed
 lib/core/ui/an_state.dart	ledgered
 lib/core/ui/an_status_dot.dart	ledgered
 lib/core/ui/an_stepper.dart	pending
-lib/core/ui/an_sunken_panel.dart	pending
+lib/core/ui/an_sunken_panel.dart	converged
 lib/core/ui/an_switch.dart	pending
 lib/core/ui/an_tabs.dart	pending
 lib/core/ui/an_tags.dart	pending
@@ -296,6 +296,7 @@ lib/features/chat/ui/chat_transcript.dart	ledgered
 lib/features/chat/ui/chat_turn.dart	ledgered
 lib/features/chat/ui/conversation_rail.dart	pending
 lib/features/chat/ui/conversation_rail_model.dart	pending
+lib/features/chat/ui/log_drawer.dart	converged
 lib/features/chat/ui/mention_text_controller.dart	pending
 lib/features/chat/ui/run_dossier.dart	ledgered
 lib/features/chat/ui/run_ledger.dart	ledgered
@@ -316,10 +317,10 @@ lib/features/chat/ui/stages/trigger_stage.dart	pending
 lib/features/chat/ui/stages/workflow_stage.dart	ledgered
 lib/features/chat/ui/tool_card_catalog.dart	ledgered
 lib/features/chat/ui/tool_card_control_approval.dart	ledgered
-lib/features/chat/ui/tool_card_conversation.dart	pending
+lib/features/chat/ui/tool_card_conversation.dart	converged
 lib/features/chat/ui/tool_card_document_skill.dart	ledgered
 lib/features/chat/ui/tool_card_ecosystem.dart	ledgered
-lib/features/chat/ui/tool_card_entity_get.dart	ledgered
+lib/features/chat/ui/tool_card_entity_get.dart	converged
 lib/features/chat/ui/tool_card_entity_get_bodies.dart	ledgered
 lib/features/chat/ui/tool_card_exec.dart	ledgered
 lib/features/chat/ui/tool_card_flowrun.dart	ledgered
@@ -330,10 +331,10 @@ lib/features/chat/ui/tool_card_memory_web.dart	ledgered
 lib/features/chat/ui/tool_card_mount.dart	pending
 lib/features/chat/ui/tool_card_nav.dart	pending
 lib/features/chat/ui/tool_card_reveal.dart	pending
-lib/features/chat/ui/tool_card_runlog.dart	pending
+lib/features/chat/ui/tool_card_runlog.dart	converged
 lib/features/chat/ui/tool_card_search.dart	ledgered
 lib/features/chat/ui/tool_card_skins.dart	ledgered
-lib/features/chat/ui/tool_card_subagent.dart	pending
+lib/features/chat/ui/tool_card_subagent.dart	converged
 lib/features/chat/ui/tool_card_todo.dart	ledgered
 lib/features/chat/ui/tool_card_trigger.dart	ledgered
 lib/features/chat/ui/tool_card_workflow.dart	ledgered

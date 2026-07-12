@@ -3,8 +3,11 @@ import 'dart:convert';
 import 'package:anselm/core/contract/messages/block_content.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/messages/block_tree_reducer.dart';
+import 'package:anselm/core/ui/an_window.dart';
 import 'package:anselm/features/chat/ui/chat_tool_card.dart';
 import 'package:anselm/features/chat/ui/run_ledger.dart';
+import 'package:anselm/features/chat/ui/tool_card_io_section.dart';
+import 'package:anselm/features/chat/ui/tool_card_skins.dart' show WindowCopyButton;
 import 'package:anselm/features/chat/ui/tool_card_runlog.dart';
 import 'package:anselm/features/chat/model/tool_receipts.dart';
 import 'package:anselm/i18n/strings.g.dart';
@@ -156,7 +159,10 @@ void main() {
           jsonEncode({
             'count': 1,
             'activations': [
-              {'id': 'act_01', 'triggerId': 'trg_1', 'kind': 'sensor', 'fired': true, 'firingCount': 2, 'returnValue': {'temp': 31.4}, 'createdAt': '2026-07-05T14:00:00Z'},
+              // Nested returnValue (≥2 keys + a Map value) — routes ToolIOSection to its JSON-tree
+              // branch, the bare-gated window seam. A scalar map walks the per-key inline path and
+              // never consumes bare (复审:假钉,mutation 实证). 嵌套值才踩到 bare 承重的出窗分支。
+              {'id': 'act_01', 'triggerId': 'trg_1', 'kind': 'sensor', 'fired': true, 'firingCount': 2, 'returnValue': {'temp': 31.4, 'series': {'p50': 12, 'p99': 88}}, 'createdAt': '2026-07-05T14:00:00Z'},
             ],
           })))));
       await tester.pump();
@@ -169,6 +175,38 @@ void main() {
       await tester.tap(find.text('act_01'));
       await tester.pumpAndSettle();
       expect(find.textContaining('temp'), findsOneWidget); // now the returnValue tree is inline
+      // LEAF LAW regression (批4 复审 HIGH): the ledger already lives in the ONE machine window —
+      // the expanded returnValue must render BARE (a second window here nests window-in-window and
+      // trips AnWindow's debug assert). 叶子律回归钉:台账已在唯一窗内,展开值必须裸渲(再出窗即套窗)。
+      expect(find.byType(AnWindow), findsOneWidget);
+    });
+  });
+
+  group('ToolIOSection bare 缝 (批4 复审 HIGH 的修法)', () {
+    testWidgets('bare: nested JSON renders the tree with NO window of its own', (tester) async {
+      // ≥2 keys + a non-scalar value → the JSON-tree branch (the bare-gated seam); a scalar map
+      // walks per-key inline and proves nothing (复审:空真). 嵌套夹具才覆盖 bare 承重分支。
+      await tester.pumpWidget(_host(const ToolIOSection(label: 'v', value: {'k': {'x': 1}, 'n': 2}, bare: true)));
+      await tester.pumpAndSettle();
+      expect(find.byType(AnWindow), findsNothing);
+      expect(find.textContaining('k'), findsWidgets);
+    });
+    testWidgets('bare + renderAsProse inside a host window: typeset bare, no nested window (leaf law)', (tester) async {
+      final long = 'paragraph\n\n' * 30;
+      await tester.pumpWidget(_host(AnWindow(child: ToolIOSection(label: 'v', value: long, renderAsProse: true, bare: true))));
+      await tester.pumpAndSettle();
+      expect(find.byType(AnWindow), findsOneWidget); // only the host — ProseWindow's shell withheld 仅宿主窗
+    });
+    testWidgets('bare truncated mono keeps the full-payload copy escape (显示可截,copy 永不截)', (tester) async {
+      final big = 'x' * 7000;
+      await tester.pumpWidget(_host(AnWindow(child: ToolIOSection(label: 'v', value: big, bare: true))));
+      await tester.pumpAndSettle();
+      expect(find.byType(WindowCopyButton), findsOneWidget);
+    });
+    testWidgets('default (not bare): a multi-line value owns its window', (tester) async {
+      await tester.pumpWidget(_host(const ToolIOSection(label: 'v', value: 'line one\nline two')));
+      await tester.pumpAndSettle();
+      expect(find.byType(AnWindow), findsOneWidget);
     });
   });
 }

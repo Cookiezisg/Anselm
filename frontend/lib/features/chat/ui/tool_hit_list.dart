@@ -6,10 +6,10 @@ import '../../../core/design/typography.dart';
 import '../../../core/router/panel_registry.dart';
 import '../../../core/ui/an_interactive.dart';
 import '../../../core/ui/an_json_tree.dart';
+import '../../../core/ui/an_window.dart';
 import '../../../core/ui/icons.dart';
 import '../../../i18n/strings.g.dart';
 import 'tool_card_reveal.dart';
-import 'tool_card_skins.dart';
 
 /// One row of a [ToolHitList] — an entity/hit line. 一行命中。
 class ToolHitRow {
@@ -147,7 +147,7 @@ class _ToolHitListState extends State<ToolHitList> with SingleTickerProviderStat
     if (_showAll && widget.rawJson != null) {
       // AnJsonTree is a virtualized TreeSliver — its OWN viewport: bounded height, no outer scroll.
       // AnJsonTree 自带虚拟化 viewport:只需有界高、不外套滚动。
-      return ToolWindow(
+      return AnWindow(
         child: SizedBox(
           height: AnSize.jsonViewport,
           child: AnJsonTree(jsonString: widget.rawJson, showRoot: false),
@@ -156,7 +156,7 @@ class _ToolHitListState extends State<ToolHitList> with SingleTickerProviderStat
     }
     final visible = widget.rows.take(widget.cap).toList();
     final overCap = widget.rows.length > widget.cap;
-    return ToolWindow(
+    return AnWindow(
       child: AnimatedBuilder(
         animation: _c,
         builder: (context, _) => Column(

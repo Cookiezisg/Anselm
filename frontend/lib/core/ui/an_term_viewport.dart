@@ -35,8 +35,8 @@ class AnStickViewport extends StatefulWidget {
   final Widget? header;
 
   /// The edge-fade blend colour — MUST match the hosting surface (AnEdgeFade's contract). Default =
-  /// the terminal well grey; a white host (AnCodeSurface live faces, WRK-066 拍板 #1) passes
-  /// `c.surface`. 渐隐融色——须配宿主底色;默认终端灰井,白宿主(live 代码脸)传 c.surface。
+  /// the white window surface (the grey well is retired — WRK-066 族一; every viewport host is the
+  /// one white-framed window). 渐隐融色——须配宿主底色;默认白窗面(灰井退役,族一)。
   final Color? fadeColor;
 
   @override
@@ -106,9 +106,9 @@ class _AnStickViewportState extends State<AnStickViewport> {
           child: SingleChildScrollView(controller: _scroll, child: widget.child),
         ),
         if (_above)
-          Positioned(top: 0, left: 0, right: 0, height: AnSpace.s16, child: AnEdgeFade(fromTop: true, color: widget.fadeColor ?? c.surfaceSunken)),
+          Positioned(top: 0, left: 0, right: 0, height: AnSpace.s16, child: AnEdgeFade(fromTop: true, color: widget.fadeColor ?? c.surface)),
         if (_below) ...[
-          Positioned(bottom: 0, left: 0, right: 0, height: AnSpace.s16, child: AnEdgeFade(fromTop: false, color: widget.fadeColor ?? c.surfaceSunken)),
+          Positioned(bottom: 0, left: 0, right: 0, height: AnSpace.s16, child: AnEdgeFade(fromTop: false, color: widget.fadeColor ?? c.surface)),
           Positioned(bottom: AnSpace.s4, right: AnSpace.s4, child: _backToLatest(context)),
         ],
       ],
@@ -176,8 +176,8 @@ class AnTermViewport extends StatefulWidget {
   /// An optional pinned header (copy actions). 可选钉头(复制)。
   final Widget? header;
 
-  /// Edge-fade blend colour — pass the hosting surface (white hosts pass `c.surface`; default =
-  /// the terminal well grey). 渐隐融色——传宿主底色(白宿主传 surface;默认终端灰井)。
+  /// Edge-fade blend colour — pass the hosting surface when it isn't the default white window
+  /// surface (WRK-066 族一). 渐隐融色——宿主非默认白窗面时传底色(族一)。
   final Color? fadeColor;
 
   @override

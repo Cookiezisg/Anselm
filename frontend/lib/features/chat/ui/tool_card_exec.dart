@@ -9,6 +9,7 @@ import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
+import 'log_drawer.dart';
 import 'tool_card_io_section.dart';
 import 'tool_card_nav.dart';
 import 'tool_card_skins.dart';
@@ -61,7 +62,7 @@ Widget runFunctionBody(BuildContext context, ToolCardState state) {
     if (input != null) ToolIOSection(label: t.chat.tool.ioInput, value: input),
     if (logs != null && logs.isNotEmpty) ...[
       const SizedBox(height: AnSpace.s6),
-      _LogsDrawer(logs: logs),
+      LogDrawer(logs: logs),
     ],
     if (!live) ...[
       const SizedBox(height: AnSpace.s6),
@@ -103,7 +104,7 @@ Widget callHandlerBody(BuildContext context, ToolCardState state) {
     // yield 流:活=滚动终端尾(主秀),落定=抽屉(档案)。
     if (state.progressText.isNotEmpty) ...[
       const SizedBox(height: AnSpace.s6),
-      live ? AnLiveTail(state.progressText, tailLines: 12) : _LogsDrawer(logs: state.progressText),
+      live ? AnLiveTail(state.progressText, tailLines: 12) : LogDrawer(logs: state.progressText),
     ],
     if (!live) ...[
       const SizedBox(height: AnSpace.s6),
@@ -262,30 +263,3 @@ Widget fireTriggerBody(BuildContext context, ToolCardState state) {
   ]);
 }
 
-/// A «日志 · N 行» disclosure over a capped mono window. 日志抽屉。
-class _LogsDrawer extends StatefulWidget {
-  const _LogsDrawer({required this.logs});
-  final String logs;
-  @override
-  State<_LogsDrawer> createState() => _LogsDrawerState();
-}
-
-class _LogsDrawerState extends State<_LogsDrawer> {
-  bool _open = false;
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    final t = Translations.of(context);
-    final n = '\n'.allMatches(widget.logs.trimRight()).length + 1;
-    final over = widget.logs.length > 6000;
-    final shown = over ? widget.logs.substring(widget.logs.length - 6000) : widget.logs;
-    return AnDisclosure(
-      label: t.chat.tool.execLogs(n: '$n'),
-      open: _open,
-      onToggle: () => setState(() => _open = !_open),
-      child: _open
-          ? ToolWindow(child: Text(shown, style: AnText.code.copyWith(color: c.inkFaint), maxLines: 200, overflow: TextOverflow.ellipsis))
-          : null,
-    );
-  }
-}

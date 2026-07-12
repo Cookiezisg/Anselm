@@ -75,10 +75,10 @@ class SkillStageBody extends StatelessWidget {
           // 叶子律;O(tail) 族头内建);落定真 markdown 排版。
           scene.live
               ? AnLiveTail(body, style: AnLiveTailStyle.prose, bare: true)
-              : (body.length > 480 || '\n'.allMatches(body).length > 10)
+              : (body.length > AnCap.proseFoldChars || '\n'.allMatches(body).length > AnCap.proseFoldLines)
                   ? AnFadeCollapse(
                       collapsible: true,
-                      collapsedHeight: 320,
+                      collapsedHeight: AnSize.proseViewport,
                       expandLabel: t.chat.tool.proseExpand,
                       collapseLabel: t.chat.tool.proseCollapse,
                       fadeColor: c.surface,

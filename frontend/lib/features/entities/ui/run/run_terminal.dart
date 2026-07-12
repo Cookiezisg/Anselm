@@ -244,7 +244,7 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
         final text = s.text;
         return [
           if (text.trim().isNotEmpty)
-            _section(context, r.outputHeading, AnTermViewport(text: text, fadeColor: context.colors.surface)),
+            _section(context, r.outputHeading, AnTermViewport(text: text)),
           if (state.isTerminal && state.output != null)
             _section(context, r.resultHeading, _mono(context, prettyJson(state.output))),
           if ((state.logs ?? '').isNotEmpty) _section(context, r.logsHeading, _mono(context, state.logs!)),

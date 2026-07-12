@@ -141,4 +141,26 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('无版本可回退'), findsOneWidget);
   });
+
+  group('ProseWindow 壳 (WRK-066 批4 族一)', () {
+    Widget host(Widget c) => TranslationProvider(
+        child: MaterialApp(theme: AnTheme.light(), home: Scaffold(body: SingleChildScrollView(child: SizedBox(width: 480, child: c)))));
+
+    testWidgets('short prose: ONE window, whole, no expand affordance', (tester) async {
+      await tester.pumpWidget(host(const ProseWindow(markdown: 'a short answer')));
+      await tester.pumpAndSettle();
+      expect(find.byType(AnWindow), findsOneWidget);
+      expect(find.textContaining('展开'), findsNothing);
+    });
+
+    testWidgets('long prose WITH a fenced code block: collapses, and the fence never nests a window (leaf law)', (tester) async {
+      final md = "${'p\n\n' * 20}```dart\nvoid main() {}\n```\n${'q\n\n' * 20}";
+      await tester.pumpWidget(host(ProseWindow(markdown: md)));
+      await tester.pumpAndSettle();
+      // AnMarkdown fences render AnCodeSurface (physically borderless-window-safe) — AnWindow's
+      // debug assert would throw on a nested window. 围栏码=AnCodeSurface,套窗则叶子律 assert 已炸。
+      expect(find.byType(AnWindow), findsOneWidget);
+      expect(find.textContaining('展开'), findsOneWidget);
+    });
+  });
 }

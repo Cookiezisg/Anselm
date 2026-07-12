@@ -1,4 +1,6 @@
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/ui/an_sunken_panel.dart';
+import 'package:anselm/core/ui/an_window.dart';
 import 'package:anselm/features/chat/model/tool_card_state.dart';
 import 'package:anselm/features/chat/ui/tool_card_memory_web.dart';
 import 'package:anselm/i18n/strings.g.dart';
@@ -171,5 +173,29 @@ void main() {
     expect(find.text('functionId*, payload'), findsOneWidget); // starred + framework filtered
     expect(find.text('执行一个函数'), findsOneWidget);
     expect(find.text(t.chat.tool.toolSchema), findsOneWidget); // the escape hatch 逃生口
+  });
+
+  group('MemoryNoteCard 壳 (WRK-066 批4 族一)', () {
+    Widget host(Widget c) => TranslationProvider(
+        child: MaterialApp(theme: AnTheme.light(), home: Scaffold(body: SingleChildScrollView(child: SizedBox(width: 480, child: c)))));
+
+    testWidgets('the shell is the ONE window — the grey well is retired', (tester) async {
+      await tester.pumpWidget(host(const MemoryNoteCard(
+          note: (name: 'note', source: 'user', description: 'd', body: 'hello body'))));
+      await tester.pumpAndSettle();
+      expect(find.byType(AnWindow), findsOneWidget);
+      expect(find.byType(AnSunkenPanel), findsNothing);
+    });
+
+    testWidgets('a long body collapses with the standard expand affordance; markdown fences never nest a window', (tester) async {
+      final long = "${'line\n' * 30}```dart\nvoid main() {}\n```\n${'tail\n' * 200}";
+      await tester.pumpWidget(host(MemoryNoteCard(
+          note: (name: 'note', source: 'ai', description: '', body: long))));
+      await tester.pumpAndSettle();
+      // Fenced code inside the window renders as AnCodeSurface (borderless-window-safe) — the
+      // leaf-law debug assert would have thrown here otherwise. 围栏码走 AnCodeSurface,叶子律不炸。
+      expect(find.byType(AnWindow), findsOneWidget);
+      expect(find.textContaining('展开'), findsOneWidget);
+    });
   });
 }

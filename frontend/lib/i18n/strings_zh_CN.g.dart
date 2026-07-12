@@ -911,7 +911,6 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get gotMcpCall => '已调阅 MCP 调用档案';
 	@override String get gettingActivation => '正在调阅活动档案';
 	@override String get gotActivation => '已调阅活动档案';
-	@override String get dossierLogs => '日志';
 	@override String get dossierStderr => 'server stderr(可能早于本次调用)';
 	@override String logOmitted({required Object n}) => '…省略 ${n} 字符…';
 	@override String get provConversation => '对话';
@@ -2545,7 +2544,6 @@ extension on TranslationsZhCn {
 			'chat.tool.gotMcpCall' => '已调阅 MCP 调用档案',
 			'chat.tool.gettingActivation' => '正在调阅活动档案',
 			'chat.tool.gotActivation' => '已调阅活动档案',
-			'chat.tool.dossierLogs' => '日志',
 			'chat.tool.dossierStderr' => 'server stderr(可能早于本次调用)',
 			'chat.tool.logOmitted' => ({required Object n}) => '…省略 ${n} 字符…',
 			'chat.tool.provConversation' => '对话',
@@ -2610,9 +2608,9 @@ extension on TranslationsZhCn {
 			'chat.tool.browsedMarket' => '已浏览市场',
 			'chat.tool.marketCount' => ({required Object n}) => '${n} 个服务器',
 			'chat.tool.mcpEnvRequired' => ({required Object n}) => '${n} 必填 env',
+			'chat.tool.gettingModelConfig' => '正在读模型配置',
 			_ => null,
 		} ?? switch (path) {
-			'chat.tool.gettingModelConfig' => '正在读模型配置',
 			'chat.tool.gotModelConfig' => '已读模型配置',
 			'chat.tool.modelDefaults' => '默认模型',
 			'chat.tool.modelKeys' => ({required Object n}) => '${n} 个密钥',
@@ -3124,9 +3122,9 @@ extension on TranslationsZhCn {
 			'documents.deleteSkillTitle' => '删除这个技能?',
 			'documents.deleteSkillBody' => ({required Object name}) => '技能“${name}”会被删除。',
 			'documents.actionFailed' => '操作失败',
+			'documents.props.title' => '属性',
 			_ => null,
 		} ?? switch (path) {
-			'documents.props.title' => '属性',
 			'documents.props.name' => '名称',
 			'documents.props.description' => '描述',
 			'documents.props.tags' => '标签',

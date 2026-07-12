@@ -15,7 +15,6 @@ import '../model/tool_receipts.dart';
 import '../state/pending_interactions_provider.dart';
 import 'tool_card_catalog.dart';
 import 'tool_card_reveal.dart';
-import 'tool_card_skins.dart';
 import 'tool_interaction_gate.dart';
 
 /// The V3a tool-call CHASSIS (WRK-053 · WRK-065) — one borderless 32px-register line per tool
@@ -477,7 +476,7 @@ class _GenericToolBody extends StatelessWidget {
     final lines = state.progressText.trimRight().split('\n');
     final omitted = lines.length - _progressTailLines;
     final tail = omitted > 0 ? lines.sublist(omitted) : lines;
-    return ToolWindow(
+    return AnWindow(
       header: omitted > 0
           ? Text(t.chat.tool.progressOmitted(n: omitted),
               style: AnText.meta.copyWith(color: c.inkFaint))

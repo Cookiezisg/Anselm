@@ -120,7 +120,7 @@ audience: [human, ai]
 
 | 族 | 当家件(收敛目标) | 吃掉谁(初步,P1 普查定稿) |
 |---|---|---|
-| 窗(机器产物容器) | 一个窗壳:header/actions/tone 槽 + 内容模式(term/code/prose/json/diff) | ToolWindow、ProseWindow、各手搓描边卡(approval 信笺/subagent 卡/MemoryNoteCard 壳…) |
+| 窗(机器产物容器) | **`AnWindow` ✅批4**(P2 拍板改判=纯壳不嗅探:child?/header 单行/actions/maxHeight+collapsible/footer 注记 + 叶子律 assert;tone 槽与内容模式方案被法典否决) | ToolWindow ✅批4 物理删除、ProseWindow/MemoryNoteCard 壳 ✅批4 并入、approval 信笺/subagent 卡 ✅批1 |
 | 代码 | AnCodeEditor + **live 模式**(同壳同框同 copy 位;P2 拍板改判=live 全量高亮+行号+有界贴底视口,两脸同档零跳变) | builds/Write 灰框裸 mono、AnLiveCodeWindow(批2 已吃掉并物理删除) |
 | 芯片 | 一个 chip 族:tone/icon/mono/copy/nav 热插拔 | AnBadge/AnRefPill/AnCopyChip/AnPathChip/一切手搓 chip(_beltChip/_morphChip/op ticker 点…) |
 | 行(键值/标签-值) | AnKv + 成文对齐文法 | ToolIOSection 标签排布、_metaRow、各手搓 label-value |

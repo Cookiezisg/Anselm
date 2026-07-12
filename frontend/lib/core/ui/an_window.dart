@@ -116,21 +116,29 @@ class AnWindow extends StatelessWidget {
             );
     }
 
-    final content = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        ?head,
-        // The head↔body gap is only paid when there IS a body (复审: a header-only window must not
-        // carry a dead 6px). 头体距只在有体时付(头独窗不背死距)。
-        if (head != null && body != null) const SizedBox(height: AnSpace.s6),
-        ?body,
-        if (footer != null) ...[
-          if (head != null || body != null) const SizedBox(height: AnSpace.s4),
-          DefaultTextStyle.merge(style: AnText.meta.copyWith(color: c.inkFaint), child: footer!),
-        ],
-      ],
-    );
+    // A SINGLE-BODY window hands the body the incoming constraints UNTOUCHED — the interposing
+    // Column gives non-flex children an UNBOUNDED main-axis max (Flex layout rule), which breaks
+    // bounded fill hosts: a tight-height host (the sidestage live prose tail in its stage-tier
+    // SizedBox) would overflow instead of bounding its inner viewport (批4 复审 HIGH,探针实证
+    // RenderFlex overflow + 贴底钉失效). 单体窗约束直通:夹层 Column 给非弹性子无界主轴,紧高宿主
+    // 的内视口失界即溢出。
+    final content = (head == null && footer == null)
+        ? body!
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ?head,
+              // The head↔body gap is only paid when there IS a body (复审: a header-only window must
+              // not carry a dead 6px). 头体距只在有体时付(头独窗不背死距)。
+              if (head != null && body != null) const SizedBox(height: AnSpace.s6),
+              ?body,
+              if (footer != null) ...[
+                if (head != null || body != null) const SizedBox(height: AnSpace.s4),
+                DefaultTextStyle.merge(style: AnText.meta.copyWith(color: c.inkFaint), child: footer!),
+              ],
+            ],
+          );
 
     // Width-safe block behaviour (复审 #7): stretch in bounded hosts; in an UNBOUNDED-width host
     // (a Row's rigid slot, a horizontal scroller) shrink-wrap instead of throwing

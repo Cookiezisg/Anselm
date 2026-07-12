@@ -4,7 +4,6 @@ import 'package:anselm/core/messages/block_tree_reducer.dart';
 import 'package:anselm/core/sse/frame.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/features/chat/ui/chat_tool_card.dart';
-import 'package:anselm/features/chat/ui/tool_card_skins.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -71,7 +70,7 @@ void main() {
     await tester.pumpAndSettle();
     // B4.5: «exit 1» now appears TWICE — the collapsed-row receipt + the stripped-footer bottom bar chip.
     expect(find.textContaining('exit 1'), findsNWidgets(2));
-    expect(find.byType(ToolWindow), findsOneWidget); // auto-expanded 自动展开
+    expect(find.byType(AnWindow), findsOneWidget); // auto-expanded 自动展开
     expect(find.textContaining('\$ npm test'), findsOneWidget); // command echo header 命令回显头
     // The [exit code: 1] footer is STRIPPED from the terminal body (it's a chip now). footer 剥离出正文。
     expect(find.textContaining('[exit code:'), findsNothing);
@@ -84,13 +83,13 @@ void main() {
     await tester.pumpWidget(_host(ChatToolCard(node: running, key: const ValueKey('run'))));
     await tester.pumpAndSettle();
     // Default collapsed while running — no auto machine window (WRK-065). 运行中默认收起,不自动弹窗。
-    expect(find.byType(ToolWindow), findsNothing);
+    expect(find.byType(AnWindow), findsNothing);
     expect(find.textContaining('line 4'), findsNothing);
     // TAP → the body's live face: the full live terminal (progress preferred, $ cmd echo header).
     // 点开=活脸:完整活终端(progress 优先、$ 命令回显头)。
     await tester.tap(find.textContaining('正在执行'), warnIfMissed: false);
     await tester.pumpAndSettle();
-    expect(find.byType(ToolWindow), findsOneWidget);
+    expect(find.byType(AnWindow), findsOneWidget);
     expect(find.textContaining('\$ npm test'), findsOneWidget); // in-flight command echo 在途命令回显
     expect(find.textContaining('line 4'), findsOneWidget);
 
@@ -180,13 +179,14 @@ void main() {
     await tester.pumpWidget(_host(ChatToolCard(node: running)));
     await tester.pumpAndSettle();
     // Collapsed by default. 默认收起。
-    expect(find.byType(ToolWindow), findsNothing);
+    expect(find.byType(AnWindow), findsNothing);
     await tester.tap(find.byType(AnInteractive).first, warnIfMissed: false);
     await tester.pumpAndSettle();
     expect(find.textContaining('contacting server'), findsOneWidget); // live progress 活进度
-    // ONLY the tail (the family head brings its own window) — no empty result shell. 只有尾,无空结果壳。
+    // ONLY the tail — its OWN self-shell is the single window; no second empty result shell.
+    // 只有尾——它自带的壳是唯一一扇窗;无第二扇空结果壳。
     expect(find.byType(AnLiveTail), findsOneWidget);
-    expect(find.byType(ToolWindow), findsNothing);
+    expect(find.byType(AnWindow), findsOneWidget);
   });
 
   testWidgets('live mono tail: whitespace-only progress renders NO empty machine window', (tester) async {

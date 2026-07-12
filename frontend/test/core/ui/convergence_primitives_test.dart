@@ -1,6 +1,7 @@
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/ui/an_code_block.dart';
+import 'package:anselm/core/ui/an_window.dart';
 import 'package:anselm/core/ui/an_code_surface.dart';
 import 'package:anselm/core/ui/an_divider.dart';
 import 'package:anselm/core/ui/an_edge_fade.dart';
@@ -20,14 +21,40 @@ Widget _host(Widget child) => MaterialApp(
     );
 
 void main() {
-  group('AnSunkenPanel', () {
-    testWidgets('header rides above the child', (t) async {
-      await t.pumpWidget(_host(const AnSunkenPanel(header: Text('HDR'), child: Text('BODY'))));
-      expect(find.text('HDR'), findsOneWidget);
-      expect(find.text('BODY'), findsOneWidget);
-      expect(t.getTopLeft(find.text('HDR')).dy, lessThan(t.getTopLeft(find.text('BODY')).dy));
+  group('AnWindow 单体窗约束直通 (批4 复审 HIGH)', () {
+    testWidgets('a tight-height host bounds the inner viewport — 40-line reverse tail neither overflows nor loses the bottom pin', (t) async {
+      Widget tail(String text) => SizedBox(
+            height: 220,
+            child: AnWindow(
+              child: Align(
+                alignment: Alignment.bottomLeft,
+                child: ClipRect(
+                  child: SingleChildScrollView(
+                    reverse: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    child: Text(text),
+                  ),
+                ),
+              ),
+            ),
+          );
+      // Long tail: the interposing content Column used to hand the body UNBOUNDED height here —
+      // RenderFlex overflow + top-anchored text (探针实证). 长尾:夹层 Column 曾给无界高→溢出+钉头。
+      await t.pumpWidget(_host(tail(List.generate(40, (i) => 'line $i').join('\n'))));
+      await t.pumpAndSettle();
+      expect(t.takeException(), isNull);
+      // Short tail stays bottom-pinned (the live «钉在前沿» semantics). 短尾贴底。
+      await t.pumpWidget(_host(tail('short tail')));
+      await t.pumpAndSettle();
+      final windowBottom = t.getBottomLeft(find.byType(AnWindow)).dy;
+      final textBottom = t.getBottomLeft(find.text('short tail')).dy;
+      expect(windowBottom - textBottom, lessThan(24)); // within the card inset of the bottom edge
+      expect(textBottom - t.getTopLeft(find.byType(AnWindow)).dy, greaterThan(150)); // not top-anchored 非钉头
     });
-    testWidgets('no header → just the child', (t) async {
+  });
+
+  group('AnSunkenPanel', () {
+    testWidgets('child-only (header slot retired with ToolWindow, WRK-066 批4)', (t) async {
       await t.pumpWidget(_host(const AnSunkenPanel(child: Text('ONLY'))));
       expect(find.text('ONLY'), findsOneWidget);
     });

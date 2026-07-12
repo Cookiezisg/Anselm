@@ -16,7 +16,6 @@ import 'run_dossier.dart';
 import 'run_ledger.dart';
 import 'transcript_peek.dart';
 import 'tool_card_io_section.dart';
-import 'tool_card_skins.dart';
 
 // F09 run-log search cards (B5.6) — the aggregate families (function executions / handler calls / agent
 // runs / MCP calls). All share {list:[...], nextCursor?, hasMore, aggregates:{okCount, failedCount}}.
@@ -108,7 +107,7 @@ Widget _aggBody(BuildContext context, String output, String listKey, List<RunLed
     else ...[
       RunBeadStrip(beads: [for (final r in rows) _bead(c, r)]),
       const SizedBox(height: AnSpace.s6),
-      ToolWindow(child: RunLedger(rows: mapRows(t, c, rows))),
+      AnWindow(child: RunLedger(rows: mapRows(t, c, rows))),
       if (hasMore)
         Padding(padding: const EdgeInsets.only(top: AnSpace.s4), child: Text('${rows.length}+', style: AnText.meta.copyWith(color: c.inkFaint))),
     ],
@@ -188,7 +187,7 @@ Widget _countBody(BuildContext context, String output, String listKey,
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
     RunBeadStrip(beads: beads?.call(c, rows) ?? [for (final r in rows) _bead(c, r)], pageScoped: true),
     const SizedBox(height: AnSpace.s6),
-    ToolWindow(child: RunLedger(rows: mapRows(t, c, rows))),
+    AnWindow(child: RunLedger(rows: mapRows(t, c, rows))),
     if (caption != null) Padding(padding: const EdgeInsets.only(top: AnSpace.s4), child: Text(caption, style: AnText.meta.copyWith(color: c.inkFaint))),
     if (more) Padding(padding: const EdgeInsets.only(top: AnSpace.s4), child: Text('${rows.length}+', style: AnText.meta.copyWith(color: c.inkFaint))),
   ]);
@@ -268,8 +267,10 @@ Widget activationsBody(BuildContext context, ToolCardState s) => _countBody(cont
               stamp: fmtStamp(r['createdAt'] as String?),
               // The sensor probe value — kept even when not fired, and CAN be large → a lazy inline tree.
               // 探测返回值(未 fire 也留、可大)→ 惰性行内树。
+              // bare: the ledger already sits in the machine window — a windowed value here would
+              // nest window-in-window (leaf law, 批4 复审 HIGH). bare:台账已在窗内,再出窗即套窗。
               expandContent: (r['returnValue'] is Map && (r['returnValue'] as Map).isNotEmpty)
-                  ? ToolIOSection(label: t.chat.tool.actReturnValue, value: r['returnValue'])
+                  ? ToolIOSection(label: t.chat.tool.actReturnValue, value: r['returnValue'], bare: true)
                   : null,
             ),
         ]);
@@ -372,7 +373,7 @@ Widget getActivationBody(BuildContext context, ToolCardState s) {
     ],
     if (err != null && err.isNotEmpty) ...[
       const SizedBox(height: AnSpace.s6),
-      ToolWindow(child: Text(err, style: AnText.code.copyWith(color: c.danger), maxLines: 20, overflow: TextOverflow.ellipsis)),
+      AnWindow(child: Text(err, style: AnText.code.copyWith(color: c.danger), maxLines: 20, overflow: TextOverflow.ellipsis)),
     ],
     const SizedBox(height: AnSpace.s6),
     ProvenanceLine(triggerId: o['triggerId'] as String?),

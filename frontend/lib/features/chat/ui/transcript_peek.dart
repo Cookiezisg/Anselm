@@ -7,7 +7,6 @@ import '../../../core/design/typography.dart';
 import '../../../core/messages/block_tree_reducer.dart';
 import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
-import 'tool_card_skins.dart';
 
 // TranscriptPeek (WRK-056 #47 sibling, B5.10) — a bounded step catalog over a hydrated agent trajectory.
 // A get_agent_execution record / an invoke_agent reload rebuilds its Execution.transcript into BlockNode
@@ -53,7 +52,7 @@ class TranscriptPeek extends StatelessWidget {
         ],
       ]),
       const SizedBox(height: AnSpace.s4),
-      ToolWindow(
+      AnWindow(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
           if (over && failed) ...[
             // Show the gap honestly — a failed run is first-5 + tail, not contiguous. 失败非连续,诚实标缝。
@@ -133,7 +132,7 @@ class NestedRunPane extends StatelessWidget {
   Widget build(BuildContext context) {
     if (nested.isEmpty) return const SizedBox.shrink();
     final rows = live && nested.length > tail ? nested.sublist(nested.length - tail) : nested;
-    return ToolWindow(
+    return AnWindow(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
         for (final (i, n) in rows.indexed)
           if (live && i == rows.length - 1 && n.isOpen)

@@ -4,6 +4,7 @@ import 'package:anselm/core/contract/messages/block_content.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/messages/block_tree_reducer.dart';
 import 'package:anselm/features/chat/ui/chat_tool_card.dart';
+import 'package:anselm/features/chat/ui/log_drawer.dart';
 import 'package:anselm/features/chat/ui/run_dossier.dart';
 import 'package:anselm/features/chat/ui/transcript_peek.dart';
 import 'package:anselm/features/chat/ui/tool_card_runlog.dart';
@@ -96,7 +97,7 @@ void main() {
     }))));
     await tester.pump();
     await tester.pumpAndSettle(); // failed → auto-expanded
-    await tester.tap(find.text(t.chat.tool.dossierLogs)); // open the log drawer
+    await tester.tap(find.textContaining('日志')); // open the log drawer (LogDrawer 计行标签)
     await tester.pumpAndSettle();
     expect(find.text(t.chat.tool.dossierStderr), findsOneWidget); // the stderr segment header (danger)
     expect(find.textContaining('Traceback: TimeoutError'), findsOneWidget);

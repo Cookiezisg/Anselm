@@ -129,6 +129,9 @@ abstract final class AnSize {
   static const double codeViewport = 320; // live/settled bounded code viewport (transcript contexts) 代码有界视口(transcript 语境两脸同钳)
   static const double codeViewportSm = 160; // nested/secondary code viewport ≈8 code lines (handler rack spines stay scannable) 嵌套次级代码视口≈8 行(方法架书脊可扫读)
   static const double proseClamp = 144; // live prose tail bottom-pinned clamp ≈6 reading lines (WRK-066 族六) 活散文尾贴底钳高≈6 阅读行
+  static const double proseViewport = 340; // settled prose/markdown window collapse height (ProseWindow / MemoryNoteCard, WRK-066 族一) 落定散文窗折叠高
+  static const double proseStage = 220; // sidestage live prose tail fill height (document stage) 侧幕活散文尾填充高
+  static const double proseStageFail = 260; // sidestage failed-hold prose rescue viewport 侧幕失败救援散文视口
   static const double inspectorMetaCol = 72; // right-island meta-row label column (Path/Size/Modified) 右岛元数据行标签列宽
 
   // Sent-attachment surfaces (chat user bubble). 已发送附件面(用户泡)。
@@ -211,6 +214,9 @@ abstract final class AnSize {
 /// 内存,封顶只约束进 layout 的量。
 abstract final class AnCap {
   static const int window = 6000; // machine-window materialization cap (live tails, term scrollback pages) 机器窗物化上限
+  static const int proseFoldChars = 480; // prose window collapse gate: chars (WITH proseFoldLines) 散文窗折叠阈:字符
+  static const int proseFoldLines = 10; // prose window collapse gate: newlines 散文窗折叠阈:行
+  static const int noteFoldChars = 900; // memory-note collapse gate (short notes render whole) 记忆笺折叠阈
 }
 
 /// Opacity tokens — the few semantic alpha values used as whole-widget dimmers. 整件透明度语义值。

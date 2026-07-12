@@ -95,13 +95,13 @@ ToolReceipt? memoryForgetReceipt(Translations t, ToolCardState s) {
 
 /// The memory index card — write and read wear the SAME face (two tools, one memory entity):
 /// name in mono + a source badge (`user` = a hand-written memory recalled — accent; `ai` = none),
-/// the optional description, a hairline, then the RENDERED markdown body (the document's native
-/// tongue is typeset prose, never raw source). Long bodies collapse (fadeColor explicitly the
-/// sunken surface — the palette default is canvas and would tear on a sunken panel).
+/// the optional description, a hairline rule, then the RENDERED markdown body (the document's
+/// native tongue is typeset prose, never raw source). The shell is the ONE window ([AnWindow],
+/// WRK-066 族一 — the sunken well is retired); long bodies collapse at the prose viewport tier.
 ///
 /// 记忆索引卡——写与读同一张脸(两个工具、一个记忆实体):name mono + source 徽(user=手写记忆被
 /// 回忆,accent;ai=none)+ 可缺 description + 发丝线 + **渲染态 markdown 正文**(文档母语是排版稿,
-/// 不是源码)。长文折叠(fadeColor 显式传凹陷底——palette 默认 canvas,凹陷底上会撕)。
+/// 不是源码)。壳=唯一窗(族一,凹面退役);长文按散文视口档折叠。
 class MemoryNoteCard extends StatelessWidget {
   const MemoryNoteCard({required this.note, super.key});
 
@@ -110,6 +110,7 @@ class MemoryNoteCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final long = note.body.length > AnCap.noteFoldChars; // short notes render whole 短笺整渲
     final body = Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
       Row(children: [
         Expanded(
@@ -129,23 +130,15 @@ class MemoryNoteCard extends StatelessWidget {
       ],
       if (note.body.isNotEmpty) ...[
         const SizedBox(height: AnSpace.s6),
-        Container(height: AnSize.hairline, color: c.line),
+        const AnDivider(),
         const SizedBox(height: AnSpace.s6),
         AnMarkdown(note.body),
       ],
     ]);
-    return AnSunkenPanel(
-      child: Builder(builder: (context) {
-        final t = Translations.of(context);
-        return AnFadeCollapse(
-          collapsible: note.body.length > 900, // short notes render whole 短笺整渲
-          collapsedHeight: 400,
-          expandLabel: t.chat.tool.proseExpand,
-          collapseLabel: t.chat.tool.proseCollapse,
-          fadeColor: c.surfaceSunken,
-          child: body,
-        );
-      }),
+    return AnWindow(
+      maxHeight: long ? AnSize.proseViewport : null,
+      collapsible: long,
+      child: body,
     );
   }
 }
@@ -177,7 +170,7 @@ Widget writeMemoryBody(BuildContext context, ToolCardState state) {
   }
   final out = state.resultText.trimLeft();
   if (out.startsWith('Cannot save memory')) {
-    return ToolWindow(
+    return AnWindow(
         child: Text(state.resultText,
             style: AnText.code.copyWith(color: context.colors.danger)));
   }
@@ -185,7 +178,7 @@ Widget writeMemoryBody(BuildContext context, ToolCardState state) {
   final content = state.argsSession.closedStringAt(['content']) ?? '';
   if (name.isEmpty && content.isEmpty) {
     // args didn't parse — the chassis generic body dumps them honestly. args 未解,回落通用体。
-    return ToolWindow(
+    return AnWindow(
         child: Text(state.argsText,
             maxLines: 6, overflow: TextOverflow.ellipsis,
             style: AnText.code.copyWith(color: context.colors.inkFaint)));
@@ -206,7 +199,7 @@ Widget writeMemoryBody(BuildContext context, ToolCardState state) {
 Widget readMemoryBody(BuildContext context, ToolCardState state) {
   final note = parseMemoryTemplate(state.resultText);
   if (note == null) {
-    return ToolWindow(
+    return AnWindow(
         child: Text(state.resultText,
             maxLines: 6,
             overflow: TextOverflow.ellipsis,
@@ -341,7 +334,7 @@ Widget webSearchBody(BuildContext context, ToolCardState state) {
     case WebSearchOutcome.misconfig:
     case WebSearchOutcome.providerFail:
     case WebSearchOutcome.unparsed:
-      return ToolWindow(
+      return AnWindow(
           child: Text(state.resultText, style: AnText.code.copyWith(color: c.inkMuted)));
   }
 }
@@ -473,7 +466,7 @@ Widget webFetchBody(BuildContext context, ToolCardState state) {
     ?promptLine,
     switch (outcome) {
       WebFetchOutcome.summary => ProseWindow(markdown: state.resultText),
-      _ => ToolWindow(
+      _ => AnWindow(
           child: Text(state.resultText,
               style: AnText.code.copyWith(
                   color: outcome == WebFetchOutcome.empty ? c.inkFaint : c.inkMuted))),

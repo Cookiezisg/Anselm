@@ -6,6 +6,7 @@ import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
 import '../../../core/ui/an_json_tree.dart';
+import '../../../core/ui/an_window.dart';
 import '../../../core/ui/an_live_tail.dart';
 import '../../../i18n/strings.g.dart';
 import '../model/tool_card_state.dart';
@@ -77,11 +78,13 @@ Widget _mcpToolBody(BuildContext context, ToolCardState state) {
     if (state.progressText.trim().isNotEmpty)
       Padding(
         padding: const EdgeInsets.only(bottom: AnSpace.s6),
-        child: ToolWindow(child: Text(state.progressText.trimRight(), style: AnText.code.copyWith(color: c.inkFaint), maxLines: 40, overflow: TextOverflow.ellipsis)),
+        child: AnWindow(child: Text(state.progressText.trimRight(), style: AnText.code.copyWith(color: c.inkFaint), maxLines: 40, overflow: TextOverflow.ellipsis)),
       ),
-    ToolWindow(child: Text(shown, style: AnText.code.copyWith(color: isErr ? c.danger : c.inkMuted), maxLines: 200, overflow: TextOverflow.ellipsis)),
-    if (over)
-      Padding(padding: const EdgeInsets.only(top: AnSpace.s4), child: Text(Translations.of(context).chat.tool.contentTruncated, style: AnText.meta.copyWith(color: c.inkFaint))),
+    // The truncation note rides the window's footer slot (codex 族一 规则④,批4 复审). 注记进 footer 槽。
+    AnWindow(
+      footer: over ? Text(Translations.of(context).chat.tool.contentTruncated) : null,
+      child: Text(shown, style: AnText.code.copyWith(color: isErr ? c.danger : c.inkMuted), maxLines: 200, overflow: TextOverflow.ellipsis),
+    ),
   ]);
 }
 
@@ -114,10 +117,10 @@ Widget _handlerToolBody(BuildContext context, ToolCardState state) {
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
     // The streamed yields (if any) are the progress log. yield 流(如有)。
     if (state.progressText.isNotEmpty)
-      Padding(padding: const EdgeInsets.only(bottom: AnSpace.s6), child: ToolWindow(child: Text(state.progressText, style: AnText.code.copyWith(color: c.inkMuted), maxLines: 40, overflow: TextOverflow.ellipsis))),
+      Padding(padding: const EdgeInsets.only(bottom: AnSpace.s6), child: AnWindow(child: Text(state.progressText, style: AnText.code.copyWith(color: c.inkMuted), maxLines: 40, overflow: TextOverflow.ellipsis))),
     Text(t.chat.tool.hdResult, style: AnText.meta.copyWith(color: c.inkFaint)),
     const SizedBox(height: AnSpace.s2),
-    ToolWindow(
+    AnWindow(
       child: result == null
           ? Text(state.resultText, style: AnText.code.copyWith(color: c.inkMuted), maxLines: 40, overflow: TextOverflow.ellipsis)
           : SizedBox(height: AnSize.jsonViewport, child: AnJsonTree(data: result, showRoot: false)),

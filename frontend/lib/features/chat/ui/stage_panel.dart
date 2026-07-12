@@ -747,7 +747,7 @@ class _GenericStageState extends State<_GenericStage> {
       if (kv.isNotEmpty) AnKv(rows: kv, dense: true),
       if (live && tail != null && tail.text.isNotEmpty) ...[
         const SizedBox(height: AnSpace.s6),
-        ToolWindow(child: Text(tailLines(tail.text, 8), style: AnText.code.copyWith(color: c.inkMuted))),
+        AnWindow(child: Text(tailLines(tail.text, 8), style: AnText.code.copyWith(color: c.inkMuted))),
       ],
       if (!live && !failed) ...[
         const SizedBox(height: AnSpace.s6),

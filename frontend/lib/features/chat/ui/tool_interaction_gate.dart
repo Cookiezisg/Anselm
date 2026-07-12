@@ -220,8 +220,8 @@ class _ToolInteractionGateState extends State<ToolInteractionGate> {
       if (_payloadKeys.contains(k) || s.contains('\n') || s.length > 60) {
         windows.add(Padding(
           padding: const EdgeInsets.only(top: AnGap.stackTight),
-          child: AnSunkenPanel(
-            header: Text(k, style: AnText.label.copyWith(color: c.inkFaint)),
+          child: AnWindow(
+            header: Text(k),
             child: Text(s, style: AnText.code.copyWith(color: c.inkMuted)),
           ),
         ));

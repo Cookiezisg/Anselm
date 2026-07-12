@@ -46,7 +46,7 @@ class AgentStageBody extends ConsumerWidget {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
       // The prompt window: fresh ink when the args opened it, the 40% stratum otherwise (R-9). 散文窗。
       if (promptTouched) ...[
-        AnSunkenPanel(
+        AnWindow(
           child: Align(
             alignment: Alignment.bottomLeft,
             child: Text(

@@ -10,7 +10,6 @@ import '../../../i18n/strings.g.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
 import 'tool_card_nav.dart';
-import 'tool_card_skins.dart';
 
 // F12 relations + F13 mcp-mgmt + capability/model config (B7.2) — the ecosystem-tail cards. Each is a
 // thin projection of a structured JSON result: get_relations = a dependency edge list; capability_check
@@ -41,7 +40,7 @@ Widget relationsBody(BuildContext context, ToolCardState state) {
   final t = Translations.of(context);
   final edges = (_obj(state.resultText)?['edges'] as List?)?.whereType<Map>().toList() ?? const [];
   if (edges.isEmpty) return Text(t.chat.tool.relNoEdges, style: AnText.meta.copyWith(color: c.inkFaint));
-  return ToolWindow(
+  return AnWindow(
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
       for (final e in edges)
         Padding(
@@ -144,7 +143,7 @@ Widget mcpStatusBody(BuildContext context, ToolCardState state) {
     ],
     if (!connected && (lastError ?? '').isNotEmpty) ...[
       const SizedBox(height: AnSpace.s6),
-      ToolWindow(child: Text(lastError!, style: AnText.code.copyWith(color: c.danger), maxLines: 12, overflow: TextOverflow.ellipsis)),
+      AnWindow(child: Text(lastError!, style: AnText.code.copyWith(color: c.danger), maxLines: 12, overflow: TextOverflow.ellipsis)),
     ],
   ]);
 }
@@ -166,7 +165,7 @@ Widget marketplaceBody(BuildContext context, ToolCardState state) {
   final t = Translations.of(context);
   final servers = (_obj(state.resultText)?['servers'] as List?)?.whereType<Map>().toList() ?? const [];
   if (servers.isEmpty) return Text(t.chat.tool.marketCount(n: '0'), style: AnText.meta.copyWith(color: c.inkFaint));
-  return ToolWindow(
+  return AnWindow(
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
       for (final srv in servers.take(30))
         Padding(
