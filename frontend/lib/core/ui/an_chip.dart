@@ -9,6 +9,7 @@ import '../design/tokens.dart';
 import '../design/typography.dart';
 import '../model/status_state.dart';
 import 'an_interactive.dart';
+import 'an_status_dot.dart';
 import 'an_tooltip.dart';
 import 'icons.dart';
 import 'tone.dart';
@@ -50,10 +51,13 @@ class AnChip extends StatefulWidget {
     this.tone = AnTone.none,
     this.look = AnChipLook.filled,
     this.icon,
+    this.dot,
     this.mono = false,
     this.copyValue,
     this.onTap,
     this.strikethrough = false,
+    this.tooltip,
+    this.semanticLabel,
     super.key,
   });
 
@@ -76,6 +80,19 @@ class AnChip extends StatefulWidget {
 
   /// Deleted-entry face (morph rosters). 删除态(变更花名册)。
   final bool strikethrough;
+
+  /// Leading status dot — a TYPED slot (never a generic widget: a chip must not host arbitrary
+  /// subtrees). Absorbs AnChip's dot and the op-ticker two-face marker (批5). 前置状态点强类型槽
+  /// (拒任意子树);吸收 AnChip.dot 与 op ticker 双脸记号。
+  final AnStatusDot? dot;
+
+  /// Idle tooltip override — a copy chip whose display truncates (path basename, capped value)
+  /// shows the FULL text at rest; the ✓/✗ flash wording still wins mid-flash. 静息 tooltip 覆盖
+  /// (路径/截断值 hover 显全文);✓/✗ 闪现期仍显复制结果。
+  final String? tooltip;
+
+  /// A11y label override (e.g. «function: sync_inventory» on the ref-pill preset). a11y 标签覆盖。
+  final String? semanticLabel;
 
   @override
   State<AnChip> createState() => _AnChipState();
@@ -127,7 +144,6 @@ class _AnChipState extends State<AnChip> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final t = context.t;
     final copyable = widget.copyValue != null;
     final interactive = copyable || widget.onTap != null;
 
@@ -158,8 +174,8 @@ class _AnChipState extends State<AnChip> {
         glyphInk = ink;
       }
 
-      // Filled keeps AnBadge's emphasis weight (the status-badge voice it absorbs); outlined stays
-      // body-weight (light list chips). filled 承 AnBadge 的强调重;outlined 守正文重(轻列表)。
+      // Filled keeps AnChip's emphasis weight (the status-badge voice it absorbs); outlined stays
+      // body-weight (light list chips). filled 承 AnChip 的强调重;outlined 守正文重(轻列表)。
       var style = (widget.mono ? AnText.codeInline : AnText.meta).copyWith(
         color: ink,
         decoration: widget.strikethrough ? TextDecoration.lineThrough : null,
@@ -175,33 +191,53 @@ class _AnChipState extends State<AnChip> {
         // two radii would be an invisible distinction, 复审 #20). 全族单半径 pill。
         decoration: widget.look == AnChipLook.filled
             ? BoxDecoration(color: widget.tone.softBg(c), borderRadius: BorderRadius.circular(AnRadius.pill))
+            // Outlined sits on an OPAQUE surface (hover lifts it) — the island face AnRefPill
+            // carried: a transparent chip on the grey user bubble read as a hole. outlined 形不透明
+            // 白岛底(hover 提亮)——灰泡上透明芯片读作破洞(承 AnRefPill 岛面)。
             : BoxDecoration(
+                color: hovered && interactive ? c.surfaceHover : c.surface,
                 border: Border.all(color: widget.tone == AnTone.none ? (hovered ? c.ink : c.line) : ink, width: AnSize.hairline),
                 borderRadius: BorderRadius.circular(AnRadius.pill),
               ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
+          if (widget.dot != null) ...[
+            widget.dot!,
+            if (glyph != null || widget.label.isNotEmpty) const SizedBox(width: AnGap.inline),
+          ],
           if (glyph != null) ...[
             Icon(glyph, size: AnSize.iconSm, color: glyphInk),
-            const SizedBox(width: AnGap.inline),
+            // No orphan gap on the icon-only face (empty label). 空标签(纯示能形)不留孤儿间隙。
+            if (widget.label.isNotEmpty) const SizedBox(width: AnGap.inline),
           ],
-          Flexible(
-            child: Text(widget.label, maxLines: 1, overflow: TextOverflow.ellipsis, style: style),
-          ),
+          if (widget.label.isNotEmpty)
+            Flexible(
+              child: Text(widget.label, maxLines: 1, overflow: TextOverflow.ellipsis, style: style),
+            ),
         ]),
       );
     }
 
     if (!interactive) {
-      return ConstrainedBox(constraints: const BoxConstraints(maxWidth: AnSize.block), child: chipOf(false));
+      Widget still = ConstrainedBox(constraints: const BoxConstraints(maxWidth: AnSize.block), child: chipOf(false));
+      if (widget.semanticLabel != null) {
+        // A still chip with an a11y override is one labelled node (icon decorative). 静态芯片 a11y 单节点。
+        still = Semantics(label: widget.semanticLabel, child: ExcludeSemantics(child: still));
+      }
+      return widget.tooltip == null ? still : AnTooltip(message: widget.tooltip!, child: still);
     }
+    // i18n is only consumed on the interactive path — a STILL chip renders in any host (gallery
+    // fixtures, bare tests) without a TranslationProvider. slang 仅交互径消费:静态芯片不问宿主要 provider。
+    final t = context.t;
     final tip = copyable
-        ? (_copied ? t.feedback.copied : (_copyFailed ? t.feedback.copyFailed : t.action.copy))
-        : null;
+        ? (_copied
+            ? t.feedback.copied
+            : (_copyFailed ? t.feedback.copyFailed : (widget.tooltip ?? t.action.copy)))
+        : widget.tooltip;
     final chip = ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: AnSize.block),
       child: Semantics(
         button: true,
-        label: copyable ? '${t.action.copy} ${widget.label}' : null,
+        label: widget.semanticLabel ?? (copyable ? '${t.action.copy} ${widget.label}' : null),
         child: AnInteractive(
           onTap: copyable ? _copy : widget.onTap,
           builder: (ctx, states) => chipOf(states.isActive),

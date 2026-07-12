@@ -212,7 +212,6 @@
       "trgNotListening": "未监听",
       "trgHotUpdate": "热更新已生效",
       "trgCreateNote": "创建不启动监听——active workflow 引用才开始听",
-      "copyDone": "已复制",
       "trgSecret": "密钥",
       "trgEvery": "每 $n 秒",
       "trgCondition": "条件",

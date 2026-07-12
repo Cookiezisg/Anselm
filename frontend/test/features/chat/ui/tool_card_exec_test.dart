@@ -217,7 +217,7 @@ void main() {
       // The trigger pill (full id label) is present + navigable; the activation copy chip shows the id;
       // the fixed grey note never fabricates a fan-out count. 触发器药丸 + 活化 copy + payload 灰注。
       expect(find.byType(AnRefPill), findsWidgets);
-      expect(find.byType(AnCopyChip), findsOneWidget);
+      expect(find.byWidgetPredicate((w) => w is AnChip && w.copyValue != null), findsOneWidget); // the activation copy chip 活化复制芯片
       expect(find.textContaining('act_1f2e3d4c5b6a7980'), findsWidgets); // full id in the copy chip
       expect(find.text(t.chat.tool.firePayloadNote), findsOneWidget);
     });

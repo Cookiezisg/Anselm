@@ -197,7 +197,7 @@ class _McpServerDetailState extends ConsumerState<McpServerDetail> {
         const SizedBox(width: AnSpace.s8),
         Text(s.name, style: AnText.mono.copyWith(color: c.ink)),
         const SizedBox(width: AnSpace.s8),
-        AnBadge(statusLabel(t, s.status),
+        AnChip(statusLabel(t, s.status),
             tone: s.status == 'ready'
                 ? AnTone.ok
                 : s.status == 'failed'

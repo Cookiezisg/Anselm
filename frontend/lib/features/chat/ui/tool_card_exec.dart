@@ -224,7 +224,7 @@ Widget _invokeStatBar(BuildContext context, Map<String, dynamic> result, String?
     ],
     chips: [
       if (agentId != null && agentId.isNotEmpty) toolNavPill(context, kind: 'agent', label: agentId, id: agentId),
-      if (execId != null && execId.isNotEmpty) AnCopyChip(value: execId),
+      if (execId != null && execId.isNotEmpty) AnChip(execId, look: AnChipLook.outlined, mono: true, copyValue: execId, tooltip: execId),
     ],
   );
 }
@@ -256,7 +256,12 @@ Widget fireTriggerBody(BuildContext context, ToolCardState state) {
     if (triggerId != null) toolNavPill(context, kind: 'trigger', label: triggerId, id: triggerId),
     if (act != null && act.isNotEmpty) ...[
       const SizedBox(height: AnSpace.s6),
-      AnCopyChip(value: act, label: t.chat.tool.fireActivation),
+      // The label prefix rides beside the chip (the head has no prefix slot). 前缀作芯片旁灰字。
+      Row(mainAxisSize: MainAxisSize.min, children: [
+        Text(t.chat.tool.fireActivation, style: AnText.meta.copyWith(color: c.inkFaint)),
+        const SizedBox(width: AnGap.inline),
+        Flexible(child: AnChip(act, look: AnChipLook.outlined, mono: true, copyValue: act, tooltip: act)),
+      ]),
     ],
     const SizedBox(height: AnSpace.s6),
     Text(t.chat.tool.firePayloadNote, style: AnText.meta.copyWith(color: c.inkFaint)),

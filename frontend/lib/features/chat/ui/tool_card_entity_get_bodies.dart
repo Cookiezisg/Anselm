@@ -9,7 +9,7 @@ import '../../../core/design/typography.dart';
 import '../../../core/model/status_state.dart';
 import '../../../core/model/time_format.dart';
 import '../../../core/router/panel_registry.dart';
-import '../../../core/ui/an_badge.dart';
+import '../../../core/ui/an_chip.dart';
 import '../../../core/ui/an_callout.dart';
 import '../../../core/ui/an_field.dart';
 import '../../../core/ui/an_window.dart';
@@ -72,16 +72,16 @@ String? _versionMeta(Map<String, dynamic> out) {
 String _sig(List? fields) =>
     (fields ?? const []).whereType<Map>().map((f) => '${f['name']}:${f['type']}').join(', ');
 
-AnBadge _envBadge(Translations t, String? env) {
+AnChip _envBadge(Translations t, String? env) {
   switch (env) {
     case 'ready':
-      return AnBadge(t.chat.tool.envReady, tone: AnTone.ok);
+      return AnChip(t.chat.tool.envReady, tone: AnTone.ok);
     case 'syncing':
-      return AnBadge(t.chat.tool.envBuilding, tone: AnTone.warn);
+      return AnChip(t.chat.tool.envBuilding, tone: AnTone.warn);
     case 'failed':
-      return AnBadge(t.chat.tool.envFailedShort, tone: AnTone.danger);
+      return AnChip(t.chat.tool.envFailedShort, tone: AnTone.danger);
     default:
-      return AnBadge(t.chat.tool.envPending, tone: AnTone.none);
+      return AnChip(t.chat.tool.envPending, tone: AnTone.none);
   }
 }
 
@@ -136,7 +136,7 @@ GetProjection _fnProj(BuildContext context, Translations t, Map<String, dynamic>
     badges: Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s4, children: [
       _envBadge(t, av?['envStatus'] as String?),
       if (out['tags'] is List)
-        for (final tag in (out['tags'] as List)) AnBadge('$tag', tone: AnTone.none),
+        for (final tag in (out['tags'] as List)) AnChip('$tag', tone: AnTone.none),
     ]),
     kv: rows.isEmpty ? null : AnKv(rows: rows, dense: true),
     content: [
@@ -163,7 +163,7 @@ GetProjection _handlerProj(BuildContext context, Translations t, Map<String, dyn
     meta: _versionMeta(out),
     badges: Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s4, children: [
       _envBadge(t, av?['envStatus'] as String?),
-      if (runtime != null) AnBadge(runtime, tone: runtime == 'crashed' ? AnTone.danger : (runtime == 'running' ? AnTone.ok : AnTone.none)),
+      if (runtime != null) AnChip(runtime, tone: runtime == 'crashed' ? AnTone.danger : (runtime == 'running' ? AnTone.ok : AnTone.none)),
     ]),
     kv: rows.isEmpty ? null : AnKv(rows: rows, dense: true),
     content: [
@@ -225,7 +225,7 @@ GetProjection _workflowProj(BuildContext context, Translations t, Map<String, dy
     name: '${out['name'] ?? out['id']}',
     meta: _versionMeta(out),
     badges: Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s4, children: [
-      if (ls != null) AnBadge(ls, tone: ls == 'active' ? AnTone.ok : (ls == 'draining' ? AnTone.warn : AnTone.none)),
+      if (ls != null) AnChip(ls, tone: ls == 'active' ? AnTone.ok : (ls == 'draining' ? AnTone.warn : AnTone.none)),
     ]),
     kv: rows.isEmpty ? null : AnKv(rows: rows, dense: true),
     content: [
@@ -289,7 +289,7 @@ GetProjection _skillProj(BuildContext context, Translations t, Map<String, dynam
     badges: allowed.isEmpty
         ? null
         : Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s4, children: [
-            for (final a in allowed) AnBadge(a, tone: AnTone.warn),
+            for (final a in allowed) AnChip(a, tone: AnTone.warn),
           ]),
     kv: rows.isEmpty ? null : AnKv(rows: rows, dense: true),
     content: [
@@ -306,7 +306,7 @@ GetProjection _triggerProj(BuildContext context, Translations t, Map<String, dyn
   return (
     name: '${out['name'] ?? out['id']}',
     meta: fmtStamp(out['updatedAt'] as String?),
-    badges: AnBadge(listening ? t.chat.tool.trgListening : t.chat.tool.trgNotListening,
+    badges: AnChip(listening ? t.chat.tool.trgListening : t.chat.tool.trgNotListening,
         tone: listening ? AnTone.ok : AnTone.none),
     kv: null,
     content: [triggerConfigFaces(context, '${out['kind']}', (out['config'] as Map?) ?? const {}, '${out['id']}')],
@@ -396,7 +396,7 @@ Widget readAttachmentBody(BuildContext context, ToolCardState state) {
     return EntityGetBody(
       header: ToolEntityHeader(kind: 'attachment', name: name, id: ''),
       badges: text.contains('truncated')
-          ? AnBadge(Translations.of(context).chat.tool.attachTruncated, tone: AnTone.warn)
+          ? AnChip(Translations.of(context).chat.tool.attachTruncated, tone: AnTone.warn)
           : null,
       content: [AnWindow(child: Text(body, style: AnText.code, maxLines: 200, overflow: TextOverflow.ellipsis))],
       rawJson: text,

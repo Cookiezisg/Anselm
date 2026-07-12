@@ -43,7 +43,7 @@ class AnDisclosure extends StatelessWidget {
   /// Header label style (defaults to faint [AnText.meta]; e.g. a mono tool name overrides it). 头标签样式。
   final TextStyle? labelStyle;
 
-  /// Optional trailing widget pinned after the label (e.g. a danger [AnBadge]). 尾随件(如危险徽章)。
+  /// Optional trailing widget pinned after the label (e.g. a danger [AnChip]). 尾随件(如危险徽章)。
   final Widget? trailing;
 
   /// The revealed body; null = a header-only toggle. 展开体;null=仅头。

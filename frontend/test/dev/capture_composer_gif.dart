@@ -87,7 +87,7 @@ void main() {
                       ],
                       trailing: trailing,
                       attachments: props.value.attach
-                          ? const Wrap(spacing: AnSpace.s6, children: [AnBadge('spec.md'), AnBadge('shot.png')])
+                          ? const Wrap(spacing: AnSpace.s6, children: [AnChip('spec.md'), AnChip('shot.png')])
                           : null,
                     );
                   },

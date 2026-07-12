@@ -4,37 +4,41 @@ import '../../i18n/strings.g.dart';
 import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
-import 'an_interactive.dart';
+import 'an_chip.dart';
 import 'icons.dart';
 
 /// The target of a reference tap: the entity [kind] + its [id]. 提及目标:实体 kind + id。
 typedef AnRefTarget = ({String kind, String id});
 
-/// A3 — an inline entity-mention pill: kind glyph + label, optionally tappable. Mirrors the demo's
-/// `<an-ref-pill>`: the icon resolves from [kind] via [AnIcons.byKey] (the kit's single kind→glyph
-/// source — open, with a visible "?" fallback, NOT a re-copied map), so an unknown / forward kind
-/// still renders. A non-empty [id] makes it a tappable mention coordinate (click cursor, hover-tint,
-/// emits the {kind,id} target via [onTap] for the assembly layer to turn into a select intent — the
-/// primitive never touches navigation); an empty / null [id] is a plain annotation (not focusable,
-/// keyboard passes through). Caps at [AnSize.block] and ellipsis-truncates, so a long name can't blow
-/// out a line; the [ConstrainedBox] bound also makes it safe inline in an unbounded-width context.
+/// A3 — an entity-mention pill, since WRK-066 批5 a THIN PRESET over the chip family head
+/// ([AnChip], outlined look): its own knowledge is only the kind→glyph resolution
+/// ([AnIcons.entityKindGlyph], the kit's single open source with a visible "?" fallback), the
+/// localized kind word for the a11y label ("{kind}: {name}" — WCAG 1.4.1, kind never by glyph
+/// alone), and the interactivity GATE: a non-empty [id] makes a tappable mention coordinate
+/// (emits {kind,id} via [onTap] for the assembly layer — the primitive never navigates); an
+/// empty/null id is a plain annotation that deliberately swallows [onTap].
 ///
-/// a11y: one node labelled "{kind}: {name}" (kind localized via i18n for known kinds, raw string for
-/// open/unknown — WCAG 1.4.1, kind not by glyph alone); the icon is decorative (the whole visual is
-/// [ExcludeSemantics], the outer [Semantics] carries the label). Interactive = button via [AnInteractive].
+/// [AnRefPill.inline] is the second face: a baseline-hugging capsule for INSIDE running text
+/// (editor mentions, [[id]] pilled prose, CEL refs — A-029/030/042). The block chip (22-high box)
+/// cannot sit in a text line, so the inline face has its own light shell: soft accent fill, tag
+/// radius, the host's text style. Inline is DISPLAY-ONLY chrome — interactivity/IME belongs to the
+/// host (super_editor caret hit-testing breaks on nested gesture targets).
 ///
-/// [kind] is the backend EntityKind wire value (relation/entitykind.go — `document` not `doc`,
-/// incl. control/approval); [AnIcons.byKey] + the `ref.*` i18n both speak that vocabulary, so the
-/// assembly layer passes the wire kind straight through (no normalization). The set is open — an
-/// unknown kind still renders ("?" glyph + raw word).
-///
-/// A3——行内实体提及药丸:类型图标 + 文案,可点。kind = 后端 EntityKind 线缆值(document 非 doc,含 control/approval);
-/// 图标由 kind 经 AnIcons.byKey 解析(kit 单源、开放 + "?" 兜底、不另抄表),
-/// 未知/前向 kind 也能渲。id 非空 = 可点坐标(手型、hover 提墨、经 onTap 派 {kind,id} 供装配层转 select,原语不碰导航);
-/// id 空 = 纯标注(不可聚焦、键盘穿透)。封顶 AnSize.block、超长省略,长名挤不破行;ConstrainedBox 界也让它在无界父下安全。
-/// a11y:单节点标「{类型}: {名称}」(已知 kind 走 i18n、开放 kind 原样——WCAG 1.4.1 类型不靠字形单独);图标装饰、整 visual 排除语义、外层 Semantics 承载标签。
+/// A3——实体提及药丸,批5 起为芯片族当家件(AnChip outlined)的**薄预设**:自有知识仅 kind→字形单源、
+/// a11y 类型词表(「{类型}: {名称}」,类型不靠字形单独)与交互闸门(id 非空=可点坐标,经 onTap 派
+/// {kind,id};空 id=纯标注、故意吞 onTap)。[AnRefPill.inline]=第二张脸:行内贴基线药囊(编辑器提及/
+/// [[id]] 散文/CEL 引用)——22 高块壳进不了文本行,行内脸自持轻壳(accentSoft 底+tag 圆角+宿主字体);
+/// **仅展示**,交互/IME 归宿主(嵌套手势会破 super_editor 光标命中)。
 class AnRefPill extends StatelessWidget {
-  const AnRefPill({required this.kind, required this.label, this.id, this.onTap, super.key});
+  const AnRefPill({required this.kind, required this.label, this.id, this.onTap, super.key})
+      : inline = false,
+        textStyle = null;
+
+  /// The baseline-hugging in-text face. 行内贴基线脸。
+  const AnRefPill.inline({required this.kind, required this.label, this.textStyle, super.key})
+      : inline = true,
+        id = null,
+        onTap = null;
 
   final String kind;
   final String label;
@@ -42,6 +46,11 @@ class AnRefPill extends StatelessWidget {
   /// Non-empty = a tappable mention coordinate; empty / null = a plain annotation. 非空=可点坐标;空=纯标注。
   final String? id;
   final ValueChanged<AnRefTarget>? onTap;
+
+  final bool inline;
+
+  /// Inline face only: the host line's text style (defaults to the reading tier). 行内脸宿主字体。
+  final TextStyle? textStyle;
 
   // [id] is the sole interactivity gate: a non-empty id makes a tappable coordinate. A null/empty id
   // intentionally swallows [onTap] (a mention with no resolved target isn't navigable). id 是唯一交互闸门:空 id 故意吞掉 onTap。
@@ -84,58 +93,47 @@ class AnRefPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (inline) return _inline(context);
     final semLabel = '${_kindWord(context)}: $label';
     if (!_interactive) {
-      // Plain annotation: a single labelled node, not focusable (keyboard passes through). 纯标注。
+      // Plain annotation: a single labelled node, not focusable (keyboard passes through) — the
+      // chip head only emits semantics on interactive chips. 纯标注:单节点标签、不可聚焦。
       return Semantics(
         label: semLabel,
-        child: ExcludeSemantics(child: _pill(context, active: false)),
+        child: ExcludeSemantics(
+          child: AnChip(label, look: AnChipLook.outlined, icon: AnIcons.entityKindGlyph(kind)),
+        ),
       );
     }
-    // Tappable: AnInteractive gives button/focus/Enter-Space; outer label + MergeSemantics → "{kind}: {name}, button".
-    return MergeSemantics(
-      child: Semantics(
-        label: semLabel,
-        child: AnInteractive(
-          onTap: () => onTap!((kind: kind, id: id!)),
-          builder: (ctx, states) => ExcludeSemantics(child: _pill(ctx, active: states.isActive)),
-        ),
-      ),
+    return AnChip(
+      label,
+      look: AnChipLook.outlined,
+      icon: AnIcons.entityKindGlyph(kind),
+      onTap: () => onTap!((kind: kind, id: id!)),
+      semanticLabel: semLabel,
     );
   }
 
-  Widget _pill(BuildContext context, {required bool active}) {
+  // The baseline capsule: soft accent fill + tag radius + the host's text style — collapses the
+  // three hand-rolled in-text pills (editor mention / [[id]] prose / CEL ref). height:1.0 keeps the
+  // capsule from inflating the host line box. 贴基线药囊:收编三处手搓行内伪药丸;height 1.0 不撑行。
+  Widget _inline(BuildContext context) {
     final c = context.colors;
-    final reduced = AnMotionPref.reduced(context);
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: AnSize.block),
-      child: AnimatedContainer(
-        duration: reduced ? Duration.zero : AnMotion.fast, // hover-tint = functional micro-feedback 功能性微反馈
-        padding: const EdgeInsets.symmetric(horizontal: AnSpace.s6, vertical: AnSpace.s2),
-        decoration: BoxDecoration(
-          // Resting bg is the opaque island (demo --island), hover → island-3 — both light, no whenActive
-          // (that fades FROM transparent, for transparent-resting rows). 静止=不透明白底,hover→提墨;非 whenActive。
-          color: active ? c.surfaceHover : c.surface,
-          border: Border.all(color: c.line, width: AnSize.hairline),
-          borderRadius: BorderRadius.circular(AnRadius.pill),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(AnIcons.entityKindGlyph(kind), size: AnSize.iconSm, color: c.inkFaint),
-            const SizedBox(width: AnSpace.s4),
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                softWrap: false,
-                overflow: TextOverflow.ellipsis,
-                // body 13 · emphasis w400 via .weight() (the VF double-axis idiom — a bare
-                // fontWeight is overridden by the pinned wght axis). body 13·w400,双轴重定权。
-                style: AnText.body.weight(AnText.emphasisWeight).copyWith(color: active ? c.ink : c.inkMuted),
-              ),
-            ),
-          ],
+    final style = (textStyle ?? AnText.reading).copyWith(color: c.accent, height: 1.0);
+    return Semantics(
+      label: '${_kindWord(context)}: $label',
+      child: ExcludeSemantics(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: AnSpace.s4, vertical: AnSize.capsulePadY),
+          decoration: BoxDecoration(
+            color: c.accentSoft,
+            borderRadius: BorderRadius.circular(AnRadius.tag),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(AnIcons.entityKindGlyph(kind), size: AnSize.iconSm, color: c.accent),
+            const SizedBox(width: AnGap.inlineHair),
+            Flexible(child: Text(label, maxLines: 1, softWrap: false, overflow: TextOverflow.ellipsis, style: style)),
+          ]),
         ),
       ),
     );

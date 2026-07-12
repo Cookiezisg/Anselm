@@ -86,7 +86,7 @@ class FunctionStageBody extends ConsumerWidget {
             for (final f in fields.whereType<Map>()) {
               final name = f['name'];
               if (name is String && name.isNotEmpty) {
-                chips.add(AnBadge('${raw['op'] == 'set_inputs' ? '→' : '←'} $name', tone: AnTone.none));
+                chips.add(AnChip('${raw['op'] == 'set_inputs' ? '→' : '←'} $name', tone: AnTone.none));
               }
             }
           }
@@ -94,7 +94,7 @@ class FunctionStageBody extends ConsumerWidget {
           final deps = raw['dependencies'];
           if (deps is List) {
             for (final d in deps) {
-              chips.add(AnBadge('$d', tone: AnTone.none));
+              chips.add(AnChip('$d', tone: AnTone.none));
             }
           }
       }

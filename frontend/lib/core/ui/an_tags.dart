@@ -27,7 +27,7 @@ class AnTag {
 /// C6 — an editable tag set: a [Wrap] of pills (optional health dot + label + remove-×) with an
 /// inline seamless add field. HAND-ROLL (textfield_tags is stale + bakes Material chrome; InputChip
 /// brings Material tap-targets/selection-blue and has no separately-focusable delete). Composes on
-/// AnInteractive (the ×, kit-canonical hover/focus/press) + AnBadge geometry + AnStatusDot + the
+/// AnInteractive (the ×, kit-canonical hover/focus/press) + AnChip geometry + AnStatusDot + the
 /// seamless AnInput grown by [DryIntrinsicWidth]. Stateful — owns + disposes the add field's
 /// controller/focus node.
 ///

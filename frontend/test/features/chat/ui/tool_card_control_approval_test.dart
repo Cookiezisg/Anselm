@@ -2,7 +2,7 @@ import 'package:anselm/core/contract/messages/block_content.dart';
 import 'package:anselm/core/model/partial_json.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/messages/block_tree_reducer.dart';
-import 'package:anselm/core/ui/an_badge.dart';
+import 'package:anselm/core/ui/an_chip.dart';
 import 'package:anselm/core/ui/an_button.dart';
 import 'package:anselm/features/chat/ui/chat_tool_card.dart';
 import 'package:anselm/features/chat/ui/tool_card_control_approval.dart';
@@ -68,7 +68,7 @@ void main() {
     expect(find.text('1'), findsOneWidget);
     expect(find.text('3'), findsOneWidget);
     // Port badges + a when CEL + emit key ← CEL. port 徽 + CEL + emit。
-    expect(find.widgetWithText(AnBadge, 'hot'), findsOneWidget);
+    expect(find.widgetWithText(AnChip, 'hot'), findsOneWidget);
     expect(find.text('input.amount > 1000'), findsOneWidget);
     expect(find.textContaining('tier ← high'), findsOneWidget);
     // The catch-all (when:"true") reads 否则, not a raw CEL. 兜底显否则。
@@ -85,7 +85,7 @@ void main() {
     // The rendered template (a heading from the markdown). 渲染模板。
     expect(find.textContaining('采购审批'), findsOneWidget);
     // The rules strip: timeout badge + behaviour + note-allowed. 规则条。
-    expect(find.widgetWithText(AnBadge, '30d'), findsOneWidget);
+    expect(find.widgetWithText(AnChip, '30d'), findsOneWidget);
     expect(find.textContaining('reject'), findsOneWidget);
     // Mock decision buttons (disabled preview). mock 决策钮(禁用预览)。
     expect(find.widgetWithText(AnButton, '批准'), findsOneWidget);

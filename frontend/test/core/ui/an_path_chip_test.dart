@@ -1,4 +1,5 @@
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/i18n/strings.g.dart';
 import 'package:anselm/core/ui/an_path_chip.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,7 +8,8 @@ import 'package:flutter_test/flutter_test.dart';
 // AnPathChip (B4 F01.2, WRK-056 #16) — basename display + full path on hover + tap-to-copy the full
 // path, tolerant of a partial path. 路径芯片:显 basename、hover 全路径、点击复制全路径。
 
-Widget _host(Widget c) => MaterialApp(theme: AnTheme.light(), home: Scaffold(body: Center(child: c)));
+// The chip head consumes slang (copy tooltip voice) — host like the app. 当家件消费 slang,宿主如 app。
+Widget _host(Widget c) => TranslationProvider(child: MaterialApp(theme: AnTheme.light(), home: Scaffold(body: Center(child: c))));
 
 void main() {
   testWidgets('shows the basename, not the full path', (tester) async {

@@ -148,7 +148,7 @@ class _BoardState extends State<_Board> {
           row('带附件条',
               AnComposer(
                 controller: _att, focusNode: _attF, placeholder: '问点什么…', lead: [_lead()], trailing: _send(),
-                attachments: const Wrap(spacing: AnSpace.s6, runSpacing: AnSpace.s6, children: [AnBadge('spec.md'), AnBadge('screenshot.png')]),
+                attachments: const Wrap(spacing: AnSpace.s6, runSpacing: AnSpace.s6, children: [AnChip('spec.md'), AnChip('screenshot.png')]),
               )),
           row('landing · 浮起药丸',
               AnComposer(controller: _land, focusNode: _landF, placeholder: '下午好 · 今天想做点什么?', lead: [_lead()], floating: true)),

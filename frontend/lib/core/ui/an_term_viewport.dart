@@ -5,8 +5,8 @@ import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
 import 'an_edge_fade.dart';
+import 'an_follow_pill.dart';
 import 'an_interactive.dart';
-import 'icons.dart';
 import 'term_fold.dart';
 
 /// A BOUNDED, STICK-TO-BOTTOM scroll region (WRK-056 #6, R10 base layer) — height-capped at [maxHeight],
@@ -126,25 +126,8 @@ class _AnStickViewportState extends State<AnStickViewport> {
     );
   }
 
-  Widget _backToLatest(BuildContext context) {
-    final c = context.colors;
-    return AnInteractive(
-      onTap: () => _pinToBottom(jump: false),
-      builder: (ctx, states) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8, vertical: AnSpace.s2),
-        decoration: BoxDecoration(
-          color: states.isActive ? c.surfaceHover : c.surface,
-          border: Border.all(color: c.line, width: AnSize.hairline),
-          borderRadius: BorderRadius.circular(AnRadius.pill),
-        ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(AnIcons.chevronDown, size: AnSize.iconSm, color: c.inkMuted),
-          const SizedBox(width: AnSpace.s2),
-          Text(Translations.of(context).chat.tool.backToLatest, style: AnText.label.copyWith(color: c.inkMuted)),
-        ]),
-      ),
-    );
-  }
+  Widget _backToLatest(BuildContext context) => AnFollowPill.jump(
+      label: Translations.of(context).chat.tool.backToLatest, onTap: () => _pinToBottom(jump: false));
 }
 
 /// A BOUNDED SCROLLBACK TERMINAL window (WRK-056 #6, R10 terminal layer) — the settled Bash body's

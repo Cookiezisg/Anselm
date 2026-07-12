@@ -212,7 +212,6 @@
       "trgNotListening": "not listening",
       "trgHotUpdate": "hot-updated live",
       "trgCreateNote": "created but not listening — an active workflow reference starts it",
-      "copyDone": "Copied",
       "trgSecret": "secret",
       "trgEvery": "every $n s",
       "trgCondition": "when",

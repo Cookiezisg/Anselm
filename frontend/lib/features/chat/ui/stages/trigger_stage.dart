@@ -78,14 +78,7 @@ class TriggerStageBody extends ConsumerWidget {
         if (trig != null)
           Wrap(spacing: AnSpace.s8, runSpacing: AnSpace.s4, crossAxisAlignment: WrapCrossAlignment.center, children: [
             Row(mainAxisSize: MainAxisSize.min, children: [
-              Container(
-                width: AnSize.dot,
-                height: AnSize.dot,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: trig.listening ? c.ok : c.inkFaint,
-                ),
-              ),
+              AnStatusDot.raw(trig.listening ? c.ok : c.inkFaint),
               const SizedBox(width: AnSpace.s4),
               Text(trig.listening ? t.chat.stage.listening : t.chat.stage.notListening,
                   style: AnText.meta.copyWith(color: trig.listening ? c.ok : c.inkFaint)),

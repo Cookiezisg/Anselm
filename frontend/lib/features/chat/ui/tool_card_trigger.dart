@@ -77,7 +77,8 @@ List<Widget> _faceOf(BuildContext context, Translations t, AnColors c, String ki
       return [
         // The full, ready-to-copy webhook URL (id from the result). 完整可复制 URL。
         if (id.isNotEmpty && path.isNotEmpty)
-          AnCopyChip(value: 'POST /api/v1/webhooks/$id/$path')
+          AnChip('POST /api/v1/webhooks/$id/$path',
+              look: AnChipLook.outlined, mono: true, copyValue: 'POST /api/v1/webhooks/$id/$path')
         else if (path.isNotEmpty)
           Text('/$path', style: AnText.mono.copyWith(color: c.inkMuted)),
         if (hasSecret || algo.isNotEmpty)
@@ -86,7 +87,7 @@ List<Widget> _faceOf(BuildContext context, Translations t, AnColors c, String ki
             child: Wrap(spacing: AnGap.inline, children: [
               // The secret value is NEVER shown — only that it's set. 密钥值绝不显、只显有无。
               if (hasSecret) _lockChip(context, t.chat.tool.trgSecret),
-              if (algo.isNotEmpty) AnBadge(algo, tone: AnTone.none),
+              if (algo.isNotEmpty) AnChip(algo, tone: AnTone.none),
             ]),
           ),
       ];
@@ -100,7 +101,7 @@ List<Widget> _faceOf(BuildContext context, Translations t, AnColors c, String ki
           Padding(
             padding: const EdgeInsets.only(top: AnSpace.s4),
             child: Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s2, children: [
-              for (final e in events) AnBadge(e, tone: AnTone.none),
+              for (final e in events) AnChip(e, tone: AnTone.none),
               if (pattern.isNotEmpty) Text(pattern, style: AnText.mono.copyWith(color: c.inkFaint)),
             ]),
           ),
@@ -116,7 +117,7 @@ List<Widget> _faceOf(BuildContext context, Translations t, AnColors c, String ki
         Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s2, crossAxisAlignment: WrapCrossAlignment.center, children: [
           if (targetKind.isNotEmpty && targetId.isNotEmpty)
             AnRefPill(kind: targetKind, label: method.isEmpty ? targetId : '$targetId.$method()', id: targetId),
-          if (interval != null) AnBadge(t.chat.tool.trgEvery(n: '$interval'), tone: AnTone.none),
+          if (interval != null) AnChip(t.chat.tool.trgEvery(n: '$interval'), tone: AnTone.none),
         ]),
         if (condition.isNotEmpty)
           Padding(

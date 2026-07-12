@@ -118,7 +118,7 @@ Widget bashToolBody(BuildContext context, ToolCardState state) {
     final id = bg.group(1)!;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
       _intent(context, state),
-      AnCopyChip(value: id),
+      AnChip(id, look: AnChipLook.outlined, mono: true, copyValue: id, tooltip: id),
       Padding(
         padding: const EdgeInsets.only(top: AnSpace.s6),
         child: Text(t.chat.tool.bashBgHint, style: AnText.meta.copyWith(color: c.inkFaint)),
@@ -172,13 +172,13 @@ Widget? _bashBottomBar(BuildContext context, Translations t, String result) {
   final code = int.parse(m.group(1)!);
   Widget chip;
   if (RegExp(r'\[blocked:').hasMatch(result)) {
-    chip = AnBadge(t.chat.tool.bashBlocked, tone: AnTone.danger);
+    chip = AnChip(t.chat.tool.bashBlocked, tone: AnTone.danger);
   } else if (_bashTimeoutBar.hasMatch(result)) {
-    chip = AnBadge(t.chat.tool.timedOut, tone: AnTone.danger);
+    chip = AnChip(t.chat.tool.timedOut, tone: AnTone.danger);
   } else if (RegExp(r'\[cancelled\]').hasMatch(result)) {
-    chip = AnBadge(t.chat.tool.bashCancelled, tone: AnTone.none);
+    chip = AnChip(t.chat.tool.bashCancelled, tone: AnTone.none);
   } else {
-    chip = AnBadge(t.chat.tool.exit(code: code), tone: code == 0 ? AnTone.ok : AnTone.danger);
+    chip = AnChip(t.chat.tool.exit(code: code), tone: code == 0 ? AnTone.ok : AnTone.danger);
   }
   return Padding(padding: const EdgeInsets.only(top: AnSpace.s6), child: Align(alignment: Alignment.centerLeft, child: chip));
 }
@@ -215,7 +215,7 @@ Widget bashOutputBody(BuildContext context, ToolCardState state) {
 
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
     Row(children: [
-      if (bashId.isNotEmpty) AnCopyChip(value: bashId),
+      if (bashId.isNotEmpty) AnChip(bashId, look: AnChipLook.outlined, mono: true, copyValue: bashId, tooltip: bashId),
       if (filter != null && filter.isNotEmpty) ...[
         const SizedBox(width: AnSpace.s6),
         Text(t.chat.tool.grepFilter(p: filter), style: AnText.meta.copyWith(color: c.inkFaint)),
@@ -240,13 +240,13 @@ Widget? _bashStatusBar(BuildContext context, Translations t, String result) {
   final s = m.group(1)!;
   Widget chip;
   if (s == 'running') {
-    chip = AnBadge(t.chat.tool.statusRunning, tone: AnTone.accent);
+    chip = AnChip(t.chat.tool.statusRunning, tone: AnTone.accent);
   } else if (s == 'killed') {
-    chip = AnBadge(t.chat.tool.statusKilled, tone: AnTone.none);
+    chip = AnChip(t.chat.tool.statusKilled, tone: AnTone.none);
   } else if (s == 'errored') {
-    chip = AnBadge(t.chat.tool.statusErrored, tone: AnTone.danger);
+    chip = AnChip(t.chat.tool.statusErrored, tone: AnTone.danger);
   } else {
-    chip = AnBadge(t.chat.tool.statusExited(code: int.parse(m.group(2)!)), tone: AnTone.danger);
+    chip = AnChip(t.chat.tool.statusExited(code: int.parse(m.group(2)!)), tone: AnTone.danger);
   }
   final drop = _dropNoteRe.firstMatch(result);
   return Padding(
@@ -255,7 +255,7 @@ Widget? _bashStatusBar(BuildContext context, Translations t, String result) {
       chip,
       if (drop != null) ...[
         const SizedBox(width: AnSpace.s6),
-        AnBadge(t.chat.tool.bashDropped(n: drop.group(1)!), tone: AnTone.warn),
+        AnChip(t.chat.tool.bashDropped(n: drop.group(1)!), tone: AnTone.warn),
       ],
     ]),
   );
@@ -266,7 +266,7 @@ Widget killShellBody(BuildContext context, ToolCardState state) {
   final c = context.colors;
   final bashId = argString(state.argsText, 'bash_id') ?? '';
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-    if (bashId.isNotEmpty) AnCopyChip(value: bashId),
+    if (bashId.isNotEmpty) AnChip(bashId, look: AnChipLook.outlined, mono: true, copyValue: bashId, tooltip: bashId),
     Padding(
       padding: const EdgeInsets.only(top: AnSpace.s6),
       child: Text(state.resultText.trim(), style: AnText.code.copyWith(color: c.inkMuted)),
@@ -430,7 +430,7 @@ Widget decideApprovalBody(BuildContext context, ToolCardState state) {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       // Judgment章 (green approve / red reject) + the reason (the司法 record, full text). 判词章+理由。
-      AnBadge(isYes ? t.chat.tool.approveVerdict : t.chat.tool.rejectVerdict,
+      AnChip(isYes ? t.chat.tool.approveVerdict : t.chat.tool.rejectVerdict,
           tone: isYes ? AnTone.ok : AnTone.danger),
       if (reason != null && reason.isNotEmpty) ...[
         const SizedBox(height: AnGap.stack),
@@ -444,7 +444,7 @@ Widget decideApprovalBody(BuildContext context, ToolCardState state) {
           runSpacing: AnSpace.s4,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            if (flowStatus != null) AnBadge(flowStatus, tone: AnStatus.fromRaw(flowStatus).tone),
+            if (flowStatus != null) AnChip(flowStatus, tone: AnStatus.fromRaw(flowStatus).tone),
             for (final e in counts.entries)
               Text('${e.key} ${e.value}', style: AnText.metaTabular().copyWith(color: c.inkFaint)),
           ],

@@ -9,7 +9,7 @@ import '../../../core/design/typography.dart';
 import '../../../core/model/status_state.dart';
 import '../../../core/model/time_format.dart';
 import '../../../core/router/panel_registry.dart';
-import '../../../core/ui/an_badge.dart';
+import '../../../core/ui/an_chip.dart';
 import '../../../core/ui/an_field.dart';
 import '../../../core/ui/an_window.dart';
 import '../../../core/ui/icons.dart';
@@ -104,7 +104,7 @@ ToolHitRow conversationHitRow(BuildContext context, Translations t, Map<String, 
   final pinned = h['pinned'] == true;
   final archived = h['archived'] == true;
   final trailing = <Widget>[];
-  if (archived) trailing.add(AnBadge(t.chat.tool.cvArchivedBadge, tone: AnTone.none));
+  if (archived) trailing.add(AnChip(t.chat.tool.cvArchivedBadge, tone: AnTone.none));
   if (isSearch) {
     final chunks = h['matchedChunks'];
     if (chunks is int && chunks > 0) trailing.add(Text(t.chat.tool.cvChunks(n: '$chunks'), style: AnText.meta));

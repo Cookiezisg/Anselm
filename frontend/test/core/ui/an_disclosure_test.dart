@@ -1,6 +1,6 @@
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/model/status_state.dart';
-import 'package:anselm/core/ui/an_badge.dart';
+import 'package:anselm/core/ui/an_chip.dart';
 import 'package:anselm/core/ui/an_disclosure.dart';
 import 'package:anselm/core/ui/icons.dart';
 import 'package:flutter/material.dart';
@@ -49,7 +49,7 @@ void main() {
       icon: AnIcons.tool,
       open: false,
       onToggle: () {},
-      trailing: const AnBadge('dangerous', tone: AnTone.danger),
+      trailing: const AnChip('dangerous', tone: AnTone.danger),
       child: const Text('args'),
     )));
     expect(find.text('shell.run'), findsOneWidget);

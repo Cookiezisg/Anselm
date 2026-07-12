@@ -118,7 +118,7 @@ class MemoryNoteCard extends StatelessWidget {
               maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.mono.copyWith(color: c.ink)),
         ),
         const SizedBox(width: AnSpace.s6),
-        AnBadge(
+        AnChip(
             note.source == 'user'
                 ? context.t.chat.tool.memSourceUser
                 : context.t.chat.tool.memSourceAi,
@@ -222,7 +222,7 @@ Widget forgetMemoryBody(BuildContext context, ToolCardState state) {
         Text(name, style: AnText.mono.copyWith(color: c.inkMuted)),
         const SizedBox(width: AnSpace.s6),
       ],
-      AnBadge(t.chat.tool.irreversible, tone: AnTone.danger),
+      AnChip(t.chat.tool.irreversible, tone: AnTone.danger),
     ]),
     if (state.resultText.contains('not found')) ...[
       const SizedBox(height: AnSpace.s4),
@@ -320,7 +320,7 @@ Widget webSearchBody(BuildContext context, ToolCardState state) {
         if (source.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(bottom: AnSpace.s4),
-            child: AnBadge(source, tone: AnTone.none),
+            child: AnChip(source, tone: AnTone.none),
           ),
         _WebHits(hits: hits),
       ]);

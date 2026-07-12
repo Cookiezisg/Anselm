@@ -94,7 +94,7 @@ class ControlStageBody extends ConsumerWidget {
                 ),
                 if (isCatchAll) ...[
                   const SizedBox(width: AnSpace.s6),
-                  AnBadge(t.chat.stage.elseFallback, tone: AnTone.none),
+                  AnChip(t.chat.stage.elseFallback, tone: AnTone.none),
                 ],
               ]),
               if (!isCatchAll)

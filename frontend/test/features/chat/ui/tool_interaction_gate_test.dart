@@ -1,6 +1,6 @@
 import 'package:anselm/core/contract/interaction.dart';
 import 'package:anselm/core/design/theme.dart';
-import 'package:anselm/core/ui/an_badge.dart';
+import 'package:anselm/core/ui/an_chip.dart';
 import 'package:anselm/core/ui/an_button.dart';
 import 'package:anselm/features/chat/ui/tool_interaction_gate.dart';
 import 'package:anselm/i18n/strings.g.dart';
@@ -94,7 +94,7 @@ void main() {
 
     testWidgets('frozen approve → decision章, no live buttons', (tester) async {
       await pump(tester, danger(decided: InteractionAction.approve));
-      expect(find.widgetWithText(AnBadge, 'Allowed'), findsOneWidget);
+      expect(find.widgetWithText(AnChip, 'Allowed'), findsOneWidget);
       expect(find.widgetWithText(AnButton, 'Allow'), findsNothing);
       expect(find.widgetWithText(AnButton, 'Deny'), findsNothing);
     });
@@ -103,7 +103,7 @@ void main() {
       await pump(tester, danger(decided: InteractionAction.approveAlways));
       expect(find.textContaining('always'), findsOneWidget);
       await pump(tester, danger(decided: InteractionAction.deny));
-      expect(find.widgetWithText(AnBadge, 'Denied'), findsOneWidget);
+      expect(find.widgetWithText(AnChip, 'Denied'), findsOneWidget);
     });
   });
 
@@ -150,7 +150,7 @@ void main() {
 
     testWidgets('frozen decline shows EXACTLY ONE Skipped章 (no body+footer double)', (tester) async {
       await pump(tester, ask(options: ['CNY'], decided: InteractionAction.decline));
-      expect(find.widgetWithText(AnBadge, 'Skipped'), findsOneWidget);
+      expect(find.widgetWithText(AnChip, 'Skipped'), findsOneWidget);
     });
 
     testWidgets('number key 1–9 quick-selects an option while the gate holds focus', (tester) async {

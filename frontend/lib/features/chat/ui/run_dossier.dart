@@ -77,7 +77,7 @@ class RunDossier extends StatelessWidget {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
       // Head: status badge · head chips (method/tool) · triggeredBy. 头条(词章行)。
       Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s4, crossAxisAlignment: WrapCrossAlignment.center, children: [
-        AnBadge(_statusWord(t), tone: AnStatus.fromRaw(status).tone),
+        AnChip(_statusWord(t), tone: AnStatus.fromRaw(status).tone),
         ...headChips,
         if (triggeredBy != null && triggeredBy!.isNotEmpty) Text(triggeredBy!, style: AnText.meta.copyWith(color: c.inkFaint)),
       ]),

@@ -6,6 +6,7 @@ import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
 import '../../../core/model/time_format.dart';
 import '../../../core/ui/an_button.dart';
+import '../../../core/ui/an_status_dot.dart';
 import '../../../core/ui/an_interactive.dart';
 import '../../../core/ui/icons.dart';
 import '../../../i18n/strings.g.dart';
@@ -64,7 +65,7 @@ class NotificationRow extends StatelessWidget {
                 child: unread
                     ? Padding(
                         padding: const EdgeInsets.only(top: AnSpace.s6),
-                        child: _Dot(color: _toneColor(line.tone, c, unread: true)),
+                        child: AnStatusDot.raw( _toneColor(line.tone, c, unread: true)),
                       )
                     : null,
               ),
@@ -147,14 +148,3 @@ class NotificationRow extends StatelessWidget {
       };
 }
 
-class _Dot extends StatelessWidget {
-  const _Dot({required this.color});
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        width: AnSpace.s6,
-        height: AnSpace.s6,
-        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-      );
-}

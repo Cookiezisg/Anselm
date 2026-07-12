@@ -19,7 +19,7 @@ void main() {
       crumbs: const ['Workspace', 'Functions'],
       title: 'normalize-input',
       actions: [AnButton.iconOnly(AnIcons.more, semanticLabel: 'More', onPressed: () {})],
-      meta: const [AnBadge('function', tone: AnTone.accent)],
+      meta: const [AnChip('function', tone: AnTone.accent)],
     )));
     expect(find.text('normalize-input'), findsOneWidget);
     expect(find.textContaining('Workspace'), findsWidgets); // crumb (Text.rich → RichText)

@@ -2,7 +2,7 @@ import 'package:anselm/core/contract/interaction.dart';
 import 'package:anselm/core/contract/messages/block_content.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/messages/block_tree_reducer.dart';
-import 'package:anselm/core/ui/an_badge.dart';
+import 'package:anselm/core/ui/an_chip.dart';
 import 'package:anselm/core/ui/an_button.dart';
 import 'package:anselm/core/ui/an_thin_table.dart';
 import 'package:anselm/features/chat/state/pending_interactions_provider.dart';
@@ -88,11 +88,11 @@ void main() {
     await tester.pump();
     // Collapsed: no gate (the decision is made), no章 yet (it lives in the body). 收起态无门无章。
     expect(find.byType(ToolInteractionGate), findsNothing);
-    expect(find.widgetWithText(AnBadge, '已允许'), findsNothing);
+    expect(find.widgetWithText(AnChip, '已允许'), findsNothing);
     // Expand → the provenance章 appears. 展开→出处章现。
     await tester.tap(find.text('已删除智能体').first); // delete_agent cataloged in B3.6
     await tester.pumpAndSettle();
-    expect(find.widgetWithText(AnBadge, '已允许'), findsOneWidget);
+    expect(find.widgetWithText(AnChip, '已允许'), findsOneWidget);
   });
 
   testWidgets('decided approve_always → the always章', (tester) async {
@@ -225,7 +225,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('已批准'));
     await tester.pumpAndSettle();
-    expect(find.widgetWithText(AnBadge, '批准'), findsOneWidget); // verdict章
+    expect(find.widgetWithText(AnChip, '批准'), findsOneWidget); // verdict章
     expect(find.text('预算内,批准'), findsOneWidget); // reason
     expect(find.text('completed 2'), findsOneWidget); // consequence count off nodes[]
     expect(find.text('running 1'), findsOneWidget);

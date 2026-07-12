@@ -125,15 +125,9 @@ Widget _opTicker(BuildContext context, ToolCardState state) {
           spacing: AnGap.inline,
           runSpacing: AnGap.stackTight,
           children: [
+            // Family dot (the hand-rolled kind SQUARE retires — one dot voice, 批5 A-046). 族点。
             for (final k in counts.kinds)
-              Container(
-                width: AnSize.iconSm,
-                height: AnSize.iconSm,
-                decoration: BoxDecoration(
-                  color: nodeKindColor(context, k),
-                  borderRadius: BorderRadius.circular(AnRadius.tag),
-                ),
-              ),
+              AnStatusDot.raw(nodeKindColor(context, k), size: AnSize.swatch),
           ],
         ),
       ],

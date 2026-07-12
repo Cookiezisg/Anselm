@@ -1447,9 +1447,6 @@ class Translations$chat$tool$en {
 	/// en: 'created but not listening — an active workflow reference starts it'
 	String get trgCreateNote => 'created but not listening — an active workflow reference starts it';
 
-	/// en: 'Copied'
-	String get copyDone => 'Copied';
-
 	/// en: 'secret'
 	String get trgSecret => 'secret';
 
@@ -5074,7 +5071,6 @@ extension on Translations {
 			'chat.tool.trgNotListening' => 'not listening',
 			'chat.tool.trgHotUpdate' => 'hot-updated live',
 			'chat.tool.trgCreateNote' => 'created but not listening — an active workflow reference starts it',
-			'chat.tool.copyDone' => 'Copied',
 			'chat.tool.trgSecret' => 'secret',
 			'chat.tool.trgEvery' => ({required Object n}) => 'every ${n} s',
 			'chat.tool.trgCondition' => 'when',
@@ -5383,9 +5379,9 @@ extension on Translations {
 			'chat.tool.marketCount' => ({required Object n}) => '${n} servers',
 			'chat.tool.mcpEnvRequired' => ({required Object n}) => '${n} required env',
 			'chat.tool.gettingModelConfig' => 'Reading model config',
+			'chat.tool.gotModelConfig' => 'Read model config',
 			_ => null,
 		} ?? switch (path) {
-			'chat.tool.gotModelConfig' => 'Read model config',
 			'chat.tool.modelDefaults' => 'Default models',
 			'chat.tool.modelKeys' => ({required Object n}) => '${n} keys',
 			'chat.tool.modelAvail' => ({required Object n}) => '${n} available models',
@@ -5897,9 +5893,9 @@ extension on Translations {
 			'documents.deleteSkillBody' => ({required Object name}) => 'The “${name}” skill will be removed.',
 			'documents.actionFailed' => 'Action failed',
 			'documents.props.title' => 'Properties',
+			'documents.props.name' => 'Name',
 			_ => null,
 		} ?? switch (path) {
-			'documents.props.name' => 'Name',
 			'documents.props.description' => 'Description',
 			'documents.props.tags' => 'Tags',
 			'documents.props.addTag' => 'Add a tag',

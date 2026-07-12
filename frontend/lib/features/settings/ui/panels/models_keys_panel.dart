@@ -9,7 +9,7 @@ import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
 import '../../../../core/model/model_capabilities.dart';
 import '../../../../core/overlay/an_overlay.dart';
-import '../../../../core/ui/an_badge.dart';
+import '../../../../core/ui/an_chip.dart';
 import '../../../../core/ui/an_button.dart';
 import '../../../../core/ui/an_dropdown.dart';
 import '../../../../core/ui/an_input.dart';
@@ -181,7 +181,7 @@ class _FreeTierCardState extends ConsumerState<_FreeTierCard> {
                 ),
                 if (!value.available) ...[
                   const SizedBox(height: AnSpace.s8),
-                  AnBadge(t.settings.keys.freeUnavailable, tone: AnTone.warn),
+                  AnChip(t.settings.keys.freeUnavailable, tone: AnTone.warn),
                 ],
               ],
             ),
@@ -260,7 +260,7 @@ class _KeyRow extends ConsumerWidget {
           '${managed ? '${t.settings.keys.managedBadge} · ' : ''}${row.provider} · ${row.keyMasked}',
       actions: [
         if (!managed) ...[
-          AnBadge(label, tone: tone),
+          AnChip(label, tone: tone),
           AnButton(
             label: t.settings.keys.testKey,
             size: AnButtonSize.sm,

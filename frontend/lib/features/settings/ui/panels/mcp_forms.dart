@@ -354,10 +354,10 @@ class _McpInstallFormState extends ConsumerState<McpInstallForm> {
           Text(t.settings.mcp.planLoading, style: AnText.label.copyWith(color: c.inkMuted))
         else ...[
           Row(children: [
-            AnBadge(plan.transport),
+            AnChip(plan.transport),
             if (plan.runtime.isNotEmpty) ...[
               const SizedBox(width: AnSpace.s8),
-              AnBadge(plan.runtime),
+              AnChip(plan.runtime),
             ],
           ]),
           if (plan.prerequisite.isNotEmpty) ...[

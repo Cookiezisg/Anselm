@@ -27,6 +27,15 @@ audience: [human, ai]
 - **AnStickViewport 增 `fadeColor`**(白宿主传 surface,灰底退役)。bar 同构补齐:编辑器 copy 驻留走 AnMotion.dwell + AnTooltip。
 - AnLedgerRow 补 `expandChild`;「展开全部 N」列表壳 **deferred → P4 吸收四套台账时落**。
 
+## 批5a 落地(2026-07-12,芯片族·五件收编+点族)
+
+A-032/A-033/A-034/A-036/A-038/A-046/A-048 关账(A-031 剩 AnAttachmentChip、A-039 剩 function_stage opTicker 内点随 A-043、A-045 缓议——窗头裸字形 vs 芯片壳待帧裁,均留 open 注记)。**AnBadge/AnCopyChip 物理删除**(131+8 用点机械并入 AnChip;copyDone 死键退役),AnRefPill/AnPathChip/AnScopeBadge 降**薄预设**(名字保留,壳全走 AnChip;RefPill 自有知识=kind 字形单源+a11y 类型词+交互闸,PathChip=basename 切法,ScopeBadge=枚举 slang 表)。法典族三增量(签名外小参数,随批签字):
+- **AnChip +5**:`tooltip`(静息覆盖——path/value hover 全文)/`semanticLabel`(a11y 覆盖,**静态芯片也承载**[Semantics+ExcludeSemantics 单节点])/**空标签守卫**(icon-only 示能形不留孤儿间隙)/**outlined 形不透明白岛底**(hover 提亮;灰泡上透明芯片读作破洞,承 AnRefPill 岛面)/`dot: AnStatusDot?` **强类型点槽**(拒任意子树;吸收 AnBadge.dot 与 op ticker 双脸)。**i18n 惰性化**:slang 仅交互径消费,静态芯片不问宿主要 TranslationProvider。
+- **AnStatusDot.raw**:直喂色+`hollow` 空心环+`size` 档(dot 7/dotSm 5/swatch 10 新铸)——珠串/色点/fire 记号唯一实现;raw 形纯静态零帧。六处手搓圆点清剿(run_ledger×3/handler·trigger_stage/notification _Dot[6→7px 归档]/workflow kind 方块→族圆点 swatch 档,刻意裁决)。
+- **AnFollowPill.jump**:静态回场脸(label 站点自定+`elevated` 浮影[AnOpacity.shadow=0.12 新档])——绝不呼吸不挂钟;吃 an_term_viewport._backToLatest 与 chat_transcript._BackToLivePill 两处手搓;_PillShell 内两处 token 算术(dot-2/iconSm-2)清为 dotSm/iconXs。
+- **拍板点记档(建造者裁决,帧供否决)**:①RefPill 字面 body13 w400→族 meta12 w300(全族一字面;帧核可读性,否决则退半降级);②copy 芯片族声=outlined(与 path chip 一致);③AnSize.capsulePadY=1 新档(行内药囊竖距,inline 脸用)。
+- 新 variant 全部 gallery-first(raw 点四形/outlined·copy·icon-only·strikethrough·tooltip 五 specimen/inline 嵌文本/jump 双态)+ tonggui 电池 7 测(dot 槽/空标签/host-agnostic/a11y/raw 尺寸/空心零帧/jump 静态)。
+
 ## 批4 落地(2026-07-12,窗族整体替换)
 
 A-002/A-008/A-016/A-017/A-018 五条关账:**ToolWindow 物理删除**(19 文件 44 用点机械换 AnWindow,含 12 处独用 import 清尽),ProseWindow/MemoryNoteCard 白卡壳并入 AnWindow(阈值进 AnCap 档),gate payload 窗/agent 舞台 prompt 窗/document 舞台活散文尾换窗,双日志抽屉合成唯一 `LogDrawer`(双端 2000+4000+stderr 分段为准,`dossierLogs` i18n 键退役并 execLogs 计行统一)。法典增量:
@@ -129,7 +138,7 @@ AnVersionDiff(before, after,
 
 ## 族三 · 芯片 —— `AnChip` 收拢五件+全部手搓
 
-**现状**:AnBadge/AnRefPill/AnCopyChip/AnPathChip/WindowCopyButton 五件 + 手搓 chip 一批(_beltChip 描边、_morphChip 描边+划线、op ticker 色点、skill 琥珀药丸、状态圆点手搓 ×3——AnStatusDot 就在旁边);id 截断三元式手搓 15+ 处,截断档随手定(10/12/24/40/48)。
+**现状(批5a 后)**:AnChip 当家件在位,AnBadge/AnCopyChip 已物理删除、AnRefPill(+inline 行内脸)/AnPathChip/AnScopeBadge 为薄预设;WindowCopyButton 缓议(A-045:窗头裸字形 vs 芯片壳待帧裁);手搓 chip(belt/morph/opTicker/lockChip/currentMarker/伪药丸三处)与截断三元式 24 处待批5b 清剿。
 
 **当家件**:
 ```dart

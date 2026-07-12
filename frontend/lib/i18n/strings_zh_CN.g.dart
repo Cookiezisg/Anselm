@@ -667,7 +667,6 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get trgNotListening => '未监听';
 	@override String get trgHotUpdate => '热更新已生效';
 	@override String get trgCreateNote => '创建不启动监听——active workflow 引用才开始听';
-	@override String get copyDone => '已复制';
 	@override String get trgSecret => '密钥';
 	@override String trgEvery({required Object n}) => '每 ${n} 秒';
 	@override String get trgCondition => '条件';
@@ -2300,7 +2299,6 @@ extension on TranslationsZhCn {
 			'chat.tool.trgNotListening' => '未监听',
 			'chat.tool.trgHotUpdate' => '热更新已生效',
 			'chat.tool.trgCreateNote' => '创建不启动监听——active workflow 引用才开始听',
-			'chat.tool.copyDone' => '已复制',
 			'chat.tool.trgSecret' => '密钥',
 			'chat.tool.trgEvery' => ({required Object n}) => '每 ${n} 秒',
 			'chat.tool.trgCondition' => '条件',
@@ -2609,9 +2607,9 @@ extension on TranslationsZhCn {
 			'chat.tool.marketCount' => ({required Object n}) => '${n} 个服务器',
 			'chat.tool.mcpEnvRequired' => ({required Object n}) => '${n} 必填 env',
 			'chat.tool.gettingModelConfig' => '正在读模型配置',
+			'chat.tool.gotModelConfig' => '已读模型配置',
 			_ => null,
 		} ?? switch (path) {
-			'chat.tool.gotModelConfig' => '已读模型配置',
 			'chat.tool.modelDefaults' => '默认模型',
 			'chat.tool.modelKeys' => ({required Object n}) => '${n} 个密钥',
 			'chat.tool.modelAvail' => ({required Object n}) => '${n} 个可用模型',
@@ -3123,9 +3121,9 @@ extension on TranslationsZhCn {
 			'documents.deleteSkillBody' => ({required Object name}) => '技能“${name}”会被删除。',
 			'documents.actionFailed' => '操作失败',
 			'documents.props.title' => '属性',
+			'documents.props.name' => '名称',
 			_ => null,
 		} ?? switch (path) {
-			'documents.props.name' => '名称',
 			'documents.props.description' => '描述',
 			'documents.props.tags' => '标签',
 			'documents.props.addTag' => '添加标签',

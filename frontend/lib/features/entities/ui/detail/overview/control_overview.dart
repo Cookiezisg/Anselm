@@ -5,7 +5,7 @@ import '../../../../../core/design/colors.dart';
 import '../../../../../core/design/tokens.dart';
 import '../../../../../core/design/typography.dart';
 import '../../../../../core/model/status_state.dart';
-import '../../../../../core/ui/an_badge.dart';
+import '../../../../../core/ui/an_chip.dart';
 import '../../../../../core/ui/an_section.dart';
 import '../../../../../i18n/strings.g.dart';
 import '../../../data/entity_format.dart';
@@ -55,7 +55,7 @@ class ControlOverview extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          AnBadge(b.port, tone: isDefault ? AnTone.none : AnTone.accent),
+          AnChip(b.port, tone: isDefault ? AnTone.none : AnTone.accent),
           const SizedBox(width: AnSpace.s8),
           Expanded(
             child: Column(

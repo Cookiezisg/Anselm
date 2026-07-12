@@ -11,9 +11,30 @@ import '../model/status_state.dart';
 /// A1——7px 语义状态点。色随态(idle 灰 / run 强调 / wait 橙 / err 红 / done 绿);仅 run 有动效——
 /// 柔环向外呼吸(demo 的 pulse)。状态归一走单源(AnStatus.fromRaw),此处收已折好的 AnStatus。
 class AnStatusDot extends StatefulWidget {
-  const AnStatusDot(this.status, {super.key});
+  const AnStatusDot(AnStatus this.status, {super.key})
+      : rawColor = null,
+        hollow = false,
+        size = AnSize.dot;
 
-  final AnStatus status;
+  /// The RAW face (WRK-066 批5): a direct-colour, optionally hollow, tiered-size dot — the ONE
+  /// implementation behind bead strips / colour swatches / fired markers that used to hand-roll
+  /// `Container+BoxDecoration(circle)` (A-038/039/048). Pure static: no animation branch.
+  /// 直喂色形态(批5):任意色/可空心/档位尺寸——珠串/色点/fire 记号的唯一实现(收手搓圆点)。纯静态。
+  const AnStatusDot.raw(this.rawColor, {this.hollow = false, this.size = AnSize.dot, super.key})
+      : status = null;
+
+  /// Semantic state (null on the raw face). 语义态(raw 形为 null)。
+  final AnStatus? status;
+
+  /// Direct colour for the raw face; null + [hollow] falls back to a faint ring. raw 形直喂色。
+  final Color? rawColor;
+
+  /// Ring instead of solid (un-fired / un-lit markers). 空心环(未触发/未点亮记号)。
+  final bool hollow;
+
+  /// Dot diameter — pass an [AnSize] tier ([AnSize.dot]/[AnSize.dotSm]/[AnSize.swatch]), never a
+  /// bare number. 直径(AnSize 档,禁裸数)。
+  final double size;
 
   @override
   State<AnStatusDot> createState() => _AnStatusDotState();
@@ -65,6 +86,8 @@ class _AnStatusDotState extends State<AnStatusDot> with SingleTickerProviderStat
         AnStatus.err => c.danger,
         AnStatus.done => c.ok,
         AnStatus.idle => c.inkFaint,
+        // Raw face: direct colour; hollow-without-colour falls back to the faint ring. raw 直喂。
+        null => widget.rawColor ?? c.inkFaint,
       };
 
   @override
@@ -92,8 +115,11 @@ class _AnStatusDotState extends State<AnStatusDot> with SingleTickerProviderStat
   }
 
   Widget _dot(Color color, List<BoxShadow> shadow) => Container(
-        width: AnSize.dot,
-        height: AnSize.dot,
-        decoration: BoxDecoration(color: color, shape: BoxShape.circle, boxShadow: shadow),
+        width: widget.size,
+        height: widget.size,
+        decoration: widget.hollow
+            // Hollow ring: hairline stroke, transparent fill (un-fired markers). 空心环。
+            ? BoxDecoration(border: Border.all(color: color, width: AnSize.hairline), shape: BoxShape.circle)
+            : BoxDecoration(color: color, shape: BoxShape.circle, boxShadow: shadow),
       );
 }

@@ -1,7 +1,7 @@
 import 'package:anselm/core/contract/messages/block_content.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/messages/block_tree_reducer.dart';
-import 'package:anselm/core/ui/an_copy_chip.dart';
+import 'package:anselm/core/ui/an_chip.dart';
 import 'package:anselm/core/ui/an_term_viewport.dart';
 import 'package:anselm/features/chat/ui/chat_tool_card.dart';
 import 'package:anselm/i18n/strings.g.dart';
@@ -33,7 +33,7 @@ void main() {
     expect(find.textContaining(t.chat.tool.statusRunning), findsWidgets);
     await tester.tap(find.textContaining('已读取输出'), warnIfMissed: false);
     await tester.pumpAndSettle();
-    expect(find.byType(AnCopyChip), findsOneWidget); // bsh_id
+    expect(find.byWidgetPredicate((w) => w is AnChip && w.copyValue != null), findsOneWidget); // the bsh_id copy chip (ref pills are chips too now) 复制芯片谓词
     expect(find.byType(AnTermViewport), findsOneWidget); // terminal body
   });
 
@@ -43,7 +43,7 @@ void main() {
     await tester.pumpWidget(_host(ChatToolCard(node: _node('BashOutput', '{"bash_id":"bsh_9"}',
         '(no new output since last poll)\n\n[status: exited (code 0)]'))));
     await tester.pump();
-    expect(find.byType(AnCopyChip), findsNothing); // body not expanded (no bsh chip visible yet)
+    expect(find.byWidgetPredicate((w) => w is AnChip && w.copyValue != null), findsNothing); // body not expanded (no bsh chip visible yet)
 
     // session not found → auto-expands (the one exception). 会话不存在→自动展开。
     await tester.pumpWidget(_host(ChatToolCard(node: _node('BashOutput', '{"bash_id":"bsh_dead"}',

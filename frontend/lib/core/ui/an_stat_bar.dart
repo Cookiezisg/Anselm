@@ -5,7 +5,7 @@ import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
 import '../model/status_state.dart';
-import 'an_badge.dart';
+import 'an_chip.dart';
 import 'tone.dart';
 
 /// One stat in the ' · ' metadata chain. [tabular] = numeric (tabular figures); [tone] colours the
@@ -99,7 +99,7 @@ class AnStatBar extends StatelessWidget {
           children: [
             ...leading,
             if (status != null)
-              AnBadge(statusLabel ?? _word(context, status!), tone: status!.tone),
+              AnChip(statusLabel ?? _word(context, status!), tone: status!.tone),
             if (spans.isNotEmpty) Text.rich(TextSpan(children: spans)),
             ...chips,
           ],

@@ -6,7 +6,7 @@ import '../../../../core/design/colors.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
 import '../../../../core/model/status_state.dart' show AnStatus, AnTone;
-import '../../../../core/ui/an_badge.dart';
+import '../../../../core/ui/an_chip.dart';
 import '../../../../core/ui/an_button.dart';
 import '../../../../core/ui/an_action_group.dart';
 import '../../../../core/ui/an_callout.dart';
@@ -165,7 +165,7 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
                 ),
               ),
               const SizedBox(width: AnSpace.s8),
-              AnBadge(badge.$1, tone: badge.$2),
+              AnChip(badge.$1, tone: badge.$2),
             ],
           ),
         ],

@@ -249,11 +249,9 @@ class _GalleryAppState extends State<GalleryApp> {
           Row(
             children: [
               if (s.stress) ...[
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: AnSpace.s4),
-                  margin: const EdgeInsets.only(right: AnSpace.s6),
-                  decoration: BoxDecoration(color: c.warnSoft, borderRadius: BorderRadius.circular(AnRadius.tag)),
-                  child: Text('压力', style: AnText.meta.copyWith(color: c.warn)),
+                const Padding(
+                  padding: EdgeInsets.only(right: AnSpace.s6),
+                  child: AnChip('压力', tone: AnTone.warn),
                 ),
               ],
               Flexible(

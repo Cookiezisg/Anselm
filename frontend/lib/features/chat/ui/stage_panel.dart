@@ -853,7 +853,7 @@ class _RunProgressSection extends ConsumerWidget {
               ],
               if (n.port.isNotEmpty) ...[
                 const SizedBox(width: AnSpace.s6),
-                AnBadge('→ ${n.port}', tone: AnTone.accent),
+                AnChip('→ ${n.port}', tone: AnTone.accent),
               ],
             ]),
           ),

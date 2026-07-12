@@ -252,7 +252,7 @@ class _ChatToolCardState extends State<ChatToolCard> {
       padding: const EdgeInsets.only(bottom: AnSpace.s6),
       child: Align(
         alignment: Alignment.centerLeft,
-        child: AnBadge(always ? t.chat.gate.decidedApprovedAlways : t.chat.gate.decidedApproved,
+        child: AnChip(always ? t.chat.gate.decidedApprovedAlways : t.chat.gate.decidedApproved,
             tone: always ? AnTone.accent : AnTone.ok),
       ),
     );

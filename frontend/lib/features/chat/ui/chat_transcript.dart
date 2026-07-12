@@ -312,7 +312,9 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
             right: 0,
             bottom: AnSpace.s16,
             child: Center(
-              child: _BackToLivePill(
+              child: AnFollowPill.jump(
+                label: Translations.of(context).chat.backToPresent,
+                elevated: true,
                 onTap: () => ref
                     .read(conversationStreamProvider(widget.conversationId).notifier)
                     .backToLive(),
@@ -374,35 +376,6 @@ class _JumpHighlight extends StatelessWidget {
 
 /// The「回到现场」pill — floats over a detached jump window; tapping re-hydrates the head and
 /// rejoins the live present (a send does the same implicitly). 回到现场 pill。
-class _BackToLivePill extends StatelessWidget {
-  const _BackToLivePill({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    final t = Translations.of(context);
-    return Material(
-      color: c.surface,
-      shape: StadiumBorder(side: BorderSide(color: c.line, width: AnSize.hairline)),
-      elevation: 2,
-      shadowColor: c.ink.withValues(alpha: 0.12),
-      child: InkWell(
-        customBorder: const StadiumBorder(),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AnSpace.s12, vertical: AnSpace.s6),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(AnIcons.chevronDown, size: AnSize.iconSm, color: c.accent),
-            const SizedBox(width: AnSpace.s6),
-            Text(t.chat.backToPresent, style: AnText.label.copyWith(color: c.ink)),
-          ]),
-        ),
-      ),
-    );
-  }
-}
 
 /// One transcript turn, centered in the reading column with the inter-turn gap. 一条回合(阅读列+轮距)。
 class _TurnRow extends ConsumerWidget {

@@ -152,6 +152,11 @@ final List<GallerySpecimen> sidestageSpecimens = [
       'FollowPill 人闸琥珀 — 突破一切静默',
       (_) => Row(children: [
             AnFollowPill(kind: AnFollowPillKind.gate, clock: PulseClock(), onTap: () {}),
+            const SizedBox(height: AnSpace.s8),
+            // jump 静态回场脸(批5:收编 viewport/transcript 两处手搓) static jump-back face
+            AnFollowPill.jump(label: '回到最新', onTap: () {}),
+            const SizedBox(height: AnSpace.s8),
+            AnFollowPill.jump(label: '回到现场', elevated: true, onTap: () {}),
           ]),
       span: true),
   GallerySpecimen(

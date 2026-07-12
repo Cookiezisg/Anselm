@@ -90,7 +90,7 @@ Widget _branchRow(BuildContext context, Translations t, AnColors c, int n, Contr
           children: [
             Text('$n', style: AnText.metaTabular().copyWith(color: c.inkFaint)),
             const SizedBox(width: AnGap.inline),
-            AnBadge(b.port, tone: AnTone.accent),
+            AnChip(b.port, tone: AnTone.accent),
             const SizedBox(width: AnGap.inline),
             Expanded(
               child: isCatchAll
@@ -162,13 +162,13 @@ Widget approvalFormBody(BuildContext context, ToolCardState state) {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 if (timeout != null && timeout.isNotEmpty) ...[
-                  AnBadge(timeout, tone: AnTone.none),
+                  AnChip(timeout, tone: AnTone.none),
                   Text('${t.chat.tool.apfOnTimeout} ${behavior ?? ''}',
                       style: AnText.meta.copyWith(color: _behaviorColor(c, behavior))),
                 ] else
                   Text(t.chat.tool.apfTimeoutNever, style: AnText.meta.copyWith(color: c.inkFaint)),
                 if (allowReason)
-                  AnBadge(t.chat.tool.apfAllowReason, tone: AnTone.none),
+                  AnChip(t.chat.tool.apfAllowReason, tone: AnTone.none),
               ],
             ),
             const SizedBox(height: AnGap.block),

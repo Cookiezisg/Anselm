@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/tokens.dart';
 import '../../../../core/model/status_state.dart';
-import '../../../../core/ui/an_badge.dart';
+import '../../../../core/ui/an_chip.dart';
 import '../../../../core/ui/an_button.dart';
 import '../../../../core/ui/an_deferred_loading.dart';
 import '../../../../core/ui/an_row.dart';
@@ -81,9 +81,9 @@ class LogTab extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: AnSpace.s8),
       child: Row(children: [
-        AnBadge('${st.aggregates.okCount} ${t.status.done}', tone: AnTone.ok),
+        AnChip('${st.aggregates.okCount} ${t.status.done}', tone: AnTone.ok),
         const SizedBox(width: AnSpace.s8),
-        AnBadge('${st.aggregates.failedCount} ${t.status.err}',
+        AnChip('${st.aggregates.failedCount} ${t.status.err}',
             tone: st.aggregates.failedCount > 0 ? AnTone.danger : AnTone.none),
       ]),
     );

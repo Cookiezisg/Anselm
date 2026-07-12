@@ -43,14 +43,14 @@ class SkillStageBody extends StatelessWidget {
         if (hasHeader) ...[
           // What the skill can use — the header the SKILL.md's frontmatter deserves. 技能能用什么。
           Wrap(spacing: AnSpace.s4, runSpacing: AnSpace.s4, crossAxisAlignment: WrapCrossAlignment.center, children: [
-            if (ctx != null) AnBadge(ctx == 'fork' ? t.chat.tool.skillFork : t.chat.tool.skillInline, tone: AnTone.none),
-            if (noModel) AnBadge(t.chat.stage.humanOnly, tone: AnTone.none),
+            if (ctx != null) AnChip(ctx == 'fork' ? t.chat.tool.skillFork : t.chat.tool.skillInline, tone: AnTone.none),
+            if (noModel) AnChip(t.chat.stage.humanOnly, tone: AnTone.none),
           ]),
           if (allowed.isNotEmpty) ...[
             const SizedBox(height: AnSpace.s6),
             _metaRow(c, t.chat.stage.skillTools, [
               // AMBER — activation pre-authorizes these tools past the danger gate. 琥珀:预授权免确认。
-              for (final tool in allowed) AnBadge('$tool', tone: AnTone.warn),
+              for (final tool in allowed) AnChip('$tool', tone: AnTone.warn),
             ]),
             Padding(
               padding: const EdgeInsets.only(top: AnSpace.s2),
@@ -60,7 +60,7 @@ class SkillStageBody extends StatelessWidget {
           if (args.isNotEmpty) ...[
             const SizedBox(height: AnSpace.s6),
             _metaRow(c, t.chat.stage.skillArgs, [
-              for (final a in args) AnBadge('\$$a', tone: AnTone.accent),
+              for (final a in args) AnChip('\$$a', tone: AnTone.accent),
             ]),
           ],
           if (body.isNotEmpty)
@@ -175,7 +175,7 @@ class McpStageBody extends StatelessWidget {
       if (env is Map && env.isNotEmpty) ...[
         const SizedBox(height: AnSpace.s4),
         Wrap(spacing: AnSpace.s4, runSpacing: AnSpace.s4, children: [
-          for (final k in env.keys) AnBadge('$k ••••', tone: AnTone.none),
+          for (final k in env.keys) AnChip('$k ••••', tone: AnTone.none),
         ]),
       ],
       if (scene.live && scene.state.progressText.isNotEmpty) ...[

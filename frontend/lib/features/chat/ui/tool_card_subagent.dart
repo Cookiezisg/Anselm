@@ -107,7 +107,7 @@ Widget getSubTraceBody(BuildContext context, ToolCardState state) {
           subText: r['finalText'] as String?,
           chips: [
             if ((r['blockCount'] is int ? r['blockCount'] as int : 0) > 0)
-              AnBadge(t.chat.tool.transcriptSteps(n: '${r['blockCount']}'), tone: AnTone.none),
+              AnChip(t.chat.tool.transcriptSteps(n: '${r['blockCount']}'), tone: AnTone.none),
           ],
         ),
     ]),

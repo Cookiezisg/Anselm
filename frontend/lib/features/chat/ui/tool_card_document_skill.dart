@@ -138,9 +138,9 @@ Widget skillBody(BuildContext context, ToolCardState state) {
     if (state.summary.isNotEmpty)
       Padding(padding: const EdgeInsets.only(bottom: AnSpace.s6), child: Text(state.summary, style: AnText.meta.copyWith(color: c.inkMuted))),
     Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s4, crossAxisAlignment: WrapCrossAlignment.center, children: [
-      AnBadge(ctx == 'fork' ? t.chat.tool.skillFork : t.chat.tool.skillInline, tone: AnTone.none),
+      AnChip(ctx == 'fork' ? t.chat.tool.skillFork : t.chat.tool.skillInline, tone: AnTone.none),
       // allowedTools in WARN — activation pre-authorizes these, skipping the danger gate. 警示色:权限让渡。
-      for (final tool in allowed) AnBadge(tool, tone: AnTone.warn),
+      for (final tool in allowed) AnChip(tool, tone: AnTone.warn),
     ]),
     if (allowed.isNotEmpty)
       Padding(padding: const EdgeInsets.only(top: AnSpace.s4), child: Text(t.chat.tool.skillPreauth, style: AnText.meta.copyWith(color: c.warn))),

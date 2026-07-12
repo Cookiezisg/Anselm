@@ -1,7 +1,7 @@
 import 'package:anselm/core/contract/messages/block_content.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/messages/block_tree_reducer.dart';
-import 'package:anselm/core/ui/an_badge.dart';
+import 'package:anselm/core/ui/an_chip.dart';
 import 'package:anselm/core/ui/an_live_tail.dart';
 import 'package:anselm/core/ui/an_window.dart';
 import 'package:anselm/features/chat/model/tool_card_state.dart';
@@ -126,10 +126,10 @@ void main() {
     await tester.tap(find.textContaining('已创建技能'), warnIfMissed: false);
     await tester.pumpAndSettle();
     expect(find.byType(ProseWindow), findsOneWidget);
-    expect(find.widgetWithText(AnBadge, 'Read'), findsOneWidget); // allowedTools chip (warn)
-    expect(find.widgetWithText(AnBadge, 'edit_document'), findsOneWidget);
+    expect(find.widgetWithText(AnChip, 'Read'), findsOneWidget); // allowedTools chip (warn)
+    expect(find.widgetWithText(AnChip, 'edit_document'), findsOneWidget);
     expect(find.textContaining('免危险确认'), findsOneWidget); // pre-auth note
-    expect(find.widgetWithText(AnBadge, '内联'), findsOneWidget); // context = inline
+    expect(find.widgetWithText(AnChip, '内联'), findsOneWidget); // context = inline
   });
 
   testWidgets('edit_skill shows the no-revert small print', (tester) async {

@@ -1,7 +1,7 @@
 import 'package:anselm/core/contract/messages/block_content.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/messages/block_tree_reducer.dart';
-import 'package:anselm/core/ui/an_badge.dart';
+import 'package:anselm/core/ui/an_chip.dart';
 import 'package:anselm/core/ui/an_callout.dart';
 import 'package:anselm/core/ui/an_ref_pill.dart';
 import 'package:anselm/features/chat/ui/chat_tool_card.dart';
@@ -100,7 +100,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.textContaining('已查看技能'), warnIfMissed: false);
     await tester.pumpAndSettle();
-    expect(find.widgetWithText(AnBadge, 'Read'), findsOneWidget);
+    expect(find.widgetWithText(AnChip, 'Read'), findsOneWidget);
     expect(find.textContaining('预授权'), findsOneWidget);
   });
 

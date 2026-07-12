@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../../core/model/status_state.dart';
-import '../../core/ui/an_badge.dart';
+import '../../core/ui/an_chip.dart';
 import '../../core/ui/an_field.dart';
 import '../../features/chat/ui/tool_card_entity_get.dart';
 import 'specimen.dart';
@@ -32,7 +32,7 @@ final toolCardEntityGetGalleryItem = GalleryItem(
         (c) => EntityGetBody(
               header: const ToolEntityHeader(
                   kind: 'function', name: 'fetch_with_retry', id: 'fn_1a2b3c4d5e6f7a8b', meta: 'v3 · 2026-07-01 09:00'),
-              badges: Wrap(spacing: 6, children: const [AnBadge('env ready', tone: AnTone.ok)]),
+              badges: Wrap(spacing: 6, children: const [AnChip('env ready', tone: AnTone.ok)]),
               kv: const AnKv(rows: [
                 AnKvRow('描述', '指数退避重试,最多 5 次', wrap: true),
                 AnKvRow('签名', 'url:string → body:string', mono: true), // row-level mono

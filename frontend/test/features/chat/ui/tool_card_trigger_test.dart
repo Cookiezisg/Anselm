@@ -1,7 +1,7 @@
 import 'package:anselm/core/contract/messages/block_content.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/messages/block_tree_reducer.dart';
-import 'package:anselm/core/ui/an_copy_chip.dart';
+import 'package:anselm/core/ui/an_chip.dart';
 import 'package:anselm/core/ui/an_ref_pill.dart';
 import 'package:anselm/features/chat/model/tool_card_state.dart';
 import 'package:anselm/features/chat/model/tool_receipts.dart';
@@ -74,7 +74,7 @@ void main() {
     await tester.tap(find.textContaining('已创建触发器'), warnIfMissed: false);
     await tester.pumpAndSettle();
     // The full URL is copyable, id woven in from the result. 完整 URL 可复制。
-    expect(find.byType(AnCopyChip), findsOneWidget);
+    expect(find.byWidgetPredicate((w) => w is AnChip && w.copyValue != null), findsOneWidget); // the URL copy chip URL 复制芯片
     expect(find.text('POST /api/v1/webhooks/trg_9/invoice'), findsOneWidget);
     // The secret VALUE is never rendered — only the 🔒 marker. 密钥值绝不显。
     expect(find.textContaining('whsec_SUPER'), findsNothing);

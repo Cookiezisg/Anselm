@@ -5,7 +5,7 @@ import '../../../core/design/typography.dart';
 import '../../../core/model/byte_format.dart';
 import '../../../core/model/status_state.dart';
 import '../../../core/router/panel_registry.dart';
-import '../../../core/ui/an_badge.dart';
+import '../../../core/ui/an_chip.dart';
 import '../../../core/ui/icons.dart';
 import '../../../i18n/strings.g.dart';
 import '../model/tool_card_state.dart';
@@ -72,7 +72,7 @@ ToolHitRow workflowHitRow(Translations t, Map<String, dynamic> hit) {
     trailing: ls == null
         ? (id.isEmpty ? null : Text(id, style: AnText.mono))
         : Row(mainAxisSize: MainAxisSize.min, children: [
-            AnBadge(active ? t.chat.tool.wfActive : ls, tone: active ? AnTone.ok : AnTone.none),
+            AnChip(active ? t.chat.tool.wfActive : ls, tone: active ? AnTone.ok : AnTone.none),
           ]),
   );
 }
@@ -85,9 +85,9 @@ ToolHitRow triggerHitRow(Translations t, Map<String, dynamic> hit) {
   final refCount = hit['refCount'];
   final listening = hit['listening'];
   final badges = <Widget>[
-    if (kind != null) AnBadge(kind, tone: AnTone.none),
-    if (refCount is int) AnBadge(t.chat.tool.refCount(n: '$refCount'), tone: AnTone.none),
-    if (listening == true) AnBadge(t.chat.tool.trgListening, tone: AnTone.ok),
+    if (kind != null) AnChip(kind, tone: AnTone.none),
+    if (refCount is int) AnChip(t.chat.tool.refCount(n: '$refCount'), tone: AnTone.none),
+    if (listening == true) AnChip(t.chat.tool.trgListening, tone: AnTone.ok),
   ];
   return ToolHitRow(
     glyph: AnIcons.entityKindGlyph('trigger'),

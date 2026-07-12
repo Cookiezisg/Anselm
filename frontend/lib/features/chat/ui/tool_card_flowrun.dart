@@ -63,7 +63,7 @@ Widget triggerWorkflowBody(BuildContext context, ToolCardState state) {
     const SizedBox(height: AnSpace.s6),
     Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s4, crossAxisAlignment: WrapCrossAlignment.center, children: [
       if (workflowId != null && workflowId.isNotEmpty) toolNavPill(context, kind: 'workflow', label: workflowId, id: workflowId),
-      if (flowrunId != null && flowrunId.isNotEmpty) AnCopyChip(value: flowrunId),
+      if (flowrunId != null && flowrunId.isNotEmpty) AnChip(flowrunId, look: AnChipLook.outlined, mono: true, copyValue: flowrunId, tooltip: flowrunId),
     ]),
     const SizedBox(height: AnSpace.s6),
     Text(t.chat.tool.triggerStartedNote, style: AnText.meta.copyWith(color: c.inkFaint)),
@@ -155,7 +155,7 @@ Widget _runFooter(BuildContext context, Flowrun run) {
     stats: [if (run.replayCount > 0) AnStat(t.chat.tool.replayTimes(n: '${run.replayCount}'), tabular: true)],
     chips: [
       if (run.workflowId.isNotEmpty) toolNavPill(context, kind: 'workflow', label: run.workflowId, id: run.workflowId),
-      AnCopyChip(value: run.id),
+      AnChip(run.id, look: AnChipLook.outlined, mono: true, copyValue: run.id, tooltip: run.id),
     ],
   );
 }

@@ -77,12 +77,12 @@ class AgentStageBody extends ConsumerWidget {
         const SizedBox(height: AnSpace.s4),
         Wrap(spacing: AnSpace.s4, runSpacing: AnSpace.s4, children: [
           for (final k in knowledge)
-            AnBadge('$k', tone: AnTone.none),
+            AnChip('$k', tone: AnTone.none),
         ]),
       ],
       if (model != null && model.isNotEmpty) ...[
         const SizedBox(height: AnSpace.s4),
-        AnBadge(model, tone: AnTone.accent),
+        AnChip(model, tone: AnTone.accent),
       ],
       if (!scene.live && !scene.failed) ...[
         const SizedBox(height: AnSpace.s6),

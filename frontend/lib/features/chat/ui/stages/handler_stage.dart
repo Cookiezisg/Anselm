@@ -90,7 +90,7 @@ class HandlerStageBody extends ConsumerWidget {
         const SizedBox(height: AnSpace.s4),
         Wrap(spacing: AnSpace.s4, runSpacing: AnSpace.s4, children: [
           for (final f in schema.whereType<Map>())
-            AnBadge(
+            AnChip(
               f['sensitive'] == true ? '${f['name']} ••••' : '${f['name']}',
               tone: f['sensitive'] == true ? AnTone.warn : AnTone.none,
             ),
@@ -108,15 +108,7 @@ class HandlerStageBody extends ConsumerWidget {
   Widget _railSegment(BuildContext context, AnColors c, String label, {required bool lit}) => Padding(
         padding: const EdgeInsets.symmetric(vertical: AnSpace.s2),
         child: Row(children: [
-          Container(
-            width: AnSize.dot,
-            height: AnSize.dot,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: lit ? c.accent : null,
-              border: lit ? null : Border.all(color: c.line, width: AnSize.hairline),
-            ),
-          ),
+          lit ? AnStatusDot.raw(c.accent) : AnStatusDot.raw(c.line, hollow: true),
           const SizedBox(width: AnSpace.s6),
           Text(label, style: AnText.meta.copyWith(color: lit ? c.inkMuted : c.inkFaint)),
         ]),
@@ -167,10 +159,10 @@ class HandlerStageBody extends ConsumerWidget {
         };
     return Wrap(spacing: AnSpace.s6, children: [
       if (config != null)
-        AnBadge(config == 'ready' ? t.chat.stage.cfgReady : t.chat.stage.cfgPending,
+        AnChip(config == 'ready' ? t.chat.stage.cfgReady : t.chat.stage.cfgPending,
             tone: config == 'ready' ? AnTone.ok : AnTone.warn),
       if (runtime != null)
-        AnBadge(rtLabel(runtime),
+        AnChip(rtLabel(runtime),
             tone: runtime == 'running'
                 ? AnTone.ok
                 : runtime == 'crashed'

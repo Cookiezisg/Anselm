@@ -106,7 +106,6 @@ lib/core/ui/an_attachment_card.dart	pending
 lib/core/ui/an_attachment_chip.dart	pending
 lib/core/ui/an_attachment_thumb.dart	pending
 lib/core/ui/an_auto_grid.dart	pending
-lib/core/ui/an_badge.dart	pending
 lib/core/ui/an_brand_icon.dart	pending
 lib/core/ui/an_button.dart	pending
 lib/core/ui/an_callout.dart	pending
@@ -119,7 +118,6 @@ lib/core/ui/an_code_block.dart	pending
 lib/core/ui/an_code_editor.dart	reviewed
 lib/core/ui/an_code_surface.dart	ledgered
 lib/core/ui/an_composer.dart	pending
-lib/core/ui/an_copy_chip.dart	ledgered
 lib/core/ui/an_count_up.dart	pending
 lib/core/ui/an_deferred_loading.dart	pending
 lib/core/ui/an_dialog.dart	pending

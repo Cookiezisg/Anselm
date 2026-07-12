@@ -195,7 +195,7 @@ class _ToolInteractionGateState extends State<ToolInteractionGate> {
     return Row(
       children: [
         if (danger) ...[
-          AnBadge(t.chat.gate.dangerBadge, tone: AnTone.danger),
+          AnChip(t.chat.gate.dangerBadge, tone: AnTone.danger),
           const SizedBox(width: AnGap.inline),
         ],
         if (awaiting) ...[
@@ -285,7 +285,7 @@ class _ToolInteractionGateState extends State<ToolInteractionGate> {
 
   Widget _frozenAnswer(BuildContext context, Translations t, AnColors c) {
     if (widget.decided == InteractionAction.decline) {
-      return AnBadge(t.chat.gate.decidedDeclined, tone: AnTone.none);
+      return AnChip(t.chat.gate.decidedDeclined, tone: AnTone.none);
     }
     final answer = widget.decidedAnswer ?? '';
     final chosen = widget.options.indexOf(answer);
@@ -376,6 +376,6 @@ class _ToolInteractionGateState extends State<ToolInteractionGate> {
       InteractionAction.accept => (t.chat.gate.decidedApproved, AnTone.ok),
       InteractionAction.decline => (t.chat.gate.decidedDeclined, AnTone.none),
     };
-    return Align(alignment: Alignment.centerLeft, child: AnBadge(label, tone: tone));
+    return Align(alignment: Alignment.centerLeft, child: AnChip(label, tone: tone));
   }
 }

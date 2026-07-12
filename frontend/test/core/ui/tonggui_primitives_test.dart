@@ -217,6 +217,62 @@ void main() {
       expect(out.contains('�'), isFalse);
       expect(out.endsWith('…'), isTrue);
     });
+
+    testWidgets('批5: dot slot renders the typed status dot before the label', (tester) async {
+      await tester.pumpWidget(_host(const AnChip('completed', tone: AnTone.ok, dot: AnStatusDot(AnStatus.done))));
+      await tester.pump();
+      expect(find.byType(AnStatusDot), findsOneWidget);
+      expect(tester.getTopLeft(find.byType(AnStatusDot)).dx, lessThan(tester.getTopLeft(find.text('completed')).dx));
+    });
+
+    testWidgets('批5: an EMPTY label renders icon-only with no orphan gap', (tester) async {
+      await tester.pumpWidget(_host(const AnChip('', copyValue: 'v', look: AnChipLook.outlined)));
+      await tester.pump();
+      expect(find.byIcon(AnIcons.copy), findsOneWidget);
+      expect(find.byType(Text), findsNothing); // no empty Text, no gap 无空文本无孤儿距
+    });
+
+    testWidgets('批5: a STILL chip renders without a TranslationProvider (host-agnostic)', (tester) async {
+      await tester.pumpWidget(MaterialApp(theme: AnTheme.light(), home: const Scaffold(body: AnChip('quiet'))));
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      expect(find.text('quiet'), findsOneWidget);
+    });
+
+    testWidgets('批5: semanticLabel carries a11y on a STILL chip (scope-badge preset contract)', (tester) async {
+      await tester.pumpWidget(_host(const AnChip('本机', semanticLabel: '本机')));
+      await tester.pump();
+      expect(find.bySemanticsLabel('本机'), findsOneWidget);
+    });
+  });
+
+  group('AnStatusDot.raw 批5', () {
+    testWidgets('solid raw colour at a tiered size', (tester) async {
+      await tester.pumpWidget(_host(const Center(child: AnStatusDot.raw(Color(0xFF112233), size: AnSize.swatch))));
+      await tester.pump();
+      expect(tester.getSize(find.byType(AnStatusDot)), const Size(AnSize.swatch, AnSize.swatch));
+    });
+    testWidgets('hollow renders a ring (no fill) and never animates', (tester) async {
+      await tester.pumpWidget(_host(const AnStatusDot.raw(null, hollow: true)));
+      await tester.pump();
+      final box = tester.widget<Container>(find.descendant(of: find.byType(AnStatusDot), matching: find.byType(Container)));
+      final deco = box.decoration! as BoxDecoration;
+      expect(deco.color, isNull);
+      expect(deco.border, isNotNull);
+      await tester.pump(const Duration(seconds: 2)); // raw face requests no frames raw 形零帧
+    });
+  });
+
+  group('AnFollowPill.jump 批5', () {
+    testWidgets('static: renders label + never subscribes to the pulse clock', (tester) async {
+      var taps = 0;
+      await tester.pumpWidget(_host(AnFollowPill.jump(label: '回到最新', onTap: () => taps++)));
+      await tester.pump();
+      expect(find.text('回到最新'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 2)); // no pending timers/frames 无挂钟
+      await tester.tap(find.text('回到最新'));
+      expect(taps, 1);
+    });
   });
 
   group('AnCodeEditor 批2', () {

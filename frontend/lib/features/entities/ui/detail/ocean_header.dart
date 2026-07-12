@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../../../../core/model/status_state.dart';
-import '../../../../core/ui/an_badge.dart';
+import '../../../../core/ui/an_chip.dart';
 import '../../../../core/ui/an_button.dart';
 import '../../../../core/ui/an_ocean_header.dart';
 import '../../../../core/ui/icons.dart';
@@ -65,25 +65,25 @@ class EntityOceanHeader extends StatelessWidget {
       case EntityKind.function:
         final v = detail.function?.activeVersion;
         if (v == null) return const [];
-        return [AnBadge('v${v.version} · ${v.envStatus}', tone: AnStatus.fromRaw(v.envStatus).tone)];
+        return [AnChip('v${v.version} · ${v.envStatus}', tone: AnStatus.fromRaw(v.envStatus).tone)];
       case EntityKind.handler:
         final hd = detail.handler;
         final v = hd?.activeVersion;
         return [
           if (v != null && hd?.runtimeState != null)
-            AnBadge('v${v.version} · ${hd!.runtimeState}', tone: AnStatus.fromRaw(hd.runtimeState).tone),
+            AnChip('v${v.version} · ${hd!.runtimeState}', tone: AnStatus.fromRaw(hd.runtimeState).tone),
           if (hd?.configState != null)
-            AnBadge(hd!.configState!, tone: AnStatus.fromRaw(hd.configState).tone),
+            AnChip(hd!.configState!, tone: AnStatus.fromRaw(hd.configState).tone),
         ];
       case EntityKind.agent:
         final v = detail.agent?.activeVersion;
         final mh = detail.mountHealth;
         return [
-          if (v != null) AnBadge('v${v.version}', tone: AnTone.none),
+          if (v != null) AnChip('v${v.version}', tone: AnTone.none),
           if (mh != null)
             mh.allHealthy
-                ? AnBadge(kv.mounts.healthy, tone: AnTone.ok)
-                : AnBadge(kv.mounts.unhealthy(count: mh.mounts.where((m) => !m.healthy).length),
+                ? AnChip(kv.mounts.healthy, tone: AnTone.ok)
+                : AnChip(kv.mounts.unhealthy(count: mh.mounts.where((m) => !m.healthy).length),
                     tone: AnTone.danger),
         ];
       case EntityKind.workflow:
@@ -91,27 +91,27 @@ class EntityOceanHeader extends StatelessWidget {
         if (wf == null) return const [];
         return [
           // vN badge aligns workflow with the other versioned kinds (W2). 版本徽与余 kind 对齐。
-          if (wf.activeVersion != null) AnBadge('v${wf.activeVersion!.version}', tone: AnTone.none),
-          AnBadge(wf.lifecycleState, tone: AnStatus.fromRaw(wf.lifecycleState).tone),
-          AnBadge(wf.concurrency, tone: AnTone.none),
+          if (wf.activeVersion != null) AnChip('v${wf.activeVersion!.version}', tone: AnTone.none),
+          AnChip(wf.lifecycleState, tone: AnStatus.fromRaw(wf.lifecycleState).tone),
+          AnChip(wf.concurrency, tone: AnTone.none),
           if (wf.needsAttention)
-            AnBadge(wf.attentionReason ?? kv.val.needsAttention, tone: AnTone.warn),
+            AnChip(wf.attentionReason ?? kv.val.needsAttention, tone: AnTone.warn),
         ];
       case EntityKind.control:
         final v = detail.control?.activeVersion;
-        return [if (v != null) AnBadge('v${v.version}', tone: AnTone.none)];
+        return [if (v != null) AnChip('v${v.version}', tone: AnTone.none)];
       case EntityKind.approval:
         final v = detail.approval?.activeVersion;
-        return [if (v != null) AnBadge('v${v.version}', tone: AnTone.none)];
+        return [if (v != null) AnChip('v${v.version}', tone: AnTone.none)];
       case EntityKind.trigger:
         final tr = detail.trigger;
         if (tr == null) return const [];
         return [
-          AnBadge(tr.kind.name, tone: AnTone.none), // source kind (cron/webhook/fsnotify/sensor)
+          AnChip(tr.kind.name, tone: AnTone.none), // source kind (cron/webhook/fsnotify/sensor)
           // The live signal: is its listener hot (≥1 active workflow references it). 活信号:listener 热否。
           tr.listening
-              ? AnBadge(kv.trigger.listening, tone: AnStatus.run.tone)
-              : AnBadge(kv.trigger.idle, tone: AnTone.none),
+              ? AnChip(kv.trigger.listening, tone: AnStatus.run.tone)
+              : AnChip(kv.trigger.idle, tone: AnTone.none),
         ];
     }
   }

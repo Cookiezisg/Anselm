@@ -82,9 +82,9 @@ Widget capabilityBody(BuildContext context, ToolCardState state) {
   final warnings = (o['warnings'] as List?)?.map((e) => '$e').toList() ?? const [];
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
     Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s4, children: [
-      AnBadge(o['ok'] == true ? t.chat.tool.capRunnable : t.chat.tool.capProblems(n: '${problems.length}'), tone: o['ok'] == true ? AnTone.ok : AnTone.danger),
-      if (o['structurallyValid'] == true) AnBadge(t.chat.tool.capStructural, tone: AnTone.none),
-      if (o['resolved'] == true) AnBadge(t.chat.tool.capResolved, tone: AnTone.none),
+      AnChip(o['ok'] == true ? t.chat.tool.capRunnable : t.chat.tool.capProblems(n: '${problems.length}'), tone: o['ok'] == true ? AnTone.ok : AnTone.danger),
+      if (o['structurallyValid'] == true) AnChip(t.chat.tool.capStructural, tone: AnTone.none),
+      if (o['resolved'] == true) AnChip(t.chat.tool.capResolved, tone: AnTone.none),
     ]),
     for (final p in problems) _issue(context, p, c.danger, t.chat.tool.capProblemsLabel),
     for (final w in warnings) _issue(context, w, c.warn, t.chat.tool.capWarningsLabel),
@@ -133,13 +133,13 @@ Widget mcpStatusBody(BuildContext context, ToolCardState state) {
   final failures = o['consecutiveFailures'] is int ? o['consecutiveFailures'] as int : 0;
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
     Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s4, crossAxisAlignment: WrapCrossAlignment.center, children: [
-      AnBadge(connected ? t.chat.tool.mcpConnected : t.chat.tool.mcpDisconnected, tone: connected ? AnTone.ok : AnTone.danger),
+      AnChip(connected ? t.chat.tool.mcpConnected : t.chat.tool.mcpDisconnected, tone: connected ? AnTone.ok : AnTone.danger),
       Text(t.chat.tool.mcpToolCount(n: '${tools.length}'), style: AnText.meta.copyWith(color: c.inkFaint)),
       if (!connected && failures > 0) Text(t.chat.tool.mcpFailures(n: '$failures'), style: AnText.meta.copyWith(color: c.danger)),
     ]),
     if (tools.isNotEmpty) ...[
       const SizedBox(height: AnSpace.s4),
-      Wrap(spacing: AnSpace.s6, runSpacing: AnSpace.s4, children: [for (final tool in tools.take(20)) AnBadge('${tool['name']}', tone: AnTone.none)]),
+      Wrap(spacing: AnSpace.s6, runSpacing: AnSpace.s4, children: [for (final tool in tools.take(20)) AnChip('${tool['name']}', tone: AnTone.none)]),
     ],
     if (!connected && (lastError ?? '').isNotEmpty) ...[
       const SizedBox(height: AnSpace.s6),
@@ -177,11 +177,11 @@ Widget marketplaceBody(BuildContext context, ToolCardState state) {
               Flexible(child: Text('${srv['name']}', maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.body.weight(AnText.emphasisWeight).copyWith(color: c.ink))),
               if ((srv['runtime'] as String?)?.isNotEmpty ?? false) ...[
                 const SizedBox(width: AnSpace.s6),
-                AnBadge('${srv['runtime']}', tone: AnTone.none),
+                AnChip('${srv['runtime']}', tone: AnTone.none),
               ],
               if (((srv['env'] as List?)?.where((e) => e is Map && e['required'] == true).length ?? 0) > 0) ...[
                 const SizedBox(width: AnSpace.s6),
-                AnBadge(t.chat.tool.mcpEnvRequired(n: '${(srv['env'] as List).where((e) => e is Map && e['required'] == true).length}'), tone: AnTone.warn),
+                AnChip(t.chat.tool.mcpEnvRequired(n: '${(srv['env'] as List).where((e) => e is Map && e['required'] == true).length}'), tone: AnTone.warn),
               ],
             ]),
             if ((srv['description'] as String?)?.isNotEmpty ?? false)
@@ -231,7 +231,7 @@ Widget modelConfigBody(BuildContext context, ToolCardState state) {
     Text(t.chat.tool.modelKeys(n: '$keys'), style: AnText.meta.copyWith(color: c.inkFaint)),
     if (avail.isNotEmpty) ...[
       const SizedBox(height: AnSpace.s6),
-      Wrap(spacing: AnSpace.s6, runSpacing: AnSpace.s4, children: [for (final m in avail.take(30)) AnBadge(m, tone: AnTone.none)]),
+      Wrap(spacing: AnSpace.s6, runSpacing: AnSpace.s4, children: [for (final m in avail.take(30)) AnChip(m, tone: AnTone.none)]),
     ],
   ]);
 }

@@ -8,7 +8,7 @@ import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
 import '../../../../core/model/status_state.dart';
 import '../../../../core/ui/an_action_group.dart';
-import '../../../../core/ui/an_badge.dart';
+import '../../../../core/ui/an_chip.dart';
 import '../../../../core/ui/an_button.dart';
 import '../../../../core/ui/an_dropdown.dart';
 import '../../../../core/ui/an_form_field.dart';
@@ -439,7 +439,7 @@ class _ControlBranches extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AnSpace.s2),
       child: Row(children: [
-        AnBadge(b.port, tone: isDefault ? AnTone.none : AnTone.accent),
+        AnChip(b.port, tone: isDefault ? AnTone.none : AnTone.accent),
         const SizedBox(width: AnSpace.s8),
         Expanded(
           child: Text(
@@ -451,7 +451,7 @@ class _ControlBranches extends ConsumerWidget {
         ),
         if (b.emit.isNotEmpty) ...[
           const SizedBox(width: AnSpace.s6),
-          AnBadge(e.branchEmit, tone: AnTone.warn),
+          AnChip(e.branchEmit, tone: AnTone.warn),
         ],
       ]),
     );

@@ -93,6 +93,9 @@ abstract final class AnSize {
   static const double iconXs = 8; // sub-row trajectory glyph (subagent tail rows — below iconSm) 次级尾行字形(iconSm 之下)
   static const double dot = 7;
   static const double dotPulse = 5; // run-status breath expansion radius 呼吸外扩半径
+  static const double dotSm = 5; // small in-chip dot (op ticker) 芯片内小点(op ticker)
+  static const double swatch = 10; // colour swatch dot (workspace colour) 色板圆点(工作区色)
+  static const double capsulePadY = 1; // inline baseline-capsule vertical inset 行内贴基线药囊竖内距
   static const double hairline = 1;
   static const double gripLine = 2; // drag-handle hover divider (2× hairline) 拖柄悬停分隔线
   static const double ring = 1.5; // emphasis ring stroke (badge halo, canvas connect handle) 强调环描边(徽章环/画布接柄)
@@ -222,6 +225,7 @@ abstract final class AnCap {
 /// Opacity tokens — the few semantic alpha values used as whole-widget dimmers. 整件透明度语义值。
 abstract final class AnOpacity {
   static const double disabled = 0.4; // dimmed disabled controls 禁用控件变暗
+  static const double shadow = 0.12; // floating-pill soft shadow ink 浮丸柔影墨
   static const double dragDim = 0.35; // the row being drag-reordered (source ghost) 拖拽重排源行变暗
   static const double stratum = 0.4; // a faded prior/inactive layer (R-5 sidestage stratum) 淡化的旧/静置层
 }

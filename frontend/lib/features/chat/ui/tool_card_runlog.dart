@@ -76,7 +76,7 @@ RunLedgerRow _execRow(Translations t, Map<String, dynamic> row, {List<Widget> ex
       monoId: row['id'] as String?,
       chips: [
         ...extraChips,
-        if ((row['triggeredBy'] as String?)?.isNotEmpty ?? false) AnBadge(_triggeredBy(t, row['triggeredBy'] as String?), tone: AnTone.none),
+        if ((row['triggeredBy'] as String?)?.isNotEmpty ?? false) AnChip(_triggeredBy(t, row['triggeredBy'] as String?), tone: AnTone.none),
       ],
       elapsed: row['elapsedMs'] is int ? fmtElapsed(row['elapsedMs'] as int) : null,
       stamp: fmtStamp(row['startedAt'] as String?),
@@ -125,8 +125,8 @@ Widget hdCallsBody(BuildContext context, ToolCardState s) => _aggBody(context, s
           leading: RunLeading.status('${r['status']}'),
           monoId: r['id'] as String?,
           chips: [
-            if ((r['method'] as String?)?.isNotEmpty ?? false) AnBadge('${r['method']}()', tone: AnTone.accent),
-            if ((r['triggeredBy'] as String?)?.isNotEmpty ?? false) AnBadge(_triggeredBy(t, r['triggeredBy'] as String?), tone: AnTone.none),
+            if ((r['method'] as String?)?.isNotEmpty ?? false) AnChip('${r['method']}()', tone: AnTone.accent),
+            if ((r['triggeredBy'] as String?)?.isNotEmpty ?? false) AnChip(_triggeredBy(t, r['triggeredBy'] as String?), tone: AnTone.none),
           ],
           subText: r['instanceId'] as String?,
           elapsed: r['elapsedMs'] is int ? fmtElapsed(r['elapsedMs'] as int) : null,
@@ -145,8 +145,8 @@ Widget mcpCallsBody(BuildContext context, ToolCardState s) => _aggBody(context, 
           leading: RunLeading.status('${r['status']}'),
           monoId: r['id'] as String?,
           chips: [
-            if ((r['tool'] as String?)?.isNotEmpty ?? false) AnBadge('${r['tool']}', tone: AnTone.accent),
-            if ((r['triggeredBy'] as String?)?.isNotEmpty ?? false) AnBadge(_triggeredBy(t, r['triggeredBy'] as String?), tone: AnTone.none),
+            if ((r['tool'] as String?)?.isNotEmpty ?? false) AnChip('${r['tool']}', tone: AnTone.accent),
+            if ((r['triggeredBy'] as String?)?.isNotEmpty ?? false) AnChip(_triggeredBy(t, r['triggeredBy'] as String?), tone: AnTone.none),
           ],
           elapsed: r['elapsedMs'] is int ? fmtElapsed(r['elapsedMs'] as int) : null,
           stamp: fmtStamp(r['startedAt'] as String?),
@@ -204,7 +204,7 @@ Widget flowrunsBody(BuildContext context, ToolCardState s) => _countBody(context
               monoId: r['id'] as String?,
               chips: [
                 if ((r['replayCount'] is int ? r['replayCount'] as int : 0) > 0)
-                  AnBadge(t.chat.tool.replayTimes(n: '${r['replayCount']}'), tone: AnTone.none),
+                  AnChip(t.chat.tool.replayTimes(n: '${r['replayCount']}'), tone: AnTone.none),
               ],
               subText: r['error'] as String?,
               stamp: fmtStamp(r['startedAt'] as String?),
@@ -236,9 +236,9 @@ Widget firingsBody(BuildContext context, ToolCardState s) => _countBody(context,
               leading: RunLeading.status('${r['status']}'),
               monoId: r['id'] as String?,
               chips: [
-                AnBadge(_firingWord(t, r['status'] as String?), tone: _firingTone(r['status'] as String?)),
+                AnChip(_firingWord(t, r['status'] as String?), tone: _firingTone(r['status'] as String?)),
                 if ((r['flowrunId'] as String?)?.isNotEmpty ?? false)
-                  AnBadge('${(r['flowrunId'] as String).length > 12 ? '${(r['flowrunId'] as String).substring(0, 12)}…' : r['flowrunId']}', tone: AnTone.none),
+                  AnChip('${(r['flowrunId'] as String).length > 12 ? '${(r['flowrunId'] as String).substring(0, 12)}…' : r['flowrunId']}', tone: AnTone.none),
               ],
               subText: r['dedupKey'] as String?,
               stamp: fmtStamp(r['createdAt'] as String?),
@@ -259,9 +259,9 @@ Widget activationsBody(BuildContext context, ToolCardState s) => _countBody(cont
               leading: RunLeading.fired(r['fired'] == true),
               monoId: r['id'] as String?,
               chips: [
-                if ((r['kind'] as String?)?.isNotEmpty ?? false) AnBadge('${r['kind']}', tone: AnTone.none),
+                if ((r['kind'] as String?)?.isNotEmpty ?? false) AnChip('${r['kind']}', tone: AnTone.none),
                 if ((r['firingCount'] is int ? r['firingCount'] as int : 0) > 0)
-                  AnBadge(t.chat.tool.actFanout(n: '${r['firingCount']}'), tone: AnTone.none),
+                  AnChip(t.chat.tool.actFanout(n: '${r['firingCount']}'), tone: AnTone.none),
               ],
               subText: r['detail'] as String? ?? r['error'] as String?,
               stamp: fmtStamp(r['createdAt'] as String?),
@@ -321,12 +321,12 @@ Widget _dossier(BuildContext context, ToolCardState s, {List<Widget> Function(Tr
 Widget getFnExecBody(BuildContext context, ToolCardState s) => _dossier(context, s);
 
 Widget getHdCallBody(BuildContext context, ToolCardState s) => _dossier(context, s, headChips: (t, o) => [
-      if ((o['method'] as String?)?.isNotEmpty ?? false) AnBadge('${o['method']}()', tone: AnTone.accent),
-      if ((o['instanceId'] as String?)?.isNotEmpty ?? false) AnBadge('${o['instanceId']}', tone: AnTone.none),
+      if ((o['method'] as String?)?.isNotEmpty ?? false) AnChip('${o['method']}()', tone: AnTone.accent),
+      if ((o['instanceId'] as String?)?.isNotEmpty ?? false) AnChip('${o['instanceId']}', tone: AnTone.none),
     ]);
 
 Widget getMcpCallBody(BuildContext context, ToolCardState s) => _dossier(context, s, headChips: (t, o) => [
-      if ((o['tool'] as String?)?.isNotEmpty ?? false) AnBadge('${o['tool']}', tone: AnTone.accent),
+      if ((o['tool'] as String?)?.isNotEmpty ?? false) AnChip('${o['tool']}', tone: AnTone.accent),
     ]);
 
 /// The activation fire receipt — fired → `已 fire · 扇出 N`; not fired → grey `未 fire`; an error present
@@ -358,8 +358,8 @@ Widget getActivationBody(BuildContext context, ToolCardState s) {
   final detail = o['detail'] as String?;
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
     Wrap(spacing: AnGap.inline, runSpacing: AnSpace.s4, crossAxisAlignment: WrapCrossAlignment.center, children: [
-      AnBadge(fired ? t.chat.tool.fireYes : t.chat.tool.fireNo, tone: fired ? AnTone.ok : AnTone.none),
-      if ((o['kind'] as String?)?.isNotEmpty ?? false) AnBadge('${o['kind']}', tone: AnTone.none),
+      AnChip(fired ? t.chat.tool.fireYes : t.chat.tool.fireNo, tone: fired ? AnTone.ok : AnTone.none),
+      if ((o['kind'] as String?)?.isNotEmpty ?? false) AnChip('${o['kind']}', tone: AnTone.none),
       if ((o['firingCount'] is int ? o['firingCount'] as int : 0) > 0) Text(t.chat.tool.actFanout(n: '${o['firingCount']}'), style: AnText.meta.copyWith(color: c.inkFaint)),
     ]),
     if (detail != null && detail.isNotEmpty) Padding(padding: const EdgeInsets.only(top: AnSpace.s4), child: Text(detail, style: AnText.meta.copyWith(color: c.inkMuted))),
@@ -401,8 +401,8 @@ Widget getAgentExecBody(BuildContext context, ToolCardState s) {
     startedAt: o['startedAt'] as String?,
     endedAt: o['endedAt'] as String?,
     headChips: [
-      if ((o['modelId'] as String?)?.isNotEmpty ?? false) AnBadge('${o['modelId']}', tone: AnTone.none),
-      if ((o['provider'] as String?)?.isNotEmpty ?? false) AnBadge('${o['provider']}', tone: AnTone.none),
+      if ((o['modelId'] as String?)?.isNotEmpty ?? false) AnChip('${o['modelId']}', tone: AnTone.none),
+      if ((o['provider'] as String?)?.isNotEmpty ?? false) AnChip('${o['provider']}', tone: AnTone.none),
     ],
     input: o['input'],
     output: o['output'],

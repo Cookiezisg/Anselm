@@ -6,7 +6,7 @@ import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
 import '../../../../core/messages/block_tree_reducer.dart';
 import '../../../../core/model/status_state.dart' show AnTone;
-import '../../../../core/ui/an_badge.dart';
+import '../../../../core/ui/an_chip.dart';
 import '../../../../core/ui/an_disclosure.dart';
 import '../../../../core/ui/icons.dart';
 import '../../../../i18n/strings.g.dart';
@@ -117,7 +117,7 @@ class _BlockViewState extends State<BlockView> {
           icon: AnIcons.tool,
           labelStyle: AnText.value(mono: true).copyWith(color: c.ink),
           trailing: showDanger
-              ? AnBadge(_dangerLabel(t, danger), tone: danger == Danger.dangerous ? AnTone.danger : AnTone.warn)
+              ? AnChip(_dangerLabel(t, danger), tone: danger == Danger.dangerous ? AnTone.danger : AnTone.warn)
               : null,
           open: _open,
           onToggle: () => setState(() => _open = !_open),

@@ -5,7 +5,7 @@ import '../../../../core/design/tokens.dart';
 import '../../../../core/model/status_state.dart';
 import '../../../../core/overlay/an_overlay.dart';
 import '../../../../core/ui/an_action_group.dart';
-import '../../../../core/ui/an_badge.dart';
+import '../../../../core/ui/an_chip.dart';
 import '../../../../core/ui/an_button.dart';
 import '../../../../core/ui/an_two_zone.dart';
 import '../../../../core/ui/an_deferred_loading.dart';
@@ -99,7 +99,7 @@ class VersionTab extends ConsumerWidget {
             ? Wrap(
                 spacing: AnSpace.s6,
                 runSpacing: AnSpace.s4,
-                children: [for (final s in sel.summary) AnBadge(s, tone: AnTone.none)],
+                children: [for (final s in sel.summary) AnChip(s, tone: AnTone.none)],
               )
             : const SizedBox.shrink(),
         trailing: !showActivate

@@ -58,8 +58,7 @@ class RunBeadStrip extends StatelessWidget {
             Tooltip(
               message: b.tooltip,
               waitDuration: AnMotion.dwell,
-              child: Container(width: AnSize.dot, height: AnSize.dot,
-                  decoration: BoxDecoration(color: b.color, shape: BoxShape.circle)),
+              child: AnStatusDot.raw(b.color),
             ),
         ]),
       ),
@@ -159,13 +158,12 @@ class _RunRowState extends State<_RunRow> {
     Widget lead;
     if (row.leading.fired != null) {
       // fired → a green check; not-fired (a sensor probe that didn't fire) → a hollow grey dot. fire 标记。
+      // fired → a green check; not-fired (a sensor probe that didn't fire) → a hollow grey dot. fire 标记。
       lead = row.leading.fired!
           ? Icon(AnIcons.check, size: AnSize.iconSm, color: c.ok)
-          : Container(width: AnSize.dot, height: AnSize.dot,
-              decoration: BoxDecoration(border: Border.all(color: c.inkFaint), shape: BoxShape.circle));
+          : const AnStatusDot.raw(null, hollow: true);
     } else {
-      lead = Container(width: AnSize.dot, height: AnSize.dot,
-          decoration: BoxDecoration(color: runStatusColor(c, row.leading.status), shape: BoxShape.circle));
+      lead = AnStatusDot.raw(runStatusColor(c, row.leading.status));
     }
 
     final core = Padding(
