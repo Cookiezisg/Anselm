@@ -81,9 +81,14 @@ class _NetworkPanelState extends ConsumerState<NetworkPanel> {
       ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 480),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          _field(t.settings.network.httpProxy, _http, t.settings.network.proxyPlaceholder, c),
-          _field(t.settings.network.httpsProxy, _https, t.settings.network.proxyPlaceholder, c),
-          _field(t.settings.network.noProxy, _no, 'localhost,127.0.0.1', c),
+          // The ONE label-above form block (批6c A-063 — the second private «label+input» dies;
+          // the quiet 13 label steps up to the family face, 刻意收敛帧核). 唯一表单字段块。
+          AnFormField(label: t.settings.network.httpProxy, child: AnInput(controller: _http, mono: true, placeholder: t.settings.network.proxyPlaceholder)),
+          const SizedBox(height: AnSpace.s12),
+          AnFormField(label: t.settings.network.httpsProxy, child: AnInput(controller: _https, mono: true, placeholder: t.settings.network.proxyPlaceholder)),
+          const SizedBox(height: AnSpace.s12),
+          AnFormField(label: t.settings.network.noProxy, child: AnInput(controller: _no, mono: true, placeholder: 'localhost,127.0.0.1')),
+          const SizedBox(height: AnSpace.s12),
           const SizedBox(height: AnSpace.s4),
           Text(t.settings.network.restartNote, style: AnText.label.copyWith(color: c.warn)),
           const SizedBox(height: AnSpace.s16),
@@ -97,14 +102,6 @@ class _NetworkPanelState extends ConsumerState<NetworkPanel> {
     ]);
   }
 
-  Widget _field(String label, TextEditingController ctl, String hint, AnColors c) => Padding(
-        padding: const EdgeInsets.only(bottom: AnSpace.s12),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label, style: AnText.label.copyWith(color: c.inkMuted)),
-          const SizedBox(height: AnSpace.s4),
-          AnInput(controller: ctl, mono: true, placeholder: hint),
-        ]),
-      );
 }
 
 /// The live network config. 活动网络配置。

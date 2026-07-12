@@ -10,6 +10,7 @@ import '../../../../core/design/typography.dart';
 import '../../../../core/model/model_capabilities.dart';
 import '../../../../core/overlay/an_overlay.dart';
 import '../../../../core/ui/an_chip.dart';
+import '../../../../core/ui/an_form_field.dart';
 import '../../../../core/ui/an_button.dart';
 import '../../../../core/ui/an_dropdown.dart';
 import '../../../../core/ui/an_input.dart';
@@ -401,9 +402,7 @@ class _KeyFormState extends ConsumerState<KeyForm> {
       constraints: const BoxConstraints(maxWidth: 480),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         if (!editing) ...[
-          Text(t.settings.keys.provider, style: AnText.label.copyWith(color: c.inkMuted)),
-          const SizedBox(height: AnSpace.s4),
-          AnDropdown<String>(
+          AnFormField(label: t.settings.keys.provider, child: AnDropdown<String>(
             options: [
               for (final p in providers) AnDropdownOption(value: p.name, label: p.displayName),
             ],
@@ -414,45 +413,37 @@ class _KeyFormState extends ConsumerState<KeyForm> {
               final m = providers.where((p) => p.name == v).firstOrNull;
               if (m != null && _baseUrl.text.isEmpty) _baseUrl.text = m.defaultBaseUrl;
             }),
-          ),
+          )),
           const SizedBox(height: AnSpace.s12),
         ],
-        Text(t.settings.keys.displayNameLabel, style: AnText.label.copyWith(color: c.inkMuted)),
-        const SizedBox(height: AnSpace.s4),
-        AnInput(controller: _name, block: true),
+        AnFormField(label: t.settings.keys.displayNameLabel, child: AnInput(controller: _name, block: true)),
         const SizedBox(height: AnSpace.s12),
-        Text(t.settings.keys.secretLabel, style: AnText.label.copyWith(color: c.inkMuted)),
-        const SizedBox(height: AnSpace.s4),
-        AnSecretField(
+        AnFormField(label: t.settings.keys.secretLabel, child: AnSecretField(
           controller: _secret,
           placeholder: editing ? t.settings.keys.rotatePlaceholder : null,
           revealLabel: t.settings.keys.reveal,
           concealLabel: t.settings.keys.conceal,
-        ),
+        )),
         if (editing)
           Padding(
             padding: const EdgeInsets.only(top: AnSpace.s4),
-            child:
-                Text(t.settings.keys.rotateWarn, style: AnText.meta.copyWith(color: c.warn)),
+            // The rotate note is a NOTE under the control, never a field label. 旋转注记非字段标签。
+            child: Text(t.settings.keys.rotateWarn, style: AnText.meta.copyWith(color: c.warn)),
           ),
         if (meta == null || meta.baseUrlRequired || _baseUrl.text.isNotEmpty || editing) ...[
           const SizedBox(height: AnSpace.s12),
-          Text(t.settings.keys.baseUrlLabel, style: AnText.label.copyWith(color: c.inkMuted)),
-          const SizedBox(height: AnSpace.s4),
-          AnInput(controller: _baseUrl, block: true, mono: true),
+          AnFormField(label: t.settings.keys.baseUrlLabel, child: AnInput(controller: _baseUrl, block: true, mono: true)),
         ],
         if (_provider == 'custom') ...[
           const SizedBox(height: AnSpace.s12),
-          Text(t.settings.keys.apiFormatLabel, style: AnText.label.copyWith(color: c.inkMuted)),
-          const SizedBox(height: AnSpace.s4),
-          AnSegmented<String>(
+          AnFormField(label: t.settings.keys.apiFormatLabel, child: AnSegmented<String>(
             options: const [
               AnSegmentedOption(value: 'openai-compatible', label: 'OpenAI'),
               AnSegmentedOption(value: 'anthropic-compatible', label: 'Anthropic'),
             ],
             value: _apiFormat,
             onChanged: (v) => setState(() => _apiFormat = v),
-          ),
+          )),
         ],
         if (_error != null)
           Padding(

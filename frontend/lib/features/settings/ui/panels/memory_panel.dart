@@ -113,32 +113,20 @@ class _MemoryRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = Translations.of(context);
     final c = context.colors;
+    // The pin rides the lead slot (批6c A-060 — the inline labelWidget Row retires); the
+    // description becomes the wrapping hint, the same face as the MCP tool rows. pin 进 lead 槽;
+    // 描述走 hint 换行(与 mcp 工具行同脸)。
     return AnRow(
-      leadless: true,
-      labelWidget: Row(mainAxisSize: MainAxisSize.min, children: [
-        // The pin — gold when resident, hollow otherwise; a tooltip'd one-tap toggle. 金 pin 常驻标。
-        AnTooltip(
-          message: t.settings.mem.pinTip,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () =>
-                ref.read(memoriesProvider.notifier).setPinned(m.name, !m.pinned),
-            child: Icon(AnIcons.pin,
-                size: AnSize.icon, color: m.pinned ? c.warn : c.inkFaint),
-          ),
+      leadWidget: AnTooltip(
+        message: t.settings.mem.pinTip,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => ref.read(memoriesProvider.notifier).setPinned(m.name, !m.pinned),
+          child: Icon(AnIcons.pin, size: AnSize.icon, color: m.pinned ? c.warn : c.inkFaint),
         ),
-        const SizedBox(width: AnSpace.s8),
-        Text(m.name, style: AnText.mono.copyWith(color: c.ink)),
-        if (m.description.isNotEmpty) ...[
-          const SizedBox(width: AnSpace.s8),
-          Flexible(
-            child: Text(m.description,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AnText.label.copyWith(color: c.inkMuted)),
-          ),
-        ],
-      ]),
+      ),
+      mono: true,
+      hint: m.description.isEmpty ? null : m.description,
       label: m.name,
       meta:
           '${m.source == 'ai' ? t.settings.mem.sourceAi : t.settings.mem.sourceUser} · ${fmtDate(m.updatedAt)}',
@@ -263,38 +251,41 @@ class _MemoryEditorState extends ConsumerState<MemoryEditor> {
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 640),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(t.settings.mem.name, style: AnText.label.copyWith(color: c.inkMuted)),
-        const SizedBox(height: AnSpace.s4),
-        if (_creating)
-          AnInput(
-            controller: _name,
-            placeholder: t.settings.mem.nameHint,
-            mono: true,
-            autofocus: true,
-            onChanged: (_) => setState(() => _dirty = true),
-          )
-        else
-          AnTooltip(
-            message: t.settings.mem.nameLocked,
-            child: AnInput(controller: _name, mono: true, enabled: false),
-          ),
+        // The ONE form block ×3 (批6c A-061); the Cmd+S shortcut stays wrapped TIGHT around the
+        // content input (scout 风险注记). 唯一表单字段块×3;Cmd+S 贴身包不动。
+        AnFormField(
+          label: t.settings.mem.name,
+          child: _creating
+              ? AnInput(
+                  controller: _name,
+                  placeholder: t.settings.mem.nameHint,
+                  mono: true,
+                  autofocus: true,
+                  onChanged: (_) => setState(() => _dirty = true),
+                )
+              : AnTooltip(
+                  message: t.settings.mem.nameLocked,
+                  child: AnInput(controller: _name, mono: true, enabled: false),
+                ),
+        ),
         const SizedBox(height: AnSpace.s12),
-        Text(t.settings.mem.description, style: AnText.label.copyWith(color: c.inkMuted)),
-        const SizedBox(height: AnSpace.s4),
-        AnInput(
-            controller: _desc, onChanged: (_) => setState(() => _dirty = true)),
+        AnFormField(
+          label: t.settings.mem.description,
+          child: AnInput(controller: _desc, onChanged: (_) => setState(() => _dirty = true)),
+        ),
         const SizedBox(height: AnSpace.s12),
-        Text(t.settings.mem.content, style: AnText.label.copyWith(color: c.inkMuted)),
-        const SizedBox(height: AnSpace.s4),
-        CallbackShortcuts(
-          bindings: {
-            const SingleActivator(LogicalKeyboardKey.keyS, meta: true): _save,
-          },
-          child: AnInput(
-            controller: _content,
-            multiline: true,
-            mono: true,
-            onChanged: (_) => setState(() => _dirty = true),
+        AnFormField(
+          label: t.settings.mem.content,
+          child: CallbackShortcuts(
+            bindings: {
+              const SingleActivator(LogicalKeyboardKey.keyS, meta: true): _save,
+            },
+            child: AnInput(
+              controller: _content,
+              multiline: true,
+              mono: true,
+              onChanged: (_) => setState(() => _dirty = true),
+            ),
           ),
         ),
         if (_error != null) ...[

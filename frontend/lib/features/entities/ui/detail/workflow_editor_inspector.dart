@@ -7,6 +7,7 @@ import '../../../../core/design/colors.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
 import '../../../../core/ui/an_action_group.dart';
+import '../../../../core/ui/an_field.dart';
 import '../../../../core/ui/an_button.dart';
 import '../../../../core/ui/an_dropdown.dart';
 import '../../../../core/ui/an_form_field.dart';
@@ -290,24 +291,25 @@ class _RetryEditor extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final e = context.t.entities.detail.editor;
-    final c = context.colors;
     final retry = node.retry;
+    // Switch/number rows are the ONE label-left·control-right row — AnField's child slot (批6c
+    // A-057: this file's own «label above» _Field grammar is for FORM blocks; a toggle with a
+    // label above is an anti-pattern). 开关/数值行=唯一「标签左·控件右」行(AnField child 槽)。
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Row(children: [
-        Expanded(child: Text(e.retryEnable, style: AnText.body.copyWith(color: c.ink))),
-        AnButton(
+      AnField(
+        label: e.retryEnable,
+        child: AnButton(
           label: retry == null ? e.off : e.on,
           size: AnButtonSize.sm,
           variant: retry == null ? AnButtonVariant.ghost : AnButtonVariant.primary,
           onPressed: () =>
               notifier.setNodeRetry(node.id, retry == null ? const RetryConfig(maxAttempts: 3) : null),
         ),
-      ]),
-      if (retry != null) ...[
-        const SizedBox(height: AnSpace.s6),
-        Row(children: [
-          Expanded(child: Text(e.maxAttempts, style: AnText.meta.copyWith(color: c.inkMuted))),
-          SizedBox(
+      ),
+      if (retry != null)
+        AnField(
+          label: e.maxAttempts,
+          child: SizedBox(
             width: AnSize.inspectorNumField,
             child: AnInput(
               key: ValueKey('retry_${node.id}'),
@@ -317,8 +319,7 @@ class _RetryEditor extends StatelessWidget {
                   node.id, retry.copyWith(maxAttempts: int.tryParse(v) ?? retry.maxAttempts)),
             ),
           ),
-        ]),
-      ],
+        ),
     ]);
   }
 }

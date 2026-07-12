@@ -36,6 +36,15 @@ A-032/A-033/A-034/A-036/A-038/A-046/A-048 关账(A-031 剩 AnAttachmentChip、A-
 - **拍板点记档(建造者裁决,帧供否决)**:①RefPill 字面 body13 w400→族 meta12 w300(全族一字面;帧核可读性,否决则退半降级);②copy 芯片族声=outlined(与 path chip 一致);③AnSize.capsulePadY=1 新档(行内药囊竖距,inline 脸用)。
 - 新 variant 全部 gallery-first(raw 点四形/outlined·copy·icon-only·strikethrough·tooltip 五 specimen/inline 嵌文本/jump 双态)+ tonggui 电池 7 测(dot 槽/空标签/host-agnostic/a11y/raw 尺寸/空心零帧/jump 静态)。
 
+### 批6c 落地(2026-07-13,settings 字段块面板批——行族 34 行全清)
+
+A-057/059/060/061/062/063/065/066 关账,**行族 34 行台账全数了结**(30 done+A-056 defer+A-069 豁免):
+- settings 五面板 ~24 个字段块全走 AnFormField(mcp_forms._label ×7 删/network._field ×3 删/models_keys ×5/sandbox ×2[pinned 下拉↔自由输入条件子树两分支同壳]/workspaces ×4/memory ×3[Cmd+S 贴身包不动])——**可见变化:标签 13/w300/muted→族脸 strong/ink**(台账定性「偏离回正」,真机帧关卡)。
+- A-057:retry 开关/数值行→AnField child 槽(「标签左·控件右」唯一行;标签在上的开关=反模式)。
+- A-060:memory rail pin 进 AnRow leadWidget 槽、描述走 hint 换行(与 mcp 工具行同脸);**顺手修 leadWidget 语义剥除**(ExcludeSemantics 会重蹈批5 缩略图 ✕ a11y 覆辙——交互 lead 自带语义,原语不剥)。
+- **建造事故二记档**:字段块批量扫描器在条件子树(sandbox version)与注记行(models_keys rotateWarn)两处搅坏代码——**逐文件 diff 目检抓回**;含条件/多行子树的站点必须手工。
+- **帧欠账记档**:批6c settings 五面板真机帧关卡被机器锁屏物理阻断(用户睡眠)——五面板标签脸变化帧**欠账待补**(解锁后第一动作:mcp 添加表/models key 表/memory 编辑器/workspaces 建面/network 三框逐帧,快捷键录制链与 memory pin/hint 行同验)。代码/测试/门禁全绿先行落盘,不假装帧已核。
+
 ### 批6b 落地(2026-07-13,行族迁移 23 行关账)
 
 A-049/050/051/052/053/054/055/058/064/068/070/071/072/073/074/075/076/077/078/079/080/081/082 关账(A-056 defer 记档:map 编辑器=表单机器非键值陈列,单消费者过早抽象,AnKv.map 规格留档待第二消费者;A-069 主行豁免=契约 §7):

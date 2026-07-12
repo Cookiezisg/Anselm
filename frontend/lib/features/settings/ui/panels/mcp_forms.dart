@@ -88,38 +88,36 @@ class _McpManualFormState extends ConsumerState<McpManualForm> {
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 560),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        _label(t.settings.mcp.name, c),
-        AnInput(controller: _name, mono: true, autofocus: true, onChanged: (_) => setState(() {})),
+        // The ONE form block (批6c A-059 — the private «label above» dies; the quiet 13 label
+        // steps up to the family face). 唯一表单字段块(私排退役,字面升族脸)。
+        AnFormField(label: t.settings.mcp.name, child: AnInput(controller: _name, mono: true, autofocus: true, onChanged: (_) => setState(() {}))),
         const SizedBox(height: AnSpace.s12),
-        _label(t.settings.mcp.transport, c),
-        SizedBox(
-          width: 380,
-          child: AnSegmented<String>(
+        AnFormField(
+          label: t.settings.mcp.transport,
+          child: SizedBox(
+            width: 380,
+            child: AnSegmented<String>(
             options: const [
               AnSegmentedOption(value: 'stdio', label: 'stdio'),
               AnSegmentedOption(value: 'sse', label: 'sse'),
               AnSegmentedOption(value: 'streamable-http', label: 'streamable-http'),
             ],
-            value: _transport,
-            onChanged: (v) => setState(() => _transport = v),
+              value: _transport,
+              onChanged: (v) => setState(() => _transport = v),
+            ),
           ),
         ),
         const SizedBox(height: AnSpace.s12),
         if (stdio) ...[
-          _label(t.settings.mcp.command, c),
-          AnInput(controller: _command, mono: true, placeholder: 'npx / uvx / docker …'),
+          AnFormField(label: t.settings.mcp.command, child: AnInput(controller: _command, mono: true, placeholder: 'npx / uvx / docker …')),
           const SizedBox(height: AnSpace.s12),
-          _label(t.settings.mcp.args, c),
-          AnInput(controller: _args, mono: true, multiline: true),
+          AnFormField(label: t.settings.mcp.args, child: AnInput(controller: _args, mono: true, multiline: true)),
           const SizedBox(height: AnSpace.s12),
-          _label(t.settings.mcp.envKv, c),
-          AnInput(controller: _env, mono: true, multiline: true),
+          AnFormField(label: t.settings.mcp.envKv, child: AnInput(controller: _env, mono: true, multiline: true)),
         ] else ...[
-          _label(t.settings.mcp.url, c),
-          AnInput(controller: _url, mono: true, placeholder: 'https://…'),
+          AnFormField(label: t.settings.mcp.url, child: AnInput(controller: _url, mono: true, placeholder: 'https://…')),
           const SizedBox(height: AnSpace.s12),
-          _label(t.settings.mcp.headersKv, c),
-          AnInput(controller: _headers, mono: true, multiline: true),
+          AnFormField(label: t.settings.mcp.headersKv, child: AnInput(controller: _headers, mono: true, multiline: true)),
         ],
         const SizedBox(height: AnSpace.s8),
         Text(t.settings.mcp.addFailedHonest, style: AnText.label.copyWith(color: c.inkFaint)),
@@ -144,10 +142,6 @@ class _McpManualFormState extends ConsumerState<McpManualForm> {
     );
   }
 
-  Widget _label(String text, AnColors c) => Padding(
-        padding: const EdgeInsets.only(bottom: AnSpace.s4),
-        child: Text(text, style: AnText.label.copyWith(color: c.inkMuted)),
-      );
 }
 
 /// The import face — a mono paste box + overwrite switch → «imported N · skipped M» toast.

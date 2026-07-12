@@ -180,31 +180,31 @@ class _InstallFormState extends ConsumerState<_InstallForm> {
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 480),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(t.settings.sandbox.kind, style: AnText.label.copyWith(color: c.inkMuted)),
-        const SizedBox(height: AnSpace.s4),
-        AnDropdown<String>(
+        AnFormField(label: t.settings.sandbox.kind, child: AnDropdown<String>(
           value: _kind,
           options: [for (final a in avail) AnDropdownOption(value: a.kind, label: a.kind)],
           onChanged: (v) => setState(() {
             _kind = v;
             _version = avail.firstWhere((a) => a.kind == v).defaultVersion;
           }),
-        ),
+        )),
         const SizedBox(height: AnSpace.s12),
-        Text(t.settings.sandbox.version, style: AnText.label.copyWith(color: c.inkMuted)),
-        const SizedBox(height: AnSpace.s4),
-        if (sel.pinned)
-          AnDropdown<String>(
-            value: sel.versions.contains(_version) ? _version : sel.versions.firstOrNull,
-            options: [for (final v in sel.versions) AnDropdownOption(value: v, label: v)],
-            onChanged: (v) => setState(() => _version = v),
-          )
-        else
-          AnInput(
-            controller: _freeVersion..text = _freeVersion.text.isEmpty ? _version : _freeVersion.text,
-            placeholder: t.settings.sandbox.versionHint,
-            onChanged: (v) => _version = v.trim(),
-          ),
+        // The conditional subtrees (pinned dropdown ↔ free input) stay structurally identical to
+        // today — same shell both branches (scout 风险注记). 条件子树两分支同壳。
+        AnFormField(
+          label: t.settings.sandbox.version,
+          child: sel.pinned
+              ? AnDropdown<String>(
+                  value: sel.versions.contains(_version) ? _version : sel.versions.firstOrNull,
+                  options: [for (final v in sel.versions) AnDropdownOption(value: v, label: v)],
+                  onChanged: (v) => setState(() => _version = v),
+                )
+              : AnInput(
+                  controller: _freeVersion..text = _freeVersion.text.isEmpty ? _version : _freeVersion.text,
+                  placeholder: t.settings.sandbox.versionHint,
+                  onChanged: (v) => _version = v.trim(),
+                ),
+        ),
         if (_error != null) ...[
           const SizedBox(height: AnSpace.s8),
           Text(_error!, style: AnText.label.copyWith(color: c.danger)),

@@ -142,13 +142,9 @@ class _CreateFormState extends ConsumerState<_CreateForm> {
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 480),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(t.settings.ws.name, style: AnText.label.copyWith(color: c.inkMuted)),
-        const SizedBox(height: AnSpace.s4),
-        AnInput(controller: _name, autofocus: true, onChanged: (_) => setState(() {})),
+        AnFormField(label: t.settings.ws.name, child: AnInput(controller: _name, autofocus: true, onChanged: (_) => setState(() {}))),
         const SizedBox(height: AnSpace.s12),
-        Text(t.settings.ws.color, style: AnText.label.copyWith(color: c.inkMuted)),
-        const SizedBox(height: AnSpace.s4),
-        _ColorPicker(value: _color, onChanged: (v) => setState(() => _color = v)),
+        AnFormField(label: t.settings.ws.color, child: _ColorPicker(value: _color, onChanged: (v) => setState(() => _color = v))),
         if (_error != null) ...[
           const SizedBox(height: AnSpace.s8),
           Text(_error!, style: AnText.label.copyWith(color: c.danger)),
@@ -261,16 +257,12 @@ class _WorkspaceEditorState extends ConsumerState<WorkspaceEditor> {
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 480),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(t.settings.ws.name, style: AnText.label.copyWith(color: c.inkMuted)),
-        const SizedBox(height: AnSpace.s4),
-        AnInput(
+        AnFormField(label: t.settings.ws.name, child: AnInput(
             controller: _name,
             onChanged: (_) => setState(() {}),
-            onSubmitted: (_) => _saveName(w)),
+            onSubmitted: (_) => _saveName(w))),
         const SizedBox(height: AnSpace.s12),
-        Text(t.settings.ws.color, style: AnText.label.copyWith(color: c.inkMuted)),
-        const SizedBox(height: AnSpace.s4),
-        _ColorPicker(
+        AnFormField(label: t.settings.ws.color, child: _ColorPicker(
           value: w.avatarColor ?? '',
           onChanged: (v) async {
             try {
@@ -281,7 +273,7 @@ class _WorkspaceEditorState extends ConsumerState<WorkspaceEditor> {
                   .showToast(e.message, tone: AnToastTone.danger);
             }
           },
-        ),
+        )),
         const SizedBox(height: AnSpace.s16),
         AnButton(
           label: t.settings.ws.save,

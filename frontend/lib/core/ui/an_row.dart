@@ -189,7 +189,7 @@ class AnRow extends StatelessWidget {
       glyph = _HoverSwap(
         alignment: Alignment.center,
         showSecond: active,
-        first: ExcludeSemantics(child: leadWidget!),
+        first: leadWidget!,
         second: AnimatedRotation(
           duration: reduced ? Duration.zero : AnMotion.mid,
           curve: AnMotion.spring,
@@ -198,7 +198,10 @@ class AnRow extends StatelessWidget {
         ),
       );
     } else if (leadWidget != null) {
-      glyph = ExcludeSemantics(child: leadWidget!);
+      // A custom lead may be INTERACTIVE (the memory pin) — it brings its own semantics; stripping
+      // them here would repeat the 批5 thumb-✕ a11y regression. 自定义 lead 可交互(pin),自带语义——
+      // 剥除=重蹈批5 缩略图 ✕ 覆辙。
+      glyph = leadWidget!;
     } else if (collapsible) {
       // icon ↔ chevron swap on hover; chevron rotates 90° when open. icon↔chevron 互换 + 旋转。
       glyph = _HoverSwap(
