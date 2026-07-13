@@ -140,15 +140,21 @@ class _DocEditView extends ConsumerStatefulWidget {
 
 class _DocEditViewState extends ConsumerState<_DocEditView> with _DocPageChrome {
   final _save = Debouncer(AnMotion.autosave);
+  final _outline = Debouncer(AnMotion.searchDebounce); // C-008: the outline re-extract is O(doc); debounce it
 
   @override
   void dispose() {
     _save.dispose();
+    _outline.dispose();
     super.dispose();
   }
 
   void _onChanged(String markdown) {
-    feedOutlineOnEdit(markdown);
+    // C-008: extractDocOutline is O(doc) — a keystroke burst used to re-scan the whole doc each key.
+    // Debounce it (the outline is a right-panel display; a ~250ms lag is imperceptible). 大纲重扫防抖。
+    _outline.run(() {
+      if (mounted) feedOutlineOnEdit(markdown);
+    });
     _save.run(() async {
       if (!mounted) return;
       // Content PATCH IS the save. The editor already serializes mentions back to `[[id]]`. A failed save
@@ -241,15 +247,20 @@ class _SkillEditView extends ConsumerStatefulWidget {
 
 class _SkillEditViewState extends ConsumerState<_SkillEditView> with _DocPageChrome {
   final _save = Debouncer(AnMotion.autosave);
+  final _outline = Debouncer(AnMotion.searchDebounce); // C-008: debounce the O(doc) outline re-extract
 
   @override
   void dispose() {
     _save.dispose();
+    _outline.dispose();
     super.dispose();
   }
 
   void _onChanged(String markdown) {
-    feedOutlineOnEdit(markdown);
+    // C-008: debounce the O(doc) outline re-extract (right-panel display; ~250ms lag imperceptible). 大纲防抖。
+    _outline.run(() {
+      if (mounted) feedOutlineOnEdit(markdown);
+    });
     _save.run(() async {
       if (!mounted) return;
       final repo = ref.read(documentsRepositoryProvider);
