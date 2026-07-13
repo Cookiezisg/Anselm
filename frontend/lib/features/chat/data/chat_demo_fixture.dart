@@ -17,6 +17,7 @@ import '../../../core/contract/entities/values.dart';
 import '../../../core/contract/entities/workflow.dart';
 import '../../../core/contract/mcp.dart';
 import '../../../core/contract/messages/chat_message.dart';
+import '../../../core/contract/page.dart';
 import '../../../core/contract/todo.dart';
 import '../../../core/contract/touchpoint.dart';
 import '../../../core/sse/frame.dart';
@@ -80,6 +81,11 @@ class DemoChatRepository extends FixtureChatRepository {
       '```py\ndate.astimezone(tz).quarter\n```\n\n'
       '要不要我顺手把这个写成一个 function 挂进 workflow?';
 
+  // D-021 — the send-failure bubble (retry / discard), scoped to cv_flaky's first send so the failed
+  // optimistic bubble + its retry/discard buttons are demo-able without breaking every other send. One-
+  // shot → Retry succeeds and plays the normal reply. cv_flaky 首发失败→乐观泡长出重试/丢弃,重试即成。
+  bool _flakySendFailed = false;
+
   @override
   Future<String> sendMessage(
     String conversationId, {
@@ -87,6 +93,10 @@ class DemoChatRepository extends FixtureChatRepository {
     List<String> attachmentIds = const [],
     List<({String type, String id})> mentions = const [],
   }) async {
+    if (conversationId == 'cv_flaky' && !_flakySendFailed) {
+      _flakySendFailed = true;
+      throw StateError('scripted send failure');
+    }
     final assistantId = await super.sendMessage(conversationId,
         content: content, attachmentIds: attachmentIds, mentions: mentions);
     // Mirror the backend's dot truth: the row turns generating and the rail hears a turn pulse.
@@ -96,6 +106,22 @@ class DemoChatRepository extends FixtureChatRepository {
     emitTurnSignal(conversationId, TurnSignalKind.turnOpen);
     _playReply(conversationId, assistantId, userText: content);
     return assistantId;
+  }
+
+  // D-012 — the Cast ledger's first-fetch failure + retry, scoped to one seeded conversation so the rest
+  // of the demo stays healthy. touchpointLedgerProvider is autoDispose.family and hydrates lazily only
+  // when that conversation's sidestage opens, so this error appears ONLY when the user opens cv_flaky's
+  // Cast; the one-shot means Retry succeeds. cv_flaky 首拉台账失败→重试成(仅此对话,懒加载不伤 happy-path)。
+  bool _flakyCastFailed = false;
+  @override
+  Future<Page<Touchpoint>> listTouchpoints(String conversationId,
+      {String? cursor, int? limit, String? kind, TouchpointVerb? verb}) async {
+    if (conversationId == 'cv_flaky' && !_flakyCastFailed) {
+      _flakyCastFailed = true;
+      throw StateError('scripted touchpoint fetch failure');
+    }
+    return super
+        .listTouchpoints(conversationId, cursor: cursor, limit: limit, kind: kind, verb: verb);
   }
 
   @override
@@ -690,14 +716,26 @@ DemoChatRepository demoChatRepository() {
       conv('cv_sync', 'AI 编辑 · sync_inventory 加重试', const Duration(minutes: 10), pinned: true),
       for (final s in shows) s.conv, // the tool-card showcase — every tool card, live 工具卡展台(每卡)
       conv('cv_gate', '展台 · 活人闸', const Duration(minutes: 2), awaiting: true), // M8: the LIVE gate 活门(琥珀点)
+      conv('cv_ask', '展台 · 提问待答', const Duration(minutes: 4), awaiting: true), // D-002: a LIVE ask_user gate 活问闸
       conv('cv_weekly', '周报初稿整理', const Duration(hours: 1), unread: true), // unread green + markdown/table
       conv('cv_scroll', '展台 · 长卷与深跳', const Duration(hours: 3)), // W6: 场次条 + ?around= deep jump 深跳长卷
+      conv('cv_flaky', '展台 · 出错与恢复', const Duration(hours: 4)), // D-012: its Cast ledger fails its first fetch 台账首拉失败
       for (final c in pastChats) c.conv, // D-005 history — rail paginates past its 30-row page 历史使 rail 翻页
       conv('cv_migrate', '旧版迁移笔记', const Duration(days: 40), archived: true), // the archived (gray) example
     ],
     messages: {
       for (final c in pastChats) c.conv.id: c.msgs,
       for (final s in shows) s.conv.id: s.messages,
+      // D-012 — a real short transcript; opening its Cast (right island) fails its first touchpoint
+      // fetch → the error+retry state, then Retry succeeds (the override above is one-shot). 出错与恢复。
+      'cv_flaky': [
+        msg('m_fk1', 'cv_flaky', 'user', const Duration(hours: 4, minutes: 3),
+            blocks: [blk('b_fk1', 'text', '刚才网络抖了一下,你这边有影响吗?')]),
+        msg('m_fk2', 'cv_flaky', 'assistant', const Duration(hours: 4, minutes: 2), blocks: [
+          blk('b_fk2', 'text',
+              '有短暂影响,已自动恢复。右岛的演员表这次首次拉取失败了——点「重试」就能重新载入(前端对瞬时失败都是可重试的,不会丢状态)。'),
+        ]),
+      ],
       // M8 活人闸: the gate's REAL wire shape — the tool_call block CLOSED (args final; an open
       // block is argsStreaming and can never reach awaitingConfirm), no tool_result yet, the message
       // still streaming, plus a seeded pending interaction. The amber gate (approve/deny) is finally
@@ -712,6 +750,20 @@ DemoChatRepository demoChatRepository() {
         msg('m_hg2', 'cv_gate', 'assistant', const Duration(minutes: 2), status: 'streaming', blocks: [
           blk('b_hg_gate', 'tool_call', '{"functionId":"fn_legacy_sync"}',
               attrs: {'tool': 'delete_function', 'danger': 'dangerous', 'summary': '删除废弃函数 legacy_sync(不可逆)'}),
+        ]),
+      ],
+      // D-002 活问闸: the ask_user gate's live wire shape — same as the danger gate (a CLOSED tool_call,
+      // no tool_result, the message still streaming), but kind=ask: the gate renders the prompt + option
+      // pills + a free-text field. The seeded ask Interaction below carries message + options. 活 ask 门:
+      // 同 danger 门的线缆形但 kind=ask,渲 prompt+选项药丸+自由文本框。
+      'cv_ask': [
+        msg('m_ak1', 'cv_ask', 'user', const Duration(minutes: 5), blocks: [
+          blk('b_ak1', 'text', '帮我把这批发票发出去'),
+        ]),
+        msg('m_ak2', 'cv_ask', 'assistant', const Duration(minutes: 4), status: 'streaming', blocks: [
+          blk('b_ak_gate', 'tool_call',
+              '{"message":"这批发票要发到哪个环境?","options":["生产环境","预发环境","测试环境"]}',
+              attrs: {'tool': 'ask_user', 'danger': 'safe', 'summary': '向你确认部署环境'}),
         ]),
       ],
       // W6 深跳长卷: 64 turns so the head page (30) can't hold it and the TALLER drawer's bottom rows land beyond it — the 场次条 jumps ?around= for real.
@@ -1076,6 +1128,19 @@ DemoChatRepository demoChatRepository() {
         firstAt: ago(Duration(hours: 27, minutes: i)), lastAt: ago(Duration(hours: 26, minutes: i)),
       ),
   ];
+  // D-012 — cv_flaky's Cast rows, landed AFTER the one-shot first-fetch failure is retried. 重试后的台账。
+  repo.touchpoints['cv_flaky'] = [
+    Touchpoint(
+      id: 'tp_fk1', conversationId: 'cv_flaky', itemKind: 'function', itemId: 'fn_sync',
+      itemName: 'sync_inventory', verb: TouchpointVerb.viewed, lastActor: TouchpointActor.assistant,
+      count: 1, firstAt: ago(const Duration(hours: 4, minutes: 3)), lastAt: ago(const Duration(hours: 4, minutes: 2)),
+    ),
+    Touchpoint(
+      id: 'tp_fk2', conversationId: 'cv_flaky', itemKind: 'workflow', itemId: 'wf_night',
+      itemName: 'nightly_rollup', verb: TouchpointVerb.mentioned, lastActor: TouchpointActor.user,
+      count: 1, firstAt: ago(const Duration(hours: 4, minutes: 3)), lastAt: ago(const Duration(hours: 4, minutes: 2)),
+    ),
+  ];
   repo.interactions['cv_gate'] = const [
     Interaction(
       toolCallId: 'b_hg_gate',
@@ -1084,6 +1149,18 @@ DemoChatRepository demoChatRepository() {
       resolved: false,
       summary: '删除废弃函数 legacy_sync(不可逆)',
       args: {'functionId': 'fn_legacy_sync'},
+    ),
+  ];
+  // D-002 — the LIVE ask_user gate's pending interaction: kind=ask carries the prompt + option pills the
+  // gate renders (plus the free-text field for an off-menu answer). 活问闸:kind=ask 携 prompt+选项。
+  repo.interactions['cv_ask'] = const [
+    Interaction(
+      toolCallId: 'b_ak_gate',
+      kind: InteractionKind.ask,
+      tool: 'ask_user',
+      resolved: false,
+      message: '这批发票要发到哪个环境?',
+      options: ['生产环境', '预发环境', '测试环境'],
     ),
   ];
   repo.attachmentMetas['att_demo_shelf'] = const AttachmentMeta(

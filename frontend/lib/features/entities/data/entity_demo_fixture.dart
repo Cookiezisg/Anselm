@@ -172,12 +172,15 @@ FixtureEntityRepository demoEntityRepository() {
         createdAt: t1,
       );
 
-  return FixtureEntityRepository(
+  return DemoEntityRepository(
     functions: [
       fn('fn_normalize', 'normalize-input', 'Coerce + trim raw fields', 'def main(text):\n    return text.strip().lower()'),
       fn('fn_validate', 'validate-schema', 'JSON-schema validate a payload', 'def main(payload):\n    validate(payload)\n    return True'),
       fn('fn_weather', 'fetch-weather', 'Call the weather API', 'def main(city):\n    return api.get(city)'),
       fn('fn_summarize', 'summarize-text', 'LLM summarize a document', 'def main(doc):\n    return llm.summarize(doc)'),
+      // D-029 — a deliberately-broken row: its detail GET throws (see DemoEntityRepository below), so
+      // opening it shows the error+retry panel while every other entity opens fine. 坏行演详情错误面。
+      fn('fn_broken', 'broken-example', '打开会加载失败 — 错误态示例', 'def main():\n    ...'),
     ],
     handlers: [
       hd('hd_slack', 'slack', 'Slack workspace client', 'running', 'ready', const []),
@@ -399,4 +402,45 @@ FixtureEntityRepository demoEntityRepository() {
       ],
     },
   );
+}
+
+/// The demo entity repository — the fixture plus ONE deliberately-broken detail (D-029): `fn_broken` is
+/// listed in the rail but its detail GET throws (a dangling id, mirroring a real 404/5xx), so opening it
+/// shows the detail sea's error+retry panel while every other entity opens fine. entityDetailProvider is
+/// autoDispose.family, so this errors ONLY when that one row is selected — the happy path is untouched.
+/// demo 实体仓:多一个坏详情(fn_broken 列出但 GET 抛),只在选中它时演错误面,不伤 happy-path。
+class DemoEntityRepository extends FixtureEntityRepository {
+  DemoEntityRepository({
+    super.functions,
+    super.handlers,
+    super.agents,
+    super.workflows,
+    super.functionVersions,
+    super.handlerVersions,
+    super.agentVersions,
+    super.workflowVersions,
+    super.functionExecutions,
+    super.handlerCalls,
+    super.agentExecutions,
+    super.flowruns,
+    super.flowrunDetail,
+    super.mountHealth,
+    super.mcpServers,
+    super.mcpTools,
+    super.triggers,
+    super.controls,
+    super.controlLogics,
+    super.approvals,
+    super.approvalForms,
+    super.triggerEntities,
+    super.activations,
+    super.firings,
+    super.handlerConfigs,
+  });
+
+  @override
+  Future<FunctionEntity> getFunction(String id) async {
+    if (id == 'fn_broken') throw StateError('scripted detail failure: $id');
+    return super.getFunction(id);
+  }
 }

@@ -27,6 +27,17 @@ audience: [human, ai]
 - **AnStickViewport 增 `fadeColor`**(白宿主传 surface,灰底退役)。bar 同构补齐:编辑器 copy 驻留走 AnMotion.dwell + AnTooltip。
 - AnLedgerRow 补 `expandChild`;「展开全部 N」列表壳 **deferred → P4 吸收四套台账时落**。
 
+## 批D7 落地(2026-07-13,D 轨收官——失败注入簇 H 逐条裁定 + 活问闸)
+
+**D 轨全部 35 GAP 落定:30 done + 5 exempt(D-001/003/004/017/030),0 open。** 簇 H 失败注入钩经 fresh-context 研究逐条裁(seed-vs-豁免,不放水):
+- **D-002 活问闸 ✅ seed**:`cv_ask` 会话种活 `ask_user` 门(streaming 回合带关帧 ask_user tool_call 无 result + kind=ask 未决 interaction[message+options])——琥珀活态待答,补齐 danger 门外的 ask 脸。
+- **D-012 台账首拉失败 ✅ seed**:`DemoChatRepository.listTouchpoints` override 对 cv_flaky 首拉一次性抛→error+retry,重试成。懒加载 family 仅此对话错。
+- **D-021 发送失败泡 ✅ seed**:`DemoChatRepository.sendMessage` override 对 cv_flaky 首发一次性抛→乐观泡失败态长出重试/丢弃(抛在回放前不排 timer)。
+- **D-029 实体详情错误 ✅ seed**:新 `DemoEntityRepository` 子类 getFunction override 对 `fn_broken` 抛(rail 列出但详情 GET 抛)→autoDispose.family 仅选中时 error+retry,兄弟照开。
+- **豁免五条(硬技术,非放水)**:D-001(uploadAttachment 无 conversationId 不可 scope,全局 arming 破 happy-path 首附件)· D-003(唯一活 gate=cv_gate 是 happy-path M8 须保持干净,第二 flaky-gate=人造)· D-004(failNextListConversations 在 build() 首拉即检,静态 arming 每启破整 rail)· D-017(_resync 单全局广播,非破坏性无持久泡,须脚本恰时 in-flight send)· D-030(demo osNotifierProvider=NoopOsNotifier[批D6])。
+- **裁定原则**:passively-visible-on-open(开即见错:D-002/012/029)+ scoped-recoverable(D-021)=seed;action-required-transient 或 结构性全局(D-001/003/004/017)=豁免。三 override 全 one-shot、scope 到单一 seeded item,happy-path 零损。
+- 验收=三份**数据级电池**(chat/data/flaky_demo[台账首拉抛→重试成·send 首发抛·实体 GET 抛]·chat/data/ask_gate_demo[未决 ask interaction+options·streaming 门无 result])+ fe-verify 全绿。**D 轨(demo 全展示)战役收官。**
+
 ## 批D6 落地(2026-07-13,D 轨 demo 可达性——分页/文档/toast/快捷键+OS 通知豁免)
 
 簇 D-G 六 GAP(五做一豁免):

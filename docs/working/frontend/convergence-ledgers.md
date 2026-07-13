@@ -271,10 +271,10 @@ audience: [human, ai]
 
 | # | feature × 状态 | 需补什么 | 状态 |
 |---|---|---|---|
-| D-001 | chat-composer · 附件上传失败 chip | failNextUpload 仅脚本钩(chat_fixtures.dart:616),UI 无触发径;可给展台加一次性失败命令/种子 | open |
-| D-002 | chat-gate · ask_user 活问闸(选项+自由文本待答) | 仅 settled ask 卡(cv_show_human human0);需种 kind=ask 未决 interaction + streaming 开卡(GateKind.ask 在 tool_interaction_gate.dart:14) | open |
-| D-003 | chat-gate · 决议失败复原(failNextResolve) | 仅脚本钩(chat_fixtures.dart:537),demo UI 无径 | open |
-| D-004 | chat-rail · 列表失败重试(M9) | failNextListConversations 仅测试钩(chat_fixtures.dart:84),demo UI 无触发径 | open |
+| D-001 | chat-composer · 附件上传失败 chip | failNextUpload 仅脚本钩(chat_fixtures.dart:616),UI 无触发径;可给展台加一次性失败命令/种子 | exempt·批D7(硬结构:uploadAttachment 签名无 conversationId[pre-send 全局上传],无法 scope 到 flaky 对话;全局 arming 会失败 happy-path composer 首个真附件;失败 chip+retry 径 widget 测覆盖;真 app 由真 4xx/不可读文件[pending_attachments:89]自然触达) |
+| D-002 | chat-gate · ask_user 活问闸(选项+自由文本待答) | 仅 settled ask 卡(cv_show_human human0);需种 kind=ask 未决 interaction + streaming 开卡(GateKind.ask 在 tool_interaction_gate.dart:14) | done·批D7(cv_ask 会话种活 ask_user 门:streaming 回合带关帧 ask_user tool_call 无 result+kind=ask 未决 interaction[message+options 选项药丸];琥珀活态待答;数据级电池) |
+| D-003 | chat-gate · 决议失败复原(failNextResolve) | 仅脚本钩(chat_fixtures.dart:537),demo UI 无径 | exempt·批D7(需人工 gate 的 resolve 失败;demo 唯一活 gate=cv_gate 是 happy-path M8 审批演示须保持干净,失败它即破 M8;专开第二个 flaky-gate 对话仅为演 resolve 失败复原=人造 chrome;gate 解冻复原 widget 测覆盖) |
+| D-004 | chat-rail · 列表失败重试(M9) | failNextListConversations 仅测试钩(chat_fixtures.dart:84),demo UI 无触发径 | exempt·批D7(硬结构:failNextListConversations 在 build() 首次 list 即检、launch 首拉 rail;静态 arming 每次启动破整个 rail[主导航];loadMore-only retry 行须 arming 在首页后=脚本时序,无 fixture 做;不可 per-conversation scope) |
 | D-005 | chat-rail · 无限翻(loadMore 分页) | demo 仅 13 会话 < 页大小 30(conversation_list_provider.dart:95);需 30+ 会话种子 | done·批D6(种 20 短真历史对话[honoring #1 每行有内容],rail 越过 30 页;分页数据级电池) |
 | D-006 | chat-sidestage · agent 渐进开区舞台(R-9) | agents 快照空(chat_fixtures.dart:411)+ 无触点无幕 | done·批D3(cv_sync 种 agent 触点 ag_reconcile+快照;侧幕 agent 舞台可开) |
 | D-007 | chat-sidestage · approval 信笺舞台 | 同上:approvals 快照空(chat_fixtures.dart:409)+ 无触点无幕 | done·批D3(种 approval 触点 apf_refund+ApprovalForm 快照[CEL 模板];侧幕 approval 舞台) |
@@ -282,16 +282,16 @@ audience: [human, ai]
 | D-009 | chat-sidestage · handler 方法架舞台 | handlers 快照空(chat_fixtures.dart:412)+ 无触点无幕 | done·批D3(种 handler 触点 hd_ledger+HandlerEntity 快照[方法架];侧幕 handler 舞台) |
 | D-010 | chat-sidestage · trigger 舞台(R-16 只信 GET) | triggers 快照空(chat_fixtures.dart:410)+ 无触点无幕;R-16 要求 GET 真相,须种 TriggerEntity | done·批D3(种 trigger 触点 cron_nightly+TriggerEntity 快照;正是 wf_night 图 ref,R-16 只信此 GET) |
 | D-011 | chat-sidestage · 台账 loadMore 脚(分页骨架行) | cv_sync 仅 7 行 < 页大小 50;需 50+ 触点种子 | done·批D6(cv_p20 马拉松会话种 54 触点[前 10 真快照+44 合成降级],台账越过 50 页;分页数据级电池) |
-| D-012 | chat-sidestage · 台账首拉失败重试 | fixture listTouchpoints 恒成功(chat_fixtures.dart:487-503),无失败钩;需加 failNext 钩+触发径 | open |
+| D-012 | chat-sidestage · 台账首拉失败重试 | fixture listTouchpoints 恒成功(chat_fixtures.dart:487-503),无失败钩;需加 failNext 钩+触发径 | done·批D7(cv_flaky 会话 listTouchpoints override 首拉一次性抛→AnStateKind.error+retry,重试成;懒加载 family 仅此对话错,happy-path 零损;数据级电池) |
 | D-013 | chat-sidestage · 墓碑行(deleted 动词封禁 GET) | 无 verb=deleted 触点种子(墓碑规则 touchpoint_ledger.dart:36);cv_sync 补一条 deleted 行 | done·批D3(种 verb=deleted 墓碑行 fn_legacy_sync[无快照];tombstoned 门控走 SettledBody 不 GET;数据级电池验封 GET) |
 | D-014 | chat-stream · edit_workflow 图 morph | 脚本只有 create_workflow;补一幕 edit_workflow(压 wf_night 旧图 morph,B2 旗舰面) | done·批D4(cv_show_term 展台种 edit_workflow morph 卡[+1 ~1 −1 节点+边 delta,ops-delta 形];showcase 编目测过) |
 | D-015 | chat-stream · 失败舞台 failedHold(honesty ribbon failed / 失败洗亮) | 脚本全 completed;补一幕 tool close status=failed(或失败 Subagent)演 failedHold + 红丝带 | done·批D5(cv_show_nested 补失败 subagent sb0[tool_call status=error→node.isError];sceneFromSubagentNode→StagePhase.failedHold+红丝带;补全 get_subagent_trace 悬空 subagt_02 引用;数据级电池) |
 | D-016 | chat-toolcards · WebSearch/WebFetch soft-fail 结局分类器 | cv_show_mem 的 mw2/mw3 皆成功;补一条 WebFetch 失败句结果(status=completed 渲红,WRK-059 H2 面) | done·批D4(种 WebFetch 软失败句「Failed to fetch」status=completed→webFetchOutcome.fail 渲红;数据级电池) |
-| D-017 | chat-transcript · 410 resync 落盘泡对账(M4) | emitResync 仅脚本钩(chat_fixtures.dart:575);demo 无 410 触发径(M6 人在环重连重拉同理不可达) | open |
+| D-017 | chat-transcript · 410 resync 落盘泡对账(M4) | emitResync 仅脚本钩(chat_fixtures.dart:575);demo 无 410 触发径(M6 人在环重连重拉同理不可达) | exempt·批D7(硬结构:_resync 单条全局广播,emitResync 强制所有挂载 provider 重取[rail 重页/transcript 重水合/ledger·interactions 对账],非破坏性[重读种子头]故无持久可见泡;唯一可见制品=对账时survive 的在飞乐观泡,须脚本一个恰时的 pending send;全局事件时序非静态 per-item 种子) |
 | D-018 | chat-transcript · LLM_RESOLVE_ERROR「重选模型」CTA | 需 errorCode=LLM_RESOLVE_ERROR 消息种子(CTA 在 chat_transcript.dart:565-583) | done·批D4(种 errorCode=LLM_RESOLVE_ERROR+stopReason=error 回合;hydrateTurn 投影 turn.content→「重选模型」CTA) |
 | D-019 | chat-transcript · max_steps / context_budget 琥珀横幅 | 无 stopReason=max_steps/context_budget 种子(分支在 chat_transcript.dart:551-552) | done·批D4(种 stopReason=max_steps 回合→琥珀横幅) |
 | D-020 | chat-transcript · tool_result 硬失败(status=error 红回执/ownsError) | 全 fixture 无 error:true 结果块(tr() 的 error 参数从未用,chat_showcase_fixture.dart:20-27);展台补一张失败卡 | done·批D4(种 tool_result error:true→status=error 硬失败红回执/ownsError;数据级电池) |
-| D-021 | chat-transcript · 发送失败泡(重试/丢弃) | failNextSend 仅脚本钩(chat_fixtures.dart:310);_PendingRow 失败态(chat_transcript.dart:614-629)demo 不可达 | open |
+| D-021 | chat-transcript · 发送失败泡(重试/丢弃) | failNextSend 仅脚本钩(chat_fixtures.dart:310);_PendingRow 失败态(chat_transcript.dart:614-629)demo 不可达 | done·批D7(cv_flaky sendMessage override 首发一次性抛→_PendingRow 失败态长出重试/丢弃,抛在回放前不排 timer;数据级电池) |
 | D-022 | chat-transcript · 红色 error 横幅(errorCode·errorMessage) | 无通用 error 终态种子(danger 分支 chat_transcript.dart:556 无演示);种一条 stopReason=error+errorCode 消息 | done·批D4(种 stopReason=error+errorCode=HANDLER_RPC_TIMEOUT+errorMessage 通用红 error 横幅) |
 | D-023 | documents · 编辑器表格块 + URL 链接 + h1/h4–h6 标题档 | 种子正文无表格、无 markdown 链接、只有 h2/h3;补一篇全块型样章锁大纲六档下标 | done·批D6(种 Formatting Reference 全块型样章:h1-h6 六档+URL 链接+wikilink+表格+三列表+引用+代码;extractDocOutline 电池) |
 | D-024 | entities · approval 详情页 | 未传 approvalForms→rail approval 段恒空;补 ApprovalForm 种子(表单 schema) | done·批D2(种 ap_publish ApprovalForm[CEL 插值模板+allowReason+24h reject];rail approval 段+详情页有料;数据级电池) |
@@ -299,7 +299,7 @@ audience: [human, ai]
 | D-026 | entities · flowrun parked 停车态(人闸待决 :decide) | 种带 approval 节点的 workflow 图+parked flowrunDetail(fixture 已支持 _walkFlowrun 停车,entity_fixtures.dart:345-352) | done·批D2(种 wf_release 人闸发布线+flr_park 停在 approve_deploy;listFlowrunInbox 有停车;数据级电池) |
 | D-027 | entities · handler/agent 版本历史 tab 有内容 | entity_demo_fixture 只种 functionVersions/workflowVersions;补 handlerVersions+agentVersions map | done·批D2(种 handlerVersions[hd_slack ×2]+agentVersions[ag_researcher ×3]版本轨迹;history tab 有料;数据级电池) |
 | D-028 | entities · 图编辑器 ref picker 的 mcp/control/approval 候选 | fixture mcpServers/mcpTools/controls/approvals 候选全空;补 RefCandidate 种子 | done·批D2(种 mcpServers[context7/filesystem]+mcpTools;control/approval 候选自实体派生;图编辑器 ref picker;数据级电池) |
-| D-029 | entities · 详情错误态(error+retry 面) | fixture 永不抛错且桌面无地址栏;需 fixture 加 failNext 脚本钩或种坏 id 展台入口 | open |
+| D-029 | entities · 详情错误态(error+retry 面) | fixture 永不抛错且桌面无地址栏;需 fixture 加 failNext 脚本钩或种坏 id 展台入口 | done·批D7(DemoEntityRepository 子类 getFunction override 对 fn_broken 抛[rail 列出但详情 GET 抛];autoDispose.family 仅选中时错→error+retry 面,兄弟照开;数据级电池) |
 | D-030 | notifications · OS 原生通知(失焦路由) | 同上无 signal 可路由;随 toast 展台脚本一并覆盖(失焦时验证) | exempt·批D6(硬技术:demo osNotifierProvider 默认=NoopOsNotifier[仅真 app main.dart 装 LocalOsNotifier];OS 通知需真通知权限+失焦,零后端 fixture demo 的 Noop 永不触发,不可达非放水) |
 | D-031 | notifications · 事件→toast(右上重要事件弹窗) | demo 无人调 fixture.emit()(仅测试用);加展台脚本延时 emit danger 行触发 ToastDispatcher | done·批D6(demoLiveToast+demo_main 延时 6s emit danger 行→ToastDispatcher[shell watch 活]弹右上;danger tone+durable 信号数据级电池) |
 | D-032 | settings · MCP 面板(server 行/registry 安装/调用日志/stderr) | fixture mcpServers/mcpRegistry/calls 全空(settings_repository.dart:717-718);种 ready+failed server+registry 条目 | done·批D1(demo fixture 种 ready+failed MCP server[ready 带 2 工具/failed 带诚实错误]+2 registry 条目;数据级电池) |
