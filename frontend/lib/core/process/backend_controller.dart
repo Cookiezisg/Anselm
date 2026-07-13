@@ -131,9 +131,19 @@ class BackendController {
   }
 
   Future<void> _spawnAndGate() async {
+    // P5 (C-030) cold-start trace: split the backend leg into spawn (port grab + keychain resolve +
+    // Process.start) vs health-wait (the Go server booting until /health = 200). If health-wait dominates
+    // the critical path, kicking the spawn off EARLY — overlapping it with prefs/window init in main —
+    // shaves that boot time off cold start. debugPrint is stripped in release, so this is a profile-only
+    // measurement, no shipped cost. P5:后端腿切分(spawn vs health-wait);后者主导则提前 spawn 与窗口初始化
+    // 并行可省 boot 时间。release 下 debugPrint 剥除,零运行成本。
+    final sw = Stopwatch()..start();
     _authToken = _tokenGen();
     _baseUrl = await _spawn(_authToken!);
+    final spawnedMs = sw.elapsedMilliseconds;
     await _awaitHealth(_baseUrl!, token: _authToken);
+    debugPrint('[startup] backend: spawn=${spawnedMs}ms '
+        'health-wait=${sw.elapsedMilliseconds - spawnedMs}ms total=${sw.elapsedMilliseconds}ms');
     _setReady();
     _watchExit(_child!);
   }
@@ -159,7 +169,12 @@ class BackendController {
       'ANSELM_AUTH_TOKEN': token,
     };
     if (dataDir != null) env['ANSELM_DATA_DIR'] = dataDir!;
+    // P5 (C-030): the keychain resolve is the ADR-0008-sensitive step (a fresh install mints + reads back
+    // the master key; an existing install reads it). Time it separately so the cold-start trace shows
+    // whether keychain access (vs the Go boot) is a bottleneck. 主密钥解析单独计时(ADR-0008 敏感步)。
+    final mkSw = Stopwatch()..start();
     final mk = masterKey == null ? null : await masterKey!();
+    if (masterKey != null) debugPrint('[startup] masterKey resolve=${mkSw.elapsedMilliseconds}ms');
     if (mk != null && mk.isNotEmpty) env['ANSELM_MASTER_KEY'] = mk;
     final child = await _launch(exe, const [], environment: env);
     _child = child;

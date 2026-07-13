@@ -137,6 +137,7 @@ audience: [human, ai]
 - **已知嫌疑人**(仅供 P1 参考,测量定罪):收起工具卡体每帧陪跑构建(AnExpandReveal child 恒构造)/族体每帧全量 `jsonDecode` resultText/常驻 Timer·shimmer(N 活卡=N 每秒 setState)/transcript 流式期重建范围。
 - **每步顺手做好**(决策 #7):P4 每一批迁移同时清掉所在文件的性能违规——动一个文件只动一次。
 - 仓内已有资产:W0 流式压力床、perf specimens——升级为常设预算门禁。
+- **P5 收尾**(A/B/D 三轨 100% 后):C 轨绝大多数已随 P4 顺手清 + 记忆化批（scene/arg/receipt/resultObj/graph/终端行/呼吸点隔层/settled 行·块记忆化 …）落定;余 4 条=真机相位(headless 无纯净安全子集),操作手册 [`p5-profiling-playbook.md`](p5-profiling-playbook.md)——每项写明跑法/采集/决策(jank⇒预备修法、smooth⇒证伪)。`backend_controller` 已埋冷启动计时(C-030)。
 
 ### D demo 全展示
 
@@ -154,7 +155,7 @@ audience: [human, ai]
 | **P2 法典** | 六族当家件 API 设计 + 版式文法成文;gallery mockup 逐族 | **🙋 用户逐族拍板**后冻结 |
 | **P3 地基改造** | 当家原语长出 variant/slot(gallery 先行),旧件标记 deprecated | gallery 全 variant 展示;fe-verify 绿 |
 | **P4 批量迁移** | 按族逐批机械替换;每批=建 → 对抗复审 → 真机 3–5 帧 → 台账/基线降+**覆盖状态推进**(同提交);**顺手清所在文件性能违规**;死件物理删除;尾段**全量扫尾批**清分母 pending | **基线到 0**;死码零;**coverage pending·ledgered 双清零** |
-| **P5 性能轨** | 与 P2–P4 并行,按 §4-C 方法论推进(全覆盖场景套件) | 预算测试绿;嫌疑人台账清零 |
+| **P5 性能轨** 🔄 | 与 P2–P4 并行,按 §4-C 方法论推进(全覆盖场景套件)。A/B/D 三轨 100% 后余 4 条真机项(C-001/016/025/030),操作手册 [`p5-profiling-playbook.md`](p5-profiling-playbook.md)——用户真机跑 profiler/trace → 逐项据数据实现或证伪 | 预算测试绿;嫌疑人台账清零 |
 | **P6 收口** | **第二轮全新普查对空账**(抓第一轮盲区)→ design-system.md 整体重述 → landed-into → 归档 | `make docs` 绿;/goal 判据全满足 |
 
 D 轨随时插批(纯加法零风险),矩阵测试随最后一批收口。
