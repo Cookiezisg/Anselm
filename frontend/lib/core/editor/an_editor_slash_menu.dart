@@ -154,18 +154,11 @@ class _AnSlashMenuOverlayState extends DocumentLayoutLayerState<AnSlashMenuOverl
     final anchor = documentLayout.getRectForPosition(tag.start);
     if (anchor == null) return null;
 
-    // Estimated menu height (the surface reports its own geometry), capped at the panel's maxHeight.
-    // 菜单估高(面板自报几何),不超面板 maxHeight。
-    final menuHeight = AnMenuSurface.estHeight(widget.matches.length).clamp(0.0, AnSize.menuMaxHeight);
+    // Shared caret-anchored placement (A-104) — hang below by default, flip above only if below
+    // overflows AND above fits (mention shares this exact math). 共享落点:默认下挂,下溢且上容才翻上。
     final box = context.findRenderObject() as RenderBox?;
     final layerHeight = (box != null && box.hasSize) ? box.size.height : double.infinity;
-
-    // Hang BELOW the trigger by default; flip ABOVE only if below would overflow the content AND above
-    // fits. 默认挂下方;仅当下方溢出内容且上方放得下时,翻到上方。
-    final wouldOverflow = anchor.bottom + AnSpace.s4 + menuHeight > layerHeight;
-    final fitsAbove = anchor.top - AnSpace.s4 - menuHeight >= 0;
-    final top = (wouldOverflow && fitsAbove) ? anchor.top - AnSpace.s4 - menuHeight : anchor.bottom + AnSpace.s4;
-    return (left: anchor.left, top: top);
+    return AnMenuSurface.caretPlacement(anchor: anchor, rows: widget.matches.length, layerHeight: layerHeight);
   }
 
   @override

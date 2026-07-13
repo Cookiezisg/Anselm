@@ -52,7 +52,12 @@ A-032/A-033/A-034/A-036/A-038/A-046/A-048 关账(A-031 剩 AnAttachmentChip、A-
 3. **reduced 双闸选档**:装饰循环(shimmer/呼吸/雷达/转圈/打字机)=reducedOrAssistive;功能性一次揭示(展开/洗亮/入场)=reduced。
 4. **表单内联错误=label(13)+danger+top:s8;整面载入失败=AnState(error)**;行内空态=AnState inset;rail 整面四态=AnRailStates。
 
-### 批9e 落地(2026-07-13,A 轨窗族 raw-mono 收编 + 两豁免裁定)
+### 批9f 落地(2026-07-13,A 轨编辑器弹层几何 dedup·overlay 高危区纯函数安全解)
+
+A-104 done:
+- **caret 弹层翻转几何 dedup**:mention(:82-88)与 slash(:160-166)**逐字重复**「estHeight 估高→layerHeight 比较→下溢且上容则翻上」——抽 `AnMenuSurface.caretPlacement(anchor, rows, layerHeight)→(left,top)` **纯静态几何**;关键安全裁决:**「overlay 卡死高危区」指 overlay 层机制/时序,非这段纯数学**,故抽纯函数不碰高危部分(box/layerHeight 的 findRenderObject 读留在调用点,只搬计算);宽档统一批7 B-019/020 已做;3 几何电池(默认下挂/下溢上容翻上/上不容仍下挂)。
+
+**A 轨仅剩 A-113 一行 substantive open**:doc 编辑器头(全用族原语 AnInlineEdit/AnTags/AnText,仅布局 bespoke)→AnOceanHeader reading 变体 或 新文档头原语——**头部词汇设计决策**(AnOceanHeader 大改会波及实体海洋;新原语需拍板),交用户/专项设计裁定;A-004/006 defer(单 feature widget 升格 core=A-056 过早)、A-007/009 exempt(决策容器/轻量轨迹)、A-056/069/085=documented。**批9a–9f 共清 27 A 行,A 台账 32→1 substantive(A-113 设计决策)+7 documented,视觉六族收敛实质完成**。### 批9e 落地(2026-07-13,A 轨窗族 raw-mono 收编 + 两豁免裁定)
 
 A-003 done + A-007/A-009 工程判断豁免:
 - **A-003 raw-mono 回落窗**:15 处散置 `AnWindow(child: Text(raw,code,maxLines:N,ellipsis))`→共享 `rawMonoWindow(context, text, {maxLines, color})`(tool_card_skins);散置行数 12/20/40/200→**AnCap 四命名档**(monoError/Compact/Body/FullLines);视觉零变(参数化保各站点行数/色),15 站点由既有工具卡电池覆盖+新 helper 电池(行档钉/null 无界)。

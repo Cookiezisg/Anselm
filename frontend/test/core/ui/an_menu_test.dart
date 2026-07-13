@@ -165,4 +165,24 @@ void main() {
     await tester.pumpAndSettle();
     expect(probe.hasFocus, isTrue, reason: 'focus handed back to the trigger context on close, not dropped to root');
   });
+  group('AnMenuSurface.caretPlacement 光标锚定落点 (A-104)', () {
+    const anchor = Rect.fromLTWH(40, 100, 2, 16); // a caret rect: left 40, top 100, bottom 116
+    test('hangs BELOW by default (room below)', () {
+      final p = AnMenuSurface.caretPlacement(anchor: anchor, rows: 3, layerHeight: 1000);
+      expect(p.left, 40);
+      expect(p.top, anchor.bottom + AnSpace.s4); // below the caret 挂下方
+    });
+    test('flips ABOVE when below overflows AND above fits', () {
+      // Layer only 120 tall: below (116 + 4 + panelH) overflows; above (100 - 4 - panelH) fits. 下溢上容→翻上。
+      final p = AnMenuSurface.caretPlacement(anchor: anchor, rows: 2, layerHeight: 120);
+      final h = AnMenuSurface.estHeight(2);
+      expect(p.top, anchor.top - AnSpace.s4 - h); // above the caret 翻到上方
+    });
+    test('stays BELOW when above does NOT fit (even if below overflows)', () {
+      // Anchor near the top (top 10): above can't fit the panel → stay below despite overflow. 上不容→仍下挂。
+      const topAnchor = Rect.fromLTWH(40, 10, 2, 16);
+      final p = AnMenuSurface.caretPlacement(anchor: topAnchor, rows: 8, layerHeight: 120);
+      expect(p.top, topAnchor.bottom + AnSpace.s4); // below 仍下挂
+    });
+  });
 }

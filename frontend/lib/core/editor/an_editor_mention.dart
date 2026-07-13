@@ -78,14 +78,10 @@ class _AnMentionOverlayState extends DocumentLayoutLayerState<AnMentionOverlay, 
     final anchor = documentLayout.getRectForPosition(anchorPos);
     if (anchor == null) return null;
 
-    // Flip above when hanging below would overflow the content (same rule as the slash menu). 同 slash 翻转。
-    final menuHeight = AnMenuSurface.estHeight(widget.items.length).clamp(0.0, AnSize.menuMaxHeight);
+    // Shared caret-anchored placement (A-104) — flip above when below overflows (same as slash). 同 slash 翻转。
     final box = context.findRenderObject() as RenderBox?;
     final layerHeight = (box != null && box.hasSize) ? box.size.height : double.infinity;
-    final overflow = anchor.bottom + AnSpace.s4 + menuHeight > layerHeight;
-    final fitsAbove = anchor.top - AnSpace.s4 - menuHeight >= 0;
-    final top = (overflow && fitsAbove) ? anchor.top - AnSpace.s4 - menuHeight : anchor.bottom + AnSpace.s4;
-    return (left: anchor.left, top: top);
+    return AnMenuSurface.caretPlacement(anchor: anchor, rows: widget.items.length, layerHeight: layerHeight);
   }
 
   @override

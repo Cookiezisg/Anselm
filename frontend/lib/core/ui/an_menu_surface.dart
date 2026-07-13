@@ -22,6 +22,23 @@ class AnMenuSurface extends StatelessWidget {
   /// 浮层定位方消费,不再各自拼几何。
   static double estHeight(int rows) => rows * AnSize.row + AnSpace.s4 * 2;
 
+  /// Caret-anchored popover placement (A-104) — hang the panel BELOW the [anchor] by default, flip
+  /// ABOVE only when hanging below would overflow [layerHeight] AND above fits. The panel height is
+  /// [estHeight] of [rows] clamped to [AnSize.menuMaxHeight]. PURE geometry (no overlay/timing) — the
+  /// mention + slash overlays shared this exact math verbatim. 光标锚定弹层落点:默认下挂,仅下溢且上
+  /// 容时翻上;纯几何(不碰 overlay 时序),mention/slash 曾逐字重复此算。
+  static ({double left, double top}) caretPlacement({
+    required Rect anchor,
+    required int rows,
+    required double layerHeight,
+  }) {
+    final h = estHeight(rows).clamp(0.0, AnSize.menuMaxHeight);
+    final overflow = anchor.bottom + AnSpace.s4 + h > layerHeight;
+    final fitsAbove = anchor.top - AnSpace.s4 - h >= 0;
+    final top = (overflow && fitsAbove) ? anchor.top - AnSpace.s4 - h : anchor.bottom + AnSpace.s4;
+    return (left: anchor.left, top: top);
+  }
+
   final List<Widget> children;
 
   @override
