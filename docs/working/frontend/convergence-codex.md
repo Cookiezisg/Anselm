@@ -27,6 +27,12 @@ audience: [human, ai]
 - **AnStickViewport 增 `fadeColor`**(白宿主传 surface,灰底退役)。bar 同构补齐:编辑器 copy 驻留走 AnMotion.dwell + AnTooltip。
 - AnLedgerRow 补 `expandChild`;「展开全部 N」列表壳 **deferred → P4 吸收四套台账时落**。
 
+## 批C3 落地(2026-07-13,C 轨——真 O(n²) 修 + 低 sev 测量证伪)
+
+- **C-019 flowrun ticks 有界(真修)**:`FlowrunProgress.withTick` 原 `[...ticks,t]` O(n) 拷贝×无界列表→重迭代 workflow(节点重入数千次)令 tick 累积 O(n²)(**convict:2 万 tick=905ms,5×输入→25×时=二次**)+ 非 autoDispose 内存泄漏。唯一消费 `stage_panel` 只取**末 12**→bound `maxTicks=64`(余量),拷贝 O(n)+占用硬有界(<150ms)。透明(UI 只显末 12)。4 测。
+- **C-031 partial_json path 重包(证伪)**:诊断自述「纯 GC 噪声」low-sev——贵的部分(O(len) text 物化)已按长度记忆化,唯余 path=op-scale 1–3 元素 unmodifiable 每帧小分配,young-gen 可忽略;干净记忆化需 6 处 `_path` 结构变更点跟踪失效(漏一即 stale-path→在途值错=**正确性回归**),风险与收益不成比例(#6 反校验剧场)。
+- **C 轨阶段性裁决**:清晰安全的算法/分配级赢面(C-004 已 done + C-027 + C-019)已收;**余 39 项多需 live profiling**(图渲染 C-015/016/032·切海洋 C-009·冷启动 C-030=真机 trace)**或触渲染重建行为**(C-003 值相等破坏整手风琴重建=高影响但改核心 stage 渲染,须 live 验证)。测量先行硬原则下,这些不宜 AFK 盲改——**留监督态**(用户可跑真机 DevTools trace 定量),AI 侧继续挑 in-harness 确定性可测的低风险项。
+
 ## 批C2 落地(2026-07-13,C 轨性能——测量先行开工·C-027 bash footer 正则)
 
 C 轨(测量先行)首个 chat-ui 项。范式=**widget-test 级测量取代 live DevTools**(rebuild/操作计数/Stopwatch 预算,非需真机 trace):
