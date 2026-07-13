@@ -27,6 +27,11 @@ audience: [human, ai]
 - **AnStickViewport 增 `fadeColor`**(白宿主传 surface,灰底退役)。bar 同构补齐:编辑器 copy 驻留走 AnMotion.dwell + AnTooltip。
 - AnLedgerRow 补 `expandChild`;「展开全部 N」列表壳 **deferred → P4 吸收四套台账时落**。
 
+## 批C12 落地(2026-07-13,C 轨——argStringPartial→增量 session 41 站点)
+
+- **C-018 修(广迁+建造发现)**:`ToolCardState.arg` getter 走增量 `argsSession.liveStringNamed`(已解析,O(events) 非 O(bytes)/帧重扫)+41 站点 `argStringPartial((s|state).argsText,k)`→`(s|state).arg(k)` 全迁(2 处 `node/subNode.argumentsText` 无 session 保留)。**建造发现记档:首版误用 top-level `closedStringAt([k])`→漏嵌套键(create/edit 工具 `name` 在 `ops[i]` 内非顶层),`tool_card_builds_test` 抓获「rollup」未渲→改深度无关 `liveStringNamed(k)` 匹配 `argStringPartial` 的「首次匹配任意深度」语义**。顺带修转义 bug(`argStringPartial` 逐字符扫将 `\r`/`\f`/`\b`/`\u` 写字面字母,session JSON 解析正确)=同或更好。6 电池 + fe-verify 3659 全绿。
+- **方法学**:①**广迁前语义等价必逐维核**——不止 escape,还有 depth(top-level vs 深度无关)、first-vs-last、empty 契约;bulk replace 后**跑全套是安全网**(builds 测抓获 depth 差异);②「唯一确定性可自主候选」真去做——过程中发现的语义差异是价值[记档 depth-agnostic 陷阱]。**C 轨本会话 43→19(16 修+7 证伪/豁免)。**
+
 ## 批C11 落地(2026-07-13,C 轨——惰性揭示 AnExpandReveal.builder + 复合缓释)
 
 - **C-006/040 修(新原语变体 AnExpandReveal.builder)**:确认根因——`AnExpandReveal` 的 `child` 参数**急切构造**(传入前 `spec.body?.call()`/`sceneFromSubagentNode()` 必执行),State 收起时只是不 mount→贵的族体/场景每次父重建都跑,流式期 N 收起卡×每帧。新增 `AnExpandReveal.builder({childBuilder})` 惰性变体:build() 于全收静止态短路 `SizedBox` **前绝不调 childBuilder**;对现有 `child` 调用方行为不变(同视觉)。迁 tool 卡体(C-006)+ 侧幕手风琴两处行体(C-040:stage 行体+rundown 行体)。widget 电池:收起零建体/展开建一次/收起后重建不再调。**C-023[turn 级重建]/C-025[展开舞台挂会话级 coalescer]部分缓释**(收起卡/舞台不再建体/挂 coalescer)。
