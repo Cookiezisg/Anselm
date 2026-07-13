@@ -58,7 +58,9 @@ A-001/010 done:
 - **A-001 审批预览卡**:tool_card_control_approval 手搓白岛卡(Container+BoxDecoration surface+card 圆角+hairline)→AnCard(SizedBox 保满宽);流内卡=chip 圆角(可见变化 16→12,B-043 一致,帧供否决)。
 - **A-010 run 终端头**:run_terminal._head 手搓双行(icon+名+✕ / verb+metaLine+相位徽)→AnInspectorHead;缺的相位徽(AnChip)槽=**新增 subTrailingWidget**(次行值后的可选件,通用槽);度量 pixel-identical(padding/s6/字样逐字同源);+AnInspectorHead 电池。
 
-**A 轨剩 7 substantive open**:窗族升格 A-003/004/006/007(raw-mono 窗×10 统一/GrepContentView 升格 gallery/ToolHitList 升格 core/人闸壳 card-16 tone-border 变体)+run 轨迹树 A-009(block_tree_view→共享块行)+编辑器弹层 A-104(overlay 高危区,mention/slash caret 落点几何 dedup)+doc 头 A-113(→AnOceanHeader reading 变体);A-056 defer/A-069 豁免/A-085 判断题=3 documented。**这 7 是全战役最大架构升格(窗族=codex「更高野心版待建」+ A-104 overlay 高危),关键面/高危区,需窗族批专项或用户拍板,不在扫尾批草率并**。
+**A-009 豁免·批9d**:block_tree_view(右岛 agent ReAct 轨迹)台账 note 授「或明记豁免」——已正确用族原语(AnDisclosure/AnChip/AnIcons/AnText),语境恰当的轻量轨迹组合;收敛到 ChatToolCard 生态=过度工程,到 transcriptBlockRow=丢折叠/嵌套/danger 保真(同 A-094)。工程判断豁免。
+
+**A 轨剩 6 substantive open**:窗族升格 A-003/004/006/007(raw-mono 窗×10 统一/GrepContentView 升格 gallery/ToolHitList 升格 core/人闸壳 card-16 tone-border 变体)+编辑器 caret 弹层几何 dedup A-104(overlay 卡死高危区)+doc 头 A-113(全用族原语但布局 bespoke→AnOceanHeader reading 变体,边界情形);A-056 defer/A-069 豁免/A-085 判断题=3 documented。**这 6 是全战役最大架构升格(窗族=codex「更高野心版待建」+ A-104 overlay 高危 + A-113 头部设计决策),需窗族批专项或用户拍板,扫尾批不草率并**。批9a–9d 共清 23 A 行,A 台账 32 open→6 substantive+3 documented。
 
 ### 批9c 落地(2026-07-13,A 轨审批门共件 + 活尾裁决)
 
