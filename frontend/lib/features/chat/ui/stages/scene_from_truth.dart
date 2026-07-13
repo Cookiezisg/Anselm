@@ -243,6 +243,14 @@ String _nameFromTruth(String kind, Object truth, String id) => switch (kind) {
 /// PURE (no Ref / no async) so it unit-tests against a fixture DTO. Returns null when the truth has no
 /// renderable content (e.g. no active version) → the caller falls back to the summary.
 /// 合成 live:false StageScene 让 bespoke 体渲当前真身。纯函数(可单测)。无可渲内容→null→调用方降摘要。
+// Memoized by the [truth] instance (C-026/007): the settled truth stage re-renders on ANY director /
+// ledger change while its row is open, but the entity's fetched truth is a STABLE DTO instance until the
+// provider re-fetches — so without this a fresh BlockNode + jsonEncode(full truth) + args re-parse ran
+// every rebuild (the fresh node defeats the revision memo by design). Keyed on the truth object (a freezed
+// DTO = a valid Expando key) with a [rowId] guard (the same truth is only ever one row, but stay honest).
+// 按 truth 实例记忆化:真身是稳定 DTO,渲染重建不再重造节点/重编码/重解析 args;truth 变(重取)才新算。
+final _truthSceneCache = Expando<({String rowId, StageScene? scene})>('truthScene');
+
 StageScene? sceneFromTruth({
   required String kind,
   required Object truth,
@@ -250,36 +258,41 @@ StageScene? sceneFromTruth({
   required String conversationId,
   required String rowId,
 }) {
+  final cached = _truthSceneCache[truth];
+  if (cached != null && cached.rowId == rowId) return cached.scene;
+
   final args = _argsFromTruth(kind, truth);
-  if (args == null) return null;
-
-  // Replicate the production recipe (stage_panel `_GenericStage`): a completed tool_call node carrying the
-  // args JSON + a completed result child (→ phase succeeded, not «running»), then derive the state ONCE
-  // (fresh node, so the revision-memo can't hand back a stale projection). 复刻生产 recipe。
-  final node = BlockNode(id: rowId, kind: BlockKind.toolCall)
-    ..status = 'completed'
-    ..content = {'name': _nameFromTruth(kind, truth, id), 'arguments': jsonEncode(args)};
-  node.children.add(BlockNode(id: '${rowId}_r', kind: BlockKind.toolResult, parentId: rowId)
-    ..status = 'completed'
-    ..content = {'content': ''});
-  final state = ToolCardState.of(node);
-
-  return StageScene(
-    conversationId: conversationId,
-    subject: StageActivityView(
-      blockId: rowId,
-      toolName: _toolNameFor(kind),
-      kind: kind,
-      live: false,
-      failed: false,
-      unread: 0,
-      itemId: id,
-    ),
-    phase: StagePhase.following, // ≠ failedHold ⇒ scene.failed = false
-    node: node,
-    state: state,
-    session: state.argsSession,
-  );
+  StageScene? scene;
+  if (args != null) {
+    // Replicate the production recipe (stage_panel `_GenericStage`): a completed tool_call node carrying
+    // the args JSON + a completed result child (→ phase succeeded, not «running»), then derive the state
+    // ONCE (fresh node, so the revision-memo can't hand back a stale projection). 复刻生产 recipe。
+    final node = BlockNode(id: rowId, kind: BlockKind.toolCall)
+      ..status = 'completed'
+      ..content = {'name': _nameFromTruth(kind, truth, id), 'arguments': jsonEncode(args)};
+    node.children.add(BlockNode(id: '${rowId}_r', kind: BlockKind.toolResult, parentId: rowId)
+      ..status = 'completed'
+      ..content = {'content': ''});
+    final state = ToolCardState.of(node);
+    scene = StageScene(
+      conversationId: conversationId,
+      subject: StageActivityView(
+        blockId: rowId,
+        toolName: _toolNameFor(kind),
+        kind: kind,
+        live: false,
+        failed: false,
+        unread: 0,
+        itemId: id,
+      ),
+      phase: StagePhase.following, // ≠ failedHold ⇒ scene.failed = false
+      node: node,
+      state: state,
+      session: state.argsSession,
+    );
+  }
+  _truthSceneCache[truth] = (rowId: rowId, scene: scene);
+  return scene;
 }
 
 /// The SUBAGENT settled scene (WRK-064 B6) — unlike the 12 entity kinds, a subagent has no entity GET:

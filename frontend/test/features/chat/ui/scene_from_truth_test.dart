@@ -255,4 +255,29 @@ void main() {
     expect(scene!.editTargetId, 'trg_1'); // edit_trigger → 'triggerId'
     expect(scene.session.closedStringAt(['kind']), 'webhook'); // TriggerSource → .name
   });
+
+  // C-026/007 — memoized by the truth instance so a settled stage re-render (any director/ledger change)
+  // doesn't re-encode the full truth + re-parse args. 按 truth 实例记忆化。
+  group('C-026 memoization by truth instance', () {
+    test('the SAME truth + rowId returns the SAME scene instance (identity)', () {
+      final truth = _fn(code: 'x=1');
+      final a = sceneFromTruth(kind: 'function', truth: truth, id: 'fn_1', conversationId: 'cv', rowId: 'r');
+      final b = sceneFromTruth(kind: 'function', truth: truth, id: 'fn_1', conversationId: 'cv', rowId: 'r');
+      expect(identical(a, b), isTrue, reason: '同真身+同 rowId→同 scene(缓存)');
+    });
+
+    test('a DIFFERENT truth instance recomputes', () {
+      final a = sceneFromTruth(kind: 'function', truth: _fn(code: 'x=1'), id: 'fn_1', conversationId: 'cv', rowId: 'r');
+      final b = sceneFromTruth(kind: 'function', truth: _fn(code: 'x=2'), id: 'fn_1', conversationId: 'cv', rowId: 'r');
+      expect(identical(a, b), isFalse);
+      expect(b!.session.liveStringNamed('code'), 'x=2', reason: '新真身内容生效');
+    });
+
+    test('the same truth with a DIFFERENT rowId recomputes (guard)', () {
+      final truth = _fn(code: 'x=1');
+      final a = sceneFromTruth(kind: 'function', truth: truth, id: 'fn_1', conversationId: 'cv', rowId: 'r1');
+      final b = sceneFromTruth(kind: 'function', truth: truth, id: 'fn_1', conversationId: 'cv', rowId: 'r2');
+      expect(identical(a, b), isFalse, reason: 'rowId 守卫→重算');
+    });
+  });
 }
