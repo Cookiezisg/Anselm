@@ -160,6 +160,12 @@ class AnEditorState extends State<AnEditor> {
   // theme flip. 代码块语法高亮 phase(记忆化);建一次、主题翻转换色。
   AnCodeSyntaxStylePhase? _syntaxPhase;
 
+  // Memoized SuperEditor stylesheet + component builders (C-010) — rebuilt only when the theme [colors]
+  // instance changes, so SuperEditor keeps the SAME config across content rebuilds. 样式表+组件建造器记忆化。
+  Stylesheet? _stylesheet;
+  List<ComponentBuilder>? _componentBuilders;
+  AnColors? _styleColors;
+
   // ── E5 @ mention ───────────────────────────────────────────────────────────────────────────────
   // StableTagPlugin tokenizes the `@` trigger (its own key, so it coexists with the slash ActionTagsPlugin
   // — two ActionTagsPlugins would clash on a shared key). We drive the picker off its composing state and
@@ -381,6 +387,22 @@ class AnEditorState extends State<AnEditor> {
     // Create the syntax phase once, refresh its palette each build (cheap; no-ops unless the theme flipped).
     // 语法 phase 建一次、每 build 刷新调色板(主题没变即 no-op)。
     (_syntaxPhase ??= AnCodeSyntaxStylePhase(context.syntax)).colors = context.syntax;
+    // Memoize the stylesheet + component builders on the (theme-stable) [colors] instance (C-010): rebuilt
+    // fresh every build, SuperEditor saw a NEW stylesheet each time and could re-run its whole style
+    // pipeline over the document. AnColors is a ThemeExtension (const light/dark), so identity is stable
+    // until the theme flips → same instances → SuperEditor skips the re-style. 样式表+组件建造器按主题稳定
+    // 的 colors 记忆化:同实例→SuperEditor 跳全文档重跑 style pipeline。
+    if (!identical(_styleColors, colors)) {
+      _styleColors = colors;
+      _stylesheet = buildAnEditorStylesheet(colors);
+      _componentBuilders = [
+        AnTaskComponentBuilder(_editor, colors), // tasks aren't in the defaults — must be added
+        AnCodeBlockComponentBuilder(colors),
+        AnBlockquoteComponentBuilder(colors),
+        const MarkdownTableComponentBuilder(), // tables aren't in the defaults either (E8)
+        ...defaultComponentBuilders,
+      ];
+    }
     return SuperEditor(
       editor: _editor,
       focusNode: _focusNode,
@@ -395,16 +417,10 @@ class AnEditorState extends State<AnEditor> {
       plugins: {_slashTags, ?_mentionTags},
       // Our nav handlers run first, but each only intercepts while ITS menu is open. 导航处理先跑,各仅自开时截。
       keyboardActions: [_slashKeyAction, _mentionKeyAction, ...defaultImeKeyboardActions],
-      stylesheet: buildAnEditorStylesheet(colors),
+      stylesheet: _stylesheet!,
       // An-primitive block skins take precedence over the defaults they extend (first non-null wins);
       // the rest of the default chain (paragraph/list/image/hr) stays. An 块皮在默认前、优先命中。
-      componentBuilders: [
-        AnTaskComponentBuilder(_editor, colors), // tasks aren't in the defaults — must be added
-        AnCodeBlockComponentBuilder(colors),
-        AnBlockquoteComponentBuilder(colors),
-        const MarkdownTableComponentBuilder(), // tables aren't in the defaults either (E8)
-        ...defaultComponentBuilders,
-      ],
+      componentBuilders: _componentBuilders!,
       // Popovers + the selection toolbar overlay the content, ON TOP of the default caret/handles layers.
       // 浮层与划选条叠在内容上。
       documentOverlayBuilders: [
