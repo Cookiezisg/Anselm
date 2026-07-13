@@ -72,6 +72,7 @@ lib/core/overlay/an_overlay.dart	reviewed
 lib/core/perf/coalescing_notifier.dart	converged
 lib/core/perf/debouncer.dart	converged
 lib/core/perf/pulse_clock.dart	reviewed
+lib/core/perf/value_listenable_selector.dart	converged
 lib/core/platform/app_relaunch.dart	converged
 lib/core/platform/factory_reset.dart	converged
 lib/core/platform/host_platform.dart	converged

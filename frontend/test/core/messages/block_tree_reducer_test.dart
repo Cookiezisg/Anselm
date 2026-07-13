@@ -19,6 +19,28 @@ StreamEnvelope _closeBare(String id, {String status = 'completed', String? error
     StreamEnvelope(seq: 2, scope: _scope, id: id, frame: FrameClose(status: status, error: error));
 
 void main() {
+  // P5 (C-025 linchpin) — `revision` is a SUBTREE-MAX: `_bump` walks from the changed node up through
+  // every ancestor, so a change to a NESTED subagent block also bumps its parent tool_call's revision.
+  // This is what makes a `liveBlock(parentId).revision` selector safe — it cannot miss a nested update.
+  // C-025 命门:revision 是子树最大值(_bump 上抛全祖先),嵌套子块变更也抬父块 revision→父块 revision 选择器不漏嵌套。
+  test('revision is a subtree-max: a nested/descendant change bumps every ancestor', () {
+    final r = BlockTreeReducer();
+    r.apply(_open('parent', 'tool_call', content: {'name': 'delegate'}));
+    r.apply(_open('child', 'message', parent: 'parent')); // a nested subagent block 嵌套子块
+    final revA = r.nodeById('parent')!.revision;
+
+    r.apply(_delta('child', 'x')); // change the CHILD 改子块
+    expect(r.nodeById('parent')!.revision, greaterThan(revA),
+        reason: 'a nested change must propagate to the ancestor revision, else a parent-revision selector '
+            'would miss nested subagent-tree updates (stale UI)');
+
+    final revB = r.nodeById('parent')!.revision;
+    r.apply(_open('grandchild', 'text', parent: 'child')); // deeper still 更深一层
+    r.apply(_delta('grandchild', 'y'));
+    expect(r.nodeById('parent')!.revision, greaterThan(revB),
+        reason: 'a grandchild change must also reach the root ancestor revision');
+  });
+
   test('open→delta→close: live deltas before close, snapshot wins after', () {
     final r = BlockTreeReducer();
     r.apply(_open('b1', 'text'));

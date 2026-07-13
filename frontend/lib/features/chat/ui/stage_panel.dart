@@ -8,6 +8,7 @@ import '../../../core/design/typography.dart';
 import '../../../core/messages/block_tree_reducer.dart';
 import '../../../core/model/partial_json.dart';
 import '../../../core/perf/coalescing_notifier.dart';
+import '../../../core/perf/value_listenable_selector.dart';
 import '../../../core/settings/app_prefs_providers.dart';
 import '../../../core/shell/right_panel.dart';
 import '../../../core/ui/ui.dart';
@@ -633,9 +634,15 @@ class _GenericStageState extends State<_GenericStage> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    return ValueListenableBuilder<ConversationTranscript>(
-      valueListenable: widget.transcript,
-      builder: (context, transcript, _) {
+    // C-025: gate this stage's rebuild on THIS block's subtree-max revision — a delta on ANOTHER block
+    // (or a settled block) no longer rebuilds every expanded stage. `revision` bumps up the ancestor
+    // chain (_bump), so nested subagent-tree updates still reach the parent block's revision (no stale
+    // nested UI). The old ValueListenableBuilder rebuilt on EVERY transcript notification. 只在本块子树
+    // 版本变时重建(别块 delta 不再重建本舞台);revision 上抛祖先→嵌套更新仍捕获。
+    return ValueListenableSelector<ConversationTranscript, int?>(
+      listenable: widget.transcript,
+      selector: (t) => t.liveBlock(widget.subject.blockId)?.revision,
+      builder: (context, transcript) {
         final node = transcript.liveBlock(widget.subject.blockId);
         if (node == null) {
           // Not in the live reducer (row expanded after a reload) — honest placeholder. 诚实占位。
