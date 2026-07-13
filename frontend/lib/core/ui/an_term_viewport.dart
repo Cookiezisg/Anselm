@@ -170,17 +170,36 @@ class AnTermViewport extends StatefulWidget {
 class _AnTermViewportState extends State<AnTermViewport> {
   bool _showAll = false;
 
+  // Memoize the rendered lines (C-034): termFold is O(visible) and ansiSpans runs per line — the Column
+  // is NOT lazy, so every line re-folded + re-coloured every build. A settled terminal re-renders on the
+  // 1s ticker / inside live turns with the SAME text, and «show earlier» materializes an MB-scale log.
+  // Cache the finished line widgets on (visible text, theme colors); rebuild only when either changes.
+  // 渲染行记忆化:termFold O(visible)+ansiSpans 逐行,Column 非 lazy 故每行每 build 重折重染;按(可见文本,主题色)
+  // 缓存成品行 widget,text/主题变才重建。
+  String? _renderedFor;
+  AnColors? _renderedColors;
+  List<Widget>? _renderedLines;
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final over = widget.text.length > widget.initialCharCap;
     // Materialize the tail only (unless the user asked for all). 只物化尾部(除非请求全量)。
     final visible = (over && !_showAll) ? widget.text.substring(widget.text.length - widget.initialCharCap) : widget.text;
-    final lines = termFold(visible);
-    while (lines.isNotEmpty && lines.last.isEmpty) {
-      lines.removeLast();
+    if (_renderedFor != visible || !identical(_renderedColors, c)) {
+      _renderedFor = visible;
+      _renderedColors = c;
+      final lines = termFold(visible);
+      while (lines.isNotEmpty && lines.last.isEmpty) {
+        lines.removeLast();
+      }
+      final base = AnText.code.copyWith(color: c.inkMuted);
+      _renderedLines = [
+        for (final line in lines)
+          Text.rich(TextSpan(children: ansiSpans(line, c, base: base)),
+              maxLines: 1, overflow: TextOverflow.ellipsis, softWrap: false),
+      ];
     }
-    final base = AnText.code.copyWith(color: c.inkMuted);
     final hiddenChars = over && !_showAll ? widget.text.length - widget.initialCharCap : 0;
 
     return AnStickViewport(
@@ -203,9 +222,7 @@ class _AnTermViewportState extends State<AnTermViewport> {
                 ),
               ),
             ),
-          for (final line in lines)
-            Text.rich(TextSpan(children: ansiSpans(line, c, base: base)),
-                maxLines: 1, overflow: TextOverflow.ellipsis, softWrap: false),
+          ..._renderedLines!,
         ],
       ),
     );
