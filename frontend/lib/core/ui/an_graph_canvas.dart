@@ -1,5 +1,5 @@
 import 'dart:math' as math;
-import 'dart:ui' show PathMetric;
+import 'dart:ui' show PathMetric, PointMode;
 
 import 'package:flutter/widgets.dart';
 
@@ -1262,12 +1262,21 @@ class _GridPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = dot;
+    // ONE batched drawPoints instead of a drawCircle per grid cell (C-032): O(viewport area) individual
+    // draw calls became O(1) draw calls (the raster batches the point list). A round point of diameter
+    // 2×hairline is visually identical to a hairline-radius filled circle for this background grid.
+    // 一次批量 drawPoints 替逐格 drawCircle:栅格点极小,round 点(直径 2×hairline)与 hairline 半径圆视觉一致。
+    final paint = Paint()
+      ..color = dot
+      ..strokeWidth = AnSize.hairline * 2
+      ..strokeCap = StrokeCap.round;
+    final points = <Offset>[];
     for (var x = _spacing / 2; x < size.width; x += _spacing) {
       for (var y = _spacing / 2; y < size.height; y += _spacing) {
-        canvas.drawCircle(Offset(x, y), AnSize.hairline, paint);
+        points.add(Offset(x, y));
       }
     }
+    canvas.drawPoints(PointMode.points, points, paint);
   }
 
   @override
