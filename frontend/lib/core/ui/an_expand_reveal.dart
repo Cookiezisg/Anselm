@@ -18,10 +18,25 @@ import '../design/tokens.dart';
 /// **非 AnimatedSize**(后者在嵌套时会 performLayout 内自脏断言——sidebar 是嵌套树);ClipRect+Align 可安全嵌套。
 /// open 显 child,否则补间到 0 高、全收后从树移除(收起的行不可聚焦/不被屏读)。duration=Duration.zero 强制即时。
 class AnExpandReveal extends StatefulWidget {
-  const AnExpandReveal({required this.open, required this.child, this.duration, super.key});
+  const AnExpandReveal({required this.open, required Widget this.child, this.duration, super.key})
+      : childBuilder = null;
+
+  /// LAZY reveal (C-006): the child is built ONLY while open / animating — a fully-collapsed row never
+  /// evaluates [childBuilder]. Use this when the child is EXPENSIVE to build (a tool-card family body runs
+  /// jsonDecode / regex / arg extraction every build); the eager [child] form would pay that cost each
+  /// parent rebuild even while collapsed (during streaming: N collapsed cards × per frame). 惰性揭示:收起
+  /// 态绝不调 builder,贵的体(族体 jsonDecode/正则/取参)收起时零成本。
+  const AnExpandReveal.builder({required this.open, required WidgetBuilder this.childBuilder, this.duration, super.key})
+      : child = null;
 
   final bool open;
-  final Widget child;
+
+  /// The eager child (built by the caller before this widget). Null on the [AnExpandReveal.builder] form.
+  /// 急切子件(调用方先建);builder 形为 null。
+  final Widget? child;
+
+  /// The lazy child builder — called only when the child is needed. Null on the default form. 惰性子件建造器。
+  final WidgetBuilder? childBuilder;
 
   /// Override the reveal duration. `Duration.zero` → instant (e.g. filter-forced open). Default = [AnMotion.mid]
   /// (→ instant under reduced motion). 覆写时长,zero=即时(如过滤强制展开),默认 mid(reduced 即时)。
@@ -65,12 +80,16 @@ class _AnExpandRevealState extends State<AnExpandReveal> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
+    // Fully collapsed AND settled → take no space, drop the subtree, and (the lazy form) NEVER build the
+    // child. This short-circuit runs on every parent rebuild, so a collapsed expensive body pays nothing
+    // during streaming (C-006). 全收静止:不占位、移出树、惰性形绝不建体——收起态每次父重建零成本。
+    if (_ctl.value == 0 && !widget.open) return const SizedBox.shrink();
+    // Built once here (not per animation frame — it rides AnimatedBuilder's `child`). 建一次,非逐帧。
+    final child = widget.childBuilder?.call(context) ?? widget.child!;
     return AnimatedBuilder(
       animation: _factor,
-      // child built once (not per frame); only inserted into the tree while opening / open / closing. 子件建一次。
-      child: widget.child,
+      child: child,
       builder: (context, child) {
-        // fully closed → take no space AND drop the subtree (collapsed rows must not be focusable). 全收:不占位、移出树。
         if (_ctl.value == 0 && !widget.open) return const SizedBox.shrink();
         return ClipRect(
           child: Align(

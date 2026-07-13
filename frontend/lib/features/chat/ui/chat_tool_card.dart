@@ -188,9 +188,13 @@ class _ChatToolCardState extends State<ChatToolCard> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _line(context, t, c, state, spec, live, open, hasBody, familyReceipt),
-        AnExpandReveal(
+        // LAZY reveal (C-006): a collapsed card must NOT run its family body — bashToolBody /
+        // subagentBody / … each do jsonDecode / regex / arg extraction, and during a live turn every
+        // collapsed card rebuilds per tick. The builder is called only while open / animating.
+        // 惰性揭示:收起卡绝不跑族体(每帧 jsonDecode/正则/取参);仅开/动画时调 builder。
+        AnExpandReveal.builder(
           open: open,
-          child: Padding(
+          childBuilder: (context) => Padding(
             // Body left inset derives from the line's icon geometry (icon + its gap) so the
             // sections align under the verb — self-healing if the icon size retunes.
             // 体左内距从行的图标几何派生(icon+间距),段落齐动词——图标改尺寸自愈。
