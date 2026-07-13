@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/design/colors.dart';
 import '../../../../core/design/tokens.dart';
-import '../../../../core/design/typography.dart';
 import '../../../../core/model/status_state.dart' show AnStatus, AnTone;
 import '../../../../core/ui/an_chip.dart';
-import '../../../../core/ui/an_button.dart';
+import '../../../../core/ui/an_inspector_head.dart';
 import '../../../../core/ui/an_callout.dart';
 import '../../../../core/ui/an_code_block.dart';
 import '../../../../core/ui/an_term_viewport.dart';
@@ -122,52 +120,19 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
 
   // ── head ────────────────────────────────────────────────────────────────────
   Widget _head(BuildContext context, EntityRef sel, RunTerminalState state, EntityDetail? detail) {
-    final c = context.colors;
     final r = context.t.entities.run;
     final name = detail?.name ?? sel.id;
     final badge = _phaseBadge(context, state.phase);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(AnSpace.s16, AnSpace.s12, AnSpace.s8, AnSpace.s8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Icon(AnIcons.byKey(sel.kind.scopeKind), size: AnSize.icon, color: c.inkFaint),
-              const SizedBox(width: AnSpace.s8),
-              Expanded(
-                child: Text(name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AnText.meta.weight(AnText.emphasisWeight).copyWith(color: c.inkFaint)),
-              ),
-              AnButton.iconOnly(
-                AnIcons.close,
-                semanticLabel: r.close,
-                onPressed: () => ref.read(rightPanelCollapsedProvider.notifier).set(true),
-              ),
-            ],
-          ),
-          const SizedBox(height: AnSpace.s6),
-          Row(
-            children: [
-              Text(sel.kind.verbLabel(context.t), style: AnText.meta.copyWith(color: c.inkMuted)),
-              const SizedBox(width: AnSpace.s8),
-              Expanded(
-                child: Text(
-                  _metaLine(context, sel, state),
-                  textAlign: TextAlign.end,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AnText.meta.copyWith(color: c.inkFaint),
-                ),
-              ),
-              const SizedBox(width: AnSpace.s8),
-              AnChip(badge.$1, tone: badge.$2),
-            ],
-          ),
-        ],
-      ),
+    // The unified right-island head band (A-010 — the hand-rolled twin rows retire; the phase badge
+    // rides the new subTrailingWidget slot). 统一右岛头带;相位徽走新 subTrailingWidget 槽。
+    return AnInspectorHead(
+      icon: AnIcons.byKey(sel.kind.scopeKind),
+      label: name,
+      subLeading: sel.kind.verbLabel(context.t),
+      subTrailing: _metaLine(context, sel, state),
+      subTrailingWidget: AnChip(badge.$1, tone: badge.$2),
+      onClose: () => ref.read(rightPanelCollapsedProvider.notifier).set(true),
+      closeSemantics: r.close,
     );
   }
 

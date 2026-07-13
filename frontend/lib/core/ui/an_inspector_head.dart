@@ -22,6 +22,7 @@ class AnInspectorHead extends StatelessWidget {
     this.icon,
     this.subLeading,
     this.subTrailing,
+    this.subTrailingWidget,
     this.actions = const <Widget>[],
     this.onClose,
     this.closeSemantics,
@@ -40,6 +41,10 @@ class AnInspectorHead extends StatelessWidget {
   /// Optional meta sub-row trailing value (inkFaint, end-aligned, ellipsis) — e.g. the resolved ref.
   /// 次行右对齐值(浅灰省略),如已解析 ref。
   final String? subTrailing;
+
+  /// Optional widget after the sub-row trailing value (e.g. a phase status chip) — the run terminal's
+  /// live-status badge (A-010). 次行值之后的可选件(如相位状态徽),run 终端活状态徽。
+  final Widget? subTrailingWidget;
 
   /// Panel-scoped quick actions on the head row, spread before the ✕ (e.g. a follow toggle / expand-all).
   /// 头行快捷动作,置于 ✕ 之前(如自动展示 / 展开全部)。
@@ -64,7 +69,7 @@ class AnInspectorHead extends StatelessWidget {
             child: Text(sl, style: AnText.meta.copyWith(color: c.inkMuted)),
           )
         : null;
-    final hasSub = leading != null || (stt != null && stt.isNotEmpty);
+    final hasSub = leading != null || (stt != null && stt.isNotEmpty) || subTrailingWidget != null;
     return Padding(
       // Same band metrics as the ocean floating head / inspector top band. 同浮层头 / 检查器头带度量。
       padding: const EdgeInsets.fromLTRB(AnSpace.s16, AnSpace.s12, AnSpace.s8, AnSpace.s8),
@@ -111,6 +116,10 @@ class AnInspectorHead extends StatelessWidget {
                     style: AnText.meta.copyWith(color: c.inkFaint),
                   ),
                 ),
+                if (subTrailingWidget != null) ...[
+                  const SizedBox(width: AnSpace.s8),
+                  subTrailingWidget!,
+                ],
               ],
             ),
           ],

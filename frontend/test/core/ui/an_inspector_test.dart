@@ -44,6 +44,23 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('AnInspectorHead sub-row: leading + trailing value + a trailing widget (A-010 badge slot)',
+      (tester) async {
+    await tester.pumpWidget(host(AnInspectorHead(
+      icon: AnIcons.workflow,
+      label: 'nightly_sync',
+      subLeading: 'Trigger',
+      subTrailing: 'fr_9a8b · 3 nodes',
+      subTrailingWidget: AnChip('running', tone: AnTone.accent),
+    )));
+    await tester.pump();
+    expect(find.text('nightly_sync'), findsOneWidget);
+    expect(find.text('Trigger'), findsOneWidget);
+    expect(find.text('fr_9a8b · 3 nodes'), findsOneWidget);
+    expect(find.text('running'), findsOneWidget); // the phase badge rides the new slot 相位徽在新槽
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('long title ellipsizes; many blocks scroll without overflow', (tester) async {
     await tester.pumpWidget(host(AnInspector(
       title: 'an-extremely-long-inspector-title-that-must-ellipsis-in-the-head-and-not-overflow',

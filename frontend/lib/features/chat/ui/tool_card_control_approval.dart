@@ -138,15 +138,13 @@ Widget approvalFormBody(BuildContext context, ToolCardState state) {
     children: [
       Text(t.chat.tool.apfPreviewHint, style: AnText.label.copyWith(color: c.inkFaint)),
       const SizedBox(height: AnSpace.s4),
-      Container(
+      // The family card (A-001 — the hand-rolled white-island shell retires; content-flow card =
+      // chip radius via AnCard, B-043). SizedBox keeps the full-width span. 族卡:手搓白岛退役,
+      // 流内卡走 AnCard(chip 圆角);SizedBox 保满宽。
+      SizedBox(
         width: double.infinity,
-        padding: AnInset.card,
-        decoration: BoxDecoration(
-          color: c.surface,
-          border: Border.all(color: c.line, width: AnSize.hairline),
-          borderRadius: BorderRadius.circular(AnRadius.card),
-        ),
-        child: Column(
+        child: AnCard(
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (template.isNotEmpty) AnMarkdown(approvalTemplateToMarkdown(template)),
@@ -177,6 +175,7 @@ Widget approvalFormBody(BuildContext context, ToolCardState state) {
               ],
             ),
           ],
+          ),
         ),
       ),
       runStatBarOf(context, state),

@@ -19,7 +19,7 @@ audience: [human, ai]
 
 | # | 位置 | 族 | 问题 | 修法 | 量 | 状态 |
 |---|---|---|---|---|---|---|
-| A-001 | `lib/features/chat/ui/tool_card_control_approval.dart:145` | 窗 | 审批表单预览手搓白岛卡:裸 Container+BoxDecoration(surface+line hairline+radius.card) | 换卡/窗当家件 white-island 变体 | S | open |
+| A-001 | `lib/features/chat/ui/tool_card_control_approval.dart:145` | 窗 | 审批表单预览手搓白岛卡:裸 Container+BoxDecoration(surface+line hairline+radius.card) | 换卡/窗当家件 white-island 变体 | S | done·批9d(审批表单预览手搓白岛卡→AnCard[SizedBox 保满宽];流内卡=chip 圆角,可见变化 16→12,B-043 一致) |
 | A-002 | `lib/features/chat/ui/tool_card_document_skill.dart:33` | 窗 | ProseWindow 手搓白卡壳:裸 Container+BoxDecoration(surface+Border.all+radius.card),convergence §4 点名被窗族吃掉 | 换窗壳 prose 内容模式,gallery 先行,删本件 | M | **done·批4**(壳并入 AnWindow[maxHeight+collapsible];件名保留为 prose 薄投影;折叠阈进 AnCap.proseFold 档) |
 | A-003 | `lib/features/chat/ui/tool_card_entity_get_bodies.dart:49` | 窗 | raw-mono 回落窗 ToolWindow+Text 遍布本族 ×10+ 处,maxLines 各异(12/20/40/200)、色调各异(muted/danger) | 窗族 raw-mono 变体统一 cap 与色调档 | M | open |
 | A-004 | `lib/features/chat/ui/tool_card_fs_search.dart:285` | 窗 | GrepContentView 手搓编辑器式命中窗(行号槽+行内点亮+···缝+cap 200),当家件级视觉件住 feature 层 | 升格窗族 hits/code 内容模式进 gallery | M | open |
@@ -28,7 +28,7 @@ audience: [human, ai]
 | A-007 | `lib/features/chat/ui/tool_interaction_gate.dart:156` | 窗 | 人闸白岛壳裸 Container+BoxDecoration+Border.all(tone 边),即「四种描边容器」之一 | 卡族 tone-border 槽变体吃掉 | M | open |
 | A-008 | `lib/features/chat/ui/tool_interaction_gate.dart:224` | 窗 | 机器 payload 窗用 AnSunkenPanel(带 header),tool 卡同角色一律 ToolWindow——同角色双件并存 | 窗族收敛为一壳,header 作槽位 | S | **done·批4**(→AnWindow header 槽;AnSunkenPanel header 槽随批退役) |
 | A-009 | `lib/features/entities/ui/run/block_tree_view.dart:18` | 窗 | agent 轨迹树整文件手搓迷你 transcript(tool_call=AnDisclosure、tool_result=手拼 Row icon+mono ×2 处),与 chat 的共享块行/工具卡族同角色两套系统 | 收敛到 chat 共享 transcriptBlockRow/块行地基,或明记豁免 | L | open |
-| A-010 | `lib/features/entities/ui/run/run_terminal.dart:125` | 窗 | run 终端右岛头带 _head 手搓(icon+名+✕ 行 + 动词/meta/badge 次行),而当家件 AnInspectorHead 已存在且编辑器检查器自称其「视觉孪生」 | 换 AnInspectorHead,给它长 badge/trailing 槽承接相位徽 | M | open |
+| A-010 | `lib/features/entities/ui/run/run_terminal.dart:125` | 窗 | run 终端右岛头带 _head 手搓(icon+名+✕ 行 + 动词/meta/badge 次行),而当家件 AnInspectorHead 已存在且编辑器检查器自称其「视觉孪生」 | 换 AnInspectorHead,给它长 badge/trailing 槽承接相位徽 | M | done·批9d(run 终端头手搓双行→AnInspectorHead;新 subTrailingWidget 槽承相位徽[AnChip],度量 pixel-identical;+电池) |
 | A-011 | `lib/features/entities/ui/run/run_terminal.dart:286` | 窗 | 审批决断门三处各自手拼:run_terminal._approvalGate、run_cockpit_tab.dart:213 parked 块、flowrun_inbox.dart:139 _ApprovalCard,内容/hint/reason 输入各有差异 | 抽一件共享 ApprovalGate(prompt+reason?+approve/reject)三处复用 | M | done·批9c(抽共享 ApprovalGate 件:framed 卡壳/collectReason 门[仅收件箱送 reason]/showHint/busy;三处 run_terminal._approvalGate·run_cockpit parked 块·flowrun_inbox._ApprovalCard 收编,gallery+电池) |
 | A-012 | `lib/features/settings/ui/panels/models_keys_panel.dart:136` | 窗 | _FreeTierCard 裸 Container+BoxDecoration(surface+card 圆角+hairline 边)手搓卡壳 | 换 AnCard(其注释明言收口 settings 卡皮) | S | done·批7(随 B-043 圆角立法改 AnCard,批9a 台账追认) |
 | A-013 | `lib/features/chat/ui/stages/approval_stage.dart:50` | 窗 | 手搓带边容器 ×2:信笺纸卡(:50)与理由栏(:75),Container+Border.all+圆角——§4-A 点名的「approval 信笺」窗族对象 | 窗族当家件 prose/tone 槽吃掉 | M | **done·批1**(信笺+理由栏=同胞双 AnWindow;stages_w3_test 钉双窗) |

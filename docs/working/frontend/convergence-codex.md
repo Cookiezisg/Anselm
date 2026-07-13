@@ -52,6 +52,14 @@ A-032/A-033/A-034/A-036/A-038/A-046/A-048 关账(A-031 剩 AnAttachmentChip、A-
 3. **reduced 双闸选档**:装饰循环(shimmer/呼吸/雷达/转圈/打字机)=reducedOrAssistive;功能性一次揭示(展开/洗亮/入场)=reduced。
 4. **表单内联错误=label(13)+danger+top:s8;整面载入失败=AnState(error)**;行内空态=AnState inset;rail 整面四态=AnRailStates。
 
+### 批9d 落地(2026-07-13,A 轨手搓卡/头收编)
+
+A-001/010 done:
+- **A-001 审批预览卡**:tool_card_control_approval 手搓白岛卡(Container+BoxDecoration surface+card 圆角+hairline)→AnCard(SizedBox 保满宽);流内卡=chip 圆角(可见变化 16→12,B-043 一致,帧供否决)。
+- **A-010 run 终端头**:run_terminal._head 手搓双行(icon+名+✕ / verb+metaLine+相位徽)→AnInspectorHead;缺的相位徽(AnChip)槽=**新增 subTrailingWidget**(次行值后的可选件,通用槽);度量 pixel-identical(padding/s6/字样逐字同源);+AnInspectorHead 电池。
+
+**A 轨剩 7 substantive open**:窗族升格 A-003/004/006/007(raw-mono 窗×10 统一/GrepContentView 升格 gallery/ToolHitList 升格 core/人闸壳 card-16 tone-border 变体)+run 轨迹树 A-009(block_tree_view→共享块行)+编辑器弹层 A-104(overlay 高危区,mention/slash caret 落点几何 dedup)+doc 头 A-113(→AnOceanHeader reading 变体);A-056 defer/A-069 豁免/A-085 判断题=3 documented。**这 7 是全战役最大架构升格(窗族=codex「更高野心版待建」+ A-104 overlay 高危),关键面/高危区,需窗族批专项或用户拍板,不在扫尾批草率并**。
+
 ### 批9c 落地(2026-07-13,A 轨审批门共件 + 活尾裁决)
 
 A-011 done + A-094 证伪:
