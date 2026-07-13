@@ -16,6 +16,7 @@
 /// 覆盖 py/js/md/json;CEL 插值经 arg 组天然覆盖、无须第二套)。色吃 SyntaxColors,未着色间隙留白继承代码色。
 library;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 
 import '../design/colors.dart';
@@ -45,7 +46,14 @@ final RegExp _tok = RegExp(
 /// stability (v1 uses the unified tokenizer for every language). Wrap the result in a parent span:
 /// `Text.rich(TextSpan(children: highlightCode(code, colors: context.syntax)))`.
 /// 把 code 切成着色 TextSpan(lang 仅为 API/标签稳定,v1 统一 tokenizer)。
+/// The number of full tokenizer passes run — a perf probe for the memoization guards (C-012/013/014):
+/// tests assert this does NOT climb when a code widget rebuilds with unchanged code / on a caret move.
+/// 全量分词次数探针:测试断言无变化重建/移光标时不增。
+@visibleForTesting
+int highlightCodePasses = 0;
+
 List<TextSpan> highlightCode(String code, {String? lang, required SyntaxColors colors}) {
+  highlightCodePasses++;
   final spans = <TextSpan>[];
   var last = 0;
   for (final m in _tok.allMatches(code)) {

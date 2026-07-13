@@ -152,6 +152,25 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
   bool get _inlineEdit => widget.inline && widget.editable;
   bool get _isEditing => _inlineEdit || _editing;
 
+  // Per-widget highlight memo (C-012/013): the read-only faces re-run the full tokenizer every build, and
+  // a settled code card re-renders on the 1s ticker + inside live turns → a large file re-highlights every
+  // frame. Cache the spans on (code, colors); recompute only when either changes. Per-State (no global
+  // thrash): live streaming naturally re-highlights the growing code (cache miss = same cost as before).
+  // 逐组件高亮记忆化:只读脸每 build 重跑 tokenizer,settled 卡随 ticker/live 回合重建→大文件逐帧重高亮;
+  // 按 (code,colors) 缓存,变才重算;per-State(无全局 thrash),流式增长码自然 miss=原成本。
+  List<TextSpan>? _spanCache;
+  String? _spanCode;
+  SyntaxColors? _spanColors;
+
+  List<TextSpan> _highlight(String code, SyntaxColors colors) {
+    if (_spanCache != null && _spanCode == code && identical(_spanColors, colors)) return _spanCache!;
+    final spans = highlightCode(code, lang: widget.lang, colors: colors);
+    _spanCache = spans;
+    _spanCode = code;
+    _spanColors = colors;
+    return spans;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -394,7 +413,7 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
       return _EditField(controller: _controller!, focusNode: _editFocus, style: _codeStyle(c), accent: c.accent, onTab: _insertTab);
     }
     return SelectableText.rich(
-      TextSpan(style: _codeStyle(c), children: highlightCode(widget.code, lang: widget.lang, colors: context.syntax)),
+      TextSpan(style: _codeStyle(c), children: _highlight(widget.code, context.syntax)),
     );
   }
 
@@ -533,7 +552,7 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
       );
     }
     final text = SelectableText.rich(
-      TextSpan(style: _codeStyle(c), children: highlightCode(codeOverride ?? widget.code, lang: widget.lang, colors: context.syntax)),
+      TextSpan(style: _codeStyle(c), children: _highlight(codeOverride ?? widget.code, context.syntax)),
     );
     // Read-only non-wrap scrolls horizontally; wrap lets the text reflow to the available width. 只读非 wrap 横滚。
     if (_wrap) return Padding(padding: pad, child: text);
@@ -594,11 +613,25 @@ class _HighlightController extends TextEditingController {
 
   String? lang;
 
+  // buildTextSpan runs on EVERY text OR SELECTION change (Flutter re-styles the field on caret moves too),
+  // so a selection-only move used to re-tokenize the whole file (C-014). Cache the token spans on
+  // (text, colors) — a caret move keeps both, so it reuses; a keystroke changes text → recompute.
+  // 选区移动也触发 buildTextSpan→整文件重高亮;按 (text,colors) 缓存,移光标复用、打字才重算。
+  List<TextSpan>? _spanCache;
+  String? _spanText;
+  SyntaxColors? _spanColors;
+
   @override
   TextSpan buildTextSpan({required BuildContext context, TextStyle? style, required bool withComposing}) {
     // Per-token spans; the composing-region underline is not separately drawn (v1) — the text still
     // updates live. 逐 token span;v1 不单独画输入法 composing 下划线(文本仍实时更新)。
-    return TextSpan(style: style, children: highlightCode(text, lang: lang, colors: context.syntax));
+    final colors = context.syntax;
+    if (_spanCache == null || _spanText != text || !identical(_spanColors, colors)) {
+      _spanCache = highlightCode(text, lang: lang, colors: colors);
+      _spanText = text;
+      _spanColors = colors;
+    }
+    return TextSpan(style: style, children: _spanCache);
   }
 }
 
