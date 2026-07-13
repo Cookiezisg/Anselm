@@ -8,7 +8,8 @@ import 'package:anselm/core/ui/an_window.dart';
 import 'package:anselm/features/chat/ui/chat_tool_card.dart';
 import 'package:anselm/features/chat/ui/run_ledger.dart';
 import 'package:anselm/features/chat/ui/tool_card_io_section.dart';
-import 'package:anselm/features/chat/ui/tool_card_skins.dart' show WindowCopyButton;
+import 'package:anselm/core/design/tokens.dart';
+import 'package:anselm/features/chat/ui/tool_card_skins.dart' show WindowCopyButton, rawMonoWindow;
 import 'package:anselm/features/chat/ui/tool_card_runlog.dart';
 import 'package:anselm/features/chat/model/tool_receipts.dart';
 import 'package:anselm/i18n/strings.g.dart';
@@ -230,6 +231,24 @@ void main() {
       await tester.pumpWidget(_host(const ToolIOSection(label: 'v', value: 'line one\nline two')));
       await tester.pumpAndSettle();
       expect(find.byType(AnWindow), findsOneWidget);
+    });
+  });
+
+  group('rawMonoWindow 共享 helper (A-003)', () {
+    testWidgets('wraps mono text in the family window; maxLines tier caps the render', (tester) async {
+      await tester.pumpWidget(_host(Builder(builder: (c) => rawMonoWindow(c, 'k=v', maxLines: AnCap.monoErrorLines))));
+      await tester.pumpAndSettle();
+      expect(find.byType(AnWindow), findsOneWidget);
+      final t = tester.widget<Text>(find.text('k=v'));
+      expect(t.maxLines, AnCap.monoErrorLines); // named line tier 命名行档
+      expect(t.overflow, TextOverflow.ellipsis);
+    });
+    testWidgets('null maxLines = unbounded (clip, no ellipsis)', (tester) async {
+      await tester.pumpWidget(_host(Builder(builder: (c) => rawMonoWindow(c, 'x'))));
+      await tester.pumpAndSettle();
+      final t = tester.widget<Text>(find.text('x'));
+      expect(t.maxLines, isNull);
+      expect(t.overflow, TextOverflow.clip);
     });
   });
 }

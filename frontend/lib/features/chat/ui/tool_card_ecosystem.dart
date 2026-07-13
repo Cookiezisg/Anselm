@@ -9,6 +9,7 @@ import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
+import 'tool_card_skins.dart';
 import 'tool_card_nav.dart';
 import 'tool_hit_list.dart';
 
@@ -146,7 +147,7 @@ Widget mcpStatusBody(BuildContext context, ToolCardState state) {
     ],
     if (!connected && (lastError ?? '').isNotEmpty) ...[
       const SizedBox(height: AnSpace.s6),
-      AnWindow(child: Text(lastError!, style: AnText.code.copyWith(color: c.danger), maxLines: 12, overflow: TextOverflow.ellipsis)),
+      rawMonoWindow(context, lastError!, maxLines: AnCap.monoErrorLines, color: c.danger),
     ],
   ]);
 }

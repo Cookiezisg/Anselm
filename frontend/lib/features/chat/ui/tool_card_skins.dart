@@ -82,6 +82,18 @@ Widget toolIntent(BuildContext context, ToolCardState state, {bool gap = true}) 
   return gap ? Padding(padding: const EdgeInsets.only(bottom: AnSpace.s6), child: text) : text;
 }
 
+/// The family's ONE raw-mono fallback window (A-003) — «show the raw text in a machine window» when
+/// structured rendering doesn't apply. [maxLines] is a named [AnCap.mono*Lines] visual tier (null =
+/// unbounded), [color] the mono content tone (null = the code base ink). Collapses ~15 scattered
+/// `AnWindow(child: Text(…code…, maxLines: N))` sites. 原始 mono 回落窗:窗内裸文本;行档走 AnCap.mono*Lines,
+/// null=无界;收编 ~15 处散置写法。
+Widget rawMonoWindow(BuildContext context, String text, {int? maxLines, Color? color}) => AnWindow(
+      child: Text(text,
+          style: color == null ? AnText.code : AnText.code.copyWith(color: color),
+          maxLines: maxLines,
+          overflow: maxLines == null ? TextOverflow.clip : TextOverflow.ellipsis),
+    );
+
 /// A capped mono machine window — the raw text (display capped at the [AnCap.window] tier, A-112)
 /// inside the family window, the truncation note riding the window's own [AnWindow.footer] note slot
 /// (codex 族一 规则④). 封顶 mono 机器窗(封顶走 AnCap.window 档):截断注记走窗自己的 footer 注记槽(法典规则④)。

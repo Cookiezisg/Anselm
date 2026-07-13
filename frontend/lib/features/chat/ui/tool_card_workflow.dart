@@ -277,7 +277,7 @@ Widget workflowBuildBody(BuildContext context, ToolCardState state) {
         // 生长感在幕一 op ticker,落定图与实体预览一样静态。
         AnGraphCanvas(graph: graph, framed: true, framedHeight: AnSize.graphStage)
       else if (state.argsText.isNotEmpty)
-        AnWindow(child: Text(state.argsText, style: AnText.code.copyWith(color: c.inkMuted))),
+        rawMonoWindow(context, state.argsText, color: c.inkMuted),
       runStatBarOf(context, state),
     ],
   );

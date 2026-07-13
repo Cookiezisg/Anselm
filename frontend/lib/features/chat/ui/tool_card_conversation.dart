@@ -9,7 +9,6 @@ import '../../../core/model/status_state.dart';
 import '../../../core/model/time_format.dart';
 import '../../../core/ui/an_chip.dart';
 import '../../../core/ui/an_kv.dart';
-import '../../../core/ui/an_window.dart';
 import '../../../core/ui/icons.dart';
 import '../../../i18n/strings.g.dart';
 import 'tool_card_nav.dart';
@@ -72,11 +71,11 @@ Widget manageConversationBody(BuildContext context, ToolCardState state) {
   final t = Translations.of(context);
   final c = context.colors;
   if (state.resultText.startsWith(_manageSoftFail)) {
-    return AnWindow(child: Text(state.resultText, style: AnText.code.copyWith(color: c.inkMuted)));
+    return rawMonoWindow(context, state.resultText, color: c.inkMuted);
   }
   final o = _json(state.resultText);
   if (o == null) {
-    return AnWindow(child: Text(state.resultText, style: AnText.code.copyWith(color: c.inkMuted), maxLines: 20, overflow: TextOverflow.ellipsis));
+    return rawMonoWindow(context, state.resultText, maxLines: AnCap.monoCompactLines, color: c.inkMuted);
   }
   final rows = <AnKvRow>[
     if ((o['title'] as String?)?.isNotEmpty == true) AnKvRow(t.chat.tool.cvStatusTitle, '${o['title']}', wrap: true),

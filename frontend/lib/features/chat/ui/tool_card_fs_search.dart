@@ -12,6 +12,7 @@ import '../../../core/ui/icons.dart';
 import '../../../i18n/strings.g.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
+import 'tool_card_skins.dart';
 import 'tool_hit_list.dart';
 
 // F02 fs-search bodies (B4) — LS / Glob / Grep. Settle-only, so the drama is the «计数揭示» ([AnCountUp])
@@ -73,10 +74,10 @@ Widget lsToolBody(BuildContext context, ToolCardState state) {
   final t = Translations.of(context);
   final ls = parseLsListing(state.resultText);
   if (ls == null) {
-    return AnWindow(child: Text(state.resultText, style: AnText.code.copyWith(color: c.inkMuted), maxLines: 40, overflow: TextOverflow.ellipsis));
+    return rawMonoWindow(context, state.resultText, maxLines: AnCap.monoBodyLines, color: c.inkMuted);
   }
   if (ls.entries.isEmpty) {
-    return AnWindow(child: Text(t.chat.tool.lsEmpty, style: AnText.code.copyWith(color: c.inkFaint)));
+    return rawMonoWindow(context, t.chat.tool.lsEmpty, color: c.inkFaint);
   }
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
     Padding(padding: const EdgeInsets.only(bottom: AnSpace.s4), child: Text(ls.root, style: AnText.mono.copyWith(color: c.inkFaint))),
@@ -132,7 +133,7 @@ Widget globToolBody(BuildContext context, ToolCardState state) {
   final g = parseGlobResult(state.resultText);
   if (g == null) {
     // non-JSON = an error / timeout string. 非 JSON=错误/超时串。
-    return AnWindow(child: Text(state.resultText, style: AnText.code.copyWith(color: c.danger), maxLines: 20, overflow: TextOverflow.ellipsis));
+    return rawMonoWindow(context, state.resultText, maxLines: AnCap.monoCompactLines, color: c.danger);
   }
   final pattern = argString(state.argsText, 'pattern') ?? '';
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
@@ -342,7 +343,7 @@ Widget grepToolBody(BuildContext context, ToolCardState state) {
   final c = context.colors;
   final result = state.resultText;
   if (result.trimLeft().startsWith('No matches') || result.startsWith('Invalid regex')) {
-    return AnWindow(child: Text(result.trim(), style: AnText.code.copyWith(color: result.startsWith('Invalid') ? c.danger : c.inkFaint)));
+    return rawMonoWindow(context, result.trim(), color: result.startsWith('Invalid') ? c.danger : c.inkFaint);
   }
   final mode = argString(state.argsText, 'output_mode') ?? 'files_with_matches';
   final argPath = argString(state.argsText, 'path') ?? '';
@@ -350,7 +351,7 @@ Widget grepToolBody(BuildContext context, ToolCardState state) {
 
   if (mode == 'content') {
     final groups = parseGrepContent(result, argPath);
-    if (groups.isEmpty) return AnWindow(child: Text(result, style: AnText.code.copyWith(color: c.inkMuted), maxLines: 40, overflow: TextOverflow.ellipsis));
+    if (groups.isEmpty) return rawMonoWindow(context, result, maxLines: AnCap.monoBodyLines, color: c.inkMuted);
     return GrepContentView(
       groups: groups,
       pattern: pattern,

@@ -129,7 +129,7 @@ Widget replayFlowrunBody(BuildContext context, ToolCardState state) {
     Text(t.chat.tool.replayPinNote, style: AnText.meta.copyWith(color: c.inkFaint)),
     const SizedBox(height: AnSpace.s6),
     if (run.error != null && run.error!.isNotEmpty) ...[
-      AnWindow(child: Text(run.error!, style: AnText.code.copyWith(color: c.danger), maxLines: 12, overflow: TextOverflow.ellipsis)),
+      rawMonoWindow(context, run.error!, maxLines: AnCap.monoErrorLines, color: c.danger),
       const SizedBox(height: AnSpace.s6),
     ],
     FlowrunNodeList(nodes: comp.nodes, summary: comp.nodeSummary),
@@ -277,7 +277,7 @@ Widget getFlowrunBody(BuildContext context, ToolCardState state) {
     _runFooter(context, run, hasParked: flowrunHasParked(comp)),
     if (run.error != null && run.error!.isNotEmpty) ...[
       const SizedBox(height: AnSpace.s6),
-      AnWindow(child: Text(run.error!, style: AnText.code.copyWith(color: c.danger), maxLines: 12, overflow: TextOverflow.ellipsis)),
+      rawMonoWindow(context, run.error!, maxLines: AnCap.monoErrorLines, color: c.danger),
     ],
     const SizedBox(height: AnSpace.s6),
     FlowrunNodeList(nodes: comp.nodes, summary: comp.nodeSummary),

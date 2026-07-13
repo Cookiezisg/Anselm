@@ -52,7 +52,14 @@ A-032/A-033/A-034/A-036/A-038/A-046/A-048 关账(A-031 剩 AnAttachmentChip、A-
 3. **reduced 双闸选档**:装饰循环(shimmer/呼吸/雷达/转圈/打字机)=reducedOrAssistive;功能性一次揭示(展开/洗亮/入场)=reduced。
 4. **表单内联错误=label(13)+danger+top:s8;整面载入失败=AnState(error)**;行内空态=AnState inset;rail 整面四态=AnRailStates。
 
-### 批9d 落地(2026-07-13,A 轨手搓卡/头收编)
+### 批9e 落地(2026-07-13,A 轨窗族 raw-mono 收编 + 两豁免裁定)
+
+A-003 done + A-007/A-009 工程判断豁免:
+- **A-003 raw-mono 回落窗**:15 处散置 `AnWindow(child: Text(raw,code,maxLines:N,ellipsis))`→共享 `rawMonoWindow(context, text, {maxLines, color})`(tool_card_skins);散置行数 12/20/40/200→**AnCap 四命名档**(monoError/Compact/Body/FullLines);视觉零变(参数化保各站点行数/色),15 站点由既有工具卡电池覆盖+新 helper 电池(行档钉/null 无界)。
+- **A-007 豁免**:深查人闸=决策容器(card-16 白面+tone 边+**嵌套 AnWindow**[_evidence 内含])——三约束锁死无当家件可承(含窗故非叶子 AnWindow[窗禁套窗 assert]/card-16 需与相邻工具卡一致非 chip-12 AnCard/单消费者铸新原语=A-056 过早抽象)。手搓 Container 于此一之无二决策面恰当。
+- **A-009 豁免**:block_tree_view=右岛轻量 ReAct 轨迹,已正确用族原语(AnDisclosure/AnChip/AnIcons/AnText),收敛到 ChatToolCard=过度工程/到 transcriptBlockRow=丢保真(同 A-094)。台账 note 授「或明记豁免」。
+
+**A 轨剩 4 substantive open**:A-004 GrepContentView 升格 gallery + A-006 ToolHitList 升格 core(widget-to-gallery 大迁移)+ A-104 编辑器 caret 弹层几何 dedup(overlay 卡死高危区)+ A-113 doc 头设计决策;A-056/069/085/007/009=5 documented。**批9a–9e 共清 25 A 行(21 done+1 追认+3 证伪/豁免),A 台账 32 open→4 substantive+5 documented,余 4 是全战役最大 widget 升格/高危区/设计裁定,需窗族专项批或用户拍板**。### 批9d 落地(2026-07-13,A 轨手搓卡/头收编)
 
 A-001/010 done:
 - **A-001 审批预览卡**:tool_card_control_approval 手搓白岛卡(Container+BoxDecoration surface+card 圆角+hairline)→AnCard(SizedBox 保满宽);流内卡=chip 圆角(可见变化 16→12,B-043 一致,帧供否决)。

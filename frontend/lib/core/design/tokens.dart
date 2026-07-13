@@ -259,6 +259,12 @@ abstract final class AnCap {
   static const int proseFoldChars = 480; // prose window collapse gate: chars (WITH proseFoldLines) 散文窗折叠阈:字符
   static const int proseFoldLines = 10; // prose window collapse gate: newlines 散文窗折叠阈:行
   static const int noteFoldChars = 900; // memory-note collapse gate (short notes render whole) 记忆笺折叠阈
+  // Raw-mono fallback window visual LINE caps (A-003 — the «show raw text in a machine window» shape;
+  // named tiers replace scattered 12/20/40/200). 原始 mono 回落窗视觉行档(散置行数归档)。
+  static const int monoErrorLines = 12; // a compact error preview 错误预览
+  static const int monoCompactLines = 20; // a compact body 紧凑体
+  static const int monoBodyLines = 40; // the standard raw-body cap 标准体
+  static const int monoFullLines = 200; // a full dump (entity get bodies) 全量倾倒
   static const int receiptTail = 4000; // collapsed tool-row receipt/result tail budget (chat_tool_card raw peek) 收起行回执/结果尾预算
   static const int stderrTail = 8192; // dossier log drawer's MCP server-stderr sibling-window budget 卷宗日志抽屉 stderr 同胞窗预算
   static const int logHead = 2000; // log drawer double-ended cap: head half (tail is the diagnostic end) 日志双端截断:头半
