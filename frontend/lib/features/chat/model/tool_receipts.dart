@@ -246,12 +246,24 @@ ToolReceipt? searchReceipt(
 
 // ══ F05 lifecycle receipt parsers (WRK-056 §F05) — the thin cards' honest ledger ══
 
+// Memoized decode (C-005): the lifecycle receipt parsers each `_obj(output)` the SAME settled result
+// string, and settled cards re-render on the 1s ticker + inside live turns — so without a cache a KB~百KB
+// result JSON re-parses every frame, N cards × per frame. A decoded value for a given string is immutable
+// (same string → same tree), so the cache never needs invalidation; a FIFO bound keeps it small. 记忆化
+// 解码:同一 settled 结果串每帧重解析(ticker/live 回合重建);解码对给定串不可变故无需失效,FIFO 有界。
+final _objCache = <String, Map<String, dynamic>?>{};
+
 Map<String, dynamic>? _obj(String s) {
+  final hit = _objCache[s];
+  if (hit != null || _objCache.containsKey(s)) return hit;
+  Map<String, dynamic>? r;
   try {
     final d = jsonDecode(s);
-    if (d is Map<String, dynamic>) return d;
+    if (d is Map<String, dynamic>) r = d;
   } catch (_) {}
-  return null;
+  if (_objCache.length >= 64) _objCache.remove(_objCache.keys.first); // FIFO cap 有界
+  _objCache[s] = r;
+  return r;
 }
 
 /// revert — `⤺ v{version}` from `{…, version}` (agent's key is the same `version`). null if no int
