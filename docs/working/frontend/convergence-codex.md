@@ -27,6 +27,13 @@ audience: [human, ai]
 - **AnStickViewport 增 `fadeColor`**(白宿主传 surface,灰底退役)。bar 同构补齐:编辑器 copy 驻留走 AnMotion.dwell + AnTooltip。
 - AnLedgerRow 补 `expandChild`;「展开全部 N」列表壳 **deferred → P4 吸收四套台账时落**。
 
+## 批C10 落地(2026-07-13,C 轨——代码高亮 per-widget 记忆化 + C-021 测量证伪)
+
+Stop hook 点名 C-012/013/014 与 C-021 是「推掉的两项」——正面处理:
+- **C-012/013/014 修(per-object 缓存,绕开全局 thrash)**:早先顾虑全局缓存流式 thrash;**per-widget/per-controller 缓存**完全绕开——`AnCodeEditor` 只读脸(_inlineBody/_framed)加 per-State `_highlight`(按 (code,colors) 缓存 spans),`_HighlightController.buildTextSpan` 加 (text,colors) 缓存(选区/光标移动不再整文件重高亮)。流式增长码自然 miss=原成本、无 thrash;settled 卡随 1s ticker/live 回合重建不再重分词。新增 `highlightCodePasses` `@visibleForTesting` 探针 + widget 测(无变化重建不增、码变才增)。
+- **C-021 测量证伪**:实测 `aggregate`+copy 于现实规模(100–500 行台账×60 信号工具密集回合)=总 **~20–26ms 摊在 60 信号 = ~0.4ms/信号**,信号随触碰散布数秒非同帧;base 100→500 时长几乎不变(24→26ms)证成本主导是 per-signal 常数非台账规模。「med」夸大——增量聚合需核心纯模型维护有序分组状态(stale/错序风险),复杂度对 0.4ms/信号收益不成比例(#6);必要的手风琴重建(新 Cast 行)非 aggregate 之过。
+- **方法学(再强化)**:①「太谨慎」也是错——per-object 缓存常能绕开全局缓存的策略顾虑,退一步换 scope 即干净;②Stop hook 点名项先**测量**再定(C-021 实测 0.4ms/信号=证伪,非「declined」);③core 函数加 `@visibleForTesting` 计数探针是渲染路径记忆化的正解测量。**C 轨本会话 43→25(13 修+4 证伪)。**
+
 ## 批C8/C9 落地(2026-07-13,C 轨——解码广迁 + 场景记忆化)
 
 - **C-028 修(批C8,广迁)**:`ToolCardState` 加记忆化 `resultObj` getter(Expando per-instance+空哨兵,承 argsSession 模式;`ToolCardState.of` 按 revision 记忆化实例→解一次、revision 变才重解);**13 站点** `jsonDecode(state/s.resultText)`→`state.resultObj` 全迁(skins×3/trigger×2/workflow×1/mount×1/document_skill×1/catalog×5,消 try/catch 样板)+4 未用 `dart:convert` import 清。behavior 逐字等价(Map?/null),**fe-verify 3645 测全绿证不破族体回执**。
