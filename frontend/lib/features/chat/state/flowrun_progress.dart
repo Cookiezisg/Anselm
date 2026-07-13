@@ -33,8 +33,18 @@ class FlowrunProgress {
   /// 运行中 '';durable 终态落地后为 completed/failed/cancelled。
   final String terminal;
 
-  FlowrunProgress withTick(NodeTick t) =>
-      FlowrunProgress(flowrunId: flowrunId, ticks: [...ticks, t], terminal: terminal);
+  /// The stage renders only the LAST 12 ticks (stage_panel), so the scroll is bounded to this cap +
+  /// headroom — a heavy iterative workflow (a node re-entered thousands of times) would otherwise grow
+  /// the list unboundedly and make [withTick]'s copy O(n²) (measured: 905ms at 20k ticks) + leak memory
+  /// (this provider is non-autoDispose). C-019. 舞台只显末 12,故有界(+ 余量);否则重迭代 workflow 令拷贝 O(n²)。
+  static const maxTicks = 64;
+
+  FlowrunProgress withTick(NodeTick t) {
+    final next = ticks.length >= maxTicks
+        ? [...ticks.skip(ticks.length - maxTicks + 1), t] // drop the oldest, keep the last cap 丢最旧
+        : [...ticks, t];
+    return FlowrunProgress(flowrunId: flowrunId, ticks: next, terminal: terminal);
+  }
 
   FlowrunProgress withTerminal(String status) =>
       FlowrunProgress(flowrunId: flowrunId, ticks: ticks, terminal: status);
@@ -59,11 +69,12 @@ class FlowrunProgressController extends Notifier<FlowrunProgress?> {
 }
 
 /// Per poll-block run progress. NOT autoDispose: the director host writes it from a stream
-/// subscription with no watcher of its own — poll blocks are a handful per session, the footprint
-/// is bounded and dies with the app (the same journal-beats-cache tradeoff the ledger makes).
+/// subscription with no watcher of its own — poll blocks are a handful per session, and each one's
+/// footprint is now HARD-bounded to [FlowrunProgress.maxTicks] (C-019), so it dies with the app with a
+/// tiny fixed cost (the same journal-beats-cache tradeoff the ledger makes).
 ///
 /// 每 poll 块一份运行进度。非 autoDispose:导演器宿主从流订阅写入、自身无 watcher——poll 块每会话
-/// 屈指可数,占用有界、随 app 释放(与台账同一取舍)。
+/// 屈指可数,每份占用硬有界到 maxTicks(C-019)、随 app 释放(与台账同一取舍)。
 final flowrunProgressProvider =
     NotifierProvider.family<FlowrunProgressController, FlowrunProgress?, String>(
         FlowrunProgressController.new);
