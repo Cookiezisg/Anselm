@@ -123,6 +123,7 @@ lib/core/ui/an_deferred_loading.dart	converged
 lib/core/ui/an_dialog.dart	converged
 lib/core/ui/an_disclosure.dart	converged
 lib/core/ui/an_divider.dart	converged
+lib/core/ui/an_doc_header.dart	converged
 lib/core/ui/an_drop_veil.dart	converged
 lib/core/ui/an_dropdown.dart	converged
 lib/core/ui/an_edge_fade.dart	converged

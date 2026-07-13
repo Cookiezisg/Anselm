@@ -2,13 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
-import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
-import '../../../core/design/typography.dart';
 import '../../../core/editor/an_editor.dart';
 import '../../../core/entity/mention_source.dart';
-import '../../../core/ui/an_inline_edit.dart';
-import '../../../core/ui/an_tags.dart';
+import '../../../core/ui/an_doc_header.dart';
 
 /// The native documents view — a CO-SCROLL column (the product characteristic): the header (crumb +
 /// renamable title + description + tags) scrolls WITH the body inside ONE outer scrollable, and the body
@@ -199,39 +196,16 @@ class AnDocumentEditorState extends State<AnDocumentEditor> {
     });
   }
 
-  Widget _header(BuildContext context) {
-    final c = context.colors;
-    void meta(String key, Object value) => widget.onMetaChanged?.call({key: value});
-    return Padding(
-      padding: const EdgeInsets.only(top: AnSpace.s24, bottom: AnSpace.s8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(widget.crumb, style: AnText.meta.copyWith(color: c.inkFaint)),
-          const SizedBox(height: AnSpace.s8),
-          // Renamable H1 title (skills aren't renamable — the name is the identity). 可改名 H1(skill 不可)。
-          AnInlineEdit(
-            value: widget.name,
-            enabled: widget.nameEditable,
-            style: AnText.readingH1.copyWith(color: c.ink),
-            minHeight: AnSize.islandHead,
-            onCommit: (v) => meta('name', v),
-          ),
-          const SizedBox(height: AnSpace.s4),
-          AnInlineEdit(
-            value: widget.description,
-            style: AnText.reading.copyWith(color: c.inkMuted),
-            onCommit: (v) => meta('description', v),
-          ),
-          if (widget.showTags && (widget.tags.isNotEmpty || widget.onMetaChanged != null)) ...[
-            const SizedBox(height: AnSpace.s8),
-            AnTags(
-              tags: [for (final tag in widget.tags) AnTag(tag)],
-              onChanged: (tags) => meta('tags', [for (final tag in tags) tag.label]),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
+  // The reading-scale header is the [AnDocHeader] primitive (A-113 — the arrangement lives in gallery,
+  // not invented here); this feature only supplies the data + wires the metadata callback. 阅读尺度头=
+  // AnDocHeader 原语,本 feature 只喂数据+接元数据回调。
+  Widget _header(BuildContext context) => AnDocHeader(
+        crumb: widget.crumb,
+        name: widget.name,
+        nameEditable: widget.nameEditable,
+        description: widget.description,
+        tags: widget.tags,
+        showTags: widget.showTags,
+        onMetaChanged: widget.onMetaChanged,
+      );
 }

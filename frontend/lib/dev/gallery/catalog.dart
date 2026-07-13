@@ -880,6 +880,16 @@ final GalleryCategory _g4NavShell = GalleryCategory('导航与壳 Nav & Shell', 
           meta: const [AnChip('document', tone: AnTone.accent)],
         ), span: true),
   ]),
+  GalleryItem('AnDocHeader', '阅读尺度页头(AnOceanHeader 的阅读列对位件):灰面包屑 + 可改名 readingH1 大标题 + 可编 reading 描述 + 可编标签行;供 document/skill,skill 走 showTags:false 无标签', [
+    GallerySpecimen('document (crumb + 大标题 + 描述 + tags)', (_) => const _DocHeaderDemo(), span: true),
+    GallerySpecimen('skill (无 tags,标题不可改名)', (_) => const AnDocHeader(
+          crumb: 'Skills',
+          name: 'code-review',
+          nameEditable: false,
+          description: '逐维审查改动并对抗验证',
+          showTags: false,
+        ), span: true),
+  ]),
   GalleryItem('AnOceanSwitcher', '左岛海洋切换器:选中展开标签 + 匹配几何滑动(旧的收起、新的展开,单药丸滑动+变宽,整行回流);降级=瞬切', [
     GallerySpecimen('interactive (点不同海洋,看滑动)', (_) => const _OceanSwitcherDemo(), span: true),
     GallerySpecimen('rest · Chat', (_) => AnOceanSwitcherFrame(items: _oceanItems, fromIndex: 0, toIndex: 0, t: 1), span: true),
@@ -1689,5 +1699,30 @@ class _OceanHeaderDemoState extends State<_OceanHeaderDemo> {
           AnChip('function', tone: AnTone.accent),
           AnChip('passed', tone: AnTone.ok, dot: AnStatusDot(AnStatus.done)),
         ],
+      );
+}
+
+// AnDocHeader demo (stateful: holds the editable title / description / tags). AnDocHeader 演示(持可编标题/描述/标签)。
+class _DocHeaderDemo extends StatefulWidget {
+  const _DocHeaderDemo();
+  @override
+  State<_DocHeaderDemo> createState() => _DocHeaderDemoState();
+}
+
+class _DocHeaderDemoState extends State<_DocHeaderDemo> {
+  String _name = 'Architecture Notes';
+  String _desc = '本地优先 agentic workflow 平台的设计札记';
+  List<String> _tags = const ['design', 'backend'];
+  @override
+  Widget build(BuildContext context) => AnDocHeader(
+        crumb: 'Documents',
+        name: _name,
+        description: _desc,
+        tags: _tags,
+        onMetaChanged: (m) => setState(() {
+          if (m['name'] case final String v) _name = v;
+          if (m['description'] case final String v) _desc = v;
+          if (m['tags'] case final List<dynamic> v) _tags = v.cast<String>();
+        }),
       );
 }
