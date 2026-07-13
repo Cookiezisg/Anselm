@@ -188,7 +188,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('fn_1'), findsOneWidget); // the id KV row 身份 KV
-    expect(find.text(t.chat.stage.verb.edited), findsWidgets); // verb history 动词史
+    expect(find.text(t.feedback.cast.verb.edited), findsWidgets); // verb history 动词史
 
     // Tapping it again collapses the row (sticky until re-toggled). 再点收起(粘性)。
     await tester.tap(find.text('sync_inventory'));

@@ -8,7 +8,7 @@ import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
 import '../../../core/ui/an_group_label.dart';
 import '../../../core/ui/an_divider.dart';
-import '../../../core/ui/an_interactive.dart';
+import '../../../core/ui/an_button.dart';
 import '../../../core/ui/an_rail_states.dart';
 import '../../../core/ui/an_scroll_behavior.dart';
 import '../../../i18n/strings.g.dart';
@@ -176,16 +176,13 @@ class _Header extends StatelessWidget {
       child: Row(
         children: [
           Expanded(child: Text(title, style: AnText.label.copyWith(color: c.ink).weight(AnText.emphasisWeight))),
+          // The kit button, not a hand-rolled text link (A-114) — ghost/sm is the tray's quiet action
+          // register (accent link → neutral ghost, 可见变化记档). 当家钮替手搓文字链。
           if (showMarkAll)
-            AnInteractive(
-              onTap: onMarkAll,
-              builder: (context, states) => Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AnSpace.s6, vertical: AnSpace.s2),
-                child: Text(
-                  context.t.notifications.markAllRead,
-                  style: AnText.meta.copyWith(color: states.isActive ? c.accentHover : c.accent),
-                ),
-              ),
+            AnButton(
+              label: context.t.notifications.markAllRead,
+              size: AnButtonSize.sm,
+              onPressed: onMarkAll,
             ),
         ],
       ),

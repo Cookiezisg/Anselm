@@ -338,7 +338,7 @@ class _ToolInteractionGateState extends State<ToolInteractionGate> {
               variant: AnButtonVariant.danger,
               onPressed: () => _resolve(InteractionAction.deny)),
           const SizedBox(width: AnGap.inline),
-          Tooltip(
+          AnTooltip(
             message: t.chat.gate.approveAlwaysHint(tool: widget.toolName ?? ''),
             child: AnButton(
                 label: t.chat.gate.approveAlways,

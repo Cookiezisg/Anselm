@@ -36,9 +36,9 @@ class AnHonestyRibbon extends StatelessWidget {
     final c = context.colors;
     final t = Translations.of(context);
     final (tone, soft, text) = switch (honesty) {
-      AnHonesty.live => (c.inkFaint, c.surfaceSunken, t.chat.stage.ribbonLive),
-      AnHonesty.gap => (c.warn, c.warnSoft, t.chat.stage.ribbonGap),
-      AnHonesty.failed => (c.danger, c.dangerSoft, t.chat.stage.ribbonFailed),
+      AnHonesty.live => (c.inkFaint, c.surfaceSunken, t.feedback.cast.ribbonLive),
+      AnHonesty.gap => (c.warn, c.warnSoft, t.feedback.cast.ribbonGap),
+      AnHonesty.failed => (c.danger, c.dangerSoft, t.feedback.cast.ribbonFailed),
     };
     return Container(
       width: double.infinity,

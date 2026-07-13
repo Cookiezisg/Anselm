@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -28,7 +30,8 @@ class SettingsOcean extends ConsumerStatefulWidget {
 
 class _SettingsOceanState extends ConsumerState<SettingsOcean> {
   final ScrollController _scroll = ScrollController();
-  static const double _collapseAt = 64;
+  final GlobalKey _headerKey = GlobalKey();
+  double _threshold = AnSpace.s64; // pre-measure fallback; recomputed from the measured header height (A-102, entity/document ocean 同法) 测量前兜底,据测得头高重算
 
   @override
   void initState() {
@@ -45,12 +48,19 @@ class _SettingsOceanState extends ConsumerState<SettingsOcean> {
 
   void _onScroll() {
     if (!mounted) return;
-    ref.read(shellHeadProvider.notifier).setCollapsed(_scroll.offset > _collapseAt);
+    ref.read(shellHeadProvider.notifier).setCollapsed(_scroll.offset > _threshold);
   }
 
   void _bindHead(String crumb) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      // Measure the big title block (the collapse threshold = its height past the head band) —
+      // the entity/document oceans' pattern, no per-ocean magic number (A-102). 实测大标题块高定阈
+      // (头高−islandHead),同 entity/document 海洋,不再私铸魔数。
+      final box = _headerKey.currentContext?.findRenderObject() as RenderBox?;
+      if (box != null && box.hasSize) {
+        _threshold = math.max(AnSpace.s8, box.size.height - AnSize.islandHead);
+      }
       ref.read(shellHeadProvider.notifier).bind(crumb, () {
         if (_scroll.hasClients) {
           _scroll.animateTo(0, duration: AnMotion.mid, curve: AnMotion.easeOut);
@@ -109,9 +119,12 @@ class _SettingsOceanState extends ConsumerState<SettingsOcean> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding: const EdgeInsets.only(top: AnSpace.s24, bottom: AnSpace.s16),
-                child: Text(detailLabel ?? label, style: AnText.readingH1.copyWith(color: c.ink)),
+              KeyedSubtree(
+                key: _headerKey,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: AnSpace.s24, bottom: AnSpace.s16),
+                  child: Text(detailLabel ?? label, style: AnText.readingH1.copyWith(color: c.ink)),
+                ),
               ),
               buildSettingsPanelBody(context, panel),
             ],

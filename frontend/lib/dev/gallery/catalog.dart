@@ -1221,16 +1221,15 @@ class _GridCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
-    return Container(
+    // AnCard, not a hand-rolled bordered box (A-108) — the demo blob eats the kit's own card skin;
+    // the SizedBox keeps the exact demo heights the grid specimens exercise. 演示块吃当家卡皮,
+    // SizedBox 保住网格样张要压的精确高度。
+    return SizedBox(
       height: height,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: c.surface,
-        borderRadius: BorderRadius.circular(AnRadius.chip),
-        border: Border.all(color: c.line, width: AnSize.hairline),
+      child: AnCard(
+        pad: AnCardPad.tight,
+        child: Center(child: Text(text, style: AnText.meta.copyWith(color: context.colors.inkMuted))),
       ),
-      child: Text(text, style: AnText.meta.copyWith(color: c.inkMuted)),
     );
   }
 }

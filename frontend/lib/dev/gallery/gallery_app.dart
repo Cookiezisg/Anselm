@@ -203,13 +203,9 @@ class _GalleryAppState extends State<GalleryApp> {
 
   Widget _cell(BuildContext context, GallerySpecimen s) {
     final c = context.colors;
-    return Container(
-      padding: const EdgeInsets.all(AnSpace.s16),
-      decoration: BoxDecoration(
-        color: c.surface,
-        border: Border.all(color: c.line, width: AnSize.hairline),
-        borderRadius: BorderRadius.circular(AnRadius.chip),
-      ),
+    // AnCard, not a hand-rolled bordered box (A-109) — the specimen frame IS the kit card's job
+    // (dogfood; all(16) → AnInset.card 16/12, gallery-only −4px vertical). 样张框即当家卡职责。
+    return AnCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,

@@ -14,6 +14,7 @@ import '../../../core/ui/an_ref_pill.dart';
 import '../../../i18n/strings.g.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
+import 'tool_card_entity_get.dart' show kEntityContentCap;
 
 // F05 lifecycle bodies (B3.6) — the family soul is THE THIN CARD: one statement + an undeniable
 // receipt. The bodies are minimal: a live ref pill to the entity panel + a grey contract note, or —
@@ -140,15 +141,16 @@ Widget metaDeltaBody(BuildContext context,
 }
 
 /// activate_skill body — the injected output is an INSTRUCTION PAYLOAD (machine-window identity, not
-/// prose), capped at 6000 chars with an honest truncation note (fork answers land in no panel). A grey
-/// line surfaces the pre-authorization side-effect. activate_skill:注入载荷→capped 机器窗 + 预授权注记。
+/// prose), capped at [kEntityContentCap] chars with an honest truncation note (fork answers land in no
+/// panel). A grey line surfaces the pre-authorization side-effect. activate_skill:注入载荷→capped 机器窗
+/// + 预授权注记。
 Widget activateSkillBody(BuildContext context, ToolCardState state) {
   final t = Translations.of(context);
   final c = context.colors;
   final out = state.resultText;
   if (out.isEmpty) return const SizedBox.shrink();
-  final over = out.length > 6000;
-  final shown = over ? out.substring(0, 6000) : out;
+  final over = out.length > kEntityContentCap;
+  final shown = over ? out.substring(0, kEntityContentCap) : out;
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
     Text(t.chat.tool.skillPreauthNote, style: AnText.meta.copyWith(color: c.warn)),
     const SizedBox(height: AnSpace.s6),

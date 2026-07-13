@@ -106,7 +106,7 @@ void main() {
     // The DOCUMENT stage renders IN the expanded row (no brow — the row header is the identity, WRK-064).
     // 文档舞台在展开行内渲染(无眉——行头即身份)。
     expect(find.byType(DocumentStageBody), findsOneWidget); // the document kind stage 文档舞台
-    expect(find.text(t.chat.stage.ribbonLive), findsOneWidget); // live honesty ribbon 活丝带
+    expect(find.text(t.feedback.cast.ribbonLive), findsOneWidget); // live honesty ribbon 活丝带
     expect(find.textContaining('第一行'), findsWidgets); // live tail 活尾窗
 
     repo.emitFrame(
@@ -121,7 +121,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     // Clean settle drops the live ribbon; the row (and its settled document stage) stay — nothing curtains
     // it away (§8-3 落定不自动收). 干净落定去活丝带;行与落定文档舞台留存,绝不谢幕移除。
-    expect(find.text(t.chat.stage.ribbonLive), findsNothing);
+    expect(find.text(t.feedback.cast.ribbonLive), findsNothing);
     expect(find.byType(DocumentStageBody), findsOneWidget);
   });
 

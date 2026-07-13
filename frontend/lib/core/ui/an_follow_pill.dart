@@ -100,7 +100,7 @@ class _AnFollowPillState extends State<AnFollowPill> {
     final amber = widget.kind == AnFollowPillKind.gate;
     final tone = amber ? c.warn : c.accent;
     final label =
-        amber ? t.chat.stage.gatePill : t.chat.stage.livePill(name: widget.subjectName);
+        amber ? t.feedback.cast.gatePill : t.feedback.cast.livePill(name: widget.subjectName);
     if (AnMotionPref.reducedOrAssistive(context)) {
       // Static pose, no clock subscription — zero frames requested. 静态姿态,零帧请求。
       return _PillShell(tone: tone, label: label, swell: 0, onTap: widget.onTap);

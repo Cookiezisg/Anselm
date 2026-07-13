@@ -196,6 +196,11 @@ abstract final class AnSize {
   // Editor toolbar link-input width. 编辑器划选条 URL 输入宽。
   static const double linkField = 280;
 
+  // Inline count heat-bar FULL width (grep count rows — the bar scales inside this bound). NOT AnMeter
+  // (a full-width 6px quota meter with warn/danger thresholds — a different role than a trailing-slot
+  // relative-heat sliver). 行尾计数热力条满宽(条在此界内按占比缩放);非 AnMeter(整行配额表,角色不同)。
+  static const double heatBar = 40;
+
   // Three-island layout columns. The LEFT island is elastic (draggable, 240–400, default 320);
   // the RIGHT island is fixed; the ocean is the flex remainder whose content column is elastic
   // 480–720 (`oceanMin`..`content`). 三岛列:左岛弹性(可拖 240–400,默认 320);右岛固定;
@@ -253,6 +258,10 @@ abstract final class AnCap {
   static const int proseFoldChars = 480; // prose window collapse gate: chars (WITH proseFoldLines) 散文窗折叠阈:字符
   static const int proseFoldLines = 10; // prose window collapse gate: newlines 散文窗折叠阈:行
   static const int noteFoldChars = 900; // memory-note collapse gate (short notes render whole) 记忆笺折叠阈
+  static const int receiptTail = 4000; // collapsed tool-row receipt/result tail budget (chat_tool_card raw peek) 收起行回执/结果尾预算
+  static const int stderrTail = 8192; // dossier log drawer's MCP server-stderr sibling-window budget 卷宗日志抽屉 stderr 同胞窗预算
+  static const int logHead = 2000; // log drawer double-ended cap: head half (tail is the diagnostic end) 日志双端截断:头半
+  static const int logTail = 4000; // log drawer double-ended cap: tail half (last yields/stderr/dying output) 日志双端截断:尾半
 }
 
 /// Opacity tokens — the few semantic alpha values used as whole-widget dimmers. 整件透明度语义值。

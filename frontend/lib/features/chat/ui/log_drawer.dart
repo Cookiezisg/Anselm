@@ -17,18 +17,21 @@ import 'tool_card_skins.dart' show WindowCopyButton;
 // 披露 + 双端截断(头 2000+中缝省略+尾 4000)机器窗 + 全量复制;MCP stderr 尾按固定分隔符切出、成 danger
 // 同胞窗保留后端告诫。
 
-const int _logCap = 6000;
-const int _logHead = 2000;
-const int _logTail = 4000;
-const int _stderrTailCap = 8192;
 const String mcpStderrSeparator = '--- server stderr tail (server-level, may predate this call) ---';
 
 /// Cap a log to head+tail with a middle elision (the tail — last yields / stderr / dying output — is the
 /// most diagnostic, so NEVER head-truncate). Returns (head, omittedChars, tail); omitted=0 when it fits.
-/// 日志双端保留:头+尾+中缝省略(尾最诊断,绝不头截)。
+/// Budgets are the named [AnCap.logHead]/[AnCap.logTail] tiers (A-112 — the drawer's private constant
+/// group moved into the token registry; the fits-whole threshold is DERIVED head+tail, not a coincidental
+/// third literal). 日志双端保留:头+尾+中缝省略(尾最诊断,绝不头截)。预算走 AnCap 具名档(A-112,抽屉私有
+/// 常量组入档;整渲阈=头+尾之和派生,不留巧合第三字面量)。
 ({String head, int omitted, String tail}) capLog(String log) {
-  if (log.length <= _logCap) return (head: log, omitted: 0, tail: '');
-  return (head: log.substring(0, _logHead), omitted: log.length - _logHead - _logTail, tail: log.substring(log.length - _logTail));
+  if (log.length <= AnCap.logHead + AnCap.logTail) return (head: log, omitted: 0, tail: '');
+  return (
+    head: log.substring(0, AnCap.logHead),
+    omitted: log.length - AnCap.logHead - AnCap.logTail,
+    tail: log.substring(log.length - AnCap.logTail),
+  );
 }
 
 /// The shared log drawer. Line-counted label, double-ended cap, full-payload copy, MCP stderr split.
@@ -84,7 +87,7 @@ class _LogDrawerState extends State<LogDrawer> {
                 Text(t.chat.tool.dossierStderr, style: AnText.meta.copyWith(color: c.danger)),
                 const SizedBox(height: AnSpace.s2),
                 AnWindow(
-                    child: Text(stderr.length > _stderrTailCap ? stderr.substring(stderr.length - _stderrTailCap) : stderr,
+                    child: Text(stderr.length > AnCap.stderrTail ? stderr.substring(stderr.length - AnCap.stderrTail) : stderr,
                         style: AnText.code.copyWith(color: c.danger), maxLines: 60, overflow: TextOverflow.ellipsis)),
               ],
             ])

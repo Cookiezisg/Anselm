@@ -62,7 +62,7 @@ class AnChannelStrip extends StatelessWidget {
           child: _tab(context, c, ch),
         ),
       if (overflow > 0)
-        Text(t.chat.stage.moreChannels(n: overflow), style: AnText.meta.copyWith(color: c.inkFaint)),
+        Text(t.feedback.cast.moreChannels(n: overflow), style: AnText.meta.copyWith(color: c.inkFaint)),
     ]);
   }
 

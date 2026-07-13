@@ -375,14 +375,14 @@ class SettledBody extends ConsumerWidget {
       if (tombstoned)
         Padding(
           padding: const EdgeInsets.only(top: AnSpace.s4),
-          child: Text(t.chat.stage.tombstone, style: AnText.meta.copyWith(color: c.danger)),
+          child: Text(t.feedback.cast.tombstone, style: AnText.meta.copyWith(color: c.danger)),
         ),
       if (!tombstoned && (lastMessageId.isNotEmpty || hasPanelFor(entity.kind))) ...[
         const SizedBox(height: AnSpace.s6),
         Row(children: [
           if (lastMessageId.isNotEmpty)
             AnButton(
-              label: t.chat.stage.jumpToScene,
+              label: t.feedback.cast.jumpToScene,
               icon: AnIcons.locate,
               size: AnButtonSize.sm,
               onPressed: () =>
@@ -391,7 +391,7 @@ class SettledBody extends ConsumerWidget {
           if (hasPanelFor(entity.kind)) ...[
             const SizedBox(width: AnSpace.s6),
             AnButton(
-              label: t.chat.stage.goToEntity,
+              label: t.feedback.cast.goToEntity,
               icon: AnIcons.open,
               size: AnButtonSize.sm,
               onPressed: () => toolNavTo(context, entity.kind, entity.key),

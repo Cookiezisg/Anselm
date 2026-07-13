@@ -62,14 +62,14 @@ class AnCastRow extends StatelessWidget {
   final VoidCallback? onNav;
 
   static String verbWord(Translations t, TouchpointVerb v) => switch (v) {
-        TouchpointVerb.mentioned => t.chat.stage.verb.mentioned,
-        TouchpointVerb.created => t.chat.stage.verb.created,
-        TouchpointVerb.edited => t.chat.stage.verb.edited,
-        TouchpointVerb.viewed => t.chat.stage.verb.viewed,
-        TouchpointVerb.executed => t.chat.stage.verb.executed,
-        TouchpointVerb.attached => t.chat.stage.verb.attached,
-        TouchpointVerb.deleted => t.chat.stage.verb.deleted,
-        TouchpointVerb.unknown => t.chat.stage.verb.unknown,
+        TouchpointVerb.mentioned => t.feedback.cast.verb.mentioned,
+        TouchpointVerb.created => t.feedback.cast.verb.created,
+        TouchpointVerb.edited => t.feedback.cast.verb.edited,
+        TouchpointVerb.viewed => t.feedback.cast.verb.viewed,
+        TouchpointVerb.executed => t.feedback.cast.verb.executed,
+        TouchpointVerb.attached => t.feedback.cast.verb.attached,
+        TouchpointVerb.deleted => t.feedback.cast.verb.deleted,
+        TouchpointVerb.unknown => t.feedback.cast.verb.unknown,
       };
 
   /// A verb's micro-glyph (the secondary sequence). 动词微字形。
@@ -131,7 +131,7 @@ class AnCastRow extends StatelessWidget {
           // Graded degradation (kit idiom): tight rows shed the micro-badges first, then count — the
           // verb word and the time survive to the narrowest. 分级降显:窄行先舍微徽再舍 count;动词+时间恒在。
           Text(
-            tombstoned ? t.chat.stage.tombstone : verbWord(t, verb),
+            tombstoned ? t.feedback.cast.tombstone : verbWord(t, verb),
             style: AnText.meta.copyWith(color: tombstoned ? c.danger : c.inkFaint),
           ),
           if (count > 1 && !tight)
@@ -154,9 +154,9 @@ class AnCastRow extends StatelessWidget {
           if (states.isActive && (onJump != null || onNav != null))
             Row(mainAxisSize: MainAxisSize.min, children: [
               if (onJump != null)
-                _microAction(context, AnIcons.locate, t.chat.stage.jumpToScene, onJump!),
+                _microAction(context, AnIcons.locate, t.feedback.cast.jumpToScene, onJump!),
               if (onNav != null)
-                _microAction(context, AnIcons.open, t.chat.stage.goToEntity, onNav!),
+                _microAction(context, AnIcons.open, t.feedback.cast.goToEntity, onNav!),
             ])
           else
             Text(timeLabel(context, lastAt), style: AnText.meta.copyWith(color: c.inkFaint)),

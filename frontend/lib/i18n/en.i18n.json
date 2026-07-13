@@ -556,12 +556,7 @@
       "live": "Live",
       "settled": "Settled",
       "failed": "Unsaved",
-      "livePill": "AI is editing $name →",
-      "gatePill": "AI awaits your decision →",
       "backToLive": "Back to live",
-      "ribbonLive": "Listening live · settle follows the truth",
-      "ribbonGap": "Stream gap · trust the execution record",
-      "ribbonFailed": "Draft unsaved · truth is still the last version",
       "run": {
         "queued": "Enqueued · listening for nodes…",
         "done": "Run completed",
@@ -583,20 +578,6 @@
       },
       "castEmpty": "This conversation hasn't touched anything yet",
       "castEmptyHint": "Things the AI creates, edits or runs are recorded here",
-      "tombstone": "Deleted",
-      "goToEntity": "Open entity",
-      "jumpToScene": "Jump to occurrence",
-      "moreChannels": "+$n",
-      "verb": {
-        "mentioned": "Mentioned",
-        "created": "Created",
-        "edited": "Edited",
-        "viewed": "Viewed",
-        "executed": "Ran",
-        "attached": "Attached",
-        "deleted": "Deleted",
-        "unknown": "Touched"
-      },
       "beforeEdit": "before this edit",
       "proseUntouched": "content untouched by this edit",
       "prefixKept": "first $n chars match the old version · fast-forwarded",
@@ -669,7 +650,28 @@
     "copied": "Copied",
     "showAll": "Show remaining $n",
     "copyFailed": "Copy failed",
-    "retry": "Retry"
+    "retry": "Retry",
+    "cast": {
+      "ribbonLive": "Listening live · settle follows the truth",
+      "ribbonGap": "Stream gap · trust the execution record",
+      "ribbonFailed": "Draft unsaved · truth is still the last version",
+      "gatePill": "AI awaits your decision →",
+      "livePill": "AI is editing $name →",
+      "moreChannels": "+$n",
+      "tombstone": "Deleted",
+      "goToEntity": "Open entity",
+      "jumpToScene": "Jump to occurrence",
+      "verb": {
+        "mentioned": "Mentioned",
+        "created": "Created",
+        "edited": "Edited",
+        "viewed": "Viewed",
+        "executed": "Ran",
+        "attached": "Attached",
+        "deleted": "Deleted",
+        "unknown": "Touched"
+      }
+    }
   },
   "shell": {
     "collapseSidebar": "Collapse sidebar",

@@ -208,19 +208,18 @@ class _FlowrunNodeListState extends State<FlowrunNodeList> {
     );
   }
 
-  // The 80-cap honest header: real counts from summary.byStatus (NEVER nodes.length). 截断诚实账。
+  // The 80-cap honest header — the bar family face (文法 #3: a rendered ' · ' chain lives ONLY in
+  // AnStatBar; this hand-joined meta line was its last flowrun holdout, A-087). Real counts from
+  // summary.byStatus (NEVER nodes.length). 截断诚实账走条族当家件(' · ' 链归 AnStatBar);真数来自
+  // byStatus,绝不数 nodes.length。
   Widget _summaryBar(BuildContext context, FlowrunNodeSummary s) {
     final t = Translations.of(context);
-    final c = context.colors;
-    final parts = <String>[
-      if ((s.byStatus['completed'] ?? 0) > 0) '${t.chat.tool.runCompleted} ${s.byStatus['completed']}',
-      if ((s.byStatus['failed'] ?? 0) > 0) '${t.chat.tool.failed} ${s.byStatus['failed']}',
-      if ((s.byStatus['parked'] ?? 0) > 0) '${t.chat.tool.nodeWait} ${s.byStatus['parked']}',
-    ];
-    return Text(
-      '${t.chat.tool.flowShown(shown: '${s.shownNodes}', total: '${s.totalNodes}')}${parts.isEmpty ? '' : ' · ${parts.join(' · ')}'}',
-      style: AnText.meta.copyWith(color: c.inkFaint),
-    );
+    return AnStatBar(stats: [
+      AnStat(t.chat.tool.flowShown(shown: '${s.shownNodes}', total: '${s.totalNodes}')),
+      if ((s.byStatus['completed'] ?? 0) > 0) AnStat('${t.chat.tool.runCompleted} ${s.byStatus['completed']}'),
+      if ((s.byStatus['failed'] ?? 0) > 0) AnStat('${t.chat.tool.failed} ${s.byStatus['failed']}'),
+      if ((s.byStatus['parked'] ?? 0) > 0) AnStat('${t.chat.tool.nodeWait} ${s.byStatus['parked']}'),
+    ]);
   }
 
   Widget _nodeRow(BuildContext context, FlowrunNode n) {

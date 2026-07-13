@@ -384,10 +384,13 @@ Widget grepToolBody(BuildContext context, ToolCardState state) {
   );
 }
 
+// A relative-heat sliver, deliberately NOT AnMeter (that is the full-width quota meter with
+// warn/danger thresholds; this is a trailing-slot comparison bar) — the full width is the named
+// [AnSize.heatBar] tier (A-083). 相对热力短条,刻意不套 AnMeter(整行配额表角色不同);满宽走具名档。
 Widget _countHeat(BuildContext context, AnColors c, int count, int maxN) {
   return Row(mainAxisSize: MainAxisSize.min, children: [
     Container(
-      width: 40 * (count / maxN).clamp(0.15, 1.0),
+      width: AnSize.heatBar * (count / maxN).clamp(0.15, 1.0),
       height: AnSpace.s4,
       decoration: BoxDecoration(color: c.accentSoft, borderRadius: BorderRadius.circular(AnRadius.tag)),
     ),

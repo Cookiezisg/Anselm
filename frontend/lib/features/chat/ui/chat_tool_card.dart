@@ -52,8 +52,10 @@ class ChatToolCard extends StatefulWidget {
 
 /// Display caps for the generic skin — a transcript row must never own a 256KB scroller
 /// (F173 lineage); the full payload stays a REST fact, the card shows an honest excerpt.
+/// The char budget is the named [AnCap.receiptTail] tier (A-112).
 /// 通用皮肤显示上限——transcript 行绝不背 256KB 滚动区(F173 血统);全量是 REST 事实,卡给诚实节选。
-const int _capChars = 4000;
+/// 字符预算走具名 [AnCap.receiptTail] 档(A-112)。
+const int _capChars = AnCap.receiptTail;
 const int _progressTailLines = 12;
 const int _jsonInlineMaxLines = 14;
 

@@ -32,17 +32,15 @@ class AttachmentPedestal extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (m.kind == 'image') ...[
-              ClipRRect(
-                borderRadius: BorderRadius.circular(AnRadius.button),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 180),
-                  child: Image(
-                    image: AttachmentImageProvider(attachmentId,
-                        fetch: () => ref.read(chatRepositoryProvider).getAttachmentBytes(attachmentId)),
-                    fit: BoxFit.contain,
-                    alignment: Alignment.centerLeft,
-                  ),
-                ),
+              // The ONE sent-image thumbnail primitive (A-111) — same bounded single-image register
+              // as the chat bubble (thumbMaxW×thumbMaxH), decode errors degrade to the honest slab,
+              // filename is the a11y alt. 唯一缩略图原语:与用户泡同档单图界(私铸 180 顶退役),解码错降级
+              // 诚实板,文件名作 a11y alt。
+              AnAttachmentThumb(
+                image: AttachmentImageProvider(attachmentId,
+                    fetch: () => ref.read(chatRepositoryProvider).getAttachmentBytes(attachmentId)),
+                filename: m.filename,
+                variant: AnThumbVariant.single,
               ),
               const SizedBox(height: AnSpace.s8),
             ],
@@ -55,7 +53,7 @@ class AttachmentPedestal extends ConsumerWidget {
           ],
         ),
       AsyncError() =>
-        Text(Translations.of(context).chat.stage.tombstone, style: AnText.meta.copyWith(color: c.inkFaint)),
+        Text(Translations.of(context).feedback.cast.tombstone, style: AnText.meta.copyWith(color: c.inkFaint)),
       _ => const AnSkeleton.lines(2),
     };
   }

@@ -342,6 +342,8 @@ class Translations$feedback$en {
 
 	/// en: 'Retry'
 	String get retry => 'Retry';
+
+	late final Translations$feedback$cast$en cast = Translations$feedback$cast$en.internal(_root);
 }
 
 // Path: shell
@@ -2503,23 +2505,8 @@ class Translations$chat$stage$en {
 	/// en: 'Unsaved'
 	String get failed => 'Unsaved';
 
-	/// en: 'AI is editing $name →'
-	String livePill({required Object name}) => 'AI is editing ${name} →';
-
-	/// en: 'AI awaits your decision →'
-	String get gatePill => 'AI awaits your decision →';
-
 	/// en: 'Back to live'
 	String get backToLive => 'Back to live';
-
-	/// en: 'Listening live · settle follows the truth'
-	String get ribbonLive => 'Listening live · settle follows the truth';
-
-	/// en: 'Stream gap · trust the execution record'
-	String get ribbonGap => 'Stream gap · trust the execution record';
-
-	/// en: 'Draft unsaved · truth is still the last version'
-	String get ribbonFailed => 'Draft unsaved · truth is still the last version';
 
 	late final Translations$chat$stage$run$en run = Translations$chat$stage$run$en.internal(_root);
 	late final Translations$chat$stage$a11y$en a11y = Translations$chat$stage$a11y$en.internal(_root);
@@ -2530,20 +2517,6 @@ class Translations$chat$stage$en {
 
 	/// en: 'Things the AI creates, edits or runs are recorded here'
 	String get castEmptyHint => 'Things the AI creates, edits or runs are recorded here';
-
-	/// en: 'Deleted'
-	String get tombstone => 'Deleted';
-
-	/// en: 'Open entity'
-	String get goToEntity => 'Open entity';
-
-	/// en: 'Jump to occurrence'
-	String get jumpToScene => 'Jump to occurrence';
-
-	/// en: '+$n'
-	String moreChannels({required Object n}) => '+${n}';
-
-	late final Translations$chat$stage$verb$en verb = Translations$chat$stage$verb$en.internal(_root);
 
 	/// en: 'before this edit'
 	String get beforeEdit => 'before this edit';
@@ -2652,6 +2625,44 @@ class Translations$chat$stage$en {
 
 	/// en: 'stopped'
 	String get rtStopped => 'stopped';
+}
+
+// Path: feedback.cast
+class Translations$feedback$cast$en {
+	Translations$feedback$cast$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Listening live · settle follows the truth'
+	String get ribbonLive => 'Listening live · settle follows the truth';
+
+	/// en: 'Stream gap · trust the execution record'
+	String get ribbonGap => 'Stream gap · trust the execution record';
+
+	/// en: 'Draft unsaved · truth is still the last version'
+	String get ribbonFailed => 'Draft unsaved · truth is still the last version';
+
+	/// en: 'AI awaits your decision →'
+	String get gatePill => 'AI awaits your decision →';
+
+	/// en: 'AI is editing $name →'
+	String livePill({required Object name}) => 'AI is editing ${name} →';
+
+	/// en: '+$n'
+	String moreChannels({required Object n}) => '+${n}';
+
+	/// en: 'Deleted'
+	String get tombstone => 'Deleted';
+
+	/// en: 'Open entity'
+	String get goToEntity => 'Open entity';
+
+	/// en: 'Jump to occurrence'
+	String get jumpToScene => 'Jump to occurrence';
+
+	late final Translations$feedback$cast$verb$en verb = Translations$feedback$cast$verb$en.internal(_root);
 }
 
 // Path: shell.ocean
@@ -4074,9 +4085,9 @@ class Translations$chat$stage$follow$en {
 	String get never => 'Never';
 }
 
-// Path: chat.stage.verb
-class Translations$chat$stage$verb$en {
-	Translations$chat$stage$verb$en.internal(this._root);
+// Path: feedback.cast.verb
+class Translations$feedback$cast$verb$en {
+	Translations$feedback$cast$verb$en.internal(this._root);
 
 	final Translations _root; // ignore: unused_field
 
@@ -5440,12 +5451,7 @@ extension on Translations {
 			'chat.stage.live' => 'Live',
 			'chat.stage.settled' => 'Settled',
 			'chat.stage.failed' => 'Unsaved',
-			'chat.stage.livePill' => ({required Object name}) => 'AI is editing ${name} →',
-			'chat.stage.gatePill' => 'AI awaits your decision →',
 			'chat.stage.backToLive' => 'Back to live',
-			'chat.stage.ribbonLive' => 'Listening live · settle follows the truth',
-			'chat.stage.ribbonGap' => 'Stream gap · trust the execution record',
-			'chat.stage.ribbonFailed' => 'Draft unsaved · truth is still the last version',
 			'chat.stage.run.queued' => 'Enqueued · listening for nodes…',
 			'chat.stage.run.done' => 'Run completed',
 			'chat.stage.run.failed' => 'Run failed',
@@ -5461,18 +5467,6 @@ extension on Translations {
 			'chat.stage.follow.never' => 'Never',
 			'chat.stage.castEmpty' => 'This conversation hasn\'t touched anything yet',
 			'chat.stage.castEmptyHint' => 'Things the AI creates, edits or runs are recorded here',
-			'chat.stage.tombstone' => 'Deleted',
-			'chat.stage.goToEntity' => 'Open entity',
-			'chat.stage.jumpToScene' => 'Jump to occurrence',
-			'chat.stage.moreChannels' => ({required Object n}) => '+${n}',
-			'chat.stage.verb.mentioned' => 'Mentioned',
-			'chat.stage.verb.created' => 'Created',
-			'chat.stage.verb.edited' => 'Edited',
-			'chat.stage.verb.viewed' => 'Viewed',
-			'chat.stage.verb.executed' => 'Ran',
-			'chat.stage.verb.attached' => 'Attached',
-			'chat.stage.verb.deleted' => 'Deleted',
-			'chat.stage.verb.unknown' => 'Touched',
 			'chat.stage.beforeEdit' => 'before this edit',
 			'chat.stage.proseUntouched' => 'content untouched by this edit',
 			'chat.stage.prefixKept' => ({required Object n}) => 'first ${n} chars match the old version · fast-forwarded',
@@ -5539,6 +5533,23 @@ extension on Translations {
 			'feedback.showAll' => ({required Object n}) => 'Show remaining ${n}',
 			'feedback.copyFailed' => 'Copy failed',
 			'feedback.retry' => 'Retry',
+			'feedback.cast.ribbonLive' => 'Listening live · settle follows the truth',
+			'feedback.cast.ribbonGap' => 'Stream gap · trust the execution record',
+			'feedback.cast.ribbonFailed' => 'Draft unsaved · truth is still the last version',
+			'feedback.cast.gatePill' => 'AI awaits your decision →',
+			'feedback.cast.livePill' => ({required Object name}) => 'AI is editing ${name} →',
+			'feedback.cast.moreChannels' => ({required Object n}) => '+${n}',
+			'feedback.cast.tombstone' => 'Deleted',
+			'feedback.cast.goToEntity' => 'Open entity',
+			'feedback.cast.jumpToScene' => 'Jump to occurrence',
+			'feedback.cast.verb.mentioned' => 'Mentioned',
+			'feedback.cast.verb.created' => 'Created',
+			'feedback.cast.verb.edited' => 'Edited',
+			'feedback.cast.verb.viewed' => 'Viewed',
+			'feedback.cast.verb.executed' => 'Ran',
+			'feedback.cast.verb.attached' => 'Attached',
+			'feedback.cast.verb.deleted' => 'Deleted',
+			'feedback.cast.verb.unknown' => 'Touched',
 			'shell.collapseSidebar' => 'Collapse sidebar',
 			'shell.expandSidebar' => 'Expand sidebar',
 			'shell.togglePanel' => 'Toggle panel',

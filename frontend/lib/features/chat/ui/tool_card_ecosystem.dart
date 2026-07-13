@@ -94,8 +94,10 @@ Widget capabilityBody(BuildContext context, ToolCardState state) {
 
 Widget _issue(BuildContext context, String text, Color color, String tag) => Padding(
       padding: const EdgeInsets.only(top: AnSpace.s4),
-      child: RichText(
-        text: TextSpan(children: [
+      // Text.rich, not RichText — RichText ignores the ambient textScaler, so a11y scaling never
+      // reached these lines (A-099). Text.rich 继承环境 textScaler,a11y 缩放才生效。
+      child: Text.rich(
+        TextSpan(children: [
           TextSpan(text: '$tag  ', style: AnText.meta.copyWith(color: color)),
           TextSpan(text: text, style: AnText.code.copyWith(color: context.colors.inkMuted)),
         ]),

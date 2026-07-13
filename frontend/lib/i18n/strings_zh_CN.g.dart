@@ -178,6 +178,7 @@ class _Translations$feedback$zh_CN extends Translations$feedback$en {
 	@override String showAll({required Object n}) => '展开其余 ${n} 个';
 	@override String get copyFailed => '复制失败';
 	@override String get retry => '重试';
+	@override late final _Translations$feedback$cast$zh_CN cast = _Translations$feedback$cast$zh_CN._(_root);
 }
 
 // Path: shell
@@ -1031,22 +1032,12 @@ class _Translations$chat$stage$zh_CN extends Translations$chat$stage$en {
 	@override String get live => '进行中';
 	@override String get settled => '已落定';
 	@override String get failed => '未保存';
-	@override String livePill({required Object name}) => 'AI 正在编辑 ${name} →';
-	@override String get gatePill => 'AI 在等你决定 →';
 	@override String get backToLive => '回到直播';
-	@override String get ribbonLive => '实时聆听中 · 落定以真相为准';
-	@override String get ribbonGap => '实时流有缺口 · 以执行记录为准';
-	@override String get ribbonFailed => '草稿未保存 · 真相仍是上一版';
 	@override late final _Translations$chat$stage$run$zh_CN run = _Translations$chat$stage$run$zh_CN._(_root);
 	@override late final _Translations$chat$stage$a11y$zh_CN a11y = _Translations$chat$stage$a11y$zh_CN._(_root);
 	@override late final _Translations$chat$stage$follow$zh_CN follow = _Translations$chat$stage$follow$zh_CN._(_root);
 	@override String get castEmpty => '这场对话还没碰过什么';
 	@override String get castEmptyHint => 'AI 创建、编辑或执行的东西会记在这里';
-	@override String get tombstone => '已删除';
-	@override String get goToEntity => '去实体页';
-	@override String get jumpToScene => '跳到发生处';
-	@override String moreChannels({required Object n}) => '+${n}';
-	@override late final _Translations$chat$stage$verb$zh_CN verb = _Translations$chat$stage$verb$zh_CN._(_root);
 	@override String get beforeEdit => '改之前';
 	@override String get proseUntouched => '本次未改动正文';
 	@override String prefixKept({required Object n}) => '前 ${n} 字与旧版一致 · 已快进';
@@ -1083,6 +1074,25 @@ class _Translations$chat$stage$zh_CN extends Translations$chat$stage$en {
 	@override String get rtRunning => '运行中';
 	@override String get rtCrashed => '已崩溃';
 	@override String get rtStopped => '已停止';
+}
+
+// Path: feedback.cast
+class _Translations$feedback$cast$zh_CN extends Translations$feedback$cast$en {
+	_Translations$feedback$cast$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get ribbonLive => '实时聆听中 · 落定以真相为准';
+	@override String get ribbonGap => '实时流有缺口 · 以执行记录为准';
+	@override String get ribbonFailed => '草稿未保存 · 真相仍是上一版';
+	@override String get gatePill => 'AI 在等你决定 →';
+	@override String livePill({required Object name}) => 'AI 正在编辑 ${name} →';
+	@override String moreChannels({required Object n}) => '+${n}';
+	@override String get tombstone => '已删除';
+	@override String get goToEntity => '去实体页';
+	@override String get jumpToScene => '跳到发生处';
+	@override late final _Translations$feedback$cast$verb$zh_CN verb = _Translations$feedback$cast$verb$zh_CN._(_root);
 }
 
 // Path: shell.ocean
@@ -1724,9 +1734,9 @@ class _Translations$chat$stage$follow$zh_CN extends Translations$chat$stage$foll
 	@override String get never => '从不';
 }
 
-// Path: chat.stage.verb
-class _Translations$chat$stage$verb$zh_CN extends Translations$chat$stage$verb$en {
-	_Translations$chat$stage$verb$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+// Path: feedback.cast.verb
+class _Translations$feedback$cast$verb$zh_CN extends Translations$feedback$cast$verb$en {
+	_Translations$feedback$cast$verb$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
@@ -2650,12 +2660,7 @@ extension on TranslationsZhCn {
 			'chat.stage.live' => '进行中',
 			'chat.stage.settled' => '已落定',
 			'chat.stage.failed' => '未保存',
-			'chat.stage.livePill' => ({required Object name}) => 'AI 正在编辑 ${name} →',
-			'chat.stage.gatePill' => 'AI 在等你决定 →',
 			'chat.stage.backToLive' => '回到直播',
-			'chat.stage.ribbonLive' => '实时聆听中 · 落定以真相为准',
-			'chat.stage.ribbonGap' => '实时流有缺口 · 以执行记录为准',
-			'chat.stage.ribbonFailed' => '草稿未保存 · 真相仍是上一版',
 			'chat.stage.run.queued' => '已入队 · 聆听节点回报…',
 			'chat.stage.run.done' => '运行完成',
 			'chat.stage.run.failed' => '运行失败',
@@ -2671,18 +2676,6 @@ extension on TranslationsZhCn {
 			'chat.stage.follow.never' => '从不',
 			'chat.stage.castEmpty' => '这场对话还没碰过什么',
 			'chat.stage.castEmptyHint' => 'AI 创建、编辑或执行的东西会记在这里',
-			'chat.stage.tombstone' => '已删除',
-			'chat.stage.goToEntity' => '去实体页',
-			'chat.stage.jumpToScene' => '跳到发生处',
-			'chat.stage.moreChannels' => ({required Object n}) => '+${n}',
-			'chat.stage.verb.mentioned' => '提及',
-			'chat.stage.verb.created' => '创建',
-			'chat.stage.verb.edited' => '编辑',
-			'chat.stage.verb.viewed' => '查看',
-			'chat.stage.verb.executed' => '执行',
-			'chat.stage.verb.attached' => '附上',
-			'chat.stage.verb.deleted' => '删除',
-			'chat.stage.verb.unknown' => '触碰',
 			'chat.stage.beforeEdit' => '改之前',
 			'chat.stage.proseUntouched' => '本次未改动正文',
 			'chat.stage.prefixKept' => ({required Object n}) => '前 ${n} 字与旧版一致 · 已快进',
@@ -2749,6 +2742,23 @@ extension on TranslationsZhCn {
 			'feedback.showAll' => ({required Object n}) => '展开其余 ${n} 个',
 			'feedback.copyFailed' => '复制失败',
 			'feedback.retry' => '重试',
+			'feedback.cast.ribbonLive' => '实时聆听中 · 落定以真相为准',
+			'feedback.cast.ribbonGap' => '实时流有缺口 · 以执行记录为准',
+			'feedback.cast.ribbonFailed' => '草稿未保存 · 真相仍是上一版',
+			'feedback.cast.gatePill' => 'AI 在等你决定 →',
+			'feedback.cast.livePill' => ({required Object name}) => 'AI 正在编辑 ${name} →',
+			'feedback.cast.moreChannels' => ({required Object n}) => '+${n}',
+			'feedback.cast.tombstone' => '已删除',
+			'feedback.cast.goToEntity' => '去实体页',
+			'feedback.cast.jumpToScene' => '跳到发生处',
+			'feedback.cast.verb.mentioned' => '提及',
+			'feedback.cast.verb.created' => '创建',
+			'feedback.cast.verb.edited' => '编辑',
+			'feedback.cast.verb.viewed' => '查看',
+			'feedback.cast.verb.executed' => '执行',
+			'feedback.cast.verb.attached' => '附上',
+			'feedback.cast.verb.deleted' => '删除',
+			'feedback.cast.verb.unknown' => '触碰',
 			'shell.collapseSidebar' => '收起侧栏',
 			'shell.expandSidebar' => '展开侧栏',
 			'shell.togglePanel' => '切换面板',

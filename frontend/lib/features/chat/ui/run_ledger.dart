@@ -43,11 +43,7 @@ class RunBeadStrip extends StatelessWidget {
       Flexible(
         child: Wrap(spacing: AnSpace.s4, runSpacing: AnSpace.s4, children: [
           for (final b in beads)
-            Tooltip(
-              message: b.tooltip,
-              waitDuration: AnMotion.dwell,
-              child: AnStatusDot(b.status),
-            ),
+            AnTooltip(message: b.tooltip, child: AnStatusDot(b.status)),
         ]),
       ),
     ]);

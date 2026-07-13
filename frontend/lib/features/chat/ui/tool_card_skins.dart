@@ -82,17 +82,14 @@ Widget toolIntent(BuildContext context, ToolCardState state, {bool gap = true}) 
   return gap ? Padding(padding: const EdgeInsets.only(bottom: AnSpace.s6), child: text) : text;
 }
 
-/// Cap + honest truncation note for window content. 窗内容封顶+诚实截断注记。
-const int _windowCapChars = 6000;
-
-/// A capped mono machine window — the raw text (display capped at [_windowCapChars]) inside the
-/// family window, the truncation note riding the window's own [AnWindow.footer] note slot (codex
-/// 族一 规则④). 封顶 mono 机器窗:截断注记走窗自己的 footer 注记槽(法典规则④)。
+/// A capped mono machine window — the raw text (display capped at the [AnCap.window] tier, A-112)
+/// inside the family window, the truncation note riding the window's own [AnWindow.footer] note slot
+/// (codex 族一 规则④). 封顶 mono 机器窗(封顶走 AnCap.window 档):截断注记走窗自己的 footer 注记槽(法典规则④)。
 Widget _cappedMonoWindow(BuildContext context, String raw, {Color? color}) {
   final t = Translations.of(context);
   final c = context.colors;
-  final truncated = raw.length > _windowCapChars;
-  final shown = truncated ? raw.substring(0, _windowCapChars) : raw;
+  final truncated = raw.length > AnCap.window;
+  final shown = truncated ? raw.substring(0, AnCap.window) : raw;
   return AnWindow(
     footer: truncated ? Text(t.chat.tool.truncatedNote(chars: raw.length)) : null,
     child: Text(shown.trimRight(), style: AnText.code.copyWith(color: color ?? c.inkMuted)),

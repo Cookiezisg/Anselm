@@ -556,12 +556,7 @@
       "live": "进行中",
       "settled": "已落定",
       "failed": "未保存",
-      "livePill": "AI 正在编辑 $name →",
-      "gatePill": "AI 在等你决定 →",
       "backToLive": "回到直播",
-      "ribbonLive": "实时聆听中 · 落定以真相为准",
-      "ribbonGap": "实时流有缺口 · 以执行记录为准",
-      "ribbonFailed": "草稿未保存 · 真相仍是上一版",
       "run": {
         "queued": "已入队 · 聆听节点回报…",
         "done": "运行完成",
@@ -583,20 +578,6 @@
       },
       "castEmpty": "这场对话还没碰过什么",
       "castEmptyHint": "AI 创建、编辑或执行的东西会记在这里",
-      "tombstone": "已删除",
-      "goToEntity": "去实体页",
-      "jumpToScene": "跳到发生处",
-      "moreChannels": "+$n",
-      "verb": {
-        "mentioned": "提及",
-        "created": "创建",
-        "edited": "编辑",
-        "viewed": "查看",
-        "executed": "执行",
-        "attached": "附上",
-        "deleted": "删除",
-        "unknown": "触碰"
-      },
       "beforeEdit": "改之前",
       "proseUntouched": "本次未改动正文",
       "prefixKept": "前 $n 字与旧版一致 · 已快进",
@@ -669,7 +650,28 @@
     "copied": "已复制",
     "showAll": "展开其余 $n 个",
     "copyFailed": "复制失败",
-    "retry": "重试"
+    "retry": "重试",
+    "cast": {
+      "ribbonLive": "实时聆听中 · 落定以真相为准",
+      "ribbonGap": "实时流有缺口 · 以执行记录为准",
+      "ribbonFailed": "草稿未保存 · 真相仍是上一版",
+      "gatePill": "AI 在等你决定 →",
+      "livePill": "AI 正在编辑 $name →",
+      "moreChannels": "+$n",
+      "tombstone": "已删除",
+      "goToEntity": "去实体页",
+      "jumpToScene": "跳到发生处",
+      "verb": {
+        "mentioned": "提及",
+        "created": "创建",
+        "edited": "编辑",
+        "viewed": "查看",
+        "executed": "执行",
+        "attached": "附上",
+        "deleted": "删除",
+        "unknown": "触碰"
+      }
+    }
   },
   "shell": {
     "collapseSidebar": "收起侧栏",

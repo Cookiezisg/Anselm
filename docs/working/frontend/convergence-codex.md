@@ -52,6 +52,26 @@ A-032/A-033/A-034/A-036/A-038/A-046/A-048 关账(A-031 剩 AnAttachmentChip、A-
 3. **reduced 双闸选档**:装饰循环(shimmer/呼吸/雷达/转圈/打字机)=reducedOrAssistive;功能性一次揭示(展开/洗亮/入场)=reduced。
 4. **表单内联错误=label(13)+danger+top:s8;整面载入失败=AnState(error)**;行内空态=AnState inset;rail 整面四态=AnRailStates。
 
+### 批9a 落地(2026-07-13,A 轨扫尾·机械/小件波——15 行关账)
+
+A-083/087/099/100/102/105/107/108/109/110/111/112/114 done + A-012/A-115 追认/证伪:
+- **A-112 封顶散数收档**:chat_tool_card `_capChars`→AnCap.receiptTail(4000)/log_drawer 私有常量组→AnCap.logHead(2000)·logTail(4000)·stderrTail(8192)[整渲阈=头+尾派生,不留巧合第三字面量]/skins `_windowCapChars`→AnCap.window。
+- **A-087 条族最后一处**:flowrun `_summaryBar` 手拼 ' · ' 链→AnStatBar(文法 #3 唯一合法处;可见变化=文本行→条脸,帧核)——RunStatBar/legend 批3 已并,收起行回执尾=行内尾注豁免。
+- **A-099 a11y 缩放**:tool_card_ecosystem `_issue`/transcript_peek `line` 的 RichText→Text.rich(RichText 不继承环境 textScaler,a11y 缩放此前不生效)。
+- **A-107/110 Tooltip 归一**:run_ledger 珠串+gate 的裸 Material Tooltip→AnTooltip(全仓再无裸 Tooltip,仅 AnTooltip 内部实现一处);path_chip/code_editor 早已 AnTooltip。
+- **A-108/109 gallery dogfood**:_GridCell/_cell 手搓有边容器→AnCard(dev 壳吃当家卡皮)。
+- **A-111 缩略图归一**:attachment_pedestal 手搓 ClipRRect+Image+私铸 maxHeight:180→AnAttachmentThumb.single(与用户泡同档单图界,解码错降级诚实板,文件名作 a11y alt)。
+- **A-114 文字链→钮**:notification 全部已读 手搓 AnInteractive+Text→AnButton ghost/sm(可见变化:accent 链→中性 ghost 钮,帧核)。
+- **A-102 折叠阈实测化**:settings_ocean `_collapseAt=64` 私值→实测大标题块高−islandHead(同 entity/document 海洋,批7b 范式,不再私铸魔数)。
+- **A-105 编辑器输入归一**:_LinkInputBar 裸 Material TextField→AnInput.seamless(无边、供嵌浮条壳;autofocus/mono/onSubmitted 保留,Esc 键盘监听+外点取消保留)。
+- **A-083 热力条档化**:_countHeat 裸 40 宽→AnSize.heatBar(相对热力短条,刻意非 AnMeter——后者是整行配额表带 warn/danger 阈,角色不同)。
+- **A-012 追认**:_FreeTierCard 批7 随 B-043 圆角立法已改 AnCard,台账行陈旧,批9a 追认关账。
+- **A-115 证伪**:notification 分组小标早已用 AnGroupLabel(_SectionLabel 已不存在)。
+- **core i18n 命名空间迁移**(批8 记档系统性遗留):an_honesty_ribbon/an_cast_row/an_follow_pill/an_channel_strip 四 core 件引的 `chat.stage.*` 键(ribbon×3/gatePill/livePill/moreChannels/verb.×8/tombstone/goToEntity/jumpToScene 共 10 键)迁 `feedback.cast.*`(批6a 立法「core 禁引 chat.* 命名空间」落实)——共用键的 feature 消费点(scene_from_truth/attachment_pedestal)同步改径,slang 产物入库,受影响两测试文件同步。
+- **半成品接管记档**:批9a 首建者(Fable)限额中断,留 16 文件净改动(编译过)——逐文件 diff 目检确认全部干净后接管,补完 core i18n 迁移+A-105+台账关账+门禁(接管者纪律:死 agent 半成品必须逐文件核验再建其上,不盲信)。
+
+**A 轨剩 17 open**:窗族升格 5(A-001/003/004/006/007)+run 终端·审批门共件 3(A-009/010/011)+编辑器引用块/toggle/头 5(A-101/103/104/106/113)+浮条壳 A-085+活尾 A-094(建造者请求证伪待裁)+defer/豁免 2(A-056/069)——批9b/9c 大手术。
+
 ### 批8 落地(2026-07-13,全量扫尾——coverage 分母 pending 清零)
 
 27-agent 扇出对 321 pending 文件逐个过审(法典全条款为准绳)+2 件漏检主线亲审:**264 converged + 47 reviewed(边角记档) + 8 violation 全修**;ledgered 100 件按台账关账状态推进(55→reviewed,45 保留=仍被 A/C/D open 行引用)。分母现状:**294 converged / 121 reviewed / 45 ledgered / 0 pending**。

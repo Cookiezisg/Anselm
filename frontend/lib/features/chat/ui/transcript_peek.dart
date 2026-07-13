@@ -81,13 +81,15 @@ Widget transcriptBlockRow(BuildContext context, BlockNode n) {
   final t = Translations.of(context);
   Widget line(String tag, String text, Color color) => Padding(
         padding: const EdgeInsets.symmetric(vertical: AnSpace.s2),
-        child: RichText(
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          text: TextSpan(children: [
+        // Text.rich, not RichText — RichText ignores the ambient textScaler, so a11y scaling never
+        // reached these lines (A-099). Text.rich 继承环境 textScaler,a11y 缩放才生效。
+        child: Text.rich(
+          TextSpan(children: [
             TextSpan(text: '$tag  ', style: AnText.meta.copyWith(color: c.inkFaint)),
             TextSpan(text: text, style: AnText.code.copyWith(color: color)),
           ]),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
         ),
       );
   switch (n.kind) {

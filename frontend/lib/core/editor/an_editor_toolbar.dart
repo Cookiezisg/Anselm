@@ -5,7 +5,7 @@ import 'package:super_editor/super_editor.dart';
 import '../../i18n/strings.g.dart';
 import '../design/colors.dart';
 import '../design/tokens.dart';
-import '../design/typography.dart';
+import '../ui/an_input.dart';
 import '../ui/an_interactive.dart';
 import '../ui/icons.dart';
 
@@ -323,21 +323,20 @@ class _LinkInputBarState extends State<_LinkInputBar> {
                 Icon(AnIcons.link, size: AnSize.iconSm, color: c.inkFaint),
                 const SizedBox(width: AnSpace.s6),
                 Expanded(
+                  // The kit input, seamless (the pill shell already draws the frame) — NOT a raw
+                  // Material TextField (A-105). Esc still cancels via the outer KeyboardListener.
+                  // 当家输入件·无边(壳已画框),非裸 TextField;Esc 仍走外层键盘监听取消。
                   child: KeyboardListener(
                     focusNode: _keyFocus,
                     onKeyEvent: (e) {
                       if (e.logicalKey.keyLabel == 'Escape') widget.onCancel();
                     },
-                    child: TextField(
+                    child: AnInput(
                       controller: _controller,
                       autofocus: true,
-                      style: AnText.mono.copyWith(color: c.ink),
-                      decoration: InputDecoration(
-                        isDense: true,
-                        border: InputBorder.none,
-                        hintText: t.documents.linkHint,
-                        hintStyle: AnText.body.copyWith(color: c.inkFaint),
-                      ),
+                      mono: true,
+                      seamless: true,
+                      placeholder: t.documents.linkHint,
                       onSubmitted: widget.onDone,
                     ),
                   ),
