@@ -276,14 +276,14 @@ audience: [human, ai]
 | D-003 | chat-gate · 决议失败复原(failNextResolve) | 仅脚本钩(chat_fixtures.dart:537),demo UI 无径 | open |
 | D-004 | chat-rail · 列表失败重试(M9) | failNextListConversations 仅测试钩(chat_fixtures.dart:84),demo UI 无触发径 | open |
 | D-005 | chat-rail · 无限翻(loadMore 分页) | demo 仅 13 会话 < 页大小 30(conversation_list_provider.dart:95);需 30+ 会话种子 | open |
-| D-006 | chat-sidestage · agent 渐进开区舞台(R-9) | agents 快照空(chat_fixtures.dart:411)+ 无触点无幕 | open |
-| D-007 | chat-sidestage · approval 信笺舞台 | 同上:approvals 快照空(chat_fixtures.dart:409)+ 无触点无幕 | open |
-| D-008 | chat-sidestage · control 决策梯舞台(live+settled) | 无 control 触点、controls 快照空(chat_fixtures.dart:408)、脚本无 create_control 幕;需三选一补种 | open |
-| D-009 | chat-sidestage · handler 方法架舞台 | handlers 快照空(chat_fixtures.dart:412)+ 无触点无幕 | open |
-| D-010 | chat-sidestage · trigger 舞台(R-16 只信 GET) | triggers 快照空(chat_fixtures.dart:410)+ 无触点无幕;R-16 要求 GET 真相,须种 TriggerEntity | open |
+| D-006 | chat-sidestage · agent 渐进开区舞台(R-9) | agents 快照空(chat_fixtures.dart:411)+ 无触点无幕 | done·批D3(cv_sync 种 agent 触点 ag_reconcile+快照;侧幕 agent 舞台可开) |
+| D-007 | chat-sidestage · approval 信笺舞台 | 同上:approvals 快照空(chat_fixtures.dart:409)+ 无触点无幕 | done·批D3(种 approval 触点 apf_refund+ApprovalForm 快照[CEL 模板];侧幕 approval 舞台) |
+| D-008 | chat-sidestage · control 决策梯舞台(live+settled) | 无 control 触点、controls 快照空(chat_fixtures.dart:408)、脚本无 create_control 幕;需三选一补种 | done·批D3(种 control 触点 amount_gate+ControlLogic 快照;正是 wf_night 图路由 ref,舞台可开) |
+| D-009 | chat-sidestage · handler 方法架舞台 | handlers 快照空(chat_fixtures.dart:412)+ 无触点无幕 | done·批D3(种 handler 触点 hd_ledger+HandlerEntity 快照[方法架];侧幕 handler 舞台) |
+| D-010 | chat-sidestage · trigger 舞台(R-16 只信 GET) | triggers 快照空(chat_fixtures.dart:410)+ 无触点无幕;R-16 要求 GET 真相,须种 TriggerEntity | done·批D3(种 trigger 触点 cron_nightly+TriggerEntity 快照;正是 wf_night 图 ref,R-16 只信此 GET) |
 | D-011 | chat-sidestage · 台账 loadMore 脚(分页骨架行) | cv_sync 仅 7 行 < 页大小 50;需 50+ 触点种子 | open |
 | D-012 | chat-sidestage · 台账首拉失败重试 | fixture listTouchpoints 恒成功(chat_fixtures.dart:487-503),无失败钩;需加 failNext 钩+触发径 | open |
-| D-013 | chat-sidestage · 墓碑行(deleted 动词封禁 GET) | 无 verb=deleted 触点种子(墓碑规则 touchpoint_ledger.dart:36);cv_sync 补一条 deleted 行 | open |
+| D-013 | chat-sidestage · 墓碑行(deleted 动词封禁 GET) | 无 verb=deleted 触点种子(墓碑规则 touchpoint_ledger.dart:36);cv_sync 补一条 deleted 行 | done·批D3(种 verb=deleted 墓碑行 fn_legacy_sync[无快照];tombstoned 门控走 SettledBody 不 GET;数据级电池验封 GET) |
 | D-014 | chat-stream · edit_workflow 图 morph | 脚本只有 create_workflow;补一幕 edit_workflow(压 wf_night 旧图 morph,B2 旗舰面) | open |
 | D-015 | chat-stream · 失败舞台 failedHold(honesty ribbon failed / 失败洗亮) | 脚本全 completed;补一幕 tool close status=failed(或失败 Subagent)演 failedHold + 红丝带 | open |
 | D-016 | chat-toolcards · WebSearch/WebFetch soft-fail 结局分类器 | cv_show_mem 的 mw2/mw3 皆成功;补一条 WebFetch 失败句结果(status=completed 渲红,WRK-059 H2 面) | open |

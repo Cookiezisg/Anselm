@@ -5,9 +5,14 @@ import 'package:characters/characters.dart';
 import '../../../core/contract/attachment.dart';
 import '../../../core/contract/conversation.dart';
 import '../../../core/contract/interaction.dart';
+import '../../../core/contract/entities/agent.dart';
+import '../../../core/contract/entities/approval.dart';
+import '../../../core/contract/entities/control.dart';
 import '../../../core/contract/entities/document.dart';
 import '../../../core/contract/entities/function.dart';
+import '../../../core/contract/entities/handler.dart';
 import '../../../core/contract/entities/skill.dart';
+import '../../../core/contract/entities/trigger.dart';
 import '../../../core/contract/entities/values.dart';
 import '../../../core/contract/entities/workflow.dart';
 import '../../../core/contract/mcp.dart';
@@ -861,6 +866,109 @@ DemoChatRepository demoChatRepository() {
       McpToolDef(name: 'search_code'),
     ],
   );
+  // D-008/010 truth snapshots the wf_night graph already routes on (amount_gate control + cron_nightly
+  // trigger) — so tapping either Cast row opens its real stage. D-006/007/009 add the still-missing agent /
+  // approval / handler stages. R-16: the trigger stage trusts only this GET snapshot, never a frame.
+  // wf_night 图已引用的控制/触发真身 + 补齐 agent/approval/handler 三舞台;触发只信此 GET。
+  repo.controls['amount_gate'] = ControlLogic(
+    id: 'amount_gate',
+    name: 'amount_gate',
+    description: '按金额分流退款审批',
+    activeVersionId: 'clv_1',
+    activeVersion: ControlVersion(
+      id: 'clv_1',
+      controlId: 'amount_gate',
+      version: 1,
+      inputs: const [Field(name: 'amount', type: 'number', description: '退款金额')],
+      branches: const [
+        Branch(port: 'ok', when: 'input.amount < 1000'),
+        Branch(port: 'review', when: 'true'),
+      ],
+      createdAt: ago(const Duration(days: 3)),
+      updatedAt: ago(const Duration(days: 1)),
+    ),
+    createdAt: ago(const Duration(days: 12)),
+    updatedAt: ago(const Duration(days: 1)),
+  );
+  repo.triggers['cron_nightly'] = TriggerEntity(
+    id: 'cron_nightly',
+    name: 'cron_nightly',
+    description: '每晚 02:00 触发夜间汇总',
+    kind: TriggerSource.cron,
+    config: const {'expression': '0 2 * * *'},
+    outputs: const [Field(name: 'firedAt', type: 'string')],
+    refCount: 1,
+    listening: true,
+    lastFiredAt: ago(const Duration(hours: 8)),
+    nextFireAt: ago(const Duration(hours: -16)),
+    createdAt: ago(const Duration(days: 20)),
+    updatedAt: ago(const Duration(days: 1)),
+  );
+  repo.agents['ag_reconcile'] = AgentEntity(
+    id: 'ag_reconcile',
+    name: 'reconcile-bot',
+    description: '对账异常研判 agent',
+    activeVersionId: 'av_2',
+    activeVersion: AgentVersion(
+      id: 'av_2',
+      agentId: 'ag_reconcile',
+      version: 2,
+      prompt: 'You reconcile inventory drift. Cite the ledger rows you used.',
+      skill: 'deep-research',
+      tools: const [ToolRef(ref: 'fn_sync', name: 'sync_inventory')],
+      inputs: const [Field(name: 'date', type: 'string')],
+      outputs: const [Field(name: 'report', type: 'string')],
+      createdAt: ago(const Duration(days: 4)),
+      updatedAt: ago(const Duration(days: 1)),
+    ),
+    createdAt: ago(const Duration(days: 14)),
+    updatedAt: ago(const Duration(days: 1)),
+  );
+  repo.approvals['apf_refund'] = ApprovalForm(
+    id: 'apf_refund',
+    name: 'refund-approval',
+    description: '大额退款人工签核',
+    activeVersionId: 'apv_1',
+    activeVersion: ApprovalVersion(
+      id: 'apv_1',
+      approvalId: 'apf_refund',
+      version: 1,
+      inputs: const [Field(name: 'amount', type: 'number'), Field(name: 'reason', type: 'string')],
+      template: '退款 **{{ input.amount }}** 元?\n\n事由:{{ input.reason }}',
+      allowReason: true,
+      timeout: '12h',
+      timeoutBehavior: 'reject',
+      createdAt: ago(const Duration(days: 6)),
+      updatedAt: ago(const Duration(days: 1)),
+    ),
+    createdAt: ago(const Duration(days: 16)),
+    updatedAt: ago(const Duration(days: 1)),
+  );
+  repo.handlers['hd_ledger'] = HandlerEntity(
+    id: 'hd_ledger',
+    name: 'ledger',
+    description: '账本读写 handler',
+    activeVersionId: 'hv_1',
+    runtimeState: 'running',
+    configState: 'ready',
+    activeVersion: HandlerVersion(
+      id: 'hv_1',
+      handlerId: 'hd_ledger',
+      version: 1,
+      imports: 'import psycopg',
+      initBody: 'self.conn = psycopg.connect(args["dsn"])',
+      shutdownBody: 'self.conn.close()',
+      methods: const [
+        MethodSpec(name: 'append', inputs: [Field(name: 'row', type: 'object')], outputs: [Field(name: 'id', type: 'string')], body: 'return self.conn.execute(...)'),
+      ],
+      initArgsSchema: const [InitArgSpec(name: 'dsn', type: 'string', required: true, sensitive: true)],
+      envStatus: 'ready',
+      createdAt: ago(const Duration(days: 8)),
+      updatedAt: ago(const Duration(days: 1)),
+    ),
+    createdAt: ago(const Duration(days: 18)),
+    updatedAt: ago(const Duration(days: 1)),
+  );
 
   // The pinned demo's quiet ledger — what this conversation has touched (the Cast's idle body).
   // 置顶 demo 的静场台账——演员表的安静台账。
@@ -879,6 +987,21 @@ DemoChatRepository demoChatRepository() {
     tp('tp_d6', 'skill', 'commit-helper', 'commit-helper', TouchpointVerb.edited,
         const Duration(minutes: 9)),
     tp('tp_d7', 'mcp', 'github', 'github', TouchpointVerb.mentioned, const Duration(minutes: 7)),
+    // D-006~010 — one Cast row per remaining kind so every sidestage stage has a way to open (the
+    // snapshots above are their old-truth GETs). D-013 — a tombstone row (verb=deleted bans the GET;
+    // the stage shows the tombstone, never a 404). 每 kind 一行开幕 + 墓碑行(deleted 封 GET)。
+    tp('tp_d8', 'control', 'amount_gate', 'amount_gate', TouchpointVerb.viewed,
+        const Duration(minutes: 8)),
+    tp('tp_d9', 'trigger', 'cron_nightly', 'cron_nightly', TouchpointVerb.viewed,
+        const Duration(hours: 8)),
+    tp('tp_d10', 'agent', 'ag_reconcile', 'reconcile-bot', TouchpointVerb.mentioned,
+        const Duration(minutes: 6)),
+    tp('tp_d11', 'approval', 'apf_refund', 'refund-approval', TouchpointVerb.viewed,
+        const Duration(minutes: 5)),
+    tp('tp_d12', 'handler', 'hd_ledger', 'ledger', TouchpointVerb.executed,
+        const Duration(minutes: 4)),
+    tp('tp_d13', 'function', 'fn_legacy_sync', 'legacy_sync', TouchpointVerb.deleted,
+        const Duration(minutes: 2)),
   ];
   repo.interactions['cv_gate'] = const [
     Interaction(

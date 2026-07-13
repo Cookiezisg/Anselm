@@ -27,6 +27,14 @@ audience: [human, ai]
 - **AnStickViewport 增 `fadeColor`**(白宿主传 surface,灰底退役)。bar 同构补齐:编辑器 copy 驻留走 AnMotion.dwell + AnTooltip。
 - AnLedgerRow 补 `expandChild`;「展开全部 N」列表壳 **deferred → P4 吸收四套台账时落**。
 
+## 批D3 落地(2026-07-13,D 轨 demo 可达性——chat 侧幕六 GAP 补种)
+
+chat 侧幕(右岛 Cast)按当前对话的**触点行**开幕,再 GET 该实体旧真相渲舞台。demo 置顶对话 cv_sync 此前只有 function/workflow/document/attachment/skill/mcp 六触点,control/approval/trigger/agent/handler 五 kind 无触点无快照→侧幕永无从开这五舞台(D-006~010);且无墓碑演示(D-013)。cv_sync 台账补 6 行 + 对应快照:
+- **D-008 控制 / D-010 触发**:`amount_gate` ControlLogic + `cron_nightly` TriggerEntity——**正是 wf_night 图已路由的两个 ref**(图 gate/trg 节点),补快照后点 Cast 行开真身舞台(R-16:trigger 舞台只信此 GET 快照,不信帧)。
+- **D-006 agent / D-007 approval / D-009 handler**:`ag_reconcile`/`apf_refund`/`hd_ledger` 三快照 + 触点,补齐仅存的三空舞台(agent 渐进开区 / approval 信笺 / handler 方法架)。
+- **D-013 墓碑**:`fn_legacy_sync` verb=deleted 触点行(**不种快照**)——`stage_panel` 的 `!tombstoned && hasTruthStage` 门控使其走 `SettledBody(tombstoned:true)` 显墓碑、绝不 GET(对齐 cv_gate 危险交互删的正是 legacy_sync,叙事自洽)。
+- 验收=**数据级电池**(`test/features/chat/data/sidestage_demo_test.dart` 三测:control/trigger 触点+快照 GET 成·agent/approval/handler 三快照有料·墓碑 verb + GET 被禁抛 StateError)+ chat feature 694 测全绿(cv_sync 从 7→13 行不破既有断言)。
+
 ## 批D2 落地(2026-07-13,D 轨 demo 可达性——实体 fixture 五 GAP 补种)
 
 `demoEntityRepository()` 此前 control/approval 段恒空、版本历史仅 active 一版、无停车 run、图编辑器 ref picker 无 mcp 候选(D-024~028)。补种一个**自洽互锁的实体世界**(种子相互引用,非孤立堆料):
