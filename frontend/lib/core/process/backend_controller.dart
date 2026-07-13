@@ -113,7 +113,20 @@ class BackendController {
 
   /// Launch + health-gate. On any failure the state goes [BackendPhase.crashed] (never throws
   /// to the caller — the UI gates on [state]). 启动 + 健康门控;失败转 crashed、绝不抛(UI 据 state 门控)。
-  Future<void> start() async {
+  Future<void>? _startCall;
+
+  /// Idempotent (C-030): a concurrent OR repeat `start()` JOINS the in-flight launch instead of spawning a
+  /// second process — so the app can safely kick the spawn off EARLY (main, before window init) AND let
+  /// the startup gate `start()` again on first read; both share one launch. A crashed controller re-enters
+  /// (the Retry path). 幂等:并发/重复 start() 并入在飞启动、不双 spawn——app 可提前 kick spawn(main,开窗前)
+  /// 且 gate 首读再 start(),二者共用一次启动;崩溃态重入(Retry)。
+  Future<void> start() {
+    final inFlight = _startCall;
+    if (inFlight != null && state.value.phase != BackendPhase.crashed) return inFlight;
+    return _startCall = _start();
+  }
+
+  Future<void> _start() async {
     _stopped = false;
     try {
       final external = _externalUrl();

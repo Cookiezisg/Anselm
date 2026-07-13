@@ -14,7 +14,10 @@ import 'app/window_setup.dart';
 import 'core/error/error_boundary.dart';
 import 'core/platform/launch_at_login.dart';
 import 'core/platform/window_zoom.dart';
+import 'core/process/backend_controller.dart';
+import 'core/process/master_key.dart';
 import 'core/router/navigation.dart';
+import 'core/runtime.dart';
 import 'core/settings/settings_prefs.dart';
 import 'i18n/strings.g.dart';
 
@@ -36,6 +39,14 @@ Future<void> main() async {
     // consumer read synchronously. 中央偏好在开窗前载入:几何恢复要用,此后全员同步读。
     final prefs = await SettingsPrefs.load();
     WindowZoom.useSettingsPrefs(prefs); // zoom persists via the central prefs, not a private key
+    // C-030: create the sidecar controller + kick its spawn off NOW, so the Go backend boots in PARALLEL
+    // with window init + the first frame instead of serially after them (the health-wait was the cold-
+    // start long pole). The startup gate's start() on first read is IDEMPOTENT, so it JOINS this in-flight
+    // launch — one controller, one spawn. The keychain/master-key resolve stays inside _spawn (ADR-0008
+    // ordering unchanged; only WHEN the spawn is triggered moves earlier). 提前建控制器+起 spawn,后端与开窗/
+    // 首帧并行 boot(health-wait 是冷启长杆);gate 首读的 start() 幂等并入,一控制器一次 spawn;keychain 次序不变。
+    final backend = BackendController(masterKey: () => MasterKey().resolve());
+    unawaited(backend.start());
     await initWindow(prefs: prefs);
     WindowZoom.restore();
     await initLaunchAtLogin();
@@ -45,6 +56,12 @@ Future<void> main() async {
         // injected into the core seam. 路由(引用壳 + 实体 kind)在 app 层装配、注入 core 缝。
         overrides: [
           settingsPrefsProvider.overrideWithValue(prefs),
+          // Hand the pre-started controller to the provider (its dispose preserved), so the startup gate
+          // reuses THIS instance rather than creating a second one. 把预启控制器交给 provider(保留 dispose)。
+          backendControllerProvider.overrideWith((ref) {
+            ref.onDispose(backend.dispose);
+            return backend;
+          }),
           goRouterProvider.overrideWith(buildAppRouter),
           mentionSourceProvider.overrideWith(entityMentionSource),
           // The real app posts OS-native notifications when unfocused (demo/gallery keep the Noop default).

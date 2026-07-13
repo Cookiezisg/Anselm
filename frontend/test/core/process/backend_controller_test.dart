@@ -110,6 +110,60 @@ void main() {
     expect(launched.single!['ANSELM_AUTH_TOKEN'], c.state.value.authToken);
   });
 
+  // C-030: start() is idempotent — a concurrent/repeat call JOINS the in-flight launch rather than
+  // spawning a second process. This is what lets the app kick the spawn off EARLY (main, before window
+  // init) while the startup gate ALSO start()s on first read: both share one launch.
+  test('C-030: concurrent + repeat start() join the in-flight launch — no double-spawn', () async {
+    final launched = <Map<String, String>?>[];
+    final c = BackendController(
+      binaryPath: Platform.resolvedExecutable,
+      externalUrl: () => null,
+      probe: _probe(ok: true),
+      launcher: (exe, args, {environment}) async {
+        launched.add(environment);
+        return _FakeProcess();
+      },
+    );
+    // Fire twice concurrently (main's early kick-off + the gate's first read). 并发两次(main 提前 + gate 首读)。
+    await Future.wait([c.start(), c.start()]);
+    expect(c.state.value.isReady, isTrue);
+    expect(launched.length, 1, reason: 'concurrent start() must JOIN, not double-spawn');
+    await c.start(); // a repeat call after ready also joins the (completed) launch 就绪后再 start 也并入
+    expect(launched.length, 1);
+  });
+
+  test('C-030: start() RE-ENTERS after a crash — Retry still respawns (guard does not block it)', () async {
+    final launched = <Map<String, String>?>[];
+    var healthOk = false; // first launch: health never comes up → crash 首启健康失败→崩溃
+    final probe = Dio()
+      ..httpClientAdapter = _FixedAdapter((o) {
+        if (!healthOk) throw Exception('connection refused');
+        return ResponseBody.fromString('{"data":{"status":"ok"}}', 200,
+            headers: {Headers.contentTypeHeader: [Headers.jsonContentType]});
+      });
+    final c = BackendController(
+      binaryPath: Platform.resolvedExecutable,
+      externalUrl: () => null,
+      probe: probe,
+      probeInterval: const Duration(milliseconds: 1),
+      launcher: (exe, args, {environment}) async {
+        launched.add(environment);
+        return _FakeProcess();
+      },
+    );
+    await c.start();
+    expect(c.state.value.phase, BackendPhase.crashed);
+    final afterCrash = launched.length;
+
+    // The backend now "comes up" — Retry (start again) must RE-ENTER _start, not join the crashed launch.
+    // 后端「起来了」——重试须重入 _start(不并入已崩溃启动)。
+    healthOk = true;
+    await c.start();
+    expect(c.state.value.isReady, isTrue);
+    expect(launched.length, greaterThan(afterCrash),
+        reason: 'a crashed controller must re-spawn on Retry, not return the failed in-flight future');
+  });
+
   test('health never comes up → crashed (bounded attempts, no hang)', () async {
     final c = BackendController(
       binaryPath: Platform.resolvedExecutable,
