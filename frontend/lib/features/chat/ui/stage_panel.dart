@@ -464,9 +464,9 @@ class _TodoRow extends ConsumerWidget {
         onSelect: toggle,
         onToggle: toggle,
       ),
-      AnExpandReveal(
+      AnExpandReveal.builder(
         open: open,
-        child: Padding(
+        childBuilder: (context) => Padding(
           // Same breathing shape as the stage rows: symmetric 8 vertical, full box width. 与舞台行同形。
           padding: const EdgeInsets.symmetric(vertical: AnSpace.s8),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
@@ -552,9 +552,13 @@ class _StageRow extends ConsumerWidget {
         onSelect: toggle,
         onToggle: toggle,
       ),
-      AnExpandReveal(
+      // LAZY (C-040): a COLLAPSED accordion row must NOT build its stage body — StageBodyFromTruth watches
+      // a provider + sceneFromSubagentNode constructs a scene + _GenericStage mounts a coalescer, all per
+      // accordion rebuild otherwise. The builder runs only while the row is open / animating. 惰性:收起行
+      // 绝不建 stage 体(sceneFromSubagentNode 构造/StageBodyFromTruth 观 provider/generic 挂 coalescer)。
+      AnExpandReveal.builder(
         open: open,
-        child: Padding(
+        childBuilder: (context) => Padding(
           // Symmetric 8 above/below (the card must not glue to its header row), 0 left/right — the body
           // spans the FULL header-box width: hierarchy reads from position, a narrower card just looks
           // misaligned (user-tuned). 上下对称 8(卡不贴行头)、左右 0——体与行头框同宽;瘦一圈反显没对齐。
