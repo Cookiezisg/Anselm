@@ -27,6 +27,15 @@ audience: [human, ai]
 - **AnStickViewport 增 `fadeColor`**(白宿主传 surface,灰底退役)。bar 同构补齐:编辑器 copy 驻留走 AnMotion.dwell + AnTooltip。
 - AnLedgerRow 补 `expandChild`;「展开全部 N」列表壳 **deferred → P4 吸收四套台账时落**。
 
+## 批C4–C7 落地(2026-07-13,C 轨——旗舰重建 + 记忆化簇 + 内存卫生)
+
+- **C-003 修(旗舰,批C4)**:`StageActivityView.unread` 是未建的频道 tab 徽拍数——**UI 从不渲染、逻辑从不读**(全域 grep 证),唯经 `==`/`hashCode` 破坏 StageState 值相等→并行流式非主角每 delta(onActivity unread++)令整 `_AccordionList` 重建+`_computeRows` 重跑。从 ==/hashCode 剔除 unread(保留字段供未来徽)→churn 对 provider 成 no-op;真变化(live/failed/itemId)仍破相等(close 广播/Cast 脉冲不吞)。**根因比诊断更纯:是纯死状态非「需要但破相等」**。
+- **C-005 修(批C5)**:`tool_receipts._obj` FIFO 有界缓存(64)——生命周期回执解析器每帧对同一 settled 结果串 jsonDecode(1s ticker/live 回合重建),解码对给定串不可变故无需失效;7 用点一并记忆化。
+- **C-036/037 修(批C6)**:`_settledRowCache` 身份缓存内存卫生——①`didUpdateWidget` 于 conversationId 变时 clear(切会话 State 无 key 复用→旧会话行滞留=纯泄漏,turn id 全局唯一故非误渲)②插入 FIFO 有界 400(插入序=渲染序,逐出滚远行、可见窗~20 不受影响)。
+- **C-042 修(批C7)**:`graphFromWorkflowOps` 按 session 闭合 op 数 Expando 记忆化(ops 单调增故 count⟺set)→返回**同一 Graph 实例**→`AnGraphCanvas.didUpdateWidget` 经 identity 短路 O(V+E) 深比较+重布局(真赢面=图布局非 ops parse)。
+- **C-039 证伪(批C6)**:`_rowKeys` GlobalKey 已在 didUpdateWidget 切会话清+会话内受 distinct rowIds 界(非 C-037 式深跳重载真无界)+对象微小+bound 破坏 `_keyFor→currentContext` 滚动定位——低 sev+已缓释+风险不成比例。
+- **方法学(强化)**:①Expando per-instance 记忆化(承 argsSession 模式)是 const 类惰性缓存正解;②记忆化**返回同一实例**让下游 canvas/widget 经 identity 短路(比省 CPU 更大的赢面);③内存卫生=didUpdateWidget 清 + insert FIFO 有界两招;④私有 State 缓存难 bespoke 单测,以既有渲染套件为回归护栏。每项配 in-harness 电池(identity/相等/预算),fe-verify 全绿。
+
 ## 批C3 落地(2026-07-13,C 轨——真 O(n²) 修 + 低 sev 测量证伪)
 
 - **C-019 flowrun ticks 有界(真修)**:`FlowrunProgress.withTick` 原 `[...ticks,t]` O(n) 拷贝×无界列表→重迭代 workflow(节点重入数千次)令 tick 累积 O(n²)(**convict:2 万 tick=905ms,5×输入→25×时=二次**)+ 非 autoDispose 内存泄漏。唯一消费 `stage_panel` 只取**末 12**→bound `maxTicks=64`(余量),拷贝 O(n)+占用硬有界(<150ms)。透明(UI 只显末 12)。4 测。
