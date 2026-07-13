@@ -11,7 +11,7 @@ audience: [human, ai]
 
 # Feature:Notifications(通知中心 + 悬浮 toast)—— 当前形态
 
-> 左岛铃的两段式托盘 + 右上悬浮 toast + OS 原生通知,端到端落成。本篇 = **它现在是什么样**;**怎么一步步建的**(调研/词表台账/N0–N5 阶梯/决策)看建造账 [`WRK-058`](../../../working/frontend/notifications.md);**DTO** 看 [`contract.md`](../contract.md);后端分径契约看 [`events.md`](../../backend/events.md) ⊞/⤳。
+> 左岛铃的两段式托盘 + 右上悬浮 toast + OS 原生通知,端到端落成。本篇 = **它现在是什么样**;**怎么一步步建的**(调研/词表台账/N0–N5 阶梯/决策)看建造账 [`WRK-058`](../../../archive/notifications/README.md);**DTO** 看 [`contract.md`](../contract.md);后端分径契约看 [`events.md`](../../backend/events.md) ⊞/⤳。
 
 ## 一句话
 

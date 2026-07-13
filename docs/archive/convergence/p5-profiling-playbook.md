@@ -1,7 +1,7 @@
 ---
 id: WRK-066-P5
 type: working
-status: active
+status: archived
 owner: "@weilin"
 created: 2026-07-13
 reviewed: 2026-07-13

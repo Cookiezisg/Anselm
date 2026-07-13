@@ -1,7 +1,7 @@
 ---
 id: WRK-067
 type: working
-status: active
+status: archived
 owner: "@weilin"
 created: 2026-07-11
 reviewed: 2026-07-11
@@ -11,7 +11,7 @@ audience: [human, ai]
 
 # WRK-067 「同轨」P1 普查台账 —— 四轨全量清单
 
-> [`convergence.md`](convergence.md)(WRK-066)§6 的台账本体。**条目只能三种方式关闭:完成(证据=commit)/证伪(复审确认)/用户签字豁免(契约 §7)——AI 无权单方关闭。**
+> [`convergence.md`](README.md)(WRK-066)§6 的台账本体。**条目只能三种方式关闭:完成(证据=commit)/证伪(复审确认)/用户签字豁免(契约 §7)——AI 无权单方关闭。**
 > 普查:11 区 finder + 20 条抽样对抗审计,**假阳率 0/20**。棘轮基线另有机器账(`frontend/test/guards/convergence_baseline.txt`,62 处五类硬违规);本台账是定性全集,二者相交不相等。
 > 状态图例:`open` / `done(commit)` / `refuted` / `exempt(§7)`。
 

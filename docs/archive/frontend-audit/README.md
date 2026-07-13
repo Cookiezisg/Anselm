@@ -1,16 +1,18 @@
 ---
 id: WRK-063
 type: working
-status: active
+status: archived
 owner: @weilin
 created: 2026-07-09
-reviewed: 2026-07-09
-review-due: 2026-10-07
+reviewed: 2026-07-14
+review-due: 2026-10-14
 audience: [human, ai]
-landed-into:
+landed-into: 代码修复 (commits 5a375647→6caa0493, 9 批); 硬化面 references/frontend/features/{chat-sidestage,documents,entities,settings,notifications}.md
 ---
 
 # 全前端完整排查 —— 修复 Backlog
+
+> **✅ 全部完成并归档(2026-07-14)**。64 条 CONFIRMED 全清账(9 批,fe-verify 3312 绿,commits 5a375647→6caa0493)+ §4 跨模块系统性主题落地 + 5 类 engineering-judgment 接受项记录在案。§5「待真机项」= 代码已修、用户可感后果建议真机 E2E 复核(用户签字残余,同 WRK-059)。**下方 §1/§2/§3 表内个别 ⏳ 标记为落地时未回填的历史残留,以「建造进展/64 条全清账」为准**。本档留作建造史。
 
 > **出身**:route ⑥ 遗留清账下,用户拍板发起「全前端完整排查」。14 区 finder(shell/设计系统/编辑器/运行时/chat 核心/工具卡/entities/documents/settings/notifications + 4 横切:i18n 硬编码·字重token违规·跨模块漂移·死码卫生)只读扫描 → 每条候选发现一个**对抗性 skeptic 读码证伪** → 合成。**64 条全 CONFIRMED**(原始 69,证伪剔除 5),84 agent、~480 万 token。方法论沿用 WRK-059(对抗验证防「可行性谎言」)。
 >

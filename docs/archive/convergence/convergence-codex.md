@@ -1,7 +1,7 @@
 ---
 id: WRK-068
 type: working
-status: active
+status: archived
 owner: "@weilin"
 created: 2026-07-11
 reviewed: 2026-07-11
@@ -11,7 +11,7 @@ audience: [human, ai]
 
 # WRK-068 「同轨」法典 —— 六族当家件 API + 版式文法(2026-07-11 拍板修订版)
 
-> [`convergence.md`](convergence.md)(WRK-066)P2 产物。**2026-07-11 用户看帧拍板**(修订见 §拍板记录),据此冻结;
+> [`convergence.md`](README.md)(WRK-066)P2 产物。**2026-07-11 用户看帧拍板**(修订见 §拍板记录),据此冻结;
 > 一切视觉争议回本档查表。拍板后:法典正文提取进 `references/frontend/design-system.md`(reference 级)。
 
 ## 对抗复审整改记录(2026-07-11,54-agent 复审 50 confirmed 全修)

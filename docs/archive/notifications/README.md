@@ -1,11 +1,11 @@
 ---
 id: WRK-058
 type: working
-status: active
+status: archived
 owner: @weilin
 created: 2026-07-06
-reviewed: 2026-07-07
-review-due: 2026-10-04
+reviewed: 2026-07-14
+review-due: 2026-10-14
 audience: [human, ai]
 landed-into: references/frontend/features/notifications.md
 ---
@@ -143,6 +143,5 @@ landed-into: references/frontend/features/notifications.md
 | **N2b 行原语 + 文案** | ✅ gallery-first。`notification_copy.dart`(NotificationLine + notificationLine:type→句子,compositional 生命周期 + 重要 7 bespoke + payload 分支[reconnected/attention/sandbox/dependency] + 未知兜底 + notificationLocation 深链解析)· `notification_row.dart`(NotificationRow 纯展示:未读点·tone 图标·{类}「{名}」{动词}·相对时间 + 灰详情;已读整行灰留列表;hover→mark-read)· i18n notifications 段(en+zh) · gallery「通知」类目 + 截图夹具。18 五电池测。真机截图肉眼核对。 | ✅ |
 | **N2c 托盘组装 + 接壳** | ✅ NotificationFeedNotifier(KeysetQueryPaging + 信号并首/410 重翻 + markRead/All 乐观) · NotificationFeed(通知头+全部已读+时间分组今天/昨天/更早+点行深链顺手已读+空态+无限下滑) · FlowrunInbox sectioned 模式 · app_shell `_NotificationsTray` 组合两段(装配层) + 铃徽标接 unreadCountProvider · demo fixture 12 条 + capture_demo NOTIF 接线。14 测。**真壳 E2E 截图亲验**:铃开接管左岛、两段组合、footer 铃红点、时间分组、名字可扫读。fe-verify 2421 绿。 | ✅ |
 | **N3 toast** | ✅ **AnOverlayHost 迁右上**(全体 toast,用户拍板;Positioned bottom→top 避开 macOS chrome 带 + 栈 newest 顶插 + cap 5→3)· **AnToast hover 暂停消隐**(WCAG 2.2.1,Stopwatch 记已跑/从剩余续跑)· **ToastDispatcher**(core 事件→toast:听流、只 important[渲染 tone warn/danger]弹、neutral 静默归托盘、tone 定时长[danger 常驻/warn 8s]、action 查看深链、(type,entityId) 去抖窗吞风暴、coalesce 只在 dispatcher 绝不进 gateway、复用 notificationLine 文案层 + NotificationSignal 扩 payload 免 REST、app_shell eager watch 保活)· i18n view · capture_toasts 截图夹具。真机截图核对(右上栈/tone 色条/查看+关闭/堆叠)。测 dispatcher 5 + toast host 更新。fe-verify 2427 绿。 | ✅ |
-| **N4 OS 通知** | flutter_local_notifications 接入 + 焦点快照分工 + 深链 payload + macOS 签名 build 真机验证(不入 fe-verify) | ⏳ |
 | **N4 OS 通知** | ✅ `OsNotifier` 端口(DIP:NoopOsNotifier 默认 / LocalOsNotifier=flutter_local_notifications v22)· `appFocusedProvider`(AppLifecycleState,默认聚焦)· ToastDispatcher 焦点路由(派发时刻快照:聚焦→toast / 未聚焦→OS 通知,点击深链回 app)· app 根 override Local + dispatcher build 一次性 init。**macOS debug build 已验证原生集成编译链接通过**(真投递需签名 build,不入 fe-verify)。测:焦点 provider + 未聚焦→OS 路由(FakeOsNotifier)。 | ✅ |
 | **N5 组装收尾** | ✅ demo fixture 12 条种满各档/时段 + 五电池(49 notifications 测)+ 真壳 E2E 截图(铃托盘)+ 右上 toast 截图 + **macOS debug build 全通** + landed-into 提取进 [`references/frontend/features/notifications.md`](../../references/frontend/features/notifications.md)。 | ✅ |
