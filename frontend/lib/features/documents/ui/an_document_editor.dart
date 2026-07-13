@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 
 import '../../../core/design/colors.dart';
@@ -77,15 +79,34 @@ class AnDocumentEditorState extends State<AnDocumentEditor> {
     _scroll.addListener(_onScroll);
   }
 
+  // C-029: _emitActiveHeading walks the headings + does a per-heading layout query — O(headings) per
+  // scroll frame is scroll jank on a long, heading-dense doc. Throttle to ~50ms (the outline highlight
+  // still tracks smoothly) with a trailing emit so the FINAL position lands after the scroll settles.
+  // 活动标题计算节流:滚动中每 ~50ms(highlight 仍平滑跟随)+尾沿一发,滚停后落最终位置。
+  final _headingThrottle = Stopwatch()..start();
+  Timer? _headingTrailing;
+
   @override
   void dispose() {
+    _headingTrailing?.cancel();
     _scroll.dispose();
     super.dispose();
   }
 
   void _onScroll() {
     widget.onScroll?.call(_scroll.offset);
-    _emitActiveHeading();
+    // Throttle the heading walk (C-029): emit at most every 50ms during a scroll, and a single trailing
+    // emit after it settles so the final active heading is never stale. 节流+尾沿。
+    _headingTrailing?.cancel();
+    if (_headingThrottle.elapsedMilliseconds >= 50) {
+      _headingThrottle.reset();
+      _emitActiveHeading();
+    } else {
+      _headingTrailing = Timer(const Duration(milliseconds: 60), () {
+        _headingThrottle.reset();
+        _emitActiveHeading();
+      });
+    }
   }
 
   /// Scroll the whole page back to the big title. 滚回大标题。
