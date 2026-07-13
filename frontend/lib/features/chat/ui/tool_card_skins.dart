@@ -155,7 +155,7 @@ Widget bashToolBody(BuildContext context, ToolCardState state) {
 
   // In-flight read: the command echoes in the header WHILE args stream (the live face's identity
   // line — closed-only left the header blank mid-stream). 在途读:流式期命令即回显。
-  final cmd = argStringPartial(state.argsText, 'command') ?? '';
+  final cmd = state.arg('command') ?? '';
   final progress = state.progressText;
   // The body source: progressText (full, no footer) is preferred; else strip the resultText footer.
   // The COPY payload is the full untruncated text (incl. footer when from result). 体源 + 复制全量。
@@ -704,7 +704,7 @@ Widget runStatBarOf(BuildContext context, ToolCardState state, {List<AnStat> ext
   final id = (out['id'] ?? (kind == null ? null : out['${kind}Id'])) as String?;
   // Label: only CREATE's args.name is the entity name; on EDIT the first "name" in args is a nested
   // op field — use the id there. label:仅 create 的 args.name 是实体名;edit 用 id。
-  final label = state.toolName.startsWith('create_') ? (argStringPartial(state.argsText, 'name') ?? id) : id;
+  final label = state.toolName.startsWith('create_') ? (state.arg('name') ?? id) : id;
   final envStatus = out['envStatus'] as String?;
   // handler-edit only: crashed = the honest brick; stopped is BENIGN (never-spawned — census
   // correction, don't over-alarm); running = healthy RESIDENT state (ok green, deliberately NOT

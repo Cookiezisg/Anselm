@@ -92,7 +92,7 @@ Widget callHandlerBody(BuildContext context, ToolCardState state) {
   final t = Translations.of(context);
   final live = toolLive(state);
   final out = _obj(state.resultText);
-  final method = argStringPartial(state.argsText, 'method');
+  final method = state.arg('method');
   final input = _obj(state.argsText)?['args'];
 
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [

@@ -40,7 +40,7 @@ Widget subagentBody(BuildContext context, ToolCardState state) {
   final c = context.colors;
   final t = Translations.of(context);
   final live = toolLive(state);
-  final prompt = argStringPartial(state.argsText, 'prompt');
+  final prompt = state.arg('prompt');
   final answer = state.resultText;
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
     if (prompt != null && prompt.isNotEmpty) ...[

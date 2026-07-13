@@ -102,6 +102,17 @@ class ToolCardState {
 
   static final Expando<PartialJsonSession> _fallbackSessions = Expando('toolCardArgs');
 
+  /// A string arg's value by its FINAL key name AT ANY DEPTH (in-flight one first, else the latest closed
+  /// — mirroring the depth-agnostic `argStringPartial` this replaces, e.g. a `name` nested in `ops[i]`) —
+  /// via the INCREMENTAL [argsSession] instead of re-scanning [argsText] every build (C-018): the session
+  /// already parsed the args (O(events), not O(bytes)/frame), and decodes JSON escapes CORRECTLY (the old
+  /// char-scan mis-decoded `\r`/`\f`/`\b`/`\u` to their literal letters). Empty → null. 末段键名匹配的活值
+  /// (任意深度):走增量 session 不重扫 + 正确转义;空→null。
+  String? arg(String key) {
+    final v = argsSession.liveStringNamed(key);
+    return (v == null || v.isEmpty) ? null : v;
+  }
+
   final String resultText;
 
   /// The result JSON decoded to a `Map`, or null (non-object / unparseable / empty). Memoized PER INSTANCE

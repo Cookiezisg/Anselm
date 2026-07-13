@@ -146,7 +146,7 @@ ToolReceipt? fsErrorReceipt(Translations t, String output) {
 /// 否则退回截断 arg id(名随 close 落定,流式中/无可命名目标时仍显 id)。
 String? _nameOrIdTarget(ToolCardState s, String idKey) {
   if (s.entityName.isNotEmpty) return s.entityName;
-  final id = argStringPartial(s.argsText, idKey);
+  final id = s.arg(idKey);
   return id == null ? null : (truncate(id, AnTrunc.id));
 }
 
@@ -187,7 +187,7 @@ ToolCardSpec _searchLog({
     target: (s) {
       if (s.entityName.isNotEmpty) return s.entityName;
       for (final a in args) {
-        final v = argStringPartial(s.argsText, a);
+        final v = s.arg(a);
         if (v != null && v.isNotEmpty) return truncate(v, AnTrunc.id);
       }
       return null;
@@ -211,7 +211,7 @@ ToolCardSpec _countLog({
       verb: (t, {required bool live}) => live ? running(t) : done(t),
       target: (s) {
         if (s.entityName.isNotEmpty) return s.entityName;
-        final v = argStringPartial(s.argsText, chipArg);
+        final v = s.arg(chipArg);
         return v == null || v.isEmpty ? null : (truncate(v, AnTrunc.id));
       },
       receipt: (t, s) => countListReceipt(t, s.resultText, listKey),
@@ -232,7 +232,7 @@ ToolCardSpec _getRecord({
     ToolCardSpec(
       verb: (t, {required bool live}) => live ? running(t) : done(t),
       target: (s) {
-        final v = argStringPartial(s.argsText, chipArg);
+        final v = s.arg(chipArg);
         return v == null || v.isEmpty ? null : (truncate(v, AnTrunc.id));
       },
       receipt: (t, s) => receipt(t, s.resultText),
@@ -281,7 +281,7 @@ ToolCardSpec _build({
           ? (live ? t.chat.tool.creatingKind(kind: kind(t)) : t.chat.tool.createdKind(kind: kind(t)))
           : (live ? t.chat.tool.updatingKind(kind: kind(t)) : t.chat.tool.updatedKind(kind: kind(t))),
       target: (s) => create
-          ? argStringPartial(s.argsText, 'name')
+          ? s.arg('name')
           : (editIdKey == null ? null : argString(s.argsText, editIdKey)),
       receipt: receipt ?? (t, s) {
         final out = s.resultObj; // C-028: memoized decode 记忆化解码
@@ -321,7 +321,7 @@ ToolCardSpec _entitySearch({
           ? null
           : (t, s, {required bool live}) {
               final argsComplete = s.phase != ToolCardPhase.argsStreaming;
-              final q = argStringPartial(s.argsText, 'query');
+              final q = s.arg('query');
               final listChannel = argsComplete && (q == null || q.trim().isEmpty);
               final kw = kind(t);
               return listChannel
@@ -331,7 +331,7 @@ ToolCardSpec _entitySearch({
       target: listOnly
           ? null
           : (s) {
-              final q = argStringPartial(s.argsText, 'query');
+              final q = s.arg('query');
               if (q == null || q.trim().isEmpty) return null;
               final first = q.split('\n').first.trim();
               return '"${truncate(first, AnTrunc.line)}"';
@@ -366,7 +366,7 @@ ToolCardSpec _entityGet({
         // 落定:chip 从 id 换成人话名(历史读起来像目录)。
         final name = argString(s.resultText, 'name');
         if (name != null && name.isNotEmpty) return name;
-        return argStringPartial(s.argsText, idKey);
+        return s.arg(idKey);
       },
       receipt: (t, s) {
         final out = s.resultObj; // C-028: memoized decode 记忆化解码
@@ -392,7 +392,7 @@ ToolCardSpec _revert({
     ToolCardSpec(
       verb: (t, {required bool live}) =>
           live ? t.chat.tool.revertingKind(kind: kind(t)) : t.chat.tool.revertedKind(kind: kind(t)),
-      target: (s) => argStringPartial(s.argsText, idKey),
+      target: (s) => s.arg(idKey),
       receipt: (t, s) => revertReceipt(s.resultText, rewind: (v) => t.chat.tool.rewind(v: '$v')),
       body: (context, s) {
         final t = Translations.of(context);
@@ -417,7 +417,7 @@ ToolCardSpec _delete({
       verb: (t, {required bool live}) =>
           live ? t.chat.tool.deletingKind(kind: kind(t)) : t.chat.tool.deletedKind2(kind: kind(t)),
       // Tombstone: the id, plain mono — the target chip is NOT a ref pill. 墓碑:纯 mono id。
-      target: (s) => argStringPartial(s.argsText, idKey),
+      target: (s) => s.arg(idKey),
       receipt: (t, s) => deleteReceipt(s.resultText,
           deleted: t.chat.tool.deletedShort, affected: (n) => t.chat.tool.depsAffected(n: '$n'), agentForm: agentForm),
       body: deleteBody(agentForm: agentForm),
@@ -438,7 +438,7 @@ ToolCardSpec _action({
       verb: verb,
       terminalVerb: terminalVerb,
       resultFailed: resultFailed,
-      target: (s) => argStringPartial(s.argsText, idKey),
+      target: (s) => s.arg(idKey),
       receipt: receipt,
       body: (context, s) => lifecycleRefNote(context,
           kind: kindWire,
@@ -508,7 +508,7 @@ ToolCardSpec _meta({
         if (renameOnly) return live ? t.chat.tool.renaming : t.chat.tool.renamed;
         return live ? t.chat.tool.updatingMeta : t.chat.tool.updatedMeta;
       },
-      target: (s) => argStringPartial(s.argsText, idKey),
+      target: (s) => s.arg(idKey),
       receipt: (t, s) {
         final labels = _metaChangedKeys(s.argsText, idKey)
             .map((k) => switch (k) {
@@ -739,13 +739,13 @@ final Map<String, ToolCardSpec> _catalog = {
     target: (s) {
       // settled: the `# <name>` heading; live: the args id. 落定:# 标题;live:args id。
       final first = s.resultText.startsWith('# ') ? s.resultText.split('\n').first.substring(2).trim() : null;
-      return (first != null && first.isNotEmpty) ? first : argStringPartial(s.argsText, 'id');
+      return (first != null && first.isNotEmpty) ? first : s.arg('id');
     },
     body: readDocumentBody,
   ),
   'read_attachment': ToolCardSpec(
     verb: (t, {required bool live}) => live ? t.chat.tool.readingAtt : t.chat.tool.readAtt,
-    target: (s) => argStringPartial(s.argsText, 'id'),
+    target: (s) => s.arg('id'),
     body: readAttachmentBody,
   ),
 
@@ -769,7 +769,7 @@ final Map<String, ToolCardSpec> _catalog = {
   'delete_document': ToolCardSpec(
     verb: (t, {required bool live}) =>
         live ? t.chat.tool.deletingKind(kind: t.chat.tool.kind.document) : t.chat.tool.deletedKind2(kind: t.chat.tool.kind.document),
-    target: (s) => argStringPartial(s.argsText, 'id'),
+    target: (s) => s.arg('id'),
     receipt: (t, s) => deletedDocReceipt(s.resultText,
         deleted: t.chat.tool.deletedShort, withDescendants: (n) => t.chat.tool.docDescendants(n: '$n')),
     body: (context, s) => lifecycleRefNote(context, kind: 'document', id: argString(s.argsText, 'id') ?? '', note: Translations.of(context).chat.tool.noteDeleteDocSoft),
@@ -788,7 +788,7 @@ final Map<String, ToolCardSpec> _catalog = {
   ),
   'deactivate_workflow': ToolCardSpec(
     verb: (t, {required bool live}) => live ? t.chat.tool.deactivatingWf : t.chat.tool.deactivatedWf,
-    target: (s) => argStringPartial(s.argsText, 'workflowId'),
+    target: (s) => s.arg('workflowId'),
     receipt: (t, s) => _deactivateReceipt(t, s.resultText),
     // draining → an amber body note explaining the half-state (kept OUT of the row receipt). draining 注记。
     body: (context, s) {
@@ -817,14 +817,14 @@ final Map<String, ToolCardSpec> _catalog = {
   ),
   'activate_skill': ToolCardSpec(
     verb: (t, {required bool live}) => live ? t.chat.tool.activatingSkill : t.chat.tool.activatedSkill,
-    target: (s) => argStringPartial(s.argsText, 'name'),
+    target: (s) => s.arg('name'),
     // The injected output is an instruction payload → a capped machine window (fork answers have no
     // panel; 6000 cap). 注入载荷→capped 机器窗。
     body: (context, s) => activateSkillBody(context, s),
   ),
   'move_document': ToolCardSpec(
     verb: (t, {required bool live}) => live ? t.chat.tool.movingDoc : t.chat.tool.movedDoc,
-    target: (s) => argStringPartial(s.argsText, 'id'),
+    target: (s) => s.arg('id'),
     receipt: (t, s) => movedReceipt(s.resultText, toPath: (p) => t.chat.tool.movedTo(path: p)),
     body: (context, s) => lifecycleRefNote(context, kind: 'document', id: argString(s.argsText, 'id') ?? ''),
   ),
@@ -834,7 +834,7 @@ final Map<String, ToolCardSpec> _catalog = {
   'update_agent_meta': _meta(kind: (t) => t.chat.tool.kind.agent, kindWire: 'agent', idKey: 'agentId'),
   'update_handler_config': ToolCardSpec(
     verb: (t, {required bool live}) => live ? t.chat.tool.configuring : t.chat.tool.configured,
-    target: (s) => argStringPartial(s.argsText, 'handlerId'),
+    target: (s) => s.arg('handlerId'),
     receipt: (t, s) => _configKeysReceipt(t, s.argsText),
     body: (context, s) => lifecycleRefNote(context, kind: 'handler', id: argString(s.argsText, 'handlerId') ?? '', note: Translations.of(context).chat.tool.noteConfig, noteColor: context.colors.warn),
   ),
@@ -847,7 +847,7 @@ final Map<String, ToolCardSpec> _catalog = {
     verb: (t, {required bool live}) => live ? t.chat.tool.cvManaging : t.chat.tool.cvManaged,
     // Only rename carries a target chip: the new title (args → output on settle). 仅 rename 显标题 chip。
     target: (s) {
-      final live = argStringPartial(s.argsText, 'title');
+      final live = s.arg('title');
       final settled = argString(s.resultText, 'title');
       return (settled != null && settled.isNotEmpty) ? settled : live;
     },
@@ -872,7 +872,7 @@ final Map<String, ToolCardSpec> _catalog = {
   'search_conversations': ToolCardSpec(
     verb: (t, {required bool live}) => live ? t.chat.tool.cvSearching : t.chat.tool.cvSearched,
     target: (s) {
-      final q = argStringPartial(s.argsText, 'query');
+      final q = s.arg('query');
       return (q == null || q.trim().isEmpty) ? null : '"${q.trim()}"';
     },
     receipt: (t, s) => searchConversationsReceipt(t, s.resultText),
@@ -942,7 +942,7 @@ final Map<String, ToolCardSpec> _catalog = {
   'replay_flowrun': ToolCardSpec(
     verb: (t, {required bool live}) => live ? t.chat.tool.replayingRun : t.chat.tool.replayedRun,
     target: (s) {
-      final id = argStringPartial(s.argsText, 'flowrunId');
+      final id = s.arg('flowrunId');
       return id == null ? null : (truncate(id, AnTrunc.id));
     },
     receipt: (t, s) => replayReceipt(t, s.resultText),
@@ -1005,7 +1005,7 @@ final Map<String, ToolCardSpec> _catalog = {
   'get_relations': ToolCardSpec(
     verb: (t, {required bool live}) => live ? t.chat.tool.gettingRelations : t.chat.tool.gotRelations,
     target: (s) {
-      final id = argStringPartial(s.argsText, 'id');
+      final id = s.arg('id');
       return id == null ? null : (truncate(id, AnTrunc.id));
     },
     receipt: (t, s) => relationsReceipt(t, s.resultText),
@@ -1014,7 +1014,7 @@ final Map<String, ToolCardSpec> _catalog = {
   'capability_check_workflow': ToolCardSpec(
     verb: (t, {required bool live}) => live ? t.chat.tool.checkingCapability : t.chat.tool.checkedCapability,
     target: (s) {
-      final id = argStringPartial(s.argsText, 'workflowId');
+      final id = s.arg('workflowId');
       return id == null ? null : (truncate(id, AnTrunc.id));
     },
     receipt: (t, s) => capabilityReceipt(t, s.resultText),
@@ -1023,20 +1023,20 @@ final Map<String, ToolCardSpec> _catalog = {
   ),
   'install_mcp_server': ToolCardSpec(
     verb: (t, {required bool live}) => live ? t.chat.tool.installingMcp : t.chat.tool.installedMcp,
-    target: (s) => argStringPartial(s.argsText, 'name'),
+    target: (s) => s.arg('name'),
     receipt: (t, s) => mcpStatusReceipt(t, s.resultText),
     resultFailed: (s) => mcpStatusFailed(s.resultText),
     body: mcpStatusBody,
   ),
   'uninstall_mcp_server': ToolCardSpec(
     verb: (t, {required bool live}) => live ? t.chat.tool.uninstallingMcp : t.chat.tool.uninstalledMcp,
-    target: (s) => argStringPartial(s.argsText, 'name'),
+    target: (s) => s.arg('name'),
     receipt: (t, s) => mcpStatusReceipt(t, s.resultText),
     body: mcpStatusBody,
   ),
   'reconnect_mcp': ToolCardSpec(
     verb: (t, {required bool live}) => live ? t.chat.tool.reconnectingMcp : t.chat.tool.reconnectedMcp,
-    target: (s) => argStringPartial(s.argsText, 'name'),
+    target: (s) => s.arg('name'),
     receipt: (t, s) => mcpStatusReceipt(t, s.resultText),
     resultFailed: (s) => mcpStatusFailed(s.resultText),
     body: mcpStatusBody,
@@ -1069,13 +1069,13 @@ final Map<String, ToolCardSpec> _catalog = {
   // answer string. get_subagent_trace reads the durable record (list / one run's hydrated blocks). F15。
   'Subagent': ToolCardSpec(
     verb: (t, {required bool live}) => live ? t.chat.tool.spawningSubagent : t.chat.tool.spawnedSubagent,
-    target: (s) => argStringPartial(s.argsText, 'subagent_type'),
+    target: (s) => s.arg('subagent_type'),
     body: subagentBody,
   ),
   'get_subagent_trace': ToolCardSpec(
     verb: (t, {required bool live}) => live ? t.chat.tool.gettingSubTrace : t.chat.tool.gotSubTrace,
     target: (s) {
-      final v = argStringPartial(s.argsText, 'subagentRunId');
+      final v = s.arg('subagentRunId');
       return v == null || v.isEmpty ? null : (truncate(v, AnTrunc.id));
     },
     receipt: (t, s) => subTraceReceipt(t, s.resultText),
@@ -1188,7 +1188,7 @@ final Map<String, ToolCardSpec> _catalog = {
   'BashOutput': ToolCardSpec(
     verb: (t, {required bool live}) => live ? t.chat.tool.polling : t.chat.tool.polled,
     target: (s) {
-      final id = argStringPartial(s.argsText, 'bash_id');
+      final id = s.arg('bash_id');
       return id == null ? null : (truncate(id, AnTrunc.id));
     },
     receipt: (t, s) => statusReceipt(s.resultText,
@@ -1208,7 +1208,7 @@ final Map<String, ToolCardSpec> _catalog = {
   'KillShell': ToolCardSpec(
     verb: (t, {required bool live}) => live ? t.chat.tool.killing : t.chat.tool.killed3,
     target: (s) {
-      final id = argStringPartial(s.argsText, 'bash_id');
+      final id = s.arg('bash_id');
       return id == null ? null : (truncate(id, AnTrunc.id));
     },
     receipt: (t, s) => killShellReceipt(s.resultText, finished: t.chat.tool.killFinished, notFound: t.chat.tool.killNotFound),
@@ -1218,7 +1218,7 @@ final Map<String, ToolCardSpec> _catalog = {
   // ── F11 memory 记忆三件(WRK-059 H2):一张索引卡两次现身;write 有生长秀,forget 刻意薄 ──
   'write_memory': ToolCardSpec(
     verb: (t, {required bool live}) => live ? t.chat.tool.memorizing : t.chat.tool.memorized,
-    target: (s) => argStringPartial(s.argsText, 'name'),
+    target: (s) => s.arg('name'),
     receipt: memoryWriteReceipt,
     body: writeMemoryBody,
     // The result-payload soft-reject is the failure fact (status stays completed). 软拒即失败事实。
@@ -1226,7 +1226,7 @@ final Map<String, ToolCardSpec> _catalog = {
   ),
   'read_memory': ToolCardSpec(
     verb: (t, {required bool live}) => live ? t.chat.tool.recalling : t.chat.tool.recalled,
-    target: (s) => argStringPartial(s.argsText, 'name'),
+    target: (s) => s.arg('name'),
     receipt: memoryReadReceipt,
     body: readMemoryBody,
     // A read miss is an honest empty — receipt IS the card (no body, no chevron). 读空回执即卡。
@@ -1234,7 +1234,7 @@ final Map<String, ToolCardSpec> _catalog = {
   ),
   'forget_memory': ToolCardSpec(
     verb: (t, {required bool live}) => live ? t.chat.tool.forgetting : t.chat.tool.forgot,
-    target: (s) => argStringPartial(s.argsText, 'name'),
+    target: (s) => s.arg('name'),
     receipt: memoryForgetReceipt,
     body: forgetMemoryBody,
   ),
@@ -1243,7 +1243,7 @@ final Map<String, ToolCardSpec> _catalog = {
   'WebFetch': ToolCardSpec(
     verb: (t, {required bool live}) => live ? t.chat.tool.fetchingWeb : t.chat.tool.fetchedWeb,
     target: (s) {
-      final url = argStringPartial(s.argsText, 'url');
+      final url = s.arg('url');
       if (url == null || url.isEmpty) return null;
       final bare = url.replaceFirst(RegExp(r'^https?://'), '');
       return truncate(bare, AnTrunc.line);
@@ -1255,7 +1255,7 @@ final Map<String, ToolCardSpec> _catalog = {
   'WebSearch': ToolCardSpec(
     verb: (t, {required bool live}) => live ? t.chat.tool.searchingWeb : t.chat.tool.searchedWeb,
     target: (s) {
-      final q = argStringPartial(s.argsText, 'query');
+      final q = s.arg('query');
       if (q == null || q.isEmpty) return null;
       return '"${truncate(q, AnTrunc.line)}"';
     },
@@ -1271,7 +1271,7 @@ final Map<String, ToolCardSpec> _catalog = {
   'search_tools': ToolCardSpec(
     verb: (t, {required bool live}) => live ? t.chat.tool.searchingTools : t.chat.tool.searchedTools,
     target: (s) {
-      final q = argStringPartial(s.argsText, 'query');
+      final q = s.arg('query');
       if (q == null || q.isEmpty) return null;
       return '"${truncate(q, AnTrunc.line)}"';
     },
