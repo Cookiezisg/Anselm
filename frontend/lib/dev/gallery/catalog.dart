@@ -110,17 +110,6 @@ final GalleryCategory _entityViz = GalleryCategory('实体可视化 Entity Viz',
     GallerySpecimen('海量 (40 节点扇出)', (_) => AnGraphCanvas(graph: _gHuge, framed: true), stress: true, span: true),
     GallerySpecimen('unknown kind + 超长 + 注入', (_) => AnGraphCanvas(graph: _gHostile, framed: true), stress: true, span: true),
   ]),
-  GalleryItem('AnMiniGraph 迷你图', '只读轻量图预览(复用 layoutGraph 几何,无 IV/编辑/run):整图 fit 进定框,kind 五色节点 chip + 正交边。create/edit_workflow 构建卡内嵌', [
-    GallerySpecimen('线性(3 节点)', (_) => AnMiniGraph(graph: _gLinear), span: true),
-    GallerySpecimen('分支(control 分叉 + 回边)', (_) => AnMiniGraph(graph: _gBranch), span: true),
-    GallerySpecimen('海量 (40 节点扇出,fit 整图)', (_) => AnMiniGraph(graph: _gHuge, height: 300), stress: true, span: true),
-    GallerySpecimen('空图(占位)', (_) => AnMiniGraph(graph: const Graph()), stress: true, span: true),
-    // settle-then-replay 生长(B2.4):静态帧(纯渲染,可逐帧截图)+ 驱动(挂载播一次)。
-    GallerySpecimen('生长帧 · progress 0.35', (_) => AnMiniGraph(graph: _gBranch, height: 150, revealProgress: 0.35), span: true),
-    GallerySpecimen('生长帧 · progress 0.7', (_) => AnMiniGraph(graph: _gBranch, height: 150, revealProgress: 0.7), span: true),
-    GallerySpecimen('生长驱动(挂载 0→1 播一次,rank×250ms 封顶 3s)',
-        (_) => AnMiniGraphGrowth(graph: _gBranch, height: 150), span: true),
-  ]),
   GalleryItem('AnNodeGantt 节点甘特', 'flowrun 逐节点时段条:状态色 + ×N 循环 + parked 等待框 + 未运行占位', [
     GallerySpecimen('完成/失败/循环×3/parked/未运行', (_) => Padding(
       padding: const EdgeInsets.all(AnSpace.s16),
@@ -756,33 +745,6 @@ final GalleryCategory _g4NavShell = GalleryCategory('导航与壳 Nav & Shell', 
           const AnDivider.vertical(),
           AnButton(label: 'Editor', icon: AnIcons.workflow, size: AnButtonSize.sm, onPressed: () {}),
         ])),
-  ]),
-  GalleryItem('AnToolbar', '三区工具条:左附件 | 标题+meta | 右动作(非卡;bordered=顶栏)', [
-    GallerySpecimen('default', (_) => AnToolbar(
-          title: 'normalize-input',
-          meta: 'function',
-          trailing: [
-            AnButton.iconOnly(AnIcons.run, semanticLabel: 'Run', onPressed: () {}),
-            AnButton.iconOnly(AnIcons.more, semanticLabel: 'More', onPressed: () {}),
-          ],
-        ), span: true),
-    GallerySpecimen('bordered (top bar)', (_) => AnToolbar(
-          bordered: true,
-          leading: [AnButton.iconOnly(AnIcons.search, semanticLabel: 'Search', onPressed: () {})],
-          title: 'Settings',
-          trailing: [AnButton(label: 'Save', size: AnButtonSize.sm, variant: AnButtonVariant.primary, onPressed: () {})],
-        ), span: true),
-    GallerySpecimen('compact + meta', (_) => const AnToolbar(compact: true, title: 'Versions', meta: '12 revisions'), span: true),
-    GallerySpecimen('center slot (custom main)', (_) => AnToolbar(
-          leading: [AnButton.iconOnly(AnIcons.sliders, semanticLabel: 'Options', onPressed: () {})],
-          center: AnButton(label: 'custom main', size: AnButtonSize.sm, onPressed: () {}),
-          trailing: [AnButton.iconOnly(AnIcons.more, semanticLabel: 'More', onPressed: () {})],
-        ), span: true),
-    GallerySpecimen('超长标题截断(动作不挤出)', (_) => AnToolbar(
-          title: 'an-extremely-long-toolbar-title-that-must-ellipsis-and-never-push-the-actions-off',
-          meta: 'fn',
-          trailing: [AnButton.iconOnly(AnIcons.more, semanticLabel: 'More', onPressed: () {})],
-        ), stress: true, maxWidth: 280, span: true),
   ]),
   GalleryItem('AnInspector', '右岛内容壳:head(icon+title)+ 滚动块流 body(不画岛皮,AnIsland 供)· headless 占满自管', [
     GallerySpecimen('head + body (in island)', (_) => SizedBox(

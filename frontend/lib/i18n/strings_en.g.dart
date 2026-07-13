@@ -2668,9 +2668,6 @@ class Translations$feedback$cast$en {
 	/// en: 'AI is editing $name →'
 	String livePill({required Object name}) => 'AI is editing ${name} →';
 
-	/// en: '+$n'
-	String moreChannels({required Object n}) => '+${n}';
-
 	/// en: 'Deleted'
 	String get tombstone => 'Deleted';
 
@@ -5557,7 +5554,6 @@ extension on Translations {
 			'feedback.cast.ribbonFailed' => 'Draft unsaved · truth is still the last version',
 			'feedback.cast.gatePill' => 'AI awaits your decision →',
 			'feedback.cast.livePill' => ({required Object name}) => 'AI is editing ${name} →',
-			'feedback.cast.moreChannels' => ({required Object n}) => '+${n}',
 			'feedback.cast.tombstone' => 'Deleted',
 			'feedback.cast.goToEntity' => 'Open entity',
 			'feedback.cast.jumpToScene' => 'Jump to occurrence',
@@ -5950,9 +5946,9 @@ extension on Translations {
 			'documents.errorTitle' => 'Couldn\'t load your library',
 			'documents.errorHint' => 'The local engine didn\'t return it.',
 			'documents.retry' => 'Retry',
+			'documents.emptyTitle' => 'Nothing here yet',
 			_ => null,
 		} ?? switch (path) {
-			'documents.emptyTitle' => 'Nothing here yet',
 			'documents.emptyHint' => 'Create a document or a skill to get started.',
 			'documents.pickTitle' => 'Pick a document',
 			'documents.pickHint' => 'Choose a document or skill on the left to read or edit it.',

@@ -1094,7 +1094,6 @@ class _Translations$feedback$cast$zh_CN extends Translations$feedback$cast$en {
 	@override String get ribbonFailed => '草稿未保存 · 真相仍是上一版';
 	@override String get gatePill => 'AI 在等你决定 →';
 	@override String livePill({required Object name}) => 'AI 正在编辑 ${name} →';
-	@override String moreChannels({required Object n}) => '+${n}';
 	@override String get tombstone => '已删除';
 	@override String get goToEntity => '去实体页';
 	@override String get jumpToScene => '跳到发生处';
@@ -2754,7 +2753,6 @@ extension on TranslationsZhCn {
 			'feedback.cast.ribbonFailed' => '草稿未保存 · 真相仍是上一版',
 			'feedback.cast.gatePill' => 'AI 在等你决定 →',
 			'feedback.cast.livePill' => ({required Object name}) => 'AI 正在编辑 ${name} →',
-			'feedback.cast.moreChannels' => ({required Object n}) => '+${n}',
 			'feedback.cast.tombstone' => '已删除',
 			'feedback.cast.goToEntity' => '去实体页',
 			'feedback.cast.jumpToScene' => '跳到发生处',
@@ -3147,9 +3145,9 @@ extension on TranslationsZhCn {
 			'documents.errorTitle' => '无法加载知识库',
 			'documents.errorHint' => '本地引擎没有返回它。',
 			'documents.retry' => '重试',
+			'documents.emptyTitle' => '这里还什么都没有',
 			_ => null,
 		} ?? switch (path) {
-			'documents.emptyTitle' => '这里还什么都没有',
 			'documents.emptyHint' => '新建一篇文档或一个技能开始。',
 			'documents.pickTitle' => '选一篇文档',
 			'documents.pickHint' => '在左侧选一篇文档或技能来阅读或编辑。',

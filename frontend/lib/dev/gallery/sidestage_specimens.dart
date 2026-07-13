@@ -124,21 +124,6 @@ final List<GallerySpecimen> sidestageSpecimens = [
       stress: true,
       maxWidth: 280),
   GallerySpecimen(
-      'ChannelStrip 并行频道(选中/未读/失败/溢出)',
-      (_) => AnChannelStrip(
-            channels: const [
-              AnChannel(id: 'a', kind: 'function', live: true, unread: 3),
-              AnChannel(id: 'b', kind: 'workflow', live: true),
-              AnChannel(id: 'c', kind: 'subagent', live: false, failed: true, unread: 120),
-              AnChannel(id: 'd', kind: 'document', live: false),
-              AnChannel(id: 'e', kind: 'mcp', live: true),
-              AnChannel(id: 'f', kind: 'agent', live: true),
-            ],
-            activeId: 'a',
-            onTap: (_) {},
-          ),
-      span: true),
-  GallerySpecimen(
       'FollowPill 跟随药丸(live) — poke 后共享钟呼吸',
       (_) => Row(children: [
             AnFollowPill(

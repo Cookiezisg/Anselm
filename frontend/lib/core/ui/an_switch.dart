@@ -71,13 +71,9 @@ class AnSwitch extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: c.surface,
                     shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0x33000000),
-                        blurRadius: 2,
-                        offset: const Offset(0, 1),
-                      ),
-                    ],
+                    // Theme resting-lift token (not a fixed black literal) so the knob's contact shadow
+                    // inverts with the theme and stays readable on dark tracks. 走主题抬升档、不写死黑,dark 下仍读得出。
+                    boxShadow: c.shadowIsland,
                   ),
                 ),
               ),

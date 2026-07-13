@@ -1014,18 +1014,40 @@ class _NodeCardState extends State<_NodeCard> {
         NodeKind.unknown => t.graph.kind.unknown,
       };
 
-  /// Kind → (main, soft) family. action=accent / control=warn / approval=danger reuse the chrome
-  /// palette; trigger/agent take the graph-only families; unknown degrades to neutral ink.
-  /// kind → 色族:action/control/approval 复用 chrome 板;trigger/agent 用图专属族;unknown 降级中性。
-  static (Color, Color) _kindColors(NodeKind k, AnColors c, GraphColors gc) => switch (k) {
-        NodeKind.trigger => (gc.violet, gc.violetSoft),
-        NodeKind.action => (c.accent, c.accentSoft),
-        NodeKind.agent => (gc.teal, gc.tealSoft),
-        NodeKind.control => (c.warn, c.warnSoft),
-        NodeKind.approval => (c.danger, c.dangerSoft),
-        NodeKind.unknown => (c.inkMuted, c.surfaceSunken),
-      };
+  /// Kind → (main, soft) family. The main hue is the shared [nodeKindColor] single source (same
+  /// palette the workflow tool card's op-ticker dots read); soft is the graph's own tint companion.
+  /// kind → 色族:主色走 [nodeKindColor] 单源(与 workflow op-ticker 点同源),soft 为图专属浅底。
+  static (Color, Color) _kindColors(NodeKind k, AnColors c, GraphColors gc) =>
+      (_kindMain(k, c, gc), _kindSoft(k, c, gc));
 }
+
+/// Node-kind → accent hue: the ONE source for the per-kind color, shared by [AnGraphCanvas] node
+/// cards and the workflow tool card's op-ticker dots so a node reads the same color everywhere
+/// (was a twin in the retired an_mini_graph; kept here with the graph primitive).
+/// 节点 kind → 强调色:每 kind 色相单源,画布节点卡与 workflow op-ticker 点共用、处处同色。
+Color nodeKindColor(BuildContext context, NodeKind kind) =>
+    _kindMain(kind, context.colors, context.graphColors);
+
+Color _kindMain(NodeKind k, AnColors c, GraphColors gc) => switch (k) {
+      NodeKind.trigger => gc.violet,
+      NodeKind.action => c.accent,
+      NodeKind.agent => gc.teal,
+      NodeKind.control => c.warn,
+      NodeKind.approval => c.danger,
+      NodeKind.unknown => c.inkMuted,
+    };
+
+Color _kindSoft(NodeKind k, AnColors c, GraphColors gc) => switch (k) {
+      NodeKind.trigger => gc.violetSoft,
+      NodeKind.action => c.accentSoft,
+      NodeKind.agent => gc.tealSoft,
+      NodeKind.control => c.warnSoft,
+      NodeKind.approval => c.dangerSoft,
+      NodeKind.unknown => c.surfaceSunken,
+    };
+
+/// Node-kind glyph, shared with the canvas node cards. 节点 kind 字形(与画布节点卡同源)。
+IconData nodeKindIcon(NodeKind kind) => AnIcons.node(kind.name);
 
 /// The edge-port pill at the route midpoint (control branch names / approval yes·no). Back-edge
 /// pills read accent (they mark the loop). 线中点端口药丸;回边药丸 accent(标记循环)。

@@ -113,7 +113,6 @@ lib/core/ui/an_callout.dart	converged
 lib/core/ui/an_card.dart	converged
 lib/core/ui/an_cast_row.dart	reviewed
 lib/core/ui/an_cel_grow.dart	reviewed
-lib/core/ui/an_channel_strip.dart	reviewed
 lib/core/ui/an_chip.dart	reviewed
 lib/core/ui/an_code_block.dart	converged
 lib/core/ui/an_code_editor.dart	reviewed
@@ -168,7 +167,6 @@ lib/core/ui/an_mention_picker.dart	converged
 lib/core/ui/an_menu.dart	converged
 lib/core/ui/an_menu_surface.dart	converged
 lib/core/ui/an_meter.dart	converged
-lib/core/ui/an_mini_graph.dart	reviewed
 lib/core/ui/an_minimap_spine.dart	converged
 lib/core/ui/an_node_gantt.dart	reviewed
 lib/core/ui/an_ocean_header.dart	reviewed
@@ -212,7 +210,6 @@ lib/core/ui/an_term_viewport.dart	reviewed
 lib/core/ui/an_thin_table.dart	converged
 lib/core/ui/an_toast.dart	reviewed
 lib/core/ui/an_toned_panel.dart	converged
-lib/core/ui/an_toolbar.dart	converged
 lib/core/ui/an_tooltip.dart	converged
 lib/core/ui/an_two_zone.dart	reviewed
 lib/core/ui/an_type_to_confirm.dart	converged

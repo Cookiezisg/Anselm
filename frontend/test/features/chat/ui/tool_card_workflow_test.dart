@@ -89,7 +89,6 @@ void main() {
     await tester.pumpAndSettle();
     // The SAME widget the entity page uses (not a bespoke mini-graph) → visual 1:1. 与实体页同款 widget。
     expect(find.byType(AnGraphCanvas), findsOneWidget);
-    expect(find.byType(AnMiniGraphGrowth), findsNothing);
     // The graph's nodes are the workflow steps. 图节点=工作流步骤。
     expect(find.text('pr-merged'), findsOneWidget);
     expect(find.text('summarize'), findsOneWidget);
@@ -140,8 +139,6 @@ void main() {
     expect(find.text('notify-slack'), findsOneWidget); // added (green)
     expect(find.text('n2'), findsOneWidget); // updated (amber)
     expect(find.text('n3'), findsOneWidget); // deleted (red strikethrough)
-    // No fetched canvas in the pure-delta form. 纯 delta 形无 fetch 画布。
-    expect(find.byType(AnMiniGraph), findsNothing);
   });
 
   testWidgets('meta-only edit says so honestly', (tester) async {

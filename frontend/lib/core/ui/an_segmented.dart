@@ -78,9 +78,11 @@ class AnSegmented<T> extends StatelessWidget {
                       color: c.surface,
                       borderRadius: BorderRadius.circular(AnRadius.button),
                       border: Border.all(color: c.line, width: AnSize.hairline),
-                      boxShadow: const [
-                        BoxShadow(color: Color(0x14000000), blurRadius: 2, offset: Offset(0, 1)),
-                      ],
+                      // Resting-card lift via the theme token (same tier the graph node cards use) — it
+                      // inverts to the dark theme's heavier black so the selected pill stays elevated in
+                      // BOTH themes; a fixed black literal would go invisible on the near-black dark surface.
+                      // 走主题 shadowIsland 档(与图节点卡同层):dark 档翻成更重的黑,选中丸两档都抬得起来;定值黑在近黑面上会隐形。
+                      boxShadow: c.shadowIsland,
                     ),
                   ),
                 ),
