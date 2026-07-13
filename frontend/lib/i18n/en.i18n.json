@@ -233,6 +233,7 @@
       "contentTruncated": "content truncated — see the full text in the entity panel",
       "noActiveVersion": "no active version",
       "kvDescription": "description",
+      "kvPath": "path",
       "kvSignature": "signature",
       "kvDeps": "deps",
       "kvUpdated": "updated",

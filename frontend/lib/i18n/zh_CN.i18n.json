@@ -233,6 +233,7 @@
       "contentTruncated": "内容超长已截断——在实体面板看全文",
       "noActiveVersion": "无活跃版本",
       "kvDescription": "描述",
+      "kvPath": "路径",
       "kvSignature": "签名",
       "kvDeps": "依赖",
       "kvUpdated": "更新",

@@ -702,6 +702,7 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get contentTruncated => '内容超长已截断——在实体面板看全文';
 	@override String get noActiveVersion => '无活跃版本';
 	@override String get kvDescription => '描述';
+	@override String get kvPath => '路径';
 	@override String get kvSignature => '签名';
 	@override String get kvDeps => '依赖';
 	@override String get kvUpdated => '更新';
@@ -2344,6 +2345,7 @@ extension on TranslationsZhCn {
 			'chat.tool.contentTruncated' => '内容超长已截断——在实体面板看全文',
 			'chat.tool.noActiveVersion' => '无活跃版本',
 			'chat.tool.kvDescription' => '描述',
+			'chat.tool.kvPath' => '路径',
 			'chat.tool.kvSignature' => '签名',
 			'chat.tool.kvDeps' => '依赖',
 			'chat.tool.kvUpdated' => '更新',
@@ -2631,9 +2633,9 @@ extension on TranslationsZhCn {
 			'chat.tool.mcpEnvRequired' => ({required Object n}) => '${n} 必填 env',
 			'chat.tool.gettingModelConfig' => '正在读模型配置',
 			'chat.tool.gotModelConfig' => '已读模型配置',
-			'chat.tool.modelDefaults' => '默认模型',
 			_ => null,
 		} ?? switch (path) {
+			'chat.tool.modelDefaults' => '默认模型',
 			'chat.tool.modelKeys' => ({required Object n}) => '${n} 个密钥',
 			'chat.tool.modelAvail' => ({required Object n}) => '${n} 个可用模型',
 			'chat.tool.memSourceUser' => '你',
@@ -3145,9 +3147,9 @@ extension on TranslationsZhCn {
 			'documents.errorTitle' => '无法加载知识库',
 			'documents.errorHint' => '本地引擎没有返回它。',
 			'documents.retry' => '重试',
-			'documents.emptyTitle' => '这里还什么都没有',
 			_ => null,
 		} ?? switch (path) {
+			'documents.emptyTitle' => '这里还什么都没有',
 			'documents.emptyHint' => '新建一篇文档或一个技能开始。',
 			'documents.pickTitle' => '选一篇文档',
 			'documents.pickHint' => '在左侧选一篇文档或技能来阅读或编辑。',

@@ -732,9 +732,8 @@ class _GenericStageState extends State<_GenericStage> {
       if (_frameworkKeys.contains(key)) continue;
       final v = e.value;
       if (v is Map || v is List) continue;
-      var text = '$v';
-      if (text.length > 80) text = '${text.substring(0, 80)}…';
-      kv.add(AnKvRow(key, text));
+      // Grapheme-safe truncation via the standard tier (no raw substring / bare number). 走标准档截断。
+      kv.add(AnKvRow(key, truncate('$v', AnTrunc.line)));
     }
     final tail = session.inFlightString;
     return [

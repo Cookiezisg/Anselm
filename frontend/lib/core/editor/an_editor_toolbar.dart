@@ -7,6 +7,7 @@ import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../ui/an_button.dart';
 import '../ui/an_input.dart';
+import '../ui/an_pop_surface.dart';
 import '../ui/icons.dart';
 
 /// The floating inline-format toolbar — appears ABOVE an expanded text selection and toggles bold /
@@ -224,16 +225,9 @@ class _AnFormatBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
     final active = _activeAttributions();
     final linked = active.whereType<LinkAttribution>().isNotEmpty;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: c.surface,
-        borderRadius: BorderRadius.circular(AnRadius.chip),
-        border: Border.all(color: c.line, width: AnSize.hairline),
-        boxShadow: c.shadowPop,
-      ),
+    return AnPopSurface(
       child: Padding(
         padding: const EdgeInsets.all(AnSpace.s4),
         child: Row(
@@ -298,13 +292,7 @@ class _LinkInputBarState extends State<_LinkInputBar> {
     // orphan input reads as a bug. 外点即取消——否则只有回车/Esc 能退,悬空输入条像 bug。
     return TapRegion(
       onTapOutside: (_) => widget.onCancel(),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: c.surface,
-          borderRadius: BorderRadius.circular(AnRadius.chip),
-          border: Border.all(color: c.line, width: AnSize.hairline),
-          boxShadow: c.shadowPop,
-        ),
+      child: AnPopSurface(
         child: Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: AnSpace.s8,

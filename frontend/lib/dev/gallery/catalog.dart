@@ -387,6 +387,10 @@ final GalleryCategory _g1Controls = GalleryCategory('基础控件 Controls', AnI
         (_) => const AnWashHighlight(child: Padding(padding: AnInset.card, child: Text('刚跳到这行'))),
         span: true),
   ]),
+  GalleryItem('AnPopSurface 浮层面', '唯一浮层白岛(surface + chip 圆角 + line 发丝边 + shadowPop 抬起);菜单/下拉/编辑器格式条·链接条同一盒', [
+    GallerySpecimen('pop surface',
+        (_) => const AnPopSurface(child: Padding(padding: AnInset.card, child: Text('浮起的白岛面')))),
+  ]),
   GalleryItem('AnStatusDot', '语义状态点(run 呼吸)+ raw 直喂色形(批5:珠串/色点/fire 记号唯一实现)', [
     for (final s in AnStatus.values) GallerySpecimen(s.name, (_) => AnStatusDot(s)),
     GallerySpecimen('raw 直喂色', (context) => AnStatusDot.raw(context.colors.ok)),

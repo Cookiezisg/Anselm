@@ -1551,6 +1551,9 @@ class Translations$chat$tool$en {
 	/// en: 'description'
 	String get kvDescription => 'description';
 
+	/// en: 'path'
+	String get kvPath => 'path';
+
 	/// en: 'signature'
 	String get kvSignature => 'signature';
 
@@ -5145,6 +5148,7 @@ extension on Translations {
 			'chat.tool.contentTruncated' => 'content truncated — see the full text in the entity panel',
 			'chat.tool.noActiveVersion' => 'no active version',
 			'chat.tool.kvDescription' => 'description',
+			'chat.tool.kvPath' => 'path',
 			'chat.tool.kvSignature' => 'signature',
 			'chat.tool.kvDeps' => 'deps',
 			'chat.tool.kvUpdated' => 'updated',
@@ -5432,9 +5436,9 @@ extension on Translations {
 			'chat.tool.mcpEnvRequired' => ({required Object n}) => '${n} required env',
 			'chat.tool.gettingModelConfig' => 'Reading model config',
 			'chat.tool.gotModelConfig' => 'Read model config',
-			'chat.tool.modelDefaults' => 'Default models',
 			_ => null,
 		} ?? switch (path) {
+			'chat.tool.modelDefaults' => 'Default models',
 			'chat.tool.modelKeys' => ({required Object n}) => '${n} keys',
 			'chat.tool.modelAvail' => ({required Object n}) => '${n} available models',
 			'chat.tool.memSourceUser' => 'you',
@@ -5946,9 +5950,9 @@ extension on Translations {
 			'documents.errorTitle' => 'Couldn\'t load your library',
 			'documents.errorHint' => 'The local engine didn\'t return it.',
 			'documents.retry' => 'Retry',
-			'documents.emptyTitle' => 'Nothing here yet',
 			_ => null,
 		} ?? switch (path) {
+			'documents.emptyTitle' => 'Nothing here yet',
 			'documents.emptyHint' => 'Create a document or a skill to get started.',
 			'documents.pickTitle' => 'Pick a document',
 			'documents.pickHint' => 'Choose a document or skill on the left to read or edit it.',

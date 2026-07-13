@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../design/colors.dart';
 import '../design/tokens.dart';
+import 'an_pop_surface.dart';
 import 'an_interactive.dart';
 
 /// The kit's single standard for a floating "pick one from a list" popover panel — shared by [AnMenu]
@@ -43,14 +44,7 @@ class AnMenuSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: c.surface,
-        borderRadius: BorderRadius.circular(AnRadius.chip),
-        border: Border.all(color: c.line, width: AnSize.hairline),
-        boxShadow: c.shadowPop,
-      ),
+    return AnPopSurface(
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AnRadius.chip),
         child: SingleChildScrollView(

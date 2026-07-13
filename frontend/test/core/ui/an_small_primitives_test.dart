@@ -3,6 +3,7 @@ import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/ui/an_heat_bar.dart';
 import 'package:anselm/core/ui/an_hover_surface.dart';
+import 'package:anselm/core/ui/an_pop_surface.dart';
 import 'package:anselm/core/ui/an_quote_bar.dart';
 import 'package:anselm/core/ui/an_toned_panel.dart';
 import 'package:anselm/core/ui/an_wash_highlight.dart';
@@ -59,6 +60,20 @@ void main() {
     expect(deco.color, AnColors.light.surface); // white panel 白面
     expect((deco.border! as Border).top.color, AnColors.light.danger); // the semantic tone edge tone 边
     expect(deco.borderRadius, BorderRadius.circular(AnRadius.card)); // card-16, not chip-12 机器窗圆角
+  });
+
+  testWidgets('AnPopSurface is the floating white island: surface + chip radius + line hairline + shadowPop',
+      (tester) async {
+    await tester.pumpWidget(host(const AnPopSurface(child: Text('pop'))));
+    expect(find.text('pop'), findsOneWidget);
+    final deco = tester
+        .widget<DecoratedBox>(
+            find.descendant(of: find.byType(AnPopSurface), matching: find.byType(DecoratedBox)).first)
+        .decoration as BoxDecoration;
+    expect(deco.color, AnColors.light.surface); // white island 白岛
+    expect(deco.borderRadius, BorderRadius.circular(AnRadius.chip)); // chip radius
+    expect((deco.border! as Border).top.color, AnColors.light.line); // hairline line border
+    expect(deco.boxShadow, AnColors.light.shadowPop); // the pop lift 浮起
   });
 
   testWidgets('AnWashHighlight renders its child; reduced-motion collapses to the end (no wash)',

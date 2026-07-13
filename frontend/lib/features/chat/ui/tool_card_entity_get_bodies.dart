@@ -340,7 +340,7 @@ Widget readDocumentBody(BuildContext context, ToolCardState state) {
     }
   }
   final rows = <AnKvRow>[
-    if (path != null) AnKvRow('Path', path, mono: true),
+    if (path != null) AnKvRow(t.chat.tool.kvPath, path, mono: true),
     if (desc != null && desc.isNotEmpty) AnKvRow(t.chat.tool.kvDescription, desc, wrap: true),
     if (tags.isNotEmpty) AnKvRow.tags(t.chat.tool.kvTags, tags),
   ];
