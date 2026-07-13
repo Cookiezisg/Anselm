@@ -30,6 +30,55 @@ Widget host(Widget child) => TranslationProvider(
     );
 
 void main() {
+  tearDown(() => GraphCanvasProbe.onNodeCardBuild = null);
+
+  testWidgets('C-016: a drag pointer-move rebuilds ZERO node cards (drag isolation), yet still commits',
+      (tester) async {
+    // A few nodes so "0 card rebuilds during moves" is a real claim. 多几个节点让「0 卡重建」有意义。
+    final graph = Graph(nodes: [
+      n('a', NodeKind.trigger, x: 0, y: 0),
+      n('b', NodeKind.action, x: 300, y: 0),
+      n('c', NodeKind.action, x: 0, y: 200),
+      n('d', NodeKind.action, x: 300, y: 200),
+    ], edges: [
+      e('e1', 'a', 'b'),
+    ]);
+    (String, NodePosition)? moved;
+    await tester.pumpWidget(host(AnGraphCanvas(
+      graph: graph,
+      editable: true,
+      onNodeMoved: (id, pos) => moved = (id, pos),
+    )));
+    await tester.pump();
+
+    // Press 'a' and move past the drag-slop so the drag STARTS (one setState rebuild here). 起拖(越 slop)。
+    final gesture = await tester.startGesture(tester.getCenter(find.text('a')));
+    await tester.pump();
+    await gesture.moveBy(const Offset(24, 0));
+    await tester.pump();
+
+    // Instrument AFTER the drag has started — count node-card builds across the subsequent pointer-moves.
+    // 起拖后挂探针,数后续移动期的卡 build。
+    var cardBuilds = 0;
+    GraphCanvasProbe.onNodeCardBuild = () => cardBuilds++;
+    for (var i = 0; i < 10; i++) {
+      await gesture.moveBy(const Offset(8, 4));
+      await tester.pump();
+    }
+    GraphCanvasProbe.onNodeCardBuild = null;
+    await gesture.up();
+    await tester.pump();
+
+    // The 10 pointer-moves rebuilt ZERO node cards — the card is the stable ValueListenableBuilder child;
+    // only the cheap Positioned wrapper re-lays-out. The old setState-per-move rebuilt all 4 cards × 10 =
+    // 40. 10 次移动 0 卡重建(卡=稳定 VLB child,只轻量 Positioned 重排;旧 setState 每移动=4×10=40)。
+    expect(cardBuilds, 0,
+        reason: 'a drag pointer-move must not rebuild any node card (isolation)');
+    // And the drag still committed correctly — the gesture was never broken. 拖拽仍正确提交,手势未断。
+    expect(moved?.$1, 'a');
+    expect(moved!.$2.x, greaterThan(0));
+  });
+
   testWidgets('node drag reports a moved position', (tester) async {
     (String, NodePosition)? moved;
     await tester.pumpWidget(host(AnGraphCanvas(

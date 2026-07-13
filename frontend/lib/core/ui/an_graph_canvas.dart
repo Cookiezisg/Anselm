@@ -37,6 +37,15 @@ import 'icons.dart';
 /// `panEnabled` 置 false,画布在拖拽下不动、不被 scale-vs-pan 竞技场抢走。framed=实体页预览形态(定高 +
 /// hairline 框 + 尺寸变化自动重 fit);非 framed 占满父容器(编辑器海洋)。选中受控([selectedNodeId] +
 /// [onNodeTap])——页面从 URL/state 派生,画布不持有。
+///
+/// A test-only hook fired each time a node card BUILDS — the C-016 drag-isolation test uses it to assert
+/// that a pointer-move rebuilds only the cheap per-node Positioned wrappers, never the N node cards.
+/// 测试钩子:每张节点卡 build 时触发——C-016 拖拽隔离测据此断言移动只重跑轻量 Positioned、不重建 N 张卡。
+abstract final class GraphCanvasProbe {
+  @visibleForTesting
+  static void Function()? onNodeCardBuild;
+}
+
 class AnGraphCanvas extends StatefulWidget {
   const AnGraphCanvas({
     required this.graph,
@@ -148,7 +157,11 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
   // (committed on release); a connect drag tracks the source id + the pointer scene position (a
   // rubber-band edge). 编辑态:节点拖(id + 活场景左上,松手提交)/ 连接拖(源 id + 指针场景位,橡皮筋)。
   String? _dragId;
-  Offset? _dragScene;
+  // C-016: the live drag position lives in a ValueNotifier, NOT setState — a pointer-move drives ONLY
+  // the per-node [ValueListenableBuilder] wrappers (cheap Positioned re-layout), never a whole-canvas
+  // rebuild of every _NodeCard. 活拖拽位在 ValueNotifier(非 setState):移动只驱动逐节点 VLB 的轻量 Positioned,
+  // 不整画布重建 N 张卡。
+  final ValueNotifier<Offset?> _dragScenePos = ValueNotifier(null);
   String? _connectFrom;
   Offset? _connectScene;
   String? _hoverNodeId; // the node whose connect handles are shown (edit mode) 显连接柄的节点
@@ -179,6 +192,7 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
   void dispose() {
     _comet?.dispose();
     _pulse?.dispose();
+    _dragScenePos.dispose();
     _tc.dispose();
     super.dispose();
   }
@@ -445,13 +459,13 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
             ),
         for (final n in l.graph.nodes)
           if (l.nodeRects[n.id] case final rect?)
-            Positioned(
-              // A node being dragged floats at its live scene position (committed on release).
-              // 拖拽中的节点浮在活场景位(松手提交)。
-              left: _dragId == n.id ? _dragScene!.dx : rect.left,
-              top: _dragId == n.id ? _dragScene!.dy : rect.top,
-              width: rect.width,
-              height: rect.height,
+            // C-016: the card is the STABLE `child` — built ONCE per canvas build and reused across every
+            // drag-move notification; a pointer-move only re-runs the cheap builder below (a Positioned
+            // re-layout), never the card (nor its raw-Listener drag gesture — the VLB is here from build
+            // #1, so no reparent). 卡=稳定 child(每 build 建一次、拖拽移动复用);移动只重跑下方轻量 Positioned,
+            // 不重建卡、不断手势(VLB 从首 build 就在,无 reparent)。
+            ValueListenableBuilder<Offset?>(
+              valueListenable: _dragScenePos,
               child: _NodeCard(
                 key: ValueKey('graphNode_${n.id}'),
                 node: n,
@@ -481,6 +495,13 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
                   }
                 }),
               ),
+              builder: (context, dragPos, child) {
+                // The dragged node floats at its live scene position; every other node sits at its
+                // committed rect. 拖拽中的节点浮在活场景位,其余在提交 rect。
+                final p = (_dragId == n.id && dragPos != null) ? dragPos : rect.topLeft;
+                return Positioned(
+                    left: p.dx, top: p.dy, width: rect.width, height: rect.height, child: child!);
+              },
             ),
         // Connect handles for the hovered node — scene-level overlays ON TOP of the cards, so a
         // handle drag is consumed here (the node below never starts a move). Inset within the card
@@ -556,23 +577,25 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
   // 左上;delta 已是场景坐标(节点 Listener 在变换子树内),直接相加、不除缩放。
   void _startNodeDrag(String id, Rect rect) {
     _draggedThisPress = true; // this press is a drag, not a tap → suppress the follow-up selection tap
-    setState(() {
-      _dragId = id;
-      _dragScene = rect.topLeft;
-    });
+    _dragScenePos.value = rect.topLeft;
+    // setState only to record WHICH node is dragged (the per-node builders read _dragId); one rebuild at
+    // drag start, then moves are notifier-only. 仅 setState 记哪个在拖(逐节点 builder 读 _dragId),此后移动只走通知器。
+    setState(() => _dragId = id);
   }
 
   void _updateNodeDrag(Offset sceneDelta) {
-    if (_dragScene == null) return;
-    setState(() => _dragScene = _dragScene! + sceneDelta);
+    final cur = _dragScenePos.value;
+    if (cur == null) return;
+    // NO setState: only the dragged node's Positioned must move. The per-node ValueListenableBuilders
+    // listen to this notifier, so a pointer-move re-runs the cheap Positioned wrappers, NOT every card.
+    // 无 setState:只动被拖节点位;逐节点 VLB 听此通知器,移动只重跑轻量 Positioned、不重建每张卡。
+    _dragScenePos.value = cur + sceneDelta;
   }
 
   void _endNodeDrag() {
-    final id = _dragId, scene = _dragScene;
-    setState(() {
-      _dragId = null;
-      _dragScene = null;
-    });
+    final id = _dragId, scene = _dragScenePos.value;
+    _dragScenePos.value = null;
+    setState(() => _dragId = null);
     if (id != null && scene != null) {
       widget.onNodeMoved?.call(id, NodePosition(x: scene.dx.round(), y: scene.dy.round()));
     }
@@ -767,6 +790,7 @@ class _NodeCardState extends State<_NodeCard> {
 
   @override
   Widget build(BuildContext context) {
+    GraphCanvasProbe.onNodeCardBuild?.call(); // C-016: count card builds (drag-isolation proof) 数卡 build
     final c = context.colors;
     final gc = context.graphColors;
     final (kindColor, kindSoft) = _kindColors(node.kind, c, gc);
