@@ -27,6 +27,12 @@ audience: [human, ai]
 - **AnStickViewport 增 `fadeColor`**(白宿主传 surface,灰底退役)。bar 同构补齐:编辑器 copy 驻留走 AnMotion.dwell + AnTooltip。
 - AnLedgerRow 补 `expandChild`;「展开全部 N」列表壳 **deferred → P4 吸收四套台账时落**。
 
+## 批C11 落地(2026-07-13,C 轨——惰性揭示 AnExpandReveal.builder + 复合缓释)
+
+- **C-006/040 修(新原语变体 AnExpandReveal.builder)**:确认根因——`AnExpandReveal` 的 `child` 参数**急切构造**(传入前 `spec.body?.call()`/`sceneFromSubagentNode()` 必执行),State 收起时只是不 mount→贵的族体/场景每次父重建都跑,流式期 N 收起卡×每帧。新增 `AnExpandReveal.builder({childBuilder})` 惰性变体:build() 于全收静止态短路 `SizedBox` **前绝不调 childBuilder**;对现有 `child` 调用方行为不变(同视觉)。迁 tool 卡体(C-006)+ 侧幕手风琴两处行体(C-040:stage 行体+rundown 行体)。widget 电池:收起零建体/展开建一次/收起后重建不再调。**C-023[turn 级重建]/C-025[展开舞台挂会话级 coalescer]部分缓释**(收起卡/舞台不再建体/挂 coalescer)。
+- **C-022/035 证伪(复合缓释)**:med 严重度主要在「每 tick 整卡重建+展开体 jsonDecode 重跑」——已被 **C-003+C-006+C-005/028 复合消除**(每秒仅剩廉价 line 重建);残余=N 小个 1s timer 驱动真需求(计时),计时文本嵌 line 的 TextSpan 内无法干净作用域化,共享钟收益小 N 下不成比例。
+- **方法学(再沉淀)**:①**急切构造陷阱**——`Widget child` 参数即使不 mount 也已付构造成本;贵的子树用 `WidgetBuilder` 惰性变体是通用解(不止本例);②**复合缓释**——先修根因基件(值相等/记忆化/惰性),多个下游嫌疑随之消(C-003/006/005 一并缓释 C-022/023/025);③修根因后回看,原「med」项常降级为可豁免残余。**C 轨本会话 43→21(15 修+6 证伪/豁免)。**
+
 ## 批C10 落地(2026-07-13,C 轨——代码高亮 per-widget 记忆化 + C-021 测量证伪)
 
 Stop hook 点名 C-012/013/014 与 C-021 是「推掉的两项」——正面处理:
