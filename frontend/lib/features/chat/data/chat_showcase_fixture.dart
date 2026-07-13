@@ -103,6 +103,16 @@ List<({Conversation conv, List<ChatMessage> messages})> showcaseConversations() 
             ChatBlock(id: 'sb1_n2', parentBlockId: 'sb1_msg', type: 'tool_call', status: 'completed', content: '{"pattern":"toolCardSpecFor"}', attrs: const {'tool': 'Grep', 'summary': '搜注册表'}),
             ChatBlock(id: 'sb1_n3', parentBlockId: 'sb1_msg', type: 'text', status: 'completed', content: '找到 tool_card_catalog.dart,注册在 _catalog Map。'),
             tr('sb1', '# 注册表位置\n\n`tool_card_catalog.dart` 的 `_catalog` Map。加一条:在 Map 里加 `\'tool_name\': ToolCardSpec(...)`,verb/target/receipt/body 四槽按需填。'),
+            // D-015 — a FAILED subagent (tool_call status=error → node.isError → the sidestage opens to
+            // StagePhase.failedHold + the red honesty ribbon; matches the subagt_02 the trace below lists).
+            // A subagent has no touchpoint, so its settled failed run IS the failedHold demonstration.
+            // 失败子代理:tool_call status=error → 侧幕 failedHold + 红丝带;对齐下方 trace 的 subagt_02。
+            ChatBlock(id: 'sb0', type: 'tool_call', status: 'error', content: '{"subagent_type":"Explore","prompt":"顺便找下那个失效的对账脚本 legacy_reconcile 在哪"}', error: '未找到匹配文件:legacy_reconcile 已不在代码库', attrs: const {'tool': 'Subagent', 'summary': '探查失效脚本(未找到)'}),
+            ChatBlock(id: 'sb0_msg', parentBlockId: 'sb0', type: 'message', status: 'error', content: '', attrs: const {'role': 'assistant', 'subagent': true}),
+            ChatBlock(id: 'sb0_n1', parentBlockId: 'sb0_msg', type: 'reasoning', status: 'completed', content: '先按文件名 legacy_reconcile 搜一遍。'),
+            ChatBlock(id: 'sb0_n2', parentBlockId: 'sb0_msg', type: 'tool_call', status: 'completed', content: '{"pattern":"legacy_reconcile","output_mode":"files_with_matches"}', attrs: const {'tool': 'Grep', 'summary': '搜失效脚本'}),
+            ChatBlock(id: 'tr_sb0_n2', parentBlockId: 'sb0_n2', type: 'tool_result', status: 'completed', content: 'No files found'),
+            tr('sb0', '未找到匹配文件:legacy_reconcile 已不在代码库(可能上个季度已删)。', error: true),
             tc('sb2', 'get_subagent_trace', '{}',
                 summary: '列本对话的子代理运行', danger: 'safe'),
             tr('sb2', '{"count":2,"subagentRuns":[{"subagentRunId":"subagt_01","status":"ok","finalText":"找到注册表在 tool_card_catalog.dart","blockCount":3,"spawningToolCallId":"sb1"},{"subagentRunId":"subagt_02","status":"failed","finalText":"未找到匹配文件","blockCount":2,"spawningToolCallId":"sb0"}]}'),

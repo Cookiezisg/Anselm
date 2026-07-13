@@ -285,7 +285,7 @@ audience: [human, ai]
 | D-012 | chat-sidestage · 台账首拉失败重试 | fixture listTouchpoints 恒成功(chat_fixtures.dart:487-503),无失败钩;需加 failNext 钩+触发径 | open |
 | D-013 | chat-sidestage · 墓碑行(deleted 动词封禁 GET) | 无 verb=deleted 触点种子(墓碑规则 touchpoint_ledger.dart:36);cv_sync 补一条 deleted 行 | done·批D3(种 verb=deleted 墓碑行 fn_legacy_sync[无快照];tombstoned 门控走 SettledBody 不 GET;数据级电池验封 GET) |
 | D-014 | chat-stream · edit_workflow 图 morph | 脚本只有 create_workflow;补一幕 edit_workflow(压 wf_night 旧图 morph,B2 旗舰面) | done·批D4(cv_show_term 展台种 edit_workflow morph 卡[+1 ~1 −1 节点+边 delta,ops-delta 形];showcase 编目测过) |
-| D-015 | chat-stream · 失败舞台 failedHold(honesty ribbon failed / 失败洗亮) | 脚本全 completed;补一幕 tool close status=failed(或失败 Subagent)演 failedHold + 红丝带 | open |
+| D-015 | chat-stream · 失败舞台 failedHold(honesty ribbon failed / 失败洗亮) | 脚本全 completed;补一幕 tool close status=failed(或失败 Subagent)演 failedHold + 红丝带 | done·批D5(cv_show_nested 补失败 subagent sb0[tool_call status=error→node.isError];sceneFromSubagentNode→StagePhase.failedHold+红丝带;补全 get_subagent_trace 悬空 subagt_02 引用;数据级电池) |
 | D-016 | chat-toolcards · WebSearch/WebFetch soft-fail 结局分类器 | cv_show_mem 的 mw2/mw3 皆成功;补一条 WebFetch 失败句结果(status=completed 渲红,WRK-059 H2 面) | done·批D4(种 WebFetch 软失败句「Failed to fetch」status=completed→webFetchOutcome.fail 渲红;数据级电池) |
 | D-017 | chat-transcript · 410 resync 落盘泡对账(M4) | emitResync 仅脚本钩(chat_fixtures.dart:575);demo 无 410 触发径(M6 人在环重连重拉同理不可达) | open |
 | D-018 | chat-transcript · LLM_RESOLVE_ERROR「重选模型」CTA | 需 errorCode=LLM_RESOLVE_ERROR 消息种子(CTA 在 chat_transcript.dart:565-583) | done·批D4(种 errorCode=LLM_RESOLVE_ERROR+stopReason=error 回合;hydrateTurn 投影 turn.content→「重选模型」CTA) |

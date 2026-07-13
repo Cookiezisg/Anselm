@@ -1,4 +1,7 @@
 import 'package:anselm/features/chat/data/chat_showcase_fixture.dart';
+import 'package:anselm/features/chat/model/conversation_transcript.dart';
+import 'package:anselm/features/chat/model/stage_director.dart';
+import 'package:anselm/features/chat/ui/stages/scene_from_truth.dart';
 import 'package:anselm/features/chat/ui/tool_card_memory_web.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -42,5 +45,15 @@ void main() {
     final ew = calls.firstWhere((b) => b.attrs?['tool'] == 'edit_workflow');
     expect(ew.content, contains('"op":"add_node"'));
     expect(ew.content, contains('"op":"delete_node"'));
+  });
+
+  test('D-015 failedHold: a failed subagent (cv_show_nested) opens its sidestage to failedHold', () {
+    final nested = showcaseConversations().firstWhere((c) => c.conv.id == 'cv_show_nested');
+    final t = ConversationTranscript('cv_show_nested')..setHistory(nested.messages.reversed.toList());
+    final failed = t.subagentBlocks.firstWhere((n) => n.id == 'sb0');
+    expect(failed.isError, isTrue, reason: 'tool_call status=error');
+    final scene = sceneFromSubagentNode(failed, 'cv_show_nested');
+    expect(scene.phase, StagePhase.failedHold, reason: '失败舞台');
+    expect(scene.subject.failed, isTrue, reason: '红丝带');
   });
 }

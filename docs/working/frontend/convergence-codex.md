@@ -27,6 +27,14 @@ audience: [human, ai]
 - **AnStickViewport 增 `fadeColor`**(白宿主传 surface,灰底退役)。bar 同构补齐:编辑器 copy 驻留走 AnMotion.dwell + AnTooltip。
 - AnLedgerRow 补 `expandChild`;「展开全部 N」列表壳 **deferred → P4 吸收四套台账时落**。
 
+## 批D5 落地(2026-07-13,D 轨 demo 可达性——failedHold 失败舞台收尾簇 C)
+
+D-015 failedHold 是 live sidestage 的失败 phase,非落定 transcript 态——但 `sceneFromSubagentNode`(scene_from_truth:303)对**失败 subagent**(node.isError)落定即 `StagePhase.failedHold`(ledger 明许「或失败 Subagent」)。这是最干净的落定径,不污染 happy-path 流式脚本:
+- `cv_show_nested` 补失败 subagent `sb0`(Subagent tool_call **status=error**→hydrateTurn `..status=b.status`→node.isError→subagentBlocks 收录)+ 嵌套失败轨迹(Grep「No files found」)+ error:true 结果。
+- **顺带补全悬空引用**:该对话的 `get_subagent_trace` 结果早已列 `subagt_02`(status:failed,spawningToolCallId:sb0)但 transcript 无 sb0 块——补 sb0 使 trace 与实块自洽。
+- subagent **无触点无 ledger**(stage_panel 第三源),其落定失败 run 经 `block:<id>` 合成行开侧幕即 failedHold+红丝带。
+- 验收=**数据级电池**(fail_terminal_showcase_test D-015:从 cv_show_nested 建 ConversationTranscript→subagentBlocks 找 sb0→isError·sceneFromSubagentNode.phase==failedHold·subject.failed)。**簇 C 全 7 项(D-014/015/016/018/019/020/022)完工**。
+
 ## 批D4 落地(2026-07-13,D 轨 demo 可达性——chat 失败与终态六 GAP)
 
 demo 展台此前全 `stopReason=end_turn`、全成功——六种失败/终态脸无从看见(D-014/016/018/019/020/022)。新增**一处集齐**的展台对话 `cv_show_term`「失败与终态」(手搓多回合,因 `showcase()` 单回合):
