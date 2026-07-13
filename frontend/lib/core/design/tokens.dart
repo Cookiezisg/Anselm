@@ -64,8 +64,14 @@ abstract final class AnFlow {
   static const double headBody = AnSpace.s12; // section heading → its body (default) 段标题→正文
   static const double headBodyTight = AnSpace.s8; // faint-meta title → body 淡 meta 标题→正文
   static const double headBodyDense = AnSpace.s6; // quiet/collapsible header → body 静默/折叠头→正文
-  static const double headingTop = AnSpace.s24; // h2 space-ABOVE (own the block below) h2 上方留白
-  static const double subheadingTop = AnSpace.s16; // h3 space-above h3 上方留白
+  // Heading space-ABOVE ladder for the reading column (h1/h2/h3 = readingH1/H2/H3): airy above (own the
+  // section below) + tight below (hug the body via [stackTight]) = the "标题不对称" rhythm. A clean 8-grid
+  // ladder (32/24/16) — the editor's old hand-rolled `s24±s4` (28/20) is retired onto these tokens
+  // (B-021). 标题上方留白阶梯(阅读列 h1/h2/h3):上松下紧(下方 stackTight 贴正文)=标题不对称;8 网格 32/24/16,
+  // 收编编辑器旧手搓 28/20。
+  static const double headingTop = AnSpace.s32; // h1/readingH1 — the primary section break h1 上方(主段断)
+  static const double subheadingTop = AnSpace.s24; // h2/readingH2 space-above h2 上方
+  static const double minorHeadingTop = AnSpace.s16; // h3/readingH3 space-above h3 上方
 }
 
 /// HANGING INDENT tier (批7 B 轨) — a wrapped/second line aligns under the text that follows a lead

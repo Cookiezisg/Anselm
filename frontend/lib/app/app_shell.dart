@@ -206,15 +206,14 @@ class AppShell extends ConsumerWidget {
     // GlobalShortcuts 挂载(autofocus 之上,冷启动即达);壳只把同一批动作接到屏上按钮。
     return AnShell(
       sidebar: sidebar,
-      ocean: onEntities
-          ? const EntityOcean()
-          : onChat
-              ? const ChatOcean()
-              : onDocuments
-                  ? const DocumentOcean()
-                  : onSettings
-                      ? const SettingsOcean()
-                      : const _OceanPlaceholder(),
+      // The center ocean is a LAZY IndexedStack (C-009): a visited ocean stays MOUNTED behind the fold,
+      // so switching away and back is instant AND keeps its scroll offset / expansion state (the ternary
+      // it replaced tore the tree down on every switch, losing all of it — Riverpod keepAlive preserved
+      // the DATA but not the widget state). Lazy = an ocean isn't built until first visited, so cold start
+      // doesn't eagerly mount all four + fire their fetches at once. 中心海洋=懒 IndexedStack:访问过的
+      // 海洋常驻折叠后,切走再回瞬时且保滚动位/展开态(旧三元每次切换拆树、keepAlive 只保数据不保 widget 态);
+      // 懒=首访才建,冷启不急挂四海洋齐发请求。
+      ocean: _OceanStack(active: ocean),
       // Documents → the properties inspector; chat → the sidestage; entities → the run terminal (the
       // shell only reveals it when that ocean has a selection). documents→属性面板;chat→侧幕;entities→run 终端。
       inspector: AnInspector(
@@ -292,4 +291,44 @@ class _OceanPlaceholder extends StatelessWidget {
         title: context.t.shell.comingSoonTitle,
         hint: context.t.shell.comingSoonHint,
       );
+}
+
+/// The center ocean host as a LAZY [IndexedStack] (C-009): each ocean is built on FIRST visit and then
+/// kept MOUNTED behind the fold, so re-selecting it is instant and its scroll offset / expansion state
+/// survive (Riverpod keepAlive already preserved the DATA; this preserves the WIDGET state). Unvisited
+/// oceans are a zero-cost [SizedBox] until first shown, so cold start never mounts all four + fires their
+/// fetches at once. A non-stack ocean (scheduler «coming soon») rides a trailing placeholder slot, so the
+/// stack — and every kept-alive ocean in it — stays mounted even while the placeholder shows.
+/// 中心海洋=懒 IndexedStack:首访才建、此后常驻折叠后,重选瞬时且保滚动位/展开态(keepAlive 保数据、此保 widget 态);
+/// 未访海洋是零成本 SizedBox 直到首显,冷启不急挂四海洋齐发请求;非栈海洋(scheduler 占位)走末位占位槽,
+/// 栈(及其中常驻海洋)在占位期也不卸。
+class _OceanStack extends StatelessWidget {
+  const _OceanStack({required this.active});
+
+  final OceanKind active;
+
+  // The stack's oceans in a fixed slot order; a trailing slot (index == length) holds the «coming soon»
+  // placeholder for non-stack oceans (scheduler), so selecting it never tears the alive oceans down.
+  // 固定槽顺序;末位=非栈海洋(scheduler)占位槽,选它不卸活海洋。
+  static const _oceans = [OceanKind.chat, OceanKind.entities, OceanKind.documents, OceanKind.settings];
+
+  @override
+  Widget build(BuildContext context) {
+    final slot = _oceans.indexOf(active);
+    return AnLazyIndexedStack(
+      index: slot < 0 ? _oceans.length : slot,
+      count: _oceans.length + 1, // + the trailing «coming soon» placeholder slot 末位占位槽
+      sizing: StackFit.expand,
+      builder: (context, i) => i < _oceans.length ? _oceanFor(_oceans[i]) : const _OceanPlaceholder(),
+    );
+  }
+
+  Widget _oceanFor(OceanKind k) => switch (k) {
+        OceanKind.chat => const ChatOcean(),
+        OceanKind.entities => const EntityOcean(),
+        OceanKind.documents => const DocumentOcean(),
+        OceanKind.settings => const SettingsOcean(),
+        // Only the four stack oceans reach here (the list is fixed). 仅四栈海洋到此。
+        _ => const _OceanPlaceholder(),
+      };
 }

@@ -890,6 +890,9 @@ final GalleryCategory _g4NavShell = GalleryCategory('导航与壳 Nav & Shell', 
           showTags: false,
         ), span: true),
   ]),
+  GalleryItem('AnLazyIndexedStack', '懒 IndexedStack:槽首显才建、建后常驻(保 State/滚动位/展开态);未显槽=零成本盒。中心海洋切换用它(切走再回瞬时且不丢滚动位)', [
+    GallerySpecimen('interactive (切槽:看懒挂 + 计数保活)', (_) => const _LazyStackDemo(), height: 220, span: true),
+  ]),
   GalleryItem('AnOceanSwitcher', '左岛海洋切换器:选中展开标签 + 匹配几何滑动(旧的收起、新的展开,单药丸滑动+变宽,整行回流);降级=瞬切', [
     GallerySpecimen('interactive (点不同海洋,看滑动)', (_) => const _OceanSwitcherDemo(), span: true),
     GallerySpecimen('rest · Chat', (_) => AnOceanSwitcherFrame(items: _oceanItems, fromIndex: 0, toIndex: 0, t: 1), span: true),
@@ -1700,6 +1703,76 @@ class _OceanHeaderDemoState extends State<_OceanHeaderDemo> {
           AnChip('passed', tone: AnTone.ok, dot: AnStatusDot(AnStatus.done)),
         ],
       );
+}
+
+// AnLazyIndexedStack demo: three slots, each with its own persistent counter. Switching slots shows
+// laziness (a slot's counter starts only once it's first shown) + keep-alive (a slot's count survives
+// switching away and back). AnLazyIndexedStack 演示:三槽各持计数;切槽见懒挂(首显才起)+ 保活(切回计数仍在)。
+class _LazyStackDemo extends StatefulWidget {
+  const _LazyStackDemo();
+  @override
+  State<_LazyStackDemo> createState() => _LazyStackDemoState();
+}
+
+class _LazyStackDemoState extends State<_LazyStackDemo> {
+  int _index = 0;
+  static const _tones = [AnTone.accent, AnTone.ok, AnTone.warn];
+  @override
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(children: [
+            for (var i = 0; i < 3; i++)
+              Padding(
+                padding: const EdgeInsets.only(right: AnSpace.s8),
+                child: AnButton(
+                  label: 'Slot $i',
+                  variant: _index == i ? AnButtonVariant.primary : AnButtonVariant.ghost,
+                  onPressed: () => setState(() => _index = i),
+                ),
+              ),
+          ]),
+          const SizedBox(height: AnSpace.s12),
+          Expanded(
+            child: AnLazyIndexedStack(
+              index: _index,
+              count: 3,
+              sizing: StackFit.expand,
+              builder: (context, i) => _LazyStackSlot(i, tone: _tones[i]),
+            ),
+          ),
+        ],
+      );
+}
+
+class _LazyStackSlot extends StatefulWidget {
+  const _LazyStackSlot(this.i, {required this.tone});
+  final int i;
+  final AnTone tone;
+  @override
+  State<_LazyStackSlot> createState() => _LazyStackSlotState();
+}
+
+class _LazyStackSlotState extends State<_LazyStackSlot> {
+  int _count = 0;
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Container(
+      color: widget.tone.softBg(c),
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('Slot ${widget.i}', style: AnText.h3.copyWith(color: c.ink)),
+          const SizedBox(height: AnSpace.s8),
+          Text('count: $_count', style: AnText.body.copyWith(color: c.inkMuted)),
+          const SizedBox(height: AnSpace.s8),
+          AnButton(label: '+1 (切走再回仍在)', onPressed: () => setState(() => _count++)),
+        ],
+      ),
+    );
+  }
 }
 
 // AnDocHeader demo (stateful: holds the editable title / description / tags). AnDocHeader 演示(持可编标题/描述/标签)。

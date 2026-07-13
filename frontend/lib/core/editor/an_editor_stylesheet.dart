@@ -98,25 +98,28 @@ List<StyleRule> _rules(AnColors colors, TextStyle Function(TextStyle) ink) {
         },
       ),
 
-      // Heading ladder — size+colour carry hierarchy; asymmetric top air sets each section apart. 标题阶梯。
+      // Heading ladder — size+colour carry hierarchy; asymmetric top air (the semantic [AnFlow] heading
+      // ladder 32/24/16) sets each section apart, tight below (hug the body, handled by the
+      // .after(header) rules). The old hand-rolled s24±s4 (28/20) is retired onto the tokens (B-021).
+      // 标题阶梯:上方留白走 AnFlow 语义档 32/24/16(旧手搓 28/20 收编),下方贴正文(见 .after 规则)。
       StyleRule(
         const BlockSelector('header1'),
         (doc, node) => {
-          Styles.padding: const CascadingPadding.only(top: AnSpace.s24 + AnSpace.s4), // 28 — big section break
+          Styles.padding: const CascadingPadding.only(top: AnFlow.headingTop), // 32 — big section break
           Styles.textStyle: ink(AnText.readingH1),
         },
       ),
       StyleRule(
         const BlockSelector('header2'),
         (doc, node) => {
-          Styles.padding: const CascadingPadding.only(top: AnSpace.s24),
+          Styles.padding: const CascadingPadding.only(top: AnFlow.subheadingTop), // 24
           Styles.textStyle: ink(AnText.readingH2),
         },
       ),
       StyleRule(
         const BlockSelector('header3'),
         (doc, node) => {
-          Styles.padding: const CascadingPadding.only(top: AnSpace.s16 + AnSpace.s4), // 20
+          Styles.padding: const CascadingPadding.only(top: AnFlow.minorHeadingTop), // 16
           Styles.textStyle: ink(AnText.readingH3),
         },
       ),
@@ -138,7 +141,7 @@ List<StyleRule> _rules(AnColors colors, TextStyle Function(TextStyle) ink) {
       ),
       StyleRule(
         const BlockSelector('listItem').after('listItem'),
-        (doc, node) => {Styles.padding: const CascadingPadding.only(top: AnSpace.s4)},
+        (doc, node) => {Styles.padding: const CascadingPadding.only(top: AnFlow.listItem)},
       ),
 
       // Tasks ride the reading body voice; consecutive tasks sit tight (the An glyph + done-strike are
@@ -149,7 +152,8 @@ List<StyleRule> _rules(AnColors colors, TextStyle Function(TextStyle) ink) {
       ),
       StyleRule(
         const BlockSelector('task').after('task'),
-        (doc, node) => {Styles.padding: const CascadingPadding.only(top: AnSpace.s4)},
+        // 任务连续项收紧,与列表项同档(li↔li)。consecutive tasks sit at the list-item tight gap.
+        (doc, node) => {Styles.padding: const CascadingPadding.only(top: AnFlow.listItem)},
       ),
 
       // Blockquote — the quiet-aside voice: reading body dropped to inkMuted (the left bar is drawn by
@@ -184,23 +188,28 @@ List<StyleRule> _rules(AnColors colors, TextStyle Function(TextStyle) ink) {
         },
       ),
 
-      // A heading HUGS its following body — the asymmetric half of "标题不对称": tight below, airy above.
-      // 标题贴其正文:下紧上松(不对称)。
+      // A heading HUGS its following body — the asymmetric half of "标题不对称": tight below (a bound
+      // heading↔body pair = [AnGap.stackTight]), airy above (the heading ladder). 标题贴其正文:下紧(绑定对
+      // stackTight)上松(标题阶梯)。
       for (final h in const ['header1', 'header2', 'header3'])
         StyleRule(
           BlockSelector('paragraph').after(h),
-          (doc, node) => {Styles.padding: const CascadingPadding.only(top: AnSpace.s4)},
+          (doc, node) => {Styles.padding: const CascadingPadding.only(top: AnGap.stackTight)},
         ),
 
-      // The first block never gets a top gap (it would push the whole document down); the last gets
-      // scroll-comfort tail room. 首块不加顶距;末块留滚动余量。
+      // The first block never gets a top gap (it would push the whole document down); the last gets a
+      // GENEROUS trailing runway — an editor deliberately wants more bottom room than a page (room to
+      // scroll the last line up + a click-target below the content), so it's the page runway plus a
+      // section unit (48 + 24), NOT the plain page [AnInset.pageBottom]. Named by composition, not a lone
+      // magic literal (B-021). 首块不加顶距;末块=慷慨尾部余量(编辑器比页面要更多底部空间:末行可上滚+下方点击区),
+      // =页面余量 + 一个 section 单位(48+24),非裸魔数(B-021)。
       StyleRule(
         BlockSelector.all.first(),
         (doc, node) => {Styles.padding: const CascadingPadding.only(top: 0)},
       ),
       StyleRule(
         BlockSelector.all.last(),
-        (doc, node) => {Styles.padding: const CascadingPadding.only(bottom: AnSpace.s24 * 3)}, // 72
+        (doc, node) => {Styles.padding: const CascadingPadding.only(bottom: AnInset.pageBottom + AnGap.section)},
       ),
     ];
 }
