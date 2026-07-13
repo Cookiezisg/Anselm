@@ -27,6 +27,12 @@ audience: [human, ai]
 - **AnStickViewport 增 `fadeColor`**(白宿主传 surface,灰底退役)。bar 同构补齐:编辑器 copy 驻留走 AnMotion.dwell + AnTooltip。
 - AnLedgerRow 补 `expandChild`;「展开全部 N」列表壳 **deferred → P4 吸收四套台账时落**。
 
+## 批C8/C9 落地(2026-07-13,C 轨——解码广迁 + 场景记忆化)
+
+- **C-028 修(批C8,广迁)**:`ToolCardState` 加记忆化 `resultObj` getter(Expando per-instance+空哨兵,承 argsSession 模式;`ToolCardState.of` 按 revision 记忆化实例→解一次、revision 变才重解);**13 站点** `jsonDecode(state/s.resultText)`→`state.resultObj` 全迁(skins×3/trigger×2/workflow×1/mount×1/document_skill×1/catalog×5,消 try/catch 样板)+4 未用 `dart:convert` import 清。behavior 逐字等价(Map?/null),**fe-verify 3645 测全绿证不破族体回执**。
+- **C-007/026 修(批C9)**:`sceneFromTruth` 按 `truth` 实例 Expando 记忆化(freezed DTO 有效 key+rowId 守卫+null 情形缓存):真身是稳定 DTO、provider 重取才变→返**同一 scene**(同 node/state/argsSession)跳重造 BlockNode+jsonEncode 全真身+PartialJsonSession 重跑。C-007(StageBodyFromTruth 展开行手风琴每帧重建)与 C-026 同根因,同修;既有 15 测保真+3 记忆化 identity 测。
+- **C 轨阶段总结(本会话 12 项,43→30)**:记忆化模式(Expando per-instance / 返同实例让下游经 identity 短路)证明是安全高价值工具,系统应用于**值相等**(C-003)/**解码**(C-005/028)/**图**(C-042)/**场景**(C-007/026)四类。余 30 项本质需**缓存策略微妙**(C-012/013/014 highlightCode)/**核心纯模型**(C-024)/**live profiling**(图动画/冷启/切海洋/编辑器打字=真机 trace)/**共享原语动画**(C-006/023)——清晰赢面与 live-profiling 尾的有原则边界,后者宜监督态。
+
 ## 批C4–C7 落地(2026-07-13,C 轨——旗舰重建 + 记忆化簇 + 内存卫生)
 
 - **C-003 修(旗舰,批C4)**:`StageActivityView.unread` 是未建的频道 tab 徽拍数——**UI 从不渲染、逻辑从不读**(全域 grep 证),唯经 `==`/`hashCode` 破坏 StageState 值相等→并行流式非主角每 delta(onActivity unread++)令整 `_AccordionList` 重建+`_computeRows` 重跑。从 ==/hashCode 剔除 unread(保留字段供未来徽)→churn 对 provider 成 no-op;真变化(live/failed/itemId)仍破相等(close 广播/Cast 脉冲不吞)。**根因比诊断更纯:是纯死状态非「需要但破相等」**。
