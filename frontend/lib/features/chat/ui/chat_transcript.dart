@@ -397,7 +397,7 @@ class _JumpHighlight extends StatelessWidget {
 
 
 /// One transcript turn, centered in the reading column with the inter-turn gap. 一条回合(阅读列+轮距)。
-class _TurnRow extends ConsumerWidget {
+class _TurnRow extends ConsumerStatefulWidget {
   const _TurnRow(
       {required this.turn, required this.streaming, required this.conversationId, super.key});
 
@@ -406,9 +406,25 @@ class _TurnRow extends ConsumerWidget {
   final String conversationId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    TranscriptProbe.hit(streaming ? 'leaf-stream' : 'row-settled');
-    final role = ConversationTranscript.turnRole(turn);
+  ConsumerState<_TurnRow> createState() => _TurnRowState();
+}
+
+class _TurnRowState extends ConsumerState<_TurnRow> {
+  // Settled text blocks are memoized by id (C-023): a closed text block's markdown is FINAL (durable,
+  // append-only), yet an OPEN turn re-runs this build every tick — without the cache GptMarkdown re-parses
+  // EVERY settled prose block per tick, not just the one still-open block. Returning the identical cached
+  // widget short-circuits the element rebuild; a theme change still re-renders it (InheritedWidget
+  // dependents rebuild regardless of widget identity, so no theme key is needed). Only pure-prop text
+  // blocks are cached — a toolCall block watches a live provider (pendingInteractions) and MUST stay
+  // reactive, so it is never cached. 已落定 text 块按 id 记忆化:闭块 markdown 终态,但开回合每 tick 重跑此
+  // build——无缓存则每 tick 重解析全部落定散块(非仅唯一开块);返回同实例短路重建,换主题仍重渲(继承件依赖与
+  // 实例无关,故无需主题键)。只缓纯 prop text 块(toolCall 块 watch 活 provider 须保反应性,绝不缓)。
+  final _textCache = <String, Widget>{};
+
+  @override
+  Widget build(BuildContext context) {
+    TranscriptProbe.hit(widget.streaming ? 'leaf-stream' : 'row-settled');
+    final role = ConversationTranscript.turnRole(widget.turn);
     final child = role == 'user' ? _user(context, ref) : _assistant(context, ref);
     return Center(
       child: ConstrainedBox(
@@ -426,7 +442,7 @@ class _TurnRow extends ConsumerWidget {
     // provider: loading → a resolving skeleton card, a 404 → the honest missing tombstone.
     // 纯 id 快照经 keepAlive 元数据 provider 解析:加载=resolving 骨架卡;404=诚实 missing 墓碑。
     final attachments = [
-      for (final id in ConversationTranscript.turnAttachmentIds(turn))
+      for (final id in ConversationTranscript.turnAttachmentIds(widget.turn))
         switch (ref.watch(attachmentMetaProvider(id))) {
           AsyncData(value: final m) => UserAttachment(
               id: id, kind: m.kind, filename: m.filename,
@@ -446,8 +462,8 @@ class _TurnRow extends ConsumerWidget {
     return ChatTurn(
       role: ChatRole.user,
       child: UserTurnContent(
-        text: ConversationTranscript.turnText(turn),
-        mentions: ConversationTranscript.turnMentions(turn),
+        text: ConversationTranscript.turnText(widget.turn),
+        mentions: ConversationTranscript.turnMentions(widget.turn),
         attachments: attachments,
       ),
     );
@@ -457,10 +473,10 @@ class _TurnRow extends ConsumerWidget {
     final c = context.colors;
     final t = Translations.of(context);
     final blocks = <Widget>[
-      for (final b in turn.children) ?_block(context, ref, b),
+      for (final b in widget.turn.children) ?_block(context, ref, b),
     ];
     final banner = _stopBanner(context, ref);
-    if (blocks.isEmpty && banner == null && streaming) {
+    if (blocks.isEmpty && banner == null && widget.streaming) {
       // Turn opened, first block not yet — a quiet thinking shimmer placeholder. 回合已开首块未到:静占位。
       blocks.add(AnShimmerText(t.chat.thinking,
           style: AnText.label.copyWith(color: c.inkMuted), reveal: true));
@@ -488,7 +504,18 @@ class _TurnRow extends ConsumerWidget {
     final t = Translations.of(context);
     switch (b.kind) {
       case BlockKind.text:
-        return AnMarkdown(b.displayText);
+        // An OPEN text block is still growing — build it fresh every tick (its text changes, so a cache
+        // would only ever miss). A CLOSED block's markdown is final → cache it by id, so an open turn's
+        // per-tick rebuild reuses the SAME instance and GptMarkdown never re-parses settled prose (only
+        // the one open block re-parses). 开块仍在长(每 tick 新建);闭块终态按 id 缓存,复用同实例、不重解析。
+        if (b.isOpen) {
+          TranscriptProbe.hit('block-text-live');
+          return AnMarkdown(b.displayText);
+        }
+        return _textCache.putIfAbsent(b.id, () {
+          TranscriptProbe.hit('block-text-parse');
+          return AnMarkdown(b.displayText);
+        });
       case BlockKind.reasoning:
         return ChatThinking(
           text: b.displayText,
@@ -502,12 +529,12 @@ class _TurnRow extends ConsumerWidget {
         // through the provider. Watching only this block's slice keeps unrelated gate changes from
         // rebuilding the whole card. V3a 底盘 + V6 人闸:本块的待决记录驱动门/出处章;select 单块切片。
         final record = ref.watch(
-            pendingInteractionsProvider(conversationId).select((m) => m[b.id]));
+            pendingInteractionsProvider(widget.conversationId).select((m) => m[b.id]));
         return ChatToolCard(
           node: b,
           interaction: record,
           onResolve: (action, {answer}) => ref
-              .read(pendingInteractionsProvider(conversationId).notifier)
+              .read(pendingInteractionsProvider(widget.conversationId).notifier)
               .resolve(b.id, action, answer: answer),
           key: ValueKey('tool-${b.id}'),
         );
@@ -533,10 +560,10 @@ class _TurnRow extends ConsumerWidget {
   /// 非干净终态的诚实一行;end_turn 无横幅。LLM_RESOLVE_ERROR 长出「重选模型」CTA(拍板 #16):删 key 后
   /// 会话覆写神圣不动,修复入口就长在失败处——与头部同一份模型菜单。
   Widget? _stopBanner(BuildContext context, WidgetRef ref) {
-    if (streaming) return null;
+    if (widget.streaming) return null;
     final t = Translations.of(context);
     final c = context.colors;
-    final stop = (turn.content?['stopReason'] as String?) ?? '';
+    final stop = (widget.turn.content?['stopReason'] as String?) ?? '';
     if (stop.isEmpty || stop == 'end_turn') return null;
     final (label, color) = switch (stop) {
       'cancelled' => (t.chat.stoppedCancelled, c.inkFaint),
@@ -547,8 +574,8 @@ class _TurnRow extends ConsumerWidget {
       'max_tokens' => (t.chat.stoppedMaxTokens, c.warn),
       _ => (t.chat.stoppedError, c.danger),
     };
-    final code = (turn.content?['errorCode'] as String?) ?? '';
-    final msg = (turn.content?['errorMessage'] as String?) ?? '';
+    final code = (widget.turn.content?['errorCode'] as String?) ?? '';
+    final msg = (widget.turn.content?['errorMessage'] as String?) ?? '';
     final detail = [code, msg].where((s) => s.isNotEmpty).join(' · ');
     final line = Text(
       detail.isEmpty ? label : '$label · $detail',
@@ -557,7 +584,7 @@ class _TurnRow extends ConsumerWidget {
     if (code != 'LLM_RESOLVE_ERROR') return line;
     final caps = ref.watch(modelCapabilitiesProvider).value ?? const [];
     final override =
-        ref.watch(conversationHeaderProvider(conversationId)).value?.modelOverride;
+        ref.watch(conversationHeaderProvider(widget.conversationId)).value?.modelOverride;
     return Row(children: [
       Flexible(child: line),
       const SizedBox(width: AnSpace.s8),
@@ -568,7 +595,7 @@ class _TurnRow extends ConsumerWidget {
             ? null
             : (apiKeyId: override.apiKeyId, modelId: override.modelId),
         onSelect: (v) =>
-            ref.read(conversationHeaderProvider(conversationId).notifier).setModel(v),
+            ref.read(conversationHeaderProvider(widget.conversationId).notifier).setModel(v),
         anchorBuilder: (context, toggle, isOpen) =>
             AnButton(label: t.chat.repickModel, size: AnButtonSize.sm, onPressed: toggle),
       ),

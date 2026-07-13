@@ -245,6 +245,43 @@ void main() {
     expect(hits['list'] ?? 0, lessThanOrEqualTo(batches * 3 + 2));
   });
 
+  testWidgets('C-023: a SETTLED text block in an OPEN turn is memoized — zero re-parses while the open '
+      'block streams', (tester) async {
+    final repo = _repo(messages: {
+      'cv_1': [_turn('msg_0', 'user', hour: 9, blocks: [_blk('b0', 'text', 'hi')])],
+    });
+    await tester.pumpWidget(_host(repo));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 30));
+
+    // Open an assistant turn holding a SETTLED text block (b1, closed) followed by a still-OPEN one (b2).
+    // The whole open turn rebuilds on every b2 delta, so b1 is re-visited each tick. 开回合:落定块 b1 + 开块 b2。
+    repo.emitFrame('cv_1', _open('msg_live', 'message', content: {'role': 'assistant'}));
+    repo.emitFrame('cv_1', _open('b1', 'text', parentId: 'msg_live', content: {'content': ''}));
+    repo.emitFrame('cv_1', _delta('b1', '已落定的一段文字'));
+    repo.emitFrame('cv_1', _close('b1', 'text', {'content': '已落定的一段文字'}));
+    repo.emitFrame('cv_1', _open('b2', 'text', parentId: 'msg_live', content: {'content': ''}));
+    await _settle(tester);
+
+    // Instrument AFTER b1 has settled + been cached. 落定+缓存后再挂探针。
+    final hits = <String, int>{};
+    TranscriptProbe.onBuild = (zone) => hits[zone] = (hits[zone] ?? 0) + 1;
+
+    for (var i = 0; i < 40; i++) {
+      repo.emitFrame('cv_1', _delta('b2', 'x'));
+    }
+    await _settle(tester);
+
+    // The settled block is served from the id cache — NEVER re-parsed while b2 streams (the C-023 win;
+    // without the cache this would be ~40, one GptMarkdown re-parse per tick). 落定块全程零重解析。
+    expect(hits['block-text-parse'] ?? 0, 0,
+        reason: 'a settled text block must be memoized — zero re-parses while the open block streams');
+    // The open block DOES re-parse per tick — proof the turn genuinely rebuilds (the assertion above is
+    // not vacuous). 开块逐 tick 重解析(证回合真在重建,上断言非空转)。
+    expect(hits['block-text-live'] ?? 0, greaterThan(0),
+        reason: 'the open block re-parses per tick (the open turn is genuinely rebuilding)');
+  });
+
   testWidgets('center-sliver prepend: loading an older page does NOT move pixels', (tester) async {
     final repo = _repo(messages: {
       'cv_1': [
