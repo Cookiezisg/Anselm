@@ -113,6 +113,21 @@ Widget _cappedMonoWindow(BuildContext context, String raw, {Color? color}) {
 /// F3 Bash——终端窗:`$ 命令` 回显头 + 合并输出(有 progress 用之,否则 result),exit footer 原样保留。
 final _bashFooterExit = RegExp(r'\[exit code: (-?\d+)\]');
 final _bashFooterStrip = RegExp(r'\n*(\[[^\]]*\]\n?)*\[exit code: -?\d+\]\s*$');
+// A LINEAR anchored guard (no nested quantifier) that the footer actually ends the text. [_bashFooterStrip]'s
+// `(\[…\]\n?)*\[exit code…]` catastrophically backtracks on bracket-heavy output that has NO trailing exit
+// code (the failing match tries every partition, C-027). Since backtracking only explodes on FAILURE, only
+// run the strip when a match is GUARANTEED at the end — this guard is byte-exact to the strip's own tail
+// requirement, so the result is identical. 线性锚定守卫:仅当尾部确有 exit footer 才跑回溯型 strip(回溯只在
+// 失败时爆炸,保证成功即消灾;守卫与 strip 尾部要求逐字等价,输出不变)。
+final _bashFooterEnd = RegExp(r'\[exit code: -?\d+\]\s*$');
+
+/// Strip a trailing bash exit-code footer (optional `[note…]`/status lines + `[exit code: N]`) from a
+/// result. ReDoS-safe: the linear [_bashFooterEnd] guard short-circuits the pathological no-footer case
+/// before the backtracking-prone [_bashFooterStrip] ever runs. Pure + exported for the perf budget test.
+/// 剥 bash 尾部 exit footer;ReDoS 安全(线性守卫先短路无 footer 病态输入)。纯函数,供性能预算测试。
+String stripBashFooter(String result) =>
+    _bashFooterEnd.hasMatch(result) ? result.replaceFirst(_bashFooterStrip, '') : result;
+
 final _bashBgSpawn = RegExp(r'Started background command \(bash_id=(bsh_[0-9a-f]+)\):\s*(.*)');
 const _bashHeadTrunc = '[truncated'; // '...[truncated N bytes from start]'
 
@@ -146,7 +161,7 @@ Widget bashToolBody(BuildContext context, ToolCardState state) {
   // The body source: progressText (full, no footer) is preferred; else strip the resultText footer.
   // The COPY payload is the full untruncated text (incl. footer when from result). 体源 + 复制全量。
   final usingProgress = progress.isNotEmpty;
-  final body = usingProgress ? progress : result.replaceFirst(_bashFooterStrip, '').trimRight();
+  final body = usingProgress ? progress : stripBashFooter(result).trimRight();
   // Copy = the full terminal RECORD, command line included — the header slot ellipsizes a long
   // command to one line (族一 header 律), so the copy action is its only full-text escape hatch
   // (批4 复审:多行命令不可恢复). copy=完整终端记录含命令行——单行省略后 copy 是命令唯一全文出口。

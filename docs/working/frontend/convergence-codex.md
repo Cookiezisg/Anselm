@@ -27,6 +27,13 @@ audience: [human, ai]
 - **AnStickViewport 增 `fadeColor`**(白宿主传 surface,灰底退役)。bar 同构补齐:编辑器 copy 驻留走 AnMotion.dwell + AnTooltip。
 - AnLedgerRow 补 `expandChild`;「展开全部 N」列表壳 **deferred → P4 吸收四套台账时落**。
 
+## 批C2 落地(2026-07-13,C 轨性能——测量先行开工·C-027 bash footer 正则)
+
+C 轨(测量先行)首个 chat-ui 项。范式=**widget-test 级测量取代 live DevTools**(rebuild/操作计数/Stopwatch 预算,非需真机 trace):
+- **C-027 测量纠正**:诊断书「bash footer strip 灾难回溯(exponential ReDoS)」——**实测证伪指数**:原 `_bashFooterStrip` `\n*(\[…\]\n?)*\[exit code…]\s*$` 在无尾 footer 的多括号行输入上是 **O(n²)**(replaceFirst n=5000 括号行=**1307ms**,5×输入→25×时=二次曲线;Dart/V8 irregexp 对此模式无歧义故不指数爆炸)。抽 `stripBashFooter` 纯函数 + 线性锚定守卫 `_bashFooterEnd`(`\[exit code…]\s*$`,无嵌套量词)短路无 footer 常见情形→**O(n)**(同 n=5000 <100ms)。守卫与 strip 尾部要求**逐字等价**(strip 强制 `[exit code…]\s*$`,守卫 hasMatch↔strip 能否在尾匹配 iff 等值)→输出不变;5 行为测钉等价 + 预算测钉 O(n)。
+- **方法学**:「测量定罪」纪律生效——静态诊断的**严重度可能夸大**(exponential vs polynomial),修复前先真跑病态输入 convict;此例修复仍真实有效(O(n²)→O(n) 于数千行病态输入),但严重度如实降级记档,非按诊断照单全收。
+- **C 轨策略裁决(AFK)**:图渲染/切海洋/冷启动等真需 live profiling 的项**不盲改**(测量先行硬原则);优先做 in-harness 可测(确定性 rebuild/操作计数)、低风险、行为保真的结构项。
+
 ## 批D7 落地(2026-07-13,D 轨收官——失败注入簇 H 逐条裁定 + 活问闸)
 
 **D 轨全部 35 GAP 落定:30 done + 5 exempt(D-001/003/004/017/030),0 open。** 簇 H 失败注入钩经 fresh-context 研究逐条裁(seed-vs-豁免,不放水):
