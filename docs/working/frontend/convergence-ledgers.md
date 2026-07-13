@@ -284,15 +284,15 @@ audience: [human, ai]
 | D-011 | chat-sidestage · 台账 loadMore 脚(分页骨架行) | cv_sync 仅 7 行 < 页大小 50;需 50+ 触点种子 | open |
 | D-012 | chat-sidestage · 台账首拉失败重试 | fixture listTouchpoints 恒成功(chat_fixtures.dart:487-503),无失败钩;需加 failNext 钩+触发径 | open |
 | D-013 | chat-sidestage · 墓碑行(deleted 动词封禁 GET) | 无 verb=deleted 触点种子(墓碑规则 touchpoint_ledger.dart:36);cv_sync 补一条 deleted 行 | done·批D3(种 verb=deleted 墓碑行 fn_legacy_sync[无快照];tombstoned 门控走 SettledBody 不 GET;数据级电池验封 GET) |
-| D-014 | chat-stream · edit_workflow 图 morph | 脚本只有 create_workflow;补一幕 edit_workflow(压 wf_night 旧图 morph,B2 旗舰面) | open |
+| D-014 | chat-stream · edit_workflow 图 morph | 脚本只有 create_workflow;补一幕 edit_workflow(压 wf_night 旧图 morph,B2 旗舰面) | done·批D4(cv_show_term 展台种 edit_workflow morph 卡[+1 ~1 −1 节点+边 delta,ops-delta 形];showcase 编目测过) |
 | D-015 | chat-stream · 失败舞台 failedHold(honesty ribbon failed / 失败洗亮) | 脚本全 completed;补一幕 tool close status=failed(或失败 Subagent)演 failedHold + 红丝带 | open |
-| D-016 | chat-toolcards · WebSearch/WebFetch soft-fail 结局分类器 | cv_show_mem 的 mw2/mw3 皆成功;补一条 WebFetch 失败句结果(status=completed 渲红,WRK-059 H2 面) | open |
+| D-016 | chat-toolcards · WebSearch/WebFetch soft-fail 结局分类器 | cv_show_mem 的 mw2/mw3 皆成功;补一条 WebFetch 失败句结果(status=completed 渲红,WRK-059 H2 面) | done·批D4(种 WebFetch 软失败句「Failed to fetch」status=completed→webFetchOutcome.fail 渲红;数据级电池) |
 | D-017 | chat-transcript · 410 resync 落盘泡对账(M4) | emitResync 仅脚本钩(chat_fixtures.dart:575);demo 无 410 触发径(M6 人在环重连重拉同理不可达) | open |
-| D-018 | chat-transcript · LLM_RESOLVE_ERROR「重选模型」CTA | 需 errorCode=LLM_RESOLVE_ERROR 消息种子(CTA 在 chat_transcript.dart:565-583) | open |
-| D-019 | chat-transcript · max_steps / context_budget 琥珀横幅 | 无 stopReason=max_steps/context_budget 种子(分支在 chat_transcript.dart:551-552) | open |
-| D-020 | chat-transcript · tool_result 硬失败(status=error 红回执/ownsError) | 全 fixture 无 error:true 结果块(tr() 的 error 参数从未用,chat_showcase_fixture.dart:20-27);展台补一张失败卡 | open |
+| D-018 | chat-transcript · LLM_RESOLVE_ERROR「重选模型」CTA | 需 errorCode=LLM_RESOLVE_ERROR 消息种子(CTA 在 chat_transcript.dart:565-583) | done·批D4(种 errorCode=LLM_RESOLVE_ERROR+stopReason=error 回合;hydrateTurn 投影 turn.content→「重选模型」CTA) |
+| D-019 | chat-transcript · max_steps / context_budget 琥珀横幅 | 无 stopReason=max_steps/context_budget 种子(分支在 chat_transcript.dart:551-552) | done·批D4(种 stopReason=max_steps 回合→琥珀横幅) |
+| D-020 | chat-transcript · tool_result 硬失败(status=error 红回执/ownsError) | 全 fixture 无 error:true 结果块(tr() 的 error 参数从未用,chat_showcase_fixture.dart:20-27);展台补一张失败卡 | done·批D4(种 tool_result error:true→status=error 硬失败红回执/ownsError;数据级电池) |
 | D-021 | chat-transcript · 发送失败泡(重试/丢弃) | failNextSend 仅脚本钩(chat_fixtures.dart:310);_PendingRow 失败态(chat_transcript.dart:614-629)demo 不可达 | open |
-| D-022 | chat-transcript · 红色 error 横幅(errorCode·errorMessage) | 无通用 error 终态种子(danger 分支 chat_transcript.dart:556 无演示);种一条 stopReason=error+errorCode 消息 | open |
+| D-022 | chat-transcript · 红色 error 横幅(errorCode·errorMessage) | 无通用 error 终态种子(danger 分支 chat_transcript.dart:556 无演示);种一条 stopReason=error+errorCode 消息 | done·批D4(种 stopReason=error+errorCode=HANDLER_RPC_TIMEOUT+errorMessage 通用红 error 横幅) |
 | D-023 | documents · 编辑器表格块 + URL 链接 + h1/h4–h6 标题档 | 种子正文无表格、无 markdown 链接、只有 h2/h3;补一篇全块型样章锁大纲六档下标 | open |
 | D-024 | entities · approval 详情页 | 未传 approvalForms→rail approval 段恒空;补 ApprovalForm 种子(表单 schema) | done·批D2(种 ap_publish ApprovalForm[CEL 插值模板+allowReason+24h reject];rail approval 段+详情页有料;数据级电池) |
 | D-025 | entities · control 详情页 | demoEntityRepository 未传 controlLogics(entity_demo_fixture.dart:169-318)→rail control 段恒空;补 ControlLogic 种子(决策梯/分支) | done·批D2(种 ctl_quality ControlLogic[pass≥0.7/retry catch-all 分支,对齐 wf_digest 图 ref];rail control 段+详情页;数据级电池) |

@@ -27,6 +27,14 @@ audience: [human, ai]
 - **AnStickViewport 增 `fadeColor`**(白宿主传 surface,灰底退役)。bar 同构补齐:编辑器 copy 驻留走 AnMotion.dwell + AnTooltip。
 - AnLedgerRow 补 `expandChild`;「展开全部 N」列表壳 **deferred → P4 吸收四套台账时落**。
 
+## 批D4 落地(2026-07-13,D 轨 demo 可达性——chat 失败与终态六 GAP)
+
+demo 展台此前全 `stopReason=end_turn`、全成功——六种失败/终态脸无从看见(D-014/016/018/019/020/022)。新增**一处集齐**的展台对话 `cv_show_term`「失败与终态」(手搓多回合,因 `showcase()` 单回合):
+- **回合 1(卡级失败三张)**:`edit_workflow` morph 卡(+1 ~1 −1 节点+边 delta,ops-delta 形,D-014)· `WebFetch` **软失败**句「Failed to fetch」(status=completed 但 `webFetchOutcome.fail` 渲红——WRK-059 H2 诚实,D-016)· `run_function` **硬失败** `tool_result error:true`→status=error 红回执/ownsError(D-020)。
+- **回合 2–4(三诚实终态横幅)**:`stopReason=max_steps` 琥珀(D-019)· `errorCode=LLM_RESOLVE_ERROR`+`stopReason=error`→「重选模型」CTA(D-018,`hydrateTurn` 把 message 终态投影进 turn.content)· `stopReason=error`+`errorCode=HANDLER_RPC_TIMEOUT`+errorMessage 通用红 error 横幅(D-022)。
+- 验收=**数据级电池**(`test/features/chat/data/fail_terminal_showcase_test.dart` 四测:三终态字段·WebFetch soft-fail 分类·硬 error:true·edit_workflow ops-delta)+ showcase 编目测过(新卡全 cataloged)+ chat feature 全绿。
+- **D-015(failedHold 流式侧幕态)留 open**:属 live streaming 阶段(sidestage phase),非落定 transcript 态,需失败节点/脚本帧,单独批处理(不并入落定态草率清)。
+
 ## 批D3 落地(2026-07-13,D 轨 demo 可达性——chat 侧幕六 GAP 补种)
 
 chat 侧幕(右岛 Cast)按当前对话的**触点行**开幕,再 GET 该实体旧真相渲舞台。demo 置顶对话 cv_sync 此前只有 function/workflow/document/attachment/skill/mcp 六触点,control/approval/trigger/agent/handler 五 kind 无触点无快照→侧幕永无从开这五舞台(D-006~010);且无墓碑演示(D-013)。cv_sync 台账补 6 行 + 对应快照:

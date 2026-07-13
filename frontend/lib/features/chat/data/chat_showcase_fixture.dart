@@ -226,4 +226,93 @@ List<({Conversation conv, List<ChatMessage> messages})> showcaseConversations() 
             tc('shell5', 'Glob', '{"pattern":"**/*.py","path":"/Users/anselm/foryx/functions"}', summary: '按 **/*.py 找到 2 个文件,按 mtime 降序', danger: 'safe'),
             tr('shell5', '{"root":"/Users/anselm/foryx/functions","matches":[{"path":"/Users/anselm/foryx/functions/pricing.py","type":"file","size":1840,"mtime":"2026-07-06T14:28:11+08:00"},{"path":"/Users/anselm/foryx/functions/checkout.py","type":"file","size":3120,"mtime":"2026-07-06T14:12:03+08:00"}],"total":2,"truncated":false}'),
           ]),
+      // D-014/016/018/019/020/022 — the failure & terminal showcase: card-level failures (an
+      // edit_workflow morph, a WebFetch soft-fail rendered RED off a green status, a hard tool_result
+      // error) in turn 1, then three honest turn-end banners (amber max_steps, the LLM_RESOLVE_ERROR
+      // 「重选模型」CTA, a red error banner). Hand-built (multi-turn) since showcase() is single-turn.
+      // 失败与终态展台:卡级失败三张 + 三种诚实终态横幅。多回合手搓(showcase() 单回合)。
+      _failTerminalShowcase(),
     ];
+
+/// The failure & terminal showcase (D-014/016/018/019/020/022) — one conversation, four assistant
+/// turns, each a distinct failure face. 失败与终态展台:一对话四回合,每回合一种失败脸。
+({Conversation conv, List<ChatMessage> messages}) _failTerminalShowcase() {
+  final base = DateTime.now().toUtc().subtract(const Duration(minutes: 32));
+  ChatMessage user(String suffix, String text, int minsAfter) => ChatMessage(
+        id: 'cv_show_term_u$suffix',
+        conversationId: 'cv_show_term',
+        role: 'user',
+        status: 'completed',
+        createdAt: base.add(Duration(minutes: minsAfter)),
+        blocks: [txt('cv_show_term_u${suffix}b', 'text', text)],
+      );
+  ChatMessage bot(String suffix, int minsAfter, List<ChatBlock> blocks,
+          {String stopReason = 'end_turn', String errorCode = '', String errorMessage = ''}) =>
+      ChatMessage(
+        id: 'cv_show_term_a$suffix',
+        conversationId: 'cv_show_term',
+        role: 'assistant',
+        status: stopReason == 'end_turn' || stopReason == 'max_steps' || stopReason == 'max_tokens'
+            ? 'completed'
+            : 'failed',
+        stopReason: stopReason,
+        errorCode: errorCode,
+        errorMessage: errorMessage,
+        inputTokens: 280,
+        outputTokens: 160,
+        createdAt: base.add(Duration(minutes: minsAfter)),
+        blocks: blocks,
+      );
+  return (
+    conv: Conversation(
+      id: 'cv_show_term',
+      title: '展台 · 失败与终态',
+      autoTitled: true,
+      createdAt: base.subtract(const Duration(minutes: 5)),
+      updatedAt: base.add(const Duration(minutes: 7)),
+      lastMessageAt: base.add(const Duration(minutes: 7)),
+    ),
+    messages: [
+      // Turn 1 — card-level failures. 卡级失败三张。
+      user('0', '给对账流补个 Slack 通知,再抓下那个内网月报,顺便跑一下归一化函数', 0),
+      bot('0', 1, [
+        txt('cv_show_term_lead', 'text', '好,逐个来 —— 有几处失败我如实标出来:'),
+        // D-014 edit_workflow morph — +1 / ~1 / −1 nodes + edge delta (pure-delta roster).
+        tc('tm_ew', 'edit_workflow',
+            '{"workflowId":"wf_1a2b3c4d5e6f7a8b","ops":[{"op":"add_node","node":{"id":"notify","kind":"action","ref":"hd_slack.post"}},{"op":"update_node","id":"gate"},{"op":"delete_node","id":"legacy_step"},{"op":"add_edge","edge":{"id":"e9","from":"gate","to":"notify","fromPort":"pass"}},{"op":"delete_edge","edge":{"id":"e_old"}}]}',
+            summary: '给对账流加 Slack 通知节点、改金额门、删旧步骤(+1 ~1 −1 节点)', danger: 'cautious'),
+        tr('tm_ew',
+            '{"workflow":{"id":"wf_1a2b3c4d5e6f7a8b","version":3,"changeReason":"加 Slack 通知,删旧步骤"}}'),
+        // D-016 WebFetch soft-fail — status=completed but the sentence classifies RED (「Failed to fetch」).
+        tc('tm_wf', 'WebFetch',
+            '{"url":"https://reports.internal.example/2026-06","prompt":"总结六月月报要点"}',
+            summary: '抓取内网六月月报并提炼要点。', danger: 'safe'),
+        tr('tm_wf', 'Failed to fetch: connection refused (host unreachable after 3 attempts)'),
+        // D-020 tool_result HARD error — error:true → status=error, red回执 / ownsError.
+        tc('tm_hard', 'run_function',
+            '{"functionId":"fn_normalize_9f8e7d6c","args":{"amount":"","currency":null}}',
+            summary: '跑归一化函数处理这条发票。', danger: 'safe'),
+        tr('tm_hard',
+            '{"error":"ValueError: could not convert string to float: \'\'","traceback":"File \\"normalize.py\\", line 4, in normalize\\n    inv[\'amount\'] = round(float(inv[\'amount\']), 2)"}',
+            error: true),
+        txt('cv_show_term_end0', 'text',
+            '通知节点已加、旧步骤已删;但**月报抓取失败**(内网不可达)、**归一化函数报错**(amount 为空)。要我先修函数再重试吗?'),
+      ]),
+      // Turn 2 — D-019 amber max_steps banner. 琥珀 max_steps 横幅。
+      user('1', '把整个仓库每个函数都跑一遍冒烟测试,全列出来', 2),
+      bot('1', 3, [
+        txt('cv_show_term_ms', 'text',
+            '我开始逐个跑冒烟测试:`normalize` ✓、`validate` ✓、`fetch_weather` ✓、`summarize` ✓… 函数很多,我按依赖序继续推进。'),
+      ], stopReason: 'max_steps'),
+      // Turn 3 — D-018 LLM_RESOLVE_ERROR banner + 「重选模型」CTA. 重选模型 CTA。
+      user('2', '继续', 4),
+      bot('2', 5, [], stopReason: 'error', errorCode: 'LLM_RESOLVE_ERROR',
+          errorMessage: '本会话绑定的模型密钥已被删除,无法解析可用模型'),
+      // Turn 4 — D-022 red generic error banner (code + message). 通用红 error 横幅。
+      user('3', '换个模型后重跑放款那步', 6),
+      bot('3', 7, [
+        txt('cv_show_term_err', 'text', '正在调用放款 handler…'),
+      ], stopReason: 'error', errorCode: 'HANDLER_RPC_TIMEOUT', errorMessage: 'charge() exceeded 30s'),
+    ],
+  );
+}
