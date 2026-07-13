@@ -301,7 +301,7 @@ class GrepContentView extends StatelessWidget {
     for (final g in groups) {
       if (rendered >= _cap) break;
       children.add(Padding(
-        padding: EdgeInsets.only(top: children.isEmpty ? 0 : AnSpace.s6, bottom: AnSpace.s2),
+        padding: EdgeInsets.only(top: children.isEmpty ? AnSpace.s0 : AnSpace.s6, bottom: AnSpace.s2),
         child: Text(g.path, style: AnText.mono.copyWith(color: c.inkFaint)),
       ));
       int? prevLine;

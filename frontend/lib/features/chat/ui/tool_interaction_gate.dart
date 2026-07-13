@@ -255,7 +255,7 @@ class _ToolInteractionGateState extends State<ToolInteractionGate> {
           ),
         if (widget.allowFreeText)
           Padding(
-            padding: EdgeInsets.only(top: widget.options.isEmpty ? 0 : AnGap.stackTight),
+            padding: EdgeInsets.only(top: widget.options.isEmpty ? AnSpace.s0 : AnGap.stackTight),
             child: Focus(
               // Enter (no shift) sends; Shift+Enter falls through to the field as a newline.
               // Enter 发送;Shift+Enter 落到字段换行。

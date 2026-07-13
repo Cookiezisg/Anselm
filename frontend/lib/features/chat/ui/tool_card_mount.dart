@@ -112,7 +112,13 @@ Widget _handlerToolBody(BuildContext context, ToolCardState state) {
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
     // The streamed yields (if any) are the progress log. yield 流(如有)。
     if (state.progressText.isNotEmpty)
-      Padding(padding: const EdgeInsets.only(bottom: AnSpace.s6), child: AnWindow(child: Text(state.progressText, style: AnText.code.copyWith(color: c.inkMuted), maxLines: 40, overflow: TextOverflow.ellipsis))),
+      Padding(
+        padding: const EdgeInsets.only(bottom: AnSpace.s6),
+        child: AnWindow(
+          child: Text(state.progressText,
+              style: AnText.code.copyWith(color: c.inkMuted), maxLines: 40, overflow: TextOverflow.ellipsis),
+        ),
+      ),
     Text(t.chat.tool.hdResult, style: AnText.meta.copyWith(color: c.inkFaint)),
     const SizedBox(height: AnSpace.s2),
     AnWindow(

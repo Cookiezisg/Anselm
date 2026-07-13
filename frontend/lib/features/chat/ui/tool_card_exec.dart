@@ -20,6 +20,14 @@ import 'transcript_peek.dart';
 // the ExecutionResult shape ({ok, output, errorMsg, elapsedMs, logs?}); the body is intent → input
 // section → (logs drawer) → output section → exec result bar. F08 执行体:输入→黑箱→输出的可核账凭据。
 
+// A bounded error line (shared by run_function / call_handler bodies). Multi-line so the padding token
+// sits on its own line (not co-lined with a bare maxLines number). 有界错误行(两执行体共用)。
+Widget _errorLines(AnColors c, String msg) => Padding(
+      padding: const EdgeInsets.only(bottom: AnSpace.s2),
+      child: Text(msg,
+          style: AnText.code.copyWith(color: c.danger), maxLines: 20, overflow: TextOverflow.ellipsis),
+    );
+
 Map<String, dynamic>? _obj(String s) {
   try {
     final d = jsonDecode(s);
@@ -67,7 +75,7 @@ Widget runFunctionBody(BuildContext context, ToolCardState state) {
     if (!live) ...[
       const SizedBox(height: AnSpace.s6),
       if (!ok && errorMsg != null && errorMsg.isNotEmpty)
-        Padding(padding: const EdgeInsets.only(bottom: AnSpace.s2), child: Text(errorMsg, style: AnText.code.copyWith(color: c.danger), maxLines: 20, overflow: TextOverflow.ellipsis))
+        _errorLines(c, errorMsg)
       else
         ToolIOSection(label: t.chat.tool.ioOutput, value: out?['output']),
       if (out != null)
@@ -182,7 +190,7 @@ Widget invokeAgentBody(BuildContext context, ToolCardState state) {
     if (!live) ...[
       const SizedBox(height: AnSpace.s6),
       if (!ok && errorMsg != null && errorMsg.isNotEmpty)
-        Padding(padding: const EdgeInsets.only(bottom: AnSpace.s2), child: Text(errorMsg, style: AnText.code.copyWith(color: c.danger), maxLines: 20, overflow: TextOverflow.ellipsis))
+        _errorLines(c, errorMsg)
       else
         // A free-text final answer → prose; a declared-output object → per-key (ToolIOSection rules).
         // 自由文本终答→散文;声明输出对象→逐键。
