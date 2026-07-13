@@ -125,6 +125,41 @@ FixtureDocumentsRepository demoDocumentsRepository() {
               '---\n\n'
               'The resume check is the whole point: durability (see [[doc_00000000000c33ef]]) is a release '
               'gate, not a feature flag.'),
+      // D-023 — a formatting reference exercising EVERY block the editor renders: all six heading levels
+      // (h1–h6 lock the outline invariant), a real markdown [URL](link), a wikilink, a TABLE, ordered /
+      // bulleted / task lists, a quote, inline + fenced code. The demo's other pages only reach h2/h3, so
+      // this one page proves the full block roster round-trips. 全块型样章:六档标题+URL 链接+表格+各列表。
+      doc('doc_00000000000f6602', null, 'Formatting Reference', 2, '/Formatting Reference',
+          description: 'Every block the editor renders, in one page.',
+          tags: const ['reference'],
+          content: '# Heading one\n\n'
+              'A paragraph with **bold**, *italic*, `inline code`, an external '
+              '[link to the site](https://anselm.website), and a wikilink to '
+              '[[doc_00000000000a11ce]].\n\n'
+              '## Heading two\n\n'
+              '### Heading three\n\n'
+              '#### Heading four\n\n'
+              '##### Heading five\n\n'
+              '###### Heading six\n\n'
+              'The six levels above lock the outline indentation invariant.\n\n'
+              '## Table\n\n'
+              '| Kind | Verb | Example |\n'
+              '| --- | --- | --- |\n'
+              '| function | run | fetch_weather |\n'
+              '| handler | call | slack.post |\n'
+              '| workflow | trigger | daily_digest |\n\n'
+              '## Lists\n\n'
+              '- bullet one\n'
+              '- bullet two\n\n'
+              '1. ordered one\n'
+              '2. ordered two\n\n'
+              '- [ ] a task still open\n'
+              '- [x] a task already done\n\n'
+              '## Quote & code\n\n'
+              '> A blockquote — the row table IS the truth.\n\n'
+              '```dart\n'
+              'void main() => print(\'hello, anselm\');\n'
+              '```'),
     ],
     skills: [
       Skill(

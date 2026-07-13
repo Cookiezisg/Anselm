@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,6 +10,7 @@ import '../core/overlay/an_overlay.dart';
 import '../core/router/navigation.dart';
 import '../core/settings/app_prefs_providers.dart';
 import '../core/settings/settings_prefs.dart';
+import '../core/shortcuts/global_shortcuts.dart';
 import '../core/model/model_capabilities.dart';
 import '../features/settings/data/settings_demo_fixture.dart';
 import '../features/settings/data/settings_repository.dart';
@@ -40,6 +43,11 @@ Future<void> main() async {
   // geometry) survives a relaunch, same as the app. demo 也用真持久偏好,与 app 同。
   final prefs = await SettingsPrefs.load();
   await initWindow(title: 'Anselm · Demo (fixtures)', prefs: prefs);
+  // D-031 — a live toast a few seconds in: a background workflow «fails» and emits a durable danger
+  // signal, so the ToastDispatcher (watched by the shell) pops the right-top toast. Hoist the repo so we
+  // can drive it after the shell has mounted its signal listener. 延时活 toast:后台工作流「失败」推信号。
+  final notifRepo = demoNotificationRepository();
+  Timer(const Duration(seconds: 6), () => notifRepo.emit(demoLiveToast()));
   runApp(
     ProviderScope(
       overrides: [
@@ -48,7 +56,7 @@ Future<void> main() async {
         entityRepositoryProvider.overrideWithValue(demoEntityRepository()),
         chatRepositoryProvider.overrideWithValue(demoChatRepository()),
         documentsRepositoryProvider.overrideWithValue(demoDocumentsRepository()),
-        notificationRepositoryProvider.overrideWithValue(demoNotificationRepository()),
+        notificationRepositoryProvider.overrideWithValue(notifRepo),
         settingsRepositoryProvider.overrideWithValue(demoSettingsRepository()),
         // Capabilities are core-level (S-15): zero-backend demo feeds them directly, never HTTP.
         // 能力目录在 core(S-15):零后端 demo 直喂,绝不打 HTTP。
@@ -75,8 +83,13 @@ class _DemoRoot extends ConsumerWidget {
       darkTheme: AnTheme.dark(),
       themeMode: ref.watch(themeModeProvider),
       routerConfig: router,
-      builder: (context, child) =>
-          AnOverlayHost(navigatorKey: navigatorKey, child: child!),
+      // Mirror app.dart's wrap (minus the startup/workspace gates the demo has no backend for): the
+      // rebindable global shortcuts (⌘B/⌘\/⌘,/⌘±/⌘0) ABOVE the autofocus Focus so cold-start chords
+      // reach them (D-035). Handlers are pure provider/static calls — no backend needed. 镜像 app 快捷键。
+      builder: (context, child) => AnOverlayHost(
+        navigatorKey: navigatorKey,
+        child: GlobalShortcuts(child: Focus(autofocus: true, child: child!)),
+      ),
     );
   }
 }

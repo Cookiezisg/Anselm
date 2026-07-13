@@ -40,3 +40,18 @@ FixtureNotificationRepository demoNotificationRepository() {
     n('noti_12', 'sandbox.env_status_changed', {'status': 'ready', 'envId': 'env_1', 'ownerKind': 'function', 'ownerId': 'fn_1'}, const Duration(days: 5), read: true),
   ]);
 }
+
+/// D-031 — the LIVE toast the demo emits a few seconds after launch (a background workflow just failed):
+/// a danger event, so the [ToastDispatcher] pops the right-top toast (focused) / an OS notification
+/// (unfocused — Noop in demo). demo_main schedules `repo.emit(demoLiveToast())`. demo 延时活 toast。
+NotificationItem demoLiveToast() => NotificationItem(
+      id: 'noti_live',
+      type: 'workflow.run_failed',
+      payload: const {
+        'name': 'invoice_sync',
+        'workflowId': 'wf_invoice',
+        'flowrunId': 'fr_live',
+        'error': 'HandlerError: charge() exceeded 30s',
+      },
+      createdAt: DateTime.now(),
+    );

@@ -275,13 +275,13 @@ audience: [human, ai]
 | D-002 | chat-gate · ask_user 活问闸(选项+自由文本待答) | 仅 settled ask 卡(cv_show_human human0);需种 kind=ask 未决 interaction + streaming 开卡(GateKind.ask 在 tool_interaction_gate.dart:14) | open |
 | D-003 | chat-gate · 决议失败复原(failNextResolve) | 仅脚本钩(chat_fixtures.dart:537),demo UI 无径 | open |
 | D-004 | chat-rail · 列表失败重试(M9) | failNextListConversations 仅测试钩(chat_fixtures.dart:84),demo UI 无触发径 | open |
-| D-005 | chat-rail · 无限翻(loadMore 分页) | demo 仅 13 会话 < 页大小 30(conversation_list_provider.dart:95);需 30+ 会话种子 | open |
+| D-005 | chat-rail · 无限翻(loadMore 分页) | demo 仅 13 会话 < 页大小 30(conversation_list_provider.dart:95);需 30+ 会话种子 | done·批D6(种 20 短真历史对话[honoring #1 每行有内容],rail 越过 30 页;分页数据级电池) |
 | D-006 | chat-sidestage · agent 渐进开区舞台(R-9) | agents 快照空(chat_fixtures.dart:411)+ 无触点无幕 | done·批D3(cv_sync 种 agent 触点 ag_reconcile+快照;侧幕 agent 舞台可开) |
 | D-007 | chat-sidestage · approval 信笺舞台 | 同上:approvals 快照空(chat_fixtures.dart:409)+ 无触点无幕 | done·批D3(种 approval 触点 apf_refund+ApprovalForm 快照[CEL 模板];侧幕 approval 舞台) |
 | D-008 | chat-sidestage · control 决策梯舞台(live+settled) | 无 control 触点、controls 快照空(chat_fixtures.dart:408)、脚本无 create_control 幕;需三选一补种 | done·批D3(种 control 触点 amount_gate+ControlLogic 快照;正是 wf_night 图路由 ref,舞台可开) |
 | D-009 | chat-sidestage · handler 方法架舞台 | handlers 快照空(chat_fixtures.dart:412)+ 无触点无幕 | done·批D3(种 handler 触点 hd_ledger+HandlerEntity 快照[方法架];侧幕 handler 舞台) |
 | D-010 | chat-sidestage · trigger 舞台(R-16 只信 GET) | triggers 快照空(chat_fixtures.dart:410)+ 无触点无幕;R-16 要求 GET 真相,须种 TriggerEntity | done·批D3(种 trigger 触点 cron_nightly+TriggerEntity 快照;正是 wf_night 图 ref,R-16 只信此 GET) |
-| D-011 | chat-sidestage · 台账 loadMore 脚(分页骨架行) | cv_sync 仅 7 行 < 页大小 50;需 50+ 触点种子 | open |
+| D-011 | chat-sidestage · 台账 loadMore 脚(分页骨架行) | cv_sync 仅 7 行 < 页大小 50;需 50+ 触点种子 | done·批D6(cv_p20 马拉松会话种 54 触点[前 10 真快照+44 合成降级],台账越过 50 页;分页数据级电池) |
 | D-012 | chat-sidestage · 台账首拉失败重试 | fixture listTouchpoints 恒成功(chat_fixtures.dart:487-503),无失败钩;需加 failNext 钩+触发径 | open |
 | D-013 | chat-sidestage · 墓碑行(deleted 动词封禁 GET) | 无 verb=deleted 触点种子(墓碑规则 touchpoint_ledger.dart:36);cv_sync 补一条 deleted 行 | done·批D3(种 verb=deleted 墓碑行 fn_legacy_sync[无快照];tombstoned 门控走 SettledBody 不 GET;数据级电池验封 GET) |
 | D-014 | chat-stream · edit_workflow 图 morph | 脚本只有 create_workflow;补一幕 edit_workflow(压 wf_night 旧图 morph,B2 旗舰面) | done·批D4(cv_show_term 展台种 edit_workflow morph 卡[+1 ~1 −1 节点+边 delta,ops-delta 形];showcase 编目测过) |
@@ -293,19 +293,19 @@ audience: [human, ai]
 | D-020 | chat-transcript · tool_result 硬失败(status=error 红回执/ownsError) | 全 fixture 无 error:true 结果块(tr() 的 error 参数从未用,chat_showcase_fixture.dart:20-27);展台补一张失败卡 | done·批D4(种 tool_result error:true→status=error 硬失败红回执/ownsError;数据级电池) |
 | D-021 | chat-transcript · 发送失败泡(重试/丢弃) | failNextSend 仅脚本钩(chat_fixtures.dart:310);_PendingRow 失败态(chat_transcript.dart:614-629)demo 不可达 | open |
 | D-022 | chat-transcript · 红色 error 横幅(errorCode·errorMessage) | 无通用 error 终态种子(danger 分支 chat_transcript.dart:556 无演示);种一条 stopReason=error+errorCode 消息 | done·批D4(种 stopReason=error+errorCode=HANDLER_RPC_TIMEOUT+errorMessage 通用红 error 横幅) |
-| D-023 | documents · 编辑器表格块 + URL 链接 + h1/h4–h6 标题档 | 种子正文无表格、无 markdown 链接、只有 h2/h3;补一篇全块型样章锁大纲六档下标 | open |
+| D-023 | documents · 编辑器表格块 + URL 链接 + h1/h4–h6 标题档 | 种子正文无表格、无 markdown 链接、只有 h2/h3;补一篇全块型样章锁大纲六档下标 | done·批D6(种 Formatting Reference 全块型样章:h1-h6 六档+URL 链接+wikilink+表格+三列表+引用+代码;extractDocOutline 电池) |
 | D-024 | entities · approval 详情页 | 未传 approvalForms→rail approval 段恒空;补 ApprovalForm 种子(表单 schema) | done·批D2(种 ap_publish ApprovalForm[CEL 插值模板+allowReason+24h reject];rail approval 段+详情页有料;数据级电池) |
 | D-025 | entities · control 详情页 | demoEntityRepository 未传 controlLogics(entity_demo_fixture.dart:169-318)→rail control 段恒空;补 ControlLogic 种子(决策梯/分支) | done·批D2(种 ctl_quality ControlLogic[pass≥0.7/retry catch-all 分支,对齐 wf_digest 图 ref];rail control 段+详情页;数据级电池) |
 | D-026 | entities · flowrun parked 停车态(人闸待决 :decide) | 种带 approval 节点的 workflow 图+parked flowrunDetail(fixture 已支持 _walkFlowrun 停车,entity_fixtures.dart:345-352) | done·批D2(种 wf_release 人闸发布线+flr_park 停在 approve_deploy;listFlowrunInbox 有停车;数据级电池) |
 | D-027 | entities · handler/agent 版本历史 tab 有内容 | entity_demo_fixture 只种 functionVersions/workflowVersions;补 handlerVersions+agentVersions map | done·批D2(种 handlerVersions[hd_slack ×2]+agentVersions[ag_researcher ×3]版本轨迹;history tab 有料;数据级电池) |
 | D-028 | entities · 图编辑器 ref picker 的 mcp/control/approval 候选 | fixture mcpServers/mcpTools/controls/approvals 候选全空;补 RefCandidate 种子 | done·批D2(种 mcpServers[context7/filesystem]+mcpTools;control/approval 候选自实体派生;图编辑器 ref picker;数据级电池) |
 | D-029 | entities · 详情错误态(error+retry 面) | fixture 永不抛错且桌面无地址栏;需 fixture 加 failNext 脚本钩或种坏 id 展台入口 | open |
-| D-030 | notifications · OS 原生通知(失焦路由) | 同上无 signal 可路由;随 toast 展台脚本一并覆盖(失焦时验证) | open |
-| D-031 | notifications · 事件→toast(右上重要事件弹窗) | demo 无人调 fixture.emit()(仅测试用);加展台脚本延时 emit danger 行触发 ToastDispatcher | open |
+| D-030 | notifications · OS 原生通知(失焦路由) | 同上无 signal 可路由;随 toast 展台脚本一并覆盖(失焦时验证) | exempt·批D6(硬技术:demo osNotifierProvider 默认=NoopOsNotifier[仅真 app main.dart 装 LocalOsNotifier];OS 通知需真通知权限+失焦,零后端 fixture demo 的 Noop 永不触发,不可达非放水) |
+| D-031 | notifications · 事件→toast(右上重要事件弹窗) | demo 无人调 fixture.emit()(仅测试用);加展台脚本延时 emit danger 行触发 ToastDispatcher | done·批D6(demoLiveToast+demo_main 延时 6s emit danger 行→ToastDispatcher[shell watch 活]弹右上;danger tone+durable 信号数据级电池) |
 | D-032 | settings · MCP 面板(server 行/registry 安装/调用日志/stderr) | fixture mcpServers/mcpRegistry/calls 全空(settings_repository.dart:717-718);种 ready+failed server+registry 条目 | done·批D1(demo fixture 种 ready+failed MCP server[ready 带 2 工具/failed 带诚实错误]+2 registry 条目;数据级电池) |
 | D-033 | settings · 沙箱面板(已装运行时/env 行/GC) | bootstrap ok+available 有但 runtimes/envsByOwner 空(settings_repository.dart:851-856);种 SandboxRuntime+SandboxEnv | done·批D1(种 2 SandboxRuntime[python/node]+function owner 下 1 ready SandboxEnv;数据级电池) |
 | D-034 | settings · 记忆面板 | fixture memories 空(settings_repository.dart:685);种 pinned/user/ai 各态记忆行 | done·批D1(种 pinned/user/ai 各态记忆行[coding-style pin/user-timezone/retry-policy ai];pin 过滤电池) |
-| D-035 | shell · 全局快捷键+缩放(⌘B/⌘\/⌘,/⌘±/⌘0) | demo 根未挂 GlobalShortcuts(app.dart:64 只在 AppStartupGate 链;demo_main.dart:78 仅 AnOverlayHost)→demo 挂同件 | open |
+| D-035 | shell · 全局快捷键+缩放(⌘B/⌘\/⌘,/⌘±/⌘0) | demo 根未挂 GlobalShortcuts(app.dart:64 只在 AppStartupGate 链;demo_main.dart:78 仅 AnOverlayHost)→demo 挂同件 | done·批D6(demo_main 镜像 app 挂 GlobalShortcuts+Focus(autofocus)[⌘B/⌘\/⌘,/⌘±/⌘0 冷启即达];纯 provider/静态调用 demo 全有) |
 
 ### D-已可达(矩阵测试的断言底稿)
 

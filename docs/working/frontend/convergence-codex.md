@@ -27,6 +27,17 @@ audience: [human, ai]
 - **AnStickViewport 增 `fadeColor`**(白宿主传 surface,灰底退役)。bar 同构补齐:编辑器 copy 驻留走 AnMotion.dwell + AnTooltip。
 - AnLedgerRow 补 `expandChild`;「展开全部 N」列表壳 **deferred → P4 吸收四套台账时落**。
 
+## 批D6 落地(2026-07-13,D 轨 demo 可达性——分页/文档/toast/快捷键+OS 通知豁免)
+
+簇 D-G 六 GAP(五做一豁免):
+- **D-035 快捷键**:`demo_main` 镜像 `app.dart` 挂 `GlobalShortcuts+Focus(autofocus)`(⌘B/⌘\/⌘,/⌘±/⌘0 冷启即达)——handler 全纯 provider/静态调用,demo 全有,无门控。
+- **D-023 文档全块型**:种 `Formatting Reference` 样章跑遍编辑器每种块——h1–h6 六档(锁大纲缩进不变式,h4–h6 折进 clamp level 3 仍列条目)+ 真 markdown URL 链接 + wikilink + 表格 + 有序/无序/task 三列表 + 引用 + 围栏代码。
+- **D-031 活 toast**:`demoLiveToast()`(workflow.run_failed danger)+ `demo_main` 延时 6s `notifRepo.emit(...)`→`ToastDispatcher`(shell watch 活)弹右上 toast;danger tone 穿透开关。
+- **D-005 rail 分页**:种 20 条**短真**历史对话(honoring #1:无空 filler,每行真 Q&A 开有内容),rail 越过 30 行页→loadMore+骨架脚。
+- **D-011 台账分页**:`cv_p20` 马拉松会话种 54 触点(前 10 复用真快照开真舞台+44 合成 `viewed` 行,开时 `StageBodyFromTruth` error 分支诚实降级摘要、绝不崩),Cast 台账越过 50 行页。
+- **D-030 OS 通知 = 硬技术豁免**:demo 的 `osNotifierProvider` 默认 `NoopOsNotifier`(**仅真 app main.dart:52 装 LocalOsNotifier**),OS 原生通知需真通知权限+应用失焦,零后端 fixture demo 的 Noop 永不触发——不可达是设计结论非放水(dispatcher 失焦径在 demo 走 Noop.show=空操作)。
+- 验收=四份**数据级电池**(settings/entities 之外新增:documents/demo_fixture[全块型+大纲六档]·notifications/demo_toast[danger tone+durable 信号]·chat/data/pagination_demo[rail 30 页越+台账 50 页越,键集不重复])+ fe-verify 全绿。**簇 D-G 收官(唯 D-030 豁免)**。
+
 ## 批D5 落地(2026-07-13,D 轨 demo 可达性——failedHold 失败舞台收尾簇 C)
 
 D-015 failedHold 是 live sidestage 的失败 phase,非落定 transcript 态——但 `sceneFromSubagentNode`(scene_from_truth:303)对**失败 subagent**(node.isError)落定即 `StagePhase.failedHold`(ledger 明许「或失败 Subagent」)。这是最干净的落定径,不污染 happy-path 流式脚本:

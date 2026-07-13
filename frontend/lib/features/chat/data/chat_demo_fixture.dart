@@ -641,6 +641,44 @@ DemoChatRepository demoChatRepository() {
         lastAt: ago(since),
       );
 
+  // D-005 — a realistic chat HISTORY so the rail paginates past its 30-row page (loadMore + the skeleton
+  // foot). Each is a SHORT but REAL Q&A — honoring #1 (no empty fillers; every row opens to content), just
+  // brief. Newest of these sits below the showcase (hours-old). 真实历史使 rail 翻页(每行仍有内容)。
+  const pastTopics = <({String id, String title, String q, String a})>[
+    (id: 'p01', title: '库存漂移怎么排查', q: '库存数字对不上,先从哪看?', a: '先手动跑一次 `nightly_rollup` 对账,再比对 `sync_inventory` 最近三次执行的输入差异。多半是某个源的分页没取全。'),
+    (id: 'p02', title: 'webhook 签名怎么验', q: 'GitHub 的 webhook 签名前端要怎么校验?', a: '不在前端验——签名用 `X-Hub-Signature-256` 头,由后端 trigger 用共享密钥做 HMAC-SHA256 比对。前端只读结果。'),
+    (id: 'p03', title: 'cron 表达式解释', q: '`0 2 * * 1` 是什么意思?', a: '每周一凌晨 02:00 触发一次(分 时 日 月 周)。'),
+    (id: 'p04', title: 'SQLite 备份', q: '本地数据怎么备份?', a: '直接 `cp` 那个 SQLite 文件即可——它就是唯一事实源。停一下 sidecar 再拷更稳。'),
+    (id: 'p05', title: '退避重试参数', q: '重试退避设几次合适?', a: '指数退避 1s→2s→4s,最多 3 次;超限抛 `SyncError` 交上游降级。'),
+    (id: 'p06', title: '沙箱 python 版本', q: '函数用的是哪个 python?', a: '默认 3.12;每个函数的 env 可钉自己的版本,在实体详情的沙箱段看得到。'),
+    (id: 'p07', title: 'workflow 并发策略', q: 'concurrency 选 skip 还是 queue?', a: 'skip=同一时刻只跑一个、后来的丢弃;queue=排队。对账这类幂等任务用 skip 就好。'),
+    (id: 'p08', title: '审批超时行为', q: '审批一直没人点会怎样?', a: '看 approval 配的 timeoutBehavior——reject/approve/fail 三选一;留空则永不超时,一直停车等人。'),
+    (id: 'p09', title: 'MCP 装 filesystem', q: '怎么加一个文件系统 MCP?', a: '在设置的 MCP 面板从市场装 `filesystem`,给它一个 root 目录做读写边界。'),
+    (id: 'p10', title: '快捷键改绑', q: '切左岛的快捷键能改吗?', a: '能,设置→快捷键面板逐命令录新键,热生效;⌘B 是默认。'),
+    (id: 'p11', title: '深色模式', q: '有深色主题吗?', a: '有,跟随系统或在通用设置里手动切。'),
+    (id: 'p12', title: '导出对话', q: '对话能导出吗?', a: '当前对话是 SQLite 里的 messages 行,可整库备份;单独导出还没做前端入口。'),
+    (id: 'p13', title: 'agent prompt 调优', q: 'agent 输出太发散怎么收?', a: '在 prompt 里要求引用来源、给 outputSchema 约束字段;下游节点才不至于读自由文本。'),
+    (id: 'p14', title: '触发器 fsnotify', q: 'fsnotify 触发器的 pattern 怎么写?', a: '给 path + events(create/modify)+ 一个 glob pattern,如 `*.csv`,只对匹配文件触发。'),
+    (id: 'p15', title: '函数依赖查询', q: '删函数前怎么看谁在用它?', a: '用 `get_relations` 查它的依赖邻域,或看实体详情的 backlinks 段;有依赖会挡删并提示。'),
+    (id: 'p16', title: '控制器 CEL 语法', q: '控制分支的 when 怎么写?', a: 'CEL 布尔式,写 `input.amount >= 1000` 这种;自上而下首个为真的分支胜,末支恒 `true` 兜底。'),
+    (id: 'p17', title: '文档 wikilink', q: '文档里怎么互相引用?', a: '打 `@` 选实体或页面,落成 `[[id]]` 双链;渲染成可点药丸,改名不断链。'),
+    (id: 'p18', title: '通知级别', q: '通知太吵能关吗?', a: '设置→通知面板三档:静音(托盘照收不弹)/仅需处理(只弹 warn·danger)/全部。'),
+    (id: 'p19', title: '出厂重置', q: '怎么把一切清空重来?', a: '设置→存储的出厂重置:停 sidecar→删数据目录→重启,双闸确认防误触。'),
+    (id: 'p20', title: '一次大重构会话', q: '把整套对账流从头理一遍', a: '好,我把涉及的函数、控制器、审批、触发器、文档逐个过了一遍(见右岛演员表——这次会话碰过的一切都在那儿按物聚合)。'),
+  ];
+  final pastChats = [
+    for (var i = 0; i < pastTopics.length; i++)
+      (
+        conv: conv('cv_${pastTopics[i].id}', pastTopics[i].title, Duration(hours: 6 + i)),
+        msgs: [
+          msg('m_${pastTopics[i].id}u', 'cv_${pastTopics[i].id}', 'user', Duration(hours: 6 + i, minutes: 2),
+              blocks: [blk('b_${pastTopics[i].id}u', 'text', pastTopics[i].q)]),
+          msg('m_${pastTopics[i].id}a', 'cv_${pastTopics[i].id}', 'assistant', Duration(hours: 6 + i, minutes: 1),
+              blocks: [blk('b_${pastTopics[i].id}a', 'text', pastTopics[i].a)]),
+        ],
+      ),
+  ];
+
   final repo = DemoChatRepository(
     conversations: [
       // Only conversations that DO something when opened (real transcripts) + the archived example — the
@@ -654,9 +692,11 @@ DemoChatRepository demoChatRepository() {
       conv('cv_gate', '展台 · 活人闸', const Duration(minutes: 2), awaiting: true), // M8: the LIVE gate 活门(琥珀点)
       conv('cv_weekly', '周报初稿整理', const Duration(hours: 1), unread: true), // unread green + markdown/table
       conv('cv_scroll', '展台 · 长卷与深跳', const Duration(hours: 3)), // W6: 场次条 + ?around= deep jump 深跳长卷
+      for (final c in pastChats) c.conv, // D-005 history — rail paginates past its 30-row page 历史使 rail 翻页
       conv('cv_migrate', '旧版迁移笔记', const Duration(days: 40), archived: true), // the archived (gray) example
     ],
     messages: {
+      for (final c in pastChats) c.conv.id: c.msgs,
       for (final s in shows) s.conv.id: s.messages,
       // M8 活人闸: the gate's REAL wire shape — the tool_call block CLOSED (args final; an open
       // block is argsStreaming and can never reach awaitingConfirm), no tool_result yet, the message
@@ -1002,6 +1042,39 @@ DemoChatRepository demoChatRepository() {
         const Duration(minutes: 4)),
     tp('tp_d13', 'function', 'fn_legacy_sync', 'legacy_sync', TouchpointVerb.deleted,
         const Duration(minutes: 2)),
+  ];
+  // D-011 — the marathon session (cv_p20) touched 54 things, so its Cast ledger paginates past the 50-row
+  // page (loadMore + the skeleton foot). The first 10 rows reuse the seeded snapshots (open to a real
+  // stage); the rest are synthetic `viewed` rows that degrade honestly to the summary fallback when opened
+  // (StageBodyFromTruth's error branch, never a crash). 马拉松会话 54 触点使台账翻页;前 10 真、余合成降级。
+  const seededRefs = <({String kind, String id, String name})>[
+    (kind: 'function', id: 'fn_sync', name: 'sync_inventory'),
+    (kind: 'workflow', id: 'wf_night', name: 'nightly_rollup'),
+    (kind: 'control', id: 'amount_gate', name: 'amount_gate'),
+    (kind: 'trigger', id: 'cron_nightly', name: 'cron_nightly'),
+    (kind: 'agent', id: 'ag_reconcile', name: 'reconcile-bot'),
+    (kind: 'approval', id: 'apf_refund', name: 'refund-approval'),
+    (kind: 'handler', id: 'hd_ledger', name: 'ledger'),
+    (kind: 'document', id: 'doc_runbook', name: '值班手册'),
+    (kind: 'skill', id: 'commit-helper', name: 'commit-helper'),
+    (kind: 'mcp', id: 'github', name: 'github'),
+  ];
+  const synthKinds = ['function', 'workflow', 'handler', 'agent', 'document'];
+  repo.touchpoints['cv_p20'] = [
+    for (var i = 0; i < seededRefs.length; i++)
+      Touchpoint(
+        id: 'tp_p20_s$i', conversationId: 'cv_p20',
+        itemKind: seededRefs[i].kind, itemId: seededRefs[i].id, itemName: seededRefs[i].name,
+        verb: TouchpointVerb.viewed, lastActor: TouchpointActor.assistant, count: 1,
+        firstAt: ago(Duration(hours: 26, minutes: i)), lastAt: ago(Duration(hours: 25, minutes: i)),
+      ),
+    for (var i = 0; i < 44; i++)
+      Touchpoint(
+        id: 'tp_p20_x$i', conversationId: 'cv_p20',
+        itemKind: synthKinds[i % synthKinds.length], itemId: 'ent_marathon_$i', itemName: 'entity_$i',
+        verb: TouchpointVerb.viewed, lastActor: TouchpointActor.assistant, count: 1,
+        firstAt: ago(Duration(hours: 27, minutes: i)), lastAt: ago(Duration(hours: 26, minutes: i)),
+      ),
   ];
   repo.interactions['cv_gate'] = const [
     Interaction(
