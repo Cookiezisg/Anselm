@@ -1204,23 +1204,31 @@ class _ConnectPainter extends CustomPainter {
 /// painter repaints per tick; the widget tree never rebuilds). 彗星覆层:每条活跃边一点循环,
 /// controller 经 repaint 直驱(逐 tick 重绘、树零重建)。
 class _CometPainter extends CustomPainter {
-  _CometPainter({required this.routes, required this.color, required this.t}) : super(repaint: t);
+  // The route Paths + their PathMetrics are computed ONCE here (per build, when the routes change), not
+  // per animation tick (C-015): `repaint: t` drives paint() at 60fps on this SAME instance, but only the
+  // comet's OFFSET along each metric changes — the rounded polyline + the native PathMetrics object don't.
+  // 路由 Path+PathMetrics 构造时算一次(routes 变才重建),非每 tick;60fps 只 comet 沿线偏移变、折线/metric 不变。
+  _CometPainter({required this.routes, required this.color, required this.t})
+      : _metrics = _buildMetrics(routes),
+        super(repaint: t);
 
   final List<GraphEdgeRoute> routes;
   final Color color;
   final Animation<double> t;
+  final List<PathMetric> _metrics;
 
   static const double _r = 3.6;
+
+  static List<PathMetric> _buildMetrics(List<GraphEdgeRoute> routes) => [
+        for (final r in routes) ..._EdgePainter._rounded(r.points, GraphGeometry.corner).computeMetrics(),
+      ];
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..color = color;
-    for (final r in routes) {
-      final path = _EdgePainter._rounded(r.points, GraphGeometry.corner);
-      for (final m in path.computeMetrics()) {
-        final tangent = m.getTangentForOffset(m.length * t.value);
-        if (tangent != null) canvas.drawCircle(tangent.position, _r, paint);
-      }
+    for (final m in _metrics) {
+      final tangent = m.getTangentForOffset(m.length * t.value);
+      if (tangent != null) canvas.drawCircle(tangent.position, _r, paint);
     }
   }
 
