@@ -2,20 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/contract/entities/workflow.dart'; // FlowrunNode
-import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
-import '../../../core/design/typography.dart';
-import '../../../core/ui/an_action_group.dart';
 import '../../../core/ui/an_group_label.dart';
 import '../../../core/ui/an_button.dart';
 import '../../../core/ui/an_deferred_loading.dart';
-import '../../../core/ui/an_info_card.dart';
-import '../../../core/ui/an_input.dart';
 import '../../../core/ui/an_rail_skeleton.dart';
 import '../../../core/ui/an_scroll_behavior.dart';
 import '../../../core/ui/an_state.dart';
-import '../../../core/ui/icons.dart';
 import '../../../i18n/strings.g.dart';
+import 'approval_gate.dart';
 import '../data/entity_providers.dart';
 import '../state/flowrun_inbox_provider.dart';
 
@@ -97,16 +92,11 @@ class _ApprovalCard extends ConsumerStatefulWidget {
 }
 
 class _ApprovalCardState extends ConsumerState<_ApprovalCard> {
-  final _reason = TextEditingController();
   bool _deciding = false;
 
-  @override
-  void dispose() {
-    _reason.dispose();
-    super.dispose();
-  }
-
-  Future<void> _decide(String decision) async {
+  // The reason controller now lives in the shared ApprovalGate (A-011) — it hands the text back
+  // through onDecide. reason 控制器归共享门,经 onDecide 回传。
+  Future<void> _decide(String decision, String? reason) async {
     if (_deciding) return;
     setState(() => _deciding = true);
     final p = widget.parked;
@@ -115,7 +105,7 @@ class _ApprovalCardState extends ConsumerState<_ApprovalCard> {
             p.flowrunId,
             p.nodeId,
             decision: decision,
-            reason: _reason.text.trim().isEmpty ? null : _reason.text.trim(),
+            reason: (reason?.isEmpty ?? true) ? null : reason,
           );
       // Refresh the inbox — this node is no longer parked. 刷新收件箱(本节点已决)。
       ref.invalidate(flowrunInboxProvider);
@@ -128,39 +118,15 @@ class _ApprovalCardState extends ConsumerState<_ApprovalCard> {
 
   @override
   Widget build(BuildContext context) {
-    final r = context.t.entities.run;
-    final c = context.colors;
-    final p = widget.parked;
-    final prompt = p.result['rendered'] as String? ?? '';
-    final allowReason = p.result['allowReason'] == true;
-    return AnInfoCard(
-      title: r.approvalTitle,
-      icon: AnIcons.approval,
-      meta: p.nodeId,
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        if (prompt.isNotEmpty) ...[
-          Text(prompt, style: AnText.body.copyWith(color: c.ink)),
-          const SizedBox(height: AnSpace.s8),
-        ],
-        if (allowReason) ...[
-          AnInput(controller: _reason, placeholder: r.reasonHint, block: true),
-          const SizedBox(height: AnSpace.s8),
-        ],
-        AnActionGroup([
-          AnButton(
-            label: r.approve,
-            variant: AnButtonVariant.primary,
-            size: AnButtonSize.sm,
-            onPressed: _deciding ? null : () => _decide('yes'),
-          ),
-          AnButton(
-            label: r.reject,
-            variant: AnButtonVariant.danger,
-            size: AnButtonSize.sm,
-            onPressed: _deciding ? null : () => _decide('no'),
-          ),
-        ]),
-      ]),
+    // The shared decision gate (A-011) — the inbox is the ONE path that forwards a reason, so it
+    // opts into the reason input; the «first-wins» hint is omitted here (a list of gates). 共享门:
+    // 收件箱是唯一送 reason 的径,开 collectReason;列表脸略「先到先得」提示。
+    return ApprovalGate(
+      parked: widget.parked,
+      busy: _deciding,
+      collectReason: true,
+      showHint: false,
+      onDecide: (v, reason) => _decide(v, reason),
     );
   }
 }

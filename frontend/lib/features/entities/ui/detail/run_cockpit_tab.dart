@@ -1,9 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/design/colors.dart';
 import '../../../../core/design/tokens.dart';
-import '../../../../core/design/typography.dart';
 import '../../../../core/graph/flowrun_timeline.dart';
 import '../../../../core/contract/entities/workflow.dart';
 import '../../../../core/graph/graph_run_state.dart';
@@ -20,6 +18,7 @@ import '../../../../core/ui/an_skeleton.dart';
 import '../../../../core/ui/an_state.dart';
 import '../../../../core/ui/icons.dart';
 import '../../../../i18n/strings.g.dart';
+import '../approval_gate.dart';
 import '../../data/entity_format.dart';
 import '../../state/detail/entity_detail_provider.dart';
 import '../../state/detail/run_cockpit_provider.dart';
@@ -177,7 +176,6 @@ class RunCockpitTab extends ConsumerWidget {
   Widget _nodeDebug(BuildContext context, WidgetRef ref, RunCockpitState st, FlowrunNode node) {
     final d = context.t.entities.detail;
     final kv = d.kv;
-    final c = context.colors;
     final notifier = ref.read(runCockpitProvider(entityRef).notifier);
     final elapsed = (node.completedAt != null)
         ? fmtDuration(node.completedAt!.difference(node.createdAt))
@@ -209,29 +207,16 @@ class RunCockpitTab extends ConsumerWidget {
             AnCodeBlock(prettyJsonCapped(payload)),
           ]),
         ],
-        // A parked approval node grows the gate — decide right here (first-wins → reconcile). parked 出门。
+        // A parked approval node grows the gate — the shared ApprovalGate, bare (already inside this
+        // debug card), decide right here (first-wins → reconcile). parked 出门:共享门·裸接(已在卡内)。
         if (parked) ...[
           const SizedBox(height: AnSpace.s12),
-          if ((node.result['rendered'] as String?)?.isNotEmpty ?? false) ...[
-            Text(node.result['rendered'] as String, style: AnText.body.copyWith(color: c.ink)),
-            const SizedBox(height: AnSpace.s8),
-          ],
-          Text(context.t.entities.run.approvalHint, style: AnText.meta.copyWith(color: c.inkFaint)),
-          const SizedBox(height: AnSpace.s8),
-          AnActionGroup([
-            AnButton(
-              label: context.t.entities.run.approve,
-              variant: AnButtonVariant.primary,
-              size: AnButtonSize.sm,
-              onPressed: st.busy ? null : () => notifier.decide(node.nodeId, 'yes'),
-            ),
-            AnButton(
-              label: context.t.entities.run.reject,
-              variant: AnButtonVariant.danger,
-              size: AnButtonSize.sm,
-              onPressed: st.busy ? null : () => notifier.decide(node.nodeId, 'no'),
-            ),
-          ]),
+          ApprovalGate(
+            parked: node,
+            framed: false,
+            busy: st.busy,
+            onDecide: (v, _) => notifier.decide(node.nodeId, v),
+          ),
         ],
       ]),
     );

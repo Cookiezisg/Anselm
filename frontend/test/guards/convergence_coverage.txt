@@ -389,6 +389,7 @@ lib/features/entities/state/run/run_fields.dart	converged
 lib/features/entities/state/run/run_terminal_controller.dart	converged
 lib/features/entities/state/run/run_terminal_state.dart	converged
 lib/features/entities/state/selected_entity.dart	converged
+lib/features/entities/ui/approval_gate.dart	converged
 lib/features/entities/ui/detail/control_branch_row.dart	converged
 lib/features/entities/ui/detail/detail_sections.dart	reviewed
 lib/features/entities/ui/detail/log_tab.dart	reviewed

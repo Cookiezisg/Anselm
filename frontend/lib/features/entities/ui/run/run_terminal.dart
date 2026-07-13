@@ -1,17 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/contract/entities/workflow.dart';
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
 import '../../../../core/model/status_state.dart' show AnStatus, AnTone;
 import '../../../../core/ui/an_chip.dart';
 import '../../../../core/ui/an_button.dart';
-import '../../../../core/ui/an_action_group.dart';
 import '../../../../core/ui/an_callout.dart';
 import '../../../../core/ui/an_code_block.dart';
-import '../../../../core/ui/an_info_card.dart';
 import '../../../../core/ui/an_term_viewport.dart';
 import '../../../../core/ui/an_row.dart';
 import '../../../../core/ui/an_scroll_behavior.dart';
@@ -28,6 +25,7 @@ import '../../../../core/shell/right_panel.dart';
 import '../../state/run/run_terminal_controller.dart';
 import '../../state/run/run_terminal_state.dart';
 import '../../state/selected_entity.dart';
+import '../approval_gate.dart';
 import 'block_tree_view.dart';
 import 'run_input_form.dart';
 
@@ -274,7 +272,12 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
     if (state.flowNodes.isNotEmpty) {
       return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         if (parked != null) ...[
-          _approvalGate(context, parked),
+          ApprovalGate(
+            parked: parked,
+            onDecide: (v, _) => ref
+                .read(runTerminalProvider(ref.read(selectedEntityProvider)!).notifier)
+                .decide(parked.nodeId, v),
+          ),
           const SizedBox(height: AnSpace.s12),
         ],
         _section(context, r.nodesHeading, _nodeList([
@@ -299,40 +302,6 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
   /// backend `:decide` (first-wins; a lost race reconciles the gate away). Composed from existing
   /// primitives (card + action group), no new hand-rolled surface. 停车审批门:rendered 提示 +
   /// 通过/驳回直发 `:decide`(first-wins,输了对账自纠);既有原语组合、零手搓新面。
-  Widget _approvalGate(BuildContext context, FlowrunNode parked) {
-    final r = context.t.entities.run;
-    final c = context.colors;
-    final prompt = parked.result['rendered'] as String? ?? '';
-    final notifier = ref.read(runTerminalProvider(ref.read(selectedEntityProvider)!).notifier);
-    return AnInfoCard(
-      title: r.approvalTitle,
-      icon: AnIcons.approval,
-      meta: parked.nodeId,
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        if (prompt.isNotEmpty) ...[
-          Text(prompt, style: AnText.body.copyWith(color: c.ink)),
-          const SizedBox(height: AnSpace.s8),
-        ],
-        Text(r.approvalHint, style: AnText.meta.copyWith(color: c.inkFaint)),
-        const SizedBox(height: AnSpace.s8),
-        AnActionGroup([
-          AnButton(
-            label: r.approve,
-            variant: AnButtonVariant.primary,
-            size: AnButtonSize.sm,
-            onPressed: () => notifier.decide(parked.nodeId, 'yes'),
-          ),
-          AnButton(
-            label: r.reject,
-            variant: AnButtonVariant.danger,
-            size: AnButtonSize.sm,
-            onPressed: () => notifier.decide(parked.nodeId, 'no'),
-          ),
-        ]),
-      ]),
-    );
-  }
-
   Widget _nodeList(List<({String label, String status})> nodes) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

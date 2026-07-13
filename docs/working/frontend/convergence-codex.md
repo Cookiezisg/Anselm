@@ -52,6 +52,14 @@ A-032/A-033/A-034/A-036/A-038/A-046/A-048 关账(A-031 剩 AnAttachmentChip、A-
 3. **reduced 双闸选档**:装饰循环(shimmer/呼吸/雷达/转圈/打字机)=reducedOrAssistive;功能性一次揭示(展开/洗亮/入场)=reduced。
 4. **表单内联错误=label(13)+danger+top:s8;整面载入失败=AnState(error)**;行内空态=AnState inset;rail 整面四态=AnRailStates。
 
+### 批9c 落地(2026-07-13,A 轨审批门共件 + 活尾裁决)
+
+A-011 done + A-094 证伪:
+- **共享 ApprovalGate**(A-011):三处手搓审批门(run_terminal._approvalGate / run_cockpit parked 块 / flowrun_inbox._ApprovalCard)逐字同构(AnInfoCard[approvalTitle/approval/nodeId]>prompt+可选 reason+AnActionGroup[approve primary/reject danger])→抽一件 `features/entities/ui/approval_gate.dart`;差异做参数化:`framed`(卡壳 vs 裸接[驾驶舱内联])/`collectReason`(**仅收件箱径能送 reason 到后端**——终端·驾驶舱 decide 无 reason 参,留 false 免死输入)/`showHint`/`busy`;reason 控制器归共件、经 onDecide 次参回传。四电池(framed 切换/reason 门三态/verdict+reason 回传去空白/busy 压双钮)+既有集成测试(workflow_gate/flowrun_inbox)全绿。
+- **A-094 证伪**:NestedRunPane 活尾=AnWindow 内结构化块行目录(复用 transcriptBlockRow)+末行 AnShimmerText 微光,两既有原语组合;非 AnLiveTail 裸文本活尾第三形(压成纯文本尾丢结构行/isOpen 微光/块型判别六能力)——建造者请求准,角色不同不并。
+
+**A 轨剩 9 substantive open**:窗族升格 5(A-001/003/004/006/007=更高野心版待建)+run 轨迹树 A-009(block_tree_view 迷你 transcript→共享块行)+run 终端头 A-010(→AnInspectorHead)+编辑器弹层 A-104(overlay 高危区)+doc 头 A-113(→AnOceanHeader 变体);另 A-056 defer/A-069 豁免/A-085 判断题记档=3 documented-disposition。**这 8 行是全战役最大架构升格(窗族=codex 自框「更高野心版待建」),需窗族批专项或用户优先级裁定,不在扫尾批草率并**。
+
 ### 批9b 落地(2026-07-13,A 轨编辑器簇·引用条统一+按钮 toggle 态)
 
 A-101/103/106 done:
