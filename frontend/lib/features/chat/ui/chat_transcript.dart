@@ -358,42 +358,12 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
           turn: turn, streaming: true, conversationId: widget.conversationId, key: ValueKey(turn.id));
     }
     if (turn.id == _highlightId) {
-      row = _JumpHighlight(key: ValueKey('hl-${turn.id}'), child: row);
+      row = AnWashHighlight(key: ValueKey('hl-${turn.id}'), child: row);
     }
     return row;
   }
 }
 
-/// The jump target's landing wash: hold, then ease out (the Slack-permalink rhythm Stream Chat
-/// converged on). Purely decorative — reduced motion collapses it to the end state instantly.
-/// 跳转落点洗亮:先驻留后淡出(Slack permalink 节奏)。纯装饰——reduced motion 直接落终态。
-class _JumpHighlight extends StatelessWidget {
-  const _JumpHighlight({required this.child, super.key});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    // Wash = a functional one-shot reveal → the plain `reduced` gate is the right tier.
-    // 洗亮=功能性一次揭示→reduced 档正确。
-    final reduced = AnMotionPref.reduced(context);
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 1, end: 0),
-      duration: reduced ? Duration.zero : AnMotion.wash,
-      // Hold for ~1s (the flat half), then ease out. 前半驻留,后半淡出。
-      curve: const Interval(0.45, 1, curve: AnMotion.easeOut),
-      builder: (context, wash, child) => DecoratedBox(
-        decoration: BoxDecoration(
-          color: c.accentSoft.withValues(alpha: c.accentSoft.a * wash),
-          borderRadius: BorderRadius.circular(AnRadius.card),
-        ),
-        child: child,
-      ),
-      child: child,
-    );
-  }
-}
 
 
 /// One transcript turn, centered in the reading column with the inter-turn gap. 一条回合(阅读列+轮距)。

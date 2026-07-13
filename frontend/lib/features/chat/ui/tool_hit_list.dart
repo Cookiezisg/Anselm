@@ -6,6 +6,7 @@ import '../../../core/design/typography.dart';
 import '../../../core/router/panel_registry.dart';
 import '../../../core/model/status_state.dart';
 import '../../../core/ui/an_chip.dart';
+import '../../../core/ui/an_hover_surface.dart';
 import '../../../core/ui/an_interactive.dart';
 import '../../../core/ui/an_json_tree.dart';
 import '../../../core/ui/an_window.dart';
@@ -264,13 +265,7 @@ class _ToolHitListState extends State<ToolHitList> with SingleTickerProviderStat
     if (!tappable) return body;
     return AnInteractive(
       onTap: row.onOpen ?? () => widget.onRowTap!(row.kind!, row.id!),
-      builder: (ctx, states) => Container(
-        decoration: BoxDecoration(
-          color: states.isActive ? c.surfaceHover : null,
-          borderRadius: BorderRadius.circular(AnRadius.tag),
-        ),
-        child: body,
-      ),
+      builder: (ctx, states) => AnHoverSurface(active: states.isActive, child: body),
     );
   }
 

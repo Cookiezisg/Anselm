@@ -359,6 +359,34 @@ final GalleryCategory _g1Controls = GalleryCategory('基础控件 Controls', AnI
           child: Row(mainAxisSize: MainAxisSize.min, children: [Text('A'), AnDivider.vertical(), Text('B')]),
         )),
   ]),
+  GalleryItem('AnHeatBar 热力短条', '相对热度内联 tick(占峰值比,保底可见);刻意非整行 AnMeter', [
+    for (final f in const [0.15, 0.4, 0.7, 1.0])
+      GallerySpecimen('fraction $f', (_) => Row(mainAxisSize: MainAxisSize.min, children: [
+            AnHeatBar(fraction: f),
+            const SizedBox(width: AnSpace.s6),
+            Text('${(f * 99).round()}'),
+          ])),
+  ]),
+  GalleryItem('AnQuoteBar 引用左条', '唯一引用/旁白文法:lineStrong 左细条 + 左内距(markdown 引用 / 人闸回显共用)', [
+    GallerySpecimen('quote', (_) => const AnQuoteBar(child: Text('引用的一段旁白,静默声。')), span: true),
+  ]),
+  GalleryItem('AnHoverSurface hover 填充', '可点行的圆角 hover 填充(active→surfaceHover);AnCard 描边 hover 的行背景对偶', [
+    GallerySpecimen('rest', (_) => const AnHoverSurface(
+        active: false, child: Padding(padding: AnInset.tight, child: Text('static row')))),
+    GallerySpecimen('active', (_) => const AnHoverSurface(
+        active: true, child: Padding(padding: AnInset.tight, child: Text('hovered row')))),
+  ]),
+  GalleryItem('AnTonedPanel 语义面板', 'card-16 白面 + 语义 tone 发丝边 + 卡内距;普通装饰容器(可嵌 AnWindow,人闸壳)', [
+    GallerySpecimen('danger 边',
+        (context) => AnTonedPanel(borderColor: context.colors.danger, child: const Text('危险决策面板'))),
+    GallerySpecimen('accent 边',
+        (context) => AnTonedPanel(borderColor: context.colors.accent, child: const Text('询问面板'))),
+  ]),
+  GalleryItem('AnWashHighlight 落点洗亮', '一次性 accentSoft 填充洗亮(先驻留后淡出);跳转/滚动落点到达高亮', [
+    GallerySpecimen('wash (加载即播一次)',
+        (_) => const AnWashHighlight(child: Padding(padding: AnInset.card, child: Text('刚跳到这行'))),
+        span: true),
+  ]),
   GalleryItem('AnStatusDot', '语义状态点(run 呼吸)+ raw 直喂色形(批5:珠串/色点/fire 记号唯一实现)', [
     for (final s in AnStatus.values) GallerySpecimen(s.name, (_) => AnStatusDot(s)),
     GallerySpecimen('raw 直喂色', (context) => AnStatusDot.raw(context.colors.ok)),

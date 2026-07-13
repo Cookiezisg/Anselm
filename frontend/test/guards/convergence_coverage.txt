@@ -142,7 +142,9 @@ lib/core/ui/an_form_field.dart	converged
 lib/core/ui/an_freshness_halo.dart	converged
 lib/core/ui/an_graph_canvas.dart	ledgered
 lib/core/ui/an_group_label.dart	converged
+lib/core/ui/an_heat_bar.dart	converged
 lib/core/ui/an_honesty_ribbon.dart	reviewed
+lib/core/ui/an_hover_surface.dart	converged
 lib/core/ui/an_info_card.dart	converged
 lib/core/ui/an_inline_capsule.dart	converged
 lib/core/ui/an_inline_edit.dart	converged
@@ -174,6 +176,7 @@ lib/core/ui/an_ocean_switcher.dart	converged
 lib/core/ui/an_page.dart	converged
 lib/core/ui/an_path_chip.dart	converged
 lib/core/ui/an_popover.dart	converged
+lib/core/ui/an_quote_bar.dart	converged
 lib/core/ui/an_radar_sweep.dart	converged
 lib/core/ui/an_rail_skeleton.dart	converged
 lib/core/ui/an_rail_states.dart	converged
@@ -207,12 +210,14 @@ lib/core/ui/an_tags.dart	converged
 lib/core/ui/an_term_viewport.dart	reviewed
 lib/core/ui/an_thin_table.dart	converged
 lib/core/ui/an_toast.dart	reviewed
+lib/core/ui/an_toned_panel.dart	converged
 lib/core/ui/an_toolbar.dart	converged
 lib/core/ui/an_tooltip.dart	converged
 lib/core/ui/an_two_zone.dart	reviewed
 lib/core/ui/an_type_to_confirm.dart	converged
 lib/core/ui/an_typewriter.dart	converged
 lib/core/ui/an_version_diff.dart	reviewed
+lib/core/ui/an_wash_highlight.dart	converged
 lib/core/ui/an_window.dart	reviewed
 lib/core/ui/an_window_controls.dart	converged
 lib/core/ui/dry_intrinsic_width.dart	converged

@@ -153,13 +153,8 @@ class _ToolInteractionGateState extends State<ToolInteractionGate> {
       // focus. 无自由文本框时才抓门壳焦点(有则字段拥焦)。
       autofocus: widget.autofocus && awaiting && !(widget.allowFreeText),
       onKeyEvent: _onShellKey,
-      child: Container(
-        decoration: BoxDecoration(
-          color: c.surface,
-          borderRadius: BorderRadius.circular(AnRadius.card),
-          border: Border.all(color: borderColor, width: AnSize.hairline),
-        ),
-        padding: AnInset.card,
+      child: AnTonedPanel(
+        borderColor: borderColor,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -319,13 +314,7 @@ class _ToolInteractionGateState extends State<ToolInteractionGate> {
     // verb already says 空答案. 空答案无可引用(收起动词已言明)。
     if (answer.isEmpty) return const SizedBox.shrink();
     // Free-text answer → a quotation (blockquote semantics, distinct from thinking's rail). 自由答复=引用。
-    return Container(
-      padding: const EdgeInsets.only(left: AnSpace.s12),
-      decoration: BoxDecoration(
-        // Blockquote left rule = the ONE quote-bar treatment (批9b A-101 — AnSize.ring was the
-        // emphasis-ring token misused as a bar width). 引用左条走统一档,ring 误用归位。
-        border: Border(left: BorderSide(color: c.lineStrong, width: AnSize.quoteBar)),
-      ),
+    return AnQuoteBar(
       child: Text(answer, style: AnText.reading.copyWith(color: c.inkMuted)),
     );
   }

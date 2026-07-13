@@ -7,6 +7,7 @@ import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
 import '../../../core/model/byte_format.dart';
 import '../../../core/ui/an_count_up.dart';
+import '../../../core/ui/an_heat_bar.dart';
 import '../../../core/ui/an_window.dart';
 import '../../../core/ui/icons.dart';
 import '../../../i18n/strings.g.dart';
@@ -390,11 +391,7 @@ Widget grepToolBody(BuildContext context, ToolCardState state) {
 // [AnSize.heatBar] tier (A-083). 相对热力短条,刻意不套 AnMeter(整行配额表角色不同);满宽走具名档。
 Widget _countHeat(BuildContext context, AnColors c, int count, int maxN) {
   return Row(mainAxisSize: MainAxisSize.min, children: [
-    Container(
-      width: AnSize.heatBar * (count / maxN).clamp(0.15, 1.0),
-      height: AnSpace.s4,
-      decoration: BoxDecoration(color: c.accentSoft, borderRadius: BorderRadius.circular(AnRadius.tag)),
-    ),
+    AnHeatBar(fraction: count / maxN),
     const SizedBox(width: AnSpace.s6),
     Text('$count', style: AnText.body.copyWith(color: c.inkMuted)),
   ]);
