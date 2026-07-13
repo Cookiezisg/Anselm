@@ -52,11 +52,21 @@ NodeKind workflowNodeKind(Object? k) => switch (k) {
       _ => NodeKind.unknown,
     };
 
+// Memoized by the session's CLOSED-op count (C-042): the workflow stage + card rebuild this every merge
+// frame (60/s) while args stream, but the closed-ops set only GROWS when an op closes — many delta frames
+// in between leave it identical. Caching by count (ops only append per session, so count ⟺ set) returns
+// the SAME Graph instance when unchanged, so AnGraphCanvas.didUpdateWidget short-circuits its O(V+E) deep
+// compare + re-layout via identity. Content is unchanged → behaviour-identical. 按闭合 op 数记忆化:返回
+// 同一 Graph 实例,canvas 经 identity 跳深比较+重布局。
+final _wfOpsGraphCache = Expando<({int count, Graph graph})>('wfOpsGraph');
+
 /// Build a [Graph] from a create_workflow ops fragment (add_node / add_edge) — tolerant of a PARTIAL
 /// mid-stream fragment (only COMPLETED ops surface via [PartialJsonSession.arrayItemsAt]). For CREATE the ops ARE
 /// the whole graph (from zero); edit_workflow's after-graph needs the fetch seam (B2.6). 从 ops 建全图。
 Graph graphFromWorkflowOps(PartialJsonSession args) {
   final ops = args.arrayItemsAt(['ops']);
+  final cached = _wfOpsGraphCache[args];
+  if (cached != null && cached.count == ops.length) return cached.graph;
   final nodes = <Node>[];
   final edges = <Edge>[];
   for (final raw in ops) {
@@ -83,7 +93,9 @@ Graph graphFromWorkflowOps(PartialJsonSession args) {
         }
     }
   }
-  return Graph(nodes: nodes, edges: edges);
+  final graph = Graph(nodes: nodes, edges: edges);
+  _wfOpsGraphCache[args] = (count: ops.length, graph: graph);
+  return graph;
 }
 
 typedef _OpCounts = ({int nodes, int edges, List<NodeKind> kinds});
