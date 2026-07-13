@@ -294,11 +294,11 @@ audience: [human, ai]
 | D-021 | chat-transcript · 发送失败泡(重试/丢弃) | failNextSend 仅脚本钩(chat_fixtures.dart:310);_PendingRow 失败态(chat_transcript.dart:614-629)demo 不可达 | open |
 | D-022 | chat-transcript · 红色 error 横幅(errorCode·errorMessage) | 无通用 error 终态种子(danger 分支 chat_transcript.dart:556 无演示);种一条 stopReason=error+errorCode 消息 | open |
 | D-023 | documents · 编辑器表格块 + URL 链接 + h1/h4–h6 标题档 | 种子正文无表格、无 markdown 链接、只有 h2/h3;补一篇全块型样章锁大纲六档下标 | open |
-| D-024 | entities · approval 详情页 | 未传 approvalForms→rail approval 段恒空;补 ApprovalForm 种子(表单 schema) | open |
-| D-025 | entities · control 详情页 | demoEntityRepository 未传 controlLogics(entity_demo_fixture.dart:169-318)→rail control 段恒空;补 ControlLogic 种子(决策梯/分支) | open |
-| D-026 | entities · flowrun parked 停车态(人闸待决 :decide) | 种带 approval 节点的 workflow 图+parked flowrunDetail(fixture 已支持 _walkFlowrun 停车,entity_fixtures.dart:345-352) | open |
-| D-027 | entities · handler/agent 版本历史 tab 有内容 | entity_demo_fixture 只种 functionVersions/workflowVersions;补 handlerVersions+agentVersions map | open |
-| D-028 | entities · 图编辑器 ref picker 的 mcp/control/approval 候选 | fixture mcpServers/mcpTools/controls/approvals 候选全空;补 RefCandidate 种子 | open |
+| D-024 | entities · approval 详情页 | 未传 approvalForms→rail approval 段恒空;补 ApprovalForm 种子(表单 schema) | done·批D2(种 ap_publish ApprovalForm[CEL 插值模板+allowReason+24h reject];rail approval 段+详情页有料;数据级电池) |
+| D-025 | entities · control 详情页 | demoEntityRepository 未传 controlLogics(entity_demo_fixture.dart:169-318)→rail control 段恒空;补 ControlLogic 种子(决策梯/分支) | done·批D2(种 ctl_quality ControlLogic[pass≥0.7/retry catch-all 分支,对齐 wf_digest 图 ref];rail control 段+详情页;数据级电池) |
+| D-026 | entities · flowrun parked 停车态(人闸待决 :decide) | 种带 approval 节点的 workflow 图+parked flowrunDetail(fixture 已支持 _walkFlowrun 停车,entity_fixtures.dart:345-352) | done·批D2(种 wf_release 人闸发布线+flr_park 停在 approve_deploy;listFlowrunInbox 有停车;数据级电池) |
+| D-027 | entities · handler/agent 版本历史 tab 有内容 | entity_demo_fixture 只种 functionVersions/workflowVersions;补 handlerVersions+agentVersions map | done·批D2(种 handlerVersions[hd_slack ×2]+agentVersions[ag_researcher ×3]版本轨迹;history tab 有料;数据级电池) |
+| D-028 | entities · 图编辑器 ref picker 的 mcp/control/approval 候选 | fixture mcpServers/mcpTools/controls/approvals 候选全空;补 RefCandidate 种子 | done·批D2(种 mcpServers[context7/filesystem]+mcpTools;control/approval 候选自实体派生;图编辑器 ref picker;数据级电池) |
 | D-029 | entities · 详情错误态(error+retry 面) | fixture 永不抛错且桌面无地址栏;需 fixture 加 failNext 脚本钩或种坏 id 展台入口 | open |
 | D-030 | notifications · OS 原生通知(失焦路由) | 同上无 signal 可路由;随 toast 展台脚本一并覆盖(失焦时验证) | open |
 | D-031 | notifications · 事件→toast(右上重要事件弹窗) | demo 无人调 fixture.emit()(仅测试用);加展台脚本延时 emit danger 行触发 ToastDispatcher | open |

@@ -1,4 +1,6 @@
 import '../../../core/contract/entities/agent.dart';
+import '../../../core/contract/entities/approval.dart';
+import '../../../core/contract/entities/control.dart';
 import '../../../core/contract/entities/function.dart';
 import '../../../core/contract/entities/handler.dart';
 import '../../../core/contract/entities/trigger.dart';
@@ -114,6 +116,10 @@ FixtureEntityRepository demoEntityRepository() {
       '{"nodes":[{"id":"on_schedule","kind":"trigger","ref":"tr_cron"},{"id":"research","kind":"agent","ref":"ag_researcher"},{"id":"summarize","kind":"action","ref":"fn_summarize"},{"id":"quality_gate","kind":"control","ref":"ctl_quality"},{"id":"post_slack","kind":"action","ref":"hd_slack.post"}],"edges":[{"id":"e1","from":"on_schedule","to":"research"},{"id":"e2","from":"research","to":"summarize"},{"id":"e3","from":"summarize","to":"quality_gate"},{"id":"e4","from":"quality_gate","fromPort":"pass","to":"post_slack"},{"id":"e5","from":"quality_gate","fromPort":"retry","to":"research"}]}';
   const graphV1 =
       '{"nodes":[{"id":"on_schedule","kind":"trigger","ref":"tr_cron"},{"id":"research","kind":"agent","ref":"ag_researcher"},{"id":"summarize","kind":"action","ref":"fn_summarize"},{"id":"post_slack","kind":"action","ref":"hd_slack.post"}],"edges":[{"id":"e1","from":"on_schedule","to":"research"},{"id":"e2","from":"research","to":"summarize"},{"id":"e3","from":"summarize","to":"post_slack"}]}';
+  // wf_release: a deploy pipeline gated by a HUMAN approval node (ap_publish) — its live run PARKS at
+  // the gate, so the entities inbox + a parked flowrunDetail have something to show (D-026). 人闸发布线:停车。
+  const graphRelease =
+      '{"nodes":[{"id":"on_push","kind":"trigger","ref":"trg_wh1"},{"id":"build","kind":"action","ref":"fn_validate"},{"id":"approve_deploy","kind":"approval","ref":"ap_publish"},{"id":"deploy","kind":"action","ref":"hd_slack.post"}],"edges":[{"id":"e1","from":"on_push","to":"build"},{"id":"e2","from":"build","to":"approve_deploy"},{"id":"e3","from":"approve_deploy","to":"deploy"}]}';
 
   WorkflowEntity wf(String id, String name, String desc, String lifecycle,
           {bool active = false, bool attention = false, String? reason}) =>
@@ -191,6 +197,8 @@ FixtureEntityRepository demoEntityRepository() {
               tags: const ['daily', 'digest']),
       wf('wf_invoice', 'invoice-sync', 'Sync invoices to the ledger', 'active', active: true, attention: true, reason: 'last run failed'),
       wf('wf_onboard', 'onboarding', 'New-user onboarding steps', 'inactive'),
+      wf('wf_release', 'deploy-release', 'Build → human approval → deploy', 'active', active: true)
+          .copyWith(activeVersion: wfVer('wf_release', 1, graphRelease, 'initial deploy pipeline')),
     ],
     functionVersions: {
       'fn_normalize': [
@@ -202,6 +210,21 @@ FixtureEntityRepository demoEntityRepository() {
       'wf_digest': [
         wfVer('wf_digest', 2, graph, 'add quality gate + retry loop'),
         wfVer('wf_digest', 1, graphV1, 'initial pipeline'),
+      ],
+    },
+    // D-027 — handler/agent version-history tabs need a real trail (the active version alone leaves the
+    // tab empty). Two handler revs + three agent revs, newest first. 版本历史 tab:多版本轨迹。
+    handlerVersions: {
+      'hd_slack': [
+        HandlerVersion(id: 'hd_slack_v1', handlerId: 'hd_slack', version: 1, imports: 'import httpx', initBody: 'self.client = httpx.Client()', methods: const [MethodSpec(name: 'post', inputs: [Field(name: 'channel', type: 'string')], outputs: [Field(name: 'ts', type: 'string')], body: 'return self.client.post(...)')], envStatus: 'ready', changeReason: 'retry loop + region arg', createdAt: t1, updatedAt: t1),
+        HandlerVersion(id: 'hd_slack_v0', handlerId: 'hd_slack', version: 0, imports: 'import requests', initBody: 'self.session = requests.Session()', envStatus: 'ready', changeReason: 'initial', createdAt: t0, updatedAt: t0),
+      ],
+    },
+    agentVersions: {
+      'ag_researcher': [
+        AgentVersion(id: 'ag_researcher_v3', agentId: 'ag_researcher', version: 3, prompt: 'You are researcher. Be precise and cite sources.', skill: 'deep-research', tools: const [ToolRef(ref: 'mcp:search/web', name: 'web-search')], changeReason: 'add web-search tool', createdAt: t1, updatedAt: t1),
+        AgentVersion(id: 'ag_researcher_v2', agentId: 'ag_researcher', version: 2, prompt: 'You are researcher. Cite sources.', skill: 'deep-research', changeReason: 'tighten prompt', createdAt: t1, updatedAt: t1),
+        AgentVersion(id: 'ag_researcher_v1', agentId: 'ag_researcher', version: 1, prompt: 'Summarize the topic.', changeReason: 'initial', createdAt: t0, updatedAt: t0),
       ],
     },
     functionExecutions: {
@@ -231,6 +254,11 @@ FixtureEntityRepository demoEntityRepository() {
         Flowrun(id: 'flr_run', workflowId: 'wf_digest', versionId: 'wf_digest_v2', status: 'running', replayCount: 0, triggerId: 'trg_3a1f', startedAt: rt(0), updatedAt: rt(2)),
         Flowrun(id: 'flr_done', workflowId: 'wf_digest', versionId: 'wf_digest_v2', status: 'completed', replayCount: 0, triggerId: 'trg_3a1f', startedAt: t1, completedAt: t1.add(const Duration(seconds: 9)), updatedAt: t1),
         Flowrun(id: 'flr_fail', workflowId: 'wf_digest', versionId: 'wf_digest_v2', status: 'failed', replayCount: 0, triggerId: 'trg_3a1f', error: 'run_tests exit code 1', startedAt: t0, completedAt: t0.add(const Duration(seconds: 4)), updatedAt: t0),
+      ],
+      // D-026 — a run PARKED at its human-approval gate (feeds the entities flowrun inbox + the parked
+      // detail below). 停在人闸的运行。
+      'wf_release': [
+        Flowrun(id: 'flr_park', workflowId: 'wf_release', versionId: 'wf_release_v1', status: 'running', replayCount: 0, triggerId: 'trg_wh1', startedAt: t1, updatedAt: t1),
       ],
     },
     flowrunDetail: {
@@ -262,6 +290,61 @@ FixtureEntityRepository demoEntityRepository() {
           FlowrunNode(id: 'f2', flowrunId: 'flr_fail', nodeId: 'summarize', kind: 'action', ref: 'fn_summarize', status: 'failed', error: 'ValueError: empty document', createdAt: t0.add(const Duration(seconds: 2)), completedAt: t0.add(const Duration(seconds: 4)), updatedAt: t0),
         ],
       ),
+      // D-026 — parked at approve_deploy: build done, gate awaiting a human :decide. 停在 approve_deploy 人闸。
+      'flr_park': FlowrunComposite(
+        flowrun: Flowrun(id: 'flr_park', workflowId: 'wf_release', versionId: 'wf_release_v1', status: 'running', replayCount: 0, triggerId: 'trg_wh1', startedAt: t1, updatedAt: t1),
+        nodes: [
+          FlowrunNode(id: 'p0', flowrunId: 'flr_park', nodeId: 'on_push', kind: 'trigger', ref: 'trg_wh1', status: 'completed', createdAt: t1, completedAt: t1, updatedAt: t1),
+          FlowrunNode(id: 'p1', flowrunId: 'flr_park', nodeId: 'build', kind: 'action', ref: 'fn_validate', status: 'completed', result: const {'ok': true}, createdAt: t1, completedAt: t1.add(const Duration(seconds: 3)), updatedAt: t1),
+          FlowrunNode(id: 'p2', flowrunId: 'flr_park', nodeId: 'approve_deploy', kind: 'approval', ref: 'ap_publish', status: 'parked', result: const {'rendered': 'Deploy **v2.4.0** to production? 42 files changed.'}, createdAt: t1.add(const Duration(seconds: 3)), updatedAt: t1.add(const Duration(seconds: 3))),
+        ],
+      ),
+    },
+    // D-025 — the ctl_quality control the wf_digest graph routes on (pass≥0.7 / retry catch-all). rail control 段。
+    controlLogics: [
+      ControlLogic(
+        id: 'ctl_quality', name: 'quality-gate', description: 'Route on the summary quality score.',
+        activeVersionId: 'ctl_quality_v1', createdAt: t0, updatedAt: t1,
+        activeVersion: ControlVersion(
+          id: 'ctl_quality_v1', controlId: 'ctl_quality', version: 1,
+          inputs: const [Field(name: 'score', type: 'number', description: 'Reviewer score 0–1.')],
+          branches: const [
+            Branch(port: 'pass', when: 'input.score >= 0.7'),
+            Branch(port: 'retry', when: 'true'),
+          ],
+          changeReason: 'initial gate', createdAt: t0, updatedAt: t1,
+        ),
+      ),
+    ],
+    // D-024 — the ap_publish approval the wf_release graph parks on (markdown template + decision rules). rail approval 段。
+    approvalForms: [
+      ApprovalForm(
+        id: 'ap_publish', name: 'publish-approval', description: 'Human sign-off before a production deploy.',
+        activeVersionId: 'ap_publish_v1', createdAt: t0, updatedAt: t1,
+        activeVersion: ApprovalVersion(
+          id: 'ap_publish_v1', approvalId: 'ap_publish', version: 1,
+          inputs: const [Field(name: 'version', type: 'string'), Field(name: 'fileCount', type: 'number')],
+          template: 'Deploy **{{ input.version }}** to production?\n\n{{ input.fileCount }} files changed.',
+          allowReason: true, timeout: '24h', timeoutBehavior: 'reject',
+          changeReason: 'initial form', createdAt: t0, updatedAt: t1,
+        ),
+      ),
+    ],
+    // D-028 — the graph editor's ref picker needs MCP server/tool candidates (control/approval candidates
+    // derive from the logics/forms above). 图编辑器 ref picker 的 mcp 候选。
+    mcpServers: const [
+      (id: 'context7', name: 'context7', meta: 'ready'),
+      (id: 'filesystem', name: 'filesystem', meta: 'ready'),
+    ],
+    mcpTools: const {
+      'context7': [
+        (id: 'resolve-library-id', name: 'resolve-library-id', meta: 'context7'),
+        (id: 'get-library-docs', name: 'get-library-docs', meta: 'context7'),
+      ],
+      'filesystem': [
+        (id: 'read_file', name: 'read_file', meta: 'filesystem'),
+        (id: 'write_file', name: 'write_file', meta: 'filesystem'),
+      ],
     },
     mountHealth: {
       'ag_researcher': const MountHealthReport(

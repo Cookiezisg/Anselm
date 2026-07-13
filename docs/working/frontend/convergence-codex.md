@@ -27,6 +27,16 @@ audience: [human, ai]
 - **AnStickViewport 增 `fadeColor`**(白宿主传 surface,灰底退役)。bar 同构补齐:编辑器 copy 驻留走 AnMotion.dwell + AnTooltip。
 - AnLedgerRow 补 `expandChild`;「展开全部 N」列表壳 **deferred → P4 吸收四套台账时落**。
 
+## 批D2 落地(2026-07-13,D 轨 demo 可达性——实体 fixture 五 GAP 补种)
+
+`demoEntityRepository()` 此前 control/approval 段恒空、版本历史仅 active 一版、无停车 run、图编辑器 ref picker 无 mcp 候选(D-024~028)。补种一个**自洽互锁的实体世界**(种子相互引用,非孤立堆料):
+- **D-025 控制**:`ctl_quality` ControlLogic(pass `input.score>=0.7` / retry catch-all 分支)——**正是 wf_digest 图路由的 ref**,补种后图的 control 节点有真实体背书。
+- **D-024 审批**:`ap_publish` ApprovalForm(CEL 插值 markdown 模板 + allowReason + 24h→reject 决策规则)。
+- **D-026 停车 run**:新 `wf_release`「build→人闸→deploy」发布线 + `flr_park` 停在 `approve_deploy`(status=parked)——喂 `listFlowrunInbox`(左岛 flowrun 收件箱)+ 详情页停车信笺。
+- **D-027 版本历史**:`handlerVersions`(hd_slack ×2)+`agentVersions`(ag_researcher ×3,最新在前),history tab 有轨迹。
+- **D-028 ref 候选**:`mcpServers`(context7/filesystem)+`mcpTools`;control/approval 候选自上面 logics/forms **自动派生**(listControls/listApprovals 已有此缝)。
+- 验收=**数据级电池**(`test/features/entities/demo_fixture_test.dart` 五测:分支端口/末支 catch-all·模板 CEL+决策规则·inbox 停车+信笺·版本轨迹倒序·mcp+派生候选)+ 实体 feature 179 测全绿(新 wf_release/种子不破既有断言)。
+
 ## 批D1 落地(2026-07-13,D 轨 demo 可达性——settings 三面板补种)
 
 D 轨(demo 全展示)开台。`make demo` 挂的 `demoSettingsRepository()` 此前只种 keys/quota,记忆·MCP·沙箱三面板全空占位 → 用户 demo 看不到这三面的真实形态(D-032/033/034)。补种诚实数据态:
