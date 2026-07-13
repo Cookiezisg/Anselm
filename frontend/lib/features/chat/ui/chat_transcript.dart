@@ -129,6 +129,16 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _jumpToBottom());
   }
 
+  // A conversation switch can REUSE this State (same widget position, no per-conversation key) — the
+  // identity row cache is keyed by turn.id and would otherwise carry the previous conversation's rows
+  // (stale memory; turn ids are globally unique so never a mis-render, but a leak). Drop it. C-036.
+  // 切会话可复用本 State(同位置无 key)——身份缓存带旧会话行(泄漏),清之。
+  @override
+  void didUpdateWidget(_TranscriptList old) {
+    super.didUpdateWidget(old);
+    if (old.conversationId != widget.conversationId) _settledRowCache.clear();
+  }
+
   @override
   void dispose() {
     _highlightTimer?.cancel();
@@ -327,11 +337,22 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
   // Terminal rows come from the identity cache (an identical instance short-circuits the element
   // rebuild — settled turns cost ZERO builds during streaming); the open turn builds fresh per tick.
   // 终态行走身份缓存(同实例短路重建——流式中 settled 行零 build);open 回合逐 tick 新建。
+  // The identity cache is bounded (C-037): a long conversation + repeated deep-jump windows would grow it
+  // without end (it never evicts). Insertion order == render order, so the FIFO-oldest entries are rows
+  // that scrolled far away — never the visible window (~20 rows) — so evicting them is invisible (they
+  // rebuild once if scrolled back). 身份缓存有界:末插=近渲染,逐最旧=已滚远行,可见窗不受影响。
+  static const _rowCacheCap = 400;
+
   Widget _rowFor(BlockNode turn) {
     Widget row;
     if (!turn.isOpen) {
-      row = _settledRowCache[turn.id] ??= _TurnRow(
-          turn: turn, streaming: false, conversationId: widget.conversationId, key: ValueKey(turn.id));
+      row = _settledRowCache[turn.id] ??= () {
+        if (_settledRowCache.length >= _rowCacheCap) {
+          _settledRowCache.remove(_settledRowCache.keys.first);
+        }
+        return _TurnRow(
+            turn: turn, streaming: false, conversationId: widget.conversationId, key: ValueKey(turn.id));
+      }();
     } else {
       row = _TurnRow(
           turn: turn, streaming: true, conversationId: widget.conversationId, key: ValueKey(turn.id));
