@@ -99,18 +99,25 @@ class _AnStatusDotState extends State<AnStatusDot> with SingleTickerProviderStat
     if (widget.status != AnStatus.run || AnMotionPref.reducedOrAssistive(context)) {
       return _dot(color, const []);
     }
-    return AnimatedBuilder(
-      animation: _c,
-      builder: (context, _) {
-        final t = AnMotion.easeOut.transform(_c.value);
-        // Ring expands 0 → dotPulse while fading out — the demo keyframe. 环扩张并淡出。
-        return _dot(color, [
-          BoxShadow(
-            color: c.accentSoft.withValues(alpha: c.accentSoft.a * (1 - t)),
-            spreadRadius: AnSize.dotPulse * t,
-          ),
-        ]);
-      },
+    // RepaintBoundary (C-017): without it, the breath ring's per-frame BoxShadow marks EVERYTHING up to
+    // the nearest ancestor boundary dirty — a running dot inside a turn row / accordion row repaints that
+    // whole subtree at 60fps. Isolating the tiny (7px + pulse spread) dot onto its own layer confines the
+    // repaint to the dot itself (same armouring [AnShimmerText] already carries). 隔层:否则呼吸环逐帧脏到
+    // 最近祖先边界=整条回合行/手风琴行 60fps 重绘;隔离到 7px 点自身图层,重绘只发生在点上。
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: _c,
+        builder: (context, _) {
+          final t = AnMotion.easeOut.transform(_c.value);
+          // Ring expands 0 → dotPulse while fading out — the demo keyframe. 环扩张并淡出。
+          return _dot(color, [
+            BoxShadow(
+              color: c.accentSoft.withValues(alpha: c.accentSoft.a * (1 - t)),
+              spreadRadius: AnSize.dotPulse * t,
+            ),
+          ]);
+        },
+      ),
     );
   }
 
