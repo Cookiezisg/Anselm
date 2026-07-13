@@ -210,6 +210,33 @@ void main() {
       expect(editor.initialMarkdown, contains('commit-helper')); // the skill body '# commit-helper'
       expect(editor.mentionSource, isNull); // no @ mentions on skills. skill 不接 @。
     });
+
+    testWidgets('an edit within the autosave window is FLUSHED on unmount — no data loss (P5, C-001 area)',
+        (tester) async {
+      final repo = _repo();
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          documentsRepositoryProvider.overrideWithValue(repo),
+          selectedDocProvider.overrideWith(() => _PinnedSelection((isSkill: false, id: 'doc_a'))),
+          mentionSourceProvider.overrideWithValue(_FakeMentions()),
+        ],
+        child: TranslationProvider(
+          child: MaterialApp(theme: AnTheme.light(), home: const Scaffold(body: DocumentOcean())),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      // Simulate a content edit (drives DocumentOcean._onChanged → schedules the 600ms autosave). The
+      // editor's onChangedMarkdown IS the ocean's _onChanged. 模拟正文编辑→排 600ms 自动保存。
+      tester.widget<AnDocumentEditor>(find.byType(AnDocumentEditor)).onChangedMarkdown(
+          '# Edited\n\nthe last line, typed just before switching away');
+      // Unmount BEFORE the 600ms autosave fires — the old bug CANCELLED the pending save here, dropping
+      // the edit. The fix FLUSHES it in dispose. 600ms 内卸载(旧 bug 在此丢存,修复在 dispose flush)。
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(); // let the flushed async save complete 让 flush 的异步存完成
+      final saved = await repo.getDocument('doc_a');
+      expect(saved.content, '# Edited\n\nthe last line, typed just before switching away',
+          reason: 'dispose must FLUSH the pending autosave — the last edit must persist, not be dropped');
+    });
   });
 
   group('planDocMove', () {

@@ -2,6 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+// `Override` (the ProviderScope override type) is exported from misc.dart, not the main barrel (Riverpod
+// 3.x). Named only for demoOverrides's signature. Override 类型在 misc.dart(3.x 主 barrel 不导出)。
+import 'package:flutter_riverpod/misc.dart' show Override;
 
 import '../app/router.dart';
 import '../app/window_setup.dart';
@@ -21,6 +24,7 @@ import '../features/documents/data/documents_demo_fixture.dart';
 import '../features/entities/data/entity_demo_fixture.dart';
 import '../features/entities/data/entity_providers.dart';
 import '../features/notifications/data/notification_demo_fixture.dart';
+import '../features/notifications/data/notification_fixture.dart';
 import '../features/notifications/data/notification_providers.dart';
 import '../i18n/strings.g.dart';
 import '../app/entity_mention_source.dart';
@@ -36,6 +40,24 @@ import '../core/entity/mention_source.dart';
 /// 入口:`make demo`——真 app 壳 + 路由(与 make app 共用 buildAppRouter、路由逐字一致),假数据驱动:一个 override 把数据缝换成
 /// 零后端 fixture。与 make app 仅两处差异:①数据源 ②无启动/工作区门控(无 sidecar 可等)。其余(MaterialApp.router、deep-link、
 /// AnOverlayHost toast/dialog 层)同一面。绝不加 per-feature 入口。
+/// The demo's ProviderScope overrides — the repository seam swapped for the zero-backend fixtures.
+/// Shared by [main] and the P5 perf harness (`integration_test/perf/`) so both drive the byte-identical
+/// app off the same fixtures; the caller passes the [notifications] repo it wants (main keeps a handle to
+/// drive its live-toast timer). demo override 集,main 与 P5 perf harness 共用同一份 fixture 驱动同一 app。
+List<Override> demoOverrides(SettingsPrefs prefs, FixtureNotificationRepository notifications) => [
+      settingsPrefsProvider.overrideWithValue(prefs),
+      goRouterProvider.overrideWith(buildAppRouter),
+      entityRepositoryProvider.overrideWithValue(demoEntityRepository()),
+      chatRepositoryProvider.overrideWithValue(demoChatRepository()),
+      documentsRepositoryProvider.overrideWithValue(demoDocumentsRepository()),
+      notificationRepositoryProvider.overrideWithValue(notifications),
+      settingsRepositoryProvider.overrideWithValue(demoSettingsRepository()),
+      // Capabilities are core-level (S-15): zero-backend demo feeds them directly, never HTTP.
+      // 能力目录在 core(S-15):零后端 demo 直喂,绝不打 HTTP。
+      modelCapabilitiesProvider.overrideWith((ref) async => demoModelCapabilities),
+      mentionSourceProvider.overrideWith(entityMentionSource),
+    ];
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   LocaleSettings.useDeviceLocaleSync();
@@ -50,28 +72,17 @@ Future<void> main() async {
   Timer(const Duration(seconds: 6), () => notifRepo.emit(demoLiveToast()));
   runApp(
     ProviderScope(
-      overrides: [
-        settingsPrefsProvider.overrideWithValue(prefs),
-        goRouterProvider.overrideWith(buildAppRouter),
-        entityRepositoryProvider.overrideWithValue(demoEntityRepository()),
-        chatRepositoryProvider.overrideWithValue(demoChatRepository()),
-        documentsRepositoryProvider.overrideWithValue(demoDocumentsRepository()),
-        notificationRepositoryProvider.overrideWithValue(notifRepo),
-        settingsRepositoryProvider.overrideWithValue(demoSettingsRepository()),
-        // Capabilities are core-level (S-15): zero-backend demo feeds them directly, never HTTP.
-        // 能力目录在 core(S-15):零后端 demo 直喂,绝不打 HTTP。
-        modelCapabilitiesProvider.overrideWith((ref) async => demoModelCapabilities),
-        mentionSourceProvider.overrideWith(entityMentionSource),
-      ],
-      child: TranslationProvider(child: const _DemoRoot()),
+      overrides: demoOverrides(prefs, notifRepo),
+      child: TranslationProvider(child: const DemoRoot()),
     ),
   );
 }
 
 /// The demo root — `MaterialApp.router` with the overlay host but NO gates. Mirrors `app.dart#AnApp`
-/// minus AppStartupGate/WorkspaceGate. demo 根:MaterialApp.router + 浮层宿主,无门控。
-class _DemoRoot extends ConsumerWidget {
-  const _DemoRoot();
+/// minus AppStartupGate/WorkspaceGate. Public so the P5 perf harness mounts the exact same tree.
+/// demo 根:MaterialApp.router + 浮层宿主,无门控;公开供 P5 perf harness 挂同一棵树。
+class DemoRoot extends ConsumerWidget {
+  const DemoRoot({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

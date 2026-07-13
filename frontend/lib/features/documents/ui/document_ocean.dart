@@ -144,7 +144,10 @@ class _DocEditViewState extends ConsumerState<_DocEditView> with _DocPageChrome 
 
   @override
   void dispose() {
-    _save.dispose();
+    // flush, NOT dispose: deliver the last unsaved edit before unmounting — a doc-switch/deselect within
+    // the 600ms autosave window used to CANCEL the pending save and silently drop it. mounted is still
+    // true here so the save callback runs. flush 非 dispose:卸载前交付末次未存编辑(防抖窗口内切走曾丢存)。
+    _save.flush();
     _outline.dispose();
     super.dispose();
   }
@@ -155,14 +158,17 @@ class _DocEditViewState extends ConsumerState<_DocEditView> with _DocPageChrome 
     _outline.run(() {
       if (mounted) feedOutlineOnEdit(markdown);
     });
+    // Capture the repo NOW (while mounted) so the save can be FLUSHED in dispose without touching `ref` —
+    // Riverpod disposes the ref during unmount, so a `ref.read` there throws. 挂载时捕获 repo,使 dispose
+    // flush 存不碰 ref(卸载期 ref 已释放,ref.read 会抛)。
+    final repo = ref.read(documentsRepositoryProvider);
     _save.run(() async {
-      if (!mounted) return;
       // Content PATCH IS the save. The editor already serializes mentions back to `[[id]]`. A failed save
       // must surface (content PATCH is the document's ONLY persistence). 存正文=PATCH content;失败必冒头。
       try {
-        await ref.read(documentsRepositoryProvider).updateDocument(widget.id, {'content': markdown});
+        await repo.updateDocument(widget.id, {'content': markdown});
       } catch (_) {
-        if (!mounted) return;
+        if (!mounted) return; // widget gone (e.g. flushed on dispose + save failed) → no toast 卸载后不弹
         ref
             .read(overlayProvider.notifier)
             .showToast(context.t.documents.actionFailed, tone: AnTone.danger);
@@ -251,7 +257,10 @@ class _SkillEditViewState extends ConsumerState<_SkillEditView> with _DocPageChr
 
   @override
   void dispose() {
-    _save.dispose();
+    // flush, NOT dispose: deliver the last unsaved edit before unmounting — a doc-switch/deselect within
+    // the 600ms autosave window used to CANCEL the pending save and silently drop it. mounted is still
+    // true here so the save callback runs. flush 非 dispose:卸载前交付末次未存编辑(防抖窗口内切走曾丢存)。
+    _save.flush();
     _outline.dispose();
     super.dispose();
   }
@@ -261,9 +270,10 @@ class _SkillEditViewState extends ConsumerState<_SkillEditView> with _DocPageChr
     _outline.run(() {
       if (mounted) feedOutlineOnEdit(markdown);
     });
+    // Capture the repo NOW (while mounted) so the save survives a flush-on-dispose (ref is gone by then).
+    // 挂载时捕获 repo,使 dispose flush 存不碰 ref。
+    final repo = ref.read(documentsRepositoryProvider);
     _save.run(() async {
-      if (!mounted) return;
-      final repo = ref.read(documentsRepositoryProvider);
       try {
         // Read-modify-write: the properties panel may have saved newer frontmatter than this view's
         // snapshot — fetch it fresh, then PUT the whole set with the new body. 写前取最新 frontmatter。
