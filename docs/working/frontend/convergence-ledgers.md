@@ -302,9 +302,9 @@ audience: [human, ai]
 | D-029 | entities · 详情错误态(error+retry 面) | fixture 永不抛错且桌面无地址栏;需 fixture 加 failNext 脚本钩或种坏 id 展台入口 | open |
 | D-030 | notifications · OS 原生通知(失焦路由) | 同上无 signal 可路由;随 toast 展台脚本一并覆盖(失焦时验证) | open |
 | D-031 | notifications · 事件→toast(右上重要事件弹窗) | demo 无人调 fixture.emit()(仅测试用);加展台脚本延时 emit danger 行触发 ToastDispatcher | open |
-| D-032 | settings · MCP 面板(server 行/registry 安装/调用日志/stderr) | fixture mcpServers/mcpRegistry/calls 全空(settings_repository.dart:717-718);种 ready+failed server+registry 条目 | open |
-| D-033 | settings · 沙箱面板(已装运行时/env 行/GC) | bootstrap ok+available 有但 runtimes/envsByOwner 空(settings_repository.dart:851-856);种 SandboxRuntime+SandboxEnv | open |
-| D-034 | settings · 记忆面板 | fixture memories 空(settings_repository.dart:685);种 pinned/user/ai 各态记忆行 | open |
+| D-032 | settings · MCP 面板(server 行/registry 安装/调用日志/stderr) | fixture mcpServers/mcpRegistry/calls 全空(settings_repository.dart:717-718);种 ready+failed server+registry 条目 | done·批D1(demo fixture 种 ready+failed MCP server[ready 带 2 工具/failed 带诚实错误]+2 registry 条目;数据级电池) |
+| D-033 | settings · 沙箱面板(已装运行时/env 行/GC) | bootstrap ok+available 有但 runtimes/envsByOwner 空(settings_repository.dart:851-856);种 SandboxRuntime+SandboxEnv | done·批D1(种 2 SandboxRuntime[python/node]+function owner 下 1 ready SandboxEnv;数据级电池) |
+| D-034 | settings · 记忆面板 | fixture memories 空(settings_repository.dart:685);种 pinned/user/ai 各态记忆行 | done·批D1(种 pinned/user/ai 各态记忆行[coding-style pin/user-timezone/retry-policy ai];pin 过滤电池) |
 | D-035 | shell · 全局快捷键+缩放(⌘B/⌘\/⌘,/⌘±/⌘0) | demo 根未挂 GlobalShortcuts(app.dart:64 只在 AppStartupGate 链;demo_main.dart:78 仅 AnOverlayHost)→demo 挂同件 | open |
 
 ### D-已可达(矩阵测试的断言底稿)

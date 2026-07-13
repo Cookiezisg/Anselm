@@ -27,6 +27,14 @@ audience: [human, ai]
 - **AnStickViewport 增 `fadeColor`**(白宿主传 surface,灰底退役)。bar 同构补齐:编辑器 copy 驻留走 AnMotion.dwell + AnTooltip。
 - AnLedgerRow 补 `expandChild`;「展开全部 N」列表壳 **deferred → P4 吸收四套台账时落**。
 
+## 批D1 落地(2026-07-13,D 轨 demo 可达性——settings 三面板补种)
+
+D 轨(demo 全展示)开台。`make demo` 挂的 `demoSettingsRepository()` 此前只种 keys/quota,记忆·MCP·沙箱三面板全空占位 → 用户 demo 看不到这三面的真实形态(D-032/033/034)。补种诚实数据态:
+- **D-034 记忆面**:三行各态——`coding-style` **pinned·user**(金 pin 行)/ `user-timezone` user / `retry-policy` **ai**(AI 撰写态)。
+- **D-032 MCP 面**:`context7` **ready** 带 2 工具(resolve-library-id/get-library-docs)+ `github` **failed** 带诚实 lastError(consecutiveFailures=3);market registry 两候选(filesystem/postgres)。
+- **D-033 沙箱面**:两 `SandboxRuntime`(python 3.11.9 / node 20.11.0 已装)+ function owner(`sync_inventory`)下一 ready `SandboxEnv`(httpx/pydantic 依赖)。
+- 验收=**数据级电池**(`test/features/settings/demo_fixture_test.dart` 三测:ready+工具/failed+错误·pin 过滤投影·runtime kind+env ready)——真机帧因 demo 冷启落 chat 非 settings、窗坐标漂移不稳,改数据级锁死种子正确性(fixture 是纯数据非渲染,数据锁足证面板有料)。
+
 ## 批5a 落地(2026-07-12,芯片族·五件收编+点族)
 
 A-032/A-033/A-034/A-036/A-038/A-046/A-048 关账(A-031 剩 AnAttachmentChip、A-039 剩 function_stage opTicker 内点随 A-043、A-045 缓议——窗头裸字形 vs 芯片壳待帧裁,均留 open 注记)。**AnBadge/AnCopyChip 物理删除**(131+8 用点机械并入 AnChip;copyDone 死键退役),AnRefPill/AnPathChip/AnScopeBadge 降**薄预设**(名字保留,壳全走 AnChip;RefPill 自有知识=kind 字形单源+a11y 类型词+交互闸,PathChip=basename 切法,ScopeBadge=枚举 slang 表)。法典族三增量(签名外小参数,随批签字):
