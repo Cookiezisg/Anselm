@@ -19,15 +19,12 @@ Widget triggerConfigBody(BuildContext context, ToolCardState state) {
   final t = Translations.of(context);
   final c = context.colors;
 
-  Map<String, dynamic>? args, result;
+  Map<String, dynamic>? args;
   try {
     final d = jsonDecode(state.argsText);
     if (d is Map<String, dynamic>) args = d;
   } catch (_) {}
-  try {
-    final d = jsonDecode(state.resultText);
-    if (d is Map<String, dynamic>) result = d;
-  } catch (_) {}
+  final result = state.resultObj; // C-028: memoized decode 记忆化解码
 
   final kind = (args?['kind'] ?? '').toString();
   final config = (args?['config'] as Map?) ?? const {};
@@ -141,11 +138,7 @@ List<Widget> _faceOf(BuildContext context, Translations t, AnColors c, String ki
 /// active workflow reference starts it); edit on a live trigger → `热更新已生效` (its config took effect
 /// at once). trigger 回执:kind + 监听态。
 ToolReceipt? triggerReceipt(Translations t, ToolCardState state) {
-  Map<String, dynamic>? out;
-  try {
-    final d = jsonDecode(state.resultText);
-    if (d is Map<String, dynamic>) out = d;
-  } catch (_) {}
+  final out = state.resultObj; // C-028: memoized decode 记忆化解码
   if (out == null) return null;
   final listening = out['listening'] == true;
   return listening

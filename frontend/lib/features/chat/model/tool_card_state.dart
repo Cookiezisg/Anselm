@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../../../core/contract/messages/block_content.dart';
 import '../../../core/messages/args_session.dart';
 import '../../../core/messages/block_tree_reducer.dart';
@@ -101,6 +103,29 @@ class ToolCardState {
   static final Expando<PartialJsonSession> _fallbackSessions = Expando('toolCardArgs');
 
   final String resultText;
+
+  /// The result JSON decoded to a `Map`, or null (non-object / unparseable / empty). Memoized PER INSTANCE
+  /// via an [Expando] (C-028, the same idiom as [argsSession]): family bodies / receipts decode
+  /// [resultText] every build, and settled cards re-render on the 1s ticker + inside live turns — so
+  /// without this a KB~百KB result JSON re-parses every frame, N cards × per frame. [ToolCardState.of] is
+  /// memoized on the node revision, so the same instance (hence its cache) survives until the result
+  /// actually changes → a new instance re-decodes. 结果 JSON 解为 Map,per-instance 记忆化(同 argsSession);
+  /// 族体/回执每 build 重解析同一 settled 结果,revision 变才新实例重解。
+  Map<String, dynamic>? get resultObj {
+    final cached = _resultObjCache[this];
+    if (cached != null) return identical(cached, _kNoObj) ? null : cached as Map<String, dynamic>;
+    Map<String, dynamic>? r;
+    try {
+      final d = jsonDecode(resultText);
+      if (d is Map<String, dynamic>) r = d;
+    } catch (_) {}
+    _resultObjCache[this] = r ?? _kNoObj;
+    return r;
+  }
+
+  static final Expando<Object> _resultObjCache = Expando('toolCardResultObj');
+  static final Object _kNoObj = Object(); // sentinel: decoded to null (Expando can't store null) 空哨兵
+
   final String errorText;
 
   /// The nested progress block's accumulated text (wire snapshot key is `text`).

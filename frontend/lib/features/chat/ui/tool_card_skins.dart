@@ -1,4 +1,3 @@
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -424,11 +423,7 @@ Widget decideApprovalBody(BuildContext context, ToolCardState state) {
   final reason = argString(state.argsText, 'reason');
   final isYes = decision == 'yes';
 
-  Map<String, dynamic>? out;
-  try {
-    final d = jsonDecode(state.resultText);
-    if (d is Map<String, dynamic>) out = d;
-  } catch (_) {}
+  final out = state.resultObj; // C-028: memoized decode (per-instance) 记忆化解码
   final fr = out?['flowrun'] as Map<String, dynamic>?;
   final flowStatus = fr?['status'] as String?;
   final summary = out?['nodeSummary'] as Map<String, dynamic>?;
@@ -492,11 +487,7 @@ Widget decideApprovalBody(BuildContext context, ToolCardState state) {
 Widget listApprovalInboxBody(BuildContext context, ToolCardState state) {
   final t = Translations.of(context);
   final c = context.colors;
-  Map<String, dynamic>? out;
-  try {
-    final d = jsonDecode(state.resultText);
-    if (d is Map<String, dynamic>) out = d;
-  } catch (_) {}
+  final out = state.resultObj; // C-028: memoized decode (per-instance) 记忆化解码
   final parked = (out?['parked'] as List?) ?? const [];
   final count = (out?['count'] as num?)?.toInt() ?? parked.length;
   if (count == 0) {
@@ -701,11 +692,7 @@ String? buildEntityKind(String toolName) {
 Widget runStatBarOf(BuildContext context, ToolCardState state, {List<AnStat> extraStats = const []}) {
   final t = Translations.of(context);
   final c = context.colors;
-  Map<String, dynamic>? out;
-  try {
-    final d = jsonDecode(state.resultText);
-    if (d is Map<String, dynamic>) out = d;
-  } catch (_) {}
+  final out = state.resultObj; // C-028: memoized decode (per-instance) 记忆化解码
   // Domain-fed stats must survive an unparsable result (the fn stage's diff counts render even
   // when the receipt JSON is absent — the old sibling badge did). 域外挂 stat 不随回执缺席而消失。
   if (out == null) {

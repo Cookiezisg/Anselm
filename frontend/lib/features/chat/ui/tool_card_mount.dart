@@ -1,4 +1,3 @@
-import 'dart:convert';
 
 import 'package:flutter/widgets.dart';
 
@@ -109,11 +108,7 @@ Widget _handlerToolBody(BuildContext context, ToolCardState state) {
   if (live) {
     return AnLiveTail(state.progressText, style: AnLiveTailStyle.mono, tailLines: 12);
   }
-  Object? result;
-  try {
-    final d = jsonDecode(state.resultText);
-    if (d is Map && d.containsKey('result')) result = d['result'];
-  } catch (_) {}
+  final result = state.resultObj?['result']; // C-028: memoized decode 记忆化解码
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
     // The streamed yields (if any) are the progress log. yield 流(如有)。
     if (state.progressText.isNotEmpty)

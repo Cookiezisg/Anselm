@@ -284,11 +284,7 @@ ToolCardSpec _build({
           ? argStringPartial(s.argsText, 'name')
           : (editIdKey == null ? null : argString(s.argsText, editIdKey)),
       receipt: receipt ?? (t, s) {
-        Map<String, dynamic>? out;
-        try {
-          final d = jsonDecode(s.resultText);
-          if (d is Map<String, dynamic>) out = d;
-        } catch (_) {}
+        final out = s.resultObj; // C-028: memoized decode 记忆化解码
         if (out == null) return null;
         final v = out['version'];
         final envFailed = out['envStatus'] == 'failed' || (out['envError'] as String?)?.isNotEmpty == true;
@@ -373,11 +369,7 @@ ToolCardSpec _entityGet({
         return argStringPartial(s.argsText, idKey);
       },
       receipt: (t, s) {
-        Map<String, dynamic>? out;
-        try {
-          final d = jsonDecode(s.resultText);
-          if (d is Map<String, dynamic>) out = d;
-        } catch (_) {}
+        final out = s.resultObj; // C-028: memoized decode 记忆化解码
         final v = (out?['activeVersion'] as Map?)?['version'] ?? out?['version'];
         // get success ⇒ never danger (the entity's own bad state is INFORMATION, shown in the body).
         // get 成功⇒绝不 danger(实体坏态是被看见的信息、体内讲)。
@@ -908,8 +900,8 @@ final Map<String, ToolCardSpec> _catalog = {
     // A scalar result → a value preview `→ v`; else no receipt (the body shows it). 标量→值预览。
     receipt: (t, s) {
       try {
-        final d = jsonDecode(s.resultText);
-        if (d is Map && d.containsKey('result')) {
+        final d = s.resultObj; // C-028: memoized decode 记忆化解码
+        if (d != null && d.containsKey('result')) {
           final r = d['result'];
           if (r is String || r is num || r is bool) {
             final v = r is String ? '"$r"' : '$r';
@@ -1135,7 +1127,7 @@ final Map<String, ToolCardSpec> _catalog = {
     receipt: (t, s) {
       // The flowrun's status after the decision (parse the result's flowrun.status). 裁决后 flowrun 状态。
       try {
-        final d = jsonDecode(s.resultText);
+        final d = s.resultObj; // C-028: memoized decode 记忆化解码
         final fr = d is Map<String, dynamic> ? d['flowrun'] : null;
         final status = fr is Map<String, dynamic> ? fr['status'] as String? : null;
         if (status != null && status.isNotEmpty) return (text: status, tone: ToolReceiptTone.none);
@@ -1151,7 +1143,7 @@ final Map<String, ToolCardSpec> _catalog = {
     verb: (t, {required bool live}) => live ? t.chat.tool.clearing : t.chat.tool.cleared,
     receipt: (t, s) {
       try {
-        final d = jsonDecode(s.resultText);
+        final d = s.resultObj; // C-028: memoized decode 记忆化解码
         final count = d is Map<String, dynamic> ? (d['count'] as num?)?.toInt() : null;
         if (count != null) {
           return (

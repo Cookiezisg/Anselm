@@ -4,7 +4,6 @@ import '../../../core/contract/entities/values.dart';
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
-import 'dart:convert';
 
 import '../../../core/model/partial_json.dart';
 import '../../../core/ui/ui.dart';
@@ -28,11 +27,7 @@ import 'tool_card_skins.dart';
 /// so it's a WARN (「建了≠上线」的诚实半态),not a failure; the row nudges toward activate_workflow.
 /// create_workflow 回执:v1 · 未激活(inactive 是预期半态、warn 非失败,行提示去 activate)。
 ToolReceipt? workflowCreateReceipt(Translations t, ToolCardState state) {
-  Map<String, dynamic>? out;
-  try {
-    final d = jsonDecode(state.resultText);
-    if (d is Map<String, dynamic>) out = d;
-  } catch (_) {}
+  final out = state.resultObj; // C-028: memoized decode 记忆化解码
   if (out == null) return null;
   final v = out['version'];
   if (v == null) return null;

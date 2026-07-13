@@ -1,4 +1,3 @@
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
@@ -99,13 +98,11 @@ Widget documentBody(BuildContext context, ToolCardState state) {
 
 /// The skill collapsed-row receipt — the created/updated slug from the JSON result. skill 回执:slug。
 ToolReceipt? skillReceipt(Translations t, ToolCardState state) {
-  try {
-    final d = jsonDecode(state.resultText);
-    if (d is Map<String, dynamic>) {
-      final name = d['created'] ?? d['updated'];
-      if (name is String && name.isNotEmpty) return (text: name, tone: ToolReceiptTone.none);
-    }
-  } catch (_) {}
+  final d = state.resultObj; // C-028: memoized decode 记忆化解码
+  if (d != null) {
+    final name = d['created'] ?? d['updated'];
+    if (name is String && name.isNotEmpty) return (text: name, tone: ToolReceiptTone.none);
+  }
   return null;
 }
 
