@@ -105,17 +105,22 @@ class StageActivityView {
   final int unread;
   final String? itemId;
 
+  // [unread] is DELIBERATELY excluded from value equality (C-003): it is a beat counter for a
+  // not-yet-built channel-tab badge — NOTHING renders it and no logic reads it. Including it meant every
+  // delta on a NON-subject channel (unread++) broke StageState equality → the whole _AccordionList
+  // rebuilt + _computeRows re-ran EVERY frame during parallel-tool streaming. Equality tracks only what
+  // the island RENDERS. unread 刻意不入值相等:它是未建的频道 tab 徽的拍数、无处渲染无处读;曾令非主角每
+  // delta 破坏 StageState 相等→并行流式时整手风琴每帧重建。相等只追可渲染面。
   @override
   bool operator ==(Object other) =>
       other is StageActivityView &&
       other.blockId == blockId &&
       other.live == live &&
       other.failed == failed &&
-      other.unread == unread &&
       other.itemId == itemId;
 
   @override
-  int get hashCode => Object.hash(blockId, live, failed, unread, itemId);
+  int get hashCode => Object.hash(blockId, live, failed, itemId);
 }
 
 /// What the island renders — the director's full output, immutable per emission. 导演器输出快照。
