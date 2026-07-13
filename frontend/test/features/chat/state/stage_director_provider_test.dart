@@ -39,6 +39,25 @@ void main() {
     expect(s.subject!.kind, 'function');
   });
 
+  testWidgets('C-020 a content delta does NOT re-publish the stage state (no re-allocation)',
+      (tester) async {
+    final repo = FixtureChatRepository();
+    final c = ProviderContainer(overrides: [chatRepositoryProvider.overrideWithValue(repo)]);
+    addTearDown(c.dispose);
+    c.listen(stageDirectorProvider(_conv), (_, _) {});
+    await tester.pump();
+    repo.emitFrame(_conv, _open('b1', 'create_function'));
+    await tester.pump(const Duration(milliseconds: 600));
+    final before = c.read(stageDirectorProvider(_conv));
+    expect(before.stageOpen, isTrue);
+    // A streaming content delta bumps only unread/lastActivity (never the published view), so the
+    // provider's state instance stays IDENTICAL — no per-delta StageState re-allocation. 内容 delta 不换 state。
+    repo.emitFrame(_conv, _delta('b1'));
+    await tester.pump();
+    expect(identical(c.read(stageDirectorProvider(_conv)), before), isTrue,
+        reason: 'delta 不重造/不通知,state 实例不变');
+  });
+
   testWidgets('a short op (open+close inside the window) never stages; curtain returns to idle',
       (tester) async {
     final repo = FixtureChatRepository();

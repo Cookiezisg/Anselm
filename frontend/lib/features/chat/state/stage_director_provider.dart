@@ -82,7 +82,13 @@ class StageDirectorController extends Notifier<StageState> {
         if (m != null) _pollFlowrun[parentId] = m.group(1)!;
         return;
       case FrameDelta():
+        // A delta only bumps unread (excluded from StageState equality, C-003) + lastActivityAt (not on
+        // the published view) — it NEVER changes the published state. Skip the per-delta state
+        // re-allocation (数百 delta/s × StageState + views, C-020); just re-arm the schedule since activity
+        // pushes the dwell/switch deadlines. delta 不改已发布 state:跳重造分配,仅重排闹钟。
         _director.onActivity(env.id, now);
+        _schedule();
+        return;
       case FrameClose(:final status, :final result):
         _director.onToolClose(env.id, now, ok: status != 'error' && status != 'cancelled');
         if (_pollBlocks.containsKey(env.id)) {
