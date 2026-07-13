@@ -563,6 +563,21 @@ class Translations$a11y$en {
 
 	/// en: 'time budget'
 	String get timeoutBudget => 'time budget';
+
+	/// en: 'Bold'
+	String get fmtBold => 'Bold';
+
+	/// en: 'Italic'
+	String get fmtItalic => 'Italic';
+
+	/// en: 'Strikethrough'
+	String get fmtStrike => 'Strikethrough';
+
+	/// en: 'Inline code'
+	String get fmtCode => 'Inline code';
+
+	/// en: 'Link'
+	String get fmtLink => 'Link';
 }
 
 // Path: diff
@@ -5639,6 +5654,11 @@ extension on Translations {
 			'a11y.diff' => ({required Object added, required Object removed}) => 'Diff, ${added} added, ${removed} removed',
 			'a11y.loading' => 'Loading',
 			'a11y.timeoutBudget' => 'time budget',
+			'a11y.fmtBold' => 'Bold',
+			'a11y.fmtItalic' => 'Italic',
+			'a11y.fmtStrike' => 'Strikethrough',
+			'a11y.fmtCode' => 'Inline code',
+			'a11y.fmtLink' => 'Link',
 			'diff.added' => 'Added',
 			'diff.removed' => 'Removed',
 			'tree.invalidJson' => 'Invalid JSON',
@@ -5927,13 +5947,13 @@ extension on Translations {
 			'documents.errorHint' => 'The local engine didn\'t return it.',
 			'documents.retry' => 'Retry',
 			'documents.emptyTitle' => 'Nothing here yet',
+			_ => null,
+		} ?? switch (path) {
 			'documents.emptyHint' => 'Create a document or a skill to get started.',
 			'documents.pickTitle' => 'Pick a document',
 			'documents.pickHint' => 'Choose a document or skill on the left to read or edit it.',
 			'documents.loadFailed' => 'Couldn\'t open this',
 			'documents.rename' => 'Rename',
-			_ => null,
-		} ?? switch (path) {
 			'documents.duplicate' => 'Duplicate',
 			'documents.deleteDocTitle' => 'Delete this page?',
 			'documents.deleteDocBody' => ({required Object name}) => '“${name}” and everything nested inside it will be removed.',

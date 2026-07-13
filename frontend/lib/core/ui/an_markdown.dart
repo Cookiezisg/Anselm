@@ -354,7 +354,7 @@ class _AnBlockQuoteMd extends BlockQuote {
               child: BlockQuoteWidget(
                 color: c.lineStrong,
                 direction: config.textDirection,
-                width: AnSize.gripLine,
+                width: AnSize.quoteBar,
                 child: Padding(
                   padding: const EdgeInsetsDirectional.only(start: AnSpace.s12),
                   child: conf.getRich(child),

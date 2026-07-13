@@ -284,6 +284,11 @@ class _Translations$a11y$zh_CN extends Translations$a11y$en {
 	@override String diff({required Object added, required Object removed}) => '差异,新增 ${added},删除 ${removed}';
 	@override String get loading => '加载中';
 	@override String get timeoutBudget => '时限';
+	@override String get fmtBold => '加粗';
+	@override String get fmtItalic => '斜体';
+	@override String get fmtStrike => '删除线';
+	@override String get fmtCode => '行内代码';
+	@override String get fmtLink => '链接';
 }
 
 // Path: diff
@@ -2848,6 +2853,11 @@ extension on TranslationsZhCn {
 			'a11y.diff' => ({required Object added, required Object removed}) => '差异,新增 ${added},删除 ${removed}',
 			'a11y.loading' => '加载中',
 			'a11y.timeoutBudget' => '时限',
+			'a11y.fmtBold' => '加粗',
+			'a11y.fmtItalic' => '斜体',
+			'a11y.fmtStrike' => '删除线',
+			'a11y.fmtCode' => '行内代码',
+			'a11y.fmtLink' => '链接',
 			'diff.added' => '新增',
 			'diff.removed' => '删除',
 			'tree.invalidJson' => '无效 JSON',
@@ -3136,13 +3146,13 @@ extension on TranslationsZhCn {
 			'documents.errorHint' => '本地引擎没有返回它。',
 			'documents.retry' => '重试',
 			'documents.emptyTitle' => '这里还什么都没有',
+			_ => null,
+		} ?? switch (path) {
 			'documents.emptyHint' => '新建一篇文档或一个技能开始。',
 			'documents.pickTitle' => '选一篇文档',
 			'documents.pickHint' => '在左侧选一篇文档或技能来阅读或编辑。',
 			'documents.loadFailed' => '打不开这个',
 			'documents.rename' => '改名',
-			_ => null,
-		} ?? switch (path) {
 			'documents.duplicate' => '创建副本',
 			'documents.deleteDocTitle' => '删除这个页面?',
 			'documents.deleteDocBody' => ({required Object name}) => '“${name}”及其下嵌套的所有内容都会被删除。',

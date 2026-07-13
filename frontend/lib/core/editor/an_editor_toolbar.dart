@@ -5,8 +5,8 @@ import 'package:super_editor/super_editor.dart';
 import '../../i18n/strings.g.dart';
 import '../design/colors.dart';
 import '../design/tokens.dart';
+import '../ui/an_button.dart';
 import '../ui/an_input.dart';
-import '../ui/an_interactive.dart';
 import '../ui/icons.dart';
 
 /// The floating inline-format toolbar — appears ABOVE an expanded text selection and toggles bold /
@@ -239,31 +239,26 @@ class _AnFormatBar extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _FormatButton(
-              icon: AnIcons.bold,
-              active: active.contains(boldAttribution),
-              onTap: () => _toggle(boldAttribution),
-            ),
-            _FormatButton(
-              icon: AnIcons.italic,
-              active: active.contains(italicsAttribution),
-              onTap: () => _toggle(italicsAttribution),
-            ),
-            _FormatButton(
-              icon: AnIcons.strikethrough,
-              active: active.contains(strikethroughAttribution),
-              onTap: () => _toggle(strikethroughAttribution),
-            ),
-            _FormatButton(
-              icon: AnIcons.codeBlock,
-              active: active.contains(codeAttribution),
-              onTap: () => _toggle(codeAttribution),
-            ),
-            _FormatButton(
-              icon: AnIcons.link,
-              active: linked,
-              onTap: () => _linkAction(active),
-            ),
+            AnButton.iconOnly(AnIcons.bold,
+                toggled: active.contains(boldAttribution),
+                semanticLabel: t.a11y.fmtBold,
+                onPressed: () => _toggle(boldAttribution)),
+            AnButton.iconOnly(AnIcons.italic,
+                toggled: active.contains(italicsAttribution),
+                semanticLabel: t.a11y.fmtItalic,
+                onPressed: () => _toggle(italicsAttribution)),
+            AnButton.iconOnly(AnIcons.strikethrough,
+                toggled: active.contains(strikethroughAttribution),
+                semanticLabel: t.a11y.fmtStrike,
+                onPressed: () => _toggle(strikethroughAttribution)),
+            AnButton.iconOnly(AnIcons.codeBlock,
+                toggled: active.contains(codeAttribution),
+                semanticLabel: t.a11y.fmtCode,
+                onPressed: () => _toggle(codeAttribution)),
+            AnButton.iconOnly(AnIcons.link,
+                toggled: linked,
+                semanticLabel: t.a11y.fmtLink,
+                onPressed: () => _linkAction(active)),
           ],
         ),
       ),
@@ -346,43 +341,6 @@ class _LinkInputBarState extends State<_LinkInputBar> {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _FormatButton extends StatelessWidget {
-  const _FormatButton({
-    required this.icon,
-    required this.active,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final bool active;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnInteractive(
-      onTap: onTap,
-      builder: (context, states) {
-        final c = context.colors;
-        final hot = states.isActive || active;
-        return AnimatedContainer(
-          duration: AnMotion.fast,
-          width: AnSize.row,
-          height: AnSize.row,
-          decoration: BoxDecoration(
-            color: (active ? c.accentSoft : c.surfaceHover).whenActive(hot),
-            borderRadius: BorderRadius.circular(AnRadius.button),
-          ),
-          child: Icon(
-            icon,
-            size: AnSize.icon,
-            color: active ? c.accent : c.ink,
-          ),
-        );
-      },
     );
   }
 }

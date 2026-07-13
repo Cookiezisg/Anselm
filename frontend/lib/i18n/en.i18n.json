@@ -778,7 +778,12 @@
     "jsonTree": "JSON tree, $count items",
     "diff": "Diff, $added added, $removed removed",
     "loading": "Loading",
-    "timeoutBudget": "time budget"
+    "timeoutBudget": "time budget",
+    "fmtBold": "Bold",
+    "fmtItalic": "Italic",
+    "fmtStrike": "Strikethrough",
+    "fmtCode": "Inline code",
+    "fmtLink": "Link"
   },
   "diff": {
     "added": "Added",

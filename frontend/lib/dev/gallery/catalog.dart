@@ -440,6 +440,11 @@ final GalleryCategory _g1Controls = GalleryCategory('基础控件 Controls', AnI
     GallerySpecimen('danger', (_) => AnButton(label: 'Delete', variant: AnButtonVariant.danger, onPressed: () {})),
     GallerySpecimen('danger outline', (_) => AnButton(label: 'Delete', icon: AnIcons.trash, variant: AnButtonVariant.danger, outline: true, onPressed: () {})),
     GallerySpecimen('icon', (_) => AnButton.iconOnly(AnIcons.more, semanticLabel: 'More', onPressed: () {})),
+    GallerySpecimen('icon toggled (格式开态)', (_) => Row(mainAxisSize: MainAxisSize.min, children: [
+          AnButton.iconOnly(AnIcons.bold, toggled: true, semanticLabel: 'Bold', onPressed: () {}),
+          const SizedBox(width: AnSpace.s4),
+          AnButton.iconOnly(AnIcons.italic, toggled: false, semanticLabel: 'Italic', onPressed: () {}),
+        ])),
     GallerySpecimen('size=sm', (_) => AnButton(label: 'Small', size: AnButtonSize.sm, onPressed: () {})),
     GallerySpecimen('disabled', (_) => const AnButton(label: 'Disabled', onPressed: null)),
     GallerySpecimen('block', (_) => AnButton(label: 'Block', icon: AnIcons.enter, block: true, onPressed: () {}), span: true),

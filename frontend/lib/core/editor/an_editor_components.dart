@@ -219,7 +219,7 @@ class _AnBlockquoteComponent extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.only(left: AnSpace.s12),
         decoration: BoxDecoration(
-          border: Border(left: BorderSide(color: barColor, width: 2)),
+          border: Border(left: BorderSide(color: barColor, width: AnSize.quoteBar)),
         ),
         child: Row(
           children: [

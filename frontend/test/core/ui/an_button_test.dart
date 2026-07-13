@@ -19,4 +19,21 @@ void main() {
     await tester.pumpWidget(host(Center(child: SizedBox(width: 400, child: AnButton(label: 'Wide', block: true, onPressed: () {})))));
     expect(tester.getSize(find.byType(AnButton)).width, 400);
   });
+
+  testWidgets('toggled icon button carries the a11y toggled state; off does not (A-106)', (tester) async {
+    await tester.pumpWidget(host(Row(mainAxisSize: MainAxisSize.min, children: [
+      AnButton.iconOnly(AnIcons.bold, toggled: true, semanticLabel: 'Bold', onPressed: () {}),
+      AnButton.iconOnly(AnIcons.italic, toggled: false, semanticLabel: 'Italic', onPressed: () {}),
+    ])));
+    await tester.pump();
+    expect(
+        tester.getSemantics(find.bySemanticsLabel('Bold')),
+        matchesSemantics(isButton: true, isToggled: true, hasToggledState: true, hasTapAction: true,
+            isFocusable: true, hasFocusAction: true, hasEnabledState: true, isEnabled: true,
+            hasSelectedState: true));
+    // Off state must NOT expose a toggled flag (it's a plain icon button until turned on). 关态无 toggled。
+    final off = tester.getSemantics(find.bySemanticsLabel('Italic'));
+    expect(off, matchesSemantics(isButton: true, hasTapAction: true, isFocusable: true,
+        hasFocusAction: true, hasEnabledState: true, isEnabled: true, hasSelectedState: true));
+  });
 }

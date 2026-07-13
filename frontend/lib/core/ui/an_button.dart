@@ -36,13 +36,16 @@ class AnButton extends StatelessWidget {
     this.block = false,
     this.elevated = false,
     this.round = false,
+    this.toggled = false,
     this.semanticLabel,
     this.focusNode,
     this.autofocus = false,
     super.key,
   });
 
-  /// Square icon-only button (label folds into the semantic label). 方形纯图标钮。
+  /// Square icon-only button (label folds into the semantic label). [toggled] gives it an ON state
+  /// (accent glyph over an accentSoft fill + a11y toggled) — a format/mode toggle in a toolbar.
+  /// 方形纯图标钮;[toggled]=开态(accent 字形+accentSoft 底+a11y toggled),工具条格式/模式开关。
   const AnButton.iconOnly(
     IconData this.icon, {
     required this.onPressed,
@@ -51,6 +54,7 @@ class AnButton extends StatelessWidget {
     this.outline = false,
     this.elevated = false,
     this.round = false,
+    this.toggled = false,
     required String this.semanticLabel,
     this.focusNode,
     this.autofocus = false,
@@ -72,6 +76,9 @@ class AnButton extends StatelessWidget {
 
   /// Circle/stadium shape (pill radius) — the composer's filled send/stop button. 圆形/胶囊。
   final bool round;
+
+  /// The ON state for a toggle button (accent glyph + accentSoft fill, a11y toggled). 开关按下态。
+  final bool toggled;
   final String? semanticLabel;
   final FocusNode? focusNode;
   final bool autofocus;
@@ -96,9 +103,14 @@ class AnButton extends StatelessWidget {
     final padX = isIcon ? 0.0 : (size == AnButtonSize.sm ? AnSize.btnPadXSm : AnSize.btnPadX);
     final baseStyle = size == AnButtonSize.sm ? AnText.meta : AnText.body;
 
-    return Semantics(
+    // MergeSemantics folds this node's label/toggled with AnInteractive's button+tap node into ONE
+    // (else a screen reader hits a label node WITHOUT the tap action — batch5 chip lesson).
+    // 合并语义:标签/toggled 与 AnInteractive 的 button+tap 并一节点(否则读屏摸到无 tap 的标签节点)。
+    return MergeSemantics(
+      child: Semantics(
       button: true,
       enabled: enabled,
+      toggled: toggled ? true : null,
       label: semanticLabel ?? label,
       child: Opacity(
         opacity: enabled ? 1 : AnOpacity.disabled,
@@ -113,8 +125,8 @@ class AnButton extends StatelessWidget {
             final active = states.isActive;
             final focused = states.contains(WidgetState.focused);
 
-            late final Color bg;
-            late final Color fg;
+            late Color bg;
+            late Color fg;
             // Regular (w400) label over the Light (w300) body — two-weight rule: no heavier CTA. 两种字重:加粗一律 Regular。
             final weight = AnText.emphasisWeight;
             switch (variant) {
@@ -132,6 +144,13 @@ class AnButton extends StatelessWidget {
               case AnButtonVariant.icon:
                 fg = active ? c.ink : c.inkFaint;
                 bg = c.surfaceHover.whenActive(active);
+            }
+
+            // Toggle ON overrides the resting look: accent glyph over a solid accentSoft fill (the
+            // format/mode "pressed" state). 开态覆写:accent 字形 + accentSoft 实底。
+            if (toggled) {
+              fg = c.accent;
+              bg = c.accentSoft;
             }
 
             // Always allocate the border slot (transparent when unfocused) so gaining the focus ring
@@ -191,6 +210,7 @@ class AnButton extends StatelessWidget {
           },
         ),
       ),
+    ),
     );
   }
 }

@@ -52,6 +52,14 @@ A-032/A-033/A-034/A-036/A-038/A-046/A-048 关账(A-031 剩 AnAttachmentChip、A-
 3. **reduced 双闸选档**:装饰循环(shimmer/呼吸/雷达/转圈/打字机)=reducedOrAssistive;功能性一次揭示(展开/洗亮/入场)=reduced。
 4. **表单内联错误=label(13)+danger+top:s8;整面载入失败=AnState(error)**;行内空态=AnState inset;rail 整面四态=AnRailStates。
 
+### 批9b 落地(2026-07-13,A 轨编辑器簇·引用条统一+按钮 toggle 态)
+
+A-101/103/106 done:
+- **引用块左条统一**(A-101+A-103):三处手写引用左条(人闸自由答复 ring 1.5+line / 编辑器 2+lineStrong / markdown gripLine+lineStrong)→新档 `AnSize.quoteBar`(=2)+色统一 lineStrong;人闸处 AnSize.ring 误用(强调环 token 当条宽)归位,可见变化=1.5→2 宽+line→lineStrong 色(略强,帧供否决)。
+- **AnButton toggle 态**(A-106,强化地基):AnButton.iconOnly 长 `toggled`(开态=accent 字形+accentSoft 实底+a11y `toggled` 语义);顺手 **MergeSemantics 修全 AnButton 潜在双语义节点**(外层 label 节点与 AnInteractive tap 节点此前分叉,读屏摸到无 tap 的标签节点——批5 chip 教训同病);编辑器 `_FormatButton` 手搓 toggle 退役,5 格式钮(粗/斜/删/码/链)改 AnButton.iconOnly+补 a11y 键(fmtBold/Italic/Strike/Code/Link 双语);gallery 补 toggled 样张+电池(toggled 语义钉+off 态无 toggled)。
+
+**A-085 判断题记档**:编辑器选区浮条(chip 圆角+shadowPop)与 AnFloatingBar(button 圆角+shadowFloat)角色可辨(overlay-popover vs 画布 chrome,shadowPop 是覆层阴影语义)——不硬套,留 open 待窗族批统一裁决。
+
 ### 批9a 落地(2026-07-13,A 轨扫尾·机械/小件波——15 行关账)
 
 A-083/087/099/100/102/105/107/108/109/110/111/112/114 done + A-012/A-115 追认/证伪:

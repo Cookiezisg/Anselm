@@ -778,7 +778,12 @@
     "jsonTree": "JSON 树,$count 项",
     "diff": "差异,新增 $added,删除 $removed",
     "loading": "加载中",
-    "timeoutBudget": "时限"
+    "timeoutBudget": "时限",
+    "fmtBold": "加粗",
+    "fmtItalic": "斜体",
+    "fmtStrike": "删除线",
+    "fmtCode": "行内代码",
+    "fmtLink": "链接"
   },
   "diff": {
     "added": "新增",

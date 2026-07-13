@@ -322,7 +322,9 @@ class _ToolInteractionGateState extends State<ToolInteractionGate> {
     return Container(
       padding: const EdgeInsets.only(left: AnSpace.s12),
       decoration: BoxDecoration(
-        border: Border(left: BorderSide(color: c.line, width: AnSize.ring)),
+        // Blockquote left rule = the ONE quote-bar treatment (批9b A-101 — AnSize.ring was the
+        // emphasis-ring token misused as a bar width). 引用左条走统一档,ring 误用归位。
+        border: Border(left: BorderSide(color: c.lineStrong, width: AnSize.quoteBar)),
       ),
       child: Text(answer, style: AnText.reading.copyWith(color: c.inkMuted)),
     );
