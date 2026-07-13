@@ -38,6 +38,19 @@ audience: [human, ai]
 - `backend_controller` 埋 `[startup]` 计时(`masterKey resolve` / `spawn` / `health-wait` / `total`,release 剥除)。
 - **唯一真机产线残余**:计时收益 + 全新装机无变砖须真机**产线 spawn 路径**验(dev 走 `ANSELM_BACKEND_URL` attach 不 spawn,故 dev 无法跑到 spawn/keychain);机制已落 + 测,埋点就绪。
 
-## 常驻预算门禁
+## 主面场景套件 · 常驻 build-side 预算门禁
 
-每项的 build-count/build-cost 断言进 `test/perf/` + 散测(graph 拖拽 0 卡重建 / stage 选择性重建 / serialize 上界 / debouncer flush),入 fe-verify 防回归——即 §4-C「预算测试常驻」的 build-side 落地(见 P6 场景套件收拢)。
+§4-C 的「主面场景套件预算测试常驻 fe-verify」以 **build-side 断言**落地(build-count / build-cost / rebuild-scope 上界——关切在 Dart 侧构建成本,非 GPU raster;自动上下文渲不了真窗,见「方法学枢转」)。逐主面映射:
+
+| 主面 | 预算断言 | 常驻测 |
+|---|---|---|
+| 长对话流式 | 200 delta 只重建 live 叶(页/settled 行 0)+ 开回合内落定 text 块零重解析 | `chat_transcript_test`(BuildSpy / C-023) |
+| transcript 滚动 | center-sliver prepend 零位移 + 上滚读者不被流式推 | `chat_transcript_test` |
+| 海洋切换 | 懒 IndexedStack:未访零成本、重选零重挂(保 State) | `an_lazy_indexed_stack_test`(C-009) |
+| 编辑器打字 | 整篇序列化 279KB 巨文档 <2ms debug(≈0.6ms release) | `c001_serialize_perf_test`(C-001) |
+| 图渲染/拖拽 | 拖拽 10 move 0 卡重建 + workflow ops 图记忆化 | `an_graph_canvas_edit_test`(C-016)/`workflow_ops_graph_memo_test` |
+| 右岛手风琴/舞台 | 选择性重建:仅本块 revision 变才重建 | `value_listenable_selector_test`(C-025) |
+| 冷启动 | 幂等 start 并发不双 spawn + 后端提前并行 | `backend_controller_test`(C-030) |
+| 其它嫌疑人电池 | ReDoS 线性 / tick 有界 / receipt·resultObj·arg·highlight 记忆化 / unread 等值 | `test/features/chat/perf/*`(P4,8 电池) |
+
+**残余(真机产线)**:上表是 build-side 上界防回归;**raster-inclusive 真机帧时间**须真机产线跑(自动上下文窗口不 foreground、渲不了真帧),与 C-030 产线冷启计时同属真机残余——非核心关切(这些主面的瓶颈均在 build 侧,已测),而是「若要 raster 侧最后一钉」的可选项。
