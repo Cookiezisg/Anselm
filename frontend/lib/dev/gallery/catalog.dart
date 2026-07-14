@@ -970,12 +970,17 @@ final GalleryCategory _g5CodeData = GalleryCategory('代码与数据 Code & Data
           'x = "a really long single line that exceeds the block width and soft-wraps within the framed surface without overflow"'),
         stress: true, span: true),
   ]),
-  GalleryItem('AnCodeEditor', '唯一代码块/轻编辑:高亮 + 行号 + 顶栏;只读/可编辑/内联/换行', [
+  GalleryItem('AnCodeEditor', '唯一代码块/轻编辑:高亮 + 行号 + 顶栏;只读/可编辑/内联/换行/seamless 嵌入', [
     GallerySpecimen('python 只读 (机器窗档 12)', (_) => const AnCodeEditor(code: _pyCode, lang: 'py'), span: true),
     GallerySpecimen('reading (内容档 13 — markdown/概览代码)', (_) => const AnCodeEditor(code: _pyCode, lang: 'py', reading: true), span: true),
     GallerySpecimen('CEL (插值上色)', (_) => const AnCodeEditor(code: _celCode, lang: 'cel'), span: true),
     GallerySpecimen('json 只读', (_) => const AnCodeEditor(code: _jsonCode, lang: 'json'), span: true),
     GallerySpecimen('可编辑 (铅笔→编辑)', (_) => const _CodeEditDemo(), span: true),
+    // seamless: the document editor's embedded code block — framed (bar+gutter+lang) like the entity pages,
+    // but ALWAYS editing in place (no pencil, no Save). 文档编辑器嵌入脸:有框如实体页、就地常驻编辑。
+    GallerySpecimen('seamless (文档嵌入·有框·就地常驻编辑)',
+        (_) => const AnCodeEditor(code: _pyCode, lang: 'py', reading: true, wrap: true, editable: true, seamless: true),
+        span: true),
     GallerySpecimen('compact', (_) => const AnCodeEditor(code: _celCode, lang: 'cel', compact: true), span: true),
     GallerySpecimen('inline (无框)', (_) => const AnCodeEditor(code: 'input.x > 0 && has(node.y)', lang: 'cel', inline: true), span: true),
     // wrap: long lines reflow; v1 gutter is EQUAL-HEIGHT per logical line (not per visual line), so a

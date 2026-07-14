@@ -47,7 +47,6 @@ lib/core/editor/an_editor_markdown.dart	converged
 lib/core/editor/an_editor_mention.dart	converged
 lib/core/editor/an_editor_slash_menu.dart	reviewed
 lib/core/editor/an_editor_stylesheet.dart	converged
-lib/core/editor/an_editor_syntax.dart	reviewed
 lib/core/editor/an_editor_toolbar.dart	converged
 lib/core/entity/mention_source.dart	converged
 lib/core/error/error_boundary.dart	reviewed

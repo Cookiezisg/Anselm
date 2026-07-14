@@ -1116,6 +1116,7 @@
     "documents": "文档",
     "skills": "技能",
     "untitled": "未命名",
+    "editorHint": "按 “/” 唤起命令",
     "filter": "搜索文档…",
     "kNew": "新建页面",
     "errorTitle": "无法加载知识库",

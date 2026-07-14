@@ -98,28 +98,30 @@ List<StyleRule> _rules(AnColors colors, TextStyle Function(TextStyle) ink) {
         },
       ),
 
-      // Heading ladder — size+colour carry hierarchy; asymmetric top air (the semantic [AnFlow] heading
-      // ladder 32/24/16) sets each section apart, tight below (hug the body, handled by the
-      // .after(header) rules). The old hand-rolled s24±s4 (28/20) is retired onto the tokens (B-021).
-      // 标题阶梯:上方留白走 AnFlow 语义档 32/24/16(旧手搓 28/20 收编),下方贴正文(见 .after 规则)。
+      // Heading ladder — size+colour carry hierarchy; UNIFORM top air matching chat's AnMarkdown exactly
+      // (`_AnHTag` there = one block gap on top of the flanking block gap → ~24 above / 12 below, same for
+      // every level). The B-021 asymmetric 32/24/16 ladder is retired in favour of chat parity (user 0714:
+      // documents markdown must read 1:1 with chat). One token — [AnFlow.headingTop] (24) — all levels.
+      // 标题上距:统一 24,与 chat AnMarkdown 逐像素一致(那边 _AnHTag=块间距上再加一块=上 24 下 12,各级同)。
+      // B-021 的 32/24/16 阶梯退役,换 chat 对齐(用户 0714:文档 markdown 须与 chat 1:1)。
       StyleRule(
         const BlockSelector('header1'),
         (doc, node) => {
-          Styles.padding: const CascadingPadding.only(top: AnFlow.headingTop), // 32 — big section break
+          Styles.padding: const CascadingPadding.only(top: AnFlow.headingTop), // 24 — chat parity
           Styles.textStyle: ink(AnText.readingH1),
         },
       ),
       StyleRule(
         const BlockSelector('header2'),
         (doc, node) => {
-          Styles.padding: const CascadingPadding.only(top: AnFlow.subheadingTop), // 24
+          Styles.padding: const CascadingPadding.only(top: AnFlow.headingTop),
           Styles.textStyle: ink(AnText.readingH2),
         },
       ),
       StyleRule(
         const BlockSelector('header3'),
         (doc, node) => {
-          Styles.padding: const CascadingPadding.only(top: AnFlow.minorHeadingTop), // 16
+          Styles.padding: const CascadingPadding.only(top: AnFlow.headingTop),
           Styles.textStyle: ink(AnText.readingH3),
         },
       ),
@@ -136,7 +138,7 @@ List<StyleRule> _rules(AnColors colors, TextStyle Function(TextStyle) ink) {
         const BlockSelector('listItem'),
         (doc, node) => {
           Styles.padding: const CascadingPadding.only(top: AnFlow.block),
-          Styles.dotColor: colors.inkMuted,
+          Styles.dotColor: colors.inkFaint, // chat parity — list markers ride inkFaint (an_markdown.dart)
         },
       ),
       StyleRule(
@@ -188,14 +190,9 @@ List<StyleRule> _rules(AnColors colors, TextStyle Function(TextStyle) ink) {
         },
       ),
 
-      // A heading HUGS its following body — the asymmetric half of "标题不对称": tight below (a bound
-      // heading↔body pair = [AnGap.stackTight]), airy above (the heading ladder). 标题贴其正文:下紧(绑定对
-      // stackTight)上松(标题阶梯)。
-      for (final h in const ['header1', 'header2', 'header3'])
-        StyleRule(
-          BlockSelector('paragraph').after(h),
-          (doc, node) => {Styles.padding: const CascadingPadding.only(top: AnGap.stackTight)},
-        ),
+      // NO tight-below override — chat gives every block after a heading the uniform block gap (12), so the
+      // editor does too (B-021's stackTight "hug" is retired for chat parity). A paragraph after a heading
+      // falls through to the general `paragraph` rule (top 12). 标题下方=统一 12(chat 无「贴紧」,B-021 hug 退役)。
 
       // The first block never gets a top gap (it would push the whole document down); the last gets a
       // GENEROUS trailing runway — an editor deliberately wants more bottom room than a page (room to

@@ -111,19 +111,30 @@ class AnDocumentEditorState extends State<AnDocumentEditor> {
     if (_scroll.hasClients) _scroll.animateTo(0, duration: AnMotion.mid, curve: AnMotion.easeOut);
   }
 
-  /// The page-scroll offset where the EDITOR's content begins — the bridge between the editor's content
-  /// space (contentTopForNode) and the page's scroll space. The editor sliver starts right after the
-  /// header sliver, so this is simply the header's laid-out height (its own padding included).
-  /// 编辑器内容在页滚动空间的起点(两空间换算桥)——编辑器 sliver 紧跟头 sliver,即头的实测高。
-  double? _editorRevealOffset() {
+  /// The measured header CONTENT height (crumb + big title + desc + tags), published for the ocean's
+  /// floating-head collapse threshold — the SAME quantity the entity ocean measures (its `_headerKey`
+  /// wraps only the AnOceanHeader, NOT AnPage's scrim-clearing top pad), so both oceans fold at the same
+  /// moment (`headerHeight - islandHead`). null until laid out. 实测头**内容**高(不含清虚化带的顶 pad),
+  /// 公开给海洋折叠阈值——与 entity 海洋量同一物(那边 _headerKey 只裹 AnOceanHeader、不含 AnPage 顶 pad),两海洋同刻折叠。
+  double? get headerHeight {
     final box = _headerKey.currentContext?.findRenderObject();
     return (box is RenderBox && box.hasSize) ? box.size.height : null;
   }
 
-  /// The measured header height, published for the ocean's chrome: the floating-head collapse threshold
-  /// derives from the REAL header (title + desc + tags), same source as the entity ocean's measure —
-  /// null until laid out. 实测头高(公开给海洋 chrome):浮层头折叠阈值据真实头高派生,未布局前为 null。
-  double? get headerHeight => _editorRevealOffset();
+  /// The scrim-clearing top pad on the header sliver — the exact height of the shell's floating-head band
+  /// (mirrors AnPage's top inset, an_page.dart), so the big title lands BELOW the fade at rest instead of
+  /// half-faded under it (issue: documents bypasses AnPage and hand-rolls its own CustomScrollView).
+  /// 头 sliver 的顶 pad=浮层头带高(镜像 AnPage 顶内距),大标题坐虚化带之下、静息不被虚化。
+  static const double _headTopPad = AnSize.islandHead + AnSpace.s12;
+
+  /// The page-scroll offset where the EDITOR's content begins — the bridge between the editor's content
+  /// space (contentTopForNode) and the page's scroll space. The editor sliver starts right after the FULL
+  /// header sliver = the scrim-clearing top pad + the measured header content.
+  /// 编辑器内容在页滚动空间的起点(两空间换算桥)=头 sliver 全高=顶 pad + 实测头内容高。
+  double? _editorRevealOffset() {
+    final h = headerHeight;
+    return h == null ? null : _headTopPad + h;
+  }
 
   /// Scroll so the index-th heading sits near the viewport top. Page target = the editor's reveal offset
   /// + the heading's content-space Y. 滚到第 index 个标题:页目标=编辑器 reveal 位+标题内容 Y。
@@ -177,7 +188,10 @@ class AnDocumentEditorState extends State<AnDocumentEditor> {
         controller: _scroll,
         slivers: [
           SliverPadding(
-            padding: hpad,
+            // Top pad clears the shell's floating-head scrim band (like AnPage) — kept OUTSIDE the
+            // [_headerKey] subtree so the measured [headerHeight] stays content-only (collapse-threshold
+            // parity with the entity ocean). 顶 pad 让出虚化带(同 AnPage),置于 _headerKey 外→量得头高仍是纯内容(与 entity 折叠阈同源)。
+            padding: EdgeInsets.only(top: _headTopPad, left: side, right: side),
             sliver: SliverToBoxAdapter(child: KeyedSubtree(key: _headerKey, child: _header(context))),
           ),
           SliverPadding(

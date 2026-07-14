@@ -1,3 +1,4 @@
+import 'package:anselm/core/editor/an_editor_components.dart';
 import 'package:anselm/core/editor/an_editor_markdown.dart';
 import 'package:anselm/core/editor/an_editor_mention.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -100,6 +101,27 @@ void main() {
       final md = markdownFromDocument(documentFromMarkdown(source));
       expect(md.contains('```dart'), isTrue, reason: 'the language tag is part of the wire form');
       expect(md.contains('final x = 1;'), isTrue);
+    });
+
+    test('a fenced code block LOADS as an embedded CodeBlockNode (not a paragraph), code + lang stamped', () {
+      const source = '```dart\nfinal x = 1;\nfinal y = 2;\n```';
+      final doc = documentFromMarkdown(source);
+      final blocks = doc.toList().whereType<CodeBlockNode>().toList();
+      expect(blocks, hasLength(1), reason: 'code is an atomic block node, the substrate that gives a gutter');
+      expect(blocks.single.code, 'final x = 1;\nfinal y = 2;', reason: 'multiline code verbatim, no trailing \\n');
+      expect(blocks.single.language, 'dart', reason: 'the fence language is stamped onto the node');
+      // No stray code ParagraphNode left behind. 没遗留 code 段落。
+      expect(doc.toList().whereType<ParagraphNode>().where((n) => n.getMetadataValue('blockType') == codeAttribution),
+          isEmpty);
+    });
+
+    test('a [[id]]-looking run INSIDE code stays literal (code is atomic, never inflated to a pill)', () {
+      const source = '```\nsee [[$_id]] here\n```';
+      final doc = documentFromMarkdown(source);
+      final block = doc.toList().whereType<CodeBlockNode>().single;
+      expect(block.code, 'see [[$_id]] here', reason: 'code content is not mention-inflated');
+      final md = markdownFromDocument(doc);
+      expect(md.contains('[[$_id]]'), isTrue, reason: 'still literal in the serialized code fence');
     });
 
     test('a table round-trips: cells survive and the second pass is stable', () {

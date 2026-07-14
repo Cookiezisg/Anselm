@@ -379,6 +379,7 @@ class _Translations$documents$zh_CN extends Translations$documents$en {
 	@override String get documents => '文档';
 	@override String get skills => '技能';
 	@override String get untitled => '未命名';
+	@override String get editorHint => '按 “/” 唤起命令';
 	@override String get filter => '搜索文档…';
 	@override String get kNew => '新建页面';
 	@override String get errorTitle => '无法加载知识库';
@@ -3140,14 +3141,15 @@ extension on TranslationsZhCn {
 			'documents.documents' => '文档',
 			'documents.skills' => '技能',
 			'documents.untitled' => '未命名',
+			'documents.editorHint' => '按 “/” 唤起命令',
 			'documents.filter' => '搜索文档…',
 			'documents.kNew' => '新建页面',
 			'documents.errorTitle' => '无法加载知识库',
 			'documents.errorHint' => '本地引擎没有返回它。',
 			'documents.retry' => '重试',
-			'documents.emptyTitle' => '这里还什么都没有',
 			_ => null,
 		} ?? switch (path) {
+			'documents.emptyTitle' => '这里还什么都没有',
 			'documents.emptyHint' => '新建一篇文档或一个技能开始。',
 			'documents.pickTitle' => '选一篇文档',
 			'documents.pickHint' => '在左侧选一篇文档或技能来阅读或编辑。',

@@ -4,6 +4,7 @@ import 'package:super_editor/super_editor.dart';
 
 import '../../i18n/strings.g.dart';
 import '../design/colors.dart';
+import '../design/typography.dart';
 import '../entity/mention_source.dart';
 import '../ui/an_mention_picker.dart';
 import 'an_editor_components.dart';
@@ -11,7 +12,6 @@ import 'an_editor_markdown.dart';
 import 'an_editor_mention.dart';
 import 'an_editor_slash_menu.dart';
 import 'an_editor_stylesheet.dart';
-import 'an_editor_syntax.dart';
 import 'an_editor_toolbar.dart';
 
 /// The native document editor (super_editor) — the pivot OFF Milkdown-in-webview so every element is a
@@ -139,6 +139,11 @@ class AnEditorState extends State<AnEditor> {
   // document swap). E1 never swaps the document, but the key discipline is set from the start. 每 State 一把。
   final GlobalKey _docLayoutKey = GlobalKey();
 
+  // One stable GlobalKey per code-block node id — keeps the embedded AnCodeEditor's State (controller /
+  // focus / caret) alive across the whole-node ReplaceNode we run on every keystroke. Owned here (per
+  // AnEditor State), passed into AnCodeBlockComponentBuilder. 每代码节点一把稳定 key,保嵌入编辑器 State 跨整节点替换。
+  final Map<String, GlobalKey> _codeKeys = {};
+
   // The live locale's translations, cached here because the slash listener fires OUTSIDE build (a
   // ValueNotifier dispatch mid-edit) where an inherited lookup is unreliable — didChangeDependencies is
   // the sanctioned refresh point (also re-runs on a locale flip). 监听器在 build 外跑,inherited 查询不可靠
@@ -156,15 +161,12 @@ class AnEditorState extends State<AnEditor> {
   IndexedTag? _slashTag;
   bool get _slashOpen => _slashTag != null && _slashMatches.isNotEmpty;
 
-  // The memoized syntax-highlight phase for code blocks (E7). Created once, its palette updated on a
-  // theme flip. 代码块语法高亮 phase(记忆化);建一次、主题翻转换色。
-  AnCodeSyntaxStylePhase? _syntaxPhase;
-
   // Memoized SuperEditor stylesheet + component builders (C-010) — rebuilt only when the theme [colors]
   // instance changes, so SuperEditor keeps the SAME config across content rebuilds. 样式表+组件建造器记忆化。
   Stylesheet? _stylesheet;
   List<ComponentBuilder>? _componentBuilders;
   AnColors? _styleColors;
+  String? _hintText; // the empty-doc placeholder (locale-dependent) — re-memoized when it changes
 
   // ── E5 @ mention ───────────────────────────────────────────────────────────────────────────────
   // StableTagPlugin tokenizes the `@` trigger (its own key, so it coexists with the slash ActionTagsPlugin
@@ -384,22 +386,28 @@ class AnEditorState extends State<AnEditor> {
     // slash popover is a DOCUMENT OVERLAY LAYER (timing-safe, positions after layout). 裸 SuperEditor,IME 输入源;
     // slash 弹层=文档 overlay 层(布局就绪后自定位,时序安全)。
     final colors = context.colors;
-    // Create the syntax phase once, refresh its palette each build (cheap; no-ops unless the theme flipped).
-    // 语法 phase 建一次、每 build 刷新调色板(主题没变即 no-op)。
-    (_syntaxPhase ??= AnCodeSyntaxStylePhase(context.syntax)).colors = context.syntax;
     // Memoize the stylesheet + component builders on the (theme-stable) [colors] instance (C-010): rebuilt
     // fresh every build, SuperEditor saw a NEW stylesheet each time and could re-run its whole style
     // pipeline over the document. AnColors is a ThemeExtension (const light/dark), so identity is stable
     // until the theme flips → same instances → SuperEditor skips the re-style. 样式表+组件建造器按主题稳定
     // 的 colors 记忆化:同实例→SuperEditor 跳全文档重跑 style pipeline。
-    if (!identical(_styleColors, colors)) {
+    final hint = _t.documents.editorHint;
+    if (!identical(_styleColors, colors) || _hintText != hint) {
       _styleColors = colors;
+      _hintText = hint;
       _stylesheet = buildAnEditorStylesheet(colors);
       _componentBuilders = [
         AnTaskComponentBuilder(_editor, colors), // tasks aren't in the defaults — must be added
-        AnCodeBlockComponentBuilder(colors),
+        AnCodeBlockComponentBuilder(_editor, colors, _codeKeys),
         AnBlockquoteComponentBuilder(colors),
         const MarkdownTableComponentBuilder(), // tables aren't in the defaults either (E8)
+        // The empty-doc placeholder: super_editor's built-in hint builder paints [hint] on the ONE empty
+        // first paragraph (its createViewModel returns a HintComponentViewModel only when node is the
+        // single first ParagraphNode) — vanishes the moment the user types or a second block exists. It is
+        // view-only (never in the document model → empty doc still serializes empty). MUST sit before the
+        // defaults so its createViewModel wins for the empty first node. 空文档灰提示:内置 hint builder 只在
+        // 「单个首空段」渲,打字/多块即消失;纯视图不入文档模型;须在默认前抢建 view-model。
+        HintComponentBuilder(hint, (_) => AnText.reading.copyWith(color: colors.inkFaint)),
         ...defaultComponentBuilders,
       ];
     }
@@ -407,7 +415,6 @@ class AnEditorState extends State<AnEditor> {
       editor: _editor,
       focusNode: _focusNode,
       documentLayoutKey: _docLayoutKey,
-      customStylePhases: [_syntaxPhase!],
       shrinkWrap: widget.shrinkWrap,
       scrollController: widget.scrollController,
       inputSource: TextInputSource.ime,

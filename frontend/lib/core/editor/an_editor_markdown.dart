@@ -20,6 +20,7 @@ library;
 
 import 'package:super_editor/super_editor.dart';
 
+import 'an_editor_components.dart';
 import 'an_editor_mention.dart';
 
 /// `[[<prefix>_<16 hex>]]` — the stored wire form (mirrors pkg/wikilink + core/ui/entity_ref_codec). 存储线缆形。
@@ -31,12 +32,36 @@ const String codeLanguageKey = 'language';
 bool _isCodeNode(DocumentNode node) =>
     node is ParagraphNode && node.getMetadataValue('blockType') == codeAttribution;
 
-/// SAVE — flatten every mention pill to `[[id]]` text, then serialize with the built-in block/inline
-/// serializers, then re-inject each code node's language tag onto its opening fence.
-/// 存:药丸摊平成 `[[id]]` 文本,内置序列化,再按序回写语言标。
+/// The editor holds a fenced code block as an embedded-widget [CodeBlockNode] (a BlockNode), but the
+/// built-in serializer only understands a code ParagraphNode — so at the SAVE seam each [CodeBlockNode]
+/// becomes a code [ParagraphNode] (text = the raw code, language stamped on metadata for the fence
+/// re-injection pass). Mirror of the LOAD-seam conversion in [documentFromMarkdown].
+/// 编辑器里代码块是嵌件 CodeBlockNode(BlockNode),内置序列化器只认 code 段落——存时缝处转回 code 段落(文本=原始
+/// 代码,语言标进 metadata 供回写围栏)。与 documentFromMarkdown 载入缝对称。
+ParagraphNode _codeBlockToParagraph(CodeBlockNode node) => ParagraphNode(
+      id: node.id,
+      text: AttributedText(node.code),
+      metadata: {
+        'blockType': codeAttribution,
+        if (node.language != null && node.language!.isNotEmpty) codeLanguageKey: node.language,
+      },
+    );
+
+/// SAVE — convert embedded code blocks back to code paragraphs + flatten every mention pill to `[[id]]`
+/// text, then serialize with the built-in block/inline serializers, then re-inject each code node's
+/// language tag onto its opening fence.
+/// 存:代码块转回 code 段落 + 药丸摊平成 `[[id]]` 文本,内置序列化,再按序回写语言标。
 String markdownFromDocument(Document document) {
   final flattened = MutableDocument(
-    nodes: [for (final node in document) node is TextNode ? _flattenNode(node) : node],
+    nodes: [
+      for (final node in document)
+        if (node is CodeBlockNode)
+          _codeBlockToParagraph(node)
+        else if (node is TextNode)
+          _flattenNode(node)
+        else
+          node,
+    ],
   );
   final languages = [
     for (final node in flattened)
@@ -60,16 +85,20 @@ MutableDocument documentFromMarkdown(String markdown, {Map<String, String> names
   var codeIndex = 0;
   final nodes = <DocumentNode>[];
   for (final node in document) {
-    var mapped = node is TextNode ? _inflateNode(node, names) : node;
-    if (_isCodeNode(mapped)) {
+    // Code is checked BEFORE mention inflation — the embedded editor owns code as an atomic [CodeBlockNode]
+    // (no pills), so a `[[id]]`-looking run inside code stays literal. 代码在 mention 回填前处理:代码是原子
+    // CodeBlockNode(无药丸),代码里长得像 `[[id]]` 的也保持字面。
+    if (_isCodeNode(node)) {
       final lang = codeIndex < languages.length ? languages[codeIndex] : '';
       codeIndex += 1;
-      if (lang.isNotEmpty) {
-        final code = mapped as ParagraphNode;
-        mapped = ParagraphNode(id: code.id, text: code.text, metadata: {...code.metadata, codeLanguageKey: lang});
-      }
+      final code = node as ParagraphNode;
+      var text = code.text.toPlainText();
+      // The built-in code parser can leave a trailing newline; the embedded editor stores bare code. 去尾换行。
+      if (text.endsWith('\n')) text = text.substring(0, text.length - 1);
+      nodes.add(CodeBlockNode(id: code.id, code: text, language: lang.isEmpty ? null : lang));
+      continue;
     }
-    nodes.add(mapped);
+    nodes.add(node is TextNode ? _inflateNode(node, names) : node);
   }
   return MutableDocument(nodes: nodes);
 }

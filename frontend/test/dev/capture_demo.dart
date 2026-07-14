@@ -11,6 +11,9 @@ import 'package:anselm/app/router.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/router/navigation.dart';
+import 'package:anselm/features/documents/data/document_repository.dart';
+import 'package:anselm/features/documents/data/documents_demo_fixture.dart';
+import 'package:anselm/features/documents/state/document_state.dart';
 import 'package:anselm/core/runtime.dart';
 import 'package:anselm/core/shell/oceans.dart';
 import 'package:anselm/core/shell/shell_chrome.dart';
@@ -67,6 +70,7 @@ const _notif = String.fromEnvironment('NOTIF');
 // Optional `--dart-define=CHATSEL=cv_id` deep-links to a conversation (on the chat ocean) so the rail's
 // selected-row highlight + route-derived selection are captured. 预选某对话,截 rail 高亮 + 路由派生选区。
 const _chatSel = String.fromEnvironment('CHATSEL');
+const _doc = String.fromEnvironment('DOC'); // deep-link a document (documents ocean real-app check)
 // Optional `--dart-define=CHATMENU=1` taps the rail's ⚙ sliders button to open the Sort/Display menu.
 // 点 rail 的 ⚙ sliders 钮,展开排序/显示菜单。
 const _chatMenu = String.fromEnvironment('CHATMENU');
@@ -131,6 +135,7 @@ void main() {
         entityRepositoryProvider.overrideWithValue(demoEntityRepository()),
         chatRepositoryProvider.overrideWithValue(demoChatRepository()),
         notificationRepositoryProvider.overrideWithValue(demoNotificationRepository()),
+        documentsRepositoryProvider.overrideWithValue(demoDocumentsRepository()),
         goRouterProvider.overrideWith(buildAppRouter),
       ],
       child: TranslationProvider(child: const _CaptureApp()),
@@ -148,6 +153,21 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300)); // the switch animation settles 切换动画落定
       outName = '${outName}_$_ocean';
+    }
+
+    // Deep-link to a document (real navigation) — the documents ocean real-app check (editor renders the
+    // full shell: floating head + scrim, so the title's scroll position and the code block are in-context).
+    // 深链文档:文档海洋真壳核对(整壳渲染:浮层头+虚化带,标题滚动位与代码块在真语境)。
+    if (_doc.isNotEmpty) {
+      container.read(goRouterProvider).go(documentLocation(_doc));
+      // The multi-layer async (tree → doc select → content fetch → editor mount → markdown parse) needs
+      // real async time — runAsync lets the fixture futures complete; the pump loop renders each layer.
+      // 多层 async 需真实时间:runAsync 放行 future,pump 循环逐层渲染。
+      for (var i = 0; i < 20; i += 1) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 40)));
+        await tester.pump(const Duration(milliseconds: 80));
+      }
+      outName = '${outName}_doc';
     }
 
     // Deep-link to a conversation (real navigation) so the rail highlights the selected row. 深链选中对话。

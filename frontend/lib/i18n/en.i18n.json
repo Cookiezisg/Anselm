@@ -1116,6 +1116,7 @@
     "documents": "Documents",
     "skills": "Skills",
     "untitled": "Untitled",
+    "editorHint": "Press '/' for commands",
     "filter": "Search documents…",
     "kNew": "New page",
     "errorTitle": "Couldn't load your library",

@@ -40,13 +40,12 @@ documents 与 skills 结构不同,**不能塞进一棵树**——故树数据层
 super_editor **钉 0.3.0-dev.40**(dev.41+ 引用本 Flutter 3.41.9 没有的 `TextInputConnection.updateStyle`;markdown 编解码随包内置)。**仅经 `core/editor/` 门面用**(原则 #8),八件:
 
 - **`an_editor.dart`** — `AnEditor` 装配:裸 `SuperEditor`(sliver 协议、无盒包裹)+ IME 输入源(CJK 生命线)+ 桌面 mouse 手势 + An 块皮 ComponentBuilders + 三个文档 overlay 层(划选条/slash/@ picker)。`shrinkWrap` 由文档海洋设(同滚头);独立宿主(harness)自持滚动。`AnEditorState` 公开 `document`/`headingNodeIds`/`contentTopForNode`(大纲跳转/scroll-spy 的几何缝)。避坑铁律在类 doc(#2995 起手无选区 / 每 State 一把 layout key / overlay 走文档层不手管)。
-- **`an_editor_components.dart`** — task/代码块/引用的 An 皮肤(值相等只揣 token 色,不逐帧重分配)。
+- **`an_editor_components.dart`** — task/引用的 An 皮肤 + **代码块 = 嵌入的真 [AnCodeEditor]**(`CodeBlockNode` 是 super_editor `BlockNode`(原子块,像图片)渲成 `BoxComponent` 包 seamless `AnCodeEditor`——与 entities/function 页**逐像素同款**:白岛框 + **行号 gutter** + copy + 语言标 + 语法高亮,且**就地可编辑**(点→光标→打字,无铅笔);编辑经 `onInput` 逐键 `ReplaceNodeRequest` 整节点替换(同 id;每节点一把稳定 `GlobalKey` 保 field State 跨替换不 remount)。builder 值相等只揣 token 色,不逐帧重分配)。
 - **`an_editor_stylesheet.dart`** — An prose 声全量样式表(正文 15/w300、标题 22/18/15 全 w400、两字重铁律)。
-- **`an_editor_markdown.dart`** — codec 门面,内置序列化外补两件:①**mention 往返**(药丸 `MentionPlaceholder` ↔ `[[id]]` 逐字,后端 `pkg/wikilink` 建 link 边的契约)②**围栏语言标保真**(内置 codec 双向丢 ```` ```dart ````——载入按序盖进节点 metadata `codeLanguageKey`、存出按序回写围栏行,否则开档即存就弄脏文档)。`mentionIdsInDocument` 供建边/批解析。
+- **`an_editor_markdown.dart`** — codec 门面,内置序列化外补两件:①**mention 往返**(药丸 `MentionPlaceholder` ↔ `[[id]]` 逐字,后端 `pkg/wikilink` 建 link 边的契约)②**围栏语言标保真**(内置 codec 双向丢 ```` ```dart ````——载入按序盖上语言标、存出按序回写围栏行,否则开档即存就弄脏文档)③**代码块缝 `CodeBlockNode ⇄ code ParagraphNode`**(载入把内置 parser 的 code 段落转 `CodeBlockNode`[去尾 `\n`、语言标进 `language` 字段、`[[id]]`-样文本在码内保字面不成药丸];存出转回 code 段落供内置序列化)。`mentionIdsInDocument` 供建边/批解析。
 - **`an_editor_slash_menu.dart`** — `/` 菜单 **11 命令**(正文/标题 1-3/引用/代码块/**表格**/无序/有序/待办/**分隔线**),标签走 slang `documents.slash.*`(`labelOf(Translations)`——顶层表拿不到 context,调用方传);关键词含拼音别名。插块型命令(分隔线/表格)按 `SlashContext.emptyAfterSubmit` 决定**空段替换/非空下插**(提交删 `/query` 前预判),尾随新段落收光标。
 - **`an_editor_mention.dart`** — `@` picker(`StableTagPlugin` 词法 + caret 锚定 overlay + `AnMentionPanel` 复用 chat 件);选中插内联药丸(id/name/kind),数据缝=core `MentionSource` DIP。
-- **`an_editor_toolbar.dart`** — 划选浮动格式条:**粗/斜/删/行内码/链接** 五键。链接键:选区已通贯带链→**去链**;否则原位换 **URL 输入条**(回车上链[裸域名补 https://]、Esc/外点取消[TapRegion]);会话**快照**选区+落点——输入夺焦清活选区、上链仍打在快照区间;关闭归还编辑器焦点。
-- **`an_editor_syntax.dart`** — 代码块语法高亮,按 (nodeId, plainText) **记忆化** style phase(旧重建卡死首凶的解药)。
+- **`an_editor_toolbar.dart`** — 划选浮动格式条:**粗/斜/删/行内码/链接** 五键。链接键:选区已通贯带链→**去链**;否则原位换 **URL 输入条**(回车上链[裸域名补 https://]、Esc/外点取消[TapRegion]);会话**快照**选区+落点——输入夺焦清活选区、上链仍打在快照区间;关闭归还编辑器焦点。(代码块语法高亮不再走 super_editor style phase——已随代码块改用嵌入 `AnCodeEditor` 退役,高亮归 `AnCodeEditor` 自身唯一 `highlightCode`。)
 
 **大纲下标不变式**:右岛大纲=`extractDocOutline(markdown)`(纯正则、围栏感知、h4-6 并 3 级),跳转/scroll-spy=编辑器 `headingNodeIds`——共享键=**文档序下标**、不存偏移,两侧必须对「谁是标题」完全一致(编辑器侧因此 h1–h6 **六档全算**,漏任何一档全体错位)。`outline_alignment_test.dart` 用刁钻形状(围栏 #/引用 #/h4-6)锁死。同滚页下标题坐标经「编辑器 reveal 位(=头实测高)+内容 Y」在两空间换算。
 

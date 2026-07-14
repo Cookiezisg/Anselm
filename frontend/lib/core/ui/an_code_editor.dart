@@ -70,6 +70,7 @@ class AnCodeEditor extends StatefulWidget {
     this.wrap = false,
     this.reading = false,
     this.live = false,
+    this.seamless = false,
     this.maxHeight,
     this.onChanged,
     this.onInput,
@@ -119,6 +120,15 @@ class AnCodeEditor extends StatefulWidget {
   /// 静置于顶(档案从第 1 行读起——记录在案的裁决,批2 复审)。inline/editable 下忽略。
   final bool live;
 
+  /// Seamless → a FRAMED editor is ALWAYS live-edit in place: click lands the caret, type immediately,
+  /// NO pencil / Cancel / Save — while keeping the frame + gutter + copy + language label + highlight.
+  /// Requires [editable] && !inline && !live. Edits stream out per keystroke via [onInput]; an external
+  /// [code] change is adopted only when the field is unfocused (two-way sync, no cursor jump). For the
+  /// document editor's embedded code block (the one substrate that can match entities/function's gutter).
+  /// seamless → 有框编辑器常驻直接编辑:点即光标、直接打字、无铅笔/存/取消,但保留框+gutter+copy+语言标+高亮;
+  /// 需 editable & !inline & !live;编辑经 onInput 逐键流出,外部 code 仅失焦时采纳(两向同步不跳光标)。供文档编辑器嵌入代码块。
+  final bool seamless;
+
   /// Bounded viewport for BOTH faces (an [AnSize] tier, e.g. [AnSize.codeViewport]) — the zero-jump
   /// contract (拍板 #2): a transcript consumer passes the SAME tier for live and settled, so the
   /// settle only un-pins the viewport, never changes the height. null = content height when the
@@ -150,7 +160,12 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
 
   // Inline + editable = always editing (e.g. run-terminal args, no bar). inline 可编辑=常驻编辑。
   bool get _inlineEdit => widget.inline && widget.editable;
-  bool get _isEditing => _inlineEdit || _editing;
+  // FRAMED + always-editing in place (no pencil, no Cancel/Save) — for the document editor's embedded code
+  // block: click lands the caret, type immediately, but keep the full frame + gutter + copy + language
+  // label. Requires editable & !inline & !live. 有框常驻直接编辑(无铅笔/存取消),供文档编辑器嵌入的代码块:
+  // 点即光标、直接打字,但保留框+gutter+copy+语言标。
+  bool get _seamlessEdit => widget.seamless && widget.editable && !widget.inline && !widget.live;
+  bool get _isEditing => _inlineEdit || _seamlessEdit || _editing;
 
   // Per-widget highlight memo (C-012/013): the read-only faces re-run the full tokenizer every build, and
   // a settled code card re-renders on the 1s ticker + inside live turns → a large file re-highlights every
@@ -175,7 +190,10 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
   void initState() {
     super.initState();
     _wrap = widget.wrap;
-    if (_inlineEdit) _attachController(widget.code);
+    // Seamless/inline editors are live from mount — attach the controller up front. Do NOT requestFocus
+    // (unlike _enterEdit): a native click lands the caret; auto-focus would steal focus/scroll on mount
+    // (e.g. many code blocks in one document). seamless/inline 挂载即活;不 requestFocus(点击落光标,自动夺焦会抢滚动)。
+    if (_inlineEdit || _seamlessEdit) _attachController(widget.code);
   }
 
   // Create the edit controller + listen so the gutter line numbers and the a11y line count stay in
@@ -202,6 +220,21 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
     // Keep the (inline-)edit controller's language in sync; do NOT clobber its text (user owns it
     // while editing — streaming targets the read-only path via `code`). 同步语言、不动用户编辑中的文本。
     if (old.lang != widget.lang) _controller?.lang = widget.lang;
+    // Seamless two-way sync: while the field is FOCUSED the user owns the text (edits flow OUT via
+    // onInput); an external/programmatic `code` change is adopted only when the field is UNFOCUSED — no
+    // cursor jump, no feedback loop with the write-back. seamless 两向同步:有焦点时用户为准(edits 经 onInput 出);
+    // 外部 code 变化仅在失焦时采纳,不跳光标、不与写回成环。
+    if (_seamlessEdit &&
+        _controller != null &&
+        !_editFocus.hasFocus &&
+        old.code != widget.code &&
+        _controller!.text != widget.code) {
+      _controller!.value = TextEditingValue(
+        text: widget.code,
+        selection: TextSelection.collapsed(offset: widget.code.length),
+      );
+      _lastEditText = widget.code;
+    }
   }
 
   @override
@@ -484,9 +517,14 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
     } else {
       final copyTip = _copied ? t.feedback.copied : (_copyFailed ? t.feedback.copyFailed : t.action.copy);
       actions.add(_barIcon(_copied ? AnIcons.check : AnIcons.copy, copyTip, _copy));
-      actions.add(const SizedBox(width: AnSpace.s4)); // demo .bar gap 4px 钮间距
-      actions.add(_barIcon(AnIcons.wrap, t.action.wrap, _toggleWrap));
-      if (widget.editable) {
+      // Wrap toggle is inert while editing (the edit field always soft-wraps) — hide it in seamless.
+      // seamless 下编辑区恒软换行,wrap 开关无意义,隐藏。
+      if (!_seamlessEdit) {
+        actions.add(const SizedBox(width: AnSpace.s4)); // demo .bar gap 4px 钮间距
+        actions.add(_barIcon(AnIcons.wrap, t.action.wrap, _toggleWrap));
+      }
+      // The pencil ENTERS pencil-gated edit; seamless is ALWAYS editing, so no pencil. 铅笔=进编辑;seamless 常驻、无铅笔。
+      if (widget.editable && !_seamlessEdit) {
         actions.add(const SizedBox(width: AnSpace.s4));
         actions.add(_barIcon(AnIcons.edit, t.action.edit, _enterEdit));
       }

@@ -146,4 +146,58 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });
+
+  // seamless = the document editor's embedded-code mode: FRAMED (bar + gutter + language) like the entity
+  // pages, but ALWAYS editing in place — no pencil to enter, no Cancel/Save. seamless=文档编辑器嵌入代码脸:
+  // 有框(bar+行号+语言)如实体页,但就地常驻编辑——无铅笔、无取消/保存。
+  group('seamless (embedded document code block)', () {
+    testWidgets('is FRAMED (gutter + language label) AND always editing (a live field, no pencil)', (tester) async {
+      await tester.pumpWidget(host(const AnCodeEditor(
+        code: 'void main() {}',
+        lang: 'dart',
+        reading: true,
+        wrap: true,
+        editable: true,
+        seamless: true,
+      )));
+      // Framed: the gutter + language label are present (unlike inline which is frameless). 有框:行号+语言标。
+      expect(find.text('1'), findsOneWidget); // gutter
+      expect(find.text('Dart'), findsOneWidget); // language label
+      // Always editing: a live TextField, no pencil to enter edit. 常驻编辑:活 field,无铅笔。
+      expect(find.byType(TextField), findsOneWidget);
+      expect(find.byTooltip('Edit'), findsNothing);
+      // No Save/Cancel (seamless never leaves edit). 无保存/取消。
+      expect(find.text('Save'), findsNothing);
+      expect(find.text('Cancel'), findsNothing);
+    });
+
+    testWidgets('hides the wrap toggle (the edit field always soft-wraps; a dead toggle would be a lie)', (tester) async {
+      await tester.pumpWidget(host(const AnCodeEditor(
+        code: 'x = 1', lang: 'dart', reading: true, wrap: true, editable: true, seamless: true)));
+      expect(find.byTooltip('Copy'), findsOneWidget); // copy stays
+      expect(find.byTooltip('Wrap'), findsNothing); // wrap toggle gone (inert while editing)
+    });
+
+    testWidgets('typing fires onInput per keystroke (write-back to the document node)', (tester) async {
+      String? input;
+      await tester.pumpWidget(host(AnCodeEditor(
+        code: 'x = 1', lang: 'dart', reading: true, wrap: true, editable: true, seamless: true,
+        onInput: (v) => input = v)));
+      await tester.enterText(find.byType(TextField), 'x = 2');
+      expect(input, 'x = 2'); // streamed out per edit, no Save gate 逐键流出、无保存闸
+    });
+
+    testWidgets('an external code change (node replaced, field unfocused) syncs into the field', (tester) async {
+      // Mirrors the document round-trip: the node's code changes underneath while the field isn't focused;
+      // the seamless field must adopt the new text (not stay stale). 外部 code 变(节点被替换、字段无焦点)→字段跟随。
+      Widget build(String code) => host(AnCodeEditor(
+          code: code, lang: 'dart', reading: true, wrap: true, editable: true, seamless: true));
+      await tester.pumpWidget(build('a = 1'));
+      expect(find.text('a = 1'), findsOneWidget);
+      await tester.pumpWidget(build('b = 2')); // same widget position, new code (unfocused)
+      await tester.pump();
+      final field = tester.widget<TextField>(find.byType(TextField));
+      expect(field.controller!.text, 'b = 2', reason: 'field adopts the externally-changed code');
+    });
+  });
 }

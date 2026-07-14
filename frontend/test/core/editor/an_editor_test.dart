@@ -2,11 +2,12 @@ import 'package:anselm/core/design/colors.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/design/typography.dart';
 import 'package:anselm/core/editor/an_editor.dart';
+import 'package:anselm/core/editor/an_editor_components.dart';
 import 'package:anselm/core/editor/an_editor_mention.dart';
 import 'package:anselm/core/editor/an_editor_slash_menu.dart';
 import 'package:anselm/core/editor/an_editor_stylesheet.dart';
 import 'package:anselm/core/entity/mention_source.dart';
-import 'package:anselm/core/ui/an_code_surface.dart';
+import 'package:anselm/core/ui/an_code_editor.dart';
 import 'package:anselm/core/ui/an_mention_picker.dart';
 import 'package:anselm/core/ui/icons.dart';
 import 'package:anselm/i18n/strings.g.dart';
@@ -44,7 +45,7 @@ MutableDocument _ladderDoc() => MutableDocument(
         ParagraphNode(id: 'h2', text: AttributedText('标题二'), metadata: {'blockType': header2Attribution}),
         ParagraphNode(id: 'h3', text: AttributedText('标题三'), metadata: {'blockType': header3Attribution}),
         ParagraphNode(id: 'quote', text: AttributedText('旁白一句。'), metadata: {'blockType': blockquoteAttribution}),
-        ParagraphNode(id: 'code', text: AttributedText('x = 1'), metadata: {'blockType': codeAttribution}),
+        CodeBlockNode(id: 'code', code: 'x = 1'),
         ListItemNode.unordered(id: 'ul', text: AttributedText('无序')),
         ListItemNode.ordered(id: 'ol', text: AttributedText('有序')),
         TaskNode(id: 'task-open', text: AttributedText('未完成'), isComplete: false),
@@ -170,19 +171,24 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  // E2c — fenced code in the An code-surface identity: mono 13/1.6 text inside a framed white island
-  // (AnCodeSurface — hairline line border + card round). 围栏代码:mono 13 + AnCodeSurface 白岛框。
-  testWidgets('E2c code block reads mono 13 inside an AnCodeSurface frame', (tester) async {
+  // E2c — a fenced code block IS the product's one code widget: an embedded [AnCodeEditor] (the SAME
+  // widget entities/function pages use), framed + directly editable ([AnCodeEditor.seamless]) — NOT a
+  // super_editor paragraph. So the document code block is pixel-1:1 with the entity pages (frame + gutter +
+  // syntax + copy) and editable in place. 围栏代码=产品唯一代码件:嵌入 AnCodeEditor(entities/function 同款,有框
+  // 可直接编辑),非 super_editor 段落——与实体页逐像素一致且就地可编辑。
+  testWidgets('E2c code block IS an embedded editable AnCodeEditor (entity-page identity)', (tester) async {
     await tester.pumpWidget(_host(_ladderDoc()));
     await tester.pumpAndSettle();
 
-    final code = SuperEditorInspector.findParagraphStyle('code')!;
-    expect(code.fontSize, AnText.codeReading.fontSize); // 13
-    expect(code.fontFamily, AnText.codeReading.fontFamily); // mono family
-    expect(code.color, const Color(0xFF1D1D1F)); // ink
-
-    // The framed island: exactly one AnCodeSurface (the code block), not applied to prose. 白岛框只此一个。
-    expect(find.byType(AnCodeSurface), findsOneWidget);
+    // Exactly one AnCodeEditor (the code block), carrying the node's code, in the seamless framed mode. 唯一。
+    final finder = find.byType(AnCodeEditor);
+    expect(finder, findsOneWidget);
+    final editor = tester.widget<AnCodeEditor>(finder);
+    expect(editor.code, 'x = 1');
+    expect(editor.seamless, isTrue); // framed + direct-edit-in-place
+    expect(editor.editable, isTrue);
+    // Direct edit means a live TextField (EditableText), not a read-only SelectableText. 可直接编辑=活 TextField。
+    expect(find.descendant(of: finder, matching: find.byType(EditableText)), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -585,19 +591,25 @@ void main() {
     });
   });
 
-  // E7 — code blocks get syntax highlight via the memoized style phase (through the ONE highlightCode
-  // tokenizer), painted as ColorAttributions the inline styler renders. 代码块语法高亮(记忆化 style phase)。
+  // E7 — the embedded [AnCodeEditor] highlights the code block through the ONE [highlightCode] tokenizer
+  // (唯一高亮源), so keyword/number syntax colours appear in the field's live text span. 代码块语法高亮:
+  // 嵌入编辑器经唯一 highlightCode 上色,关键字/数字色出现在活字段 span 里。
   testWidgets('E7 code block keywords render in the syntax keyword colour', (tester) async {
-    final doc = MutableDocument(nodes: [
-      ParagraphNode(id: 'code', text: AttributedText('const x = 1;'), metadata: {'blockType': codeAttribution}),
-    ]);
+    final doc = MutableDocument(nodes: [CodeBlockNode(id: 'code', code: 'const x = 1;', language: 'dart')]);
     await tester.pumpWidget(_host(doc));
     await tester.pumpAndSettle();
 
-    final rich = SuperEditorInspector.findRichTextInParagraph('code');
+    // The seamless code field colours through its _HighlightController.buildTextSpan (native Flutter way to
+    // paint an editable field). Pull the resolved spans and read their colours. 从活字段控制器拿高亮 span。
+    final editableFinder = find.descendant(of: find.byType(AnCodeEditor), matching: find.byType(EditableText));
+    final editable = tester.widget<EditableText>(editableFinder);
+    final span = editable.controller.buildTextSpan(
+      context: tester.element(editableFinder),
+      withComposing: false,
+    );
     final colors = <Color>[];
-    rich.visitChildren((span) {
-      if (span is TextSpan && span.style?.color != null) colors.add(span.style!.color!);
+    span.visitChildren((s) {
+      if (s is TextSpan && s.style?.color != null) colors.add(s.style!.color!);
       return true;
     });
     // `const` is a keyword and `1` is a number → those syntax colours appear (highlighting is on).

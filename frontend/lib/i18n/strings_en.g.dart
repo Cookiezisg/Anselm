@@ -736,6 +736,9 @@ class Translations$documents$en {
 	/// en: 'Untitled'
 	String get untitled => 'Untitled';
 
+	/// en: 'Press '/' for commands'
+	String get editorHint => 'Press \'/\' for commands';
+
 	/// en: 'Search documents…'
 	String get filter => 'Search documents…';
 
@@ -5941,14 +5944,15 @@ extension on Translations {
 			'documents.documents' => 'Documents',
 			'documents.skills' => 'Skills',
 			'documents.untitled' => 'Untitled',
+			'documents.editorHint' => 'Press \'/\' for commands',
 			'documents.filter' => 'Search documents…',
 			'documents.kNew' => 'New page',
 			'documents.errorTitle' => 'Couldn\'t load your library',
 			'documents.errorHint' => 'The local engine didn\'t return it.',
 			'documents.retry' => 'Retry',
-			'documents.emptyTitle' => 'Nothing here yet',
 			_ => null,
 		} ?? switch (path) {
+			'documents.emptyTitle' => 'Nothing here yet',
 			'documents.emptyHint' => 'Create a document or a skill to get started.',
 			'documents.pickTitle' => 'Pick a document',
 			'documents.pickHint' => 'Choose a document or skill on the left to read or edit it.',

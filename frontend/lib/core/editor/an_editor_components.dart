@@ -3,7 +3,7 @@ import 'package:super_editor/super_editor.dart';
 
 import '../design/colors.dart';
 import '../design/tokens.dart';
-import '../ui/an_code_surface.dart';
+import '../ui/an_code_editor.dart';
 import '../ui/icons.dart';
 
 /// An-primitive block component builders for the editor (E2b+). Each reuses super_editor's default
@@ -46,24 +46,146 @@ class AnBlockquoteComponentBuilder extends BlockquoteComponentBuilder {
   }
 }
 
-/// Fenced code block in the An code-surface identity: the SAME framed white island the rest of the
-/// product uses ([AnCodeSurface] — hairline [AnColors.line] border, [AnRadius.card] round, clipped),
-/// wrapping the real editable [ParagraphComponent] (its [componentContext.componentKey] rides it, so
-/// selection/caret geometry is the default paragraph's). A code node is a `ParagraphNode` whose
-/// blockType is [codeAttribution]; super_editor ships NO code component, so this IS the code block. The
-/// mono 13/1.6 text colour is set by the stylesheet's `code` rule; syntax highlight rides the memoized
-/// [AnCodeSyntaxStylePhase] (an_editor_syntax.dart).
-/// 围栏代码块:复用产品统一的 AnCodeSurface(白岛+发丝边+card 圆角+裁剪),裹住真可编辑 ParagraphComponent;
-/// code 节点=blockType 为 code 的段落(super_editor 无代码组件,这就是代码块);mono 文字色由样式表 code 规则给,高亮走记忆化 style phase。
-class AnCodeBlockComponentBuilder extends ParagraphComponentBuilder {
-  const AnCodeBlockComponentBuilder(this.colors);
+/// A fenced code block rendered as an EMBEDDED [AnCodeEditor] — the SAME widget the entities/function
+/// pages use, in a directly-editable ([AnCodeEditor.seamless]) framed mode, so the document code block is
+/// pixel-1:1 with the entity pages (frame + syntax highlight + copy + language label + LINE-NUMBER GUTTER)
+/// AND editable in place (click → caret → type). Unlike a super_editor text paragraph, [CodeBlockNode] is a
+/// [BlockNode] — an ATOMIC BOX like an image — so super_editor NEVER places a text caret inside it; the
+/// embedded AnCodeEditor's own TextField owns the caret / selection / IME / highlight, and the surrounding
+/// document treats the block atomically (block-select, backspace-at-start delete). This is the ONLY
+/// substrate that can deliver the gutter (super_editor owns a paragraph's soft-wrap line-breaking, so an
+/// external gutter can't row-align). Edits stream out per keystroke ([AnCodeEditor.onInput]) → a whole-node
+/// [ReplaceNodeRequest] keeping the same id, so the markdown codec (an_editor_markdown.dart, which converts
+/// CodeBlockNode ⇄ a code ParagraphNode at the seam) round-trips.
+/// TRADE-OFFS (recorded, user-signed 0714): the code block is an atomic box, so a document selection can't
+/// flow continuously through it (select code INSIDE the field), and its edits carry the TextField's own
+/// undo (separate from super_editor's document history) — the inherent cost of embedding a real editor.
+/// 代码块=嵌入的真 AnCodeEditor(entities/function 同款,有框直接编辑):与实体页逐像素一致(框+高亮+copy+语言标+
+/// **行号**)且就地可编辑;它是 BlockNode(原子块,像图片)——super_editor 从不在里面放文本光标,光标/选区/IME/高亮
+/// 全归 AnCodeEditor 的 TextField。行号只有它自管布局才能对齐(super_editor 管段落软换行→外挂行号对不齐)。编辑经
+/// onInput 逐键整节点替换(同 id),codec 在缝处 CodeBlockNode⇄code 段落往返。代价(用户 0714 签):原子块→选区不
+/// 连续穿过、撤销走 TextField 自己的栈(与文档历史分离)——嵌真编辑器的固有成本。
+class CodeBlockNode extends BlockNode {
+  CodeBlockNode({required this.id, required this.code, this.language, super.metadata}) {
+    initAddToMetadata({NodeMetadata.blockType: codeAttribution});
+  }
 
+  @override
+  final String id;
+  final String code;
+  final String? language;
+
+  CodeBlockNode copyWithCode(String newCode) =>
+      CodeBlockNode(id: id, code: newCode, language: language, metadata: Map.from(metadata));
+
+  @override
+  String? copyContent(dynamic selection) {
+    if (selection is! UpstreamDownstreamNodeSelection) return null;
+    return !selection.isCollapsed ? code : null;
+  }
+
+  @override
+  bool hasEquivalentContent(DocumentNode other) =>
+      other is CodeBlockNode && code == other.code && language == other.language;
+
+  @override
+  DocumentNode copyWithAddedMetadata(Map<String, dynamic> newProperties) =>
+      CodeBlockNode(id: id, code: code, language: language, metadata: {...metadata, ...newProperties});
+
+  @override
+  DocumentNode copyAndReplaceMetadata(Map<String, dynamic> newMetadata) =>
+      CodeBlockNode(id: id, code: code, language: language, metadata: newMetadata);
+
+  CodeBlockNode copy() => CodeBlockNode(id: id, code: code, language: language, metadata: Map.from(metadata));
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CodeBlockNode &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          code == other.code &&
+          language == other.language;
+
+  @override
+  int get hashCode => id.hashCode ^ code.hashCode ^ language.hashCode;
+}
+
+/// The code block's view model (mirrors [ImageComponentViewModel]: a selection-aware box vm, value-equal
+/// so the presenter's style pass never reallocates per frame). 代码块 vm(镜像 ImageComponentViewModel,值相等)。
+class CodeBlockComponentViewModel extends SingleColumnLayoutComponentViewModel with SelectionAwareViewModelMixin {
+  CodeBlockComponentViewModel({
+    required super.nodeId,
+    super.createdAt,
+    super.maxWidth,
+    super.padding = EdgeInsets.zero,
+    required this.code,
+    this.language,
+    DocumentNodeSelection? selection,
+    Color selectionColor = Colors.transparent,
+  }) {
+    this.selection = selection;
+    this.selectionColor = selectionColor;
+  }
+
+  String code;
+  String? language;
+
+  @override
+  CodeBlockComponentViewModel copy() => CodeBlockComponentViewModel(
+        nodeId: nodeId,
+        createdAt: createdAt,
+        maxWidth: maxWidth,
+        padding: padding,
+        code: code,
+        language: language,
+        selection: selection,
+        selectionColor: selectionColor,
+      );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      super == other &&
+          other is CodeBlockComponentViewModel &&
+          runtimeType == other.runtimeType &&
+          nodeId == other.nodeId &&
+          code == other.code &&
+          language == other.language &&
+          selection == other.selection &&
+          selectionColor == other.selectionColor;
+
+  @override
+  int get hashCode =>
+      super.hashCode ^
+      nodeId.hashCode ^
+      code.hashCode ^
+      language.hashCode ^
+      selection.hashCode ^
+      selectionColor.hashCode;
+}
+
+class AnCodeBlockComponentBuilder implements ComponentBuilder {
+  const AnCodeBlockComponentBuilder(this.editor, this.colors, this.codeKeys);
+
+  final Editor editor;
   final AnColors colors;
+
+  /// One stable [GlobalKey] per code-node id, so the embedded [AnCodeEditor]'s State (its controller /
+  /// focus / caret) survives the whole-node replace we run on each keystroke (ReplaceNode remove+insert
+  /// would otherwise remount + drop the caret). Held on [AnEditorState]. 每代码节点一把稳定 key,保 AnCodeEditor
+  /// State 跨整节点替换(否则 remove+insert 会 remount 丢光标)。
+  final Map<String, GlobalKey> codeKeys;
 
   @override
   SingleColumnLayoutComponentViewModel? createViewModel(Document document, DocumentNode node) {
-    if (node is! ParagraphNode || node.getMetadataValue('blockType') != codeAttribution) return null;
-    return super.createViewModel(document, node); // reuse — carries blockType=code on the view model
+    if (node is! CodeBlockNode) return null;
+    return CodeBlockComponentViewModel(
+      nodeId: node.id,
+      code: node.code,
+      language: node.language,
+      padding: const EdgeInsets.only(top: AnFlow.block), // one house block gap above (like every stacked block) 块上距
+    );
   }
 
   @override
@@ -71,15 +193,31 @@ class AnCodeBlockComponentBuilder extends ParagraphComponentBuilder {
     SingleColumnDocumentComponentContext componentContext,
     SingleColumnLayoutComponentViewModel componentViewModel,
   ) {
-    // First non-null wins AND this builder runs first, so a REGULAR paragraph (blockType≠code) falls
-    // through to the default here. 常规段落(非 code)在此放行给默认。
-    if (componentViewModel is! ParagraphComponentViewModel || componentViewModel.blockType != codeAttribution) {
-      return null;
-    }
-    return AnCodeSurface(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AnSpace.s12, vertical: AnSpace.s8),
-        child: ParagraphComponent(key: componentContext.componentKey, viewModel: componentViewModel),
+    if (componentViewModel is! CodeBlockComponentViewModel) return null;
+    final editorKey = codeKeys.putIfAbsent(componentViewModel.nodeId, () => GlobalKey());
+    // BoxComponent (NOT ImageComponent's IgnorePointer) supplies the block geometry super_editor needs
+    // while letting pointers reach the embedded TextField. componentKey rides the BoxComponent root
+    // (the _layout contract: key on the returned subtree's ROOT). BoxComponent 供块几何、不挡指针;componentKey 挂根。
+    return BoxComponent(
+      key: componentContext.componentKey,
+      child: AnCodeEditor(
+        key: editorKey,
+        code: componentViewModel.code,
+        lang: componentViewModel.language,
+        reading: true,
+        wrap: true,
+        editable: true,
+        seamless: true,
+        onInput: (newCode) => editor.execute([
+          ReplaceNodeRequest(
+            existingNodeId: componentViewModel.nodeId,
+            newNode: CodeBlockNode(
+              id: componentViewModel.nodeId,
+              code: newCode,
+              language: componentViewModel.language,
+            ),
+          ),
+        ]),
       ),
     );
   }
