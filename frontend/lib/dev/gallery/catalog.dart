@@ -899,6 +899,12 @@ final GalleryCategory _g4NavShell = GalleryCategory('导航与壳 Nav & Shell', 
     GallerySpecimen('frozen · 取消选中淡出 (t=0.5)', (_) => AnOceanSwitcherFrame(items: _oceanItems, fromIndex: 1, toIndex: -1, t: 0.5), span: true),
     GallerySpecimen('超长标签 (clip 不溢出)', (_) => AnOceanSwitcherFrame(items: _longOceanItems, fromIndex: 1, toIndex: 1, t: 1), stress: true, maxWidth: 240, span: true),
   ]),
+  GalleryItem('AnBrandIcon.mark', '裸品牌 mark(6 方块·无白底无边框·inkMuted 灰):供全屏/Win-Linux 窗控品牌区行内,和 nav 描边图标**同列同视觉大小**。此格并排真 nav 图标(16px 盒描边示意),比对 mark 方块可见大小与描边字形一致(_markContentRatio 收)', [
+    GallerySpecimen('mark vs 真 nav 图标(16 盒对比)', (_) => const _BrandMarkDemo(), span: true),
+  ]),
+  GalleryItem('品牌 lockup', 'AnWindowControls 全屏/Win-Linux 露出的「Anselm」锁定组合:灰裸 mark + Newsreader(OFL 衬线)wordmark,纯净无点缀。真机对齐(mark 落 nav 图标列)+ 竖向节奏见侧栏', [
+    GallerySpecimen('灰 mark + Newsreader wordmark (ink)', (_) => const _BrandLockupDemo(), span: true),
+  ]),
   GalleryItem('AnWorkspaceButton', '左岛底栏 workspace 触发钮:头像 + 名字(省略)+ chevron;点开快捷操作菜单(isOpen 高亮 + chevron 翻转)', [
     GallerySpecimen('default', (_) => SizedBox(width: 200, child: AnWorkspaceButton(name: 'Personal', onTap: () {})), span: true),
     GallerySpecimen('open (菜单展开态)', (_) => SizedBox(width: 200, child: AnWorkspaceButton(name: 'Personal', isOpen: true, onTap: () {})), span: true),
@@ -1225,6 +1231,63 @@ class _OceanSwitcherDemoState extends State<_OceanSwitcherDemo> {
           onSelect: (i) => setState(() => _sel = i),
         ),
       );
+}
+
+// Compare the naked brand mark against real stroked nav icons at the icon size, each in a hairline 16 box,
+// so the mark's block extent (optical) can be judged/measured against the nav glyphs. 裸 mark vs 真 nav 图标同尺寸比对。
+class _BrandMarkDemo extends StatelessWidget {
+  const _BrandMarkDemo();
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    Widget cell(Widget glyph, String label) => Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: AnSize.icon,
+              height: AnSize.icon,
+              foregroundDecoration: BoxDecoration(border: Border.all(color: c.line, width: 1)),
+              child: glyph,
+            ),
+            const SizedBox(height: 6),
+            Text(label, style: AnText.meta.copyWith(color: c.inkMuted)),
+          ],
+        );
+    return Padding(
+      padding: const EdgeInsets.all(AnSpace.s16),
+      child: Row(
+        children: [
+          cell(const AnBrandIcon.mark(), 'new mark'),
+          const SizedBox(width: 28),
+          for (final it in _oceanItems.take(3)) ...[
+            cell(Icon(it.icon, size: AnSize.icon, color: c.inkMuted), it.label),
+            const SizedBox(width: 28),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// The brand lockup preview (mirrors AnWindowControls._brand): grey naked mark + Newsreader wordmark, ink.
+// 品牌锁定组合预览(镜像 AnWindowControls._brand):灰裸 mark + Newsreader wordmark(ink)。
+class _BrandLockupDemo extends StatelessWidget {
+  const _BrandLockupDemo();
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Padding(
+      padding: const EdgeInsets.all(AnSpace.s16),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const AnBrandIcon.mark(),
+          const SizedBox(width: AnGap.inline),
+          Text('Anselm', style: AnText.wordmark.copyWith(color: c.ink)),
+        ],
+      ),
+    );
+  }
 }
 
 // AnThinTable sample data. AnThinTable 演示数据。

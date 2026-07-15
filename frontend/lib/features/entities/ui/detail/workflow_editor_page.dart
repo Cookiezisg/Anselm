@@ -33,7 +33,8 @@ import 'workflow_editor_inspector.dart';
 /// The full-screen graph editor (WRK-055 W5) — a distinct route, NOT the three-island shell, and
 /// FRAMELESS: the canvas is full-bleed and the chrome floats OVER it as transparent pill clusters, not
 /// a solid top bar. The top control row is banded on the OS traffic-lights' line and reserves their
-/// zone with [AnWindowControls], so nothing overlaps the lights. Actions: back · add-node · auto-layout
+/// zone with [AnWindowControls] (brand OFF — the product mark belongs to the left island, not this page),
+/// so nothing overlaps the lights. Actions: back · add-node · auto-layout
 /// · direction (left pill); unsaved · discard · save (right pill); the right-island toggle. The canvas
 /// keeps its own zoom cluster, moved to the bottom-left to clear the top chrome. The right island is the
 /// real collapsible one ([AnIsland] + the shared [rightPanelCollapsedProvider]); it holds the node/edge
@@ -41,7 +42,7 @@ import 'workflow_editor_inspector.dart';
 /// [workflowEditorProvider]; save diffs it into one `:edit` (one version). Back returns to the entity page.
 ///
 /// 全屏图编辑器(W5)——独立路由、非三岛壳,且无边框:画布满铺,chrome 以透明浮层药丸浮在其上、非实心
-/// 顶条。顶控行落在红绿灯线上、用 [AnWindowControls] 预留灯位,不压灯。动作:返回·加节点·自动布局·方向
+/// 顶条。顶控行落在红绿灯线上、用 [AnWindowControls] 预留灯位(品牌关——产品标只属左岛、非此页),不压灯。动作:返回·加节点·自动布局·方向
 /// (左药丸);未保存·放弃·保存(右药丸);右岛切换。画布自带缩放条移到左下、让开顶部 chrome。右岛是真·可
 /// 收岛([AnIsland] + 共享 [rightPanelCollapsedProvider]),装节点/边检查器、切换时滑出。所有编辑改本地
 /// working 图;保存 diff 成一个 `:edit`(一版)。返回回实体页。

@@ -111,6 +111,17 @@ abstract final class AnText {
     fontFamily: uiFamily, fontFamilyFallback: uiFallback,
     fontSize: 16, height: 1.4, fontWeight: FontWeight.w400, fontVariations: [FontVariation('wght', 400)], // emphasis = Regular 强调=Regular
   );
+
+  /// The BRAND wordmark — "Anselm" set in Newsreader (OFL serif). The SOLE deliberate exception to both the
+  /// UI font family AND the two-weight rule: an identity asset, never UI text. Only [AnWindowControls]' brand
+  /// lockup uses it (fullscreen / Windows-Linux, where the OS hides the traffic lights and the brand takes
+  /// that spot). 18/1.0 pairs with the 16px naked mark; plain (no tracking/embellishment, 拍板). Colour is
+  /// applied at the call site. 品牌 wordmark:Newsreader(OFL 衬线)排的「Anselm」——UI 字族 + 两字重铁律的**唯一**刻意例外
+  /// (identity 资产、非 UI 文本);仅 AnWindowControls 品牌锁定组合用(全屏/Win-Linux 无 OS 红绿灯处)。18/1.0 配 16 裸 mark;纯净无点缀;色在调用处给。
+  static const TextStyle wordmark = TextStyle(
+    fontFamily: 'Newsreader',
+    fontSize: 18, height: 1.0, fontWeight: FontWeight.w400,
+  );
   static const TextStyle body = TextStyle(
     fontFamily: uiFamily, fontFamilyFallback: uiFallback,
     fontSize: 13, height: 1.4, fontWeight: FontWeight.w300, fontVariations: [FontVariation('wght', 300)], // the UI anchor — Light 正文锚·Light

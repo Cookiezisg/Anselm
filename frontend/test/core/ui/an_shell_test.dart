@@ -223,14 +223,14 @@ void main() {
         reason: 'a 0 band collapses the centering inset; AnSize.titlebar keeps the comfortable top gap');
   });
 
-  testWidgets('AnWindowControls: windowed reserves the lights gutter; fullscreen shows the brand + name (#10)',
+  testWidgets('AnWindowControls(showBrand): windowed reserves the lights gutter; fullscreen shows brand + name (#10)',
       (tester) async {
     if (!HostPlatform.isMacOS) return; // the reserve↔brand swap is macOS-only; elsewhere it's always the brand
     addTearDown(() => WindowFullScreen.active.value = false);
 
     Future<void> pump(bool fullScreen) async {
       WindowFullScreen.active.value = fullScreen;
-      await tester.pumpWidget(wrap(const Center(child: AnWindowControls())));
+      await tester.pumpWidget(wrap(const Center(child: AnWindowControls(showBrand: true))));
       await tester.pumpAndSettle();
     }
 
@@ -244,6 +244,32 @@ void main() {
     await pump(true);
     expect(find.byType(AnBrandIcon), findsOneWidget);
     expect(find.text('Anselm'), findsOneWidget);
+  });
+
+  testWidgets('AnWindowControls default (showBrand off): reserves the gutter windowed, draws NO brand in fullscreen',
+      (tester) async {
+    // The brand belongs to the left island ONLY (拍板). The collapsed-island reopen zone + the workflow
+    // editor reserve the lights gutter but must NEVER surface the mark/name — even in fullscreen, where a
+    // showBrand-on zone would. 品牌只属左岛;reopen 区/编辑器留灯位但绝不冒出标+名,即便全屏。
+    if (!HostPlatform.isMacOS) return;
+    addTearDown(() => WindowFullScreen.active.value = false);
+
+    Future<void> pump(bool fullScreen) async {
+      WindowFullScreen.active.value = fullScreen;
+      await tester.pumpWidget(wrap(const Center(child: AnWindowControls())));
+      await tester.pumpAndSettle();
+    }
+
+    // Windowed → still reserve the 72 lights gutter (the OS draws real lights here regardless of brand).
+    await pump(false);
+    expect(tester.getSize(find.byType(AnWindowControls)).width, AnSize.windowControlsInset);
+    expect(find.byType(AnBrandIcon), findsNothing);
+
+    // Fullscreen → NO lights, NO brand: the zone collapses to nothing (reopen/back rides the edge).
+    await pump(true);
+    expect(find.byType(AnBrandIcon), findsNothing);
+    expect(find.text('Anselm'), findsNothing);
+    expect(tester.getSize(find.byType(AnWindowControls)).width, 0);
   });
 
   test('minimum window keeps the ocean ≥ its min column even with the left island at max', () {

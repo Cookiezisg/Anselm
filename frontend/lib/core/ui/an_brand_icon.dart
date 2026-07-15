@@ -25,6 +25,22 @@ class AnBrandIcon extends StatelessWidget {
       : _asset = _anselmAsset,
         _svg = null,
         _glyph = null,
+        _bare = false,
+        managed = false,
+        elevated = false;
+
+  /// The NAKED brand mark — just the 6 blocks, monochrome **inkMuted** (the nav icons' grey, not the
+  /// wordmark's ink — locked on-device: grey blends with the stroked nav icons far better than solid black),
+  /// NO white plate + NO frame — for placing INLINE beside the nav icons (the fullscreen/Win-Linux
+  /// window-controls brand). Its blocks are sized to the nav icons' OPTICAL glyph, not the icon box, then
+  /// centered in that box so it box-aligns AND reads the same visual size as them ([_markContentRatio]).
+  /// 裸品牌 mark:仅 6 方块、单色 **inkMuted**(nav 图标那档灰、非 wordmark 的 ink——真机定:灰比实心黑更融入描边 nav 图标)、
+  /// 无白底无边框——供侧栏行内、和 nav 图标同列;方块按 nav 图标可见字形大小(非盒)取、居中于盒,故盒对齐且视觉同大([_markContentRatio])。
+  const AnBrandIcon.mark({this.size = AnBrandSize.sm, super.key})
+      : _asset = _anselmMarkAsset,
+        _bare = true,
+        _svg = null,
+        _glyph = null,
         managed = false,
         elevated = false;
 
@@ -32,22 +48,31 @@ class AnBrandIcon extends StatelessWidget {
   const AnBrandIcon.svg(String svg, {this.size = AnBrandSize.md, this.managed = false, this.elevated = false, super.key})
       : _svg = svg,
         _asset = null,
-        _glyph = null;
+        _glyph = null,
+        _bare = false;
 
   /// A letter-glyph fallback when no logo is available. 无 logo 时的字母兜底。
   const AnBrandIcon.glyph(String letter, {this.size = AnBrandSize.md, this.managed = false, this.elevated = false, super.key})
       : _glyph = letter,
         _asset = null,
-        _svg = null;
+        _svg = null,
+        _bare = false;
 
   final AnBrandSize size;
   final bool managed;
   final bool elevated;
+  final bool _bare;
   final String? _asset;
   final String? _svg;
   final String? _glyph;
 
   static const String _anselmAsset = 'assets/brand/anselm-icon.svg';
+  static const String _anselmMarkAsset = 'assets/brand/anselm-mark.svg';
+
+  // The naked mark's block extent as a fraction of the icon box — matched to the nav icons' visible glyph
+  // (measured ~13 in a 16 box). Tuned on-device: a solid mark reads heavier than a stroked glyph, so this
+  // sits a touch under the raw ratio. 裸 mark 方块占盒比,对齐 nav 图标可见字形(实测 ~13/16);实心比描边重故略收,真机调。
+  static const double _markContentRatio = 0.8125;
 
   // The app-icon SVG's squircle corner ratio (rx 114 of a 512 viewBox) — used to trace its edge.
   // app 图标 SVG 的 squircle 圆角比(512 视框上 rx 114)。
@@ -75,6 +100,24 @@ class AnBrandIcon extends StatelessWidget {
     final side = _side;
     Widget child;
     Decoration? plate;
+
+    if (_bare && _asset != null) {
+      // Naked mark: the blocks-only SVG, ink-tinted, sized to the nav-icon OPTICAL glyph ([_markContentRatio])
+      // and CENTERED in the [side] icon box so it both box-aligns and reads the same size as the nav icons.
+      // 裸 mark:仅方块 SVG、ink 着色、按 optical 比取、居中于盒,故盒对齐且视觉同大。
+      return SizedBox(
+        width: side,
+        height: side,
+        child: Center(
+          child: SvgPicture.asset(
+            _asset,
+            width: side * _markContentRatio,
+            height: side * _markContentRatio,
+            colorFilter: ColorFilter.mode(c.inkMuted, BlendMode.srcIn),
+          ),
+        ),
+      );
+    }
 
     if (_asset != null) {
       // App mark: the SVG carries its own white squircle + dark F. Frame with a hairline at the

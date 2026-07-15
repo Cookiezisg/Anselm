@@ -119,3 +119,8 @@ flutter:
     - family: JetBrains Mono
       fonts:
         - asset: assets/fonts/JetBrainsMono.ttf
+    # Newsreader (OFL) = BRAND wordmark ONLY (the "Anselm" lockup) — a deliberate brand-asset exception to the
+    # two-weight UI rule; never a UI text face. 品牌 wordmark 专用(Anselm 锁定组合),两字重 UI 铁律的品牌资产例外,不作 UI 文本。
+    - family: Newsreader
+      fonts:
+        - asset: assets/fonts/Newsreader.ttf

@@ -195,7 +195,9 @@ class _ChromeBar extends StatelessWidget {
             height: AnSize.control,
             child: Row(
               children: [
-                const AnWindowControls(),
+                // The brand lives ONLY on the left island (拍板). This is the one call site that opts in.
+                // 品牌只在左岛(拍板)——仅此处打开。
+                const AnWindowControls(showBrand: true),
                 const Spacer(),
                 AnButton.iconOnly(
                   AnIcons.panelLeft,
@@ -276,10 +278,12 @@ class _OceanRegion extends StatelessWidget {
             ),
             child: Row(
               children: [
-                // When the sidebar is collapsed the OS traffic lights now float over the ocean's top-left,
-                // so reserve their zone (AnWindowControls = the mac inset / the brand on Win/Linux) BEFORE
-                // the reopen button — the reopen sits AFTER the lights, never under them. 收起后红绿灯压到海洋左上,
-                // 故 reopen 前留出红绿灯位(AnWindowControls),reopen 落在灯之后、绝不压灯。
+                // When the sidebar is collapsed the OS traffic lights now float over the ocean's top-left, so
+                // reserve their windowed gutter (AnWindowControls, showBrand OFF — the brand belongs to the
+                // island only) BEFORE the reopen button: reopen sits AFTER the lights, never under them; in
+                // fullscreen (no lights) the zone collapses so reopen rides the edge with no stray brand.
+                // 收起后红绿灯压到海洋左上,故 reopen 前留红绿灯横位(AnWindowControls,showBrand 关——品牌只属左岛),
+                // reopen 落灯之后、绝不压灯;全屏无灯时整块收零,reopen 贴边、不冒出品牌。
                 AnimatedSize(
                   duration: AnMotionPref.reduced(context) ? Duration.zero : AnMotion.mid,
                   alignment: Alignment.centerLeft,
