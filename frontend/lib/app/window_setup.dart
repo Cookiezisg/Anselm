@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:macos_window_utils/macos_window_utils.dart';
 import 'package:window_manager/window_manager.dart';
@@ -59,6 +60,22 @@ Future<void> initWindow({String? title, SettingsPrefs? prefs}) async {
     }
   } catch (_) {
     // chrome is cosmetic; the window must still be revealed below. 外观非必需,下方仍须显示窗口。
+  }
+
+  // Set the window's OUTER corner radius to [AnRadius.window] (= chip + shellPad) so it is CONCENTRIC with
+  // the shell's left island, overriding NSThemeFrame's larger toolbar-window radius (26pt on Tahoe, too round
+  // against our 12pt island). The native `MainFlutterWindow` swizzles NSThemeFrame's radius getters to this
+  // value (the only lever that reshapes a titled window — content-side clips can't touch the OS window shape);
+  // the value is SOURCED FROM THE TOKEN here, not hard-coded natively. The native default already matches, so
+  // this is a confirm/redraw; a retuned chip/shellPad flows through automatically. Cosmetic → its own guard.
+  // 把窗外圆角设成 AnRadius.window(=chip+shellPad)与左岛同心、覆写 NSThemeFrame 偏大的 toolbar 圆角(Tahoe 26pt)。原生侧 swizzle
+  // NSThemeFrame 半径 getter 到此值(重塑 titled 窗形的唯一杠杆,内容侧裁剪碰不到 OS 窗形);值在此来自 token、非原生写死。原生默认已一致故此为确认/重画,
+  // 改 chip/shellPad 自动生效。外观项单独兜底。
+  try {
+    const chromeChannel = MethodChannel('app/window_chrome');
+    await chromeChannel.invokeMethod<void>('setCornerRadius', AnRadius.window);
+  } catch (_) {
+    // corner radius is cosmetic; fall back to the native default. 圆角是外观,失败退原生默认。
   }
 
   // Adapt the chrome to native fullscreen transitions: in fullscreen the OS drops the traffic

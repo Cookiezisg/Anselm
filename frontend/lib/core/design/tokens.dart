@@ -96,6 +96,15 @@ abstract final class AnRadius {
   static const double card = 16;
   static const double island = 20;
   static const double pill = 999;
+
+  /// The macOS window's OUTER envelope radius — sent natively to clip the window to a continuous-curve
+  /// corner CONCENTRIC with the shell's left island (a rounded rect inset by [AnSize.shellPad] with corner
+  /// [chip] is concentric with an outer corner of `chip + shellPad`). Computed, not hard-coded: retuning
+  /// the island [chip] or [AnSize.shellPad] moves the window corner in lockstep so the two curves stay
+  /// concentric. Overrides the OS's larger toolbar-window radius (26pt on Tahoe), which reads too round
+  /// against our 12pt island. 窗外圆角 = 与左岛同心(岛 chip 内缩 shellPad → 外角 = chip+shellPad);算术得出、
+  /// 非写死,改 chip/shellPad 窗角自动同心跟随;覆写系统偏大的 toolbar 圆角(Tahoe 26pt,配我们 12pt 岛显太圆)。
+  static const double window = chip + AnSize.shellPad; // 12 + 8 = 20
 }
 
 /// Sizes — control heights, icon slots, the 2:3:6 layout columns, the window envelope, and the
