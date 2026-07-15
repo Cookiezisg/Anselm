@@ -6,6 +6,7 @@ import '../../../core/contract/entities/handler.dart';
 import '../../../core/contract/entities/trigger.dart';
 import '../../../core/contract/entities/values.dart';
 import '../../../core/contract/entities/workflow.dart';
+import '../../../dev/markdown_corpus.dart' show kCorpusMentionId, kCorpusMentionName;
 import '../../../core/contract/workspace.dart';
 import 'entity_fixtures.dart';
 
@@ -177,6 +178,10 @@ FixtureEntityRepository demoEntityRepository() {
       fn('fn_normalize', 'normalize-input', 'Coerce + trim raw fields', 'def main(text):\n    return text.strip().lower()'),
       fn('fn_validate', 'validate-schema', 'JSON-schema validate a payload', 'def main(payload):\n    validate(payload)\n    return True'),
       fn('fn_weather', 'fetch-weather', 'Call the weather API', 'def main(city):\n    return api.get(city)'),
+      // A LEGAL 16-hex id so the markdown-corpus demo page's `[[…]]` wikilink resolves to this name (the
+      // codec matches only `<prefix>_<16hex>`, so the slug ids above can't be wikilinked). 供全谱页 wikilink 解析。
+      fn(kCorpusMentionId, kCorpusMentionName, 'Weather lookup — the corpus wikilink target',
+          'def main(city):\n    return api.get(city)'),
       fn('fn_summarize', 'summarize-text', 'LLM summarize a document', 'def main(doc):\n    return llm.summarize(doc)'),
       // D-029 — a deliberately-broken row: its detail GET throws (see DemoEntityRepository below), so
       // opening it shows the error+retry panel while every other entity opens fine. 坏行演详情错误面。

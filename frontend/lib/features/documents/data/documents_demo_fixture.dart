@@ -1,5 +1,6 @@
 import '../../../core/contract/entities/document.dart';
 import '../../../core/contract/entities/skill.dart';
+import '../../../dev/markdown_corpus.dart';
 import 'document_fixtures.dart';
 
 /// A realistic zero-backend seed for `make demo` — a small document tree (nested pages) + a couple of
@@ -160,6 +161,14 @@ FixtureDocumentsRepository demoDocumentsRepository() {
               '```dart\n'
               'void main() => print(\'hello, anselm\');\n'
               '```'),
+      // D-041 — the MARKDOWN CORPUS as a live demo page: every markdown element × every inline type in
+      // every block context + all the nesting / adjacency / CJK / edge cases. Shares ONE source of truth
+      // (`markdown_corpus.dart`) with the 1:1 guard test and the editor⇄chat harness, so eyeballing this page
+      // in `make demo` and the green guard can never disagree. 全谱语料活页:与 1:1 守卫/对比 harness 同源。
+      doc('doc_00000000000f7701', null, 'Markdown 全谱 (Kitchen Sink)', 3, '/Markdown 全谱',
+          description: 'Every markdown element × inline context + nesting / CJK / edge cases — the 1:1 corpus.',
+          tags: const ['reference', 'kitchen-sink'],
+          content: buildMarkdownCorpus()),
     ],
     skills: [
       Skill(

@@ -1,5 +1,8 @@
+import 'package:anselm/dev/markdown_corpus.dart';
 import 'package:anselm/features/documents/data/documents_demo_fixture.dart';
 import 'package:anselm/features/documents/model/doc_outline.dart';
+import 'package:anselm/features/entities/data/entity_demo_fixture.dart';
+import 'package:anselm/features/entities/data/entity_kind.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // D-023 — the `make demo` documents fixture must include ONE page that exercises every block the editor
@@ -39,5 +42,19 @@ void main() {
     expect(body, contains('- [x] a task already done'));
     expect(body, contains('\n> A blockquote'));
     expect(body, contains('```dart'));
+  });
+
+  test('D-041 markdown corpus page IS the shared corpus + its wikilink target resolves', () async {
+    // The `make demo` kitchen-sink page renders the exact same [buildMarkdownCorpus] as the 1:1 guard test
+    // (markdown_parity_test) and the editor⇄chat harness — one source of truth, so the eyeball page and the
+    // green guard can never disagree. 全谱页=守卫/harness 同一份语料。
+    final page = (await demoDocumentsRepository().getTree())
+        .firstWhere((d) => d.name == 'Markdown 全谱 (Kitchen Sink)');
+    expect(page.content, buildMarkdownCorpus());
+    expect(page.content, contains('[[$kCorpusMentionId]]'));
+    // The demo entity fixture provides the wikilink's resolvable target with the corpus's declared name, so
+    // the mention pill shows a real name (not the raw id fallback). demo 实体缝供该 wikilink 的解析目标。
+    final row = await demoEntityRepository().getEntityRow(EntityKind.function, kCorpusMentionId);
+    expect(row.name, kCorpusMentionName);
   });
 }
