@@ -5,6 +5,8 @@ import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../ui/an_code_editor.dart';
 import '../ui/icons.dart';
+import 'an_editor_list_components.dart';
+import 'an_editor_text_component.dart';
 
 /// An-primitive block component builders for the editor (E2b+). Each reuses super_editor's default
 /// builder for the heavy lifting (view-model construction: text direction / alignment / indent /
@@ -43,6 +45,32 @@ class AnBlockquoteComponentBuilder extends BlockquoteComponentBuilder {
       underlines: componentViewModel.createUnderlines(),
       barColor: colors.lineStrong,
     );
+  }
+}
+
+/// Makes the editor's table header follow the COLUMN alignment, the GFM standard (the delimiter row aligns
+/// the whole column — header AND body; GitHub renders `<th align=…>`). super_editor's markdown deserializer
+/// hardcodes header cells to centre (`serialization/markdown/table.dart` → `TextAlign.center`) while data
+/// cells get the column alignment, so a left/right column got a centred header — diverging from the chat
+/// table ([AnProseTable], which follows the column) and from GitHub. This override copies each header cell's
+/// alignment from the first data row of its column, so the header follows the column, 1:1 with chat.
+/// 表头跟随列对齐(GFM 标准:分隔行定整列、头体同对齐);super_editor 默认把表头硬编码居中,此覆盖把表头对齐改回列对齐(同 chat)。
+class AnMarkdownTableComponentBuilder extends MarkdownTableComponentBuilder {
+  const AnMarkdownTableComponentBuilder();
+
+  @override
+  SingleColumnLayoutComponentViewModel? createViewModel(Document document, DocumentNode node) {
+    final vm = super.createViewModel(document, node);
+    // Header follows the column: copy alignment from the first data row (which carries the real column
+    // alignment). Header-only tables (no data) keep super_editor's centre — a degenerate, rare case.
+    if (vm is MarkdownTableViewModel && vm.cells.length > 1) {
+      final header = vm.cells.first;
+      final firstData = vm.cells[1];
+      for (var i = 0; i < header.length && i < firstData.length; i++) {
+        header[i].textAlign = firstData[i].textAlign;
+      }
+    }
+    return vm;
   }
 }
 
@@ -267,16 +295,12 @@ class _AnTaskComponentState extends State<_AnTaskComponent>
   @override
   TextComposable get childTextComposable => childDocumentComponentKey.currentState as TextComposable;
 
-  // A completed task greys to inkFaint + strikes through (the "done" affordance). 完成态:inkFaint+删除线。
+  // A completed task greys to inkFaint — NO strikethrough (user 0715: grey, don't strike; matches chat, which
+  // never struck done tasks). 完成态:仅灰(inkFaint),不加删除线(用户 0715 定,与 chat 一致)。
   TextStyle _computeStyles(Set<Attribution> attributions) {
     final style = widget.viewModel.textStyleBuilder(attributions);
     if (!widget.viewModel.isComplete) return style;
-    return style.copyWith(
-      color: widget.colors.inkFaint,
-      decoration: style.decoration == null
-          ? TextDecoration.lineThrough
-          : TextDecoration.combine([TextDecoration.lineThrough, style.decoration!]),
-    );
+    return style.copyWith(color: widget.colors.inkFaint);
   }
 
   @override
@@ -286,13 +310,20 @@ class _AnTaskComponentState extends State<_AnTaskComponent>
     return Directionality(
       textDirection: vm.textDirection,
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        // The checkbox is a fixed-size [Icon], NOT text, so unlike the bullet/numeral markers it has no text
+        // baseline to sit on: baseline-aligning it would pin it to the ICON FONT's baseline (font-design
+        // dependent, seats high). CENTRE against the first text line instead — 1:1 with the chat task row
+        // ([AnMarkdown._AnCheckBoxMd] centres the same [AnSize.icon]), deterministic, textScaler-independent,
+        // zero magic number. (The AnTextComponent baseline fix is what makes the sibling list MARKERS align by
+        // baseline; the Icon deliberately stays centred to match chat.) 勾框是定尺 Icon 非文本、无文本基线可坐:
+        // baseline 会钉到图标字体基线(依字体、偏高);故与首行文字居中(同 chat 任务行),确定、随缩放不变、无魔数。
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          SizedBox(width: vm.indentCalculator(vm.textStyleBuilder({}), vm.indent)),
-          // The tappable An glyph, nudged down to sit on the first text line's centre (16 glyph in the
-          // 24px reading line box). 可点字形,下移到首行文字中线。
+          // Lead + gap match the chat task row (AnSpace.s12 start + s8 gap) so the two are 1:1 — NOT the default
+          // 36px indentCalculator. 前导/间距对齐 chat 任务行(12+8)。
           Padding(
-            padding: const EdgeInsetsDirectional.only(end: AnSpace.s8, top: AnSpace.s4),
+            padding: EdgeInsetsDirectional.only(
+                start: AnSpace.s12 + vm.indent * kListIndentStep, end: AnSpace.s8),
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: vm.setComplete != null ? () => vm.setComplete!(!done) : null,
@@ -304,7 +335,7 @@ class _AnTaskComponentState extends State<_AnTaskComponent>
             ),
           ),
           Expanded(
-            child: TextComponent(
+            child: AnTextComponent(
               key: _textKey,
               text: vm.text,
               textDirection: vm.textDirection,
@@ -315,6 +346,8 @@ class _AnTaskComponentState extends State<_AnTaskComponent>
               selectionColor: vm.selectionColor,
               highlightWhenEmpty: vm.highlightWhenEmpty,
               underlines: vm.createUnderlines(),
+              codeBackgroundColor: widget.colors.surfaceSunken,
+              codeBackgroundRadius: AnRadius.tag,
             ),
           ),
         ],
@@ -363,7 +396,7 @@ class _AnBlockquoteComponent extends StatelessWidget {
           children: [
             SizedBox(width: indentCalculator(styleBuilder({}), indent)),
             Expanded(
-              child: TextComponent(
+              child: AnTextComponent(
                 key: textKey,
                 text: text,
                 textStyleBuilder: styleBuilder,

@@ -7,8 +7,9 @@ import '../../i18n/strings.g.dart';
 import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
+import 'an_code_chip.dart';
 import 'an_code_editor.dart';
-import 'an_thin_table.dart';
+import 'an_prose_table.dart';
 import 'icons.dart';
 
 /// The chat markdown renderer — a token-locked FACADE over `gpt_markdown` (pinned exact; only this file
@@ -29,7 +30,8 @@ import 'icons.dart';
 ///   never imports url_launcher).
 /// - **Images** → an inert placeholder chip; NO network fetch ever (prompt-injection exfiltration + local
 ///   SSRF stay closed).
-/// - **Tables → [AnThinTable]** (cells flattened to plain text — LLM table cells are rarely rich).
+/// - **Tables → [AnProseTable]** (a bordered hairline grid, 1:1 with the document editor's table; cells
+///   parsed RICH via `MdWidget` — bold/italic/code/links render; header emphasis, body reading).
 /// - **Blockquote** → the quiet-aside grammar (2px `lineStrong` left bar + `inkMuted` prose), same
 ///   register as the thinking rail.
 /// - **LaTeX + `<u>` OFF**: math components stripped (no flutter_math cost); UnderLineMd stripped so
@@ -44,7 +46,7 @@ import 'icons.dart';
 /// w300 即根本不粗——两档字重在此是功能必需);**标题降档** 22/18/15-w400(阅读列不喊,h4–h6 并入 readingH3 15 档);
 /// **围栏代码→AnCodeEditor 只读**(唯一代码解剖+唯一高亮器);**内联 code**→mono+surfaceSunken chip;**链接**
 /// accent、scheme 闸(http/https/mailto 之外一律惰性)、永不自动开(开链归宿主,本文件绝不 import url_launcher);
-/// **图片**惰性占位、永不取网;**表格→AnThinTable**(cell 拍平);**引用**=静默旁白(2px lineStrong 左条+inkMuted,
+/// **图片**惰性占位、永不取网;**表格→AnProseTable**(有框发丝网格、与编辑器表 1:1;单元格经 MdWidget 富渲);**引用**=静默旁白(2px lineStrong 左条+inkMuted,
 /// 与 thinking rail 同语法);**LaTeX+`<u>` 关**(HTML 一律字面惰性)。流式:text 纯 prop、未闭合围栏容忍;
 /// SelectionArea 归调用方;无动画。
 class AnMarkdown extends StatelessWidget {
@@ -141,16 +143,12 @@ class AnMarkdown extends StatelessWidget {
   Widget _fencedCode(BuildContext context, String name, String code, bool closed) =>
       AnCodeEditor(code: code.trimRight(), lang: name.trim().isEmpty ? null : name.trim(), reading: true);
 
-  // Inline `code` → mono on a sunken chip (the package default is bold-only — broken on the pinned axis).
-  // 内联 code→mono+凹陷 chip(包默认仅加粗——钉轴上渲错)。
-  Widget _inlineCode(BuildContext context, String text, TextStyle style) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: AnSpace.s4),
-        decoration: BoxDecoration(
-          color: context.colors.surfaceSunken,
-          borderRadius: BorderRadius.circular(AnRadius.tag),
-        ),
-        child: Text(text, style: AnText.mono.copyWith(color: context.colors.ink)),
-      );
+  // Inline `code` → [AnCodeChip] (mono on a sunken padded pill; the package default is bold-only — broken on the
+  // pinned axis). This is the READ-ONLY markdown renderer (chat bubbles, doc previews) — a WidgetSpan pill is
+  // fine here since it never wraps mid-token in practice and is never edited. The document EDITOR uses a
+  // different mechanism (paint-beneath: codeAttribution text with a rounded background painted under it, so it
+  // wraps + edits in place). 内联 code→AnCodeChip(只读 markdown 渲染;编辑器另用 paint-beneath 可换行可编辑)。
+  Widget _inlineCode(BuildContext context, String text, TextStyle style) => AnCodeChip(text);
 
   // Images: an inert chip, NEVER a network fetch (no NetworkImage anywhere) — remote images from model/tool
   // output are an exfiltration + local-SSRF channel. 图片:惰性 chip,绝不取网(渗出/SSRF 通道封死)。
@@ -180,31 +178,35 @@ class AnMarkdown extends StatelessWidget {
     );
   }
 
-  // md table → AnThinTable (cells flattened; ragged rows clipped to the header width). 表→AnThinTable。
+  // md table → AnProseTable (bordered hairline grid, RICH cells; 1:1 with the document editor's table).
+  // Each cell parses via MdWidget so bold/italic/code/links render; header = reading·emphasis·ink, body =
+  // reading·ink; per-column align rides the header field's TextAlign (a tight Table cell honours
+  // Text.rich(textAlign:) — no Align wrapper). No outer padding — the newline gap owns block separation.
+  // trim: the package pads cells with ` | ` — untrimmed data would misalign right-aligned columns.
+  // 表→有框富表(与编辑器逐像素一致):MdWidget 富渲单元格、头强调体正文、对齐随字段 TextAlign、间距归换行。
   Widget _table(BuildContext context, List<CustomTableRow> rows, TextStyle style, GptMarkdownConfig config) {
     if (rows.isEmpty) return const SizedBox.shrink();
+    final c = context.colors;
     final header = rows.firstWhere((r) => r.isHeader, orElse: () => rows.first);
-    // trim: the package passes cells with their ` | ` padding intact — untrimmed data would misalign
-    // right-aligned columns. 包传来的 cell 带竖线两侧空格——不 trim 会顶歪右对齐列。
-    final columns = [
-      for (final (i, f) in header.fields.indexed)
-        AnTableColumn('c$i', label: f.data.trim(), align: _mapAlign(f.alignment)),
-    ];
-    final dataRows = [
-      for (final r in rows.where((r) => !identical(r, header) && !r.isHeader))
-        {
-          for (final (i, f) in r.fields.indexed)
-            if (i < columns.length) 'c$i': f.data.trim(),
-        },
-    ];
-    return AnThinTable(columns: columns, rows: dataRows); // no outer padding — the newline gap owns separation 间距归换行
+    final cols = header.fields.length;
+    if (cols == 0) return const SizedBox.shrink();
+    final bodyStyle = AnText.reading.copyWith(color: c.ink);
+    final headerStyle = AnText.reading.weight(AnText.emphasisWeight).copyWith(color: c.ink);
+    List<Widget> cells(CustomTableRow row, TextStyle rowStyle) => [
+          for (var i = 0; i < cols; i++)
+            MdWidget(
+              context,
+              (i < row.fields.length ? row.fields[i].data : '').trim(), // pad short / clip long to header width
+              false, // inline pipeline only (no block components inside a cell)
+              config: config.copyWith(style: rowStyle, textAlign: header.fields[i].alignment),
+            ),
+        ];
+    final data = rows.where((r) => !identical(r, header) && !r.isHeader);
+    return AnProseTable(rows: [
+      cells(header, headerStyle),
+      for (final r in data) cells(r, bodyStyle),
+    ]);
   }
-
-  static AnTableAlign _mapAlign(TextAlign a) => switch (a) {
-        TextAlign.center => AnTableAlign.center,
-        TextAlign.right || TextAlign.end => AnTableAlign.right,
-        _ => AnTableAlign.left,
-      };
 
   // List markers — the package's ordered default hardcodes w100 (broken on the pinned axis); both markers
   // re-done in inkFaint, layout mirroring the package (baseline row, start 12 / gap 8).
@@ -315,7 +317,13 @@ class _AnCheckBoxMd extends CheckBoxMd {
             color: checked ? c.ok : c.inkFaint,
           ),
         ),
-        Flexible(child: MdWidget(context, '${match?[2]}', false, config: config)),
+        // A completed task greys to inkFaint — NO strikethrough (matches the editor; user 0715). 完成态灰、不删除线。
+        Flexible(
+          child: MdWidget(context, '${match?[2]}', false,
+              config: checked
+                  ? config.copyWith(style: (config.style ?? AnText.reading).copyWith(color: c.inkFaint))
+                  : config),
+        ),
       ],
     );
   }

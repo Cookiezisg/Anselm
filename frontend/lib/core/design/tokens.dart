@@ -64,12 +64,16 @@ abstract final class AnFlow {
   static const double headBody = AnSpace.s12; // section heading → its body (default) 段标题→正文
   static const double headBodyTight = AnSpace.s8; // faint-meta title → body 淡 meta 标题→正文
   static const double headBodyDense = AnSpace.s6; // quiet/collapsible header → body 静默/折叠头→正文
-  // Heading space-ABOVE (reading column, all levels): UNIFORM 24 — chat's AnMarkdown gives every heading
-  // one block gap (12) on top of the flanking block gap (12) = 24 above / 12 below, identical across h1–h3.
-  // The document editor reads this to match chat pixel-for-pixel (user 0714: documents markdown 1:1 with
-  // chat). The B-021 asymmetric 32/24/16 ladder is retired for that parity. 标题上距统一 24(与 chat 逐像素
-  // 一致:每级都是块间距上再加一块=上 24 下 12);B-021 的 32/24/16 阶梯退役换 chat 对齐。
+  // Heading space-ABOVE, section case (heading follows CONTENT): 24 — one block gap (12) above the flanking
+  // block gap (12) = 24 above / 12 below (Notion 2:1). chat's AnMarkdown gives this via _AnHTag + _AnNewLines;
+  // the document editor matches it pixel-for-pixel. 标题上距(跟在正文后=分节):24(块间距上再加一块=上 24 下 12)。
   static const double headingTop = AnSpace.s24;
+  // Heading space-ABOVE, CONSECUTIVE case (heading immediately follows another heading): 12 — the "consecutive
+  // heading override" (prose-typography best practice: without it, stacked h2+h3+h4 make oversized gaps that
+  // read as broken). chat gets this for free (its blank-line block gap doesn't fire between adjacent headings,
+  // leaving only _AnHTag's 12); the editor applies it explicitly when the previous block is also a heading.
+  // 连续标题上距(紧跟另一个标题):12——「连续标题覆写」(排版最佳实践:不收紧则堆叠标题产生看似坏掉的巨大间隙)。
+  static const double headingStack = AnSpace.s12;
 }
 
 /// HANGING INDENT tier (批7 B 轨) — a wrapped/second line aligns under the text that follows a lead

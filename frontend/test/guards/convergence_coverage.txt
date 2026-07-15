@@ -43,10 +43,15 @@ lib/core/design/tokens.dart	converged
 lib/core/design/typography.dart	converged
 lib/core/editor/an_editor.dart	reviewed
 lib/core/editor/an_editor_components.dart	converged
+lib/core/editor/an_editor_inline_code.dart	converged
+lib/core/editor/an_editor_list_components.dart	pending
 lib/core/editor/an_editor_markdown.dart	converged
+lib/core/editor/an_editor_markdown_shortcuts.dart	converged
 lib/core/editor/an_editor_mention.dart	converged
+lib/core/editor/an_editor_quote.dart	pending
 lib/core/editor/an_editor_slash_menu.dart	reviewed
 lib/core/editor/an_editor_stylesheet.dart	converged
+lib/core/editor/an_editor_text_component.dart	converged
 lib/core/editor/an_editor_toolbar.dart	converged
 lib/core/entity/mention_source.dart	converged
 lib/core/error/error_boundary.dart	reviewed
@@ -114,6 +119,7 @@ lib/core/ui/an_cast_row.dart	reviewed
 lib/core/ui/an_cel_grow.dart	reviewed
 lib/core/ui/an_chip.dart	reviewed
 lib/core/ui/an_code_block.dart	converged
+lib/core/ui/an_code_chip.dart	converged
 lib/core/ui/an_code_editor.dart	reviewed
 lib/core/ui/an_code_surface.dart	reviewed
 lib/core/ui/an_composer.dart	reviewed
@@ -174,6 +180,7 @@ lib/core/ui/an_page.dart	converged
 lib/core/ui/an_path_chip.dart	converged
 lib/core/ui/an_pop_surface.dart	converged
 lib/core/ui/an_popover.dart	converged
+lib/core/ui/an_prose_table.dart	pending
 lib/core/ui/an_quote_bar.dart	converged
 lib/core/ui/an_radar_sweep.dart	converged
 lib/core/ui/an_rail_skeleton.dart	converged
@@ -262,6 +269,7 @@ lib/dev/gallery/tool_hit_list_specimens.dart	converged
 lib/dev/gallery/tool_interaction_gate_specimens.dart	reviewed
 lib/dev/gallery/user_turn_specimens.dart	reviewed
 lib/dev/gallery_main.dart	converged
+lib/dev/markdown_corpus.dart	pending
 lib/features/chat/data/attachment_image_provider.dart	converged
 lib/features/chat/data/chat_demo_fixture.dart	converged
 lib/features/chat/data/chat_fixtures.dart	converged

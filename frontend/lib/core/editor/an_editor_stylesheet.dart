@@ -4,7 +4,16 @@ import 'package:super_editor/super_editor.dart';
 import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
+import 'an_editor_inline_code.dart';
+import 'an_editor_quote.dart';
 import 'an_editor_mention.dart';
+
+/// The measured advance of one JetBrains-Mono glyph cell at [AnText.mono]'s font size 13 (13 × 0.619 ≈ 8.05px).
+/// Used to size the inline-code NBSP padding spacer: its advance is shrunk to [AnSpace.s4] (4px) via
+/// `letterSpacing = AnSpace.s4 - kMonoCellWidth`, which reserves exactly the painter's visible 4px padding while
+/// keeping the spacer at full font size (so the caret stays full height on it). AnText.mono is fixed at 13, so
+/// this is stable. mono 13 单格步进(实测 8.05px);内距占位靠它算负 letterSpacing 把步进缩到 4px。
+const double kMonoCellWidth = 8.05;
 
 /// The editor's block stylesheet — written FROM SCRATCH (never `defaultStylesheet.copyWith`, which
 /// silently drops [Styles.maxWidth] when you add rules; E0 post-mortem discipline #4). It carries the An
@@ -28,7 +37,9 @@ Stylesheet buildAnEditorStylesheet(AnColors colors) {
 
   return Stylesheet(
     inlineTextStyler: (attributions, existingStyle) => anInlineTextStyler(colors, attributions, existingStyle),
-    // Our @mention pill builder runs first; the rest of the chain (inline images) stays. 提及药丸在前。
+    // The @mention pill builder runs first; the rest of the chain (inline images) stays. Inline code is NOT a
+    // widget builder — it's plain codeAttribution text with a rounded background painted beneath it by
+    // AnTextComponent (paint-beneath). 提及药丸在前;行内代码不再走 widget builder,而是 codeAttribution 文本+底层圆角背景。
     inlineWidgetBuilders: [anMentionInlineWidgetBuilder, ...defaultInlineWidgetBuilderChain],
     rules: _rules(colors, ink),
   );
@@ -63,12 +74,14 @@ TextStyle anInlineTextStyler(AnColors colors, Set<Attribution> attributions, Tex
     } else if (a == strikethroughAttribution) {
       s = s.copyWith(decoration: add(TextDecoration.lineThrough));
     } else if (a == codeAttribution) {
+      // Mono voice only — the rounded [AnColors.surfaceSunken] background is painted BENEATH the run by
+      // AnTextComponent's CodeBackgroundLayer (paint-beneath), NOT a tight TextStyle.backgroundColor
+      // rectangle (which can't wrap with rounded corners). mono 声;圆角背景由 AnTextComponent 底层绘制,非矩形。
       s = s.copyWith(
         fontFamily: AnText.mono.fontFamily,
         fontFamilyFallback: AnText.mono.fontFamilyFallback,
         fontSize: AnText.mono.fontSize,
         fontVariations: const [], // clear the UI VF wght — the mono face isn't that axis 清变量轴
-        backgroundColor: colors.surfaceSunken,
       );
     } else if (a is LinkAttribution) {
       s = s.copyWith(color: colors.accent, decoration: add(TextDecoration.underline));
@@ -80,7 +93,37 @@ TextStyle anInlineTextStyler(AnColors colors, Set<Attribution> attributions, Tex
       s = s.copyWith(fontSize: a.fontSize);
     }
   }
+  // The inline-code NBSP padding spacer: shrink its ADVANCE to the 4px reservation via NEGATIVE letterSpacing,
+  // but keep the FULL mono font size — otherwise the caret, whose height is taken from the character it sits on,
+  // turns stubby the instant it lands on the spacer at a code edge (a shrunk-fontSize spacer gave a tiny caret).
+  // letterSpacing is trailing, so a lone NBSP's advance = monoCell (8.05) + letterSpacing → AnSpace.s4 (4px);
+  // the painter's 4px inflation then lands flush against a glued neighbour. 内距占位:用负 letterSpacing 缩「步进」到 4px,
+  // 但字号保持满 mono——否则光标落到占位符上会因字号变矮(高度取自所在字符);步进=8.05+letterSpacing=4px。
+  if (attributions.contains(codeSpacerAttribution)) {
+    s = s.copyWith(letterSpacing: AnSpace.s4 - kMonoCellWidth);
+  }
   return s;
+}
+
+// Space ABOVE a heading: the section-separation [AnFlow.headingTop] (24) by default, but the "consecutive
+// heading override" — [AnFlow.headingStack] (12) — when the PREVIOUS block is ALSO a heading, so stacked
+// headings group tightly instead of making the oversized gaps that read as broken (prose-typography best
+// practice; matches chat, whose blank-line block gap doesn't fire between adjacent headings). 标题上距:默认 24,
+// 上一个块也是标题时收紧到 12(连续标题覆写,与 chat 一致)。
+double _headingTopFor(Document doc, DocumentNode node) {
+  final index = doc.getNodeIndexById(node.id);
+  if (index > 0 && _isHeaderNode(doc.getNodeAt(index - 1))) return AnFlow.headingStack;
+  return AnFlow.headingTop;
+}
+
+bool _isHeaderNode(DocumentNode? node) {
+  final bt = node?.getMetadataValue('blockType');
+  return bt == header1Attribution ||
+      bt == header2Attribution ||
+      bt == header3Attribution ||
+      bt == header4Attribution ||
+      bt == header5Attribution ||
+      bt == header6Attribution;
 }
 
 List<StyleRule> _rules(AnColors colors, TextStyle Function(TextStyle) ink) {
@@ -107,21 +150,45 @@ List<StyleRule> _rules(AnColors colors, TextStyle Function(TextStyle) ink) {
       StyleRule(
         const BlockSelector('header1'),
         (doc, node) => {
-          Styles.padding: const CascadingPadding.only(top: AnFlow.headingTop), // 24 — chat parity
+          Styles.padding: CascadingPadding.only(top: _headingTopFor(doc, node)), // 24 — chat parity
           Styles.textStyle: ink(AnText.readingH1),
         },
       ),
       StyleRule(
         const BlockSelector('header2'),
         (doc, node) => {
-          Styles.padding: const CascadingPadding.only(top: AnFlow.headingTop),
+          Styles.padding: CascadingPadding.only(top: _headingTopFor(doc, node)),
           Styles.textStyle: ink(AnText.readingH2),
         },
       ),
       StyleRule(
         const BlockSelector('header3'),
         (doc, node) => {
-          Styles.padding: const CascadingPadding.only(top: AnFlow.headingTop),
+          Styles.padding: CascadingPadding.only(top: _headingTopFor(doc, node)),
+          Styles.textStyle: ink(AnText.readingH3),
+        },
+      ),
+      // h4–h6 fold into the level-3 reading size (per the outline invariant) but STILL need the heading top gap
+      // — without their own rules they fell through with no top padding, so H4–H6 packed tight against each
+      // other while chat gives every heading the 24 gap. h4–h6 并入 h3 尺寸,但仍需 24 顶距(缺规则会挤成一坨)。
+      StyleRule(
+        const BlockSelector('header4'),
+        (doc, node) => {
+          Styles.padding: CascadingPadding.only(top: _headingTopFor(doc, node)),
+          Styles.textStyle: ink(AnText.readingH3),
+        },
+      ),
+      StyleRule(
+        const BlockSelector('header5'),
+        (doc, node) => {
+          Styles.padding: CascadingPadding.only(top: _headingTopFor(doc, node)),
+          Styles.textStyle: ink(AnText.readingH3),
+        },
+      ),
+      StyleRule(
+        const BlockSelector('header6'),
+        (doc, node) => {
+          Styles.padding: CascadingPadding.only(top: _headingTopFor(doc, node)),
           Styles.textStyle: ink(AnText.readingH3),
         },
       ),
@@ -129,7 +196,9 @@ List<StyleRule> _rules(AnColors colors, TextStyle Function(TextStyle) ink) {
       // Body blocks — ONE house gap (12) above every stacked block. 正文块:唯一 12 块间距。
       StyleRule(
         const BlockSelector('paragraph'),
-        (doc, node) => {Styles.padding: const CascadingPadding.only(top: AnFlow.block)},
+        // A quoted continuation paragraph carries its gap INSIDE the bar (wrapInQuote's topGap), so its external
+        // top padding is 0 → the left rule stays continuous. 引用延续段外距归零(间距落条内)。
+        (doc, node) => {Styles.padding: CascadingPadding.only(top: isQuoteContinuation(doc, node) ? 0 : AnFlow.block)},
       ),
       // List items — the bullet/numeral is a QUIET inkMuted marker (never competes with the body ink);
       // consecutive items sit tight (s4), only the FIRST gets the full block gap (handled by the
@@ -143,7 +212,7 @@ List<StyleRule> _rules(AnColors colors, TextStyle Function(TextStyle) ink) {
       ),
       StyleRule(
         const BlockSelector('listItem').after('listItem'),
-        (doc, node) => {Styles.padding: const CascadingPadding.only(top: AnFlow.listItem)},
+        (doc, node) => {Styles.padding: CascadingPadding.only(top: isQuoteContinuation(doc, node) ? 0 : AnFlow.listItem)},
       ),
 
       // Tasks ride the reading body voice; consecutive tasks sit tight (the An glyph + done-strike are
@@ -178,7 +247,10 @@ List<StyleRule> _rules(AnColors colors, TextStyle Function(TextStyle) ink) {
         },
       ),
 
-      // Table (E8) — An hairline grid + emphasis header + snug cell padding. 表格:发丝网格 + 强调表头 + 紧凑内距。
+      // Table (E8) — An hairline grid + emphasis header + snug cell padding. Vertical padding is GFM's
+      // canonical 6px (tightened from 8 — the 15/1.6 reading line box already breathes; 8 made a 40px row).
+      // This is the ONE value shared with the chat table primitive [AnProseTable] so the two are 1:1.
+      // 表格:发丝网格 + 强调表头 + 紧凑内距;竖内距=GFM 6px(从 8 收紧,1.6 行盒已有留白);与 chat AnProseTable 同值。
       StyleRule(
         BlockSelector(tableBlockAttribution.name),
         (doc, node) => {
@@ -186,7 +258,7 @@ List<StyleRule> _rules(AnColors colors, TextStyle Function(TextStyle) ink) {
           Styles.textStyle: AnText.reading.copyWith(color: colors.ink),
           TableStyles.border: TableBorder.all(color: colors.line, width: AnSize.hairline),
           TableStyles.headerTextStyle: AnText.reading.weight(AnText.emphasisWeight).copyWith(color: colors.ink),
-          TableStyles.cellPadding: const CascadingPadding.symmetric(horizontal: AnSpace.s12, vertical: AnSpace.s8),
+          TableStyles.cellPadding: const CascadingPadding.symmetric(horizontal: AnSpace.s12, vertical: AnSpace.s6),
         },
       ),
 

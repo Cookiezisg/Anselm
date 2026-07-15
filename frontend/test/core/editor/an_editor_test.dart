@@ -3,7 +3,9 @@ import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/design/typography.dart';
 import 'package:anselm/core/editor/an_editor.dart';
 import 'package:anselm/core/editor/an_editor_components.dart';
+import 'package:anselm/core/editor/an_editor_inline_code.dart';
 import 'package:anselm/core/editor/an_editor_mention.dart';
+import 'package:anselm/core/editor/an_editor_text_component.dart';
 import 'package:anselm/core/editor/an_editor_slash_menu.dart';
 import 'package:anselm/core/editor/an_editor_stylesheet.dart';
 import 'package:anselm/core/entity/mention_source.dart';
@@ -250,11 +252,13 @@ void main() {
       expect(style(strikethroughAttribution).decoration, TextDecoration.lineThrough);
     });
 
-    test('inline code is mono 13 on a surfaceSunken highlight', () {
+    test('inline code is mono 13 with NO backgroundColor (paint-beneath draws the rounded block)', () {
       final s = style(codeAttribution);
       expect(s.fontFamily, AnText.mono.fontFamily); // mono face
       expect(s.fontSize, AnText.mono.fontSize); // 13 — the 0.87 prose-to-code ratio
-      expect(s.backgroundColor, colors.surfaceSunken);
+      // The gray block is a per-line rounded RRect painted beneath by AnTextComponent, NOT a tight text
+      // backgroundColor rect — so the styler must leave backgroundColor null. 灰块由 painter 画,样式器不设背景色。
+      expect(s.backgroundColor, isNull);
     });
 
     test('link wears the accent colour + underline (not the package lightBlue)', () {
@@ -397,6 +401,92 @@ void main() {
     expect(find.text('每日销量对账'), findsOneWidget);
     expect(find.byIcon(AnIcons.byKey('workflow')), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  // Notion backspace-revert: Backspace at the START of a heading reverts it to a plain paragraph (NOT a
+  // merge-into-the-block-above). 退格回退:标题行首退格→普通段落(非上合并)。
+  testWidgets('Backspace at the start of a heading reverts it to a plain paragraph (Notion feel)', (tester) async {
+    await tester.pumpWidget(_host(_ladderDoc()));
+    await tester.pumpAndSettle();
+    expect(SuperEditorInspector.findParagraphStyle('h2')!.fontSize, AnText.readingH2.fontSize, reason: 'starts as H2');
+    await tester.placeCaretInParagraph('h2', 0);
+    await tester.pressBackspace();
+    await tester.pumpAndSettle();
+    // Now a plain paragraph — the heading was demoted, not merged upward. 降级为段落、未上合并。
+    expect(SuperEditorInspector.findParagraphStyle('h2')!.fontSize, AnText.reading.fontSize, reason: 'reverted to body');
+    expect(SuperEditorInspector.findTextInComponent('h2').toPlainText(), '标题二', reason: 'text intact, not merged');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Backspace at the start of a blockquote reverts it to a plain paragraph', (tester) async {
+    await tester.pumpWidget(_host(_ladderDoc()));
+    await tester.pumpAndSettle();
+    await tester.placeCaretInParagraph('quote', 0);
+    await tester.pressBackspace();
+    await tester.pumpAndSettle();
+    // The blockquote left bar is gone — it's a plain paragraph now (text preserved). 引用降级为段落。
+    expect(SuperEditorInspector.findTextInComponent('quote').toPlainText(), '旁白一句。');
+    expect(tester.takeException(), isNull);
+  });
+
+  // E5a′ — inline code is a plain codeAttribution TEXT run (wrapping, editable) rendered through the vendored
+  // AnTextComponent, which paints a rounded background BENEATH it (paint-beneath, via CodeBackgroundLayer) — NOT
+  // an atomic chip widget. 行内代码=codeAttribution 文本,经 AnTextComponent 在底层画圆角背景(CodeBackgroundLayer),非芯片。
+  testWidgets('inline code renders as codeAttribution text with a CodeBackgroundLayer painted beneath', (tester) async {
+    final text = AttributedText('调用 fetch 前先 validate 一下。');
+    text.addAttribution(codeAttribution, const SpanRange(3, 7)); // "fetch"
+    text.addAttribution(codeAttribution, const SpanRange(11, 18)); // "validate"
+    // A SECOND block so the paragraph flows through AnParagraphComponent (a single node would be a HintVM).
+    final doc = MutableDocument(nodes: [
+      ParagraphNode(id: 'p1', text: text),
+      ParagraphNode(id: 'p2', text: AttributedText('尾段')),
+    ]);
+    await tester.pumpWidget(_host(doc));
+    await tester.pumpAndSettle();
+    // Paragraphs (incl. those with inline code) render through the vendored AnParagraphComponent → AnTextComponent.
+    expect(find.byType(AnParagraphComponent), findsWidgets);
+    expect(find.byType(AnTextComponent), findsWidgets);
+    // The rounded gray block is a real paint layer beneath the text — the heart of the paint-beneath design.
+    expect(find.byType(CodeBackgroundLayer), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
+  // The single-paragraph edge: an empty first node still shows the placeholder AND the code background works via
+  // the An-flavored hint component. 单段边角:空首段仍显占位,行内代码走 An hint 组件也有背景。
+  testWidgets('a single paragraph with inline code paints the code background via AnTextWithHintComponent',
+      (tester) async {
+    final text = AttributedText('跑 make 一下');
+    text.addAttribution(codeAttribution, const SpanRange(2, 5)); // "make"
+    final doc = MutableDocument(nodes: [ParagraphNode(id: 'p1', text: text)]);
+    await tester.pumpWidget(_host(doc));
+    await tester.pumpAndSettle();
+    // Single node → HintComponentViewModel → AnTextWithHintComponent (which still embeds AnTextComponent + bg).
+    expect(find.byType(AnTextWithHintComponent), findsOneWidget);
+    expect(find.byType(CodeBackgroundLayer), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
+  // The inline-code NBSP padding spacer keeps the FULL mono font size (its 4px width comes from negative
+  // letterSpacing, NOT a shrunk font) — otherwise the caret, whose height is the height of the character it sits
+  // on, turned stubby the instant it landed on the spacer at a code edge. 内距占位保持满字号(4px 靠负 letterSpacing);
+  // 否则光标落到码边占位符上会变矮。
+  testWidgets('caret stays full height at an inline-code edge (spacer keeps full mono size)', (tester) async {
+    final base = AttributedText('x code y');
+    base.addAttribution(codeAttribution, const SpanRange(2, 5)); // "code"
+    final padded = padCodeRuns(base).text; // → x ␣[NBSP]code[NBSP]␣ y ; leading spacer lands at offset 2
+    final doc = MutableDocument(nodes: [ParagraphNode(id: 'p1', text: padded)]);
+    await tester.pumpWidget(_host(doc));
+    await tester.pumpAndSettle();
+    final layout = SuperEditorInspector.findDocumentLayout();
+    double caretH(int offset) => layout
+        .getRectForPosition(DocumentPosition(nodeId: 'p1', nodePosition: TextNodePosition(offset: offset)))!
+        .height;
+    final atSpacer = caretH(2); // the NBSP padding spacer at the code edge
+    final atCode = caretH(4); // inside "code"
+    // The spacer's caret must be full height (the mono line box ~20px) — NOT the ~½-height stub a shrunk-font
+    // spacer produced — and must match the code caret beside it (both mono). 占位处光标须满高(≈mono 行盒),与代码同档。
+    expect(atSpacer, greaterThan(15), reason: 'caret at the code-edge spacer is full height, not stubby');
+    expect((atSpacer - atCode).abs(), lessThan(2.0), reason: 'spacer caret matches the adjacent code caret (both mono)');
   });
 
   // E5b/c — the `@` interactive flow: typing `@` opens the AnMentionPanel picker (StableTagPlugin drives

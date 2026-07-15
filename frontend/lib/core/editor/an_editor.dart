@@ -4,10 +4,16 @@ import 'package:super_editor/super_editor.dart';
 
 import '../../i18n/strings.g.dart';
 import '../design/colors.dart';
+import '../design/tokens.dart';
 import '../design/typography.dart';
 import '../entity/mention_source.dart';
 import '../ui/an_mention_picker.dart';
 import 'an_editor_components.dart';
+import 'an_editor_inline_code.dart';
+import 'an_editor_list_components.dart';
+import 'an_editor_quote.dart';
+import 'an_editor_markdown_shortcuts.dart';
+import 'an_editor_text_component.dart';
 import 'an_editor_markdown.dart';
 import 'an_editor_mention.dart';
 import 'an_editor_slash_menu.dart';
@@ -101,10 +107,14 @@ class AnEditorState extends State<AnEditor> {
   /// The live document — the host derives the outline + heading node ids from it. 活文档(供宿主抽大纲)。
   Document get document => _document;
 
-  /// The ordered node ids of the document's headings (paragraphs whose blockType is a header). 标题节点 id 序。
+  /// The ordered node ids of the document's headings (paragraphs whose blockType is a header). A heading INSIDE
+  /// a blockquote (`> # x`, quoteDepth>0) is quoted content, NOT a document heading — it renders heading-styled
+  /// but is excluded from the outline (matching `extractDocOutline`, which also skips quoted `#`). 引用内的 `#`
+  /// 是引用内容、非文档标题:样式仍是标题、但不进大纲(与 extractDocOutline 一致)。
   List<String> get headingNodeIds => [
         for (final node in _document)
-          if (node is ParagraphNode && _isHeader(node.getMetadataValue('blockType'))) node.id,
+          if (node is ParagraphNode && _isHeader(node.getMetadataValue('blockType')) && quoteDepthOf(node) == 0)
+            node.id,
       ];
 
   /// A node's top Y in the document's CONTENT space (0 = top of content) — i.e. the scroll offset that
@@ -156,6 +166,7 @@ class AnEditorState extends State<AnEditor> {
   // lifecycle — NOT a hand-managed Overlay + reused GlobalKey, the freeze the old rebuild died on, E0 #2).
   // 官方 ActionTagsPlugin 托管 `/` 词法,我只画弹层;弹层走 OverlayPortal(干净生命周期,非手管 Overlay+复用 GlobalKey)。
   late final ActionTagsPlugin _slashTags;
+
   List<SlashCommand> _slashMatches = const [];
   int _slashActive = 0;
   IndexedTag? _slashTag;
@@ -201,6 +212,21 @@ class AnEditorState extends State<AnEditor> {
       composer: _composer,
       isHistoryEnabled: true, // undo/redo
     );
+    // Inline markdown-on-type (placeholder-guarded official reaction) runs FIRST — a closed `**bold**` /
+    // `` `code` `` / etc. upstream of the caret converts to its attribution. A′ 行内 markdown 即打即转在前。
+    _editor.reactionPipeline.insert(0, const InlineMarkdownReaction());
+    // Notion-parity BLOCK shortcuts super_editor's defaults lack: `[]`+space→todo, ```` ``` ````+space→code
+    // block, `+`+space→bullet (headings/bullets/ordered/quote/hr already fire via the default reactions).
+    // 补 super_editor 默认缺的 Notion 块级快捷(标题/列表/引用/分隔线走默认)。
+    _editor.reactionPipeline.addAll(const [
+      TodoConversionReaction(),
+      CodeFenceConversionReaction(),
+      PlusBulletConversionReaction(),
+      // LAST: after any reaction that creates/edits inline code, ensure each `codeAttribution` run keeps its real
+      // NBSP padding spacers (so the paint-beneath background has true padding that pushes neighbours, not a
+      // paint inflation that overlaps them). Idempotent + IME-safe. 末位:保行内代码两侧真 NBSP 内距(顶开邻居,非画膨胀盖字)。
+      CodePadReconcileReaction(),
+    ]);
     _slashTags.composingActionTag.addListener(_onSlashComposingChanged);
     _mentionTags?.tagIndex.composingStableTag.addListener(_onMentionComposingChanged);
     if (widget.onChangedMarkdown != null) _document.addListener(_onDocumentChanged);
@@ -400,14 +426,27 @@ class AnEditorState extends State<AnEditor> {
         AnTaskComponentBuilder(_editor, colors), // tasks aren't in the defaults — must be added
         AnCodeBlockComponentBuilder(_editor, colors, _codeKeys),
         AnBlockquoteComponentBuilder(colors),
-        const MarkdownTableComponentBuilder(), // tables aren't in the defaults either (E8)
-        // The empty-doc placeholder: super_editor's built-in hint builder paints [hint] on the ONE empty
-        // first paragraph (its createViewModel returns a HintComponentViewModel only when node is the
-        // single first ParagraphNode) — vanishes the moment the user types or a second block exists. It is
-        // view-only (never in the document model → empty doc still serializes empty). MUST sit before the
-        // defaults so its createViewModel wins for the empty first node. 空文档灰提示:内置 hint builder 只在
-        // 「单个首空段」渲,打字/多块即消失;纯视图不入文档模型;须在默认前抢建 view-model。
-        HintComponentBuilder(hint, (_) => AnText.reading.copyWith(color: colors.inkFaint)),
+        // Ordered/unordered list items: marker = prose `•`/`$n.` (not derived from the first char → fixes the
+        // code-first-word bug) + inner AnTextComponent (inline-code background). Must precede the defaults.
+        // 列表项:记号用正文档(非首字符,修首词代码 bug)+ AnTextComponent 内芯;须在默认前。
+        AnListItemComponentBuilder(colors, _document),
+        const AnMarkdownTableComponentBuilder(), // header follows the column (GFM std; super_editor centres it)
+        // The empty-doc placeholder: the hint builder paints [hint] on the ONE empty first paragraph (its
+        // createViewModel returns a HintComponentViewModel only when node is the single first ParagraphNode) —
+        // vanishes the moment the user types or a second block exists. View-only (never in the document model →
+        // empty doc still serializes empty). MUST sit before the defaults so its createViewModel wins for the
+        // empty first node. An-flavored so a SINGLE-paragraph doc with inline code still paints the code
+        // background (its vm is a HintComponentViewModel, which AnParagraphComponentBuilder can't touch). 空文档
+        // 灰提示只在「单个首空段」渲;须在默认前抢建 view-model;An 版让单段文档的行内代码也有背景。
+        AnHintComponentBuilder(hint, (_) => AnText.reading.copyWith(color: colors.inkFaint),
+            codeBackgroundColor: colors.surfaceSunken, codeBackgroundRadius: AnRadius.tag),
+        // Paragraph/heading via AnParagraphComponent (AnTextComponent) so inline code paints a per-line
+        // rounded background beneath the text. Must precede the default paragraph builder. 段落/标题换 An 组件。
+        AnParagraphComponentBuilder(
+            codeBackgroundColor: colors.surfaceSunken,
+            codeBackgroundRadius: AnRadius.tag,
+            document: _document,
+            quoteColors: colors),
         ...defaultComponentBuilders,
       ];
     }
@@ -423,7 +462,7 @@ class AnEditorState extends State<AnEditor> {
       gestureMode: DocumentGestureMode.mouse,
       plugins: {_slashTags, ?_mentionTags},
       // Our nav handlers run first, but each only intercepts while ITS menu is open. 导航处理先跑,各仅自开时截。
-      keyboardActions: [_slashKeyAction, _mentionKeyAction, ...defaultImeKeyboardActions],
+      keyboardActions: [_slashKeyAction, _mentionKeyAction, backspaceRevertBlockAction, ...defaultImeKeyboardActions],
       stylesheet: _stylesheet!,
       // An-primitive block skins take precedence over the defaults they extend (first non-null wins);
       // the rest of the default chain (paragraph/list/image/hr) stays. An 块皮在默认前、优先命中。

@@ -68,6 +68,13 @@ dependencies:
   # compatible. 原生编辑器,钉死 dev 版;markdown 编解码随包内置;仅经 core/editor 门面用;
   # dev.41+ 引用本 Flutter 没有的 TextInputConnection.updateStyle → 钉 dev.40(本机已验证可编)。
   super_editor: 0.3.0-dev.40
+  # super_editor's text-layout companion (transitively resolved by super_editor) — pinned EXPLICIT because the
+  # facade uses it directly: the vendored AnTextComponent (lib/core/editor/an_editor_text_component.dart) rebuilds
+  # TextComponent's SuperText/ProseText/highlight layers to paint the paint-beneath inline-code background, and
+  # super_editor's barrel `show`-excludes those symbols. Also lets tests reach
+  # BlinkController.indeterminateAnimationsEnabled to halt the caret ticker (else pumpAndSettle hangs on the
+  # infinite blink). 编辑器门面直接用它(vendored AnTextComponent 重建 SuperText/高亮层画行内代码背景);barrel show 排除了这些符号。
+  super_text_layout: 0.1.21
   url_launcher: ^6.3.2
   launch_at_startup: ^0.5.1
   package_info_plus: ^9.0.1
@@ -90,10 +97,6 @@ dev_dependencies:
   # test matrix (Layer 1). Real IME/CJK composition still can't be automated (Flutter #131510 → manual).
   # super_editor 同源测试扩展:打字/双三击等交互 widget-test;真 CJK 组字仍须真机(#131510)。
   flutter_test_robots: ^0.0.24
-  # super_editor's text-layout companion (transitively resolved) — pinned explicit ONLY so tests can
-  # reach BlinkController.indeterminateAnimationsEnabled (super_editor's barrel `show`-excludes it) to
-  # halt the caret ticker, or pumpAndSettle hangs on the infinite blink. 测试关光标 ticker 用。
-  super_text_layout: 0.1.21
 
 flutter:
   uses-material-design: true

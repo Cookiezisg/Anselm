@@ -1,5 +1,7 @@
 import 'package:anselm/core/design/colors.dart';
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/design/tokens.dart';
+import 'package:anselm/core/design/typography.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/gestures.dart';
@@ -10,12 +12,12 @@ import 'package:flutter_test/flutter_test.dart';
 // http fires the callback, NOTHING ever launches — structurally: this facade has no url_launcher import),
 // bold really lands w400 + wght axis (the whole point of _AnBoldMd — the package default renders w300 on
 // our pinned VF), heading downshift, inline-code chip anatomy, fenced code → AnCodeEditor (incl. the
-// unclosed-fence streaming mid-state), table → AnThinTable with alignment mapping, image → inert chip with
+// unclosed-fence streaming mid-state), table → AnProseTable bordered grid with per-column align + rich cells, image → inert chip with
 // zero Image widgets (flutter test would crash on a real network fetch anyway — double insurance), raw
 // HTML literal, and the theme-flip span-regeneration (isSame/style mechanics — the easiest silent break).
 //
 // AnMarkdown 专项钉子:链接 scheme 闸/加粗真 w400+wght 轴/标题降档/内联 chip/围栏→AnCodeEditor(含未闭合流式
-// 中间态)/表→AnThinTable 对齐映射/图片零 Image/HTML 字面/主题翻转 span 再生成(最易悄悄退化)。
+// 中间态)/表→AnProseTable 有框网格·逐列对齐·富单元格/图片零 Image/HTML 字面/主题翻转 span 再生成(最易悄悄退化)。
 
 void main() {
   Widget host(Widget child, {ThemeData? theme}) => TranslationProvider(
@@ -113,26 +115,56 @@ void main() {
   });
 
   group('tables', () {
-    testWidgets('md table → AnThinTable; :---: / ---: map center/right', (tester) async {
-      const md = '| a | b | c |\n|:--|:-:|--:|\n| 1 | 2 | 3 |\n| 4 | 5 | 6 |';
+    // Chat tables are the bordered [AnProseTable] (1:1 with the document editor), NOT the borderless
+    // AnThinTable; cells parse rich; the :--:/--: separators drive per-column TextAlign. 有框表 1:1、富单元格。
+    testWidgets('md table → AnProseTable hairline grid; :-:/--: drive per-column align; cells parse rich',
+        (tester) async {
+      const md = '| a | b | c |\n|:--|:-:|--:|\n| **x** | 2 | 3 |\n| 4 | 5 | 6 |';
       await tester.pumpWidget(host(const AnMarkdown(md)));
-      final table = tester.widget<AnThinTable>(find.byType(AnThinTable));
-      expect(table.columns.map((c) => c.align),
-          [AnTableAlign.left, AnTableAlign.center, AnTableAlign.right]);
-      expect(table.rows, hasLength(2));
-      // Pin the data mapping (cell rendering is AnThinTable's own tested concern). 钉数据映射(渲染归其自测)。
-      expect(table.rows.last['c2'], '6');
+      expect(find.byType(AnProseTable), findsOneWidget);
+      expect(find.byType(AnThinTable), findsNothing); // AnThinTable retired from the markdown path
+      final table = tester.widget<Table>(
+          find.descendant(of: find.byType(AnProseTable), matching: find.byType(Table)));
+      // hairline grid border in the line token
+      expect(table.border?.top.width, AnSize.hairline);
+      // 1 header + 2 data rows, exactly 3 cells each (header defines the column count)
+      expect(table.children, hasLength(3));
+      expect(table.children.every((r) => r.children.length == 3), isTrue);
+      // per-column alignment reaches the cell text — the header row's cells, in tree order, are
+      // left / center / right. (left may surface as start; center + right are the unambiguous pins.)
+      final aligns = tester
+          .widgetList<RichText>(find.descendant(of: find.byType(AnProseTable), matching: find.byType(RichText)))
+          .map((r) => r.textAlign)
+          .toList();
+      expect(aligns[1], TextAlign.center);
+      expect(aligns[2], TextAlign.right);
+      // rich cell: **x** lands the emphasis weight (w400) — cells are parsed, not flattened.
+      expect(spanWhere(tester, 'x').$2?.fontWeight, AnText.emphasisWeight);
     });
 
-    testWidgets('ragged rows survive (the package pads to the widest row; no crash, no cell loss)',
+    testWidgets('cells with inline-code / link WidgetSpans render without throwing (intrinsic-width guard)',
+        (tester) async {
+      // A cell rendered via MdWidget can contain WidgetSpans (inline-code chip, link). Inside a Flutter
+      // Table these get measured for intrinsic width — historically that THREW ("Intrinsics not available
+      // for PlaceholderSpans"); the current pinned SDK measures them. This locks that: a code+link table
+      // builds cleanly. 富单元格(码 chip/链接=WidgetSpan)在 Table 里要测 intrinsic;旧 SDK 会炸,此测钉住不炸。
+      const md = '| a | b |\n|---|---|\n| `code` | [site](https://e.com) |';
+      await tester.pumpWidget(host(const AnMarkdown(md)));
+      expect(tester.takeException(), isNull);
+      expect(find.byType(AnProseTable), findsOneWidget);
+    });
+
+    testWidgets('ragged rows normalize to the header column count (no crash, uniform Table rows)',
         (tester) async {
       const md = '| a | b |\n|---|---|\n| 1 | 2 | extra |\n| x |';
       await tester.pumpWidget(host(const AnMarkdown(md)));
-      final table = tester.widget<AnThinTable>(find.byType(AnThinTable));
-      expect(table.rows, hasLength(2));
-      for (final row in table.rows) {
-        expect(row.length, lessThanOrEqualTo(table.columns.length)); // never wider than the header 不超列
-      }
+      final table = tester.widget<Table>(
+          find.descendant(of: find.byType(AnProseTable), matching: find.byType(Table)));
+      // A Flutter Table THROWS on ragged rows, so every row (header + the over-wide + under-wide data rows)
+      // MUST have the SAME cell count — our builder pads/clips each row to the header width. 参差归一、无参差即不炸。
+      final widths = table.children.map((r) => r.children.length).toSet();
+      expect(widths, hasLength(1)); // uniform → no crash
+      expect(table.children, hasLength(3)); // header + 2 data rows
     });
   });
 

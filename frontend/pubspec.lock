@@ -1195,7 +1195,7 @@ packages:
     source: hosted
     version: "0.3.1"
   super_text_layout:
-    dependency: "direct dev"
+    dependency: "direct main"
     description:
       name: super_text_layout
       sha256: "203409387b44c85e1d0a8e365c8a8791199b99440411f221ad02fa9fb07530b1"

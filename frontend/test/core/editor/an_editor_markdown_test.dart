@@ -1,6 +1,8 @@
 import 'package:anselm/core/editor/an_editor_components.dart';
+import 'package:anselm/core/editor/an_editor_inline_code.dart';
 import 'package:anselm/core/editor/an_editor_markdown.dart';
 import 'package:anselm/core/editor/an_editor_mention.dart';
+import 'package:flutter/widgets.dart' show TextAlign;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:super_editor/super_editor.dart';
 
@@ -9,6 +11,22 @@ import 'package:super_editor/super_editor.dart';
 // fidelity is a backend contract (the wikilink parser builds relation edges from it). codec 往返测,重点 `[[id]]` 逐字。
 
 const _id = 'wf_00000000000000a1';
+const _nbsp = ' '; // U+00A0 — the inline-code padding spacer the codec injects on load
+
+// The LOGICAL text of each codeAttribution run in a node, in order — with the injected NBSP padding spacers
+// stripped (a loaded run is `[NBSP]code[NBSP]`; the content that round-trips to markdown is `code`).
+// 各 codeAttribution run 的逻辑文本(剥去注入的 NBSP 内距;载入 run=[NBSP]code[NBSP],往返 markdown 的内容=code)。
+List<String> _codeRuns(TextNode n) {
+  final text = stripCodeSpacers(n.text);
+  final spans = text.getAttributionSpans({codeAttribution}).toList()..sort((a, b) => a.start.compareTo(b.start));
+  return [for (final s in spans) text.copyText(s.start, s.end + 1).toPlainText()];
+}
+
+// The RAW text of each codeAttribution run (spacers INCLUDED) — to assert the padding is actually present.
+List<String> _rawCodeRuns(TextNode n) {
+  final spans = n.text.getAttributionSpans({codeAttribution}).toList()..sort((a, b) => a.start.compareTo(b.start));
+  return [for (final s in spans) n.text.copyText(s.start, s.end + 1).toPlainText()];
+}
 
 MutableDocument _docWithMention() => MutableDocument(nodes: [
       ParagraphNode(
@@ -124,6 +142,76 @@ void main() {
       expect(md.contains('[[$_id]]'), isTrue, reason: 'still literal in the serialized code fence');
     });
 
+    test('INLINE `code` LOADS as codeAttribution TEXT runs (paint-beneath), text preserved', () {
+      const source = '调用 `fetch_weather` 前先 `validate` 一下。';
+      final doc = documentFromMarkdown(source);
+      final node = doc.first as ParagraphNode;
+      expect(_codeRuns(node), ['fetch_weather', 'validate'], reason: 'each inline code is a codeAttribution run');
+      expect(node.text.placeholders, isEmpty, reason: 'inline code is TEXT, not a chip placeholder');
+    });
+
+    test('inline code LOADS padded with real NBSP spacers, and SAVE strips them (markdown stays clean)', () {
+      const source = '调用 `fetch_weather` 一下。';
+      final doc = documentFromMarkdown(source);
+      final node = doc.first as ParagraphNode;
+      // On load, the run is [NBSP]code[NBSP] — the padding is a REAL character (part of the code token), so the
+      // paint-beneath gray sits on real space and pushes neighbours instead of overlapping them. 载入=真 NBSP 内距。
+      expect(_rawCodeRuns(node), ['${_nbsp}fetch_weather$_nbsp'], reason: 'padded with a spacer NBSP each side');
+      expect(node.text.toPlainText().contains(_nbsp), isTrue, reason: 'the spacer really is in the document text');
+      // On save, the spacers are stripped by attribution — the markdown is `code`, never ` code `. 存盘剥离。
+      final md = markdownFromDocument(doc);
+      expect(md.contains('`fetch_weather`'), isTrue, reason: 'clean backtick code, no injected padding');
+      expect(md.contains(_nbsp), isFalse, reason: 'no NBSP leaks into the saved markdown');
+    });
+
+    test('padCodeRuns is idempotent — a second load/pad adds no further spacers', () {
+      const source = '跑 `make test` 收工。';
+      final once = documentFromMarkdown(source).first as ParagraphNode;
+      // Re-pad the already-padded text — must be a no-op (no new inserts). 已内距的再规整=无新插入。
+      final again = padCodeRuns(once.text);
+      expect(again.inserts, isEmpty, reason: 'already padded → reconcile is a stable no-op (no infinite loop)');
+    });
+
+    test('inline code round-trips: text → backtick → text, second pass stable', () {
+      const source = '见 `input.value` 和 `x > 0` 两处。';
+      final md1 = markdownFromDocument(documentFromMarkdown(source));
+      expect(md1.contains('`input.value`'), isTrue);
+      expect(md1.contains('`x > 0`'), isTrue);
+      final md2 = markdownFromDocument(documentFromMarkdown(md1));
+      expect(md2, md1, reason: 'idempotent across passes');
+    });
+
+    test('a [[id]]-looking substring INSIDE inline code stays literal (not inflated to a mention)', () {
+      const source = '用 `see [[$_id]] here` 引用。';
+      final doc = documentFromMarkdown(source);
+      final node = doc.first as ParagraphNode;
+      expect(_codeRuns(node).single, 'see [[$_id]] here', reason: 'code content is verbatim');
+      expect(node.text.placeholders.values.whereType<MentionPlaceholder>(), isEmpty, reason: 'no pill created');
+      final md = markdownFromDocument(doc);
+      expect(md.contains('`see [[$_id]] here`'), isTrue, reason: 'still literal backtick code on save');
+    });
+
+    test('inline code and a real mention coexist and both round-trip', () {
+      const source = '见 [[$_id]] 用 `helper()` 调用。';
+      final doc = documentFromMarkdown(source);
+      final node = doc.first as ParagraphNode;
+      expect(node.text.placeholders.values.whereType<MentionPlaceholder>().length, 1);
+      expect(_codeRuns(node), ['helper()'], reason: 'code is a codeAttribution run');
+      final md = markdownFromDocument(doc);
+      expect(md.contains('[[$_id]]'), isTrue);
+      expect(md.contains('`helper()`'), isTrue);
+    });
+
+    test('inline code inside a LIST item round-trips (not just paragraphs)', () {
+      const source = '- 跑 `make test`\n- 再 `make docs`';
+      final doc = documentFromMarkdown(source);
+      final runs = [for (final n in doc.toList().whereType<ListItemNode>()) ..._codeRuns(n)];
+      expect(runs, ['make test', 'make docs']);
+      final md = markdownFromDocument(doc);
+      expect(md.contains('`make test`'), isTrue);
+      expect(md.contains('`make docs`'), isTrue);
+    });
+
     test('a table round-trips: cells survive and the second pass is stable', () {
       const source = '| A | B |\n| --- | --- |\n| 1 | 2 |';
       final md1 = markdownFromDocument(documentFromMarkdown(source));
@@ -133,6 +221,19 @@ void main() {
       }
       expect(md1.contains('|'), isTrue, reason: 'still a markdown table');
       expect(md1, md2, reason: 'second pass stable');
+    });
+
+    test('table header follows the COLUMN alignment (GFM std; AnMarkdownTableComponentBuilder un-centres it)', () {
+      // super_editor's deserializer hardcodes header cells to centre; our builder copies the column
+      // alignment (from the data row) onto the header so the whole column aligns the same — 1:1 with chat.
+      final doc = documentFromMarkdown('| a | b | c |\n|:--|:-:|--:|\n| 1 | 2 | 3 |');
+      final table = doc.toList().whereType<TableBlockNode>().first;
+      final vm = const AnMarkdownTableComponentBuilder().createViewModel(doc, table) as MarkdownTableViewModel;
+      const wantAligns = [TextAlign.left, TextAlign.center, TextAlign.right];
+      expect(vm.cells.first.map((c) => c.textAlign).toList(), wantAligns,
+          reason: 'header follows the column, not super_editor centre');
+      expect(vm.cells[1].map((c) => c.textAlign).toList(), wantAligns,
+          reason: 'data row already follows the column — header now agrees');
     });
 
     test('a NESTED list keeps its indent levels', () {

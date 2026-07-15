@@ -733,6 +733,9 @@ final GalleryCategory _g3RowsCards = GalleryCategory('行与卡 Rows & Cards', A
           {'name': 'an-extremely-long-entity-name-that-must-ellipsis', 'kind': 'workflow', 'runs': '999999'},
         ]), stress: true, maxWidth: 240, span: true),
   ]),
+  GalleryItem('AnProseTable', '有框正文表(与文档编辑器表逐像素 1:1):发丝网格 + 强调表头 + 12h/6v 紧内距 + 富单元格(调用方渲)', [
+    GallerySpecimen('bordered grid (reading cells)', (_) => const _ProseTableDemo(), span: true),
+  ]),
 ]);
 
 // ── G4 — Navigation & shell ──
@@ -969,6 +972,14 @@ final GalleryCategory _g5CodeData = GalleryCategory('代码与数据 Code & Data
     GallerySpecimen('超长 (软换行)', (_) => const AnCodeBlock(
           'x = "a really long single line that exceeds the block width and soft-wraps within the framed surface without overflow"'),
         stress: true, span: true),
+  ]),
+  GalleryItem('AnCodeChip', '行内代码芯片:mono + padded 圆角 sunken 胶囊;chat 与文档编辑器静置态的唯一真相', [
+    GallerySpecimen('单个', (_) => const AnCodeChip('input.value')),
+    GallerySpecimen('文字流中(基线对齐)', (_) => const Wrap(crossAxisAlignment: WrapCrossAlignment.center, children: [
+      Text('先 '), AnCodeChip('validate'), Text(' 再 '), AnCodeChip('fetch_weather'), Text(' 调用。'),
+    ])),
+    GallerySpecimen('长标识', (_) => const AnCodeChip('a_very_long_identifier_name'), span: true),
+    GallerySpecimen('空', (_) => const AnCodeChip(''), stress: true),
   ]),
   GalleryItem('AnCodeEditor', '唯一代码块/轻编辑:高亮 + 行号 + 顶栏;只读/可编辑/内联/换行/seamless 嵌入', [
     GallerySpecimen('python 只读 (机器窗档 12)', (_) => const AnCodeEditor(code: _pyCode, lang: 'py'), span: true),
@@ -1227,6 +1238,29 @@ const List<Map<String, String>> _tableRows = [
   {'name': 'nightly-deploy', 'kind': 'workflow', 'runs': '4821'},
   {'name': 'on-webhook', 'kind': 'handler', 'runs': '37'},
 ];
+
+// AnProseTable demo — the bordered reading-surface table (1:1 with the document editor). Header cells carry
+// the emphasis weight, body the reading voice; the 2nd/3rd columns are centre/right aligned to show the
+// per-cell TextAlign inside a tight Table cell. AnProseTable 演示:有框正文表,头强调体正文,列对齐。
+class _ProseTableDemo extends StatelessWidget {
+  const _ProseTableDemo();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final head = AnText.reading.weight(AnText.emphasisWeight).copyWith(color: c.ink);
+    final body = AnText.reading.copyWith(color: c.ink);
+    Widget cell(String s, TextStyle style, TextAlign align) => Text(s, style: style, textAlign: align);
+    List<Widget> row(String a, String b, String d, TextStyle s) =>
+        [cell(a, s, TextAlign.left), cell(b, s, TextAlign.center), cell(d, s, TextAlign.right)];
+    return AnProseTable(rows: [
+      row('Kind', 'Verb', 'Example', head),
+      row('function', 'run', 'fetch_weather', body),
+      row('handler', 'call', 'slack.post', body),
+      row('workflow', 'trigger', 'daily_digest', body),
+    ]);
+  }
+}
 
 // dev-only grid cell: a bordered block of a given height, to show AnAutoGrid's auto-fit columns +
 // per-row content height. 仅演示用的网格块(有边、定高),展示 auto-fit 列 + 每行按内容高。

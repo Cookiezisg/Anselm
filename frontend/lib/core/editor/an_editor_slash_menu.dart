@@ -3,6 +3,7 @@ import 'package:super_editor/super_editor.dart';
 
 import '../../i18n/strings.g.dart';
 import '../design/colors.dart';
+import 'an_editor_components.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
 import '../ui/an_menu_surface.dart';
@@ -66,7 +67,9 @@ List<EditRequest> _h2(SlashContext c) => [ChangeParagraphBlockTypeRequest(nodeId
 List<EditRequest> _h3(SlashContext c) => [ChangeParagraphBlockTypeRequest(nodeId: c.nodeId, blockType: header3Attribution)];
 List<EditRequest> _quote(SlashContext c) =>
     [ChangeParagraphBlockTypeRequest(nodeId: c.nodeId, blockType: blockquoteAttribution)];
-List<EditRequest> _code(SlashContext c) => [ChangeParagraphBlockTypeRequest(nodeId: c.nodeId, blockType: codeAttribution)];
+// Code block = the embedded [CodeBlockNode] (AnCodeEditor), same as the markdown codec + the ```` ``` ````
+// on-type shortcut — NOT a codeAttribution paragraph. 代码块=嵌入 CodeBlockNode,与 codec/on-type 一致。
+List<EditRequest> _code(SlashContext c) => _insertBlock(c, CodeBlockNode(id: Editor.createNodeId(), code: ''));
 List<EditRequest> _ul(SlashContext c) => [ConvertParagraphToListItemRequest(nodeId: c.nodeId, type: ListItemType.unordered)];
 List<EditRequest> _ol(SlashContext c) => [ConvertParagraphToListItemRequest(nodeId: c.nodeId, type: ListItemType.ordered)];
 List<EditRequest> _task(SlashContext c) => [ConvertParagraphToTaskRequest(nodeId: c.nodeId)];
