@@ -7,6 +7,7 @@ import '../../../core/design/typography.dart';
 import '../../../core/model/status_state.dart';
 import '../../../core/model/time_format.dart';
 import '../../../core/ui/an_button.dart';
+import '../../../core/ui/an_hover_surface.dart';
 import '../../../core/ui/an_status_dot.dart';
 import '../../../core/ui/an_interactive.dart';
 import '../../../core/ui/icons.dart';
@@ -56,40 +57,54 @@ class NotificationRow extends StatelessWidget {
       onTap: onTap,
       builder: (context, states) {
         final hovered = states.contains(WidgetState.hovered);
-        return Container(
-          color: hovered ? c.surfaceHover : null,
-          padding: const EdgeInsets.symmetric(horizontal: AnSpace.s12, vertical: AnSpace.s8),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Unread dot column (fixed width so read/unread rows align). 未读点列(定宽,读/未读对齐)。
-              SizedBox(
-                width: AnSpace.s8,
-                child: unread
-                    ? Padding(
-                        padding: const EdgeInsets.only(top: AnSpace.s6),
-                        child: AnStatusDot.raw( _toneColor(line.tone, c, unread: true)),
-                      )
-                    : null,
-              ),
-              const SizedBox(width: AnSpace.s6),
-              Padding(
-                padding: const EdgeInsets.only(top: AnSize.opticalNudge),
-                child: Icon(line.icon, size: AnSize.icon, color: iconColor),
-              ),
-              const SizedBox(width: AnSpace.s8),
-              Expanded(child: _body(context, line, unread: unread)),
-              const SizedBox(width: AnSpace.s8),
-              // Time, or the mark-read affordance on hover (unread only). 时间;hover 换 mark-read(仅未读)。
-              _trailing(context, hovered: hovered, unread: unread),
-            ],
+        return AnHoverSurface(
+          active: hovered,
+          // A full row wants the AnRow radius (8), not AnHoverSurface's default tag(4) — so the notification
+          // row's hover reads as the SAME rounded gray block as every other hoverable list row. 整行 hover 用 AnRow 圆角(8),与别处一致。
+          radius: AnRadius.button,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AnSpace.s12,
+              vertical: AnSpace.s8,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Unread dot column (fixed width so read/unread rows align). 未读点列(定宽,读/未读对齐)。
+                SizedBox(
+                  width: AnSpace.s8,
+                  child: unread
+                      ? Padding(
+                          padding: const EdgeInsets.only(top: AnSpace.s6),
+                          child: AnStatusDot.raw(
+                            _toneColor(line.tone, c, unread: true),
+                          ),
+                        )
+                      : null,
+                ),
+                const SizedBox(width: AnSpace.s6),
+                Padding(
+                  padding: const EdgeInsets.only(top: AnSize.opticalNudge),
+                  child: Icon(line.icon, size: AnSize.icon, color: iconColor),
+                ),
+                const SizedBox(width: AnSpace.s8),
+                Expanded(child: _body(context, line, unread: unread)),
+                const SizedBox(width: AnSpace.s8),
+                // Time, or the mark-read affordance on hover (unread only). 时间;hover 换 mark-read(仅未读)。
+                _trailing(context, hovered: hovered, unread: unread),
+              ],
+            ),
           ),
         );
       },
     );
   }
 
-  Widget _body(BuildContext context, NotificationLine line, {required bool unread}) {
+  Widget _body(
+    BuildContext context,
+    NotificationLine line, {
+    required bool unread,
+  }) {
     final c = context.colors;
     // READ rows gray out entirely; UNREAD rows keep the muted lead/trail + an emphasized ink name.
     // 已读整行灰;未读=灰 lead/trail + 强调 ink 名。
@@ -101,17 +116,30 @@ class NotificationRow extends StatelessWidget {
         .weight(unread ? AnText.emphasisWeight : AnText.bodyWeight);
 
     final spans = <InlineSpan>[
-      if (line.lead != null && line.lead!.isNotEmpty) TextSpan(text: '${line.lead!} ', style: muted),
+      if (line.lead != null && line.lead!.isNotEmpty)
+        TextSpan(text: '${line.lead!} ', style: muted),
       // Quote marks ride the locale (en “…” / zh 「…」) and share the name's style. 引号随 locale,承名样式。
       if (line.name != null && line.name!.isNotEmpty)
-        TextSpan(text: context.t.notifications.nameQuoted(name: line.name!), style: name),
-      TextSpan(text: line.name != null && line.name!.isNotEmpty ? ' ${line.trail}' : line.trail, style: muted),
+        TextSpan(
+          text: context.t.notifications.nameQuoted(name: line.name!),
+          style: name,
+        ),
+      TextSpan(
+        text: line.name != null && line.name!.isNotEmpty
+            ? ' ${line.trail}'
+            : line.trail,
+        style: muted,
+      ),
     ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text.rich(TextSpan(children: spans), maxLines: 2, overflow: TextOverflow.ellipsis),
+        Text.rich(
+          TextSpan(children: spans),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
         if (line.detail != null && line.detail!.isNotEmpty) ...[
           const SizedBox(height: AnSpace.s2),
           Text(
@@ -125,7 +153,11 @@ class NotificationRow extends StatelessWidget {
     );
   }
 
-  Widget _trailing(BuildContext context, {required bool hovered, required bool unread}) {
+  Widget _trailing(
+    BuildContext context, {
+    required bool hovered,
+    required bool unread,
+  }) {
     final c = context.colors;
     if (hovered && unread && onMarkRead != null) {
       return AnButton.iconOnly(
@@ -149,4 +181,3 @@ class NotificationRow extends StatelessWidget {
   static Color _toneColor(AnTone tone, AnColors c, {required bool unread}) =>
       unread ? tone.fg(c) : c.inkFaint;
 }
-
