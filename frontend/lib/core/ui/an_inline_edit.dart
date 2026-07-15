@@ -33,6 +33,7 @@ class AnInlineEdit extends StatefulWidget {
     this.onAbort,
     this.enabled = true,
     this.startEditing = false,
+    this.commitOnTapOutside = false,
     this.style,
     this.minHeight = AnSize.control,
     this.affordanceSize = AnButtonSize.sm,
@@ -52,6 +53,12 @@ class AnInlineEdit extends StatefulWidget {
   /// Open directly in edit mode (e.g. a freshly created entity awaiting its first name). 直接进编辑态。
   final bool startEditing;
 
+  /// Blur-commit: an outside tap while EDITING commits (rather than the default Enter/✓/Esc-only). The
+  /// document title/description opt IN (an idle click elsewhere on the page should save an in-progress
+  /// rename); rail / entity / chat rename leave it false (a stray click must not silently rename).
+  /// 失焦提交:编辑中点别处即保存(默认只 Enter/✓/Esc)。仅文档标题/描述传 true;rail/实体改名保持 false。
+  final bool commitOnTapOutside;
+
   /// Text style for BOTH the idle title and the editing field (so toggling never changes face/size) —
   /// e.g. an H2 title rename in AnOceanHeader. Defaults to [AnText.body]. The colour is always ink.
   /// idle 与编辑共用的文字样式(切换不改面/号),如 AnOceanHeader 的 H2 标题改名;默认 body,色恒 ink。
@@ -69,14 +76,20 @@ class AnInlineEdit extends StatefulWidget {
 }
 
 class _AnInlineEditState extends State<AnInlineEdit> {
-  late final TextEditingController _ctl = TextEditingController(text: widget.value);
+  late final TextEditingController _ctl = TextEditingController(
+    text: widget.value,
+  );
   late String _committed = widget.value;
   late bool _editing = widget.startEditing;
+  bool _hovered = false; // pointer hovering the row → reveals the pencil 悬停揭示铅笔
+  bool _focusWithin =
+      false; // keyboard focus anywhere inside → also reveals (a11y) 键盘焦点在内也揭示
 
   @override
   void initState() {
     super.initState();
-    if (_editing) _selectAll(); // startEditing opens already selected — same as tapping the pencil 直接进编辑也全选
+    // startEditing opens already selected — same as tapping the pencil 直接进编辑也全选
+    if (_editing) _selectAll();
   }
 
   @override
@@ -97,16 +110,24 @@ class _AnInlineEditState extends State<AnInlineEdit> {
   }
 
   // Rename UX: select-all on entry so the first keystroke replaces (Finder / F2 convention). 进编辑全选。
-  void _selectAll() => _ctl.selection = TextSelection(baseOffset: 0, extentOffset: _ctl.text.length);
+  void _selectAll() => _ctl.selection = TextSelection(
+    baseOffset: 0,
+    extentOffset: _ctl.text.length,
+  );
 
   void _begin() => setState(() {
-        _ctl.text = _committed;
-        _selectAll();
-        _editing = true;
-      });
+    _ctl.text = _committed;
+    _selectAll();
+    _editing = true;
+  });
 
-  void _commit() {
+  // Keyboard finishes (Enter/Esc) RETURN focus to the pencil so keyboard nav continues; POINTER finishes
+  // (Save/Cancel click, blur) drop focus SYNCHRONOUSLY before the rebuild — else removing the focused
+  // field/button restores focus to the pencil, pinning it revealed + focus-ringed (mirrors AnEditableValue._finish).
+  // 键盘完成回落铅笔续导航;指针完成重建前同步卸焦,杜绝铅笔被恢复焦点卡显。
+  void _commit({bool returnFocus = true}) {
     final next = _ctl.text;
+    if (!returnFocus) FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
       _committed = next;
       _editing = false;
@@ -114,7 +135,8 @@ class _AnInlineEditState extends State<AnInlineEdit> {
     widget.onCommit(next);
   }
 
-  void _abort() {
+  void _abort({bool returnFocus = true}) {
+    if (!returnFocus) FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
       _ctl.text = _committed;
       _editing = false;
@@ -122,45 +144,107 @@ class _AnInlineEditState extends State<AnInlineEdit> {
     widget.onAbort?.call();
   }
 
+  void _setHover(bool v) {
+    if (_hovered != v && mounted) setState(() => _hovered = v);
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    return SizedBox(
-      height: widget.minHeight, // fixed footprint — idle & editing share it, no jump 定高,静态/编辑共用、不跳
-      child: Row(
-        // min: under a LOOSE host the row hugs its content (title + pencil), so trailing siblings
-        // (e.g. the chat head's model button) sit right after the title instead of at the far edge;
-        // a tight host (Expanded) is unaffected. min:loose 宿主下收紧到内容宽(题+铅笔),兄弟件贴题
-        // 而非被顶到最右;tight 宿主(Expanded)不受影响。
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Flexible (not Expanded): content-sized until the affordance needs room — then the field
-          // scrolls / the text ellipsizes (never overflow). Flexible:内容定宽,affordance 需位时框横滚/文字省略。
-          Flexible(
-            // Rename keeps Enter / ✓ / Esc only (onTapOutside: null) — clicking away from a rename
-            // shouldn't silently commit; value-edit (AnEditableValue) opts into blur-commit instead.
-            // 重命名只 Enter/✓/Esc(不失焦提交,点别处不该静默改名);改值件 AnEditableValue 才用失焦提交。
-            child: _editing
-                ? AnSeamlessField(controller: _ctl, style: widget.style, framed: true, onCommit: _commit, onAbort: _abort)
-                : Text(
-                    _committed,
-                    maxLines: 1,
-                    softWrap: false,
-                    overflow: TextOverflow.ellipsis,
-                    style: (widget.style ?? AnText.body).copyWith(color: c.ink),
-                  ),
+
+    // READ-ONLY (enabled:false): a plain title with NO edit affordance — a disabled/greyed pencil is a
+    // phantom control (e.g. a skill's name IS its identity, not renamable). Same fixed footprint + face as
+    // idle so nothing around it shifts. 只读:纯标题、无 affordance(灰死铅笔=幽灵控件;如 skill 名即身份不可改),同定高同字面。
+    if (!widget.enabled) {
+      return SizedBox(
+        height: widget.minHeight,
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            _committed,
+            maxLines: 1,
+            softWrap: false,
+            overflow: TextOverflow.ellipsis,
+            style: (widget.style ?? AnText.body).copyWith(color: c.ink),
           ),
-          const SizedBox(width: AnSpace.s8), // one gap, BOTH states — an unequal gap would twitch on toggle 同一间距、避免切换横抖
-          AnEditAffordance(
-            editing: _editing,
-            size: widget.affordanceSize,
-            onEdit: widget.enabled ? _begin : null,
-            onCommit: _commit,
-            onAbort: _abort,
+        ),
+      );
+    }
+
+    final reduced = AnMotionPref.reduced(context);
+    // The pencil reveals on hover OR keyboard focus-within, and stays lit while editing. 悬停/键盘聚焦/编辑时显。
+    final affordanceVisible = _editing || _hovered || _focusWithin;
+
+    final affordance = AnEditAffordance(
+      editing: _editing,
+      size: widget.affordanceSize,
+      onEdit: _begin,
+      onCommit: () => _commit(returnFocus: false), // Save click = pointer
+      onAbort: () => _abort(returnFocus: false), // Cancel click = pointer
+    );
+    // Cancel-priority: with blur-commit ON, a tap on Cancel/Save must be "inside" the field's tap group so
+    // it doesn't ALSO fire onTapOutside (a blur-commit). 取消优先:失焦提交时把 ✓✕ 纳入字段 tap 组,点它们不触发失焦提交。
+    final gatedAffordance = widget.commitOnTapOutside
+        ? TextFieldTapRegion(child: affordance)
+        : affordance;
+
+    return MouseRegion(
+      onEnter: (_) => _setHover(true),
+      onExit: (_) => _setHover(false),
+      child: Focus(
+        canRequestFocus:
+            false, // an observer, not a tab stop — reports descendant focus only 只观察焦点、非 tab 位
+        skipTraversal: true,
+        onFocusChange: (v) {
+          if (_focusWithin != v && mounted) setState(() => _focusWithin = v);
+        },
+        child: SizedBox(
+          height: widget
+              .minHeight, // fixed footprint — idle & editing share it, no jump 定高,静态/编辑共用、不跳
+          child: Row(
+            // min: under a LOOSE host the row hugs its content; a tight host (Expanded) is unaffected.
+            // min:loose 宿主下收紧到内容宽;tight 宿主(Expanded)不受影响。
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: _editing
+                    ? AnSeamlessField(
+                        controller: _ctl,
+                        style: widget.style,
+                        framed: true,
+                        onCommit: () =>
+                            _commit(returnFocus: true), // Enter = keyboard
+                        onAbort: () =>
+                            _abort(returnFocus: true), // Esc = keyboard
+                        // Blur-commit only when opted in — clicking away otherwise must NOT silently rename.
+                        onTapOutside: widget.commitOnTapOutside
+                            ? (_) => _commit(returnFocus: false)
+                            : null,
+                      )
+                    : Text(
+                        _committed,
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.ellipsis,
+                        style: (widget.style ?? AnText.body).copyWith(
+                          color: c.ink,
+                        ),
+                      ),
+              ),
+              const SizedBox(
+                width: AnSpace.s8,
+              ), // gap reserved in BOTH states — opacity-only reveal never twitches 同定间距,渐显不跳
+              // Opacity-0 keeps the pencil LAID OUT (no jump) AND hit / keyboard reachable (a Tab onto it
+              // flips _focusWithin → fades in). reduced-motion → instant show/hide. 透明 0 保版位+可命中/可 Tab;reduced 直显隐。
+              AnimatedOpacity(
+                opacity: affordanceVisible ? 1 : 0,
+                duration: reduced ? Duration.zero : AnMotion.fast,
+                child: gatedAffordance,
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 }
-

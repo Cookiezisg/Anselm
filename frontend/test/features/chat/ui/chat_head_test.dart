@@ -71,7 +71,10 @@ void main() {
     await tester.pumpWidget(w);
     await tester.pump(); // header fetch 头部取数
     await tester.pump(const Duration(milliseconds: 20));
-    expect(find.byType(AnInlineEdit), findsOneWidget); // static title (no reveal queued) 静态标题
+    // The head title is a plain READ-ONLY Text now (rename goes through the rail's ⋯ → rename) — not
+    // an inline-edit. 顶栏标题=纯只读 Text(改名走 rail 的 ⋯→改名),不再内联编辑。
+    expect(find.text('新标题'), findsOneWidget); // static read-only title 静态只读标题
+    expect(find.byType(AnInlineEdit), findsNothing);
 
     c.read(titleRevealsProvider.notifier).add('cv_1');
     await tester.pump();
@@ -83,7 +86,7 @@ void main() {
     await tester.pump();
     expect(c.read(titleRevealsProvider), isEmpty);
     await tester.pump();
-    expect(find.byType(AnInlineEdit), findsOneWidget);
+    expect(find.text('新标题'), findsOneWidget); // back to the static read-only title 回静态只读标题
     expect(find.byType(AnTypewriter), findsNothing);
   });
 }

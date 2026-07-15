@@ -127,11 +127,48 @@ void main() {
     expect(aborts, 2);
   });
 
-  testWidgets('disabled does not enter edit', (tester) async {
+  testWidgets('disabled renders a read-only title — NO edit affordance (no phantom greyed pencil)', (tester) async {
     await tester.pumpWidget(host(AnInlineEdit(value: 'X', enabled: false, onCommit: (_) {})));
-    await tester.tap(find.byType(AnButton), warnIfMissed: false);
+    await tester.pump();
+    // Read-only: a plain title, no pencil at all (a disabled/greyed pencil is a phantom control — e.g. a
+    // skill name IS its identity). 只读:纯标题、无铅笔(灰死铅笔=幽灵控件,如 skill 名即身份)。
+    expect(find.byType(AnButton), findsNothing);
+    expect(find.byType(AnInput), findsNothing); // and it never enters edit 且不进编辑
+    expect(find.text('X'), findsOneWidget);
+  });
+
+  testWidgets('A2 blur-commit ON — an outside tap commits (commitOnTapOutside:true)', (tester) async {
+    String? committed;
+    await tester.pumpWidget(host(Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnInlineEdit(value: 'X', startEditing: true, commitOnTapOutside: true, onCommit: (v) => committed = v),
+        Container(height: 40, color: const Color(0xFFEEEEEE), alignment: Alignment.center, child: const Text('away')),
+      ],
+    )));
+    await tester.pump();
+    await tester.enterText(find.byType(AnInput), 'renamed');
+    await tester.tap(find.text('away')); // tap OUTSIDE the field
     await tester.pump(const Duration(milliseconds: 50));
-    expect(find.byType(AnInput), findsNothing);
+    expect(committed, 'renamed'); // blur committed 失焦即存
+    expect(find.byType(AnInput), findsNothing); // back to the resting title 回静态
+  });
+
+  testWidgets('A2 blur-commit OFF (default) — an outside tap must NOT silently rename', (tester) async {
+    String? committed;
+    await tester.pumpWidget(host(Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnInlineEdit(value: 'X', startEditing: true, onCommit: (v) => committed = v), // default false
+        Container(height: 40, color: const Color(0xFFEEEEEE), alignment: Alignment.center, child: const Text('away')),
+      ],
+    )));
+    await tester.pump();
+    await tester.enterText(find.byType(AnInput), 'renamed');
+    await tester.tap(find.text('away'));
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(committed, isNull); // a stray click must NOT commit — pins the rail/entity rename behaviour 点别处不静默改名
+    expect(find.byType(AnInput), findsOneWidget); // still editing (only Enter/✓/Esc commit) 仍编辑
   });
 
   testWidgets('long content caps at the space the affordance leaves, then scrolls — no overflow', (tester) async {

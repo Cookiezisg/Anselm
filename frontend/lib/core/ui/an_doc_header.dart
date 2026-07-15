@@ -74,12 +74,15 @@ class AnDocHeader extends StatelessWidget {
             enabled: nameEditable,
             style: AnText.readingH1.copyWith(color: c.ink),
             minHeight: AnSize.islandHead,
+            // A doc page: an idle click elsewhere while renaming should SAVE (not silently drop). 点别处即存。
+            commitOnTapOutside: true,
             onCommit: (v) => meta('name', v),
           ),
           const SizedBox(height: AnSpace.s4),
           AnInlineEdit(
             value: description,
             style: AnText.reading.copyWith(color: c.inkMuted),
+            commitOnTapOutside: true,
             onCommit: (v) => meta('description', v),
           ),
           if (showTags && (tags.isNotEmpty || onMetaChanged != null)) ...[

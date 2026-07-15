@@ -12,6 +12,7 @@ import '../features/chat/state/stage_director_provider.dart';
 import '../features/chat/ui/stage_panel.dart';
 import '../features/chat/ui/chat_head.dart';
 import '../features/chat/ui/chat_ocean.dart';
+import '../features/chat/ui/chat_toc.dart';
 import '../features/chat/ui/conversation_rail.dart';
 import '../features/documents/state/document_state.dart';
 import '../features/documents/ui/document_ocean.dart';
@@ -232,6 +233,10 @@ class AppShell extends ConsumerWidget {
       onToggleLeft: toggleLeft,
       onLeftWidthCommitted: (w) => ref.read(shellChromeProvider.notifier).setLeftWidth(w),
       head: onChat ? const ChatHead() : const OceanBreadcrumb(),
+      // Chat's scene/outline nav rides the shell head-trailing slot so it sits RIGHT beside the panel-right
+      // toggle (not stranded at the head content's edge). chat 场次/大纲钮走 shell 头尾槽,紧靠右岛钮。
+      headTrailing:
+          onChat && chatConversation != null ? TranscriptToc(conversationId: chatConversation) : null,
       // The chrome control band stays [AnSize.titlebar] in fullscreen too, so the collapse button +
       // breadcrumb keep the SAME comfortable top gap as windowed (#10: the old `fullScreen ? 0` collapsed
       // the band and pinned them cramped to the screen top — the reported bug). AnWindowControls still

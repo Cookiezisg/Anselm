@@ -8,12 +8,9 @@ import '../../../core/design/typography.dart';
 import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../core/model/model_capabilities.dart';
-import '../model/conversation_transcript.dart';
 import '../state/conversation_header.dart';
-import '../state/conversation_stream_provider.dart';
 import '../state/selected_conversation.dart';
 import '../state/title_reveals.dart';
-import 'chat_toc.dart';
 
 /// The chat ocean's floating-head content. On a THREAD: the title (in-place renameable — the same PATCH
 /// as the rail's ⋯ rename) then the per-thread MODEL picker nudged right by it. On the LANDING: the
@@ -60,41 +57,38 @@ class ChatHead extends ConsumerWidget {
         ref.watch(titleRevealsProvider).contains(id) && conv.title.trim().isNotEmpty;
 
     final override = conv.modelOverride;
+    // The compact head title is READ-ONLY and 1:1 with every OTHER ocean's floating head (OceanBreadcrumb):
+    // the 12/w400/inkMuted chrome rung, NOT a 15/ink content heading. Renaming a thread goes through the
+    // LEFT-ISLAND rail's ⋯ → rename (same PATCH) — the head no longer inline-edits. The reveal typewriter
+    // MUST ride this same style or the auto-title finish flashes. 紧凑头标题=只读、1:1 其他海洋浮层头(12/w400/inkMuted
+    // chrome,非 15/ink 内容标题);改名走左岛 rail 的 ⋯→改名;打字机揭示必须同式否则收尾闪号。
+    final titleStyle = AnText.meta.weight(AnText.emphasisWeight).copyWith(color: context.colors.inkMuted);
     return Row(
+      // min: the head hugs its content (title + model) at the left; the scene/outline nav moved to the
+      // shell's head-trailing slot so it sits beside the panel-right toggle. min:头收紧到内容(题+模型)靠左;场次钮已挪到 shell 头尾槽。
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Title — in-place rename, hugging its content (AnInlineEdit is min-sized under a loose host)
-        // so the model button sits right after it; Flexible still caps runaway titles.
-        // 标题:就地改名,收紧到内容宽(AnInlineEdit loose 下 min),模型钮贴题;Flexible 仍封超长。
-        // The title is the content area's identity — the 15/w400 content rung (readingH3), not the
-        // 13 chrome body; the reveal typewriter MUST ride the same style or the finish flashes 13→15.
-        // 标题=内容区身份:15/w400 内容档(readingH3),非 13 chrome;打字机揭示必须同式,否则收尾闪号。
         Flexible(
           child: revealing
               ? SizedBox(
-                  height: AnSize.control, // the AnInlineEdit footprint — swap never jumps 同定高,切换不跳
-                  // widthFactor pins the box to the typed width (Align would fill the loose slot and
-                  // shove the model button to the far edge) — the button rides the typing instead.
-                  // widthFactor 收紧到已打出的宽(Align 会撑满 loose 槽把模型钮顶到最右)——钮随打字右移。
+                  height: AnSize.control, // stable footprint — reveal→resting never jumps 定高,揭示→静止不跳
                   child: Center(
                     widthFactor: 1,
                     child: AnTypewriter(
                       [conv.title],
                       loop: false,
-                      // No caret — matched with the rail's twin player (a title is not a terminal;
-                      // one reveal, one look). 与 rail 同款无 caret(标题不是终端;一次揭示一种脸)。
+                      // No caret — matched with the rail's twin player. 与 rail 同款无 caret。
                       showCaret: false,
-                      textStyle: AnText.readingH3.copyWith(color: context.colors.ink),
+                      textStyle: titleStyle,
                       onDone: () => ref.read(titleRevealsProvider.notifier).remove(id),
                     ),
                   ),
                 )
-              : AnInlineEdit(
-                  key: ValueKey('chat-head-title-$id'),
-                  value: conv.title.isEmpty ? t.chat.kNew : conv.title,
-                  style: AnText.readingH3,
-                  affordanceSize: AnButtonSize.md,
-                  onCommit: (v) => ref.read(conversationHeaderProvider(id).notifier).rename(v),
+              : Text(
+                  conv.title.isEmpty ? t.chat.kNew : conv.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: titleStyle,
                 ),
         ),
         const SizedBox(width: AnSpace.s8),
@@ -103,22 +97,6 @@ class ChatHead extends ConsumerWidget {
           caps: caps,
           current: override == null ? null : (apiKeyId: override.apiKeyId, modelId: override.modelId),
           onSelect: (v) => ref.read(conversationHeaderProvider(id).notifier).setModel(v),
-        ),
-        // The 场次条 (scene strip) — jump to any depth of this thread's history. 场次目录钮。
-        const SizedBox(width: AnSpace.s4),
-        TranscriptToc(conversationId: id),
-        // Quiet hint while the reply streams. Driven by the LIVE transcript (the coalesced messages-stream
-        // isGenerating, the same source the composer's send↔stop reads) — NOT the header row's field, which
-        // is fed by notification lifecycle signals and lags / lingers vs the actual turn open/close.
-        // 生成中蓝点取活 transcript(messages 流,与 composer send↔stop 同源),非 header 行字段(通知信号滞后/滞留)。
-        ValueListenableBuilder<ConversationTranscript>(
-          valueListenable: ref.watch(conversationStreamProvider(id).notifier).transcript,
-          builder: (context, transcript, _) => transcript.isGenerating
-              ? const Padding(
-                  padding: EdgeInsets.only(left: AnSpace.s6),
-                  child: AnStatusDot(AnStatus.run),
-                )
-              : const SizedBox.shrink(),
         ),
       ],
     );

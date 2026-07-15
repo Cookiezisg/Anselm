@@ -49,6 +49,7 @@ class AnShell extends StatelessWidget {
     this.onToggleLeft,
     this.onLeftWidthCommitted,
     this.head,
+    this.headTrailing,
     this.onToggleRight,
     this.rightActivity = false,
     this.titlebarHeight = AnSize.titlebar,
@@ -84,6 +85,11 @@ class AnShell extends StatelessWidget {
   /// The feature's floating-head content (a scroll-collapsed breadcrumb), between reopen + panel-right.
   /// feature 的浮层头内容(随滚动折叠的面包屑)。
   final Widget? head;
+
+  /// Head TRAILING content — sits between the (width-constrained) [head] and the panel-right toggle, so a
+  /// per-ocean action (e.g. chat's scene/outline nav) lands RIGHT beside the right-island button rather than
+  /// at the head content's far edge. 头尾内容:落在 head 与右岛钮之间,让每海洋动作(chat 场次导航)贴右岛钮左边。
+  final Widget? headTrailing;
 
   /// Toggle the right island manually (the panel-right button; shown only when [inspector] exists).
   /// 手动切换右岛(panel-right 钮,仅有 inspector 时显)。
@@ -142,6 +148,7 @@ class AnShell extends StatelessWidget {
               child: _OceanRegion(
                 ocean: ocean,
                 head: head,
+                headTrailing: headTrailing,
                 showReopen: leftCollapsed,
                 onReopen: onToggleLeft,
                 controlInset: controlInset,
@@ -210,6 +217,7 @@ class _OceanRegion extends StatelessWidget {
   const _OceanRegion({
     this.ocean,
     this.head,
+    this.headTrailing,
     required this.showReopen,
     this.onReopen,
     required this.showRightToggle,
@@ -220,6 +228,7 @@ class _OceanRegion extends StatelessWidget {
 
   final Widget? ocean;
   final Widget? head;
+  final Widget? headTrailing;
   final bool showReopen;
   final VoidCallback? onReopen;
   final bool showRightToggle;
@@ -298,6 +307,12 @@ class _OceanRegion extends StatelessWidget {
                     child: head ?? const SizedBox.shrink(),
                   ),
                 ),
+                // Head-trailing action (chat's scene/outline nav) sits just LEFT of the panel-right toggle —
+                // a small gap keeps the two icon buttons from touching. 头尾动作紧靠右岛钮左边(小缝分隔)。
+                if (headTrailing != null) ...[
+                  headTrailing!,
+                  const SizedBox(width: AnSpace.s4),
+                ],
                 if (showRightToggle)
                   Stack(clipBehavior: Clip.none, children: [
                     AnButton.iconOnly(

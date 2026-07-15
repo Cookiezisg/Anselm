@@ -42,7 +42,7 @@ fn(地层→OpTicker→活代码窗→落定真 diff 徽)/document(书脊+前缀
 ## 4. 导航(W6)
 
 - **transcriptJump「re-anchor」**(`state/transcript_jump_provider.dart` 命令通道,`chat_transcript.dart` 唯一消费):近跳=`retargetCenter` 移锚零拉取;深跳=`?around=` 窗**整扇替换**(目标即 center sliver 首行,零 extent 估算)+双向续翻(`olderCursor`→`?cursor=`/`newerCursor`→`?dir=newer`)+「回到现场」pill(发送隐式离窗;`backToLive`=410 重同步同径;**归队即重钉贴底**——快速重拉可不换 State、转变显式重钉,否则读者被晾史中[真机抓获的真 bug,组测钉死]);落点洗亮 hold+fade;**跳转即解钉——流式帧绝不夺视口**(组测验收)。
-- **场次条 `TranscriptToc`**(`ui/chat_toc.dart`,目录钮在 `ChatHead`):`GET /{id}/anchors` 全量锚点(循环分页),gate 琥珀置顶>newest-first 时间线(user 主锚加粗/`tools`「⚙ N 项操作」折叠簇/danger/compaction/abnormal 逐条),点锚=jump+自收;抽屉高 560(导航面配得上高度——一眼更多场次);fixture `listAnchors` 镜像 broker 规则(未决 interactions 骑首页顶),demo/测试同真。
+- **场次条 `TranscriptToc`**(`ui/chat_toc.dart`,目录钮经壳 `AnShell.headTrailing` 槽渲于浮层头右缘、紧贴右岛开关钮左侧——`app_shell.dart` 喂入,**非**在 `ChatHead` 内容里):`GET /{id}/anchors` 全量锚点(循环分页),gate 琥珀置顶>newest-first 时间线(user 主锚加粗/`tools`「⚙ N 项操作」折叠簇/danger/compaction/abnormal 逐条),点锚=jump+自收;抽屉高 560(导航面配得上高度——一眼更多场次);fixture `listAnchors` 镜像 broker 规则(未决 interactions 骑首页顶),demo/测试同真。
 - **R-14**:落定舞台眉部「跳到发生处」=`ConversationTranscript.messageIdOf` 走父链到回合锚(role 式 Subagent 台账无影,这是它唯一的锚)。
 
 ## 4.5 可发现性
