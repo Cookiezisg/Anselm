@@ -3,13 +3,15 @@ import 'package:flutter/foundation.dart';
 /// Whether the desktop window is in native macOS fullscreen — a global platform bit (like
 /// [WindowZoom.factor]) flipped by a `window_manager` WindowListener in `app/window_setup.dart`.
 ///
-/// In fullscreen macOS hides the traffic lights AND the app's taller (toolbar-padded) title bar, so
-/// every top-chrome reservation made FOR those lights must collapse to 0:
-///  - the vertical [AnSize.titlebar] band the shell centers its top controls in (fed to
-///    [AnShell.titlebarHeight] by [AppShell]), and
-///  - the horizontal [AnSize.windowControlsInset] lights zone the [AnWindowControls] leaf reserves.
-/// Left un-collapsed, that reserved-but-now-empty strip reads as a blank white band and shoves the
-/// header/content down (the reported fullscreen bug). Both readers watch this notifier and collapse.
+/// In fullscreen macOS hides the traffic lights, so the HORIZONTAL room reserved for them must free up:
+/// the [AnSize.windowControlsInset] lights zone the [AnWindowControls] leaf reserves collapses (→ the
+/// product brand shows there instead, like Windows/Linux). This is the ONE reader of this notifier.
+///
+/// The VERTICAL chrome band does NOT collapse: [AppShell] feeds a constant [AnSize.titlebar] to
+/// [AnShell.titlebarHeight] in fullscreen too (see the note at that call site) — an earlier
+/// `fullScreen ? 0` collapse cramped the top controls against the screen edge and was itself the bug.
+/// So the top controls keep the same comfortable gap windowed and fullscreen; only the left lights
+/// gutter is a fullscreen-conditional axis.
 ///
 /// This is a platform fact (the OS owns fullscreen), NOT app state — hence a plain global notifier
 /// read directly, the same shape as [WindowZoom], rather than a Riverpod provider threaded through

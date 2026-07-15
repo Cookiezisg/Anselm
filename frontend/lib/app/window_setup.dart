@@ -64,7 +64,13 @@ Future<void> initWindow({String? title, SettingsPrefs? prefs}) async {
   // Adapt the chrome to native fullscreen transitions: in fullscreen the OS drops the traffic
   // lights + taller title bar, so the toolbar (else an opaque white band) is removed and the
   // shell's lights-reservations collapse via WindowFullScreen; on leave, restore both. Registered
-  // AFTER ensureInitialized (required). 随全屏切换适配 chrome:进则撤 toolbar(否则白带)+ 收灯位,出则还原。
+  // AFTER ensureInitialized (required). NOTE: the actual toolbar REMOVAL happens PRE-animation in the
+  // native `MainFlutterWindow` (willEnterFullScreenNotification) — window_manager only exposes the
+  // post-animation `did` callback, too late to keep the white band off the ~0.5s zoom. This listener's
+  // removeToolbar() is a harmless post-animation fallback; it owns only the flag flip + the on-leave rebuild.
+  // 随全屏切换适配 chrome:进则撤 toolbar(否则白带)+ 收灯位,出则还原。**真正的撤 toolbar 在原生侧动画前做**
+  // (MainFlutterWindow 的 willEnterFullScreen)——window_manager 只给动画后的 did 回调,太晚。此监听的 removeToolbar()
+  // 是动画后幂等兜底;它只负责翻旗标 + 出全屏时重建 toolbar。
   windowManager.addListener(_FullScreenChrome());
 
   // GEOMETRY (window_manager): scale-correct size / min / center — OR the remembered bounds
@@ -91,19 +97,24 @@ Future<void> initWindow({String? title, SettingsPrefs? prefs}) async {
 }
 
 /// Keeps the macOS chrome consistent across native fullscreen transitions (window_manager fires
-/// these AFTER the transition completes). Enter → drop the unified toolbar (AppKit would render it
-/// opaque = the white-band bug) + flip [WindowFullScreen.active] so the shell collapses its
-/// traffic-light insets to 0. Leave → rebuild a fresh toolbar and RE-APPLY the unified style
-/// (`addToolbar` builds a new NSToolbar but does NOT restyle) + clear the flag. The flag is set
-/// synchronously first (immediate Flutter reflow); the native toolbar call trails best-effort.
+/// these AFTER the transition completes). Enter → flip [WindowFullScreen.active] so the shell
+/// collapses its traffic-light insets to 0 (+ an idempotent removeToolbar() fallback; the real
+/// PRE-animation drop lives natively in [MainFlutterWindow], since window_manager has no `will`
+/// callback and a post-animation removal leaves the white band riding the whole zoom). Leave →
+/// rebuild a fresh toolbar and RE-APPLY the unified style (`addToolbar` builds a new NSToolbar but
+/// does NOT restyle) + clear the flag. The flag is set synchronously first (immediate Flutter reflow);
+/// the native toolbar call trails best-effort.
 ///
-/// 维持 macOS chrome 随原生全屏切换一致(window_manager 在切换完成后触发)。进:撤统一 toolbar(否则
-/// AppKit 渲成不透明=白带 bug)+ 翻 WindowFullScreen 使壳收灯位;出:重建 toolbar 并**重设**统一样式
-/// (addToolbar 建新 NSToolbar 但不带样式)+ 清标志。标志先同步设(即时 Flutter 重排),原生调用随后尽力而为。
+/// 维持 macOS chrome 随原生全屏切换一致(window_manager 在切换完成后触发)。进:翻 WindowFullScreen 使壳收灯位
+/// (+ 幂等 removeToolbar() 兜底;真正的动画前撤 toolbar 在原生 MainFlutterWindow——window_manager 无 will 回调,动画后
+/// 才撤会让白带跟满整个缩放);出:重建 toolbar 并**重设**统一样式(addToolbar 建新 NSToolbar 但不带样式)+ 清标志。
+/// 标志先同步设(即时 Flutter 重排),原生调用随后尽力而为。
 class _FullScreenChrome with WindowListener {
   @override
   void onWindowEnterFullScreen() {
     WindowFullScreen.active.value = true;
+    // Post-animation fallback only — the seamless drop already happened natively at will-enter.
+    // 仅动画后兜底——丝滑撤除已在原生 will-enter 完成。
     WindowManipulator.removeToolbar();
   }
 
