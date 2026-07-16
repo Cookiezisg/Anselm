@@ -1,4 +1,4 @@
-import 'package:anselm/features/chat/state/flowrun_progress.dart';
+import 'package:anselm/core/run/flowrun_progress.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // C-019 — FlowrunProgress.withTick did `[...ticks, t]` (O(n) copy) with an UNBOUNDED list, so a heavy

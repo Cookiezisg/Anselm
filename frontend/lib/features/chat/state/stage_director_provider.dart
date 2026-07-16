@@ -7,7 +7,7 @@ import '../../../core/sse/frame.dart';
 import '../data/chat_providers.dart';
 import '../data/chat_repository.dart';
 import '../model/stage_director.dart';
-import 'flowrun_progress.dart';
+import '../../../core/run/flowrun_progress.dart';
 import 'pending_interactions_provider.dart';
 
 /// One conversation's stage director as a provider: projects the conversation's frame feed onto the

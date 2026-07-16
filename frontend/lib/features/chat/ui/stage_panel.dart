@@ -28,7 +28,7 @@ import 'stages/stage_registry.dart';
 import 'stages/stage_scene.dart';
 import 'stages/subagent_stage.dart';
 import 'tool_card_skins.dart';
-import '../state/flowrun_progress.dart';
+import '../../../core/run/flowrun_progress.dart';
 
 /// The SIDESTAGE (WRK-061 · rebuilt WRK-064) — the chat right island's content, now a STICKY ACCORDION
 /// LIST: the unified head (label · follow · expand/collapse-all · ✕) over one scroll where every touchpoint

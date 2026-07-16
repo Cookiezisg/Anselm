@@ -2,6 +2,7 @@ import 'package:anselm/core/contract/messages/block_content.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/messages/block_tree_reducer.dart';
 import 'package:anselm/features/chat/ui/chat_tool_card.dart';
+import 'package:anselm/core/run/flowrun_node_list.dart';
 import 'package:anselm/features/chat/ui/tool_card_flowrun.dart';
 import 'package:anselm/features/chat/model/tool_receipts.dart';
 import 'package:anselm/i18n/strings.g.dart';
@@ -40,18 +41,18 @@ void main() {
       final r = replayReceipt(t, _run('completed', [_node('a', 'action', 'completed')],
           nodeSummary: '{"totalNodes":213,"shownNodes":80,"byStatus":{"completed":213},"note":"x"}'))!;
       expect(r.text, contains('213')); // the REAL total, not 1 (nodes.length)
-      expect(r.text, contains(t.chat.tool.runCompleted));
+      expect(r.text, contains(t.run.runCompleted));
       expect(r.tone, isNot(ToolReceiptTone.danger));
     });
     test('failed → red 仍失败 + auto-expand signal', () {
       final r = replayReceipt(t, _run('failed', [_node('a', 'action', 'failed', error: 'boom')]))!;
-      expect(r.text, t.chat.tool.runStillFailed);
+      expect(r.text, t.run.runStillFailed);
       expect(r.tone, ToolReceiptTone.danger);
       expect(replayResultFailed(_run('failed', [_node('a', 'action', 'failed')])), isTrue);
     });
     test('running with a parked node → 等待审批 (grey, not danger — park is a node state)', () {
       final r = replayReceipt(t, _run('running', [_node('a', 'approval', 'parked')]))!;
-      expect(r.text, t.chat.tool.runAwaitApproval);
+      expect(r.text, t.run.runAwaitApproval);
       expect(r.tone, isNot(ToolReceiptTone.danger));
     });
     test('running with no parked node → no receipt; unparseable → null', () {
@@ -60,7 +61,7 @@ void main() {
     });
     test('cancelled → 已取消, not failed', () {
       final r = replayReceipt(t, _run('cancelled', [_node('a', 'action', 'completed')]))!;
-      expect(r.text, t.chat.tool.runCancelled);
+      expect(r.text, t.run.runCancelled);
       expect(replayResultFailed(_run('cancelled', [])), isFalse);
     });
   });
@@ -77,7 +78,7 @@ void main() {
     expect(find.byType(FlowrunNodeList), findsOneWidget);
     expect(find.text('trigger'), findsOneWidget);
     expect(find.text('fetch'), findsOneWidget);
-    expect(find.textContaining(t.chat.tool.replayPinNote), findsOneWidget); // honesty note
+    expect(find.textContaining(t.run.replayPinNote), findsOneWidget); // honesty note
     expect(find.textContaining('wf_1a2b3c4d5e6f7a8b'), findsWidgets); // navigable workflow pill
     expect(find.textContaining('fr_9a8b7c6d5e4f3a2b'), findsWidgets); // flowrunId copy chip
   });
@@ -130,7 +131,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.textContaining('wf_1a2b3c4d5e6f7a8b'), findsWidgets); // navigable workflow pill
       expect(find.textContaining('fr_9a8b7c6d5e4f3a2b'), findsWidgets); // flowrunId copy chip
-      expect(find.text(t.chat.tool.triggerStartedNote), findsOneWidget);
+      expect(find.text(t.run.triggerStartedNote), findsOneWidget);
     });
 
     testWidgets('empty payload is stated, never dressed as an empty tree', (tester) async {
@@ -139,7 +140,7 @@ void main() {
       await tester.pump();
       await tester.tap(find.textContaining(t.chat.tool.triggeredWf), warnIfMissed: false);
       await tester.pumpAndSettle();
-      expect(find.text(t.chat.tool.emptyPayload), findsOneWidget);
+      expect(find.text(t.run.emptyPayload), findsOneWidget);
     });
   });
 
@@ -168,7 +169,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(FlowrunNodeList), findsOneWidget);
       expect(find.textContaining('wf_1a2b3c4d5e6f7a8b'), findsWidgets); // workflow pill in the header
-      expect(find.textContaining(t.chat.tool.provTrigger), findsOneWidget); // navigable trigger provenance
+      expect(find.textContaining(t.run.provTrigger), findsOneWidget); // navigable trigger provenance
     });
 
     testWidgets('failed run auto-expands with the run-level error window', (tester) async {

@@ -11,7 +11,7 @@ import '../../../core/ui/an_chip.dart';
 import '../../../core/ui/an_kv.dart';
 import '../../../core/ui/icons.dart';
 import '../../../i18n/strings.g.dart';
-import 'tool_card_nav.dart';
+import '../../../core/run/run_nav.dart';
 import 'tool_card_skins.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';

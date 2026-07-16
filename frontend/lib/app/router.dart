@@ -59,6 +59,14 @@ GoRouter buildAppRouter(Ref ref) {
       // 文档选区:页(/documents/:id)或 skill(/documents/skill/:name,slug 寻址);同常量页;存在性→海洋错误态。
       GoRoute(path: '/documents/:id', pageBuilder: _shellPage),
       GoRoute(path: '/documents/skill/:name', pageBuilder: _shellPage),
+      // Scheduler ocean (WRK-069 §11) — overview / a workflow's operations home (?run= linked pane) /
+      // the run flagship (?node= selection) / the id-only run relay (fr_ paste + panel_registry
+      // `flowrun` deep links resolve the host workflow there and go-replace to the full path). All the
+      // same constant-key shell page. Scheduler 海洋:总览/运营主页/run 旗舰/fr_ 直达中转,同常量壳页。
+      GoRoute(path: '/scheduler', pageBuilder: _shellPage),
+      GoRoute(path: '/scheduler/w/:id', pageBuilder: _shellPage),
+      GoRoute(path: '/scheduler/w/:id/runs/:frId', pageBuilder: _shellPage),
+      GoRoute(path: '/scheduler/runs/:frId', pageBuilder: _shellPage),
       // The workflow graph editor is a FULL-SCREEN page (its OWN scaffold, NOT the shell) — a focused
       // edit mode entered from the overview hero, exited back to the entity page. 图编辑器是全屏页
       // (自有 scaffold、非壳):从概览 hero 进、退回实体页。

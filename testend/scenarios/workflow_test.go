@@ -323,3 +323,42 @@ func TestWorkflow_CrashRecovery(t *testing.T) {
 		return strings.Contains(raw, `"status":"completed"`)
 	})
 }
+
+// TestWorkflow_RunProvenanceOriginManual — scheduler 工单① black-box: a manual "Run now"
+// (POST /flowruns) must stamp origin=manual on the run's wire row, with NO conversationId (that
+// pair rides only chat-born runs). The webhook/cron/fsnotify testends cover the fired origins.
+//
+// TestWorkflow_RunProvenanceOriginManual——工单①黑盒：手动「Run now」（POST /flowruns）必须在
+// run 线缆行上盖 origin=manual、且无 conversationId（那对键只随 chat 出生的 run）。webhook/cron/
+// fsnotify testend 覆盖 fired 来源。
+func TestWorkflow_RunProvenanceOriginManual(t *testing.T) {
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "wf-origin"}).OK(t, nil)
+	wc := c.WS(ws.Field(t, "id"))
+
+	fnID := fnCreate(t, wc, "origin_step", "def f() -> dict:\n    return {\"ok\": True}\n")
+	wfID := wfCreate(t, wc, "origin_pipe", []map[string]any{
+		{"op": "add_node", "node": map[string]any{"id": "start", "kind": "trigger", "ref": "trg_manual"}},
+		{"op": "add_node", "node": map[string]any{"id": "step", "kind": "action", "ref": fnID}},
+		{"op": "add_edge", "edge": map[string]any{"id": "e1", "from": "start", "to": "step"}},
+	})
+
+	runID, status, _ := runAndWait(t, wc, wfID, map[string]any{}, 30000)
+	if status != "completed" {
+		t.Fatalf("run must complete, got %s", status)
+	}
+	var got struct {
+		Flowrun struct {
+			Origin         string `json:"origin"`
+			ConversationID string `json:"conversationId"`
+		} `json:"flowrun"`
+	}
+	wc.GET("/api/v1/flowruns/"+runID).OK(t, &got)
+	if got.Flowrun.Origin != "manual" {
+		t.Fatalf("origin = %q, want manual", got.Flowrun.Origin)
+	}
+	if got.Flowrun.ConversationID != "" {
+		t.Fatalf("manual run must carry no conversationId, got %q", got.Flowrun.ConversationID)
+	}
+}

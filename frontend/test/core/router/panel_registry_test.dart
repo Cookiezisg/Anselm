@@ -33,6 +33,11 @@ void main() {
       expect(panelLocationFor('Function', 'x'), '/entities/function/x');
       expect(panelLocationFor('CONVERSATION', 'x'), '/chat/x');
     });
+
+    test('flowrun → the scheduler id-only run relay (WRK-069 §11)', () {
+      expect(panelLocationFor('flowrun', 'fr_1'), '/scheduler/runs/fr_1');
+      expect(hasPanelFor('flowrun'), isTrue);
+    });
   });
 
   group('no-panel kinds are inert (never a dead link)', () {

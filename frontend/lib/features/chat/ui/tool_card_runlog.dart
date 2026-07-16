@@ -12,8 +12,9 @@ import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
 import '../../../core/messages/block_tree_reducer.dart';
 import '../../../core/messages/transcript_hydration.dart';
+import '../../../core/run/provenance_line.dart';
 import 'run_dossier.dart';
-import 'run_ledger.dart';
+import '../../../core/run/run_ledger.dart';
 import 'transcript_peek.dart';
 import 'tool_card_io_section.dart';
 
@@ -204,7 +205,7 @@ Widget flowrunsBody(BuildContext context, ToolCardState s) => _countBody(context
               monoId: r['id'] as String?,
               chips: [
                 if ((r['replayCount'] is int ? r['replayCount'] as int : 0) > 0)
-                  AnChip(t.chat.tool.replayTimes(n: '${r['replayCount']}'), tone: AnTone.none),
+                  AnChip(t.run.replayTimes(n: '${r['replayCount']}'), tone: AnTone.none),
               ],
               subText: r['error'] as String?,
               stamp: fmtStamp(r['startedAt'] as String?),
@@ -374,7 +375,7 @@ Widget getActivationBody(BuildContext context, ToolCardState s) {
     ],
     if (o['payload'] is Map && (o['payload'] as Map).isNotEmpty) ...[
       const SizedBox(height: AnSpace.s6),
-      ToolIOSection(label: t.chat.tool.ioInput, value: o['payload']),
+      ToolIOSection(label: t.run.ioInput, value: o['payload']),
     ],
     if (err != null && err.isNotEmpty) ...[
       const SizedBox(height: AnSpace.s6),

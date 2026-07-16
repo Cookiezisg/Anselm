@@ -25,6 +25,9 @@ import '../features/entities/ui/entity_rail.dart';
 import '../features/entities/ui/flowrun_inbox.dart';
 import '../features/entities/ui/run/run_terminal.dart';
 import '../features/notifications/state/toast_dispatcher.dart';
+import '../features/scheduler/state/selected_scheduler.dart';
+import '../features/scheduler/ui/scheduler_ocean.dart';
+import '../features/scheduler/ui/scheduler_rail.dart';
 import '../features/settings/ui/settings_ocean.dart';
 import '../features/settings/ui/settings_rail.dart';
 import '../features/notifications/state/unread_count_provider.dart';
@@ -62,7 +65,8 @@ class AppShell extends ConsumerWidget {
     ref.listen(selectedOceanProvider, (prev, next) {
       // settings also binds the floating head ('设置 / <panel>') + collapses it on scroll but never
       // clears on dispose — omit it and its stale crumb ghosts over the next ocean. settings 亦拥浮层头。
-      const headOwners = {OceanKind.entities, OceanKind.documents, OceanKind.settings};
+      // scheduler binds 'Scheduler / 名 / fr_x' from S3 on (WRK-069 §11). scheduler 自 S3 起拥浮层头。
+      const headOwners = {OceanKind.entities, OceanKind.documents, OceanKind.settings, OceanKind.scheduler};
       if (prev != null && headOwners.contains(prev) && prev != next) {
         ref.read(shellHeadProvider.notifier).clear();
       }
@@ -86,6 +90,11 @@ class AppShell extends ConsumerWidget {
     // URL) pulls the ocean to documents. documents 同款一致性规则:/documents/... 导航把海洋拉到 documents。
     ref.listen(selectedDocProvider, (prev, next) {
       if (next != null) ref.read(selectedOceanProvider.notifier).select(OceanKind.documents);
+    });
+    // And for scheduler: a /scheduler... navigation (deep link, fr_ paste, panel_registry flowrun ref)
+    // pulls the ocean to scheduler. scheduler 同款:/scheduler... 导航把海洋拉过来。
+    ref.listen(selectedSchedulerProvider, (prev, next) {
+      if (next != null) ref.read(selectedOceanProvider.notifier).select(OceanKind.scheduler);
     });
     final notifOpen = ref.watch(notificationsOpenProvider);
     // Keep the event→toast dispatcher alive + subscribed for the whole session (it pops a top-right toast
@@ -143,7 +152,9 @@ class AppShell extends ConsumerWidget {
                     ? const DocumentRail()
                     : onSettings
                         ? const SettingsRail()
-                        : const _RailPlaceholder();
+                        : ocean == OceanKind.scheduler
+                            ? const SchedulerRail()
+                            : const _RailPlaceholder();
 
     final sidebar = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -313,9 +324,15 @@ class _OceanStack extends StatelessWidget {
   final OceanKind active;
 
   // The stack's oceans in a fixed slot order; a trailing slot (index == length) holds the «coming soon»
-  // placeholder for non-stack oceans (scheduler), so selecting it never tears the alive oceans down.
-  // 固定槽顺序;末位=非栈海洋(scheduler)占位槽,选它不卸活海洋。
-  static const _oceans = [OceanKind.chat, OceanKind.entities, OceanKind.documents, OceanKind.settings];
+  // placeholder for any future non-stack ocean, so selecting one never tears the alive oceans down.
+  // 固定槽顺序;末位=未来非栈海洋的占位槽,选它不卸活海洋。
+  static const _oceans = [
+    OceanKind.chat,
+    OceanKind.entities,
+    OceanKind.scheduler,
+    OceanKind.documents,
+    OceanKind.settings,
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -331,9 +348,8 @@ class _OceanStack extends StatelessWidget {
   Widget _oceanFor(OceanKind k) => switch (k) {
         OceanKind.chat => const ChatOcean(),
         OceanKind.entities => const EntityOcean(),
+        OceanKind.scheduler => const SchedulerOcean(),
         OceanKind.documents => const DocumentOcean(),
         OceanKind.settings => const SettingsOcean(),
-        // Only the four stack oceans reach here (the list is fixed). 仅四栈海洋到此。
-        _ => const _OceanPlaceholder(),
       };
 }

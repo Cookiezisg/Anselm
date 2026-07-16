@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/design/colors.dart';
-import '../../../core/design/tokens.dart';
-import '../../../core/design/typography.dart';
-import '../../../core/router/panel_registry.dart';
-import '../../../core/ui/ui.dart';
-import '../../../i18n/strings.g.dart';
-import 'tool_card_nav.dart';
+import '../design/colors.dart';
+import '../design/tokens.dart';
+import '../design/typography.dart';
+import '../router/panel_registry.dart';
+import '../ui/ui.dart';
+import '../../i18n/strings.g.dart';
+import 'run_nav.dart';
 
 // F09 run-log ledger primitives (B5.6) — the archive family's shared body furniture. A RunBeadStrip is a
 // health-at-a-glance dot row (this page's runs, new→old); a RunLedger is the record list (one row per
@@ -37,7 +37,7 @@ class RunBeadStrip extends StatelessWidget {
     if (beads.isEmpty) return const SizedBox.shrink();
     return Row(mainAxisSize: MainAxisSize.min, children: [
       if (pageScoped) ...[
-        Text(Translations.of(context).chat.tool.beadPageScope, style: AnText.meta.copyWith(color: c.inkFaint)),
+        Text(Translations.of(context).run.beadPageScope, style: AnText.meta.copyWith(color: c.inkFaint)),
         const SizedBox(width: AnSpace.s6),
       ],
       Flexible(

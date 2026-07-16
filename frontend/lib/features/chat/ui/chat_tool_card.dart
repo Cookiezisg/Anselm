@@ -307,7 +307,7 @@ class _ChatToolCardState extends State<ChatToolCard> {
     }
     if (state.phase == ToolCardPhase.failed && familyReceipt?.tone != ToolReceiptTone.danger) {
       receipt.add(TextSpan(
-          text: ' · ${t.chat.tool.failed}', style: AnText.meta.copyWith(color: c.danger)));
+          text: ' · ${t.run.failed}', style: AnText.meta.copyWith(color: c.danger)));
     }
 
     final dimVerb = state.phase == ToolCardPhase.denied || state.phase == ToolCardPhase.cancelled;

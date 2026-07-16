@@ -27,7 +27,7 @@ import '../../model/tool_card_state.dart';
 import '../../state/stage_truth.dart';
 import '../../state/touchpoint_ledger.dart';
 import '../../state/transcript_jump_provider.dart';
-import '../tool_card_nav.dart';
+import '../../../../core/run/run_nav.dart';
 import 'stage_registry.dart';
 import 'stage_scene.dart';
 

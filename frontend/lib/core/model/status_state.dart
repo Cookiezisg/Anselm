@@ -64,6 +64,12 @@ enum AnStatus {
     'error': AnStatus.err,
     'timeout': AnStatus.err, // exec/call Log-table failure terminal (CHECK lists it beside failed/cancelled)
     'future': AnStatus.idle,
+    // Trigger firing bypass dispositions — NEUTRAL non-executions, never red (a skipped debounce or a
+    // superseded fire is bookkeeping, not an error; WRK-069 状态学「未执行」桶). firing 旁路处置=中性
+    // 未执行,绝不染红(WRK-069 六桶之「未执行」)。
+    'skipped': AnStatus.idle,
+    'superseded': AnStatus.idle,
+    'shed': AnStatus.idle,
   };
 }
 

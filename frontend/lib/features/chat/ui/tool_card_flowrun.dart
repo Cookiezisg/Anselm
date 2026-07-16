@@ -12,8 +12,9 @@ import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
 import 'tool_card_io_section.dart';
 import 'tool_card_skins.dart';
-import 'run_dossier.dart';
-import 'tool_card_nav.dart';
+import '../../../core/run/flowrun_node_list.dart';
+import '../../../core/run/provenance_line.dart';
+import '../../../core/run/run_nav.dart';
 
 // F08 flowrun bodies (B5.3) — replay_flowrun's node ledger. The tool result is the {flowrun, nodes,
 // nodeSummary?} composite (SAME shape as get_flowrun); the body's core is FlowrunNodeList — you SEE the
@@ -57,16 +58,16 @@ Widget triggerWorkflowBody(BuildContext context, ToolCardState state) {
     // The payload fed to the entry trigger — an empty {} is stated, never dressed as an empty tree.
     // 喂给入口触发器的 payload;空 {} 明说、不装空树。
     if (emptyPayload)
-      Text(t.chat.tool.emptyPayload, style: AnText.code.copyWith(color: c.inkFaint))
+      Text(t.run.emptyPayload, style: AnText.code.copyWith(color: c.inkFaint))
     else
-      ToolIOSection(label: t.chat.tool.ioInput, value: payload),
+      ToolIOSection(label: t.run.ioInput, value: payload),
     const SizedBox(height: AnSpace.s6),
     Wrap(spacing: AnGap.inline, runSpacing: AnGap.stackTight, crossAxisAlignment: WrapCrossAlignment.center, children: [
       if (workflowId != null && workflowId.isNotEmpty) toolNavPill(context, kind: 'workflow', label: workflowId, id: workflowId),
       if (flowrunId != null && flowrunId.isNotEmpty) AnChip(flowrunId, look: AnChipLook.outlined, mono: true, copyValue: flowrunId, tooltip: flowrunId),
     ]),
     const SizedBox(height: AnSpace.s6),
-    Text(t.chat.tool.triggerStartedNote, style: AnText.meta.copyWith(color: c.inkFaint)),
+    Text(t.run.triggerStartedNote, style: AnText.meta.copyWith(color: c.inkFaint)),
   ]);
 }
 
@@ -94,17 +95,17 @@ ToolReceipt? replayReceipt(Translations t, String output) {
   final comp = decodeFlowrunResult(output);
   if (comp == null) return null;
   final n = flowrunTotalNodes(comp);
-  final nodes = t.chat.tool.nodeCount(n: '$n');
+  final nodes = t.run.nodeCount(n: '$n');
   switch (comp.flowrun.status) {
     case 'completed':
-      return (text: '${t.chat.tool.runCompleted} · $nodes', tone: ToolReceiptTone.none);
+      return (text: '${t.run.runCompleted} · $nodes', tone: ToolReceiptTone.none);
     case 'failed':
-      return (text: t.chat.tool.runStillFailed, tone: ToolReceiptTone.danger);
+      return (text: t.run.runStillFailed, tone: ToolReceiptTone.danger);
     case 'cancelled':
-      return (text: t.chat.tool.runCancelled, tone: ToolReceiptTone.none);
+      return (text: t.run.runCancelled, tone: ToolReceiptTone.none);
     case 'running':
       // A parked node → «awaiting approval» (grey — it's not a failure). 有 park→等待审批(灰,非失败)。
-      return flowrunHasParked(comp) ? (text: t.chat.tool.runAwaitApproval, tone: ToolReceiptTone.none) : null;
+      return flowrunHasParked(comp) ? (text: t.run.runAwaitApproval, tone: ToolReceiptTone.none) : null;
     default:
       return null;
   }
@@ -126,7 +127,7 @@ Widget replayFlowrunBody(BuildContext context, ToolCardState state) {
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
     // The replay honesty note — the fix you made after the failure did NOT take effect (pinned versions).
     // 重放诚实注:事后改的代码这次没生效(用原 pin 版本)。
-    Text(t.chat.tool.replayPinNote, style: AnText.meta.copyWith(color: c.inkFaint)),
+    Text(t.run.replayPinNote, style: AnText.meta.copyWith(color: c.inkFaint)),
     const SizedBox(height: AnSpace.s6),
     if (run.error != null && run.error!.isNotEmpty) ...[
       rawMonoWindow(context, run.error!, maxLines: AnCap.monoErrorLines, color: c.danger),
@@ -142,10 +143,10 @@ Widget replayFlowrunBody(BuildContext context, ToolCardState state) {
 /// receipt carried it twice; the deliberate DOMAIN deviation from runStatusWord stays: failed=仍失败,
 /// running splits on the parked gate). flowrun 域词唯一映射(域词偏离是刻意:仍失败;running 按停车分)。
 String _flowrunStatusWord(Translations t, String status, {required bool hasParked}) => switch (status) {
-      'completed' => t.chat.tool.runCompleted,
-      'failed' => t.chat.tool.runStillFailed,
-      'cancelled' => t.chat.tool.runCancelled,
-      'running' => hasParked ? t.chat.tool.runAwaitApproval : t.chat.tool.runStatusRunning,
+      'completed' => t.run.runCompleted,
+      'failed' => t.run.runStillFailed,
+      'cancelled' => t.run.runCancelled,
+      'running' => hasParked ? t.run.runAwaitApproval : t.run.runStatusRunning,
       _ => status,
     };
 
@@ -157,7 +158,7 @@ Widget _runFooter(BuildContext context, Flowrun run, {required bool hasParked}) 
   return AnStatBar(
     status: AnStatus.fromRaw(run.status),
     statusLabel: _flowrunStatusWord(t, run.status, hasParked: hasParked),
-    stats: [if (run.replayCount > 0) AnStat(t.chat.tool.replayTimes(n: '${run.replayCount}'), tabular: true)],
+    stats: [if (run.replayCount > 0) AnStat(t.run.replayTimes(n: '${run.replayCount}'), tabular: true)],
     chips: [
       if (run.workflowId.isNotEmpty) toolNavPill(context, kind: 'workflow', label: run.workflowId, id: run.workflowId),
       AnChip(run.id, look: AnChipLook.outlined, mono: true, copyValue: run.id, tooltip: run.id),
@@ -165,83 +166,8 @@ Widget _runFooter(BuildContext context, Flowrun run, {required bool hasParked}) 
   );
 }
 
-/// FlowrunNodeList (WRK-056 #38) — the per-node record of a run: one row per node (kind glyph · nodeId ·
-/// loop-turn · status dot), failed rows surface a red error line. When the run was 80-node-capped
-/// (summary present), an honest header states the REAL counts (from summary.byStatus, never
-/// nodes.length). Bounded to [cap] rows with an expand-all escape; failed/parked sort to the top (the
-/// diagnostic ones you came to see). FlowrunNodeList 节点台账:每节点一行,失败置顶,截断诚实账。
-class FlowrunNodeList extends StatefulWidget {
-  const FlowrunNodeList({required this.nodes, this.summary, this.cap = 12, super.key});
-
-  final List<FlowrunNode> nodes;
-  final FlowrunNodeSummary? summary;
-  final int cap;
-
-  @override
-  State<FlowrunNodeList> createState() => _FlowrunNodeListState();
-}
-
-class _FlowrunNodeListState extends State<FlowrunNodeList> {
-  // failed (0) → parked (1) → everything completed (2); stable within a rank. 失败→park→完成,组内稳定。
-  static int _rank(FlowrunNode n) => switch (n.status) { 'failed' => 0, 'parked' => 1, _ => 2 };
-
-  @override
-  Widget build(BuildContext context) {
-    final sorted = [...widget.nodes];
-    // A stable sort by rank (Dart's sort is not stable — pair with the original index). 稳定按 rank 排。
-    final indexed = [for (final (i, n) in sorted.indexed) (i, n)]
-      ..sort((a, b) {
-        final r = _rank(a.$2).compareTo(_rank(b.$2));
-        return r != 0 ? r : a.$1.compareTo(b.$1);
-      });
-    final ordered = [for (final e in indexed) e.$2];
-    return AnWindow(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-        // The honest-count header stays OUTSIDE the list shell (heterogeneous headers are the
-        // caller's, 批6 A-071). 诚实账头件留壳外。
-        if (widget.summary != null) ...[
-          _summaryBar(context, widget.summary!),
-          const SizedBox(height: AnSpace.s4),
-        ],
-        AnLedgerList(cap: widget.cap, children: [for (final n in ordered) _nodeRow(context, n)]),
-      ]),
-    );
-  }
-
-  // The 80-cap honest header — the bar family face (文法 #3: a rendered ' · ' chain lives ONLY in
-  // AnStatBar; this hand-joined meta line was its last flowrun holdout, A-087). Real counts from
-  // summary.byStatus (NEVER nodes.length). 截断诚实账走条族当家件(' · ' 链归 AnStatBar);真数来自
-  // byStatus,绝不数 nodes.length。
-  Widget _summaryBar(BuildContext context, FlowrunNodeSummary s) {
-    final t = Translations.of(context);
-    return AnStatBar(stats: [
-      AnStat(t.chat.tool.flowShown(shown: '${s.shownNodes}', total: '${s.totalNodes}')),
-      if ((s.byStatus['completed'] ?? 0) > 0) AnStat('${t.chat.tool.runCompleted} ${s.byStatus['completed']}'),
-      if ((s.byStatus['failed'] ?? 0) > 0) AnStat('${t.chat.tool.failed} ${s.byStatus['failed']}'),
-      if ((s.byStatus['parked'] ?? 0) > 0) AnStat('${t.chat.tool.nodeWait} ${s.byStatus['parked']}'),
-    ]);
-  }
-
-  Widget _nodeRow(BuildContext context, FlowrunNode n) {
-    final c = context.colors;
-    final failed = n.status == 'failed';
-    // Family row (批6 A-076): the status dot moves LEFT (法典族四②——was the family's one
-    // right-side dot), the kind glyph steps down to the first chip, the error line rides the
-    // danger sub voice (its indent arithmetic died with it). 族行:状态点归左,kind 字形降为首枚
-    // chip,错误行走 danger 副行(缩进算术随行退役)。
-    return AnLedgerRow(
-      lead: AnStatusDot(AnStatus.fromRaw(n.status)),
-      primary: n.nodeId,
-      chips: [
-        Icon(AnIcons.node(n.kind), size: AnSize.iconSm, color: c.inkFaint),
-        // A loop turn > 0 → the 0-based iteration index (disambiguates repeated nodeId rows). 循环轮次。
-        if (n.iteration > 0) Text('#${n.iteration}', style: AnText.metaTabular().copyWith(color: c.inkFaint)),
-      ],
-      sub: failed ? n.error : null,
-      subTone: AnTone.danger,
-    );
-  }
-}
+// FlowrunNodeList (WRK-056 #38) upstreamed to core/run/flowrun_node_list.dart (WRK-069 S0) — the
+// Scheduler's run flagship and these cards render the SAME ledger. FlowrunNodeList 已上收 core/run。
 
 // ── get_flowrun (B5.9): the run cockpit read (run header + FlowrunNodeList + provenance) ──
 // Same {flowrun, nodes, nodeSummary?} shape as replay; nodes are record-once (createdAt≈completedAt →
@@ -255,7 +181,7 @@ ToolReceipt? getFlowrunReceipt(Translations t, String output) {
   if (comp == null) return null;
   final total = flowrunTotalNodes(comp);
   final shown = comp.nodeSummary?.shownNodes ?? comp.nodes.length;
-  final nodes = total == shown ? t.chat.tool.nodeCount(n: '$total') : '$shown/$total';
+  final nodes = total == shown ? t.run.nodeCount(n: '$total') : '$shown/$total';
   final status = comp.flowrun.status;
   final word = _flowrunStatusWord(t, status, hasParked: flowrunHasParked(comp));
   final danger = status == 'failed';

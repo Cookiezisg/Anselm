@@ -17,7 +17,7 @@ import 'tool_card_control_approval.dart';
 import 'tool_card_document_skill.dart';
 import 'tool_card_entity_get.dart';
 import 'tool_card_trigger.dart';
-import 'tool_card_nav.dart';
+import '../../../core/run/run_nav.dart';
 // F06 get bodies (B3.5) — each get tool projects its entity JSON onto the EntityGetBody four-part
 // skeleton: identity + vitals + content + raw. Every projection reads only wire-truth fields (census
 // §02–07); a parse miss degrades to a raw mono window. F06 get 卡逐工具投影(读线缆事实,解析失败降级)。

@@ -6,7 +6,7 @@ import 'package:anselm/core/messages/block_tree_reducer.dart';
 import 'package:anselm/core/ui/an_kv.dart';
 import 'package:anselm/core/ui/an_window.dart';
 import 'package:anselm/features/chat/ui/chat_tool_card.dart';
-import 'package:anselm/features/chat/ui/run_ledger.dart';
+import 'package:anselm/core/run/run_ledger.dart';
 import 'package:anselm/features/chat/ui/tool_card_io_section.dart';
 import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/features/chat/ui/tool_card_skins.dart' show WindowCopyButton, rawMonoWindow;
@@ -133,8 +133,8 @@ void main() {
       await tester.pump();
       await tester.tap(find.textContaining(t.chat.tool.searchedFlowruns), warnIfMissed: false);
       await tester.pumpAndSettle();
-      expect(find.text(t.chat.tool.beadPageScope), findsOneWidget); // 本页
-      expect(find.textContaining(t.chat.tool.replayTimes(n: '2')), findsOneWidget);
+      expect(find.text(t.run.beadPageScope), findsOneWidget); // 本页
+      expect(find.textContaining(t.run.replayTimes(n: '2')), findsOneWidget);
       expect(find.textContaining('node charge failed'), findsOneWidget); // run-level error subtext
       expect(find.textContaining(t.chat.tool.parkRunCaption), findsOneWidget);
     });

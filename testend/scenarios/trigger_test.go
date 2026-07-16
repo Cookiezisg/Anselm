@@ -90,6 +90,11 @@ func TestTrigger_WebhookFiresAndVerifies(t *testing.T) {
 	}
 	waitRunCompleted(t, wc, wfID, 30000)
 
+	// the fired run carries its provenance stamp (scheduler 工单①). fired run 带溯源章（工单①）。
+	if r := wc.GET("/api/v1/flowruns?workflowId=" + wfID); !strings.Contains(string(r.Data), `"origin":"webhook"`) {
+		t.Fatalf("fired run must stamp origin=webhook: %.400s", r.Data)
+	}
+
 	// activation ledger saw it. 活动台账有记录。
 	r := wc.GET("/api/v1/triggers/" + trgID + "/activations")
 	if !strings.Contains(string(r.Data), `"fired":true`) {

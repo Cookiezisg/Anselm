@@ -93,6 +93,11 @@ lib/core/process/backend_controller.dart	converged
 lib/core/process/master_key.dart	converged
 lib/core/router/navigation.dart	converged
 lib/core/router/panel_registry.dart	converged
+lib/core/run/flowrun_node_list.dart	pending
+lib/core/run/flowrun_progress.dart	reviewed
+lib/core/run/provenance_line.dart	pending
+lib/core/run/run_ledger.dart	reviewed
+lib/core/run/run_nav.dart	converged
 lib/core/runtime.dart	converged
 lib/core/settings/app_prefs_providers.dart	converged
 lib/core/settings/follow_mode.dart	converged
@@ -128,6 +133,7 @@ lib/core/ui/an_code_editor.dart	reviewed
 lib/core/ui/an_code_surface.dart	reviewed
 lib/core/ui/an_composer.dart	reviewed
 lib/core/ui/an_count_up.dart	reviewed
+lib/core/ui/an_countdown.dart	pending
 lib/core/ui/an_deferred_loading.dart	converged
 lib/core/ui/an_dialog.dart	converged
 lib/core/ui/an_disclosure.dart	converged
@@ -239,6 +245,7 @@ lib/core/workspace/workspace_bootstrap.dart	converged
 lib/core/workspace/workspace_switch.dart	converged
 lib/dev/demo_main.dart	reviewed
 lib/dev/editor_harness_main.dart	reviewed
+lib/dev/gallery/an_countdown_specimens.dart	pending
 lib/dev/gallery/an_term_tail_specimens.dart	converged
 lib/dev/gallery/catalog.dart	reviewed
 lib/dev/gallery/chat_composer_specimens.dart	reviewed
@@ -297,7 +304,6 @@ lib/features/chat/state/conversation_list_provider.dart	converged
 lib/features/chat/state/conversation_list_state.dart	converged
 lib/features/chat/state/conversation_stream_provider.dart	converged
 lib/features/chat/state/conversation_stream_state.dart	converged
-lib/features/chat/state/flowrun_progress.dart	reviewed
 lib/features/chat/state/mention_names.dart	converged
 lib/features/chat/state/new_conversation.dart	converged
 lib/features/chat/state/pending_attachments.dart	converged
@@ -324,7 +330,6 @@ lib/features/chat/ui/conversation_rail_model.dart	converged
 lib/features/chat/ui/log_drawer.dart	converged
 lib/features/chat/ui/mention_text_controller.dart	converged
 lib/features/chat/ui/run_dossier.dart	reviewed
-lib/features/chat/ui/run_ledger.dart	reviewed
 lib/features/chat/ui/stage_panel.dart	converged
 lib/features/chat/ui/stages/agent_stage.dart	converged
 lib/features/chat/ui/stages/approval_stage.dart	converged
@@ -354,7 +359,6 @@ lib/features/chat/ui/tool_card_io_section.dart	reviewed
 lib/features/chat/ui/tool_card_lifecycle.dart	reviewed
 lib/features/chat/ui/tool_card_memory_web.dart	reviewed
 lib/features/chat/ui/tool_card_mount.dart	reviewed
-lib/features/chat/ui/tool_card_nav.dart	converged
 lib/features/chat/ui/tool_card_reveal.dart	converged
 lib/features/chat/ui/tool_card_runlog.dart	converged
 lib/features/chat/ui/tool_card_search.dart	reviewed
@@ -446,6 +450,9 @@ lib/features/notifications/state/unread_count_provider.dart	converged
 lib/features/notifications/ui/notification_copy.dart	reviewed
 lib/features/notifications/ui/notification_feed.dart	reviewed
 lib/features/notifications/ui/notification_row.dart	reviewed
+lib/features/scheduler/state/selected_scheduler.dart	pending
+lib/features/scheduler/ui/scheduler_ocean.dart	pending
+lib/features/scheduler/ui/scheduler_rail.dart	pending
 lib/features/settings/data/settings_demo_fixture.dart	reviewed
 lib/features/settings/data/settings_repository.dart	converged
 lib/features/settings/model/settings_catalog.dart	converged

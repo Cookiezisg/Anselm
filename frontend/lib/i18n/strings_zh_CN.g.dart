@@ -42,6 +42,8 @@ class TranslationsZhCn extends Translations with BaseTranslations<AppLocale, Tra
 	@override late final _Translations$chat$zh_CN chat = _Translations$chat$zh_CN._(_root);
 	@override String get appName => 'Anselm';
 	@override late final _Translations$status$zh_CN status = _Translations$status$zh_CN._(_root);
+	@override late final _Translations$run$zh_CN run = _Translations$run$zh_CN._(_root);
+	@override late final _Translations$scheduler$zh_CN scheduler = _Translations$scheduler$zh_CN._(_root);
 	@override late final _Translations$action$zh_CN action = _Translations$action$zh_CN._(_root);
 	@override late final _Translations$feedback$zh_CN feedback = _Translations$feedback$zh_CN._(_root);
 	@override late final _Translations$shell$zh_CN shell = _Translations$shell$zh_CN._(_root);
@@ -136,6 +138,56 @@ class _Translations$status$zh_CN extends Translations$status$en {
 	@override String get wait => '等待';
 	@override String get err => '失败';
 	@override String get done => '完成';
+}
+
+// Path: run
+class _Translations$run$zh_CN extends Translations$run$en {
+	_Translations$run$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get runCompleted => '完成';
+	@override String get failed => '失败';
+	@override String get agentTimeout => '超时';
+	@override String get runCancelled => '已取消';
+	@override String get runStillFailed => '仍失败';
+	@override String get runAwaitApproval => '等待审批';
+	@override String get runStatusRunning => '运行中';
+	@override String get replayPinNote => '用原 pin 版本重跑,事后修的代码不生效';
+	@override String replayTimes({required Object n}) => '第 ${n} 次重放';
+	@override String flowShown({required Object shown, required Object total}) => '显示 ${shown}/${total} 节点';
+	@override String nodeCount({required Object n}) => '${n} 节点';
+	@override String get nodeWait => '等待';
+	@override String get beadPageScope => '本页';
+	@override String get provConversation => '对话';
+	@override String get provTrigger => '触发器';
+	@override String get provFlowrun => '运行';
+	@override String get provMessage => '消息';
+	@override String get provFiring => '派发';
+	@override String get provNode => '节点';
+	@override String get emptyPayload => '空 payload';
+	@override String get triggerStartedNote => '已启动运行——用 get_flowrun 看进展';
+	@override String get ioInput => '输入';
+	@override String get ioOutput => '输出';
+	@override String countdownLeft({required Object d}) => '剩 ${d}';
+	@override String get countdownOverdue => '已超时';
+}
+
+// Path: scheduler
+class _Translations$scheduler$zh_CN extends Translations$scheduler$en {
+	_Translations$scheduler$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get railEmptyTitle => '还没有 workflow';
+	@override String get railEmptyHint => '去 Entities 创建一个,或让对话替你建。';
+	@override String get railErrorTitle => 'workflow 加载失败';
+	@override String get railErrorHint => '后端没有应答,检查连接后重试。';
+	@override String get retry => '重试';
+	@override String get overviewTitle => '总览';
+	@override String get underConstruction => 'Scheduler 指挥中心建设中(S1–S5)。';
 }
 
 // Path: action
@@ -554,7 +606,6 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get calling => '正在调用';
 	@override String get called => '已调用';
 	@override String get awaitingConfirm => '等待确认';
-	@override String get failed => '失败';
 	@override String get denied => '已拒绝执行';
 	@override String get cancelled => '已中断';
 	@override String elapsed({required Object s}) => '${s} 秒';
@@ -854,8 +905,6 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get noReturn => '无返回值';
 	@override String get execOk => '运行成功';
 	@override String get execFailed => '运行失败';
-	@override String get ioInput => '输入';
-	@override String get ioOutput => '输出';
 	@override String execLogs({required Object n}) => '日志 · ${n} 行';
 	@override String get runningFn => '正在运行函数';
 	@override String get ranFn => '已运行函数';
@@ -867,25 +916,12 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get firePayloadNote => 'payload 恒为 {manual:true};扇出与处置见触发日志';
 	@override String get replayingRun => '正在重放运行';
 	@override String get replayedRun => '已重放运行';
-	@override String get runCompleted => '完成';
-	@override String get runStillFailed => '仍失败';
-	@override String get runCancelled => '已取消';
-	@override String get runAwaitApproval => '等待审批';
-	@override String nodeCount({required Object n}) => '${n} 节点';
-	@override String get replayPinNote => '用原 pin 版本重跑,事后修的代码不生效';
-	@override String replayTimes({required Object n}) => '第 ${n} 次重放';
-	@override String flowShown({required Object shown, required Object total}) => '显示 ${shown}/${total} 节点';
-	@override String get nodeWait => '等待';
 	@override String get triggeringWf => '正在触发工作流';
 	@override String get triggeredWf => '已触发工作流';
-	@override String get emptyPayload => '空 payload';
-	@override String get triggerStartedNote => '已启动运行——用 get_flowrun 看进展';
 	@override String get invokingAgent => '正在调用智能体';
 	@override String get invokedAgent => '已调用智能体';
 	@override String agentSteps({required Object n}) => '${n} 步';
-	@override String get agentTimeout => '超时';
 	@override String get agentTrajectoryNote => '轨迹已流经,重载后于执行档案回放';
-	@override String get beadPageScope => '本页';
 	@override String get searchingFnExec => '正在翻查函数执行';
 	@override String get searchedFnExec => '已翻查函数执行';
 	@override String get searchingHdCalls => '正在翻查处理器调用';
@@ -928,17 +964,10 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get gotActivation => '已调阅活动档案';
 	@override String get dossierStderr => 'server stderr(可能早于本次调用)';
 	@override String logOmitted({required Object n}) => '…省略 ${n} 字符…';
-	@override String get provConversation => '对话';
-	@override String get provMessage => '消息';
-	@override String get provFlowrun => '运行';
-	@override String get provTrigger => '触发器';
-	@override String get provFiring => '派发';
-	@override String get provNode => '节点';
 	@override String get fireYes => '已 fire';
 	@override String get fireNo => '未 fire';
 	@override String get gettingFlowrun => '正在调阅运行';
 	@override String get gotFlowrun => '已调阅运行';
-	@override String get runStatusRunning => '运行中';
 	@override String get gettingAgentExec => '正在调阅智能体执行';
 	@override String get gotAgentExec => '已调阅智能体执行';
 	@override String transcriptSteps({required Object n}) => '轨迹 · ${n} 步';
@@ -2201,7 +2230,6 @@ extension on TranslationsZhCn {
 			'chat.tool.calling' => '正在调用',
 			'chat.tool.called' => '已调用',
 			'chat.tool.awaitingConfirm' => '等待确认',
-			'chat.tool.failed' => '失败',
 			'chat.tool.denied' => '已拒绝执行',
 			'chat.tool.cancelled' => '已中断',
 			'chat.tool.elapsed' => ({required Object s}) => '${s} 秒',
@@ -2512,8 +2540,6 @@ extension on TranslationsZhCn {
 			'chat.tool.noReturn' => '无返回值',
 			'chat.tool.execOk' => '运行成功',
 			'chat.tool.execFailed' => '运行失败',
-			'chat.tool.ioInput' => '输入',
-			'chat.tool.ioOutput' => '输出',
 			'chat.tool.execLogs' => ({required Object n}) => '日志 · ${n} 行',
 			'chat.tool.runningFn' => '正在运行函数',
 			'chat.tool.ranFn' => '已运行函数',
@@ -2525,25 +2551,12 @@ extension on TranslationsZhCn {
 			'chat.tool.firePayloadNote' => 'payload 恒为 {manual:true};扇出与处置见触发日志',
 			'chat.tool.replayingRun' => '正在重放运行',
 			'chat.tool.replayedRun' => '已重放运行',
-			'chat.tool.runCompleted' => '完成',
-			'chat.tool.runStillFailed' => '仍失败',
-			'chat.tool.runCancelled' => '已取消',
-			'chat.tool.runAwaitApproval' => '等待审批',
-			'chat.tool.nodeCount' => ({required Object n}) => '${n} 节点',
-			'chat.tool.replayPinNote' => '用原 pin 版本重跑,事后修的代码不生效',
-			'chat.tool.replayTimes' => ({required Object n}) => '第 ${n} 次重放',
-			'chat.tool.flowShown' => ({required Object shown, required Object total}) => '显示 ${shown}/${total} 节点',
-			'chat.tool.nodeWait' => '等待',
 			'chat.tool.triggeringWf' => '正在触发工作流',
 			'chat.tool.triggeredWf' => '已触发工作流',
-			'chat.tool.emptyPayload' => '空 payload',
-			'chat.tool.triggerStartedNote' => '已启动运行——用 get_flowrun 看进展',
 			'chat.tool.invokingAgent' => '正在调用智能体',
 			'chat.tool.invokedAgent' => '已调用智能体',
 			'chat.tool.agentSteps' => ({required Object n}) => '${n} 步',
-			'chat.tool.agentTimeout' => '超时',
 			'chat.tool.agentTrajectoryNote' => '轨迹已流经,重载后于执行档案回放',
-			'chat.tool.beadPageScope' => '本页',
 			'chat.tool.searchingFnExec' => '正在翻查函数执行',
 			'chat.tool.searchedFnExec' => '已翻查函数执行',
 			'chat.tool.searchingHdCalls' => '正在翻查处理器调用',
@@ -2586,17 +2599,10 @@ extension on TranslationsZhCn {
 			'chat.tool.gotActivation' => '已调阅活动档案',
 			'chat.tool.dossierStderr' => 'server stderr(可能早于本次调用)',
 			'chat.tool.logOmitted' => ({required Object n}) => '…省略 ${n} 字符…',
-			'chat.tool.provConversation' => '对话',
-			'chat.tool.provMessage' => '消息',
-			'chat.tool.provFlowrun' => '运行',
-			'chat.tool.provTrigger' => '触发器',
-			'chat.tool.provFiring' => '派发',
-			'chat.tool.provNode' => '节点',
 			'chat.tool.fireYes' => '已 fire',
 			'chat.tool.fireNo' => '未 fire',
 			'chat.tool.gettingFlowrun' => '正在调阅运行',
 			'chat.tool.gotFlowrun' => '已调阅运行',
-			'chat.tool.runStatusRunning' => '运行中',
 			'chat.tool.gettingAgentExec' => '正在调阅智能体执行',
 			'chat.tool.gotAgentExec' => '已调阅智能体执行',
 			'chat.tool.transcriptSteps' => ({required Object n}) => '轨迹 · ${n} 步',
@@ -2650,8 +2656,6 @@ extension on TranslationsZhCn {
 			'chat.tool.mcpEnvRequired' => ({required Object n}) => '${n} 必填 env',
 			'chat.tool.gettingModelConfig' => '正在读模型配置',
 			'chat.tool.gotModelConfig' => '已读模型配置',
-			_ => null,
-		} ?? switch (path) {
 			'chat.tool.modelDefaults' => '默认模型',
 			'chat.tool.modelKeys' => ({required Object n}) => '${n} 个密钥',
 			'chat.tool.modelAvail' => ({required Object n}) => '${n} 个可用模型',
@@ -2675,6 +2679,8 @@ extension on TranslationsZhCn {
 			'chat.contextCompacted' => '上下文已压缩',
 			'chat.contextCompactedCount' => ({required Object n}) => '上下文已压缩 · ${n} 条更早消息已折叠进摘要',
 			'chat.stage.title' => '侧幕',
+			_ => null,
+		} ?? switch (path) {
 			'chat.stage.island' => '活动',
 			'chat.stage.tasks' => '待办',
 			'chat.stage.expandAll' => '展开全部',
@@ -2742,6 +2748,38 @@ extension on TranslationsZhCn {
 			'status.wait' => '等待',
 			'status.err' => '失败',
 			'status.done' => '完成',
+			'run.runCompleted' => '完成',
+			'run.failed' => '失败',
+			'run.agentTimeout' => '超时',
+			'run.runCancelled' => '已取消',
+			'run.runStillFailed' => '仍失败',
+			'run.runAwaitApproval' => '等待审批',
+			'run.runStatusRunning' => '运行中',
+			'run.replayPinNote' => '用原 pin 版本重跑,事后修的代码不生效',
+			'run.replayTimes' => ({required Object n}) => '第 ${n} 次重放',
+			'run.flowShown' => ({required Object shown, required Object total}) => '显示 ${shown}/${total} 节点',
+			'run.nodeCount' => ({required Object n}) => '${n} 节点',
+			'run.nodeWait' => '等待',
+			'run.beadPageScope' => '本页',
+			'run.provConversation' => '对话',
+			'run.provTrigger' => '触发器',
+			'run.provFlowrun' => '运行',
+			'run.provMessage' => '消息',
+			'run.provFiring' => '派发',
+			'run.provNode' => '节点',
+			'run.emptyPayload' => '空 payload',
+			'run.triggerStartedNote' => '已启动运行——用 get_flowrun 看进展',
+			'run.ioInput' => '输入',
+			'run.ioOutput' => '输出',
+			'run.countdownLeft' => ({required Object d}) => '剩 ${d}',
+			'run.countdownOverdue' => '已超时',
+			'scheduler.railEmptyTitle' => '还没有 workflow',
+			'scheduler.railEmptyHint' => '去 Entities 创建一个,或让对话替你建。',
+			'scheduler.railErrorTitle' => 'workflow 加载失败',
+			'scheduler.railErrorHint' => '后端没有应答,检查连接后重试。',
+			'scheduler.retry' => '重试',
+			'scheduler.overviewTitle' => '总览',
+			'scheduler.underConstruction' => 'Scheduler 指挥中心建设中(S1–S5)。',
 			'action.edit' => '编辑',
 			'action.cancel' => '取消',
 			'action.save' => '保存',
@@ -3155,6 +3193,8 @@ extension on TranslationsZhCn {
 			'coldStart.errorTitle' => '无法准备工作区',
 			'coldStart.errorHint' => '本地引擎已连通,但工作区未就绪。',
 			'coldStart.defaultWorkspace' => '个人',
+			_ => null,
+		} ?? switch (path) {
 			'documents.documents' => '文档',
 			'documents.skills' => '技能',
 			'documents.untitled' => '未命名',
@@ -3164,8 +3204,6 @@ extension on TranslationsZhCn {
 			'documents.errorTitle' => '无法加载知识库',
 			'documents.errorHint' => '本地引擎没有返回它。',
 			'documents.retry' => '重试',
-			_ => null,
-		} ?? switch (path) {
 			'documents.emptyTitle' => '这里还什么都没有',
 			'documents.emptyHint' => '新建一篇文档或一个技能开始。',
 			'documents.pickTitle' => '选一篇文档',

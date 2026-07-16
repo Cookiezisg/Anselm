@@ -47,6 +47,12 @@ String? panelLocationFor(String wireKind, String id) {
     // skill → documents ocean, slug-addressed (mirrors skillLocation; the "id" IS the name). 技能:slug 寻址。
     case 'skill':
       return '/documents/skill/$id';
+    // flowrun → the scheduler's id-only run relay (WRK-069 §11): the page resolves the host workflow
+    // and go-replaces to /scheduler/w/:wfId/runs/:frId. Every flowrun ref across chat dossiers /
+    // notifications / entities lights up through this one seam. flowrun → scheduler fr_ 直达中转位;
+    // 全域 flowrun 引用经此一缝点亮。
+    case 'flowrun':
+      return '/scheduler/runs/$id';
     // No panel exists: mcp / memory / relation / block / message / node / firing / … — an inert row,
     // never a dead link. Links light up automatically the day such a panel lands. 无面板→惰性,面板落地即活。
     default:

@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/router/panel_registry.dart';
-import '../../../core/ui/ui.dart';
+import '../router/panel_registry.dart';
+import '../ui/ui.dart';
 
 // The tool-card navigation seam — one place that turns a {kind, id} into a tappable ref pill wired to
 // the panel registry (WRK-056 #8). A pill navigates iff its kind has a real panel ([hasPanelFor]);

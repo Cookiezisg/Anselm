@@ -70,7 +70,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(RunDossier), findsOneWidget);
     expect(find.textContaining('https://x'), findsOneWidget); // input
-    expect(find.textContaining(t.chat.tool.provConversation), findsOneWidget); // navigable conversation pill
+    expect(find.textContaining(t.run.provConversation), findsOneWidget); // navigable conversation pill
     // the conversationId in the provenance is truncated to 12
     expect(find.textContaining('conv_abc123d'), findsOneWidget);
   });
@@ -85,7 +85,7 @@ void main() {
     await tester.pump();
     await tester.pumpAndSettle();
     expect(find.textContaining('ConnectionError'), findsOneWidget); // auto-expanded
-    expect(find.textContaining(t.chat.tool.provFlowrun), findsOneWidget); // flowrun mono badge
+    expect(find.textContaining(t.run.provFlowrun), findsOneWidget); // flowrun mono badge
   });
 
   testWidgets('mcp call: the stderr tail splits into its own danger segment on the fixed separator', (tester) async {
@@ -138,6 +138,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text(t.chat.tool.fireYes), findsWidgets);
     expect(find.textContaining(t.chat.tool.actReturnValue), findsOneWidget);
-    expect(find.textContaining(t.chat.tool.provTrigger), findsOneWidget); // navigable trigger pill
+    expect(find.textContaining(t.run.provTrigger), findsOneWidget); // navigable trigger pill
   });
 }

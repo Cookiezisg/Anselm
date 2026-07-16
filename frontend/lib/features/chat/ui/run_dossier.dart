@@ -9,23 +9,14 @@ import '../../../i18n/strings.g.dart';
 import '../model/tool_receipts.dart';
 import 'tool_card_io_section.dart';
 import 'log_drawer.dart';
-import 'tool_card_nav.dart';
+import '../../../core/run/provenance_line.dart';
 
 // F09 get-record furniture (B5.8) — the RunDossier (one execution's full record: status head → input/
 // output windows → a double-ended-capped log drawer → a provenance line) + the ProvenanceLine (where
 // this run came from: navigable conversation/trigger, mono-only message/firing/node). F09 卷宗。
 
-/// The ok/failed/timeout/cancelled execution status → its word — the ONE map (B-074: the dossier head,
-/// its receipt and exec's invoke stat bar carried three verbatim copies). Lives in chat/ui because the
-/// words are chat.tool.* keys (core primitives must not reach into feature namespaces, 批6a).
-/// 执行状态词唯一映射(卷宗头/回执/invoke 条同词);词表在 chat.tool.*,故 helper 落 chat/ui 层。
-String runStatusWord(Translations t, String status) => switch (status) {
-      'ok' => t.chat.tool.runCompleted,
-      'failed' => t.chat.tool.failed,
-      'timeout' => t.chat.tool.agentTimeout,
-      'cancelled' => t.chat.tool.runCancelled,
-      _ => status,
-    };
+// runStatusWord + ProvenanceLine upstreamed to core/run/provenance_line.dart (WRK-069 S0 — the words
+// moved to the core-visible run.* namespace, unblocking core residence). 状态词与出处行已上收 core/run。
 
 /// The record status → elapsed receipt: `{status} · {elapsed}`; failed/timeout → danger (auto-expand —
 /// you opened a failed record to triage). null when unparseable. 卷宗回执:状态·耗时,失败/超时红。
@@ -92,12 +83,12 @@ class RunDossier extends StatelessWidget {
       if (startedAt != null)
         Padding(padding: const EdgeInsets.only(top: AnSpace.s2), child: Text(_span(), style: AnText.metaTabular().copyWith(color: c.inkFaint))),
       const SizedBox(height: AnSpace.s6),
-      if (input != null) ToolIOSection(label: t.chat.tool.ioInput, value: input),
+      if (input != null) ToolIOSection(label: t.run.ioInput, value: input),
       const SizedBox(height: AnSpace.s6),
       if (!ok && errorMessage != null && errorMessage!.isNotEmpty)
         AnWindow(child: Text(errorMessage!, style: AnText.code.copyWith(color: c.danger), maxLines: 30, overflow: TextOverflow.ellipsis))
       else
-        ToolIOSection(label: t.chat.tool.ioOutput, value: output),
+        ToolIOSection(label: t.run.ioOutput, value: output),
       if (logs != null && logs!.trim().isNotEmpty) ...[
         const SizedBox(height: AnSpace.s6),
         LogDrawer(logs: logs!, splitStderr: true),
@@ -117,57 +108,5 @@ class RunDossier extends StatelessWidget {
     final s = fmtStamp(startedAt);
     final e = endedAt != null ? fmtStamp(endedAt) : '';
     return e.isEmpty ? s : '$s → $e';
-  }
-}
-
-/// A run's provenance line — WHERE it came from. Navigable coordinates (conversation → /chat, trigger →
-/// its panel) are ref pills; non-panel coordinates (message / firing / node#iteration) are mono
-/// copy-badges (they have no deep-link target, NEVER a dead pill). ProvenanceLine 出处行。
-class ProvenanceLine extends StatelessWidget {
-  const ProvenanceLine({
-    this.conversationId,
-    this.messageId,
-    this.flowrunId,
-    this.triggerId,
-    this.firingId,
-    this.nodeId,
-    this.iteration,
-    super.key,
-  });
-
-  final String? conversationId;
-  final String? messageId;
-  final String? flowrunId;
-  final String? triggerId;
-  final String? firingId;
-  final String? nodeId;
-  final int? iteration;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = Translations.of(context);
-    final items = <Widget>[
-      if (conversationId != null && conversationId!.isNotEmpty)
-        toolNavPill(context, kind: 'conversation', label: '${t.chat.tool.provConversation} ${truncate(conversationId!, AnTrunc.id)}', id: conversationId),
-      if (triggerId != null && triggerId!.isNotEmpty)
-        toolNavPill(context, kind: 'trigger', label: '${t.chat.tool.provTrigger} ${truncate(triggerId!, AnTrunc.id)}', id: triggerId),
-      // Non-navigable coordinates become COPY chips (批5 A-047 关联 A-037 — the bare grey text
-      // lied about being «mono copy-badges»; flowrun has no panel entry, cockpit needs workflowId).
-      // 非导航坐标改真复制芯片(旧裸灰字谎称 mono copy-badges);截断走族档、copy 保全量。
-      if (flowrunId != null && flowrunId!.isNotEmpty)
-        AnChip('${t.chat.tool.provFlowrun} ${truncate(flowrunId!, AnTrunc.id)}',
-            look: AnChipLook.outlined, mono: true, copyValue: flowrunId!),
-      if (messageId != null && messageId!.isNotEmpty)
-        AnChip('${t.chat.tool.provMessage} ${truncate(messageId!, AnTrunc.id)}',
-            look: AnChipLook.outlined, mono: true, copyValue: messageId!),
-      if (firingId != null && firingId!.isNotEmpty)
-        AnChip('${t.chat.tool.provFiring} ${truncate(firingId!, AnTrunc.id)}',
-            look: AnChipLook.outlined, mono: true, copyValue: firingId!),
-      if (nodeId != null && nodeId!.isNotEmpty)
-        AnChip('${t.chat.tool.provNode} $nodeId${(iteration ?? 0) > 0 ? '#$iteration' : ''}',
-            look: AnChipLook.outlined, mono: true, copyValue: nodeId!),
-    ];
-    if (items.isEmpty) return const SizedBox.shrink();
-    return Wrap(spacing: AnGap.inline, runSpacing: AnGap.stackTight, crossAxisAlignment: WrapCrossAlignment.center, children: items);
   }
 }

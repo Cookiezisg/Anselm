@@ -46,6 +46,8 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	String get appName => 'Anselm';
 
 	late final Translations$status$en status = Translations$status$en.internal(_root);
+	late final Translations$run$en run = Translations$run$en.internal(_root);
+	late final Translations$scheduler$en scheduler = Translations$scheduler$en.internal(_root);
 	late final Translations$action$en action = Translations$action$en.internal(_root);
 	late final Translations$feedback$en feedback = Translations$feedback$en.internal(_root);
 	late final Translations$shell$en shell = Translations$shell$en.internal(_root);
@@ -252,6 +254,120 @@ class Translations$status$en {
 
 	/// en: 'Done'
 	String get done => 'Done';
+}
+
+// Path: run
+class Translations$run$en {
+	Translations$run$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Completed'
+	String get runCompleted => 'Completed';
+
+	/// en: 'failed'
+	String get failed => 'failed';
+
+	/// en: 'Timed out'
+	String get agentTimeout => 'Timed out';
+
+	/// en: 'Cancelled'
+	String get runCancelled => 'Cancelled';
+
+	/// en: 'Still failed'
+	String get runStillFailed => 'Still failed';
+
+	/// en: 'Awaiting approval'
+	String get runAwaitApproval => 'Awaiting approval';
+
+	/// en: 'Running'
+	String get runStatusRunning => 'Running';
+
+	/// en: 'Re-run under the originally pinned versions; edits made after the failure do not take effect'
+	String get replayPinNote => 'Re-run under the originally pinned versions; edits made after the failure do not take effect';
+
+	/// en: 'Replay #$n'
+	String replayTimes({required Object n}) => 'Replay #${n}';
+
+	/// en: 'Showing $shown/$total nodes'
+	String flowShown({required Object shown, required Object total}) => 'Showing ${shown}/${total} nodes';
+
+	/// en: '$n nodes'
+	String nodeCount({required Object n}) => '${n} nodes';
+
+	/// en: 'waiting'
+	String get nodeWait => 'waiting';
+
+	/// en: 'this page'
+	String get beadPageScope => 'this page';
+
+	/// en: 'conversation'
+	String get provConversation => 'conversation';
+
+	/// en: 'trigger'
+	String get provTrigger => 'trigger';
+
+	/// en: 'run'
+	String get provFlowrun => 'run';
+
+	/// en: 'message'
+	String get provMessage => 'message';
+
+	/// en: 'firing'
+	String get provFiring => 'firing';
+
+	/// en: 'node'
+	String get provNode => 'node';
+
+	/// en: 'empty payload'
+	String get emptyPayload => 'empty payload';
+
+	/// en: 'Run started — inspect with get_flowrun'
+	String get triggerStartedNote => 'Run started — inspect with get_flowrun';
+
+	/// en: 'input'
+	String get ioInput => 'input';
+
+	/// en: 'output'
+	String get ioOutput => 'output';
+
+	/// en: '$d left'
+	String countdownLeft({required Object d}) => '${d} left';
+
+	/// en: 'overdue'
+	String get countdownOverdue => 'overdue';
+}
+
+// Path: scheduler
+class Translations$scheduler$en {
+	Translations$scheduler$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'No workflows yet'
+	String get railEmptyTitle => 'No workflows yet';
+
+	/// en: 'Create one in Entities, or ask the conversation to build one for you.'
+	String get railEmptyHint => 'Create one in Entities, or ask the conversation to build one for you.';
+
+	/// en: 'Couldn't load workflows'
+	String get railErrorTitle => 'Couldn\'t load workflows';
+
+	/// en: 'The backend didn't answer. Check the connection and retry.'
+	String get railErrorHint => 'The backend didn\'t answer. Check the connection and retry.';
+
+	/// en: 'Retry'
+	String get retry => 'Retry';
+
+	/// en: 'Overview'
+	String get overviewTitle => 'Overview';
+
+	/// en: 'The Scheduler command center is being built (S1–S5).'
+	String get underConstruction => 'The Scheduler command center is being built (S1–S5).';
 }
 
 // Path: action
@@ -1106,9 +1222,6 @@ class Translations$chat$tool$en {
 
 	/// en: 'Awaiting confirmation'
 	String get awaitingConfirm => 'Awaiting confirmation';
-
-	/// en: 'failed'
-	String get failed => 'failed';
 
 	/// en: 'Denied'
 	String get denied => 'Denied';
@@ -2006,12 +2119,6 @@ class Translations$chat$tool$en {
 	/// en: 'failed'
 	String get execFailed => 'failed';
 
-	/// en: 'input'
-	String get ioInput => 'input';
-
-	/// en: 'output'
-	String get ioOutput => 'output';
-
 	/// en: 'logs · $n lines'
 	String execLogs({required Object n}) => 'logs · ${n} lines';
 
@@ -2045,44 +2152,11 @@ class Translations$chat$tool$en {
 	/// en: 'Replayed run'
 	String get replayedRun => 'Replayed run';
 
-	/// en: 'Completed'
-	String get runCompleted => 'Completed';
-
-	/// en: 'Still failed'
-	String get runStillFailed => 'Still failed';
-
-	/// en: 'Cancelled'
-	String get runCancelled => 'Cancelled';
-
-	/// en: 'Awaiting approval'
-	String get runAwaitApproval => 'Awaiting approval';
-
-	/// en: '$n nodes'
-	String nodeCount({required Object n}) => '${n} nodes';
-
-	/// en: 'Re-run under the originally pinned versions; edits made after the failure do not take effect'
-	String get replayPinNote => 'Re-run under the originally pinned versions; edits made after the failure do not take effect';
-
-	/// en: 'Replay #$n'
-	String replayTimes({required Object n}) => 'Replay #${n}';
-
-	/// en: 'Showing $shown/$total nodes'
-	String flowShown({required Object shown, required Object total}) => 'Showing ${shown}/${total} nodes';
-
-	/// en: 'waiting'
-	String get nodeWait => 'waiting';
-
 	/// en: 'Triggering workflow'
 	String get triggeringWf => 'Triggering workflow';
 
 	/// en: 'Triggered workflow'
 	String get triggeredWf => 'Triggered workflow';
-
-	/// en: 'empty payload'
-	String get emptyPayload => 'empty payload';
-
-	/// en: 'Run started — inspect with get_flowrun'
-	String get triggerStartedNote => 'Run started — inspect with get_flowrun';
 
 	/// en: 'Invoking agent'
 	String get invokingAgent => 'Invoking agent';
@@ -2093,14 +2167,8 @@ class Translations$chat$tool$en {
 	/// en: '$n steps'
 	String agentSteps({required Object n}) => '${n} steps';
 
-	/// en: 'Timed out'
-	String get agentTimeout => 'Timed out';
-
 	/// en: 'The trajectory streamed live; replay it from the execution record'
 	String get agentTrajectoryNote => 'The trajectory streamed live; replay it from the execution record';
-
-	/// en: 'this page'
-	String get beadPageScope => 'this page';
 
 	/// en: 'Searching function runs'
 	String get searchingFnExec => 'Searching function runs';
@@ -2228,24 +2296,6 @@ class Translations$chat$tool$en {
 	/// en: '… $n chars omitted …'
 	String logOmitted({required Object n}) => '… ${n} chars omitted …';
 
-	/// en: 'conversation'
-	String get provConversation => 'conversation';
-
-	/// en: 'message'
-	String get provMessage => 'message';
-
-	/// en: 'run'
-	String get provFlowrun => 'run';
-
-	/// en: 'trigger'
-	String get provTrigger => 'trigger';
-
-	/// en: 'firing'
-	String get provFiring => 'firing';
-
-	/// en: 'node'
-	String get provNode => 'node';
-
 	/// en: 'fired'
 	String get fireYes => 'fired';
 
@@ -2257,9 +2307,6 @@ class Translations$chat$tool$en {
 
 	/// en: 'Opened run'
 	String get gotFlowrun => 'Opened run';
-
-	/// en: 'Running'
-	String get runStatusRunning => 'Running';
 
 	/// en: 'Opening agent run'
 	String get gettingAgentExec => 'Opening agent run';
@@ -5019,7 +5066,6 @@ extension on Translations {
 			'chat.tool.calling' => 'Calling',
 			'chat.tool.called' => 'Called',
 			'chat.tool.awaitingConfirm' => 'Awaiting confirmation',
-			'chat.tool.failed' => 'failed',
 			'chat.tool.denied' => 'Denied',
 			'chat.tool.cancelled' => 'Interrupted',
 			'chat.tool.elapsed' => ({required Object s}) => '${s} s',
@@ -5330,8 +5376,6 @@ extension on Translations {
 			'chat.tool.noReturn' => 'no return value',
 			'chat.tool.execOk' => 'ok',
 			'chat.tool.execFailed' => 'failed',
-			'chat.tool.ioInput' => 'input',
-			'chat.tool.ioOutput' => 'output',
 			'chat.tool.execLogs' => ({required Object n}) => 'logs · ${n} lines',
 			'chat.tool.runningFn' => 'Running function',
 			'chat.tool.ranFn' => 'Ran function',
@@ -5343,25 +5387,12 @@ extension on Translations {
 			'chat.tool.firePayloadNote' => 'Payload is always {manual:true}; see the trigger log for fan-out and disposition',
 			'chat.tool.replayingRun' => 'Replaying run',
 			'chat.tool.replayedRun' => 'Replayed run',
-			'chat.tool.runCompleted' => 'Completed',
-			'chat.tool.runStillFailed' => 'Still failed',
-			'chat.tool.runCancelled' => 'Cancelled',
-			'chat.tool.runAwaitApproval' => 'Awaiting approval',
-			'chat.tool.nodeCount' => ({required Object n}) => '${n} nodes',
-			'chat.tool.replayPinNote' => 'Re-run under the originally pinned versions; edits made after the failure do not take effect',
-			'chat.tool.replayTimes' => ({required Object n}) => 'Replay #${n}',
-			'chat.tool.flowShown' => ({required Object shown, required Object total}) => 'Showing ${shown}/${total} nodes',
-			'chat.tool.nodeWait' => 'waiting',
 			'chat.tool.triggeringWf' => 'Triggering workflow',
 			'chat.tool.triggeredWf' => 'Triggered workflow',
-			'chat.tool.emptyPayload' => 'empty payload',
-			'chat.tool.triggerStartedNote' => 'Run started — inspect with get_flowrun',
 			'chat.tool.invokingAgent' => 'Invoking agent',
 			'chat.tool.invokedAgent' => 'Invoked agent',
 			'chat.tool.agentSteps' => ({required Object n}) => '${n} steps',
-			'chat.tool.agentTimeout' => 'Timed out',
 			'chat.tool.agentTrajectoryNote' => 'The trajectory streamed live; replay it from the execution record',
-			'chat.tool.beadPageScope' => 'this page',
 			'chat.tool.searchingFnExec' => 'Searching function runs',
 			'chat.tool.searchedFnExec' => 'Searched function runs',
 			'chat.tool.searchingHdCalls' => 'Searching handler calls',
@@ -5404,17 +5435,10 @@ extension on Translations {
 			'chat.tool.gotActivation' => 'Opened activation record',
 			'chat.tool.dossierStderr' => 'server stderr (may predate this call)',
 			'chat.tool.logOmitted' => ({required Object n}) => '… ${n} chars omitted …',
-			'chat.tool.provConversation' => 'conversation',
-			'chat.tool.provMessage' => 'message',
-			'chat.tool.provFlowrun' => 'run',
-			'chat.tool.provTrigger' => 'trigger',
-			'chat.tool.provFiring' => 'firing',
-			'chat.tool.provNode' => 'node',
 			'chat.tool.fireYes' => 'fired',
 			'chat.tool.fireNo' => 'not fired',
 			'chat.tool.gettingFlowrun' => 'Opening run',
 			'chat.tool.gotFlowrun' => 'Opened run',
-			'chat.tool.runStatusRunning' => 'Running',
 			'chat.tool.gettingAgentExec' => 'Opening agent run',
 			'chat.tool.gotAgentExec' => 'Opened agent run',
 			'chat.tool.transcriptSteps' => ({required Object n}) => 'Trajectory · ${n} steps',
@@ -5468,8 +5492,6 @@ extension on Translations {
 			'chat.tool.mcpEnvRequired' => ({required Object n}) => '${n} required env',
 			'chat.tool.gettingModelConfig' => 'Reading model config',
 			'chat.tool.gotModelConfig' => 'Read model config',
-			_ => null,
-		} ?? switch (path) {
 			'chat.tool.modelDefaults' => 'Default models',
 			'chat.tool.modelKeys' => ({required Object n}) => '${n} keys',
 			'chat.tool.modelAvail' => ({required Object n}) => '${n} available models',
@@ -5493,6 +5515,8 @@ extension on Translations {
 			'chat.contextCompacted' => 'Context compacted',
 			'chat.contextCompactedCount' => ({required Object n}) => 'Context compacted · ${n} earlier messages folded into the summary',
 			'chat.stage.title' => 'Sidestage',
+			_ => null,
+		} ?? switch (path) {
 			'chat.stage.island' => 'Activity',
 			'chat.stage.tasks' => 'Tasks',
 			'chat.stage.expandAll' => 'Expand all',
@@ -5560,6 +5584,38 @@ extension on Translations {
 			'status.wait' => 'Waiting',
 			'status.err' => 'Failed',
 			'status.done' => 'Done',
+			'run.runCompleted' => 'Completed',
+			'run.failed' => 'failed',
+			'run.agentTimeout' => 'Timed out',
+			'run.runCancelled' => 'Cancelled',
+			'run.runStillFailed' => 'Still failed',
+			'run.runAwaitApproval' => 'Awaiting approval',
+			'run.runStatusRunning' => 'Running',
+			'run.replayPinNote' => 'Re-run under the originally pinned versions; edits made after the failure do not take effect',
+			'run.replayTimes' => ({required Object n}) => 'Replay #${n}',
+			'run.flowShown' => ({required Object shown, required Object total}) => 'Showing ${shown}/${total} nodes',
+			'run.nodeCount' => ({required Object n}) => '${n} nodes',
+			'run.nodeWait' => 'waiting',
+			'run.beadPageScope' => 'this page',
+			'run.provConversation' => 'conversation',
+			'run.provTrigger' => 'trigger',
+			'run.provFlowrun' => 'run',
+			'run.provMessage' => 'message',
+			'run.provFiring' => 'firing',
+			'run.provNode' => 'node',
+			'run.emptyPayload' => 'empty payload',
+			'run.triggerStartedNote' => 'Run started — inspect with get_flowrun',
+			'run.ioInput' => 'input',
+			'run.ioOutput' => 'output',
+			'run.countdownLeft' => ({required Object d}) => '${d} left',
+			'run.countdownOverdue' => 'overdue',
+			'scheduler.railEmptyTitle' => 'No workflows yet',
+			'scheduler.railEmptyHint' => 'Create one in Entities, or ask the conversation to build one for you.',
+			'scheduler.railErrorTitle' => 'Couldn\'t load workflows',
+			'scheduler.railErrorHint' => 'The backend didn\'t answer. Check the connection and retry.',
+			'scheduler.retry' => 'Retry',
+			'scheduler.overviewTitle' => 'Overview',
+			'scheduler.underConstruction' => 'The Scheduler command center is being built (S1–S5).',
 			'action.edit' => 'Edit',
 			'action.cancel' => 'Cancel',
 			'action.save' => 'Save',
@@ -5973,6 +6029,8 @@ extension on Translations {
 			'coldStart.errorTitle' => 'Couldn\'t set up the workspace',
 			'coldStart.errorHint' => 'The local engine is reachable but the workspace didn\'t resolve.',
 			'coldStart.defaultWorkspace' => 'Personal',
+			_ => null,
+		} ?? switch (path) {
 			'documents.documents' => 'Documents',
 			'documents.skills' => 'Skills',
 			'documents.untitled' => 'Untitled',
@@ -5982,8 +6040,6 @@ extension on Translations {
 			'documents.errorTitle' => 'Couldn\'t load your library',
 			'documents.errorHint' => 'The local engine didn\'t return it.',
 			'documents.retry' => 'Retry',
-			_ => null,
-		} ?? switch (path) {
 			'documents.emptyTitle' => 'Nothing here yet',
 			'documents.emptyHint' => 'Create a document or a skill to get started.',
 			'documents.pickTitle' => 'Pick a document',

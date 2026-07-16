@@ -10,9 +10,9 @@ import '../../../i18n/strings.g.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
 import 'log_drawer.dart';
-import 'run_dossier.dart';
+import '../../../core/run/provenance_line.dart';
 import 'tool_card_io_section.dart';
-import 'tool_card_nav.dart';
+import '../../../core/run/run_nav.dart';
 import 'tool_card_skins.dart';
 import 'transcript_peek.dart';
 
@@ -67,7 +67,7 @@ Widget runFunctionBody(BuildContext context, ToolCardState state) {
 
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
     toolIntent(context, state),
-    if (input != null) ToolIOSection(label: t.chat.tool.ioInput, value: input),
+    if (input != null) ToolIOSection(label: t.run.ioInput, value: input),
     if (logs != null && logs.isNotEmpty) ...[
       const SizedBox(height: AnSpace.s6),
       LogDrawer(logs: logs),
@@ -77,7 +77,7 @@ Widget runFunctionBody(BuildContext context, ToolCardState state) {
       if (!ok && errorMsg != null && errorMsg.isNotEmpty)
         _errorLines(c, errorMsg)
       else
-        ToolIOSection(label: t.chat.tool.ioOutput, value: out?['output']),
+        ToolIOSection(label: t.run.ioOutput, value: out?['output']),
       if (out != null)
         // 批3 条族:the family head with the exec domain words (状态→色单源 AnStatus). 域词覆盖。
         AnStatBar(
@@ -106,7 +106,7 @@ Widget callHandlerBody(BuildContext context, ToolCardState state) {
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
     toolIntent(context, state),
     if (method != null) Padding(padding: const EdgeInsets.only(bottom: AnSpace.s2), child: Text('$method()', style: AnText.mono.copyWith(color: c.inkMuted))),
-    if (input != null) ToolIOSection(label: t.chat.tool.ioInput, value: input),
+    if (input != null) ToolIOSection(label: t.run.ioInput, value: input),
     // The streamed yields: LIVE = the rolling terminal tail (the show), SETTLED = the drawer (record).
     // yield 流:活=滚动终端尾(主秀),落定=抽屉(档案)。
     if (state.progressText.isNotEmpty) ...[
@@ -115,7 +115,7 @@ Widget callHandlerBody(BuildContext context, ToolCardState state) {
     ],
     if (!live) ...[
       const SizedBox(height: AnSpace.s6),
-      ToolIOSection(label: t.chat.tool.ioOutput, value: out?['result']),
+      ToolIOSection(label: t.run.ioOutput, value: out?['result']),
     ],
   ]);
 }
@@ -140,11 +140,11 @@ ToolReceipt? invokeReceipt(Translations t, String output) {
       final txt = [head, elapsed].where((s) => s != null).join(' · ');
       return txt.isEmpty ? null : (text: txt, tone: ToolReceiptTone.none);
     case 'failed':
-      return (text: t.chat.tool.failed, tone: ToolReceiptTone.danger);
+      return (text: t.run.failed, tone: ToolReceiptTone.danger);
     case 'timeout':
-      return (text: t.chat.tool.agentTimeout, tone: ToolReceiptTone.danger);
+      return (text: t.run.agentTimeout, tone: ToolReceiptTone.danger);
     case 'cancelled':
-      return (text: t.chat.tool.runCancelled, tone: ToolReceiptTone.none);
+      return (text: t.run.runCancelled, tone: ToolReceiptTone.none);
     default:
       return null;
   }
@@ -175,7 +175,7 @@ Widget invokeAgentBody(BuildContext context, ToolCardState state) {
 
   return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
     toolIntent(context, state),
-    if (input != null) ToolIOSection(label: t.chat.tool.ioInput, value: input),
+    if (input != null) ToolIOSection(label: t.run.ioInput, value: input),
     // The nested trajectory: streaming (live) or still in the tree (settled this session). Once gone
     // (a history reload — E3 blocks aren't persisted) state that honestly — but only when SETTLED: the
     // replay note mid-run would misread as «already archived». 轨迹:活=流式嵌套;重载注仅落定渲(在飞渲
@@ -194,7 +194,7 @@ Widget invokeAgentBody(BuildContext context, ToolCardState state) {
       else
         // A free-text final answer → prose; a declared-output object → per-key (ToolIOSection rules).
         // 自由文本终答→散文;声明输出对象→逐键。
-        ToolIOSection(label: t.chat.tool.ioOutput, value: outputVal, renderAsProse: outputVal is String),
+        ToolIOSection(label: t.run.ioOutput, value: outputVal, renderAsProse: outputVal is String),
       if (out != null) _invokeStatBar(context, out, agentId),
     ],
   ]);

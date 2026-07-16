@@ -37,6 +37,7 @@ import 'notification_specimens.dart';
 import 'perf_specimens.dart';
 import 'settings_specimens.dart';
 import 'sidestage_specimens.dart';
+import 'an_countdown_specimens.dart';
 import 'specimen.dart';
 import 'user_turn_specimens.dart';
 import '../../features/chat/ui/chat_context_mark.dart';
@@ -512,6 +513,7 @@ final GalleryCategory _g1Controls = GalleryCategory('基础控件 Controls', AnI
 
 // ── G2 — Feedback states ──
 final GalleryCategory _g2Feedback = GalleryCategory('反馈态 Feedback', AnIcons.info, [
+  anCountdownGalleryItem,
   GalleryItem('AnEdgeFade 边缘渐隐', 'IgnorePointer 单向渐变:给定边不透明、朝内透明;可滚内容边缘溶解', [
     GallerySpecimen('顶+底渐隐 (内容溶入两端)', (context) => ClipRect(
           child: SizedBox(

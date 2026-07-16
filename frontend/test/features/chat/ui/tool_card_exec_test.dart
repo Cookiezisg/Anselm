@@ -236,6 +236,6 @@ void main() {
     // 'timeout' alias» would fold timeout to idle (grey) — this pins err (red).
     // 结果条已走 fromRaw;突变「删 timeout 别名」会把 timeout 折成 idle 灰,此断言钉死 err 红。
     expect(bar.status, AnStatus.err);
-    expect(bar.statusLabel, t.chat.tool.agentTimeout);
+    expect(bar.statusLabel, t.run.agentTimeout);
   });
 }
