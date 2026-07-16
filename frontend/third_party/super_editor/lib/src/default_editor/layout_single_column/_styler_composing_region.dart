@@ -37,6 +37,12 @@ class SingleColumnLayoutComposingRegionStyler extends SingleColumnLayoutStylePha
   final bool _showComposingRegionUnderline;
 
   // ═══ ANSELM PATCH (ADR 0009): node-scoped composing dirt ═════════════════════════════════════════
+  /// Same structural dependency as the selection styler: node membership in the composing region
+  /// depends on document order/existence, not only on the region value. 与选区相同的结构依赖:节点
+  /// 是否在组字区内取决于节点序与存在性,不只看区间值。
+  @override
+  bool get styleIsStructureDependent => true;
+
   DocumentRange? _lastComposingRegion;
 
   void _onComposingRegionChange() {

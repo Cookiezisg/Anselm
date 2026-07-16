@@ -348,6 +348,35 @@ void main() {
       _pullAndCompare(single.oracle, single.incremental, 'hint: 2→1 nodes');
     });
 
+    test('C1: bare node delete under a cross-block selection — no stale highlight on middle nodes', () {
+      // The selection VALUE never changes (same instance), so the selection styler's listener never
+      // fires — yet deleting the extent node dangles the range and every previously-selected node's
+      // "am I selected" answer flips. Only the structural-pass whole-phase rule catches this.
+      // 选区值不变(同实例)、监听不触发,但删掉 extent 节点让区间悬垂,原选中节点的答案全翻——
+      // 只有结构趟整相规则接得住。
+      step('cross-block selection p0@1 → ol2@3', [
+        ChangeSelectionRequest(DocumentSelection(base: _text('p0', 1), extent: _text('ol2', 3)),
+            SelectionChangeType.expandSelection, SelectionReason.userInteraction)
+      ]);
+      step('bare-delete the selection extent node', [DeleteNodeRequest(nodeId: 'ol2')]);
+      step('bare-delete a middle selected node too', [DeleteNodeRequest(nodeId: 'h1')]);
+    });
+
+    test('C2: deleting every node — no ghost view models', () {
+      final tiny = _mount(MutableDocument(nodes: [
+        ParagraphNode(id: 'g1', text: AttributedText('first')),
+        ParagraphNode(id: 'g2', text: AttributedText('second')),
+      ]));
+      addTearDown(() => _unmount(tiny));
+      _pullAndCompare(tiny.oracle, tiny.incremental, 'C2 mount');
+      tiny.editor.execute([const ClearSelectionRequest()]);
+      tiny.editor.execute([DeleteNodeRequest(nodeId: 'g1')]);
+      tiny.editor.execute([DeleteNodeRequest(nodeId: 'g2')]);
+      _pullAndCompare(tiny.oracle, tiny.incremental, 'C2 emptied');
+      expect(tiny.incremental.presenter.viewModel.componentViewModels, isEmpty,
+          reason: 'an emptied document must not render ghost view models');
+    });
+
     test('undo/redo replays through both presenters identically', () {
       step('type', [InsertTextRequest(documentPosition: _text('p0', 0), textToInsert: 'undoable', attributions: {})]);
       m.editor.undo();

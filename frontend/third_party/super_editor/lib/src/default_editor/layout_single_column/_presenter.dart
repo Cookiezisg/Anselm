@@ -237,6 +237,15 @@ class SingleColumnLayoutPresenter {
           throw Exception("A phase marked itself as dirty, but that phase isn't in the pipeline. Index: $phaseIndex");
         }
 
+        // ANSELM PATCH (ADR 0009): mid-pass dirt would be consumed then reset without ever being
+        // styled — see the tripwire note in _createIncrementalOrFullViewModel. 趟中脏会被吞,见 tripwire。
+        assert(
+          !_passInProgress,
+          "A style phase (${_pipeline[phaseIndex].runtimeType}) marked itself dirty WHILE the presenter "
+          "was mid-pass. This dirt would be consumed and reset without ever being styled — a style() "
+          "with notifier side effects is not allowed under the incremental presenter.",
+        );
+
         // ═══ ANSELM PATCH (ADR 0009): consume the phase's pending dirt ═══════════════════════════════
         // Always consume (even in full mode) so the phase-side pending set can't grow unboundedly.
         // Whole-phase dirt subsumes node-scoped dirt. 永远消费(全量模式也消费),防相内 pending 无界增长;
@@ -351,16 +360,34 @@ class SingleColumnLayoutPresenter {
   // ═══ ANSELM PATCH (ADR 0009): node-level incremental pipeline ════════════════════════════════════
 
   SingleColumnLayoutViewModel _createIncrementalOrFullViewModel() {
+    // Tripwire: dirt reported by a phase WHILE the pass is running (a style() with side effects on a
+    // notifier) would be consumed below and then reset — swallowed without ever being styled. Upstream
+    // swallows it too, but self-heals on the next full rebuild; incremental doesn't. No such path
+    // exists today (all five phases are pure) — this assert keeps it that way. 中途脏 tripwire:
+    // 相在趟中自报的脏会被消费后随趟末清账吞掉、永不被样式化。上游同吞但下次全量自愈,增量不自愈。
+    // 今日五相皆纯、无此路径——assert 把它钉死。
+    assert(() {
+      _passInProgress = true;
+      return true;
+    }());
+
     SingleColumnLayoutViewModel? result;
-    if (!_docWholeDirty && _baseVmCache.isNotEmpty) {
-      // `null` result = a mid-pass contract violation (a phase reshaped the list, or a cache went
-      // missing) → fall through to the fail-safe full pass. null=中途契约违约→落回全量。
-      result = _runIncrementalPass();
-      if (result == null) {
-        editorLayoutLog.warning("Incremental layout pass hit a contract violation — falling back to a full rebuild.");
+    try {
+      if (!_docWholeDirty && _baseVmCache.isNotEmpty) {
+        // `null` result = a mid-pass contract violation (a phase reshaped the list, or a cache went
+        // missing) → fall through to the fail-safe full pass. null=中途契约违约→落回全量。
+        result = _runIncrementalPass();
+        if (result == null) {
+          editorLayoutLog.warning("Incremental layout pass hit a contract violation — falling back to a full rebuild.");
+        }
       }
+      result ??= _runFullPass();
+    } finally {
+      assert(() {
+        _passInProgress = false;
+        return true;
+      }());
     }
-    result ??= _runFullPass();
 
     // Settle accounting for the next pass. 为下一趟清账。
     _lastOrder = List<String>.unmodifiable([for (final node in _document) node.id]);
@@ -377,6 +404,10 @@ class SingleColumnLayoutPresenter {
 
     return result;
   }
+
+  /// Debug-only: true while an incremental/full pass is styling — see the tripwire above. 仅 debug:
+  /// 趟进行中标志,见上方 tripwire。
+  bool _passInProgress = false;
 
   void _resetDirtAccounting() {
     _docWholeDirty = false;
@@ -460,12 +491,32 @@ class SingleColumnLayoutPresenter {
       for (final id in baseDirty)
         if (baseCache.containsKey(id)) id,
     };
+
+    if (carry.isEmpty && order.length != _lastOrder.length) {
+      // A pure-removal pass whose dirty radius contains only dead nodes (e.g. the document was
+      // emptied): every phase cache describes an order that no longer exists, and the empty-carry
+      // fast path below would resurrect ghost view models for the removed nodes. Only pure removals
+      // can produce an empty carry (insert/move/change always leave a surviving dirty node), and pure
+      // removals always change the node count — so this length check closes the hole completely.
+      // 纯删除趟且脏半径全是死节点(如删空文档):相缓存描述的节点序已不存在,下面的空 carry 快路径会
+      // 复活幽灵 vm。只有纯删除可能产出空 carry(插/移/改必留幸存脏节点),而纯删除必改节点数——
+      // 长度检查完全封住此洞。
+      return null;
+    }
+
     var prevList = baseList;
     EdgeInsetsGeometry prevPadding = EdgeInsets.zero;
 
     for (var i = 0; i < _pipeline.length; i += 1) {
       final dirt = _phaseDirt[i];
-      if (dirt.whole) {
+      if (dirt.whole || (_docStructural && _pipeline[i].styleIsStructureDependent)) {
+        // Whole-phase dirt — either reported by the phase itself, or forced because the document
+        // STRUCTURE changed and this phase's per-node output depends on it (the selection styler:
+        // a node's "am I inside the selection range" answer depends on document order and node
+        // existence, so a bare node removal flips other nodes' outputs while the selection VALUE —
+        // and therefore its listener — never fires). 整相脏——相自报,或结构变更强制:该相的节点输出
+        // 依赖文档结构(选区相「我在选区里吗」取决于节点序与存在性,裸删节点会翻别的节点的答案,
+        // 而选区值没变、监听不触发)。
         carry = null;
       } else if (carry != null && dirt.nodes.isNotEmpty) {
         carry.addAll(dirt.nodes);
@@ -493,9 +544,11 @@ class SingleColumnLayoutPresenter {
       }
 
       if (carry.isEmpty) {
-        // Nothing dirty at or before this phase — its cached output is the truth. Cache hit implies
-        // the node order is unchanged (any structural change would have seeded `carry`).
-        // 本相及之前无脏——缓存即真相;能走到这说明节点序未变(结构变更必已入 carry)。
+        // Nothing dirty at or before this phase — its cached output is the truth. Reaching here
+        // implies the node order is unchanged: insert/move/change always seed `carry` with a
+        // surviving node, and the all-dead-radius pure-removal case was rejected by the length
+        // guard above. 本相及之前无脏——缓存即真相;能走到这说明节点序未变(插/移/改必给 carry 留
+        // 幸存节点,全死半径的纯删除已被上方长度守卫拒绝)。
         prevList = cachedList;
         prevPadding = cachedPadding;
         continue;
@@ -906,6 +959,16 @@ abstract class SingleColumnLayoutStylePhase {
   // 文件)在 dirtyCallback 里消费并清空。
   bool _pendingWholePhaseDirty = false;
   final Set<String> _pendingDirtyNodeIds = <String>{};
+
+  /// Whether this phase's PER-NODE output can change when the document STRUCTURE changes
+  /// (insert/remove/move) even though the phase's own notifier inputs did not — e.g. the selection
+  /// styler: a node's "am I inside the selection range" answer depends on document order and node
+  /// existence, so a bare node removal flips other nodes' outputs while the selection value (and
+  /// therefore its listener) never fires. An incremental presenter re-runs such phases over ALL
+  /// nodes on any structural pass. 该相的节点输出是否依赖文档结构(增/删/移)——即便相自身的监听
+  /// 输入没变:如选区相,「我在选区里吗」取决于节点序与存在性,裸删节点会翻别的节点的答案而选区值
+  /// (及监听)不动。增量 presenter 在结构变更趟对此类相全节点重跑。
+  bool get styleIsStructureDependent => false;
 
   /// Marks only [nodeIds] as needing this phase's recalculation. Empty input is a no-op — nothing
   /// was affected, so nothing must re-run. 只把这些节点标为需本相重算;空集=无影响,不触发。

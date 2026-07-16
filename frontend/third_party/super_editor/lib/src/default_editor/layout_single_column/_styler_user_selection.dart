@@ -42,6 +42,14 @@ class SingleColumnLayoutSelectionStyler extends SingleColumnLayoutStylePhase {
   final ValueListenable<DocumentSelection?> _selection;
 
   // ═══ ANSELM PATCH (ADR 0009): node-scoped selection dirt ═════════════════════════════════════════
+  /// A node's "am I inside the selection range" answer depends on document order and node existence —
+  /// a bare node removal (e.g. right-click delete-table) flips OTHER nodes' answers while the
+  /// selection value, and therefore this styler's listener, never fires. The presenter must re-run
+  /// this phase over all nodes on any structural change. 「我在选区里吗」取决于节点序与存在性——裸删
+  /// 节点(如右键删表)会翻别的节点的答案而选区值/监听不动;结构变更须全节点重跑本相。
+  @override
+  bool get styleIsStructureDependent => true;
+
   DocumentSelection? _lastSelection;
 
   void _onSelectionChange() {
