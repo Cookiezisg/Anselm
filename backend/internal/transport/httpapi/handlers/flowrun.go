@@ -39,6 +39,7 @@ func (h *FlowrunHandler) Register(mux Registrar) {
 	mux.HandleFunc("POST /api/v1/flowruns", h.Start)
 	mux.HandleFunc("GET /api/v1/flowrun-inbox", h.Inbox)
 	mux.HandleFunc("GET /api/v1/flowrun-stats", h.Stats)
+	mux.HandleFunc("GET /api/v1/flowrun-matrix", h.Matrix)
 	mux.HandleFunc("GET /api/v1/flowruns/{id}", h.Get)
 	mux.HandleFunc("GET /api/v1/flowruns/{id}/activity", h.Activity)
 	mux.HandleFunc("POST /api/v1/flowruns/{idAction}", h.postOnRun)
@@ -229,6 +230,32 @@ func (h *FlowrunHandler) Stats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	responsehttpapi.Success(w, http.StatusOK, stats)
+}
+
+// Matrix is the node×run status grid (scheduler 工单⑩): ?workflowId (REQUIRED — the grid's axis;
+// absent → 400) × ?recentN (default 20, clamped to 20) most recent runs. Returns {cols, rows,
+// cells} — columns newest→oldest, rows the union of node ids in first-appearance order, cells
+// SPARSE (a node a run never reached has none). Bounded batch — N4 pagination exempt.
+//
+// Matrix 是节点×run 状态格阵（scheduler 工单⑩）：?workflowId（**必填**——格阵的轴；缺席 400）×
+// ?recentN（默认 20、钳到 20）个最近 run。返 {cols, rows, cells}——列新→旧、行是 node id 并集按首次
+// 出现序、格**稀疏**（某 run 没跑到的节点无格）。有界批查——N4 分页豁免。
+func (h *FlowrunHandler) Matrix(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query()
+	recentN, err := parseRecentN(query.Get("recentN"))
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	matrix, err := h.svc.RunMatrix(r.Context(), flowrundomain.MatrixQuery{
+		WorkflowID: strings.TrimSpace(query.Get("workflowId")),
+		RecentN:    recentN,
+	})
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, matrix)
 }
 
 // parseRecentN parses ?recentN with the same semantics as a page limit (ParsePage): absent → 0

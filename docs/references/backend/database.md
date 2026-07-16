@@ -12,7 +12,7 @@ audience: [human, ai]
 # 数据库 —— 表 / ID 前缀登记
 
 > 物理 schema 的单一事实源（表 · 关键列 · 索引/约束 · ID 前缀），覆盖全部 32 域。DDL 全文在各 `infra/store/<域>` 的 `Schema`（搜索域在 `infra/search`），幂等 `CREATE IF NOT EXISTS`，启动时 `db.Migrate` 单事务应用。
-> 通则（D 系列）：业务表软删 `deleted_at`；Log 表（executions/calls）**只增不删**（D1）；全表带 `workspace_id`（orm 据 ctx 自动隔离，D2）；name 用 partial-UNIQUE `WHERE deleted_at IS NULL`（软删释放名字）；版本表 `UNIQUE(<entity>_id, version)`。
+> 通则（D 系列）：业务表软删 `deleted_at`；Log 表（executions/calls）**只增不删**（D1——物理删的两个例外都在 flowrun 节逐个立法：`:replay` 清 failed 行 / run 历史保留清理）；全表带 `workspace_id`（orm 据 ctx 自动隔离，D2）；name 用 partial-UNIQUE `WHERE deleted_at IS NULL`（软删释放名字）；版本表 `UNIQUE(<entity>_id, version)`。
 > **时间戳约定**：实体表与版本表统一带 `created_at` + `updated_at`（orm `,created`/`,updated` tag 自动戳，写时刷新 updated_at）；**Log 表（executions/calls/activations/notifications 等只增审计行）只带 `created_at`**——行写一次不改，updated_at 无意义（D1）。下方各表列清单省略这套标准时间戳，不逐张列。
 
 ## 三实体共同形状
@@ -83,7 +83,18 @@ ID：`trg_`/`tra_`/`trf_`
 | `flowruns` | workflow_id · **version_id**(钉死拓扑) · **pinned_refs**(json pin 闭包) · trigger_id/firing_id · **origin**(可空,CHECK manual/chat/cron/webhook/fsnotify/sensor——创建时溯源盖章,NULL=两列诞生前旧行) · **conversation_id**(可空,仅 origin=chat:发起 run 的 cv_) · status(CHECK running/completed/failed/cancelled) · replay_count · error | running 偏索引（跨 ws boot 恢复）；origin/conversation_id 经 `ALTER TABLE ADD COLUMN` 演化段补列（db.Migrate 对加列的 duplicate-column 按已应用跳过=结果幂等）|
 | `flowrun_nodes` | flowrun_id · **node_id**(图内名) · **iteration**(循环轮次) · kind · ref · status(CHECK completed/failed/parked) · **result**(json 记忆化) · error · **ready_at/started_at**(可空排队戳,工单⑫——立法见下) | **`idx_frn_once` UNIQUE(flowrun_id,node_id,iteration)**（D3 record-once）+ parked 偏索引（收件箱）；ready_at/started_at 经 `ALTER TABLE ADD COLUMN` 演化段补列（同 flowruns origin 结果幂等先例）|
 
-ID：`fr_`/`frn_`。两张无 deleted_at（D1）；唯一物理删 = `:replay` 清 failed 行（非结果）。
+ID：`fr_`/`frn_`。两张无 deleted_at（D1）；**物理删恰有两个例外，逐个立法在此**（除此之外这两张表只增不删）：
+
+**D1 例外① `:replay` 清 failed 行**（`DeleteFailedNodes`）：failed 行是**非结果**，删它让幂等重走重跑——record-once 真相不损、什么历史都没抹。
+
+**D1 例外② run 历史保留清理**（scheduler 工单⑬、判决④；`PurgeTerminalRunsBefore`）——**性质与①不同：它删的是真实历史**，故立法必须显式：
+
+- **为何正当**：这是**用户配置的容量治理**、不是业务逻辑偷偷丢行。线是显式的（Settings → 存储 → 「Run 历史保留」，见 [api.md](api.md) `retention` 段）、服务端自持（默认 90d，`0`=永久）、在 UI 里诚实（run 大表翻到线上出**墓碑行**「更早的运行已按保留策略(Nd)清理」，绝不静默留缺口），且**保留窗内的审计真相完整**——保留线只决定「多久之前的历史不再留」，绝不改写窗内任何一行。所有统计与失败聚合窗口（≤7d）远在默认线之内，天然不受影响。
+- **删什么**（只删 run **自己**的行）：`flowruns` 头 + 它的 `flowrun_nodes` 行 + **该 run 产生的**审计行（四张执行日志表 `function_executions`/`handler_calls`/`agent_executions`/`mcp_calls` 中 `flowrun_id = <该 run>` 的行——存储面板的回收承诺落在这里：payload 是字节的大头，清 run 却留 payload = 承诺落空）。从对话跑的同实体审计行 `flowrun_id = ''`、**不受影响**。四表间无 FK（schema 未声明）故无级联，**子先于父、全在一个事务里**。
+- **不删什么**（旁系台账各有自己的真相轴）：trigger `firings`（`idx_trf_dedup` 是 D3 去重铁律，删它即破幂等）、`notifications`、touchpoint 行**一律留存**——它们的 `flowrunId` 成**悬挂引用**，深链落 404、呈现端渲孤儿墓碑（前端 §13 先例）。这是保留线的已知且诚实的后果。
+- **删的边界**：只删**终态**（completed/failed/cancelled）且 `completed_at` **非 NULL 且严格早于** cutoff 的行。**running/parked 永不删，不管多老**——在飞的 run 不是历史，等人的 run 是活的义务（收件箱绝不因一个时钟丢项）。终态但 `completed_at` 为 NULL 的行也留（断不了年份的破坏性清理必须留，不能猜）。窗口按 **`completed_at`** 开——与 flowrun-stats 的 `completedSince` 逐字同源：跑了很久刚失败的 run 是**新鲜**的、不是旧的。
+- **怎么删**：逐 workspace（`forEachWorkspace` + Detached ctx，S9）分批（`RetentionBatchSize=200`/事务——DB 单连接，无界 DELETE 事务会阻塞所有其他写）；批间查 ctx 使关停在**批边界**停（已提交的批保持提交、下个 tick 续）。删头时**重申终态守卫**：SELECT 与 DELETE 之间的一次 `:replay` 会把 run 翻回 running，清理必须**输掉**这场竞速（重开它意味着用户要它）。索引：`completed_at` 无索引、`julianday()` 亦不 sargable，故每批在该 workspace 的 flowruns 上走一次扫描——本地单用户量级下可接受，**零 schema 变更**。
+- **触发时机**：boot 起一趟 + 每 6h ticker + 每次 `PATCH /retention`（收紧的线立刻回收、而非 6h 后才像是生效）。线为 `0`（永久）时**碰都不碰 DB**。
 
 **排队戳立法（scheduler 工单⑫——`ready_at`/`started_at` 的语义，含 replay/恢复呈现）**：
 

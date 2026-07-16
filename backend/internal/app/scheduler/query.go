@@ -9,6 +9,7 @@ import (
 
 	approvaldomain "github.com/sunweilin/anselm/backend/internal/domain/approval"
 	flowrundomain "github.com/sunweilin/anselm/backend/internal/domain/flowrun"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 )
 
 // ListRuns pages a workspace's flowruns (newest-first; optional WorkflowID filter) for the run
@@ -212,4 +213,25 @@ func (s *Service) RunStats(ctx context.Context, q flowrundomain.StatsQuery) (*fl
 		q.Since = time.Now().UTC().Add(-flowrundomain.StatsDefaultWindow)
 	}
 	return s.runs.RunStats(ctx, q)
+}
+
+// RunMatrix answers the node×run status grid (scheduler 工单⑩) for one workflow's last RecentN
+// runs. Defaults + guards live here, same as RunStats: workflowId is REQUIRED (it is the grid's
+// axis — no axis, no grid, so an absent one is a 400 rather than a meaningless empty answer), and
+// RecentN takes the default / clamps to the cap exactly like its flowrun-stats namesake.
+//
+// RunMatrix 应答一个 workflow 近 RecentN 个 run 的节点×run 状态格阵（scheduler 工单⑩）。默认 + 守卫
+// 落在这里，与 RunStats 同：workflowId **必填**（它是格阵的轴——无轴即无格阵，故缺席是 400、而非一个
+// 无意义的空答案），RecentN 取默认/钳到上限，与 flowrun-stats 的同名参数逐字一致。
+func (s *Service) RunMatrix(ctx context.Context, q flowrundomain.MatrixQuery) (*flowrundomain.Matrix, error) {
+	if q.WorkflowID == "" {
+		return nil, errorspkg.ErrInvalidRequest
+	}
+	if q.RecentN <= 0 {
+		q.RecentN = flowrundomain.MatrixDefaultRecentN
+	}
+	if q.RecentN > flowrundomain.MatrixMaxRecentN {
+		q.RecentN = flowrundomain.MatrixMaxRecentN
+	}
+	return s.runs.RunMatrix(ctx, q)
 }

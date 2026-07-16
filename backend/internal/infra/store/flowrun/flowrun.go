@@ -1,18 +1,32 @@
 // Package flowrun is the orm-backed flowrundomain.Repository: flowruns (header) +
 // flowrun_nodes (the node-result memoization truth table). Both are Log tables — NO
-// deleted_at (D1); the one permitted physical delete is DeleteFailedNodes (clearing a
-// non-result for :replay). Record-once lives on idx_frn_once = UNIQUE(flowrun_id, node_id,
-// iteration) (D3): InsertNodeResult is first-wins (a duplicate is silently ignored), and an
-// approval decision is a conditional update gated on status='parked' (first-wins again).
-// Workspace isolation is automatic (orm ,ws tag); ListRunningRuns deliberately crosses it
-// (boot recovery scans every workspace's in-flight runs).
+// deleted_at (D1), so any Delete here is PHYSICAL, and exactly TWO are permitted (both
+// legislated in database.md's flowrun section):
+//
+//  1. DeleteFailedNodes — clears a NON-RESULT so :replay's idempotent re-walk can retry it.
+//     Erases nothing: the failed row was never a result.
+//  2. PurgeTerminalRunsBefore (retention.go, scheduler 工单⑬) — the user's configured
+//     retention line. This one DOES delete real history, and is legitimate only as explicit
+//     capacity governance: see that file's carve-out note before touching it.
+//
+// Record-once lives on idx_frn_once = UNIQUE(flowrun_id, node_id, iteration) (D3):
+// InsertNodeResult is first-wins (a duplicate is silently ignored), and an approval decision is
+// a conditional update gated on status='parked' (first-wins again). Workspace isolation is
+// automatic (orm ,ws tag); ListRunningRuns deliberately crosses it (boot recovery scans every
+// workspace's in-flight runs).
 //
 // Package flowrun 是 flowrundomain.Repository 的 orm 实现：flowruns（header）+ flowrun_nodes
-// （节点结果记忆化真相表）。两张都是 Log 表——无 deleted_at（D1）；唯一允许的物理删是
-// DeleteFailedNodes（清 :replay 的非结果行）。record-once 落在 idx_frn_once =
-// UNIQUE(flowrun_id,node_id,iteration)（D3）：InsertNodeResult first-wins（重复静默忽略），
-// approval 决策是 status='parked' 上的条件更新（同 first-wins）。workspace 隔离自动（orm ,ws）；
-// ListRunningRuns 刻意跨 workspace（boot 恢复扫所有 workspace 的在途 run）。
+// （节点结果记忆化真相表）。两张都是 Log 表——无 deleted_at（D1），故这里的任何 Delete 都是**物理**的，
+// 且恰恰允许**两个**（都立法在 database.md 的 flowrun 节）：
+//
+//  1. DeleteFailedNodes——清掉**非结果**，让 :replay 的幂等重走能重试它。什么都没抹：failed 行从来
+//     就不是结果。
+//  2. PurgeTerminalRunsBefore（retention.go，scheduler 工单⑬）——用户配置的保留线。这个**确实**删真实
+//     历史，只因它是显式的容量治理才正当：动它之前先读该文件的例外注释。
+//
+// record-once 落在 idx_frn_once = UNIQUE(flowrun_id,node_id,iteration)（D3）：InsertNodeResult
+// first-wins（重复静默忽略），approval 决策是 status='parked' 上的条件更新（同 first-wins）。workspace
+// 隔离自动（orm ,ws）；ListRunningRuns 刻意跨 workspace（boot 恢复扫所有 workspace 的在途 run）。
 package flowrun
 
 import (
@@ -446,11 +460,13 @@ func (s *Store) CancelParkedNodes(ctx context.Context, flowrunID string) (int64,
 }
 
 // DeleteFailedNodes hard-deletes a run's failed rows (flowrun_nodes has no deleted column → the
-// query Delete is a physical DELETE). The ONE permitted delete on a Log table: a failed row is a
-// non-result, removing it to retry is not erasing history.
+// query Delete is a physical DELETE). The FIRST of the two permitted deletes on these Log tables
+// (the other is the retention purge): a failed row is a non-result, removing it to retry is not
+// erasing history.
 //
 // DeleteFailedNodes 物理删一个 run 的 failed 行（flowrun_nodes 无 deleted 列 → 查询 Delete 即物理
-// DELETE）。Log 表上唯一允许的删：failed 行是非结果，删它重试不是抹历史。
+// DELETE）。这两张 Log 表上允许的两个删中的**第一个**（另一个是保留清理）：failed 行是非结果，删它重试
+// 不是抹历史。
 func (s *Store) DeleteFailedNodes(ctx context.Context, flowrunID string) (int, error) {
 	n, err := s.nodes.WhereEq("flowrun_id", flowrunID).WhereEq("status", flowrundomain.NodeFailed).Delete(ctx)
 	if err != nil {

@@ -65,6 +65,29 @@ type Repository interface {
 	// 健康行（无 run 即零值行）。flowrun 两表上的纯读投影；q 的默认值由调用方（app service）负责。
 	RunStats(ctx context.Context, q StatsQuery) (*RunStats, error)
 
+	// RunMatrix computes the node×run status grid (scheduler 工单⑩): one workflow's last RecentN
+	// runs as columns, the union of their node ids as rows, and a sparse cell per (run, node). A
+	// pure read projection over the two flowrun tables in TWO bounded queries (never a per-run
+	// detail fetch); q's defaults are the caller's job (app service).
+	// RunMatrix 计算节点×run 状态格阵（scheduler 工单⑩）：一个 workflow 近 RecentN 个 run 为列、
+	// 它们 node id 的并集为行、每 (run, 节点) 一个稀疏格。flowrun 两表上的纯读投影、**两条**有界
+	// 查询（绝不逐 run 拉详情）；q 的默认值由调用方（app service）负责。
+	RunMatrix(ctx context.Context, q MatrixQuery) (*Matrix, error)
+
+	// PurgeTerminalRunsBefore physically deletes up to `batch` finished runs that reached their
+	// terminal before cutoff — the header, its node rows and the audit rows that run produced, all
+	// in ONE transaction — and returns how many run headers went. running/parked runs are never
+	// touched, however old. THE SECOND D1 CARVE-OUT (scheduler 工单⑬): unlike DeleteFailedNodes
+	// (which clears a non-result), this deletes real history — legitimate only as the user's
+	// configured capacity governance, legislated in database.md. The caller (app service) owns the
+	// batch loop and the retention line → cutoff translation.
+	// PurgeTerminalRunsBefore 物理删至多 `batch` 个在 cutoff 前落定的终态 run——头、它的节点行、
+	// 以及该 run 产生的审计行，全在**一个**事务里——返回删掉多少个 run 头。running/parked 的 run
+	// 永不被碰，不管多老。**D1 的第二个例外**（scheduler 工单⑬）：与 DeleteFailedNodes（清非结果）
+	// 不同，这里删的是真实历史——只因它是用户配置的容量治理才正当，立法在 database.md。批循环与
+	// 「保留线 → cutoff」的翻译归调用方（app service）。
+	PurgeTerminalRunsBefore(ctx context.Context, cutoff time.Time, batch int) (int, error)
+
 	// ListActivity returns ONE keyset page of a run's execution-log activity (scheduler 工单⑤):
 	// the four audit tables UNIONed by flowrun_id, joined to flowrun_nodes for the queue stamp
 	// (工单⑫), in the gantt's natural (started_at, exec id) ASCENDING order. A pure read projection

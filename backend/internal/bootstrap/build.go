@@ -54,17 +54,27 @@ type Config struct {
 //
 // App 是装配好的应用：HTTP handler + 持后台工作的 Service 的 boot/shutdown 生命周期。
 type App struct {
-	Handler     http.Handler
-	Addr        string
-	log         *zap.Logger
-	svc         *services
-	db          *ormpkg.DB
-	tickStop    context.CancelFunc
-	drainDone   chan struct{}      // closed when drainLoop returns; Shutdown waits on it. drainLoop 退出时关闭，Shutdown 等它。
-	timeoutStop context.CancelFunc // stops the independent timeout-sweep loop (F174: decoupled from drain so a slow node can't starve approval timeouts). 停独立超时扫描循环。
-	timeoutDone chan struct{}      // closed when timeoutLoop returns. timeoutLoop 退出时关闭。
-	misfireStop context.CancelFunc // stops the misfire-accounting loop (scheduler 工单⑨). 停 misfire 记账循环。
-	misfireDone chan struct{}      // closed when misfireLoop returns. misfireLoop 退出时关闭。
+	Handler       http.Handler
+	Addr          string
+	log           *zap.Logger
+	svc           *services
+	db            *ormpkg.DB
+	tickStop      context.CancelFunc
+	drainDone     chan struct{}      // closed when drainLoop returns; Shutdown waits on it. drainLoop 退出时关闭，Shutdown 等它。
+	timeoutStop   context.CancelFunc // stops the independent timeout-sweep loop (F174: decoupled from drain so a slow node can't starve approval timeouts). 停独立超时扫描循环。
+	timeoutDone   chan struct{}      // closed when timeoutLoop returns. timeoutLoop 退出时关闭。
+	misfireStop   context.CancelFunc // stops the misfire-accounting loop (scheduler 工单⑨). 停 misfire 记账循环。
+	misfireDone   chan struct{}      // closed when misfireLoop returns. misfireLoop 退出时关闭。
+	retentionStop context.CancelFunc // stops the run-history retention sweep loop (scheduler 工单⑬). 停 run 历史保留清理循环。
+	retentionDone chan struct{}      // closed when retentionLoop returns. retentionLoop 退出时关闭。
+	// retentionKick asks the sweep loop for an off-schedule pass — buffered(1) + non-blocking send,
+	// so N kicks during one sweep coalesce into exactly one follow-up. Fed by the settings service's
+	// retention-changed hook (a tightened line must reclaim NOW, not in 6h) and primed once at Boot
+	// so the startup sweep runs on the loop's goroutine instead of delaying serving.
+	// retentionKick 请清理循环跑一趟计划外的——buffered(1) + 非阻塞发送，故一次清理期间的 N 次踢合并成
+	// 恰好一次后续。由 settings service 的 retention-changed 钩子喂（收紧的线必须**现在**回收、不是 6 小时后），
+	// 并在 Boot 时预置一次，使启动清理跑在循环的 goroutine 上、而非拖慢开始服务。
+	retentionKick chan struct{}
 }
 
 const drainInterval = 5 * time.Second
@@ -77,6 +87,17 @@ const drainInterval = 5 * time.Second
 // （睡眠/挂起），那是分钟到小时级的宽度——cron 自身分辨率就是分钟，扫得更快只是反复走空窗。boot 时已
 // 主动跑过一次。
 const misfireInterval = time.Minute
+
+// retentionInterval paces the run-history retention sweep (scheduler 工单⑬). Deliberately very slow:
+// the retention line is measured in DAYS, so anything sub-daily already over-samples it — the ticker
+// exists only so a machine left running for weeks still honours the line without a restart. Boot
+// primes one pass, and a retention PATCH kicks one, so the ticker is never how a user learns their
+// setting works.
+//
+// retentionInterval 定 run 历史保留清理的节律（scheduler 工单⑬）。刻意**很**慢：保留线以**天**计，故任何
+// 亚日级的频率本就过采样——ticker 存在只是为了让连开数周的机器不重启也照样守线。boot 预置一趟、retention
+// PATCH 踢一趟，故用户绝不会靠 ticker 才知道自己的设置生效了。
+const retentionInterval = 6 * time.Hour
 
 // drainShutdownGrace bounds how long Shutdown lets an in-flight workflow Advance finish its current
 // node before interrupting it (R3 option C — clean durability for fast nodes, bounded shutdown for
@@ -371,6 +392,35 @@ func (a *App) Boot(ctx context.Context) {
 	a.misfireStop = mstop
 	a.misfireDone = make(chan struct{})
 	go a.misfireLoop(misfireCtx)
+	// Run-history retention on its OWN very slow ticker (scheduler 工单⑬), kicked by a retention
+	// PATCH. Primed with one buffered kick INSTEAD of sweeping inline here: the first sweep after a
+	// long-retention backlog can purge thousands of runs, and boot runs BEFORE ListenAndServe — an
+	// inline pass would delay serving by exactly as long as the user's neglect. On the loop's
+	// goroutine it starts immediately and costs boot nothing.
+	// run 历史保留跑在**自己**的极慢 ticker 上（scheduler 工单⑬），由 retention PATCH 踢。用一次 buffered
+	// kick 预置、**而非**在此内联清理：长保留积压后的首次清理可能清掉数千 run，而 boot 跑在 ListenAndServe
+	// **之前**——内联一趟会让开始服务恰好延迟用户疏于打理的那么久。放在循环的 goroutine 上它立刻开始、且不
+	// 花 boot 一分钱。
+	retentionCtx, rstop := context.WithCancel(context.Background())
+	a.retentionStop = rstop
+	a.retentionDone = make(chan struct{})
+	a.retentionKick = make(chan struct{}, 1)
+	a.retentionKick <- struct{}{}
+	a.svc.settings.SetOnRetentionChanged(a.kickRetention)
+	go a.retentionLoop(retentionCtx)
+}
+
+// kickRetention asks for an off-schedule retention sweep, dropping the ask if one is already queued
+// (the pending sweep will read the settings fresh anyway, so a second is redundant). Never blocks —
+// it runs on the HTTP handler's goroutine (the settings retention-changed hook).
+//
+// kickRetention 请一趟计划外的保留清理，若已排队则丢弃这次请求（待跑的那趟本就会现读 settings，故第二趟
+// 是多余的）。**绝不阻塞**——它跑在 HTTP handler 的 goroutine 上（settings 的 retention-changed 钩子）。
+func (a *App) kickRetention() {
+	select {
+	case a.retentionKick <- struct{}{}:
+	default:
+	}
 }
 
 // forEachWorkspace runs fn once per workspace, each in a Detached ctx seeded with that
@@ -454,6 +504,51 @@ func (a *App) misfireLoop(ctx context.Context) {
 	}
 }
 
+// retentionLoop enforces the run-history retention line (scheduler 工单⑬, 判决④) — per workspace per
+// pass, like its siblings — on a very slow ticker OR on demand (a retention PATCH kicks it). It reads
+// the line fresh every pass, so a PATCH needs no hot-swap plumbing; a 0 line ("keep forever") makes
+// the pass a no-op WITHOUT touching the DB, which is the physical guarantee behind the setting.
+//
+// retentionLoop 执行 run 历史保留线（scheduler 工单⑬、判决④）——与兄弟循环一样每趟逐 workspace——跑在极慢
+// ticker 上**或**按需（retention PATCH 踢它）。它每趟现读线，故 PATCH 不需要热换管道；线为 0（「永久保留」）
+// 让这趟成为**碰都不碰 DB** 的 no-op，这正是该设置背后的物理保证。
+func (a *App) retentionLoop(ctx context.Context) {
+	defer close(a.retentionDone)
+	t := time.NewTicker(retentionInterval)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			a.sweepRetention(ctx)
+		case <-a.retentionKick:
+			a.sweepRetention(ctx)
+		}
+	}
+}
+
+// sweepRetention translates the configured line into a cutoff and purges each workspace past it.
+// The line→cutoff translation is bootstrap's (it owns the settings), so the scheduler service stays
+// a pure "purge terminal runs before T" — trivially testable, no settings dependency.
+//
+// sweepRetention 把配置的线翻译成 cutoff 并逐 workspace 清理越线的。「线→cutoff」的翻译归 bootstrap
+// （它拥有 settings），故 scheduler service 保持纯粹的「清掉 T 之前的终态 run」——极易测、无 settings 依赖。
+func (a *App) sweepRetention(ctx context.Context) {
+	days := a.svc.settings.Retention().RunRetentionDays
+	if days <= 0 {
+		return // keep forever — never touch the DB. 永久保留——碰都不碰 DB。
+	}
+	cutoff := time.Now().UTC().AddDate(0, 0, -days)
+	a.forEachWorkspace(ctx, func(wsCtx context.Context) {
+		if n, err := a.svc.scheduler.SweepRunRetention(wsCtx, cutoff); err != nil {
+			a.log.Warn("bootstrap: run retention sweep", zap.Error(err))
+		} else if n > 0 {
+			a.log.Info("bootstrap: purged runs past the retention line", zap.Int("runs", n), zap.Int("retentionDays", days))
+		}
+	})
+}
+
 func (a *App) timeoutLoop(ctx context.Context) {
 	defer close(a.timeoutDone)
 	t := time.NewTicker(drainInterval)
@@ -496,6 +591,9 @@ func (a *App) Shutdown(ctx context.Context) {
 	if a.misfireStop != nil {
 		a.misfireStop() // no new misfire sweeps → no new ledger writes / catchup fan-outs (工单⑨)
 	}
+	if a.retentionStop != nil {
+		a.retentionStop() // no new retention sweeps → no new purges (工单⑬)
+	}
 	// R3 (option C), F174 pool: the drain/timeout tickers stop FEEDING the pool; their loops return
 	// fast (they only claim + enqueue now). Then give the in-flight POOL workers a bounded grace to
 	// finish their CURRENT node — record-once makes a completed node durable, so the run resumes cleanly
@@ -537,6 +635,18 @@ func (a *App) Shutdown(ctx context.Context) {
 		case <-a.misfireDone: // misfire ticker loop returned
 		case <-ctx.Done():
 			a.log.Warn("bootstrap: misfire loop did not return within shutdown grace; proceeding")
+		}
+	}
+	// Wait out the retention loop too (工单⑬): it DELETES rows, so a straggler racing db.Close is the
+	// sharpest form of the hazard these waits exist for. Its batches are short and it checks ctx
+	// between them, so it returns at the next batch boundary.
+	// 同样等保留清理循环退出（工单⑬）：它**删**行，故掉队者撞 db.Close 是这些等待所防危险中最锋利的一种。
+	// 它的批很短、且批间查 ctx，故它在下一个批边界返回。
+	if a.retentionDone != nil {
+		select {
+		case <-a.retentionDone: // retention ticker loop returned
+		case <-ctx.Done():
+			a.log.Warn("bootstrap: retention loop did not return within shutdown grace; proceeding")
 		}
 	}
 	a.svc.scheduler.WaitPoolDrained(ctx, drainShutdownGrace) // bounded grace for in-flight nodes to finish cleanly

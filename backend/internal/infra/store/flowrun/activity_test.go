@@ -40,6 +40,12 @@ type activityHarness struct {
 	hd *handlerstore.Store
 	ag *agentstore.Store
 	mc *mcpstore.Store
+	// raw is the underlying handle, so tests can seed rows with EXACT timestamps (orm's ,created
+	// stamp always overwrites started_at on Create — history needs raw INSERTs) and count survivors
+	// after a destructive path (retention_test.go).
+	// raw 是底层句柄，使测试能用**精确**时间戳种行（orm 的 ,created 戳在 Create 时总覆盖 started_at——
+	// 历史需要裸 INSERT），并在破坏性路径后数幸存者（retention_test.go）。
+	raw *sql.DB
 }
 
 func newActivityHarness(t *testing.T) *activityHarness {
@@ -67,7 +73,7 @@ func newActivityHarness(t *testing.T) *activityHarness {
 	}
 	return &activityHarness{
 		fr: New(db), fn: functionstore.New(db), hd: handlerstore.New(db),
-		ag: agentstore.New(db), mc: mcpstore.New(db, enc),
+		ag: agentstore.New(db), mc: mcpstore.New(db, enc), raw: sqlDB,
 	}
 }
 

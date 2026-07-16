@@ -102,6 +102,7 @@ audience: [human, ai]
 | code | HTTP | message |
 |---|---|---|
 | `SETTINGS_LIMITS_INVALID` | 400 | limits values out of range |
+| `SETTINGS_RETENTION_INVALID` | 400 | runRetentionDays must be 0 (keep forever) or a positive number of days（scheduler 工单⑬——**唯一的物理约束**：线不能倒着走；未知字段/畸形 JSON 同码。UI 的 30/90/180/永久 值集是产品可供性、后端不强制，60 照收——拒它是校验剧场，设计原则 #6） |
 
 ### `app/tool/agent`
 
