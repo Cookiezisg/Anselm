@@ -353,6 +353,9 @@ class Translations$run$en {
 
 	/// en: 'Reason (optional)'
 	String get reasonHint => 'Reason (optional)';
+
+	/// en: 'running (inferred)'
+	String get inferredRunning => 'running (inferred)';
 }
 
 // Path: scheduler
@@ -408,6 +411,7 @@ class Translations$scheduler$en {
 	late final Translations$scheduler$overview$en overview = Translations$scheduler$overview$en.internal(_root);
 	late final Translations$scheduler$status$en status = Translations$scheduler$status$en.internal(_root);
 	late final Translations$scheduler$home$en home = Translations$scheduler$home$en.internal(_root);
+	late final Translations$scheduler$run$en run = Translations$scheduler$run$en.internal(_root);
 }
 
 // Path: action
@@ -3148,6 +3152,141 @@ class Translations$scheduler$home$en {
 
 	/// en: 'Edit trigger $name in Entities'
 	String editTriggerA11y({required Object name}) => 'Edit trigger ${name} in Entities';
+}
+
+// Path: scheduler.run
+class Translations$scheduler$run$en {
+	Translations$scheduler$run$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Scheduler / $name / $id'
+	String crumb({required Object name, required Object id}) => 'Scheduler / ${name} / ${id}';
+
+	/// en: 'Run not found'
+	String get notFoundTitle => 'Run not found';
+
+	/// en: 'It may have been cleared by the retention policy. Pick another run from the workflow.'
+	String get notFoundHint => 'It may have been cleared by the retention policy. Pick another run from the workflow.';
+
+	/// en: 'Couldn't load this run'
+	String get errorTitle => 'Couldn\'t load this run';
+
+	/// en: 'The backend didn't answer. Check the connection and retry.'
+	String get errorHint => 'The backend didn\'t answer. Check the connection and retry.';
+
+	/// en: 'Host deleted'
+	String get orphanBadge => 'Host deleted';
+
+	/// en: 'pinned version'
+	String get pinnedVersion => 'pinned version';
+
+	/// en: 'Couldn't load this run's pinned version — the graph below is the workflow's CURRENT one and may differ from what this run walked.'
+	String get graphNotPinned => 'Couldn\'t load this run\'s pinned version — the graph below is the workflow\'s CURRENT one and may differ from what this run walked.';
+
+	/// en: 'queued $d'
+	String queuedFor({required Object d}) => 'queued ${d}';
+
+	/// en: 'ran $d'
+	String execFor({required Object d}) => 'ran ${d}';
+
+	/// en: 'queued'
+	String get queueWord => 'queued';
+
+	/// en: 'ran'
+	String get execWord => 'ran';
+
+	/// en: 'Replay'
+	String get replay => 'Replay';
+
+	/// en: 'Cancel run'
+	String get cancel => 'Cancel run';
+
+	/// en: 'AI triage'
+	String get triage => 'AI triage';
+
+	/// en: 'Couldn't open a triage conversation'
+	String get triageFailed => 'Couldn\'t open a triage conversation';
+
+	/// en: 'Flow'
+	String get graphHead => 'Flow';
+
+	/// en: 'Flow (pinned version)'
+	String get graphHeadPinned => 'Flow (pinned version)';
+
+	/// en: 'Timeline'
+	String get ganttHead => 'Timeline';
+
+	/// en: 'This run has no nodes to place on a timeline yet.'
+	String get ganttEmpty => 'This run has no nodes to place on a timeline yet.';
+
+	/// en: 'Every node landed within the same millisecond — the bars show ORDER only, not duration.'
+	String get ganttNoSpan => 'Every node landed within the same millisecond — the bars show ORDER only, not duration.';
+
+	/// en: 'not reached'
+	String get notRun => 'not reached';
+
+	/// en: 'Nodes'
+	String get ledgerHead => 'Nodes';
+
+	/// en: 'No node has settled yet.'
+	String get ledgerEmpty => 'No node has settled yet.';
+
+	/// en: 'Run dossier'
+	String get dossierTitle => 'Run dossier';
+
+	/// en: 'Inspector'
+	String get inspectorTitle => 'Inspector';
+
+	/// en: 'Entry payload'
+	String get payloadHead => 'Entry payload';
+
+	/// en: 'Pinned refs'
+	String get pinnedRefsHead => 'Pinned refs';
+
+	/// en: 'Error'
+	String get errorHead => 'Error';
+
+	/// en: 'Replayed ×$n'
+	String replayHistory({required Object n}) => 'Replayed ×${n}';
+
+	/// en: 'Never replayed'
+	String get replayNever => 'Never replayed';
+
+	/// en: 'Iteration'
+	String get iterationPick => 'Iteration';
+
+	/// en: 'Execution log'
+	String get execLogHead => 'Execution log';
+
+	/// en: 'Open $id'
+	String execLogOpen({required Object id}) => 'Open ${id}';
+
+	/// en: 'Pick a node to inspect it.'
+	String get noSelection => 'Pick a node to inspect it.';
+
+	/// en: 'Input'
+	String get nodeIn => 'Input';
+
+	/// en: 'Output'
+	String get nodeOut => 'Output';
+
+	/// en: 'This node recorded no result.'
+	String get nodeNoIo => 'This node recorded no result.';
+
+	/// en: 'Replay the failed nodes'
+	String get replayNode => 'Replay the failed nodes';
+
+	/// en: 'Finding this run…'
+	String get relayResolving => 'Finding this run…';
+
+	/// en: 'Couldn't resolve this run'
+	String get relayFailedTitle => 'Couldn\'t resolve this run';
+
+	/// en: 'No run with this id in this workspace. Check the id, or pick a run from a workflow.'
+	String get relayFailedHint => 'No run with this id in this workspace. Check the id, or pick a run from a workflow.';
 }
 
 // Path: feedback.batch
@@ -6067,6 +6206,7 @@ extension on Translations {
 			'run.reject' => 'Reject',
 			'run.approvalHint' => 'First decision wins.',
 			'run.reasonHint' => 'Reason (optional)',
+			'run.inferredRunning' => 'running (inferred)',
 			'scheduler.railEmptyTitle' => 'No workflows yet',
 			'scheduler.railEmptyHint' => 'Create one in Entities, or ask the conversation to build one for you.',
 			'scheduler.railErrorTitle' => 'Couldn\'t load workflows',
@@ -6209,6 +6349,48 @@ extension on Translations {
 			'scheduler.home.lastFired' => ({required Object d}) => 'fired ${d} ago',
 			'scheduler.home.neverFired' => 'never fired',
 			'scheduler.home.editTriggerA11y' => ({required Object name}) => 'Edit trigger ${name} in Entities',
+			'scheduler.run.crumb' => ({required Object name, required Object id}) => 'Scheduler / ${name} / ${id}',
+			'scheduler.run.notFoundTitle' => 'Run not found',
+			'scheduler.run.notFoundHint' => 'It may have been cleared by the retention policy. Pick another run from the workflow.',
+			'scheduler.run.errorTitle' => 'Couldn\'t load this run',
+			'scheduler.run.errorHint' => 'The backend didn\'t answer. Check the connection and retry.',
+			'scheduler.run.orphanBadge' => 'Host deleted',
+			'scheduler.run.pinnedVersion' => 'pinned version',
+			'scheduler.run.graphNotPinned' => 'Couldn\'t load this run\'s pinned version — the graph below is the workflow\'s CURRENT one and may differ from what this run walked.',
+			'scheduler.run.queuedFor' => ({required Object d}) => 'queued ${d}',
+			'scheduler.run.execFor' => ({required Object d}) => 'ran ${d}',
+			'scheduler.run.queueWord' => 'queued',
+			'scheduler.run.execWord' => 'ran',
+			'scheduler.run.replay' => 'Replay',
+			'scheduler.run.cancel' => 'Cancel run',
+			'scheduler.run.triage' => 'AI triage',
+			'scheduler.run.triageFailed' => 'Couldn\'t open a triage conversation',
+			'scheduler.run.graphHead' => 'Flow',
+			'scheduler.run.graphHeadPinned' => 'Flow (pinned version)',
+			'scheduler.run.ganttHead' => 'Timeline',
+			'scheduler.run.ganttEmpty' => 'This run has no nodes to place on a timeline yet.',
+			'scheduler.run.ganttNoSpan' => 'Every node landed within the same millisecond — the bars show ORDER only, not duration.',
+			'scheduler.run.notRun' => 'not reached',
+			'scheduler.run.ledgerHead' => 'Nodes',
+			'scheduler.run.ledgerEmpty' => 'No node has settled yet.',
+			'scheduler.run.dossierTitle' => 'Run dossier',
+			'scheduler.run.inspectorTitle' => 'Inspector',
+			'scheduler.run.payloadHead' => 'Entry payload',
+			'scheduler.run.pinnedRefsHead' => 'Pinned refs',
+			'scheduler.run.errorHead' => 'Error',
+			'scheduler.run.replayHistory' => ({required Object n}) => 'Replayed ×${n}',
+			'scheduler.run.replayNever' => 'Never replayed',
+			'scheduler.run.iterationPick' => 'Iteration',
+			'scheduler.run.execLogHead' => 'Execution log',
+			'scheduler.run.execLogOpen' => ({required Object id}) => 'Open ${id}',
+			'scheduler.run.noSelection' => 'Pick a node to inspect it.',
+			'scheduler.run.nodeIn' => 'Input',
+			'scheduler.run.nodeOut' => 'Output',
+			'scheduler.run.nodeNoIo' => 'This node recorded no result.',
+			'scheduler.run.replayNode' => 'Replay the failed nodes',
+			'scheduler.run.relayResolving' => 'Finding this run…',
+			'scheduler.run.relayFailedTitle' => 'Couldn\'t resolve this run',
+			'scheduler.run.relayFailedHint' => 'No run with this id in this workspace. Check the id, or pick a run from a workflow.',
 			'action.edit' => 'Edit',
 			'action.cancel' => 'Cancel',
 			'action.save' => 'Save',
@@ -6439,6 +6621,8 @@ extension on Translations {
 			'entities.detail.cockpit.runInfo' => 'Run info',
 			'entities.detail.cockpit.iteration' => ({required Object n}) => 'Iteration ${n}',
 			'entities.detail.kv.name' => 'Name',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.kv.tags' => 'Tags',
 			'entities.detail.kv.id' => 'ID',
 			'entities.detail.kv.activeVersion' => 'Active version',
@@ -6482,8 +6666,6 @@ extension on Translations {
 			'entities.detail.val.yes' => 'Yes',
 			'entities.detail.val.no' => 'No',
 			'entities.detail.val.stopped' => 'Stopped',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.val.noAlerts' => 'No alerts',
 			'entities.detail.val.needsAttention' => 'Needs attention',
 			'entities.detail.val.required' => 'required',
@@ -6953,6 +7135,8 @@ extension on Translations {
 			'settings.sandbox.installing' => 'Installing…',
 			'settings.sandbox.installTitle' => 'Install runtime',
 			'settings.sandbox.kind' => 'Kind',
+			_ => null,
+		} ?? switch (path) {
 			'settings.sandbox.version' => 'Version',
 			'settings.sandbox.versionHint' => 'e.g. 22 / 3.12',
 			'settings.sandbox.add' => 'Install',
@@ -6996,8 +7180,6 @@ extension on Translations {
 			'settings.shortcuts.cmdZoomIn' => 'Zoom in',
 			'settings.shortcuts.cmdZoomOut' => 'Zoom out',
 			'settings.shortcuts.cmdZoomReset' => 'Reset zoom',
-			_ => null,
-		} ?? switch (path) {
 			'settings.shortcuts.hintModifier' => 'A chord must include a modifier (⌘/Ctrl…)',
 			'markdown.imageNotLoaded' => 'image not loaded',
 			'attach.unavailable' => 'Unavailable',

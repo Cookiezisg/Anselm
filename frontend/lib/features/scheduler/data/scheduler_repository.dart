@@ -153,6 +153,26 @@ abstract interface class SchedulerRepository {
   /// 200 returns the post-action bare trigger. 暂停/恢复调度;幂等,返动作后裸 trigger。
   Future<TriggerEntity> pauseTrigger(String triggerId);
   Future<TriggerEntity> resumeTrigger(String triggerId);
+
+  /// One run's ACTIVITY rows (工单⑤, `GET /flowruns/{id}/activity`, paged through and defensively
+  /// capped) — the four execution-log tables UNIONed by flowrun_id, startedAt ASC. Feeds the
+  /// flagship gantt's exec segment + the inspector's execution-log deep link. A run with no
+  /// dispatched entity nodes legitimately returns []; a missing run is 404 FLOWRUN_NOT_FOUND.
+  /// 单 run 活动行(⑤,翻页拉全+防御帽):喂甘特执行段与检查器执行日志深链;无审计行的 run 返 []。
+  Future<List<FlowrunActivityRow>> listActivity(String flowrunId);
+
+  /// ONE workflow version by its id (`GET /workflows/{id}/versions/{version}` — the path segment
+  /// accepts a version NUMBER or a `wfv_` id; we always pass the run's pinned `versionId`). This is
+  /// how the flagship renders the graph the run ACTUALLY walked instead of today's active version
+  /// (the run_cockpit 错图 bug, §5). 按版本 id 取钉版(路径段接版本号或 wfv_ id):旗舰渲 run 真正走过
+  /// 的图,而非当下 active 版本。
+  Future<WorkflowVersion> getWorkflowVersion(String workflowId, String versionId);
+
+  /// Open an AI triage conversation for a failed run (`POST /executions/{id}:triage` — the endpoint
+  /// dispatches by id PREFIX, so a `fr_` id routes to the flowrun triager). 202 → the new
+  /// conversationId (异步动作返 id 铁律), which the caller deep-links into chat.
+  /// AI 诊断(按 id 前缀分发,fr_ 走 flowrun 诊断);202 返 conversationId,调用方深链进 chat。
+  Future<String> triageRun(String flowrunId);
 }
 
 /// The production seam. Thin envelope decoding only. 生产缝:薄信封解码。
@@ -309,6 +329,18 @@ class LiveSchedulerRepository implements SchedulerRepository {
   @override
   Future<TriggerEntity> resumeTrigger(String triggerId) =>
       _api.postEntity('/api/v1/triggers/$triggerId:resume', TriggerEntity.fromJson);
+
+  @override
+  Future<List<FlowrunActivityRow>> listActivity(String flowrunId) =>
+      _drain('/api/v1/flowruns/$flowrunId/activity', FlowrunActivityRow.fromJson);
+
+  @override
+  Future<WorkflowVersion> getWorkflowVersion(String workflowId, String versionId) => _api.getEntity(
+      '/api/v1/workflows/$workflowId/versions/$versionId', WorkflowVersion.fromJson);
+
+  @override
+  Future<String> triageRun(String flowrunId) =>
+      _api.postForId('/api/v1/executions/$flowrunId:triage');
 }
 
 /// Overridden by demo (`FixtureSchedulerRepository`) at the app root. app 根被 demo override。

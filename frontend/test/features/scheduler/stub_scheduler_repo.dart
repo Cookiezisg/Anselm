@@ -29,8 +29,11 @@ class StubSchedulerRepo implements SchedulerRepository {
     this.runs = const [],
     this.nodesByRun = const {},
     this.graphByWorkflow = const {},
+    this.activityByRun = const {},
+    this.pinnedGraphByVersion = const {},
     this.failWorkflows = false,
     this.failRunFull = false,
+    this.failActivity = false,
   });
 
   final List<SchedulerWorkflowRow> workflows;
@@ -49,11 +52,25 @@ class StubSchedulerRepo implements SchedulerRepository {
   /// Per-workflow active-version graph (absent = a bare entity → the honest «no graph»). 活跃版本图。
   final Map<String, Graph> graphByWorkflow;
 
+  /// Per-run ⑤ activity rows — the flagship gantt's exec segment + the inspector's execId deep link
+  /// (absent = a run that left no audit rows, the honest fallback to the row's own stamps).
+  /// 逐 run 活动行(⑤);缺席=无审计行的 run,诚实回落行自身戳。
+  final Map<String, List<FlowrunActivityRow>> activityByRun;
+
+  /// Per-VERSION-id pinned graph (§5.2) — keyed by `wfv_` id, so a battery can prove the flagship
+  /// asked for the RUN's version and not today's active one; an absent id 404s → the fallback banner.
+  /// 按版本 id 的钉版图:证旗舰问的是 run 的版本而非当下 active;缺席即 404 → 回退横幅。
+  final Map<String, Graph> pinnedGraphByVersion;
+
   final bool failWorkflows;
 
   /// getRunFull throws — the replay confirm must still open, with the numberless sentence.
   /// 取数失败:确认框仍开,句子不带假数。
   final bool failRunFull;
+
+  /// listActivity throws — the flagship must degrade to the row's own stamps, never blank.
+  /// 活动读失败:甘特回落行自身戳,绝不空白。
+  final bool failActivity;
 
   /// Stateful decide/cancel so the batteries can walk the full settle grammar. Order proves the
   /// batch dispatched SEQUENTIALLY. 有状态;decideOrder 证批量逐发。
@@ -154,19 +171,15 @@ class StubSchedulerRepo implements SchedulerRepository {
     return r.status;
   }
 
-  Flowrun _live(Flowrun r) => Flowrun(
-        id: r.id,
-        workflowId: r.workflowId,
-        versionId: r.versionId,
-        triggerId: r.triggerId,
-        origin: r.origin,
-        conversationId: r.conversationId,
+  /// The run under the stateful mutations. Every OTHER field must ride through untouched — a stub
+  /// that silently drops `pinnedRefs`/`firingId` would make the dossier's pinned-closure and the
+  /// provenance line untestable and, worse, would let a real drop pass green.
+  /// 有状态变更后的 run:其余字段必须原样带过——静默丢 pinnedRefs/firingId 的 stub 会让卷宗闭包与出处行
+  /// 无法可测,更糟的是会让真正的丢失一路绿灯。
+  Flowrun _live(Flowrun r) => r.copyWith(
         status: statusOf(r),
-        replayCount: r.replayCount,
         error: statusOf(r) == 'failed' ? r.error : null,
-        startedAt: r.startedAt,
         completedAt: statusOf(r) == 'running' ? null : r.completedAt,
-        updatedAt: r.updatedAt,
       );
 
   @override
@@ -296,6 +309,43 @@ class StubSchedulerRepo implements SchedulerRepository {
     }
     return _liveTrigger(t);
   }
+
+  @override
+  Future<List<FlowrunActivityRow>> listActivity(String flowrunId) async {
+    if (failActivity) throw StateError('activity unavailable');
+    activityAsked.add(flowrunId);
+    return activityByRun[flowrunId] ?? const [];
+  }
+
+  @override
+  Future<WorkflowVersion> getWorkflowVersion(String workflowId, String versionId) async {
+    versionAsked.add(versionId);
+    final g = pinnedGraphByVersion[versionId];
+    if (g == null) {
+      throw const ApiException(
+          code: 'WORKFLOW_VERSION_NOT_FOUND', message: 'no version', httpStatus: 404);
+    }
+    final now = DateTime.now();
+    return WorkflowVersion(
+        id: versionId,
+        workflowId: workflowId,
+        version: 7,
+        createdAt: now,
+        updatedAt: now,
+        graphParsed: g);
+  }
+
+  @override
+  Future<String> triageRun(String flowrunId) async {
+    triageOrder.add(flowrunId);
+    return 'cv_triage00000001';
+  }
+
+  /// Probes: WHICH version id the flagship asked for (§5.2 钉版而非 active), which runs it aggregated,
+  /// and every `:triage` it fired. 探针:旗舰问的是哪个版本 id / 聚合了哪些 run / 发过哪些诊断。
+  final List<String> versionAsked = [];
+  final List<String> activityAsked = [];
+  final List<String> triageOrder = [];
 
   /// A trigger under the pause overrides — paused reads listening=false + nextFireAt ABSENT, exactly
   /// like the wire (工单⑦). 暂停覆写后的 trigger:与线缆一致(不监听、无下次)。

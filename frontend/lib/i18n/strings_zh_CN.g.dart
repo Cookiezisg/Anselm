@@ -177,6 +177,7 @@ class _Translations$run$zh_CN extends Translations$run$en {
 	@override String get reject => '驳回';
 	@override String get approvalHint => 'first-wins:先到的决断生效。';
 	@override String get reasonHint => '备注(可选)';
+	@override String get inferredRunning => '推测执行中';
 }
 
 // Path: scheduler
@@ -203,6 +204,7 @@ class _Translations$scheduler$zh_CN extends Translations$scheduler$en {
 	@override late final _Translations$scheduler$overview$zh_CN overview = _Translations$scheduler$overview$zh_CN._(_root);
 	@override late final _Translations$scheduler$status$zh_CN status = _Translations$scheduler$status$zh_CN._(_root);
 	@override late final _Translations$scheduler$home$zh_CN home = _Translations$scheduler$home$zh_CN._(_root);
+	@override late final _Translations$scheduler$run$zh_CN run = _Translations$scheduler$run$zh_CN._(_root);
 }
 
 // Path: action
@@ -1282,6 +1284,57 @@ class _Translations$scheduler$home$zh_CN extends Translations$scheduler$home$en 
 	@override String lastFired({required Object d}) => '上次 ${d} 前';
 	@override String get neverFired => '从未触发';
 	@override String editTriggerA11y({required Object name}) => '去 Entities 编辑触发器 ${name}';
+}
+
+// Path: scheduler.run
+class _Translations$scheduler$run$zh_CN extends Translations$scheduler$run$en {
+	_Translations$scheduler$run$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String crumb({required Object name, required Object id}) => 'Scheduler / ${name} / ${id}';
+	@override String get notFoundTitle => '找不到这次运行';
+	@override String get notFoundHint => '它可能已被保留策略清理。从 workflow 里另选一次运行。';
+	@override String get errorTitle => '这次运行加载失败';
+	@override String get errorHint => '后端没有响应。检查连接后重试。';
+	@override String get orphanBadge => '宿主已删除';
+	@override String get pinnedVersion => '钉版';
+	@override String get graphNotPinned => '取不到这次运行的钉版——下面这张图是 workflow 当前的图,可能与本次实际走过的不同。';
+	@override String queuedFor({required Object d}) => '排队 ${d}';
+	@override String execFor({required Object d}) => '执行 ${d}';
+	@override String get queueWord => '排队';
+	@override String get execWord => '执行';
+	@override String get replay => '重放';
+	@override String get cancel => '取消运行';
+	@override String get triage => 'AI 诊断';
+	@override String get triageFailed => '诊断对话没能打开';
+	@override String get graphHead => '流转';
+	@override String get graphHeadPinned => '流转(钉版)';
+	@override String get ganttHead => '甘特';
+	@override String get ganttEmpty => '这次运行还没有可排上时间轴的节点。';
+	@override String get ganttNoSpan => '所有节点落在同一毫秒内——条只表示顺序,不表示时长。';
+	@override String get notRun => '未及';
+	@override String get ledgerHead => '节点台账';
+	@override String get ledgerEmpty => '还没有节点落定。';
+	@override String get dossierTitle => '运行卷宗';
+	@override String get inspectorTitle => '检查器';
+	@override String get payloadHead => '入口 payload';
+	@override String get pinnedRefsHead => '钉住的引用';
+	@override String get errorHead => '错误';
+	@override String replayHistory({required Object n}) => '已重放 ×${n}';
+	@override String get replayNever => '从未重放';
+	@override String get iterationPick => '迭代';
+	@override String get execLogHead => '执行日志';
+	@override String execLogOpen({required Object id}) => '打开 ${id}';
+	@override String get noSelection => '点一个节点来查看它。';
+	@override String get nodeIn => '输入';
+	@override String get nodeOut => '输出';
+	@override String get nodeNoIo => '这个节点没有记录结果。';
+	@override String get replayNode => '重放失败节点';
+	@override String get relayResolving => '正在定位这次运行…';
+	@override String get relayFailedTitle => '解析不出这次运行';
+	@override String get relayFailedHint => '本工作区没有这个 id 的运行。检查 id,或从某个 workflow 里选一次运行。';
 }
 
 // Path: feedback.batch
@@ -2955,6 +3008,7 @@ extension on TranslationsZhCn {
 			'run.reject' => '驳回',
 			'run.approvalHint' => 'first-wins:先到的决断生效。',
 			'run.reasonHint' => '备注(可选)',
+			'run.inferredRunning' => '推测执行中',
 			'scheduler.railEmptyTitle' => '还没有 workflow',
 			'scheduler.railEmptyHint' => '去 Entities 创建一个,或让对话替你建。',
 			'scheduler.railErrorTitle' => 'workflow 加载失败',
@@ -3097,6 +3151,48 @@ extension on TranslationsZhCn {
 			'scheduler.home.lastFired' => ({required Object d}) => '上次 ${d} 前',
 			'scheduler.home.neverFired' => '从未触发',
 			'scheduler.home.editTriggerA11y' => ({required Object name}) => '去 Entities 编辑触发器 ${name}',
+			'scheduler.run.crumb' => ({required Object name, required Object id}) => 'Scheduler / ${name} / ${id}',
+			'scheduler.run.notFoundTitle' => '找不到这次运行',
+			'scheduler.run.notFoundHint' => '它可能已被保留策略清理。从 workflow 里另选一次运行。',
+			'scheduler.run.errorTitle' => '这次运行加载失败',
+			'scheduler.run.errorHint' => '后端没有响应。检查连接后重试。',
+			'scheduler.run.orphanBadge' => '宿主已删除',
+			'scheduler.run.pinnedVersion' => '钉版',
+			'scheduler.run.graphNotPinned' => '取不到这次运行的钉版——下面这张图是 workflow 当前的图,可能与本次实际走过的不同。',
+			'scheduler.run.queuedFor' => ({required Object d}) => '排队 ${d}',
+			'scheduler.run.execFor' => ({required Object d}) => '执行 ${d}',
+			'scheduler.run.queueWord' => '排队',
+			'scheduler.run.execWord' => '执行',
+			'scheduler.run.replay' => '重放',
+			'scheduler.run.cancel' => '取消运行',
+			'scheduler.run.triage' => 'AI 诊断',
+			'scheduler.run.triageFailed' => '诊断对话没能打开',
+			'scheduler.run.graphHead' => '流转',
+			'scheduler.run.graphHeadPinned' => '流转(钉版)',
+			'scheduler.run.ganttHead' => '甘特',
+			'scheduler.run.ganttEmpty' => '这次运行还没有可排上时间轴的节点。',
+			'scheduler.run.ganttNoSpan' => '所有节点落在同一毫秒内——条只表示顺序,不表示时长。',
+			'scheduler.run.notRun' => '未及',
+			'scheduler.run.ledgerHead' => '节点台账',
+			'scheduler.run.ledgerEmpty' => '还没有节点落定。',
+			'scheduler.run.dossierTitle' => '运行卷宗',
+			'scheduler.run.inspectorTitle' => '检查器',
+			'scheduler.run.payloadHead' => '入口 payload',
+			'scheduler.run.pinnedRefsHead' => '钉住的引用',
+			'scheduler.run.errorHead' => '错误',
+			'scheduler.run.replayHistory' => ({required Object n}) => '已重放 ×${n}',
+			'scheduler.run.replayNever' => '从未重放',
+			'scheduler.run.iterationPick' => '迭代',
+			'scheduler.run.execLogHead' => '执行日志',
+			'scheduler.run.execLogOpen' => ({required Object id}) => '打开 ${id}',
+			'scheduler.run.noSelection' => '点一个节点来查看它。',
+			'scheduler.run.nodeIn' => '输入',
+			'scheduler.run.nodeOut' => '输出',
+			'scheduler.run.nodeNoIo' => '这个节点没有记录结果。',
+			'scheduler.run.replayNode' => '重放失败节点',
+			'scheduler.run.relayResolving' => '正在定位这次运行…',
+			'scheduler.run.relayFailedTitle' => '解析不出这次运行',
+			'scheduler.run.relayFailedHint' => '本工作区没有这个 id 的运行。检查 id,或从某个 workflow 里选一次运行。',
 			'action.edit' => '编辑',
 			'action.cancel' => '取消',
 			'action.save' => '保存',
@@ -3327,6 +3423,8 @@ extension on TranslationsZhCn {
 			'entities.detail.cockpit.runInfo' => '运行信息',
 			'entities.detail.cockpit.iteration' => ({required Object n}) => '轮次 ${n}',
 			'entities.detail.kv.name' => '名称',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.kv.tags' => '标签',
 			'entities.detail.kv.id' => 'ID',
 			'entities.detail.kv.activeVersion' => '活动版本',
@@ -3370,8 +3468,6 @@ extension on TranslationsZhCn {
 			'entities.detail.val.yes' => '是',
 			'entities.detail.val.no' => '否',
 			'entities.detail.val.stopped' => '已停',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.val.noAlerts' => '无告警',
 			'entities.detail.val.needsAttention' => '需注意',
 			'entities.detail.val.required' => '必填',
@@ -3841,6 +3937,8 @@ extension on TranslationsZhCn {
 			'settings.sandbox.installing' => '安装中…',
 			'settings.sandbox.installTitle' => '安装运行时',
 			'settings.sandbox.kind' => '类型',
+			_ => null,
+		} ?? switch (path) {
 			'settings.sandbox.version' => '版本',
 			'settings.sandbox.versionHint' => '如 22 / 3.12',
 			'settings.sandbox.add' => '安装',
@@ -3884,8 +3982,6 @@ extension on TranslationsZhCn {
 			'settings.shortcuts.cmdZoomIn' => '放大界面',
 			'settings.shortcuts.cmdZoomOut' => '缩小界面',
 			'settings.shortcuts.cmdZoomReset' => '重置缩放',
-			_ => null,
-		} ?? switch (path) {
 			'settings.shortcuts.hintModifier' => '组合键须含 ⌘/Ctrl 等修饰键',
 			'markdown.imageNotLoaded' => '图片未加载',
 			'attach.unavailable' => '已不可用',

@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -26,6 +24,7 @@ import '../state/scheduler_rail_provider.dart';
 import '../state/selected_scheduler.dart';
 import 'batch_engine.dart';
 import 'scheduler_home_model.dart';
+import 'scheduler_run_model.dart';
 
 /// The workflow operations home (`/scheduler/w/:id`, WRK-069 §4 S3) — one document flow, four
 /// segments: health head (name + lifecycle + bead strip + 7d stats + Run now + ⋯) → the run big
@@ -848,8 +847,7 @@ class _LinkedRunPaneState extends ConsumerState<_LinkedRunPane> {
     Widget body;
     final comp = runAsync.value;
     if (comp != null) {
-      final version = wfAsync.value?.activeVersion;
-      final graph = version != null ? _graphOf(version) : null;
+      final graph = graphOfVersion(wfAsync.value?.activeVersion);
       if (_face == _PaneFace.gantt) {
         // No duration data yet (工单⑤⑫ 未入库) → flowrunTimeline's zero-span fallback renders
         // honest equal sequential slots. 无时长数据时等宽顺序槽诚实渲。
@@ -927,19 +925,6 @@ class _LinkedRunPaneState extends ConsumerState<_LinkedRunPane> {
         body,
       ]),
     );
-  }
-
-  /// Parse a version's graph (graphParsed beats the raw blob; a bad blob is null — the caller
-  /// renders the honest sentence; same shape as entities' graphOf, 记裁量:8 行守卫不跨 feature 引).
-  /// 解版本图(graphParsed 优先;坏 blob 归 null 诚实渲;与 entities graphOf 同形)。
-  Graph? _graphOf(WorkflowVersion v) {
-    if (v.graphParsed != null) return v.graphParsed;
-    if (v.graph.trim().isEmpty) return const Graph();
-    try {
-      return Graph.fromJson(jsonDecode(v.graph) as Map<String, dynamic>);
-    } catch (_) {
-      return null;
-    }
   }
 }
 

@@ -217,9 +217,20 @@ void main() {
     final done = await repo.getRunFull('fr_chat00000000a1');
     expect(done.nodes.map((n) => n.nodeId), ['fetch', 'gate', 'analyze', 'notify']);
     expect(done.nodes.every((n) => n.status == 'completed'), isTrue);
-    // Spans must be real (the gantt falls back to equal slots only when the span collapses).
-    // 节点跨度真实(塌缩才回退等宽槽)。
-    expect(done.nodes.any((n) => n.completedAt!.difference(n.createdAt).inMilliseconds > 0), isTrue);
+    // Spans must be real (the gantt falls back to equal slots only when the span collapses) — and
+    // the span lives in the ⑫ STAMPS (startedAt→completedAt), never in createdAt, which is the row's
+    // WRITE time and therefore lands ON the terminal. Asserting a createdAt-based span would be
+    // asserting the pre-⑫ fiction the engine surgery removed.
+    // 跨度真实,且跨度住在 ⑫ 两戳里(startedAt→completedAt),绝不在 createdAt——那是行的写入时刻、恰落在
+    // 终态上。拿 createdAt 断言跨度,就是在断言引擎手术已经消灭的那个假象。
+    expect(done.nodes.every((n) => n.readyAt != null && n.startedAt != null), isTrue,
+        reason: '⑫ 排队戳:甘特三段条的数据源');
+    expect(done.nodes.every((n) => !n.startedAt!.isBefore(n.readyAt!)), isTrue,
+        reason: '因果序 readyAt ≤ startedAt(与后端 timing_test 同一不变式)');
+    expect(done.nodes.any((n) => n.completedAt!.difference(n.startedAt!).inMilliseconds > 0), isTrue);
+    // createdAt IS the terminal write — it must NOT be usable as a start stamp. createdAt=终态写入时刻。
+    expect(done.nodes.every((n) => n.completedAt == n.createdAt), isTrue,
+        reason: 'createdAt=行写入时刻=终态,绝非节点起点');
   });
 
   test('wf_clean carries the active-version graph the pane\'s graph face renders', () async {
@@ -300,5 +311,74 @@ void main() {
     expect(running.items, isEmpty, reason: ':kill 取消所有在途 run');
     expect((await fresh.listWorkflows()).firstWhere((w) => w.id == 'wf_clean').lifecycleState,
         'inactive', reason: 'rail 行随之停用(左岛沉底段)');
+  });
+
+  // ── S4 · the run flagship's seeds (WRK-069 §15) ──────────────────────────────
+  // The flagship's whole grammar has to be reachable with zero backend, so the seeds carry the four
+  // shapes that are hard to produce on demand: a ×N loop, a 650KB result, an orphan (host deleted)
+  // and a genuinely mid-flight run with no rows yet. 旗舰全文法必须零后端可达:四种难造的形态在此。
+
+  test('S4 · the loop run folds ×3 and its last turn holds the 650KB monster (§15 大 I/O 注入)',
+      () async {
+    final comp = await repo.getRunFull('fr_loop00000000d1');
+    final analyze = [for (final n in comp.nodes) if (n.nodeId == 'analyze') n];
+    expect(analyze, hasLength(3), reason: '×N 折叠的成员');
+    expect(analyze.map((n) => n.iteration), [0, 1, 2], reason: '逐轮升序,供迭代切换器');
+    final payload = analyze.last.result['payload'] as String;
+    expect(payload.length, 650000, reason: '650KB 物理隔离于右岛 JSON 树的注入');
+    expect(analyze.first.result['payload'], isNull, reason: '只有末轮是巨物(其余轮不该被撑大)');
+    expect(comp.flowrun.versionId, 'wfv_clean00000007', reason: '钉版 id 在场,旗舰据它取图');
+  });
+
+  test('S4 · the ORPHAN run stays reachable while its host 404s (§5.7 墓碑)', () async {
+    final comp = await repo.getRunFull('fr_gh05t16273a4b5c6');
+    expect(comp.flowrun.workflowId, 'wf_ghost');
+    // The host is gone from the rail AND from getWorkflow — that pair IS the tombstone condition.
+    // 宿主在 rail 与 getWorkflow 双双消失——这一对就是墓碑的成立条件。
+    expect((await repo.listWorkflows()).where((w) => w.id == 'wf_ghost'), isEmpty);
+    await expectLater(repo.getWorkflow('wf_ghost'),
+        throwsA(isA<ApiException>().having((e) => e.httpStatus, 'httpStatus', 404)));
+    // Its pinned version is gone too → the flagship falls back to «no graph», honestly.
+    // 它的钉版也没了 → 旗舰诚实回退。
+    await expectLater(repo.getWorkflowVersion('wf_ghost', 'wfv_ghost000000001'),
+        throwsA(isA<ApiException>()));
+  });
+
+  test('S4 · the COLD-OPEN run is live with NO rows — the page must not blank (§5.5)', () async {
+    final comp = await repo.getRunFull('fr_cold00000000e1');
+    expect(comp.flowrun.status, 'running');
+    expect(comp.nodes, isEmpty, reason: '真在飞但引擎还没落定任何行');
+    expect(comp.flowrun.versionId, isNotEmpty, reason: '钉版图仍可取 → 渲占位而非空白');
+  });
+
+  test('S4 · activity (⑤) is derived from the SAME rows, so gantt and ledger cannot disagree',
+      () async {
+    final rows = await repo.listActivity('fr_loop00000000d1');
+    expect(rows, isNotEmpty);
+    // startedAt ASC — the wire's order (api.md ⑤ 行序). 线缆行序。
+    for (var i = 1; i < rows.length; i++) {
+      expect(rows[i].startedAt.isBefore(rows[i - 1].startedAt), isFalse);
+    }
+    // control/approval evaluate INLINE and leave no audit row — their absence is correct, not a gap.
+    // control/approval 内联求值、不留审计行:它们的缺席是正确的,不是缺口。
+    expect(rows.map((r) => r.nodeId), isNot(contains('gate')));
+    final analyze = [for (final r in rows) if (r.nodeId == 'analyze') r];
+    expect(analyze, hasLength(3), reason: '逐迭代各一行审计');
+    expect(analyze.every((r) => r.execId.startsWith('agx_')), isTrue, reason: 'agent 族审计 id');
+    expect(analyze.every((r) => r.elapsedMs > 0), isTrue);
+    // The queue stamp joins through from the truth row (⑫) — the grey segment's data source.
+    // 排队戳自真相行 join 过来(⑫):灰段的数据源。
+    expect(analyze.every((r) => r.readyAt != null), isTrue);
+  });
+
+  test('S4 · the legacy run carries NO queue stamps — the two-part degradation is on screen too',
+      () async {
+    final comp = await repo.getRunFull('fr_legacy000000c3');
+    expect(comp.nodes.every((n) => n.readyAt == null && n.startedAt == null), isTrue,
+        reason: '旧行无戳:甘特必须诚实回退,而不是编一段排队出来');
+  });
+
+  test('S4 · :triage hands back a conversation id the caller can deep-link into chat', () async {
+    expect(await repo.triageRun('fr_hook0000000fa1'), startsWith('cv_'));
   });
 }

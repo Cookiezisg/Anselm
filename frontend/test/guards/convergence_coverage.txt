@@ -97,6 +97,7 @@ lib/core/router/panel_registry.dart	converged
 lib/core/run/approval_gate.dart	converged
 lib/core/run/flowrun_node_list.dart	pending
 lib/core/run/flowrun_progress.dart	reviewed
+lib/core/run/flowrun_watch.dart	pending
 lib/core/run/provenance_line.dart	pending
 lib/core/run/run_ledger.dart	reviewed
 lib/core/run/run_nav.dart	converged
@@ -459,6 +460,7 @@ lib/features/scheduler/data/scheduler_repository.dart	pending
 lib/features/scheduler/state/scheduler_home_provider.dart	pending
 lib/features/scheduler/state/scheduler_overview_provider.dart	pending
 lib/features/scheduler/state/scheduler_rail_provider.dart	pending
+lib/features/scheduler/state/scheduler_run_provider.dart	pending
 lib/features/scheduler/state/selected_scheduler.dart	pending
 lib/features/scheduler/ui/batch_engine.dart	pending
 lib/features/scheduler/ui/overview_zones.dart	pending
@@ -468,6 +470,10 @@ lib/features/scheduler/ui/scheduler_ocean.dart	pending
 lib/features/scheduler/ui/scheduler_overview.dart	pending
 lib/features/scheduler/ui/scheduler_rail.dart	pending
 lib/features/scheduler/ui/scheduler_rail_model.dart	pending
+lib/features/scheduler/ui/scheduler_run.dart	pending
+lib/features/scheduler/ui/scheduler_run_inspector.dart	pending
+lib/features/scheduler/ui/scheduler_run_model.dart	pending
+lib/features/scheduler/ui/scheduler_run_relay.dart	pending
 lib/features/settings/data/settings_demo_fixture.dart	reviewed
 lib/features/settings/data/settings_repository.dart	converged
 lib/features/settings/model/settings_catalog.dart	converged

@@ -128,6 +128,12 @@ _FlowrunNode _$FlowrunNodeFromJson(Map<String, dynamic> json) => _FlowrunNode(
   status: json['status'] as String? ?? '',
   result: json['result'] as Map<String, dynamic>? ?? const <String, Object?>{},
   error: json['error'] as String?,
+  readyAt: json['readyAt'] == null
+      ? null
+      : DateTime.parse(json['readyAt'] as String),
+  startedAt: json['startedAt'] == null
+      ? null
+      : DateTime.parse(json['startedAt'] as String),
   createdAt: DateTime.parse(json['createdAt'] as String),
   completedAt: json['completedAt'] == null
       ? null
@@ -146,9 +152,39 @@ Map<String, dynamic> _$FlowrunNodeToJson(_FlowrunNode instance) =>
       'status': instance.status,
       'result': instance.result,
       'error': instance.error,
+      'readyAt': instance.readyAt?.toIso8601String(),
+      'startedAt': instance.startedAt?.toIso8601String(),
       'createdAt': instance.createdAt.toIso8601String(),
       'completedAt': instance.completedAt?.toIso8601String(),
       'updatedAt': instance.updatedAt.toIso8601String(),
+    };
+
+_FlowrunActivityRow _$FlowrunActivityRowFromJson(Map<String, dynamic> json) =>
+    _FlowrunActivityRow(
+      nodeId: json['nodeId'] as String? ?? '',
+      iteration: (json['iteration'] as num?)?.toInt() ?? 0,
+      kind: json['kind'] as String? ?? '',
+      execId: json['execId'] as String? ?? '',
+      status: json['status'] as String? ?? '',
+      readyAt: json['readyAt'] == null
+          ? null
+          : DateTime.parse(json['readyAt'] as String),
+      startedAt: DateTime.parse(json['startedAt'] as String),
+      endedAt: DateTime.parse(json['endedAt'] as String),
+      elapsedMs: (json['elapsedMs'] as num?)?.toInt() ?? 0,
+    );
+
+Map<String, dynamic> _$FlowrunActivityRowToJson(_FlowrunActivityRow instance) =>
+    <String, dynamic>{
+      'nodeId': instance.nodeId,
+      'iteration': instance.iteration,
+      'kind': instance.kind,
+      'execId': instance.execId,
+      'status': instance.status,
+      'readyAt': instance.readyAt?.toIso8601String(),
+      'startedAt': instance.startedAt.toIso8601String(),
+      'endedAt': instance.endedAt.toIso8601String(),
+      'elapsedMs': instance.elapsedMs,
     };
 
 _FlowrunNodeSummary _$FlowrunNodeSummaryFromJson(Map<String, dynamic> json) =>

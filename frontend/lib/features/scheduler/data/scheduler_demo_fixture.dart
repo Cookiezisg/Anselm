@@ -199,11 +199,56 @@ class FixtureSchedulerRepository implements SchedulerRepository {
       Flowrun(
         id: 'fr_0a1b2c3d4e5f6071',
         workflowId: 'wf_clean',
+        versionId: 'wfv_clean00000007',
+        pinnedRefs: const {'fetch': 'fnv_fetch00000003', 'analyze': 'agv_analyze000005'},
         origin: 'cron',
         triggerId: 'tr_cron_clean',
+        firingId: 'trf_clean00000091',
         status: 'running',
         startedAt: _shift(_anchor.subtract(const Duration(seconds: 90))),
         updatedAt: _shift(_anchor),
+      ),
+      // wf_clean: the LOOP run — analyze ×3, the last turn holding a 650KB result (§15 大 I/O 注入).
+      // The S4 flagship folds it to one ×3 line that unfolds per turn. 循环 run:analyze ×3,末轮
+      // 650KB;旗舰折成一行 ×3、可逐轮展开。
+      Flowrun(
+        id: 'fr_loop00000000d1',
+        workflowId: 'wf_clean',
+        versionId: 'wfv_clean00000007',
+        pinnedRefs: const {'analyze': 'agv_analyze000005'},
+        origin: 'manual',
+        status: 'completed',
+        startedAt: _shift(_anchor.subtract(const Duration(minutes: 12))),
+        completedAt: _shift(_anchor.subtract(const Duration(minutes: 12))).add(const Duration(seconds: 22)),
+        updatedAt: _shift(_anchor.subtract(const Duration(minutes: 12))),
+      ),
+      // wf_clean: the COLD-OPEN run (§5.5) — genuinely mid-flight with NO node row yet (the engine
+      // has not settled anything). Deep-linking into it must render the pinned graph + an honest
+      // empty ledger, never a blank page and never a fake «running» authority.
+      // 冷打开态:真在飞但还没有任何节点行——深链进去必须渲钉版图 + 诚实空台账,绝不空白也绝不装权威。
+      Flowrun(
+        id: 'fr_cold00000000e1',
+        workflowId: 'wf_clean',
+        versionId: 'wfv_clean00000007',
+        origin: 'cron',
+        triggerId: 'tr_cron_clean',
+        status: 'running',
+        startedAt: _shift(_anchor.subtract(const Duration(seconds: 4))),
+        updatedAt: _shift(_anchor),
+      ),
+      // The ORPHAN run (§5.7) — its host workflow was soft-deleted, so it is absent from the rail and
+      // getWorkflow 404s, yet the archive page stays reachable (the inbox still carries its parked
+      // approval). Tombstone head; every action but replay is off.
+      // 孤儿 run:宿主已软删(rail 里没有、getWorkflow 404),但档案页仍可达(收件箱里还有它的 parked
+      // 审批)。头戴墓碑,除 replay 外动作全禁。
+      Flowrun(
+        id: 'fr_gh05t16273a4b5c6',
+        workflowId: 'wf_ghost',
+        versionId: 'wfv_ghost000000001',
+        origin: 'cron',
+        status: 'running',
+        startedAt: _shift(_anchor.subtract(const Duration(days: 2))),
+        updatedAt: _shift(_anchor.subtract(const Duration(days: 2))),
       ),
       // wf_clean: a chat-born run — conversation coordinate rides the row (工单①). 对话来源。
       Flowrun(
@@ -580,27 +625,53 @@ class FixtureSchedulerRepository implements SchedulerRepository {
     return FlowrunComposite(flowrun: run, nodes: _nodesFor(run));
   }
 
-  /// Per-run node rows for the linked pane — derived from the run's own stamps so gantt spans stay
-  /// honest under _shift: completed runs walk all 4 nodes; failed runs stop at analyze (notify 未及);
-  /// the live/parked runs carry their partial walks. 逐 run 节点行:按 run 自身时刻派生;失败停在
-  /// analyze(notify 未及);活/停车 run 走到一半。
+  /// Per-run node rows for the linked pane + the S4 flagship — derived from the run's own stamps so
+  /// gantt spans stay honest under _shift. Every scheduled row carries the ⑫ QUEUE STAMPS
+  /// (readyAt ≤ startedAt ≤ completedAt), so the demo's gantt shows the real three-part bar; the
+  /// legacy run (fr_legacy…) deliberately carries NONE, so the two-part degradation is on screen
+  /// too. completed runs walk all 4 nodes; failed runs stop at analyze (notify 未及); the live/parked
+  /// runs carry their partial walks (analyze is then the SYNTHESIZED front — the 推测执行中 state).
+  /// 逐 run 节点行:按 run 自身时刻派生;每个被调度的行都带 ⑫ 排队戳(故 demo 甘特出真三段条),而旧行
+  /// 刻意不带(两段回退也在屏上);失败停在 analyze;活/停车 run 走到一半(analyze 即推测前沿)。
   List<FlowrunNode> _nodesFor(Flowrun run) {
     final started = run.startedAt;
     if (started == null) return const [];
+    // A run born before the queue columns — no stamps, so its bars degrade honestly. 旧行:无戳。
+    final legacy = run.id == 'fr_legacy000000c3';
     FlowrunNode node(String nodeId, String kind, String status, Duration at, Duration? span,
-            {Map<String, Object?> result = const {}, String? error}) =>
+            {Map<String, Object?> result = const {},
+            String? error,
+            int iteration = 0,
+            Duration queued = const Duration(milliseconds: 120)}) =>
         FlowrunNode(
-          id: 'frn_${run.id}_$nodeId',
+          id: 'frn_${run.id}_${nodeId}_$iteration',
           flowrunId: run.id,
           nodeId: nodeId,
+          iteration: iteration,
           kind: kind,
           status: status,
           result: result,
           error: error,
-          createdAt: started.add(at),
+          // readyAt = when the walk found it ready; startedAt = when the engine picked it up; the
+          // gap between them IS the grey queue segment (工单⑫). readyAt/startedAt 之间的空档就是灰
+          // 排队段。
+          readyAt: legacy ? null : started.add(at - queued),
+          startedAt: legacy ? null : started.add(at),
+          // createdAt = the row's WRITE time = the terminal / park moment (never the node's start).
+          // createdAt=行写入时刻=终态/停车时刻,绝非节点起点。
+          createdAt: started.add(span != null ? at + span : at),
           completedAt: span != null ? started.add(at + span) : null,
           updatedAt: started.add(at),
         );
+
+    // The 650KB payload (§15 大 I/O 注入) — physically isolated in the right island's JSON tree and
+    // NOWHERE else, so this seed is the page's proof that a monstrous result costs the flagship
+    // nothing. 650KB 大 I/O:物理隔离在右岛 JSON 树,别处不渲——本种子就是「巨大结果不拖垮旗舰」的证明。
+    Map<String, Object?> bigResult() => {
+          'rows': 4200,
+          'digest': 'sha256:${'a' * 64}',
+          'payload': 'x' * 650000,
+        };
 
     switch (run.status) {
       case 'failed':
@@ -610,9 +681,14 @@ class FixtureSchedulerRepository implements SchedulerRepository {
               const Duration(milliseconds: 30), result: const {'__port': 'high'}),
           node('analyze', 'agent', 'failed', const Duration(seconds: 1),
               const Duration(seconds: 5),
-              error: (run.error ?? 'failed').split('\n').first),
+              error: run.error,
+              queued: const Duration(milliseconds: 800)),
         ];
       case 'running':
+        // A live run with NO rows at all is the COLD-OPEN case (§5.5): deep-linking into it must not
+        // blank out — the page renders the pinned graph's stubs + an honest empty ledger rather than
+        // pretending. 无任何行的活 run=冷打开态:深链进去绝不空白,渲钉版图占位 + 诚实空台账。
+        if (run.id == 'fr_cold00000000e1') return const [];
         // Parked runs surface their gate; plain live runs have walked fetch+gate (analyze is the
         // synthesized-running front). parked 露闸;活 run 走完前两节点。
         final parked = _inboxSeeds().where((r) => r.node.flowrunId == run.id).firstOrNull;
@@ -623,6 +699,23 @@ class FixtureSchedulerRepository implements SchedulerRepository {
           if (parked != null) parked.node,
         ];
       case 'completed':
+        // The loop run: analyze ran three turns (§5.4 ×N 折叠) and its last turn returned the 650KB
+        // monster. 循环 run:analyze 跑了三轮,末轮返回 650KB 巨物。
+        if (run.id == 'fr_loop00000000d1') {
+          return [
+            node('fetch', 'action', 'completed', Duration.zero, const Duration(milliseconds: 900)),
+            node('gate', 'control', 'completed', const Duration(milliseconds: 950),
+                const Duration(milliseconds: 30), result: const {'__port': 'high'}),
+            for (var i = 0; i < 3; i++)
+              node('analyze', 'agent', 'completed', Duration(seconds: 1 + i * 6),
+                  const Duration(seconds: 5),
+                  iteration: i,
+                  result: i == 2 ? bigResult() : {'turn': i},
+                  queued: Duration(milliseconds: 200 + i * 150)),
+            node('notify', 'action', 'completed', const Duration(seconds: 20),
+                const Duration(seconds: 2)),
+          ];
+        }
         return [
           node('fetch', 'action', 'completed', Duration.zero, const Duration(milliseconds: 900)),
           node('gate', 'control', 'completed', const Duration(milliseconds: 950),
@@ -639,6 +732,70 @@ class FixtureSchedulerRepository implements SchedulerRepository {
         ];
     }
   }
+
+  /// The ⑤ activity aggregation, derived from the SAME node rows so the demo can never show a gantt
+  /// whose exec segment disagrees with its ledger. Only DISPATCHED entity nodes leave audit rows —
+  /// control/approval evaluate inline and legitimately have none (the exec segment then falls back
+  /// to the row's own stamps, which is the normal path for them, not a degraded one).
+  /// ⑤ 活动聚合:与节点行同源派生(demo 里甘特执行段与台账不可能打架)。只有被派发的实体节点留审计行——
+  /// control/approval 内联求值、本就没有(执行段回落行自身戳,那是它们的正常路径而非降级)。
+  @override
+  Future<List<FlowrunActivityRow>> listActivity(String flowrunId) async {
+    final run = _allRuns().where((r) => r.id == flowrunId).firstOrNull;
+    if (run == null) {
+      throw const ApiException(
+          code: 'FLOWRUN_NOT_FOUND', message: 'flowrun not found', httpStatus: 404);
+    }
+    final rows = <FlowrunActivityRow>[];
+    for (final n in _nodesFor(run)) {
+      // No audit row for inline kinds, nor for a row still parked (nothing executed yet).
+      // 内联 kind 与仍 parked 的行无审计行。
+      if (n.kind == 'control' || n.kind == 'approval' || n.startedAt == null) continue;
+      final end = n.completedAt ?? n.createdAt;
+      rows.add(FlowrunActivityRow(
+        nodeId: n.nodeId,
+        iteration: n.iteration,
+        kind: n.kind == 'agent' ? 'agent' : 'function',
+        execId: '${n.kind == 'agent' ? 'agx' : 'fne'}_${n.nodeId}${n.iteration}0000000',
+        status: n.status == 'failed' ? 'failed' : 'ok',
+        readyAt: n.readyAt,
+        startedAt: n.startedAt!,
+        endedAt: end,
+        elapsedMs: end.difference(n.startedAt!).inMilliseconds,
+      ));
+    }
+    // The wire is startedAt ASC (the gantt's natural order). 线缆按 startedAt 升序。
+    rows.sort((a, b) => a.startedAt.compareTo(b.startedAt));
+    return rows;
+  }
+
+  /// The PINNED version (§5.2) — wf_clean's v7 is the one graph the demo's runs walked. An unknown
+  /// version id 404s, which is exactly what makes the flagship's «couldn't pin the map» banner
+  /// reachable in the demo (the orphan run's host is gone, so its version is too).
+  /// 钉版:wf_clean 的 v7 即 demo 各 run 走过的图。未知版本 404——旗舰的「钉版取不到」横幅因此在 demo
+  /// 里可达(孤儿 run 的宿主没了,版本也没了)。
+  @override
+  Future<WorkflowVersion> getWorkflowVersion(String workflowId, String versionId) async {
+    if (versionId != 'wfv_clean00000007' || workflowId != 'wf_clean') {
+      throw const ApiException(
+          code: 'WORKFLOW_VERSION_NOT_FOUND', message: 'version not found', httpStatus: 404);
+    }
+    final created = _shift(_anchor.subtract(const Duration(days: 30)));
+    return WorkflowVersion(
+      id: 'wfv_clean00000007',
+      workflowId: 'wf_clean',
+      version: 7,
+      createdAt: created,
+      updatedAt: created,
+      graphParsed: _cleanGraph,
+    );
+  }
+
+  /// `:triage` — 202 → a conversation id the caller deep-links into chat. The demo hands back the
+  /// seeded conversation so `make demo` walks the whole gesture. AI 诊断:返对话 id;demo 给种子对话,
+  /// 让整个动作在零后端下走通。
+  @override
+  Future<String> triageRun(String flowrunId) async => 'cv_demo000000000001';
 
   @override
   Future<List<TriggerEntity>> listTriggers() async => [

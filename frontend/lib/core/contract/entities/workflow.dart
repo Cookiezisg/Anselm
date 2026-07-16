@@ -72,7 +72,19 @@ abstract class Flowrun with _$Flowrun {
   factory Flowrun.fromJson(Map<String, dynamic> json) => _$FlowrunFromJson(json);
 }
 
-/// One flowrun node row (record-once memoization; the timeline cell). flowrun.go:137。
+/// One flowrun node row (record-once memoization; the timeline cell). flowrun.go:172。
+///
+/// [readyAt]/[startedAt] are the QUEUE-SEGMENT stamps (scheduler 工单⑫), written on the row's single
+/// record-once INSERT: readyAt = when a walk turn first computed this (node, iteration) ready (the
+/// queue start), startedAt = when the engine began processing it (input CEL eval + dispatch — the
+/// execution entity's own start rides its audit row, see [FlowrunActivityRow]). Causal order is
+/// guaranteed readyAt ≤ startedAt ≤ completedAt. BOTH are omitted (null) on rows born before the
+/// columns AND on seed trigger rows (never queued) — null = no queue segment, NEVER a zero-value lie.
+/// [createdAt] is the row's write time = the terminal/PARK moment (an approval's park boundary), NOT
+/// the node's start; [completedAt] is nil while parked and stamps the decision when it settles.
+/// readyAt/startedAt = 排队段两戳(⑫,随唯一一次 record-once INSERT 落盘);因果序 readyAt ≤ startedAt ≤
+/// completedAt;旧行与 seed trigger 行两戳缺席(null=无排队段,绝不装 0)。createdAt=行写入时刻=终态/
+/// 停车时刻(非节点起点);completedAt 停车期间为 nil、决断时盖章。
 @freezed
 abstract class FlowrunNode with _$FlowrunNode {
   const factory FlowrunNode({
@@ -85,11 +97,43 @@ abstract class FlowrunNode with _$FlowrunNode {
     @Default('') String status,
     @Default(<String, Object?>{}) Map<String, Object?> result,
     String? error,
+    DateTime? readyAt,
+    DateTime? startedAt,
     required DateTime createdAt,
     DateTime? completedAt,
     required DateTime updatedAt,
   }) = _FlowrunNode;
   factory FlowrunNode.fromJson(Map<String, dynamic> json) => _$FlowrunNodeFromJson(json);
+}
+
+/// One row of `GET /flowruns/{id}/activity` (scheduler 工单⑤) — the pure-read UNION of the four
+/// execution-log tables by flowrun_id, newest-walk-order (startedAt ASC, the gantt's natural order).
+/// [kind] is the AUDIT-table family (function|handler|agent|mcp — NOT the graph node kind: an `action`
+/// node fans into three families by its ref prefix, and control/approval evaluate inline with no audit
+/// row at all, so a node CAN legitimately have no activity row). [execId] is the audit row id
+/// (fne_/hcl_/agx_/mcl_) — the execution-log deep link. [status] is the audit vocabulary
+/// (ok|failed|cancelled|timeout), NOT the node-row three. [startedAt]/[endedAt]/[elapsedMs] are the
+/// execution's OWN span (the gantt's exec segment); [readyAt] is joined from the truth row's queue
+/// stamp (工单⑫) and is ABSENT on pre-⑫ rows / when no live truth row matches (:replay clears the old
+/// failed row while its audit attempt survives — Log 表不删), so a queue segment computed from it must
+/// be clamped ≥ 0.
+/// 按 run 聚合的活动行(⑤):四张审计表 UNION;kind=审计表族(非图节点 kind——control/approval 无审计行);
+/// execId=审计行 id(执行日志深链);status=审计词表;起止=执行自身跨度(甘特执行段);readyAt=join 自
+/// 真相行的排队戳(⑫,可缺席;replay 后旧审计行可早于存活真相行的戳——排队段须钳制 ≥0)。
+@freezed
+abstract class FlowrunActivityRow with _$FlowrunActivityRow {
+  const factory FlowrunActivityRow({
+    @Default('') String nodeId,
+    @Default(0) int iteration,
+    @Default('') String kind,
+    @Default('') String execId,
+    @Default('') String status,
+    DateTime? readyAt,
+    required DateTime startedAt,
+    required DateTime endedAt,
+    @Default(0) int elapsedMs,
+  }) = _FlowrunActivityRow;
+  factory FlowrunActivityRow.fromJson(Map<String, dynamic> json) => _$FlowrunActivityRowFromJson(json);
 }
 
 /// The F173 80-node cap summary — present in a get_flowrun / replay_flowrun tool result ONLY when the

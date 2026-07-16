@@ -1,0 +1,610 @@
+import 'package:anselm/core/contract/entities/values.dart';
+import 'package:anselm/core/contract/entities/workflow.dart';
+import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/run/flowrun_node_list.dart';
+import 'package:anselm/core/router/navigation.dart';
+import 'package:anselm/core/runtime.dart';
+import 'package:anselm/core/sse/frame.dart';
+import 'package:anselm/core/ui/ui.dart';
+import 'package:anselm/features/scheduler/data/scheduler_repository.dart';
+import 'package:anselm/features/scheduler/state/scheduler_run_provider.dart';
+import 'package:anselm/features/scheduler/ui/scheduler_run.dart';
+import 'package:anselm/features/scheduler/ui/scheduler_run_inspector.dart';
+import 'package:anselm/features/scheduler/ui/scheduler_run_relay.dart';
+import 'package:anselm/i18n/strings.g.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+
+import 'stub_scheduler_repo.dart';
+
+// S4 · the run flagship + its two-faced right island (WRK-069 §5/§6). The batteries pin the page's
+// three PROMISES: (1) one selection moves every altitude and lives in the URL; (2) the island is
+// never blank and never lies about what it doesn't know (cold-open / tombstone / un-pinned graph);
+// (3) a 650KB result is physically isolated in the island and costs the page nothing. A live run
+// breathes forever → FIXED pumps, never pumpAndSettle. S4 电池:三海拔单选区/岛永不空白也不撒谎/
+// 650KB 隔离;活 run 永远呼吸,固定 pump、绝不 settle。
+
+final _now = DateTime.now();
+
+/// The page is a full flagship + a 380 island — a phone-sized default viewport would overflow every
+/// zone and drown the assertions in layout noise. 桌面视口:手机默认尺寸会让每个区溢出、把断言淹没在
+/// 布局噪声里。
+void _desktop(WidgetTester tester) {
+  tester.view.physicalSize = const Size(1600, 1400);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.reset);
+}
+
+const _graph = Graph(
+  nodes: [
+    Node(id: 'fetch', kind: NodeKind.action, ref: 'fn_fetch'),
+    Node(id: 'gate', kind: NodeKind.control, ref: 'ctl_gate'),
+    Node(id: 'analyze', kind: NodeKind.agent, ref: 'ag_analyze'),
+    Node(id: 'notify', kind: NodeKind.action, ref: 'fn_notify'),
+  ],
+  edges: [
+    Edge(id: 'e1', from: 'fetch', to: 'gate'),
+    Edge(id: 'e2', from: 'gate', fromPort: 'high', to: 'analyze'),
+    Edge(id: 'e3', from: 'analyze', to: 'notify'),
+  ],
+);
+
+/// TODAY's active graph — deliberately DIFFERENT from the pinned one, so a battery can tell which
+/// map the flagship drew (§5.2 顺修 run_cockpit 错图 bug). 当下 active 图:刻意与钉版不同,以便断言
+/// 旗舰画的是哪张地图。
+const _activeGraph = Graph(
+  nodes: [
+    Node(id: 'fetch', kind: NodeKind.action, ref: 'fn_fetch'),
+    Node(id: 'rewritten', kind: NodeKind.agent, ref: 'ag_new'),
+  ],
+  edges: [Edge(id: 'e1', from: 'fetch', to: 'rewritten')],
+);
+
+FlowrunNode _node(
+  String nodeId,
+  String status, {
+  String kind = 'action',
+  int iteration = 0,
+  int readySec = 0,
+  int? startSec,
+  int? endSec,
+  String? error,
+  Map<String, Object?> result = const {},
+}) =>
+    FlowrunNode(
+      id: 'frn_${nodeId}_$iteration',
+      flowrunId: 'fr_run1',
+      nodeId: nodeId,
+      iteration: iteration,
+      kind: kind,
+      status: status,
+      result: result,
+      error: error,
+      readyAt: startSec == null ? null : _now.subtract(Duration(seconds: 60 - readySec)),
+      startedAt: startSec == null ? null : _now.subtract(Duration(seconds: 60 - startSec)),
+      createdAt: _now.subtract(Duration(seconds: 60 - (endSec ?? startSec ?? readySec))),
+      completedAt: endSec == null ? null : _now.subtract(Duration(seconds: 60 - endSec)),
+      updatedAt: _now,
+    );
+
+// The run HEADER's error and the failing NODE's error are DIFFERENT fields (flowrun.error vs
+// flowrun_nodes.error): the header carries the engine's summary of why the run died, the node the raw
+// failure. Seeding them distinctly is what lets a battery prove which surface reads which.
+// run 头的 error 与失败节点的 error 是两个字段(引擎摘要 vs 原始失败);种成不同的串,才能断言哪个面读的
+// 是哪一个。
+final _huge = 'x' * 650000;
+
+/// A run whose analyze turn returned a 650KB monster — the isolation proof (§6). 650KB 隔离证明。
+StubSchedulerRepo _bigRepo() => _repo(status: 'completed', nodes: [
+      _node('fetch', 'completed', readySec: 0, startSec: 1, endSec: 2),
+      _node('analyze', 'completed',
+          kind: 'agent', readySec: 2, startSec: 3, endSec: 9, result: {'payload': _huge}),
+    ]);
+
+/// A run whose analyze looped three turns — the ×N fold + the iteration switcher. 循环 ×3。
+StubSchedulerRepo _loopRepo() => _repo(status: 'completed', nodes: [
+      for (var i = 0; i < 3; i++)
+        _node('analyze', 'completed',
+            kind: 'agent', iteration: i, readySec: i * 2, startSec: i * 2 + 1, endSec: i * 2 + 2,
+            result: {'turn': i}),
+    ]);
+
+const _runError = 'analyze failed: the run stopped here\n  run-level detail line';
+const _nodeError = 'timeout: LLM 30s no answer\n  at analyze step\n  stack frame two';
+
+StubSchedulerRepo _repo({
+  String status = 'failed',
+  List<FlowrunNode>? nodes,
+  bool orphan = false,
+  bool pinnedMissing = false,
+  Map<String, List<FlowrunActivityRow>> activity = const {},
+}) =>
+    StubSchedulerRepo(
+      workflows: orphan
+          ? const []
+          : [
+              SchedulerWorkflowRow(
+                  id: 'wf_a', name: '数据清洗流水线', lifecycleState: 'active', updatedAt: _now),
+            ],
+      graphByWorkflow: const {'wf_a': _activeGraph},
+      pinnedGraphByVersion: pinnedMissing ? const {} : const {'wfv_pinned7': _graph},
+      runs: [
+        Flowrun(
+          id: 'fr_run1',
+          workflowId: 'wf_a',
+          versionId: 'wfv_pinned7',
+          pinnedRefs: const {'analyze': 'agv_analyze5'},
+          origin: 'cron',
+          triggerId: 'tr_cron',
+          firingId: 'trf_1',
+          status: status,
+          error: status == 'failed' ? _runError : null,
+          replayCount: 1,
+          startedAt: _now.subtract(const Duration(seconds: 60)),
+          completedAt: status == 'running' ? null : _now.subtract(const Duration(seconds: 51)),
+          updatedAt: _now,
+        ),
+      ],
+      nodesByRun: {
+        'fr_run1': nodes ??
+            [
+              _node('fetch', 'completed', readySec: 0, startSec: 1, endSec: 2),
+              _node('gate', 'completed',
+                  kind: 'control', readySec: 2, startSec: 2, endSec: 3, result: const {'__port': 'high'}),
+              _node('analyze', 'failed',
+                  kind: 'agent', readySec: 3, startSec: 4, endSec: 9, error: _nodeError),
+            ],
+      },
+      activityByRun: activity,
+    );
+
+Widget _host(StubSchedulerRepo repo, {String? node, int? iter, bool relay = false}) {
+  // The overlay (confirm dialogs / toasts) pushes onto the ROUTER's navigator — a detached key would
+  // silently swallow every dialog. 弹层挂在路由自己的 navigator 上:游离的 key 会静默吞掉所有弹窗。
+  final navKey = GlobalKey<NavigatorState>();
+  final router = _router(navKey, node: node, iter: iter, relay: relay);
+  return ProviderScope(
+    overrides: [
+      sseGatewayProvider.overrideWithValue(null),
+      schedulerRepositoryProvider.overrideWithValue(repo),
+      // The island's face derives from selectedSchedulerProvider, which derives ONE-WAY from this
+      // router's delegate — the same seam the app root injects (§11 选区单向派生自 URL).
+      // 岛的脸派生自选区,选区单向派生自路由 delegate——与 app 根注入同一条缝。
+      goRouterProvider.overrideWithValue(router),
+    ],
+    child: TranslationProvider(
+      child: MaterialApp.router(
+        theme: AnTheme.light(),
+        routerConfig: router,
+        builder: (context, child) => AnOverlayHost(navigatorKey: navKey, child: child!),
+      ),
+    ),
+  );
+}
+
+GoRouter _router(GlobalKey<NavigatorState> navKey, {String? node, int? iter, bool relay = false}) {
+  return GoRouter(
+    navigatorKey: navKey,
+    initialLocation: relay
+        ? '/scheduler/runs/fr_run1'
+        : Uri(path: '/scheduler/w/wf_a/runs/fr_run1', queryParameters: {
+            'node': ?node,
+            if (iter != null) 'iter': '$iter',
+          }).toString(),
+    routes: [
+      GoRoute(
+        path: '/scheduler/runs/:frId',
+        builder: (c, s) => SchedulerRunRelayView(flowrunId: s.pathParameters['frId']!),
+      ),
+      GoRoute(
+        path: '/scheduler/w/:wfId/runs/:frId',
+        builder: (c, s) => Scaffold(
+          body: Row(children: [
+            Expanded(
+              child: SchedulerRunView(
+                workflowId: s.pathParameters['wfId']!,
+                flowrunId: s.pathParameters['frId']!,
+                nodeId: s.uri.queryParameters['node'],
+                iteration: int.tryParse(s.uri.queryParameters['iter'] ?? ''),
+              ),
+            ),
+            const SizedBox(width: 380, child: SchedulerRunInspector()),
+          ]),
+        ),
+      ),
+      GoRoute(path: '/chat/:id', builder: (c, s) => const Text('CHAT LANDED')),
+    ],
+  );
+}
+
+Future<void> _pump(WidgetTester tester, StubSchedulerRepo repo,
+    {String? node, int? iter, bool relay = false}) async {
+  await tester.pumpWidget(_host(repo, node: node, iter: iter, relay: relay));
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 100));
+  await tester.pump(const Duration(seconds: 1));
+}
+
+void main() {
+
+  group('卷宗头 (§5.1)', () {
+    testWidgets('the error sentence is the FIRST LINE, and the same string reaches the ledger row',
+        (tester) async {
+      _desktop(tester);
+      await _pump(tester, _repo());
+      // The HEAD speaks the run header's FIRST LINE only — its detail line stays out of the head.
+      // 头只说 run 头 error 的首句,细节行不进头。
+      final head = find.byType(SchedulerRunView);
+      expect(find.descendant(of: head, matching: find.textContaining('analyze failed: the run stopped here')),
+          findsOneWidget);
+      expect(find.descendant(of: head, matching: find.textContaining('run-level detail line')),
+          findsNothing, reason: 'run 头 error 的全文归右岛卷宗脸');
+      // The failing NODE's sentence reaches the ledger row — the same errorSentence() fold, applied
+      // to the node's own field. 失败节点的首句进台账行:同一个 errorSentence(),作用在节点自己的字段上。
+      expect(
+          find.descendant(
+              of: find.byType(FlowrunNodeList),
+              matching: find.textContaining('timeout: LLM 30s no answer')),
+          findsWidgets);
+    });
+
+    testWidgets('«排队 x · 执行 y» renders off REAL ⑫/⑤ data, and the ↻N + origin badges ride along',
+        (tester) async {
+      _desktop(tester);
+      await _pump(tester, _repo());
+            expect(find.textContaining(t.scheduler.run.queueWord), findsWidgets, reason: '排队段有 ⑫ 真数据');
+      expect(find.textContaining(t.scheduler.run.execWord), findsWidgets);
+      expect(find.textContaining(t.scheduler.run.pinnedVersion), findsWidgets);
+    });
+
+    testWidgets('the un-pinnable graph SAYS so instead of passing today\'s map off as the run\'s',
+        (tester) async {
+      _desktop(tester);
+      final repo = _repo(pinnedMissing: true);
+      await _pump(tester, repo);
+      expect(repo.versionAsked, contains('wfv_pinned7'), reason: '先问钉版(§5.2)');
+      expect(find.textContaining(t.scheduler.run.graphNotPinned),
+          findsOneWidget,
+          reason: '取不到钉版 → 明说这是当下的图');
+    });
+
+    testWidgets('a pinned run draws the PINNED topology, never today\'s rewritten one', (tester) async {
+      _desktop(tester);
+      final repo = _repo();
+      await _pump(tester, repo);
+      expect(repo.versionAsked, ['wfv_pinned7']);
+      // 'rewritten' exists only in the ACTIVE graph — seeing it would be the run_cockpit 错图 bug.
+      // rewritten 只存在于 active 图:它出现即是 run_cockpit 的错图 bug。
+      expect(find.text('rewritten'), findsNothing);
+      expect(find.text('analyze'), findsWidgets);
+      expect(find.textContaining(t.scheduler.run.graphNotPinned), findsNothing);
+    });
+  });
+
+  group('孤儿墓碑 (§5.7)', () {
+    testWidgets('a soft-deleted host keeps the page reachable, wears the tombstone, and disables '
+        'everything but replay', (tester) async {
+      _desktop(tester);
+            await _pump(tester, _repo(orphan: true));
+      expect(find.text(t.scheduler.run.orphanBadge), findsOneWidget);
+      // Replay survives (a run's archive is repairable without its host); triage does not.
+      // replay 活着(档案不依赖宿主即可修);诊断不。
+      expect(find.widgetWithText(AnButton, t.scheduler.run.replay), findsOneWidget);
+      expect(find.widgetWithText(AnButton, t.scheduler.run.triage), findsNothing);
+    });
+  });
+
+  group('冷打开推测态 (§5.5)', () {
+    testWidgets('a live run with NO node rows renders the pinned stubs + an honest empty ledger — '
+        'never a blank page', (tester) async {
+      _desktop(tester);
+            await _pump(tester, _repo(status: 'running', nodes: const []));
+      expect(find.byType(AnNodeGantt), findsOneWidget, reason: '钉版图的占位仍在场');
+      expect(find.text(t.scheduler.run.ledgerEmpty), findsOneWidget, reason: '诚实空台账,而非空白');
+      expect(find.textContaining(t.scheduler.run.notRun), findsWidgets);
+    });
+
+    testWidgets('a live run WITH settled rows labels its un-rowed front «推测执行中», not a fact',
+        (tester) async {
+      _desktop(tester);
+      await _pump(
+        tester,
+        _repo(status: 'running', nodes: [
+          _node('fetch', 'completed', readySec: 0, startSec: 1, endSec: 2),
+          _node('gate', 'completed',
+              kind: 'control', readySec: 2, startSec: 2, endSec: 3, result: const {'__port': 'high'}),
+        ]),
+      );
+      expect(find.text(t.run.inferredRunning), findsWidgets,
+          reason: 'analyze 是推测前沿:标注它,不假装量到了');
+    });
+  });
+
+  group('三海拔单选区 (§5 + §6 双脸)', () {
+    testWidgets('no selection → the island shows the DOSSIER face (never blank)', (tester) async {
+      _desktop(tester);
+            await _pump(tester, _repo());
+      expect(find.text(t.scheduler.run.dossierTitle), findsOneWidget);
+      // The dossier is where the error lives IN FULL. 卷宗才是错误全文的家。
+      expect(
+          find.descendant(
+              of: find.byType(SchedulerRunInspector),
+              matching: find.textContaining('run-level detail line')),
+          findsOneWidget,
+          reason: 'run 头 error 的全文住卷宗脸');
+      expect(find.text(t.scheduler.run.pinnedRefsHead), findsOneWidget, reason: '钉住的闭包');
+    });
+
+    testWidgets('?node= → the island swaps to the INSPECTOR face for that node', (tester) async {
+      _desktop(tester);
+            await _pump(tester, _repo(), node: 'analyze', iter: 0);
+      expect(find.text(t.scheduler.run.inspectorTitle), findsOneWidget);
+      expect(find.text(t.scheduler.run.dossierTitle), findsNothing);
+    });
+
+    testWidgets('picking a ledger row WRITES the selection into the URL (shareable, reloadable)',
+        (tester) async {
+      _desktop(tester);
+      await _pump(tester, _repo());
+      expect(find.text(t.scheduler.run.dossierTitle), findsOneWidget);
+      await tester.tap(find.descendant(
+          of: find.byType(FlowrunNodeList), matching: find.text('fetch')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      final router = GoRouter.of(tester.element(find.byType(FlowrunNodeList)));
+      expect(router.routerDelegate.currentConfiguration.uri.queryParameters['node'], 'fetch',
+          reason: '选区的唯一真相是 URL');
+      expect(find.text(t.scheduler.run.inspectorTitle), findsOneWidget);
+    });
+
+    testWidgets('picking the SAME row again clears the selection back to the dossier (Esc\'s twin)',
+        (tester) async {
+      _desktop(tester);
+      await _pump(tester, _repo(), node: 'fetch', iter: 0);
+      await tester.tap(find.descendant(
+          of: find.byType(FlowrunNodeList), matching: find.text('fetch')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      final router = GoRouter.of(tester.element(find.byType(SchedulerRunView)));
+      expect(router.routerDelegate.currentConfiguration.uri.queryParameters['node'], isNull);
+      expect(find.text(t.scheduler.run.dossierTitle), findsOneWidget);
+    });
+  });
+
+  group('检查器脸 (§6)', () {
+    testWidgets('a 650KB result is NEVER dumped on the page (§5.4 页面本身零 JSON 倾倒)',
+        (tester) async {
+      _desktop(tester);
+      await _pump(tester, _bigRepo());
+      expect(
+          find.descendant(
+              of: find.byType(SchedulerRunView),
+              matching: find.textContaining(_huge.substring(0, 200))),
+          findsNothing);
+      expect(find.descendant(of: find.byType(SchedulerRunView), matching: find.byType(AnJsonTree)),
+          findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a 650KB result opens in the island\'s VIRTUALIZED tree without exploding the build',
+        (tester) async {
+      _desktop(tester);
+      await _pump(tester, _bigRepo(), node: 'analyze', iter: 0);
+      // Bounded + virtualized: only the visible rows materialize, so the monster costs what you see.
+      // 有界+虚拟化:只物化可见行,巨物只花你看到的那点钱。
+      expect(find.byType(AnJsonTree), findsOneWidget);
+      expect(tester.takeException(), isNull, reason: '650KB 不得炸 build');
+    });
+
+    testWidgets('a loop node grows the iteration switcher (§6 «#0 ▾» 逐轮取证)', (tester) async {
+      _desktop(tester);
+      await _pump(tester, _loopRepo(), node: 'analyze', iter: 2);
+      expect(find.text(t.scheduler.run.iterationPick), findsOneWidget);
+      expect(find.byType(AnDropdown<int>), findsOneWidget);
+    });
+
+    testWidgets('a single-turn node grows NO switcher — a one-option control is noise',
+        (tester) async {
+      _desktop(tester);
+      await _pump(tester, _repo(), node: 'fetch', iter: 0);
+      expect(find.text(t.scheduler.run.iterationPick), findsNothing);
+    });
+
+    testWidgets('the ⑤ execId reaches the inspector as the execution-log coordinate', (tester) async {
+      _desktop(tester);
+      final repo = _repo(activity: {
+        'fr_run1': [
+          FlowrunActivityRow(
+            nodeId: 'analyze',
+            iteration: 0,
+            kind: 'agent',
+            execId: 'agx_deadbeef0000001',
+            status: 'failed',
+            startedAt: _now.subtract(const Duration(seconds: 56)),
+            endedAt: _now.subtract(const Duration(seconds: 51)),
+            elapsedMs: 5000,
+          ),
+        ],
+      });
+      await _pump(tester, repo, node: 'analyze', iter: 0);
+      expect(repo.activityAsked, contains('fr_run1'));
+      expect(find.text(t.scheduler.run.execLogHead), findsOneWidget);
+      expect(find.textContaining('agx_deadbeef0000001'), findsOneWidget);
+    });
+
+    testWidgets('a node with no row (a stale shared ?node=) is honest, not blank', (tester) async {
+      _desktop(tester);
+      await _pump(tester, _repo(), node: 'ghost_node', iter: 0);
+      expect(find.text(t.scheduler.run.inspectorTitle), findsOneWidget);
+      expect(find.text('ghost_node'), findsWidgets);
+    });
+  });
+
+  group('活动读失败 (⑤ 的诚实回退)', () {
+    testWidgets('listActivity throwing degrades the gantt to the row\'s own stamps, never blanks',
+        (tester) async {
+      _desktop(tester);
+      final repo = StubSchedulerRepo(
+        workflows: [
+          SchedulerWorkflowRow(id: 'wf_a', name: 'x', lifecycleState: 'active', updatedAt: _now),
+        ],
+        pinnedGraphByVersion: const {'wfv_pinned7': _graph},
+        failActivity: true,
+        runs: [
+          Flowrun(
+              id: 'fr_run1',
+              workflowId: 'wf_a',
+              versionId: 'wfv_pinned7',
+              status: 'completed',
+              startedAt: _now.subtract(const Duration(seconds: 60)),
+              completedAt: _now.subtract(const Duration(seconds: 51)),
+              updatedAt: _now),
+        ],
+        nodesByRun: {
+          'fr_run1': [_node('fetch', 'completed', readySec: 0, startSec: 1, endSec: 2)],
+        },
+      );
+      await _pump(tester, repo);
+      expect(find.byType(AnNodeGantt), findsOneWidget);
+      // The queue leg survives (it comes from ⑫ on the ROW, not from ⑤). 排队段仍在(它来自行的 ⑫)。
+      expect(find.textContaining(t.scheduler.run.queueWord), findsWidgets);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('fr_ 中转位 (§11)', () {
+    testWidgets('resolves the host workflow and hands over to the flagship', (tester) async {
+      _desktop(tester);
+      await _pump(tester, _repo(), relay: true);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.byType(SchedulerRunView), findsOneWidget, reason: 'fr_ id 直达旗舰');
+      final router = GoRouter.of(tester.element(find.byType(SchedulerRunView)));
+      expect(router.routerDelegate.currentConfiguration.uri.path, '/scheduler/w/wf_a/runs/fr_run1');
+    });
+
+    testWidgets('an unresolvable id gets a SENTENCE, not a blank screen', (tester) async {
+      _desktop(tester);
+      await _pump(tester, StubSchedulerRepo(), relay: true);
+      expect(find.text(t.scheduler.run.relayFailedTitle), findsOneWidget);
+      expect(find.byType(SchedulerRunView), findsNothing);
+    });
+  });
+
+  group('操作 (§10)', () {
+    testWidgets('AI triage 202 → hands the user straight into the chat conversation', (tester) async {
+      _desktop(tester);
+      final repo = _repo();
+      await _pump(tester, repo);
+      await tester.tap(find.widgetWithText(AnButton, t.scheduler.run.triage).first);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(repo.triageOrder, ['fr_run1']);
+      expect(find.text('CHAT LANDED'), findsOneWidget);
+    });
+
+    testWidgets('replay confirms with the REAL memoization numbers, already in hand (no extra fetch)',
+        (tester) async {
+      _desktop(tester);
+      final repo = _repo();
+      await _pump(tester, repo);
+      await tester.tap(find.widgetWithText(AnButton, t.scheduler.run.replay).first);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      // 2 completed rows reused, 1 failed rerun — the page already held every node row. 真数字在手。
+      expect(find.text(t.scheduler.home.replayBody(failed: '1', completed: '2')), findsOneWidget,
+          reason: '记忆化承诺文案:重跑 1 个失败节点、复用 2 个已完成结果');
+    });
+  });
+
+  group('活性军规 (§0/§5.6)', () {
+    test('a tick PAINTS the live front but never touches the DB truth rows', () async {
+      // The rule under test is the fold, so drive the seam directly (a real gateway needs a socket).
+      // 待测的是折叠规则,故直驱帧缝。
+      final repo = _repo(status: 'running', nodes: [
+        _node('fetch', 'completed', readySec: 0, startSec: 1, endSec: 2),
+      ]);
+      final container = ProviderContainer(overrides: [
+        sseGatewayProvider.overrideWithValue(null),
+        schedulerRepositoryProvider.overrideWithValue(repo),
+      ]);
+      addTearDown(container.dispose);
+      await container.read(schedulerRunProvider('fr_run1').future);
+      final ctrl = container.read(schedulerRunProvider('fr_run1').notifier);
+
+      ctrl.onFrameForTest(_tickEnv('fr_run1', 'gate', 'completed'));
+      var d = container.read(schedulerRunProvider('fr_run1')).value!;
+      expect(d.comp.nodes.map((n) => n.nodeId), ['fetch'], reason: 'tick 不进耐久缓存');
+      expect(d.nodes.map((n) => n.nodeId), containsAll(['fetch', 'gate']), reason: 'tick 只作画');
+
+      // A SIBLING run's tick on the same workflow scope is not ours. 兄弟 run 的 tick 不是我们的。
+      ctrl.onFrameForTest(_tickEnv('fr_other', 'notify', 'completed'));
+      d = container.read(schedulerRunProvider('fr_run1')).value!;
+      expect(d.nodes.map((n) => n.nodeId), isNot(contains('notify')));
+    });
+
+    test('a reconcile re-reads the RUN, not the immutable map (a 4s poll must not re-fetch a pinned '
+        'version that cannot have changed)', () async {
+      final repo = _repo(status: 'running');
+      final container = ProviderContainer(overrides: [
+        sseGatewayProvider.overrideWithValue(null),
+        schedulerRepositoryProvider.overrideWithValue(repo),
+      ]);
+      addTearDown(container.dispose);
+      await container.read(schedulerRunProvider('fr_run1').future);
+      expect(repo.versionAsked, ['wfv_pinned7'], reason: '首读取钉版');
+
+      await container.read(schedulerRunProvider('fr_run1').notifier).refresh();
+      expect(repo.versionAsked, ['wfv_pinned7'], reason: '对账重用已解出的钉版:不可变的东西不重读');
+      expect(repo.activityAsked.length, 2, reason: '活动随 run 生长,每次都重读');
+    });
+
+    test('a reconcile RETRIES a version that failed to pin (a transient 404 must not brand the page '
+        '«un-pinned» forever)', () async {
+      final repo = _repo(pinnedMissing: true);
+      final container = ProviderContainer(overrides: [
+        sseGatewayProvider.overrideWithValue(null),
+        schedulerRepositoryProvider.overrideWithValue(repo),
+      ]);
+      addTearDown(container.dispose);
+      await container.read(schedulerRunProvider('fr_run1').future);
+      await container.read(schedulerRunProvider('fr_run1').notifier).refresh();
+      expect(repo.versionAsked.length, 2, reason: '没钉上的会再试');
+    });
+
+    test('a truth row never regresses to a tick placeholder', () async {
+      final repo = _repo(status: 'running', nodes: [
+        _node('fetch', 'completed', readySec: 0, startSec: 1, endSec: 2),
+      ]);
+      final container = ProviderContainer(overrides: [
+        sseGatewayProvider.overrideWithValue(null),
+        schedulerRepositoryProvider.overrideWithValue(repo),
+      ]);
+      addTearDown(container.dispose);
+      await container.read(schedulerRunProvider('fr_run1').future);
+      final ctrl = container.read(schedulerRunProvider('fr_run1').notifier);
+      ctrl.onFrameForTest(_tickEnv('fr_run1', 'fetch', 'completed'));
+      final d = container.read(schedulerRunProvider('fr_run1')).value!;
+      final fetch = d.nodes.firstWhere((n) => n.nodeId == 'fetch');
+      expect(fetch.startedAt, isNotNull, reason: '真相行的戳不被无戳的 tick 占位抹掉');
+    });
+  });
+}
+
+/// The EPHEMERAL flowrun tick exactly as the backend sends it (events.md workflow 行:seq=0,
+/// workflow scope, `node.type="run"`, content `{flowrunId,nodeId,iteration,status,port?}`).
+/// 真帧形的 ephemeral flowrun tick。
+StreamEnvelope _tickEnv(String frId, String nodeId, String status) => StreamEnvelope(
+      seq: 0, // ephemeral — the whole point 正是重点
+      scope: const StreamScope(kind: 'workflow', id: 'wf_a'),
+      id: 'n1',
+      frame: FrameSignal(
+        node: StreamNode(type: 'run', content: {
+          'flowrunId': frId,
+          'nodeId': nodeId,
+          'iteration': 0,
+          'status': status,
+        }),
+      ),
+    );

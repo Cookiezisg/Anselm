@@ -28,6 +28,7 @@ import '../features/notifications/state/toast_dispatcher.dart';
 import '../features/scheduler/state/selected_scheduler.dart';
 import '../features/scheduler/ui/scheduler_ocean.dart';
 import '../features/scheduler/ui/scheduler_rail.dart';
+import '../features/scheduler/ui/scheduler_run_inspector.dart';
 import '../features/settings/ui/settings_ocean.dart';
 import '../features/settings/ui/settings_rail.dart';
 import '../features/notifications/state/unread_count_provider.dart';
@@ -111,7 +112,13 @@ class AppShell extends ConsumerWidget {
         onEntities && (ref.watch(selectedEntityProvider)?.kind.executable ?? false);
     final hasDocSelection = onDocuments && ref.watch(selectedDocProvider) != null;
     final chatConversation = onChat ? ref.watch(selectedConversationProvider)?.id : null;
-    final hasSelection = hasEntitySelection || hasDocSelection || chatConversation != null;
+    // Scheduler reveals the island ONLY on the run flagship (WRK-069 §6) — the Overview board and
+    // the operations home are self-sufficient, and revealing an inspector for them would be an
+    // island for the island's sake. scheduler 仅在 run 旗舰揭示右岛:看板与运营主页自足,不为放而放。
+    final onScheduler = ocean == OceanKind.scheduler;
+    final hasRunSelection = onScheduler && ref.watch(selectedSchedulerProvider) is SchedulerRun;
+    final hasSelection =
+        hasEntitySelection || hasDocSelection || chatConversation != null || hasRunSelection;
     final rightCollapsed = ref.watch(rightPanelCollapsedProvider);
     // R-15: a collapsed sidestage keeps only the activity bit — a live channel behind the fold
     // lights a dot on the panel-right button. 收起的侧幕只留活动位:折叠后有 live 频道即点亮右钮点。
@@ -226,15 +233,18 @@ class AppShell extends ConsumerWidget {
       // 海洋常驻折叠后,切走再回瞬时且保滚动位/展开态(旧三元每次切换拆树、keepAlive 只保数据不保 widget 态);
       // 懒=首访才建,冷启不急挂四海洋齐发请求。
       ocean: _OceanStack(active: ocean),
-      // Documents → the properties inspector; chat → the sidestage; entities → the run terminal (the
-      // shell only reveals it when that ocean has a selection). documents→属性面板;chat→侧幕;entities→run 终端。
+      // Documents → the properties inspector; chat → the sidestage; scheduler → the run flagship's
+      // two-faced inspector; entities → the run terminal (the shell only reveals it when that ocean
+      // has a selection). documents→属性面板;chat→侧幕;scheduler→run 旗舰双脸检查器;entities→run 终端。
       inspector: AnInspector(
         headless: true,
         child: onDocuments
             ? const DocumentsInspector()
             : chatConversation != null
                 ? StagePanel(conversationId: chatConversation)
-                : const RunTerminal(),
+                : onScheduler
+                    ? const SchedulerRunInspector()
+                    : const RunTerminal(),
       ),
       inspectorOpen: hasSelection && !rightCollapsed,
       rightWidth: chrome.rightWidth,

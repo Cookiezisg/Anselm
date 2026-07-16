@@ -8,6 +8,7 @@ import '../../../../core/contract/entities/values.dart';
 import '../../../../core/contract/entities/workflow.dart';
 import '../../../../core/messages/block_tree_reducer.dart';
 import '../../../../core/perf/coalescing_notifier.dart';
+import '../../../../core/run/flowrun_watch.dart';
 import '../../../../core/sse/frame.dart';
 import '../../data/entity_kind.dart';
 import '../../data/entity_providers.dart';
@@ -70,9 +71,6 @@ class RunTerminalController extends Notifier<RunTerminalState> {
   // 且无 result——DB 行是真相,每 tick 去抖重取,慢轮询兜底全丢;终态/取消/释放即停。
   Timer? _reconcileDebounce;
   Timer? _poll;
-  // 批7 立法1 豁免锚:state 层合帧节流。exempt: state-layer coalescing.
-  static const Duration _reconcileDelay = Duration(milliseconds: 300);
-  static const Duration _pollEvery = Duration(seconds: 4);
 
   void _stopFlowrunTimers() {
     _reconcileDebounce?.cancel();
@@ -182,7 +180,7 @@ class RunTerminalController extends Notifier<RunTerminalState> {
           await _reconcileFlowrun(seq);
           if (ref.mounted && state.runSeq == seq && state.isRunning) {
             _poll?.cancel();
-            _poll = Timer.periodic(_pollEvery, (_) => _reconcileFlowrun(seq));
+            _poll = Timer.periodic(FlowrunWatch.pollEvery, (_) => _reconcileFlowrun(seq));
           }
       }
     } on ApiException catch (e) {
@@ -268,44 +266,27 @@ class RunTerminalController extends Notifier<RunTerminalState> {
       case EntityKind.agent:
         stream.mutate((s) => s..tree.apply(env));
       case EntityKind.workflow:
-        final f = env.frame;
-        if (f is FrameSignal) {
-          final c = f.node.content;
-          final nodeId = c?['nodeId'] as String?;
-          final status = c?['status'] as String?;
-          // The tick scope is workflow-level — concurrent flowruns interleave on it, so frames not
-          // for OUR run are dropped (the old code mixed them). tick 是 workflow 级 scope——并发多
-          // run 混流,非本 run 的帧丢弃(旧码会混)。
-          final flowrunId = c?['flowrunId'] as String?;
-          if (nodeId == null || status == null) return;
-          if (flowrunId == null || flowrunId != state.flowrunId) return;
-          // A tick arriving after cancel/terminal must not resurrect the phase: reading runSeq HERE
-          // would capture the post-cancel seq and sail through the reconcile guard — gate on the
-          // phase instead. cancel/终态后的迟到 tick 不得复活状态机:此处读 runSeq 会拿到 bump 后的
-          // 新值、穿透对账守卫——改按 phase 闸。
-          if (!state.isRunning) return;
-          stream.mutate((s) => s..liveNodes[nodeId] = status);
-          final iteration = (c?['iteration'] as num?)?.toInt() ?? 0;
-          final now = DateTime.now();
-          state = state.copyWith(
-            flowNodes: _upsertRow(
-                state.flowNodes,
-                FlowrunNode(
-                    id: 'tick_${nodeId}_$iteration',
-                    flowrunId: flowrunId,
-                    nodeId: nodeId,
-                    iteration: iteration,
-                    status: status,
-                    createdAt: now,
-                    updatedAt: now)),
-          );
-          // Ticks carry no result (a control's chosen port arrives only via the row) and the run
-          // header has NO terminal signal — the debounced GET is where truth lands. tick 无 result、
-          // run 头无终态信号——去抖 GET 落真相。
-          final seq = state.runSeq;
-          _reconcileDebounce?.cancel();
-          _reconcileDebounce = Timer(_reconcileDelay, () => _reconcileFlowrun(seq));
-        }
+        // The tick scope is workflow-level — concurrent flowruns interleave on it, so frames not
+        // for OUR run are dropped (the old code mixed them). The parse + the placeholder row + the
+        // cadence are the shared core seam (WRK-069 §9 三消费一源). tick 是 workflow 级 scope——并发
+        // 多 run 混流,非本 run 的帧丢弃;解析/占位行/节拍走 core 共享缝。
+        final tick = flowrunTickOf(env.frame);
+        if (tick == null || tick.flowrunId != state.flowrunId) return;
+        // A tick arriving after cancel/terminal must not resurrect the phase: reading runSeq HERE
+        // would capture the post-cancel seq and sail through the reconcile guard — gate on the
+        // phase instead. cancel/终态后的迟到 tick 不得复活状态机:此处读 runSeq 会拿到 bump 后的
+        // 新值、穿透对账守卫——改按 phase 闸。
+        if (!state.isRunning) return;
+        stream.mutate((s) => s..liveNodes[tick.nodeId] = tick.status);
+        state = state.copyWith(
+          flowNodes: upsertNodeRow(state.flowNodes, tick.row(DateTime.now())),
+        );
+        // Ticks carry no result (a control's chosen port arrives only via the row) and the run
+        // header has NO terminal signal — the debounced GET is where truth lands. tick 无 result、
+        // run 头无终态信号——去抖 GET 落真相。
+        final seq = state.runSeq;
+        _reconcileDebounce?.cancel();
+        _reconcileDebounce = Timer(FlowrunWatch.reconcileDelay, () => _reconcileFlowrun(seq));
     }
   }
 
@@ -323,7 +304,7 @@ class RunTerminalController extends Notifier<RunTerminalState> {
     final FlowrunComposite comp;
     var rows = <FlowrunNode>[];
     try {
-      final full = state.flowNodes.every((r) => r.id.startsWith('tick_')); // no truth yet 尚无真相行
+      final full = state.flowNodes.every(isTickRow); // no truth yet 尚无真相行
       comp = await _repo.getFlowrun(id, limit: 200);
       rows = [...comp.nodes];
       if (full) {
@@ -393,13 +374,6 @@ class RunTerminalController extends Notifier<RunTerminalState> {
     }
   }
 
-  static List<FlowrunNode> _upsertRow(List<FlowrunNode> rows, FlowrunNode row) {
-    final i = rows.indexWhere((r) => r.nodeId == row.nodeId && r.iteration == row.iteration);
-    if (i < 0) return [row, ...rows];
-    // A truth row never regresses to a tick row (same terminal status anyway). 真相行不被 tick 行覆退。
-    if (!rows[i].id.startsWith('tick_')) return rows;
-    return [for (var j = 0; j < rows.length; j++) j == i ? row : rows[j]];
-  }
 }
 
 /// One run-terminal controller PER executable entity (autoDispose family) — freed when the entity is

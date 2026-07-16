@@ -44,6 +44,18 @@ String fmtDateTime(DateTime? d) {
   return '${l.year}-${two(l.month)}-${two(l.day)} ${two(l.hour)}:${two(l.minute)}';
 }
 
+/// A local `HH:MM:SS` wall clock — the SECOND-precision timepoint (WRK-069 S4). A run's gantt axis
+/// and its bar hovers span seconds, where [fmtDateTime]'s minute grain would print the same string at
+/// both ends of the ruler; the date is redundant there (the head already states the run's day).
+/// 本地时分秒钟点(S4):run 的甘特轴与条 hover 是秒级跨度,分钟粒度会让刻度眉两端印出同一个字符串;
+/// 日期在那里是冗余的(卷宗头已经说了是哪天)。
+String fmtClock(DateTime? d) {
+  if (d == null) return '';
+  final l = d.toLocal();
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${two(l.hour)}:${two(l.minute)}:${two(l.second)}';
+}
+
 /// A local `YYYY-MM-DD` date (no time). 本地日期(无时刻)。
 String fmtDate(DateTime? d) {
   if (d == null) return '';
