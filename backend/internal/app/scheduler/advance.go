@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	entitystreamapp "github.com/sunweilin/anselm/backend/internal/app/entitystream"
 	flowrundomain "github.com/sunweilin/anselm/backend/internal/domain/flowrun"
@@ -91,10 +92,20 @@ func (s *Service) Advance(ctx context.Context, flowrunID string) error {
 		if len(ready) == 0 {
 			break
 		}
+		// Queue stamp (工单⑫): the whole batch became ready at THIS walk turn — one instant for all
+		// its nodes. Held in memory and persisted on each row's single record-once INSERT (writeNode);
+		// a node later in the batch queues behind its siblings' sequential execution, so its
+		// ready→started gap is real waiting. A crash loses the stamp with the drive — the recovering
+		// walk recomputes ready and stamps anew (recovery is a new queue start, never pretend-seamless).
+		//
+		// 排队戳（工单⑫）：整批在**这一轮** walk 同一瞬变 ready。内存持有、随各行唯一一次 record-once
+		// INSERT 落盘（writeNode）；批内靠后的节点排在兄弟的顺序执行之后，其 ready→started 间隔是真实
+		// 等待。崩溃即随驱动丢戳——恢复的 walk 重算 ready 重新盖戳（恢复是新的排队起点、绝不伪装无缝）。
+		readyAt := time.Now().UTC()
 		advanced := false
 		staleRows := false
 		for _, rn := range ready {
-			row, status, err := s.runNode(ctx, run, senv, w, rn)
+			row, status, err := s.runNode(ctx, run, senv, w, rn, readyAt)
 			if err != nil {
 				return err
 			}

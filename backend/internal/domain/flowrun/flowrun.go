@@ -181,9 +181,71 @@ type FlowRunNode struct {
 	Status      string         `db:"status"              json:"status"`    // completed | failed | parked
 	Result      map[string]any `db:"result,json"         json:"result"`    // per-kind shape (Result keys)
 	Error       string         `db:"error"               json:"error,omitempty"`
-	CreatedAt   time.Time      `db:"created_at,created"  json:"createdAt"`             // terminal write / park time
-	CompletedAt *time.Time     `db:"completed_at"        json:"completedAt,omitempty"` // nil while parked
-	UpdatedAt   time.Time      `db:"updated_at,updated"  json:"updatedAt"`
+
+	// ReadyAt / StartedAt are the queue-segment stamps (scheduler 工单⑫), captured IN MEMORY during
+	// a drive and persisted on the row's single record-once INSERT — the row is still written once,
+	// terminal/parked-only; there is never an insert-then-finalize. ReadyAt = when a walk turn first
+	// computed this (node, iteration) ready (queue start); StartedAt = when the engine began
+	// processing it (input CEL eval + dispatch — the execution entity's own start lives on its audit
+	// row). Semantics under replay / recovery (legislated in database.md): a :replay re-run writes a
+	// NEW row with fresh stamps at the same iteration (the failed row was physically cleared);
+	// completed rows keep their original stamps (record-once — copied, never re-executed); after a
+	// crash the in-memory stamps are gone, so a recovered re-run's ReadyAt is the RECOVERED drive's
+	// walk time — recovery is a new queue start, never a pretend-seamless resume. Both nullable:
+	// rows born before the columns, and seed trigger rows (never scheduled), stay NULL — the wire
+	// omits them.
+	//
+	// ReadyAt / StartedAt 是排队段时间戳（scheduler 工单⑫）：驱动期间**内存**暂存、随该行唯一一次
+	// record-once INSERT 落盘——行仍只写一次、只写终态/parked，绝无先插后终化。ReadyAt = 某轮 walk 首次
+	// 算出该 (节点,轮次) ready 的时刻（排队起点）；StartedAt = 引擎开始处理它的时刻（input CEL 求值 +
+	// 派发——执行实体自身的起点在其审计行）。replay/恢复语义（立法在 database.md）：:replay 重跑在同
+	// iteration 写**新行新戳**（failed 行已物理清）；completed 行戳原样保留（record-once——抄、绝不重跑）；
+	// 崩溃后内存戳即失，恢复重跑的 ReadyAt 是**恢复驱动**的 walk 时刻——恢复是新的排队起点、绝不伪装无缝。
+	// 两列可空：列诞生前旧行与 seed trigger 行（从不排队）保持 NULL、线缆不发。
+	ReadyAt   *time.Time `db:"ready_at"   json:"readyAt,omitempty"`
+	StartedAt *time.Time `db:"started_at" json:"startedAt,omitempty"`
+
+	CreatedAt   time.Time  `db:"created_at,created"  json:"createdAt"`             // terminal write / park time
+	CompletedAt *time.Time `db:"completed_at"        json:"completedAt,omitempty"` // nil while parked
+	UpdatedAt   time.Time  `db:"updated_at,updated"  json:"updatedAt"`
+}
+
+// Activity kinds — which execution-log family an ActivityRow came from (scheduler 工单⑤). The axis
+// is the audit table, not the graph node kind: an `action` node fans into function/handler/mcp by
+// its ref prefix, and only dispatched entity nodes leave audit rows (control/approval are
+// inline-evaluated — their timing lives on the flowrun_nodes truth row alone).
+//
+// Activity kind——ActivityRow 来自哪张执行日志表（scheduler 工单⑤）。轴是审计表、非图节点 kind：
+// `action` 节点按 ref 前缀散入 function/handler/mcp，且只有被派发的实体节点留审计行（control/approval
+// 内联求值——其时序只在 flowrun_nodes 真相行上）。
+const (
+	ActivityKindFunction = "function"
+	ActivityKindHandler  = "handler"
+	ActivityKindAgent    = "agent"
+	ActivityKindMCP      = "mcp"
+)
+
+// ActivityRow is one execution-log entry of a run, projected for the gantt/ledger view (scheduler
+// 工单⑤): the UNION of the four execution-log tables filtered by flowrun_id, joined to the
+// flowrun_nodes truth row for the queue stamp. StartedAt/EndedAt/ElapsedMs are the audit row's own
+// (the execution segment); ReadyAt is the record-once truth row's queue start (工单⑫) — nullable
+// (pre-⑫ rows / no matching truth row), and under at-least-once + :replay an OLD audit attempt can
+// predate the surviving truth row's ReadyAt, so presenters clamp the queue segment at ≥ 0.
+//
+// ActivityRow 是一个 run 的一条执行日志行，为甘特/台账投影（scheduler 工单⑤）：四张执行日志表按
+// flowrun_id 的 UNION，join flowrun_nodes 真相行取排队戳。StartedAt/EndedAt/ElapsedMs 是审计行自己的
+// （执行段）；ReadyAt 是 record-once 真相行的排队起点（工单⑫）——可空（⑫ 前旧行 / 无对应真相行），且
+// at-least-once + :replay 下**旧**审计尝试可早于存活真相行的 ReadyAt，呈现端把排队段钳制在 ≥ 0。
+type ActivityRow struct {
+	NodeID    string     `json:"nodeId"`
+	Iteration int        `json:"iteration"`
+	Kind      string     `json:"kind"`   // function | handler | agent | mcp (ActivityKind*)
+	ExecID    string     `json:"execId"` // audit row id: fne_ | hcl_ | agx_ | mcl_
+	Status    string     `json:"status"` // ok | failed | cancelled | timeout (the audit vocabulary)
+	ReadyAt   *time.Time `json:"readyAt,omitempty"`
+	StartedAt time.Time  `json:"startedAt"`
+	EndedAt   time.Time  `json:"endedAt"`
+	ElapsedMs int64      `json:"elapsedMs"`
 }
 
 var (

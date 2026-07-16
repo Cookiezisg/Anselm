@@ -53,6 +53,21 @@ func (s *Service) GetRunWithNodesPage(ctx context.Context, id, cursor string, li
 	return run, nodes, next, nil
 }
 
+// ListActivity returns a run's execution-log activity page (scheduler 工单⑤): the four audit
+// tables UNIONed by flowrun_id + the queue stamp joined off the flowrun_nodes truth row (工单⑫),
+// in gantt order (startedAt ascending). GetRun first so an unknown id is an honest 404
+// (FLOWRUN_NOT_FOUND) — the projection alone cannot tell "no activity yet" from "no such run".
+//
+// ListActivity 返一个 run 的执行日志活动页（scheduler 工单⑤）：四张审计表按 flowrun_id UNION +
+// 排队戳 join 自 flowrun_nodes 真相行（工单⑫），按甘特序（startedAt 升序）。先 GetRun 使未知 id 是
+// 诚实 404（FLOWRUN_NOT_FOUND）——光靠投影分不清「还没活动」与「无此 run」。
+func (s *Service) ListActivity(ctx context.Context, flowrunID, cursor string, limit int) ([]*flowrundomain.ActivityRow, string, error) {
+	if _, err := s.runs.GetRun(ctx, flowrunID); err != nil {
+		return nil, "", err
+	}
+	return s.runs.ListActivity(ctx, flowrunID, cursor, limit)
+}
+
 // InboxRow is one parked approval node enriched with its run's workflow context (工单④): the
 // embedded node row (the decidable truth) + workflowId/workflowName (joined from the run header —
 // a parked row alone cannot say WHICH workflow is waiting) + the optional absolute deadline

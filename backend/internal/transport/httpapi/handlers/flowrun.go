@@ -40,6 +40,7 @@ func (h *FlowrunHandler) Register(mux Registrar) {
 	mux.HandleFunc("GET /api/v1/flowrun-inbox", h.Inbox)
 	mux.HandleFunc("GET /api/v1/flowrun-stats", h.Stats)
 	mux.HandleFunc("GET /api/v1/flowruns/{id}", h.Get)
+	mux.HandleFunc("GET /api/v1/flowruns/{id}/activity", h.Activity)
 	mux.HandleFunc("POST /api/v1/flowruns/{idAction}", h.postOnRun)
 	mux.HandleFunc("POST /api/v1/flowruns/{id}/approvals/{nodeAction}", h.postOnApproval)
 }
@@ -151,6 +152,30 @@ func (h *FlowrunHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	responsehttpapi.Success(w, http.StatusOK, map[string]any{"flowrun": run, "nodes": nodes, "nextCursor": next})
+}
+
+// Activity pages a run's execution-log activity (scheduler 工单⑤) in gantt order (startedAt
+// ascending, N4 ?cursor&limit): rows {nodeId, iteration, kind, execId, status, startedAt, endedAt,
+// elapsedMs, readyAt?} — the four execution-log tables UNIONed by flowrun_id, readyAt joined off
+// the flowrun_nodes truth row (工单⑫; absent on pre-⑫ rows / no matching truth row). 404
+// FLOWRUN_NOT_FOUND when the run does not exist.
+//
+// Activity 分页一个 run 的执行日志活动（scheduler 工单⑤），甘特序（startedAt 升序，N4 ?cursor&limit）：
+// 行 {nodeId, iteration, kind, execId, status, startedAt, endedAt, elapsedMs, readyAt?}——四张执行
+// 日志表按 flowrun_id UNION、readyAt join 自 flowrun_nodes 真相行（工单⑫；⑫ 前旧行/无对应真相行则
+// 缺席）。run 不存在 404 FLOWRUN_NOT_FOUND。
+func (h *FlowrunHandler) Activity(w http.ResponseWriter, r *http.Request) {
+	p, err := responsehttpapi.ParsePage(r)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	rows, next, err := h.svc.ListActivity(r.Context(), r.PathValue("id"), p.Cursor, p.Limit)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Paged(w, rows, next, next != "")
 }
 
 // Inbox returns every parked approval node in the workspace (the approval inbox). Each row is the

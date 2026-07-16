@@ -96,6 +96,17 @@ var Schema = []string{
 	`CREATE UNIQUE INDEX IF NOT EXISTS idx_frn_once ON flowrun_nodes(flowrun_id, node_id, iteration)`,
 	`CREATE INDEX IF NOT EXISTS idx_frn_run ON flowrun_nodes(flowrun_id)`,
 	`CREATE INDEX IF NOT EXISTS idx_frn_parked ON flowrun_nodes(workspace_id, status) WHERE status = 'parked'`,
+
+	// Column evolution — node queue stamps (scheduler 工单⑫), same outcome-idempotent ADD COLUMN
+	// precedent as flowruns' origin. Both NULLable: pre-⑫ rows and seed trigger rows (never
+	// scheduled) stay NULL; the stamps are captured in memory during a drive and ride the row's
+	// single record-once INSERT — record-once itself is untouched.
+	//
+	// 列演化——节点排队戳（scheduler 工单⑫），与 flowruns origin 同一结果幂等 ADD COLUMN 先例。两列可空：
+	// ⑫ 前旧行与 seed trigger 行（从不排队）保持 NULL；戳在驱动期间内存暂存、随该行唯一一次 record-once
+	// INSERT 落盘——record-once 本身不动。
+	`ALTER TABLE flowrun_nodes ADD COLUMN ready_at DATETIME`,
+	`ALTER TABLE flowrun_nodes ADD COLUMN started_at DATETIME`,
 }
 
 // Store implements flowrundomain.Repository over pkg/orm, plus the concrete run-creation

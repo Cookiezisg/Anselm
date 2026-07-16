@@ -65,6 +65,18 @@ type Repository interface {
 	// 健康行（无 run 即零值行）。flowrun 两表上的纯读投影；q 的默认值由调用方（app service）负责。
 	RunStats(ctx context.Context, q StatsQuery) (*RunStats, error)
 
+	// ListActivity returns ONE keyset page of a run's execution-log activity (scheduler 工单⑤):
+	// the four audit tables UNIONed by flowrun_id, joined to flowrun_nodes for the queue stamp
+	// (工单⑫), in the gantt's natural (started_at, exec id) ASCENDING order. A pure read projection
+	// — it lives here (not behind four DIP ports) because a cross-table keyset page cannot be merged
+	// from four independent cursors in memory. Run existence (404) is the caller's job; an unknown
+	// run id simply yields an empty page. next == "" at the end.
+	// ListActivity 返一个 run 执行日志活动的一页 keyset（scheduler 工单⑤）：四张审计表按 flowrun_id
+	// UNION、join flowrun_nodes 取排队戳（工单⑫），按甘特天然序 (started_at, exec id) **升序**。纯读
+	// 投影——放这里（而非四个 DIP 端口）因为跨表 keyset 分页无法在内存里合并四个独立游标。run 存在性
+	// （404）归调用方；未知 run id 只得空页。到底 next == ""。
+	ListActivity(ctx context.Context, flowrunID, cursor string, limit int) ([]*ActivityRow, string, error)
+
 	// CountRunningByWorkflow counts a workflow's currently-running runs (overlap-policy input: serial
 	// defers / Skip drops a new firing when this is > 0). Workspace-scoped.
 	// CountRunningByWorkflow 数一个 workflow 当前 running 的 run（overlap 策略输入：>0 时 serial 推迟 /

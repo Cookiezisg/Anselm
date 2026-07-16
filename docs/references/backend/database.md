@@ -75,9 +75,17 @@ ID：`trg_`/`tra_`/`trf_`
 | 表 | 关键列 | 约束/索引 |
 |---|---|---|
 | `flowruns` | workflow_id · **version_id**(钉死拓扑) · **pinned_refs**(json pin 闭包) · trigger_id/firing_id · **origin**(可空,CHECK manual/chat/cron/webhook/fsnotify/sensor——创建时溯源盖章,NULL=两列诞生前旧行) · **conversation_id**(可空,仅 origin=chat:发起 run 的 cv_) · status(CHECK running/completed/failed/cancelled) · replay_count · error | running 偏索引（跨 ws boot 恢复）；origin/conversation_id 经 `ALTER TABLE ADD COLUMN` 演化段补列（db.Migrate 对加列的 duplicate-column 按已应用跳过=结果幂等）|
-| `flowrun_nodes` | flowrun_id · **node_id**(图内名) · **iteration**(循环轮次) · kind · ref · status(CHECK completed/failed/parked) · **result**(json 记忆化) · error | **`idx_frn_once` UNIQUE(flowrun_id,node_id,iteration)**（D3 record-once）+ parked 偏索引（收件箱）|
+| `flowrun_nodes` | flowrun_id · **node_id**(图内名) · **iteration**(循环轮次) · kind · ref · status(CHECK completed/failed/parked) · **result**(json 记忆化) · error · **ready_at/started_at**(可空排队戳,工单⑫——立法见下) | **`idx_frn_once` UNIQUE(flowrun_id,node_id,iteration)**（D3 record-once）+ parked 偏索引（收件箱）；ready_at/started_at 经 `ALTER TABLE ADD COLUMN` 演化段补列（同 flowruns origin 结果幂等先例）|
 
 ID：`fr_`/`frn_`。两张无 deleted_at（D1）；唯一物理删 = `:replay` 清 failed 行（非结果）。
+
+**排队戳立法（scheduler 工单⑫——`ready_at`/`started_at` 的语义，含 replay/恢复呈现）**：
+
+- **定义**：`ready_at` = 该 (节点,轮次) 在某次驱动的 walk 中**首次被算出 ready** 的时刻（排队起点；同批节点共享同一瞬——它们同轮变 ready，批内靠后节点排在兄弟顺序执行之后，其 ready→started 间隔是真实等待）；`started_at` = 引擎**开始处理**该节点的时刻（input CEL 求值 + 派发——执行实体自身的执行起点在其审计行的 started_at）。排队段 = ready_at→started_at；执行段真相在执行日志行。
+- **record-once 不损**：戳在驱动期间**内存暂存**、随该行**唯一一次**终态/parked INSERT 落盘——行仍只写终态（无先插行后终化）；被打断的驱动什么都不写、戳随之消亡。parked 行带挂起时的两戳，决策/超时（`ResolveParkedNode`）只翻 status/result/completed_at、**戳保留**。
+- **:replay**：failed 行物理删后重跑，在**同 iteration 写新行=新戳**（新的排队起点）；completed 旧行被抄不重跑、**戳逐字保留**。执行日志的旧失败尝试行仍在（Log 不删），其 started_at 可**早于**新真相行的 ready_at——呈现端把排队段钳制 ≥0。
+- **崩溃恢复**：内存戳不越过崩溃；boot `Recover` 重走时 walk 重算 ready → `ready_at` = **恢复驱动**的 walk 时刻（诚实：恢复是新的排队起点，绝不回填原排队时刻伪装无缝）。at-least-once 下同 (节点,轮次) 可有多条审计行，ready_at 属于 record-once **真相行**（成功写行的那次驱动）。
+- **NULL 语义**：⑫ 前旧行与 seed trigger 行（run 创建时原子写入、从不排队）恒 NULL；线缆 omitempty 不发键，缺席即诚实。
 
 ## skill / mcp / document
 
