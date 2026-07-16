@@ -29,6 +29,7 @@ _TriggerEntity _$TriggerEntityFromJson(Map<String, dynamic> json) =>
       updatedAt: DateTime.parse(json['updatedAt'] as String),
       refCount: (json['refCount'] as num?)?.toInt() ?? 0,
       listening: json['listening'] as bool? ?? false,
+      paused: json['paused'] as bool? ?? false,
       lastFiredAt: json['lastFiredAt'] == null
           ? null
           : DateTime.parse(json['lastFiredAt'] as String),
@@ -49,6 +50,7 @@ Map<String, dynamic> _$TriggerEntityToJson(_TriggerEntity instance) =>
       'updatedAt': instance.updatedAt.toIso8601String(),
       'refCount': instance.refCount,
       'listening': instance.listening,
+      'paused': instance.paused,
       'lastFiredAt': instance.lastFiredAt?.toIso8601String(),
       'nextFireAt': instance.nextFireAt?.toIso8601String(),
     };

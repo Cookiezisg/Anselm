@@ -858,6 +858,22 @@ final GalleryCategory _g4NavShell = GalleryCategory('导航与壳 Nav & Shell', 
             ],
           ),
         ), height: 360, span: true),
+    // The zoned variant: prose zones keep the 720 column, a fullBleed zone breaks out to the ocean
+    // width (WRK-069 判决③ 全宽豁免 — gantt/matrix density is horizontal). 分区变体:散文守 720,
+    // fullBleed 区破列占满(时间轴/矩阵横向密度的登记豁免)。
+    GallerySpecimen('zoned (720 prose + full-bleed zone)', (_) => AnZonedPage(
+          zones: [
+            AnPageZone(AnInfoCard(title: 'Prose · 720', child: const AnKv(rows: [AnKvRow('key', 'value')]))),
+            AnPageZone(
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: AnGap.block),
+                child: AnInfoCard(title: 'Full bleed · ocean width', child: const AnKv(rows: [AnKvRow('wide', 'zone')])),
+              ),
+              fullBleed: true,
+            ),
+            AnPageZone(AnInfoCard(title: 'Prose again · 720', child: const AnKv(rows: [AnKvRow('back', 'to column')]))),
+          ],
+        ), height: 360, span: true),
   ]),
   GalleryItem('AnMenu', '浮层菜单(on AnPopover):分组小标题 + icon/check/meta + danger/disabled(多选 keepOpen)', [
     GallerySpecimen('actions menu (⋯) — tap to open', (_) => const _MenuActionsDemo()),

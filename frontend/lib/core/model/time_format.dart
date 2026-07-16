@@ -51,3 +51,21 @@ String fmtDate(DateTime? d) {
   String two(int n) => n.toString().padLeft(2, '0');
   return '${l.year}-${two(l.month)}-${two(l.day)}';
 }
+
+/// PRECISE execution elapsed — <1s → Nms; <60s → N.Ns; else NmSSs; hour-plus → «2h 5m». Upstreamed
+/// from entities' entity_format (WRK-069 S3): the scheduler's run table and entities' cockpit speak
+/// the SAME duration voice (features 互不依赖, so the one map lives in core).
+/// 精确执行耗时(上收自 entities:scheduler 大表与驾驶舱同一口径,features 互不依赖故归 core)。
+String fmtDuration(Duration d) {
+  final ms = d.inMilliseconds;
+  if (ms < 1000) return '${ms}ms';
+  // 59.95–59.999s would round-format to "60.0s" — roll into the minutes tier instead.
+  // 59.95s 会被格式化成「60.0s」——滚进分钟档。
+  if (ms < 59950) return '${(ms / 1000).toStringAsFixed(1)}s';
+  final m = d.inMinutes;
+  final s = d.inSeconds % 60;
+  // Hour-plus runs read as hours, not raw minutes ("2h 5m", never "125m 3s") — durable workflows
+  // legitimately run that long. 小时级显示小时档(durable 工作流真会跑这么久)。
+  if (m >= 60) return '${d.inHours}h ${m % 60}m';
+  return '${m}m ${s}s';
+}

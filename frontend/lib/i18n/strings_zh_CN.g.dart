@@ -201,6 +201,8 @@ class _Translations$scheduler$zh_CN extends Translations$scheduler$en {
 	@override String get sectionInactive => '停用';
 	@override String get filterPlaceholder => '过滤 / 粘贴 fr_ id…';
 	@override late final _Translations$scheduler$overview$zh_CN overview = _Translations$scheduler$overview$zh_CN._(_root);
+	@override late final _Translations$scheduler$status$zh_CN status = _Translations$scheduler$status$zh_CN._(_root);
+	@override late final _Translations$scheduler$home$zh_CN home = _Translations$scheduler$home$zh_CN._(_root);
 }
 
 // Path: action
@@ -1181,6 +1183,105 @@ class _Translations$scheduler$overview$zh_CN extends Translations$scheduler$over
 	@override String get firstUseChat => '打开对话';
 	@override String get errorTitle => '总览加载失败';
 	@override String get errorHint => '后端没有应答,检查连接后重试。';
+}
+
+// Path: scheduler.status
+class _Translations$scheduler$status$zh_CN extends Translations$scheduler$status$en {
+	_Translations$scheduler$status$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get active => '生效';
+	@override String get draining => '收尾中';
+	@override String get inactive => '停用';
+}
+
+// Path: scheduler.home
+class _Translations$scheduler$home$zh_CN extends Translations$scheduler$home$en {
+	_Translations$scheduler$home$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String crumb({required Object name}) => 'Scheduler / ${name}';
+	@override String get notFoundTitle => '找不到该 workflow';
+	@override String get notFoundHint => '它可能已被删除。从左侧选择另一个 workflow。';
+	@override String get moreA11y => '更多操作';
+	@override String get runNow => '立即运行';
+	@override String runNowStarted({required Object id}) => '已开跑 · ${id}';
+	@override String get menuEdit => '去 Entities 编辑';
+	@override String get menuKill => '终止 workflow…';
+	@override String get killTitle => '终止这个 workflow';
+	@override String killWarning({required Object n}) => '将取消 ${n} 个在途 run。';
+	@override String get killBody => '停止监听、取消所有在途 run,并停用该 workflow。';
+	@override String killHint({required Object name}) => '输入 ${name} 以确认';
+	@override String get killConfirm => '终止 workflow';
+	@override String get killed => 'workflow 已终止';
+	@override String get windowWord => '7d';
+	@override String statsLine({required Object window, required Object rate, required Object avg}) => '${window} · 成功率 ${rate} · 均时 ${avg}';
+	@override String get runsHead => '运行';
+	@override String get runsError => '运行记录加载失败。';
+	@override String get runsEmpty => '没有匹配此过滤的运行。';
+	@override String get loadMore => '加载更多';
+	@override String get filterA11y => '按状态过滤运行';
+	@override String get filterAll => '全部';
+	@override String filterRunning({required Object n}) => '在跑 ${n}';
+	@override String filterFailed({required Object n}) => '失败 ${n}';
+	@override String filterWaiting({required Object n}) => '等人 ${n}';
+	@override String get originAll => '全部来源';
+	@override String get originManual => '手动';
+	@override String get originChat => '对话';
+	@override String get originCron => 'cron';
+	@override String get originWebhook => 'webhook';
+	@override String get originFsnotify => '文件监听';
+	@override String get originSensor => '传感器';
+	@override String get window24h => '24h';
+	@override String get window7d => '7d';
+	@override String get window30d => '30d';
+	@override String get windowAll => '全部时间';
+	@override String newRuns({required Object n}) => '${n} 条新运行';
+	@override String get srcManual => '手动';
+	@override String get srcChat => '对话';
+	@override String srcCron({required Object at}) => 'cron · ${at}';
+	@override String get srcCronBare => 'cron';
+	@override String get srcWebhookBare => 'webhook';
+	@override String srcWithName({required Object kind, required Object name}) => '${kind} · ${name}';
+	@override String get srcUnknown => '未知来源';
+	@override String replayA11y({required Object id}) => '重放 run ${id}';
+	@override String get replayTitle => '重放这个 run?';
+	@override String replayBody({required Object failed, required Object completed}) => '重跑 ${failed} 个失败节点 · 复用 ${completed} 个已完成结果。';
+	@override String get replayBodyUnknown => '重跑失败节点;已完成结果按记忆化复用。';
+	@override String get replayAction => '重放';
+	@override String get replayed => '重放已开始';
+	@override String get notReplayable => '该 run 已不可重放';
+	@override String get batchReplay => '批量重放';
+	@override String batchReplayTitle({required Object n}) => '重放 ${n} 个 run?';
+	@override String batchReplayBody({required Object failed, required Object completed}) => '共重跑 ${failed} 个失败节点 · 复用 ${completed} 个已完成结果。';
+	@override String sumReplayed({required Object n}) => '已重放 ${n}';
+	@override String sumNotReplayable({required Object n}) => '${n} 个已不可重放';
+	@override String get linkedTitle => '本次运行';
+	@override String get faceA11y => '联动格视图';
+	@override String get faceGantt => '甘特';
+	@override String get faceGraph => '图';
+	@override String get openRun => '打开 →';
+	@override String get noGraph => '活跃版本没有图。';
+	@override String get paneNoNodes => '还没有节点记录。';
+	@override String get notRun => '未运行';
+	@override String get paneError => '本次运行加载失败。';
+	@override String get triggersHead => '触发器';
+	@override String get triggersEditHint => '编辑归 Entities ↗';
+	@override String get triggersEmpty => '该 workflow 没有挂任何触发器。';
+	@override String get paused => '已暂停';
+	@override String get pause => '暂停';
+	@override String get resume => '恢复';
+	@override String pauseTitle({required Object name}) => '暂停「${name}」?';
+	@override String get pauseBody => '暂停后不再产生新 firing;在途 run 不受影响。';
+	@override String get pauseAction => '暂停';
+	@override String nextFire({required Object d, required Object at}) => '下次 ${d} 后(${at})';
+	@override String lastFired({required Object d}) => '上次 ${d} 前';
+	@override String get neverFired => '从未触发';
+	@override String editTriggerA11y({required Object name}) => '去 Entities 编辑触发器 ${name}';
 }
 
 // Path: feedback.batch
@@ -2915,6 +3016,87 @@ extension on TranslationsZhCn {
 			'scheduler.overview.firstUseChat' => '打开对话',
 			'scheduler.overview.errorTitle' => '总览加载失败',
 			'scheduler.overview.errorHint' => '后端没有应答,检查连接后重试。',
+			'scheduler.status.active' => '生效',
+			'scheduler.status.draining' => '收尾中',
+			'scheduler.status.inactive' => '停用',
+			'scheduler.home.crumb' => ({required Object name}) => 'Scheduler / ${name}',
+			'scheduler.home.notFoundTitle' => '找不到该 workflow',
+			'scheduler.home.notFoundHint' => '它可能已被删除。从左侧选择另一个 workflow。',
+			'scheduler.home.moreA11y' => '更多操作',
+			'scheduler.home.runNow' => '立即运行',
+			'scheduler.home.runNowStarted' => ({required Object id}) => '已开跑 · ${id}',
+			'scheduler.home.menuEdit' => '去 Entities 编辑',
+			'scheduler.home.menuKill' => '终止 workflow…',
+			'scheduler.home.killTitle' => '终止这个 workflow',
+			'scheduler.home.killWarning' => ({required Object n}) => '将取消 ${n} 个在途 run。',
+			'scheduler.home.killBody' => '停止监听、取消所有在途 run,并停用该 workflow。',
+			'scheduler.home.killHint' => ({required Object name}) => '输入 ${name} 以确认',
+			'scheduler.home.killConfirm' => '终止 workflow',
+			'scheduler.home.killed' => 'workflow 已终止',
+			'scheduler.home.windowWord' => '7d',
+			'scheduler.home.statsLine' => ({required Object window, required Object rate, required Object avg}) => '${window} · 成功率 ${rate} · 均时 ${avg}',
+			'scheduler.home.runsHead' => '运行',
+			'scheduler.home.runsError' => '运行记录加载失败。',
+			'scheduler.home.runsEmpty' => '没有匹配此过滤的运行。',
+			'scheduler.home.loadMore' => '加载更多',
+			'scheduler.home.filterA11y' => '按状态过滤运行',
+			'scheduler.home.filterAll' => '全部',
+			'scheduler.home.filterRunning' => ({required Object n}) => '在跑 ${n}',
+			'scheduler.home.filterFailed' => ({required Object n}) => '失败 ${n}',
+			'scheduler.home.filterWaiting' => ({required Object n}) => '等人 ${n}',
+			'scheduler.home.originAll' => '全部来源',
+			'scheduler.home.originManual' => '手动',
+			'scheduler.home.originChat' => '对话',
+			'scheduler.home.originCron' => 'cron',
+			'scheduler.home.originWebhook' => 'webhook',
+			'scheduler.home.originFsnotify' => '文件监听',
+			'scheduler.home.originSensor' => '传感器',
+			'scheduler.home.window24h' => '24h',
+			'scheduler.home.window7d' => '7d',
+			'scheduler.home.window30d' => '30d',
+			'scheduler.home.windowAll' => '全部时间',
+			'scheduler.home.newRuns' => ({required Object n}) => '${n} 条新运行',
+			'scheduler.home.srcManual' => '手动',
+			'scheduler.home.srcChat' => '对话',
+			'scheduler.home.srcCron' => ({required Object at}) => 'cron · ${at}',
+			'scheduler.home.srcCronBare' => 'cron',
+			'scheduler.home.srcWebhookBare' => 'webhook',
+			'scheduler.home.srcWithName' => ({required Object kind, required Object name}) => '${kind} · ${name}',
+			'scheduler.home.srcUnknown' => '未知来源',
+			'scheduler.home.replayA11y' => ({required Object id}) => '重放 run ${id}',
+			'scheduler.home.replayTitle' => '重放这个 run?',
+			'scheduler.home.replayBody' => ({required Object failed, required Object completed}) => '重跑 ${failed} 个失败节点 · 复用 ${completed} 个已完成结果。',
+			'scheduler.home.replayBodyUnknown' => '重跑失败节点;已完成结果按记忆化复用。',
+			'scheduler.home.replayAction' => '重放',
+			'scheduler.home.replayed' => '重放已开始',
+			'scheduler.home.notReplayable' => '该 run 已不可重放',
+			'scheduler.home.batchReplay' => '批量重放',
+			'scheduler.home.batchReplayTitle' => ({required Object n}) => '重放 ${n} 个 run?',
+			'scheduler.home.batchReplayBody' => ({required Object failed, required Object completed}) => '共重跑 ${failed} 个失败节点 · 复用 ${completed} 个已完成结果。',
+			'scheduler.home.sumReplayed' => ({required Object n}) => '已重放 ${n}',
+			'scheduler.home.sumNotReplayable' => ({required Object n}) => '${n} 个已不可重放',
+			'scheduler.home.linkedTitle' => '本次运行',
+			'scheduler.home.faceA11y' => '联动格视图',
+			'scheduler.home.faceGantt' => '甘特',
+			'scheduler.home.faceGraph' => '图',
+			'scheduler.home.openRun' => '打开 →',
+			'scheduler.home.noGraph' => '活跃版本没有图。',
+			'scheduler.home.paneNoNodes' => '还没有节点记录。',
+			'scheduler.home.notRun' => '未运行',
+			'scheduler.home.paneError' => '本次运行加载失败。',
+			'scheduler.home.triggersHead' => '触发器',
+			'scheduler.home.triggersEditHint' => '编辑归 Entities ↗',
+			'scheduler.home.triggersEmpty' => '该 workflow 没有挂任何触发器。',
+			'scheduler.home.paused' => '已暂停',
+			'scheduler.home.pause' => '暂停',
+			'scheduler.home.resume' => '恢复',
+			'scheduler.home.pauseTitle' => ({required Object name}) => '暂停「${name}」?',
+			'scheduler.home.pauseBody' => '暂停后不再产生新 firing;在途 run 不受影响。',
+			'scheduler.home.pauseAction' => '暂停',
+			'scheduler.home.nextFire' => ({required Object d, required Object at}) => '下次 ${d} 后(${at})',
+			'scheduler.home.lastFired' => ({required Object d}) => '上次 ${d} 前',
+			'scheduler.home.neverFired' => '从未触发',
+			'scheduler.home.editTriggerA11y' => ({required Object name}) => '去 Entities 编辑触发器 ${name}',
 			'action.edit' => '编辑',
 			'action.cancel' => '取消',
 			'action.save' => '保存',
@@ -3188,6 +3370,8 @@ extension on TranslationsZhCn {
 			'entities.detail.val.yes' => '是',
 			'entities.detail.val.no' => '否',
 			'entities.detail.val.stopped' => '已停',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.val.noAlerts' => '无告警',
 			'entities.detail.val.needsAttention' => '需注意',
 			'entities.detail.val.required' => '必填',
@@ -3269,8 +3453,6 @@ extension on TranslationsZhCn {
 			'entities.detail.editor.branches' => '路由分支',
 			'entities.detail.editor.branchDefault' => '兜底(其余情况)',
 			'entities.detail.editor.branchEmit' => 'emit',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.editor.field' => '字段',
 			'entities.detail.editor.retryEnable' => '启用重试',
 			'entities.detail.editor.maxAttempts' => '最大次数',
@@ -3702,6 +3884,8 @@ extension on TranslationsZhCn {
 			'settings.shortcuts.cmdZoomIn' => '放大界面',
 			'settings.shortcuts.cmdZoomOut' => '缩小界面',
 			'settings.shortcuts.cmdZoomReset' => '重置缩放',
+			_ => null,
+		} ?? switch (path) {
 			'settings.shortcuts.hintModifier' => '组合键须含 ⌘/Ctrl 等修饰键',
 			'markdown.imageNotLoaded' => '图片未加载',
 			'attach.unavailable' => '已不可用',

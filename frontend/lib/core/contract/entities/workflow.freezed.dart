@@ -658,7 +658,7 @@ $GraphCopyWith<$Res>? get graphParsed {
 /// @nodoc
 mixin _$Flowrun {
 
- String get id; String get workflowId; String get versionId; Map<String, String> get pinnedRefs; String? get triggerId; String? get firingId; String get status; int get replayCount; String? get error; DateTime? get startedAt; DateTime? get completedAt; DateTime get updatedAt;
+ String get id; String get workflowId; String get versionId; Map<String, String> get pinnedRefs; String? get triggerId; String? get firingId; String? get origin; String? get conversationId; String get status; int get replayCount; String? get error; DateTime? get startedAt; DateTime? get completedAt; DateTime get updatedAt;
 /// Create a copy of Flowrun
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -671,16 +671,16 @@ $FlowrunCopyWith<Flowrun> get copyWith => _$FlowrunCopyWithImpl<Flowrun>(this as
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Flowrun&&(identical(other.id, id) || other.id == id)&&(identical(other.workflowId, workflowId) || other.workflowId == workflowId)&&(identical(other.versionId, versionId) || other.versionId == versionId)&&const DeepCollectionEquality().equals(other.pinnedRefs, pinnedRefs)&&(identical(other.triggerId, triggerId) || other.triggerId == triggerId)&&(identical(other.firingId, firingId) || other.firingId == firingId)&&(identical(other.status, status) || other.status == status)&&(identical(other.replayCount, replayCount) || other.replayCount == replayCount)&&(identical(other.error, error) || other.error == error)&&(identical(other.startedAt, startedAt) || other.startedAt == startedAt)&&(identical(other.completedAt, completedAt) || other.completedAt == completedAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Flowrun&&(identical(other.id, id) || other.id == id)&&(identical(other.workflowId, workflowId) || other.workflowId == workflowId)&&(identical(other.versionId, versionId) || other.versionId == versionId)&&const DeepCollectionEquality().equals(other.pinnedRefs, pinnedRefs)&&(identical(other.triggerId, triggerId) || other.triggerId == triggerId)&&(identical(other.firingId, firingId) || other.firingId == firingId)&&(identical(other.origin, origin) || other.origin == origin)&&(identical(other.conversationId, conversationId) || other.conversationId == conversationId)&&(identical(other.status, status) || other.status == status)&&(identical(other.replayCount, replayCount) || other.replayCount == replayCount)&&(identical(other.error, error) || other.error == error)&&(identical(other.startedAt, startedAt) || other.startedAt == startedAt)&&(identical(other.completedAt, completedAt) || other.completedAt == completedAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,workflowId,versionId,const DeepCollectionEquality().hash(pinnedRefs),triggerId,firingId,status,replayCount,error,startedAt,completedAt,updatedAt);
+int get hashCode => Object.hash(runtimeType,id,workflowId,versionId,const DeepCollectionEquality().hash(pinnedRefs),triggerId,firingId,origin,conversationId,status,replayCount,error,startedAt,completedAt,updatedAt);
 
 @override
 String toString() {
-  return 'Flowrun(id: $id, workflowId: $workflowId, versionId: $versionId, pinnedRefs: $pinnedRefs, triggerId: $triggerId, firingId: $firingId, status: $status, replayCount: $replayCount, error: $error, startedAt: $startedAt, completedAt: $completedAt, updatedAt: $updatedAt)';
+  return 'Flowrun(id: $id, workflowId: $workflowId, versionId: $versionId, pinnedRefs: $pinnedRefs, triggerId: $triggerId, firingId: $firingId, origin: $origin, conversationId: $conversationId, status: $status, replayCount: $replayCount, error: $error, startedAt: $startedAt, completedAt: $completedAt, updatedAt: $updatedAt)';
 }
 
 
@@ -691,7 +691,7 @@ abstract mixin class $FlowrunCopyWith<$Res>  {
   factory $FlowrunCopyWith(Flowrun value, $Res Function(Flowrun) _then) = _$FlowrunCopyWithImpl;
 @useResult
 $Res call({
- String id, String workflowId, String versionId, Map<String, String> pinnedRefs, String? triggerId, String? firingId, String status, int replayCount, String? error, DateTime? startedAt, DateTime? completedAt, DateTime updatedAt
+ String id, String workflowId, String versionId, Map<String, String> pinnedRefs, String? triggerId, String? firingId, String? origin, String? conversationId, String status, int replayCount, String? error, DateTime? startedAt, DateTime? completedAt, DateTime updatedAt
 });
 
 
@@ -708,7 +708,7 @@ class _$FlowrunCopyWithImpl<$Res>
 
 /// Create a copy of Flowrun
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? workflowId = null,Object? versionId = null,Object? pinnedRefs = null,Object? triggerId = freezed,Object? firingId = freezed,Object? status = null,Object? replayCount = null,Object? error = freezed,Object? startedAt = freezed,Object? completedAt = freezed,Object? updatedAt = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? workflowId = null,Object? versionId = null,Object? pinnedRefs = null,Object? triggerId = freezed,Object? firingId = freezed,Object? origin = freezed,Object? conversationId = freezed,Object? status = null,Object? replayCount = null,Object? error = freezed,Object? startedAt = freezed,Object? completedAt = freezed,Object? updatedAt = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,workflowId: null == workflowId ? _self.workflowId : workflowId // ignore: cast_nullable_to_non_nullable
@@ -716,6 +716,8 @@ as String,versionId: null == versionId ? _self.versionId : versionId // ignore: 
 as String,pinnedRefs: null == pinnedRefs ? _self.pinnedRefs : pinnedRefs // ignore: cast_nullable_to_non_nullable
 as Map<String, String>,triggerId: freezed == triggerId ? _self.triggerId : triggerId // ignore: cast_nullable_to_non_nullable
 as String?,firingId: freezed == firingId ? _self.firingId : firingId // ignore: cast_nullable_to_non_nullable
+as String?,origin: freezed == origin ? _self.origin : origin // ignore: cast_nullable_to_non_nullable
+as String?,conversationId: freezed == conversationId ? _self.conversationId : conversationId // ignore: cast_nullable_to_non_nullable
 as String?,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as String,replayCount: null == replayCount ? _self.replayCount : replayCount // ignore: cast_nullable_to_non_nullable
 as int,error: freezed == error ? _self.error : error // ignore: cast_nullable_to_non_nullable
@@ -807,10 +809,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String workflowId,  String versionId,  Map<String, String> pinnedRefs,  String? triggerId,  String? firingId,  String status,  int replayCount,  String? error,  DateTime? startedAt,  DateTime? completedAt,  DateTime updatedAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String workflowId,  String versionId,  Map<String, String> pinnedRefs,  String? triggerId,  String? firingId,  String? origin,  String? conversationId,  String status,  int replayCount,  String? error,  DateTime? startedAt,  DateTime? completedAt,  DateTime updatedAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Flowrun() when $default != null:
-return $default(_that.id,_that.workflowId,_that.versionId,_that.pinnedRefs,_that.triggerId,_that.firingId,_that.status,_that.replayCount,_that.error,_that.startedAt,_that.completedAt,_that.updatedAt);case _:
+return $default(_that.id,_that.workflowId,_that.versionId,_that.pinnedRefs,_that.triggerId,_that.firingId,_that.origin,_that.conversationId,_that.status,_that.replayCount,_that.error,_that.startedAt,_that.completedAt,_that.updatedAt);case _:
   return orElse();
 
 }
@@ -828,10 +830,10 @@ return $default(_that.id,_that.workflowId,_that.versionId,_that.pinnedRefs,_that
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String workflowId,  String versionId,  Map<String, String> pinnedRefs,  String? triggerId,  String? firingId,  String status,  int replayCount,  String? error,  DateTime? startedAt,  DateTime? completedAt,  DateTime updatedAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String workflowId,  String versionId,  Map<String, String> pinnedRefs,  String? triggerId,  String? firingId,  String? origin,  String? conversationId,  String status,  int replayCount,  String? error,  DateTime? startedAt,  DateTime? completedAt,  DateTime updatedAt)  $default,) {final _that = this;
 switch (_that) {
 case _Flowrun():
-return $default(_that.id,_that.workflowId,_that.versionId,_that.pinnedRefs,_that.triggerId,_that.firingId,_that.status,_that.replayCount,_that.error,_that.startedAt,_that.completedAt,_that.updatedAt);case _:
+return $default(_that.id,_that.workflowId,_that.versionId,_that.pinnedRefs,_that.triggerId,_that.firingId,_that.origin,_that.conversationId,_that.status,_that.replayCount,_that.error,_that.startedAt,_that.completedAt,_that.updatedAt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -848,10 +850,10 @@ return $default(_that.id,_that.workflowId,_that.versionId,_that.pinnedRefs,_that
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String workflowId,  String versionId,  Map<String, String> pinnedRefs,  String? triggerId,  String? firingId,  String status,  int replayCount,  String? error,  DateTime? startedAt,  DateTime? completedAt,  DateTime updatedAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String workflowId,  String versionId,  Map<String, String> pinnedRefs,  String? triggerId,  String? firingId,  String? origin,  String? conversationId,  String status,  int replayCount,  String? error,  DateTime? startedAt,  DateTime? completedAt,  DateTime updatedAt)?  $default,) {final _that = this;
 switch (_that) {
 case _Flowrun() when $default != null:
-return $default(_that.id,_that.workflowId,_that.versionId,_that.pinnedRefs,_that.triggerId,_that.firingId,_that.status,_that.replayCount,_that.error,_that.startedAt,_that.completedAt,_that.updatedAt);case _:
+return $default(_that.id,_that.workflowId,_that.versionId,_that.pinnedRefs,_that.triggerId,_that.firingId,_that.origin,_that.conversationId,_that.status,_that.replayCount,_that.error,_that.startedAt,_that.completedAt,_that.updatedAt);case _:
   return null;
 
 }
@@ -863,7 +865,7 @@ return $default(_that.id,_that.workflowId,_that.versionId,_that.pinnedRefs,_that
 @JsonSerializable()
 
 class _Flowrun implements Flowrun {
-  const _Flowrun({required this.id, required this.workflowId, this.versionId = '', final  Map<String, String> pinnedRefs = const <String, String>{}, this.triggerId, this.firingId, this.status = '', this.replayCount = 0, this.error, this.startedAt, this.completedAt, required this.updatedAt}): _pinnedRefs = pinnedRefs;
+  const _Flowrun({required this.id, required this.workflowId, this.versionId = '', final  Map<String, String> pinnedRefs = const <String, String>{}, this.triggerId, this.firingId, this.origin, this.conversationId, this.status = '', this.replayCount = 0, this.error, this.startedAt, this.completedAt, required this.updatedAt}): _pinnedRefs = pinnedRefs;
   factory _Flowrun.fromJson(Map<String, dynamic> json) => _$FlowrunFromJson(json);
 
 @override final  String id;
@@ -878,6 +880,8 @@ class _Flowrun implements Flowrun {
 
 @override final  String? triggerId;
 @override final  String? firingId;
+@override final  String? origin;
+@override final  String? conversationId;
 @override@JsonKey() final  String status;
 @override@JsonKey() final  int replayCount;
 @override final  String? error;
@@ -898,16 +902,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Flowrun&&(identical(other.id, id) || other.id == id)&&(identical(other.workflowId, workflowId) || other.workflowId == workflowId)&&(identical(other.versionId, versionId) || other.versionId == versionId)&&const DeepCollectionEquality().equals(other._pinnedRefs, _pinnedRefs)&&(identical(other.triggerId, triggerId) || other.triggerId == triggerId)&&(identical(other.firingId, firingId) || other.firingId == firingId)&&(identical(other.status, status) || other.status == status)&&(identical(other.replayCount, replayCount) || other.replayCount == replayCount)&&(identical(other.error, error) || other.error == error)&&(identical(other.startedAt, startedAt) || other.startedAt == startedAt)&&(identical(other.completedAt, completedAt) || other.completedAt == completedAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Flowrun&&(identical(other.id, id) || other.id == id)&&(identical(other.workflowId, workflowId) || other.workflowId == workflowId)&&(identical(other.versionId, versionId) || other.versionId == versionId)&&const DeepCollectionEquality().equals(other._pinnedRefs, _pinnedRefs)&&(identical(other.triggerId, triggerId) || other.triggerId == triggerId)&&(identical(other.firingId, firingId) || other.firingId == firingId)&&(identical(other.origin, origin) || other.origin == origin)&&(identical(other.conversationId, conversationId) || other.conversationId == conversationId)&&(identical(other.status, status) || other.status == status)&&(identical(other.replayCount, replayCount) || other.replayCount == replayCount)&&(identical(other.error, error) || other.error == error)&&(identical(other.startedAt, startedAt) || other.startedAt == startedAt)&&(identical(other.completedAt, completedAt) || other.completedAt == completedAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,workflowId,versionId,const DeepCollectionEquality().hash(_pinnedRefs),triggerId,firingId,status,replayCount,error,startedAt,completedAt,updatedAt);
+int get hashCode => Object.hash(runtimeType,id,workflowId,versionId,const DeepCollectionEquality().hash(_pinnedRefs),triggerId,firingId,origin,conversationId,status,replayCount,error,startedAt,completedAt,updatedAt);
 
 @override
 String toString() {
-  return 'Flowrun(id: $id, workflowId: $workflowId, versionId: $versionId, pinnedRefs: $pinnedRefs, triggerId: $triggerId, firingId: $firingId, status: $status, replayCount: $replayCount, error: $error, startedAt: $startedAt, completedAt: $completedAt, updatedAt: $updatedAt)';
+  return 'Flowrun(id: $id, workflowId: $workflowId, versionId: $versionId, pinnedRefs: $pinnedRefs, triggerId: $triggerId, firingId: $firingId, origin: $origin, conversationId: $conversationId, status: $status, replayCount: $replayCount, error: $error, startedAt: $startedAt, completedAt: $completedAt, updatedAt: $updatedAt)';
 }
 
 
@@ -918,7 +922,7 @@ abstract mixin class _$FlowrunCopyWith<$Res> implements $FlowrunCopyWith<$Res> {
   factory _$FlowrunCopyWith(_Flowrun value, $Res Function(_Flowrun) _then) = __$FlowrunCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String workflowId, String versionId, Map<String, String> pinnedRefs, String? triggerId, String? firingId, String status, int replayCount, String? error, DateTime? startedAt, DateTime? completedAt, DateTime updatedAt
+ String id, String workflowId, String versionId, Map<String, String> pinnedRefs, String? triggerId, String? firingId, String? origin, String? conversationId, String status, int replayCount, String? error, DateTime? startedAt, DateTime? completedAt, DateTime updatedAt
 });
 
 
@@ -935,7 +939,7 @@ class __$FlowrunCopyWithImpl<$Res>
 
 /// Create a copy of Flowrun
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? workflowId = null,Object? versionId = null,Object? pinnedRefs = null,Object? triggerId = freezed,Object? firingId = freezed,Object? status = null,Object? replayCount = null,Object? error = freezed,Object? startedAt = freezed,Object? completedAt = freezed,Object? updatedAt = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? workflowId = null,Object? versionId = null,Object? pinnedRefs = null,Object? triggerId = freezed,Object? firingId = freezed,Object? origin = freezed,Object? conversationId = freezed,Object? status = null,Object? replayCount = null,Object? error = freezed,Object? startedAt = freezed,Object? completedAt = freezed,Object? updatedAt = null,}) {
   return _then(_Flowrun(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,workflowId: null == workflowId ? _self.workflowId : workflowId // ignore: cast_nullable_to_non_nullable
@@ -943,6 +947,8 @@ as String,versionId: null == versionId ? _self.versionId : versionId // ignore: 
 as String,pinnedRefs: null == pinnedRefs ? _self._pinnedRefs : pinnedRefs // ignore: cast_nullable_to_non_nullable
 as Map<String, String>,triggerId: freezed == triggerId ? _self.triggerId : triggerId // ignore: cast_nullable_to_non_nullable
 as String?,firingId: freezed == firingId ? _self.firingId : firingId // ignore: cast_nullable_to_non_nullable
+as String?,origin: freezed == origin ? _self.origin : origin // ignore: cast_nullable_to_non_nullable
+as String?,conversationId: freezed == conversationId ? _self.conversationId : conversationId // ignore: cast_nullable_to_non_nullable
 as String?,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as String,replayCount: null == replayCount ? _self.replayCount : replayCount // ignore: cast_nullable_to_non_nullable
 as int,error: freezed == error ? _self.error : error // ignore: cast_nullable_to_non_nullable

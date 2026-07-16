@@ -13,87 +13,19 @@ import '../../../i18n/strings.g.dart';
 import '../data/scheduler_repository.dart';
 import '../state/scheduler_overview_provider.dart';
 import '../state/scheduler_rail_provider.dart';
+import 'batch_engine.dart';
 
 // The Overview's two ACTION zones (WRK-069 §3 S2b) — «等你处理» (inbox rows + in-place ApprovalGate +
 // AnBatchBar batch approve/reject) and «正在跑» (live rows + hover ⏹ cancel + batch cancel). Both share
-// one selection/batch grammar: hover swaps the row's status dot for an [AnBatchCheck]; ≥2 selected
-// floats the [AnBatchBar]; a batch is FRONT-END SEQUENTIAL dispatch with explicit per-row settling
-// (pending spinner → settle → slide out — never fake atomicity, 判决②); a lost first-wins race (422)
-// earns an honest toast + refetch. Geometry only moves on user action or durable refetch (活性军规 —
-// the decision IS a user action, so the slide-out is legal).
+// one selection/batch grammar — the feature-shared [BatchZone] engine (batch_engine.dart, upstreamed
+// for S3's big table): hover swaps the row's status dot for an [AnBatchCheck]; ≥2 selected floats
+// the [AnBatchBar]; a batch is FRONT-END SEQUENTIAL dispatch with explicit per-row settling (pending
+// spinner → settle → slide out — never fake atomicity, 判决②); a lost first-wins race (422) earns an
+// honest toast + refetch. Geometry only moves on user action or durable refetch (活性军规 — the
+// decision IS a user action, so the slide-out is legal).
 // Overview 两块操作区(S2b):等你处理(收件箱行+就地审批门+批量批准/拒绝)与正在跑(活行+hover ⏹+批量取消)。
-// 共享一套选择/批量文法:hover 状态点换选择框;选中≥2 浮出批量条;批量=前端逐发+显式挂账(pending→落定→
-// 滑出,绝不装原子);first-wins 输家 422 诚实 toast+refetch。几何只随用户动作/durable refetch 动。
-
-/// The shared per-zone selection + sequential-batch machinery. Row keys are zone-defined strings.
-/// 两区共享的选择+逐发批量机器;行键由区定义。
-mixin _BatchZone<T extends ConsumerStatefulWidget> on ConsumerState<T> {
-  final Set<String> selected = {};
-  final Set<String> pending = {};
-  final Set<String> leaving = {};
-  String? hoveredKey;
-  bool batchBusy = false;
-
-  /// Drop state for rows that left the data (post-refetch reconcile). 数据退场后修剪本地态。
-  void pruneTo(Set<String> liveKeys) {
-    selected.retainWhere(liveKeys.contains);
-    pending.retainWhere(liveKeys.contains);
-    leaving.retainWhere(liveKeys.contains);
-    if (hoveredKey != null && !liveKeys.contains(hoveredKey)) hoveredKey = null;
-  }
-
-  /// Refetch AFTER the slide-out has played (the collapse is the user-visible settle; the refetch
-  /// then removes the row from truth). 滑出播完再对账(动画先行,truth 随后收行)。
-  Future<void> settleRefetch() async {
-    await Future<void>.delayed(AnMotion.mid + const Duration(milliseconds: 60));
-    if (!mounted) return;
-    await ref.read(schedulerRailProvider.notifier).refresh();
-  }
-
-  /// One sequential batch: per-row pending → op → settle (slide out) / count a lost race (422) /
-  /// count a failure. Returns (ok, lost, failed). 一次逐发批量,返回三桶计数。
-  Future<(int, int, int)> runBatch<R>(
-      List<R> items, String Function(R) keyOf, Future<void> Function(R) op) async {
-    setState(() => batchBusy = true);
-    var ok = 0, lost = 0, failed = 0;
-    for (final it in items) {
-      final k = keyOf(it);
-      if (!mounted) break;
-      setState(() => pending.add(k));
-      try {
-        await op(it);
-        ok++;
-        if (mounted) setState(() => leaving.add(k));
-      } on ApiException catch (e) {
-        e.httpStatus == 422 ? lost++ : failed++;
-      } catch (_) {
-        failed++;
-      } finally {
-        if (mounted) setState(() => pending.remove(k));
-      }
-    }
-    if (mounted) {
-      setState(() {
-        batchBusy = false;
-        selected.clear();
-      });
-    }
-    return (ok, lost, failed);
-  }
-
-  /// The batch summary toast «已批准 2 · 1 条已被别处处理» — parts only for non-zero buckets; the
-  /// worst bucket picks the tone. 汇总 toast:非零桶才入句;最坏桶定声调。
-  void summaryToast({required String? okPart, required String? lostPart, required String? failedPart}) {
-    final parts = [?okPart, ?lostPart, ?failedPart];
-    if (parts.isEmpty) return;
-    final tone = failedPart != null
-        ? AnTone.danger
-        : lostPart != null
-            ? AnTone.warn
-            : AnTone.ok;
-    ref.read(overlayProvider.notifier).showToast(parts.join(' · '), tone: tone);
-  }
-}
+// 选择/批量文法=feature 共享 BatchZone 引擎(batch_engine.dart,S3 大表复用故上收):hover 状态点换
+// 选择框;选中≥2 浮出批量条;批量=前端逐发+显式挂账(绝不装原子);输家 422 诚实 toast+refetch。
 
 // ─────────────────────────────────── 等你处理 ───────────────────────────────────
 
@@ -113,7 +45,7 @@ class SchedulerWaitingZone extends ConsumerStatefulWidget {
 }
 
 class _SchedulerWaitingZoneState extends ConsumerState<SchedulerWaitingZone>
-    with _BatchZone<SchedulerWaitingZone> {
+    with BatchZone<SchedulerWaitingZone> {
   final TextEditingController _batchReason = TextEditingController();
   bool _rejectOpen = false;
 
@@ -327,7 +259,7 @@ class SchedulerRunningZone extends ConsumerStatefulWidget {
 }
 
 class _SchedulerRunningZoneState extends ConsumerState<SchedulerRunningZone>
-    with _BatchZone<SchedulerRunningZone> {
+    with BatchZone<SchedulerRunningZone> {
   static String _keyOf(RunningRunRow r) => r.run.id;
 
   @override

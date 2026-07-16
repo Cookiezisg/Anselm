@@ -15,7 +15,9 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$TriggerEntity {
 
- String get id; String get name; String get description;@JsonKey(unknownEnumValue: TriggerSource.unknown) TriggerSource get kind; Map<String, dynamic> get config; List<Field> get outputs; DateTime get createdAt; DateTime get updatedAt; int get refCount; bool get listening; DateTime? get lastFiredAt; DateTime? get nextFireAt;
+ String get id; String get name; String get description;@JsonKey(unknownEnumValue: TriggerSource.unknown) TriggerSource get kind; Map<String, dynamic> get config; List<Field> get outputs; DateTime get createdAt; DateTime get updatedAt; int get refCount; bool get listening;// The persisted runtime stop-the-bleeding switch (:pause/:resume, scheduler 工单⑦) — paused=true
+// reads with nextFireAt absent and listening=false. 持久化止血开关;暂停时 nextFireAt 缺席。
+ bool get paused; DateTime? get lastFiredAt; DateTime? get nextFireAt;
 /// Create a copy of TriggerEntity
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +30,16 @@ $TriggerEntityCopyWith<TriggerEntity> get copyWith => _$TriggerEntityCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is TriggerEntity&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.description, description) || other.description == description)&&(identical(other.kind, kind) || other.kind == kind)&&const DeepCollectionEquality().equals(other.config, config)&&const DeepCollectionEquality().equals(other.outputs, outputs)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.refCount, refCount) || other.refCount == refCount)&&(identical(other.listening, listening) || other.listening == listening)&&(identical(other.lastFiredAt, lastFiredAt) || other.lastFiredAt == lastFiredAt)&&(identical(other.nextFireAt, nextFireAt) || other.nextFireAt == nextFireAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is TriggerEntity&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.description, description) || other.description == description)&&(identical(other.kind, kind) || other.kind == kind)&&const DeepCollectionEquality().equals(other.config, config)&&const DeepCollectionEquality().equals(other.outputs, outputs)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.refCount, refCount) || other.refCount == refCount)&&(identical(other.listening, listening) || other.listening == listening)&&(identical(other.paused, paused) || other.paused == paused)&&(identical(other.lastFiredAt, lastFiredAt) || other.lastFiredAt == lastFiredAt)&&(identical(other.nextFireAt, nextFireAt) || other.nextFireAt == nextFireAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,name,description,kind,const DeepCollectionEquality().hash(config),const DeepCollectionEquality().hash(outputs),createdAt,updatedAt,refCount,listening,lastFiredAt,nextFireAt);
+int get hashCode => Object.hash(runtimeType,id,name,description,kind,const DeepCollectionEquality().hash(config),const DeepCollectionEquality().hash(outputs),createdAt,updatedAt,refCount,listening,paused,lastFiredAt,nextFireAt);
 
 @override
 String toString() {
-  return 'TriggerEntity(id: $id, name: $name, description: $description, kind: $kind, config: $config, outputs: $outputs, createdAt: $createdAt, updatedAt: $updatedAt, refCount: $refCount, listening: $listening, lastFiredAt: $lastFiredAt, nextFireAt: $nextFireAt)';
+  return 'TriggerEntity(id: $id, name: $name, description: $description, kind: $kind, config: $config, outputs: $outputs, createdAt: $createdAt, updatedAt: $updatedAt, refCount: $refCount, listening: $listening, paused: $paused, lastFiredAt: $lastFiredAt, nextFireAt: $nextFireAt)';
 }
 
 
@@ -48,7 +50,7 @@ abstract mixin class $TriggerEntityCopyWith<$Res>  {
   factory $TriggerEntityCopyWith(TriggerEntity value, $Res Function(TriggerEntity) _then) = _$TriggerEntityCopyWithImpl;
 @useResult
 $Res call({
- String id, String name, String description,@JsonKey(unknownEnumValue: TriggerSource.unknown) TriggerSource kind, Map<String, dynamic> config, List<Field> outputs, DateTime createdAt, DateTime updatedAt, int refCount, bool listening, DateTime? lastFiredAt, DateTime? nextFireAt
+ String id, String name, String description,@JsonKey(unknownEnumValue: TriggerSource.unknown) TriggerSource kind, Map<String, dynamic> config, List<Field> outputs, DateTime createdAt, DateTime updatedAt, int refCount, bool listening, bool paused, DateTime? lastFiredAt, DateTime? nextFireAt
 });
 
 
@@ -65,7 +67,7 @@ class _$TriggerEntityCopyWithImpl<$Res>
 
 /// Create a copy of TriggerEntity
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? description = null,Object? kind = null,Object? config = null,Object? outputs = null,Object? createdAt = null,Object? updatedAt = null,Object? refCount = null,Object? listening = null,Object? lastFiredAt = freezed,Object? nextFireAt = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? description = null,Object? kind = null,Object? config = null,Object? outputs = null,Object? createdAt = null,Object? updatedAt = null,Object? refCount = null,Object? listening = null,Object? paused = null,Object? lastFiredAt = freezed,Object? nextFireAt = freezed,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
@@ -77,6 +79,7 @@ as List<Field>,createdAt: null == createdAt ? _self.createdAt : createdAt // ign
 as DateTime,updatedAt: null == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
 as DateTime,refCount: null == refCount ? _self.refCount : refCount // ignore: cast_nullable_to_non_nullable
 as int,listening: null == listening ? _self.listening : listening // ignore: cast_nullable_to_non_nullable
+as bool,paused: null == paused ? _self.paused : paused // ignore: cast_nullable_to_non_nullable
 as bool,lastFiredAt: freezed == lastFiredAt ? _self.lastFiredAt : lastFiredAt // ignore: cast_nullable_to_non_nullable
 as DateTime?,nextFireAt: freezed == nextFireAt ? _self.nextFireAt : nextFireAt // ignore: cast_nullable_to_non_nullable
 as DateTime?,
@@ -164,10 +167,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  String description, @JsonKey(unknownEnumValue: TriggerSource.unknown)  TriggerSource kind,  Map<String, dynamic> config,  List<Field> outputs,  DateTime createdAt,  DateTime updatedAt,  int refCount,  bool listening,  DateTime? lastFiredAt,  DateTime? nextFireAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  String description, @JsonKey(unknownEnumValue: TriggerSource.unknown)  TriggerSource kind,  Map<String, dynamic> config,  List<Field> outputs,  DateTime createdAt,  DateTime updatedAt,  int refCount,  bool listening,  bool paused,  DateTime? lastFiredAt,  DateTime? nextFireAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _TriggerEntity() when $default != null:
-return $default(_that.id,_that.name,_that.description,_that.kind,_that.config,_that.outputs,_that.createdAt,_that.updatedAt,_that.refCount,_that.listening,_that.lastFiredAt,_that.nextFireAt);case _:
+return $default(_that.id,_that.name,_that.description,_that.kind,_that.config,_that.outputs,_that.createdAt,_that.updatedAt,_that.refCount,_that.listening,_that.paused,_that.lastFiredAt,_that.nextFireAt);case _:
   return orElse();
 
 }
@@ -185,10 +188,10 @@ return $default(_that.id,_that.name,_that.description,_that.kind,_that.config,_t
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  String description, @JsonKey(unknownEnumValue: TriggerSource.unknown)  TriggerSource kind,  Map<String, dynamic> config,  List<Field> outputs,  DateTime createdAt,  DateTime updatedAt,  int refCount,  bool listening,  DateTime? lastFiredAt,  DateTime? nextFireAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  String description, @JsonKey(unknownEnumValue: TriggerSource.unknown)  TriggerSource kind,  Map<String, dynamic> config,  List<Field> outputs,  DateTime createdAt,  DateTime updatedAt,  int refCount,  bool listening,  bool paused,  DateTime? lastFiredAt,  DateTime? nextFireAt)  $default,) {final _that = this;
 switch (_that) {
 case _TriggerEntity():
-return $default(_that.id,_that.name,_that.description,_that.kind,_that.config,_that.outputs,_that.createdAt,_that.updatedAt,_that.refCount,_that.listening,_that.lastFiredAt,_that.nextFireAt);case _:
+return $default(_that.id,_that.name,_that.description,_that.kind,_that.config,_that.outputs,_that.createdAt,_that.updatedAt,_that.refCount,_that.listening,_that.paused,_that.lastFiredAt,_that.nextFireAt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -205,10 +208,10 @@ return $default(_that.id,_that.name,_that.description,_that.kind,_that.config,_t
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  String description, @JsonKey(unknownEnumValue: TriggerSource.unknown)  TriggerSource kind,  Map<String, dynamic> config,  List<Field> outputs,  DateTime createdAt,  DateTime updatedAt,  int refCount,  bool listening,  DateTime? lastFiredAt,  DateTime? nextFireAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  String description, @JsonKey(unknownEnumValue: TriggerSource.unknown)  TriggerSource kind,  Map<String, dynamic> config,  List<Field> outputs,  DateTime createdAt,  DateTime updatedAt,  int refCount,  bool listening,  bool paused,  DateTime? lastFiredAt,  DateTime? nextFireAt)?  $default,) {final _that = this;
 switch (_that) {
 case _TriggerEntity() when $default != null:
-return $default(_that.id,_that.name,_that.description,_that.kind,_that.config,_that.outputs,_that.createdAt,_that.updatedAt,_that.refCount,_that.listening,_that.lastFiredAt,_that.nextFireAt);case _:
+return $default(_that.id,_that.name,_that.description,_that.kind,_that.config,_that.outputs,_that.createdAt,_that.updatedAt,_that.refCount,_that.listening,_that.paused,_that.lastFiredAt,_that.nextFireAt);case _:
   return null;
 
 }
@@ -220,7 +223,7 @@ return $default(_that.id,_that.name,_that.description,_that.kind,_that.config,_t
 @JsonSerializable()
 
 class _TriggerEntity implements TriggerEntity {
-  const _TriggerEntity({required this.id, this.name = '', this.description = '', @JsonKey(unknownEnumValue: TriggerSource.unknown) this.kind = TriggerSource.unknown, final  Map<String, dynamic> config = const <String, dynamic>{}, final  List<Field> outputs = const <Field>[], required this.createdAt, required this.updatedAt, this.refCount = 0, this.listening = false, this.lastFiredAt, this.nextFireAt}): _config = config,_outputs = outputs;
+  const _TriggerEntity({required this.id, this.name = '', this.description = '', @JsonKey(unknownEnumValue: TriggerSource.unknown) this.kind = TriggerSource.unknown, final  Map<String, dynamic> config = const <String, dynamic>{}, final  List<Field> outputs = const <Field>[], required this.createdAt, required this.updatedAt, this.refCount = 0, this.listening = false, this.paused = false, this.lastFiredAt, this.nextFireAt}): _config = config,_outputs = outputs;
   factory _TriggerEntity.fromJson(Map<String, dynamic> json) => _$TriggerEntityFromJson(json);
 
 @override final  String id;
@@ -245,6 +248,9 @@ class _TriggerEntity implements TriggerEntity {
 @override final  DateTime updatedAt;
 @override@JsonKey() final  int refCount;
 @override@JsonKey() final  bool listening;
+// The persisted runtime stop-the-bleeding switch (:pause/:resume, scheduler 工单⑦) — paused=true
+// reads with nextFireAt absent and listening=false. 持久化止血开关;暂停时 nextFireAt 缺席。
+@override@JsonKey() final  bool paused;
 @override final  DateTime? lastFiredAt;
 @override final  DateTime? nextFireAt;
 
@@ -261,16 +267,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _TriggerEntity&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.description, description) || other.description == description)&&(identical(other.kind, kind) || other.kind == kind)&&const DeepCollectionEquality().equals(other._config, _config)&&const DeepCollectionEquality().equals(other._outputs, _outputs)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.refCount, refCount) || other.refCount == refCount)&&(identical(other.listening, listening) || other.listening == listening)&&(identical(other.lastFiredAt, lastFiredAt) || other.lastFiredAt == lastFiredAt)&&(identical(other.nextFireAt, nextFireAt) || other.nextFireAt == nextFireAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _TriggerEntity&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.description, description) || other.description == description)&&(identical(other.kind, kind) || other.kind == kind)&&const DeepCollectionEquality().equals(other._config, _config)&&const DeepCollectionEquality().equals(other._outputs, _outputs)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.refCount, refCount) || other.refCount == refCount)&&(identical(other.listening, listening) || other.listening == listening)&&(identical(other.paused, paused) || other.paused == paused)&&(identical(other.lastFiredAt, lastFiredAt) || other.lastFiredAt == lastFiredAt)&&(identical(other.nextFireAt, nextFireAt) || other.nextFireAt == nextFireAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,name,description,kind,const DeepCollectionEquality().hash(_config),const DeepCollectionEquality().hash(_outputs),createdAt,updatedAt,refCount,listening,lastFiredAt,nextFireAt);
+int get hashCode => Object.hash(runtimeType,id,name,description,kind,const DeepCollectionEquality().hash(_config),const DeepCollectionEquality().hash(_outputs),createdAt,updatedAt,refCount,listening,paused,lastFiredAt,nextFireAt);
 
 @override
 String toString() {
-  return 'TriggerEntity(id: $id, name: $name, description: $description, kind: $kind, config: $config, outputs: $outputs, createdAt: $createdAt, updatedAt: $updatedAt, refCount: $refCount, listening: $listening, lastFiredAt: $lastFiredAt, nextFireAt: $nextFireAt)';
+  return 'TriggerEntity(id: $id, name: $name, description: $description, kind: $kind, config: $config, outputs: $outputs, createdAt: $createdAt, updatedAt: $updatedAt, refCount: $refCount, listening: $listening, paused: $paused, lastFiredAt: $lastFiredAt, nextFireAt: $nextFireAt)';
 }
 
 
@@ -281,7 +287,7 @@ abstract mixin class _$TriggerEntityCopyWith<$Res> implements $TriggerEntityCopy
   factory _$TriggerEntityCopyWith(_TriggerEntity value, $Res Function(_TriggerEntity) _then) = __$TriggerEntityCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String name, String description,@JsonKey(unknownEnumValue: TriggerSource.unknown) TriggerSource kind, Map<String, dynamic> config, List<Field> outputs, DateTime createdAt, DateTime updatedAt, int refCount, bool listening, DateTime? lastFiredAt, DateTime? nextFireAt
+ String id, String name, String description,@JsonKey(unknownEnumValue: TriggerSource.unknown) TriggerSource kind, Map<String, dynamic> config, List<Field> outputs, DateTime createdAt, DateTime updatedAt, int refCount, bool listening, bool paused, DateTime? lastFiredAt, DateTime? nextFireAt
 });
 
 
@@ -298,7 +304,7 @@ class __$TriggerEntityCopyWithImpl<$Res>
 
 /// Create a copy of TriggerEntity
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? description = null,Object? kind = null,Object? config = null,Object? outputs = null,Object? createdAt = null,Object? updatedAt = null,Object? refCount = null,Object? listening = null,Object? lastFiredAt = freezed,Object? nextFireAt = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? description = null,Object? kind = null,Object? config = null,Object? outputs = null,Object? createdAt = null,Object? updatedAt = null,Object? refCount = null,Object? listening = null,Object? paused = null,Object? lastFiredAt = freezed,Object? nextFireAt = freezed,}) {
   return _then(_TriggerEntity(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
@@ -310,6 +316,7 @@ as List<Field>,createdAt: null == createdAt ? _self.createdAt : createdAt // ign
 as DateTime,updatedAt: null == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
 as DateTime,refCount: null == refCount ? _self.refCount : refCount // ignore: cast_nullable_to_non_nullable
 as int,listening: null == listening ? _self.listening : listening // ignore: cast_nullable_to_non_nullable
+as bool,paused: null == paused ? _self.paused : paused // ignore: cast_nullable_to_non_nullable
 as bool,lastFiredAt: freezed == lastFiredAt ? _self.lastFiredAt : lastFiredAt // ignore: cast_nullable_to_non_nullable
 as DateTime?,nextFireAt: freezed == nextFireAt ? _self.nextFireAt : nextFireAt // ignore: cast_nullable_to_non_nullable
 as DateTime?,

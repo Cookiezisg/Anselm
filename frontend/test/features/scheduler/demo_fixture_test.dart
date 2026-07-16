@@ -1,4 +1,5 @@
 import 'package:anselm/core/contract/api_error.dart';
+import 'package:anselm/core/contract/entities/trigger.dart';
 import 'package:anselm/features/scheduler/data/scheduler_demo_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -154,5 +155,150 @@ void main() {
       expect(triggers.map((t) => t.id), contains(e.toId), reason: '边指向存在的 trigger');
     }
     expect(edges, isNotEmpty);
+  });
+
+  // ─────────────────────────── S3 · 运营主页种子 ───────────────────────────
+
+  test('the home\'s run history pages (25+ rows over every origin, failures carry wire errors)',
+      () async {
+    final first = await repo.listFlowruns(workflowId: 'wf_clean', limit: 25);
+    expect(first.items, hasLength(25), reason: '首页满 25');
+    expect(first.hasMore, isTrue, reason: '25+ 条史 → 必翻页(哨兵有活干)');
+    expect(first.nextCursor, isNotNull);
+
+    final second = await repo.listFlowruns(workflowId: 'wf_clean', cursor: first.nextCursor, limit: 25);
+    expect(second.items, isNotEmpty, reason: '第二页有行');
+    final ids = {for (final r in [...first.items, ...second.items]) r.id};
+    expect(ids.length, first.items.length + second.items.length, reason: '两页不重不漏');
+
+    // Newest-first, the backend's keyset order. 新→旧。
+    final stamps = [for (final r in first.items) r.startedAt!];
+    for (var i = 1; i < stamps.length; i++) {
+      expect(stamps[i].isAfter(stamps[i - 1]), isFalse, reason: '新→旧');
+    }
+
+    final all = [...first.items, ...second.items];
+    final origins = {for (final r in all) r.origin};
+    expect(origins, containsAll(<String?>['cron', 'chat', 'webhook', 'manual']), reason: '全来源种齐');
+    expect(origins, contains(null), reason: '旧行(origin 缺席)种子 → unknown 脸');
+
+    final chat = all.firstWhere((r) => r.origin == 'chat');
+    expect(chat.conversationId, isNotNull, reason: 'chat 行带对话坐标(工单①)');
+
+    final failed = all.where((r) => r.status == 'failed');
+    expect(failed, isNotEmpty);
+    expect(failed.every((r) => (r.error ?? '').isNotEmpty), isTrue, reason: '失败行带错误(渲 danger 副行)');
+    expect(failed.any((r) => r.error!.contains('\n')), isTrue, reason: '多行错误 → 行只取首句');
+  });
+
+  test('the wire filters really narrow: status / origin / startedAfter (工单⑥)', () async {
+    final failed = await repo.listFlowruns(workflowId: 'wf_clean', status: 'failed', limit: 50);
+    expect(failed.items, isNotEmpty);
+    expect(failed.items.every((r) => r.status == 'failed'), isTrue);
+
+    final cron = await repo.listFlowruns(workflowId: 'wf_clean', origin: 'cron', limit: 50);
+    expect(cron.items.every((r) => r.origin == 'cron'), isTrue);
+
+    final since = DateTime.now().subtract(const Duration(hours: 24));
+    final win = await repo.listFlowruns(workflowId: 'wf_clean', startedAfter: since, limit: 50);
+    expect(win.items.every((r) => !r.startedAt!.isBefore(since)), isTrue);
+    expect(win.items.length, lessThan((await repo.listFlowruns(workflowId: 'wf_clean', limit: 50)).items.length),
+        reason: '24h 窗真的收窄了(全部时间更多)');
+  });
+
+  test('run nodes seed the linked pane: failures stop at analyze (notify 未及), completions walk all',
+      () async {
+    final failed = await repo.getRunFull('fr_hook0000000fa1');
+    expect(failed.nodes.map((n) => n.nodeId), ['fetch', 'gate', 'analyze']);
+    expect(failed.nodes.last.status, 'failed');
+    expect(failed.nodes.last.error, isNotEmpty, reason: '甘特红条与台账同句同源');
+    expect(failed.nodes.map((n) => n.nodeId), isNot(contains('notify')), reason: 'notify 未及(灰弱)');
+
+    final done = await repo.getRunFull('fr_chat00000000a1');
+    expect(done.nodes.map((n) => n.nodeId), ['fetch', 'gate', 'analyze', 'notify']);
+    expect(done.nodes.every((n) => n.status == 'completed'), isTrue);
+    // Spans must be real (the gantt falls back to equal slots only when the span collapses).
+    // 节点跨度真实(塌缩才回退等宽槽)。
+    expect(done.nodes.any((n) => n.completedAt!.difference(n.createdAt).inMilliseconds > 0), isTrue);
+  });
+
+  test('wf_clean carries the active-version graph the pane\'s graph face renders', () async {
+    final wf = await repo.getWorkflow('wf_clean');
+    final graph = wf.activeVersion?.graphParsed;
+    expect(graph, isNotNull, reason: '图脸种子');
+    expect(graph!.nodes.map((n) => n.id), ['fetch', 'gate', 'analyze', 'notify']);
+    expect(graph.edges, isNotEmpty);
+    // The run's node rows must exist IN the graph (else the gantt reads as orphan rows).
+    // run 的节点行须在图内(否则甘特读作孤儿行)。
+    final comp = await repo.getRunFull('fr_chat00000000a1');
+    expect(graph.nodes.map((n) => n.id), containsAll(comp.nodes.map((n) => n.nodeId)));
+  });
+
+  test('a PAUSED trigger is seeded and reads the wire truth: no nextFireAt, not listening (工单⑦)',
+      () async {
+    final triggers = await repo.listTriggers();
+    final paused = triggers.where((t) => t.paused);
+    expect(paused, isNotEmpty, reason: '暂停态卡种子');
+    expect(paused.every((t) => t.nextFireAt == null), isTrue, reason: '暂停时 nextFireAt 缺席');
+    expect(paused.every((t) => !t.listening), isTrue, reason: '暂停时监听器冷');
+    expect(triggers.where((t) => t.kind == TriggerSource.webhook), isNotEmpty,
+        reason: 'webhook 卡种子(path 摘要)');
+  });
+
+  test('pause / resume are stateful + idempotent, and flip the whole wire trio', () async {
+    final fresh = demoSchedulerRepository();
+    await fresh.pauseTrigger('tr_cron_clean');
+    var t = (await fresh.listTriggers()).firstWhere((t) => t.id == 'tr_cron_clean');
+    expect(t.paused, isTrue);
+    expect(t.nextFireAt, isNull, reason: '暂停后不再有下次');
+    expect(t.listening, isFalse);
+
+    await fresh.pauseTrigger('tr_cron_clean'); // idempotent 幂等
+    t = (await fresh.listTriggers()).firstWhere((t) => t.id == 'tr_cron_clean');
+    expect(t.paused, isTrue, reason: '重复暂停无害');
+
+    await fresh.resumeTrigger('tr_cron_clean');
+    t = (await fresh.listTriggers()).firstWhere((t) => t.id == 'tr_cron_clean');
+    expect(t.paused, isFalse);
+    expect(t.nextFireAt, isNotNull, reason: '恢复后下次调度回来');
+    expect(t.listening, isTrue);
+  });
+
+  test('replay is stateful: a failed run flips running; only failed replays (422 otherwise)',
+      () async {
+    final fresh = demoSchedulerRepository();
+    const frId = 'fr_hook0000000fa1';
+    final before = await fresh.getRun(frId);
+    expect(before.status, 'failed');
+
+    await fresh.replayRun(frId);
+    expect((await fresh.getRun(frId)).status, 'running', reason: 'replay 后翻 running');
+    expect((await fresh.getRun(frId)).error, isNull, reason: '重放后不再挂旧错误');
+
+    await expectLater(
+        fresh.replayRun(frId),
+        throwsA(isA<ApiException>()
+            .having((e) => e.httpStatus, 'httpStatus', 422)
+            .having((e) => e.code, 'code', 'FLOWRUN_NOT_REPLAYABLE')),
+        reason: '已在跑的 run 不可再重放');
+    await expectLater(fresh.replayRun('fr_chat00000000a1'),
+        throwsA(isA<ApiException>().having((e) => e.httpStatus, 'httpStatus', 422)),
+        reason: 'completed run 不可重放');
+  });
+
+  test('Run now births a running manual run; :kill flips inactive and cancels the in-flight',
+      () async {
+    final fresh = demoSchedulerRepository();
+    final id = await fresh.runNow('wf_clean');
+    final born = await fresh.getRun(id);
+    expect(born.status, 'running');
+    expect(born.origin, 'manual', reason: '手动来源盖章');
+
+    final killed = await fresh.killWorkflow('wf_clean');
+    expect(killed.lifecycleState, 'inactive');
+    final running = await fresh.listFlowruns(workflowId: 'wf_clean', status: 'running');
+    expect(running.items, isEmpty, reason: ':kill 取消所有在途 run');
+    expect((await fresh.listWorkflows()).firstWhere((w) => w.id == 'wf_clean').lifecycleState,
+        'inactive', reason: 'rail 行随之停用(左岛沉底段)');
   });
 }

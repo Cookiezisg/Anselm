@@ -406,6 +406,8 @@ class Translations$scheduler$en {
 	String get filterPlaceholder => 'Filter / paste fr_ id…';
 
 	late final Translations$scheduler$overview$en overview = Translations$scheduler$overview$en.internal(_root);
+	late final Translations$scheduler$status$en status = Translations$scheduler$status$en.internal(_root);
+	late final Translations$scheduler$home$en home = Translations$scheduler$home$en.internal(_root);
 }
 
 // Path: action
@@ -2885,6 +2887,267 @@ class Translations$scheduler$overview$en {
 
 	/// en: 'The backend didn't answer. Check the connection and retry.'
 	String get errorHint => 'The backend didn\'t answer. Check the connection and retry.';
+}
+
+// Path: scheduler.status
+class Translations$scheduler$status$en {
+	Translations$scheduler$status$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Active'
+	String get active => 'Active';
+
+	/// en: 'Draining'
+	String get draining => 'Draining';
+
+	/// en: 'Inactive'
+	String get inactive => 'Inactive';
+}
+
+// Path: scheduler.home
+class Translations$scheduler$home$en {
+	Translations$scheduler$home$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Scheduler / $name'
+	String crumb({required Object name}) => 'Scheduler / ${name}';
+
+	/// en: 'Workflow not found'
+	String get notFoundTitle => 'Workflow not found';
+
+	/// en: 'It may have been deleted. Pick another workflow from the rail.'
+	String get notFoundHint => 'It may have been deleted. Pick another workflow from the rail.';
+
+	/// en: 'More actions'
+	String get moreA11y => 'More actions';
+
+	/// en: 'Run now'
+	String get runNow => 'Run now';
+
+	/// en: 'Run started · $id'
+	String runNowStarted({required Object id}) => 'Run started · ${id}';
+
+	/// en: 'Edit in Entities'
+	String get menuEdit => 'Edit in Entities';
+
+	/// en: 'Kill workflow…'
+	String get menuKill => 'Kill workflow…';
+
+	/// en: 'Kill this workflow'
+	String get killTitle => 'Kill this workflow';
+
+	/// en: '$n in-flight runs will be cancelled.'
+	String killWarning({required Object n}) => '${n} in-flight runs will be cancelled.';
+
+	/// en: 'Stops listening, cancels every in-flight run and deactivates the workflow.'
+	String get killBody => 'Stops listening, cancels every in-flight run and deactivates the workflow.';
+
+	/// en: 'Type $name to confirm'
+	String killHint({required Object name}) => 'Type ${name} to confirm';
+
+	/// en: 'Kill workflow'
+	String get killConfirm => 'Kill workflow';
+
+	/// en: 'Workflow killed'
+	String get killed => 'Workflow killed';
+
+	/// en: '7d'
+	String get windowWord => '7d';
+
+	/// en: '$window · success $rate · avg $avg'
+	String statsLine({required Object window, required Object rate, required Object avg}) => '${window} · success ${rate} · avg ${avg}';
+
+	/// en: 'Runs'
+	String get runsHead => 'Runs';
+
+	/// en: 'Couldn't load the runs.'
+	String get runsError => 'Couldn\'t load the runs.';
+
+	/// en: 'No runs match this filter.'
+	String get runsEmpty => 'No runs match this filter.';
+
+	/// en: 'Load more'
+	String get loadMore => 'Load more';
+
+	/// en: 'Filter runs by status'
+	String get filterA11y => 'Filter runs by status';
+
+	/// en: 'All'
+	String get filterAll => 'All';
+
+	/// en: 'Running $n'
+	String filterRunning({required Object n}) => 'Running ${n}';
+
+	/// en: 'Failed $n'
+	String filterFailed({required Object n}) => 'Failed ${n}';
+
+	/// en: 'Waiting $n'
+	String filterWaiting({required Object n}) => 'Waiting ${n}';
+
+	/// en: 'All origins'
+	String get originAll => 'All origins';
+
+	/// en: 'Manual'
+	String get originManual => 'Manual';
+
+	/// en: 'Chat'
+	String get originChat => 'Chat';
+
+	/// en: 'Cron'
+	String get originCron => 'Cron';
+
+	/// en: 'Webhook'
+	String get originWebhook => 'Webhook';
+
+	/// en: 'File watch'
+	String get originFsnotify => 'File watch';
+
+	/// en: 'Sensor'
+	String get originSensor => 'Sensor';
+
+	/// en: '24h'
+	String get window24h => '24h';
+
+	/// en: '7d'
+	String get window7d => '7d';
+
+	/// en: '30d'
+	String get window30d => '30d';
+
+	/// en: 'All time'
+	String get windowAll => 'All time';
+
+	/// en: '$n new runs'
+	String newRuns({required Object n}) => '${n} new runs';
+
+	/// en: 'Manual'
+	String get srcManual => 'Manual';
+
+	/// en: 'Conversation'
+	String get srcChat => 'Conversation';
+
+	/// en: 'cron · $at'
+	String srcCron({required Object at}) => 'cron · ${at}';
+
+	/// en: 'cron'
+	String get srcCronBare => 'cron';
+
+	/// en: 'webhook'
+	String get srcWebhookBare => 'webhook';
+
+	/// en: '$kind · $name'
+	String srcWithName({required Object kind, required Object name}) => '${kind} · ${name}';
+
+	/// en: 'Unknown origin'
+	String get srcUnknown => 'Unknown origin';
+
+	/// en: 'Replay run $id'
+	String replayA11y({required Object id}) => 'Replay run ${id}';
+
+	/// en: 'Replay this run?'
+	String get replayTitle => 'Replay this run?';
+
+	/// en: 'Re-runs $failed failed nodes · reuses $completed completed results.'
+	String replayBody({required Object failed, required Object completed}) => 'Re-runs ${failed} failed nodes · reuses ${completed} completed results.';
+
+	/// en: 'Re-runs the failed nodes; completed results are reused.'
+	String get replayBodyUnknown => 'Re-runs the failed nodes; completed results are reused.';
+
+	/// en: 'Replay'
+	String get replayAction => 'Replay';
+
+	/// en: 'Replay started'
+	String get replayed => 'Replay started';
+
+	/// en: 'This run is no longer replayable'
+	String get notReplayable => 'This run is no longer replayable';
+
+	/// en: 'Replay all'
+	String get batchReplay => 'Replay all';
+
+	/// en: 'Replay $n runs?'
+	String batchReplayTitle({required Object n}) => 'Replay ${n} runs?';
+
+	/// en: 'Re-runs $failed failed nodes in total · reuses $completed completed results.'
+	String batchReplayBody({required Object failed, required Object completed}) => 'Re-runs ${failed} failed nodes in total · reuses ${completed} completed results.';
+
+	/// en: '$n replayed'
+	String sumReplayed({required Object n}) => '${n} replayed';
+
+	/// en: '$n no longer replayable'
+	String sumNotReplayable({required Object n}) => '${n} no longer replayable';
+
+	/// en: 'This run'
+	String get linkedTitle => 'This run';
+
+	/// en: 'Linked pane view'
+	String get faceA11y => 'Linked pane view';
+
+	/// en: 'Gantt'
+	String get faceGantt => 'Gantt';
+
+	/// en: 'Graph'
+	String get faceGraph => 'Graph';
+
+	/// en: 'Open →'
+	String get openRun => 'Open →';
+
+	/// en: 'The active version has no graph.'
+	String get noGraph => 'The active version has no graph.';
+
+	/// en: 'No node records yet.'
+	String get paneNoNodes => 'No node records yet.';
+
+	/// en: 'not run'
+	String get notRun => 'not run';
+
+	/// en: 'Couldn't load this run.'
+	String get paneError => 'Couldn\'t load this run.';
+
+	/// en: 'Triggers'
+	String get triggersHead => 'Triggers';
+
+	/// en: 'Editing belongs to Entities ↗'
+	String get triggersEditHint => 'Editing belongs to Entities ↗';
+
+	/// en: 'No triggers equip this workflow.'
+	String get triggersEmpty => 'No triggers equip this workflow.';
+
+	/// en: 'Paused'
+	String get paused => 'Paused';
+
+	/// en: 'Pause'
+	String get pause => 'Pause';
+
+	/// en: 'Resume'
+	String get resume => 'Resume';
+
+	/// en: 'Pause “$name”?'
+	String pauseTitle({required Object name}) => 'Pause “${name}”?';
+
+	/// en: 'No new firings will be produced; in-flight runs are not affected.'
+	String get pauseBody => 'No new firings will be produced; in-flight runs are not affected.';
+
+	/// en: 'Pause'
+	String get pauseAction => 'Pause';
+
+	/// en: 'next in $d ($at)'
+	String nextFire({required Object d, required Object at}) => 'next in ${d} (${at})';
+
+	/// en: 'fired $d ago'
+	String lastFired({required Object d}) => 'fired ${d} ago';
+
+	/// en: 'never fired'
+	String get neverFired => 'never fired';
+
+	/// en: 'Edit trigger $name in Entities'
+	String editTriggerA11y({required Object name}) => 'Edit trigger ${name} in Entities';
 }
 
 // Path: feedback.batch
@@ -5865,6 +6128,87 @@ extension on Translations {
 			'scheduler.overview.firstUseChat' => 'Open the conversation',
 			'scheduler.overview.errorTitle' => 'Couldn\'t load the overview',
 			'scheduler.overview.errorHint' => 'The backend didn\'t answer. Check the connection and retry.',
+			'scheduler.status.active' => 'Active',
+			'scheduler.status.draining' => 'Draining',
+			'scheduler.status.inactive' => 'Inactive',
+			'scheduler.home.crumb' => ({required Object name}) => 'Scheduler / ${name}',
+			'scheduler.home.notFoundTitle' => 'Workflow not found',
+			'scheduler.home.notFoundHint' => 'It may have been deleted. Pick another workflow from the rail.',
+			'scheduler.home.moreA11y' => 'More actions',
+			'scheduler.home.runNow' => 'Run now',
+			'scheduler.home.runNowStarted' => ({required Object id}) => 'Run started · ${id}',
+			'scheduler.home.menuEdit' => 'Edit in Entities',
+			'scheduler.home.menuKill' => 'Kill workflow…',
+			'scheduler.home.killTitle' => 'Kill this workflow',
+			'scheduler.home.killWarning' => ({required Object n}) => '${n} in-flight runs will be cancelled.',
+			'scheduler.home.killBody' => 'Stops listening, cancels every in-flight run and deactivates the workflow.',
+			'scheduler.home.killHint' => ({required Object name}) => 'Type ${name} to confirm',
+			'scheduler.home.killConfirm' => 'Kill workflow',
+			'scheduler.home.killed' => 'Workflow killed',
+			'scheduler.home.windowWord' => '7d',
+			'scheduler.home.statsLine' => ({required Object window, required Object rate, required Object avg}) => '${window} · success ${rate} · avg ${avg}',
+			'scheduler.home.runsHead' => 'Runs',
+			'scheduler.home.runsError' => 'Couldn\'t load the runs.',
+			'scheduler.home.runsEmpty' => 'No runs match this filter.',
+			'scheduler.home.loadMore' => 'Load more',
+			'scheduler.home.filterA11y' => 'Filter runs by status',
+			'scheduler.home.filterAll' => 'All',
+			'scheduler.home.filterRunning' => ({required Object n}) => 'Running ${n}',
+			'scheduler.home.filterFailed' => ({required Object n}) => 'Failed ${n}',
+			'scheduler.home.filterWaiting' => ({required Object n}) => 'Waiting ${n}',
+			'scheduler.home.originAll' => 'All origins',
+			'scheduler.home.originManual' => 'Manual',
+			'scheduler.home.originChat' => 'Chat',
+			'scheduler.home.originCron' => 'Cron',
+			'scheduler.home.originWebhook' => 'Webhook',
+			'scheduler.home.originFsnotify' => 'File watch',
+			'scheduler.home.originSensor' => 'Sensor',
+			'scheduler.home.window24h' => '24h',
+			'scheduler.home.window7d' => '7d',
+			'scheduler.home.window30d' => '30d',
+			'scheduler.home.windowAll' => 'All time',
+			'scheduler.home.newRuns' => ({required Object n}) => '${n} new runs',
+			'scheduler.home.srcManual' => 'Manual',
+			'scheduler.home.srcChat' => 'Conversation',
+			'scheduler.home.srcCron' => ({required Object at}) => 'cron · ${at}',
+			'scheduler.home.srcCronBare' => 'cron',
+			'scheduler.home.srcWebhookBare' => 'webhook',
+			'scheduler.home.srcWithName' => ({required Object kind, required Object name}) => '${kind} · ${name}',
+			'scheduler.home.srcUnknown' => 'Unknown origin',
+			'scheduler.home.replayA11y' => ({required Object id}) => 'Replay run ${id}',
+			'scheduler.home.replayTitle' => 'Replay this run?',
+			'scheduler.home.replayBody' => ({required Object failed, required Object completed}) => 'Re-runs ${failed} failed nodes · reuses ${completed} completed results.',
+			'scheduler.home.replayBodyUnknown' => 'Re-runs the failed nodes; completed results are reused.',
+			'scheduler.home.replayAction' => 'Replay',
+			'scheduler.home.replayed' => 'Replay started',
+			'scheduler.home.notReplayable' => 'This run is no longer replayable',
+			'scheduler.home.batchReplay' => 'Replay all',
+			'scheduler.home.batchReplayTitle' => ({required Object n}) => 'Replay ${n} runs?',
+			'scheduler.home.batchReplayBody' => ({required Object failed, required Object completed}) => 'Re-runs ${failed} failed nodes in total · reuses ${completed} completed results.',
+			'scheduler.home.sumReplayed' => ({required Object n}) => '${n} replayed',
+			'scheduler.home.sumNotReplayable' => ({required Object n}) => '${n} no longer replayable',
+			'scheduler.home.linkedTitle' => 'This run',
+			'scheduler.home.faceA11y' => 'Linked pane view',
+			'scheduler.home.faceGantt' => 'Gantt',
+			'scheduler.home.faceGraph' => 'Graph',
+			'scheduler.home.openRun' => 'Open →',
+			'scheduler.home.noGraph' => 'The active version has no graph.',
+			'scheduler.home.paneNoNodes' => 'No node records yet.',
+			'scheduler.home.notRun' => 'not run',
+			'scheduler.home.paneError' => 'Couldn\'t load this run.',
+			'scheduler.home.triggersHead' => 'Triggers',
+			'scheduler.home.triggersEditHint' => 'Editing belongs to Entities ↗',
+			'scheduler.home.triggersEmpty' => 'No triggers equip this workflow.',
+			'scheduler.home.paused' => 'Paused',
+			'scheduler.home.pause' => 'Pause',
+			'scheduler.home.resume' => 'Resume',
+			'scheduler.home.pauseTitle' => ({required Object name}) => 'Pause “${name}”?',
+			'scheduler.home.pauseBody' => 'No new firings will be produced; in-flight runs are not affected.',
+			'scheduler.home.pauseAction' => 'Pause',
+			'scheduler.home.nextFire' => ({required Object d, required Object at}) => 'next in ${d} (${at})',
+			'scheduler.home.lastFired' => ({required Object d}) => 'fired ${d} ago',
+			'scheduler.home.neverFired' => 'never fired',
+			'scheduler.home.editTriggerA11y' => ({required Object name}) => 'Edit trigger ${name} in Entities',
 			'action.edit' => 'Edit',
 			'action.cancel' => 'Cancel',
 			'action.save' => 'Save',
@@ -6138,6 +6482,8 @@ extension on Translations {
 			'entities.detail.val.yes' => 'Yes',
 			'entities.detail.val.no' => 'No',
 			'entities.detail.val.stopped' => 'Stopped',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.val.noAlerts' => 'No alerts',
 			'entities.detail.val.needsAttention' => 'Needs attention',
 			'entities.detail.val.required' => 'required',
@@ -6219,8 +6565,6 @@ extension on Translations {
 			'entities.detail.editor.branches' => 'Routing branches',
 			'entities.detail.editor.branchDefault' => 'default (all else)',
 			'entities.detail.editor.branchEmit' => 'emit',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.editor.field' => 'Field',
 			'entities.detail.editor.retryEnable' => 'Enable retry',
 			'entities.detail.editor.maxAttempts' => 'Max attempts',
@@ -6652,6 +6996,8 @@ extension on Translations {
 			'settings.shortcuts.cmdZoomIn' => 'Zoom in',
 			'settings.shortcuts.cmdZoomOut' => 'Zoom out',
 			'settings.shortcuts.cmdZoomReset' => 'Reset zoom',
+			_ => null,
+		} ?? switch (path) {
 			'settings.shortcuts.hintModifier' => 'A chord must include a modifier (⌘/Ctrl…)',
 			'markdown.imageNotLoaded' => 'image not loaded',
 			'attach.unavailable' => 'Unavailable',

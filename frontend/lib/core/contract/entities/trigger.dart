@@ -39,6 +39,9 @@ abstract class TriggerEntity with _$TriggerEntity {
     required DateTime updatedAt,
     @Default(0) int refCount,
     @Default(false) bool listening,
+    // The persisted runtime stop-the-bleeding switch (:pause/:resume, scheduler 工单⑦) — paused=true
+    // reads with nextFireAt absent and listening=false. 持久化止血开关;暂停时 nextFireAt 缺席。
+    @Default(false) bool paused,
     DateTime? lastFiredAt,
     DateTime? nextFireAt,
   }) = _TriggerEntity;

@@ -1,0 +1,292 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/contract/entities/workflow.dart';
+import '../../../core/runtime.dart';
+import '../../../core/sse/frame.dart';
+import '../../../core/sse/sse_gateway.dart';
+import '../data/scheduler_repository.dart';
+import '../ui/scheduler_home_model.dart';
+import 'scheduler_rail_provider.dart';
+
+// The workflow operations home's server-state (WRK-069 §4 S3) — three providers over the ONE rail
+// pulse: the workflow detail (graph + lifecycle truth), the run big table (keyset-paged, filtered,
+// pill-guarded) and the linked pane's full run composite. 活性军规 holds throughout: ticks never
+// reach any of these; run_started only bumps the pill (never a row); run_terminal patches loaded
+// rows IN PLACE from a single-run reconcile read (geometry only moves on durable ledger events or
+// user action). 运营主页状态:详情/大表/联动格三 provider 同吃 rail 节拍;tick 永不达,run_started
+// 只加 pill 不插行,run_terminal 单 run 对账读原位补行。
+
+/// The full workflow entity (name/lifecycle truth + the active version's graph for the linked
+/// pane). Rides the rail's durable pulse — refetches exactly when the rail does.
+/// 全量 workflow 实体(健康头+联动格图);随 rail durable 节拍重取。
+final schedulerWorkflowProvider =
+    FutureProvider.autoDispose.family<WorkflowEntity, String>((ref, id) async {
+  await ref.watch(schedulerRailProvider.future);
+  return ref.watch(schedulerRepositoryProvider).getWorkflow(id);
+}, retry: (_, _) => null);
+
+/// The linked pane's run composite — the run header + ALL node rows (gantt/graph need the complete
+/// set). Rides the rail pulse: a durable terminal reconciles the pane; ticks never reach it (the
+/// live-growing gantt is S4's). 联动格 run 复合(全量节点);随 rail 节拍对账,tick 不达(活甘特归 S4)。
+final schedulerLinkedRunProvider =
+    FutureProvider.autoDispose.family<FlowrunComposite, String>((ref, frId) async {
+  await ref.watch(schedulerRailProvider.future);
+  return ref.watch(schedulerRepositoryProvider).getRunFull(frId);
+}, retry: (_, _) => null);
+
+/// The run big table's whole state. [failedCount] is the count strip's failed number — probed
+/// through the SAME `GET /flowruns` grammar the table uses (window + origin apply), one page of 50;
+/// [failedCountCapped] = the probe hit its page bound (render «50+», never a fake exact number).
+/// [newRuns] is the follow pill (§0 军规:新 run 绝不插行). 大表状态;失败计数=同文法探针(≤50 封顶
+/// 诚实);newRuns=pill。
+class RunTableState {
+  const RunTableState({
+    this.rows = const [],
+    this.nextCursor,
+    this.hasMore = false,
+    this.loadingMore = false,
+    this.filter = RunStatusFilter.all,
+    this.origin,
+    this.window = RunWindow.d7,
+    this.failedCount = 0,
+    this.failedCountCapped = false,
+    this.newRuns = 0,
+  });
+
+  final List<Flowrun> rows;
+  final String? nextCursor;
+  final bool hasMore;
+  final bool loadingMore;
+  final RunStatusFilter filter;
+  final String? origin;
+  final RunWindow window;
+  final int failedCount;
+  final bool failedCountCapped;
+  final int newRuns;
+
+  RunTableState copyWith({
+    List<Flowrun>? rows,
+    String? nextCursor,
+    bool clearCursor = false,
+    bool? hasMore,
+    bool? loadingMore,
+    RunStatusFilter? filter,
+    String? origin,
+    bool clearOrigin = false,
+    RunWindow? window,
+    int? failedCount,
+    bool? failedCountCapped,
+    int? newRuns,
+  }) =>
+      RunTableState(
+        rows: rows ?? this.rows,
+        nextCursor: clearCursor ? null : (nextCursor ?? this.nextCursor),
+        hasMore: hasMore ?? this.hasMore,
+        loadingMore: loadingMore ?? this.loadingMore,
+        filter: filter ?? this.filter,
+        origin: clearOrigin ? null : (origin ?? this.origin),
+        window: window ?? this.window,
+        failedCount: failedCount ?? this.failedCount,
+        failedCountCapped: failedCountCapped ?? this.failedCountCapped,
+        newRuns: newRuns ?? this.newRuns,
+      );
+}
+
+class SchedulerRunTableController extends AsyncNotifier<RunTableState> {
+  SchedulerRunTableController(this.workflowId);
+
+  final String workflowId;
+
+  static const pageSize = 25;
+
+  /// The failed-count probe's page bound — beyond it the strip says «50+». 探针页界,越界渲 50+。
+  static const probeCap = 50;
+
+  @override
+  Future<RunTableState> build() async {
+    final gateway = ref.watch(sseGatewayProvider);
+    if (gateway != null) {
+      final sub =
+          gateway.kindStream(StreamName.entities, 'workflow').listen(_onFrame);
+      ref.onDispose(sub.cancel);
+    }
+    return _fetch(const RunTableState());
+  }
+
+  // ── durable frames (活性军规) ──────────────────────────────────────────────
+
+  /// The frame seam, exposed for the liveness batteries (a real gateway would need a live socket;
+  /// the RULE under test is this fold). 帧缝测试出口:待测的是折叠规则本身,不必起真 socket。
+  @visibleForTesting
+  void onFrameForTest(StreamEnvelope env) => _onFrame(env);
+
+  void _onFrame(StreamEnvelope env) {
+    // Ephemeral ticks never reach the table; other workflows' ledgers are not ours. tick 不达。
+    if (!env.durable || env.scope.id != workflowId) return;
+    final frame = env.frame;
+    if (frame is! FrameSignal) return;
+    switch (frame.node.type) {
+      case 'run_started':
+        // A new run NEVER inserts a row — the pill counts it, the user pulls it in (§0 军规).
+        // 新 run 绝不插行——pill 计数,用户点击归位。
+        final s = state.value;
+        if (s != null) state = AsyncData(s.copyWith(newRuns: s.newRuns + 1));
+      case 'run_terminal':
+        final frId = frame.node.content?['flowrunId'] as String?;
+        if (frId != null) unawaited(_reconcileRun(frId));
+    }
+  }
+
+  /// A durable terminal landed — re-read THAT run (DB row is the truth, the frame only triggers the
+  /// read) and settle it in place: patch the loaded row, or drop it when the new status left the
+  /// current filter; refresh the failed probe (a failure may just have landed). Loaded pagination is
+  /// deliberately preserved — a full top-reset would trash the user's scrolled context (记裁量).
+  /// terminal 落账:单 run 对账读原位落定(补行/滤出即收行)+ 失败探针刷新;保住已翻页上下文。
+  Future<void> _reconcileRun(String frId) async {
+    final repo = ref.read(schedulerRepositoryProvider);
+    try {
+      final run = await repo.getRun(frId);
+      if (!ref.mounted) return;
+      final s = state.value;
+      if (s == null) return;
+      final f = runListFilter(
+          filter: s.filter, origin: s.origin, window: s.window, now: DateTime.now());
+      final stillMatches = f.status == null || run.status == f.status;
+      final rows = [
+        for (final r in s.rows)
+          if (r.id != frId) r else if (stillMatches) run,
+      ];
+      final probe = await _failedProbe(s);
+      if (!ref.mounted) return;
+      final cur = state.value ?? s;
+      state = AsyncData(cur.copyWith(
+        rows: rows,
+        failedCount: probe.$1,
+        failedCountCapped: probe.$2,
+      ));
+    } catch (_) {
+      // A reconcile read is best-effort — the row keeps its last durable truth. 对账尽力而为。
+    }
+  }
+
+  // ── fetch ─────────────────────────────────────────────────────────────────
+
+  Future<(int, bool)> _failedProbe(RunTableState s) async {
+    final repo = ref.read(schedulerRepositoryProvider);
+    final f = runListFilter(
+        filter: RunStatusFilter.failed, origin: s.origin, window: s.window, now: DateTime.now());
+    final page = await repo.listFlowruns(
+      workflowId: workflowId,
+      status: f.status,
+      origin: f.origin,
+      startedAfter: f.startedAfter,
+      limit: probeCap,
+    );
+    return (page.items.length, page.hasMore);
+  }
+
+  Future<RunTableState> _fetch(RunTableState s) async {
+    final repo = ref.read(schedulerRepositoryProvider);
+    final f = runListFilter(
+        filter: s.filter, origin: s.origin, window: s.window, now: DateTime.now());
+
+    List<Flowrun> rows;
+    String? next;
+    var more = false;
+    if (s.filter == RunStatusFilter.waiting) {
+      // «等人» = the running fetch intersected with the workflow's inbox runs — bounded by the inbox
+      // (a handful), so it never paginates. 等人=running∩inbox,天然有界不分页。
+      final rail = await ref.read(schedulerRailProvider.future);
+      final waiting = waitingRunIds(rail.inbox, workflowId).toSet();
+      final page = await repo.listFlowruns(
+          workflowId: workflowId,
+          status: f.status,
+          origin: f.origin,
+          startedAfter: f.startedAfter,
+          limit: probeCap);
+      rows = [for (final r in page.items) if (waiting.contains(r.id)) r];
+      next = null;
+    } else {
+      final page = await repo.listFlowruns(
+          workflowId: workflowId,
+          status: f.status,
+          origin: f.origin,
+          startedAfter: f.startedAfter,
+          limit: pageSize);
+      rows = page.items;
+      next = page.isLastPage ? null : page.nextCursor;
+      more = page.hasMore;
+    }
+
+    final probe = await _failedProbe(s);
+    return s.copyWith(
+      rows: rows,
+      nextCursor: next,
+      clearCursor: next == null,
+      hasMore: more,
+      loadingMore: false,
+      failedCount: probe.$1,
+      failedCountCapped: probe.$2,
+    );
+  }
+
+  /// Re-fetch page 1 under the given (or current) filters — the pill tap, filter picks and post-op
+  /// settles all land here. USER-driven geometry (军规-legal). 回第一页重取:pill/换滤/操作后都走这。
+  Future<void> refetchTop({RunStatusFilter? filter, String? origin, bool clearOrigin = false, RunWindow? window}) async {
+    final s = state.value ?? const RunTableState();
+    final base = s.copyWith(
+      filter: filter,
+      origin: origin,
+      clearOrigin: clearOrigin,
+      window: window,
+      newRuns: 0,
+      rows: s.rows, // keep the last good rows on screen during the await (no empty flash) 重取不闪空
+    );
+    state = AsyncData(base);
+    final next = await AsyncValue.guard(() => _fetch(base));
+    if (!ref.mounted) return;
+    // A failed refetch keeps the previous truth (first-load errors surface via build). 失败留旧真相。
+    if (next.hasValue) state = next;
+  }
+
+  /// Keyset next page (photo run_cockpit's loadMore discipline). keyset 下一页。
+  Future<void> loadMore() async {
+    final s = state.value;
+    if (s == null || !s.hasMore || s.loadingMore || s.nextCursor == null) return;
+    state = AsyncData(s.copyWith(loadingMore: true));
+    final repo = ref.read(schedulerRepositoryProvider);
+    final f = runListFilter(
+        filter: s.filter, origin: s.origin, window: s.window, now: DateTime.now());
+    try {
+      final page = await repo.listFlowruns(
+          workflowId: workflowId,
+          status: f.status,
+          origin: f.origin,
+          startedAfter: f.startedAfter,
+          cursor: s.nextCursor,
+          limit: pageSize);
+      if (!ref.mounted) return;
+      final cur = state.value ?? s;
+      final next = page.isLastPage ? null : page.nextCursor;
+      state = AsyncData(cur.copyWith(
+        rows: [...cur.rows, ...page.items],
+        nextCursor: next,
+        clearCursor: next == null,
+        hasMore: page.hasMore,
+        loadingMore: false,
+      ));
+    } catch (_) {
+      if (!ref.mounted) return;
+      state = AsyncData((state.value ?? s).copyWith(loadingMore: false));
+    }
+  }
+}
+
+final schedulerRunTableProvider = AsyncNotifierProvider.autoDispose
+    .family<SchedulerRunTableController, RunTableState, String>(
+  SchedulerRunTableController.new,
+  retry: (_, _) => null,
+);

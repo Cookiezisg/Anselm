@@ -48,6 +48,9 @@ abstract class WorkflowVersion with _$WorkflowVersion {
 }
 
 /// One workflow run (the 日志 tab for workflow = flowruns, NOT executions/calls). flowrun.go:113。
+/// [origin]/[conversationId] are creation-time provenance (scheduler 工单①): origin ∈ manual/chat/
+/// cron/webhook/fsnotify/sensor, omitted (null) on pre-provenance rows — render "unknown", never a
+/// zero-value lie; conversationId rides only origin=chat. 溯源两键 omitempty,旧行 null→前端 unknown。
 @freezed
 abstract class Flowrun with _$Flowrun {
   const factory Flowrun({
@@ -57,6 +60,8 @@ abstract class Flowrun with _$Flowrun {
     @Default(<String, String>{}) Map<String, String> pinnedRefs,
     String? triggerId,
     String? firingId,
+    String? origin,
+    String? conversationId,
     @Default('') String status,
     @Default(0) int replayCount,
     String? error,
