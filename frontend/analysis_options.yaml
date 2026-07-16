@@ -20,6 +20,11 @@ analyzer:
     # 生成物入库、非手写,豁免分析。
     - "**/*.freezed.dart"
     - "**/*.g.dart"
+    # Vendored upstream source (ADR 0009: super_editor copied verbatim so ONE file can be patched) —
+    # upstream's code style is not held to this project's lints; the compiler still fully type-checks
+    # it through every build/test. 上游 vendored 源码(ADR 0009):上游代码风格不受本项目 lint 约束,
+    # 编译器在每次构建/测试中仍全量类型检查。
+    - "third_party/**"
 
 linter:
   # The lint rules applied to this project can be customized in the
