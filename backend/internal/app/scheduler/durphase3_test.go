@@ -159,6 +159,15 @@ func (m *multiWorkflows) GetVersion(_ context.Context, verID string) (*workflowd
 func (m *multiWorkflows) BuildPinClosure(context.Context, *workflowdomain.Graph) (map[string]string, error) {
 	return map[string]string{}, nil
 }
+func (m *multiWorkflows) NamesByIDs(_ context.Context, ids []string) (map[string]string, error) {
+	out := make(map[string]string, len(ids))
+	for _, id := range ids {
+		if w, ok := m.wfs[id]; ok {
+			out[id] = w.Name
+		}
+	}
+	return out, nil
+}
 
 // ---- D-pool-4: a fully-saturated Advance pool never starves timeout settlement -------------
 //

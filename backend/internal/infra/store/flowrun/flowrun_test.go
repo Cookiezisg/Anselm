@@ -129,6 +129,41 @@ func TestListNodes_PagesAllRows(t *testing.T) {
 	}
 }
 
+// TestGetRunsByIDs — the inbox's bounded join (scheduler 工单④): ONE WhereIn query, missing ids
+// absent (never an error), request order preserved, workspace isolation intact, empty ids → nil.
+func TestGetRunsByIDs(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	mkRun(t, s, ctx, "fr_1", "wf_a", map[string]any{})
+	mkRun(t, s, ctx, "fr_2", "wf_b", map[string]any{})
+	mkRun(t, s, ctxWS("ws_other"), "fr_alien", "wf_x", map[string]any{})
+
+	t.Run("empty ids → nil, no query error", func(t *testing.T) {
+		rows, err := s.GetRunsByIDs(ctx, nil)
+		if err != nil || rows != nil {
+			t.Fatalf("rows=%v err=%v", rows, err)
+		}
+	})
+	t.Run("batch hit + miss absent + request order", func(t *testing.T) {
+		rows, err := s.GetRunsByIDs(ctx, []string{"fr_2", "fr_ghost", "fr_1"})
+		if err != nil {
+			t.Fatalf("GetRunsByIDs: %v", err)
+		}
+		if len(rows) != 2 || rows[0].ID != "fr_2" || rows[1].ID != "fr_1" {
+			t.Fatalf("want [fr_2 fr_1] (miss absent, request order), got %+v", rows)
+		}
+		if rows[0].WorkflowID != "wf_b" || rows[1].WorkflowID != "wf_a" {
+			t.Fatalf("workflow ids lost: %+v", rows)
+		}
+	})
+	t.Run("workspace isolation", func(t *testing.T) {
+		rows, err := s.GetRunsByIDs(ctx, []string{"fr_alien"})
+		if err != nil || len(rows) != 0 {
+			t.Fatalf("another workspace's run must be absent: rows=%+v err=%v", rows, err)
+		}
+	})
+}
+
 // record-once boundary: a duplicate (flowrun_id, node_id, iteration) is silently ignored,
 // first writer wins — never two rows, never an error.
 func TestInsertNodeResult_RecordOnce_FirstWins(t *testing.T) {

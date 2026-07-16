@@ -122,6 +122,23 @@ func ParseTimeout(s string) (time.Duration, error) {
 	return d, nil
 }
 
+// DeadlineFrom derives the absolute decision deadline of an approval parked at parkedAt:
+// parkedAt + this version's timeout. ok=false when the version has no timeout ("" = never
+// times out) or it does not parse — the single timeout-resolution semantic shared by the
+// interpreter's CheckTimeouts sweep and the inbox's wire `deadline` field (both must agree
+// on WHEN a parked approval is due, or the countdown the user sees lies about the sweep).
+//
+// DeadlineFrom 派生 park 于 parkedAt 的审批的绝对决策期限：parkedAt + 本版本 timeout。版本无
+// timeout（""=永不超时）或解析不了则 ok=false——解释器 CheckTimeouts 扫描与收件箱线缆 `deadline`
+// 字段共用的唯一超时解析语义（两者对 parked 审批何时到期必须一致，否则用户看到的倒计时对扫描撒谎）。
+func (v *Version) DeadlineFrom(parkedAt time.Time) (time.Time, bool) {
+	d, err := ParseTimeout(v.Timeout)
+	if err != nil || d == 0 {
+		return time.Time{}, false
+	}
+	return parkedAt.Add(d), true
+}
+
 // ValidateForm checks structural validity only (CEL template compile is the app layer's
 // job, 原则 #3): template non-empty (an approval with no prompt is meaningless — the user
 // sees a bare button); if timeout is set, timeoutBehavior must be valid AND timeout must

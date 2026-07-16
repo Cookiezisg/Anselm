@@ -1,6 +1,8 @@
 import '../../../core/contract/entities/relation.dart';
 import '../../../core/contract/entities/scheduler_stats.dart';
 import '../../../core/contract/entities/trigger.dart';
+import '../../../core/contract/entities/workflow.dart';
+import '../../../core/contract/page.dart';
 import 'scheduler_repository.dart';
 
 // The Scheduler demo battery (WRK-069 §15) — PURE DATA seeds covering every rail/overview state so
@@ -94,12 +96,88 @@ class FixtureSchedulerRepository implements SchedulerRepository {
       ),
       // wf_new / wf_draft: never ran (no stats row). wf_retired: inactive (no stats row).
     ];
+    // Window-aware failed totals — the Overview KPI's delta needs 24h vs 48h to differ:
+    // failed24=4, failed48=6 → prior-24h window = 2 → delta = +2 (▲2, §3 mock). 7d holds the rest.
+    // 窗口感知失败数:24h=4 / 48h=6 → 前一个 24h 窗=2 → delta=+2(对齐 §3 示意)。
+    final failedSince = switch (since) { '24h' => 4, '48h' => 6, _ => 9 };
     return SchedulerStats(
-      totals: const SchedulerTotals(running: 2, completedSince: 23, failedSince: 4, parkedNodes: 1),
+      totals: SchedulerTotals(running: 2, completedSince: 23, failedSince: failedSince, parkedNodes: 1),
       byWorkflow: workflowIds.isEmpty
           ? all
           : [for (final s in all) if (workflowIds.contains(s.workflowId)) s],
     );
+  }
+
+  /// The seeded run rows (newest first, mirroring the backend's keyset order) — the Overview's
+  /// running rows + the failure aggregation's latest-failed probe read THESE, so every zone renders
+  /// real data in `make demo`. 种子 run 行(新→旧):正在跑区与失败聚合探针的数据源。
+  List<Flowrun> _runs() => [
+        // wf_clean: the live run (blue, started 90s ago). 在跑。
+        Flowrun(
+          id: 'fr_0a1b2c3d4e5f6071',
+          workflowId: 'wf_clean',
+          status: 'running',
+          startedAt: _shift(_anchor.subtract(const Duration(seconds: 90))),
+          updatedAt: _shift(_anchor),
+        ),
+        // wf_report: running but parked on an approval (the waiting-on-human run). 等人(running∧parked)。
+        Flowrun(
+          id: 'fr_9a12b34c56d78e90',
+          workflowId: 'wf_report',
+          status: 'running',
+          startedAt: _shift(_anchor.subtract(const Duration(minutes: 18))),
+          updatedAt: _shift(_anchor.subtract(const Duration(minutes: 18))),
+        ),
+        // wf_inventory: the ×4 streak — latest failed run carries the error the aggregation quotes.
+        // 连败最新失败 run(错误首句来源)。
+        Flowrun(
+          id: 'fr_c3d4e5f607182930',
+          workflowId: 'wf_inventory',
+          status: 'failed',
+          error: 'HTTP 502 Bad Gateway: upstream inventory API did not respond\nretried 3 times',
+          replayCount: 1,
+          startedAt: _shift(_anchor.subtract(const Duration(hours: 1, seconds: 12))),
+          completedAt: _shift(_anchor.subtract(const Duration(hours: 1))),
+          updatedAt: _shift(_anchor.subtract(const Duration(hours: 1))),
+        ),
+        Flowrun(
+          id: 'fr_b2c3d4e5f6071829',
+          workflowId: 'wf_inventory',
+          status: 'failed',
+          error: 'HTTP 502 Bad Gateway: upstream inventory API did not respond',
+          startedAt: _shift(_anchor.subtract(const Duration(hours: 7))),
+          completedAt: _shift(_anchor.subtract(const Duration(hours: 7))),
+          updatedAt: _shift(_anchor.subtract(const Duration(hours: 7))),
+        ),
+        // wf_archive: self-healed — latest completed over an older failure. 自愈。
+        Flowrun(
+          id: 'fr_d4e5f60718293a4b',
+          workflowId: 'wf_archive',
+          status: 'completed',
+          startedAt: _shift(_anchor.subtract(const Duration(hours: 26))),
+          completedAt: _shift(_anchor.subtract(const Duration(hours: 26))),
+          updatedAt: _shift(_anchor.subtract(const Duration(hours: 26))),
+        ),
+        Flowrun(
+          id: 'fr_e5f60718293a4b5c',
+          workflowId: 'wf_archive',
+          status: 'failed',
+          error: 'disk full: /var/anselm/archive',
+          startedAt: _shift(_anchor.subtract(const Duration(hours: 30))),
+          completedAt: _shift(_anchor.subtract(const Duration(hours: 30))),
+          updatedAt: _shift(_anchor.subtract(const Duration(hours: 30))),
+        ),
+      ];
+
+  @override
+  Future<Page<Flowrun>> listFlowruns(
+      {required String workflowId, String? status, String? cursor, int? limit}) async {
+    final rows = [
+      for (final r in _runs())
+        if (r.workflowId == workflowId && (status == null || r.status == status)) r,
+    ];
+    final capped = limit != null && limit < rows.length ? rows.sublist(0, limit) : rows;
+    return Page(items: capped, hasMore: capped.length < rows.length);
   }
 
   @override

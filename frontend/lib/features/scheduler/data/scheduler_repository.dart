@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/contract/entities/relation.dart';
 import '../../../core/contract/entities/scheduler_stats.dart';
 import '../../../core/contract/entities/trigger.dart';
+import '../../../core/contract/entities/workflow.dart';
+import '../../../core/contract/page.dart';
 import '../../../core/net/api_client.dart';
 import '../../../core/runtime.dart';
 
@@ -57,6 +59,13 @@ abstract interface class SchedulerRepository {
   /// NEVER `?status=parked` (parked is a node state, not in the run-status closed set — 422).
   /// 等人处理的 run 数——inbox 派生,绝不 ?status=parked(封闭集无此值)。
   Future<int> waitingCount();
+
+  /// One keyset page of a workflow's flowruns (`GET /flowruns?workflowId=&status=`, newest first) —
+  /// the Overview's running rows (status=running) and the failure aggregation's latest-failed probe
+  /// (status=failed&limit=1). Same Page shape as entities' listFlowruns (N4).
+  /// 一页 flowrun(新→旧):Overview 正在跑区 + 失败聚合的最新失败探针;Page 形对齐 entities。
+  Future<Page<Flowrun>> listFlowruns(
+      {required String workflowId, String? status, String? cursor, int? limit});
 }
 
 /// The production seam. Thin envelope decoding only. 生产缝:薄信封解码。
@@ -128,6 +137,16 @@ class LiveSchedulerRepository implements SchedulerRepository {
     final data = await _api.getData('/api/v1/flowrun-inbox');
     return (data['parked'] as List? ?? const []).length;
   }
+
+  @override
+  Future<Page<Flowrun>> listFlowruns(
+          {required String workflowId, String? status, String? cursor, int? limit}) =>
+      _api.getPage('/api/v1/flowruns', Flowrun.fromJson, query: {
+        'workflowId': workflowId,
+        'status': ?status,
+        'cursor': ?cursor,
+        if (limit != null) 'limit': '$limit',
+      });
 }
 
 /// Overridden by demo (`FixtureSchedulerRepository`) at the app root. app 根被 demo override。

@@ -389,6 +389,8 @@ class Translations$scheduler$en {
 
 	/// en: 'Filter / paste fr_ id…'
 	String get filterPlaceholder => 'Filter / paste fr_ id…';
+
+	late final Translations$scheduler$overview$en overview = Translations$scheduler$overview$en.internal(_root);
 }
 
 // Path: action
@@ -2716,6 +2718,87 @@ class Translations$chat$stage$en {
 
 	/// en: 'stopped'
 	String get rtStopped => 'stopped';
+}
+
+// Path: scheduler.overview
+class Translations$scheduler$overview$en {
+	Translations$scheduler$overview$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Running'
+	String get kpiRunning => 'Running';
+
+	/// en: 'Waiting on you'
+	String get kpiWaiting => 'Waiting on you';
+
+	/// en: 'Failed · 24h'
+	String get kpiFailed24h => 'Failed · 24h';
+
+	/// en: 'Next fire'
+	String get kpiNextFire => 'Next fire';
+
+	/// en: '—'
+	String get kpiNone => '—';
+
+	/// en: 'in $d'
+	String fireIn({required Object d}) => 'in ${d}';
+
+	/// en: '▲$n'
+	String deltaUp({required Object n}) => '▲${n}';
+
+	/// en: '▼$n'
+	String deltaDown({required Object n}) => '▼${n}';
+
+	/// en: '$n more than the previous 24h'
+	String deltaUpA11y({required Object n}) => '${n} more than the previous 24h';
+
+	/// en: '$n fewer than the previous 24h'
+	String deltaDownA11y({required Object n}) => '${n} fewer than the previous 24h';
+
+	/// en: 'Running now ($n)'
+	String runningHead({required Object n}) => 'Running now (${n})';
+
+	/// en: 'Nothing is running right now.'
+	String get runningEmpty => 'Nothing is running right now.';
+
+	/// en: 'Next 24h'
+	String get upcomingHead => 'Next 24h';
+
+	/// en: 'Nothing scheduled in the next 24h.'
+	String get upcomingEmpty => 'Nothing scheduled in the next 24h.';
+
+	/// en: 'Failures · 7d'
+	String get failuresHead => 'Failures · 7d';
+
+	/// en: 'No consecutive failures in the last 7 days.'
+	String get failuresEmpty => 'No consecutive failures in the last 7 days.';
+
+	/// en: 'failing ×$n'
+	String streak({required Object n}) => 'failing ×${n}';
+
+	/// en: 'Latest run →'
+	String get latestRun => 'Latest run →';
+
+	/// en: 'No automation yet'
+	String get firstUseTitle => 'No automation yet';
+
+	/// en: 'Build a workflow in Entities and give it a cron trigger — or just tell the conversation "fetch the data at 8 every morning and send it to me".'
+	String get firstUseBody => 'Build a workflow in Entities and give it a cron trigger — or just tell the conversation "fetch the data at 8 every morning and send it to me".';
+
+	/// en: 'Open Entities'
+	String get firstUseEntities => 'Open Entities';
+
+	/// en: 'Open the conversation'
+	String get firstUseChat => 'Open the conversation';
+
+	/// en: 'Couldn't load the overview'
+	String get errorTitle => 'Couldn\'t load the overview';
+
+	/// en: 'The backend didn't answer. Check the connection and retry.'
+	String get errorHint => 'The backend didn\'t answer. Check the connection and retry.';
 }
 
 // Path: feedback.cast
@@ -5644,6 +5727,30 @@ extension on Translations {
 			'scheduler.sectionNeverRan' => 'Never ran',
 			'scheduler.sectionInactive' => 'Inactive',
 			'scheduler.filterPlaceholder' => 'Filter / paste fr_ id…',
+			'scheduler.overview.kpiRunning' => 'Running',
+			'scheduler.overview.kpiWaiting' => 'Waiting on you',
+			'scheduler.overview.kpiFailed24h' => 'Failed · 24h',
+			'scheduler.overview.kpiNextFire' => 'Next fire',
+			'scheduler.overview.kpiNone' => '—',
+			'scheduler.overview.fireIn' => ({required Object d}) => 'in ${d}',
+			'scheduler.overview.deltaUp' => ({required Object n}) => '▲${n}',
+			'scheduler.overview.deltaDown' => ({required Object n}) => '▼${n}',
+			'scheduler.overview.deltaUpA11y' => ({required Object n}) => '${n} more than the previous 24h',
+			'scheduler.overview.deltaDownA11y' => ({required Object n}) => '${n} fewer than the previous 24h',
+			'scheduler.overview.runningHead' => ({required Object n}) => 'Running now (${n})',
+			'scheduler.overview.runningEmpty' => 'Nothing is running right now.',
+			'scheduler.overview.upcomingHead' => 'Next 24h',
+			'scheduler.overview.upcomingEmpty' => 'Nothing scheduled in the next 24h.',
+			'scheduler.overview.failuresHead' => 'Failures · 7d',
+			'scheduler.overview.failuresEmpty' => 'No consecutive failures in the last 7 days.',
+			'scheduler.overview.streak' => ({required Object n}) => 'failing ×${n}',
+			'scheduler.overview.latestRun' => 'Latest run →',
+			'scheduler.overview.firstUseTitle' => 'No automation yet',
+			'scheduler.overview.firstUseBody' => 'Build a workflow in Entities and give it a cron trigger — or just tell the conversation "fetch the data at 8 every morning and send it to me".',
+			'scheduler.overview.firstUseEntities' => 'Open Entities',
+			'scheduler.overview.firstUseChat' => 'Open the conversation',
+			'scheduler.overview.errorTitle' => 'Couldn\'t load the overview',
+			'scheduler.overview.errorHint' => 'The backend didn\'t answer. Check the connection and retry.',
 			'action.edit' => 'Edit',
 			'action.cancel' => 'Cancel',
 			'action.save' => 'Save',
@@ -6026,6 +6133,8 @@ extension on Translations {
 			'entities.run.boolTrue' => 'true',
 			'entities.run.boolFalse' => 'false',
 			'entities.run.runAgain' => 'Run again',
+			_ => null,
+		} ?? switch (path) {
 			'entities.run.cancel' => 'Cancel',
 			'entities.run.close' => 'Close run terminal',
 			'entities.run.idleTitle' => 'Ready to run',
@@ -6050,8 +6159,6 @@ extension on Translations {
 			'entities.run.approvalHint' => 'First decision wins.',
 			'entities.run.reasonHint' => 'Reason (optional)',
 			'entities.run.inboxEmpty' => 'No pending approvals',
-			_ => null,
-		} ?? switch (path) {
 			'entities.run.inboxEmptyHint' => 'Approvals waiting for a decision will appear here.',
 			'entities.val.yes' => 'yes',
 			'entities.val.no' => 'no',

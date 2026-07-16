@@ -182,6 +182,37 @@ func (s *Store) GetRun(ctx context.Context, id string) (*flowrundomain.FlowRun, 
 	return r, nil
 }
 
+// GetRunsByIDs batch-loads run headers in ONE WhereIn query (workspace-scoped) — the inbox's
+// bounded join to workflow context (工单④). Missing ids are simply absent; output follows the
+// requested order for the ids that hit (mirrors workflowstore.GetWorkflowsByIDs).
+//
+// GetRunsByIDs 单条 WhereIn 查询批读 run 头（workspace 隔离）——收件箱到 workflow 上下文的有界
+// join（工单④）。缺席 id 直接不出现；命中的按请求顺序返回（照 workflowstore.GetWorkflowsByIDs）。
+func (s *Store) GetRunsByIDs(ctx context.Context, ids []string) ([]*flowrundomain.FlowRun, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	vals := make([]any, len(ids))
+	for i, id := range ids {
+		vals[i] = id
+	}
+	rows, err := s.runs.WhereIn("id", vals...).Find(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("flowrunstore.GetRunsByIDs: %w", err)
+	}
+	byID := make(map[string]*flowrundomain.FlowRun, len(rows))
+	for _, r := range rows {
+		byID[r.ID] = r
+	}
+	out := make([]*flowrundomain.FlowRun, 0, len(ids))
+	for _, id := range ids {
+		if r, ok := byID[id]; ok {
+			out = append(out, r)
+		}
+	}
+	return out, nil
+}
+
 func (s *Store) ListRuns(ctx context.Context, filter flowrundomain.ListFilter) ([]*flowrundomain.FlowRun, string, error) {
 	q := s.runs.Query()
 	if filter.WorkflowID != "" {

@@ -83,6 +83,12 @@ type WorkflowReader interface {
 	GetActiveVersion(ctx context.Context, id string) (*workflowdomain.Version, error)
 	GetVersion(ctx context.Context, versionID string) (*workflowdomain.Version, error)
 	BuildPinClosure(ctx context.Context, g *workflowdomain.Graph) (map[string]string, error)
+	// NamesByIDs batch-resolves workflow display names (one WHERE id IN … query) for the inbox's
+	// enriched rows (工单④) — soft-deleted ids are simply absent and fall back to the bare id
+	// (the relation-domain Namer precedent). Already implemented by *workflowapp.Service.
+	// NamesByIDs 批量解析 workflow 显示名（一条 WHERE id IN… 查询），供收件箱 enrich 行（工单④）——
+	// 软删 id 直接缺席、回落裸 id（relation 域 Namer 先例）。*workflowapp.Service 已实现。
+	NamesByIDs(ctx context.Context, ids []string) (map[string]string, error)
 }
 
 // ControlResolver / ApprovalResolver resolve a control/approval node's pinned logic for inline

@@ -454,9 +454,11 @@ lib/features/notifications/ui/notification_feed.dart	reviewed
 lib/features/notifications/ui/notification_row.dart	reviewed
 lib/features/scheduler/data/scheduler_demo_fixture.dart	pending
 lib/features/scheduler/data/scheduler_repository.dart	pending
+lib/features/scheduler/state/scheduler_overview_provider.dart	pending
 lib/features/scheduler/state/scheduler_rail_provider.dart	pending
 lib/features/scheduler/state/selected_scheduler.dart	pending
 lib/features/scheduler/ui/scheduler_ocean.dart	pending
+lib/features/scheduler/ui/scheduler_overview.dart	pending
 lib/features/scheduler/ui/scheduler_rail.dart	pending
 lib/features/scheduler/ui/scheduler_rail_model.dart	pending
 lib/features/settings/data/settings_demo_fixture.dart	reviewed

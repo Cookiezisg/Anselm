@@ -7,17 +7,21 @@ import '../../../core/design/typography.dart';
 import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
 import '../state/selected_scheduler.dart';
+import 'scheduler_overview.dart';
 
 /// The Scheduler center ocean (WRK-069) — Overview (`/scheduler`) · a workflow's operations home
-/// (`/scheduler/w/:id`) · the run flagship (`/scheduler/w/:id/runs/:frId`). S0 skeleton: the routed
-/// shell with honest placeholders; the real pages land S2 (overview) / S3 (home) / S4 (flagship).
-/// Scheduler 中心海洋——S0 只立路由壳与诚实占位,真页随 S2/S3/S4。
+/// (`/scheduler/w/:id`) · the run flagship (`/scheduler/w/:id/runs/:frId`). S2a: the Overview board
+/// is real ([SchedulerOverviewView]); the operations home / flagship / relay keep honest placeholders
+/// until S3/S4. Scheduler 中心海洋——Overview 已是真页(S2a),主页/旗舰/中转仍诚实占位(S3/S4)。
 class SchedulerOcean extends ConsumerWidget {
   const SchedulerOcean({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selection = ref.watch(selectedSchedulerProvider);
+    if (selection is SchedulerOverview || selection == null) {
+      return const SchedulerOverviewView();
+    }
     final t = context.t;
     final c = context.colors;
     final subtitle = switch (selection) {

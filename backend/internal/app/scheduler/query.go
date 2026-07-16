@@ -2,8 +2,12 @@ package scheduler
 
 import (
 	"context"
+	"fmt"
 	"time"
 
+	"go.uber.org/zap"
+
+	approvaldomain "github.com/sunweilin/anselm/backend/internal/domain/approval"
 	flowrundomain "github.com/sunweilin/anselm/backend/internal/domain/flowrun"
 )
 
@@ -49,12 +53,111 @@ func (s *Service) GetRunWithNodesPage(ctx context.Context, id, cursor string, li
 	return run, nodes, next, nil
 }
 
-// ListInbox returns every parked approval node in the workspace — the approval inbox (parked rows
-// ARE the inbox; no separate projection table).
+// InboxRow is one parked approval node enriched with its run's workflow context (工单④): the
+// embedded node row (the decidable truth) + workflowId/workflowName (joined from the run header —
+// a parked row alone cannot say WHICH workflow is waiting) + the optional absolute deadline
+// (parkedAt + the pinned approval version's timeout, the same semantic CheckTimeouts sweeps on).
+// Wire: camelCase, enrich fields omitted when unresolvable (absent run header → no workflow
+// fields; no/unparseable timeout → no deadline — absence is honest, never a zero value).
 //
-// ListInbox 返 workspace 内所有 parked approval 节点——审批收件箱（parked 行即收件箱，无投影表）。
-func (s *Service) ListInbox(ctx context.Context) ([]*flowrundomain.FlowRunNode, error) {
-	return s.runs.ListParkedNodes(ctx)
+// InboxRow 是一条 parked approval 节点行 + 其 run 的 workflow 上下文（工单④）：内嵌节点行（可决策
+// 的真相）+ workflowId/workflowName（join 自 run 头——parked 行自身说不出是哪个 workflow 在等）+
+// 可空绝对期限（parkedAt + 钉死 approval 版本的 timeout，与 CheckTimeouts 扫描同一语义）。线缆
+// camelCase，enrich 字段解析不出即缺席（run 头缺 → 无 workflow 字段；无/不可解析 timeout → 无
+// deadline——缺席即诚实、绝不发零值）。
+type InboxRow struct {
+	flowrundomain.FlowRunNode
+	WorkflowID   string     `json:"workflowId,omitempty"`
+	WorkflowName string     `json:"workflowName,omitempty"`
+	Deadline     *time.Time `json:"deadline,omitempty"`
+}
+
+// ListInbox returns every parked approval node in the workspace — the approval inbox (parked rows
+// ARE the inbox; no separate projection table) — each row enriched with workflow context (工单④).
+// Bounded batch reads, never per-row N+1: run headers in ONE GetRunsByIDs, workflow names in ONE
+// NamesByIDs (a soft-deleted workflow's name falls back to the bare id — the relation Namer
+// precedent), and approval versions memoized per (ref, pinnedVersion). A form that fails to
+// resolve only costs that row its deadline (best-effort, logged) — the row itself must stay
+// visible and decidable, exactly like CheckTimeouts keeps sweeping past it.
+//
+// ListInbox 返 workspace 内所有 parked approval 节点——审批收件箱（parked 行即收件箱，无投影表）——
+// 每行带 workflow 上下文 enrich（工单④）。有界批读、绝不逐行 N+1：run 头一条 GetRunsByIDs、
+// workflow 名一条 NamesByIDs（软删 workflow 名回落裸 id——relation Namer 先例）、approval 版本按
+// (ref, 钉死版本) 记忆化。form 解析失败只让该行没 deadline（best-effort、记日志）——行本身必须
+// 保持可见可决策，正如 CheckTimeouts 扫不动它也继续扫。
+func (s *Service) ListInbox(ctx context.Context) ([]*InboxRow, error) {
+	parked, err := s.runs.ListParkedNodes(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if len(parked) == 0 {
+		return []*InboxRow{}, nil
+	}
+
+	runIDs := make([]string, 0, len(parked))
+	seenRun := make(map[string]bool, len(parked))
+	for _, p := range parked {
+		if !seenRun[p.FlowRunID] {
+			seenRun[p.FlowRunID] = true
+			runIDs = append(runIDs, p.FlowRunID)
+		}
+	}
+	runs, err := s.runs.GetRunsByIDs(ctx, runIDs)
+	if err != nil {
+		return nil, fmt.Errorf("schedulerapp.ListInbox: %w", err)
+	}
+	runByID := make(map[string]*flowrundomain.FlowRun, len(runs))
+	wfIDs := make([]string, 0, len(runs))
+	seenWf := make(map[string]bool, len(runs))
+	for _, r := range runs {
+		runByID[r.ID] = r
+		if !seenWf[r.WorkflowID] {
+			seenWf[r.WorkflowID] = true
+			wfIDs = append(wfIDs, r.WorkflowID)
+		}
+	}
+	names, err := s.workflows.NamesByIDs(ctx, wfIDs)
+	if err != nil {
+		return nil, fmt.Errorf("schedulerapp.ListInbox: %w", err)
+	}
+
+	// Approval versions memoized per (ref, pinned version): the inbox is bounded, but many rows can
+	// park on the same form version — resolve each distinct one once.
+	// approval 版本按 (ref, 钉死版本) 记忆化：收件箱有界，但多行可 park 在同一表版本上——每个不同的只解析一次。
+	type formKey struct{ ref, ver string }
+	forms := map[formKey]*approvaldomain.Version{}
+
+	rows := make([]*InboxRow, 0, len(parked))
+	for _, p := range parked {
+		row := &InboxRow{FlowRunNode: *p}
+		rows = append(rows, row)
+		run := runByID[p.FlowRunID]
+		if run == nil {
+			continue // no run header (should not happen) — honest absence over invented context
+		}
+		row.WorkflowID = run.WorkflowID
+		if name := names[run.WorkflowID]; name != "" {
+			row.WorkflowName = name
+		} else {
+			row.WorkflowName = run.WorkflowID // soft-deleted / unknown → bare id (relation Namer precedent)
+		}
+		key := formKey{ref: p.Ref, ver: run.PinnedRefs[entityIDOf(p.Ref)]}
+		form, resolved := forms[key]
+		if !resolved {
+			form, err = s.approval.Resolve(ctx, key.ref, key.ver)
+			if err != nil {
+				s.log.Warn("schedulerapp.ListInbox: resolve form (deadline omitted)", zap.String("ref", p.Ref), zap.Error(err))
+				form = nil
+			}
+			forms[key] = form
+		}
+		if form != nil {
+			if deadline, ok := form.DeadlineFrom(p.CreatedAt); ok {
+				row.Deadline = &deadline
+			}
+		}
+	}
+	return rows, nil
 }
 
 // RunStats answers the operational statistics batch (scheduler 工单③): workspace-wide totals +

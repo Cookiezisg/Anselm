@@ -437,11 +437,16 @@ func (s *Service) CheckTimeouts(ctx context.Context, now time.Time) error {
 			s.log.Warn("schedulerapp.CheckTimeouts: resolve form", zap.String("ref", p.Ref), zap.Error(err))
 			continue
 		}
-		d, err := approvaldomain.ParseTimeout(form.Timeout)
-		if err != nil || d == 0 {
+		// DeadlineFrom is the single timeout-resolution semantic — the inbox's wire `deadline`
+		// (ListInbox, 工单④) derives from the same call, so the countdown a user sees and the
+		// sweep that fires agree by construction.
+		// DeadlineFrom 是唯一的超时解析语义——收件箱线缆 `deadline`（ListInbox，工单④）出自同一调用，
+		// 用户看到的倒计时与真正触发的扫描构造上一致。
+		deadline, ok := form.DeadlineFrom(p.CreatedAt)
+		if !ok {
 			continue // unparseable or never-times-out
 		}
-		if p.CreatedAt.Add(d).After(now) {
+		if deadline.After(now) {
 			continue // not yet due
 		}
 		if err := s.settleTimeout(ctx, run, p, form.TimeoutBehavior); err != nil {

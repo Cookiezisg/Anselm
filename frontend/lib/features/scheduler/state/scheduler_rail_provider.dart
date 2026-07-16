@@ -2,26 +2,34 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/contract/entities/relation.dart';
 import '../../../core/contract/entities/scheduler_stats.dart';
+import '../../../core/contract/entities/trigger.dart';
 import '../../../core/runtime.dart';
 import '../../../core/sse/sse_gateway.dart';
 import '../data/scheduler_repository.dart';
 
 /// Everything the Scheduler rail projects (WRK-069 §2) — workflows + per-workflow health + the
-/// next-fire join + the one waiting-on-human number. DB rows are the truth; frames only trigger
-/// refetch. rail 的全部输入;行是真相,帧只触发 refetch。
+/// next-fire join + the one waiting-on-human number. The raw [triggers]/[edges] ride along so the
+/// Overview's schedule zone derives from the SAME fetch (one truth, no double drain). DB rows are
+/// the truth; frames only trigger refetch. rail 的全部输入;行是真相,帧只触发 refetch;triggers/edges
+/// 原样带出供 Overview 调度区同源派生(不二次拉取)。
 class SchedulerRailData {
   const SchedulerRailData({
     required this.workflows,
     required this.stats,
     required this.nextFireByWorkflow,
     required this.waitingCount,
+    this.triggers = const [],
+    this.edges = const [],
   });
 
   final List<SchedulerWorkflowRow> workflows;
   final Map<String, WorkflowRunStats> stats;
   final Map<String, DateTime> nextFireByWorkflow;
   final int waitingCount;
+  final List<TriggerEntity> triggers;
+  final List<EntityRelation> edges;
 }
 
 /// The rail's server-state. Refetches ONLY on durable workflow-kind frames (run_started /
@@ -56,8 +64,8 @@ class SchedulerRailController extends AsyncNotifier<SchedulerRailData> {
       repo.waitingCount(),
     ]);
     final workflows = results[0] as List<SchedulerWorkflowRow>;
-    final triggers = results[1] as List;
-    final edges = results[2] as List;
+    final triggers = results[1] as List<TriggerEntity>;
+    final edges = results[2] as List<EntityRelation>;
     final waiting = results[3] as int;
 
     final stats = workflows.isEmpty
@@ -67,14 +75,14 @@ class SchedulerRailController extends AsyncNotifier<SchedulerRailData> {
     // Join: workflow → earliest FUTURE fire among its equipped, listening triggers. 连接:最早未来 fire。
     final fireByTrigger = <String, DateTime>{};
     for (final t in triggers) {
-      final next = t.nextFireAt as DateTime?;
-      if (next != null && (t.listening as bool? ?? false)) fireByTrigger[t.id as String] = next;
+      final next = t.nextFireAt;
+      if (next != null && t.listening) fireByTrigger[t.id] = next;
     }
     final nextFire = <String, DateTime>{};
     for (final e in edges) {
-      final fire = fireByTrigger[e.toId as String];
+      final fire = fireByTrigger[e.toId];
       if (fire == null) continue;
-      final wfId = e.fromId as String;
+      final wfId = e.fromId;
       final prior = nextFire[wfId];
       if (prior == null || fire.isBefore(prior)) nextFire[wfId] = fire;
     }
@@ -84,6 +92,8 @@ class SchedulerRailController extends AsyncNotifier<SchedulerRailData> {
       stats: {for (final s in stats.byWorkflow) s.workflowId: s},
       nextFireByWorkflow: nextFire,
       waitingCount: waiting,
+      triggers: triggers,
+      edges: edges,
     );
   }
 

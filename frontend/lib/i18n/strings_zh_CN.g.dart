@@ -195,6 +195,7 @@ class _Translations$scheduler$zh_CN extends Translations$scheduler$en {
 	@override String get sectionNeverRan => '未运行';
 	@override String get sectionInactive => '停用';
 	@override String get filterPlaceholder => '过滤 / 粘贴 fr_ id…';
+	@override late final _Translations$scheduler$overview$zh_CN overview = _Translations$scheduler$overview$zh_CN._(_root);
 }
 
 // Path: action
@@ -1118,6 +1119,39 @@ class _Translations$chat$stage$zh_CN extends Translations$chat$stage$en {
 	@override String get rtRunning => '运行中';
 	@override String get rtCrashed => '已崩溃';
 	@override String get rtStopped => '已停止';
+}
+
+// Path: scheduler.overview
+class _Translations$scheduler$overview$zh_CN extends Translations$scheduler$overview$en {
+	_Translations$scheduler$overview$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get kpiRunning => '在跑';
+	@override String get kpiWaiting => '等你处理';
+	@override String get kpiFailed24h => '24h 失败';
+	@override String get kpiNextFire => '下次调度';
+	@override String get kpiNone => '—';
+	@override String fireIn({required Object d}) => '${d} 后';
+	@override String deltaUp({required Object n}) => '▲${n}';
+	@override String deltaDown({required Object n}) => '▼${n}';
+	@override String deltaUpA11y({required Object n}) => '较前一个 24h 多 ${n}';
+	@override String deltaDownA11y({required Object n}) => '较前一个 24h 少 ${n}';
+	@override String runningHead({required Object n}) => '正在跑 (${n})';
+	@override String get runningEmpty => '现在没有正在运行的 run。';
+	@override String get upcomingHead => '未来 24h';
+	@override String get upcomingEmpty => '未来 24h 没有已排定的调度。';
+	@override String get failuresHead => '失败聚合 · 7d';
+	@override String get failuresEmpty => '近 7 天没有连续失败的 workflow。';
+	@override String streak({required Object n}) => '连败 ×${n}';
+	@override String get latestRun => '最新 run →';
+	@override String get firstUseTitle => '第一个自动化还没建';
+	@override String get firstUseBody => '去 Entities 建一个 workflow 并挂上 cron;或者直接在对话里说「每天早上八点抓数据发我」。';
+	@override String get firstUseEntities => '去 Entities';
+	@override String get firstUseChat => '打开对话';
+	@override String get errorTitle => '总览加载失败';
+	@override String get errorHint => '后端没有应答,检查连接后重试。';
 }
 
 // Path: feedback.cast
@@ -2794,6 +2828,30 @@ extension on TranslationsZhCn {
 			'scheduler.sectionNeverRan' => '未运行',
 			'scheduler.sectionInactive' => '停用',
 			'scheduler.filterPlaceholder' => '过滤 / 粘贴 fr_ id…',
+			'scheduler.overview.kpiRunning' => '在跑',
+			'scheduler.overview.kpiWaiting' => '等你处理',
+			'scheduler.overview.kpiFailed24h' => '24h 失败',
+			'scheduler.overview.kpiNextFire' => '下次调度',
+			'scheduler.overview.kpiNone' => '—',
+			'scheduler.overview.fireIn' => ({required Object d}) => '${d} 后',
+			'scheduler.overview.deltaUp' => ({required Object n}) => '▲${n}',
+			'scheduler.overview.deltaDown' => ({required Object n}) => '▼${n}',
+			'scheduler.overview.deltaUpA11y' => ({required Object n}) => '较前一个 24h 多 ${n}',
+			'scheduler.overview.deltaDownA11y' => ({required Object n}) => '较前一个 24h 少 ${n}',
+			'scheduler.overview.runningHead' => ({required Object n}) => '正在跑 (${n})',
+			'scheduler.overview.runningEmpty' => '现在没有正在运行的 run。',
+			'scheduler.overview.upcomingHead' => '未来 24h',
+			'scheduler.overview.upcomingEmpty' => '未来 24h 没有已排定的调度。',
+			'scheduler.overview.failuresHead' => '失败聚合 · 7d',
+			'scheduler.overview.failuresEmpty' => '近 7 天没有连续失败的 workflow。',
+			'scheduler.overview.streak' => ({required Object n}) => '连败 ×${n}',
+			'scheduler.overview.latestRun' => '最新 run →',
+			'scheduler.overview.firstUseTitle' => '第一个自动化还没建',
+			'scheduler.overview.firstUseBody' => '去 Entities 建一个 workflow 并挂上 cron;或者直接在对话里说「每天早上八点抓数据发我」。',
+			'scheduler.overview.firstUseEntities' => '去 Entities',
+			'scheduler.overview.firstUseChat' => '打开对话',
+			'scheduler.overview.errorTitle' => '总览加载失败',
+			'scheduler.overview.errorHint' => '后端没有应答,检查连接后重试。',
 			'action.edit' => '编辑',
 			'action.cancel' => '取消',
 			'action.save' => '保存',
@@ -3176,6 +3234,8 @@ extension on TranslationsZhCn {
 			'entities.run.boolTrue' => 'true',
 			'entities.run.boolFalse' => 'false',
 			'entities.run.runAgain' => '再运行一次',
+			_ => null,
+		} ?? switch (path) {
 			'entities.run.cancel' => '取消',
 			'entities.run.close' => '关闭运行终端',
 			'entities.run.idleTitle' => '准备运行',
@@ -3200,8 +3260,6 @@ extension on TranslationsZhCn {
 			'entities.run.approvalHint' => 'first-wins:先到的决断生效。',
 			'entities.run.reasonHint' => '备注(可选)',
 			'entities.run.inboxEmpty' => '没有待审批',
-			_ => null,
-		} ?? switch (path) {
 			'entities.run.inboxEmptyHint' => '等待决断的审批会出现在这里。',
 			'entities.val.yes' => '是',
 			'entities.val.no' => '否',

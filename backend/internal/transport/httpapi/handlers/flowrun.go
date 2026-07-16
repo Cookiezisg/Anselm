@@ -112,9 +112,16 @@ func (h *FlowrunHandler) Get(w http.ResponseWriter, r *http.Request) {
 	responsehttpapi.Success(w, http.StatusOK, map[string]any{"flowrun": run, "nodes": nodes, "nextCursor": next})
 }
 
-// Inbox returns every parked approval node in the workspace (the approval inbox).
+// Inbox returns every parked approval node in the workspace (the approval inbox). Each row is the
+// parked node enriched with workflow context (scheduler 工单④): workflowId + workflowName (joined
+// from the run header; a soft-deleted workflow's name falls back to the bare id) + optional
+// deadline (parkedAt + the pinned approval version's timeout; absent when the form never times
+// out). Enrichment lives in the app service (ListInbox) — this handler just writes it.
 //
-// Inbox 返 workspace 内所有 parked approval 节点（审批收件箱）。
+// Inbox 返 workspace 内所有 parked approval 节点（审批收件箱）。每行 = parked 节点行 + workflow
+// 上下文 enrich（scheduler 工单④）：workflowId + workflowName（join 自 run 头；软删 workflow 名
+// 回落裸 id）+ 可空 deadline（parkedAt + 钉死 approval 版本 timeout；表永不超时则键缺席）。
+// enrich 住 app 服务（ListInbox）——本 handler 只负责写出。
 func (h *FlowrunHandler) Inbox(w http.ResponseWriter, r *http.Request) {
 	parked, err := h.svc.ListInbox(r.Context())
 	if err != nil {

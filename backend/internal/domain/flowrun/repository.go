@@ -34,6 +34,12 @@ type Repository interface {
 	// ListRuns 分页一个 workspace 的 run（最新优先，可限定单 workflow）。
 	ListRuns(ctx context.Context, filter ListFilter) ([]*FlowRun, string, error)
 
+	// GetRunsByIDs batch-loads run headers by id (ONE query, workspace-scoped) — the inbox's
+	// bounded join to workflow context (工单④); missing ids are simply absent, never an error.
+	// GetRunsByIDs 按 id 批读 run 头（单查询、workspace 隔离）——收件箱到 workflow 上下文的有界
+	// join（工单④）；缺席 id 直接不出现、绝不报错。
+	GetRunsByIDs(ctx context.Context, ids []string) ([]*FlowRun, error)
+
 	// ListRunningRuns returns every run still in StatusRunning — the boot-recovery candidate set
 	// (re-walk each; memoized rows skip, parked rows stay).
 	// ListRunningRuns 返所有仍 StatusRunning 的 run——boot 恢复候选集（逐个重走；记忆化行跳过、parked 留）。
