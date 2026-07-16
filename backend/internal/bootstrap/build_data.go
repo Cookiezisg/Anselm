@@ -102,9 +102,10 @@ func newBuses() buses {
 }
 
 // openDB opens the SQLite database (DataDir empty → in-memory, for tests) and applies every
-// store's schema in one migration pass.
+// store's schema in one migration pass, then the table rebuilds that CREATE/ALTER cannot express.
 //
-// openDB 打开 SQLite（DataDir 空 → 内存库，供测试）并一趟应用每个 store 的 schema。
+// openDB 打开 SQLite（DataDir 空 → 内存库，供测试）并一趟应用每个 store 的 schema，
+// 再跑 CREATE/ALTER 表达不了的表重建。
 func openDB(dataDir string) (*ormpkg.DB, error) {
 	database, err := dbinfra.Open(dbinfra.Config{DataDir: dataDir})
 	if err != nil {
@@ -112,6 +113,17 @@ func openDB(dataDir string) (*ormpkg.DB, error) {
 	}
 	if err := dbinfra.Migrate(database, allSchemas()...); err != nil {
 		return nil, fmt.Errorf("bootstrap: migrate: %w", err)
+	}
+	// CHECK-widening rebuild (SQLite cannot ALTER a CHECK): trigger_firings' status gained 'missed'
+	// (scheduler 工单⑨). Idempotent by outcome — it inspects the live DDL and no-ops once the marker
+	// is there, so a fresh install (Migrate just created the current shape) never rebuilds. Must run
+	// AFTER Migrate: it needs the table to exist.
+	//
+	// CHECK 加词重建（SQLite 无法 ALTER CHECK）：trigger_firings 的 status 加了 'missed'（scheduler
+	// 工单⑨）。结果幂等——它查现行 DDL、标记词在即 no-op，故全新安装（Migrate 刚建成当前形状）绝不重建。
+	// 必须在 Migrate **之后**跑：它需要表已存在。
+	if err := dbinfra.MigrateRebuild(database, "trigger_firings", triggerstore.FiringsMissedMarker, triggerstore.FiringsCheckRebuild...); err != nil {
+		return nil, fmt.Errorf("bootstrap: migrate-rebuild: %w", err)
 	}
 	return database, nil
 }

@@ -9,6 +9,7 @@ import (
 	triggerdomain "github.com/sunweilin/anselm/backend/internal/domain/trigger"
 	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
 	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // AppendFiring writes a pending firing. UNIQUE(workflow_id, trigger_id, dedup_key) makes a
@@ -39,6 +40,39 @@ func (s *Store) AppendFiring(ctx context.Context, f *triggerdomain.Firing) (*tri
 		return nil, fmt.Errorf("triggerstore.AppendFiring: %w", err)
 	}
 	return f, nil
+}
+
+// AppendMissedFiring books a missed firing dated at the tick it stands for (scheduler 工单⑨). It
+// reuses AppendFiring (same dedup-key idempotence — a tick that fired, or that a previous sweep
+// booked, keeps its row untouched), then backdates created_at: the orm stamps created=now on every
+// insert, which is right for a live fire but wrong for a tick recorded after the fact. The backdate
+// is a targeted raw UPDATE (no updated_at churn), and only ever touches the row this call created.
+//
+// AppendMissedFiring 记一条日期为其所代表刻度的 missed firing（scheduler 工单⑨）。它复用 AppendFiring
+// （同一 dedup 键幂等——已 fire 的、或上次 sweep 已记的刻度，其行原封不动），再回拨 created_at：orm 每次
+// 插入都盖 created=now，这对实时 fire 是对的、对事后补记的刻度是错的。回拨是定点裸 UPDATE（不搅
+// updated_at），且只碰本次调用新建的那行。
+func (s *Store) AppendMissedFiring(ctx context.Context, f *triggerdomain.Firing) (*triggerdomain.Firing, error) {
+	ws, err := reqctxpkg.RequireWorkspaceID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	tick := f.CreatedAt
+	f.Status = triggerdomain.FiringMissed
+	out, err := s.AppendFiring(ctx, f)
+	if err != nil {
+		return nil, err
+	}
+	if out.ID != f.ID || tick.IsZero() {
+		return out, nil // dedup hit (already accounted) — never re-date someone else's row. 去重命中——绝不改别人的行的日期。
+	}
+	if _, err := s.db.Exec(ctx,
+		`UPDATE trigger_firings SET created_at = ? WHERE id = ? AND workspace_id = ?`,
+		tick.UTC(), out.ID, ws); err != nil {
+		return nil, fmt.Errorf("triggerstore.AppendMissedFiring backdate: %w", err)
+	}
+	out.CreatedAt = tick.UTC()
+	return out, nil
 }
 
 // ListPendingFirings returns pending firings oldest-first for the scheduler to drain.

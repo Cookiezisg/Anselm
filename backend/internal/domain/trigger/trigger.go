@@ -97,10 +97,21 @@ type Trigger struct {
 	// 暂停 = 不再产生任何新 firing（底层 source listener 已注销；手动 :fire 被拒），在途 run 与已
 	// pending 的 firing 不受影响。与 Listening 不同：Listening 是派生的「listener 热否」事实
 	// （须 ≥1 个 active workflow 且未暂停）；Paused 是用户自己的持久化意图。
-	Paused    bool       `db:"paused"             json:"paused"`
-	CreatedAt time.Time  `db:"created_at,created" json:"createdAt"`
-	UpdatedAt time.Time  `db:"updated_at,updated" json:"updatedAt"`
-	DeletedAt *time.Time `db:"deleted_at,deleted" json:"-"`
+	Paused bool `db:"paused"             json:"paused"`
+	// MissedCheckedAt is the misfire watermark (scheduler 工单⑨): every scheduled cron tick at or
+	// before this instant is ACCOUNTED — it fired, was recorded missed, or fell in a period the user
+	// chose not to listen (paused / workflow inactive). The misfire sweep detects missed ticks in
+	// (watermark, now]; advanced on every cron fan-out, at sweep end, on :resume, and on a fresh
+	// 0→1 attach. Internal bookkeeping — not on the wire. Nil = never accounted (floor = CreatedAt).
+	//
+	// MissedCheckedAt 是 misfire 水位（scheduler 工单⑨）：此刻及之前的每个 cron 调度刻度都已**入账**——
+	// 或已 fire、或已记 missed、或落在用户主动不监听的时段（暂停/workflow 停用）。misfire sweep 在
+	// (水位, now] 内检测错过点；每次 cron 扇出、sweep 收尾、:resume、全新 0→1 attach 时推进。
+	// 内部记账列——不上线缆。nil = 从未入账（下限取 CreatedAt）。
+	MissedCheckedAt *time.Time `db:"missed_checked_at" json:"-"`
+	CreatedAt       time.Time  `db:"created_at,created" json:"createdAt"`
+	UpdatedAt       time.Time  `db:"updated_at,updated" json:"updatedAt"`
+	DeletedAt       *time.Time `db:"deleted_at,deleted" json:"-"`
 
 	// RefCount / Listening are computed at read time from the app's in-memory listen
 	// registry (how many active workflows reference it / whether its listener is hot).
@@ -156,4 +167,14 @@ var (
 	// ErrPaused：手动 :fire（fire_trigger）打在已暂停的 trigger 上。422 大声拒而非静默 no-op——
 	// UI 与 agent 都不得绕过（或误读）用户的暂停（scheduler 工单⑦）。
 	ErrPaused = errorspkg.New(errorspkg.KindUnprocessable, "TRIGGER_PAUSED", "trigger is paused — resume it before firing")
+	// ErrInvalidMisfirePolicy: create/edit passed a misfirePolicy outside the closed vocabulary
+	// (scheduler 工单⑨) — loud 422, never a typo silently behaving as skip.
+	// ErrInvalidMisfirePolicy：create/edit 传了词表外的 misfirePolicy（scheduler 工单⑨）——
+	// 422 大声拒，绝不让写错的词静默按 skip 走。
+	ErrInvalidMisfirePolicy = errorspkg.New(errorspkg.KindUnprocessable, "TRIGGER_INVALID_MISFIRE_POLICY", "misfirePolicy must be one of: skip, catchup_one")
+	// ErrInvalidScheduleQuery: GET /trigger-schedule got an unparsable/non-positive within or limit
+	// (scheduler 工单⑧) — 422 with the offending param in Details.
+	// ErrInvalidScheduleQuery：GET /trigger-schedule 的 within/limit 不可解析或非正（scheduler 工单⑧）——
+	// 422，Details 带出错参数。
+	ErrInvalidScheduleQuery = errorspkg.New(errorspkg.KindUnprocessable, "TRIGGER_SCHEDULE_INVALID_QUERY", "trigger-schedule query invalid — within must be a positive Go duration (e.g. 168h) and limit a positive integer")
 )

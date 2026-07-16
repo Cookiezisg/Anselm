@@ -64,9 +64,15 @@ ID：`wf_`/`wfv_` · `ctl_`/`ctlv_` · `apf_`/`apfv_`
 
 | 表 | 关键列 | 约束/索引 |
 |---|---|---|
-| `triggers` | kind(CHECK cron/webhook/fsnotify/sensor) · **config**(自由 json map) · outputs(json) · **paused**(INTEGER NOT NULL DEFAULT 0——运行时暂停开关,工单⑦:持久化使重启仍暂停;经 `ALTER TABLE ADD COLUMN` 演化段补列,同 flowruns origin 先例) | partial-UNIQUE(ws,name) |
+| `triggers` | kind(CHECK cron/webhook/fsnotify/sensor) · **config**(自由 json map;cron 的 `misfirePolicy`=skip\|catchup_one 存这里、**不加列**,工单⑨) · outputs(json) · **paused**(INTEGER NOT NULL DEFAULT 0——运行时暂停开关,工单⑦:持久化使重启仍暂停) · **missed_checked_at**(DATETIME NULL——misfire 水位,工单⑨:「此刻及之前的每个 cron 刻度都已入账」;NULL=从未入账,窗下限回落 created_at。每次 cron 扇出/sweep 收尾/`:resume`/实时 0→1 挂载时**单调**推进[裸 UPDATE 守卫 `< ?`],且刻意**不**碰 updated_at——机器记账不该搅动行的编辑时间) | partial-UNIQUE(ws,name) |
 | `trigger_activations`（Log） | kind · fired(bool) · return_value/payload(json) · error · detail · firing_count | 按 trigger+created 索引 |
-| `trigger_firings`（Log，durable 收件箱） | trigger_id · workflow_id · activation_id · payload(json) · **dedup_key** · status(pending/claimed/started/skipped/superseded/shed) · flowrun_id | **`idx_trf_dedup` UNIQUE(workflow_id,trigger_id,dedup_key)**（D3）+ pending 偏索引 |
+| `trigger_firings`（Log，durable 收件箱） | trigger_id · workflow_id · activation_id · payload(json) · **dedup_key** · status(pending/claimed/started/skipped/superseded/shed/**missed**) · flowrun_id | **`idx_trf_dedup` UNIQUE(workflow_id,trigger_id,dedup_key)**（D3）+ pending 偏索引 |
+
+> **`missed` 处置与 CHECK 重建**（工单⑨，判决⑥）：`missed` = app 停机/睡眠期间到期的 cron 刻度，**记账不补跑**。行 `created_at` = 错过的**调度刻度**（非 sweep 时刻——否则整夜停机的每条 missed 行都自称睡醒那一秒发生；经 `AppendMissedFiring` 在 orm 盖章后定点回拨），`flowrun_id` 恒空。**幂等即 dedup_key**：missed 行用与活 listener 完全相同的刻度键（`croninfra.DedupKey`），故 `idx_trf_dedup` 保证一个刻度对每个 workflow 恰入账一次、**fired 与 missed 互斥**，无论 sweep 跑多少次。
+>
+> **列演化两径**（SQLite 现实）：加列走 `ALTER TABLE ADD COLUMN`（结果幂等，`duplicate column name` = 已应用；先例 flowruns `origin`、triggers `paused`/`missed_checked_at`）；**CHECK 加词无法 ALTER**，须**整表重建**——`db.MigrateRebuild(table, marker, stmts…)` 查 `sqlite_master` 现行 DDL，仅当标记词缺席才在单事务内建新表→逐列拷贝→删旧→改名→重建索引（结果幂等：全新安装的 CREATE 已含新词 → 永不重建；重建后每次启动 no-op）。`trigger_firings.status += 'missed'` 是首例。
+
+
 
 ID：`trg_`/`tra_`/`trf_`
 

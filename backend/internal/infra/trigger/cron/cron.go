@@ -58,8 +58,63 @@ func NextAfter(expr string, after time.Time) (time.Time, error) {
 	return sched.Next(after), nil
 }
 
-func dedupKey(triggerID string, tick time.Time) string {
+// TicksWithin returns the scheduled ticks strictly after `after` and at/before `until`,
+// earliest-first, parsing the expression once. cap>0 bounds the slice; more=true reports the
+// window held further ticks beyond the cap (the caller's honest-truncation signal). Consumers:
+// the schedule timeline (工单⑧) and the misfire sweep (工单⑨). A zero Next (robfig's
+// "no tick within 5 years" dead-end) terminates the walk.
+//
+// TicksWithin 返回严格在 `after` 之后、`until`（含）之前的调度刻度，最早在前，表达式只解析一次。
+// cap>0 封顶；more=true 表示窗内还有超出 cap 的刻度（调用方的诚实截断信号）。消费方：调度时间线
+// （工单⑧）与 misfire sweep（工单⑨）。robfig 的零值 Next（5 年内无刻度的死端）终止遍历。
+func TicksWithin(expr string, after, until time.Time, cap int) ([]time.Time, bool, error) {
+	sched, err := robfigcron.ParseStandard(expr)
+	if err != nil {
+		return nil, false, err
+	}
+	var out []time.Time
+	for t := sched.Next(after); !t.IsZero() && !t.After(until); t = sched.Next(t) {
+		if cap > 0 && len(out) >= cap {
+			return out, true, nil
+		}
+		out = append(out, t)
+	}
+	return out, false, nil
+}
+
+// DedupKey is the cron firing dedup key for one scheduled tick (minute-truncated, ParseStandard's
+// resolution). Exported so the misfire sweep (工单⑨) mints the SAME key for a missed tick that the
+// live listener mints for a fired one — idx_trf_dedup then guarantees a tick is booked exactly once
+// (fired XOR missed), which is the whole idempotence story of missed accounting.
+//
+// DedupKey 是单个调度刻度的 cron firing 去重键（截断到分钟，ParseStandard 分辨率）。导出以使 misfire
+// sweep（工单⑨）为错过刻度铸出与活 listener 为已 fire 刻度**完全相同**的键——idx_trf_dedup 由此保证
+// 一个刻度恰入账一次（fired 与 missed 互斥），这就是 missed 记账幂等性的全部。
+func DedupKey(triggerID string, tick time.Time) string {
 	return triggerID + "|cron|" + strconv.FormatInt(tick.Truncate(time.Minute).Unix(), 10)
+}
+
+// misfireTolerance bounds how late a delivered cron callback may run behind its scheduled tick and
+// still count as that tick. Beyond it the fire is a wall-clock-jump artifact (system sleep/suspend:
+// Go timers pause or expire late, then robfig delivers ONE stale fire at wake) and is suppressed —
+// under 判决⑥ a missed tick is recorded by the misfire sweep, never implicitly re-run (工单⑨).
+//
+// misfireTolerance 界定 cron 回调最多可迟于其调度刻度多少仍算该刻度。超过即墙钟跳变的伪 fire
+// （系统睡眠/挂起：Go 计时器暂停或迟爆，醒来 robfig 会补送**一次**过期 fire），一律压制——
+// 判决⑥ 下错过的刻度由 misfire sweep 记账，绝不被隐式补跑（工单⑨）。
+const misfireTolerance = 2 * time.Minute
+
+// snapTick resolves the scheduled tick a callback firing at `now` belongs to: the latest tick at or
+// before now, within misfireTolerance. ok=false = no such tick — an off-schedule wake artifact.
+//
+// snapTick 求 `now` 触发的回调所属的调度刻度：now 及之前、misfireTolerance 内最近的刻度。
+// ok=false = 无此刻度——睡醒的离谱伪 fire。
+func snapTick(sched robfigcron.Schedule, now time.Time) (time.Time, bool) {
+	var last time.Time
+	for t := sched.Next(now.Add(-misfireTolerance - time.Second)); !t.IsZero() && !t.After(now); t = sched.Next(t) {
+		last = t
+	}
+	return last, !last.IsZero()
 }
 
 // Listener wraps robfig/cron with one entry per triggerID.
@@ -93,13 +148,20 @@ func (l *Listener) Register(triggerID string, _ string, config map[string]any) e
 	if expr == "" {
 		return fmt.Errorf("cron.Register %s: empty expression", triggerID)
 	}
+	// Parse once and keep the schedule: the callback needs it to snap the fire to its scheduled
+	// tick (and to suppress wake artifacts, see snapTick).
+	// 只解析一次并持有 schedule：回调用它把 fire 吸附到调度刻度（并压制睡醒伪 fire，见 snapTick）。
+	sched, err := robfigcron.ParseStandard(expr)
+	if err != nil {
+		return fmt.Errorf("cron.Register %s: %w", triggerID, err)
+	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if existing, ok := l.entries[triggerID]; ok {
 		l.cron.Remove(existing)
 		delete(l.entries, triggerID)
 	}
-	id, err := l.cron.AddFunc(expr, func() {
+	id := l.cron.Schedule(sched, robfigcron.FuncJob(func() {
 		now := time.Now()
 		// Recover so an onFire panic doesn't crash the shared scheduler.
 		// recover 防回调 panic 把共享 scheduler 拉崩。
@@ -108,15 +170,27 @@ func (l *Listener) Register(triggerID string, _ string, config map[string]any) e
 				l.log.Error("cron report panic", zap.String("triggerID", triggerID), zap.Any("recover", r))
 			}
 		}()
+		// A callback more than misfireTolerance behind any scheduled tick is a wall-clock-jump
+		// artifact (system slept through the tick; the timer fired late at wake) — drop it: the
+		// misfire sweep accounts the gap as `missed` (工单⑨), and an implicit late run would
+		// betray 判决⑥'s "never re-run". Snapping the dedup key to the TICK (not the fire minute)
+		// also lets a legitimately-late fire dedup against that tick's missed row and vice versa.
+		// 迟于任何调度刻度超过 misfireTolerance 的回调是墙钟跳变伪 fire（系统睡过该刻度、醒来计时器
+		// 迟爆）——丢弃：misfire sweep 会把缺口记成 `missed`（工单⑨），隐式迟跑会背叛判决⑥的
+		// 「绝不补跑」。dedup 键吸附到**刻度**（而非 fire 所在分钟），也让合法迟到的 fire 与该刻度的
+		// missed 行互相去重。
+		tick, ok := snapTick(sched, now)
+		if !ok {
+			l.log.Warn("cron: off-schedule fire suppressed (wall clock jumped; the misfire sweep accounts the gap)",
+				zap.String("triggerID", triggerID), zap.Time("firedAt", now))
+			return
+		}
 		l.report(triggerID, triggerinfra.Activity{
 			Fired:    true,
 			Payload:  map[string]any{"firedAt": now},
-			DedupKey: dedupKey(triggerID, now),
+			DedupKey: DedupKey(triggerID, tick),
 		})
-	})
-	if err != nil {
-		return fmt.Errorf("cron.Register %s: %w", triggerID, err)
-	}
+	}))
 	l.entries[triggerID] = id
 	return nil
 }

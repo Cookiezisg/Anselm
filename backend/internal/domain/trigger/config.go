@@ -50,6 +50,31 @@ func ParseSensorConfig(cfg map[string]any) SensorConfig {
 	}
 }
 
+// Misfire policies (cron only, scheduler 工单⑨, 判决⑥): what to do about cron ticks that were
+// due while the app was not running. skip (default) = record each missed tick as a `missed`
+// firing, run nothing — a local app must never catch-up-storm. catchup_one = additionally fire
+// ONCE for the most recent missed tick (through the normal fan-out path, origin stays cron);
+// older ticks are still recorded missed. Lives in the config JSON — no column.
+//
+// Misfire 策略（仅 cron，scheduler 工单⑨，判决⑥）：app 未运行期间到期的 cron 刻度怎么办。
+// skip（默认）= 每个错过点记一条 `missed` firing、什么都不跑——本地 app 绝不能补跑风暴。
+// catchup_one = 额外对**最近一个**错过点补一次 fire（照正常扇出径，origin 仍 cron）；更早的仍记 missed。
+// 存 config JSON——不加列。
+const (
+	MisfireSkip       = "skip"
+	MisfireCatchupOne = "catchup_one"
+)
+
+// MisfirePolicy reads the cron misfire policy from config; absent/empty reads as skip (the default).
+//
+// MisfirePolicy 从 config 读 cron misfire 策略；缺席/空 = skip（默认）。
+func MisfirePolicy(cfg map[string]any) string {
+	if p := asString(cfg["misfirePolicy"]); p != "" {
+		return p
+	}
+	return MisfireSkip
+}
+
 // CronExpression / WebhookPath / WebhookSecret / FsnotifyPath read the push-source keys.
 //
 // CronExpression / WebhookPath / WebhookSecret / FsnotifyPath 读 push 型 source 的键。
@@ -67,6 +92,17 @@ func ValidateConfig(kind string, cfg map[string]any) error {
 	case KindCron:
 		if CronExpression(cfg) == "" {
 			return ErrInvalidCron
+		}
+		// Vocabulary-check the misfire policy at create/edit (scheduler 工单⑨) — a typo'd policy
+		// must fail loudly here, not silently behave as skip at the next wake. A non-string value
+		// is equally rejected (asString would silently read it as "" = skip).
+		// misfire 策略在 create/edit 词表校验（scheduler 工单⑨）——写错的策略必须在此大声失败，
+		// 不能到下次睡醒才静默按 skip 走。非字符串值同样拒（asString 会静默读成 "" = skip）。
+		if v, ok := cfg["misfirePolicy"]; ok {
+			s, isStr := v.(string)
+			if !isStr || (s != "" && s != MisfireSkip && s != MisfireCatchupOne) {
+				return ErrInvalidMisfirePolicy
+			}
 		}
 	case KindWebhook:
 		if WebhookPath(cfg) == "" {

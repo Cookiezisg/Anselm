@@ -13,6 +13,7 @@ import (
 	"context"
 	"net/http"
 	"sync"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -42,9 +43,17 @@ import (
 type listenEntry struct {
 	workspaceID string
 	kind        string
-	workflows   map[string]bool
-	once        map[string]bool // workflowID → drop after one fire (stage_workflow)
-	paused      bool            // mirrors triggers.paused; true → source listener unregistered. 镜像 triggers.paused；true → 底层已注销。
+	// workflows maps each listening workflowID to its ATTACH EPOCH — zero for a boot-replayed
+	// reference ("listening since before this process"), the attach instant for a post-boot one.
+	// The misfire sweep (scheduler 工单⑨) uses the epoch as a per-workflow lower bound so a
+	// workflow that started listening at 10:00 never gets ticks before 10:00 booked as missed.
+	//
+	// workflows 把每个监听 workflowID 映到其**挂载纪元**——boot 重放的引用为零值（「本进程之前就在
+	// 监听」），boot 后挂载的为挂载时刻。misfire sweep（scheduler 工单⑨）以纪元作 per-workflow 下界：
+	// 10:00 才开始监听的 workflow 绝不会被把 10:00 之前的刻度记成它的 missed。
+	workflows map[string]time.Time
+	once      map[string]bool // workflowID → drop after one fire (stage_workflow)
+	paused    bool            // mirrors triggers.paused; true → source listener unregistered. 镜像 triggers.paused；true → 底层已注销。
 }
 
 // Service is the unified trigger surface.

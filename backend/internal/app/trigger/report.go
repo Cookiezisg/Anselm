@@ -43,6 +43,20 @@ func (s *Service) onReport(triggerID string, act triggerinfra.Activity) {
 	// Detached ctx 种入 trigger 的 workspace——listener 在请求之外触发。
 	ctx := reqctxpkg.Detached(wsID)
 	_ = s.fanOut(ctx, triggerID, kind, workflows, act)
+
+	// A delivered cron tick is ACCOUNTED — advance the misfire watermark past it (scheduler 工单⑨)
+	// so the sweep never re-books a tick that really fired. Done after the fan-out: the firing rows
+	// are the durable truth, and a crash between them and this write only costs a re-check whose
+	// dedup key already exists (AppendFiring is idempotent).
+	//
+	// 已送达的 cron 刻度即**已入账**——把 misfire 水位推过它（scheduler 工单⑨），使 sweep 绝不重记真
+	// fire 过的刻度。放在扇出之后：firing 行才是耐久真相，两者之间崩溃只损失一次复查、而其 dedup 键已
+	// 存在（AppendFiring 幂等）。
+	if kind == triggerdomain.KindCron && act.Fired {
+		if err := s.repo.AdvanceMissedWatermark(ctx, triggerID, time.Now()); err != nil {
+			s.log.Warn("triggerapp: advance misfire watermark", zapTrigger(triggerID), zapErr(err))
+		}
+	}
 }
 
 // fanOut writes one Activation (always) and, when the activity fired, one Firing per listening
@@ -134,12 +148,35 @@ func (s *Service) FireManual(ctx context.Context, triggerID string) (string, err
 		}
 	}
 	s.mu.RUnlock()
+	// NOTE: a manual :fire deliberately does NOT advance the misfire watermark — it is not a
+	// scheduled tick, so it accounts for nothing on the cron timeline (工单⑨).
+	// 注：手动 :fire 刻意**不**推水位——它不是调度刻度，在 cron 时间线上什么都没入账（工单⑨）。
 	actID := s.fanOut(ctx, triggerID, t.Kind, workflows, triggerinfra.Activity{
 		Fired:    true,
 		Payload:  map[string]any{"manual": true},
 		DedupKey: triggerID + "|manual|" + strconv.FormatInt(time.Now().UnixNano(), 10),
 	})
 	return actID, nil
+}
+
+// listeningSince returns the workflows currently attached to triggerID with each one's attach epoch
+// (zero = listening since before this process) — the misfire sweep's per-workflow lower bound
+// (scheduler 工单⑨). Absent entry (not listening) → nil, and the sweep skips the trigger entirely.
+//
+// listeningSince 返回当前挂在 triggerID 上的 workflow 及各自的挂载纪元（零值 = 本进程之前就在监听）——
+// misfire sweep 的 per-workflow 下界（scheduler 工单⑨）。entry 不存在（未监听）→ nil，sweep 整个跳过该 trigger。
+func (s *Service) listeningSince(triggerID string) map[string]time.Time {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	e, ok := s.listeners[triggerID]
+	if !ok || e.paused {
+		return nil
+	}
+	out := make(map[string]time.Time, len(e.workflows))
+	for wf, since := range e.workflows {
+		out[wf] = since
+	}
+	return out
 }
 
 // detachOneShots drops every one-shot (staged) workflow among `workflows` that just received this

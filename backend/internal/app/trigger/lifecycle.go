@@ -20,7 +20,20 @@ import (
 // 只加入扇出集。这就是引用计数生命周期：N 个 workflow 共享一个 trigger 只跑一个 listener。workflow
 // service 在 activate 时调；boot 时重放每个 active 引用。
 func (s *Service) Attach(ctx context.Context, triggerID, workflowID string) error {
-	return s.attach(ctx, triggerID, workflowID, false)
+	return s.attach(ctx, triggerID, workflowID, false, false)
+}
+
+// AttachReplay is Attach for the BOOT REPLAY path (workflow.ReattachActive): the reference already
+// existed before this process started. It stamps a zero attach epoch — "listening since before this
+// process" — so the misfire sweep books the downtime gap this workflow really missed, whereas a
+// live Attach (activated just now) is only ever booked for ticks after its attach instant
+// (scheduler 工单⑨).
+//
+// AttachReplay 是 **boot 重放**径（workflow.ReattachActive）的 Attach：该引用在本进程启动前就存在。
+// 它盖零值挂载纪元——「本进程之前就在监听」——使 misfire sweep 记下该 workflow 真正错过的停机缺口；
+// 而实时 Attach（刚刚激活）只会被记其挂载时刻之后的刻度（scheduler 工单⑨）。
+func (s *Service) AttachReplay(ctx context.Context, triggerID, workflowID string) error {
+	return s.attach(ctx, triggerID, workflowID, false, true)
 }
 
 // AttachOnce registers workflowID as a ONE-SHOT listener of triggerID (stage_workflow): it joins
@@ -32,7 +45,7 @@ func (s *Service) Attach(ctx context.Context, triggerID, workflowID string) erro
 // AttachOnce 把 workflowID 注册为 triggerID 的**一次性**监听者（stage_workflow）：与 Attach 一样加入扇出，
 // 但 fanOut 在其单次扇出后摘掉它。同一引用计数 listener（0→1 启动；其后的自动 Detach 可能把它 1→0 停掉）。
 func (s *Service) AttachOnce(ctx context.Context, triggerID, workflowID string) error {
-	return s.attach(ctx, triggerID, workflowID, true)
+	return s.attach(ctx, triggerID, workflowID, true, false)
 }
 
 // attach is the shared body: ensure the listener is hot, then add workflowID to the fan-out set
@@ -41,33 +54,69 @@ func (s *Service) AttachOnce(ctx context.Context, triggerID, workflowID string) 
 // (ReattachActive) keeps a paused trigger paused across restarts, and Resume can re-register from
 // the surviving reference set.
 //
+// The workflow's ATTACH EPOCH (scheduler 工单⑨) is stamped here: `boot` (the replay path) stamps
+// zero = "listening since before this process", so the misfire sweep may book the downtime gap it
+// really missed; a live activate stamps now, so ticks predating the activation are never booked as
+// its missed (nobody was listening — not a misfire).
+//
 // attach 是共用体：确保 listener 已热，再把 workflowID 加进扇出集（once 时还加进一次性集）。
 // **已暂停**的 trigger（scheduler 工单⑦）仍记引用——entry 以 paused=true 建、跳过 Register——使 boot
 // 重放（ReattachActive）让暂停跨重启仍暂停，Resume 也能凭存活的引用集重注册。
-func (s *Service) attach(ctx context.Context, triggerID, workflowID string, once bool) error {
+//
+// workflow 的**挂载纪元**（scheduler 工单⑨）在此盖章：`boot`（重放径）盖零值 =「本进程之前就在监听」，
+// 使 misfire sweep 可以把它真正错过的停机缺口记账；实时 activate 盖 now，使激活之前的刻度绝不被记成
+// 它的 missed（当时无人监听——那不是 misfire）。
+func (s *Service) attach(ctx context.Context, triggerID, workflowID string, once, boot bool) error {
 	t, err := s.repo.GetTrigger(ctx, triggerID)
 	if err != nil {
 		return err
 	}
+	wentHot := false
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	e, ok := s.listeners[triggerID]
 	if !ok {
 		l := s.listenerFor(t.Kind)
 		if l == nil {
+			s.mu.Unlock()
 			return triggerdomain.ErrInvalidKind
 		}
 		if !t.Paused {
 			if err := l.Register(triggerID, t.WorkspaceID, t.Config); err != nil {
+				s.mu.Unlock()
 				return fmt.Errorf("triggerapp.attach: register %s: %w", triggerID, err)
 			}
 		}
-		e = &listenEntry{workspaceID: t.WorkspaceID, kind: t.Kind, workflows: make(map[string]bool), once: make(map[string]bool), paused: t.Paused}
+		e = &listenEntry{workspaceID: t.WorkspaceID, kind: t.Kind, workflows: make(map[string]time.Time), once: make(map[string]bool), paused: t.Paused}
 		s.listeners[triggerID] = e
+		wentHot = true
 	}
-	e.workflows[workflowID] = true
+	if _, already := e.workflows[workflowID]; !already {
+		epoch := time.Time{}
+		if !boot {
+			epoch = time.Now()
+		}
+		e.workflows[workflowID] = epoch
+	}
 	if once {
 		e.once[workflowID] = true
+	}
+	s.mu.Unlock()
+
+	// A LIVE 0→1 attach means the trigger was cold until this instant — nobody listened, so no tick
+	// before now was ever "missed". Close the misfire window here (scheduler 工单⑨), otherwise the
+	// sweep would later book the whole not-listening stretch as missed, which is a lie. The BOOT
+	// replay path deliberately does NOT advance: that stretch is exactly the downtime we must book.
+	// Best-effort — a failed watermark write must never fail an activate (worst case: the sweep
+	// re-checks a window that produces nothing, since a not-listening trigger has no fan-out anyway).
+	//
+	// **实时** 0→1 挂载意味着 trigger 直到此刻都是冷的——无人监听，故 now 之前没有任何刻度算「错过」。
+	// 在此闭合 misfire 窗（scheduler 工单⑨），否则 sweep 稍后会把整段未监听时间记成 missed，那是撒谎。
+	// **boot** 重放径刻意**不**推进：那段正是必须记账的停机缺口。best-effort——水位写失败绝不能挂掉
+	// 激活（最坏情况：sweep 复查一个产不出东西的窗）。
+	if wentHot && !boot && t.Kind == triggerdomain.KindCron {
+		if err := s.repo.AdvanceMissedWatermark(ctx, triggerID, time.Now()); err != nil {
+			s.log.Warn("triggerapp.attach: advance misfire watermark", zapTrigger(triggerID), zapErr(err))
+		}
 	}
 	return nil
 }
@@ -219,6 +268,19 @@ func (s *Service) Resume(ctx context.Context, id string) (*triggerdomain.Trigger
 		// register. Surface the failure loudly rather than pretending the listener is hot.
 		// 持久开关已关——状态诚实：下次 boot/激活会重试注册。大声上抛，不假装 listener 已热。
 		return nil, fmt.Errorf("triggerapp.Resume: register %s: %w", id, regErr)
+	}
+	// Close the misfire window at resume (scheduler 工单⑨): ticks skipped while PAUSED are the
+	// user's own intent, not an accident — booking them `missed` would cry "you missed 40 runs"
+	// about a switch the user deliberately held down. The pause stretch is thereby accounted
+	// (watermark → now) without producing a single missed row. Best-effort, like attach.
+	//
+	// 在 resume 时闭合 misfire 窗（scheduler 工单⑨）：**暂停期间**跳过的刻度是用户自己的意志、不是事故——
+	// 把它们记成 `missed` 等于对用户亲手按住的开关大喊「你错过了 40 次运行」。暂停段就此入账（水位 → now）
+	// 且不产生任何 missed 行。best-effort，同 attach。
+	if t.Kind == triggerdomain.KindCron {
+		if err := s.repo.AdvanceMissedWatermark(ctx, id, time.Now()); err != nil {
+			s.log.Warn("triggerapp.Resume: advance misfire watermark", zapTrigger(id), zapErr(err))
+		}
 	}
 	if changed {
 		s.signalPaused(ctx, id, false)

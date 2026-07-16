@@ -12,7 +12,7 @@ audience: [human, ai]
 # HTTP API —— 端点登记
 
 > 全部端点的单一事实源（method · path · 语义一行）。
-> 通则（N 系列）：统一 Envelope `{"data":...}` / `{"error":{code,message,details}}`；线缆 camelCase；**无界集合** List `?cursor&limit` 分页，**有界可枚举资源**（workspaces / skills / memories / documents 树 / sandbox runtimes·envs / todos / model-capabilities）与**有界批查**（flowrun-stats，ids ≤50 封顶）豁免——返全集不分页、无 `nextCursor`、分页参数按标准 HTTP 忽略；非 CRUD 动作 `:action`；执行动词 `:run`(fn) `:call`(hd) `:invoke`(ag) `:trigger`(wf)；`:iterate` = 开 AI 编辑对话（全实体共享 aispawn）。
+> 通则（N 系列）：统一 Envelope `{"data":...}` / `{"error":{code,message,details}}`；线缆 camelCase；**无界集合** List `?cursor&limit` 分页，**有界可枚举资源**（workspaces / skills / memories / documents 树 / sandbox runtimes·envs / todos / model-capabilities）与**有界批查**（flowrun-stats，ids ≤50 封顶 · trigger-schedule，limit ≤1000 封顶）豁免——返全集不分页、无 `nextCursor`、分页参数按标准 HTTP 忽略；非 CRUD 动作 `:action`；执行动词 `:run`(fn) `:call`(hd) `:invoke`(ag) `:trigger`(wf)；`:iterate` = 开 AI 编辑对话（全实体共享 aispawn）。
 > **响应形状铁律**：`data` 内层一律**裸实体**——`POST`(Create) / `GET` 单读 / `PATCH` 同形,前端一套解构到底;**绝不**裹 `{"<entity>": ..., "version": ...}` 外层 key。版本实体(function/handler/agent/workflow/control/approval)的当前版本经实体内嵌 `activeVersion` 字段透出(Create 即附新版本,与 GET 单读完全同形)。复合读(一次返多个并列实体,如 `GET /flowruns/{id}` → `{flowrun, nodes, nextCursor}`,nodes 为 N4 keyset 一页)才用具名多 key。
 > **异步动作返 id 铁律**：返回新建资源 id 的异步动作(`POST /{id}:trigger`→flowrun、chat `POST /{id}/messages`→message、`:iterate`/`:triage`→conversation、`:fire`→activation)一律 `202 {data:{"id": <newId>}}`——前端一条规则取新资源 id。**同步执行**(`:run`/`:invoke`/`:call`,阻塞返完整结果)不在此列、返**裸结果**(不裹 `{result}`/`{output}`)。
 > **状态变更动作铁律**：改实体状态的动作(`:stage`/`:kill`/`:activate`/`:deactivate`/`:restart`/`:edit`/`:revert`)一律返**动作后实体完整快照**(`{data:<entity>}`),不发 `{staged:true}`/`{killed:N}` 等临时裸键(附加计数等并入实体字段或由相关列表端点查)。**无新产物的变更**(resolve-interaction、search `:reindex`、DELETE)一律 `204 No Content`,绝不返 `{data:null}`。
@@ -115,12 +115,13 @@ flowrun **节点行** DTO 带排队戳两字段（scheduler 工单⑫，camelCas
 
 | Method · Path | 语义 |
 |---|---|
-| `POST /triggers` · `GET /triggers` · `GET /triggers/{id}` · `PATCH /triggers/{id}` · `DELETE /triggers/{id}` | CRUD（PATCH=Edit，热更监听中的 listener；**已暂停的不热更**——新 config 在 :resume 时生效）。List/Get 每条带持久 **`paused`**（恒在 bool，scheduler 工单⑦）+ 派生 `refCount`/`listening` + **`lastFiredAt`**（最近一次 fire 的时间，nil=从未；行可显示「N 前 fire」，读时从 activation 日志投影）；暂停时 `listening=false`、`nextFireAt` **缺席**（无排程、给时间戳即撒谎） |
+| `POST /triggers` · `GET /triggers` · `GET /triggers/{id}` · `PATCH /triggers/{id}` · `DELETE /triggers/{id}` | CRUD（PATCH=Edit，热更监听中的 listener；**已暂停的不热更**——新 config 在 :resume 时生效）。List/Get 每条带持久 **`paused`**（恒在 bool，scheduler 工单⑦）+ 派生 `refCount`/`listening` + **`lastFiredAt`**（最近一次 fire 的时间，nil=从未；行可显示「N 前 fire」，读时从 activation 日志投影）；暂停时 `listening=false`、`nextFireAt` **缺席**（无排程、给时间戳即撒谎）。cron 的 `config.misfirePolicy`（`skip`\|`catchup_one`，缺席=skip，scheduler 工单⑨）在 create/edit 走封闭词表校验，越集 422 `TRIGGER_INVALID_MISFIRE_POLICY`（写错的词绝不静默按 skip 走） |
 | `POST /triggers/{id}:fire` | 手动催一次（扇给当前监听者），202 返 `{data:{id}}`——新产物 activation 的单 id（triggerId 在 URL、fired 被 202 蕴含）；拿 id 直查 activation 闭环。**已暂停 422 `TRIGGER_PAUSED`**——暂停 = 一个新 firing 都不许，agent 绕不过用户的暂停 |
 | `POST /triggers/{id}:pause` · `POST /triggers/{id}:resume` | **运行时调度开关**（scheduler 工单⑦，止血阀）：pause 持久化 `paused=true` 并**在源头注销** source listener（cron 摘 entry / webhook 路径 404 / fs watch 停 / sensor 探测停），引用集保留、在途 run 与已 pending firing 不受影响；resume 持久化翻回并（仍有 active workflow 引用时）用**当前** config 重注册。两者**幂等**（重复无害 no-op）、同步 200 返动作后**裸 trigger**（与 PATCH 同形）；暂停跨重启持久（boot 重挂跳过 Register）。每次真转移发 entities 流 ephemeral `status` 信号 `{paused}` |
 | `POST /triggers/{id}:iterate` | 开 AI 编辑对话 |
 | `GET /triggers/{id}/activations` · `GET /trigger-activations/{id}` | 活动审计（触没触发都有记录） |
-| `GET /triggers/{id}/firings` | firing 收件箱分页（`?status=pending\|started\|skipped\|superseded\|shed`）——「触发了为什么没跑」的处置面 |
+| `GET /triggers/{id}/firings` | firing 收件箱分页（`?status=pending\|claimed\|started\|skipped\|superseded\|shed\|missed`）——「触发了为什么没跑」的处置面；**`missed`**（scheduler 工单⑨）= app 停机/睡眠期间到期、醒来记账而**不补跑**的 cron 刻度，行 `createdAt` = 错过的**调度刻度**（非睡醒时刻）、`flowrunId` 恒空。越集 422 `TRIGGER_FIRING_INVALID_STATUS` |
+| `GET /trigger-schedule` | **前瞻调度时间线**（scheduler 工单⑧）：`?within=`（Go duration，默认 `168h`、上限 `30d`）内每个 cron 刻度，`?limit=`（默认 200、上限 1000）封顶，返 `{data:{points:[{at, triggerId, triggerName, workflowIds}], truncated}}`——`at` 升序（同刻按 triggerId 定序）、`workflowIds` 从**内存监听表**反查（= `refCount` 同源引用集，故点绝不承诺不会发生的运行）。**cap 跨 trigger 全局**：并集排序后才截断，故最早 N 个点是真正最早的 N 个；`truncated=true` 诚实报告窗内还有更多（**有界 → N4 免游标**）。只有**正在监听且未暂停**的 cron 贡献点——暂停的、无 active workflow 引用的、以及 webhook/fsnotify/sensor（下次 fire 不可知）一律缺席。`within`/`limit` 不可解析或非正 → 422 `TRIGGER_SCHEDULE_INVALID_QUERY`（details 带 `param`/`got`） |
 
 ## control / approval（`/api/v1/controls` · `/api/v1/approvals`）
 

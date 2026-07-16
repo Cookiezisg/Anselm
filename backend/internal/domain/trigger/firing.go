@@ -52,6 +52,15 @@ const (
 	FiringSkipped    = "skipped"    // overlap policy Skip
 	FiringSuperseded = "superseded" // overlap policy buffer_one dropped this older waiting firing
 	FiringShed       = "shed"       // resource cap
+	// FiringMissed is the misfire disposition (scheduler 工单⑨, 判决⑥): a cron tick that was due
+	// while the app was not running (sleep / shutdown). Recorded by the misfire sweep, NEVER re-run
+	// (default policy skip) — a neutral "did not execute" ledger row, not an error. dedup_key is the
+	// tick itself, so a tick that actually fired dedups against its live row instead of double-booking.
+	//
+	// FiringMissed 是 misfire 处置态（scheduler 工单⑨，判决⑥）：app 未运行（睡眠/关机）期间到期的
+	// cron 刻度。由 misfire sweep 记账、**绝不补跑**（默认 skip）——中性「未执行」台账行、非错误。
+	// dedup_key 就是刻度本身，故真 fire 过的刻度会与其活行去重、不会重复记账。
+	FiringMissed = "missed"
 )
 
 // FiringStatuses is the closed firing-status enum — used to reject an illegal SearchFirings filter
@@ -60,11 +69,11 @@ const (
 //
 // FiringStatuses 是 firing 状态封闭集——用于拒非法 SearchFirings 过滤值（非集内状态否则静默匹配 0 行，
 // F168-M2 之病延伸到 firing 收件箱，F175-M7）。
-var FiringStatuses = []string{FiringPending, FiringClaimed, FiringStarted, FiringSkipped, FiringSuperseded, FiringShed}
+var FiringStatuses = []string{FiringPending, FiringClaimed, FiringStarted, FiringSkipped, FiringSuperseded, FiringShed, FiringMissed}
 
 // ErrInvalidFiringStatus: a SearchFirings filter passed a status outside FiringStatuses — 422 with the
 // allowed set in Details, never a misleading empty page.
 //
 // ErrInvalidFiringStatus：SearchFirings 过滤传了 FiringStatuses 外的状态——422 + Details 带允许集，
 // 绝不返误导性空页。
-var ErrInvalidFiringStatus = errorspkg.New(errorspkg.KindUnprocessable, "TRIGGER_FIRING_INVALID_STATUS", "firing status filter must be one of: pending, claimed, started, skipped, superseded, shed")
+var ErrInvalidFiringStatus = errorspkg.New(errorspkg.KindUnprocessable, "TRIGGER_FIRING_INVALID_STATUS", "firing status filter must be one of: pending, claimed, started, skipped, superseded, shed, missed")

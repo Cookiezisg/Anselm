@@ -63,9 +63,20 @@ type App struct {
 	drainDone   chan struct{}      // closed when drainLoop returns; Shutdown waits on it. drainLoop 退出时关闭，Shutdown 等它。
 	timeoutStop context.CancelFunc // stops the independent timeout-sweep loop (F174: decoupled from drain so a slow node can't starve approval timeouts). 停独立超时扫描循环。
 	timeoutDone chan struct{}      // closed when timeoutLoop returns. timeoutLoop 退出时关闭。
+	misfireStop context.CancelFunc // stops the misfire-accounting loop (scheduler 工单⑨). 停 misfire 记账循环。
+	misfireDone chan struct{}      // closed when misfireLoop returns. misfireLoop 退出时关闭。
 }
 
 const drainInterval = 5 * time.Second
+
+// misfireInterval paces the missed-tick sweep (scheduler 工单⑨). Deliberately slow: it exists to
+// notice a wall-clock GAP (sleep/suspend), which is minutes-to-hours wide — cron's own resolution is
+// a minute, so sweeping faster would just re-walk an empty window. Boot runs it once eagerly.
+//
+// misfireInterval 定 missed 刻度扫描的节律（scheduler 工单⑨）。刻意慢：它的存在是为察觉墙钟**缺口**
+// （睡眠/挂起），那是分钟到小时级的宽度——cron 自身分辨率就是分钟，扫得更快只是反复走空窗。boot 时已
+// 主动跑过一次。
+const misfireInterval = time.Minute
 
 // drainShutdownGrace bounds how long Shutdown lets an in-flight workflow Advance finish its current
 // node before interrupting it (R3 option C — clean durability for fast nodes, bounded shutdown for
@@ -322,6 +333,18 @@ func (a *App) Boot(ctx context.Context) {
 		if err := a.svc.workflow.ReattachActive(wsCtx); err != nil {
 			a.log.Warn("bootstrap: workflow reattach-active failed", zap.Error(err))
 		}
+		// Account cron ticks that came due while the app was down (scheduler 工单⑨, 判决⑥): each
+		// becomes a `missed` firing — NOT re-run (a wake-up run-storm is the local-app hazard).
+		// STRICTLY after ReattachActive: the sweep reads the listen registry to know who was
+		// listening, and an empty registry would silently account nothing.
+		// 把 app 停机期间到期的 cron 刻度入账（scheduler 工单⑨，判决⑥）：每个变成一条 `missed` firing——
+		// **不补跑**（睡醒补跑风暴是本地 app 的危险）。**严格**在 ReattachActive 之后：sweep 读监听表才知道
+		// 谁在监听，表空则会静默什么都不记。
+		if n, err := a.svc.trigger.SweepMisfires(wsCtx); err != nil {
+			a.log.Warn("bootstrap: misfire sweep failed", zap.Error(err))
+		} else if n > 0 {
+			a.log.Info("bootstrap: accounted missed cron ticks", zap.Int("missed", n))
+		}
 	})
 
 	// Firing-drain ticker: trigger listeners persist Firings to the durable inbox; the scheduler claims
@@ -339,6 +362,15 @@ func (a *App) Boot(ctx context.Context) {
 	a.timeoutStop = tstop
 	a.timeoutDone = make(chan struct{})
 	go a.timeoutLoop(timeoutCtx)
+	// Misfire sweep on its OWN slow ticker (scheduler 工单⑨): the boot sweep only catches a
+	// shutdown, but a laptop that sleeps an hour and wakes with the process ALIVE misfires exactly
+	// the same way — nothing reboots, so only a running sweep ever notices those ticks fell.
+	// misfire 扫描跑在**自己**的慢 ticker 上（scheduler 工单⑨）：boot sweep 只逮得住关机，而笔记本睡一
+	// 小时醒来、进程**还活着**的 misfire 一模一样——没有重启，故只有正在跑的 sweep 才会发现刻度掉了。
+	misfireCtx, mstop := context.WithCancel(context.Background())
+	a.misfireStop = mstop
+	a.misfireDone = make(chan struct{})
+	go a.misfireLoop(misfireCtx)
 }
 
 // forEachWorkspace runs fn once per workspace, each in a Detached ctx seeded with that
@@ -394,6 +426,34 @@ func (a *App) drainLoop(ctx context.Context) {
 // timeoutLoop 在自己的 ticker 上扫描审批/计时超时，与 drainLoop 解耦（F174），故满载的 Advance 池绝不延迟
 // 审批超时结算——它只结算 parked 节点（纯 DB）并**入队**重驱动、绝不内联执行节点。每 tick 逐 workspace
 // （parked-nodes 表按 workspace 隔离；CheckTimeouts 契约就是「调用方逐 workspace tick」）。
+// misfireLoop accounts cron ticks that a wall-clock gap ate, on its own slow ticker (scheduler
+// 工单⑨) — per workspace per tick, like its siblings. It only writes ledger rows (and, for a
+// catchup_one trigger, hands ONE fan-out to the normal firing path), so it can never stall the
+// drain: the two loops share nothing but the workspace list.
+//
+// misfireLoop 在自己的慢 ticker 上把墙钟缺口吃掉的 cron 刻度入账（scheduler 工单⑨）——与兄弟循环一样
+// 每 tick 逐 workspace。它只写台账行（catchup_one 的 trigger 则交**一次**扇出给正常 firing 径），故绝不
+// 会卡住 drain：两个循环除 workspace 列表外毫无共享。
+func (a *App) misfireLoop(ctx context.Context) {
+	defer close(a.misfireDone)
+	t := time.NewTicker(misfireInterval)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			a.forEachWorkspace(ctx, func(wsCtx context.Context) {
+				if n, err := a.svc.trigger.SweepMisfires(wsCtx); err != nil {
+					a.log.Warn("bootstrap: misfire sweep", zap.Error(err))
+				} else if n > 0 {
+					a.log.Info("bootstrap: accounted missed cron ticks", zap.Int("missed", n))
+				}
+			})
+		}
+	}
+}
+
 func (a *App) timeoutLoop(ctx context.Context) {
 	defer close(a.timeoutDone)
 	t := time.NewTicker(drainInterval)
@@ -433,6 +493,9 @@ func (a *App) Shutdown(ctx context.Context) {
 	if a.timeoutStop != nil {
 		a.timeoutStop() // no new timeout sweeps → no new enqueues from the timeout ticker
 	}
+	if a.misfireStop != nil {
+		a.misfireStop() // no new misfire sweeps → no new ledger writes / catchup fan-outs (工单⑨)
+	}
 	// R3 (option C), F174 pool: the drain/timeout tickers stop FEEDING the pool; their loops return
 	// fast (they only claim + enqueue now). Then give the in-flight POOL workers a bounded grace to
 	// finish their CURRENT node — record-once makes a completed node durable, so the run resumes cleanly
@@ -464,6 +527,16 @@ func (a *App) Shutdown(ctx context.Context) {
 		case <-a.timeoutDone: // timeout ticker loop returned
 		case <-ctx.Done():
 			a.log.Warn("bootstrap: timeout loop did not return within shutdown grace; proceeding")
+		}
+	}
+	// Wait out the misfire loop too (工单⑨): it writes firing rows, so a straggler racing db.Close
+	// is the same hazard the drain/timeout waits exist for.
+	// 同样等 misfire 循环退出（工单⑨）：它写 firing 行，掉队者撞 db.Close 与 drain/timeout 等待所防的是同一危险。
+	if a.misfireDone != nil {
+		select {
+		case <-a.misfireDone: // misfire ticker loop returned
+		case <-ctx.Done():
+			a.log.Warn("bootstrap: misfire loop did not return within shutdown grace; proceeding")
 		}
 	}
 	a.svc.scheduler.WaitPoolDrained(ctx, drainShutdownGrace) // bounded grace for in-flight nodes to finish cleanly

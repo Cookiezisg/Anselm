@@ -28,10 +28,25 @@ durable 收件箱 trigger_firings（pending）……scheduler 每 5s 逐 workspa
 ```
 
 - **Activation**（`tra_`）= "trigger 动了一下"的审计——**触没触发都记**（sensor 每次探测都报，Fired=false 带 ReturnValue/Error/Detail——这让"为什么没触发"可查）；cron/webhook/fsnotify 只在真 fire 时报。
-- **Firing**（`trf_`）= **persist-before-act** 的收件箱行：fire 瞬间先落库、早于任何 flowrun。单一 status 枚举即处置结果：pending→claimed（claim 事务内瞬态）→started（终态-ok）；skipped（overlap skip）/superseded（overlap buffer_one——丢更早的等待 firing）/**shed**（资源上限**或所属 workflow 已被删**——后者 F137：`claimFiring` 见 `overlapDecision` 的 `GetWorkflow` 返 `WORKFLOW_NOT_FOUND` 即终态 shed 之，而非留 pending 让 `DrainFirings` 每 tick 重试这条永远成不了 run 的孤儿）。
+- **Firing**（`trf_`）= **persist-before-act** 的收件箱行：fire 瞬间先落库、早于任何 flowrun。单一 status 枚举即处置结果：pending→claimed（claim 事务内瞬态）→started（终态-ok）；skipped（overlap skip）/superseded（overlap buffer_one——丢更早的等待 firing）/**shed**（资源上限**或所属 workflow 已被删**——后者 F137：`claimFiring` 见 `overlapDecision` 的 `GetWorkflow` 返 `WORKFLOW_NOT_FOUND` 即终态 shed 之，而非留 pending 让 `DrainFirings` 每 tick 重试这条永远成不了 run 的孤儿）/**missed**（misfire 记账，工单⑨，见 §2.5）。skipped/superseded/shed/missed 皆**中性处置**、非错误——UI 归「未执行」桶、不染红。
 - **引用计数监听**：N 个 active workflow 共享一个 trigger 只跑**一个** listener（0→1 Register 启动、1→0 Unregister 停止；注册表在内存，boot 由 workflow.ReattachActive 重放）。`RefCount/Listening` 是读时算的非列字段；**`LastFiredAt`** 同为读时派生（非列）——List/Get 各行从 activation 日志取最近一条 `fired=true` 的 `created_at`（走 `idx_tra_ws_trigger` 一次 First；单用户触发器少、无 N+1），供行显示「N 前 fire」。**`NextFireAt`**（仅 cron）亦读时派生（非列）——`attachRuntime` 用 `croninfra.NextAfter(expression, now)` 算下次调度触发，供行显示「N 后触发」（非 cron 或 expr 不可解析则 nil；**已暂停投影 nil**——cron entry 已摘、根本没有排程）。
 - **持久暂停开关**（`paused` 列 + `:pause`/`:resume`，scheduler 工单⑦）：暂停 = **不再产生任何新 firing**——底层 source listener 在源头注销（cron 摘 entry / webhook 路径 404 / fs watch 停 / sensor 探测停，**机器停、非只闸扇出**），内存 entry 保留引用集并标 `paused`（`RefCount` 不丢、`Listening=false`），`onReport` 再兜住注销落地前抢进的在飞报告（丢弃、不落 Activation）；手动 `:fire` 大声拒 `TRIGGER_PAUSED`。**在途 run 与已 pending 的 firing 不受影响**（暂停前的合法事件，scheduler 照常消化）。持久列使重启仍暂停（boot Attach 见 paused 建 entry 不 Register）；resume（仍有引用时）用**当前** config 重注册——暂停期间的 Edit 在此生效（`restartIfListening` 对暂停 entry 跳过）。两端点幂等、200 返裸 trigger；每次真转移发 entities 流 ephemeral `status` 信号 `{paused}`（照 mcp status 先例，`paused` 行是重连真相）。
 - **一次性待命**（stage）：`AttachOnce` 标记 once，fanOut 后自动 Detach（可能把 listener 1→0 停掉）。
+
+## 2.5 misfire = 跳过 + missed 记账（工单⑨，判决⑥）
+
+桌面 app 会睡、会被关，cron 刻度会掉在地上。判决：**绝不补跑**（睡醒补跑风暴是本地 app 的真实危险），但也**绝不静默吞掉**——每个错过的刻度落一条 `missed` firing 行（中性「未执行」台账，UI 渲灰 ✕）。
+
+- **检测 = 逐 trigger 水位**（`triggers.missed_checked_at`）：语义 =「此刻及之前的每个刻度都已**入账**」。`SweepMisfires` 对每个**正在监听、未暂停**的 cron trigger 走 `(水位, now]`（水位 NULL 或早于 `created_at` 时以 `created_at` 兜底——昨天建的 trigger 不可能错过去年）。**水位不是 lastFiredAt**：后者只记「真 fire 过」、无法表达「这段无人监听/被暂停，不欠账」。
+- **推进四处**：①每次 cron 扇出后（送达的刻度即已入账）②sweep 收尾（整窗查到 now）③`:resume`（**暂停期间的错过不算 misfire**——暂停是用户意志、非事故；resume 把窗闭合但**不产生任何 missed 行**）④**实时** 0→1 挂载（trigger 此前是冷的、无人监听 → 之前的刻度不欠账；今天激活绝不记昨天的账）。**boot 重放（`AttachReplay`）刻意不推进**——那段正是必须记账的停机缺口。
+- **两条 attach 语义**（Binder 端口）：`Attach`=实时激活（盖挂载纪元 now）· `AttachReplay`=boot 重放（盖**零值**纪元 =「本进程之前就在监听」）。sweep 以 per-workflow 纪元为下界：中途才挂上的 workflow 绝不被记它挂载前的刻度。
+- **幂等 = dedup key，非标志位**：missed 行用与活 listener **完全相同**的刻度键（`croninfra.DedupKey(trigger, tick)`，分钟截断），故 `idx_trf_dedup` 保证一个刻度对每个 workflow 恰入账一次——**fired 与 missed 互斥**，sweep 跑几次都一样（`AppendFiring` 撞键返已存在行）。
+- **落戳诚实**：missed 行 `created_at` = 错过的**调度刻度**（`AppendMissedFiring` 在 orm 盖 now 后定点回拨）；否则整夜停机的每条行都自称睡醒那一秒发生、时间线上挤成一堆。`flowrun_id` 恒空——missed 不是 run。
+- **两处 sweep 入口**：boot（**严格在 `ReattachActive` 之后**——sweep 读监听表才知道谁在监听，表空则静默什么都不记）+ 自己的慢 ticker（`misfireInterval`=1min）——笔记本睡一小时醒来、进程**还活着**的 misfire 与关机一模一样，没有重启，只有正在跑的 sweep 会发现。
+- **listener 侧守卫**：睡醒时 robfig 会补送**一次**过期回调；`snapTick` 把回调吸附到其调度刻度，超出 `misfireTolerance`(2min) 即判为墙钟跳变伪 fire 并丢弃——否则那就成了一次**隐式补跑**、背叛判决⑥。缺口交给 sweep 记账。
+- **`catchup_one`**（逐 trigger 自选，`config.misfirePolicy`，默认 `skip`）：记账之后对**最近一个**错过刻度经正常 fanOut 补一次 fire（origin 仍 cron、并发策略照常，与真 cron run 无从分辨）；更早的刻度仍是 `missed`——「补一个」就是一个。补跑 fire 用 `<刻度键>|catchup` 键（刻度键已被 missed 行占），仍按刻度构键，故重复 sweep 无法双补。
+- **有界**：单次 sweep 每 trigger 封顶 `maxMissedPerTrigger`(200) 条、保留**最近**的刻度（`* * * * *` 跨一周关机 = 1 万刻度，全记只淹台账不增真相）；水位照样跳到 now，故老缺口恰入账一次、绝不重走。
+- **无新事件**：missed 与其兄弟处置（skipped/superseded/shed）同族——它们都只写行、不发信号（`MarkFiringOutcome` 先例）；firing 行是真相，前端经 `GET {id}/firings?status=missed` 读。missed **不**上铃铛（trigger 无生命周期通知）、不染红。
 
 ## 3. 去重（D3：`idx_trf_dedup` = UNIQUE(workflow_id, trigger_id, dedup_key)）
 
@@ -64,8 +79,8 @@ listener 永不知道 workflow（扇出是 app 的事）；Activation 与 Firing
 
 ## 6. 契约（引用）
 
-端点（CRUD + `:fire`/`:pause`/`:resume`/`:iterate` + activations 两查询 + `GET {id}/firings`）→ [api.md](../api.md) · 表（`triggers`〔含 `paused` 演化列〕/`trigger_activations`/`trigger_firings`——后两张 Log）→ [database.md](../database.md) · 码 `TRIGGER_*` 15+3 → [error-codes.md](../error-codes.md) · ID：`trg_`/`tra_`/`trf_`。LLM 观测工具：`search_activations`（"它**有没有 fire**"——逐次动作日志，含未 fire 的 sensor 探测因）+ `get_activation` + **`search_firings`**（"它 fire 了但 workflow **跑没跑、为什么没跑**"——firing 收件箱的处置面：started/pending/skipped/superseded/shed；status 过滤经 `FiringStatuses` 封闭集校、非法值 422 `TRIGGER_FIRING_INVALID_STATUS` 而非静默空页，F175-M7 + F168-M2 延伸）。activations vs firings = 触发面 vs 运行面，名字即语义。
+端点（CRUD + `:fire`/`:pause`/`:resume`/`:iterate` + activations 两查询 + `GET {id}/firings` + **`GET /trigger-schedule`**〔工单⑧ 前瞻时间线，有界免游标〕）→ [api.md](../api.md) · 表（`triggers`〔含 `paused`/`missed_checked_at` 演化列〕/`trigger_activations`/`trigger_firings`——后两张 Log）→ [database.md](../database.md) · 码 `TRIGGER_*` 17+3 → [error-codes.md](../error-codes.md) · ID：`trg_`/`tra_`/`trf_`。LLM 观测工具：`search_activations`（"它**有没有 fire**"——逐次动作日志，含未 fire 的 sensor 探测因）+ `get_activation` + **`search_firings`**（"它 fire 了但 workflow **跑没跑、为什么没跑**"——firing 收件箱的处置面：started/pending/skipped/superseded/shed/missed；status 过滤经 `FiringStatuses` 封闭集校、非法值 422 `TRIGGER_FIRING_INVALID_STATUS` 而非静默空页，F175-M7 + F168-M2 延伸）。activations vs firings = 触发面 vs 运行面，名字即语义。
 
 ## 7. 跨域集成
 
-被 workflow 经 Binder 端口驱动（Attach/AttachOnce/Detach）；firings 被 scheduler 经 FiringInbox 端口消费（ListPendingFirings/ClaimFiring 单事务/MarkFiringOutcome/SupersedeAllButNewestPending + **TriggerKind**——claimFiring 给 run 盖 origin 溯源章用，软删 trigger 读作 not-found、调用侧 best-effort 留 NULL）；sensor listener 经 invoker 端口调 function/handler/mcp（bootstrap/sensor.go 适配，TriggeredBy=workflow；sensor 出向 `equip` 边按 targetKind 指 function/handler/mcp 实体）；catalog/mention/relation 三适配器同构。
+被 workflow 经 Binder 端口驱动（Attach/AttachOnce/**AttachReplay**〔boot 重放，工单⑨：只有它盖零值挂载纪元，故 sweep 才敢为其记停机缺口〕/Detach）；firings 被 scheduler 经 FiringInbox 端口消费（ListPendingFirings/ClaimFiring 单事务/MarkFiringOutcome/SupersedeAllButNewestPending + **TriggerKind**——claimFiring 给 run 盖 origin 溯源章用，软删 trigger 读作 not-found、调用侧 best-effort 留 NULL）；sensor listener 经 invoker 端口调 function/handler/mcp（bootstrap/sensor.go 适配，TriggeredBy=workflow；sensor 出向 `equip` 边按 targetKind 指 function/handler/mcp 实体）；catalog/mention/relation 三适配器同构。

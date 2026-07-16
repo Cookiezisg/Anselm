@@ -559,17 +559,19 @@ audience: [human, ai]
 | code | HTTP | message |
 |---|---|---|
 | `TRIGGER_ACTIVATION_NOT_FOUND` | 404 | activation not found |
-| `TRIGGER_FIRING_INVALID_STATUS` | 422 | firing status filter must be one of: pending, claimed, started, skipped, superseded, shed |
+| `TRIGGER_FIRING_INVALID_STATUS` | 422 | firing status filter must be one of: pending, claimed, started, skipped, superseded, shed, missed |
 | `TRIGGER_FIRING_NOT_PENDING` | 409 | firing already claimed |
 | `TRIGGER_INVALID_CEL` | 422 | invalid CEL expression |
 | `TRIGGER_INVALID_CONFIG` | 422 | invalid trigger config |
 | `TRIGGER_INVALID_CRON` | 422 | invalid cron expression — use a 5-field expression (minute granularity); @every and seconds are not supported |
 | `TRIGGER_INVALID_INTERVAL` | 422 | sensor interval below minimum |
 | `TRIGGER_INVALID_KIND` | 422 | unknown trigger kind |
+| `TRIGGER_INVALID_MISFIRE_POLICY` | 422 | misfirePolicy must be one of: skip, catchup_one（工单⑨：cron `config.misfirePolicy` 的封闭词表，create/edit 校验——写错的词绝不静默按默认 skip 走） |
 | `TRIGGER_LISTENER_UNAVAILABLE` | 503 | trigger listener not available |
 | `TRIGGER_NAME_DUPLICATE` | 409 | trigger name already exists |
 | `TRIGGER_NOT_FOUND` | 404 | trigger not found |
 | `TRIGGER_PAUSED` | 422 | trigger is paused — resume it before firing（工单⑦：`:fire`/fire_trigger 打在已暂停 trigger 上的大声拒——暂停 = 不再产生新 firing，手动催也不例外） |
+| `TRIGGER_SCHEDULE_INVALID_QUERY` | 422 | trigger-schedule query invalid — within must be a positive Go duration (e.g. 168h) and limit a positive integer（工单⑧：details 带 `param`/`got`；超上限的合法值**钳制**不报错，只有不可解析/非正才拒） |
 | `TRIGGER_SENSOR_TARGET_REQUIRED` | 422 | sensor requires a function or handler target |
 | `TRIGGER_SENSOR_TARGET_NOT_FOUND` | 422 | sensor target does not exist (dynamic — details carry targetKind/targetId) |
 | `TRIGGER_WEBHOOK_SECRET_MISMATCH` | 401 | webhook secret mismatch |

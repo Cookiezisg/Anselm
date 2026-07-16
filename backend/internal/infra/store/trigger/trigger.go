@@ -11,9 +11,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	triggerdomain "github.com/sunweilin/anselm/backend/internal/domain/trigger"
 	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // Schema is the trigger tables' DDL (idempotent, ordered) for bootstrap to collect via
@@ -38,13 +40,16 @@ var Schema = []string{
 	`CREATE UNIQUE INDEX IF NOT EXISTS idx_triggers_ws_name ON triggers(workspace_id, name) WHERE deleted_at IS NULL`,
 	`CREATE INDEX IF NOT EXISTS idx_triggers_ws_created ON triggers(workspace_id, created_at DESC, id DESC) WHERE deleted_at IS NULL`,
 
-	// Column evolution — persisted pause switch (scheduler 工单⑦). ADD COLUMN (not baked into the
-	// CREATE) so an existing install gains it on next boot; re-runs rely on db.Migrate treating
-	// "duplicate column name" as already-applied (same precedent as flowruns origin, 工单①).
+	// Column evolution — persisted pause switch (scheduler 工单⑦) + misfire watermark (工单⑨).
+	// ADD COLUMN (not baked into the CREATE) so an existing install gains them on next boot; re-runs
+	// rely on db.Migrate treating "duplicate column name" as already-applied (same precedent as
+	// flowruns origin, 工单①).
 	//
-	// 列演化——持久化暂停开关（scheduler 工单⑦）。用 ADD COLUMN（不并进 CREATE）使已有安装下次启动
-	// 补列；重复执行靠 db.Migrate 把 "duplicate column name" 视作已应用（同 flowruns origin 先例，工单①）。
+	// 列演化——持久化暂停开关（scheduler 工单⑦）+ misfire 水位（工单⑨）。用 ADD COLUMN（不并进 CREATE）
+	// 使已有安装下次启动补列；重复执行靠 db.Migrate 把 "duplicate column name" 视作已应用（同 flowruns
+	// origin 先例，工单①）。
 	`ALTER TABLE triggers ADD COLUMN paused INTEGER NOT NULL DEFAULT 0`,
+	`ALTER TABLE triggers ADD COLUMN missed_checked_at DATETIME`,
 
 	`CREATE TABLE IF NOT EXISTS trigger_firings (
 		id            TEXT PRIMARY KEY,
@@ -54,7 +59,7 @@ var Schema = []string{
 		activation_id TEXT NOT NULL DEFAULT '',
 		payload       TEXT NOT NULL DEFAULT '{}',
 		dedup_key     TEXT NOT NULL,
-		status        TEXT NOT NULL CHECK (status IN ('pending','claimed','started','skipped','superseded','shed')),
+		status        TEXT NOT NULL CHECK (status IN ('pending','claimed','started','skipped','superseded','shed','missed')),
 		flowrun_id    TEXT NOT NULL DEFAULT '',
 		created_at    DATETIME NOT NULL,
 		updated_at    DATETIME NOT NULL
@@ -77,6 +82,44 @@ var Schema = []string{
 	)`,
 	`CREATE INDEX IF NOT EXISTS idx_tra_ws_trigger ON trigger_activations(workspace_id, trigger_id, created_at DESC, id DESC)`,
 }
+
+// FiringsMissedMarker / FiringsCheckRebuild: the status CHECK gained 'missed' (scheduler 工单⑨),
+// and SQLite cannot ALTER a CHECK — an existing install must REBUILD the table. bootstrap runs
+// this through db.MigrateRebuild, which is idempotent BY OUTCOME: it rebuilds only while the live
+// sqlite_master DDL lacks the marker, so a fresh install (CREATE above already carries 'missed')
+// and every post-rebuild boot are no-ops. Data is copied column-for-column; the two indexes drop
+// with the old table and are recreated.
+//
+// FiringsMissedMarker / FiringsCheckRebuild：status CHECK 加词 'missed'（scheduler 工单⑨），而
+// SQLite 无法 ALTER CHECK——已有安装必须**重建**该表。bootstrap 经 db.MigrateRebuild 执行，靠
+// **结果幂等**：仅当 sqlite_master 里的现行 DDL 缺该标记词才重建，故全新安装（上方 CREATE 已含
+// 'missed'）与重建后的每次启动都是 no-op。数据逐列拷贝；两索引随旧表落、重建时重建。
+var (
+	FiringsMissedMarker = "'missed'"
+
+	FiringsCheckRebuild = []string{
+		`CREATE TABLE trigger_firings_rebuild (
+			id            TEXT PRIMARY KEY,
+			workspace_id  TEXT NOT NULL,
+			trigger_id    TEXT NOT NULL,
+			workflow_id   TEXT NOT NULL,
+			activation_id TEXT NOT NULL DEFAULT '',
+			payload       TEXT NOT NULL DEFAULT '{}',
+			dedup_key     TEXT NOT NULL,
+			status        TEXT NOT NULL CHECK (status IN ('pending','claimed','started','skipped','superseded','shed','missed')),
+			flowrun_id    TEXT NOT NULL DEFAULT '',
+			created_at    DATETIME NOT NULL,
+			updated_at    DATETIME NOT NULL
+		)`,
+		`INSERT INTO trigger_firings_rebuild
+			SELECT id, workspace_id, trigger_id, workflow_id, activation_id, payload, dedup_key, status, flowrun_id, created_at, updated_at
+			FROM trigger_firings`,
+		`DROP TABLE trigger_firings`,
+		`ALTER TABLE trigger_firings_rebuild RENAME TO trigger_firings`,
+		`CREATE UNIQUE INDEX idx_trf_dedup ON trigger_firings(workflow_id, trigger_id, dedup_key)`,
+		`CREATE INDEX idx_trf_pending ON trigger_firings(status, created_at) WHERE status = 'pending'`,
+	}
+)
 
 // Store implements triggerdomain.Repository over pkg/orm.
 type Store struct {
@@ -196,6 +239,31 @@ func (s *Store) SetTriggerPaused(ctx context.Context, id string, paused bool) er
 	}
 	if n == 0 {
 		return triggerdomain.ErrNotFound
+	}
+	return nil
+}
+
+// AdvanceMissedWatermark moves missed_checked_at forward monotonically (scheduler 工单⑨). Raw SQL
+// on purpose: the orm Updates path always bumps updated_at, and the watermark advances on EVERY
+// cron fan-out — churning updated_at would turn the row's edit timestamp into noise. The guard
+// `missed_checked_at < ?` keeps out-of-order writers (fan-out vs sweep vs resume) from regressing
+// the watermark. 0 rows matched (missing/soft-deleted row, or an older `at`) is a harmless no-op.
+//
+// AdvanceMissedWatermark 单调推进 missed_checked_at（scheduler 工单⑨）。刻意用裸 SQL：orm 的 Updates
+// 一律刷 updated_at，而水位在**每次** cron 扇出时推进——搅动 updated_at 会让行的编辑时间成噪声。
+// `missed_checked_at < ?` 守卫使乱序写者（扇出/sweep/resume）不会把水位倒退。匹配 0 行（行不存在/
+// 软删、或 `at` 更旧）为无害 no-op。
+func (s *Store) AdvanceMissedWatermark(ctx context.Context, id string, at time.Time) error {
+	ws, err := reqctxpkg.RequireWorkspaceID(ctx)
+	if err != nil {
+		return err
+	}
+	if _, err := s.db.Exec(ctx,
+		`UPDATE triggers SET missed_checked_at = ?
+		 WHERE id = ? AND workspace_id = ? AND deleted_at IS NULL
+		   AND (missed_checked_at IS NULL OR missed_checked_at < ?)`,
+		at.UTC(), id, ws, at.UTC()); err != nil {
+		return fmt.Errorf("triggerstore.AdvanceMissedWatermark: %w", err)
 	}
 	return nil
 }

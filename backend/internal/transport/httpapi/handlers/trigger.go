@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"net/http"
+	"strconv"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -46,6 +48,45 @@ func (h *TriggerHandler) Register(mux Registrar) {
 	mux.HandleFunc("GET /api/v1/triggers/{id}/activations", h.ListActivations)
 	mux.HandleFunc("GET /api/v1/triggers/{id}/firings", h.ListFirings)
 	mux.HandleFunc("GET /api/v1/trigger-activations/{id}", h.GetActivation) // Log 单读路径变量统一 {id}(MD-id4)
+	mux.HandleFunc("GET /api/v1/trigger-schedule", h.Schedule)
+}
+
+// Schedule serves the forward-looking cron timeline (scheduler 工单⑧): every tick due within
+// ?within= (Go duration, default 168h, max 30d), capped at ?limit= (default 200, max 1000),
+// ascending. Bounded by the cap → N4 cursor-free; `truncated` reports an overflow honestly instead
+// of a silent short page. Only listening, non-paused cron triggers contribute — the other kinds
+// have no knowable next fire.
+//
+// Schedule 供给前瞻 cron 时间线（scheduler 工单⑧）：?within=（Go duration，默认 168h、上限 30d）内每个
+// 到期刻度，?limit= 封顶（默认 200、上限 1000），升序。有 cap 即有界 → N4 免游标；`truncated` 诚实报告
+// 溢出、而非静默给个短页。只有正在监听、未暂停的 cron trigger 有贡献——其余 kind 的下次 fire 不可知。
+func (h *TriggerHandler) Schedule(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	var in triggerapp.ScheduleQuery
+	if v := q.Get("within"); v != "" {
+		d, err := time.ParseDuration(v)
+		if err != nil || d <= 0 {
+			responsehttpapi.FromDomainError(w, h.log, triggerdomain.ErrInvalidScheduleQuery.WithDetails(
+				map[string]any{"param": "within", "got": v}))
+			return
+		}
+		in.Within = d
+	}
+	if v := q.Get("limit"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 {
+			responsehttpapi.FromDomainError(w, h.log, triggerdomain.ErrInvalidScheduleQuery.WithDetails(
+				map[string]any{"param": "limit", "got": v}))
+			return
+		}
+		in.Limit = n
+	}
+	res, err := h.svc.Schedule(r.Context(), in)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, res)
 }
 
 func (h *TriggerHandler) Create(w http.ResponseWriter, r *http.Request) {
