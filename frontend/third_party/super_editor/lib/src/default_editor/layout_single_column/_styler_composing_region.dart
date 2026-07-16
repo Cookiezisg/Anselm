@@ -19,18 +19,62 @@ class SingleColumnLayoutComposingRegionStyler extends SingleColumnLayoutStylePha
         _composingRegion = composingRegion,
         _showComposingRegionUnderline = showComposingUnderline {
     // Our styles need to be re-applied whenever the composing region changes.
-    _composingRegion.addListener(markDirty);
+    // ANSELM PATCH (ADR 0009): report node-scoped dirt (old region ∪ new region) instead of dirtying
+    // the whole phase — an IME composing change only restyles the nodes it touches (usually one).
+    // 上报节点级脏(旧区∪新区)而非整相脏——IME 组字变化只需重刷它碰到的节点(通常一个)。
+    _lastComposingRegion = _composingRegion.value;
+    _composingRegion.addListener(_onComposingRegionChange);
   }
 
   @override
   void dispose() {
-    _composingRegion.removeListener(markDirty);
+    _composingRegion.removeListener(_onComposingRegionChange);
     super.dispose();
   }
 
   final Document _document;
   final ValueListenable<DocumentRange?> _composingRegion;
   final bool _showComposingRegionUnderline;
+
+  // ═══ ANSELM PATCH (ADR 0009): node-scoped composing dirt ═════════════════════════════════════════
+  DocumentRange? _lastComposingRegion;
+
+  void _onComposingRegionChange() {
+    final oldRegion = _lastComposingRegion;
+    final newRegion = _composingRegion.value;
+    _lastComposingRegion = newRegion;
+
+    // `style()` stamps `showComposingRegionUnderline = true` onto EVERY text view model whenever a
+    // region exists, and passes through untouched when it doesn't — so a null↔non-null transition
+    // changes every node and must dirty the whole phase. That happens twice per IME composition
+    // (start/end); the per-keystroke path DURING composition is non-null→non-null and stays
+    // node-scoped. style() 在有组字区时给每个 text vm 盖 showComposingRegionUnderline=true、无时原样
+    // 透传——null↔非null 转换改动全部节点,必须整相脏。这每次 IME 组字只发生头尾两次;组字中逐键是
+    // 非null→非null,保持节点级。
+    if ((oldRegion == null) != (newRegion == null)) {
+      markDirty();
+      return;
+    }
+
+    final affected = <String>{};
+    try {
+      for (final region in [oldRegion, newRegion]) {
+        if (region == null) {
+          continue;
+        }
+        for (final node in _document.getNodesInside(region.start, region.end)) {
+          affected.add(node.id);
+        }
+      }
+    } catch (_) {
+      // A stale region can reference nodes the document no longer holds — fall back to whole-phase
+      // dirt. 陈旧组字区可能指向已删节点——落回整相脏。
+      markDirty();
+      return;
+    }
+    markDirtyNodes(affected);
+  }
+  // ═══ END ANSELM PATCH ════════════════════════════════════════════════════════════════════════════
 
   @override
   SingleColumnLayoutViewModel style(Document document, SingleColumnLayoutViewModel viewModel) {

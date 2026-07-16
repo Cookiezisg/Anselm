@@ -25,17 +25,48 @@ class SingleColumnLayoutSelectionStyler extends SingleColumnLayoutStylePhase {
         _selectionStyles = selectionStyles,
         _selectedTextColorStrategy = selectedTextColorStrategy {
     // Our styles need to be re-applied whenever the document selection changes.
-    _selection.addListener(markDirty);
+    // ANSELM PATCH (ADR 0009): report node-scoped dirt (old range ∪ new range) instead of dirtying
+    // the whole phase — a selection change only restyles the nodes it touches. 上报节点级脏(旧区∪
+    // 新区)而非整相脏——选区变化只需重刷它碰到的节点。
+    _lastSelection = _selection.value;
+    _selection.addListener(_onSelectionChange);
   }
 
   @override
   void dispose() {
-    _selection.removeListener(markDirty);
+    _selection.removeListener(_onSelectionChange);
     super.dispose();
   }
 
   final Document _document;
   final ValueListenable<DocumentSelection?> _selection;
+
+  // ═══ ANSELM PATCH (ADR 0009): node-scoped selection dirt ═════════════════════════════════════════
+  DocumentSelection? _lastSelection;
+
+  void _onSelectionChange() {
+    final affected = <String>{};
+    try {
+      for (final selection in [_lastSelection, _selection.value]) {
+        if (selection == null) {
+          continue;
+        }
+        for (final node in _document.getNodesInside(selection.base, selection.extent)) {
+          affected.add(node.id);
+        }
+      }
+    } catch (_) {
+      // A stale selection can reference nodes the document no longer holds (selection listeners can
+      // fire after the document already changed) — fall back to whole-phase dirt. 陈旧选区可能指向
+      // 已删节点(选区监听可能晚于文档变更触发)——落回整相脏。
+      _lastSelection = _selection.value;
+      markDirty();
+      return;
+    }
+    _lastSelection = _selection.value;
+    markDirtyNodes(affected);
+  }
+  // ═══ END ANSELM PATCH ════════════════════════════════════════════════════════════════════════════
 
   SelectionStyles _selectionStyles;
   set selectionStyles(SelectionStyles selectionStyles) {
