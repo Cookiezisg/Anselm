@@ -1,5 +1,4 @@
-import 'dart:math' as math;
-import 'dart:ui' show BoxHeightStyle, TextBox;
+import 'dart:ui' show BoxHeightStyle;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -10,6 +9,7 @@ import '../design/colors.dart';
 import '../design/tokens.dart';
 import 'an_editor_inline_code.dart';
 import 'an_editor_quote.dart';
+import 'an_editor_selection.dart';
 
 /// The height of the inline-code paint-beneath background — the JetBrains-Mono-13 line box (measured 20.0px),
 /// which is exactly the height of the chat [AnCodeChip] (`Container(child: Text(AnText.mono))`, no vertical
@@ -111,12 +111,16 @@ class AnTextComponentState extends TextComponentState {
                     color: anWidget.codeBackgroundColor!,
                     radius: anWidget.codeBackgroundRadius ?? 0,
                   ),
-                // Selection highlight beneath the text (verbatim from TextComponentState.build).
+                // Selection highlight beneath the text — the An painter (per-visual-line merged, full line
+                // box, zero inflation) instead of the upstream TextLayoutSelectionHighlight, whose raw boxes
+                // + hardcoded ±2px inflation gave split pills at script boundaries and 4px overlaps between
+                // wrapped lines (semi-transparent colour doubled = darker bands). 选区高亮换 An 画法(逐视觉行
+                // 并盒、满行盒、零膨胀);上游默认在 script 边界断盒、行间又叠 4px 半透明色叠深。
                 if (widget.text.length > 0)
-                  TextLayoutSelectionHighlight(
+                  AnSelectionHighlightLayer(
                     textLayout: textLayout,
-                    style: SelectionHighlightStyle(color: widget.selectionColor),
                     selection: widget.textSelection ?? const TextSelection.collapsed(offset: -1),
+                    color: widget.selectionColor,
                   )
                 else if (widget.highlightWhenEmpty)
                   TextLayoutEmptyHighlight(
@@ -256,7 +260,7 @@ class _CodeBackgroundPainter extends CustomPainter {
       if (_isSpacer(end)) end--;
       if (end < start) continue; // spacer-only (empty code) — nothing to draw
       final selection = TextSelection(baseOffset: start, extentOffset: end + 1);
-      final lines = _mergeByLine(textLayout.getBoxesForSelection(selection, boxHeightStyle: BoxHeightStyle.max));
+      final lines = mergeBoxesByLine(textLayout.getBoxesForSelection(selection, boxHeightStyle: BoxHeightStyle.max));
       for (final line in lines) {
         // Per visual line: 4px horizontal padding (matches AnCodeChip; also pads the wrap edges), fixed mono-box
         // height anchored to the line bottom so the glyphs sit balanced. 逐行:水平 4px + 定高贴底。
@@ -270,27 +274,6 @@ class _CodeBackgroundPainter extends CustomPainter {
         canvas.drawRRect(RRect.fromRectAndRadius(rect, Radius.circular(radius)), paint);
       }
     }
-  }
-
-  // Union boxes that share a visual line (their vertical spans overlap) into ONE rect per line — super_editor
-  // hands back a separate box at each script-run boundary, which for CJK-in-code split the pill. 同视觉行的 box 并一。
-  List<Rect> _mergeByLine(List<TextBox> boxes) {
-    final rects = <Rect>[];
-    for (final b in boxes) {
-      final r = b.toRect();
-      var merged = false;
-      for (var i = 0; i < rects.length; i++) {
-        final e = rects[i];
-        if (r.top < e.bottom && r.bottom > e.top) {
-          rects[i] = Rect.fromLTRB(math.min(e.left, r.left), math.min(e.top, r.top), math.max(e.right, r.right),
-              math.max(e.bottom, r.bottom));
-          merged = true;
-          break;
-        }
-      }
-      if (!merged) rects.add(r);
-    }
-    return rects;
   }
 
   @override

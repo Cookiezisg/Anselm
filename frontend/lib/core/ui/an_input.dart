@@ -153,12 +153,17 @@ class _AnInputState extends State<AnInput> {
       expands: false,
       cursorColor: c.ink,
       cursorWidth: AnSize.caret,
-      // Single-line: hug the text, not the full line-height — derived from the EFFECTIVE style
-      // (fontSize + caretRise) so a style-overridden field (an H2-24 rename, a 15 content value)
-      // gets a caret that matches its glyphs, not the 13-body constant. Multiline keeps Flutter's
-      // default so the caret scales per line. 单行:按有效样式推导(fontSize+caretRise),大字改名/15 值
-      // 的光标随字走、不再是钉死的 13 号短光标;多行用默认、随行缩放。
-      cursorHeight: widget.multiline ? null : (style.fontSize ?? AnText.body.fontSize)! + AnSize.caretRise,
+      // Hug the text, not the full line-height — derived from the EFFECTIVE style (fontSize + caretRise)
+      // so a style-overridden field (an H2-24 rename, a 15 content value) gets a caret that matches its
+      // glyphs, not the 13-body constant. MULTILINE DERIVES TOO: the old `multiline ? null` exemption
+      // ("the caret scales per line") had no ground — a field carries ONE style, so there is no per-line
+      // scale to follow; null just handed the caret to the platform (macOS lineBox+2 = 20.2, Win/Linux
+      // lineBox−4: a 6px cross-platform split), and [AnComposer] — also maxLines:null — has pinned a
+      // derived height all along with no ill effect. 按有效样式推导(fontSize+caretRise),大字改名/15 值的光标
+      // 随字走、不再钉死 13 号短光标。**多行同样推导**:旧的「多行随行缩放」豁免站不住——一个字段只有一种样式、
+      // 无「行」可缩放;传 null 只是把光标交给平台(macOS 行盒+2=20.2、Win/Linux 行盒−4,跨平台差 6px),
+      // 而同为 maxLines:null 的 AnComposer 一直钉死派生高、零副作用。
+      cursorHeight: (style.fontSize ?? AnText.body.fontSize)! + AnSize.caretRise,
       style: style,
       decoration: InputDecoration(
         isDense: true,

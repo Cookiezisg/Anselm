@@ -400,6 +400,7 @@ class _Translations$documents$zh_CN extends Translations$documents$en {
 	@override late final _Translations$documents$props$zh_CN props = _Translations$documents$props$zh_CN._(_root);
 	@override late final _Translations$documents$slash$zh_CN slash = _Translations$documents$slash$zh_CN._(_root);
 	@override String get linkHint => '输入或粘贴链接,回车确定';
+	@override late final _Translations$documents$table$zh_CN table = _Translations$documents$table$zh_CN._(_root);
 }
 
 // Path: settings
@@ -1303,6 +1304,22 @@ class _Translations$documents$slash$zh_CN extends Translations$documents$slash$e
 	@override String get table => '表格';
 	@override String get divider => '分隔线';
 	@override String get todo => '待办';
+}
+
+// Path: documents.table
+class _Translations$documents$table$zh_CN extends Translations$documents$table$en {
+	_Translations$documents$table$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get insertRowAbove => '在上方插入行';
+	@override String get insertRowBelow => '在下方插入行';
+	@override String get deleteRow => '删除行';
+	@override String get insertColLeft => '在左侧插入列';
+	@override String get insertColRight => '在右侧插入列';
+	@override String get deleteCol => '删除列';
+	@override String get deleteTable => '删除表格';
 }
 
 // Path: settings.scope
@@ -3199,6 +3216,13 @@ extension on TranslationsZhCn {
 			'documents.slash.divider' => '分隔线',
 			'documents.slash.todo' => '待办',
 			'documents.linkHint' => '输入或粘贴链接,回车确定',
+			'documents.table.insertRowAbove' => '在上方插入行',
+			'documents.table.insertRowBelow' => '在下方插入行',
+			'documents.table.deleteRow' => '删除行',
+			'documents.table.insertColLeft' => '在左侧插入列',
+			'documents.table.insertColRight' => '在右侧插入列',
+			'documents.table.deleteCol' => '删除列',
+			'documents.table.deleteTable' => '删除表格',
 			'settings.title' => '设置',
 			'settings.scope.device' => '本机',
 			'settings.scope.workspace' => '工作区',

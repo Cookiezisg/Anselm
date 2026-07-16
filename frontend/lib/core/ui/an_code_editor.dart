@@ -443,7 +443,7 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
   Widget _inlineBody(BuildContext context) {
     final c = context.colors;
     if (_inlineEdit) {
-      return _EditField(controller: _controller!, focusNode: _editFocus, style: _codeStyle(c), accent: c.accent, onTab: _insertTab);
+      return _EditField(controller: _controller!, focusNode: _editFocus, style: _codeStyle(c), ink: c.ink, onTab: _insertTab);
     }
     return SelectableText.rich(
       TextSpan(style: _codeStyle(c), children: _highlight(widget.code, context.syntax)),
@@ -586,7 +586,7 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
     if (_isEditing) {
       return Padding(
         padding: pad,
-        child: _EditField(controller: _controller!, focusNode: _editFocus, style: _codeStyle(c), accent: c.accent, onTab: _insertTab),
+        child: _EditField(controller: _controller!, focusNode: _editFocus, style: _codeStyle(c), ink: c.ink, onTab: _insertTab),
       );
     }
     final text = SelectableText.rich(
@@ -610,14 +610,19 @@ class _EditField extends StatelessWidget {
     required this.controller,
     required this.focusNode,
     required this.style,
-    required this.accent,
+    required this.ink,
     required this.onTab,
   });
 
   final _HighlightController controller;
   final FocusNode focusNode;
   final TextStyle style;
-  final Color accent;
+
+  /// The caret colour — [AnColors.ink], per the house caret law (a caret is INK, never accent: the
+  /// old accent caret turned the document's code block blue mid-prose, and read as a link/selection
+  /// signal). 光标色=ink(房内光标法:光标是墨、绝不 accent——旧 accent 光标让文档码块在正文中途变蓝、
+  /// 且读作链接/选中信号)。
+  final Color ink;
   final VoidCallback onTab;
 
   @override
@@ -628,8 +633,17 @@ class _EditField extends StatelessWidget {
         controller: controller,
         focusNode: focusNode,
         style: style,
-        cursorColor: accent,
+        cursorColor: ink,
         cursorWidth: AnSize.caret,
+        // Derive the caret height from the EFFECTIVE code style (the house law: a caret hugs the style
+        // it sits on, never a platform default). Left null, Flutter takes the full leaded LINE BOX and
+        // then macOS adds 2 → 22.8 for the 13/1.6 reading tier: a caret 76% taller than its glyphs
+        // (measured on-device), the "thunderously big caret" in the document's code blocks. It also
+        // split by platform (macOS lineBox+2 vs Win/Linux lineBox−4 = 6px apart). All code faces are
+        // single-size, so one derived value is exact for every line. 按有效代码样式推导光标高(房法:光标贴
+        // 所在样式、绝不用平台默认)。留 null 则取整行盒、macOS 再 +2 = 13/1.6 档的 22.8——比字形高 76%
+        // (真机实测),即文档码块里那根「雷霆大光标」;且跨平台差 6px。代码面单一字号,故一个派生值对每行都准。
+        cursorHeight: style.fontSize! + AnSize.caretRise,
         maxLines: null,
         keyboardType: TextInputType.multiline,
         // Collapsed decoration = no underline / fill (the frame owns the chrome). 无装饰(框管外观)。

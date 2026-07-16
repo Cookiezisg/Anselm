@@ -2,7 +2,8 @@ import 'package:anselm/core/editor/an_editor_components.dart';
 import 'package:anselm/core/editor/an_editor_inline_code.dart';
 import 'package:anselm/core/editor/an_editor_markdown.dart';
 import 'package:anselm/core/editor/an_editor_mention.dart';
-import 'package:flutter/widgets.dart' show TextAlign;
+import 'package:anselm/core/editor/an_editor_table.dart';
+import 'package:flutter/widgets.dart' show FocusNode, TextAlign;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:super_editor/super_editor.dart';
 
@@ -223,12 +224,16 @@ void main() {
       expect(md1, md2, reason: 'second pass stable');
     });
 
-    test('table header follows the COLUMN alignment (GFM std; AnMarkdownTableComponentBuilder un-centres it)', () {
+    test('table header follows the COLUMN alignment (GFM std; AnTableComponentBuilder un-centres it)', () {
       // super_editor's deserializer hardcodes header cells to centre; our builder copies the column
       // alignment (from the data row) onto the header so the whole column aligns the same — 1:1 with chat.
       final doc = documentFromMarkdown('| a | b | c |\n|:--|:-:|--:|\n| 1 | 2 | 3 |');
       final table = doc.toList().whereType<TableBlockNode>().first;
-      final vm = const AnMarkdownTableComponentBuilder().createViewModel(doc, table) as MarkdownTableViewModel;
+      // createViewModel only reads the document — the editor/focus/key wiring is inert here. 只测 vm 造建。
+      final composer = MutableDocumentComposer();
+      final editor = createDefaultDocumentEditor(document: doc, composer: composer);
+      final builder = AnTableComponentBuilder(editor, doc, FocusNode(), {});
+      final vm = builder.createViewModel(doc, table) as MarkdownTableViewModel;
       const wantAligns = [TextAlign.left, TextAlign.center, TextAlign.right];
       expect(vm.cells.first.map((c) => c.textAlign).toList(), wantAligns,
           reason: 'header follows the column, not super_editor centre');
@@ -288,6 +293,89 @@ void main() {
       expect(md1.contains('[[$_id]]'), isTrue, reason: 'wikilink verbatim next to inline marks');
       final md2 = markdownFromDocument(documentFromMarkdown(md1));
       expect(md2.contains('[[$_id]]'), isTrue);
+    });
+  });
+
+  // The task-degeneration cascade (the misaligned-checkbox + literal-"[ ]" bug): an EMPTY task serialized
+  // `- [ ] ` lost its trailing space to the per-line trim, and the checkbox syntax (`\[[ xX]\][ \t]`) then
+  // failed it on reload → a bullet with literal "[ ]" text → the NEXT save wrote it as an indented `* [ ]`
+  // line that lazy-continued INTO the previous task ("\n…" merged text, checkbox floated off the first
+  // line). These lock the trailing-space exemption + the two load-time heals. 任务退化级联锁死测。
+  group('task round-trip (degeneration cascade)', () {
+    test('an EMPTY task survives the round-trip as a task (trailing space exempt from trim)', () {
+      final doc1 = MutableDocument(nodes: [
+        TaskNode(id: 't1', text: AttributedText('a'), isComplete: false),
+        TaskNode(id: 't2', text: AttributedText(''), isComplete: false),
+        TaskNode(id: 't3', text: AttributedText('b'), isComplete: false),
+      ]);
+      final md = markdownFromDocument(doc1);
+      expect(md.contains('- [ ] \n'), isTrue, reason: 'the empty task marker keeps its load-bearing trailing space');
+      final doc2 = documentFromMarkdown(md);
+      final kinds = [for (final n in doc2) n.runtimeType.toString()];
+      expect(kinds, ['TaskNode', 'TaskNode', 'TaskNode'],
+          reason: 'no task degrades to a bullet — the cascade\'s first domino');
+      expect((doc2.getNodeAt(1)! as TaskNode).text.toPlainText(), isEmpty);
+    });
+
+    test('an empty COMPLETE task round-trips too', () {
+      final doc1 = MutableDocument(nodes: [TaskNode(id: 't1', text: AttributedText(''), isComplete: true)]);
+      final doc2 = documentFromMarkdown(markdownFromDocument(doc1));
+      final task = doc2.getNodeAt(0)! as TaskNode;
+      expect(task.isComplete, isTrue);
+      expect(task.text.toPlainText(), isEmpty);
+    });
+
+    test('HEAL: a degraded bullet with literal "[ ]" text loads as a task again (old corrupted docs)', () {
+      // The exact degenerate wire shape old saves produced (`- [ ]` — no trailing space). 旧档退化线缆形。
+      final doc = documentFromMarkdown('- [ ] a\n- [ ]\n- [x]\n- [ ] b');
+      final kinds = [for (final n in doc) n.runtimeType.toString()];
+      expect(kinds, ['TaskNode', 'TaskNode', 'TaskNode', 'TaskNode']);
+      expect((doc.getNodeAt(2)! as TaskNode).isComplete, isTrue, reason: '[x] heals complete');
+    });
+
+    test('HEAL: a bullet whose text is "[ ] label" recovers the label as task text', () {
+      final doc = documentFromMarkdown('* [ ] buy milk');
+      final task = doc.getNodeAt(0)! as TaskNode;
+      expect(task.text.toPlainText(), 'buy milk');
+      expect(task.isComplete, isFalse);
+    });
+
+    test('HEAL: a lazy-continuation-merged task un-merges losslessly (no leading-\\n task survives)', () {
+      // The cascade's later stage stored tasks whose text led with "\n" (checkbox floated mid-block). The
+      // round-trip recovers: the task keeps its (empty) own line, the swallowed content re-emerges as its own
+      // block — nothing lost, and NO node leads with "\n" anymore. 后期伤痕:往返后 task 与被吞内容拆回两块,
+      // 内容无损、且不再有前导换行的 task(勾框错位根除)。
+      final doc = MutableDocument(nodes: [
+        TaskNode(id: 't1', text: AttributedText('\nplain: 前 plain 后'), isComplete: false),
+      ]);
+      final healed = documentFromMarkdown(markdownFromDocument(doc));
+      expect(healed.getNodeAt(0), isA<TaskNode>());
+      final allPlain = [for (final n in healed) if (n is TextNode) n.text.toPlainText()].join('\n');
+      expect(allPlain, contains('plain: 前 plain 后'), reason: 'the swallowed content is not lost');
+      for (final n in healed) {
+        if (n is TextNode) {
+          expect(n.text.toPlainText().startsWith('\n'), isFalse, reason: 'no node leads with a newline');
+        }
+      }
+    });
+
+    test('the full cascade md1→doc2→md2→doc3 stays task-shaped for TWO rounds', () {
+      var md = '- [ ] a\n- [ ] \n- [ ] b';
+      for (var round = 0; round < 2; round++) {
+        final doc = documentFromMarkdown(md);
+        expect([for (final n in doc) n is TaskNode].every((x) => x), isTrue,
+            reason: 'round ${round + 1}: every node is still a TaskNode');
+        expect([for (final n in doc) (n as TaskNode).text.toPlainText()], ['a', '', 'b'],
+            reason: 'round ${round + 1}: no content swallowed, no leading newlines');
+        md = markdownFromDocument(doc);
+      }
+    });
+
+    test('a REAL bullet list is untouched by the heal', () {
+      final doc = documentFromMarkdown('- 苹果\n- 香蕉 [x] 不在行首\n- [links](https://x.dev) 开头');
+      expect([for (final n in doc) n.runtimeType.toString()],
+          ['ListItemNode', 'ListItemNode', 'ListItemNode'],
+          reason: 'only a LEADING literal checkbox marker heals — prose bullets stay bullets');
     });
   });
 }

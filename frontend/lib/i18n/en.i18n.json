@@ -1175,7 +1175,16 @@
       "divider": "Divider",
       "todo": "To-do"
     },
-    "linkHint": "Type or paste a link, Enter to apply"
+    "linkHint": "Type or paste a link, Enter to apply",
+    "table": {
+      "insertRowAbove": "Insert row above",
+      "insertRowBelow": "Insert row below",
+      "deleteRow": "Delete row",
+      "insertColLeft": "Insert column left",
+      "insertColRight": "Insert column right",
+      "deleteCol": "Delete column",
+      "deleteTable": "Delete table"
+    }
   },
   "settings": {
     "title": "Settings",

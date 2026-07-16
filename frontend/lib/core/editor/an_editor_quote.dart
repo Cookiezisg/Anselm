@@ -46,5 +46,15 @@ Widget wrapInQuote(Widget child, int depth, AnColors colors, {double topGap = 0}
       child: w,
     );
   }
-  return w;
+  if (depth <= 0) return w;
+  // The bar/inset wrapper is PURE VISUAL — pointers must fall through to super_editor's gesture layer, which
+  // sits BENEATH the document content in the hit-test order. A bare BoxDecoration border makes the whole block
+  // rect hit-opaque (RenderDecoratedBox delegates to BoxDecoration.hitTest, which returns true anywhere inside
+  // a borderless-radius rectangle), so clicks on a loaded blockquote never reached the mouse interactor: no
+  // caret placement, no hover I-beam, drag-selection breaking across quotes — while ARROW keys still worked
+  // (keyboard navigation never hit-tests). Same shape as the upstream BlockquoteComponent and our
+  // _AnBlockquoteComponent, which both wrap in IgnorePointer. 左条壳是纯视觉——指针必须穿透到内容层之下的手势层;
+  // BoxDecoration 让整块矩形吞命中(点引用永不落光标/无 I-beam/拖选中断,键盘却好——键盘不走命中),故照上游与
+  // _AnBlockquoteComponent 同款包 IgnorePointer。
+  return IgnorePointer(child: w);
 }

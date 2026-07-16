@@ -1,10 +1,12 @@
 import 'package:anselm/core/design/colors.dart';
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/design/typography.dart';
 import 'package:anselm/core/editor/an_editor.dart';
 import 'package:anselm/core/editor/an_editor_components.dart';
 import 'package:anselm/core/editor/an_editor_inline_code.dart';
 import 'package:anselm/core/editor/an_editor_mention.dart';
+import 'package:anselm/core/editor/an_editor_quote.dart';
 import 'package:anselm/core/editor/an_editor_text_component.dart';
 import 'package:anselm/core/editor/an_editor_slash_menu.dart';
 import 'package:anselm/core/editor/an_editor_stylesheet.dart';
@@ -13,6 +15,7 @@ import 'package:anselm/core/ui/an_code_editor.dart';
 import 'package:anselm/core/ui/an_mention_picker.dart';
 import 'package:anselm/core/ui/icons.dart';
 import 'package:anselm/i18n/strings.g.dart';
+import 'package:flutter/foundation.dart' show debugDefaultTargetPlatformOverride;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -663,7 +666,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('reports edits back as markdown (onChangedMarkdown)', (tester) async {
+    testWidgets('reports edits back as markdown (onChangedMarkdown), serialize-on-idle', (tester) async {
       String? latest;
       final doc = MutableDocument(nodes: [ParagraphNode(id: 'p1', text: AttributedText('正文'))]);
       await tester.pumpWidget(TranslationProvider(child: MaterialApp(
@@ -674,11 +677,73 @@ void main() {
       await tester.pumpAndSettle();
       await tester.placeCaretInParagraph('p1', 2); // caret after "正文"
       await tester.typeImeText('X');
+      // Serialization rides the autosave debounce tier (whole-document serialize must NOT run per
+      // keystroke) — nothing fires inside the quiet window… 序列化走 autosave 防抖档,安静窗口内不发…
+      await tester.pump();
+      expect(latest, isNull, reason: 'no per-keystroke whole-document serialize');
+      // …and the burst's final state lands after it. …窗口过后落突发终态。
+      await tester.pump(AnMotion.autosave);
       await tester.pumpAndSettle();
-      expect(latest, isNotNull); // an edit fired the markdown callback
+      expect(latest, isNotNull); // the edit fired the markdown callback on idle
       expect(latest!.contains('正文X'), isTrue); // the new text is in the serialized markdown
       expect(tester.takeException(), isNull);
     });
+  });
+
+  // ③ Blockquote mouse hit-testing — a LOADED quote (quoteDepth metadata, the codec path) must accept a
+  // real tap: the bar/inset wrapper is IgnorePointer'd so the click falls through to the gesture layer
+  // (which sits BENEATH the content in hit order; a bare BoxDecoration wrapper used to swallow it — caret
+  // never placed, while arrow keys worked). 引用命中回归:载入引用(quoteDepth 路径)必须可点落光标——左条壳
+  // IgnorePointer,点击穿透到内容层之下的手势层(裸 BoxDecoration 曾吞点击:点不进、键盘却能进)。
+  testWidgets('③ tap places the caret inside a loaded (quoteDepth) blockquote', (tester) async {
+    final doc = MutableDocument(nodes: [
+      ParagraphNode(id: 'p1', text: AttributedText('normal paragraph')),
+      ParagraphNode(id: 'q1', text: AttributedText('quoted line of prose'), metadata: const {quoteDepthKey: 1}),
+    ]);
+    await tester.pumpWidget(_host(doc));
+    await tester.pumpAndSettle();
+
+    await tester.placeCaretInParagraph('q1', 3); // a real tap at the character rect — exercises hit-testing
+    final selection = SuperEditorInspector.findDocumentSelection();
+    expect(selection, isNotNull, reason: 'the tap must reach the gesture layer and place a caret');
+    expect(selection!.extent.nodeId, 'q1');
+    expect(tester.takeException(), isNull);
+  });
+
+  // ⑤a — the An caret is GLYPH-sized (not the full leaded line box) and follows the block tier: the H1
+  // caret is taller than the body caret, and each sits BELOW its line-box height (24 body / 28.6 H1 under
+  // the 15×1.6 / 22×1.3 rhythm). In the test font the tight glyph box = 1em, so the caret height ≈ the
+  // fontSize. ⑤a 光标回归:字形尺寸非整行盒、随块档走——H1 光标高于正文,且都小于各自行盒;测试字体紧盒=1em,
+  // 光标高≈字号。
+  testWidgets('⑤a the An caret is glyph-sized and follows the block tier', (tester) async {
+    // The caret overlay renders on DESKTOP only (mobile draws its own handles) — the test binding defaults
+    // to android, so pin macOS for the test body (reset in `finally`: the binding's invariant check runs
+    // BEFORE addTearDown). 测试绑定默认 android,caret 层只在桌面渲,钉 macOS(finally 复位——不变量检查先于 tearDown)。
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    try {
+      final doc = MutableDocument(nodes: [
+        ParagraphNode(id: 'body', text: AttributedText('plain body text')),
+        ParagraphNode(id: 'h1', text: AttributedText('Title'), metadata: {'blockType': header1Attribution}),
+      ]);
+      await tester.pumpWidget(_host(doc));
+      await tester.pumpAndSettle();
+
+      await tester.placeCaretInParagraph('body', 2);
+      await tester.pumpAndSettle();
+      final bodyCaret = tester.getSize(find.byKey(DocumentKeys.caret));
+      expect(bodyCaret.height, closeTo(AnText.reading.fontSize!, 1.0),
+          reason: 'body caret ≈ glyph box (15), NOT the 24px line box');
+
+      await tester.placeCaretInParagraph('h1', 2);
+      await tester.pumpAndSettle();
+      final h1Caret = tester.getSize(find.byKey(DocumentKeys.caret));
+      expect(h1Caret.height, closeTo(AnText.readingH1.fontSize!, 1.0),
+          reason: 'H1 caret ≈ its glyph box (22) — visibly taller than the body caret');
+      expect(h1Caret.height, greaterThan(bodyCaret.height));
+      expect(tester.takeException(), isNull);
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
   });
 
   // E7 — the embedded [AnCodeEditor] highlights the code block through the ONE [highlightCode] tokenizer

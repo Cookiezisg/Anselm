@@ -8,16 +8,21 @@ import '../design/tokens.dart';
 import '../design/typography.dart';
 import '../entity/mention_source.dart';
 import '../ui/an_mention_picker.dart';
+import '../perf/debouncer.dart';
+import 'an_editor_caret.dart';
 import 'an_editor_components.dart';
+import 'an_editor_gestures.dart';
 import 'an_editor_inline_code.dart';
 import 'an_editor_list_components.dart';
 import 'an_editor_quote.dart';
 import 'an_editor_markdown_shortcuts.dart';
+import 'an_editor_selection.dart';
 import 'an_editor_text_component.dart';
 import 'an_editor_markdown.dart';
 import 'an_editor_mention.dart';
 import 'an_editor_slash_menu.dart';
 import 'an_editor_stylesheet.dart';
+import 'an_editor_table.dart';
 import 'an_editor_toolbar.dart';
 
 /// The native document editor (super_editor) — the pivot OFF Milkdown-in-webview so every element is a
@@ -154,6 +159,11 @@ class AnEditorState extends State<AnEditor> {
   // AnEditor State), passed into AnCodeBlockComponentBuilder. 每代码节点一把稳定 key,保嵌入编辑器 State 跨整节点替换。
   final Map<String, GlobalKey> _codeKeys = {};
 
+  // Same discipline for tables: one stable key per table node — cell field States survive the per-edit
+  // whole-node replace, and the keyboard "enter the table" action reaches the grid to focus a cell.
+  // 表格同款:每表一把稳定 key——cell 字段态跨整节点替换存活,键盘进表动作也经它聚焦格。
+  final Map<String, GlobalKey<AnEditableTableState>> _tableKeys = {};
+
   // The live locale's translations, cached here because the slash listener fires OUTSIDE build (a
   // ValueNotifier dispatch mid-edit) where an inherited lookup is unreliable — didChangeDependencies is
   // the sanctioned refresh point (also re-runs on a locale flip). 监听器在 build 外跑,inherited 查询不可靠
@@ -176,8 +186,16 @@ class AnEditorState extends State<AnEditor> {
   // instance changes, so SuperEditor keeps the SAME config across content rebuilds. 样式表+组件建造器记忆化。
   Stylesheet? _stylesheet;
   List<ComponentBuilder>? _componentBuilders;
+  SelectionStyles? _selectionStyles;
   AnColors? _styleColors;
   String? _hintText; // the empty-doc placeholder (locale-dependent) — re-memoized when it changes
+
+  // Serialize-on-idle: markdown serialization is O(document) — running it on EVERY keystroke (the change
+  // listener) made each key pay a whole-document serialize. The autosave semantics only need the LAST state
+  // of a typing burst, so the serialize itself rides the autosave debounce tier; flushed on dispose so the
+  // final edit is never dropped (C-001 discipline). 序列化按闲:整篇序列化 O(文档),逐键跑=每键全文档开销;
+  // 自动存语义只要突发的最终态,故序列化本身也走 autosave 防抖档;dispose flush 保末次编辑不丢。
+  final Debouncer _serializeDebouncer = Debouncer(AnMotion.autosave);
 
   // ── E5 @ mention ───────────────────────────────────────────────────────────────────────────────
   // StableTagPlugin tokenizes the `@` trigger (its own key, so it coexists with the slash ActionTagsPlugin
@@ -229,7 +247,26 @@ class AnEditorState extends State<AnEditor> {
     ]);
     _slashTags.composingActionTag.addListener(_onSlashComposingChanged);
     _mentionTags?.tagIndex.composingStableTag.addListener(_onMentionComposingChanged);
+    _focusNode.addListener(_onEditorFocusChanged);
     if (widget.onChangedMarkdown != null) _document.addListener(_onDocumentChanged);
+  }
+
+  // ONE caret at a time. super_editor clears its selection when the editor "loses focus", but its test is
+  // `!focusNode.hasFocus` (document_focus_and_selection_policies.dart:228) — and `hasFocus` stays TRUE while
+  // a DESCENDANT holds the keyboard. Our embedded editables (the code block's field, a table cell) live
+  // INSIDE the editor's subtree, so clicking into one left the document caret alive and blinking next to the
+  // field's own: two carets, one of them the block-edge bar as tall as the whole block (measured 72px on a
+  // table). The editor hands its own node to every subsystem (IME + gestures both get `focusNode: _focusNode`),
+  // so `hasFocus && !hasPrimaryFocus` means exactly one thing: an embedded field took the keyboard → the
+  // document must drop its caret. 一次只有一根光标。上游「失焦清选区」的判据是 `!hasFocus`,而后代持焦时
+  // hasFocus 仍为 true——我们的内嵌可编辑件(码块字段/表格格)就在编辑器子树内,故点进去后文档光标继续闪、
+  // 与字段自己的光标凑成两根(其一是与整块等高的块边条,表格上实测 72px)。编辑器把自身结点交给所有子系统
+  // (IME 与手势都收 `focusNode: _focusNode`),故 `hasFocus && !hasPrimaryFocus` 只意味一件事:内嵌字段拿走了
+  // 键盘 → 文档须收起光标。
+  void _onEditorFocusChanged() {
+    if (_focusNode.hasFocus && !_focusNode.hasPrimaryFocus && _composer.selection != null) {
+      _editor.execute([const ClearSelectionRequest()]);
+    }
   }
 
   @override
@@ -242,7 +279,12 @@ class AnEditorState extends State<AnEditor> {
   void dispose() {
     _slashTags.composingActionTag.removeListener(_onSlashComposingChanged);
     _mentionTags?.tagIndex.composingStableTag.removeListener(_onMentionComposingChanged);
+    _focusNode.removeListener(_onEditorFocusChanged);
     if (widget.onChangedMarkdown != null) _document.removeListener(_onDocumentChanged);
+    // Flush the pending serialize BEFORE tearing the document down — switching away inside the debounce
+    // window must still deliver the last edit to the host's autosave. 先冲洗在途序列化再拆文档(防抖窗内切走不丢末次编辑)。
+    _serializeDebouncer.flush();
+    _serializeDebouncer.dispose();
     _editor.dispose();
     // Editor.dispose() does NOT cascade to its editables — dispose them explicitly or leak a broadcast
     // StreamController + notifier per mount. The composer is always ours; the document is only ours when
@@ -253,9 +295,10 @@ class AnEditorState extends State<AnEditor> {
     super.dispose();
   }
 
-  // Serialize the whole document to markdown on every edit — the caller debounces this for the save.
-  // 每次编辑序列化整篇为 markdown(调用方防抖后存)。
-  void _onDocumentChanged(DocumentChangeLog _) => widget.onChangedMarkdown?.call(markdownFromDocument(_document));
+  // Serialize the whole document to markdown ON IDLE (autosave debounce tier, see [_serializeDebouncer]) —
+  // NOT per keystroke. 按闲序列化整篇为 markdown(autosave 防抖档),非逐键。
+  void _onDocumentChanged(DocumentChangeLog _) =>
+      _serializeDebouncer.run(() => widget.onChangedMarkdown?.call(markdownFromDocument(_document)));
 
   // The plugin drives this whenever the `/…` composing tag changes (opened, query grew, or cleared). We
   // filter the palette, clamp the active row, and show/hide the portal. Hiding on empty-matches keeps the
@@ -322,6 +365,28 @@ class AnEditorState extends State<AnEditor> {
       default:
         return ExecutionInstruction.continueExecution;
     }
+  }
+
+  // ── table entry ────────────────────────────────────────────────────────────────────────────────
+  // When the document caret sits ON a table block (arrows land on it as an atomic block — upstream's
+  // design gives it no interior positions), Enter/↓ enter the FIRST row and ↑ the LAST row, focusing the
+  // cell grid through the table's stable key. Fixes "arrows can reach the table but never get inside".
+  // 光标落在表块上(方向键只能落块、进不去——上游无内部位置)时,Enter/↓ 进首行、↑ 进末行,经稳定 key 聚焦格。
+  ExecutionInstruction _tableEnterKeyAction({required SuperEditorContext editContext, required KeyEvent keyEvent}) {
+    if (keyEvent is! KeyDownEvent && keyEvent is! KeyRepeatEvent) return ExecutionInstruction.continueExecution;
+    final key = keyEvent.logicalKey;
+    final entersDown =
+        key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.numpadEnter || key == LogicalKeyboardKey.arrowDown;
+    final entersUp = key == LogicalKeyboardKey.arrowUp;
+    if (!entersDown && !entersUp) return ExecutionInstruction.continueExecution;
+    final selection = _composer.selection;
+    if (selection == null || !selection.isCollapsed) return ExecutionInstruction.continueExecution;
+    final node = _document.getNodeById(selection.extent.nodeId);
+    if (node is! TableBlockNode) return ExecutionInstruction.continueExecution;
+    final table = _tableKeys[node.id]?.currentState;
+    if (table == null) return ExecutionInstruction.continueExecution;
+    table.focusCell(entersUp ? node.rowCount - 1 : 0, 0);
+    return ExecutionInstruction.haltExecution;
   }
 
   // ── @ mention handlers ─────────────────────────────────────────────────────────────────────────
@@ -422,6 +487,9 @@ class AnEditorState extends State<AnEditor> {
       _styleColors = colors;
       _hintText = hint;
       _stylesheet = buildAnEditorStylesheet(colors);
+      // The selection sweep colour — the An [AnColors.selection] token (semi-transparent accent), replacing
+      // the package's hardcoded 0xFFACCEF7. Memoized with the stylesheet (same theme axis). 选区色走 token。
+      _selectionStyles = SelectionStyles(selectionColor: colors.selection);
       _componentBuilders = [
         AnTaskComponentBuilder(_editor, colors), // tasks aren't in the defaults — must be added
         AnCodeBlockComponentBuilder(_editor, colors, _codeKeys),
@@ -430,7 +498,9 @@ class AnEditorState extends State<AnEditor> {
         // code-first-word bug) + inner AnTextComponent (inline-code background). Must precede the defaults.
         // 列表项:记号用正文档(非首字符,修首词代码 bug)+ AnTextComponent 内芯;须在默认前。
         AnListItemComponentBuilder(colors, _document),
-        const AnMarkdownTableComponentBuilder(), // header follows the column (GFM std; super_editor centres it)
+        // The EDITABLE table (cells = SuperTextFields over the upstream TableBlockNode; right-click menu;
+        // Tab/arrow grid nav) — the upstream component is read-only by design. 可编辑表格(上游组件是刻意只读)。
+        AnTableComponentBuilder(_editor, _document, _focusNode, _tableKeys),
         // The empty-doc placeholder: the hint builder paints [hint] on the ONE empty first paragraph (its
         // createViewModel returns a HintComponentViewModel only when node is the single first ParagraphNode) —
         // vanishes the moment the user types or a second block exists. View-only (never in the document model →
@@ -457,20 +527,39 @@ class AnEditorState extends State<AnEditor> {
       shrinkWrap: widget.shrinkWrap,
       scrollController: widget.scrollController,
       inputSource: TextInputSource.ime,
+      selectionPolicies: const SuperEditorSelectionPolicies(
+        restorePreviousSelectionOnGainFocus: false,
+        placeCaretAtEndOfDocumentOnGainFocus: false,
+      ),
       // A DESKTOP editor — force MOUSE gestures so no mobile touch interactor puts up selection-handle
       // pointer-absorbers over the content (they'd swallow taps meant for our floating toolbar). 桌面=鼠标手势。
       gestureMode: DocumentGestureMode.mouse,
       plugins: {_slashTags, ?_mentionTags},
       // Our nav handlers run first, but each only intercepts while ITS menu is open. 导航处理先跑,各仅自开时截。
-      keyboardActions: [_slashKeyAction, _mentionKeyAction, backspaceRevertBlockAction, ...defaultImeKeyboardActions],
+      keyboardActions: [
+        _slashKeyAction,
+        _mentionKeyAction,
+        _tableEnterKeyAction,
+        backspaceRevertBlockAction,
+        ...defaultImeKeyboardActions,
+      ],
       stylesheet: _stylesheet!,
+      selectionStyle: _selectionStyles,
+      // The default link-launch handler PLUS the block double/triple-tap guard (poisoned word-drag NPE —
+      // see an_editor_gestures.dart). 默认链接 handler + 原子块双/三击守卫(防 word-drag 毒态 NPE)。
+      contentTapDelegateFactories: const [superEditorLaunchLinkTapHandlerFactory, anBlockTapGuardFactory],
       // An-primitive block skins take precedence over the defaults they extend (first non-null wins);
       // the rest of the default chain (paragraph/list/image/hr) stays. An 块皮在默认前、优先命中。
       componentBuilders: _componentBuilders!,
-      // Popovers + the selection toolbar overlay the content, ON TOP of the default caret/handles layers.
-      // 浮层与划选条叠在内容上。
+      // Popovers + the selection toolbar overlay the content. The default caret layer is swapped for the An
+      // caret (content-sized, ink — see an_editor_caret.dart); the gap layer fills inter-block padding
+      // inside a cross-block sweep (an_editor_selection.dart). 浮层与划选条叠在内容上;默认 caret 层换 An 光标
+      // (内容尺寸+ink),缝隙层填跨块选区的块间距。
       documentOverlayBuilders: [
-        ...defaultSuperEditorDocumentOverlayBuilders,
+        for (final builder in defaultSuperEditorDocumentOverlayBuilders)
+          if (builder is! DefaultCaretOverlayBuilder) builder,
+        AnSelectionGapLayerBuilder(colors.selection),
+        const AnCaretOverlayBuilder(),
         FunctionalSuperEditorLayerBuilder(
           (context, editContext) => AnSelectionToolbar(
               editor: _editor, document: _document, composer: _composer, editorFocusNode: _focusNode),

@@ -105,6 +105,25 @@ TextStyle anInlineTextStyler(AnColors colors, Set<Attribution> attributions, Tex
   return s;
 }
 
+/// The BASE text style the stylesheet assigns a block node's tier — the same ladder `_rules` builds
+/// (reading body / readingH1-H3 with h4–h6 folded / codeReading), exposed for consumers that need type
+/// METRICS outside the style pipeline (the caret overlay's empty-block fallback). Colour is NOT resolved
+/// here (the pipeline owns colour). KEEP IN SYNC with `_rules`. 块档基础字样查询——与 _rules 同一阶梯,供
+/// 样式管线之外要字号度量者(caret 空块兜底)用;不带颜色(颜色归管线);与 _rules 保持同步。
+TextStyle anBlockBaseStyle(DocumentNode node) {
+  final blockType = node.getMetadataValue('blockType');
+  if (blockType == header1Attribution) return AnText.readingH1;
+  if (blockType == header2Attribution) return AnText.readingH2;
+  if (blockType == header3Attribution ||
+      blockType == header4Attribution ||
+      blockType == header5Attribution ||
+      blockType == header6Attribution) {
+    return AnText.readingH3;
+  }
+  if (blockType == codeAttribution) return AnText.codeReading;
+  return AnText.reading;
+}
+
 // Space ABOVE a heading: the section-separation [AnFlow.headingTop] (24) by default, but the "consecutive
 // heading override" — [AnFlow.headingStack] (12) — when the PREVIOUS block is ALSO a heading, so stacked
 // headings group tightly instead of making the oversized gaps that read as broken (prose-typography best

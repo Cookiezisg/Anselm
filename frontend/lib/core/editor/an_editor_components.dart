@@ -3,6 +3,7 @@ import 'package:super_editor/super_editor.dart';
 
 import '../design/colors.dart';
 import '../design/tokens.dart';
+import '../design/typography.dart';
 import '../ui/an_code_editor.dart';
 import '../ui/icons.dart';
 import 'an_editor_list_components.dart';
@@ -45,32 +46,6 @@ class AnBlockquoteComponentBuilder extends BlockquoteComponentBuilder {
       underlines: componentViewModel.createUnderlines(),
       barColor: colors.lineStrong,
     );
-  }
-}
-
-/// Makes the editor's table header follow the COLUMN alignment, the GFM standard (the delimiter row aligns
-/// the whole column — header AND body; GitHub renders `<th align=…>`). super_editor's markdown deserializer
-/// hardcodes header cells to centre (`serialization/markdown/table.dart` → `TextAlign.center`) while data
-/// cells get the column alignment, so a left/right column got a centred header — diverging from the chat
-/// table ([AnProseTable], which follows the column) and from GitHub. This override copies each header cell's
-/// alignment from the first data row of its column, so the header follows the column, 1:1 with chat.
-/// 表头跟随列对齐(GFM 标准:分隔行定整列、头体同对齐);super_editor 默认把表头硬编码居中,此覆盖把表头对齐改回列对齐(同 chat)。
-class AnMarkdownTableComponentBuilder extends MarkdownTableComponentBuilder {
-  const AnMarkdownTableComponentBuilder();
-
-  @override
-  SingleColumnLayoutComponentViewModel? createViewModel(Document document, DocumentNode node) {
-    final vm = super.createViewModel(document, node);
-    // Header follows the column: copy alignment from the first data row (which carries the real column
-    // alignment). Header-only tables (no data) keep super_editor's centre — a degenerate, rare case.
-    if (vm is MarkdownTableViewModel && vm.cells.length > 1) {
-      final header = vm.cells.first;
-      final firstData = vm.cells[1];
-      for (var i = 0; i < header.length && i < firstData.length; i++) {
-        header[i].textAlign = firstData[i].textAlign;
-      }
-    }
-    return vm;
   }
 }
 
@@ -223,29 +198,50 @@ class AnCodeBlockComponentBuilder implements ComponentBuilder {
   ) {
     if (componentViewModel is! CodeBlockComponentViewModel) return null;
     final editorKey = codeKeys.putIfAbsent(componentViewModel.nodeId, () => GlobalKey());
+    // A cross-block sweep includes this block as a non-collapsed upstream/downstream selection (the styler
+    // populates the SelectionAware vm) — tint the whole block so the sweep doesn't show a hole here (the
+    // embedded editor knows nothing of document selections). 跨块划选把本块选成非折叠块选区——整块罩 tint,
+    // 选区带不在码块处开洞(嵌入编辑器不识文档选区)。
+    final blockSelection = componentViewModel.selection?.nodeSelection;
+    final sweptThrough = blockSelection is UpstreamDownstreamNodeSelection && !blockSelection.isCollapsed;
     // BoxComponent (NOT ImageComponent's IgnorePointer) supplies the block geometry super_editor needs
     // while letting pointers reach the embedded TextField. componentKey rides the BoxComponent root
     // (the _layout contract: key on the returned subtree's ROOT). BoxComponent 供块几何、不挡指针;componentKey 挂根。
     return BoxComponent(
       key: componentContext.componentKey,
-      child: AnCodeEditor(
-        key: editorKey,
-        code: componentViewModel.code,
-        lang: componentViewModel.language,
-        reading: true,
-        wrap: true,
-        editable: true,
-        seamless: true,
-        onInput: (newCode) => editor.execute([
-          ReplaceNodeRequest(
-            existingNodeId: componentViewModel.nodeId,
-            newNode: CodeBlockNode(
-              id: componentViewModel.nodeId,
-              code: newCode,
-              language: componentViewModel.language,
+      child: Stack(
+        children: [
+          Focus(
+            canRequestFocus: false, // never focusable itself; only OBSERVES its subtree 只观察、自身不可聚焦
+            skipTraversal: true,
+            onFocusChange: (hasFocus) {
+              if (hasFocus) editor.execute([const ClearSelectionRequest()]);
+            },
+            child: AnCodeEditor(
+              key: editorKey,
+              code: componentViewModel.code,
+              lang: componentViewModel.language,
+              reading: true,
+              wrap: true,
+              editable: true,
+              seamless: true,
+              onInput: (newCode) => editor.execute([
+                ReplaceNodeRequest(
+                  existingNodeId: componentViewModel.nodeId,
+                  newNode: CodeBlockNode(
+                    id: componentViewModel.nodeId,
+                    code: newCode,
+                    language: componentViewModel.language,
+                  ),
+                ),
+              ]),
             ),
           ),
-        ]),
+          if (sweptThrough)
+            Positioned.fill(
+              child: IgnorePointer(child: ColoredBox(color: componentViewModel.selectionColor)),
+            ),
+        ],
       ),
     );
   }
@@ -307,23 +303,30 @@ class _AnTaskComponentState extends State<_AnTaskComponent>
   Widget build(BuildContext context) {
     final vm = widget.viewModel;
     final done = vm.isComplete;
+    // Seat the checkbox CENTERED IN THE FIRST LINE BOX (Notion standard): top-align the row, then pad the
+    // fixed-size icon down by (first line box − icon)/2, derived from the effective text style (reading
+    // 15×1.6=24 → 4). Row-centering against the WHOLE text block floated the checkbox to the vertical middle
+    // of a multi-line task (and to the line boundary of a corruption-merged "\n…" task) — the misaligned-
+    // checkbox bug. The icon has no text baseline to sit on (baseline would pin to the icon FONT's baseline,
+    // font-dependent), so first-line-center is the deterministic, token-derived seat. 勾框钉首行行盒居中
+    // (Notion 标准):Row 顶对齐 + 图标按 (首行盒−图标)/2 下垫(由生效字样推导,15×1.6=24→4)。原来的整块居中会让
+    // 多行 task 的勾框飘到块的竖直中点(错位 bug 之源);图标无文本基线可坐,首行居中是确定性、全 token 推导的座位。
+    final effectiveStyle = vm.textStyleBuilder({});
+    final firstLineBox = (effectiveStyle.fontSize ?? AnText.reading.fontSize!) * (effectiveStyle.height ?? 1.0);
+    final iconSeat = ((firstLineBox - AnSize.icon) / 2).clamp(0.0, double.infinity);
     return Directionality(
       textDirection: vm.textDirection,
       child: Row(
-        // The checkbox is a fixed-size [Icon], NOT text, so unlike the bullet/numeral markers it has no text
-        // baseline to sit on: baseline-aligning it would pin it to the ICON FONT's baseline (font-design
-        // dependent, seats high). CENTRE against the first text line instead — 1:1 with the chat task row
-        // ([AnMarkdown._AnCheckBoxMd] centres the same [AnSize.icon]), deterministic, textScaler-independent,
-        // zero magic number. (The AnTextComponent baseline fix is what makes the sibling list MARKERS align by
-        // baseline; the Icon deliberately stays centred to match chat.) 勾框是定尺 Icon 非文本、无文本基线可坐:
-        // baseline 会钉到图标字体基线(依字体、偏高);故与首行文字居中(同 chat 任务行),确定、随缩放不变、无魔数。
-        crossAxisAlignment: CrossAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Lead + gap match the chat task row (AnSpace.s12 start + s8 gap) so the two are 1:1 — NOT the default
           // 36px indentCalculator. 前导/间距对齐 chat 任务行(12+8)。
           Padding(
             padding: EdgeInsetsDirectional.only(
-                start: AnSpace.s12 + vm.indent * kListIndentStep, end: AnSpace.s8),
+              start: AnSpace.s12 + vm.indent * kListIndentStep,
+              end: AnSpace.s8,
+              top: iconSeat,
+            ),
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: vm.setComplete != null ? () => vm.setComplete!(!done) : null,
@@ -390,7 +393,9 @@ class _AnBlockquoteComponent extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.only(left: AnSpace.s12),
         decoration: BoxDecoration(
-          border: Border(left: BorderSide(color: barColor, width: AnSize.quoteBar)),
+          border: Border(
+            left: BorderSide(color: barColor, width: AnSize.quoteBar),
+          ),
         ),
         child: Row(
           children: [

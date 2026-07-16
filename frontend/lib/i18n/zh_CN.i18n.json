@@ -1175,7 +1175,16 @@
       "divider": "分隔线",
       "todo": "待办"
     },
-    "linkHint": "输入或粘贴链接,回车确定"
+    "linkHint": "输入或粘贴链接,回车确定",
+    "table": {
+      "insertRowAbove": "在上方插入行",
+      "insertRowBelow": "在下方插入行",
+      "deleteRow": "删除行",
+      "insertColLeft": "在左侧插入列",
+      "insertColRight": "在右侧插入列",
+      "deleteCol": "删除列",
+      "deleteTable": "删除表格"
+    }
   },
   "settings": {
     "title": "设置",

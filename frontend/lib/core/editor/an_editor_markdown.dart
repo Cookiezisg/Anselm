@@ -100,10 +100,24 @@ String _serializePlainRun(List<DocumentNode> nodes) {
       if (_isCodeNode(node)) (node.getMetadataValue(codeLanguageKey) as String?) ?? '',
   ];
   final markdown = serializeDocumentToMarkdown(flattened);
-  // Trim per-line trailing whitespace: the built-in code-block serializer ADDS trailing spaces each round.
-  final trimmed = markdown.split('\n').map((line) => line.trimRight()).join('\n');
+  // Trim per-line trailing whitespace (the built-in code-block serializer ADDS trailing spaces each round) —
+  // EXCEPT an empty task's marker, whose trailing space is LOAD-BEARING: the checkbox syntax
+  // (`^ {0,3}\[([ xX])\][ \t]`, markdown pkg list_syntax.dart) only recognizes `[ ]` with a FOLLOWING
+  // space/tab. Blanket-trimming `- [ ] ` to `- [ ]` made the reload degrade an empty task into a bullet
+  // with literal "[ ]" text, which the NEXT save wrote as an indented `* [ ]` line that lazy-continued
+  // into the PREVIOUS task — the checkbox-misalignment + task-degeneration cascade. 逐行剪尾空白(内置码块
+  // 序列化器每轮加尾空格)——但空 task 标记的尾空格是承重的:checkbox 语法只认 `]` 后带空格/tab;剪掉即触发
+  // 「空 task→bullet+[ ] 字面→缩进行被上一 task 懒延续吞并」的级联腐化。
+  final trimmed = markdown.split('\n').map((line) {
+    final t = line.trimRight();
+    return _bareTaskMarker.hasMatch(t) ? '$t ' : t;
+  }).join('\n');
   return _restoreFenceLanguages(trimmed, languages);
 }
+
+/// A line that is EXACTLY an empty task marker (`- [ ]` / `- [x]`, any list bullet, optional indent) — the one
+/// line shape whose trailing space must survive the trim (see [_serializePlainRun]). 恰为空 task 标记的行。
+final RegExp _bareTaskMarker = RegExp(r'^\s*[-*+] \[[ xX]\]$');
 
 /// LOAD — deserialize with the built-in parsers, re-inflate `[[id]]` runs into mention pills, and stamp
 /// each code node's fence language (scanned off the SOURCE, in document order — the built-in parser
@@ -144,9 +158,43 @@ List<DocumentNode> _plainNodes(String markdown, Map<String, String> names) {
       nodes.add(CodeBlockNode(id: code.id, code: text, language: lang.isEmpty ? null : lang));
       continue;
     }
-    nodes.add(node is TextNode ? _inflateNode(node, names) : node);
+    // HEAL task degeneration from documents saved before the trailing-space fix (see _serializePlainRun):
+    // ① a bullet whose text is literally `[ ]…`/`[x]…` was an empty/degraded task — convert it back;
+    // ② a task whose text leads with newline(s) was a lazy-continuation merge victim — strip the lead.
+    // Both shapes are corruption artifacts, not typeable content (the `[]`+space reaction converts a typed
+    // marker to a real task long before it could be saved). 自愈旧档腐化:①字面 `[ ]` 开头的 bullet 复原成
+    // task;②带前导换行的 task 剥掉换行(懒延续合并的伤痕)。两种形态都不是用户可打出的内容([]+空格反应会先转真 task)。
+    nodes.add(_healTaskShapes(node is TextNode ? _inflateNode(node, names) : node));
   }
   return nodes;
+}
+
+/// The degraded-task text prefix: `[ ]` / `[x]` at text start, followed by a space/tab or end-of-text —
+/// mirrors the markdown pkg's checkbox pattern so the heal recognizes exactly what the parser failed to.
+/// 退化 task 的文本前缀(镜像 markdown 包 checkbox 正则,heal 只认解析器没认出的那个形)。
+final RegExp _degradedTaskPrefix = RegExp(r'^\[([ xX])\]([ \t]|$)');
+
+DocumentNode _healTaskShapes(DocumentNode node) {
+  if (node is ListItemNode && node.type == ListItemType.unordered) {
+    final m = _degradedTaskPrefix.firstMatch(node.text.toPlainText());
+    if (m == null) return node;
+    return TaskNode(
+      id: node.id,
+      text: node.text.copyText(m.end),
+      isComplete: m.group(1) != ' ',
+      indent: node.indent,
+    );
+  }
+  if (node is TaskNode) {
+    final plain = node.text.toPlainText();
+    var lead = 0;
+    while (lead < plain.length && plain[lead] == '\n') {
+      lead++;
+    }
+    if (lead == 0) return node;
+    return TaskNode(id: node.id, text: node.text.copyText(lead), isComplete: node.isComplete, indent: node.indent);
+  }
+  return node;
 }
 
 /// Parse one blockquote region: strip ONE `>` level off each line, re-parse the inner content recursively (so

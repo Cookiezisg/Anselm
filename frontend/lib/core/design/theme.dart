@@ -28,6 +28,20 @@ abstract final class AnTheme {
       hoverColor: const Color(0x00000000),
       focusColor: const Color(0x00000000),
       visualDensity: VisualDensity.standard,
+      // The caret + selection FLOOR for every Material text field (the An caret law's root). Without it
+      // Flutter falls back to the seeded `colorScheme.primary` — a hue that exists in NO token table
+      // (fromSeed derives it from accent) — for the caret, and to `primaryColor.withOpacity(0.40)` for the
+      // selection band. The band was the live bug: `TextField` has NO selectionColor parameter, so this
+      // theme is the ONLY seam that can give it — every field was painting the seeded ghost while the
+      // editor painted [AnColors.selection], two selection colours in one app. Fields still pass
+      // `cursorColor` explicitly (an_input / an_composer / an_secret_field / an_code_editor — same token,
+      // stated at the primitive); this is the net that catches anything that forgets.
+      // 每个 Material 字段的光标+选区地板(An 光标法的根):不设则 Flutter 回落到 fromSeed 派生的 primary
+      // (一个 token 表里根本不存在的色)当光标色、`primary.withOpacity(0.40)` 当选区带。选区带是真出血:
+      // TextField **没有** selectionColor 参数,此主题是唯一能给它的缝——此前全部字段画幽灵靛、而编辑器画
+      // AnColors.selection,同一 app 两种选区色。各字段仍显式传 cursorColor(同一 token,在原语处言明),
+      // 本条是兜住「忘了传」的网。
+      textSelectionTheme: TextSelectionThemeData(cursorColor: c.ink, selectionColor: c.selection),
       fontFamily: AnText.uiFamily,
       fontFamilyFallback: AnText.uiFallback,
       textTheme: AnText.textTheme(c.ink),

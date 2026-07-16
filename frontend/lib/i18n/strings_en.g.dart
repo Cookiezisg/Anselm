@@ -795,6 +795,8 @@ class Translations$documents$en {
 
 	/// en: 'Type or paste a link, Enter to apply'
 	String get linkHint => 'Type or paste a link, Enter to apply';
+
+	late final Translations$documents$table$en table = Translations$documents$table$en.internal(_root);
 }
 
 // Path: settings
@@ -3102,6 +3104,36 @@ class Translations$documents$slash$en {
 
 	/// en: 'To-do'
 	String get todo => 'To-do';
+}
+
+// Path: documents.table
+class Translations$documents$table$en {
+	Translations$documents$table$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Insert row above'
+	String get insertRowAbove => 'Insert row above';
+
+	/// en: 'Insert row below'
+	String get insertRowBelow => 'Insert row below';
+
+	/// en: 'Delete row'
+	String get deleteRow => 'Delete row';
+
+	/// en: 'Insert column left'
+	String get insertColLeft => 'Insert column left';
+
+	/// en: 'Insert column right'
+	String get insertColRight => 'Insert column right';
+
+	/// en: 'Delete column'
+	String get deleteCol => 'Delete column';
+
+	/// en: 'Delete table'
+	String get deleteTable => 'Delete table';
 }
 
 // Path: settings.scope
@@ -6002,6 +6034,13 @@ extension on Translations {
 			'documents.slash.divider' => 'Divider',
 			'documents.slash.todo' => 'To-do',
 			'documents.linkHint' => 'Type or paste a link, Enter to apply',
+			'documents.table.insertRowAbove' => 'Insert row above',
+			'documents.table.insertRowBelow' => 'Insert row below',
+			'documents.table.deleteRow' => 'Delete row',
+			'documents.table.insertColLeft' => 'Insert column left',
+			'documents.table.insertColRight' => 'Insert column right',
+			'documents.table.deleteCol' => 'Delete column',
+			'documents.table.deleteTable' => 'Delete table',
 			'settings.title' => 'Settings',
 			'settings.scope.device' => 'This device',
 			'settings.scope.workspace' => 'Workspace',
