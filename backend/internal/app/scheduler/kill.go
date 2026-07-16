@@ -123,11 +123,18 @@ func (s *Service) KillWorkflow(ctx context.Context, workflowID string) (int, err
 			s.log.Warn("schedulerapp.KillWorkflow: mark cancelled", zap.String("flowrun", r.ID), zap.Error(err))
 		} else if won {
 			s.emitRunTerminal(ctx, workflowID, r.ID, flowrundomain.StatusCancelled, "")
-		}
-		// Resolve any approval the run was parked on so it doesn't linger as a dead inbox entry.
-		// 收掉 run 所 park 的审批，免其作为死收件箱项滞留。
-		if _, err := s.runs.CancelParkedNodes(ctx, r.ID); err != nil {
-			s.log.Warn("schedulerapp.KillWorkflow: cancel parked nodes", zap.String("flowrun", r.ID), zap.Error(err))
+			// Sweep the parked approval ONLY as the guard's winner — the same first-wins honesty that
+			// gates the frame above, and here it is also a correctness gate: the sweep writes cancelled
+			// rows, and those are only ever safe on a run whose header this call actually cancelled
+			// (see CancelParkedNodes). A loser's run reached its own terminal; if that is `failed`, its
+			// parked row is still live for a :replay to resurrect and a human to decide.
+			// 只在**赢了**守卫时收割 parked 审批——与上方发帧同一条 first-wins 诚实，而在这里它同时是
+			// **正确性**闸：收割写的是 cancelled 行，那只在「头确实被本次调用取消了」的 run 上才安全
+			// （见 CancelParkedNodes）。输家的 run 走到的是它自己的终态；若那是 `failed`，它的 parked
+			// 行仍然活着，等着 :replay 把 run 救回来、等着人去决策。
+			if _, err := s.runs.CancelParkedNodes(ctx, r.ID); err != nil {
+				s.log.Warn("schedulerapp.KillWorkflow: cancel parked nodes", zap.String("flowrun", r.ID), zap.Error(err))
+			}
 		}
 		s.cancelInflight(r.ID)
 	}
@@ -156,11 +163,11 @@ func (s *Service) cancelRunningForReplace(ctx context.Context, workflowID string
 			s.log.Warn("schedulerapp.cancelRunningForReplace: mark cancelled", zap.String("flowrun", r.ID), zap.Error(err))
 		} else if won {
 			s.emitRunTerminal(ctx, workflowID, r.ID, flowrundomain.StatusCancelled, "")
-		}
-		// Resolve any approval the run was parked on so it doesn't linger as a dead inbox entry.
-		// 收掉 run 所 park 的审批，免其作为死收件箱项滞留。
-		if _, err := s.runs.CancelParkedNodes(ctx, r.ID); err != nil {
-			s.log.Warn("schedulerapp.cancelRunningForReplace: cancel parked nodes", zap.String("flowrun", r.ID), zap.Error(err))
+			// Winner-only, exactly as in KillWorkflow — see the gate note there.
+			// 只有赢家才收割，与 KillWorkflow 逐字同款——闸的理由见那里。
+			if _, err := s.runs.CancelParkedNodes(ctx, r.ID); err != nil {
+				s.log.Warn("schedulerapp.cancelRunningForReplace: cancel parked nodes", zap.String("flowrun", r.ID), zap.Error(err))
+			}
 		}
 		s.cancelInflight(r.ID)
 	}

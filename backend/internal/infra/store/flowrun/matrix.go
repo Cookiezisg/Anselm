@@ -57,15 +57,31 @@ type matrixNode struct {
 }
 
 // nodeStatusRank ranks a node row's disposition for the per-cell aggregation: the WORST across a
-// loop's iterations wins the cell (failed > parked > completed). See MatrixCell's contract.
+// loop's iterations wins the cell (failed > parked > cancelled > completed). See MatrixCell's contract.
+//
+// The rank is about ATTENTION, not judgement, which is what places cancelled: a later green iteration
+// must not erase an earlier failure (the cell is the honest worst), but cancelled is the neutral
+// "not executed" disposition — it outranks completed because claiming a node completed cleanly when
+// its last turn was cut off is a lie, and it ranks below failed because a node that genuinely errored
+// before the cancel landed really did fail (a cancelled run CAN carry a failed row: failNode writes
+// it, then loses the header guard to the cancel). Every case is explicit — a status silently falling
+// into `default` would be painted green, which is exactly how a swept approval used to render red.
 //
 // nodeStatusRank 给节点行的处置定档，供逐格聚合：loop 各迭代中**最坏**的赢得该格（failed > parked >
-// completed）。契约见 MatrixCell。
+// cancelled > completed）。契约见 MatrixCell。
+//
+// 这个档排的是**注意力**、不是评判，这也正是 cancelled 的位置所在：后来的绿轮不能抹掉更早的失败（格取
+// 诚实的最坏值），而 cancelled 是中性的「未执行」处置——它压过 completed，因为在某节点最后一轮被切断时
+// 宣称它「干净跑完了」是撒谎；它排在 failed 之下，因为在取消落地前**真的报错**的节点是真的失败了
+// （cancelled run **可以**带 failed 行：failNode 先写了它，随后输掉头守卫给了取消）。每个 case 都显式
+// ——某个状态静默落进 `default` 就会被涂绿，而被收割的审批当年正是这样渲成红的。
 func nodeStatusRank(status string) int {
 	switch status {
 	case flowrundomain.NodeFailed:
-		return 3
+		return 4
 	case flowrundomain.NodeParked:
+		return 3
+	case flowrundomain.NodeCancelled:
 		return 2
 	default: // completed
 		return 1

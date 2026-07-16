@@ -94,24 +94,44 @@ func DedupKey(triggerID string, tick time.Time) string {
 	return triggerID + "|cron|" + strconv.FormatInt(tick.Truncate(time.Minute).Unix(), 10)
 }
 
-// misfireTolerance bounds how late a delivered cron callback may run behind its scheduled tick and
+// MisfireTolerance bounds how late a delivered cron callback may run behind its scheduled tick and
 // still count as that tick. Beyond it the fire is a wall-clock-jump artifact (system sleep/suspend:
 // Go timers pause or expire late, then robfig delivers ONE stale fire at wake) and is suppressed —
 // under 判决⑥ a missed tick is recorded by the misfire sweep, never implicitly re-run (工单⑨).
 //
-// misfireTolerance 界定 cron 回调最多可迟于其调度刻度多少仍算该刻度。超过即墙钟跳变的伪 fire
+// EXPORTED because the misfire sweep (工单⑨) must end its accounting window exactly here: a tick
+// younger than this may STILL fire for real, and booking it `missed` would take its dedup key out
+// from under the fire that is about to arrive. The listener's "how late may a fire be" and the
+// sweep's "how old must a tick be before I call it missed" are the SAME number — two copies would
+// drift into precisely the race this constant exists to close.
+//
+// MisfireTolerance 界定 cron 回调最多可迟于其调度刻度多少仍算该刻度。超过即墙钟跳变的伪 fire
 // （系统睡眠/挂起：Go 计时器暂停或迟爆，醒来 robfig 会补送**一次**过期 fire），一律压制——
 // 判决⑥ 下错过的刻度由 misfire sweep 记账，绝不被隐式补跑（工单⑨）。
-const misfireTolerance = 2 * time.Minute
+//
+// **导出**是因为 misfire sweep（工单⑨）的记账窗必须恰好止于此：比它更年轻的刻度**仍可能真开火**，
+// 此时记 `missed` 会把 dedup 键从即将到来的那次 fire 脚下抽走。listener 的「fire 最多能迟多少」与
+// sweep 的「刻度多老才算错过」是**同一个数**——写成两份必然漂移成这个常量本要关掉的那个竞态。
+const MisfireTolerance = 2 * time.Minute
 
 // snapTick resolves the scheduled tick a callback firing at `now` belongs to: the latest tick at or
-// before now, within misfireTolerance. ok=false = no such tick — an off-schedule wake artifact.
+// before now, within MisfireTolerance. ok=false = no such tick — an off-schedule wake artifact.
 //
-// snapTick 求 `now` 触发的回调所属的调度刻度：now 及之前、misfireTolerance 内最近的刻度。
+// Note the guard only ever trips for a schedule SPARSER than the tolerance: a cron ticking every
+// minute always has a tick within the last two minutes, so its wake artifact snaps onto the current
+// tick instead of being dropped (harmless — that tick was due anyway, and its dedup key makes it
+// count exactly once). The suppression is really for sparse schedules, where robfig's one stale
+// fire at wake would otherwise become an implicit re-run of, say, last night's 03:00.
+//
+// snapTick 求 `now` 触发的回调所属的调度刻度：now 及之前、MisfireTolerance 内最近的刻度。
 // ok=false = 无此刻度——睡醒的离谱伪 fire。
+//
+// 注意该守卫只对**比容差更稀疏**的调度才会真的拦下：每分钟一跳的 cron 永远有刻度落在最近两分钟内，
+// 故其睡醒伪 fire 会吸附到**当前**刻度而非被丢（无害——该刻度本就到期，且 dedup 键使它恰算一次）。
+// 这条压制真正防的是稀疏调度：否则 robfig 睡醒补送的那一次会变成对（比如）昨夜 03:00 的隐式补跑。
 func snapTick(sched robfigcron.Schedule, now time.Time) (time.Time, bool) {
 	var last time.Time
-	for t := sched.Next(now.Add(-misfireTolerance - time.Second)); !t.IsZero() && !t.After(now); t = sched.Next(t) {
+	for t := sched.Next(now.Add(-MisfireTolerance - time.Second)); !t.IsZero() && !t.After(now); t = sched.Next(t) {
 		last = t
 	}
 	return last, !last.IsZero()
@@ -170,12 +190,12 @@ func (l *Listener) Register(triggerID string, _ string, config map[string]any) e
 				l.log.Error("cron report panic", zap.String("triggerID", triggerID), zap.Any("recover", r))
 			}
 		}()
-		// A callback more than misfireTolerance behind any scheduled tick is a wall-clock-jump
+		// A callback more than MisfireTolerance behind any scheduled tick is a wall-clock-jump
 		// artifact (system slept through the tick; the timer fired late at wake) — drop it: the
 		// misfire sweep accounts the gap as `missed` (工单⑨), and an implicit late run would
 		// betray 判决⑥'s "never re-run". Snapping the dedup key to the TICK (not the fire minute)
 		// also lets a legitimately-late fire dedup against that tick's missed row and vice versa.
-		// 迟于任何调度刻度超过 misfireTolerance 的回调是墙钟跳变伪 fire（系统睡过该刻度、醒来计时器
+		// 迟于任何调度刻度超过 MisfireTolerance 的回调是墙钟跳变伪 fire（系统睡过该刻度、醒来计时器
 		// 迟爆）——丢弃：misfire sweep 会把缺口记成 `missed`（工单⑨），隐式迟跑会背叛判决⑥的
 		// 「绝不补跑」。dedup 键吸附到**刻度**（而非 fire 所在分钟），也让合法迟到的 fire 与该刻度的
 		// missed 行互相去重。

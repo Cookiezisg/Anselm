@@ -68,7 +68,7 @@ ID：`wf_`/`wfv_` · `ctl_`/`ctlv_` · `apf_`/`apfv_`
 | `trigger_activations`（Log） | kind · fired(bool) · return_value/payload(json) · error · detail · firing_count | 按 trigger+created 索引 |
 | `trigger_firings`（Log，durable 收件箱） | trigger_id · workflow_id · activation_id · payload(json) · **dedup_key** · status(pending/claimed/started/skipped/superseded/shed/**missed**) · flowrun_id | **`idx_trf_dedup` UNIQUE(workflow_id,trigger_id,dedup_key)**（D3）+ pending 偏索引 |
 
-> **`missed` 处置与 CHECK 重建**（工单⑨，判决⑥）：`missed` = app 停机/睡眠期间到期的 cron 刻度，**记账不补跑**。行 `created_at` = 错过的**调度刻度**（非 sweep 时刻——否则整夜停机的每条 missed 行都自称睡醒那一秒发生；经 `AppendMissedFiring` 在 orm 盖章后定点回拨），`flowrun_id` 恒空。**幂等即 dedup_key**：missed 行用与活 listener 完全相同的刻度键（`croninfra.DedupKey`），故 `idx_trf_dedup` 保证一个刻度对每个 workflow 恰入账一次、**fired 与 missed 互斥**，无论 sweep 跑多少次。
+> **`missed` 处置与 CHECK 重建**（工单⑨，判决⑥）：`missed` = app 停机/睡眠期间到期的 cron 刻度，**记账不补跑**。行 `created_at` = 错过的**调度刻度**（非 sweep 时刻——否则整夜停机的每条 missed 行都自称睡醒那一秒发生；经 `AppendMissedFiring` 在 orm 盖章后定点回拨），`flowrun_id` 恒空。**幂等即 dedup_key**：missed 行用与活 listener 完全相同的刻度键（`croninfra.DedupKey`），故 `idx_trf_dedup` 保证一个刻度对每个 workflow 恰入账一次、**fired 与 missed 互斥**，无论 sweep 跑多少次。**`missed` 不是终态**：唯一出口 = `RequeueMissedFiring` 把它翻回 `pending`（守卫 `status='missed'`，故绝不可能把跑过的行救活），两个调用方同一含义「这个刻度终究要跑、`missed` 的判词被推翻」——`catchup_one` 刻意补跑它刚记的最近一个错过点，以及 dedup 键被 missed 行占住的扇出（sweep 判早了、真 fire 还是来了）。被救回的行保持回拨到刻度的 `created_at`（drain 最老优先，补跑本就是等得最久的那个），故**一个刻度始终只有一行**、台账绝不同时说它既错过又跑了。
 >
 > **列演化两径**（SQLite 现实）：加列走 `ALTER TABLE ADD COLUMN`（结果幂等，`duplicate column name` = 已应用；先例 flowruns `origin`、triggers `paused`/`missed_checked_at`）；**CHECK 加词无法 ALTER**，须**整表重建**——`db.MigrateRebuild(table, marker, stmts…)` 查 `sqlite_master` 现行 DDL，仅当标记词缺席才在单事务内建新表→逐列拷贝→删旧→改名→重建索引（结果幂等：全新安装的 CREATE 已含新词 → 永不重建；重建后每次启动 no-op）。`trigger_firings.status += 'missed'` 是首例。
 
@@ -81,7 +81,7 @@ ID：`trg_`/`tra_`/`trf_`
 | 表 | 关键列 | 约束/索引 |
 |---|---|---|
 | `flowruns` | workflow_id · **version_id**(钉死拓扑) · **pinned_refs**(json pin 闭包) · trigger_id/firing_id · **origin**(可空,CHECK manual/chat/cron/webhook/fsnotify/sensor——创建时溯源盖章,NULL=两列诞生前旧行) · **conversation_id**(可空,仅 origin=chat:发起 run 的 cv_) · status(CHECK running/completed/failed/cancelled) · replay_count · error | running 偏索引（跨 ws boot 恢复）；origin/conversation_id 经 `ALTER TABLE ADD COLUMN` 演化段补列（db.Migrate 对加列的 duplicate-column 按已应用跳过=结果幂等）|
-| `flowrun_nodes` | flowrun_id · **node_id**(图内名) · **iteration**(循环轮次) · kind · ref · status(CHECK completed/failed/parked) · **result**(json 记忆化) · error · **ready_at/started_at**(可空排队戳,工单⑫——立法见下) | **`idx_frn_once` UNIQUE(flowrun_id,node_id,iteration)**（D3 record-once）+ parked 偏索引（收件箱）；ready_at/started_at 经 `ALTER TABLE ADD COLUMN` 演化段补列（同 flowruns origin 结果幂等先例）|
+| `flowrun_nodes` | flowrun_id · **node_id**(图内名) · **iteration**(循环轮次) · kind · ref · status(CHECK completed/failed/parked/**cancelled**——立法见下) · **result**(json 记忆化) · error · **ready_at/started_at**(可空排队戳,工单⑫——立法见下) | **`idx_frn_once` UNIQUE(flowrun_id,node_id,iteration)**（D3 record-once）+ parked 偏索引（收件箱）；ready_at/started_at 经 `ALTER TABLE ADD COLUMN` 演化段补列（同 flowruns origin 结果幂等先例）；status 加词 `cancelled` 经 **`db.MigrateRebuild`** 整表重建（SQLite 无 ALTER CHECK；结果幂等=查现行 DDL 缺标记词才重建，全新安装与重建后启动皆 no-op；同 `trigger_firings` += `missed` 先例）|
 
 ID：`fr_`/`frn_`。两张无 deleted_at（D1）；**物理删恰有两个例外，逐个立法在此**（除此之外这两张表只增不删）：
 
@@ -95,6 +95,14 @@ ID：`fr_`/`frn_`。两张无 deleted_at（D1）；**物理删恰有两个例外
 - **删的边界**：只删**终态**（completed/failed/cancelled）且 `completed_at` **非 NULL 且严格早于** cutoff 的行。**running/parked 永不删，不管多老**——在飞的 run 不是历史，等人的 run 是活的义务（收件箱绝不因一个时钟丢项）。终态但 `completed_at` 为 NULL 的行也留（断不了年份的破坏性清理必须留，不能猜）。窗口按 **`completed_at`** 开——与 flowrun-stats 的 `completedSince` 逐字同源：跑了很久刚失败的 run 是**新鲜**的、不是旧的。
 - **怎么删**：逐 workspace（`forEachWorkspace` + Detached ctx，S9）分批（`RetentionBatchSize=200`/事务——DB 单连接，无界 DELETE 事务会阻塞所有其他写）；批间查 ctx 使关停在**批边界**停（已提交的批保持提交、下个 tick 续）。删头时**重申终态守卫**：SELECT 与 DELETE 之间的一次 `:replay` 会把 run 翻回 running，清理必须**输掉**这场竞速（重开它意味着用户要它）。索引：`completed_at` 无索引、`julianday()` 亦不 sargable，故每批在该 workspace 的 flowruns 上走一次扫描——本地单用户量级下可接受，**零 schema 变更**。
 - **触发时机**：boot 起一趟 + 每 6h ticker + 每次 `PATCH /retention`（收紧的线立刻回收、而非 6h 后才像是生效）。线为 `0`（永久）时**碰都不碰 DB**。
+
+**节点 status 立法（CHECK 四值 `completed`/`failed`/`parked`/`cancelled`）**：
+
+- **只写终态**（`parked` 是唯一非终态：approval 挂起前写它，决策/超时再翻它）——无瞬时 running 行；「哪些 run 在等人」从 parked 行派生（parked 行即收件箱，无投影表）。
+- **`cancelled` = 中性处置、非故障**（呈现层「未执行」桶，与 skipped/superseded/shed 同族——染红即假警报）。**唯一写者** = `CancelParkedNodes`：收割被手动停掉的 run（`:cancel`/kill/replace）所 park 的审批。记 `failed` 是**无中生有**一次该 run 从未有过的失败——真实因（cancelled）在 run 头上，故读**节点**的消费者（矩阵格/台账行/byStatus）会与头**自相矛盾**：灰 run 上的红格、没有错误文字却自动展开的失败台账行。
+- **★ 让它对引擎免费的不变式**：`cancelled` 行**只**存在于头为 `cancelled` 的 run 上——收割**闸在赢得头守卫**（`MarkRunTerminal` 的 `won`）上，而 cancelled run 是**终局终态**（`:replay` 只收 failed、`Recover` 只收 running）⇒ **解释器永不在 walk 中观察到 cancelled 行**，它不在 `completed()` 咽喉里也就零代价。**破了那道闸**（让 first-wins 输家也收割）它就成「有行、却未 completed」：`hasRow` 挡住重排 + `predecessorsSatisfied` 挡住每条下游边 = 一个 `:replay` 也清不掉的**永久停滞子图**（`DeleteFailedNodes` 只收 failed 行，且见上方 D1——不容第三个删）。输家的 run 走到的是它自然的终态；若那是 `failed`，其 parked 行仍然活着（`:replay` 能救回 run、人仍可决策），这也正是 `failRun` 路径同样从不收割的原因。
+- **与 `nodeInterrupted` 正交**：被取消 ctx 打断的在飞节点走 `failNode` 的 interrupted-bail、返内部伪状态 `interrupted` 并**不写任何行**（不在 CHECK 四值内、绝不落库）；`cancelled` 则是把**已存在的** parked 行收成终态。前者「不写」，后者「收已写的」。
+- **加词的落地**：SQLite 无 ALTER CHECK ⇒ 已有安装经 `db.MigrateRebuild` 整表重建（结果幂等：查 `sqlite_master` 现行 DDL 缺标记词才重建；全新安装的 CREATE 已含该词故 no-op，重建后每次启动亦 no-op）。重建须逐列拷贝**含经 `ALTER ADD COLUMN` 补的 `ready_at`/`started_at`**（原 CREATE 从未提它们）并重建三个索引——其中 `idx_frn_once` 是 **D3 record-once 键**、随旧表一起落，忘了重建即**静默卸掉 record-once 本身**。
 
 **排队戳立法（scheduler 工单⑫——`ready_at`/`started_at` 的语义，含 replay/恢复呈现）**：
 

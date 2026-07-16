@@ -13,7 +13,18 @@ import (
 
 // newStatsStore is newStore + the raw handle, so tests can seed rows with EXACT timestamps
 // (orm's ,created stamp always overwrites started_at on Create — history needs raw INSERTs).
-func newStatsStore(t *testing.T) (*Store, *sql.DB) {
+// testing.TB, not *testing.T: the perf benchmarks build the same store.
+func newStatsStore(t testing.TB) (*Store, *sql.DB) {
+	t.Helper()
+	return newStatsStoreWith(t, Schema)
+}
+
+// newStatsStoreWith builds the store on a caller-supplied DDL — the benchmarks use it to measure the
+// same query with and without an index, which is the only way an index's claim can be checked rather
+// than asserted.
+// newStatsStoreWith 在调用方给的 DDL 上建 store——基准用它测同一条查询「有索引 vs 无索引」，那是索引的
+// 主张唯一能被**验证**而非**声称**的方式。
+func newStatsStoreWith(t testing.TB, schema []string) (*Store, *sql.DB) {
 	t.Helper()
 	sqlDB, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
@@ -21,7 +32,7 @@ func newStatsStore(t *testing.T) (*Store, *sql.DB) {
 	}
 	sqlDB.SetMaxOpenConns(1)
 	t.Cleanup(func() { _ = sqlDB.Close() })
-	for _, stmt := range Schema {
+	for _, stmt := range schema {
 		if _, err := sqlDB.Exec(stmt); err != nil {
 			t.Fatalf("schema: %v", err)
 		}
@@ -31,7 +42,7 @@ func newStatsStore(t *testing.T) (*Store, *sql.DB) {
 
 // seedStatsRun inserts one run row with exact timestamps. completedAt nil ⇒ still running-shaped
 // (the status argument stays authoritative either way).
-func seedStatsRun(t *testing.T, db *sql.DB, ws, id, wf, status string, startedAt time.Time, completedAt *time.Time) {
+func seedStatsRun(t testing.TB, db *sql.DB, ws, id, wf, status string, startedAt time.Time, completedAt *time.Time) {
 	t.Helper()
 	var done any
 	if completedAt != nil {
@@ -216,9 +227,10 @@ func TestRunStats_RecentNCapsBeads(t *testing.T) {
 	}
 }
 
-// TestRunStats_ConsecutiveFailures — the streak walks newest→oldest on (started_at, id):
-// running runs are SKIPPED (a streak must not blink off while a retry is in flight), the first
-// completed/cancelled stops it, and the count is NOT bounded by RecentN or the since window.
+// TestRunStats_ConsecutiveFailures — the streak walks newest→oldest on (started_at, id): running
+// AND cancelled runs are both SKIPPED (undecided / neutral — neither counts nor breaks), only a
+// completed run stops it (self-heal = the workflow demonstrably worked), and the count is NOT
+// bounded by RecentN or the since window.
 func TestRunStats_ConsecutiveFailures(t *testing.T) {
 	now := time.Now().UTC()
 	since := now.Add(-7 * 24 * time.Hour)
@@ -253,7 +265,12 @@ func TestRunStats_ConsecutiveFailures(t *testing.T) {
 		}
 	})
 
-	t.Run("cancelled stops the walk", func(t *testing.T) {
+	// cancelled is TRANSPARENT, exactly like running: a hand-stopped run proves nothing about the
+	// workflow's health, so it must not be mistaken for a self-heal. The failure it interrupts is
+	// still failing.
+	// cancelled 与 running 一样**透明**：被手动停掉的 run 对该 workflow 的健康什么都没证明，故绝不能被
+	// 当成一次自愈。它打断的那次故障仍然在故障。
+	t.Run("cancelled is skipped, not a self-heal", func(t *testing.T) {
 		s, db := newStatsStore(t)
 		seedStatsRun(t, db, "ws_1", "fr_1", "wf_a", "failed", at(1), ptr(at(1)))
 		seedStatsRun(t, db, "ws_1", "fr_2", "wf_a", "cancelled", at(2), ptr(at(2)))
@@ -262,8 +279,52 @@ func TestRunStats_ConsecutiveFailures(t *testing.T) {
 		if err != nil {
 			t.Fatalf("RunStats: %v", err)
 		}
-		if got.ByWorkflow[0].ConsecutiveFailures != 1 {
-			t.Fatalf("streak = %d, want 1 (stopped by cancelled)", got.ByWorkflow[0].ConsecutiveFailures)
+		if got.ByWorkflow[0].ConsecutiveFailures != 2 {
+			t.Fatalf("streak = %d, want 2 (cancelled is transparent, not a heal)", got.ByWorkflow[0].ConsecutiveFailures)
+		}
+	})
+
+	// The user-facing bug this law exists to kill: ONE ⏹ on a failing workflow used to zero its
+	// streak, and the Overview's top-failing list (which filters consecutiveFailures > 0) would drop
+	// an ongoing 3-run outage off the board entirely.
+	// 这条立法要杀的、用户看得见的 bug：在一个正在失败的 workflow 上按**一次** ⏹ 就把连败清零，而
+	// Overview 的失败榜（按 consecutiveFailures > 0 过滤）会把一场正在进行的 3 连败整个从盘面上抹掉。
+	t.Run("one manual cancel does not erase an ongoing outage", func(t *testing.T) {
+		s, db := newStatsStore(t)
+		seedStatsRun(t, db, "ws_1", "fr_stop", "wf_a", "cancelled", at(1), ptr(at(1))) // the user hit ⏹ once
+		seedStatsRun(t, db, "ws_1", "fr_1", "wf_a", "failed", at(2), ptr(at(2)))
+		seedStatsRun(t, db, "ws_1", "fr_2", "wf_a", "failed", at(3), ptr(at(3)))
+		seedStatsRun(t, db, "ws_1", "fr_3", "wf_a", "failed", at(4), ptr(at(4)))
+		got, err := s.RunStats(ctxWS("ws_1"), statsQuery([]string{"wf_a"}, since))
+		if err != nil {
+			t.Fatalf("RunStats: %v", err)
+		}
+		if got.ByWorkflow[0].ConsecutiveFailures != 3 {
+			t.Fatalf("streak = %d, want 3 — a manual ⏹ must not wipe the workflow off the failing list", got.ByWorkflow[0].ConsecutiveFailures)
+		}
+	})
+
+	// The same law from the other side: `replace`-policy workflows auto-cancel every superseded run
+	// (cancelRunningForReplace), so treating cancelled as a heal pinned their streak at ~1 forever
+	// with zero user action — a workflow failing every single run would report "1".
+	// 同一条立法的另一面：用 `replace` 策略的 workflow 会**自动**取消每个被顶替的 run
+	// （cancelRunningForReplace），故把 cancelled 当自愈会让它们的连败**永久钉在 ~1**、零用户动作——
+	// 一个每次都失败的 workflow 会报「1」。
+	t.Run("replace-policy auto-cancels do not pin the streak at 1", func(t *testing.T) {
+		s, db := newStatsStore(t)
+		// Interleaved failed/cancelled, as a replace-policy cron produces: each new firing cancels
+		// the in-flight run, then the replacement fails.
+		seedStatsRun(t, db, "ws_1", "fr_1", "wf_a", "failed", at(1), ptr(at(1)))
+		seedStatsRun(t, db, "ws_1", "fr_2", "wf_a", "cancelled", at(2), ptr(at(2)))
+		seedStatsRun(t, db, "ws_1", "fr_3", "wf_a", "failed", at(3), ptr(at(3)))
+		seedStatsRun(t, db, "ws_1", "fr_4", "wf_a", "cancelled", at(4), ptr(at(4)))
+		seedStatsRun(t, db, "ws_1", "fr_5", "wf_a", "failed", at(5), ptr(at(5)))
+		got, err := s.RunStats(ctxWS("ws_1"), statsQuery([]string{"wf_a"}, since))
+		if err != nil {
+			t.Fatalf("RunStats: %v", err)
+		}
+		if got.ByWorkflow[0].ConsecutiveFailures != 3 {
+			t.Fatalf("streak = %d, want 3 — auto-cancelled supersessions are transparent", got.ByWorkflow[0].ConsecutiveFailures)
 		}
 	})
 
@@ -310,4 +371,68 @@ func TestRunStats_WindowBoundary(t *testing.T) {
 	if len(a.Recent) != 1 || a.Recent[0] != "completed" || a.LastRunAt == nil {
 		t.Fatalf("out-of-window run must still show in recent/lastRunAt: %+v", a)
 	}
+}
+
+// TestRunStats_AvgElapsed_ExcludesReplayedRuns — a replayed run's header spans the HUMAN's fix
+// window, not the work: :replay reopens the same header and never moves started_at, so a 30-second
+// run replayed to success three days later reports 3 days. Letting that into the mean while
+// filtering out failed runs (whose distortion is orders of magnitude smaller) would be incoherent —
+// so it is excluded on the same grounds, and its absence is honest rather than invented.
+//
+// TestRunStats_AvgElapsed_ExcludesReplayedRuns——被 replay 的 run，其头跨的是**人**的修复窗口、不是活儿：
+// :replay 重开同一个头、绝不移动 started_at，故一个 30 秒的 run 三天后 replay 成功会报三天。一边滤掉
+// failed（其扭曲小好几个数量级）一边放它进均值是自相矛盾——故按同一理由排除，且缺席是诚实、非编造。
+func TestRunStats_AvgElapsed_ExcludesReplayedRuns(t *testing.T) {
+	now := time.Now().UTC()
+	since := now.Add(-7 * 24 * time.Hour)
+
+	seedReplayed := func(t *testing.T, db *sql.DB, id string, startedAt time.Time, completedAt time.Time, replays int) {
+		t.Helper()
+		if _, err := db.Exec(
+			`INSERT INTO flowruns (id, workspace_id, workflow_id, version_id, status, replay_count, started_at, completed_at, updated_at)
+			 VALUES (?, 'ws_1', 'wf_a', 'wfv_1', 'completed', ?, ?, ?, ?)`,
+			id, replays, startedAt, completedAt, completedAt,
+		); err != nil {
+			t.Fatalf("seed replayed run %s: %v", id, err)
+		}
+	}
+
+	t.Run("a replayed run does not drag the mean", func(t *testing.T) {
+		s, db := newStatsStore(t)
+		// One clean 30s run, and one 30s run that was replayed to success 3 days later.
+		clean := now.Add(-time.Hour)
+		seedStatsRun(t, db, "ws_1", "fr_clean", "wf_a", "completed", clean, ptr(clean.Add(30*time.Second)))
+		poisoned := now.Add(-3 * 24 * time.Hour)
+		seedReplayed(t, db, "fr_replayed", poisoned, now.Add(-30*time.Second), 1)
+
+		got, err := s.RunStats(ctxWS("ws_1"), statsQuery([]string{"wf_a"}, since))
+		if err != nil {
+			t.Fatalf("RunStats: %v", err)
+		}
+		a := got.ByWorkflow[0]
+		if a.AvgElapsedMs == nil || *a.AvgElapsedMs < 29900 || *a.AvgElapsedMs > 30100 {
+			t.Fatalf("avgElapsedMs = %v, want ~30000 — the replayed run's 3-day header must not enter the mean", a.AvgElapsedMs)
+		}
+		// It is still a real completed run everywhere else — only the DURATION is unknowable.
+		// 它在别处仍是一个真实的 completed run——只有**耗时**不可知。
+		if a.SuccessRate == nil || *a.SuccessRate != 1 {
+			t.Fatalf("successRate = %v, want 1 — a replayed success is still a success", a.SuccessRate)
+		}
+		if len(a.Recent) != 2 {
+			t.Fatalf("recent = %v, want both runs — the exclusion is the mean's alone", a.Recent)
+		}
+	})
+
+	t.Run("only replayed runs in the window ⇒ honest absence, not a wrong number", func(t *testing.T) {
+		s, db := newStatsStore(t)
+		poisoned := now.Add(-3 * 24 * time.Hour)
+		seedReplayed(t, db, "fr_replayed", poisoned, now.Add(-30*time.Second), 2)
+		got, err := s.RunStats(ctxWS("ws_1"), statsQuery([]string{"wf_a"}, since))
+		if err != nil {
+			t.Fatalf("RunStats: %v", err)
+		}
+		if got.ByWorkflow[0].AvgElapsedMs != nil {
+			t.Fatalf("avgElapsedMs = %v, want nil (key absent) — no clean sample means no number", *got.ByWorkflow[0].AvgElapsedMs)
+		}
+	})
 }

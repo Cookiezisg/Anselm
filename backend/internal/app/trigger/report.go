@@ -63,8 +63,31 @@ func (s *Service) onReport(triggerID string, act triggerinfra.Activity) {
 // workflow (each sharing the activity's dedup key so a re-materialized fire dedups per
 // workflow). The Activation is minted first so every Firing references it.
 //
+// The RETURN VALUE of AppendFiring is the contract here, not the absence of an error: the dedup key
+// may already be taken (idx_trf_dedup), in which case AppendFiring hands back the EXISTING row and
+// nil — a nil error means "the key is accounted for", never "your fire produced a run". So each
+// outcome is read off the row's status:
+//   - pending — a new row, or one already waiting: this fire is runnable. Count it.
+//   - missed — the misfire sweep called this tick a miss and the fire arrived anyway (the sweep
+//     ruled too early, or a catchup_one deliberately fires the tick it just booked). Overturn the
+//     verdict: requeue the row so the run really happens. Counting it while leaving it `missed` is
+//     precisely the lie this fixes — firingCount would say 1, the ledger would say "never ran", and
+//     the workflow would never run (工单⑨).
+//   - anything terminal (claimed/started/skipped/superseded/shed) — the tick already reached a
+//     disposition; a re-materialized fire adds no run, so it must not inflate firingCount either.
+//
 // fanOut 写一条 Activation（总是），动作触发时每监听 workflow 一条 Firing（共享 dedup key，使重复材化
 // 按 workflow 去重）。先 mint Activation 使每条 Firing 都能反指它。
+//
+// 此处的契约是 AppendFiring 的**返回值**、不是「没报错」：dedup 键可能已被占（idx_trf_dedup），那时
+// AppendFiring 交回**已存在**的行 + nil——nil 错误的意思是「这个键已有着落」，从来不是「你这次 fire 产生了
+// 一次 run」。故逐个结局按行的 status 读：
+//   - pending —— 新行，或已在等的行：本次 fire 可跑。计数。
+//   - missed —— misfire sweep 判了这个刻度错过、而 fire 还是来了（sweep 判早了；或 catchup_one 刻意补跑
+//     它刚记的那个刻度）。**推翻判词**：把行救回队列，让 run 真的发生。若一边计数一边把它留在 `missed`，
+//     那正是本处所修的谎——firingCount 说 1、台账说「从未跑」、而 workflow 永远不跑（工单⑨）。
+//   - 任一终态（claimed/started/skipped/superseded/shed）—— 该刻度已有处置；重复材化的 fire 不产生
+//     任何 run，故也绝不许把 firingCount 撑大。
 func (s *Service) fanOut(ctx context.Context, triggerID, kind string, workflows []string, act triggerinfra.Activity) string {
 	actID := idgenpkg.New("tra")
 	fired := 0
@@ -74,15 +97,28 @@ func (s *Service) fanOut(ctx context.Context, triggerID, kind string, workflows 
 			dedup = triggerID + "|" + strconv.FormatInt(time.Now().UnixNano(), 10)
 		}
 		for _, wfID := range workflows {
-			if _, err := s.repo.AppendFiring(ctx, &triggerdomain.Firing{
+			f, err := s.repo.AppendFiring(ctx, &triggerdomain.Firing{
 				TriggerID:    triggerID,
 				WorkflowID:   wfID,
 				ActivationID: actID,
 				Payload:      act.Payload,
 				DedupKey:     dedup,
-			}); err != nil {
+			})
+			if err != nil {
 				s.log.Warn("triggerapp: append firing failed", zapTrigger(triggerID), zap.String("workflowId", wfID), zapErr(err))
 				continue
+			}
+			if f.Status == triggerdomain.FiringMissed {
+				if err := s.repo.RequeueMissedFiring(ctx, f.ID, actID); err != nil {
+					s.log.Warn("triggerapp: requeue missed firing failed", zapTrigger(triggerID), zap.String("workflowId", wfID), zapErr(err))
+					continue
+				}
+				s.log.Info("triggerapp: a fire landed on a tick booked missed — requeued it as the run",
+					zapTrigger(triggerID), zap.String("workflowId", wfID), zap.String("firingId", f.ID))
+				f.Status = triggerdomain.FiringPending
+			}
+			if f.Status != triggerdomain.FiringPending {
+				continue // already dispositioned — this fire mints no run, so it counts as none.
 			}
 			fired++
 		}

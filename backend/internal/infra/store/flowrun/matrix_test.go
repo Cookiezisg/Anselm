@@ -126,10 +126,13 @@ func TestRunMatrix_ColsRowsCellsShape(t *testing.T) {
 }
 
 // A loop node's iterations collapse into ONE cell showing the WORST disposition — a later green
-// turn must not erase turn 1's failure (the run header is failed too; the cell agrees with it).
+// turn must not erase turn 1's failure. The rank is about ATTENTION, not about agreeing with the
+// header: a cancelled run can carry a genuinely failed row (failNode wrote it, then lost the header
+// guard to the cancel), and that cell is honestly red on a grey column.
 //
-// loop 节点的各迭代坍缩成**一**格、显示**最坏**处置——后来的绿轮不能抹掉第 1 轮的失败（run 头也是 failed；
-// 格与它一致）。
+// loop 节点的各迭代坍缩成**一**格、显示**最坏**处置——后来的绿轮不能抹掉第 1 轮的失败。这个档排的是
+// **注意力**、不是「与头一致」：cancelled run **可以**带一条真failed 行（failNode 先写了它、随后输掉头
+// 守卫给了取消），那个格在灰色的列上诚实地渲红。
 func TestRunMatrix_IterationsAggregateWorstWins(t *testing.T) {
 	store, db := newStatsStore(t)
 	ctx := ctxWS("ws_1")
@@ -189,6 +192,44 @@ func TestRunMatrix_ParkedOutranksCompletedAndTieTakesLatest(t *testing.T) {
 	// 仍在跑的 run 无 completed_at → 无耗时，绝不发会被读成「瞬时」的 0。
 	if m.Cols[0].ElapsedMs != nil {
 		t.Errorf("a running run must omit elapsedMs, got %v", *m.Cols[0].ElapsedMs)
+	}
+}
+
+// TestRunMatrix_CancelledRankIsNeutralNotGreenNotRed — the swept approval of a cancelled run is the
+// review's exhibit: it used to be written `failed`, so the matrix painted a RED cell on a grey
+// cancelled column (a false alarm — nothing failed). Recording it `cancelled` fixes that, but only
+// if the rank names it: falling into `default` would paint it GREEN, claiming an approval nobody
+// answered had completed. Neutral means neither — it outranks completed, and stays under failed.
+//
+// TestRunMatrix_CancelledRankIsNeutralNotGreenNotRed——cancelled run 被收割的审批正是复审的证物：它过去
+// 被写成 `failed`，故矩阵在灰色的 cancelled 列上涂出一个**红**格（假警报——什么都没失败）。记成
+// `cancelled` 修好了那个，但**前提是档里点名它**：落进 `default` 会把它涂**绿**，宣称一个没人回答的审批
+// 「完成了」。中性 = 两者皆非——它压过 completed，且留在 failed 之下。
+func TestRunMatrix_CancelledRankIsNeutralNotGreenNotRed(t *testing.T) {
+	store, db := newStatsStore(t)
+	ctx := ctxWS("ws_1")
+	base := time.Date(2026, 7, 16, 10, 0, 0, 0, time.UTC)
+	done := base.Add(5 * time.Second)
+	seedStatsRun(t, db, "ws_1", "fr_c", "wf_1", flowrundomain.StatusCancelled, base, &done)
+
+	// `gate` ran a turn, then its next turn was parked and swept by the cancel.
+	seedMatrixNode(t, db, "ws_1", "frn_g0", "fr_c", "gate", "approval", flowrundomain.NodeCompleted, 0, base)
+	seedMatrixNode(t, db, "ws_1", "frn_g1", "fr_c", "gate", "approval", flowrundomain.NodeCancelled, 1, base.Add(time.Second))
+	// `boom` genuinely errored before the cancel landed — a real failure on a cancelled run.
+	seedMatrixNode(t, db, "ws_1", "frn_b0", "fr_c", "boom", "action", flowrundomain.NodeCancelled, 0, base.Add(2*time.Second))
+	seedMatrixNode(t, db, "ws_1", "frn_b1", "fr_c", "boom", "action", flowrundomain.NodeFailed, 1, base.Add(3*time.Second))
+
+	m, err := store.RunMatrix(ctx, flowrundomain.MatrixQuery{WorkflowID: "wf_1", RecentN: 20})
+	if err != nil {
+		t.Fatalf("RunMatrix: %v", err)
+	}
+	gate := cellFor(m, "fr_c", "gate")
+	if gate == nil || gate.Status != flowrundomain.NodeCancelled || gate.Iteration != 1 {
+		t.Errorf("cancelled must outrank completed (green would claim a cut-off turn finished): got %+v", gate)
+	}
+	boom := cellFor(m, "fr_c", "boom")
+	if boom == nil || boom.Status != flowrundomain.NodeFailed || boom.Iteration != 1 {
+		t.Errorf("a real failure must outrank cancelled — that red is honest: got %+v", boom)
 	}
 }
 

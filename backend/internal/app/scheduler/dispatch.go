@@ -145,15 +145,15 @@ func (s *Service) writeNode(ctx context.Context, run *flowrundomain.FlowRun, nod
 	return n, status, nil
 }
 
-// nodeInterrupted is an INTERNAL pseudo-status (never persisted — not in flowrun_nodes' CHECK
-// three): a node whose failure is an artifact of the drive's OWN cancellation. When :cancel /
+// nodeInterrupted is an INTERNAL pseudo-status (never persisted — not one of flowrun_nodes' CHECK
+// four): a node whose failure is an artifact of the drive's OWN cancellation. When :cancel /
 // KillWorkflow / Shutdown cancels the advance ctx, the blocked dispatch surfaces ctx.Err() as an
 // error — that is a NON-RESULT, not a node failure: recording it as a failed row would lie in the
 // memoization (the activity never ran to a real terminal) and pollute :replay's "clear failed rows"
 // semantics. The interrupted drive writes NOTHING; the run's terminal is owned by whoever cancelled
 // (:cancel/kill already wrote cancelled first; a shutdown leaves it running for boot Recover).
 //
-// nodeInterrupted 是**内部**伪状态（绝不落库——不在 flowrun_nodes CHECK 三值内）：节点的失败是驱动
+// nodeInterrupted 是**内部**伪状态（绝不落库——不在 flowrun_nodes CHECK 四值内）：节点的失败是驱动
 // **自身被取消**的产物。:cancel / KillWorkflow / Shutdown 取消 advance ctx 后，阻塞中的派发把
 // ctx.Err() 以 error 上呈——那是**非结果**、不是节点失败：记成 failed 行会在记忆化里撒谎（activity
 // 从未跑到真实终态）、并污染 :replay「清 failed 行」的语义。被打断的驱动**什么也不写**；run 终态归

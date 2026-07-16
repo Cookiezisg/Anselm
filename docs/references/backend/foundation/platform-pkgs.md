@@ -23,7 +23,11 @@ AES-GCM 整密文加解密（apikey 密文 / handler config / mcp config_enc 共
 
 ## infra/db
 
-无业务知识的 SQLite 网关：`Open`（glebarez 纯 Go 驱动、WAL）+ `Migrate`（各 store 导出幂等 DDL、cmd/server 汇总、单事务按序应用——无 ALTER 机制，未上线期改 DDL = 本地库重建）。
+无业务知识的 SQLite 网关（`infra/db` 无专篇，本节是它唯一事实源）：`Open`（glebarez 纯 Go 驱动、WAL）+ **`Migrate`**（各 store 导出幂等 DDL、bootstrap `openDB` 汇总、单事务按序应用）+ **`MigrateRebuild`**（整表重建逃生口）。
+
+**列演化两径**（SQLite 现实，与 [database.md](../database.md) 逐字对齐）：
+- **加列 = `ALTER TABLE … ADD COLUMN`**，写进 store 的 `Schema` 序列，靠 **`isAddColumnApplied`** 做**结果幂等**——`duplicate column name` 即「已应用」信号、跳过不冒泡（其他语句的真重复列错误仍令整个迁移失败）。现有 6 条活 ALTER：`triggers.paused`/`missed_checked_at`（工单⑦/⑨）· `flowruns.origin`/`conversation_id`（工单①）· `flowrun_nodes.ready_at`/`started_at`（工单⑫）。
+- **CHECK 加词无法 ALTER → 整表重建**：`MigrateRebuild(table, marker, stmts…)` 查 `sqlite_master` 的**现行** DDL，仅当标记词缺席才在单事务内跑调用方给的重建语句（建新表→逐列拷贝→删旧→改名→重建索引）。**结果幂等**：全新安装的 CREATE 已含新词 → 永不重建；重建后每次启动 no-op；表不存在同样 no-op。**两处在用**（皆在 `Migrate` **之后**跑——需表已存在）：`trigger_firings.status += 'missed'`（工单⑨）· `flowrun_nodes.status += 'cancelled'`（手动停掉的 run 所收割的审批记真实处置、不再假扮失败）。**这是本代码库仅有的会打在真实用户数据上的 `DROP TABLE`**，故每处都必须有**等价性**门禁钉住（`store/trigger/rebuild_test.go` 为范式）：升级后的表与全新安装的表逐列同形（`PRAGMA table_info` + 索引集），且「老安装」夹具从现行 `Schema` **派生**、不手抄（手抄一份历史 DDL 正是这门禁要禁的第二事实源）——往 CREATE 加一列却忘了重建 DDL，会在那里挂掉，而不是从已安装的库里静默删掉那一列。重建语句的 `INSERT … SELECT` 两侧**都点名列**：裸 `SELECT` 是按位的，加列/换序会把值静默灌进错误的列。
 
 ## transport
 

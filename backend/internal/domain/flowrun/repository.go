@@ -167,17 +167,29 @@ type Repository interface {
 	// ListParkedNodes 返 workspace 内所有 parked 节点行——审批收件箱（无独立投影表；parked 行即收件箱）。
 	ListParkedNodes(ctx context.Context) ([]*FlowRunNode, error)
 
-	// CancelParkedNodes resolves a run's still-parked nodes to a terminal state when the run is being
-	// cancelled (replace/kill while parked) — so a dead approval row does not linger in the inbox.
-	// CancelParkedNodes 在 run 被取消时（parked 时遭 replace/kill）把其仍 parked 的节点收到终态——免死审批行滞留收件箱。
+	// CancelParkedNodes resolves a run's still-parked nodes to NodeCancelled when the run is being
+	// cancelled (:cancel/kill/replace while parked) — so a dead approval row does not linger in the
+	// inbox. CALLERS MUST GATE THIS ON WINNING THE HEADER GUARD (MarkRunTerminal's won): the rows it
+	// writes are only safe on a run whose header is cancelled, and a first-wins loser's run reached
+	// its own terminal — if that is failed, its parked row is still live for :replay. The
+	// implementation's note carries the full invariant.
+	// CancelParkedNodes 在 run 被取消时（parked 时遭 :cancel/kill/replace）把其仍 parked 的节点收成
+	// NodeCancelled——免死审批行滞留收件箱。**调用方必须把它闸在「赢了头守卫」（MarkRunTerminal 的 won）
+	// 上**：它写的行只在头为 cancelled 的 run 上才安全，而 first-wins 输家的 run 走到的是它自己的终态
+	// ——若那是 failed，它的 parked 行仍然活着、等着 :replay。完整不变式见实现处的注释。
 	CancelParkedNodes(ctx context.Context, flowrunID string) (int64, error)
 
 	// DeleteFailedNodes hard-deletes a run's failed node rows (the :replay node half — clears the
-	// failures so a re-walk re-runs them; completed rows stay memoized). Returns rows removed. This is
-	// the ONE permitted physical delete on a Log table: a failed row is a non-result (the activity did
-	// not durably complete), so removing it to retry is not erasing history.
+	// failures so a re-walk re-runs them; completed rows stay memoized). Returns rows removed. THE
+	// FIRST of the two permitted physical deletes on these Log tables (the other is
+	// PurgeTerminalRunsBefore's retention purge): a failed row is a non-result (the activity did not
+	// durably complete), so removing it to retry is not erasing history. Deliberately failed-ONLY —
+	// D1 permits no third carve-out, and none is needed: parked rows stay decidable across a replay,
+	// and cancelled rows exist only on cancelled runs, which are never replayed.
 	// DeleteFailedNodes 物理删一个 run 的 failed 节点行（:replay 的节点那半——清掉失败让重走重跑；
-	// completed 行留作记忆化）。返删除行数。这是 Log 表上唯一允许的物理删：failed 行是非结果（activity
-	// 没 durable 完成），删它重试不是抹历史。
+	// completed 行留作记忆化）。返删除行数。这是两张 Log 表上允许的两个物理删中的**第一个**（另一个是
+	// PurgeTerminalRunsBefore 的保留清理）：failed 行是非结果（activity 没 durable 完成），删它重试不是
+	// 抹历史。**刻意只收 failed**——D1 不容第三个例外，也不需要：parked 行跨 replay 仍可决策，而
+	// cancelled 行只存在于 cancelled run 上、那种 run 永不被 replay。
 	DeleteFailedNodes(ctx context.Context, flowrunID string) (int, error)
 }

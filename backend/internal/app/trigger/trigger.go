@@ -54,6 +54,18 @@ type listenEntry struct {
 	workflows map[string]time.Time
 	once      map[string]bool // workflowID → drop after one fire (stage_workflow)
 	paused    bool            // mirrors triggers.paused; true → source listener unregistered. 镜像 triggers.paused；true → 底层已注销。
+	// hotSince is when THIS process last Registered the source listener (0 = never — e.g. an entry
+	// created for a paused trigger, whose Register is skipped). It bounds the misfire sweep's
+	// accounting window (工单⑨): a cron entry computes its first activation from the instant it is
+	// scheduled, so no tick at or before hotSince can ever be delivered by it, and the previous
+	// process's entries died with it. Such a tick is therefore accountable IMMEDIATELY — the
+	// MisfireTolerance grace only has to cover ticks this entry could still fire late.
+	//
+	// hotSince = **本进程**最后一次 Register 该 source listener 的时刻（0 = 从未——如为已暂停 trigger 建的
+	// entry，其 Register 被跳过）。它界定 misfire sweep 的记账窗（工单⑨）：cron entry 的首次触发是从它被排入
+	// 的那一刻算起的，故它绝无可能送达 hotSince 及之前的任何刻度，而上个进程的 entry 已随进程而死。这样的刻度
+	// 因此**立刻**可入账——MisfireTolerance 宽限只需覆盖这个 entry 还可能迟到开火的那些刻度。
+	hotSince time.Time
 }
 
 // Service is the unified trigger surface.
@@ -70,6 +82,12 @@ type Service struct {
 
 	mu        sync.RWMutex
 	listeners map[string]*listenEntry // key: triggerID
+	// switchMu serialises :pause against :resume (scheduler 工单⑦). Each is a read-modify-write
+	// spanning a DB write and a registry write; run concurrently they interleave into a row and a
+	// registry that disagree about whether the trigger is paused. Held for the whole flip, outside
+	// mu (Register runs under it). 串行化 `:pause` 与 `:resume`（工单⑦）：各是横跨 DB 写与监听表写的
+	// 读-改-写，并发交错会让行与监听表就「暂停没暂停」各执一词。整个翻转期间持有，在 mu 之外（Register 在其下跑）。
+	switchMu sync.Mutex
 
 	relations     RelationSyncer
 	sensorTargets SensorTargetValidator // nil → skip eager sensor-target existence check

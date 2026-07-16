@@ -125,6 +125,14 @@ func openDB(dataDir string) (*ormpkg.DB, error) {
 	if err := dbinfra.MigrateRebuild(database, "trigger_firings", triggerstore.FiringsMissedMarker, triggerstore.FiringsCheckRebuild...); err != nil {
 		return nil, fmt.Errorf("bootstrap: migrate-rebuild: %w", err)
 	}
+	// Same mechanism, second table: flowrun_nodes' status gained 'cancelled' so a hand-stopped run's
+	// swept approval records its real disposition instead of impersonating a failure.
+	//
+	// 同一机制、第二张表：flowrun_nodes 的 status 加了 'cancelled'，使被手动停掉的 run 所收割的审批记
+	// 它**真实的**处置、而非假扮一次失败。
+	if err := dbinfra.MigrateRebuild(database, "flowrun_nodes", flowrunstore.NodesCancelledMarker, flowrunstore.NodesCheckRebuild...); err != nil {
+		return nil, fmt.Errorf("bootstrap: migrate-rebuild: %w", err)
+	}
 	return database, nil
 }
 

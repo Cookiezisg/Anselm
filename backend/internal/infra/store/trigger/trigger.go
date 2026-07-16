@@ -9,6 +9,7 @@ package trigger
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -111,7 +112,16 @@ var (
 			created_at    DATETIME NOT NULL,
 			updated_at    DATETIME NOT NULL
 		)`,
+		// Target columns spelled out: a bare INSERT … SELECT is POSITIONAL, so a column added to the
+		// CREATE above (or reordered) would silently copy values into the wrong columns of a real
+		// user's table. Naming both sides makes the copy fail loudly instead. rebuild_test.go proves
+		// the rebuilt shape is byte-for-byte the shape a fresh install gets.
+		//
+		// 目标列写全：裸 INSERT … SELECT 是**按位**的，上面 CREATE 加一列（或换序）就会把值静默灌进真实
+		// 用户表的错误列里。两侧都点名，则拷贝会大声失败而非错位。rebuild_test.go 证明重建出的形状与全新
+		// 安装拿到的形状逐列相同。
 		`INSERT INTO trigger_firings_rebuild
+			(id, workspace_id, trigger_id, workflow_id, activation_id, payload, dedup_key, status, flowrun_id, created_at, updated_at)
 			SELECT id, workspace_id, trigger_id, workflow_id, activation_id, payload, dedup_key, status, flowrun_id, created_at, updated_at
 			FROM trigger_firings`,
 		`DROP TABLE trigger_firings`,
@@ -149,6 +159,44 @@ func (s *Store) SaveTrigger(ctx context.Context, t *triggerdomain.Trigger) error
 			return triggerdomain.ErrDuplicateName
 		}
 		return fmt.Errorf("triggerstore.SaveTrigger: %w", err)
+	}
+	return nil
+}
+
+// EditTrigger patches only the author-editable entity columns — see the port's contract for WHY a
+// whole-row Save is wrong here (it would carry Edit's stale read-time copies of the runtime columns
+// back to disk, silently undoing a concurrent :pause). config/outputs are marshalled by hand:
+// Updates hands raw values to the driver, the orm only serialises `,json` fields on Create/Save
+// (agentstore.UpdateMeta precedent). 0 rows matched = no such trigger (the orm's workspace +
+// soft-delete filters apply) → ErrNotFound.
+//
+// EditTrigger 只改作者可编辑的实体列——**为什么**整行 Save 在此是错的见端口契约（它会把 Edit 读时的
+// 陈旧运行时列拷贝写回盘，静默抹掉并发的 `:pause`）。config/outputs 手工 marshal：Updates 把裸值直送
+// driver，orm 只在 Create/Save 上序列化 `,json` 字段（agentstore.UpdateMeta 先例）。匹配 0 行 = 无此
+// trigger（orm 的 workspace + 软删过滤生效）→ ErrNotFound。
+func (s *Store) EditTrigger(ctx context.Context, t *triggerdomain.Trigger) error {
+	cfg, err := json.Marshal(t.Config)
+	if err != nil {
+		return fmt.Errorf("triggerstore.EditTrigger: marshal config: %w", err)
+	}
+	outs, err := json.Marshal(t.Outputs)
+	if err != nil {
+		return fmt.Errorf("triggerstore.EditTrigger: marshal outputs: %w", err)
+	}
+	n, err := s.trgs.WhereEq("id", t.ID).Updates(ctx, map[string]any{
+		"name":        t.Name,
+		"description": t.Description,
+		"config":      string(cfg),
+		"outputs":     string(outs),
+	})
+	if err != nil {
+		if errors.Is(err, ormpkg.ErrConflict) {
+			return triggerdomain.ErrDuplicateName
+		}
+		return fmt.Errorf("triggerstore.EditTrigger: %w", err)
+	}
+	if n == 0 {
+		return triggerdomain.ErrNotFound
 	}
 	return nil
 }

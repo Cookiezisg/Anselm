@@ -78,9 +78,15 @@ func (q *Query[T]) Update(ctx context.Context, col string, val any) (int64, erro
 }
 
 // Updates sets multiple columns on matching rows; the updated column is bumped
-// automatically. Returns rows affected.
+// automatically. Returns rows affected. A UNIQUE violation maps to ErrConflict,
+// exactly as on Create/Save — renaming a row onto a taken name is the same
+// collision whichever statement gets there, and callers translate it to their
+// own domain error (agentstore.UpdateMeta, triggerstore.EditTrigger).
 //
-// Updates 给匹配行设多列，自动刷新 updated 列。返回受影响行数。
+// Updates 给匹配行设多列，自动刷新 updated 列。返回受影响行数。UNIQUE 冲突映射
+// ErrConflict，与 Create/Save 完全一致——把行改名撞上已占用的名字，无论经哪条语句
+// 都是同一次撞车，调用方各自翻译成自己的 domain 错误（agentstore.UpdateMeta、
+// triggerstore.EditTrigger）。
 func (q *Query[T]) Updates(ctx context.Context, fields map[string]any) (int64, error) {
 	if len(fields) == 0 {
 		return 0, nil
@@ -111,7 +117,7 @@ func (q *Query[T]) Updates(ctx context.Context, fields map[string]any) (int64, e
 	stmt := "UPDATE " + q.table + " SET " + strings.Join(sets, ", ") + where
 	res, err := q.db.handle().ExecContext(ctx, stmt, args...)
 	if err != nil {
-		return 0, fmt.Errorf("orm: update: %w", err)
+		return 0, writeErr("update", err)
 	}
 	return res.RowsAffected()
 }

@@ -79,13 +79,40 @@ var RunOrigins = []string{OriginManual, OriginChat, OriginCron, OriginWebhook, O
 // state: an approval writes it before suspending, then a decision flips it to completed (first-wins
 // conditional update).
 //
+// cancelled is a NEUTRAL disposition, not a fault — the presentation layer's "not executed" bucket
+// alongside skipped/superseded/shed, where painting it red is a false alarm. It has exactly one
+// writer: CancelParkedNodes, sweeping the approval a hand-stopped run was parked on. Recording that
+// as `failed` would INVENT a failure the run never had: the header carries the real cause
+// (cancelled), so any consumer reading the NODE (matrix cell, ledger row, byStatus) would contradict
+// the header — a red cell on a grey run, an auto-expanded failure row with no error text.
+//
+// THE INVARIANT that makes this free: a cancelled row exists ONLY on a run whose header is cancelled
+// — the sweep is gated on WINNING the header guard (see CancelParkedNodes) — and a cancelled run is
+// terminal-final: :replay takes only failed runs, Recover only running ones. So the interpreter NEVER
+// walks a cancelled row, and its absence from walk.go's `completed()` chokepoint costs nothing.
+// Break that gate and the row becomes "has a row, never completed": hasRow blocks the re-schedule
+// while predecessorsSatisfied blocks every downstream edge — a permanently stalled subgraph that
+// :replay cannot clear (DeleteFailedNodes takes only failed rows, and D1 permits no third delete).
+//
 // Node 状态。行只写**终态**（无瞬时 running 行）：action 在一次同步 advance() 内跑完，无中途节点态
 // 可存——写行前崩溃就重跑（at-least-once）。parked 是唯一非终态：approval 挂起前写它，
 // 决策再把它翻成 completed（first-wins 条件更新）。
+//
+// cancelled 是**中性处置、非故障**——呈现层的「未执行」桶，与 skipped/superseded/shed 同族，染红即
+// 假警报。它只有一个写者：CancelParkedNodes——收掉被手动停掉的 run 所 park 的审批。把它记成 `failed`
+// 是**无中生有**一次该 run 从未有过的失败：真实因（cancelled）在头上，故任何读**节点**的消费者
+// （矩阵格 / 台账行 / byStatus）都会与头自相矛盾——灰 run 上的红格、没有错误文字却自动展开的失败行。
+//
+// **让这一切免费的不变式**：cancelled 行**只**存在于头为 cancelled 的 run 上——收割须**赢**了头守卫
+// 才做（见 CancelParkedNodes）——而 cancelled run 是终局终态：:replay 只收 failed、Recover 只收
+// running。故解释器**永不**走到 cancelled 行，它不在 walk.go 的 `completed()` 咽喉里也就不花钱。
+// 破了那道闸它就成了「有行、却未 completed」：hasRow 挡住重排，predecessorsSatisfied 挡住每条下游
+// 边——一个 :replay 也清不掉的永久停滞子图（DeleteFailedNodes 只收 failed 行，且 D1 不容第三个删）。
 const (
 	NodeCompleted = "completed"
 	NodeFailed    = "failed"
 	NodeParked    = "parked"
+	NodeCancelled = "cancelled"
 )
 
 // Result keys — the per-kind shape of FlowRunNode.Result. control/approval results are structured
@@ -178,7 +205,7 @@ type FlowRunNode struct {
 	Iteration   int            `db:"iteration"           json:"iteration"` // loop turn, 0-based
 	Kind        string         `db:"kind"                json:"kind"`      // trigger|action|agent|control|approval
 	Ref         string         `db:"ref"                 json:"ref"`       // pinned entity ref (audit)
-	Status      string         `db:"status"              json:"status"`    // completed | failed | parked
+	Status      string         `db:"status"              json:"status"`    // completed | failed | parked | cancelled
 	Result      map[string]any `db:"result,json"         json:"result"`    // per-kind shape (Result keys)
 	Error       string         `db:"error"               json:"error,omitempty"`
 

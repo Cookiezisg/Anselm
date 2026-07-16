@@ -80,13 +80,15 @@ func (s *Service) attach(ctx context.Context, triggerID, workflowID string, once
 			s.mu.Unlock()
 			return triggerdomain.ErrInvalidKind
 		}
+		hot := time.Time{}
 		if !t.Paused {
 			if err := l.Register(triggerID, t.WorkspaceID, t.Config); err != nil {
 				s.mu.Unlock()
 				return fmt.Errorf("triggerapp.attach: register %s: %w", triggerID, err)
 			}
+			hot = time.Now()
 		}
-		e = &listenEntry{workspaceID: t.WorkspaceID, kind: t.Kind, workflows: make(map[string]time.Time), once: make(map[string]bool), paused: t.Paused}
+		e = &listenEntry{workspaceID: t.WorkspaceID, kind: t.Kind, workflows: make(map[string]time.Time), once: make(map[string]bool), paused: t.Paused, hotSince: hot}
 		s.listeners[triggerID] = e
 		wentHot = true
 	}
@@ -143,16 +145,28 @@ func (s *Service) Detach(triggerID, workflowID string) {
 }
 
 // attachRuntime fills the computed RefCount/Listening fields from the in-memory registry. A
-// paused entry keeps its RefCount but reads Listening=false — the source listener really is
+// paused trigger keeps its RefCount but reads Listening=false — the source listener really is
 // unregistered (scheduler 工单⑦).
 //
-// attachRuntime 从内存监听表填充计算字段 RefCount/Listening。暂停的 entry 保留 RefCount 但
+// `paused` has exactly ONE truth: the persisted row (t.Paused). Listening and NextFireAt below are
+// both projections OF it, so they are read off the same field — the registry's own `e.paused` mirror
+// is not a second opinion to consult here. Deriving Listening from memory while NextFireAt derives
+// from the row is how the wire came to contradict itself the instant the two drifted (a :pause
+// mid-flight, an Edit clobbering the column): `paused:false, listening:false, nextFireAt:<present>`,
+// three keys disagreeing about one fact, against a contract that says they move together.
+//
+// attachRuntime 从内存监听表填充计算字段 RefCount/Listening。暂停的 trigger 保留 RefCount 但
 // Listening=false——底层 listener 真的已注销（scheduler 工单⑦）。
+//
+// `paused` 只有**一个**真相：持久化的行（t.Paused）。Listening 与下面的 NextFireAt 都是**它的**投影，
+// 故读的是同一个字段——监听表自己的 `e.paused` 镜像在此不是可以再问一遍的第二意见。Listening 取自内存
+// 而 NextFireAt 取自行，正是两者一漂移（中途 `:pause`、Edit 覆写该列）线缆就自相矛盾的由来：
+// `paused:false, listening:false, nextFireAt:<在场>`——三个键就同一个事实各执一词，而契约写着它们同动。
 func (s *Service) attachRuntime(t *triggerdomain.Trigger) {
 	s.mu.RLock()
 	if e, ok := s.listeners[t.ID]; ok {
 		t.RefCount = len(e.workflows)
-		t.Listening = !e.paused
+		t.Listening = t.RefCount > 0 && !t.Paused
 	}
 	s.mu.RUnlock()
 	// Project the next scheduled fire for a cron trigger (read-time, like LastFiredAt) so the UI can
@@ -189,8 +203,32 @@ func (s *Service) restartIfListening(t *triggerdomain.Trigger) {
 	if l := s.listenerFor(t.Kind); l != nil {
 		if err := l.Register(t.ID, ws, t.Config); err != nil {
 			s.log.Warn("triggerapp: re-register on edit failed", zapTrigger(t.ID), zapErr(err))
+			return
 		}
+		// The replaced entry recomputes its first activation from NOW, so every earlier tick is dead
+		// the moment this returns — the misfire sweep may account them without waiting out the grace.
+		// 被替换的 entry 从**此刻**重算首次触发，故本函数一返回，更早的每个刻度就都死了——misfire sweep
+		// 可以直接记账、不必干等宽限。
+		s.mu.Lock()
+		if e, ok := s.listeners[t.ID]; ok {
+			e.hotSince = time.Now()
+		}
+		s.mu.Unlock()
 	}
+}
+
+// hotSince reports when this process last Registered triggerID's source listener (zero = never).
+// See listenEntry.hotSince — it is the misfire sweep's "a tick this entry can no longer fire" line.
+//
+// hotSince 报告本进程最后一次 Register 该 trigger 的 source listener 的时刻（零 = 从未）。见
+// listenEntry.hotSince——它是 misfire sweep 的「这个 entry 再也开不出的刻度」界线。
+func (s *Service) hotSince(triggerID string) time.Time {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if e, ok := s.listeners[triggerID]; ok {
+		return e.hotSince
+	}
+	return time.Time{}
 }
 
 // Pause is the runtime stop-the-bleeding switch (:pause, scheduler 工单⑦): persist paused=true,
@@ -205,6 +243,16 @@ func (s *Service) restartIfListening(t *triggerdomain.Trigger) {
 // workflow 侧不动，Resume 原样恢复此前的监听。在途 run 与已 pending 的 firing 刻意不受影响（它们是
 // 暂停前的事件；scheduler 照常消化）。幂等：暂停已暂停的无害 no-op（200）。
 func (s *Service) Pause(ctx context.Context, id string) (*triggerdomain.Trigger, error) {
+	// switchMu serialises the WHOLE flip (read → persist → registry) against its twin: both are
+	// read-modify-writes spanning a DB write and a registry write, so interleaving them lets the row
+	// and the registry settle on opposite answers — a trigger persisted `paused` whose cron entry is
+	// live, or the reverse. Cheap: two user-driven endpoints, never on a hot path. Ordering is
+	// switchMu → repo → s.mu, and nothing takes them the other way round.
+	// switchMu 把**整个**翻转（读→落盘→监听表）与它的孪生兄弟串起来：两者都是横跨一次 DB 写与一次
+	// 监听表写的读-改-写，交错执行就会让行与监听表停在相反的答案上——持久化写着 `paused`、cron entry 却活着，
+	// 或者反过来。代价极低：两个用户驱动端点、绝不在热径上。加锁序是 switchMu → repo → s.mu，无反向持有。
+	s.switchMu.Lock()
+	defer s.switchMu.Unlock()
 	t, err := s.repo.GetTrigger(ctx, id)
 	if err != nil {
 		return nil, err
@@ -243,6 +291,8 @@ func (s *Service) Pause(ctx context.Context, id string) (*triggerdomain.Trigger,
 // config 重注册 source listener（暂停期间的 Edit 在此生效）。无引用则只清标志，下次 workflow 激活照常
 // 注册。与 Pause 同样幂等。
 func (s *Service) Resume(ctx context.Context, id string) (*triggerdomain.Trigger, error) {
+	s.switchMu.Lock() // serialised against Pause — see there. 与 Pause 串行——见彼处。
+	defer s.switchMu.Unlock()
 	t, err := s.repo.GetTrigger(ctx, id)
 	if err != nil {
 		return nil, err
@@ -257,16 +307,39 @@ func (s *Service) Resume(ctx context.Context, id string) (*triggerdomain.Trigger
 	s.mu.Lock()
 	var regErr error
 	if e, ok := s.listeners[id]; ok && e.paused {
-		e.paused = false
+		// Register FIRST, un-pause the entry only on success: e.paused is what onReport checks, so
+		// clearing it before the listener is actually hot opens a window where a report is accepted
+		// for a trigger that isn't listening — and, on failure, leaves the entry permanently claiming
+		// to be resumed. 先 Register、成功了才解除 entry 的 paused：e.paused 正是 onReport 查的东西，在
+		// listener 真正热起来之前清掉它，就开了一扇「未监听却收报告」的窗——且一旦失败，entry 会永久
+		// 自称已恢复。
 		if l := s.listenerFor(e.kind); l != nil {
 			regErr = l.Register(id, e.workspaceID, t.Config)
+		}
+		if regErr == nil {
+			e.paused = false
+			e.hotSince = time.Now()
 		}
 	}
 	s.mu.Unlock()
 	if regErr != nil {
-		// The persisted switch is already off — honest state: the next boot/activation retries the
-		// register. Surface the failure loudly rather than pretending the listener is hot.
-		// 持久开关已关——状态诚实：下次 boot/激活会重试注册。大声上抛，不假装 listener 已热。
+		// Roll the persisted switch BACK. The old note here claimed "the next boot/activation
+		// retries the register" — it does not: attach only Registers on a 0→1 reference, and a second
+		// :resume is a no-op the moment e.paused is false, so leaving paused=false with a cold
+		// listener strands the trigger in a state only a restart can leave, while the row swears it
+		// is running. Staying paused is the honest, RETRYABLE outcome: the user (or the agent) hits
+		// :resume again. Best-effort — if even this write fails the error below still surfaces, and
+		// the entry's own paused flag keeps the machinery off.
+		// 把持久开关**翻回去**。此处旧注释声称「下次 boot/激活会重试注册」——它不会：attach 只在 0→1 引用时
+		// Register，而 e.paused 一旦为 false，第二次 `:resume` 就是 no-op；于是 paused=false + 冷 listener 会把
+		// trigger 搁死在只有重启才出得来的状态里，而行还赌咒说它在跑。**保持暂停**才是诚实且**可重试**的结局：
+		// 用户（或 agent）再按一次 `:resume`。best-effort——即便这次写也失败，下面的错误照样上抛，且 entry 自己的
+		// paused 标志仍把机器关着。
+		if changed {
+			if err := s.repo.SetTriggerPaused(ctx, id, true); err != nil {
+				s.log.Warn("triggerapp.Resume: roll back the pause switch after a failed register", zapTrigger(id), zapErr(err))
+			}
+		}
 		return nil, fmt.Errorf("triggerapp.Resume: register %s: %w", id, regErr)
 	}
 	// Close the misfire window at resume (scheduler 工单⑨): ticks skipped while PAUSED are the

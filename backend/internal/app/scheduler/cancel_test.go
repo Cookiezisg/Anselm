@@ -67,9 +67,9 @@ func TestCancelRun_NotRunning422(t *testing.T) {
 }
 
 // TestCancelRun_ParkedRun_SweepsInboxAndSettlesDrain — ④⑤⑥ on one parked run: cancel flips the
-// header, resolves the parked approval row (inbox emptied, the row lands failed — the run header
-// records the real cause), fires the drain reconcile, and emits exactly one durable cancelled
-// run_terminal.
+// header, resolves the parked approval row (inbox emptied, the row lands CANCELLED — its own true
+// disposition, matching the header), fires the drain reconcile, and emits exactly one durable
+// cancelled run_terminal.
 func TestCancelRun_ParkedRun_SweepsInboxAndSettlesDrain(t *testing.T) {
 	apf := &fakeApproval{byID: map[string]*approvaldomain.Version{"apf_1": {Template: "ok?"}}}
 	svc, store := mkSvc(t, approvalGraph(), newDisp(), nil, apf, "")
@@ -90,16 +90,19 @@ func TestCancelRun_ParkedRun_SweepsInboxAndSettlesDrain(t *testing.T) {
 	}
 	assertRunStatus(t, store, ctx, runID, flowrundomain.StatusCancelled)
 
-	// ④ the inbox holds no dead entry; the swept row records a terminal (failed — the one
-	// non-completed node terminal; the header carries the real cause `cancelled`).
-	// ④ 收件箱无死项；被收的行落终态（failed——唯一非 completed 节点终态；真实因 `cancelled` 在头上）。
+	// ④ the inbox holds no dead entry; the swept row records `cancelled` — the node agrees with its
+	// own header instead of impersonating a failure the run never had (a `failed` row here is what
+	// painted a red cell on a grey run in the matrix and auto-expanded a ledger failure row carrying
+	// no error text).
+	// ④ 收件箱无死项；被收的行记 `cancelled`——节点与自己的头一致，而不是假扮一次该 run 从未有过的失败
+	// （这里记 `failed` 正是「灰 run 上的红格」与「没有错误文字却自动展开的失败台账行」的成因）。
 	if parked, _ := store.ListParkedNodes(ctx); len(parked) != 0 {
 		t.Fatalf("parked approval must be swept on cancel, still %d in the inbox", len(parked))
 	}
 	nodes, _ := store.GetNodes(ctx, runID)
 	for _, n := range nodes {
-		if n.NodeID == "human" && n.Status != flowrundomain.NodeFailed {
-			t.Fatalf("swept approval row: want failed, got %s", n.Status)
+		if n.NodeID == "human" && n.Status != flowrundomain.NodeCancelled {
+			t.Fatalf("swept approval row: want cancelled, got %s", n.Status)
 		}
 	}
 

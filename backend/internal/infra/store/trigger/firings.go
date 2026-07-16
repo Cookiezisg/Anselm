@@ -75,6 +75,30 @@ func (s *Store) AppendMissedFiring(ctx context.Context, f *triggerdomain.Firing)
 	return out, nil
 }
 
+// RequeueMissedFiring flips a booked `missed` firing back to `pending` — see the port's contract for
+// the two callers and why the row (not a second row) must become the run. The `status = 'missed'`
+// guard is the whole safety of it: a row that already reached pending/claimed/started is untouched,
+// so this can never re-run work that ran. created_at is deliberately left at the SCHEDULED tick the
+// row was backdated to (AppendMissedFiring) — the drain takes oldest-first, and a catch-up really is
+// the oldest thing waiting.
+//
+// RequeueMissedFiring 把已记账的 `missed` firing 翻回 `pending`——两个调用方、以及为什么必须是**这行**
+// （而非再开一行）变成那次 run，见端口契约。`status = 'missed'` 守卫就是它的全部安全性：已到
+// pending/claimed/started 的行原封不动，故绝不可能把跑过的活儿再跑一遍。created_at 刻意保持在该行被
+// 回拨到的**调度刻度**（AppendMissedFiring）——drain 最老优先，而补跑本就是等得最久的那个。
+// activation_id 由本次扇出补盖：sweep 记账时它是空的（记账不是一次动作），不盖则审计链断在这一行。
+func (s *Store) RequeueMissedFiring(ctx context.Context, firingID, activationID string) error {
+	if _, err := s.frs.WhereEq("id", firingID).
+		WhereEq("status", triggerdomain.FiringMissed).
+		Updates(ctx, map[string]any{
+			"status":        triggerdomain.FiringPending,
+			"activation_id": activationID,
+		}); err != nil {
+		return fmt.Errorf("triggerstore.RequeueMissedFiring: %w", err)
+	}
+	return nil
+}
+
 // ListPendingFirings returns pending firings oldest-first for the scheduler to drain.
 //
 // ListPendingFirings 返 pending firing（最老优先）供 scheduler 排空。

@@ -42,6 +42,30 @@ import (
 // 因为那才是用户会问的；水位照样跳到 now，故老缺口恰入账一次、绝不重走。
 const maxMissedPerTrigger = 200
 
+// maxMisfireLookback floors how far back one sweep WALKS when the window overflows the ledger cap
+// above. It bounds the WALK, not the truth: `missed_checked_at` is NULL until the first sweep ever
+// runs, so `from` falls back to created_at — on an install upgrading into 工单⑨ that is however old
+// the trigger is, and expanding a `* * * * *` cron across a year is half a million robfig Next()
+// calls ON THE SYNCHRONOUS BOOT PATH (the boot sweep runs before the server serves).
+//
+// It can only bite a window that ALREADY holds more than the cap — a probe settles that in cap+1
+// Next() calls — i.e. one whose older ticks the cap was going to drop anyway. So a SPARSE schedule
+// is booked exactly, however old the gap (a weekly cron down for half a year = ~26 ticks, all of
+// them), and at hourly-or-denser the kept tail (200 ticks = 200 hours or less) lives well inside the
+// floor, so the booked rows are identical to walking the whole gap. The watermark still jumps to the
+// window's end, so whatever the floor cut is accounted exactly once and never re-walked.
+//
+// maxMisfireLookback 界定单次 sweep 在窗口撑爆上面那个台账 cap 时最多**往回走**多远。它界的是**遍历**、
+// 不是真相：首次 sweep 跑之前 `missed_checked_at` 恒为 NULL，故 `from` 回落 created_at——对升级进工单⑨
+// 的安装来说，那是 trigger 有多老就多老，而把 `* * * * *` 展开一年 = 五十万次 robfig Next()，且跑在
+// **同步 boot 径**上（boot sweep 在开始服务之前跑）。
+//
+// 它只可能咬到**本就**装了超过 cap 个刻度的窗——一次探针用 cap+1 次 Next() 就能判定——也就是那些老刻度
+// 本来就要被 cap 丢掉的窗。故**稀疏**调度无论缺口多老都记得**分毫不差**（每周一次的 cron 停机半年 =
+// 约 26 个刻度、一个不少），而每小时或更密时，留下的尾巴（200 个刻度 = 至多 200 小时）远在地板之内，
+// 故记下的行与走完整段缺口逐条相同。水位照样跳到窗口末端，故被地板切掉的部分恰入账一次、绝不重走。
+const maxMisfireLookback = 30 * 24 * time.Hour
+
 // SweepMisfires accounts every cron tick that came due while nobody could serve it, for every
 // LISTENING, non-paused cron trigger in the ctx's workspace. Called at boot (after the listen
 // registry is replayed) and on a periodic ticker — a laptop that sleeps for an hour and wakes with
@@ -74,6 +98,14 @@ func (s *Service) SweepMisfires(ctx context.Context) (int, error) {
 	now := time.Now()
 	booked := 0
 	for _, t := range triggers {
+		// Shutdown reaches the sweep (bootstrap threads the loop's ctx through forEachWorkspace):
+		// stop at a trigger boundary — every booked row is already committed — rather than grinding
+		// the rest of the list through a cancelled ctx and logging a failure for each.
+		// 关停能抵达 sweep（bootstrap 经 forEachWorkspace 把循环的 ctx 串了进来）：在 trigger 边界停——
+		// 已记的行都已提交——而不是拖着一个已取消的 ctx 把剩下的列表磨完、还逐个记一条失败。
+		if err := ctx.Err(); err != nil {
+			return booked, err
+		}
 		if t.Kind != triggerdomain.KindCron || t.Paused {
 			continue
 		}
@@ -95,6 +127,40 @@ func (s *Service) SweepMisfires(ctx context.Context) (int, error) {
 //
 // sweepTrigger 记一个 trigger 的错过刻度并推进其水位。
 func (s *Service) sweepTrigger(ctx context.Context, t *triggerdomain.Trigger, listeners map[string]time.Time, now time.Time) (int, error) {
+	// The window ends where the tick becomes UNFIREABLE — it is NOT (watermark, now].
+	//
+	// The live listener still honours a callback up to croninfra.MisfireTolerance behind its tick
+	// (snapTick), so a tick inside that trailing band may yet fire FOR REAL. Booking it `missed`
+	// takes the tick's dedup key, and the fire arriving a moment later finds the key taken:
+	// AppendFiring returns the missed row, no runnable firing exists, and the workflow silently never
+	// runs while the ledger swears the tick was missed. Only a tick that can no longer legally fire
+	// is accountable.
+	//
+	// But the grace is bounded BELOW by hotSince, and that is not a detail — it is the common case.
+	// A cron entry computes its first activation from the instant it is scheduled, so a tick at or
+	// before this process Registered the listener is already dead: the previous process's entries
+	// went with it, and this one will never deliver them. Waiting the grace out for those would leave
+	// a restart's own missed ticks — the everyday shape of this on a desktop app — invisible on the
+	// ledger for two minutes after boot. Nothing is swallowed either way: the watermark stops at the
+	// same instant, so a tick still inside the grace is booked by a later sweep, once it IS dead.
+	//
+	// 窗口止于**刻度再也开不出火**之处——**不是** (水位, now]。
+	//
+	// 活 listener 仍认可迟于其刻度至多 croninfra.MisfireTolerance 的回调（snapTick），故落在这条尾带里的刻度
+	// **仍可能真开火**。此时记 `missed` 会占掉该刻度的 dedup 键，而随后到来的 fire 发现键已被占：AppendFiring
+	// 返回那条 missed 行、没有任何可跑的 firing 存在，于是 workflow 悄无声息地不跑，台账却赌咒说它错过了。
+	// **只有再也不可能合法开火的刻度才可入账**。
+	//
+	// 但宽限**下界是 hotSince**，而这不是细节、正是常态：cron entry 的首次触发从它被排入的那一刻算起，故
+	// 本进程 Register listener 之时及之前的刻度**已经死了**——上个进程的 entry 随进程而去，这个 entry 也永远
+	// 不会送达它们。为它们干等宽限，会让**一次重启自己错过的刻度**（桌面 app 上这事最日常的形状）在 boot 后
+	// 两分钟内于台账上不可见。两种情况都不会吞：水位停在同一时刻，故仍在宽限内的刻度由稍后的 sweep 记下、
+	// 那时它才真死。
+	until := now.Add(-croninfra.MisfireTolerance)
+	if hot := s.hotSince(t.ID); hot.After(until) {
+		until = hot
+	}
+
 	// Watermark floor: never before the trigger existed — a trigger created yesterday cannot have
 	// missed last year's ticks (a NULL watermark is a trigger that never fired nor swept).
 	// 水位下限：绝不早于 trigger 存在之时——昨天建的 trigger 不可能错过去年的刻度（NULL 水位 = 从未
@@ -103,22 +169,21 @@ func (s *Service) sweepTrigger(ctx context.Context, t *triggerdomain.Trigger, li
 	if t.MissedCheckedAt != nil && t.MissedCheckedAt.After(from) {
 		from = *t.MissedCheckedAt
 	}
-	if !from.Before(now) {
-		return 0, nil // nothing to check. 无可查。
+	if !from.Before(until) {
+		return 0, nil // nothing accountable yet. 尚无可入账的。
 	}
 
-	ticks, _, err := croninfra.TicksWithin(triggerdomain.CronExpression(t.Config), from, now, 0)
+	ticks, err := s.accountableTicks(t, from, until)
 	if err != nil {
 		return 0, err
 	}
-	// Keep only the most recent maxMissedPerTrigger — see the const. 只留最近的 N 个，见常量注释。
-	if len(ticks) > maxMissedPerTrigger {
-		s.log.Info("triggerapp: misfire gap exceeds the per-sweep cap; booking the most recent ticks only",
-			zapTrigger(t.ID), zap.Int("ticks", len(ticks)), zap.Int("booked", maxMissedPerTrigger))
-		ticks = ticks[len(ticks)-maxMissedPerTrigger:]
-	}
 
 	booked := 0
+	// lastBooked = the most recent tick this sweep REALLY put on the ledger (ticks ascend, so the
+	// last assignment wins). It, not len(ticks), is what catchup_one may fire — see below.
+	// lastBooked = 本次 sweep **真正**落进台账的最近一个刻度（ticks 升序，故最后一次赋值胜出）。
+	// catchup_one 可以补的是**它**、不是 len(ticks)——见下。
+	var lastBooked time.Time
 	for _, tick := range ticks {
 		for wf, since := range listeners {
 			// A workflow only misses ticks that came due AFTER it started listening. A zero epoch =
@@ -154,38 +219,99 @@ func (s *Service) sweepTrigger(ctx context.Context, t *triggerdomain.Trigger, li
 			}
 			if f.ID == id {
 				booked++
+				lastBooked = tick
 			}
 		}
 	}
 
-	// Account the whole window regardless of the cap: the gap is now checked up to `now`, so the
+	// Account the whole window regardless of the cap: the gap is now checked up to the window's END
+	// (`until`, not now — the trailing tolerance band is deliberately still open, see above), so the
 	// next sweep starts from here and an old shutdown is never re-walked.
-	// 无论是否封顶，整个窗都已入账：缺口已查到 `now`，下次 sweep 从此处起，老关机绝不重走。
-	if err := s.repo.AdvanceMissedWatermark(ctx, t.ID, now); err != nil {
+	// 无论是否封顶，整个窗都已入账：缺口已查到窗口**末端**（`until`、非 now——尾部容差带刻意仍开着，
+	// 见上），下次 sweep 从此处起，老关机绝不重走。
+	if err := s.repo.AdvanceMissedWatermark(ctx, t.ID, until); err != nil {
 		return booked, err
 	}
 
 	// catchup_one (判决⑥, opt-in per trigger): after accounting, fire ONCE for the most recent
 	// missed tick — through the normal fan-out, so the run is indistinguishable from a real cron
 	// run (origin stays cron, overlap policy applies). Older ticks stay `missed`: "catch up ONE"
-	// means one, which is the whole point of not storming. The catch-up fire carries its own dedup
-	// key (the tick's key is taken by the missed row we just booked), keyed on the tick so a second
-	// sweep cannot double-fire it.
+	// means one, which is the whole point of not storming.
+	//
+	// The gate is what this sweep actually BOOKED, never what the window merely held. A tick already
+	// accounted (dedup hit — it fired, or a previous sweep booked it) must not be caught up again,
+	// and re-checking a window that books nothing is not hypothetical: it is exactly the crash
+	// window this sweep is written to survive (fan-out committed, AdvanceMissedWatermark did not, the
+	// process died in between). Firing off `len(ticks) > 0` there runs the same tick a SECOND time.
 	//
 	// catchup_one（判决⑥，逐 trigger 自选）：记账之后，对**最近一个**错过刻度补一次 fire——照正常扇出径，
 	// 使该 run 与真 cron run 无从分辨（origin 仍 cron、并发策略照常）。更早的刻度仍是 `missed`：「补一个」
-	// 就是一个，这正是不搞风暴的全部要义。补跑的 fire 用自己的 dedup 键（刻度键已被刚记的 missed 行占了），
-	// 仍按刻度构键，故第二次 sweep 无法重复补跑。
-	if len(ticks) > 0 && triggerdomain.MisfirePolicy(t.Config) == triggerdomain.MisfireCatchupOne {
-		last := ticks[len(ticks)-1]
-		s.catchupOne(ctx, t, last)
+	// 就是一个，这正是不搞风暴的全部要义。
+	//
+	// 闸门是本次 sweep **真正落账**的东西、绝不是窗口里**装着**什么。已入账的刻度（dedup 命中——它 fire 过、
+	// 或上次 sweep 已记）不许再补，而「重查一个什么都记不下的窗」并非假想：那正是本 sweep 写出来就为了扛住的
+	// 崩溃窗（扇出已提交、AdvanceMissedWatermark 没有、进程死在两者之间）。在那里按 `len(ticks) > 0` 开火，
+	// 就是把同一个刻度跑**第二遍**。
+	if !lastBooked.IsZero() && triggerdomain.MisfirePolicy(t.Config) == triggerdomain.MisfireCatchupOne {
+		s.catchupOne(ctx, t, lastBooked)
 	}
 	return booked, nil
 }
 
+// accountableTicks returns the ticks in (from, until] this sweep should book: the window's contents,
+// most-recent-capped at maxMissedPerTrigger.
+//
+// The walk is bounded BEFORE it starts. The probe costs at most cap+1 robfig Next() calls and answers
+// the only question that decides the cost: does the window even hold more than the cap? Almost always
+// no — a sparse schedule down for months (a weekly cron over half a year ≈ 26 ticks) is booked whole,
+// exactly, at ~26 Next() calls. Only an overflowing window is re-anchored to maxMisfireLookback, and
+// there the cap was going to keep just the tail anyway (see both consts).
+//
+// accountableTicks 返回本次 sweep 该记的 (from, until] 内刻度：窗口内容，按 maxMissedPerTrigger 保留最近的。
+//
+// 遍历在**开始之前**就被界定。探针至多花 cap+1 次 robfig Next()，回答唯一决定成本的问题：这个窗到底装没装
+// 下超过 cap 个刻度？答案几乎总是「没有」——停机数月的稀疏调度（每周一次的 cron 跨半年 ≈ 26 个刻度）以约
+// 26 次 Next() 被**分毫不差**地整个记下。只有撑爆的窗才重新锚到 maxMisfireLookback，而在那里 cap 本来也
+// 只留尾巴（见两个常量）。
+func (s *Service) accountableTicks(t *triggerdomain.Trigger, from, until time.Time) ([]time.Time, error) {
+	expr := triggerdomain.CronExpression(t.Config)
+	ticks, more, err := croninfra.TicksWithin(expr, from, until, maxMissedPerTrigger+1)
+	if err != nil || !more {
+		return ticks, err
+	}
+	if head := until.Add(-maxMisfireLookback); head.After(from) {
+		from = head
+	}
+	ticks, _, err = croninfra.TicksWithin(expr, from, until, 0)
+	if err != nil {
+		return nil, err
+	}
+	if len(ticks) > maxMissedPerTrigger {
+		s.log.Info("triggerapp: misfire gap exceeds the per-sweep cap; booking the most recent ticks only",
+			zapTrigger(t.ID), zap.Int("ticks", len(ticks)), zap.Int("booked", maxMissedPerTrigger))
+		ticks = ticks[len(ticks)-maxMissedPerTrigger:]
+	}
+	return ticks, nil
+}
+
 // catchupOne fires the most recent missed tick once through the normal fan-out path.
 //
+// It fires under the TICK'S OWN dedup key, so the fan-out lands on the `missed` row this sweep just
+// booked and requeues that row into the run (RequeueMissedFiring). One tick, one ledger row, one
+// disposition — and idx_trf_dedup governs the catch-up like every other fire. A parallel
+// `<tick>|catchup` key would instead leave the ledger asserting BOTH that the tick was missed and
+// that it ran (the sweep's own contract says older ticks stay missed — implying the caught-up one
+// does not), and would be the single firing path the dedup index does not cover: the one place a
+// double-run could still be minted. Exactly-once is not the key's job anyway — the caller only
+// reaches here for a tick it just booked, and a tick books at most once.
+//
 // catchupOne 对最近一个错过刻度经正常扇出径补一次 fire。
+//
+// 它用**刻度自己的** dedup 键开火，故扇出落在本次 sweep 刚记的那条 `missed` 行上、把该行**救进**这次 run
+// （RequeueMissedFiring）。一个刻度、一行台账、一个处置——且 idx_trf_dedup 像管别的 fire 一样管住补跑。
+// 若另起一个 `<刻度>|catchup` 键，台账就会**同时**断言该刻度既错过了、又跑了（sweep 自己的契约写着「更早的
+// 刻度仍是 missed」——言下之意被补的那个不是），且那会是 dedup 索引唯一管不到的开火径：唯一还能铸出双跑的
+// 地方。何况「恰一次」本就不归键管——调用方只为**刚落账**的刻度走到这里，而一个刻度至多落账一次。
 func (s *Service) catchupOne(ctx context.Context, t *triggerdomain.Trigger, tick time.Time) {
 	listeners := s.listeningSince(t.ID)
 	workflows := make([]string, 0, len(listeners))
@@ -207,6 +333,6 @@ func (s *Service) catchupOne(ctx context.Context, t *triggerdomain.Trigger, tick
 		// payload 的 firedAt 保持**调度刻度**（cron 的规范输出字段）：workflow 正是为该刻度而跑，
 		// 告诉它睡醒时间会让这次工作的日期错位。
 		Payload:  map[string]any{"firedAt": tick},
-		DedupKey: croninfra.DedupKey(t.ID, tick) + "|catchup",
+		DedupKey: croninfra.DedupKey(t.ID, tick),
 	})
 }

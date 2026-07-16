@@ -410,6 +410,21 @@ func (a *App) Boot(ctx context.Context) {
 	go a.retentionLoop(retentionCtx)
 }
 
+// bgWarn logs a background-loop failure — unless the loop is simply shutting down. Now that the
+// loops' ctx reaches the work (forEachWorkspace), every in-flight DB op fails with context.Canceled
+// the moment Shutdown cancels; that is the ordered shutdown WORKING, not a fault. A warning on every
+// clean exit is how a real one gets ignored.
+//
+// bgWarn 记后台循环的失败——除非那只是循环在关停。既然循环的 ctx 现在能抵达工作（forEachWorkspace），
+// Shutdown 一取消，所有在飞 DB 操作都会以 context.Canceled 失败；那是有序关停在**正常工作**、不是故障。
+// 每次干净退出都喊一嗓子，真正的警告就是这样被无视的。
+func (a *App) bgWarn(ctx context.Context, msg string, err error) {
+	if ctx.Err() != nil {
+		return
+	}
+	a.log.Warn(msg, zap.Error(err))
+}
+
 // kickRetention asks for an off-schedule retention sweep, dropping the ask if one is already queued
 // (the pending sweep will read the settings fresh anyway, so a second is redundant). Never blocks —
 // it runs on the HTTP handler's goroutine (the settings retention-changed hook).
@@ -423,14 +438,30 @@ func (a *App) kickRetention() {
 	}
 }
 
-// forEachWorkspace runs fn once per workspace, each in a Detached ctx seeded with that
-// workspace's id. The workspaces table is global (no ,ws column), so listing works on a bare
-// ctx; everything inside fn is then properly isolated. Listing fresh per call keeps a
-// workspace created after boot participating in the next tick.
+// forEachWorkspace runs fn once per workspace, each in a ctx seeded with that workspace's id. The
+// workspaces table is global (no ,ws column), so listing works on a bare ctx; everything inside fn
+// is then properly isolated. Listing fresh per call keeps a workspace created after boot
+// participating in the next tick.
 //
-// forEachWorkspace 对每个 workspace 跑一次 fn，各自在种了该 workspace id 的 Detached ctx 里。
-// workspaces 表是全局表（无 ,ws 列），裸 ctx 可列；fn 内部随之正确隔离。每次调用现列，使 boot 后
-// 新建的 workspace 在下一个 tick 即参与。
+// The seed is applied TO THE CALLER'S ctx, not to a fresh Background: every caller is a background
+// loop whose ctx IS its shutdown signal (Boot's is Background and never cancels, so it is unaffected).
+// Seeding onto Background instead — which reqctx.Detached does, since its job is escaping a REQUEST's
+// cancellation, a hazard no loop here has — silently threw that signal away: the loops' shutdown
+// waits, and SweepRunRetention's between-batch `ctx.Err()` check (工单⑬), were reading a ctx that
+// could never be cancelled. The wait would sit out a long purge to the full grace and the check was
+// dead code. Cancellation now reaches the work: a sweep stops at its next batch boundary (every
+// committed batch stays committed), and the remaining workspaces are skipped rather than started
+// after the process was asked to stop.
+//
+// forEachWorkspace 对每个 workspace 跑一次 fn，各自在种了该 workspace id 的 ctx 里。workspaces 表是全局表
+// （无 ,ws 列），裸 ctx 可列；fn 内部随之正确隔离。每次调用现列，使 boot 后新建的 workspace 在下一个 tick 即参与。
+//
+// 种子盖在**调用方的** ctx 上、而非另起一个 Background：这里每个调用方都是后台循环，其 ctx **就是**它的关停
+// 信号（Boot 的是 Background、永不取消，故不受影响）。改盖在 Background 上——即 reqctx.Detached 所做的，因为
+// 它的职责是逃开**请求**的取消，而此处没有任何循环面对那个危险——等于把信号静默扔了：循环的关停等待、以及
+// SweepRunRetention 的批间 `ctx.Err()` 检查（工单⑬），读的都是一个永不可能被取消的 ctx。等待会为一次长清理
+// 干坐满整个宽限，而那个检查是死代码。现在取消能真正抵达工作：清理在下一个批边界停（已提交的批保持提交），
+// 且剩余 workspace 被跳过、而不是在进程已被要求停止之后才开工。
 func (a *App) forEachWorkspace(ctx context.Context, fn func(wsCtx context.Context)) {
 	workspaces, err := a.svc.workspace.List(ctx)
 	if err != nil {
@@ -438,7 +469,10 @@ func (a *App) forEachWorkspace(ctx context.Context, fn func(wsCtx context.Contex
 		return
 	}
 	for _, ws := range workspaces {
-		fn(reqctxpkg.Detached(ws.ID))
+		if ctx.Err() != nil {
+			return
+		}
+		fn(reqctxpkg.SetWorkspaceID(ctx, ws.ID))
 	}
 }
 
@@ -461,7 +495,7 @@ func (a *App) drainLoop(ctx context.Context) {
 		case <-t.C:
 			a.forEachWorkspace(ctx, func(wsCtx context.Context) {
 				if err := a.svc.scheduler.DrainFirings(wsCtx); err != nil {
-					a.log.Warn("bootstrap: drain firings", zap.Error(err))
+					a.bgWarn(ctx, "bootstrap: drain firings", err)
 				}
 			})
 		}
@@ -495,7 +529,7 @@ func (a *App) misfireLoop(ctx context.Context) {
 		case <-t.C:
 			a.forEachWorkspace(ctx, func(wsCtx context.Context) {
 				if n, err := a.svc.trigger.SweepMisfires(wsCtx); err != nil {
-					a.log.Warn("bootstrap: misfire sweep", zap.Error(err))
+					a.bgWarn(ctx, "bootstrap: misfire sweep", err)
 				} else if n > 0 {
 					a.log.Info("bootstrap: accounted missed cron ticks", zap.Int("missed", n))
 				}
@@ -542,7 +576,7 @@ func (a *App) sweepRetention(ctx context.Context) {
 	cutoff := time.Now().UTC().AddDate(0, 0, -days)
 	a.forEachWorkspace(ctx, func(wsCtx context.Context) {
 		if n, err := a.svc.scheduler.SweepRunRetention(wsCtx, cutoff); err != nil {
-			a.log.Warn("bootstrap: run retention sweep", zap.Error(err))
+			a.bgWarn(ctx, "bootstrap: run retention sweep", err)
 		} else if n > 0 {
 			a.log.Info("bootstrap: purged runs past the retention line", zap.Int("runs", n), zap.Int("retentionDays", days))
 		}
@@ -560,7 +594,7 @@ func (a *App) timeoutLoop(ctx context.Context) {
 		case now := <-t.C:
 			a.forEachWorkspace(ctx, func(wsCtx context.Context) {
 				if err := a.svc.scheduler.CheckTimeouts(wsCtx, now.UTC()); err != nil {
-					a.log.Warn("bootstrap: check timeouts", zap.Error(err))
+					a.bgWarn(ctx, "bootstrap: check timeouts", err)
 				}
 			})
 		}

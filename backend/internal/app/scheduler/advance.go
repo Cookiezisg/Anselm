@@ -201,15 +201,21 @@ func (s *Service) emitRunStarted(ctx context.Context, run *flowrundomain.FlowRun
 	if s.entities == nil {
 		return
 	}
-	origin := ""
-	if run.Origin != nil {
-		origin = *run.Origin
+	// A NULL origin OMITS the key, exactly as the REST DTO does (`origin` is omitempty, and api.md
+	// binds clients to "render unknown on absence; never read an empty string"). It is reachable —
+	// claimFiring's TriggerKind lookup is best-effort and a soft-deleted trigger leaves the stamp
+	// NULL — so the same absent origin must not arrive as `""` here and as a missing key over REST:
+	// one NULL, one representation, or every client needs two ways to spell "unknown".
+	// origin 为 NULL 时**省略该键**，与 REST DTO 完全一致（`origin` 带 omitempty，且 api.md 约束客户端
+	// 「按缺席渲 unknown、绝不认空串」）。它是可达的——claimFiring 查 TriggerKind 是 best-effort，软删的
+	// trigger 会让这枚章留 NULL——故同一个「没有 origin」不能在这里是 `""`、在 REST 那边却是键缺席：
+	// 一个 NULL、一种表示法，否则每个客户端都得会两种「未知」的拼法。
+	content := map[string]any{"flowrunId": run.ID}
+	if run.Origin != nil && *run.Origin != "" {
+		content["origin"] = *run.Origin
 	}
-	content, _ := json.Marshal(map[string]any{
-		"flowrunId": run.ID,
-		"origin":    origin,
-	})
-	entitystreamapp.Signal(ctx, s.entities, streamdomain.Scope{Kind: streamdomain.KindWorkflow, ID: run.WorkflowID}, entitystreamapp.NodeRunStarted, content, false)
+	body, _ := json.Marshal(content)
+	entitystreamapp.Signal(ctx, s.entities, streamdomain.Scope{Kind: streamdomain.KindWorkflow, ID: run.WorkflowID}, entitystreamapp.NodeRunStarted, body, false)
 }
 
 // emitRunTerminal streams a flowrun's terminal status as a DURABLE flowrun signal (seq + replay

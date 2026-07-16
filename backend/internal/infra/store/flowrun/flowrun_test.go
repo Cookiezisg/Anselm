@@ -323,6 +323,51 @@ func TestReplay_ClearFailed_ReopenRun(t *testing.T) {
 	}
 }
 
+// TestReopenForReplay_GuardsTheReversal — :replay's header write is the ONLY one that reverses a
+// terminal, and it carries the same first-wins guard as MarkRunTerminal. Without it, a second
+// :replay that read `failed` before the first one finished would land its UPDATE on whatever
+// terminal the run had since reached — resurrecting it to running, wiping the completed_at/error it
+// just earned, and writing a replay_count from a stale read.
+//
+// TestReopenForReplay_GuardsTheReversal——:replay 的头写是**唯一**逆转终态的写，它带着与 MarkRunTerminal
+// 同款的 first-wins 守卫。没有它，一个在前者完成前就读到 `failed` 的第二次 :replay 会把 UPDATE 落在该 run
+// 此后已走到的任何终态上——把它复活成 running、抹掉它刚挣到的 completed_at/error、并写入一个据陈旧读算出
+// 的 replay_count。
+func TestReopenForReplay_GuardsTheReversal(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	id := "fr_race"
+	mkRun(t, s, ctx, id, "wf_1", map[string]any{})
+	if won, err := s.MarkRunTerminal(ctx, id, flowrundomain.StatusFailed, "boom"); err != nil || !won {
+		t.Fatalf("seed failed terminal: won=%v err=%v", won, err)
+	}
+
+	// Winner reopens.
+	if err := s.ReopenForReplay(ctx, id); err != nil {
+		t.Fatalf("first ReopenForReplay: %v", err)
+	}
+	// The winner's run reaches a NEW terminal (as its drive would).
+	if won, err := s.MarkRunTerminal(ctx, id, flowrundomain.StatusCompleted, ""); err != nil || !won {
+		t.Fatalf("winner's new terminal: won=%v err=%v", won, err)
+	}
+
+	// The loser — holding the stale `failed` read that passed its own status check — must not land.
+	// 输家——手里攥着那个通过了自身状态判断的陈旧 `failed` 读——绝不能落地。
+	if err := s.ReopenForReplay(ctx, id); !errors.Is(err, flowrundomain.ErrNotReplayable) {
+		t.Fatalf("the racing replay must lose the guard, got %v", err)
+	}
+	run, _ := s.GetRun(ctx, id)
+	if run.Status != flowrundomain.StatusCompleted {
+		t.Fatalf("a completed run was resurrected to %s by the guard loser", run.Status)
+	}
+	if run.CompletedAt == nil {
+		t.Fatal("the loser wiped the completed_at the run had just earned")
+	}
+	if run.ReplayCount != 1 {
+		t.Fatalf("replayCount = %d, want 1 — the loser must not bump it", run.ReplayCount)
+	}
+}
+
 // workspace isolation: a run is invisible cross-workspace; but ListRunningRuns (boot) crosses.
 func TestWorkspaceIsolation_AndCrossWsBoot(t *testing.T) {
 	s := newStore(t)
@@ -348,9 +393,11 @@ func TestWorkspaceIsolation_AndCrossWsBoot(t *testing.T) {
 	}
 }
 
-// TestCancelParkedNodes — the review's minor fix: when a run is cancelled (replace/kill) while
-// parked on an approval, its parked node is resolved to a terminal state so it leaves the inbox.
-// Scoped to the run; other runs' parked approvals are untouched.
+// TestCancelParkedNodes — when a run is cancelled (:cancel/kill/replace) while parked on an
+// approval, its parked node is resolved so it leaves the inbox, recording the row's REAL
+// disposition (cancelled — never `failed`, which would invent a failure the run never had and
+// contradict its own cancelled header). Scoped to the run; other runs' parked approvals are
+// untouched.
 func TestCancelParkedNodes(t *testing.T) {
 	s := newStore(t)
 	ctx := ctxWS("ws_1")
@@ -377,6 +424,31 @@ func TestCancelParkedNodes(t *testing.T) {
 	parked, _ := s.ListParkedNodes(ctx)
 	if len(parked) != 1 || parked[0].FlowRunID != "fr_2" {
 		t.Fatalf("only fr_2's parked node should remain in the inbox, got %+v", parked)
+	}
+	// The swept row records cancelled — its own truth — and lands a completed_at: it is terminal now,
+	// and a NULL there reads as "still open". `failed` here would be a fabricated failure.
+	// 被收的行记 cancelled——它自己的真相——并落 completed_at：它现在是终态，NULL 会被读成「还开着」。
+	// 在这里记 `failed` 是**捏造**一次失败。
+	swept, _ := s.GetNodes(ctx, "fr_1")
+	if len(swept) != 1 || swept[0].Status != flowrundomain.NodeCancelled {
+		t.Fatalf("swept row must record cancelled, got %+v", swept)
+	}
+	if swept[0].CompletedAt == nil {
+		t.Fatal("swept row must carry completed_at — it is terminal, not still parked")
+	}
+}
+
+// TestCancelParkedNodes_CancelledRowIsWritable pins the schema half of the same law: 'cancelled' is
+// in flowrun_nodes' CHECK, so the sweep is a real write and not a constraint violation swallowed as
+// a logged warning (which would silently leave the dead approval in the inbox forever).
+func TestCancelParkedNodes_CancelledRowIsWritable(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	if _, err := s.InsertNodeResult(ctx, &flowrundomain.FlowRunNode{
+		FlowRunID: "fr_direct", NodeID: "gate", Iteration: 0, Kind: "approval",
+		Status: flowrundomain.NodeCancelled, Result: map[string]any{},
+	}); err != nil {
+		t.Fatalf("a cancelled node row must be insertable (CHECK must carry the word): %v", err)
 	}
 }
 

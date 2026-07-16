@@ -80,6 +80,51 @@ var Schema = []string{
 	`CREATE INDEX IF NOT EXISTS idx_fr_ws_workflow ON flowruns(workspace_id, workflow_id, started_at DESC, id DESC)`,
 	`CREATE INDEX IF NOT EXISTS idx_fr_running ON flowruns(status) WHERE status = 'running'`,
 
+	// idx_fr_ws_wf_status exists for ONE query: the consecutive-failure streak (stats.go ④), whose
+	// "is there a completed run newer than this failed one" test is a per-row EXISTS. idx_fr_ws_workflow
+	// cannot serve it — status is not in that index, so each probe scans every newer row of the workflow
+	// and finds nothing precisely WHEN A WORKFLOW IS FAILING, making the walk quadratic in the streak
+	// length K. With status as the third column the probe becomes a seek instead: (ws, wf, 'completed')
+	// is a range whose FIRST entry (started_at DESC) is the newest completed run, so EXISTS answers in
+	// one index hit.
+	//
+	// Measured (stats_bench_test.go, M1 Pro, 129,600 runs = cron@1m × the 90d default retention line —
+	// a volume the shipped config reaches on its own), whole-endpoint ns/op:
+	//
+	//	  K        without        with
+	//	  0        0.443s         0.394s     ← healthy: indistinguishable, which is why this hid
+	//	  1000     0.671s         0.393s
+	//	  4000     4.27s          0.397s     ← 10.8× faster, and FLAT: K left the runtime entirely
+	//
+	// The cruelty was the shape, not the constant: it exploded exactly when a workflow was failing —
+	// the moment the user opens the scheduler to look at it — and no test on healthy data could see it.
+	// A plain additive CREATE INDEX (no table rebuild, outcome-idempotent); the cost is one more index
+	// maintained on flowruns writes, which are per-run-header, not per-node. The ~0.39s floor that
+	// remains is NOT this index's to give back: it is query ①'s GROUP BY, which scans every run of the
+	// requested workflows and evaluates julianday() per row. That floor is linear and predictable rather
+	// than explosive, and is recorded rather than fixed here — see stats.go's header.
+	//
+	// idx_fr_ws_wf_status 只为**一条**查询存在：连败游走（stats.go ④），它的「有没有比这条 failed 更新的
+	// completed」是逐行 EXISTS。idx_fr_ws_workflow 服务不了它——status 不在那个索引里，故每次探测都要扫遍该
+	// workflow 所有更新的行、且**恰恰在 workflow 正在失败时**扫空，使游走在连败长度 K 上呈平方。把 status
+	// 放进第三列后探测变成 seek：(ws, wf, 'completed') 是一段区间、其**首条**（started_at DESC）即最新的
+	// completed run，故 EXISTS 一次命中即答完。
+	//
+	// 实测（stats_bench_test.go，M1 Pro，129,600 run = cron@1m × 90d 默认保留线——出厂配置自己就能长到的量），
+	// 整端点 ns/op：
+	//
+	//	  K        无索引         有索引
+	//	  0        0.443s        0.394s     ← 健康时无从分辨，这正是它藏住的原因
+	//	  1000     0.671s        0.393s
+	//	  4000     4.27s         0.397s     ← 快 10.8 倍，且**平**：K 彻底离开了运行时
+	//
+	// 恶毒的是形状、不是常数：它**恰好在 workflow 正在失败时**爆炸——也就是用户打开 scheduler 去看它的那一刻
+	// ——而健康数据上的任何测试都看不见。纯增量 CREATE INDEX（无需重建表、结果幂等）；代价是 flowruns 写入多
+	// 维护一个索引，而 flowruns 是**逐 run 头**写、非逐节点。剩下的 ~0.39s 地板**不归这个索引还**：那是查询
+	// ① 的 GROUP BY——它扫请求 workflow 的每一个 run、并逐行求 julianday()。那个地板是线性可预测的、不是爆炸
+	// 式的，故在此**记档而非顺手修**——见 stats.go 的头注释。
+	`CREATE INDEX IF NOT EXISTS idx_fr_ws_wf_status ON flowruns(workspace_id, workflow_id, status, started_at DESC, id DESC)`,
+
 	// Column evolution — run provenance (scheduler 工单①). ADD COLUMN (not baked into the CREATE)
 	// so an existing install's flowruns table gains the columns on next boot; SQLite has no
 	// ADD COLUMN IF NOT EXISTS, so re-runs rely on db.Migrate treating "duplicate column name" on an
@@ -100,7 +145,7 @@ var Schema = []string{
 		iteration     INTEGER NOT NULL DEFAULT 0,
 		kind          TEXT NOT NULL,
 		ref           TEXT NOT NULL DEFAULT '',
-		status        TEXT NOT NULL CHECK (status IN ('completed','failed','parked')),
+		status        TEXT NOT NULL CHECK (status IN ('completed','failed','parked','cancelled')),
 		result        TEXT NOT NULL DEFAULT '{}',
 		error         TEXT NOT NULL DEFAULT '',
 		created_at    DATETIME NOT NULL,
@@ -122,6 +167,67 @@ var Schema = []string{
 	`ALTER TABLE flowrun_nodes ADD COLUMN ready_at DATETIME`,
 	`ALTER TABLE flowrun_nodes ADD COLUMN started_at DATETIME`,
 }
+
+// NodesCancelledMarker / NodesCheckRebuild: the node status CHECK gained 'cancelled' (the swept
+// approval of a hand-stopped run records its real disposition instead of impersonating a failure —
+// see CancelParkedNodes), and SQLite cannot ALTER a CHECK, so an existing install must REBUILD the
+// table. Same mechanism and contract as trigger_firings' 'missed' (工单⑨): bootstrap runs this via
+// db.MigrateRebuild, idempotent BY OUTCOME — it rebuilds only while the live sqlite_master DDL lacks
+// the marker, so a fresh install (the CREATE above already carries the word) and every post-rebuild
+// boot are no-ops.
+//
+// Two things this table has that trigger_firings did not, both load-bearing:
+//   - ready_at / started_at (工单⑫) exist only as ALTER … ADD COLUMN above, never in the CREATE. The
+//     rebuild declares all 15 columns INLINE and copies them explicitly — safe because MigrateRebuild
+//     runs after Migrate, so the ALTERs have already landed on any install that reaches here.
+//   - Three indexes drop with the old table and are recreated, one UNIQUE (idx_frn_once — the D3
+//     record-once key; the copy preserves it because the source already satisfies it) and one PARTIAL
+//     (idx_frn_parked, the inbox's covering index).
+//
+// NodesCancelledMarker / NodesCheckRebuild：节点 status CHECK 加词 'cancelled'（被手动停掉的 run 所收割
+// 的审批记它**真实的处置**、不再假扮失败——见 CancelParkedNodes），而 SQLite 无法 ALTER CHECK，故已有安装
+// 必须**重建**该表。机制与契约同 trigger_firings 的 'missed'（工单⑨）：bootstrap 经 db.MigrateRebuild 跑，
+// **结果幂等**——仅当 sqlite_master 现行 DDL 缺该标记词才重建，故全新安装（上方 CREATE 已含该词）与重建后
+// 的每次启动都是 no-op。
+//
+// 本表比 trigger_firings 多两处、皆承重：
+//   - ready_at / started_at（工单⑫）只以上方的 ALTER … ADD COLUMN 存在、从不在 CREATE 里。重建把 15 列
+//     全部**内联**声明并逐列拷贝——安全，因为 MigrateRebuild 在 Migrate **之后**跑，任何走到这里的安装都
+//     已经补过那两列。
+//   - 三个索引随旧表落、逐个重建，其中一个 UNIQUE（idx_frn_once——D3 record-once 键；源表本就满足它，故
+//     拷贝不会撞）、一个**偏**索引（idx_frn_parked，收件箱的覆盖索引）。
+var (
+	NodesCancelledMarker = "'cancelled'"
+
+	NodesCheckRebuild = []string{
+		`CREATE TABLE flowrun_nodes_rebuild (
+			id            TEXT PRIMARY KEY,
+			workspace_id  TEXT NOT NULL,
+			flowrun_id    TEXT NOT NULL,
+			node_id       TEXT NOT NULL,
+			iteration     INTEGER NOT NULL DEFAULT 0,
+			kind          TEXT NOT NULL,
+			ref           TEXT NOT NULL DEFAULT '',
+			status        TEXT NOT NULL CHECK (status IN ('completed','failed','parked','cancelled')),
+			result        TEXT NOT NULL DEFAULT '{}',
+			error         TEXT NOT NULL DEFAULT '',
+			created_at    DATETIME NOT NULL,
+			completed_at  DATETIME,
+			updated_at    DATETIME NOT NULL,
+			ready_at      DATETIME,
+			started_at    DATETIME
+		)`,
+		`INSERT INTO flowrun_nodes_rebuild
+			SELECT id, workspace_id, flowrun_id, node_id, iteration, kind, ref, status, result, error,
+				created_at, completed_at, updated_at, ready_at, started_at
+			FROM flowrun_nodes`,
+		`DROP TABLE flowrun_nodes`,
+		`ALTER TABLE flowrun_nodes_rebuild RENAME TO flowrun_nodes`,
+		`CREATE UNIQUE INDEX idx_frn_once ON flowrun_nodes(flowrun_id, node_id, iteration)`,
+		`CREATE INDEX idx_frn_run ON flowrun_nodes(flowrun_id)`,
+		`CREATE INDEX idx_frn_parked ON flowrun_nodes(workspace_id, status) WHERE status = 'parked'`,
+	}
+)
 
 // Store implements flowrundomain.Repository over pkg/orm, plus the concrete run-creation
 // methods (SeedRunOnTx / CreateRunWithTrigger) that span both tables in one transaction.
@@ -343,6 +449,25 @@ func (s *Store) MarkRunTerminal(ctx context.Context, id, status, errMsg string) 
 	return n > 0, nil
 }
 
+// ReopenForReplay flips a failed run back to running (:replay's header half) — GUARDED on it still
+// being failed, the same first-wins discipline MarkRunTerminal applies to the terminal writes. This
+// is the ONLY write that reverses a terminal, so it is the only place the guard could be missed, and
+// an unguarded read-check-write here is not academic: two :replay calls both read `failed`, both pass
+// the check, and the loser's UPDATE lands after the winner already drove the run to a new terminal —
+// resurrecting a completed/failed run to running, wiping the completed_at and error it just earned,
+// and writing a replay_count computed from a stale read. The guard collapses all of it: the loser
+// matches 0 rows and gets ErrNotReplayable (422 — honest, the run is no longer failed), and because
+// only a winner can move a run out of `failed`, the stale ReplayCount+1 it carries is exactly right.
+// Retention's purge guards the same boundary from the other side (it re-asserts terminal on delete so
+// a concurrent :replay wins).
+//
+// ReopenForReplay 把 failed run 翻回 running（:replay 的头那半）——守卫在它**仍是 failed**，与
+// MarkRunTerminal 施于终态写的 first-wins 纪律同款。这是**唯一**逆转终态的写，故也是唯一可能漏掉守卫的
+// 地方，而这里的无守卫「读-判-写」并非学术问题：两个 :replay 都读到 `failed`、都通过判断，输家的 UPDATE
+// 落在赢家已把 run 驱到新终态之后——把 completed/failed 的 run **复活**成 running、抹掉它刚挣到的
+// completed_at 与 error、并写入一个据陈旧读算出的 replay_count。守卫让这一切归零：输家匹配 0 行、得
+// ErrNotReplayable（422——诚实，该 run 已不是 failed），且因为只有赢家能把 run 移出 `failed`，它带的
+// 那个陈旧 ReplayCount+1 恰好正确。保留清理从另一侧守同一条边界（删头时重申终态守卫，使并发 :replay 赢）。
 func (s *Store) ReopenForReplay(ctx context.Context, id string) error {
 	run, err := s.GetRun(ctx, id) // ErrNotFound (ws-scoped) if missing
 	if err != nil {
@@ -351,7 +476,7 @@ func (s *Store) ReopenForReplay(ctx context.Context, id string) error {
 	if run.Status != flowrundomain.StatusFailed {
 		return flowrundomain.ErrNotReplayable
 	}
-	_, err = s.runs.WhereEq("id", id).Updates(ctx, map[string]any{
+	n, err := s.runs.WhereEq("id", id).WhereEq("status", flowrundomain.StatusFailed).Updates(ctx, map[string]any{
 		"status":       flowrundomain.StatusRunning,
 		"replay_count": run.ReplayCount + 1,
 		"error":        "",
@@ -359,6 +484,9 @@ func (s *Store) ReopenForReplay(ctx context.Context, id string) error {
 	})
 	if err != nil {
 		return fmt.Errorf("flowrunstore.ReopenForReplay: %w", err)
+	}
+	if n == 0 {
+		return flowrundomain.ErrNotReplayable // lost to a racing replay/terminal — the standing status wins
 	}
 	return nil
 }
@@ -441,18 +569,52 @@ func (s *Store) ListParkedNodes(ctx context.Context) ([]*flowrundomain.FlowRunNo
 	return rows, nil
 }
 
-// CancelParkedNodes resolves a run's still-parked nodes to a terminal state when the run itself is
-// being cancelled (replace / kill while it was parked on an approval). Without this, the parked
-// approval row outlives its cancelled run and lingers in the inbox (ListParkedNodes) as a dead,
-// undecidable entry. NodeFailed is the only non-completed node terminal; the run header already
-// records the real cause (cancelled). Returns how many parked nodes were resolved.
+// CancelParkedNodes resolves a run's still-parked nodes to NodeCancelled when the run itself is
+// being cancelled (:cancel / kill / replace while it was parked on an approval). Without this, the
+// parked approval row outlives its cancelled run and lingers in the inbox (ListParkedNodes) as a
+// dead, undecidable entry. Returns how many parked nodes were resolved.
 //
-// CancelParkedNodes 在 run 本身被取消时（parked 在审批上却遭 replace/kill）把其仍 parked 的节点收到终态。
-// 否则该 parked 审批行会比被取消的 run 活得久、留在收件箱（ListParkedNodes）成死的不可决策项。NodeFailed 是
-// 唯一非 completed 的节点终态；run 头已记真实因（cancelled）。返被收的 parked 节点数。
+// The row records CANCELLED, not failed: the approval never failed — nobody ever answered it, and
+// the run was stopped by hand. `failed` here would make the node contradict its own header — a grey
+// cancelled run whose node row is red, which the matrix renders as a red cell and the ledger
+// auto-expands as a failure row carrying no error text (there is no error to show). Reaching for
+// `failed` because it is the familiar non-completed terminal is the trap: cancelled is a disposition,
+// not a fault. See NodeCancelled's invariant in the domain.
+//
+// CALLERS MUST GATE THIS ON WINNING THE HEADER GUARD (MarkRunTerminal's won). That is not politeness
+// — it is what makes the word free. Only a winner's run is cancelled, so a cancelled row can only
+// ever sit on a cancelled run, which is terminal-final and never re-walked. A loser's run reached its
+// NATURAL terminal instead: if that terminal is `failed` the run is still replayable, and sweeping
+// its parked row to cancelled would leave :replay unable to clear it (DeleteFailedNodes takes only
+// failed rows) — the approval would be permanently stuck, silently skipped by every re-walk. A
+// loser must leave the parked row alone: on a failed run that row is still live, because :replay can
+// resurrect the run and a human can still decide it (exactly why the failRun path never sweeps).
+//
+// CancelParkedNodes 在 run 本身被取消时（parked 在审批上却遭 :cancel/kill/replace）把其仍 parked 的
+// 节点收成 NodeCancelled。否则该 parked 审批行会比被取消的 run 活得久、留在收件箱（ListParkedNodes）
+// 成死的不可决策项。返被收的 parked 节点数。
+//
+// 行记 **cancelled、不是 failed**：这个审批**没有失败**——根本没人回答它，是 run 被手动停了。在这里写
+// `failed` 会让节点与自己的头**自相矛盾**——一个灰色 cancelled run，其节点行却是红的：矩阵把它渲成红格，
+// 台账把它当失败行**自动展开**、却拿不出任何错误文字（根本没有错误）。「顺手抓 `failed`，因为它是那个眼熟
+// 的非 completed 终态」正是这里的陷阱：cancelled 是**处置**、不是**故障**。不变式见 domain 的 NodeCancelled。
+//
+// **调用方必须把它闸在「赢了头守卫」（MarkRunTerminal 的 won）上**。这不是客气——这正是这个词免费的
+// 原因。只有赢家的 run 才是 cancelled，故 cancelled 行只可能落在 cancelled run 上，而那是终局终态、
+// 永不被重走。输家的 run 走到的是它**自然的**终态：若那是 `failed`，run 仍可 replay，而把它的 parked
+// 行收成 cancelled 会让 :replay 清不掉它（DeleteFailedNodes 只收 failed 行）——该审批就永久卡死、被
+// 之后每次重走静默跳过。输家必须**别碰** parked 行：在 failed run 上那行仍然活着，因为 :replay 能把
+// run 救回来、人仍可决策它（这正是 failRun 路径从不收割的原因）。
 func (s *Store) CancelParkedNodes(ctx context.Context, flowrunID string) (int64, error) {
 	n, err := s.nodes.WhereEq("flowrun_id", flowrunID).WhereEq("status", flowrundomain.NodeParked).
-		Update(ctx, "status", flowrundomain.NodeFailed)
+		Updates(ctx, map[string]any{
+			"status": flowrundomain.NodeCancelled,
+			// The sweep is the row's completion: it is terminal now, and a NULL completed_at would
+			// read as "still open" to every consumer that distinguishes parked-vs-decided by it.
+			// 收割即该行的落定：它现在是终态，而 NULL 的 completed_at 会让所有靠它区分「park 中 vs
+			// 已决」的消费者读成「还开着」。
+			"completed_at": time.Now().UTC(),
+		})
 	if err != nil {
 		return 0, fmt.Errorf("flowrunstore.CancelParkedNodes: %w", err)
 	}
