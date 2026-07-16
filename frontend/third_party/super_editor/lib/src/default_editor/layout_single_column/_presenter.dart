@@ -198,7 +198,11 @@ class SingleColumnLayoutPresenter {
             _docRemovedOrMovedIds.add(event.nodeId);
             _docStructural = true;
           } else {
-            // Unknown event type — cannot attribute. 未知事件,无从归账。
+            // Unknown event type — cannot attribute. This branch also (deliberately) catches
+            // `DocumentWasResetChange`: an undo transaction resets to a snapshot and replays history,
+            // so its node events describe the replay, NOT the pre-undo delta — full rebuild is the
+            // only correct response. 未知事件,无从归账。此分支同时(刻意)接住 DocumentWasResetChange:
+            // undo 事务回快照重放,事件描述的是重放而非 undo 前后差,唯一正确响应=全量重建。
             _docWholeDirty = true;
             break;
           }

@@ -1087,6 +1087,25 @@ extension StandardEditablesInContext on EditContext {
   MutableDocumentComposer? get maybeComposer => findMaybe<MutableDocumentComposer>(Editor.composerKey);
 }
 
+// ═══ ANSELM PATCH (ADR 0009): reset marker for incremental change accounting ══════════════════════
+/// Marks a [DocumentChangeLog] whose transaction RESET the document to a snapshot before replaying
+/// history (undo does this: [Editor.undo] → [MutableDocument.reset] → replay). Such a log's node
+/// events describe the REPLAY relative to the snapshot — NOT the delta from the pre-undo document —
+/// so per-node change accounting (the incremental layout presenter) must discard its caches and do a
+/// full rebuild. Consumers that ignore event types are unaffected. 标记「本事务经历过 reset 回快照再
+/// 重放」的 changeLog(undo 即此):其事件描述的是重放过程而非 undo 前后差,节点级归账(增量 presenter)
+/// 见到它必须弃缓存全量重建;不看事件类型的消费者不受影响。
+class DocumentWasResetChange extends DocumentChange {
+  const DocumentWasResetChange();
+
+  @override
+  String describe() => "Document was reset to a snapshot (undo) — per-node accounting is invalid";
+
+  @override
+  String toString() => "DocumentWasResetChange";
+}
+// ═══ END ANSELM PATCH ════════════════════════════════════════════════════════════════════════════
+
 /// An in-memory, mutable [Document].
 class MutableDocument with Iterable<DocumentNode> implements Document, Editable {
   /// Creates an in-memory, mutable version of a [Document].
@@ -1399,9 +1418,15 @@ class MutableDocument with Iterable<DocumentNode> implements Document, Editable 
     if (documentChanges.isEmpty && !_didReset) {
       return;
     }
+    // ANSELM PATCH (ADR 0009): surface the reset in the log itself — see [DocumentWasResetChange].
+    // 把 reset 事实带进 changeLog 本体。
+    final didReset = _didReset;
     _didReset = false;
 
-    final changeLog = DocumentChangeLog(documentChanges);
+    final changeLog = DocumentChangeLog([
+      if (didReset) const DocumentWasResetChange(),
+      ...documentChanges,
+    ]);
     for (final listener in _listeners) {
       listener(changeLog);
     }

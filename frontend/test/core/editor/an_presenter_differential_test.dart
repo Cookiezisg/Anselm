@@ -126,7 +126,12 @@ void _expectSame(SingleColumnLayoutViewModel a, SingleColumnLayoutViewModel b, S
     expect(vb.runtimeType, va.runtimeType, reason: '[$context] vm TYPE diverged at #$i (${va.nodeId})');
     expect(vb == va, isTrue,
         reason: '[$context] vm deep-== diverged at #$i (${va.nodeId}, ${va.runtimeType})\n  oracle: $va\n  incremental: $vb');
-    // STYLE PROBE — the closure gap `==` can't see. 样式探针——== 看不见的闭包缺口。
+    // STYLE PROBE — the closure gap `==` can't see. Known remaining unprobed closures:
+    // `inlineWidgetBuilders` and `composingRegionUnderlineStyle` come exclusively from the stylesheet,
+    // whose swap dirties the whole phase (full restyle) — physically backstopped today; re-probe if any
+    // phase ever writes them per-node. 样式探针——== 看不见的闭包缺口。已知未探的闭包:
+    // inlineWidgetBuilders/composingRegionUnderlineStyle 只来自样式表,换样式表=整相脏全量重刷,当下有
+    // 物理兜底;将来若有相按节点写它们须补探。
     if (va is TextComponentViewModel && vb is TextComponentViewModel) {
       for (final probe in _probeSets) {
         final sa = (va as dynamic).textStyleBuilder(probe) as TextStyle;
@@ -134,6 +139,22 @@ void _expectSame(SingleColumnLayoutViewModel a, SingleColumnLayoutViewModel b, S
         expect(sb, sa,
             reason: '[$context] textStyleBuilder($probe) diverged at #$i (${va.nodeId}) — '
                 'a stale-stylesheet closure would pass == but render wrong');
+      }
+    }
+    // Table cells carry PER-CELL textStyleBuilder closures (header row ≠ data row) that the table vm's
+    // `==` skips entirely — probe every cell. 表格 cell 逐格持样式闭包(表头≠数据行),表 vm 的 == 全跳,
+    // 逐格探。
+    if (va is MarkdownTableViewModel && vb is MarkdownTableViewModel) {
+      expect(vb.cells.length, va.cells.length, reason: '[$context] table row count diverged (${va.nodeId})');
+      for (var r = 0; r < va.cells.length; r++) {
+        expect(vb.cells[r].length, va.cells[r].length,
+            reason: '[$context] table col count diverged (${va.nodeId} row $r)');
+        for (var c = 0; c < va.cells[r].length; c++) {
+          for (final probe in _probeSets) {
+            expect(vb.cells[r][c].textStyleBuilder(probe), va.cells[r][c].textStyleBuilder(probe),
+                reason: '[$context] table cell ($r,$c) textStyleBuilder($probe) diverged (${va.nodeId})');
+          }
+        }
       }
     }
   }
@@ -145,6 +166,20 @@ void _pullAndCompare(_Rig oracle, _Rig incremental, String context) {
   incremental.presenter.updateViewModel();
   _expectSame(oracle.presenter.viewModel, incremental.presenter.viewModel, context);
 }
+
+/// A 2×2 table node (header row + one data row). The header/data rows carry DIFFERENT textStyleBuilder
+/// closures once styled — the style-probe must see both. 2×2 表(表头+数据行);两行被盖不同样式闭包,
+/// 探针须两行都探。
+TableBlockNode _table(String id, String seed) => TableBlockNode(id: id, cells: [
+      [
+        TextNode(id: '${id}_h0', text: AttributedText('Head A $seed')),
+        TextNode(id: '${id}_h1', text: AttributedText('Head B $seed')),
+      ],
+      [
+        TextNode(id: '${id}_d0', text: AttributedText('data 0 $seed')),
+        TextNode(id: '${id}_d1', text: AttributedText('data 1 $seed')),
+      ],
+    ]);
 
 /// A mixed-block document exercising every builder + every dependency edge. 混排文档,踩全建造器+依赖边。
 MutableDocument _mixedDocument() => MutableDocument(nodes: [
@@ -160,6 +195,7 @@ MutableDocument _mixedDocument() => MutableDocument(nodes: [
       ParagraphNode(id: 'q2', text: AttributedText('quoted continuation'), metadata: const {quoteDepthKey: 1}),
       ParagraphNode(id: 'bq', text: AttributedText('blockquote'), metadata: {'blockType': blockquoteAttribution}),
       CodeBlockNode(id: 'cb', code: 'var x = 1;', language: 'dart'),
+      _table('tbl', 'v1'),
       HorizontalRuleNode(id: 'hr'),
       ParagraphNode(id: 'pEnd', text: AttributedText('the last paragraph')),
     ]);
@@ -226,6 +262,14 @@ void main() {
       ]);
       step('header → plain paragraph', [ChangeParagraphBlockTypeRequest(nodeId: 'p1', blockType: null)]);
       step('task completion flip', [ChangeTaskCompletionRequest(nodeId: 't1', isComplete: true)]);
+      // The TARGETED heading-gap edge: h1's top gap reads its PREDECESSOR (p0) — flipping p0 into a
+      // heading must restyle h1 (headingTop 24 → headingStack 12) even though h1 itself never changed.
+      // A dirty radius without the successor edge reuses h1's stale vm here. 定向 heading-gap 边:
+      // h1 上距读前驱 p0——p0 翻成标题必须重刷 h1(24→12),h1 自身没变;脏半径缺后继边就会在此复用陈旧 vm。
+      step('flip a HEADING\'s predecessor (p0 → header)', [
+        ChangeParagraphBlockTypeRequest(nodeId: 'p0', blockType: header2Attribution)
+      ]);
+      step('flip it back', [ChangeParagraphBlockTypeRequest(nodeId: 'p0', blockType: null)]);
     });
 
     test('structure: insert/remove/move/split/merge (first/last/order dependencies)', () {
@@ -254,6 +298,11 @@ void main() {
       final node = m.doc.getNodeById('cb')! as CodeBlockNode;
       step('replace code block (same id)', [
         ReplaceNodeRequest(existingNodeId: 'cb', newNode: node.copyWithCode('var x = 2;\nvar y = 3;'))
+      ]);
+      // The table edit path in production IS a whole-node replace (an_editor_table.dart cell edits).
+      // 生产上表格编辑就是整节点替换。
+      step('replace table (same id, edited cells)', [
+        ReplaceNodeRequest(existingNodeId: 'tbl', newNode: _table('tbl', 'v2'))
       ]);
     });
 
@@ -330,7 +379,7 @@ void main() {
         for (var step = 0; step < 120; step++) {
           final ctx = 'seed=$seed step=$step';
           try {
-            switch (rng.nextInt(10)) {
+            switch (rng.nextInt(16)) {
               case 0 || 1 || 2: // typing dominates real usage 打字占大头
                 final id = randomTextNodeId();
                 m.editor.execute([
@@ -418,6 +467,74 @@ void main() {
                   }
                 } else {
                   m.editor.execute([const ClearComposingRegionRequest()]);
+                }
+              case 10: // cross-node delete (select-across-blocks then delete — heaviest event mix)
+                // 跨节点删除(合并+多删混合事件流,归账压力最大的真实形状)。
+                final pairs = <int>[];
+                for (var i = 0; i + 1 < m.doc.nodeCount; i++) {
+                  if (m.doc.getNodeAt(i) is TextNode && m.doc.getNodeAt(i + 1) is TextNode) {
+                    pairs.add(i);
+                  }
+                }
+                if (pairs.isNotEmpty) {
+                  final i = pairs[rng.nextInt(pairs.length)];
+                  final a = m.doc.getNodeAt(i)! as TextNode;
+                  final b = m.doc.getNodeAt(i + 1)! as TextNode;
+                  m.editor.execute([
+                    // Mirror the IME: structural edits reset composition first. 拟真:结构编辑前清组字。
+                    const ClearComposingRegionRequest(),
+                    DeleteContentRequest(
+                        documentRange: DocumentRange(
+                      start: _text(a.id, a.text.length == 0 ? 0 : rng.nextInt(a.text.length)),
+                      end: _text(b.id, b.text.length == 0 ? 0 : rng.nextInt(b.text.length)),
+                    )),
+                  ]);
+                }
+              case 11: // Enter — split a paragraph (highest-frequency structural op) 分段
+                final paras = m.doc.whereType<ParagraphNode>().toList();
+                if (paras.isNotEmpty) {
+                  final p = paras[rng.nextInt(paras.length)];
+                  m.editor.execute([
+                    SplitParagraphRequest(
+                        nodeId: p.id,
+                        splitPosition:
+                            TextNodePosition(offset: p.text.length == 0 ? 0 : rng.nextInt(p.text.length + 1)),
+                        newNodeId: 's$step',
+                        replicateExistingMetadata: rng.nextBool()),
+                  ]);
+                }
+              case 12: // range attribution toggle (select + bold/italic) 划选加粗
+                final id = randomTextNodeId();
+                final node = m.doc.getNodeById(id)! as TextNode;
+                if (node.text.length >= 2) {
+                  final s = rng.nextInt(node.text.length - 1);
+                  final e = s + 1 + rng.nextInt(node.text.length - s - 1);
+                  m.editor.execute([
+                    ToggleTextAttributionsRequest(
+                        documentRange: DocumentRange(start: _text(id, s), end: _text(id, e)),
+                        attributions: {rng.nextBool() ? boldAttribution : italicsAttribution}),
+                  ]);
+                }
+              case 13: // undo/redo (history replays through the accounting) 撤销/重做
+                // Commit composition first, like a real IME does before undo. 拟真:undo 前先落组字。
+                m.editor.execute([const ClearComposingRegionRequest()]);
+                if (rng.nextBool()) {
+                  m.editor.undo();
+                } else {
+                  m.editor.redo();
+                }
+              case 14: // code-block whole-node replace (production per-key path) 码块整节点替换
+                final cb = m.doc.getNodeById('cb');
+                if (cb is CodeBlockNode) {
+                  m.editor.execute([
+                    ReplaceNodeRequest(existingNodeId: 'cb', newNode: cb.copyWithCode('var s = $step;')),
+                  ]);
+                }
+              case 15: // table whole-node replace (production cell-edit path) 表格整节点替换
+                if (m.doc.getNodeById('tbl') is TableBlockNode) {
+                  m.editor.execute([
+                    ReplaceNodeRequest(existingNodeId: 'tbl', newNode: _table('tbl', 'f$step')),
+                  ]);
                 }
             }
           } catch (e) {
