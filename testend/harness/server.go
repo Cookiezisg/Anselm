@@ -119,6 +119,47 @@ func runtimeCache() string {
 	return filepath.Join(home, ".anselm-testend-cache")
 }
 
+// cloneMissOnce keeps the fallback notice to one line per run rather than one per test case.
+//
+// cloneMissOnce 让回落提示每轮只出一行，而非每个用例一行。
+var cloneMissOnce sync.Once
+
+// preseedRuntimes gives one test its own private copy of the shared runtime cache.
+//
+// It CLONES rather than copies because Start runs once per test case and the cache is lazily filled
+// (saveRuntimeCache stores each kind the first time a run downloads it), so this cost scales with how
+// USEFUL the cache has become: the better the pre-seed works, the slower the suite gets. Measured:
+// 221 Start calls against a cache real runs grew to 645MB (embedmodel alone is 313MB) = ~139GB of
+// byte-for-byte `cp -R` per suite, ~7.3s of it on every single case. APFS clonefile is copy-on-write,
+// so the seed costs ~0.24s and no disk at all, and writes into a clone never reach the source — the
+// per-test isolation stays exactly as strong as the copy it replaces.
+//
+// preseedRuntimes 给单个测试一份共享运行时缓存的私有副本。
+// 用 **clone** 而非拷贝：Start 每个用例跑一次，而缓存是懒填充的（`saveRuntimeCache` 在某 kind 首次被下载时
+// 才回存），故此代价与缓存**有多好用**成正比——预置越成功，套件越慢。实测：221 次 Start × 真跑养到 645MB 的
+// 缓存（光 embedmodel 就 313MB）= 每轮 ~139GB 逐字节 `cp -R`，每个用例摊 ~7.3s。APFS clonefile 是写时复制，
+// 故预置只要 ~0.24s、且完全不占盘；往克隆里写永远碰不到源——每测试隔离与它替下的那次拷贝一样强。
+func preseedRuntimes(t *testing.T, src, dst string) {
+	t.Helper()
+	cloneErr := cloneTree(src, dst)
+	if cloneErr == nil {
+		return
+	}
+	cloneMissOnce.Do(func() {
+		t.Logf("harness: runtime-cache clone unavailable (%v) — falling back to cp -R; expect seconds, not milliseconds, per Start", cloneErr)
+	})
+
+	// Fall back rather than fail: the pre-seed is an optimisation, and a scenario that finds no
+	// runtime just downloads one. But do NOT swallow the error the way the copy this replaced did —
+	// a silent fallback is exactly how a 30m suite quietly turns back into a 30m timeout.
+	//
+	// 回落而非失败：预置只是优化，找不到运行时的场景自己下一个就是。但**不要**像它替下的那次拷贝那样把错误
+	// 吞掉——静默回落正是 30m 套件悄悄变回 30m 超时的方式。
+	if out, err := exec.Command("cp", "-R", src, dst).CombinedOutput(); err != nil {
+		t.Logf("harness: pre-seed runtimes failed (%v): %s", err, strings.TrimSpace(string(out)))
+	}
+}
+
 // Start boots a fresh backend on a free port + temp data dir, waits for health, and registers
 // containment (graceful stop + process-group sweep + leak self-check) plus runtime cache save-back.
 //
@@ -132,8 +173,9 @@ func Start(t *testing.T) *Server {
 	// Pre-seed sandbox runtimes from the cache so scenarios that execute code don't
 	// re-download per run. 从缓存预置运行时，免得执行类场景每次重新下载。
 	if cache := runtimeCache(); cache != "" {
-		if _, err := os.Stat(filepath.Join(cache, "sandbox")); err == nil {
-			_ = exec.Command("cp", "-R", filepath.Join(cache, "sandbox"), filepath.Join(dataDir, "sandbox")).Run()
+		src := filepath.Join(cache, "sandbox")
+		if _, err := os.Stat(src); err == nil {
+			preseedRuntimes(t, src, filepath.Join(dataDir, "sandbox"))
 		}
 	}
 

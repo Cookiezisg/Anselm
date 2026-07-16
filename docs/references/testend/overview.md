@@ -41,6 +41,7 @@ audience: [human, ai]
 - **`Kill9` 保持 SIGKILL、不得软化**：它模拟的正是「崩溃恢复」里的崩溃；软成 SIGTERM 会让优雅链把恢复半场要断言的残骸（非终态消息行、未收尸子进程、未 checkpoint 的 WAL）先删掉 = 什么都没测。它刻意孤儿掉的子进程由②收。
 - **Ctrl-C**：①把 backend 移出了测试二进制的进程组，故 harness 自装 `SIGINT/SIGTERM` 处理器、退出前清扫所有活组（否则 `Setpgid` 会拿「正常退出泄漏」换来「Ctrl-C 泄漏」）。**不可约减的未覆盖**：`go test -timeout` 超时（进程内 panic、无信号可捕）与测试二进制自身被 SIGKILL——无 `Pdeathsig`，不在运行的 harness 察觉不了父死。
 - **缓存只装运行时、不装状态**：`saveRuntimeCache` 回存前剥 `*.pid`。后端把 embedder pid 存在 `runtimes/llamasrv/embedder.pid`，而缓存会预置进**每个**未来测试的 dataDir 且每 kind 只拷一次——搭车的 pidfile 会让后端回收器永远指向操作系统此后回收给**别人**的那个号码。
+- **预置靠 clone、不靠拷贝**：`Start` 用 `clonefile(2)` 把整棵缓存树**写时复制**进 dataDir（`clone_darwin.go`，一次 syscall ~90ms），非 Darwin / 非克隆文件系统回落 `cp -R`（`clone_other.go`）。**不是微优化**：缓存懒填充、随真跑长到 645MB，而 `Start` **每个用例跑一次**（实测每轮 **221** 次）——逐字节拷贝 = 每轮 ~139GB、~7.3s/用例 ≈ 26min，曾独吞 30m 预算的 86%（[R23](../../working/iteration/systems-correctness.md)）。COW 使隔离**完全等价**：往克隆里写永远碰不到源（已按套件级 checksum 复验）。**回落必打日志**：静默回落 = 套件悄悄变回 30m 超时。
 
 ## 纪律
 
