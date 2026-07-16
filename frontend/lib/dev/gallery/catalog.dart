@@ -37,6 +37,7 @@ import 'notification_specimens.dart';
 import 'perf_specimens.dart';
 import 'settings_specimens.dart';
 import 'sidestage_specimens.dart';
+import 'an_batch_bar_specimens.dart';
 import 'an_countdown_specimens.dart';
 import 'specimen.dart';
 import 'user_turn_specimens.dart';
@@ -339,6 +340,7 @@ final GalleryCategory _chatRail = GalleryCategory('对话 Chat', AnIcons.chat, [
 
 // ── G1 — Foundational controls ──
 final GalleryCategory _g1Controls = GalleryCategory('基础控件 Controls', AnIcons.sliders, [
+  anBatchBarGalleryItem,
   GalleryItem('AnDivider 发丝分隔', '横向通栏 head↔body / 竖向段分隔;恒 hairline + line 色', [
     GallerySpecimen('横向 (通栏)', (_) => const Padding(
           padding: EdgeInsets.symmetric(vertical: AnSpace.s8),

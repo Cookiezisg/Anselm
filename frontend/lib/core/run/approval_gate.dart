@@ -1,22 +1,23 @@
 import 'package:flutter/widgets.dart';
 
-import '../../../core/contract/entities/workflow.dart';
-import '../../../core/design/colors.dart';
-import '../../../core/design/tokens.dart';
-import '../../../core/design/typography.dart';
-import '../../../core/ui/ui.dart';
-import '../../../i18n/strings.g.dart';
+import '../contract/entities/workflow.dart';
+import '../design/colors.dart';
+import '../design/tokens.dart';
+import '../design/typography.dart';
+import '../ui/ui.dart';
+import '../../i18n/strings.g.dart';
 
-/// The ONE parked-approval decision gate (WRK-066 A-011) — a durable flowrun node stopped at an
-/// approval waits here for Approve / Reject (first-wins; a lost race reconciles the gate away). Three
-/// sites hand-rolled it identically (the run terminal, the cockpit tab, the flowrun inbox); this
-/// collapses them. [framed] wraps it in the [AnInfoCard] shell (the terminal / inbox faces); pass
-/// false to append it BARE inside an existing card (the cockpit's parked-node body). A `allowReason`
-/// node grows the reason input, whose text rides [onDecide]'s second argument.
+/// The ONE parked-approval decision gate (WRK-066 A-011; upstreamed to core/run for the Scheduler
+/// ocean, WRK-069 S2b — features don't import features) — a durable flowrun node stopped at an
+/// approval waits here for Approve / Reject (first-wins; a lost race reconciles the gate away). Four
+/// sites consume it (the run terminal, the cockpit tab, the flowrun inbox, the Scheduler «waiting on
+/// you» zone). [framed] wraps it in the [AnInfoCard] shell (the terminal / inbox faces); pass false
+/// to append it BARE inside an existing card or ledger row. A `allowReason` node grows the reason
+/// input, whose text rides [onDecide]'s second argument.
 ///
-/// 唯一停车审批门(A-011)——durable flowrun 停在审批节点,在此等 批准/拒绝(先到先得,输的一方 reconcile
-/// 掉门)。三处曾逐字手搓(run 终端/驾驶舱 tab/收件箱),此件收编。[framed] 包 AnInfoCard 壳(终端/收件箱
-/// 脸);传 false 则裸接在既有卡内(驾驶舱 parked 节点体)。allowReason 节点长出理由输入,文本走 onDecide 次参。
+/// 唯一停车审批门(A-011;S2b 上收 core/run——features 互不依赖)——durable flowrun 停在审批节点,在此等
+/// 批准/拒绝(先到先得,输的一方 reconcile 掉门)。四处消费(run 终端/驾驶舱 tab/收件箱/Scheduler 等你处理区)。
+/// [framed] 包 AnInfoCard 壳;传 false 则裸接在既有卡/行内。allowReason 节点长出理由输入,文本走 onDecide 次参。
 class ApprovalGate extends StatefulWidget {
   const ApprovalGate({
     required this.parked,
@@ -43,9 +44,9 @@ class ApprovalGate extends StatefulWidget {
   /// Show the «first-wins» hint line (the inbox omits it). 是否显「先到先得」提示。
   final bool showHint;
 
-  /// Grow the reason input when the node allows one — ONLY the inbox path can forward a reason to the
-  /// backend; the terminal / cockpit `decide` carries no reason, so they leave it false (no dead
-  /// input). 仅收件箱径能把理由送后端;终端/驾驶舱 decide 不带 reason,故留 false(无死输入)。
+  /// Grow the reason input when the node allows one — ONLY the `:decide` paths that can forward a
+  /// reason to the backend opt in; the terminal / cockpit `decide` carries no reason, so they leave
+  /// it false (no dead input). 仅能把理由送后端的径打开;终端/驾驶舱 decide 不带 reason,故留 false(无死输入)。
   final bool collectReason;
 
   @override
@@ -68,7 +69,7 @@ class _ApprovalGateState extends State<ApprovalGate> {
 
   @override
   Widget build(BuildContext context) {
-    final r = context.t.entities.run;
+    final r = context.t.run;
     final c = context.colors;
     final prompt = widget.parked.result['rendered'] as String? ?? '';
 

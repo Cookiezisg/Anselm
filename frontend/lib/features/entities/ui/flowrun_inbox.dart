@@ -9,8 +9,8 @@ import '../../../core/ui/an_deferred_loading.dart';
 import '../../../core/ui/an_rail_skeleton.dart';
 import '../../../core/ui/an_scroll_behavior.dart';
 import '../../../core/ui/an_state.dart';
+import '../../../core/run/approval_gate.dart';
 import '../../../i18n/strings.g.dart';
-import 'approval_gate.dart';
 import '../data/entity_providers.dart';
 import '../state/flowrun_inbox_provider.dart';
 

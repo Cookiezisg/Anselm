@@ -2,7 +2,6 @@ import 'package:anselm/core/contract/entities/relation.dart';
 import 'package:anselm/core/contract/entities/scheduler_stats.dart';
 import 'package:anselm/core/contract/entities/trigger.dart';
 import 'package:anselm/core/contract/entities/workflow.dart';
-import 'package:anselm/core/contract/page.dart' as contract;
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/runtime.dart';
 import 'package:anselm/core/ui/an_button.dart';
@@ -16,6 +15,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+
+import 'stub_scheduler_repo.dart';
 
 // S2a · the Overview board (WRK-069 §3) — pure-derivation table + the widget battery (first-use /
 // empty zones / full board / KPI delta both ways / deep links). The running dot breathes forever, so
@@ -44,68 +45,7 @@ EntityRelation _edge(String wf, String trigger, {String wfName = ''}) => EntityR
     toKind: 'trigger',
     toId: trigger);
 
-/// A fully scriptable seam — every zone's inputs are injectable so the battery drives each state
-/// independently. 全可编脚本的数据缝。
-class _StubRepo implements SchedulerRepository {
-  _StubRepo({
-    this.workflows = const [],
-    this.byWorkflow = const [],
-    this.failedBySince = const {},
-    this.totalsRunning = 0,
-    this.triggers = const [],
-    this.edges = const [],
-    this.waiting = 0,
-    this.runs = const [],
-    this.failWorkflows = false,
-  });
-
-  final List<SchedulerWorkflowRow> workflows;
-  final List<WorkflowRunStats> byWorkflow;
-  final Map<String, int> failedBySince;
-  final int totalsRunning;
-  final List<TriggerEntity> triggers;
-  final List<EntityRelation> edges;
-  final int waiting;
-  final List<Flowrun> runs;
-  final bool failWorkflows;
-
-  @override
-  Future<List<SchedulerWorkflowRow>> listWorkflows() async {
-    if (failWorkflows) throw StateError('backend down');
-    return workflows;
-  }
-
-  @override
-  Future<SchedulerStats> stats(List<String> workflowIds,
-          {int recentN = 10, String since = '168h'}) async =>
-      SchedulerStats(
-        totals: SchedulerTotals(
-            running: totalsRunning, failedSince: failedBySince[since] ?? 0, parkedNodes: waiting),
-        byWorkflow: byWorkflow,
-      );
-
-  @override
-  Future<List<TriggerEntity>> listTriggers() async => triggers;
-
-  @override
-  Future<List<EntityRelation>> workflowTriggerEdges() async => edges;
-
-  @override
-  Future<int> waitingCount() async => waiting;
-
-  @override
-  Future<contract.Page<Flowrun>> listFlowruns(
-      {required String workflowId, String? status, String? cursor, int? limit}) async {
-    final rows = [
-      for (final r in runs)
-        if (r.workflowId == workflowId && (status == null || r.status == status)) r,
-    ];
-    final capped = limit != null && limit < rows.length ? rows.sublist(0, limit) : rows;
-    return contract.Page(items: capped, hasMore: capped.length < rows.length);
-  }
-}
-
-_StubRepo _fullRepo({Map<String, int> failed = const {'24h': 4, '48h': 6}}) => _StubRepo(
+StubSchedulerRepo _fullRepo({Map<String, int> failed = const {'24h': 4, '48h': 6}}) => StubSchedulerRepo(
       workflows: [
         SchedulerWorkflowRow(id: 'wf_a', name: '数据清洗流水线', lifecycleState: 'active', updatedAt: _now),
         SchedulerWorkflowRow(id: 'wf_b', name: '库存同步', lifecycleState: 'active', updatedAt: _now),
@@ -124,7 +64,12 @@ _StubRepo _fullRepo({Map<String, int> failed = const {'24h': 4, '48h': 6}}) => _
       ],
       failedBySince: failed,
       totalsRunning: 1,
-      waiting: 2,
+      // Two inbox rows — the KPI «waiting» tile counts THESE (badge/tile/zone one truth). 牌=行数。
+      inbox: [
+        stubInboxRow('fr_park1', 'approve_send',
+            deadline: _now.add(const Duration(hours: 2)), now: _now),
+        stubInboxRow('fr_park2', 'approve_more', wfId: 'wf_b', wfName: '库存同步', now: _now),
+      ],
       // 3m30s out so the render-time diff still floors to «3m» (fmtWaited minute granularity).
       // 提前 3m30s:渲染时差值仍落 3m 档。
       triggers: [
@@ -266,7 +211,7 @@ void main() {
     test('zero workflows → firstUse, no probes fired', () async {
       final container = ProviderContainer(overrides: [
         sseGatewayProvider.overrideWithValue(null),
-        schedulerRepositoryProvider.overrideWithValue(_StubRepo()),
+        schedulerRepositoryProvider.overrideWithValue(StubSchedulerRepo()),
       ]);
       addTearDown(container.dispose);
       final d = await container.read(schedulerOverviewProvider.future);
@@ -312,7 +257,7 @@ void main() {
     });
 
     testWidgets('quiet workspace: three honest empty sentences, KPI dashes', (tester) async {
-      final repo = _StubRepo(
+      final repo = StubSchedulerRepo(
         workflows: [
           SchedulerWorkflowRow(id: 'wf_a', name: '安静', lifecycleState: 'active', updatedAt: _now),
         ],
@@ -344,7 +289,7 @@ void main() {
 
     testWidgets('zero data: the whole page is ONE education card with both deep links',
         (tester) async {
-      await _pumpBoard(tester, _host(_StubRepo()));
+      await _pumpBoard(tester, _host(StubSchedulerRepo()));
       final ov = t.scheduler.overview;
       expect(find.text(ov.firstUseTitle), findsOneWidget);
       expect(find.text(ov.firstUseEntities), findsOneWidget);
@@ -371,7 +316,7 @@ void main() {
     });
 
     testWidgets('first-load failure: the error state with a retry', (tester) async {
-      await _pumpBoard(tester, _host(_StubRepo(failWorkflows: true)));
+      await _pumpBoard(tester, _host(StubSchedulerRepo(failWorkflows: true)));
       expect(find.byType(AnState), findsOneWidget);
       expect(find.text(t.scheduler.overview.errorTitle), findsOneWidget);
       expect(find.text(t.scheduler.retry), findsOneWidget);

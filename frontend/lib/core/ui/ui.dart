@@ -9,6 +9,7 @@ export 'an_action_group.dart';
 export 'an_attachment_card.dart';
 export 'an_attachment_thumb.dart';
 export 'an_auto_grid.dart';
+export 'an_batch_bar.dart';
 export 'an_brand_icon.dart';
 export 'an_button.dart';
 export 'an_callout.dart';

@@ -39,7 +39,7 @@ FixtureEntityRepository _fix() => FixtureEntityRepository(
     );
 
 void main() {
-  final r = t.entities.run;
+  final r = t.run; // gate copy lives in the core run namespace (S2b 上收) 门文案在 core run 命名空间
 
   testWidgets('parked run shows the approval gate; Approve resumes to ok', (tester) async {
     await tester.pumpWidget(routedHost(

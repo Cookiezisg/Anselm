@@ -172,6 +172,11 @@ class _Translations$run$zh_CN extends Translations$run$en {
 	@override String get ioOutput => '输出';
 	@override String countdownLeft({required Object d}) => '剩 ${d}';
 	@override String get countdownOverdue => '已超时';
+	@override String get approvalTitle => '等待审批';
+	@override String get approve => '通过';
+	@override String get reject => '驳回';
+	@override String get approvalHint => 'first-wins:先到的决断生效。';
+	@override String get reasonHint => '备注(可选)';
 }
 
 // Path: scheduler
@@ -237,6 +242,7 @@ class _Translations$feedback$zh_CN extends Translations$feedback$en {
 	@override String get copied => '已复制';
 	@override String showAll({required Object n}) => '展开其余 ${n} 个';
 	@override String get copyFailed => '复制失败';
+	@override late final _Translations$feedback$batch$zh_CN batch = _Translations$feedback$batch$zh_CN._(_root);
 	@override String get retry => '重试';
 	@override late final _Translations$feedback$cast$zh_CN cast = _Translations$feedback$cast$zh_CN._(_root);
 }
@@ -1146,12 +1152,46 @@ class _Translations$scheduler$overview$zh_CN extends Translations$scheduler$over
 	@override String get failuresEmpty => '近 7 天没有连续失败的 workflow。';
 	@override String streak({required Object n}) => '连败 ×${n}';
 	@override String get latestRun => '最新 run →';
+	@override String waitingHead({required Object n}) => '等你处理 (${n})';
+	@override String get waitingEmpty => '没有等你处理的审批。';
+	@override String waitedFor({required Object d}) => '等 ${d}';
+	@override String selectRow({required Object name}) => '选择 ${name}';
+	@override String get alreadyHandled => '已被别处处理';
+	@override String get alreadyFinished => 'run 已自行结束';
+	@override String get cancelConfirmTitle => '取消这个 run?';
+	@override String cancelConfirmBody({required Object name, required Object id}) => '将取消 ${name} · ${id};parked 审批一并收回。';
+	@override String get cancelConfirmAction => '取消 run';
+	@override String get cancelKeep => '先不取消';
+	@override String cancelRunA11y({required Object id}) => '取消 run ${id}';
+	@override String get batchApprove => '批量批准';
+	@override String get batchReject => '批量拒绝';
+	@override String get batchCancel => '批量取消';
+	@override String batchRejectConfirm({required Object n}) => '拒绝 ${n} 条';
+	@override String batchCancelTitle({required Object n}) => '将取消这 ${n} 个 run?';
+	@override String batchCancelBody({required Object list}) => '以下 run 将被取消;parked 审批一并收回:\n${list}';
+	@override String sumApproved({required Object n}) => '已批准 ${n}';
+	@override String sumRejected({required Object n}) => '已拒绝 ${n}';
+	@override String sumCancelled({required Object n}) => '已取消 ${n}';
+	@override String sumLost({required Object n}) => '${n} 条已被别处处理';
+	@override String sumEnded({required Object n}) => '${n} 条已自行结束';
+	@override String sumFailed({required Object n}) => '${n} 条失败';
 	@override String get firstUseTitle => '第一个自动化还没建';
 	@override String get firstUseBody => '去 Entities 建一个 workflow 并挂上 cron;或者直接在对话里说「每天早上八点抓数据发我」。';
 	@override String get firstUseEntities => '去 Entities';
 	@override String get firstUseChat => '打开对话';
 	@override String get errorTitle => '总览加载失败';
 	@override String get errorHint => '后端没有应答,检查连接后重试。';
+}
+
+// Path: feedback.batch
+class _Translations$feedback$batch$zh_CN extends Translations$feedback$batch$en {
+	_Translations$feedback$batch$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String selected({required Object n}) => '已选 ${n}';
+	@override String get clear => '清除选择';
 }
 
 // Path: feedback.cast
@@ -1301,11 +1341,6 @@ class _Translations$entities$run$zh_CN extends Translations$entities$run$en {
 	@override String tokens({required Object inT, required Object outT}) => '输入 ${inT} · 输出 ${outT}';
 	@override String ms({required Object ms}) => '${ms} ms';
 	@override late final _Translations$entities$run$danger$zh_CN danger = _Translations$entities$run$danger$zh_CN._(_root);
-	@override String get approvalTitle => '等待审批';
-	@override String get approve => '通过';
-	@override String get reject => '驳回';
-	@override String get approvalHint => 'first-wins:先到的决断生效。';
-	@override String get reasonHint => '备注(可选)';
 	@override String get inboxEmpty => '没有待审批';
 	@override String get inboxEmptyHint => '等待决断的审批会出现在这里。';
 }
@@ -2814,6 +2849,11 @@ extension on TranslationsZhCn {
 			'run.ioOutput' => '输出',
 			'run.countdownLeft' => ({required Object d}) => '剩 ${d}',
 			'run.countdownOverdue' => '已超时',
+			'run.approvalTitle' => '等待审批',
+			'run.approve' => '通过',
+			'run.reject' => '驳回',
+			'run.approvalHint' => 'first-wins:先到的决断生效。',
+			'run.reasonHint' => '备注(可选)',
 			'scheduler.railEmptyTitle' => '还没有 workflow',
 			'scheduler.railEmptyHint' => '去 Entities 创建一个,或让对话替你建。',
 			'scheduler.railErrorTitle' => 'workflow 加载失败',
@@ -2846,6 +2886,29 @@ extension on TranslationsZhCn {
 			'scheduler.overview.failuresEmpty' => '近 7 天没有连续失败的 workflow。',
 			'scheduler.overview.streak' => ({required Object n}) => '连败 ×${n}',
 			'scheduler.overview.latestRun' => '最新 run →',
+			'scheduler.overview.waitingHead' => ({required Object n}) => '等你处理 (${n})',
+			'scheduler.overview.waitingEmpty' => '没有等你处理的审批。',
+			'scheduler.overview.waitedFor' => ({required Object d}) => '等 ${d}',
+			'scheduler.overview.selectRow' => ({required Object name}) => '选择 ${name}',
+			'scheduler.overview.alreadyHandled' => '已被别处处理',
+			'scheduler.overview.alreadyFinished' => 'run 已自行结束',
+			'scheduler.overview.cancelConfirmTitle' => '取消这个 run?',
+			'scheduler.overview.cancelConfirmBody' => ({required Object name, required Object id}) => '将取消 ${name} · ${id};parked 审批一并收回。',
+			'scheduler.overview.cancelConfirmAction' => '取消 run',
+			'scheduler.overview.cancelKeep' => '先不取消',
+			'scheduler.overview.cancelRunA11y' => ({required Object id}) => '取消 run ${id}',
+			'scheduler.overview.batchApprove' => '批量批准',
+			'scheduler.overview.batchReject' => '批量拒绝',
+			'scheduler.overview.batchCancel' => '批量取消',
+			'scheduler.overview.batchRejectConfirm' => ({required Object n}) => '拒绝 ${n} 条',
+			'scheduler.overview.batchCancelTitle' => ({required Object n}) => '将取消这 ${n} 个 run?',
+			'scheduler.overview.batchCancelBody' => ({required Object list}) => '以下 run 将被取消;parked 审批一并收回:\n${list}',
+			'scheduler.overview.sumApproved' => ({required Object n}) => '已批准 ${n}',
+			'scheduler.overview.sumRejected' => ({required Object n}) => '已拒绝 ${n}',
+			'scheduler.overview.sumCancelled' => ({required Object n}) => '已取消 ${n}',
+			'scheduler.overview.sumLost' => ({required Object n}) => '${n} 条已被别处处理',
+			'scheduler.overview.sumEnded' => ({required Object n}) => '${n} 条已自行结束',
+			'scheduler.overview.sumFailed' => ({required Object n}) => '${n} 条失败',
 			'scheduler.overview.firstUseTitle' => '第一个自动化还没建',
 			'scheduler.overview.firstUseBody' => '去 Entities 建一个 workflow 并挂上 cron;或者直接在对话里说「每天早上八点抓数据发我」。',
 			'scheduler.overview.firstUseEntities' => '去 Entities',
@@ -2875,6 +2938,8 @@ extension on TranslationsZhCn {
 			'feedback.copied' => '已复制',
 			'feedback.showAll' => ({required Object n}) => '展开其余 ${n} 个',
 			'feedback.copyFailed' => '复制失败',
+			'feedback.batch.selected' => ({required Object n}) => '已选 ${n}',
+			'feedback.batch.clear' => '清除选择',
 			'feedback.retry' => '重试',
 			'feedback.cast.ribbonLive' => '实时聆听中 · 落定以真相为准',
 			'feedback.cast.ribbonGap' => '实时流有缺口 · 以执行记录为准',
@@ -3204,6 +3269,8 @@ extension on TranslationsZhCn {
 			'entities.detail.editor.branches' => '路由分支',
 			'entities.detail.editor.branchDefault' => '兜底(其余情况)',
 			'entities.detail.editor.branchEmit' => 'emit',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.editor.field' => '字段',
 			'entities.detail.editor.retryEnable' => '启用重试',
 			'entities.detail.editor.maxAttempts' => '最大次数',
@@ -3234,8 +3301,6 @@ extension on TranslationsZhCn {
 			'entities.run.boolTrue' => 'true',
 			'entities.run.boolFalse' => 'false',
 			'entities.run.runAgain' => '再运行一次',
-			_ => null,
-		} ?? switch (path) {
 			'entities.run.cancel' => '取消',
 			'entities.run.close' => '关闭运行终端',
 			'entities.run.idleTitle' => '准备运行',
@@ -3254,11 +3319,6 @@ extension on TranslationsZhCn {
 			'entities.run.ms' => ({required Object ms}) => '${ms} ms',
 			'entities.run.danger.cautious' => '谨慎',
 			'entities.run.danger.dangerous' => '危险',
-			'entities.run.approvalTitle' => '等待审批',
-			'entities.run.approve' => '通过',
-			'entities.run.reject' => '驳回',
-			'entities.run.approvalHint' => 'first-wins:先到的决断生效。',
-			'entities.run.reasonHint' => '备注(可选)',
 			'entities.run.inboxEmpty' => '没有待审批',
 			'entities.run.inboxEmptyHint' => '等待决断的审批会出现在这里。',
 			'entities.val.yes' => '是',

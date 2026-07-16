@@ -10,16 +10,18 @@ import '../../../core/sse/sse_gateway.dart';
 import '../data/scheduler_repository.dart';
 
 /// Everything the Scheduler rail projects (WRK-069 §2) — workflows + per-workflow health + the
-/// next-fire join + the one waiting-on-human number. The raw [triggers]/[edges] ride along so the
-/// Overview's schedule zone derives from the SAME fetch (one truth, no double drain). DB rows are
-/// the truth; frames only trigger refetch. rail 的全部输入;行是真相,帧只触发 refetch;triggers/edges
-/// 原样带出供 Overview 调度区同源派生(不二次拉取)。
+/// next-fire join + the enriched flowrun [inbox]. The raw [triggers]/[edges] ride along so the
+/// Overview's schedule zone derives from the SAME fetch (one truth, no double drain); likewise the
+/// rail's waiting badge and the Overview's «等你处理» zone both read [inbox] (S2b — the badge is its
+/// length, the zone its rows, so the two can never disagree). DB rows are the truth; frames only
+/// trigger refetch. rail 的全部输入;行是真相,帧只触发 refetch;triggers/edges 与 inbox 原样带出供
+/// Overview 同源派生(徽=length、区=行,两处数天然一致,不二次拉取)。
 class SchedulerRailData {
   const SchedulerRailData({
     required this.workflows,
     required this.stats,
     required this.nextFireByWorkflow,
-    required this.waitingCount,
+    this.inbox = const [],
     this.triggers = const [],
     this.edges = const [],
   });
@@ -27,7 +29,13 @@ class SchedulerRailData {
   final List<SchedulerWorkflowRow> workflows;
   final Map<String, WorkflowRunStats> stats;
   final Map<String, DateTime> nextFireByWorkflow;
-  final int waitingCount;
+
+  /// Every parked approval waiting on a human (enriched, 工单④). 收件箱 enrich 行。
+  final List<SchedulerInboxRow> inbox;
+
+  /// The rail's ONE number — derived, never a second fetch. rail 唯一数字(派生,绝不二次拉)。
+  int get waitingCount => inbox.length;
+
   final List<TriggerEntity> triggers;
   final List<EntityRelation> edges;
 }
@@ -61,12 +69,12 @@ class SchedulerRailController extends AsyncNotifier<SchedulerRailData> {
       repo.listWorkflows(),
       repo.listTriggers(),
       repo.workflowTriggerEdges(),
-      repo.waitingCount(),
+      repo.listInbox(),
     ]);
     final workflows = results[0] as List<SchedulerWorkflowRow>;
     final triggers = results[1] as List<TriggerEntity>;
     final edges = results[2] as List<EntityRelation>;
-    final waiting = results[3] as int;
+    final inbox = results[3] as List<SchedulerInboxRow>;
 
     final stats = workflows.isEmpty
         ? const SchedulerStats()
@@ -91,7 +99,7 @@ class SchedulerRailController extends AsyncNotifier<SchedulerRailData> {
       workflows: workflows,
       stats: {for (final s in stats.byWorkflow) s.workflowId: s},
       nextFireByWorkflow: nextFire,
-      waitingCount: waiting,
+      inbox: inbox,
       triggers: triggers,
       edges: edges,
     );

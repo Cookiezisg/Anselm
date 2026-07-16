@@ -338,6 +338,21 @@ class Translations$run$en {
 
 	/// en: 'overdue'
 	String get countdownOverdue => 'overdue';
+
+	/// en: 'Awaiting approval'
+	String get approvalTitle => 'Awaiting approval';
+
+	/// en: 'Approve'
+	String get approve => 'Approve';
+
+	/// en: 'Reject'
+	String get reject => 'Reject';
+
+	/// en: 'First decision wins.'
+	String get approvalHint => 'First decision wins.';
+
+	/// en: 'Reason (optional)'
+	String get reasonHint => 'Reason (optional)';
 }
 
 // Path: scheduler
@@ -478,6 +493,8 @@ class Translations$feedback$en {
 
 	/// en: 'Copy failed'
 	String get copyFailed => 'Copy failed';
+
+	late final Translations$feedback$batch$en batch = Translations$feedback$batch$en.internal(_root);
 
 	/// en: 'Retry'
 	String get retry => 'Retry';
@@ -2782,6 +2799,75 @@ class Translations$scheduler$overview$en {
 	/// en: 'Latest run →'
 	String get latestRun => 'Latest run →';
 
+	/// en: 'Waiting on you ($n)'
+	String waitingHead({required Object n}) => 'Waiting on you (${n})';
+
+	/// en: 'No approvals waiting on you.'
+	String get waitingEmpty => 'No approvals waiting on you.';
+
+	/// en: 'waiting $d'
+	String waitedFor({required Object d}) => 'waiting ${d}';
+
+	/// en: 'Select $name'
+	String selectRow({required Object name}) => 'Select ${name}';
+
+	/// en: 'Already handled elsewhere'
+	String get alreadyHandled => 'Already handled elsewhere';
+
+	/// en: 'This run had already ended'
+	String get alreadyFinished => 'This run had already ended';
+
+	/// en: 'Cancel this run?'
+	String get cancelConfirmTitle => 'Cancel this run?';
+
+	/// en: '$name · $id will be cancelled; parked approvals are withdrawn.'
+	String cancelConfirmBody({required Object name, required Object id}) => '${name} · ${id} will be cancelled; parked approvals are withdrawn.';
+
+	/// en: 'Cancel run'
+	String get cancelConfirmAction => 'Cancel run';
+
+	/// en: 'Keep running'
+	String get cancelKeep => 'Keep running';
+
+	/// en: 'Cancel run $id'
+	String cancelRunA11y({required Object id}) => 'Cancel run ${id}';
+
+	/// en: 'Approve all'
+	String get batchApprove => 'Approve all';
+
+	/// en: 'Reject all'
+	String get batchReject => 'Reject all';
+
+	/// en: 'Cancel all'
+	String get batchCancel => 'Cancel all';
+
+	/// en: 'Reject $n'
+	String batchRejectConfirm({required Object n}) => 'Reject ${n}';
+
+	/// en: 'Cancel $n runs?'
+	String batchCancelTitle({required Object n}) => 'Cancel ${n} runs?';
+
+	/// en: 'These runs will be cancelled; parked approvals are withdrawn: $list'
+	String batchCancelBody({required Object list}) => 'These runs will be cancelled; parked approvals are withdrawn:\n${list}';
+
+	/// en: '$n approved'
+	String sumApproved({required Object n}) => '${n} approved';
+
+	/// en: '$n rejected'
+	String sumRejected({required Object n}) => '${n} rejected';
+
+	/// en: '$n cancelled'
+	String sumCancelled({required Object n}) => '${n} cancelled';
+
+	/// en: '$n already handled elsewhere'
+	String sumLost({required Object n}) => '${n} already handled elsewhere';
+
+	/// en: '$n had already ended'
+	String sumEnded({required Object n}) => '${n} had already ended';
+
+	/// en: '$n failed'
+	String sumFailed({required Object n}) => '${n} failed';
+
 	/// en: 'No automation yet'
 	String get firstUseTitle => 'No automation yet';
 
@@ -2799,6 +2885,21 @@ class Translations$scheduler$overview$en {
 
 	/// en: 'The backend didn't answer. Check the connection and retry.'
 	String get errorHint => 'The backend didn\'t answer. Check the connection and retry.';
+}
+
+// Path: feedback.batch
+class Translations$feedback$batch$en {
+	Translations$feedback$batch$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: '$n selected'
+	String selected({required Object n}) => '${n} selected';
+
+	/// en: 'Clear selection'
+	String get clear => 'Clear selection';
 }
 
 // Path: feedback.cast
@@ -3090,21 +3191,6 @@ class Translations$entities$run$en {
 	String ms({required Object ms}) => '${ms} ms';
 
 	late final Translations$entities$run$danger$en danger = Translations$entities$run$danger$en.internal(_root);
-
-	/// en: 'Awaiting approval'
-	String get approvalTitle => 'Awaiting approval';
-
-	/// en: 'Approve'
-	String get approve => 'Approve';
-
-	/// en: 'Reject'
-	String get reject => 'Reject';
-
-	/// en: 'First decision wins.'
-	String get approvalHint => 'First decision wins.';
-
-	/// en: 'Reason (optional)'
-	String get reasonHint => 'Reason (optional)';
 
 	/// en: 'No pending approvals'
 	String get inboxEmpty => 'No pending approvals';
@@ -5713,6 +5799,11 @@ extension on Translations {
 			'run.ioOutput' => 'output',
 			'run.countdownLeft' => ({required Object d}) => '${d} left',
 			'run.countdownOverdue' => 'overdue',
+			'run.approvalTitle' => 'Awaiting approval',
+			'run.approve' => 'Approve',
+			'run.reject' => 'Reject',
+			'run.approvalHint' => 'First decision wins.',
+			'run.reasonHint' => 'Reason (optional)',
 			'scheduler.railEmptyTitle' => 'No workflows yet',
 			'scheduler.railEmptyHint' => 'Create one in Entities, or ask the conversation to build one for you.',
 			'scheduler.railErrorTitle' => 'Couldn\'t load workflows',
@@ -5745,6 +5836,29 @@ extension on Translations {
 			'scheduler.overview.failuresEmpty' => 'No consecutive failures in the last 7 days.',
 			'scheduler.overview.streak' => ({required Object n}) => 'failing ×${n}',
 			'scheduler.overview.latestRun' => 'Latest run →',
+			'scheduler.overview.waitingHead' => ({required Object n}) => 'Waiting on you (${n})',
+			'scheduler.overview.waitingEmpty' => 'No approvals waiting on you.',
+			'scheduler.overview.waitedFor' => ({required Object d}) => 'waiting ${d}',
+			'scheduler.overview.selectRow' => ({required Object name}) => 'Select ${name}',
+			'scheduler.overview.alreadyHandled' => 'Already handled elsewhere',
+			'scheduler.overview.alreadyFinished' => 'This run had already ended',
+			'scheduler.overview.cancelConfirmTitle' => 'Cancel this run?',
+			'scheduler.overview.cancelConfirmBody' => ({required Object name, required Object id}) => '${name} · ${id} will be cancelled; parked approvals are withdrawn.',
+			'scheduler.overview.cancelConfirmAction' => 'Cancel run',
+			'scheduler.overview.cancelKeep' => 'Keep running',
+			'scheduler.overview.cancelRunA11y' => ({required Object id}) => 'Cancel run ${id}',
+			'scheduler.overview.batchApprove' => 'Approve all',
+			'scheduler.overview.batchReject' => 'Reject all',
+			'scheduler.overview.batchCancel' => 'Cancel all',
+			'scheduler.overview.batchRejectConfirm' => ({required Object n}) => 'Reject ${n}',
+			'scheduler.overview.batchCancelTitle' => ({required Object n}) => 'Cancel ${n} runs?',
+			'scheduler.overview.batchCancelBody' => ({required Object list}) => 'These runs will be cancelled; parked approvals are withdrawn:\n${list}',
+			'scheduler.overview.sumApproved' => ({required Object n}) => '${n} approved',
+			'scheduler.overview.sumRejected' => ({required Object n}) => '${n} rejected',
+			'scheduler.overview.sumCancelled' => ({required Object n}) => '${n} cancelled',
+			'scheduler.overview.sumLost' => ({required Object n}) => '${n} already handled elsewhere',
+			'scheduler.overview.sumEnded' => ({required Object n}) => '${n} had already ended',
+			'scheduler.overview.sumFailed' => ({required Object n}) => '${n} failed',
 			'scheduler.overview.firstUseTitle' => 'No automation yet',
 			'scheduler.overview.firstUseBody' => 'Build a workflow in Entities and give it a cron trigger — or just tell the conversation "fetch the data at 8 every morning and send it to me".',
 			'scheduler.overview.firstUseEntities' => 'Open Entities',
@@ -5774,6 +5888,8 @@ extension on Translations {
 			'feedback.copied' => 'Copied',
 			'feedback.showAll' => ({required Object n}) => 'Show remaining ${n}',
 			'feedback.copyFailed' => 'Copy failed',
+			'feedback.batch.selected' => ({required Object n}) => '${n} selected',
+			'feedback.batch.clear' => 'Clear selection',
 			'feedback.retry' => 'Retry',
 			'feedback.cast.ribbonLive' => 'Listening live · settle follows the truth',
 			'feedback.cast.ribbonGap' => 'Stream gap · trust the execution record',
@@ -6103,6 +6219,8 @@ extension on Translations {
 			'entities.detail.editor.branches' => 'Routing branches',
 			'entities.detail.editor.branchDefault' => 'default (all else)',
 			'entities.detail.editor.branchEmit' => 'emit',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.editor.field' => 'Field',
 			'entities.detail.editor.retryEnable' => 'Enable retry',
 			'entities.detail.editor.maxAttempts' => 'Max attempts',
@@ -6133,8 +6251,6 @@ extension on Translations {
 			'entities.run.boolTrue' => 'true',
 			'entities.run.boolFalse' => 'false',
 			'entities.run.runAgain' => 'Run again',
-			_ => null,
-		} ?? switch (path) {
 			'entities.run.cancel' => 'Cancel',
 			'entities.run.close' => 'Close run terminal',
 			'entities.run.idleTitle' => 'Ready to run',
@@ -6153,11 +6269,6 @@ extension on Translations {
 			'entities.run.ms' => ({required Object ms}) => '${ms} ms',
 			'entities.run.danger.cautious' => 'Cautious',
 			'entities.run.danger.dangerous' => 'Dangerous',
-			'entities.run.approvalTitle' => 'Awaiting approval',
-			'entities.run.approve' => 'Approve',
-			'entities.run.reject' => 'Reject',
-			'entities.run.approvalHint' => 'First decision wins.',
-			'entities.run.reasonHint' => 'Reason (optional)',
 			'entities.run.inboxEmpty' => 'No pending approvals',
 			'entities.run.inboxEmptyHint' => 'Approvals waiting for a decision will appear here.',
 			'entities.val.yes' => 'yes',

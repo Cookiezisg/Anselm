@@ -36,6 +36,39 @@ class SchedulerWorkflowRow {
       );
 }
 
+/// One enriched flowrun-inbox row (工单④) — the parked approval [node] plus the workflow context the
+/// backend joins in: [workflowId]/[workflowName] (a soft-deleted host's name falls back to the bare
+/// id — the relation-Namer precedent, guarded here too) and the optional absolute [deadline]
+/// (parkedAt + the pinned approval version's timeout; the key is ABSENT when the approval never
+/// times out, so null = no countdown, never a zero-value lie).
+/// 收件箱 enrich 行:parked 节点 + workflow 上下文(软删宿主名回落裸 id)+ 可空绝对期限(无 timeout 键缺席)。
+class SchedulerInboxRow {
+  const SchedulerInboxRow({
+    required this.node,
+    required this.workflowId,
+    required this.workflowName,
+    this.deadline,
+  });
+
+  final FlowrunNode node;
+  final String workflowId;
+  final String workflowName;
+  final DateTime? deadline;
+
+  factory SchedulerInboxRow.fromJson(Map<String, dynamic> json) {
+    final wfId = json['workflowId'] as String? ?? '';
+    final name = json['workflowName'] as String? ?? '';
+    return SchedulerInboxRow(
+      // The row IS the node row on the wire — the enrich keys ride beside the node fields, so one
+      // map feeds both decodes. 行=节点行本体,enrich 键并列同层,一张 map 双解。
+      node: FlowrunNode.fromJson(json),
+      workflowId: wfId,
+      workflowName: name.isNotEmpty ? name : wfId,
+      deadline: json['deadline'] != null ? DateTime.tryParse(json['deadline'] as String) : null,
+    );
+  }
+}
+
 /// THE data seam for the Scheduler ocean (WRK-069) — Live over the Phase-4.0 ApiClient /
 /// [FixtureSchedulerRepository] for demo + tests, swapped at [schedulerRepositoryProvider].
 /// Scheduler 海洋数据缝。
@@ -55,10 +88,23 @@ abstract interface class SchedulerRepository {
   /// lookup that joins a workflow to its schedule. 反查连接:workflow 的 triggers。
   Future<List<EntityRelation>> workflowTriggerEdges();
 
-  /// Runs waiting on a human — the rail's ONE number (WRK-069 §2), derived from the flowrun inbox,
-  /// NEVER `?status=parked` (parked is a node state, not in the run-status closed set — 422).
-  /// 等人处理的 run 数——inbox 派生,绝不 ?status=parked(封闭集无此值)。
-  Future<int> waitingCount();
+  /// Every parked approval waiting on a human, enriched with workflow context (工单④,
+  /// `GET /flowrun-inbox`). The rail's waiting badge AND the Overview's «等你处理» zone both read
+  /// THIS (one fetch, one truth — the badge is `.length`); NEVER `?status=parked` (parked is a node
+  /// state, not in the run-status closed set — 422).
+  /// 跨 run 审批收件箱(enrich 行)。rail 徽与 Overview 区同源(徽=length);绝不 ?status=parked。
+  Future<List<SchedulerInboxRow>> listInbox();
+
+  /// Decide a parked approval (`POST /flowruns/{fr}/approvals/{node}:decide`, first-wins — the
+  /// loser gets 422 FLOWRUN_APPROVAL_NOT_PARKED) → the fresh flowrun snapshot (202, same envelope
+  /// as entities' decide). 决断 parked 审批(first-wins,输家 422)→ 新快照。
+  Future<FlowrunComposite> decideApproval(String flowrunId, String nodeId,
+      {required String decision, String? reason});
+
+  /// Cancel a RUNNING run (工单②, `POST /flowruns/{id}:cancel`; parked approvals are withdrawn).
+  /// Non-running → 422 FLOWRUN_NOT_CANCELLABLE. 202 returns the `:replay`-shaped envelope.
+  /// 取消在跑 run(parked 审批一并收回);非 running 422;信封形同 :replay。
+  Future<FlowrunComposite> cancelRun(String flowrunId);
 
   /// One keyset page of a workflow's flowruns (`GET /flowruns?workflowId=&status=`, newest first) —
   /// the Overview's running rows (status=running) and the failure aggregation's latest-failed probe
@@ -133,10 +179,23 @@ class LiveSchedulerRepository implements SchedulerRepository {
       );
 
   @override
-  Future<int> waitingCount() async {
+  Future<List<SchedulerInboxRow>> listInbox() async {
     final data = await _api.getData('/api/v1/flowrun-inbox');
-    return (data['parked'] as List? ?? const []).length;
+    return [
+      for (final e in (data['parked'] as List? ?? const []))
+        SchedulerInboxRow.fromJson((e as Map).cast<String, dynamic>()),
+    ];
   }
+
+  @override
+  Future<FlowrunComposite> decideApproval(String flowrunId, String nodeId,
+          {required String decision, String? reason}) =>
+      _api.postEntity('/api/v1/flowruns/$flowrunId/approvals/$nodeId:decide',
+          FlowrunComposite.fromJson, body: {'decision': decision, 'reason': ?reason});
+
+  @override
+  Future<FlowrunComposite> cancelRun(String flowrunId) =>
+      _api.postEntity('/api/v1/flowruns/$flowrunId:cancel', FlowrunComposite.fromJson);
 
   @override
   Future<Page<Flowrun>> listFlowruns(

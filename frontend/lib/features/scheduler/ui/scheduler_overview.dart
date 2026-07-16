@@ -10,15 +10,17 @@ import '../../../core/shell/oceans.dart';
 import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
 import '../state/scheduler_overview_provider.dart';
+import 'overview_zones.dart';
 
-/// The Scheduler Overview board (WRK-069 §3, S2a) — `/scheduler` with nothing selected. Zones top-down
-/// by how much they need a human: KPI strip → («等你处理» lands HERE with 工单④, S2b) → running now →
-/// next-24h schedule → 7d failure aggregation; zero workflows collapses the whole page into one
-/// first-use education card. 活性军规: the half-minute [AnTimePulse] refreshes TIME TEXT only (running
-/// elapsed / next-fire relatives); rows appear/disappear only when the provider refetches on durable
-/// frames. Saturated colour goes to red/amber only — success stays background hum.
-/// Scheduler 总览看板:KPI 牌 → (S2b 等你处理落位于此)→ 正在跑 → 未来 24h → 失败聚合;零数据整页一张
-/// 教育卡。脉搏只刷时间字,行增删只随 durable refetch;饱和色只给红/琥珀。
+/// The Scheduler Overview board (WRK-069 §3, S2a+S2b) — `/scheduler` with nothing selected. Zones
+/// top-down by how much they need a human: KPI strip → «等你处理» (inbox rows + in-place ApprovalGate
+/// + batch approve/reject, [SchedulerWaitingZone]) → running now (hover ⏹ cancel + batch cancel,
+/// [SchedulerRunningZone]) → next-24h schedule → 7d failure aggregation; zero workflows collapses the
+/// whole page into one first-use education card. 活性军规: the half-minute [AnTimePulse] refreshes
+/// TIME TEXT only (running elapsed / waited-for / next-fire relatives); rows appear/disappear only on
+/// user action or durable refetch. Saturated colour goes to red/amber only — success stays background
+/// hum. Scheduler 总览看板:KPI 牌 → 等你处理(就地审批+批量)→ 正在跑(hover 取消+批量)→ 未来 24h →
+/// 失败聚合;零数据整页一张教育卡。脉搏只刷时间字,行增删只随用户动作/durable refetch;饱和色只给红/琥珀。
 class SchedulerOverviewView extends ConsumerStatefulWidget {
   const SchedulerOverviewView({super.key});
 
@@ -92,14 +94,11 @@ class _SchedulerOverviewViewState extends ConsumerState<SchedulerOverviewView> {
             padding: const EdgeInsets.only(bottom: AnGap.section),
             child: _KpiStrip(kpi: d.kpi, now: now),
           ),
-          // ── S2b slot ──「等你处理」 (the costliest land: inbox rows + ApprovalGate + AnBatchBar)
-          // lands BETWEEN the KPI strip and «running now» once 工单④ ships. S2b 区在此落位。
-          AnSection(
-            label: t.overview.runningHead(n: '${d.runningRuns.length}'),
-            children: d.runningRuns.isEmpty
-                ? [_emptyLine(context, t.overview.runningEmpty)]
-                : [for (final r in d.runningRuns) _runningRow(context, r, now)],
-          ),
+          // «等你处理» — the costliest land (S2b): inbox rows + in-place ApprovalGate + AnBatchBar
+          // batch approve/reject; then «正在跑» with hover ⏹ + batch cancel. 等你处理(就地审批+批量)
+          // 与 正在跑(hover 取消+批量取消)两操作区。
+          SchedulerWaitingZone(rows: d.waiting, now: now),
+          SchedulerRunningZone(rows: d.runningRuns, now: now),
           AnSection(
             label: t.overview.upcomingHead,
             children: d.upcoming.isEmpty
@@ -120,24 +119,6 @@ class _SchedulerOverviewViewState extends ConsumerState<SchedulerOverviewView> {
   /// An honest quiet empty sentence under a zone head (no ghost frames). 区头下的诚实灰句。
   Widget _emptyLine(BuildContext context, String text) =>
       Text(text, style: AnText.body.copyWith(color: context.colors.inkFaint));
-
-  /// «Running now» row: status dot · workflow name · mono fr_ chip · live elapsed. Node progress
-  /// needs the run detail (S4) — absent, not faked. Row taps into the run flagship. 正在跑一行;
-  /// 节点进度依赖 run 详情(S4)缺席不假造;点行进 run 旗舰页。
-  Widget _runningRow(BuildContext context, RunningRunRow r, DateTime now) {
-    final started = r.run.startedAt;
-    return AnLedgerRow(
-      lead: AnStatusDot(AnStatus.fromRaw(r.run.status)),
-      primary: r.workflowName,
-      mono: false,
-      chips: [
-        AnChip(truncate(r.run.id, AnTrunc.id),
-            mono: true, look: AnChipLook.outlined, tooltip: r.run.id),
-      ],
-      measure: started != null ? fmtWaited(now.difference(started)) : null,
-      onTap: () => context.go('/scheduler/w/${r.workflowId}/runs/${r.run.id}'),
-    );
-  }
 
   /// «Next 24h» row: ⏱ · trigger name · workflow chip · relative fire time. Not tappable — the
   /// trigger exhibit lives in the operations home (S3). 未来 24h 一行;不可点(观测面随 S3)。

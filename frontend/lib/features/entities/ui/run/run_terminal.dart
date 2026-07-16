@@ -23,7 +23,7 @@ import '../../../../core/shell/right_panel.dart';
 import '../../state/run/run_terminal_controller.dart';
 import '../../state/run/run_terminal_state.dart';
 import '../../state/selected_entity.dart';
-import '../approval_gate.dart';
+import '../../../../core/run/approval_gate.dart';
 import 'block_tree_view.dart';
 import 'run_input_form.dart';
 

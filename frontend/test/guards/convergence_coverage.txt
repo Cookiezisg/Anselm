@@ -94,6 +94,7 @@ lib/core/process/backend_controller.dart	converged
 lib/core/process/master_key.dart	converged
 lib/core/router/navigation.dart	converged
 lib/core/router/panel_registry.dart	converged
+lib/core/run/approval_gate.dart	converged
 lib/core/run/flowrun_node_list.dart	pending
 lib/core/run/flowrun_progress.dart	reviewed
 lib/core/run/provenance_line.dart	pending
@@ -121,6 +122,7 @@ lib/core/ui/an_attachment_card.dart	converged
 lib/core/ui/an_attachment_chip.dart	reviewed
 lib/core/ui/an_attachment_thumb.dart	converged
 lib/core/ui/an_auto_grid.dart	converged
+lib/core/ui/an_batch_bar.dart	pending
 lib/core/ui/an_brand_icon.dart	reviewed
 lib/core/ui/an_button.dart	converged
 lib/core/ui/an_callout.dart	converged
@@ -247,6 +249,7 @@ lib/core/workspace/workspace_bootstrap.dart	converged
 lib/core/workspace/workspace_switch.dart	converged
 lib/dev/demo_main.dart	reviewed
 lib/dev/editor_harness_main.dart	reviewed
+lib/dev/gallery/an_batch_bar_specimens.dart	pending
 lib/dev/gallery/an_countdown_specimens.dart	pending
 lib/dev/gallery/an_term_tail_specimens.dart	converged
 lib/dev/gallery/catalog.dart	reviewed
@@ -413,7 +416,6 @@ lib/features/entities/state/run/run_fields.dart	converged
 lib/features/entities/state/run/run_terminal_controller.dart	converged
 lib/features/entities/state/run/run_terminal_state.dart	converged
 lib/features/entities/state/selected_entity.dart	converged
-lib/features/entities/ui/approval_gate.dart	converged
 lib/features/entities/ui/detail/control_branch_row.dart	converged
 lib/features/entities/ui/detail/detail_sections.dart	reviewed
 lib/features/entities/ui/detail/log_tab.dart	reviewed
@@ -457,6 +459,7 @@ lib/features/scheduler/data/scheduler_repository.dart	pending
 lib/features/scheduler/state/scheduler_overview_provider.dart	pending
 lib/features/scheduler/state/scheduler_rail_provider.dart	pending
 lib/features/scheduler/state/selected_scheduler.dart	pending
+lib/features/scheduler/ui/overview_zones.dart	pending
 lib/features/scheduler/ui/scheduler_ocean.dart	pending
 lib/features/scheduler/ui/scheduler_overview.dart	pending
 lib/features/scheduler/ui/scheduler_rail.dart	pending

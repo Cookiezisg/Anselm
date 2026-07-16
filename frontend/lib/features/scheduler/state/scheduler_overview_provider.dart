@@ -82,11 +82,14 @@ class FailingWorkflowRow {
 }
 
 /// The whole board. [firstUse] = no workflows at all → the education card replaces the zones.
-/// 整块看板;firstUse=零 workflow → 教育卡替代全部区块。
+/// [waiting] is the rail fetch's enriched inbox verbatim (S2b — same rows the badge counts, so the
+/// KPI tile, the badge and the zone can never disagree). 整块看板;firstUse=零 workflow → 教育卡替代
+/// 全部区块;waiting=rail 同源 inbox 行(牌/徽/区三处同数)。
 class SchedulerOverviewData {
   const SchedulerOverviewData({
     required this.firstUse,
     required this.kpi,
+    this.waiting = const [],
     this.runningRuns = const [],
     this.upcoming = const [],
     this.failures = const [],
@@ -94,6 +97,7 @@ class SchedulerOverviewData {
 
   final bool firstUse;
   final SchedulerKpi kpi;
+  final List<SchedulerInboxRow> waiting;
   final List<RunningRunRow> runningRuns;
   final List<UpcomingFire> upcoming;
   final List<FailingWorkflowRow> failures;
@@ -238,12 +242,13 @@ class SchedulerOverviewController extends AsyncNotifier<SchedulerOverviewData> {
       firstUse: false,
       kpi: SchedulerKpi(
         running: stats24.totals.running,
-        waiting: rail.waitingCount,
+        waiting: rail.inbox.length,
         failed24h: stats24.totals.failedSince,
         failedDelta: kpiFailedDelta(
             failed24: stats24.totals.failedSince, failed48: stats48.totals.failedSince),
         nextFire: earliestNextFire(rail.nextFireByWorkflow.values, now),
       ),
+      waiting: rail.inbox,
       runningRuns: runningRuns,
       upcoming: upcomingFires(
           triggers: rail.triggers, edges: rail.edges, workflowNames: names, now: now),

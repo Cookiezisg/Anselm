@@ -1,14 +1,15 @@
 import 'package:anselm/core/contract/entities/workflow.dart';
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/run/approval_gate.dart';
 import 'package:anselm/core/ui/an_info_card.dart';
 import 'package:anselm/core/ui/an_input.dart';
-import 'package:anselm/features/entities/ui/approval_gate.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-// A-011 — the shared parked-approval decision gate. Three sites (run terminal / cockpit / inbox) once
-// hand-rolled it; this pins the distinct knobs: framed shell, reason gating, verdict+reason forwarding.
+// A-011 — the shared parked-approval decision gate (core/run since WRK-069 S2b — the Scheduler joined
+// the entities trio as a consumer). Pins the distinct knobs: framed shell, reason gating, verdict+
+// reason forwarding.
 
 final _t = DateTime.utc(2026, 7, 13);
 
@@ -70,7 +71,7 @@ void main() {
     )));
     await tester.pump();
     await tester.enterText(find.byType(AnInput), '  budget signed off  ');
-    await tester.tap(find.text(Translations.of(tester.element(find.byType(ApprovalGate))).entities.run.approve));
+    await tester.tap(find.text(Translations.of(tester.element(find.byType(ApprovalGate))).run.approve));
     await tester.pump();
     expect(gotVerdict, 'yes');
     expect(gotReason, 'budget signed off'); // trimmed 去空白
@@ -81,8 +82,8 @@ void main() {
     await tester.pumpWidget(_host(ApprovalGate(parked: _node(), busy: true, onDecide: (_, _) => fired++)));
     await tester.pump();
     final t = Translations.of(tester.element(find.byType(ApprovalGate)));
-    await tester.tap(find.text(t.entities.run.approve), warnIfMissed: false);
-    await tester.tap(find.text(t.entities.run.reject), warnIfMissed: false);
+    await tester.tap(find.text(t.run.approve), warnIfMissed: false);
+    await tester.tap(find.text(t.run.reject), warnIfMissed: false);
     expect(fired, 0);
   });
 }

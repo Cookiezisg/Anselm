@@ -50,7 +50,7 @@ void main() {
     await tester.pumpWidget(_host(_repo(comp: _parked())));
     await tester.pump(); // provider resolves
     await tester.pump();
-    final r = t.entities.run;
+    final r = t.run; // gate copy lives in the core run namespace (S2b 上收) 门文案在 core run 命名空间
     expect(find.text('Approve production deploy of v4?'), findsOneWidget); // rendered prompt
     expect(find.byType(AnInput), findsOneWidget); // reason input (allowReason = true)
     expect(find.text(r.approve), findsOneWidget);
@@ -69,7 +69,7 @@ void main() {
     await tester.pumpWidget(_host(repo));
     await tester.pump();
     await tester.pump();
-    final r = t.entities.run;
+    final r = t.run;
     await tester.enterText(find.byType(AnInput), 'needs more soak time');
     await tester.tap(find.text(r.reject));
     await tester.pumpAndSettle();
