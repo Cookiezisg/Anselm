@@ -815,6 +815,7 @@
       "triageFailed": "Couldn't open a triage conversation",
       "graphHead": "Flow",
       "graphHeadPinned": "Flow (pinned version)",
+      "graphEmpty": "This run's topology isn't available — its pinned version couldn't be read, and the workflow has no current graph either.",
       "ganttHead": "Timeline",
       "ganttEmpty": "This run has no nodes to place on a timeline yet.",
       "ganttNoSpan": "Every node landed within the same millisecond — the bars show ORDER only, not duration.",

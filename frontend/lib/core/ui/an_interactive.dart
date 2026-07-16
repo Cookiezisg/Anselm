@@ -1,6 +1,8 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import 'an_a11y.dart';
+
 /// The kit's canonical "visually engaged" predicate — hovered, pressed, OR (keyboard-)focused — so
 /// every control derives its hover/active surface the SAME way (no per-widget hovered||pressed vs
 /// hovered||focused drift). 套件统一的「视觉激活」判定:hover/press/(键盘)focus 任一,各控件一致取用。
@@ -25,7 +27,7 @@ class AnInteractive extends StatefulWidget {
     required this.builder,
     this.onTap,
     this.enabled = true,
-    this.selected = false,
+    this.selected,
     this.expanded,
     this.focusNode,
     this.autofocus = false,
@@ -41,8 +43,21 @@ class AnInteractive extends StatefulWidget {
   final VoidCallback? onTap;
   final bool enabled;
 
-  /// Caller-driven selected state (surfaced as [WidgetState.selected]). 调用方驱动的选中态。
-  final bool selected;
+  /// Caller-driven selected state (surfaced as [WidgetState.selected] + [SemanticsProperties.selected]).
+  ///
+  /// **null (the default) = "selection is not a concept here"** — a button, a chip, a menu trigger. It is
+  /// NOT a synonym for `false`, and the difference is not cosmetic: any non-null value makes the node
+  /// carry `hasSelectedState`, whose framework contract reads "the widget can be selected by the user"
+  /// (dart:ui). A plain button claiming it is a lie, and a stock [TextButton] does not (dump-verified:
+  /// stock = `isButton, hasEnabledState, isEnabled, isFocusable`; ours used to add `hasSelectedState`).
+  ///
+  /// So: pass a bool ONLY from surfaces that genuinely have a selected/unselected duality (rail rows,
+  /// tabs, segments, cards in a picker). Everything else must leave it null. See design-system §2.
+  ///
+  /// 调用方驱动的选中态。**null(缺省)=「此处没有『选中』这个概念」**——按钮/chip/菜单触发器。它**不是** false 的
+  /// 同义词:任何非空值都会让节点带上 `hasSelectedState`,而该旗标的框架契约是「此件可被用户选中」(dart:ui)。
+  /// 普通按钮这么说就是撒谎,原装 TextButton 也不这么说(dump 实证)。故只有真有选中/未选中二元的面才传 bool。
+  final bool? selected;
 
   /// Disclosure state for collapsible surfaces (AnRow collapsible, AnRowDetail) — surfaced as
   /// [SemanticsProperties.expanded] so a screen reader announces expanded/collapsed. null = not a
@@ -67,7 +82,7 @@ class _AnInteractiveState extends State<AnInteractive> {
 
   Set<WidgetState> get _states => {
         if (!widget.enabled) WidgetState.disabled,
-        if (widget.selected) WidgetState.selected,
+        if (widget.selected ?? false) WidgetState.selected,
         if (widget.enabled && _hovered) WidgetState.hovered,
         if (widget.enabled && _focused) WidgetState.focused,
         if (widget.enabled && _pressed) WidgetState.pressed,
@@ -128,7 +143,10 @@ class _AnInteractiveState extends State<AnInteractive> {
       child: Semantics(
         button: widget.onTap != null,
         enabled: widget.enabled,
-        selected: widget.selected,
+        // Never `false` — see [AnA11y.selected] (a pinned-engine defect turns an explicit false into
+        // "selected"). null-when-unselected is also what a caller with no selection concept sends.
+        // 绝不发 false——见 AnA11y.selected(钉住的引擎会把显式 false 念成「已选中」)。
+        selected: AnA11y.selected(widget.selected),
         expanded: widget.expanded,
         child: result,
       ),

@@ -71,7 +71,12 @@ void main() {
     expect(tester.widget<IndexedStack>(find.byType(IndexedStack)).index, 0);
     expect(tester.getSemantics(find.text('Alpha')).flagsCollection.isSelected.toBoolOrNull(), isTrue,
         reason: 'fallback tab 0 must read as selected (highlight + a11y agree with the shown pane)');
-    expect(tester.getSemantics(find.text('Beta')).flagsCollection.isSelected.toBoolOrNull(), isFalse);
+    // The UNSELECTED tab says NOTHING about selection — not «false». `selected: false` is a lie on the
+    // pinned engine (kFlutterTristateFalse == 2 is truthy in the bridge's bool param, so it announces as
+    // SELECTED); absence is the only safe «no». See [AnA11y.selected] — this flips back to isFalse when
+    // Flutter moves off 3.41.x. 未选中的 tab 对「选中」**什么都不说**、而非说 false:在钉住的引擎上 false 会被念成
+    // 「已选中」,不说是唯一安全的「否」。升离 3.41.x 后这条改回 isFalse。
+    expect(tester.getSemantics(find.text('Beta')).flagsCollection.isSelected.toBoolOrNull(), isNull);
     handle.dispose();
   });
 

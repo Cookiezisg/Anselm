@@ -4,11 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // `Override` (the ProviderScope override type) is exported from misc.dart, not the main barrel (Riverpod
 // 3.x). Named only for demoOverrides's signature. Override 类型在 misc.dart(3.x 主 barrel 不导出)。
 import 'package:flutter_riverpod/misc.dart' show Override;
+import 'package:scaled_app/scaled_app.dart';
 
 import '../app/router.dart';
 import '../app/window_setup.dart';
 import '../core/design/theme.dart';
 import '../core/overlay/an_overlay.dart';
+import '../core/platform/window_zoom.dart';
 import '../core/router/navigation.dart';
 import '../core/settings/app_prefs_providers.dart';
 import '../core/settings/settings_prefs.dart';
@@ -62,13 +64,25 @@ List<Override> demoOverrides(SettingsPrefs prefs, FixtureNotificationRepository 
     ];
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  // The SCALED binding, byte-for-byte as main.dart creates it. Zoom is neither a data source nor a
+  // gate, so the 铁律「app 与 demo 只差两点」 forbids it diverging here — and it is not decorative:
+  // WindowZoom._apply() only relayouts `if (binding is ScaledWidgetsFlutterBinding)`, so a bare
+  // WidgetsFlutterBinding makes that test FALSE and ⌘± dies SILENTLY (the factor moves, the tree
+  // never reflows). The demo is the visual acceptance floor — every deviation from the app falsifies
+  // an acceptance run. Guarded by test/guards/demo_parity_guard_test.dart.
+  // scaled binding,与 main.dart 逐字同款。缩放既非数据源亦非门控,故「只差两点」铁律不许它在此分叉——
+  // 且它不是装饰:WindowZoom._apply() 只在 `binding is ScaledWidgetsFlutterBinding` 时才重排,裸 binding
+  // 让该判恒假、⌘± **静默**失效(factor 动了、树永不重排)。demo 是视觉验收地板,与 app 的每处偏离都让
+  // 验收失真。由 demo_parity_guard_test.dart 守。
+  ScaledWidgetsFlutterBinding.ensureInitialized(scaleFactor: WindowZoom.scaleFactorCallback);
   if (kPerfProbeEnabled) installPerfProbe();
   LocaleSettings.useDeviceLocaleSync();
   // Real persisted prefs in the demo too — chrome memory (island widths / last ocean / window
   // geometry) survives a relaunch, same as the app. demo 也用真持久偏好,与 app 同。
   final prefs = await SettingsPrefs.load();
+  WindowZoom.useSettingsPrefs(prefs); // zoom persists via the central prefs, same as the app
   await initWindow(title: 'Anselm · Demo (fixtures)', prefs: prefs);
+  WindowZoom.restore(); // the persisted zoom, before the first frame 首帧前恢复持久化缩放
   // D-031 — a live toast a few seconds in: a background workflow «fails» and emits a durable danger
   // signal, so the ToastDispatcher (watched by the shell) pops the right-top toast. Hoist the repo so we
   // can drive it after the shell has mounted its signal listener. 延时活 toast:后台工作流「失败」推信号。
@@ -100,7 +114,10 @@ class DemoRoot extends ConsumerWidget {
       routerConfig: router,
       // Mirror app.dart's wrap (minus the startup/workspace gates the demo has no backend for): the
       // rebindable global shortcuts (⌘B/⌘\/⌘,/⌘±/⌘0) ABOVE the autofocus Focus so cold-start chords
-      // reach them (D-035). Handlers are pure provider/static calls — no backend needed. 镜像 app 快捷键。
+      // reach them (D-035). Handlers are pure provider/static calls — no backend needed. ⌘± additionally
+      // needs the SCALED binding main() installs above: this wrap only DELIVERS the chord, it cannot make
+      // the tree reflow. 镜像 app 快捷键;⌘± 另需上面那口 scaled binding——本层只负责把和弦送到,让树重排的
+      // 不是它。
       builder: (context, child) => AnOverlayHost(
         navigatorKey: navigatorKey,
         child: GlobalShortcuts(child: Focus(autofocus: true, child: child!)),

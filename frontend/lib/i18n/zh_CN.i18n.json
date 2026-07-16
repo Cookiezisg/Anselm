@@ -815,6 +815,7 @@
       "triageFailed": "诊断对话没能打开",
       "graphHead": "流转",
       "graphHeadPinned": "流转(钉版)",
+      "graphEmpty": "取不到这次运行的拓扑——钉版读不出,workflow 也没有当前的图。",
       "ganttHead": "甘特",
       "ganttEmpty": "这次运行还没有可排上时间轴的节点。",
       "ganttNoSpan": "所有节点落在同一毫秒内——条只表示顺序,不表示时长。",

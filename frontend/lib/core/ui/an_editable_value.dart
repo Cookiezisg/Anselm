@@ -1,10 +1,10 @@
-import 'package:flutter/semantics.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../i18n/strings.g.dart';
 import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
+import 'an_a11y.dart';
 import 'an_button.dart';
 import 'an_dropdown.dart';
 import 'an_edit_affordance.dart';
@@ -148,14 +148,8 @@ class _AnEditableValueState extends State<AnEditableValue> {
       _editing = true;
       _finished = false;
     });
-    if (SemanticsBinding.instance.semanticsEnabled) {
-      // sendAnnouncement (not the deprecated announce) — polite by default. 进编辑礼貌宣告。
-      SemanticsService.sendAnnouncement(
-        View.of(context),
-        context.t.a11y.editingField(field: widget.fieldLabel),
-        Directionality.of(context),
-      );
-    }
+    // Entering edit is a mode change the reader cannot see — nothing else says it. 进编辑=看不见的模式切换。
+    AnA11y.announce(context, context.t.a11y.editingField(field: widget.fieldLabel));
   }
 
   // One-shot per session ([_finished]); abort (Cancel / Esc) wins if it lands first. Commit trims (no

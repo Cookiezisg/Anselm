@@ -4,6 +4,8 @@ import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../support/announce_probe.dart';
+
 void main() {
   Widget host(Widget child, {double width = 320}) => TranslationProvider(
         child: MaterialApp(
@@ -22,12 +24,43 @@ void main() {
     expect(find.text('4'), findsOneWidget);
   });
 
-  testWidgets('a11y value is "Step N of M" (clamped) and is a live region', (tester) async {
+  testWidgets('a11y value is "Step N of M" (clamped) and is FINDABLE', (tester) async {
     final handle = tester.ensureSemantics();
     await tester.pumpWidget(host(const AnStepper(count: 4, current: 3, semanticLabel: 'Setup')));
     final s = tester.getSemantics(find.byType(AnStepper));
     expect(s.value, 'Step 3 of 4');
-    expect(s.flagsCollection.isLiveRegion, isTrue);
+    handle.dispose();
+  });
+
+  testWidgets('arriving says NOTHING; ADVANCING announces — the furniture/news asymmetry', (tester) async {
+    final handle = tester.ensureSemantics();
+    final said = probeAnnouncements(tester);
+    await tester.pumpWidget(host(const AnStepper(count: 4, current: 1, semanticLabel: 'Setup')));
+    await tester.pumpAndSettle();
+    // A stepper is page FURNITURE that was already here — shouting on mount talks over the page the
+    // reader just navigated to, and they will read it when they get there.
+    // stepper 是**本来就在**的页面家具——挂载即喊会盖过读屏刚导航到的这一页,而他们走到时自会读到。
+    expect(said, isEmpty, reason: '到场不播报——它不是新闻');
+
+    await tester.pumpWidget(host(const AnStepper(count: 4, current: 2, semanticLabel: 'Setup')));
+    await tester.pumpAndSettle();
+    // The flow moving underneath them is the one thing they CANNOT discover on their own. 脚下流程在动
+    // 是他们自己发现不了的唯一一件事。
+    expect(said.map((a) => a.toString()), ['polite: Setup. Step 2 of 4']);
+    handle.dispose();
+  });
+
+  testWidgets('a rebuild that does not advance stays silent (no announce storm on repaint)',
+      (tester) async {
+    final handle = tester.ensureSemantics();
+    await tester.pumpWidget(host(const AnStepper(count: 4, current: 2, semanticLabel: 'Setup')));
+    await tester.pumpAndSettle();
+    final said = probeAnnouncements(tester);
+    for (var i = 0; i < 3; i++) {
+      await tester.pumpWidget(host(const AnStepper(count: 4, current: 2, semanticLabel: 'Setup')));
+      await tester.pumpAndSettle();
+    }
+    expect(said, isEmpty, reason: '重建不是推进;每帧喊一遍=滥播报');
     handle.dispose();
   });
 

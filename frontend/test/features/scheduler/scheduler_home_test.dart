@@ -6,6 +6,7 @@ import 'package:anselm/core/contract/entities/values.dart';
 import 'package:anselm/core/contract/entities/workflow.dart';
 import 'package:anselm/core/contract/retention.dart';
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/run/run_ledger.dart';
 import 'package:anselm/core/runtime.dart';
 import 'package:anselm/core/sse/frame.dart';
@@ -25,8 +26,9 @@ import 'stub_scheduler_repo.dart';
 // S3 · the workflow operations home (WRK-069 §4) — four segments: health head (bead strip + 7d
 // stats + Run now + ⋯/:kill TypeToConfirm) · the run big table (source-phrase identity, TRUE count
 // strip, origin/window filters that really reach the wire, keyset paging, the follow pill that never
-// inserts a row, batch replay/cancel with merged real numbers) · the linked pane (gantt ⇄ graph,
-// full-bleed) · the triggers exhibit (cron mono + the pause/resume switch). The running dot breathes
+// inserts a row, batch replay/cancel with merged real numbers) · the linked pane (gantt ⇄ graph ⇄
+// matrix, an ordinary 720 section — 判决③'s full-bleed zone was rejected by the user on 2026-07-17 and
+// deleted) · the triggers exhibit (cron mono + the pause/resume switch). The running dot breathes
 // forever → FIXED pumps, never pumpAndSettle. S3 电池;固定 pump、不 settle。
 
 final _now = DateTime.now();
@@ -632,6 +634,41 @@ void main() {
   });
 
   group('④ 联动格', () {
+    // WRK-069 判决③ once gave this pane a full-bleed zone; the user rejected it on sight on
+    // 2026-07-17 (「我不允许有这种超宽的东西。请都改回到标准的。」). The pane is now an ordinary section of
+    // AnPage's 720 reading column, and each face answers width on its OWN — this is the guard that the
+    // reversal stays reversed.
+    // 判决③ 曾给本格全宽区;用户 0717 当面否决。本格现在只是 AnPage 720 阅读列里普通的一段,三脸各自解决
+    // 宽度——本测守住「反转不被反转回去」。
+    testWidgets('the pane is an ordinary 720 section — no face may widen the page (用户 0717 判决)',
+        (tester) async {
+      await _pump(tester, _repo(), runId: 'fr_fail1');
+      final reading = AnSize.content - AnInset.pageX * 2;
+
+      Future<void> expectWithinColumn(Finder face, String who) async {
+        expect(face, findsOneWidget, reason: '$who 在场');
+        expect(tester.getSize(face).width, lessThanOrEqualTo(reading + 0.5),
+            reason: '$who 不得破 720 阅读列——宽度归它自己解决(甘特分数轨缩放 / 图 InteractiveViewer / 矩阵自带横滚)');
+        expect(tester.takeException(), isNull, reason: '$who 在 720 内不溢出');
+      }
+
+      // ① gantt (the default face) — a [0,1] fraction track, so it just rescales. 甘特=分数轨,直接缩放。
+      await expectWithinColumn(find.byType(AnNodeGantt), '甘特');
+
+      Future<void> switchTo(String label) async {
+        await tester.ensureVisible(find.text(label));
+        await tester.pump();
+        await tester.tap(find.text(label));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+      }
+
+      // ② graph — pans/zooms inside its own InteractiveViewer. 图=在自己的 InteractiveViewer 里平移缩放。
+      // (③ matrix has its own guard in group ⑤ — it needs the wire fixture. 矩阵的同款守卫在 ⑤ 组,它要线缆种子。)
+      await switchTo(h.faceGraph);
+      await expectWithinColumn(find.byType(AnGraphCanvas), '图');
+    });
+
     testWidgets('absent without ?run=; present with it (gantt default, graph on toggle)',
         (tester) async {
       await _pump(tester, _repo());
@@ -797,6 +834,31 @@ void main() {
       expect(find.text('3'), findsOneWidget, reason: 'iterations=3 → ×N 在格里');
       expect(find.byTooltip(h.matrixNotReached), findsOneWidget,
           reason: '稀疏格说「未及」——空格是真答案,不是缺答案');
+    });
+
+    testWidgets('the grid takes its width from ITSELF, never from the page (用户 0717 判决)',
+        (tester) async {
+      // 判决③ once widened this whole pane to the ocean so 20 columns would fit; the user rejected
+      // that on sight on 2026-07-17. The matrix is the ONE face genuinely wider than the reading
+      // column (~692px of grid vs ~640px of card), so it is the one that had to grow a scroller —
+      // inside itself, leaving the page's 720 column untouched.
+      // 判决③ 曾为了塞下 20 列把整格撑到海洋宽,用户 0717 当面否决。矩阵是三脸里**唯一**真比阅读列宽的
+      // (格阵 ~692px vs 卡内 ~640px),故它是那个必须长出滚动器的——长在**自己肚子里**,页的 720 列不动。
+      final repo = _repo()..matrixByWorkflow['wf_a'] = grid();
+      await _pump(tester, repo, runId: 'fr_fail1');
+      await tester.ensureVisible(find.text(h.faceMatrix));
+      await tester.pump();
+      await tester.tap(find.text(h.faceMatrix));
+      await tester.pump();
+      await _settle(tester);
+
+      expect(tester.getSize(find.byType(AnRunMatrix)).width,
+          lessThanOrEqualTo(AnSize.content - AnInset.pageX * 2 + 0.5),
+          reason: '矩阵不得破 720 阅读列——宽度归它自己解决');
+      final sv = tester.widget<SingleChildScrollView>(find.descendant(
+          of: find.byType(AnRunMatrix), matching: find.byType(SingleChildScrollView)));
+      expect(sv.scrollDirection, Axis.horizontal, reason: '矩阵的宽在它自己肚子里滚');
+      expect(tester.takeException(), isNull, reason: '720 内不溢出');
     });
 
     testWidgets('an empty grid says so; a failed read offers retry — neither blanks the pane',

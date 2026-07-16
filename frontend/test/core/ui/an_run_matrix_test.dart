@@ -1,6 +1,7 @@
 import 'package:anselm/core/design/colors.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/ui/ui.dart';
+import 'package:flutter/foundation.dart' show debugDefaultTargetPlatformOverride;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -23,10 +24,10 @@ const _cols = [
   RunColumn(id: 'fr_1', status: 'failed', elapsedMs: 8000),
 ];
 
-// The real host is a SCROLLING page (AnZonedPage's fullBleed zone), which hands the grid unbounded
+// The real host is a SCROLLING page ([AnPage]'s 720 reading column), which hands the grid unbounded
 // height — so the host here must too, or a tall grid "overflows" against a test-window ceiling that
-// does not exist in the app. 真实宿主是**可滚动**的页(AnZonedPage 的 fullBleed 区),给格阵无界高——故
-// 此处宿主也必须给,否则高格阵会撞上一个 app 里根本不存在的测试窗天花板。
+// does not exist in the app. 真实宿主是**可滚动**的页(AnPage 的 720 阅读列),给格阵无界高——故此处宿主
+// 也必须给,否则高格阵会撞上一个 app 里根本不存在的测试窗天花板。
 Widget _host(Widget child, {double width = 600}) => MaterialApp(
       theme: AnTheme.light(),
       home: Scaffold(
@@ -501,10 +502,144 @@ void main() {
         ],
         cellStatus: (_, _) => const MatrixCellState(status: 'completed'),
       ),
-      // The full-bleed pane's real width (判决③ bought the 720 exemption precisely so 20 columns fit
-      // without horizontal scroll). 全宽格的真实宽度(判决③ 买下 720 豁免正是为了 20 列免横滚)。
-      width: 1100,
+      // The REAL host width now: AnPage's 720 reading column, less the page inset and the card's own
+      // (用户 0717 判决 — 全宽破例作废). The grid is WIDER than this, and that is the settled design:
+      // it scrolls inside itself rather than asking the page for room.
+      // 现在的**真实**宿主宽:AnPage 的 720 阅读列减去页 inset 与卡内距(用户 0717 判决,全宽破例作废)。
+      // 格阵比它宽,而这是已定的设计:它在自己肚子里滚,不向页面讨宽度。
+      width: 640,
     ));
-    expect(tester.takeException(), isNull, reason: '20 列 × 24 行=格阵上限,必须不溢出');
+    expect(tester.takeException(), isNull, reason: '20 列 × 24 行=格阵上限,在 720 阅读列内必须不溢出');
+  });
+
+  // WRK-069 判决③ 的全宽破例被用户 2026-07-17 当面否决(「我不允许有这种超宽的东西…可以弄那种可以左右滑动
+  // 的」)。宽度问题因此整个搬进本件肚子里,这四条锁死搬进来的东西是**能用**的而不只是「不崩」。
+  // The full-bleed exemption is gone; the width problem moved INSIDE this widget. These four lock that
+  // what moved in actually WORKS, rather than merely not crashing.
+  group('width lives inside the grid (用户 0717 判决 — 判决③ 全宽破例作废)', () {
+    /// 20 columns at the reading column's real width — the production shape. 生产形态。
+    Widget grid({void Function(String, String)? onCell}) => AnRunMatrix(
+          rows: [for (var i = 0; i < 6; i++) MatrixRowHead(nodeId: 'node_$i', kind: 'action')],
+          cols: [
+            for (var i = 20; i > 0; i--)
+              RunColumn(id: 'fr_$i', status: 'completed', elapsedMs: 1000 * i),
+          ],
+          cellStatus: (_, _) => const MatrixCellState(status: 'completed'),
+          onCell: onCell ?? (_, _) {},
+        );
+
+    Finder hBar() =>
+        find.byWidgetPredicate((w) => w is RawScrollbar && w.child is ScrollConfiguration);
+
+    testWidgets('the grid scrolls sideways in its OWN container — the host never does', (tester) async {
+      await tester.pumpWidget(_host(grid(), width: 640));
+      final sv = tester.widget<SingleChildScrollView>(
+          find.descendant(of: find.byType(AnRunMatrix), matching: find.byType(SingleChildScrollView)));
+      expect(sv.scrollDirection, Axis.horizontal, reason: '横滚器在格阵自己肚子里');
+      // The HOST's scroll view (the page stand-in) stays vertical — 「宽内容自己滚,body 永不横滚」.
+      // 宿主(页面替身)的滚动器仍是纵向的。
+      final hostSv = tester.widget<SingleChildScrollView>(find
+          .ancestor(of: find.byType(AnRunMatrix), matching: find.byType(SingleChildScrollView))
+          .first);
+      expect(hostSv.scrollDirection, Axis.vertical, reason: 'body 永不横滚');
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the bar IS the discoverability: it paints when there is more, and only then',
+        (tester) async {
+      // Narrow host → the grid overflows → a thumb says so. 窄宿主→溢出→thumb 说出来。
+      await tester.pumpWidget(_host(grid(), width: 640));
+      await tester.pumpAndSettle();
+      expect(hBar(), findsOneWidget, reason: '横滚条在场');
+      var painted = tester
+          .widget<SingleChildScrollView>(find.descendant(
+              of: find.byType(AnRunMatrix), matching: find.byType(SingleChildScrollView)))
+          .controller!;
+      expect(painted.position.maxScrollExtent, greaterThan(0), reason: '真有得滚→thumb 有内容可画');
+
+      // Wide host → nothing to scroll → the painter early-returns and no thumb is drawn (a bar that
+      // lies about there being more is worse than no bar). 宽宿主→无得滚→painter 早退不画 thumb。
+      await tester.pumpWidget(_host(grid(), width: 1400));
+      await tester.pumpAndSettle();
+      painted = tester
+          .widget<SingleChildScrollView>(find.descendant(
+              of: find.byType(AnRunMatrix), matching: find.byType(SingleChildScrollView)))
+          .controller!;
+      expect(painted.position.maxScrollExtent, 0, reason: '放得下就没有「右边还有」可宣称');
+    });
+
+    testWidgets('exactly ONE thumb — the local AnScrollBehavior kills the inherited desktop bar',
+        (tester) async {
+      // MaterialScrollBehavior wraps EVERY desktop scrollable (horizontal included) in a Scrollbar;
+      // without the local ScrollConfiguration a gallery host would paint two thumbs (AnPage's 已成文坑).
+      // 无局部 ScrollConfiguration,画廊宿主会画出两个 thumb(AnPage 已成文的坑)。
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        await tester.pumpWidget(_host(grid(), width: 640));
+        await tester.pumpAndSettle();
+        expect(find.descendant(of: find.byType(AnRunMatrix), matching: find.byType(Scrollbar)),
+            findsNothing, reason: '继承来的 Material 条被压制');
+        expect(hBar(), findsOneWidget, reason: '只留格阵自己那根');
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    // The cursor cell's rect against its own viewport's rect — «is the thing the user is driving
+    // actually on screen». 光标格 vs 它自己视口的矩形——「用户正在开的那个东西,到底在不在屏上」。
+    void expectCursorVisible(WidgetTester tester, String why) {
+      final box = FocusManager.instance.primaryFocus!.context!.findRenderObject()! as RenderBox;
+      final viewport = tester.getRect(find.descendant(
+          of: find.byType(AnRunMatrix), matching: find.byType(SingleChildScrollView)));
+      final cell = box.localToGlobal(Offset.zero) & box.size;
+      expect(cell.left, greaterThanOrEqualTo(viewport.left - 0.5), reason: '$why:光标格左缘跑到视口左外');
+      expect(cell.right, lessThanOrEqualTo(viewport.right + 0.5), reason: '$why:光标格右缘跑到视口右外');
+    }
+
+    ScrollController hCtl(WidgetTester tester) => tester
+        .widget<SingleChildScrollView>(find.descendant(
+            of: find.byType(AnRunMatrix), matching: find.byType(SingleChildScrollView)))
+        .controller!;
+
+    // Both the production width (720 reading column, less the page inset and the card's own: the grid
+    // overspills it by ~52px) and a squeezed one — the narrow case is what proves the viewport really
+    // TRACKS the cursor rather than the walk merely never leaving a nearly-fitting viewport.
+    // 生产宽(720 阅读列减页 inset 与卡内距,格阵溢出 ~52px)与被挤窄的宽各跑一遍——窄的那个才证明视口真的
+    // **跟着**光标走,而不是「差点就放得下、所以怎么走都没出界」。
+    for (final w in [640.0, 300.0]) {
+      testWidgets('arrow keys drag the viewport along — the cursor is NEVER walked out of sight (host ${w.toInt()})',
+          (tester) async {
+        // THE regression this whole group exists for: the roving cursor focuses nodes EXPLICITLY,
+        // which skips FocusTraversalPolicy's own scroll-into-view. Walk right across all 20 columns
+        // and the viewport must follow, or a keyboard user's cursor ends up off-screen.
+        // 本组存在的**那个**回归:roving 光标**显式**聚焦,绕过了框架自带的滚动入视。向右走过 20 列,视口必须
+        // 跟上——否则键盘用户的光标会走到屏幕外。
+        await tester.pumpWidget(_host(grid(), width: w));
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(hCtl(tester).offset, 0, reason: '起点在左');
+
+        for (var i = 0; i < 19; i++) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+          await tester.pumpAndSettle();
+          expectCursorVisible(tester, '第 ${i + 1} 次右移'); // every step, not just the end 每一步
+        }
+        final rightmost = hCtl(tester).offset;
+        expect(rightmost, greaterThan(0), reason: '走到最右,视口确实跟着滚了');
+
+        // …and back. keepVisibleAtStart (the framework's own policy for up/left) only rewinds as far
+        // as the cursor NEEDS — the grid overspills by ~52px at the reading column, so the first
+        // column is already on screen there and a rewind to 0 would be scrolling for nothing. Assert
+        // what is actually promised: the cursor stays visible, and the viewport gave ground.
+        // 反向。keepVisibleAtStart(框架自己给 up/left 的策略)只倒回**光标需要**的那么多——在阅读列上格阵只
+        // 溢出 ~52px,首列本就在屏上,倒回 0 是白滚。故断言真正承诺的东西:光标始终可见、且视口确实让了位。
+        for (var i = 0; i < 19; i++) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+          await tester.pumpAndSettle();
+          expectCursorVisible(tester, '第 ${i + 1} 次左移');
+        }
+        expect(hCtl(tester).offset, lessThanOrEqualTo(rightmost), reason: '左移绝不把视口越推越右');
+      });
+    }
   });
 }

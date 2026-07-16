@@ -89,45 +89,60 @@ class AnSegmented<T> extends StatelessWidget {
               Row(children: [
                 for (final (i, o) in options.indexed)
                   Expanded(
-                    child: AnInteractive(
-                      enabled: enabled && !o.disabled,
-                      onTap: enabled && !o.disabled && i != index ? () => onChanged(o.value) : null,
-                      builder: (context, states) {
-                        final active = i == index;
-                        final hovered = states.contains(WidgetState.hovered) && !o.disabled;
-                        return Semantics(
-                          selected: active,
-                          button: true,
-                          label: o.label,
-                          excludeSemantics: true,
-                          child: Center(
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (o.icon != null) ...[
-                                  Icon(o.icon, size: AnSize.iconSm,
-                                      color: o.disabled
-                                          ? c.inkFaint.withValues(alpha: AnOpacity.disabled)
-                                          : active ? c.ink : (hovered ? c.inkMuted : c.inkFaint)),
-                                  const SizedBox(width: AnSpace.s4),
-                                ],
-                                Flexible(
-                                  child: Text(
-                                    o.label,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: AnText.body.copyWith(
-                                      color: o.disabled
-                                          ? c.inkFaint.withValues(alpha: AnOpacity.disabled)
-                                          : active ? c.ink : (hovered ? c.inkMuted : c.inkFaint),
+                    // ONE node per segment. `button`/`selected` are AnInteractive's to state — annotating
+                    // them again below made the two Semantics an INCOMPATIBLE pair, so the framework split
+                    // each unselected segment into parent+child and the LABEL landed on the child while
+                    // `focus` stayed on the parent: keyboard-focusing a segment announced an UNNAMED button
+                    // (dump-verified). MergeSemantics folds the label back onto the focusable node.
+                    // 每段一个节点。button/selected 归 AnInteractive 说;下面再标一遍会让两个 Semantics 成为
+                    // **不兼容**配置 → 框架把每个未选中段拆成父+子,label 落到子上、focus 留在父上 = 键盘聚焦时
+                    // 念出一个**无名按钮**(dump 实证)。MergeSemantics 把 label 折回被聚焦的那个节点。
+                    child: MergeSemantics(
+                      child: AnInteractive(
+                        enabled: enabled && !o.disabled,
+                        onTap: enabled && !o.disabled && i != index ? () => onChanged(o.value) : null,
+                        selected: i == index,
+                        builder: (context, states) {
+                          final active = i == index;
+                          final hovered = states.contains(WidgetState.hovered) && !o.disabled;
+                          return Semantics(
+                            label: o.label,
+                            // The SELECTED segment is deliberately not tappable (`i != index`), so
+                            // AnInteractive's onTap-derived `button` would drop off it — leaving the one
+                            // segment a reader most needs to identify reading as bare text. State it here;
+                            // MergeSemantics keeps it one node. 选中段刻意不可点,故 AnInteractive 由 onTap
+                            // 推导的 button 会从它身上掉;最该被认出的那一段反而读成纯文本。此处补上,merge 保持单节点。
+                            button: true,
+                            excludeSemantics: true,
+                            child: Center(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (o.icon != null) ...[
+                                    Icon(o.icon, size: AnSize.iconSm,
+                                        color: o.disabled
+                                            ? c.inkFaint.withValues(alpha: AnOpacity.disabled)
+                                            : active ? c.ink : (hovered ? c.inkMuted : c.inkFaint)),
+                                    const SizedBox(width: AnSpace.s4),
+                                  ],
+                                  Flexible(
+                                    child: Text(
+                                      o.label,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AnText.body.copyWith(
+                                        color: o.disabled
+                                            ? c.inkFaint.withValues(alpha: AnOpacity.disabled)
+                                            : active ? c.ink : (hovered ? c.inkMuted : c.inkFaint),
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                        );
-                      },
+                          );
+                        },
+                      ),
                     ),
                   ),
               ]),

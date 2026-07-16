@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart' show Material, MaterialType;
+import 'package:flutter/semantics.dart' show Assertiveness;
 import 'package:flutter/widgets.dart';
 
 import '../../i18n/strings.g.dart';
@@ -8,6 +9,7 @@ import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
 import '../model/status_state.dart';
+import 'an_a11y.dart';
 import 'an_button.dart';
 import 'an_interactive.dart';
 import 'icons.dart';
@@ -18,14 +20,20 @@ import 'tone.dart';
 /// leaving — so the stack host ([AnOverlayHost]) just lays a column of these and removes the data
 /// once told. Being a plain widget (not coupled to the controller) makes it gallery-showable and
 /// unit-testable on its own (pass [duration] `Duration.zero` for a sticky specimen). NON-anchored,
-/// non-blocking, never steals focus (it announces via a polite [Semantics.liveRegion], NEVER
-/// SemanticsService.announce — that's desktop-broken + VoiceOver-hijacking + deprecated). The op tint
-/// is a LEFT bar only; the surface is the shared white-island idiom (= AnMenuSurface) with a pop
-/// shadow. Auto-dismiss defaults to 4s; [Duration.zero] = sticky (close-only, WCAG 2.2.1 escape hatch).
+/// non-blocking, never steals focus — it speaks by PUSHING once on appear ([AnA11y.announce]).
+/// (This comment used to claim the opposite: that it announced via `Semantics.liveRegion` and that
+/// `SemanticsService.announce` was «desktop-broken». Both halves were backwards — `liveRegion` is the
+/// one that no desktop bridge reads (flutter#167318, open), so the toast was announcing NOTHING on
+/// every platform this app ships to; and `announce`'s deprecation is about MULTI-WINDOW, not desktop.
+/// See [AnA11y].) The op tint is a LEFT bar only; the surface is the shared white-island idiom
+/// (= AnMenuSurface) with a pop shadow. Auto-dismiss defaults to 4s; [Duration.zero] = sticky
+/// (close-only, WCAG 2.2.1 escape hatch).
 ///
 /// F3——单条 toast。自含、纯展示、无 Riverpod:自管进出动画 + 自动消隐 Timer,离场完成回调 onDismissed
 /// (host 只管堆列 + 收到通知后移数据)。纯 widget(不耦合 controller)→ 可单独进 gallery / 单测(duration=zero=常驻)。
-/// 非锚定 / 非阻断 / 不夺焦(polite liveRegion 播报,绝不用桌面失效且会被 VoiceOver 抢读的 announce)。tone 仅左色条;
+/// 非锚定 / 非阻断 / 不夺焦——出现时**推一次**(AnA11y.announce)。**此注释原先说反了**:它声称靠 liveRegion 播报、
+/// 说 announce「桌面失效」;两半都反了——liveRegion 才是三桌面都不读的那个(flutter#167318,至今 OPEN),故 toast
+/// 在所有出货平台上**什么都没念**;announce 的废弃因是**多窗口**、与桌面无关(见 AnA11y)。tone 仅左色条;
 /// 面=白岛(同 AnMenuSurface)+ 浮影。自动消隐缺省 4s;Duration.zero=常驻(仅手动关,WCAG 2.2.1 兜底)。
 /// Tone is the shared semantic [AnTone] (批7 B-035 — the toast enum was a strict subset). tone=公共 AnTone。
 
@@ -98,8 +106,21 @@ class _AnToastState extends State<AnToast> with SingleTickerProviderStateMixin {
         _remaining = widget.duration;
         _arm(_remaining);
       }
+      // A toast is the purest case for a push: it appears unbidden, takes no focus, and LEAVES on a
+      // timer — a reader who never hears it never learns it existed. Announcing once, here, is not a
+      // spam risk: the important-only / de-bounce / coalesce discipline lives upstream in
+      // ToastDispatcher, so anything that got as far as being rendered has already earned its say.
+      // toast 是「推送」最纯的用例:不请自来、不夺焦、还会**自己走**——听不到就等于从没发生过。在此念一次不是
+      // 滥播报:important-only / 去抖 / coalesce 的纪律在上游 ToastDispatcher,能渲出来的都已挣得这一声。
+      AnA11y.announce(context, widget.text, assertiveness: _assertiveness);
     }
   }
+
+  // Same urgency rule as AnCallout — the ARIA convention: danger/warn interrupt (`role="alert"`),
+  // the rest wait for a gap (`role="status"`). 同 AnCallout 的紧急度规则(ARIA 惯例)。
+  Assertiveness get _assertiveness => widget.tone == AnTone.danger || widget.tone == AnTone.warn
+      ? Assertiveness.assertive
+      : Assertiveness.polite;
 
   // Start (or restart) the auto-dismiss countdown for [d]. 起(或重起)消隐倒计时。
   void _arm(Duration d) {
@@ -190,13 +211,14 @@ class _AnToastState extends State<AnToast> with SingleTickerProviderStateMixin {
                 child: Row(
                   children: [
                     // Text absorbs the slack so the close button pins to the right edge; 2-line ellipsis. 文字吸余、关钮钉右。
-                    // liveRegion sits on the TEXT only (polite announce on appear), NOT the whole chip —
-                    // wrapping the chip would merge the close/action buttons into one node (their labels +
-                    // isButton leak in, and the text dupes). ExcludeSemantics drops the Text's own node so
-                    // the label isn't announced twice. liveRegion 仅在文字(包整 chip 会把按钮并进来)。
+                    // This node is what a reader FINDS when it walks the tray; the SPEAKING is the push in
+                    // didChangeDependencies (`liveRegion` used to sit here and was a no-op — the toast has
+                    // been silent on every desktop it ships to). Labelling only the text, not the chip, keeps
+                    // the close/action buttons as their own nodes; ExcludeSemantics drops the Text's own node
+                    // so the label isn't duplicated. 此节点供读屏**走到时找到**;**发声**靠 didChangeDependencies
+                    // 里的推送(此处原是 liveRegion=no-op,故 toast 在所有出货平台上一直是哑的)。只标文字不标整 chip。
                     Expanded(
                       child: Semantics(
-                        liveRegion: true,
                         label: widget.text,
                         child: ExcludeSemantics(
                           child: Text(

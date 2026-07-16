@@ -5,6 +5,7 @@ import '../../i18n/strings.g.dart';
 import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
+import 'an_a11y.dart';
 import 'an_action_group.dart';
 import '../model/status_state.dart';
 import 'an_button.dart';
@@ -17,16 +18,16 @@ import 'tone.dart';
 /// map直. Composes on AnToneColors / AnButton / AnIcons — ZERO new tokens, no package (MaterialBanner
 /// is a ScaffoldMessenger overlay, wrong for an inline bar).
 ///
-/// Two a11y mechanisms (they are NOT one — [Semantics.liveRegion] is ALWAYS polite): the bar is a
-/// polite live region (right for info/ok), and warn/danger ADDITIONALLY fire an ASSERTIVE
-/// [SemanticsService.sendAnnouncement] on mount + on in-place severity/message change. Severity is carried by
-/// icon + the spoken severity WORD (via `semanticsLabel`) + text — never colour alone (WCAG 1.4.1).
-/// Stateful only for that announce lifecycle (no animation — static is the on-brand presentation).
+/// a11y: the bar announces itself through [AnA11y.announce] on mount + on in-place severity/message
+/// change — ONE mechanism for all four severities, differing only in urgency (warn/danger interrupt,
+/// info/ok wait for a gap). Severity is carried by icon + the spoken severity WORD (via `semanticsLabel`)
+/// + text — never colour alone (WCAG 1.4.1). Stateful only for that announce lifecycle (no animation —
+/// static is the on-brand presentation).
 ///
 /// C1——通栏语气提示条:语气图标 + 文案(+可选标题)+ 0–2 动作 + 可选关闭。severity→AnTone 色(tone→色单源):
 /// info→accent(AnTone 无 info;#0071e3 是通用信息蓝),ok/warn/danger 直映。搭 AnToneColors/AnButton/AnIcons,
-/// 零新 token、无包。两套 a11y 机制(liveRegion 永远 polite):整条是 polite live region;warn/danger 另发
-/// assertive announce(挂载 + 原地变时)。语气靠 图标 + 朗读的语气词(semanticsLabel)+ 文字,绝不只靠色。
+/// 零新 token、无包。a11y:挂载 + 原地变时经 AnA11y.announce 播报——**四档一套机制**,只差紧急度(warn/danger
+/// 打断,info/ok 等空档)。语气靠 图标 + 朗读的语气词(semanticsLabel)+ 文字,绝不只靠色。
 enum AnCalloutSeverity { info, ok, warn, danger }
 
 class AnCallout extends StatefulWidget {
@@ -68,8 +69,11 @@ class AnCallout extends StatefulWidget {
         AnCalloutSeverity.danger => AnIcons.danger,
       };
 
-  // warn/danger are urgent → assertive announce; info/ok ride the polite live region. 急→assertive。
-  bool get _assertive => severity == AnCalloutSeverity.warn || severity == AnCalloutSeverity.danger;
+  // warn/danger interrupt (ARIA `role="alert"`); info/ok wait for a gap (`role="status"`). 急→assertive。
+  Assertiveness get _assertiveness =>
+      severity == AnCalloutSeverity.warn || severity == AnCalloutSeverity.danger
+          ? Assertiveness.assertive
+          : Assertiveness.polite;
 
   @override
   State<AnCallout> createState() => _AnCalloutState();
@@ -79,13 +83,13 @@ class _AnCalloutState extends State<AnCallout> {
   @override
   void initState() {
     super.initState();
-    _announceIfAssertive();
+    _announce();
   }
 
   @override
   void didUpdateWidget(AnCallout old) {
     super.didUpdateWidget(old);
-    if (old.message != widget.message || old.severity != widget.severity) _announceIfAssertive();
+    if (old.message != widget.message || old.severity != widget.severity) _announce();
   }
 
   String _word(Translations t) => switch (widget.severity) {
@@ -95,15 +99,17 @@ class _AnCalloutState extends State<AnCallout> {
         AnCalloutSeverity.danger => t.feedback.error,
       };
 
-  // liveRegion is always polite; urgency for warn/danger needs an explicit assertive announce. Defer
-  // to post-frame so Directionality/Translations are mounted. liveRegion 永远 polite,紧急须显式 assertive。
-  void _announceIfAssertive() {
-    if (!widget._assertive) return;
+  // A bar appears with news nobody asked for and takes no focus — nothing on any desktop reads it on
+  // its own, so ALL FOUR severities must be pushed (this used to fire only for warn/danger and leave
+  // info/ok to `liveRegion`, i.e. to silence: that flag is a verified desktop no-op — see [AnA11y]).
+  // Deferred to post-frame so Directionality/Translations are mounted.
+  // 提示条自己冒出来、且不夺焦 → 三桌面都不会主动念它,故**四档 severity 全推**(旧码只推 warn/danger,把 info/ok
+  // 交给 liveRegion = 交给沉默:那面旗标在桌面实证 no-op,见 AnA11y)。推迟到 post-frame 等 Directionality 挂载。
+  void _announce() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      if (!SemanticsBinding.instance.semanticsEnabled) return; // nothing listening → don't post 无辅助技术不发
-      final msg = '${_word(context.t)}: ${widget.message}';
-      SemanticsService.sendAnnouncement(View.of(context), msg, Directionality.of(context), assertiveness: Assertiveness.assertive);
+      AnA11y.announce(context, '${_word(context.t)}: ${widget.message}',
+          assertiveness: widget._assertiveness);
     });
   }
 
@@ -140,7 +146,6 @@ class _AnCalloutState extends State<AnCallout> {
 
     return Semantics(
       container: true,
-      liveRegion: true,
       child: Container(
         padding: AnInset.snug, // callout interior (12/8) 提示框内距
         decoration: BoxDecoration(color: tone.softBg(c), borderRadius: BorderRadius.circular(AnRadius.chip)),

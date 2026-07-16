@@ -7,6 +7,74 @@ import 'package:flutter_test/flutter_test.dart';
 // surface activates by neither pointer nor keyboard (the demo matrix's disabled-passthrough gate).
 // AnInteractive 是所有控件的激活基座——关键契约:禁用时指针与键盘都不激活(对齐 demo disabled 门)。
 void main() {
+  // The `selected` contract. Measured against the STOCK TextButton, which is the baseline that exposed
+  // the defect: ours used to add `hasSelectedState` to EVERY control in the app because the prop was a
+  // non-nullable bool that always annotated. Asserted on the semantics tree, never on the prop.
+  // selected 契约。以**原装 TextButton** 为基线(正是它照出缺陷:我们给全 app 每个控件都加了 hasSelectedState,
+  // 因为该 prop 曾是恒annotate 的非空 bool)。断言打在语义树上、不打在 prop 上。
+  group('selected: «say no by not saying»', () {
+    Set<String> flagsOf(WidgetTester t, Finder f) {
+      final d = t.getSemantics(f).getSemanticsData();
+      return {
+        if (d.flagsCollection.isSelected.toBoolOrNull() == true) 'isSelected',
+        if (d.flagsCollection.isSelected.toBoolOrNull() != null) 'hasSelectedState',
+        if (d.flagsCollection.isButton) 'isButton',
+      };
+    }
+
+    testWidgets('omitted → identical to a stock TextButton (no selection flags at all)', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Center(
+          child: Column(children: [
+            TextButton(onPressed: () {}, child: const Text('Stock')),
+            AnInteractive(onTap: () {}, builder: (_, _) => const Text('Ours')),
+          ]),
+        ),
+      ));
+      final stock = flagsOf(tester, find.byType(TextButton));
+      final ours = flagsOf(tester, find.byType(AnInteractive));
+      expect(stock, {'isButton'});
+      expect(ours, stock,
+          reason: '不传 selected 的控件必须与原装按钮一字不差——「没有选中这个概念」');
+    });
+
+    testWidgets('false → still says NOTHING (an explicit false is announced as SELECTED on mac/win)',
+        (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Center(child: AnInteractive(onTap: () {}, selected: false, builder: (_, _) => const Text('x'))),
+      ));
+      expect(flagsOf(tester, find.byType(AnInteractive)), {'isButton'},
+          reason: 'kFlutterTristateFalse==2 在 bridge 的 bool 形参里是真值 → false 会被念成「已选中」');
+    });
+
+    testWidgets('true → isSelected + hasSelectedState (the one thing that IS safe to say)',
+        (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Center(child: AnInteractive(onTap: () {}, selected: true, builder: (_, _) => const Text('x'))),
+      ));
+      expect(flagsOf(tester, find.byType(AnInteractive)),
+          {'isButton', 'isSelected', 'hasSelectedState'});
+    });
+
+    testWidgets('the VISUAL state is untouched by the a11y workaround (false ≠ selected on screen)',
+        (tester) async {
+      // The wire goes quiet; the paint must not. WidgetState.selected still drives every tint/ring.
+      // 线上闭嘴,画面不许:WidgetState.selected 照旧驱动一切底色/环。
+      late Set<WidgetState> off;
+      late Set<WidgetState> on;
+      await tester.pumpWidget(MaterialApp(
+        home: Center(
+          child: Column(children: [
+            AnInteractive(onTap: () {}, selected: false, builder: (_, s) { off = s; return const Text('a'); }),
+            AnInteractive(onTap: () {}, selected: true, builder: (_, s) { on = s; return const Text('b'); }),
+          ]),
+        ),
+      ));
+      expect(off.contains(WidgetState.selected), isFalse);
+      expect(on.contains(WidgetState.selected), isTrue);
+    });
+  });
+
   testWidgets('enabled surface activates by tap', (tester) async {
     var taps = 0;
     await tester.pumpWidget(MaterialApp(

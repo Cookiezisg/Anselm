@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
+import 'an_a11y.dart';
 
 /// Per-column horizontal alignment. 列对齐。
 enum AnTableAlign { left, right, center }
@@ -197,7 +198,9 @@ class _AnThinTableState extends State<AnThinTable> {
     if (i == 0) {
       return Semantics(
         button: true,
-        selected: r == _selected,
+        // A row genuinely has a selected/unselected duality — but never say "no" out loud. AnA11y.selected.
+        // 行真有选中二元,但「否」绝不出声。
+        selected: AnA11y.selected(r == _selected),
         label: cols.map((col) => '${col.label ?? col.key}: ${row[col.key] ?? ''}').join(', '),
         onTap: () => _select(r, row),
         child: ExcludeSemantics(child: hit),

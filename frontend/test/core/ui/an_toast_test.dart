@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../support/announce_probe.dart';
+
 // AnToast = one presentational toast chip (self-owned enter/exit animation + auto-dismiss timer).
 // Here: render (text / tone / action / close), liveRegion a11y (polite, never focus-stealing), the
 // dismiss paths (close tap, auto-dismiss timer, sticky Duration.zero), reduced-motion timer-decoupling,
@@ -33,9 +35,10 @@ void main() {
   });
 
   testWidgets(
-    'a11y: a polite liveRegion labelled with the text (never focus-stealing)',
+    'a11y: announces once on appear, labelled with the text (never focus-stealing)',
     (tester) async {
       final handle = tester.ensureSemantics();
+      final said = probeAnnouncements(tester);
       final probe = FocusNode();
       addTearDown(probe.dispose);
       await tester.pumpWidget(
@@ -57,12 +60,13 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      // liveRegion sits on the text node (polite announce); the close button is a SEPARATE node (not merged). liveRegion 在文字节点。
+      // The text node is what a reader FINDS; the SPEAKING is the push (asserted on the CHANNEL below —
+      // an announcement leaves no trace in the tree). This assertion used to be `isLiveRegion: true`,
+      // which is a desktop no-op: it was green while the toast was mute on every platform we ship.
+      // 文字节点供**走到时找到**;**发声**是那一推(下面打在**通道**上断言——播报在树里不留痕)。此处旧断言是
+      // isLiveRegion=true,而它是桌面 no-op:toast 在所有出货平台上是哑的,那条断言却一直绿。
       expect(find.bySemanticsLabel('Announced'), findsOneWidget);
-      expect(
-        tester.getSemantics(find.bySemanticsLabel('Announced')),
-        isSemantics(isLiveRegion: true),
-      );
+      expect(said.map((a) => a.toString()), ['polite: Announced']);
       expect(
         find.bySemanticsLabel('Dismiss'),
         findsOneWidget,
@@ -75,6 +79,16 @@ void main() {
       handle.dispose();
     },
   );
+
+  testWidgets('a danger toast INTERRUPTS; a neutral one waits for a gap', (tester) async {
+    final handle = tester.ensureSemantics();
+    final said = probeAnnouncements(tester);
+    await tester.pumpWidget(host(
+        AnToast(text: 'Run failed', tone: AnTone.danger, duration: Duration.zero, onDismissed: () {})));
+    await tester.pumpAndSettle();
+    expect(said.single.isAssertive, isTrue, reason: 'danger 打断(ARIA role=alert),同 AnCallout 一律');
+    handle.dispose();
+  });
 
   testWidgets(
     'close tap dismisses (onDismissed fires after the exit animation)',

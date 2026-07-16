@@ -5,6 +5,8 @@ import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../support/announce_probe.dart';
+
 void main() {
   Widget host(Widget child, {double width = 360}) => TranslationProvider(
         child: MaterialApp(
@@ -57,6 +59,46 @@ void main() {
     // visual text is just 'Saved'; the a11y label prefixes the severity word.
     expect(find.text('Saved'), findsOneWidget); // visible
     expect(find.bySemanticsLabel('Success: Saved'), findsOneWidget); // spoken
+  });
+
+  group('a11y: the bar announces itself — ALL FOUR severities', () {
+    testWidgets('info announces POLITELY on mount (this was silent before)', (tester) async {
+      final handle = tester.ensureSemantics();
+      final said = probeAnnouncements(tester);
+      await tester.pumpWidget(host(const AnCallout('Synced.')));
+      await tester.pumpAndSettle();
+      // info/ok used to ride `liveRegion` alone — a desktop no-op — so they announced NOTHING on every
+      // platform this app ships to. Only warn/danger ever spoke. info/ok 此前只靠 liveRegion(桌面 no-op),
+      // 即在所有出货平台上**什么都没念**;能出声的只有 warn/danger。
+      expect(said.map((a) => a.toString()), ['polite: Info: Synced.']);
+      handle.dispose();
+    });
+
+    testWidgets('danger INTERRUPTS (assertive), and carries the severity word', (tester) async {
+      final handle = tester.ensureSemantics();
+      final said = probeAnnouncements(tester);
+      await tester.pumpWidget(
+          host(const AnCallout('Disk full.', severity: AnCalloutSeverity.danger)));
+      await tester.pumpAndSettle();
+      expect(said.single.isAssertive, isTrue, reason: 'danger 要打断(ARIA role=alert)');
+      expect(said.single.message, 'Error: Disk full.');
+      handle.dispose();
+    });
+
+    testWidgets('an in-place message change re-announces; an idle rebuild does not', (tester) async {
+      final handle = tester.ensureSemantics();
+      final said = probeAnnouncements(tester);
+      await tester.pumpWidget(host(const AnCallout('First.')));
+      await tester.pumpAndSettle();
+      said.clear();
+      await tester.pumpWidget(host(const AnCallout('First.')));
+      await tester.pumpAndSettle();
+      expect(said, isEmpty, reason: '同一条重建不重念');
+      await tester.pumpWidget(host(const AnCallout('Second.')));
+      await tester.pumpAndSettle();
+      expect(said.map((a) => a.toString()), ['polite: Info: Second.']);
+      handle.dispose();
+    });
   });
 
   testWidgets('long message wraps and grows, never overflows in a narrow bar', (tester) async {

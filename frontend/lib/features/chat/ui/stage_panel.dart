@@ -54,8 +54,7 @@ class StagePanel extends ConsumerWidget {
       if (prev == null) return;
       final t2 = Translations.of(context);
       String subjectWord(StageActivityView? a) => a?.itemId ?? a?.kind ?? '';
-      void announce(String msg) =>
-          SemanticsService.sendAnnouncement(View.of(context), msg, Directionality.of(context));
+      void announce(String msg) => AnA11y.announce(context, msg);
       if (next.subject != null &&
           (prev.subject?.blockId != next.subject!.blockId || (!prev.stageOpen && next.stageOpen))) {
         announce(t2.chat.stage.a11y.staged(name: subjectWord(next.subject)));

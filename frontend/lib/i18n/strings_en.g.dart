@@ -3252,6 +3252,9 @@ class Translations$scheduler$run$en {
 	/// en: 'Flow (pinned version)'
 	String get graphHeadPinned => 'Flow (pinned version)';
 
+	/// en: 'This run's topology isn't available — its pinned version couldn't be read, and the workflow has no current graph either.'
+	String get graphEmpty => 'This run\'s topology isn\'t available — its pinned version couldn\'t be read, and the workflow has no current graph either.';
+
 	/// en: 'Timeline'
 	String get ganttHead => 'Timeline';
 
@@ -6436,6 +6439,7 @@ extension on Translations {
 			'scheduler.run.triageFailed' => 'Couldn\'t open a triage conversation',
 			'scheduler.run.graphHead' => 'Flow',
 			'scheduler.run.graphHeadPinned' => 'Flow (pinned version)',
+			'scheduler.run.graphEmpty' => 'This run\'s topology isn\'t available — its pinned version couldn\'t be read, and the workflow has no current graph either.',
 			'scheduler.run.ganttHead' => 'Timeline',
 			'scheduler.run.ganttEmpty' => 'This run has no nodes to place on a timeline yet.',
 			'scheduler.run.ganttNoSpan' => 'Every node landed within the same millisecond — the bars show ORDER only, not duration.',
@@ -6677,9 +6681,9 @@ extension on Translations {
 			'entities.detail.graph.openEditor' => 'Open graph editor',
 			'entities.detail.graph.unparseable' => 'Orchestration graph unparseable',
 			'entities.detail.cockpit.runs' => 'Runs',
-			'entities.detail.cockpit.runsCount' => ({required Object n}) => 'Runs · ${n}',
 			_ => null,
 		} ?? switch (path) {
+			'entities.detail.cockpit.runsCount' => ({required Object n}) => 'Runs · ${n}',
 			'entities.detail.cockpit.nodeGantt' => 'Node timeline',
 			'entities.detail.cockpit.notRun' => 'Not run',
 			'entities.detail.cockpit.waitingApproval' => 'Awaiting approval',
@@ -7191,9 +7195,9 @@ extension on Translations {
 			'settings.limits.resetAll' => 'Reset all to defaults',
 			'settings.limits.resetAllTitle' => 'Reset every limit to its default?',
 			'settings.limits.patchFailed' => 'Save failed',
-			'settings.limits.modified' => 'modified',
 			_ => null,
 		} ?? switch (path) {
+			'settings.limits.modified' => 'modified',
 			'settings.limits.errorTitle' => 'Couldn\'t load limits',
 			'settings.limits.retry' => 'Retry',
 			'settings.network.section' => 'Network',

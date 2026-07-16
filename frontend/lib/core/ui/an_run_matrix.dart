@@ -1,13 +1,13 @@
-import 'package:flutter/foundation.dart';
-import 'package:flutter/semantics.dart';
 import 'package:flutter/widgets.dart';
 
 import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
 import '../model/status_state.dart';
+import 'an_a11y.dart';
 import 'an_focus_ring.dart';
 import 'an_interactive.dart';
+import 'an_scroll_behavior.dart';
 import 'an_tooltip.dart';
 import 'icons.dart';
 import 'tone.dart';
@@ -87,11 +87,31 @@ import 'tone.dart';
 /// (caught by the semantics-tree dump, never by looking). Measured: 1054 semantics nodes for a 20×24
 /// grid before this shape, 95 after.
 ///
+/// ## Width: the grid scrolls INSIDE itself, and says so (用户 0717 判决)
+///
+/// 20 columns need ~692px and the reading column offers ~640 — so the grid IS wider than its host, and
+/// that is settled: it carries its own horizontal scroller, because the page's 720 reading column is
+/// absolute (see [AnPage]; the full-bleed exemption 判决③ once bought is gone). Two consequences the
+/// widget owns rather than pushes onto its callers:
+///   • **The bar is the discoverability**: a [RawScrollbar] with `thumbVisibility: true` paints exactly
+///     when there IS overflow (its painter early-returns while `maxScrollExtent <= minScrollExtent`) and
+///     is DRAGGABLE — a signal and a control in one. Deliberately **not** an [AnEdgeFade]: a fade tints
+///     the trailing column toward the backdrop, and a status grid whose right edge washes a danger cell
+///     to pink is lying about the one thing it exists to report. A bar sits beside the data; a fade sits
+///     ON it.
+///   • **Arrows must drag the viewport with the cursor**: the roving cursor below moves by focusing a
+///     node EXPLICITLY, which bypasses [FocusTraversalPolicy]'s own scroll-into-view — so a keyboard user
+///     would walk their cursor to a column they cannot see. [_move] therefore calls the framework's
+///     [FocusTraversalPolicy.defaultTraversalRequestFocusCallback] (focus + [Scrollable.ensureVisible])
+///     with the SAME alignment policy the framework's directional traversal uses (`up`/`left` →
+///     `keepVisibleAtStart`, `down`/`right` → `keepVisibleAtEnd`), rather than hand-rolling ensureVisible.
+///     It walks EVERY ancestor scrollable, so a down-arrow also nudges the page — which is right: the
+///     cursor is what the user is looking at.
+///
 /// **No virtualization, deliberately**: `recentN` is capped at 20 by the backend (its default IS its
 /// max), and rows are a graph's nodes — tens, not thousands. A 20×N grid of small squares is a few
 /// hundred widgets; a virtualized 2-D viewport here would be machinery guarding an impossible case
-/// (§12 said «虚拟化列窗» when the cap was still open — recorded as a deviation). The whole grid fits
-/// the full-bleed pane without horizontal scroll, which is why 判决③ bought the width exemption at all.
+/// (§12 said «虚拟化列窗» when the cap was still open — recorded as a deviation).
 ///
 /// AnRunMatrix 节点×run 格阵:行=节点、列=近 N 次 run(新在**左**,与所有 run 列表同序),格=一次 (run,节点)
 /// 的结局。它是联动格第三脸,回答甘特与图**结构上看不见**的那个问题:**这个节点是老是坏,还是就坏了这一次**
@@ -126,9 +146,15 @@ import 'tone.dart';
 /// 成立**。行容器的 `explicitChildNodes: true` 是**承重的、非装饰**:没有它,带 label 的容器会**吸收**后代
 /// label、光标不再是可寻址节点(靠语义树 dump 抓到,肉眼看不出)。
 ///
+/// **宽度自持**(用户 0717 判决,见上「Width」节与 [AnPage] 的「720 阅读列绝对律」):20 列要 ~692px、阅读列
+/// 只给 ~640px——格阵**本就比宿主宽**,这是已定的设计而非降级:它**自带**横向滚动器,绝不向页面讨宽度。条
+/// (`thumbVisibility`)恰在真溢出时才画且可拖=可发现性与控制合一;**刻意不用 [AnEdgeFade]**——渐隐会把尾列
+/// 状态色朝底色染,一个右缘把 danger 洗成粉的状态格阵,是在**就它唯一存在意义的那件事上撒谎**。**方向键必须
+/// 把视口拖着走**:roving 光标**显式** requestFocus 跳过了框架自带的滚动入视,故改调框架自己的
+/// `FocusTraversalPolicy.defaultTraversalRequestFocusCallback`(绝不手搓 ensureVisible)。
+///
 /// **刻意不虚拟化**:recentN 被后端钳在 20(默认即上限),行是图的节点——几十不是几千;20×N 个小方块是几百
-/// 个 widget,在此上二维虚拟视口是为不可能的情况造机器(§12 写「虚拟化列窗」时上限尚未定,记偏差)。整个
-/// 格阵在全宽格里免横滚——这正是判决③ 当初买下宽度豁免的理由。
+/// 个 widget,在此上二维虚拟视口是为不可能的情况造机器(§12 写「虚拟化列窗」时上限尚未定,记偏差)。
 
 /// One column = one run. [elapsedMs] is the RUN's wall clock; null = still going (never a zero).
 /// 一列=一次 run;elapsedMs=run 墙钟,null=还在跑(绝不是 0)。
@@ -277,11 +303,16 @@ class _AnRunMatrixState extends State<AnRunMatrix> {
   /// 造一个)——自持换来的是那面 roving 旗标,不是额外开销。
   final Map<_Cursor, FocusNode> _nodes = {};
 
+  /// The grid's OWN horizontal viewport — the bar and [Scrollable.ensureVisible] both need it named.
+  /// 格阵自己的横向视口:条与 ensureVisible 都要它有名有姓。
+  final ScrollController _hScroll = ScrollController();
+
   @override
   void dispose() {
     for (final n in _nodes.values) {
       n.dispose();
     }
+    _hScroll.dispose();
     super.dispose();
   }
 
@@ -394,7 +425,36 @@ class _AnRunMatrixState extends State<AnRunMatrix> {
         // gets the announcement instead (see [_announce]).
         // **显式**聚焦——skipTraversal 保留的正是这一手。被聚焦的节点带着格的句子,Windows/Linux 读屏读的
         // 就是它;macOS 改由播报补上(见 _announce)。
-        _nodeFor(next, cursor: true).requestFocus();
+        //
+        // …and DRAG THE VIEWPORT ALONG. An explicit requestFocus is precisely what skips the
+        // framework's own scroll-into-view (it lives in [FocusTraversalPolicy.requestFocusCallback],
+        // which only runs on TRAVERSAL) — so the grid, which scrolls sideways inside itself
+        // (用户 0717 判决), would happily walk the cursor onto a column the user cannot see. Call the
+        // framework's own callback instead of hand-rolling ensureVisible (#8), with the SAME alignment
+        // policy its directional traversal picks (`focus_traversal.dart`: up/left → keepVisibleAtStart,
+        // down/right → keepVisibleAtEnd) so a keyboard walk here feels like a keyboard walk anywhere.
+        // 并把**视口拖着一起走**:显式 requestFocus 恰好跳过了框架自带的滚动入视(它挂在 requestFocusCallback
+        // 上、只在**遍历**时跑)——而本格阵自己会横滚(用户 0717 判决),故会把光标走到用户看不见的列上。用框架
+        // 自己的回调而非手搓 ensureVisible(#8),对齐策略照抄其方向遍历(up/left→起边;down/right→终边),
+        // 让此处的键盘行走与 app 别处一模一样。
+        final node = _nodeFor(next, cursor: true);
+        if (node.context == null) {
+          // Not attached (nothing to scroll to yet) — focus is still the load-bearing half.
+          // 未挂载(还没有可滚到的目标)——聚焦仍是承重的那一半。
+          node.requestFocus();
+        } else {
+          FocusTraversalPolicy.defaultTraversalRequestFocusCallback(
+            node,
+            alignmentPolicy: switch (dir) {
+              TraversalDirection.up ||
+              TraversalDirection.left =>
+                ScrollPositionAlignmentPolicy.keepVisibleAtStart,
+              TraversalDirection.down ||
+              TraversalDirection.right =>
+                ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+            },
+          );
+        }
         _announce(_sentence(r, c));
         return true;
       }
@@ -426,51 +486,61 @@ class _AnRunMatrixState extends State<AnRunMatrix> {
     ].where((e) => e.isNotEmpty).join(' ');
   }
 
-  /// Speak the cursor's new address — **on macOS only, and that is not a preference**. The engine's
-  /// mac bridge drops FOCUS_CHANGED into its «notifications that aren't meaningful on Mac» skip group
-  /// (`AccessibilityBridgeMac.mm`), so a focused node is SILENT there — while Windows (`kFocus`) and
-  /// Linux (`ATK_STATE_FOCUSED`) do fire it, and announcing on top of that would make the screen
-  /// reader say everything twice (flutter#153020). So: the focused node is the mechanism, and this
-  /// announcement is the macOS repair for it — not a second channel, a patch over a platform hole.
-  /// `liveRegion` is NOT the fallback: it is a verified no-op on all three desktops (flutter#167318,
-  /// still open). Nor is [MediaQuery.supportsAnnounceOf] the gate: that bit is inverted and only
-  /// Android ever sets it, so it reports «supported» exactly where it cannot prove it.
-  /// 念出光标的新地址——**只在 macOS,且这不是偏好**:引擎的 mac bridge 把 FOCUS_CHANGED 归进「在 Mac 上没有
-  /// 意义、跳过即可」那组,故被聚焦的节点在那里**是哑的**;而 Windows/Linux 会发焦点通知,再叠一发播报会让
-  /// 读屏把每样东西念两遍(flutter#153020)。所以:机制是**被聚焦的节点**,这一发播报是给 macOS 补的洞——
-  /// 不是第二条通道,是一块平台补丁。**liveRegion 不是退路**:它在三个桌面上都实证是 no-op(flutter#167318
-  /// 至今 OPEN)。**supportsAnnounceOf 也不是闸**:那个位是反向的、只有 Android 会设,故它恰恰在自己证明不了
-  /// 的地方报「支持」。
-  void _announce(String sentence) {
-    if (sentence.isEmpty || defaultTargetPlatform != TargetPlatform.macOS) return;
-    SemanticsService.sendAnnouncement(View.of(context), sentence, Directionality.of(context));
-  }
+  /// Speak the cursor's new address. The mechanism for a moving cursor is THE FOCUSED NODE; this is the
+  /// macOS-only repair for it — the rule, and the reason it is not a preference, lives in
+  /// [AnA11y.announceFocusMove] (which is also why the rule is no longer re-derived at each call site:
+  /// this and [AnScheduleTrack] had a copy each).
+  /// 念出光标的新地址。机制是**被聚焦的节点**;这是给 macOS 补的那块——规则(及它为何不是偏好)写在
+  /// AnA11y.announceFocusMove 里(本件与 AnScheduleTrack 曾各抄一份,故收进一条缝)。
+  void _announce(String sentence) => AnA11y.announceFocusMove(context, sentence);
 
   @override
   Widget build(BuildContext context) {
     if (widget.rows.isEmpty || widget.cols.isEmpty) return const SizedBox.shrink();
     final at = _resolved;
-    // Size-to-content, and scroll HORIZONTALLY only when the host is narrower than the grid. At the
-    // full-bleed pane's real width (判决③ bought exactly this) 20 columns fit and this never scrolls;
-    // a squeezed host (a narrow ocean, a gallery cell) degrades to a sideways scroll instead of a
-    // RenderFlex overflow. The VERTICAL axis is deliberately left to the page — nesting a second
-    // vertical scroll here would fight AnZonedPage's one true scroller.
-    // 按内容定尺寸,**仅**在宿主比格阵窄时横向滚。全宽格的真实宽度下(判决③ 买的正是这个)20 列放得下、
-    // 永不滚;被挤窄的宿主(窄海洋/画廊格)降级为横滚,而不是 RenderFlex 溢出。**纵轴刻意留给页面**——在此
-    // 嵌第二个纵向滚动会与 AnZonedPage 唯一的滚动器打架。
+    final c = context.colors;
+    // Size-to-content and scroll HORIZONTALLY inside ITSELF — the page's 720 reading column is
+    // absolute (用户 0717 判决;[AnPage]), and 20 columns want ~692px, so this is the normal case now,
+    // not a degradation. The bar (thumbVisibility: true) paints exactly when there IS overflow and is
+    // draggable — the discoverability AND the control; a fade would tint the trailing status cells and
+    // the grid would lie (class doc). The local ScrollConfiguration mirrors AnPage's documented 坑:
+    // without it a host that is NOT already under an AnScrollBehavior (the gallery) inherits
+    // MaterialScrollBehavior's automatic desktop bar and paints a SECOND thumb. The VERTICAL axis is
+    // deliberately left to the page — a second vertical scroller here would fight AnPage's one true one.
+    // 按内容定尺寸、**在自己肚子里**横滚:页的 720 阅读列是绝对的(用户 0717 判决),20 列要 ~692px,故横滚
+    // 是**常态**不是降级。条(thumbVisibility)恰在真溢出时才画、且可拖——可发现性与控制合一;渐隐会给尾列
+    // 状态格上色、格阵就撒谎了(见类文档)。局部 ScrollConfiguration 照 AnPage 已成文的坑:宿主若不在
+    // AnScrollBehavior 之下(画廊),会继承 Material 桌面自动条、画出**第二个** thumb。**纵轴刻意留给页面**
+    // ——在此嵌第二个纵向滚动器会与 AnPage 唯一的那个打架。
     return Actions(
       actions: <Type, Action<Intent>>{
         DirectionalFocusIntent: _MatrixDirectionalFocusAction(this),
       },
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _colHeads(context, at),
-            for (var i = 0; i < widget.rows.length; i++) _row(context, i, at),
-          ],
+      child: RawScrollbar(
+        controller: _hScroll,
+        thumbVisibility: true,
+        thumbColor: c.lineStrong,
+        radius: const Radius.circular(AnRadius.pill),
+        thickness: AnSpace.s4,
+        minThumbLength: AnSize.controlSm,
+        child: ScrollConfiguration(
+          behavior: const AnScrollBehavior(),
+          child: SingleChildScrollView(
+            controller: _hScroll,
+            scrollDirection: Axis.horizontal,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _colHeads(context, at),
+                for (var i = 0; i < widget.rows.length; i++) _row(context, i, at),
+                // The bar is an OVERLAY — it paints over the viewport's bottom edge, so the last row
+                // gets its own lane rather than wearing a thumb across its squares.
+                // 条是**覆层**,画在视口底缘——给末行让出一条道,免得 thumb 横在它的方块上。
+                const SizedBox(height: AnSpace.s8),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -643,7 +713,7 @@ class _ColHead extends StatelessWidget {
     // strand the label off the focusable one. selected 只由一层标注,理由见 _Cell 注释。
     final Widget bare = Semantics(
       label: semanticLabel,
-      selected: onTap == null && selected ? true : null,
+      selected: onTap == null ? AnA11y.selected(selected) : null,
       child: ExcludeSemantics(
         child: SizedBox(
           width: AnSize.controlSm,
@@ -730,7 +800,7 @@ class _RowHead extends StatelessWidget {
         builder: (context, states) => Semantics(
           label: semanticLabel,
           // One annotator only — see [_Cell]. 只由一层标注,见 _Cell。
-          selected: tap == null && selected ? true : null,
+          selected: tap == null ? AnA11y.selected(selected) : null,
           child: ExcludeSemantics(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: AnSpace.s4),
@@ -829,19 +899,17 @@ class _Cell extends StatelessWidget {
     // INCOMPATIBLE configs, so the framework splits them into parent+child — which would strand the
     // label on a CHILD of the focused node instead of on it (measured in the semantics dump: the
     // label must ride the node that carries `isFocusable`, exactly like a stock button's does). So an
-    // actionable cell hands `selected` to [AnInteractive] and annotates only its label here.
-    // And `selected: false` is never written: it is not a synonym for «not selected» — the desktop
-    // bridge passes the tristate into a bool parameter and kFlutterTristateFalse is 2, i.e. truthy,
-    // so an explicit false reads as SELECTED. Absence is the only safe way to say «no».
+    // actionable cell hands `selected` to [AnInteractive] and annotates only its label here; an inert
+    // one is its own sole annotator and states it through [AnA11y.selected] (which is what keeps an
+    // explicit «false» off the wire — the reason lives there, once).
     // `selected` **只由一层**标注:两个 Semantics 设同一面旗标是**不兼容**配置,框架会把它们拆成父+子——那会
     // 让 label 落在被聚焦节点的**孩子**上而不是它自己身上(语义树 dump 实测:label 必须与 isFocusable 同节点,
-    // 一如原装按钮)。故可动作的格把 selected 交给 AnInteractive,这里只标 label。且**绝不写 selected: false**
-    // ——它不是「未选中」的同义词:桌面 bridge 把 tristate 塞进 bool 形参而 kFlutterTristateFalse=2 是真值,
-    // 显式 false 会被读成**已选中**。说「否」唯一安全的方式是不说。
+    // 一如原装按钮)。故可动作的格把 selected 交给 AnInteractive、这里只标 label;惰性格自己是唯一标注者,经
+    // AnA11y.selected 说(「绝不发 false」的理由在那里写一次)。
     final Widget bare = speaks
         ? Semantics(
             label: sentence,
-            selected: tap == null && selected ? true : null,
+            selected: tap == null ? AnA11y.selected(selected) : null,
             child: ExcludeSemantics(child: box),
           )
         : ExcludeSemantics(child: box);

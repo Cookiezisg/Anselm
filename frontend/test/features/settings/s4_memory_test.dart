@@ -70,7 +70,12 @@ void main() {
             isFocusable: true,
             hasEnabledState: true,
             isEnabled: true,
-            hasSelectedState: true, // AnInteractive 基座恒带 selected 轴 base substrate always carries it
+            // NO hasSelectedState. This line used to read «AnInteractive 基座恒带 selected 轴» — it was
+            // describing the DEFECT as though it were the design: the substrate annotated the flag on
+            // every control because the prop was a non-nullable bool. A pin is `toggled`, and has no
+            // selection concept at all. **不含** hasSelectedState:此处原注释写「AnInteractive 基座恒带
+            // selected 轴」——那是把**缺陷**当设计描述(基座恒 annotate 是因为 prop 曾是非空 bool)。pin 是
+            // toggled,根本没有「选中」这个概念。
             hasTapAction: true,
             hasFocusAction: true,
             label: t.settings.mem.pinTip));

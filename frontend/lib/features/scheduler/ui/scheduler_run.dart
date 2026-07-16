@@ -173,12 +173,18 @@ class _SchedulerRunViewState extends ConsumerState<SchedulerRunView> {
       },
       child: Focus(
         autofocus: false,
-        child: AnZonedPage(
+        // Every section lives in AnPage's 720 reading column — the graph pans/zooms inside its own
+        // InteractiveViewer and the gantt's track is a normalized [0,1] fraction that rescales
+        // losslessly, so neither needs to break out (用户 0717 判决 — 全宽破例作废,见 AnPage 类文档).
+        // 每一段都住 AnPage 的 720 阅读列:图在自己的 InteractiveViewer 里平移缩放、甘特轨是可无损缩放的
+        // [0,1] 分数轨,两者都不必破列(用户 0717 判决,全宽破例作废)。
+        child: AnPage(
           controller: _scroll,
-          zones: [
-            AnPageZone(_DossierHead(data: d, now: now)),
-            if (d.graph != null)
-              AnPageZone(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _DossierHead(data: d, now: now),
+              if (d.graph != null)
                 Padding(
                   padding: const EdgeInsets.only(top: AnGap.section),
                   child: _GraphZone(
@@ -187,12 +193,28 @@ class _SchedulerRunViewState extends ConsumerState<SchedulerRunView> {
                     selectedNodeId: widget.nodeId,
                     onPick: (id) => _pick(id),
                   ),
+                )
+              else
+                // The map is not always knowable: a pre-versionId run has nothing to pin, and an
+                // orphan's version row died with its soft-deleted host (§5.7). The altitude must then
+                // SAY so — dropping the whole section in silence leaves §5's «三海拔» promise reading
+                // as a broken page, and «where did it happen» unanswered rather than answered with
+                // «we cannot know». The gantt and the ledger each keep an honest empty sentence
+                // (ganttEmpty / ledgerEmpty); the map gets the same courtesy, under the same head.
+                // 地图并非总能知道:没有 versionId 的旧 run 无版可钉,孤儿的版本行随宿主软删一起没了(§5.7)。
+                // 那就必须**明说**——整段静默消失会让 §5 承诺的三海拔读起来像页面坏了,把「在哪儿发生的」
+                // 变成没回答,而不是回答「我们无从得知」。甘特与台账各留一句诚实空句,地图这一拔同等待遇、
+                // 同一个区头。
+                Padding(
+                  padding: const EdgeInsets.only(top: AnGap.section),
+                  child: AnSection(
+                    label: t.run.graphHead,
+                    children: [
+                      Text(t.run.graphEmpty,
+                          style: AnText.body.copyWith(color: context.colors.inkFaint)),
+                    ],
+                  ),
                 ),
-                fullBleed: true,
-              ),
-            // The gantt breaks the 720 reading column (判决③ 全宽破例 — a time axis's density is
-            // horizontal; the prose zones keep 720). 甘特全宽破例(时间轴的密度天然横向)。
-            AnPageZone(
               Padding(
                 padding: const EdgeInsets.only(top: AnGap.section),
                 child: _GanttZone(
@@ -201,20 +223,19 @@ class _SchedulerRunViewState extends ConsumerState<SchedulerRunView> {
                   onPick: (id) => _pick(id),
                 ),
               ),
-              fullBleed: true,
-            ),
-            AnPageZone(Padding(
-              padding: const EdgeInsets.only(top: AnGap.section),
-              child: _LedgerZone(
-                data: d,
-                graph: graph,
-                inferred: inferred,
-                selectedNodeId: widget.nodeId,
-                selectedIteration: widget.iteration,
-                onPick: (id, iter) => _pick(id, iteration: iter),
+              Padding(
+                padding: const EdgeInsets.only(top: AnGap.section),
+                child: _LedgerZone(
+                  data: d,
+                  graph: graph,
+                  inferred: inferred,
+                  selectedNodeId: widget.nodeId,
+                  selectedIteration: widget.iteration,
+                  onPick: (id, iter) => _pick(id, iteration: iter),
+                ),
               ),
-            )),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -455,7 +476,7 @@ class _GraphZone extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────── 完整甘特(全宽) ───────────────────────────────────
+// ─────────────────────────────────── 完整甘特 ───────────────────────────────────
 
 class _GanttZone extends StatelessWidget {
   const _GanttZone({required this.chart, required this.selectedNodeId, required this.onPick});

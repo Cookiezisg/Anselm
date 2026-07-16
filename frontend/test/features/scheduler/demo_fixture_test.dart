@@ -144,6 +144,37 @@ void main() {
         reason: 'failed run 不可取消');
   });
 
+  // The demo is an INTERLOCKED world (D 轨立法), and this is the interlock a real-machine walk broke:
+  // wf_inventory's run rows read «cron · 01:11» while its TRIGGERS zone said «no triggers equip this
+  // workflow» — a workflow with no cron, firing on cron. Stated as a general law over every seed, not
+  // as a spot-check on the one row that was caught. demo=自洽互锁世界,而这正是真机走查里断掉的那道锁:
+  // 库存同步的 run 行写着「cron · 01:11」、TRIGGERS 区却说「没有 trigger 装备本 workflow」。写成对全部
+  // 种子的普遍律,而不是对当初被抓那一行的点检。
+  test('every cron-born run has a cron BEHIND it: a live trigger, equipped to that very workflow '
+      '(自洽互锁 — no run may be fired by something that does not exist)', () async {
+    final triggers = {for (final t in await repo.listTriggers()) t.id: t};
+    final edges = await repo.workflowTriggerEdges();
+    final workflows = await repo.listWorkflows();
+
+    var checked = 0;
+    for (final w in workflows) {
+      final page = await repo.listFlowruns(workflowId: w.id, origin: 'cron', limit: 100);
+      for (final run in page.items) {
+        checked++;
+        final t = triggers[run.triggerId];
+        expect(t, isNotNull,
+            reason: 'run ${run.id}(origin=cron)指向的 trigger ${run.triggerId} 不存在'
+                '——cron 来源的 run 必须有一个真的 cron 把它生出来');
+        expect(t!.kind, TriggerSource.cron, reason: 'cron 来源的 run 只能由 cron 触发');
+        final equipped = [for (final e in edges) if (e.toId == t.id) e.fromId];
+        expect(equipped, contains(w.id),
+            reason: '${w.id} 的 run 由 ${t.id} 触发,则该 trigger 必须装备在 ${w.id} 上'
+                '(否则运营主页 TRIGGERS 区会说「没有 trigger 装备本 workflow」而大表却在显示它的 cron run)');
+      }
+    }
+    expect(checked, greaterThan(0), reason: '前提:确实有 cron 来源的 run 可查(否则本测空过)');
+  });
+
   test('cron triggers carry a FUTURE nextFireAt and an equip edge to their workflow', () async {
     final triggers = await repo.listTriggers();
     final edges = await repo.workflowTriggerEdges();

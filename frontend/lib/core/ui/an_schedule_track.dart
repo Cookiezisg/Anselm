@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-import 'package:flutter/semantics.dart';
 import 'package:flutter/widgets.dart';
 
 import '../design/colors.dart';
@@ -7,6 +5,7 @@ import '../design/tokens.dart';
 import '../design/typography.dart';
 import '../model/status_state.dart';
 import '../model/time_format.dart';
+import 'an_a11y.dart';
 import 'an_focus_ring.dart';
 import 'an_interactive.dart';
 import 'an_status_dot.dart';
@@ -320,16 +319,9 @@ class _AnScheduleTrackState extends State<AnScheduleTrack> {
     // sentence, which is what a screen reader reads on Windows/Linux.
     // 显式聚焦——skipTraversal 保留的正是这一手;被聚焦的节点带着点的句子,Windows/Linux 读屏读的就是它。
     _nodeFor(key, cursor: true).requestFocus();
-    // macOS only, and not a preference: its engine bridge drops FOCUS_CHANGED into the «not
-    // meaningful on Mac» skip group, so a focused node is SILENT there — while Windows/Linux DO fire
-    // it and a second channel would double-read (flutter#153020). `liveRegion` is not the fallback:
-    // no-op on all three desktops (flutter#167318, open). Same law as [AnRunMatrix]'s `_announce`.
-    // 只在 macOS,且不是偏好:mac bridge 把 FOCUS_CHANGED 归进「在 Mac 上没意义」的跳过组,被聚焦的节点
-    // 在那里是**哑的**;Windows/Linux 会发焦点通知,再加一发会双读(flutter#153020)。liveRegion 不是退路
-    // ——三个桌面全是 no-op(flutter#167318 至今 OPEN)。同 AnRunMatrix 的 _announce 一律。
-    final sentence = widget.eventSemanticLabel?.call(lane, event) ?? event.label;
-    if (sentence.isEmpty || defaultTargetPlatform != TargetPlatform.macOS) return;
-    SemanticsService.sendAnnouncement(View.of(context), sentence, Directionality.of(context));
+    // The focused node is the mechanism; this is the macOS-only repair for it — rule in
+    // [AnA11y.announceFocusMove]. 机制是被聚焦的节点;这是给 macOS 补的那块,规则见 AnA11y.announceFocusMove。
+    AnA11y.announceFocusMove(context, widget.eventSemanticLabel?.call(lane, event) ?? event.label);
   }
 
   @override

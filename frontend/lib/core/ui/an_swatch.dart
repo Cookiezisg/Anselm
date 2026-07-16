@@ -38,14 +38,11 @@ class AnSwatch extends StatelessWidget {
       ),
     );
     if (onTap == null) return disc;
-    // ONE actionable node: MergeSemantics folds the selected flag with AnInteractive's button
-    // (a bare wrapper forks a dead flag node beside the real button — AnChip 同修). 并单节点。
-    return MergeSemantics(
-      child: Semantics(
-        selected: selected,
-        child: AnInteractive(onTap: onTap, builder: (ctx, states) => disc),
-      ),
-    );
+    // ONE actionable node — a swatch genuinely has a picked/not-picked duality, so the flag is
+    // AnInteractive's own `selected` prop. (The MergeSemantics + wrapper Semantics this replaced existed
+    // only because the prop used to be a non-nullable bool that always fired; folding the flag in is now
+    // the base's job.) 单节点:色点真有「选中/未选中」二元,故旗标走 AnInteractive 自己的 prop。
+    return AnInteractive(onTap: onTap, selected: selected, builder: (ctx, states) => disc);
   }
 }
 

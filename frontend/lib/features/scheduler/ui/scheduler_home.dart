@@ -31,12 +31,15 @@ import 'scheduler_run_model.dart';
 /// The workflow operations home (`/scheduler/w/:id`, WRK-069 §4 S3) — one document flow, four
 /// segments: health head (name + lifecycle + bead strip + 7d stats + Run now + ⋯) → the run big
 /// table (source-phrase rows, count-strip filter, follow pill, batch replay/cancel) → the linked
-/// run pane (`?run=`, gantt ⇄ graph two faces, FULL-BLEED width exemption 判决③) → the triggers
-/// exhibit (observation + the pause/resume bleeding switch; editing belongs to Entities). 活性军规
-/// holds: the half-minute pulse refreshes time text only; new runs ride the pill, never a row.
+/// run pane (`?run=`, gantt ⇄ graph ⇄ matrix three faces, an ORDINARY 720 section — 判决③'s
+/// full-bleed exemption was rejected by the user on 2026-07-17 and deleted; each face answers width
+/// on its own, see [AnPage]) → the triggers exhibit (observation + the pause/resume bleeding switch;
+/// editing belongs to Entities). 活性军规 holds: the half-minute pulse refreshes time text only; new
+/// runs ride the pill, never a row.
 ///
 /// workflow 运营主页:四段文档流——健康头 → run 大表(来源短语行+计数条过滤+pill+批量)→ 联动格
-/// (?run=,甘特⇄图,全宽破例)→ triggers 陈列(观测+暂停/恢复止血开关,编辑归 Entities)。脉搏只刷
+/// (?run=,甘特⇄图⇄矩阵三脸,**720 阅读列里普通的一段**——判决③ 的全宽破例已被用户 0717 当面否决并删除,
+/// 宽度归三脸各自解决,见 AnPage)→ triggers 陈列(观测+暂停/恢复止血开关,编辑归 Entities)。脉搏只刷
 /// 时间字;新 run 走 pill 绝不插行。
 class SchedulerHomeView extends ConsumerStatefulWidget {
   const SchedulerHomeView({required this.workflowId, this.linkedRunId, super.key});
@@ -149,36 +152,40 @@ class _SchedulerHomeViewState extends ConsumerState<SchedulerHomeView> {
     ];
     final waiting = waitingRunIds(data.inbox, row.id);
 
-    return AnZonedPage(
+    // Every section — the linked pane included — lives in AnPage's 720 reading column. The pane's
+    // three faces each answer width on their OWN: the gantt's track is a normalized [0,1] fraction
+    // that rescales losslessly, the graph pans/zooms in its InteractiveViewer, and the matrix carries
+    // its own horizontal scroller (用户 0717 判决 — 全宽破例作废,见 AnPage 类文档).
+    // 每一段(含联动格)都住 AnPage 的 720 阅读列:甘特是可无损缩放的 [0,1] 分数轨、图在 InteractiveViewer
+    // 里平移缩放、矩阵自带横滚——三脸各自解决宽度,不向页面讨(用户 0717 判决,全宽破例作废)。
+    return AnPage(
       controller: _scroll,
-      zones: [
-        AnPageZone(_HealthHead(row: row, stats: stats, now: now)),
-        AnPageZone(Padding(
-          padding: const EdgeInsets.only(top: AnGap.section),
-          child: _RunTableZone(
-            workflowId: row.id,
-            workflowName: row.name,
-            runningCount: stats?.running ?? 0,
-            waitingIds: waiting,
-            triggersById: triggersById,
-            now: now,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _HealthHead(row: row, stats: stats, now: now),
+          Padding(
+            padding: const EdgeInsets.only(top: AnGap.section),
+            child: _RunTableZone(
+              workflowId: row.id,
+              workflowName: row.name,
+              runningCount: stats?.running ?? 0,
+              waitingIds: waiting,
+              triggersById: triggersById,
+              now: now,
+            ),
           ),
-        )),
-        if (widget.linkedRunId != null)
-          // The linked pane breaks the 720 reading column (判决③ 全宽破例 — gantt/graph density is
-          // horizontal; the prose zones above/below stay 720). 联动格全宽破例。
-          AnPageZone(
+          if (widget.linkedRunId != null)
             Padding(
               padding: const EdgeInsets.only(top: AnGap.section),
               child: _LinkedRunPane(workflowId: row.id, flowrunId: widget.linkedRunId!),
             ),
-            fullBleed: true,
+          Padding(
+            padding: const EdgeInsets.only(top: AnGap.section),
+            child: _TriggersZone(workflowId: row.id, triggers: myTriggers, now: now),
           ),
-        AnPageZone(Padding(
-          padding: const EdgeInsets.only(top: AnGap.section),
-          child: _TriggersZone(workflowId: row.id, triggers: myTriggers, now: now),
-        )),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -855,7 +862,7 @@ class _Tombstone extends ConsumerWidget {
   }
 }
 
-// ─────────────────────────────────── 联动格(全宽破例) ───────────────────────────────────
+// ─────────────────────────────────── 联动格 ───────────────────────────────────
 
 class _LinkedRunPane extends ConsumerStatefulWidget {
   const _LinkedRunPane({required this.workflowId, required this.flowrunId});

@@ -119,6 +119,11 @@ StubSchedulerRepo _repo({
   List<FlowrunNode>? nodes,
   bool orphan = false,
   bool pinnedMissing = false,
+  // NO map at all: the pinned version is unreadable AND the host has no current graph either — the
+  // flagship then has nothing to draw and must say so (vs [pinnedMissing], which still falls back to
+  // today's active map and merely disclaims it). 一张图都没有:钉版读不出**且**宿主也无当前图——旗舰
+  // 无可画,必须明说(对比 pinnedMissing:那时还能回退 active 图,只是要免责声明)。
+  bool noGraph = false,
   Map<String, List<FlowrunActivityRow>> activity = const {},
 }) =>
     StubSchedulerRepo(
@@ -128,8 +133,9 @@ StubSchedulerRepo _repo({
               SchedulerWorkflowRow(
                   id: 'wf_a', name: '数据清洗流水线', lifecycleState: 'active', updatedAt: _now),
             ],
-      graphByWorkflow: const {'wf_a': _activeGraph},
-      pinnedGraphByVersion: pinnedMissing ? const {} : const {'wfv_pinned7': _graph},
+      graphByWorkflow: noGraph ? const {} : const {'wf_a': _activeGraph},
+      pinnedGraphByVersion:
+          pinnedMissing || noGraph ? const {} : const {'wfv_pinned7': _graph},
       runs: [
         Flowrun(
           id: 'fr_run1',
@@ -280,6 +286,22 @@ void main() {
       expect(find.text('rewritten'), findsNothing);
       expect(find.text('analyze'), findsWidgets);
       expect(find.textContaining(t.scheduler.run.graphNotPinned), findsNothing);
+    });
+
+    testWidgets('with NO map to draw, the altitude says «we cannot know» — it never vanishes in '
+        'silence (§5 三海拔:静默掉一拔会被读成页面坏了)', (tester) async {
+      _desktop(tester);
+      await _pump(tester, _repo(noGraph: true));
+      expect(find.text(t.scheduler.run.graphEmpty), findsOneWidget,
+          reason: '诚实话在场——不是静默消失');
+      expect(find.byType(AnGraphCanvas), findsNothing, reason: '没有图就不画图');
+      // The wrong-map banner would be a lie here — there IS no map to disclaim.
+      // 错图免责声明在此是谎:根本没有图可免责。
+      expect(find.textContaining(t.scheduler.run.graphNotPinned), findsNothing);
+      // The other two altitudes are untouched — what is missing is the MAP, not the page.
+      // 另两拔照常:缺的是**地图**,不是页面。
+      expect(find.byType(AnNodeGantt), findsOneWidget, reason: '甘特照常');
+      expect(find.byType(FlowrunNodeList), findsOneWidget, reason: '台账照常');
     });
   });
 

@@ -339,10 +339,14 @@ class FixtureSchedulerRepository implements SchedulerRepository {
       ),
       // wf_inventory: the ×4 streak — latest failed run carries the error the aggregation quotes.
       // 连败最新失败 run(错误首句来源)。
+      // Both carry the cron that BORE them (tr_cron_inventory, 6h apart = its cadence) — a cron-origin
+      // run with no triggerId is a run nothing fired. 两条都带把它们生出来的那个 cron(相隔 6h=它的节拍)
+      // ——cron 来源却无 triggerId 的 run,是没有任何东西触发过的 run。
       Flowrun(
         id: 'fr_c3d4e5f607182930',
         workflowId: 'wf_inventory',
         origin: 'cron',
+        triggerId: 'tr_cron_inventory',
         status: 'failed',
         error: 'HTTP 502 Bad Gateway: upstream inventory API did not respond\nretried 3 times',
         replayCount: 1,
@@ -354,17 +358,23 @@ class FixtureSchedulerRepository implements SchedulerRepository {
         id: 'fr_b2c3d4e5f6071829',
         workflowId: 'wf_inventory',
         origin: 'cron',
+        triggerId: 'tr_cron_inventory',
         status: 'failed',
         error: 'HTTP 502 Bad Gateway: upstream inventory API did not respond',
         startedAt: _shift(_anchor.subtract(const Duration(hours: 7))),
         completedAt: _shift(_anchor.subtract(const Duration(hours: 7))),
         updatedAt: _shift(_anchor.subtract(const Duration(hours: 7))),
       ),
-      // wf_archive: self-healed — latest completed over an older failure. 自愈。
+      // wf_archive: self-healed — latest completed over an older failure. Both name the cron that bore
+      // them (tr_cron_archive, now paused: it fired these two, then a human stopped it — which is why
+      // its lastFiredAt is this newest run's, never older than the runs it fired).
+      // 自愈:两条都点名把它们生出来的 cron(tr_cron_archive,现已暂停:它先发了这两次,然后被人停掉——
+      // 故它的 lastFiredAt 就是这条最新 run 的时刻,绝不早于它自己发出去的 run)。
       Flowrun(
         id: 'fr_d4e5f60718293a4b',
         workflowId: 'wf_archive',
         origin: 'cron',
+        triggerId: 'tr_cron_archive',
         status: 'completed',
         startedAt: _shift(_anchor.subtract(const Duration(hours: 26))),
         completedAt: _shift(_anchor.subtract(const Duration(hours: 26))),
@@ -374,6 +384,7 @@ class FixtureSchedulerRepository implements SchedulerRepository {
         id: 'fr_e5f60718293a4b5c',
         workflowId: 'wf_archive',
         origin: 'cron',
+        triggerId: 'tr_cron_archive',
         status: 'failed',
         error: 'disk full: /var/anselm/archive',
         startedAt: _shift(_anchor.subtract(const Duration(hours: 30))),
@@ -831,6 +842,23 @@ class FixtureSchedulerRepository implements SchedulerRepository {
           lastFired: _anchor.subtract(const Duration(days: 2)),
           nextFire: _anchor.add(const Duration(days: 5)),
         ),
+        // The cron BEHIND the ×4 streak — a cron-born run needs a cron to be born FROM. Without this
+        // trigger + its edge, wf_inventory's run rows read «cron · 01:11» while its TRIGGERS zone says
+        // «no triggers equip this workflow»: a workflow with no cron, firing on cron. The 6h cadence
+        // is the streak's own story — its two seeded failures are exactly 6h apart (D 轨:自洽互锁世界).
+        // 连败 ×4 背后的那个 cron:cron 来源的 run 总得有个 cron 把它生出来。没有这条 trigger 与它的边,
+        // wf_inventory 的 run 行写着「cron · 01:11」、而同页 TRIGGERS 区却说「没有 trigger 装备本
+        // workflow」——一个没有 cron 的 workflow 却有 cron 触发的 run。6 小时的节拍就是连败叙事本身:
+        // 两条失败种子恰好相隔 6h(D 轨自洽互锁世界)。
+        _trigger(
+          id: 'tr_cron_inventory',
+          name: '每 6 小时',
+          kind: TriggerSource.cron,
+          config: const {'cron': '0 */6 * * *'},
+          createdDaysAgo: 20,
+          lastFired: _anchor.subtract(const Duration(hours: 1, seconds: 12)),
+          nextFire: _anchor.add(const Duration(hours: 5)),
+        ),
         // Seeded PAUSED (判决①) — greyed card + «已暂停» chip + no nextFireAt; resume flips it live.
         // 种子即暂停:灰卡+已暂停徽+无 nextFireAt;恢复翻活。
         _trigger(
@@ -839,7 +867,13 @@ class FixtureSchedulerRepository implements SchedulerRepository {
           kind: TriggerSource.cron,
           config: const {'cron': '0 1 * * *'},
           createdDaysAgo: 90,
-          lastFired: _anchor.subtract(const Duration(days: 4)),
+          // = the newest run it fired (fr_d4e5f60718293a4b, -26h). A trigger cannot have last fired
+          // BEFORE the runs it fired: the run flagship's ProvenanceLine walks cron → firing → run, and
+          // a «上次触发 4 天前» card hanging off a 26h-old cron run is that chain contradicting itself.
+          // = 它发出的最新那条 run(-26h)。trigger 的「上次触发」不可能早于它自己发出的 run:旗舰的
+          // ProvenanceLine 走 cron → firing → run,一张「上次触发 4 天前」的卡挂在 26h 前的 cron run 上,
+          // 就是这条链在自相矛盾。
+          lastFired: _anchor.subtract(const Duration(hours: 26)),
           nextFire: _anchor.add(const Duration(hours: 16)),
           seedPaused: true,
         ),
@@ -918,6 +952,18 @@ class FixtureSchedulerRepository implements SchedulerRepository {
         triggerName: '每日 09:00',
         workflowIds: const ['wf_clean'],
       ),
+      // 每 6 小时 — the streak's cron keeps its promise inside the window (4 ticks). Its lane must be
+      // ON the track for the same reason its trigger card must exist: a workflow whose runs say «cron»
+      // has a cron, and the board that shows the schedule must show it.
+      // 连败那个 cron 在窗内的 4 刻。它的泳道必须在轨道上,理由与它的 trigger 卡必须存在的理由相同:
+      // run 写着「cron」的 workflow 就是有 cron,展示调度的看板就得展示它。
+      for (var i = 1; i <= 4; i++)
+        SchedulePoint(
+          at: _shift(_anchor.add(Duration(hours: 5 + (i - 1) * 6))),
+          triggerId: 'tr_cron_inventory',
+          triggerName: '每 6 小时',
+          workflowIds: const ['wf_inventory'],
+        ),
       // A dense sampler — 96 ticks across the window force the bucket fold on screen. 密集:96 刻,
       // 逼出 bucket 折叠。
       for (var i = 1; i <= 96; i++)
@@ -1045,6 +1091,17 @@ class FixtureSchedulerRepository implements SchedulerRepository {
             toKind: 'trigger',
             toId: 'tr_cron_archive',
             toName: '每晚归档'),
+        // The streak's cron edge — makes wf_inventory's cron-born runs POSSIBLE (see tr_cron_inventory).
+        // 连败的 cron 边:让 wf_inventory 那些 cron 来源的 run 成为可能。
+        EntityRelation(
+            id: 'rel_5',
+            kind: 'equip',
+            fromKind: 'workflow',
+            fromId: 'wf_inventory',
+            fromName: '库存同步',
+            toKind: 'trigger',
+            toId: 'tr_cron_inventory',
+            toName: '每 6 小时'),
       ];
 }
 

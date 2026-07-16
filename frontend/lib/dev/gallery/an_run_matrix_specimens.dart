@@ -164,12 +164,15 @@ final anRunMatrixGalleryItem = GalleryItem(
         span: true),
     // ── 压力床 ──
     // The VERTICAL scroll here is the HOST's, mirroring production: the grid sizes to content and the
-    // page owns the vertical axis (AnZonedPage's one true scroller). The gallery cell is a bounded
-    // box, so the specimen must supply the scroller the real page already is — otherwise this bed
-    // would "prove" an overflow that cannot happen in the app.
-    // 此处的**纵向**滚动是**宿主**的,与生产一致:格阵按内容定尺寸、纵轴归页面(AnZonedPage 唯一的滚动器)。
-    // 画廊格是个有界盒,故样本必须自备真页面本就是的那个滚动器——否则这张床会「证明」一个 app 里不可能
-    // 发生的溢出。
+    // page owns the vertical axis ([AnPage]'s one true scroller). The gallery cell is a bounded box,
+    // so the specimen must supply the scroller the real page already is — otherwise this bed would
+    // "prove" an overflow that cannot happen in the app. The HORIZONTAL axis is the grid's OWN (用户
+    // 0717 判决:阅读列绝对,宽内容自带横滚) — at the real 720 reading column 20 columns overspill by
+    // ~52px, so the thumb is visible here and that is the intended production shape, not a defect.
+    // 此处的**纵向**滚动是**宿主**的,与生产一致:格阵按内容定尺寸、纵轴归页面(AnPage 唯一的滚动器)。画廊
+    // 格是个有界盒,故样本必须自备真页面本就是的那个滚动器——否则这张床会「证明」一个 app 里不可能发生的
+    // 溢出。**横**轴归格阵自己(用户 0717 判决:阅读列绝对、宽内容自带横滚)——在真实 720 阅读列上 20 列溢出
+    // ~52px,故此处 thumb 可见,那是**预期的生产形态**而非缺陷。
     GallerySpecimen(
         '压力:满格阵 20 列 × 24 行(后端 recentN 上限 = 列数上限)= 524 个可聚焦位置、**恰好 1 个 Tab 停靠**;'
         '横向自滚、纵向归宿主',

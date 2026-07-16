@@ -88,12 +88,15 @@ void main() {
     await tester.pump();
     expect(
       tester.getSemantics(find.byType(AnBatchCheck)),
-      // isButton/hasSelectedState ride in from the AnInteractive substrate (kit-wide actionable
-      // voice); the checkbox's OWN channel is checked. button/selected 来自 AnInteractive 基底。
+      // isButton rides in from the AnInteractive substrate (kit-wide actionable voice); the checkbox's
+      // OWN channel is `checked`. NOT hasSelectedState — a checkbox is checked, never «selected», and
+      // the old assertion pinned that stray flag in place (it came from AnInteractive.selected being a
+      // non-nullable bool). button 来自 AnInteractive 基底;复选框自己的通道是 checked。**不含**
+      // hasSelectedState——复选框只有 checked、没有「选中」,旧断言把那面走私旗标钉住了。
       matchesSemantics(
           label: '选择 周报生成', isChecked: true, hasCheckedState: true, hasTapAction: true,
           isFocusable: true, hasEnabledState: true, isEnabled: true, hasFocusAction: true,
-          isButton: true, hasSelectedState: true),
+          isButton: true),
     );
     await tester.tap(find.byType(AnBatchCheck));
     expect(got, isFalse, reason: '已选→取消');

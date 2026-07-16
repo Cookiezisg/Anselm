@@ -14,12 +14,14 @@ import '../design/tokens.dart';
 ///
 /// Reduced-motion (gated on [AnMotionPref.reducedOrAssistive] — a shimmer is a decorative loop that
 /// competes with a screen reader): render the SAME bones at the flat [AnColors.skeletonBase] with NO
-/// controller running — a calm finished block, not a degraded one (动效克制). One [Semantics]
-/// announces "loading" politely; the bones are decorative ([ExcludeSemantics]).
+/// controller running — a calm finished block, not a degraded one (动效克制). One [Semantics] LABELS it
+/// "loading" (findable), but it deliberately does NOT announce — see the note at the Semantics. The
+/// bones are decorative ([ExcludeSemantics]).
 ///
 /// C4——加载骨架:哑底骨头按将来内容塑形(row/card/text/lines)+ 克制扫光。HAND-ROLL。一个 SingleTicker 控制器
 /// 驱动一个 ShaderMask(srcATop:扫光只覆盖不透明骨头),整体裹 RepaintBoundary。降级(reducedOrAssistive)下渲染
-/// 同骨头、纯 skeletonBase、不跑控制器。一个 Semantics 播报 loading,骨头装饰(ExcludeSemantics)。
+/// 同骨头、纯 skeletonBase、不跑控制器。一个 Semantics 把它**标注**成 loading(可被找到),但**刻意不播报**
+/// (理由见 Semantics 处注释),骨头装饰(ExcludeSemantics)。
 enum _Shape { row, card, text, lines }
 
 class AnSkeleton extends StatefulWidget {
@@ -78,9 +80,19 @@ class _AnSkeletonState extends State<AnSkeleton> with SingleTickerProviderStateM
   Widget build(BuildContext context) {
     final c = context.colors;
     final bones = _bones(c);
+    // DELIBERATELY does not announce. The `liveRegion: true` that sat here was a desktop no-op (see
+    // [AnA11y]) — so the honest question when removing it was «should this now push instead?», and the
+    // answer is NO: a skeleton is a SHAPE, and callers render many at once (AnRailSkeleton lays 5 rows
+    // by default; the scheduler pages pair a .card() with a .lines(6)) — pushing on mount would fire
+    // 5–7 "loading"s for one screen, and the news a reader actually wants is the CONTENT that follows,
+    // which announces itself. The label stays so a reader that walks here finds out what it is.
+    // Over-announcing is worse than not announcing.
+    // **刻意不播报**。此处原有的 liveRegion 是桌面 no-op(见 AnA11y),故删它时的诚实问题是「那要不要改推?」——
+    // 答案是**不**:骨架是**形状**,且调用方一次渲很多个(AnRailSkeleton 默认 5 行;scheduler 各页 .card()+.lines(6)),
+    // 挂载即推=一屏喊 5–7 声「加载中」;而读屏真正要的是随后到来的**内容**,它自己会播报。label 保留,供走到这里的
+    // 读屏知道这是什么。**滥播报比不播报更糟**。
     return Semantics(
       container: true,
-      liveRegion: true,
       label: context.t.feedback.loading,
       child: ExcludeSemantics(
         child: RepaintBoundary(

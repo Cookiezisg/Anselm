@@ -26,14 +26,18 @@ void main() {
       AnButton.iconOnly(AnIcons.italic, toggled: false, semanticLabel: 'Italic', onPressed: () {}),
     ])));
     await tester.pump();
+    // NO hasSelectedState: a toggle's state is `toggled`, and this button has no selection concept at
+    // all — the flag used to ride along because AnInteractive.selected was a non-nullable bool that
+    // always annotated. This assertion carried `hasSelectedState: true` and so was pinning the defect
+    // in place. 无 hasSelectedState:开关的态是 toggled,此钮**根本没有**选中这个概念;旧断言把这面旗标写死,
+    // 等于把缺陷钉住。
     expect(
         tester.getSemantics(find.bySemanticsLabel('Bold')),
         matchesSemantics(isButton: true, isToggled: true, hasToggledState: true, hasTapAction: true,
-            isFocusable: true, hasFocusAction: true, hasEnabledState: true, isEnabled: true,
-            hasSelectedState: true));
+            isFocusable: true, hasFocusAction: true, hasEnabledState: true, isEnabled: true));
     // Off state must NOT expose a toggled flag (it's a plain icon button until turned on). 关态无 toggled。
     final off = tester.getSemantics(find.bySemanticsLabel('Italic'));
     expect(off, matchesSemantics(isButton: true, hasTapAction: true, isFocusable: true,
-        hasFocusAction: true, hasEnabledState: true, isEnabled: true, hasSelectedState: true));
+        hasFocusAction: true, hasEnabledState: true, isEnabled: true));
   });
 }

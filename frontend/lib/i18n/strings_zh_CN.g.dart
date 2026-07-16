@@ -1323,6 +1323,7 @@ class _Translations$scheduler$run$zh_CN extends Translations$scheduler$run$en {
 	@override String get triageFailed => '诊断对话没能打开';
 	@override String get graphHead => '流转';
 	@override String get graphHeadPinned => '流转(钉版)';
+	@override String get graphEmpty => '取不到这次运行的拓扑——钉版读不出,workflow 也没有当前的图。';
 	@override String get ganttHead => '甘特';
 	@override String get ganttEmpty => '这次运行还没有可排上时间轴的节点。';
 	@override String get ganttNoSpan => '所有节点落在同一毫秒内——条只表示顺序,不表示时长。';
@@ -3200,6 +3201,7 @@ extension on TranslationsZhCn {
 			'scheduler.run.triageFailed' => '诊断对话没能打开',
 			'scheduler.run.graphHead' => '流转',
 			'scheduler.run.graphHeadPinned' => '流转(钉版)',
+			'scheduler.run.graphEmpty' => '取不到这次运行的拓扑——钉版读不出,workflow 也没有当前的图。',
 			'scheduler.run.ganttHead' => '甘特',
 			'scheduler.run.ganttEmpty' => '这次运行还没有可排上时间轴的节点。',
 			'scheduler.run.ganttNoSpan' => '所有节点落在同一毫秒内——条只表示顺序,不表示时长。',
@@ -3441,9 +3443,9 @@ extension on TranslationsZhCn {
 			'entities.detail.graph.openEditor' => '进入图编辑器',
 			'entities.detail.graph.unparseable' => '编排图无法解析',
 			'entities.detail.cockpit.runs' => '运行',
-			'entities.detail.cockpit.runsCount' => ({required Object n}) => '运行 · ${n} 次',
 			_ => null,
 		} ?? switch (path) {
+			'entities.detail.cockpit.runsCount' => ({required Object n}) => '运行 · ${n} 次',
 			'entities.detail.cockpit.nodeGantt' => '节点甘特',
 			'entities.detail.cockpit.notRun' => '未运行',
 			'entities.detail.cockpit.waitingApproval' => '等待审批',
@@ -3955,9 +3957,9 @@ extension on TranslationsZhCn {
 			'settings.limits.resetAll' => '全部恢复默认',
 			'settings.limits.resetAllTitle' => '恢复全部默认限额?',
 			'settings.limits.patchFailed' => '保存失败',
-			'settings.limits.modified' => '已修改',
 			_ => null,
 		} ?? switch (path) {
+			'settings.limits.modified' => '已修改',
 			'settings.limits.errorTitle' => '限额加载失败',
 			'settings.limits.retry' => '重试',
 			'settings.network.section' => '网络',
