@@ -18,6 +18,7 @@ export 'an_cel_grow.dart';
 export 'an_code_block.dart';
 export 'an_count_up.dart';
 export 'an_countdown.dart';
+export 'an_time_pulse.dart';
 export 'an_path_chip.dart';
 export 'an_code_chip.dart';
 export 'an_code_editor.dart';

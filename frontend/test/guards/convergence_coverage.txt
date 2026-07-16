@@ -18,6 +18,7 @@ lib/core/contract/entities/document.dart	converged
 lib/core/contract/entities/function.dart	converged
 lib/core/contract/entities/handler.dart	converged
 lib/core/contract/entities/relation.dart	converged
+lib/core/contract/entities/scheduler_stats.dart	pending
 lib/core/contract/entities/skill.dart	converged
 lib/core/contract/entities/trigger.dart	converged
 lib/core/contract/entities/values.dart	converged
@@ -224,6 +225,7 @@ lib/core/ui/an_tabs.dart	converged
 lib/core/ui/an_tags.dart	converged
 lib/core/ui/an_term_viewport.dart	reviewed
 lib/core/ui/an_thin_table.dart	converged
+lib/core/ui/an_time_pulse.dart	pending
 lib/core/ui/an_toast.dart	reviewed
 lib/core/ui/an_toned_panel.dart	converged
 lib/core/ui/an_tooltip.dart	converged
@@ -450,9 +452,13 @@ lib/features/notifications/state/unread_count_provider.dart	converged
 lib/features/notifications/ui/notification_copy.dart	reviewed
 lib/features/notifications/ui/notification_feed.dart	reviewed
 lib/features/notifications/ui/notification_row.dart	reviewed
+lib/features/scheduler/data/scheduler_demo_fixture.dart	pending
+lib/features/scheduler/data/scheduler_repository.dart	pending
+lib/features/scheduler/state/scheduler_rail_provider.dart	pending
 lib/features/scheduler/state/selected_scheduler.dart	pending
 lib/features/scheduler/ui/scheduler_ocean.dart	pending
 lib/features/scheduler/ui/scheduler_rail.dart	pending
+lib/features/scheduler/ui/scheduler_rail_model.dart	pending
 lib/features/settings/data/settings_demo_fixture.dart	reviewed
 lib/features/settings/data/settings_repository.dart	converged
 lib/features/settings/model/settings_catalog.dart	converged

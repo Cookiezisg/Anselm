@@ -188,6 +188,13 @@ class _Translations$scheduler$zh_CN extends Translations$scheduler$en {
 	@override String get retry => '重试';
 	@override String get overviewTitle => '总览';
 	@override String get underConstruction => 'Scheduler 指挥中心建设中(S1–S5)。';
+	@override String runningFor({required Object d}) => '运行中 · ${d}';
+	@override String nextFireIn({required Object d}) => '⏱ ${d} 后';
+	@override String agoMeta({required Object d}) => '${d} 前';
+	@override String get neverRan => '—';
+	@override String get sectionNeverRan => '未运行';
+	@override String get sectionInactive => '停用';
+	@override String get filterPlaceholder => '过滤 / 粘贴 fr_ id…';
 }
 
 // Path: action
@@ -2780,6 +2787,13 @@ extension on TranslationsZhCn {
 			'scheduler.retry' => '重试',
 			'scheduler.overviewTitle' => '总览',
 			'scheduler.underConstruction' => 'Scheduler 指挥中心建设中(S1–S5)。',
+			'scheduler.runningFor' => ({required Object d}) => '运行中 · ${d}',
+			'scheduler.nextFireIn' => ({required Object d}) => '⏱ ${d} 后',
+			'scheduler.agoMeta' => ({required Object d}) => '${d} 前',
+			'scheduler.neverRan' => '—',
+			'scheduler.sectionNeverRan' => '未运行',
+			'scheduler.sectionInactive' => '停用',
+			'scheduler.filterPlaceholder' => '过滤 / 粘贴 fr_ id…',
 			'action.edit' => '编辑',
 			'action.cancel' => '取消',
 			'action.save' => '保存',
@@ -3186,6 +3200,8 @@ extension on TranslationsZhCn {
 			'entities.run.approvalHint' => 'first-wins:先到的决断生效。',
 			'entities.run.reasonHint' => '备注(可选)',
 			'entities.run.inboxEmpty' => '没有待审批',
+			_ => null,
+		} ?? switch (path) {
 			'entities.run.inboxEmptyHint' => '等待决断的审批会出现在这里。',
 			'entities.val.yes' => '是',
 			'entities.val.no' => '否',
@@ -3193,8 +3209,6 @@ extension on TranslationsZhCn {
 			'coldStart.errorTitle' => '无法准备工作区',
 			'coldStart.errorHint' => '本地引擎已连通,但工作区未就绪。',
 			'coldStart.defaultWorkspace' => '个人',
-			_ => null,
-		} ?? switch (path) {
 			'documents.documents' => '文档',
 			'documents.skills' => '技能',
 			'documents.untitled' => '未命名',

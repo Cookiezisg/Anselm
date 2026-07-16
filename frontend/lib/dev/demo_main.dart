@@ -14,6 +14,8 @@ import '../core/settings/app_prefs_providers.dart';
 import '../core/settings/settings_prefs.dart';
 import '../core/shortcuts/global_shortcuts.dart';
 import '../core/model/model_capabilities.dart';
+import '../features/scheduler/data/scheduler_demo_fixture.dart';
+import '../features/scheduler/data/scheduler_repository.dart';
 import '../features/settings/data/settings_demo_fixture.dart';
 import '../features/settings/data/settings_repository.dart';
 import '../features/chat/data/chat_demo_fixture.dart';
@@ -52,6 +54,7 @@ List<Override> demoOverrides(SettingsPrefs prefs, FixtureNotificationRepository 
       documentsRepositoryProvider.overrideWithValue(demoDocumentsRepository()),
       notificationRepositoryProvider.overrideWithValue(notifications),
       settingsRepositoryProvider.overrideWithValue(demoSettingsRepository()),
+      schedulerRepositoryProvider.overrideWithValue(demoSchedulerRepository()),
       // Capabilities are core-level (S-15): zero-backend demo feeds them directly, never HTTP.
       // 能力目录在 core(S-15):零后端 demo 直喂,绝不打 HTTP。
       modelCapabilitiesProvider.overrideWith((ref) async => demoModelCapabilities),

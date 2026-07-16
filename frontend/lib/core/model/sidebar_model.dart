@@ -40,12 +40,17 @@ class SidebarType {
     this.hasMore = false,
     this.loadingMore = false,
     this.loadError = false,
+    this.initiallyFolded = false,
   });
 
   final String? label;
   final IconData? icon;
   final int? count;
   final List<SidebarRow> rows;
+
+  /// Starts collapsed (the scheduler rail's sunk «never ran (n)» / «inactive (n)» sections, WRK-069 §2).
+  /// The user's toggle wins thereafter — this seeds first paint only. 首绘即收起(沉底段);此后用户手翻为准。
+  final bool initiallyFolded;
 
   /// Pagination axis id — non-null makes this section infinite-scrollable: a tail sentinel drives
   /// `onLoadMore(pageKey)` and a trailing footer renders the loading/retry state. null = not paginated

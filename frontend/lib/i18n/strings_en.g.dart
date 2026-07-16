@@ -368,6 +368,27 @@ class Translations$scheduler$en {
 
 	/// en: 'The Scheduler command center is being built (S1–S5).'
 	String get underConstruction => 'The Scheduler command center is being built (S1–S5).';
+
+	/// en: 'running · $d'
+	String runningFor({required Object d}) => 'running · ${d}';
+
+	/// en: '⏱ in $d'
+	String nextFireIn({required Object d}) => '⏱ in ${d}';
+
+	/// en: '$d ago'
+	String agoMeta({required Object d}) => '${d} ago';
+
+	/// en: '—'
+	String get neverRan => '—';
+
+	/// en: 'Never ran'
+	String get sectionNeverRan => 'Never ran';
+
+	/// en: 'Inactive'
+	String get sectionInactive => 'Inactive';
+
+	/// en: 'Filter / paste fr_ id…'
+	String get filterPlaceholder => 'Filter / paste fr_ id…';
 }
 
 // Path: action
@@ -5616,6 +5637,13 @@ extension on Translations {
 			'scheduler.retry' => 'Retry',
 			'scheduler.overviewTitle' => 'Overview',
 			'scheduler.underConstruction' => 'The Scheduler command center is being built (S1–S5).',
+			'scheduler.runningFor' => ({required Object d}) => 'running · ${d}',
+			'scheduler.nextFireIn' => ({required Object d}) => '⏱ in ${d}',
+			'scheduler.agoMeta' => ({required Object d}) => '${d} ago',
+			'scheduler.neverRan' => '—',
+			'scheduler.sectionNeverRan' => 'Never ran',
+			'scheduler.sectionInactive' => 'Inactive',
+			'scheduler.filterPlaceholder' => 'Filter / paste fr_ id…',
 			'action.edit' => 'Edit',
 			'action.cancel' => 'Cancel',
 			'action.save' => 'Save',
@@ -6022,6 +6050,8 @@ extension on Translations {
 			'entities.run.approvalHint' => 'First decision wins.',
 			'entities.run.reasonHint' => 'Reason (optional)',
 			'entities.run.inboxEmpty' => 'No pending approvals',
+			_ => null,
+		} ?? switch (path) {
 			'entities.run.inboxEmptyHint' => 'Approvals waiting for a decision will appear here.',
 			'entities.val.yes' => 'yes',
 			'entities.val.no' => 'no',
@@ -6029,8 +6059,6 @@ extension on Translations {
 			'coldStart.errorTitle' => 'Couldn\'t set up the workspace',
 			'coldStart.errorHint' => 'The local engine is reachable but the workspace didn\'t resolve.',
 			'coldStart.defaultWorkspace' => 'Personal',
-			_ => null,
-		} ?? switch (path) {
 			'documents.documents' => 'Documents',
 			'documents.skills' => 'Skills',
 			'documents.untitled' => 'Untitled',

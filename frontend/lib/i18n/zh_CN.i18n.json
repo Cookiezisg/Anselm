@@ -636,7 +636,14 @@
     "railErrorHint": "后端没有应答,检查连接后重试。",
     "retry": "重试",
     "overviewTitle": "总览",
-    "underConstruction": "Scheduler 指挥中心建设中(S1–S5)。"
+    "underConstruction": "Scheduler 指挥中心建设中(S1–S5)。",
+    "runningFor": "运行中 · $d",
+    "nextFireIn": "⏱ $d 后",
+    "agoMeta": "$d 前",
+    "neverRan": "—",
+    "sectionNeverRan": "未运行",
+    "sectionInactive": "停用",
+    "filterPlaceholder": "过滤 / 粘贴 fr_ id…"
   },
   "action": {
     "edit": "编辑",

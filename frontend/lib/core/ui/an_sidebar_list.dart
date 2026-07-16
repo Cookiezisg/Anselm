@@ -57,6 +57,7 @@ class AnSidebarList extends StatefulWidget {
     this.onSelect,
     this.onNew,
     this.onFilterChanged,
+    this.onFilterSubmit,
     this.onLoadMore,
     this.onRetryLoad,
     this.menuEntries = const [],
@@ -76,6 +77,11 @@ class AnSidebarList extends StatefulWidget {
   final ValueChanged<String>? onSelect;
   final VoidCallback? onNew;
   final ValueChanged<String>? onFilterChanged;
+
+  /// Enter in the filter field fires this with the current text — the scheduler rail's fr_-id
+  /// direct-jump seam (WRK-069 §2: paste any fr_ id → run detail). Filtering itself stays live via
+  /// [onFilterChanged]; this only adds a submit affordance. 过滤框回车缝(fr_ 直达);过滤本身仍是实时的。
+  final ValueChanged<String>? onFilterSubmit;
 
   /// A paginated section ([SidebarType.pageKey] != null) scrolled to its tail fires this with the pageKey.
   /// 分页段(pageKey 非空)滚到尾时携 pageKey 触发。
@@ -170,6 +176,13 @@ class _AnSidebarListState extends State<AnSidebarList> {
   @override
   void initState() {
     super.initState();
+    // Seed initially-folded sections (first paint only — the user's toggle wins thereafter, and a model
+    // rebuild never re-seeds an unfolded key). 首绘播种默认收起段;此后用户手翻为准,重建不复播。
+    for (final g in widget.model.groups) {
+      for (final t in g.types) {
+        if (t.initiallyFolded) _collapsed.add('t:${t.foldKey}');
+      }
+    }
     _flat = flattenSidebar(widget.model, collapsed: _collapsed, query: _query);
     _branchSpan = _computeBranchSpans(_flat);
   }
@@ -395,6 +408,7 @@ class _AnSidebarListState extends State<AnSidebarList> {
                 });
                 widget.onFilterChanged?.call(v);
               },
+              onSubmitted: widget.onFilterSubmit,
             ),
           ),
           if (widget.menuEntries.isNotEmpty)
