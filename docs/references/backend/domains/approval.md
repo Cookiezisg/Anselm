@@ -19,7 +19,7 @@ audience: [human, ai]
 
 ## 2. 行为 / 求值
 
-create/edit 时：模板非空 + `{{ CEL }}` 全部可编译（`APPROVAL_INVALID_TEMPLATE`）；timeout 解析（`ParseTimeout` 扩展 `d`/`w` 粗粒度，`""`=永不超时；**显式零时长如 `0s` 被拒**——会永 park 却不触发，用 `""` 表永不）+ 非空 timeout 必须配 behavior（reject/approve/fail，`APPROVAL_INVALID_TIMEOUT`）。运行时：scheduler 解析钉死版本 → 渲染模板 → 写 **parked** 行（result 带 `rendered` 供收件箱 UI + `allowReason`）→ run 保持 running；决策（人工 first-wins vs 超时）见引擎文档——落定后由 decide/timeout 径专发「已决」tick（`port`=decision yes/no）到 entities 流（Advance 不会再 tick 已存在的行），见 [events.md](../events.md)。
+create/edit 时：模板非空 + `{{ CEL }}` 全部可编译（`APPROVAL_INVALID_TEMPLATE`）；timeout 解析（`ParseTimeout` 扩展 `d`/`w` 粗粒度，`""`=永不超时；**显式零时长如 `0s` 被拒**——会永 park 却不触发，用 `""` 表永不）+ 非空 timeout 必须配 behavior（reject/approve/fail，`APPROVAL_INVALID_TIMEOUT`）。运行时：scheduler 解析钉死版本 → 渲染模板 → 写 **parked** 行（result 带 `rendered` 供收件箱 UI + `allowReason`）→ run 保持 running；决策（人工 first-wins vs 超时）见引擎文档——落定后由 decide/timeout 径专发「已决」tick（`port`=decision yes/no）到 entities 流（Advance 不会再 tick 已存在的行），见 [events.md](../events.md)。**期限投影（工单④）**：收件箱行（`GET /flowrun-inbox`）带 `deadline?` = parkedAt + 钉死版本 timeout——派生单源是 domain 的 `DeadlineFrom(parkedAt)`，与 `CheckTimeouts` 超时扫描同一语义（倒计时不对扫描撒谎）；`""`=永不超时则键缺席。
 
 ## 3. 契约（引用）
 

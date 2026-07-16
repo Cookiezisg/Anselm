@@ -97,7 +97,7 @@ audience: [human, ai]
 | `GET /flowruns/{id}` | run 头 + **一页节点行**（N4 分页 `?cursor&limit`、最新在前、返 `nextCursor`；长 loop run 数千行不再一次倾倒，F168-M7。完整记忆化全集是解释器内部的、非线缆的） |
 | `POST /flowruns/{id}:replay` | 修复失败 run：清 failed 行 + 重走（completed 复用）；**仅 failed 可重放**——cancelled 是终局终态、不可 :replay（422 `FLOWRUN_NOT_REPLAYABLE`） |
 | `POST /flowruns/{id}:cancel` | **取消单个 running run**（scheduler 工单②）：先守卫标头 running→cancelled（first-wins——与自然终态的竞态由 DB 守卫裁决，输家 422）再 cancel 该 run 在飞 ctx（打断卡在 LLM 流式/工具里的节点；**被打断节点不落行、不误写 failed**）+ 收回 parked 审批（收件箱不留死项）+ 发 durable `run_terminal`；取消 draining workflow 最后在途 run 触发 draining→inactive 结算。202 返 `{flowrun, nodes 首页, nextCursor}`（与 :replay 同信封形）；非 running 422 `FLOWRUN_NOT_CANCELLABLE`。cancelled 不点 attention、不发通知（手动终止非故障） |
-| `GET /flowrun-inbox` | 审批收件箱（= 全部 parked 节点行） |
+| `GET /flowrun-inbox` | 审批收件箱（= 全部 parked 节点行），**每行带 workflow 上下文 enrich**（scheduler 工单④）：`workflowId` + `workflowName`（join 自 run 头；workflow 已软删名**回落裸 id**——relation Namer 先例）+ `deadline?`（绝对期限 = parkedAt + 钉死 approval 版本的 timeout，与 `CheckTimeouts` 扫描同一解析语义〔domain `DeadlineFrom` 单源〕；表无 timeout / 解析不出**键缺席**、绝不发零值；approval 版本 resolve 失败仅该行缺 deadline，行本身保持可见可决策）。有界批读（run 头一条 `GetRunsByIDs` + workflow 名一条 `NamesByIDs`、approval 版本按 (ref,钉死版本) 记忆化），绝不逐行 N+1；enrich 住 app `ListInbox` |
 | `GET /flowrun-stats` | **运营统计批查**（scheduler 工单③，纯读投影、零新表零新列）：`?workflowIds=<csv>&recentN&since` → `{totals, byWorkflow}`（详见下段） |
 | `POST /flowruns/{id}/approvals/{node}:decide` | 人工审批决策 `{decision: yes|no, reason?}`（first-wins，输家 422） |
 

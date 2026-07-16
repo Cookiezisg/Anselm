@@ -212,8 +212,12 @@ func TestWorkflow_ApprovalParkDecideResume(t *testing.T) {
 	ns := wc.Subscribe(t, "notifications")
 
 	pubFn := fnCreate(t, wc, "publish_step", "def f(decision: str) -> dict:\n    return {\"published\": decision}\n")
+	// A 30d timeout so the enriched inbox row (scheduler 工单④) carries a deadline — far enough
+	// out that the sweep can never race this test's human decision.
+	// 30d 超时让 enrich 后的收件箱行（scheduler 工单④）带 deadline——远到扫描绝不会与本测试的人工决策竞速。
 	apfID := wc.POST("/api/v1/approvals", map[string]any{
 		"name": "spend_gate", "template": "approve {{ input.amt }}?", "allowReason": true,
+		"timeout": "30d", "timeoutBehavior": "reject",
 	}).Field(t, "id")
 
 	wfID := wfCreate(t, wc, "approval_pipe", []map[string]any{
@@ -240,8 +244,12 @@ func TestWorkflow_ApprovalParkDecideResume(t *testing.T) {
 	ns.WaitFor(t, 8000, "approval_pending summons the human", "workflow.approval_pending", runID)
 	var inbox struct {
 		Parked []struct {
-			FlowRunID string `json:"flowrunId"`
-			NodeID    string `json:"nodeId"`
+			FlowRunID    string     `json:"flowrunId"`
+			NodeID       string     `json:"nodeId"`
+			CreatedAt    time.Time  `json:"createdAt"`
+			WorkflowID   string     `json:"workflowId"`
+			WorkflowName string     `json:"workflowName"`
+			Deadline     *time.Time `json:"deadline"`
 		} `json:"parked"`
 	}
 	wc.GET("/api/v1/flowrun-inbox").OK(t, &inbox)
@@ -249,6 +257,22 @@ func TestWorkflow_ApprovalParkDecideResume(t *testing.T) {
 	for _, p := range inbox.Parked {
 		if p.FlowRunID == runID && p.NodeID == "human" {
 			found = true
+			// Enriched row (scheduler 工单④): workflow context joined from the run header + the
+			// absolute deadline = parkedAt + the approval version's timeout (30d).
+			// enrich 行（scheduler 工单④）：workflow 上下文 join 自 run 头 + 绝对期限 = parkedAt +
+			// approval 版本 timeout（30d）。
+			if p.WorkflowID != wfID {
+				t.Fatalf("inbox row must carry workflowId=%s, got %q", wfID, p.WorkflowID)
+			}
+			if p.WorkflowName != "approval_pipe" {
+				t.Fatalf("inbox row must carry the workflow display name, got %q", p.WorkflowName)
+			}
+			if p.Deadline == nil {
+				t.Fatalf("a timed approval's inbox row must carry a deadline: %+v", p)
+			}
+			if want := p.CreatedAt.Add(30 * 24 * time.Hour); !p.Deadline.Equal(want) {
+				t.Fatalf("deadline must be parkedAt+30d: got %v want %v", p.Deadline, want)
+			}
 		}
 	}
 	if !found {
