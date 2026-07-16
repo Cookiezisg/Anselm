@@ -274,6 +274,7 @@ lib/dev/gallery/tool_interaction_gate_specimens.dart	reviewed
 lib/dev/gallery/user_turn_specimens.dart	reviewed
 lib/dev/gallery_main.dart	converged
 lib/dev/markdown_corpus.dart	pending
+lib/dev/perf_probe.dart	pending
 lib/features/chat/data/attachment_image_provider.dart	converged
 lib/features/chat/data/chat_demo_fixture.dart	converged
 lib/features/chat/data/chat_fixtures.dart	converged
