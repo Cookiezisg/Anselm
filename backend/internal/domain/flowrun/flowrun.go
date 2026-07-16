@@ -47,6 +47,32 @@ const (
 // 非 run 状态（parked run 由 parked 节点行派生），故此处刻意不含。
 var RunStatuses = []string{StatusRunning, StatusCompleted, StatusFailed, StatusCancelled}
 
+// Run origins — WHO started this run (provenance, stamped at creation, never mutated). manual is a
+// human "Run now" (UI/API); chat is an agent's trigger_workflow inside a conversation (the run then
+// also carries ConversationID); the four trigger words mirror the trigger domain's source kinds
+// verbatim (cron/webhook/fsnotify/sensor) so a firing's kind IS its run's origin — one vocabulary,
+// no mapping table to drift.
+//
+// Run 来源——这个 run 是**谁**起的（溯源，创建时盖章、永不改写）。manual = 人点「Run now」（UI/API）；
+// chat = 对话里 agent 调 trigger_workflow（run 同时带 ConversationID）；四个 trigger 词与 trigger 域
+// source kind 逐字同词（cron/webhook/fsnotify/sensor），firing 的 kind 即其 run 的 origin——同一词表、
+// 无映射表可漂移。
+const (
+	OriginManual   = "manual"
+	OriginChat     = "chat"
+	OriginCron     = "cron"
+	OriginWebhook  = "webhook"
+	OriginFsnotify = "fsnotify"
+	OriginSensor   = "sensor"
+)
+
+// RunOrigins is the closed origin set (mirrors the DB CHECK). A NULL origin is a pre-provenance
+// row (created before the columns existed) — the wire omits it and clients fall back to "unknown".
+//
+// RunOrigins 是 origin 封闭集（与 DB CHECK 一致）。origin 为 NULL 的是 provenance 之前的旧行——
+// 线缆不发、客户端按 unknown 兜底。
+var RunOrigins = []string{OriginManual, OriginChat, OriginCron, OriginWebhook, OriginFsnotify, OriginSensor}
+
 // Node statuses. Rows are written TERMINAL-ONLY (no transient "running" row): an action runs and
 // completes within one synchronous advance() pass, so there is no mid-flight node state to persist
 // — a crash before the row is written simply re-runs (at-least-once). parked is the one non-terminal
@@ -117,12 +143,23 @@ type FlowRun struct {
 	PinnedRefs  map[string]string `db:"pinned_refs,json"    json:"pinnedRefs"`          // BuildPinClosure {entity_id: active_version_id}
 	TriggerID   string            `db:"trigger_id"          json:"triggerId,omitempty"` // entry trg_ (empty for a manual :trigger)
 	FiringID    string            `db:"firing_id"           json:"firingId,omitempty"`  // source trf_ (single-tx claim)
-	Status      string            `db:"status"              json:"status"`              // running | completed | failed | cancelled
-	ReplayCount int               `db:"replay_count"        json:"replayCount"`         // :replay increments; NOT a generation
-	Error       string            `db:"error"               json:"error,omitempty"`     // terminal-failed reason
-	StartedAt   time.Time         `db:"started_at,created"  json:"startedAt"`
-	CompletedAt *time.Time        `db:"completed_at"        json:"completedAt,omitempty"`
-	UpdatedAt   time.Time         `db:"updated_at,updated"  json:"updatedAt"`
+	// Origin / ConversationID are creation-time provenance (see RunOrigins). Nullable pointers, not
+	// "" — rows created before these columns existed are NULL and must stay distinguishable from a
+	// stamped value (the wire omits NULL; clients render "unknown"). ConversationID is set only for
+	// origin=chat: the cv_ whose turn called trigger_workflow.
+	//
+	// Origin / ConversationID 是创建时溯源（见 RunOrigins）。可空指针而非 ""——两列诞生前的旧行是 NULL，
+	// 必须与已盖章值可区分（线缆不发 NULL、客户端渲 unknown）。ConversationID 仅 origin=chat 时有：
+	// 调 trigger_workflow 的那个 cv_。
+	Origin         *string `db:"origin"          json:"origin,omitempty"`
+	ConversationID *string `db:"conversation_id" json:"conversationId,omitempty"`
+
+	Status      string     `db:"status"              json:"status"`          // running | completed | failed | cancelled
+	ReplayCount int        `db:"replay_count"        json:"replayCount"`     // :replay increments; NOT a generation
+	Error       string     `db:"error"               json:"error,omitempty"` // terminal-failed reason
+	StartedAt   time.Time  `db:"started_at,created"  json:"startedAt"`
+	CompletedAt *time.Time `db:"completed_at"        json:"completedAt,omitempty"`
+	UpdatedAt   time.Time  `db:"updated_at,updated"  json:"updatedAt"`
 }
 
 // FlowRunNode is ★the truth: one (node, iteration) of a run with its memoized result. action /

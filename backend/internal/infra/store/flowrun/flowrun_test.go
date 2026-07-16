@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 	"testing"
 
 	_ "github.com/glebarez/go-sqlite"
@@ -349,5 +350,84 @@ func TestListRuns_RejectsInvalidStatus(t *testing.T) {
 	}
 	if _, _, err := s.ListRuns(ctx, flowrundomain.ListFilter{}); err != nil {
 		t.Fatalf("empty filter must succeed, got %v", err)
+	}
+}
+
+// TestProvenanceColumns_UpgradeAndRoundTrip pins scheduler 工单① at the store: ① an EXISTING
+// install (flowruns created before the origin/conversation_id columns) gains them via the Schema's
+// ADD COLUMN stanzas and its old rows read back as NULL (nil pointers — the wire's "unknown");
+// ② a stamped run round-trips both values; ③ the CHECK rejects an out-of-vocabulary origin.
+//
+// TestProvenanceColumns_UpgradeAndRoundTrip 在 store 层钉工单①：① 既有安装（两列诞生前建的
+// flowruns）经 Schema 的 ADD COLUMN 段补列、旧行读回 NULL（nil 指针——线缆的 unknown）；② 盖章的
+// run 两值往返；③ CHECK 拒词表外 origin。
+func TestProvenanceColumns_UpgradeAndRoundTrip(t *testing.T) {
+	sqlDB, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	sqlDB.SetMaxOpenConns(1)
+	t.Cleanup(func() { _ = sqlDB.Close() })
+
+	// Phase 1: the pre-provenance table only (every stanza except the ALTERs), with one legacy row.
+	// 第一阶段：仅溯源前的表（除 ALTER 外的所有段），插一行旧数据。
+	for _, stmt := range Schema {
+		if strings.HasPrefix(stmt, "ALTER") {
+			continue
+		}
+		if _, err := sqlDB.Exec(stmt); err != nil {
+			t.Fatalf("legacy schema: %v", err)
+		}
+	}
+	if _, err := sqlDB.Exec(`INSERT INTO flowruns (id, workspace_id, workflow_id, version_id, status, started_at, updated_at)
+		VALUES ('fr_old', 'ws_1', 'wf_1', 'wfv_1', 'completed', '2026-01-01 00:00:00', '2026-01-01 00:00:00')`); err != nil {
+		t.Fatalf("legacy row: %v", err)
+	}
+
+	// Phase 2: the upgrade — run the ALTER stanzas (what a boot's Migrate applies on an old DB).
+	// 第二阶段：升级——跑 ALTER 段（旧库上 boot 的 Migrate 所应用者）。
+	for _, stmt := range Schema {
+		if !strings.HasPrefix(stmt, "ALTER") {
+			continue
+		}
+		if _, err := sqlDB.Exec(stmt); err != nil {
+			t.Fatalf("upgrade: %v", err)
+		}
+	}
+
+	s := New(ormpkg.Open(sqlDB))
+	ctx := ctxWS("ws_1")
+
+	// ① The legacy row scans (NULL → nil), and lists alongside new rows. 旧行可读、可列。
+	old, err := s.GetRun(ctx, "fr_old")
+	if err != nil {
+		t.Fatalf("GetRun legacy: %v", err)
+	}
+	if old.Origin != nil || old.ConversationID != nil {
+		t.Fatalf("legacy row must read NULL provenance, got origin=%v conv=%v", old.Origin, old.ConversationID)
+	}
+
+	// ② A stamped run round-trips. 盖章 run 往返。
+	origin, conv := flowrundomain.OriginChat, "cv_7"
+	if _, err := s.CreateRunWithTrigger(ctx,
+		&flowrundomain.FlowRun{ID: "fr_new", WorkflowID: "wf_1", VersionID: "wfv_1", Origin: &origin, ConversationID: &conv},
+		&flowrundomain.FlowRunNode{NodeID: "start", Kind: "trigger"}); err != nil {
+		t.Fatalf("create stamped run: %v", err)
+	}
+	got, err := s.GetRun(ctx, "fr_new")
+	if err != nil {
+		t.Fatalf("GetRun stamped: %v", err)
+	}
+	if got.Origin == nil || *got.Origin != flowrundomain.OriginChat || got.ConversationID == nil || *got.ConversationID != "cv_7" {
+		t.Fatalf("stamped provenance lost: origin=%v conv=%v", got.Origin, got.ConversationID)
+	}
+	if rows, _, err := s.ListRuns(ctx, flowrundomain.ListFilter{Limit: 10}); err != nil || len(rows) != 2 {
+		t.Fatalf("mixed legacy+stamped list: rows=%d err=%v", len(rows), err)
+	}
+
+	// ③ The CHECK holds: an out-of-vocabulary origin never lands. CHECK 生效：词表外 origin 落不了。
+	if _, err := sqlDB.Exec(`INSERT INTO flowruns (id, workspace_id, workflow_id, version_id, status, origin, started_at, updated_at)
+		VALUES ('fr_bad', 'ws_1', 'wf_1', 'wfv_1', 'running', 'gremlin', '2026-01-01 00:00:00', '2026-01-01 00:00:00')`); err == nil {
+		t.Fatal("CHECK must reject an out-of-vocabulary origin")
 	}
 }

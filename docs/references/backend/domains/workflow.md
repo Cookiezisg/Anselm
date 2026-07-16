@@ -48,4 +48,4 @@ audience: [human, ai]
 
 ## 7. 跨域集成
 
-被 scheduler 读（WorkflowReader：冻结版本 + pin）；驱动 trigger Binder（Attach/AttachOnce/Detach）+ scheduler Runner（StartRun/Kill/CountRunning）；catalog/mention/relation 三适配器与 function 同构；`:iterate` 走 aispawn。
+被 scheduler 读（WorkflowReader：冻结版本 + pin）；驱动 trigger Binder（Attach/AttachOnce/Detach）+ scheduler Runner（StartRun/Kill/CountRunning——Runner 端口刻意原生参数、不识调度器词表，run 的 origin 溯源章由 bootstrap `runnerAdapter` 按 ctx 派生：ctx 有 conversation id = chat+对话、无 = manual，使 HTTP `:trigger` 与对话 `trigger_workflow` 共咽喉而各得其章，见 [scheduler-flowrun.md](../foundation/scheduler-flowrun.md) §4）；catalog/mention/relation 三适配器与 function 同构；`:iterate` 走 aispawn。

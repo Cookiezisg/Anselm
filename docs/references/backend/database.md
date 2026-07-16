@@ -74,7 +74,7 @@ ID：`trg_`/`tra_`/`trf_`
 
 | 表 | 关键列 | 约束/索引 |
 |---|---|---|
-| `flowruns` | workflow_id · **version_id**(钉死拓扑) · **pinned_refs**(json pin 闭包) · trigger_id/firing_id · status(CHECK running/completed/failed/cancelled) · replay_count · error | running 偏索引（跨 ws boot 恢复）|
+| `flowruns` | workflow_id · **version_id**(钉死拓扑) · **pinned_refs**(json pin 闭包) · trigger_id/firing_id · **origin**(可空,CHECK manual/chat/cron/webhook/fsnotify/sensor——创建时溯源盖章,NULL=两列诞生前旧行) · **conversation_id**(可空,仅 origin=chat:发起 run 的 cv_) · status(CHECK running/completed/failed/cancelled) · replay_count · error | running 偏索引（跨 ws boot 恢复）；origin/conversation_id 经 `ALTER TABLE ADD COLUMN` 演化段补列（db.Migrate 对加列的 duplicate-column 按已应用跳过=结果幂等）|
 | `flowrun_nodes` | flowrun_id · **node_id**(图内名) · **iteration**(循环轮次) · kind · ref · status(CHECK completed/failed/parked) · **result**(json 记忆化) · error | **`idx_frn_once` UNIQUE(flowrun_id,node_id,iteration)**（D3 record-once）+ parked 偏索引（收件箱）|
 
 ID：`fr_`/`frn_`。两张无 deleted_at（D1）；唯一物理删 = `:replay` 清 failed 行（非结果）。

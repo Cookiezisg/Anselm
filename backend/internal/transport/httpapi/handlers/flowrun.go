@@ -82,6 +82,7 @@ func (h *FlowrunHandler) Start(w http.ResponseWriter, r *http.Request) {
 		WorkflowID: req.WorkflowID,
 		EntryNode:  req.EntryNode,
 		Payload:    req.Payload,
+		Origin:     flowrundomain.OriginManual, // POST /flowruns IS the human "Run now" (run provenance)
 	})
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)

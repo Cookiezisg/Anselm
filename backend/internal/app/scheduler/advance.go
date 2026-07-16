@@ -163,14 +163,42 @@ func (s *Service) emitNodeProgress(ctx context.Context, run *flowrundomain.FlowR
 	entitystreamapp.Signal(ctx, s.entities, streamdomain.Scope{Kind: streamdomain.KindWorkflow, ID: run.WorkflowID}, entitystreamapp.NodeRun, content, true)
 }
 
-// emitRunTerminal streams a flowrun's terminal status as the one DURABLE flowrun signal (seq +
-// replay ring, E2): node ticks may be dropped, but "the run is over" must survive a reconnect so
-// a client tracking a run (the chat sidestage's trigger_workflow poll fallback, the workflow
-// cockpit) never spins on a terminal it missed. errMsg rides only a failed terminal.
+// emitRunStarted streams a new flowrun's birth as a DURABLE Signal (node.type="run_started",
+// content {flowrunId, origin}, workflow scope) — the terminal's symmetric twin: a scheduler surface
+// tracking "what is running right now" must learn about a run born while it was disconnected
+// (cron fires with no panel open are the norm on a desktop app), so this enters the seq/replay
+// ring like run_terminal. Emitted at the two creation chokepoints only (StartRun / claimFiring);
+// :replay reopens an existing run and is not a birth.
 //
-// emitRunTerminal 把 flowrun 终态作为唯一 **durable** flowrun 信号流出（入 seq + replay 环，E2）：
-// 节点 tick 可丢，但「run 结束了」必须活过重连，使追踪 run 的客户端（chat 侧幕 trigger_workflow 的
-// poll 兜底、workflow 驾驶舱）绝不因错过终态而空转。errMsg 只随 failed 终态。
+// emitRunStarted 把新 flowrun 的诞生流成 **durable** Signal（node.type="run_started"、content
+// {flowrunId, origin}、workflow scope）——run_terminal 的对称孪生：追踪「现在有什么在跑」的调度面
+// 必须知道断连期间出生的 run（桌面 app 上无人看面板时的 cron 触发是常态），故与 run_terminal 一样
+// 入 seq/replay 环。只在两个创建咽喉发（StartRun / claimFiring）；:replay 重开既有 run、非诞生。
+func (s *Service) emitRunStarted(ctx context.Context, run *flowrundomain.FlowRun) {
+	if s.entities == nil {
+		return
+	}
+	origin := ""
+	if run.Origin != nil {
+		origin = *run.Origin
+	}
+	content, _ := json.Marshal(map[string]any{
+		"flowrunId": run.ID,
+		"origin":    origin,
+	})
+	entitystreamapp.Signal(ctx, s.entities, streamdomain.Scope{Kind: streamdomain.KindWorkflow, ID: run.WorkflowID}, entitystreamapp.NodeRunStarted, content, false)
+}
+
+// emitRunTerminal streams a flowrun's terminal status as a DURABLE flowrun signal (seq + replay
+// ring, E2; run_started's symmetric twin): node ticks may be dropped, but "the run is over" must
+// survive a reconnect so a client tracking a run (the chat sidestage's trigger_workflow poll
+// fallback, the workflow cockpit) never spins on a terminal it missed. errMsg rides only a failed
+// terminal.
+//
+// emitRunTerminal 把 flowrun 终态作为 **durable** flowrun 信号流出（入 seq + replay 环，E2；
+// run_started 的对称孪生）：节点 tick 可丢，但「run 结束了」必须活过重连，使追踪 run 的客户端
+// （chat 侧幕 trigger_workflow 的 poll 兜底、workflow 驾驶舱）绝不因错过终态而空转。errMsg 只随
+// failed 终态。
 func (s *Service) emitRunTerminal(ctx context.Context, workflowID, flowrunID, status, errMsg string) {
 	if s.entities == nil {
 		return

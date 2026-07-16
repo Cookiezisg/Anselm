@@ -113,6 +113,13 @@ type FiringInbox interface {
 	// keep-only-latest disposition), returning the survivor's id ("" if none) and the count superseded.
 	// SupersedeAllButNewestPending 把某 workflow 的待处理 firing 收敛到最新一条（buffer_one 只留最新），返存活者 id（无则 ""）与被 supersede 数。
 	SupersedeAllButNewestPending(ctx context.Context, workflowID string) (string, int64, error)
+	// TriggerKind resolves a trigger's source kind (cron/webhook/fsnotify/sensor) so claimFiring can
+	// stamp the run's origin — the firing row deliberately carries no kind (no denormalized column to
+	// drift). Best-effort at the call site: a lookup failure leaves origin NULL, never fails the run.
+	// TriggerKind 解析 trigger 的 source kind（cron/webhook/fsnotify/sensor）供 claimFiring 给 run 盖
+	// origin——firing 行刻意不带 kind（不冗余列、无可漂移）。调用侧 best-effort：查失败 origin 留 NULL，
+	// 绝不连累 run。
+	TriggerKind(ctx context.Context, triggerID string) (string, error)
 }
 
 // RunStore is the flowrun persistence the scheduler needs: the domain Repository plus the two

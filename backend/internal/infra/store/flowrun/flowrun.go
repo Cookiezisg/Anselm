@@ -66,6 +66,18 @@ var Schema = []string{
 	`CREATE INDEX IF NOT EXISTS idx_fr_ws_workflow ON flowruns(workspace_id, workflow_id, started_at DESC, id DESC)`,
 	`CREATE INDEX IF NOT EXISTS idx_fr_running ON flowruns(status) WHERE status = 'running'`,
 
+	// Column evolution — run provenance (scheduler 工单①). ADD COLUMN (not baked into the CREATE)
+	// so an existing install's flowruns table gains the columns on next boot; SQLite has no
+	// ADD COLUMN IF NOT EXISTS, so re-runs rely on db.Migrate treating "duplicate column name" on an
+	// ALTER … ADD COLUMN as already-applied. Both columns are NULLable: pre-provenance rows stay NULL
+	// (CHECK passes on NULL) and the wire omits them.
+	//
+	// 列演化——run 溯源（scheduler 工单①）。用 ADD COLUMN（不并进 CREATE）使已有安装的 flowruns 表在下次
+	// 启动补列；SQLite 无 ADD COLUMN IF NOT EXISTS，重复执行靠 db.Migrate 把 ALTER … ADD COLUMN 的
+	// "duplicate column name" 视作已应用。两列可空：溯源之前的旧行保持 NULL（CHECK 对 NULL 放行）、线缆不发。
+	`ALTER TABLE flowruns ADD COLUMN origin TEXT CHECK (origin IN ('manual','chat','cron','webhook','fsnotify','sensor'))`,
+	`ALTER TABLE flowruns ADD COLUMN conversation_id TEXT`,
+
 	`CREATE TABLE IF NOT EXISTS flowrun_nodes (
 		id            TEXT PRIMARY KEY,
 		workspace_id  TEXT NOT NULL,

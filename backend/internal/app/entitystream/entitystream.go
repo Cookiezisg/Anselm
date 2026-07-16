@@ -37,14 +37,17 @@ const (
 	NodeBuild = "build" // an entity's content being written (loop mirrors a create/edit tool_call)
 	NodeRun   = "run"   // an entity's execution intermediate (a Service tees stdout / yields / a sub-loop)
 	NodeFire  = "fire"  // a trigger firing — a point Signal
-	// NodeRunTerminal is a flowrun reaching a terminal status (completed / failed / cancelled) —
-	// the one DURABLE flowrun signal (seq + replay ring): node ticks are ephemeral presentation
-	// (flowrun_nodes is their truth), but "the run is over" must survive a reconnect so a client
-	// tracking a run never poll-spins on a status it missed (R-10's poll fallback retires).
+	// NodeRunStarted / NodeRunTerminal bracket a flowrun's life as the TWO durable flowrun signals
+	// (seq + replay ring): node ticks are ephemeral presentation (flowrun_nodes is their truth), but
+	// "a run was born" ({flowrunId, origin} — the provenance stamp, scheduler 工单①) and "the run is
+	// over" must both survive a reconnect, so a client tracking what runs never misses a birth (a
+	// cron fire with no panel open) nor poll-spins on a terminal it missed (R-10's fallback retired).
 	//
-	// NodeRunTerminal 是 flowrun 到达终态（completed / failed / cancelled）——唯一 **durable** 的
-	// flowrun 信号（入 seq + replay 环）：节点 tick 是 ephemeral 呈现（flowrun_nodes 是其真相），
-	// 但「run 结束了」必须活过重连，使追踪 run 的客户端绝不因错过终态而空转轮询（R-10 的 poll 兜底退役）。
+	// NodeRunStarted / NodeRunTerminal 以**两条 durable** flowrun 信号（入 seq + replay 环）括起一个
+	// flowrun 的生命：节点 tick 是 ephemeral 呈现（flowrun_nodes 是其真相），但「run 出生了」
+	// （{flowrunId, origin}——溯源章，scheduler 工单①）与「run 结束了」都必须活过重连，使追踪运行的
+	// 客户端既不漏出生（无人看面板时的 cron 触发）、也不因错过终态而空转轮询（R-10 兜底已退役）。
+	NodeRunStarted  = "run_started"
 	NodeRunTerminal = "run_terminal"
 )
 

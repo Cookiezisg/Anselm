@@ -99,6 +99,8 @@ audience: [human, ai]
 | `GET /flowrun-inbox` | 审批收件箱（= 全部 parked 节点行） |
 | `POST /flowruns/{id}/approvals/{node}:decide` | 人工审批决策 `{decision: yes|no, reason?}`（first-wins，输家 422） |
 
+flowrun 行 DTO 带创建时溯源两字段（camelCase、omitempty）：`origin`（manual|chat|cron|webhook|fsnotify|sensor——HTTP 手动=manual、对话 trigger_workflow=chat、firing 按 trigger kind 逐字盖）+ `conversationId`（仅 origin=chat：发起 run 的 cv_）。两列诞生前的旧行为 NULL、**线缆不发键**——客户端按缺席渲 unknown，不认空串。
+
 ## trigger（`/api/v1/triggers`）
 
 | Method · Path | 语义 |

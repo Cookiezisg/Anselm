@@ -66,4 +66,4 @@ listener 永不知道 workflow（扇出是 app 的事）；Activation 与 Firing
 
 ## 7. 跨域集成
 
-被 workflow 经 Binder 端口驱动（Attach/AttachOnce/Detach）；firings 被 scheduler 经 FiringInbox 端口消费（ListPendingFirings/ClaimFiring 单事务/MarkFiringOutcome）；sensor listener 经 invoker 端口调 function/handler/mcp（bootstrap/sensor.go 适配，TriggeredBy=workflow；sensor 出向 `equip` 边按 targetKind 指 function/handler/mcp 实体）；catalog/mention/relation 三适配器同构。
+被 workflow 经 Binder 端口驱动（Attach/AttachOnce/Detach）；firings 被 scheduler 经 FiringInbox 端口消费（ListPendingFirings/ClaimFiring 单事务/MarkFiringOutcome/SupersedeAllButNewestPending + **TriggerKind**——claimFiring 给 run 盖 origin 溯源章用，软删 trigger 读作 not-found、调用侧 best-effort 留 NULL）；sensor listener 经 invoker 端口调 function/handler/mcp（bootstrap/sensor.go 适配，TriggeredBy=workflow；sensor 出向 `equip` 边按 targetKind 指 function/handler/mcp 实体）；catalog/mention/relation 三适配器同构。

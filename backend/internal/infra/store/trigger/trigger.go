@@ -113,6 +113,20 @@ func (s *Store) GetTrigger(ctx context.Context, id string) (*triggerdomain.Trigg
 	return t, nil
 }
 
+// TriggerKind resolves a trigger's source kind for the scheduler's run-provenance stamp
+// (FiringInbox port). A soft-deleted trigger reads as not-found — its in-flight firings then run
+// with a NULL origin (best-effort at the caller), which is honest: the source is gone.
+//
+// TriggerKind 为 scheduler 的 run 溯源盖章解析 trigger 的 source kind（FiringInbox 端口）。软删的
+// trigger 读作 not-found——其在途 firing 以 NULL origin 跑（调用侧 best-effort），诚实：源已不在。
+func (s *Store) TriggerKind(ctx context.Context, id string) (string, error) {
+	t, err := s.GetTrigger(ctx, id)
+	if err != nil {
+		return "", err
+	}
+	return t.Kind, nil
+}
+
 func (s *Store) GetTriggerByName(ctx context.Context, name string) (*triggerdomain.Trigger, error) {
 	t, err := s.trgs.WhereEq("name", name).First(ctx)
 	if errors.Is(err, ormpkg.ErrNotFound) {
