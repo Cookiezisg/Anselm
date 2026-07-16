@@ -378,6 +378,8 @@ audience: [human, ai]
 | `FLOWRUN_INVALID_ENTRY` | 422 | invalid or ambiguous trigger entry node |
 | `FLOWRUN_NOT_FOUND` | 404 | flowrun not found |
 | `FLOWRUN_NOT_REPLAYABLE` | 422 | flowrun is not in a replayable (failed) state |
+| `FLOWRUN_STATS_TOO_MANY_IDS` | 422 | flowrun-stats accepts at most 50 workflowIds per request (工单③ 有界批查上限；`details.allowed`/`details.got`) |
+| `FLOWRUN_STATS_INVALID_SINCE` | 422 | since must be an RFC3339 timestamp or a look-back duration like 24h or 7d (`details.got`) |
 
 ### `domain/function`
 

@@ -64,7 +64,7 @@
 - **N1 统一 Envelope**：成功 `{"data": ...}`；失败 `{"error": {"code", "message", "details"}}`。
 - **N2 状态码**：202 Accepted（异步流）/ 204 No Content / 410 Gone（SSE 淘汰）。
 - **N3 命名规约**：API 线缆 camelCase；数据库物理列 snake_case。
-- **N4 分页**：**无界集合** List 接口必须支持 `?cursor=...&limit=...`（api-keys/function/handler/agent/workflow/flowrun/trigger/control/approval/mcp/conversation/relation/notification/search/touchpoint 及各版本·执行·调用日志）。**有界可枚举资源**（单用户少量或系统级固定集：workspaces / skills / memories / documents 树 / sandbox runtimes·envs / todos / model-capabilities）豁免——返全集不分页、无 `nextCursor`，分页参数按标准 HTTP 忽略而非报错。
+- **N4 分页**：**无界集合** List 接口必须支持 `?cursor=...&limit=...`（api-keys/function/handler/agent/workflow/flowrun/trigger/control/approval/mcp/conversation/relation/notification/search/touchpoint 及各版本·执行·调用日志）。**有界可枚举资源**（单用户少量或系统级固定集：workspaces / skills / memories / documents 树 / sandbox runtimes·envs / todos / model-capabilities）与**有界批查**（flowrun-stats，ids ≤50 封顶）豁免——返全集不分页、无 `nextCursor`，分页参数按标准 HTTP 忽略而非报错。
 - **N5 动作后缀**：非 CRUD 逻辑用 `:action`。
     - **`:run`**(fn) / **`:call`**(hd) / **`:invoke`**(ag) / **`:trigger`**(wf) 为标准执行动词。
     - **`:iterate`**（AI 编辑实体）/ **`:triage`**（AI 诊断执行）统一返回 `conversationId` 开启对话。

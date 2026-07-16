@@ -39,6 +39,13 @@ type Repository interface {
 	// ListRunningRuns 返所有仍 StatusRunning 的 run——boot 恢复候选集（逐个重走；记忆化行跳过、parked 留）。
 	ListRunningRuns(ctx context.Context) ([]*FlowRun, error)
 
+	// RunStats computes the operational statistics batch (scheduler 工单③): workspace-wide totals
+	// + one health row per requested workflow id (zero row when it has no runs). A pure read
+	// projection over the two flowrun tables; q's defaults are the caller's job (app service).
+	// RunStats 计算运营统计批查（scheduler 工单③）：全 workspace 聚合 + 每个请求 workflow id 一条
+	// 健康行（无 run 即零值行）。flowrun 两表上的纯读投影；q 的默认值由调用方（app service）负责。
+	RunStats(ctx context.Context, q StatsQuery) (*RunStats, error)
+
 	// CountRunningByWorkflow counts a workflow's currently-running runs (overlap-policy input: serial
 	// defers / Skip drops a new firing when this is > 0). Workspace-scoped.
 	// CountRunningByWorkflow 数一个 workflow 当前 running 的 run（overlap 策略输入：>0 时 serial 推迟 /

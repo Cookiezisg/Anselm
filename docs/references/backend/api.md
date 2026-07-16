@@ -12,7 +12,7 @@ audience: [human, ai]
 # HTTP API —— 端点登记
 
 > 全部端点的单一事实源（method · path · 语义一行）。
-> 通则（N 系列）：统一 Envelope `{"data":...}` / `{"error":{code,message,details}}`；线缆 camelCase；**无界集合** List `?cursor&limit` 分页，**有界可枚举资源**（workspaces / skills / memories / documents 树 / sandbox runtimes·envs / todos / model-capabilities）豁免——返全集不分页、无 `nextCursor`、分页参数按标准 HTTP 忽略；非 CRUD 动作 `:action`；执行动词 `:run`(fn) `:call`(hd) `:invoke`(ag) `:trigger`(wf)；`:iterate` = 开 AI 编辑对话（全实体共享 aispawn）。
+> 通则（N 系列）：统一 Envelope `{"data":...}` / `{"error":{code,message,details}}`；线缆 camelCase；**无界集合** List `?cursor&limit` 分页，**有界可枚举资源**（workspaces / skills / memories / documents 树 / sandbox runtimes·envs / todos / model-capabilities）与**有界批查**（flowrun-stats，ids ≤50 封顶）豁免——返全集不分页、无 `nextCursor`、分页参数按标准 HTTP 忽略；非 CRUD 动作 `:action`；执行动词 `:run`(fn) `:call`(hd) `:invoke`(ag) `:trigger`(wf)；`:iterate` = 开 AI 编辑对话（全实体共享 aispawn）。
 > **响应形状铁律**：`data` 内层一律**裸实体**——`POST`(Create) / `GET` 单读 / `PATCH` 同形,前端一套解构到底;**绝不**裹 `{"<entity>": ..., "version": ...}` 外层 key。版本实体(function/handler/agent/workflow/control/approval)的当前版本经实体内嵌 `activeVersion` 字段透出(Create 即附新版本,与 GET 单读完全同形)。复合读(一次返多个并列实体,如 `GET /flowruns/{id}` → `{flowrun, nodes, nextCursor}`,nodes 为 N4 keyset 一页)才用具名多 key。
 > **异步动作返 id 铁律**：返回新建资源 id 的异步动作(`POST /{id}:trigger`→flowrun、chat `POST /{id}/messages`→message、`:iterate`/`:triage`→conversation、`:fire`→activation)一律 `202 {data:{"id": <newId>}}`——前端一条规则取新资源 id。**同步执行**(`:run`/`:invoke`/`:call`,阻塞返完整结果)不在此列、返**裸结果**(不裹 `{result}`/`{output}`)。
 > **状态变更动作铁律**：改实体状态的动作(`:stage`/`:kill`/`:activate`/`:deactivate`/`:restart`/`:edit`/`:revert`)一律返**动作后实体完整快照**(`{data:<entity>}`),不发 `{staged:true}`/`{killed:N}` 等临时裸键(附加计数等并入实体字段或由相关列表端点查)。**无新产物的变更**(resolve-interaction、search `:reindex`、DELETE)一律 `204 No Content`,绝不返 `{data:null}`。
@@ -97,9 +97,15 @@ audience: [human, ai]
 | `GET /flowruns/{id}` | run 头 + **一页节点行**（N4 分页 `?cursor&limit`、最新在前、返 `nextCursor`；长 loop run 数千行不再一次倾倒，F168-M7。完整记忆化全集是解释器内部的、非线缆的） |
 | `POST /flowruns/{id}:replay` | 修复失败 run：清 failed 行 + 重走（completed 复用） |
 | `GET /flowrun-inbox` | 审批收件箱（= 全部 parked 节点行） |
+| `GET /flowrun-stats` | **运营统计批查**（scheduler 工单③，纯读投影、零新表零新列）：`?workflowIds=<csv>&recentN&since` → `{totals, byWorkflow}`（详见下段） |
 | `POST /flowruns/{id}/approvals/{node}:decide` | 人工审批决策 `{decision: yes|no, reason?}`（first-wins，输家 422） |
 
 flowrun 行 DTO 带创建时溯源两字段（camelCase、omitempty）：`origin`（manual|chat|cron|webhook|fsnotify|sensor——HTTP 手动=manual、对话 trigger_workflow=chat、firing 按 trigger kind 逐字盖）+ `conversationId`（仅 origin=chat：发起 run 的 cv_）。两列诞生前的旧行为 NULL、**线缆不发键**——客户端按缺席渲 unknown，不认空串。
+
+**`GET /flowrun-stats` 契约**（喂 scheduler 海洋 rail/Overview 的一次有界批查；有界故 **N4 分页豁免**——`workflowIds` 去重后 ≤50 封顶、超限 422 `FLOWRUN_STATS_TOO_MANY_IDS`（details 带 `allowed`），绝不静默截断）：
+- 参数：`workflowIds`=csv（去重保序；缺席/空 → `byWorkflow: []` 只回 totals）；`recentN` 珠串窗（默认 10、钳到 20；非数字或 <1 → 400 `INVALID_REQUEST`，同 page limit 语义）；`since` 统一窗口（RFC3339 绝对起点 或 正回看时长 `24h`/`7d`，默认 7d；解析不了 422 `FLOWRUN_STATS_INVALID_SINCE`）。
+- `totals`（**全 workspace**，刻意不限请求 ids）：`running`（在跑 run 数）+ `completedSince`/`failedSince`（窗口内**落定**的终态数——按 `completed_at` 开窗，跑很久刚失败的算新鲜失败）+ `parkedNodes`（**等人处理的 run 数**：仍 running 且持 ≥1 parked 节点的 DISTINCT run——一个 run park 多个审批只计 1，遗留在已终态 run 上的 parked 行不可决策不计；键名按工单定形、语义是 run 数）。
+- `byWorkflow`：**每个请求 id 恒一行、按请求顺序**——无 run 的 id（从未跑/不存在/宿主已软删）回**零值行**、绝不缺席（纯 flowruns 投影、不校验 workflow 存在性；孤儿 run 一等公民）。行 = `workflowId` + `running` + `parkedNodes`（该 workflow 等人处理的 run 数——语义与 totals 桶逐字一致、按 workflow 分桶；rail 琥珀点的数据源）+ `lastRunAt?`（从未跑缺席）+ `recent`（最近 recentN 个 run 状态、新→旧、**含 running** 的诚实珠串）+ `successRate?`（窗口内 completed/(completed+failed)，0..1；cancelled 中性不参与；窗口无终态 run 键缺席——「无数据」≠「0%」）+ `avgElapsedMs?`（窗口内 **completed** run 的平均耗时；无 completed 缺席）+ `consecutiveFailures`（按 run 序列 `(started_at, id)` 新→旧的连续 failed 数：**running 跳过**［未定局，连败徽章不因新 run 起跑/park 闪灭］、遇 completed/cancelled 停［自愈］；不受 recentN/since 约束）。
 
 ## trigger（`/api/v1/triggers`）
 

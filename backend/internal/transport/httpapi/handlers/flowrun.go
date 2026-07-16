@@ -2,6 +2,9 @@ package handlers
 
 import (
 	"net/http"
+	"strconv"
+	"strings"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -35,6 +38,7 @@ func (h *FlowrunHandler) Register(mux Registrar) {
 	mux.HandleFunc("GET /api/v1/flowruns", h.List)
 	mux.HandleFunc("POST /api/v1/flowruns", h.Start)
 	mux.HandleFunc("GET /api/v1/flowrun-inbox", h.Inbox)
+	mux.HandleFunc("GET /api/v1/flowrun-stats", h.Stats)
 	mux.HandleFunc("GET /api/v1/flowruns/{id}", h.Get)
 	mux.HandleFunc("POST /api/v1/flowruns/{idAction}", h.postOnRun)
 	mux.HandleFunc("POST /api/v1/flowruns/{id}/approvals/{nodeAction}", h.postOnApproval)
@@ -118,6 +122,83 @@ func (h *FlowrunHandler) Inbox(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	responsehttpapi.Success(w, http.StatusOK, map[string]any{"parked": parked})
+}
+
+// Stats is the operational statistics batch (scheduler 工单③): workspace totals + one health row
+// per ?workflowIds=<csv, ≤50 after dedup> workflow. ?recentN (default 10, clamped to 20) sizes the
+// per-workflow status beads; ?since (RFC3339 timestamp or look-back duration like 24h / 7d,
+// default 7d) is the single window for completedSince/failedSince/successRate/avgElapsedMs. A
+// bounded batch — N4-exempt from cursor pagination.
+//
+// Stats 是运营统计批查（scheduler 工单③）：workspace 聚合 + ?workflowIds=<csv,去重后 ≤50> 每
+// workflow 一条健康行。?recentN（默认 10、钳到 20）定逐 workflow 状态珠数；?since（RFC3339 时间戳
+// 或回看时长如 24h / 7d，默认 7d）统一 completedSince/failedSince/successRate/avgElapsedMs 的窗口。
+// 有界批查——N4 分页豁免。
+func (h *FlowrunHandler) Stats(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query()
+	recentN, err := parseRecentN(query.Get("recentN"))
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	since, err := parseSince(query.Get("since"), time.Now().UTC())
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	stats, err := h.svc.RunStats(r.Context(), flowrundomain.StatsQuery{
+		WorkflowIDs: splitCSV(query.Get("workflowIds")),
+		RecentN:     recentN,
+		Since:       since,
+	})
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, stats)
+}
+
+// parseRecentN parses ?recentN with the same semantics as a page limit (ParsePage): absent → 0
+// (the app applies the default), non-numeric or < 1 → ErrInvalidRequest; the upper clamp is the
+// app's.
+//
+// parseRecentN 解析 ?recentN，语义同 page limit（ParsePage）：缺席 → 0（app 应用默认），非数字或
+// <1 → ErrInvalidRequest；上限钳制归 app。
+func parseRecentN(raw string) (int, error) {
+	if raw == "" {
+		return 0, nil
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil || n < 1 {
+		return 0, errorspkg.ErrInvalidRequest
+	}
+	return n, nil
+}
+
+// parseSince parses ?since as either an RFC3339 timestamp (absolute window start) or a positive
+// look-back duration — Go duration syntax (24h, 90m) plus the whole-days form <n>d the spec
+// speaks (7d). Absent → zero time (the app applies the 7d default). Anything else is a loud 422
+// with the offending value in Details.
+//
+// parseSince 解析 ?since：RFC3339 时间戳（窗口绝对起点）或正的回看时长——Go duration 语法（24h、
+// 90m）+ 规范口径的整天形 <n>d（7d）。缺席 → 零值时间（app 应用 7d 默认）。其余一律 422 大声拒、
+// Details 带原值。
+func parseSince(raw string, now time.Time) (time.Time, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return time.Time{}, nil
+	}
+	if ts, err := time.Parse(time.RFC3339, raw); err == nil {
+		return ts.UTC(), nil
+	}
+	if days, ok := strings.CutSuffix(raw, "d"); ok {
+		if n, err := strconv.Atoi(days); err == nil && n > 0 {
+			return now.Add(-time.Duration(n) * 24 * time.Hour), nil
+		}
+	} else if dur, err := time.ParseDuration(raw); err == nil && dur > 0 {
+		return now.Add(-dur), nil
+	}
+	return time.Time{}, flowrundomain.ErrStatsInvalidSince.WithDetails(map[string]any{"got": raw})
 }
 
 // postOnRun dispatches POST /flowruns/{id}:<action> (only :replay today).
