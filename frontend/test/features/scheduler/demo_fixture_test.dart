@@ -381,4 +381,82 @@ void main() {
   test('S4 · :triage hands back a conversation id the caller can deep-link into chat', () async {
     expect(await repo.triageRun('fr_hook0000000fa1'), startsWith('cv_'));
   });
+
+  // ── S5 seeds ──
+
+  test('S5 · ⑧ the forward schedule seeds a DENSE lane (bucket folding is provable on screen) '
+      'and a paused trigger contributes NOTHING — exactly as the real endpoint behaves', () async {
+    final sched = await repo.triggerSchedule();
+    expect(sched.points, isNotEmpty);
+    expect(sched.points.map((p) => p.at).toList(), orderedEquals(sched.points.map((p) => p.at)),
+        reason: 'at 升序:端点契约');
+
+    final dense = sched.points.where((p) => p.triggerId == 'tr_cron_report');
+    expect(dense.length, greaterThan(50), reason: '密集泳道:不折叠就是亚像素纸屑,故必须种到能逼出折叠');
+
+    // 判决① — the paused cron is seeded (tr_cron_archive) but emits no ticks; its lane must still
+    // reach the board from the TRIGGER list. 暂停的 cron 有种子但零刻度;泳道靠 trigger 列表上板。
+    expect(sched.points.where((p) => p.triggerId == 'tr_cron_archive'), isEmpty,
+        reason: '端点只为监听中且未暂停的 cron 发刻度——暂停的一个都不发');
+    final paused = (await repo.listTriggers()).firstWhere((t) => t.id == 'tr_cron_archive');
+    expect(paused.paused, isTrue);
+    expect(paused.nextFireAt, isNull, reason: '暂停即无下次:线缆三键同动');
+  });
+
+  test('S5 · ⑧ every point promises only workflows it can actually fire', () async {
+    final sched = await repo.triggerSchedule();
+    final edges = await repo.workflowTriggerEdges();
+    for (final p in sched.points) {
+      final equipped = [for (final e in edges) if (e.toId == p.triggerId) e.fromId];
+      for (final wf in p.workflowIds) {
+        expect(equipped, contains(wf),
+            reason: '点绝不承诺一个没挂这条 trigger 的 workflow(workflowIds 取自监听表)');
+      }
+    }
+  });
+
+  test('S5 · ⑩ the matrix earns the third face: a failure STREAK, ×N folding, a live column with no '
+      'elapsed, and SPARSE cells', () async {
+    final m = await repo.runMatrix('wf_clean');
+    expect(m.cols, isNotEmpty);
+    expect(m.rows, isNotEmpty);
+    expect(m.cols.length, lessThanOrEqualTo(20), reason: 'recentN 上限 20');
+
+    // Newest first — a column and its row in the big table are the same run at the same position.
+    // 新→旧:列与大表里的行是同位同一个 run。
+    for (var i = 1; i < m.cols.length; i++) {
+      expect(m.cols[i].startedAt.isAfter(m.cols[i - 1].startedAt), isFalse, reason: '列序:新→旧');
+    }
+
+    final live = m.cols.where((c) => c.status == 'running');
+    for (final c in live) {
+      expect(c.elapsedMs, isNull, reason: '在跑的 run 无 elapsed——绝不发会被读成「瞬时」的 0');
+    }
+    for (final c in m.cols.where((c) => c.status == 'completed')) {
+      expect(c.elapsedMs, isNotNull, reason: '落定的 run 有真墙钟');
+    }
+
+    // SPARSE by contract: a dense rows×cols matrix would be a different (and lying) shape.
+    // 契约级稀疏:稠密 rows×cols 是另一种(且会撒谎的)形状。
+    expect(m.cells.length, lessThan(m.rows.length * m.cols.length),
+        reason: '稀疏:总有 run 没跑到某些节点——没跑到即**无格**');
+
+    // The whole reason the face exists: a node that breaks across runs. 第三脸存在的全部理由。
+    final failedCells = m.cells.where((c) => c.status == 'failed');
+    expect(failedCells, isNotEmpty, reason: '得有失败格,否则横向红条无从谈起');
+    expect(m.cells.where((c) => c.iterations > 1), isNotEmpty, reason: '得有 ×N 格(循环)');
+  });
+
+  test('S5 · ⑩ an unknown workflow is NOT an error — three empty lists, orphan runs first-class',
+      () async {
+    final m = await repo.runMatrix('wf_does_not_exist');
+    expect(m.cols, isEmpty);
+    expect(m.rows, isEmpty);
+    expect(m.cells, isEmpty);
+  });
+
+  test('S5 · ⑬ retention seeds the BACKEND default (90) so panel and tombstone agree out of the box',
+      () async {
+    expect((await repo.retention()).runRetentionDays, 90);
+  });
 }

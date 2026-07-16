@@ -18,9 +18,11 @@ lib/core/contract/entities/document.dart	converged
 lib/core/contract/entities/function.dart	converged
 lib/core/contract/entities/handler.dart	converged
 lib/core/contract/entities/relation.dart	converged
+lib/core/contract/entities/scheduler_matrix.dart	pending
 lib/core/contract/entities/scheduler_stats.dart	pending
 lib/core/contract/entities/skill.dart	converged
 lib/core/contract/entities/trigger.dart	converged
+lib/core/contract/entities/trigger_schedule.dart	pending
 lib/core/contract/entities/values.dart	converged
 lib/core/contract/entities/workflow.dart	converged
 lib/core/contract/interaction.dart	converged
@@ -34,6 +36,7 @@ lib/core/contract/model_capability.dart	converged
 lib/core/contract/network.dart	converged
 lib/core/contract/notification.dart	converged
 lib/core/contract/page.dart	converged
+lib/core/contract/retention.dart	pending
 lib/core/contract/sandbox.dart	converged
 lib/core/contract/todo.dart	converged
 lib/core/contract/touchpoint.dart	converged
@@ -203,7 +206,9 @@ lib/core/ui/an_ref_pill.dart	converged
 lib/core/ui/an_row.dart	converged
 lib/core/ui/an_row_detail.dart	converged
 lib/core/ui/an_run_board.dart	converged
+lib/core/ui/an_run_matrix.dart	pending
 lib/core/ui/an_rundown_list.dart	reviewed
+lib/core/ui/an_schedule_track.dart	pending
 lib/core/ui/an_scope_badge.dart	converged
 lib/core/ui/an_scroll_behavior.dart	converged
 lib/core/ui/an_seamless_field.dart	converged
@@ -252,6 +257,8 @@ lib/dev/demo_main.dart	reviewed
 lib/dev/editor_harness_main.dart	reviewed
 lib/dev/gallery/an_batch_bar_specimens.dart	pending
 lib/dev/gallery/an_countdown_specimens.dart	pending
+lib/dev/gallery/an_run_matrix_specimens.dart	pending
+lib/dev/gallery/an_schedule_track_specimens.dart	pending
 lib/dev/gallery/an_term_tail_specimens.dart	converged
 lib/dev/gallery/catalog.dart	reviewed
 lib/dev/gallery/chat_composer_specimens.dart	reviewed
@@ -457,6 +464,7 @@ lib/features/notifications/ui/notification_feed.dart	reviewed
 lib/features/notifications/ui/notification_row.dart	reviewed
 lib/features/scheduler/data/scheduler_demo_fixture.dart	pending
 lib/features/scheduler/data/scheduler_repository.dart	pending
+lib/features/scheduler/scheduler_windows.dart	pending
 lib/features/scheduler/state/scheduler_home_provider.dart	pending
 lib/features/scheduler/state/scheduler_overview_provider.dart	pending
 lib/features/scheduler/state/scheduler_rail_provider.dart	pending

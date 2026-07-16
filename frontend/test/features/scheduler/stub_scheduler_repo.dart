@@ -1,10 +1,13 @@
 import 'package:anselm/core/contract/api_error.dart';
 import 'package:anselm/core/contract/entities/relation.dart';
+import 'package:anselm/core/contract/entities/scheduler_matrix.dart';
 import 'package:anselm/core/contract/entities/scheduler_stats.dart';
 import 'package:anselm/core/contract/entities/trigger.dart';
+import 'package:anselm/core/contract/entities/trigger_schedule.dart';
 import 'package:anselm/core/contract/entities/values.dart';
 import 'package:anselm/core/contract/entities/workflow.dart';
 import 'package:anselm/core/contract/page.dart' as contract;
+import 'package:anselm/core/contract/retention.dart';
 import 'package:anselm/features/scheduler/data/scheduler_repository.dart';
 
 // The ONE scriptable Scheduler seam for the test batteries (S2a board + S2b action zones + S3 home)
@@ -31,10 +34,16 @@ class StubSchedulerRepo implements SchedulerRepository {
     this.graphByWorkflow = const {},
     this.activityByRun = const {},
     this.pinnedGraphByVersion = const {},
+    this.schedule = const TriggerSchedule(),
+    Map<String, FlowrunMatrix>? matrixByWorkflow,
+    this.retentionConfig = const RetentionConfig(runRetentionDays: 90),
     this.failWorkflows = false,
     this.failRunFull = false,
     this.failActivity = false,
-  });
+    this.failSchedule = false,
+    this.failMatrix = false,
+    this.failRetention = false,
+  }) : matrixByWorkflow = matrixByWorkflow ?? {};
 
   final List<SchedulerWorkflowRow> workflows;
   final List<WorkflowRunStats> byWorkflow;
@@ -62,6 +71,20 @@ class StubSchedulerRepo implements SchedulerRepository {
   /// 按版本 id 的钉版图:证旗舰问的是 run 的版本而非当下 active;缺席即 404 → 回退横幅。
   final Map<String, Graph> pinnedGraphByVersion;
 
+  /// The ⑧ forward schedule. Deliberately a WHOLE [TriggerSchedule] (not a bare point list) so a
+  /// battery can script `truncated` — the honest-overflow sentence is only provable if the stub can
+  /// say «there is more». ⑧ 前瞻调度:刻意收整个 TriggerSchedule 而非裸点列表,故电池可编 truncated
+  /// ——诚实溢出句只有在 stub 能说「还有更多」时才可证。
+  final TriggerSchedule schedule;
+
+  /// Per-workflow ⑩ grid. Absent = the endpoint's honest empty answer (三个空列表), NOT an error.
+  /// Mutable so a battery can seed it onto a shared `_repo()` by cascade. 逐 workflow 的 ⑩ 格阵;
+  /// 缺席=端点诚实的空答案(三空列表),**不是**错误;可变以便电池用级联往共享 _repo() 上种。
+  final Map<String, FlowrunMatrix> matrixByWorkflow;
+
+  /// The ⑬ machine-level retention line — the run table's tombstone reads it. ⑬ 机器级保留线。
+  final RetentionConfig retentionConfig;
+
   final bool failWorkflows;
 
   /// getRunFull throws — the replay confirm must still open, with the numberless sentence.
@@ -71,6 +94,9 @@ class StubSchedulerRepo implements SchedulerRepository {
   /// listActivity throws — the flagship must degrade to the row's own stamps, never blank.
   /// 活动读失败:甘特回落行自身戳,绝不空白。
   final bool failActivity;
+  final bool failSchedule;
+  bool failMatrix;
+  final bool failRetention;
 
   /// Stateful decide/cancel so the batteries can walk the full settle grammar. Order proves the
   /// batch dispatched SEQUENTIALLY. 有状态;decideOrder 证批量逐发。
@@ -340,6 +366,45 @@ class StubSchedulerRepo implements SchedulerRepository {
     triageOrder.add(flowrunId);
     return 'cv_triage00000001';
   }
+
+  @override
+  Future<TriggerSchedule> triggerSchedule({String within = '24h', int limit = 200}) async {
+    scheduleWithins.add(within);
+    if (failSchedule) {
+      throw const ApiException(
+          code: 'TRIGGER_SCHEDULE_INVALID_QUERY', message: 'bad window', httpStatus: 422);
+    }
+    return schedule;
+  }
+
+  @override
+  Future<FlowrunMatrix> runMatrix(String workflowId, {int recentN = 20}) async {
+    matrixAsks.add((workflowId: workflowId, recentN: recentN));
+    if (failMatrix) {
+      throw const ApiException(code: 'INVALID_REQUEST', message: 'bad matrix', httpStatus: 400);
+    }
+    // An unknown workflowId is NOT an error — the endpoint answers three empty lists.
+    // 未知 workflowId 不是错误——端点返三个空列表。
+    return matrixByWorkflow[workflowId] ?? const FlowrunMatrix();
+  }
+
+  @override
+  Future<RetentionConfig> retention() async {
+    retentionAsks++;
+    if (failRetention) {
+      throw const ApiException(code: 'INTERNAL', message: 'boom', httpStatus: 500);
+    }
+    return retentionConfig;
+  }
+
+  /// S5 probes: the WINDOW each schedule fetch asked for (a track that claims «24h» must have asked
+  /// for 24h), the (workflowId, recentN) each matrix fetch asked for (proves the 20 cap really
+  /// reached the wire), and how often the tombstone read its line.
+  /// S5 探针:每次调度取数问的**窗**(号称 24h 的轨必须真问了 24h)、每次矩阵取数问的 (workflowId, recentN)
+  /// (证 20 真到了线缆)、以及墓碑读了几次线。
+  final List<String> scheduleWithins = [];
+  final List<({String workflowId, int recentN})> matrixAsks = [];
+  int retentionAsks = 0;
 
   /// Probes: WHICH version id the flagship asked for (§5.2 钉版而非 active), which runs it aggregated,
   /// and every `:triage` it fired. 探针:旗舰问的是哪个版本 id / 聚合了哪些 run / 发过哪些诊断。

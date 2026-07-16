@@ -138,5 +138,6 @@ const _$FiringStatusEnumMap = {
   FiringStatus.skipped: 'skipped',
   FiringStatus.superseded: 'superseded',
   FiringStatus.shed: 'shed',
+  FiringStatus.missed: 'missed',
   FiringStatus.unknown: 'unknown',
 };

@@ -1,10 +1,12 @@
 import 'package:anselm/core/contract/entities/relation.dart';
 import 'package:anselm/core/contract/entities/scheduler_stats.dart';
 import 'package:anselm/core/contract/entities/trigger.dart';
+import 'package:anselm/core/contract/entities/trigger_schedule.dart';
 import 'package:anselm/core/contract/entities/workflow.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/runtime.dart';
 import 'package:anselm/core/ui/an_button.dart';
+import 'package:anselm/core/ui/an_schedule_track.dart';
 import 'package:anselm/core/ui/an_section.dart';
 import 'package:anselm/core/ui/an_state.dart';
 import 'package:anselm/features/scheduler/data/scheduler_repository.dart';
@@ -25,15 +27,21 @@ import 'stub_scheduler_repo.dart';
 final _now = DateTime.now();
 
 TriggerEntity _trigger(String id, String name,
-        {DateTime? nextFireAt, bool listening = true}) =>
+        {DateTime? nextFireAt,
+        bool listening = true,
+        bool paused = false,
+        TriggerSource kind = TriggerSource.cron}) =>
     TriggerEntity(
       id: id,
       name: name,
-      kind: TriggerSource.cron,
+      kind: kind,
       createdAt: _now,
       updatedAt: _now,
-      listening: listening,
-      nextFireAt: nextFireAt,
+      // The wire's paused trio moves together (契约,非渲染判断): paused ⇒ !listening ⇒ no nextFireAt.
+      // 线缆三键同动:暂停 ⇒ 不监听 ⇒ 无 nextFireAt。
+      listening: paused ? false : listening,
+      paused: paused,
+      nextFireAt: paused ? null : nextFireAt,
     );
 
 EntityRelation _edge(String wf, String trigger, {String wfName = ''}) => EntityRelation(
@@ -76,6 +84,15 @@ StubSchedulerRepo _fullRepo({Map<String, int> failed = const {'24h': 4, '48h': 6
         _trigger('tr_1', '每日 09:00', nextFireAt: _now.add(const Duration(minutes: 3, seconds: 30))),
       ],
       edges: [_edge('wf_a', 'tr_1')],
+      // The ⑧ schedule feeds the track's points; the lane itself comes from the trigger above.
+      // ⑧ 调度喂轨道的点;泳道本身来自上面那个 trigger。
+      schedule: TriggerSchedule(points: [
+        SchedulePoint(
+            at: _now.add(const Duration(minutes: 3, seconds: 30)),
+            triggerId: 'tr_1',
+            triggerName: '每日 09:00',
+            workflowIds: const ['wf_a']),
+      ]),
       runs: [
         Flowrun(
             id: 'fr_live1',
@@ -136,30 +153,82 @@ void main() {
       expect(earliestNextFire(const [], now), isNull);
     });
 
-    test('upcomingFires: 24h window, time-ASC, listening-only, N equipped workflows → N rows, '
-        'unequipped trigger excluded, name falls back to the edge', () {
+    test('scheduleLanes: the lane set comes from the TRIGGER LIST — a PAUSED trigger keeps its lane '
+        '(判决①), a non-cron never gets one, and points hang onto lanes by (trigger, workflow)', () {
       final now = DateTime(2026, 7, 16, 9);
-      final fires = upcomingFires(
+      final lanes = scheduleLanes(
         triggers: [
-          _trigger('tr_soon', 'soon', nextFireAt: now.add(const Duration(hours: 2))),
-          _trigger('tr_now', 'now-ish', nextFireAt: now.add(const Duration(minutes: 3))),
-          _trigger('tr_far', 'far', nextFireAt: now.add(const Duration(hours: 25))), // 窗外
-          _trigger('tr_off', 'paused', nextFireAt: now.add(const Duration(hours: 1)), listening: false),
-          _trigger('tr_orphan', 'orphan', nextFireAt: now.add(const Duration(hours: 1))), // 无边
+          _trigger('tr_soon', 'soon'),
+          _trigger('tr_now', 'now-ish'),
+          // Paused: the endpoint emits NO points for it — the lane must survive on trigger data alone.
+          // 暂停:端点为它一个点都不发——泳道必须仅靠 trigger 数据存活。
+          _trigger('tr_off', 'paused', paused: true),
+          _trigger('tr_hook', 'webhook', kind: TriggerSource.webhook),
+          _trigger('tr_orphan', 'orphan'), // 无边 → 不产 run → 无泳道
         ],
         edges: [
           _edge('wf_1', 'tr_soon'),
-          _edge('wf_2', 'tr_soon', wfName: 'edge-name'), // 一 trigger 两 workflow → 两行
+          _edge('wf_2', 'tr_soon', wfName: 'edge-name'), // 一 trigger 两 workflow → 两泳道
           _edge('wf_1', 'tr_now'),
-          _edge('wf_1', 'tr_far'),
           _edge('wf_1', 'tr_off'),
+          _edge('wf_1', 'tr_hook'),
         ],
         workflowNames: const {'wf_1': '清洗'},
+        schedule: TriggerSchedule(points: [
+          SchedulePoint(
+              at: now.add(const Duration(hours: 2)),
+              triggerId: 'tr_soon',
+              workflowIds: const ['wf_1', 'wf_2']),
+          SchedulePoint(
+              at: now.add(const Duration(minutes: 3)),
+              triggerId: 'tr_now',
+              workflowIds: const ['wf_1']),
+          // Outside the 24h window — unplaceable, so unshown. 窗外:放不下即不渲。
+          SchedulePoint(
+              at: now.add(const Duration(hours: 25)),
+              triggerId: 'tr_soon',
+              workflowIds: const ['wf_1']),
+        ]),
         now: now,
       );
-      expect([for (final f in fires) f.triggerId], ['tr_now', 'tr_soon', 'tr_soon']);
-      expect(fires.first.workflowName, '清洗');
-      expect(fires.last.workflowName, 'edge-name', reason: 'names map 缺席回落边上的 fromName');
+
+      expect([for (final l in lanes) l.triggerId], ['tr_now', 'tr_soon', 'tr_soon', 'tr_off'],
+          reason: '最近的在前;没有将至之事的泳道(暂停)沉底——**沉底不是消失**');
+      expect(lanes.where((l) => l.triggerId == 'tr_hook'), isEmpty,
+          reason: 'webhook 下次 fire 不可知,如实缺席而非在场且空');
+      expect(lanes.where((l) => l.triggerId == 'tr_orphan'), isEmpty, reason: '无边=不产 run,无泳道');
+
+      final paused = lanes.singleWhere((l) => l.triggerId == 'tr_off');
+      expect(paused.paused, isTrue);
+      expect(paused.futureAt, isEmpty,
+          reason: '判决①:暂停泳道零未来点却**仍在**——它靠 trigger 列表活着,不靠调度点');
+
+      expect(lanes.first.futureAt, [now.add(const Duration(minutes: 3))]);
+      expect(lanes[1].futureAt, [now.add(const Duration(hours: 2))],
+          reason: '窗外的点被丢弃,窗内的留下');
+      expect(lanes.first.workflowName, '清洗');
+      expect(lanes.firstWhere((l) => l.workflowId == 'wf_2').workflowName, 'edge-name',
+          reason: 'names map 缺席回落边上的 fromName');
+    });
+
+    test('scheduleLanes: a point never lights a workflow the listener table did not resolve', () {
+      final now = DateTime(2026, 7, 16, 9);
+      final lanes = scheduleLanes(
+        triggers: [_trigger('tr_1', 'cron')],
+        edges: [_edge('wf_1', 'tr_1'), _edge('wf_2', 'tr_1')],
+        workflowNames: const {'wf_1': 'A', 'wf_2': 'B'},
+        // The point resolves to wf_1 ONLY — wf_2's lane must stay empty. 点只反查出 wf_1。
+        schedule: TriggerSchedule(points: [
+          SchedulePoint(
+              at: now.add(const Duration(hours: 1)),
+              triggerId: 'tr_1',
+              workflowIds: const ['wf_1']),
+        ]),
+        now: now,
+      );
+      expect(lanes.firstWhere((l) => l.workflowId == 'wf_1').futureAt, hasLength(1));
+      expect(lanes.firstWhere((l) => l.workflowId == 'wf_2').futureAt, isEmpty,
+          reason: '点绝不点亮它承诺不了的泳道(workflowIds 取自内存监听表,是承诺的边界)');
     });
 
     test('topFailing: streak-DESC, zero excluded, capped at 5', () {
@@ -198,8 +267,10 @@ void main() {
       expect(d.runningRuns.single.workflowName, '数据清洗流水线');
       expect(d.runningRuns.single.run.id, 'fr_live1');
 
-      expect(d.upcoming, hasLength(1));
-      expect(d.upcoming.single.workflowName, '数据清洗流水线');
+      expect(d.track.lanes, hasLength(1));
+      expect(d.track.lanes.single.workflowName, '数据清洗流水线');
+      expect(d.track.lanes.single.futureAt, hasLength(1), reason: '⑧ 的点挂到了它的泳道上');
+      expect(d.track.truncated, isFalse);
 
       expect(d.failures, hasLength(1));
       expect(d.failures.single.streak, 4);
@@ -237,13 +308,20 @@ void main() {
       expect(find.text(ov.failuresHead.toUpperCase()), findsOneWidget);
 
       // Running row: name + fr_ chip; elapsed rides the measure slot. 正在跑行。
-      expect(find.text('数据清洗流水线'), findsWidgets);
+      
       expect(find.text('fr_live1'), findsOneWidget);
 
-      // Upcoming row: trigger name + relative time (the KPI next-fire tile quotes the SAME earliest
-      // fire → two honest occurrences). 未来行;KPI 下次调度牌同引最早 fire → 两处同现。
-      expect(find.text('每日 09:00'), findsOneWidget);
-      expect(find.text(ov.fireIn(d: '3m')), findsNWidgets(2));
+      // The schedule TRACK (S5): a lane per (workflow × cron trigger), labelled by the WORKFLOW —
+      // this ocean's axis is the workflow (§1/§3.4), and the trigger's name rides the dot's tooltip.
+      // So the workflow name now appears twice (running row + its lane), and the KPI next-fire tile
+      // is the only place quoting the relative time.
+      // 调度**轨道**(S5):逐 (workflow×cron) 一泳道,标签是 **workflow** 名——本海洋的轴是 workflow
+      // (§1/§3.4),trigger 名在点的 tooltip 里。故 workflow 名现两次(正在跑行 + 它的泳道),而相对时间
+      // 只剩 KPI 下次调度牌一处在引。
+      expect(find.byType(AnScheduleTrack), findsOneWidget);
+      expect(find.text('数据清洗流水线'), findsNWidgets(3),
+          reason: '同一个 workflow 在三个区各现一次:等你处理行 + 正在跑行 + 轨道泳道');
+      expect(find.text(ov.fireIn(d: '3m')), findsOneWidget, reason: 'KPI 下次调度牌');
 
       // Failure row: streak chip + error FIRST line + through-train. 失败行。
       expect(find.text(ov.streak(n: '4')), findsOneWidget);
@@ -320,6 +398,73 @@ void main() {
       expect(find.byType(AnState), findsOneWidget);
       expect(find.text(t.scheduler.overview.errorTitle), findsOneWidget);
       expect(find.text(t.scheduler.retry), findsOneWidget);
+    });
+  });
+
+  group('S5 · 调度时间轴', () {
+    testWidgets('the track replaces the row list: a lane per (workflow × cron), points from ⑧',
+        (tester) async {
+      final repo = _fullRepo();
+      await _pumpBoard(tester, _host(repo));
+      expect(find.byType(AnScheduleTrack), findsOneWidget);
+      expect(repo.scheduleWithins, ['24h'],
+          reason: '区头承诺 24h,就必须真的问 24h(窗口走 SchedulerWindows.trackWithin)');
+    });
+
+    testWidgets('a PAUSED trigger keeps a greyed lane with «已暂停» — 判决①', (tester) async {
+      final repo = StubSchedulerRepo(
+        workflows: [
+          SchedulerWorkflowRow(id: 'wf_a', name: '邮件归档', lifecycleState: 'active', updatedAt: _now),
+        ],
+        byWorkflow: [WorkflowRunStats(workflowId: 'wf_a', lastRunAt: _now)],
+        triggers: [_trigger('tr_off', '每晚归档', paused: true)],
+        edges: [_edge('wf_a', 'tr_off')],
+        // The endpoint emits NOTHING for a paused trigger — the lane must live on trigger data alone.
+        // 端点为暂停的 trigger 一个点都不发——泳道必须仅靠 trigger 数据活着。
+        schedule: const TriggerSchedule(),
+      );
+      await _pumpBoard(tester, _host(repo));
+      expect(find.byType(AnScheduleTrack), findsOneWidget);
+      expect(find.text('邮件归档'), findsWidgets, reason: '判决①:暂停泳道**不消失**');
+      expect(find.text(t.scheduler.home.paused), findsOneWidget, reason: '灰显必须配词:色不独行');
+    });
+
+    // NOTE these are two SEPARATE tests, not one with two pumps: re-pumping an identical tree reuses
+    // the ProviderScope element, and the controllers `ref.read` their repo — so a swapped override
+    // would NOT re-run them and the second half would silently assert against the FIRST repo's data.
+    // 注意这是**两个独立测试**而非一个测两次 pump:重 pump 同构树会复用 ProviderScope 元素,而控制器是
+    // `ref.read` 取 repo 的——换 override 不会让它们重跑,后半段会静默地对着**前一个** repo 的数据断言。
+    testWidgets('an uncapped window says nothing about truncation', (tester) async {
+      await _pumpBoard(tester, _host(_fullRepo()));
+      expect(find.text(t.scheduler.overview.trackTruncated), findsNothing);
+    });
+
+    testWidgets('truncated says so out loud — a capped window must not read as the whole truth',
+        (tester) async {
+      final full = _fullRepo();
+      await _pumpBoard(
+          tester,
+          _host(StubSchedulerRepo(
+            workflows: full.workflows,
+            byWorkflow: full.byWorkflow,
+            triggers: full.triggers,
+            edges: full.edges,
+            schedule: TriggerSchedule(points: full.schedule.points, truncated: true),
+          )));
+      expect(find.text(t.scheduler.overview.trackTruncated), findsOneWidget,
+          reason: '端点截断了窗就必须明说,否则轨道会被读成全部真相');
+    });
+
+    testWidgets('no cron lanes at all → the honest empty sentence, not an empty axis', (tester) async {
+      final repo = StubSchedulerRepo(
+        workflows: [
+          SchedulerWorkflowRow(id: 'wf_a', name: '手动流程', lifecycleState: 'active', updatedAt: _now),
+        ],
+        byWorkflow: [WorkflowRunStats(workflowId: 'wf_a', lastRunAt: _now)],
+      );
+      await _pumpBoard(tester, _host(repo));
+      expect(find.text(t.scheduler.overview.upcomingEmpty), findsOneWidget);
+      expect(find.byType(AnScheduleTrack), findsNothing, reason: '零泳道不画一条指着空无的轴');
     });
   });
 }

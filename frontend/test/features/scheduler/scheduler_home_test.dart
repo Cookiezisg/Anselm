@@ -1,8 +1,10 @@
 import 'package:anselm/core/contract/entities/relation.dart';
+import 'package:anselm/core/contract/entities/scheduler_matrix.dart';
 import 'package:anselm/core/contract/entities/scheduler_stats.dart';
 import 'package:anselm/core/contract/entities/trigger.dart';
 import 'package:anselm/core/contract/entities/values.dart';
 import 'package:anselm/core/contract/entities/workflow.dart';
+import 'package:anselm/core/contract/retention.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/run/run_ledger.dart';
 import 'package:anselm/core/runtime.dart';
@@ -16,6 +18,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 import 'stub_scheduler_repo.dart';
 
@@ -59,7 +62,9 @@ List<FlowrunNode> _nodes(String frId, {bool failed = false}) => [
           updatedAt: _now),
     ];
 
-StubSchedulerRepo _repo({bool failRunFull = false}) {
+StubSchedulerRepo _repo(
+    {bool failRunFull = false,
+    RetentionConfig retention = const RetentionConfig(runRetentionDays: 90)}) {
   final runs = <Flowrun>[
     Flowrun(
         id: 'fr_live1',
@@ -109,6 +114,7 @@ StubSchedulerRepo _repo({bool failRunFull = false}) {
         updatedAt: _now),
   ];
   return StubSchedulerRepo(
+    retentionConfig: retention,
     workflows: [
       SchedulerWorkflowRow(
           id: 'wf_a', name: '数据清洗流水线', lifecycleState: 'active', updatedAt: _now),
@@ -221,8 +227,15 @@ Future<void> _pump(WidgetTester tester, StubSchedulerRepo repo, {String? runId})
   await tester.pump(const Duration(seconds: 1));
 }
 
-Future<TestGesture> _hover(WidgetTester tester, Finder target) async {
-  await tester.ensureVisible(target);
+/// Hover [target]. [reveal] (default [target]) is what gets scrolled into view first: a row's ERROR
+/// SUB-LINE is the natural hover handle but it is the row's BOTTOM line, so scrolling *it* to the
+/// viewport's top edge pushes the row's own hover action (vertically centred, i.e. higher) off-screen
+/// — the action is then found but un-hittable. Reveal the ROW, hover the line.
+/// 悬停 target;reveal(默认同 target)是先被滚入视口的那个:行的**错误副行**是天然的悬停把手,但它是行的
+/// **底**行——把**它**滚到视口顶缘会把该行自己的悬停动作(垂直居中、即更高)顶出屏幕,动作于是「找得到却
+/// 点不中」。故:滚**行**、悬停**行内那一句**。
+Future<TestGesture> _hover(WidgetTester tester, Finder target, {Finder? reveal}) async {
+  await tester.ensureVisible(reveal ?? target);
   await tester.pump();
   final g = await tester.createGesture(kind: PointerDeviceKind.mouse);
   await g.addPointer(location: Offset.zero);
@@ -449,8 +462,18 @@ void main() {
       await tester.pump();
       await _settle(tester);
 
-      final g = await _hover(tester, find.text('HTTP 502 Bad Gateway: upstream did not respond'));
-      await tester.tap(find.byIcon(AnIcons.history).first);
+      final g = await _hover(tester, find.text('HTTP 502 Bad Gateway: upstream did not respond'),
+          reveal: find.ancestor(
+              of: find.text('HTTP 502 Bad Gateway: upstream did not respond'),
+              matching: find.byType(AnLedgerRow)));
+      // Target the ↻ of the row we hovered, by its per-row semantic label — NOT «the first history
+      // icon on the page». A page-order finder silently aims at another row the moment the page grows
+      // tall enough for ensureVisible to scroll (the reserved hover cell stays in the tree but
+      // un-hittable), which is a test that breaks on unrelated layout, not on the behaviour it names.
+      // 按**行自己**的语义标签取该行的 ↻,而不是「页面上第一个 history 图标」:一旦页面高到 ensureVisible
+      // 需要滚动,页序 finder 就会静默瞄向另一行(定宽格里的 ↻ 仍在树上但不可命中)——那是一个会被无关布局
+      // 改动搞坏的测试,而非它所声称的行为的测试。
+      await tester.tap(find.bySemanticsLabel(h.replayA11y(id: 'fr_fail1')));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       // fr_fail1 nodes: 1 completed + 1 failed. 真数字。
@@ -471,8 +494,13 @@ void main() {
       await tester.pump();
       await _settle(tester);
 
-      final g = await _hover(tester, find.text('HTTP 502 Bad Gateway: upstream did not respond'));
-      await tester.tap(find.byIcon(AnIcons.history).first);
+      final g = await _hover(tester, find.text('HTTP 502 Bad Gateway: upstream did not respond'),
+          reveal: find.ancestor(
+              of: find.text('HTTP 502 Bad Gateway: upstream did not respond'),
+              matching: find.byType(AnLedgerRow)));
+      // The hovered row's own ↻ (per-row semantic label) — see the note on the single-replay test.
+      // 该行自己的 ↻(逐行语义标签),理由见单条 replay 测试的注。
+      await tester.tap(find.bySemanticsLabel(h.replayA11y(id: 'fr_fail1')));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.text(h.replayBodyUnknown), findsOneWidget, reason: '取不到数字也不假造');
@@ -488,7 +516,10 @@ void main() {
       await tester.pump();
       await _settle(tester);
 
-      final g = await _hover(tester, find.text('HTTP 502 Bad Gateway: upstream did not respond'));
+      final g = await _hover(tester, find.text('HTTP 502 Bad Gateway: upstream did not respond'),
+          reveal: find.ancestor(
+              of: find.text('HTTP 502 Bad Gateway: upstream did not respond'),
+              matching: find.byType(AnLedgerRow)));
       await tester.tap(_rowCheck('HTTP 502 Bad Gateway: upstream did not respond'));
       await tester.pump();
       expect(find.byType(AnBatchBar), findsNothing, reason: '选中 1 不出条');
@@ -611,6 +642,12 @@ void main() {
       expect(find.byType(AnNodeGantt), findsOneWidget, reason: '默认甘特');
       expect(find.byType(AnGraphCanvas), findsNothing);
 
+      // The pane sits below the big table, so on a taller page the face toggle is under the fold —
+      // scroll it in before tapping (a tap that misses reports «found but not hit», not a real
+      // regression). 联动格在大表之下,页一长切脸器就沉到折线下——先滚入再点(点空报的是「找到却没点中」,
+      // 不是真回归)。
+      await tester.ensureVisible(find.text(h.faceGraph));
+      await tester.pump();
       await tester.tap(find.text(h.faceGraph));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
@@ -629,6 +666,12 @@ void main() {
         // graphByWorkflow deliberately empty. 刻意无图。
       );
       await _pump(tester, noGraph, runId: 'fr_fail1');
+      // The pane sits below the big table, so on a taller page the face toggle is under the fold —
+      // scroll it in before tapping (a tap that misses reports «found but not hit», not a real
+      // regression). 联动格在大表之下,页一长切脸器就沉到折线下——先滚入再点(点空报的是「找到却没点中」,
+      // 不是真回归)。
+      await tester.ensureVisible(find.text(h.faceGraph));
+      await tester.pump();
       await tester.tap(find.text(h.faceGraph));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
@@ -695,6 +738,182 @@ void main() {
       ]);
       await _pump(tester, repo);
       expect(find.text(h.notFoundTitle), findsOneWidget);
+    });
+  });
+
+  // ── S5:矩阵第三脸(判决③/工单⑩) + 保留墓碑(判决④/工单⑬) ──
+  group('⑤ 矩阵第三脸', () {
+    FlowrunMatrix grid() => FlowrunMatrix(
+          cols: [
+            // Newest LEFT; the live one carries NO elapsed. 新在左;在跑的无 elapsed。
+            MatrixCol(flowrunId: 'fr_live1', startedAt: _now, status: 'running'),
+            MatrixCol(
+                flowrunId: 'fr_fail1',
+                startedAt: _now.subtract(const Duration(hours: 1)),
+                status: 'failed',
+                elapsedMs: 8000),
+          ],
+          rows: const [
+            MatrixRow(nodeId: 'fetch', kind: 'action'),
+            MatrixRow(nodeId: 'analyze', kind: 'agent'),
+          ],
+          // SPARSE: fr_live1 never reached analyze → no cell. 稀疏:fr_live1 没跑到 analyze。
+          cells: const [
+            MatrixCell(flowrunId: 'fr_live1', nodeId: 'fetch', status: 'completed'),
+            MatrixCell(flowrunId: 'fr_fail1', nodeId: 'fetch', status: 'completed'),
+            MatrixCell(flowrunId: 'fr_fail1', nodeId: 'analyze', status: 'failed', iterations: 3),
+          ],
+        );
+
+    testWidgets('the matrix face is LAZY — picking it is what asks the wire (recentN=20 reaches it)',
+        (tester) async {
+      final repo = _repo();
+      await _pump(tester, repo, runId: 'fr_fail1');
+      expect(repo.matrixAsks, isEmpty, reason: '不点矩阵脸就一个字节都不取——天生惰性');
+
+      await tester.ensureVisible(find.text(h.faceMatrix));
+      await tester.pump();
+      await tester.tap(find.text(h.faceMatrix));
+      await tester.pump();
+      await _settle(tester);
+      expect(repo.matrixAsks, [(workflowId: 'wf_a', recentN: 20)],
+          reason: '20 是 SchedulerWindows.matrixRecentN,且必须真到线缆(不是渲染时才裁)');
+    });
+
+    testWidgets('the grid renders: ×N in the cell, «未及» for a sparse one, and the pane retitles',
+        (tester) async {
+      final repo = _repo()..matrixByWorkflow['wf_a'] = grid();
+      await _pump(tester, repo, runId: 'fr_fail1');
+      await tester.ensureVisible(find.text(h.faceMatrix));
+      await tester.pump();
+      await tester.tap(find.text(h.faceMatrix));
+      await tester.pump();
+      await _settle(tester);
+
+      expect(find.byType(AnRunMatrix), findsOneWidget);
+      expect(find.text(h.matrixTitle), findsOneWidget, reason: '矩阵脸有自己的标题(跨 run,不是「本次运行」)');
+      expect(find.text(h.linkedTitle), findsNothing);
+      expect(find.byType(AnNodeGantt), findsNothing, reason: '三脸互斥');
+      expect(find.text('3'), findsOneWidget, reason: 'iterations=3 → ×N 在格里');
+      expect(find.byTooltip(h.matrixNotReached), findsOneWidget,
+          reason: '稀疏格说「未及」——空格是真答案,不是缺答案');
+    });
+
+    testWidgets('an empty grid says so; a failed read offers retry — neither blanks the pane',
+        (tester) async {
+      await _pump(tester, _repo(), runId: 'fr_fail1');
+      await tester.ensureVisible(find.text(h.faceMatrix));
+      await tester.pump();
+      await tester.tap(find.text(h.faceMatrix));
+      await tester.pump();
+      await _settle(tester);
+      expect(find.text(h.matrixEmpty), findsOneWidget, reason: '未知/无 run 的 workflow 返三空列表,不是错误');
+
+      await _pump(tester, _repo()..failMatrix = true, runId: 'fr_fail1');
+      await tester.ensureVisible(find.text(h.faceMatrix));
+      await tester.pump();
+      await tester.tap(find.text(h.faceMatrix));
+      await tester.pump();
+      await _settle(tester);
+      expect(find.text(h.paneError), findsOneWidget, reason: '取数失败诚实报错 + 重试,绝不空白');
+    });
+
+    testWidgets('picking a COLUMN routes the run into the URL (the other two faces follow it)',
+        (tester) async {
+      final repo = _repo()..matrixByWorkflow['wf_a'] = grid();
+      String? routed;
+      final router = GoRouter(routes: [
+        GoRoute(
+            path: '/',
+            builder: (_, _) => Scaffold(body: SchedulerHomeView(workflowId: 'wf_a', linkedRunId: 'fr_fail1'))),
+        GoRoute(
+            path: '/scheduler/w/:id',
+            builder: (_, st) {
+              routed = st.uri.toString();
+              return const SizedBox.shrink();
+            }),
+      ]);
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          sseGatewayProvider.overrideWithValue(null),
+          schedulerRepositoryProvider.overrideWithValue(repo),
+        ],
+        child: TranslationProvider(
+          child: MaterialApp.router(theme: AnTheme.light(), routerConfig: router),
+        ),
+      ));
+      await tester.pump();
+      await _settle(tester);
+      await tester.ensureVisible(find.text(h.faceMatrix));
+      await tester.pump();
+      await tester.tap(find.text(h.faceMatrix));
+      await tester.pump();
+      await _settle(tester);
+
+      // The LEFT column is the newest run (fr_live1) — picking it must land in the URL, because the
+      // run grain is shareable state. Scope the finder INSIDE the grid: the run table above also
+      // prints «fr_live1», so a page-wide finder would tap a chip in the table instead of a column
+      // head. 最左列=最新 run;点它必须落 URL(run 粒度是可分享的状态)。finder 必须**限定在格阵内**:
+      // 上面的大表也印着 fr_live1,页级 finder 会点到表里的 chip 而不是列头。
+      final colHead = find.descendant(
+          of: find.byType(AnRunMatrix), matching: find.bySemanticsLabel(RegExp('fr_live1')));
+      await tester.ensureVisible(colHead.first);
+      await tester.pump();
+      await tester.tap(colHead.first);
+      await tester.pump();
+      await _settle(tester);
+      expect(routed, contains('run=fr_live1'), reason: '点列=选中该 run,且落在 URL 里');
+    });
+  });
+
+  group('⑥ 保留墓碑', () {
+    testWidgets('at the true end of the history the tombstone says WHY it ends', (tester) async {
+      final repo = _repo();
+      await _pump(tester, repo);
+      // Filter to failed → 2 rows, no more pages → the true bottom. 过滤到失败=到底。
+      await tester.tap(find.text(h.filterFailed(n: '2')));
+      await tester.pump();
+      await _settle(tester);
+      expect(find.text(h.tombstone(d: '90')), findsOneWidget,
+          reason: '没有解释的末行会静默暗示「在那之前从没跑过」——那是假的');
+      expect(repo.retentionAsks, greaterThan(0), reason: '墓碑读的是真 GET /retention,不是硬编的 90');
+    });
+
+    testWidgets('«forever» (0) renders NO tombstone — nothing was cleared, so nothing to explain',
+        (tester) async {
+      final repo = _repo(retention: const RetentionConfig(runRetentionDays: 0));
+      await _pump(tester, repo);
+      await tester.tap(find.text(h.filterFailed(n: '2')));
+      await tester.pump();
+      await _settle(tester);
+      expect(find.textContaining('保留策略'), findsNothing);
+      expect(find.text(h.tombstone(d: '0')), findsNothing, reason: '永久=不清理=无墓碑');
+    });
+
+    testWidgets('a tombstone never appears while more pages remain (the end is not yet the end)',
+        (tester) async {
+      // 30 runs > one 25-row page → hasMore → the loadMore sentinel owns the tail, not a tombstone.
+      // 30 条 run > 一页 25 行 → 还有下一页 → 尾巴归 loadMore 哨兵,不归墓碑。
+      final repo = StubSchedulerRepo(
+        workflows: [
+          SchedulerWorkflowRow(id: 'wf_a', name: '多页', lifecycleState: 'active', updatedAt: _now),
+        ],
+        byWorkflow: [WorkflowRunStats(workflowId: 'wf_a', lastRunAt: _now)],
+        runs: [
+          for (var i = 0; i < 30; i++)
+            Flowrun(
+                id: 'fr_h${i.toString().padLeft(3, '0')}',
+                workflowId: 'wf_a',
+                origin: 'cron',
+                status: 'completed',
+                startedAt: _now.subtract(Duration(hours: i + 1)),
+                completedAt: _now.subtract(Duration(hours: i + 1)),
+                updatedAt: _now),
+        ],
+      );
+      await _pump(tester, repo);
+      expect(find.text(h.loadMore), findsOneWidget);
+      expect(find.text(h.tombstone(d: '90')), findsNothing, reason: '还有下一页时说「更早的已清理」就是撒谎');
     });
   });
 }

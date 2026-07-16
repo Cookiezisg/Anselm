@@ -7,6 +7,7 @@ import '../../../core/contract/api_key.dart';
 import '../../../core/contract/limits.dart';
 import '../../../core/contract/mcp.dart';
 import '../../../core/contract/network.dart';
+import '../../../core/contract/retention.dart';
 import '../../../core/contract/sandbox.dart';
 import '../../../core/contract/memory.dart';
 import '../../../core/contract/workspace.dart';
@@ -143,6 +144,19 @@ abstract class SettingsRepository {
 
   /// PATCH replaces the whole config (three optional strings). 整体替换。
   Future<NetworkConfig> patchNetwork(NetworkConfig config);
+
+  /// The machine-level run-history retention line (scheduler 工单⑬/判决④). GET always answers a
+  /// CONCRETE value — a fresh install reads back the server-held default — so the panel hydrates from
+  /// the wire and NEVER hardcodes a default.
+  /// 机器级 run 保留线(⑬):GET 恒返具体值(全新安装读回服务端自持的默认),故面板一律水化自线缆、**永不硬编默认**。
+  Future<RetentionConfig> getRetention();
+
+  /// PATCH is a PARTIAL MERGE over the current value (unlike [patchNetwork]'s whole-config replace) and
+  /// returns the merged whole — write back what it returns. `0` = keep forever. Only a NEGATIVE count
+  /// is rejected (400): the 30/90/180 value set is a front-end product affordance, not a backend rule.
+  /// PATCH 是对当前值**部分合并**(与 patchNetwork 的整体替换不同)、返合并后的全量——拿返回值回写。
+  /// 0=永久。只有**负数**被拒(400):30/90/180 值集是前端产品可供性,不是后端规则。
+  Future<RetentionConfig> patchRetention(int days);
 
   // ── S5 沙箱 sandbox ──
 
@@ -431,6 +445,15 @@ class LiveSettingsRepository implements SettingsRepository {
         'httpsProxy': config.httpsProxy,
         'noProxy': config.noProxy,
       });
+
+  @override
+  Future<RetentionConfig> getRetention() =>
+      api.getEntity('/api/v1/retention', RetentionConfig.fromJson);
+
+  @override
+  Future<RetentionConfig> patchRetention(int days) =>
+      api.patchEntity('/api/v1/retention', RetentionConfig.fromJson,
+          body: {'runRetentionDays': days});
 
   @override
   Future<SandboxBootstrap> sandboxBootstrap() =>
@@ -844,6 +867,29 @@ class FixtureSettingsRepository implements SettingsRepository {
 
   @override
   Future<NetworkConfig> patchNetwork(NetworkConfig config) async => fixtureNetwork = config;
+
+  /// Seeded at the BACKEND's own default (90), not at a number invented here — the panel's whole
+  /// contract is «never hardcode a default», and a fixture that seeded 30 would let a panel bug that
+  /// hardcodes 90 pass anyway. 种在**后端自持**的默认(90)上,而非此处发明的数——面板的全部契约就是
+  /// 「永不硬编默认」,而种 30 的 fixture 会让「硬编 90」的面板 bug 照样通过。
+  RetentionConfig fixtureRetention = const RetentionConfig(runRetentionDays: 90);
+
+  @override
+  Future<RetentionConfig> getRetention() async => fixtureRetention;
+
+  @override
+  Future<RetentionConfig> patchRetention(int days) async {
+    // Mirror the backend's ONE physical rule: a negative line is rejected; 60 is accepted (the value
+    // set is a product affordance, not a backend rule — 反校验剧场 #6).
+    // 镜像后端唯一的物理规则:负数拒;60 照收(值集是产品可供性、非后端规则——反校验剧场 #6)。
+    if (days < 0) {
+      throw const ApiException(
+          code: 'SETTINGS_RETENTION_INVALID',
+          message: 'runRetentionDays must be 0 (keep forever) or a positive number of days',
+          httpStatus: 400);
+    }
+    return fixtureRetention = RetentionConfig(runRetentionDays: days);
+  }
 
   // ── S5 sandbox (scriptable) ──
 

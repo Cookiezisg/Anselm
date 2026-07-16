@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/contract/entities/relation.dart';
 import '../../../core/contract/entities/scheduler_stats.dart';
 import '../../../core/contract/entities/trigger.dart';
+import '../../../core/contract/entities/trigger_schedule.dart';
 import '../../../core/contract/entities/workflow.dart';
 import '../../../core/contract/page.dart';
 import '../data/scheduler_repository.dart';
+import '../scheduler_windows.dart';
 import 'scheduler_rail_provider.dart';
 
 // The Overview board's server-state (WRK-069 §3, S2a) — derived FROM the rail provider's truth
@@ -45,21 +47,37 @@ class RunningRunRow {
   final Flowrun run;
 }
 
-/// One (trigger × workflow) pair firing within the next 24h. 未来 24h 一次调度。
-class UpcomingFire {
-  const UpcomingFire({
+/// One lane of the Overview's schedule track = one (workflow × cron trigger) pair. [futureAt] are the
+/// endpoint's scheduled ticks inside the window; a [paused] lane legitimately carries NONE (the
+/// backend refuses to stamp a next-fire on a paused trigger) and must still be shown, greyed (判决①).
+/// Overview 时间轴的一条泳道=一个 (workflow × cron trigger) 对。futureAt=端点给的窗内刻度;**暂停**的
+/// 泳道合法地一个都没有(后端拒绝给暂停的 trigger 盖下次时间戳),但仍必须灰显着出现(判决①)。
+class ScheduleLane {
+  const ScheduleLane({
     required this.triggerId,
     required this.triggerName,
     required this.workflowId,
     required this.workflowName,
-    required this.at,
+    required this.paused,
+    this.futureAt = const [],
   });
 
   final String triggerId;
   final String triggerName;
   final String workflowId;
   final String workflowName;
-  final DateTime at;
+  final bool paused;
+  final List<DateTime> futureAt;
+}
+
+/// The whole track. [truncated] rides straight from the endpoint — the window really holds more ticks
+/// than [lanes] shows, and the board must SAY so rather than let the track read as complete.
+/// 整条轨;truncated 原样来自端点——窗内确实还有更多刻度,看板必须**明说**,不能让轨道读起来像是全部。
+class ScheduleTrackData {
+  const ScheduleTrackData({this.lanes = const [], this.truncated = false});
+
+  final List<ScheduleLane> lanes;
+  final bool truncated;
 }
 
 /// One consecutively-failing workflow in the 7d aggregation. [error]/[latestRunId] come from the
@@ -91,7 +109,7 @@ class SchedulerOverviewData {
     required this.kpi,
     this.waiting = const [],
     this.runningRuns = const [],
-    this.upcoming = const [],
+    this.track = const ScheduleTrackData(),
     this.failures = const [],
   });
 
@@ -99,7 +117,7 @@ class SchedulerOverviewData {
   final SchedulerKpi kpi;
   final List<SchedulerInboxRow> waiting;
   final List<RunningRunRow> runningRuns;
-  final List<UpcomingFire> upcoming;
+  final ScheduleTrackData track;
   final List<FailingWorkflowRow> failures;
 }
 
@@ -120,34 +138,61 @@ DateTime? earliestNextFire(Iterable<DateTime> fires, DateTime now) {
   return earliest;
 }
 
-/// (trigger × equipped workflow) pairs whose nextFireAt lands within [window] of [now], time-ASC.
-/// Only listening triggers with a future fire qualify; a trigger equipping N workflows emits N rows
-/// (the ocean's axis is the workflow); an unequipped trigger fires no workflow → excluded.
-/// 未来窗内 (trigger×workflow) 对,时间升序;一 trigger 挂 N workflow 出 N 行;未挂边者不产 run,不入列。
-List<UpcomingFire> upcomingFires({
+/// Build the schedule track's lanes (工单⑧ + 判决①).
+///
+/// **The lane set comes from the TRIGGER LIST, never from the schedule points** — this is the whole
+/// hinge of 判决①. The endpoint only emits ticks for LISTENING, UNPAUSED crons, so reverse-deriving
+/// lanes from points would make a paused trigger's lane silently vanish, and a vanished lane reads as
+/// «there is no such schedule» instead of «you paused this». The points are hung ONTO the lanes.
+///
+/// Only cron triggers get a lane: webhook/fsnotify/sensor have no knowable next fire, so they are
+/// honestly absent rather than present-and-empty (§3.4「仅 cron 有未来点,其余 kind 如实缺席」).
+///
+/// 泳道**行集取自 trigger 列表,绝不取自调度点**——这是判决① 的全部枢纽:端点只为**监听中且未暂停**的
+/// cron 发刻度,故从点反推泳道会让暂停的 trigger 静默消失,而消失的泳道会被读成「没有这条排程」而非
+/// 「你暂停了它」。点只是**挂**到泳道上。只有 cron 得泳道:webhook/fsnotify/sensor 下次 fire 不可知,
+/// 故如实缺席,而非在场且空。
+List<ScheduleLane> scheduleLanes({
   required List<TriggerEntity> triggers,
   required List<EntityRelation> edges,
   required Map<String, String> workflowNames,
+  required TriggerSchedule schedule,
   required DateTime now,
-  Duration window = const Duration(hours: 24),
+  Duration window = SchedulerWindows.trackWindow,
 }) {
   final horizon = now.add(window);
   final byTrigger = {for (final t in triggers) t.id: t};
-  final out = <UpcomingFire>[];
+  final out = <ScheduleLane>[];
   for (final e in edges) {
     final t = byTrigger[e.toId];
-    final at = t?.nextFireAt;
-    if (t == null || at == null || !t.listening) continue;
-    if (!at.isAfter(now) || at.isAfter(horizon)) continue;
-    out.add(UpcomingFire(
+    if (t == null || t.kind != TriggerSource.cron) continue;
+    final wfId = e.fromId;
+    final at = <DateTime>[
+      for (final p in schedule.points)
+        // A point promises a run only for the workflows the listener table actually reverse-resolved
+        // — so a point never lights a lane it cannot fire. 点只对监听表真反查出的 workflow 承诺运行。
+        if (p.triggerId == t.id && p.workflowIds.contains(wfId))
+          if (!p.at.isBefore(now) && !p.at.isAfter(horizon)) p.at,
+    ]..sort();
+    out.add(ScheduleLane(
       triggerId: t.id,
       triggerName: t.name,
-      workflowId: e.fromId,
-      workflowName: workflowNames[e.fromId] ?? e.fromName,
-      at: at,
+      workflowId: wfId,
+      workflowName: workflowNames[wfId] ?? e.fromName,
+      paused: t.paused,
+      futureAt: at,
     ));
   }
-  out.sort((a, b) => a.at.compareTo(b.at));
+  // Soonest first; lanes with nothing coming (paused, or nothing due in the window) sink to the
+  // bottom rather than disappear. 最近的在前;没有将至之事的泳道(暂停/窗内无刻度)沉底而非消失。
+  out.sort((a, b) {
+    final an = a.futureAt.isEmpty ? null : a.futureAt.first;
+    final bn = b.futureAt.isEmpty ? null : b.futureAt.first;
+    if (an == null && bn == null) return a.workflowName.compareTo(b.workflowName);
+    if (an == null) return 1;
+    if (bn == null) return -1;
+    return an.compareTo(bn);
+  });
   return out;
 }
 
@@ -194,21 +239,30 @@ class SchedulerOverviewController extends AsyncNotifier<SchedulerOverviewData> {
         if (s.running > 0) s.workflowId,
     ];
     final results = await Future.wait<Object>([
-      repo.stats(const [], since: '24h'),
-      repo.stats(const [], since: '48h'),
+      repo.stats(const [], since: SchedulerWindows.kpiFailedSince),
+      repo.stats(const [], since: SchedulerWindows.kpiFailedDeltaSince),
+      // The forward schedule (工单⑧) — ONE bounded call for the whole board's track. 整块看板的轨,一次有界调用。
+      repo.triggerSchedule(within: SchedulerWindows.trackWithin),
       for (final id in runningIds) repo.listFlowruns(workflowId: id, status: 'running'),
       for (final s in failing)
         repo.listFlowruns(workflowId: s.workflowId, status: 'failed', limit: 1),
     ]);
+    // The fixed head of the batch, NAMED: the two probe lists below index off it, and a bare `2`
+    // repeated at three sites is one inserted call away from silently reading a stats object as a
+    // page (a crash at best, the WRONG workflow's runs at worst).
+    // 批次的定长头部,**具名**:下面两条探针列表按它取偏移;裸 2 抄在三处,只要插一个调用就会静默把 stats
+    // 读成 page(轻则崩,重则读成**别的 workflow** 的 run)。
+    const fixed = 3;
     final stats24 = results[0] as SchedulerStats;
     final stats48 = results[1] as SchedulerStats;
+    final schedule = results[2] as TriggerSchedule;
 
     final names = {for (final w in rail.workflows) w.id: w.name};
 
     // Running rows: flatten the per-workflow pages, newest start first. 正在跑行:新启动在前。
     final runningRuns = <RunningRunRow>[];
     for (var i = 0; i < runningIds.length; i++) {
-      final page = results[2 + i] as Page<Flowrun>;
+      final page = results[fixed + i] as Page<Flowrun>;
       for (final run in page.items) {
         runningRuns.add(RunningRunRow(
           workflowId: runningIds[i],
@@ -227,7 +281,7 @@ class SchedulerOverviewController extends AsyncNotifier<SchedulerOverviewData> {
     // 失败聚合:连败徽来自 stats,错误首句+直通车来自探针。
     final failures = <FailingWorkflowRow>[];
     for (var i = 0; i < failing.length; i++) {
-      final page = results[2 + runningIds.length + i] as Page<Flowrun>;
+      final page = results[fixed + runningIds.length + i] as Page<Flowrun>;
       final latest = page.items.isEmpty ? null : page.items.first;
       failures.add(FailingWorkflowRow(
         workflowId: failing[i].workflowId,
@@ -250,8 +304,16 @@ class SchedulerOverviewController extends AsyncNotifier<SchedulerOverviewData> {
       ),
       waiting: rail.inbox,
       runningRuns: runningRuns,
-      upcoming: upcomingFires(
-          triggers: rail.triggers, edges: rail.edges, workflowNames: names, now: now),
+      track: ScheduleTrackData(
+        lanes: scheduleLanes(
+          triggers: rail.triggers,
+          edges: rail.edges,
+          workflowNames: names,
+          schedule: schedule,
+          now: now,
+        ),
+        truncated: schedule.truncated,
+      ),
       failures: failures,
     );
   }

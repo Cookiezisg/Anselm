@@ -11,6 +11,7 @@ import '../../../core/run/approval_gate.dart';
 import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
 import '../data/scheduler_repository.dart';
+import '../scheduler_windows.dart';
 import '../state/scheduler_overview_provider.dart';
 import '../state/scheduler_rail_provider.dart';
 import 'batch_engine.dart';
@@ -239,6 +240,82 @@ class _SchedulerWaitingZoneState extends ConsumerState<SchedulerWaitingZone>
           ),
         ),
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────── 未来调度 ───────────────────────────────────
+
+/// The «next 24h» zone (S5) — S2a's plain row list replaced by the real [AnScheduleTrack]: an absolute
+/// axis, a now line, and one lane per (workflow × cron trigger).
+///
+/// **Only FUTURE points are fed, and the now line therefore sits at the axis's left edge.** Past dots
+/// (§3.4「过去实心点着状态色」) and the missed ✕ would need a workspace-level, time-windowed firing
+/// query — and `GET /triggers/{id}/firings` is per-trigger with NO time filter and no count/aggregate,
+/// so a 24h history would mean draining every trigger's whole firing log page by page, unbounded and
+/// degrading as the window moves. That is not «awkward», it is a capability the contract does not
+/// have; rendering only the runs we CAN reach would be worse than rendering none — the skipped /
+/// superseded / missed dispositions would be invisible holes in a track that looks complete. So the
+/// track shows what it can prove and says nothing about what it cannot (记偏差,见 §14 S5).
+///
+/// 未来 24h 区(S5):S2a 的简版行列表换成真 [AnScheduleTrack]——绝对轴 + now 线 + 逐 (workflow×cron) 泳道。
+/// **只喂未来点,故 now 线坐在轴的最左**。过去实心点与 missed ✕ 需要一个 **workspace 级 + 带时间窗**的
+/// firing 查询,而 `GET /triggers/{id}/firings` 是**逐 trigger、无时间过滤、无计数聚合**——拉 24h 历史
+/// 等于把每个 trigger 的整本 firing 账逐页拖干,无界且随窗口回滚线性劣化。这不是「麻烦」,是契约层面
+/// **没有这个能力**;而只渲「拿得到的那部分 run」比一个不渲更糟——skipped/superseded/missed 会成为一条
+/// 看起来完整的轨道上的**隐形空洞**。故轨道只显示它能证明的,对它证明不了的**闭嘴**(记偏差,§14 S5)。
+class SchedulerScheduleZone extends StatelessWidget {
+  const SchedulerScheduleZone({required this.track, required this.now, super.key});
+
+  final ScheduleTrackData track;
+  final DateTime now;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t.scheduler.overview;
+    final c = context.colors;
+    return AnSection(
+      label: t.upcomingHead,
+      children: [
+        if (track.lanes.isEmpty)
+          Text(t.upcomingEmpty, style: AnText.body.copyWith(color: c.inkFaint))
+        else ...[
+          AnScheduleTrack(
+            lanes: [
+              for (final lane in track.lanes)
+                TrackLane(
+                  id: '${lane.triggerId}/${lane.workflowId}',
+                  label: lane.workflowName,
+                  // 判决①: the paused lane greys and wears the word — it never leaves the board.
+                  // 判决①:暂停泳道灰显并戴上词——它绝不离开看板。
+                  dimmed: lane.paused,
+                  note: lane.paused ? context.t.scheduler.home.paused : '',
+                  events: [
+                    for (final at in lane.futureAt)
+                      TrackEvent(
+                        at: at,
+                        kind: TrackEventKind.future,
+                        // «预计» — a forecast must never read as a measured fact. 预告绝不读成实测。
+                        label: '${lane.workflowName} · ${lane.triggerName}',
+                      ),
+                  ],
+                ),
+            ],
+            now: now,
+            window: SchedulerWindows.trackWindow,
+            eventSemanticLabel: (lane, e) =>
+                t.trackPointA11y(name: lane.label, at: fmtDateTime(e.at)),
+            foldedLabel: (n) => t.trackFolded(n: '$n'),
+          ),
+          // The endpoint capped the window — say so, or the track reads as the whole truth.
+          // 端点截断了窗——必须明说,否则轨道会被读成全部真相。
+          if (track.truncated)
+            Padding(
+              padding: const EdgeInsets.only(top: AnSpace.s8),
+              child: Text(t.trackTruncated, style: AnText.meta.copyWith(color: c.inkFaint)),
+            ),
+        ],
+      ],
     );
   }
 }

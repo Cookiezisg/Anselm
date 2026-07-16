@@ -15,7 +15,14 @@ enum TriggerSource { cron, webhook, fsnotify, sensor, unknown }
 /// out-of-set `?status=` filter (`TRIGGER_FIRING_INVALID_STATUS`), so the client only ever SENDS the
 /// real six; `unknown` is inbound-only forward-compat. firing 状态封闭集(过滤只发真六种)。
 @JsonEnum()
-enum FiringStatus { pending, claimed, started, skipped, superseded, shed, unknown }
+/// The firing lifecycle + disposition closed set (backend `FiringStatuses`, 7 values). `missed`
+/// (WRK-069 工单⑨/判决⑥) is the misfire ledger row: a cron tick that came due while the app was
+/// stopped/asleep, booked on wake and deliberately NOT caught up — its `createdAt` is the MISSED
+/// TICK ITSELF (the backend rewinds it), not the wake moment, so a missed row already sits at its
+/// honest place on a timeline; its `flowrunId` is always absent (no run was ever created).
+/// firing 生命周期+处置封闭集(后端 7 值);missed=睡过头的刻度醒来记账不补跑,createdAt 是**错过的刻度
+/// 本身**(后端回拨过)故天然坐落在时间轴正确位置,flowrunId 恒空(从未建 run)。
+enum FiringStatus { pending, claimed, started, skipped, superseded, shed, missed, unknown }
 
 /// Trigger entity — a standalone signal source that fires when its source condition is met (cron tick /
 /// webhook hit / file change / sensor probe), fanning the signal to every active workflow listening to

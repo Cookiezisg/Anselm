@@ -1152,6 +1152,9 @@ class _Translations$scheduler$overview$zh_CN extends Translations$scheduler$over
 	@override String get runningEmpty => '现在没有正在运行的 run。';
 	@override String get upcomingHead => '未来 24h';
 	@override String get upcomingEmpty => '未来 24h 没有已排定的调度。';
+	@override String trackPointA11y({required Object name, required Object at}) => '${name} 预计 ${at}';
+	@override String trackFolded({required Object n}) => '共 ${n} 次';
+	@override String get trackTruncated => '此窗口内还有更多调度,轨道未能全部显示。';
 	@override String get failuresHead => '失败聚合 · 7d';
 	@override String get failuresEmpty => '近 7 天没有连续失败的 workflow。';
 	@override String streak({required Object n}) => '连败 ×${n}';
@@ -1226,6 +1229,7 @@ class _Translations$scheduler$home$zh_CN extends Translations$scheduler$home$en 
 	@override String get runsError => '运行记录加载失败。';
 	@override String get runsEmpty => '没有匹配此过滤的运行。';
 	@override String get loadMore => '加载更多';
+	@override String tombstone({required Object d}) => '更早的运行已按保留策略(${d} 天)清理。';
 	@override String get filterA11y => '按状态过滤运行';
 	@override String get filterAll => '全部';
 	@override String filterRunning({required Object n}) => '在跑 ${n}';
@@ -1266,6 +1270,14 @@ class _Translations$scheduler$home$zh_CN extends Translations$scheduler$home$en 
 	@override String get faceA11y => '联动格视图';
 	@override String get faceGantt => '甘特';
 	@override String get faceGraph => '图';
+	@override String get faceMatrix => '矩阵';
+	@override String get matrixTitle => '节点 × run(近 20 次)';
+	@override String get matrixEmpty => '还没有可对比的运行。';
+	@override String get matrixNotReached => '未及';
+	@override String get matrixRunning => '在跑';
+	@override String matrixColA11y({required Object id, required Object status, required Object d}) => 'run ${id},${status},${d}';
+	@override String matrixRowA11y({required Object node}) => '节点 ${node},历史';
+	@override String matrixCellA11y({required Object node, required Object status, required Object n}) => '${node},${status},${n} 轮';
 	@override String get openRun => '打开 →';
 	@override String get noGraph => '活跃版本没有图。';
 	@override String get paneNoNodes => '还没有节点记录。';
@@ -1842,6 +1854,13 @@ class _Translations$settings$storage$zh_CN extends Translations$settings$storage
 	@override String get diskSandbox => '沙箱运行时与环境';
 	@override String get diskMore => '明细即将提供';
 	@override String get openLogs => '打开日志文件夹';
+	@override String get retention => 'Run 历史保留';
+	@override String get retentionDesc => '超过保留线的 run 记录将被清理,统计与失败聚合不受影响。';
+	@override String get retention30 => '30 天';
+	@override String get retention90 => '90 天';
+	@override String get retention180 => '180 天';
+	@override String get retentionForever => '永久保留';
+	@override String get retentionSaved => '保留策略已更新';
 	@override String get resetPrefs => '重置本地偏好';
 	@override String get resetPrefsDesc => '只清除本机的界面偏好(主题/窗口/缩放等),不碰任何工作区数据将重启应用以生效。';
 	@override String get resetPrefsTitle => '重置本地偏好?';
@@ -3037,6 +3056,9 @@ extension on TranslationsZhCn {
 			'scheduler.overview.runningEmpty' => '现在没有正在运行的 run。',
 			'scheduler.overview.upcomingHead' => '未来 24h',
 			'scheduler.overview.upcomingEmpty' => '未来 24h 没有已排定的调度。',
+			'scheduler.overview.trackPointA11y' => ({required Object name, required Object at}) => '${name} 预计 ${at}',
+			'scheduler.overview.trackFolded' => ({required Object n}) => '共 ${n} 次',
+			'scheduler.overview.trackTruncated' => '此窗口内还有更多调度,轨道未能全部显示。',
 			'scheduler.overview.failuresHead' => '失败聚合 · 7d',
 			'scheduler.overview.failuresEmpty' => '近 7 天没有连续失败的 workflow。',
 			'scheduler.overview.streak' => ({required Object n}) => '连败 ×${n}',
@@ -3093,6 +3115,7 @@ extension on TranslationsZhCn {
 			'scheduler.home.runsError' => '运行记录加载失败。',
 			'scheduler.home.runsEmpty' => '没有匹配此过滤的运行。',
 			'scheduler.home.loadMore' => '加载更多',
+			'scheduler.home.tombstone' => ({required Object d}) => '更早的运行已按保留策略(${d} 天)清理。',
 			'scheduler.home.filterA11y' => '按状态过滤运行',
 			'scheduler.home.filterAll' => '全部',
 			'scheduler.home.filterRunning' => ({required Object n}) => '在跑 ${n}',
@@ -3133,6 +3156,14 @@ extension on TranslationsZhCn {
 			'scheduler.home.faceA11y' => '联动格视图',
 			'scheduler.home.faceGantt' => '甘特',
 			'scheduler.home.faceGraph' => '图',
+			'scheduler.home.faceMatrix' => '矩阵',
+			'scheduler.home.matrixTitle' => '节点 × run(近 20 次)',
+			'scheduler.home.matrixEmpty' => '还没有可对比的运行。',
+			'scheduler.home.matrixNotReached' => '未及',
+			'scheduler.home.matrixRunning' => '在跑',
+			'scheduler.home.matrixColA11y' => ({required Object id, required Object status, required Object d}) => 'run ${id},${status},${d}',
+			'scheduler.home.matrixRowA11y' => ({required Object node}) => '节点 ${node},历史',
+			'scheduler.home.matrixCellA11y' => ({required Object node, required Object status, required Object n}) => '${node},${status},${n} 轮',
 			'scheduler.home.openRun' => '打开 →',
 			'scheduler.home.noGraph' => '活跃版本没有图。',
 			'scheduler.home.paneNoNodes' => '还没有节点记录。',
@@ -3411,6 +3442,8 @@ extension on TranslationsZhCn {
 			'entities.detail.graph.unparseable' => '编排图无法解析',
 			'entities.detail.cockpit.runs' => '运行',
 			'entities.detail.cockpit.runsCount' => ({required Object n}) => '运行 · ${n} 次',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.cockpit.nodeGantt' => '节点甘特',
 			'entities.detail.cockpit.notRun' => '未运行',
 			'entities.detail.cockpit.waitingApproval' => '等待审批',
@@ -3423,8 +3456,6 @@ extension on TranslationsZhCn {
 			'entities.detail.cockpit.runInfo' => '运行信息',
 			'entities.detail.cockpit.iteration' => ({required Object n}) => '轮次 ${n}',
 			'entities.detail.kv.name' => '名称',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.kv.tags' => '标签',
 			'entities.detail.kv.id' => 'ID',
 			'entities.detail.kv.activeVersion' => '活动版本',
@@ -3906,6 +3937,13 @@ extension on TranslationsZhCn {
 			'settings.storage.diskSandbox' => '沙箱运行时与环境',
 			'settings.storage.diskMore' => '明细即将提供',
 			'settings.storage.openLogs' => '打开日志文件夹',
+			'settings.storage.retention' => 'Run 历史保留',
+			'settings.storage.retentionDesc' => '超过保留线的 run 记录将被清理,统计与失败聚合不受影响。',
+			'settings.storage.retention30' => '30 天',
+			'settings.storage.retention90' => '90 天',
+			'settings.storage.retention180' => '180 天',
+			'settings.storage.retentionForever' => '永久保留',
+			'settings.storage.retentionSaved' => '保留策略已更新',
 			'settings.storage.resetPrefs' => '重置本地偏好',
 			'settings.storage.resetPrefsDesc' => '只清除本机的界面偏好(主题/窗口/缩放等),不碰任何工作区数据将重启应用以生效。',
 			'settings.storage.resetPrefsTitle' => '重置本地偏好?',
@@ -3918,6 +3956,8 @@ extension on TranslationsZhCn {
 			'settings.limits.resetAllTitle' => '恢复全部默认限额?',
 			'settings.limits.patchFailed' => '保存失败',
 			'settings.limits.modified' => '已修改',
+			_ => null,
+		} ?? switch (path) {
 			'settings.limits.errorTitle' => '限额加载失败',
 			'settings.limits.retry' => '重试',
 			'settings.network.section' => '网络',
@@ -3937,8 +3977,6 @@ extension on TranslationsZhCn {
 			'settings.sandbox.installing' => '安装中…',
 			'settings.sandbox.installTitle' => '安装运行时',
 			'settings.sandbox.kind' => '类型',
-			_ => null,
-		} ?? switch (path) {
 			'settings.sandbox.version' => '版本',
 			'settings.sandbox.versionHint' => '如 22 / 3.12',
 			'settings.sandbox.add' => '安装',

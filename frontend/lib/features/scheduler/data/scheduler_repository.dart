@@ -1,12 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/contract/entities/relation.dart';
+import '../../../core/contract/entities/scheduler_matrix.dart';
 import '../../../core/contract/entities/scheduler_stats.dart';
 import '../../../core/contract/entities/trigger.dart';
+import '../../../core/contract/entities/trigger_schedule.dart';
 import '../../../core/contract/entities/workflow.dart';
 import '../../../core/contract/page.dart';
+import '../../../core/contract/retention.dart';
 import '../../../core/net/api_client.dart';
 import '../../../core/runtime.dart';
+import '../scheduler_windows.dart';
 
 /// One workflow as the Scheduler sees it — the operations projection's thin row (the rail/overview
 /// need identity + lifecycle only; health comes from [SchedulerStats]). Deliberately NOT entities'
@@ -173,6 +177,27 @@ abstract interface class SchedulerRepository {
   /// conversationId (异步动作返 id 铁律), which the caller deep-links into chat.
   /// AI 诊断(按 id 前缀分发,fr_ 走 flowrun 诊断);202 返 conversationId,调用方深链进 chat。
   Future<String> triageRun(String flowrunId);
+
+  /// The forward-looking schedule (工单⑧, `GET /trigger-schedule?within=&limit=`) — every cron tick due
+  /// inside the window, `at`-ASC, bounded (no cursor). ONLY listening+unpaused crons contribute, so
+  /// the caller must draw its LANES from [listTriggers] and hang these points onto them — never
+  /// reverse-derive the lane set from the points (a paused lane would vanish, 判决①).
+  /// 前瞻调度(⑧):窗内每个 cron 刻度,升序,有界免游标。只有监听中且未暂停的 cron 贡献点,故泳道行集须
+  /// 取自 listTriggers、点只是挂件——绝不从点反推泳道(暂停泳道会消失,违判决①)。
+  Future<TriggerSchedule> triggerSchedule({String within, int limit});
+
+  /// The node×run grid (工单⑩, `GET /flowrun-matrix?workflowId=&recentN=`) — one bounded batch query
+  /// answering the whole grid. [workflowId] is REQUIRED (empty → 400); an unknown id is not an error
+  /// (200 + three empty lists). 节点×run 格阵(⑩):一次有界批查答完整个格阵;workflowId 必填(空→400),
+  /// 未知 id 不是错误(200 + 三空列表)。
+  Future<FlowrunMatrix> runMatrix(String workflowId, {int recentN});
+
+  /// The machine-level run-history retention line (工单⑬, `GET /retention`) — READ-ONLY here: this
+  /// ocean only needs it to render the run table's honest tombstone row; EDITING it lives in the
+  /// settings storage panel (which parses the same wire itself — features 互不依赖).
+  /// 机器级 run 保留线(⑬),此处**只读**:本海洋只需它渲大表的诚实墓碑行;编辑归设置存储面板(它自行解同
+  /// 一条线缆——features 互不依赖)。
+  Future<RetentionConfig> retention();
 }
 
 /// The production seam. Thin envelope decoding only. 生产缝:薄信封解码。
@@ -205,7 +230,9 @@ class LiveSchedulerRepository implements SchedulerRepository {
       _drain('/api/v1/workflows', SchedulerWorkflowRow.fromJson);
 
   @override
-  Future<SchedulerStats> stats(List<String> workflowIds, {int recentN = 10, String since = '168h'}) async {
+  Future<SchedulerStats> stats(List<String> workflowIds,
+      {int recentN = SchedulerWindows.beadRecentN,
+      String since = SchedulerWindows.statsSince}) async {
     if (workflowIds.isEmpty) {
       // totals are workspace-wide — still worth one call with no ids. totals 全局,空 ids 也取。
       return _statsCall(const [], recentN, since);
@@ -341,6 +368,29 @@ class LiveSchedulerRepository implements SchedulerRepository {
   @override
   Future<String> triageRun(String flowrunId) =>
       _api.postForId('/api/v1/executions/$flowrunId:triage');
+
+  @override
+  Future<TriggerSchedule> triggerSchedule(
+          {String within = SchedulerWindows.trackWithin, int limit = 200}) =>
+      _api.getEntity('/api/v1/trigger-schedule', TriggerSchedule.fromJson, query: {
+        // Go duration grammar — deliberately NOT the `?since` grammar of flowrun-stats (which also
+        // takes «7d»); a `7d` here is a 422. Go duration 文法(与 flowrun-stats 的 ?since 不同,那边吃
+        // 7d;这里传 7d 是 422)。
+        'within': within,
+        'limit': '$limit',
+      });
+
+  @override
+  Future<FlowrunMatrix> runMatrix(String workflowId,
+          {int recentN = SchedulerWindows.matrixRecentN}) =>
+      _api.getEntity('/api/v1/flowrun-matrix', FlowrunMatrix.fromJson, query: {
+        'workflowId': workflowId,
+        'recentN': '$recentN',
+      });
+
+  @override
+  Future<RetentionConfig> retention() =>
+      _api.getEntity('/api/v1/retention', RetentionConfig.fromJson);
 }
 
 /// Overridden by demo (`FixtureSchedulerRepository`) at the app root. app 根被 demo override。

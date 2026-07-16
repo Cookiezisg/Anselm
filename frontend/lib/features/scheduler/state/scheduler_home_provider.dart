@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/contract/entities/scheduler_matrix.dart';
+import '../../../core/contract/retention.dart';
 import '../../../core/contract/entities/workflow.dart';
 import '../../../core/runtime.dart';
 import '../../../core/sse/frame.dart';
@@ -36,6 +38,29 @@ final schedulerLinkedRunProvider =
   await ref.watch(schedulerRailProvider.future);
   return ref.watch(schedulerRepositoryProvider).getRunFull(frId);
 }, retry: (_, _) => null);
+
+/// The linked pane's MATRIX face (工单⑩, S5) — the last 20 runs' node×run grid for one workflow, in
+/// ONE bounded call. Rides the same rail pulse as its siblings (so it refetches exactly when durable
+/// ledger events land, never on a tick), and is `autoDispose` + family-keyed by workflowId so leaving
+/// the page drops it. Lazy by construction: nothing fetches until the user actually picks the matrix
+/// face, because the provider is only watched from that branch.
+/// 联动格**矩阵脸**(⑩):单 workflow 近 20 run 的格阵,一次有界调用。与兄弟同吃 rail 节拍(故只在 durable
+/// 落账时重取、tick 永不达);autoDispose + 按 workflowId 分族,离页即释。**天生惰性**:用户不点矩阵脸就
+/// 一个字节都不取——provider 只在那条分支里被 watch。
+final schedulerMatrixProvider =
+    FutureProvider.autoDispose.family<FlowrunMatrix, String>((ref, workflowId) async {
+  await ref.watch(schedulerRailProvider.future);
+  return ref.watch(schedulerRepositoryProvider).runMatrix(workflowId);
+}, retry: (_, _) => null);
+
+/// The machine-level retention line, READ-ONLY (工单⑬) — the run table's tombstone reads it to say why
+/// the history ends. Deliberately NOT `autoDispose`: it is one tiny machine-wide value that the user
+/// changes at most once in a while, and re-fetching it on every table scroll would be noise. Editing
+/// lives in the settings storage panel (which parses the same wire itself — features 互不依赖).
+/// 机器级保留线,**只读**(⑬):大表墓碑读它来说明历史为何在此结束。**刻意不 autoDispose**:它是一个极小的
+/// 全机值、用户偶尔才改一次,每次滚表都重取纯属噪声。编辑归设置存储面板(它自行解同一条线缆——features 互不依赖)。
+final schedulerRetentionProvider = FutureProvider<RetentionConfig>(
+    (ref) => ref.watch(schedulerRepositoryProvider).retention());
 
 /// The run big table's whole state. [failedCount] is the count strip's failed number — probed
 /// through the SAME `GET /flowruns` grammar the table uses (window + origin apply), one page of 50;

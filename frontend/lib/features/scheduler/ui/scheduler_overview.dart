@@ -99,12 +99,7 @@ class _SchedulerOverviewViewState extends ConsumerState<SchedulerOverviewView> {
           // 与 正在跑(hover 取消+批量取消)两操作区。
           SchedulerWaitingZone(rows: d.waiting, now: now),
           SchedulerRunningZone(rows: d.runningRuns, now: now),
-          AnSection(
-            label: t.overview.upcomingHead,
-            children: d.upcoming.isEmpty
-                ? [_emptyLine(context, t.overview.upcomingEmpty)]
-                : [for (final u in d.upcoming) _upcomingRow(context, u, now)],
-          ),
+          SchedulerScheduleZone(track: d.track, now: now),
           AnSection(
             label: t.overview.failuresHead,
             children: d.failures.isEmpty
@@ -119,19 +114,6 @@ class _SchedulerOverviewViewState extends ConsumerState<SchedulerOverviewView> {
   /// An honest quiet empty sentence under a zone head (no ghost frames). 区头下的诚实灰句。
   Widget _emptyLine(BuildContext context, String text) =>
       Text(text, style: AnText.body.copyWith(color: context.colors.inkFaint));
-
-  /// «Next 24h» row: ⏱ · trigger name · workflow chip · relative fire time. Not tappable — the
-  /// trigger exhibit lives in the operations home (S3). 未来 24h 一行;不可点(观测面随 S3)。
-  Widget _upcomingRow(BuildContext context, UpcomingFire u, DateTime now) {
-    final c = context.colors;
-    return AnLedgerRow(
-      lead: Icon(AnIcons.scheduler, size: AnSize.iconSm, color: c.inkFaint),
-      primary: u.triggerName,
-      mono: false,
-      chips: [AnChip(u.workflowName, look: AnChipLook.outlined)],
-      meta: context.t.scheduler.overview.fireIn(d: fmtWaited(u.at.difference(now))),
-    );
-  }
 
   /// «Failures · 7d» row: red dot · workflow name · ×N streak chip · error first line · the
   /// latest-run through-train. Replay waits for the run composite (S4). 失败聚合一行;replay 随 S4。

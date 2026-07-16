@@ -2793,6 +2793,15 @@ class Translations$scheduler$overview$en {
 	/// en: 'Nothing scheduled in the next 24h.'
 	String get upcomingEmpty => 'Nothing scheduled in the next 24h.';
 
+	/// en: '$name scheduled $at'
+	String trackPointA11y({required Object name, required Object at}) => '${name} scheduled ${at}';
+
+	/// en: '$n runs'
+	String trackFolded({required Object n}) => '${n} runs';
+
+	/// en: 'More is scheduled inside this window than the track can show.'
+	String get trackTruncated => 'More is scheduled inside this window than the track can show.';
+
 	/// en: 'Failures · 7d'
 	String get failuresHead => 'Failures · 7d';
 
@@ -2979,6 +2988,9 @@ class Translations$scheduler$home$en {
 	/// en: 'Load more'
 	String get loadMore => 'Load more';
 
+	/// en: 'Earlier runs have been cleared by the retention policy ($d days).'
+	String tombstone({required Object d}) => 'Earlier runs have been cleared by the retention policy (${d} days).';
+
 	/// en: 'Filter runs by status'
 	String get filterA11y => 'Filter runs by status';
 
@@ -3098,6 +3110,30 @@ class Translations$scheduler$home$en {
 
 	/// en: 'Graph'
 	String get faceGraph => 'Graph';
+
+	/// en: 'Matrix'
+	String get faceMatrix => 'Matrix';
+
+	/// en: 'Node × run (last 20)'
+	String get matrixTitle => 'Node × run (last 20)';
+
+	/// en: 'No runs to compare yet.'
+	String get matrixEmpty => 'No runs to compare yet.';
+
+	/// en: 'not reached'
+	String get matrixNotReached => 'not reached';
+
+	/// en: 'running'
+	String get matrixRunning => 'running';
+
+	/// en: 'run $id, $status, $d'
+	String matrixColA11y({required Object id, required Object status, required Object d}) => 'run ${id}, ${status}, ${d}';
+
+	/// en: 'node $node, history'
+	String matrixRowA11y({required Object node}) => 'node ${node}, history';
+
+	/// en: '$node, $status, $n rounds'
+	String matrixCellA11y({required Object node, required Object status, required Object n}) => '${node}, ${status}, ${n} rounds';
 
 	/// en: 'Open →'
 	String get openRun => 'Open →';
@@ -4400,6 +4436,27 @@ class Translations$settings$storage$en {
 
 	/// en: 'Open logs folder'
 	String get openLogs => 'Open logs folder';
+
+	/// en: 'Run history retention'
+	String get retention => 'Run history retention';
+
+	/// en: 'Settled runs older than this are cleared. Statistics and failure aggregation windows (7d) are unaffected.'
+	String get retentionDesc => 'Settled runs older than this are cleared. Statistics and failure aggregation windows (7d) are unaffected.';
+
+	/// en: '30 days'
+	String get retention30 => '30 days';
+
+	/// en: '90 days'
+	String get retention90 => '90 days';
+
+	/// en: '180 days'
+	String get retention180 => '180 days';
+
+	/// en: 'Keep forever'
+	String get retentionForever => 'Keep forever';
+
+	/// en: 'Retention updated'
+	String get retentionSaved => 'Retention updated';
 
 	/// en: 'Reset local preferences'
 	String get resetPrefs => 'Reset local preferences';
@@ -6235,6 +6292,9 @@ extension on Translations {
 			'scheduler.overview.runningEmpty' => 'Nothing is running right now.',
 			'scheduler.overview.upcomingHead' => 'Next 24h',
 			'scheduler.overview.upcomingEmpty' => 'Nothing scheduled in the next 24h.',
+			'scheduler.overview.trackPointA11y' => ({required Object name, required Object at}) => '${name} scheduled ${at}',
+			'scheduler.overview.trackFolded' => ({required Object n}) => '${n} runs',
+			'scheduler.overview.trackTruncated' => 'More is scheduled inside this window than the track can show.',
 			'scheduler.overview.failuresHead' => 'Failures · 7d',
 			'scheduler.overview.failuresEmpty' => 'No consecutive failures in the last 7 days.',
 			'scheduler.overview.streak' => ({required Object n}) => 'failing ×${n}',
@@ -6291,6 +6351,7 @@ extension on Translations {
 			'scheduler.home.runsError' => 'Couldn\'t load the runs.',
 			'scheduler.home.runsEmpty' => 'No runs match this filter.',
 			'scheduler.home.loadMore' => 'Load more',
+			'scheduler.home.tombstone' => ({required Object d}) => 'Earlier runs have been cleared by the retention policy (${d} days).',
 			'scheduler.home.filterA11y' => 'Filter runs by status',
 			'scheduler.home.filterAll' => 'All',
 			'scheduler.home.filterRunning' => ({required Object n}) => 'Running ${n}',
@@ -6331,6 +6392,14 @@ extension on Translations {
 			'scheduler.home.faceA11y' => 'Linked pane view',
 			'scheduler.home.faceGantt' => 'Gantt',
 			'scheduler.home.faceGraph' => 'Graph',
+			'scheduler.home.faceMatrix' => 'Matrix',
+			'scheduler.home.matrixTitle' => 'Node × run (last 20)',
+			'scheduler.home.matrixEmpty' => 'No runs to compare yet.',
+			'scheduler.home.matrixNotReached' => 'not reached',
+			'scheduler.home.matrixRunning' => 'running',
+			'scheduler.home.matrixColA11y' => ({required Object id, required Object status, required Object d}) => 'run ${id}, ${status}, ${d}',
+			'scheduler.home.matrixRowA11y' => ({required Object node}) => 'node ${node}, history',
+			'scheduler.home.matrixCellA11y' => ({required Object node, required Object status, required Object n}) => '${node}, ${status}, ${n} rounds',
 			'scheduler.home.openRun' => 'Open →',
 			'scheduler.home.noGraph' => 'The active version has no graph.',
 			'scheduler.home.paneNoNodes' => 'No node records yet.',
@@ -6609,6 +6678,8 @@ extension on Translations {
 			'entities.detail.graph.unparseable' => 'Orchestration graph unparseable',
 			'entities.detail.cockpit.runs' => 'Runs',
 			'entities.detail.cockpit.runsCount' => ({required Object n}) => 'Runs · ${n}',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.cockpit.nodeGantt' => 'Node timeline',
 			'entities.detail.cockpit.notRun' => 'Not run',
 			'entities.detail.cockpit.waitingApproval' => 'Awaiting approval',
@@ -6621,8 +6692,6 @@ extension on Translations {
 			'entities.detail.cockpit.runInfo' => 'Run info',
 			'entities.detail.cockpit.iteration' => ({required Object n}) => 'Iteration ${n}',
 			'entities.detail.kv.name' => 'Name',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.kv.tags' => 'Tags',
 			'entities.detail.kv.id' => 'ID',
 			'entities.detail.kv.activeVersion' => 'Active version',
@@ -7104,6 +7173,13 @@ extension on Translations {
 			'settings.storage.diskSandbox' => 'Sandbox runtimes & envs',
 			'settings.storage.diskMore' => 'Breakdown coming soon',
 			'settings.storage.openLogs' => 'Open logs folder',
+			'settings.storage.retention' => 'Run history retention',
+			'settings.storage.retentionDesc' => 'Settled runs older than this are cleared. Statistics and failure aggregation windows (7d) are unaffected.',
+			'settings.storage.retention30' => '30 days',
+			'settings.storage.retention90' => '90 days',
+			'settings.storage.retention180' => '180 days',
+			'settings.storage.retentionForever' => 'Keep forever',
+			'settings.storage.retentionSaved' => 'Retention updated',
 			'settings.storage.resetPrefs' => 'Reset local preferences',
 			'settings.storage.resetPrefsDesc' => 'Clears this machine\'s UI preferences (theme/window/zoom…) only — never touches workspace data. The app will restart to apply the reset.',
 			'settings.storage.resetPrefsTitle' => 'Reset local preferences?',
@@ -7116,6 +7192,8 @@ extension on Translations {
 			'settings.limits.resetAllTitle' => 'Reset every limit to its default?',
 			'settings.limits.patchFailed' => 'Save failed',
 			'settings.limits.modified' => 'modified',
+			_ => null,
+		} ?? switch (path) {
 			'settings.limits.errorTitle' => 'Couldn\'t load limits',
 			'settings.limits.retry' => 'Retry',
 			'settings.network.section' => 'Network',
@@ -7135,8 +7213,6 @@ extension on Translations {
 			'settings.sandbox.installing' => 'Installing…',
 			'settings.sandbox.installTitle' => 'Install runtime',
 			'settings.sandbox.kind' => 'Kind',
-			_ => null,
-		} ?? switch (path) {
 			'settings.sandbox.version' => 'Version',
 			'settings.sandbox.versionHint' => 'e.g. 22 / 3.12',
 			'settings.sandbox.add' => 'Install',

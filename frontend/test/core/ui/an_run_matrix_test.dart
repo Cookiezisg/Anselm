@@ -1,0 +1,510 @@
+import 'package:anselm/core/design/colors.dart';
+import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/ui/ui.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+// AnRunMatrix (WRK-069 §12 + 判决③, S5). The contracts worth locking are the ones a careless refactor
+// would break silently: 「未及」 must stay an EMPTY square (a sparse cell is a real answer, not a
+// missing one), a running column must NOT grow a duration bar, «×N» must ride in the cell, the three
+// selection grains must each report the right key, and an unknown status must fold neutral — never
+// green.
+// 值得锁死的是「粗心重构会静默弄坏」的那些:未及=**空格**(稀疏格是真答案不是缺答案)/在跑列**不长**时长条/
+// ×N 在格内/三粒度各报对键/未知状态折中性——绝不绿。
+
+const _rows = [
+  MatrixRowHead(nodeId: 'fetch', kind: 'action'),
+  MatrixRowHead(nodeId: 'analyze', kind: 'agent'),
+];
+
+const _cols = [
+  RunColumn(id: 'fr_2', status: 'running'), // in flight → NO elapsed 在跑→无耗时
+  RunColumn(id: 'fr_1', status: 'failed', elapsedMs: 8000),
+];
+
+// The real host is a SCROLLING page (AnZonedPage's fullBleed zone), which hands the grid unbounded
+// height — so the host here must too, or a tall grid "overflows" against a test-window ceiling that
+// does not exist in the app. 真实宿主是**可滚动**的页(AnZonedPage 的 fullBleed 区),给格阵无界高——故
+// 此处宿主也必须给,否则高格阵会撞上一个 app 里根本不存在的测试窗天花板。
+Widget _host(Widget child, {double width = 600}) => MaterialApp(
+      theme: AnTheme.light(),
+      home: Scaffold(
+        body: SingleChildScrollView(
+          child: Center(child: SizedBox(width: width, child: child)),
+        ),
+      ),
+    );
+
+/// Cells are the interactive squares; row/col heads render inert when the caller passes no handler,
+/// so «the first AnInteractive» is NOT reliably a cell. 格才是可交互方块;调用方不给 handler 时行/列头
+/// 是惰性的,故「第一个 AnInteractive」并不可靠地是格。
+Finder get _cells => find.byWidgetPredicate((w) => w is AnInteractive && w.onTap != null);
+
+/// A named focus stop AFTER the grid — the thing an escaping user must land on. 格阵**之后**的具名停靠。
+class _After extends StatelessWidget {
+  const _After();
+
+  @override
+  Widget build(BuildContext context) => Focus(
+        focusNode: FocusNode(debugLabel: 'after'),
+        child: const SizedBox(width: 100, height: 40),
+      );
+}
+
+void main() {
+  testWidgets('empty rows/cols render nothing', (tester) async {
+    await tester.pumpWidget(
+        _host(AnRunMatrix(rows: const [], cols: const [], cellStatus: (_, _) => null)));
+    expect(tester.getSize(find.byType(AnRunMatrix)).height, 0, reason: '零行零列=零高,不留空框废墟');
+  });
+
+  testWidgets('a SPARSE cell renders an empty square — never a colour, never a lie', (tester) async {
+    await tester.pumpWidget(_host(AnRunMatrix(
+      rows: _rows,
+      cols: _cols,
+      // fr_2 never reached analyze — no cell. fr_2 没跑到 analyze:无格。
+      cellStatus: (runId, nodeId) => runId == 'fr_2' && nodeId == 'analyze'
+          ? null
+          : const MatrixCellState(status: 'completed'),
+      notReachedLabel: '未及',
+    )));
+    // 4 squares are laid out (2×2), but the sparse one carries no fill — «未及» is its tooltip, and
+    // an empty square must never be able to read as an outcome.
+    // 2×2 四格都在,稀疏那格无填充——「未及」是它的 tooltip;空格绝不得被读成一种结局。
+    expect(find.byTooltip('未及'), findsOneWidget, reason: '稀疏格说「未及」,不说成功也不说失败');
+  });
+
+  testWidgets('a still-running column grows NO duration bar (no zero that reads as «instant»)',
+      (tester) async {
+    await tester.pumpWidget(_host(AnRunMatrix(
+      rows: _rows,
+      cols: _cols,
+      cellStatus: (_, _) => const MatrixCellState(status: 'completed'),
+      runningLabel: '在跑(无耗时)',
+    )));
+    // The in-flight column head speaks the caller's running word instead of a fabricated length.
+    // 在跑列头说调用方的「在跑」词,而不是一个编出来的长度。
+    expect(find.byTooltip('在跑(无耗时)'), findsOneWidget,
+        reason: '未完的 run 没有「最长」的份额可占——绝不画零宽条冒充「瞬时」');
+    // A settled column DOES take its share. 落定列才占份额。
+    expect(find.byType(FractionallySizedBox), findsOneWidget, reason: '只有落定列长时长条');
+  });
+
+  testWidgets('«×N» rides IN the cell for loop iterations; a single round grows no badge',
+      (tester) async {
+    await tester.pumpWidget(_host(AnRunMatrix(
+      rows: _rows,
+      cols: _cols,
+      cellStatus: (runId, nodeId) => nodeId == 'analyze'
+          ? const MatrixCellState(status: 'failed', iterations: 3)
+          : const MatrixCellState(status: 'completed'),
+    )));
+    expect(find.text('3'), findsNWidgets(2), reason: 'iterations>1 才渲 ×N(两列各一格)');
+    expect(find.text('1'), findsNothing, reason: '单轮不长徽——×1 是噪声');
+  });
+
+  testWidgets('an UNKNOWN status folds neutral — a cell never paints a success it never had',
+      (tester) async {
+    // Only CELLS carry a bordered box (row/col heads are fills), so this predicate names them.
+    // 只有**格**带描边盒(行头/列头是填充),故此谓词唯一指认格。
+    Color borderOf(WidgetTester t) {
+      final c = t.widget<Container>(find.byWidgetPredicate((w) =>
+          w is Container &&
+          w.decoration is BoxDecoration &&
+          (w.decoration! as BoxDecoration).border != null));
+      return ((c.decoration! as BoxDecoration).border! as Border).top.color;
+    }
+
+    await tester.pumpWidget(_host(AnRunMatrix(
+      rows: const [MatrixRowHead(nodeId: 'x')],
+      cols: const [RunColumn(id: 'fr_1', status: 'completed', elapsedMs: 10)],
+      cellStatus: (_, _) => const MatrixCellState(status: 'SOME_FUTURE_WORD'),
+    )));
+    final unknown = borderOf(tester);
+
+    await tester.pumpWidget(_host(AnRunMatrix(
+      rows: const [MatrixRowHead(nodeId: 'x')],
+      cols: const [RunColumn(id: 'fr_1', status: 'completed', elapsedMs: 10)],
+      cellStatus: (_, _) => const MatrixCellState(status: 'completed'),
+    )));
+    final done = borderOf(tester);
+
+    final theme = AnTheme.light().extension<AnColors>()!;
+    expect(done, theme.ok, reason: 'completed 该是绿的');
+    expect(unknown, isNot(theme.ok),
+        reason: '未知状态绝不折成 done——不认识的词不得被画成一次绿色的成功(AnStatus 未知→idle 中性)');
+    expect(unknown, theme.inkMuted, reason: '未知折 idle→tone.none→中性墨');
+  });
+
+  group('three selection grains (§12)', () {
+    testWidgets('tapping a CELL reports (run, node)', (tester) async {
+      (String, String)? got;
+      await tester.pumpWidget(_host(AnRunMatrix(
+        rows: _rows,
+        cols: _cols,
+        cellStatus: (_, _) => const MatrixCellState(status: 'completed'),
+        onCell: (f, n) => got = (f, n),
+      )));
+      // The first ACTIVATABLE square is the first cell: row «fetch» × column «fr_2» (newest run is
+      // the LEFT column). 第一个可激活方块=第一格:fetch 行 × fr_2 列(新在左)。
+      await tester.tap(_cells.first);
+      expect(got, ('fr_2', 'fetch'), reason: '点格必须报出 (run, node) 两个键——一个都不能少,且不能对调');
+    });
+
+    testWidgets('tapping a ROW head reports the node; tapping a COL head reports the run',
+        (tester) async {
+      String? row;
+      String? col;
+      await tester.pumpWidget(_host(AnRunMatrix(
+        rows: _rows,
+        cols: _cols,
+        cellStatus: (_, _) => const MatrixCellState(status: 'completed'),
+        onRow: (n) => row = n,
+        onCol: (f) => col = f,
+      )));
+      await tester.tap(find.text('fetch'));
+      expect(row, 'fetch', reason: '点行=该节点的历史');
+      // Column heads come first in the tree (they sit above the rows); the leftmost is the newest run.
+      // 列头在树里最先(它们在行之上);最左=最新那次 run。
+      await tester.tap(_cells.first);
+      expect(col, 'fr_2', reason: '点列=该 run(新在左,故第一个列头是最新那次)');
+    });
+
+    testWidgets('selection highlights the picked cell / row without moving anything',
+        (tester) async {
+      await tester.pumpWidget(_host(AnRunMatrix(
+        rows: _rows,
+        cols: _cols,
+        cellStatus: (_, _) => const MatrixCellState(status: 'completed'),
+        selection: const MatrixSelection(flowrunId: 'fr_1', nodeId: 'analyze'),
+        onCell: (_, _) {},
+      )));
+      final before = tester.getRect(find.text('analyze'));
+      await tester.pumpWidget(_host(AnRunMatrix(
+        rows: _rows,
+        cols: _cols,
+        cellStatus: (_, _) => const MatrixCellState(status: 'completed'),
+        onCell: (_, _) {},
+      )));
+      expect(tester.getRect(find.text('analyze')), before,
+          reason: '选区只改外观、绝不动几何(活性军规:几何只随用户动作/落账变)');
+    });
+  });
+
+  group('a11y: row-level, because the desktop transports no table (§12)', () {
+    testWidgets('rows carry the PATTERN as a summary; only the cursor + the selection speak',
+        (tester) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(_host(AnRunMatrix(
+        rows: _rows,
+        cols: _cols,
+        cellStatus: (_, nodeId) =>
+            nodeId == 'fetch' ? const MatrixCellState(status: 'completed') : null,
+        onCell: (_, _) {},
+        onCol: (_) {},
+        onRow: (_) {},
+        cellSemanticLabel: (col, row, cell) => '${row.nodeId} ${col.id} ${cell?.status ?? '未及'}',
+        colSemanticLabel: (col) => 'run ${col.id} ${col.status}',
+        rowSemanticLabel: (row) => '节点 ${row.nodeId}',
+        rowSummaryLabel: (s) =>
+            '${s.row.nodeId} 共 ${s.total} 行 ${s.cells.where((c) => c != null).length} 次抵达',
+        coordinateLabel: (r, rc, c, cc) => '第 ${r + 1} 行 共 $rc 行，第 ${c + 1} 列 共 $cc 列',
+      )));
+      // The summary answers «老是坏还是就这一次» WITHOUT walking a single cell — that is the whole
+      // point of row level. 摘要不走一格就答出「老是坏还是就这一次」——这就是行级的全部意义。
+      expect(find.bySemanticsLabel('fetch 共 2 行 2 次抵达'), findsOneWidget);
+      expect(find.bySemanticsLabel('analyze 共 2 行 0 次抵达'), findsOneWidget);
+      // The cursor speaks, and its sentence carries the coordinate the desktop has nowhere else to
+      // put. 光标说话,且它的句子带着桌面没有别处可放的坐标。
+      expect(find.bySemanticsLabel('fetch fr_2 completed 第 1 行 共 2 行，第 1 列 共 2 列'),
+          findsOneWidget,
+          reason: '光标格必须报出坐标——桌面 role/indexInParent 全不过 embedder ABI,坐标只能在 label 里');
+      // Every other square is SILENT: 480 unstructured nodes is a wall, not access.
+      // 其余方块**沉默**:480 个无结构节点是墙,不是可访问性。
+      expect(find.bySemanticsLabel('analyze fr_2 未及'), findsNothing,
+          reason: '非光标非选区的格不带节点——替它们说话的是行摘要');
+      expect(find.bySemanticsLabel('run fr_2 running'), findsOneWidget, reason: '列头各是一次 run,是新闻');
+      expect(find.bySemanticsLabel('节点 fetch'), findsOneWidget);
+      handle.dispose();
+    });
+
+    testWidgets('the SELECTED cell keeps its node even when the cursor is elsewhere', (tester) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(_host(AnRunMatrix(
+        rows: _rows,
+        cols: _cols,
+        cellStatus: (_, _) => const MatrixCellState(status: 'completed'),
+        selection: const MatrixSelection(flowrunId: 'fr_1', nodeId: 'analyze'),
+        onCell: (_, _) {},
+        cellSemanticLabel: (col, row, cell) => '${row.nodeId} ${col.id}',
+        coordinateLabel: (r, rc, c, cc) => '第 ${r + 1} 行，第 ${c + 1} 列',
+      )));
+      // The selection is what the app is showing in the linked pane — a screen-reader user must be
+      // able to find it, so it is the one other square worth a node.
+      // 选区=联动格正在展示的那个,读屏用户必须找得到它,故它是另一个值得节点的方块。
+      expect(find.bySemanticsLabel('analyze fr_1 第 2 行，第 2 列'), findsOneWidget);
+      handle.dispose();
+    });
+
+    testWidgets('the cursor label rides the FOCUSABLE node, not a child of it', (tester) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(_host(AnRunMatrix(
+        rows: const [MatrixRowHead(nodeId: 'fetch')],
+        cols: const [RunColumn(id: 'fr_1', status: 'completed', elapsedMs: 10)],
+        cellStatus: (_, _) => const MatrixCellState(status: 'completed'),
+        onCell: (_, _) {},
+        cellSemanticLabel: (col, row, cell) => 'fetch fr_1 completed',
+      )));
+      // A label stranded on a CHILD of the focused node is a label the screen reader may never read
+      // on focus — the node that carries isFocusable must be the node that carries the words (a stock
+      // button's does). Two Semantics layers annotating the same flag would split them apart, which is
+      // why only ONE layer annotates `selected`.
+      // label 若落在被聚焦节点的**孩子**上,聚焦时读屏可能永远读不到它——带 isFocusable 的节点必须就是带词的
+      // 那个(原装按钮就是如此)。两层 Semantics 标同一面旗标会把它们拆开,这正是 selected 只由一层标注的原因。
+      expect(tester.getSemantics(find.bySemanticsLabel('fetch fr_1 completed')),
+          isSemantics(isFocusable: true),
+          reason: '句子必须与可聚焦性同节点,否则聚焦时读屏读不到它');
+      handle.dispose();
+    });
+  });
+
+  group('keyboard: ONE tab stop (roving tabindex)', () {
+    // Every FocusNode this widget owns is named — so a stop that belongs to the GRID is countable
+    // apart from the host's own (a Scaffold/scroll view carries three of its own).
+    // 本件自持的每个 FocusNode 都有名字——故属于**格阵**的停靠可以与宿主自带的(Scaffold/滚动视图自带三个)
+    // 分开来数。
+    int gridStops() => FocusManager.instance.rootScope.traversalDescendants
+        .where((n) => n.debugLabel?.startsWith('AnRunMatrix') ?? false)
+        .length;
+
+    testWidgets('a 20×24 grid is ONE Tab stop, not 527', (tester) async {
+      await tester.pumpWidget(_host(
+        AnRunMatrix(
+          rows: [for (var i = 0; i < 24; i++) MatrixRowHead(nodeId: 'node_$i')],
+          cols: [for (var i = 20; i > 0; i--) RunColumn(id: 'fr_$i', status: 'completed', elapsedMs: i)],
+          cellStatus: (_, _) => const MatrixCellState(status: 'completed'),
+          onCell: (_, _) {},
+          onCol: (_) {},
+          onRow: (_) {},
+        ),
+        width: 1100,
+      ));
+      // 480 cells + 24 row heads + 20 col heads = 524 focusable positions, and the user must be able
+      // to Tab past ALL of them with ONE press. This is the whole reason the roving cursor exists.
+      // 480 格 + 24 行头 + 20 列头 = 524 个可聚焦位置,而用户必须**一次**按键就能 Tab 过全部。roving 光标
+      // 存在的全部理由就是这一条。
+      expect(gridStops(), 1, reason: '一次 Tab 进、一次 Tab 出;524 个可聚焦位置只留一个停靠');
+    });
+
+    testWidgets('Tab lands ON the cursor cell, and the NEXT Tab leaves the grid entirely',
+        (tester) async {
+      await tester.pumpWidget(_host(Column(children: [
+        AnRunMatrix(
+          rows: _rows,
+          cols: _cols,
+          cellStatus: (_, _) => const MatrixCellState(status: 'completed'),
+          onCell: (_, _) {},
+        ),
+        const _After(),
+      ])));
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(FocusManager.instance.primaryFocus?.debugLabel, contains('AnRunMatrix'),
+          reason: 'Tab 进来落在光标格上');
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      // The framework keeps a skipTraversal node in the sort when it is the CURRENT one, precisely so
+      // Tab finds «the next traversable node from the current focused node» — i.e. what comes AFTER
+      // the grid, never back to the top of the page.
+      // 框架在当前节点 skipTraversal 时仍把它留在排序里,正是为了让 Tab 找到「当前焦点之后的下一个可遍历
+      // 节点」——即格阵**之后**那个,而不是弹回页首。
+      expect(FocusManager.instance.primaryFocus?.debugLabel, 'after',
+          reason: '第二次 Tab 必须直接离开格阵——不是再走 523 个格');
+    });
+
+    testWidgets('arrows walk the cursor; a move never selects (ARIA keeps the two axes apart)',
+        (tester) async {
+      final picked = <(String, String)>[];
+      await tester.pumpWidget(_host(AnRunMatrix(
+        rows: _rows,
+        cols: _cols,
+        cellStatus: (_, _) => const MatrixCellState(status: 'completed'),
+        onCell: (f, n) => picked.add((f, n)),
+      )));
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      // Cursor starts at the first cell: row «fetch» × column «fr_2» (newest run is the LEFT column).
+      expect(FocusManager.instance.primaryFocus?.debugLabel, contains('(fetch, fr_2)'));
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+      expect(FocusManager.instance.primaryFocus?.debugLabel, contains('(fetch, fr_1)'),
+          reason: '→ 视觉右移一列');
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(FocusManager.instance.primaryFocus?.debugLabel, contains('(analyze, fr_1)'),
+          reason: '↓ 下移一行');
+      expect(picked, isEmpty, reason: '移动光标**绝不**等于选中——ARIA 把两条轴分开自有道理');
+      // Enter is free: the default shortcut tables map it to ActivateIntent and every cell answers it.
+      // Enter 白送:默认表把它绑到 ActivateIntent,每个格都应答。
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(picked, [('fr_1', 'analyze')], reason: 'Enter 激活光标格,报出 (run, node)');
+    });
+
+    testWidgets('the grid NEVER traps: an arrow off the edge hands focus back to the framework',
+        (tester) async {
+      await tester.pumpWidget(_host(Column(children: [
+        AnRunMatrix(
+          rows: _rows,
+          cols: _cols,
+          cellStatus: (_, _) => const MatrixCellState(status: 'completed'),
+          onCell: (_, _) {},
+        ),
+        const _After(),
+      ])));
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      // Walk to the bottom row, then keep pressing ↓ — the edge must be an EXIT, not a wall.
+      // 走到最后一行再继续按 ↓——边界必须是**出口**,不是墙。
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(FocusManager.instance.primaryFocus?.debugLabel, contains('(analyze, fr_2)'));
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(FocusManager.instance.primaryFocus?.debugLabel, 'after',
+          reason: '出边 → super.invoke → 默认遍历把用户送出格阵(MenuAnchor 同款);绝不困住');
+    });
+
+    testWidgets('the cursor is addressed by ID: a new run prepending a column cannot slide it',
+        (tester) async {
+      Widget grid(List<RunColumn> cols) => _host(AnRunMatrix(
+            rows: _rows,
+            cols: cols,
+            cellStatus: (_, _) => const MatrixCellState(status: 'completed'),
+            onCell: (_, _) {},
+          ));
+      await tester.pumpWidget(grid(_cols));
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+      expect(FocusManager.instance.primaryFocus?.debugLabel, contains('(fetch, fr_1)'));
+      // A newer run arrives on the LEFT — index (0,1) now names a different run entirely.
+      // 新 run 从**左**边到达——下标 (0,1) 现在指的完全是另一次 run 了。
+      await tester.pumpWidget(grid(const [
+        RunColumn(id: 'fr_3', status: 'running'),
+        ..._cols,
+      ]));
+      await tester.pump();
+      expect(FocusManager.instance.primaryFocus?.debugLabel, contains('(fetch, fr_1)'),
+          reason: '光标钉在**那一次 run** 上,不是钉在第几列——刷新绝不能把它悄悄挪到别的 run 上');
+    });
+
+    testWidgets('arrows are VISUAL: under RTL a Row mirrors, so → walks the other way', (tester) async {
+      await tester.pumpWidget(_host(Directionality(
+        textDirection: TextDirection.rtl,
+        child: AnRunMatrix(
+          rows: _rows,
+          cols: _cols,
+          cellStatus: (_, _) => const MatrixCellState(status: 'completed'),
+          onCell: (_, _) {},
+        ),
+      )));
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(FocusManager.instance.primaryFocus?.debugLabel, contains('(fetch, fr_2)'));
+      // APG: «Right Arrow moves focus one cell to the right» — RIGHT is a place on screen, not an
+      // index. Under RTL the Row lays fr_2 rightmost, so → must walk toward the LOWER index, and the
+      // ordinal reading of the key would send the cursor visually backwards.
+      // APG:右箭头=「向**右**移一格」——右是屏幕上的位置,不是下标。RTL 下 Row 把 fr_2 排在最右,故 → 必须
+      // 朝**更小**的下标走;把键当序数读会让光标视觉上倒着走。
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pump();
+      expect(FocusManager.instance.primaryFocus?.debugLabel, contains('(fetch, fr_1)'),
+          reason: 'RTL 下 ← 才是走向下一列(fr_1 在 fr_2 的视觉左侧)');
+    });
+
+    testWidgets('an inert grid (no handlers) is a picture — zero stops, no ghost cursor',
+        (tester) async {
+      await tester.pumpWidget(_host(AnRunMatrix(
+        rows: _rows,
+        cols: _cols,
+        cellStatus: (_, _) => const MatrixCellState(status: 'completed'),
+      )));
+      expect(gridStops(), 0, reason: '调用方没给 handler=这是画;画不是键盘停靠');
+    });
+  });
+
+  group('a11y announcement: macOS only, and that is not a preference', () {
+    List<String> hook(WidgetTester tester) {
+      final said = <String>[];
+      tester.binding.defaultBinaryMessenger.setMockDecodedMessageHandler<dynamic>(
+          SystemChannels.accessibility, (msg) async {
+        final m = (msg as Map<Object?, Object?>?) ?? const {};
+        if (m['type'] == 'announce') {
+          said.add((m['data']! as Map<Object?, Object?>)['message']! as String);
+        }
+        return null;
+      });
+      addTearDown(() => tester.binding.defaultBinaryMessenger
+          .setMockDecodedMessageHandler<dynamic>(SystemChannels.accessibility, null));
+      return said;
+    }
+
+    Widget grid() => _host(AnRunMatrix(
+          rows: _rows,
+          cols: _cols,
+          cellStatus: (_, _) => const MatrixCellState(status: 'completed'),
+          onCell: (_, _) {},
+          cellSemanticLabel: (col, row, cell) => '${row.nodeId} ${col.id}',
+          coordinateLabel: (r, rc, c, cc) => '第 ${r + 1} 行，第 ${c + 1} 列',
+        ));
+
+    testWidgets('macOS: the cursor announces itself — its engine bridge drops FOCUS_CHANGED',
+        (tester) async {
+      final said = hook(tester);
+      await tester.pumpWidget(grid());
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+      // On macOS a focused node is SILENT (the mac bridge files FOCUS_CHANGED under «not meaningful
+      // on Mac»), so without this the cursor would move with nothing spoken at all. liveRegion is not
+      // the alternative — it is a no-op on all three desktops (flutter#167318).
+      // macOS 上被聚焦的节点是**哑的**(mac bridge 把 FOCUS_CHANGED 归进「在 Mac 上没意义」),没有这一发,
+      // 光标移动将**全程无声**。liveRegion 不是替代——它在三个桌面上都是 no-op(flutter#167318)。
+      expect(said, ['fetch fr_1 第 1 行，第 2 列'],
+          reason: 'macOS 必须主动播报,否则光标移动无声');
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+    testWidgets('windows/linux: NOT announced — the focus notification already read it once',
+        (tester) async {
+      final said = hook(tester);
+      await tester.pumpWidget(grid());
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+      expect(said, isEmpty,
+          reason: 'Windows/Linux 会发焦点通知、读屏已念过一遍;再播报=念两遍(flutter#153020)');
+    }, variant: TargetPlatformVariant({TargetPlatform.windows, TargetPlatform.linux}));
+  });
+
+  testWidgets('stress: the full 20-column cap × 24 rows lays out without overflow', (tester) async {
+    await tester.pumpWidget(_host(
+      AnRunMatrix(
+        rows: [for (var i = 0; i < 24; i++) MatrixRowHead(nodeId: 'node_$i', kind: 'action')],
+        cols: [
+          for (var i = 20; i > 0; i--)
+            RunColumn(id: 'fr_$i', status: 'completed', elapsedMs: 1000 * i),
+        ],
+        cellStatus: (_, _) => const MatrixCellState(status: 'completed'),
+      ),
+      // The full-bleed pane's real width (判决③ bought the 720 exemption precisely so 20 columns fit
+      // without horizontal scroll). 全宽格的真实宽度(判决③ 买下 720 豁免正是为了 20 列免横滚)。
+      width: 1100,
+    ));
+    expect(tester.takeException(), isNull, reason: '20 列 × 24 行=格阵上限,必须不溢出');
+  });
+}

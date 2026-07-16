@@ -65,11 +65,17 @@ enum AnStatus {
     'timeout': AnStatus.err, // exec/call Log-table failure terminal (CHECK lists it beside failed/cancelled)
     'future': AnStatus.idle,
     // Trigger firing bypass dispositions — NEUTRAL non-executions, never red (a skipped debounce or a
-    // superseded fire is bookkeeping, not an error; WRK-069 状态学「未执行」桶). firing 旁路处置=中性
-    // 未执行,绝不染红(WRK-069 六桶之「未执行」)。
+    // superseded fire is bookkeeping, not an error; WRK-069 状态学「未执行」桶). `missed` (工单⑨) is the
+    // misfire ledger: a cron tick that came due while the app slept, booked on wake WITHOUT a catch-up
+    // run — the machine oversleeping is a desktop app's first reality, not a failure. Declared here
+    // rather than left to the unknown→idle fallback: idle is the DECISION for these four, and a
+    // decision must be readable in the table (the fallback is for words we've never met).
+    // firing 旁路处置=中性未执行,绝不染红(六桶之「未执行」);missed=睡过头的 cron 刻度醒来记账、不补跑。
+    // 四词显式入表而非靠 unknown→idle 兜底:idle 是对它们的**裁决**,裁决须在表里读得出(兜底只给没见过的词)。
     'skipped': AnStatus.idle,
     'superseded': AnStatus.idle,
     'shed': AnStatus.idle,
+    'missed': AnStatus.idle,
   };
 }
 

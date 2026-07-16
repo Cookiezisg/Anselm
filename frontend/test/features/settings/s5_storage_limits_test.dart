@@ -1,3 +1,4 @@
+import 'package:anselm/core/contract/retention.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/settings/settings_prefs.dart';
 import 'package:anselm/core/ui/ui.dart';
@@ -90,5 +91,54 @@ void main() {
     await tester.pumpAndSettle();
     expect((repo.fixtureLimits['agent'] as Map)['maxSteps'], 30, reason: '全量回默认');
     expect(find.text('30'), findsOneWidget);
+  });
+
+  // ── Run 历史保留 (scheduler 判决④/工单⑬) ──
+  testWidgets('retention: hydrates from the WIRE (never a hardcoded default) and commits on pick',
+      (tester) async {
+    final repo = FixtureSettingsRepository()
+      ..fixtureDataDir = '/Users/x/.anselm'
+      // A value that is NOT the backend default — a panel that hardcoded 90 would still show 90 and
+      // this test would catch it. 一个**不是**后端默认的值——硬编 90 的面板会照样显示 90,本测试抓的就是它。
+      ..fixtureRetention = const RetentionConfig(runRetentionDays: 30);
+    await tester.pumpWidget(_host(repo, const StoragePanel()));
+    await tester.pumpAndSettle();
+    final t = Translations.of(tester.element(find.byType(StoragePanel)));
+
+    expect(find.text(t.settings.storage.retention30), findsOneWidget,
+        reason: '面板水化自线缆,绝不硬编默认(后端恒返具体值)');
+
+    await tester.tap(find.byType(AnDropdown<int>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(t.settings.storage.retention180).last);
+    await tester.pumpAndSettle();
+    expect(repo.fixtureRetention.runRetentionDays, 180, reason: '选中即提交,无 Save 钮');
+    expect(find.text(t.settings.storage.retentionSaved), findsOneWidget);
+  });
+
+  testWidgets('retention: «forever» commits 0 — the sweeper must be switchable OFF', (tester) async {
+    final repo = FixtureSettingsRepository()..fixtureDataDir = '/tmp/x';
+    await tester.pumpWidget(_host(repo, const StoragePanel()));
+    await tester.pumpAndSettle();
+    final t = Translations.of(tester.element(find.byType(StoragePanel)));
+
+    await tester.tap(find.byType(AnDropdown<int>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(t.settings.storage.retentionForever).last);
+    await tester.pumpAndSettle();
+    expect(repo.fixtureRetention.runRetentionDays, 0, reason: '0=永久:清理绝不跑');
+  });
+
+  testWidgets('retention: the row wears the MACHINE scope badge (settings.json, no workspace axis)',
+      (tester) async {
+    final repo = FixtureSettingsRepository()..fixtureDataDir = '/tmp/x';
+    await tester.pumpWidget(_host(repo, const StoragePanel()));
+    await tester.pumpAndSettle();
+    // Section-level, because storage is a MIXED-scope panel (data dir = machine, reset prefs =
+    // device) — S-16: a page-head badge on a mixed page necessarily lies.
+    // 节级:存储是**混域**面板(数据目录=全机、重置本地偏好=本机)——S-16:混域页的页头徽必撒谎。
+    expect(
+        find.byWidgetPredicate((w) => w is AnScopeBadge && w.scope == AnSettingScope.machine),
+        findsOneWidget);
   });
 }

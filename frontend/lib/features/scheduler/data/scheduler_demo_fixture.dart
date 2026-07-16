@@ -1,10 +1,14 @@
 import '../../../core/contract/api_error.dart';
 import '../../../core/contract/entities/relation.dart';
+import '../../../core/contract/entities/scheduler_matrix.dart';
 import '../../../core/contract/entities/scheduler_stats.dart';
 import '../../../core/contract/entities/trigger.dart';
+import '../../../core/contract/entities/trigger_schedule.dart';
 import '../../../core/contract/entities/values.dart';
 import '../../../core/contract/entities/workflow.dart';
 import '../../../core/contract/page.dart';
+import '../../../core/contract/retention.dart';
+import '../scheduler_windows.dart';
 import 'scheduler_repository.dart';
 
 // The Scheduler demo battery (WRK-069 §15) — PURE DATA seeds covering every rail/overview/home state
@@ -111,7 +115,9 @@ class FixtureSchedulerRepository implements SchedulerRepository {
       _allRuns().where((r) => r.workflowId == wfId && _statusOf(r) == 'running').length;
 
   @override
-  Future<SchedulerStats> stats(List<String> workflowIds, {int recentN = 10, String since = '168h'}) async {
+  Future<SchedulerStats> stats(List<String> workflowIds,
+      {int recentN = SchedulerWindows.beadRecentN,
+      String since = SchedulerWindows.statsSince}) async {
     final all = <WorkflowRunStats>[
       // Running now (blue dot). Recent beads mirror the seeded 25+-run history. 在跑;珠串映史。
       WorkflowRunStats(
@@ -883,6 +889,123 @@ class FixtureSchedulerRepository implements SchedulerRepository {
     }
     return t;
   }
+
+  // ── S5: 未来调度 / 矩阵 / 保留线 ──
+
+  /// The forward schedule (工单⑧). Seeded to walk the WHOLE track grammar: a dense `*/5`-flavoured
+  /// lane that MUST bucket-fold (else it is sub-pixel confetti), a sparse daily lane, and — the point
+  /// of 判决① — the paused trigger contributing NOTHING, exactly as the real endpoint behaves (only
+  /// listening, unpaused crons emit ticks). The demo therefore proves the paused lane survives on
+  /// LANE data alone, which is the only way the real app can prove it too.
+  /// 前瞻调度(⑧)。种子走**整套轨道文法**:一条密集泳道(必须 bucket 折叠,否则是亚像素纸屑)、一条稀疏
+  /// 日更泳道,以及——判决① 的要害——**暂停的 trigger 一个刻度都不贡献**,与真端点行为逐字一致(只有监听中
+  /// 且未暂停的 cron 发刻度)。故 demo 证明的是「暂停泳道仅靠**泳道**数据存活」,而这正是真 app 唯一能证
+  /// 明它的方式。
+  @override
+  Future<TriggerSchedule> triggerSchedule(
+      {String within = SchedulerWindows.trackWithin, int limit = 200}) async {
+    final points = <SchedulePoint>[
+      // 每日 09:00 — one tick in the next 24h. 日更:窗内一刻。
+      SchedulePoint(
+        at: _shift(_anchor.add(const Duration(minutes: 3))),
+        triggerId: 'tr_cron_clean',
+        triggerName: '每日 09:00',
+        workflowIds: const ['wf_clean'],
+      ),
+      SchedulePoint(
+        at: _shift(_anchor.add(const Duration(hours: 24))),
+        triggerId: 'tr_cron_clean',
+        triggerName: '每日 09:00',
+        workflowIds: const ['wf_clean'],
+      ),
+      // A dense sampler — 96 ticks across the window force the bucket fold on screen. 密集:96 刻,
+      // 逼出 bucket 折叠。
+      for (var i = 1; i <= 96; i++)
+        SchedulePoint(
+          at: _shift(_anchor.add(Duration(minutes: i * 15))),
+          triggerId: 'tr_cron_report',
+          triggerName: '每周一 08:00',
+          workflowIds: const ['wf_report'],
+        ),
+    ]..sort((a, b) => a.at.compareTo(b.at));
+    // Honest overflow: the seed really does hold more than a small cap would show. 诚实溢出。
+    final capped = points.length > limit;
+    return TriggerSchedule(
+      points: capped ? points.sublist(0, limit) : points,
+      truncated: capped,
+    );
+  }
+
+  /// The node×run grid (工单⑩). Seeded so the face earns its keep: `analyze` fails in a STREAK (the
+  /// horizontal red band a gantt/graph structurally cannot show), a loop cell carries ×3, a parked
+  /// cell waits, and the newest run is still going (no elapsed → no column bar) with its later nodes
+  /// simply ABSENT (sparse 「未及」, not a status).
+  /// 节点×run 格阵(⑩)。种子让这张脸值回票价:analyze **连续**失败(甘特/图结构上给不出的那道横向红条)、
+  /// 一格 ×3 循环、一格 parked、最新一次 run 仍在跑(无 elapsed→列无条)且它后面的节点**直接缺席**
+  /// (稀疏「未及」,不是一种状态)。
+  @override
+  Future<FlowrunMatrix> runMatrix(String workflowId,
+      {int recentN = SchedulerWindows.matrixRecentN}) async {
+    final runs = _allRuns().where((r) => r.workflowId == workflowId).toList()
+      ..sort((a, b) {
+        final sa = a.startedAt, sb = b.startedAt;
+        if (sa == null || sb == null) return sa == sb ? 0 : (sa == null ? 1 : -1);
+        return sb.compareTo(sa);
+      });
+    final cols = <MatrixCol>[];
+    for (final r in runs.take(recentN)) {
+      final started = r.startedAt;
+      if (started == null) continue;
+      final status = _statusOf(r);
+      final done = r.completedAt;
+      cols.add(MatrixCol(
+        flowrunId: r.id,
+        startedAt: started,
+        status: status,
+        // Still running → the key is ABSENT (never a 0 that reads as «instant»). 在跑=键缺席。
+        elapsedMs: status == 'running' || done == null
+            ? null
+            : done.difference(started).inMilliseconds,
+      ));
+    }
+    // Rows = first-appearance order across the columns (newest→oldest), the endpoint's own law.
+    // 行=跨列(新→旧)的首次出现序,端点自身之律。
+    final rows = <MatrixRow>[];
+    final cells = <MatrixCell>[];
+    final seen = <String>{};
+    for (final col in cols) {
+      final run = runs.firstWhere((r) => r.id == col.flowrunId);
+      for (final n in _nodesFor(run)) {
+        if (seen.add(n.nodeId)) rows.add(MatrixRow(nodeId: n.nodeId, kind: n.kind));
+        // One cell per (run, node): fold the iterations, WORST disposition wins. 每 (run,节点) 一格:
+        // 折叠迭代,取最坏处置。
+        final prior = cells.indexWhere((c) => c.flowrunId == col.flowrunId && c.nodeId == n.nodeId);
+        final rank = {'failed': 3, 'parked': 2, 'completed': 1};
+        if (prior < 0) {
+          cells.add(MatrixCell(
+              flowrunId: col.flowrunId, nodeId: n.nodeId, status: n.status, iteration: n.iteration));
+        } else {
+          final was = cells[prior];
+          final worse = (rank[n.status] ?? 0) >= (rank[was.status] ?? 0);
+          cells[prior] = MatrixCell(
+            flowrunId: col.flowrunId,
+            nodeId: n.nodeId,
+            status: worse ? n.status : was.status,
+            iteration: worse ? n.iteration : was.iteration,
+            iterations: was.iterations + 1,
+          );
+        }
+      }
+    }
+    return FlowrunMatrix(cols: cols, rows: rows, cells: cells);
+  }
+
+  /// The retention line (工单⑬) — seeded at the backend's own default so the storage panel and the run
+  /// table's tombstone agree out of the box. 保留线(⑬):种在后端自持的默认上,故存储面板与大表墓碑开箱一致。
+  RetentionConfig fixtureRetention = const RetentionConfig(runRetentionDays: 90);
+
+  @override
+  Future<RetentionConfig> retention() async => fixtureRetention;
 
   @override
   Future<List<EntityRelation>> workflowTriggerEdges() async => const [

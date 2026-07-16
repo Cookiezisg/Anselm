@@ -232,3 +232,9 @@ mise.local.toml
 # data-dir resolves under cwd). Contains the lazily-downloaded runtimes
 # (python/node/uv/dotnet) — large (~100MB+), regenerable, never commit.
 backend/sandbox/
+
+# ============================================================
+# 泄漏战役量测实验室（.leak-lab）
+# ============================================================
+# 量尺脚本 + 快照产物（机器指纹/进程表/diff）。纯本机量测数据，不入库。
+.leak-lab/

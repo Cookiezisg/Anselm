@@ -39,6 +39,8 @@ import 'settings_specimens.dart';
 import 'sidestage_specimens.dart';
 import 'an_batch_bar_specimens.dart';
 import 'an_countdown_specimens.dart';
+import 'an_run_matrix_specimens.dart';
+import 'an_schedule_track_specimens.dart';
 import 'specimen.dart';
 import 'user_turn_specimens.dart';
 import '../../features/chat/ui/chat_context_mark.dart';
@@ -79,6 +81,8 @@ final GalleryCategory _notifications = GalleryCategory('通知 Notifications', A
 // 实体可视化——逐实体专属可视化。当前 workflow(编排图画布 / 节点甘特 / 运行看板);function & handler 走
 // 朴素 KV 文档概览(无专属 hero)。
 final GalleryCategory _entityViz = GalleryCategory('实体可视化 Entity Viz', AnIcons.entities, [
+  anScheduleTrackGalleryItem,
+  anRunMatrixGalleryItem,
   GalleryItem('AnGraphCanvas 编排图画布', 'workflow hero:节点卡 + 正交圆角边 + 回边虚线弧 + 平移缩放 fit;framed=实体页预览框', [
     GallerySpecimen('线性 (trigger→action→agent)', (_) => AnGraphCanvas(graph: _gLinear, framed: true), span: true),
     GallerySpecimen('分支+端口+回边 (pr_merge_flow)', (_) => AnGraphCanvas(graph: _gBranch, framed: true), span: true),

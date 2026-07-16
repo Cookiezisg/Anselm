@@ -5,6 +5,8 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../../../../core/contract/api_error.dart';
+import '../../../../core/contract/retention.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/model/byte_format.dart';
 import '../../../../core/platform/app_relaunch.dart';
@@ -87,6 +89,18 @@ class StoragePanel extends ConsumerWidget {
         ],
       ),
       const SizedBox(height: AnSpace.s24),
+      // ── Run 历史保留 (scheduler 判决④/工单⑬) ──
+      // A SECTION-level scope badge, not a page-level one: this panel is MIXED-scope (the data dir is
+      // machine-wide, «reset local preferences» is device-local), and S-16 states a page-head badge on
+      // a mixed page necessarily lies. 节级域徽而非页级:本面板是**混域**页(数据目录=全机、重置本地偏好=
+      // 本机),S-16 明写混域页的页头徽必撒谎。
+      AnSection(
+        label: t.settings.storage.retention,
+        variant: AnSectionVariant.quiet,
+        actions: const [AnScopeBadge(AnSettingScope.machine)],
+        children: [_RetentionRow()],
+      ),
+      const SizedBox(height: AnSpace.s24),
       AnSettingRow(
         label: t.settings.storage.resetPrefs,
         desc: t.settings.storage.resetPrefsDesc,
@@ -138,6 +152,76 @@ class StoragePanel extends ConsumerWidget {
   }
 }
 
+/// «Run history retention» (scheduler 判决④/工单⑬) — the machine-level line after which settled runs
+/// are physically cleared. Four affordances: 30d / 90d / 180d / forever (`0`).
+///
+/// Two rules this row exists to honour:
+///   • **Never hardcode the default.** The wire always answers a concrete number (a fresh install
+///     reads back the server-held default), so until it resolves this renders a DISABLED dropdown with
+///     no value — never a speculative «90» that a slow read would turn into a lie the user then saves.
+///     That is also why there is no `modified`/`onReset` affordance: «is this modified?» needs a
+///     client-side default to compare against, and there is no `/retention/schema` to ask.
+///   • **Commit on pick, and write back what the server merged.** PATCH is a partial merge returning
+///     the merged whole; re-reading through the provider keeps the storage panel and the scheduler's
+///     tombstone on one truth.
+///
+/// 「Run 历史保留」(判决④/⑬):机器级保留线,越线的终态 run 被物理清理。四档 30/90/180/永久(0)。两条规则:
+/// ①**永不硬编默认**——线缆恒返具体值(全新安装读回服务端自持的默认),故在读回之前渲**禁用且无值**的下拉,
+/// 绝不渲一个会被慢读变成谎、又被用户顺手存下的臆测「90」;这也是本行**没有** modified/onReset 的原因:
+/// 「是否已修改」需要一个客户端默认来比对,而 `/retention/schema` 并不存在,无处可问。
+/// ②**选中即提交、并拿服务端合并后的值回写**——PATCH 是部分合并返全量;经 provider 重读使存储面板与
+/// scheduler 大表墓碑同一份真相。
+class _RetentionRow extends ConsumerStatefulWidget {
+  @override
+  ConsumerState<_RetentionRow> createState() => _RetentionRowState();
+}
+
+class _RetentionRowState extends ConsumerState<_RetentionRow> {
+  bool _saving = false;
+
+  Future<void> _set(int days) async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    final t = Translations.of(context);
+    try {
+      await ref.read(settingsRepositoryProvider).patchRetention(days);
+      ref.invalidate(retentionConfigProvider);
+      ref.read(overlayProvider.notifier).showToast(t.settings.storage.retentionSaved, tone: AnTone.ok);
+    } on ApiException catch (e) {
+      ref.read(overlayProvider.notifier).showToast(e.message, tone: AnTone.danger);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Translations.of(context);
+    final cfg = ref.watch(retentionConfigProvider).value;
+    return AnSettingRow(
+      label: t.settings.storage.retention,
+      desc: t.settings.storage.retentionDesc,
+      child: SizedBox(
+        width: AnSize.ctlSlot,
+        child: AnDropdown<int>(
+          options: [
+            AnDropdownOption(value: 30, label: t.settings.storage.retention30),
+            AnDropdownOption(value: 90, label: t.settings.storage.retention90),
+            AnDropdownOption(value: 180, label: t.settings.storage.retention180),
+            // 0 = keep forever — the sweeper never runs. 0=永久:清理绝不跑。
+            AnDropdownOption(value: 0, label: t.settings.storage.retentionForever),
+          ],
+          // null until the wire answers — the dropdown shows its placeholder rather than a guess.
+          // 读回之前为 null——下拉显示占位符,而不是一个猜测。
+          value: cfg?.runRetentionDays,
+          enabled: cfg != null && !_saving,
+          onChanged: _set,
+        ),
+      ),
+    );
+  }
+}
+
 class _FactoryZone extends ConsumerStatefulWidget {
   const _FactoryZone({required this.dataDir});
 
@@ -180,3 +264,7 @@ final dataDirProvider =
 /// Machine-wide sandbox usage — refetched each panel open. 全机沙箱占用;每次打开重取。
 final sandboxDiskProvider = FutureProvider.autoDispose<int>(
     (ref) => ref.watch(settingsRepositoryProvider).sandboxDiskUsage());
+
+/// The machine-level run-history retention line (scheduler 工单⑬). 机器级 run 保留线(⑬)。
+final retentionConfigProvider =
+    FutureProvider<RetentionConfig>((ref) => ref.watch(settingsRepositoryProvider).getRetention());
