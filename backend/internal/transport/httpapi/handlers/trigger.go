@@ -46,6 +46,7 @@ func (h *TriggerHandler) Register(mux Registrar) {
 	mux.HandleFunc("DELETE /api/v1/triggers/{id}", h.Delete)
 	mux.HandleFunc("POST /api/v1/triggers/{idAction}", h.postOnTrigger)
 	mux.HandleFunc("GET /api/v1/triggers/{id}/activations", h.ListActivations)
+	mux.HandleFunc("GET /api/v1/firings", h.ListFirings)
 	mux.HandleFunc("GET /api/v1/triggers/{id}/firings", h.ListFirings)
 	mux.HandleFunc("GET /api/v1/trigger-activations/{id}", h.GetActivation) // Log 单读路径变量统一 {id}(MD-id4)
 	mux.HandleFunc("GET /api/v1/trigger-schedule", h.Schedule)
@@ -230,17 +231,75 @@ func (h *TriggerHandler) ListActivations(w http.ResponseWriter, r *http.Request)
 // the disposition surface behind "it fired, why didn't it run".
 //
 // ListFirings 分页 trigger 的 firing 收件箱（?status=…）——「触发了为什么没跑」的处置面。
+// ListFirings pages the firing inbox — "it fired, did the workflow run, and if not why not"
+// (started / skipped / superseded / shed / missed). ONE handler serving TWO URLs:
+//
+//   - GET /firings — WORKSPACE-LEVEL with an optional ?triggerId, mirroring GET /flowruns?workflowId
+//     verbatim. This one exists because a firing is a (trigger × workflow × activation) row, so
+//     "every firing in the last 24h" is a first-class question — it is what the Overview's schedule
+//     track asks, and no amount of paging one trigger at a time answers it without draining every
+//     trigger's whole ledger (scheduler 工单⑭).
+//   - GET /triggers/{id}/firings — the same query with the trigger taken from the path: one
+//     trigger's observability tab. An activation IS one trigger's log and is nested for the same
+//     reason.
+//
+// The two are ONE code path on purpose — the path id simply seeds the filter the query param
+// otherwise fills. A second handler would be a second grammar with a countdown on it.
+//
+// Filters compose with AND (工单⑭): ?triggerId (equality; ignored on the nested URL, which already
+// has one) · ?status (closed set, an out-of-enum value 422s with the allowed set rather than serving
+// a silent empty page) · ?createdAfter / ?createdBefore (RFC3339, half-open [after, before) on
+// created_at — the flowruns window grammar verbatim). N4 paged: firings are an unbounded log (a
+// per-minute cron writes 1,440 a day, forever), so this is cursor+limit — NOT a bounded-projection
+// exemption.
+//
+// ListFirings 分页 firing 收件箱——「它 fire 了，workflow 跑没跑、为什么没跑」（started/skipped/
+// superseded/shed/missed）。**一个** handler 服务**两个** URL：
+//
+//   - GET /firings——**workspace 级** + 可选 ?triggerId，**逐字**照 GET /flowruns?workflowId。它之所以
+//     存在：firing 是 (trigger × workflow × activation) 行，故「近 24h 的所有 firing」是一等问题——
+//     Overview 的调度轨道问的就是它，而「一个 trigger 一个 trigger 地翻」无论翻多少次都答不了它，除非把
+//     每个 trigger 的整本账都拖干（scheduler 工单⑭）。
+//   - GET /triggers/{id}/firings——同一个查询、trigger 取自路径：某一个 trigger 的观测 tab。activation
+//     **就是**某一 trigger 的日志，出于同样理由嵌套。
+//
+// 两者**刻意**是同一条代码路径——路径上的 id 只是替查询参数把 filter 填上。第二个 handler 就是第二套
+// 文法、且装着倒计时。
+//
+// 过滤 AND 组合（工单⑭）：?triggerId（等值；嵌套 URL 上忽略——它已经有一个了）· ?status（封闭集，枚举外
+// 值 422 带 allowed、而非端一个静默空页）· ?createdAfter/?createdBefore（RFC3339，created_at 上的半开窗
+// [after, before)——**逐字**是 flowruns 的窗口文法）。N4 分页：firing 是**无界**日志（每分钟的 cron 一天
+// 写 1,440 条、永远写下去），故是 cursor+limit——**不是**有界投影豁免那一类。
 func (h *TriggerHandler) ListFirings(w http.ResponseWriter, r *http.Request) {
 	p, err := responsehttpapi.ParsePage(r)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
+	query := r.URL.Query()
+	createdAfter, err := parseListTime(query.Get("createdAfter"), "createdAfter", triggerdomain.ErrInvalidFiringFilter)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	createdBefore, err := parseListTime(query.Get("createdBefore"), "createdBefore", triggerdomain.ErrInvalidFiringFilter)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	// The nested URL's path id wins; the flat URL has no {id} wildcard, so PathValue is "" there and
+	// the query param fills in. 嵌套 URL 的路径 id 优先；扁平 URL 无 {id} 通配、PathValue 为空，由查询参数补。
+	triggerID := r.PathValue("id")
+	if triggerID == "" {
+		triggerID = query.Get("triggerId")
+	}
 	rows, next, err := h.svc.SearchFirings(r.Context(), triggerdomain.FiringFilter{
-		TriggerID: r.PathValue("id"),
-		Status:    r.URL.Query().Get("status"),
-		Cursor:    p.Cursor,
-		Limit:     p.Limit,
+		TriggerID:     triggerID,
+		Status:        query.Get("status"),
+		CreatedAfter:  createdAfter,
+		CreatedBefore: createdBefore,
+		Cursor:        p.Cursor,
+		Limit:         p.Limit,
 	})
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)

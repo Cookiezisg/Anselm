@@ -61,12 +61,12 @@ func (h *FlowrunHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	query := r.URL.Query()
-	startedAfter, err := parseListTime(query.Get("startedAfter"), "startedAfter")
+	startedAfter, err := parseListTime(query.Get("startedAfter"), "startedAfter", flowrundomain.ErrInvalidListFilter)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	startedBefore, err := parseListTime(query.Get("startedBefore"), "startedBefore")
+	startedBefore, err := parseListTime(query.Get("startedBefore"), "startedBefore", flowrundomain.ErrInvalidListFilter)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
@@ -88,23 +88,34 @@ func (h *FlowrunHandler) List(w http.ResponseWriter, r *http.Request) {
 	responsehttpapi.Paged(w, runs, next, next != "")
 }
 
-// parseListTime parses one ?startedAfter / ?startedBefore bound: absent → zero time (unbounded),
-// RFC3339 → normalized to UTC (stored timestamps are UTC — a mixed-zone bound would compare wrong
-// as driver-serialized text). Anything else is a loud 422 with the offending param + value in
-// Details (scheduler 工单⑥). Deliberately NOT the parseSince grammar: a window bound is an absolute
+// parseListTime parses one half-open window bound (?startedAfter / ?startedBefore on flowruns,
+// ?createdAfter / ?createdBefore on firings): absent → zero time (unbounded), RFC3339 → normalized
+// to UTC (stored timestamps are UTC — a mixed-zone bound would compare wrong as driver-serialized
+// text). Anything else is a loud 422 with the offending param + value in Details (scheduler 工单⑥,
+// reused verbatim by 工单⑭). Deliberately NOT the parseSince grammar: a window bound is an absolute
 // instant, not a look-back duration.
 //
-// parseListTime 解析一个 ?startedAfter / ?startedBefore 界：缺席 → 零值时间（不设界），RFC3339 →
-// 归一到 UTC（存储时间戳是 UTC——混时区界经 driver 文本序列化会比错）。其余一律 422 大声拒、Details
-// 带出错参数 + 原值（scheduler 工单⑥）。刻意不用 parseSince 文法：窗口界是绝对时刻、非回看时长。
-func parseListTime(raw, param string) (time.Time, error) {
+// The caller passes its own domain's sentinel because the code must name the resource the client is
+// actually listing — answering a bad ?createdAfter on /firings with FLOWRUN_LIST_INVALID_FILTER
+// would be a lie. The PARSING is one implementation on purpose: two resources with two spellings of
+// "an RFC3339 window bound" is how the two spellings start to drift.
+//
+// parseListTime 解析一个半开窗的界（flowruns 上的 ?startedAfter/?startedBefore、firings 上的
+// ?createdAfter/?createdBefore）：缺席 → 零值时间（不设界），RFC3339 → 归一到 UTC（存储时间戳是
+// UTC——混时区界经 driver 文本序列化会比错）。其余一律 422 大声拒、Details 带出错参数 + 原值
+// （scheduler 工单⑥，工单⑭ 逐字复用）。刻意不用 parseSince 文法：窗口界是绝对时刻、非回看时长。
+//
+// 调用方传自己域的 sentinel——码必须点名客户端**实际在列**的那个资源，拿
+// FLOWRUN_LIST_INVALID_FILTER 去答 /firings 上一个坏的 ?createdAfter 就是撒谎。而**解析**刻意只有
+// 一份实现：两个资源各写一套「RFC3339 窗口界」，正是两套写法开始漂移的方式。
+func parseListTime(raw, param string, invalid *errorspkg.Error) (time.Time, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return time.Time{}, nil
 	}
 	ts, err := time.Parse(time.RFC3339, raw)
 	if err != nil {
-		return time.Time{}, flowrundomain.ErrInvalidListFilter.WithDetails(map[string]any{"param": param, "got": raw, "want": "RFC3339"})
+		return time.Time{}, invalid.WithDetails(map[string]any{"param": param, "got": raw, "want": "RFC3339"})
 	}
 	return ts.UTC(), nil
 }

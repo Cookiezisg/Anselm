@@ -563,6 +563,7 @@ audience: [human, ai]
 | code | HTTP | message |
 |---|---|---|
 | `TRIGGER_ACTIVATION_NOT_FOUND` | 404 | activation not found |
+| `TRIGGER_FIRING_INVALID_FILTER` | 422 | invalid firing list filter value（工单⑭：`GET /firings` 的 `?createdAfter`/`?createdBefore` 非 RFC3339；`details.param`/`got`——与 `FLOWRUN_LIST_INVALID_FILTER` 同构但**刻意分码**：码必须点名调用方实际在列的资源，拿 flowrun 列表的码答 firings 就是撒谎） |
 | `TRIGGER_FIRING_INVALID_STATUS` | 422 | firing status filter must be one of: pending, claimed, started, skipped, superseded, shed, missed |
 | `TRIGGER_FIRING_NOT_PENDING` | 409 | firing already claimed |
 | `TRIGGER_INVALID_CEL` | 422 | invalid CEL expression |

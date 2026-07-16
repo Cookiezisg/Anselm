@@ -1,11 +1,27 @@
-// Operational run statistics (scheduler 工单③) — a PURE READ PROJECTION over the two existing
-// flowrun tables (no new table, no new column). One bounded batch answers the scheduler ocean's
-// rail + Overview in a single round trip: workspace-wide totals plus a per-workflow health row
-// for at most StatsMaxWorkflowIDs requested workflows (the rail feeds its current page of ids).
+// Operational run statistics (scheduler 工单③ + ⑭) — a READ-ONLY projection (no new table, no new
+// column). One bounded batch answers the scheduler ocean's rail + Overview in a single round trip:
+// workspace-wide totals plus a per-workflow health row for at most StatsMaxWorkflowIDs requested
+// workflows (the rail feeds its current page of ids).
 //
-// 运营统计（scheduler 工单③）——flowrun 两张既有表上的**纯读投影**（零新表零新列）。一次有界批查
-// 喂饱 scheduler 海洋的 rail + Overview：全 workspace 聚合 + 至多 StatsMaxWorkflowIDs 个请求
-// workflow 的健康行（rail 逐页喂当页 ids）。
+// This is the Overview's STATISTICS SINGLE SOURCE, not a projection of the flowrun tables alone —
+// every KPI card reads it, and Totals.Missed (工单⑭) is counted off trigger_firings, stitched in by
+// the app service through the scheduler's FiringInbox port (the domain owns the SHAPE; it does not
+// reach a store). That one field is the reason this file no longer claims to be a pure two-table
+// projection: the Overview asks one question — "how is my automation doing in this window" — and a
+// tick that never became a run is part of the answer, so putting it behind a second endpoint would
+// buy domain tidiness with a second `since` for the client to keep in sync and a fifth card that
+// could disagree with the other four.
+//
+// 运营统计（scheduler 工单③ + ⑭）——**只读**投影（零新表零新列）。一次有界批查喂饱 scheduler 海洋的
+// rail + Overview：全 workspace 聚合 + 至多 StatsMaxWorkflowIDs 个请求 workflow 的健康行（rail 逐页
+// 喂当页 ids）。
+//
+// 它是 Overview 的**统计单源**、而非「仅 flowrun 两表的投影」——每张 KPI 牌都读它，而 Totals.Missed
+// （工单⑭）数的是 trigger_firings，由 app 服务经 scheduler 的 FiringInbox 端口缝进来（domain 只拥有
+// **形状**、它并不伸手去够 store）。就是这一个字段让本文件不再自称「纯两表投影」：Overview 问的是**一个**
+// 问题——「我的自动化在这个窗口里过得怎么样」——而一个**从未成为 run** 的刻度正是答案的一部分；把它挪去
+// 第二个端点，买到的是 domain 的整洁，付出的是客户端要自己同步的第二个 `since`、和一张可能与另外四张
+// 互相矛盾的第五张牌。
 package flowrun
 
 import (
@@ -50,16 +66,40 @@ type StatsQuery struct {
 // parked row orphaned on an already-terminal run is not actionable and is excluded). The wire
 // key stays `parkedNodes` per the ticket's fixed shape.
 //
+// Missed (工单⑭) counts `missed` trigger_firings created within the window — cron ticks that came
+// due while the app was asleep and were booked, never re-run (判决⑥). It is the ONE total that is
+// not a flowrun: it counts runs that should exist and don't. Three properties make it honest:
+//   - WINDOWED on the same Since as completedSince/failedSince. An all-time missed count only ever
+//     grows and says nothing about today — a vanity number, and the spec forbids those. Since is
+//     defaulted once in the app service, so the fifth card cannot drift from the other four.
+//   - Windowed on created_at, which for a missed row IS the scheduled tick (AppendMissedFiring
+//     backdates it, 工单⑨) — not the sweep instant. That is what makes "missed in the last 24h"
+//     mean the ticks of those 24h; a night-long outage spreads across the night instead of piling
+//     onto the second the machine woke up.
+//   - Counted with the SAME filter the /firings list takes, so the card and the list its click
+//     opens are the same predicates and cannot disagree.
+//
 // StatsTotals 是全 workspace 聚合——刻意**不限**请求的 WorkflowIDs（Overview KPI 牌数整个
 // workspace）。completedSince/failedSince 按 completed_at 开窗（run **落定**的时刻、非起跑——
 // 跑了很久现在才失败的是新鲜失败）。ParkedRuns 数**等人处理的 run 数**：仍 running 且持 ≥1
 // parked 节点的 run（一个 run park 在多个审批上只计 1；遗留在已终态 run 上的 parked 行不可
 // 决策、不计）。线缆键按工单定形仍叫 `parkedNodes`。
+//
+// Missed（工单⑭）数窗口内创建的 `missed` trigger_firings——app 睡着时到期、被记账且**绝不补跑**的
+// cron 刻度（判决⑥）。它是唯一一个**不是 flowrun** 的 total：它数的是**本该存在却不存在**的 run。
+// 三条性质让它诚实：
+//   - 与 completedSince/failedSince **同一个 Since** 开窗。all-time 的 missed 只会一直涨、对今天什么
+//     都没说——那是虚荣数字，规范明令禁止。Since 在 app 服务里只默认一次，故第五张牌不可能与另外四张漂移。
+//   - 按 created_at 开窗，而 missed 行的 created_at **就是**那个调度刻度（AppendMissedFiring 回拨盖戳，
+//     工单⑨）、不是 sweep 时刻。正是它让「近 24h 错过 N」的意思是**那 24h 的刻度**；整夜停机会摊在整夜里，
+//     而不是全堆在机器醒来的那一秒。
+//   - 用**与 /firings 列表完全相同**的 filter 计数，故这张牌与它点开的那个列表是同一组谓词、不可能互相矛盾。
 type StatsTotals struct {
 	Running        int `json:"running"`
 	CompletedSince int `json:"completedSince"`
 	FailedSince    int `json:"failedSince"`
 	ParkedRuns     int `json:"parkedNodes"`
+	Missed         int `json:"missed"`
 }
 
 // WorkflowStats is one requested workflow's health row. Every requested id gets a row, in request

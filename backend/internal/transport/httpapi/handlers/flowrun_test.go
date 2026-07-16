@@ -6,6 +6,7 @@ import (
 	"time"
 
 	flowrundomain "github.com/sunweilin/anselm/backend/internal/domain/flowrun"
+	triggerdomain "github.com/sunweilin/anselm/backend/internal/domain/trigger"
 	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 )
 
@@ -47,36 +48,53 @@ func TestParseSince(t *testing.T) {
 	}
 }
 
-// TestParseListTime pins the ?startedAfter / ?startedBefore grammar (工单⑥): absent → zero time
-// (unbounded), RFC3339 → UTC-normalized (an offset-carrying bound must compare right against
-// UTC-stored rows), everything else — including parseSince's duration forms, deliberately NOT
-// accepted here — a loud FLOWRUN_LIST_INVALID_FILTER.
+// TestParseListTime pins the window-bound grammar shared by ?startedAfter/?startedBefore (工单⑥)
+// and ?createdAfter/?createdBefore (工单⑭): absent → zero time (unbounded), RFC3339 → UTC-normalized
+// (an offset-carrying bound must compare right against UTC-stored rows), everything else — including
+// parseSince's duration forms, deliberately NOT accepted here — a loud 422.
 func TestParseListTime(t *testing.T) {
 	t.Run("absent → zero time (unbounded)", func(t *testing.T) {
-		got, err := parseListTime("", "startedAfter")
+		got, err := parseListTime("", "startedAfter", flowrundomain.ErrInvalidListFilter)
 		if err != nil || !got.IsZero() {
 			t.Fatalf("got %v err=%v", got, err)
 		}
 	})
 	t.Run("RFC3339 UTC", func(t *testing.T) {
-		got, err := parseListTime("2026-07-01T08:30:00Z", "startedAfter")
+		got, err := parseListTime("2026-07-01T08:30:00Z", "startedAfter", flowrundomain.ErrInvalidListFilter)
 		if err != nil || !got.Equal(time.Date(2026, 7, 1, 8, 30, 0, 0, time.UTC)) {
 			t.Fatalf("got %v err=%v", got, err)
 		}
 	})
 	t.Run("offset normalized to UTC", func(t *testing.T) {
-		got, err := parseListTime("2026-07-01T16:30:00+08:00", "startedBefore")
+		got, err := parseListTime("2026-07-01T16:30:00+08:00", "startedBefore", flowrundomain.ErrInvalidListFilter)
 		if err != nil || !got.Equal(time.Date(2026, 7, 1, 8, 30, 0, 0, time.UTC)) || got.Location() != time.UTC {
 			t.Fatalf("got %v (loc %v) err=%v", got, got.Location(), err)
 		}
 	})
 	for _, bad := range []string{"gremlin", "24h", "7d", "2026-07-01", "2026-13-99T00:00:00Z", "1626397800"} {
 		t.Run("rejects "+bad, func(t *testing.T) {
-			if _, err := parseListTime(bad, "startedAfter"); !errors.Is(err, flowrundomain.ErrInvalidListFilter) {
+			if _, err := parseListTime(bad, "startedAfter", flowrundomain.ErrInvalidListFilter); !errors.Is(err, flowrundomain.ErrInvalidListFilter) {
 				t.Fatalf("%q must reject with ErrInvalidListFilter, got %v", bad, err)
 			}
 		})
 	}
+	// The shared parser must wear the CALLER's sentinel: /firings must never answer a bad
+	// ?createdAfter by naming the flowrun list (工单⑭).
+	// 共享 parser 必须戴**调用方**的 sentinel：/firings 绝不能拿 flowrun 列表的码去答一个坏的
+	// ?createdAfter（工单⑭）。
+	t.Run("caller's sentinel, not the parser's", func(t *testing.T) {
+		_, err := parseListTime("gremlin", "createdAfter", triggerdomain.ErrInvalidFiringFilter)
+		if !errors.Is(err, triggerdomain.ErrInvalidFiringFilter) {
+			t.Fatalf("firings must reject with ErrInvalidFiringFilter, got %v", err)
+		}
+		if errors.Is(err, flowrundomain.ErrInvalidListFilter) {
+			t.Fatalf("a /firings filter error must NOT name the flowrun list: %v", err)
+		}
+		var e *errorspkg.Error
+		if !errors.As(err, &e) || e.Details["param"] != "createdAfter" || e.Details["got"] != "gremlin" {
+			t.Fatalf("details must carry the offending param + value, got %+v", err)
+		}
+	})
 }
 
 // TestParseRecentN mirrors ParsePage's limit semantics: absent → 0 (app default), non-numeric

@@ -114,15 +114,21 @@ func (s *Store) ListPendingFirings(ctx context.Context, limit int) ([]*triggerdo
 	return rows, nil
 }
 
-// SearchFirings pages one trigger's firing inbox newest-first (the disposition surface).
+// firingQuery applies every FiringFilter predicate — the SINGLE place the filter's meaning is
+// expressed, shared by SearchFirings (the page) and CountFirings (the number). The "错过 N" KPI card
+// deep-links to the very list it counts, so a second copy of these predicates would be a bug with a
+// countdown on it: the card would say 3 and the list it opens would show 4. Cursor/Limit are the
+// page's alone and are NOT applied here.
 //
-// SearchFirings 分页某 trigger 的 firing 收件箱（最新优先，处置面）。
-func (s *Store) SearchFirings(ctx context.Context, filter triggerdomain.FiringFilter) ([]*triggerdomain.Firing, string, error) {
+// firingQuery 施加 FiringFilter 的每一条谓词——filter 语义的**唯一**居所，由 SearchFirings（一页）与
+// CountFirings（一个数）共用。「错过 N」KPI 牌深链到的正是它数的那个列表，故这些谓词若有第二份拷贝，
+// 那就是一个装了倒计时的 bug：牌上写 3、点开的列表显示 4。Cursor/Limit 只属于分页，不在此施加。
+func (s *Store) firingQuery(filter triggerdomain.FiringFilter) (*ormpkg.Query[triggerdomain.Firing], error) {
 	// Reject an out-of-enum status loudly (422) instead of silently matching zero rows (F168-M2, here
 	// extended to the firing inbox for F175-M7).
 	// 非枚举状态大声拒（422），而非静默匹配 0 行（F168-M2，此处为 F175-M7 延伸到 firing 收件箱）。
 	if filter.Status != "" && !slices.Contains(triggerdomain.FiringStatuses, filter.Status) {
-		return nil, "", triggerdomain.ErrInvalidFiringStatus.WithDetails(map[string]any{"allowed": triggerdomain.FiringStatuses, "got": filter.Status})
+		return nil, triggerdomain.ErrInvalidFiringStatus.WithDetails(map[string]any{"allowed": triggerdomain.FiringStatuses, "got": filter.Status})
 	}
 	q := s.frs.Query()
 	if filter.TriggerID != "" {
@@ -131,11 +137,61 @@ func (s *Store) SearchFirings(ctx context.Context, filter triggerdomain.FiringFi
 	if filter.Status != "" {
 		q = q.WhereEq("status", filter.Status)
 	}
+	// Half-open window [CreatedAfter, CreatedBefore) on created_at (scheduler 工单⑭) — the flowrun
+	// ListFilter started_at window VERBATIM. Plain column comparisons (no julianday wrapping): bound
+	// values and stored values go through the same driver serialization (UTC — the handler normalizes),
+	// and a bare created_at predicate stays sargable on idx_trf_ws_created / idx_trf_ws_status /
+	// idx_trf_ws_trigger (workspace equality + created_at range).
+	//
+	// created_at 上的半开窗 [CreatedAfter, CreatedBefore)（scheduler 工单⑭）——**逐字**是 flowrun
+	// ListFilter 的 started_at 窗。裸列比较（不包 julianday）：绑定值与存储值走同一 driver 序列化
+	// （UTC——handler 归一），裸 created_at 谓词在 idx_trf_ws_created / idx_trf_ws_status /
+	// idx_trf_ws_trigger 上可走索引（workspace 等值 + created_at 范围）。
+	if !filter.CreatedAfter.IsZero() {
+		q = q.Where("created_at >= ?", filter.CreatedAfter)
+	}
+	if !filter.CreatedBefore.IsZero() {
+		q = q.Where("created_at < ?", filter.CreatedBefore)
+	}
+	return q, nil
+}
+
+// SearchFirings pages the firing inbox newest-first (the disposition surface). An empty
+// filter.TriggerID spans the whole workspace — a firing is a workspace-level log row, and the
+// Overview's 24h schedule track asks exactly that question.
+//
+// SearchFirings 分页 firing 收件箱（最新优先，处置面）。filter.TriggerID 为空即跨整个 workspace——
+// firing 是 workspace 级日志行，Overview 的 24h 调度轨道问的正是这个问题。
+func (s *Store) SearchFirings(ctx context.Context, filter triggerdomain.FiringFilter) ([]*triggerdomain.Firing, string, error) {
+	q, err := s.firingQuery(filter)
+	if err != nil {
+		return nil, "", err
+	}
 	rows, next, err := q.Page(ctx, filter.Cursor, filter.Limit)
 	if err != nil {
 		return nil, "", fmt.Errorf("triggerstore.SearchFirings: %w", err)
 	}
 	return rows, next, nil
+}
+
+// CountFirings counts the firings SearchFirings would page through (Cursor/Limit ignored — a count
+// is not a page). It exists for the Overview's "错过 N" KPI card, which must never be an all-time
+// number: an ever-growing count of everything ever missed is a vanity number that says nothing about
+// today, so the caller always carries a window.
+//
+// CountFirings 数 SearchFirings 会翻过的那些 firing（Cursor/Limit 忽略——计数不是一页）。它为 Overview
+// 的「错过 N」KPI 牌而在，而那张牌**绝不**能是 all-time 数字：一个「有史以来错过多少」的只增计数是虚荣
+// 数字、对今天什么都没说，故调用方恒带窗口。
+func (s *Store) CountFirings(ctx context.Context, filter triggerdomain.FiringFilter) (int, error) {
+	q, err := s.firingQuery(filter)
+	if err != nil {
+		return 0, err
+	}
+	n, err := q.Count(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("triggerstore.CountFirings: %w", err)
+	}
+	return int(n), nil
 }
 
 // MarkFiringOutcome sets a non-started terminal status (skipped/superseded/shed) — every

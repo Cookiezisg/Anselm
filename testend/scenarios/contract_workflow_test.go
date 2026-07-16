@@ -685,7 +685,7 @@ func TestContractWorkflow_TriggerFireLedgerAndCursor(t *testing.T) {
 		var rows []struct {
 			ID string `json:"id"`
 		}
-		r := wc.GET("/api/v1/triggers/" + trgID + "/firings?status=started")
+		r := wc.GET("/api/v1/firings?triggerId=" + trgID + "&status=started")
 		if r.Status != 200 {
 			return false
 		}
@@ -694,7 +694,7 @@ func TestContractWorkflow_TriggerFireLedgerAndCursor(t *testing.T) {
 	})
 
 	// A-trg-3: firings cursor walk at limit=1 → 3 distinct rows; rows carry activationId.
-	fids := workflowC_pageIDs(t, wc, "/api/v1/triggers/"+trgID+"/firings", 1)
+	fids := workflowC_pageIDs(t, wc, "/api/v1/firings?triggerId="+trgID, 1)
 	if len(fids) != 3 {
 		t.Fatalf("firings cursor walk must yield 3, got %d: %v", len(fids), fids)
 	}
@@ -705,7 +705,7 @@ func TestContractWorkflow_TriggerFireLedgerAndCursor(t *testing.T) {
 		WorkflowID   string `json:"workflowId"`
 		Status       string `json:"status"`
 	}
-	wc.GET("/api/v1/triggers/"+trgID+"/firings").OK(t, &firstFirings)
+	wc.GET("/api/v1/firings?triggerId="+trgID).OK(t, &firstFirings)
 	found := false
 	for _, f := range firstFirings {
 		if !strings.HasPrefix(f.ID, "trf_") || f.WorkflowID != wfID {
@@ -722,11 +722,11 @@ func TestContractWorkflow_TriggerFireLedgerAndCursor(t *testing.T) {
 	// ?status 全枚举合法（error-codes.md: pending/claimed/started/skipped/superseded/shed）；
 	// 非法值 422 TRIGGER_FIRING_INVALID_STATUS 而非静默空页（F175-M7）。
 	for _, s := range []string{"pending", "claimed", "started", "skipped", "superseded", "shed"} {
-		if r := wc.GET("/api/v1/triggers/" + trgID + "/firings?status=" + s); r.Status != 200 {
+		if r := wc.GET("/api/v1/firings?triggerId=" + trgID + "&status=" + s); r.Status != 200 {
 			t.Fatalf("status=%s must be a legal filter, got %d %s", s, r.Status, r.Raw)
 		}
 	}
-	wc.Do("GET", "/api/v1/triggers/"+trgID+"/firings?status=yolo", nil).Fail(t, 422, "TRIGGER_FIRING_INVALID_STATUS")
+	wc.Do("GET", "/api/v1/firings?triggerId="+trgID+"&status=yolo", nil).Fail(t, 422, "TRIGGER_FIRING_INVALID_STATUS")
 
 	// activations cursor walk at limit=2 → 3 distinct rows; firedOnly=true keeps all (all fired).
 	aids := workflowC_pageIDs(t, wc, "/api/v1/triggers/"+trgID+"/activations", 2)

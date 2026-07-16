@@ -95,8 +95,9 @@ type Repository interface {
 	// catchup_one 让其成为日常的那条径上断掉。
 	RequeueMissedFiring(ctx context.Context, firingID, activationID string) error
 	ListPendingFirings(ctx context.Context, limit int) ([]*Firing, error)
-	// SearchFirings pages a trigger's firing inbox (the disposition surface: started /
-	// skipped / superseded / shed). SearchFirings 分页 trigger 的 firing 收件箱（处置面）。
+	// SearchFirings pages the firing inbox (the disposition surface: started / skipped /
+	// superseded / shed / missed). An empty filter.TriggerID spans the workspace (工单⑭).
+	// SearchFirings 分页 firing 收件箱（处置面）。filter.TriggerID 为空即跨整个 workspace（工单⑭）。
 	SearchFirings(ctx context.Context, filter FiringFilter) ([]*Firing, string, error)
 	MarkFiringOutcome(ctx context.Context, firingID, status string) error
 

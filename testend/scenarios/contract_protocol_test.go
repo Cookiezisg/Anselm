@@ -477,7 +477,7 @@ type protoC_firingRow struct {
 func protoC_firings(t *testing.T, wc *harness.Client, trgID string) []protoC_firingRow {
 	t.Helper()
 	var rows []protoC_firingRow
-	wc.GET("/api/v1/triggers/" + trgID + "/firings?limit=200").OK(t, &rows)
+	wc.GET("/api/v1/firings?triggerId=" + trgID + "&limit=200").OK(t, &rows)
 	return rows
 }
 
@@ -556,7 +556,7 @@ func TestContractProtocol_WebhookPlainSecret(t *testing.T) {
 	if r := wc.GET("/api/v1/triggers/" + trgID + "/activations"); !strings.Contains(string(r.Data), `"fired":true`) {
 		t.Fatalf("activation ledger must record the fire: %s", r.Data)
 	}
-	if r := wc.GET("/api/v1/triggers/" + trgID + "/firings"); !strings.Contains(string(r.Data), `"status":"started"`) {
+	if r := wc.GET("/api/v1/firings?triggerId=" + trgID); !strings.Contains(string(r.Data), `"status":"started"`) {
 		t.Fatalf("firing must be started: %s", r.Data)
 	}
 }

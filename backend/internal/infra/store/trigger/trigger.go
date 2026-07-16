@@ -68,6 +68,42 @@ var Schema = []string{
 	`CREATE UNIQUE INDEX IF NOT EXISTS idx_trf_dedup ON trigger_firings(workflow_id, trigger_id, dedup_key)`,
 	`CREATE INDEX IF NOT EXISTS idx_trf_pending ON trigger_firings(status, created_at) WHERE status = 'pending'`,
 
+	// The three READ indexes (scheduler 工单⑭). Until now NO index carried workspace_id, while the
+	// orm prepends `workspace_id = ?` to every query (D2) — so every firing read was a full scan +
+	// a temp b-tree sort, which only stayed invisible because nothing read this table at workspace
+	// scope. Plain additive CREATE INDEX (no table rebuild, outcome-idempotent).
+	//
+	// Each one is the ONLY index that makes some real query sargable — measured at 129,600 rows
+	// (a per-minute cron over 90d) + a second workspace + a rare trigger:
+	//   - ws_created  → the Overview 24h track (ws + created_at window, all statuses): 23.9ms → 802µs
+	//   - ws_status   → the "错过 N" count (COVERING: 15.8ms → 23µs) and its missed deep-link; decisive
+	//                   on a HEALTHY workspace, where `status=missed` matches nothing and any other
+	//                   index walks the whole ws to prove it (7.7ms → 31µs)
+	//   - ws_trigger  → the per-trigger firing strip. NOT optional: with ws_created present but this
+	//                   one absent, SQLite prefers walking ws_created for `trigger_id = ?` and a rare
+	//                   trigger's page costs 49.6ms — WORSE than the 14.4ms full scan it replaced.
+	//                   Adding ws_created without this would ship that regression (144µs with it).
+	// Write cost is irrelevant here: firing inserts are bounded by cron ticks (a few per second at
+	// worst), so three more b-tree writes per insert are microseconds on a cold path.
+	//
+	// 三条**读**索引（scheduler 工单⑭）。此前**没有任何**索引带 workspace_id，而 orm 给每条查询都前置
+	// `workspace_id = ?`（D2）——故每次 firing 读都是全表扫 + 临时 b-tree 排序，只因从没有人在 workspace
+	// 尺度读过这张表才一直没露馅。纯 additive CREATE INDEX（不重建表、结果幂等）。
+	//
+	// 每条都是某个真实查询**唯一**的可索引依靠——实测 129,600 行（每分钟 cron 跑 90 天）+ 第二个
+	// workspace + 一个稀有 trigger：
+	//   - ws_created  → Overview 24h 轨道（ws + created_at 窗、全状态）：23.9ms → 802µs
+	//   - ws_status   → 「错过 N」计数（**覆盖索引**：15.8ms → 23µs）与它的 missed 深链；在**健康**
+	//                   workspace 上决定性——那里 `status=missed` 一行都不匹配，而别的索引要走遍整个 ws
+	//                   才能证明这件事（7.7ms → 31µs）
+	//   - ws_trigger  → 逐 trigger firing 串。**并非可选**：有 ws_created 而无它时，SQLite 会为
+	//                   `trigger_id = ?` 选择走 ws_created，稀有 trigger 的一页要 49.6ms——**比它取代的
+	//                   14.4ms 全表扫更慢**。只加 ws_created 就是把这个回归发出去（有它则 144µs）。
+	// 写代价在此无关紧要：firing 插入受 cron 刻度限速（最坏每秒几条），每条多三次 b-tree 写是冷路径上的微秒。
+	`CREATE INDEX IF NOT EXISTS idx_trf_ws_created ON trigger_firings(workspace_id, created_at DESC, id DESC)`,
+	`CREATE INDEX IF NOT EXISTS idx_trf_ws_status ON trigger_firings(workspace_id, status, created_at DESC, id DESC)`,
+	`CREATE INDEX IF NOT EXISTS idx_trf_ws_trigger ON trigger_firings(workspace_id, trigger_id, created_at DESC, id DESC)`,
+
 	`CREATE TABLE IF NOT EXISTS trigger_activations (
 		id           TEXT PRIMARY KEY,
 		workspace_id TEXT NOT NULL,
@@ -88,13 +124,16 @@ var Schema = []string{
 // and SQLite cannot ALTER a CHECK — an existing install must REBUILD the table. bootstrap runs
 // this through db.MigrateRebuild, which is idempotent BY OUTCOME: it rebuilds only while the live
 // sqlite_master DDL lacks the marker, so a fresh install (CREATE above already carries 'missed')
-// and every post-rebuild boot are no-ops. Data is copied column-for-column; the two indexes drop
-// with the old table and are recreated.
+// and every post-rebuild boot are no-ops. Data is copied column-for-column; ALL FIVE indexes drop
+// with the old table and are recreated here — rebuild_test.go gates on the rebuilt index set being
+// identical to a fresh install's, so an index added to Schema and not to this list fails the build.
 //
 // FiringsMissedMarker / FiringsCheckRebuild：status CHECK 加词 'missed'（scheduler 工单⑨），而
 // SQLite 无法 ALTER CHECK——已有安装必须**重建**该表。bootstrap 经 db.MigrateRebuild 执行，靠
 // **结果幂等**：仅当 sqlite_master 里的现行 DDL 缺该标记词才重建，故全新安装（上方 CREATE 已含
-// 'missed'）与重建后的每次启动都是 no-op。数据逐列拷贝；两索引随旧表落、重建时重建。
+// 'missed'）与重建后的每次启动都是 no-op。数据逐列拷贝；**五条**索引全部随旧表落、在此重建——
+// rebuild_test.go 以「重建出的索引集 == 全新安装的索引集」为门禁，故往 Schema 加了索引却不加到本表
+// 会直接挂测。
 var (
 	FiringsMissedMarker = "'missed'"
 
@@ -128,6 +167,9 @@ var (
 		`ALTER TABLE trigger_firings_rebuild RENAME TO trigger_firings`,
 		`CREATE UNIQUE INDEX idx_trf_dedup ON trigger_firings(workflow_id, trigger_id, dedup_key)`,
 		`CREATE INDEX idx_trf_pending ON trigger_firings(status, created_at) WHERE status = 'pending'`,
+		`CREATE INDEX idx_trf_ws_created ON trigger_firings(workspace_id, created_at DESC, id DESC)`,
+		`CREATE INDEX idx_trf_ws_status ON trigger_firings(workspace_id, status, created_at DESC, id DESC)`,
+		`CREATE INDEX idx_trf_ws_trigger ON trigger_firings(workspace_id, trigger_id, created_at DESC, id DESC)`,
 	}
 )
 

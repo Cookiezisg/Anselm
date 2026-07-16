@@ -9,6 +9,7 @@ import (
 
 	approvaldomain "github.com/sunweilin/anselm/backend/internal/domain/approval"
 	flowrundomain "github.com/sunweilin/anselm/backend/internal/domain/flowrun"
+	triggerdomain "github.com/sunweilin/anselm/backend/internal/domain/trigger"
 	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 )
 
@@ -176,14 +177,23 @@ func (s *Service) ListInbox(ctx context.Context) ([]*InboxRow, error) {
 	return rows, nil
 }
 
-// RunStats answers the operational statistics batch (scheduler 工单③): workspace-wide totals +
+// RunStats answers the operational statistics batch (scheduler 工单③ + ⑭): workspace-wide totals +
 // one health row per requested workflow id. This is the single place defaults + guards live —
 // ids dedup preserving request order, the loud >50 rejection (with the cap in Details), RecentN
 // default/clamp, and the 7d default window — so every caller (REST today) gets one behavior.
 //
-// RunStats 应答运营统计批查（scheduler 工单③）：全 workspace 聚合 + 每个请求 workflow id 一条健康行。
+// It is also where the ONE cross-domain total is stitched: Totals.Missed counts trigger_firings
+// through the FiringInbox port (工单⑭). It lands HERE, after q.Since is defaulted, on purpose —
+// the missed window is then not merely documented to match completedSince/failedSince, it is
+// physically the same value.
+//
+// RunStats 应答运营统计批查（scheduler 工单③ + ⑭）：全 workspace 聚合 + 每个请求 workflow id 一条健康行。
 // 默认值 + 守卫的唯一居所——ids 保序去重、>50 大声拒（Details 带上限）、RecentN 默认/钳制、7d 默认
 // 窗口——所有调用方（今天是 REST）拿同一行为。
+//
+// 唯一一个**跨域** total 也缝在这里：Totals.Missed 经 FiringInbox 端口数 trigger_firings（工单⑭）。
+// 它**刻意**落在 q.Since defaulted **之后**——如此一来，missed 的窗口与 completedSince/failedSince
+// 就不只是「文档上说一致」，而是物理上同一个值。
 func (s *Service) RunStats(ctx context.Context, q flowrundomain.StatsQuery) (*flowrundomain.RunStats, error) {
 	if len(q.WorkflowIDs) > 0 {
 		seen := make(map[string]bool, len(q.WorkflowIDs))
@@ -212,7 +222,29 @@ func (s *Service) RunStats(ctx context.Context, q flowrundomain.StatsQuery) (*fl
 	if q.Since.IsZero() {
 		q.Since = time.Now().UTC().Add(-flowrundomain.StatsDefaultWindow)
 	}
-	return s.runs.RunStats(ctx, q)
+	stats, err := s.runs.RunStats(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	// The "错过 N" card (工单⑭). A nil inbox is a deployment with no firing store at all, so 0 is the
+	// truth. A FAILING count is not: propagate it rather than serve a 0, because "you missed nothing"
+	// and "I could not find out" are different sentences and only one of them is safe to render as a
+	// reassuring empty card.
+	//
+	// 「错过 N」牌（工单⑭）。inbox 为 nil = 这个部署根本没有 firing 存储，故 0 就是真相。而计数**失败**
+	// 不是：宁可把错误冒上去、也不端一个 0 出去——「你什么都没错过」与「我查不出来」是两句不同的话，
+	// 而只有其中一句可以安心地渲成一张让人放心的空牌。
+	if s.inbox != nil {
+		missed, err := s.inbox.CountFirings(ctx, triggerdomain.FiringFilter{
+			Status:       triggerdomain.FiringMissed,
+			CreatedAfter: q.Since,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("scheduler.RunStats: count missed firings: %w", err)
+		}
+		stats.Totals.Missed = missed
+	}
+	return stats, nil
 }
 
 // RunMatrix answers the node×run status grid (scheduler 工单⑩) for one workflow's last RecentN

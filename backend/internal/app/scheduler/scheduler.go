@@ -103,16 +103,24 @@ type ApprovalResolver interface {
 	Resolve(ctx context.Context, id, versionID string) (*approvaldomain.Version, error)
 }
 
-// FiringInbox is the trigger firings surface the scheduler drains. ClaimFiring is the single-tx
-// claim: it claims a pending firing AND builds the flowrun in ONE transaction via the
-// create callback (so there is never a claimed-but-no-run strand). Satisfied by *triggerstore.Store.
-// nil-tolerant: a manual-only deployment (or a test) wires no inbox.
+// FiringInbox is the trigger firings surface the scheduler drains — and, since 工单⑭, reports on:
+// CountFirings is how RunStats answers the Overview's "错过 N" card without a second endpoint and
+// without a second window. ClaimFiring is the single-tx claim: it claims a pending firing AND builds
+// the flowrun in ONE transaction via the create callback (so there is never a claimed-but-no-run
+// strand). Satisfied by *triggerstore.Store. nil-tolerant: a manual-only deployment (or a test)
+// wires no inbox — and then there are no firings at all, so a zero missed count is the TRUTH rather
+// than a shrug.
 //
-// FiringInbox 是 scheduler 排空的 trigger firings 面。ClaimFiring 是单事务 claim：在一个
-// 事务内 claim pending firing + 经 create 回调建 flowrun（无 claimed-但-无-run 残留）。由
-// *triggerstore.Store 实现。允许 nil：纯手动部署（或测试）不接 inbox。
+// FiringInbox 是 scheduler 排空的 trigger firings 面——自工单⑭ 起也是它**报数**的面：CountFirings
+// 是 RunStats 回答 Overview「错过 N」牌的方式，无需第二个端点、也无需第二个窗口。ClaimFiring 是单事务
+// claim：在一个事务内 claim pending firing + 经 create 回调建 flowrun（无 claimed-但-无-run 残留）。
+// 由 *triggerstore.Store 实现。允许 nil：纯手动部署（或测试）不接 inbox——那时根本不存在 firing，故
+// missed 计数为 0 是**真相**、而非搪塞。
 type FiringInbox interface {
 	ListPendingFirings(ctx context.Context, limit int) ([]*triggerdomain.Firing, error)
+	// CountFirings counts the firings matching a filter (工单⑭) — the "错过 N" KPI card's number.
+	// CountFirings 数匹配 filter 的 firing（工单⑭）——「错过 N」KPI 牌的那个数字。
+	CountFirings(ctx context.Context, filter triggerdomain.FiringFilter) (int, error)
 	ClaimFiring(ctx context.Context, firingID string, create func(tx *ormpkg.DB) (string, error)) (string, error)
 	MarkFiringOutcome(ctx context.Context, firingID, status string) error
 	// SupersedeAllButNewestPending collapses a workflow's pending firings to the newest (buffer_one's

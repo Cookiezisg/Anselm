@@ -66,7 +66,7 @@ func TestContractDurable_FsnotifyEndToEnd(t *testing.T) {
 	if r := wc.GET("/api/v1/triggers/" + trgID + "/activations"); !strings.Contains(string(r.Data), `"fired":true`) {
 		t.Fatalf("activation ledger missing the fsnotify fire: %.400s", r.Data)
 	}
-	if r := wc.GET("/api/v1/triggers/" + trgID + "/firings"); !strings.Contains(string(r.Data), `"status":"started"`) {
+	if r := wc.GET("/api/v1/firings?triggerId=" + trgID); !strings.Contains(string(r.Data), `"status":"started"`) {
 		t.Fatalf("firing inbox must show started: %.400s", r.Data)
 	}
 	// The fired payload carried the canonical fsnotify eventKind (create|modify|…) — the delivered

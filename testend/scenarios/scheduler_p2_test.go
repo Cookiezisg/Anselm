@@ -43,10 +43,20 @@ type firingRow struct {
 	CreatedAt  string `json:"createdAt"`
 }
 
+// listFirings pages one trigger's firings off the workspace-level route (工单⑭). `query` carries
+// only the extra filters (no leading separator) — the helper owns the query string, since
+// ?triggerId is already on it.
+//
+// listFirings 经 workspace 级路由翻某个 trigger 的 firing（工单⑭）。`query` 只带额外过滤（不带前导
+// 分隔符）——查询串归 helper 管，因为 ?triggerId 已经在上面了。
 func listFirings(t *testing.T, wc *harness.Client, trgID, query string) []firingRow {
 	t.Helper()
+	url := "/api/v1/firings?triggerId=" + trgID
+	if query != "" {
+		url += "&" + query
+	}
 	var rows []firingRow
-	wc.GET("/api/v1/triggers/" + trgID + "/firings" + query).OK(t, &rows)
+	wc.GET(url).OK(t, &rows)
 	return rows
 }
 
@@ -162,7 +172,7 @@ func TestTrigger_MisfireMissedAccounting(t *testing.T) {
 
 	var missed []firingRow
 	harness.Eventually(t, 30000, "the downtime tick is booked missed", func() bool {
-		missed = listFirings(t, wc, trgID, "?status=missed&limit=100")
+		missed = listFirings(t, wc, trgID, "status=missed&limit=100")
 		return len(missed) > 0
 	})
 	for _, m := range missed {
@@ -193,7 +203,7 @@ func TestTrigger_MisfireMissedAccounting(t *testing.T) {
 	// missed rows never turn runnable.
 	// 判决⑥「不补跑」：错过的刻度**没**产出 run。restart 之后的活刻度产生的 run 是合法的新 fire——
 	// 故断言更强的不变式：没有 run 出自 missed（上方经 flowrunId 已查），且 missed 行永不变成可跑。
-	stillMissed := listFirings(t, wc, trgID, "?status=missed&limit=100")
+	stillMissed := listFirings(t, wc, trgID, "status=missed&limit=100")
 	if len(stillMissed) < len(missed) {
 		t.Fatalf("missed rows must stay missed (nothing may reclaim them): %d → %d", len(missed), len(stillMissed))
 	}
@@ -201,8 +211,88 @@ func TestTrigger_MisfireMissedAccounting(t *testing.T) {
 	// The ledger's other dispositions are untouched by the new word — the enum stayed closed and
 	// the old filters still work (no silent empty page).
 	// 台账其余处置不受新词影响——枚举仍封闭、旧过滤照常（不出静默空页）。
-	wc.GET("/api/v1/triggers/" + trgID + "/firings?status=started").OK(t, nil)
-	wc.GET("/api/v1/triggers/"+trgID+"/firings?status=gremlin").Fail(t, 422, "TRIGGER_FIRING_INVALID_STATUS")
+	wc.GET("/api/v1/firings?triggerId=" + trgID + "&status=started").OK(t, nil)
+	wc.GET("/api/v1/firings?triggerId="+trgID+"&status=gremlin").Fail(t, 422, "TRIGGER_FIRING_INVALID_STATUS")
+
+	// ---- 工单⑭: the missed rows above are now READABLE at workspace scope, in a window, and
+	// COUNTABLE — the three things the Overview needs to render "过去点 + missed ✕ + 错过 N" without
+	// draining every trigger's whole ledger. Same real rows, no fabrication.
+	//
+	// ---- 工单⑭：上面那些 missed 行现在**在 workspace 尺度可读、可开窗、可计数**——正是 Overview 渲
+	// 「过去点 + missed ✕ + 错过 N」所需的三件事，且无需把每个 trigger 的整本账拖干。同一批真行、零捏造。
+
+	// Workspace-level: no triggerId at all — the track's actual query.
+	// workspace 级：完全不带 triggerId——轨道真正发的那条查询。
+	var wsWide []firingRow
+	wc.GET("/api/v1/firings?limit=200").OK(t, &wsWide)
+	if len(wsWide) < len(missed) {
+		t.Fatalf("a workspace-level page must contain at least the %d missed rows, got %d", len(missed), len(wsWide))
+	}
+	var sawMissed bool
+	for _, r := range wsWide {
+		if r.Status == "missed" {
+			sawMissed = true
+		}
+	}
+	if !sawMissed {
+		t.Fatalf("the workspace-level page must carry the missed rows — they are the ✕ on the track")
+	}
+
+	// Half-open window [after, before) on created_at. A window covering the downtime holds the
+	// missed ticks; a window strictly BEFORE the trigger existed holds nothing.
+	// created_at 上的半开窗 [after, before)。覆盖停机段的窗装得下那些 missed 刻度；严格早于 trigger
+	// 存在之前的窗什么都装不下。
+	after := time.Now().Add(-2 * time.Hour).UTC().Format(time.RFC3339)
+	before := time.Now().Add(2 * time.Hour).UTC().Format(time.RFC3339)
+	var windowed []firingRow
+	wc.GET("/api/v1/firings?status=missed&createdAfter=" + after + "&createdBefore=" + before + "&limit=200").OK(t, &windowed)
+	if len(windowed) != len(missed) {
+		t.Fatalf("a window around the downtime must hold every missed tick: want %d, got %d", len(missed), len(windowed))
+	}
+	oldAfter := time.Now().Add(-72 * time.Hour).UTC().Format(time.RFC3339)
+	oldBefore := time.Now().Add(-48 * time.Hour).UTC().Format(time.RFC3339)
+	var empty []firingRow
+	wc.GET("/api/v1/firings?status=missed&createdAfter=" + oldAfter + "&createdBefore=" + oldBefore).OK(t, &empty)
+	if len(empty) != 0 {
+		t.Fatalf("a window that predates the trigger must be empty, got %d", len(empty))
+	}
+
+	// A bad bound is a loud 422 naming the FIRING filter — never the flowrun list's code, and never
+	// a silent empty page that reads as "nothing was missed".
+	// 坏的界是大声 422、且点名 **firing** 过滤——绝不是 flowrun 列表的码，也绝不是一个会被读成
+	// 「什么都没错过」的静默空页。
+	wc.Do("GET", "/api/v1/firings?createdAfter=gremlin", nil).Fail(t, 422, "TRIGGER_FIRING_INVALID_FILTER")
+	wc.Do("GET", "/api/v1/firings?createdBefore=24h", nil).Fail(t, 422, "TRIGGER_FIRING_INVALID_FILTER")
+
+	// The "错过 N" KPI card: counted on /flowrun-stats, in the SAME window as the other four cards.
+	// 「错过 N」KPI 牌：在 /flowrun-stats 上计数，与另外四张牌**同一个窗口**。
+	var stats struct {
+		Totals struct {
+			Missed      int `json:"missed"`
+			Running     int `json:"running"`
+			FailedSince int `json:"failedSince"`
+		} `json:"totals"`
+	}
+	wc.GET("/api/v1/flowrun-stats?since=24h").OK(t, &stats)
+	if stats.Totals.Missed != len(missed) {
+		t.Fatalf("the 错过 card must equal the missed rows the list shows in the same window: card=%d list=%d",
+			stats.Totals.Missed, len(missed))
+	}
+	// It is WINDOWED, not all-time. `since` is a LOWER bound, so the window that excludes an outage
+	// that just happened is one that starts after it: no tick can be due in the future, so this
+	// reads 0 — where an all-time count would still report the outage forever.
+	// 它**带窗**、非 all-time。`since` 是**下界**，故能排除掉刚发生的这次停机的窗口是一个「起点在它之后」
+	// 的窗口：未来不可能有刻度到期，故此处读 0——而 all-time 计数会把这次停机**永远**报下去。
+	future := time.Now().Add(1 * time.Hour).UTC().Format(time.RFC3339)
+	var later struct {
+		Totals struct {
+			Missed int `json:"missed"`
+		} `json:"totals"`
+	}
+	wc.GET("/api/v1/flowrun-stats?since=" + future).OK(t, &later)
+	if later.Totals.Missed != 0 {
+		t.Fatalf("an all-time count would be a vanity number — a window starting after the outage must read 0, got %d", later.Totals.Missed)
+	}
 }
 
 // TestTrigger_MisfirePolicyVocabulary — 工单⑨: the per-trigger catchup policy is a closed

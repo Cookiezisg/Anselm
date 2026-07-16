@@ -8,13 +8,143 @@ import (
 	"time"
 
 	flowrundomain "github.com/sunweilin/anselm/backend/internal/domain/flowrun"
+	triggerdomain "github.com/sunweilin/anselm/backend/internal/domain/trigger"
+	triggerstore "github.com/sunweilin/anselm/backend/internal/infra/store/trigger"
+	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
 )
 
-// statsSvc builds the thinnest Service the stats read path needs (RunStats only touches s.runs).
+// statsSvc builds the thinnest Service the stats read path needs: s.runs for the flowrun totals +
+// health rows, and s.inbox for Totals.Missed (工单⑭ — RunStats counts trigger_firings through the
+// FiringInbox port). newStore already loads the trigger schema into the same handle.
+//
+// statsSvc 建 stats 读路径所需的最薄 Service：s.runs 供 flowrun 聚合 + 健康行，s.inbox 供
+// Totals.Missed（工单⑭——RunStats 经 FiringInbox 端口数 trigger_firings）。newStore 已把 trigger
+// schema 装进同一个 handle。
 func statsSvc(t *testing.T) *Service {
 	t.Helper()
+	store, sqlDB := newStore(t)
+	return &Service{runs: store, inbox: triggerstore.New(ormpkg.Open(sqlDB))}
+}
+
+// missedSvc returns statsSvc plus the trigger store, for booking `missed` firings directly.
+// missedSvc 返 statsSvc + trigger store，供直接记 `missed` firing。
+func missedSvc(t *testing.T) (*Service, *triggerstore.Store) {
+	t.Helper()
+	store, sqlDB := newStore(t)
+	trg := triggerstore.New(ormpkg.Open(sqlDB))
+	return &Service{runs: store, inbox: trg}, trg
+}
+
+// bookMissed writes one `missed` firing dated AT the tick it stands for — exactly what the misfire
+// sweep does (AppendMissedFiring backdates created_at, 工单⑨). The dating is the whole point of the
+// window: a missed row wears its scheduled instant, not the moment it was booked.
+//
+// bookMissed 写一条 `missed` firing、**日期取它代表的刻度**——与 misfire sweep 所做的完全一致
+// （AppendMissedFiring 回拨 created_at，工单⑨）。这个盖戳正是窗口的全部意义：missed 行戴的是它的
+// 调度时刻、不是它被记账的那一刻。
+func bookMissed(t *testing.T, trg *triggerstore.Store, ctx context.Context, id string, tick time.Time) {
+	t.Helper()
+	if _, err := trg.AppendMissedFiring(ctx, &triggerdomain.Firing{
+		ID: id, TriggerID: "trg_1", WorkflowID: "wf_1", DedupKey: id,
+		Status: triggerdomain.FiringMissed, CreatedAt: tick.UTC(),
+	}); err != nil {
+		t.Fatalf("bookMissed %s: %v", id, err)
+	}
+}
+
+// TestRunStats_MissedIsWindowedOnTheSameSince — the "错过 N" card (工单⑭). Three properties, one
+// test, because they are one promise: the count is windowed, it shares completedSince/failedSince's
+// window physically (not by documentation), and it is dated on the TICK — so a night-long outage
+// lands in the night's window, not in the window of the second the machine woke up.
+//
+// TestRunStats_MissedIsWindowedOnTheSameSince——「错过 N」牌（工单⑭）。三条性质、一个测试，因为它们
+// 是同一个承诺：计数带窗、与 completedSince/failedSince **物理上**同窗（而非「文档说同」）、且按**刻度**
+// 盖戳——故整夜停机落在**那一夜**的窗口里，而不是落在机器醒来那一秒的窗口里。
+func TestRunStats_MissedIsWindowedOnTheSameSince(t *testing.T) {
+	svc, trg := missedSvc(t)
+	ctx := ctxWS("ws_1")
+	now := time.Now().UTC()
+
+	bookMissed(t, trg, ctx, "trf_m1", now.Add(-2*time.Hour))   // inside 24h
+	bookMissed(t, trg, ctx, "trf_m2", now.Add(-20*time.Hour))  // inside 24h
+	bookMissed(t, trg, ctx, "trf_m3", now.Add(-100*time.Hour)) // outside 24h, inside 7d
+
+	got, err := svc.RunStats(ctx, flowrundomain.StatsQuery{Since: now.Add(-24 * time.Hour)})
+	if err != nil {
+		t.Fatalf("RunStats: %v", err)
+	}
+	if got.Totals.Missed != 2 {
+		t.Fatalf("24h window must count the 2 ticks missed inside it, got %d", got.Totals.Missed)
+	}
+	// A wider window sees more — proving the number tracks the window rather than being all-time.
+	// 更宽的窗看见更多——证明这个数字跟着窗口走、而非 all-time。
+	wide, err := svc.RunStats(ctx, flowrundomain.StatsQuery{Since: now.Add(-7 * 24 * time.Hour)})
+	if err != nil {
+		t.Fatalf("RunStats wide: %v", err)
+	}
+	if wide.Totals.Missed != 3 {
+		t.Fatalf("7d window must count all 3, got %d", wide.Totals.Missed)
+	}
+	// The default window is the SAME default completedSince/failedSince use (7d) — one Since, one
+	// place. 默认窗口就是 completedSince/failedSince 用的那个默认（7d）——一个 Since、一处默认。
+	def, err := svc.RunStats(ctx, flowrundomain.StatsQuery{})
+	if err != nil {
+		t.Fatalf("RunStats default: %v", err)
+	}
+	if def.Totals.Missed != 3 {
+		t.Fatalf("default 7d window must count all 3, got %d", def.Totals.Missed)
+	}
+}
+
+// TestRunStats_MissedCountsOnlyMissedAndStaysInWorkspace — the card counts the `missed` disposition
+// alone (a skipped/shed tick is a DIFFERENT sentence — the machine was awake and decided), and D2
+// isolation holds: another workspace's outage is never this workspace's number.
+//
+// TestRunStats_MissedCountsOnlyMissedAndStaysInWorkspace——这张牌只数 `missed` 处置（skipped/shed
+// 是**另一句话**——机器当时醒着、并且做了决定），且 D2 隔离成立：别的 workspace 的停机永远不是本
+// workspace 的数字。
+func TestRunStats_MissedCountsOnlyMissedAndStaysInWorkspace(t *testing.T) {
+	svc, trg := missedSvc(t)
+	ctx := ctxWS("ws_1")
+	now := time.Now().UTC()
+
+	bookMissed(t, trg, ctx, "trf_m1", now.Add(-1*time.Hour))
+	// Sibling neutral dispositions must NOT be counted: they are not misfires.
+	for _, s := range []string{triggerdomain.FiringSkipped, triggerdomain.FiringSuperseded, triggerdomain.FiringShed, triggerdomain.FiringStarted} {
+		if _, err := trg.AppendFiring(ctx, &triggerdomain.Firing{
+			ID: "trf_" + s, TriggerID: "trg_1", WorkflowID: "wf_1", DedupKey: "k_" + s, Status: s,
+		}); err != nil {
+			t.Fatalf("append %s: %v", s, err)
+		}
+	}
+	// Another workspace's missed tick (D2).
+	bookMissed(t, trg, ctxWS("ws_2"), "trf_other", now.Add(-1*time.Hour))
+
+	got, err := svc.RunStats(ctx, flowrundomain.StatsQuery{Since: now.Add(-24 * time.Hour)})
+	if err != nil {
+		t.Fatalf("RunStats: %v", err)
+	}
+	if got.Totals.Missed != 1 {
+		t.Fatalf("only ws_1's single `missed` counts (not its skipped/superseded/shed/started siblings, not ws_2's), got %d", got.Totals.Missed)
+	}
+}
+
+// TestRunStats_NoInboxMeansNoFirings — a deployment with no firing store has no firings at all, so 0
+// is the truth rather than a shrug. Pinned because the alternative (panicking on a nil port) would
+// take the whole stats batch down on a manual-only deployment.
+//
+// TestRunStats_NoInboxMeansNoFirings——没有 firing 存储的部署根本没有 firing，故 0 是**真相**、而非
+// 搪塞。钉死它是因为另一种写法（nil 端口上 panic）会让纯手动部署的整个统计批查垮掉。
+func TestRunStats_NoInboxMeansNoFirings(t *testing.T) {
 	store, _ := newStore(t)
-	return &Service{runs: store}
+	svc := &Service{runs: store} // no inbox wired
+	got, err := svc.RunStats(ctxWS("ws_1"), flowrundomain.StatsQuery{})
+	if err != nil {
+		t.Fatalf("a nil inbox must not fail the batch: %v", err)
+	}
+	if got.Totals.Missed != 0 {
+		t.Fatalf("no firing store → 0 missed, got %d", got.Totals.Missed)
+	}
 }
 
 // TestRunStats_TooManyIDsLoudReject — the >50 guard fires AFTER dedup (the bound caps query cost,
