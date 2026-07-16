@@ -14,7 +14,10 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -26,6 +29,28 @@ import (
 // HeaderWorkspace 是 workspace 身份头（api.md 的线缆事实；testend 不 import backend 故复述）。
 const HeaderWorkspace = "X-Anselm-Workspace-ID"
 
+const (
+	// gracefulStop bounds the SIGTERM → exit wait. The backend's whole ordered drain shares ONE 10s
+	// deadline (bootstrap's shutdownGrace — a backend fact, restated per the black-box rule), but a
+	// few tail steps honour no ctx (pool/chat wait-groups, the SQLite WAL checkpoint), so the true
+	// ceiling is 10s plus a tail. 20s is the same budget TestContractChat_GracefulShutdownImmediate
+	// already asserts this exact wire fact against.
+	//
+	// gracefulStop 限定 SIGTERM → 退出的等待。backend 整个有序排空共享**一个** 10s 截止（bootstrap 的
+	// shutdownGrace，后端事实、按黑盒铁律复述），但尾部几步不认 ctx（池/chat 的 wait-group、SQLite WAL
+	// checkpoint），故真实上界是 10s 加一条尾巴。20s = TestContractChat_GracefulShutdownImmediate 对同一
+	// 线缆事实已在用的预算。
+	gracefulStop = 20 * time.Second
+
+	// groupReapWait bounds the post-sweep wait for the process group to drain. SIGKILL'd
+	// grandchildren reparent to init and are reaped in milliseconds; this is pure slack before we are
+	// willing to call something a leak.
+	//
+	// groupReapWait 限定清扫后等进程组排空的时间。被 SIGKILL 的孙子进程会挂到 init 名下、毫秒级被收尸；
+	// 这纯是判定「泄漏」前的余量。
+	groupReapWait = 10 * time.Second
+)
+
 // Server is one running backend instance on a throwaway data dir.
 //
 // Server 是一个跑在一次性数据目录上的 backend 实例。
@@ -33,6 +58,7 @@ type Server struct {
 	BaseURL string
 	DataDir string
 	cmd     *exec.Cmd
+	pgid    int
 }
 
 var (
@@ -93,11 +119,11 @@ func runtimeCache() string {
 	return filepath.Join(home, ".anselm-testend-cache")
 }
 
-// Start boots a fresh backend on a free port + temp data dir, waits for health, and
-// registers cleanup (kill + runtime cache save-back).
+// Start boots a fresh backend on a free port + temp data dir, waits for health, and registers
+// containment (graceful stop + process-group sweep + leak self-check) plus runtime cache save-back.
 //
-// Start 在空闲端口 + 临时数据目录上拉起全新 backend，等 health，注册清理（杀进程 +
-// 运行时缓存回存）。
+// Start 在空闲端口 + 临时数据目录上拉起全新 backend，等 health，注册收容（优雅停 + 进程组清扫 +
+// 泄漏自检）与运行时缓存回存。
 func Start(t *testing.T) *Server {
 	t.Helper()
 	bin := binary(t)
@@ -111,26 +137,147 @@ func Start(t *testing.T) *Server {
 		}
 	}
 
-	port := freePort(t)
-	addr := fmt.Sprintf("127.0.0.1:%d", port)
+	s := &Server{DataDir: dataDir}
+	// Registered BEFORE boot so it runs AFTER containment (t.Cleanup is LIFO): the cache must be
+	// copied from a dead server's data dir, never from a live one still writing into it.
+	// 在 boot **之前**注册，故跑在收容**之后**（t.Cleanup 是 LIFO）：缓存只能从已死 server 的数据目录拷，
+	// 绝不能从仍在写盘的活 server 拷。
+	t.Cleanup(s.saveRuntimeCache)
+	s.boot(t, bin)
+	return s
+}
+
+// boot launches the backend on s.DataDir + a free port, inside its OWN process group, registers the
+// containment, and waits for health. Shared by Start and Restart so a restarted process is contained
+// exactly as tightly as the original.
+//
+// boot 在 s.DataDir + 空闲端口上、于**独立进程组**内拉起 backend，注册收容，等 health。Start 与 Restart
+// 共用它，使重启出的进程被同样严密地收容。
+func (s *Server) boot(t *testing.T, bin string) {
+	t.Helper()
+	addr := fmt.Sprintf("127.0.0.1:%d", freePort(t))
 	cmd := exec.Command(bin)
 	cmd.Env = append(os.Environ(),
-		"ANSELM_DATA_DIR="+dataDir,
+		"ANSELM_DATA_DIR="+s.DataDir,
 		"ANSELM_ADDR="+addr,
 	)
 	cmd.Stdout = os.Stderr // backend logs interleave with test output for diagnosis. 后端日志混入测试输出便于诊断。
 	cmd.Stderr = os.Stderr
+	setupProcessGroup(cmd)
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("harness: start backend: %v", err)
 	}
-	s := &Server{BaseURL: "http://" + addr, DataDir: dataDir, cmd: cmd}
-	t.Cleanup(func() {
-		s.saveRuntimeCache()
-		_ = cmd.Process.Kill()
-		_, _ = cmd.Process.Wait()
-	})
+	pgid := cmd.Process.Pid // Setpgid makes the child its own group leader → pgid == pid. Setpgid 令 child 自任组长 → pgid == pid。
+	trackTree(pgid)
+	s.cmd, s.pgid, s.BaseURL = cmd, pgid, "http://"+addr
+	t.Cleanup(func() { containTree(t, cmd, pgid) })
 	s.waitHealthy(t, 30*time.Second)
-	return s
+}
+
+// containTree ends one backend process tree for good, then fails the test if anything survived.
+//
+// Layer 1 — SIGTERM. This is the ONLY thing that runs the backend's ordered graceful shutdown, and
+// that chain is the only thing that kills the resident llama-server embedder (bootstrap's Shutdown
+// calls search.Close near the end of it). os.Process.Kill sends an uncatchable SIGKILL, so a harness
+// that "kills" the server skips the entire chain and orphans a llama-server per test — which then
+// survives forever, because the backend's own reaper is a next-boot-on-the-same-data-dir safety net
+// and testend hands every test a brand-new temp data dir that no later boot will ever revisit.
+//
+// Layer 2 — process-group SIGKILL. The safety net for everything layer 1 cannot cover: Kill9
+// (SIGKILL by design — the crash in "crash recovery"), a wedged drain, a panicking server. The
+// embedder is spawned with a bare exec.Command and sets no group of its own, so it inherits the
+// server's group and one negative-pid signal reaps the whole subtree. macOS has no Pdeathsig, so on
+// darwin this is the ONLY thing standing between a hard kill and a permanent orphan.
+//
+// containTree 彻底了结一棵 backend 进程树，然后在有幸存者时判测试失败。
+// 第一层 SIGTERM：这是**唯一**能跑起 backend 有序优雅关停的方式，而那条链是唯一会杀常驻 llama-server
+// embedder 的东西（bootstrap 的 Shutdown 在其尾部调 search.Close）。os.Process.Kill 发的是不可捕获的
+// SIGKILL，故「杀」server 的 harness 会跳过整条链、每个测试孤儿掉一个 llama-server——且它将永远活着，因为
+// backend 自己的回收器是「下次在同一数据目录上 boot」的安全网，而 testend 给每个测试一个全新临时数据目录、
+// 再无任何 boot 会回访。
+// 第二层进程组 SIGKILL：兜住第一层覆盖不到的一切：Kill9（刻意 SIGKILL——「崩溃恢复」里的那个崩溃）、卡死的
+// 排空、panic 的 server。embedder 由裸 exec.Command 起、不自设进程组，故继承 server 的组，一个负 pid 信号
+// 即收整棵子树。macOS 没有 Pdeathsig，故在 darwin 上这是硬杀与永久孤儿之间**唯一**的东西。
+func containTree(t *testing.T, cmd *exec.Cmd, pgid int) {
+	defer untrackTree(pgid)
+
+	_ = terminate(cmd.Process) // already-exited (e.g. after Kill9) → ErrProcessDone, ignored. 已退出（如 Kill9 后）→ ErrProcessDone，忽略。
+	exited := make(chan struct{})
+	go func() { _, _ = cmd.Process.Wait(); close(exited) }()
+	select {
+	case <-exited:
+	case <-time.After(gracefulStop):
+		t.Errorf("harness: backend pid %d ignored SIGTERM for %s — its graceful shutdown is wedged (the group sweep below still contains it, but a wedged drain is a real backend defect)", cmd.Process.Pid, gracefulStop)
+	}
+
+	killProcessGroup(pgid)
+	<-exited // SIGKILL is unstoppable; reap the leader so it stops counting as a group member. SIGKILL 不可挡；给组长收尸，免其仍算作组成员。
+
+	deadline := time.Now().Add(groupReapWait)
+	for processGroupAlive(pgid) {
+		if time.Now().After(deadline) {
+			t.Errorf("harness: PROCESS LEAK — process group %d still has live members %s after SIGTERM + group SIGKILL:\n%s",
+				pgid, groupReapWait, groupSurvivors(pgid))
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}
+
+// groupSurvivors renders the leftovers of a leaked group for the failure message — a bare pgid is
+// unactionable, the command lines name the culprit.
+//
+// groupSurvivors 为失败信息渲染泄漏组的残留——光一个 pgid 无从下手，命令行才点得出元凶。
+func groupSurvivors(pgid int) string {
+	out, err := exec.Command("ps", "-o", "pid=,ppid=,command=", "-g", strconv.Itoa(pgid)).Output()
+	if err != nil || len(strings.TrimSpace(string(out))) == 0 {
+		return fmt.Sprintf("  (pgid %d: ps listed nothing — likely unreaped zombies)", pgid)
+	}
+	return strings.TrimRight(string(out), "\n")
+}
+
+// Ctrl-C safety net. Setpgid takes the backend OUT of the test binary's process group, so a SIGINT
+// at the terminal now reaches only `go test` — which dies without ever running t.Cleanup. Tracking
+// every live tree and sweeping them on the way out keeps Setpgid from trading the normal-exit leak
+// for a Ctrl-C leak.
+//
+// Not covered: `go test -timeout` expiry (an in-process panic — no signal to catch) and a SIGKILL of
+// the test binary itself. Both are irreducible here: on macOS there is no Pdeathsig, so nothing but
+// the harness can notice the parent died, and a harness that is not running cannot notice anything.
+//
+// Ctrl-C 安全网。Setpgid 把 backend 移**出**了测试二进制的进程组，故终端 SIGINT 现在只触达 `go test`——它
+// 会直接死掉、根本不跑 t.Cleanup。登记每棵活树并在退出路上清扫，使 Setpgid 不会拿「正常退出泄漏」换来
+// 「Ctrl-C 泄漏」。未覆盖：`go test -timeout` 超时（进程内 panic，无信号可捕）与测试二进制自身被 SIGKILL。
+// 二者在此不可约减：macOS 没有 Pdeathsig，故除 harness 外无人能察觉父进程已死，而不在运行的 harness 察觉不了任何事。
+var (
+	liveMu   sync.Mutex
+	livePgid = map[int]struct{}{}
+	sigOnce  sync.Once
+)
+
+func trackTree(pgid int) {
+	liveMu.Lock()
+	livePgid[pgid] = struct{}{}
+	liveMu.Unlock()
+	sigOnce.Do(func() {
+		ch := make(chan os.Signal, 1)
+		signal.Notify(ch, stopSignals...)
+		go func() {
+			<-ch
+			liveMu.Lock()
+			for pgid := range livePgid {
+				killProcessGroup(pgid) // straight to the sweep: an interrupted run wants OUT, not a 20s drain per server. 直接清扫：被中断的跑要的是**退出**，不是每个 server 排空 20s。
+			}
+			liveMu.Unlock()
+			os.Exit(130) // 128+SIGINT, the shell convention. 128+SIGINT，shell 惯例。
+		}()
+	})
+}
+
+func untrackTree(pgid int) {
+	liveMu.Lock()
+	delete(livePgid, pgid)
+	liveMu.Unlock()
 }
 
 // saveRuntimeCache merges downloaded runtimes back into the shared cache per kind (first
@@ -159,6 +306,30 @@ func (s *Server) saveRuntimeCache() {
 			continue // this kind already cached. 该 kind 已有缓存。
 		}
 		_ = exec.Command("cp", "-R", filepath.Join(src, e.Name()), filepath.Join(dst, e.Name())).Run()
+		prunePIDFiles(filepath.Join(dst, e.Name()))
+	}
+}
+
+// prunePIDFiles strips pidfiles out of a freshly cached runtime kind. The backend's search engine
+// parks its resident embedder's pid at runtimes/llamasrv/embedder.pid so the next boot on the same
+// data dir can reap an orphan — a record that is meaningless outside the run that wrote it. This
+// cache, by contrast, is seeded into EVERY future test's data dir and a kind is only ever copied
+// once, so a pidfile riding along would be aimed, forever, at whatever unrelated process the OS has
+// since recycled that number onto. The cache carries runtimes; it must never carry runtime STATE.
+//
+// prunePIDFiles 把 pidfile 从刚入缓存的运行时 kind 里剔掉。backend 搜索引擎把常驻 embedder 的 pid 存在
+// runtimes/llamasrv/embedder.pid，供同一数据目录下次 boot 回收孤儿——该记录出了写它的那次运行即无意义。而本
+// 缓存会被预置进**每个**未来测试的数据目录、且每个 kind 只拷一次，故搭车的 pidfile 将永远指向操作系统此后把
+// 那个号码回收给了的某个无关进程。缓存装的是运行时，绝不能装运行时**状态**。
+func prunePIDFiles(kindDir string) {
+	entries, err := os.ReadDir(kindDir)
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".pid") {
+			_ = os.Remove(filepath.Join(kindDir, e.Name()))
+		}
 	}
 }
 
@@ -191,8 +362,16 @@ func freePort(t *testing.T) int {
 // Kill9 hard-kills the backend (SIGKILL — the crash in "crash recovery"). The data dir
 // survives; pair with Restart to assert durable recovery.
 //
-// Kill9 硬杀 backend（SIGKILL——「崩溃恢复」里的那个崩溃）。数据目录幸存；与 Restart 配对
-// 断言持久化恢复。
+// SIGKILL is the POINT here and must stay: softening it to SIGTERM would let the graceful chain run
+// and delete the very wreckage — non-terminal message rows, unreaped subprocesses, uncheckpointed
+// WAL — that the recovery half then asserts gets cleaned up. It would test nothing. The subprocesses
+// this deliberately orphans are collected instead by containTree's process-group sweep at test end,
+// which is exactly the case that sweep exists for.
+//
+// Kill9 硬杀 backend（SIGKILL——「崩溃恢复」里的那个崩溃）。数据目录幸存；与 Restart 配对断言持久化恢复。
+// SIGKILL 在此正是**要点**、必须保留：软化成 SIGTERM 会让优雅链跑起来、把恢复半场要断言被清理的那些残骸
+// （非终态消息行、未收尸的子进程、未 checkpoint 的 WAL）**本身**先删掉——那就什么都没测。它刻意孤儿掉的子进程
+// 改由测试结束时 containTree 的进程组清扫收走，那正是该清扫存在的理由。
 func (s *Server) Kill9(t *testing.T) {
 	t.Helper()
 	if err := s.cmd.Process.Kill(); err != nil {
@@ -208,24 +387,5 @@ func (s *Server) Kill9(t *testing.T) {
 // 调用方需重取客户端（BaseURL 已变）。
 func (s *Server) Restart(t *testing.T) {
 	t.Helper()
-	bin := binary(t)
-	port := freePort(t)
-	addr := fmt.Sprintf("127.0.0.1:%d", port)
-	cmd := exec.Command(bin)
-	cmd.Env = append(os.Environ(),
-		"ANSELM_DATA_DIR="+s.DataDir,
-		"ANSELM_ADDR="+addr,
-	)
-	cmd.Stdout = os.Stderr
-	cmd.Stderr = os.Stderr
-	if err := cmd.Start(); err != nil {
-		t.Fatalf("harness: restart backend: %v", err)
-	}
-	s.cmd = cmd
-	s.BaseURL = "http://" + addr
-	t.Cleanup(func() {
-		_ = cmd.Process.Kill()
-		_, _ = cmd.Process.Wait()
-	})
-	s.waitHealthy(t, 30*time.Second)
+	s.boot(t, binary(t)) // same containment as the original — a restarted server leaks exactly as hard. 与初始进程同等收容——重启出的 server 泄漏起来一模一样。
 }
