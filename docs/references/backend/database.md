@@ -64,7 +64,7 @@ ID：`wf_`/`wfv_` · `ctl_`/`ctlv_` · `apf_`/`apfv_`
 
 | 表 | 关键列 | 约束/索引 |
 |---|---|---|
-| `triggers` | kind(CHECK cron/webhook/fsnotify/sensor) · **config**(自由 json map) · outputs(json) | partial-UNIQUE(ws,name) |
+| `triggers` | kind(CHECK cron/webhook/fsnotify/sensor) · **config**(自由 json map) · outputs(json) · **paused**(INTEGER NOT NULL DEFAULT 0——运行时暂停开关,工单⑦:持久化使重启仍暂停;经 `ALTER TABLE ADD COLUMN` 演化段补列,同 flowruns origin 先例) | partial-UNIQUE(ws,name) |
 | `trigger_activations`（Log） | kind · fired(bool) · return_value/payload(json) · error · detail · firing_count | 按 trigger+created 索引 |
 | `trigger_firings`（Log，durable 收件箱） | trigger_id · workflow_id · activation_id · payload(json) · **dedup_key** · status(pending/claimed/started/skipped/superseded/shed) · flowrun_id | **`idx_trf_dedup` UNIQUE(workflow_id,trigger_id,dedup_key)**（D3）+ pending 偏索引 |
 

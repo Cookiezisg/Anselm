@@ -26,17 +26,25 @@ import (
 	webhookinfra "github.com/sunweilin/anselm/backend/internal/infra/trigger/webhook"
 )
 
-// listenEntry is the in-memory registration for one trigger whose listener is hot: which
-// workspace it belongs to, its source kind, the set of workflows referencing it, and the subset
-// of those that are ONE-SHOT (staged via AttachOnce) — auto-detached after their single fire.
+// listenEntry is the in-memory registration for one REFERENCED trigger: which workspace it
+// belongs to, its source kind, the set of workflows referencing it, and the subset of those that
+// are ONE-SHOT (staged via AttachOnce) — auto-detached after their single fire. paused mirrors the
+// persisted triggers.paused switch (scheduler 工单⑦): a paused entry keeps its reference set but
+// its underlying source listener is UNREGISTERED (cron entry removed / webhook path 404 / fs watch
+// stopped / sensor probes stopped), so pausing stops the machinery, not just the fan-out — and
+// onReport drops any report that races in before the unregister lands.
 //
-// listenEntry 是某个 listener 正热的 trigger 的内存注册：所属 workspace、source 种类、引用它的 workflow 集、
-// 以及其中**一次性**（经 AttachOnce 试运行）的子集——单次扇出后自动 Detach。
+// listenEntry 是某个**被引用** trigger 的内存注册：所属 workspace、source 种类、引用它的 workflow 集、
+// 以及其中**一次性**（经 AttachOnce 试运行）的子集——单次扇出后自动 Detach。paused 镜像持久化的
+// triggers.paused 开关（scheduler 工单⑦）：暂停的 entry 保留引用集，但底层 source listener 已**注销**
+// （cron 摘 entry / webhook 路径 404 / fs watch 停 / sensor 探测停）——暂停停掉的是机器本身、不只扇出；
+// onReport 再兜住 unregister 落地前抢进来的在飞报告。
 type listenEntry struct {
 	workspaceID string
 	kind        string
 	workflows   map[string]bool
 	once        map[string]bool // workflowID → drop after one fire (stage_workflow)
+	paused      bool            // mirrors triggers.paused; true → source listener unregistered. 镜像 triggers.paused；true → 底层已注销。
 }
 
 // Service is the unified trigger surface.

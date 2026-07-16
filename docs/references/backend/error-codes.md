@@ -375,6 +375,7 @@ audience: [human, ai]
 | `FLOWRUN_APPROVAL_NOT_PARKED` | 422 | approval node is not awaiting a decision |
 | `FLOWRUN_INVALID_DECISION` | 422 | approval decision must be 'yes' or 'no' |
 | `FLOWRUN_INVALID_STATUS` | 422 | flowrun status filter must be one of: running, completed, failed, cancelled (F168-M2; `details.allowed`) |
+| `FLOWRUN_LIST_INVALID_FILTER` | 422 | invalid flowrun list filter value（工单⑥：`?origin` 越出 RunOrigins 或 `?startedAfter`/`?startedBefore` 非 RFC3339；`details.param`/`got`，枚举再带 `allowed`——F168-M2 同立场，绝不静默空页） |
 | `FLOWRUN_INVALID_ENTRY` | 422 | invalid or ambiguous trigger entry node |
 | `FLOWRUN_NOT_CANCELLABLE` | 422 | flowrun is not in a cancellable (running) state（工单② `:cancel`；含输给自然终态的 first-wins 竞态输家——已记录终态为准） |
 | `FLOWRUN_NOT_FOUND` | 404 | flowrun not found |
@@ -568,6 +569,7 @@ audience: [human, ai]
 | `TRIGGER_LISTENER_UNAVAILABLE` | 503 | trigger listener not available |
 | `TRIGGER_NAME_DUPLICATE` | 409 | trigger name already exists |
 | `TRIGGER_NOT_FOUND` | 404 | trigger not found |
+| `TRIGGER_PAUSED` | 422 | trigger is paused — resume it before firing（工单⑦：`:fire`/fire_trigger 打在已暂停 trigger 上的大声拒——暂停 = 不再产生新 firing，手动催也不例外） |
 | `TRIGGER_SENSOR_TARGET_REQUIRED` | 422 | sensor requires a function or handler target |
 | `TRIGGER_SENSOR_TARGET_NOT_FOUND` | 422 | sensor target does not exist (dynamic — details carry targetKind/targetId) |
 | `TRIGGER_WEBHOOK_SECRET_MISMATCH` | 401 | webhook secret mismatch |

@@ -227,6 +227,32 @@ func (s *Store) ListRuns(ctx context.Context, filter flowrundomain.ListFilter) (
 		}
 		q = q.WhereEq("status", filter.Status)
 	}
+	if filter.TriggerID != "" {
+		q = q.WhereEq("trigger_id", filter.TriggerID)
+	}
+	if filter.Origin != "" {
+		// Same loud-422 stance as status (F168-M2): an out-of-enum origin matches zero rows forever
+		// (the column is CHECK-constrained), which would read as "no such runs" (scheduler 工单⑥).
+		// 与 status 同一 422 大声拒立场（F168-M2）：枚举外 origin 永远 0 行（列有 CHECK），会被读作
+		// 「无此类 run」（scheduler 工单⑥）。
+		if !slices.Contains(flowrundomain.RunOrigins, filter.Origin) {
+			return nil, "", flowrundomain.ErrInvalidListFilter.WithDetails(map[string]any{"param": "origin", "allowed": flowrundomain.RunOrigins, "got": filter.Origin})
+		}
+		q = q.WhereEq("origin", filter.Origin)
+	}
+	// Half-open window [StartedAfter, StartedBefore) on started_at (scheduler 工单⑥). Plain column
+	// comparisons (no julianday wrapping): bound values and stored values go through the same driver
+	// serialization (UTC — the handler normalizes), and a bare started_at predicate stays sargable on
+	// idx_fr_ws_created / idx_fr_ws_workflow (workspace equality + started_at range).
+	// started_at 上的半开窗 [StartedAfter, StartedBefore)（scheduler 工单⑥）。裸列比较（不包 julianday）：
+	// 绑定值与存储值走同一 driver 序列化（UTC——handler 归一），裸 started_at 谓词在 idx_fr_ws_created /
+	// idx_fr_ws_workflow 上可走索引（workspace 等值 + started_at 范围）。
+	if !filter.StartedAfter.IsZero() {
+		q = q.Where("started_at >= ?", filter.StartedAfter)
+	}
+	if !filter.StartedBefore.IsZero() {
+		q = q.Where("started_at < ?", filter.StartedBefore)
+	}
 	rows, next, err := q.Page(ctx, filter.Cursor, filter.Limit)
 	if err != nil {
 		return nil, "", fmt.Errorf("flowrunstore.ListRuns: %w", err)

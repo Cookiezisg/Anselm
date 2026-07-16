@@ -29,7 +29,8 @@ durable 收件箱 trigger_firings（pending）……scheduler 每 5s 逐 workspa
 
 - **Activation**（`tra_`）= "trigger 动了一下"的审计——**触没触发都记**（sensor 每次探测都报，Fired=false 带 ReturnValue/Error/Detail——这让"为什么没触发"可查）；cron/webhook/fsnotify 只在真 fire 时报。
 - **Firing**（`trf_`）= **persist-before-act** 的收件箱行：fire 瞬间先落库、早于任何 flowrun。单一 status 枚举即处置结果：pending→claimed（claim 事务内瞬态）→started（终态-ok）；skipped（overlap skip）/superseded（overlap buffer_one——丢更早的等待 firing）/**shed**（资源上限**或所属 workflow 已被删**——后者 F137：`claimFiring` 见 `overlapDecision` 的 `GetWorkflow` 返 `WORKFLOW_NOT_FOUND` 即终态 shed 之，而非留 pending 让 `DrainFirings` 每 tick 重试这条永远成不了 run 的孤儿）。
-- **引用计数监听**：N 个 active workflow 共享一个 trigger 只跑**一个** listener（0→1 Register 启动、1→0 Unregister 停止；注册表在内存，boot 由 workflow.ReattachActive 重放）。`RefCount/Listening` 是读时算的非列字段；**`LastFiredAt`** 同为读时派生（非列）——List/Get 各行从 activation 日志取最近一条 `fired=true` 的 `created_at`（走 `idx_tra_ws_trigger` 一次 First；单用户触发器少、无 N+1），供行显示「N 前 fire」。**`NextFireAt`**（仅 cron）亦读时派生（非列）——`attachRuntime` 用 `croninfra.NextAfter(expression, now)` 算下次调度触发，供行显示「N 后触发」（非 cron 或 expr 不可解析则 nil）。
+- **引用计数监听**：N 个 active workflow 共享一个 trigger 只跑**一个** listener（0→1 Register 启动、1→0 Unregister 停止；注册表在内存，boot 由 workflow.ReattachActive 重放）。`RefCount/Listening` 是读时算的非列字段；**`LastFiredAt`** 同为读时派生（非列）——List/Get 各行从 activation 日志取最近一条 `fired=true` 的 `created_at`（走 `idx_tra_ws_trigger` 一次 First；单用户触发器少、无 N+1），供行显示「N 前 fire」。**`NextFireAt`**（仅 cron）亦读时派生（非列）——`attachRuntime` 用 `croninfra.NextAfter(expression, now)` 算下次调度触发，供行显示「N 后触发」（非 cron 或 expr 不可解析则 nil；**已暂停投影 nil**——cron entry 已摘、根本没有排程）。
+- **持久暂停开关**（`paused` 列 + `:pause`/`:resume`，scheduler 工单⑦）：暂停 = **不再产生任何新 firing**——底层 source listener 在源头注销（cron 摘 entry / webhook 路径 404 / fs watch 停 / sensor 探测停，**机器停、非只闸扇出**），内存 entry 保留引用集并标 `paused`（`RefCount` 不丢、`Listening=false`），`onReport` 再兜住注销落地前抢进的在飞报告（丢弃、不落 Activation）；手动 `:fire` 大声拒 `TRIGGER_PAUSED`。**在途 run 与已 pending 的 firing 不受影响**（暂停前的合法事件，scheduler 照常消化）。持久列使重启仍暂停（boot Attach 见 paused 建 entry 不 Register）；resume（仍有引用时）用**当前** config 重注册——暂停期间的 Edit 在此生效（`restartIfListening` 对暂停 entry 跳过）。两端点幂等、200 返裸 trigger；每次真转移发 entities 流 ephemeral `status` 信号 `{paused}`（照 mcp status 先例，`paused` 行是重连真相）。
 - **一次性待命**（stage）：`AttachOnce` 标记 once，fanOut 后自动 Detach（可能把 listener 1→0 停掉）。
 
 ## 3. 去重（D3：`idx_trf_dedup` = UNIQUE(workflow_id, trigger_id, dedup_key)）
@@ -50,8 +51,9 @@ durable 收件箱 trigger_firings（pending）……scheduler 每 5s 逐 workspa
 ## 4. 生命周期 / 行为
 
 - **4 源 config**（`ValidateConfig` 按 kind 分检）：cron=robfig **5 段**表达式（分钟粒度，与分钟桶 dedup 一致；`@every`/秒级不支持，错误消息指路）（`TRIGGER_INVALID_CRON`）；webhook=挂载路径 + 可选 secret（**明文**：caller 带 `X-Webhook-Secret: <secret>` 头或 `?token=<secret>` 查询；**HMAC**（config `signatureAlgo:"hmac-sha256-hex"`）：caller 带 `X-Hub-Signature-256: sha256=<小写 hex hmac_sha256(rawBody,secret)>` 头、头名可经 config `signatureHeader` 改；不匹配 → 401 纯文本响应，不走标准 envelope 错误码）；fsnotify=路径(必填) + 可选事件类型 + 可选 pattern；sensor=周期 invoke function/handler/mcp（targetKind 三选一；handler/mcp 需 method=方法名/工具名，function 整体即单元）+ CEL 条件（`TRIGGER_INVALID_CEL`/`TRIGGER_INVALID_INTERVAL`/`TRIGGER_SENSOR_TARGET_REQUIRED`）+ **目标存在性 eager 校验**（F102，与 F96/F98/F112 同族）：经 `SensorTargetValidator`（bootstrap 装、走 function/handler 的 `Get` + mcp 的 `ResolveServerID`）在 create/edit 即拒 dangling 目标→`TRIGGER_SENSOR_TARGET_NOT_FOUND`（details 带 targetKind/targetId），免其绑上 dangling `equip` 边、首探才大声失败；validator 允许 nil（未全装配的测试跳过）。
-- **Edit 热更**：正在监听的 trigger 用新 config 重 Register。
-- **`:fire`**（FireManual）：手动催一次——扇给当前监听者（可能 0 个，那就只是一条 0 firing 的 Activation）。**合成 payload 仅 `{manual:true}`、不带自定义数据**（要给 workflow 喂测试数据走 `trigger_workflow`，非 `:fire`）。
+- **Edit 热更**：正在监听的 trigger 用新 config 重 Register（**已暂停的跳过**——新 config 在 `:resume` 时生效）。
+- **`:fire`**（FireManual）：手动催一次——扇给当前监听者（可能 0 个，那就只是一条 0 firing 的 Activation）。**合成 payload 仅 `{manual:true}`、不带自定义数据**（要给 workflow 喂测试数据走 `trigger_workflow`，非 `:fire`）。**已暂停 422 `TRIGGER_PAUSED`**（暂停语义见 §2 持久暂停开关——agent/UI 都绕不过）。
+- **`:pause` / `:resume`**：运行时调度止血阀（工单⑦，语义全文见 §2 持久暂停开关）——幂等、同步 200 裸 trigger、暂停跨重启持久、在途 run 不受影响。
 - webhook 异步 fire + recover（handler 不被慢/panic 拖累）、202 立即返回。
 - **webhook 路由模型**：listener 在 `New` 时只挂**一个 catch-all** route（`/api/v1/webhooks/` 前缀，共享 mux 上独占此前缀）；Register/Unregister 只动内存 registry map（`full path → registration`），mux 永不增长。catch-all 用确切请求路径重建 registry 键派发，registry miss → 404（Unregister / Edit 改路径后旧路径自然 404）。**故意不 per-trigger HandleFunc**——stdlib ServeMux 不能 unmount，且重注册一个已注销路径会因重复 pattern panic；单 catch-all 两患皆除。
 - **优雅关闭 join**：进程退出 `Shutdown` 顺停 4 listener。cron `Stop` 阻塞至 `cron.Stop()` ctx Done、fsnotify `Stop` `wg.Wait()`、**sensor `Stop` cancel 所有探测 goroutine 后 `wg.Wait()` join**（探测中途的 Invoke 持 function/handler 子进程，须收尾再让调用方 `db.Close`）；webhook `Stop` no-op（mux 归 HTTP server）。
@@ -62,7 +64,7 @@ listener 永不知道 workflow（扇出是 app 的事）；Activation 与 Firing
 
 ## 6. 契约（引用）
 
-端点（CRUD + `:fire`/`:iterate` + activations 两查询 + `GET {id}/firings`）→ [api.md](../api.md) · 表（`triggers`/`trigger_activations`/`trigger_firings`——后两张 Log）→ [database.md](../database.md) · 码 `TRIGGER_*` 13+3 → [error-codes.md](../error-codes.md) · ID：`trg_`/`tra_`/`trf_`。LLM 观测工具：`search_activations`（"它**有没有 fire**"——逐次动作日志，含未 fire 的 sensor 探测因）+ `get_activation` + **`search_firings`**（"它 fire 了但 workflow **跑没跑、为什么没跑**"——firing 收件箱的处置面：started/pending/skipped/superseded/shed；status 过滤经 `FiringStatuses` 封闭集校、非法值 422 `TRIGGER_FIRING_INVALID_STATUS` 而非静默空页，F175-M7 + F168-M2 延伸）。activations vs firings = 触发面 vs 运行面，名字即语义。
+端点（CRUD + `:fire`/`:pause`/`:resume`/`:iterate` + activations 两查询 + `GET {id}/firings`）→ [api.md](../api.md) · 表（`triggers`〔含 `paused` 演化列〕/`trigger_activations`/`trigger_firings`——后两张 Log）→ [database.md](../database.md) · 码 `TRIGGER_*` 15+3 → [error-codes.md](../error-codes.md) · ID：`trg_`/`tra_`/`trf_`。LLM 观测工具：`search_activations`（"它**有没有 fire**"——逐次动作日志，含未 fire 的 sensor 探测因）+ `get_activation` + **`search_firings`**（"它 fire 了但 workflow **跑没跑、为什么没跑**"——firing 收件箱的处置面：started/pending/skipped/superseded/shed；status 过滤经 `FiringStatuses` 封闭集校、非法值 422 `TRIGGER_FIRING_INVALID_STATUS` 而非静默空页，F175-M7 + F168-M2 延伸）。activations vs firings = 触发面 vs 运行面，名字即语义。
 
 ## 7. 跨域集成
 

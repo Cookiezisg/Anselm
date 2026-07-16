@@ -38,6 +38,14 @@ var Schema = []string{
 	`CREATE UNIQUE INDEX IF NOT EXISTS idx_triggers_ws_name ON triggers(workspace_id, name) WHERE deleted_at IS NULL`,
 	`CREATE INDEX IF NOT EXISTS idx_triggers_ws_created ON triggers(workspace_id, created_at DESC, id DESC) WHERE deleted_at IS NULL`,
 
+	// Column evolution — persisted pause switch (scheduler 工单⑦). ADD COLUMN (not baked into the
+	// CREATE) so an existing install gains it on next boot; re-runs rely on db.Migrate treating
+	// "duplicate column name" as already-applied (same precedent as flowruns origin, 工单①).
+	//
+	// 列演化——持久化暂停开关（scheduler 工单⑦）。用 ADD COLUMN（不并进 CREATE）使已有安装下次启动
+	// 补列；重复执行靠 db.Migrate 把 "duplicate column name" 视作已应用（同 flowruns origin 先例，工单①）。
+	`ALTER TABLE triggers ADD COLUMN paused INTEGER NOT NULL DEFAULT 0`,
+
 	`CREATE TABLE IF NOT EXISTS trigger_firings (
 		id            TEXT PRIMARY KEY,
 		workspace_id  TEXT NOT NULL,
@@ -173,6 +181,23 @@ func (s *Store) ListAllTriggers(ctx context.Context) ([]*triggerdomain.Trigger, 
 		return nil, fmt.Errorf("triggerstore.ListAllTriggers: %w", err)
 	}
 	return rows, nil
+}
+
+// SetTriggerPaused flips the persisted pause switch alone (scheduler 工单⑦) — a targeted UPDATE
+// (orm stamps updated_at), never a whole-row Save, so it composes with concurrent Edits. 0 rows
+// matched = the trigger doesn't exist (workspace-scoped soft-delete filter applies) → ErrNotFound.
+//
+// SetTriggerPaused 只翻持久化暂停开关（scheduler 工单⑦）——定点 UPDATE（orm 盖 updated_at）、绝不整行
+// Save，与并发 Edit 可组合。匹配 0 行 = trigger 不存在（workspace 隔离 + 软删过滤生效）→ ErrNotFound。
+func (s *Store) SetTriggerPaused(ctx context.Context, id string, paused bool) error {
+	n, err := s.trgs.WhereEq("id", id).Update(ctx, "paused", paused)
+	if err != nil {
+		return fmt.Errorf("triggerstore.SetTriggerPaused: %w", err)
+	}
+	if n == 0 {
+		return triggerdomain.ErrNotFound
+	}
+	return nil
 }
 
 func (s *Store) DeleteTrigger(ctx context.Context, id string) error {

@@ -18,16 +18,19 @@ import (
 // onReport is the ReportFunc handed to every listener. A listener only knows "my trigger did
 // X"; here the app resolves the trigger's workspace + listening workflows and turns the
 // report into an Activation (always) plus, when Fired, one Firing per workflow (fan-out).
-// A report racing in after Detach (listeners entry gone) is dropped.
+// A report racing in after Detach (listeners entry gone) or after Pause (entry marked paused —
+// the unregister may land a beat behind, scheduler 工单⑦) is dropped.
 //
 // onReport 是交给每个 listener 的 ReportFunc。listener 只知"我这个 trigger 做了 X"；app 在此解析 trigger
 // 的 workspace + 监听 workflow，把报告变成 Activation（总是）+ Fired 时每 workflow 一条 Firing（扇出）。
+// Detach 后（entry 已删）或 Pause 后（entry 已标暂停——unregister 可能慢半拍落地，scheduler 工单⑦）
+// 抢进来的报告一律丢弃。
 func (s *Service) onReport(triggerID string, act triggerinfra.Activity) {
 	s.mu.RLock()
 	e, ok := s.listeners[triggerID]
-	if !ok {
+	if !ok || e.paused {
 		s.mu.RUnlock()
-		return // detached mid-flight — drop
+		return // detached / paused mid-flight — drop. 半途被摘 / 被暂停——丢弃。
 	}
 	wsID, kind := e.workspaceID, e.kind
 	workflows := make([]string, 0, len(e.workflows))
@@ -107,14 +110,21 @@ func (s *Service) fanOut(ctx context.Context, triggerID, kind string, workflows 
 
 // FireManual fires a trigger by hand (the fire_trigger tool / a test "ping it now"): it
 // fans out to whatever workflows currently listen (possibly none — then it's just a recorded
-// Activation with 0 firings).
+// Activation with 0 firings). A PAUSED trigger refuses loudly (422 TRIGGER_PAUSED) — pause means
+// "no new firings, period"; a manual fire slipping past the switch would betray it, and a silent
+// no-op would read as "fired but nothing ran" (scheduler 工单⑦).
 //
 // FireManual 手动触发一次（fire_trigger 工具 / 测试"立刻催它"）：扇给当前监听的 workflow（可能没有——
-// 那就只是一条 0 firing 的 Activation 记录）。
+// 那就只是一条 0 firing 的 Activation 记录）。**已暂停**的 trigger 大声拒（422 TRIGGER_PAUSED）——
+// 暂停 = 一个新 firing 都不许；手动 fire 绕过开关即背叛暂停，静默 no-op 则会被读作「触发了但没跑」
+// （scheduler 工单⑦）。
 func (s *Service) FireManual(ctx context.Context, triggerID string) (string, error) {
 	t, err := s.repo.GetTrigger(ctx, triggerID)
 	if err != nil {
 		return "", err
+	}
+	if t.Paused {
+		return "", triggerdomain.ErrPaused
 	}
 	s.mu.RLock()
 	var workflows []string

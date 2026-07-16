@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	_ "github.com/glebarez/go-sqlite"
 
@@ -472,5 +473,106 @@ func TestProvenanceColumns_UpgradeAndRoundTrip(t *testing.T) {
 	if _, err := sqlDB.Exec(`INSERT INTO flowruns (id, workspace_id, workflow_id, version_id, status, origin, started_at, updated_at)
 		VALUES ('fr_bad', 'ws_1', 'wf_1', 'wfv_1', 'running', 'gremlin', '2026-01-01 00:00:00', '2026-01-01 00:00:00')`); err == nil {
 		t.Fatal("CHECK must reject an out-of-vocabulary origin")
+	}
+}
+
+// --- 工单⑥ list filters ------------------------------------------------------
+
+// mkRunAt seeds a run with provenance coordinates + a pinned started_at (Create stamps
+// started_at=now unconditionally, so the window coordinate is pinned by direct UPDATE — the
+// same driver serialization ListRuns' window predicates bind with).
+//
+// mkRunAt 种一个带溯源坐标 + 钉死 started_at 的 run（Create 无条件盖 started_at=now，故窗口坐标
+// 用直接 UPDATE 钉——与 ListRuns 窗口谓词绑定值走同一 driver 序列化）。
+func mkRunAt(t *testing.T, s *Store, ctx context.Context, runID, wfID, trgID, origin string, startedAt time.Time) {
+	t.Helper()
+	run := &flowrundomain.FlowRun{ID: runID, WorkflowID: wfID, VersionID: "wfv_1", TriggerID: trgID}
+	if origin != "" {
+		run.Origin = &origin
+	}
+	trig := &flowrundomain.FlowRunNode{NodeID: "start", Kind: "trigger", Ref: trgID}
+	if _, err := s.CreateRunWithTrigger(ctx, run, trig); err != nil {
+		t.Fatalf("seed %s: %v", runID, err)
+	}
+	if _, err := s.db.Exec(context.Background(), `UPDATE flowruns SET started_at = ? WHERE id = ?`, startedAt, runID); err != nil {
+		t.Fatalf("pin started_at %s: %v", runID, err)
+	}
+}
+
+// listIDs runs ListRuns and returns the matched ids (newest-first order preserved).
+//
+// listIDs 跑 ListRuns 并返回命中 id（保持最新在前序）。
+func listIDs(t *testing.T, s *Store, ctx context.Context, f flowrundomain.ListFilter) []string {
+	t.Helper()
+	if f.Limit == 0 {
+		f.Limit = 50
+	}
+	rows, _, err := s.ListRuns(ctx, f)
+	if err != nil {
+		t.Fatalf("ListRuns %+v: %v", f, err)
+	}
+	ids := make([]string, 0, len(rows))
+	for _, r := range rows {
+		ids = append(ids, r.ID)
+	}
+	return ids
+}
+
+// TestListRuns_Filters — 工单⑥: triggerId / origin equality, the half-open started_at window
+// [after, before), AND-composition with workflowId/status, NULL-origin rows never matching an
+// origin filter, and the loud 422 on an out-of-enum origin (F168-M2 stance).
+//
+// TestListRuns_Filters — 工单⑥：triggerId / origin 等值、started_at 半开窗 [after, before)、与
+// workflowId/status 的 AND 组合、NULL origin 旧行不匹配任何 origin 过滤、枚举外 origin 的 422 大声拒。
+func TestListRuns_Filters(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	t1 := time.Date(2026, 7, 1, 8, 0, 0, 0, time.UTC)
+	t2 := time.Date(2026, 7, 5, 8, 0, 0, 0, time.UTC)
+	t3 := time.Date(2026, 7, 10, 8, 0, 0, 0, time.UTC)
+	t4 := time.Date(2026, 7, 12, 8, 0, 0, 0, time.UTC)
+
+	mkRunAt(t, s, ctx, "fr_a", "wf_1", "trg_1", flowrundomain.OriginCron, t1)
+	mkRunAt(t, s, ctx, "fr_b", "wf_1", "trg_2", flowrundomain.OriginWebhook, t2)
+	mkRunAt(t, s, ctx, "fr_c", "wf_2", "", flowrundomain.OriginManual, t3)
+	mkRunAt(t, s, ctx, "fr_d", "wf_2", "", "", t4) // pre-provenance row (NULL origin). 溯源前旧行。
+	if won, err := s.MarkRunTerminal(ctx, "fr_c", flowrundomain.StatusCompleted, ""); err != nil || !won {
+		t.Fatalf("terminal fr_c: won=%v err=%v", won, err)
+	}
+
+	eq := func(what string, got, want []string) {
+		t.Helper()
+		if len(got) != len(want) {
+			t.Fatalf("%s: got %v, want %v", what, got, want)
+		}
+		for i := range want {
+			if got[i] != want[i] {
+				t.Fatalf("%s: got %v, want %v", what, got, want)
+			}
+		}
+	}
+
+	// Equality filters. 等值过滤。
+	eq("triggerId=trg_1", listIDs(t, s, ctx, flowrundomain.ListFilter{TriggerID: "trg_1"}), []string{"fr_a"})
+	eq("origin=webhook", listIDs(t, s, ctx, flowrundomain.ListFilter{Origin: flowrundomain.OriginWebhook}), []string{"fr_b"})
+	// A NULL-origin row matches NO origin filter (it is unknown, not manual). NULL 行不匹配任何 origin 过滤。
+	eq("origin=manual excludes NULL row", listIDs(t, s, ctx, flowrundomain.ListFilter{Origin: flowrundomain.OriginManual}), []string{"fr_c"})
+
+	// Half-open window [t2, t4): the lower bound is inclusive (fr_b at exactly t2 matches), the
+	// upper exclusive (fr_d at exactly t4 does not) — adjacent windows tile without overlap.
+	// 半开窗 [t2, t4)：下界含（恰在 t2 的 fr_b 命中）、上界不含（恰在 t4 的 fr_d 不命中）——相邻窗无缝拼接。
+	eq("window [t2,t4)", listIDs(t, s, ctx, flowrundomain.ListFilter{StartedAfter: t2, StartedBefore: t4}), []string{"fr_c", "fr_b"})
+	eq("startedAfter only", listIDs(t, s, ctx, flowrundomain.ListFilter{StartedAfter: t3}), []string{"fr_d", "fr_c"})
+	eq("startedBefore only", listIDs(t, s, ctx, flowrundomain.ListFilter{StartedBefore: t2}), []string{"fr_a"})
+
+	// AND-composition with the pre-existing filters. 与既有过滤的 AND 组合。
+	eq("workflowId+origin", listIDs(t, s, ctx, flowrundomain.ListFilter{WorkflowID: "wf_1", Origin: flowrundomain.OriginCron}), []string{"fr_a"})
+	eq("workflowId+origin mismatch", listIDs(t, s, ctx, flowrundomain.ListFilter{WorkflowID: "wf_1", Origin: flowrundomain.OriginManual}), []string{})
+	eq("status+origin", listIDs(t, s, ctx, flowrundomain.ListFilter{Status: flowrundomain.StatusCompleted, Origin: flowrundomain.OriginManual}), []string{"fr_c"})
+	eq("status+window", listIDs(t, s, ctx, flowrundomain.ListFilter{Status: flowrundomain.StatusRunning, StartedAfter: t2}), []string{"fr_d", "fr_b"})
+
+	// An out-of-enum origin is a loud 422, never a silent empty page. 枚举外 origin 大声 422、绝不静默空页。
+	if _, _, err := s.ListRuns(ctx, flowrundomain.ListFilter{Origin: "gremlin", Limit: 10}); !errors.Is(err, flowrundomain.ErrInvalidListFilter) {
+		t.Fatalf("origin=gremlin must reject with ErrInvalidListFilter, got %v", err)
 	}
 }

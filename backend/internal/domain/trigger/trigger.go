@@ -87,9 +87,20 @@ type Trigger struct {
 	Kind        string            `db:"kind"               json:"kind"`
 	Config      map[string]any    `db:"config,json"        json:"config"`
 	Outputs     []schemapkg.Field `db:"outputs,json"       json:"outputs"` // declared payload fields delivered to listening workflows (downstream reads these)
-	CreatedAt   time.Time         `db:"created_at,created" json:"createdAt"`
-	UpdatedAt   time.Time         `db:"updated_at,updated" json:"updatedAt"`
-	DeletedAt   *time.Time        `db:"deleted_at,deleted" json:"-"`
+	// Paused is the runtime stop-the-bleeding switch (:pause / :resume, scheduler 工单⑦), PERSISTED
+	// so a restart stays paused. Paused = the trigger produces NO new firings (its source listener is
+	// unregistered; manual :fire is refused) while in-flight runs and already-pending firings are
+	// untouched. Distinct from Listening: Listening is the derived "is a listener hot" fact (needs
+	// ≥1 active workflow AND not paused); Paused is the user's own persisted intent.
+	//
+	// Paused 是运行时止血开关（:pause / :resume，scheduler 工单⑦），**持久化**——重启后仍暂停。
+	// 暂停 = 不再产生任何新 firing（底层 source listener 已注销；手动 :fire 被拒），在途 run 与已
+	// pending 的 firing 不受影响。与 Listening 不同：Listening 是派生的「listener 热否」事实
+	// （须 ≥1 个 active workflow 且未暂停）；Paused 是用户自己的持久化意图。
+	Paused    bool       `db:"paused"             json:"paused"`
+	CreatedAt time.Time  `db:"created_at,created" json:"createdAt"`
+	UpdatedAt time.Time  `db:"updated_at,updated" json:"updatedAt"`
+	DeletedAt *time.Time `db:"deleted_at,deleted" json:"-"`
 
 	// RefCount / Listening are computed at read time from the app's in-memory listen
 	// registry (how many active workflows reference it / whether its listener is hot).
@@ -140,4 +151,9 @@ var (
 	// ErrFiringNotPending: a ClaimFiring lost the race — already claimed/terminal (consumed by the scheduler).
 	// ErrFiringNotPending：claim 竞争失败（已被认领/终态），scheduler 消费。
 	ErrFiringNotPending = errorspkg.New(errorspkg.KindConflict, "TRIGGER_FIRING_NOT_PENDING", "firing already claimed")
+	// ErrPaused: a manual :fire (fire_trigger) hit a paused trigger. Loud 422 instead of a silent
+	// no-op so neither the UI nor an agent bypasses (or misreads) the user's pause (scheduler 工单⑦).
+	// ErrPaused：手动 :fire（fire_trigger）打在已暂停的 trigger 上。422 大声拒而非静默 no-op——
+	// UI 与 agent 都不得绕过（或误读）用户的暂停（scheduler 工单⑦）。
+	ErrPaused = errorspkg.New(errorspkg.KindUnprocessable, "TRIGGER_PAUSED", "trigger is paused — resume it before firing")
 )

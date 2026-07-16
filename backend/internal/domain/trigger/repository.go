@@ -22,6 +22,12 @@ type Repository interface {
 	ListTriggers(ctx context.Context, filter ListFilter) ([]*Trigger, string, error)
 	ListAllTriggers(ctx context.Context) ([]*Trigger, error)
 	DeleteTrigger(ctx context.Context, id string) error
+	// SetTriggerPaused flips ONLY the persisted pause switch (:pause / :resume, scheduler 工单⑦) —
+	// a targeted update, not a whole-row Save, so it cannot clobber a concurrent Edit. ErrNotFound
+	// on miss; setting the current value again is a harmless no-op (idempotent endpoints).
+	// SetTriggerPaused 只翻持久化暂停开关（:pause / :resume，scheduler 工单⑦）——定点更新、非整行
+	// Save，不会覆写并发 Edit。未命中 ErrNotFound；重复设同值无害 no-op（端点幂等）。
+	SetTriggerPaused(ctx context.Context, id string, paused bool) error
 
 	// firings inbox (persist-before-act). AppendFiring is idempotent on the dedup key.
 	// firings 收件箱（先持久化再动作）。AppendFiring 按 dedup key 幂等。

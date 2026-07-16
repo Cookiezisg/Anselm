@@ -44,26 +44,67 @@ func (h *FlowrunHandler) Register(mux Registrar) {
 	mux.HandleFunc("POST /api/v1/flowruns/{id}/approvals/{nodeAction}", h.postOnApproval)
 }
 
-// List pages a workspace's runs (newest-first), optionally filtered via ?workflowId and/or ?status (running|completed|failed|cancelled).
+// List pages a workspace's runs (newest-first). Filters compose with AND (scheduler 工单⑥):
+// ?workflowId / ?triggerId (equality), ?status / ?origin (closed sets — an out-of-enum value is a
+// loud 422 with the allowed set in Details), and ?startedAfter / ?startedBefore (RFC3339, the
+// half-open window [after, before) on started_at; a non-RFC3339 value is a loud 422).
 //
-// List 分页一个 workspace 的 run（最新优先），可选 ?workflowId / ?status 过滤。
+// List 分页一个 workspace 的 run（最新优先）。过滤 AND 组合（scheduler 工单⑥）：?workflowId /
+// ?triggerId（等值）、?status / ?origin（封闭集——枚举外值 422 大声拒、Details 带合法集）、
+// ?startedAfter / ?startedBefore（RFC3339，started_at 上的半开窗 [after, before)；非 RFC3339 一律 422）。
 func (h *FlowrunHandler) List(w http.ResponseWriter, r *http.Request) {
 	p, err := responsehttpapi.ParsePage(r)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
+	query := r.URL.Query()
+	startedAfter, err := parseListTime(query.Get("startedAfter"), "startedAfter")
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	startedBefore, err := parseListTime(query.Get("startedBefore"), "startedBefore")
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
 	runs, next, err := h.svc.ListRuns(r.Context(), flowrundomain.ListFilter{
-		WorkflowID: r.URL.Query().Get("workflowId"),
-		Status:     r.URL.Query().Get("status"),
-		Cursor:     p.Cursor,
-		Limit:      p.Limit,
+		WorkflowID:    query.Get("workflowId"),
+		Status:        query.Get("status"),
+		TriggerID:     query.Get("triggerId"),
+		Origin:        query.Get("origin"),
+		StartedAfter:  startedAfter,
+		StartedBefore: startedBefore,
+		Cursor:        p.Cursor,
+		Limit:         p.Limit,
 	})
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
 	responsehttpapi.Paged(w, runs, next, next != "")
+}
+
+// parseListTime parses one ?startedAfter / ?startedBefore bound: absent → zero time (unbounded),
+// RFC3339 → normalized to UTC (stored timestamps are UTC — a mixed-zone bound would compare wrong
+// as driver-serialized text). Anything else is a loud 422 with the offending param + value in
+// Details (scheduler 工单⑥). Deliberately NOT the parseSince grammar: a window bound is an absolute
+// instant, not a look-back duration.
+//
+// parseListTime 解析一个 ?startedAfter / ?startedBefore 界：缺席 → 零值时间（不设界），RFC3339 →
+// 归一到 UTC（存储时间戳是 UTC——混时区界经 driver 文本序列化会比错）。其余一律 422 大声拒、Details
+// 带出错参数 + 原值（scheduler 工单⑥）。刻意不用 parseSince 文法：窗口界是绝对时刻、非回看时长。
+func parseListTime(raw, param string) (time.Time, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return time.Time{}, nil
+	}
+	ts, err := time.Parse(time.RFC3339, raw)
+	if err != nil {
+		return time.Time{}, flowrundomain.ErrInvalidListFilter.WithDetails(map[string]any{"param": param, "got": raw, "want": "RFC3339"})
+	}
+	return ts.UTC(), nil
 }
 
 // Start is the manual-trigger path ("Run now"): create + advance a run. The payload conforms to the

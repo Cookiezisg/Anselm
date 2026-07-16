@@ -92,7 +92,7 @@ audience: [human, ai]
 
 | Method · Path | 语义 |
 |---|---|
-| `GET /flowruns` | 运行历史分页（`?workflowId&status=running\|completed\|failed\|cancelled`） |
+| `GET /flowruns` | 运行历史分页，过滤全 AND 组合（scheduler 工单⑥）：`?workflowId&triggerId`（等值）`&status=running\|completed\|failed\|cancelled&origin=manual\|chat\|cron\|webhook\|fsnotify\|sensor`（封闭集——status 越集 422 `FLOWRUN_INVALID_STATUS`、origin 越集 422 `FLOWRUN_LIST_INVALID_FILTER`，details 均带 `allowed`）`&startedAfter&startedBefore`（RFC3339、归一 UTC，started_at 上的**半开窗** `[after, before)`——相邻窗无缝拼接；非 RFC3339 一律 422 `FLOWRUN_LIST_INVALID_FILTER`，details 带 `param`/`got`）。origin 为 NULL 的旧行不匹配任何 origin 过滤；时间窗走既有 `idx_fr_ws_created`/`idx_fr_ws_workflow`（ws 等值 + started_at 范围），零 schema 变更 |
 | `POST /flowruns` | 手动起 run（= workflow `:trigger` 的等价入口），body `{workflowId, entryNode?, payload?}`（`entryNode` 消歧多 trigger 图——唯一接受 entryNode 的端点） |
 | `GET /flowruns/{id}` | run 头 + **一页节点行**（N4 分页 `?cursor&limit`、最新在前、返 `nextCursor`；长 loop run 数千行不再一次倾倒，F168-M7。完整记忆化全集是解释器内部的、非线缆的） |
 | `POST /flowruns/{id}:replay` | 修复失败 run：清 failed 行 + 重走（completed 复用）；**仅 failed 可重放**——cancelled 是终局终态、不可 :replay（422 `FLOWRUN_NOT_REPLAYABLE`） |
@@ -112,8 +112,9 @@ flowrun 行 DTO 带创建时溯源两字段（camelCase、omitempty）：`origin
 
 | Method · Path | 语义 |
 |---|---|
-| `POST /triggers` · `GET /triggers` · `GET /triggers/{id}` · `PATCH /triggers/{id}` · `DELETE /triggers/{id}` | CRUD（PATCH=Edit，热更监听中的 listener）。List/Get 每条带派生 `refCount`/`listening` + **`lastFiredAt`**（最近一次 fire 的时间，nil=从未；行可显示「N 前 fire」，读时从 activation 日志投影） |
-| `POST /triggers/{id}:fire` | 手动催一次（扇给当前监听者），202 返 `{data:{id}}`——新产物 activation 的单 id（triggerId 在 URL、fired 被 202 蕴含）；拿 id 直查 activation 闭环 |
+| `POST /triggers` · `GET /triggers` · `GET /triggers/{id}` · `PATCH /triggers/{id}` · `DELETE /triggers/{id}` | CRUD（PATCH=Edit，热更监听中的 listener；**已暂停的不热更**——新 config 在 :resume 时生效）。List/Get 每条带持久 **`paused`**（恒在 bool，scheduler 工单⑦）+ 派生 `refCount`/`listening` + **`lastFiredAt`**（最近一次 fire 的时间，nil=从未；行可显示「N 前 fire」，读时从 activation 日志投影）；暂停时 `listening=false`、`nextFireAt` **缺席**（无排程、给时间戳即撒谎） |
+| `POST /triggers/{id}:fire` | 手动催一次（扇给当前监听者），202 返 `{data:{id}}`——新产物 activation 的单 id（triggerId 在 URL、fired 被 202 蕴含）；拿 id 直查 activation 闭环。**已暂停 422 `TRIGGER_PAUSED`**——暂停 = 一个新 firing 都不许，agent 绕不过用户的暂停 |
+| `POST /triggers/{id}:pause` · `POST /triggers/{id}:resume` | **运行时调度开关**（scheduler 工单⑦，止血阀）：pause 持久化 `paused=true` 并**在源头注销** source listener（cron 摘 entry / webhook 路径 404 / fs watch 停 / sensor 探测停），引用集保留、在途 run 与已 pending firing 不受影响；resume 持久化翻回并（仍有 active workflow 引用时）用**当前** config 重注册。两者**幂等**（重复无害 no-op）、同步 200 返动作后**裸 trigger**（与 PATCH 同形）；暂停跨重启持久（boot 重挂跳过 Register）。每次真转移发 entities 流 ephemeral `status` 信号 `{paused}` |
 | `POST /triggers/{id}:iterate` | 开 AI 编辑对话 |
 | `GET /triggers/{id}/activations` · `GET /trigger-activations/{id}` | 活动审计（触没触发都有记录） |
 | `GET /triggers/{id}/firings` | firing 收件箱分页（`?status=pending\|started\|skipped\|superseded\|shed`）——「触发了为什么没跑」的处置面 |

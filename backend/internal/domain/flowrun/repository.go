@@ -1,16 +1,29 @@
 package flowrun
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
-// ListFilter paginates a workspace's flowruns (newest-first). An optional WorkflowID narrows to
-// one workflow's history.
+// ListFilter paginates a workspace's flowruns (newest-first). All filters compose with AND
+// (scheduler 工单⑥): WorkflowID / TriggerID narrow provenance, Status and Origin are closed-set
+// (an out-of-enum value is a loud 422, never a silent empty page — F168-M2), and the started_at
+// window is half-open [StartedAfter, StartedBefore) so adjacent windows tile without overlap
+// (zero time = that bound unset). NULL-origin rows (pre-provenance) never match an Origin filter.
 //
-// ListFilter 分页一个 workspace 的 flowrun（最新优先）。可选 WorkflowID 收窄到单个 workflow 历史。
+// ListFilter 分页一个 workspace 的 flowrun（最新优先）。所有过滤 AND 组合（scheduler 工单⑥）：
+// WorkflowID / TriggerID 收窄溯源，Status 与 Origin 是封闭集（枚举外值 422 大声拒、绝不静默空页——
+// F168-M2），started_at 窗口是半开区间 [StartedAfter, StartedBefore)——相邻窗口无缝拼接不重叠
+// （零值时间 = 该端不设界）。origin 为 NULL 的旧行永不匹配 Origin 过滤。
 type ListFilter struct {
-	WorkflowID string
-	Status     string // running | completed | failed | cancelled; "" = all. 空 = 全部。
-	Cursor     string
-	Limit      int
+	WorkflowID    string
+	Status        string    // running | completed | failed | cancelled; "" = all. 空 = 全部。
+	TriggerID     string    // entry trg_ equality; "" = all. 入口 trg_ 等值；空 = 全部。
+	Origin        string    // RunOrigins member; "" = all. RunOrigins 之一；空 = 全部。
+	StartedAfter  time.Time // inclusive lower bound on started_at. started_at 含下界。
+	StartedBefore time.Time // exclusive upper bound on started_at. started_at 不含上界。
+	Cursor        string
+	Limit         int
 }
 
 // Repository persists the two flowrun tables. Both are Log tables (D1: never deleted).

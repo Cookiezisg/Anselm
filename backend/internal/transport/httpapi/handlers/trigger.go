@@ -122,9 +122,14 @@ func (h *TriggerHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	responsehttpapi.NoContent(w)
 }
 
-// postOnTrigger dispatches POST /triggers/{id}:<action> (:fire / :iterate).
+// postOnTrigger dispatches POST /triggers/{id}:<action> (:fire / :pause / :resume / :iterate).
+// :pause / :resume are the runtime scheduling switch (scheduler 工单⑦): synchronous state flips,
+// idempotent (repeating is a harmless no-op), 200 with the bare post-action trigger (same shape as
+// PATCH) — paused=true reads with nextFireAt absent and listening=false.
 //
-// postOnTrigger 派发 POST /triggers/{id}:<action>（:fire / :iterate）。
+// postOnTrigger 派发 POST /triggers/{id}:<action>（:fire / :pause / :resume / :iterate）。
+// :pause / :resume 是运行时调度开关（scheduler 工单⑦）：同步状态翻转、幂等（重复无害 no-op），
+// 200 返动作后裸 trigger（与 PATCH 同形）——paused=true 时 nextFireAt 缺席、listening=false。
 func (h *TriggerHandler) postOnTrigger(w http.ResponseWriter, r *http.Request) {
 	id, action, ok := idAndAction(r, "idAction")
 	if !ok {
@@ -140,6 +145,20 @@ func (h *TriggerHandler) postOnTrigger(w http.ResponseWriter, r *http.Request) {
 		}
 		// 新产物 = activation;triggerId 已在 URL 路径、fired 被 202 蕴含 → 单产物 {id}
 		responsehttpapi.Success(w, http.StatusAccepted, map[string]any{"id": actID})
+	case "pause":
+		t, err := h.svc.Pause(r.Context(), id)
+		if err != nil {
+			responsehttpapi.FromDomainError(w, h.log, err)
+			return
+		}
+		responsehttpapi.Success(w, http.StatusOK, t)
+	case "resume":
+		t, err := h.svc.Resume(r.Context(), id)
+		if err != nil {
+			responsehttpapi.FromDomainError(w, h.log, err)
+			return
+		}
+		responsehttpapi.Success(w, http.StatusOK, t)
 	case "iterate":
 		iterateEntity(w, r, h.log, h.aispawn, mentiondomain.MentionTrigger, id)
 	default:

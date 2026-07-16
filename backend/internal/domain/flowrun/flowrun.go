@@ -227,4 +227,14 @@ var (
 	// search_flowruns 工具）自纠，而非静默拿空页——非法状态（如 "parked"，那是节点状态）匹配 0 行、读作
 	// 假「无此类 run」（F168-M2）。
 	ErrInvalidStatus = errorspkg.New(errorspkg.KindUnprocessable, "FLOWRUN_INVALID_STATUS", "flowrun status filter must be one of: running, completed, failed, cancelled")
+
+	// ErrInvalidListFilter: a list filter value outside its grammar — ?origin not in RunOrigins, or
+	// ?startedAfter / ?startedBefore not RFC3339 (scheduler 工单⑥). Same loud-422 stance as
+	// ErrInvalidStatus (F168-M2): Details carry the offending param + got (+ allowed for enums) so
+	// the caller self-corrects instead of reading a silent empty page as "no such runs".
+	//
+	// ErrInvalidListFilter：list 过滤值出文法——?origin 不在 RunOrigins，或 ?startedAfter/?startedBefore
+	// 非 RFC3339（scheduler 工单⑥）。与 ErrInvalidStatus 同一 422 大声拒立场（F168-M2）：Details 带
+	// 出错参数 + 原值（枚举再带 allowed），让调用方自纠、而非把静默空页读作「无此类 run」。
+	ErrInvalidListFilter = errorspkg.New(errorspkg.KindUnprocessable, "FLOWRUN_LIST_INVALID_FILTER", "invalid flowrun list filter value")
 )
