@@ -15,6 +15,7 @@ RUN := mise exec --
 help:
 	@echo "Anselm 前端（Flutter）— 在 frontend/ 下:"
 	@echo "  启动:  make demo     真 app 形态 + fixture、零后端"
+	@echo "         make demo-profile  同上但 PROFILE 构建(判断性能用它,带帧探针)"
 	@echo "         make gallery  组件画廊（看每个 An* 全态）"
 	@echo "         make app      真 app + 真后端(自动起后端 + 热重载)"
 	@echo "  开发:  make setup    拉依赖（flutter pub get）"
@@ -57,6 +58,19 @@ verify:
 demo:
 	@LANG=en_US.UTF-8 $(RUN) flutter run -d macos -t lib/dev/demo_main.dart
 
+# demo-profile — demo 的 PROFILE 构建(AOT,接近发行性能)+ 帧探针。**判断性能一律用它**——
+# `make demo` 是 debug(JIT+断言,慢 3-5 倍),拿 debug 手感判卡顿全是幻觉(0716 教训:用户报「滚动
+# 粘滞」,profile 实测满 120fps 零掉帧)。PERF_HUD=true 装帧探针(stdout 报 build/raster/fps,
+# 见 lib/dev/perf_probe.dart)+ 种 STRESS 压力文档;要看探针数字,直接跑二进制而非 open:
+#   ./build/macos/Build/Products/Profile/anselm.app/Contents/MacOS/anselm
+# --no-tree-shake-icons: 图标按语义键动态路由(AnIcons.byKey 等)静态摇树不掉,profile/release 必带
+# (debug 不摇树故 make demo 无感;发行链同此,WRK-043)。
+demo-profile:
+	@LANG=en_US.UTF-8 $(RUN) flutter build macos --profile --no-tree-shake-icons \
+		--dart-define=PERF_HUD=true -t lib/dev/demo_main.dart
+	@open build/macos/Build/Products/Profile/anselm.app
+	@echo "" && echo "✓ profile demo 已启动(帧探针开;数字看法见 Makefile 本目标注释)"
+
 # gallery — 组件画廊（dev/gallery_main.dart）：双栏目录看每个 An* 组件全态（视觉，与 app/demo 正交）。
 gallery:
 	@LANG=en_US.UTF-8 $(RUN) flutter run -d macos -t lib/dev/gallery_main.dart
@@ -86,4 +100,4 @@ shot-app:
 shot-app-real:
 	@bash test/dev/shot_app_real.sh
 
-.PHONY: help setup gen analyze test verify demo gallery app shots shot-app shot-app-real
+.PHONY: help setup gen analyze test verify demo demo-profile gallery app shots shot-app shot-app-real

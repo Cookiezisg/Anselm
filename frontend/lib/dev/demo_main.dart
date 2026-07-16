@@ -1,5 +1,4 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // `Override` (the ProviderScope override type) is exported from misc.dart, not the main barrel (Riverpod
@@ -27,6 +26,7 @@ import '../features/notifications/data/notification_demo_fixture.dart';
 import '../features/notifications/data/notification_fixture.dart';
 import '../features/notifications/data/notification_providers.dart';
 import '../i18n/strings.g.dart';
+import 'perf_probe.dart';
 import '../app/entity_mention_source.dart';
 import '../core/entity/mention_source.dart';
 
@@ -60,6 +60,7 @@ List<Override> demoOverrides(SettingsPrefs prefs, FixtureNotificationRepository 
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (kPerfProbeEnabled) installPerfProbe();
   LocaleSettings.useDeviceLocaleSync();
   // Real persisted prefs in the demo too — chrome memory (island widths / last ocean / window
   // geometry) survives a relaunch, same as the app. demo 也用真持久偏好,与 app 同。
