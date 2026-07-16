@@ -36,16 +36,51 @@ abstract final class SchedulerWindows {
   /// The word the 7d sentence must SAY (§8: the window is never left to be guessed). 7d 句里的窗口词。
   static const String statsWindowWord = '7d';
 
-  /// The KPI failure tile — 24h, plus a 48h probe so the delta is (last 24h) − (previous 24h).
-  /// KPI 失败牌=24h;delta 双窗差分故另探 48h。
-  static const String kpiFailedSince = '24h';
-  static const String kpiFailedDeltaSince = '48h';
+  /// The KPI strip's window — 24h, plus a 48h probe so the failure delta is (last 24h) − (previous 24h).
+  ///
+  /// **A Duration, not a wire word, and that is load-bearing** (工单⑭/判决⑥). The 「错过 N」 card reads
+  /// `totals.missed`, which the backend counts with `{status: missed, createdAfter: since}` — the very
+  /// predicate the card's click must deep-link to on `GET /firings`. Spelling `since` as the relative
+  /// word `'24h'` would let the BACKEND resolve the anchor (its `now − 24h`) while the front end had to
+  /// guess a second one for the list — two clocks, two predicates, and «the card says 3, the list it
+  /// opens shows 4» is precisely the bug this ocean legislates against. So the anchor instant is
+  /// computed HERE-side, ONCE, from this Duration, and the same value is sent to both endpoints
+  /// (`?since=` takes RFC3339 absolute — api.md flowrun-stats 契约). One value, one predicate.
+  ///
+  /// KPI 窗=24h;失败 delta 双窗差分故另探 48h。**它是 Duration 而非线缆词,且这一点是承重的**(工单⑭/判决⑥):
+  /// 「错过 N」牌读 totals.missed,后端用 `{status: missed, createdAfter: since}` 数它——而那正是牌点击必须
+  /// 深链过去的谓词。若把 since 写成相对词 `'24h'`,锚点就由**后端**解(它的 now−24h),前端只能为列表再猜第二个
+  /// ——两口钟、两份谓词,而「牌上写 3、点开列表显示 4」正是本海洋立法要防的 bug。故锚点在**前端**算、只算
+  /// **一次**,同一个值发给两个端点(`?since=` 收 RFC3339 绝对起点)。一个值,一份谓词。
+  static const Duration kpiWindow = Duration(hours: 24);
+  static const Duration kpiDeltaWindow = Duration(hours: 48);
+
+  /// The word the 24h sentences must SAY (§8: the window is never left to be guessed). 24h 句里的窗口词。
+  static const String kpiWindowWord = '24h';
 
   /// The Overview's schedule track horizon (`trigger-schedule?within=`, Go duration). 24h is what the
   /// board's zone head promises; the endpoint would allow up to 30d.
   /// Overview 时间轴视野(⑧ 的 ?within=,Go duration);24h=区头承诺的窗,端点最多可到 30d。
   static const Duration trackWindow = Duration(hours: 24);
   static const String trackWithin = '24h';
+
+  /// The track's PAST half (工单⑭/判决⑥) — deliberately EQUAL to [kpiWindow], and equal by
+  /// CONSTRUCTION rather than by coincidence: the 「错过 N」 card deep-links to the ✕ marks on this
+  /// track, so if the track looked back less far than the card counts, a missed tick could be counted
+  /// by the card and be off the axis of the very surface its click opens. §3's sketch drew the now
+  /// line left-of-centre («now 线偏左») when the past half was decoration; 判决⑥ made it the card's
+  /// evidence, and correctness outranks the sketch — so now sits at the CENTRE (past 24h + future 24h).
+  /// 轨道的**过去**半:刻意等于 kpiWindow,且是**构造上**相等而非碰巧相等——牌深链到本轨的 ✕,故轨若回看得比牌
+  /// 数的短,就会有被牌数进去、却落在它自己点开的那个面的轴外的刻度。§3 草图画「now 线偏左」是在过去半还只是
+  /// 装饰的时候;判决⑥ 让它成了牌的**证据**,而正确性大过草图——故 now 居中(过去 24h + 未来 24h)。
+  static const Duration trackPastWindow = kpiWindow;
+
+  /// One page of the firing ledger behind the track's past half (`GET /firings?limit=`) — the
+  /// endpoint's hard cap. Rows come newest-first, so a truncated page is the NEWEST slice and the
+  /// older end of the window becomes UNKNOWN, not empty — the zone must say so (§3 区 4).
+  /// 轨道过去半那一页 firing 账的上限(端点硬帽)。行新→旧,故截断的一页是**最新**那片、窗口更老那端成为
+  /// **未知**而非空——区必须明说。
+  static const int firingPageLimit = 200;
 
   /// The failure roll-up — 7d rolling, deliberately NOT 24h: a failure at 02:00 must still be on the
   /// board at 04:00 the next day (a 24h window drops it while the human is asleep).

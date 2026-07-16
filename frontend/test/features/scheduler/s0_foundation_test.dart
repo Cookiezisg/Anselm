@@ -43,10 +43,20 @@ void main() {
   });
 
   group('AnStatus firing-disposition aliases (WRK-069 状态学「未执行」桶)', () {
-    test('skipped / superseded / shed → idle (neutral, never red)', () {
+    // All FOUR non-executions, including `missed` — which the alias table has always carried but no
+    // test pinned. It is the one the 判决⑥ track leans on hardest: a grey ✕ says «the machine slept»,
+    // a red one would say «your automation is broken», and grey is a DELIBERATE departure from
+    // Temporal's «missed = red» (§7: a desktop app's machine sleeping at night is its first reality).
+    // A verdict that deliberately contradicts the outside world's convention had better be locked.
+    // **四个**未执行全在,含 missed——别名表一直带着它,却从没有测试钉住它。它正是判决⑥ 的轨道最吃重的那个:
+    // 灰 ✕ 说「机器睡了」,红的会说「你的自动化坏了」;而灰是对 Temporal「missed=红」的**刻意**背离(§7:
+    // 桌面 app 的机器夜里睡觉是第一现实)。一个刻意与外界惯例相左的裁决,更应该被锁死。
+    test('skipped / superseded / shed / missed → idle (neutral, never red)', () {
       expect(AnStatus.fromRaw('skipped'), AnStatus.idle);
       expect(AnStatus.fromRaw('superseded'), AnStatus.idle);
       expect(AnStatus.fromRaw('shed'), AnStatus.idle);
+      expect(AnStatus.fromRaw('missed'), AnStatus.idle);
+      expect(AnStatus.fromRaw('missed').tone, AnTone.none, reason: '中性桶:一个饱和像素都不给');
     });
   });
 

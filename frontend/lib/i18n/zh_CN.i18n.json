@@ -663,8 +663,6 @@
       "deltaDownA11y": "较前一个 24h 少 $n",
       "runningHead": "正在跑 ($n)",
       "runningEmpty": "现在没有正在运行的 run。",
-      "upcomingHead": "未来 24h",
-      "upcomingEmpty": "未来 24h 没有已排定的调度。",
       "trackPointA11y": "$name 预计 $at",
       "trackFolded": "共 $n 次",
       "trackTruncated": "此窗口内还有更多调度,轨道未能全部显示。",
@@ -700,12 +698,22 @@
       "firstUseEntities": "去 Entities",
       "firstUseChat": "打开对话",
       "errorTitle": "总览加载失败",
-      "errorHint": "后端没有应答,检查连接后重试。"
+      "errorHint": "后端没有应答,检查连接后重试。",
+      "scheduleHead": "近 24h · 未来 24h",
+      "scheduleEmpty": "没有装备任何 cron 排程。",
+      "kpiMissed": "24h 错过",
+      "kpiMissedA11y": "24h 错过 $n 次。在时间轴上看它们。",
+      "trackFiredA11y": "$name 于 $at 触发 · $status",
+      "trackMissedA11y": "$name 错过了 $at 的刻度",
+      "trackPastTruncated": "早于 $at 的触发未显示——账目不止一页。"
     },
     "status": {
       "active": "生效",
       "draining": "收尾中",
-      "inactive": "停用"
+      "inactive": "停用",
+      "firingFired": "已触发",
+      "firingQueued": "待跑",
+      "firingNotRun": "未执行"
     },
     "home": {
       "crumb": "Scheduler / $name",

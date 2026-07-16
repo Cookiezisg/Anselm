@@ -26,6 +26,7 @@ class SchedulerKpi {
     required this.waiting,
     required this.failed24h,
     required this.failedDelta,
+    this.missed = 0,
     this.nextFire,
   });
 
@@ -33,6 +34,17 @@ class SchedulerKpi {
   final int waiting;
   final int failed24h;
   final int failedDelta;
+
+  /// Cron ticks that came due while the app was asleep, booked and never caught up, inside the SAME
+  /// 24h window as [failed24h] (工单⑭/判决⑥). Straight from `totals.missed` — the number is the
+  /// backend's count, never re-derived here from a page of rows (a page can be truncated; the count
+  /// cannot). **Zero means the card is not rendered at all**, see [_KpiStrip]: 「错过 0」 fails the
+  /// decision test — it is the normal state of a machine that was awake, and a tile reading 0 every
+  /// day for months is decoration, which the 禁虚荣数字 军规 forbids. 「成功是背景音」.
+  /// 睡着时到期、记账且不补跑的 cron 刻度,窗与 failed24h **同一个**。直接取 totals.missed——数字是后端数的,
+  /// 绝不在此从一页行里重算(页会被截断,计数不会)。**0 即整张牌不渲**:「错过 0」过不了决策测试,是机器醒着的
+  /// 常态,天天读 0 的牌是装饰(禁虚荣数字 军规);成功是背景音。
+  final int missed;
 
   /// The workspace's earliest FUTURE scheduled fire (from the rail's next-fire join). 全局最早未来调度。
   final DateTime? nextFire;
@@ -47,11 +59,16 @@ class RunningRunRow {
   final Flowrun run;
 }
 
-/// One lane of the Overview's schedule track = one (workflow × cron trigger) pair. [futureAt] are the
-/// endpoint's scheduled ticks inside the window; a [paused] lane legitimately carries NONE (the
-/// backend refuses to stamp a next-fire on a paused trigger) and must still be shown, greyed (判决①).
-/// Overview 时间轴的一条泳道=一个 (workflow × cron trigger) 对。futureAt=端点给的窗内刻度;**暂停**的
-/// 泳道合法地一个都没有(后端拒绝给暂停的 trigger 盖下次时间戳),但仍必须灰显着出现(判决①)。
+/// One lane of the Overview's schedule track = one (workflow × cron trigger) pair, carrying BOTH
+/// halves of the one timeline (判决⑥): [futureAt] are the schedule endpoint's forecast ticks, [firings]
+/// are the durable rows for what really happened — the fires that became runs, the dispositions that
+/// didn't, and the `missed` ticks the machine slept through. A [paused] lane legitimately carries NO
+/// future ticks (the backend refuses to stamp a next-fire on a paused trigger) and must still be
+/// shown, greyed (判决①) — and it may well still carry past [firings], from before it was paused.
+/// Overview 时间轴的一条泳道=一个 (workflow × cron trigger) 对,**一条轴上两半**(判决⑥):futureAt=端点给的
+/// 预告刻度,firings=真发生过的 durable 行(成了 run 的火 / 没成的处置 / 睡过去的 missed 刻度)。**暂停**的泳道
+/// 合法地一个未来刻度都没有(后端拒绝给暂停的 trigger 盖下次时间戳)但仍须灰显着出现(判决①),且它很可能仍带着
+/// 暂停之前的过去 firings。
 class ScheduleLane {
   const ScheduleLane({
     required this.triggerId,
@@ -60,6 +77,7 @@ class ScheduleLane {
     required this.workflowName,
     required this.paused,
     this.futureAt = const [],
+    this.firings = const [],
   });
 
   final String triggerId;
@@ -68,16 +86,39 @@ class ScheduleLane {
   final String workflowName;
   final bool paused;
   final List<DateTime> futureAt;
+
+  /// The past half's durable rows, oldest→newest. The widget layer reads [Firing.status] to pick the
+  /// mark's face (`missed` → the grey ✕, everything else → a solid dot in its status colour) — the
+  /// discrimination lives in ONE place and reads the sealed enum, never a string literal.
+  /// 过去半的 durable 行(旧→新)。widget 层读 status 挑脸(missed→灰 ✕,其余→状态色实心点)——判别只此一处,
+  /// 且读的是封闭枚举、不是字符串字面量。
+  final List<Firing> firings;
 }
 
-/// The whole track. [truncated] rides straight from the endpoint — the window really holds more ticks
-/// than [lanes] shows, and the board must SAY so rather than let the track read as complete.
-/// 整条轨;truncated 原样来自端点——窗内确实还有更多刻度,看板必须**明说**,不能让轨道读起来像是全部。
+/// The whole track — both halves and their two INDEPENDENT honesty flags.
+///
+/// [truncated] rides straight from the schedule endpoint: the window really holds more forecast ticks
+/// than [lanes] shows. [pastTruncated] is the past half's twin and is a sharper hazard: the firing
+/// ledger is unbounded and pages newest-first, so a truncated page means everything before
+/// [pastFrom] is UNKNOWN rather than empty — drawn naively, the track would look complete while
+/// hiding a hole, which is worse than not drawing it (the very reason S5 shipped no past half at all).
+/// So [pastFrom] names where the trustworthy data starts and the zone says it out loud.
+/// 整条轨与它**两个独立**的诚实旗标。truncated 原样来自调度端点(窗内还有更多**预告**刻度)。pastTruncated 是
+/// 过去半的孪生,且危险得多:firing 账无界、按新→旧翻页,故截断意味着 pastFrom 之前是**未知**而非**空**——照直
+/// 画,轨道会看起来完整却藏着一个洞,那比不画更糟(S5 当初干脆不发过去半正是为此)。故 pastFrom 点名可信数据从
+/// 哪里开始,并由区**明说**。
 class ScheduleTrackData {
-  const ScheduleTrackData({this.lanes = const [], this.truncated = false});
+  const ScheduleTrackData({
+    this.lanes = const [],
+    this.truncated = false,
+    this.pastTruncated = false,
+    this.pastFrom,
+  });
 
   final List<ScheduleLane> lanes;
   final bool truncated;
+  final bool pastTruncated;
+  final DateTime? pastFrom;
 }
 
 /// One consecutively-failing workflow in the 7d aggregation. [error]/[latestRunId] come from the
@@ -152,17 +193,33 @@ DateTime? earliestNextFire(Iterable<DateTime> fires, DateTime now) {
 /// cron 发刻度,故从点反推泳道会让暂停的 trigger 静默消失,而消失的泳道会被读成「没有这条排程」而非
 /// 「你暂停了它」。点只是**挂**到泳道上。只有 cron 得泳道:webhook/fsnotify/sensor 下次 fire 不可知,
 /// 故如实缺席,而非在场且空。
+/// [firings] hangs the PAST half onto the same lanes (工单⑭/判决⑥), by the (trigger × workflow) pair
+/// the row records. Rows older than [pastWindow] are dropped — the axis has no room for them — and the
+/// window's floor is the SAME instant the 「错过 N」 card counted from, so a tick the card counts can
+/// never be off the axis of the surface the card's click opens.
 List<ScheduleLane> scheduleLanes({
   required List<TriggerEntity> triggers,
   required List<EntityRelation> edges,
   required Map<String, String> workflowNames,
   required TriggerSchedule schedule,
   required DateTime now,
+  List<Firing> firings = const [],
   Duration window = SchedulerWindows.trackWindow,
+  Duration pastWindow = SchedulerWindows.trackPastWindow,
 }) {
   final horizon = now.add(window);
+  final floor = now.subtract(pastWindow);
   final byTrigger = {for (final t in triggers) t.id: t};
+  // Only the rows the axis can hold. The lower bound mirrors the card's `createdAfter` exactly and
+  // there is deliberately NO upper bound (the card has none either — its window is [since, ∞)); the
+  // axis itself clips anything past the horizon. 只留轴装得下的行:下界逐字同牌的 createdAfter,且**刻意无上界**
+  // (牌也没有——它的窗是 [since, ∞));越过视野的由轴自己裁。
+  final inWindow = [
+    for (final f in firings)
+      if (!f.createdAt.isBefore(floor)) f,
+  ]..sort((a, b) => a.createdAt.compareTo(b.createdAt));
   final out = <ScheduleLane>[];
+  final claimed = <String>{};
   for (final e in edges) {
     final t = byTrigger[e.toId];
     if (t == null || t.kind != TriggerSource.cron) continue;
@@ -174,6 +231,7 @@ List<ScheduleLane> scheduleLanes({
         if (p.triggerId == t.id && p.workflowIds.contains(wfId))
           if (!p.at.isBefore(now) && !p.at.isAfter(horizon)) p.at,
     ]..sort();
+    claimed.add('${t.id}/$wfId');
     out.add(ScheduleLane(
       triggerId: t.id,
       triggerName: t.name,
@@ -181,6 +239,46 @@ List<ScheduleLane> scheduleLanes({
       workflowName: workflowNames[wfId] ?? e.fromName,
       paused: t.paused,
       futureAt: at,
+      firings: [
+        for (final f in inWindow)
+          if (f.triggerId == t.id && f.workflowId == wfId) f,
+      ],
+    ));
+  }
+  // A `missed` tick whose lane no longer exists — the workflow stopped listening to that trigger, or
+  // the trigger was deleted, since the tick came due — still HAPPENED, and the 「错过 N」 card still
+  // counts it. Dropping it would make the card's number disagree with the ✕ marks its own click opens:
+  // the one bug shape this ocean legislates against. So it gets a lane built from the durable firing
+  // row itself.
+  //
+  // This does NOT break 判决①'s «lanes come from the trigger list, never from the points» — that law
+  // guards the FUTURE half, where reverse-deriving lanes from points would make a paused trigger's lane
+  // silently vanish (it emits no points) and read as «there is no such schedule». A missed firing is
+  // not a forecast; it is a durable fact, and a fact must have somewhere to be shown. Only `missed`
+  // earns this: an orphaned started/skipped row is context nothing counts, so it stays dropped.
+  //
+  // 一个**泳道已不存在**的 missed 刻度(刻度到期之后 workflow 不再监听那个 trigger、或 trigger 被删)**仍然发生过**,
+  // 而「错过 N」牌**仍然数着它**。丢掉它就会让牌的数字与它自己点开的那些 ✕ 对不上——本海洋立法明禁的那一种 bug。
+  // 故它从 durable firing 行本身长出一条泳道。这**不破**判决① 的「泳道行集取自 trigger 列表、绝不取自点」:
+  // 那条法守的是**未来**半(从点反推会让暂停的泳道静默消失、被读成「没有这条排程」);missed firing 不是预告、
+  // 是 durable **事实**,而事实必须有地方可显示。只有 missed 配得上这条:孤儿 started/skipped 行是没人数的上下文,
+  // 照旧丢弃。
+  final orphans = <String, List<Firing>>{};
+  for (final f in inWindow) {
+    if (f.status != FiringStatus.missed) continue;
+    final key = '${f.triggerId}/${f.workflowId}';
+    if (claimed.contains(key)) continue;
+    (orphans[key] ??= []).add(f);
+  }
+  for (final entry in orphans.entries) {
+    final f = entry.value.first;
+    out.add(ScheduleLane(
+      triggerId: f.triggerId,
+      triggerName: byTrigger[f.triggerId]?.name ?? '',
+      workflowId: f.workflowId,
+      workflowName: workflowNames[f.workflowId] ?? f.workflowId,
+      paused: byTrigger[f.triggerId]?.paused ?? false,
+      firings: entry.value,
     ));
   }
   // Soonest first; lanes with nothing coming (paused, or nothing due in the window) sink to the
@@ -238,11 +336,43 @@ class SchedulerOverviewController extends AsyncNotifier<SchedulerOverviewData> {
       for (final s in rail.stats.values)
         if (s.running > 0) s.workflowId,
     ];
+    // ── THE anchor (工单⑭/判决⑥) ──────────────────────────────────────────────────────────────────
+    // ONE instant, computed once, sent to every surface that speaks about this window: `?since=` on the
+    // stats call whose `totals.missed` IS the 「错过 N」 card, `?createdAfter=` on the firing page the
+    // card's ✕ marks come from, and the track's past floor. The endpoints take RFC3339 absolute
+    // (api.md), so the backend does not resolve a second anchor of its own — which is the whole point:
+    // a relative `'24h'` would have the server count from ITS now while we drew from OURS, and the two
+    // predicates would silently disagree at the window's edge. 「牌上写 3、点开列表显示 4」 is not a
+    // rounding error here; it is the bug this ocean was legislated against, so the two must be the SAME
+    // value rather than two values that usually match.
+    // **一个**锚点,只算一次,发给每一个谈论这个窗口的面:stats 的 ?since=(其 totals.missed **就是**「错过 N」牌)、
+    // ✕ 所来自的那页 firing 的 ?createdAfter=、以及轨道过去半的地板。端点收 RFC3339 绝对起点,故后端**不会**另解
+    // 第二个锚——这正是要害:相对词 '24h' 会让服务端按**它的** now 数、而我们按**我们的** now 画,两份谓词在窗口边缘
+    // 静默打架。「牌上写 3、点开列表显示 4」在此不是舍入误差,是本海洋立法所禁的那个 bug,故两者必须是**同一个值**、
+    // 而非两个通常吻合的值。
+    final kpiSince = now.subtract(SchedulerWindows.kpiWindow);
     final results = await Future.wait<Object>([
-      repo.stats(const [], since: SchedulerWindows.kpiFailedSince),
-      repo.stats(const [], since: SchedulerWindows.kpiFailedDeltaSince),
+      repo.stats(const [], since: kpiSince.toUtc().toIso8601String()),
+      repo.stats(const [],
+          since: now.subtract(SchedulerWindows.kpiDeltaWindow).toUtc().toIso8601String()),
       // The forward schedule (工单⑧) — ONE bounded call for the whole board's track. 整块看板的轨,一次有界调用。
       repo.triggerSchedule(within: SchedulerWindows.trackWithin),
+      // The past half (工单⑭), in TWO deliberate calls rather than one:
+      //   [3] every firing in the window — the solid dots for what really fired. Newest-first and
+      //       capped, so it may be a partial view; that is reported, not hidden (pastTruncated).
+      //   [4] the missed ones ALONE, on the card's exact predicate. This one cannot be quietly
+      //       incomplete the way a slice of [3] could: 200 rows of a chatty cron could push every ✕ off
+      //       the newest-first page while the card still counted them. The card's evidence gets its own
+      //       query so its completeness does not depend on how busy the other triggers were.
+      // 过去半(工单⑭),**刻意**两次调用而非一次:[3] 窗内所有 firing(真开过的火=实心点;新→旧且有帽,故可能只是
+      // 一部分——那要**报告**、不是藏起来);[4] **单取** missed,走牌的精确谓词——它不能像 [3] 的切片那样悄悄不全:
+      // 一个话痨 cron 的 200 行足以把每一个 ✕ 挤出「最新一页」,而牌照数不误。牌的证据自己一条查询,其完整性不取决于
+      // 别的 trigger 有多忙。
+      repo.listFirings(createdAfter: kpiSince, limit: SchedulerWindows.firingPageLimit),
+      repo.listFirings(
+          status: FiringStatus.missed,
+          createdAfter: kpiSince,
+          limit: SchedulerWindows.firingPageLimit),
       for (final id in runningIds) repo.listFlowruns(workflowId: id, status: 'running'),
       for (final s in failing)
         repo.listFlowruns(workflowId: s.workflowId, status: 'failed', limit: 1),
@@ -252,10 +382,21 @@ class SchedulerOverviewController extends AsyncNotifier<SchedulerOverviewData> {
     // page (a crash at best, the WRONG workflow's runs at worst).
     // 批次的定长头部,**具名**:下面两条探针列表按它取偏移;裸 2 抄在三处,只要插一个调用就会静默把 stats
     // 读成 page(轻则崩,重则读成**别的 workflow** 的 run)。
-    const fixed = 3;
+    const fixed = 5;
     final stats24 = results[0] as SchedulerStats;
     final stats48 = results[1] as SchedulerStats;
     final schedule = results[2] as TriggerSchedule;
+    final firedPage = results[3] as Page<Firing>;
+    final missedPage = results[4] as Page<Firing>;
+    // Merge the two pages into the ONE past-half set: the missed-only page is authoritative for ✕, so
+    // the general page contributes everything EXCEPT missed and the two can never double-mark a tick.
+    // 两页并成**一份**过去半:missed 单取那页对 ✕ 是权威,故通用页只贡献 **非** missed 的行,两者绝不把同一刻度
+    // 标记两次。
+    final pastFirings = <Firing>[
+      for (final f in firedPage.items)
+        if (f.status != FiringStatus.missed) f,
+      ...missedPage.items,
+    ];
 
     final names = {for (final w in rail.workflows) w.id: w.name};
 
@@ -300,6 +441,8 @@ class SchedulerOverviewController extends AsyncNotifier<SchedulerOverviewData> {
         failed24h: stats24.totals.failedSince,
         failedDelta: kpiFailedDelta(
             failed24: stats24.totals.failedSince, failed48: stats48.totals.failedSince),
+        // The backend's count, on the same `since` the ✕ below were fetched with. 后端数的,窗同下面的 ✕。
+        missed: stats24.totals.missed,
         nextFire: earliestNextFire(rail.nextFireByWorkflow.values, now),
       ),
       waiting: rail.inbox,
@@ -310,9 +453,16 @@ class SchedulerOverviewController extends AsyncNotifier<SchedulerOverviewData> {
           edges: rail.edges,
           workflowNames: names,
           schedule: schedule,
+          firings: pastFirings,
           now: now,
         ),
         truncated: schedule.truncated,
+        // Either page hitting the cap means the past half is a NEWEST-first slice, so everything before
+        // the oldest row we hold is unknown. 任一页撞帽 = 过去半只是最新那一片,故我们手上最老那行之前是未知。
+        pastTruncated: firedPage.hasMore || missedPage.hasMore,
+        pastFrom: (firedPage.hasMore || missedPage.hasMore) && pastFirings.isNotEmpty
+            ? pastFirings.map((f) => f.createdAt).reduce((a, b) => a.isBefore(b) ? a : b)
+            : null,
       ),
       failures: failures,
     );

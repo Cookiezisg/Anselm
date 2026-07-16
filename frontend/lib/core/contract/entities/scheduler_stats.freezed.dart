@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$SchedulerTotals {
 
- int get running; int get completedSince; int get failedSince; int get parkedNodes;
+ int get running; int get completedSince; int get failedSince; int get parkedNodes; int get missed;
 /// Create a copy of SchedulerTotals
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +28,16 @@ $SchedulerTotalsCopyWith<SchedulerTotals> get copyWith => _$SchedulerTotalsCopyW
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is SchedulerTotals&&(identical(other.running, running) || other.running == running)&&(identical(other.completedSince, completedSince) || other.completedSince == completedSince)&&(identical(other.failedSince, failedSince) || other.failedSince == failedSince)&&(identical(other.parkedNodes, parkedNodes) || other.parkedNodes == parkedNodes));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is SchedulerTotals&&(identical(other.running, running) || other.running == running)&&(identical(other.completedSince, completedSince) || other.completedSince == completedSince)&&(identical(other.failedSince, failedSince) || other.failedSince == failedSince)&&(identical(other.parkedNodes, parkedNodes) || other.parkedNodes == parkedNodes)&&(identical(other.missed, missed) || other.missed == missed));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,running,completedSince,failedSince,parkedNodes);
+int get hashCode => Object.hash(runtimeType,running,completedSince,failedSince,parkedNodes,missed);
 
 @override
 String toString() {
-  return 'SchedulerTotals(running: $running, completedSince: $completedSince, failedSince: $failedSince, parkedNodes: $parkedNodes)';
+  return 'SchedulerTotals(running: $running, completedSince: $completedSince, failedSince: $failedSince, parkedNodes: $parkedNodes, missed: $missed)';
 }
 
 
@@ -48,7 +48,7 @@ abstract mixin class $SchedulerTotalsCopyWith<$Res>  {
   factory $SchedulerTotalsCopyWith(SchedulerTotals value, $Res Function(SchedulerTotals) _then) = _$SchedulerTotalsCopyWithImpl;
 @useResult
 $Res call({
- int running, int completedSince, int failedSince, int parkedNodes
+ int running, int completedSince, int failedSince, int parkedNodes, int missed
 });
 
 
@@ -65,12 +65,13 @@ class _$SchedulerTotalsCopyWithImpl<$Res>
 
 /// Create a copy of SchedulerTotals
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? running = null,Object? completedSince = null,Object? failedSince = null,Object? parkedNodes = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? running = null,Object? completedSince = null,Object? failedSince = null,Object? parkedNodes = null,Object? missed = null,}) {
   return _then(_self.copyWith(
 running: null == running ? _self.running : running // ignore: cast_nullable_to_non_nullable
 as int,completedSince: null == completedSince ? _self.completedSince : completedSince // ignore: cast_nullable_to_non_nullable
 as int,failedSince: null == failedSince ? _self.failedSince : failedSince // ignore: cast_nullable_to_non_nullable
 as int,parkedNodes: null == parkedNodes ? _self.parkedNodes : parkedNodes // ignore: cast_nullable_to_non_nullable
+as int,missed: null == missed ? _self.missed : missed // ignore: cast_nullable_to_non_nullable
 as int,
   ));
 }
@@ -156,10 +157,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int running,  int completedSince,  int failedSince,  int parkedNodes)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int running,  int completedSince,  int failedSince,  int parkedNodes,  int missed)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _SchedulerTotals() when $default != null:
-return $default(_that.running,_that.completedSince,_that.failedSince,_that.parkedNodes);case _:
+return $default(_that.running,_that.completedSince,_that.failedSince,_that.parkedNodes,_that.missed);case _:
   return orElse();
 
 }
@@ -177,10 +178,10 @@ return $default(_that.running,_that.completedSince,_that.failedSince,_that.parke
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int running,  int completedSince,  int failedSince,  int parkedNodes)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int running,  int completedSince,  int failedSince,  int parkedNodes,  int missed)  $default,) {final _that = this;
 switch (_that) {
 case _SchedulerTotals():
-return $default(_that.running,_that.completedSince,_that.failedSince,_that.parkedNodes);case _:
+return $default(_that.running,_that.completedSince,_that.failedSince,_that.parkedNodes,_that.missed);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -197,10 +198,10 @@ return $default(_that.running,_that.completedSince,_that.failedSince,_that.parke
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int running,  int completedSince,  int failedSince,  int parkedNodes)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int running,  int completedSince,  int failedSince,  int parkedNodes,  int missed)?  $default,) {final _that = this;
 switch (_that) {
 case _SchedulerTotals() when $default != null:
-return $default(_that.running,_that.completedSince,_that.failedSince,_that.parkedNodes);case _:
+return $default(_that.running,_that.completedSince,_that.failedSince,_that.parkedNodes,_that.missed);case _:
   return null;
 
 }
@@ -212,13 +213,14 @@ return $default(_that.running,_that.completedSince,_that.failedSince,_that.parke
 @JsonSerializable()
 
 class _SchedulerTotals implements SchedulerTotals {
-  const _SchedulerTotals({this.running = 0, this.completedSince = 0, this.failedSince = 0, this.parkedNodes = 0});
+  const _SchedulerTotals({this.running = 0, this.completedSince = 0, this.failedSince = 0, this.parkedNodes = 0, this.missed = 0});
   factory _SchedulerTotals.fromJson(Map<String, dynamic> json) => _$SchedulerTotalsFromJson(json);
 
 @override@JsonKey() final  int running;
 @override@JsonKey() final  int completedSince;
 @override@JsonKey() final  int failedSince;
 @override@JsonKey() final  int parkedNodes;
+@override@JsonKey() final  int missed;
 
 /// Create a copy of SchedulerTotals
 /// with the given fields replaced by the non-null parameter values.
@@ -233,16 +235,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SchedulerTotals&&(identical(other.running, running) || other.running == running)&&(identical(other.completedSince, completedSince) || other.completedSince == completedSince)&&(identical(other.failedSince, failedSince) || other.failedSince == failedSince)&&(identical(other.parkedNodes, parkedNodes) || other.parkedNodes == parkedNodes));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SchedulerTotals&&(identical(other.running, running) || other.running == running)&&(identical(other.completedSince, completedSince) || other.completedSince == completedSince)&&(identical(other.failedSince, failedSince) || other.failedSince == failedSince)&&(identical(other.parkedNodes, parkedNodes) || other.parkedNodes == parkedNodes)&&(identical(other.missed, missed) || other.missed == missed));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,running,completedSince,failedSince,parkedNodes);
+int get hashCode => Object.hash(runtimeType,running,completedSince,failedSince,parkedNodes,missed);
 
 @override
 String toString() {
-  return 'SchedulerTotals(running: $running, completedSince: $completedSince, failedSince: $failedSince, parkedNodes: $parkedNodes)';
+  return 'SchedulerTotals(running: $running, completedSince: $completedSince, failedSince: $failedSince, parkedNodes: $parkedNodes, missed: $missed)';
 }
 
 
@@ -253,7 +255,7 @@ abstract mixin class _$SchedulerTotalsCopyWith<$Res> implements $SchedulerTotals
   factory _$SchedulerTotalsCopyWith(_SchedulerTotals value, $Res Function(_SchedulerTotals) _then) = __$SchedulerTotalsCopyWithImpl;
 @override @useResult
 $Res call({
- int running, int completedSince, int failedSince, int parkedNodes
+ int running, int completedSince, int failedSince, int parkedNodes, int missed
 });
 
 
@@ -270,12 +272,13 @@ class __$SchedulerTotalsCopyWithImpl<$Res>
 
 /// Create a copy of SchedulerTotals
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? running = null,Object? completedSince = null,Object? failedSince = null,Object? parkedNodes = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? running = null,Object? completedSince = null,Object? failedSince = null,Object? parkedNodes = null,Object? missed = null,}) {
   return _then(_SchedulerTotals(
 running: null == running ? _self.running : running // ignore: cast_nullable_to_non_nullable
 as int,completedSince: null == completedSince ? _self.completedSince : completedSince // ignore: cast_nullable_to_non_nullable
 as int,failedSince: null == failedSince ? _self.failedSince : failedSince // ignore: cast_nullable_to_non_nullable
 as int,parkedNodes: null == parkedNodes ? _self.parkedNodes : parkedNodes // ignore: cast_nullable_to_non_nullable
+as int,missed: null == missed ? _self.missed : missed // ignore: cast_nullable_to_non_nullable
 as int,
   ));
 }

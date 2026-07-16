@@ -2787,12 +2787,6 @@ class Translations$scheduler$overview$en {
 	/// en: 'Nothing is running right now.'
 	String get runningEmpty => 'Nothing is running right now.';
 
-	/// en: 'Next 24h'
-	String get upcomingHead => 'Next 24h';
-
-	/// en: 'Nothing scheduled in the next 24h.'
-	String get upcomingEmpty => 'Nothing scheduled in the next 24h.';
-
 	/// en: '$name scheduled $at'
 	String trackPointA11y({required Object name, required Object at}) => '${name} scheduled ${at}';
 
@@ -2900,6 +2894,27 @@ class Translations$scheduler$overview$en {
 
 	/// en: 'The backend didn't answer. Check the connection and retry.'
 	String get errorHint => 'The backend didn\'t answer. Check the connection and retry.';
+
+	/// en: 'Last 24h · next 24h'
+	String get scheduleHead => 'Last 24h · next 24h';
+
+	/// en: 'No cron schedule is equipped.'
+	String get scheduleEmpty => 'No cron schedule is equipped.';
+
+	/// en: 'Missed · 24h'
+	String get kpiMissed => 'Missed · 24h';
+
+	/// en: 'Missed · 24h: $n. Show them on the schedule track.'
+	String kpiMissedA11y({required Object n}) => 'Missed · 24h: ${n}. Show them on the schedule track.';
+
+	/// en: '$name fired $at · $status'
+	String trackFiredA11y({required Object name, required Object at, required Object status}) => '${name} fired ${at} · ${status}';
+
+	/// en: '$name missed the $at tick'
+	String trackMissedA11y({required Object name, required Object at}) => '${name} missed the ${at} tick';
+
+	/// en: 'Fires earlier than $at are not shown — the ledger holds more than one page.'
+	String trackPastTruncated({required Object at}) => 'Fires earlier than ${at} are not shown — the ledger holds more than one page.';
 }
 
 // Path: scheduler.status
@@ -2918,6 +2933,15 @@ class Translations$scheduler$status$en {
 
 	/// en: 'Inactive'
 	String get inactive => 'Inactive';
+
+	/// en: 'Fired'
+	String get firingFired => 'Fired';
+
+	/// en: 'Queued'
+	String get firingQueued => 'Queued';
+
+	/// en: 'Did not run'
+	String get firingNotRun => 'Did not run';
 }
 
 // Path: scheduler.home
@@ -6293,8 +6317,6 @@ extension on Translations {
 			'scheduler.overview.deltaDownA11y' => ({required Object n}) => '${n} fewer than the previous 24h',
 			'scheduler.overview.runningHead' => ({required Object n}) => 'Running now (${n})',
 			'scheduler.overview.runningEmpty' => 'Nothing is running right now.',
-			'scheduler.overview.upcomingHead' => 'Next 24h',
-			'scheduler.overview.upcomingEmpty' => 'Nothing scheduled in the next 24h.',
 			'scheduler.overview.trackPointA11y' => ({required Object name, required Object at}) => '${name} scheduled ${at}',
 			'scheduler.overview.trackFolded' => ({required Object n}) => '${n} runs',
 			'scheduler.overview.trackTruncated' => 'More is scheduled inside this window than the track can show.',
@@ -6331,9 +6353,19 @@ extension on Translations {
 			'scheduler.overview.firstUseChat' => 'Open the conversation',
 			'scheduler.overview.errorTitle' => 'Couldn\'t load the overview',
 			'scheduler.overview.errorHint' => 'The backend didn\'t answer. Check the connection and retry.',
+			'scheduler.overview.scheduleHead' => 'Last 24h · next 24h',
+			'scheduler.overview.scheduleEmpty' => 'No cron schedule is equipped.',
+			'scheduler.overview.kpiMissed' => 'Missed · 24h',
+			'scheduler.overview.kpiMissedA11y' => ({required Object n}) => 'Missed · 24h: ${n}. Show them on the schedule track.',
+			'scheduler.overview.trackFiredA11y' => ({required Object name, required Object at, required Object status}) => '${name} fired ${at} · ${status}',
+			'scheduler.overview.trackMissedA11y' => ({required Object name, required Object at}) => '${name} missed the ${at} tick',
+			'scheduler.overview.trackPastTruncated' => ({required Object at}) => 'Fires earlier than ${at} are not shown — the ledger holds more than one page.',
 			'scheduler.status.active' => 'Active',
 			'scheduler.status.draining' => 'Draining',
 			'scheduler.status.inactive' => 'Inactive',
+			'scheduler.status.firingFired' => 'Fired',
+			'scheduler.status.firingQueued' => 'Queued',
+			'scheduler.status.firingNotRun' => 'Did not run',
 			'scheduler.home.crumb' => ({required Object name}) => 'Scheduler / ${name}',
 			'scheduler.home.notFoundTitle' => 'Workflow not found',
 			'scheduler.home.notFoundHint' => 'It may have been deleted. Pick another workflow from the rail.',
@@ -6673,6 +6705,8 @@ extension on Translations {
 			'entities.detail.card.skill' => 'Skill',
 			'entities.detail.card.knowledge' => 'Knowledge',
 			'entities.detail.card.model' => 'Model override',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.card.lifecycle' => 'Lifecycle',
 			'entities.detail.card.concurrency' => 'Concurrency',
 			'entities.detail.graph.nodes' => 'Node',
@@ -6681,8 +6715,6 @@ extension on Translations {
 			'entities.detail.graph.openEditor' => 'Open graph editor',
 			'entities.detail.graph.unparseable' => 'Orchestration graph unparseable',
 			'entities.detail.cockpit.runs' => 'Runs',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.cockpit.runsCount' => ({required Object n}) => 'Runs · ${n}',
 			'entities.detail.cockpit.nodeGantt' => 'Node timeline',
 			'entities.detail.cockpit.notRun' => 'Not run',
@@ -7187,6 +7219,8 @@ extension on Translations {
 			'settings.storage.resetPrefs' => 'Reset local preferences',
 			'settings.storage.resetPrefsDesc' => 'Clears this machine\'s UI preferences (theme/window/zoom…) only — never touches workspace data. The app will restart to apply the reset.',
 			'settings.storage.resetPrefsTitle' => 'Reset local preferences?',
+			_ => null,
+		} ?? switch (path) {
 			'settings.storage.factoryTitle' => 'Factory reset',
 			'settings.storage.factoryWarn' => 'Stops the engine, permanently deletes the ENTIRE data directory (all workspaces / conversations / entities / documents / keys) and relaunches the app.',
 			'settings.storage.factoryHint' => 'Type “Anselm” to confirm',
@@ -7195,8 +7229,6 @@ extension on Translations {
 			'settings.limits.resetAll' => 'Reset all to defaults',
 			'settings.limits.resetAllTitle' => 'Reset every limit to its default?',
 			'settings.limits.patchFailed' => 'Save failed',
-			_ => null,
-		} ?? switch (path) {
 			'settings.limits.modified' => 'modified',
 			'settings.limits.errorTitle' => 'Couldn\'t load limits',
 			'settings.limits.retry' => 'Retry',

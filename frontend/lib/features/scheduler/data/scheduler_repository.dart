@@ -186,6 +186,38 @@ abstract interface class SchedulerRepository {
   /// 取自 listTriggers、点只是挂件——绝不从点反推泳道(暂停泳道会消失,违判决①)。
   Future<TriggerSchedule> triggerSchedule({String within, int limit});
 
+  /// One keyset page of the firing ledger (工单⑭, `GET /firings`, newest first) — the timeline's PAST
+  /// half, and the counterpart to [triggerSchedule]'s future half: a firing row is written the moment
+  /// a trigger fires, so this answers «did the tick become a run, and if not why not»
+  /// (started / skipped / superseded / shed / missed).
+  ///
+  /// Filters compose with AND and EVERY one is optional: [triggerId] absent spans the whole workspace
+  /// (a firing is a workspace-level log row, so «every firing in the last 24h» is a first-class
+  /// question — paging one trigger at a time cannot answer it without draining every trigger's whole
+  /// ledger); [status] is the sealed 7-value set (out-of-set → loud 422 with `allowed`, never a silent
+  /// empty page); [createdAfter]/[createdBefore] are RFC3339 UTC bounds, HALF-OPEN
+  /// `[after, before)` on created_at — the [listFlowruns] window grammar verbatim.
+  ///
+  /// **N4-paged, and the cap is load-bearing**: a firing ledger is UNBOUNDED (a per-minute cron writes
+  /// 1,440 rows a day) and rows come newest-first, so a `hasMore` page is the NEWEST slice — the older
+  /// end of the window is then unknown, NOT empty. A caller that draws a page as if it were the whole
+  /// window paints an invisible hole; it must say so instead (§3 zone 4's honest sentence).
+  ///
+  /// 一页 firing 账(工单⑭,新→旧)——时间轴的**过去**半,与 triggerSchedule 的未来半互补:trigger fire
+  /// 的瞬间即写行,故它答「刻度成没成 run、没成为什么」。过滤 AND 组合且**每项可选**:triggerId 缺席即跨整个
+  /// workspace;status 封闭 7 值(越集 422 带 allowed,绝不静默空页);时间界 RFC3339 UTC **半开窗**
+  /// `[after, before)`——逐字同 listFlowruns 文法。**N4 分页,且帽是承重的**:firing 是**无界**日志、行新→旧,
+  /// 故 hasMore 的一页是**最新**那一片——窗口更老的那端是**未知**、不是**空**;把一页当整窗画就是画出一个
+  /// 隐形空洞,必须改为明说(§3 区 4 的诚实句)。
+  Future<Page<Firing>> listFirings({
+    String? triggerId,
+    FiringStatus? status,
+    DateTime? createdAfter,
+    DateTime? createdBefore,
+    String? cursor,
+    int? limit,
+  });
+
   /// The node×run grid (工单⑩, `GET /flowrun-matrix?workflowId=&recentN=`) — one bounded batch query
   /// answering the whole grid. [workflowId] is REQUIRED (empty → 400); an unknown id is not an error
   /// (200 + three empty lists). 节点×run 格阵(⑩):一次有界批查答完整个格阵;workflowId 必填(空→400),
@@ -307,6 +339,33 @@ class LiveSchedulerRepository implements SchedulerRepository {
         'cursor': ?cursor,
         if (limit != null) 'limit': '$limit',
       });
+
+  @override
+  Future<Page<Firing>> listFirings({
+    String? triggerId,
+    FiringStatus? status,
+    DateTime? createdAfter,
+    DateTime? createdBefore,
+    String? cursor,
+    int? limit,
+  }) {
+    // `unknown` is the inbound-only forward-compat member — sending it back as a filter would earn a
+    // 422 for a status the backend has never heard of. Assert rather than silently drop the filter:
+    // dropping it would widen the query and answer a DIFFERENT question than the caller asked.
+    // unknown 是**入站专用**的兜底成员——把它当过滤发回去只会换来 422。用 assert 而非静默丢弃:丢掉过滤会
+    // **放宽**查询、答一个与调用方所问不同的问题。
+    assert(status != FiringStatus.unknown,
+        'FiringStatus.unknown is inbound-only forward-compat, never a filter');
+    return _api.getPage('/api/v1/firings', Firing.fromJson, query: {
+      'triggerId': ?triggerId,
+      if (status != null) 'status': status.name,
+      // RFC3339 in UTC — same reason as listFlowruns' bounds. RFC3339 归一 UTC,同 listFlowruns。
+      if (createdAfter != null) 'createdAfter': createdAfter.toUtc().toIso8601String(),
+      if (createdBefore != null) 'createdBefore': createdBefore.toUtc().toIso8601String(),
+      'cursor': ?cursor,
+      if (limit != null) 'limit': '$limit',
+    });
+  }
 
   @override
   Future<WorkflowEntity> getWorkflow(String id) =>

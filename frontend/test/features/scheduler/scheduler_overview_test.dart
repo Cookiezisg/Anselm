@@ -9,6 +9,9 @@ import 'package:anselm/core/ui/an_button.dart';
 import 'package:anselm/core/ui/an_schedule_track.dart';
 import 'package:anselm/core/ui/an_section.dart';
 import 'package:anselm/core/ui/an_state.dart';
+import 'package:anselm/core/ui/an_wash_highlight.dart';
+import 'package:anselm/core/ui/icons.dart';
+import 'package:anselm/features/scheduler/scheduler_windows.dart';
 import 'package:anselm/features/scheduler/data/scheduler_repository.dart';
 import 'package:anselm/features/scheduler/state/scheduler_overview_provider.dart';
 import 'package:anselm/features/scheduler/ui/scheduler_overview.dart';
@@ -304,7 +307,7 @@ void main() {
 
       // Zone heads (caption labels render uppercased). 区头(大写渲染)。
       expect(find.text(ov.runningHead(n: '1').toUpperCase()), findsOneWidget);
-      expect(find.text(ov.upcomingHead.toUpperCase()), findsOneWidget);
+      expect(find.text(ov.scheduleHead.toUpperCase()), findsOneWidget);
       expect(find.text(ov.failuresHead.toUpperCase()), findsOneWidget);
 
       // Running row: name + fr_ chip; elapsed rides the measure slot. 正在跑行。
@@ -330,7 +333,7 @@ void main() {
 
       // No empty sentences on a full board. 满态无空句。
       expect(find.text(ov.runningEmpty), findsNothing);
-      expect(find.text(ov.upcomingEmpty), findsNothing);
+      expect(find.text(ov.scheduleEmpty), findsNothing);
       expect(find.text(ov.failuresEmpty), findsNothing);
     });
 
@@ -344,7 +347,7 @@ void main() {
       await _pumpBoard(tester, _host(repo));
       final ov = t.scheduler.overview;
       expect(find.text(ov.runningEmpty), findsOneWidget);
-      expect(find.text(ov.upcomingEmpty), findsOneWidget);
+      expect(find.text(ov.scheduleEmpty), findsOneWidget);
       expect(find.text(ov.failuresEmpty), findsOneWidget);
       expect(find.text(ov.kpiNone), findsOneWidget, reason: '无未来 fire → 下次调度牌 —');
       expect(find.text(ov.deltaUp(n: '0')), findsNothing);
@@ -463,8 +466,227 @@ void main() {
         byWorkflow: [WorkflowRunStats(workflowId: 'wf_a', lastRunAt: _now)],
       );
       await _pumpBoard(tester, _host(repo));
-      expect(find.text(t.scheduler.overview.upcomingEmpty), findsOneWidget);
+      expect(find.text(t.scheduler.overview.scheduleEmpty), findsOneWidget);
       expect(find.byType(AnScheduleTrack), findsNothing, reason: '零泳道不画一条指着空无的轴');
+    });
+  });
+
+  // ─────────────────────────── 判决⑥ · 过去的点 / 错过的 ✕ / 错过 KPI 牌 ───────────────────────────
+  // 工单⑭ closed the contract gap S5 recorded (a workspace-level, time-windowed firing query), so the
+  // track finally carries BOTH halves of one timeline and the fifth KPI card can exist. The batteries
+  // below guard the one thing that makes the card legitimate rather than decorative: 「牌上写 3、点开
+  // 列表显示 4」 must be UNREACHABLE — not unlikely, unreachable — because the number and the marks it
+  // opens are the same predicate on the same anchor.
+  group('判决⑥ 过去的点与错过的 ✕', () {
+    Firing f(String id, String trigger, String wf, FiringStatus status, Duration ago,
+            {String flowrunId = ''}) =>
+        Firing(
+          id: id,
+          triggerId: trigger,
+          workflowId: wf,
+          status: status,
+          flowrunId: flowrunId,
+          createdAt: _now.subtract(ago),
+          updatedAt: _now.subtract(ago),
+        );
+
+    group('scheduleLanes 纯派生', () {
+      test('past firings hang on their (trigger × workflow) lane; missed keeps its own identity', () {
+        final lanes = scheduleLanes(
+          triggers: [_trigger('tr_1', '每 6 小时')],
+          edges: [_edge('wf_a', 'tr_1')],
+          workflowNames: const {'wf_a': '库存同步'},
+          schedule: const TriggerSchedule(),
+          firings: [
+            f('trf_1', 'tr_1', 'wf_a', FiringStatus.started, const Duration(hours: 1)),
+            f('trf_2', 'tr_1', 'wf_a', FiringStatus.missed, const Duration(hours: 13)),
+          ],
+          now: _now,
+        );
+        expect(lanes, hasLength(1));
+        expect(lanes.single.firings.map((e) => e.id), ['trf_2', 'trf_1'],
+            reason: '旧→新:轴从左往右读');
+        expect(lanes.single.firings.map((e) => e.status),
+            [FiringStatus.missed, FiringStatus.started]);
+      });
+
+      test('a firing older than the past window is off the axis and dropped', () {
+        final lanes = scheduleLanes(
+          triggers: [_trigger('tr_1', '每日')],
+          edges: [_edge('wf_a', 'tr_1')],
+          workflowNames: const {'wf_a': 'A'},
+          schedule: const TriggerSchedule(),
+          firings: [f('trf_old', 'tr_1', 'wf_a', FiringStatus.started, const Duration(hours: 25))],
+          now: _now,
+        );
+        expect(lanes.single.firings, isEmpty, reason: '25h 前 > 24h 过去窗:轴上无处可站');
+      });
+
+      // THE bug shape, guarded. A missed tick whose lane is gone (the workflow stopped listening, or
+      // the trigger was deleted, since it came due) is still counted by the card — so it must still be
+      // shown. 那个 bug 形态的守卫:泳道已消失的 missed 刻度**仍被牌数着**,故仍须显示。
+      test('an ORPHANED missed tick still gets a lane — the card counts it, so it must be shown', () {
+        final lanes = scheduleLanes(
+          triggers: const [],
+          edges: const [],
+          workflowNames: const {'wf_gone': '已解绑的流程'},
+          schedule: const TriggerSchedule(),
+          firings: [f('trf_m', 'tr_gone', 'wf_gone', FiringStatus.missed, const Duration(hours: 5))],
+          now: _now,
+        );
+        expect(lanes, hasLength(1));
+        expect(lanes.single.workflowName, '已解绑的流程');
+        expect(lanes.single.firings.single.id, 'trf_m');
+        expect(lanes.single.futureAt, isEmpty, reason: '它没有未来——只有一个发生过的事实');
+      });
+
+      test('an orphaned NON-missed firing is dropped — nothing counts it, so it is only context', () {
+        final lanes = scheduleLanes(
+          triggers: const [],
+          edges: const [],
+          workflowNames: const {'wf_gone': '幽灵'},
+          schedule: const TriggerSchedule(),
+          firings: [f('trf_s', 'tr_gone', 'wf_gone', FiringStatus.shed, const Duration(hours: 5))],
+          now: _now,
+        );
+        expect(lanes, isEmpty, reason: 'shed 孤儿无人数它,故它不配为自己造一条泳道');
+      });
+
+      test('a PAUSED lane still carries the fires it made before it was paused (判决①)', () {
+        final lanes = scheduleLanes(
+          triggers: [_trigger('tr_1', '每晚归档', paused: true)],
+          edges: [_edge('wf_a', 'tr_1')],
+          workflowNames: const {'wf_a': '归档'},
+          schedule: const TriggerSchedule(),
+          firings: [f('trf_1', 'tr_1', 'wf_a', FiringStatus.started, const Duration(hours: 2))],
+          now: _now,
+        );
+        expect(lanes.single.paused, isTrue);
+        expect(lanes.single.futureAt, isEmpty, reason: '暂停的 cron 不获未来刻度');
+        expect(lanes.single.firings, hasLength(1), reason: '但它暂停之前开过的火仍是历史');
+      });
+
+      test('the missed window floor is the KPI window — equal by construction, not by coincidence', () {
+        expect(SchedulerWindows.trackPastWindow, SchedulerWindows.kpiWindow);
+      });
+    });
+
+    group('错过 KPI 牌', () {
+      StubSchedulerRepo missedRepo({int missedCount = 2}) {
+        final repo = _fullRepo();
+        return StubSchedulerRepo(
+          workflows: repo.workflows,
+          byWorkflow: repo.byWorkflow,
+          failedBySince: const {'24h': 4, '48h': 6},
+          totalsRunning: 1,
+          inbox: repo.inbox,
+          triggers: repo.triggers,
+          edges: repo.edges,
+          schedule: repo.schedule,
+          runs: repo.runs,
+          firings: [
+            for (var i = 0; i < missedCount; i++)
+              f('trf_m$i', 'tr_1', 'wf_a', FiringStatus.missed, Duration(hours: 3 + i * 4)),
+            f('trf_ok', 'tr_1', 'wf_a', FiringStatus.started, const Duration(hours: 2)),
+          ],
+        );
+      }
+
+      testWidgets('「错过 0」 is NOT a tile — the absence of the card IS the good news', (tester) async {
+        await _pumpBoard(tester, _host(missedRepo(missedCount: 0)));
+        expect(find.text(t.scheduler.overview.kpiMissed), findsNothing,
+            reason: '禁虚荣数字:天天读 0 的牌是装饰,还要吃掉另外四张的宽');
+        // The other four are unaffected. 另外四张不受影响。
+        expect(find.text(t.scheduler.overview.kpiRunning), findsOneWidget);
+      });
+
+      testWidgets('missed > 0 → the fifth tile appears carrying the backend count', (tester) async {
+        await _pumpBoard(tester, _host(missedRepo()));
+        expect(find.text(t.scheduler.overview.kpiMissed), findsOneWidget);
+        expect(find.text('2'), findsWidgets);
+      });
+
+      // 宪法: a KPI must open the list it counts. 宪法:KPI 必须点开它数的那个列表。
+      testWidgets('the tile OPENS its evidence — the schedule track washes on tap', (tester) async {
+        await _pumpBoard(tester, _host(missedRepo()));
+        expect(find.byType(AnWashHighlight), findsNothing, reason: '未点击前不洗:注意力只随用户动作而动');
+        await tester.tap(find.text(t.scheduler.overview.kpiMissed));
+        await tester.pump();
+        expect(find.byType(AnWashHighlight), findsOneWidget,
+            reason: '点击 → 它数的那些刻度所在的区被洗亮');
+        expect(find.descendant(of: find.byType(AnWashHighlight), matching: find.byType(AnScheduleTrack)),
+            findsOneWidget);
+      });
+
+      // The whole point, in one assertion. 全部要害,一条断言。
+      testWidgets('SAME PREDICATE: the missed page asks the byte-identical instant the card counted from',
+          (tester) async {
+        final repo = missedRepo();
+        await _pumpBoard(tester, _host(repo));
+        // The rail reads stats too (168h, a relative word) — the card's read is the ABSOLUTE 24h one.
+        // Picked by its window rather than by call order, so this stays true if the batch is reordered.
+        // rail 也读 stats(168h 相对词)——牌读的是那次**绝对** 24h。按**窗口**挑而非按调用序,故批次重排它仍成立。
+        final absolutes = repo.statsSinces.where((s) => DateTime.tryParse(s) != null).toList();
+        expect(absolutes, hasLength(2), reason: 'Overview 发两次绝对窗:24h(牌)+ 48h(delta 探针)');
+        final cardSince = absolutes.firstWhere(
+            (s) => DateTime.now().difference(DateTime.parse(s)).inHours == 24,
+            orElse: () => fail('没有一次 stats 读用的是 24h 绝对窗——牌的数从哪来的?'));
+
+        final missedFilter =
+            repo.firingFilters.firstWhere((q) => q['status'] == FiringStatus.missed.name);
+        expect(missedFilter['createdAfter'], cardSince,
+            reason: '牌的 since 与 ✕ 的 createdAfter 必须**逐字节**相同——两个「差不多」的锚点就是「牌写 3、列表显示 4」');
+        expect(missedFilter['createdBefore'], '',
+            reason: '牌的窗是 [since, ∞)、无上界;给列表加一个上界就是第二份谓词');
+      });
+
+      testWidgets('the marks land on the track: a ✕ per missed tick, solid dots for real fires',
+          (tester) async {
+        await _pumpBoard(tester, _host(missedRepo()));
+        expect(find.descendant(
+                of: find.byType(AnScheduleTrack), matching: find.byIcon(AnIcons.close)),
+            findsNWidgets(2),
+            reason: '两个 missed → 两个 ✕(桶不同故不折叠)');
+      });
+
+      testWidgets('a capped firing page SAYS the older end is unknown — never a silent hole',
+          (tester) async {
+        final base = missedRepo();
+        final repo = StubSchedulerRepo(
+          workflows: base.workflows,
+          byWorkflow: base.byWorkflow,
+          failedBySince: const {'24h': 4, '48h': 6},
+          triggers: base.triggers,
+          edges: base.edges,
+          schedule: base.schedule,
+          // 400 rows > the 200 cap → the page is the NEWEST slice. 400 行 > 200 帽 → 只拿到最新那片。
+          firings: [
+            for (var i = 0; i < 400; i++)
+              f('trf_$i', 'tr_1', 'wf_a', FiringStatus.started, Duration(minutes: i * 3)),
+          ],
+        );
+        await _pumpBoard(tester, _host(repo));
+        expect(find.textContaining(RegExp('未显示|not shown')), findsOneWidget,
+            reason: '撞帽 = 更老那端是**未知**而非**空**;不说就是画一条藏着洞、看起来完整的轨');
+      });
+
+      testWidgets('a firing read that FAILS never becomes a reassuring zero', (tester) async {
+        final base = missedRepo();
+        final repo = StubSchedulerRepo(
+          workflows: base.workflows,
+          byWorkflow: base.byWorkflow,
+          failedBySince: const {'24h': 4, '48h': 6},
+          triggers: base.triggers,
+          edges: base.edges,
+          schedule: base.schedule,
+          firings: base.firings,
+          failFirings: true,
+        );
+        await _pumpBoard(tester, _host(repo));
+        expect(find.text(t.scheduler.overview.errorTitle), findsOneWidget,
+            reason: '「你什么都没错过」与「我查不出来」是两句话,只有一句可以渲成让人放心的空牌');
+        expect(find.text(t.scheduler.overview.kpiMissed), findsNothing);
+      });
     });
   });
 }

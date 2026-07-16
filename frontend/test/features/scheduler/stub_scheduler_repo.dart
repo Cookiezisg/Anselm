@@ -35,12 +35,14 @@ class StubSchedulerRepo implements SchedulerRepository {
     this.activityByRun = const {},
     this.pinnedGraphByVersion = const {},
     this.schedule = const TriggerSchedule(),
+    this.firings = const [],
     Map<String, FlowrunMatrix>? matrixByWorkflow,
     this.retentionConfig = const RetentionConfig(runRetentionDays: 90),
     this.failWorkflows = false,
     this.failRunFull = false,
     this.failActivity = false,
     this.failSchedule = false,
+    this.failFirings = false,
     this.failMatrix = false,
     this.failRetention = false,
   }) : matrixByWorkflow = matrixByWorkflow ?? {};
@@ -77,6 +79,9 @@ class StubSchedulerRepo implements SchedulerRepository {
   /// ——诚实溢出句只有在 stub 能说「还有更多」时才可证。
   final TriggerSchedule schedule;
 
+  /// The firing ledger seeds (工单⑭) — the track's past half. 过去半的 firing 种子。
+  final List<Firing> firings;
+
   /// Per-workflow ⑩ grid. Absent = the endpoint's honest empty answer (三个空列表), NOT an error.
   /// Mutable so a battery can seed it onto a shared `_repo()` by cascade. 逐 workflow 的 ⑩ 格阵;
   /// 缺席=端点诚实的空答案(三空列表),**不是**错误;可变以便电池用级联往共享 _repo() 上种。
@@ -95,6 +100,9 @@ class StubSchedulerRepo implements SchedulerRepository {
   /// 活动读失败:甘特回落行自身戳,绝不空白。
   final bool failActivity;
   final bool failSchedule;
+
+  /// listFirings throws 422 — the board must survive a firing read failing. firing 读失败:盘面须活着。
+  final bool failFirings;
   bool failMatrix;
   final bool failRetention;
 
@@ -135,14 +143,92 @@ class StubSchedulerRepo implements SchedulerRepository {
 
   @override
   Future<SchedulerStats> stats(List<String> workflowIds,
-          {int recentN = 10, String since = '168h'}) async =>
-      SchedulerStats(
-        totals: SchedulerTotals(
-            running: totalsRunning,
-            failedSince: failedBySince[since] ?? 0,
-            parkedNodes: inbox.length),
-        byWorkflow: byWorkflow,
-      );
+      {int recentN = 10, String since = '168h'}) async {
+    statsSinces.add(since);
+    return SchedulerStats(
+      totals: SchedulerTotals(
+          running: totalsRunning,
+          failedSince: failedBySince[_sinceKey(since)] ?? 0,
+          parkedNodes: inbox.length,
+          // Counted through the SAME predicate the firing page uses (the backend shares one
+          // `firingQuery` between `CountFirings` and `SearchFirings`; a stub that scripted the card's
+          // number independently of the rows could not catch the two drifting apart, which is the one
+          // thing worth catching here).
+          // 与 firing 页**同一份**谓词计数(后端 CountFirings 与 SearchFirings 共用一个 firingQuery);若 stub 把牌
+          // 的数字与行**各自**编脚本,就恰好抓不到那两者漂移——而那正是此处唯一值得抓的东西。
+          missed: _matchFirings(status: FiringStatus.missed, createdAfter: _sinceInstant(since))
+              .length),
+      byWorkflow: byWorkflow,
+    );
+  }
+
+  /// The Overview sends an ABSOLUTE `since` (工单⑭ — ONE client-side anchor shared by the 「错过 N」 card
+  /// and the firing list), so a script written as `{'24h': 4, '48h': 6}` is matched by how far back the
+  /// window reaches rather than by the literal word. A non-absolute word passes through unchanged, so
+  /// callers that still speak `'168h'` keep working.
+  /// Overview 发的是**绝对** since(工单⑭:牌与 firing 列表共用的那**一个**前端锚点),故写成 `{'24h':4,'48h':6}` 的
+  /// 脚本按窗**回看多远**匹配、而非按字面词;非绝对的词原样透传,故仍说 '168h' 的调用方照常。
+  String _sinceKey(String since) {
+    final absolute = DateTime.tryParse(since);
+    if (absolute == null) return since;
+    return '${DateTime.now().difference(absolute).inHours}h';
+  }
+
+  DateTime _sinceInstant(String since) =>
+      DateTime.tryParse(since) ??
+      DateTime.now().subtract(Duration(
+          hours: int.tryParse(since.replaceAll(RegExp(r'[^0-9]'), '')) ?? 168));
+
+  List<Firing> _matchFirings({
+    String? triggerId,
+    FiringStatus? status,
+    DateTime? createdAfter,
+    DateTime? createdBefore,
+  }) =>
+      [
+        for (final f in firings)
+          if (triggerId == null || f.triggerId == triggerId)
+            if (status == null || f.status == status)
+              if (createdAfter == null || !f.createdAt.isBefore(createdAfter))
+                if (createdBefore == null || f.createdAt.isBefore(createdBefore)) f,
+      ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+  @override
+  Future<contract.Page<Firing>> listFirings({
+    String? triggerId,
+    FiringStatus? status,
+    DateTime? createdAfter,
+    DateTime? createdBefore,
+    String? cursor,
+    int? limit,
+  }) async {
+    // The exact wire question, recorded: the card's number and this page are only «the same predicate»
+    // if the URLs say so, and that is provable ONLY here. 逐字记下线缆上真问出的问题:牌的数字与这一页是不是
+    // 「同一份谓词」,只有 URL 说了才算,而那只有在这里可证。
+    firingFilters.add({
+      'triggerId': triggerId ?? '',
+      'status': status?.name ?? '',
+      'createdAfter': createdAfter?.toUtc().toIso8601String() ?? '',
+      'createdBefore': createdBefore?.toUtc().toIso8601String() ?? '',
+      'limit': '${limit ?? 0}',
+    });
+    if (failFirings) {
+      throw const ApiException(
+          code: 'TRIGGER_FIRING_INVALID_FILTER', message: 'bad window', httpStatus: 422);
+    }
+    final rows = _matchFirings(
+        triggerId: triggerId,
+        status: status,
+        createdAfter: createdAfter,
+        createdBefore: createdBefore);
+    final cap = limit ?? 50;
+    final capped = rows.length > cap;
+    return contract.Page(
+      items: capped ? rows.sublist(0, cap) : rows,
+      hasMore: capped,
+      nextCursor: capped ? 'stub-firings-1' : null,
+    );
+  }
 
   @override
   Future<List<TriggerEntity>> listTriggers() async => [for (final t in triggers) _liveTrigger(t)];
@@ -403,6 +489,12 @@ class StubSchedulerRepo implements SchedulerRepository {
   /// S5 探针:每次调度取数问的**窗**(号称 24h 的轨必须真问了 24h)、每次矩阵取数问的 (workflowId, recentN)
   /// (证 20 真到了线缆)、以及墓碑读了几次线。
   final List<String> scheduleWithins = [];
+
+  /// Every `since` the stats fetch asked, and every firing filter — the pair that proves the card and
+  /// the list it opens share ONE anchor. stats 每次问的 since,与每次 firing 过滤:这一对**证明**牌与它点开的
+  /// 列表共用**一个**锚点。
+  final List<String> statsSinces = [];
+  final List<Map<String, String>> firingFilters = [];
   final List<({String workflowId, int recentN})> matrixAsks = [];
   int retentionAsks = 0;
 

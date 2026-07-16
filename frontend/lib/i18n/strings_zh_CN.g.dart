@@ -1150,8 +1150,6 @@ class _Translations$scheduler$overview$zh_CN extends Translations$scheduler$over
 	@override String deltaDownA11y({required Object n}) => '较前一个 24h 少 ${n}';
 	@override String runningHead({required Object n}) => '正在跑 (${n})';
 	@override String get runningEmpty => '现在没有正在运行的 run。';
-	@override String get upcomingHead => '未来 24h';
-	@override String get upcomingEmpty => '未来 24h 没有已排定的调度。';
 	@override String trackPointA11y({required Object name, required Object at}) => '${name} 预计 ${at}';
 	@override String trackFolded({required Object n}) => '共 ${n} 次';
 	@override String get trackTruncated => '此窗口内还有更多调度,轨道未能全部显示。';
@@ -1188,6 +1186,13 @@ class _Translations$scheduler$overview$zh_CN extends Translations$scheduler$over
 	@override String get firstUseChat => '打开对话';
 	@override String get errorTitle => '总览加载失败';
 	@override String get errorHint => '后端没有应答,检查连接后重试。';
+	@override String get scheduleHead => '近 24h · 未来 24h';
+	@override String get scheduleEmpty => '没有装备任何 cron 排程。';
+	@override String get kpiMissed => '24h 错过';
+	@override String kpiMissedA11y({required Object n}) => '24h 错过 ${n} 次。在时间轴上看它们。';
+	@override String trackFiredA11y({required Object name, required Object at, required Object status}) => '${name} 于 ${at} 触发 · ${status}';
+	@override String trackMissedA11y({required Object name, required Object at}) => '${name} 错过了 ${at} 的刻度';
+	@override String trackPastTruncated({required Object at}) => '早于 ${at} 的触发未显示——账目不止一页。';
 }
 
 // Path: scheduler.status
@@ -1200,6 +1205,9 @@ class _Translations$scheduler$status$zh_CN extends Translations$scheduler$status
 	@override String get active => '生效';
 	@override String get draining => '收尾中';
 	@override String get inactive => '停用';
+	@override String get firingFired => '已触发';
+	@override String get firingQueued => '待跑';
+	@override String get firingNotRun => '未执行';
 }
 
 // Path: scheduler.home
@@ -3055,8 +3063,6 @@ extension on TranslationsZhCn {
 			'scheduler.overview.deltaDownA11y' => ({required Object n}) => '较前一个 24h 少 ${n}',
 			'scheduler.overview.runningHead' => ({required Object n}) => '正在跑 (${n})',
 			'scheduler.overview.runningEmpty' => '现在没有正在运行的 run。',
-			'scheduler.overview.upcomingHead' => '未来 24h',
-			'scheduler.overview.upcomingEmpty' => '未来 24h 没有已排定的调度。',
 			'scheduler.overview.trackPointA11y' => ({required Object name, required Object at}) => '${name} 预计 ${at}',
 			'scheduler.overview.trackFolded' => ({required Object n}) => '共 ${n} 次',
 			'scheduler.overview.trackTruncated' => '此窗口内还有更多调度,轨道未能全部显示。',
@@ -3093,9 +3099,19 @@ extension on TranslationsZhCn {
 			'scheduler.overview.firstUseChat' => '打开对话',
 			'scheduler.overview.errorTitle' => '总览加载失败',
 			'scheduler.overview.errorHint' => '后端没有应答,检查连接后重试。',
+			'scheduler.overview.scheduleHead' => '近 24h · 未来 24h',
+			'scheduler.overview.scheduleEmpty' => '没有装备任何 cron 排程。',
+			'scheduler.overview.kpiMissed' => '24h 错过',
+			'scheduler.overview.kpiMissedA11y' => ({required Object n}) => '24h 错过 ${n} 次。在时间轴上看它们。',
+			'scheduler.overview.trackFiredA11y' => ({required Object name, required Object at, required Object status}) => '${name} 于 ${at} 触发 · ${status}',
+			'scheduler.overview.trackMissedA11y' => ({required Object name, required Object at}) => '${name} 错过了 ${at} 的刻度',
+			'scheduler.overview.trackPastTruncated' => ({required Object at}) => '早于 ${at} 的触发未显示——账目不止一页。',
 			'scheduler.status.active' => '生效',
 			'scheduler.status.draining' => '收尾中',
 			'scheduler.status.inactive' => '停用',
+			'scheduler.status.firingFired' => '已触发',
+			'scheduler.status.firingQueued' => '待跑',
+			'scheduler.status.firingNotRun' => '未执行',
 			'scheduler.home.crumb' => ({required Object name}) => 'Scheduler / ${name}',
 			'scheduler.home.notFoundTitle' => '找不到该 workflow',
 			'scheduler.home.notFoundHint' => '它可能已被删除。从左侧选择另一个 workflow。',
@@ -3435,6 +3451,8 @@ extension on TranslationsZhCn {
 			'entities.detail.card.skill' => '技能',
 			'entities.detail.card.knowledge' => '知识',
 			'entities.detail.card.model' => '模型覆盖',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.card.lifecycle' => '生命周期',
 			'entities.detail.card.concurrency' => '并发策略',
 			'entities.detail.graph.nodes' => '节点',
@@ -3443,8 +3461,6 @@ extension on TranslationsZhCn {
 			'entities.detail.graph.openEditor' => '进入图编辑器',
 			'entities.detail.graph.unparseable' => '编排图无法解析',
 			'entities.detail.cockpit.runs' => '运行',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.cockpit.runsCount' => ({required Object n}) => '运行 · ${n} 次',
 			'entities.detail.cockpit.nodeGantt' => '节点甘特',
 			'entities.detail.cockpit.notRun' => '未运行',
@@ -3949,6 +3965,8 @@ extension on TranslationsZhCn {
 			'settings.storage.resetPrefs' => '重置本地偏好',
 			'settings.storage.resetPrefsDesc' => '只清除本机的界面偏好(主题/窗口/缩放等),不碰任何工作区数据将重启应用以生效。',
 			'settings.storage.resetPrefsTitle' => '重置本地偏好?',
+			_ => null,
+		} ?? switch (path) {
 			'settings.storage.factoryTitle' => '恢复出厂设置',
 			'settings.storage.factoryWarn' => '将停止引擎、永久删除整个数据目录(所有工作区/对话/实体/文档/密钥)并重启应用。',
 			'settings.storage.factoryHint' => '输入「Anselm」以确认',
@@ -3957,8 +3975,6 @@ extension on TranslationsZhCn {
 			'settings.limits.resetAll' => '全部恢复默认',
 			'settings.limits.resetAllTitle' => '恢复全部默认限额?',
 			'settings.limits.patchFailed' => '保存失败',
-			_ => null,
-		} ?? switch (path) {
 			'settings.limits.modified' => '已修改',
 			'settings.limits.errorTitle' => '限额加载失败',
 			'settings.limits.retry' => '重试',

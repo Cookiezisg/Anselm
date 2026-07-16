@@ -663,8 +663,6 @@
       "deltaDownA11y": "$n fewer than the previous 24h",
       "runningHead": "Running now ($n)",
       "runningEmpty": "Nothing is running right now.",
-      "upcomingHead": "Next 24h",
-      "upcomingEmpty": "Nothing scheduled in the next 24h.",
       "trackPointA11y": "$name scheduled $at",
       "trackFolded": "$n runs",
       "trackTruncated": "More is scheduled inside this window than the track can show.",
@@ -700,12 +698,22 @@
       "firstUseEntities": "Open Entities",
       "firstUseChat": "Open the conversation",
       "errorTitle": "Couldn't load the overview",
-      "errorHint": "The backend didn't answer. Check the connection and retry."
+      "errorHint": "The backend didn't answer. Check the connection and retry.",
+      "scheduleHead": "Last 24h · next 24h",
+      "scheduleEmpty": "No cron schedule is equipped.",
+      "kpiMissed": "Missed · 24h",
+      "kpiMissedA11y": "Missed · 24h: $n. Show them on the schedule track.",
+      "trackFiredA11y": "$name fired $at · $status",
+      "trackMissedA11y": "$name missed the $at tick",
+      "trackPastTruncated": "Fires earlier than $at are not shown — the ledger holds more than one page."
     },
     "status": {
       "active": "Active",
       "draining": "Draining",
-      "inactive": "Inactive"
+      "inactive": "Inactive",
+      "firingFired": "Fired",
+      "firingQueued": "Queued",
+      "firingNotRun": "Did not run"
     },
     "home": {
       "crumb": "Scheduler / $name",

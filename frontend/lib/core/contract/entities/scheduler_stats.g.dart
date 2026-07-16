@@ -12,6 +12,7 @@ _SchedulerTotals _$SchedulerTotalsFromJson(Map<String, dynamic> json) =>
       completedSince: (json['completedSince'] as num?)?.toInt() ?? 0,
       failedSince: (json['failedSince'] as num?)?.toInt() ?? 0,
       parkedNodes: (json['parkedNodes'] as num?)?.toInt() ?? 0,
+      missed: (json['missed'] as num?)?.toInt() ?? 0,
     );
 
 Map<String, dynamic> _$SchedulerTotalsToJson(_SchedulerTotals instance) =>
@@ -20,6 +21,7 @@ Map<String, dynamic> _$SchedulerTotalsToJson(_SchedulerTotals instance) =>
       'completedSince': instance.completedSince,
       'failedSince': instance.failedSince,
       'parkedNodes': instance.parkedNodes,
+      'missed': instance.missed,
     };
 
 _WorkflowRunStats _$WorkflowRunStatsFromJson(Map<String, dynamic> json) =>

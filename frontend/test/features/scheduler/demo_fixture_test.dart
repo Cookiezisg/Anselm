@@ -490,4 +490,141 @@ void main() {
       () async {
     expect((await repo.retention()).runRetentionDays, 90);
   });
+
+  // ── S6 seeds · 工单⑭/判决⑥ 的 firing 账 ──
+
+  test('S6 · ⑭ the disposition palette is complete: started / skipped / superseded / shed / missed '
+      '(§15「各一」, now real rows rather than a reservation)', () async {
+    final all = await repo.listFirings(limit: 500);
+    final seen = all.items.map((f) => f.status).toSet();
+    for (final s in [
+      FiringStatus.started,
+      FiringStatus.skipped,
+      FiringStatus.superseded,
+      FiringStatus.shed,
+      FiringStatus.missed,
+    ]) {
+      expect(seen, contains(s), reason: '$s 无种子 → 它那张脸在 demo 里永远没人看过');
+    }
+    expect(seen, isNot(contains(FiringStatus.unknown)), reason: 'unknown 是入站兜底,绝不是一种种子');
+  });
+
+  test('S6 · ⑭ THE bug shape is unreachable in the demo too: the card\'s number IS the list\'s length',
+      () async {
+    // The very pair the ocean legislates about, asserted on data alone (D 轨:数据级电池取代真机帧).
+    // 本海洋立法所指的那一对,只用数据断言。
+    final since = DateTime.now().subtract(const Duration(hours: 24));
+    final card = (await repo.stats(const [], since: since.toUtc().toIso8601String())).totals.missed;
+    final list =
+        await repo.listFirings(status: FiringStatus.missed, createdAfter: since, limit: 500);
+    expect(card, greaterThan(0), reason: '错过 KPI 必须非零,否则第五张牌在 demo 里永不出现、永不被看见');
+    expect(list.items, hasLength(card),
+        reason: '牌上写 $card、点开列表显示 ${list.items.length} —— 正是本项目明令的 bug 形态');
+  });
+
+  test('S6 · ⑭ every missed row obeys the backend\'s rules: the tick IS the timestamp, no run, no '
+      'activation, cron only', () async {
+    final missed = (await repo.listFirings(status: FiringStatus.missed, limit: 500)).items;
+    final triggers = {for (final t in await repo.listTriggers()) t.id: t};
+    final now = DateTime.now();
+    for (final f in missed) {
+      expect(f.flowrunId, isEmpty, reason: 'missed 从未建 run —— flowrunId 恒空');
+      expect(f.activationId, isEmpty, reason: '记账不是一次动作 —— sweep 不为它记 activation');
+      expect(f.createdAt.isBefore(now), isTrue, reason: 'createdAt 是**错过的刻度**,刻度只能在过去');
+      final t = triggers[f.triggerId];
+      expect(t, isNotNull, reason: 'missed 指向一个不存在的 trigger = 自相矛盾的世界');
+      expect(t!.kind, TriggerSource.cron, reason: 'sweep 只看 cron —— 只有 cron 有「本该发生」的刻度');
+    }
+  });
+
+  test('S6 · ⑭ self-consistency: a trigger\'s lastFiredAt can never predate a fire it produced',
+      () async {
+    // The same universal law the 0717 real-machine pass had to learn (a paused card claiming «last
+    // fired 4 days ago» above a 26h-old run it fired). Written over ALL seeds, not the row that was
+    // caught. 与 0717 真机那条同一律(它自己发出的 run 比它的「上次触发」还新);写成对**全部**种子的普遍律。
+    final fired = (await repo.listFirings(limit: 500))
+        .items
+        .where((f) => f.status != FiringStatus.missed);
+    expect(fired, isNotEmpty, reason: '反空过:得真有 fire 过的行可查');
+    final triggers = {for (final t in await repo.listTriggers()) t.id: t};
+    for (final f in fired) {
+      final t = triggers[f.triggerId];
+      expect(t, isNotNull);
+      expect(t!.lastFiredAt, isNotNull, reason: '${t.id} 产出过 firing 却自称从未触发');
+      expect(t.lastFiredAt!.isBefore(f.createdAt), isFalse,
+          reason: '${t.id} 的「上次触发」早于它自己产出的 ${f.id} —— 旗舰 cron→firing→run 链会自相矛盾');
+    }
+  });
+
+  test('S6 · ⑭ a started firing carries its run; the live run\'s row and its firing agree', () async {
+    final started = (await repo.listFirings(status: FiringStatus.started, limit: 500)).items;
+    final runIds = {for (final r in (await repo.listFlowruns(workflowId: 'wf_clean')).items) r.id};
+    for (final f in started) {
+      expect(f.flowrunId, isNotEmpty, reason: 'started = 刻度**成了** run,故必有 run id');
+    }
+    // The live run's row cites a firingId — that firing must exist and point back. 活 run 引用的 firing
+    // 必须存在,且指回来。
+    final live = (await repo.listFlowruns(workflowId: 'wf_clean')).items
+        .firstWhere((r) => (r.firingId ?? '').isNotEmpty,
+            orElse: () => fail('没有任何 run 引用 firing —— 出处链无从验起'));
+    final cited = started.firstWhere((f) => f.id == live.firingId,
+        orElse: () => fail('run ${live.id} 引用了不存在的 firing ${live.firingId}'));
+    expect(cited.flowrunId, live.id, reason: '两头必须互指,否则出处链断在中间');
+    expect(runIds, contains(cited.flowrunId));
+  });
+
+  test('S6 · ⑭ the window is HALF-OPEN [after, before) and filters compose with AND', () async {
+    final all = (await repo.listFirings(limit: 500)).items;
+    expect(all.map((f) => f.createdAt).toList(),
+        orderedEquals(([...all]..sort((a, b) => b.createdAt.compareTo(a.createdAt)))
+            .map((f) => f.createdAt)),
+        reason: '新→旧:端点契约');
+
+    final pivot = all.first.createdAt; // the newest row 最新那行
+    final before = await repo.listFirings(createdBefore: pivot, limit: 500);
+    expect(before.items.map((f) => f.id), isNot(contains(all.first.id)),
+        reason: '上界**不含**:相邻窗才拼得上、不重叠');
+    final after = await repo.listFirings(createdAfter: pivot, limit: 500);
+    expect(after.items.map((f) => f.id), contains(all.first.id), reason: '下界**含**');
+
+    // AND, not OR. AND 组合,不是 OR。
+    final anded = await repo.listFirings(
+        triggerId: 'tr_cron_inventory', status: FiringStatus.missed, limit: 500);
+    expect(anded.items, isNotEmpty);
+    for (final f in anded.items) {
+      expect(f.triggerId, 'tr_cron_inventory');
+      expect(f.status, FiringStatus.missed);
+    }
+  });
+
+  test('S6 · ⑭ the page CAPS and says so — a truncated ledger is the newest slice, not the whole one',
+      () async {
+    final capped = await repo.listFirings(limit: 2);
+    expect(capped.items, hasLength(2));
+    expect(capped.hasMore, isTrue, reason: '撞帽必须自报,否则调用方把一页当整窗画');
+    expect(capped.nextCursor, isNotNull);
+    final whole = await repo.listFirings(limit: 500);
+    expect(whole.hasMore, isFalse);
+    expect(capped.items.map((f) => f.id), whole.items.take(2).map((f) => f.id),
+        reason: '截断的是**最新**那片');
+  });
+
+  test('S6 · ⑭ the night the machine slept is ONE history, not three unrelated props', () async {
+    // The ✕ marks, the ×4 streak and the 6h cron must be three views of the same seeded story.
+    // ✕、×4 连败、6h cron 必须是同一段种子历史的三个视图。
+    final missed = (await repo.listFirings(status: FiringStatus.missed, limit: 500)).items;
+    expect(missed.map((f) => f.triggerId).toSet(), {'tr_cron_inventory'});
+    expect(missed.map((f) => f.workflowId).toSet(), {'wf_inventory'});
+
+    final inv = (await repo.listTriggers()).firstWhere((t) => t.id == 'tr_cron_inventory');
+    expect(inv.config['cron'], '0 */6 * * *');
+    final stats = await repo.stats(const ['wf_inventory']);
+    expect(stats.byWorkflow.single.consecutiveFailures, 4, reason: '同一段历史的另一个视图:连败 ×4');
+
+    // The equipped edge exists — a missed tick on a workflow that never listened is a broken world.
+    // 边必须在:一个从未监听过的 workflow 上出现 missed 刻度 = 世界坏了。
+    final edges = await repo.workflowTriggerEdges();
+    expect(
+        edges.any((e) => e.toId == 'tr_cron_inventory' && e.fromId == 'wf_inventory'), isTrue);
+  });
 }

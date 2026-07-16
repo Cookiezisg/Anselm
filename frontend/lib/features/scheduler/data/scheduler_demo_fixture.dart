@@ -174,15 +174,32 @@ class FixtureSchedulerRepository implements SchedulerRepository {
     ];
     // Window-aware failed totals — the Overview KPI's delta needs 24h vs 48h to differ:
     // failed24=4, failed48=6 → prior-24h window = 2 → delta = +2 (▲2, §3 mock). 7d holds the rest.
-    // 窗口感知失败数:24h=4 / 48h=6 → 前一个 24h 窗=2 → delta=+2(对齐 §3 示意)。
-    final failedSince = switch (since) { '24h' => 4, '48h' => 6, _ => 9 };
+    // Bucketed by how far back the window reaches rather than by the literal wire word, because the
+    // Overview now sends an ABSOLUTE instant (工单⑭) — matching `'24h'` as a string would answer every
+    // KPI read with the 7d number. Whole hours absorb the sub-second drift between the caller's `now`
+    // and ours.
+    // 窗口感知失败数:24h=4 / 48h=6 → 前一个 24h 窗=2 → delta=+2(对齐 §3 示意)。按窗**回看多远**分档、
+    // 而非按线缆字面词——Overview 现在发的是**绝对**时刻(工单⑭),拿 '24h' 去字符串匹配会让每次 KPI 读取都
+    // 拿到 7d 的数。取整小时以吸收调用方的 now 与我们的 now 之间的亚秒漂移。
+    final lookbackH = DateTime.now().difference(_sinceInstant(since)).inHours;
+    final failedSince = lookbackH <= 24 ? 4 : (lookbackH <= 48 ? 6 : 9);
     // Live totals track the stateful cancels/decides (the demo stays honest after an action).
     // totals 跟随有状态操作(动作之后 demo 不撒谎)。
     final running = [for (final s in all) s.running].fold(0, (a, b) => a + b);
     final parked = [for (final s in all) s.parkedNodes].fold(0, (a, b) => a + b);
     return SchedulerStats(
       totals: SchedulerTotals(
-          running: running, completedSince: 23, failedSince: failedSince, parkedNodes: parked),
+          running: running,
+          completedSince: 23,
+          failedSince: failedSince,
+          parkedNodes: parked,
+          // 工单⑭ — counted through THE predicate, so this number and the page `listFirings` serves for
+          // the same window are the same rows by construction, exactly as the backend's shared
+          // `firingQuery` makes them. 经**那份**谓词计数,故此数与 listFirings 对同一窗口给出的那页**构造上**
+          // 是同一批行——正如后端共用的 firingQuery 所保证的那样。
+          missed: _firingsMatching(
+                  status: FiringStatus.missed, createdAfter: _sinceInstant(since))
+              .length),
       byWorkflow: workflowIds.isEmpty
           ? all
           : [for (final s in all) if (workflowIds.contains(s.workflowId)) s],
@@ -980,6 +997,170 @@ class FixtureSchedulerRepository implements SchedulerRepository {
       points: capped ? points.sublist(0, limit) : points,
       truncated: capped,
     );
+  }
+
+  /// The firing ledger (工单⑭/判决⑥) — the timeline's PAST half, and the demo's whole disposition
+  /// palette in one place: `started` (the tick became a run), `skipped` (overlap policy skip found one
+  /// already in flight), `superseded` (buffer_one kept only the newest pending), `shed` (the fan-out
+  /// reached a workflow that had been deleted) and `missed` (§15「skipped·superseded·shed 各一」+
+  /// 「missed 预留」, now real).
+  ///
+  /// **The story is one machine's night.** `tr_cron_inventory` fires every 6h; the laptop slept through
+  /// the −19h and −13h ticks, so the sweep booked them `missed` on wake and — 判决⑥ — did NOT catch them
+  /// up. It woke in time for −7h and −1h, and those two ran and failed: they are exactly the streak the
+  /// failure aggregation already tells (6h apart = the cadence itself). So the ✕ marks, the red streak
+  /// and the trigger's 6h cron are three views of ONE seeded history, not three unrelated props.
+  ///
+  /// **Self-consistency the seeds must keep** (D 轨自洽互锁世界, and every one of these is a rule the real
+  /// backend enforces): a `missed` row's `createdAt` is the MISSED TICK, never a wake instant, and it
+  /// carries NO flowrunId and NO activationId (booking is not an action, and no run was ever made); a
+  /// trigger's `lastFiredAt` can never be older than a firing it produced, so every in-window row here
+  /// belongs to one of the only two triggers that fired inside 24h; and `missed` is cron-only, because
+  /// the sweep only ever looks at unpaused crons.
+  ///
+  /// firing 账(工单⑭/判决⑥)——时间轴的**过去**半,也是 demo 的处置调色板:started(刻度成了 run)/ skipped
+  /// (overlap 跳过:已有 run 在途)/ superseded(buffer_one 只留最新的 pending)/ shed(扇出扇到了一个已被删的
+  /// workflow)/ missed。**故事是一台机器的一夜**:tr_cron_inventory 每 6h 一次,笔记本睡过了 −19h 与 −13h 两刻,
+  /// 醒来 sweep 把它们记成 missed 且**不补跑**(判决⑥);它在 −7h 与 −1h 醒着,那两刻跑了、且失败了——正是失败聚合
+  /// 已经在讲的那条连败(相隔 6h=它的节拍本身)。故 ✕、红连败、6h cron 是**同一段**种子历史的三个视图,不是三件互不
+  /// 相干的道具。**种子必须守的自洽**(每一条都是真后端强制的规则):missed 行的 createdAt 是**错过的刻度**、绝非
+  /// 睡醒时刻,且**无** flowrunId、**无** activationId(记账不是一次动作,更没有 run);trigger 的 lastFiredAt 不可能
+  /// 早于它自己产出的 firing,故此处每一条窗内行都属于 24h 内**真的 fire 过**的那仅有的两个 trigger;而 missed
+  /// **只属于 cron**,因为 sweep 只看未暂停的 cron。
+  List<Firing> _firingSeeds() => [
+        // tr_cron_clean × wf_clean — the live run's own firing (the run row cites this very id).
+        // Stamped at the trigger's lastFiredAt (−2m), NOT at the run's startedAt (−90s): the fire comes
+        // FIRST and the run it claims starts ~30s later. Getting this backwards makes the trigger card
+        // claim it last fired before a firing it produced — the ProvenanceLine's cron → firing → run
+        // chain contradicting itself, which is the same law the 0717 pass had to learn.
+        // 活 run 自己的 firing(run 行引用的正是这个 id)。盖在 trigger 的 lastFiredAt(−2m)、**不是** run 的
+        // startedAt(−90s):火**先**烧,它 claim 出来的 run 约 30s 后才起跑。盖反了,trigger 卡就会自称「上次触发」
+        // 早于它自己产出的 firing —— ProvenanceLine 的 cron → firing → run 链自相矛盾,与 0717 那条同一律。
+        _firing('trf_clean00000091', 'tr_cron_clean', 'wf_clean', FiringStatus.started,
+            const Duration(minutes: 2),
+            flowrunId: 'fr_0a1b2c3d4e5f6071'),
+        // Overlap policy «skip»: the tick came due while the previous run was still in flight.
+        // overlap 策略 skip:刻度到期时上一个 run 还在跑。
+        _firing('trf_clean00000082', 'tr_cron_clean', 'wf_clean', FiringStatus.skipped,
+            const Duration(hours: 3)),
+        // buffer_one collapsed the waiting queue to the newest — this older pending lost.
+        // buffer_one 把等待队列收敛到最新的一条,这条更早的 pending 输了。
+        _firing('trf_clean00000073', 'tr_cron_clean', 'wf_clean', FiringStatus.superseded,
+            const Duration(hours: 6)),
+        // The SAME fire fanned out to a workflow that had been deleted → shed. It is deliberately NOT
+        // reachable from any lane (wf_ghost has no edge): a `shed` orphan is context nothing counts, so
+        // the track drops it — unlike an orphaned `missed`, which the KPI card DOES count and which
+        // therefore must never be dropped. This seed is what proves those two paths differ.
+        // **同一次** fire 扇到了一个已被删的 workflow → shed。它**刻意**从任何泳道都够不着(wf_ghost 无边):
+        // shed 孤儿是没人数的上下文,故轨道丢弃它——而 missed 孤儿会被 KPI 牌数进去、绝不可丢。这条种子正是用来
+        // 证明这两条路径不同的。
+        _firing('trf_ghost00000064', 'tr_cron_clean', 'wf_ghost', FiringStatus.shed,
+            const Duration(hours: 3)),
+        // tr_cron_inventory × wf_inventory — awake for these two; both ran, both failed (the ×4 streak).
+        // 这两刻它醒着;都跑了、都失败了(×4 连败)。
+        _firing('trf_inv000000051', 'tr_cron_inventory', 'wf_inventory', FiringStatus.started,
+            const Duration(hours: 1, seconds: 12),
+            flowrunId: 'fr_c3d4e5f607182930'),
+        _firing('trf_inv000000042', 'tr_cron_inventory', 'wf_inventory', FiringStatus.started,
+            const Duration(hours: 7),
+            flowrunId: 'fr_b2c3d4e5f6071829'),
+        // Asleep for these two — booked on wake, never caught up (判决⑥). The 「错过 N」 card counts
+        // exactly these. 这两刻它睡着——醒来记账、绝不补跑;「错过 N」牌数的正是它们。
+        _firing('trf_inv000000033', 'tr_cron_inventory', 'wf_inventory', FiringStatus.missed,
+            const Duration(hours: 13)),
+        _firing('trf_inv000000024', 'tr_cron_inventory', 'wf_inventory', FiringStatus.missed,
+            const Duration(hours: 19)),
+      ];
+
+  Firing _firing(String id, String triggerId, String workflowId, FiringStatus status, Duration ago,
+      {String flowrunId = ''}) {
+    final at = _shift(_anchor.subtract(ago));
+    final missed = status == FiringStatus.missed;
+    return Firing(
+      id: id,
+      triggerId: triggerId,
+      workflowId: workflowId,
+      // A missed row is bookkeeping, not an action — the sweep records no activation for it, and only
+      // a requeue would ever stamp one. missed 是记账不是动作:sweep 不为它记 activation。
+      activationId: missed ? '' : 'tra_${id.substring(4)}',
+      dedupKey: '$triggerId@${at.toUtc().toIso8601String()}',
+      status: status,
+      // Only a started firing ever has a run. 只有 started 才有 run。
+      flowrunId: flowrunId,
+      createdAt: at,
+      updatedAt: at,
+    );
+  }
+
+  /// **THE firing predicate** — the single expression of what a filter MEANS, shared by [listFirings]
+  /// (the page) and [stats]' `totals.missed` (the number), exactly as the backend's `firingQuery` is
+  /// shared by `SearchFirings` and `CountFirings`. Two copies would be a bug with a countdown on it:
+  /// the 「错过 N」 card would say 3 and the ✕ marks its click reveals would show 4. Cursor/limit are the
+  /// page's alone and are NOT applied here — a count is not a page.
+  /// **那份 firing 谓词**:filter 语义的**唯一**表达,由 listFirings(一页)与 stats 的 totals.missed(一个数)共用
+  /// ——正如后端的 firingQuery 由 SearchFirings 与 CountFirings 共用。两份拷贝就是一个装了倒计时的 bug:牌上写 3、
+  /// 它点开的 ✕ 显示 4。cursor/limit 只属于分页,不在此施加(计数不是一页)。
+  List<Firing> _firingsMatching({
+    String? triggerId,
+    FiringStatus? status,
+    DateTime? createdAfter,
+    DateTime? createdBefore,
+  }) =>
+      [
+        for (final f in _firingSeeds())
+          // Half-open [createdAfter, createdBefore) — the wire's window, verbatim. 半开窗,逐字同线缆。
+          if (triggerId == null || f.triggerId == triggerId)
+            if (status == null || f.status == status)
+              if (createdAfter == null || !f.createdAt.isBefore(createdAfter))
+                if (createdBefore == null || f.createdAt.isBefore(createdBefore)) f,
+      ]..sort((a, b) => b.createdAt.compareTo(a.createdAt)); // newest first, as the endpoint pages 新→旧
+
+  @override
+  Future<Page<Firing>> listFirings({
+    String? triggerId,
+    FiringStatus? status,
+    DateTime? createdAfter,
+    DateTime? createdBefore,
+    String? cursor,
+    int? limit,
+  }) async {
+    final rows = _firingsMatching(
+        triggerId: triggerId,
+        status: status,
+        createdAfter: createdAfter,
+        createdBefore: createdBefore);
+    final cap = limit ?? 50;
+    final capped = rows.length > cap;
+    return Page(
+      items: capped ? rows.sublist(0, cap) : rows,
+      hasMore: capped,
+      nextCursor: capped ? 'demo-firings-1' : null,
+    );
+  }
+
+  /// Resolve a `since` word the way the backend's `parseSince` does — RFC3339 absolute FIRST, then a
+  /// `<n>d` day form, then a Go duration; anything else falls to the backend's 7d default. The absolute
+  /// form is the one the Overview actually sends (工单⑭: the anchor is computed client-side ONCE so the
+  /// card and the firing list share one predicate), so a fixture that only matched the literal words
+  /// `'24h'`/`'48h'` would silently answer the 7d question to every KPI read.
+  /// 照后端 parseSince 解 since:先 RFC3339 绝对起点,再 `<n>d`,再 Go duration,其余落后端的 7d 默认。**绝对形**
+  /// 正是 Overview 真正在发的那个(工单⑭:锚点在前端只算一次,好让牌与 firing 列表共用一份谓词),故一个只认字面
+  /// `'24h'`/`'48h'` 的 fixture 会静默地拿 7d 的答案去回答每一次 KPI 读取。
+  DateTime _sinceInstant(String since) {
+    final absolute = DateTime.tryParse(since);
+    if (absolute != null) return absolute;
+    final now = DateTime.now();
+    final m = RegExp(r'^(\d+)([smhd])$').firstMatch(since.trim());
+    if (m != null) {
+      final n = int.parse(m.group(1)!);
+      return now.subtract(switch (m.group(2)!) {
+        's' => Duration(seconds: n),
+        'm' => Duration(minutes: n),
+        'h' => Duration(hours: n),
+        _ => Duration(days: n),
+      });
+    }
+    return now.subtract(const Duration(days: 7));
   }
 
   /// The node×run grid (工单⑩). Seeded so the face earns its keep: `analyze` fails in a STREAK (the
