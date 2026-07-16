@@ -242,8 +242,16 @@ func TestReplay_ClearFailed_ReopenRun(t *testing.T) {
 	if _, err := s.InsertNodeResult(ctx, failed); err != nil {
 		t.Fatalf("failed node: %v", err)
 	}
-	if err := s.MarkRunTerminal(ctx, id, flowrundomain.StatusFailed, "publish failed"); err != nil {
-		t.Fatalf("MarkRunTerminal: %v", err)
+	if won, err := s.MarkRunTerminal(ctx, id, flowrundomain.StatusFailed, "publish failed"); err != nil || !won {
+		t.Fatalf("MarkRunTerminal won=%v err=%v", won, err)
+	}
+	// first-wins: the guard (WHERE running) rejects a second terminal — the recorded one stands.
+	// first-wins：守卫（WHERE running）拒绝第二个终态——已记录者为准。
+	if won, err := s.MarkRunTerminal(ctx, id, flowrundomain.StatusCancelled, "late cancel"); err != nil || won {
+		t.Fatalf("second MarkRunTerminal must lose the guard: won=%v err=%v", won, err)
+	}
+	if run, _ := s.GetRun(ctx, id); run.Status != flowrundomain.StatusFailed || run.Error != "publish failed" {
+		t.Fatalf("terminal clobbered by the guard loser: %+v", run)
 	}
 
 	// replay: clear failed rows, reopen.

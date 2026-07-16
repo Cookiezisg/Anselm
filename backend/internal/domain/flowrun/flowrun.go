@@ -195,6 +195,13 @@ var (
 	// ErrNotReplayable：对非 failed 状态的 run 调 :replay（没坏东西可修）。
 	ErrNotReplayable = errorspkg.New(errorspkg.KindUnprocessable, "FLOWRUN_NOT_REPLAYABLE", "flowrun is not in a replayable (failed) state")
 
+	// ErrNotCancellable: :cancel called on a run that is not running — including the first-wins
+	// loser whose cancel raced the run's natural terminal in the same instant (the recorded
+	// terminal stands; the guarded UPDATE matched 0 rows).
+	// ErrNotCancellable：对非 running 的 run 调 :cancel——含与 run 自然终态同瞬竞态的 first-wins
+	// 输家（已记录的终态为准；守卫 UPDATE 匹配 0 行）。
+	ErrNotCancellable = errorspkg.New(errorspkg.KindUnprocessable, "FLOWRUN_NOT_CANCELLABLE", "flowrun is not in a cancellable (running) state")
+
 	// ErrNodeNotParked: an approval decision targeted a node that is not awaiting a signal (already
 	// decided / timed out / never parked) — the first-wins loser, surfaced as a clean 422.
 	// ErrNodeNotParked：审批决策指向一个不在等信号的节点（已决/已超时/从未 park）——first-wins 的输家，

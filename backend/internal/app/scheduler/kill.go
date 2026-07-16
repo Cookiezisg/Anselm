@@ -53,13 +53,14 @@ func (s *Service) cancelInflight(flowrunID string) {
 
 // Shutdown cancels EVERY in-flight advance so a backend shutdown can interrupt any run still wedged
 // mid-node after its grace window expires (R3, option C). Unlike KillWorkflow it does NOT mark runs
-// cancelled in the store — a shutdown is not a user kill: an interrupted node simply isn't memoized,
-// so the run records failed and a :replay resumes it from the last memoized node (a run whose node
-// finished within the grace stays running and boot recovery resumes it). No-op if nothing in flight.
+// cancelled in the store — a shutdown is not a user kill: an interrupted node simply isn't memoized
+// and is NOT recorded failed either (failNode's interrupted-bail — a ctx-cancelled drive writes no
+// rows), so the run stays running and the next boot's Recover re-walks it from the last memoized
+// node. No-op if nothing in flight.
 //
 // Shutdown 取消每个在飞 advance，使后端关停在宽限超时后能打断仍卡在节点中的 run（R3 选项 C）。不同于 KillWorkflow：
-// 不在 store 标 cancelled——关停非用户 kill：被打断的节点未记忆化、run 记 failed，:replay 从末个记忆化节点续；宽限内
-// 跑完节点的 run 保持 running、由 boot 恢复续跑。无在飞则 no-op。
+// 不在 store 标 cancelled——关停非用户 kill：被打断的节点未记忆化、也**不**记 failed（failNode 的 interrupted-bail
+// ——被取消 ctx 的驱动不写任何行），run 保持 running，下次 boot 的 Recover 从末个记忆化节点重走。无在飞则 no-op。
 func (s *Service) Shutdown() {
 	// Mark the pool closing BEFORE cancelling in-flight, so from this instant drive() skips execution.
 	// Shutdown only cancels ctxs already in s.inflight (registered when a worker enters Advance); a job
@@ -105,17 +106,22 @@ func (s *Service) KillWorkflow(ctx context.Context, workflowID string) (int, err
 		return 0, err
 	}
 	for _, r := range runs {
-		// Mark cancelled BEFORE cancelling the ctx: the interrupted advance's RunAgent/RunAction will
-		// return ctx.Err(), which the interpreter would otherwise turn into a `failed` run via failNode.
-		// Writing cancelled first (guarded WHERE running) makes cancelled win — failNode's later
-		// mark-failed matches 0 rows and is a no-op. Order matters for the run's recorded terminal.
+		// Mark cancelled BEFORE cancelling the ctx: the header guard (WHERE running) is the terminal
+		// arbiter — writing first guarantees the user's stop beats any node completing/failing in the
+		// same instant, and the interrupted advance then writes nothing (failNode's interrupted-bail:
+		// a ctx-cancelled drive records no failed row and never contests the header). Emit run_terminal
+		// only when the guard was WON — a run that finished naturally in the same instant keeps its
+		// real terminal, and its own settle path already emitted that frame (a second `cancelled`
+		// frame would contradict the recorded truth).
 		//
-		// 先标 cancelled 再 cancel ctx：被打断的 advance 的 RunAgent/RunAction 会返 ctx.Err()，否则解释器会
-		// 经 failNode 把 run 变 `failed`。先写 cancelled（守卫 WHERE running）使 cancelled 赢——failNode 随后
-		// 的 mark-failed 匹配 0 行 no-op。顺序决定 run 记录的终态。
-		if err := s.runs.MarkRunTerminal(ctx, r.ID, flowrundomain.StatusCancelled, "killed by user"); err != nil {
+		// 先标 cancelled 再 cancel ctx：头守卫（WHERE running）是终态仲裁——先写保证用户的停止赢过同瞬
+		// completed/failed 的节点，被打断的 advance 随后什么也不写（failNode 的 interrupted-bail：被取消
+		// ctx 的驱动不落 failed 行、不争头）。只在守卫**赢了**时发 run_terminal——同瞬自然结束的 run 保留
+		// 真实终态，其结算路径已发过那一帧（再发一帧 `cancelled` 会与记录的真相矛盾）。
+		won, err := s.runs.MarkRunTerminal(ctx, r.ID, flowrundomain.StatusCancelled, "killed by user")
+		if err != nil {
 			s.log.Warn("schedulerapp.KillWorkflow: mark cancelled", zap.String("flowrun", r.ID), zap.Error(err))
-		} else {
+		} else if won {
 			s.emitRunTerminal(ctx, workflowID, r.ID, flowrundomain.StatusCancelled, "")
 		}
 		// Resolve any approval the run was parked on so it doesn't linger as a dead inbox entry.
@@ -145,9 +151,10 @@ func (s *Service) cancelRunningForReplace(ctx context.Context, workflowID string
 		return fmt.Errorf("schedulerapp.cancelRunningForReplace: %w", err)
 	}
 	for _, r := range runs {
-		if err := s.runs.MarkRunTerminal(ctx, r.ID, flowrundomain.StatusCancelled, "replaced by a newer trigger"); err != nil {
+		won, err := s.runs.MarkRunTerminal(ctx, r.ID, flowrundomain.StatusCancelled, "replaced by a newer trigger")
+		if err != nil {
 			s.log.Warn("schedulerapp.cancelRunningForReplace: mark cancelled", zap.String("flowrun", r.ID), zap.Error(err))
-		} else {
+		} else if won {
 			s.emitRunTerminal(ctx, workflowID, r.ID, flowrundomain.StatusCancelled, "")
 		}
 		// Resolve any approval the run was parked on so it doesn't linger as a dead inbox entry.
@@ -157,6 +164,60 @@ func (s *Service) cancelRunningForReplace(ctx context.Context, workflowID string
 		}
 		s.cancelInflight(r.ID)
 	}
+	return nil
+}
+
+// CancelRun cancels ONE running flowrun (`POST /flowruns/{id}:cancel`, scheduler 工单②) — the
+// per-run sibling of KillWorkflow, sharing its race-safe order: ① guarded header update
+// running→cancelled (first-wins — the DB guard arbitrates against the run's natural terminal; a
+// loss is ErrNotCancellable, the recorded terminal stands and no second frame is emitted),
+// ② durable run_terminal so reconnecting clients settle, ③ CancelParkedNodes so a parked approval
+// doesn't linger as a dead inbox entry, ④ cancel the run's in-flight advance ctx (interrupting a
+// node blocked deep in an LLM stream / tool call — the interrupted node writes NO row, see
+// failNode's interrupted-bail), ⑤ afterRunSettled so cancelling a draining workflow's LAST
+// in-flight run completes the graceful drain (draining→inactive) — KillWorkflow skips this only
+// because the workflow service flips lifecycle itself after :kill. A non-running run (including a
+// missing status transition lost to a racing terminal) returns ErrNotCancellable (422); a missing
+// id returns ErrNotFound (404). cancelled is terminal-final: :replay accepts only failed runs, so
+// a cancelled run cannot be replayed. cancelled lights no attention banner and sends no
+// notification — a hand-stopped run is not a fault.
+//
+// CancelRun 取消一个 running flowrun（`POST /flowruns/{id}:cancel`，scheduler 工单②）——KillWorkflow
+// 的单 run 兄弟，共享其 race-safe 顺序：① 守卫头更新 running→cancelled（first-wins——DB 守卫仲裁与
+// run 自然终态的竞态；输局 = ErrNotCancellable，已记录终态为准、不发第二帧），② durable run_terminal
+// 使重连客户端能落定，③ CancelParkedNodes 免 parked 审批滞留收件箱成死项，④ cancel 该 run 在飞
+// advance ctx（打断卡在 LLM 流式 / 工具调用深处的节点——被打断节点**不落行**，见 failNode 的
+// interrupted-bail），⑤ afterRunSettled 使取消 draining workflow **最后**一个在途 run 完成优雅排空
+// （draining→inactive）——KillWorkflow 不走它只因 workflow service 在 :kill 后自己翻 lifecycle。
+// 非 running（含输给竞态终态者）返 ErrNotCancellable（422）；id 未命中返 ErrNotFound（404）。
+// cancelled 是终局终态：:replay 只收 failed run，故 cancelled run 不可重放。cancelled 不点 attention
+// 横幅、不发通知——手动终止不是故障。
+func (s *Service) CancelRun(ctx context.Context, flowrunID string) error {
+	run, err := s.runs.GetRun(ctx, flowrunID)
+	if err != nil {
+		return err
+	}
+	if run.Status != flowrundomain.StatusRunning {
+		return flowrundomain.ErrNotCancellable
+	}
+	// Mark cancelled BEFORE cancelling the ctx (KillWorkflow's order): the header guard decides the
+	// terminal, the ctx-cancel merely unblocks the in-flight node afterwards.
+	// 先标 cancelled 再 cancel ctx（KillWorkflow 的顺序）：头守卫定终态，ctx-cancel 只是随后解除在飞节点的阻塞。
+	won, err := s.runs.MarkRunTerminal(ctx, run.ID, flowrundomain.StatusCancelled, "cancelled by user")
+	if err != nil {
+		return fmt.Errorf("schedulerapp.CancelRun: %w", err)
+	}
+	if !won {
+		return flowrundomain.ErrNotCancellable // lost to the run's natural terminal in the same instant
+	}
+	s.emitRunTerminal(ctx, run.WorkflowID, run.ID, flowrundomain.StatusCancelled, "")
+	// Resolve any approval the run was parked on so it doesn't linger as a dead inbox entry.
+	// 收掉 run 所 park 的审批，免其作为死收件箱项滞留。
+	if _, err := s.runs.CancelParkedNodes(ctx, run.ID); err != nil {
+		s.log.Warn("schedulerapp.CancelRun: cancel parked nodes", zap.String("flowrun", run.ID), zap.Error(err))
+	}
+	s.cancelInflight(run.ID)
+	s.afterRunSettled(ctx, run.WorkflowID) // draining→inactive when this was the workflow's last in-flight run
 	return nil
 }
 
@@ -170,16 +231,25 @@ func (s *Service) CountRunning(ctx context.Context, workflowID string) (int, err
 }
 
 // markRunTerminal flips a run terminal then reconciles its workflow's drain state — the one
-// chokepoint for a run reaching completed/failed (kill writes cancelled directly via the store and
-// flips lifecycle itself). When a draining workflow's LAST in-flight run settles here, the workflow
-// becomes inactive (graceful-drain complete).
+// chokepoint for a run reaching completed/failed (kill/:cancel write cancelled directly via the
+// store: kill's lifecycle flip is the workflow service's, :cancel reconciles inline in CancelRun).
+// When a draining workflow's LAST in-flight run settles here, the workflow becomes inactive
+// (graceful-drain complete). First-wins honest: losing the header guard (a :cancel/kill landed
+// first) means the winner already emitted run_terminal + reconciled — the loser returns silently,
+// emitting/notifying nothing for a terminal it did not write.
 //
-// markRunTerminal 把 run 翻终态后结算其 workflow 排空——run 走到 completed/failed 的唯一收口（kill 经 store
-// 直接写 cancelled、自己翻 lifecycle）。当一个 draining workflow 的**最后**一个在途 run 在此结算，该 workflow
-// 变 inactive（优雅排空完成）。
+// markRunTerminal 把 run 翻终态后结算其 workflow 排空——run 走到 completed/failed 的唯一收口
+// （kill/:cancel 经 store 直接写 cancelled：kill 的 lifecycle 翻转归 workflow service，:cancel 在
+// CancelRun 内联结算）。当一个 draining workflow 的**最后**一个在途 run 在此结算，该 workflow 变
+// inactive（优雅排空完成）。first-wins 诚实：输掉头守卫（:cancel/kill 先落）= 赢家已发 run_terminal
+// 并结算——输家静默返回，绝不为不属于自己的终态发帧/发通知。
 func (s *Service) markRunTerminal(ctx context.Context, run *flowrundomain.FlowRun, status, msg string) error {
-	if err := s.runs.MarkRunTerminal(ctx, run.ID, status, msg); err != nil {
+	won, err := s.runs.MarkRunTerminal(ctx, run.ID, status, msg)
+	if err != nil {
 		return err
+	}
+	if !won {
+		return nil // first-wins loser — the standing terminal's writer owns the emit/reconcile
 	}
 	s.emitRunTerminal(ctx, run.WorkflowID, run.ID, status, msg) // durable: the run is over survives reconnect
 	s.afterRunSettled(ctx, run.WorkflowID)

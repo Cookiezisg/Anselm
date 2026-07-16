@@ -66,11 +66,11 @@ func (s *Service) Advance(ctx context.Context, flowrunID string) error {
 		return err
 	}
 	for {
-		// Bail if this drive was interrupted (KillWorkflow cancelled our ctx, or the app is shutting
-		// down). Not an error: the durable state is authoritative — kill already marked the run
-		// cancelled; a shutdown leaves it running for the next boot's Recover to re-walk.
-		// 若本次驱动被打断（KillWorkflow 取消了 ctx，或 app 关停）则退出。非错误：durable 状态为准——kill
-		// 已标 run cancelled；shutdown 留 run running 待下次 boot 的 Recover 重走。
+		// Bail if this drive was interrupted (:cancel / KillWorkflow cancelled our ctx, or the app is
+		// shutting down). Not an error: the durable state is authoritative — :cancel/kill already
+		// marked the run cancelled; a shutdown leaves it running for the next boot's Recover to re-walk.
+		// 若本次驱动被打断（:cancel / KillWorkflow 取消了 ctx，或 app 关停）则退出。非错误：durable 状态
+		// 为准——:cancel/kill 已标 run cancelled；shutdown 留 run running 待下次 boot 的 Recover 重走。
 		if ctx.Err() != nil {
 			return nil
 		}
@@ -97,6 +97,18 @@ func (s *Service) Advance(ctx context.Context, flowrunID string) error {
 			row, status, err := s.runNode(ctx, run, senv, w, rn)
 			if err != nil {
 				return err
+			}
+			if status == nodeInterrupted {
+				// The drive was cancelled mid-node (:cancel / kill / shutdown): nothing was recorded
+				// (failNode's interrupted-bail) and nothing more may run. Bail WITHOUT ticking (a
+				// `failed` tick for a node that didn't fail would lie on the wire) and WITHOUT
+				// finalizing — the durable header is authoritative: :cancel/kill already wrote
+				// cancelled; a shutdown leaves it running for the next boot's Recover.
+				// 驱动在节点中途被取消（:cancel / kill / shutdown）：什么也没记（failNode 的
+				// interrupted-bail）、也不得再跑。**不发 tick**（给没失败的节点发 failed tick 是对线缆
+				// 撒谎）、**不 finalize** 即退——durable 头为准：:cancel/kill 已写 cancelled；shutdown
+				// 留 running 待下次 boot 的 Recover。
+				return nil
 			}
 			if row != nil {
 				rows = append(rows, row) // carry the just-written row into the next turn's walk

@@ -124,13 +124,36 @@ func (s *Service) writeNode(ctx context.Context, run *flowrundomain.FlowRun, nod
 	return n, status, nil
 }
 
+// nodeInterrupted is an INTERNAL pseudo-status (never persisted — not in flowrun_nodes' CHECK
+// three): a node whose failure is an artifact of the drive's OWN cancellation. When :cancel /
+// KillWorkflow / Shutdown cancels the advance ctx, the blocked dispatch surfaces ctx.Err() as an
+// error — that is a NON-RESULT, not a node failure: recording it as a failed row would lie in the
+// memoization (the activity never ran to a real terminal) and pollute :replay's "clear failed rows"
+// semantics. The interrupted drive writes NOTHING; the run's terminal is owned by whoever cancelled
+// (:cancel/kill already wrote cancelled first; a shutdown leaves it running for boot Recover).
+//
+// nodeInterrupted 是**内部**伪状态（绝不落库——不在 flowrun_nodes CHECK 三值内）：节点的失败是驱动
+// **自身被取消**的产物。:cancel / KillWorkflow / Shutdown 取消 advance ctx 后，阻塞中的派发把
+// ctx.Err() 以 error 上呈——那是**非结果**、不是节点失败：记成 failed 行会在记忆化里撒谎（activity
+// 从未跑到真实终态）、并污染 :replay「清 failed 行」的语义。被打断的驱动**什么也不写**；run 终态归
+// 取消者所有（:cancel/kill 已先写 cancelled；shutdown 留 running 待 boot Recover）。
+const nodeInterrupted = "interrupted"
+
 // failNode writes the failed node row then fail-fasts the whole run: completed sibling rows stay
 // memoized; :replay clears the failed row and re-walks. Returns NodeFailed so the advance loop stops
-// (the row itself is unused — the loop bails on NodeFailed before carrying it).
+// (the row itself is unused — the loop bails on NodeFailed before carrying it). The interrupted-bail
+// comes first: a drive whose ctx has been cancelled records nothing (see nodeInterrupted) — keyed on
+// the DRIVE ctx, not errors.Is(err, context.Canceled), so a node's own internal timeout still
+// records a genuine failed row.
 //
 // failNode 写 failed 节点行后 fail-fast 整个 run：completed 兄弟行留作记忆化；:replay 清 failed 行
 // 重走。返 NodeFailed 使 advance 循环停（行本身不用——循环遇 NodeFailed 即 bail、不携带）。
+// interrupted-bail 在最前：ctx 已被取消的驱动什么都不记（见 nodeInterrupted）——判据是**驱动 ctx**、
+// 非 errors.Is(err, context.Canceled)，故节点自身内部超时仍记真实 failed 行。
 func (s *Service) failNode(ctx context.Context, run *flowrundomain.FlowRun, node *workflowdomain.Node, iter int, reason string) (*flowrundomain.FlowRunNode, string, error) {
+	if ctx.Err() != nil {
+		return nil, nodeInterrupted, nil // the drive was cancelled out from under this node — a non-result
+	}
 	if _, _, err := s.writeNode(ctx, run, node, iter, flowrundomain.NodeFailed, nil, reason); err != nil {
 		return nil, "", err
 	}

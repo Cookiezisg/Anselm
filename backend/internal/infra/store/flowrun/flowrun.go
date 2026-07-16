@@ -240,21 +240,25 @@ func (s *Store) ListRunningByWorkflow(ctx context.Context, workflowID string) ([
 }
 
 // MarkRunTerminal flips a run to a terminal status — GUARDED on it still being running (first-wins).
-// kill, finalize (completed), and failRun can race on the same run; whoever updates first wins, the
-// loser's UPDATE matches 0 rows and is a no-op (a completed run is never clobbered to cancelled, etc.).
+// :cancel, kill, finalize (completed), and failRun can race on the same run; whoever updates first
+// wins, the loser's UPDATE matches 0 rows and is a no-op (a completed run is never clobbered to
+// cancelled, etc.). The affected-row count IS the race verdict, returned as won so callers stay
+// honest: only the winner emits run_terminal / reconciles, and :cancel turns a loss into 422.
 //
-// MarkRunTerminal 把 run 翻成终态——守卫在它仍 running（first-wins）。kill、finalize（completed）、
-// failRun 可能撞同一 run；先 UPDATE 者赢，输家匹配 0 行 no-op（completed run 绝不被刷成 cancelled 等）。
-func (s *Store) MarkRunTerminal(ctx context.Context, id, status, errMsg string) error {
-	_, err := s.runs.WhereEq("id", id).WhereEq("status", flowrundomain.StatusRunning).Updates(ctx, map[string]any{
+// MarkRunTerminal 把 run 翻成终态——守卫在它仍 running（first-wins）。:cancel、kill、finalize
+// （completed）、failRun 可能撞同一 run；先 UPDATE 者赢，输家匹配 0 行 no-op（completed run 绝不被
+// 刷成 cancelled 等）。影响行数即竞态判决，作为 won 返回让调用方诚实：只有赢家发 run_terminal /
+// 结算，:cancel 把输局转成 422。
+func (s *Store) MarkRunTerminal(ctx context.Context, id, status, errMsg string) (bool, error) {
+	n, err := s.runs.WhereEq("id", id).WhereEq("status", flowrundomain.StatusRunning).Updates(ctx, map[string]any{
 		"status":       status,
 		"error":        errMsg,
 		"completed_at": time.Now().UTC(),
 	})
 	if err != nil {
-		return fmt.Errorf("flowrunstore.MarkRunTerminal: %w", err)
+		return false, fmt.Errorf("flowrunstore.MarkRunTerminal: %w", err)
 	}
-	return nil
+	return n > 0, nil
 }
 
 func (s *Store) ReopenForReplay(ctx context.Context, id string) error {

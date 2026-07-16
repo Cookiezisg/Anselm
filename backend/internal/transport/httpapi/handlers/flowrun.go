@@ -15,13 +15,13 @@ import (
 )
 
 // FlowrunHandler hosts the durable-execution HTTP surface: list/inspect runs, start one manually
-// ("Run now"), replay a failed one, and decide a parked approval. A flowrun is a runtime record
-// (no version, no build) — so there is no Create-as-edit / :revert here; "create" is starting a run
-// and its body is the entry trigger's declared Outputs (the manual payload form).
+// ("Run now"), replay a failed one, cancel a running one, and decide a parked approval. A flowrun is
+// a runtime record (no version, no build) — so there is no Create-as-edit / :revert here; "create"
+// is starting a run and its body is the entry trigger's declared Outputs (the manual payload form).
 //
-// FlowrunHandler 持持久化执行的 HTTP 面：列/查 run、手动起一个（「Run now」）、replay 失败的、决策
-// parked 审批。flowrun 是运行时记录（无版本、无构建）——故无 Create-as-edit/:revert；「create」就是起
-// 一个 run，body 形如入口 trigger 声明的 Outputs（手动 payload 表单）。
+// FlowrunHandler 持持久化执行的 HTTP 面：列/查 run、手动起一个（「Run now」）、replay 失败的、cancel
+// 在跑的、决策 parked 审批。flowrun 是运行时记录（无版本、无构建）——故无 Create-as-edit/:revert；
+// 「create」就是起一个 run，body 形如入口 trigger 声明的 Outputs（手动 payload 表单）。
 type FlowrunHandler struct {
 	svc *schedulerapp.Service
 	log *zap.Logger
@@ -201,9 +201,11 @@ func parseSince(raw string, now time.Time) (time.Time, error) {
 	return time.Time{}, flowrundomain.ErrStatsInvalidSince.WithDetails(map[string]any{"got": raw})
 }
 
-// postOnRun dispatches POST /flowruns/{id}:<action> (only :replay today).
+// postOnRun dispatches POST /flowruns/{id}:<action> (:replay | :cancel). Both respond 202 with the
+// run's post-action state in the same envelope shape as Get ({flowrun, first node page, nextCursor}).
 //
-// postOnRun 派发 POST /flowruns/{id}:<action>（目前仅 :replay）。
+// postOnRun 派发 POST /flowruns/{id}:<action>（:replay | :cancel）。两者都以 202 返动作后 run 态，
+// 信封形同 Get（{flowrun, 节点首页, nextCursor}）。
 func (h *FlowrunHandler) postOnRun(w http.ResponseWriter, r *http.Request) {
 	id, action, ok := idAndAction(r, "idAction")
 	if !ok {
@@ -213,6 +215,16 @@ func (h *FlowrunHandler) postOnRun(w http.ResponseWriter, r *http.Request) {
 	switch action {
 	case "replay":
 		if err := h.svc.Replay(r.Context(), id); err != nil {
+			responsehttpapi.FromDomainError(w, h.log, err)
+			return
+		}
+		h.writeRun(w, r, id, func(w http.ResponseWriter, data any) { responsehttpapi.Success(w, http.StatusAccepted, data) })
+	case "cancel":
+		// Cancel a single running run (scheduler 工单②): only running is cancellable — anything else
+		// (including a first-wins loss to the run's natural terminal) is a clean 422.
+		// 取消单个 running run（scheduler 工单②）：仅 running 可取消——其余（含输给自然终态的
+		// first-wins 竞态）一律干净 422。
+		if err := h.svc.CancelRun(r.Context(), id); err != nil {
 			responsehttpapi.FromDomainError(w, h.log, err)
 			return
 		}

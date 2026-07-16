@@ -58,9 +58,14 @@ type Repository interface {
 	// 打断在途 advance、再标 cancelled）。按 workspace 隔离。
 	ListRunningByWorkflow(ctx context.Context, workflowID string) ([]*FlowRun, error)
 
-	// MarkRunTerminal sets a run's terminal status (completed/failed) + error + completed_at.
-	// MarkRunTerminal 置 run 终态（completed/failed）+ error + completed_at。
-	MarkRunTerminal(ctx context.Context, id, status, errMsg string) error
+	// MarkRunTerminal sets a run's terminal status (completed/failed/cancelled) + error +
+	// completed_at, GUARDED on it still being running (first-wins). won=false means another
+	// writer's terminal already stands — the loser must NOT emit run_terminal / reconcile /
+	// notify for a terminal it did not write (:cancel surfaces it as ErrNotCancellable).
+	// MarkRunTerminal 置 run 终态（completed/failed/cancelled）+ error + completed_at，守卫在
+	// 它仍 running（first-wins）。won=false 表示另一写者的终态已立——输家绝不为不属于自己的
+	// 终态发 run_terminal / 结算 / 通知（:cancel 把它上呈为 ErrNotCancellable）。
+	MarkRunTerminal(ctx context.Context, id, status, errMsg string) (won bool, err error)
 
 	// ReopenForReplay flips a failed run back to running + increments replay_count + clears error
 	// (the :replay header half; clearing failed node rows is DeleteFailedNodes). Returns ErrNotReplayable

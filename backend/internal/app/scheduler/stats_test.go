@@ -122,7 +122,7 @@ func mustSeedTerminal(t *testing.T, svc *Service, ctx context.Context, id, wf, s
 		t.Fatalf("seed %s: %v", id, err)
 	}
 	if status != flowrundomain.StatusRunning {
-		if err := svc.runs.MarkRunTerminal(ctx, id, status, ""); err != nil {
+		if _, err := svc.runs.MarkRunTerminal(ctx, id, status, ""); err != nil {
 			t.Fatalf("terminal %s: %v", id, err)
 		}
 	}
