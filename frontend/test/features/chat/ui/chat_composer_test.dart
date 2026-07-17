@@ -67,6 +67,19 @@ Future<void> _settle(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('accessory + send buttons ride the md (28) tier, not lg (WRK-070 §A#2:28 档拍板)',
+      (tester) async {
+    final repo = FixtureChatRepository();
+    await tester.pumpWidget(_host(repo));
+    await tester.enterText(find.byType(EditableText), 'hi'); // send button appears with content 有字才出发送
+    await tester.pump();
+    // Every icon button in the composer chrome is 28-high (AnSize.control = md), never the 44/lg
+    // that dwarfed the 15 input. 壳内每颗图标钮 28 高(md),绝非把 15 输入压小的 44/lg。
+    for (final box in tester.widgetList<AnButton>(find.byType(AnButton))) {
+      expect(box.size, AnButtonSize.md, reason: '配件/发送钮全 md 档(28 盒)');
+    }
+  });
+
   testWidgets('Enter sends + clears; Shift+Enter inserts a newline instead', (tester) async {
     final repo = FixtureChatRepository(conversations: [_conv('cv_1')], messages: {'cv_1': []});
     await tester.pumpWidget(_host(repo));

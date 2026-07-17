@@ -437,26 +437,28 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
     });
   }
 
-  // lg tier (32 box / 20 glyph) — the content-workspace control tier, proportioned to the 15 input.
-  // lg 档(32 盒/20 形):内容区控件档,与 15 号输入配比。
+  // md tier (28 box / 16 glyph) — the accessory buttons retreat to «inline neighbours» of the 15
+  // input (WRK-070 §A#2 用户三档同框样机拍板:28;lg 44-scale 与正文失衡,把壳撑到 ~64 高).
+  // md 档(28 盒/16 形):配件钮退成正文的「行内邻居」(样机比选定 28,lg 撑壳过高).
   List<Widget> _lead(Translations t) => [
         AnButton.iconOnly(AnIcons.mention,
-            size: AnButtonSize.lg, semanticLabel: t.chat.mentionEntity, onPressed: _insertMentionTrigger),
+            size: AnButtonSize.md, semanticLabel: t.chat.mentionEntity, onPressed: _insertMentionTrigger),
         AnButton.iconOnly(AnIcons.attach,
-            size: AnButtonSize.lg, semanticLabel: t.chat.attachFile, onPressed: _pickFiles),
+            size: AnButtonSize.md, semanticLabel: t.chat.attachFile, onPressed: _pickFiles),
       ];
 
   /// The send/stop affordance — a FILLED ink circle (primary + round), the modern chat idiom, still
-  /// monochrome per the product's no-decorative-hue rule. Same lg tier as [_lead] (the single-row
-  /// height is child-maxed — a different tier would grow the pill on the first keystroke).
-  /// send/stop=实心墨圆(primary+round,现代聊天惯例、仍单色);与 lead 同 lg 档(单行高取子件 max,
-  /// 异档会首键撑高药丸)。
+  /// monochrome per the product's no-decorative-hue rule. Same md tier as [_lead] (the single-row
+  /// height is child-maxed — a different tier would grow the pill on the first keystroke). The send
+  /// circle carries weight through its FILL, not its size (WRK-070 §A#2:28 圆+16 箭头).
+  /// send/stop=实心墨圆(primary+round,现代聊天惯例、仍单色);与 lead 同 md 档(单行高取子件 max,异档
+  /// 会首键撑高药丸);发送重量靠主色填充、不靠个头。
   Widget _trailingButton({required Key key, required IconData icon, required String label, required VoidCallback onPressed}) =>
       AnButton.iconOnly(icon,
           key: key,
           variant: AnButtonVariant.primary,
           round: true,
-          size: AnButtonSize.lg,
+          size: AnButtonSize.md,
           semanticLabel: label,
           onPressed: onPressed);
 

@@ -56,7 +56,7 @@ audience: [human, ai]
 
 ### #2 Composer 三钮雷霆大 + 回车发送（0718-凌晨）
 - **定位**：@/📎/发送三钮全 `AnButtonSize.lg`（chat_composer.dart:444/446/459）——44px 级按钮配 15px 正文,比例失衡;壳被撑到 ~64 高。
-- **✅ 用户 0718 拍板（三档同框样机比选）：28 档**——三钮全切 `AnButtonSize.md`(28 盒/16 形),发送=28 主色实心圆+16 箭头,壳单行态随之自然收矮;多行只长中间、两侧钮钉底行。样机 rig `test/dev/capture_composer_mock.dart` 用完即删。
+- **✅ 已落(0718)+ 拍板（三档同框样机比选）：28 档**——三钮全切 `AnButtonSize.md`(28 盒/16 形),发送=28 主色实心圆+16 箭头,壳单行态随之自然收矮;多行只长中间、两侧钮钉底行。样机 rig `test/dev/capture_composer_mock.dart` 用完即删。
 - **回车**：代码契约已是 Enter 发/Shift+Enter 换行/IME 合成期不发(默认档;可切 ⌘Enter)——开工真机验证,若实测不符按 bug 修。
 
 ---
