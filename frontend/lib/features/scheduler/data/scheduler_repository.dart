@@ -7,7 +7,6 @@ import '../../../core/contract/entities/trigger.dart';
 import '../../../core/contract/entities/trigger_schedule.dart';
 import '../../../core/contract/entities/workflow.dart';
 import '../../../core/contract/page.dart';
-import '../../../core/contract/retention.dart';
 import '../../../core/net/api_client.dart';
 import '../../../core/runtime.dart';
 import '../scheduler_windows.dart';
@@ -278,12 +277,6 @@ abstract interface class SchedulerRepository {
   /// 空集 400、越 50 上限 422;未知 id 静默缺席;输出列恒正典新→旧、与请求顺序无关。
   Future<FlowrunMatrix> runMatrix(List<String> flowrunIds);
 
-  /// The machine-level run-history retention line (工单⑬, `GET /retention`) — READ-ONLY here: this
-  /// ocean only needs it to render the run table's honest tombstone row; EDITING it lives in the
-  /// settings storage panel (which parses the same wire itself — features 互不依赖).
-  /// 机器级 run 保留线(⑬),此处**只读**:本海洋只需它渲大表的诚实墓碑行;编辑归设置存储面板(它自行解同
-  /// 一条线缆——features 互不依赖)。
-  Future<RetentionConfig> retention();
 }
 
 /// The production seam. Thin envelope decoding only. 生产缝:薄信封解码。
@@ -531,9 +524,6 @@ class LiveSchedulerRepository implements SchedulerRepository {
         'flowrunIds': flowrunIds.join(','),
       });
 
-  @override
-  Future<RetentionConfig> retention() =>
-      _api.getEntity('/api/v1/retention', RetentionConfig.fromJson);
 }
 
 /// Overridden by demo (`FixtureSchedulerRepository`) at the app root. app 根被 demo override。

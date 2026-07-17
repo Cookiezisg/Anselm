@@ -354,6 +354,9 @@ class Translations$run$en {
 	/// en: 'Reason (optional)'
 	String get reasonHint => 'Reason (optional)';
 
+	/// en: '+ Reason'
+	String get addReason => '+ Reason';
+
 	/// en: 'running (inferred)'
 	String get inferredRunning => 'running (inferred)';
 }
@@ -3025,9 +3028,6 @@ class Translations$scheduler$home$en {
 	/// en: 'Load more'
 	String get loadMore => 'Load more';
 
-	/// en: 'Earlier runs have been cleared by the retention policy ($d days).'
-	String tombstone({required Object d}) => 'Earlier runs have been cleared by the retention policy (${d} days).';
-
 	/// en: 'Filter runs by status'
 	String get filterA11y => 'Filter runs by status';
 
@@ -3165,9 +3165,6 @@ class Translations$scheduler$home$en {
 
 	/// en: 'Triggers'
 	String get triggersHead => 'Triggers';
-
-	/// en: 'Editing belongs to Entities ↗'
-	String get triggersEditHint => 'Editing belongs to Entities ↗';
 
 	/// en: 'No triggers equip this workflow.'
 	String get triggersEmpty => 'No triggers equip this workflow.';
@@ -6372,6 +6369,7 @@ extension on Translations {
 			'run.reject' => 'Reject',
 			'run.approvalHint' => 'First decision wins.',
 			'run.reasonHint' => 'Reason (optional)',
+			'run.addReason' => '+ Reason',
 			'run.inferredRunning' => 'running (inferred)',
 			'scheduler.railEmptyTitle' => 'No workflows yet',
 			'scheduler.railEmptyHint' => 'Create one in Entities, or ask the conversation to build one for you.',
@@ -6472,7 +6470,6 @@ extension on Translations {
 			'scheduler.home.runsError' => 'Couldn\'t load the runs.',
 			'scheduler.home.runsEmpty' => 'No runs match this filter.',
 			'scheduler.home.loadMore' => 'Load more',
-			'scheduler.home.tombstone' => ({required Object d}) => 'Earlier runs have been cleared by the retention policy (${d} days).',
 			'scheduler.home.filterA11y' => 'Filter runs by status',
 			'scheduler.home.filterAll' => 'All',
 			'scheduler.home.filterRunning' => ({required Object n}) => 'Running ${n}',
@@ -6519,7 +6516,6 @@ extension on Translations {
 			'scheduler.home.notRun' => 'not run',
 			'scheduler.home.paneError' => 'Couldn\'t load this run.',
 			'scheduler.home.triggersHead' => 'Triggers',
-			'scheduler.home.triggersEditHint' => 'Editing belongs to Entities ↗',
 			'scheduler.home.triggersEmpty' => 'No triggers equip this workflow.',
 			'scheduler.home.paused' => 'Paused',
 			'scheduler.home.pause' => 'Pause',
@@ -6787,9 +6783,9 @@ extension on Translations {
 			'entities.detail.sec.initArgs' => 'Init args',
 			'entities.detail.sec.methods' => 'Methods',
 			'entities.detail.sec.prompt' => 'Prompt',
+			'entities.detail.sec.capabilities' => 'Capabilities',
 			_ => null,
 		} ?? switch (path) {
-			'entities.detail.sec.capabilities' => 'Capabilities',
 			'entities.detail.sec.mountHealth' => 'Mount health',
 			'entities.detail.sec.governance' => 'Run governance',
 			'entities.detail.sec.alerts' => 'Alerts',
@@ -7301,9 +7297,9 @@ extension on Translations {
 			'settings.mcp.lastError' => 'Last error',
 			'settings.mcp.consecutiveFailures' => 'Consecutive failures',
 			'settings.mcp.noTools' => 'No tools',
+			'settings.mcp.noCalls' => 'No calls yet',
 			_ => null,
 		} ?? switch (path) {
-			'settings.mcp.noCalls' => 'No calls yet',
 			'settings.mcp.noStderr' => 'No output yet',
 			'settings.mcp.callsAgg' => ({required Object ok, required Object failed}) => '✓ ${ok} · ✗ ${failed}',
 			'settings.storage.dataDir' => 'Data directory',

@@ -189,15 +189,20 @@ class _SchedulerWaitingZoneState extends ConsumerState<SchedulerWaitingZone>
         if (widget.rows.isEmpty)
           Text(t.waitingEmpty, style: AnText.body.copyWith(color: c.inkFaint))
         else
-          for (final r in widget.rows)
-            AnExpandReveal(
-                open: !leaving.contains(_keyOf(r)), child: _row(context, r)),
+          // A responsive TWO-column card grid (WRK-070 B13 用户裁:Overview 审批卡=双列、带边框;
+          // 720 列下 AnAutoGrid 的 280 最小列宽恰流成两列). 双列有边卡网格。
+          AnAutoGrid(children: [
+            for (final r in widget.rows)
+              AnExpandReveal(
+                  open: !leaving.contains(_keyOf(r)), child: _card(context, r)),
+          ]),
       ],
     );
   }
 
-  Widget _row(BuildContext context, SchedulerInboxRow r) {
+  Widget _card(BuildContext context, SchedulerInboxRow r) {
     final t = context.t.scheduler.overview;
+    final c = context.colors;
     final key = _keyOf(r);
     final isPending = pending.contains(key) || batchBusy && selected.contains(key);
     final selecting = selected.isNotEmpty;
@@ -207,38 +212,64 @@ class _SchedulerWaitingZoneState extends ConsumerState<SchedulerWaitingZone>
       onExit: (_) => setState(() {
         if (hoveredKey == key) hoveredKey = null;
       }),
-      child: AnLedgerRow(
-        lead: isPending
-            ? const AnSpinner(size: AnSize.iconSm)
-            : showCheck
-                ? AnBatchCheck(
-                    checked: selected.contains(key),
-                    semanticLabel: t.selectRow(name: r.workflowName),
-                    onChanged: (v) => setState(() => v ? selected.add(key) : selected.remove(key)),
-                  )
-                : const AnStatusDot(AnStatus.wait),
-        primary: r.workflowName,
-        mono: false,
-        chips: [
-          AnChip(r.node.nodeId, look: AnChipLook.outlined),
-          AnChip(truncate(r.node.flowrunId, AnTrunc.id),
-              mono: true, look: AnChipLook.outlined, tooltip: r.node.flowrunId),
-          // The countdown renders ONLY when a deadline exists — no deadline, no lie. 无期限不渲。
-          if (r.deadline != null) AnCountdown(deadline: r.deadline!),
-        ],
-        measure: t.waitedFor(d: fmtWaited(widget.now.difference(r.node.createdAt))),
-        onTap: () => context.go('/scheduler/w/${r.workflowId}/runs/${r.node.flowrunId}'),
-        expanded: true,
-        expandChild: Padding(
-          padding: const EdgeInsets.only(bottom: AnSpace.s8),
-          child: ApprovalGate(
-            parked: r.node,
-            framed: false,
-            showHint: false,
-            collectReason: true,
-            busy: isPending,
-            onDecide: (v, reason) => _decideOne(r, v, reason),
-          ),
+      child: AnCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(children: [
+              SizedBox(
+                width: AnSize.iconSm,
+                child: Center(
+                  child: isPending
+                      ? const AnSpinner(size: AnSize.iconSm)
+                      : showCheck
+                          ? AnBatchCheck(
+                              checked: selected.contains(key),
+                              semanticLabel: t.selectRow(name: r.workflowName),
+                              onChanged: (v) => setState(
+                                  () => v ? selected.add(key) : selected.remove(key)),
+                            )
+                          : const AnStatusDot(AnStatus.wait),
+                ),
+              ),
+              const SizedBox(width: AnSpace.s8),
+              // The workflow NAME is the card's door to the run flagship (the old row-tap deep
+              // link, kept). 名字即门:保留旧行点击的旗舰深链。
+              Expanded(
+                child: AnInteractive(
+                  onTap: () =>
+                      context.go('/scheduler/w/${r.workflowId}/runs/${r.node.flowrunId}'),
+                  builder: (context, states) => Text(
+                    r.workflowName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AnText.body
+                        .weight(AnText.emphasisWeight)
+                        .copyWith(color: states.isActive ? c.accent : c.ink),
+                  ),
+                ),
+              ),
+              const SizedBox(width: AnSpace.s8),
+              Text(t.waitedFor(d: fmtWaited(widget.now.difference(r.node.createdAt))),
+                  style: AnText.meta.copyWith(color: c.inkFaint)),
+            ]),
+            const SizedBox(height: AnSpace.s8),
+            // Node word + countdown; the raw fr_ pill is GONE (B1 裸 id 清除). 节点词+倒计时;裸 id 药丸删。
+            Wrap(spacing: AnSpace.s6, runSpacing: AnSpace.s6, children: [
+              AnChip(r.node.nodeId, look: AnChipLook.outlined),
+              if (r.deadline != null) AnCountdown(deadline: r.deadline!),
+            ]),
+            const SizedBox(height: AnFlow.headBodyTight),
+            ApprovalGate(
+              parked: r.node,
+              framed: false,
+              showHint: false,
+              collectReason: true,
+              busy: isPending,
+              onDecide: (v, reason) => _decideOne(r, v, reason),
+            ),
+          ],
         ),
       ),
     );

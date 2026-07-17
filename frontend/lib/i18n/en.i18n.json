@@ -633,6 +633,7 @@
     "reject": "Reject",
     "approvalHint": "First decision wins.",
     "reasonHint": "Reason (optional)",
+    "addReason": "+ Reason",
     "inferredRunning": "running (inferred)"
   },
   "scheduler": {
@@ -740,7 +741,6 @@
       "runsError": "Couldn't load the runs.",
       "runsEmpty": "No runs match this filter.",
       "loadMore": "Load more",
-      "tombstone": "Earlier runs have been cleared by the retention policy ($d days).",
       "filterA11y": "Filter runs by status",
       "filterAll": "All",
       "filterRunning": "Running $n",
@@ -787,7 +787,6 @@
       "notRun": "not run",
       "paneError": "Couldn't load this run.",
       "triggersHead": "Triggers",
-      "triggersEditHint": "Editing belongs to Entities ↗",
       "triggersEmpty": "No triggers equip this workflow.",
       "paused": "Paused",
       "pause": "Pause",

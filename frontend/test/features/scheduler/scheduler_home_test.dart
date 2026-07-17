@@ -4,7 +4,6 @@ import 'package:anselm/core/contract/entities/scheduler_stats.dart';
 import 'package:anselm/core/contract/entities/trigger.dart';
 import 'package:anselm/core/contract/entities/values.dart';
 import 'package:anselm/core/contract/entities/workflow.dart';
-import 'package:anselm/core/contract/retention.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/model/time_range.dart';
@@ -65,9 +64,7 @@ List<FlowrunNode> _nodes(String frId, {bool failed = false}) => [
           updatedAt: _now),
     ];
 
-StubSchedulerRepo _repo(
-    {bool failRunFull = false,
-    RetentionConfig retention = const RetentionConfig(runRetentionDays: 90)}) {
+StubSchedulerRepo _repo({bool failRunFull = false}) {
   final runs = <Flowrun>[
     Flowrun(
         id: 'fr_live1',
@@ -117,7 +114,6 @@ StubSchedulerRepo _repo(
         updatedAt: _now),
   ];
   return StubSchedulerRepo(
-    retentionConfig: retention,
     workflows: [
       SchedulerWorkflowRow(
           id: 'wf_a', name: '数据清洗流水线', lifecycleState: 'active', updatedAt: _now),
@@ -842,7 +838,9 @@ void main() {
       expect(find.text('每日 09:00'), findsOneWidget);
       expect(find.text('0 9 * * *'), findsOneWidget, reason: 'cron 表达式 mono 在场');
       expect(find.text(h.paused), findsOneWidget, reason: '暂停卡带「已暂停」徽');
-      expect(find.text(h.triggersEditHint), findsOneWidget, reason: '编辑归 Entities');
+      // The «Editing belongs to Entities ↗» hint is GONE (B3) and cards flow as a grid (B9).
+      expect(find.textContaining('Entities'), findsNothing, reason: '编辑归属提示已删(B3)');
+      expect(find.byType(AnAutoGrid), findsOneWidget, reason: 'trigger 卡双列网格(B9)');
     });
 
     testWidgets('pause: the dialog states the exact semantics, then the switch flips', (tester) async {
@@ -1052,54 +1050,16 @@ void main() {
     });
   });
 
-  group('⑥ 保留墓碑', () {
-    testWidgets('at the true end of the history the tombstone says WHY it ends', (tester) async {
+  group('⑥ 墓碑句已删(WRK-070 B3)', () {
+    testWidgets('the end of the history carries NO retention tombstone sentence', (tester) async {
       final repo = _repo();
       await _pump(tester, repo);
-      // Filter to failed → 2 rows, no more pages → the true bottom. 过滤到失败=到底。
       await tester.tap(find.text(h.filterFailed(n: '2')));
       await tester.pump();
       await _settle(tester);
-      expect(find.text(h.tombstone(d: '90')), findsOneWidget,
-          reason: '没有解释的末行会静默暗示「在那之前从没跑过」——那是假的');
-      expect(repo.retentionAsks, greaterThan(0), reason: '墓碑读的是真 GET /retention,不是硬编的 90');
-    });
-
-    testWidgets('«forever» (0) renders NO tombstone — nothing was cleared, so nothing to explain',
-        (tester) async {
-      final repo = _repo(retention: const RetentionConfig(runRetentionDays: 0));
-      await _pump(tester, repo);
-      await tester.tap(find.text(h.filterFailed(n: '2')));
-      await tester.pump();
-      await _settle(tester);
+      // 用户裁「没用+占位怪异」——历史尽头干净结束;保留线只在设置存储面板陈述。
       expect(find.textContaining('保留策略'), findsNothing);
-      expect(find.text(h.tombstone(d: '0')), findsNothing, reason: '永久=不清理=无墓碑');
-    });
-
-    testWidgets('a tombstone never appears while more pages remain (the end is not yet the end)',
-        (tester) async {
-      // 30 runs > one 25-row page → hasMore → the loadMore sentinel owns the tail, not a tombstone.
-      // 30 条 run > 一页 25 行 → 还有下一页 → 尾巴归 loadMore 哨兵,不归墓碑。
-      final repo = StubSchedulerRepo(
-        workflows: [
-          SchedulerWorkflowRow(id: 'wf_a', name: '多页', lifecycleState: 'active', updatedAt: _now),
-        ],
-        byWorkflow: [WorkflowRunStats(workflowId: 'wf_a', lastRunAt: _now)],
-        runs: [
-          for (var i = 0; i < 30; i++)
-            Flowrun(
-                id: 'fr_h${i.toString().padLeft(3, '0')}',
-                workflowId: 'wf_a',
-                origin: 'cron',
-                status: 'completed',
-                startedAt: _now.subtract(Duration(hours: i + 1)),
-                completedAt: _now.subtract(Duration(hours: i + 1)),
-                updatedAt: _now),
-        ],
-      );
-      await _pump(tester, repo);
-      expect(find.text(h.loadMore), findsOneWidget);
-      expect(find.text(h.tombstone(d: '90')), findsNothing, reason: '还有下一页时说「更早的已清理」就是撒谎');
+      expect(find.textContaining('retention policy'), findsNothing);
     });
   });
 }

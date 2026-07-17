@@ -177,6 +177,7 @@ class _Translations$run$zh_CN extends Translations$run$en {
 	@override String get reject => '驳回';
 	@override String get approvalHint => 'first-wins:先到的决断生效。';
 	@override String get reasonHint => '备注(可选)';
+	@override String get addReason => '+ 理由';
 	@override String get inferredRunning => '推测执行中';
 }
 
@@ -1242,7 +1243,6 @@ class _Translations$scheduler$home$zh_CN extends Translations$scheduler$home$en 
 	@override String get runsError => '运行记录加载失败。';
 	@override String get runsEmpty => '没有匹配此过滤的运行。';
 	@override String get loadMore => '加载更多';
-	@override String tombstone({required Object d}) => '更早的运行已按保留策略(${d} 天)清理。';
 	@override String get filterA11y => '按状态过滤运行';
 	@override String get filterAll => '全部';
 	@override String filterRunning({required Object n}) => '在跑 ${n}';
@@ -1289,7 +1289,6 @@ class _Translations$scheduler$home$zh_CN extends Translations$scheduler$home$en 
 	@override String get notRun => '未运行';
 	@override String get paneError => '本次运行加载失败。';
 	@override String get triggersHead => '触发器';
-	@override String get triggersEditHint => '编辑归 Entities ↗';
 	@override String get triggersEmpty => '该 workflow 没有挂任何触发器。';
 	@override String get paused => '已暂停';
 	@override String get pause => '暂停';
@@ -3070,6 +3069,7 @@ extension on TranslationsZhCn {
 			'run.reject' => '驳回',
 			'run.approvalHint' => 'first-wins:先到的决断生效。',
 			'run.reasonHint' => '备注(可选)',
+			'run.addReason' => '+ 理由',
 			'run.inferredRunning' => '推测执行中',
 			'scheduler.railEmptyTitle' => '还没有 workflow',
 			'scheduler.railEmptyHint' => '去 Entities 创建一个,或让对话替你建。',
@@ -3170,7 +3170,6 @@ extension on TranslationsZhCn {
 			'scheduler.home.runsError' => '运行记录加载失败。',
 			'scheduler.home.runsEmpty' => '没有匹配此过滤的运行。',
 			'scheduler.home.loadMore' => '加载更多',
-			'scheduler.home.tombstone' => ({required Object d}) => '更早的运行已按保留策略(${d} 天)清理。',
 			'scheduler.home.filterA11y' => '按状态过滤运行',
 			'scheduler.home.filterAll' => '全部',
 			'scheduler.home.filterRunning' => ({required Object n}) => '在跑 ${n}',
@@ -3217,7 +3216,6 @@ extension on TranslationsZhCn {
 			'scheduler.home.notRun' => '未运行',
 			'scheduler.home.paneError' => '本次运行加载失败。',
 			'scheduler.home.triggersHead' => '触发器',
-			'scheduler.home.triggersEditHint' => '编辑归 Entities ↗',
 			'scheduler.home.triggersEmpty' => '该 workflow 没有挂任何触发器。',
 			'scheduler.home.paused' => '已暂停',
 			'scheduler.home.pause' => '暂停',
@@ -3485,9 +3483,9 @@ extension on TranslationsZhCn {
 			'entities.detail.sec.initArgs' => 'init 参数',
 			'entities.detail.sec.methods' => '方法',
 			'entities.detail.sec.prompt' => '提示词',
+			'entities.detail.sec.capabilities' => '能力挂载',
 			_ => null,
 		} ?? switch (path) {
-			'entities.detail.sec.capabilities' => '能力挂载',
 			'entities.detail.sec.mountHealth' => '挂载健康',
 			'entities.detail.sec.governance' => '运行治理',
 			'entities.detail.sec.alerts' => '告警',
@@ -3999,9 +3997,9 @@ extension on TranslationsZhCn {
 			'settings.mcp.lastError' => '最近错误',
 			'settings.mcp.consecutiveFailures' => '连续失败',
 			'settings.mcp.noTools' => '无工具',
+			'settings.mcp.noCalls' => '暂无调用',
 			_ => null,
 		} ?? switch (path) {
-			'settings.mcp.noCalls' => '暂无调用',
 			'settings.mcp.noStderr' => '暂无输出',
 			'settings.mcp.callsAgg' => ({required Object ok, required Object failed}) => '✓ ${ok} · ✗ ${failed}',
 			'settings.storage.dataDir' => '数据目录',

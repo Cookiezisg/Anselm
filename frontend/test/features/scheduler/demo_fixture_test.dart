@@ -535,10 +535,6 @@ void main() {
     }
   });
 
-  test('S5 · ⑬ retention seeds the BACKEND default (90) so panel and tombstone agree out of the box',
-      () async {
-    expect((await repo.retention()).runRetentionDays, 90);
-  });
 
   // ── S6 seeds · 工单⑭/判决⑥ 的 firing 账 ──
 

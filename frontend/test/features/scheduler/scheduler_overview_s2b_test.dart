@@ -110,7 +110,12 @@ Future<TestGesture> _hover(WidgetTester tester, Finder target) async {
   return g;
 }
 
-/// The row-selection checkbox inside the ledger row whose primary is [name]. 按主文定位行选择框。
+/// The selection checkbox inside the approval CARD whose title is [name] (B13 卡片化). 按卡题定位选择框。
+Finder _cardCheck(String name) => find.descendant(
+    of: find.ancestor(of: find.text(name), matching: find.byType(AnCard)),
+    matching: find.byType(AnBatchCheck));
+
+/// The selection checkbox inside the ledger ROW whose primary is [name] (running zone 仍是行). 按行主文定位。
 Finder _rowCheck(String name) => find.descendant(
     of: find.ancestor(of: find.text(name), matching: find.byType(AnLedgerRow)),
     matching: find.byType(AnBatchCheck));
@@ -153,10 +158,19 @@ void main() {
       expect(find.text(ov.waitedFor(d: '18m')), findsOneWidget);
       expect(find.text(ov.waitedFor(d: '2d')), findsOneWidget);
 
-      // One gate per row; the reason input grows only on allowReason rows (2 of 3). 门逐行;理由输入仅 2 行。
+      // One gate per CARD; at rest the reason is a «+ 理由» PILL on allowReason cards only —
+      // NO resident input anywhere (B13 用户裁「常驻输入框怪恶心」). 门逐卡;静息=药丸仅 2 卡,零常驻输入。
       expect(find.text(t.run.approve), findsNWidgets(3));
       expect(find.text(t.run.reject), findsNWidgets(3));
-      expect(find.byType(AnInput), findsNWidgets(2));
+      expect(find.text(t.run.addReason), findsNWidgets(2));
+      expect(find.byType(AnInput), findsNothing, reason: '理由输入按需长出,静息零输入框');
+      // Every approval sits in a BORDERED card (KPI 牌也是 AnCard,按卡题定位); raw fr_ pill gone (B1).
+      // 逐卡有边框壳;裸 id 药丸绝迹。
+      for (final name in ['周报生成', '发布上线', 'wf_ghost']) {
+        expect(find.ancestor(of: find.text(name), matching: find.byType(AnCard)), findsWidgets,
+            reason: '审批卡带边框($name)');
+      }
+      expect(find.textContaining('fr_park'), findsNothing, reason: '裸 id 清除(B1)');
 
       // No batch bar without a selection. 无选无条。
       expect(find.byType(AnBatchBar), findsNothing);
@@ -180,7 +194,9 @@ void main() {
       final repo = _repo();
       await _pumpBoard(tester, repo);
 
-      // Type a reason into the first (allowReason) row's gate, then approve. 首行门带理由批准。
+      // Open the first card's «+ 理由» pill, type, then approve (B13 按需长出). 点药丸长输入,再批准。
+      await tester.tap(find.text(t.run.addReason).first);
+      await tester.pump();
       await tester.enterText(find.byType(AnInput).first, '  周报没问题  ');
       await tester.tap(find.text(t.run.approve).first);
       await tester.pump();
@@ -215,14 +231,14 @@ void main() {
       // Hover row 1 → its checkbox replaces the amber dot → select. hover 换框、选中。
       final g = await _hover(tester, find.text('周报生成'));
       expect(find.byType(AnBatchCheck), findsOneWidget, reason: 'hover 才浮出选择框');
-      await tester.tap(_rowCheck('周报生成'));
+      await tester.tap(_cardCheck('周报生成'));
       await tester.pump();
 
       // Selection mode: every row shows its checkbox; one selected → still no bar. 选择模式全行出框。
       expect(find.byType(AnBatchCheck), findsWidgets);
       expect(find.byType(AnBatchBar), findsNothing, reason: '选中 1 不出条');
 
-      await tester.tap(_rowCheck('发布上线'));
+      await tester.tap(_cardCheck('发布上线'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300)); // bar reveal
       expect(find.byType(AnBatchBar), findsOneWidget, reason: '选中≥2 浮出批量条');
@@ -256,9 +272,9 @@ void main() {
       await _pumpBoard(tester, repo);
 
       final g = await _hover(tester, find.text('周报生成'));
-      await tester.tap(_rowCheck('周报生成'));
+      await tester.tap(_cardCheck('周报生成'));
       await tester.pump();
-      await tester.tap(_rowCheck('发布上线'));
+      await tester.tap(_cardCheck('发布上线'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 
@@ -281,9 +297,9 @@ void main() {
       await _pumpBoard(tester, repo);
 
       final g = await _hover(tester, find.text('周报生成'));
-      await tester.tap(_rowCheck('周报生成'));
+      await tester.tap(_cardCheck('周报生成'));
       await tester.pump();
-      await tester.tap(_rowCheck('发布上线'));
+      await tester.tap(_cardCheck('发布上线'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 

@@ -7,7 +7,6 @@ import '../../../core/contract/entities/trigger_schedule.dart';
 import '../../../core/contract/entities/values.dart';
 import '../../../core/contract/entities/workflow.dart';
 import '../../../core/contract/page.dart';
-import '../../../core/contract/retention.dart';
 import '../scheduler_windows.dart';
 import 'scheduler_repository.dart';
 
@@ -1280,12 +1279,6 @@ class FixtureSchedulerRepository implements SchedulerRepository {
     return FlowrunMatrix(cols: cols, rows: rows, cells: cells);
   }
 
-  /// The retention line (工单⑬) — seeded at the backend's own default so the storage panel and the run
-  /// table's tombstone agree out of the box. 保留线(⑬):种在后端自持的默认上,故存储面板与大表墓碑开箱一致。
-  RetentionConfig fixtureRetention = const RetentionConfig(runRetentionDays: 90);
-
-  @override
-  Future<RetentionConfig> retention() async => fixtureRetention;
 
   @override
   Future<List<EntityRelation>> workflowTriggerEdges() async => const [

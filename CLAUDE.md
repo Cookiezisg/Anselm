@@ -71,7 +71,7 @@
 
 ## 数据库（D 系列）
 
-- **D1 软删除**：业务表用 `deleted_at DATETIME`；**Log 表**（`flowrun_nodes` / trigger 的 firing·activation / messages 块 等内容/执行日志）**无 `deleted_at`、严禁逻辑删除**——物理删**恰有两个例外**，皆显式立法在 `database.md` flowrun 节（与之逐字对齐）：**①`:replay`** 经 `DeleteFailedNodes` 清 `flowrun_nodes` 的 failed 行（failed 是非结果、清掉让幂等重走重跑，record-once 真相不损）；**②run 历史保留清理**（scheduler 工单⑬）经 `PurgeTerminalRunsBefore` 物理删越过保留线的终态 run（头+节点行+该 run 产生的审计行）——**它删的是真实历史**，正当性来自「用户配置的容量治理、非业务逻辑丢行」：线显式（Settings 存储面板，默认 90d、`0`=永久）、UI 出墓碑不留静默缺口、保留窗内真相完整；**running/parked 永不删**。新增任何物理删例外 = 先在 `database.md` 立法。
+- **D1 软删除**：业务表用 `deleted_at DATETIME`；**Log 表**（`flowrun_nodes` / trigger 的 firing·activation / messages 块 等内容/执行日志）**无 `deleted_at`、严禁逻辑删除**——物理删**恰有两个例外**，皆显式立法在 `database.md` flowrun 节（与之逐字对齐）：**①`:replay`** 经 `DeleteFailedNodes` 清 `flowrun_nodes` 的 failed 行（failed 是非结果、清掉让幂等重走重跑，record-once 真相不损）；**②run 历史保留清理**（scheduler 工单⑬）经 `PurgeTerminalRunsBefore` 物理删越过保留线的终态 run（头+节点行+该 run 产生的审计行）——**它删的是真实历史**，正当性来自「用户配置的容量治理、非业务逻辑丢行」：线显式（Settings 存储面板，默认 90d、`0`=永久；大表历史尽头的墓碑句已按用户 0718 裁定删除，保留线只在设置面板陈述）、保留窗内真相完整；**running/parked 永不删**。新增任何物理删例外 = 先在 `database.md` 立法。
 - **D2 物理隔离**：所有表（除全局配置外）必须持 **`workspace_id`** 物理列；`pkg/orm` 据 ctx 自动双向隔离。
 - **D3 唯一性铁律**：`idx_frn_once`（flowrun 记忆化 `UNIQUE(flowrun_id,node_id,iteration)`）与 `idx_trf_dedup`（trigger firing 去重）必须保证幂等。
 

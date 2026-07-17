@@ -7,7 +7,6 @@ import 'package:anselm/core/contract/entities/trigger_schedule.dart';
 import 'package:anselm/core/contract/entities/values.dart';
 import 'package:anselm/core/contract/entities/workflow.dart';
 import 'package:anselm/core/contract/page.dart' as contract;
-import 'package:anselm/core/contract/retention.dart';
 import 'package:anselm/features/scheduler/data/scheduler_repository.dart';
 
 // The ONE scriptable Scheduler seam for the test batteries (S2a board + S2b action zones + S3 home)
@@ -37,7 +36,6 @@ class StubSchedulerRepo implements SchedulerRepository {
     this.schedule = const TriggerSchedule(),
     this.firings = const [],
     FlowrunMatrix? matrixGrid,
-    this.retentionConfig = const RetentionConfig(runRetentionDays: 90),
     this.failWorkflows = false,
     this.failRunFull = false,
     this.failActivity = false,
@@ -46,7 +44,6 @@ class StubSchedulerRepo implements SchedulerRepository {
     this.failRunningRuns = false,
     this.failFailedRuns = false,
     this.failMatrix = false,
-    this.failRetention = false,
   }) : matrixGrid = matrixGrid ?? const FlowrunMatrix();
 
   final List<SchedulerWorkflowRow> workflows;
@@ -96,8 +93,6 @@ class StubSchedulerRepo implements SchedulerRepository {
   /// The scripted grid — [runMatrix] filters it to the requested ids (the wire law). 剧本格阵。
   FlowrunMatrix matrixGrid;
 
-  /// The ⑬ machine-level retention line — the run table's tombstone reads it. ⑬ 机器级保留线。
-  final RetentionConfig retentionConfig;
 
   final bool failWorkflows;
 
@@ -121,7 +116,6 @@ class StubSchedulerRepo implements SchedulerRepository {
   final bool failRunningRuns;
   final bool failFailedRuns;
   bool failMatrix;
-  final bool failRetention;
 
   /// Stateful decide/cancel so the batteries can walk the full settle grammar. Order proves the
   /// batch dispatched SEQUENTIALLY. 有状态;decideOrder 证批量逐发。
@@ -576,14 +570,6 @@ class StubSchedulerRepo implements SchedulerRepository {
     return FlowrunMatrix(cols: cols, rows: rows, cells: cells);
   }
 
-  @override
-  Future<RetentionConfig> retention() async {
-    retentionAsks++;
-    if (failRetention) {
-      throw const ApiException(code: 'INTERNAL', message: 'boom', httpStatus: 500);
-    }
-    return retentionConfig;
-  }
 
   /// S5 probes: the WINDOW each schedule fetch asked for (a track that claims «24h» must have asked
   /// for 24h), the (workflowId, recentN) each matrix fetch asked for (proves the 20 cap really
@@ -602,7 +588,6 @@ class StubSchedulerRepo implements SchedulerRepository {
   final List<({String since, String? until})> statsWindows = [];
   final List<Map<String, String>> firingFilters = [];
   final List<List<String>> matrixAsks = [];
-  int retentionAsks = 0;
 
   /// Probes: WHICH version id the flagship asked for (§5.2 钉版而非 active), which runs it aggregated,
   /// and every `:triage` it fired. 探针:旗舰问的是哪个版本 id / 聚合了哪些 run / 发过哪些诊断。

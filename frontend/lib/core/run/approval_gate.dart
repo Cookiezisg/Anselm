@@ -56,6 +56,11 @@ class ApprovalGate extends StatefulWidget {
 class _ApprovalGateState extends State<ApprovalGate> {
   final TextEditingController _reason = TextEditingController();
 
+  /// The reason input mounts only on demand (WRK-070 B13 用户裁「常驻输入框怪恶心」): at rest a small
+  /// «+ 理由» pill — the reason is optional pure-audit, so its cost must be one glyph, not a field.
+  /// 理由输入按需长出:静息=「+ 理由」小药丸——理由纯审计可选,静息成本必须是一枚字形而非一整个输入框。
+  bool _reasonOpen = false;
+
   bool get _allowReason => widget.parked.result['allowReason'] == true;
 
   @override
@@ -79,7 +84,14 @@ class _ApprovalGateState extends State<ApprovalGate> {
         const SizedBox(height: AnSpace.s8),
       ],
       if (widget.collectReason && _allowReason) ...[
-        AnInput(controller: _reason, placeholder: r.reasonHint, block: true),
+        if (!_reasonOpen)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: AnChip(r.addReason,
+                look: AnChipLook.outlined, onTap: () => setState(() => _reasonOpen = true)),
+          )
+        else
+          AnInput(controller: _reason, placeholder: r.reasonHint, block: true, autofocus: true),
         const SizedBox(height: AnSpace.s8),
       ],
       if (widget.showHint) ...[
@@ -103,11 +115,29 @@ class _ApprovalGateState extends State<ApprovalGate> {
     ]);
 
     if (!widget.framed) return body;
-    return AnInfoCard(
-      title: r.approvalTitle,
-      icon: AnIcons.approval,
-      meta: widget.parked.nodeId,
-      child: body,
+    // Framed = a BORDERED card (B13 用户裁「外面要一圈边边,不要裸着」— AnCard, not the borderless
+    // AnInfoCard): hairline shell + the family head row. 有边卡壳(AnCard 非无边 AnInfoCard)+族头行。
+    return AnCard(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+        Row(children: [
+          ExcludeSemantics(
+              child: Icon(AnIcons.approval, size: AnSize.iconSm, color: c.inkFaint)),
+          const SizedBox(width: AnSpace.s8),
+          Expanded(
+            child: Semantics(
+              header: true,
+              child: Text(r.approvalTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AnText.label.weight(AnText.emphasisWeight).copyWith(color: c.inkFaint)),
+            ),
+          ),
+          Text(widget.parked.nodeId,
+              maxLines: 1, style: AnText.meta.copyWith(color: c.inkFaint)),
+        ]),
+        const SizedBox(height: AnFlow.headBodyTight),
+        body,
+      ]),
     );
   }
 }

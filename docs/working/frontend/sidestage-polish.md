@@ -67,7 +67,7 @@ audience: [human, ai]
 ### B3 间距体系与 entities 不对齐（主页）
 - 矩阵上方大空档（=列头车道+段距叠加，读作「给标题留位」）→ **补段大标题**；**✅ 用户 0718 拍板：方案 A，段题叫「Matrix View」**（en=Matrix View / zh=矩阵视图）。
 且用户强调：**间距问题是系统性的、不只这一处**——修法不是逐点补，而是**整轮间距标准化审计**：以 entities 段节奏为准绳（AnSection 题距/块距/AnGap 档），把 scheduler 运营主页（页头 meta↔首段/矩阵段↔Runs 段/过滤条↔列表）+ run 子页（B7 Nodes meta↔台账窗及全段）+ Overview + 右岛（B8 及 dossier 段间）逐段过账，超标者全部收编，零手写距离。
-- 墓碑句「Earlier runs have been cleared…」与「Editing belongs to Entities ↗」**都删**（用户裁：没用+占位怪异）。注意：墓碑删除需同步 D1 保留清理立法里「UI 出墓碑」的表述（database.md），改为其他诚实形态或删措辞。
+- 墓碑句与「Editing belongs to Entities ↗」**已删 ✅(0718)**：墓碑整链退役（widget/provider/repo 方法/stub/demo/i18n/测试），D1 立法措辞已同步（database.md + CLAUDE.md 整体重述该句）。
 
 ### B4 run 列表互动感 + 翻页器(后端半 ✅ 292bdc92:offset+total+互斥 422;前端半随 B10 批)
 - hover：整行浅灰 + 状态点变 ▸ 箭头（展开后 ▾）——左岛树同款可点感。
@@ -87,7 +87,7 @@ audience: [human, ai]
 ### B8 右岛 inspector 大空隙 ✅ 已落(0718,按内容高上限 240,两测锁)
 定位：Output 段 `AnSize.jsonViewport` 固定 240 高——小结果（3 行）也撑 240,剩白。拟案：按内容高、上限 240（AnJsonTree 虚拟视口不能 shrinkwrap,需按顶层条目估高或给小结果走非虚拟径）。
 
-### B9 Triggers 卡改双列卡片式
+### B9 Triggers 卡改双列卡片式 ✅ 已落(0718,AnAutoGrid;顺删「Editing belongs to Entities」提示)
 现全宽堆叠行+右侧 Pause → 改双列卡片网格。
 
 ### B10（改判 0718）Overview run 列表全面对齐运营主页
@@ -103,7 +103,7 @@ audience: [human, ai]
 ### B12 function 页孤儿「pydantic」✅ 已落(0718,「依赖」标签 tags 行)
 定位：`function_overview.dart:105`——venv 依赖列表渲成**无标签**的 `AnRow(label: dep, passive: true)` 裸行,挂在 Last synced 下面,读作神秘词。它是环境声明的依赖包名(demo 种子 `dependencies: ['pydantic']`)。修：给它身份——「Dependencies」标签(如 KV 行+chips 形),不再裸行。
 
-### B13 审批卡重构（+Reason 药丸 + 卡边框 + 双列/单列）
+### B13 审批卡重构 ✅ 已落(0718,+Reason 药丸按需长出/framed=AnCard 有边壳全消费面/Overview AnAutoGrid 双列卡/裸 fr_ 药丸随删)
 用户：Reason (optional) 常驻输入框「看着怪恶心」——改**小药丸「+ Reason」**,点击长出输入框(理由纯审计可选,不影响任何东西);审批卡**外面要一圈边框**(不裸);**Overview=双列卡片**,run 子页=单列占满。子页的 ApprovalGate 同款 +Reason 行为。
 
 ## 拍板状态（0718 落档）

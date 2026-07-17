@@ -7,7 +7,6 @@ import '../../../core/contract/entities/scheduler_stats.dart';
 import '../../../core/contract/entities/trigger.dart';
 import '../../../core/contract/entities/values.dart';
 import '../../../core/contract/entities/workflow.dart';
-import '../../../core/contract/retention.dart';
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
@@ -707,19 +706,9 @@ class _RunTableZoneState extends ConsumerState<_RunTableZone> with BatchZone<_Ru
                     ? const AnSkeleton.row()
                     : AnButton(label: t.loadMore, size: AnButtonSize.sm, onPressed: _table.loadMore),
               ),
-            )
-          else
-            // THE RETENTION TOMBSTONE (判决④/工单⑬). At the true bottom of the history, say why the
-            // history ends — an unexplained last row silently implies «this workflow never ran before
-            // then», which is false. The backend ships NO field for this (the tombstone is a
-            // presentation decision, 工单⑬ 裁量): the front end reads the same `GET /retention` the
-            // storage panel edits, so the two can never disagree. Forever (0) → no sweeper → no
-            // tombstone: there is nothing to explain.
-            // **保留墓碑**(判决④/⑬)。翻到历史真正的底部时,说明历史为什么在此结束——一个没有解释的末行会
-            // 静默暗示「这个 workflow 在那之前从没跑过」,而那是假的。后端为此**不发任何字段**(墓碑是**呈现**
-            // 决策,⑬ 裁量):前端读的是存储面板所编辑的**同一个** `GET /retention`,故两处永不矛盾。
-            // 永久(0)→ 不清理 → **不渲**墓碑:没有什么需要解释。
-            _Tombstone(),
+            ),
+          // The retention tombstone is GONE (WRK-070 B3 用户裁「没用+占位怪异」,推翻判决④的呈现半——
+          // 保留清理本身照旧,历史尽头不再挂解释句;保留线仍在设置存储面板可见)。墓碑句删。
         ],
       ],
     );
@@ -820,26 +809,6 @@ class _RunTableZoneState extends ConsumerState<_RunTableZone> with BatchZone<_Ru
   }
 }
 
-/// The retention tombstone — rendered only at the true end of a run history, and only when a
-/// retention line actually exists. Reads its own truth (the machine-level `GET /retention`), so it
-/// stays silent until it knows: an unresolved read renders NOTHING rather than guess a number, and
-/// «forever» renders nothing because nothing was cleared.
-/// 保留墓碑:只在 run 历史真正的末尾渲,且只在**确实存在**保留线时渲。它读自己的真相(机器级
-/// `GET /retention`),故在知道之前**闭嘴**:读不到就什么都不渲、绝不猜一个数;永久也不渲,因为什么都没被清理。
-class _Tombstone extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final cfg = ref.watch(schedulerRetentionProvider).value;
-    if (cfg == null || cfg.forever) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(top: AnSpace.s8),
-      child: Text(
-        context.t.scheduler.home.tombstone(d: '${cfg.runRetentionDays}'),
-        style: AnText.meta.copyWith(color: context.colors.inkFaint),
-      ),
-    );
-  }
-}
 
 // ─────────────────────────────────── 矩阵区 + 行内速览卡 ───────────────────────────────────
 
@@ -1154,22 +1123,18 @@ class _TriggersZone extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t.scheduler.home;
     final c = context.colors;
+    // The «Editing belongs to Entities ↗» hint is GONE (WRK-070 B3 用户裁「没用+占位怪异」) and the
+    // cards flow as a responsive TWO-column grid (B9). 编辑归属提示删;卡片双列网格。
     return AnSection(
       label: t.triggersHead,
       variant: AnSectionVariant.plain,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: AnSpace.s8),
-          child: Text(t.triggersEditHint, style: AnText.meta.copyWith(color: c.inkFaint)),
-        ),
         if (triggers.isEmpty)
           Text(t.triggersEmpty, style: AnText.body.copyWith(color: c.inkFaint))
         else
-          for (final trigger in triggers)
-            Padding(
-              padding: const EdgeInsets.only(bottom: AnGap.block),
-              child: _TriggerCard(trigger: trigger, now: now),
-            ),
+          AnAutoGrid(children: [
+            for (final trigger in triggers) _TriggerCard(trigger: trigger, now: now),
+          ]),
       ],
     );
   }

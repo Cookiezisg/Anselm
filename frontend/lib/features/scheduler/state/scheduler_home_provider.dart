@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/contract/entities/scheduler_matrix.dart';
 import '../../../core/contract/entities/scheduler_stats.dart';
-import '../../../core/contract/retention.dart';
 import '../../../core/contract/entities/workflow.dart';
 import '../../../core/model/time_range.dart';
 import '../../../core/runtime.dart';
@@ -236,15 +235,6 @@ final schedulerMatrixWindowProvider = AsyncNotifierProvider.autoDispose
   SchedulerMatrixWindowController.new,
   retry: (_, _) => null,
 );
-
-/// The machine-level retention line, READ-ONLY (工单⑬) — the run table's tombstone reads it to say why
-/// the history ends. Deliberately NOT `autoDispose`: it is one tiny machine-wide value that the user
-/// changes at most once in a while, and re-fetching it on every table scroll would be noise. Editing
-/// lives in the settings storage panel (which parses the same wire itself — features 互不依赖).
-/// 机器级保留线,**只读**(⑬):大表墓碑读它来说明历史为何在此结束。**刻意不 autoDispose**:它是一个极小的
-/// 全机值、用户偶尔才改一次,每次滚表都重取纯属噪声。编辑归设置存储面板(它自行解同一条线缆——features 互不依赖)。
-final schedulerRetentionProvider = FutureProvider<RetentionConfig>(
-    (ref) => ref.watch(schedulerRepositoryProvider).retention());
 
 /// The run big table's whole state. [failedCount] is the count strip's failed number — probed
 /// through the SAME `GET /flowruns` grammar the table uses (window + origin apply), one page of 50;

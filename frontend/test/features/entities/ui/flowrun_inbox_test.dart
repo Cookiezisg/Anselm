@@ -52,7 +52,8 @@ void main() {
     await tester.pump();
     final r = t.run; // gate copy lives in the core run namespace (S2b 上收) 门文案在 core run 命名空间
     expect(find.text('Approve production deploy of v4?'), findsOneWidget); // rendered prompt
-    expect(find.byType(AnInput), findsOneWidget); // reason input (allowReason = true)
+    expect(find.text(t.run.addReason), findsOneWidget); // «+ 理由» pill (allowReason = true, B13 按需长出)
+    expect(find.byType(AnInput), findsNothing); // 静息零输入框
     expect(find.text(r.approve), findsOneWidget);
     expect(find.text(r.reject), findsOneWidget);
   });
@@ -70,6 +71,8 @@ void main() {
     await tester.pump();
     await tester.pump();
     final r = t.run;
+    await tester.tap(find.text(t.run.addReason));
+    await tester.pump();
     await tester.enterText(find.byType(AnInput), 'needs more soak time');
     await tester.tap(find.text(r.reject));
     await tester.pumpAndSettle();
