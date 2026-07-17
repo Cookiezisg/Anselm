@@ -9,6 +9,7 @@
 package harness
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"syscall"
@@ -54,3 +55,21 @@ func killProcessGroup(pgid int) { _ = syscall.Kill(-pgid, syscall.SIGKILL) }
 // processGroupAlive 报告 pgid 是否还有成员（signal 0 = 纯存在性探针）。尚未被收尸的僵尸也算——故调用方
 // 必须轮询、不能只采样一次。
 func processGroupAlive(pgid int) bool { return syscall.Kill(-pgid, syscall.Signal(0)) == nil }
+
+// killProcess SIGKILLs ONE pid. Not the group: by the time a stale run is reaped its leader is long
+// gone, so the survivors' pgid names nothing to aim at — they must be picked off individually.
+//
+// killProcess 给**单个** pid 发 SIGKILL。不用组：回收陈旧轮次时其组长早已不在，幸存者的 pgid 已无的可
+// 放，只能逐个点名。
+func killProcess(pid int) { _ = syscall.Kill(pid, syscall.SIGKILL) }
+
+// processAlive reports whether ONE pid exists. EPERM means it exists but is not ours to signal —
+// still alive, and the scratch reaper must treat "alive" as "not mine to delete", so the two errors
+// must not be collapsed into a bare `err == nil`.
+//
+// processAlive 报告**单个** pid 是否存在。EPERM = 它存在但不归我们发信号——**仍然活着**，而 scratch
+// 回收器必须把「活着」当作「不该我删」，故这两种 error 不能被塌缩成一句 `err == nil`。
+func processAlive(pid int) bool {
+	err := syscall.Kill(pid, syscall.Signal(0))
+	return err == nil || errors.Is(err, syscall.EPERM)
+}

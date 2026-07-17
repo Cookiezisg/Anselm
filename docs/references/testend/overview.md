@@ -22,7 +22,7 @@ audience: [human, ai]
 
 | 目录 | 职责 |
 |---|---|
-| `harness/` | 座架：`server.go`（编译+拉起真二进制、临时 dataDir、空闲端口、等 health、**退出收容**——见下节；sandbox 运行时经 `~/.anselm-testend-cache` 预置——首跑下载、后跑搭车）· `proc_unix.go`（收容原语：进程组 / SIGTERM / 组存活探针；testend 实际只跑 unix，故无 windows 孪生）· `client.go`（N1 envelope 解包、workspace 头、`OK`/`Fail(状态,码)` 断言、`Eventually` 异步涟漪轮询）· `llmmock.go`（OpenAI 兼容假模型：剧本化回应驱动 chat/agent/utility 全链零 token；**请求抓包即 promptdump**——线缆上的请求体就是模型真实看到的全部）· `sse.go`（三流订阅与事件断言） |
+| `harness/` | 座架：`server.go`（编译+拉起真二进制、临时 dataDir、空闲端口、等 health、**退出收容**——见下节；sandbox 运行时经 `~/.anselm-testend-cache` 预置——首跑下载、后跑搭车）· `scratch.go`（`RunTests` = 各包 `TestMain` 的实现：把整轮临时收进 `$TMPDIR/anselm-testend/<pid>/` 自清根，正常退出自删、超时/被杀由下一轮按 pid 存活性收——见下节④）· `proc_unix.go`（收容原语：进程组 / SIGTERM / 组存活探针 / 单 pid 探针与杀；testend 实际只跑 unix，故无 windows 孪生）· `client.go`（N1 envelope 解包、workspace 头、`OK`/`Fail(状态,码)` 断言、`Eventually` 异步涟漪轮询）· `llmmock.go`（OpenAI 兼容假模型：剧本化回应驱动 chat/agent/utility 全链零 token；**请求抓包即 promptdump**——线缆上的请求体就是模型真实看到的全部）· `sse.go`（三流订阅与事件断言） |
 | `scenarios/` | 验收场景 = 普通 go test：每个测试函数是 PLAN 的一个「feature × 情况」单元，函数名即台账行；`-run` 过滤单域 |
 | `golden/` | 真模型金标旅程（12 条端到端，机器可验收终态） |
 
@@ -39,7 +39,8 @@ audience: [human, ai]
 | ③ 自检 | 轮询进程组至空；超 `groupReapWait`(10s) 仍有成员 → `t.Errorf` + 列幸存者命令行 | 泄漏必须**红**。旧实现全绿着漏出 31 个 llama-server（用户实机取证，12.23G/16G）——**测试绿不是收容的证据，空进程组才是**。每个测试自带此检，不设单独 leak 测试 |
 
 - **`Kill9` 保持 SIGKILL、不得软化**：它模拟的正是「崩溃恢复」里的崩溃；软成 SIGTERM 会让优雅链把恢复半场要断言的残骸（非终态消息行、未收尸子进程、未 checkpoint 的 WAL）先删掉 = 什么都没测。它刻意孤儿掉的子进程由②收。
-- **Ctrl-C**：①把 backend 移出了测试二进制的进程组，故 harness 自装 `SIGINT/SIGTERM` 处理器、退出前清扫所有活组（否则 `Setpgid` 会拿「正常退出泄漏」换来「Ctrl-C 泄漏」）。**不可约减的未覆盖**：`go test -timeout` 超时（进程内 panic、无信号可捕）与测试二进制自身被 SIGKILL——无 `Pdeathsig`，不在运行的 harness 察觉不了父死。
+- **Ctrl-C**：①把 backend 移出了测试二进制的进程组，故 harness 自装 `SIGINT/SIGTERM` 处理器、退出前清扫所有活组（否则 `Setpgid` 会拿「正常退出泄漏」换来「Ctrl-C 泄漏」）。
+- **`-timeout` 超时与测试二进制被 SIGKILL —— 由下一轮收（④）**：这两种死法进程内**确实**没有任何代码有机会跑（超时是 panic、无信号可捕；SIGKILL 不可捕），故 ①②③ 与 `t.Cleanup` 全部跳过，那轮的 backend + 常驻 embedder 当场孤儿给 init。**但下一轮够得着**：每轮的临时全都落在 `$TMPDIR/anselm-testend/<pid>/`（`harness.RunTests` 即各包的 `TestMain`——它把 `TMPDIR` 指向该目录，故 `t.TempDir()` 的 dataDir 与 `binary()` 编出的 server 一并收进来），下一轮开跑时按 **pid 存活性**（非年龄——本机真会两个 agent 并发跑，按年龄清扫会删掉活轮次的 dataDir）挑出已死轮次，**先杀其残留进程、再删目录**。判据是那个已死轮次的 scratch 路径本身（绝对路径 + 已证死亡的 pid），故命中即所有权证明——拿「llama-server」这类**裸进程名**匹配会扫掉并发轮次的健康子进程与开发者自己在跑的 app（真机复验：用户自己的 `anselm.app` sidecar 恰好也叫 `anselm-server`，路径判据准确放过了它）。**先杀再删的顺序是硬要求**：幸存者持着那些文件，其 inode 就还活着，在它脚下删目录只释放名字、不释放一个字节（真机取证 `lsof +L1` 12 个 deleted-but-open）。
 - **缓存只装运行时、不装状态**：`saveRuntimeCache` 回存前剥 `*.pid`。后端把 embedder pid 存在 `runtimes/llamasrv/embedder.pid`，而缓存会预置进**每个**未来测试的 dataDir 且每 kind 只拷一次——搭车的 pidfile 会让后端回收器永远指向操作系统此后回收给**别人**的那个号码。
 - **预置靠 clone、不靠拷贝**：`Start` 用 `clonefile(2)` 把整棵缓存树**写时复制**进 dataDir（`clone_darwin.go`，一次 syscall ~90ms），非 Darwin / 非克隆文件系统回落 `cp -R`（`clone_other.go`）。**不是微优化**：缓存懒填充、随真跑长到 645MB，而 `Start` **每个用例跑一次**（实测每轮 **221** 次）——逐字节拷贝 = 每轮 ~139GB、~7.3s/用例 ≈ 26min，曾独吞 30m 预算的 86%（[R23](../../working/iteration/systems-correctness.md)）。COW 使隔离**完全等价**：往克隆里写永远碰不到源（已按套件级 checksum 复验）。**回落必打日志**：静默回落 = 套件悄悄变回 30m 超时。
 

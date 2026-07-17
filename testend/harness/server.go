@@ -69,7 +69,15 @@ var (
 
 // binary builds cmd/server once per test run into a shared temp location.
 //
+// Nothing here removes that dir on purpose: buildOnce makes the binary shared by every test in the
+// package, so a t.Cleanup would delete it out from under the tests still running. Its lifetime is
+// the RUN's, and so is its owner — RunTests (TestMain) contains it by pointing TMPDIR at a
+// per-run self-cleaning root, which also covers the `-timeout` panic that skips cleanup entirely.
+//
 // binary 每次测试运行只编译一次 cmd/server，落共享临时位置。
+// **此处刻意不删那个目录**：buildOnce 使该二进制被包内每个测试共享，挂 t.Cleanup 会把仍在跑的测试脚下
+// 的二进制删掉。它的生命期是**整轮**的，故其所有者也是——RunTests（TestMain）把 TMPDIR 指向每轮自清的
+// 根来收容它，顺带覆盖了会跳过一切 cleanup 的 `-timeout` panic。
 func binary(t *testing.T) string {
 	t.Helper()
 	buildOnce.Do(func() {

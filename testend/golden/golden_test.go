@@ -24,7 +24,10 @@ func TestMain(m *testing.M) {
 	if os.Getenv("EVALS") == "" {
 		os.Exit(0) // gated: only runs via make evals. 门控：仅 make evals 触发。
 	}
-	os.Exit(m.Run())
+	// Same scratch containment as scenarios: this package boots the same harness, so it leaks the
+	// same server binary + data dirs without it. 与 scenarios 同款 scratch 收容：本包拉的是同一套
+	// harness，没有它就会漏同样的 server 二进制与数据目录。
+	harness.RunTests(m)
 }
 
 // realModel resolves the real-model wire config from the environment. EVALS_* win; otherwise
