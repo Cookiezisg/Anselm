@@ -77,7 +77,7 @@ audience: [human, ai]
 
 ### B3 间距体系与 entities 不对齐（主页）
 - 矩阵上方大空档（=列头车道+段距叠加，读作「给标题留位」）→ **补段大标题**；**✅ 用户 0718 拍板：方案 A，段题叫「Matrix View」**（en=Matrix View / zh=矩阵视图）。
-且用户强调：**间距问题是系统性的、不只这一处**——修法不是逐点补，而是**整轮间距标准化审计**：以 entities 段节奏为准绳（AnSection 题距/块距/AnGap 档），把 scheduler 运营主页（页头 meta↔首段/矩阵段↔Runs 段/过滤条↔列表）+ run 子页（B7 Nodes meta↔台账窗及全段）+ Overview + 右岛（B8 及 dossier 段间）逐段过账，超标者全部收编，零手写距离。
+✅ **已落(0718)**:段题=矩阵视图填空档;Runs 控制块合一子件根治「过滤条↔列表 44px 空洞」(塌缩 AnExpandReveal 被 AnSection 12px 双夹之 bug,同 B7 根因);真机帧核验。且用户强调：**间距问题是系统性的、不只这一处**——修法不是逐点补，而是**整轮间距标准化审计**：以 entities 段节奏为准绳（AnSection 题距/块距/AnGap 档），把 scheduler 运营主页（页头 meta↔首段/矩阵段↔Runs 段/过滤条↔列表）+ run 子页（B7 Nodes meta↔台账窗及全段）+ Overview + 右岛（B8 及 dossier 段间）逐段过账，超标者全部收编，零手写距离。
 - 墓碑句与「Editing belongs to Entities ↗」**已删 ✅(0718)**：墓碑整链退役（widget/provider/repo 方法/stub/demo/i18n/测试），D1 立法措辞已同步（database.md + CLAUDE.md 整体重述该句）。
 
 ### B4 run 列表互动感 + 翻页器(后端半 ✅ 292bdc92:offset+total+互斥 422;前端半随 B10 批)
@@ -101,7 +101,7 @@ audience: [human, ai]
 ### B9 Triggers 卡改双列卡片式 ✅ 已落(0718,AnAutoGrid;顺删「Editing belongs to Entities」提示)
 现全宽堆叠行+右侧 Pause → 改双列卡片网格。
 
-### B10（改判 0718）Overview run 列表全面对齐运营主页 ✅ 已落(0718)
+### B10（改判 0718）Overview run 列表全面对齐运营主页 ✅ 已落(0718,opus agent commit 86a335f8:running/failed 两区收敛大表[短语行+常驻⏹/↻+多选批量+单击展开 RunPeekCard+前端翻页],peek 卡抽 run_peek_card.dart 跨 workflow 复用) ✅ 已落(0718)
 用户澄清：#10 那批图看的是 **Overview**——原「删行内停止钮/选一个就弹条」作废。**新裁决=Overview 三段 run 列表（等你/在跑/失败）整体收敛成运营主页大表的同一套**（**✅ 用户 0718 复述确认「嗯嗯，是这个意思」**）：
 - 行文法：workflow 名（跨 workflow 保留）+ run 来源短语 + **常驻动词 ⏹/↻**（failed 行补上缺失的 Retry、Stop 位置照大表）+ 右缘时长；
 - **勾选框多选**（failed 也能多选——现在不能）；批量条 **≥2 才出**（大表原规），形=全宽平条+右缘 ✕、**无阴影**（an_batch_bar 的 shadowFloat 去掉——全 app 别处无浮影）；

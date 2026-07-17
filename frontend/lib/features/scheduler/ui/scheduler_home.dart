@@ -5,13 +5,10 @@ import 'package:go_router/go_router.dart';
 import '../../../core/contract/api_error.dart';
 import '../../../core/contract/entities/scheduler_stats.dart';
 import '../../../core/contract/entities/trigger.dart';
-import '../../../core/contract/entities/values.dart';
 import '../../../core/contract/entities/workflow.dart';
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
-import '../../../core/graph/flowrun_timeline.dart';
-import '../../../core/graph/graph_run_state.dart';
 import '../../../core/model/time_format.dart';
 import '../../../core/model/time_range.dart';
 import '../../../core/run/provenance_line.dart';
@@ -24,9 +21,9 @@ import '../state/scheduler_home_provider.dart';
 import '../state/scheduler_rail_provider.dart';
 import '../state/selected_scheduler.dart';
 import 'batch_engine.dart';
+import 'run_peek_card.dart';
 import 'scheduler_home_model.dart';
 import 'run_phrase.dart';
-import 'scheduler_run_model.dart';
 
 /// The workflow operations home (`/scheduler/w/:id`, WRK-069 §4, 主页重建拍板 0717) — one document
 /// flow, four segments: health head (name + lifecycle + 7d stat numbers + Run now + ⋯; the bead
@@ -601,6 +598,12 @@ class _RunTableZoneState extends ConsumerState<_RunTableZone> with BatchZone<_Ru
       label: t.runsHead,
       variant: AnSectionVariant.plain,
       children: [
+        // ONE controls block (WRK-070 B3 用户点名「选择器和下面为什么又空了这么多」): the filter +
+        // follow pill + batch bar are a single AnSection child so their collapsed AnExpandReveals no
+        // longer get double-gapped by the section's 12px inter-child rhythm (a bare collapsed reveal
+        // + the old self-margin SizedBox summed to a 44px void). Now: title → 12 → controls → 12 →
+        // row1. 控制块合一子件:过滤条+pill+批量条塌缩不再被 AnSection 双夹成 44px 空洞。
+        Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
         // The count strip + origin/window dropdowns — counts are TRUE numbers (stats / probe /
         // inbox), each click IS the filter. 计数条+两下拉;真数可点即过滤。
         Wrap(
@@ -653,12 +656,11 @@ class _RunTableZoneState extends ConsumerState<_RunTableZone> with BatchZone<_Ru
             // 时间窗下拉已删:矩阵上方的页级时间范围胶囊同治本表——一颗镜头两个区,零漂移。
           ],
         ),
-        const SizedBox(height: AnSpace.s8),
         // «N 条新运行» — the follow pill; new runs NEVER insert rows (§0 军规), the user pulls them
-        // in. pill 归位,新 run 绝不插行。
+        // in. Padding TOP so it hugs the filter above (collapses cleanly when absent). pill 归位。
         if (s.newRuns > 0)
           Padding(
-            padding: const EdgeInsets.only(bottom: AnSpace.s8),
+            padding: const EdgeInsets.only(top: AnSpace.s8),
             child: Align(
               alignment: Alignment.centerLeft,
               child: AnFollowPill.jump(
@@ -670,7 +672,7 @@ class _RunTableZoneState extends ConsumerState<_RunTableZone> with BatchZone<_Ru
         AnExpandReveal(
           open: barVisible,
           child: Padding(
-            padding: const EdgeInsets.only(bottom: AnSpace.s8),
+            padding: const EdgeInsets.only(top: AnSpace.s8),
             child: AnBatchBar(
               count: selected.length,
               busy: batchBusy,
@@ -692,6 +694,7 @@ class _RunTableZoneState extends ConsumerState<_RunTableZone> with BatchZone<_Ru
             ),
           ),
         ),
+        ]),
         if (s.rows.isEmpty)
           Text(t.runsEmpty, style: AnText.body.copyWith(color: c.inkFaint))
         else ...[
@@ -768,7 +771,7 @@ class _RunTableZoneState extends ConsumerState<_RunTableZone> with BatchZone<_Ru
         // Lazy (C-006): a collapsed row NEVER builds its peek card — an eager card per row
         // would fetch full run composites for rows nobody opened.
         // 惰性:收起的行绝不建速览卡——每行急建会替没人点开的行拉全量 run 复合。
-        expandBuilder: (_) => _RunPeekCard(workflowId: widget.workflowId, flowrunId: run.id),
+        expandBuilder: (_) => RunPeekCard(workflowId: widget.workflowId, flowrunId: run.id),
         lead: isPending
             ? const AnSpinner(size: AnSize.iconSm)
             : showCheck
@@ -898,10 +901,10 @@ class _MatrixZone extends ConsumerWidget {
       body = _grid(context, ref, s);
     }
 
-    // No section head and no local capsule (需求②:NODE × RUN 删、胶囊上移页头 meta 行) — the grid
-    // sits directly under the head as the page's opening instrument.
-    // 无段标题、无本地胶囊——格阵直接坐在页头下,作开屏仪表。
-    return AnSection(variant: AnSectionVariant.plain, children: [body]);
+    // The «Matrix View» section title (WRK-070 B3 方案 A 用户拍板) — a titleless grid read as「给标题
+    // 留位」的空档; naming it makes the page speak the entities section rhythm (title → 12 → content).
+    // The capsule still lives in the page head meta row (需求②). 段题=矩阵视图;胶囊仍在页头 meta 行。
+    return AnSection(label: t.matrixView, variant: AnSectionVariant.plain, children: [body]);
   }
 
   Widget _grid(BuildContext context, WidgetRef ref, MatrixWindowState s) {
@@ -1002,129 +1005,6 @@ class _MatrixZone extends ConsumerWidget {
       },
       coordinateLabel: (r, rc, c2, cc) =>
           t.matrixCoordA11y(r: '${r + 1}', rows: '$rc', c: '${c2 + 1}', cols: '$cc'),
-    );
-  }
-}
-
-/// The inline peek card under a run row (0717 拍板 — the bottom linked pane's successor): the SAME
-/// selection (`?run=`), rendered where the user tapped instead of somewhere below the fold. Two
-/// single-run lenses (gantt ⇄ graph; the cross-run matrix moved to the top of the page where it
-/// belongs) + the one flagship door. Lazy by construction — built only while its row is expanded
-/// ([AnLedgerRow.expandBuilder]).
-/// run 行下的行内速览卡(0717 拍板——底部联动格的后继):同一个选区(?run=),渲在用户点的那一行底下而非
-/// 折叠线以下的某处。两个单 run 透镜(甘特⇄图;跨 run 的矩阵已升页顶归位)+ 唯一旗舰门。天生惰性——仅
-/// 所在行展开时才建(AnLedgerRow.expandBuilder)。
-enum _PeekFace { gantt, graph }
-
-class _RunPeekCard extends ConsumerStatefulWidget {
-  const _RunPeekCard({required this.workflowId, required this.flowrunId});
-
-  final String workflowId;
-  final String flowrunId;
-
-  @override
-  ConsumerState<_RunPeekCard> createState() => _RunPeekCardState();
-}
-
-class _RunPeekCardState extends ConsumerState<_RunPeekCard> {
-  _PeekFace _face = _PeekFace.gantt;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.t.scheduler.home;
-    final c = context.colors;
-    final runAsync = ref.watch(schedulerLinkedRunProvider(widget.flowrunId));
-    final wfAsync = ref.watch(schedulerWorkflowProvider(widget.workflowId));
-
-    Widget body;
-    final comp = runAsync.value;
-    if (comp != null) {
-      final graph = graphOfVersion(wfAsync.value?.activeVersion);
-      if (_face == _PeekFace.gantt) {
-        final rows = flowrunTimeline(graph ?? const Graph(), comp);
-        body = rows.isEmpty
-            ? Text(t.paneNoNodes, style: AnText.body.copyWith(color: c.inkFaint))
-            : AnNodeGantt(
-                rows: rows,
-                notRunLabel: t.notRun,
-                waitingLabel: context.t.run.nodeWait,
-              );
-      } else if (graph != null) {
-        body = AnGraphCanvas(
-          graph: graph,
-          framed: true,
-          run: deriveRunState(graph, rows: comp.nodes, runStatus: comp.flowrun.status),
-        );
-      } else if (!wfAsync.hasValue && !wfAsync.hasError) {
-        body = const AnDeferredLoading(child: AnSkeleton.lines(3));
-      } else {
-        body = Text(t.noGraph, style: AnText.body.copyWith(color: c.inkFaint));
-      }
-    } else if (runAsync.hasError) {
-      body = Row(children: [
-        Expanded(child: Text(t.paneError, style: AnText.body.copyWith(color: c.inkMuted))),
-        AnButton(
-            label: context.t.scheduler.retry,
-            size: AnButtonSize.sm,
-            onPressed: () => ref.invalidate(schedulerLinkedRunProvider(widget.flowrunId))),
-      ]);
-    } else {
-      body = const AnDeferredLoading(child: AnSkeleton.lines(3));
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(top: AnSpace.s6),
-      child: AnCard(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Row(children: [
-            // The leading cluster is the ONE flex region (wraps/shrinks); the faces + door keep
-            // their fixed slots. 前导簇=唯一弹性区;两脸与门守定宽槽。
-            Expanded(
-              child: Wrap(
-                spacing: AnGap.inline,
-                runSpacing: AnGap.stackTight,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  if (comp != null) ...[
-                    AnStatusDot(AnStatus.fromRaw(comp.flowrun.status)),
-                    // The full id lives HERE (需求⑤:行内无裸 id,速览卡与 tooltip 收编完整 id)。
-                    AnChip(truncate(comp.flowrun.id, AnTrunc.id),
-                        mono: true, look: AnChipLook.outlined, tooltip: comp.flowrun.id),
-                    if (comp.flowrun.conversationId != null &&
-                        comp.flowrun.conversationId!.isNotEmpty)
-                      toolNavPill(context,
-                          kind: 'conversation',
-                          label: context.t.scheduler.home.srcChat,
-                          id: comp.flowrun.conversationId),
-                  ],
-                ],
-              ),
-            ),
-            // Two faces → the standard control slot (token 自身之律:2 段走标准槽). 两脸走标准槽。
-            SizedBox(
-              width: AnSize.ctlSlot,
-              child: AnSegmented<_PeekFace>(
-                value: _face,
-                semanticLabel: t.faceA11y,
-                options: [
-                  AnSegmentedOption(value: _PeekFace.gantt, label: t.faceGantt),
-                  AnSegmentedOption(value: _PeekFace.graph, label: t.faceGraph),
-                ],
-                onChanged: (f) => setState(() => _face = f),
-              ),
-            ),
-            const SizedBox(width: AnGap.inlineLoose),
-            AnButton(
-              label: t.openRun,
-              size: AnButtonSize.sm,
-              onPressed: () =>
-                  context.go('/scheduler/w/${widget.workflowId}/runs/${widget.flowrunId}'),
-            ),
-          ]),
-          const SizedBox(height: AnGap.block),
-          body,
-        ]),
-      ),
     );
   }
 }

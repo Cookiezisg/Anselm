@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
+import 'an_a11y.dart';
 import 'an_button.dart';
 import 'an_input.dart';
 import 'an_interactive.dart';
@@ -96,12 +97,20 @@ class _AnPagerState extends State<AnPager> {
     if (widget.pageCount <= 1) return const SizedBox.shrink();
     final c = context.colors;
     final s = widget.strings;
+    // ‹ and › + the jump field are fixed anchors; the number strip is the flexible middle that
+    // horizontally SCROLLS when the host is too narrow (a control must never overflow its container
+    // — the project's «no in-grid overflow» law). In the run table's 720 column it never scrolls.
+    // ‹ › 与跳页固定;数字带是可横滚的柔性中段(宿主过窄即滚,绝不溢出);720 列下从不滚。
     return Row(mainAxisSize: MainAxisSize.min, children: [
       AnButton.iconOnly(AnIcons.chevronLeft,
           size: AnButtonSize.sm,
           semanticLabel: s.prevLabel,
           onPressed: widget.page > 1 ? () => _go(widget.page - 1) : null),
       const SizedBox(width: AnSpace.s4),
+      Flexible(
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
       for (final p in _strip())
         if (p == null)
           Padding(
@@ -111,7 +120,7 @@ class _AnPagerState extends State<AnPager> {
         else
           Semantics(
             button: true,
-            selected: p == widget.page,
+            selected: AnA11y.selected(p == widget.page),
             label: s.pageLabel(p),
             child: AnInteractive(
               onTap: p == widget.page ? null : () => _go(p),
@@ -136,6 +145,9 @@ class _AnPagerState extends State<AnPager> {
               ),
             ),
           ),
+          ]),
+        ),
+      ),
       const SizedBox(width: AnSpace.s4),
       AnButton.iconOnly(AnIcons.chevronRight,
           size: AnButtonSize.sm,

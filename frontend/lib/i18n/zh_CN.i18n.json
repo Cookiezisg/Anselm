@@ -785,6 +785,7 @@
       "faceGantt": "甘特",
       "faceGraph": "图",
       "matrixTitle": "节点 × 运行",
+      "matrixView": "矩阵视图",
       "matrixEmpty": "这段时间没有运行。",
       "matrixNotReached": "未及",
       "matrixRunning": "在跑",

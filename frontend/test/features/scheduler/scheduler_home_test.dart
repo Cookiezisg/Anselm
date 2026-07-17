@@ -949,8 +949,11 @@ void main() {
       await _pump(tester, repo);
 
       expect(find.byType(AnRunMatrix), findsOneWidget);
+      // The «Matrix View» section title (WRK-070 B3 方案 A) — a titleless grid read as「给标题留位」;
+      // the old NODE × RUN title stays gone. 段题=矩阵视图;旧 NODE × RUN 仍删。
+      expect(find.text(h.matrixView), findsOneWidget, reason: '段题=矩阵视图(B3 方案 A)');
       expect(find.text(h.matrixTitle.toUpperCase()), findsNothing,
-          reason: 'NODE × RUN 段标题已删(需求②)——格阵直接坐页头下');
+          reason: '旧 NODE × RUN 段标题仍删(需求②)');
       expect(find.text('3'), findsOneWidget, reason: 'iterations=3 → ×N 在格里');
       expect(find.byTooltip(h.matrixNotReached), findsOneWidget,
           reason: '稀疏格说「未及」——空格是真答案,不是缺答案');

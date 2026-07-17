@@ -3160,6 +3160,9 @@ class Translations$scheduler$home$en {
 	/// en: 'Node × run'
 	String get matrixTitle => 'Node × run';
 
+	/// en: 'Matrix View'
+	String get matrixView => 'Matrix View';
+
 	/// en: 'No runs in this range.'
 	String get matrixEmpty => 'No runs in this range.';
 
@@ -6544,6 +6547,7 @@ extension on Translations {
 			'scheduler.home.faceGantt' => 'Gantt',
 			'scheduler.home.faceGraph' => 'Graph',
 			'scheduler.home.matrixTitle' => 'Node × run',
+			'scheduler.home.matrixView' => 'Matrix View',
 			'scheduler.home.matrixEmpty' => 'No runs in this range.',
 			'scheduler.home.matrixNotReached' => 'not reached',
 			'scheduler.home.matrixRunning' => 'running',
@@ -6813,9 +6817,9 @@ extension on Translations {
 			'entities.detail.gate.config' => 'config',
 			'entities.detail.gate.env' => 'env',
 			'entities.detail.gate.instance' => 'instance',
-			'entities.detail.codeToggle.expand' => ({required Object n}) => 'Show all (${n} lines)',
 			_ => null,
 		} ?? switch (path) {
+			'entities.detail.codeToggle.expand' => ({required Object n}) => 'Show all (${n} lines)',
 			'entities.detail.codeToggle.collapse' => 'Collapse',
 			'entities.detail.sec.code' => 'Code',
 			'entities.detail.sec.input' => 'Inputs',
@@ -7327,9 +7331,9 @@ extension on Translations {
 			'settings.mcp.installed' => 'Installed',
 			'settings.mcp.install' => 'Install',
 			'settings.mcp.installing' => 'Installing…',
-			'settings.mcp.prerequisite' => 'Prerequisite',
 			_ => null,
 		} ?? switch (path) {
+			'settings.mcp.prerequisite' => 'Prerequisite',
 			'settings.mcp.requiredMark' => 'required',
 			'settings.mcp.oauthConnect' => 'Connect & authorize',
 			'settings.mcp.oauthWaiting' => 'Waiting for the browser… (up to 120s)',

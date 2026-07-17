@@ -1287,6 +1287,7 @@ class _Translations$scheduler$home$zh_CN extends Translations$scheduler$home$en 
 	@override String get faceGantt => '甘特';
 	@override String get faceGraph => '图';
 	@override String get matrixTitle => '节点 × 运行';
+	@override String get matrixView => '矩阵视图';
 	@override String get matrixEmpty => '这段时间没有运行。';
 	@override String get matrixNotReached => '未及';
 	@override String get matrixRunning => '在跑';
@@ -3224,6 +3225,7 @@ extension on TranslationsZhCn {
 			'scheduler.home.faceGantt' => '甘特',
 			'scheduler.home.faceGraph' => '图',
 			'scheduler.home.matrixTitle' => '节点 × 运行',
+			'scheduler.home.matrixView' => '矩阵视图',
 			'scheduler.home.matrixEmpty' => '这段时间没有运行。',
 			'scheduler.home.matrixNotReached' => '未及',
 			'scheduler.home.matrixRunning' => '在跑',
@@ -3493,9 +3495,9 @@ extension on TranslationsZhCn {
 			'entities.detail.gate.config' => 'config',
 			'entities.detail.gate.env' => 'env',
 			'entities.detail.gate.instance' => 'instance',
-			'entities.detail.codeToggle.expand' => ({required Object n}) => '展开全部 (${n} 行)',
 			_ => null,
 		} ?? switch (path) {
+			'entities.detail.codeToggle.expand' => ({required Object n}) => '展开全部 (${n} 行)',
 			'entities.detail.codeToggle.collapse' => '收起',
 			'entities.detail.sec.code' => '代码',
 			'entities.detail.sec.input' => '输入',
@@ -4007,9 +4009,9 @@ extension on TranslationsZhCn {
 			'settings.mcp.installed' => '已安装',
 			'settings.mcp.install' => '安装',
 			'settings.mcp.installing' => '安装中…',
-			'settings.mcp.prerequisite' => '前置',
 			_ => null,
 		} ?? switch (path) {
+			'settings.mcp.prerequisite' => '前置',
 			'settings.mcp.requiredMark' => '必填',
 			'settings.mcp.oauthConnect' => '连接并授权',
 			'settings.mcp.oauthWaiting' => '等待浏览器授权…(最长 120 秒)',

@@ -197,6 +197,7 @@ lib/core/ui/an_node_gantt.dart	reviewed
 lib/core/ui/an_ocean_header.dart	reviewed
 lib/core/ui/an_ocean_switcher.dart	converged
 lib/core/ui/an_page.dart	converged
+lib/core/ui/an_pager.dart	pending
 lib/core/ui/an_path_chip.dart	converged
 lib/core/ui/an_pop_surface.dart	converged
 lib/core/ui/an_popover.dart	converged
@@ -263,6 +264,7 @@ lib/dev/demo_main.dart	reviewed
 lib/dev/editor_harness_main.dart	reviewed
 lib/dev/gallery/an_batch_bar_specimens.dart	pending
 lib/dev/gallery/an_countdown_specimens.dart	pending
+lib/dev/gallery/an_pager_specimens.dart	pending
 lib/dev/gallery/an_run_matrix_specimens.dart	pending
 lib/dev/gallery/an_schedule_track_specimens.dart	pending
 lib/dev/gallery/an_term_tail_specimens.dart	converged
@@ -360,6 +362,7 @@ lib/features/chat/ui/stages/function_stage.dart	converged
 lib/features/chat/ui/stages/handler_stage.dart	reviewed
 lib/features/chat/ui/stages/scene_from_truth.dart	converged
 lib/features/chat/ui/stages/skill_memory_mcp_stage.dart	reviewed
+lib/features/chat/ui/stages/stage_frame.dart	pending
 lib/features/chat/ui/stages/stage_registry.dart	converged
 lib/features/chat/ui/stages/stage_scene.dart	converged
 lib/features/chat/ui/stages/subagent_stage.dart	converged
@@ -479,6 +482,7 @@ lib/features/scheduler/state/scheduler_run_provider.dart	pending
 lib/features/scheduler/state/selected_scheduler.dart	pending
 lib/features/scheduler/ui/batch_engine.dart	pending
 lib/features/scheduler/ui/overview_zones.dart	pending
+lib/features/scheduler/ui/run_peek_card.dart	pending
 lib/features/scheduler/ui/run_phrase.dart	pending
 lib/features/scheduler/ui/scheduler_home.dart	pending
 lib/features/scheduler/ui/scheduler_home_model.dart	pending

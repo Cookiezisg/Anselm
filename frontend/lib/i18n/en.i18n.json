@@ -785,6 +785,7 @@
       "faceGantt": "Gantt",
       "faceGraph": "Graph",
       "matrixTitle": "Node × run",
+      "matrixView": "Matrix View",
       "matrixEmpty": "No runs in this range.",
       "matrixNotReached": "not reached",
       "matrixRunning": "running",
