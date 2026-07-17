@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'dart:ui' show AppExitResponse;
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -180,6 +181,12 @@ class BackendController {
     final env = {
       'ANSELM_ADDR': '127.0.0.1:$port',
       'ANSELM_AUTH_TOKEN': token,
+      // Arm the backend's deadman switch (WRK-070 T2): we hold the child's stdin pipe for our whole
+      // life, so on ANY exit of ours — clean quit, SIGTERM, SIGKILL, crash — the pipe EOFs and the
+      // backend runs its ordered shutdown. macOS has no Pdeathsig; without this every non-clean exit
+      // orphans the sidecar (and its llama children) under launchd.
+      // 上膛后端死人开关:我们全程握着子进程 stdin,任何形式的退出都会让管道 EOF → 后端跑有序关停。
+      'ANSELM_PARENT_WATCH': '1',
     };
     if (dataDir != null) env['ANSELM_DATA_DIR'] = dataDir!;
     // P5 (C-030): the keychain resolve is the ADR-0008-sensitive step (a fresh install mints + reads back
@@ -286,4 +293,21 @@ class BackendController {
     final bytes = List<int>.generate(32, (_) => rng.nextInt(256));
     return base64Url.encode(bytes);
   }
+}
+
+/// The app-termination hook body (WRK-070 T2): gracefully stop the sidecar FIRST, then let the app
+/// exit. Wired by main.dart through `AppLifecycleListener.onExitRequested` — the official desktop
+/// route (⌘Q / red button → applicationShouldTerminate → framework asks us). This is the clean-quit
+/// half of exit hygiene; the crash half (SIGTERM/SIGKILL of the GUI, where no Dart ever runs again)
+/// is the backend's own stdin deadman switch, armed via ANSELM_PARENT_WATCH in [_spawn].
+/// Never returns [AppExitResponse.cancel]: quitting must stay reliable even if the backend hangs —
+/// stop() itself escalates SIGTERM → grace → SIGKILL, so this awaits a BOUNDED shutdown.
+///
+/// 退出钩子本体(WRK-070 T2):先优雅停 sidecar,再放行退出。由 main.dart 经 AppLifecycleListener
+/// 接线(桌面官方路由)。这是退出卫生的「干净退出」半;「崩溃」半(GUI 被 SIGTERM/SIGKILL,Dart 再无
+/// 机会跑)由后端 stdin 死人开关兜住。绝不返回 cancel:stop() 自带 SIGTERM→宽限→SIGKILL 升级,
+/// 等待有界,退出必须永远可靠。
+Future<AppExitResponse> stopBackendOnExit(BackendController controller) async {
+  await controller.stop();
+  return AppExitResponse.exit;
 }

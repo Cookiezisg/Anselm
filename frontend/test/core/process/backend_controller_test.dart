@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:ui' show AppExitResponse;
 
 import 'package:anselm/core/process/backend_controller.dart';
 import 'package:dio/dio.dart';
@@ -108,6 +109,30 @@ void main() {
     expect(c.state.value.authToken!.length, greaterThan(20)); // 32 bytes base64url
     expect(launched.single!['ANSELM_ADDR'], startsWith('127.0.0.1:'));
     expect(launched.single!['ANSELM_AUTH_TOKEN'], c.state.value.authToken);
+    // WRK-070 T2: the deadman switch must be ARMED on every spawn — without this env the backend
+    // never watches stdin, and a crashed/killed GUI orphans it under launchd.
+    // 死人开关必须每次 spawn 都上膛,否则 GUI 崩溃/被杀 = sidecar 孤儿。
+    expect(launched.single!['ANSELM_PARENT_WATCH'], '1');
+  });
+
+  test('WRK-070 T2: stopBackendOnExit SIGTERMs the sidecar, AWAITS its exit, then allows app exit',
+      () async {
+    final proc = _FakeProcess();
+    final c = BackendController(
+      binaryPath: Platform.resolvedExecutable,
+      externalUrl: () => null,
+      probe: _probe(ok: true),
+      launcher: (exe, args, {environment}) async => proc,
+    );
+    await c.start();
+    expect(proc.killed, isEmpty);
+
+    final response = await stopBackendOnExit(c);
+
+    expect(proc.killed, [ProcessSignal.sigterm],
+        reason: '优雅链的第一步必须是 SIGTERM(有序关停 + kill-set 收 llama),不是 SIGKILL');
+    expect(response, AppExitResponse.exit,
+        reason: '绝不 cancel:stop() 自带 SIGTERM→宽限→SIGKILL 升级,退出必须永远可靠');
   });
 
   // C-030: start() is idempotent — a concurrent/repeat call JOINS the in-flight launch rather than

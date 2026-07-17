@@ -1,0 +1,235 @@
+---
+id: WRK-070
+type: working
+status: active
+owner: @weilin
+created: 2026-07-17
+reviewed: 2026-07-17
+review-due: 2026-10-15
+audience: [human, ai]
+landed-into:
+---
+
+# 泄漏猎战役 0717 —— 进程/内存/磁盘/CPU 资源正确性(实测定罪)
+
+> 起因(用户实机取证,非推断):Mac 发烫卡顿,Activity Monitor 实拍 **31 个 llama-server / 16G 内存吃掉 12.23G**;30/31 为孤儿(PPID=1),来自 22 个 testend 测试。加一个 anselm-server 自身成孤儿(PPID=1,跑 3h)。
+> 本战役是 [`systems-correctness.md`](systems-correctness.md)(WRK-030,R1–R24)的**续篇 + 方法论审判**:R2 一个月前把同一个 bug 标 ✅ FIXED,一个月后同症状从 7 个涨到 31 个。本轮换方法论:**实测定罪,读码只用来解释实测到的现象。**
+
+---
+
+## 0. 方法论 —— 实测定罪(本战役的全部立身之本)
+
+**没有真机前后计数的「发现」,不是发现。静态推断只能提出假设,不能定罪。**
+
+### R2 复发的铁证(为什么必须换方法)
+
+`systems-correctness.md` 的 **R2**(2026-06-19,起因写着「长 dev 会话漏 7 个 2GB llama-server」,与本轮症状一模一样)标着 ✅ FIXED。它当时的复核结论逐字写着 **"Verified against the code"** —— 对着代码验、不是对着机器验。结果:代码上三层防护(`search.Close()` + `reapStalePID` pidfile 回收 + 进程组机制)**看着都在,三层全失守**,纯读码判 SAFE。一个月后同一症状回来。
+
+R2 的修法(下次 boot 按 pidfile 回收)**对真实用户成立**(数据目录稳定),但它自己的触发描述里白纸黑字写着 test runs / `kill -9` / crashes / IDE restart —— 而 **testend 每测一个全新临时数据目录,那条回收路径结构性够不到**。它修好了诊断书里排第二的场景,漏掉了排第一的。
+
+> **方法论教训(一,继承 R22)**:把某物列为**威胁模型的一部分**,就等于把它排除出了**审查对象** —— 盲区不在被扫的代码里,在扫描面的定义里。
+> **方法论教训(二,继承 R23)**:静态扫描对「状态相关成本」结构性失明 —— `cp -R $cache` 这行源码不含量级信息,它多贵取决于运行时状态。只有真机 + 特定状态才现形。
+> **方法论教训(三,本轮新增)**:**ground-truth 真但 root-cause 常假**。多条 finding 的症状数字铁证如山,但第一版根因表述是错的(见域1 C2「无 ctx 无超时」实为「取消送到了但 waitDelay 兜底」)。对抗复审逐条要求「重跑 + 对照臂」才反转。
+
+### 仪器也会撒谎(R2 教训在量尺上反复复发,本轮抓到 ≥13 次)
+
+本战役最硬的自证:参与者带着「知道这个坑」的先验,仍在量测仪器上一次次踩同一失效模式 —— **仪器报告了自己没做成的事**:
+
+| 仪器事故 | 失效 | 后果 |
+|---|---|---|
+| `cp-sampler.sh` `pgrep -fc` | macOS pgrep 无 `-c` 旗标 → 恒 0 | 977 样本捏造「全程无 llama-server」 |
+| `dense_sampler v1` lstart 解析 | `split(None,3)` 遇 5-token lstart 抛错 continue | 进程表恒空 → 自信报「全机零 llama」 |
+| leak 分析 `timeout` | macOS 无 `timeout` → 命令没跑 | `grep -c` 报 0 → 差点写「composer 干净」 |
+| S1 脚本 200 POST 全 400 | 字段 `name` 非 `title` | 照打「200 docs created」→ DB=0 揭穿 |
+| WAL 未 checkpoint | VACUUM 前不 checkpoint | 报「收回 0.00MB」→ 差点反转域4 #1 |
+| zsh `no matches found` | glob 不匹配 → 整条 `rm` 未执行 | 下句照打「已删」→ 逐项复核揪出 |
+| `setsid(1)` macOS 不存在 | ARM 什么都没干 | 报 0.00s → 差点反转域1 C2 |
+
+> **对策(已固化进本轮全部量尺)**:任何仪器**先自证再取信** —— 植入正/负对照、`samples=0` 拒绝出数、解析数≠header 数拒绝出数、`listener_pid==自己` 才算数、建完 DB 必须有行否则拒绝出数。逐项复核而非信 echo。
+
+---
+
+## 1. 量尺 —— 怎么复现本轮所有量测
+
+产物全在 `.leak-lab/`(已 `.gitignore:240`,零污染仓库)。**归因铁律**:机器上有并行 agent(Scheduler WRK-069 构建/测试 + R22 修复者),故**按身份归因(锚在自己 make/root pid 的窄子树 + `(pid,lstart)` 防 PID 复用),绝不用裸全局计数**。并行 agent 与本 agent 共用同一祖先 shell(Claude Code harness)⇒ 祖先链归因失效,只有窄子树是有效键。
+
+| 量测面 | 工具(`.leak-lab/`) | 真值口径 |
+|---|---|---|
+| 进程/端口/fd 快照三拍 | `snap.sh` + `diff.sh --tag` | before / after / **settle(+9s,让 cp 相冤案自灭)** |
+| 4Hz 密采样整棵子树 | `dense_sampler.py`(带自检)· `fe_sampler.py`(补 flutter 六形态) | 快照会漏短命子进程,故必采 |
+| goroutine 逐栈归因 | `gor.py`(解析数≠header 拒绝出数) | pprof `/debug/pprof/goroutine?debug=1`(`ANSELM_DEV=1`) |
+| CPU 空转真值 | `soak_sampler.py` | **累计 CPU 时间差 ÷ 墙钟**(不信 `ps %cpu` 的 decaying average) |
+| Dart 侧泄漏 | `leak_tracker`(flutter_test 内建) | **只信确定性 `notDisposed`**,不信 `notGCed`(实验性,依赖 GC 时序) |
+| C1 死锁 A/B | `txlab/main.go` | Transaction 函数体**逐字复制**自产品,只改 ctx 一个变量 |
+| app 退出 harness | `quitlab/lib/main.dart` | `ProviderScope`+`ref.onDispose`+`stop()` **逐字复刻** runtime.dart |
+| 崩溃孤儿复现 | `d1-crash.sh`(A 崩溃/B 下次 boot/C 优雅) | marker-in-argv 归因 |
+
+---
+
+## 2. 实测名单(按**烧机器程度**排,每条附站得住的数字)
+
+> 排序口径 = 该缺陷在真机上实测/外推的资源消耗(CPU 热 + 内存 + 磁盘 + 累积无界性)。**T7 是唯一例外**:它不「烧」,它**砖化**——但它喂养 T2/T3 的孤儿(用户强杀重启),故收在名单里。
+
+### T1 [HIGH·两侧] AnStatusDot 呼吸循环 → 整个 app 120fps 永久空转,烧 24.92% CPU
+
+- **症状(A/B 因果实测)**:原样 HEAD 空转 215s → 烧 53.64s CPU → **AVG 24.92%**,33,833 帧全 120fps。只把那一行 `.repeat()` 钉死 → **0.0523%**,**降 476×**,235s 连 60 帧都凑不够。同屏控制(BEFORE/AFTER 同一屏 Scheduler Overview、4 个蓝点仍渲染)排除「AFTER 恰好落在无 run 页面」的假因。
+- **根因**:`frontend/lib/core/ui/an_status_dot.dart:70` —— `status==AnStatus.run && !reduced` ⇒ `_c.repeat()` 永不停。仓里**已有** `core/perf/pulse_clock.dart`(共享单 Ticker + `idleAfter:6s` 自动静息),其文档逐字预言了 24.92%,而 AnStatusDot 正是它为之而建的类却自走 `.repeat()`。全仓 4 个自走 `.repeat()`(status_dot/skeleton/shimmer_text/graph_canvas)vs 仅 2 个 PulseClock 采纳者。
+- **触发**:屏上有任何 `run` 态的东西可见(scheduler 有 run 在跑 / chat 生成中 = **产品正常态**)。1 个点就够 120fps。
+- **累积**:非累积,是**稳态热**。一个跑 30min 的 workflow = 30min 25% CPU,哪怕用户没看。这是全战役**唯一用户能感觉到的空转热源**,直接对应用户报告的「发烫」。
+- **修法**:接入 PulseClock(AnStatusDot 已满足其消费者契约,t=0 就是静态实心点)。**纠正 Phase 2/常见建议**:`RepaintBoundary`(an_status_dot.dart:107)**早就在、没救** —— 重绘隔离 ≠ 帧调度,活 Ticker 每 vsync 请求整帧;救下 476× 的是 idleAfter 让 Ticker **停**。
+- **守卫**:探针空转 N 秒断言 summary 帧数 < 阈值(A/B 已给出 476× 标尺)。
+
+### T2 [CRITICAL·两侧] app 正常退出**从不**杀 sidecar → 野生孤儿后端无界累积 —— **✅ 已修(0717,双保险)**
+
+> **修法落地**(与下文「修法」栏的方案一致,仅前端半改走官方 Dart 路由而非 Swift):
+> ①**干净退出半**:`main.dart` 挂 `AppLifecycleListener.onExitRequested` → `stopBackendOnExit`(⌘Q/关窗时 FlutterAppDelegate 把 `applicationShouldTerminate` 路由进框架,优雅 SIGTERM sidecar、等其退出、再放行 app 退出;绝不 cancel——stop() 自带 SIGTERM→8s→SIGKILL 升级,退出永远可靠)。
+> ②**崩溃半**:后端 `cmd/server` **stdin 死人开关**(`ANSELM_PARENT_WATCH=1` 时读 stdin 至 EOF = 父死,汇入与 SIGTERM 同一 `NotifyContext` 取消 → 同一有序关停);launcher 恒设该 env 并终生握子进程 stdin——父亲以任何形态退出管道必 EOF。
+> ③**配套**:sidecar 模式 `signal.Ignore(SIGPIPE)`——没有它死人开关等于没装:父死时 stderr 管道同断,有序关停自己写的第一条日志就会被 fd-2 SIGPIPE 半路杀掉(**实测抓获**:修①②后路 2 sidecar 死了但日志零关停行;加③后两行俱在)。
+> **三路退出矩阵真机验收(新二进制,身份经编译/启动时间戳核对)**:⌘Q / `kill -TERM` GUI / `kill -9` GUI → 三路 sidecar 全数落幕,日志三次俱见 `"shutting down gracefully"` + `"sandbox shutdown: all handles killed"`(= kill-set 真跑),终局清点 GUI/server/llama = **0/0/0**。llama 环节为链式证明:kill-set 行 + 当日活标本(SIGTERM 优雅关停带走 1GB llama 子进程,leak-lab 7329→10496)。
+> 单测:`cmd/server/main_test.go`(死人开关「沉默活管道绝不触发/EOF 必触发」)+ `backend_controller_test.dart`(spawn 恒带 `ANSELM_PARENT_WATCH=1`;`stopBackendOnExit` 先 SIGTERM 等退出再放行)。文档:CLAUDE.md 进程模型节重述 + `api.md` env 登记 + `frontend/architecture.md` process 行。
+
+- **症状(实测)**:开工第一条 `ps` 撞见**基线 4 个 anselm-server,PPID=1,各占一端口,存活 5h+**(peer 正常开关 app 4 次的残留)。忠实 harness 三种退出方式 **3/3 全漏**:osascript quit(=Cmd-Q)/kill -TERM app → app 真死、onDispose ❌、stop() ❌、子进程无 SIGTERM、**PPID=1 孤儿存活**。先跑正对照(显式 `stop()` → 子进程收 `GOT_SIGTERM` → 死 ✅)证尺子有效。
+- **爆炸半径(实测非推断)**:孤儿 sidecar 是**功能完好的后端** —— health=200、`POST /documents` rc=201 **真写进用户 DB**、能自拉 **451MB llama-server**。用户以为关掉的 app,其孤儿仍在写库 + 吃 451MB + 双后端抢同一 SQLite。
+- **根因**:`frontend/macos/Runner/AppDelegate.swift:6` 只有 `applicationShouldTerminateAfterLastWindowClosed`,**无 `applicationShouldTerminate` 钩子**;`stop()` 全仓仅 2 个调用点(`runtime.dart:72` 的 `ref.onDispose` + `factory_reset.dart:24`),而 macOS AppKit 退出直接终止进程、Flutter **不拆 widget 树 ⇒ onDispose 永不触发**;后端 `main.go` 零 parent-death / stdin-EOF watch。
+- **触发**:每一次正常关 app。**累积**:每次开关攒 ≥1 个满血后端(+ 潜在 451MB llama),**无界**。这是原始 12GB 事件的 product-side 同形。
+- **修法**:`AppDelegate` 加 `applicationShouldTerminate` → 同步 `stop()`;**兜底**后端加 stdin-EOF/getppid watch(SIGKILL app 时前端补丁也救不了 —— 那才是真正需要 parent-death watch 的场景)。域1 C2 的 8s<10s 常量倒挂是它的下游,先修上游。
+- **守卫**:harness 断言「osascript quit app → 子进程在 N 秒内死」(`quitlab` 现成)。
+
+### T3 [HIGH·两侧] background bash 崩溃路径零回收网 → 永久孤儿、无界累积
+
+- **症状(实测 A/B/C)**:真 `Bash` 工具跑 `sleep 600` → SIGKILL 后端 → 存活 PPID=1;**下次真 boot 跑完孤儿仍 ALIVE**;优雅 `Manager.Stop()` → DEAD(R1 修法确实活)。带 worker 作业(`sleep 733 & ×3 & wait` = `npm run dev` 形)→ **1 次崩溃 = 4 存活 / 1 真孤儿**,整组幸存。
+- **根因**:`backend/internal/app/tool/shell/manager.go:105` `procs map[string]*BgProcess` = **纯内存零持久化**(实测 `find -name '*.pid'` 空、DB 无 shell 表);boot 网 `restore.go:18` 只扫 `ListEnvsWithRunningPID`(sandbox env),background bash 从不写 env 行 ⇒ **网没有输入**。与 R2「网够不着」不同类 —— 什么目录都救不了它。全平台成立(shell 的 `proc_unix.go` 连 Linux 都不设 Pdeathsig)。
+- **触发**:任何非优雅退出 + 有后台作业在跑(SIGKILL / panic / OOM / **app 8s 逾时升级**)。**累积**:每次崩溃 ≥1,永不回收,且 background bash 每作业独立 `bsh_` id、**无封顶**(对比 llama pidfile 单文件封顶 1)。
+- **修法**:照 llama(pidfile)/sandbox(`running_pid`)先例把 bg pid 落持久清单,boot 时按负 pgid 收整组(`killSurvivor` 现成)。**不必发明,只需接线** —— 机制在 llama 与 sandbox 上都已建好。
+- **守卫**:crash 路径单测 —— spawn bg → SIGKILL server → 新 boot → 断言 pid 已死(现有 `reap_unix_test.go` **只测优雅路径**)。
+
+### T4 [HIGH·product] DB 棘轮:retention 删真实历史,磁盘一字节不还
+
+- **症状(实测)**:装 129,600 runs + 388,800 nodes = **243.6MB**,清掉 66.7% 行后:文件 **255,459,328 → 255,459,328 逐字节不变**,freelist **41,141 页 = 160.7MB 死空间**;`VACUUM(0.59s)` → 70.5MB,本可收回 **173MB**。
+- **根因**:`backend/internal/infra/db/db.go:54-57` 只设 WAL/busy_timeout/foreign_keys/synchronous,**无 auto_vacuum**(实测真实用户库 `PRAGMA auto_vacuum=0`);`grep -i vacuum backend/`(去测试)=**0 命中**,产品从不 VACUUM。
+- **诚实边界**:这是**棘轮、非无界泄漏**(实测 freelist 会被复用,上界=历史最高水位)。**真正的用户可感后果**:`storage_panel` 把「Run history retention」摆在存储面板,90d→7d 想腾磁盘 **实测一个字节都不掉** —— 产品承诺与物理事实不符。
+- **触发**:默认即触发(`DefaultRunRetentionDays=90`),任何跑过量 run 又被清的用户。
+- **修法**:①`auto_vacuum(INCREMENTAL)` + sweep 后 `incremental_vacuum`(**坑**:auto_vacuum 只能建库/VACUUM 时改 → 存量库需一次 VACUUM 迁移);或②sweep 后条件 VACUUM(0.59s@243MB,单用户桌面可接受);③至少存储面板诚实显示死空间 + 压缩按钮。
+- **守卫**:插 N 行→删→断言 `freelist_count` 低于阈值 或 文件 size 下降。
+
+### T5 [MEDIUM·dev] frontend build/test 缓存无界累积
+
+- **症状(实测)**:`frontend/build/test_cache` **6.9GB / 99 个 .dill**,mtime 跨 23 天(06-24 文件今仍在)⇒ **309MB/天,旧的从不驱逐**;加 `.dart_tool/flutter_build` 5.8GB ⇒ 前端可重建产物 **15.5GB**,本机本项目最大单项。
+- **根因**:flutter test 内容寻址缓存自身无 LRU/上限 + 我们**无清理入口**:`grep -c '^clean:' frontend/Makefile`=**0**;root `.PHONY` 差集唯一缺项=`fe-verify`(S22:声明对不上物理事实)。
+- **触发**:每次 `make fe-verify` 且代码有变(pre-push 门禁,每天多次)。dev-time only(`frontend/.gitignore:33 /build/` 已忽略)。
+- **修法**:`frontend/Makefile` 加 `clean:`(`flutter clean` + `rm -rf build .dart_tool`);root `.PHONY` 补 `fe-verify`。同一动作了结 15.5GB + S22。
+
+### T6 [MEDIUM·两侧] TextPainter 族泄漏:3 站漏、1 站做对
+
+- **症状(剂量-反应实测)**:全套 **541 个 TextPainter `notDisposed`**。AnComposer 0/5/40 击键 → 漏 0/5/40(1:1 线性,0 击键漏 0 因 `_countLines` 空文本早退);AnOceanSwitcher STATIC 2/4 项→2/4、**ANIMATED 4 项一次 240ms 滑动→104**(=4×26 build)。
+- **根因**:三站无 `tp.dispose()` —— `an_composer.dart:270`(每击键)/ `an_ocean_switcher.dart:138`(常驻左岛,每动画帧×每 item)/ `an_version_diff.dart:333`(每 build);唯一 dispose 的 `chat_thinking.dart:190`**不在泄漏名单** ⇒ 团队知道正确写法,是**不一致非无知**。
+- **诚实边界**:**MEDIUM 非 HIGH** —— build 后即不可达,GC 终会回收、原生 paragraph 由 finalizer 释放,**非无界**(与 Phase 2 前端 RSS 一路降 204.5→167.1MB 吻合,不拿它解释发烫)。危害真实:Dart 壳极小、原生 paragraph 大 ⇒ GC 感受不到压力 ⇒ 原生内存延迟释放。
+- **修法**:读完 metrics `tp.dispose()`(try/finally),3 行零行为变化。
+
+### T7 [CRITICAL·砖化非烧·机制实测/触发未证] orm.Transaction 无 defer 回滚 → Detached ctx 上 panic = 永久整库死锁
+
+- **症状(A/B 实测,Transaction 函数体逐字复制,只改 ctx)**:ARM_A(可取消 ctx)panic 被 recover → `awaitDone` 驻留 0、DB responsive;ARM_B(`Background` ctx)→ **awaitDone 永久驻留、DB `context deadline exceeded` = 整库死锁**。给真 `orm/db.go` 打上 `defer{recover→Rollback→repanic}` → ARM_B 立刻 `dbAlive=true`、rows=0、panic 仍上抛。
+- **根因**:`backend/internal/pkg/orm/db.go:56-59` —— `fn` panic 时 Rollback/Commit **一个都不跑**。救不救得回全看 ctx:`database/sql` 的 `awaitDone` 靠 `<-tx.ctx.Done()` 自动回滚,`Background` 永不取消 → `<-nil` 永久阻塞;`SetMaxOpenConns(1)` 使这一条连接就是全部 ⇒ 此后每次 DB 操作永久阻塞,进程看着还活。
+- **可达性(对抗复审反转「未证」为「引信已铺」)**:域2 自证「主聊天回合无罪」(runner.go WithTimeout+defer cancel,LIFO 先于 recover)**这一半成立**;但 `host.go:144` 的 `WriteFinalize` **自铸 `Detached(wsID)`**(设计上就要逃开 cancel)→ `FinalizeMessage` = `messages.go:118` 的 Transaction,整段跑在 recover 之下 ⇒ **投递路径每个 assistant 回合恰一次**。仍缺:`insertBlocks` 很防御,**fn 内真会 panic 未证**。诚实定级:**机制=CONFIRMED(A/B 数据),扳机=未证**——潜伏地雷 + 已铺好的引信。
+- **为什么收在「烧机器」名单**:它不烧,它砖化 —— 但用户见 app 永久转圈 → 强杀重启 → 喂养 T2 孤儿。product-side 更致命(重启才活),dev-time 伪装成「testend 卡死/超时」。
+- **修法(一行)**:`defer` 回滚 + 重抛(不吞 panic)。给 `reqctx.Detached` 立法:后台工作一律 `WithCancel(Detached(ws))` 并把 cancel 挂进关停链(`sensor.go:98` 现成范例)。**在此之前别再给 Detached 新增裸调用点**。
+- **守卫**:①`goleak` 逮泄漏的 `awaitDone`(见 G0);②5 行单测 Transaction 里 panic + Background ctx + 随后 `QueryRow` 带 timeout,断言不超时。
+
+### T8 [HIGH·两侧,放大器] waitDelay 10s > app grace 8s → 正常退出升级成 SIGKILL
+
+- **症状(实测)**:`Bash.Execute` 在 ctx cancel 后 **3/3 = 10.00s** 才返回(孙进程 `os.setsid()` 逃出进程组、攥 stdout 管道);对照(组内进程)post-cancel **0.00s**。app 只等 **8s**(`backend_controller.dart:68/273`)然后 SIGKILL(:275,两个生产构造点都吃 8s 默认)。后端自报预算 10s。
+- **根因修正(域1 C2「无 ctx 无超时」表述假)**:`chat.Shutdown()` **是**先 `close(s.stop)` 再逐个 `q.cancel()` 再 `wg.Wait()`,取消**送到了**;真根因是**送到也没用** —— 10s 地板 > 8s 宽限,与「谁取消」无关。⇒ 域1 fix②(给 wg.Wait 收 ctx)只是次要治标,**fix①常量对齐才是主刀**。
+- **为什么是放大器**:它把 T2/T3 的孤儿从「意外」变成「正常退出的常规升级」—— 每次 Cmd-Q 都掷硬币,若有在途 Bash 孙进程守护化(标准做法)则 8s 到、SIGKILL,拖垮整个关停家族(llama 孤儿 442MB / MCP·handler 孤儿 / background bash 永久孤儿 / db 不干净关)。
+- **修法**:两常量对齐(app grace > 后端 10s,或后端预算 < app grace);`shellMgr.Stop()`(纯内存 kill、不碰 DB)从关停链最后(build.go:697)提到不可跳过的早位。
+- **守卫**:一条跨端常量断言 `frontend grace > backend waitDelay`——**今天它是反的(8<10),没有任何测试看着它**。
+
+### 次级(结构缺口/守卫缺,非独立 burn)
+
+- **T9 [MEDIUM] retention sweep 每批全表排序**:`retention.go:87-94` `julianday(completed_at)<?` 列上套函数 + `ORDER BY completed_at` 无索引 → `USE TEMP B-TREE`,单批 0.41s 冷 @129,600 行,433 批。**证伪了自己的「追不上→无界」假设**(`app/scheduler/retention.go:39-58` 是 `for{}` 清干净)。修:索引 `(workspace_id,status,completed_at)`(**坑**:julianday 两侧都过是故意的,防秒/纳秒精度错序,不能盲删)。
+- **T10 [MEDIUM·结构缺口] 一次性 sandbox 进程崩溃无 boot 网**:`spawn.go` `Spawn` 只存内存 `oneShots`、从不 `SetEnvRunningPID`(仅 `SpawnLongLived:83` 写)⇒ boot 网 `restore.go:18` 结构性够不着。与 T3 同族但受 Timeout + 在途数封顶 ⇒ **不无界**,故 MEDIUM。「调用点缺席」= 读码可靠证明的那类。
+- **G0 [守卫缺口] `goleak` 是幽灵依赖**:`grep goleak` = 0 用点,`go.mod` require 0 条(仅 zap 的 test 依赖被 go.sum 记哈希)。`make verify` 645 测**无一条**断言「测试结束无多余 goroutine」。它已在 go.sum(v1.3.0),引入零新第三方信任面,且恰好逮 T7 的 awaitDone。
+
+---
+
+## 3. 已证伪 / 洗脱的(同样是产出 —— 记下「查过、清白」省下次的功)
+
+| 假设 | 判决 | 站得住的凭据 |
+|---|---|---|
+| 后端 ticker 是热源(drain/timeout/misfire/retention/keepalive/pool) | **无罪** | 每 tick 0.34–0.56ms;空转 AVG **0.014–0.026% CPU**;`sample` 7866 样本零落应用码 |
+| 后端 goroutine 泄漏 | **无罪** | 空转/90 次 SSE 连断/40 次实体 churn/优雅关停:19→19、28→28 全平,逐栈归因无神秘 |
+| `make verify` 漏子进程/端口/临时目录 | **无罪** | 4Hz 密采样 99 样本树内零 llama/dart 子进程;端口 1→1;`TMPDIR/go-build*` 自建自清 |
+| `make fe-verify` 漏 flutter_tester | **无罪** | 278 生 278 死 0 漏出;峰值并发 4;dart analysis 一次性非常驻 |
+| `make demo/gallery` 拉起后端 | **无罪** | 活着时抓到的 anselm/llama 命令行自证是 peer testend;`~/.anselm`=0.0MB |
+| S1:backfill 的 Detached `prov.Embed` 拖垮关停超 8s | **洗脱** | 黑洞 Ollama 制造 60s 窗口,SIGTERM → 关停 **0.081s**;`grep wg.Wait app/search/` 无一等 embedWorker |
+| S2:`handler/call.go:168` 裸 sleep 是第二个 R9 busy-retry | **出局** | 不在 `for{}` 里,单次 stderr 排空宽限;全库 `for{}` 均带 `<-ctx.Done()` |
+| `stats.go` rows 未 Close → 单连接死锁 | **证伪(我的 grep 撒谎)** | rows 变量名 `base/recent/parked/streak` 各自 `defer Close()`,按变量名重审全库 0 处真漏 |
+| Riverpod / SSE demux / AnTimePulse 泄漏 | **无查获** | keepAlive 仅 SSE+overlay 有立法;demux `onCancel` 移除;AnTimePulse listener 全成对、0.013% |
+| blob store 孤儿累积 | **无罪(有治理)** | `build.go:346` boot 跑 `attachment.GC`,内容寻址去重,注释解释为何在 boot 非 delete |
+| ScrollController 55 / FocusNode 3 / PulseClock 9 假阳性 | **拒报** | 无创建栈会误报:实为 super_editor AutoScrollController 1:1 配对 / 测试文件自造 / static 单例 |
+
+**testend cp 放大(任务原①)在本战役窗口内被 peer 修完并提交**:`5cfd5b0d` 整树 `cp -R` 换 `clonefile(2)`(45min→**19m11s**)、`87badefa` TMPDIR scratch 收容(清 4.5G)。我的 4.37GB 泄漏取证正是其「before」。不重复它。
+
+---
+
+## 4. 守卫设计 —— 终局一条 `make leakcheck` 进 pre-push
+
+**每条 confirmed 配一个能抓住它的守卫**(见 §2 各条末),核心是把「实测定罪」固化成不可回归的门禁。分两层:
+
+### 4.1 单点守卫(随包,进各自门禁)
+
+| 守卫 | 抓 | 落点 |
+|---|---|---|
+| `goleak.VerifyTestMain(m)` + 白名单 | T7 awaitDone + 未来任何 goroutine 漏 | 先只在 `bootstrap`+`scheduler` 两包开(别全库,否则被常驻 goroutine 白名单淹没) |
+| Transaction panic + Background ctx 单测 | T7 | `orm/db_test.go` |
+| crash 路径子进程单测(spawn→SIGKILL→boot→断言死) | T3 + T10 | `shell/` + `sandbox/`(现有 reap_test **只测优雅**) |
+| 跨端常量断言 `grace > waitDelay` | T8 | 一条 golden 常量测 |
+| `EXPLAIN QUERY PLAN` 断言无 `TEMP B-TREE` | T9 | `flowrun/retention_test.go` |
+| 插行→删→断言 freelist/size 下降 | T4 | `db_test.go` |
+| `leak_tracker` `notDisposed`(super_editor 按类 ignore) | T6 | `flutter_test_config.dart` 进 `make fe-verify` |
+| 空转 N 秒断言 summary 帧 < 阈值 | T1 | perf 探针 |
+| quitlab「quit app→子进程 N 秒内死」 | T2 | app 生命周期 harness |
+
+### 4.2 `make leakcheck`(黑盒,跑完工作负载断言零增长)
+
+**设计**(照 `testend/` 模式,独立 module、拉真二进制、纯量测):
+
+1. **前拍**:真 boot 后端(自选空闲端口、断言 health=200+`listener_pid==自己`),记 `(进程数, 孤儿数, 端口数, RSS, goroutine total via pprof)` 基线,锚在自己的 root pid 子树。
+2. **跑工作负载**:一组代表性动作 —— N 轮 SSE 连断 + N 次实体 CRUD(触发 embed 拉 llama) + spawn background bash + 一次崩溃恢复(SIGKILL→reboot)。
+3. **关停 + settle(+10s)**:优雅 SIGTERM,等 cp/在途相自灭。
+4. **后拍 + 断言零增长(身份级 diff,键=`(pid,lstart)`)**:`我的孤儿 Δ==0`、`我的端口 Δ==0`、`我的 llama/anselm-server 存活==0`、`goroutine total 回落到基线±白名单`、`freelist 复用(插行后 size 不涨)`。
+5. **仪器自检门(硬约束)**:采样数<阈值 / 自身 pid 不在进程表 / 建的资源实测不存在 → **拒绝出数、红**(不许打印好看的空表)。
+6. **不进 `make verify`**(分钟级、拉真二进制),与 `make testend` 同列 pre-push;`LEAKCHECK=1` 门控最重的崩溃恢复相。
+
+> 这条守卫的立身之本 = **它自己先过仪器自检**。本战役 13 次仪器撒谎全是「报告了自己没做成的事」,`make leakcheck` 若不自证,就是又一个 `cp-sampler.sh`。
+
+---
+
+## 5. 与 R1–R24 的关系(方法论遗产:为什么上次没抓到)
+
+| 本轮 | 与旧账关系 | 为什么上次没抓到 |
+|---|---|---|
+| T2 app 退出孤儿 | **漏网(新)** | R2 只看后端崩溃恢复,从没测「前端正常退出走不走 stop()」;`make app` 走 dev-attach 分支,`_spawn/_stop/_watchExit` **从不跑** ⇒ dev 流程结构性测不到 |
+| T3 background bash 崩溃孤儿 | **R1 的未覆盖半** | R1 加了 `shellMgr.Stop()` 但**只在优雅 `App.Shutdown`(build.go:697)可达**;`manager.go:105` 纯内存 map、无 boot 网 ⇒ 与 R2 同一 R2-shape 盲区,crash 路径零测试 |
+| T7 Transaction 死锁 | **新(读码盲区)** | 静态扫描看 `_ = sqlTx.Rollback()` 在 err 路径「有回滚」就放行,没问「panic 路径谁回滚」;只有 A/B 换 ctx 才现形 |
+| T8 grace<waitDelay | **新(跨端常量)** | 两个常量在两个 repo(dart 8s / go 10s),没有任何单侧扫描会把它们放一起比 |
+| T1 AnStatusDot | **Phase 2 热源的根因** | 前端从不在 systems-correctness 扫描面内(R1–R24 全是 `backend/`);`pulse_clock.dart` 注释逐字预言了它却没人接 |
+| T4 DB 棘轮 | **新(product 磁盘)** | R10–R12 专扫 disk-io 只在 `backend/` 挖 I/O 放大,没问「删行后文件缩不缩」这个运行时状态 |
+| T9/T10 | **R10–R12 / R1 同族缺口** | 同「调用点缺席」类,读码可证但没被列入扫描面 |
+
+**抽查 R1/R3/R14(标 ✅ FIXED,是否别的也像 R2「修了没覆盖 dev/test 路径」)**:
+
+- **R1(shell ProcessManager.Stop 可达性)= 有问题,同 R2-shape**。实测 + 读码:`shellMgr.Stop()`(build.go:697)只在优雅 `App.Shutdown` 可达;`manager.go:105 procs` 纯内存零持久化 ⇒ **优雅路径修对了,崩溃路径完全没网**(= T3)。R1 标 FIXED 只覆盖了优雅半。
+- **R3(drainLoop ctx)= 真修了、覆盖完整** ✅。`build.go:489-497` ticker `defer t.Stop()` + `case <-ctx.Done()`;misfire/retention 各自 `context.WithCancel` + Stop/Done(正确的 detached-with-cancel 范式,同 sensor.go:98)。无隐患。
+- **R14(search.Close 有界)= 真有界、但理由与注释不同** ✅。`service.go:163 Close(ctx)` 只 `close(embedQuit)` + provider Close;域2 黑洞实验证 **没有任何东西 wait 在途 Embed**,故 Close 不管 Embed 多慢都 0.081s 返回。注释称「bounded by shutdown ctx」易被误读为「ctx 兜住 Embed」,实为「根本不等 Embed」—— 结论对,措辞该收紧。
+
+---
+
+## 6. Open questions
+
+1. **T7 扳机可达性未证**:机制 A/B 铁证,但 `insertBlocks`/store 层 fn **真会 panic 吗**未证(需 fuzz,超本轮预算)。在证明前它是「已铺引信的潜伏地雷」,不是「无路可达」。
+2. **T2 SIGKILL app 路径**:前端 `applicationShouldTerminate` 补丁救不了 `kill -9 app`(那才真正需要后端 parent-death watch)。两条路都要修,优先级?
+3. **发烫本体未测**:无 sudo ⇒ `powermetrics`/温度拿不到,24.92% CPU 是可信因果链但能耗/温度本身没测。
+4. **冷缓存未测**:所有量测都是热 go-build/dart 缓存;冷编译首轮内存峰值必远高,「发烫」若指冷编译则本战役没覆盖。
+5. **只测了 Scheduler Overview 一屏**(机器级 prefs 决定落哪个海洋);chat/entities/documents 空转帧数未测,但 T1 机制通用(任何 run 点)。
+6. **testend 30m 预算**:peer clonefile 修后安静机跑 19m11s(余量 36%),但本战役全程机器不安静,「安静机干净全套」仍缺一次权威测。
+7. **量尺缺陷**:`diff.sh` 无 `--tag` 时把所有新增 ours 记成本工作负载账,有并行 agent 时系统性冤枉;macOS GUI app(`*.app/Contents/MacOS/`)天然 PPID=1 应单列「GUI/launchd」不计孤儿(否则每次真机截图验收留假孤儿污染孤儿计数)。已记账,建议进 `.leak-lab/README`。

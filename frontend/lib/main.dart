@@ -27,6 +27,7 @@ import 'i18n/strings.g.dart';
 /// [ProviderScope].
 /// 入口:scaled_app binding 启用应内 UI 缩放(Cmd +/-);选语言 → 配窗口 → 首帧前恢复持久化缩放 →
 /// TranslationProvider(语言态)外裹 ProviderScope(装配根)起 app。
+
 Future<void> main() async {
   // runZonedGuarded so uncaught async errors land in ONE sink; the binding MUST be created inside the
   // zone that guards it. installErrorHandlers wires FlutterError/PlatformDispatcher + the recoverable
@@ -47,6 +48,16 @@ Future<void> main() async {
     // 首帧并行 boot(health-wait 是冷启长杆);gate 首读的 start() 幂等并入,一控制器一次 spawn;keychain 次序不变。
     final backend = BackendController(masterKey: () => MasterKey().resolve());
     unawaited(backend.start());
+    // Exit hygiene (WRK-070 T2): ⌘Q / red-button terminate asks the framework before dying
+    // (FlutterAppDelegate routes applicationShouldTerminate → onExitRequested), so this is THE
+    // clean-quit moment to SIGTERM the sidecar — its ordered shutdown reaps every child (llama
+    // included). Without it the sidecar orphans under launchd (WRK-070 measured 4 alive 5h+).
+    // No anchor needed: constructing the listener registers it as a binding observer, and the
+    // binding's observer list holds it for the app's whole life. Crash paths are covered by the
+    // backend's own stdin deadman switch (see BackendController._spawn).
+    // 退出卫生:⌘Q/红点关窗会先问框架,此刻优雅停 sidecar(其有序关停连 llama 一并收);不接=孤儿。
+    // 无需锚:构造即注册进 binding 的 observer 表,由 binding 持有终生。崩溃路径由后端 stdin 死人开关兜住。
+    AppLifecycleListener(onExitRequested: () => stopBackendOnExit(backend));
     await initWindow(prefs: prefs);
     WindowZoom.restore();
     await initLaunchAtLogin();
