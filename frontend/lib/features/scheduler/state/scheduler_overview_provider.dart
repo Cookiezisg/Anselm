@@ -221,12 +221,19 @@ class SchedulerOverviewData {
     this.failedRuns = const [],
     this.track = const ScheduleTrackData(),
     this.failures = const [],
+    this.triggersById = const {},
   });
 
   final bool firstUse;
   final SchedulerKpi kpi;
   final List<SchedulerInboxRow> waiting;
   final List<RunningRunRow> runningRuns;
+
+  /// The rail's already-fetched triggers, keyed by id — the run-phrase grammar's join (WRK-070 B10):
+  /// the 「正在跑」/「24h 失败」 zones speak each run as «workflow · source phrase» with [runPhrase],
+  /// which resolves a webhook path / fsnotify·sensor trigger name through THIS map (zero N+1, same
+  /// join the big table's rows use). 行短语文法的连接:两区经此念「workflow · 来源短语」,零 N+1。
+  final Map<String, TriggerEntity> triggersById;
 
   /// The 「24h 失败」 zone's rows — the per-run list the KPI tile opens (工单⑮). Its length equals
   /// [kpi].failed24h by construction (same predicate/instant as `failedSince`, drained).
@@ -605,6 +612,9 @@ class SchedulerOverviewController extends AsyncNotifier<SchedulerOverviewData> {
       waiting: rail.inbox,
       runningRuns: runningRuns,
       failedRuns: failedRuns,
+      // The run-phrase join, from the rail's already-fetched triggers (B10 — same source the big
+      // table uses; a webhook run without it would read as the bare kind word). 行短语连接。
+      triggersById: {for (final tr in rail.triggers) tr.id: tr},
       track: ScheduleTrackData(
         lanes: scheduleLanes(
           triggers: rail.triggers,

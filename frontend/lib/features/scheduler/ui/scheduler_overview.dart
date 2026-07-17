@@ -185,7 +185,12 @@ class _SchedulerOverviewViewState extends ConsumerState<SchedulerOverviewView> {
           // 与 正在跑(hover 取消+批量取消)两操作区。
           _washable(_waiting, SchedulerWaitingZone(key: _waiting.key, rows: d.waiting, now: now)),
           _washable(
-              _running, SchedulerRunningZone(key: _running.key, rows: d.runningRuns, now: now)),
+              _running,
+              SchedulerRunningZone(
+                  key: _running.key,
+                  rows: d.runningRuns,
+                  triggersById: d.triggersById,
+                  now: now)),
           _washable(_schedule, SchedulerScheduleZone(key: _schedule.key, track: d.track, now: now)),
           // «24h 失败» — the per-run list the KPI tile opens (工单⑮), present only when non-empty (the
           // tile is inert at zero, so the board never scrolls to an absent zone; 成功是背景音). Placed
@@ -194,7 +199,13 @@ class _SchedulerOverviewViewState extends ConsumerState<SchedulerOverviewView> {
           // 24h 失败:牌点开的按 run 列表(工单⑮),仅非空时在场(零时牌惰性、看板不滚向不在的区;成功是背景音);
           // 紧挨 7d 失败聚合之上,使两种失败视图(24h run、7d workflow 连败)相邻同读而不相混。
           if (d.failedRuns.isNotEmpty)
-            _washable(_failed, SchedulerFailedZone(key: _failed.key, rows: d.failedRuns, now: now)),
+            _washable(
+                _failed,
+                SchedulerFailedZone(
+                    key: _failed.key,
+                    rows: d.failedRuns,
+                    triggersById: d.triggersById,
+                    now: now)),
           AnSection(
             label: t.overview.failuresHead,
             children: d.failures.isEmpty

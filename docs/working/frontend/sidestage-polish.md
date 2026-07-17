@@ -101,12 +101,20 @@ audience: [human, ai]
 ### B9 Triggers 卡改双列卡片式 ✅ 已落(0718,AnAutoGrid;顺删「Editing belongs to Entities」提示)
 现全宽堆叠行+右侧 Pause → 改双列卡片网格。
 
-### B10（改判 0718）Overview run 列表全面对齐运营主页
+### B10（改判 0718）Overview run 列表全面对齐运营主页 ✅ 已落(0718)
 用户澄清：#10 那批图看的是 **Overview**——原「删行内停止钮/选一个就弹条」作废。**新裁决=Overview 三段 run 列表（等你/在跑/失败）整体收敛成运营主页大表的同一套**（**✅ 用户 0718 复述确认「嗯嗯，是这个意思」**）：
 - 行文法：workflow 名（跨 workflow 保留）+ run 来源短语 + **常驻动词 ⏹/↻**（failed 行补上缺失的 Retry、Stop 位置照大表）+ 右缘时长；
 - **勾选框多选**（failed 也能多选——现在不能）；批量条 **≥2 才出**（大表原规），形=全宽平条+右缘 ✕、**无阴影**（an_batch_bar 的 shadowFloat 去掉——全 app 别处无浮影）；
 - **单击=展开行内速览卡**（甘特/图，与大表一模一样，不再跳转）；卡内「打开 →」进 run 子页；
 - **翻页器同款搬过来**（B4 的 10 条/页）。
+
+**✅ 已落小结（0718，scheduler 全套 270 测绿 + analyze 净）**：
+- **`RunPeekCard` 抽件**：大表私有 `_RunPeekCard`+`_PeekFace` → 抽成 top-level 可复用 `lib/features/scheduler/ui/run_peek_card.dart`（跨 workflow：吃 `workflowId`+`flowrunId`），大表与 Overview 两区共用**同一份**、绝无平行；`scheduler_home.dart` 仅 3 处最小改动（`import`、`_RunPeekCard(`→`RunPeekCard(`、删私有块）+ 顺手清 4 个只服务它的 import。
+- **`_PeekZone` mixin**（overview_zones.dart）：running/failed 两区共享 **前端分页**（`.skip/.take` over `list.length` + `AnPager` 10/页——`listRunningRuns`/`listFailedSince` 本就抽全量到内存，故纯客户端切片、**判定不加后端**）+ **本地 expanded 单选态**（Overview 无 `?run=` URL 载体）+ 单击开合/双击进子页（手工判双击、首击零延迟）+ 选区修剪到可见页。
+- **running 区**：行文法换 `runPhrase`（workflow 名 · 来源短语，裸 fr_ 药丸删）+ 常驻 `⏹ 终止`（`rowCancel`，旧 hover 行尾 ⏹ 退役）+ hover ▸/展开 ▾ 示能；单击展开 `RunPeekCard`。
+- **failed 区**：`StatelessWidget` → `ConsumerStatefulWidget`+`BatchZone`+`_PeekZone`；**补齐**常驻 `↻ 重试`（`rowRetry`，大表 `_replayOne`/`_batchReplay` 照搬真数字确认）+ **多选批量重放**（`AnBatchBar` ≥2）+ 单击速览 + 翻页；「landed N ago」meta 保留（24h 窗轴语义）。
+- **数据缝**：`SchedulerOverviewData` 加 `triggersById`（controller 从 `rail.triggers` 建），两区经 props 喂入渲短语。
+- **测试**：`scheduler_overview_s2b_test.dart` 新增 failed 区常驻 ↻/单/批量重放、running·failed 单击展开 peek 不跳转、Open→ 进子页、双击进旗舰、前端翻页器（12→10+2）共 8 电池；running 区原 4 测按新文法适配；`scheduler_overview_test.dart` 两条深链测改双击、full-board 行断言改新文法。**scheduler 全套 270 绿**。
 
 ### B11 Overview 补标准面包屑 ✅ 已落(0718,AnOceanHeader+浮层头绑定)
 用户：Overview 也要标准面包屑文法——上=浅灰「Scheduler」crumb,下=大标题「Overview」;下滑后浮层头左上出「Scheduler / Overview」。修：AnOceanHeader(crumbs+title) + shellHead 绑定,与运营主页同款。

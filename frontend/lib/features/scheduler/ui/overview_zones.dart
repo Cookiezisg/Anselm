@@ -16,6 +16,9 @@ import '../scheduler_windows.dart';
 import '../state/scheduler_overview_provider.dart';
 import '../state/scheduler_rail_provider.dart';
 import 'batch_engine.dart';
+import 'run_peek_card.dart';
+import 'run_phrase.dart';
+import 'scheduler_home_model.dart';
 
 // The Overview's two ACTION zones (WRK-069 §3 S2b) — «等你处理» (inbox rows + in-place ApprovalGate +
 // AnBatchBar batch approve/reject) and «正在跑» (live rows + hover ⏹ cancel + batch cancel). Both share
@@ -424,15 +427,95 @@ class SchedulerScheduleZone extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────── 正在跑 / 24h 失败 共享 ───────────────────────────────────
+
+/// The Overview run zones' shared FRONT-END paging + inline-peek expansion (WRK-070 B10). The data
+/// source ([SchedulerRepository.listRunningRuns] / [SchedulerRepository.listFailedSince]) is drained
+/// WHOLE into memory (never a paged endpoint), so paging here is a pure client slice — never a fetch,
+/// so no backend was added. One row expands at a time ([expandedRunId]); a fast second tap on the same
+/// row goes straight to the run flagship (a MANUAL double-tap so the first tap stays instant, the big
+/// table's grammar). The Overview is the selection-less `/scheduler` with no `?run=` URL carrier, so
+/// the expansion lives in local state rather than the route.
+/// Overview 两个 run 区共享的**前端**分页 + 行内速览展开(B10):数据源(listRunningRuns/listFailedSince)抽
+/// 全量到内存(非分页端点),故此处分页是纯客户端切片、绝不取数(未加后端);一次一行展开,同行快速二击直进
+/// 旗舰(手工判双击、首击零延迟,大表文法);Overview 是无选区的 `/scheduler`、无 ?run= 载体,故展开态住本地。
+mixin _PeekZone<T extends ConsumerStatefulWidget> on ConsumerState<T> {
+  static const int pageSize = 10;
+
+  int pageNum = 1;
+  String? expandedRunId;
+  DateTime? _lastTapAt;
+  String? _lastTapId;
+
+  int pageCountOf(int total) => (total + pageSize - 1) ~/ pageSize;
+
+  /// The current page's slice of the drained list; clamps the page when the list shrank on refetch.
+  /// 当前页切片;列表 refetch 后缩了就把页钳回来。
+  List<R> pageSlice<R>(List<R> all) {
+    final pages = pageCountOf(all.length);
+    final eff = pageNum.clamp(1, pages < 1 ? 1 : pages);
+    return all.skip((eff - 1) * pageSize).take(pageSize).toList();
+  }
+
+  void onPageChange(int p) => setState(() => pageNum = p);
+
+  /// First tap toggles the inline peek under the row (re-tap collapses); a fast second tap on the same
+  /// row goes straight to the flagship. 首击开合行内速览(再点收起);同行快速二击直进旗舰。
+  void onPeekTap(String runId, String flagshipPath) {
+    final now = DateTime.now();
+    final isDouble = _lastTapId == runId &&
+        _lastTapAt != null &&
+        now.difference(_lastTapAt!) < const Duration(milliseconds: 300);
+    _lastTapAt = now;
+    _lastTapId = runId;
+    if (isDouble) {
+      context.go(flagshipPath);
+    } else {
+      setState(() => expandedRunId = expandedRunId == runId ? null : runId);
+    }
+  }
+
+  /// The standard page-number pager (B4 primitive), reusing the operations home's words; a single
+  /// page renders nothing (AnPager self-hides). 标准翻页器,复用大表文案;单页不渲。
+  Widget peekPager(BuildContext context, int total) {
+    final pages = pageCountOf(total);
+    if (pages <= 1) return const SizedBox.shrink();
+    final home = context.t.scheduler.home;
+    return Padding(
+      padding: const EdgeInsets.only(top: AnGap.block),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: AnPager(
+          page: pageNum.clamp(1, pages),
+          pageCount: pages,
+          onPage: onPageChange,
+          strings: AnPagerStrings(
+            prevLabel: home.pagerPrev,
+            nextLabel: home.pagerNext,
+            jumpHint: home.pagerJump,
+            pageLabel: (n) => home.pagerPage(n: '$n'),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ─────────────────────────────────── 正在跑 ───────────────────────────────────
 
-/// The «running now» zone — S2a's live rows grown the S2b operating power: a hover ⏹ (danger confirm
-/// → `:cancel`) and multi-select batch cancel (danger dialog listing the victims). 正在跑区:S2a 活行
-/// 长出操作权力——hover ⏹(danger 确认→取消)+ 多选批量取消(danger 弹窗带行清单)。
+/// The «running now» zone (WRK-070 B10 — collapsed onto the operations big table's row grammar): each
+/// live row reads «workflow · source phrase» ([runPhrase]), carries the PERSISTENT ⏹ Stop verb right
+/// after it (the old hover-only far-edge ⏹ is gone), offers multi-select batch cancel (AnBatchBar at
+/// ≥2), and a single tap EXPANDS the inline [RunPeekCard] under it (gantt ⇄ graph, never a navigation)
+/// — a fast double-tap goes straight to the flagship. Front-end paged at 10/page.
+/// 正在跑区(B10:整体收敛到运营大表行文法):行=「workflow · 来源短语」+ **常驻** ⏹ 终止(旧 hover 行尾 ⏹ 删)
+/// + 多选批量取消(≥2 出条)+ 单击展开行内速览卡(甘特⇄图,不跳转)、双击直进旗舰;前端 10/页翻页。
 class SchedulerRunningZone extends ConsumerStatefulWidget {
-  const SchedulerRunningZone({required this.rows, required this.now, super.key});
+  const SchedulerRunningZone(
+      {required this.rows, required this.triggersById, required this.now, super.key});
 
   final List<RunningRunRow> rows;
+  final Map<String, TriggerEntity> triggersById;
   final DateTime now;
 
   @override
@@ -440,14 +523,8 @@ class SchedulerRunningZone extends ConsumerStatefulWidget {
 }
 
 class _SchedulerRunningZoneState extends ConsumerState<SchedulerRunningZone>
-    with BatchZone<SchedulerRunningZone> {
+    with BatchZone<SchedulerRunningZone>, _PeekZone<SchedulerRunningZone> {
   static String _keyOf(RunningRunRow r) => r.run.id;
-
-  @override
-  void didUpdateWidget(covariant SchedulerRunningZone old) {
-    super.didUpdateWidget(old);
-    pruneTo({for (final r in widget.rows) _keyOf(r)});
-  }
 
   List<RunningRunRow> get _selectedRows =>
       [for (final r in widget.rows) if (selected.contains(_keyOf(r))) r];
@@ -520,6 +597,10 @@ class _SchedulerRunningZoneState extends ConsumerState<SchedulerRunningZone>
     final t = context.t.scheduler.overview;
     final c = context.colors;
     final barVisible = selected.length >= 2 || batchBusy;
+    final visible = pageSlice(widget.rows);
+    // Prune selection to the VISIBLE page (paging away drops the old page's picks — same as the big
+    // table, whose rows ARE one page). 选区修剪到可见页(翻页即弃旧页选择,同大表)。
+    pruneTo({for (final r in visible) _keyOf(r)});
     return AnSection(
       label: t.runningHead(n: '${widget.rows.length}'),
       children: [
@@ -543,133 +624,296 @@ class _SchedulerRunningZoneState extends ConsumerState<SchedulerRunningZone>
         ),
         if (widget.rows.isEmpty)
           Text(t.runningEmpty, style: AnText.body.copyWith(color: c.inkFaint))
-        else
-          for (final r in widget.rows)
+        else ...[
+          for (final r in visible)
             AnExpandReveal(open: !leaving.contains(_keyOf(r)), child: _row(context, r)),
+          peekPager(context, widget.rows.length),
+        ],
       ],
     );
   }
 
-  /// One live row: status dot (hover → checkbox) · workflow name · mono fr_ chip · live elapsed ·
-  /// hover ⏹. Node progress needs the run detail (S4) — absent, not faked. 活行;节点进度依赖 S4,
-  /// 缺席不假造。
+  /// One live row (大表 _row 照搬):「workflow · source phrase» primary · persistent ⏹ Stop · live
+  /// elapsed · a single-tap peek. 一行:workflow·来源短语 + 常驻 ⏹ + 活计时 + 单击速览。
   Widget _row(BuildContext context, RunningRunRow r) {
-    final t = context.t.scheduler.overview;
+    final t = context.t.scheduler;
     final key = _keyOf(r);
     final isPending = pending.contains(key) || batchBusy && selected.contains(key);
     final selecting = selected.isNotEmpty;
     final hovered = hoveredKey == key;
     final showCheck = (selecting || hovered) && !isPending;
+    final expanded = expandedRunId == key;
     final started = r.run.startedAt;
     return MouseRegion(
       onEnter: (_) => setState(() => hoveredKey = key),
       onExit: (_) => setState(() {
         if (hoveredKey == key) hoveredKey = null;
       }),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-        Expanded(
-          child: AnLedgerRow(
-            lead: isPending
-                ? const AnSpinner(size: AnSize.iconSm)
-                : showCheck
-                    ? AnBatchCheck(
-                        checked: selected.contains(key),
-                        semanticLabel: t.selectRow(name: r.workflowName),
-                        onChanged: (v) =>
-                            setState(() => v ? selected.add(key) : selected.remove(key)),
-                      )
-                    : AnStatusDot(AnStatus.fromRaw(r.run.status)),
-            primary: r.workflowName,
-            mono: false,
-            chips: [
-              AnChip(truncate(r.run.id, AnTrunc.id),
-                  mono: true, look: AnChipLook.outlined, tooltip: r.run.id),
-            ],
-            measure: started != null ? fmtWaited(widget.now.difference(started)) : null,
-            onTap: () => context.go('/scheduler/w/${r.workflowId}/runs/${r.run.id}'),
-          ),
-        ),
-        const SizedBox(width: AnSpace.s6),
-        // The hover ⏹ — a RESERVED cell (no layout shift on hover); hidden it leaves the a11y tree.
-        // hover ⏹:定宽格 hover 零位移;隐藏时退出语义树。
-        Visibility(
-          visible: hovered && !isPending && !batchBusy,
-          maintainSize: true,
-          maintainAnimation: true,
-          maintainState: true,
-          child: AnButton.iconOnly(
-            AnIcons.stop,
+      child: AnLedgerRow(
+        expanded: expanded,
+        // Lazy (C-006): a collapsed row never builds its peek card. 惰性:收起不建卡。
+        expandBuilder: (_) => RunPeekCard(workflowId: r.workflowId, flowrunId: r.run.id),
+        lead: isPending
+            ? const AnSpinner(size: AnSize.iconSm)
+            : showCheck
+                ? AnBatchCheck(
+                    checked: selected.contains(key),
+                    semanticLabel: t.overview.selectRow(name: r.workflowName),
+                    onChanged: (v) =>
+                        setState(() => v ? selected.add(key) : selected.remove(key)),
+                  )
+                // The disclosure hand: expanded ▾ / hovered ▸ / else the status dot. 披露示能。
+                : expanded
+                    ? Icon(AnIcons.chevronDown,
+                        size: AnSize.iconSm, color: context.colors.inkMuted)
+                    : hovered
+                        ? Icon(AnIcons.chevronRight,
+                            size: AnSize.iconSm, color: context.colors.inkMuted)
+                        : AnStatusDot(AnStatus.fromRaw(r.run.status)),
+        // Cross-workflow view → keep the workflow NAME, then the source phrase (裸 fr_ 药丸删,B1).
+        // 跨 workflow 视图 → 保留 workflow 名 + 来源短语;裸 id 药丸删。
+        primary: '${r.workflowName} · ${runPhrase(context, r.run, widget.triggersById, widget.now)}',
+        mono: false,
+        chips: [
+          // The persistent Stop verb, right where the eye already is (大表 _row 照搬). 常驻终止。
+          AnButton(
+            label: t.home.rowCancel,
+            icon: AnIcons.stop,
             size: AnButtonSize.sm,
             variant: AnButtonVariant.danger,
-            semanticLabel: t.cancelRunA11y(id: r.run.id),
-            onPressed: () => _cancelOne(r),
+            onPressed: isPending || batchBusy ? null : () => _cancelOne(r),
           ),
-        ),
-      ]),
+          if (r.run.replayCount > 0)
+            AnChip(context.t.run.replayTimes(n: '${r.run.replayCount}'),
+                look: AnChipLook.outlined),
+        ],
+        measure: started != null ? fmtWaited(widget.now.difference(started)) : null,
+        onTap: () => onPeekTap(r.run.id, '/scheduler/w/${r.workflowId}/runs/${r.run.id}'),
+      ),
     );
   }
 }
 
 // ─────────────────────────────────── 24h 失败 ───────────────────────────────────
 
-/// The «failed · 24h» zone (工单⑮) — the per-RUN list the 「24h 失败」 KPI tile opens. Each row: red dot
-/// · workflow name · mono fr_ chip · error first line (danger) · «landed N ago» meta · deep-link to the
-/// run detail. Passive (no batch, no cancel — these runs are already terminal); the operating power a
-/// failed run offers is replay, which needs the run composite (S4) and lives on its detail page.
+/// The «failed · 24h» zone (工单⑮) — the per-RUN list the 「24h 失败」 KPI tile opens, brought onto the
+/// operations big table's row grammar (WRK-070 B10): «workflow · source phrase» primary, the error
+/// first line (danger sub), a «landed N ago» meta, and — NEW in B10 — the PERSISTENT ↻ Retry verb the
+/// zone was missing, multi-select batch replay (AnBatchBar at ≥2), and a single-tap inline [RunPeekCard]
+/// (never a navigation). Front-end paged at 10/page (the list is drained whole; see [_PeekZone]).
 ///
-/// **It is NOT the 7d 「失败聚合」 section below it** (§3), and the difference is the whole reason it
-/// exists: this zone lists RUNS in a 24h completed_at window (the tile's exact predicate); that section
-/// aggregates WORKFLOWS by consecutive-failure streak over 7d. A workflow that failed 4× overnight and
-/// then succeeded contributes 4 rows here and is absent there (self-healed) — two units, two windows.
+/// **It is NOT the 7d 「失败聚合」 section below it** (§3): this zone lists RUNS in a 24h completed_at
+/// window (the tile's exact predicate); that section aggregates WORKFLOWS by consecutive-failure streak
+/// over 7d. A workflow that failed 4× overnight and then succeeded contributes 4 rows here and is absent
+/// there (self-healed). Rendered only when non-empty (the tile is inert at zero — 成功是背景音).
 ///
-/// Rendered only when non-empty: the tile is inert at zero (no list to open), so an always-present
-/// «24h 失败 (0)» section would be an empty failure box the board never scrolls to, and 「成功是背景音」
-/// says the detail layer stays silent when there is nothing wrong. The tile's clickability and this
-/// zone's presence are the same condition (`failedRuns.isNotEmpty`).
-///
-/// 「24h 失败」区(工单⑮)——「24h 失败」牌点开的**按 run** 列表。行=红点·名·mono fr_ chip·错误首句(danger)·
-/// 「N 前落定」meta·深链 run 详情。被动(无批量无取消——这些 run 已终态;失败 run 的操作权力是 replay,依赖
-/// run 复合[S4]、住它的详情页)。**不是**下面那个 7d「失败聚合」(§3):本区列 24h completed_at 窗内的 **run**
-/// (牌的精确谓词),那个按连败聚合 **workflow**、7d 窗——整夜失败 4 次然后跑通的 workflow 在这里贡献 4 行、在
-/// 那里缺席(已自愈)。**仅非空时渲**:牌在零时惰性(无列表可开),故常驻的「24h 失败 (0)」会是看板永不滚去的
-/// 空失败框,而「成功是背景音」要求明细层无事时闭嘴;牌的可点性与本区的在场是同一个条件(failedRuns.isNotEmpty)。
-class SchedulerFailedZone extends StatelessWidget {
-  const SchedulerFailedZone({required this.rows, required this.now, super.key});
+/// 「24h 失败」区(工单⑮)——牌点开的**按 run** 列表,B10 收敛到运营大表行文法:「workflow · 来源短语」+ 错误首句
+/// (danger 副行)+「N 前落定」meta,并**新增** B10 之前缺失的**常驻** ↻ 重试 + 多选批量重放(≥2 出条)+ 单击行内
+/// 速览(不跳转);前端 10/页(列表抽全量,见 _PeekZone)。**不是**下面 7d「失败聚合」:本区列 24h completed_at 窗内
+/// 的 run,那个按连败聚合 workflow、7d 窗;整夜失败 4 次然后跑通的 workflow 在这里 4 行、在那里缺席(已自愈)。仅非空渲。
+class SchedulerFailedZone extends ConsumerStatefulWidget {
+  const SchedulerFailedZone(
+      {required this.rows, required this.triggersById, required this.now, super.key});
 
   final List<FailedRunRow> rows;
+  final Map<String, TriggerEntity> triggersById;
   final DateTime now;
+
+  @override
+  ConsumerState<SchedulerFailedZone> createState() => _SchedulerFailedZoneState();
+}
+
+class _SchedulerFailedZoneState extends ConsumerState<SchedulerFailedZone>
+    with BatchZone<SchedulerFailedZone>, _PeekZone<SchedulerFailedZone> {
+  static String _keyOf(FailedRunRow r) => r.run.id;
+
+  List<FailedRunRow> get _selectedRows =>
+      [for (final r in widget.rows) if (selected.contains(_keyOf(r))) r];
+
+  /// Single replay (the row's ↻ verb): pre-flight the REAL numbers off the run's node rows
+  /// (记忆化承诺文案 §10), confirm, replay, then slide out. 单行重放:先取真数字→确认→重放→滑出。
+  Future<void> _replayOne(FailedRunRow r) async {
+    final t = context.t.scheduler.home;
+    final overlay = ref.read(overlayProvider.notifier);
+    final repo = ref.read(schedulerRepositoryProvider);
+    final key = _keyOf(r);
+    setState(() => pending.add(key));
+    (int, int)? counts;
+    try {
+      final comp = await repo.getRunFull(r.run.id);
+      final c = replayCounts(comp.nodes);
+      counts = (c.failed, c.completed);
+    } catch (_) {
+      // Numbers unavailable → still replay, with the numberless sentence. 取不到数字仍可重放。
+    } finally {
+      if (mounted) setState(() => pending.remove(key));
+    }
+    if (!mounted) return;
+    final ok = await overlay.confirm(
+      title: t.replayTitle,
+      message: counts != null
+          ? t.replayBody(failed: '${counts.$1}', completed: '${counts.$2}')
+          : t.replayBodyUnknown,
+      confirmLabel: t.replayAction,
+      cancelLabel: context.t.action.cancel,
+      barrierLabel: context.t.action.cancel,
+      confirmTone: AnDialogTone.primary,
+    );
+    if (!ok || !mounted) return;
+    setState(() => pending.add(key));
+    try {
+      await repo.replayRun(r.run.id);
+      if (!mounted) return;
+      overlay.showToast(t.replayed, tone: AnTone.ok);
+      setState(() {
+        pending.remove(key);
+        leaving.add(key);
+      });
+      await settleRefetch();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => pending.remove(key));
+      overlay.showToast(e.httpStatus == 422 ? t.notReplayable : e.message,
+          tone: e.httpStatus == 422 ? AnTone.warn : AnTone.danger);
+    }
+  }
+
+  Future<void> _batchReplay() async {
+    final t = context.t.scheduler.home;
+    final overlay = ref.read(overlayProvider.notifier);
+    final repo = ref.read(schedulerRepositoryProvider);
+    final targets = _selectedRows;
+    if (targets.isEmpty) return;
+    // Merge the REAL numbers across every target (合并真数字弹窗). 逐 run 取数合并。
+    var failed = 0, completed = 0;
+    var counted = true;
+    setState(() => batchBusy = true);
+    try {
+      for (final r in targets) {
+        final comp = await repo.getRunFull(r.run.id);
+        final c = replayCounts(comp.nodes);
+        failed += c.failed;
+        completed += c.completed;
+      }
+    } catch (_) {
+      counted = false;
+    } finally {
+      if (mounted) setState(() => batchBusy = false);
+    }
+    if (!mounted) return;
+    final ok = await overlay.confirm(
+      title: t.batchReplayTitle(n: '${targets.length}'),
+      message: counted
+          ? t.batchReplayBody(failed: '$failed', completed: '$completed')
+          : t.replayBodyUnknown,
+      confirmLabel: t.replayAction,
+      cancelLabel: context.t.action.cancel,
+      barrierLabel: context.t.action.cancel,
+      confirmTone: AnDialogTone.primary,
+    );
+    if (!ok || !mounted) return;
+    final (done, lost, err) =
+        await runBatch<FailedRunRow>(targets, _keyOf, (r) => repo.replayRun(r.run.id));
+    if (!mounted) return;
+    summaryToast(
+      okPart: done > 0 ? t.sumReplayed(n: '$done') : null,
+      lostPart: lost > 0 ? t.sumNotReplayable(n: '$lost') : null,
+      failedPart: err > 0 ? context.t.scheduler.overview.sumFailed(n: '$err') : null,
+    );
+    await settleRefetch();
+  }
 
   @override
   Widget build(BuildContext context) {
     final t = context.t.scheduler.overview;
+    final home = context.t.scheduler.home;
+    final barVisible = selected.length >= 2 || batchBusy;
+    final visible = pageSlice(widget.rows);
+    pruneTo({for (final r in visible) _keyOf(r)});
     return AnSection(
-      label: t.failed24hHead(n: '${rows.length}'),
+      label: t.failed24hHead(n: '${widget.rows.length}'),
       children: [
-        for (final r in rows) _row(context, r),
+        AnExpandReveal(
+          open: barVisible,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: AnSpace.s8),
+            child: AnBatchBar(
+              count: selected.length,
+              busy: batchBusy,
+              actions: [
+                BatchAction(
+                    label: home.batchReplay,
+                    icon: AnIcons.history,
+                    tone: AnTone.accent,
+                    onRun: _batchReplay),
+              ],
+              onClear: () => setState(selected.clear),
+            ),
+          ),
+        ),
+        for (final r in visible)
+          AnExpandReveal(open: !leaving.contains(_keyOf(r)), child: _row(context, r)),
+        peekPager(context, widget.rows.length),
       ],
     );
   }
 
   Widget _row(BuildContext context, FailedRunRow r) {
+    final t = context.t.scheduler;
+    final key = _keyOf(r);
+    final isPending = pending.contains(key) || batchBusy && selected.contains(key);
+    final selecting = selected.isNotEmpty;
+    final hovered = hoveredKey == key;
+    final showCheck = (selecting || hovered) && !isPending;
+    final expanded = expandedRunId == key;
     final landed = r.run.completedAt;
-    return AnLedgerRow(
-      lead: const AnStatusDot(AnStatus.err),
-      primary: r.workflowName,
-      mono: false,
-      chips: [
-        AnChip(truncate(r.run.id, AnTrunc.id),
-            mono: true, look: AnChipLook.outlined, tooltip: r.run.id),
-      ],
-      // The error first line — the same projection the big table and run detail render (one text,
-      // three surfaces). 错误首句:与大表/run 详情同一投影(一份文案三处)。
-      sub: errorFirstLine(r.run.error),
-      subTone: AnTone.danger,
-      // «landed N ago» — completed_at is the window's axis, so the meta names WHEN it failed.
-      // 「N 前落定」:completed_at 是窗轴,故 meta 说它**何时**失败。
-      meta: landed != null
-          ? context.t.scheduler.agoMeta(d: fmtWaited(now.difference(landed)))
-          : null,
-      onTap: () => context.go('/scheduler/w/${r.workflowId}/runs/${r.run.id}'),
+    return MouseRegion(
+      onEnter: (_) => setState(() => hoveredKey = key),
+      onExit: (_) => setState(() {
+        if (hoveredKey == key) hoveredKey = null;
+      }),
+      child: AnLedgerRow(
+        expanded: expanded,
+        expandBuilder: (_) => RunPeekCard(workflowId: r.workflowId, flowrunId: r.run.id),
+        lead: isPending
+            ? const AnSpinner(size: AnSize.iconSm)
+            : showCheck
+                ? AnBatchCheck(
+                    checked: selected.contains(key),
+                    semanticLabel: t.overview.selectRow(name: r.workflowName),
+                    onChanged: (v) =>
+                        setState(() => v ? selected.add(key) : selected.remove(key)),
+                  )
+                : expanded
+                    ? Icon(AnIcons.chevronDown,
+                        size: AnSize.iconSm, color: context.colors.inkMuted)
+                    : hovered
+                        ? Icon(AnIcons.chevronRight,
+                            size: AnSize.iconSm, color: context.colors.inkMuted)
+                        : const AnStatusDot(AnStatus.err),
+        primary: '${r.workflowName} · ${runPhrase(context, r.run, widget.triggersById, widget.now)}',
+        mono: false,
+        chips: [
+          // The persistent Retry verb the failed zone was missing (B10 补齐,大表 _row 照搬). 常驻重试。
+          AnButton(
+            label: t.home.rowRetry,
+            icon: AnIcons.history,
+            size: AnButtonSize.sm,
+            onPressed: isPending || batchBusy ? null : () => _replayOne(r),
+          ),
+          if (r.run.replayCount > 0)
+            AnChip(context.t.run.replayTimes(n: '${r.run.replayCount}'),
+                look: AnChipLook.outlined),
+        ],
+        // The error first line — the same projection the big table and run detail render (one text,
+        // three surfaces). 错误首句:与大表/run 详情同一投影(一份文案三处)。
+        sub: errorFirstLine(r.run.error),
+        subTone: AnTone.danger,
+        // «landed N ago» — completed_at is the window's axis, so the meta names WHEN it failed.
+        // 「N 前落定」:completed_at 是窗轴,故 meta 说它**何时**失败。
+        meta: landed != null ? t.agoMeta(d: fmtWaited(widget.now.difference(landed))) : null,
+        onTap: () => onPeekTap(r.run.id, '/scheduler/w/${r.workflowId}/runs/${r.run.id}'),
+      ),
     );
   }
 }

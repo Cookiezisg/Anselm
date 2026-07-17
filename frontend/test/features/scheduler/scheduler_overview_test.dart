@@ -15,6 +15,7 @@ import 'package:anselm/core/ui/icons.dart';
 import 'package:anselm/features/scheduler/scheduler_windows.dart';
 import 'package:anselm/features/scheduler/data/scheduler_repository.dart';
 import 'package:anselm/features/scheduler/state/scheduler_overview_provider.dart';
+import 'package:anselm/features/scheduler/ui/overview_zones.dart';
 import 'package:anselm/features/scheduler/ui/scheduler_overview.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
@@ -321,20 +322,24 @@ void main() {
           reason: '24h 失败区(工单⑮):牌点开的四行');
       expect(find.text(ov.failuresHead.toUpperCase()), findsOneWidget);
 
-      // Running row: name + fr_ chip; elapsed rides the measure slot. 正在跑行。
-      
-      expect(find.text('fr_live1'), findsOneWidget);
+      // Running row (B10 大表行文法): «workflow · source phrase» primary + the PERSISTENT ⏹ Stop verb;
+      // the bare fr_ id is gone from the row — it lives in the peek card + tooltip only (B1/B10).
+      // 正在跑行:新文法「workflow · 来源短语」+ 常驻 ⏹;裸 id 从行里删(只在速览卡+tooltip)。
+      expect(find.text('fr_live1'), findsNothing, reason: '行内无裸 id(B1/B10)');
+      expect(find.text(t.scheduler.home.rowCancel), findsOneWidget, reason: '正在跑行的常驻 ⏹ 终止');
 
       // The schedule TRACK (S5): a lane per (workflow × cron trigger), labelled by the WORKFLOW —
       // this ocean's axis is the workflow (§1/§3.4), and the trigger's name rides the dot's tooltip.
-      // So the workflow name now appears twice (running row + its lane), and the KPI next-fire tile
-      // is the only place quoting the relative time.
       // 调度**轨道**(S5):逐 (workflow×cron) 一泳道,标签是 **workflow** 名——本海洋的轴是 workflow
-      // (§1/§3.4),trigger 名在点的 tooltip 里。故 workflow 名现两次(正在跑行 + 它的泳道),而相对时间
-      // 只剩 KPI 下次调度牌一处在引。
+      // (§1/§3.4),trigger 名在点的 tooltip 里。
       expect(find.byType(AnScheduleTrack), findsOneWidget);
-      expect(find.text('数据清洗流水线'), findsNWidgets(3),
-          reason: '同一个 workflow 在三个区各现一次:等你处理行 + 正在跑行 + 轨道泳道');
+      // Exact «数据清洗流水线» now shows in TWO places (the waiting card + the track lane); the running
+      // row wears it as the PREFIX of «workflow · source phrase», so it is matched by containment.
+      // 精确「数据清洗流水线」现两处(等你处理卡 + 轨道泳道);正在跑行把它作「workflow · 来源短语」前缀,故按含匹配。
+      expect(find.text('数据清洗流水线'), findsNWidgets(2),
+          reason: '精确名:等你处理卡 + 轨道泳道');
+      expect(find.textContaining('数据清洗流水线 · '), findsOneWidget,
+          reason: '正在跑行=workflow · 来源短语(B10)');
       expect(find.text(ov.fireIn(d: '3m')), findsOneWidget, reason: 'KPI 下次调度牌');
 
       // Failure row: streak chip + error FIRST line + through-train. 失败行。
@@ -401,7 +406,8 @@ void main() {
       expect(find.text(t.scheduler.overviewTitle), findsOneWidget, reason: '大标题 Overview');
     });
 
-    testWidgets('a running row deep-links into the run flagship', (tester) async {
+    testWidgets('a running row double-taps straight into the run flagship (B10:单击展开、双击进子页)',
+        (tester) async {
       final router = GoRouter(initialLocation: '/', routes: [
         GoRoute(path: '/', builder: (_, _) => const Scaffold(body: SchedulerOverviewView())),
         GoRoute(
@@ -411,17 +417,25 @@ void main() {
       addTearDown(router.dispose);
       await _pumpBoard(tester, _host(_fullRepo(), router: router));
 
-      // The documentary head (B11) pushed the zone lower — bring the row on screen first. 头高了先滚到行。
-      await tester.ensureVisible(find.text('fr_live1'));
+      // The row is «workflow · source phrase» now (no bare fr_ text); target it INSIDE the running zone
+      // (the workflow name also appears on the waiting card + track lane). 行=workflow·短语;在正在跑区内定位。
+      final row = find.descendant(
+          of: find.byType(SchedulerRunningZone),
+          matching: find.textContaining('数据清洗流水线'));
+      await tester.ensureVisible(row);
       await tester.pump();
-      await tester.tap(find.text('fr_live1'));
+      // Two quick taps → the double-tap window (real wall time) → the flagship (single tap only expands).
+      // 连点两下 → 双击窗(真墙钟)→ 旗舰(单击仅展开)。
+      await tester.tap(row);
+      await tester.pump();
+      await tester.tap(row);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
       expect(router.routerDelegate.currentConfiguration.uri.toString(),
           '/scheduler/w/wf_a/runs/fr_live1');
     });
 
-    testWidgets('a 24h-failed row deep-links into its run flagship (工单⑮)', (tester) async {
+    testWidgets('a 24h-failed row double-taps into its run flagship (工单⑮ + B10)', (tester) async {
       final router = GoRouter(initialLocation: '/', routes: [
         GoRoute(path: '/', builder: (_, _) => const Scaffold(body: SchedulerOverviewView())),
         GoRoute(
@@ -431,11 +445,17 @@ void main() {
       addTearDown(router.dispose);
       await _pumpBoard(tester, _host(_fullRepo(), router: router));
 
-      // The newest failed wf_b run (fr_dead1) sits in the 24h-failed zone below the fold; scroll it in,
-      // then tapping it opens its detail. 最新的 wf_b 失败 run(fr_dead1)在折叠下的 24h 失败区里;滚进来再点。
-      await tester.ensureVisible(find.text('fr_dead1'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('fr_dead1'));
+      // The newest failed wf_b run (fr_dead1) is the FIRST row of the 24h-failed zone (completed-desc).
+      // 最新的 wf_b 失败 run(fr_dead1)是 24h 失败区第一行(按落定新→旧)。
+      final row = find
+          .descendant(
+              of: find.byType(SchedulerFailedZone), matching: find.textContaining('库存同步'))
+          .first;
+      await tester.ensureVisible(row);
+      await tester.pump();
+      await tester.tap(row);
+      await tester.pump();
+      await tester.tap(row);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
       expect(router.routerDelegate.currentConfiguration.uri.toString(),
