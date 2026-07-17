@@ -747,3 +747,117 @@ func TestListRuns_CompletedWindow(t *testing.T) {
 		}
 	}
 }
+
+// offsetIDs runs ListRunsOffset and returns the matched ids (newest-first) + total, for terse asserts.
+//
+// offsetIDs 跑 ListRunsOffset 返命中 id（最新在前）+ total，供简洁断言。
+func offsetIDs(t *testing.T, s *Store, ctx context.Context, f flowrundomain.ListFilter) ([]string, int) {
+	t.Helper()
+	f.UseOffset = true
+	rows, total, err := s.ListRunsOffset(ctx, f)
+	if err != nil {
+		t.Fatalf("ListRunsOffset %+v: %v", f, err)
+	}
+	ids := make([]string, 0, len(rows))
+	for _, r := range rows {
+		ids = append(ids, r.ID)
+	}
+	return ids, total
+}
+
+// TestListRunsOffset — WRK-070 B4: the offset/page-number pagination counterpart of ListRuns. It
+// must (1) skip Offset rows and return Limit of them in the SAME canonical (started_at, id) DESC
+// order as ListRuns (so page N under offset shows what keyset paging would); (2) return `total` =
+// the row count under the SAME filter (not the whole table); (3) share ListRuns' filter guards
+// (an out-of-enum status is still a loud 422); (4) survive an Offset past the end (empty page, total
+// unchanged). Built on the SHARED buildRunQuery, so a window/filter added to one is never missing here.
+//
+// TestListRunsOffset — WRK-070 B4：ListRuns 的 offset/页码分页对应物。必须 (1) 跳过 Offset 行、返
+// Limit 行，且与 ListRuns 同一正典 (started_at, id) DESC 序（故 offset 下第 N 页显示 keyset 分页会显示
+// 的）；(2) 返 `total` = **同过滤**下的行数（非整表）；(3) 共享 ListRuns 的过滤守卫（枚举外 status 仍
+// 大声 422）；(4) Offset 越界仍安全（空页、total 不变）。建在**共享**的 buildRunQuery 上，故一处加的
+// 窗/过滤绝不在此缺席。
+func TestListRunsOffset(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+
+	// Five runs, distinct started_at so the canonical newest-first order is deterministic. wf_1 gets
+	// four, wf_2 gets one — so a workflowId filter's total differs from the workspace total.
+	// 五个 run、started_at 各异，故正典最新在前序确定。wf_1 四个、wf_2 一个——故 workflowId 过滤的 total 异于全 ws total。
+	base := time.Date(2026, 7, 1, 8, 0, 0, 0, time.UTC)
+	for i, r := range []struct {
+		id, wf string
+	}{
+		{"fr_1", "wf_1"}, {"fr_2", "wf_1"}, {"fr_3", "wf_2"}, {"fr_4", "wf_1"}, {"fr_5", "wf_1"},
+	} {
+		mkRunAt(t, s, ctx, r.id, r.wf, "trg_1", flowrundomain.OriginManual, base.Add(time.Duration(i)*time.Hour))
+	}
+	// Canonical newest-first (started_at DESC): fr_5, fr_4, fr_3, fr_2, fr_1.
+	newest := []string{"fr_5", "fr_4", "fr_3", "fr_2", "fr_1"}
+
+	eq := func(what string, got, want []string) {
+		t.Helper()
+		if len(got) != len(want) {
+			t.Fatalf("%s: got %v, want %v", what, got, want)
+		}
+		for i := range want {
+			if got[i] != want[i] {
+				t.Fatalf("%s: got %v, want %v", what, got, want)
+			}
+		}
+	}
+
+	// (1)+(2) First page, whole workspace: offset 0, limit 2 → two newest, total 5.
+	ids, total := offsetIDs(t, s, ctx, flowrundomain.ListFilter{Limit: 2, Offset: 0})
+	eq("page 0 rows", ids, newest[0:2])
+	if total != 5 {
+		t.Fatalf("page 0 total = %d, want 5", total)
+	}
+	// Second page: offset 2, limit 2 → next two, total still 5.
+	ids, total = offsetIDs(t, s, ctx, flowrundomain.ListFilter{Limit: 2, Offset: 2})
+	eq("page 1 rows", ids, newest[2:4])
+	if total != 5 {
+		t.Fatalf("page 1 total = %d, want 5", total)
+	}
+	// Last (partial) page: offset 4, limit 2 → the single oldest, total 5.
+	ids, total = offsetIDs(t, s, ctx, flowrundomain.ListFilter{Limit: 2, Offset: 4})
+	eq("page 2 rows", ids, newest[4:5])
+	if total != 5 {
+		t.Fatalf("page 2 total = %d, want 5", total)
+	}
+
+	// The offset page's order is byte-for-byte what ListRuns returns (whole set, one page).
+	// offset 页的顺序与 ListRuns 逐字节相同（全集一页）。
+	full, _, err := s.ListRuns(ctx, flowrundomain.ListFilter{Limit: 50})
+	if err != nil {
+		t.Fatalf("ListRuns full: %v", err)
+	}
+	fullIDs := make([]string, len(full))
+	for i, r := range full {
+		fullIDs[i] = r.ID
+	}
+	allOffset, _ := offsetIDs(t, s, ctx, flowrundomain.ListFilter{Limit: 50, Offset: 0})
+	eq("offset order == keyset order", allOffset, fullIDs)
+
+	// (2) total tracks the FILTER, not the whole table: wf_1 has four runs.
+	// total 跟随**过滤**、非整表：wf_1 有四个 run。
+	ids, total = offsetIDs(t, s, ctx, flowrundomain.ListFilter{WorkflowID: "wf_1", Limit: 2, Offset: 0})
+	eq("wf_1 page 0", ids, []string{"fr_5", "fr_4"})
+	if total != 4 {
+		t.Fatalf("wf_1 total = %d, want 4 (filtered count, not table count)", total)
+	}
+
+	// (4) Offset past the end: empty page, total unchanged (the client learns it overshot).
+	// Offset 越界：空页、total 不变（客户端据此知道翻过头了）。
+	ids, total = offsetIDs(t, s, ctx, flowrundomain.ListFilter{Limit: 2, Offset: 99})
+	eq("overshoot rows", ids, []string{})
+	if total != 5 {
+		t.Fatalf("overshoot total = %d, want 5", total)
+	}
+
+	// (3) The shared filter guard holds: an out-of-enum status is a loud 422, same as ListRuns.
+	// 共享过滤守卫生效：枚举外 status 大声 422，与 ListRuns 一致。
+	if _, _, err := s.ListRunsOffset(ctx, flowrundomain.ListFilter{Status: "parked", UseOffset: true}); !errors.Is(err, flowrundomain.ErrInvalidStatus) {
+		t.Fatalf("invalid status must reject with ErrInvalidStatus, got %v", err)
+	}
+}

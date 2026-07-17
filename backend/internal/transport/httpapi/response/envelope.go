@@ -78,6 +78,51 @@ func Paged(w http.ResponseWriter, items any, nextCursor string, hasMore bool) {
 	writeJSON(w, http.StatusOK, env)
 }
 
+// offsetPagedEnvelope is the on-wire shape for OFFSET (page-number) pagination: the paged list plus
+// `total`, the full row count under the same filter — so a page-number paginator renders the page
+// count. Deliberately carries NO nextCursor (a cursor is meaningless under offset paging), and the
+// cursor-mode pagedEnvelope carries NO total — the two shapes stay disjoint so neither client's
+// decode drifts. Data is NOT omitempty for the same reason as pagedEnvelope (an empty page is []).
+//
+// offsetPagedEnvelope 是 OFFSET（页码）分页的线上形状：分页列表 + `total`（同过滤下的总行数）——供
+// 页码翻页器渲页数。刻意**不**带 nextCursor（offset 分页下游标无意义），而 cursor 模式的 pagedEnvelope
+// **不**带 total——两形状互不相交，故任一 client 的解码都不漂移。Data 不 omitempty，理由同 pagedEnvelope
+// （空页是 []）。
+type offsetPagedEnvelope struct {
+	Data    any  `json:"data"`
+	Total   int  `json:"total"`
+	HasMore bool `json:"hasMore"`
+}
+
+// OffsetPaged writes {data, total, hasMore} for OFFSET (page-number) pagination — the offset-mode
+// counterpart of Paged. total is the full row count under the same filter; hasMore reports whether
+// rows exist past this page (offset + len(items) < total), the same boolean Paged exposes so the UI
+// treats both modes uniformly. No nextCursor is emitted (see offsetPagedEnvelope).
+//
+// OffsetPaged 写出 {data, total, hasMore}，用于 OFFSET（页码）分页——Paged 的 offset 模式对应物。
+// total 是同过滤下的总行数；hasMore 报告本页之后是否还有行（offset + len(items) < total），与 Paged
+// 暴露的是同一个布尔，故 UI 两模式一致对待。不发 nextCursor（见 offsetPagedEnvelope）。
+func OffsetPaged(w http.ResponseWriter, items any, offset, total int) {
+	items = emptySliceIfNil(items)
+	writeJSON(w, http.StatusOK, offsetPagedEnvelope{
+		Data:    items,
+		Total:   total,
+		HasMore: offset+sliceLen(items) < total,
+	})
+}
+
+// sliceLen returns the length of a slice held in an interface, or 0 for a non-slice — so OffsetPaged
+// computes hasMore without the caller pre-counting.
+//
+// sliceLen 返回装在 interface 里的 slice 长度，非 slice 返 0——使 OffsetPaged 无需调用方预先计数即可算 hasMore。
+func sliceLen(items any) int {
+	v := reflect.ValueOf(items)
+	if v.Kind() == reflect.Slice {
+		return v.Len()
+	}
+	return 0
+}
+
 // emptySliceIfNil replaces a nil slice with an empty slice of the same type, so a paged list always
 // marshals as [] (N4), never null. A nil typed slice held in an interface otherwise serialises to
 // JSON null. Non-slice / non-nil inputs pass through untouched.

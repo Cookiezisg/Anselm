@@ -326,4 +326,14 @@ var (
 	// 非 RFC3339（scheduler 工单⑥）。与 ErrInvalidStatus 同一 422 大声拒立场（F168-M2）：Details 带
 	// 出错参数 + 原值（枚举再带 allowed），让调用方自纠、而非把静默空页读作「无此类 run」。
 	ErrInvalidListFilter = errorspkg.New(errorspkg.KindUnprocessable, "FLOWRUN_LIST_INVALID_FILTER", "invalid flowrun list filter value")
+
+	// ErrListCursorOffsetConflict: GET /flowruns was given BOTH ?cursor (keyset paging) and ?offset
+	// (page-number paging) — two mutually exclusive pagination modes at once (WRK-070 B4). A loud 422
+	// rather than silently honoring one, so a caller that meant one and typo'd the other is told,
+	// instead of paging a different way than it asked. Same loud stance as the list-filter guards.
+	//
+	// ErrListCursorOffsetConflict：GET /flowruns 同时给了 ?cursor（keyset 分页）与 ?offset（页码分页）
+	// ——两种互斥分页模式并存（WRK-070 B4）。大声 422 而非静默择一，使一个想用其中一种却把另一种写错的
+	// 调用方被明确告知，而不是以它没要求的方式翻页。与 list 过滤守卫同一大声立场。
+	ErrListCursorOffsetConflict = errorspkg.New(errorspkg.KindUnprocessable, "FLOWRUN_LIST_CURSOR_OFFSET_CONFLICT", "flowrun list accepts either ?cursor (keyset) or ?offset (page number), not both")
 )

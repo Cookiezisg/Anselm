@@ -21,6 +21,18 @@ func (s *Service) ListRuns(ctx context.Context, filter flowrundomain.ListFilter)
 	return s.runs.ListRuns(ctx, filter)
 }
 
+// ListRunsOffset pages a workspace's flowruns by OFFSET (page-number paginator, WRK-070 B4): the
+// same filters as ListRuns plus `total` (the row count under that filter), for the frontend's
+// standard page-number + jump-to-page control. The mode is chosen (and mutually excluded from the
+// keyset cursor) at the transport; here it is a thin pass-through to the store.
+//
+// ListRunsOffset 按 OFFSET 分页一个 workspace 的 flowrun（页码翻页器，WRK-070 B4）：与 ListRuns 同一
+// 过滤，另返 `total`（该过滤下的行数），供前端标准页码 + 跳页控件。模式选择（及与 keyset 游标的互斥）
+// 在 transport 定；此处只是到 store 的薄透传。
+func (s *Service) ListRunsOffset(ctx context.Context, filter flowrundomain.ListFilter) ([]*flowrundomain.FlowRun, int, error) {
+	return s.runs.ListRunsOffset(ctx, filter)
+}
+
 // GetRunWithNodes returns a run header + all its node rows (the full memoization) for the run-detail
 // view — including parked approval rows (the inbox is GetRunWithNodes filtered, or ListInbox).
 //

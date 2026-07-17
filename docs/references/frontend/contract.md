@@ -50,6 +50,7 @@ core/contract/
 
 - **N1 信封**：成功 `{data:...}`；失败 `{error:{code,message,details}}`。`ApiException.fromEnvelope(body, status)` 解错误体 → 持 `code`/`message`/`details`/`httpStatus` + 状态谓词（`isConflict`/`isGone`/`isUnauthorized`/`isNotFound`/`isTransport`）。`AnselmErr` 只登记**前端实际分支用的**精选码常量（`unauthNoWorkspace`/`unauthBadToken`/`seqTooOld`/`unknown`/`transport`）——~261 错误码全集**保持开放**，不在前端枚举（见契约开放性铁律）。
 - **N4 分页**：分页坐标（`nextCursor`/`hasMore`）**永在 envelope 顶层、绝不进 `data`**。`Page<T>.fromBody` 解 `data` 为列表；`PageWithAggregate<T,A>.fromBody` 解 `data` 为对象（`{<listKey>:[...], <aggregate>}`），用于日志页（列表 + ok/failed 聚合）。`isLastPage` = `nextCursor` 缺失 ∨ `hasMore` false（防御性兼容两者不一致）。
+- **offset/页码分页（WRK-070 B4，仅 `GET /flowruns`）**：`GET /flowruns` 除默认 keyset `?cursor&limit` 外，另支持 **offset 页码** `?offset=<非负整数>&limit`（前端标准翻页器：页码 + 跳页），其信封在顶层**额外带 `total`**＝同过滤条件下的总行数（渲页数用），形如 `{data, total, hasMore}`、**无 `nextCursor`**。两模式**互斥**——同给 `?cursor` 与 `?offset` → 422 `FLOWRUN_LIST_CURSOR_OFFSET_CONFLICT`；坏 `?offset`（负/非数字）→ 422 `FLOWRUN_LIST_INVALID_FILTER`（`details.param=offset`）。**cursor 模式信封逐字不变、永不带 `total`**（两形状互不相交，`Page<T>` 现役解码零回归）。
 
 ## 4. 实体 DTO（`entities/`，Quadrinity 投影）
 

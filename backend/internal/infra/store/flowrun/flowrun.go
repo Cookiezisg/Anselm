@@ -412,6 +412,69 @@ func (s *Store) GetRunsByIDs(ctx context.Context, ids []string) ([]*flowrundomai
 }
 
 func (s *Store) ListRuns(ctx context.Context, filter flowrundomain.ListFilter) ([]*flowrundomain.FlowRun, string, error) {
+	q, err := s.buildRunQuery(filter)
+	if err != nil {
+		return nil, "", err
+	}
+	rows, next, err := q.Page(ctx, filter.Cursor, filter.Limit)
+	if err != nil {
+		return nil, "", fmt.Errorf("flowrunstore.ListRuns: %w", err)
+	}
+	return rows, next, nil
+}
+
+// ListRunsOffset is the offset/page-number counterpart of ListRuns (WRK-070 B4): the SAME filter
+// (buildRunQuery, so the invalid-filter 422s and window predicates never drift) driven by
+// Order+Limit+Offset instead of the keyset cursor, plus `total` — the row count under that same
+// filter (COUNT ignores limit/offset). The WHERE is built TWICE (once per query object) rather than
+// shared across a stateful builder, so the COUNT and the page can never accidentally couple; both
+// derive from one buildRunQuery, so they are byte-for-byte the same predicate. The canonical order
+// is (started_at, id) DESC — the exact clause Page defaults to (started_at is the ,created column),
+// so a page N under offset lines up with the same rows keyset paging would show. filter.Cursor is
+// ignored (the transport guarantees it is empty in this mode).
+//
+// ListRunsOffset 是 ListRuns 的 offset/页码对应物（WRK-070 B4）：**同一**过滤（buildRunQuery，故
+// 非法过滤 422 与窗口谓词绝不漂移）改由 Order+Limit+Offset 驱动（非 keyset 游标），另返 `total`——
+// 同过滤下的行数（COUNT 忽略 limit/offset）。WHERE **构建两次**（每个 query 对象各一次）而非在有状态
+// 构建器上共享，故 COUNT 与页绝不会意外耦合；两者都出自同一个 buildRunQuery，故是逐字节相同的谓词。
+// 正典序为 (started_at, id) DESC——正是 Page 默认的子句（started_at 是 ,created 列），故 offset 下的
+// 第 N 页与 keyset 分页会显示的同一批行对齐。filter.Cursor 被忽略（transport 保证此模式下它为空）。
+func (s *Store) ListRunsOffset(ctx context.Context, filter flowrundomain.ListFilter) ([]*flowrundomain.FlowRun, int, error) {
+	countQ, err := s.buildRunQuery(filter)
+	if err != nil {
+		return nil, 0, err
+	}
+	total, err := countQ.Count(ctx)
+	if err != nil {
+		return nil, 0, fmt.Errorf("flowrunstore.ListRunsOffset count: %w", err)
+	}
+
+	limit := filter.Limit
+	if limit <= 0 {
+		limit = 50 // mirror Page's floor (transport clamps to [1, MaxLimit], but keep the store safe)
+	}
+	pageQ, err := s.buildRunQuery(filter)
+	if err != nil {
+		return nil, 0, err
+	}
+	rows, err := pageQ.Order("started_at DESC, id DESC").Limit(limit).Offset(filter.Offset).Find(ctx)
+	if err != nil {
+		return nil, 0, fmt.Errorf("flowrunstore.ListRunsOffset page: %w", err)
+	}
+	return rows, int(total), nil
+}
+
+// buildRunQuery applies the ListFilter's WHERE clauses (equality filters, the closed-set status/
+// origin guards with their loud 422s, and the two half-open time windows) to a fresh flowruns
+// query — the ONE place that logic lives, shared by keyset ListRuns and offset ListRunsOffset so a
+// filter added on one is never missing on the other. It does NOT apply order/limit/offset/cursor
+// (each caller finishes the query its own way).
+//
+// buildRunQuery 把 ListFilter 的 WHERE 子句（等值过滤、封闭集 status/origin 守卫及其大声 422、两个
+// 半开时间窗）套到一个全新的 flowruns 查询上——这套逻辑的**唯一**居所，被 keyset ListRuns 与 offset
+// ListRunsOffset 共享，故在一处加的过滤绝不会在另一处缺席。它**不**套 order/limit/offset/cursor
+// （各调用方按自己的方式收尾查询）。
+func (s *Store) buildRunQuery(filter flowrundomain.ListFilter) (*ormpkg.Query[flowrundomain.FlowRun], error) {
 	q := s.runs.Query()
 	if filter.WorkflowID != "" {
 		q = q.WhereEq("workflow_id", filter.WorkflowID)
@@ -421,7 +484,7 @@ func (s *Store) ListRuns(ctx context.Context, filter flowrundomain.ListFilter) (
 		// reads to the caller as "no such runs exist" (F168-M2).
 		// 非枚举状态大声拒（422），而非静默匹配 0 行——那会被读作「无此类 run」（F168-M2）。
 		if !slices.Contains(flowrundomain.RunStatuses, filter.Status) {
-			return nil, "", flowrundomain.ErrInvalidStatus.WithDetails(map[string]any{"allowed": flowrundomain.RunStatuses, "got": filter.Status})
+			return nil, flowrundomain.ErrInvalidStatus.WithDetails(map[string]any{"allowed": flowrundomain.RunStatuses, "got": filter.Status})
 		}
 		q = q.WhereEq("status", filter.Status)
 	}
@@ -434,7 +497,7 @@ func (s *Store) ListRuns(ctx context.Context, filter flowrundomain.ListFilter) (
 		// 与 status 同一 422 大声拒立场（F168-M2）：枚举外 origin 永远 0 行（列有 CHECK），会被读作
 		// 「无此类 run」（scheduler 工单⑥）。
 		if !slices.Contains(flowrundomain.RunOrigins, filter.Origin) {
-			return nil, "", flowrundomain.ErrInvalidListFilter.WithDetails(map[string]any{"param": "origin", "allowed": flowrundomain.RunOrigins, "got": filter.Origin})
+			return nil, flowrundomain.ErrInvalidListFilter.WithDetails(map[string]any{"param": "origin", "allowed": flowrundomain.RunOrigins, "got": filter.Origin})
 		}
 		q = q.WhereEq("origin", filter.Origin)
 	}
@@ -471,11 +534,7 @@ func (s *Store) ListRuns(ctx context.Context, filter flowrundomain.ListFilter) (
 	if !filter.CompletedBefore.IsZero() {
 		q = q.Where("completed_at < ?", filter.CompletedBefore)
 	}
-	rows, next, err := q.Page(ctx, filter.Cursor, filter.Limit)
-	if err != nil {
-		return nil, "", fmt.Errorf("flowrunstore.ListRuns: %w", err)
-	}
-	return rows, next, nil
+	return q, nil
 }
 
 // ListRunningRuns crosses workspaces on purpose: boot recovery runs before any request ctx and

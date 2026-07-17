@@ -81,7 +81,27 @@ func (h *FlowrunHandler) List(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	runs, next, err := h.svc.ListRuns(r.Context(), flowrundomain.ListFilter{
+	// Two MUTUALLY EXCLUSIVE pagination modes (WRK-070 B4): the default keyset ?cursor, or the
+	// page-number ?offset the frontend's paginator (page numbers + jump-to-page) needs. Both at once
+	// is a loud 422 — picking one silently would page a caller a way it did not ask. The conflict is
+	// judged on PRESENCE (a non-empty offset alongside a non-empty cursor), before validating the
+	// offset value, so "I gave two modes" is the answer even when the offset value is also malformed.
+	//
+	// 两种**互斥**分页模式（WRK-070 B4）：默认 keyset ?cursor，或前端翻页器（页码 + 跳页）需要的页码
+	// ?offset。同时给两种是大声 422——静默择一会以调用方没要求的方式翻页。冲突按**存在性**判（非空
+	// offset 与非空 cursor 并存），在校验 offset 值**之前**，故即便 offset 值也畸形，答案仍是「你给了
+	// 两种模式」。
+	rawOffset := strings.TrimSpace(query.Get("offset"))
+	if rawOffset != "" && p.Cursor != "" {
+		responsehttpapi.FromDomainError(w, h.log, flowrundomain.ErrListCursorOffsetConflict)
+		return
+	}
+	offset, useOffset, err := parseOffset(rawOffset)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	filter := flowrundomain.ListFilter{
 		WorkflowID:      query.Get("workflowId"),
 		Status:          query.Get("status"),
 		TriggerID:       query.Get("triggerId"),
@@ -92,12 +112,56 @@ func (h *FlowrunHandler) List(w http.ResponseWriter, r *http.Request) {
 		CompletedBefore: completedBefore,
 		Cursor:          p.Cursor,
 		Limit:           p.Limit,
-	})
+		Offset:          offset,
+		UseOffset:       useOffset,
+	}
+	// Offset mode returns the SAME rows plus `total` (for the page count). Cursor mode's envelope is
+	// left byte-for-byte unchanged (Paged: {data, nextCursor?, hasMore} — no total) so no client
+	// reading it drifts.
+	// offset 模式返**同样**的行 + `total`（供页数）。cursor 模式信封逐字不变（Paged：{data, nextCursor?,
+	// hasMore}——无 total），故读它的 client 不漂移。
+	if useOffset {
+		runs, total, err := h.svc.ListRunsOffset(r.Context(), filter)
+		if err != nil {
+			responsehttpapi.FromDomainError(w, h.log, err)
+			return
+		}
+		responsehttpapi.OffsetPaged(w, runs, offset, total)
+		return
+	}
+	runs, next, err := h.svc.ListRuns(r.Context(), filter)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
 	responsehttpapi.Paged(w, runs, next, next != "")
+}
+
+// parseOffset parses ?offset for the page-number pagination mode (WRK-070 B4): absent/blank → not
+// offset mode (0, false, nil). A valid non-negative integer → (n, true, nil). Anything else
+// (non-numeric or negative) is a loud 422 reusing FLOWRUN_LIST_INVALID_FILTER — an offset is just
+// another list-filter parameter, and a bad value is the same "invalid filter value" as a bad
+// ?origin, so it shares the code with param=offset in Details (no second code for the same class of
+// mistake). Deliberately NOT ErrInvalidRequest (400, the ?limit path): offset is flowrun-list
+// grammar, so its rejection names the resource, matching the ?origin / window-bound stance.
+//
+// parseOffset 解析页码分页模式的 ?offset（WRK-070 B4）：缺席/空白 → 非 offset 模式（0, false, nil）。
+// 合法非负整数 → (n, true, nil)。其余（非数字或负数）大声 422、复用 FLOWRUN_LIST_INVALID_FILTER——
+// offset 只是又一个 list 过滤参数，坏值与坏 ?origin 是同一类「非法过滤值」，故共用此码、Details 带
+// param=offset（同类错误不另设第二个码）。刻意**不**用 ErrInvalidRequest（400，即 ?limit 路径）：
+// offset 是 flowrun 列表文法，其拒绝须点名资源，与 ?origin / 窗口界立场一致。
+func parseOffset(raw string) (offset int, useOffset bool, err error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return 0, false, nil
+	}
+	n, convErr := strconv.Atoi(raw)
+	if convErr != nil || n < 0 {
+		return 0, false, flowrundomain.ErrInvalidListFilter.WithDetails(map[string]any{
+			"param": "offset", "got": raw, "want": "non-negative integer",
+		})
+	}
+	return n, true, nil
 }
 
 // parseListTime parses one half-open window bound (?startedAfter / ?startedBefore on flowruns,

@@ -48,8 +48,22 @@ type ListFilter struct {
 	StartedBefore   time.Time // exclusive upper bound on started_at. started_at 不含上界。
 	CompletedAfter  time.Time // inclusive lower bound on completed_at; excludes unlanded. completed_at 含下界；剔除未落定。
 	CompletedBefore time.Time // exclusive upper bound on completed_at; excludes unlanded. completed_at 不含上界；剔除未落定。
-	Cursor          string
-	Limit           int
+
+	// Two MUTUALLY EXCLUSIVE pagination modes (WRK-070 B4). Cursor is the default keyset paging
+	// (newest-first, opaque continuation) every List endpoint speaks. UseOffset switches to
+	// OFFSET/page-number paging for the frontend's standard paginator (page numbers + jump-to-page):
+	// Offset is the 0-based row skip and ListRunsOffset additionally returns the total row count
+	// under the same filter (so the UI renders the page count). The transport rejects both modes at
+	// once (a Cursor alongside UseOffset) with a loud 422 — never silently picks one.
+	//
+	// 两种**互斥**分页模式（WRK-070 B4）。Cursor 是所有 List 端点通用的默认 keyset 分页（最新在前、
+	// 不透明续翻）。UseOffset 切到 OFFSET/页码分页，供前端标准翻页器（页码 + 跳页）：Offset 是 0 基的
+	// 跳过行数，ListRunsOffset 另返同过滤条件下的总行数（供 UI 渲页数）。transport 对同时给两种模式
+	// （Cursor 与 UseOffset 并存）大声 422——绝不静默择一。
+	Cursor    string
+	Limit     int
+	Offset    int  // 0-based row skip; consulted ONLY when UseOffset. 0 基跳过行数；仅 UseOffset 时消费。
+	UseOffset bool // true → offset/page-number paging (excludes Cursor). true → offset 页码分页（与 Cursor 互斥）。
 }
 
 // Repository persists the two flowrun tables. Both are Log tables (D1: never deleted).
@@ -69,9 +83,25 @@ type Repository interface {
 	// GetRun 按 id 取 run 头；未命中 ErrNotFound。
 	GetRun(ctx context.Context, id string) (*FlowRun, error)
 
-	// ListRuns pages a workspace's runs newest-first (optionally one workflow's).
-	// ListRuns 分页一个 workspace 的 run（最新优先，可限定单 workflow）。
+	// ListRuns pages a workspace's runs newest-first (optionally one workflow's) by the keyset
+	// cursor. Returns the page rows + the next cursor ("" when exhausted).
+	// ListRuns 按 keyset 游标分页一个 workspace 的 run（最新优先，可限定单 workflow）。返一页行 +
+	// 下一游标（取尽为 ""）。
 	ListRuns(ctx context.Context, filter ListFilter) ([]*FlowRun, string, error)
+
+	// ListRunsOffset pages a workspace's runs by OFFSET (page-number paginator) — the SAME filters
+	// and canonical (started_at, id) DESC order as ListRuns, plus `total`, the count of rows under
+	// the same filter (SQLite COUNT — single-user, negligible). The filter's WHERE is built once and
+	// reused for both the COUNT and the page so the two can never disagree; the invalid-filter guards
+	// (out-of-enum status/origin → 422) are identical to ListRuns. Offset mode is mutually exclusive
+	// with the keyset Cursor (the transport rejects both) — this method ignores filter.Cursor.
+	//
+	// ListRunsOffset 按 OFFSET 分页一个 workspace 的 run（页码翻页器）——与 ListRuns **同一**过滤 +
+	// 正典 (started_at, id) DESC 序，另返 `total`（同过滤条件下的行数，SQLite COUNT——单用户零负担）。
+	// 过滤 WHERE 只构建一次、COUNT 与页共用，故两者绝不打架；非法过滤守卫（枚举外 status/origin →
+	// 422）与 ListRuns 完全一致。offset 模式与 keyset Cursor 互斥（transport 拒双给）——本方法忽略
+	// filter.Cursor。
+	ListRunsOffset(ctx context.Context, filter ListFilter) (runs []*FlowRun, total int, err error)
 
 	// GetRunsByIDs batch-loads run headers by id (ONE query, workspace-scoped) — the inbox's
 	// bounded join to workflow context (工单④); missing ids are simply absent, never an error.

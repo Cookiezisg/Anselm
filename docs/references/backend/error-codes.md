@@ -43,12 +43,12 @@ audience: [human, ai]
 
 ---
 
-## 全量登记（318 码，按域）
+## 全量登记（319 码，按域）
 
-> `errorspkg.New` 机械抽取（307，不含 `*_test.go` 测试 sentinel 如 DUP/THING_NOT_FOUND）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（7）+ transport 合成码（4）= 318。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
+> `errorspkg.New` 机械抽取（308，不含 `*_test.go` 测试 sentinel 如 DUP/THING_NOT_FOUND）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（7）+ transport 合成码（4）= 319。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
 >
 > **复核方法**（本汇总数无机械守卫——`make docs` 只查结构/frontmatter/孤儿链接，`pkg/errors` 的 `standard_test.go` 只钉「一律走 `errorspkg.New`」+「码全局唯一」，**都不数总数**，故这三个数是**手工事实**、会随每次加码悄悄漂旧，改码时请一并重算）：
-> `grep -rn "errorspkg.New(" --include="*.go" backend | grep -v _test.go | wc -l` = 307 · `backend/internal/pkg/errors/sentinel.go` 的 bare `New` = 7 · transport 合成 = 4 · 登记表行数应恒等于总数（本次重算实测：抽取 307 行 = 307 个唯一 code，全部在表；表 318 行 = 307 + 7 + 4，三数对齐）。
+> `grep -rn "errorspkg.New(" --include="*.go" backend | grep -v _test.go | wc -l` = 308 · `backend/internal/pkg/errors/sentinel.go` 的 bare `New` = 7 · transport 合成 = 4 · 登记表行数应恒等于总数（本次重算实测：抽取 308 行 = 308 个唯一 code，全部在表；表 319 行 = 308 + 7 + 4，三数对齐）。
 
 ### `pkg/errors`（跨域 sentinel）
 
@@ -385,7 +385,8 @@ audience: [human, ai]
 | `FLOWRUN_APPROVAL_NOT_PARKED` | 422 | approval node is not awaiting a decision |
 | `FLOWRUN_INVALID_DECISION` | 422 | approval decision must be 'yes' or 'no' |
 | `FLOWRUN_INVALID_STATUS` | 422 | flowrun status filter must be one of: running, completed, failed, cancelled (F168-M2; `details.allowed`) |
-| `FLOWRUN_LIST_INVALID_FILTER` | 422 | invalid flowrun list filter value（工单⑥＋⑮：`?origin` 越出 RunOrigins 或 `?startedAfter`/`?startedBefore`/`?completedAfter`/`?completedBefore` 非 RFC3339；`details.param`/`got`，枚举再带 `allowed`——F168-M2 同立场，绝不静默空页） |
+| `FLOWRUN_LIST_INVALID_FILTER` | 422 | invalid flowrun list filter value（工单⑥＋⑮：`?origin` 越出 RunOrigins，或 `?startedAfter`/`?startedBefore`/`?completedAfter`/`?completedBefore` 非 RFC3339，或 `?offset` 非非负整数〔WRK-070 B4 页码分页——offset 只是又一个列表过滤参数,坏值与坏 `?origin` 同类,复用此码、`details.param=offset`,不另铸码〕；`details.param`/`got`，枚举再带 `allowed`——F168-M2 同立场，绝不静默空页） |
+| `FLOWRUN_LIST_CURSOR_OFFSET_CONFLICT` | 422 | flowrun list accepts either ?cursor (keyset) or ?offset (page number), not both（WRK-070 B4：`GET /flowruns` 同时给 `?cursor` 与 `?offset` 两种互斥分页模式——大声拒而非静默择一） |
 | `FLOWRUN_INVALID_ENTRY` | 422 | invalid or ambiguous trigger entry node |
 | `FLOWRUN_NOT_CANCELLABLE` | 422 | flowrun is not in a cancellable (running) state（工单② `:cancel`；含输给自然终态的 first-wins 竞态输家——已记录终态为准） |
 | `FLOWRUN_NOT_FOUND` | 404 | flowrun not found |

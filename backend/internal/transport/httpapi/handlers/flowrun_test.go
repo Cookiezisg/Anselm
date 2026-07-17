@@ -1,7 +1,10 @@
 package handlers
 
 import (
+	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -110,5 +113,90 @@ func TestParseRecentN(t *testing.T) {
 		if _, err := parseRecentN(bad); !errors.Is(err, errorspkg.ErrInvalidRequest) {
 			t.Fatalf("%q must reject with ErrInvalidRequest, got %v", bad, err)
 		}
+	}
+}
+
+// TestParseOffset pins the ?offset grammar (WRK-070 B4, page-number pagination): absent/blank →
+// NOT offset mode (0, false, no error); a non-negative integer → (n, true); anything else
+// (non-numeric, negative, float) → a loud 422 reusing FLOWRUN_LIST_INVALID_FILTER with param=offset
+// in Details — an offset is just another list filter, so a bad value shares the code with a bad
+// ?origin rather than minting a second one for the same class of mistake. Deliberately NOT
+// ErrInvalidRequest (the 400 ?limit path): offset is flowrun-list grammar, so its rejection names
+// the resource.
+//
+// TestParseOffset 钉 ?offset 文法（WRK-070 B4，页码分页）：缺席/空白 → **非** offset 模式（0, false,
+// 无错）；非负整数 → (n, true)；其余（非数字、负数、小数）→ 大声 422、复用 FLOWRUN_LIST_INVALID_FILTER、
+// Details 带 param=offset——offset 只是又一个 list 过滤，坏值与坏 ?origin 共用码、不为同类错误另铸一个。
+// 刻意**不**用 ErrInvalidRequest（400 的 ?limit 路径）：offset 是 flowrun 列表文法，其拒绝须点名资源。
+func TestParseOffset(t *testing.T) {
+	// Absent / blank → not offset mode. 缺席/空白 → 非 offset 模式。
+	for _, blank := range []string{"", "   "} {
+		if n, use, err := parseOffset(blank); err != nil || use || n != 0 {
+			t.Fatalf("blank %q must be (0,false,nil), got (%d,%v,%v)", blank, n, use, err)
+		}
+	}
+	// Valid non-negative integers → (n, true). 合法非负整数。
+	for raw, want := range map[string]int{"0": 0, "40": 40, "1000": 1000} {
+		if n, use, err := parseOffset(raw); err != nil || !use || n != want {
+			t.Fatalf("%q must be (%d,true,nil), got (%d,%v,%v)", raw, want, n, use, err)
+		}
+	}
+	// Bad values → 422 FLOWRUN_LIST_INVALID_FILTER (not ErrInvalidRequest), param=offset in Details.
+	// 坏值 → 422 FLOWRUN_LIST_INVALID_FILTER（非 ErrInvalidRequest），Details 带 param=offset。
+	for _, bad := range []string{"-1", "abc", "1.5", "3x", "0x10"} {
+		_, _, err := parseOffset(bad)
+		if !errors.Is(err, flowrundomain.ErrInvalidListFilter) {
+			t.Fatalf("%q must reject with ErrInvalidListFilter, got %v", bad, err)
+		}
+		var e *errorspkg.Error
+		if errors.As(err, &e) {
+			if e.Details["param"] != "offset" || e.Details["got"] != bad {
+				t.Fatalf("%q details must carry param=offset + got, got %+v", bad, e.Details)
+			}
+		}
+	}
+}
+
+// TestList_CursorOffsetConflict — WRK-070 B4: GET /flowruns given BOTH ?cursor and ?offset is a loud
+// 422 FLOWRUN_LIST_CURSOR_OFFSET_CONFLICT (two mutually exclusive pagination modes), and a malformed
+// ?offset alone is a 422 FLOWRUN_LIST_INVALID_FILTER. Both verdicts are reached in the transport
+// BEFORE any service read, so a nil service is safe (same technique as TestListFirings) — this pins
+// the routing + error codes without standing up a scheduler.
+//
+// TestList_CursorOffsetConflict — WRK-070 B4：GET /flowruns 同时给 ?cursor 与 ?offset 是大声 422
+// FLOWRUN_LIST_CURSOR_OFFSET_CONFLICT（两种互斥分页模式），单独给畸形 ?offset 是 422
+// FLOWRUN_LIST_INVALID_FILTER。两个判决都在 transport 里、任何 service 读之前作出，故 nil service 安全
+// （同 TestListFirings 技法）——无需立起 scheduler 即钉住路由 + 错误码。
+func TestList_CursorOffsetConflict(t *testing.T) {
+	h := NewFlowrunHandler(nil, nil)
+	mux := http.NewServeMux()
+	h.Register(mux)
+
+	cases := []struct {
+		name, url, wantCode string
+	}{
+		{"both modes", "/api/v1/flowruns?cursor=abc&offset=40", "FLOWRUN_LIST_CURSOR_OFFSET_CONFLICT"},
+		{"both, malformed offset still conflict", "/api/v1/flowruns?cursor=abc&offset=nope", "FLOWRUN_LIST_CURSOR_OFFSET_CONFLICT"},
+		{"malformed offset alone", "/api/v1/flowruns?offset=-5", "FLOWRUN_LIST_INVALID_FILTER"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, tc.url, nil))
+			if rec.Code != http.StatusUnprocessableEntity {
+				t.Fatalf("%s: status = %d, want 422 (body %s)", tc.url, rec.Code, rec.Body)
+			}
+			var body struct {
+				Error struct {
+					Code string `json:"code"`
+				} `json:"error"`
+			}
+			if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+				t.Fatalf("%s: envelope: %v (%s)", tc.url, err, rec.Body)
+			}
+			if body.Error.Code != tc.wantCode {
+				t.Fatalf("%s: code = %q, want %q", tc.url, body.Error.Code, tc.wantCode)
+			}
+		})
 	}
 }
