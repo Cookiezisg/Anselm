@@ -16,6 +16,7 @@ import 'package:anselm/features/documents/data/documents_demo_fixture.dart';
 import 'package:anselm/features/documents/state/document_state.dart';
 import 'package:anselm/core/runtime.dart';
 import 'package:anselm/core/shell/oceans.dart';
+import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/core/shell/shell_chrome.dart';
 import 'package:anselm/core/ui/an_sidebar_footer.dart';
 import 'package:anselm/core/ui/icons.dart';
@@ -25,6 +26,8 @@ import 'package:anselm/features/chat/data/chat_providers.dart';
 import 'package:anselm/features/chat/state/selected_conversation.dart';
 import 'package:anselm/features/entities/data/entity_demo_fixture.dart';
 import 'package:anselm/features/notifications/data/notification_demo_fixture.dart';
+import 'package:anselm/features/scheduler/data/scheduler_demo_fixture.dart';
+import 'package:anselm/features/scheduler/data/scheduler_repository.dart';
 import 'package:anselm/features/notifications/data/notification_providers.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
 import 'package:anselm/features/entities/data/entity_providers.dart';
@@ -62,8 +65,13 @@ const _run = String.fromEnvironment('RUN');
 // Optional `--dart-define=COLLAPSE=1` collapses the left island (verify reopen-after-lights layout). 收起左岛。
 const _collapse = String.fromEnvironment('COLLAPSE');
 // Optional `--dart-define=OCEAN=chat|scheduler|documents|settings` switches the ocean (verify the
-// switcher + "coming soon" placeholder for an unbuilt ocean / the gear→settings ocean). 切换海洋。
+// switcher / the gear→settings ocean). 切换海洋。
 const _ocean = String.fromEnvironment('OCEAN');
+// Optional `--dart-define=SCHEDW=wf_clean` deep-links the scheduler operations home; add
+// `--dart-define=SCHEDRUN=<fr_id>` to expand that run's inline peek card (0717 主页重建帧).
+// 深链 scheduler 运营主页;SCHEDRUN=展开该行的行内速览卡。
+const _schedWf = String.fromEnvironment('SCHEDW');
+const _schedRun = String.fromEnvironment('SCHEDRUN');
 // Optional `--dart-define=NOTIF=1` opens the notifications tray (bell) — verify it takes over the left
 // island. 拉开通知托盘,验它接管左岛。
 const _notif = String.fromEnvironment('NOTIF');
@@ -136,6 +144,9 @@ void main() {
         chatRepositoryProvider.overrideWithValue(demoChatRepository()),
         notificationRepositoryProvider.overrideWithValue(demoNotificationRepository()),
         documentsRepositoryProvider.overrideWithValue(demoDocumentsRepository()),
+        // Was missing — a scheduler frame captured against the LIVE repo renders error faces
+        // (发现于主页重建:矩阵常驻后此缺口立刻可见). demo 缺 scheduler override 的既有缺口,补上。
+        schedulerRepositoryProvider.overrideWithValue(demoSchedulerRepository()),
         goRouterProvider.overrideWith(buildAppRouter),
       ],
       child: TranslationProvider(child: const _CaptureApp()),
@@ -153,6 +164,27 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300)); // the switch animation settles 切换动画落定
       outName = '${outName}_$_ocean';
+    }
+
+    // Deep-link to the scheduler operations home (real navigation) — captures the rebuilt page:
+    // range capsule + top matrix (anchored newest) + run table (+ optional expanded peek card).
+    // 深链 scheduler 运营主页:胶囊+页顶矩阵+大表(+可选展开速览卡)。
+    if (_schedWf.isNotEmpty) {
+      final loc = _schedRun.isEmpty
+          ? '/scheduler/w/$_schedWf'
+          : '/scheduler/w/$_schedWf?run=$_schedRun';
+      container.read(goRouterProvider).go(loc);
+      for (var i = 0; i < 15; i += 1) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 40)));
+        await tester.pump(const Duration(milliseconds: 80));
+      }
+      outName = '${outName}_w';
+      if (_schedRun.isNotEmpty) {
+        // Scroll the expanded peek card into the frame (its gantt is the card's body). 滚卡入帧。
+        await tester.ensureVisible(find.byType(AnNodeGantt).first);
+        await tester.pump(const Duration(milliseconds: 300));
+        outName = '${outName}_peek';
+      }
     }
 
     // Deep-link to a document (real navigation) — the documents ocean real-app check (editor renders the
