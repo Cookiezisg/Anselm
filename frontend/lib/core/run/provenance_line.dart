@@ -20,6 +20,21 @@ String runStatusWord(Translations t, String status) => switch (status) {
       _ => status,
     };
 
+/// The flowrun/node LIFECYCLE status → its word (running/completed/failed/parked/cancelled) — a
+/// DIFFERENT closed set from [runStatusWord]'s exec domain (ok/timeout), which would leak the raw
+/// wire word for `completed`/`running`/`parked` (复审 0717-晚: the matrix tooltips spoke English in
+/// zh-CN). `parked` reuses the node ledger's wait word — same surface, same vocabulary.
+/// flowrun/节点**生命周期**状态词——与 runStatusWord 的执行域(ok/timeout)是两个封闭集,错用会把
+/// completed/running/parked 的线缆词漏成英文;parked 复用节点台账的「等待」同词。
+String flowrunStatusWord(Translations t, String status) => switch (status) {
+      'running' => t.run.runStatusRunning,
+      'completed' => t.run.runCompleted,
+      'failed' => t.run.failed,
+      'parked' => t.run.nodeWait,
+      'cancelled' => t.run.runCancelled,
+      _ => status,
+    };
+
 /// A run's provenance line — WHERE it came from. Navigable coordinates (conversation → /chat, trigger →
 /// its panel) are ref pills; non-panel coordinates (message / firing / node#iteration) are mono
 /// copy-badges (they have no deep-link target, NEVER a dead pill). ProvenanceLine 出处行。

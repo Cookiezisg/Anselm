@@ -203,4 +203,44 @@ void main() {
       expect(c.completed, 0);
     });
   });
+
+  // The FULL wire-word mapping, branch by branch — the absolute pair is the ONLY spot in the app
+  // that emits a non-null `until` (需求②/后端 089060f2 的整个前端理由), so a regression here would
+  // silently revert the sentence to [since, now) with every other test green (复审 0717-晚).
+  // statsWindowOf 全分支:绝对对是全 app 唯一发 until 的地方——它退化即静默废掉 until 特性,故逐支锁死。
+  group('statsWindowOf — the flowrun-stats wire words (需求②)', () {
+    final now = DateTime(2026, 7, 17, 19, 30);
+
+    test('duration presets ride the duration grammar, until absent (now-anchored)', () {
+      expect(statsWindowOf(const AnPresetRange(AnTimePreset.h24), now),
+          (since: '24h', until: null));
+      expect(statsWindowOf(const AnPresetRange(AnTimePreset.d7), now),
+          (since: '168h', until: null));
+      expect(statsWindowOf(const AnPresetRange(AnTimePreset.d30), now),
+          (since: '720h', until: null));
+    });
+
+    test('«today» = local midnight as RFC3339 UTC, until absent', () {
+      final w = statsWindowOf(const AnPresetRange(AnTimePreset.today), now);
+      expect(w.since, DateTime(2026, 7, 17).toUtc().toIso8601String());
+      expect(w.until, isNull);
+      expect(DateTime.tryParse(w.since), isNotNull, reason: '后端 parseSince 只认 RFC3339/时长');
+    });
+
+    test('«all» = the epoch (stats has no unbounded spelling; absent-since defaults to 7d)', () {
+      expect(statsWindowOf(const AnPresetRange(AnTimePreset.all), now),
+          (since: '1970-01-01T00:00:00Z', until: null));
+    });
+
+    test('absolute pair = RFC3339 both ends; until = inclusive minute end pushed one minute '
+        '(半开 [from, to+1min) — the ONE non-null until emitter)', () {
+      final r = AnAbsoluteRange(
+          from: DateTime(2026, 7, 1, 9, 0), to: DateTime(2026, 7, 2, 18, 30));
+      final w = statsWindowOf(r, now);
+      expect(w.since, DateTime(2026, 7, 1, 9, 0).toUtc().toIso8601String());
+      expect(w.until, DateTime(2026, 7, 2, 18, 31).toUtc().toIso8601String(),
+          reason: '闭分钟端 18:30 → 开端 18:31,与 resolveTimeRange 同一条推分钟律');
+      expect(DateTime.tryParse(w.until!), isNotNull);
+    });
+  });
 }

@@ -253,10 +253,15 @@ class _HealthHeadState extends ConsumerState<_HealthHead> {
     // not the range's). 击杀影响面读 rail 的**此刻**在跑数(刻意不随范围)。
     final running = widget.stats?.running ?? 0;
     // The stats sentence FOLLOWS the page-level range (需求②) — its own 1-id fetch, window word =
-    // the capsule's word, so the sentence can never quote a window the capsule doesn't govern.
-    // 统计句跟随页级范围——独立 1-id 取数,窗口词=胶囊之词,句子不可能引用胶囊管不着的窗。
+    // the capsule's word. Numbers render ONLY when the resolved answer's range stamp matches the
+    // capsule (复审 0717-晚): during a capsule-switch reload Riverpod keeps the previous value, and
+    // pairing the new window word with the old range's numbers would be a factually false sentence
+    // — so the switch renders «—» until the new window's numbers land.
+    // 统计句跟随页级范围——独立 1-id 取数,窗口词=胶囊之词;数字只在答案的范围章与胶囊相符时渲染:换
+    // 胶囊的 reload 期间 Riverpod 保留旧值,新窗口词配旧范围数字=句子撒谎,故切换期渲「—」等新数落地。
     final range = ref.watch(schedulerTimeRangeProvider);
-    final rangeStats = ref.watch(schedulerRangeStatsProvider(widget.row.id)).value;
+    final stamped = ref.watch(schedulerRangeStatsProvider(widget.row.id)).value;
+    final rangeStats = stamped != null && stamped.range == range ? stamped.stats : null;
     final successRate = rangeStats?.successRate;
     final avgMs = rangeStats?.avgElapsedMs;
 
@@ -968,7 +973,7 @@ class _MatrixZone extends ConsumerWidget {
             elapsedMs: col.elapsedMs,
             label: '${t.matrixColA11y(
               src: srcOf(col.flowrunId),
-              status: runStatusWord(context.t, col.status),
+              status: flowrunStatusWord(context.t, col.status),
               // A run still going has no elapsed — say «running», never a fabricated duration.
               // 在跑的 run 无耗时——说「在跑」,绝不编一个时长。
               d: col.elapsedMs == null
@@ -984,7 +989,7 @@ class _MatrixZone extends ConsumerWidget {
           status: cell.status,
           iterations: cell.iterations,
           label: t.matrixCellA11y(
-              node: nodeId, status: runStatusWord(context.t, cell.status), n: '${cell.iterations}'),
+              node: nodeId, status: flowrunStatusWord(context.t, cell.status), n: '${cell.iterations}'),
         );
       },
       // The `?run=` expanded row's column — one selection projected in both zones. ?run= 列点亮。
@@ -1004,11 +1009,11 @@ class _MatrixZone extends ConsumerWidget {
           node: row.nodeId,
           status: cell == null
               ? t.matrixNotReached
-              : runStatusWord(context.t, cell.status),
+              : flowrunStatusWord(context.t, cell.status),
           n: '${cell?.iterations ?? 0}'),
       colSemanticLabel: (col) => t.matrixColA11y(
           src: srcOf(col.id),
-          status: runStatusWord(context.t, col.status),
+          status: flowrunStatusWord(context.t, col.status),
           d: col.elapsedMs == null
               ? t.matrixRunning
               : fmtDuration(Duration(milliseconds: col.elapsedMs!))),

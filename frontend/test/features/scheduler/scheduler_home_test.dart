@@ -7,6 +7,7 @@ import 'package:anselm/core/contract/entities/workflow.dart';
 import 'package:anselm/core/contract/retention.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/design/tokens.dart';
+import 'package:anselm/core/model/time_range.dart';
 import 'package:anselm/core/run/run_ledger.dart';
 import 'package:anselm/core/runtime.dart';
 import 'package:anselm/core/sse/frame.dart';
@@ -310,6 +311,55 @@ void main() {
           reason: '句子的统计真按新窗重取(预设走时长文法)');
       expect(find.textContaining(t.scheduler.range.h24), findsWidgets,
           reason: '窗口词换成 24h——句囊永不打架');
+    });
+
+    testWidgets('an ABSOLUTE range sends `until` on the stats wire — the app\'s ONE non-null-until '
+        'emitter reaches the repo (需求②/后端 089060f2 的整个前端理由)', (tester) async {
+      final repo = _repo();
+      await _pump(tester, repo);
+      repo.statsWindows.clear();
+      final container =
+          ProviderScope.containerOf(tester.element(find.byType(AnOceanHeader)));
+      final from = DateTime(2026, 7, 1, 9, 0);
+      final to = DateTime(2026, 7, 2, 18, 30);
+      container
+          .read(schedulerTimeRangeProvider.notifier)
+          .set(AnAbsoluteRange(from: from, to: to));
+      await tester.pump();
+      await _settle(tester);
+      expect(
+          repo.statsWindows.any((w) =>
+              w.since == from.toUtc().toIso8601String() &&
+              w.until == to.add(const Duration(minutes: 1)).toUtc().toIso8601String()),
+          isTrue,
+          reason: '绝对对上线缆:since/until 皆 RFC3339,until=闭分钟端后推一分钟');
+    });
+
+    testWidgets('a range switch renders «—» while the new window\'s numbers are IN FLIGHT — the '
+        'sentence never pairs the new word with the old range\'s numbers (范围章,复审 0717-晚)',
+        (tester) async {
+      final repo = _repo();
+      await _pump(tester, repo);
+      expect(find.text(h.statsLine(window: t.scheduler.range.d7, rate: '80%', avg: '42.0s')),
+          findsOneWidget);
+      repo.statsLatency = const Duration(milliseconds: 300);
+      final container =
+          ProviderScope.containerOf(tester.element(find.byType(AnOceanHeader)));
+      container
+          .read(schedulerTimeRangeProvider.notifier)
+          .set(const AnPresetRange(AnTimePreset.h24));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      // In flight: the NEW word with honest dashes — never the old 7d numbers under a 24h label.
+      // 在飞:新窗口词配诚实「—」——绝不让 24h 的帽子戴在 7d 的数字上。
+      expect(find.text(h.statsLine(window: t.scheduler.range.h24, rate: '—', avg: '—')),
+          findsOneWidget, reason: '范围章不符=只render词不render数');
+      expect(find.text(h.statsLine(window: t.scheduler.range.h24, rate: '80%', avg: '42.0s')),
+          findsNothing, reason: '新词配旧数=句子撒谎');
+      await tester.pump(const Duration(milliseconds: 400));
+      await _settle(tester);
+      expect(find.text(h.statsLine(window: t.scheduler.range.h24, rate: '80%', avg: '42.0s')),
+          findsOneWidget, reason: '新窗数字落地,句子完整');
     });
 
     testWidgets('Run now hits :trigger and reports the new run', (tester) async {

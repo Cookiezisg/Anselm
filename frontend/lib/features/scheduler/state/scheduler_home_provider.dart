@@ -62,17 +62,24 @@ final schedulerLinkedRunProvider =
 /// 1-id batch per (workflow, range), windows mapped by [statsWindowOf] (presets = live durations,
 /// absolute = RFC3339 pair with `until`). The rail's own 7d batch keeps feeding the rail dots —
 /// this page's sentence stops quoting a window the capsule doesn't govern.
+///
+/// The answer is STAMPED with the range it was computed for (复审 0717-晚): on a capsule switch,
+/// Riverpod's reload keeps the PREVIOUS value in flight — the widget must not pair the new window
+/// word with those old numbers, and the stamp is how it tells. A same-range rail-pulse reload keeps
+/// its stamp, so the sentence never blinks on ordinary ledger beats.
 /// 健康句统计**跟随页级范围**:每 (workflow, 范围) 一次 1-id 批查,窗按 statsWindowOf 映射(预设=活
-/// 时长/绝对=RFC3339 对带 until)。rail 自己的 7d 批照旧喂点;本页句子不再引用胶囊管不着的窗。
-final schedulerRangeStatsProvider =
-    FutureProvider.autoDispose.family<WorkflowRunStats?, String>((ref, workflowId) async {
+/// 时长/绝对=RFC3339 对带 until)。rail 自己的 7d 批照旧喂点。**答案盖范围章**:换胶囊时 Riverpod
+/// reload 在飞期间保留旧值——widget 绝不许把新窗口词配旧数字,凭章分辨;同范围的 rail 节拍重载章
+/// 不变,句子在寻常落账节拍上不闪。
+final schedulerRangeStatsProvider = FutureProvider.autoDispose
+    .family<({AnTimeRange range, WorkflowRunStats? stats}), String>((ref, workflowId) async {
   final range = ref.watch(schedulerTimeRangeProvider);
   await ref.watch(schedulerRailProvider.future);
   final w = statsWindowOf(range, DateTime.now());
   final s = await ref
       .watch(schedulerRepositoryProvider)
       .stats([workflowId], since: w.since, until: w.until);
-  return s.byWorkflow.isEmpty ? null : s.byWorkflow.first;
+  return (range: range, stats: s.byWorkflow.isEmpty ? null : s.byWorkflow.first);
 }, retry: (_, _) => null);
 
 /// The top-of-page matrix window (工单⑩, 主页重建拍板 0717): pages of runs inside the page-level

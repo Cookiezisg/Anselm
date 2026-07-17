@@ -803,8 +803,7 @@
       "matrixCoordA11y": "第 $r 行 共 $rows 行,第 $c 列 共 $cols 列",
       "crumbRoot": "调度",
       "rowCancel": "终止",
-      "rowRetry": "重试",
-      "runIdLabel": "运行 $id"
+      "rowRetry": "重试"
     },
     "run": {
       "crumb": "Scheduler / $name / $id",

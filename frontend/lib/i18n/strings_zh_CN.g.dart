@@ -1306,7 +1306,6 @@ class _Translations$scheduler$home$zh_CN extends Translations$scheduler$home$en 
 	@override String get crumbRoot => '调度';
 	@override String get rowCancel => '终止';
 	@override String get rowRetry => '重试';
-	@override String runIdLabel({required Object id}) => '运行 ${id}';
 }
 
 // Path: scheduler.run
@@ -3235,7 +3234,6 @@ extension on TranslationsZhCn {
 			'scheduler.home.crumbRoot' => '调度',
 			'scheduler.home.rowCancel' => '终止',
 			'scheduler.home.rowRetry' => '重试',
-			'scheduler.home.runIdLabel' => ({required Object id}) => '运行 ${id}',
 			'scheduler.run.crumb' => ({required Object name, required Object id}) => 'Scheduler / ${name} / ${id}',
 			'scheduler.run.notFoundTitle' => '找不到这次运行',
 			'scheduler.run.notFoundHint' => '它可能已被保留策略清理。从 workflow 里另选一次运行。',
@@ -3486,9 +3484,9 @@ extension on TranslationsZhCn {
 			'entities.detail.sec.runtime' => '常驻状态',
 			'entities.detail.sec.initArgs' => 'init 参数',
 			'entities.detail.sec.methods' => '方法',
+			'entities.detail.sec.prompt' => '提示词',
 			_ => null,
 		} ?? switch (path) {
-			'entities.detail.sec.prompt' => '提示词',
 			'entities.detail.sec.capabilities' => '能力挂载',
 			'entities.detail.sec.mountHealth' => '挂载健康',
 			'entities.detail.sec.governance' => '运行治理',
@@ -4000,9 +3998,9 @@ extension on TranslationsZhCn {
 			'settings.mcp.tabStderr' => 'stderr',
 			'settings.mcp.lastError' => '最近错误',
 			'settings.mcp.consecutiveFailures' => '连续失败',
+			'settings.mcp.noTools' => '无工具',
 			_ => null,
 		} ?? switch (path) {
-			'settings.mcp.noTools' => '无工具',
 			'settings.mcp.noCalls' => '暂无调用',
 			'settings.mcp.noStderr' => '暂无输出',
 			'settings.mcp.callsAgg' => ({required Object ok, required Object failed}) => '✓ ${ok} · ✗ ${failed}',

@@ -159,6 +159,11 @@ class StubSchedulerRepo implements SchedulerRepository {
   /// Optional replay latency (the batch's per-row pending face). 重放延迟:观察批中挂账脸。
   Duration replayLatency = Duration.zero;
 
+  /// Optional stats latency — lets a widget test hold the range-switch refetch IN FLIGHT and
+  /// observe the stamped sentence's honest «—» (复审 0717-晚:新窗口词绝不配旧范围数字).
+  /// 统计延迟:把换范围的重取扣在飞行中,观察范围章句子的诚实「—」。
+  Duration statsLatency = Duration.zero;
+
   @override
   Future<List<SchedulerWorkflowRow>> listWorkflows() async {
     if (failWorkflows) throw StateError('backend down');
@@ -168,6 +173,7 @@ class StubSchedulerRepo implements SchedulerRepository {
   @override
   Future<SchedulerStats> stats(List<String> workflowIds,
       {int recentN = 10, String since = '168h', String? until}) async {
+    if (statsLatency > Duration.zero) await Future<void>.delayed(statsLatency);
     statsWindows.add((since: since, until: until));
     statsSinces.add(since);
     return SchedulerStats(

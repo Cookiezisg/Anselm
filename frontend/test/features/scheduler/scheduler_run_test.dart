@@ -13,6 +13,7 @@ import 'package:anselm/features/scheduler/ui/scheduler_run_inspector.dart';
 import 'package:anselm/features/scheduler/ui/scheduler_run_relay.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -204,6 +205,12 @@ GoRouter _router(GlobalKey<NavigatorState> navKey, {String? node, int? iter, boo
         path: '/scheduler/runs/:frId',
         builder: (c, s) => SchedulerRunRelayView(flowrunId: s.pathParameters['frId']!),
       ),
+      // The ✕/bare-Esc exit's landing pad (需求⑥) — the operations home, stubbed to a marker.
+      // ✕/裸 Esc 出口的落点:运营主页,桩成标记。
+      GoRoute(
+        path: '/scheduler/w/:wfId',
+        builder: (c, s) => Text('HOME LANDED ${s.pathParameters['wfId']}'),
+      ),
       GoRoute(
         path: '/scheduler/w/:wfId/runs/:frId',
         builder: (c, s) => Scaffold(
@@ -392,6 +399,44 @@ void main() {
       final router = GoRouter.of(tester.element(find.byType(SchedulerRunView)));
       expect(router.routerDelegate.currentConfiguration.uri.queryParameters['node'], isNull);
       expect(find.text(t.scheduler.run.dossierTitle), findsOneWidget);
+    });
+
+    // The Esc LADDER's two rungs (需求⑥ 0717-晚, 复审: interactive code must not land untested).
+    // The key rides the page's own CallbackShortcuts+Focus (settings 先例, 真机验证过的形) — the
+    // test puts focus inside that subtree the way any page interaction does.
+    // Esc 阶梯两档:键挂页自己的 CallbackShortcuts+Focus(设置先例);测试照真用把焦点放进该子树。
+    testWidgets('Esc rung 1: WITH a node selection, Esc clears it and STAYS on the flagship',
+        (tester) async {
+      _desktop(tester);
+      await _pump(tester, _repo(), node: 'fetch', iter: 0);
+      Focus.of(tester.element(find.byType(AnPage).first)).requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      final router = GoRouter.of(tester.element(find.byType(SchedulerRunView)));
+      final uri = router.routerDelegate.currentConfiguration.uri;
+      expect(uri.queryParameters['node'], isNull, reason: '第一档:清选区');
+      expect(uri.path, '/scheduler/w/wf_a/runs/fr_run1', reason: '还在旗舰,不出门');
+      expect(find.text(t.scheduler.run.dossierTitle), findsOneWidget);
+    });
+
+    testWidgets('Esc rung 2: with NOTHING selected, Esc IS the ✕ — back to the operations home',
+        (tester) async {
+      _desktop(tester);
+      await _pump(tester, _repo());
+      Focus.of(tester.element(find.byType(AnPage).first)).requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.text('HOME LANDED wf_a'), findsOneWidget,
+          reason: '第二档:无选区的裸 Esc=✕,回运营主页');
+      // Ride out the route transition before asserting the flagship LEFT the tree (fixed pumps —
+      // the suite never settles). 等转场走完再断言旗舰离树(固定 pump,套件不 settle)。
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.byType(SchedulerRunView), findsNothing);
     });
   });
 
