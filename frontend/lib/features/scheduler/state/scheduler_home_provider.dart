@@ -142,7 +142,17 @@ class SchedulerMatrixWindowController extends AsyncNotifier<MatrixWindowState> {
           ? const FlowrunMatrix()
           : await repo.runMatrix([for (final run in page.items) run.id]);
       if (!ref.mounted) return;
-      final cur = state.value ?? s;
+      final curAsync = state;
+      final cur = curAsync.value;
+      // Merge ONLY onto the exact, SETTLED window this fetch left from (复审 [4], 探针实测定罪):
+      //  · `identical(matrix)` rejects a window already REPLACED by a finished rebuild;
+      //  · `isLoading` rejects a rebuild still IN FLIGHT — measured: assigning state mid-rebuild
+      //    makes Riverpod DISCARD the pending build result, so the old-range merge would not just
+      //    mix histories, it would throw the new range's page 1 away entirely.
+      // 只归并到出发时那扇**已落定**的窗:identical 拒「重建已落地换过窗」;isLoading 拒「重建仍在飞」
+      // ——实测:重建在飞时手动赋值会让 Riverpod **作废**在飞的 build 结果,旧范围归并不止混史,还会把
+      // 新范围的首页整个扔掉。
+      if (cur == null || curAsync.isLoading || !identical(cur.matrix, s.matrix)) return;
       final merged = _merge(cur.matrix, older);
       final next = page.isLastPage ? null : page.nextCursor;
       state = AsyncData(cur.copyWith(
@@ -154,9 +164,13 @@ class SchedulerMatrixWindowController extends AsyncNotifier<MatrixWindowState> {
       ));
     } catch (_) {
       if (!ref.mounted) return;
-      // An older page is optional history — keep the window standing, drop the busy flag.
-      // 旧页是可选历史——窗照旧站着,只收 busy 旗。
-      state = AsyncData((state.value ?? s).copyWith(loadingOlder: false));
+      // An older page is optional history — keep the window standing, drop the busy flag. Same
+      // settled-window guard as the merge: touching state mid-rebuild discards the pending build.
+      // 旧页是可选历史——窗照旧站着,只收 busy 旗;同款落定窗守卫(重建在飞时碰 state 会作废其结果)。
+      final curAsync = state;
+      final cur = curAsync.value;
+      if (cur == null || curAsync.isLoading || !identical(cur.matrix, s.matrix)) return;
+      state = AsyncData(cur.copyWith(loadingOlder: false));
     }
   }
 
@@ -208,6 +222,9 @@ class RunTableState {
     this.origin,
     this.failedCount = 0,
     this.failedCountCapped = false,
+    this.runningCount = 0,
+    this.runningCountCapped = false,
+    this.waitingCount = 0,
     this.newRuns = 0,
   });
 
@@ -219,6 +236,14 @@ class RunTableState {
   final String? origin;
   final int failedCount;
   final bool failedCountCapped;
+
+  /// Range-scoped running/waiting badge numbers, probed through the SAME `GET /flowruns` grammar
+  /// the rows use (复审 [5] 口径同源:牌与列表必须是同一个事实——stats.running 是「此刻」的全史数,
+  /// 而行按 started_at 落在页级时间范围里,两者在窗口边缘会打架成「牌上写 3、点开列表显示 4」)。
+  /// waiting = 范围内 running 探针行 ∩ rail 收件箱 run id(与等人过滤的成员集同源)。
+  final int runningCount;
+  final bool runningCountCapped;
+  final int waitingCount;
   final int newRuns;
 
   RunTableState copyWith({
@@ -232,6 +257,9 @@ class RunTableState {
     bool clearOrigin = false,
     int? failedCount,
     bool? failedCountCapped,
+    int? runningCount,
+    bool? runningCountCapped,
+    int? waitingCount,
     int? newRuns,
   }) =>
       RunTableState(
@@ -243,6 +271,9 @@ class RunTableState {
         origin: clearOrigin ? null : (origin ?? this.origin),
         failedCount: failedCount ?? this.failedCount,
         failedCountCapped: failedCountCapped ?? this.failedCountCapped,
+        runningCount: runningCount ?? this.runningCount,
+        runningCountCapped: runningCountCapped ?? this.runningCountCapped,
+        waitingCount: waitingCount ?? this.waitingCount,
         newRuns: newRuns ?? this.newRuns,
       );
 }
@@ -260,15 +291,23 @@ class SchedulerRunTableController extends AsyncNotifier<RunTableState> {
   @override
   Future<RunTableState> build() async {
     // The page-level range governs this table too — a range change rebuilds page 1 (主页重建拍板
-    // 0717). 页级范围同治大表:范围一变即回第一页重建。
+    // 0717). The user's OTHER picks survive the rebuild: filter/origin ride over from the previous
+    // state (复审 [6] — a lens change must not silently wipe the status/origin filters; on the very
+    // first build there is no previous and the defaults stand).
+    // 页级范围同治大表:范围一变即回第一页重建;但用户的**另两个**选择跨重建存活——filter/origin 从上一
+    // 状态带过(复审 [6]:换镜头不许悄悄清掉状态/来源过滤;首建无前态,走默认)。
     ref.watch(schedulerTimeRangeProvider);
+    final prev = state.value;
     final gateway = ref.watch(sseGatewayProvider);
     if (gateway != null) {
       final sub =
           gateway.kindStream(StreamName.entities, 'workflow').listen(_onFrame);
       ref.onDispose(sub.cancel);
     }
-    return _fetch(const RunTableState());
+    return _fetch(RunTableState(
+      filter: prev?.filter ?? RunStatusFilter.all,
+      origin: prev?.origin,
+    ));
   }
 
   // ── durable frames (活性军规) ──────────────────────────────────────────────
@@ -307,23 +346,31 @@ class SchedulerRunTableController extends AsyncNotifier<RunTableState> {
       if (!ref.mounted) return;
       final s = state.value;
       if (s == null) return;
+      final probes = await _probes(s);
+      if (!ref.mounted) return;
+      // Patch rows off the state AS IT IS NOW — every await above yields, and a loadMore/filter
+      // change that landed meanwhile must not be overwritten by a pre-await snapshot (复审 [3]:
+      // 旧快照回写会吞掉并发落地的一页/别的终态补丁).
+      // 行补丁基于**现在**的 state——上面的每个 await 都让出执行权,期间落地的翻页/换滤不许被旧快照回写。
+      final cur = state.value;
+      if (cur == null) return;
       final f = runListFilter(
-          filter: s.filter,
-          origin: s.origin,
+          filter: cur.filter,
+          origin: cur.origin,
           range: ref.read(schedulerTimeRangeProvider),
           now: DateTime.now());
       final stillMatches = f.status == null || run.status == f.status;
       final rows = [
-        for (final r in s.rows)
+        for (final r in cur.rows)
           if (r.id != frId) r else if (stillMatches) run,
       ];
-      final probe = await _failedProbe(s);
-      if (!ref.mounted) return;
-      final cur = state.value ?? s;
       state = AsyncData(cur.copyWith(
         rows: rows,
-        failedCount: probe.$1,
-        failedCountCapped: probe.$2,
+        failedCount: probes.failedCount,
+        failedCountCapped: probes.failedCapped,
+        runningCount: probes.runningCount,
+        runningCountCapped: probes.runningCapped,
+        waitingCount: probes.waitingCount,
       ));
     } catch (_) {
       // A reconcile read is best-effort — the row keeps its last durable truth. 对账尽力而为。
@@ -332,22 +379,51 @@ class SchedulerRunTableController extends AsyncNotifier<RunTableState> {
 
   // ── fetch ─────────────────────────────────────────────────────────────────
 
-  Future<(int, bool)> _failedProbe(RunTableState s) async {
+  /// The count strip's numbers, probed through the SAME grammar as the rows (复审 [5] 口径同源):
+  /// failed + running each one range-scoped page (≤probeCap, capped renders «50+»); waiting =
+  /// running-probe rows ∩ the rail inbox's run ids (the same membership set the waiting filter
+  /// lists). 计数条数字与行同文法探针;等人=范围内 running 探针 ∩ 收件箱 id(与等人过滤成员集同源)。
+  Future<
+      ({
+        int failedCount,
+        bool failedCapped,
+        int runningCount,
+        bool runningCapped,
+        int waitingCount
+      })> _probes(RunTableState s) async {
     final repo = ref.read(schedulerRepositoryProvider);
-    final f = runListFilter(
-        filter: RunStatusFilter.failed,
-        origin: s.origin,
-        range: ref.read(schedulerTimeRangeProvider),
-        now: DateTime.now());
-    final page = await repo.listFlowruns(
+    final range = ref.read(schedulerTimeRangeProvider);
+    final failed = runListFilter(
+        filter: RunStatusFilter.failed, origin: s.origin, range: range, now: DateTime.now());
+    final running = runListFilter(
+        filter: RunStatusFilter.running, origin: s.origin, range: range, now: DateTime.now());
+    final failedPage = await repo.listFlowruns(
       workflowId: workflowId,
-      status: f.status,
-      origin: f.origin,
-      startedAfter: f.startedAfter,
-      startedBefore: f.startedBefore,
+      status: failed.status,
+      origin: failed.origin,
+      startedAfter: failed.startedAfter,
+      startedBefore: failed.startedBefore,
       limit: probeCap,
     );
-    return (page.items.length, page.hasMore);
+    final runningPage = await repo.listFlowruns(
+      workflowId: workflowId,
+      status: running.status,
+      origin: running.origin,
+      startedAfter: running.startedAfter,
+      startedBefore: running.startedBefore,
+      limit: probeCap,
+    );
+    final rail = await ref.read(schedulerRailProvider.future);
+    final waiting = waitingRunIds(rail.inbox, workflowId).toSet();
+    final waitingCount =
+        runningPage.items.where((r) => waiting.contains(r.id)).length;
+    return (
+      failedCount: failedPage.items.length,
+      failedCapped: failedPage.hasMore,
+      runningCount: runningPage.items.length,
+      runningCapped: runningPage.hasMore,
+      waitingCount: waitingCount,
+    );
   }
 
   Future<RunTableState> _fetch(RunTableState s) async {
@@ -388,15 +464,18 @@ class SchedulerRunTableController extends AsyncNotifier<RunTableState> {
       more = page.hasMore;
     }
 
-    final probe = await _failedProbe(s);
+    final probes = await _probes(s);
     return s.copyWith(
       rows: rows,
       nextCursor: next,
       clearCursor: next == null,
       hasMore: more,
       loadingMore: false,
-      failedCount: probe.$1,
-      failedCountCapped: probe.$2,
+      failedCount: probes.failedCount,
+      failedCountCapped: probes.failedCapped,
+      runningCount: probes.runningCount,
+      runningCountCapped: probes.runningCapped,
+      waitingCount: probes.waitingCount,
     );
   }
 

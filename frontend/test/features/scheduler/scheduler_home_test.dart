@@ -697,16 +697,17 @@ void main() {
         (tester) async {
       final repo = _repo();
       final routed = <String>[];
-      final router = GoRouter(routes: [
-        GoRoute(
-            path: '/',
-            builder: (_, _) =>
-                Scaffold(body: SchedulerHomeView(workflowId: 'wf_a', linkedRunId: 'fr_fail1'))),
+      // A LIVE route (the home rebuilds with each navigation's ?run=) so both toggle branches are
+      // exercised for real — a dead-end capture route can only ever see the first tap (复审 [9]).
+      // 活路由(每次导航后主页按新 ?run= 重建),两个开合分支都真跑——死胡同捕获路由只见得到第一击。
+      final router = GoRouter(initialLocation: '/scheduler/w/wf_a?run=fr_fail1', routes: [
         GoRoute(
             path: '/scheduler/w/:id',
             builder: (_, st) {
               routed.add(st.uri.toString());
-              return const SizedBox.shrink();
+              return Scaffold(
+                  body: SchedulerHomeView(
+                      workflowId: 'wf_a', linkedRunId: st.uri.queryParameters['run']));
             }),
       ]);
       await tester.pumpWidget(ProviderScope(
@@ -721,15 +722,26 @@ void main() {
       await tester.pump();
       await _settle(tester);
 
-      // Tap a DIFFERENT row than the expanded one (`?run=fr_fail1`) → the URL carries its id
-      // (expand); the same row again would drop ?run= (collapse). 点另一行=URL 带它的 id;同行再点=去参。
-      await tester.ensureVisible(find.text(h.srcChat).first);
-      await tester.pump();
-      await tester.tap(find.text(h.srcChat).first, warnIfMissed: false);
-      await tester.pump();
-      await _settle(tester);
+      Future<void> tapChatRow() async {
+        await tester.ensureVisible(find.text(h.srcChat).first);
+        await tester.pump();
+        await tester.tap(find.text(h.srcChat).first, warnIfMissed: false);
+        // The double-tap window is judged on REAL wall time (DateTime.now() in _onRowTap), which
+        // fake pumps do not advance — sleep real 350ms or two quick test taps read as a double.
+        // 双击窗按真墙钟判(假 pump 不走真钟)——真睡 350ms,否则连点被判双击直进旗舰。
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 350)));
+        await _settle(tester);
+      }
+
+      // Tap a DIFFERENT row than the expanded one → the URL carries its id (expand). 点另一行=展开。
+      await tapChatRow();
       expect(routed, isNotEmpty, reason: '行点击必须走 URL——选区单向派生自 URL');
       expect(routed.last, contains('run=fr_chat1'), reason: '点行=展开该行(URL 真相)');
+
+      // Tap the SAME (now expanded) row → the URL drops ?run= (collapse). 同行再点=收起去参。
+      await tapChatRow();
+      expect(routed.last.contains('run='), isFalse,
+          reason: '再点已展开行=URL 去 ?run=——开合是同一只手,不是两套手势');
     });
 
     testWidgets('no active-version graph → the honest sentence, never an empty frame',
@@ -939,17 +951,28 @@ void main() {
       expect(routed, isNotEmpty, reason: '点列=直进该 run 的旗舰页');
       expect(routed.last, contains('/runs/fr_live1'));
 
-      // A CELL lands there with ?node= — the flagship's own selection grammar. 格带节点预选。
+      // A CELL lands there with ?node= — the flagship's own selection grammar. Addressed by its
+      // ValueKey: non-cursor cells are ExcludeSemantics by design, so a semantics finder would be
+      // permanently empty and the assertion vacuous (复审 [7] 抓获的空转守卫). The col click above
+      // NAVIGATED AWAY — come home first, or the grid is no longer in the tree.
+      // 格带节点预选。按 ValueKey 寻址:非光标格刻意无语义节点,语义 finder 恒空=断言空转。上面点列已
+      // 导航离页——先回主页,否则格阵不在树里。
+      router.go('/');
+      await tester.pump();
+      await _settle(tester);
       routed.clear();
       final cell = find.descendant(
           of: find.byType(AnRunMatrix),
-          matching: find.bySemanticsLabel(RegExp('analyze.*failed|failed.*analyze')));
-      if (cell.evaluate().isNotEmpty) {
-        await tester.tap(cell.first, warnIfMissed: false);
-        await tester.pump();
-        await _settle(tester);
-        expect(routed.last, contains('node=analyze'), reason: '点格=旗舰 + ?node= 预选');
-      }
+          matching: find.byKey(const ValueKey(('analyze', 'fr_fail1'))));
+      expect(cell, findsOneWidget, reason: '失败格必须真实在场——找不到就该炸,绝不静默跳过');
+      await tester.ensureVisible(cell);
+      await tester.pump();
+      await tester.tap(cell, warnIfMissed: false);
+      await tester.pump();
+      await _settle(tester);
+      expect(routed, isNotEmpty, reason: '点格必须导航');
+      expect(routed.last, contains('/runs/fr_fail1'));
+      expect(routed.last, contains('node=analyze'), reason: '点格=旗舰 + ?node= 预选');
     });
   });
 

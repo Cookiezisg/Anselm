@@ -153,7 +153,6 @@ class _SchedulerHomeViewState extends ConsumerState<SchedulerHomeView> {
       for (final e in data.edges)
         if (e.fromId == row.id && triggersById[e.toId] != null) triggersById[e.toId]!,
     ];
-    final waiting = waitingRunIds(data.inbox, row.id);
 
     // Every section lives in AnPage's 720 reading column (用户 0717 判决,见 AnPage 类文档): the
     // matrix carries its own anchored horizontal scroller, the peek card's gantt is a normalized
@@ -176,8 +175,6 @@ class _SchedulerHomeViewState extends ConsumerState<SchedulerHomeView> {
             child: _RunTableZone(
               workflowId: row.id,
               workflowName: row.name,
-              runningCount: stats?.running ?? 0,
-              waitingIds: waiting,
               triggersById: triggersById,
               linkedRunId: widget.linkedRunId,
               now: now,
@@ -358,8 +355,6 @@ class _RunTableZone extends ConsumerStatefulWidget {
   const _RunTableZone({
     required this.workflowId,
     required this.workflowName,
-    required this.runningCount,
-    required this.waitingIds,
     required this.triggersById,
     required this.linkedRunId,
     required this.now,
@@ -367,8 +362,6 @@ class _RunTableZone extends ConsumerStatefulWidget {
 
   final String workflowId;
   final String workflowName;
-  final int runningCount;
-  final List<String> waitingIds;
   final Map<String, TriggerEntity> triggersById;
 
   /// `?run=` — the ONE expanded row (URL is the truth; absent id expands nothing). ?run==展开行。
@@ -592,8 +585,12 @@ class _RunTableZoneState extends ConsumerState<_RunTableZone> with BatchZone<_Ru
     // Selection mode is filter-scoped: replay lives in the failed face, cancel in the running face
     // (记裁量:all 态不混两种动作语义). 选择模式限失败/在跑两过滤态。
     final selectable = s.filter == RunStatusFilter.failed || s.filter == RunStatusFilter.running;
+    // All three numbers are RANGE-SCOPED probes through the rows' own grammar (复审 [5] 口径同源
+    // ——stats.running 是全史「此刻」数,与按 started_at 开窗的行会在窗口边缘打架). 三数皆同文法探针。
     final failedLabel =
         s.failedCountCapped ? '${SchedulerRunTableController.probeCap}+' : '${s.failedCount}';
+    final runningLabel =
+        s.runningCountCapped ? '${SchedulerRunTableController.probeCap}+' : '${s.runningCount}';
     final barVisible = selectable && (selected.length >= 2 || batchBusy);
 
     return AnSection(
@@ -618,12 +615,12 @@ class _RunTableZoneState extends ConsumerState<_RunTableZone> with BatchZone<_Ru
                   AnSegmentedOption(value: RunStatusFilter.all, label: t.filterAll),
                   AnSegmentedOption(
                       value: RunStatusFilter.running,
-                      label: t.filterRunning(n: '${widget.runningCount}')),
+                      label: t.filterRunning(n: runningLabel)),
                   AnSegmentedOption(
                       value: RunStatusFilter.failed, label: t.filterFailed(n: failedLabel)),
                   AnSegmentedOption(
                       value: RunStatusFilter.waiting,
-                      label: t.filterWaiting(n: '${widget.waitingIds.length}')),
+                      label: t.filterWaiting(n: '${s.waitingCount}')),
                 ],
                 onChanged: (f) {
                   selected.clear();
@@ -965,6 +962,13 @@ class _MatrixZone extends ConsumerWidget {
     final cols = m.cols.reversed.toList();
     String flagship(String frId) => '/scheduler/w/$workflowId/runs/$frId';
     return AnRunMatrix(
+      // Keyed on the RANGE: a lens change REPLACES the dataset, and the grid must remount — fresh
+      // newest-end anchor + re-armed edge hysteresis. Updating in place would keep a stale offset
+      // (clamping to the oldest edge and firing a spurious loadOlder, 复审 [2]); an older-page
+      // prepend keeps the same range → same key → in-place zero-shift as designed.
+      // 按**范围**取键:换镜头=换数据集,格阵必须重挂——新锚+重上膛。原地更新会留旧 offset(钳到最旧缘
+      // 还误发一次 loadOlder);前插旧页同范围同键=原地零位移,如设计。
+      key: ValueKey(ref.read(schedulerTimeRangeProvider)),
       rows: [for (final r in m.rows) MatrixRowHead(nodeId: r.nodeId, kind: r.kind)],
       cols: [
         for (final col in cols)

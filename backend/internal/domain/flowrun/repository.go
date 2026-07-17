@@ -91,13 +91,16 @@ type Repository interface {
 	// 健康行（无 run 即零值行）。flowrun 两表上的纯读投影；q 的默认值由调用方（app service）负责。
 	RunStats(ctx context.Context, q StatsQuery) (*RunStats, error)
 
-	// RunMatrix computes the node×run status grid (scheduler 工单⑩): one workflow's last RecentN
-	// runs as columns, the union of their node ids as rows, and a sparse cell per (run, node). A
-	// pure read projection over the two flowrun tables in TWO bounded queries (never a per-run
-	// detail fetch); q's defaults are the caller's job (app service).
-	// RunMatrix 计算节点×run 状态格阵（scheduler 工单⑩）：一个 workflow 近 RecentN 个 run 为列、
-	// 它们 node id 的并集为行、每 (run, 节点) 一个稀疏格。flowrun 两表上的纯读投影、**两条**有界
-	// 查询（绝不逐 run 拉详情）；q 的默认值由调用方（app service）负责。
+	// RunMatrix computes the node×run status grid (scheduler 工单⑩) for an EXPLICIT batch of run
+	// ids: the requested runs as columns in the canonical (started_at, id) DESC order regardless of
+	// request order, the union of their node ids as rows, and a sparse cell per (run, node). A pure
+	// read projection over the two flowrun tables in TWO bounded queries (never a per-run detail
+	// fetch); the dedup/empty-400/cap-422 guards are the caller's job (app service). Unknown or
+	// foreign-workspace ids are silently absent.
+	// RunMatrix 计算一批**显式 run id** 的节点×run 状态格阵（scheduler 工单⑩）：请求的 run 为列、
+	// 恒正典 (started_at, id) DESC 序（与请求顺序无关）、node id 并集为行、每 (run, 节点) 一个稀疏
+	// 格。flowrun 两表上的纯读投影、**两条**有界查询（绝不逐 run 拉详情）；去重/空集 400/封顶 422
+	// 守卫由调用方（app service）负责。未知/异 workspace 的 id 静默缺席。
 	RunMatrix(ctx context.Context, q MatrixQuery) (*Matrix, error)
 
 	// PurgeTerminalRunsBefore physically deletes up to `batch` finished runs that reached their

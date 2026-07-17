@@ -545,9 +545,14 @@ class StubSchedulerRepo implements SchedulerRepository {
     return schedule;
   }
 
+  /// Optional matrix latency — lets a test change the range provider while an older page is in
+  /// flight (the loadOlder mid-flight guard). 可选矩阵延迟:测 loadOlder 途中换范围的守卫。
+  Duration matrixLatency = Duration.zero;
+
   @override
   Future<FlowrunMatrix> runMatrix(List<String> flowrunIds) async {
     matrixAsks.add(List.of(flowrunIds));
+    if (matrixLatency > Duration.zero) await Future<void>.delayed(matrixLatency);
     if (failMatrix) {
       throw const ApiException(code: 'INVALID_REQUEST', message: 'bad matrix', httpStatus: 400);
     }

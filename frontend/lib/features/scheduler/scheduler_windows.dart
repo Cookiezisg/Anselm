@@ -1,23 +1,25 @@
 /// Every statistics window the Scheduler ocean speaks, in ONE place (WRK-069 §8 窗口立法).
 ///
-/// Four surfaces each quoting their own window IS the «乱» this ocean exists to prevent: a bead strip
-/// of 10, a matrix of 20, a 7d failure roll-up and a 24h KPI tile are four different questions, and a
-/// reader who cannot tell which is which cannot trust any of them. So the values live here, named, and
-/// the i18n sentences that render them carry the window word EXPLICITLY (`home.statsLine($window,…)`)
-/// — never a bare percentage whose window the reader has to guess.
+/// Surfaces each quoting their own window IS the «乱» this ocean exists to prevent: a matrix page of
+/// 50, a 7d failure roll-up and a 24h KPI tile are different questions, and a reader who cannot tell
+/// which is which cannot trust any of them. So the values live here, named, and the i18n sentences
+/// that render them carry the window word EXPLICITLY (`home.statsLine($window,…)`) — never a bare
+/// percentage whose window the reader has to guess. (The old bead-10/matrix-20 windows died with the
+/// 0717 主页重建: the operations home's matrix + table now share the page-level AnTimeRange lens.)
 ///
 /// Deliberately NOT `core/`: §8 said «(core)», but core is what features SHARE, and nothing outside
 /// this feature reads these — a scheduler-only table parked in core is exactly the pollution the law
 /// was written against. Recorded as a placement deviation (S4 偏差① set the precedent: put it where it
-/// honestly belongs, record it). The backend pins the same numbers independently (matrix.go cites
-/// this table by name) — they are a shared decision, not a shared import.
+/// honestly belongs, record it). Where the backend shares a bound (matrixPageSize == the flowrun-matrix
+/// ids cap of 50) it pins its own constant independently — a shared decision, not a shared import.
 ///
-/// scheduler 海洋说的每一个统计窗口,单源于此(§8 窗口立法)。四处窗口各说各话本身即「乱」——珠串 10、
-/// 矩阵 20、失败 7d、KPI 24h 是四个不同的问题,读者分不清哪个是哪个就一个也信不了。故值具名住在这里,
+/// scheduler 海洋说的每一个统计窗口,单源于此(§8 窗口立法)。各面各说各话本身即「乱」——矩阵页 50、
+/// 失败 7d、KPI 24h 是不同的问题,读者分不清哪个是哪个就一个也信不了(旧珠串 10/矩阵 20 窗随 0717 主页
+/// 重建死去:运营主页矩阵+大表共用页级 AnTimeRange 镜头)。故值具名住在这里,
 /// 且渲它们的 i18n 句**显式含窗口词**,绝不给一个让读者猜窗口的裸百分比。**刻意不放 core**:§8 原话是
 /// (core),但 core 是 features **共享**之物、本 feature 之外无人读这些——把 scheduler 专用表停在 core
-/// 正是此法要防的污染(记放置偏差,S4 偏差① 先例:放它诚实该在的地方并记档)。后端独立钉同一组数
-/// (matrix.go 按名引用本表)——它们是共享的**决定**,不是共享的 import。
+/// 正是此法要防的污染(记放置偏差,S4 偏差① 先例:放它诚实该在的地方并记档)。后端对共享的界
+/// (matrixPageSize==flowrunIds 批帽 50)独立钉自己的常量——共享的是**决定**,不是 import。
 library;
 
 abstract final class SchedulerWindows {
