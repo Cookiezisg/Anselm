@@ -15,6 +15,7 @@ import 'an_term_viewport.dart';
 import 'an_tooltip.dart';
 import 'icons.dart';
 import 'syntax_highlighter.dart';
+import 'text_measure.dart';
 
 /// E3 — the version-diff primitive (WRK-040 G5.3 · WRK-066 拍板修订). A single-frame UNIFIED diff (not
 /// side-by-side, not char-level): old→new line-by-line LCS ([lineDiff]), added lines on a soft-green
@@ -330,13 +331,13 @@ class _AnVersionDiffState extends State<AnVersionDiff> {
   // Width for the line-number column — the widest line number measured in the ACTIVE row style AND the
   // ambient textScaler, floored at AnSize.trail. 行号列宽(按活动行样式+textScaler 量,floor=trail)。
   double _gutterWidth(BuildContext context, int maxLn) {
-    final tp = TextPainter(
-      text: TextSpan(text: '$maxLn', style: _rowStyle),
-      textDirection: TextDirection.ltr,
+    final w = measureText(
+      TextSpan(text: '$maxLn', style: _rowStyle),
       textScaler: MediaQuery.textScalerOf(context),
-    )..layout();
+      read: (tp) => tp.width,
+    );
     // INCLUDE the left s12 + right s8 inset so the gutter matches AnCodeEditor's. 含内距,与编辑器一致。
-    return math.max(AnSize.trail, AnSpace.s12 + tp.width + AnSpace.s8);
+    return math.max(AnSize.trail, AnSpace.s12 + w + AnSpace.s8);
   }
 
   Widget _row(BuildContext context, AnColors c, SyntaxColors syntax, Translations t, _DiffRow r, double gutterW) {

@@ -11,6 +11,7 @@ import '../../../core/ui/an_interactive.dart';
 import '../../../core/ui/an_live_tail.dart';
 import '../../../core/ui/an_shimmer_text.dart';
 import '../../../core/ui/an_status_dot.dart';
+import '../../../core/ui/text_measure.dart';
 
 /// The reasoning ("thinking") block — deliberately NOT the tool_call disclosure (no bordered card, no
 /// chevron, no glyph, no brain icon, no mono). Thinking is the model's quiet inner monologue: a thin left
@@ -184,12 +185,8 @@ class _ChatThinkingState extends State<ChatThinking> {
         ),
       );
 
-  double _lineHeight(TextStyle s) {
-    // A single-glyph paint for the label's line box — O(1) per build, NOT the C-004 whole-text path.
-    // 单字形量行盒,O(1)/build,非 C-004 全文路径。
-    final tp = TextPainter(text: TextSpan(text: 'x', style: s), textDirection: TextDirection.ltr)..layout();
-    final h = tp.preferredLineHeight;
-    tp.dispose();
-    return h;
-  }
+  double _lineHeight(TextStyle s) =>
+      // A single-glyph paint for the label's line box — O(1) per build, NOT the C-004 whole-text path.
+      // 单字形量行盒,O(1)/build,非 C-004 全文路径。
+      measureText(TextSpan(text: 'x', style: s), read: (tp) => tp.preferredLineHeight);
 }

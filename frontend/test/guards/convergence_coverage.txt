@@ -250,6 +250,7 @@ lib/core/ui/entity_ref_codec.dart	converged
 lib/core/ui/icons.dart	converged
 lib/core/ui/syntax_highlighter.dart	reviewed
 lib/core/ui/term_fold.dart	converged
+lib/core/ui/text_measure.dart	pending
 lib/core/ui/tone.dart	reviewed
 lib/core/ui/ui.dart	converged
 lib/core/workspace/workspace_bootstrap.dart	converged

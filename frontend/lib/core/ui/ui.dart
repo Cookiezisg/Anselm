@@ -124,6 +124,7 @@ export 'an_version_diff.dart';
 export 'an_window_controls.dart';
 export 'icons.dart';
 export 'syntax_highlighter.dart';
+export 'text_measure.dart';
 export 'tone.dart';
 export 'an_chip.dart';
 export 'an_field_section.dart';

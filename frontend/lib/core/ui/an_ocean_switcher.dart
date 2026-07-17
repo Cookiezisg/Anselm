@@ -7,6 +7,7 @@ import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
 import 'an_interactive.dart';
+import 'text_measure.dart';
 
 /// One ocean in an [AnOceanSwitcher] (icon + label). 海洋切换器的一项(图标+标签)。
 class AnOceanItem {
@@ -134,15 +135,12 @@ class AnOceanSwitcherFrame extends StatelessWidget {
     final textScaler = MediaQuery.textScalerOf(context);
     final labelStyle = AnText.body.weight(AnText.emphasisWeight);
 
-    double labelWidth(String s) {
-      final tp = TextPainter(
-        text: TextSpan(text: s, style: labelStyle),
-        textDirection: TextDirection.ltr,
-        textScaler: textScaler,
-        maxLines: 1,
-      )..layout();
-      return tp.width;
-    }
+    double labelWidth(String s) => measureText(
+          TextSpan(text: s, style: labelStyle),
+          textScaler: textScaler,
+          maxLines: 1,
+          read: (tp) => tp.width,
+        );
 
     final labelW = [for (final it in items) labelWidth(it.label)];
     double selectedW(int i) => _padX * 2 + AnSize.icon + _iconGap + labelW[i];

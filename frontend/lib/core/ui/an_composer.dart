@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
+import 'text_measure.dart';
 
 /// The composer CHROME primitive (the demo `an-composer` evolving input) — a text box that is a rounded
 /// PILL on one line and morphs to a CARD as the text wraps to ≥2 lines, reflowing from a single
@@ -267,11 +268,10 @@ class _AnComposerState extends State<AnComposer> {
   // 行数估算驱动演变。
   static int _countLines(String text, TextStyle style, double maxWidth) {
     if (text.trim().isEmpty) return 1;
-    final tp = TextPainter(
-      text: TextSpan(text: text, style: style),
-      textDirection: TextDirection.ltr,
-      maxLines: null,
-    )..layout(maxWidth: maxWidth);
-    return tp.computeLineMetrics().length;
+    return measureText(
+      TextSpan(text: text, style: style),
+      maxWidth: maxWidth,
+      read: (tp) => tp.computeLineMetrics().length,
+    );
   }
 }
