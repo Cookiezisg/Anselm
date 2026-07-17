@@ -92,7 +92,7 @@ audience: [human, ai]
 ### B6 emoji 禁令 ✅ 已落(0718,含 no_emoji_guard 卫士测试+⚙ 双渲清除)
 定位：`scheduler.nextFireIn = "⏱ $d 后"`。**✅ 用户 0718 立法：「只允许 icon，不允许 emoji」**——撤字符（icon 归 widget 层 AnIcons），全库审计可疑彩渲字符（⚙ 嫌疑；✓✗▲▼⌘ 文本字形逐个核）。
 
-### B7 run 子页 Nodes 段 meta 与台账窗超距
+### B7 run 子页 Nodes 段 meta 与台账窗超距 ✅ 已落(0718)
 「6 nodes · Completed 6」与下方窗空间过大——与 entities 段节奏对齐（同 B3 标准化）。
 
 ### B8 右岛 inspector 大空隙 ✅ 已落(0718,按内容高上限 240,两测锁)

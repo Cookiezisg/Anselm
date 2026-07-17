@@ -540,27 +540,29 @@ class _GanttZone extends StatelessWidget {
       label: t.ganttHead,
       variant: AnSectionVariant.plain,
       children: [
-        AnNodeGantt(
-          rows: chart.rows,
-          chart: chart,
-          ruler: true,
-          nowLine: true,
-          selectedNodeId: selectedNodeId,
-          onNodePick: onPick,
-          notRunLabel: t.notRun,
-          waitingLabel: context.t.run.nodeWait,
-          inferredLabel: context.t.run.inferredRunning,
-          queueLabel: t.queueWord,
-          execLabel: t.execWord,
-        ),
-        // The axis collapsed (every stamp coincident — a sub-millisecond run, the local-sidecar
-        // norm): the bars are EQUAL SLOTS showing sequence only, so the page says so instead of
-        // letting equal widths read as equal durations. 轴塌缩(全部时刻重合,本地 sidecar 常态):条=
-        // 等宽顺序槽、只表顺序——明说,免得等宽被读成等时长。
-        if (!chart.timeMode) ...[
-          const SizedBox(height: AnSpace.s6),
-          Text(t.ganttNoSpan, style: AnText.meta.copyWith(color: c.inkFaint)),
-        ],
+        Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+          AnNodeGantt(
+            rows: chart.rows,
+            chart: chart,
+            ruler: true,
+            nowLine: true,
+            selectedNodeId: selectedNodeId,
+            onNodePick: onPick,
+            notRunLabel: t.notRun,
+            waitingLabel: context.t.run.nodeWait,
+            inferredLabel: context.t.run.inferredRunning,
+            queueLabel: t.queueWord,
+            execLabel: t.execWord,
+          ),
+          // The axis collapsed (every stamp coincident — a sub-millisecond run, the local-sidecar
+          // norm): the bars are EQUAL SLOTS showing sequence only, so the page says so instead of
+          // letting equal widths read as equal durations. A tight caption HUGGING the gantt (one
+          // child, not a self-margined AnSection sibling). 塌缩轴注记紧贴甘特(同一子件,不双夹)。
+          if (!chart.timeMode) ...[
+            const SizedBox(height: AnSpace.s6),
+            Text(t.ganttNoSpan, style: AnText.meta.copyWith(color: c.inkFaint)),
+          ],
+        ]),
       ],
     );
   }
@@ -610,6 +612,10 @@ class _LedgerZone extends ConsumerWidget {
       label: t.ledgerHead,
       variant: AnSectionVariant.plain,
       children: [
+        // A quiet summary caption hugging its title — NOT a separate AnSection child with a manual
+        // spacer (that double-gapped it to a 32px void: AnSection's 12 + SizedBox 8 + AnSection's 12,
+        // WRK-070 B7 用户点名帧「和下面空间这么大」). Now: title → 12 → summary → 12 → ledger, one
+        // rhythm. 安静汇总紧贴标题;不再是带手搓 spacer 的独立子件(那会被 AnSection 双 12 夹成 32px 空洞)。
         AnStatBar(stats: [
           AnStat(context.t.run.nodeCount(n: '${data.nodes.length}'), tabular: true),
           if ((counts['completed'] ?? 0) > 0)
@@ -619,16 +625,11 @@ class _LedgerZone extends ConsumerWidget {
           if ((counts['parked'] ?? 0) > 0)
             AnStat('${context.t.run.nodeWait} ${counts['parked']}', tabular: true),
         ]),
-        const SizedBox(height: AnSpace.s8),
         // The human gate is the ONE thing allowed to jump the queue to the very top (§5.6 例外上浮;
         // §0 军规's two sanctioned exceptions are failure and the human gate). It sits ABOVE the
-        // ledger because it is a request for action, not a record.
-        // 人闸是唯一获准插到最顶的东西(军规两例外=失败与人闸);它在台账之上,因为它是行动请求、不是记录。
-        for (final node in parked)
-          Padding(
-            padding: const EdgeInsets.only(bottom: AnSpace.s8),
-            child: _ParkedGate(flowrunId: data.run.id, node: node),
-          ),
+        // ledger because it is a request for action, not a record. AnSection owns the gap (no
+        // self-margin). 人闸获准插最顶(军规两例外);间距归 AnSection、子件不自管外边距。
+        for (final node in parked) _ParkedGate(flowrunId: data.run.id, node: node),
         FlowrunNodeList(
           lines: [
             for (final e in entries) _lineOf(context, e, byKey),

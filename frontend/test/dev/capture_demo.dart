@@ -16,6 +16,7 @@ import 'package:anselm/features/documents/data/documents_demo_fixture.dart';
 import 'package:anselm/features/documents/state/document_state.dart';
 import 'package:anselm/core/runtime.dart';
 import 'package:anselm/core/shell/oceans.dart';
+import 'package:anselm/core/run/flowrun_node_list.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/core/shell/shell_chrome.dart';
 import 'package:anselm/features/chat/data/chat_demo_fixture.dart';
@@ -191,6 +192,11 @@ void main() {
         outName = '${outName}_pick';
       } else if (_schedFlag.isNotEmpty) {
         outName = '${outName}_run';
+        if (const bool.fromEnvironment('SCHEDNODES')) {
+          await tester.ensureVisible(find.byType(FlowrunNodeList).first);
+          await tester.pump(const Duration(milliseconds: 300));
+          outName = '${outName}_nodes';
+        }
       } else if (_schedRun.isNotEmpty) {
         // Scroll the expanded peek card into the frame (its gantt is the card's body). 滚卡入帧。
         await tester.ensureVisible(find.byType(AnNodeGantt).first);

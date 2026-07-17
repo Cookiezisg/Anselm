@@ -8,30 +8,30 @@ import 'package:flutter_test/flutter_test.dart';
 // 翻页器契约:单页不渲/开窗带/步进钳制/跳页钳制。
 
 void main() {
-  final _s = AnPagerStrings(
+  final s = AnPagerStrings(
     prevLabel: 'prev',
     nextLabel: 'next',
     jumpHint: 'page',
     pageLabel: (n) => 'page $n',
   );
 
-  Widget _host(int page, int count, void Function(int) onPage) => MaterialApp(
+  Widget host(int page, int count, void Function(int) onPage) => MaterialApp(
         theme: AnTheme.light(),
         home: Scaffold(
           body: Center(
-            child: AnPager(page: page, pageCount: count, onPage: onPage, strings: _s),
+            child: AnPager(page: page, pageCount: count, onPage: onPage, strings: s),
           ),
         ),
       );
 
   testWidgets('a single page renders NOTHING (拍板:没有多页就不显示)', (tester) async {
-    await tester.pumpWidget(_host(1, 1, (_) {}));
+    await tester.pumpWidget(host(1, 1, (_) {}));
     expect(find.byType(AnPager), findsOneWidget);
     expect(find.text('1'), findsNothing, reason: '单页=空白');
   });
 
   testWidgets('windowed strip folds the middle to a … sentinel', (tester) async {
-    await tester.pumpWidget(_host(6, 12, (_) {}));
+    await tester.pumpWidget(host(6, 12, (_) {}));
     // 1 … 5 6 7 … 12 — first, last, current±1, two ellipses. 首末+当前±1+双 …。
     for (final n in ['1', '5', '6', '7', '12']) {
       expect(find.text(n), findsOneWidget, reason: '窗内应含 $n');
@@ -42,7 +42,7 @@ void main() {
 
   testWidgets('‹ is disabled on page 1; › on the last page', (tester) async {
     var got = -1;
-    await tester.pumpWidget(_host(1, 3, (p) => got = p));
+    await tester.pumpWidget(host(1, 3, (p) => got = p));
     await tester.tap(find.bySemanticsLabel('prev'));
     await tester.pump();
     expect(got, -1, reason: '首页 ‹ 压灰不派发');
@@ -53,7 +53,7 @@ void main() {
 
   testWidgets('tapping a number navigates; the current number is inert', (tester) async {
     var got = -1;
-    await tester.pumpWidget(_host(2, 5, (p) => got = p));
+    await tester.pumpWidget(host(2, 5, (p) => got = p));
     await tester.tap(find.text('3'));
     await tester.pump();
     expect(got, 3);
@@ -65,7 +65,7 @@ void main() {
 
   testWidgets('the jump field commits a CLAMPED page on submit', (tester) async {
     var got = -1;
-    await tester.pumpWidget(_host(1, 5, (p) => got = p));
+    await tester.pumpWidget(host(1, 5, (p) => got = p));
     await tester.enterText(find.byType(EditableText), '99');
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pump();
