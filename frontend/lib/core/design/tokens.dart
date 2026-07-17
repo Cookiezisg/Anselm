@@ -306,6 +306,13 @@ abstract final class AnMotion {
   static const Duration slow = Duration(milliseconds: 340);
   static const Duration breath = Duration(milliseconds: 1800);
 
+  // Decorative-loop repaint cadence (~30fps) — PulseClock's timer interval. Deliberately NOT vsync:
+  // a live Ticker forces full engine frames at display rate (T1/WRK-070: one breathing dot = 120fps
+  // = 24.92% CPU), while a ~2s breath stepped at 30fps is imperceptible.
+  // 装饰循环重绘节拍(~30fps)=PulseClock timer 间隔。刻意非 vsync:活 Ticker 逼引擎按屏幕刷新率产
+  // 整帧(T1:一个呼吸点=120fps=24.92% CPU),~2s 呼吸在 30fps 阶梯不可察。
+  static const Duration pulseCadence = Duration(milliseconds: 33);
+
   // Delay before a loading skeleton/indicator is shown — a sub-threshold async (the common case for a
   // local sidecar) resolves first, so the indicator never flashes (appear-then-instantly-vanish).
   // 加载骨架/指示器显示前的延迟:亚阈值异步(本地 sidecar 常态)先返回,指示器不闪烁。
