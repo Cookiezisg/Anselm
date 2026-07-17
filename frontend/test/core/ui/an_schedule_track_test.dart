@@ -135,6 +135,24 @@ void main() {
       expect(find.text('已暂停'), findsOneWidget, reason: '灰显必须配词:色不独行');
     });
 
+    testWidgets('a FOLD speaks as a «×N» capsule — never a bare numeral hovering above the dot '
+        '(WRK-070 B5 「9 9 9 5 看不懂」)', (tester) async {
+      await tester.pumpWidget(_host(AnScheduleTrack(
+        lanes: [
+          TrackLane(id: 'w', label: '周报生成', events: [
+            // 9 future ticks inside one pixel bucket → ONE folded mark. 一桶 9 刻=一枚折叠记号。
+            for (var i = 0; i < 9; i++)
+              TrackEvent(
+                  at: _now.add(Duration(minutes: 30 + i)), kind: TrackEventKind.future, label: 't$i'),
+          ]),
+        ],
+        now: _now,
+        foldedLabel: (n) => '+$n 个',
+      )));
+      expect(find.text('×9'), findsOneWidget, reason: '折叠=×N 胶囊,计数属于记号本身');
+      expect(find.text('9'), findsNothing, reason: '裸数字悬浮徽已废(用户看不懂)');
+    });
+
     testWidgets('the three faces are distinguishable — a missed tick wears a ✕ SHAPE, not just grey',
         (tester) async {
       await tester.pumpWidget(_host(AnScheduleTrack(

@@ -390,8 +390,8 @@ class Translations$scheduler$en {
 	/// en: 'running · $d'
 	String runningFor({required Object d}) => 'running · ${d}';
 
-	/// en: '⏱ in $d'
-	String nextFireIn({required Object d}) => '⏱ in ${d}';
+	/// en: 'in $d'
+	String nextFireIn({required Object d}) => 'in ${d}';
 
 	/// en: '$d ago'
 	String agoMeta({required Object d}) => '${d} ago';
@@ -1240,8 +1240,8 @@ class Translations$chat$toc$en {
 	/// en: 'Waiting on you'
 	String get gates => 'Waiting on you';
 
-	/// en: '⚙ $n operations'
-	String toolCluster({required Object n}) => '⚙ ${n} operations';
+	/// en: '$n operations'
+	String toolCluster({required Object n}) => '${n} operations';
 
 	/// en: 'Context compacted'
 	String get compaction => 'Context compacted';
@@ -5815,7 +5815,7 @@ extension on Translations {
 			'chat.backToPresent' => 'Jump to present',
 			'chat.toc.button' => 'Scenes',
 			'chat.toc.gates' => 'Waiting on you',
-			'chat.toc.toolCluster' => ({required Object n}) => '⚙ ${n} operations',
+			'chat.toc.toolCluster' => ({required Object n}) => '${n} operations',
 			'chat.toc.compaction' => 'Context compacted',
 			'chat.toc.abnormal' => 'Ended abnormally',
 			'chat.toc.empty' => 'Nothing to jump to yet',
@@ -6384,7 +6384,7 @@ extension on Translations {
 			'scheduler.overviewTitle' => 'Overview',
 			'scheduler.underConstruction' => 'The Scheduler command center is being built (S1–S5).',
 			'scheduler.runningFor' => ({required Object d}) => 'running · ${d}',
-			'scheduler.nextFireIn' => ({required Object d}) => '⏱ in ${d}',
+			'scheduler.nextFireIn' => ({required Object d}) => 'in ${d}',
 			'scheduler.agoMeta' => ({required Object d}) => '${d} ago',
 			'scheduler.neverRan' => '—',
 			'scheduler.sectionNeverRan' => 'Never ran',

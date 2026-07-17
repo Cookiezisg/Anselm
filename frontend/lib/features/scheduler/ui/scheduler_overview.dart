@@ -7,6 +7,7 @@ import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
 import '../../../core/model/time_format.dart';
 import '../../../core/shell/oceans.dart';
+import '../../../core/shell/shell_chrome.dart';
 import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
 import '../state/scheduler_overview_provider.dart';
@@ -57,16 +58,33 @@ class _SchedulerOverviewViewState extends ConsumerState<SchedulerOverviewView> {
   final _ZoneAnchor _failed = _ZoneAnchor('failed');
   final _ZoneAnchor _schedule = _ZoneAnchor('schedule');
 
+  final ScrollController _scroll = ScrollController();
+
   @override
   void initState() {
     super.initState();
     AnTimePulse.instance.addListener(_onPulse);
+    _scroll.addListener(_onScroll);
   }
 
   @override
   void dispose() {
     AnTimePulse.instance.removeListener(_onPulse);
+    _scroll.dispose();
     super.dispose();
+  }
+
+  // The floating-head crumb (WRK-070 B11, 与运营主页同款文法): scrolled past the big title →
+  // «Scheduler / Overview» appears top-left; back at top it yields. 下滑出浮层头面包屑,回顶让位。
+  void _onScroll() {
+    final collapsed = _scroll.hasClients && _scroll.offset > AnSpace.s64;
+    ref.read(shellHeadProvider.notifier).setCollapsed(collapsed);
+  }
+
+  void _scrollToTop() {
+    if (_scroll.hasClients) {
+      _scroll.animateTo(0, duration: AnMotion.mid, curve: AnMotion.easeOut);
+    }
   }
 
   void _onPulse() {
@@ -122,18 +140,25 @@ class _SchedulerOverviewViewState extends ConsumerState<SchedulerOverviewView> {
 
   Widget _board(BuildContext context, SchedulerOverviewData d) {
     final t = context.t.scheduler;
-    final c = context.colors;
     if (d.firstUse) return _firstUse(context);
 
     final now = DateTime.now();
+    // Bind the floating head post-frame (entities 先例:每次重建重绑,onTap 恒新鲜). 后帧绑浮层头。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref
+            .read(shellHeadProvider.notifier)
+            .bind(t.home.crumb(name: t.overviewTitle), _scrollToTop);
+      }
+    });
     return AnPage(
+      controller: _scroll,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: AnGap.section),
-            child: Text(t.overviewTitle, style: AnText.h2.copyWith(color: c.ink)),
-          ),
+          // The documentary page head (WRK-070 B11): grey crumb over the big title — the standard
+          // grammar every ocean page speaks. 文档化页头:灰 crumb + 大标题,全海洋标准文法。
+          AnOceanHeader(crumbs: [t.home.crumbRoot], title: t.overviewTitle),
           Padding(
             padding: const EdgeInsets.only(bottom: AnGap.section),
             child: _KpiStrip(

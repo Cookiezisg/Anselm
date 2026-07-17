@@ -77,6 +77,21 @@ void main() {
       expect(find.byIcon(AnIcons.edit), findsOneWidget);
     });
 
+    testWidgets('venv dependencies render as a LABELED tags row — never bare mystery words '
+        '(WRK-070 B12 「pydantic」孤儿帧)', (tester) async {
+      final v = _v(2).copyWith(dependencies: const ['pydantic', 'httpx']);
+      final fn = _fn().copyWith(activeVersion: v);
+      final repo = FixtureEntityRepository(functions: [fn], functionVersions: {
+        'fn_1': [v]
+      });
+      await tester.pumpWidget(_host(FunctionOverview(fn: fn), repo));
+      expect(find.text(t.entities.detail.card.deps), findsOneWidget,
+          reason: '「依赖」标签给包名身份——无标签裸行读作神秘词');
+      expect(find.text('pydantic'), findsOneWidget);
+      expect(find.text('httpx'), findsOneWidget);
+      expect(find.byType(AnTags), findsNWidgets(2), reason: '标签行 + 依赖行,同一套 KV tags 文法');
+    });
+
     testWidgets('tags: rest=药丸净、hover→✕/➕、点➕→输入框、Enter 加、Esc 收、✕ 删', (tester) async {
       final repo = _repo(tags: const ['util', 'io']);
       final fn = await repo.getFunction('fn_1');

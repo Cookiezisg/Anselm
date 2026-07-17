@@ -9,7 +9,6 @@ import '../../../../../core/ui/an_code_editor.dart';
 import '../../../../../core/ui/an_fade_collapse.dart';
 import '../../../../../core/ui/an_kv.dart';
 import '../../../../../core/ui/an_info_card.dart';
-import '../../../../../core/ui/an_row.dart';
 import '../../../../../core/ui/an_section.dart';
 import '../../../../../core/ui/icons.dart';
 import '../../../../../i18n/strings.g.dart';
@@ -102,7 +101,10 @@ class FunctionOverview extends ConsumerWidget {
                 if (v.dependencies.isEmpty)
                   insetEmpty(d.val.none) // the feature's one empty-state idiom 同一空态惯用法
                 else
-                  for (final dep in v.dependencies) AnRow(label: dep, passive: true),
+                  // A LABELED tags row — bare unlabeled rows read as mystery words («pydantic»,
+                  // WRK-070 B12 用户点名帧). KV grammar like every sibling line of this card.
+                  // 带标签的 tags 行——无标签裸行读作神秘词;与本卡每一行同一套 KV 文法。
+                  AnKv(rows: [AnKvRow.tags(d.card.deps, v.dependencies)]),
               ],
             ),
           ),

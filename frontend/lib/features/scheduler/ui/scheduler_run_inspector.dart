@@ -354,7 +354,13 @@ class _NodeInspectorFaceState extends ConsumerState<_NodeInspectorFace> {
             // (原语自身契约,不能 shrinkWrap);正是这个界让 650KB 只花可见行的钱,也正因如此巨物只能
             // 住在岛里而非页上。
             SizedBox(
-              height: AnSize.jsonViewport,
+              // Content-height up to the cap (WRK-070 B8 用户点名帧): a 3-key result must not prop
+              // open a 240 viewport of blank. Initially-visible rows = top-level keys (openDepth 1);
+              // deeper expansion scrolls WITHIN the box — the tree stays virtualized either way.
+              // 按内容高、上限封顶:3 键结果不许撑 240 空白;初始可见行=顶层键数,更深展开在框内滚。
+              height: (node.result.length * AnSize.row)
+                  .clamp(AnSize.row, AnSize.jsonViewport)
+                  .toDouble(),
               child: AnJsonTree(data: node.result, showRoot: false, openDepth: 1),
             ),
           ]),

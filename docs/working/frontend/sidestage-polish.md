@@ -74,17 +74,17 @@ audience: [human, ai]
 - 列表改**每页 10 条 + 底部标准翻页器**（←/→、页码、跳转输入框；单页不显示）。
 - **技术点**：页码+跳转需要 offset+总数：后端小工单=flowruns list 加 `?offset`+返回 total。**✅ 用户 0718 拍板「加后端」**。
 
-### B5 排期时间线上的小数字看不懂
+### B5 排期时间线上的小数字看不懂 ✅ 已落(0718)
 定位：`an_schedule_track.dart` bucket 折叠——密集 firing（如 */5 cron）按像素桶折叠，点上方小数字=该桶折叠数。用户看不懂。
 拟案：数字撤下，折叠点渲成「厚点/胶囊 ×N」形 + hover tooltip 说人话（「这小时 9 次」）。**✅ 用户 0718「都同意」**。
 
-### B6 emoji 禁令
+### B6 emoji 禁令 ✅ 已落(0718,含 no_emoji_guard 卫士测试+⚙ 双渲清除)
 定位：`scheduler.nextFireIn = "⏱ $d 后"`。**✅ 用户 0718 立法：「只允许 icon，不允许 emoji」**——撤字符（icon 归 widget 层 AnIcons），全库审计可疑彩渲字符（⚙ 嫌疑；✓✗▲▼⌘ 文本字形逐个核）。
 
 ### B7 run 子页 Nodes 段 meta 与台账窗超距
 「6 nodes · Completed 6」与下方窗空间过大——与 entities 段节奏对齐（同 B3 标准化）。
 
-### B8 右岛 inspector 大空隙
+### B8 右岛 inspector 大空隙 ✅ 已落(0718,按内容高上限 240,两测锁)
 定位：Output 段 `AnSize.jsonViewport` 固定 240 高——小结果（3 行）也撑 240,剩白。拟案：按内容高、上限 240（AnJsonTree 虚拟视口不能 shrinkwrap,需按顶层条目估高或给小结果走非虚拟径）。
 
 ### B9 Triggers 卡改双列卡片式
@@ -97,10 +97,10 @@ audience: [human, ai]
 - **单击=展开行内速览卡**（甘特/图，与大表一模一样，不再跳转）；卡内「打开 →」进 run 子页；
 - **翻页器同款搬过来**（B4 的 10 条/页）。
 
-### B11 Overview 补标准面包屑
+### B11 Overview 补标准面包屑 ✅ 已落(0718,AnOceanHeader+浮层头绑定)
 用户：Overview 也要标准面包屑文法——上=浅灰「Scheduler」crumb,下=大标题「Overview」;下滑后浮层头左上出「Scheduler / Overview」。修：AnOceanHeader(crumbs+title) + shellHead 绑定,与运营主页同款。
 
-### B12 function 页孤儿「pydantic」
+### B12 function 页孤儿「pydantic」✅ 已落(0718,「依赖」标签 tags 行)
 定位：`function_overview.dart:105`——venv 依赖列表渲成**无标签**的 `AnRow(label: dep, passive: true)` 裸行,挂在 Last synced 下面,读作神秘词。它是环境声明的依赖包名(demo 种子 `dependencies: ['pydantic']`)。修：给它身份——「Dependencies」标签(如 KV 行+chips 形),不再裸行。
 
 ### B13 审批卡重构（+Reason 药丸 + 卡边框 + 双列/单列）

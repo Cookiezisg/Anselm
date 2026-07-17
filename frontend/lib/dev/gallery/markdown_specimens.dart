@@ -48,7 +48,7 @@ final GalleryItem anMarkdownGalleryItem = GalleryItem(
       '| 季度 | 金额 | 环比 |\n|:-----|:----:|-----:|\n| Q1 | 120k | +4% |\n| Q2 | 98k | -18% |\n| Q3 | 143k | +46% |',
     ), span: true, maxWidth: _mdW),
     GallerySpecimen('分割线 + 真实混合样本', (_) => _md(
-      '查完了,两个发现 🎯\n\n---\n\n**根因**:`issue_date` 没做时区归一。修法:\n\n```py\ndate.astimezone(tz)\n```\n\n详见 [文档](https://example.com/tz)。',
+      '查完了,两个发现\n\n---\n\n**根因**:`issue_date` 没做时区归一。修法:\n\n```py\ndate.astimezone(tz)\n```\n\n详见 [文档](https://example.com/tz)。',
     ), span: true, maxWidth: _mdW),
     GallerySpecimen('组装:助手回合(裸全宽) + 用户泡', (c) => Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

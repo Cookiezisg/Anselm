@@ -56,7 +56,7 @@
     "toc": {
       "button": "Scenes",
       "gates": "Waiting on you",
-      "toolCluster": "⚙ $n operations",
+      "toolCluster": "$n operations",
       "compaction": "Context compacted",
       "abnormal": "Ended abnormally",
       "empty": "Nothing to jump to yet"
@@ -644,7 +644,7 @@
     "overviewTitle": "Overview",
     "underConstruction": "The Scheduler command center is being built (S1–S5).",
     "runningFor": "running · $d",
-    "nextFireIn": "⏱ in $d",
+    "nextFireIn": "in $d",
     "agoMeta": "$d ago",
     "neverRan": "—",
     "sectionNeverRan": "Never ran",

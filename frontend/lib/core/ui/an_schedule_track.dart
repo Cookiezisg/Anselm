@@ -656,6 +656,27 @@ class _Dot extends StatelessWidget {
       // bookkeeping, not an error. 灰 ✕:靠**形状**而非只靠色(WCAG 1.4.1);灰,因为错过是记账不是故障。
       TrackEventKind.missed => Icon(AnIcons.close, size: AnSize.iconSm, color: c.inkFaint),
     };
+    if (event.count > 1) {
+      // A fold SPEAKS as a «×N» capsule at the dot's exact seat (WRK-070 B5 用户裁「小数字看不懂」
+      // — the bare numeral hovering above the dot read as noise). Toned like the dot it replaces;
+      // the tooltip keeps the full human sentence. 折叠点=「×N」胶囊,坐原点位、承原点色;人话在 tooltip。
+      final fg = switch (event.kind) {
+        TrackEventKind.past => (event.status ?? AnStatus.idle).tone.fg(c),
+        TrackEventKind.future => lane.dimmed ? c.inkFaint : c.inkMuted,
+        TrackEventKind.missed => c.inkFaint,
+      };
+      final bg = switch (event.kind) {
+        TrackEventKind.past => (event.status ?? AnStatus.idle).tone.softBg(c),
+        _ => c.surfaceHover,
+      };
+      mark = Container(
+        padding: const EdgeInsets.symmetric(horizontal: AnSpace.s4),
+        decoration:
+            BoxDecoration(color: bg, borderRadius: BorderRadius.circular(AnRadius.tag)),
+        child: Text('×${event.count}',
+            style: AnText.metaTabular().copyWith(color: fg)),
+      );
+    }
     if (lane.dimmed && event.kind == TrackEventKind.past) {
       mark = Opacity(opacity: AnOpacity.stratum, child: mark);
     }
@@ -663,20 +684,9 @@ class _Dot extends StatelessWidget {
     final dot = Semantics(
       label: semanticLabel ?? event.label,
       child: ExcludeSemantics(
-        child: Center(
-          child: Stack(clipBehavior: Clip.none, alignment: Alignment.center, children: [
-            mark,
-            // The fold badge rides ABOVE the dot so the dot's own position stays exact — the count is
-            // metadata about the dot, never a nudge to where it stands.
-            // 计数徽在点**之上**,点位保持精确——计数是关于点的元数据,绝不挪动它的站位。
-            if (event.count > 1)
-              Positioned(
-                bottom: AnSize.dot,
-                child: Text('${event.count}',
-                    style: AnText.metaTabular().copyWith(color: c.inkFaint)),
-              ),
-          ]),
-        ),
+        // The capsule (count>1) sits centred at the same seat the dot would — the count is part of
+        // the mark now, never a floating numeral (B5). 胶囊坐点位正中;计数属于记号本身,不再悬浮。
+        child: Center(child: mark),
       ),
     );
 

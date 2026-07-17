@@ -56,7 +56,7 @@
     "toc": {
       "button": "场次目录",
       "gates": "待你决定",
-      "toolCluster": "⚙ $n 项操作",
+      "toolCluster": "$n 项操作",
       "compaction": "上下文已压缩",
       "abnormal": "异常终止",
       "empty": "还没有可跳转的场次"
@@ -644,7 +644,7 @@
     "overviewTitle": "总览",
     "underConstruction": "Scheduler 指挥中心建设中(S1–S5)。",
     "runningFor": "运行中 · $d",
-    "nextFireIn": "⏱ $d 后",
+    "nextFireIn": "$d 后",
     "agoMeta": "$d 前",
     "neverRan": "—",
     "sectionNeverRan": "未运行",

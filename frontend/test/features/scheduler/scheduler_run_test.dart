@@ -1,6 +1,7 @@
 import 'package:anselm/core/contract/entities/values.dart';
 import 'package:anselm/core/contract/entities/workflow.dart';
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/run/flowrun_node_list.dart';
 import 'package:anselm/core/router/navigation.dart';
 import 'package:anselm/core/runtime.dart';
@@ -461,6 +462,28 @@ void main() {
       expect(find.descendant(of: island, matching: find.text('v7')), findsOneWidget,
           reason: '钉版念人话版本号(需求⑤)');
       expect(find.descendant(of: island, matching: find.textContaining('wfv_')), findsNothing);
+    });
+
+    testWidgets('the Output viewport is CONTENT-HEIGHT for a small result — 3 keys must not prop '
+        'open 240px of blank (WRK-070 B8)', (tester) async {
+      _desktop(tester);
+      await _pump(tester, _repo(status: 'completed', nodes: [
+        _node('fetch', 'completed', readySec: 0, startSec: 1, endSec: 2,
+            result: const {'rows': 4200, 'digest': 'sha256:aa', 'ok': true}),
+      ]), node: 'fetch', iter: 0);
+      expect(tester.getSize(find.byType(AnJsonTree)).height, AnSize.row * 3,
+          reason: '3 键=3 行内容高,不撑 240');
+    });
+
+    testWidgets('…and CAPS at the viewport for a big result — deeper content scrolls within '
+        '(WRK-070 B8)', (tester) async {
+      _desktop(tester);
+      await _pump(tester, _repo(status: 'completed', nodes: [
+        _node('fetch', 'completed', readySec: 0, startSec: 1, endSec: 2,
+            result: {for (var i = 0; i < 12; i++) 'k$i': i}),
+      ]), node: 'fetch', iter: 0);
+      expect(tester.getSize(find.byType(AnJsonTree)).height, AnSize.jsonViewport,
+          reason: '12 键超上限=封顶 240,框内滚');
     });
 
     testWidgets('a 650KB result is NEVER dumped on the page (§5.4 页面本身零 JSON 倾倒)',

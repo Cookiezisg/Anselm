@@ -6,6 +6,7 @@ import 'package:anselm/core/contract/entities/workflow.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/runtime.dart';
 import 'package:anselm/core/ui/an_button.dart';
+import 'package:anselm/core/ui/an_ocean_header.dart';
 import 'package:anselm/core/ui/an_schedule_track.dart';
 import 'package:anselm/core/ui/an_section.dart';
 import 'package:anselm/core/ui/an_state.dart';
@@ -392,6 +393,14 @@ void main() {
       expect(find.byType(AnButton), findsNWidgets(2));
     });
 
+    testWidgets('the documentary head: grey crumb over the big title (WRK-070 B11 标准文法)',
+        (tester) async {
+      await _pumpBoard(tester, _host(_fullRepo()));
+      expect(find.byType(AnOceanHeader), findsOneWidget);
+      expect(find.text(t.scheduler.home.crumbRoot), findsOneWidget, reason: '灰 crumb「调度」');
+      expect(find.text(t.scheduler.overviewTitle), findsOneWidget, reason: '大标题 Overview');
+    });
+
     testWidgets('a running row deep-links into the run flagship', (tester) async {
       final router = GoRouter(initialLocation: '/', routes: [
         GoRoute(path: '/', builder: (_, _) => const Scaffold(body: SchedulerOverviewView())),
@@ -402,6 +411,9 @@ void main() {
       addTearDown(router.dispose);
       await _pumpBoard(tester, _host(_fullRepo(), router: router));
 
+      // The documentary head (B11) pushed the zone lower — bring the row on screen first. 头高了先滚到行。
+      await tester.ensureVisible(find.text('fr_live1'));
+      await tester.pump();
       await tester.tap(find.text('fr_live1'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));

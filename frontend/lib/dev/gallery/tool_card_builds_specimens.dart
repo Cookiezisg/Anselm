@@ -164,7 +164,7 @@ final toolCardBuildsGalleryItem = GalleryItem(
                 summary: 'Fire at market close on weekdays',
                 result: '{"id":"trg_11aa22bb33cc44dd","version":1,"listening":false}')),
         span: true),
-    GallerySpecimen('已创建触发器 · webhook(可复制 URL + 🔒密钥 + 签名算法)',
+    GallerySpecimen('已创建触发器 · webhook(可复制 URL + 密钥 + 签名算法)',
         (c) => ChatToolCard(
             node: _call('trg-hook', 'create_trigger',
                 args:

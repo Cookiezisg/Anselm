@@ -195,7 +195,7 @@ class _Translations$scheduler$zh_CN extends Translations$scheduler$en {
 	@override String get overviewTitle => '总览';
 	@override String get underConstruction => 'Scheduler 指挥中心建设中(S1–S5)。';
 	@override String runningFor({required Object d}) => '运行中 · ${d}';
-	@override String nextFireIn({required Object d}) => '⏱ ${d} 后';
+	@override String nextFireIn({required Object d}) => '${d} 后';
 	@override String agoMeta({required Object d}) => '${d} 前';
 	@override String get neverRan => '—';
 	@override String get sectionNeverRan => '未运行';
@@ -609,7 +609,7 @@ class _Translations$chat$toc$zh_CN extends Translations$chat$toc$en {
 	// Translations
 	@override String get button => '场次目录';
 	@override String get gates => '待你决定';
-	@override String toolCluster({required Object n}) => '⚙ ${n} 项操作';
+	@override String toolCluster({required Object n}) => '${n} 项操作';
 	@override String get compaction => '上下文已压缩';
 	@override String get abnormal => '异常终止';
 	@override String get empty => '还没有可跳转的场次';
@@ -2511,7 +2511,7 @@ extension on TranslationsZhCn {
 			'chat.backToPresent' => '回到现场',
 			'chat.toc.button' => '场次目录',
 			'chat.toc.gates' => '待你决定',
-			'chat.toc.toolCluster' => ({required Object n}) => '⚙ ${n} 项操作',
+			'chat.toc.toolCluster' => ({required Object n}) => '${n} 项操作',
 			'chat.toc.compaction' => '上下文已压缩',
 			'chat.toc.abnormal' => '异常终止',
 			'chat.toc.empty' => '还没有可跳转的场次',
@@ -3080,7 +3080,7 @@ extension on TranslationsZhCn {
 			'scheduler.overviewTitle' => '总览',
 			'scheduler.underConstruction' => 'Scheduler 指挥中心建设中(S1–S5)。',
 			'scheduler.runningFor' => ({required Object d}) => '运行中 · ${d}',
-			'scheduler.nextFireIn' => ({required Object d}) => '⏱ ${d} 后',
+			'scheduler.nextFireIn' => ({required Object d}) => '${d} 后',
 			'scheduler.agoMeta' => ({required Object d}) => '${d} 前',
 			'scheduler.neverRan' => '—',
 			'scheduler.sectionNeverRan' => '未运行',
