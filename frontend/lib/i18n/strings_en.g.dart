@@ -3010,9 +3010,6 @@ class Translations$scheduler$home$en {
 	/// en: 'Workflow killed'
 	String get killed => 'Workflow killed';
 
-	/// en: '7d'
-	String get windowWord => '7d';
-
 	/// en: '$window · success $rate · avg $avg'
 	String statsLine({required Object window, required Object rate, required Object avg}) => '${window} · success ${rate} · avg ${avg}';
 
@@ -3076,9 +3073,6 @@ class Translations$scheduler$home$en {
 	/// en: 'Conversation'
 	String get srcChat => 'Conversation';
 
-	/// en: 'cron · $at'
-	String srcCron({required Object at}) => 'cron · ${at}';
-
 	/// en: 'cron'
 	String get srcCronBare => 'cron';
 
@@ -3090,9 +3084,6 @@ class Translations$scheduler$home$en {
 
 	/// en: 'Unknown origin'
 	String get srcUnknown => 'Unknown origin';
-
-	/// en: 'Replay run $id'
-	String replayA11y({required Object id}) => 'Replay run ${id}';
 
 	/// en: 'Replay this run?'
 	String get replayTitle => 'Replay this run?';
@@ -3148,8 +3139,8 @@ class Translations$scheduler$home$en {
 	/// en: 'running'
 	String get matrixRunning => 'running';
 
-	/// en: 'run $id, $status, $d'
-	String matrixColA11y({required Object id, required Object status, required Object d}) => 'run ${id}, ${status}, ${d}';
+	/// en: 'run $src, $status, $d'
+	String matrixColA11y({required Object src, required Object status, required Object d}) => 'run ${src}, ${status}, ${d}';
 
 	/// en: 'node $node, history'
 	String matrixRowA11y({required Object node}) => 'node ${node}, history';
@@ -3216,6 +3207,18 @@ class Translations$scheduler$home$en {
 
 	/// en: 'row $r of $rows, column $c of $cols'
 	String matrixCoordA11y({required Object r, required Object rows, required Object c, required Object cols}) => 'row ${r} of ${rows}, column ${c} of ${cols}';
+
+	/// en: 'Scheduler'
+	String get crumbRoot => 'Scheduler';
+
+	/// en: 'Stop'
+	String get rowCancel => 'Stop';
+
+	/// en: 'Retry'
+	String get rowRetry => 'Retry';
+
+	/// en: 'Run $id'
+	String runIdLabel({required Object id}) => 'Run ${id}';
 }
 
 // Path: scheduler.run
@@ -3354,6 +3357,9 @@ class Translations$scheduler$run$en {
 
 	/// en: 'No run with this id in this workspace. Check the id, or pick a run from a workflow.'
 	String get relayFailedHint => 'No run with this id in this workspace. Check the id, or pick a run from a workflow.';
+
+	/// en: 'Close this run'
+	String get closeA11y => 'Close this run';
 }
 
 // Path: scheduler.range
@@ -6464,7 +6470,6 @@ extension on Translations {
 			'scheduler.home.killHint' => ({required Object name}) => 'Type ${name} to confirm',
 			'scheduler.home.killConfirm' => 'Kill workflow',
 			'scheduler.home.killed' => 'Workflow killed',
-			'scheduler.home.windowWord' => '7d',
 			'scheduler.home.statsLine' => ({required Object window, required Object rate, required Object avg}) => '${window} · success ${rate} · avg ${avg}',
 			'scheduler.home.runsHead' => 'Runs',
 			'scheduler.home.runsError' => 'Couldn\'t load the runs.',
@@ -6486,12 +6491,10 @@ extension on Translations {
 			'scheduler.home.newRuns' => ({required Object n}) => '${n} new runs',
 			'scheduler.home.srcManual' => 'Manual',
 			'scheduler.home.srcChat' => 'Conversation',
-			'scheduler.home.srcCron' => ({required Object at}) => 'cron · ${at}',
 			'scheduler.home.srcCronBare' => 'cron',
 			'scheduler.home.srcWebhookBare' => 'webhook',
 			'scheduler.home.srcWithName' => ({required Object kind, required Object name}) => '${kind} · ${name}',
 			'scheduler.home.srcUnknown' => 'Unknown origin',
-			'scheduler.home.replayA11y' => ({required Object id}) => 'Replay run ${id}',
 			'scheduler.home.replayTitle' => 'Replay this run?',
 			'scheduler.home.replayBody' => ({required Object failed, required Object completed}) => 'Re-runs ${failed} failed nodes · reuses ${completed} completed results.',
 			'scheduler.home.replayBodyUnknown' => 'Re-runs the failed nodes; completed results are reused.',
@@ -6510,7 +6513,7 @@ extension on Translations {
 			'scheduler.home.matrixEmpty' => 'No runs in this range.',
 			'scheduler.home.matrixNotReached' => 'not reached',
 			'scheduler.home.matrixRunning' => 'running',
-			'scheduler.home.matrixColA11y' => ({required Object id, required Object status, required Object d}) => 'run ${id}, ${status}, ${d}',
+			'scheduler.home.matrixColA11y' => ({required Object src, required Object status, required Object d}) => 'run ${src}, ${status}, ${d}',
 			'scheduler.home.matrixRowA11y' => ({required Object node}) => 'node ${node}, history',
 			'scheduler.home.matrixCellA11y' => ({required Object node, required Object status, required Object n}) => '${node}, ${status}, ${n} rounds',
 			'scheduler.home.openRun' => 'Open →',
@@ -6533,6 +6536,10 @@ extension on Translations {
 			'scheduler.home.editTriggerA11y' => ({required Object name}) => 'Edit trigger ${name} in Entities',
 			'scheduler.home.matrixRowSummaryA11y' => ({required Object node, required Object r, required Object total, required Object n, required Object failed}) => '${node}, row ${r} of ${total}, reached in ${n} runs, ${failed} failed',
 			'scheduler.home.matrixCoordA11y' => ({required Object r, required Object rows, required Object c, required Object cols}) => 'row ${r} of ${rows}, column ${c} of ${cols}',
+			'scheduler.home.crumbRoot' => 'Scheduler',
+			'scheduler.home.rowCancel' => 'Stop',
+			'scheduler.home.rowRetry' => 'Retry',
+			'scheduler.home.runIdLabel' => ({required Object id}) => 'Run ${id}',
 			'scheduler.run.crumb' => ({required Object name, required Object id}) => 'Scheduler / ${name} / ${id}',
 			'scheduler.run.notFoundTitle' => 'Run not found',
 			'scheduler.run.notFoundHint' => 'It may have been cleared by the retention policy. Pick another run from the workflow.',
@@ -6576,6 +6583,7 @@ extension on Translations {
 			'scheduler.run.relayResolving' => 'Finding this run…',
 			'scheduler.run.relayFailedTitle' => 'Couldn\'t resolve this run',
 			'scheduler.run.relayFailedHint' => 'No run with this id in this workspace. Check the id, or pick a run from a workflow.',
+			'scheduler.run.closeA11y' => 'Close this run',
 			'scheduler.range.today' => 'Today',
 			'scheduler.range.h24' => 'Last 24 hours',
 			'scheduler.range.d7' => 'Last 7 days',
@@ -6782,10 +6790,10 @@ extension on Translations {
 			'entities.detail.sec.runtime' => 'Resident state',
 			'entities.detail.sec.initArgs' => 'Init args',
 			'entities.detail.sec.methods' => 'Methods',
-			'entities.detail.sec.prompt' => 'Prompt',
-			'entities.detail.sec.capabilities' => 'Capabilities',
 			_ => null,
 		} ?? switch (path) {
+			'entities.detail.sec.prompt' => 'Prompt',
+			'entities.detail.sec.capabilities' => 'Capabilities',
 			'entities.detail.sec.mountHealth' => 'Mount health',
 			'entities.detail.sec.governance' => 'Run governance',
 			'entities.detail.sec.alerts' => 'Alerts',
@@ -7296,10 +7304,10 @@ extension on Translations {
 			'settings.mcp.tabStderr' => 'stderr',
 			'settings.mcp.lastError' => 'Last error',
 			'settings.mcp.consecutiveFailures' => 'Consecutive failures',
-			'settings.mcp.noTools' => 'No tools',
-			'settings.mcp.noCalls' => 'No calls yet',
 			_ => null,
 		} ?? switch (path) {
+			'settings.mcp.noTools' => 'No tools',
+			'settings.mcp.noCalls' => 'No calls yet',
 			'settings.mcp.noStderr' => 'No output yet',
 			'settings.mcp.callsAgg' => ({required Object ok, required Object failed}) => '✓ ${ok} · ✗ ${failed}',
 			'settings.storage.dataDir' => 'Data directory',

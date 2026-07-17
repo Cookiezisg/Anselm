@@ -36,6 +36,7 @@ class SchedulerRunData {
     this.activity = const [],
     this.graph,
     this.graphPinned = true,
+    this.pinnedVersionNumber,
     this.workflow,
     this.orphan = false,
     this.tickRows = const [],
@@ -46,6 +47,10 @@ class SchedulerRunData {
   final List<FlowrunActivityRow> activity;
   final Graph? graph;
   final bool graphPinned;
+
+  /// The pinned version's HUMAN number («v3») when it resolved — the head speaks it instead of a
+  /// bare version id (需求⑤). 钉版解出时的人话版本号(v3),头念它、不念裸版本 id。
+  final int? pinnedVersionNumber;
   final WorkflowEntity? workflow;
   final bool orphan;
 
@@ -79,6 +84,7 @@ class SchedulerRunData {
     List<FlowrunActivityRow>? activity,
     Graph? graph,
     bool? graphPinned,
+    int? pinnedVersionNumber,
     WorkflowEntity? workflow,
     bool? orphan,
     List<FlowrunNode>? tickRows,
@@ -89,6 +95,7 @@ class SchedulerRunData {
         activity: activity ?? this.activity,
         graph: graph ?? this.graph,
         graphPinned: graphPinned ?? this.graphPinned,
+        pinnedVersionNumber: pinnedVersionNumber ?? this.pinnedVersionNumber,
         workflow: workflow ?? this.workflow,
         orphan: orphan ?? this.orphan,
         tickRows: tickRows ?? this.tickRows,
@@ -216,6 +223,7 @@ class SchedulerRunController extends AsyncNotifier<SchedulerRunData> {
         activity: activity,
         graph: carry.graph,
         graphPinned: true,
+        pinnedVersionNumber: carry.pinnedVersionNumber,
         workflow: carry.workflow,
         orphan: carry.orphan,
       );
@@ -244,6 +252,7 @@ class SchedulerRunController extends AsyncNotifier<SchedulerRunData> {
       activity: activity,
       graph: graph,
       graphPinned: graphPinned,
+      pinnedVersionNumber: pinned?.version,
       workflow: workflow,
       orphan: workflow == null,
     );

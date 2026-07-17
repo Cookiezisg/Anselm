@@ -51,4 +51,30 @@ void main() {
     expect(metas[1], moreOrLessEquals(metas[0], epsilon: 0.5));
     expect(metas[2], moreOrLessEquals(metas[0], epsilon: 0.5));
   });
+  testWidgets('lead dot centres on the FIRST line of a two-line row (用户 0717 红点漂移 bug)',
+      (tester) async {
+    await tester.pumpWidget(TranslationProvider(
+      child: MaterialApp(
+        theme: AnTheme.light(),
+        home: const Scaffold(
+          body: AnLedgerRow(
+            lead: AnStatusDot(AnStatus.err),
+            primary: 'webhook · /invoice',
+            sub: 'HTTP 400 Bad Request',
+            subTone: AnTone.danger,
+          ),
+        ),
+      ),
+    ));
+    final dot = tester.getRect(find.byType(AnStatusDot));
+    final primary = tester.getRect(find.text('webhook · /invoice'));
+    // The dot's centre must sit within the primary line's vertical band — the old s8 pad hung it
+    // ~4px above the text. 点心必须落在主文行的纵向带内——旧 s8 顶距把它吊在文字上方。
+    expect(dot.center.dy, greaterThanOrEqualTo(primary.top),
+        reason: '点不得高于主文行顶(红点漂移即此形)');
+    expect(dot.center.dy, lessThanOrEqualTo(primary.bottom), reason: '点不得低于主文行底');
+    expect((dot.center.dy - primary.center.dy).abs(), lessThanOrEqualTo(3),
+        reason: '点与主文首行近同心(±3px)');
+  });
+
 }

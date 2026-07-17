@@ -42,6 +42,49 @@ enum RunStatusFilter { all, running, failed, waiting }
   );
 }
 
+/// The `flowrun-stats` wire words for one page-level range (需求②:成功率跟随选择器): presets ride
+/// the duration grammar (live look-backs), «today» and absolute pairs ride RFC3339, «all» rides the
+/// epoch (an honest absolute bound covering all history — stats has no unbounded spelling and its
+/// absent-since default is 7d). `until` is RFC3339 or absent (presets are now-anchored).
+/// 一页级范围的 flowrun-stats 线缆词:预设走时长文法(活回看),「今天」与绝对对走 RFC3339,「全部」走
+/// epoch(覆盖全史的诚实绝对界——stats 无「无界」拼法,缺席默认 7d)。until 仅 RFC3339,预设锚 now 故缺席。
+({String since, String? until}) statsWindowOf(AnTimeRange range, DateTime now) {
+  switch (range) {
+    case AnPresetRange(:final preset):
+      switch (preset) {
+        case AnTimePreset.today:
+          return (
+            since: DateTime(now.year, now.month, now.day).toUtc().toIso8601String(),
+            until: null
+          );
+        case AnTimePreset.h24:
+          return (since: '24h', until: null);
+        case AnTimePreset.d7:
+          return (since: '168h', until: null);
+        case AnTimePreset.d30:
+          return (since: '720h', until: null);
+        case AnTimePreset.all:
+          return (since: '1970-01-01T00:00:00Z', until: null);
+      }
+    case AnAbsoluteRange():
+      final r = resolveTimeRange(range, now);
+      return (
+        since: r.from!.toUtc().toIso8601String(),
+        until: r.to!.toUtc().toIso8601String(),
+      );
+  }
+}
+
+/// A run's start instant as the row phrase's time word: same local day → `HH:mm`, else `M/D HH:mm`
+/// (需求⑦:每行都带唤起时刻——右缘不再有相对时间,这里就是「什么时候」的唯一答案).
+/// 行短语的时刻词:当天 HH:mm,跨天 M/D HH:mm。
+String fmtDayTime(DateTime t, DateTime now) {
+  final l = t.toLocal();
+  final hm = '${l.hour.toString().padLeft(2, '0')}:${l.minute.toString().padLeft(2, '0')}';
+  final sameDay = l.year == now.year && l.month == now.month && l.day == now.day;
+  return sameDay ? hm : '${l.month}/${l.day} $hm';
+}
+
 /// A run row's source identity (§4 行身份=来源短语 — GHA「cron run 全长一样」之鉴). [origin] is the
 /// wire word or null (pre-provenance rows — render the unknown word, never a zero-value lie);
 /// [detail] is the per-origin summary (cron → the run's HH:mm start, webhook → the path, fsnotify/

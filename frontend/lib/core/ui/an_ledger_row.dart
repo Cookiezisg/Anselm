@@ -96,10 +96,18 @@ class AnLedgerRow extends StatelessWidget {
           children: [
         if (lead != null) ...[
           // Fixed lead cell: dots (7) and glyphs (12) mix in one list — a bare lead drifts the
-          // primary's left edge row to row. 定宽 lead 格:点/字形混列时主文左缘不漂。
+          // primary's left edge row to row. On a two-line row the cell takes the primary's OWN top
+          // pad (s6) and a first-row-height box so the dot centres on the FIRST line — the old s8
+          // pad hung the dot above the text (用户 0717 报的红点漂移 bug).
+          // 定宽 lead 格:点/字形混列时主文左缘不漂。双行行里 lead 用主文自己的顶距(s6)+首行高盒,
+          // 点与**首行**同心——旧 s8 顶距把点吊在文字上方(用户报的红点漂移 bug)。
           Padding(
-            padding: effectiveSub == null ? EdgeInsets.zero : const EdgeInsets.only(top: AnSpace.s8),
-            child: SizedBox(width: AnSize.iconSm, child: Center(child: lead!)),
+            padding: effectiveSub == null ? EdgeInsets.zero : const EdgeInsets.only(top: AnSpace.s6),
+            child: SizedBox(
+              width: AnSize.iconSm,
+              height: effectiveSub == null ? null : AnSize.controlSm,
+              child: Center(child: lead!),
+            ),
           ),
           const SizedBox(width: AnSpace.s6),
         ],

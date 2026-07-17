@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/contract/api_error.dart';
 import '../../../core/contract/entities/values.dart';
+import '../../../core/contract/entities/trigger.dart';
 import '../../../core/contract/entities/workflow.dart';
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
@@ -22,6 +23,7 @@ import '../data/scheduler_repository.dart';
 import '../state/scheduler_rail_provider.dart';
 import '../state/scheduler_run_provider.dart';
 import 'scheduler_home_model.dart';
+import 'run_phrase.dart';
 import 'scheduler_run_model.dart';
 
 /// The single-run FLAGSHIP (`/scheduler/w/:id/runs/:frId`, WRK-069 §5 — the ocean's main event).
@@ -111,6 +113,9 @@ class _SchedulerRunViewState extends ConsumerState<SchedulerRunView> {
 
   void _clear() => context.go(_base);
 
+  /// The ✕ / bare-Esc exit (需求⑥): back to the workflow operations home. ✕/裸 Esc 出口:回运营主页。
+  void _close() => context.go('/scheduler/w/${widget.workflowId}');
+
   @override
   Widget build(BuildContext context) {
     final t = context.t.scheduler;
@@ -167,9 +172,14 @@ class _SchedulerRunViewState extends ConsumerState<SchedulerRunView> {
     // while there IS a selection, so Esc stays free for whatever else owns it otherwise (settings
     // 先例). Esc 清选区回卷宗脸;快捷键挂在页上而非岛上——选区是页的,岛只是它的镜子;仅有选区时绑,
     // 否则 Esc 留给别人。
+    // The Esc ladder (需求⑥): a node selection clears first (the mouse-twin of picking it off);
+    // with nothing selected, Esc IS the ✕ — back to the operations home. Popovers own their Esc
+    // deeper in the focus tree and win first, as they should.
+    // Esc 阶梯:有选区先清选区;无选区时 Esc 即 ✕——回运营主页。弹层在焦点树更深处自持 Esc,先赢,应当。
     return CallbackShortcuts(
       bindings: {
-        if (widget.nodeId != null) const SingleActivator(LogicalKeyboardKey.escape): _clear,
+        const SingleActivator(LogicalKeyboardKey.escape):
+            widget.nodeId != null ? _clear : _close,
       },
       child: Focus(
         autofocus: false,
@@ -209,6 +219,7 @@ class _SchedulerRunViewState extends ConsumerState<SchedulerRunView> {
                   padding: const EdgeInsets.only(top: AnGap.section),
                   child: AnSection(
                     label: t.run.graphHead,
+                    variant: AnSectionVariant.plain,
                     children: [
                       Text(t.run.graphEmpty,
                           style: AnText.body.copyWith(color: context.colors.inkFaint)),
@@ -347,7 +358,50 @@ class _DossierHeadState extends ConsumerState<_DossierHead> {
             ? fmtDuration(run.completedAt!.difference(started))
             : (running ? fmtWaited(widget.now.difference(started)) : null));
 
+    // The documentary page head (需求④, entities 同文法): crumb «调度 / workflow 名» → big title =
+    // the run's SOURCE PHRASE (需求⑤:人читает来源短语,不是 fr_ id) → the verbs top-right. The
+    // machine detail stays in the stat bar below.
+    // 文档化页头(entities 同文法):面包屑「调度 / workflow 名」→ 大标题=来源短语(人读来源,非 fr_ id)
+    // → 动词右上。机器细节留在下方状态条。
+    final triggersById = {
+      for (final tr in ref.watch(schedulerRailProvider).value?.triggers ?? const <TriggerEntity>[])
+        tr.id: tr,
+    };
+    final hostName = _d.workflow?.name ?? run.workflowId;
+
     final head = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      AnOceanHeader(
+        crumbs: [context.t.scheduler.home.crumbRoot, hostName],
+        title: runPhrase(context, run, triggersById, widget.now),
+        actions: [
+          if (failed)
+            AnButton(
+              label: t.replay,
+              icon: AnIcons.history,
+              variant: AnButtonVariant.primary,
+              size: AnButtonSize.sm,
+              onPressed: _busy ? null : _replay,
+            ),
+          // Cancel needs a LIVE run and a live host — an orphan's engine is gone (§5.7). 取消需活 run
+          // 与活宿主:孤儿的引擎已不在。
+          if (running && !_d.orphan)
+            AnButton(
+              label: t.cancel,
+              icon: AnIcons.stop,
+              variant: AnButtonVariant.danger,
+              size: AnButtonSize.sm,
+              onPressed: _busy ? null : _cancel,
+            ),
+          if (failed && !_d.orphan)
+            AnButton(
+              label: t.triage,
+              icon: AnIcons.chat,
+              size: AnButtonSize.sm,
+              outline: true,
+              onPressed: _busy ? null : _triage,
+            ),
+        ],
+      ),
       AnStatBar(
         status: AnStatus.fromRaw(run.status),
         leading: [
@@ -367,7 +421,12 @@ class _DossierHeadState extends ConsumerState<_DossierHead> {
           if (timing.queue != null)
             AnStat(t.queuedFor(d: fmtDuration(timing.queue!)), tabular: true),
           if (timing.exec != null) AnStat(t.execFor(d: fmtDuration(timing.exec!)), tabular: true),
-          if (run.versionId.isNotEmpty) AnStat(t.pinnedVersion),
+          // «v3 · pinned» — the human number when the version resolved; the word alone otherwise
+          // (需求⑤). v3 人话版本号,解不出只念词。
+          if (run.versionId.isNotEmpty)
+            AnStat(_d.pinnedVersionNumber != null
+                ? 'v${_d.pinnedVersionNumber} · ${t.pinnedVersion}'
+                : t.pinnedVersion),
         ],
         chips: [
           if (run.replayCount > 0)
@@ -389,38 +448,12 @@ class _DossierHeadState extends ConsumerState<_DossierHead> {
       ProvenanceLine(
         conversationId: run.conversationId,
         triggerId: run.triggerId,
+        // The trigger speaks its NAME (需求⑤ 人话化) — the id survives in the panel it opens.
+        // trigger 念真名;id 活在它点开的面板里。
+        triggerName: run.triggerId != null ? triggersById[run.triggerId]?.name : null,
         firingId: run.firingId,
         flowrunId: run.id,
       ),
-      const SizedBox(height: AnGap.block),
-      Wrap(spacing: AnGap.inline, runSpacing: AnGap.stackTight, children: [
-        if (failed)
-          AnButton(
-            label: t.replay,
-            icon: AnIcons.history,
-            variant: AnButtonVariant.primary,
-            size: AnButtonSize.sm,
-            onPressed: _busy ? null : _replay,
-          ),
-        // Cancel needs a LIVE run and a live host — an orphan's engine is gone (§5.7). 取消需活 run
-        // 与活宿主:孤儿的引擎已不在。
-        if (running && !_d.orphan)
-          AnButton(
-            label: t.cancel,
-            icon: AnIcons.stop,
-            variant: AnButtonVariant.danger,
-            size: AnButtonSize.sm,
-            onPressed: _busy ? null : _cancel,
-          ),
-        if (failed && !_d.orphan)
-          AnButton(
-            label: t.triage,
-            icon: AnIcons.chat,
-            size: AnButtonSize.sm,
-            outline: true,
-            onPressed: _busy ? null : _triage,
-          ),
-      ]),
     ]);
 
     // The settle flash — one wash when a durable run_terminal landed (谢幕落账洗亮先例). 落定洗亮一次。
@@ -461,6 +494,7 @@ class _GraphZone extends StatelessWidget {
     final t = context.t.scheduler.run;
     return AnSection(
       label: data.graphPinned ? t.graphHeadPinned : t.graphHead,
+      variant: AnSectionVariant.plain,
       children: [
         AnGraphCanvas(
           graph: graph,
@@ -490,12 +524,13 @@ class _GanttZone extends StatelessWidget {
     final t = context.t.scheduler.run;
     final c = context.colors;
     if (chart.rows.isEmpty) {
-      return AnSection(label: t.ganttHead, children: [
+      return AnSection(label: t.ganttHead, variant: AnSectionVariant.plain, children: [
         Text(t.ganttEmpty, style: AnText.body.copyWith(color: c.inkFaint)),
       ]);
     }
     return AnSection(
       label: t.ganttHead,
+      variant: AnSectionVariant.plain,
       children: [
         AnNodeGantt(
           rows: chart.rows,
@@ -550,7 +585,7 @@ class _LedgerZone extends ConsumerWidget {
     final byKey = {for (final a in data.activity) '${a.nodeId}#${a.iteration}': a};
 
     if (entries.isEmpty) {
-      return AnSection(label: t.ledgerHead, children: [
+      return AnSection(label: t.ledgerHead, variant: AnSectionVariant.plain, children: [
         Text(t.ledgerEmpty, style: AnText.body.copyWith(color: c.inkFaint)),
       ]);
     }
@@ -565,6 +600,7 @@ class _LedgerZone extends ConsumerWidget {
 
     return AnSection(
       label: t.ledgerHead,
+      variant: AnSectionVariant.plain,
       children: [
         AnStatBar(stats: [
           AnStat(context.t.run.nodeCount(n: '${data.nodes.length}'), tabular: true),

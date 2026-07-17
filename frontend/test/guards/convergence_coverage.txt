@@ -478,6 +478,7 @@ lib/features/scheduler/state/scheduler_run_provider.dart	pending
 lib/features/scheduler/state/selected_scheduler.dart	pending
 lib/features/scheduler/ui/batch_engine.dart	pending
 lib/features/scheduler/ui/overview_zones.dart	pending
+lib/features/scheduler/ui/run_phrase.dart	pending
 lib/features/scheduler/ui/scheduler_home.dart	pending
 lib/features/scheduler/ui/scheduler_home_model.dart	pending
 lib/features/scheduler/ui/scheduler_ocean.dart	pending

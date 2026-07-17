@@ -29,6 +29,7 @@ class ProvenanceLine extends StatelessWidget {
     this.messageId,
     this.flowrunId,
     this.triggerId,
+    this.triggerName,
     this.firingId,
     this.nodeId,
     this.iteration,
@@ -39,6 +40,11 @@ class ProvenanceLine extends StatelessWidget {
   final String? messageId;
   final String? flowrunId;
   final String? triggerId;
+
+  /// The trigger's HUMAN name when the caller has it resolved (需求⑤ id 人话化) — the pill then
+  /// speaks «trigger 每日 09:00» instead of a mono id (which drops to the tooltip).
+  /// 调用方解出的 trigger 真名——药丸念「trigger 每日 09:00」而非 mono id(id 降 tooltip)。
+  final String? triggerName;
   final String? firingId;
   final String? nodeId;
   final int? iteration;
@@ -50,7 +56,11 @@ class ProvenanceLine extends StatelessWidget {
       if (conversationId != null && conversationId!.isNotEmpty)
         toolNavPill(context, kind: 'conversation', label: '${t.run.provConversation} ${truncate(conversationId!, AnTrunc.id)}', id: conversationId),
       if (triggerId != null && triggerId!.isNotEmpty)
-        toolNavPill(context, kind: 'trigger', label: '${t.run.provTrigger} ${truncate(triggerId!, AnTrunc.id)}', id: triggerId),
+        toolNavPill(context,
+            kind: 'trigger',
+            label:
+                '${t.run.provTrigger} ${triggerName != null && triggerName!.isNotEmpty ? truncate(triggerName!, AnTrunc.word) : truncate(triggerId!, AnTrunc.id)}',
+            id: triggerId),
       // Non-navigable coordinates become COPY chips (批5 A-047 关联 A-037 — the bare grey text
       // lied about being «mono copy-badges»; flowrun has no panel entry, cockpit needs workflowId).
       // 非导航坐标改真复制芯片(旧裸灰字谎称 mono copy-badges);截断走族档、copy 保全量。

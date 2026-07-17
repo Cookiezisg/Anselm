@@ -69,6 +69,9 @@ const _ocean = String.fromEnvironment('OCEAN');
 // 深链 scheduler 运营主页;SCHEDRUN=展开该行的行内速览卡。
 const _schedWf = String.fromEnvironment('SCHEDW');
 const _schedRun = String.fromEnvironment('SCHEDRUN');
+// Optional `--dart-define=SCHEDFLAG=1` (with SCHEDW+SCHEDRUN) deep-links the run FLAGSHIP page
+// instead of the home (0717-晚 文档化页头验收帧). 深链 run 旗舰页(而非主页)。
+const _schedFlag = String.fromEnvironment('SCHEDFLAG');
 // Optional `--dart-define=NOTIF=1` opens the notifications tray (bell) — verify it takes over the left
 // island. 拉开通知托盘,验它接管左岛。
 const _notif = String.fromEnvironment('NOTIF');
@@ -167,16 +170,20 @@ void main() {
     // range capsule + top matrix (anchored newest) + run table (+ optional expanded peek card).
     // 深链 scheduler 运营主页:胶囊+页顶矩阵+大表(+可选展开速览卡)。
     if (_schedWf.isNotEmpty) {
-      final loc = _schedRun.isEmpty
-          ? '/scheduler/w/$_schedWf'
-          : '/scheduler/w/$_schedWf?run=$_schedRun';
+      final loc = _schedFlag.isNotEmpty && _schedRun.isNotEmpty
+          ? '/scheduler/w/$_schedWf/runs/$_schedRun'
+          : _schedRun.isEmpty
+              ? '/scheduler/w/$_schedWf'
+              : '/scheduler/w/$_schedWf?run=$_schedRun';
       container.read(goRouterProvider).go(loc);
       for (var i = 0; i < 15; i += 1) {
         await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 40)));
         await tester.pump(const Duration(milliseconds: 80));
       }
       outName = '${outName}_w';
-      if (_schedRun.isNotEmpty) {
+      if (_schedFlag.isNotEmpty) {
+        outName = '${outName}_run';
+      } else if (_schedRun.isNotEmpty) {
         // Scroll the expanded peek card into the frame (its gantt is the card's body). 滚卡入帧。
         await tester.ensureVisible(find.byType(AnNodeGantt).first);
         await tester.pump(const Duration(milliseconds: 300));

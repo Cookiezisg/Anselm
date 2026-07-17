@@ -267,13 +267,18 @@ void main() {
   final h = t.scheduler.home;
 
   group('① 健康头', () {
-    testWidgets('name + lifecycle chip + 7d stats sentence + Run now — and NO bead strip '
-        '(0717 拍板:矩阵列头即同一条新闻)', (tester) async {
+    testWidgets('the documentary head: crumb + big title + range-scoped stats sentence + capsule '
+        '+ Run now — and NO bead strip (需求②③ 0717-晚)', (tester) async {
       await _pump(tester, _repo());
+      expect(find.byType(AnOceanHeader), findsOneWidget, reason: '文档化页头(entities 同文法)');
       expect(find.text('数据清洗流水线'), findsOneWidget);
       expect(find.text(t.scheduler.status.active), findsOneWidget);
       expect(find.byType(RunBeadStrip), findsNothing, reason: '珠串已删——矩阵列头就是同一排珠子');
-      expect(find.text(h.statsLine(window: h.windowWord, rate: '80%', avg: '42.0s')), findsOneWidget);
+      // The sentence's window word IS the capsule's word (需求②:成功率跟随选择器,默认近 7 天).
+      // 句子窗口词=胶囊之词。
+      expect(find.text(h.statsLine(window: t.scheduler.range.d7, rate: '80%', avg: '42.0s')),
+          findsOneWidget);
+      expect(find.byType(AnTimeRangePicker), findsOneWidget, reason: '胶囊坐在页头 meta 行');
       expect(find.text(h.runNow), findsOneWidget);
     });
 
@@ -285,8 +290,26 @@ void main() {
         byWorkflow: [WorkflowRunStats(workflowId: 'wf_a', lastRunAt: _now)],
       );
       await _pump(tester, repo);
-      expect(find.text(h.statsLine(window: h.windowWord, rate: '—', avg: '—')), findsOneWidget);
+      expect(find.text(h.statsLine(window: t.scheduler.range.d7, rate: '—', avg: '—')),
+          findsOneWidget);
       expect(find.textContaining('0%'), findsNothing);
+    });
+
+    testWidgets('the stats sentence FOLLOWS the capsule: picking 24h re-asks stats with since=24h '
+        '(需求②:一颗胶囊、句子同窗)', (tester) async {
+      final repo = _repo();
+      await _pump(tester, repo);
+      repo.statsWindows.clear();
+      await tester.tap(find.byType(AnTimeRangePicker));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.text(t.scheduler.range.h24).last);
+      await tester.pump();
+      await _settle(tester);
+      expect(repo.statsWindows.any((w) => w.since == '24h' && w.until == null), isTrue,
+          reason: '句子的统计真按新窗重取(预设走时长文法)');
+      expect(find.textContaining(t.scheduler.range.h24), findsWidgets,
+          reason: '窗口词换成 24h——句囊永不打架');
     });
 
     testWidgets('Run now hits :trigger and reports the new run', (tester) async {
@@ -334,23 +357,23 @@ void main() {
   });
 
   group('② run 大表', () {
-    testWidgets('rows ARE their source phrase; the mono fr_ id demotes to a chip', (tester) async {
+    testWidgets('rows speak «source · start instant»; NO bare id anywhere in a row (需求⑤⑦)',
+        (tester) async {
       await _pump(tester, _repo());
-      // cron · HH:mm from each run's own start stamp. cron 带本次时刻。
+      // Every origin now carries its start instant (the one phrase grammar). 每来源都带开始时刻。
       final cronAt = _now.subtract(const Duration(minutes: 3)).toLocal();
       final hhmm =
           '${cronAt.hour.toString().padLeft(2, '0')}:${cronAt.minute.toString().padLeft(2, '0')}';
-      expect(find.text(h.srcCron(at: hhmm)), findsOneWidget);
-      expect(find.text(h.srcWithName(kind: h.srcWebhookBare, name: '/invoice')), findsOneWidget,
-          reason: 'webhook 摘要=path(config 胜过名)');
-      expect(find.text(h.srcChat), findsOneWidget);
-      expect(find.text(h.srcUnknown), findsOneWidget, reason: '旧行诚实 unknown,不装 manual');
-      // The id is demoted to a chip — it is never the row's identity. id 降 chip,绝不是行身份。
+      expect(find.text('${h.srcCronBare} · $hhmm'), findsOneWidget);
       expect(
-          find.descendant(of: find.byType(AnChip), matching: find.text('fr_live1')), findsOneWidget);
-      expect(
-          find.descendant(of: find.byType(AnLedgerRow), matching: find.text('fr_live1')).evaluate(),
-          hasLength(1));
+          find.textContaining(h.srcWithName(kind: h.srcWebhookBare, name: '/invoice')),
+          findsOneWidget,
+          reason: 'webhook 摘要=path(config 胜过名),后接时刻');
+      expect(find.textContaining(h.srcChat), findsWidgets);
+      // The fr_ id is GONE from rows (需求⑤:人看不懂 id) — it lives in the peek card + tooltips.
+      // 行内无裸 id——完整 id 收进速览卡与 tooltip。
+      expect(find.textContaining('fr_live1'), findsNothing,
+          reason: '行内不再渲 run id 药丸——身份=来源短语+时刻');
     });
 
     testWidgets('failed rows carry the error FIRST LINE in the danger sub', (tester) async {
@@ -372,7 +395,7 @@ void main() {
       await tester.pump();
       await _settle(tester);
       expect(repo.listFilters.any((f) => f.status == 'failed'), isTrue);
-      expect(find.text(h.srcChat), findsNothing, reason: '过滤后 completed 行退场');
+      expect(find.textContaining(h.srcChat), findsNothing, reason: '过滤后 completed 行退场');
     });
 
     testWidgets('«等人» intersects the inbox and NEVER sends ?status=parked', (tester) async {
@@ -454,16 +477,17 @@ void main() {
       expect(find.text(h.loadMore), findsNothing, reason: '末页收哨兵');
     });
 
-    testWidgets('hover ⏹ on running / ↻ on failed — a reserved cell, zero layout shift',
+    testWidgets('the verb is PERSISTENT, inline after the phrase — no hover needed (需求⑦)',
         (tester) async {
-      final repo = _repo();
-      await _pump(tester, repo);
-      final cronAt = _now.subtract(const Duration(minutes: 3)).toLocal();
-      final hhmm =
-          '${cronAt.hour.toString().padLeft(2, '0')}:${cronAt.minute.toString().padLeft(2, '0')}';
-      final g = await _hover(tester, find.text(h.srcCron(at: hhmm)));
-      expect(find.byIcon(AnIcons.stop), findsOneWidget, reason: '在跑行 hover 出 ⏹');
-      await g.removePointer();
+      await _pump(tester, _repo());
+      // No pointer anywhere: running rows already wear ⏹ Stop, failed rows ↻ Retry. 零悬停即见。
+      expect(find.text(h.rowCancel), findsOneWidget, reason: '在跑行常驻 ⏹ 终止(种子恰一条在跑)');
+      expect(find.text(h.rowRetry), findsNWidgets(2), reason: '两条失败行常驻 ↻ 重试');
+      // The verb sits INSIDE the row (right after the phrase), not in a far-edge reserved cell.
+      // 动词在行内紧随短语,不在行尾预留格。
+      expect(
+          find.descendant(of: find.byType(AnLedgerRow), matching: find.text(h.rowCancel)),
+          findsOneWidget);
     });
 
     testWidgets('single replay: the confirm carries the REAL memoization numbers', (tester) async {
@@ -473,18 +497,17 @@ void main() {
       await tester.pump();
       await _settle(tester);
 
-      final g = await _hover(tester, find.text('HTTP 502 Bad Gateway: upstream did not respond'),
-          reveal: find.ancestor(
-              of: find.text('HTTP 502 Bad Gateway: upstream did not respond'),
-              matching: find.byType(AnLedgerRow)));
-      // Target the ↻ of the row we hovered, by its per-row semantic label — NOT «the first history
-      // icon on the page». A page-order finder silently aims at another row the moment the page grows
-      // tall enough for ensureVisible to scroll (the reserved hover cell stays in the tree but
-      // un-hittable), which is a test that breaks on unrelated layout, not on the behaviour it names.
-      // 按**行自己**的语义标签取该行的 ↻,而不是「页面上第一个 history 图标」:一旦页面高到 ensureVisible
-      // 需要滚动,页序 finder 就会静默瞄向另一行(定宽格里的 ↻ 仍在树上但不可命中)——那是一个会被无关布局
-      // 改动搞坏的测试,而非它所声称的行为的测试。
-      await tester.tap(find.bySemanticsLabel(h.replayA11y(id: 'fr_fail1')));
+      // The verb is persistent and lives IN the row — address THAT row's Retry by ancestry off its
+      // error line (需求⑦:常驻内联,无需悬停;寻址走行自己的错误副行,绝不「页面上第一个 Retry」).
+      // 动词常驻行内——按该行错误副行做祖先寻址,绝不拿页序第一个。
+      final failRow = find.ancestor(
+          of: find.text('HTTP 502 Bad Gateway: upstream did not respond'),
+          matching: find.byType(AnLedgerRow));
+      await tester.ensureVisible(failRow.first);
+      await tester.pump();
+      await tester.tap(
+          find.descendant(of: failRow, matching: find.text(h.rowRetry)).first,
+          warnIfMissed: false);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       // fr_fail1 nodes: 1 completed + 1 failed. 真数字。
@@ -494,7 +517,6 @@ void main() {
       await tester.pump();
       await _settle(tester);
       expect(repo.replayOrder, ['fr_fail1']);
-      await g.removePointer();
     });
 
     testWidgets('replay when the node history is unavailable → the numberless honest sentence',
@@ -505,17 +527,17 @@ void main() {
       await tester.pump();
       await _settle(tester);
 
-      final g = await _hover(tester, find.text('HTTP 502 Bad Gateway: upstream did not respond'),
-          reveal: find.ancestor(
-              of: find.text('HTTP 502 Bad Gateway: upstream did not respond'),
-              matching: find.byType(AnLedgerRow)));
-      // The hovered row's own ↻ (per-row semantic label) — see the note on the single-replay test.
-      // 该行自己的 ↻(逐行语义标签),理由见单条 replay 测试的注。
-      await tester.tap(find.bySemanticsLabel(h.replayA11y(id: 'fr_fail1')));
+      final failRow = find.ancestor(
+          of: find.text('HTTP 502 Bad Gateway: upstream did not respond'),
+          matching: find.byType(AnLedgerRow));
+      await tester.ensureVisible(failRow.first);
+      await tester.pump();
+      await tester.tap(
+          find.descendant(of: failRow, matching: find.text(h.rowRetry)).first,
+          warnIfMissed: false);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.text(h.replayBodyUnknown), findsOneWidget, reason: '取不到数字也不假造');
-      await g.removePointer();
     });
 
     testWidgets('batch replay: ≥2 selected → merged real numbers → SEQUENTIAL dispatch',
@@ -723,9 +745,9 @@ void main() {
       await _settle(tester);
 
       Future<void> tapChatRow() async {
-        await tester.ensureVisible(find.text(h.srcChat).first);
+        await tester.ensureVisible(find.textContaining(h.srcChat).first);
         await tester.pump();
-        await tester.tap(find.text(h.srcChat).first, warnIfMissed: false);
+        await tester.tap(find.textContaining(h.srcChat).first, warnIfMissed: false);
         // The double-tap window is judged on REAL wall time (DateTime.now() in _onRowTap), which
         // fake pumps do not advance — sleep real 350ms or two quick test taps read as a double.
         // 双击窗按真墙钟判(假 pump 不走真钟)——真睡 350ms,否则连点被判双击直进旗舰。
@@ -867,18 +889,21 @@ void main() {
       await _pump(tester, repo);
 
       expect(find.byType(AnRunMatrix), findsOneWidget);
-      expect(find.text(h.matrixTitle.toUpperCase()), findsOneWidget, reason: '节标签视觉大写');
+      expect(find.text(h.matrixTitle.toUpperCase()), findsNothing,
+          reason: 'NODE × RUN 段标题已删(需求②)——格阵直接坐页头下');
       expect(find.text('3'), findsOneWidget, reason: 'iterations=3 → ×N 在格里');
       expect(find.byTooltip(h.matrixNotReached), findsOneWidget,
           reason: '稀疏格说「未及」——空格是真答案,不是缺答案');
       // Display order is CHRONOLOGICAL: the older fr_fail1 column sits LEFT of fr_live1 (wire is
       // newest-first; the zone reverses for the timeline). 呈现时序:旧列在左。
       final grid_ = find.byType(AnRunMatrix);
+      // Column semantics speak the SOURCE PHRASE now (需求⑤) — address the two cols by their
+      // distinguishing words (running vs failed). 列语义念来源短语——按状态词寻址两列。
       final older = tester.getTopLeft(find
-          .descendant(of: grid_, matching: find.bySemanticsLabel(RegExp('fr_fail1')))
+          .descendant(of: grid_, matching: find.bySemanticsLabel(RegExp('failed')))
           .first);
       final newer = tester.getTopLeft(find
-          .descendant(of: grid_, matching: find.bySemanticsLabel(RegExp('fr_live1')))
+          .descendant(of: grid_, matching: find.bySemanticsLabel(RegExp('running|在跑|Running')))
           .first);
       expect(older.dx, lessThan(newer.dx), reason: '时间轴:旧在左、新在右(锚最新端)');
     });
@@ -942,7 +967,8 @@ void main() {
 
       // Scope INSIDE the grid: the run table below also prints the id. finder 限定格阵内。
       final colHead = find.descendant(
-          of: find.byType(AnRunMatrix), matching: find.bySemanticsLabel(RegExp('fr_live1')));
+          of: find.byType(AnRunMatrix),
+          matching: find.bySemanticsLabel(RegExp('running|在跑|Running')));
       await tester.ensureVisible(colHead.first);
       await tester.pump();
       await tester.tap(colHead.first, warnIfMissed: false);

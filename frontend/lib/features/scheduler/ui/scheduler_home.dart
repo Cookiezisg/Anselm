@@ -26,6 +26,7 @@ import '../state/scheduler_rail_provider.dart';
 import '../state/selected_scheduler.dart';
 import 'batch_engine.dart';
 import 'scheduler_home_model.dart';
+import 'run_phrase.dart';
 import 'scheduler_run_model.dart';
 
 /// The workflow operations home (`/scheduler/w/:id`, WRK-069 §4, 主页重建拍板 0717) — one document
@@ -248,10 +249,16 @@ class _HealthHeadState extends ConsumerState<_HealthHead> {
   Widget build(BuildContext context) {
     final t = context.t.scheduler;
     final c = context.colors;
-    final stats = widget.stats;
-    final successRate = stats?.successRate;
-    final avgMs = stats?.avgElapsedMs;
-    final running = stats?.running ?? 0;
+    // The kill blast radius reads the rail's CURRENT running count (a "now" number, deliberately
+    // not the range's). 击杀影响面读 rail 的**此刻**在跑数(刻意不随范围)。
+    final running = widget.stats?.running ?? 0;
+    // The stats sentence FOLLOWS the page-level range (需求②) — its own 1-id fetch, window word =
+    // the capsule's word, so the sentence can never quote a window the capsule doesn't govern.
+    // 统计句跟随页级范围——独立 1-id 取数,窗口词=胶囊之词,句子不可能引用胶囊管不着的窗。
+    final range = ref.watch(schedulerTimeRangeProvider);
+    final rangeStats = ref.watch(schedulerRangeStatsProvider(widget.row.id)).value;
+    final successRate = rangeStats?.successRate;
+    final avgMs = rangeStats?.avgElapsedMs;
 
     final lifecycleWord = switch (widget.row.lifecycleState) {
       'active' => t.status.active,
@@ -261,22 +268,32 @@ class _HealthHeadState extends ConsumerState<_HealthHead> {
     };
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Row(children: [
-        Expanded(
-          child: Wrap(
-            spacing: AnGap.inlineLoose,
-            runSpacing: AnGap.stackTight,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Text(widget.row.name, style: AnText.h2.copyWith(color: c.ink)),
-              AnChip(lifecycleWord,
-                  tone: widget.row.lifecycleState == 'inactive' ? AnTone.none : AnTone.accent,
-                  look: AnChipLook.outlined),
-            ],
+      // The documentary page head (需求③, entities 同款文法): in-page crumb → big H2 title → meta
+      // row (lifecycle badge · range-scoped stats sentence · THE page-level time capsule) → actions.
+      // 文档化页头(entities 同文法):页内面包屑 → 大标题 → meta 行(生命周期徽 · 范围统计句 · 页级时间
+      // 胶囊)→ 右侧动作。
+      AnOceanHeader(
+        crumbs: [t.home.crumbRoot],
+        title: widget.row.name,
+        meta: [
+          AnChip(lifecycleWord,
+              tone: widget.row.lifecycleState == 'inactive' ? AnTone.none : AnTone.accent,
+              look: AnChipLook.outlined),
+          Text(
+            t.home.statsLine(
+              window: _rangeWord(context, range),
+              rate: successRate != null ? '${(successRate * 100).round()}%' : '—',
+              avg: avgMs != null ? fmtDuration(Duration(milliseconds: avgMs)) : '—',
+            ),
+            style: AnText.meta.copyWith(color: c.inkMuted),
           ),
-        ),
-        const SizedBox(width: AnGap.inlineLoose),
-        AnActionGroup([
+          AnTimeRangePicker(
+            value: range,
+            onChanged: (r) => ref.read(schedulerTimeRangeProvider.notifier).set(r),
+            strings: _rangeStrings(context),
+          ),
+        ],
+        actions: [
           AnButton(
             label: t.home.runNow,
             icon: AnIcons.run,
@@ -304,26 +321,6 @@ class _HealthHeadState extends ConsumerState<_HealthHead> {
               semanticLabel: t.home.moreA11y,
               onPressed: toggle,
             ),
-          ),
-        ]),
-      ]),
-      const SizedBox(height: AnGap.block),
-      // Health at a glance: the near-10 bead strip + the 7d stats sentence (nulls = «—», never 0%).
-      // 一眼健康:7d 统计句(缺席渲 —,绝不装 0%)。
-      Wrap(
-        spacing: AnGap.inlineLoose,
-        runSpacing: AnGap.stackTight,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          // The bead strip is GONE (0717 拍板 问题2): the matrix's column heads ARE the same
-          // recent-run news, one lane richer. 珠串已删——矩阵列头就是同一排珠子,还多长了节点行。
-          Text(
-            t.home.statsLine(
-              window: t.home.windowWord,
-              rate: successRate != null ? '${(successRate * 100).round()}%' : '—',
-              avg: avgMs != null ? fmtDuration(Duration(milliseconds: avgMs)) : '—',
-            ),
-            style: AnText.meta.copyWith(color: c.inkMuted),
           ),
         ],
       ),
@@ -595,6 +592,7 @@ class _RunTableZoneState extends ConsumerState<_RunTableZone> with BatchZone<_Ru
 
     return AnSection(
       label: t.runsHead,
+      variant: AnSectionVariant.plain,
       children: [
         // The count strip + origin/window dropdowns — counts are TRUE numbers (stats / probe /
         // inbox), each click IS the filter. 计数条+两下拉;真数可点即过滤。
@@ -719,11 +717,16 @@ class _RunTableZoneState extends ConsumerState<_RunTableZone> with BatchZone<_Ru
     );
   }
 
-  /// One run row — identity is the SOURCE PHRASE (GHA「cron run 全长一样」之鉴); the mono fr_ id
-  /// demotes to a chip. 一行:身份=来源短语,fr_ id 降 chip。
+  /// One run row (需求⑦ 0717-晚重排): identity = SOURCE PHRASE + start instant on the LEFT; the
+  /// actionable verb (⏹/↻) rides RIGHT AFTER it, persistent — never a hover-revealed far-edge cell
+  /// that reserves space on every row. The right edge carries the EXECUTION DURATION alone (the
+  /// left already says «when», the old relative "ago" was the same fact twice). Bare ids are gone
+  /// from rows (需求⑤) — the full id lives in the peek card and tooltips.
+  /// 一行(0717-晚重排):左=来源短语+开始时刻,可操作动词(⏹/↻)**紧随其后常驻**——不再是给所有行占位的
+  /// hover 行尾格;右缘只留**执行时长**(左边已说「何时」,旧相对时间是同一事实说两遍)。行内无裸 id
+  /// (完整 id 收进速览卡与 tooltip)。
   Widget _row(BuildContext context, RunTableState s, Flowrun run) {
     final t = context.t.scheduler.home;
-    final source = runSourceOf(run, widget.triggersById);
     final key = run.id;
     final isPending = pending.contains(key) || batchBusy && selected.contains(key);
     final selectable = s.filter == RunStatusFilter.failed || s.filter == RunStatusFilter.running;
@@ -732,22 +735,12 @@ class _RunTableZoneState extends ConsumerState<_RunTableZone> with BatchZone<_Ru
     final running = run.status == 'running';
     final failed = run.status == 'failed';
 
-    final primary = switch (source.origin) {
-      'manual' => t.srcManual,
-      'chat' => t.srcChat,
-      'cron' => source.detail != null ? t.srcCron(at: source.detail!) : t.srcCronBare,
-      'webhook' =>
-        source.detail != null ? t.srcWithName(kind: t.srcWebhookBare, name: source.detail!) : t.srcWebhookBare,
-      'fsnotify' =>
-        source.detail != null ? t.srcWithName(kind: t.originFsnotify, name: source.detail!) : t.originFsnotify,
-      'sensor' =>
-        source.detail != null ? t.srcWithName(kind: t.originSensor, name: source.detail!) : t.originSensor,
-      _ => t.srcUnknown,
-    };
+    // EVERY origin carries its start instant (the ONE phrase grammar, run_phrase.dart). 统一短语文法。
+    final started = run.startedAt;
+    final primary = runPhrase(context, run, widget.triggersById, widget.now);
 
     // Elapsed: finished → precise; running → the pulse-driven coarse live measure (脉搏只刷字).
     // 耗时:落定精确;在跑走脉搏粗粒活计时。
-    final started = run.startedAt;
     final String? elapsed;
     if (run.completedAt != null && started != null) {
       elapsed = fmtDuration(run.completedAt!.difference(started));
@@ -762,73 +755,50 @@ class _RunTableZoneState extends ConsumerState<_RunTableZone> with BatchZone<_Ru
       onExit: (_) => setState(() {
         if (hoveredKey == key) hoveredKey = null;
       }),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-        Expanded(
-          child: AnLedgerRow(
-            expanded: run.id == widget.linkedRunId,
-            // Lazy (C-006): a collapsed row NEVER builds its peek card — an eager card per row
-            // would fetch full run composites for rows nobody opened.
-            // 惰性:收起的行绝不建速览卡——每行急建会替没人点开的行拉全量 run 复合。
-            expandBuilder: (_) =>
-                _RunPeekCard(workflowId: widget.workflowId, flowrunId: run.id),
-            lead: isPending
-                ? const AnSpinner(size: AnSize.iconSm)
-                : showCheck
-                    ? AnBatchCheck(
-                        checked: selected.contains(key),
-                        semanticLabel: context.t.scheduler.overview.selectRow(name: run.id),
-                        onChanged: (v) =>
-                            setState(() => v ? selected.add(key) : selected.remove(key)),
-                      )
-                    : AnStatusDot(AnStatus.fromRaw(run.status)),
-            primary: primary,
-            mono: false,
-            chips: [
-              // origin=chat carries its conversation coordinate — navigable via the panel registry
-              // (真名缝不存在,mono id 记偏差). chat 行带对话坐标(mono id;真名缝待建)。
-              if (source.conversationId != null && source.conversationId!.isNotEmpty)
-                toolNavPill(context,
-                    kind: 'conversation',
-                    label: truncate(source.conversationId!, AnTrunc.id),
-                    id: source.conversationId),
-              AnChip(truncate(run.id, AnTrunc.id),
-                  mono: true, look: AnChipLook.outlined, tooltip: run.id),
-              if (run.replayCount > 0)
-                AnChip(context.t.run.replayTimes(n: '${run.replayCount}'),
-                    look: AnChipLook.outlined),
-            ],
-            sub: failed ? _errorFirstLine(run.error) : null,
-            subTone: AnTone.danger,
-            measure: elapsed,
-            meta: context.t.scheduler
-                .agoMeta(d: fmtWaited(widget.now.difference(started ?? run.updatedAt))),
-            onTap: () => _onRowTap(run),
-          ),
-        ),
-        const SizedBox(width: AnSpace.s6),
-        // The hover tail op — a RESERVED cell (hover 零位移): ⏹ on running rows, ↻ on failed rows.
-        // hover 行尾定宽格:在跑 ⏹ / 失败 ↻。
-        Visibility(
-          visible: hovered && !isPending && !batchBusy && (running || failed),
-          maintainSize: true,
-          maintainAnimation: true,
-          maintainState: true,
-          child: running
-              ? AnButton.iconOnly(
-                  AnIcons.stop,
-                  size: AnButtonSize.sm,
-                  variant: AnButtonVariant.danger,
-                  semanticLabel: context.t.scheduler.overview.cancelRunA11y(id: run.id),
-                  onPressed: () => _cancelOne(run),
-                )
-              : AnButton.iconOnly(
-                  AnIcons.history,
-                  size: AnButtonSize.sm,
-                  semanticLabel: t.replayA11y(id: run.id),
-                  onPressed: () => _replayOne(run),
-                ),
-        ),
-      ]),
+      child: AnLedgerRow(
+        expanded: run.id == widget.linkedRunId,
+        // Lazy (C-006): a collapsed row NEVER builds its peek card — an eager card per row
+        // would fetch full run composites for rows nobody opened.
+        // 惰性:收起的行绝不建速览卡——每行急建会替没人点开的行拉全量 run 复合。
+        expandBuilder: (_) => _RunPeekCard(workflowId: widget.workflowId, flowrunId: run.id),
+        lead: isPending
+            ? const AnSpinner(size: AnSize.iconSm)
+            : showCheck
+                ? AnBatchCheck(
+                    checked: selected.contains(key),
+                    semanticLabel: context.t.scheduler.overview.selectRow(name: run.id),
+                    onChanged: (v) =>
+                        setState(() => v ? selected.add(key) : selected.remove(key)),
+                  )
+                : AnStatusDot(AnStatus.fromRaw(run.status)),
+        primary: primary,
+        mono: false,
+        chips: [
+          // The persistent verb, right where the eye already is (需求⑦). 常驻动词,紧随视线。
+          if (running)
+            AnButton(
+              label: t.rowCancel,
+              icon: AnIcons.stop,
+              size: AnButtonSize.sm,
+              variant: AnButtonVariant.danger,
+              onPressed: isPending || batchBusy ? null : () => _cancelOne(run),
+            )
+          else if (failed)
+            AnButton(
+              label: t.rowRetry,
+              icon: AnIcons.history,
+              size: AnButtonSize.sm,
+              onPressed: isPending || batchBusy ? null : () => _replayOne(run),
+            ),
+          if (run.replayCount > 0)
+            AnChip(context.t.run.replayTimes(n: '${run.replayCount}'),
+                look: AnChipLook.outlined),
+        ],
+        sub: failed ? _errorFirstLine(run.error) : null,
+        subTone: AnTone.danger,
+        measure: elapsed,
+        onTap: () => _onRowTap(run),
+      ),
     );
   }
 
@@ -864,6 +834,24 @@ class _Tombstone extends ConsumerWidget {
 }
 
 // ─────────────────────────────────── 矩阵区 + 行内速览卡 ───────────────────────────────────
+
+/// The stats sentence's window word — the capsule's own word (preset name / absolute pair), so the
+/// sentence and the capsule can never disagree (需求②). 统计句窗口词=胶囊之词,句囊永不打架。
+String _rangeWord(BuildContext context, AnTimeRange range) {
+  final r = context.t.scheduler.range;
+  switch (range) {
+    case AnPresetRange(:final preset):
+      return switch (preset) {
+        AnTimePreset.today => r.today,
+        AnTimePreset.h24 => r.h24,
+        AnTimePreset.d7 => r.d7,
+        AnTimePreset.d30 => r.d30,
+        AnTimePreset.all => r.all,
+      };
+    case AnAbsoluteRange(:final from, :final to):
+      return '${fmtDateTime(from)} – ${fmtDateTime(to)}';
+  }
+}
 
 /// Build the picker's string bundle from slang — the primitive is copy-free by design.
 /// 从 slang 拼选择器字符串包——原语按设计零文案。
@@ -933,21 +921,10 @@ class _MatrixZone extends ConsumerWidget {
       body = _grid(context, ref, s);
     }
 
-    final range = ref.watch(schedulerTimeRangeProvider);
-    return AnSection(label: t.matrixTitle, children: [
-      // THE page-level lens — one capsule governs the matrix AND the run table (0717 拍板).
-      // 页级镜头——一颗胶囊治矩阵+大表。
-      Align(
-        alignment: Alignment.centerLeft,
-        child: AnTimeRangePicker(
-          value: range,
-          onChanged: (r) => ref.read(schedulerTimeRangeProvider.notifier).set(r),
-          strings: _rangeStrings(context),
-        ),
-      ),
-      const SizedBox(height: AnSpace.s8),
-      body,
-    ]);
+    // No section head and no local capsule (需求②:NODE × RUN 删、胶囊上移页头 meta 行) — the grid
+    // sits directly under the head as the page's opening instrument.
+    // 无段标题、无本地胶囊——格阵直接坐在页头下,作开屏仪表。
+    return AnSection(variant: AnSectionVariant.plain, children: [body]);
   }
 
   Widget _grid(BuildContext context, WidgetRef ref, MatrixWindowState s) {
@@ -956,6 +933,19 @@ class _MatrixZone extends ConsumerWidget {
     // The sparse cell list → an O(1) lookup. NEVER assume cells == rows×cols (稀疏是契约).
     // 稀疏格列表 → O(1) 查询;绝不假设 cells == rows×cols(稀疏是契约)。
     final byKey = {for (final cell in m.cells) '${cell.flowrunId}/${cell.nodeId}': cell};
+    // Humane column words (需求⑤): tooltip/a11y speak the run's SOURCE PHRASE + start time, never a
+    // bare id (the id rides the tooltip's last line for support/copy).
+    // 人话列词:tooltip/读屏说来源短语+时刻,绝不裸 id(id 收 tooltip 末行留支持/复制)。
+    final triggersById = {
+      for (final tr in ref.watch(schedulerRailProvider).value?.triggers ?? const <TriggerEntity>[])
+        tr.id: tr,
+    };
+    final now = DateTime.now();
+    String srcOf(String frId) {
+      final run = s.runsById[frId];
+      if (run == null) return truncate(frId, AnTrunc.id);
+      return runPhrase(context, run, triggersById, now);
+    }
     // Wire order is canonical newest→oldest; the timeline renders OLDEST LEFT and anchors at the
     // newest end — a pure display reversal of the same truth. 线缆正典新→旧;时间轴旧在左、锚最新端
     // ——同一真相的纯呈现反转。
@@ -976,15 +966,15 @@ class _MatrixZone extends ConsumerWidget {
             id: col.flowrunId,
             status: col.status,
             elapsedMs: col.elapsedMs,
-            label: t.matrixColA11y(
-              id: truncate(col.flowrunId, AnTrunc.id),
+            label: '${t.matrixColA11y(
+              src: srcOf(col.flowrunId),
               status: runStatusWord(context.t, col.status),
               // A run still going has no elapsed — say «running», never a fabricated duration.
               // 在跑的 run 无耗时——说「在跑」,绝不编一个时长。
               d: col.elapsedMs == null
                   ? t.matrixRunning
                   : fmtDuration(Duration(milliseconds: col.elapsedMs!)),
-            ),
+            )}\n${col.flowrunId}',
           ),
       ],
       cellStatus: (frId, nodeId) {
@@ -1017,7 +1007,7 @@ class _MatrixZone extends ConsumerWidget {
               : runStatusWord(context.t, cell.status),
           n: '${cell?.iterations ?? 0}'),
       colSemanticLabel: (col) => t.matrixColA11y(
-          id: truncate(col.id, AnTrunc.id),
+          src: srcOf(col.id),
           status: runStatusWord(context.t, col.status),
           d: col.elapsedMs == null
               ? t.matrixRunning
@@ -1110,11 +1100,29 @@ class _RunPeekCardState extends ConsumerState<_RunPeekCard> {
       child: AnCard(
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(children: [
-            if (comp != null) ...[
-              AnStatusDot(AnStatus.fromRaw(comp.flowrun.status)),
-              const SizedBox(width: AnGap.inline),
-            ],
-            const Spacer(),
+            // The leading cluster is the ONE flex region (wraps/shrinks); the faces + door keep
+            // their fixed slots. 前导簇=唯一弹性区;两脸与门守定宽槽。
+            Expanded(
+              child: Wrap(
+                spacing: AnGap.inline,
+                runSpacing: AnGap.stackTight,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  if (comp != null) ...[
+                    AnStatusDot(AnStatus.fromRaw(comp.flowrun.status)),
+                    // The full id lives HERE (需求⑤:行内无裸 id,速览卡与 tooltip 收编完整 id)。
+                    AnChip(truncate(comp.flowrun.id, AnTrunc.id),
+                        mono: true, look: AnChipLook.outlined, tooltip: comp.flowrun.id),
+                    if (comp.flowrun.conversationId != null &&
+                        comp.flowrun.conversationId!.isNotEmpty)
+                      toolNavPill(context,
+                          kind: 'conversation',
+                          label: context.t.scheduler.home.srcChat,
+                          id: comp.flowrun.conversationId),
+                  ],
+                ],
+              ),
+            ),
             // Two faces → the standard control slot (token 自身之律:2 段走标准槽). 两脸走标准槽。
             SizedBox(
               width: AnSize.ctlSlot,
@@ -1159,6 +1167,7 @@ class _TriggersZone extends ConsumerWidget {
     final c = context.colors;
     return AnSection(
       label: t.triggersHead,
+      variant: AnSectionVariant.plain,
       children: [
         Padding(
           padding: const EdgeInsets.only(bottom: AnSpace.s8),

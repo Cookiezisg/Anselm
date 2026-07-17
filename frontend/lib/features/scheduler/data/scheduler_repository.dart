@@ -82,7 +82,7 @@ abstract interface class SchedulerRepository {
   Future<List<SchedulerWorkflowRow>> listWorkflows();
 
   /// Batched operations stats (工单③, ids ≤50 per call — the repo chunks internally). 批量统计。
-  Future<SchedulerStats> stats(List<String> workflowIds, {int recentN, String since});
+  Future<SchedulerStats> stats(List<String> workflowIds, {int recentN, String since, String? until});
 
   /// Every trigger (pages through GET /triggers) — nextFireAt/listening for the rail's ⏱ meta and the
   /// schedule surfaces. 全部 trigger(⏱ meta 与调度面数据)。
@@ -317,28 +317,31 @@ class LiveSchedulerRepository implements SchedulerRepository {
 
   @override
   Future<SchedulerStats> stats(List<String> workflowIds,
-      {int recentN = 10, String since = SchedulerWindows.statsSince}) async {
+      {int recentN = 10, String since = SchedulerWindows.statsSince, String? until}) async {
     if (workflowIds.isEmpty) {
       // totals are workspace-wide — still worth one call with no ids. totals 全局,空 ids 也取。
-      return _statsCall(const [], recentN, since);
+      return _statsCall(const [], recentN, since, until);
     }
     // Chunk to the backend's ≤50-id bound and merge. 按 ≤50 分片合并。
     SchedulerTotals? totals;
     final rows = <WorkflowRunStats>[];
     for (var i = 0; i < workflowIds.length; i += 50) {
       final chunk = workflowIds.sublist(i, i + 50 > workflowIds.length ? workflowIds.length : i + 50);
-      final s = await _statsCall(chunk, recentN, since);
+      final s = await _statsCall(chunk, recentN, since, until);
       totals ??= s.totals; // workspace totals are identical across chunks. 全局数各片相同,取首片。
       rows.addAll(s.byWorkflow);
     }
     return SchedulerStats(totals: totals ?? const SchedulerTotals(), byWorkflow: rows);
   }
 
-  Future<SchedulerStats> _statsCall(List<String> ids, int recentN, String since) =>
+  Future<SchedulerStats> _statsCall(List<String> ids, int recentN, String since, String? until) =>
       _api.getEntity('/api/v1/flowrun-stats', SchedulerStats.fromJson, query: {
         if (ids.isNotEmpty) 'workflowIds': ids.join(','),
         'recentN': '$recentN',
         'since': since,
+        // The window's END bound (需求②): RFC3339 only — pairs with since as [since, until).
+        // 窗终点:仅 RFC3339,与 since 成对半开窗。
+        'until': ?until,
       });
 
   @override

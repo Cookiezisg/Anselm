@@ -94,6 +94,56 @@ void main() {
     expect(find.byType(FractionallySizedBox), findsOneWidget, reason: '只有落定列长时长条');
   });
 
+  testWidgets(
+      'the head duration bar wears the run\'s FINAL-STATUS soft tint — blue is exclusive to live '
+      '(用户拍板 0717-晚:颜色=状态、长度=耗时、蓝=在跑)', (tester) async {
+    await tester.pumpWidget(_host(AnRunMatrix(
+      rows: const [MatrixRowHead(nodeId: 'x')],
+      cols: const [
+        RunColumn(id: 'fr_done', status: 'completed', elapsedMs: 9000),
+        RunColumn(id: 'fr_bad', status: 'failed', elapsedMs: 4000),
+        RunColumn(id: 'fr_live', status: 'running'),
+      ],
+      cellStatus: (_, _) => const MatrixCellState(status: 'completed'),
+    )));
+    final c = tester.element(find.byType(AnRunMatrix)).colors;
+
+    Color barColorIn(FractionallySizedBox f) =>
+        ((tester.widget<Container>(find.descendant(
+                    of: find.byWidget(f), matching: find.byType(Container)))
+                .decoration!) as BoxDecoration)
+            .color!;
+    final bars = tester.widgetList<FractionallySizedBox>(find.byType(FractionallySizedBox)).toList();
+    expect(bars.length, 2, reason: '两个落定列各一条;在跑列无长度');
+    final colors = bars.map(barColorIn).toSet();
+    expect(colors, {AnStatus.done.tone.softBg(c), AnStatus.err.tone.softBg(c)},
+        reason: '条=最终状态淡色(与格子同族)——完成淡绿/失败淡红,绝不再是无差别的淡蓝');
+  });
+
+  testWidgets('the selection indicator lives ON TOP and reserves its pixels when idle '
+      '(选中现墨杠,平时透明占位不跳变)', (tester) async {
+    Widget grid({String? selectedRun}) => _host(AnRunMatrix(
+          rows: const [MatrixRowHead(nodeId: 'x')],
+          cols: _cols,
+          cellStatus: (_, _) => const MatrixCellState(status: 'completed'),
+          selection: MatrixSelection(flowrunId: selectedRun),
+          onCol: (_) {},
+        ));
+    await tester.pumpWidget(grid());
+    final c = tester.element(find.byType(AnRunMatrix)).colors;
+    Finder inkBar() => find.byWidgetPredicate((w) =>
+        w is Container &&
+        w.decoration is BoxDecoration &&
+        (w.decoration! as BoxDecoration).color == c.ink);
+    expect(inkBar(), findsNothing, reason: '未选中:无墨杠(透明占位)');
+    final before = tester.getRect(find.text('x'));
+
+    await tester.pumpWidget(grid(selectedRun: 'fr_2'));
+    expect(inkBar(), findsOneWidget, reason: '选中列现墨杠');
+    expect(tester.getRect(find.text('x')), before,
+        reason: '选中只改外观、绝不动几何——占位早已保留(拍板:平时不见,不是不占)');
+  });
+
   testWidgets('«×N» rides IN the cell for loop iterations; a single round grows no badge',
       (tester) async {
     await tester.pumpWidget(_host(AnRunMatrix(

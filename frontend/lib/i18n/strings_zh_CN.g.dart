@@ -1237,7 +1237,6 @@ class _Translations$scheduler$home$zh_CN extends Translations$scheduler$home$en 
 	@override String killHint({required Object name}) => '输入 ${name} 以确认';
 	@override String get killConfirm => '终止 workflow';
 	@override String get killed => 'workflow 已终止';
-	@override String get windowWord => '7d';
 	@override String statsLine({required Object window, required Object rate, required Object avg}) => '${window} · 成功率 ${rate} · 均时 ${avg}';
 	@override String get runsHead => '运行';
 	@override String get runsError => '运行记录加载失败。';
@@ -1259,12 +1258,10 @@ class _Translations$scheduler$home$zh_CN extends Translations$scheduler$home$en 
 	@override String newRuns({required Object n}) => '${n} 条新运行';
 	@override String get srcManual => '手动';
 	@override String get srcChat => '对话';
-	@override String srcCron({required Object at}) => 'cron · ${at}';
 	@override String get srcCronBare => 'cron';
 	@override String get srcWebhookBare => 'webhook';
 	@override String srcWithName({required Object kind, required Object name}) => '${kind} · ${name}';
 	@override String get srcUnknown => '未知来源';
-	@override String replayA11y({required Object id}) => '重放 run ${id}';
 	@override String get replayTitle => '重放这个 run?';
 	@override String replayBody({required Object failed, required Object completed}) => '重跑 ${failed} 个失败节点 · 复用 ${completed} 个已完成结果。';
 	@override String get replayBodyUnknown => '重跑失败节点;已完成结果按记忆化复用。';
@@ -1283,7 +1280,7 @@ class _Translations$scheduler$home$zh_CN extends Translations$scheduler$home$en 
 	@override String get matrixEmpty => '这段时间没有运行。';
 	@override String get matrixNotReached => '未及';
 	@override String get matrixRunning => '在跑';
-	@override String matrixColA11y({required Object id, required Object status, required Object d}) => 'run ${id},${status},${d}';
+	@override String matrixColA11y({required Object src, required Object status, required Object d}) => '运行 ${src},${status},${d}';
 	@override String matrixRowA11y({required Object node}) => '节点 ${node},历史';
 	@override String matrixCellA11y({required Object node, required Object status, required Object n}) => '${node},${status},${n} 轮';
 	@override String get openRun => '打开 →';
@@ -1306,6 +1303,10 @@ class _Translations$scheduler$home$zh_CN extends Translations$scheduler$home$en 
 	@override String editTriggerA11y({required Object name}) => '去 Entities 编辑触发器 ${name}';
 	@override String matrixRowSummaryA11y({required Object node, required Object r, required Object total, required Object n, required Object failed}) => '${node},第 ${r} 行 共 ${total} 行,${n} 次运行抵达,${failed} 次失败';
 	@override String matrixCoordA11y({required Object r, required Object rows, required Object c, required Object cols}) => '第 ${r} 行 共 ${rows} 行,第 ${c} 列 共 ${cols} 列';
+	@override String get crumbRoot => '调度';
+	@override String get rowCancel => '终止';
+	@override String get rowRetry => '重试';
+	@override String runIdLabel({required Object id}) => '运行 ${id}';
 }
 
 // Path: scheduler.run
@@ -1358,6 +1359,7 @@ class _Translations$scheduler$run$zh_CN extends Translations$scheduler$run$en {
 	@override String get relayResolving => '正在定位这次运行…';
 	@override String get relayFailedTitle => '解析不出这次运行';
 	@override String get relayFailedHint => '本工作区没有这个 id 的运行。检查 id,或从某个 workflow 里选一次运行。';
+	@override String get closeA11y => '关闭本次运行页';
 }
 
 // Path: scheduler.range
@@ -3164,7 +3166,6 @@ extension on TranslationsZhCn {
 			'scheduler.home.killHint' => ({required Object name}) => '输入 ${name} 以确认',
 			'scheduler.home.killConfirm' => '终止 workflow',
 			'scheduler.home.killed' => 'workflow 已终止',
-			'scheduler.home.windowWord' => '7d',
 			'scheduler.home.statsLine' => ({required Object window, required Object rate, required Object avg}) => '${window} · 成功率 ${rate} · 均时 ${avg}',
 			'scheduler.home.runsHead' => '运行',
 			'scheduler.home.runsError' => '运行记录加载失败。',
@@ -3186,12 +3187,10 @@ extension on TranslationsZhCn {
 			'scheduler.home.newRuns' => ({required Object n}) => '${n} 条新运行',
 			'scheduler.home.srcManual' => '手动',
 			'scheduler.home.srcChat' => '对话',
-			'scheduler.home.srcCron' => ({required Object at}) => 'cron · ${at}',
 			'scheduler.home.srcCronBare' => 'cron',
 			'scheduler.home.srcWebhookBare' => 'webhook',
 			'scheduler.home.srcWithName' => ({required Object kind, required Object name}) => '${kind} · ${name}',
 			'scheduler.home.srcUnknown' => '未知来源',
-			'scheduler.home.replayA11y' => ({required Object id}) => '重放 run ${id}',
 			'scheduler.home.replayTitle' => '重放这个 run?',
 			'scheduler.home.replayBody' => ({required Object failed, required Object completed}) => '重跑 ${failed} 个失败节点 · 复用 ${completed} 个已完成结果。',
 			'scheduler.home.replayBodyUnknown' => '重跑失败节点;已完成结果按记忆化复用。',
@@ -3210,7 +3209,7 @@ extension on TranslationsZhCn {
 			'scheduler.home.matrixEmpty' => '这段时间没有运行。',
 			'scheduler.home.matrixNotReached' => '未及',
 			'scheduler.home.matrixRunning' => '在跑',
-			'scheduler.home.matrixColA11y' => ({required Object id, required Object status, required Object d}) => 'run ${id},${status},${d}',
+			'scheduler.home.matrixColA11y' => ({required Object src, required Object status, required Object d}) => '运行 ${src},${status},${d}',
 			'scheduler.home.matrixRowA11y' => ({required Object node}) => '节点 ${node},历史',
 			'scheduler.home.matrixCellA11y' => ({required Object node, required Object status, required Object n}) => '${node},${status},${n} 轮',
 			'scheduler.home.openRun' => '打开 →',
@@ -3233,6 +3232,10 @@ extension on TranslationsZhCn {
 			'scheduler.home.editTriggerA11y' => ({required Object name}) => '去 Entities 编辑触发器 ${name}',
 			'scheduler.home.matrixRowSummaryA11y' => ({required Object node, required Object r, required Object total, required Object n, required Object failed}) => '${node},第 ${r} 行 共 ${total} 行,${n} 次运行抵达,${failed} 次失败',
 			'scheduler.home.matrixCoordA11y' => ({required Object r, required Object rows, required Object c, required Object cols}) => '第 ${r} 行 共 ${rows} 行,第 ${c} 列 共 ${cols} 列',
+			'scheduler.home.crumbRoot' => '调度',
+			'scheduler.home.rowCancel' => '终止',
+			'scheduler.home.rowRetry' => '重试',
+			'scheduler.home.runIdLabel' => ({required Object id}) => '运行 ${id}',
 			'scheduler.run.crumb' => ({required Object name, required Object id}) => 'Scheduler / ${name} / ${id}',
 			'scheduler.run.notFoundTitle' => '找不到这次运行',
 			'scheduler.run.notFoundHint' => '它可能已被保留策略清理。从 workflow 里另选一次运行。',
@@ -3276,6 +3279,7 @@ extension on TranslationsZhCn {
 			'scheduler.run.relayResolving' => '正在定位这次运行…',
 			'scheduler.run.relayFailedTitle' => '解析不出这次运行',
 			'scheduler.run.relayFailedHint' => '本工作区没有这个 id 的运行。检查 id,或从某个 workflow 里选一次运行。',
+			'scheduler.run.closeA11y' => '关闭本次运行页',
 			'scheduler.range.today' => '今天',
 			'scheduler.range.h24' => '近 24 小时',
 			'scheduler.range.d7' => '近 7 天',
@@ -3482,10 +3486,10 @@ extension on TranslationsZhCn {
 			'entities.detail.sec.runtime' => '常驻状态',
 			'entities.detail.sec.initArgs' => 'init 参数',
 			'entities.detail.sec.methods' => '方法',
-			'entities.detail.sec.prompt' => '提示词',
-			'entities.detail.sec.capabilities' => '能力挂载',
 			_ => null,
 		} ?? switch (path) {
+			'entities.detail.sec.prompt' => '提示词',
+			'entities.detail.sec.capabilities' => '能力挂载',
 			'entities.detail.sec.mountHealth' => '挂载健康',
 			'entities.detail.sec.governance' => '运行治理',
 			'entities.detail.sec.alerts' => '告警',
@@ -3996,10 +4000,10 @@ extension on TranslationsZhCn {
 			'settings.mcp.tabStderr' => 'stderr',
 			'settings.mcp.lastError' => '最近错误',
 			'settings.mcp.consecutiveFailures' => '连续失败',
-			'settings.mcp.noTools' => '无工具',
-			'settings.mcp.noCalls' => '暂无调用',
 			_ => null,
 		} ?? switch (path) {
+			'settings.mcp.noTools' => '无工具',
+			'settings.mcp.noCalls' => '暂无调用',
 			'settings.mcp.noStderr' => '暂无输出',
 			'settings.mcp.callsAgg' => ({required Object ok, required Object failed}) => '✓ ${ok} · ✗ ${failed}',
 			'settings.storage.dataDir' => '数据目录',

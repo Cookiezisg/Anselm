@@ -140,7 +140,7 @@ class FixtureSchedulerRepository implements SchedulerRepository {
 
   @override
   Future<SchedulerStats> stats(List<String> workflowIds,
-      {int recentN = 10, String since = SchedulerWindows.statsSince}) async {
+      {int recentN = 10, String since = SchedulerWindows.statsSince, String? until}) async {
     final all = <WorkflowRunStats>[
       // Running now (blue dot). Recent beads mirror the seeded 25+-run history. 在跑;珠串映史。
       WorkflowRunStats(

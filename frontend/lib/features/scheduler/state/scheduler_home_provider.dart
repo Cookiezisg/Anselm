@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/contract/entities/scheduler_matrix.dart';
+import '../../../core/contract/entities/scheduler_stats.dart';
 import '../../../core/contract/retention.dart';
 import '../../../core/contract/entities/workflow.dart';
 import '../../../core/model/time_range.dart';
@@ -57,6 +58,23 @@ final schedulerLinkedRunProvider =
   return ref.watch(schedulerRepositoryProvider).getRunFull(frId);
 }, retry: (_, _) => null);
 
+/// The health sentence's stats, FOLLOWING the page-level range (需求② 0717-晚): one bounded
+/// 1-id batch per (workflow, range), windows mapped by [statsWindowOf] (presets = live durations,
+/// absolute = RFC3339 pair with `until`). The rail's own 7d batch keeps feeding the rail dots —
+/// this page's sentence stops quoting a window the capsule doesn't govern.
+/// 健康句统计**跟随页级范围**:每 (workflow, 范围) 一次 1-id 批查,窗按 statsWindowOf 映射(预设=活
+/// 时长/绝对=RFC3339 对带 until)。rail 自己的 7d 批照旧喂点;本页句子不再引用胶囊管不着的窗。
+final schedulerRangeStatsProvider =
+    FutureProvider.autoDispose.family<WorkflowRunStats?, String>((ref, workflowId) async {
+  final range = ref.watch(schedulerTimeRangeProvider);
+  await ref.watch(schedulerRailProvider.future);
+  final w = statsWindowOf(range, DateTime.now());
+  final s = await ref
+      .watch(schedulerRepositoryProvider)
+      .stats([workflowId], since: w.since, until: w.until);
+  return s.byWorkflow.isEmpty ? null : s.byWorkflow.first;
+}, retry: (_, _) => null);
+
 /// The top-of-page matrix window (工单⑩, 主页重建拍板 0717): pages of runs inside the page-level
 /// time range, each page's grid fetched as ONE `flowrun-matrix?flowrunIds=` batch and MERGED —
 /// cols accumulate newest→oldest, rows stay the first-appearance union (pages arrive newest-first,
@@ -70,18 +88,25 @@ final schedulerLinkedRunProvider =
 class MatrixWindowState {
   const MatrixWindowState({
     required this.matrix,
+    this.runsById = const {},
     this.nextCursor,
     this.hasMore = false,
     this.loadingOlder = false,
   });
 
   final FlowrunMatrix matrix;
+
+  /// The window's run headers by id — the humane words (source phrase / trigger join) the grid's
+  /// tooltips and a11y sentences speak instead of bare ids (需求⑤). 窗内 run 头按 id——格阵 tooltip
+  /// 与读屏句用的人话来源(不再念裸 id)。
+  final Map<String, Flowrun> runsById;
   final String? nextCursor;
   final bool hasMore;
   final bool loadingOlder;
 
   MatrixWindowState copyWith({
     FlowrunMatrix? matrix,
+    Map<String, Flowrun>? runsById,
     String? nextCursor,
     bool clearCursor = false,
     bool? hasMore,
@@ -89,6 +114,7 @@ class MatrixWindowState {
   }) =>
       MatrixWindowState(
         matrix: matrix ?? this.matrix,
+        runsById: runsById ?? this.runsById,
         nextCursor: clearCursor ? null : (nextCursor ?? this.nextCursor),
         hasMore: hasMore ?? this.hasMore,
         loadingOlder: loadingOlder ?? this.loadingOlder,
@@ -117,7 +143,12 @@ class SchedulerMatrixWindowController extends AsyncNotifier<MatrixWindowState> {
     }
     final matrix = await repo.runMatrix([for (final run in page.items) run.id]);
     final next = page.isLastPage ? null : page.nextCursor;
-    return MatrixWindowState(matrix: matrix, nextCursor: next, hasMore: page.hasMore);
+    return MatrixWindowState(
+      matrix: matrix,
+      runsById: {for (final run in page.items) run.id: run},
+      nextCursor: next,
+      hasMore: page.hasMore,
+    );
   }
 
   /// Pull ONE older page into the window (the oldest-edge slide). Merge, never rebuild: prepended
@@ -157,6 +188,7 @@ class SchedulerMatrixWindowController extends AsyncNotifier<MatrixWindowState> {
       final next = page.isLastPage ? null : page.nextCursor;
       state = AsyncData(cur.copyWith(
         matrix: merged,
+        runsById: {...cur.runsById, for (final run in page.items) run.id: run},
         nextCursor: next,
         clearCursor: next == null,
         hasMore: page.hasMore,

@@ -167,7 +167,8 @@ class StubSchedulerRepo implements SchedulerRepository {
 
   @override
   Future<SchedulerStats> stats(List<String> workflowIds,
-      {int recentN = 10, String since = '168h'}) async {
+      {int recentN = 10, String since = '168h', String? until}) async {
+    statsWindows.add((since: since, until: until));
     statsSinces.add(since);
     return SchedulerStats(
       totals: SchedulerTotals(
@@ -589,6 +590,10 @@ class StubSchedulerRepo implements SchedulerRepository {
   /// the list it opens share ONE anchor. stats 每次问的 since,与每次 firing 过滤:这一对**证明**牌与它点开的
   /// 列表共用**一个**锚点。
   final List<String> statsSinces = [];
+
+  /// Every (since, until) window a stats fetch asked — the range-following-sentence probe (需求②).
+  /// 每次 stats 取数问的 (since, until) 窗:成功率跟随范围的探针。
+  final List<({String since, String? until})> statsWindows = [];
   final List<Map<String, String>> firingFilters = [];
   final List<List<String>> matrixAsks = [];
   int retentionAsks = 0;

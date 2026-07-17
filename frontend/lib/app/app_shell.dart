@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/design/tokens.dart';
 import '../core/runtime.dart';
+import '../core/router/navigation.dart';
 import '../core/shell/ocean_breadcrumb.dart';
 import '../core/shell/oceans.dart';
 import '../core/shell/shell_chrome.dart';
@@ -255,9 +256,16 @@ class AppShell extends ConsumerWidget {
       onLeftWidthCommitted: (w) => ref.read(shellChromeProvider.notifier).setLeftWidth(w),
       head: onChat ? const ChatHead() : const OceanBreadcrumb(),
       // Chat's scene/outline nav rides the shell head-trailing slot so it sits RIGHT beside the panel-right
-      // toggle (not stranded at the head content's edge). chat 场次/大纲钮走 shell 头尾槽,紧靠右岛钮。
-      headTrailing:
-          onChat && chatConversation != null ? TranscriptToc(conversationId: chatConversation) : null,
+      // toggle (not stranded at the head content's edge); the run flagship's ✕ rides the SAME slot
+      // (需求⑥ 0717-晚:与 chat 图标簇同位) — it closes back to the workflow operations home, the
+      // keyboard twin of the page's bare-Esc. chat 场次/大纲钮走 shell 头尾槽,紧靠右岛钮;run 旗舰的 ✕
+      // 走同一槽(与 chat 簇同位),点击回运营主页,是页内裸 Esc 的鼠标孪生。
+      headTrailing: onChat && chatConversation != null
+          ? TranscriptToc(conversationId: chatConversation)
+          : hasRunSelection
+              ? _CloseRunButton(
+                  selection: ref.watch(selectedSchedulerProvider) as SchedulerRun)
+              : null,
       // The chrome control band stays [AnSize.titlebar] in fullscreen too, so the collapse button +
       // breadcrumb keep the SAME comfortable top gap as windowed (#10: the old `fullScreen ? 0` collapsed
       // the band and pinned them cramped to the screen top — the reported bug). AnWindowControls still
@@ -363,3 +371,22 @@ class _OceanStack extends StatelessWidget {
         OceanKind.settings => const SettingsOcean(),
       };
 }
+
+/// The run flagship's shell-corner ✕ (需求⑥) — same slot as chat's head-trailing cluster.
+/// run 旗舰的壳角 ✕——与 chat 头尾簇同槽。
+class _CloseRunButton extends ConsumerWidget {
+  const _CloseRunButton({required this.selection});
+
+  final SchedulerRun selection;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return AnButton.iconOnly(
+      AnIcons.close,
+      semanticLabel: context.t.scheduler.run.closeA11y,
+      onPressed: () =>
+          ref.read(goRouterProvider).go('/scheduler/w/${selection.workflowId}'),
+    );
+  }
+}
+

@@ -735,7 +735,6 @@
       "killHint": "Type $name to confirm",
       "killConfirm": "Kill workflow",
       "killed": "Workflow killed",
-      "windowWord": "7d",
       "statsLine": "$window · success $rate · avg $avg",
       "runsHead": "Runs",
       "runsError": "Couldn't load the runs.",
@@ -757,12 +756,10 @@
       "newRuns": "$n new runs",
       "srcManual": "Manual",
       "srcChat": "Conversation",
-      "srcCron": "cron · $at",
       "srcCronBare": "cron",
       "srcWebhookBare": "webhook",
       "srcWithName": "$kind · $name",
       "srcUnknown": "Unknown origin",
-      "replayA11y": "Replay run $id",
       "replayTitle": "Replay this run?",
       "replayBody": "Re-runs $failed failed nodes · reuses $completed completed results.",
       "replayBodyUnknown": "Re-runs the failed nodes; completed results are reused.",
@@ -781,7 +778,7 @@
       "matrixEmpty": "No runs in this range.",
       "matrixNotReached": "not reached",
       "matrixRunning": "running",
-      "matrixColA11y": "run $id, $status, $d",
+      "matrixColA11y": "run $src, $status, $d",
       "matrixRowA11y": "node $node, history",
       "matrixCellA11y": "$node, $status, $n rounds",
       "openRun": "Open →",
@@ -803,7 +800,11 @@
       "neverFired": "never fired",
       "editTriggerA11y": "Edit trigger $name in Entities",
       "matrixRowSummaryA11y": "$node, row $r of $total, reached in $n runs, $failed failed",
-      "matrixCoordA11y": "row $r of $rows, column $c of $cols"
+      "matrixCoordA11y": "row $r of $rows, column $c of $cols",
+      "crumbRoot": "Scheduler",
+      "rowCancel": "Stop",
+      "rowRetry": "Retry",
+      "runIdLabel": "Run $id"
     },
     "run": {
       "crumb": "Scheduler / $name / $id",
@@ -848,7 +849,8 @@
       "replayNode": "Replay the failed nodes",
       "relayResolving": "Finding this run…",
       "relayFailedTitle": "Couldn't resolve this run",
-      "relayFailedHint": "No run with this id in this workspace. Check the id, or pick a run from a workflow."
+      "relayFailedHint": "No run with this id in this workspace. Check the id, or pick a run from a workflow.",
+      "closeA11y": "Close this run"
     },
     "range": {
       "today": "Today",

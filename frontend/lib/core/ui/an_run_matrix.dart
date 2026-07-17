@@ -811,6 +811,7 @@ class _ColHead extends StatelessWidget {
     // 落定 run 的条=它占最长的份额;在跑的 run 没有份额可占——给它 accent 色与调用方的「在跑」词,
     // 而不是一个编出来的长度。
     final fraction = ms == null || peakMs <= 0 ? null : (ms / peakMs).clamp(0.08, 1.0);
+    final tone = AnStatus.fromRaw(col.status).tone;
     final tip = [col.label, if (ms == null && runningLabel.isNotEmpty) runningLabel]
         .where((s) => s.isNotEmpty)
         .join('\n');
@@ -831,9 +832,27 @@ class _ColHead extends StatelessWidget {
         child: SizedBox(
           width: AnSize.controlSm,
           height: AnSize.controlSm,
+          // Two layers, colour channels split cleanly (用户拍板 0717-晚): TOP = the selection
+          // indicator — ink when this run is the page's selection, TRANSPARENT otherwise (the pixels
+          // stay reserved so selecting never jumps the grid). BOTTOM (adjacent to the cells) = the
+          // duration bar wearing the run's FINAL-STATUS soft tint — the same family the cells below
+          // wear, so the head reads as the column's status summary; length = share of the window's
+          // longest. Blue is EXCLUSIVE to live: a still-running run has no length and paints the
+          // solid accent full bar instead. No always-on baseline (the old grey line read as noise).
+          // 两层、颜色通道分工干净:上=选中指示条(选中=墨色,平时**透明占位**防跳变);下(贴格子)=耗时
+          // 比例条,穿该 run **最终状态**的淡色(与下方格子同一套色阶——列头即整列状态摘要),长度=占窗内
+          // 最长的份额;**蓝=在跑专属**(实蓝满条,无长度可言)。常驻灰基线取消(旧灰线读作噪声)。
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.end,
             children: [
+              Container(
+                height: AnSize.hairline * 2,
+                width: AnSize.controlSm,
+                decoration: BoxDecoration(
+                  color: selected ? c.ink : const Color(0x00000000),
+                  borderRadius: BorderRadius.circular(AnRadius.tag),
+                ),
+              ),
+              const Spacer(),
               if (fraction == null)
                 Container(
                   height: AnSize.hairline * 3,
@@ -848,20 +867,11 @@ class _ColHead extends StatelessWidget {
                   child: Container(
                     height: AnSize.hairline * 3,
                     decoration: BoxDecoration(
-                      color: c.accentSoft,
+                      color: tone.softBg(c),
                       borderRadius: BorderRadius.circular(AnRadius.tag),
                     ),
                   ),
                 ),
-              const SizedBox(height: AnSpace.s4),
-              Container(
-                height: AnSize.hairline * 2,
-                width: AnSize.controlSm,
-                decoration: BoxDecoration(
-                  color: selected ? c.ink : c.line,
-                  borderRadius: BorderRadius.circular(AnRadius.tag),
-                ),
-              ),
             ],
           ),
         ),
