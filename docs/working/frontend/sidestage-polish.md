@@ -52,7 +52,7 @@ audience: [human, ai]
 
 ## §B Scheduler 议题（0718-凌晨 提出，十条）
 
-### B1 裸 id 仍遍布（Overview / 子页面包屑 / 右岛 dossier / 搜索框）
+### B1 裸 id 仍遍布 ✅ 已落(0718:面包屑第三段=run 短语/dossier trigger 真名接缝/搜索框「搜索…」+⚙ 四镜头[排序·下次·上次·停用];Overview 行的 fr_ 药丸已随 B13 卡片化删,余 B10 行文法收尾)
 用户：保留粘 fr_ id 的**能力**，但别到处「这么说」；rail 搜索框照 entities 样式（placeholder 普通词 + **右侧 sliders 显示控制器**，控制下面显示什么）。
 **定位与拟案**：
 - Overview 三段行（等你/在跑/失败）的 `fr_` 药丸删 → 行身份=workflow 名 + run 短语（`runPhrase` 已有文法）；

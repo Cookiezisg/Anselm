@@ -201,7 +201,14 @@ class _Translations$scheduler$zh_CN extends Translations$scheduler$en {
 	@override String get neverRan => '—';
 	@override String get sectionNeverRan => '未运行';
 	@override String get sectionInactive => '停用';
-	@override String get filterPlaceholder => '过滤 / 粘贴 fr_ id…';
+	@override String get filterPlaceholder => '搜索…';
+	@override String get sortLabel => '排序';
+	@override String get sortActivity => '最近活动';
+	@override String get sortName => '名称';
+	@override String get displayLabel => '显示';
+	@override String get showNextFire => '显示下次触发';
+	@override String get showLastRun => '显示上次运行';
+	@override String get showInactive => '显示停用';
 	@override late final _Translations$scheduler$overview$zh_CN overview = _Translations$scheduler$overview$zh_CN._(_root);
 	@override late final _Translations$scheduler$status$zh_CN status = _Translations$scheduler$status$zh_CN._(_root);
 	@override late final _Translations$scheduler$home$zh_CN home = _Translations$scheduler$home$zh_CN._(_root);
@@ -3084,7 +3091,14 @@ extension on TranslationsZhCn {
 			'scheduler.neverRan' => '—',
 			'scheduler.sectionNeverRan' => '未运行',
 			'scheduler.sectionInactive' => '停用',
-			'scheduler.filterPlaceholder' => '过滤 / 粘贴 fr_ id…',
+			'scheduler.filterPlaceholder' => '搜索…',
+			'scheduler.sortLabel' => '排序',
+			'scheduler.sortActivity' => '最近活动',
+			'scheduler.sortName' => '名称',
+			'scheduler.displayLabel' => '显示',
+			'scheduler.showNextFire' => '显示下次触发',
+			'scheduler.showLastRun' => '显示上次运行',
+			'scheduler.showInactive' => '显示停用',
 			'scheduler.overview.kpiRunning' => '在跑',
 			'scheduler.overview.kpiRunningA11y' => ({required Object n}) => '在跑 ${n} 个。在「正在跑」列表中显示它们。',
 			'scheduler.overview.kpiWaiting' => '等你处理',
@@ -3477,6 +3491,8 @@ extension on TranslationsZhCn {
 			'entities.detail.codeToggle.collapse' => '收起',
 			'entities.detail.sec.code' => '代码',
 			'entities.detail.sec.input' => '输入',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.sec.output' => '输出',
 			'entities.detail.sec.env' => '环境',
 			'entities.detail.sec.runtime' => '常驻状态',
@@ -3484,8 +3500,6 @@ extension on TranslationsZhCn {
 			'entities.detail.sec.methods' => '方法',
 			'entities.detail.sec.prompt' => '提示词',
 			'entities.detail.sec.capabilities' => '能力挂载',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.sec.mountHealth' => '挂载健康',
 			'entities.detail.sec.governance' => '运行治理',
 			'entities.detail.sec.alerts' => '告警',
@@ -3991,6 +4005,8 @@ extension on TranslationsZhCn {
 			'settings.mcp.requiredMark' => '必填',
 			'settings.mcp.oauthConnect' => '连接并授权',
 			'settings.mcp.oauthWaiting' => '等待浏览器授权…(最长 120 秒)',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mcp.tabTools' => '工具',
 			'settings.mcp.tabCalls' => '调用历史',
 			'settings.mcp.tabStderr' => 'stderr',
@@ -3998,8 +4014,6 @@ extension on TranslationsZhCn {
 			'settings.mcp.consecutiveFailures' => '连续失败',
 			'settings.mcp.noTools' => '无工具',
 			'settings.mcp.noCalls' => '暂无调用',
-			_ => null,
-		} ?? switch (path) {
 			'settings.mcp.noStderr' => '暂无输出',
 			'settings.mcp.callsAgg' => ({required Object ok, required Object failed}) => '✓ ${ok} · ✗ ${failed}',
 			'settings.storage.dataDir' => '数据目录',

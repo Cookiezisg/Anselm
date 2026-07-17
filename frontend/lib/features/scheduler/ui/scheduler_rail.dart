@@ -77,7 +77,16 @@ class _SchedulerRailState extends ConsumerState<SchedulerRail> {
       onRetry: () => ref.read(schedulerRailProvider.notifier).refresh(),
       builder: () {
         final d = data.value!;
+        // The ⚙ lenses (WRK-070 B1): sort + meta-rung toggles + inactive visibility. ⚙ 镜头。
+        final sort = ref.watch(schedulerRailSortProvider);
+        final showNextFire = ref.watch(schedShowNextFireProvider);
+        final showLastRun = ref.watch(schedShowLastRunProvider);
+        final showInactive = ref.watch(schedShowInactiveProvider);
         final model = buildSchedulerRailModel(
+          sortByName: sort == SchedRailSort.name,
+          showNextFire: showNextFire,
+          showLastRun: showLastRun,
+          showInactive: showInactive,
           workflows: d.workflows,
           stats: d.stats,
           nextFireByWorkflow: d.nextFireByWorkflow,
@@ -95,6 +104,7 @@ class _SchedulerRailState extends ConsumerState<SchedulerRail> {
           ),
           now: DateTime.now(),
         );
+        final t2 = t.scheduler;
         return AnSidebarList(
           model: model,
           selectedId: selectedId,
@@ -103,6 +113,36 @@ class _SchedulerRailState extends ConsumerState<SchedulerRail> {
           // Creation belongs to entities (定义面) — the scheduler rail observes, never creates.
           // 创建归 entities;本 rail 只观测。
           showNew: false,
+          // The ⚙ sliders menu (B1, entities 搜索框同款样式): Sort + Display. ⚙ 菜单:排序+显示。
+          menuEntries: [
+            AnMenuSection(t2.sortLabel),
+            AnMenuItem(
+                label: t2.sortActivity,
+                checked: sort == SchedRailSort.activity,
+                onTap: () =>
+                    ref.read(schedulerRailSortProvider.notifier).set(SchedRailSort.activity)),
+            AnMenuItem(
+                label: t2.sortName,
+                checked: sort == SchedRailSort.name,
+                onTap: () =>
+                    ref.read(schedulerRailSortProvider.notifier).set(SchedRailSort.name)),
+            AnMenuSection(t2.displayLabel),
+            AnMenuItem(
+                label: t2.showNextFire,
+                checked: showNextFire,
+                keepOpen: true,
+                onTap: () => ref.read(schedShowNextFireProvider.notifier).toggle()),
+            AnMenuItem(
+                label: t2.showLastRun,
+                checked: showLastRun,
+                keepOpen: true,
+                onTap: () => ref.read(schedShowLastRunProvider.notifier).toggle()),
+            AnMenuItem(
+                label: t2.showInactive,
+                checked: showInactive,
+                keepOpen: true,
+                onTap: () => ref.read(schedShowInactiveProvider.notifier).toggle()),
+          ],
         );
       },
     );

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/contract/api_error.dart';
+import '../../../core/contract/entities/trigger.dart';
 import '../../../core/contract/entities/values.dart';
 import '../../../core/contract/entities/workflow.dart';
 import '../../../core/design/colors.dart';
@@ -155,6 +156,14 @@ class _RunDossierFaceState extends ConsumerState<_RunDossierFace> {
         ProvenanceLine(
           conversationId: run.conversationId,
           triggerId: run.triggerId,
+          // The trigger pill speaks its NAME (B1 裸 id 清除 — 旗舰头同缝,dossier 曾漏接). 药丸念真名。
+          triggerName: run.triggerId == null
+              ? null
+              : {
+                  for (final tr in ref.watch(schedulerRailProvider).value?.triggers ??
+                      const <TriggerEntity>[])
+                    tr.id: tr,
+                }[run.triggerId]?.name,
           firingId: run.firingId,
           flowrunId: run.id,
         ),

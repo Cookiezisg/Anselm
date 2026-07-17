@@ -12,7 +12,7 @@ final _labels = SchedulerRailLabels(
   sectionNeverRan: 'Never ran',
   sectionInactive: 'Inactive',
   runningFor: (d) => 'running · $d',
-  nextFireIn: (d) => '⏱ in $d',
+  nextFireIn: (d) => 'in $d',
   ago: (d) => '$d ago',
   neverRan: '—',
   newLabel: 'New',
@@ -35,6 +35,89 @@ WorkflowRunStats _stats(String id,
         lastRunAt: lastRunAt);
 
 void main() {
+  group('⚙ rail lenses (WRK-070 B1)', () {
+    test('sortByName orders every section alphabetically', () {
+      final m = buildSchedulerRailModel(
+        workflows: [_wf('b'), _wf('a')],
+        stats: {
+          'a': _stats('a', lastRunAt: _now),
+          'b': _stats('b', lastRunAt: _now.subtract(const Duration(hours: 1))),
+        },
+        nextFireByWorkflow: const {},
+        waitingCount: 0,
+        labels: _labels,
+        now: _now,
+        sortByName: true,
+      );
+      final rows = m.groups.first.types[1].rows;
+      expect([for (final r in rows) r.label], ['a', 'b'],
+          reason: '名称序——活动序会把 a(更新)排前,名称序 a<b 恰同,换种子:');
+      final m2 = buildSchedulerRailModel(
+        workflows: [_wf('b'), _wf('a')],
+        stats: {
+          'b': _stats('b', lastRunAt: _now),
+          'a': _stats('a', lastRunAt: _now.subtract(const Duration(hours: 1))),
+        },
+        nextFireByWorkflow: const {},
+        waitingCount: 0,
+        labels: _labels,
+        now: _now,
+        sortByName: true,
+      );
+      expect([for (final r in m2.groups.first.types[1].rows) r.label], ['a', 'b'],
+          reason: '活动序应为 [b,a];名称序钉 [a,b]');
+    });
+
+    test('showNextFire=false silences the next-fire rung (falls to last-run)', () {
+      final meta = schedulerRailMeta(
+        _stats('a', lastRunAt: _now.subtract(const Duration(hours: 2))),
+        _now.add(const Duration(hours: 4)),
+        _labels,
+        now: _now,
+        showNextFire: false,
+      );
+      expect(meta, '2h ago', reason: '下次触发档静音,落到上次运行');
+    });
+
+    test('showLastRun=false silences the last-run rung; a LIVE run always speaks', () {
+      expect(
+          schedulerRailMeta(
+            _stats('a', lastRunAt: _now.subtract(const Duration(hours: 2))),
+            null,
+            _labels,
+            now: _now,
+            showLastRun: false,
+          ),
+          '—',
+          reason: '上次档静音=落到「—」');
+      expect(
+          schedulerRailMeta(
+            _stats('a', running: 1, lastRunAt: _now.subtract(const Duration(minutes: 3))),
+            null,
+            _labels,
+            now: _now,
+            showNextFire: false,
+            showLastRun: false,
+          ),
+          'running · 3m',
+          reason: '活 run 不可藏');
+    });
+
+    test('showInactive=false drops the inactive section entirely', () {
+      final m = buildSchedulerRailModel(
+        workflows: [_wf('a'), _wf('z', lifecycle: 'inactive')],
+        stats: {'a': _stats('a', lastRunAt: _now)},
+        nextFireByWorkflow: const {},
+        waitingCount: 0,
+        labels: _labels,
+        now: _now,
+        showInactive: false,
+      );
+      final sections = [for (final ty in m.groups.first.types) ty.label];
+      expect(sections.contains('Inactive'), isFalse, reason: '停用段整段隐藏');
+    });
+  });
+
   group('schedulerRailDot — 蓝>琥珀>红>无', () {
     test('running beats parked beats failures', () {
       expect(schedulerRailDot(_stats('w', running: 1, parked: 2, consecutiveFailures: 3), needsAttention: true),
@@ -61,7 +144,7 @@ void main() {
 
     test('next fire when idle', () {
       final s = _stats('w', lastRunAt: _now.subtract(const Duration(hours: 2)));
-      expect(schedulerRailMeta(s, nextFire, _labels, now: _now), '⏱ in 3m');
+      expect(schedulerRailMeta(s, nextFire, _labels, now: _now), 'in 3m');
     });
 
     test('last-run relative when no schedule; em-dash when never ran', () {

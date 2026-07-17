@@ -150,12 +150,20 @@ class _SchedulerRunViewState extends ConsumerState<SchedulerRunView> {
       );
     }
 
-    // Bind «Scheduler / 名 / fr_x» post-frame (entities 先例:每次数据重建重绑,onTap 恒新鲜). 后帧绑。
+    // Bind «Scheduler / 名 / 来源短语» post-frame (entities 先例:每次数据重建重绑,onTap 恒新鲜) —
+    // the crumb's third segment speaks the run PHRASE, never a bare fr_ id (WRK-070 B1). 后帧绑;
+    // 第三段念来源短语,绝不裸 id。
     final hostName = d.workflow?.name ?? widget.workflowId;
+    final crumbTriggers = {
+      for (final tr
+          in ref.watch(schedulerRailProvider).value?.triggers ?? const <TriggerEntity>[])
+        tr.id: tr,
+    };
+    final crumbPhrase = runPhrase(context, d.comp.flowrun, crumbTriggers, DateTime.now());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         ref.read(shellHeadProvider.notifier).bind(
-              t.run.crumb(name: hostName, id: truncate(widget.flowrunId, AnTrunc.id)),
+              t.run.crumb(name: hostName, id: crumbPhrase),
               _scrollToTop,
             );
       }

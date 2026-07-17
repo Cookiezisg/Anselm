@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/state/bool_pref.dart';
+
 import '../../../core/contract/entities/relation.dart';
 import '../../../core/contract/entities/scheduler_stats.dart';
 import '../../../core/contract/entities/trigger.dart';
@@ -197,3 +199,29 @@ class SchedulerRailController extends AsyncNotifier<SchedulerRailData> {
 
 final schedulerRailProvider =
     AsyncNotifierProvider<SchedulerRailController, SchedulerRailData>(SchedulerRailController.new);
+
+/// The rail's ⚙ sort axis (WRK-070 B1 sliders 菜单): activity (the standing order) or name.
+/// Session-scoped like the chat rail's (chat 先例:BoolPrefNotifier 同窝,不入持久化).
+/// rail ⚙ 排序轴:最近活动(现状序)或名称;会话级,同 chat rail 先例。
+enum SchedRailSort { activity, name }
+
+class SchedulerRailSortController extends Notifier<SchedRailSort> {
+  @override
+  SchedRailSort build() => SchedRailSort.activity;
+
+  void set(SchedRailSort v) {
+    if (v != state) state = v;
+  }
+}
+
+final schedulerRailSortProvider =
+    NotifierProvider<SchedulerRailSortController, SchedRailSort>(SchedulerRailSortController.new);
+
+/// ⚙ display toggles — which meta rungs a row may speak and whether the inactive section shows.
+/// ⚙ 显示开关:行 meta 可念哪些档 + 停用段是否在列。
+final schedShowNextFireProvider =
+    NotifierProvider<BoolPrefNotifier, bool>(() => BoolPrefNotifier(true));
+final schedShowLastRunProvider =
+    NotifierProvider<BoolPrefNotifier, bool>(() => BoolPrefNotifier(true));
+final schedShowInactiveProvider =
+    NotifierProvider<BoolPrefNotifier, bool>(() => BoolPrefNotifier(true));

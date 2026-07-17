@@ -51,21 +51,27 @@ AnStatus? schedulerRailDot(WorkflowRunStats? s, {required bool needsAttention}) 
 }
 
 /// The single meta value (one row carries at most two facts — label + this): running elapsed (minute
-/// granularity) > next cron fire > last-run relative time > «—». 单 meta 值:运行中>⏱ 下次>上次>—。
+/// granularity) > next cron fire > last-run relative time > «—». The ⚙ display toggles (WRK-070 B1)
+/// can silence the next-fire / last-run rungs — running elapsed always speaks (a live run is never
+/// hideable news). 单 meta 值:运行中>下次>上次>—;⚙ 开关可静音下次/上次两档,运行中恒念(活 run 不可藏)。
 String schedulerRailMeta(
   WorkflowRunStats? s,
   DateTime? nextFire,
   SchedulerRailLabels labels, {
   required DateTime now,
+  bool showNextFire = true,
+  bool showLastRun = true,
 }) {
   if (s != null && s.running > 0) {
     final since = s.lastRunAt;
     return labels.runningFor(since != null ? fmtWaited(now.difference(since)) : '<1m');
   }
-  if (nextFire != null && nextFire.isAfter(now)) {
+  if (showNextFire && nextFire != null && nextFire.isAfter(now)) {
     return labels.nextFireIn(fmtWaited(nextFire.difference(now)));
   }
-  if (s?.lastRunAt != null) return labels.ago(fmtWaited(now.difference(s!.lastRunAt!)));
+  if (showLastRun && s?.lastRunAt != null) {
+    return labels.ago(fmtWaited(now.difference(s!.lastRunAt!)));
+  }
   return labels.neverRan;
 }
 
@@ -79,6 +85,10 @@ SidebarModel buildSchedulerRailModel({
   required int waitingCount,
   required SchedulerRailLabels labels,
   required DateTime now,
+  bool sortByName = false,
+  bool showNextFire = true,
+  bool showLastRun = true,
+  bool showInactive = true,
 }) {
   final main = <SchedulerWorkflowRow>[];
   final neverRan = <SchedulerWorkflowRow>[];
@@ -99,15 +109,24 @@ SidebarModel buildSchedulerRailModel({
     return s?.lastRunAt ?? DateTime.fromMillisecondsSinceEpoch(0);
   }
 
-  main.sort((a, b) => activity(b).compareTo(activity(a)));
-  neverRan.sort((a, b) => (b.updatedAt ?? DateTime(0)).compareTo(a.updatedAt ?? DateTime(0)));
-  inactive.sort((a, b) => (b.updatedAt ?? DateTime(0)).compareTo(a.updatedAt ?? DateTime(0)));
+  // ⚙ sort (WRK-070 B1): name = alphabetical across every section; activity = the standing order.
+  // ⚙ 排序:名称=全段字母序;最近活动=现状序。
+  if (sortByName) {
+    for (final l in [main, neverRan, inactive]) {
+      l.sort((a, b) => a.name.compareTo(b.name));
+    }
+  } else {
+    main.sort((a, b) => activity(b).compareTo(activity(a)));
+    neverRan.sort((a, b) => (b.updatedAt ?? DateTime(0)).compareTo(a.updatedAt ?? DateTime(0)));
+    inactive.sort((a, b) => (b.updatedAt ?? DateTime(0)).compareTo(a.updatedAt ?? DateTime(0)));
+  }
 
   SidebarRow row(SchedulerWorkflowRow w) => SidebarRow(
         id: w.id,
         label: w.name,
         dot: schedulerRailDot(stats[w.id], needsAttention: w.needsAttention),
-        meta: schedulerRailMeta(stats[w.id], nextFireByWorkflow[w.id], labels, now: now),
+        meta: schedulerRailMeta(stats[w.id], nextFireByWorkflow[w.id], labels,
+            now: now, showNextFire: showNextFire, showLastRun: showLastRun),
       );
 
   return SidebarModel(
@@ -134,7 +153,7 @@ SidebarModel buildSchedulerRailModel({
             initiallyFolded: true,
             rows: [for (final w in neverRan) row(w)],
           ),
-        if (inactive.isNotEmpty)
+        if (showInactive && inactive.isNotEmpty)
           SidebarType(
             label: labels.sectionInactive,
             count: inactive.length,

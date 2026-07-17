@@ -408,8 +408,29 @@ class Translations$scheduler$en {
 	/// en: 'Inactive'
 	String get sectionInactive => 'Inactive';
 
-	/// en: 'Filter / paste fr_ id…'
-	String get filterPlaceholder => 'Filter / paste fr_ id…';
+	/// en: 'Search…'
+	String get filterPlaceholder => 'Search…';
+
+	/// en: 'Sort'
+	String get sortLabel => 'Sort';
+
+	/// en: 'Recent activity'
+	String get sortActivity => 'Recent activity';
+
+	/// en: 'Name'
+	String get sortName => 'Name';
+
+	/// en: 'Display'
+	String get displayLabel => 'Display';
+
+	/// en: 'Show next fire'
+	String get showNextFire => 'Show next fire';
+
+	/// en: 'Show last run'
+	String get showLastRun => 'Show last run';
+
+	/// en: 'Show inactive'
+	String get showInactive => 'Show inactive';
 
 	late final Translations$scheduler$overview$en overview = Translations$scheduler$overview$en.internal(_root);
 	late final Translations$scheduler$status$en status = Translations$scheduler$status$en.internal(_root);
@@ -6384,7 +6405,14 @@ extension on Translations {
 			'scheduler.neverRan' => '—',
 			'scheduler.sectionNeverRan' => 'Never ran',
 			'scheduler.sectionInactive' => 'Inactive',
-			'scheduler.filterPlaceholder' => 'Filter / paste fr_ id…',
+			'scheduler.filterPlaceholder' => 'Search…',
+			'scheduler.sortLabel' => 'Sort',
+			'scheduler.sortActivity' => 'Recent activity',
+			'scheduler.sortName' => 'Name',
+			'scheduler.displayLabel' => 'Display',
+			'scheduler.showNextFire' => 'Show next fire',
+			'scheduler.showLastRun' => 'Show last run',
+			'scheduler.showInactive' => 'Show inactive',
 			'scheduler.overview.kpiRunning' => 'Running',
 			'scheduler.overview.kpiRunningA11y' => ({required Object n}) => 'Running: ${n}. Show them in the running-now list.',
 			'scheduler.overview.kpiWaiting' => 'Waiting on you',
@@ -6777,6 +6805,8 @@ extension on Translations {
 			'entities.detail.codeToggle.collapse' => 'Collapse',
 			'entities.detail.sec.code' => 'Code',
 			'entities.detail.sec.input' => 'Inputs',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.sec.output' => 'Outputs',
 			'entities.detail.sec.env' => 'Environment',
 			'entities.detail.sec.runtime' => 'Resident state',
@@ -6784,8 +6814,6 @@ extension on Translations {
 			'entities.detail.sec.methods' => 'Methods',
 			'entities.detail.sec.prompt' => 'Prompt',
 			'entities.detail.sec.capabilities' => 'Capabilities',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.sec.mountHealth' => 'Mount health',
 			'entities.detail.sec.governance' => 'Run governance',
 			'entities.detail.sec.alerts' => 'Alerts',
@@ -7291,6 +7319,8 @@ extension on Translations {
 			'settings.mcp.requiredMark' => 'required',
 			'settings.mcp.oauthConnect' => 'Connect & authorize',
 			'settings.mcp.oauthWaiting' => 'Waiting for the browser… (up to 120s)',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mcp.tabTools' => 'Tools',
 			'settings.mcp.tabCalls' => 'Call history',
 			'settings.mcp.tabStderr' => 'stderr',
@@ -7298,8 +7328,6 @@ extension on Translations {
 			'settings.mcp.consecutiveFailures' => 'Consecutive failures',
 			'settings.mcp.noTools' => 'No tools',
 			'settings.mcp.noCalls' => 'No calls yet',
-			_ => null,
-		} ?? switch (path) {
 			'settings.mcp.noStderr' => 'No output yet',
 			'settings.mcp.callsAgg' => ({required Object ok, required Object failed}) => '✓ ${ok} · ✗ ${failed}',
 			'settings.storage.dataDir' => 'Data directory',
