@@ -51,7 +51,18 @@ func Open(cfg Config) (*ormpkg.DB, error) {
 }
 
 func buildDSN(dataDir string) (string, error) {
-	params := "_pragma=journal_mode(WAL)" +
+	// auto_vacuum MUST come first: it can only be set before journal_mode(WAL) initializes the file
+	// header, and the glebarez driver applies _pragma in DSN order — listing it after WAL silently
+	// leaves auto_vacuum=NONE (measured). A fresh file DB is thus born INCREMENTAL, so DELETE'd pages
+	// can be handed back to the filesystem (EnsureIncrementalAutoVacuum + ReclaimFreePages, vacuum.go);
+	// an existing NONE header is migrated once at boot. :memory: has no file to reclaim but the pragma
+	// is harmless there.
+	// auto_vacuum 必须排最前：它只能在 journal_mode(WAL) 初始化文件头之前设定，而 glebarez 驱动按 DSN 顺序
+	// 应用 _pragma——排在 WAL 之后会静默留下 auto_vacuum=NONE（实测）。全新文件库因此天生 INCREMENTAL，DELETE
+	// 掉的页才能还给文件系统（EnsureIncrementalAutoVacuum + ReclaimFreePages，vacuum.go）；已有的 NONE 文件头
+	// 在 boot 时一次性迁移。:memory: 没有文件可回收、该 pragma 在那儿无害。
+	params := "_pragma=auto_vacuum(INCREMENTAL)" +
+		"&_pragma=journal_mode(WAL)" +
 		"&_pragma=busy_timeout(5000)" +
 		"&_pragma=foreign_keys(on)" +
 		"&_pragma=synchronous(NORMAL)"

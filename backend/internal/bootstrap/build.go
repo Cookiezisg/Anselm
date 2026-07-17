@@ -21,6 +21,7 @@ import (
 	"go.uber.org/zap"
 
 	settingsapp "github.com/sunweilin/anselm/backend/internal/app/settings"
+	dbinfra "github.com/sunweilin/anselm/backend/internal/infra/db"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 	loggerinfra "github.com/sunweilin/anselm/backend/internal/infra/logger"
 	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
@@ -130,7 +131,7 @@ func Build(cfg Config) (*App, error) {
 	if err != nil {
 		return nil, fmt.Errorf("bootstrap: logger: %w", err)
 	}
-	database, err := openDB(cfg.DataDir)
+	database, err := openDB(cfg.DataDir, log)
 	if err != nil {
 		return nil, err
 	}
@@ -607,13 +608,30 @@ func (a *App) sweepRetention(ctx context.Context) {
 		return // keep forever — never touch the DB. 永久保留——碰都不碰 DB。
 	}
 	cutoff := time.Now().UTC().AddDate(0, 0, -days)
+	var purged int
 	a.forEachWorkspace(ctx, func(wsCtx context.Context) {
 		if n, err := a.svc.scheduler.SweepRunRetention(wsCtx, cutoff); err != nil {
 			a.bgWarn(ctx, "bootstrap: run retention sweep", err)
 		} else if n > 0 {
+			purged += n
 			a.log.Info("bootstrap: purged runs past the retention line", zap.Int("runs", n), zap.Int("retentionDays", days))
 		}
 	})
+	// Reclaim the freed pages to the filesystem ONCE per sweep (VACUUM/incremental_vacuum are DB-global,
+	// not workspace-scoped) — only when a purge actually deleted rows, and only if the dead space clears
+	// the reclaim gate (routine churn reuses freed pages; a tightened retention line does not). Deleting
+	// rows alone frees nothing on disk (SQLite's ratchet), which is the whole T4 bug. Best-effort: a
+	// reclaim failure is not a retention failure. ctx is checked so shutdown skips it.
+	// 每趟清理**一次**把腾出的页还给文件系统（VACUUM/incremental_vacuum 是 DB 全局、非 workspace 隔离）——仅当
+	// 清理真删了行、且死空间越过回收闸时（日常 churn 复用腾出的页；收紧保留线则不会）。光删行在磁盘上什么都不腾
+	// （SQLite 的棘轮）,正是 T4 bug 本身。尽力而为：回收失败不是清理失败。查 ctx 使关停时跳过。
+	if purged > 0 && ctx.Err() == nil {
+		if reclaimed, err := dbinfra.ReclaimFreePages(ctx, a.db); err != nil {
+			a.bgWarn(ctx, "bootstrap: reclaim free pages", err)
+		} else if reclaimed > 0 {
+			a.log.Info("bootstrap: reclaimed disk from purged run history", zap.Int64("reclaimedBytes", reclaimed))
+		}
+	}
 }
 
 func (a *App) timeoutLoop(ctx context.Context) {

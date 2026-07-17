@@ -1,7 +1,10 @@
 package bootstrap
 
 import (
+	"context"
 	"fmt"
+
+	"go.uber.org/zap"
 
 	cryptodomain "github.com/sunweilin/anselm/backend/internal/domain/crypto"
 	cryptoinfra "github.com/sunweilin/anselm/backend/internal/infra/crypto"
@@ -102,11 +105,12 @@ func newBuses() buses {
 }
 
 // openDB opens the SQLite database (DataDir empty → in-memory, for tests) and applies every
-// store's schema in one migration pass, then the table rebuilds that CREATE/ALTER cannot express.
+// store's schema in one migration pass, then the table rebuilds that CREATE/ALTER cannot express,
+// then brings the file DB into auto_vacuum=INCREMENTAL so retention actually frees disk (T4).
 //
-// openDB 打开 SQLite（DataDir 空 → 内存库，供测试）并一趟应用每个 store 的 schema，
-// 再跑 CREATE/ALTER 表达不了的表重建。
-func openDB(dataDir string) (*ormpkg.DB, error) {
+// openDB 打开 SQLite（DataDir 空 → 内存库，供测试）并一趟应用每个 store 的 schema，再跑 CREATE/ALTER
+// 表达不了的表重建，再把文件库带进 auto_vacuum=INCREMENTAL 使保留清理真正腾磁盘（T4）。
+func openDB(dataDir string, log *zap.Logger) (*ormpkg.DB, error) {
 	database, err := dbinfra.Open(dbinfra.Config{DataDir: dataDir})
 	if err != nil {
 		return nil, fmt.Errorf("bootstrap: open db: %w", err)
@@ -132,6 +136,21 @@ func openDB(dataDir string) (*ormpkg.DB, error) {
 	// 它**真实的**处置、而非假扮一次失败。
 	if err := dbinfra.MigrateRebuild(database, "flowrun_nodes", flowrunstore.NodesCancelledMarker, flowrunstore.NodesCheckRebuild...); err != nil {
 		return nil, fmt.Errorf("bootstrap: migrate-rebuild: %w", err)
+	}
+	// Bring an existing NONE-mode file DB into auto_vacuum=INCREMENTAL, reclaiming the dead space a
+	// pre-fix install has been accumulating (T4). Best-effort — a full-disk user (the one this fixes)
+	// may lack the scratch space VACUUM needs, and a maintenance step must never fail boot; the next
+	// boot retries. Skipped for :memory: (no file to reclaim). New file DBs are born INCREMENTAL
+	// (buildDSN) so this no-ops for them.
+	// 把已有的 NONE 模式文件库带进 auto_vacuum=INCREMENTAL，回收修复前安装一直在攒的死空间（T4）。尽力而为
+	// ——磁盘将满的用户（正是本修复对象）可能没有 VACUUM 所需的临时空间，而维护步骤绝不能令 boot 失败；下次
+	// boot 重试。:memory: 跳过（无文件可回收）。新文件库天生 INCREMENTAL（buildDSN）故对它们 no-op。
+	if dataDir != "" {
+		if migrated, reclaimed, err := dbinfra.EnsureIncrementalAutoVacuum(context.Background(), database); err != nil {
+			log.Warn("bootstrap: auto_vacuum migration deferred (retries next boot)", zap.Error(err))
+		} else if migrated {
+			log.Info("bootstrap: migrated DB to incremental auto_vacuum", zap.Int64("reclaimedBytes", reclaimed))
+		}
 	}
 	return database, nil
 }

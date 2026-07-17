@@ -23,7 +23,13 @@ AES-GCM 整密文加解密（apikey 密文 / handler config / mcp config_enc 共
 
 ## infra/db
 
-无业务知识的 SQLite 网关（`infra/db` 无专篇，本节是它唯一事实源）：`Open`（glebarez 纯 Go 驱动、WAL）+ **`Migrate`**（各 store 导出幂等 DDL、bootstrap `openDB` 汇总、单事务按序应用）+ **`MigrateRebuild`**（整表重建逃生口）。
+无业务知识的 SQLite 网关（`infra/db` 无专篇，本节是它唯一事实源）：`Open`（glebarez 纯 Go 驱动，DSN pragma `auto_vacuum(INCREMENTAL)` → `journal_mode(WAL)` → `busy_timeout(5000)` → `foreign_keys(on)` → `synchronous(NORMAL)`，`SetMaxOpenConns(1)` 单连接）+ **`Migrate`**（各 store 导出幂等 DDL、bootstrap `openDB` 汇总、单事务按序应用）+ **`MigrateRebuild`**（整表重建逃生口）+ **磁盘回收两件**（`vacuum.go`，见下）。
+
+**磁盘回收（`auto_vacuum=INCREMENTAL` + 保留清理后回收，T4/WRK-070，与 [database.md](../database.md) flowrun 节对齐）**：SQLite 的 `DELETE` 只把页移到 freelist、**绝不把字节还给文件系统**（`auto_vacuum` 默认 `NONE`）——故 run 历史保留清理删了真行、`.db` 文件却一字节不缩，存储面板的「Run 历史保留」成空头承诺。修法让库跑在 `auto_vacuum=INCREMENTAL`（选它而非 `FULL`：`FULL` 每次 commit 都回收 = 高频单写者 app 的常驻每写开销；`INCREMENTAL` 只在指针图记下腾空的页、显式索要时才回收）：
+- **`auto_vacuum` 必须排 DSN 最前**——只能在 `journal_mode(WAL)` 初始化文件头**之前**设定，且 glebarez 驱动按 DSN 顺序应用 `_pragma`；排在 WAL 之后会静默留 `NONE`（实测）。全新文件库因此天生 `INCREMENTAL`。
+- **`EnsureIncrementalAutoVacuum`**（`openDB` 在 Migrate/MigrateRebuild 之后、仅文件库调）：存量安装文件头带 `NONE`，光 PRAGMA 翻不动，须一次**全量 `VACUUM`** 用指针图重写文件——它**同时**回收该安装攒下的死空间（用户可感修复）。结果幂等（文件头读作 `INCREMENTAL` 即 no-op）；**尽力而为**——`VACUUM` 需约等于库大小的临时空间，磁盘将满的用户（正是修复对象）可能没有，故失败只记日志不令 boot 失败、下次 boot 重试。
+- **`ReclaimFreePages`**（bootstrap `sweepRetention` 在一趟清理真删了行后调**一次**，DB 全局非 workspace 隔离）：`wal_checkpoint(TRUNCATE)`（删落在 WAL、freelist/incremental_vacuum 作用于主文件，不 checkpoint 则回收量到零）→ **回收闸**（死空间 ≥ 25% 文件比例 **或** ≥ 128MiB 绝对量才回收——freelist 是**棘轮**非泄漏，稳态新 run 复用腾出的页，每 6h 都回收只会空折腾文件；日常 churn 两闸皆不过、收紧保留线才过）→ drain `PRAGMA incremental_vacuum` → 再 `wal_checkpoint(TRUNCATE)` 使缩小的文件落盘。**驱动坑**：modernc/glebarez 下 `Exec` 对 `incremental_vacuum` 只 step 一次（腾一页），须用 `Query` 遍历逐页结果行才腾光（实测）；drain 逐页查 ctx，关停在页边界可打断（同保留批循环）。
+- **不是 D1 物理删例外**：`VACUUM`/`incremental_vacuum` 都不删任何逻辑行、只把**已腾空**的页还给 OS。删行的是 `PurgeTerminalRunsBefore`（例外②，立法在 database.md）；这里纯空间回收、无需新立法。守卫 `vacuum_test.go`（真落盘库删行→回收→`os.Stat` 断言文件真缩且行完好 + 回收闸挡住日常 churn + 存量 NONE 库迁移持久幂等）。
 
 **列演化两径**（SQLite 现实，与 [database.md](../database.md) 逐字对齐）：
 - **加列 = `ALTER TABLE … ADD COLUMN`**，写进 store 的 `Schema` 序列，靠 **`isAddColumnApplied`** 做**结果幂等**——`duplicate column name` 即「已应用」信号、跳过不冒泡（其他语句的真重复列错误仍令整个迁移失败）。现有 6 条活 ALTER：`triggers.paused`/`missed_checked_at`（工单⑦/⑨）· `flowruns.origin`/`conversation_id`（工单①）· `flowrun_nodes.ready_at`/`started_at`（工单⑫）。
