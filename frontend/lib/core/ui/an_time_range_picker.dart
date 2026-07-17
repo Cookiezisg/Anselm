@@ -12,6 +12,7 @@ import 'an_interactive.dart';
 import 'an_menu_surface.dart';
 import 'an_pop_surface.dart';
 import 'an_popover.dart';
+import 'an_time_wheel.dart';
 import 'icons.dart';
 
 /// The Grafana-family time-range control (WRK-069 主页重建拍板 0717): ONE capsule governs every
@@ -98,9 +99,12 @@ class _AnTimeRangePickerState extends State<AnTimeRangePicker> {
   final AnPopoverController _popover = AnPopoverController();
 
   final TextEditingController _fromDate = TextEditingController();
-  final TextEditingController _fromTime = TextEditingController();
   final TextEditingController _toDate = TextEditingController();
-  final TextEditingController _toTime = TextEditingController();
+
+  // Endpoint times are WHEEL values, not text (用户 0717-深夜拍板:时刻不打字) — always valid by
+  // construction, so only dates can still fail to parse. 端点时刻是轮值非文本——构造即合法,只剩日期可解析失败。
+  AnWheelTime _fromTod = (hour: 0, minute: 0);
+  AnWheelTime _toTod = (hour: 0, minute: 0);
 
   DateTime _month = DateTime(DateTime.now().year, DateTime.now().month, 1);
 
@@ -121,9 +125,7 @@ class _AnTimeRangePickerState extends State<AnTimeRangePicker> {
     _popover.removeListener(_onPopover);
     _popover.dispose();
     _fromDate.dispose();
-    _fromTime.dispose();
     _toDate.dispose();
-    _toTime.dispose();
     super.dispose();
   }
 
@@ -149,9 +151,9 @@ class _AnTimeRangePickerState extends State<AnTimeRangePicker> {
         to = DateTime(now.year, now.month, now.day, now.hour, now.minute);
     }
     _fromDate.text = _dateText(from);
-    _fromTime.text = _timeText(from);
+    _fromTod = (hour: from.hour, minute: from.minute);
     _toDate.text = _dateText(to);
-    _toTime.text = _timeText(to);
+    _toTod = (hour: to.hour, minute: to.minute);
     _month = DateTime(to.year, to.month, 1);
     _awaitingEnd = false;
     _error = null;
@@ -159,8 +161,6 @@ class _AnTimeRangePickerState extends State<AnTimeRangePicker> {
 
   static String _dateText(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-  static String _timeText(DateTime d) =>
-      '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
 
   String get _capsuleLabel {
     switch (widget.value) {
@@ -195,13 +195,11 @@ class _AnTimeRangePickerState extends State<AnTimeRangePicker> {
 
   ({DateTime from, DateTime to})? _parseDraft() {
     final fd = parseDateInput(_fromDate.text);
-    final ft = parseTimeInput(_fromTime.text);
     final td = parseDateInput(_toDate.text);
-    final tt = parseTimeInput(_toTime.text);
-    if (fd == null || ft == null || td == null || tt == null) return null;
+    if (fd == null || td == null) return null;
     return (
-      from: DateTime(fd.year, fd.month, fd.day, ft.hour, ft.minute),
-      to: DateTime(td.year, td.month, td.day, tt.hour, tt.minute),
+      from: DateTime(fd.year, fd.month, fd.day, _fromTod.hour, _fromTod.minute),
+      to: DateTime(td.year, td.month, td.day, _toTod.hour, _toTod.minute),
     );
   }
 
@@ -353,9 +351,11 @@ class _AnTimeRangePickerState extends State<AnTimeRangePicker> {
                         Text(widget.strings.customTitle,
                             style: AnText.label.weight(AnText.emphasisWeight).copyWith(color: c.ink)),
                         const SizedBox(height: AnSpace.s8),
-                        _endpointRow(context, widget.strings.fromLabel, _fromDate, _fromTime),
+                        _endpointRow(context, widget.strings.fromLabel, _fromDate, _fromTod,
+                            (v) => setState(() { _fromTod = v; _revalidateIfErrored(); })),
                         const SizedBox(height: AnSpace.s6),
-                        _endpointRow(context, widget.strings.toLabel, _toDate, _toTime),
+                        _endpointRow(context, widget.strings.toLabel, _toDate, _toTod,
+                            (v) => setState(() { _toTod = v; _revalidateIfErrored(); })),
                         const SizedBox(height: AnSpace.s8),
                         AnCalendar(
                           month: _month,
@@ -396,9 +396,11 @@ class _AnTimeRangePickerState extends State<AnTimeRangePicker> {
     );
   }
 
-  Widget _endpointRow(
-      BuildContext context, String label, TextEditingController date, TextEditingController time) {
+  Widget _endpointRow(BuildContext context, String label, TextEditingController date,
+      AnWheelTime tod, ValueChanged<AnWheelTime> onTod) {
     final c = context.colors;
+    // Date stays TYPED (multi-format leniency + the calendar feeds it); the time is a WHEEL — the
+    // row centres both on one axis. 日期仍打字(宽容解析+日历喂它);时刻是轮;同轴居中。
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -407,7 +409,9 @@ class _AnTimeRangePickerState extends State<AnTimeRangePicker> {
           child: Text(label, style: AnText.meta.copyWith(color: c.inkFaint)),
         ),
         SizedBox(
-          width: 104,
+          // 116: ten tabular date glyphs + AnInput padding — 104 clipped «2026-07-17» to 9 chars
+          // (0717-深夜帧核出的截字). 116=十位表格数字+内距;104 曾把日期裁到 9 字。
+          width: 116,
           child: AnInput(
             controller: date,
             tabular: true,
@@ -420,18 +424,7 @@ class _AnTimeRangePickerState extends State<AnTimeRangePicker> {
           ),
         ),
         const SizedBox(width: AnSpace.s6),
-        SizedBox(
-          width: 64,
-          child: AnInput(
-            controller: time,
-            tabular: true,
-            onChanged: (_) {
-              _revalidateIfErrored();
-              setState(() {});
-            },
-            onSubmitted: (_) => _apply(),
-          ),
-        ),
+        AnTimeWheel(value: tod, onChanged: onTod, semanticLabel: label),
       ],
     );
   }

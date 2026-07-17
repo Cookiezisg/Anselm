@@ -3010,8 +3010,8 @@ class Translations$scheduler$home$en {
 	/// en: 'Workflow killed'
 	String get killed => 'Workflow killed';
 
-	/// en: '$window · success $rate · avg $avg'
-	String statsLine({required Object window, required Object rate, required Object avg}) => '${window} · success ${rate} · avg ${avg}';
+	/// en: 'Success $rate · avg $avg'
+	String statsLine({required Object rate, required Object avg}) => 'Success ${rate} · avg ${avg}';
 
 	/// en: 'Runs'
 	String get runsHead => 'Runs';
@@ -3403,8 +3403,8 @@ class Translations$scheduler$range$en {
 	/// en: 'End is before start'
 	String get endBeforeStart => 'End is before start';
 
-	/// en: 'Mon Tue Wed Thu Fri Sat Sun'
-	String get weekdays => 'Mon Tue Wed Thu Fri Sat Sun';
+	/// en: 'Mo Tu We Th Fr Sa Su'
+	String get weekdays => 'Mo Tu We Th Fr Sa Su';
 
 	/// en: '$y-$m'
 	String monthTitle({required Object y, required Object m}) => '${y}-${m}';
@@ -6470,7 +6470,7 @@ extension on Translations {
 			'scheduler.home.killHint' => ({required Object name}) => 'Type ${name} to confirm',
 			'scheduler.home.killConfirm' => 'Kill workflow',
 			'scheduler.home.killed' => 'Workflow killed',
-			'scheduler.home.statsLine' => ({required Object window, required Object rate, required Object avg}) => '${window} · success ${rate} · avg ${avg}',
+			'scheduler.home.statsLine' => ({required Object rate, required Object avg}) => 'Success ${rate} · avg ${avg}',
 			'scheduler.home.runsHead' => 'Runs',
 			'scheduler.home.runsError' => 'Couldn\'t load the runs.',
 			'scheduler.home.runsEmpty' => 'No runs match this filter.',
@@ -6595,7 +6595,7 @@ extension on Translations {
 			'scheduler.range.apply' => 'Apply',
 			'scheduler.range.invalid' => 'Unparseable date or time',
 			'scheduler.range.endBeforeStart' => 'End is before start',
-			'scheduler.range.weekdays' => 'Mon Tue Wed Thu Fri Sat Sun',
+			'scheduler.range.weekdays' => 'Mo Tu We Th Fr Sa Su',
 			'scheduler.range.monthTitle' => ({required Object y, required Object m}) => '${y}-${m}',
 			'scheduler.range.prevMonth' => 'Previous month',
 			'scheduler.range.nextMonth' => 'Next month',

@@ -2,6 +2,7 @@ import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/model/time_range.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/i18n/strings.g.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -199,10 +200,11 @@ void main() {
       await tester.tap(find.byType(AnTimeRangePicker));
       await tester.pumpAndSettle();
 
-      // First pick starts a new range, second (later) pick ends it. 首击起、次击收。
-      await tester.tap(find.text('10'));
+      // First pick starts a new range, second (later) pick ends it — scoped to the CALENDAR
+      // (the minute wheel also paints a «10»). 首击起、次击收;限定日历(分钟轮也画着 10)。
+      await tester.tap(find.descendant(of: find.byType(AnCalendar), matching: find.text('10')));
       await tester.pump();
-      await tester.tap(find.text('20'));
+      await tester.tap(find.descendant(of: find.byType(AnCalendar), matching: find.text('20')));
       await tester.pump();
       expect(changes, isEmpty); // nothing hit the wire yet — Apply owns the commit 未应用不提交
 
@@ -226,8 +228,9 @@ void main() {
       await tester.tap(find.byType(AnTimeRangePicker));
       await tester.pumpAndSettle();
 
-      // Hand-edit the END date to before the start. 手改终点到起点之前。
-      await tester.enterText(find.byType(AnInput).at(2), '2026-07-01');
+      // Hand-edit the END date to before the start (inputs are now the two DATES — times are
+      // wheels). 手改终点到起点之前(输入只剩两枚日期,时刻是轮)。
+      await tester.enterText(find.byType(AnInput).at(1), '2026-07-01');
       await tester.tap(find.text('应用'));
       await tester.pumpAndSettle();
 
@@ -236,7 +239,7 @@ void main() {
       expect(find.text('自定义范围'), findsOneWidget); // still open 仍开着
 
       // Fixing the draft clears the error line immediately. 改好即灭。
-      await tester.enterText(find.byType(AnInput).at(2), '2026-07-30');
+      await tester.enterText(find.byType(AnInput).at(1), '2026-07-30');
       await tester.pump();
       expect(find.text('终点早于起点'), findsNothing);
 
@@ -244,6 +247,31 @@ void main() {
       await tester.pumpAndSettle();
       expect(changes, [
         AnAbsoluteRange(from: DateTime(2026, 7, 6, 9, 0), to: DateTime(2026, 7, 30, 18, 0)),
+      ]);
+    });
+
+    testWidgets('the TIME WHEELS feed Apply: one minute-notch on «从» commits 09:01 (0717-深夜:'
+        '时刻不打字)', (tester) async {
+      final changes = <AnTimeRange>[];
+      await tester.pumpWidget(host(AnTimeRangePicker(
+        value: AnAbsoluteRange(from: DateTime(2026, 7, 6, 9, 0), to: DateTime(2026, 7, 17, 18, 0)),
+        onChanged: changes.add,
+        strings: strings,
+      )));
+      await tester.tap(find.byType(AnTimeRangePicker));
+      await tester.pumpAndSettle();
+
+      // Wheel order in the panel: from-HH, from-MM, to-HH, to-MM. 面板轮序:从时/从分/到时/到分。
+      final fromMinute = find.byType(ListWheelScrollView).at(1);
+      final pointer = TestPointer(1, PointerDeviceKind.mouse);
+      pointer.hover(tester.getCenter(fromMinute));
+      await tester.sendEventToBinding(pointer.scroll(const Offset(0, 20)));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('应用'));
+      await tester.pumpAndSettle();
+      expect(changes, [
+        AnAbsoluteRange(from: DateTime(2026, 7, 6, 9, 1), to: DateTime(2026, 7, 17, 18, 0)),
       ]);
     });
 

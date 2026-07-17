@@ -277,7 +277,7 @@ void main() {
       expect(find.byType(RunBeadStrip), findsNothing, reason: '珠串已删——矩阵列头就是同一排珠子');
       // The sentence's window word IS the capsule's word (需求②:成功率跟随选择器,默认近 7 天).
       // 句子窗口词=胶囊之词。
-      expect(find.text(h.statsLine(window: t.scheduler.range.d7, rate: '80%', avg: '42.0s')),
+      expect(find.text(h.statsLine(rate: '80%', avg: '42.0s')),
           findsOneWidget);
       expect(find.byType(AnTimeRangePicker), findsOneWidget, reason: '胶囊坐在页头 meta 行');
       expect(find.text(h.runNow), findsOneWidget);
@@ -291,7 +291,7 @@ void main() {
         byWorkflow: [WorkflowRunStats(workflowId: 'wf_a', lastRunAt: _now)],
       );
       await _pump(tester, repo);
-      expect(find.text(h.statsLine(window: t.scheduler.range.d7, rate: '—', avg: '—')),
+      expect(find.text(h.statsLine(rate: '—', avg: '—')),
           findsOneWidget);
       expect(find.textContaining('0%'), findsNothing);
     });
@@ -340,7 +340,7 @@ void main() {
         (tester) async {
       final repo = _repo();
       await _pump(tester, repo);
-      expect(find.text(h.statsLine(window: t.scheduler.range.d7, rate: '80%', avg: '42.0s')),
+      expect(find.text(h.statsLine(rate: '80%', avg: '42.0s')),
           findsOneWidget);
       repo.statsLatency = const Duration(milliseconds: 300);
       final container =
@@ -352,13 +352,13 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
       // In flight: the NEW word with honest dashes — never the old 7d numbers under a 24h label.
       // 在飞:新窗口词配诚实「—」——绝不让 24h 的帽子戴在 7d 的数字上。
-      expect(find.text(h.statsLine(window: t.scheduler.range.h24, rate: '—', avg: '—')),
+      expect(find.text(h.statsLine(rate: '—', avg: '—')),
           findsOneWidget, reason: '范围章不符=只render词不render数');
-      expect(find.text(h.statsLine(window: t.scheduler.range.h24, rate: '80%', avg: '42.0s')),
+      expect(find.text(h.statsLine(rate: '80%', avg: '42.0s')),
           findsNothing, reason: '新词配旧数=句子撒谎');
       await tester.pump(const Duration(milliseconds: 400));
       await _settle(tester);
-      expect(find.text(h.statsLine(window: t.scheduler.range.h24, rate: '80%', avg: '42.0s')),
+      expect(find.text(h.statsLine(rate: '80%', avg: '42.0s')),
           findsOneWidget, reason: '新窗数字落地,句子完整');
     });
 

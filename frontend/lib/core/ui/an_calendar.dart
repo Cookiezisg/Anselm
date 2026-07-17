@@ -208,7 +208,13 @@ class _AnCalendarState extends State<AnCalendar> {
               SizedBox(
                 width: _cell,
                 child: Center(
+                  // One line, NEVER wrapped — a 24px cell wraps 3-letter words («Mo\nn», 用户 0717
+                  // 真机帧). Overflowing labels clip instead; locales must supply ≤2-glyph words.
+                  // 单行绝不换行——24px 格会把三字母词折行;溢出裁切,locale 须供 ≤2 字形标签。
                   child: Text(widget.weekdayLabels.length == 7 ? widget.weekdayLabels[i] : '',
+                      maxLines: 1,
+                      softWrap: false,
+                      overflow: TextOverflow.clip,
                       style: AnText.meta.copyWith(color: c.inkFaint)),
                 ),
               ),

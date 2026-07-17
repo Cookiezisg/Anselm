@@ -23,6 +23,7 @@ export 'an_count_up.dart';
 export 'an_countdown.dart';
 export 'an_time_pulse.dart';
 export 'an_time_range_picker.dart';
+export 'an_time_wheel.dart';
 export 'an_path_chip.dart';
 export 'an_code_chip.dart';
 export 'an_code_editor.dart';

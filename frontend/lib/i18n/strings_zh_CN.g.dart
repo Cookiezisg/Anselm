@@ -1237,7 +1237,7 @@ class _Translations$scheduler$home$zh_CN extends Translations$scheduler$home$en 
 	@override String killHint({required Object name}) => '输入 ${name} 以确认';
 	@override String get killConfirm => '终止 workflow';
 	@override String get killed => 'workflow 已终止';
-	@override String statsLine({required Object window, required Object rate, required Object avg}) => '${window} · 成功率 ${rate} · 均时 ${avg}';
+	@override String statsLine({required Object rate, required Object avg}) => '成功率 ${rate} · 均时 ${avg}';
 	@override String get runsHead => '运行';
 	@override String get runsError => '运行记录加载失败。';
 	@override String get runsEmpty => '没有匹配此过滤的运行。';
@@ -3166,7 +3166,7 @@ extension on TranslationsZhCn {
 			'scheduler.home.killHint' => ({required Object name}) => '输入 ${name} 以确认',
 			'scheduler.home.killConfirm' => '终止 workflow',
 			'scheduler.home.killed' => 'workflow 已终止',
-			'scheduler.home.statsLine' => ({required Object window, required Object rate, required Object avg}) => '${window} · 成功率 ${rate} · 均时 ${avg}',
+			'scheduler.home.statsLine' => ({required Object rate, required Object avg}) => '成功率 ${rate} · 均时 ${avg}',
 			'scheduler.home.runsHead' => '运行',
 			'scheduler.home.runsError' => '运行记录加载失败。',
 			'scheduler.home.runsEmpty' => '没有匹配此过滤的运行。',

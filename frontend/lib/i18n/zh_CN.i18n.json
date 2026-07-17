@@ -735,7 +735,7 @@
       "killHint": "输入 $name 以确认",
       "killConfirm": "终止 workflow",
       "killed": "workflow 已终止",
-      "statsLine": "$window · 成功率 $rate · 均时 $avg",
+      "statsLine": "成功率 $rate · 均时 $avg",
       "runsHead": "运行",
       "runsError": "运行记录加载失败。",
       "runsEmpty": "没有匹配此过滤的运行。",

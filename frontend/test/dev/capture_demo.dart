@@ -72,6 +72,9 @@ const _schedRun = String.fromEnvironment('SCHEDRUN');
 // Optional `--dart-define=SCHEDFLAG=1` (with SCHEDW+SCHEDRUN) deep-links the run FLAGSHIP page
 // instead of the home (0717-晚 文档化页头验收帧). 深链 run 旗舰页(而非主页)。
 const _schedFlag = String.fromEnvironment('SCHEDFLAG');
+// Optional `--dart-define=SCHEDPICK=1` (with SCHEDW) opens the time-range capsule's panel before
+// capture (0717-深夜:星期头不折行+HH:MM 滚轮验收帧). 开着时间胶囊面板截帧。
+const _schedPick = String.fromEnvironment('SCHEDPICK');
 // Optional `--dart-define=NOTIF=1` opens the notifications tray (bell) — verify it takes over the left
 // island. 拉开通知托盘,验它接管左岛。
 const _notif = String.fromEnvironment('NOTIF');
@@ -181,7 +184,12 @@ void main() {
         await tester.pump(const Duration(milliseconds: 80));
       }
       outName = '${outName}_w';
-      if (_schedFlag.isNotEmpty) {
+      if (_schedPick.isNotEmpty) {
+        await tester.tap(find.byType(AnTimeRangePicker));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        outName = '${outName}_pick';
+      } else if (_schedFlag.isNotEmpty) {
         outName = '${outName}_run';
       } else if (_schedRun.isNotEmpty) {
         // Scroll the expanded peek card into the frame (its gantt is the card's body). 滚卡入帧。

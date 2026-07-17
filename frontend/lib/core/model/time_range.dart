@@ -120,12 +120,3 @@ DateTime? parseDateInput(String raw) {
   if (d > daysInMonth(DateTime(y, mo))) return null;
   return DateTime(y, mo, d);
 }
-
-/// Parse a time input: `9:00`, `09:00`, `23:59`. null = unparseable. 解析时间输入。
-({int hour, int minute})? parseTimeInput(String raw) {
-  final m = RegExp(r'^\s*(\d{1,2}):(\d{2})\s*$').firstMatch(raw);
-  if (m == null) return null;
-  final h = int.parse(m.group(1)!), min = int.parse(m.group(2)!);
-  if (h > 23 || min > 59) return null;
-  return (hour: h, minute: min);
-}

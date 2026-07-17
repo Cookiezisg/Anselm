@@ -284,18 +284,21 @@ class _HealthHeadState extends ConsumerState<_HealthHead> {
           AnChip(lifecycleWord,
               tone: widget.row.lifecycleState == 'inactive' ? AnTone.none : AnTone.accent,
               look: AnChipLook.outlined),
-          Text(
-            t.home.statsLine(
-              window: _rangeWord(context, range),
-              rate: successRate != null ? '${(successRate * 100).round()}%' : '—',
-              avg: avgMs != null ? fmtDuration(Duration(milliseconds: avgMs)) : '—',
-            ),
-            style: AnText.meta.copyWith(color: c.inkMuted),
-          ),
+          // The capsule FIRST, the numbers after — the window is stated exactly ONCE, by the
+          // capsule, and the sentence carries only what the capsule can't (用户 0717-深夜拍板:
+          // 「胶囊放前面,成功率放后面,去掉句子的近七天」——同词双显删).
+          // 胶囊在前、数字在后——窗口只由胶囊陈述一次,句子只说胶囊说不了的数;同词双显删。
           AnTimeRangePicker(
             value: range,
             onChanged: (r) => ref.read(schedulerTimeRangeProvider.notifier).set(r),
             strings: _rangeStrings(context),
+          ),
+          Text(
+            t.home.statsLine(
+              rate: successRate != null ? '${(successRate * 100).round()}%' : '—',
+              avg: avgMs != null ? fmtDuration(Duration(milliseconds: avgMs)) : '—',
+            ),
+            style: AnText.meta.copyWith(color: c.inkMuted),
           ),
         ],
         actions: [
@@ -839,24 +842,6 @@ class _Tombstone extends ConsumerWidget {
 }
 
 // ─────────────────────────────────── 矩阵区 + 行内速览卡 ───────────────────────────────────
-
-/// The stats sentence's window word — the capsule's own word (preset name / absolute pair), so the
-/// sentence and the capsule can never disagree (需求②). 统计句窗口词=胶囊之词,句囊永不打架。
-String _rangeWord(BuildContext context, AnTimeRange range) {
-  final r = context.t.scheduler.range;
-  switch (range) {
-    case AnPresetRange(:final preset):
-      return switch (preset) {
-        AnTimePreset.today => r.today,
-        AnTimePreset.h24 => r.h24,
-        AnTimePreset.d7 => r.d7,
-        AnTimePreset.d30 => r.d30,
-        AnTimePreset.all => r.all,
-      };
-    case AnAbsoluteRange(:final from, :final to):
-      return '${fmtDateTime(from)} – ${fmtDateTime(to)}';
-  }
-}
 
 /// Build the picker's string bundle from slang — the primitive is copy-free by design.
 /// 从 slang 拼选择器字符串包——原语按设计零文案。

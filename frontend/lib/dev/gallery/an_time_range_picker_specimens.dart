@@ -101,6 +101,31 @@ class _CalendarHostState extends State<_CalendarHost> {
   }
 }
 
+/// 滚轮宿主——真滚真变(标本即活控件)。
+class _WheelHost extends StatefulWidget {
+  const _WheelHost({required this.initial});
+
+  final AnWheelTime initial;
+
+  @override
+  State<_WheelHost> createState() => _WheelHostState();
+}
+
+class _WheelHostState extends State<_WheelHost> {
+  late AnWheelTime _value = widget.initial;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      AnTimeWheel(
+        value: _value,
+        onChanged: (v) => setState(() => _value = v),
+        semanticLabel: '时刻',
+      ),
+    ]);
+  }
+}
+
 final anTimeRangePickerGalleryItem = GalleryItem(
   'AnTimeRangePicker 时间范围',
   'Grafana 定式:一颗胶囊治全页——左快捷预设(点即生效、活表达式每次现解析)/右绝对表单(日期+时间双端+日历范围+'
@@ -147,6 +172,14 @@ final anTimeRangePickerGalleryItem = GalleryItem(
         padding: EdgeInsets.all(AnSpace.s16),
         child: _CalendarHost(),
       ),
+    ),
+    GallerySpecimen(
+      '时刻滚轮(HH:MM 循环轮;滚轮一格一步/拖拽/↑↓)',
+      (_) => const Padding(
+        padding: EdgeInsets.all(AnSpace.s16),
+        child: _WheelHost(initial: (hour: 9, minute: 30)),
+      ),
+      height: 96,
     ),
   ],
 );

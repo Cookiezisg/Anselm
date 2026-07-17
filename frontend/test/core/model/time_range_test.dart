@@ -106,15 +106,8 @@ void main() {
       expect(parseDateInput(''), isNull);
     });
 
-    test('times: 9:00 and 09:00 both parse; out-of-range rejects', () {
-      expect(parseTimeInput('9:00'), (hour: 9, minute: 0));
-      expect(parseTimeInput('09:00'), (hour: 9, minute: 0));
-      expect(parseTimeInput('23:59'), (hour: 23, minute: 59));
-      expect(parseTimeInput('24:00'), isNull);
-      expect(parseTimeInput('12:60'), isNull);
-      expect(parseTimeInput('12'), isNull);
-      expect(parseTimeInput(''), isNull);
-    });
+    // parseTimeInput is GONE with the typed time field (0717-深夜 拍板:时刻改滚轮,构造即合法,
+    // 无可解析之物). parseTimeInput 随打字时刻场退役——轮值构造即合法,无解析面。
   });
 
   group('day helpers', () {
