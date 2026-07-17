@@ -205,6 +205,7 @@ class _Translations$scheduler$zh_CN extends Translations$scheduler$en {
 	@override late final _Translations$scheduler$status$zh_CN status = _Translations$scheduler$status$zh_CN._(_root);
 	@override late final _Translations$scheduler$home$zh_CN home = _Translations$scheduler$home$zh_CN._(_root);
 	@override late final _Translations$scheduler$run$zh_CN run = _Translations$scheduler$run$zh_CN._(_root);
+	@override late final _Translations$scheduler$range$zh_CN range = _Translations$scheduler$range$zh_CN._(_root);
 }
 
 // Path: action
@@ -1255,10 +1256,6 @@ class _Translations$scheduler$home$zh_CN extends Translations$scheduler$home$en 
 	@override String get originWebhook => 'webhook';
 	@override String get originFsnotify => '文件监听';
 	@override String get originSensor => '传感器';
-	@override String get window24h => '24h';
-	@override String get window7d => '7d';
-	@override String get window30d => '30d';
-	@override String get windowAll => '全部时间';
 	@override String newRuns({required Object n}) => '${n} 条新运行';
 	@override String get srcManual => '手动';
 	@override String get srcChat => '对话';
@@ -1279,13 +1276,11 @@ class _Translations$scheduler$home$zh_CN extends Translations$scheduler$home$en 
 	@override String batchReplayBody({required Object failed, required Object completed}) => '共重跑 ${failed} 个失败节点 · 复用 ${completed} 个已完成结果。';
 	@override String sumReplayed({required Object n}) => '已重放 ${n}';
 	@override String sumNotReplayable({required Object n}) => '${n} 个已不可重放';
-	@override String get linkedTitle => '本次运行';
-	@override String get faceA11y => '联动格视图';
+	@override String get faceA11y => '速览卡视图';
 	@override String get faceGantt => '甘特';
 	@override String get faceGraph => '图';
-	@override String get faceMatrix => '矩阵';
-	@override String get matrixTitle => '节点 × run(近 20 次)';
-	@override String get matrixEmpty => '还没有可对比的运行。';
+	@override String get matrixTitle => '节点 × 运行';
+	@override String get matrixEmpty => '这段时间没有运行。';
 	@override String get matrixNotReached => '未及';
 	@override String get matrixRunning => '在跑';
 	@override String matrixColA11y({required Object id, required Object status, required Object d}) => 'run ${id},${status},${d}';
@@ -1309,6 +1304,8 @@ class _Translations$scheduler$home$zh_CN extends Translations$scheduler$home$en 
 	@override String lastFired({required Object d}) => '上次 ${d} 前';
 	@override String get neverFired => '从未触发';
 	@override String editTriggerA11y({required Object name}) => '去 Entities 编辑触发器 ${name}';
+	@override String matrixRowSummaryA11y({required Object node, required Object r, required Object total, required Object n, required Object failed}) => '${node},第 ${r} 行 共 ${total} 行,${n} 次运行抵达,${failed} 次失败';
+	@override String matrixCoordA11y({required Object r, required Object rows, required Object c, required Object cols}) => '第 ${r} 行 共 ${rows} 行,第 ${c} 列 共 ${cols} 列';
 }
 
 // Path: scheduler.run
@@ -1361,6 +1358,32 @@ class _Translations$scheduler$run$zh_CN extends Translations$scheduler$run$en {
 	@override String get relayResolving => '正在定位这次运行…';
 	@override String get relayFailedTitle => '解析不出这次运行';
 	@override String get relayFailedHint => '本工作区没有这个 id 的运行。检查 id,或从某个 workflow 里选一次运行。';
+}
+
+// Path: scheduler.range
+class _Translations$scheduler$range$zh_CN extends Translations$scheduler$range$en {
+	_Translations$scheduler$range$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get today => '今天';
+	@override String get h24 => '近 24 小时';
+	@override String get d7 => '近 7 天';
+	@override String get d30 => '近 30 天';
+	@override String get all => '全部';
+	@override String get customTitle => '自定义范围';
+	@override String get from => '从';
+	@override String get to => '到';
+	@override String get apply => '应用';
+	@override String get invalid => '日期或时间无法解析';
+	@override String get endBeforeStart => '终点早于起点';
+	@override String get weekdays => '一 二 三 四 五 六 日';
+	@override String monthTitle({required Object y, required Object m}) => '${y} 年 ${m} 月';
+	@override String get prevMonth => '上个月';
+	@override String get nextMonth => '下个月';
+	@override String get capsuleA11y => '时间范围';
+	@override String get gridA11y => '日历';
 }
 
 // Path: feedback.batch
@@ -3160,10 +3183,6 @@ extension on TranslationsZhCn {
 			'scheduler.home.originWebhook' => 'webhook',
 			'scheduler.home.originFsnotify' => '文件监听',
 			'scheduler.home.originSensor' => '传感器',
-			'scheduler.home.window24h' => '24h',
-			'scheduler.home.window7d' => '7d',
-			'scheduler.home.window30d' => '30d',
-			'scheduler.home.windowAll' => '全部时间',
 			'scheduler.home.newRuns' => ({required Object n}) => '${n} 条新运行',
 			'scheduler.home.srcManual' => '手动',
 			'scheduler.home.srcChat' => '对话',
@@ -3184,13 +3203,11 @@ extension on TranslationsZhCn {
 			'scheduler.home.batchReplayBody' => ({required Object failed, required Object completed}) => '共重跑 ${failed} 个失败节点 · 复用 ${completed} 个已完成结果。',
 			'scheduler.home.sumReplayed' => ({required Object n}) => '已重放 ${n}',
 			'scheduler.home.sumNotReplayable' => ({required Object n}) => '${n} 个已不可重放',
-			'scheduler.home.linkedTitle' => '本次运行',
-			'scheduler.home.faceA11y' => '联动格视图',
+			'scheduler.home.faceA11y' => '速览卡视图',
 			'scheduler.home.faceGantt' => '甘特',
 			'scheduler.home.faceGraph' => '图',
-			'scheduler.home.faceMatrix' => '矩阵',
-			'scheduler.home.matrixTitle' => '节点 × run(近 20 次)',
-			'scheduler.home.matrixEmpty' => '还没有可对比的运行。',
+			'scheduler.home.matrixTitle' => '节点 × 运行',
+			'scheduler.home.matrixEmpty' => '这段时间没有运行。',
 			'scheduler.home.matrixNotReached' => '未及',
 			'scheduler.home.matrixRunning' => '在跑',
 			'scheduler.home.matrixColA11y' => ({required Object id, required Object status, required Object d}) => 'run ${id},${status},${d}',
@@ -3214,6 +3231,8 @@ extension on TranslationsZhCn {
 			'scheduler.home.lastFired' => ({required Object d}) => '上次 ${d} 前',
 			'scheduler.home.neverFired' => '从未触发',
 			'scheduler.home.editTriggerA11y' => ({required Object name}) => '去 Entities 编辑触发器 ${name}',
+			'scheduler.home.matrixRowSummaryA11y' => ({required Object node, required Object r, required Object total, required Object n, required Object failed}) => '${node},第 ${r} 行 共 ${total} 行,${n} 次运行抵达,${failed} 次失败',
+			'scheduler.home.matrixCoordA11y' => ({required Object r, required Object rows, required Object c, required Object cols}) => '第 ${r} 行 共 ${rows} 行,第 ${c} 列 共 ${cols} 列',
 			'scheduler.run.crumb' => ({required Object name, required Object id}) => 'Scheduler / ${name} / ${id}',
 			'scheduler.run.notFoundTitle' => '找不到这次运行',
 			'scheduler.run.notFoundHint' => '它可能已被保留策略清理。从 workflow 里另选一次运行。',
@@ -3257,6 +3276,23 @@ extension on TranslationsZhCn {
 			'scheduler.run.relayResolving' => '正在定位这次运行…',
 			'scheduler.run.relayFailedTitle' => '解析不出这次运行',
 			'scheduler.run.relayFailedHint' => '本工作区没有这个 id 的运行。检查 id,或从某个 workflow 里选一次运行。',
+			'scheduler.range.today' => '今天',
+			'scheduler.range.h24' => '近 24 小时',
+			'scheduler.range.d7' => '近 7 天',
+			'scheduler.range.d30' => '近 30 天',
+			'scheduler.range.all' => '全部',
+			'scheduler.range.customTitle' => '自定义范围',
+			'scheduler.range.from' => '从',
+			'scheduler.range.to' => '到',
+			'scheduler.range.apply' => '应用',
+			'scheduler.range.invalid' => '日期或时间无法解析',
+			'scheduler.range.endBeforeStart' => '终点早于起点',
+			'scheduler.range.weekdays' => '一 二 三 四 五 六 日',
+			'scheduler.range.monthTitle' => ({required Object y, required Object m}) => '${y} 年 ${m} 月',
+			'scheduler.range.prevMonth' => '上个月',
+			'scheduler.range.nextMonth' => '下个月',
+			'scheduler.range.capsuleA11y' => '时间范围',
+			'scheduler.range.gridA11y' => '日历',
 			'action.edit' => '编辑',
 			'action.cancel' => '取消',
 			'action.save' => '保存',
@@ -3448,6 +3484,8 @@ extension on TranslationsZhCn {
 			'entities.detail.sec.methods' => '方法',
 			'entities.detail.sec.prompt' => '提示词',
 			'entities.detail.sec.capabilities' => '能力挂载',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.sec.mountHealth' => '挂载健康',
 			'entities.detail.sec.governance' => '运行治理',
 			'entities.detail.sec.alerts' => '告警',
@@ -3461,8 +3499,6 @@ extension on TranslationsZhCn {
 			'entities.detail.card.deps' => '依赖',
 			'entities.detail.card.venv' => 'venv 状态',
 			'entities.detail.card.runtime' => '运行时',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.card.config' => '配置完整度',
 			'entities.detail.card.tools' => '工具挂载',
 			'entities.detail.card.skill' => '技能',
@@ -3962,6 +3998,8 @@ extension on TranslationsZhCn {
 			'settings.mcp.consecutiveFailures' => '连续失败',
 			'settings.mcp.noTools' => '无工具',
 			'settings.mcp.noCalls' => '暂无调用',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mcp.noStderr' => '暂无输出',
 			'settings.mcp.callsAgg' => ({required Object ok, required Object failed}) => '✓ ${ok} · ✗ ${failed}',
 			'settings.storage.dataDir' => '数据目录',
@@ -3975,8 +4013,6 @@ extension on TranslationsZhCn {
 			'settings.storage.retention30' => '30 天',
 			'settings.storage.retention90' => '90 天',
 			'settings.storage.retention180' => '180 天',
-			_ => null,
-		} ?? switch (path) {
 			'settings.storage.retentionForever' => '永久保留',
 			'settings.storage.retentionSaved' => '保留策略已更新',
 			'settings.storage.database' => '数据库',

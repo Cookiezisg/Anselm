@@ -6,6 +6,7 @@ library;
 
 import '../../../core/contract/entities/trigger.dart';
 import '../../../core/contract/entities/workflow.dart';
+import '../../../core/model/time_range.dart';
 import '../data/scheduler_repository.dart';
 
 /// The run big table's status filter. «waiting» is INBOX-DERIVED (parked is a NODE state, not in the
@@ -13,30 +14,22 @@ import '../data/scheduler_repository.dart';
 /// workflow's inbox rows client-side. 状态过滤;「等人」=inbox 派生(绝不 ?status=parked——封闭集无此值)。
 enum RunStatusFilter { all, running, failed, waiting }
 
-/// The table's look-back window (工单⑥ `startedAfter`). 时间窗(24h/7d/30d/全部)。
-enum RunWindow { h24, d7, d30, all }
-
-/// A window's span; null = unbounded («全部»). 窗跨度;null=不设界。
-Duration? runWindowSpan(RunWindow w) => switch (w) {
-      RunWindow.h24 => const Duration(hours: 24),
-      RunWindow.d7 => const Duration(days: 7),
-      RunWindow.d30 => const Duration(days: 30),
-      RunWindow.all => null,
-    };
-
-/// Compose the `GET /flowruns` filter set for one (filter, origin, window) pick — the ONE query
+/// Compose the `GET /flowruns` filter set for one (filter, origin, range) pick — the ONE query
 /// grammar the table AND its failed-count probe share, so the count strip and the rows can never
-/// disagree (they are the same wire question). «waiting» asks for running runs (the inbox intersect
-/// happens after the fetch); «all» sends no status.
-/// 组合一次 (状态,来源,窗口) 的过滤集——表与失败计数探针共用同一文法,计数与行不可能不一致;
+/// disagree (they are the same wire question). The time bounds come from the PAGE-LEVEL
+/// [AnTimeRange] (主页重建拍板 0717: one capsule governs matrix + table), resolved fresh against
+/// [now] at every call — presets stay live expressions. «waiting» asks for running runs (the inbox
+/// intersect happens after the fetch); «all» sends no status.
+/// 组合一次 (状态,来源,范围) 的过滤集——表与失败计数探针共用同一文法,计数与行不可能不一致;时间界来自
+/// **页级** AnTimeRange(0717 拍板:一颗胶囊治矩阵+大表),每次调用对新鲜 now 现解析——预设恒为活表达式;
 /// 「等人」发 status=running(取回后与 inbox 交集);「全部」不发 status。
-({String? status, String? origin, DateTime? startedAfter}) runListFilter({
+({String? status, String? origin, DateTime? startedAfter, DateTime? startedBefore}) runListFilter({
   required RunStatusFilter filter,
   String? origin,
-  required RunWindow window,
+  required AnTimeRange range,
   required DateTime now,
 }) {
-  final span = runWindowSpan(window);
+  final r = resolveTimeRange(range, now);
   return (
     status: switch (filter) {
       RunStatusFilter.all => null,
@@ -44,7 +37,8 @@ Duration? runWindowSpan(RunWindow w) => switch (w) {
       RunStatusFilter.failed => 'failed',
     },
     origin: origin,
-    startedAfter: span == null ? null : now.subtract(span),
+    startedAfter: r.from,
+    startedBefore: r.to,
   );
 }
 

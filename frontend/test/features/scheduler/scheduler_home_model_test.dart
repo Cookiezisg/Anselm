@@ -1,5 +1,6 @@
 import 'package:anselm/core/contract/entities/trigger.dart';
 import 'package:anselm/core/contract/entities/workflow.dart';
+import 'package:anselm/core/model/time_range.dart';
 import 'package:anselm/features/scheduler/ui/scheduler_home_model.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -33,39 +34,82 @@ TriggerEntity _trigger(String id, {String name = 'T', Map<String, dynamic> confi
     TriggerEntity(id: id, name: name, config: config, createdAt: _now, updatedAt: _now);
 
 void main() {
-  group('runListFilter — the ONE wire grammar', () {
-    test('all: no status, no window bound when «全部时间»', () {
-      final f = runListFilter(filter: RunStatusFilter.all, window: RunWindow.all, now: _now);
+  group('runListFilter — the ONE wire grammar (page-level AnTimeRange, 0717 拍板)', () {
+    test('all: no status, no time bound when «全部»', () {
+      final f = runListFilter(
+          filter: RunStatusFilter.all, range: const AnPresetRange(AnTimePreset.all), now: _now);
       expect(f.status, isNull);
       expect(f.startedAfter, isNull);
+      expect(f.startedBefore, isNull);
       expect(f.origin, isNull);
     });
 
     test('running / failed map to the closed-set words', () {
-      expect(runListFilter(filter: RunStatusFilter.running, window: RunWindow.d7, now: _now).status,
+      expect(
+          runListFilter(
+                  filter: RunStatusFilter.running,
+                  range: const AnPresetRange(AnTimePreset.d7),
+                  now: _now)
+              .status,
           'running');
-      expect(runListFilter(filter: RunStatusFilter.failed, window: RunWindow.d7, now: _now).status,
+      expect(
+          runListFilter(
+                  filter: RunStatusFilter.failed,
+                  range: const AnPresetRange(AnTimePreset.d7),
+                  now: _now)
+              .status,
           'failed');
     });
 
     test('waiting asks for RUNNING — never ?status=parked (封闭集无此值,422)', () {
-      final f = runListFilter(filter: RunStatusFilter.waiting, window: RunWindow.d7, now: _now);
+      final f = runListFilter(
+          filter: RunStatusFilter.waiting, range: const AnPresetRange(AnTimePreset.d7), now: _now);
       expect(f.status, 'running', reason: '等人=running∩inbox,绝不把 parked 发上线缆');
       expect(f.status, isNot('parked'));
     });
 
-    test('windows subtract their exact span from now (工单⑥ startedAfter)', () {
-      expect(runListFilter(filter: RunStatusFilter.all, window: RunWindow.h24, now: _now).startedAfter,
+    test('presets subtract their exact span from now (live expressions, no startedBefore)', () {
+      expect(
+          runListFilter(
+                  filter: RunStatusFilter.all,
+                  range: const AnPresetRange(AnTimePreset.h24),
+                  now: _now)
+              .startedAfter,
           _now.subtract(const Duration(hours: 24)));
-      expect(runListFilter(filter: RunStatusFilter.all, window: RunWindow.d7, now: _now).startedAfter,
-          _now.subtract(const Duration(days: 7)));
-      expect(runListFilter(filter: RunStatusFilter.all, window: RunWindow.d30, now: _now).startedAfter,
+      expect(
+          runListFilter(
+                  filter: RunStatusFilter.all,
+                  range: const AnPresetRange(AnTimePreset.d30),
+                  now: _now)
+              .startedAfter,
           _now.subtract(const Duration(days: 30)));
+      expect(
+          runListFilter(
+                  filter: RunStatusFilter.all,
+                  range: const AnPresetRange(AnTimePreset.d7),
+                  now: _now)
+              .startedBefore,
+          isNull,
+          reason: '回看预设只有下界——上界=现在,不发即不撒谎');
+    });
+
+    test('an absolute pair sends BOTH bounds — inclusive minute end pushed one past (半开)', () {
+      final f = runListFilter(
+          filter: RunStatusFilter.all,
+          range: AnAbsoluteRange(
+              from: DateTime(2026, 6, 1, 9, 0), to: DateTime(2026, 6, 30, 23, 59)),
+          now: _now);
+      expect(f.startedAfter, DateTime(2026, 6, 1, 9, 0));
+      expect(f.startedBefore, DateTime(2026, 7, 1, 0, 0),
+          reason: '闭分钟端 → API 半开 [from, to+1min):23:59:30 的 run 含在「…– 23:59」里');
     });
 
     test('origin rides through untouched', () {
       final f = runListFilter(
-          filter: RunStatusFilter.all, origin: 'cron', window: RunWindow.d7, now: _now);
+          filter: RunStatusFilter.all,
+          origin: 'cron',
+          range: const AnPresetRange(AnTimePreset.d7),
+          now: _now);
       expect(f.origin, 'cron');
     });
   });

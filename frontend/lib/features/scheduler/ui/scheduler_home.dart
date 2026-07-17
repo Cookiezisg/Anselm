@@ -14,8 +14,8 @@ import '../../../core/design/typography.dart';
 import '../../../core/graph/flowrun_timeline.dart';
 import '../../../core/graph/graph_run_state.dart';
 import '../../../core/model/time_format.dart';
+import '../../../core/model/time_range.dart';
 import '../../../core/run/provenance_line.dart';
-import '../../../core/run/run_ledger.dart';
 import '../../../core/run/run_nav.dart';
 import '../../../core/shell/shell_chrome.dart';
 import '../../../core/ui/ui.dart';
@@ -28,19 +28,22 @@ import 'batch_engine.dart';
 import 'scheduler_home_model.dart';
 import 'scheduler_run_model.dart';
 
-/// The workflow operations home (`/scheduler/w/:id`, WRK-069 §4 S3) — one document flow, four
-/// segments: health head (name + lifecycle + bead strip + 7d stats + Run now + ⋯) → the run big
-/// table (source-phrase rows, count-strip filter, follow pill, batch replay/cancel) → the linked
-/// run pane (`?run=`, gantt ⇄ graph ⇄ matrix three faces, an ORDINARY 720 section — 判决③'s
-/// full-bleed exemption was rejected by the user on 2026-07-17 and deleted; each face answers width
-/// on its own, see [AnPage]) → the triggers exhibit (observation + the pause/resume bleeding switch;
-/// editing belongs to Entities). 活性军规 holds: the half-minute pulse refreshes time text only; new
-/// runs ride the pill, never a row.
+/// The workflow operations home (`/scheduler/w/:id`, WRK-069 §4, 主页重建拍板 0717) — one document
+/// flow, four segments: health head (name + lifecycle + 7d stat numbers + Run now + ⋯; the bead
+/// strip is GONE — the matrix's column heads carry the same news) → the MATRIX zone (the page-level
+/// time-range capsule + the chronological node×run grid anchored at the newest end; a column/cell
+/// click NAVIGATES to the run flagship — `?node=` preselected from a cell) → the run big table
+/// (source-phrase rows, count-strip filter, follow pill, batch replay/cancel; a row tap expands the
+/// INLINE peek card under it — gantt ⇄ graph + the flagship door; `?run=` in the URL is the one
+/// expanded row, tap again collapses, a fast double-tap goes straight to the flagship) → the
+/// triggers exhibit. ONE time range governs matrix + table (the capsule); the old bottom linked
+/// pane is deleted. 活性军规 holds: the half-minute pulse refreshes time text only; new runs ride
+/// the pill, never a row.
 ///
-/// workflow 运营主页:四段文档流——健康头 → run 大表(来源短语行+计数条过滤+pill+批量)→ 联动格
-/// (?run=,甘特⇄图⇄矩阵三脸,**720 阅读列里普通的一段**——判决③ 的全宽破例已被用户 0717 当面否决并删除,
-/// 宽度归三脸各自解决,见 AnPage)→ triggers 陈列(观测+暂停/恢复止血开关,编辑归 Entities)。脉搏只刷
-/// 时间字;新 run 走 pill 绝不插行。
+/// workflow 运营主页(0717 拍板):四段文档流——健康头(珠串删,矩阵列头即同一条新闻)→ **矩阵区**(页级
+/// 时间范围胶囊 + 时序格阵锚最新端;点列/点格**导航**进 run 旗舰,格带 ?node= 预选)→ run 大表(点行=
+/// 行底**行内速览卡**[甘特⇄图+旗舰门],?run= 即展开的那一行、再点收起、快速双击直进旗舰)→ triggers
+/// 陈列。一颗胶囊治矩阵+大表;底部联动格已删。脉搏只刷时间字;新 run 走 pill 绝不插行。
 class SchedulerHomeView extends ConsumerStatefulWidget {
   const SchedulerHomeView({required this.workflowId, this.linkedRunId, super.key});
 
@@ -152,12 +155,12 @@ class _SchedulerHomeViewState extends ConsumerState<SchedulerHomeView> {
     ];
     final waiting = waitingRunIds(data.inbox, row.id);
 
-    // Every section — the linked pane included — lives in AnPage's 720 reading column. The pane's
-    // three faces each answer width on their OWN: the gantt's track is a normalized [0,1] fraction
-    // that rescales losslessly, the graph pans/zooms in its InteractiveViewer, and the matrix carries
-    // its own horizontal scroller (用户 0717 判决 — 全宽破例作废,见 AnPage 类文档).
-    // 每一段(含联动格)都住 AnPage 的 720 阅读列:甘特是可无损缩放的 [0,1] 分数轨、图在 InteractiveViewer
-    // 里平移缩放、矩阵自带横滚——三脸各自解决宽度,不向页面讨(用户 0717 判决,全宽破例作废)。
+    // Every section lives in AnPage's 720 reading column (用户 0717 判决,见 AnPage 类文档): the
+    // matrix carries its own anchored horizontal scroller, the peek card's gantt is a normalized
+    // [0,1] track and its graph pans/zooms in an InteractiveViewer — wide things answer width on
+    // their OWN, never by asking the page.
+    // 每一段都住 AnPage 的 720 阅读列:矩阵自带锚定横滚、速览卡的甘特是 [0,1] 分数轨、图在
+    // InteractiveViewer 里平移缩放——宽的东西各自解决宽度,不向页面讨。
     return AnPage(
       controller: _scroll,
       child: Column(
@@ -166,20 +169,20 @@ class _SchedulerHomeViewState extends ConsumerState<SchedulerHomeView> {
           _HealthHead(row: row, stats: stats, now: now),
           Padding(
             padding: const EdgeInsets.only(top: AnGap.section),
+            child: _MatrixZone(workflowId: row.id, linkedRunId: widget.linkedRunId),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: AnGap.section),
             child: _RunTableZone(
               workflowId: row.id,
               workflowName: row.name,
               runningCount: stats?.running ?? 0,
               waitingIds: waiting,
               triggersById: triggersById,
+              linkedRunId: widget.linkedRunId,
               now: now,
             ),
           ),
-          if (widget.linkedRunId != null)
-            Padding(
-              padding: const EdgeInsets.only(top: AnGap.section),
-              child: _LinkedRunPane(workflowId: row.id, flowrunId: widget.linkedRunId!),
-            ),
           Padding(
             padding: const EdgeInsets.only(top: AnGap.section),
             child: _TriggersZone(workflowId: row.id, triggers: myTriggers, now: now),
@@ -249,7 +252,6 @@ class _HealthHeadState extends ConsumerState<_HealthHead> {
     final t = context.t.scheduler;
     final c = context.colors;
     final stats = widget.stats;
-    final recent = stats?.recent ?? const <String>[];
     final successRate = stats?.successRate;
     final avgMs = stats?.avgElapsedMs;
     final running = stats?.running ?? 0;
@@ -310,17 +312,14 @@ class _HealthHeadState extends ConsumerState<_HealthHead> {
       ]),
       const SizedBox(height: AnGap.block),
       // Health at a glance: the near-10 bead strip + the 7d stats sentence (nulls = «—», never 0%).
-      // 一眼健康:近 10 珠 + 7d 统计句(缺席渲 —,绝不装 0%)。
+      // 一眼健康:7d 统计句(缺席渲 —,绝不装 0%)。
       Wrap(
         spacing: AnGap.inlineLoose,
         runSpacing: AnGap.stackTight,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          if (recent.isNotEmpty)
-            RunBeadStrip(beads: [
-              for (final s in recent)
-                RunBead(status: AnStatus.fromRaw(s), tooltip: s),
-            ]),
+          // The bead strip is GONE (0717 拍板 问题2): the matrix's column heads ARE the same
+          // recent-run news, one lane richer. 珠串已删——矩阵列头就是同一排珠子,还多长了节点行。
           Text(
             t.home.statsLine(
               window: t.home.windowWord,
@@ -362,6 +361,7 @@ class _RunTableZone extends ConsumerStatefulWidget {
     required this.runningCount,
     required this.waitingIds,
     required this.triggersById,
+    required this.linkedRunId,
     required this.now,
   });
 
@@ -370,6 +370,9 @@ class _RunTableZone extends ConsumerStatefulWidget {
   final int runningCount;
   final List<String> waitingIds;
   final Map<String, TriggerEntity> triggersById;
+
+  /// `?run=` — the ONE expanded row (URL is the truth; absent id expands nothing). ?run==展开行。
+  final String? linkedRunId;
   final DateTime now;
 
   @override
@@ -386,10 +389,11 @@ class _RunTableZoneState extends ConsumerState<_RunTableZone> with BatchZone<_Ru
   String _flagshipPath(String frId) => '/scheduler/w/${widget.workflowId}/runs/$frId';
 
   void _onRowTap(Flowrun run) {
-    // First tap selects into the linked pane (URL is the truth); a quick second tap on the same row
+    // First tap TOGGLES the inline peek card under the row (URL is the truth: `?run=` is the one
+    // expanded row; tapping the expanded row again collapses). A quick second tap on the same row
     // goes straight to the flagship (双击进旗舰 — manual double-tap so the first tap stays instant,
-    // a GestureDetector double-tap arena would delay every selection by its window).
-    // 首击选入联动格(URL 真相);同行快速二击直进旗舰(手工判双击,首击零延迟)。
+    // a GestureDetector double-tap arena would delay every expansion by its window).
+    // 首击开合行内速览卡(URL 真相:?run= 即展开行,再点收起);同行快速二击直进旗舰(手工判双击,首击零延迟)。
     final now = DateTime.now();
     final isDouble = _lastTapId == run.id &&
         _lastTapAt != null &&
@@ -398,6 +402,8 @@ class _RunTableZoneState extends ConsumerState<_RunTableZone> with BatchZone<_Ru
     _lastTapId = run.id;
     if (isDouble) {
       context.go(_flagshipPath(run.id));
+    } else if (run.id == widget.linkedRunId) {
+      context.go('/scheduler/w/${widget.workflowId}');
     } else {
       context.go('/scheduler/w/${widget.workflowId}?run=${run.id}');
     }
@@ -640,17 +646,9 @@ class _RunTableZoneState extends ConsumerState<_RunTableZone> with BatchZone<_Ru
               onChanged: (v) => _table.refetchTop(
                   origin: v == 'all' ? null : v, clearOrigin: v == 'all'),
             ),
-            AnDropdown<RunWindow>(
-              value: s.window,
-              variant: AnDropdownVariant.ghost,
-              options: [
-                AnDropdownOption(value: RunWindow.h24, label: t.window24h),
-                AnDropdownOption(value: RunWindow.d7, label: t.window7d),
-                AnDropdownOption(value: RunWindow.d30, label: t.window30d),
-                AnDropdownOption(value: RunWindow.all, label: t.windowAll),
-              ],
-              onChanged: (w) => _table.refetchTop(window: w),
-            ),
+            // The 24h/7d/30d window dropdown is GONE (0717 拍板): the page-level time-range
+            // capsule above the matrix governs this table too — one lens, two zones, zero drift.
+            // 时间窗下拉已删:矩阵上方的页级时间范围胶囊同治本表——一颗镜头两个区,零漂移。
           ],
         ),
         const SizedBox(height: AnSpace.s8),
@@ -770,6 +768,12 @@ class _RunTableZoneState extends ConsumerState<_RunTableZone> with BatchZone<_Ru
       child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
         Expanded(
           child: AnLedgerRow(
+            expanded: run.id == widget.linkedRunId,
+            // Lazy (C-006): a collapsed row NEVER builds its peek card — an eager card per row
+            // would fetch full run composites for rows nobody opened.
+            // 惰性:收起的行绝不建速览卡——每行急建会替没人点开的行拉全量 run 复合。
+            expandBuilder: (_) =>
+                _RunPeekCard(workflowId: widget.workflowId, flowrunId: run.id),
             lead: isPending
                 ? const AnSpinner(size: AnSize.iconSm)
                 : showCheck
@@ -862,36 +866,197 @@ class _Tombstone extends ConsumerWidget {
   }
 }
 
-// ─────────────────────────────────── 联动格 ───────────────────────────────────
+// ─────────────────────────────────── 矩阵区 + 行内速览卡 ───────────────────────────────────
 
-class _LinkedRunPane extends ConsumerStatefulWidget {
-  const _LinkedRunPane({required this.workflowId, required this.flowrunId});
+/// Build the picker's string bundle from slang — the primitive is copy-free by design.
+/// 从 slang 拼选择器字符串包——原语按设计零文案。
+AnTimeRangePickerStrings _rangeStrings(BuildContext context) {
+  final t = context.t.scheduler.range;
+  return AnTimeRangePickerStrings(
+    presetLabels: {
+      AnTimePreset.today: t.today,
+      AnTimePreset.h24: t.h24,
+      AnTimePreset.d7: t.d7,
+      AnTimePreset.d30: t.d30,
+      AnTimePreset.all: t.all,
+    },
+    customTitle: t.customTitle,
+    fromLabel: t.from,
+    toLabel: t.to,
+    applyLabel: t.apply,
+    invalidError: t.invalid,
+    endBeforeStartError: t.endBeforeStart,
+    weekdayLabels: t.weekdays.split(' '),
+    monthTitle: (m) => t.monthTitle(y: '${m.year}', m: m.month.toString().padLeft(2, '0')),
+    prevMonthLabel: t.prevMonth,
+    nextMonthLabel: t.nextMonth,
+    capsuleA11y: t.capsuleA11y,
+    gridSemanticLabel: t.gridA11y,
+  );
+}
+
+/// The top-of-page matrix zone (0717 拍板): the page-level time-range capsule + the chronological
+/// node×run grid anchored at the newest end. A COLUMN head click navigates to that run's flagship;
+/// a CELL click lands there with `?node=` preselected (the flagship's own selection grammar) —
+/// nothing selects downward anymore, the grid is a LAUNCHER. Row heads are inert names. Sliding
+/// toward the oldest edge pulls older pages ([SchedulerMatrixWindowController.loadOlder]); the
+/// `?run=` expanded row's column is highlighted (one selection, two projections).
+/// 页顶矩阵区:页级时间范围胶囊 + 时序格阵锚最新端。点列头→直进该 run 旗舰;点格→旗舰 + ?node= 预选
+/// (旗舰自己的选区文法)——不再向下选中,格阵是**发射台**。行头惰性只作名。滑近最旧缘拉旧页;?run= 展开
+/// 行的列被点亮(一个选区、两处投影)。
+class _MatrixZone extends ConsumerWidget {
+  const _MatrixZone({required this.workflowId, required this.linkedRunId});
+
+  final String workflowId;
+  final String? linkedRunId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.t.scheduler.home;
+    final c = context.colors;
+    final async = ref.watch(schedulerMatrixWindowProvider(workflowId));
+    final s = async.value;
+
+    Widget body;
+    if (s == null) {
+      body = async.hasError
+          ? Row(children: [
+              Expanded(child: Text(t.paneError, style: AnText.body.copyWith(color: c.inkMuted))),
+              AnButton(
+                  label: context.t.scheduler.retry,
+                  size: AnButtonSize.sm,
+                  onPressed: () => ref.invalidate(schedulerMatrixWindowProvider(workflowId))),
+            ])
+          : const AnDeferredLoading(child: AnSkeleton.lines(3));
+    } else if (s.matrix.cols.isEmpty) {
+      // An empty window is an ANSWER («no runs in this range»), never a bare frame that reads as
+      // broken. 空窗是答案(这段时间没有运行),绝不渲一个读作坏掉的空框。
+      body = Text(t.matrixEmpty, style: AnText.body.copyWith(color: c.inkFaint));
+    } else {
+      body = _grid(context, ref, s);
+    }
+
+    final range = ref.watch(schedulerTimeRangeProvider);
+    return AnSection(label: t.matrixTitle, children: [
+      // THE page-level lens — one capsule governs the matrix AND the run table (0717 拍板).
+      // 页级镜头——一颗胶囊治矩阵+大表。
+      Align(
+        alignment: Alignment.centerLeft,
+        child: AnTimeRangePicker(
+          value: range,
+          onChanged: (r) => ref.read(schedulerTimeRangeProvider.notifier).set(r),
+          strings: _rangeStrings(context),
+        ),
+      ),
+      const SizedBox(height: AnSpace.s8),
+      body,
+    ]);
+  }
+
+  Widget _grid(BuildContext context, WidgetRef ref, MatrixWindowState s) {
+    final t = context.t.scheduler.home;
+    final m = s.matrix;
+    // The sparse cell list → an O(1) lookup. NEVER assume cells == rows×cols (稀疏是契约).
+    // 稀疏格列表 → O(1) 查询;绝不假设 cells == rows×cols(稀疏是契约)。
+    final byKey = {for (final cell in m.cells) '${cell.flowrunId}/${cell.nodeId}': cell};
+    // Wire order is canonical newest→oldest; the timeline renders OLDEST LEFT and anchors at the
+    // newest end — a pure display reversal of the same truth. 线缆正典新→旧;时间轴旧在左、锚最新端
+    // ——同一真相的纯呈现反转。
+    final cols = m.cols.reversed.toList();
+    String flagship(String frId) => '/scheduler/w/$workflowId/runs/$frId';
+    return AnRunMatrix(
+      rows: [for (final r in m.rows) MatrixRowHead(nodeId: r.nodeId, kind: r.kind)],
+      cols: [
+        for (final col in cols)
+          RunColumn(
+            id: col.flowrunId,
+            status: col.status,
+            elapsedMs: col.elapsedMs,
+            label: t.matrixColA11y(
+              id: truncate(col.flowrunId, AnTrunc.id),
+              status: runStatusWord(context.t, col.status),
+              // A run still going has no elapsed — say «running», never a fabricated duration.
+              // 在跑的 run 无耗时——说「在跑」,绝不编一个时长。
+              d: col.elapsedMs == null
+                  ? t.matrixRunning
+                  : fmtDuration(Duration(milliseconds: col.elapsedMs!)),
+            ),
+          ),
+      ],
+      cellStatus: (frId, nodeId) {
+        final cell = byKey['$frId/$nodeId'];
+        if (cell == null) return null; // 未及 — sparse, and that IS the answer 稀疏即答案
+        return MatrixCellState(
+          status: cell.status,
+          iterations: cell.iterations,
+          label: t.matrixCellA11y(
+              node: nodeId, status: runStatusWord(context.t, cell.status), n: '${cell.iterations}'),
+        );
+      },
+      // The `?run=` expanded row's column — one selection projected in both zones. ?run= 列点亮。
+      selection: MatrixSelection(flowrunId: linkedRunId),
+      // The grid is a LAUNCHER (0717 拍板): a column head opens the run's flagship, a cell lands
+      // there with the node preselected. 格阵是发射台:列头进旗舰,格带节点预选。
+      onCol: (frId) => context.go(flagship(frId)),
+      onCell: (frId, nodeId) => context
+          .go(Uri(path: flagship(frId), queryParameters: {'node': nodeId}).toString()),
+      onNearOldestEdge: s.hasMore
+          ? () => ref.read(schedulerMatrixWindowProvider(workflowId).notifier).loadOlder()
+          : null,
+      loadingOlder: s.loadingOlder,
+      notReachedLabel: t.matrixNotReached,
+      runningLabel: t.matrixRunning,
+      cellSemanticLabel: (col, row, cell) => t.matrixCellA11y(
+          node: row.nodeId,
+          status: cell == null
+              ? t.matrixNotReached
+              : runStatusWord(context.t, cell.status),
+          n: '${cell?.iterations ?? 0}'),
+      colSemanticLabel: (col) => t.matrixColA11y(
+          id: truncate(col.id, AnTrunc.id),
+          status: runStatusWord(context.t, col.status),
+          d: col.elapsedMs == null
+              ? t.matrixRunning
+              : fmtDuration(Duration(milliseconds: col.elapsedMs!))),
+      rowSemanticLabel: (row) => t.matrixRowA11y(node: row.nodeId),
+      rowSummaryLabel: (sum) {
+        final reached = sum.cells.whereType<MatrixCellState>().toList();
+        final bad = reached.where((cl) => cl.status == 'failed').length;
+        return t.matrixRowSummaryA11y(
+            node: sum.row.nodeId,
+            r: '${sum.index + 1}',
+            total: '${sum.total}',
+            n: '${reached.length}',
+            failed: '$bad');
+      },
+      coordinateLabel: (r, rc, c2, cc) =>
+          t.matrixCoordA11y(r: '${r + 1}', rows: '$rc', c: '${c2 + 1}', cols: '$cc'),
+    );
+  }
+}
+
+/// The inline peek card under a run row (0717 拍板 — the bottom linked pane's successor): the SAME
+/// selection (`?run=`), rendered where the user tapped instead of somewhere below the fold. Two
+/// single-run lenses (gantt ⇄ graph; the cross-run matrix moved to the top of the page where it
+/// belongs) + the one flagship door. Lazy by construction — built only while its row is expanded
+/// ([AnLedgerRow.expandBuilder]).
+/// run 行下的行内速览卡(0717 拍板——底部联动格的后继):同一个选区(?run=),渲在用户点的那一行底下而非
+/// 折叠线以下的某处。两个单 run 透镜(甘特⇄图;跨 run 的矩阵已升页顶归位)+ 唯一旗舰门。天生惰性——仅
+/// 所在行展开时才建(AnLedgerRow.expandBuilder)。
+enum _PeekFace { gantt, graph }
+
+class _RunPeekCard extends ConsumerStatefulWidget {
+  const _RunPeekCard({required this.workflowId, required this.flowrunId});
 
   final String workflowId;
   final String flowrunId;
 
   @override
-  ConsumerState<_LinkedRunPane> createState() => _LinkedRunPaneState();
+  ConsumerState<_RunPeekCard> createState() => _RunPeekCardState();
 }
 
-/// The linked pane's three lenses on ONE selection (判决③). Gantt and graph are single-run lenses —
-/// «how long» and «which path». The MATRIX is the only one that spans runs, and it is here for the
-/// question the other two are structurally blind to: **is this node always the one that breaks, or was
-/// it just this once.** Default stays gantt (§4.3:「甘特是单 run 的透镜非一等页面」).
-/// 联动格对**同一选区**的三个透镜(判决③):甘特与图是单 run 透镜(多久 / 走了哪条路);**矩阵**是唯一跨 run
-/// 的那个,它在此是为了另两者**结构上看不见**的那个问题:**这个节点是老是坏,还是就坏了这一次**。默认仍甘特。
-enum _PaneFace { gantt, graph, matrix }
-
-class _LinkedRunPaneState extends ConsumerState<_LinkedRunPane> {
-  _PaneFace _face = _PaneFace.gantt;
-
-  /// The matrix's ROW grain (§12 三粒度) — which node's history is lit. The RUN grain already lives in
-  /// the URL (`?run=`), so the two grains stay in their honest homes: the run is shareable state, the
-  /// node highlight is a local lens. There is no right island on this page (§6), so a cell tap lands
-  /// its run in the URL and its node here — it never jumps pages.
-  /// 矩阵的**行**粒度(§12):哪个节点的历史被点亮。**run** 粒度已经住在 URL(`?run=`)里,故两个粒度各归其位:
-  /// run 是可分享的状态、节点高亮是本地透镜。本页无右岛(§6),故点格=run 落 URL、节点落这里,绝不跳页。
-  String? _pickedNode;
+class _RunPeekCardState extends ConsumerState<_RunPeekCard> {
+  _PeekFace _face = _PeekFace.gantt;
 
   @override
   Widget build(BuildContext context) {
@@ -902,11 +1067,9 @@ class _LinkedRunPaneState extends ConsumerState<_LinkedRunPane> {
 
     Widget body;
     final comp = runAsync.value;
-    if (_face == _PaneFace.matrix) {
-      body = _matrixFace(context);
-    } else if (comp != null) {
+    if (comp != null) {
       final graph = graphOfVersion(wfAsync.value?.activeVersion);
-      if (_face == _PaneFace.gantt) {
+      if (_face == _PeekFace.gantt) {
         final rows = flowrunTimeline(graph ?? const Graph(), comp);
         body = rows.isEmpty
             ? Text(t.paneNoNodes, style: AnText.body.copyWith(color: c.inkFaint))
@@ -938,135 +1101,41 @@ class _LinkedRunPaneState extends ConsumerState<_LinkedRunPane> {
       body = const AnDeferredLoading(child: AnSkeleton.lines(3));
     }
 
-    return AnCard(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Row(children: [
-          Expanded(
-            child: Wrap(
-              spacing: AnGap.inlineLoose,
-              runSpacing: AnGap.stackTight,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                Text(_face == _PaneFace.matrix ? t.matrixTitle : t.linkedTitle,
-                    style: AnText.label.weight(AnText.emphasisWeight).copyWith(color: c.ink)),
-                AnChip(truncate(widget.flowrunId, AnTrunc.id),
-                    mono: true, look: AnChipLook.outlined, tooltip: widget.flowrunId),
-                if (comp != null) AnStatusDot(AnStatus.fromRaw(comp.flowrun.status)),
-              ],
+    return Padding(
+      padding: const EdgeInsets.only(top: AnSpace.s6),
+      child: AnCard(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(children: [
+            if (comp != null) ...[
+              AnStatusDot(AnStatus.fromRaw(comp.flowrun.status)),
+              const SizedBox(width: AnGap.inline),
+            ],
+            const Spacer(),
+            // Two faces → the standard control slot (token 自身之律:2 段走标准槽). 两脸走标准槽。
+            SizedBox(
+              width: AnSize.ctlSlot,
+              child: AnSegmented<_PeekFace>(
+                value: _face,
+                semanticLabel: t.faceA11y,
+                options: [
+                  AnSegmentedOption(value: _PeekFace.gantt, label: t.faceGantt),
+                  AnSegmentedOption(value: _PeekFace.graph, label: t.faceGraph),
+                ],
+                onChanged: (f) => setState(() => _face = f),
+              ),
             ),
-          ),
-          const SizedBox(width: AnGap.inlineLoose),
-          // Three faces → the WIDE control slot (the token's own rule: 3+-segment segmented).
-          // 三脸走**宽**控件槽(token 自身之律:3+ 段分段器)。
-          SizedBox(
-            width: AnSize.ctlSlotLg,
-            child: AnSegmented<_PaneFace>(
-              value: _face,
-              semanticLabel: t.faceA11y,
-              options: [
-                AnSegmentedOption(value: _PaneFace.gantt, label: t.faceGantt),
-                AnSegmentedOption(value: _PaneFace.graph, label: t.faceGraph),
-                AnSegmentedOption(value: _PaneFace.matrix, label: t.faceMatrix),
-              ],
-              onChanged: (f) => setState(() => _face = f),
-            ),
-          ),
-          const SizedBox(width: AnGap.inlineLoose),
-          AnButton(
-            label: t.openRun,
-            size: AnButtonSize.sm,
-            onPressed: () =>
-                context.go('/scheduler/w/${widget.workflowId}/runs/${widget.flowrunId}'),
-          ),
-        ]),
-        const SizedBox(height: AnGap.block),
-        body,
-      ]),
-    );
-  }
-
-  /// The matrix face (判决③ + 工单⑩). Three grains, each landing where it honestly belongs: a COLUMN
-  /// picks the run (into the URL — shareable, and the gantt/graph faces follow it); a ROW lights that
-  /// node's history (a local lens); a CELL does both. Nothing jumps pages — 「打开 →」 is still the one
-  /// door to the flagship.
-  /// 矩阵脸(判决③+⑩)。三粒度各落其位:**列**选中 run(落 URL——可分享,且甘特/图两脸跟着它走)、**行**点亮
-  /// 该节点的历史(本地透镜)、**格**两者都做。全程不跳页——「打开 →」仍是通往旗舰的唯一那扇门。
-  Widget _matrixFace(BuildContext context) {
-    final t = context.t.scheduler.home;
-    final c = context.colors;
-    final async = ref.watch(schedulerMatrixProvider(widget.workflowId));
-    final m = async.value;
-    if (m == null) {
-      if (async.hasError) {
-        return Row(children: [
-          Expanded(child: Text(t.paneError, style: AnText.body.copyWith(color: c.inkMuted))),
-          AnButton(
-              label: context.t.scheduler.retry,
+            const SizedBox(width: AnGap.inlineLoose),
+            AnButton(
+              label: t.openRun,
               size: AnButtonSize.sm,
-              onPressed: () => ref.invalidate(schedulerMatrixProvider(widget.workflowId))),
-        ]);
-      }
-      return const AnDeferredLoading(child: AnSkeleton.lines(3));
-    }
-    if (m.rows.isEmpty || m.cols.isEmpty) {
-      return Text(t.matrixEmpty, style: AnText.body.copyWith(color: c.inkFaint));
-    }
-    // The sparse cell list → an O(1) lookup. NEVER assume cells == rows×cols (稀疏是契约).
-    // 稀疏格列表 → O(1) 查询;绝不假设 cells == rows×cols(稀疏是契约)。
-    final byKey = {for (final cell in m.cells) '${cell.flowrunId}/${cell.nodeId}': cell};
-    return AnRunMatrix(
-      rows: [for (final r in m.rows) MatrixRowHead(nodeId: r.nodeId, kind: r.kind)],
-      cols: [
-        for (final col in m.cols)
-          RunColumn(
-            id: col.flowrunId,
-            status: col.status,
-            elapsedMs: col.elapsedMs,
-            label: t.matrixColA11y(
-              id: truncate(col.flowrunId, AnTrunc.id),
-              status: runStatusWord(context.t, col.status),
-              // A run still going has no elapsed — say «running», never a fabricated duration.
-              // 在跑的 run 无耗时——说「在跑」,绝不编一个时长。
-              d: col.elapsedMs == null
-                  ? t.matrixRunning
-                  : fmtDuration(Duration(milliseconds: col.elapsedMs!)),
+              onPressed: () =>
+                  context.go('/scheduler/w/${widget.workflowId}/runs/${widget.flowrunId}'),
             ),
-          ),
-      ],
-      cellStatus: (frId, nodeId) {
-        final cell = byKey['$frId/$nodeId'];
-        if (cell == null) return null; // 未及 — sparse, and that IS the answer 稀疏即答案
-        return MatrixCellState(
-          status: cell.status,
-          iterations: cell.iterations,
-          label: t.matrixCellA11y(
-              node: nodeId, status: runStatusWord(context.t, cell.status), n: '${cell.iterations}'),
-        );
-      },
-      selection: MatrixSelection(flowrunId: widget.flowrunId, nodeId: _pickedNode),
-      onCell: (frId, nodeId) {
-        setState(() => _pickedNode = nodeId);
-        if (frId != widget.flowrunId) context.go('/scheduler/w/${widget.workflowId}?run=$frId');
-      },
-      onCol: (frId) {
-        if (frId != widget.flowrunId) context.go('/scheduler/w/${widget.workflowId}?run=$frId');
-      },
-      onRow: (nodeId) => setState(() => _pickedNode = _pickedNode == nodeId ? null : nodeId),
-      notReachedLabel: t.matrixNotReached,
-      runningLabel: t.matrixRunning,
-      cellSemanticLabel: (col, row, cell) => t.matrixCellA11y(
-          node: row.nodeId,
-          status: cell == null
-              ? t.matrixNotReached
-              : runStatusWord(context.t, cell.status),
-          n: '${cell?.iterations ?? 0}'),
-      colSemanticLabel: (col) => t.matrixColA11y(
-          id: truncate(col.id, AnTrunc.id),
-          status: runStatusWord(context.t, col.status),
-          d: col.elapsedMs == null
-              ? t.matrixRunning
-              : fmtDuration(Duration(milliseconds: col.elapsedMs!))),
-      rowSemanticLabel: (row) => t.matrixRowA11y(node: row.nodeId),
+          ]),
+          const SizedBox(height: AnGap.block),
+          body,
+        ]),
+      ),
     );
   }
 }

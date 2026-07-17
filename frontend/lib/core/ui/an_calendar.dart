@@ -300,7 +300,7 @@ class _AnCalendarState extends State<AnCalendar> {
     return Semantics(
       label: widget.daySemanticLabel?.call(day) ?? _iso(day),
       button: true,
-      selected: isStart || isEnd ? true : null,
+      selected: AnA11y.selected(isStart || isEnd),
       onTap: pick,
       excludeSemantics: true,
       child: MouseRegion(

@@ -36,7 +36,7 @@ class StubSchedulerRepo implements SchedulerRepository {
     this.pinnedGraphByVersion = const {},
     this.schedule = const TriggerSchedule(),
     this.firings = const [],
-    Map<String, FlowrunMatrix>? matrixByWorkflow,
+    FlowrunMatrix? matrixGrid,
     this.retentionConfig = const RetentionConfig(runRetentionDays: 90),
     this.failWorkflows = false,
     this.failRunFull = false,
@@ -47,7 +47,7 @@ class StubSchedulerRepo implements SchedulerRepository {
     this.failFailedRuns = false,
     this.failMatrix = false,
     this.failRetention = false,
-  }) : matrixByWorkflow = matrixByWorkflow ?? {};
+  }) : matrixGrid = matrixGrid ?? const FlowrunMatrix();
 
   final List<SchedulerWorkflowRow> workflows;
   final List<WorkflowRunStats> byWorkflow;
@@ -93,7 +93,8 @@ class StubSchedulerRepo implements SchedulerRepository {
   /// Per-workflow ⑩ grid. Absent = the endpoint's honest empty answer (三个空列表), NOT an error.
   /// Mutable so a battery can seed it onto a shared `_repo()` by cascade. 逐 workflow 的 ⑩ 格阵;
   /// 缺席=端点诚实的空答案(三空列表),**不是**错误;可变以便电池用级联往共享 _repo() 上种。
-  final Map<String, FlowrunMatrix> matrixByWorkflow;
+  /// The scripted grid — [runMatrix] filters it to the requested ids (the wire law). 剧本格阵。
+  FlowrunMatrix matrixGrid;
 
   /// The ⑬ machine-level retention line — the run table's tombstone reads it. ⑬ 机器级保留线。
   final RetentionConfig retentionConfig;
@@ -141,8 +142,15 @@ class StubSchedulerRepo implements SchedulerRepository {
 
   /// Every `GET /flowruns` question this stub was asked, in order — the honest-filter probe.
   /// 每次 flowruns 提问的过滤参数(按序):过滤诚实性探针。
-  final List<({String? status, String? origin, DateTime? startedAfter, String? cursor, int? limit})>
-      listFilters = [];
+  final List<
+      ({
+        String? status,
+        String? origin,
+        DateTime? startedAfter,
+        DateTime? startedBefore,
+        String? cursor,
+        int? limit
+      })> listFilters = [];
 
   /// Optional decide latency — lets a widget test observe the mid-batch pending face (逐行挂账).
   /// 可选延迟:widget 测试借它观察批中挂账脸。
@@ -339,6 +347,7 @@ class StubSchedulerRepo implements SchedulerRepository {
       status: status,
       origin: origin,
       startedAfter: startedAfter,
+      startedBefore: startedBefore,
       cursor: cursor,
       limit: limit
     ));
@@ -537,14 +546,22 @@ class StubSchedulerRepo implements SchedulerRepository {
   }
 
   @override
-  Future<FlowrunMatrix> runMatrix(String workflowId, {int recentN = 20}) async {
-    matrixAsks.add((workflowId: workflowId, recentN: recentN));
+  Future<FlowrunMatrix> runMatrix(List<String> flowrunIds) async {
+    matrixAsks.add(List.of(flowrunIds));
     if (failMatrix) {
       throw const ApiException(code: 'INVALID_REQUEST', message: 'bad matrix', httpStatus: 400);
     }
-    // An unknown workflowId is NOT an error — the endpoint answers three empty lists.
-    // 未知 workflowId 不是错误——端点返三个空列表。
-    return matrixByWorkflow[workflowId] ?? const FlowrunMatrix();
+    // Wire law: answer EXACTLY the requested ids in canonical (startedAt, id) DESC order, unknown
+    // ids silently absent — the scripted grid is filtered the same way so batteries can seed one
+    // grid and query subsets. 线缆律:恰答请求 id、正典序、未知缺席;剧本格阵按同律过滤。
+    final wanted = flowrunIds.toSet();
+    final m = matrixGrid;
+    final cols = [for (final c in m.cols) if (wanted.contains(c.flowrunId)) c];
+    final colIds = {for (final c in cols) c.flowrunId};
+    final cells = [for (final c in m.cells) if (colIds.contains(c.flowrunId)) c];
+    final liveNodes = {for (final c in cells) c.nodeId};
+    final rows = [for (final r in m.rows) if (liveNodes.contains(r.nodeId)) r];
+    return FlowrunMatrix(cols: cols, rows: rows, cells: cells);
   }
 
   @override
@@ -568,7 +585,7 @@ class StubSchedulerRepo implements SchedulerRepository {
   /// 列表共用**一个**锚点。
   final List<String> statsSinces = [];
   final List<Map<String, String>> firingFilters = [];
-  final List<({String workflowId, int recentN})> matrixAsks = [];
+  final List<List<String>> matrixAsks = [];
   int retentionAsks = 0;
 
   /// Probes: WHICH version id the flagship asked for (§5.2 钉版而非 active), which runs it aggregated,

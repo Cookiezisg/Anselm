@@ -21,13 +21,12 @@
 library;
 
 abstract final class SchedulerWindows {
-  /// The health head's bead strip — the last 10 runs (`flowrun-stats?recentN=`). 珠串=近 10。
-  static const int beadRecentN = 10;
-
-  /// The linked pane's third face — the last 20 runs (`flowrun-matrix?recentN=`). This is the
-  /// backend's default AND its hard cap: a narrow viewport may want fewer, nothing wants more.
-  /// 矩阵=近 20(后端的默认即上限:窄视口可要更少,没有任何东西要得到更多)。
-  static const int matrixRecentN = 20;
+  /// One matrix page — how many runs each slide toward the oldest edge pulls in (主页重建拍板
+  /// 0717): pages ride `GET /flowruns` and each page's grid is ONE `flowrun-matrix?flowrunIds=`
+  /// batch, whose backend cap is 50 — page size == batch cap, one page is one batch, never split.
+  /// 矩阵一页=一次向最旧缘滑动拉入的 run 数:页走 GET /flowruns、每页格阵恰一次 flowrunIds 批查
+  /// (后端上限 50)——页尺=批帽,一页一批、绝不拆。
+  static const int matrixPageSize = 50;
 
   /// Success rate / average elapsed — a 7d rolling window (`flowrun-stats?since=`). Wire grammar is
   /// a Go duration, so 7d is spelled in hours. 成功率/均时=7d 滚动(线缆走 Go duration 文法,故写小时)。

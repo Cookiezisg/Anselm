@@ -23,13 +23,13 @@ import 'package:go_router/go_router.dart';
 
 import 'stub_scheduler_repo.dart';
 
-// S3 · the workflow operations home (WRK-069 §4) — four segments: health head (bead strip + 7d
-// stats + Run now + ⋯/:kill TypeToConfirm) · the run big table (source-phrase identity, TRUE count
-// strip, origin/window filters that really reach the wire, keyset paging, the follow pill that never
-// inserts a row, batch replay/cancel with merged real numbers) · the linked pane (gantt ⇄ graph ⇄
-// matrix, an ordinary 720 section — 判决③'s full-bleed zone was rejected by the user on 2026-07-17 and
-// deleted) · the triggers exhibit (cron mono + the pause/resume switch). The running dot breathes
-// forever → FIXED pumps, never pumpAndSettle. S3 电池;固定 pump、不 settle。
+// S3 · the workflow operations home (WRK-069 §4, 主页重建拍板 0717) — four segments: health head
+// (7d stat numbers + Run now + ⋯/:kill; the bead strip is GONE — the matrix's column heads carry
+// the same news) · the MATRIX zone (page-level time-range capsule + the chronological grid; column/
+// cell clicks NAVIGATE to the flagship) · the run big table (source-phrase identity, TRUE count
+// strip, origin filter, keyset paging, follow pill, batch ops; a row tap expands the INLINE peek
+// card — `?run=` is the one expanded row) · the triggers exhibit. The running dot breathes forever
+// → FIXED pumps, never pumpAndSettle. S3 电池;固定 pump、不 settle。
 
 final _now = DateTime.now();
 
@@ -267,11 +267,12 @@ void main() {
   final h = t.scheduler.home;
 
   group('① 健康头', () {
-    testWidgets('name + lifecycle chip + bead strip + 7d stats sentence + Run now', (tester) async {
+    testWidgets('name + lifecycle chip + 7d stats sentence + Run now — and NO bead strip '
+        '(0717 拍板:矩阵列头即同一条新闻)', (tester) async {
       await _pump(tester, _repo());
       expect(find.text('数据清洗流水线'), findsOneWidget);
       expect(find.text(t.scheduler.status.active), findsOneWidget);
-      expect(find.byType(RunBeadStrip), findsOneWidget, reason: '近 10 珠串在场');
+      expect(find.byType(RunBeadStrip), findsNothing, reason: '珠串已删——矩阵列头就是同一排珠子');
       expect(find.text(h.statsLine(window: h.windowWord, rate: '80%', avg: '42.0s')), findsOneWidget);
       expect(find.text(h.runNow), findsOneWidget);
     });
@@ -386,20 +387,28 @@ void main() {
       expect(repo.listFilters.any((f) => f.status == 'running'), isTrue);
     });
 
-    testWidgets('the window dropdown really moves startedAfter (工单⑥)', (tester) async {
+    testWidgets('the page-level time-range capsule governs the TABLE too (0717 拍板:一颗胶囊治两区)',
+        (tester) async {
       final repo = _repo();
       await _pump(tester, repo);
       repo.listFilters.clear();
-      await tester.tap(find.text(h.window7d).first);
+      repo.matrixAsks.clear();
+      // Open the capsule (default «Last 7 days») and pick the 24h preset — click applies instantly.
+      // 打开胶囊(默认近 7 天)点 24h 预设——点即生效。
+      final r = t.scheduler.range;
+      await tester.ensureVisible(find.byType(AnTimeRangePicker));
+      await tester.pump();
+      await tester.tap(find.byType(AnTimeRangePicker));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
-      await tester.tap(find.text(h.window24h).last);
+      await tester.tap(find.text(r.h24).last);
       await tester.pump();
       await _settle(tester);
       final asked = repo.listFilters.where((f) => f.startedAfter != null).toList();
-      expect(asked, isNotEmpty);
-      final span = _now.difference(asked.last.startedAfter!);
+      expect(asked, isNotEmpty, reason: '表随胶囊重取');
+      final span = DateTime.now().difference(asked.last.startedAfter!);
       expect(span.inHours, closeTo(24, 1));
+      expect(repo.matrixAsks, isNotEmpty, reason: '矩阵窗同随胶囊重建——一颗镜头两个区');
     });
 
     testWidgets('the origin dropdown really reaches the wire', (tester) async {
@@ -633,14 +642,8 @@ void main() {
     });
   });
 
-  group('④ 联动格', () {
-    // WRK-069 判决③ once gave this pane a full-bleed zone; the user rejected it on sight on
-    // 2026-07-17 (「我不允许有这种超宽的东西。请都改回到标准的。」). The pane is now an ordinary section of
-    // AnPage's 720 reading column, and each face answers width on its OWN — this is the guard that the
-    // reversal stays reversed.
-    // 判决③ 曾给本格全宽区;用户 0717 当面否决。本格现在只是 AnPage 720 阅读列里普通的一段,三脸各自解决
-    // 宽度——本测守住「反转不被反转回去」。
-    testWidgets('the pane is an ordinary 720 section — no face may widen the page (用户 0717 判决)',
+  group('④ 行内速览卡 (0717 拍板:?run= 即展开行)', () {
+    testWidgets('the card is an ordinary 720 section — no face may widen the page (用户 0717 判决)',
         (tester) async {
       await _pump(tester, _repo(), runId: 'fr_fail1');
       final reading = AnSize.content - AnInset.pageX * 2;
@@ -648,7 +651,7 @@ void main() {
       Future<void> expectWithinColumn(Finder face, String who) async {
         expect(face, findsOneWidget, reason: '$who 在场');
         expect(tester.getSize(face).width, lessThanOrEqualTo(reading + 0.5),
-            reason: '$who 不得破 720 阅读列——宽度归它自己解决(甘特分数轨缩放 / 图 InteractiveViewer / 矩阵自带横滚)');
+            reason: '$who 不得破 720 阅读列——宽度归它自己解决(甘特分数轨缩放 / 图 InteractiveViewer)');
         expect(tester.takeException(), isNull, reason: '$who 在 720 内不溢出');
       }
 
@@ -664,25 +667,23 @@ void main() {
       }
 
       // ② graph — pans/zooms inside its own InteractiveViewer. 图=在自己的 InteractiveViewer 里平移缩放。
-      // (③ matrix has its own guard in group ⑤ — it needs the wire fixture. 矩阵的同款守卫在 ⑤ 组,它要线缆种子。)
       await switchTo(h.faceGraph);
       await expectWithinColumn(find.byType(AnGraphCanvas), '图');
     });
 
-    testWidgets('absent without ?run=; present with it (gantt default, graph on toggle)',
-        (tester) async {
+    testWidgets('collapsed without ?run=; expanded IN PLACE with it (gantt default, graph on '
+        'toggle, the flagship door on board)', (tester) async {
       await _pump(tester, _repo());
-      expect(find.text(h.linkedTitle), findsNothing);
+      expect(find.byType(AnNodeGantt), findsNothing, reason: '无 ?run= 即无展开行——收起的行绝不建卡(C-006)');
 
       await _pump(tester, _repo(), runId: 'fr_fail1');
-      expect(find.text(h.linkedTitle), findsOneWidget);
-      expect(find.byType(AnNodeGantt), findsOneWidget, reason: '默认甘特');
+      // The card grows UNDER its own row (inside the ledger row's disclosure lane), not somewhere
+      // below the fold. 卡长在自己那一行底下(台账行披露车道内),不在折线下某处。
+      final row = find.ancestor(of: find.byType(AnNodeGantt), matching: find.byType(AnLedgerRow));
+      expect(row, findsOneWidget, reason: '速览卡住在展开行的披露体里');
+      expect(find.text(h.openRun), findsOneWidget, reason: '旗舰门在卡上');
       expect(find.byType(AnGraphCanvas), findsNothing);
 
-      // The pane sits below the big table, so on a taller page the face toggle is under the fold —
-      // scroll it in before tapping (a tap that misses reports «found but not hit», not a real
-      // regression). 联动格在大表之下,页一长切脸器就沉到折线下——先滚入再点(点空报的是「找到却没点中」,
-      // 不是真回归)。
       await tester.ensureVisible(find.text(h.faceGraph));
       await tester.pump();
       await tester.tap(find.text(h.faceGraph));
@@ -690,6 +691,45 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.byType(AnGraphCanvas), findsOneWidget, reason: '切图脸');
       expect(find.byType(AnNodeGantt), findsNothing);
+    });
+
+    testWidgets('a row tap TOGGLES ?run= in the URL — expand, and tap again to collapse',
+        (tester) async {
+      final repo = _repo();
+      final routed = <String>[];
+      final router = GoRouter(routes: [
+        GoRoute(
+            path: '/',
+            builder: (_, _) =>
+                Scaffold(body: SchedulerHomeView(workflowId: 'wf_a', linkedRunId: 'fr_fail1'))),
+        GoRoute(
+            path: '/scheduler/w/:id',
+            builder: (_, st) {
+              routed.add(st.uri.toString());
+              return const SizedBox.shrink();
+            }),
+      ]);
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          sseGatewayProvider.overrideWithValue(null),
+          schedulerRepositoryProvider.overrideWithValue(repo),
+        ],
+        child: TranslationProvider(
+          child: MaterialApp.router(theme: AnTheme.light(), routerConfig: router),
+        ),
+      ));
+      await tester.pump();
+      await _settle(tester);
+
+      // Tap a DIFFERENT row than the expanded one (`?run=fr_fail1`) → the URL carries its id
+      // (expand); the same row again would drop ?run= (collapse). 点另一行=URL 带它的 id;同行再点=去参。
+      await tester.ensureVisible(find.text(h.srcChat).first);
+      await tester.pump();
+      await tester.tap(find.text(h.srcChat).first, warnIfMissed: false);
+      await tester.pump();
+      await _settle(tester);
+      expect(routed, isNotEmpty, reason: '行点击必须走 URL——选区单向派生自 URL');
+      expect(routed.last, contains('run=fr_chat1'), reason: '点行=展开该行(URL 真相)');
     });
 
     testWidgets('no active-version graph → the honest sentence, never an empty frame',
@@ -703,10 +743,6 @@ void main() {
         // graphByWorkflow deliberately empty. 刻意无图。
       );
       await _pump(tester, noGraph, runId: 'fr_fail1');
-      // The pane sits below the big table, so on a taller page the face toggle is under the fold —
-      // scroll it in before tapping (a tap that misses reports «found but not hit», not a real
-      // regression). 联动格在大表之下,页一长切脸器就沉到折线下——先滚入再点(点空报的是「找到却没点中」,
-      // 不是真回归)。
       await tester.ensureVisible(find.text(h.faceGraph));
       await tester.pump();
       await tester.tap(find.text(h.faceGraph));
@@ -778,11 +814,11 @@ void main() {
     });
   });
 
-  // ── S5:矩阵第三脸(判决③/工单⑩) + 保留墓碑(判决④/工单⑬) ──
-  group('⑤ 矩阵第三脸', () {
+  // ── 页顶矩阵区(0717 拍板:常驻+时序+导航点击) + 保留墓碑(判决④/工单⑬) ──
+  group('⑤ 页顶矩阵区', () {
     FlowrunMatrix grid() => FlowrunMatrix(
           cols: [
-            // Newest LEFT; the live one carries NO elapsed. 新在左;在跑的无 elapsed。
+            // Wire canonical: newest first; the live one carries NO elapsed. 线缆正典新→旧;在跑无 elapsed。
             MatrixCol(flowrunId: 'fr_live1', startedAt: _now, status: 'running'),
             MatrixCol(
                 flowrunId: 'fr_fail1',
@@ -802,55 +838,43 @@ void main() {
           ],
         );
 
-    testWidgets('the matrix face is LAZY — picking it is what asks the wire (recentN=20 reaches it)',
-        (tester) async {
-      final repo = _repo();
-      await _pump(tester, repo, runId: 'fr_fail1');
-      expect(repo.matrixAsks, isEmpty, reason: '不点矩阵脸就一个字节都不取——天生惰性');
-
-      await tester.ensureVisible(find.text(h.faceMatrix));
-      await tester.pump();
-      await tester.tap(find.text(h.faceMatrix));
-      await tester.pump();
-      await _settle(tester);
-      expect(repo.matrixAsks, [(workflowId: 'wf_a', recentN: 20)],
-          reason: '20 是 SchedulerWindows.matrixRecentN,且必须真到线缆(不是渲染时才裁)');
+    testWidgets('the matrix is RESIDENT: opening the page pages the runs and batch-fetches the grid '
+        'by EXPLICIT ids (惰性律反转,0717 拍板)', (tester) async {
+      final repo = _repo()..matrixGrid = grid();
+      await _pump(tester, repo);
+      expect(repo.matrixAsks, isNotEmpty, reason: '矩阵常驻页顶——开页即取,不再等谁点脸');
+      // The batch is the ids of the window page — the flowrunIds wire law. 批=窗页的 id 集。
+      expect(repo.matrixAsks.first, containsAll(['fr_live1', 'fr_fail1']),
+          reason: '按显式 flowrunIds 批查,不再有 recentN');
+      expect(find.byType(AnRunMatrix), findsOneWidget);
     });
 
-    testWidgets('the grid renders: ×N in the cell, «未及» for a sparse one, and the pane retitles',
-        (tester) async {
-      final repo = _repo()..matrixByWorkflow['wf_a'] = grid();
-      await _pump(tester, repo, runId: 'fr_fail1');
-      await tester.ensureVisible(find.text(h.faceMatrix));
-      await tester.pump();
-      await tester.tap(find.text(h.faceMatrix));
-      await tester.pump();
-      await _settle(tester);
+    testWidgets('the grid renders: ×N in the cell, «未及» for a sparse one, CHRONOLOGICAL display '
+        '(旧在左)', (tester) async {
+      final repo = _repo()..matrixGrid = grid();
+      await _pump(tester, repo);
 
       expect(find.byType(AnRunMatrix), findsOneWidget);
-      expect(find.text(h.matrixTitle), findsOneWidget, reason: '矩阵脸有自己的标题(跨 run,不是「本次运行」)');
-      expect(find.text(h.linkedTitle), findsNothing);
-      expect(find.byType(AnNodeGantt), findsNothing, reason: '三脸互斥');
+      expect(find.text(h.matrixTitle.toUpperCase()), findsOneWidget, reason: '节标签视觉大写');
       expect(find.text('3'), findsOneWidget, reason: 'iterations=3 → ×N 在格里');
       expect(find.byTooltip(h.matrixNotReached), findsOneWidget,
           reason: '稀疏格说「未及」——空格是真答案,不是缺答案');
+      // Display order is CHRONOLOGICAL: the older fr_fail1 column sits LEFT of fr_live1 (wire is
+      // newest-first; the zone reverses for the timeline). 呈现时序:旧列在左。
+      final grid_ = find.byType(AnRunMatrix);
+      final older = tester.getTopLeft(find
+          .descendant(of: grid_, matching: find.bySemanticsLabel(RegExp('fr_fail1')))
+          .first);
+      final newer = tester.getTopLeft(find
+          .descendant(of: grid_, matching: find.bySemanticsLabel(RegExp('fr_live1')))
+          .first);
+      expect(older.dx, lessThan(newer.dx), reason: '时间轴:旧在左、新在右(锚最新端)');
     });
 
     testWidgets('the grid takes its width from ITSELF, never from the page (用户 0717 判决)',
         (tester) async {
-      // 判决③ once widened this whole pane to the ocean so 20 columns would fit; the user rejected
-      // that on sight on 2026-07-17. The matrix is the ONE face genuinely wider than the reading
-      // column (~692px of grid vs ~640px of card), so it is the one that had to grow a scroller —
-      // inside itself, leaving the page's 720 column untouched.
-      // 判决③ 曾为了塞下 20 列把整格撑到海洋宽,用户 0717 当面否决。矩阵是三脸里**唯一**真比阅读列宽的
-      // (格阵 ~692px vs 卡内 ~640px),故它是那个必须长出滚动器的——长在**自己肚子里**,页的 720 列不动。
-      final repo = _repo()..matrixByWorkflow['wf_a'] = grid();
-      await _pump(tester, repo, runId: 'fr_fail1');
-      await tester.ensureVisible(find.text(h.faceMatrix));
-      await tester.pump();
-      await tester.tap(find.text(h.faceMatrix));
-      await tester.pump();
-      await _settle(tester);
+      final repo = _repo()..matrixGrid = grid();
+      await _pump(tester, repo);
 
       expect(tester.getSize(find.byType(AnRunMatrix)).width,
           lessThanOrEqualTo(AnSize.content - AnInset.pageX * 2 + 0.5),
@@ -858,40 +882,37 @@ void main() {
       final sv = tester.widget<SingleChildScrollView>(find.descendant(
           of: find.byType(AnRunMatrix), matching: find.byType(SingleChildScrollView)));
       expect(sv.scrollDirection, Axis.horizontal, reason: '矩阵的宽在它自己肚子里滚');
+      expect(sv.reverse, isTrue, reason: '锚最新端(offset 0=最新缘)');
       expect(tester.takeException(), isNull, reason: '720 内不溢出');
     });
 
-    testWidgets('an empty grid says so; a failed read offers retry — neither blanks the pane',
+    testWidgets('an empty window says so; a failed read offers retry — neither blanks the zone',
         (tester) async {
-      await _pump(tester, _repo(), runId: 'fr_fail1');
-      await tester.ensureVisible(find.text(h.faceMatrix));
-      await tester.pump();
-      await tester.tap(find.text(h.faceMatrix));
-      await tester.pump();
-      await _settle(tester);
-      expect(find.text(h.matrixEmpty), findsOneWidget, reason: '未知/无 run 的 workflow 返三空列表,不是错误');
+      // The default stub grid is EMPTY → the zone answers with the honest sentence, never a bare
+      // frame. 默认剧本格阵空 → 空窗句,绝不空框。
+      await _pump(tester, _repo());
+      expect(find.text(h.matrixEmpty), findsOneWidget, reason: '空窗是答案(这段时间没有运行)');
 
-      await _pump(tester, _repo()..failMatrix = true, runId: 'fr_fail1');
-      await tester.ensureVisible(find.text(h.faceMatrix));
-      await tester.pump();
-      await tester.tap(find.text(h.faceMatrix));
-      await tester.pump();
+      // A fresh container (the second pump would otherwise keep the previous ProviderScope state,
+      // and the zone honestly prefers stale truth over an error face). 清树取新容器——否则留旧真相。
+      await tester.pumpWidget(const SizedBox());
+      await _pump(tester, _repo()..failMatrix = true);
       await _settle(tester);
-      expect(find.text(h.paneError), findsOneWidget, reason: '取数失败诚实报错 + 重试,绝不空白');
+      expect(find.text(h.paneError), findsWidgets, reason: '取数失败诚实报错 + 重试,绝不空白');
     });
 
-    testWidgets('picking a COLUMN routes the run into the URL (the other two faces follow it)',
-        (tester) async {
-      final repo = _repo()..matrixByWorkflow['wf_a'] = grid();
-      String? routed;
+    testWidgets('a COLUMN head click NAVIGATES to the flagship; a CELL click preselects the node '
+        '(0717 拍板:格阵是发射台)', (tester) async {
+      final repo = _repo()..matrixGrid = grid();
+      final routed = <String>[];
       final router = GoRouter(routes: [
         GoRoute(
             path: '/',
-            builder: (_, _) => Scaffold(body: SchedulerHomeView(workflowId: 'wf_a', linkedRunId: 'fr_fail1'))),
+            builder: (_, _) => Scaffold(body: SchedulerHomeView(workflowId: 'wf_a'))),
         GoRoute(
-            path: '/scheduler/w/:id',
+            path: '/scheduler/w/:id/runs/:frId',
             builder: (_, st) {
-              routed = st.uri.toString();
+              routed.add(st.uri.toString());
               return const SizedBox.shrink();
             }),
       ]);
@@ -906,25 +927,29 @@ void main() {
       ));
       await tester.pump();
       await _settle(tester);
-      await tester.ensureVisible(find.text(h.faceMatrix));
-      await tester.pump();
-      await tester.tap(find.text(h.faceMatrix));
-      await tester.pump();
-      await _settle(tester);
 
-      // The LEFT column is the newest run (fr_live1) — picking it must land in the URL, because the
-      // run grain is shareable state. Scope the finder INSIDE the grid: the run table above also
-      // prints «fr_live1», so a page-wide finder would tap a chip in the table instead of a column
-      // head. 最左列=最新 run;点它必须落 URL(run 粒度是可分享的状态)。finder 必须**限定在格阵内**:
-      // 上面的大表也印着 fr_live1,页级 finder 会点到表里的 chip 而不是列头。
+      // Scope INSIDE the grid: the run table below also prints the id. finder 限定格阵内。
       final colHead = find.descendant(
           of: find.byType(AnRunMatrix), matching: find.bySemanticsLabel(RegExp('fr_live1')));
       await tester.ensureVisible(colHead.first);
       await tester.pump();
-      await tester.tap(colHead.first);
+      await tester.tap(colHead.first, warnIfMissed: false);
       await tester.pump();
       await _settle(tester);
-      expect(routed, contains('run=fr_live1'), reason: '点列=选中该 run,且落在 URL 里');
+      expect(routed, isNotEmpty, reason: '点列=直进该 run 的旗舰页');
+      expect(routed.last, contains('/runs/fr_live1'));
+
+      // A CELL lands there with ?node= — the flagship's own selection grammar. 格带节点预选。
+      routed.clear();
+      final cell = find.descendant(
+          of: find.byType(AnRunMatrix),
+          matching: find.bySemanticsLabel(RegExp('analyze.*failed|failed.*analyze')));
+      if (cell.evaluate().isNotEmpty) {
+        await tester.tap(cell.first, warnIfMissed: false);
+        await tester.pump();
+        await _settle(tester);
+        expect(routed.last, contains('node=analyze'), reason: '点格=旗舰 + ?node= 预选');
+      }
     });
   });
 

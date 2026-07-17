@@ -481,12 +481,14 @@ void main() {
     }
   });
 
-  test('S5 · ⑩ the matrix earns the third face: a failure STREAK, ×N folding, a live column with no '
-      'elapsed, and SPARSE cells', () async {
-    final m = await repo.runMatrix('wf_clean');
+  test('S5 · ⑩ the matrix earns its zone: a failure STREAK, ×N folding, a live column with no '
+      'elapsed, and SPARSE cells — asked by EXPLICIT ids (0717 拍板)', () async {
+    // The window flow: page the runs, batch-fetch the grid for that page of ids. 窗流:翻页批取。
+    final page = await repo.listFlowruns(workflowId: 'wf_clean', limit: 50);
+    final m = await repo.runMatrix([for (final r in page.items) r.id]);
     expect(m.cols, isNotEmpty);
     expect(m.rows, isNotEmpty);
-    expect(m.cols.length, lessThanOrEqualTo(20), reason: 'recentN 上限 20');
+    expect(m.cols.length, lessThanOrEqualTo(50), reason: '一页一批,≤50');
 
     // Newest first — a column and its row in the big table are the same run at the same position.
     // 新→旧:列与大表里的行是同位同一个 run。
@@ -513,12 +515,24 @@ void main() {
     expect(m.cells.where((c) => c.iterations > 1), isNotEmpty, reason: '得有 ×N 格(循环)');
   });
 
-  test('S5 · ⑩ an unknown workflow is NOT an error — three empty lists, orphan runs first-class',
+  test('S5 · ⑩ unknown ids are NOT an error — three empty lists, silently absent (wire law)',
       () async {
-    final m = await repo.runMatrix('wf_does_not_exist');
+    final m = await repo.runMatrix(['fr_does_not_exist']);
     expect(m.cols, isEmpty);
     expect(m.rows, isEmpty);
     expect(m.cells, isEmpty);
+  });
+
+  test('S5 · ⑩ column order is canonical regardless of request order (行轴不许被乱序左右)',
+      () async {
+    final page = await repo.listFlowruns(workflowId: 'wf_clean', limit: 10);
+    final ids = [for (final r in page.items) r.id];
+    final shuffled = [...ids.reversed];
+    final m = await repo.runMatrix(shuffled);
+    for (var i = 1; i < m.cols.length; i++) {
+      expect(m.cols[i].startedAt.isAfter(m.cols[i - 1].startedAt), isFalse,
+          reason: '乱序请求,正典输出');
+    }
   });
 
   test('S5 · ⑬ retention seeds the BACKEND default (90) so panel and tombstone agree out of the box',

@@ -86,4 +86,32 @@ void main() {
     expect(edges.map((e) => e.id), ['rel_1', 'rel_3'],
         reason: '客户端收窄只留 workflow→trigger,非 workflow 边不得漏入甘特连线');
   });
+
+  test('runMatrix sends ONE flowrunIds csv — never recentN/workflowId (0717 主页重建线缆形)',
+      () async {
+    final b = build((o) => _json({'cols': [], 'rows': [], 'cells': []}));
+    await b.repo.runMatrix(['fr_a', 'fr_b', 'fr_c']);
+    final q = b.adapter.requests.single.queryParameters;
+    expect(b.adapter.requests.single.path, contains('/flowrun-matrix'));
+    expect(q['flowrunIds'], 'fr_a,fr_b,fr_c', reason: 'csv 一次批查');
+    expect(q.containsKey('recentN'), isFalse, reason: 'recentN 模式已按 #7 整体删除');
+    expect(q.containsKey('workflowId'), isFalse, reason: '端点不再有 workflow 轴——内容就是 ids');
+  });
+
+  test('listFlowruns serializes the time window as RFC3339 UTC (picker absolute range wire form)',
+      () async {
+    final b = build((o) => _json(<dynamic>[]));
+    await b.repo.listFlowruns(
+      workflowId: 'wf_1',
+      startedAfter: DateTime(2026, 6, 1, 9, 0),
+      startedBefore: DateTime(2026, 7, 1, 0, 0),
+    );
+    final q = b.adapter.requests.single.queryParameters;
+    // Local wall-clock picks must reach the wire as UTC with the Z suffix — a local
+    // toIso8601String has NO offset marker and would be a contract accident.
+    // 本地墙钟选择上线缆必须转 UTC 带 Z 后缀——本地 toIso8601String 不带时区标记,发出去就是契约事故。
+    expect(q['startedAfter'], endsWith('Z'), reason: 'RFC3339 UTC,绝不发无时区的本地串');
+    expect(q['startedBefore'], endsWith('Z'));
+    expect(DateTime.parse(q['startedAfter']!), DateTime(2026, 6, 1, 9, 0).toUtc());
+  });
 }

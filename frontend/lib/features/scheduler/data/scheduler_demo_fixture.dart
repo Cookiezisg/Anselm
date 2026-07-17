@@ -140,8 +140,7 @@ class FixtureSchedulerRepository implements SchedulerRepository {
 
   @override
   Future<SchedulerStats> stats(List<String> workflowIds,
-      {int recentN = SchedulerWindows.beadRecentN,
-      String since = SchedulerWindows.statsSince}) async {
+      {int recentN = 10, String since = SchedulerWindows.statsSince}) async {
     final all = <WorkflowRunStats>[
       // Running now (blue dot). Recent beads mirror the seeded 25+-run history. 在跑;珠串映史。
       WorkflowRunStats(
@@ -1221,16 +1220,20 @@ class FixtureSchedulerRepository implements SchedulerRepository {
   /// 一格 ×3 循环、一格 parked、最新一次 run 仍在跑(无 elapsed→列无条)且它后面的节点**直接缺席**
   /// (稀疏「未及」,不是一种状态)。
   @override
-  Future<FlowrunMatrix> runMatrix(String workflowId,
-      {int recentN = SchedulerWindows.matrixRecentN}) async {
-    final runs = _allRuns().where((r) => r.workflowId == workflowId).toList()
+  Future<FlowrunMatrix> runMatrix(List<String> flowrunIds) async {
+    // Mirrors the wire law: answer EXACTLY the requested ids, canonical (startedAt, id) DESC
+    // regardless of request order, unknown ids silently absent. 镜像线缆律:恰答请求 id、正典序、
+    // 未知缺席。
+    final wanted = flowrunIds.toSet();
+    final runs = _allRuns().where((r) => wanted.contains(r.id)).toList()
       ..sort((a, b) {
         final sa = a.startedAt, sb = b.startedAt;
         if (sa == null || sb == null) return sa == sb ? 0 : (sa == null ? 1 : -1);
-        return sb.compareTo(sa);
+        final c = sb.compareTo(sa);
+        return c != 0 ? c : b.id.compareTo(a.id);
       });
     final cols = <MatrixCol>[];
-    for (final r in runs.take(recentN)) {
+    for (final r in runs) {
       final started = r.startedAt;
       if (started == null) continue;
       final status = _statusOf(r);

@@ -270,11 +270,13 @@ abstract interface class SchedulerRepository {
     int? limit,
   });
 
-  /// The node×run grid (工单⑩, `GET /flowrun-matrix?workflowId=&recentN=`) — one bounded batch query
-  /// answering the whole grid. [workflowId] is REQUIRED (empty → 400); an unknown id is not an error
-  /// (200 + three empty lists). 节点×run 格阵(⑩):一次有界批查答完整个格阵;workflowId 必填(空→400),
-  /// 未知 id 不是错误(200 + 三空列表)。
-  Future<FlowrunMatrix> runMatrix(String workflowId, {int recentN});
+  /// The node×run grid (工单⑩, `GET /flowrun-matrix?flowrunIds=<csv, ≤50 after dedup>`) — one
+  /// bounded batch answering the grid for EXACTLY these runs (the caller pages `GET /flowruns` and
+  /// batch-fetches per page). Empty set → 400, over-cap → 422; unknown ids are silently absent
+  /// (cols carry explicit keys); output cols are canonical (started_at, id) DESC regardless of
+  /// request order. 节点×run 格阵(⑩):按显式 run id 集一次批查(调用方翻 GET /flowruns 逐页批取);
+  /// 空集 400、越 50 上限 422;未知 id 静默缺席;输出列恒正典新→旧、与请求顺序无关。
+  Future<FlowrunMatrix> runMatrix(List<String> flowrunIds);
 
   /// The machine-level run-history retention line (工单⑬, `GET /retention`) — READ-ONLY here: this
   /// ocean only needs it to render the run table's honest tombstone row; EDITING it lives in the
@@ -315,8 +317,7 @@ class LiveSchedulerRepository implements SchedulerRepository {
 
   @override
   Future<SchedulerStats> stats(List<String> workflowIds,
-      {int recentN = SchedulerWindows.beadRecentN,
-      String since = SchedulerWindows.statsSince}) async {
+      {int recentN = 10, String since = SchedulerWindows.statsSince}) async {
     if (workflowIds.isEmpty) {
       // totals are workspace-wide — still worth one call with no ids. totals 全局,空 ids 也取。
       return _statsCall(const [], recentN, since);
@@ -522,11 +523,9 @@ class LiveSchedulerRepository implements SchedulerRepository {
       });
 
   @override
-  Future<FlowrunMatrix> runMatrix(String workflowId,
-          {int recentN = SchedulerWindows.matrixRecentN}) =>
+  Future<FlowrunMatrix> runMatrix(List<String> flowrunIds) =>
       _api.getEntity('/api/v1/flowrun-matrix', FlowrunMatrix.fromJson, query: {
-        'workflowId': workflowId,
-        'recentN': '$recentN',
+        'flowrunIds': flowrunIds.join(','),
       });
 
   @override

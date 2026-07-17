@@ -412,6 +412,7 @@ class Translations$scheduler$en {
 	late final Translations$scheduler$status$en status = Translations$scheduler$status$en.internal(_root);
 	late final Translations$scheduler$home$en home = Translations$scheduler$home$en.internal(_root);
 	late final Translations$scheduler$run$en run = Translations$scheduler$run$en.internal(_root);
+	late final Translations$scheduler$range$en range = Translations$scheduler$range$en.internal(_root);
 }
 
 // Path: action
@@ -3066,18 +3067,6 @@ class Translations$scheduler$home$en {
 	/// en: 'Sensor'
 	String get originSensor => 'Sensor';
 
-	/// en: '24h'
-	String get window24h => '24h';
-
-	/// en: '7d'
-	String get window7d => '7d';
-
-	/// en: '30d'
-	String get window30d => '30d';
-
-	/// en: 'All time'
-	String get windowAll => 'All time';
-
 	/// en: '$n new runs'
 	String newRuns({required Object n}) => '${n} new runs';
 
@@ -3138,11 +3127,8 @@ class Translations$scheduler$home$en {
 	/// en: '$n no longer replayable'
 	String sumNotReplayable({required Object n}) => '${n} no longer replayable';
 
-	/// en: 'This run'
-	String get linkedTitle => 'This run';
-
-	/// en: 'Linked pane view'
-	String get faceA11y => 'Linked pane view';
+	/// en: 'Peek card view'
+	String get faceA11y => 'Peek card view';
 
 	/// en: 'Gantt'
 	String get faceGantt => 'Gantt';
@@ -3150,14 +3136,11 @@ class Translations$scheduler$home$en {
 	/// en: 'Graph'
 	String get faceGraph => 'Graph';
 
-	/// en: 'Matrix'
-	String get faceMatrix => 'Matrix';
+	/// en: 'Node × run'
+	String get matrixTitle => 'Node × run';
 
-	/// en: 'Node × run (last 20)'
-	String get matrixTitle => 'Node × run (last 20)';
-
-	/// en: 'No runs to compare yet.'
-	String get matrixEmpty => 'No runs to compare yet.';
+	/// en: 'No runs in this range.'
+	String get matrixEmpty => 'No runs in this range.';
 
 	/// en: 'not reached'
 	String get matrixNotReached => 'not reached';
@@ -3227,6 +3210,12 @@ class Translations$scheduler$home$en {
 
 	/// en: 'Edit trigger $name in Entities'
 	String editTriggerA11y({required Object name}) => 'Edit trigger ${name} in Entities';
+
+	/// en: '$node, row $r of $total, reached in $n runs, $failed failed'
+	String matrixRowSummaryA11y({required Object node, required Object r, required Object total, required Object n, required Object failed}) => '${node}, row ${r} of ${total}, reached in ${n} runs, ${failed} failed';
+
+	/// en: 'row $r of $rows, column $c of $cols'
+	String matrixCoordA11y({required Object r, required Object rows, required Object c, required Object cols}) => 'row ${r} of ${rows}, column ${c} of ${cols}';
 }
 
 // Path: scheduler.run
@@ -3365,6 +3354,66 @@ class Translations$scheduler$run$en {
 
 	/// en: 'No run with this id in this workspace. Check the id, or pick a run from a workflow.'
 	String get relayFailedHint => 'No run with this id in this workspace. Check the id, or pick a run from a workflow.';
+}
+
+// Path: scheduler.range
+class Translations$scheduler$range$en {
+	Translations$scheduler$range$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Today'
+	String get today => 'Today';
+
+	/// en: 'Last 24 hours'
+	String get h24 => 'Last 24 hours';
+
+	/// en: 'Last 7 days'
+	String get d7 => 'Last 7 days';
+
+	/// en: 'Last 30 days'
+	String get d30 => 'Last 30 days';
+
+	/// en: 'All time'
+	String get all => 'All time';
+
+	/// en: 'Custom range'
+	String get customTitle => 'Custom range';
+
+	/// en: 'From'
+	String get from => 'From';
+
+	/// en: 'To'
+	String get to => 'To';
+
+	/// en: 'Apply'
+	String get apply => 'Apply';
+
+	/// en: 'Unparseable date or time'
+	String get invalid => 'Unparseable date or time';
+
+	/// en: 'End is before start'
+	String get endBeforeStart => 'End is before start';
+
+	/// en: 'Mon Tue Wed Thu Fri Sat Sun'
+	String get weekdays => 'Mon Tue Wed Thu Fri Sat Sun';
+
+	/// en: '$y-$m'
+	String monthTitle({required Object y, required Object m}) => '${y}-${m}';
+
+	/// en: 'Previous month'
+	String get prevMonth => 'Previous month';
+
+	/// en: 'Next month'
+	String get nextMonth => 'Next month';
+
+	/// en: 'Time range'
+	String get capsuleA11y => 'Time range';
+
+	/// en: 'Calendar'
+	String get gridA11y => 'Calendar';
 }
 
 // Path: feedback.batch
@@ -6434,10 +6483,6 @@ extension on Translations {
 			'scheduler.home.originWebhook' => 'Webhook',
 			'scheduler.home.originFsnotify' => 'File watch',
 			'scheduler.home.originSensor' => 'Sensor',
-			'scheduler.home.window24h' => '24h',
-			'scheduler.home.window7d' => '7d',
-			'scheduler.home.window30d' => '30d',
-			'scheduler.home.windowAll' => 'All time',
 			'scheduler.home.newRuns' => ({required Object n}) => '${n} new runs',
 			'scheduler.home.srcManual' => 'Manual',
 			'scheduler.home.srcChat' => 'Conversation',
@@ -6458,13 +6503,11 @@ extension on Translations {
 			'scheduler.home.batchReplayBody' => ({required Object failed, required Object completed}) => 'Re-runs ${failed} failed nodes in total · reuses ${completed} completed results.',
 			'scheduler.home.sumReplayed' => ({required Object n}) => '${n} replayed',
 			'scheduler.home.sumNotReplayable' => ({required Object n}) => '${n} no longer replayable',
-			'scheduler.home.linkedTitle' => 'This run',
-			'scheduler.home.faceA11y' => 'Linked pane view',
+			'scheduler.home.faceA11y' => 'Peek card view',
 			'scheduler.home.faceGantt' => 'Gantt',
 			'scheduler.home.faceGraph' => 'Graph',
-			'scheduler.home.faceMatrix' => 'Matrix',
-			'scheduler.home.matrixTitle' => 'Node × run (last 20)',
-			'scheduler.home.matrixEmpty' => 'No runs to compare yet.',
+			'scheduler.home.matrixTitle' => 'Node × run',
+			'scheduler.home.matrixEmpty' => 'No runs in this range.',
 			'scheduler.home.matrixNotReached' => 'not reached',
 			'scheduler.home.matrixRunning' => 'running',
 			'scheduler.home.matrixColA11y' => ({required Object id, required Object status, required Object d}) => 'run ${id}, ${status}, ${d}',
@@ -6488,6 +6531,8 @@ extension on Translations {
 			'scheduler.home.lastFired' => ({required Object d}) => 'fired ${d} ago',
 			'scheduler.home.neverFired' => 'never fired',
 			'scheduler.home.editTriggerA11y' => ({required Object name}) => 'Edit trigger ${name} in Entities',
+			'scheduler.home.matrixRowSummaryA11y' => ({required Object node, required Object r, required Object total, required Object n, required Object failed}) => '${node}, row ${r} of ${total}, reached in ${n} runs, ${failed} failed',
+			'scheduler.home.matrixCoordA11y' => ({required Object r, required Object rows, required Object c, required Object cols}) => 'row ${r} of ${rows}, column ${c} of ${cols}',
 			'scheduler.run.crumb' => ({required Object name, required Object id}) => 'Scheduler / ${name} / ${id}',
 			'scheduler.run.notFoundTitle' => 'Run not found',
 			'scheduler.run.notFoundHint' => 'It may have been cleared by the retention policy. Pick another run from the workflow.',
@@ -6531,6 +6576,23 @@ extension on Translations {
 			'scheduler.run.relayResolving' => 'Finding this run…',
 			'scheduler.run.relayFailedTitle' => 'Couldn\'t resolve this run',
 			'scheduler.run.relayFailedHint' => 'No run with this id in this workspace. Check the id, or pick a run from a workflow.',
+			'scheduler.range.today' => 'Today',
+			'scheduler.range.h24' => 'Last 24 hours',
+			'scheduler.range.d7' => 'Last 7 days',
+			'scheduler.range.d30' => 'Last 30 days',
+			'scheduler.range.all' => 'All time',
+			'scheduler.range.customTitle' => 'Custom range',
+			'scheduler.range.from' => 'From',
+			'scheduler.range.to' => 'To',
+			'scheduler.range.apply' => 'Apply',
+			'scheduler.range.invalid' => 'Unparseable date or time',
+			'scheduler.range.endBeforeStart' => 'End is before start',
+			'scheduler.range.weekdays' => 'Mon Tue Wed Thu Fri Sat Sun',
+			'scheduler.range.monthTitle' => ({required Object y, required Object m}) => '${y}-${m}',
+			'scheduler.range.prevMonth' => 'Previous month',
+			'scheduler.range.nextMonth' => 'Next month',
+			'scheduler.range.capsuleA11y' => 'Time range',
+			'scheduler.range.gridA11y' => 'Calendar',
 			'action.edit' => 'Edit',
 			'action.cancel' => 'Cancel',
 			'action.save' => 'Save',
@@ -6722,6 +6784,8 @@ extension on Translations {
 			'entities.detail.sec.methods' => 'Methods',
 			'entities.detail.sec.prompt' => 'Prompt',
 			'entities.detail.sec.capabilities' => 'Capabilities',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.sec.mountHealth' => 'Mount health',
 			'entities.detail.sec.governance' => 'Run governance',
 			'entities.detail.sec.alerts' => 'Alerts',
@@ -6735,8 +6799,6 @@ extension on Translations {
 			'entities.detail.card.deps' => 'Dependencies',
 			'entities.detail.card.venv' => 'venv status',
 			'entities.detail.card.runtime' => 'Runtime',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.card.config' => 'Config readiness',
 			'entities.detail.card.tools' => 'Tool mounts',
 			'entities.detail.card.skill' => 'Skill',
@@ -7236,6 +7298,8 @@ extension on Translations {
 			'settings.mcp.consecutiveFailures' => 'Consecutive failures',
 			'settings.mcp.noTools' => 'No tools',
 			'settings.mcp.noCalls' => 'No calls yet',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mcp.noStderr' => 'No output yet',
 			'settings.mcp.callsAgg' => ({required Object ok, required Object failed}) => '✓ ${ok} · ✗ ${failed}',
 			'settings.storage.dataDir' => 'Data directory',
@@ -7249,8 +7313,6 @@ extension on Translations {
 			'settings.storage.retention30' => '30 days',
 			'settings.storage.retention90' => '90 days',
 			'settings.storage.retention180' => '180 days',
-			_ => null,
-		} ?? switch (path) {
 			'settings.storage.retentionForever' => 'Keep forever',
 			'settings.storage.retentionSaved' => 'Retention updated',
 			'settings.storage.database' => 'Database',

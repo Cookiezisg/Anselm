@@ -6,10 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/contract/entities/scheduler_matrix.dart';
 import '../../../core/contract/retention.dart';
 import '../../../core/contract/entities/workflow.dart';
+import '../../../core/model/time_range.dart';
 import '../../../core/runtime.dart';
 import '../../../core/sse/frame.dart';
 import '../../../core/sse/sse_gateway.dart';
 import '../data/scheduler_repository.dart';
+import '../scheduler_windows.dart';
 import '../ui/scheduler_home_model.dart';
 import 'scheduler_rail_provider.dart';
 
@@ -30,28 +32,157 @@ final schedulerWorkflowProvider =
   return ref.watch(schedulerRepositoryProvider).getWorkflow(id);
 }, retry: (_, _) => null);
 
-/// The linked pane's run composite — the run header + ALL node rows (gantt/graph need the complete
-/// set). Rides the rail pulse: a durable terminal reconciles the pane; ticks never reach it (the
-/// live-growing gantt is S4's). 联动格 run 复合(全量节点);随 rail 节拍对账,tick 不达(活甘特归 S4)。
+/// The page-level time range (主页重建拍板 0717) — ONE capsule governs the matrix AND the run
+/// table, so the two zones can never disagree about «when». Presets are LIVE expressions (each
+/// fetch resolves against a fresh now); deliberately NOT autoDispose and NOT in the URL (§11:
+/// 过滤器不入 URL) — the lens survives switching workflows within a session.
+/// 页级时间范围:一颗胶囊治矩阵+大表,两区对「何时」永不打架。预设是活表达式(每次取数现解析);刻意
+/// 不 autoDispose、不入 URL(§11 过滤器不入 URL)——镜头在会话内跨 workflow 存活。
+class SchedulerTimeRange extends Notifier<AnTimeRange> {
+  @override
+  AnTimeRange build() => const AnPresetRange(AnTimePreset.d7);
+
+  void set(AnTimeRange range) => state = range;
+}
+
+final schedulerTimeRangeProvider =
+    NotifierProvider<SchedulerTimeRange, AnTimeRange>(SchedulerTimeRange.new);
+
+/// The inline peek card's run composite — the run header + ALL node rows (gantt/graph need the
+/// complete set). Rides the rail pulse: a durable terminal reconciles the card; ticks never reach
+/// it (the live-growing gantt is S4's). 行内速览卡 run 复合(全量节点);随 rail 节拍对账,tick 不达。
 final schedulerLinkedRunProvider =
     FutureProvider.autoDispose.family<FlowrunComposite, String>((ref, frId) async {
   await ref.watch(schedulerRailProvider.future);
   return ref.watch(schedulerRepositoryProvider).getRunFull(frId);
 }, retry: (_, _) => null);
 
-/// The linked pane's MATRIX face (工单⑩, S5) — the last 20 runs' node×run grid for one workflow, in
-/// ONE bounded call. Rides the same rail pulse as its siblings (so it refetches exactly when durable
-/// ledger events land, never on a tick), and is `autoDispose` + family-keyed by workflowId so leaving
-/// the page drops it. Lazy by construction: nothing fetches until the user actually picks the matrix
-/// face, because the provider is only watched from that branch.
-/// 联动格**矩阵脸**(⑩):单 workflow 近 20 run 的格阵,一次有界调用。与兄弟同吃 rail 节拍(故只在 durable
-/// 落账时重取、tick 永不达);autoDispose + 按 workflowId 分族,离页即释。**天生惰性**:用户不点矩阵脸就
-/// 一个字节都不取——provider 只在那条分支里被 watch。
-final schedulerMatrixProvider =
-    FutureProvider.autoDispose.family<FlowrunMatrix, String>((ref, workflowId) async {
-  await ref.watch(schedulerRailProvider.future);
-  return ref.watch(schedulerRepositoryProvider).runMatrix(workflowId);
-}, retry: (_, _) => null);
+/// The top-of-page matrix window (工单⑩, 主页重建拍板 0717): pages of runs inside the page-level
+/// time range, each page's grid fetched as ONE `flowrun-matrix?flowrunIds=` batch and MERGED —
+/// cols accumulate newest→oldest, rows stay the first-appearance union (pages arrive newest-first,
+/// so the scan order matches the backend's own law), cells pile up sparsely. Sliding toward the
+/// oldest edge calls [SchedulerMatrixWindowController.loadOlder]. Rebuilds when the range changes
+/// and rides the rail's durable pulse (new runs/terminals re-anchor the window — geometry moves on
+/// ledger events, 军规-legal); ticks never reach it.
+/// 页顶矩阵窗:按页级时间范围翻 run 页,每页格阵一次 flowrunIds 批查并**归并**——列新→旧累积、行守
+/// 首次出现并集(页新→旧到达,扫描序即后端自身之律)、格稀疏堆积。滑近最旧缘调 loadOlder。范围变即重
+/// 建,吃 rail durable 节拍(新 run/终态重新锚窗——几何随落账动,军规合法);tick 永不达。
+class MatrixWindowState {
+  const MatrixWindowState({
+    required this.matrix,
+    this.nextCursor,
+    this.hasMore = false,
+    this.loadingOlder = false,
+  });
+
+  final FlowrunMatrix matrix;
+  final String? nextCursor;
+  final bool hasMore;
+  final bool loadingOlder;
+
+  MatrixWindowState copyWith({
+    FlowrunMatrix? matrix,
+    String? nextCursor,
+    bool clearCursor = false,
+    bool? hasMore,
+    bool? loadingOlder,
+  }) =>
+      MatrixWindowState(
+        matrix: matrix ?? this.matrix,
+        nextCursor: clearCursor ? null : (nextCursor ?? this.nextCursor),
+        hasMore: hasMore ?? this.hasMore,
+        loadingOlder: loadingOlder ?? this.loadingOlder,
+      );
+}
+
+class SchedulerMatrixWindowController extends AsyncNotifier<MatrixWindowState> {
+  SchedulerMatrixWindowController(this.workflowId);
+
+  final String workflowId;
+
+  @override
+  Future<MatrixWindowState> build() async {
+    final range = ref.watch(schedulerTimeRangeProvider);
+    await ref.watch(schedulerRailProvider.future);
+    final repo = ref.watch(schedulerRepositoryProvider);
+    final r = resolveTimeRange(range, DateTime.now());
+    final page = await repo.listFlowruns(
+      workflowId: workflowId,
+      startedAfter: r.from,
+      startedBefore: r.to,
+      limit: SchedulerWindows.matrixPageSize,
+    );
+    if (page.items.isEmpty) {
+      return const MatrixWindowState(matrix: FlowrunMatrix());
+    }
+    final matrix = await repo.runMatrix([for (final run in page.items) run.id]);
+    final next = page.isLastPage ? null : page.nextCursor;
+    return MatrixWindowState(matrix: matrix, nextCursor: next, hasMore: page.hasMore);
+  }
+
+  /// Pull ONE older page into the window (the oldest-edge slide). Merge, never rebuild: prepended
+  /// history must not blink the whole grid. 向窗里拉一页更旧的(最旧缘滑动)。归并绝不重建——前插的
+  /// 历史不许闪整张格阵。
+  Future<void> loadOlder() async {
+    final s = state.value;
+    if (s == null || !s.hasMore || s.loadingOlder || s.nextCursor == null) return;
+    state = AsyncData(s.copyWith(loadingOlder: true));
+    final repo = ref.read(schedulerRepositoryProvider);
+    final range = ref.read(schedulerTimeRangeProvider);
+    final r = resolveTimeRange(range, DateTime.now());
+    try {
+      final page = await repo.listFlowruns(
+        workflowId: workflowId,
+        startedAfter: r.from,
+        startedBefore: r.to,
+        cursor: s.nextCursor,
+        limit: SchedulerWindows.matrixPageSize,
+      );
+      final older = page.items.isEmpty
+          ? const FlowrunMatrix()
+          : await repo.runMatrix([for (final run in page.items) run.id]);
+      if (!ref.mounted) return;
+      final cur = state.value ?? s;
+      final merged = _merge(cur.matrix, older);
+      final next = page.isLastPage ? null : page.nextCursor;
+      state = AsyncData(cur.copyWith(
+        matrix: merged,
+        nextCursor: next,
+        clearCursor: next == null,
+        hasMore: page.hasMore,
+        loadingOlder: false,
+      ));
+    } catch (_) {
+      if (!ref.mounted) return;
+      // An older page is optional history — keep the window standing, drop the busy flag.
+      // 旧页是可选历史——窗照旧站着,只收 busy 旗。
+      state = AsyncData((state.value ?? s).copyWith(loadingOlder: false));
+    }
+  }
+
+  /// Append an OLDER page under the newest-first canonical order: cols concat (ours are newer by
+  /// keyset construction), rows union first-seen (kind keeps its newest occurrence), cells concat
+  /// (disjoint run sets). 归并更旧一页:列相接(keyset 保证我方更新)、行首见并集(kind 守最新一次出现)、
+  /// 格相接(run 集不相交)。
+  static FlowrunMatrix _merge(FlowrunMatrix newer, FlowrunMatrix older) {
+    final seen = {for (final r in newer.rows) r.nodeId};
+    return FlowrunMatrix(
+      cols: [...newer.cols, ...older.cols],
+      rows: [
+        ...newer.rows,
+        for (final r in older.rows)
+          if (seen.add(r.nodeId)) r,
+      ],
+      cells: [...newer.cells, ...older.cells],
+    );
+  }
+}
+
+final schedulerMatrixWindowProvider = AsyncNotifierProvider.autoDispose
+    .family<SchedulerMatrixWindowController, MatrixWindowState, String>(
+  SchedulerMatrixWindowController.new,
+  retry: (_, _) => null,
+);
 
 /// The machine-level retention line, READ-ONLY (工单⑬) — the run table's tombstone reads it to say why
 /// the history ends. Deliberately NOT `autoDispose`: it is one tiny machine-wide value that the user
@@ -75,7 +206,6 @@ class RunTableState {
     this.loadingMore = false,
     this.filter = RunStatusFilter.all,
     this.origin,
-    this.window = RunWindow.d7,
     this.failedCount = 0,
     this.failedCountCapped = false,
     this.newRuns = 0,
@@ -87,7 +217,6 @@ class RunTableState {
   final bool loadingMore;
   final RunStatusFilter filter;
   final String? origin;
-  final RunWindow window;
   final int failedCount;
   final bool failedCountCapped;
   final int newRuns;
@@ -101,7 +230,6 @@ class RunTableState {
     RunStatusFilter? filter,
     String? origin,
     bool clearOrigin = false,
-    RunWindow? window,
     int? failedCount,
     bool? failedCountCapped,
     int? newRuns,
@@ -113,7 +241,6 @@ class RunTableState {
         loadingMore: loadingMore ?? this.loadingMore,
         filter: filter ?? this.filter,
         origin: clearOrigin ? null : (origin ?? this.origin),
-        window: window ?? this.window,
         failedCount: failedCount ?? this.failedCount,
         failedCountCapped: failedCountCapped ?? this.failedCountCapped,
         newRuns: newRuns ?? this.newRuns,
@@ -132,6 +259,9 @@ class SchedulerRunTableController extends AsyncNotifier<RunTableState> {
 
   @override
   Future<RunTableState> build() async {
+    // The page-level range governs this table too — a range change rebuilds page 1 (主页重建拍板
+    // 0717). 页级范围同治大表:范围一变即回第一页重建。
+    ref.watch(schedulerTimeRangeProvider);
     final gateway = ref.watch(sseGatewayProvider);
     if (gateway != null) {
       final sub =
@@ -178,7 +308,10 @@ class SchedulerRunTableController extends AsyncNotifier<RunTableState> {
       final s = state.value;
       if (s == null) return;
       final f = runListFilter(
-          filter: s.filter, origin: s.origin, window: s.window, now: DateTime.now());
+          filter: s.filter,
+          origin: s.origin,
+          range: ref.read(schedulerTimeRangeProvider),
+          now: DateTime.now());
       final stillMatches = f.status == null || run.status == f.status;
       final rows = [
         for (final r in s.rows)
@@ -202,12 +335,16 @@ class SchedulerRunTableController extends AsyncNotifier<RunTableState> {
   Future<(int, bool)> _failedProbe(RunTableState s) async {
     final repo = ref.read(schedulerRepositoryProvider);
     final f = runListFilter(
-        filter: RunStatusFilter.failed, origin: s.origin, window: s.window, now: DateTime.now());
+        filter: RunStatusFilter.failed,
+        origin: s.origin,
+        range: ref.read(schedulerTimeRangeProvider),
+        now: DateTime.now());
     final page = await repo.listFlowruns(
       workflowId: workflowId,
       status: f.status,
       origin: f.origin,
       startedAfter: f.startedAfter,
+      startedBefore: f.startedBefore,
       limit: probeCap,
     );
     return (page.items.length, page.hasMore);
@@ -216,7 +353,10 @@ class SchedulerRunTableController extends AsyncNotifier<RunTableState> {
   Future<RunTableState> _fetch(RunTableState s) async {
     final repo = ref.read(schedulerRepositoryProvider);
     final f = runListFilter(
-        filter: s.filter, origin: s.origin, window: s.window, now: DateTime.now());
+        filter: s.filter,
+        origin: s.origin,
+        range: ref.read(schedulerTimeRangeProvider),
+        now: DateTime.now());
 
     List<Flowrun> rows;
     String? next;
@@ -231,6 +371,7 @@ class SchedulerRunTableController extends AsyncNotifier<RunTableState> {
           status: f.status,
           origin: f.origin,
           startedAfter: f.startedAfter,
+          startedBefore: f.startedBefore,
           limit: probeCap);
       rows = [for (final r in page.items) if (waiting.contains(r.id)) r];
       next = null;
@@ -240,6 +381,7 @@ class SchedulerRunTableController extends AsyncNotifier<RunTableState> {
           status: f.status,
           origin: f.origin,
           startedAfter: f.startedAfter,
+          startedBefore: f.startedBefore,
           limit: pageSize);
       rows = page.items;
       next = page.isLastPage ? null : page.nextCursor;
@@ -260,13 +402,12 @@ class SchedulerRunTableController extends AsyncNotifier<RunTableState> {
 
   /// Re-fetch page 1 under the given (or current) filters — the pill tap, filter picks and post-op
   /// settles all land here. USER-driven geometry (军规-legal). 回第一页重取:pill/换滤/操作后都走这。
-  Future<void> refetchTop({RunStatusFilter? filter, String? origin, bool clearOrigin = false, RunWindow? window}) async {
+  Future<void> refetchTop({RunStatusFilter? filter, String? origin, bool clearOrigin = false}) async {
     final s = state.value ?? const RunTableState();
     final base = s.copyWith(
       filter: filter,
       origin: origin,
       clearOrigin: clearOrigin,
-      window: window,
       newRuns: 0,
       rows: s.rows, // keep the last good rows on screen during the await (no empty flash) 重取不闪空
     );
@@ -284,13 +425,17 @@ class SchedulerRunTableController extends AsyncNotifier<RunTableState> {
     state = AsyncData(s.copyWith(loadingMore: true));
     final repo = ref.read(schedulerRepositoryProvider);
     final f = runListFilter(
-        filter: s.filter, origin: s.origin, window: s.window, now: DateTime.now());
+        filter: s.filter,
+        origin: s.origin,
+        range: ref.read(schedulerTimeRangeProvider),
+        now: DateTime.now());
     try {
       final page = await repo.listFlowruns(
           workflowId: workflowId,
           status: f.status,
           origin: f.origin,
           startedAfter: f.startedAfter,
+          startedBefore: f.startedBefore,
           cursor: s.nextCursor,
           limit: pageSize);
       if (!ref.mounted) return;

@@ -34,6 +34,7 @@ class AnLedgerRow extends StatelessWidget {
     this.mono = true,
     this.onTap,
     this.expandChild,
+    this.expandBuilder,
     this.expanded = false,
     super.key,
   });
@@ -69,6 +70,11 @@ class AnLedgerRow extends StatelessWidget {
 
   /// Disclosure body under the row (codex 族四 signature) — shown when [expanded]. 行下披露体。
   final Widget? expandChild;
+
+  /// Lazy disclosure body — built ONLY while open ([AnExpandReveal.builder], C-006). Prefer this
+  /// over [expandChild] when the body fetches or is expensive; the two are mutually exclusive by
+  /// convention (builder wins). 惰性披露体——仅展开时建(C-006);体要取数/昂贵时用它,builder 优先。
+  final WidgetBuilder? expandBuilder;
   final bool expanded;
 
   @override
@@ -140,25 +146,34 @@ class AnLedgerRow extends StatelessWidget {
         ],
       ]),
     );
+    final disclosing = expandChild != null || expandBuilder != null;
     final tappable = onTap == null
         ? row
-        : AnInteractive(onTap: onTap, expanded: expandChild != null ? expanded : null, builder: (ctx, states) => row);
-    if (expandChild == null) return tappable;
+        : AnInteractive(onTap: onTap, expanded: disclosing ? expanded : null, builder: (ctx, states) => row);
+    if (!disclosing) return tappable;
+    // The disclosure body indents to the primary's left edge — the lead-cell offset lives in
+    // the primitive (its OWN structural constant), never as caller arithmetic (文法 #4 targets
+    // feature-layer sums). A lead-less row has its primary at 0, so the offset only applies
+    // when the lead cell exists (批6 复审). 披露体缩进到主文左缘——偏移量原语自持、非调用方
+    // 算术;无 lead 行主文在 0,缩进随 lead 存在与否。
+    final indent = EdgeInsetsDirectional.only(
+        start: lead != null ? AnSize.iconSm + AnSpace.s6 : 0, bottom: AnSpace.s4);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
       tappable,
-      AnExpandReveal(
-        open: expanded,
-        // The disclosure body indents to the primary's left edge — the lead-cell offset lives in
-        // the primitive (its OWN structural constant), never as caller arithmetic (文法 #4 targets
-        // feature-layer sums). A lead-less row has its primary at 0, so the offset only applies
-        // when the lead cell exists (批6 复审). 披露体缩进到主文左缘——偏移量原语自持、非调用方
-        // 算术;无 lead 行主文在 0,缩进随 lead 存在与否。
-        child: Padding(
-          padding: EdgeInsetsDirectional.only(
-              start: lead != null ? AnSize.iconSm + AnSpace.s6 : 0, bottom: AnSpace.s4),
-          child: expandChild!,
+      // expandBuilder rides the LAZY reveal (C-006): a collapsed row never builds its body — a run
+      // list where every row carried an eagerly-built dossier card would fetch for rows nobody
+      // opened. expandBuilder 走惰性揭示(C-006):收起的行绝不建体——每行都急建卷宗卡的 run 列表会替
+      // 没人点开的行取数。
+      if (expandBuilder != null)
+        AnExpandReveal.builder(
+          open: expanded,
+          childBuilder: (ctx) => Padding(padding: indent, child: expandBuilder!(ctx)),
+        )
+      else
+        AnExpandReveal(
+          open: expanded,
+          child: Padding(padding: indent, child: expandChild!),
         ),
-      ),
     ]);
   }
 }
