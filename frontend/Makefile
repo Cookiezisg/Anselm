@@ -24,6 +24,7 @@ help:
 	@echo "         make test     flutter test"
 	@echo "         make verify   pre-push 门禁（gen + analyze + test）"
 	@echo "  截图:  make shots    无头渲染 shell + 画廊全类 → test/dev/out/*.png"
+	@echo "  清理:  make clean    清可重建产物(build/ + .dart_tool/,官方 flutter clean)"
 
 # setup — 拉前端依赖（首次或改 pubspec 后）。
 setup:
@@ -100,4 +101,14 @@ shot-app:
 shot-app-real:
 	@bash test/dev/shot_app_real.sh
 
-.PHONY: help setup gen analyze test verify demo demo-profile gallery app shots shot-app shot-app-real
+# clean — 清前端可重建产物。走官方 `flutter clean`(其定义逐字即「Delete the build/ and
+# .dart_tool/ directories」)——一并清 build/test_cache(flutter test 内容寻址 kernel 缓存,
+# 无 LRU/无大小上限、从不驱逐;dev 天长日久累到数 GB,本机曾实测 6.9GB/99 个 .dill 跨 23 天)
+# 与 .dart_tool/flutter_build 增量编译缓存。不手搓 rm——flutter clean 就是官方清理入口(原则 #8)。
+# 清后 .dart_tool/package_config.json 一并没了,下次构建前先 `make setup`(pub get)。
+# **刻意不入 verify**:清缓存会逼下轮全量重编、拖慢每次门禁;缓存涨了(du -sh build .dart_tool)手动跑一次。
+clean:
+	@$(RUN) flutter clean
+	@echo "" && echo "✓ 已清 build/ + .dart_tool/(flutter clean)。下次构建前先 make setup(pub get)。"
+
+.PHONY: help setup gen analyze test verify demo demo-profile gallery app shots shot-app shot-app-real clean

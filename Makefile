@@ -43,7 +43,8 @@ help:
 	@echo "  出包:   make build    后端二进制 → bin/anselm-server"
 	@echo "  门禁:   make verify   后端 pre-push（gofmt+vet+build+unit+docs）"
 	@echo "  前端:   cd frontend && make help（单词目标:gallery / shell / run / verify / gen …）"
-	@echo "  清理:   make clean    清 dev 数据（$(BACKEND_DATA_DIR)）"
+	@echo "  清理:   make clean    清后端 dev 数据（$(BACKEND_DATA_DIR)）"
+	@echo "          make fe-clean 清前端可重建缓存（build/ + .dart_tool/，官方 flutter clean）"
 
 # ── 环境 ────────────────────────────────────────────────────────────
 
@@ -130,6 +131,12 @@ verify:
 fe-verify:
 	@$(MAKE) -C frontend verify
 
+# fe-clean — 清前端可重建缓存（委派到 frontend/Makefile clean = 官方 flutter clean，清 build/ + .dart_tool/）。
+# dev-time 缓存(build/test_cache kernel 缓存 + .dart_tool/flutter_build)无上限、从不驱逐,能累到十几 GB;
+# 缓存涨了手动跑一次(不入门禁,清了会拖慢下轮全量重编)。清后前端首次构建自动 pub get。
+fe-clean:
+	@$(MAKE) -C frontend clean
+
 # demo-test — 画廊全矩阵 Playwright 回归（reference.html 每组件×填充态逐件断言：
 # 无 console 错 / 无页面横向溢出 / 无 XSS 逃逸 / 元素已渲染 + app 冒烟 + disabled/dialog 专项）。
 # demo 是 web 端建设事实源——此为其回归网。harness 自起隔离端口 serve、跑完自清。
@@ -152,4 +159,4 @@ clean: stop
 	@rm -rf $(BACKEND_DATA_DIR)
 	@echo "✓ 已清 $(BACKEND_DATA_DIR)"
 
-.PHONY: help setup server stop unit docs build verify demo-test demo-serve clean testend evals
+.PHONY: help setup server stop unit docs build verify fe-verify fe-clean demo-test demo-serve clean testend evals
