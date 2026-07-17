@@ -3397,9 +3397,6 @@ class Translations$scheduler$range$en {
 	/// en: 'Apply'
 	String get apply => 'Apply';
 
-	/// en: 'Unparseable date or time'
-	String get invalid => 'Unparseable date or time';
-
 	/// en: 'End is before start'
 	String get endBeforeStart => 'End is before start';
 
@@ -6593,7 +6590,6 @@ extension on Translations {
 			'scheduler.range.from' => 'From',
 			'scheduler.range.to' => 'To',
 			'scheduler.range.apply' => 'Apply',
-			'scheduler.range.invalid' => 'Unparseable date or time',
 			'scheduler.range.endBeforeStart' => 'End is before start',
 			'scheduler.range.weekdays' => 'Mo Tu We Th Fr Sa Su',
 			'scheduler.range.monthTitle' => ({required Object y, required Object m}) => '${y}-${m}',
@@ -6790,9 +6786,9 @@ extension on Translations {
 			'entities.detail.sec.runtime' => 'Resident state',
 			'entities.detail.sec.initArgs' => 'Init args',
 			'entities.detail.sec.methods' => 'Methods',
+			'entities.detail.sec.prompt' => 'Prompt',
 			_ => null,
 		} ?? switch (path) {
-			'entities.detail.sec.prompt' => 'Prompt',
 			'entities.detail.sec.capabilities' => 'Capabilities',
 			'entities.detail.sec.mountHealth' => 'Mount health',
 			'entities.detail.sec.governance' => 'Run governance',
@@ -7304,9 +7300,9 @@ extension on Translations {
 			'settings.mcp.tabStderr' => 'stderr',
 			'settings.mcp.lastError' => 'Last error',
 			'settings.mcp.consecutiveFailures' => 'Consecutive failures',
+			'settings.mcp.noTools' => 'No tools',
 			_ => null,
 		} ?? switch (path) {
-			'settings.mcp.noTools' => 'No tools',
 			'settings.mcp.noCalls' => 'No calls yet',
 			'settings.mcp.noStderr' => 'No output yet',
 			'settings.mcp.callsAgg' => ({required Object ok, required Object failed}) => '✓ ${ok} · ✗ ${failed}',

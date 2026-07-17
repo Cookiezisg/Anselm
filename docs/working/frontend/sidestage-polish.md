@@ -60,7 +60,7 @@ audience: [human, ai]
 - 右岛 dossier 出处药丸：trigger 念真名（`triggerName` 缝已有、dossier 未接）；run id 降级为复制 affordance（不作为文字陈列）；
 - rail 搜索框 placeholder「Filter / paste fr_ id...」→「搜索」；粘 id 能力保留；右侧加 sliders 菜单（排序 + 行 meta 显示挡位 + 是否显示停用）。**✅ 用户 0718 拍板（「同意」）**。
 
-### B2 时间选择器改三列
+### B2 时间选择器改三列 ✅ 已落(0718,三列+回显上膛+解析面整体退役)
 用户裁「太丑」→ **三列**：①快捷预设 ②日历（只选日期）③起/终**时间滚轮**。
 拟案：第三列=「从」日期回显+HH:MM 滚轮 /「到」日期回显+滚轮 / 应用钮；日期只经日历改（回显可点=聚焦日历对应端）。**✅ 用户 0718 拍板（「对」）**。
 
@@ -69,7 +69,7 @@ audience: [human, ai]
 且用户强调：**间距问题是系统性的、不只这一处**——修法不是逐点补，而是**整轮间距标准化审计**：以 entities 段节奏为准绳（AnSection 题距/块距/AnGap 档），把 scheduler 运营主页（页头 meta↔首段/矩阵段↔Runs 段/过滤条↔列表）+ run 子页（B7 Nodes meta↔台账窗及全段）+ Overview + 右岛（B8 及 dossier 段间）逐段过账，超标者全部收编，零手写距离。
 - 墓碑句「Earlier runs have been cleared…」与「Editing belongs to Entities ↗」**都删**（用户裁：没用+占位怪异）。注意：墓碑删除需同步 D1 保留清理立法里「UI 出墓碑」的表述（database.md），改为其他诚实形态或删措辞。
 
-### B4 run 列表互动感 + 翻页器
+### B4 run 列表互动感 + 翻页器(后端半 ✅ 292bdc92:offset+total+互斥 422;前端半随 B10 批)
 - hover：整行浅灰 + 状态点变 ▸ 箭头（展开后 ▾）——左岛树同款可点感。
 - 列表改**每页 10 条 + 底部标准翻页器**（←/→、页码、跳转输入框；单页不显示）。
 - **技术点**：页码+跳转需要 offset+总数：后端小工单=flowruns list 加 `?offset`+返回 total。**✅ 用户 0718 拍板「加后端」**。

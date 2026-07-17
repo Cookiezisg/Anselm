@@ -34,7 +34,6 @@ void main() {
     fromLabel: '从',
     toLabel: '到',
     applyLabel: '应用',
-    invalidError: '日期或时间无法解析',
     endBeforeStartError: '终点早于起点',
     weekdayLabels: const ['一', '二', '三', '四', '五', '六', '日'],
     monthTitle: (m) => '${m.year}-${m.month.toString().padLeft(2, '0')}',
@@ -216,11 +215,11 @@ void main() {
       expect(find.textContaining('2026-07-10 09:00'), findsOneWidget);
     });
 
-    testWidgets('end before start: inline error, Apply refused, NEVER a silent swap',
-        (tester) async {
+    testWidgets('end before start: inline error, Apply refused, NEVER a silent swap '
+        '(0718 三列后唯一可达径=同日+时刻倒置)', (tester) async {
       final changes = <AnTimeRange>[];
       await tester.pumpWidget(host(AnTimeRangePicker(
-        value: AnAbsoluteRange(from: DateTime(2026, 7, 6, 9, 0), to: DateTime(2026, 7, 17, 18, 0)),
+        value: AnAbsoluteRange(from: DateTime(2026, 7, 6, 18, 30), to: DateTime(2026, 7, 17, 9, 0)),
         onChanged: changes.add,
         strings: strings,
       )));
@@ -228,9 +227,13 @@ void main() {
       await tester.tap(find.byType(AnTimeRangePicker));
       await tester.pumpAndSettle();
 
-      // Hand-edit the END date to before the start (inputs are now the two DATES — times are
-      // wheels). 手改终点到起点之前(输入只剩两枚日期,时刻是轮)。
-      await tester.enterText(find.byType(AnInput).at(1), '2026-07-01');
+      // Same day for both ends via the calendar (dates are calendar-only now) — the seeded times
+      // 18:30 → 09:00 then invert on one day. 日历点同一天两下:同日 18:30→09:00 即倒置。
+      final day10 = find.descendant(of: find.byType(AnCalendar), matching: find.text('10'));
+      await tester.tap(day10);
+      await tester.pump();
+      await tester.tap(day10);
+      await tester.pump();
       await tester.tap(find.text('应用'));
       await tester.pumpAndSettle();
 
@@ -238,15 +241,17 @@ void main() {
       expect(find.text('终点早于起点'), findsOneWidget);
       expect(find.text('自定义范围'), findsOneWidget); // still open 仍开着
 
-      // Fixing the draft clears the error line immediately. 改好即灭。
-      await tester.enterText(find.byType(AnInput).at(1), '2026-07-30');
+      // Fixing the draft (a later end day) clears the error line immediately. 改好即灭。
+      await tester.tap(day10);
+      await tester.pump();
+      await tester.tap(find.descendant(of: find.byType(AnCalendar), matching: find.text('20')));
       await tester.pump();
       expect(find.text('终点早于起点'), findsNothing);
 
       await tester.tap(find.text('应用'));
       await tester.pumpAndSettle();
       expect(changes, [
-        AnAbsoluteRange(from: DateTime(2026, 7, 6, 9, 0), to: DateTime(2026, 7, 30, 18, 0)),
+        AnAbsoluteRange(from: DateTime(2026, 7, 10, 18, 30), to: DateTime(2026, 7, 20, 9, 0)),
       ]);
     });
 
@@ -275,7 +280,24 @@ void main() {
       ]);
     });
 
-    testWidgets('unparseable input: honest inline error, no commit', (tester) async {
+    testWidgets('three columns, NOTHING typed: no text input in the panel — dates are calendar '
+        'picks, times are wheels (0718 三列拍板)', (tester) async {
+      await tester.pumpWidget(host(AnTimeRangePicker(
+        value: AnAbsoluteRange(from: DateTime(2026, 7, 6, 9, 0), to: DateTime(2026, 7, 17, 18, 0)),
+        onChanged: (_) {},
+        strings: strings,
+      )));
+      await tester.tap(find.byType(AnTimeRangePicker));
+      await tester.pumpAndSettle();
+      expect(find.byType(EditableText), findsNothing, reason: '无可打字之物——无解析错误面');
+      expect(find.byType(AnCalendar), findsOneWidget);
+      expect(find.byType(AnTimeWheel), findsNWidgets(2));
+      expect(find.text('2026-07-06'), findsOneWidget, reason: '「从」日期回显');
+      expect(find.text('2026-07-17'), findsOneWidget, reason: '「到」日期回显');
+    });
+
+    testWidgets('tapping the «到» echo ARMS the end: the next calendar pick writes TO and keeps '
+        'FROM (回显可点=聚焦对应端)', (tester) async {
       final changes = <AnTimeRange>[];
       await tester.pumpWidget(host(AnTimeRangePicker(
         value: AnAbsoluteRange(from: DateTime(2026, 7, 6, 9, 0), to: DateTime(2026, 7, 17, 18, 0)),
@@ -285,11 +307,15 @@ void main() {
       await tester.tap(find.byType(AnTimeRangePicker));
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(AnInput).at(1), 'garbage');
+      await tester.tap(find.text('2026-07-17')); // arm the end 上膛终点
+      await tester.pump();
+      await tester.tap(find.descendant(of: find.byType(AnCalendar), matching: find.text('20')));
+      await tester.pump();
       await tester.tap(find.text('应用'));
       await tester.pumpAndSettle();
-      expect(changes, isEmpty);
-      expect(find.text('日期或时间无法解析'), findsOneWidget);
+      expect(changes, [
+        AnAbsoluteRange(from: DateTime(2026, 7, 6, 9, 0), to: DateTime(2026, 7, 20, 18, 0)),
+      ], reason: '上膛终点后单击=只改到,从不动');
     });
 
     testWidgets('re-opening with a preset keeps its row highlighted (check mark) — the value '

@@ -862,7 +862,6 @@
       "from": "From",
       "to": "To",
       "apply": "Apply",
-      "invalid": "Unparseable date or time",
       "endBeforeStart": "End is before start",
       "weekdays": "Mo Tu We Th Fr Sa Su",
       "monthTitle": "$y-$m",

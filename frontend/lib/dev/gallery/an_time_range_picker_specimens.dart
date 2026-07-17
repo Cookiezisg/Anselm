@@ -27,7 +27,6 @@ final _strings = AnTimeRangePickerStrings(
   fromLabel: '从',
   toLabel: '到',
   applyLabel: '应用',
-  invalidError: '日期或时间无法解析',
   endBeforeStartError: '终点早于起点',
   weekdayLabels: const ['一', '二', '三', '四', '五', '六', '日'],
   monthTitle: (m) => '${m.year} 年 ${m.month} 月',

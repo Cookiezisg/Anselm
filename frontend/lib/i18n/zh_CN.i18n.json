@@ -862,7 +862,6 @@
       "from": "从",
       "to": "到",
       "apply": "应用",
-      "invalid": "日期或时间无法解析",
       "endBeforeStart": "终点早于起点",
       "weekdays": "一 二 三 四 五 六 日",
       "monthTitle": "$y 年 $m 月",

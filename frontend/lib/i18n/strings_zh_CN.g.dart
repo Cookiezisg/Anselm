@@ -1378,7 +1378,6 @@ class _Translations$scheduler$range$zh_CN extends Translations$scheduler$range$e
 	@override String get from => '从';
 	@override String get to => '到';
 	@override String get apply => '应用';
-	@override String get invalid => '日期或时间无法解析';
 	@override String get endBeforeStart => '终点早于起点';
 	@override String get weekdays => '一 二 三 四 五 六 日';
 	@override String monthTitle({required Object y, required Object m}) => '${y} 年 ${m} 月';
@@ -3289,7 +3288,6 @@ extension on TranslationsZhCn {
 			'scheduler.range.from' => '从',
 			'scheduler.range.to' => '到',
 			'scheduler.range.apply' => '应用',
-			'scheduler.range.invalid' => '日期或时间无法解析',
 			'scheduler.range.endBeforeStart' => '终点早于起点',
 			'scheduler.range.weekdays' => '一 二 三 四 五 六 日',
 			'scheduler.range.monthTitle' => ({required Object y, required Object m}) => '${y} 年 ${m} 月',
@@ -3486,9 +3484,9 @@ extension on TranslationsZhCn {
 			'entities.detail.sec.runtime' => '常驻状态',
 			'entities.detail.sec.initArgs' => 'init 参数',
 			'entities.detail.sec.methods' => '方法',
+			'entities.detail.sec.prompt' => '提示词',
 			_ => null,
 		} ?? switch (path) {
-			'entities.detail.sec.prompt' => '提示词',
 			'entities.detail.sec.capabilities' => '能力挂载',
 			'entities.detail.sec.mountHealth' => '挂载健康',
 			'entities.detail.sec.governance' => '运行治理',
@@ -4000,9 +3998,9 @@ extension on TranslationsZhCn {
 			'settings.mcp.tabStderr' => 'stderr',
 			'settings.mcp.lastError' => '最近错误',
 			'settings.mcp.consecutiveFailures' => '连续失败',
+			'settings.mcp.noTools' => '无工具',
 			_ => null,
 		} ?? switch (path) {
-			'settings.mcp.noTools' => '无工具',
 			'settings.mcp.noCalls' => '暂无调用',
 			'settings.mcp.noStderr' => '暂无输出',
 			'settings.mcp.callsAgg' => ({required Object ok, required Object failed}) => '✓ ${ok} · ✗ ${failed}',

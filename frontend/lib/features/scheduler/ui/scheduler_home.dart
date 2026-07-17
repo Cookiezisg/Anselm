@@ -859,7 +859,6 @@ AnTimeRangePickerStrings _rangeStrings(BuildContext context) {
     fromLabel: t.from,
     toLabel: t.to,
     applyLabel: t.apply,
-    invalidError: t.invalid,
     endBeforeStartError: t.endBeforeStart,
     weekdayLabels: t.weekdays.split(' '),
     monthTitle: (m) => t.monthTitle(y: '${m.year}', m: m.month.toString().padLeft(2, '0')),

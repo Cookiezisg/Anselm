@@ -104,19 +104,3 @@ bool isSameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month
 /// Date-only value (local midnight). 只取日期（本地零点）。
 DateTime dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
-// ── lenient form parsing ──────────────────────────────────────────────────────
-// Multi-format tolerance is the settled convention (EUI absolute tab); reject only what no format
-// matches, and only at blur/apply — never mid-keystroke. 宽容解析是定式；只拒所有格式都不认的，
-// 且只在失焦/应用时判——绝不在打字途中。
-
-/// Parse a date input: `2026-07-01`, `2026/7/1`, `2026.7.1`. Rejects impossible dates (2026-02-31
-/// would silently normalize to March — a lie). null = unparseable. 解析日期输入；不可能的日期拒收
-/// （构造器会把 2-31 静默归一成 3 月——那是撒谎）。
-DateTime? parseDateInput(String raw) {
-  final m = RegExp(r'^\s*(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})\s*$').firstMatch(raw);
-  if (m == null) return null;
-  final y = int.parse(m.group(1)!), mo = int.parse(m.group(2)!), d = int.parse(m.group(3)!);
-  if (mo < 1 || mo > 12 || d < 1) return null;
-  if (d > daysInMonth(DateTime(y, mo))) return null;
-  return DateTime(y, mo, d);
-}

@@ -7,7 +7,6 @@ import '../model/time_format.dart';
 import '../model/time_range.dart';
 import 'an_button.dart';
 import 'an_calendar.dart';
-import 'an_input.dart';
 import 'an_interactive.dart';
 import 'an_menu_surface.dart';
 import 'an_pop_surface.dart';
@@ -42,7 +41,6 @@ class AnTimeRangePickerStrings {
     required this.fromLabel,
     required this.toLabel,
     required this.applyLabel,
-    required this.invalidError,
     required this.endBeforeStartError,
     required this.weekdayLabels,
     required this.monthTitle,
@@ -61,8 +59,6 @@ class AnTimeRangePickerStrings {
   final String toLabel;
   final String applyLabel;
 
-  /// A date/time field that parses under no known format. 任何格式都解析不了。
-  final String invalidError;
   final String endBeforeStartError;
 
   /// 7 labels, Monday first. 周一起手 7 标签。
@@ -98,11 +94,12 @@ class AnTimeRangePicker extends StatefulWidget {
 class _AnTimeRangePickerState extends State<AnTimeRangePicker> {
   final AnPopoverController _popover = AnPopoverController();
 
-  final TextEditingController _fromDate = TextEditingController();
-  final TextEditingController _toDate = TextEditingController();
-
-  // Endpoint times are WHEEL values, not text (用户 0717-深夜拍板:时刻不打字) — always valid by
-  // construction, so only dates can still fail to parse. 端点时刻是轮值非文本——构造即合法,只剩日期可解析失败。
+  // Endpoint DATES are calendar picks and TIMES are wheel values (用户 0718 拍板:三列布局——预设 |
+  // 日历只管日期 | 起/终时刻滚轮) — nothing is typed, so every draft is valid by construction and the
+  // only judgeable error left is end-before-start. 端点日期归日历、时刻归滚轮——无可打字之物,草稿构造
+  // 即合法,唯一可判错误只剩「终点早于起点」。
+  DateTime _fromDay = dateOnly(DateTime.now());
+  DateTime _toDay = dateOnly(DateTime.now());
   AnWheelTime _fromTod = (hour: 0, minute: 0);
   AnWheelTime _toTod = (hour: 0, minute: 0);
 
@@ -124,8 +121,6 @@ class _AnTimeRangePickerState extends State<AnTimeRangePicker> {
   void dispose() {
     _popover.removeListener(_onPopover);
     _popover.dispose();
-    _fromDate.dispose();
-    _toDate.dispose();
     super.dispose();
   }
 
@@ -150,9 +145,9 @@ class _AnTimeRangePickerState extends State<AnTimeRangePicker> {
         from = r.from ?? DateTime(now.year, now.month, now.day - 7);
         to = DateTime(now.year, now.month, now.day, now.hour, now.minute);
     }
-    _fromDate.text = _dateText(from);
+    _fromDay = dateOnly(from);
     _fromTod = (hour: from.hour, minute: from.minute);
-    _toDate.text = _dateText(to);
+    _toDay = dateOnly(to);
     _toTod = (hour: to.hour, minute: to.minute);
     _month = DateTime(to.year, to.month, 1);
     _awaitingEnd = false;
@@ -177,38 +172,39 @@ class _AnTimeRangePickerState extends State<AnTimeRangePicker> {
   }
 
   /// The calendar reports a day; sequencing lives here (first = start, later = end, earlier =
-  /// restart). Dates land in the form fields — Apply still owns the commit.
-  /// 日历只报日子；时序在此。日期落表单字段——提交仍归应用钮。
+  /// restart). Apply still owns the commit. 日历只报日子；时序在此；提交仍归应用钮。
   void _pickDay(DateTime day) {
-    final start = parseDateInput(_fromDate.text);
-    if (!_awaitingEnd || start == null || day.isBefore(start)) {
-      _fromDate.text = _dateText(day);
-      _toDate.text = _dateText(day);
+    if (!_awaitingEnd || day.isBefore(_fromDay)) {
+      _fromDay = dateOnly(day);
+      _toDay = dateOnly(day);
       _awaitingEnd = true;
     } else {
-      _toDate.text = _dateText(day);
+      _toDay = dateOnly(day);
       _awaitingEnd = false;
     }
     _revalidateIfErrored();
     setState(() {});
   }
 
-  ({DateTime from, DateTime to})? _parseDraft() {
-    final fd = parseDateInput(_fromDate.text);
-    final td = parseDateInput(_toDate.text);
-    if (fd == null || td == null) return null;
-    return (
-      from: DateTime(fd.year, fd.month, fd.day, _fromTod.hour, _fromTod.minute),
-      to: DateTime(td.year, td.month, td.day, _toTod.hour, _toTod.minute),
-    );
+  /// An endpoint echo tap ARMS that end (用户拍板:回显可点=聚焦日历对应端): the calendar's next pick
+  /// writes it, and the visible month jumps to where that end lives.
+  /// 回显点击=上膛该端:日历下一击写它,可见月跳到该端所在月。
+  void _armEnd(bool end) {
+    setState(() {
+      _awaitingEnd = end;
+      final d = end ? _toDay : _fromDay;
+      _month = DateTime(d.year, d.month, 1);
+    });
   }
 
+  ({DateTime from, DateTime to}) get _draft => (
+        from: DateTime(
+            _fromDay.year, _fromDay.month, _fromDay.day, _fromTod.hour, _fromTod.minute),
+        to: DateTime(_toDay.year, _toDay.month, _toDay.day, _toTod.hour, _toTod.minute),
+      );
+
   void _apply() {
-    final draft = _parseDraft();
-    if (draft == null) {
-      setState(() => _error = widget.strings.invalidError);
-      return;
-    }
+    final draft = _draft;
     if (draft.to.isBefore(draft.from)) {
       // Refuse + say it — never a silent swap. 拒绝并明说——绝不偷偷交换。
       setState(() => _error = widget.strings.endBeforeStartError);
@@ -218,12 +214,11 @@ class _AnTimeRangePickerState extends State<AnTimeRangePicker> {
     widget.onChanged(AnAbsoluteRange(from: draft.from, to: draft.to));
   }
 
-  /// Errors are judged at Apply, never mid-keystroke — but once shown, any edit that FIXES the
-  /// draft clears the line immediately. 错误只在应用时判；一旦亮起，改好即灭。
+  /// The error is judged at Apply only — but once shown, any pick that FIXES the draft clears the
+  /// line immediately. 错误只在应用时判；一旦亮起，改好即灭。
   void _revalidateIfErrored() {
     if (_error == null) return;
-    final draft = _parseDraft();
-    if (draft != null && !draft.to.isBefore(draft.from)) setState(() => _error = null);
+    if (!_draft.to.isBefore(_draft.from)) setState(() => _error = null);
   }
 
   @override
@@ -336,9 +331,29 @@ class _AnTimeRangePickerState extends State<AnTimeRangePicker> {
                       ),
                     ),
                   ),
-                  // ── absolute pane (explicit Apply); its left border IS the divider —
-                  // IntrinsicHeight is off the table (AnInput carries a LayoutBuilder, which cannot
-                  // answer intrinsics), a border stretches for free. 左边框即分隔线。
+                  // ── column 2: the calendar — DATES live here, nowhere else (用户 0718 三列拍板).
+                  // Left border = the divider (a border stretches for free). 第二列:日历,日期只归它;左边框即分隔线。
+                  Container(
+                    decoration: BoxDecoration(
+                        border: Border(
+                            left: BorderSide(color: c.line, width: AnSize.hairline))),
+                    padding: const EdgeInsets.all(AnSpace.s12),
+                    child: AnCalendar(
+                      month: _month,
+                      rangeStart: _fromDay,
+                      rangeEnd: _awaitingEnd ? null : _toDay,
+                      onPickDay: _pickDay,
+                      onMonthChange: (m) => setState(() => _month = m),
+                      weekdayLabels: widget.strings.weekdayLabels,
+                      monthTitle: widget.strings.monthTitle(_month),
+                      prevMonthLabel: widget.strings.prevMonthLabel,
+                      nextMonthLabel: widget.strings.nextMonthLabel,
+                      daySemanticLabel: widget.strings.daySemanticLabel,
+                      gridSemanticLabel: widget.strings.gridSemanticLabel,
+                    ),
+                  ),
+                  // ── column 3: the endpoints — date ECHOES (tap = arm that end on the calendar)
+                  // + HH:MM wheels + the explicit Apply. 第三列:端点——日期回显(点=日历上膛该端)+时刻滚轮+应用。
                   Container(
                     decoration: BoxDecoration(
                         border: Border(
@@ -351,25 +366,23 @@ class _AnTimeRangePickerState extends State<AnTimeRangePicker> {
                         Text(widget.strings.customTitle,
                             style: AnText.label.weight(AnText.emphasisWeight).copyWith(color: c.ink)),
                         const SizedBox(height: AnSpace.s8),
-                        _endpointRow(context, widget.strings.fromLabel, _fromDate, _fromTod,
-                            (v) => setState(() { _fromTod = v; _revalidateIfErrored(); })),
-                        const SizedBox(height: AnSpace.s6),
-                        _endpointRow(context, widget.strings.toLabel, _toDate, _toTod,
-                            (v) => setState(() { _toTod = v; _revalidateIfErrored(); })),
+                        _endpoint(context, widget.strings.fromLabel, _fromDay,
+                            armed: !_awaitingEnd,
+                            onArm: () => _armEnd(false),
+                            tod: _fromTod,
+                            onTod: (v) => setState(() {
+                                  _fromTod = v;
+                                  _revalidateIfErrored();
+                                })),
                         const SizedBox(height: AnSpace.s8),
-                        AnCalendar(
-                          month: _month,
-                          rangeStart: parseDateInput(_fromDate.text),
-                          rangeEnd: _awaitingEnd ? null : parseDateInput(_toDate.text),
-                          onPickDay: _pickDay,
-                          onMonthChange: (m) => setState(() => _month = m),
-                          weekdayLabels: widget.strings.weekdayLabels,
-                          monthTitle: widget.strings.monthTitle(_month),
-                          prevMonthLabel: widget.strings.prevMonthLabel,
-                          nextMonthLabel: widget.strings.nextMonthLabel,
-                          daySemanticLabel: widget.strings.daySemanticLabel,
-                          gridSemanticLabel: widget.strings.gridSemanticLabel,
-                        ),
+                        _endpoint(context, widget.strings.toLabel, _toDay,
+                            armed: _awaitingEnd,
+                            onArm: () => _armEnd(true),
+                            tod: _toTod,
+                            onTod: (v) => setState(() {
+                                  _toTod = v;
+                                  _revalidateIfErrored();
+                                })),
                         const SizedBox(height: AnSpace.s8),
                         if (_error != null) ...[
                           Text(_error!, style: AnText.label.copyWith(color: c.danger)),
@@ -396,35 +409,53 @@ class _AnTimeRangePickerState extends State<AnTimeRangePicker> {
     );
   }
 
-  Widget _endpointRow(BuildContext context, String label, TextEditingController date,
-      AnWheelTime tod, ValueChanged<AnWheelTime> onTod) {
+  /// One endpoint block: [label + date echo] over its HH:MM wheel. The echo is not an input — it
+  /// REPORTS the calendar's pick and, tapped, ARMS its end (accent = the end the next calendar tap
+  /// writes). 端点块:标签+日期回显(非输入——回报日历所选;点=上膛,accent=日历下一击写谁)+时刻滚轮。
+  Widget _endpoint(BuildContext context, String label, DateTime day,
+      {required bool armed,
+      required VoidCallback onArm,
+      required AnWheelTime tod,
+      required ValueChanged<AnWheelTime> onTod}) {
     final c = context.colors;
-    // Date stays TYPED (multi-format leniency + the calendar feeds it); the time is a WHEEL — the
-    // row centres both on one axis. 日期仍打字(宽容解析+日历喂它);时刻是轮;同轴居中。
-    return Row(
+    return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          width: 32,
-          child: Text(label, style: AnText.meta.copyWith(color: c.inkFaint)),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 32,
+              child: Text(label, style: AnText.meta.copyWith(color: c.inkFaint)),
+            ),
+            Semantics(
+              button: true,
+              label: '$label ${_dateText(day)}',
+              child: AnInteractive(
+                onTap: onArm,
+                builder: (context, states) => Container(
+                height: AnSize.controlSm,
+                padding: const EdgeInsets.symmetric(horizontal: AnSize.btnPadXSm),
+                alignment: Alignment.centerLeft,
+                decoration: BoxDecoration(
+                  color: c.surfaceHover.whenActive(states.isActive),
+                  borderRadius: BorderRadius.circular(AnRadius.button),
+                ),
+                  child: ExcludeSemantics(
+                    child: Text(_dateText(day),
+                        style: AnText.value().copyWith(color: armed ? c.accent : c.ink)),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
-        SizedBox(
-          // 116: ten tabular date glyphs + AnInput padding — 104 clipped «2026-07-17» to 9 chars
-          // (0717-深夜帧核出的截字). 116=十位表格数字+内距;104 曾把日期裁到 9 字。
-          width: 116,
-          child: AnInput(
-            controller: date,
-            tabular: true,
-            onChanged: (_) {
-              _awaitingEnd = false; // hand-edited dates end the calendar's pick sequence 手改即收时序
-              _revalidateIfErrored();
-              setState(() {});
-            },
-            onSubmitted: (_) => _apply(),
-          ),
+        const SizedBox(height: AnSpace.s4),
+        Padding(
+          padding: const EdgeInsets.only(left: 32),
+          child: AnTimeWheel(value: tod, onChanged: onTod, semanticLabel: label),
         ),
-        const SizedBox(width: AnSpace.s6),
-        AnTimeWheel(value: tod, onChanged: onTod, semanticLabel: label),
       ],
     );
   }

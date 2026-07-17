@@ -88,27 +88,8 @@ void main() {
     });
   });
 
-  group('lenient form parsing', () {
-    test('dates: -, / and . separators, 1-digit month/day', () {
-      expect(parseDateInput('2026-07-01'), DateTime(2026, 7, 1));
-      expect(parseDateInput('2026/7/1'), DateTime(2026, 7, 1));
-      expect(parseDateInput('2026.7.1'), DateTime(2026, 7, 1));
-      expect(parseDateInput(' 2026-07-01 '), DateTime(2026, 7, 1));
-    });
-
-    test('impossible dates are REJECTED, never silently normalized — 2026-02-31 is not March 3rd',
-        () {
-      expect(parseDateInput('2026-02-31'), isNull);
-      expect(parseDateInput('2026-13-01'), isNull);
-      expect(parseDateInput('2026-00-10'), isNull);
-      expect(parseDateInput('2026-04-31'), isNull);
-      expect(parseDateInput('garbage'), isNull);
-      expect(parseDateInput(''), isNull);
-    });
-
-    // parseTimeInput is GONE with the typed time field (0717-深夜 拍板:时刻改滚轮,构造即合法,
-    // 无可解析之物). parseTimeInput 随打字时刻场退役——轮值构造即合法,无解析面。
-  });
+  // Form parsing is GONE entirely (0718 三列拍板:日期归日历、时刻归滚轮——无可打字之物,
+  // parseDateInput/parseTimeInput 双双退役,草稿构造即合法). 表单解析整体退役。
 
   group('day helpers', () {
     test('isSameDay ignores time; dateOnly strips to local midnight', () {
