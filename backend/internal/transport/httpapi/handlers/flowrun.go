@@ -255,24 +255,22 @@ func (h *FlowrunHandler) Stats(w http.ResponseWriter, r *http.Request) {
 	responsehttpapi.Success(w, http.StatusOK, stats)
 }
 
-// Matrix is the node×run status grid (scheduler 工单⑩): ?workflowId (REQUIRED — the grid's axis;
-// absent → 400) × ?recentN (default 20, clamped to 20) most recent runs. Returns {cols, rows,
-// cells} — columns newest→oldest, rows the union of node ids in first-appearance order, cells
-// SPARSE (a node a run never reached has none). Bounded batch — N4 pagination exempt.
+// Matrix is the node×run status grid (scheduler 工单⑩): ?flowrunIds=<csv, ≤50 after dedup;
+// REQUIRED — an empty set is a 400, over-cap a loud 422> returns {cols, rows, cells} for exactly
+// those runs — columns in the canonical newest→oldest (started_at, id) DESC order REGARDLESS of
+// request order, rows the union of node ids in first-appearance order, cells SPARSE (a node a run
+// never reached has none). Unknown ids are silently absent (cols carry explicit keys). Which runs
+// are on screen is the client's business — it pages GET /flowruns with the time-range grammar and
+// batch-fetches the grid per page. Bounded batch — N4 pagination exempt.
 //
-// Matrix 是节点×run 状态格阵（scheduler 工单⑩）：?workflowId（**必填**——格阵的轴；缺席 400）×
-// ?recentN（默认 20、钳到 20）个最近 run。返 {cols, rows, cells}——列新→旧、行是 node id 并集按首次
-// 出现序、格**稀疏**（某 run 没跑到的节点无格）。有界批查——N4 分页豁免。
+// Matrix 是节点×run 状态格阵（scheduler 工单⑩）：?flowrunIds=<csv，去重后 ≤50；**必填**——空集 400、
+// 越上限大声 422> 返恰为这些 run 的 {cols, rows, cells}——列按正典新→旧 (started_at, id) DESC 序、
+// **与请求顺序无关**，行是 node id 并集按首次出现序，格**稀疏**（某 run 没跑到的节点无格）。未知 id
+// 静默缺席（cols 自带显式键）。哪些 run 在屏上是客户端的事——它按时间窗文法翻 GET /flowruns、逐页批取
+// 格阵。有界批查——N4 分页豁免。
 func (h *FlowrunHandler) Matrix(w http.ResponseWriter, r *http.Request) {
-	query := r.URL.Query()
-	recentN, err := parseRecentN(query.Get("recentN"))
-	if err != nil {
-		responsehttpapi.FromDomainError(w, h.log, err)
-		return
-	}
 	matrix, err := h.svc.RunMatrix(r.Context(), flowrundomain.MatrixQuery{
-		WorkflowID: strings.TrimSpace(query.Get("workflowId")),
-		RecentN:    recentN,
+		FlowrunIDs: splitCSV(r.URL.Query().Get("flowrunIds")),
 	})
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)

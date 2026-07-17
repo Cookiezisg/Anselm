@@ -247,23 +247,36 @@ func (s *Service) RunStats(ctx context.Context, q flowrundomain.StatsQuery) (*fl
 	return stats, nil
 }
 
-// RunMatrix answers the node×run status grid (scheduler 工单⑩) for one workflow's last RecentN
-// runs. Defaults + guards live here, same as RunStats: workflowId is REQUIRED (it is the grid's
-// axis — no axis, no grid, so an absent one is a 400 rather than a meaningless empty answer), and
-// RecentN takes the default / clamps to the cap exactly like its flowrun-stats namesake.
+// RunMatrix answers the node×run status grid (scheduler 工单⑩) for an explicit batch of run ids.
+// Guards live here, VERBATIM the RunStats ids discipline: dedup preserving request order (blank
+// ids skipped), an empty set is a 400 (no runs, no grid — rejecting beats minting a meaningless
+// empty answer), and over-cap after dedup rejects loudly with the cap in Details — never a silent
+// truncation. Which runs are asked for is the client's business (it pages GET /flowruns); output
+// column order is the store's canonical (started_at, id) DESC regardless of request order.
 //
-// RunMatrix 应答一个 workflow 近 RecentN 个 run 的节点×run 状态格阵（scheduler 工单⑩）。默认 + 守卫
-// 落在这里，与 RunStats 同：workflowId **必填**（它是格阵的轴——无轴即无格阵，故缺席是 400、而非一个
-// 无意义的空答案），RecentN 取默认/钳到上限，与 flowrun-stats 的同名参数逐字一致。
+// RunMatrix 应答一批显式 run id 的节点×run 状态格阵（scheduler 工单⑩）。守卫落在这里，**逐字**沿用
+// RunStats 的 ids 纪律：按请求序去重（空串跳过）、空集 400（无 run 即无格阵——拒绝胜过铸一个无意义的
+// 空答案）、去重后越上限带上限大声拒——绝不静默截断。要哪些 run 是客户端的事（它翻 GET /flowruns）；
+// 输出列序恒为 store 的正典 (started_at, id) DESC、与请求顺序无关。
 func (s *Service) RunMatrix(ctx context.Context, q flowrundomain.MatrixQuery) (*flowrundomain.Matrix, error) {
-	if q.WorkflowID == "" {
+	seen := make(map[string]bool, len(q.FlowrunIDs))
+	deduped := make([]string, 0, len(q.FlowrunIDs))
+	for _, id := range q.FlowrunIDs {
+		if id == "" || seen[id] {
+			continue
+		}
+		seen[id] = true
+		deduped = append(deduped, id)
+	}
+	q.FlowrunIDs = deduped
+	if len(q.FlowrunIDs) == 0 {
 		return nil, errorspkg.ErrInvalidRequest
 	}
-	if q.RecentN <= 0 {
-		q.RecentN = flowrundomain.MatrixDefaultRecentN
-	}
-	if q.RecentN > flowrundomain.MatrixMaxRecentN {
-		q.RecentN = flowrundomain.MatrixMaxRecentN
+	if len(q.FlowrunIDs) > flowrundomain.MatrixMaxFlowrunIDs {
+		return nil, flowrundomain.ErrMatrixTooManyIDs.WithDetails(map[string]any{
+			"allowed": flowrundomain.MatrixMaxFlowrunIDs,
+			"got":     len(q.FlowrunIDs),
+		})
 	}
 	return s.runs.RunMatrix(ctx, q)
 }

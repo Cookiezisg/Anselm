@@ -1,13 +1,13 @@
 // matrix.go implements flowrundomain.Repository.RunMatrix — the node×run status grid (scheduler
-// 工单⑩) feeding the operations page's third face (S5 AnRunMatrix). TWO bounded queries, never
-// N+1: ① the workflow's last RecentN runs on the existing idx_fr_ws_workflow (workspace_id,
-// workflow_id, started_at DESC, id DESC — exactly this ORDER BY/LIMIT), ② every node row of those
-// runs in ONE `flowrun_id IN (…)` on idx_frn_run. Zero schema change.
+// 工单⑩) feeding the operations home's top-of-page grid (AnRunMatrix). TWO bounded queries, never
+// N+1: ① the requested run headers by id (orm WhereIn, re-ordered to the canonical started_at
+// DESC, id DESC every run list renders — the request's id order must not steer the row axis),
+// ② every node row of those runs in ONE `flowrun_id IN (…)` on idx_frn_run. Zero schema change.
 //
 // ② takes the raw-read escape hatch + manual workspace scoping (the stats.go idiom) for ONE
 // load-bearing reason: the orm row mapping would hydrate FlowRunNode.Result — the memoized result
-// blob of every node of 20 runs (the 650KB-per-node payloads F168-M7 exists to keep off the wire).
-// The grid needs five scalar columns; raw SELECT takes only those. ① stays on the orm (20 header
+// blob of every node of up to 50 runs (the 650KB-per-node payloads F168-M7 exists to keep off the wire).
+// The grid needs five scalar columns; raw SELECT takes only those. ① stays on the orm (≤50 header
 // rows, auto workspace isolation, pinned_refs is a small map).
 //
 // Row/cell ordering and the iteration aggregation are done in Go, not SQL: the multi-iteration
@@ -15,22 +15,22 @@
 // materialized for, so ordering its COALESCE(started_at, ready_at, created_at) key there is free
 // and keeps one code path. (This used to claim SQLite would "mis-order at the sub-second margins";
 // it would not — within the one canonical UTC text format all writers stamp, text order IS
-// chronological order, TestTimeText_OrdersChronologically. The batch is bounded (≤20 runs) so where
+// chronological order, TestTimeText_OrdersChronologically. The batch is bounded (≤50 runs) so where
 // the sort runs is a wash either way.)
 //
 // matrix.go 实现 flowrundomain.Repository.RunMatrix——节点×run 状态格阵（scheduler 工单⑩），喂运营主页
-// 第三脸（S5 AnRunMatrix）。**两条**有界查询、绝不 N+1：① 该 workflow 近 RecentN 个 run，走既有
-// idx_fr_ws_workflow（workspace_id, workflow_id, started_at DESC, id DESC——正是本 ORDER BY/LIMIT）；
-// ② 这批 run 的全部节点行，一条 `flowrun_id IN (…)` 走 idx_frn_run。零 schema 变更。
+// 页顶格阵（AnRunMatrix）。**两条**有界查询、绝不 N+1：① 请求的 run 头按 id 批取（orm WhereIn，重排回
+// 所有 run 列表同款的正典 started_at DESC, id DESC——请求的 id 顺序不许左右行轴）；② 这批 run 的全部
+// 节点行，一条 `flowrun_id IN (…)` 走 idx_frn_run。零 schema 变更。
 //
 // ② 走原始读逃生口 + 手动 workspace 隔离（stats.go 惯用形），只为一个**承重**理由：orm 行映射会水合
-// FlowRunNode.Result——20 个 run 每个节点的记忆化 result blob（F168-M7 正是为把这类 650KB 载荷挡在线缆外
-// 而存在）。格阵只要五个标量列；raw SELECT 就只取这五个。① 留在 orm 上（20 行头、自动 workspace 隔离、
+// FlowRunNode.Result——至多 50 个 run 每个节点的记忆化 result blob（F168-M7 正是为把这类 650KB 载荷挡在线缆外
+// 而存在）。格阵只要五个标量列；raw SELECT 就只取这五个。① 留在 orm 上（≤50 行头、自动 workspace 隔离、
 // pinned_refs 是小 map）。
 //
 // 行/格排序与迭代聚合在 Go 里做、不在 SQL：排序键是 COALESCE(started_at, ready_at, created_at)，跨的是
 // **精度混杂**的列（⑫ ADD COLUMN 的行 vs 旧行），SQLite 会按 TEXT 比较、在亚秒边缘错序——正是 stats.go
-// 用 julianday() 解的那个坑。Go 里解析成 time.Time 比较没有这个边缘，且批是有界的（≤20 run）、不花钱。
+// 用 julianday() 解的那个坑。Go 里解析成 time.Time 比较没有这个边缘，且批是有界的（≤50 run）、不花钱。
 package flowrun
 
 import (
@@ -97,12 +97,18 @@ func (s *Store) RunMatrix(ctx context.Context, q flowrundomain.MatrixQuery) (*fl
 		Cells: []*flowrundomain.MatrixCell{},
 	}
 
-	// ① Columns: the workflow's last RecentN runs, newest→oldest — the same (started_at, id) order
-	// every run list renders, so a column and its row in the big table are the same run at the same
-	// position. orm path: auto workspace isolation, and idx_fr_ws_workflow covers it.
-	// ① 列：该 workflow 近 RecentN 个 run，新→旧——与所有 run 列表同一 (started_at, id) 序，故一列与它
-	// 在大表里的行是同位的同一个 run。orm 路：自动 workspace 隔离，idx_fr_ws_workflow 覆盖。
-	runs, err := s.runs.WhereEq("workflow_id", q.WorkflowID).Order("started_at DESC, id DESC").Limit(q.RecentN).Find(ctx)
+	// ① Columns: the requested run headers, newest→oldest — the same (started_at, id) order every
+	// run list renders, so a column and its row in the big table are the same run at the same
+	// position, REGARDLESS of the request's id order. orm path: auto workspace isolation (a foreign
+	// workspace id simply never matches), unknown ids silently absent.
+	// ① 列：请求的 run 头，新→旧——与所有 run 列表同一 (started_at, id) 序，故一列与它在大表里的行是
+	// 同位的同一个 run、**与请求的 id 顺序无关**。orm 路：自动 workspace 隔离（异 workspace 的 id 天然
+	// 匹配不上），未知 id 静默缺席。
+	vals := make([]any, len(q.FlowrunIDs))
+	for i, id := range q.FlowrunIDs {
+		vals[i] = id
+	}
+	runs, err := s.runs.WhereIn("id", vals...).Order("started_at DESC, id DESC").Find(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("flowrunstore.RunMatrix cols: %w", err)
 	}

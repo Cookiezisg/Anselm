@@ -43,7 +43,7 @@ audience: [human, ai]
 
 ---
 
-## 全量登记（315 码，按域）
+## 全量登记（316 码，按域）
 
 > `errorspkg.New` 机械抽取（304，不含 `*_test.go` 测试 sentinel 如 DUP/THING_NOT_FOUND）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（7）+ transport 合成码（4）= 315。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
 >
@@ -391,6 +391,7 @@ audience: [human, ai]
 | `FLOWRUN_NOT_FOUND` | 404 | flowrun not found |
 | `FLOWRUN_NOT_REPLAYABLE` | 422 | flowrun is not in a replayable (failed) state |
 | `FLOWRUN_STATS_TOO_MANY_IDS` | 422 | flowrun-stats accepts at most 50 workflowIds per request (工单③ 有界批查上限；`details.allowed`/`details.got`) |
+| `FLOWRUN_MATRIX_TOO_MANY_IDS` | 422 | flowrun-matrix accepts at most 50 flowrunIds per request (工单⑩ 有界批查上限；`details.allowed`/`details.got`) |
 | `FLOWRUN_STATS_INVALID_SINCE` | 422 | since must be an RFC3339 timestamp or a look-back duration like 24h or 7d (`details.got`) |
 
 ### `domain/function`

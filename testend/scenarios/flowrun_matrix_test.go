@@ -1,5 +1,5 @@
 // flowrun_matrix_test.go — black-box coverage for GET /flowrun-matrix (scheduler 工单⑩), the
-// node×run status grid feeding the operations page's third face, and for the run-history retention
+// node×run status grid feeding the operations home's top-of-page grid, and for the run-history retention
 // contract GET/PATCH /retention (scheduler 工单⑬). Zero tokens, zero sandbox: completed runs come
 // from an approval decided "no" with no no-edge (the run settles with nothing ready), failed from an
 // action referencing a ghost function — the flowrun_stats_test.go recipe.
@@ -12,7 +12,7 @@
 // sweep against a REAL server leaves fresh history standing and the process healthy (the sweep is
 // kicked from the PATCH's own goroutine — a deadlock or a panic there is exactly what this catches).
 //
-// flowrun_matrix_test.go——GET /flowrun-matrix（scheduler 工单⑩，喂运营主页第三脸的节点×run 状态格阵）
+// flowrun_matrix_test.go——GET /flowrun-matrix（scheduler 工单⑩，喂运营主页页顶格阵的节点×run 状态格阵）
 // 与 run 历史保留契约 GET/PATCH /retention（scheduler 工单⑬）的黑盒覆盖。零 token 零 sandbox:completed
 // 用「审批决 no 且无 no 边」造、failed 用引用幽灵 function 的 action 造——flowrun_stats_test.go 的配方。
 //
@@ -25,6 +25,7 @@ package scenarios
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -51,8 +52,9 @@ type matrixResp struct {
 	} `json:"cells"`
 }
 
-// TestFlowrunMatrix_Grid: 一次取完整个格阵——列新→旧带 run 耗时、行是 node id 并集、格稀疏且状态诚实、
-// 未知 workflow 三个空列表、缺 workflowId 400。
+// TestFlowrunMatrix_Grid: 按显式 flowrunIds 批取格阵——列按正典新→旧（与请求顺序无关）带 run 耗时、
+// 行是 node id 并集、格稀疏且状态诚实、未知 id 静默缺席、全未知三个空列表、缺 flowrunIds 400、越 50 上限
+// 大声 422。
 func TestFlowrunMatrix_Grid(t *testing.T) {
 	srv := harness.Start(t)
 	c := srv.Client(t)
@@ -89,7 +91,8 @@ func TestFlowrunMatrix_Grid(t *testing.T) {
 	}
 
 	var m matrixResp
-	wc.GET("/api/v1/flowrun-matrix?workflowId="+wf).OK(t, &m)
+	// 请求序故意旧在前：输出必须是正典 (started_at, id) DESC、与请求顺序无关。
+	wc.GET("/api/v1/flowrun-matrix?flowrunIds="+first+","+second).OK(t, &m)
 
 	// 列新→旧：#2 在前。
 	if len(m.Cols) != 2 || m.Cols[0].FlowrunID != second || m.Cols[1].FlowrunID != first {
@@ -130,11 +133,16 @@ func TestFlowrunMatrix_Grid(t *testing.T) {
 		}
 	}
 
-	// 未知 workflow：三个**空列表**、绝不 null（纯 flowruns 投影、不校验 workflow 存在性）。
+	// 未知 id 静默缺席：已知的照答、未知的不在——全未知则三个**空列表**、绝不 null。
+	var mixed matrixResp
+	wc.GET("/api/v1/flowrun-matrix?flowrunIds="+first+",fr_ghost_never_exists").OK(t, &mixed)
+	if len(mixed.Cols) != 1 || mixed.Cols[0].FlowrunID != first {
+		t.Fatalf("混合已知/未知 id 须只答已知，实得 %+v", mixed.Cols)
+	}
 	var empty matrixResp
-	raw := wc.GET("/api/v1/flowrun-matrix?workflowId=wf_ghost_never_exists").OK(t, &empty)
+	raw := wc.GET("/api/v1/flowrun-matrix?flowrunIds=fr_ghost_never_exists").OK(t, &empty)
 	if len(empty.Cols) != 0 || len(empty.Rows) != 0 || len(empty.Cells) != 0 {
-		t.Fatalf("未知 workflow 须空，实得 %+v", empty)
+		t.Fatalf("全未知 id 须空，实得 %+v", empty)
 	}
 	for _, key := range []string{`"cols":[]`, `"rows":[]`, `"cells":[]`} {
 		if !strings.Contains(strings.ReplaceAll(string(raw.Raw), " ", ""), key) {
@@ -142,17 +150,18 @@ func TestFlowrunMatrix_Grid(t *testing.T) {
 		}
 	}
 
-	// workflowId 是格阵的轴：缺席即 400，绝不回一个无意义的空答案。
+	// flowrunIds 是格阵的内容：缺席/全空串即 400，绝不回一个无意义的空答案。
 	wc.GET("/api/v1/flowrun-matrix").Fail(t, 400, "INVALID_REQUEST")
-	// recentN 与 page limit 同语义：非数字/<1 大声拒。
-	wc.GET("/api/v1/flowrun-matrix?workflowId="+wf+"&recentN=0").Fail(t, 400, "INVALID_REQUEST")
-	wc.GET("/api/v1/flowrun-matrix?workflowId="+wf+"&recentN=abc").Fail(t, 400, "INVALID_REQUEST")
-	// >上限只是钳制（窗口是视图，收窄它是视觉降级、不是撒谎）——200 且答案照常。
-	var clamped matrixResp
-	wc.GET("/api/v1/flowrun-matrix?workflowId="+wf+"&recentN=999").OK(t, &clamped)
-	if len(clamped.Cols) != 2 {
-		t.Errorf("recentN 越上限须钳制而非拒绝，实得 %d 列", len(clamped.Cols))
+	wc.GET("/api/v1/flowrun-matrix?flowrunIds=,,").Fail(t, 400, "INVALID_REQUEST")
+	// （去重后）越 50 上限带上限大声拒——绝不静默截断（客户端拿屏上那页与答案对拉）。
+	over := make([]string, 51)
+	for i := range over {
+		over[i] = fmt.Sprintf("fr_%03d", i)
 	}
+	wc.GET("/api/v1/flowrun-matrix?flowrunIds="+strings.Join(over, ",")).Fail(t, 422, "FLOWRUN_MATRIX_TOO_MANY_IDS")
+	// 51 个原始 id 去重后 ≤50 必须放行——重复在封顶检查之前坍缩。
+	dup := append([]string{over[0]}, over[:50]...)
+	wc.GET("/api/v1/flowrun-matrix?flowrunIds="+strings.Join(dup, ",")).OK(t, nil)
 }
 
 // TestRetention_ConfigContract: 保留线的 HTTP 契约——默认 90、PATCH 合并落盘、显式 0=永久、负数与拼错的

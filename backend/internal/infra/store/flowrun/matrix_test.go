@@ -1,11 +1,12 @@
 // matrix_test.go pins RunMatrix (scheduler 工单⑩): columns newest→oldest with the run's elapsed,
 // rows as the node-id union in first-appearance order (newest run's execution order first, older
 // runs' extra nodes appended), SPARSE cells, the loop-iteration aggregation (worst disposition
-// wins, ties to the latest turn), the recentN window, workspace isolation, and the empty shape.
+// wins, ties to the latest turn), the canonical column order REGARDLESS of the request's id order,
+// workspace isolation (a foreign id silently absent), and the empty shape.
 //
 // matrix_test.go 钉死 RunMatrix（scheduler 工单⑩）：列新→旧带 run 耗时，行是 node id 并集按首次出现序
 // （最新 run 的执行序在前、更老 run 独有的节点追加在后），格**稀疏**，loop 迭代聚合（最坏处置胜、同档取
-// 最新轮），recentN 窗口，workspace 隔离，空形状。
+// 最新轮），列序正典、**与请求 id 顺序无关**，workspace 隔离（异 workspace id 静默缺席），空形状。
 package flowrun
 
 import (
@@ -77,7 +78,9 @@ func TestRunMatrix_ColsRowsCellsShape(t *testing.T) {
 	seedMatrixNode(t, db, "ws_1", "frn_n2", "fr_new", "fetch", "action", flowrundomain.NodeCompleted, 0, newer.Add(time.Second))
 	seedMatrixNode(t, db, "ws_1", "frn_n3", "fr_new", "save", "action", flowrundomain.NodeFailed, 0, newer.Add(2*time.Second))
 
-	m, err := store.RunMatrix(ctx, flowrundomain.MatrixQuery{WorkflowID: "wf_1", RecentN: 20})
+	// Request order deliberately oldest-first: the canonical (started_at, id) DESC output must win.
+	// 请求序故意旧在前：正典 (started_at, id) DESC 输出必须获胜。
+	m, err := store.RunMatrix(ctx, flowrundomain.MatrixQuery{FlowrunIDs: []string{"fr_old", "fr_new"}})
 	if err != nil {
 		t.Fatalf("RunMatrix: %v", err)
 	}
@@ -144,7 +147,7 @@ func TestRunMatrix_IterationsAggregateWorstWins(t *testing.T) {
 	seedMatrixNode(t, db, "ws_1", "frn_l1", "fr_loop", "step", "action", flowrundomain.NodeFailed, 1, base.Add(time.Second))
 	seedMatrixNode(t, db, "ws_1", "frn_l2", "fr_loop", "step", "action", flowrundomain.NodeCompleted, 2, base.Add(2*time.Second))
 
-	m, err := store.RunMatrix(ctx, flowrundomain.MatrixQuery{WorkflowID: "wf_1", RecentN: 20})
+	m, err := store.RunMatrix(ctx, flowrundomain.MatrixQuery{FlowrunIDs: []string{"fr_loop"}})
 	if err != nil {
 		t.Fatalf("RunMatrix: %v", err)
 	}
@@ -176,7 +179,7 @@ func TestRunMatrix_ParkedOutranksCompletedAndTieTakesLatest(t *testing.T) {
 	seedMatrixNode(t, db, "ws_1", "frn_t0", "fr_p", "tick", "action", flowrundomain.NodeCompleted, 0, base.Add(2*time.Second))
 	seedMatrixNode(t, db, "ws_1", "frn_t1", "fr_p", "tick", "action", flowrundomain.NodeCompleted, 1, base.Add(3*time.Second))
 
-	m, err := store.RunMatrix(ctx, flowrundomain.MatrixQuery{WorkflowID: "wf_1", RecentN: 20})
+	m, err := store.RunMatrix(ctx, flowrundomain.MatrixQuery{FlowrunIDs: []string{"fr_p"}})
 	if err != nil {
 		t.Fatalf("RunMatrix: %v", err)
 	}
@@ -219,7 +222,7 @@ func TestRunMatrix_CancelledRankIsNeutralNotGreenNotRed(t *testing.T) {
 	seedMatrixNode(t, db, "ws_1", "frn_b0", "fr_c", "boom", "action", flowrundomain.NodeCancelled, 0, base.Add(2*time.Second))
 	seedMatrixNode(t, db, "ws_1", "frn_b1", "fr_c", "boom", "action", flowrundomain.NodeFailed, 1, base.Add(3*time.Second))
 
-	m, err := store.RunMatrix(ctx, flowrundomain.MatrixQuery{WorkflowID: "wf_1", RecentN: 20})
+	m, err := store.RunMatrix(ctx, flowrundomain.MatrixQuery{FlowrunIDs: []string{"fr_c"}})
 	if err != nil {
 		t.Fatalf("RunMatrix: %v", err)
 	}
@@ -233,10 +236,12 @@ func TestRunMatrix_CancelledRankIsNeutralNotGreenNotRed(t *testing.T) {
 	}
 }
 
-// recentN windows the columns to the N most recent runs — and clamping/defaults are the app's, so
-// the store honours exactly what it is handed.
-// recentN 把列窗到最近 N 个 run——钳制/默认归 app，故 store 恰按交给它的数执行。
-func TestRunMatrix_RecentNWindowsNewest(t *testing.T) {
+// The output column order is the canonical (started_at, id) DESC every run list renders,
+// REGARDLESS of the request's id order — a shuffled client order must not steer the row axis
+// (first-appearance scans the columns). Only the requested ids answer; siblings stay out.
+// 输出列序恒为所有 run 列表同款的正典 (started_at, id) DESC、**与请求 id 顺序无关**——客户端打乱的
+// 顺序不许左右行轴（首次出现扫描走的就是列）。只有请求的 id 作答；同胞 run 不掺入。
+func TestRunMatrix_CanonicalOrderRegardlessOfRequestOrder(t *testing.T) {
 	store, db := newStatsStore(t)
 	ctx := ctxWS("ws_1")
 	base := time.Date(2026, 7, 16, 10, 0, 0, 0, time.UTC)
@@ -246,39 +251,61 @@ func TestRunMatrix_RecentNWindowsNewest(t *testing.T) {
 		seedStatsRun(t, db, "ws_1", "fr_"+string(rune('a'+i)), "wf_1", flowrundomain.StatusCompleted, at, &done)
 		seedMatrixNode(t, db, "ws_1", "frn_"+string(rune('a'+i)), "fr_"+string(rune('a'+i)), "only", "action", flowrundomain.NodeCompleted, 0, at)
 	}
-	m, err := store.RunMatrix(ctx, flowrundomain.MatrixQuery{WorkflowID: "wf_1", RecentN: 2})
+	m, err := store.RunMatrix(ctx, flowrundomain.MatrixQuery{FlowrunIDs: []string{"fr_b", "fr_e", "fr_c"}})
 	if err != nil {
 		t.Fatalf("RunMatrix: %v", err)
 	}
-	if len(m.Cols) != 2 || m.Cols[0].FlowRunID != "fr_e" || m.Cols[1].FlowRunID != "fr_d" {
-		t.Fatalf("recentN=2 must take the 2 NEWEST, got %+v", m.Cols)
+	if len(m.Cols) != 3 || m.Cols[0].FlowRunID != "fr_e" || m.Cols[1].FlowRunID != "fr_c" || m.Cols[2].FlowRunID != "fr_b" {
+		t.Fatalf("cols must be canonical newest→oldest regardless of request order, got %+v", m.Cols)
 	}
-	if len(m.Cells) != 2 {
-		t.Errorf("cells must follow the window: got %d want 2", len(m.Cells))
+	if len(m.Cells) != 3 {
+		t.Errorf("cells must cover exactly the requested runs: got %d want 3", len(m.Cells))
+	}
+	// Same-instant runs tiebreak on id DESC — the canonical order's second key.
+	// 同一时刻的 run 按 id DESC 决胜——正典序的第二把钥匙。
+	done := base.Add(time.Second)
+	seedStatsRun(t, db, "ws_1", "fr_z2", "wf_1", flowrundomain.StatusCompleted, base, &done)
+	seedStatsRun(t, db, "ws_1", "fr_z1", "wf_1", flowrundomain.StatusCompleted, base, &done)
+	m2, err := store.RunMatrix(ctx, flowrundomain.MatrixQuery{FlowrunIDs: []string{"fr_z1", "fr_z2"}})
+	if err != nil {
+		t.Fatalf("RunMatrix tiebreak: %v", err)
+	}
+	if len(m2.Cols) != 2 || m2.Cols[0].FlowRunID != "fr_z2" || m2.Cols[1].FlowRunID != "fr_z1" {
+		t.Fatalf("same-instant runs must tiebreak id DESC, got %+v", m2.Cols)
 	}
 }
 
-// Another workspace's runs and another workflow's runs are invisible — and an unknown workflow
-// returns three EMPTY lists, never null (the client zips over them unconditionally).
-// 另一个 workspace 与另一个 workflow 的 run 不可见——未知 workflow 返三个**空**列表、绝不 null。
+// A foreign-workspace id and an unknown id are silently ABSENT (never an error, never a leak) —
+// and a batch that resolves to nothing returns three EMPTY lists, never null (the client zips
+// over them unconditionally). A known id still answers alongside the absentees.
+// 异 workspace 的 id 与未知 id **静默缺席**（不报错、更不泄漏）——解析到空的一批返三个**空**列表、
+// 绝不 null。已知 id 在缺席者旁照常作答。
 func TestRunMatrix_IsolationAndEmptyShape(t *testing.T) {
 	store, db := newStatsStore(t)
 	base := time.Date(2026, 7, 16, 10, 0, 0, 0, time.UTC)
 	done := base.Add(time.Second)
 	seedStatsRun(t, db, "ws_other", "fr_other", "wf_1", flowrundomain.StatusCompleted, base, &done)
 	seedMatrixNode(t, db, "ws_other", "frn_other", "fr_other", "n", "action", flowrundomain.NodeCompleted, 0, base)
-	seedStatsRun(t, db, "ws_1", "fr_wf2", "wf_2", flowrundomain.StatusCompleted, base, &done)
-	seedMatrixNode(t, db, "ws_1", "frn_wf2", "fr_wf2", "n", "action", flowrundomain.NodeCompleted, 0, base)
 
-	m, err := store.RunMatrix(ctxWS("ws_1"), flowrundomain.MatrixQuery{WorkflowID: "wf_1", RecentN: 20})
+	m, err := store.RunMatrix(ctxWS("ws_1"), flowrundomain.MatrixQuery{FlowrunIDs: []string{"fr_other", "fr_unknown"}})
 	if err != nil {
 		t.Fatalf("RunMatrix: %v", err)
 	}
 	if len(m.Cols) != 0 || len(m.Rows) != 0 || len(m.Cells) != 0 {
-		t.Fatalf("another workspace's run leaked / unknown workflow not empty: %+v", m)
+		t.Fatalf("another workspace's run leaked / unknown ids not empty: %+v", m)
 	}
 	if m.Cols == nil || m.Rows == nil || m.Cells == nil {
 		t.Fatal("empty matrix must be empty LISTS, never null")
+	}
+
+	seedStatsRun(t, db, "ws_1", "fr_mine", "wf_1", flowrundomain.StatusCompleted, base, &done)
+	seedMatrixNode(t, db, "ws_1", "frn_mine", "fr_mine", "n", "action", flowrundomain.NodeCompleted, 0, base)
+	m2, err := store.RunMatrix(ctxWS("ws_1"), flowrundomain.MatrixQuery{FlowrunIDs: []string{"fr_mine", "fr_other", "fr_unknown"}})
+	if err != nil {
+		t.Fatalf("RunMatrix mixed: %v", err)
+	}
+	if len(m2.Cols) != 1 || m2.Cols[0].FlowRunID != "fr_mine" {
+		t.Fatalf("known id must answer while absentees stay silent, got %+v", m2.Cols)
 	}
 }
 
@@ -286,7 +313,7 @@ func TestRunMatrix_IsolationAndEmptyShape(t *testing.T) {
 // 裸 ctx（无 workspace）必须被拒、而非静默跨 workspace 作答（D2）。
 func TestRunMatrix_BareCtxRejected(t *testing.T) {
 	store, _ := newStatsStore(t)
-	if _, err := store.RunMatrix(context.Background(), flowrundomain.MatrixQuery{WorkflowID: "wf_1", RecentN: 20}); err == nil {
+	if _, err := store.RunMatrix(context.Background(), flowrundomain.MatrixQuery{FlowrunIDs: []string{"fr_x"}}); err == nil {
 		t.Fatal("a bare ctx must be rejected (D2 workspace isolation)")
 	}
 }

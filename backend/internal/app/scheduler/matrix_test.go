@@ -1,14 +1,17 @@
 // matrix_test.go pins the app-layer guards on the two scheduler read/govern paths whose defaults
-// live in the service: RunMatrix (工单⑩ — workflowId required, recentN default/clamp) and
-// SweepRunRetention (工单⑬ — the batch loop and the verbatim cutoff pass-through).
+// live in the service: RunMatrix (工单⑩ — flowrunIds dedup preserving order, empty-set 400,
+// over-cap loud 422) and SweepRunRetention (工单⑬ — the batch loop and the verbatim cutoff
+// pass-through).
 //
 // matrix_test.go 钉死两条 scheduler 路径的 app 层守卫（其默认值住在 service）：RunMatrix（工单⑩——
-// workflowId 必填、recentN 默认/钳制）与 SweepRunRetention（工单⑬——批循环与 cutoff 的逐字透传）。
+// flowrunIds 按请求序去重、空集 400、越上限大声 422）与 SweepRunRetention（工单⑬——批循环与 cutoff
+// 的逐字透传）。
 package scheduler
 
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -48,44 +51,67 @@ func (r *recorderRepo) PurgeTerminalRunsBefore(_ context.Context, cutoff time.Ti
 	return n, nil
 }
 
-// An absent workflowId is a 400, not an empty grid: the grid's axis IS the workflow, so answering
-// "here is the matrix of nothing" would dress a client bug up as data.
-// 缺席的 workflowId 是 400、不是空格阵：格阵的轴**就是** workflow，故回答「这是空无的矩阵」= 把客户端 bug
-// 打扮成数据。
-func TestRunMatrix_WorkflowIDRequired(t *testing.T) {
-	svc := &Service{runs: &recorderRepo{}}
-	if _, err := svc.RunMatrix(ctxWS("ws_1"), flowrundomain.MatrixQuery{RecentN: 20}); !errors.Is(err, errorspkg.ErrInvalidRequest) {
-		t.Fatalf("absent workflowId must reject with ErrInvalidRequest, got %v", err)
+// An empty id set is a 400, not an empty grid: no runs means no grid, so answering "here is the
+// matrix of nothing" would dress a client bug up as data. Blank ids don't count toward the set.
+// 空 id 集是 400、不是空格阵：无 run 即无格阵，回答「这是空无的矩阵」= 把客户端 bug 打扮成数据。
+// 空串 id 不计入集合。
+func TestRunMatrix_EmptyIDsRejected(t *testing.T) {
+	for name, ids := range map[string][]string{
+		"absent":      nil,
+		"only blanks": {"", "", ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			svc := &Service{runs: &recorderRepo{}}
+			if _, err := svc.RunMatrix(ctxWS("ws_1"), flowrundomain.MatrixQuery{FlowrunIDs: ids}); !errors.Is(err, errorspkg.ErrInvalidRequest) {
+				t.Fatalf("empty flowrunIds must reject with ErrInvalidRequest, got %v", err)
+			}
+		})
 	}
 }
 
-// recentN: ≤0 takes the default, > cap clamps — a window is a view, and narrowing it is a visual
-// downgrade rather than a lie (contrast the flowrun-stats ids cap, which rejects loudly because a
-// silent truncation there WOULD lie).
-// recentN：≤0 取默认、>上限钳制——窗口是视图，收窄它是视觉降级而非撒谎（对比 flowrun-stats 的 ids 上限
-// 大声拒：那里静默截断**会**撒谎）。
-func TestRunMatrix_RecentNDefaultAndClamp(t *testing.T) {
-	ctx := ctxWS("ws_1")
-	for _, tc := range []struct {
-		name string
-		give int
-		want int
-	}{
-		{"absent takes the default", 0, flowrundomain.MatrixDefaultRecentN},
-		{"negative takes the default", -5, flowrundomain.MatrixDefaultRecentN},
-		{"over the cap clamps", 999, flowrundomain.MatrixMaxRecentN},
-		{"under the cap is honoured", 5, 5},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			repo := &recorderRepo{}
-			svc := &Service{runs: repo}
-			if _, err := svc.RunMatrix(ctx, flowrundomain.MatrixQuery{WorkflowID: "wf_1", RecentN: tc.give}); err != nil {
-				t.Fatalf("RunMatrix: %v", err)
-			}
-			if repo.lastMatrix.RecentN != tc.want {
-				t.Fatalf("recentN: store got %d want %d", repo.lastMatrix.RecentN, tc.want)
-			}
-		})
+// Dedup preserves request order and skips blanks — verbatim the flowrun-stats ids discipline.
+// 去重保请求序、跳过空串——逐字沿用 flowrun-stats 的 ids 纪律。
+func TestRunMatrix_DedupPreservesOrder(t *testing.T) {
+	repo := &recorderRepo{}
+	svc := &Service{runs: repo}
+	q := flowrundomain.MatrixQuery{FlowrunIDs: []string{"fr_b", "", "fr_a", "fr_b", "fr_c", "fr_a"}}
+	if _, err := svc.RunMatrix(ctxWS("ws_1"), q); err != nil {
+		t.Fatalf("RunMatrix: %v", err)
+	}
+	want := []string{"fr_b", "fr_a", "fr_c"}
+	got := repo.lastMatrix.FlowrunIDs
+	if len(got) != len(want) {
+		t.Fatalf("deduped ids: got %v want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("deduped ids: got %v want %v", got, want)
+		}
+	}
+}
+
+// Over the cap (after dedup) rejects loudly with the cap in Details — a silent truncation would
+// lie, because the client zips its on-screen page against the answer.
+// （去重后）越上限带上限大声拒——静默截断会撒谎：客户端拿屏上那页与答案对拉。
+func TestRunMatrix_TooManyIDsRejected(t *testing.T) {
+	ids := make([]string, flowrundomain.MatrixMaxFlowrunIDs+1)
+	for i := range ids {
+		ids[i] = fmt.Sprintf("fr_%03d", i)
+	}
+	svc := &Service{runs: &recorderRepo{}}
+	_, err := svc.RunMatrix(ctxWS("ws_1"), flowrundomain.MatrixQuery{FlowrunIDs: ids})
+	if !errors.Is(err, flowrundomain.ErrMatrixTooManyIDs) {
+		t.Fatalf("51 ids must reject with ErrMatrixTooManyIDs, got %v", err)
+	}
+	// Duplicates collapse BEFORE the cap check: 51 raw ids that dedup to ≤50 must pass.
+	// 重复在封顶检查**之前**坍缩：51 个原始 id 去重后 ≤50 必须放行。
+	dup := append([]string{ids[0]}, ids[:flowrundomain.MatrixMaxFlowrunIDs]...)
+	repo := &recorderRepo{}
+	if _, err := (&Service{runs: repo}).RunMatrix(ctxWS("ws_1"), flowrundomain.MatrixQuery{FlowrunIDs: dup}); err != nil {
+		t.Fatalf("51 raw ids deduping to 50 must pass, got %v", err)
+	}
+	if len(repo.lastMatrix.FlowrunIDs) != flowrundomain.MatrixMaxFlowrunIDs {
+		t.Fatalf("store got %d ids want %d", len(repo.lastMatrix.FlowrunIDs), flowrundomain.MatrixMaxFlowrunIDs)
 	}
 }
 
