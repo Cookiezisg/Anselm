@@ -64,7 +64,7 @@ run 是**永不软删**的 Log 行，故若无保留线，一个跑了三年 cro
 - **只删终态**（completed/failed/cancelled）且 `completed_at` 非 NULL 且**严格早于** cutoff 的 run——**running/parked 永不删，不管多老**（在飞的 run 不是历史；等人的 run 是活的义务）。窗口按 `completed_at` 开，与 flowrun-stats 的 `completedSince` 逐字同源。
 - **删 run 自己的行**：头 + `flowrun_nodes` 行 + **该 run 产生的**四张执行日志表审计行（`flowrun_id = <该 run>`；对话跑的 `flowrun_id=''` 不受影响）。旁系台账（firing / 通知 / 触点）留存，其 `flowrunId` 成悬挂引用 → 深链 404 → 呈现端渲孤儿墓碑。
 - **怎么跑**：`SweepRunRetention(ctx, cutoff)`（app，批循环 + 批间查 ctx）→ `PurgeTerminalRunsBefore`（store，一批一事务、子先于父、删头时**重申终态守卫**使并发 `:replay` 赢、清理输）。bootstrap 逐 workspace（Detached ctx）在 boot / 每 6h / 每次 `PATCH /retention` 各跑一趟；线为 `0` 即碰都不碰 DB。
-- **删完回收磁盘**（T4/WRK-070）：删行本身**一字节都不还给文件系统**（SQLite `DELETE` 只把页移到 freelist）——故一趟清理真删了行后，`sweepRetention` 调**一次** `infra/db.ReclaimFreePages`（DB 全局、非逐 ws），越过回收闸则 `incremental_vacuum` 把腾出的页还给 OS；库常态跑在 `auto_vacuum=INCREMENTAL`（存量 `NONE` 库 boot 时一次 `VACUUM` 迁移）。**回收不删逻辑行、不是物理删例外**，机制见 [platform-pkgs.md](platform-pkgs.md#infradb) `infra/db` 节。
+- **删完回收磁盘**（T4/WRK-070）：删行本身**一字节都不还给文件系统**（SQLite `DELETE` 只把页移到 freelist）——故一趟清理真删了行后，`sweepRetention` 调**一次** `infra/db.ReclaimFreePages`（DB 全局、非逐 ws），越过回收闸则 `incremental_vacuum` 把腾出的页还给 OS；库天生跑在 `auto_vacuum=INCREMENTAL`（新库 DSN 首位设定；mode=0 的 dogfood 库靠用户在存储面板主动 `Compact` 升级——无 boot 自动迁移）。**回收不删逻辑行、不是物理删例外**，机制见 [platform-pkgs.md](platform-pkgs.md#infradb) `infra/db` 节。
 - **与统计/记忆化的关系**：所有统计与失败聚合窗口（≤7d）远在默认线内、天然不受影响；被清 run 的记忆化行随之消失——它已终态、不会再被重走，record-once 对**存活**的 run 完好如初。
 
 ## 5. 后台播种惯例（P3-1 教训，背景工作的铁律）

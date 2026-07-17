@@ -4500,6 +4500,21 @@ class Translations$settings$storage$en {
 	/// en: 'Retention updated'
 	String get retentionSaved => 'Retention updated';
 
+	/// en: 'Database'
+	String get database => 'Database';
+
+	/// en: '$size, of which $dead reclaimable'
+	String dbFootprint({required Object size, required Object dead}) => '${size}, of which ${dead} reclaimable';
+
+	/// en: 'Compact database'
+	String get compact => 'Compact database';
+
+	/// en: 'Compacting…'
+	String get compacting => 'Compacting…';
+
+	/// en: 'Reclaimed $mb'
+	String compacted({required Object mb}) => 'Reclaimed ${mb}';
+
 	/// en: 'Reset local preferences'
 	String get resetPrefs => 'Reset local preferences';
 
@@ -7238,6 +7253,11 @@ extension on Translations {
 		} ?? switch (path) {
 			'settings.storage.retentionForever' => 'Keep forever',
 			'settings.storage.retentionSaved' => 'Retention updated',
+			'settings.storage.database' => 'Database',
+			'settings.storage.dbFootprint' => ({required Object size, required Object dead}) => '${size}, of which ${dead} reclaimable',
+			'settings.storage.compact' => 'Compact database',
+			'settings.storage.compacting' => 'Compacting…',
+			'settings.storage.compacted' => ({required Object mb}) => 'Reclaimed ${mb}',
 			'settings.storage.resetPrefs' => 'Reset local preferences',
 			'settings.storage.resetPrefsDesc' => 'Clears this machine\'s UI preferences (theme/window/zoom…) only — never touches workspace data. The app will restart to apply the reset.',
 			'settings.storage.resetPrefsTitle' => 'Reset local preferences?',

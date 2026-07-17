@@ -43,12 +43,12 @@ audience: [human, ai]
 
 ---
 
-## 全量登记（314 码，按域）
+## 全量登记（315 码，按域）
 
-> `errorspkg.New` 机械抽取（303，不含 `*_test.go` 测试 sentinel 如 DUP/THING_NOT_FOUND）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（7）+ transport 合成码（4）= 314。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
+> `errorspkg.New` 机械抽取（304，不含 `*_test.go` 测试 sentinel 如 DUP/THING_NOT_FOUND）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（7）+ transport 合成码（4）= 315。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
 >
 > **复核方法**（本汇总数无机械守卫——`make docs` 只查结构/frontmatter/孤儿链接，`pkg/errors` 的 `standard_test.go` 只钉「一律走 `errorspkg.New`」+「码全局唯一」，**都不数总数**，故这三个数是**手工事实**、会随每次加码悄悄漂旧，改码时请一并重算）：
-> `grep -rn "errorspkg.New(" --include="*.go" backend | grep -v _test.go | wc -l` = 303 · `backend/internal/pkg/errors/sentinel.go` 的 bare `New` = 7 · transport 合成 = 4 · 登记表行数应恒等于总数。
+> `grep -rn "errorspkg.New(" --include="*.go" backend | grep -v _test.go | wc -l` = 304 · `backend/internal/pkg/errors/sentinel.go` 的 bare `New` = 7 · transport 合成 = 4 · 登记表行数应恒等于总数。
 
 ### `pkg/errors`（跨域 sentinel）
 
@@ -106,6 +106,12 @@ audience: [human, ai]
 |---|---|---|
 | `SETTINGS_LIMITS_INVALID` | 400 | limits values out of range |
 | `SETTINGS_RETENTION_INVALID` | 400 | runRetentionDays must be 0 (keep forever) or a positive number of days（scheduler 工单⑬——**唯一的物理约束**：线不能倒着走；未知字段/畸形 JSON 同码。UI 的 30/90/180/永久 值集是产品可供性、后端不强制，60 照收——拒它是校验剧场，设计原则 #6） |
+
+### `app/storage`
+
+| code | HTTP | message |
+|---|---|---|
+| `STORAGE_COMPACT_FAILED` | 500 | database compaction failed (VACUUM needs free scratch space roughly the size of the database)（T4/WRK-070——`POST /storage:compact` 的全量 `VACUUM` 跑不完，主因磁盘满、放不下约等于库大小的临时副本；库不动、可安全重试；底层 cause 记日志不上线缆） |
 
 ### `app/tool/agent`
 

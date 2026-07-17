@@ -33,6 +33,7 @@ import (
 	searchapp "github.com/sunweilin/anselm/backend/internal/app/search"
 	settingsapp "github.com/sunweilin/anselm/backend/internal/app/settings"
 	skillapp "github.com/sunweilin/anselm/backend/internal/app/skill"
+	storageapp "github.com/sunweilin/anselm/backend/internal/app/storage"
 	subagentapp "github.com/sunweilin/anselm/backend/internal/app/subagent"
 	todoapp "github.com/sunweilin/anselm/backend/internal/app/todo"
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
@@ -108,6 +109,7 @@ type services struct {
 	workflow      *workflowapp.Service
 	scheduler     *schedulerapp.Service
 	settings      *settingsapp.Service
+	storage       *storageapp.Service
 	conversation  *conversationapp.Service
 	chat          *chatapp.Service
 	subagent      *subagentapp.Service

@@ -1875,6 +1875,11 @@ class _Translations$settings$storage$zh_CN extends Translations$settings$storage
 	@override String get retention180 => '180 天';
 	@override String get retentionForever => '永久保留';
 	@override String get retentionSaved => '保留策略已更新';
+	@override String get database => '数据库';
+	@override String dbFootprint({required Object size, required Object dead}) => '${size},其中 ${dead} 可回收';
+	@override String get compact => '压缩数据库';
+	@override String get compacting => '压缩中…';
+	@override String compacted({required Object mb}) => '已回收 ${mb}';
 	@override String get resetPrefs => '重置本地偏好';
 	@override String get resetPrefsDesc => '只清除本机的界面偏好(主题/窗口/缩放等),不碰任何工作区数据将重启应用以生效。';
 	@override String get resetPrefsTitle => '重置本地偏好?';
@@ -3974,6 +3979,11 @@ extension on TranslationsZhCn {
 		} ?? switch (path) {
 			'settings.storage.retentionForever' => '永久保留',
 			'settings.storage.retentionSaved' => '保留策略已更新',
+			'settings.storage.database' => '数据库',
+			'settings.storage.dbFootprint' => ({required Object size, required Object dead}) => '${size},其中 ${dead} 可回收',
+			'settings.storage.compact' => '压缩数据库',
+			'settings.storage.compacting' => '压缩中…',
+			'settings.storage.compacted' => ({required Object mb}) => '已回收 ${mb}',
 			'settings.storage.resetPrefs' => '重置本地偏好',
 			'settings.storage.resetPrefsDesc' => '只清除本机的界面偏好(主题/窗口/缩放等),不碰任何工作区数据将重启应用以生效。',
 			'settings.storage.resetPrefsTitle' => '重置本地偏好?',

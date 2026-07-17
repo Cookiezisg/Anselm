@@ -21,6 +21,7 @@ import (
 	"go.uber.org/zap"
 
 	settingsapp "github.com/sunweilin/anselm/backend/internal/app/settings"
+	storageapp "github.com/sunweilin/anselm/backend/internal/app/storage"
 	dbinfra "github.com/sunweilin/anselm/backend/internal/infra/db"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 	loggerinfra "github.com/sunweilin/anselm/backend/internal/infra/logger"
@@ -131,7 +132,7 @@ func Build(cfg Config) (*App, error) {
 	if err != nil {
 		return nil, fmt.Errorf("bootstrap: logger: %w", err)
 	}
-	database, err := openDB(cfg.DataDir, log)
+	database, err := openDB(cfg.DataDir)
 	if err != nil {
 		return nil, err
 	}
@@ -157,6 +158,7 @@ func Build(cfg Config) (*App, error) {
 	mux := http.NewServeMux()
 	svc := buildServices(st, inf, bus, mux, cfg.DataDir, log)
 	svc.settings = settingsSvc
+	svc.storage = storageapp.New(database) // storage-file ops (size / dead space / compact) over the shared DB. 共享 DB 上的存储文件操作。
 	registerHandlers(mux, svc, bus, cfg, log)
 	registerDebug(mux, cfg.Dev, log) // dev-only /debug/pprof + /debug/stats (observability)
 
@@ -196,6 +198,7 @@ func registerHandlers(mux *http.ServeMux, s *services, bus buses, cfg Config, lo
 		handlershttpapi.NewSandboxHandler(s.sandbox, log),
 		handlershttpapi.NewLimitsHandler(s.settings, log),
 		handlershttpapi.NewSystemHandler(s.settings, cfg.Version, log),
+		handlershttpapi.NewStorageHandler(s.storage, log),
 		handlershttpapi.NewFreetierHandler(s.freetierQuota, s.freetier, log),
 		handlershttpapi.NewDocumentHandler(s.document, s.aispawn, log),
 		handlershttpapi.NewTodoHandler(s.todo, log),

@@ -38,7 +38,7 @@ audience: [human, ai]
 | 资源 | **记忆** Memory | `panels/memory_panel.dart` | 名册(全部 / 已固定投影 + 搜索 + 行内金 pin toggle + source·mtime)+ 推入编辑(建时活校验 slug、编辑锁名 + Cmd+S)+ 确认物理删除。PUT **恒送 `source:'user'`**(F147:更新时后端忽略、创建时必需)。 |
 | 资源 | **沙箱** Sandbox | `panels/sandbox_panel.dart` | 引导健康门(ok=false 红卡 + 重试)+ 磁盘 meter + 运行时(装 / 删 [409 `SANDBOX_ENV_IN_USE` 诚实])+ **五 owner 环境 tab**(function/handler/mcp/skill/conversation,状态点 + runningPid)+ GC(N 天 + 立即全回收两步)。 |
 | 系统 | **工作区** Workspaces | `panels/workspaces_panel.dart` | 名册(色点 + 当前高亮,**点行 = 热切换**)+ 新建(六预设色盘)+ 推入编辑(改名同步底栏 / 改色 / **页尾危险区** `AnTypeToConfirm` 输名解锁,stats 真数字入散文;**当前 ws 与最后一个绝不给删**)。 |
-| 系统 | **存储与日志** Storage | `panels/storage_panel.dart` | 数据目录只读(后端解析,绝不猜)+ 访达 / 日志文件夹 + 沙箱磁盘 meter + 诊断复制 + 重置本地偏好(`SettingsPrefs.resetAll` 声明集)+ **出厂重置**(前端编排,`AnTypeToConfirm` 输「Anselm」双闸)。 |
+| 系统 | **存储与日志** Storage | `panels/storage_panel.dart` | 数据目录只读(后端解析,绝不猜)+ 访达 / 日志文件夹 + 沙箱磁盘 meter + 诊断复制 + **Run 历史保留**(机器级四档下拉)+ **数据库**(T4/WRK-070 机器级节:`storageStatProvider` 诚实显示「库 X MB,其中 Y MB 可回收」+「压缩数据库」按钮=`POST /storage:compact` 同步 VACUUM,忙态「压缩中…」+转圈锁库几秒、完成 toast「已回收 Y」+ 失效重取;**非危险动作**[VACUUM 不删行]故无输名双闸)+ 重置本地偏好(`SettingsPrefs.resetAll` 声明集)+ **出厂重置**(前端编排,`AnTypeToConfirm` 输「Anselm」双闸)。 |
 | 系统 | **高级限额** Limits | `panels/limits_panel.dart` | **schema 驱动**(`GET /limits/schema` → group AnSection + 每字段 AnSettingRow:点路径 `_valueAt` / 提交构部分嵌套 PATCH / modified 竖条 + 单项重置);越界回滚到服务端真相;零复刻 Go 常量。 |
 | 系统 | **网络** Network | `panels/network_panel.dart` | 三 proxy 字段(http/https/no_proxy)水化 + 整体替换 PATCH + **重启生效**橙字 + 全机域徽。 |
 | 系统 | **快捷键** Shortcuts | `panels/shortcuts_panel.dart` | 6 全局命令逐行(当前键帽 + 点键帽录下一组合键 [须带修饰键 / 冲突则拒并说明 / Esc 取消] + modified 竖条 + 单项重置 + 全部重置);录制态蓝框「Press a new chord…」。见下「全局快捷键」。 |

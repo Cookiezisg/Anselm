@@ -177,67 +177,72 @@ func TestReclaimFreePages_GateHoldsBackRoutineChurn(t *testing.T) {
 	}
 }
 
-// TestEnsureIncrementalAutoVacuum_MigratesLegacyNoneDB pins the existing-install path: a DB whose
-// header carries auto_vacuum=NONE (every install predating this fix) is flipped to INCREMENTAL by one
-// VACUUM, which ALSO reclaims the dead space it had accumulated, the mode PERSISTS across reopen, the
-// gate is idempotent (a second call no-ops), and no row is lost.
+// TestCompact_UpgradesModeZeroDBAndReclaims pins the user-triggered "Compact database" button on a
+// mode=0 DB — the very dogfood install the boot-migration removal (WRK-070 decision (a)) leaves for
+// the user to upgrade on demand: a DB whose header carries auto_vacuum=NONE is flipped to INCREMENTAL
+// by one VACUUM, which ALSO reclaims the dead space it had accumulated (migrated=true), the mode
+// PERSISTS across reopen, a second compact is idempotent for the mode (migrated=false), and no row
+// is lost.
 //
-// TestEnsureIncrementalAutoVacuum_MigratesLegacyNoneDB 钉住存量安装路径：文件头带 auto_vacuum=NONE 的库
-// （本修复之前的每个安装）被一次 VACUUM 翻成 INCREMENTAL，且**同时**回收它攒的死空间，模式跨重开**持久**，
-// 闸幂等（第二次调用 no-op），且不丢任何行。
-func TestEnsureIncrementalAutoVacuum_MigratesLegacyNoneDB(t *testing.T) {
+// TestCompact_UpgradesModeZeroDBAndReclaims 钉住 mode=0 库上用户触发的「压缩数据库」按钮——正是删掉 boot
+// 自动迁移（WRK-070 决策 (a)）后留给用户按需升级的 dogfood 安装：文件头带 auto_vacuum=NONE 的库被一次 VACUUM
+// 翻成 INCREMENTAL，且**同时**回收它攒的死空间（migrated=true），模式跨重开**持久**，第二次压缩对模式幂等
+// （migrated=false），且不丢任何行。
+func TestCompact_UpgradesModeZeroDBAndReclaims(t *testing.T) {
 	dir := t.TempDir()
-	dbPath := filepath.Join(dir, "legacy.db")
+	dbPath := filepath.Join(dir, "mode0.db")
 	ctx := context.Background()
 
-	// Simulate a pre-fix install: open with a DSN that has NO auto_vacuum, so the header is born NONE.
-	// 模拟修复前安装：用不含 auto_vacuum 的 DSN 打开，文件头天生 NONE。
-	legacyDSN := fmt.Sprintf("file:%s?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(on)&_pragma=synchronous(NORMAL)", dbPath)
-	raw, err := sql.Open("sqlite", legacyDSN)
+	// A mode=0 DB: open with a DSN that has NO auto_vacuum, so the header is born NONE (a DB created
+	// before auto_vacuum was moved to the DSN's front).
+	// mode=0 库：用不含 auto_vacuum 的 DSN 打开，文件头天生 NONE（在 auto_vacuum 被移到 DSN 首位之前建的库）。
+	mode0DSN := fmt.Sprintf("file:%s?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(on)&_pragma=synchronous(NORMAL)", dbPath)
+	raw, err := sql.Open("sqlite", mode0DSN)
 	if err != nil {
 		t.Fatal(err)
 	}
 	raw.SetMaxOpenConns(1)
-	legacy := ormpkg.Open(raw)
-	if mode, _ := pragmaInt(ctx, legacy, "auto_vacuum"); mode != 0 {
-		t.Fatalf("legacy DB auto_vacuum = %d, want 0 (NONE)", mode)
+	mode0 := ormpkg.Open(raw)
+	if mode, _ := pragmaInt(ctx, mode0, "auto_vacuum"); mode != 0 {
+		t.Fatalf("mode=0 DB auto_vacuum = %d, want 0 (NONE)", mode)
 	}
-	want := fillAndDeleteRatchet(t, legacy, 15000, 5)
-	if err := checkpointTruncate(ctx, legacy); err != nil {
+	want := fillAndDeleteRatchet(t, mode0, 15000, 5)
+	if err := checkpointTruncate(ctx, mode0); err != nil {
 		t.Fatal(err)
 	}
 	before := fileSizeT(t, dbPath)
 
-	migrated, reclaimed, err := EnsureIncrementalAutoVacuum(ctx, legacy)
+	reclaimed, migrated, err := Compact(ctx, mode0)
 	if err != nil {
-		t.Fatalf("migrate: %v", err)
+		t.Fatalf("compact: %v", err)
 	}
 	if !migrated {
-		t.Fatal("legacy NONE DB should have been migrated")
+		t.Fatal("mode=0 DB should have been upgraded to INCREMENTAL (migrated=true)")
 	}
 	after := fileSizeT(t, dbPath)
 	if after >= before {
-		t.Fatalf("migration VACUUM did not reclaim: before=%d after=%d", before, after)
+		t.Fatalf("compact VACUUM did not reclaim: before=%d after=%d", before, after)
 	}
 	if reclaimed <= 0 {
-		t.Fatalf("migration reclaimed %d bytes, want > 0", reclaimed)
+		t.Fatalf("compact reclaimed %d bytes, want > 0", reclaimed)
 	}
-	if mode, _ := pragmaInt(ctx, legacy, "auto_vacuum"); mode != autoVacuumIncremental {
-		t.Fatalf("after migration auto_vacuum = %d, want %d", mode, autoVacuumIncremental)
+	if mode, _ := pragmaInt(ctx, mode0, "auto_vacuum"); mode != autoVacuumIncremental {
+		t.Fatalf("after compact auto_vacuum = %d, want %d", mode, autoVacuumIncremental)
 	}
-	if got := countRows(t, legacy); got != want {
-		t.Fatalf("rows after migration = %d, want %d", got, want)
+	if got := countRows(t, mode0); got != want {
+		t.Fatalf("rows after compact = %d, want %d (compaction must not lose rows)", got, want)
 	}
-	// Idempotent: a second call is a no-op (mode already INCREMENTAL). 幂等：第二次 no-op。
-	if m2, _, err := EnsureIncrementalAutoVacuum(ctx, legacy); err != nil || m2 {
-		t.Fatalf("second EnsureIncrementalAutoVacuum: migrated=%v err=%v (want false, nil)", m2, err)
+	// A second compact still reclaims (no dead space now → ~0) but no longer migrates the mode.
+	// 第二次压缩仍回收（此时无死空间→约 0），但不再迁移模式。
+	if _, m2, err := Compact(ctx, mode0); err != nil || m2 {
+		t.Fatalf("second Compact: migrated=%v err=%v (want false, nil)", m2, err)
 	}
-	_ = legacy.Close()
+	_ = mode0.Close()
 
-	// Mode persists in the file header: reopen with the SAME legacy DSN (no auto_vacuum) and it reads
-	// INCREMENTAL — so subsequent boots skip the migration.
-	// 模式持久在文件头：用**同一** legacy DSN（无 auto_vacuum）重开，读作 INCREMENTAL——故后续 boot 跳过迁移。
-	raw2, err := sql.Open("sqlite", legacyDSN)
+	// Mode persists in the file header: reopen with the SAME mode-0 DSN (no auto_vacuum) and it reads
+	// INCREMENTAL — the upgrade is durable, not per-session.
+	// 模式持久在文件头：用**同一** mode-0 DSN（无 auto_vacuum）重开，读作 INCREMENTAL——升级持久、非每会话。
+	raw2, err := sql.Open("sqlite", mode0DSN)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -246,5 +251,90 @@ func TestEnsureIncrementalAutoVacuum_MigratesLegacyNoneDB(t *testing.T) {
 	t.Cleanup(func() { _ = reopened.Close() })
 	if mode, _ := pragmaInt(ctx, reopened, "auto_vacuum"); mode != autoVacuumIncremental {
 		t.Fatalf("reopened DB auto_vacuum = %d, want %d (must persist in header)", mode, autoVacuumIncremental)
+	}
+}
+
+// TestCompact_ReclaimsOnIncrementalDB_NoMigration: on a DB already born INCREMENTAL, Compact still
+// reclaims ALL dead space (unlike ReclaimFreePages, it has no gate — the user asked for it) but
+// reports migrated=false. This is the common case (a fresh install run through the storage panel).
+//
+// TestCompact_ReclaimsOnIncrementalDB_NoMigration：在天生 INCREMENTAL 的库上，Compact 仍回收**全部**死空间
+// （不像 ReclaimFreePages 有闸——用户主动要了），但报 migrated=false。这是常见情形（全新安装点存储面板）。
+func TestCompact_ReclaimsOnIncrementalDB_NoMigration(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "anselm.db")
+	db, err := Open(Config{DataDir: dir})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	ctx := context.Background()
+
+	if mode, _ := pragmaInt(ctx, db, "auto_vacuum"); mode != autoVacuumIncremental {
+		t.Fatalf("fresh file DB auto_vacuum = %d, want %d", mode, autoVacuumIncremental)
+	}
+	// Delete only ~5% — BELOW ReclaimFreePages' gate. Compact has no gate, so it must still shrink.
+	// 只删 ~5%——在 ReclaimFreePages 闸**之下**。Compact 无闸，故仍必须缩小。
+	want := fillAndDeleteRatchet(t, db, 4000, 20)
+	if err := checkpointTruncate(ctx, db); err != nil {
+		t.Fatal(err)
+	}
+	before := fileSizeT(t, dbPath)
+
+	reclaimed, migrated, err := Compact(ctx, db)
+	if err != nil {
+		t.Fatalf("compact: %v", err)
+	}
+	if migrated {
+		t.Fatal("an already-INCREMENTAL DB must report migrated=false")
+	}
+	if reclaimed <= 0 || fileSizeT(t, dbPath) >= before {
+		t.Fatalf("compact did not reclaim below the gate: reclaimed=%d before=%d after=%d", reclaimed, before, fileSizeT(t, dbPath))
+	}
+	if got := countRows(t, db); got != want {
+		t.Fatalf("rows after compact = %d, want %d", got, want)
+	}
+}
+
+// TestStat_ReportsDeadSpaceAndDrops: Stat sees the dead space DELETE leaves (the ratchet), and after
+// Compact returns it to the OS, Stat sees dead space fall back to ~0 — the honest numbers the storage
+// panel shows before/after the user compacts.
+//
+// TestStat_ReportsDeadSpaceAndDrops：Stat 看得见 DELETE 留下的死空间（棘轮），Compact 把它还给 OS 后，Stat
+// 看到死空间回落到约 0——正是用户压缩前/后存储面板显示的诚实数字。
+func TestStat_ReportsDeadSpaceAndDrops(t *testing.T) {
+	dir := t.TempDir()
+	db, err := Open(Config{DataDir: dir})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	ctx := context.Background()
+
+	fillAndDeleteRatchet(t, db, 8000, 5) // delete 80% → lots of dead space. 删 80%→大量死空间。
+
+	size, dead, err := Stat(ctx, db)
+	if err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+	if size <= 0 {
+		t.Fatalf("stat size = %d, want > 0", size)
+	}
+	if dead <= 0 {
+		t.Fatalf("stat dead = %d, want > 0 (DELETE left a freelist Stat must see)", dead)
+	}
+	if dead > size {
+		t.Fatalf("dead %d > size %d — impossible", dead, size)
+	}
+
+	if _, _, err := Compact(ctx, db); err != nil {
+		t.Fatalf("compact: %v", err)
+	}
+	_, deadAfter, err := Stat(ctx, db)
+	if err != nil {
+		t.Fatalf("stat after compact: %v", err)
+	}
+	if deadAfter >= dead {
+		t.Fatalf("dead space did not drop after compact: before=%d after=%d", dead, deadAfter)
 	}
 }

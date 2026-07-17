@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -129,6 +130,17 @@ abstract class SettingsRepository {
 
   /// Machine-wide sandbox disk usage. 全机沙箱磁盘占用。
   Future<int> sandboxDiskUsage();
+
+  /// The DB file's size + dead (reclaimable) bytes (`GET /storage-stat`, WRK-070 T4). Machine-level:
+  /// one .db file for the whole install. 数据库文件大小 + 死（可回收）字节。机器级:整个安装一个 .db 文件。
+  Future<({int dbBytes, int deadBytes})> storageStat();
+
+  /// Compact the DB (`POST /storage:compact`, a synchronous VACUUM). Returns bytes handed back to the
+  /// OS + whether it upgraded a mode=0 DB to auto_vacuum=INCREMENTAL. NOT destructive (VACUUM keeps
+  /// every row) — no type-to-confirm, but a knowing wait (it locks the DB a few seconds).
+  /// 压缩数据库(同步 VACUUM)。返回还给 OS 的字节 + 是否把 mode=0 库升级到 INCREMENTAL。**非**破坏性
+  /// (VACUUM 保留每一行)——不设输名双闸,但是一次知情等待(锁库几秒)。
+  Future<({int reclaimedBytes, bool migrated})> compactStorage();
 
   /// The nested limits JSON (dotted schema keys index into it). 嵌套限额 JSON。
   Future<Map<String, dynamic>> getLimits();
@@ -414,6 +426,24 @@ class LiveSettingsRepository implements SettingsRepository {
   @override
   Future<int> sandboxDiskUsage() async =>
       ((await api.getData('/api/v1/sandbox/disk-usage'))['totalBytes'] as num?)?.toInt() ?? 0;
+
+  @override
+  Future<({int dbBytes, int deadBytes})> storageStat() async {
+    final d = await api.getData('/api/v1/storage-stat');
+    return (
+      dbBytes: (d['dbBytes'] as num?)?.toInt() ?? 0,
+      deadBytes: (d['deadBytes'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  @override
+  Future<({int reclaimedBytes, bool migrated})> compactStorage() async {
+    final d = await api.postData('/api/v1/storage:compact');
+    return (
+      reclaimedBytes: (d['reclaimedBytes'] as num?)?.toInt() ?? 0,
+      migrated: d['migrated'] == true,
+    );
+  }
 
   @override
   Future<Map<String, dynamic>> getLimits() => api.getData('/api/v1/limits');
@@ -828,6 +858,39 @@ class FixtureSettingsRepository implements SettingsRepository {
 
   @override
   Future<int> sandboxDiskUsage() async => fixtureDisk;
+
+  /// Scriptable DB size + dead space (demo + tests). Compact hands the dead bytes back and clears
+  /// them, so a re-read shows the shrunk file — the panel's before/after story.
+  /// 可脚本的库大小 + 死空间(demo/测试)。压缩把死字节还回并清零,重读即见缩小的文件——面板的前后故事。
+  int fixtureDbBytes = 120 * 1024 * 1024;
+  int fixtureDeadBytes = 48 * 1024 * 1024;
+
+  /// Script hook: throw on the next compact (disk-full error-path tests). 脚本钩:下次压缩抛错。
+  bool failNextCompact = false;
+
+  /// Script hook: when set, compact awaits it before resolving — lets a test observe the busy state
+  /// (VACUUM locks the DB a few seconds in reality). 脚本钩:设置后压缩先等它再落定,供测试观察忙态。
+  Completer<void>? compactGate;
+
+  @override
+  Future<({int dbBytes, int deadBytes})> storageStat() async =>
+      (dbBytes: fixtureDbBytes, deadBytes: fixtureDeadBytes);
+
+  @override
+  Future<({int reclaimedBytes, bool migrated})> compactStorage() async {
+    if (compactGate != null) await compactGate!.future;
+    if (failNextCompact) {
+      failNextCompact = false;
+      throw const ApiException(
+          code: 'STORAGE_COMPACT_FAILED',
+          message: 'database compaction failed (VACUUM needs free scratch space roughly the size of the database)',
+          httpStatus: 500);
+    }
+    final reclaimed = fixtureDeadBytes;
+    fixtureDbBytes -= reclaimed;
+    fixtureDeadBytes = 0;
+    return (reclaimedBytes: reclaimed, migrated: false);
+  }
 
   @override
   Future<Map<String, dynamic>> getLimits() async => fixtureLimits;

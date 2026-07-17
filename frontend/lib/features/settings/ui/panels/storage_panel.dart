@@ -101,6 +101,19 @@ class StoragePanel extends ConsumerWidget {
         children: [_RetentionRow()],
       ),
       const SizedBox(height: AnSpace.s24),
+      // ── 数据库 (磁盘回收, WRK-070 T4) ──
+      // Machine-level like retention (one .db file for the whole install): honest size + reclaimable
+      // dead space, and a Compact button (a synchronous VACUUM — hands the freed pages back to the OS
+      // and upgrades a mode=0 DB). NOT a danger action: VACUUM keeps every row, so no type-to-confirm.
+      // 机器级同 retention(整个安装一个 .db 文件):诚实显示大小 + 可回收死空间 + 压缩按钮(同步 VACUUM——把
+      // 腾出的页还给 OS 并升级 mode=0 库)。**非**危险动作:VACUUM 保留每一行,故不设输名双闸。
+      AnSection(
+        label: t.settings.storage.database,
+        variant: AnSectionVariant.quiet,
+        actions: const [AnScopeBadge(AnSettingScope.machine)],
+        children: [_DatabaseRow()],
+      ),
+      const SizedBox(height: AnSpace.s24),
       AnSettingRow(
         label: t.settings.storage.resetPrefs,
         desc: t.settings.storage.resetPrefsDesc,
@@ -268,3 +281,73 @@ final sandboxDiskProvider = FutureProvider.autoDispose<int>(
 /// The machine-level run-history retention line (scheduler 工单⑬). 机器级 run 保留线(⑬)。
 final retentionConfigProvider =
     FutureProvider<RetentionConfig>((ref) => ref.watch(settingsRepositoryProvider).getRetention());
+
+/// The DB file's size + dead (reclaimable) space (WRK-070 T4). autoDispose — refetched each panel
+/// open and after a compact (invalidated). 库大小 + 死(可回收)空间;每次打开重取、压缩后失效重取。
+final storageStatProvider = FutureProvider.autoDispose<({int dbBytes, int deadBytes})>(
+    (ref) => ref.watch(settingsRepositoryProvider).storageStat());
+
+/// «Database» — the DB file's honest footprint (size, of which N reclaimable) and the Compact button.
+/// Compact is a synchronous VACUUM: the button shows a busy «Compacting…» while the DB is locked (a
+/// few seconds), then a toast reports the bytes returned and the stat refetches. NOT destructive
+/// (VACUUM keeps every row) — no type-to-confirm, just an honest wait.
+///
+/// 「数据库」:库文件的诚实足迹(大小、其中 N 可回收)+ 压缩按钮。压缩是同步 VACUUM:锁库(几秒)期间按钮显示
+/// 忙态「压缩中…」,完成后 toast 报告还回的字节、并重取统计。**非**破坏性(VACUUM 保留每一行)——不设输名双闸,
+/// 只是一次诚实的等待。
+class _DatabaseRow extends ConsumerStatefulWidget {
+  @override
+  ConsumerState<_DatabaseRow> createState() => _DatabaseRowState();
+}
+
+class _DatabaseRowState extends ConsumerState<_DatabaseRow> {
+  bool _busy = false;
+
+  Future<void> _compact() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final t = Translations.of(context);
+    try {
+      final r = await ref.read(settingsRepositoryProvider).compactStorage();
+      ref.invalidate(storageStatProvider);
+      ref.read(overlayProvider.notifier).showToast(
+            t.settings.storage.compacted(mb: formatBytes(r.reclaimedBytes)),
+            tone: AnTone.ok,
+          );
+    } on ApiException catch (e) {
+      ref.read(overlayProvider.notifier).showToast(e.message, tone: AnTone.danger);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Translations.of(context);
+    // null until the wire answers — the description stays empty rather than guessing a size.
+    // 读回之前为 null——描述留空,不猜大小。
+    final stat = ref.watch(storageStatProvider).value;
+    return AnSettingRow(
+      label: t.settings.storage.database,
+      desc: stat == null
+          ? ''
+          : t.settings.storage.dbFootprint(
+              size: formatBytes(stat.dbBytes),
+              dead: formatBytes(stat.deadBytes),
+            ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        if (_busy) ...[
+          AnSpinner(size: AnSize.iconSm, semanticLabel: t.settings.storage.compacting),
+          const SizedBox(width: AnSpace.s8),
+        ],
+        AnButton(
+          label: _busy ? t.settings.storage.compacting : t.settings.storage.compact,
+          size: AnButtonSize.sm,
+          // Disabled until the stat resolves (and while compacting) — availability rides the value,
+          // never a sentinel. 未解析前(与压缩中)禁用——可用性由值承载,绝不判哨兵。
+          onPressed: (_busy || stat == null) ? null : _compact,
+        ),
+      ]),
+    );
+  }
+}

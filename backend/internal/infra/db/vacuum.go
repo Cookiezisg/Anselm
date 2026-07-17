@@ -1,17 +1,24 @@
 // vacuum.go owns disk-space reclamation. SQLite's DELETE only moves pages to the freelist — it never
 // returns bytes to the filesystem, so run-history retention (PurgeTerminalRunsBefore) deletes real
-// rows yet the .db file does not shrink one byte (auto_vacuum defaults to NONE). This gateway runs
-// the DB in auto_vacuum=INCREMENTAL and reclaims the freed pages after a retention sweep, so the
-// storage panel's "Run history retention" actually frees disk instead of being a paper promise.
+// rows yet the .db file does not shrink one byte (auto_vacuum defaults to NONE). A fresh install is
+// born auto_vacuum=INCREMENTAL (buildDSN), so freed pages CAN be handed back. Two reclamation paths:
+//   - ReclaimFreePages — automatic, off the request path, right after a retention sweep really deleted
+//     rows; a light incremental_vacuum behind a gate (steady-state churn reuses freed pages).
+//   - Compact — user-triggered from the storage panel; a full VACUUM that reclaims EVERY freed page
+//     and, as a side effect, upgrades a mode=0 DB to INCREMENTAL (VACUUM rewrites the file with the
+//     pointer map). Stat reports the size + dead space the panel shows.
 //
 // NOT a D1 physical-delete carve-out: neither VACUUM nor incremental_vacuum deletes a logical row —
 // they only hand already-freed pages back to the OS. The row deletion is PurgeTerminalRunsBefore
 // (carve-out #2, legislated in database.md); this is pure space reclamation and needs no legislation.
 //
 // vacuum.go 拥有磁盘空间回收。SQLite 的 DELETE 只把页移到 freelist——绝不把字节还给文件系统，故 run 历史
-// 保留清理（PurgeTerminalRunsBefore）删了真行、.db 文件却一字节不缩（auto_vacuum 默认 NONE）。本网关让 DB
-// 跑在 auto_vacuum=INCREMENTAL，并在保留清理后回收腾出的页，使存储面板的「Run 历史保留」真正腾磁盘、而非
-// 一纸空头承诺。
+// 保留清理（PurgeTerminalRunsBefore）删了真行、.db 文件却一字节不缩（auto_vacuum 默认 NONE）。全新安装天生
+// auto_vacuum=INCREMENTAL（buildDSN），故腾出的页**能**被还回。两条回收路径：
+//   - ReclaimFreePages——自动、离开请求路径，恰在保留清理真删了行之后；越过闸才 incremental_vacuum（稳态
+//     churn 复用腾出的页）。
+//   - Compact——用户在存储面板主动触发；一次全量 VACUUM 回收**每一个**腾空的页，并顺带把 mode=0 库升级到
+//     INCREMENTAL（VACUUM 用指针图重写文件）。Stat 报告面板显示的库大小 + 死空间。
 //
 // **不是 D1 物理删例外**：VACUUM 与 incremental_vacuum 都不删任何逻辑行——它们只把**已经腾空**的页还给 OS。
 // 删行的是 PurgeTerminalRunsBefore（例外②，立法在 database.md）；这里是纯空间回收、无需立法。
@@ -52,63 +59,98 @@ const (
 	reclaimMinDeadBytes    = 128 << 20 // 128 MiB
 )
 
-// EnsureIncrementalAutoVacuum brings a file DB into auto_vacuum=INCREMENTAL. A fresh install is born
-// there (buildDSN lists auto_vacuum FIRST, before journal_mode initializes the header — the ONLY
-// ordering the glebarez driver honours), so this no-ops. An install predating this change carries
-// auto_vacuum=NONE in its header, which PRAGMA alone cannot flip: the mode change only takes effect
-// after a full VACUUM that rewrites the file with the pointer map. That one-time VACUUM ALSO reclaims
-// the dead space such an install has been accumulating — the user-visible fix for a retention line
-// that never freed disk. Idempotent by outcome: once the header reads INCREMENTAL, every later boot
-// skips without touching the DB.
+// Compact reclaims ALL dead space by rewriting the file with a full VACUUM, and returns how many
+// bytes it handed back to the OS plus whether it upgraded the DB's auto_vacuum mode along the way.
+// The user drives it from the storage panel — a knowing, interactive wait (VACUUM locks the DB for
+// a few seconds) — which is exactly why it uses full VACUUM rather than the steady-state
+// incremental_vacuum: VACUUM reclaims every freelist page regardless of the current auto_vacuum
+// mode AND, by rewriting the file with the pointer map, flips a mode=0 DB to INCREMENTAL in the same
+// pass. incremental_vacuum only works once a DB is already INCREMENTAL, so it cannot serve the
+// mode=0 case at all. On an already-INCREMENTAL DB the PRAGMA is a harmless no-op and migrated=false.
 //
-// Best-effort by contract: VACUUM needs roughly the DB's size in free scratch space, which the very
-// disk-full user this fixes may lack — so a failure is returned for the caller to log-and-continue,
-// never to fail boot. The next boot retries.
+// The error is returned to the caller (the storage handler surfaces it, unlike the best-effort
+// steady-state path): VACUUM needs roughly the DB's size in free scratch space and fails on a full
+// disk — nothing is lost, the DB is untouched, and the user sees an honest failure.
 //
-// EnsureIncrementalAutoVacuum 把文件库带进 auto_vacuum=INCREMENTAL。全新安装天生就在那儿（buildDSN 把
-// auto_vacuum 排在**最前**、在 journal_mode 初始化文件头之前——glebarez 驱动唯一认的顺序），故此处 no-op。
-// 本次改动之前的安装文件头里带 auto_vacuum=NONE，光靠 PRAGMA 翻不动：模式变更只在一次**用指针图重写整个文件
-// 的全量 VACUUM** 之后生效。那一次性 VACUUM **同时**回收这类安装一直在攒的死空间——正是「保留线从不腾磁盘」的
-// 用户可感修复。结果幂等：文件头一旦读作 INCREMENTAL，此后每次 boot 碰都不碰 DB 就跳过。
+// Compact 用一次全量 VACUUM 回收**全部**死空间，返回还给 OS 的字节数 + 途中是否升级了 auto_vacuum 模式。
+// 用户在存储面板主动触发——知情的交互式等待（VACUUM 锁库几秒）——这正是它用全量 VACUUM 而非稳态
+// incremental_vacuum 的原因：VACUUM 无论当前 auto_vacuum 模式为何都回收每一个 freelist 页，且用指针图重写
+// 文件、在同一趟里把 mode=0 库翻成 INCREMENTAL。incremental_vacuum 只在库已是 INCREMENTAL 时工作，故根本
+// 服务不了 mode=0 的情形。库已是 INCREMENTAL 时那句 PRAGMA 是无害 no-op、migrated=false。
 //
-// 契约上尽力而为：VACUUM 需要约等于库大小的空闲临时空间，而本修复面向的磁盘将满的用户恰恰可能没有——故失败
-// 会返回给调用方记日志后继续、**绝不**令 boot 失败。下次 boot 重试。
-func EnsureIncrementalAutoVacuum(ctx context.Context, db *ormpkg.DB) (migrated bool, reclaimedBytes int64, err error) {
-	mode, err := pragmaInt(ctx, db, "auto_vacuum")
-	if err != nil {
-		return false, 0, err
+// 错误返回给调用方（存储 handler 上报，与尽力而为的稳态路径不同）：VACUUM 需约等于库大小的空闲临时空间，
+// 磁盘满时失败——什么都不丢、库不动，用户看到诚实的失败。
+func Compact(ctx context.Context, db *ormpkg.DB) (reclaimedBytes int64, migrated bool, err error) {
+	if err := ctx.Err(); err != nil {
+		return 0, false, err
 	}
-	if mode == autoVacuumIncremental {
-		return false, 0, nil // born or already migrated. 天生或已迁移。
+	modeBefore, err := pragmaInt(ctx, db, "auto_vacuum")
+	if err != nil {
+		return 0, false, err
 	}
 	before, err := dbBytes(ctx, db)
 	if err != nil {
-		return false, 0, err
+		return 0, false, err
 	}
-	// The mode change is inert until a VACUUM rewrites the file. VACUUM cannot run inside a
-	// transaction — Exec runs directly on the pool (never wrapped), so this is safe.
-	// 模式变更在 VACUUM 重写文件前是死的。VACUUM 不能在事务里跑——Exec 直接跑在池上（从不裹事务），故安全。
+	// The mode change is inert until a VACUUM rewrites the file (harmless no-op when already
+	// INCREMENTAL). VACUUM cannot run inside a transaction — Exec runs directly on the pool (never
+	// wrapped), so this is safe. SetMaxOpenConns(1) serializes it: concurrent requests queue on the
+	// single connection for the few-seconds lock rather than racing it — acceptable for a user-driven,
+	// knowingly-blocking maintenance action on a single-user desktop app.
+	// 模式变更在 VACUUM 重写文件前是死的（已是 INCREMENTAL 时无害 no-op）。VACUUM 不能在事务里跑——Exec 直接
+	// 跑在池上（从不裹事务），故安全。SetMaxOpenConns(1) 串行化它：并发请求在这几秒锁期间于唯一连接上排队、而非
+	// 与它竞争——对单用户桌面 app 的用户主动、知情阻塞的维护动作，这是可接受的。
 	if _, err := db.Exec(ctx, `PRAGMA auto_vacuum = INCREMENTAL`); err != nil {
-		return false, 0, fmt.Errorf("db: set auto_vacuum incremental: %w", err)
+		return 0, false, fmt.Errorf("db: set auto_vacuum incremental: %w", err)
 	}
 	if _, err := db.Exec(ctx, `VACUUM`); err != nil {
-		return false, 0, fmt.Errorf("db: vacuum for auto_vacuum migration: %w", err)
+		return 0, false, fmt.Errorf("db: vacuum: %w", err)
 	}
 	if err := checkpointTruncate(ctx, db); err != nil {
-		return false, 0, err
+		return 0, false, err
 	}
-	mode, err = pragmaInt(ctx, db, "auto_vacuum")
+	modeAfter, err := pragmaInt(ctx, db, "auto_vacuum")
 	if err != nil {
-		return false, 0, err
+		return 0, false, err
 	}
-	if mode != autoVacuumIncremental {
-		return false, 0, fmt.Errorf("db: auto_vacuum still %d after VACUUM migration", mode)
+	if modeAfter != autoVacuumIncremental {
+		return 0, false, fmt.Errorf("db: auto_vacuum still %d after VACUUM", modeAfter)
 	}
 	after, err := dbBytes(ctx, db)
 	if err != nil {
-		return false, 0, err
+		return 0, false, err
 	}
-	return true, before - after, nil
+	return before - after, modeBefore != autoVacuumIncremental, nil
+}
+
+// Stat reports the DB's on-disk footprint for the storage panel: sizeBytes is the logical size
+// (page_count × page_size, equal to the .db file after a checkpoint) and deadBytes is the dead space
+// inside it (freelist_count × page_size) — the bytes DELETE freed but never returned to the OS, which
+// Compact reclaims. It checkpoints first because freelist_count reads the MAIN FILE header, so
+// deletes still resident in an un-checkpointed WAL are invisible to it — measuring without this
+// undercounts dead space to near-zero (the T4 WAL-checkpoint pit, ledger instrument-accident #5).
+//
+// Stat 为存储面板报告 DB 的落盘足迹：sizeBytes 是逻辑大小（page_count × page_size，checkpoint 后等于 .db
+// 文件大小），deadBytes 是其中的死空间（freelist_count × page_size）——DELETE 腾出却从未还给 OS 的字节，正是
+// Compact 回收的。它先 checkpoint：freelist_count 读**主文件**头，故仍留在未 checkpoint 的 WAL 里的删除对它
+// 不可见——不 checkpoint 就量会把死空间低估到接近零（T4 的 WAL-checkpoint 坑，台账仪器事故 #5）。
+func Stat(ctx context.Context, db *ormpkg.DB) (sizeBytes, deadBytes int64, err error) {
+	if err := checkpointTruncate(ctx, db); err != nil {
+		return 0, 0, err
+	}
+	pageCount, err := pragmaInt(ctx, db, "page_count")
+	if err != nil {
+		return 0, 0, err
+	}
+	pageSize, err := pragmaInt(ctx, db, "page_size")
+	if err != nil {
+		return 0, 0, err
+	}
+	free, err := pragmaInt(ctx, db, "freelist_count")
+	if err != nil {
+		return 0, 0, err
+	}
+	return pageCount * pageSize, free * pageSize, nil
 }
 
 // ReclaimFreePages returns the DB's freed pages to the filesystem after a retention sweep, when the

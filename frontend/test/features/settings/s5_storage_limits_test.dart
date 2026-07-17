@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:anselm/core/contract/retention.dart';
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/model/byte_format.dart';
 import 'package:anselm/core/settings/settings_prefs.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/features/settings/data/settings_repository.dart';
@@ -137,8 +140,90 @@ void main() {
     // Section-level, because storage is a MIXED-scope panel (data dir = machine, reset prefs =
     // device) — S-16: a page-head badge on a mixed page necessarily lies.
     // 节级:存储是**混域**面板(数据目录=全机、重置本地偏好=本机)——S-16:混域页的页头徽必撒谎。
+    // Two machine-scoped sections now (retention + database), both correctly section-level.
+    // 现有两个机器级节(retention + database),都正确地节级。
     expect(
         find.byWidgetPredicate((w) => w is AnScopeBadge && w.scope == AnSettingScope.machine),
-        findsOneWidget);
+        findsNWidgets(2));
+  });
+
+  // ── 数据库 (磁盘回收, WRK-070 T4) ──
+  testWidgets('database: footprint shows the DB size AND the reclaimable dead space (honest)',
+      (tester) async {
+    final repo = FixtureSettingsRepository()
+      ..fixtureDataDir = '/tmp/x'
+      ..fixtureDbBytes = 120 * 1024 * 1024
+      ..fixtureDeadBytes = 48 * 1024 * 1024;
+    await tester.pumpWidget(_host(repo, const StoragePanel()));
+    await tester.pumpAndSettle();
+    final t = Translations.of(tester.element(find.byType(StoragePanel)));
+
+    expect(find.text(t.settings.storage.database), findsWidgets, reason: '数据库节存在');
+    // The footprint reads «120.0 MB, of which 48.0 MB reclaimable» — dead space is displayed, not hidden.
+    // 足迹读作「120.0 MB,其中 48.0 MB 可回收」——死空间被显示、不被隐藏。
+    expect(
+        find.text(t.settings.storage
+            .dbFootprint(size: formatBytes(120 * 1024 * 1024), dead: formatBytes(48 * 1024 * 1024))),
+        findsOneWidget,
+        reason: '诚实展示库大小 + 死空间');
+    // The compact button is enabled once the stat resolves. 统计读回后压缩按钮可用。
+    expect(find.text(t.settings.storage.compact), findsOneWidget);
+  });
+
+  testWidgets('database: compact shows a BUSY state while locked, then reclaims and refetches',
+      (tester) async {
+    final repo = FixtureSettingsRepository()
+      ..fixtureDataDir = '/tmp/x'
+      ..fixtureDbBytes = 120 * 1024 * 1024
+      ..fixtureDeadBytes = 48 * 1024 * 1024;
+    // Gate the compact so we can observe the in-flight «Compacting…» state (VACUUM locks the DB a few
+    // seconds in reality). 用闸卡住压缩,以观察在飞的「压缩中…」态(现实里 VACUUM 锁库几秒)。
+    final gate = Completer<void>();
+    repo.compactGate = gate;
+    await tester.pumpWidget(_host(repo, const StoragePanel()));
+    await tester.pumpAndSettle();
+    final t = Translations.of(tester.element(find.byType(StoragePanel)));
+
+    await tester.ensureVisible(find.text(t.settings.storage.compact));
+    await tester.tap(find.text(t.settings.storage.compact));
+    await tester.pump(); // let setState(_busy=true) land, but the gate keeps compact in flight
+
+    // Busy: label flips to «Compacting…» + a spinner, and the button is disabled (no re-tap).
+    // 忙态:标签翻成「压缩中…」+ 转圈,按钮禁用(不可重复点)。
+    expect(find.text(t.settings.storage.compacting), findsWidgets, reason: '锁库期间显示忙态');
+    expect(find.byType(AnSpinner), findsOneWidget, reason: '诚实反馈:正在压缩、非卡死');
+
+    // Release the lock → reclaim completes. 放开锁→回收完成。
+    gate.complete();
+    await tester.pumpAndSettle();
+
+    // Reclaimed toast reports the bytes returned; the stat refetches → dead space now 0.
+    // 回收 toast 报告还回的字节;统计重取→死空间归 0。
+    expect(find.text(t.settings.storage.compacted(mb: formatBytes(48 * 1024 * 1024))), findsOneWidget);
+    expect(repo.fixtureDeadBytes, 0, reason: '压缩把死空间还给 OS');
+    expect(
+        find.text(t.settings.storage
+            .dbFootprint(size: formatBytes(72 * 1024 * 1024), dead: formatBytes(0))),
+        findsOneWidget,
+        reason: '重取后足迹缩小(120-48=72MB)、可回收归 0');
+  });
+
+  testWidgets('database: a compact failure (disk full) surfaces an honest error toast',
+      (tester) async {
+    final repo = FixtureSettingsRepository()
+      ..fixtureDataDir = '/tmp/x'
+      ..failNextCompact = true;
+    await tester.pumpWidget(_host(repo, const StoragePanel()));
+    await tester.pumpAndSettle();
+    final t = Translations.of(tester.element(find.byType(StoragePanel)));
+
+    await tester.ensureVisible(find.text(t.settings.storage.compact));
+    await tester.tap(find.text(t.settings.storage.compact));
+    await tester.pumpAndSettle();
+
+    // The backend message is shown verbatim (STORAGE_COMPACT_FAILED), and the button is usable again.
+    // 后端信息原样显示,按钮恢复可用。
+    expect(find.textContaining('compaction failed'), findsOneWidget, reason: '诚实报错、非静默');
+    expect(find.text(t.settings.storage.compact), findsOneWidget, reason: '失败后按钮回可用');
   });
 }
