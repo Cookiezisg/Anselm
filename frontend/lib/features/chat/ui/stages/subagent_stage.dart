@@ -11,6 +11,7 @@ import '../../../../i18n/strings.g.dart';
 import '../../model/tool_receipts.dart';
 import '../../state/conversation_stream_provider.dart';
 import '../../state/stage_director_provider.dart';
+import 'stage_frame.dart';
 import 'stage_scene.dart';
 
 /// The SUBAGENT stage (WRK-061 §7-13, W4) — the delegate's live broadcast. ONE subagent: a compact
@@ -47,7 +48,10 @@ class SubagentStageBody extends ConsumerWidget {
     }
     final director = ref.read(stageDirectorProvider(scene.conversationId).notifier);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-      Text(t.chat.stage.ensembleTitle, style: AnText.label.copyWith(color: c.inkFaint)),
+      // 假想框律:群像标题(裸文字)归假想框,左缘与 KV 键同起点(X=8);其下等高卡=真框贴 X=0。
+      // The imaginary-frame law: the ensemble title (bare text) sits in the imaginary frame (X=8, the KV-key
+      // line); the equal cards below are real frames at X=0.
+      stageFramed(Text(t.chat.stage.ensembleTitle, style: AnText.label.copyWith(color: c.inkFaint))),
       const SizedBox(height: AnSpace.s4),
       _SubagentCard(node: scene.node, dense: true, showTerminal: true),
       for (final blockId in peers)
@@ -112,23 +116,25 @@ class _SubagentCard extends StatelessWidget {
       child: !hasBody
           ? null
           : Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+        // icon 沟文法:当前动作(无 icon)与尾行(trajectory 字形)共用一条 icon 沟——字形同心居中(旧
+        // CrossAxisAlignment.start 把 iconXs 吊在首行上方,统一为 center 首行同心),文字全落同列。
+        // The icon-gutter grammar: the current action (no glyph) and the tail rows (trajectory glyphs) share
+        // ONE gutter — glyphs centred on the first line (the old start-align hung iconXs above the text;
+        // unified to center), all text on the same column.
         if (showCurrent) ...[
-          AnShimmerText(_lineOf(context, current), style: AnText.meta.copyWith(color: c.inkMuted)),
+          stageGutterRow(child: AnShimmerText(_lineOf(context, current), style: AnText.meta.copyWith(color: c.inkMuted))),
           if (tail.isNotEmpty) const SizedBox(height: AnSpace.s6),
         ],
         for (final b in tail)
           Padding(
             padding: const EdgeInsets.only(bottom: AnSpace.s2),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Icon(_glyphOf(b), size: AnSize.iconXs, color: c.inkFaint),
-              const SizedBox(width: AnSpace.s4),
-              Expanded(
-                child: Text(_lineOf(context, b),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AnText.meta.copyWith(color: c.inkFaint)),
-              ),
-            ]),
+            child: stageGutterRow(
+              lead: Icon(_glyphOf(b), size: AnSize.iconXs, color: c.inkFaint),
+              child: Text(_lineOf(context, b),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AnText.meta.copyWith(color: c.inkFaint)),
+            ),
           ),
       ]),
     );

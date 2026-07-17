@@ -6,6 +6,7 @@ import '../../../../core/design/typography.dart';
 import '../../../../core/ui/ui.dart';
 import '../../../../i18n/strings.g.dart';
 import '../tool_card_control_approval.dart';
+import 'stage_frame.dart';
 import 'stage_scene.dart';
 
 /// The APPROVAL stage (WRK-061 §7-7, W3) — the letter being written: the template's markdown prose
@@ -40,27 +41,33 @@ class ApprovalStageBody extends StatelessWidget {
     final behavior = session.closedStringAt(['timeoutBehavior']);
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-      Row(children: [
-        Icon(AnIcons.approval, size: AnSize.iconSm, color: c.inkFaint),
-        const SizedBox(width: AnSpace.s4),
-        Text(t.chat.stage.previewUnsent, style: AnText.meta.copyWith(color: c.inkFaint)),
-      ]),
+      // icon 沟文法:「预览·尚未寄出」标识行的字形坐进沟格、文字落文字列;信笺 AnWindow(真框)满宽贴 X=0。
+      // The icon-gutter grammar: the「预览·尚未寄出」identity row's glyph sits in the gutter; the letter
+      // window (a real frame) fills the body width at X=0.
+      stageGutterRow(
+        lead: Icon(AnIcons.approval, size: AnSize.iconSm, color: c.inkFaint),
+        child: Text(t.chat.stage.previewUnsent, style: AnText.meta.copyWith(color: c.inkFaint)),
+      ),
       const SizedBox(height: AnSpace.s4),
       if (template.isNotEmpty)
         AnWindow(child: _letter(context, c, template)),
-      if (timeout != null) ...[
-        const SizedBox(height: AnSpace.s6),
-        Text(
-          timeout.isEmpty
-              ? t.chat.stage.neverTimeout
-              : switch (behavior) {
-                  'approve' => t.chat.stage.timeoutApprove(d: timeout),
-                  'fail' => t.chat.stage.timeoutFail(d: timeout),
-                  _ => t.chat.stage.timeoutReject(d: timeout),
-                },
-          style: AnText.meta.copyWith(color: c.inkMuted),
+      if (timeout != null)
+        // 假想框律:timeout 句(裸文字)归假想框,左缘对齐 KV 键(X=8);信笺/理由窗=真框贴 X=0。The
+        // imaginary-frame law: the timeout sentence (bare text) sits in the imaginary frame (X=8, the KV-key
+        // line); the letter / reason windows are real frames at X=0.
+        stageFramed(
+          Text(
+            timeout.isEmpty
+                ? t.chat.stage.neverTimeout
+                : switch (behavior) {
+                    'approve' => t.chat.stage.timeoutApprove(d: timeout),
+                    'fail' => t.chat.stage.timeoutFail(d: timeout),
+                    _ => t.chat.stage.timeoutReject(d: timeout),
+                  },
+            style: AnText.meta.copyWith(color: c.inkMuted),
+          ),
+          top: AnSpace.s6,
         ),
-      ],
       if (allowReason == true) ...[
         const SizedBox(height: AnSpace.s4),
         // A sibling window, not the letter's footer: the reason slot may close before the

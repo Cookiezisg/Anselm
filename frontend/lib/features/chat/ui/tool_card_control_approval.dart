@@ -8,6 +8,7 @@ import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
+import 'stages/stage_frame.dart';
 import 'tool_card_skins.dart';
 
 // F04 control + approval build cards (WRK-056 §control / §approval). Both are WHOLE-SET replaces (the
@@ -136,7 +137,10 @@ Widget approvalFormBody(BuildContext context, ToolCardState state) {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(t.chat.tool.apfPreviewHint, style: AnText.label.copyWith(color: c.inkFaint)),
+      // 假想框律:「审批人将看到」提示句(裸文字)归假想框(X=8,与 KV 键同起点),别再顶格;其下 AnCard=真框
+      // 贴 X=0。The imaginary-frame law: the hint (bare text) sits in the imaginary frame (X=8, the KV-key
+      // line); the AnCard below is a real frame at X=0.
+      stageFramed(Text(t.chat.tool.apfPreviewHint, style: AnText.label.copyWith(color: c.inkFaint))),
       const SizedBox(height: AnSpace.s4),
       // The family card (A-001 — the hand-rolled white-island shell retires; content-flow card =
       // chip radius via AnCard, B-043). SizedBox keeps the full-width span. 族卡:手搓白岛退役,

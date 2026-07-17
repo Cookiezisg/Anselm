@@ -28,6 +28,7 @@ import '../../state/stage_truth.dart';
 import '../../state/touchpoint_ledger.dart';
 import '../../state/transcript_jump_provider.dart';
 import '../../../../core/run/run_nav.dart';
+import 'stage_frame.dart';
 import 'stage_registry.dart';
 import 'stage_scene.dart';
 
@@ -386,9 +387,12 @@ class SettledBody extends ConsumerWidget {
           ),
       ]),
       if (tombstoned)
-        Padding(
-          padding: const EdgeInsets.only(top: AnSpace.s4),
-          child: Text(t.feedback.cast.tombstone, style: AnText.meta.copyWith(color: c.danger)),
+        // 假想框律:红字墓碑句(裸文字)归假想框,左缘对齐上方 AnKv 键(X=8),不再顶格破相。The
+        // imaginary-frame law: the red tombstone line (bare text) joins the imaginary frame (X=8), landing
+        // on the AnKv key line above instead of顶格.
+        stageFramed(
+          Text(t.feedback.cast.tombstone, style: AnText.meta.copyWith(color: c.danger)),
+          top: AnSpace.s4,
         ),
       if (!tombstoned && (lastMessageId.isNotEmpty || hasPanelFor(entity.kind))) ...[
         const SizedBox(height: AnSpace.s6),

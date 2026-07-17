@@ -43,6 +43,17 @@ audience: [human, ai]
 - **表头（行头灰壳）设计好的，不动。**
 - 执行要点=「不去动那些原语，借已有思路解决」：能直接用原语就用（AnKv/AnLedgerRow/AnIndent），不能就按同一套框/沟文法摆裸内容；所有偏移从原语派生，零新魔法数。
 
+**✅ 已落（WRK-070 §A#1，纯几何轮，`make fe-verify` chat 全套 763 绿 + analyze 净）**：新原语文件 `lib/features/chat/ui/stages/stage_frame.dart` = 假想框律的唯一实现（`kStageFrameInset`=AnKv 键 h:s8 · `stageFramed` 裸文字归假想框 X=8 · `stageGutterRow` icon 定宽 iconSm 沟 + 光学居中，零新魔法数）。逐处：
+- **handler_stage.dart**：四处 `EdgeInsets.only(left: s12)`（init/live-body/shutdown 三窗 + 方法脊）全删——代码窗满宽贴 X=0（同 function_stage）；方法名行改「`AnStatusDot.raw(accent)` + s6 + `Flexible(名)`」dot 行，与 init/shutdown 轨段同沟（同尺寸 dot 天然对齐，无需定宽格，故 handler 未用 stage_frame 助手）。
+- **skill_memory_mcp_stage.dart（mcp 体）**：铭牌 Row（icon 16→沟）、「N tools discovered」句、工具小行（icon 12→沟）、失败 errorText 四处 → `stageGutterRow`（iconSm 铭牌 / iconXs 工具 / null 空沟共用一沟一列）；旧 `CrossAxisAlignment` 默认 center 归一到沟行 center。
+- **subagent_stage.dart**：尾行 `Row(CrossAxisAlignment.start)` → `stageGutterRow`（iconXs 字形定高 center，旧 start 吊高修正）；当前动作 shimmer（无 icon）→ 空沟同列；群像标题（X=0 裸文字）→ `stageFramed`。
+- **approval_stage.dart**：「预览·尚未寄出」标识行（icon 16）→ `stageGutterRow`；timeout 句（裸文字）→ `stageFramed(top: s6)`；信笺/理由 AnWindow 满宽不动。
+- **tool_card_control_approval.dart :139**：「审批人将看到」提示句 → `stageFramed`（X=8，其下 AnCard 真框贴 X=0）。
+- **stage_panel.dart `_GenericStage._body`**：裸 errorText → `stageFramed`；honesty 带（全宽着色丝带、自带 h:s8→文字已落 X=8）与 runStatBar（当家条）皆真框贴 X=0、判定不动。
+- **scene_from_truth.dart `SettledBody`**：红字墓碑句（X=0 裸奔）→ `stageFramed(top: s4)`，与其上 AnKv 键（X=8）同起点。
+- **item 7 逐座过审**：function/agent 已合规（只 chip/编辑器/条，无裸文字顶格，不动）；**保守不动**=control（旧梯 40% 瞬时地层，AnLadder 自持序号沟）/document（左缘由 minimap spine 锚定 X=0）/workflow（计数·判别式紧贴 framed 画布左缘、无干净对齐靶）/trigger（awaitingReceipt 双雷达尺寸不一、非 iconSm 沟）——皆有 stage-local 左锚系统，套 X=8 需设计签字，出几何轮范围。
+- **几何锁**：`test/features/chat/ui/stage_alignment_test.dart`（5 测）——handler 代码窗左缘==body 左缘（function 同锁为参照）/ mcp 工具行文字==铭牌名文字同列 / subagent 尾行字形与文字首行同心 ±3px / 墓碑句==AnKv 键同起点。
+
 ### #2 Composer 三钮雷霆大 + 回车发送（0718-凌晨）
 - **定位**：@/📎/发送三钮全 `AnButtonSize.lg`（chat_composer.dart:444/446/459）——44px 级按钮配 15px 正文,比例失衡;壳被撑到 ~64 高。
 - **✅ 用户 0718 拍板（三档同框样机比选）：28 档**——三钮全切 `AnButtonSize.md`(28 盒/16 形),发送=28 主色实心圆+16 箭头,壳单行态随之自然收矮;多行只长中间、两侧钮钉底行。样机 rig `test/dev/capture_composer_mock.dart` 用完即删。

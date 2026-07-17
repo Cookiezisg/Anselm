@@ -24,6 +24,7 @@ import '../state/stage_expansion.dart';
 import '../state/touchpoint_ledger.dart';
 import 'stages/attachment_pedestal.dart';
 import 'stages/scene_from_truth.dart';
+import 'stages/stage_frame.dart';
 import 'stages/stage_registry.dart';
 import 'stages/stage_scene.dart';
 import 'stages/subagent_stage.dart';
@@ -747,8 +748,12 @@ class _GenericStageState extends State<_GenericStage> {
       ],
       if (failed && state.errorText.isNotEmpty) ...[
         const SizedBox(height: AnSpace.s6),
-        Text(state.errorText,
-            maxLines: 3, overflow: TextOverflow.ellipsis, style: AnText.meta.copyWith(color: c.danger)),
+        // 假想框律:裸错误字归假想框,左缘对齐上方 AnKv 键(X=8);honesty 带是全宽着色丝带(自带 h:s8 内距,
+        // 文字已落 X=8)、runStatBar 是当家条,皆真框贴 X=0、不动。The imaginary-frame law: the bare error
+        // text joins the imaginary frame (X=8, the KV-key line above); the honesty ribbon (a full-width
+        // tinted frame whose own h:s8 already lands its text at X=8) and the stat bar are real frames at X=0.
+        stageFramed(Text(state.errorText,
+            maxLines: 3, overflow: TextOverflow.ellipsis, style: AnText.meta.copyWith(color: c.danger))),
       ],
       const SizedBox(height: AnSpace.s8),
     ];

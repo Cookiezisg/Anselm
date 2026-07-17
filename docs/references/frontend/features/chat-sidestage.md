@@ -37,7 +37,7 @@ audience: [human, ai]
 
 ## 3. 12/13 kind 量身舞台(`ui/stages/`,registry `stage_registry.dart`)
 
-fn(地层→OpTicker→活代码窗→落定真 diff 徽)/document(书脊+前缀快进+R-9 元数据卡;`[[id]]` 内联药丸经 `stageMentionNamesProvider` 走 composer/编辑器同一条 MentionSource 缝**解真名**,解不出回落 id;id 集键按被渲切片算——流式绝不每帧扫兆级正文)/workflow(真画布图生长+判别式抽屉)/control(丝线决策梯+透传幽灵+否则徽)/approval(信笺+琥珀插值+timeout 人话)/trigger(四脸+R-16 落定只信 GET;nextFireAt **按分钟活钟**重渲,无动画)/subagent(单席 ReAct 尾+群像点卡换台+tokens 结算;主体卡内联**终端活窗**——分身当前工具流出 progress 时尾部就地滚动 ≤10 行,「一整页是终端用的」的克制版)/handler(方法架,W0 带路径通道同名 body 隔离)/agent(R-9 未提及槽 40% 旧真相)/skill(装订台+琥珀 allowedTools+$ 占位槽)/memory(记忆笺,图钉 REST-only)/mcp(接线现场+工具货架)。conversation 不设舞台;attachment=exhibit 展品座(无建造工具入口)。共同律:R-4 live 禁成功语义、R-5 edit 登台即 GET 旧真相、R-9 渐进开区、R-12/13 有界动画窗。
+fn(地层→OpTicker→活代码窗→落定真 diff 徽)/document(书脊+前缀快进+R-9 元数据卡;`[[id]]` 内联药丸经 `stageMentionNamesProvider` 走 composer/编辑器同一条 MentionSource 缝**解真名**,解不出回落 id;id 集键按被渲切片算——流式绝不每帧扫兆级正文)/workflow(真画布图生长+判别式抽屉)/control(丝线决策梯+透传幽灵+否则徽)/approval(信笺+琥珀插值+timeout 人话)/trigger(四脸+R-16 落定只信 GET;nextFireAt **按分钟活钟**重渲,无动画)/subagent(单席 ReAct 尾+群像点卡换台+tokens 结算;主体卡内联**终端活窗**——分身当前工具流出 progress 时尾部就地滚动 ≤10 行,「一整页是终端用的」的克制版)/handler(方法架,W0 带路径通道同名 body 隔离)/agent(R-9 未提及槽 40% 旧真相)/skill(装订台+琥珀 allowedTools+$ 占位槽)/memory(记忆笺,图钉 REST-only)/mcp(接线现场+工具货架)。conversation 不设舞台;attachment=exhibit 展品座(无建造工具入口)。共同律:R-4 live 禁成功语义、R-5 edit 登台即 GET 旧真相、R-9 渐进开区、R-12/13 有界动画窗;**假想框律**(WRK-070 §A#1,`ui/stages/stage_frame.dart`):每个块逻辑上住在一个框里——真框(`AnWindow`/`AnCard`/`AnCodeEditor`/`AnLayerDiff`/着色丝带)满宽贴 X=0、绝不二次缩进;裸文字(墓碑/timeout/error/计数句/群像标题/提示句)归**假想框** `stageFramed`(X=8=AnKv 键 h:s8 线);icon 行归定宽 iconSm **沟** `stageGutterRow`(icon 对 icon 光学居中/文字对文字,mcp 铭牌·工具行、subagent 尾行、approval 预览行、handler 方法脊皆归此)。
 
 ## 4. 导航(W6)
 

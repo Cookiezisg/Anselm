@@ -7,6 +7,7 @@ import '../../../../core/ui/ui.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../model/tool_receipts.dart';
 import '../tool_card_skins.dart';
+import 'stage_frame.dart';
 import 'stage_scene.dart';
 
 /// The SKILL stage (WRK-061 §7-9, W5 · reprose WRK-064) — a SKILL.md read as its two natural parts inside
@@ -167,11 +168,16 @@ class McpStageBody extends StatelessWidget {
     final tools = _resultTools();
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-      Row(children: [
-        Icon(AnIcons.mcp, size: AnSize.iconSm, color: c.inkMuted),
-        const SizedBox(width: AnSpace.s4),
-        Text(name, style: AnText.label.weight(AnText.emphasisWeight).copyWith(color: c.ink)),
-      ]),
+      // icon 沟文法:铭牌·工具行·计数句共用一条 icon 沟(iconSm/iconXs 字形同心)+一条文字列——铭牌名与
+      // 工具名落同起点。The icon-gutter grammar: the nameplate, tool rows and count line share ONE gutter
+      // (iconSm/iconXs glyphs centred) + ONE text column — nameplate name and tool names start on the同一列。
+      stageGutterRow(
+        lead: Icon(AnIcons.mcp, size: AnSize.iconSm, color: c.inkMuted),
+        child: Text(name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AnText.label.weight(AnText.emphasisWeight).copyWith(color: c.ink)),
+      ),
       if (env is Map && env.isNotEmpty) ...[
         const SizedBox(height: AnSpace.s4),
         Wrap(spacing: AnSpace.s4, runSpacing: AnSpace.s4, children: [
@@ -185,22 +191,22 @@ class McpStageBody extends StatelessWidget {
       if (!scene.live && !scene.failed) ...[
         if (tools.isNotEmpty) ...[
           const SizedBox(height: AnSpace.s6),
-          Row(children: [
-            AnCountUp(tools.length, style: AnText.meta.copyWith(color: c.ok)),
-            Text(' ${t.chat.stage.toolsDiscovered}', style: AnText.meta.copyWith(color: c.ok)),
-          ]),
+          // No-icon line → the text still lands on the shared text column (empty gutter). 无 icon 行文字落同列。
+          stageGutterRow(
+            child: Row(children: [
+              AnCountUp(tools.length, style: AnText.meta.copyWith(color: c.ok)),
+              Text(' ${t.chat.stage.toolsDiscovered}', style: AnText.meta.copyWith(color: c.ok)),
+            ]),
+          ),
           const SizedBox(height: AnSpace.s2),
           for (final tool in tools.take(12))
             Padding(
               padding: const EdgeInsets.only(bottom: AnSpace.s2),
-              child: Row(children: [
-                Icon(AnIcons.tool, size: AnSize.iconXs, color: c.inkFaint),
-                const SizedBox(width: AnSpace.s4),
-                Expanded(
-                  child: Text(tool,
-                      maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.meta.copyWith(color: c.inkMuted)),
-                ),
-              ]),
+              child: stageGutterRow(
+                lead: Icon(AnIcons.tool, size: AnSize.iconXs, color: c.inkFaint),
+                child: Text(tool,
+                    maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.meta.copyWith(color: c.inkMuted)),
+              ),
             ),
         ],
         const SizedBox(height: AnSpace.s4),
@@ -208,8 +214,11 @@ class McpStageBody extends StatelessWidget {
       ],
       if (scene.failed && scene.state.errorText.isNotEmpty) ...[
         const SizedBox(height: AnSpace.s6),
-        Text(scene.state.errorText,
-            maxLines: 3, overflow: TextOverflow.ellipsis, style: AnText.meta.copyWith(color: c.danger)),
+        // No-icon line → the text lands on the shared column (empty gutter), aligned with the shelf. 落同列。
+        stageGutterRow(
+          child: Text(scene.state.errorText,
+              maxLines: 3, overflow: TextOverflow.ellipsis, style: AnText.meta.copyWith(color: c.danger)),
+        ),
       ],
     ]);
   }
