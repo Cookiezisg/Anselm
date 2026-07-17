@@ -79,6 +79,7 @@ lib/core/model/sidebar_flatten.dart	converged
 lib/core/model/sidebar_model.dart	reviewed
 lib/core/model/status_state.dart	converged
 lib/core/model/time_format.dart	converged
+lib/core/model/time_range.dart	pending
 lib/core/net/api_client.dart	converged
 lib/core/overlay/an_overlay.dart	reviewed
 lib/core/perf/coalescing_notifier.dart	converged
@@ -130,6 +131,7 @@ lib/core/ui/an_auto_grid.dart	converged
 lib/core/ui/an_batch_bar.dart	pending
 lib/core/ui/an_brand_icon.dart	reviewed
 lib/core/ui/an_button.dart	converged
+lib/core/ui/an_calendar.dart	pending
 lib/core/ui/an_callout.dart	converged
 lib/core/ui/an_card.dart	converged
 lib/core/ui/an_cast_row.dart	reviewed
@@ -235,6 +237,7 @@ lib/core/ui/an_tags.dart	converged
 lib/core/ui/an_term_viewport.dart	reviewed
 lib/core/ui/an_thin_table.dart	converged
 lib/core/ui/an_time_pulse.dart	pending
+lib/core/ui/an_time_range_picker.dart	pending
 lib/core/ui/an_toast.dart	reviewed
 lib/core/ui/an_toned_panel.dart	converged
 lib/core/ui/an_tooltip.dart	converged
@@ -262,6 +265,7 @@ lib/dev/gallery/an_countdown_specimens.dart	pending
 lib/dev/gallery/an_run_matrix_specimens.dart	pending
 lib/dev/gallery/an_schedule_track_specimens.dart	pending
 lib/dev/gallery/an_term_tail_specimens.dart	converged
+lib/dev/gallery/an_time_range_picker_specimens.dart	pending
 lib/dev/gallery/catalog.dart	reviewed
 lib/dev/gallery/chat_composer_specimens.dart	reviewed
 lib/dev/gallery/chat_thinking_specimens.dart	reviewed
