@@ -103,9 +103,23 @@ const retentionInterval = 6 * time.Hour
 // node before interrupting it (R3 option C — clean durability for fast nodes, bounded shutdown for
 // slow). Kept under shutdownGrace so the rest of the ordered shutdown keeps budget.
 //
+// WHY 2s (T8, WRK-070): this grace is the first term of the shutdown chain's worst-case SERIAL
+// floor — drainShutdownGrace + 2×shell.WaitDelay (StopPool then chat.Shutdown each wait out a
+// cancelled Bash's pipe floor) — which must stay strictly under the app's 8s SIGTERM grace, or
+// SIGKILL undoes the whole ordered shutdown. 2+2+2=6s ≤ shutdownGrace < 8s; the golden test in
+// shutdown_budget_test.go pins all three inequalities. A node that misses 2s is interrupted,
+// records failed, and resumes next boot (record-once) — strictly better than being SIGKILLed
+// mid-write, which is what a longer grace buys.
+//
 // drainShutdownGrace 限 Shutdown 给在飞 Advance 跑完当前节点的时长，超则打断（R3 选项 C——快节点干净、慢节点有界）。
 // 留在 shutdownGrace 之下，使关停其余步骤仍有预算。
-const drainShutdownGrace = 6 * time.Second
+//
+// 为什么是 2s（T8，WRK-070）：这段宽限是关停链最坏**串行**地板的第一项——drainShutdownGrace +
+// 2×shell.WaitDelay（StopPool、chat.Shutdown 各要等满一个被取消 Bash 的管道地板）——必须严格小于
+// app 侧 8s SIGTERM 宽限，否则 SIGKILL 让整个有序关停前功尽弃。2+2+2=6s ≤ shutdownGrace < 8s；
+// shutdown_budget_test.go 的 golden 测试钉死全部三条不等式。没赶上 2s 的节点被打断、记 failed、
+// 下次 boot 续走（record-once）——严格好于写到一半被 SIGKILL，而更长的宽限买到的正是后者。
+const drainShutdownGrace = 2 * time.Second
 
 // Build assembles the whole backend. The returned App is ready to serve immediately (health works
 // before Boot); call Boot to start background work and Shutdown to stop it.
@@ -215,8 +229,22 @@ func handleHealth(w http.ResponseWriter, _ *http.Request) {
 
 // shutdownGrace bounds the whole graceful drain (HTTP + background + DB).
 //
+// WHY 6s (T8, WRK-070): the app gives this process 8 seconds of SIGTERM grace (frontend
+// backend_controller.dart `shutdownGrace`) before escalating to SIGKILL — and SIGKILL forfeits
+// everything the ordered shutdown exists for (children orphaned, background bash trees leaked,
+// WAL checkpoint skipped). So the backend's WHOLE budget must stay strictly under 8s with
+// margin. 6s covers the ctx-bounded steps; the ctx-free serial floors (drainShutdownGrace +
+// 2×shell.WaitDelay = 6s worst case) fit the same envelope. Golden test:
+// shutdown_budget_test.go parses the app-side constant and pins every inequality.
+//
 // shutdownGrace 限定整个优雅排空（HTTP + 后台 + DB）。
-const shutdownGrace = 10 * time.Second
+//
+// 为什么是 6s（T8，WRK-070）：app 侧只给本进程 8 秒 SIGTERM 宽限（前端 backend_controller.dart
+// `shutdownGrace`），超过即升级 SIGKILL——而 SIGKILL 让有序关停存在的意义全部作废（子进程成孤儿、
+// 后台 bash 整树失管、WAL checkpoint 被跳过）。故后端**总**预算必须留余量地严格小于 8s。6s 罩住
+// ctx 有界各步；不认 ctx 的串行地板（drainShutdownGrace + 2×shell.WaitDelay，最坏 6s）落在同一
+// 包络内。golden 测试 shutdown_budget_test.go 解析 app 侧常量、钉死每条不等式。
+const shutdownGrace = 6 * time.Second
 
 // Serve owns the entire server lifecycle and blocks until ctx is cancelled (the entry shell wires
 // SIGINT/SIGTERM to it) or the listener fails. The graceful-shutdown ORDER is a backend concern, not
@@ -283,6 +311,11 @@ func (a *App) Boot(ctx context.Context) {
 	}
 	registerSandboxStack(a.svc.sandbox)
 	a.svc.sandbox.RestoreOrCleanupOnBoot(ctx)
+	// Reap run_in_background shell groups a prior UNGRACEFUL exit orphaned — Stop() at line ~700
+	// only runs on graceful Shutdown; the pid manifest is the crash half's only net (T3).
+	// 收割上次非优雅退出留下的 run_in_background 进程组——Stop() 只在优雅 Shutdown 可达,
+	// pid 清单是崩溃半唯一的网(T3)。
+	a.svc.shellMgr.ReapStaleOnBoot(a.log)
 	a.svc.trigger.Start()
 	// search index worker + per-workspace reconcile (self-healing for dropped events /
 	// crashes / schema bumps); never blocks boot.

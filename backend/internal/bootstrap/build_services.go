@@ -252,9 +252,15 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	guard := pathguardpkg.NewDefault()
 	// Capture the struct, not just .Tools: its Manager owns every run_in_background child's process
 	// group, and App.Shutdown must call Manager.Stop() to reap them — else backgrounded jobs (and
-	// their whole trees) orphan on every backend exit (R1).
+	// their whole trees) orphan on every backend exit (R1). The pid manifest under dataDir is the
+	// crash half: Boot's ReapStaleOnBoot reaps groups that survived an ungraceful exit (T3).
 	// 留住整个 struct 而非只 .Tools：Manager 持每个后台子进程的进程组，Shutdown 须调 Manager.Stop() 回收（R1）。
-	shellTools := shelltool.NewShellTools()
+	// dataDir 下的 pid 清单是崩溃半：Boot 的 ReapStaleOnBoot 收割熬过非优雅退出的进程组（T3）。
+	shellPidDir := ""
+	if dataDir != "" {
+		shellPidDir = filepath.Join(dataDir, "shellpids")
+	}
+	shellTools := shelltool.NewShellTools(shellPidDir)
 	toolset := toolapp.Toolset{
 		Resident: concat(
 			filesystemtool.FilesystemTools(guard),

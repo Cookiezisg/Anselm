@@ -30,16 +30,16 @@ import (
 const HeaderWorkspace = "X-Anselm-Workspace-ID"
 
 const (
-	// gracefulStop bounds the SIGTERM → exit wait. The backend's whole ordered drain shares ONE 10s
-	// deadline (bootstrap's shutdownGrace — a backend fact, restated per the black-box rule), but a
-	// few tail steps honour no ctx (pool/chat wait-groups, the SQLite WAL checkpoint), so the true
-	// ceiling is 10s plus a tail. 20s is the same budget TestContractChat_GracefulShutdownImmediate
-	// already asserts this exact wire fact against.
+	// gracefulStop bounds the SIGTERM → exit wait. The backend's whole ordered drain shares ONE 6s
+	// deadline (bootstrap's shutdownGrace — a backend fact, restated per the black-box rule; sized to
+	// nest under the app's 8s SIGTERM grace, T8 WRK-070), but a few tail steps honour no ctx
+	// (pool/chat wait-groups, the SQLite WAL checkpoint), so the true ceiling is 6s plus a tail. 20s
+	// stays as generous test slack — a wedged drain is a defect regardless of the exact budget.
 	//
-	// gracefulStop 限定 SIGTERM → 退出的等待。backend 整个有序排空共享**一个** 10s 截止（bootstrap 的
-	// shutdownGrace，后端事实、按黑盒铁律复述），但尾部几步不认 ctx（池/chat 的 wait-group、SQLite WAL
-	// checkpoint），故真实上界是 10s 加一条尾巴。20s = TestContractChat_GracefulShutdownImmediate 对同一
-	// 线缆事实已在用的预算。
+	// gracefulStop 限定 SIGTERM → 退出的等待。backend 整个有序排空共享**一个** 6s 截止（bootstrap 的
+	// shutdownGrace，后端事实、按黑盒铁律复述；定为嵌进 app 侧 8s SIGTERM 宽限之内，T8 WRK-070），但
+	// 尾部几步不认 ctx（池/chat 的 wait-group、SQLite WAL checkpoint），故真实上界是 6s 加一条尾巴。
+	// 20s 保持为宽裕的测试余量——不论精确预算是多少，排空卡死都是缺陷。
 	gracefulStop = 20 * time.Second
 
 	// groupReapWait bounds the post-sweep wait for the process group to drain. SIGKILL'd

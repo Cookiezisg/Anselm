@@ -34,7 +34,7 @@ audience: [human, ai]
 
 | 层 | 动作 | 为什么 |
 |---|---|---|
-| ① 优雅 | `SIGTERM` → 等至多 `gracefulStop`(20s) | **唯一**能跑起后端有序关停的方式，而只有那条链会杀 embedder（尾部的 `search.Close`）。`os.Process.Kill` 是**不可捕获的 SIGKILL**，用它 = 整条链一步不走。20s = 后端 `shutdownGrace`(10s，全程共享一个截止) + 不认 ctx 的尾步（池/chat waitgroup、WAL checkpoint）余量 |
+| ① 优雅 | `SIGTERM` → 等至多 `gracefulStop`(20s) | **唯一**能跑起后端有序关停的方式，而只有那条链会杀 embedder（尾部的 `search.Close`）。`os.Process.Kill` 是**不可捕获的 SIGKILL**，用它 = 整条链一步不走。20s = 后端 `shutdownGrace`(6s，全程共享一个截止；定为嵌进 app 侧 8s SIGTERM 宽限，T8 WRK-070) + 不认 ctx 的尾步（池/chat waitgroup、WAL checkpoint）宽裕余量——排空卡死不论预算多少都是缺陷 |
 | ② 兜底 | `kill(-pgid, SIGKILL)` 收整棵子树 | 兜住①够不着的：`Kill9`、卡死的排空、panic。embedder 由裸 `exec.Command` 起、不自设组 → 继承 server 组 → 一个负 pid 信号即收。**macOS 无 `Pdeathsig`**（父死子必孤），此层是 darwin 上唯一防线 |
 | ③ 自检 | 轮询进程组至空；超 `groupReapWait`(10s) 仍有成员 → `t.Errorf` + 列幸存者命令行 | 泄漏必须**红**。旧实现全绿着漏出 31 个 llama-server（用户实机取证，12.23G/16G）——**测试绿不是收容的证据，空进程组才是**。每个测试自带此检，不设单独 leak 测试 |
 
