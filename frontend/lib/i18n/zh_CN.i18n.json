@@ -652,9 +652,12 @@
     "filterPlaceholder": "过滤 / 粘贴 fr_ id…",
     "overview": {
       "kpiRunning": "在跑",
+      "kpiRunningA11y": "在跑 $n 个。在「正在跑」列表中显示它们。",
       "kpiWaiting": "等你处理",
+      "kpiWaitingA11y": "等你处理 $n 条。在「等你处理」列表中显示它们。",
       "kpiFailed24h": "24h 失败",
       "kpiNextFire": "下次调度",
+      "kpiNextFireA11y": "下次调度在 $d 后。在调度轨上显示它。",
       "kpiNone": "—",
       "fireIn": "$d 后",
       "deltaUp": "▲$n",

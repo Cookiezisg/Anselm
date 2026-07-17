@@ -43,6 +43,7 @@ class StubSchedulerRepo implements SchedulerRepository {
     this.failActivity = false,
     this.failSchedule = false,
     this.failFirings = false,
+    this.failRunningRuns = false,
     this.failMatrix = false,
     this.failRetention = false,
   }) : matrixByWorkflow = matrixByWorkflow ?? {};
@@ -50,6 +51,12 @@ class StubSchedulerRepo implements SchedulerRepository {
   final List<SchedulerWorkflowRow> workflows;
   final List<WorkflowRunStats> byWorkflow;
   final Map<String, int> failedBySince;
+
+  /// The wire's `totals.running` — kept scriptable ON PURPOSE, and deliberately NOT wired to [runs]:
+  /// a battery points it somewhere absurd to prove the 「在跑 N」 tile does not read it. The tile is its
+  /// zone's `list.length`; a second count of the same fact is precisely what must never reach it.
+  /// 线缆的 `totals.running`——**刻意**保留可编脚本,且**刻意不**接到 [runs] 上:电池把它指向一个荒谬的值,以证明
+  /// 「在跑 N」牌**不读**它。牌 = 它那个区的 `list.length`;同一个事实的第二次计数,正是绝不许到达它的那个东西。
   final int totalsRunning;
   final List<TriggerEntity> triggers;
   final List<EntityRelation> edges;
@@ -103,6 +110,13 @@ class StubSchedulerRepo implements SchedulerRepository {
 
   /// listFirings throws 422 — the board must survive a firing read failing. firing 读失败:盘面须活着。
   final bool failFirings;
+
+  /// listRunningRuns throws — the 「正在跑」 zone AND its tile read this ONE call, so a failure must reach
+  /// the user as the board's honest error state, never as a zero tile over a silently emptied zone (a
+  /// KPI reading 0 because the fetch died is the most dangerous lie this board could tell).
+  /// 「正在跑」区**与**它那张牌同读这**一次**调用,故它失败必须以看板诚实的错误态到达用户,绝不能变成「静默清空的区
+  /// 上顶着一张读 0 的牌」——一张因为取数死了而读 0 的 KPI,是这块看板能撒的最危险的谎。
+  final bool failRunningRuns;
   bool failMatrix;
   final bool failRetention;
 
@@ -149,7 +163,15 @@ class StubSchedulerRepo implements SchedulerRepository {
       totals: SchedulerTotals(
           running: totalsRunning,
           failedSince: failedBySince[_sinceKey(since)] ?? 0,
-          parkedNodes: inbox.length,
+          // DISTINCT RUNS awaiting a human — the wire's contract, despite the key's name (api.md
+          // flowrun-stats: «仍 running 且持 ≥1 parked 节点的 DISTINCT run»). A run parked on two approvals
+          // is ONE here and TWO inbox rows, and a stub that said `inbox.length` would quietly agree with
+          // the 「等你 N」 tile no matter which source the tile read — hiding the very difference that makes
+          // the inbox the tile's only honest source.
+          // 等人处理的 **DISTINCT run** 数——线缆的契约,不管这个键叫什么名字(api.md flowrun-stats)。一个 park 在两个
+          // 审批上的 run 在这里是 **1**、在收件箱里是 **2 行**;若 stub 写 `inbox.length`,那无论「等你 N」牌读的是哪个源
+          // 它都会静默地对上——正好藏起那个「收件箱是该牌唯一诚实来源」的**差别**。
+          parkedNodes: {for (final r in _liveInbox()) r.node.flowrunId}.length,
           // Counted through the SAME predicate the firing page uses (the backend shares one
           // `firingQuery` between `CountFirings` and `SearchFirings`; a stub that scripted the card's
           // number independently of the rows could not catch the two drifting apart, which is the one
@@ -236,13 +258,18 @@ class StubSchedulerRepo implements SchedulerRepository {
   @override
   Future<List<EntityRelation>> workflowTriggerEdges() async => edges;
 
-  @override
-  Future<List<SchedulerInboxRow>> listInbox() async => [
+  /// The inbox under the stateful decides/cancels — the ONE seam both `listInbox` and the totals'
+  /// parked count read, so the stub cannot contradict itself mid-battery. 有状态变更后的收件箱:收件箱与
+  /// totals 的 parked 计数**同读这一处**,故 stub 不会在电池半途自相矛盾。
+  List<SchedulerInboxRow> _liveInbox() => [
         for (final r in inbox)
           if (!decided.contains('${r.node.flowrunId}/${r.node.nodeId}') &&
               !cancelled.contains(r.node.flowrunId))
             r,
       ];
+
+  @override
+  Future<List<SchedulerInboxRow>> listInbox() async => _liveInbox();
 
   @override
   Future<FlowrunComposite> decideApproval(String flowrunId, String nodeId,
@@ -331,6 +358,20 @@ class StubSchedulerRepo implements SchedulerRepository {
     final more = offset + page.length < rows.length;
     return contract.Page(
         items: page, nextCursor: more ? '${offset + page.length}' : null, hasMore: more);
+  }
+
+  /// Workspace-wide, drained, and — like `missed` above — derived from the SAME seed the zone renders.
+  /// A stub that let a battery script the tile's number apart from the rows could not catch the two
+  /// drifting apart, which is the one thing worth catching here. Deliberately NOT filtered by the
+  /// `workflows` seed: an orphan's run (host soft-deleted, so it has no workflow row) is exactly what
+  /// this door exists to reach.
+  /// 工作区级、拉全,且——同上面的 missed——派生自区所渲染的**同一份**种子。若 stub 让电池把牌的数字与行**分开**编脚本,
+  /// 就恰好抓不到那两者漂移,而那正是此处唯一值得抓的东西。**刻意不**按 workflows 种子过滤:孤儿的 run(宿主已软删、
+  /// 故没有 workflow 行)恰恰就是这扇门存在的理由。
+  @override
+  Future<List<Flowrun>> listRunningRuns() async {
+    if (failRunningRuns) throw StateError('running read failed');
+    return [for (final r in runs.map(_live)) if (r.status == 'running') r];
   }
 
   @override

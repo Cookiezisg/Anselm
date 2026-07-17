@@ -1,6 +1,10 @@
 import 'package:anselm/core/contract/api_error.dart';
 import 'package:anselm/core/contract/entities/trigger.dart';
+import 'package:anselm/core/runtime.dart';
 import 'package:anselm/features/scheduler/data/scheduler_demo_fixture.dart';
+import 'package:anselm/features/scheduler/data/scheduler_repository.dart';
+import 'package:anselm/features/scheduler/state/scheduler_overview_provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // The Scheduler demo battery's seed-correctness lock (WRK-069 §15 — fixture is pure data, the test
@@ -8,6 +12,28 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   final repo = demoSchedulerRepository();
+
+  // The 「下次调度」 tile is clickable only when the instant it names is really a tick on the track it
+  // opens (nextFireOnTrack) — so a demo whose two seams disagree about that instant can never show the
+  // tile's drill-down at all: a state the demo is required to reach (D 轨:demo 全展示). This pins the
+  // fixture to the property the BACKEND has for free: `cron.Next(expr, now)` is a pure function of the
+  // expression, so `listTriggers` and `trigger-schedule` project the SAME instant for the same cron.
+  // 「下次调度」牌只在它所念的时刻真是它要打开的那条轨上的一个刻度时才可点(nextFireOnTrack)——故两条缝对那个
+  // 时刻各执一词的 demo,根本演示不出这张牌的钻取:而那是 demo 必须到达的状态(D 轨:demo 全展示)。本测把 fixture
+  // 钉在**后端白送**的那条性质上:cron.Next(expr, now) 是表达式的纯函数,故 listTriggers 与 trigger-schedule
+  // 为同一个 cron 投影出**同一个**时刻。
+  test('the 「下次调度」 tile has a tick to open: the fixture\'s next fire IS on the fixture\'s track',
+      () async {
+    final container = ProviderContainer(overrides: [
+      sseGatewayProvider.overrideWithValue(null),
+      schedulerRepositoryProvider.overrideWithValue(repo),
+    ]);
+    addTearDown(container.dispose);
+    final d = await container.read(schedulerOverviewProvider.future);
+    expect(d.kpi.nextFire, isNotNull, reason: 'demo 有 cron,牌得有值');
+    expect(nextFireOnTrack(d.track, d.kpi.nextFire), isTrue,
+        reason: '两条缝必须对同一个 cron 刻度说同一个时刻,否则 demo 演示不出这张牌可点的样子');
+  });
 
   test('every rail state is seeded: running / waiting / failing / healed / never-ran / inactive', () async {
     final wfs = await repo.listWorkflows();

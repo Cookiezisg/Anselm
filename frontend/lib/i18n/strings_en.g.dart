@@ -2754,14 +2754,23 @@ class Translations$scheduler$overview$en {
 	/// en: 'Running'
 	String get kpiRunning => 'Running';
 
+	/// en: 'Running: $n. Show them in the running-now list.'
+	String kpiRunningA11y({required Object n}) => 'Running: ${n}. Show them in the running-now list.';
+
 	/// en: 'Waiting on you'
 	String get kpiWaiting => 'Waiting on you';
+
+	/// en: 'Waiting on you: $n. Show them in the waiting list.'
+	String kpiWaitingA11y({required Object n}) => 'Waiting on you: ${n}. Show them in the waiting list.';
 
 	/// en: 'Failed · 24h'
 	String get kpiFailed24h => 'Failed · 24h';
 
 	/// en: 'Next fire'
 	String get kpiNextFire => 'Next fire';
+
+	/// en: 'Next fire in $d. Show it on the schedule track.'
+	String kpiNextFireA11y({required Object d}) => 'Next fire in ${d}. Show it on the schedule track.';
 
 	/// en: '—'
 	String get kpiNone => '—';
@@ -6306,9 +6315,12 @@ extension on Translations {
 			'scheduler.sectionInactive' => 'Inactive',
 			'scheduler.filterPlaceholder' => 'Filter / paste fr_ id…',
 			'scheduler.overview.kpiRunning' => 'Running',
+			'scheduler.overview.kpiRunningA11y' => ({required Object n}) => 'Running: ${n}. Show them in the running-now list.',
 			'scheduler.overview.kpiWaiting' => 'Waiting on you',
+			'scheduler.overview.kpiWaitingA11y' => ({required Object n}) => 'Waiting on you: ${n}. Show them in the waiting list.',
 			'scheduler.overview.kpiFailed24h' => 'Failed · 24h',
 			'scheduler.overview.kpiNextFire' => 'Next fire',
+			'scheduler.overview.kpiNextFireA11y' => ({required Object d}) => 'Next fire in ${d}. Show it on the schedule track.',
 			'scheduler.overview.kpiNone' => '—',
 			'scheduler.overview.fireIn' => ({required Object d}) => 'in ${d}',
 			'scheduler.overview.deltaUp' => ({required Object n}) => '▲${n}',
@@ -6702,11 +6714,11 @@ extension on Translations {
 			'entities.detail.card.runtime' => 'Runtime',
 			'entities.detail.card.config' => 'Config readiness',
 			'entities.detail.card.tools' => 'Tool mounts',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.card.skill' => 'Skill',
 			'entities.detail.card.knowledge' => 'Knowledge',
 			'entities.detail.card.model' => 'Model override',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.card.lifecycle' => 'Lifecycle',
 			'entities.detail.card.concurrency' => 'Concurrency',
 			'entities.detail.graph.nodes' => 'Node',
@@ -7216,11 +7228,11 @@ extension on Translations {
 			'settings.storage.retention180' => '180 days',
 			'settings.storage.retentionForever' => 'Keep forever',
 			'settings.storage.retentionSaved' => 'Retention updated',
+			_ => null,
+		} ?? switch (path) {
 			'settings.storage.resetPrefs' => 'Reset local preferences',
 			'settings.storage.resetPrefsDesc' => 'Clears this machine\'s UI preferences (theme/window/zoom…) only — never touches workspace data. The app will restart to apply the reset.',
 			'settings.storage.resetPrefsTitle' => 'Reset local preferences?',
-			_ => null,
-		} ?? switch (path) {
 			'settings.storage.factoryTitle' => 'Factory reset',
 			'settings.storage.factoryWarn' => 'Stops the engine, permanently deletes the ENTIRE data directory (all workspaces / conversations / entities / documents / keys) and relaunches the app.',
 			'settings.storage.factoryHint' => 'Type “Anselm” to confirm',

@@ -125,6 +125,32 @@ abstract interface class SchedulerRepository {
       String? cursor,
       int? limit});
 
+  /// EVERY running run in the workspace (`GET /flowruns?status=running`, drained) — the ONE call
+  /// behind the Overview's 「正在跑」 zone AND its KPI tile, which is the whole reason it exists as its
+  /// own door rather than a loop over [listFlowruns].
+  ///
+  /// **`workflowId` is deliberately absent, and that is the point.** The tile counts the WORKSPACE's
+  /// running runs, so the zone must list the workspace's running runs — the same predicate, or the
+  /// tile and the list it opens are two different questions wearing one number. Asking per workflow
+  /// cannot answer it: the run of a SOFT-DELETED workflow is still running (孤儿 run 一等公民, §5.7),
+  /// it is counted by anything that reads the flowruns table, and no per-workflow loop driven by the
+  /// workflow list will ever visit it. The wire has always allowed this (`ListFilter.WorkflowID`
+  /// empty = every workflow); nothing needed to change but the question.
+  ///
+  /// Drained rather than first-page: a page cap would make the zone — and therefore the tile that
+  /// counts its rows — silently under-report. The drain's own defensive bound is far above what the
+  /// machine's concurrency limits can produce.
+  ///
+  /// 工作区里**每一个**在跑的 run(`GET /flowruns?status=running`,翻页拉全)——Overview「正在跑」区**与**
+  /// 它那张 KPI 牌背后**唯一**的一次调用;这正是它自成一扇门、而非 [listFlowruns] 循环的全部理由。
+  /// **workflowId 刻意缺席,而这就是要害**:牌数的是**整个工作区**在跑的 run,故区必须列出**整个工作区**在跑的
+  /// run——同一份谓词,否则牌与它点开的列表就是**两个问题共用一个数字**。逐 workflow 问答不出这个问题:**宿主已软删**
+  /// 的 run 照样在跑(孤儿 run 一等公民,§5.7),凡是读 flowruns 表的都数着它,而任何由 workflow 列表驱动的逐个循环
+  /// 都永远走不到它。线缆一直允许这么问(ListFilter.WorkflowID 为空=全部 workflow),要改的从来只是**问题**本身。
+  /// **翻页拉全而非只取首页**:页帽会让区——以及数它行数的那张牌——静默少报;拉全自带的防御帽远高于这台机器的
+  /// 并发上限所能产出的量。
+  Future<List<Flowrun>> listRunningRuns();
+
   /// The full workflow entity (`GET /workflows/{id}`) — the operations home's health head needs the
   /// lifecycle truth and the linked pane needs the active version's graph. 全量 workflow 实体
   /// (健康头生命周期 + 联动格活跃版本图)。
@@ -366,6 +392,10 @@ class LiveSchedulerRepository implements SchedulerRepository {
       if (limit != null) 'limit': '$limit',
     });
   }
+
+  @override
+  Future<List<Flowrun>> listRunningRuns() =>
+      _drain('/api/v1/flowruns', Flowrun.fromJson, query: const {'status': 'running'});
 
   @override
   Future<WorkflowEntity> getWorkflow(String id) =>

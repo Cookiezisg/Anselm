@@ -30,8 +30,33 @@ class SchedulerKpi {
     this.nextFire,
   });
 
+  /// How many runs are in flight — **`SchedulerOverviewData.runningRuns.length`, and nothing else**.
+  ///
+  /// The tile deep-links to the 「正在跑」 zone, which renders one row per element of that very list, so
+  /// the number and the list are the SAME FACT and must have ONE source. The tempting alternative —
+  /// `flowrun-stats`' authoritative `totals.running` — is a SECOND count of the same thing, taken from
+  /// a second query at a second instant, and «the tile says 3, the list it opens shows 2» is the bug
+  /// this ocean was legislated against. (It was also live: totals counts orphan runs whose host is
+  /// soft-deleted, and the zone's old per-workflow probe loop could never reach them.) A count that
+  /// can only ever be `list.length` cannot drift from the list.
+  ///
+  /// 在飞的 run 数——**就是 `runningRuns.length`,别无来源**。牌深链到「正在跑」区,而那个区是这份列表的逐元素
+  /// 投影,故数字与列表是**同一个事实**、必须只有**一个**源。诱人的替代品——flowrun-stats 那个权威的
+  /// `totals.running`——是**同一件事的第二次计数**:第二条查询、第二个瞬间;而「牌上写 3、点开列表显示 2」正是本
+  /// 海洋立法所禁的那个 bug(且它**曾经是活的**:totals 数着宿主已软删的孤儿 run,而区里旧的逐 workflow 探针循环
+  /// 永远够不到它们)。一个只可能等于 `list.length` 的数,漂不出那份列表。
   final int running;
+
+  /// How many decisions are waiting on you — **`SchedulerOverviewData.waiting.length`**, the same rows
+  /// the zone renders and the rail's badge counts (工单④'s inbox, one fetch, one truth).
+  ///
+  /// NOT `totals.parkedNodes`, which despite its wire name counts RUNS (a run parked on two approvals
+  /// is one there and two rows here) — a plausible-looking second source that answers a different
+  /// question. 等你决策的条数——**就是 `waiting.length`**:区渲的那些行、rail 徽数的那些行(⑤ 收件箱,一次取数
+  /// 一份真相)。**不是** `totals.parkedNodes`:它虽叫这个名,数的却是 **run**(一个 run park 在两个审批上,在那边是 1、
+  /// 在这里是 2 行)——一个看起来很像、答的却是另一个问题的第二源。
   final int waiting;
+
   final int failed24h;
   final int failedDelta;
 
@@ -46,7 +71,17 @@ class SchedulerKpi {
   /// 常态,天天读 0 的牌是装饰(禁虚荣数字 军规);成功是背景音。
   final int missed;
 
-  /// The workspace's earliest FUTURE scheduled fire (from the rail's next-fire join). 全局最早未来调度。
+  /// The workspace's earliest FUTURE scheduled fire (from the rail's next-fire join) — the truest
+  /// global answer to «when does my automation next do something», with NO horizon: a weekly cron three
+  /// days out is still the next fire and the tile says so.
+  ///
+  /// It is deliberately NOT re-sourced from the track's own ticks, and the tile pays for that by only
+  /// being clickable when [nextFireOnTrack] says the instant it names is really on the axis — see
+  /// there for why a shared value would have been a lie in both directions.
+  ///
+  /// 全局最早未来调度(取自 rail 的 next-fire join)——对「我的自动化下一次做事是什么时候」最真的答案,且**无视野
+  /// 上限**:三天后的周 cron 仍然是下一次,牌就这么说。它**刻意不**改从轨道自己的刻度取数,代价是这张牌只在
+  /// [nextFireOnTrack] 判定「它念的那个时刻真在轴上」时才可点——为何共用一个值反而两头都是谎,见那里。
   final DateTime? nextFire;
 }
 
@@ -294,6 +329,46 @@ List<ScheduleLane> scheduleLanes({
   return out;
 }
 
+/// Is the instant the 「下次调度」 card NAMES actually drawn on the track it would open?
+///
+/// **The card's affordance is derived from the presence of its own evidence, not from a hope that two
+/// sources agree** — because here they genuinely cannot be made to agree by construction, and pretending
+/// otherwise would be the lie. The card's value comes from `triggers.nextFireAt`; the track's ticks come
+/// from `trigger-schedule`. Two endpoints, each projecting `cron.Next` at ITS OWN read instant, joined
+/// through two different tables (relation edges vs the live listen registry), and only one of them
+/// clipped to a 24h horizon. Three ways for the named instant to be off the axis, all real:
+///   - **beyond the horizon** — a weekly cron's next fire is honest news for the card and simply is not
+///     in the next 24h the track draws;
+///   - **a lane the registry did not resolve** — equipped (edge) but not listening for that workflow, so
+///     no point hangs there;
+///   - **a straddled boundary** — the two calls land either side of a minute cron's tick and the two
+///     projections differ by a whole period.
+///
+/// So: click iff the tick is there. 宪法 says a KPI must open the list it counts, and 「宁可不可点」 —
+/// an inert card beats a click that scrolls to an axis the named tick is not on. Equality is by INSTANT
+/// (`isAtSameMomentAs`) — the two projections of one cron expression are the same absolute moment, and
+/// `DateTime ==` would additionally demand both sides agree about being UTC, which is a fact about the
+/// parse, not about the schedule.
+///
+/// 「下次调度」牌**念出**的那个时刻,真的画在它要打开的那条轨上吗?**牌的可点性派生自它自己的证据在不在场,而不是
+/// 派生自「两个源但愿一致」**——因为此处两者**构造上就是没法做到一致**,假装能才是那个谎:牌的值来自
+/// `triggers.nextFireAt`,轨的刻度来自 `trigger-schedule`——两个端点、各自在**自己的**读时投影 `cron.Next`、经**两张
+/// 不同的表**连接(relation 边 vs 活的监听表),且只有其中一个被钳在 24h 视野里。三条让「被念到的时刻落在轴外」的路
+/// 都是真的:①**越过视野**(周 cron 的下次对牌是诚实的消息,但它本就不在轨画的这 24h 里);②**监听表没解出的泳道**
+/// (装备了边、却没为那个 workflow 监听,故没有点挂在那儿);③**跨过边界**(两次调用落在分钟 cron 刻度两侧,两个投影
+/// 差出整整一个周期)。故:**刻度在,才可点**。宪法要的是「点开它数的那个列表」,而「宁可不可点」——一张惰性的牌,
+/// 胜过一次滚到「所念刻度并不在其上」的轴的点击。**按瞬间**比较(`isAtSameMomentAs`):一条 cron 表达式的两次投影是
+/// 同一个绝对时刻,而 `DateTime ==` 还会额外要求两边对「是不是 UTC」达成一致——那是关于**解析**的事实,不是关于**排程**的。
+bool nextFireOnTrack(ScheduleTrackData track, DateTime? nextFire) {
+  if (nextFire == null) return false;
+  for (final lane in track.lanes) {
+    for (final at in lane.futureAt) {
+      if (at.isAtSameMomentAs(nextFire)) return true;
+    }
+  }
+  return false;
+}
+
 /// Top-[n] consecutively-failing workflows, streak-DESC (ties keep stats order). 连败 Top-N 降序。
 List<WorkflowRunStats> topFailing(Iterable<WorkflowRunStats> stats, {int n = 5}) {
   final failing = [
@@ -332,10 +407,6 @@ class SchedulerOverviewController extends AsyncNotifier<SchedulerOverviewData> {
     // KPI failed delta: totals are workspace-wide, so both probes go id-less (one call each).
     // KPI 失败差分:totals 全 workspace,免 ids 各取一次。
     final failing = topFailing(rail.stats.values);
-    final runningIds = [
-      for (final s in rail.stats.values)
-        if (s.running > 0) s.workflowId,
-    ];
     // ── THE anchor (工单⑭/判决⑥) ──────────────────────────────────────────────────────────────────
     // ONE instant, computed once, sent to every surface that speaks about this window: `?since=` on the
     // stats call whose `totals.missed` IS the 「错过 N」 card, `?createdAfter=` on the firing page the
@@ -373,21 +444,27 @@ class SchedulerOverviewController extends AsyncNotifier<SchedulerOverviewData> {
           status: FiringStatus.missed,
           createdAfter: kpiSince,
           limit: SchedulerWindows.firingPageLimit),
-      for (final id in runningIds) repo.listFlowruns(workflowId: id, status: 'running'),
+      // The 「正在跑」 zone AND its KPI tile, from ONE workspace-wide question (see listRunningRuns) —
+      // never a loop over the workflow list, which cannot see an orphan's run and would therefore hand
+      // the tile a list shorter than the fact it counts.
+      // 「正在跑」区**与**它那张牌,出自**一次**工作区级提问(见 listRunningRuns)——绝不逐 workflow 循环:那看不见
+      // 孤儿的 run,于是递给牌一份比它所数的事实更短的列表。
+      repo.listRunningRuns(),
       for (final s in failing)
         repo.listFlowruns(workflowId: s.workflowId, status: 'failed', limit: 1),
     ]);
-    // The fixed head of the batch, NAMED: the two probe lists below index off it, and a bare `2`
-    // repeated at three sites is one inserted call away from silently reading a stats object as a
-    // page (a crash at best, the WRONG workflow's runs at worst).
-    // 批次的定长头部,**具名**:下面两条探针列表按它取偏移;裸 2 抄在三处,只要插一个调用就会静默把 stats
+    // The fixed head of the batch, NAMED: the probe list below indexes off it, and a bare `6` repeated
+    // at two sites is one inserted call away from silently reading a stats object as a page (a crash at
+    // best, the WRONG workflow's runs at worst).
+    // 批次的定长头部,**具名**:下面那条探针列表按它取偏移;裸 6 抄在两处,只要插一个调用就会静默把 stats
     // 读成 page(轻则崩,重则读成**别的 workflow** 的 run)。
-    const fixed = 5;
+    const fixed = 6;
     final stats24 = results[0] as SchedulerStats;
     final stats48 = results[1] as SchedulerStats;
     final schedule = results[2] as TriggerSchedule;
     final firedPage = results[3] as Page<Firing>;
     final missedPage = results[4] as Page<Firing>;
+    final liveRuns = results[5] as List<Flowrun>;
     // Merge the two pages into the ONE past-half set: the missed-only page is authoritative for ✕, so
     // the general page contributes everything EXCEPT missed and the two can never double-mark a tick.
     // 两页并成**一份**过去半:missed 单取那页对 ✕ 是权威,故通用页只贡献 **非** missed 的行,两者绝不把同一刻度
@@ -400,18 +477,19 @@ class SchedulerOverviewController extends AsyncNotifier<SchedulerOverviewData> {
 
     final names = {for (final w in rail.workflows) w.id: w.name};
 
-    // Running rows: flatten the per-workflow pages, newest start first. 正在跑行:新启动在前。
-    final runningRuns = <RunningRunRow>[];
-    for (var i = 0; i < runningIds.length; i++) {
-      final page = results[fixed + i] as Page<Flowrun>;
-      for (final run in page.items) {
-        runningRuns.add(RunningRunRow(
-          workflowId: runningIds[i],
-          workflowName: names[runningIds[i]] ?? runningIds[i],
+    // Running rows: name each run from the workflow list, newest start first. A run whose host is
+    // soft-deleted has no name to join — it falls back to the bare id (the relation-Namer precedent,
+    // same as the inbox's enrich) and STAYS: it is running, the tile counts it, so the zone shows it.
+    // 正在跑行:逐 run 从 workflow 列表取名,新启动在前。宿主已软删的 run join 不到名字——回落**裸 id**
+    // (relation-Namer 先例,同收件箱的 enrich)且**留下**:它在跑、牌数着它,故区显示它。
+    final runningRuns = [
+      for (final run in liveRuns)
+        RunningRunRow(
+          workflowId: run.workflowId,
+          workflowName: names[run.workflowId] ?? run.workflowId,
           run: run,
-        ));
-      }
-    }
+        ),
+    ];
     runningRuns.sort((a, b) {
       final sa = a.run.startedAt, sb = b.run.startedAt;
       if (sa == null || sb == null) return sa == sb ? 0 : (sa == null ? 1 : -1);
@@ -422,7 +500,7 @@ class SchedulerOverviewController extends AsyncNotifier<SchedulerOverviewData> {
     // 失败聚合:连败徽来自 stats,错误首句+直通车来自探针。
     final failures = <FailingWorkflowRow>[];
     for (var i = 0; i < failing.length; i++) {
-      final page = results[fixed + runningIds.length + i] as Page<Flowrun>;
+      final page = results[fixed + i] as Page<Flowrun>;
       final latest = page.items.isEmpty ? null : page.items.first;
       failures.add(FailingWorkflowRow(
         workflowId: failing[i].workflowId,
@@ -436,8 +514,15 @@ class SchedulerOverviewController extends AsyncNotifier<SchedulerOverviewData> {
     return SchedulerOverviewData(
       firstUse: false,
       kpi: SchedulerKpi(
-        running: stats24.totals.running,
+        // Both tiles are `list.length` of the very list their click opens — see the fields' docs for
+        // why the two authoritative-looking backend counts (`totals.running` / `totals.parkedNodes`)
+        // are the wrong source here. 两张牌都是它们点击所打开的**那份列表**的 length——为何那两个看着更权威的
+        // 后端计数在此是错的源,见字段注释。
+        running: runningRuns.length,
         waiting: rail.inbox.length,
+        // NOT a list length, and it has no list: `failedSince` windows on **completed_at**, a predicate
+        // no surface in this ocean can express (see the tile in _KpiStrip). 不是列表长度,且它没有列表:
+        // failedSince 按 **completed_at** 开窗,而本海洋没有任何面表达得了那个谓词(见 _KpiStrip 的该牌注释)。
         failed24h: stats24.totals.failedSince,
         failedDelta: kpiFailedDelta(
             failed24: stats24.totals.failedSince, failed48: stats48.totals.failedSince),

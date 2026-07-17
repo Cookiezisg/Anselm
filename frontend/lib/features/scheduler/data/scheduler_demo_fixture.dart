@@ -23,12 +23,36 @@ import 'scheduler_repository.dart';
 // 失败带错误+逐 run 节点行供联动格)、paused trigger、replay/runNow/kill/pause/resume 全有状态。
 final _anchor = DateTime.utc(2026, 7, 16, 9);
 
+/// The demo's ONE clock reading, taken once — so every seam re-bases every seed against the SAME
+/// instant, and two seams asked about one fact answer with one value.
+///
+/// **This is fidelity, not tidiness.** Re-reading `DateTime.now()` per call made a cron tick a function
+/// of WHEN YOU ASKED: `listTriggers` and `trigger-schedule` project the same 「每日 09:00」 tick and
+/// returned instants **919µs apart** (measured), so the 「下次调度」 tile could never find its own tick on
+/// the track and was inert in the demo forever — a state the demo is required to reach (D 轨:demo 全展示).
+/// The backend has this property for free and that is exactly why the tile trusts it: `cron.Next(expr,
+/// now)` is a pure function of the EXPRESSION, so two reads a moment apart land on the same instant.
+/// A fixture whose ticks slide with the read clock is not a cheaper backend — it is a different one.
+///
+/// Pinning also makes every relative label monotonic, which is what a clock does: a refetch used to
+/// slide `createdAt` forward and reset 「waiting 18m」 to 18m for ever.
+///
+/// demo 的**唯一**一次读钟,只读一次——故每条缝把每个种子**对同一个瞬间**重定基,两条缝对同一个事实给出同一个值。
+/// **这是保真,不是整洁**:每次调用重读 `DateTime.now()`,会让一个 cron 刻度变成**「你什么时候问」的函数**——
+/// listTriggers 与 trigger-schedule 投影同一个「每日 09:00」刻度,实测返回的两个时刻相差 **919µs**,于是
+/// 「下次调度」牌**永远**在它自己的轨上找不到自己的刻度、在 demo 里永久惰性——而那是 demo 必须到达的状态
+/// (D 轨:demo 全展示)。后端**白送**这条性质,而牌信任的正是它:`cron.Next(expr, now)` 是**表达式**的纯函数,
+/// 故相隔一瞬的两次读落在同一个时刻上。刻度随读钟滑动的 fixture 不是一个更便宜的后端,是**另一个**后端。
+/// 钉住它顺带让每个相对标签单调——那才是钟该干的事:以前一次重取就把 createdAt 往前滑、把「waiting 18m」
+/// 永远重置回 18m。
+final _base = DateTime.now();
+
 DateTime _shift(DateTime seed) {
-  // Seeds are authored against _anchor; at read we re-base them onto the real now so relative
-  // labels («2h ago» / «in 3m») render as designed regardless of when the demo runs.
-  // 以锚点写种子,读时重定基到真实 now。
+  // Seeds are authored against _anchor; at read we re-base them onto [_base] so relative labels
+  // («2h ago» / «in 3m») render as designed regardless of when the demo runs.
+  // 以锚点写种子,读时重定基到 _base。
   final offset = seed.difference(_anchor);
-  return DateTime.now().add(offset);
+  return _base.add(offset);
 }
 
 class FixtureSchedulerRepository implements SchedulerRepository {
@@ -429,6 +453,10 @@ class FixtureSchedulerRepository implements SchedulerRepository {
         ),
     ];
   }
+
+  @override
+  Future<List<Flowrun>> listRunningRuns() async =>
+      [for (final r in _allRuns()) if (_statusOf(r) == 'running') r];
 
   @override
   Future<Page<Flowrun>> listFlowruns(

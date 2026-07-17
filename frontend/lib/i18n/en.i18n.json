@@ -652,9 +652,12 @@
     "filterPlaceholder": "Filter / paste fr_ id…",
     "overview": {
       "kpiRunning": "Running",
+      "kpiRunningA11y": "Running: $n. Show them in the running-now list.",
       "kpiWaiting": "Waiting on you",
+      "kpiWaitingA11y": "Waiting on you: $n. Show them in the waiting list.",
       "kpiFailed24h": "Failed · 24h",
       "kpiNextFire": "Next fire",
+      "kpiNextFireA11y": "Next fire in $d. Show it on the schedule track.",
       "kpiNone": "—",
       "fireIn": "in $d",
       "deltaUp": "▲$n",

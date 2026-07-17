@@ -28,17 +28,31 @@ class SchedulerOverviewView extends ConsumerStatefulWidget {
   ConsumerState<SchedulerOverviewView> createState() => _SchedulerOverviewViewState();
 }
 
+/// One zone's anchor + wash trigger — the board's drill-down mechanism, ONE engine for every KPI tile
+/// that has somewhere true to go. [seq] only ever changes on a USER TAP, so a wash cannot fire on a
+/// refetch — 活性军规 (geometry and attention move on user action or durable landing, never on their own).
+/// 一个区的锚 + 洗亮触发器——看板的钻取机制,凡「有真去处」的 KPI 牌共用**这一个**引擎。seq **只在用户点击时**变,
+/// 故洗亮不可能因重取而发生(活性军规:几何与注意力只随用户动作或 durable 落账而动)。
+class _ZoneAnchor {
+  _ZoneAnchor(this.name);
+
+  /// Stable across the wash wrap/unwrap — the zones are stateful (batch selection), and a GlobalKey is
+  /// what carries their element through the re-parent. 洗亮包裹/解包时保持:区是有状态的(批量选区),
+  /// GlobalKey 正是带着它们的 element 穿过换父的那个东西。
+  final GlobalKey key = GlobalKey();
+  final String name;
+  int seq = 0;
+}
+
 class _SchedulerOverviewViewState extends ConsumerState<SchedulerOverviewView> {
-  /// The schedule zone's anchor + wash trigger — the 「错过 N」 card's drill-down (判决⑥). The zone is
-  /// where the ticks the card counted actually live (each one a ✕ on its lane at the instant it was
-  /// due), so «open the list this number counts» is: scroll it into view and wash it. [_washSeq] only
-  /// ever changes on a USER TAP, so the wash cannot fire on a refetch — 活性军规 (geometry and attention
-  /// move on user action or durable landing, never on their own).
-  /// 调度区的锚 + 洗亮触发器——「错过 N」牌的钻取(判决⑥):牌数的那些刻度就活在那个区里(每一个都是它到期那一刻
-  /// 泳道上的一个 ✕),故「点开它数的那个列表」=把它滚进视野并洗亮。_washSeq **只在用户点击时**变,故洗亮不可能
-  /// 因重取而发生(活性军规:几何与注意力只随用户动作或 durable 落账而动)。
-  final GlobalKey _scheduleKey = GlobalKey();
-  int _washSeq = 0;
+  /// The three zones a KPI tile can open. Each tile reveals the zone that holds ITS OWN evidence:
+  /// 「在跑 N」 → the rows it counts; 「等你 N」 → the rows it counts; 「错过 N」 and 「下次调度」 → the track,
+  /// whose past ✕ and future rings are respectively what those two numbers are ABOUT.
+  /// 三个 KPI 牌可打开的区。每张牌揭示**自己那份证据**所在的区:「在跑 N」「等你 N」→ 它数的那些行;
+  /// 「错过 N」与「下次调度」→ 轨道,其过去的 ✕ 与未来的空心环分别正是这两个数**所谈论的东西**。
+  final _ZoneAnchor _waiting = _ZoneAnchor('waiting');
+  final _ZoneAnchor _running = _ZoneAnchor('running');
+  final _ZoneAnchor _schedule = _ZoneAnchor('schedule');
 
   @override
   void initState() {
@@ -56,15 +70,21 @@ class _SchedulerOverviewViewState extends ConsumerState<SchedulerOverviewView> {
     if (mounted) setState(() {});
   }
 
-  void _revealMissed() {
-    final ctx = _scheduleKey.currentContext;
+  void _reveal(_ZoneAnchor anchor) {
+    final ctx = anchor.key.currentContext;
     if (ctx == null) return;
-    setState(() => _washSeq++);
+    setState(() => anchor.seq++);
     Scrollable.ensureVisible(ctx,
         duration: AnMotionPref.reduced(context) ? Duration.zero : AnMotion.slow,
         curve: AnMotion.easeOut,
         alignment: 0.1);
   }
+
+  /// The zone, washed if it has ever been revealed. Wrapping only after the first tap keeps the
+  /// untouched board free of the extra layer. 揭示过才裹洗亮层:没碰过的盘面不多一层。
+  Widget _washable(_ZoneAnchor anchor, Widget zone) => anchor.seq == 0
+      ? zone
+      : AnWashHighlight(key: ValueKey('${anchor.name}-wash-${anchor.seq}'), child: zone);
 
   @override
   Widget build(BuildContext context) {
@@ -113,19 +133,28 @@ class _SchedulerOverviewViewState extends ConsumerState<SchedulerOverviewView> {
           ),
           Padding(
             padding: const EdgeInsets.only(bottom: AnGap.section),
-            child: _KpiStrip(kpi: d.kpi, now: now, onMissed: _revealMissed),
+            child: _KpiStrip(
+              kpi: d.kpi,
+              now: now,
+              // A tile is clickable exactly when the list it counts EXISTS. Zero rows = no list to
+              // open, so the tile stays inert rather than scroll to an empty zone — the same rule the
+              // failure zone's [最新 run] through-train already obeys (a dead affordance is a lie).
+              // 一张牌可点,恰当它数的那份列表**在场**。零行=没有列表可开,故牌保持惰性、不去滚一个空区
+              // ——与失败区[最新 run]直通车同一条规矩(没有目标就不做成可点)。
+              onRunning: d.runningRuns.isEmpty ? null : () => _reveal(_running),
+              onWaiting: d.waiting.isEmpty ? null : () => _reveal(_waiting),
+              // Only when the tick it names is really on the axis (see nextFireOnTrack). 所念刻度真在轴上才可点。
+              onNextFire: nextFireOnTrack(d.track, d.kpi.nextFire) ? () => _reveal(_schedule) : null,
+              onMissed: () => _reveal(_schedule),
+            ),
           ),
           // «等你处理» — the costliest land (S2b): inbox rows + in-place ApprovalGate + AnBatchBar
           // batch approve/reject; then «正在跑» with hover ⏹ + batch cancel. 等你处理(就地审批+批量)
           // 与 正在跑(hover 取消+批量取消)两操作区。
-          SchedulerWaitingZone(rows: d.waiting, now: now),
-          SchedulerRunningZone(rows: d.runningRuns, now: now),
-          _washSeq == 0
-              ? SchedulerScheduleZone(key: _scheduleKey, track: d.track, now: now)
-              : AnWashHighlight(
-                  key: ValueKey('missed-wash-$_washSeq'),
-                  child: SchedulerScheduleZone(key: _scheduleKey, track: d.track, now: now),
-                ),
+          _washable(_waiting, SchedulerWaitingZone(key: _waiting.key, rows: d.waiting, now: now)),
+          _washable(
+              _running, SchedulerRunningZone(key: _running.key, rows: d.runningRuns, now: now)),
+          _washable(_schedule, SchedulerScheduleZone(key: _schedule.key, track: d.track, now: now)),
           AnSection(
             label: t.overview.failuresHead,
             children: d.failures.isEmpty
@@ -211,26 +240,41 @@ class _SchedulerOverviewViewState extends ConsumerState<SchedulerOverviewView> {
 /// width. 「成功是背景音」: the absence of the tile IS the good news. It appears and disappears only on a
 /// durable refetch, never on a tick — 活性军规 permits exactly that.
 ///
-/// **The missed tile is the only tappable one, and that is not an inconsistency — it is the only one
-/// that currently has somewhere true to go.** Its click reveals the schedule track, where the very
-/// ticks it counted are the ✕ marks (same window, same predicate — see the anchor in
-/// [SchedulerOverviewController]). The other four still owe their pre-filtered deep links (S2a recorded
-/// the deviation, expecting the S3 big table to close it; S3 landed and they were never wired). They
-/// stay inert rather than grow a click that lands somewhere approximate: 宪法 says a KPI must open the
-/// list it counts, and a link to a nearby-but-different list is worse than none.
+/// **Four of the five open the evidence they are about; 「24h 失败」 is inert, and that is a finding, not
+/// an omission.** Each click reveals the zone that holds THIS tile's own facts — running/waiting reveal
+/// the rows they are the length of, missed and next-fire reveal the track whose ✕ and rings they name.
+/// The failed tile has no such zone and provably cannot be given one from this ocean's endpoints; the
+/// reason is on the tile itself below. 宪法 says a KPI must open the list it counts, and a link to a
+/// nearby-but-different list is worse than none — so it keeps none.
 ///
 /// KPI 牌:四张等宽 + 第五张「错过 N」**有话说时才出现**(判决⑥)。**为何「错过 0」不成牌**:禁虚荣数字 军规——
 /// 每个 KPI 须过决策测试(这个数会改变我做什么吗?);醒着的机器什么都不会错过,故「错过 0」是常态,一张天天读 0
 /// 的牌是装饰,还要占掉另外四张五分之一的宽。成功是背景音:**牌不在,本身就是好消息**。它只随 durable 重取增删、
-/// 绝不随 tick——活性军规恰好允许这一条。**错过牌是唯一可点的那张,这不是不一致——它是目前唯一有真去处的那张**:
-/// 它点开调度轨,牌数的那些刻度正是轨上的 ✕(同窗、同谓词)。另外四张仍欠着各自的预过滤深链(S2a 记的偏差本指望
-/// S3 大表来还,S3 落了却没接线)。它们**宁可保持不可点**,也不长出一个落在「差不多」的地方的点击:宪法说 KPI 必须
-/// 点开它数的那个列表,而链到一个相近但不同的列表比没有链更糟。
+/// 绝不随 tick——活性军规恰好允许这一条。**五张里四张打开自己所谈论的那份证据;「24h 失败」惰性,而那是一个结论、
+/// 不是一处遗漏**:每次点击揭示的都是**这张牌自己**的事实所在的区——在跑/等你揭示它们所是其长度的那些行,错过与
+/// 下次调度揭示它们所念的 ✕ 与空心环。失败牌没有这样一个区,且**可证**地无法用本海洋的端点造出一个来——理由就写在
+/// 下面那张牌上。宪法说 KPI 必须点开它数的那个列表,而链到一个相近但不同的列表比没有链更糟,故它一个也不要。
 class _KpiStrip extends StatelessWidget {
-  const _KpiStrip({required this.kpi, required this.now, required this.onMissed});
+  const _KpiStrip({
+    required this.kpi,
+    required this.now,
+    required this.onRunning,
+    required this.onWaiting,
+    required this.onNextFire,
+    required this.onMissed,
+  });
 
   final SchedulerKpi kpi;
   final DateTime now;
+
+  /// Reveal the rows each tile is the LENGTH of — null when there are none, so a tile never opens an
+  /// empty zone. 揭示每张牌所是其**长度**的那些行;无行时为 null,故牌绝不打开一个空区。
+  final VoidCallback? onRunning;
+  final VoidCallback? onWaiting;
+
+  /// Reveal the track — null unless the named tick is really drawn on it ([nextFireOnTrack]).
+  /// 揭示轨道;除非所念刻度真画在其上,否则 null。
+  final VoidCallback? onNextFire;
 
   /// Reveal the ticks this strip's 「错过 N」 counted. 显出「错过 N」数的那些刻度。
   final VoidCallback onMissed;
@@ -241,8 +285,40 @@ class _KpiStrip extends StatelessWidget {
     final c = context.colors;
     final nextFire = kpi.nextFire;
     final tiles = <Widget>[
-      _tile(context, label: t.kpiRunning, value: AnCountUp(kpi.running, style: _valueStyle(c))),
-      _tile(context, label: t.kpiWaiting, value: AnCountUp(kpi.waiting, style: _valueStyle(c))),
+      _tile(
+        context,
+        label: t.kpiRunning,
+        value: AnCountUp(kpi.running, style: _valueStyle(c)),
+        onTap: onRunning,
+        a11y: t.kpiRunningA11y(n: '${kpi.running}'),
+      ),
+      _tile(
+        context,
+        label: t.kpiWaiting,
+        value: AnCountUp(kpi.waiting, style: _valueStyle(c)),
+        onTap: onWaiting,
+        a11y: t.kpiWaitingA11y(n: '${kpi.waiting}'),
+      ),
+      // **The one tile with no click, and it is not waiting on a surface to be built — no surface can
+      // express its predicate.** It counts runs that REACHED failed inside the window: the backend
+      // windows `failedSince` on `completed_at`. Every run list this ocean can ask for windows on
+      // `started_at` (`GET /flowruns?startedAfter=`, api.md 工单⑥ — there is no `completedAfter`), so a
+      // list built from them would drop the 30h-old run that failed an hour ago and include the run that
+      // started inside the window and is still going. Not «close enough»: those are exactly the runs a
+      // 24h failure tile exists to surface.
+      //
+      // «Failures · 7d» below is the nearby-but-different list the 宪法 names: it aggregates WORKFLOWS by
+      // consecutive-failure streak, not runs by window — a workflow that failed 4× overnight and then
+      // succeeded contributes 4 here and is absent there (self-healed, streak 0). Two units, two windows,
+      // two questions. Wiring them together would make the tile say 4 and open an empty zone.
+      //
+      // **唯一没有点击的那张,且它不是在等一个面被建出来——没有任何面表达得了它的谓词**:它数的是窗口内**落定**
+      // 为 failed 的 run(后端 failedSince 按 `completed_at` 开窗),而本海洋问得到的每一份 run 列表都按
+      // `started_at` 开窗(`GET /flowruns?startedAfter=`,api.md 工单⑥——根本没有 completedAfter);故照它们建出的
+      // 列表会**漏掉**30 小时前起跑、一小时前失败的那个,又会**混进**窗口内起跑却还在跑的那个。这不是「差不多」:
+      // 那恰恰就是一张 24h 失败牌存在的意义所在的那些 run。下面的「失败聚合 7d」正是宪法点名的那个**相近但不同**的
+      // 列表:它按**连败**聚合 **workflow**、不按窗口聚合 run——一个整夜失败 4 次然后跑通了的 workflow,在这里贡献 4、
+      // 在那里缺席(已自愈,连败 0)。两种单位、两个窗口、两个问题。把它们接起来,就会让牌写着 4、点开一个空区。
       _tile(
         context,
         label: t.kpiFailed24h,
@@ -284,20 +360,19 @@ class _KpiStrip extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: _valueStyle(c),
         ),
+        onTap: onNextFire,
+        a11y: nextFire != null && nextFire.isAfter(now)
+            ? t.kpiNextFireA11y(d: fmtWaited(nextFire.difference(now)))
+            : null,
       ),
       // The fifth tile — present only when it has news. 第五张牌:有话说才在场。
       if (kpi.missed > 0)
-        Semantics(
-          label: t.kpiMissedA11y(n: '${kpi.missed}'),
-          button: true,
-          child: ExcludeSemantics(
-            child: _tile(
-              context,
-              label: t.kpiMissed,
-              value: AnCountUp(kpi.missed, style: _valueStyle(c)),
-              onTap: onMissed,
-            ),
-          ),
+        _tile(
+          context,
+          label: t.kpiMissed,
+          value: AnCountUp(kpi.missed, style: _valueStyle(c)),
+          onTap: onMissed,
+          a11y: t.kpiMissedA11y(n: '${kpi.missed}'),
         ),
     ];
     // IntrinsicHeight equalizes the four tiles (the host Column hands the Row unbounded height, so
@@ -318,8 +393,36 @@ class _KpiStrip extends StatelessWidget {
 
   TextStyle _valueStyle(AnColors c) => AnText.h2.copyWith(color: c.ink);
 
+  /// One tile. [onTap] non-null makes it a CONTROL, and then [a11y] is required — a tile that became a
+  /// button must announce as one, with the sentence saying what the click does (a bare 「Running / 3」
+  /// read by a screen reader is a fact, not an affordance).
+  ///
+  /// **The label is annotated INSIDE the card, and only the label** — [AnCard]'s own [AnInteractive]
+  /// keeps ownership of `button`/`enabled`, so the two configurations share no flag, stay compatible,
+  /// and merge into ONE node (design-system §2: two [Semantics] setting the same flag is an
+  /// incompatible configuration that splits into parent + child and strands the label on the child).
+  /// [ExcludeSemantics] then covers only the raw 「label / value」 text, whose two bare nodes are facts,
+  /// not the affordance.
+  ///
+  /// DUMP-verified, not reasoned (§2: a11y claims must be read off the real tree):
+  /// `actions: focus, tap` + `flags: isButton, hasEnabledState, isEnabled, isFocusable` + the sentence
+  /// — i.e. exactly what a stock button emits. Annotating from OUTSIDE an excluded card instead (the
+  /// shape the fifth tile first shipped with) measurably loses `isFocusable`/`hasEnabledState` and, more
+  /// seriously, the tap ACTION — one of the few things that actually reach a desktop screen reader — so
+  /// it announced a button that could not be pressed.
+  ///
+  /// 一张牌。onTap 非空即**控件**,那时 a11y 必填——变成按钮的牌必须念成按钮,且句子要说清这一点会做什么(读屏念出
+  /// 光秃秃的「Running / 3」是一个**事实**、不是一个**可供性**)。**label 标在卡的内部,且只标 label**:`button`/`enabled`
+  /// 的所有权留给 AnCard 自己的 AnInteractive,于是两份配置**不共享任何旗标**、彼此兼容、**合并成一个节点**
+  /// (design-system §2:两个 Semantics 设同一旗标是不兼容配置,会裂成父+子并把 label 搁浅在孩子身上);
+  /// ExcludeSemantics 于是只盖住「标签/数值」那两个裸文本节点——它们是事实,不是可供性。**以 dump 验证、不靠推理**
+  /// (§2:a11y 主张必须从真实的树上读):`actions: focus, tap` + `flags: isButton, hasEnabledState, isEnabled,
+  /// isFocusable` + 句子——正是原装按钮所发的那一套。改从**外面**包一张被 exclude 的卡(第五张牌最初落地时的形状),
+  /// 实测会丢掉 isFocusable/hasEnabledState,更要命的是丢掉 **tap 动作**——而动作正是少数真到得了桌面读屏的东西之一
+  /// ——于是它念出一个**按不动**的按钮。
   Widget _tile(BuildContext context,
-      {required String label, required Widget value, VoidCallback? onTap}) {
+      {required String label, required Widget value, VoidCallback? onTap, String? a11y}) {
+    assert(onTap == null || a11y != null, 'a tappable KPI tile must carry its a11y sentence');
     final c = context.colors;
     final body = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -333,6 +436,7 @@ class _KpiStrip extends StatelessWidget {
         value,
       ],
     );
+    if (onTap == null) return AnCard(child: body);
     // `selectable` is AnCard's «the whole card is one button» mode — the hover border IS the
     // affordance. It is not a selection: AnCard hands its `false` to AnInteractive, which routes it
     // through AnA11y.selected and therefore emits NOTHING (never `selected: false` — the pinned
@@ -340,6 +444,10 @@ class _KpiStrip extends StatelessWidget {
     // selectable=AnCard 的「整卡即一个按钮」模式,hover 边即可供性。它**不是**选中:AnCard 把 false 交给
     // AnInteractive,后者经 AnA11y.selected 过滤 → **什么都不发**(绝不发 selected:false——钉住的引擎会把
     // 显式 false 念成「已选中」)。
-    return onTap == null ? AnCard(child: body) : AnCard(selectable: true, onSelect: onTap, child: body);
+    return AnCard(
+      selectable: true,
+      onSelect: onTap,
+      child: Semantics(label: a11y, child: ExcludeSemantics(child: body)),
+    );
   }
 }

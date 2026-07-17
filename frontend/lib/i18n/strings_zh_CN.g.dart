@@ -1139,9 +1139,12 @@ class _Translations$scheduler$overview$zh_CN extends Translations$scheduler$over
 
 	// Translations
 	@override String get kpiRunning => '在跑';
+	@override String kpiRunningA11y({required Object n}) => '在跑 ${n} 个。在「正在跑」列表中显示它们。';
 	@override String get kpiWaiting => '等你处理';
+	@override String kpiWaitingA11y({required Object n}) => '等你处理 ${n} 条。在「等你处理」列表中显示它们。';
 	@override String get kpiFailed24h => '24h 失败';
 	@override String get kpiNextFire => '下次调度';
+	@override String kpiNextFireA11y({required Object d}) => '下次调度在 ${d} 后。在调度轨上显示它。';
 	@override String get kpiNone => '—';
 	@override String fireIn({required Object d}) => '${d} 后';
 	@override String deltaUp({required Object n}) => '▲${n}';
@@ -3052,9 +3055,12 @@ extension on TranslationsZhCn {
 			'scheduler.sectionInactive' => '停用',
 			'scheduler.filterPlaceholder' => '过滤 / 粘贴 fr_ id…',
 			'scheduler.overview.kpiRunning' => '在跑',
+			'scheduler.overview.kpiRunningA11y' => ({required Object n}) => '在跑 ${n} 个。在「正在跑」列表中显示它们。',
 			'scheduler.overview.kpiWaiting' => '等你处理',
+			'scheduler.overview.kpiWaitingA11y' => ({required Object n}) => '等你处理 ${n} 条。在「等你处理」列表中显示它们。',
 			'scheduler.overview.kpiFailed24h' => '24h 失败',
 			'scheduler.overview.kpiNextFire' => '下次调度',
+			'scheduler.overview.kpiNextFireA11y' => ({required Object d}) => '下次调度在 ${d} 后。在调度轨上显示它。',
 			'scheduler.overview.kpiNone' => '—',
 			'scheduler.overview.fireIn' => ({required Object d}) => '${d} 后',
 			'scheduler.overview.deltaUp' => ({required Object n}) => '▲${n}',
@@ -3448,11 +3454,11 @@ extension on TranslationsZhCn {
 			'entities.detail.card.runtime' => '运行时',
 			'entities.detail.card.config' => '配置完整度',
 			'entities.detail.card.tools' => '工具挂载',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.card.skill' => '技能',
 			'entities.detail.card.knowledge' => '知识',
 			'entities.detail.card.model' => '模型覆盖',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.card.lifecycle' => '生命周期',
 			'entities.detail.card.concurrency' => '并发策略',
 			'entities.detail.graph.nodes' => '节点',
@@ -3962,11 +3968,11 @@ extension on TranslationsZhCn {
 			'settings.storage.retention180' => '180 天',
 			'settings.storage.retentionForever' => '永久保留',
 			'settings.storage.retentionSaved' => '保留策略已更新',
+			_ => null,
+		} ?? switch (path) {
 			'settings.storage.resetPrefs' => '重置本地偏好',
 			'settings.storage.resetPrefsDesc' => '只清除本机的界面偏好(主题/窗口/缩放等),不碰任何工作区数据将重启应用以生效。',
 			'settings.storage.resetPrefsTitle' => '重置本地偏好?',
-			_ => null,
-		} ?? switch (path) {
 			'settings.storage.factoryTitle' => '恢复出厂设置',
 			'settings.storage.factoryWarn' => '将停止引擎、永久删除整个数据目录(所有工作区/对话/实体/文档/密钥)并重启应用。',
 			'settings.storage.factoryHint' => '输入「Anselm」以确认',
