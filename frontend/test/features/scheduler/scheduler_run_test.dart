@@ -441,6 +441,28 @@ void main() {
   });
 
   group('检查器脸 (§6)', () {
+    testWidgets('the dossier KV: label «状态» + LOCALIZED value + pinned «v7» — never a status word '
+        'as a label, never a raw wire word, never a bare wfv_ id (「运行中 failed」帧 0717-深夜)',
+        (tester) async {
+      _desktop(tester);
+      // A CANCELLED seed: the EN word ('Cancelled') differs from the wire word ('cancelled'), so the
+      // raw-leak probe is provable — a failed seed can't tell (en run.failed IS 'failed').
+      // 取消态种子:EN 词与线缆词大小写可分辨,裸词探针才可证——failed 种子在 EN 下词=线缆词,测不出。
+      await _pump(tester, _repo(status: 'cancelled'));
+      final island = find.byType(SchedulerRunInspector);
+      expect(find.descendant(of: island, matching: find.text(t.scheduler.run.kvStatus)),
+          findsWidgets, reason: '标签是「状态」栏目词,不是某个状态的词');
+      expect(find.descendant(of: island, matching: find.text(t.run.runCancelled)), findsWidgets,
+          reason: '值走本地化词表(flowrunStatusWord)');
+      expect(find.descendant(of: island, matching: find.text('cancelled')), findsNothing,
+          reason: '裸线缆词曾直渲(「运行中 → failed」同病)');
+      expect(find.descendant(of: island, matching: find.text(t.status.run)), findsNothing,
+          reason: 'status.run(运行中)曾错当标签——非在跑 run 的岛里不该有这词');
+      expect(find.descendant(of: island, matching: find.text('v7')), findsOneWidget,
+          reason: '钉版念人话版本号(需求⑤)');
+      expect(find.descendant(of: island, matching: find.textContaining('wfv_')), findsNothing);
+    });
+
     testWidgets('a 650KB result is NEVER dumped on the page (§5.4 页面本身零 JSON 倾倒)',
         (tester) async {
       _desktop(tester);

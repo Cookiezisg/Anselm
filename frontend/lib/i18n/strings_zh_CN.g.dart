@@ -1341,6 +1341,7 @@ class _Translations$scheduler$run$zh_CN extends Translations$scheduler$run$en {
 	@override String get ledgerHead => '节点台账';
 	@override String get ledgerEmpty => '还没有节点落定。';
 	@override String get dossierTitle => '运行卷宗';
+	@override String get kvStatus => '状态';
 	@override String get inspectorTitle => '检查器';
 	@override String get payloadHead => '入口 payload';
 	@override String get pinnedRefsHead => '钉住的引用';
@@ -3260,6 +3261,7 @@ extension on TranslationsZhCn {
 			'scheduler.run.ledgerHead' => '节点台账',
 			'scheduler.run.ledgerEmpty' => '还没有节点落定。',
 			'scheduler.run.dossierTitle' => '运行卷宗',
+			'scheduler.run.kvStatus' => '状态',
 			'scheduler.run.inspectorTitle' => '检查器',
 			'scheduler.run.payloadHead' => '入口 payload',
 			'scheduler.run.pinnedRefsHead' => '钉住的引用',
@@ -3484,9 +3486,9 @@ extension on TranslationsZhCn {
 			'entities.detail.sec.runtime' => '常驻状态',
 			'entities.detail.sec.initArgs' => 'init 参数',
 			'entities.detail.sec.methods' => '方法',
-			'entities.detail.sec.prompt' => '提示词',
 			_ => null,
 		} ?? switch (path) {
+			'entities.detail.sec.prompt' => '提示词',
 			'entities.detail.sec.capabilities' => '能力挂载',
 			'entities.detail.sec.mountHealth' => '挂载健康',
 			'entities.detail.sec.governance' => '运行治理',
@@ -3998,9 +4000,9 @@ extension on TranslationsZhCn {
 			'settings.mcp.tabStderr' => 'stderr',
 			'settings.mcp.lastError' => '最近错误',
 			'settings.mcp.consecutiveFailures' => '连续失败',
-			'settings.mcp.noTools' => '无工具',
 			_ => null,
 		} ?? switch (path) {
+			'settings.mcp.noTools' => '无工具',
 			'settings.mcp.noCalls' => '暂无调用',
 			'settings.mcp.noStderr' => '暂无输出',
 			'settings.mcp.callsAgg' => ({required Object ok, required Object failed}) => '✓ ${ok} · ✗ ${failed}',

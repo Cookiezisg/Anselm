@@ -832,6 +832,7 @@
       "ledgerHead": "节点台账",
       "ledgerEmpty": "还没有节点落定。",
       "dossierTitle": "运行卷宗",
+      "kvStatus": "状态",
       "inspectorTitle": "检查器",
       "payloadHead": "入口 payload",
       "pinnedRefsHead": "钉住的引用",

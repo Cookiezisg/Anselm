@@ -134,8 +134,20 @@ class _RunDossierFaceState extends ConsumerState<_RunDossierFace> {
       title: t.dossierTitle,
       children: [
         AnKv(rows: [
-          AnKvRow(context.t.status.run, run.status),
-          if (run.versionId.isNotEmpty) AnKvRow(t.pinnedVersion, truncate(run.versionId, AnTrunc.id)),
+          // Label = the «Status» COLUMN word, value = the localized flowrun status (复审后追查
+          // 0717-深夜: this row once read «运行中 → failed» — the AnStatus face word `status.run`
+          // mis-used as the label, with the raw wire word as the value).
+          // 标签=「状态」栏目词,值=本地化 flowrun 状态词——此行曾渲「运行中 → failed」(把状态词
+          // status.run 错当标签,值还漏裸线缆词)。
+          AnKvRow(t.kvStatus, flowrunStatusWord(context.t, run.status)),
+          // The pinned version speaks its HUMAN number (需求⑤); the raw wfv_ id only when the
+          // version row never resolved (pre-versionId 旧行). 钉版念人话版本号;解不出才落裸 id。
+          if (run.versionId.isNotEmpty)
+            AnKvRow(
+                t.pinnedVersion,
+                d.pinnedVersionNumber != null
+                    ? 'v${d.pinnedVersionNumber}'
+                    : truncate(run.versionId, AnTrunc.id)),
           AnKvRow(t.replayHistory(n: '${run.replayCount}'),
               run.replayCount > 0 ? fmtDateTime(run.updatedAt) : t.replayNever),
         ]),
@@ -353,7 +365,10 @@ class _NodeInspectorFaceState extends ConsumerState<_NodeInspectorFace> {
           AnSection(label: t.execLogHead, variant: AnSectionVariant.plain, children: [
             AnKv(dense: true, rows: [
               AnKvRow(activity.kind, activity.execId, mono: true),
-              AnKvRow(context.t.status.done, runStatusWord(context.t, activity.status)),
+              // Label = «Status», value = the EXEC-domain word (activity.status is ok/timeout land —
+              // runStatusWord IS the right map here; only the label was wrong: `status.done` 曾错当
+              // 标签渲成「完成 → 失败」). 标签「状态」;值走执行域词表(此处 runStatusWord 本就对)。
+              AnKvRow(context.t.scheduler.run.kvStatus, runStatusWord(context.t, activity.status)),
             ]),
           ]),
         ],

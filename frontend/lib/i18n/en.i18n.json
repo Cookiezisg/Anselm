@@ -832,6 +832,7 @@
       "ledgerHead": "Nodes",
       "ledgerEmpty": "No node has settled yet.",
       "dossierTitle": "Run dossier",
+      "kvStatus": "Status",
       "inspectorTitle": "Inspector",
       "payloadHead": "Entry payload",
       "pinnedRefsHead": "Pinned refs",
