@@ -511,6 +511,28 @@ class FixtureSchedulerRepository implements SchedulerRepository {
     return Page(items: page, nextCursor: hasMore ? '${offset + page.length}' : null, hasMore: hasMore);
   }
 
+  @override
+  Future<OffsetPage<Flowrun>> listFlowrunsPage(
+      {required String workflowId,
+      String? status,
+      String? origin,
+      DateTime? startedAfter,
+      DateTime? startedBefore,
+      required int offset,
+      required int limit}) async {
+    // The offset page rides the SAME filter+sort path (线缆同律:同过滤同序,total=全集数). 同径。
+    final all = await listFlowruns(
+        workflowId: workflowId,
+        status: status,
+        origin: origin,
+        startedAfter: startedAfter,
+        startedBefore: startedBefore,
+        limit: 1 << 30);
+    final page = all.items.skip(offset).take(limit).toList();
+    return OffsetPage(
+        items: page, total: all.items.length, hasMore: offset + page.length < all.items.length);
+  }
+
   /// The three inbox seed FORMS (工单④): deadline soon (~2h, amber countdown) / no deadline (no
   /// countdown) / soft-deleted host (name fell back to the bare id on the backend join; overdue
   /// deadline shows the danger face). 收件箱三形种子:将超时/无期限/宿主软删名回落(且已超时)。

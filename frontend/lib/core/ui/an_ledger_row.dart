@@ -157,7 +157,20 @@ class AnLedgerRow extends StatelessWidget {
     final disclosing = expandChild != null || expandBuilder != null;
     final tappable = onTap == null
         ? row
-        : AnInteractive(onTap: onTap, expanded: disclosing ? expanded : null, builder: (ctx, states) => row);
+        // A tappable row SHOWS its hand on hover (WRK-070 B4 用户裁「列表太干,没有可互动的理解」——
+        // 左岛行同款浅灰): the wash is the affordance, family-wide for every tappable ledger row.
+        // 可点行 hover 浅灰示能(左岛同款)——族级:凡可点的台账行都亮。
+        : AnInteractive(
+            onTap: onTap,
+            expanded: disclosing ? expanded : null,
+            builder: (ctx, states) => DecoratedBox(
+              decoration: BoxDecoration(
+                color: c.surfaceHover.whenActive(states.isActive),
+                borderRadius: BorderRadius.circular(AnRadius.button),
+              ),
+              child: row,
+            ),
+          );
     if (!disclosing) return tappable;
     // The disclosure body indents to the primary's left edge — the lead-cell offset lives in
     // the primitive (its OWN structural constant), never as caller arithmetic (文法 #4 targets

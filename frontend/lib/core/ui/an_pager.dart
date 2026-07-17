@@ -1,0 +1,156 @@
+import 'package:flutter/widgets.dart';
+
+import '../design/colors.dart';
+import '../design/tokens.dart';
+import '../design/typography.dart';
+import 'an_button.dart';
+import 'an_input.dart';
+import 'an_interactive.dart';
+import 'icons.dart';
+
+/// The standard page-number pager (WRK-070 B4 用户拍板:「左箭头 右箭头 页码 跳转输入框」):
+/// ‹ / › steps, a windowed number strip (1 … around-current … last, current emphasised), and a
+/// small jump field (Enter → clamped page). **A single page renders NOTHING** (拍板:没有多页就不要
+/// 显示) — the pager only exists when there is somewhere to go.
+///
+/// Zero copy in core: the a11y words arrive via [AnPagerStrings]. Ellipses are text glyphs (…).
+///
+/// 标准翻页器:‹/› 步进 + 开窗页码带(1 … 当前±1 … 末,当前加重)+ 跳页小输入(回车→钳制页码)。
+/// **单页不渲**——有处可去才存在。core 零文案:a11y 词经 AnPagerStrings 进。
+class AnPagerStrings {
+  const AnPagerStrings({
+    required this.prevLabel,
+    required this.nextLabel,
+    required this.jumpHint,
+    required this.pageLabel,
+  });
+
+  final String prevLabel;
+  final String nextLabel;
+
+  /// The jump field's placeholder (e.g. «页码»). 跳页输入占位词。
+  final String jumpHint;
+
+  /// Screen-reader sentence for one number, e.g. `(n) => '第 $n 页'`. 读屏页句。
+  final String Function(int page) pageLabel;
+}
+
+class AnPager extends StatefulWidget {
+  const AnPager({
+    required this.page,
+    required this.pageCount,
+    required this.onPage,
+    required this.strings,
+    super.key,
+  });
+
+  /// Current page, 1-based. 当前页(1 起)。
+  final int page;
+  final int pageCount;
+  final ValueChanged<int> onPage;
+  final AnPagerStrings strings;
+
+  @override
+  State<AnPager> createState() => _AnPagerState();
+}
+
+class _AnPagerState extends State<AnPager> {
+  final TextEditingController _jump = TextEditingController();
+
+  @override
+  void dispose() {
+    _jump.dispose();
+    super.dispose();
+  }
+
+  /// The windowed strip: first + last + current±1, gaps folded to one `…` sentinel (null).
+  /// 开窗页码带:首+末+当前±1,豁口折一枚 … 哨兵(null)。
+  List<int?> _strip() {
+    final n = widget.pageCount;
+    final cur = widget.page;
+    final keep = <int>{1, n, cur - 1, cur, cur + 1}..removeWhere((p) => p < 1 || p > n);
+    final sorted = keep.toList()..sort();
+    final out = <int?>[];
+    int? prev;
+    for (final p in sorted) {
+      if (prev != null && p - prev > 1) out.add(null);
+      out.add(p);
+      prev = p;
+    }
+    return out;
+  }
+
+  void _go(int page) {
+    final clamped = page.clamp(1, widget.pageCount);
+    if (clamped != widget.page) widget.onPage(clamped);
+  }
+
+  void _jumpSubmit(String raw) {
+    final p = int.tryParse(raw.trim());
+    _jump.clear();
+    if (p != null) _go(p);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.pageCount <= 1) return const SizedBox.shrink();
+    final c = context.colors;
+    final s = widget.strings;
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      AnButton.iconOnly(AnIcons.chevronLeft,
+          size: AnButtonSize.sm,
+          semanticLabel: s.prevLabel,
+          onPressed: widget.page > 1 ? () => _go(widget.page - 1) : null),
+      const SizedBox(width: AnSpace.s4),
+      for (final p in _strip())
+        if (p == null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AnSpace.s4),
+            child: Text('…', style: AnText.meta.copyWith(color: c.inkFaint)),
+          )
+        else
+          Semantics(
+            button: true,
+            selected: p == widget.page,
+            label: s.pageLabel(p),
+            child: AnInteractive(
+              onTap: p == widget.page ? null : () => _go(p),
+              builder: (context, states) => Container(
+                height: AnSize.controlSm,
+                constraints: const BoxConstraints(minWidth: AnSize.controlSm),
+                padding: const EdgeInsets.symmetric(horizontal: AnSpace.s4),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: p == widget.page
+                      ? c.surfaceHover
+                      : c.surfaceHover.whenActive(states.isActive),
+                  borderRadius: BorderRadius.circular(AnRadius.button),
+                ),
+                child: ExcludeSemantics(
+                  child: Text('$p',
+                      style: (p == widget.page
+                              ? AnText.metaTabular().weight(AnText.emphasisWeight)
+                              : AnText.metaTabular())
+                          .copyWith(color: p == widget.page ? c.ink : c.inkMuted)),
+                ),
+              ),
+            ),
+          ),
+      const SizedBox(width: AnSpace.s4),
+      AnButton.iconOnly(AnIcons.chevronRight,
+          size: AnButtonSize.sm,
+          semanticLabel: s.nextLabel,
+          onPressed: widget.page < widget.pageCount ? () => _go(widget.page + 1) : null),
+      const SizedBox(width: AnSpace.s8),
+      SizedBox(
+        width: AnSize.pagerJumpW,
+        child: AnInput(
+          controller: _jump,
+          placeholder: s.jumpHint,
+          tabular: true,
+          onSubmitted: _jumpSubmit,
+        ),
+      ),
+    ]);
+  }
+}

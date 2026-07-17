@@ -1249,7 +1249,10 @@ class _Translations$scheduler$home$zh_CN extends Translations$scheduler$home$en 
 	@override String get runsHead => '运行';
 	@override String get runsError => '运行记录加载失败。';
 	@override String get runsEmpty => '没有匹配此过滤的运行。';
-	@override String get loadMore => '加载更多';
+	@override String get pagerPrev => '上一页';
+	@override String get pagerNext => '下一页';
+	@override String get pagerJump => '页码';
+	@override String pagerPage({required Object n}) => '第 ${n} 页';
 	@override String get filterA11y => '按状态过滤运行';
 	@override String get filterAll => '全部';
 	@override String filterRunning({required Object n}) => '在跑 ${n}';
@@ -3183,7 +3186,10 @@ extension on TranslationsZhCn {
 			'scheduler.home.runsHead' => '运行',
 			'scheduler.home.runsError' => '运行记录加载失败。',
 			'scheduler.home.runsEmpty' => '没有匹配此过滤的运行。',
-			'scheduler.home.loadMore' => '加载更多',
+			'scheduler.home.pagerPrev' => '上一页',
+			'scheduler.home.pagerNext' => '下一页',
+			'scheduler.home.pagerJump' => '页码',
+			'scheduler.home.pagerPage' => ({required Object n}) => '第 ${n} 页',
 			'scheduler.home.filterA11y' => '按状态过滤运行',
 			'scheduler.home.filterAll' => '全部',
 			'scheduler.home.filterRunning' => ({required Object n}) => '在跑 ${n}',
@@ -3488,11 +3494,11 @@ extension on TranslationsZhCn {
 			'entities.detail.gate.env' => 'env',
 			'entities.detail.gate.instance' => 'instance',
 			'entities.detail.codeToggle.expand' => ({required Object n}) => '展开全部 (${n} 行)',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.codeToggle.collapse' => '收起',
 			'entities.detail.sec.code' => '代码',
 			'entities.detail.sec.input' => '输入',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.sec.output' => '输出',
 			'entities.detail.sec.env' => '环境',
 			'entities.detail.sec.runtime' => '常驻状态',
@@ -4002,11 +4008,11 @@ extension on TranslationsZhCn {
 			'settings.mcp.install' => '安装',
 			'settings.mcp.installing' => '安装中…',
 			'settings.mcp.prerequisite' => '前置',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mcp.requiredMark' => '必填',
 			'settings.mcp.oauthConnect' => '连接并授权',
 			'settings.mcp.oauthWaiting' => '等待浏览器授权…(最长 120 秒)',
-			_ => null,
-		} ?? switch (path) {
 			'settings.mcp.tabTools' => '工具',
 			'settings.mcp.tabCalls' => '调用历史',
 			'settings.mcp.tabStderr' => 'stderr',

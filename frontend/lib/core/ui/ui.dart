@@ -79,6 +79,7 @@ export 'an_menu.dart';
 export 'an_attachment_chip.dart';
 export 'an_mention_picker.dart';
 export 'an_menu_surface.dart';
+export 'an_pager.dart';
 export 'an_pop_surface.dart';
 export 'an_meter.dart';
 export 'an_ocean_header.dart';

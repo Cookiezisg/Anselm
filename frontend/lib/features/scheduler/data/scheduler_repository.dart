@@ -129,6 +129,20 @@ abstract interface class SchedulerRepository {
       String? cursor,
       int? limit});
 
+  /// One OFFSET page of the same history (WRK-070 B4 — the run table's page-number pager): the
+  /// SAME filter grammar as [listFlowruns], addressed by `offset` instead of a cursor, and answered
+  /// with `total` so the pager can speak page counts. Never pass a cursor here (线上互斥 422).
+  /// 同一份历史的 offset 页(页码翻页器):同 listFlowruns 过滤文法,按 offset 定址、答 total 渲页数;
+  /// 绝不带 cursor(线上互斥)。
+  Future<OffsetPage<Flowrun>> listFlowrunsPage(
+      {required String workflowId,
+      String? status,
+      String? origin,
+      DateTime? startedAfter,
+      DateTime? startedBefore,
+      required int offset,
+      required int limit});
+
   /// EVERY failed run in the workspace that LANDED at or after [completedAfter]
   /// (`GET /flowruns?status=failed&completedAfter=`, drained) — the ONE call behind the Overview's
   /// 「24h 失败」 KPI tile deep-link, the exact analog of [listRunningRuns].
@@ -404,6 +418,25 @@ class LiveSchedulerRepository implements SchedulerRepository {
         if (completedBefore != null) 'completedBefore': completedBefore.toUtc().toIso8601String(),
         'cursor': ?cursor,
         if (limit != null) 'limit': '$limit',
+      });
+
+  @override
+  Future<OffsetPage<Flowrun>> listFlowrunsPage(
+          {required String workflowId,
+          String? status,
+          String? origin,
+          DateTime? startedAfter,
+          DateTime? startedBefore,
+          required int offset,
+          required int limit}) =>
+      _api.getOffsetPage('/api/v1/flowruns', Flowrun.fromJson, query: {
+        'workflowId': workflowId,
+        'status': ?status,
+        'origin': ?origin,
+        if (startedAfter != null) 'startedAfter': startedAfter.toUtc().toIso8601String(),
+        if (startedBefore != null) 'startedBefore': startedBefore.toUtc().toIso8601String(),
+        'offset': '$offset',
+        'limit': '$limit',
       });
 
   @override

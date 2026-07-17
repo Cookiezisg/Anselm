@@ -54,12 +54,13 @@ class AnBatchBar extends StatelessWidget {
     if (count <= 0) return const SizedBox.shrink();
     final c = context.colors;
     final t = Translations.of(context);
+    // A flat bordered bar — NO float shadow (WRK-070 B10 用户裁「别人都没阴影,整它干啥」;the hairline
+    // border already lifts it off the list). 全宽平条,无浮影(发丝边已托起,全 app 别处无浮影)。
     return DecoratedBox(
       decoration: BoxDecoration(
         color: c.surface,
         borderRadius: BorderRadius.circular(AnRadius.button),
         border: Border.all(color: c.line, width: AnSize.hairline),
-        boxShadow: c.shadowFloat,
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: AnSpace.s12, vertical: AnSpace.s6),

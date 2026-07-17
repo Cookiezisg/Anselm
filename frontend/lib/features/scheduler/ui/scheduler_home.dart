@@ -697,18 +697,29 @@ class _RunTableZoneState extends ConsumerState<_RunTableZone> with BatchZone<_Ru
         else ...[
           for (final run in s.rows)
             AnExpandReveal(open: !leaving.contains(run.id), child: _row(context, s, run)),
-          if (s.hasMore)
+          // The standard page-number pager (B4): 10/page + ‹/›/numbers/jump; a single page renders
+          // nothing (AnPager self-hides). USER-driven geometry (军规-legal). 标准翻页器;单页不渲。
+          if (s.total > SchedulerRunTableController.pageSize)
             Padding(
-              padding: const EdgeInsets.only(top: AnSpace.s8),
+              padding: const EdgeInsets.only(top: AnGap.block),
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: s.loadingMore
-                    ? const AnSkeleton.row()
-                    : AnButton(label: t.loadMore, size: AnButtonSize.sm, onPressed: _table.loadMore),
+                child: AnPager(
+                  page: s.page,
+                  pageCount:
+                      (s.total + SchedulerRunTableController.pageSize - 1) ~/
+                          SchedulerRunTableController.pageSize,
+                  onPage: (p) => _table.setPage(p),
+                  strings: AnPagerStrings(
+                    prevLabel: t.pagerPrev,
+                    nextLabel: t.pagerNext,
+                    jumpHint: t.pagerJump,
+                    pageLabel: (n) => t.pagerPage(n: '$n'),
+                  ),
+                ),
               ),
             ),
-          // The retention tombstone is GONE (WRK-070 B3 用户裁「没用+占位怪异」,推翻判决④的呈现半——
-          // 保留清理本身照旧,历史尽头不再挂解释句;保留线仍在设置存储面板可见)。墓碑句删。
+          // The retention tombstone is GONE (WRK-070 B3 用户裁「没用+占位怪异」)。墓碑句删。
         ],
       ],
     );
@@ -767,7 +778,15 @@ class _RunTableZoneState extends ConsumerState<_RunTableZone> with BatchZone<_Ru
                     onChanged: (v) =>
                         setState(() => v ? selected.add(key) : selected.remove(key)),
                   )
-                : AnStatusDot(AnStatus.fromRaw(run.status)),
+                // The disclosure hand (B4): expanded wears ▾; a hovered collapsed row morphs its
+                // dot into ▸ — «this opens». 披露示能:展开 ▾;hover 点变 ▸——「这里能点开」。
+                : run.id == widget.linkedRunId
+                    ? Icon(AnIcons.chevronDown,
+                        size: AnSize.iconSm, color: context.colors.inkMuted)
+                    : hovered
+                        ? Icon(AnIcons.chevronRight,
+                            size: AnSize.iconSm, color: context.colors.inkMuted)
+                        : AnStatusDot(AnStatus.fromRaw(run.status)),
         primary: primary,
         mono: false,
         chips: [

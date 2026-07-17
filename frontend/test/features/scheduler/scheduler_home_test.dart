@@ -493,9 +493,10 @@ void main() {
       expect(repo.listFilters.any((f) => f.origin == 'chat'), isTrue);
     });
 
-    testWidgets('keyset paging: load more appends the next page', (tester) async {
+    testWidgets('page-number pager: 10/page, ‹/›/number/jump navigate, single page hides '
+        '(WRK-070 B4)', (tester) async {
       final runs = [
-        for (var i = 0; i < 30; i++)
+        for (var i = 0; i < 24; i++)
           Flowrun(
               id: 'fr_h${i.toString().padLeft(3, '0')}',
               workflowId: 'wf_a',
@@ -513,14 +514,25 @@ void main() {
         runs: runs,
       );
       await _pump(tester, repo);
-      expect(find.byType(AnLedgerRow), findsNWidgets(SchedulerRunTableController.pageSize));
+      // 24 runs / 10 per page → 3 pages, page 1 shows 10 rows. 24/10=3 页,首页 10 行。
+      expect(find.byType(AnLedgerRow), findsNWidgets(10));
+      expect(find.byType(AnPager), findsOneWidget, reason: '多页出翻页器');
+      expect(repo.pageAsks.last, (offset: 0, limit: 10, status: null, origin: null));
 
-      await tester.ensureVisible(find.text(h.loadMore));
-      await tester.tap(find.text(h.loadMore));
+      // Jump to page 3 (the last, 4 rows). 跳到第 3 页(末页 4 行)。
+      await tester.ensureVisible(find.byType(AnPager));
+      await tester.tap(find.descendant(of: find.byType(AnPager), matching: find.text('3')));
       await tester.pump();
       await _settle(tester);
-      expect(find.byType(AnLedgerRow), findsNWidgets(30));
-      expect(find.text(h.loadMore), findsNothing, reason: '末页收哨兵');
+      expect(find.byType(AnLedgerRow), findsNWidgets(4), reason: '第 3 页 4 行');
+      expect(repo.pageAsks.last, (offset: 20, limit: 10, status: null, origin: null),
+          reason: 'offset=(3-1)*10 上线缆');
+
+      // Filtering to a single page hides the pager entirely. 过滤到单页则翻页器整消失。
+      await tester.tap(find.text(h.filterFailed(n: '0')));
+      await tester.pump();
+      await _settle(tester);
+      expect(find.byType(AnPager), findsNothing, reason: '单页不渲');
     });
 
     testWidgets('the verb is PERSISTENT, inline after the phrase — no hover needed (需求⑦)',

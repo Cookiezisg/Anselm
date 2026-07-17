@@ -134,6 +134,10 @@ class StubSchedulerRepo implements SchedulerRepository {
   final Map<String, bool> pausedById = {};
   final List<String> pauseOrder = [];
 
+  /// Every offset-page question (WRK-070 B4) — (offset, limit) per ask, the pager-wire probe.
+  /// 每次 offset 页提问的 (offset, limit):翻页器线缆探针。
+  final List<({int offset, int limit, String? status, String? origin})> pageAsks = [];
+
   /// Every `GET /flowruns` question this stub was asked, in order — the honest-filter probe.
   /// 每次 flowruns 提问的过滤参数(按序):过滤诚实性探针。
   final List<
@@ -378,6 +382,28 @@ class StubSchedulerRepo implements SchedulerRepository {
     final more = offset + page.length < rows.length;
     return contract.Page(
         items: page, nextCursor: more ? '${offset + page.length}' : null, hasMore: more);
+  }
+
+  @override
+  Future<contract.OffsetPage<Flowrun>> listFlowrunsPage(
+      {required String workflowId,
+      String? status,
+      String? origin,
+      DateTime? startedAfter,
+      DateTime? startedBefore,
+      required int offset,
+      required int limit}) async {
+    pageAsks.add((offset: offset, limit: limit, status: status, origin: origin));
+    final all = await listFlowruns(
+        workflowId: workflowId,
+        status: status,
+        origin: origin,
+        startedAfter: startedAfter,
+        startedBefore: startedBefore,
+        limit: 1 << 30);
+    final page = all.items.skip(offset).take(limit).toList();
+    return contract.OffsetPage(
+        items: page, total: all.items.length, hasMore: offset + page.length < all.items.length);
   }
 
   /// Workspace-wide, drained, and — like `missed` above — derived from the SAME seed the zone renders.

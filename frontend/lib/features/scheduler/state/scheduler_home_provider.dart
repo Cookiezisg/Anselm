@@ -244,9 +244,8 @@ final schedulerMatrixWindowProvider = AsyncNotifierProvider.autoDispose
 class RunTableState {
   const RunTableState({
     this.rows = const [],
-    this.nextCursor,
-    this.hasMore = false,
-    this.loadingMore = false,
+    this.page = 1,
+    this.total = 0,
     this.filter = RunStatusFilter.all,
     this.origin,
     this.failedCount = 0,
@@ -258,9 +257,11 @@ class RunTableState {
   });
 
   final List<Flowrun> rows;
-  final String? nextCursor;
-  final bool hasMore;
-  final bool loadingMore;
+
+  /// Page-number pagination (WRK-070 B4 用户拍板:每页 10 条+标准翻页器,弃 loadMore 哨兵):
+  /// [page] 1-based, [total] = the offset wire's whole-filtered-set count. 页码分页;total=同过滤全集数。
+  final int page;
+  final int total;
   final RunStatusFilter filter;
   final String? origin;
   final int failedCount;
@@ -277,10 +278,8 @@ class RunTableState {
 
   RunTableState copyWith({
     List<Flowrun>? rows,
-    String? nextCursor,
-    bool clearCursor = false,
-    bool? hasMore,
-    bool? loadingMore,
+    int? page,
+    int? total,
     RunStatusFilter? filter,
     String? origin,
     bool clearOrigin = false,
@@ -293,9 +292,8 @@ class RunTableState {
   }) =>
       RunTableState(
         rows: rows ?? this.rows,
-        nextCursor: clearCursor ? null : (nextCursor ?? this.nextCursor),
-        hasMore: hasMore ?? this.hasMore,
-        loadingMore: loadingMore ?? this.loadingMore,
+        page: page ?? this.page,
+        total: total ?? this.total,
         filter: filter ?? this.filter,
         origin: clearOrigin ? null : (origin ?? this.origin),
         failedCount: failedCount ?? this.failedCount,
@@ -312,7 +310,8 @@ class SchedulerRunTableController extends AsyncNotifier<RunTableState> {
 
   final String workflowId;
 
-  static const pageSize = 25;
+  /// 10 per page (WRK-070 B4 用户拍板:「时间范围内的最近10条+翻页器」). 每页 10 条。
+  static const pageSize = 10;
 
   /// The failed-count probe's page bound — beyond it the strip says «50+». 探针页界,越界渲 50+。
   static const probeCap = 50;
@@ -464,11 +463,10 @@ class SchedulerRunTableController extends AsyncNotifier<RunTableState> {
         now: DateTime.now());
 
     List<Flowrun> rows;
-    String? next;
-    var more = false;
+    int total;
     if (s.filter == RunStatusFilter.waiting) {
       // «等人» = the running fetch intersected with the workflow's inbox runs — bounded by the inbox
-      // (a handful), so it never paginates. 等人=running∩inbox,天然有界不分页。
+      // (a handful), so it never paginates (pager hides at one page). 等人=running∩inbox,有界单页。
       final rail = await ref.read(schedulerRailProvider.future);
       final waiting = waitingRunIds(rail.inbox, workflowId).toSet();
       final page = await repo.listFlowruns(
@@ -479,27 +477,26 @@ class SchedulerRunTableController extends AsyncNotifier<RunTableState> {
           startedBefore: f.startedBefore,
           limit: probeCap);
       rows = [for (final r in page.items) if (waiting.contains(r.id)) r];
-      next = null;
+      total = rows.length;
     } else {
-      final page = await repo.listFlowruns(
+      // Page-number mode (B4): the offset wire answers rows AND the filtered-set total — the pager's
+      // page count is server truth, never a client guess. 页码模式:offset 线缆答行+全集数,页数=服务端真相。
+      final page = await repo.listFlowrunsPage(
           workflowId: workflowId,
           status: f.status,
           origin: f.origin,
           startedAfter: f.startedAfter,
           startedBefore: f.startedBefore,
+          offset: (s.page - 1) * pageSize,
           limit: pageSize);
       rows = page.items;
-      next = page.isLastPage ? null : page.nextCursor;
-      more = page.hasMore;
+      total = page.total;
     }
 
     final probes = await _probes(s);
     return s.copyWith(
       rows: rows,
-      nextCursor: next,
-      clearCursor: next == null,
-      hasMore: more,
-      loadingMore: false,
+      total: total,
       failedCount: probes.failedCount,
       failedCountCapped: probes.failedCapped,
       runningCount: probes.runningCount,
@@ -517,6 +514,7 @@ class SchedulerRunTableController extends AsyncNotifier<RunTableState> {
       origin: origin,
       clearOrigin: clearOrigin,
       newRuns: 0,
+      page: 1,
       rows: s.rows, // keep the last good rows on screen during the await (no empty flash) 重取不闪空
     );
     state = AsyncData(base);
@@ -526,40 +524,17 @@ class SchedulerRunTableController extends AsyncNotifier<RunTableState> {
     if (next.hasValue) state = next;
   }
 
-  /// Keyset next page (photo run_cockpit's loadMore discipline). keyset 下一页。
-  Future<void> loadMore() async {
+  /// Jump to page [page] (the pager's arrows / numbers / jump field — USER-driven geometry). Keeps
+  /// the current rows on screen during the await, same no-empty-flash discipline as [refetchTop].
+  /// 跳页(翻页器三入口,用户动作):await 期间留旧行,与 refetchTop 同「不闪空」纪律。
+  Future<void> setPage(int page) async {
     final s = state.value;
-    if (s == null || !s.hasMore || s.loadingMore || s.nextCursor == null) return;
-    state = AsyncData(s.copyWith(loadingMore: true));
-    final repo = ref.read(schedulerRepositoryProvider);
-    final f = runListFilter(
-        filter: s.filter,
-        origin: s.origin,
-        range: ref.read(schedulerTimeRangeProvider),
-        now: DateTime.now());
-    try {
-      final page = await repo.listFlowruns(
-          workflowId: workflowId,
-          status: f.status,
-          origin: f.origin,
-          startedAfter: f.startedAfter,
-          startedBefore: f.startedBefore,
-          cursor: s.nextCursor,
-          limit: pageSize);
-      if (!ref.mounted) return;
-      final cur = state.value ?? s;
-      final next = page.isLastPage ? null : page.nextCursor;
-      state = AsyncData(cur.copyWith(
-        rows: [...cur.rows, ...page.items],
-        nextCursor: next,
-        clearCursor: next == null,
-        hasMore: page.hasMore,
-        loadingMore: false,
-      ));
-    } catch (_) {
-      if (!ref.mounted) return;
-      state = AsyncData((state.value ?? s).copyWith(loadingMore: false));
-    }
+    if (s == null || page == s.page || page < 1) return;
+    final base = s.copyWith(page: page);
+    state = AsyncData(base);
+    final next = await AsyncValue.guard(() => _fetch(base));
+    if (!ref.mounted) return;
+    if (next.hasValue) state = next;
   }
 }
 

@@ -83,6 +83,20 @@ class ApiClient {
         return Page.fromBody(r.data ?? const {}, item);
       });
 
+  /// GET an OFFSET page: `{data:[…], total, hasMore}` → [OffsetPage] (WRK-070 B4, flowruns only).
+  ///
+  /// GET 一页 offset → [OffsetPage](仅 flowruns)。
+  Future<OffsetPage<T>> getOffsetPage<T>(
+    String path,
+    T Function(Map<String, dynamic>) item, {
+    Map<String, dynamic>? query,
+  }) =>
+      _send(() async {
+        final r = await _dio.get<Map<String, dynamic>>(path,
+            queryParameters: query);
+        return OffsetPage.fromBody(r.data ?? const {}, item);
+      });
+
   /// GET a log page whose `data` is an object carrying a list + an aggregate sidecar:
   /// `{data:{<listKey>:[…], aggregates:{…}}, nextCursor?, hasMore}` → [PageWithAggregate].
   /// The execution / call log endpoints (MD2); [listKey] is `executions`/`calls`, and the

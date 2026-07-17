@@ -140,6 +140,7 @@ abstract final class AnSize {
   // Primitive control metrics (the demo's PRIMITIVE METRICS group). 原语控件度量。
   static const double btnPadX = 14; // text-button horizontal optical pad 文本钮水平光学内距
   static const double btnPadXSm = 10; // small-button horizontal pad 小钮水平内距
+  static const double pagerJumpW = 56; // AnPager jump field (3 tabular digits + pad) 翻页器跳页输入宽(3 位表格数字+内距)
   static const double badge = 22; // status/tag badge visual height 徽章视觉高度
   static const double badgePadX = 9; // badge horizontal pad 徽章水平内距
   static const double inputMin = 180; // single-line input min width 单行输入最小宽

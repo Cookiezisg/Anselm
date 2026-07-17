@@ -3046,8 +3046,17 @@ class Translations$scheduler$home$en {
 	/// en: 'No runs match this filter.'
 	String get runsEmpty => 'No runs match this filter.';
 
-	/// en: 'Load more'
-	String get loadMore => 'Load more';
+	/// en: 'Previous page'
+	String get pagerPrev => 'Previous page';
+
+	/// en: 'Next page'
+	String get pagerNext => 'Next page';
+
+	/// en: 'Page'
+	String get pagerJump => 'Page';
+
+	/// en: 'Page $n'
+	String pagerPage({required Object n}) => 'Page ${n}';
 
 	/// en: 'Filter runs by status'
 	String get filterA11y => 'Filter runs by status';
@@ -6497,7 +6506,10 @@ extension on Translations {
 			'scheduler.home.runsHead' => 'Runs',
 			'scheduler.home.runsError' => 'Couldn\'t load the runs.',
 			'scheduler.home.runsEmpty' => 'No runs match this filter.',
-			'scheduler.home.loadMore' => 'Load more',
+			'scheduler.home.pagerPrev' => 'Previous page',
+			'scheduler.home.pagerNext' => 'Next page',
+			'scheduler.home.pagerJump' => 'Page',
+			'scheduler.home.pagerPage' => ({required Object n}) => 'Page ${n}',
 			'scheduler.home.filterA11y' => 'Filter runs by status',
 			'scheduler.home.filterAll' => 'All',
 			'scheduler.home.filterRunning' => ({required Object n}) => 'Running ${n}',
@@ -6802,11 +6814,11 @@ extension on Translations {
 			'entities.detail.gate.env' => 'env',
 			'entities.detail.gate.instance' => 'instance',
 			'entities.detail.codeToggle.expand' => ({required Object n}) => 'Show all (${n} lines)',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.codeToggle.collapse' => 'Collapse',
 			'entities.detail.sec.code' => 'Code',
 			'entities.detail.sec.input' => 'Inputs',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.sec.output' => 'Outputs',
 			'entities.detail.sec.env' => 'Environment',
 			'entities.detail.sec.runtime' => 'Resident state',
@@ -7316,11 +7328,11 @@ extension on Translations {
 			'settings.mcp.install' => 'Install',
 			'settings.mcp.installing' => 'Installing…',
 			'settings.mcp.prerequisite' => 'Prerequisite',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mcp.requiredMark' => 'required',
 			'settings.mcp.oauthConnect' => 'Connect & authorize',
 			'settings.mcp.oauthWaiting' => 'Waiting for the browser… (up to 120s)',
-			_ => null,
-		} ?? switch (path) {
 			'settings.mcp.tabTools' => 'Tools',
 			'settings.mcp.tabCalls' => 'Call history',
 			'settings.mcp.tabStderr' => 'stderr',

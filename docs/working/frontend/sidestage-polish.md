@@ -16,7 +16,7 @@ audience: [human, ai]
 
 ## 议题清单
 
-### #1 左缘对齐乱（0717-深夜 提出，含两个子问题）
+### #1 左缘对齐乱 ✅ 已落(0718,agent 建 stage_frame 假想框律 + icon 沟,commit 0156db0a)
 
 **用户原话要点**：
 
