@@ -104,6 +104,33 @@ func (s *Store) RunStats(ctx context.Context, q flowrundomain.StatsQuery) (*flow
 	}
 	out := &flowrundomain.RunStats{ByWorkflow: []*flowrundomain.WorkflowStats{}}
 
+	// The completed_at window. The lower bound is always present; the OPTIONAL upper bound `until`
+	// closes it into the half-open [since, until) and is spliced only when set — so an absent Until is
+	// byte-for-byte the single-bound query it was before (zero behavior change). The upper bound is
+	// BARE `completed_at < ?`, the same canonical-UTC text comparison the lower bound uses: within the
+	// one write format text order IS chronological order, so no julianday (工单⑮'s lesson). An inverted
+	// window (until ≤ since) simply matches no rows — empty is the right answer, not an error.
+	//
+	// window/appendWindow are the ONE spelling of this predicate, reused by totals (×2 FILTERs) and
+	// byWorkflow ① (×3 FILTERs) so the two upper bounds cannot drift.
+	//
+	// completed_at 窗口。下界恒在；**可选**上界 `until` 把它收成半开 [since, until)、仅在设了时才拼进去——
+	// 故缺席的 Until 与从前的单界查询**逐字节相同**（零行为变化）。上界是**裸** `completed_at < ?`，与下界
+	// 同一种规范 UTC 文本比较：在这一种写入格式内文本序**就是**时间序，故不需 julianday（工单⑮ 的教训）。
+	// 倒挂窗（until ≤ since）自然匹配 0 行——空就是对的答案、不是错误。window/appendWindow 是这个谓词的
+	// **唯一**拼法，被 totals（×2 FILTER）与 byWorkflow ①（×3 FILTER）复用，故两处上界不会漂移。
+	window := "completed_at >= ?"
+	if !q.Until.IsZero() {
+		window = "completed_at >= ? AND completed_at < ?"
+	}
+	appendWindow := func(args []any) []any {
+		args = append(args, q.Since)
+		if !q.Until.IsZero() {
+			args = append(args, q.Until)
+		}
+		return args
+	}
+
 	// --- totals (workspace-wide, independent of the requested ids) ---------------------------
 
 	// completedSince/failedSince window on completed_at: "failed in the window" means the run
@@ -116,13 +143,16 @@ func (s *Store) RunStats(ctx context.Context, q flowrundomain.StatsQuery) (*flow
 	// **裸的** `completed_at >= ?`，与 ListFilter.CompletedAfter **逐字符相同**（scheduler 工单⑮）——
 	// failedSince **就是** Overview 的「24h 失败」牌，那个窗**就是**牌点开的那份列表，故两者必须是**同一个**
 	// 谓词、而非两个通常吻合的谓词。
+	totalsArgs := appendWindow(nil)       // completed FILTER
+	totalsArgs = appendWindow(totalsArgs) // failed FILTER
+	totalsArgs = append(totalsArgs, wsID)
 	err = s.db.QueryRow(ctx, `
 		SELECT
 			COUNT(*) FILTER (WHERE status = 'running'),
-			COUNT(*) FILTER (WHERE status = 'completed' AND completed_at >= ?),
-			COUNT(*) FILTER (WHERE status = 'failed'    AND completed_at >= ?)
+			COUNT(*) FILTER (WHERE status = 'completed' AND `+window+`),
+			COUNT(*) FILTER (WHERE status = 'failed'    AND `+window+`)
 		FROM flowruns WHERE workspace_id = ?`,
-		q.Since, q.Since, wsID,
+		totalsArgs...,
 	).Scan(&out.Totals.Running, &out.Totals.CompletedSince, &out.Totals.FailedSince)
 	if err != nil {
 		return nil, fmt.Errorf("flowrunstore.RunStats totals: %w", err)
@@ -180,15 +210,19 @@ func (s *Store) RunStats(ctx context.Context, q flowrundomain.StatsQuery) (*flow
 	// 于是一个跑了 30 秒、三天后 replay 成功的 run 会报**三天**。这个扭曲比「剔除 failed」本就要避开的
 	// 「多久才死」大好几个数量级，故一边滤 failed 一边放它进来是自相矛盾。刻意留下的那部分（审批等待属于
 	// 墙钟、留在里面）见 domain 的契约。
-	args := append([]any{q.Since, q.Since, q.Since, wsID}, idArgs...)
+	args := appendWindow(nil) // completed FILTER
+	args = appendWindow(args) // failed FILTER
+	args = appendWindow(args) // avg-elapsed FILTER
+	args = append(args, wsID)
+	args = append(args, idArgs...)
 	base, err := s.db.Query(ctx, `
 		SELECT workflow_id,
 			COUNT(*) FILTER (WHERE status = 'running'),
 			MAX(started_at),
-			COUNT(*) FILTER (WHERE status = 'completed' AND completed_at >= ?),
-			COUNT(*) FILTER (WHERE status = 'failed'    AND completed_at >= ?),
+			COUNT(*) FILTER (WHERE status = 'completed' AND `+window+`),
+			COUNT(*) FILTER (WHERE status = 'failed'    AND `+window+`),
 			AVG((julianday(completed_at) - julianday(started_at)) * 86400000.0)
-				FILTER (WHERE status = 'completed' AND replay_count = 0 AND completed_at >= ?)
+				FILTER (WHERE status = 'completed' AND replay_count = 0 AND `+window+`)
 		FROM flowruns
 		WHERE workspace_id = ? AND workflow_id IN `+in+`
 		GROUP BY workflow_id`, args...)

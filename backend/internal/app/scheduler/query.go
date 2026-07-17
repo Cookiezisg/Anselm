@@ -235,9 +235,17 @@ func (s *Service) RunStats(ctx context.Context, q flowrundomain.StatsQuery) (*fl
 	// 不是：宁可把错误冒上去、也不端一个 0 出去——「你什么都没错过」与「我查不出来」是两句不同的话，
 	// 而只有其中一句可以安心地渲成一张让人放心的空牌。
 	if s.inbox != nil {
+		// CreatedBefore = q.Until mirrors the completedSince/failedSince upper bound onto the missed
+		// count: the missed window is the SAME half-open [since, until) the flowrun totals use (a zero
+		// Until is unbounded, CountFirings treating it as no upper bound), so the fifth card cannot
+		// drift from the other four at either end.
+		// CreatedBefore = q.Until 把 completedSince/failedSince 的上界镜像到 missed 计数上：missed 的窗口
+		// 与 flowrun 聚合用的是**同一个**半开窗 [since, until)（零值 Until 即不设界，CountFirings 视其为
+		// 无上界），故第五张牌两端都不会与另外四张漂移。
 		missed, err := s.inbox.CountFirings(ctx, triggerdomain.FiringFilter{
-			Status:       triggerdomain.FiringMissed,
-			CreatedAfter: q.Since,
+			Status:        triggerdomain.FiringMissed,
+			CreatedAfter:  q.Since,
+			CreatedBefore: q.Until,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("scheduler.RunStats: count missed firings: %w", err)

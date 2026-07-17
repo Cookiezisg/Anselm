@@ -373,6 +373,79 @@ func TestRunStats_WindowBoundary(t *testing.T) {
 	}
 }
 
+// TestRunStats_UntilUpperBound — the OPTIONAL Until closes the completed_at window into the
+// half-open [Since, Until): completedSince/failedSince, successRate and avgElapsedMs all honor the
+// upper bound (a run whose completed_at ≥ Until is invisible to every windowed number); an absent
+// (zero) Until is unbounded, exactly the prior single-bound behavior; and an inverted window
+// (Until ≤ Since) yields empty windowed results without error — the runs still show in recent/lastRunAt.
+//
+// TestRunStats_UntilUpperBound——可选的 Until 把 completed_at 窗收成半开 [Since, Until)：
+// completedSince/failedSince、successRate 与 avgElapsedMs 全部尊重上界（completed_at ≥ Until 的 run
+// 对每个窗口数都不可见）；缺席（零值）Until 即不设界，与从前单界行为一致；倒挂窗（Until ≤ Since）
+// 无错地给出空窗结果——run 仍在 recent/lastRunAt 里出现。
+func TestRunStats_UntilUpperBound(t *testing.T) {
+	s, db := newStatsStore(t)
+	now := time.Now().UTC()
+	since := now.Add(-8 * time.Hour)
+	until := now.Add(-4 * time.Hour) // window [now-8h, now-4h)
+
+	// Two runs land INSIDE the window, one AFTER Until, one BEFORE Since (all wf_a, ws_1).
+	inOk := now.Add(-6 * time.Hour)
+	seedStatsRun(t, db, "ws_1", "fr_in_ok", "wf_a", "completed", inOk, ptr(inOk.Add(30*time.Second))) // completed_at ≈ now-6h, elapsed 30s
+	inBad := now.Add(-5 * time.Hour)
+	seedStatsRun(t, db, "ws_1", "fr_in_bad", "wf_a", "failed", inBad, ptr(inBad.Add(10*time.Second)))                  // completed_at ≈ now-5h
+	seedStatsRun(t, db, "ws_1", "fr_after", "wf_a", "completed", now.Add(-3*time.Hour), ptr(now.Add(-2*time.Hour)))    // completed_at now-2h ≥ Until
+	seedStatsRun(t, db, "ws_1", "fr_before", "wf_a", "completed", now.Add(-11*time.Hour), ptr(now.Add(-10*time.Hour))) // completed_at now-10h < Since
+
+	// With Until set: only the two in-window runs count.
+	got, err := s.RunStats(ctxWS("ws_1"), flowrundomain.StatsQuery{WorkflowIDs: []string{"wf_a"}, RecentN: 10, Since: since, Until: until})
+	if err != nil {
+		t.Fatalf("RunStats until: %v", err)
+	}
+	if got.Totals.CompletedSince != 1 || got.Totals.FailedSince != 1 {
+		t.Fatalf("[since, until) must count only in-window terminals: completedSince=%d failedSince=%d", got.Totals.CompletedSince, got.Totals.FailedSince)
+	}
+	a := got.ByWorkflow[0]
+	// successRate = completed 1 / (completed 1 + failed 1) = 0.5 over the window.
+	if a.SuccessRate == nil || (*a.SuccessRate-0.5) > 1e-9 || (0.5-*a.SuccessRate) > 1e-9 {
+		t.Fatalf("windowed successRate = %v, want 0.5 (fr_after excluded by Until)", a.SuccessRate)
+	}
+	// avgElapsedMs = fr_in_ok's 30s alone — fr_after (completed but past Until) must not enter the mean.
+	if a.AvgElapsedMs == nil || *a.AvgElapsedMs < 29900 || *a.AvgElapsedMs > 30100 {
+		t.Fatalf("windowed avgElapsedMs = %v, want ~30000 (fr_after's completed_at ≥ Until excluded)", a.AvgElapsedMs)
+	}
+	// But all four runs remain visible outside the windowed numbers.
+	if len(a.Recent) != 4 || a.LastRunAt == nil {
+		t.Fatalf("recent/lastRunAt are NOT windowed: recent=%v lastRunAt=%v", a.Recent, a.LastRunAt)
+	}
+
+	// Absent (zero) Until is unbounded: fr_after now counts (completedSince = fr_in_ok + fr_after = 2),
+	// fr_before still excluded by Since — byte-for-byte the prior single-bound behavior.
+	got, err = s.RunStats(ctxWS("ws_1"), flowrundomain.StatsQuery{WorkflowIDs: []string{"wf_a"}, RecentN: 10, Since: since})
+	if err != nil {
+		t.Fatalf("RunStats no-until: %v", err)
+	}
+	if got.Totals.CompletedSince != 2 {
+		t.Fatalf("a zero Until must be unbounded (fr_after counted): completedSince=%d, want 2", got.Totals.CompletedSince)
+	}
+
+	// Inverted window (Until ≤ Since): empty windowed results, no error; recent/lastRunAt intact.
+	got, err = s.RunStats(ctxWS("ws_1"), flowrundomain.StatsQuery{WorkflowIDs: []string{"wf_a"}, RecentN: 10, Since: now.Add(-4 * time.Hour), Until: now.Add(-8 * time.Hour)})
+	if err != nil {
+		t.Fatalf("inverted window must not error: %v", err)
+	}
+	if got.Totals.CompletedSince != 0 || got.Totals.FailedSince != 0 {
+		t.Fatalf("inverted window totals must be empty: %+v", got.Totals)
+	}
+	inv := got.ByWorkflow[0]
+	if inv.SuccessRate != nil || inv.AvgElapsedMs != nil {
+		t.Fatalf("inverted window row must have no successRate/avgElapsedMs: %+v", inv)
+	}
+	if len(inv.Recent) != 4 || inv.LastRunAt == nil {
+		t.Fatalf("inverted window must not blank recent/lastRunAt: recent=%v lastRunAt=%v", inv.Recent, inv.LastRunAt)
+	}
+}
+
 // TestRunStats_AvgElapsed_ExcludesReplayedRuns — a replayed run's header spans the HUMAN's fix
 // window, not the work: :replay reopens the same header and never moves started_at, so a 30-second
 // run replayed to success three days later reports 3 days. Letting that into the mean while

@@ -243,6 +243,57 @@ func TestRunStats_ExplicitSinceWindow(t *testing.T) {
 	}
 }
 
+// TestRunStats_UntilBoundsBothWindowAndMissed — the optional Until upper bound must thread through
+// to BOTH the flowrun windowed totals (via the store) AND the missed count (via CountFirings'
+// CreatedBefore), so the fifth card cannot drift from the other four at the top end either. A
+// future Until includes fresh events; an Until BEFORE them zeroes both; an inverted window (Until ≤
+// Since) is silently empty, not an error.
+//
+// TestRunStats_UntilBoundsBothWindowAndMissed——可选的 Until 上界必须同时穿到 flowrun 窗口聚合（经
+// store）与 missed 计数（经 CountFirings 的 CreatedBefore），故第五张牌在顶端也不会与另外四张漂移。
+// 未来的 Until 含新鲜事件；早于它们的 Until 把两者清零；倒挂窗（Until ≤ Since）静默为空、非错误。
+func TestRunStats_UntilBoundsBothWindowAndMissed(t *testing.T) {
+	svc, trg := missedSvc(t)
+	ctx := ctxWS("ws_1")
+	now := time.Now().UTC()
+
+	// A failed run settled ~now, and a missed tick booked at now-1h.
+	mustSeedTerminal(t, svc, ctx, "fr_1", "wf_a", flowrundomain.StatusFailed)
+	bookMissed(t, trg, ctx, "trf_m1", now.Add(-1*time.Hour))
+
+	// A future upper bound sees both: [now-24h, now+1h).
+	got, err := svc.RunStats(ctx, flowrundomain.StatsQuery{WorkflowIDs: []string{"wf_a"}, Since: now.Add(-24 * time.Hour), Until: now.Add(time.Hour)})
+	if err != nil {
+		t.Fatalf("RunStats future-until: %v", err)
+	}
+	if got.Totals.FailedSince != 1 || got.Totals.Missed != 1 {
+		t.Fatalf("future until must include both: failedSince=%d missed=%d", got.Totals.FailedSince, got.Totals.Missed)
+	}
+
+	// An upper bound BEFORE both zeroes both — proving Until reaches the missed count too (a since-only
+	// implementation would still count the missed tick and the failure). [now-24h, now-2h).
+	got, err = svc.RunStats(ctx, flowrundomain.StatsQuery{WorkflowIDs: []string{"wf_a"}, Since: now.Add(-24 * time.Hour), Until: now.Add(-2 * time.Hour)})
+	if err != nil {
+		t.Fatalf("RunStats past-until: %v", err)
+	}
+	if got.Totals.FailedSince != 0 || got.Totals.Missed != 0 {
+		t.Fatalf("an until before both events must zero BOTH: failedSince=%d missed=%d", got.Totals.FailedSince, got.Totals.Missed)
+	}
+	// The streak is window-independent — the failure is still failing.
+	if got.ByWorkflow[0].ConsecutiveFailures != 1 {
+		t.Fatalf("streak must ignore the window: %d", got.ByWorkflow[0].ConsecutiveFailures)
+	}
+
+	// An inverted window (Until ≤ Since) is silently empty, never an error.
+	got, err = svc.RunStats(ctx, flowrundomain.StatsQuery{WorkflowIDs: []string{"wf_a"}, Since: now.Add(-1 * time.Hour), Until: now.Add(-24 * time.Hour)})
+	if err != nil {
+		t.Fatalf("inverted window must not error: %v", err)
+	}
+	if got.Totals.FailedSince != 0 || got.Totals.Missed != 0 {
+		t.Fatalf("inverted window must be empty: failedSince=%d missed=%d", got.Totals.FailedSince, got.Totals.Missed)
+	}
+}
+
 // mustSeedTerminal creates a run via the store path and settles it to a terminal status.
 func mustSeedTerminal(t *testing.T, svc *Service, ctx context.Context, id, wf, status string) {
 	t.Helper()

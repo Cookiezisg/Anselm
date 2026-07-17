@@ -224,13 +224,16 @@ func (h *FlowrunHandler) Inbox(w http.ResponseWriter, r *http.Request) {
 // Stats is the operational statistics batch (scheduler 工单③): workspace totals + one health row
 // per ?workflowIds=<csv, ≤50 after dedup> workflow. ?recentN (default 10, clamped to 20) sizes the
 // per-workflow status beads; ?since (RFC3339 timestamp or look-back duration like 24h / 7d,
-// default 7d) is the single window for completedSince/failedSince/successRate/avgElapsedMs. A
-// bounded batch — N4-exempt from cursor pagination.
+// default 7d) opens the window and the OPTIONAL ?until (RFC3339 timestamp ONLY — an end-of-window
+// look-back is ambiguous, so the since duration grammar is deliberately not accepted; absent →
+// unbounded) closes it into [since, until), the single window for
+// completedSince/failedSince/successRate/avgElapsedMs/missed. A bounded batch — N4-exempt.
 //
 // Stats 是运营统计批查（scheduler 工单③）：workspace 聚合 + ?workflowIds=<csv,去重后 ≤50> 每
 // workflow 一条健康行。?recentN（默认 10、钳到 20）定逐 workflow 状态珠数；?since（RFC3339 时间戳
-// 或回看时长如 24h / 7d，默认 7d）统一 completedSince/failedSince/successRate/avgElapsedMs 的窗口。
-// 有界批查——N4 分页豁免。
+// 或回看时长如 24h / 7d，默认 7d）开窗，可选的 ?until（**只**收 RFC3339 时间戳——末端回看有歧义故
+// 刻意不收 since 的时长文法；缺席 → 不设界）把它收成 [since, until)，统一
+// completedSince/failedSince/successRate/avgElapsedMs/missed 的窗口。有界批查——N4 分页豁免。
 func (h *FlowrunHandler) Stats(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	recentN, err := parseRecentN(query.Get("recentN"))
@@ -243,10 +246,21 @@ func (h *FlowrunHandler) Stats(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
+	// until is an ABSOLUTE end bound only — parseListTime is the shared RFC3339 window-bound parser
+	// (absent → zero time = unbounded), carrying the stats domain's own sentinel so a bad value names
+	// the right resource. Deliberately NOT parseSince: a look-back "end" makes no sense.
+	// until 只是绝对上界——parseListTime 是共享的 RFC3339 窗口界解析器（缺席 → 零值 = 不设界），带 stats
+	// 域自己的 sentinel 使坏值点名正确资源。刻意不用 parseSince：末端的回看没有意义。
+	until, err := parseListTime(query.Get("until"), "until", flowrundomain.ErrStatsInvalidUntil)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
 	stats, err := h.svc.RunStats(r.Context(), flowrundomain.StatsQuery{
 		WorkflowIDs: splitCSV(query.Get("workflowIds")),
 		RecentN:     recentN,
 		Since:       since,
+		Until:       until,
 	})
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)

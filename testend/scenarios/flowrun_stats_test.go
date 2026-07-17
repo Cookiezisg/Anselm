@@ -136,6 +136,19 @@ func TestFlowrunStats_BatchProjection(t *testing.T) {
 		t.Fatalf("future since must empty the windowed totals: %+v", knobs.Totals)
 	}
 
+	// until 上界:[since, until) 半开窗。since 拉到 2020 单界时窗口覆盖全部 run（failedSince=2）;
+	// 补一个落在 run 之前的 until（2020-06）把上界收在它们之前 → 窗口清零,证明 until 穿透且界的是顶端。
+	var lo statsResp
+	wc.GET("/api/v1/flowrun-stats?since=2020-01-01T00:00:00Z").OK(t, &lo)
+	if lo.Totals.FailedSince != 2 {
+		t.Fatalf("since=2020 单界须覆盖两次 failed: %+v", lo.Totals)
+	}
+	var bounded statsResp
+	wc.GET("/api/v1/flowrun-stats?since=2020-01-01T00:00:00Z&until=2020-06-01T00:00:00Z").OK(t, &bounded)
+	if bounded.Totals.FailedSince != 0 || bounded.Totals.CompletedSince != 0 {
+		t.Fatalf("until 落在 run 之前须把 [since, until) 窗清零: %+v", bounded.Totals)
+	}
+
 	// 超限:51 个 id → 422 大声拒带码。
 	ids := make([]string, 51)
 	for i := range ids {
@@ -149,5 +162,15 @@ func TestFlowrunStats_BatchProjection(t *testing.T) {
 	r = wc.GET("/api/v1/flowrun-stats?since=gremlin")
 	if r.Status != 422 || r.Code != "FLOWRUN_STATS_INVALID_SINCE" {
 		t.Fatalf("bad since must 422 FLOWRUN_STATS_INVALID_SINCE, got %d %s", r.Status, r.Code)
+	}
+	// 坏 until → 422 新 sentinel。until 只收 RFC3339——since 的时长文法（24h）在此**也**必须被拒,
+	// 证明它刻意不是 since 的文法。
+	r = wc.GET("/api/v1/flowrun-stats?until=gremlin")
+	if r.Status != 422 || r.Code != "FLOWRUN_STATS_INVALID_UNTIL" {
+		t.Fatalf("bad until must 422 FLOWRUN_STATS_INVALID_UNTIL, got %d %s", r.Status, r.Code)
+	}
+	r = wc.GET("/api/v1/flowrun-stats?until=24h")
+	if r.Status != 422 || r.Code != "FLOWRUN_STATS_INVALID_UNTIL" {
+		t.Fatalf("until 只收 RFC3339,时长 24h 也须 422 FLOWRUN_STATS_INVALID_UNTIL, got %d %s", r.Status, r.Code)
 	}
 }

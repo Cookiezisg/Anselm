@@ -43,9 +43,9 @@ audience: [human, ai]
 
 ---
 
-## 全量登记（316 码，按域）
+## 全量登记（317 码，按域）
 
-> `errorspkg.New` 机械抽取（305，不含 `*_test.go` 测试 sentinel 如 DUP/THING_NOT_FOUND）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（7）+ transport 合成码（4）= 316。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
+> `errorspkg.New` 机械抽取（306，不含 `*_test.go` 测试 sentinel 如 DUP/THING_NOT_FOUND）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（7）+ transport 合成码（4）= 317。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
 >
 > **复核方法**（本汇总数无机械守卫——`make docs` 只查结构/frontmatter/孤儿链接，`pkg/errors` 的 `standard_test.go` 只钉「一律走 `errorspkg.New`」+「码全局唯一」，**都不数总数**，故这三个数是**手工事实**、会随每次加码悄悄漂旧，改码时请一并重算）：
 > `grep -rn "errorspkg.New(" --include="*.go" backend | grep -v _test.go | wc -l` = 304 · `backend/internal/pkg/errors/sentinel.go` 的 bare `New` = 7 · transport 合成 = 4 · 登记表行数应恒等于总数。
@@ -393,6 +393,7 @@ audience: [human, ai]
 | `FLOWRUN_STATS_TOO_MANY_IDS` | 422 | flowrun-stats accepts at most 50 workflowIds per request (工单③ 有界批查上限；`details.allowed`/`details.got`) |
 | `FLOWRUN_MATRIX_TOO_MANY_IDS` | 422 | flowrun-matrix accepts at most 50 flowrunIds per request (工单⑩ 有界批查上限；`details.allowed`/`details.got`) |
 | `FLOWRUN_STATS_INVALID_SINCE` | 422 | since must be an RFC3339 timestamp or a look-back duration like 24h or 7d (`details.got`) |
+| `FLOWRUN_STATS_INVALID_UNTIL` | 422 | until must be an RFC3339 timestamp (工单③ 窗口不含上界——刻意只收绝对时刻、不收 since 的时长文法；`details.param`/`details.got`/`details.want`) |
 
 ### `domain/function`
 

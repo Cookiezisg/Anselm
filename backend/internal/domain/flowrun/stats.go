@@ -50,12 +50,27 @@ const (
 // dedup, else ErrStatsTooManyIDs); RecentN ≤ 0 takes the default and > max clamps; a zero Since
 // takes now-StatsDefaultWindow. Defaults are applied by the app service, not the store.
 //
+// Until is the OPTIONAL exclusive end of the windowed stats, pairing with Since as the half-open
+// window [Since, Until). A zero Until is UNBOUNDED (today's behavior — the window runs to now and
+// beyond), never defaulted: an end-of-window look-back duration is ambiguous, so unlike Since the
+// handler accepts an RFC3339 timestamp for it ALONE. It bounds exactly what Since bounds
+// (completedSince/failedSince, per-workflow successRate/avgElapsedMs, and totals.missed via the
+// firing count's CreatedBefore) and nothing else. An inverted window (Until ≤ Since) is not an
+// error — it silently yields empty windowed results, the same stance as GET /flowruns startedBefore.
+//
 // StatsQuery 是批查请求。WorkflowIDs 保序去重（去重后 ≤50，否则 ErrStatsTooManyIDs）；RecentN ≤0
 // 取默认、>上限钳制；Since 零值取 now-StatsDefaultWindow。默认由 app service 应用、非 store。
+//
+// Until 是窗口统计的**可选**不含上界，与 Since 配成半开窗 [Since, Until)。零值 Until = **不设界**
+// （今日行为——窗口一直延到 now 及之后），**绝不默认**：末端的回看时长有歧义，故与 Since 不同、handler
+// **只**收 RFC3339 时间戳。它界的恰是 Since 所界的那些（completedSince/failedSince、逐 workflow 的
+// successRate/avgElapsedMs、以及经 firing 计数的 CreatedBefore 缝入的 totals.missed），别的都不动。
+// 倒挂窗（Until ≤ Since）不是错误——静默给出空窗结果，与 GET /flowruns startedBefore 同立场。
 type StatsQuery struct {
 	WorkflowIDs []string
 	RecentN     int
 	Since       time.Time
+	Until       time.Time
 }
 
 // StatsTotals is the workspace-wide aggregate — deliberately NOT limited to the requested
@@ -203,4 +218,13 @@ var (
 	// ErrStatsInvalidSince：since 参数既不是 RFC3339 时间戳、也不是正的回看时长（Go duration
 	// 或 <n>d 天数形）。
 	ErrStatsInvalidSince = errorspkg.New(errorspkg.KindUnprocessable, "FLOWRUN_STATS_INVALID_SINCE", "since must be an RFC3339 timestamp or a look-back duration like 24h or 7d")
+
+	// ErrStatsInvalidUntil: the until parameter did not parse as an RFC3339 timestamp. Unlike since
+	// it is an ABSOLUTE end bound ONLY — an end-of-window look-back duration is ambiguous, so the
+	// duration grammar is deliberately NOT accepted here (parsed by parseListTime, the same RFC3339
+	// window-bound implementation the flowruns list uses).
+	// ErrStatsInvalidUntil：until 参数没解析成 RFC3339 时间戳。与 since 不同，它**只**是绝对上界——
+	// 末端的回看时长有歧义，故这里刻意**不**收时长文法（用 parseListTime 解析，即 flowruns 列表所用的
+	// 同一份 RFC3339 窗口界实现）。
+	ErrStatsInvalidUntil = errorspkg.New(errorspkg.KindUnprocessable, "FLOWRUN_STATS_INVALID_UNTIL", "until must be an RFC3339 timestamp")
 )
