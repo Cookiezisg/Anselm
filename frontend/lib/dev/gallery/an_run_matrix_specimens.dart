@@ -35,15 +35,15 @@ const _rows = [
 ];
 
 List<RunColumn> _cols() => [
-      // Newest LEFT — the same order as every run list, so a column and its row in the big table are
-      // the same run at the same position. 新在左:与所有 run 列表同序。
-      const RunColumn(id: 'fr_9', status: 'running', label: 'fr_9 · 在跑'),
-      const RunColumn(id: 'fr_8', status: 'failed', elapsedMs: 8200, label: 'fr_8 · 失败 · 8.2s'),
-      const RunColumn(id: 'fr_7', status: 'completed', elapsedMs: 42000, label: 'fr_7 · 成功 · 42s'),
-      const RunColumn(id: 'fr_6', status: 'failed', elapsedMs: 6100, label: 'fr_6 · 失败 · 6.1s'),
-      const RunColumn(id: 'fr_5', status: 'completed', elapsedMs: 39000, label: 'fr_5 · 成功 · 39s'),
-      const RunColumn(id: 'fr_4', status: 'cancelled', elapsedMs: 2000, label: 'fr_4 · 已取消 · 2s'),
+      // CHRONOLOGICAL, oldest LEFT — a timeline; the viewport anchors at the newest (right) end
+      // (主页重建拍板 0717). 时序旧在左——时间轴;视口锚最新(右)端。
       const RunColumn(id: 'fr_3', status: 'completed', elapsedMs: 40500, label: 'fr_3 · 成功 · 40.5s'),
+      const RunColumn(id: 'fr_4', status: 'cancelled', elapsedMs: 2000, label: 'fr_4 · 已取消 · 2s'),
+      const RunColumn(id: 'fr_5', status: 'completed', elapsedMs: 39000, label: 'fr_5 · 成功 · 39s'),
+      const RunColumn(id: 'fr_6', status: 'failed', elapsedMs: 6100, label: 'fr_6 · 失败 · 6.1s'),
+      const RunColumn(id: 'fr_7', status: 'completed', elapsedMs: 42000, label: 'fr_7 · 成功 · 42s'),
+      const RunColumn(id: 'fr_8', status: 'failed', elapsedMs: 8200, label: 'fr_8 · 失败 · 8.2s'),
+      const RunColumn(id: 'fr_9', status: 'running', label: 'fr_9 · 在跑'),
     ];
 
 /// «analyze» breaks in three of seven runs — the horizontal streak the single-run lenses can't show.
@@ -82,10 +82,11 @@ String _rowSummary(MatrixRowSummary s) {
 
 final anRunMatrixGalleryItem = GalleryItem(
   'AnRunMatrix 节点×run 格阵',
-  '行=节点、列=近 20 run(新在左)+ 列顶 run 时长微条;格渲最坏处置色、iterations>1 渲「×N」、稀疏格=「未及」空格;'
-      '三粒度选区(点格/点列/点行);**键盘=唯一一个 Tab 停靠**(roving 光标:一次 Tab 进、方向键走、出边即出、'
-      'Enter 选中);**读屏=行级**(逐行摘要说出模式 + 光标句内嵌坐标——桌面运不动 table role);'
-      '刻意不虚拟化(recentN 后端钳 20,行是图节点——几十不是几千)',
+  '行=节点、列=**时序**(旧在左、新在右,视口锚最新端;向最旧缘滑动即懒加载更多历史,前插零位移)+ 列顶 run '
+      '时长微条;格渲最坏处置色、iterations>1 渲「×N」、稀疏格=「未及」空格;三粒度选区(点格/点列/点行);'
+      '**键盘=唯一一个 Tab 停靠**(roving 光标:一次 Tab 进、方向键走、出边即出、Enter 选中);**读屏=行级**'
+      '(逐行摘要说出模式 + 光标句内嵌坐标——桌面运不动 table role);刻意不虚拟化(列按 ≤50 有界页到达、'
+      '只随用户显式滑动生长,行是图节点——几十不是几千)',
   [
     GallerySpecimen(
         '全文法(横向红条=老是坏的节点 / 未及空格 / ×N / parked / 在跑列无条)· 键盘:Tab 一次进,方向键走,出边即出',
@@ -174,8 +175,8 @@ final anRunMatrixGalleryItem = GalleryItem(
     // 溢出。**横**轴归格阵自己(用户 0717 判决:阅读列绝对、宽内容自带横滚)——在真实 720 阅读列上 20 列溢出
     // ~52px,故此处 thumb 可见,那是**预期的生产形态**而非缺陷。
     GallerySpecimen(
-        '压力:满格阵 20 列 × 24 行(后端 recentN 上限 = 列数上限)= 524 个可聚焦位置、**恰好 1 个 Tab 停靠**;'
-        '横向自滚、纵向归宿主',
+        '压力:满格阵 20 列 × 24 行(= 一整页的量级)= 524 个可聚焦位置、**恰好 1 个 Tab 停靠**;'
+        '横向自滚(锚最新端)、纵向归宿主',
         (_) => SingleChildScrollView(
               child: Padding(
                 padding: const EdgeInsets.all(AnSpace.s16),

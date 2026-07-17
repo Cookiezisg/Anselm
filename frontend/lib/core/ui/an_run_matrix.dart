@@ -8,13 +8,17 @@ import 'an_a11y.dart';
 import 'an_focus_ring.dart';
 import 'an_interactive.dart';
 import 'an_scroll_behavior.dart';
+import 'an_spinner.dart';
 import 'an_tooltip.dart';
 import 'icons.dart';
 import 'tone.dart';
 
-/// AnRunMatrix (WRK-069 §12 + 判决③, S5) — the node×run grid: rows are a workflow's nodes, columns its
-/// last N runs (newest LEFT, the same order as every run list), and each cell is one (run, node)
-/// outcome. It is the linked pane's third face, and the ONE question it answers that neither the gantt
+/// AnRunMatrix (WRK-069 §12, 主页重建拍板 0717) — the node×run grid: rows are a workflow's nodes,
+/// columns its runs in CHRONOLOGICAL order (oldest LEFT, newest RIGHT — a timeline), and each cell is
+/// one (run, node) outcome. The viewport anchors at the NEWEST end (reverse scroll: offset 0 = the
+/// trailing edge, first frame opens on the newest with zero jump) and sliding toward the oldest edge
+/// asks the owner for more history ([onNearOldestEdge]) — prepended pages land with ZERO visual shift.
+/// It sits at the top of the operations home, and the ONE question it answers that neither the gantt
 /// nor the graph can: **is this node ALWAYS the one that breaks, or was it just this once** — a
 /// pattern across runs, which a single-run lens is structurally blind to.
 ///
@@ -108,13 +112,17 @@ import 'tone.dart';
 ///     It walks EVERY ancestor scrollable, so a down-arrow also nudges the page — which is right: the
 ///     cursor is what the user is looking at.
 ///
-/// **No virtualization, deliberately**: `recentN` is capped at 20 by the backend (its default IS its
-/// max), and rows are a graph's nodes — tens, not thousands. A 20×N grid of small squares is a few
-/// hundred widgets; a virtualized 2-D viewport here would be machinery guarding an impossible case
-/// (§12 said «虚拟化列窗» when the cap was still open — recorded as a deviation).
+/// **No virtualization, deliberately — but the bound moved**: columns arrive one bounded page
+/// (≤50) at a time and only GROW when the user explicitly slides to the oldest edge, so the widget
+/// count is user-metered, not data-metered; rows stay a graph's nodes — tens, not thousands. A
+/// virtualized 2-D viewport would still be machinery guarding a case only deliberate archaeology can
+/// construct (recorded as a deviation, watch the per-cell FocusNode table if deep histories become a
+/// habit).
 ///
-/// AnRunMatrix 节点×run 格阵:行=节点、列=近 N 次 run(新在**左**,与所有 run 列表同序),格=一次 (run,节点)
-/// 的结局。它是联动格第三脸,回答甘特与图**结构上看不见**的那个问题:**这个节点是老是坏,还是就坏了这一次**
+/// AnRunMatrix 节点×run 格阵:行=节点、列=**时序**(旧在左、新在右——一条时间轴),格=一次 (run,节点)
+/// 的结局。视口**锚在最新端**(reverse 滚动:offset 0=尾缘,首帧即最新、零跳动);向最旧缘滑动即向宿主索要
+/// 更多历史(onNearOldestEdge),前插的旧页**零位移**落地。它坐在运营主页页顶,回答甘特与图**结构上看不见**
+/// 的那个问题:**这个节点是老是坏,还是就坏了这一次**
 /// ——跨 run 的模式。**契约级稀疏**:没跑到即无格,读作「未及」(调用方的词),既非失败也非成功,空格本身是
 /// 真答案。**列顶时长微条**:每列穿它那次 **run** 的墙钟(相对条);仍在跑的 run 无时长——列头改渲在跑色,
 /// 绝不画会被读成「瞬时」的零宽条。**三粒度选区**:点格/点列头/点行头,含义归调用方;选区是调用方的**选中**,
@@ -153,8 +161,9 @@ import 'tone.dart';
 /// 把视口拖着走**:roving 光标**显式** requestFocus 跳过了框架自带的滚动入视,故改调框架自己的
 /// `FocusTraversalPolicy.defaultTraversalRequestFocusCallback`(绝不手搓 ensureVisible)。
 ///
-/// **刻意不虚拟化**:recentN 被后端钳在 20(默认即上限),行是图的节点——几十不是几千;20×N 个小方块是几百
-/// 个 widget,在此上二维虚拟视口是为不可能的情况造机器(§12 写「虚拟化列窗」时上限尚未定,记偏差)。
+/// **刻意不虚拟化——但界挪了**:列按有界页(≤50)到达、只在用户显式滑到最旧缘时才生长,widget 数由用户
+/// 计量、非数据计量;行仍是图的节点——几十不是几千。二维虚拟视口仍是为只有刻意考古才构造得出的情况造机器
+/// (记偏差;若深翻历史成了习惯,盯住逐格 FocusNode 表)。
 
 /// One column = one run. [elapsedMs] is the RUN's wall clock; null = still going (never a zero).
 /// 一列=一次 run;elapsedMs=run 墙钟,null=还在跑(绝不是 0)。
@@ -240,10 +249,19 @@ class AnRunMatrix extends StatefulWidget {
     this.rowSemanticLabel,
     this.rowSummaryLabel,
     this.coordinateLabel,
+    this.onNearOldestEdge,
+    this.loadingOlder = false,
     super.key,
   });
 
   final List<MatrixRowHead> rows;
+
+  /// Chronological, OLDEST first — the viewport anchors at the newest (trailing) end and older
+  /// pages PREPEND with zero visual shift (reverse-scroll geometry: offsets are measured from the
+  /// newest edge, so growth on the far side moves nothing on screen — the chat transcript's
+  /// prepend law, one mechanism lighter).
+  /// 时序、**旧在前**——视口锚在最新(尾)端,更旧的页**前插零位移**(reverse 滚动几何:offset 从最新缘起
+  /// 量,远端生长屏上不动——chat 记录的 prepend 律,机制更轻一档)。
   final List<RunColumn> cols;
 
   /// The SPARSE lookup: null = this run never reached this node → 「未及」. 稀疏查询:null=未及。
@@ -283,6 +301,16 @@ class AnRunMatrix extends StatefulWidget {
   /// 0 起。缺省=光标只报身份不报位置,而在桌面读屏上那等于**没有**位置。
   final String Function(int rowIndex, int rowCount, int colIndex, int colCount)? coordinateLabel;
 
+  /// Fired when the viewport nears the OLDEST (leading) edge — the owner loads the next older page
+  /// and prepends it. Re-arms once the edge recedes (either the user scrolls away or the prepend
+  /// grows the extent), so one approach fires once. 滑近最旧缘时触发——宿主取更旧一页并前插;缘退开
+  /// (滚走或前插撑大)即重新上膛,一次逼近只发一次。
+  final VoidCallback? onNearOldestEdge;
+
+  /// Renders a small working spinner in the oldest edge's lane while the owner fetches. 取数时
+  /// 最旧缘渲小转圈。
+  final bool loadingOlder;
+
   @override
   State<AnRunMatrix> createState() => _AnRunMatrixState();
 }
@@ -306,6 +334,33 @@ class _AnRunMatrixState extends State<AnRunMatrix> {
   /// The grid's OWN horizontal viewport — the bar and [Scrollable.ensureVisible] both need it named.
   /// 格阵自己的横向视口:条与 ensureVisible 都要它有名有姓。
   final ScrollController _hScroll = ScrollController();
+
+  /// Edge hysteresis: armed → fire once inside the threshold, re-arm only after receding past 2×.
+  /// 缘滞回:上膛→入阈发一次,退过 2 倍阈才重新上膛。
+  bool _edgeArmed = true;
+
+  /// A few column pitches — token arithmetic, no raw px. 几个列距(令牌算术、无裸像素)。
+  static const double _edgeThreshold = 4 * (AnSize.controlSm + AnSpace.s4);
+
+  void _onHScroll() {
+    if (widget.onNearOldestEdge == null || !_hScroll.hasClients) return;
+    final pos = _hScroll.position;
+    // reverse:true → offset grows TOWARD the oldest edge; maxScrollExtent IS that edge.
+    // reverse 下 offset 朝最旧缘增长;maxScrollExtent 就是那道缘。
+    final gap = pos.maxScrollExtent - pos.pixels;
+    if (_edgeArmed && gap <= _edgeThreshold) {
+      _edgeArmed = false;
+      widget.onNearOldestEdge!.call();
+    } else if (!_edgeArmed && gap > 2 * _edgeThreshold) {
+      _edgeArmed = true;
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _hScroll.addListener(_onHScroll);
+  }
 
   @override
   void dispose() {
@@ -380,7 +435,11 @@ class _AnRunMatrixState extends State<AnRunMatrix> {
       final at = _indexOf((s.nodeId, s.flowrunId));
       if (at != null && _navigable(at.$1, at.$2)) return at;
     }
-    for (final at in [(0, 0), (0, -1), (-1, 0)]) {
+    // Default = the NEWEST column (the anchored end): Tab-in must land on something the user can
+    // SEE — the oldest corner is off-screen by construction under the reverse anchor.
+    // 默认=最新列(锚定端):Tab 进来必须落在**看得见**的位置——reverse 锚下最旧角天然在屏外。
+    final last = widget.cols.length - 1;
+    for (final at in [(0, last), (0, -1), (-1, last)]) {
       if (_navigable(at.$1, at.$2)) return at;
     }
     return null;
@@ -445,6 +504,12 @@ class _AnRunMatrixState extends State<AnRunMatrix> {
         } else {
           FocusTraversalPolicy.defaultTraversalRequestFocusCallback(
             node,
+            // The stock mapping survives the reversed axis UNCHANGED — measured, not assumed:
+            // ensureVisible's alignment is axis-direction aware, so under reverse the policies keep
+            // the cursor visible exactly as they do forward (a hand-flipped mapping walked the
+            // cursor ~20px off the left edge in the 19-step viewport-follow test).
+            // 原生映射在反转轴下**原样成立**——实测而非推断:ensureVisible 的对齐自带轴向感知,reverse 下
+            // 两策略照常兜住光标(手工翻转的映射在 19 步跟随测试里把光标甩出左缘 ~20px)。
             alignmentPolicy: switch (dir) {
               TraversalDirection.up ||
               TraversalDirection.left =>
@@ -516,7 +581,25 @@ class _AnRunMatrixState extends State<AnRunMatrix> {
       actions: <Type, Action<Intent>>{
         DirectionalFocusIntent: _MatrixDirectionalFocusAction(this),
       },
-      child: RawScrollbar(
+      // The node-name lane is FROZEN outside the scroller (a spreadsheet's frozen column): under
+      // the reverse anchor the oldest edge — where an in-scroller lane would live — is off-screen
+      // by construction, and a grid whose rows can't be named is unreadable. Cells slide; names
+      // stay. 节点名车道**冻结**在滚动器外(表格冻结列):reverse 锚下最旧缘(车道若在滚动器内就住那儿)
+      // 天然在屏外,而叫不出行名的格阵没法读。格滑走,名字钉住。
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Matches the col-head row's pitch (head 24 + its bottom gap 4). 对齐列头行节距。
+              const SizedBox(height: AnSize.controlSm + AnSpace.s4),
+              for (var i = 0; i < widget.rows.length; i++) _laneHead(context, i, at),
+            ],
+          ),
+          Flexible(child: RawScrollbar(
         controller: _hScroll,
         thumbVisibility: true,
         thumbColor: c.lineStrong,
@@ -525,23 +608,42 @@ class _AnRunMatrixState extends State<AnRunMatrix> {
         minThumbLength: AnSize.controlSm,
         child: ScrollConfiguration(
           behavior: const AnScrollBehavior(),
+          // reverse: offset 0 = the NEWEST (trailing) edge — first frame opens on the newest runs
+          // with no post-frame jump, and prepending older pages moves nothing on screen (offsets
+          // are measured from the anchored edge). reverse:offset 0=最新缘——首帧即右锚零闪动,前插
+          // 旧页屏上零位移(offset 从锚缘起量)。
           child: SingleChildScrollView(
             controller: _hScroll,
             scrollDirection: Axis.horizontal,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            reverse: true,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
               children: [
-                _colHeads(context, at),
-                for (var i = 0; i < widget.rows.length; i++) _row(context, i, at),
-                // The bar is an OVERLAY — it paints over the viewport's bottom edge, so the last row
-                // gets its own lane rather than wearing a thumb across its squares.
-                // 条是**覆层**,画在视口底缘——给末行让出一条道,免得 thumb 横在它的方块上。
-                const SizedBox(height: AnSpace.s8),
+                // The fetch-in-flight lane at the oldest edge. 取数中的最旧缘车道。
+                if (widget.loadingOlder)
+                  const Padding(
+                    padding: EdgeInsets.only(right: AnSpace.s4),
+                    child: AnSpinner(size: AnSize.iconSm),
+                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _colHeads(context, at),
+                    for (var i = 0; i < widget.rows.length; i++) _row(context, i, at),
+                    // The bar is an OVERLAY — it paints over the viewport's bottom edge, so the last
+                    // row gets its own lane rather than wearing a thumb across its squares.
+                    // 条是**覆层**,画在视口底缘——给末行让出一条道,免得 thumb 横在它的方块上。
+                    const SizedBox(height: AnSpace.s8),
+                  ],
+                ),
               ],
             ),
           ),
         ),
+      )),
+        ],
       ),
     );
   }
@@ -553,7 +655,6 @@ class _AnRunMatrixState extends State<AnRunMatrix> {
     return Padding(
       padding: const EdgeInsets.only(bottom: AnSpace.s4),
       child: Row(children: [
-        const SizedBox(width: AnSize.ganttLaneW),
         for (var c = 0; c < widget.cols.length; c++) ...[
           const SizedBox(width: AnSpace.s4),
           _ColHead(
@@ -579,7 +680,11 @@ class _AnRunMatrixState extends State<AnRunMatrix> {
     );
   }
 
-  Widget _row(BuildContext context, int r, (int, int)? at) {
+  /// One frozen-lane row head, carrying the row's SUMMARY node (it used to wrap head + cells in one
+  /// container; the frozen lane split them, and the summary follows the NAME — the thing a screen
+  /// reader walks to). 冻结车道的一格行头,行**摘要**节点随它走(原本包住头+格;冻结列拆开了两者,摘要跟着
+  /// **名字**走——读屏走到的就是它)。
+  Widget _laneHead(BuildContext context, int r, (int, int)? at) {
     final row = widget.rows[r];
     final cells = [for (final col in widget.cols) widget.cellStatus(col.id, row.nodeId)];
     final summary = widget.rowSummaryLabel?.call(MatrixRowSummary(
@@ -588,23 +693,36 @@ class _AnRunMatrixState extends State<AnRunMatrix> {
       total: widget.rows.length,
       cells: cells,
     ));
-    final body = Padding(
+    final head = Padding(
+      padding: const EdgeInsets.only(bottom: AnSpace.s4),
+      child: _RowHead(
+        // Identity, not slot — see the note on the cell's key. 跟身份不跟槽位,见格的 key 注释。
+        key: ValueKey(row.nodeId),
+        row: row,
+        selected: widget.selection.nodeId == row.nodeId,
+        onTap: widget.onRow == null
+            ? null
+            : (id) {
+                _cursorTo((id, null));
+                widget.onRow!(id);
+              },
+        semanticLabel: widget.rowSemanticLabel?.call(row),
+        focusNode: widget.onRow == null ? null : _nodeFor((row.nodeId, null), cursor: at == (r, -1)),
+      ),
+    );
+    // The row's summary node states the whole pattern. explicitChildNodes is load-bearing — see the
+    // class doc. 行摘要节点说出整行模式;explicitChildNodes 承重,见类文档。
+    return summary == null || summary.isEmpty
+        ? head
+        : Semantics(container: true, explicitChildNodes: true, label: summary, child: head);
+  }
+
+  Widget _row(BuildContext context, int r, (int, int)? at) {
+    final row = widget.rows[r];
+    final cells = [for (final col in widget.cols) widget.cellStatus(col.id, row.nodeId)];
+    return Padding(
       padding: const EdgeInsets.only(bottom: AnSpace.s4),
       child: Row(children: [
-        _RowHead(
-          // Identity, not slot — see the note on the cell's key. 跟身份不跟槽位,见格的 key 注释。
-          key: ValueKey(row.nodeId),
-          row: row,
-          selected: widget.selection.nodeId == row.nodeId,
-          onTap: widget.onRow == null
-              ? null
-              : (id) {
-                  _cursorTo((id, null));
-                  widget.onRow!(id);
-                },
-          semanticLabel: widget.rowSemanticLabel?.call(row),
-          focusNode: widget.onRow == null ? null : _nodeFor((row.nodeId, null), cursor: at == (r, -1)),
-        ),
         for (var c = 0; c < widget.cols.length; c++) ...[
           const SizedBox(width: AnSpace.s4),
           () {
@@ -642,11 +760,6 @@ class _AnRunMatrixState extends State<AnRunMatrix> {
         ],
       ]),
     );
-    // The row's summary node groups the row and states its whole pattern. explicitChildNodes is
-    // load-bearing — see the class doc. 行摘要节点为行成组并说出整行模式;explicitChildNodes 承重,见类文档。
-    return summary == null || summary.isEmpty
-        ? body
-        : Semantics(container: true, explicitChildNodes: true, label: summary, child: body);
   }
 }
 

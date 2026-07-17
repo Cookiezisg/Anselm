@@ -20,8 +20,10 @@ const _rows = [
 ];
 
 const _cols = [
-  RunColumn(id: 'fr_2', status: 'running'), // in flight → NO elapsed 在跑→无耗时
+  // CHRONOLOGICAL, oldest LEFT (主页重建拍板 0717) — the viewport anchors at the newest end.
+  // 时序旧在左;视口锚最新端。
   RunColumn(id: 'fr_1', status: 'failed', elapsedMs: 8000),
+  RunColumn(id: 'fr_2', status: 'running'), // in flight → NO elapsed 在跑→无耗时
 ];
 
 // The real host is a SCROLLING page ([AnPage]'s 720 reading column), which hands the grid unbounded
@@ -147,10 +149,10 @@ void main() {
         cellStatus: (_, _) => const MatrixCellState(status: 'completed'),
         onCell: (f, n) => got = (f, n),
       )));
-      // The first ACTIVATABLE square is the first cell: row «fetch» × column «fr_2» (newest run is
-      // the LEFT column). 第一个可激活方块=第一格:fetch 行 × fr_2 列(新在左)。
-      await tester.tap(_cells.first);
-      expect(got, ('fr_2', 'fetch'), reason: '点格必须报出 (run, node) 两个键——一个都不能少,且不能对调');
+      // The first ACTIVATABLE square is the first cell: row «fetch» × column «fr_1» (oldest run is
+      // the LEFT column now). 第一个可激活方块=第一格:fetch 行 × fr_1 列(旧在左)。
+      await tester.tap(_cells.first, warnIfMissed: false);
+      expect(got, ('fr_1', 'fetch'), reason: '点格必须报出 (run, node) 两个键——一个都不能少,且不能对调');
     });
 
     testWidgets('tapping a ROW head reports the node; tapping a COL head reports the run',
@@ -166,10 +168,11 @@ void main() {
       )));
       await tester.tap(find.text('fetch'));
       expect(row, 'fetch', reason: '点行=该节点的历史');
-      // Column heads come first in the tree (they sit above the rows); the leftmost is the newest run.
-      // 列头在树里最先(它们在行之上);最左=最新那次 run。
-      await tester.tap(_cells.first);
-      expect(col, 'fr_2', reason: '点列=该 run(新在左,故第一个列头是最新那次)');
+      // Activatable order now: frozen-lane row heads first (fetch, analyze), then the scroller's
+      // col heads (fr_1, fr_2). The LAST col head is the newest run — the anchored end.
+      // 可激活序:冻结车道行头在先(fetch,analyze),再滚动器列头(fr_1,fr_2);末位列头=最新=锚定端。
+      await tester.tap(_cells.at(3), warnIfMissed: false);
+      expect(col, 'fr_2', reason: '点列=该 run(时序新在右,末位列头是最新那次)');
     });
 
     testWidgets('selection highlights the picked cell / row without moving anything',
@@ -218,7 +221,9 @@ void main() {
       expect(find.bySemanticsLabel('analyze 共 2 行 0 次抵达'), findsOneWidget);
       // The cursor speaks, and its sentence carries the coordinate the desktop has nowhere else to
       // put. 光标说话,且它的句子带着桌面没有别处可放的坐标。
-      expect(find.bySemanticsLabel('fetch fr_2 completed 第 1 行 共 2 行，第 1 列 共 2 列'),
+      // Default cursor = the NEWEST column (the anchored end) — fr_2 is column 2 of 2 now.
+      // 默认光标=最新列(锚定端)——fr_2 现在是 2/2 列。
+      expect(find.bySemanticsLabel('fetch fr_2 completed 第 1 行 共 2 行，第 2 列 共 2 列'),
           findsOneWidget,
           reason: '光标格必须报出坐标——桌面 role/indexInParent 全不过 embedder ABI,坐标只能在 label 里');
       // Every other square is SILENT: 480 unstructured nodes is a wall, not access.
@@ -244,7 +249,7 @@ void main() {
       // The selection is what the app is showing in the linked pane — a screen-reader user must be
       // able to find it, so it is the one other square worth a node.
       // 选区=联动格正在展示的那个,读屏用户必须找得到它,故它是另一个值得节点的方块。
-      expect(find.bySemanticsLabel('analyze fr_1 第 2 行，第 2 列'), findsOneWidget);
+      expect(find.bySemanticsLabel('analyze fr_1 第 2 行，第 1 列'), findsOneWidget);
       handle.dispose();
     });
 
@@ -335,12 +340,13 @@ void main() {
       )));
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await tester.pump();
-      // Cursor starts at the first cell: row «fetch» × column «fr_2» (newest run is the LEFT column).
+      // Cursor seeds on the NEWEST column (the anchored, visible end): row «fetch» × «fr_2».
+      // 光标落种最新列(锚定的、看得见的那端):fetch × fr_2。
       expect(FocusManager.instance.primaryFocus?.debugLabel, contains('(fetch, fr_2)'));
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
       await tester.pump();
       expect(FocusManager.instance.primaryFocus?.debugLabel, contains('(fetch, fr_1)'),
-          reason: '→ 视觉右移一列');
+          reason: '← 视觉左移一列=更旧一次 run');
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.pump();
       expect(FocusManager.instance.primaryFocus?.debugLabel, contains('(analyze, fr_1)'),
@@ -388,13 +394,13 @@ void main() {
       await tester.pumpWidget(grid(_cols));
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await tester.pump();
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
       await tester.pump();
       expect(FocusManager.instance.primaryFocus?.debugLabel, contains('(fetch, fr_1)'));
-      // A newer run arrives on the LEFT — index (0,1) now names a different run entirely.
-      // 新 run 从**左**边到达——下标 (0,1) 现在指的完全是另一次 run 了。
+      // An OLDER page arrives on the LEFT (the lazy-load case) — index (0,1) now names a different
+      // run entirely. 更旧一页从**左**边到达(懒加载路径)——下标 (0,1) 现在指的完全是另一次 run 了。
       await tester.pumpWidget(grid(const [
-        RunColumn(id: 'fr_3', status: 'running'),
+        RunColumn(id: 'fr_0', status: 'completed', elapsedMs: 500),
         ..._cols,
       ]));
       await tester.pump();
@@ -416,14 +422,14 @@ void main() {
       await tester.pump();
       expect(FocusManager.instance.primaryFocus?.debugLabel, contains('(fetch, fr_2)'));
       // APG: «Right Arrow moves focus one cell to the right» — RIGHT is a place on screen, not an
-      // index. Under RTL the Row lays fr_2 rightmost, so → must walk toward the LOWER index, and the
-      // ordinal reading of the key would send the cursor visually backwards.
-      // APG:右箭头=「向**右**移一格」——右是屏幕上的位置,不是下标。RTL 下 Row 把 fr_2 排在最右,故 → 必须
-      // 朝**更小**的下标走;把键当序数读会让光标视觉上倒着走。
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      // index. Under RTL the Row mirrors: fr_1 (index 0) sits visually RIGHT of fr_2, so → must walk
+      // toward the LOWER index; the ordinal reading would send the cursor visually backwards.
+      // APG:右箭头=「向**右**移一格」——右是屏幕位置不是下标。RTL 镜像后 fr_1(下标 0)在 fr_2 视觉右侧,
+      // 故 → 须朝更小下标走;按序数读键会让光标视觉倒行。
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await tester.pump();
       expect(FocusManager.instance.primaryFocus?.debugLabel, contains('(fetch, fr_1)'),
-          reason: 'RTL 下 ← 才是走向下一列(fr_1 在 fr_2 的视觉左侧)');
+          reason: 'RTL 下 → 走向 fr_1(它在 fr_2 的视觉右侧)');
     });
 
     testWidgets('an inert grid (no handlers) is a picture — zero stops, no ghost cursor',
@@ -468,14 +474,14 @@ void main() {
       await tester.pumpWidget(grid());
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await tester.pump();
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
       await tester.pump();
       // On macOS a focused node is SILENT (the mac bridge files FOCUS_CHANGED under «not meaningful
       // on Mac»), so without this the cursor would move with nothing spoken at all. liveRegion is not
       // the alternative — it is a no-op on all three desktops (flutter#167318).
       // macOS 上被聚焦的节点是**哑的**(mac bridge 把 FOCUS_CHANGED 归进「在 Mac 上没意义」),没有这一发,
       // 光标移动将**全程无声**。liveRegion 不是替代——它在三个桌面上都是 no-op(flutter#167318)。
-      expect(said, ['fetch fr_1 第 1 行，第 2 列'],
+      expect(said, ['fetch fr_1 第 1 行，第 1 列'],
           reason: 'macOS 必须主动播报,否则光标移动无声');
     }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
@@ -485,7 +491,7 @@ void main() {
       await tester.pumpWidget(grid());
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await tester.pump();
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
       await tester.pump();
       expect(said, isEmpty,
           reason: 'Windows/Linux 会发焦点通知、读屏已念过一遍;再播报=念两遍(flutter#153020)');
@@ -518,14 +524,20 @@ void main() {
   // what moved in actually WORKS, rather than merely not crashing.
   group('width lives inside the grid (用户 0717 判决 — 判决③ 全宽破例作废)', () {
     /// 20 columns at the reading column's real width — the production shape. 生产形态。
-    Widget grid({void Function(String, String)? onCell}) => AnRunMatrix(
+    Widget grid({void Function(String, String)? onCell, VoidCallback? onNearOldestEdge,
+            bool loadingOlder = false, List<RunColumn>? cols}) =>
+        AnRunMatrix(
           rows: [for (var i = 0; i < 6; i++) MatrixRowHead(nodeId: 'node_$i', kind: 'action')],
-          cols: [
-            for (var i = 20; i > 0; i--)
-              RunColumn(id: 'fr_$i', status: 'completed', elapsedMs: 1000 * i),
-          ],
+          cols: cols ??
+              [
+                // Chronological: fr_1 oldest LEFT … fr_20 newest RIGHT (the anchored end). 时序。
+                for (var i = 1; i <= 20; i++)
+                  RunColumn(id: 'fr_$i', status: 'completed', elapsedMs: 1000 * i),
+              ],
           cellStatus: (_, _) => const MatrixCellState(status: 'completed'),
           onCell: onCell ?? (_, _) {},
+          onNearOldestEdge: onNearOldestEdge,
+          loadingOlder: loadingOlder,
         );
 
     Finder hBar() =>
@@ -617,29 +629,107 @@ void main() {
         await tester.pumpWidget(_host(grid(), width: w));
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         await tester.pump();
-        expect(hCtl(tester).offset, 0, reason: '起点在左');
+        // reverse anchor: offset 0 IS the newest (right) end — where the seeded cursor lives.
+        // reverse 锚:offset 0 就是最新(右)端——落种的光标就在那儿。
+        expect(hCtl(tester).offset, 0, reason: '起点锚在最新端');
+        expectCursorVisible(tester, 'Tab 落种');
 
-        for (var i = 0; i < 19; i++) {
-          await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-          await tester.pumpAndSettle();
-          expectCursorVisible(tester, '第 ${i + 1} 次右移'); // every step, not just the end 每一步
-        }
-        final rightmost = hCtl(tester).offset;
-        expect(rightmost, greaterThan(0), reason: '走到最右,视口确实跟着滚了');
-
-        // …and back. keepVisibleAtStart (the framework's own policy for up/left) only rewinds as far
-        // as the cursor NEEDS — the grid overspills by ~52px at the reading column, so the first
-        // column is already on screen there and a rewind to 0 would be scrolling for nothing. Assert
-        // what is actually promised: the cursor stays visible, and the viewport gave ground.
-        // 反向。keepVisibleAtStart(框架自己给 up/left 的策略)只倒回**光标需要**的那么多——在阅读列上格阵只
-        // 溢出 ~52px,首列本就在屏上,倒回 0 是白滚。故断言真正承诺的东西:光标始终可见、且视口确实让了位。
         for (var i = 0; i < 19; i++) {
           await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
           await tester.pumpAndSettle();
-          expectCursorVisible(tester, '第 ${i + 1} 次左移');
+          expectCursorVisible(tester, '第 ${i + 1} 次左移'); // every step, not just the end 每一步
         }
-        expect(hCtl(tester).offset, lessThanOrEqualTo(rightmost), reason: '左移绝不把视口越推越右');
+        final oldmost = hCtl(tester).offset;
+        expect(oldmost, greaterThan(0), reason: '走到最旧端,视口确实跟着滚了');
+
+        // …and back toward the newest. The policy only rewinds as far as the cursor NEEDS. Assert
+        // what is actually promised: the cursor stays visible, and the viewport gave ground.
+        // 反向走回最新端。策略只倒回**光标需要**的那么多。断言真正承诺的东西:光标始终可见、视口让位。
+        for (var i = 0; i < 19; i++) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+          await tester.pumpAndSettle();
+          expectCursorVisible(tester, '第 ${i + 1} 次右移');
+        }
+        expect(hCtl(tester).offset, lessThanOrEqualTo(oldmost), reason: '右移绝不把视口越推越旧');
       });
     }
+
+    // ── 主页重建拍板 0717:时序 + 右锚 + 左缘懒加载 ──
+
+    testWidgets('first frame anchors at the NEWEST end — no post-frame jump', (tester) async {
+      await tester.pumpWidget(_host(grid(), width: 640));
+      // reverse: offset 0 IS the newest edge, so the anchor holds from the very first frame — a
+      // jumpTo(maxScrollExtent) approach would flash the oldest end for one frame.
+      // reverse:offset 0 就是最新缘,首帧即锚定——jumpTo(max) 的做法会闪一帧最旧端。
+      expect(hCtl(tester).offset, 0, reason: '开屏即最新,零跳动');
+      // The newest column's cell is on screen; the oldest's is not. 最新列在屏上,最旧列不在。
+      final newest = tester.getRect(find.byKey(const ValueKey(('node_0', 'fr_20'))));
+      final viewport = tester.getRect(find.descendant(
+          of: find.byType(AnRunMatrix), matching: find.byType(SingleChildScrollView)));
+      expect(newest.right, lessThanOrEqualTo(viewport.right + 0.5));
+      expect(find.byKey(const ValueKey(('node_0', 'fr_1'))).hitTestable(), findsNothing,
+          reason: '最旧列在锚外——要它就往左滑');
+    });
+
+    testWidgets('nearing the OLDEST edge fires onNearOldestEdge ONCE per approach, and re-arms',
+        (tester) async {
+      var fired = 0;
+      // 30 columns: the scroll range must dwarf the threshold (4 pitches) AND the 2× re-arm line,
+      // or «recede past 2×» is unreachable and the test judges arithmetic, not behaviour.
+      // 30 列:滚动范围须远大于阈(4 列距)与 2 倍重上膛线,否则「退过 2 倍」不可达,测试判的是算术不是行为。
+      await tester.pumpWidget(_host(
+          grid(onNearOldestEdge: () => fired++, cols: [
+            for (var i = 1; i <= 30; i++)
+              RunColumn(id: 'fr_$i', status: 'completed', elapsedMs: 1000 * i),
+          ]),
+          width: 640));
+      final ctl = hCtl(tester);
+      final max = ctl.position.maxScrollExtent;
+
+      ctl.jumpTo(max); // slam into the oldest edge 撞上最旧缘
+      await tester.pump();
+      expect(fired, 1, reason: '入阈发一次');
+      ctl.jumpTo(max - 8); // jitter inside the threshold — must NOT refire 阈内抖动不复发
+      await tester.pump();
+      expect(fired, 1, reason: '一次逼近只发一次');
+
+      ctl.jumpTo(0); // recede far past 2× the threshold 远退过 2 倍阈
+      await tester.pump();
+      ctl.jumpTo(max);
+      await tester.pump();
+      expect(fired, 2, reason: '退开重上膛,再逼近再发');
+    });
+
+    testWidgets('prepending an OLDER page moves NOTHING on screen (reverse-scroll geometry)',
+        (tester) async {
+      // BOTH states must overflow the viewport: an underfull grid is centered by the host, so the
+      // whole widget would shift and «pixel-identical» would measure the host, not the geometry.
+      // 前后两态都必须溢出视口:装得下的格阵会被宿主居中,整件挪位,「逐像素不动」量的就成了宿主。
+      List<RunColumn> cols(int oldest) => [
+            for (var i = oldest; i <= 30; i++)
+              RunColumn(id: 'fr_$i', status: 'completed', elapsedMs: 1000 * i),
+          ];
+      await tester.pumpWidget(_host(grid(cols: cols(12)), width: 640)); // 19 cols, overflows 溢出
+      final ctl = hCtl(tester);
+      // Mid-scroll — the harder case than the anchor. 滚到半途——比锚点更硬的用例。
+      ctl.jumpTo(ctl.position.maxScrollExtent / 2);
+      await tester.pump();
+      final offsetBefore = ctl.offset;
+      expect(offsetBefore, greaterThan(0), reason: '前态真溢出、真滚了');
+      final rectBefore = tester.getRect(find.byKey(const ValueKey(('node_0', 'fr_25'))));
+
+      await tester.pumpWidget(_host(grid(cols: cols(1)), width: 640)); // +11 older cols 前插十一列
+      await tester.pump();
+      expect(hCtl(tester).offset, offsetBefore, reason: '前插旧页 offset 一动不动');
+      expect(tester.getRect(find.byKey(const ValueKey(('node_0', 'fr_25')))), rectBefore,
+          reason: '屏上的格逐像素不动——offset 从锚缘起量,远端生长与屏面无关');
+    });
+
+    testWidgets('loadingOlder renders the working spinner at the oldest edge', (tester) async {
+      await tester.pumpWidget(_host(grid(loadingOlder: true), width: 640));
+      expect(find.byType(AnSpinner), findsOneWidget, reason: '取数中,最旧缘有一个诚实的转圈');
+      await tester.pumpWidget(_host(grid(), width: 640));
+      expect(find.byType(AnSpinner), findsNothing, reason: '取完即收');
+    });
   });
 }
