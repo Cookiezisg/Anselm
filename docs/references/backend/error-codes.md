@@ -379,7 +379,7 @@ audience: [human, ai]
 | `FLOWRUN_APPROVAL_NOT_PARKED` | 422 | approval node is not awaiting a decision |
 | `FLOWRUN_INVALID_DECISION` | 422 | approval decision must be 'yes' or 'no' |
 | `FLOWRUN_INVALID_STATUS` | 422 | flowrun status filter must be one of: running, completed, failed, cancelled (F168-M2; `details.allowed`) |
-| `FLOWRUN_LIST_INVALID_FILTER` | 422 | invalid flowrun list filter value（工单⑥：`?origin` 越出 RunOrigins 或 `?startedAfter`/`?startedBefore` 非 RFC3339；`details.param`/`got`，枚举再带 `allowed`——F168-M2 同立场，绝不静默空页） |
+| `FLOWRUN_LIST_INVALID_FILTER` | 422 | invalid flowrun list filter value（工单⑥＋⑮：`?origin` 越出 RunOrigins 或 `?startedAfter`/`?startedBefore`/`?completedAfter`/`?completedBefore` 非 RFC3339；`details.param`/`got`，枚举再带 `allowed`——F168-M2 同立场，绝不静默空页） |
 | `FLOWRUN_INVALID_ENTRY` | 422 | invalid or ambiguous trigger entry node |
 | `FLOWRUN_NOT_CANCELLABLE` | 422 | flowrun is not in a cancellable (running) state（工单② `:cancel`；含输给自然终态的 first-wins 竞态输家——已记录终态为准） |
 | `FLOWRUN_NOT_FOUND` | 404 | flowrun not found |

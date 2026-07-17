@@ -118,14 +118,15 @@ func BenchmarkRunStats_WithoutStreakIndex(b *testing.B) {
 
 // TestRunStats_StreakUsesTheStatusIndex is the mechanical half of the benchmark: timings cannot live
 // in `make verify`, but the PLAN can. If the streak's EXISTS ever stops riding idx_fr_ws_wf_status —
-// someone wraps started_at in julianday() (which is what the rest of this file does against the
-// caller's `since`, so it is a live temptation), reorders the index, or rewrites the correlated
-// subquery — this fails immediately, on a table small enough to run in milliseconds.
+// someone wraps started_at in julianday() (the temptation stats.go's `since` windows once yielded
+// to, until 工单⑮ measured that it both broke the window and blinded the index), reorders the index,
+// or rewrites the correlated subquery — this fails immediately, on a table small enough to run in
+// milliseconds.
 //
 // TestRunStats_StreakUsesTheStatusIndex 是基准的**机械**那半：时间数字不能进 `make verify`，但**执行计划**
-// 可以。若连败的 EXISTS 哪天不再走 idx_fr_ws_wf_status——有人给 started_at 套上 julianday()（本文件对调用方
-// 的 `since` 正是这么做的，故这诱惑活生生存在）、调换索引列序、或重写那条相关子查询——本测试立刻失败，且跑在
-// 一张毫秒级的小表上。
+// 可以。若连败的 EXISTS 哪天不再走 idx_fr_ws_wf_status——有人给 started_at 套上 julianday()（stats.go 的
+// `since` 窗曾屈服于的那个诱惑，直到工单⑮ 实测出它既破坏窗口又弄瞎索引）、调换索引列序、或重写那条相关子
+// 查询——本测试立刻失败，且跑在一张毫秒级的小表上。
 func TestRunStats_StreakUsesTheStatusIndex(t *testing.T) {
 	_, db := newStatsStore(t)
 	now := time.Now().UTC()

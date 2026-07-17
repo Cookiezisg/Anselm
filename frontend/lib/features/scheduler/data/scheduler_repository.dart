@@ -88,8 +88,9 @@ abstract interface class SchedulerRepository {
   /// schedule surfaces. 全部 trigger(⏱ meta 与调度面数据)。
   Future<List<TriggerEntity>> listTriggers();
 
-  /// workflow→trigger equip edges (GET /relations, fromKind=workflow&toKind=trigger) — the reverse
-  /// lookup that joins a workflow to its schedule. 反查连接:workflow 的 triggers。
+  /// workflow→trigger equip edges (GET /relations?kind=equip, narrowed client-side — kind-only
+  /// from/to filters are a backend 400, see the Live impl) — the reverse lookup that joins a
+  /// workflow to its schedule. 反查连接:workflow 的 triggers(kind=equip 拉全量后客户端收窄)。
   Future<List<EntityRelation>> workflowTriggerEdges();
 
   /// Every parked approval waiting on a human, enriched with workflow context (工单④,
@@ -111,10 +112,12 @@ abstract interface class SchedulerRepository {
   Future<FlowrunComposite> cancelRun(String flowrunId);
 
   /// One keyset page of a workflow's flowruns (`GET /flowruns`, newest first). Filters compose with
-  /// AND (工单⑥): [status]/[origin] are closed sets (an out-of-set value is a loud 422 with the
-  /// allowed set), [startedAfter]/[startedBefore] are RFC3339 UTC bounds (half-open [after, before)
-  /// on started_at). Same Page shape as entities' listFlowruns (N4).
-  /// 一页 flowrun(新→旧),过滤 AND 组合(工单⑥):status/origin 封闭集、时间界 RFC3339 UTC 半开窗。
+  /// AND (工单⑥+⑮): [status]/[origin] are closed sets (an out-of-set value is a loud 422 with the
+  /// allowed set), [startedAfter]/[startedBefore] window started_at, [completedAfter]/[completedBefore]
+  /// window completed_at (工单⑮ — "when it LANDED", excludes the unlanded whose completed_at is NULL).
+  /// All four are RFC3339 UTC bounds, half-open [after, before). Same Page shape as entities' (N4).
+  /// 一页 flowrun(新→旧),过滤 AND 组合(工单⑥+⑮):status/origin 封闭集、两组时间界 RFC3339 UTC 半开窗
+  /// (started_at「何时开始」/ completed_at「何时落定」,后者剔除未落定的 NULL 行)。
   Future<Page<Flowrun>> listFlowruns(
       {required String workflowId,
       String? status,
@@ -122,8 +125,31 @@ abstract interface class SchedulerRepository {
       String? triggerId,
       DateTime? startedAfter,
       DateTime? startedBefore,
+      DateTime? completedAfter,
+      DateTime? completedBefore,
       String? cursor,
       int? limit});
+
+  /// EVERY failed run in the workspace that LANDED at or after [completedAfter]
+  /// (`GET /flowruns?status=failed&completedAfter=`, drained) — the ONE call behind the Overview's
+  /// 「24h 失败」 KPI tile deep-link, the exact analog of [listRunningRuns].
+  ///
+  /// **`completedAfter` must be the byte-identical instant the tile's `failedSince` counted from**
+  /// (工单⑮). The tile shows `flowrun-stats.totals.failedSince`, which windows on **completed_at**;
+  /// only a completed_at window (never `startedAfter`) lists the SAME runs — a run that began 30h ago
+  /// and failed an hour ago is in today's failures and in no started_at window; one that began inside
+  /// the window and is still running is in neither. Send a relative word and the backend counts from
+  /// ITS now while the tile drew from OURS: 「牌上写 3、点开列表显示 4」. Workspace-wide (no
+  /// workflowId) so an orphan run's failure is not lost, drained so a page cap never makes the list
+  /// shorter than the count it opens from — both for the running-runs reason (see [listRunningRuns]).
+  ///
+  /// 工作区里**每一个**在 [completedAfter] 或之后**落定**的失败 run(`GET /flowruns?status=failed&
+  /// completedAfter=`,翻页拉全)——Overview「24h 失败」牌深链背后**唯一**的调用,[listRunningRuns] 的精确
+  /// 对应物。**completedAfter 必须是牌的 failedSince 所数的那个逐字节相同的时刻**(工单⑮):牌显示
+  /// `failedSince`、它按 **completed_at** 开窗,只有 completed_at 窗(绝非 startedAfter)才列出**同一批**
+  /// run。工作区级(无 workflowId,孤儿 run 的失败不丢)、翻页拉全(页帽绝不让列表比它点开的数更短)——
+  /// 皆同 listRunningRuns 之理。
+  Future<List<Flowrun>> listFailedSince(DateTime completedAfter);
 
   /// EVERY running run in the workspace (`GET /flowruns?status=running`, drained) — the ONE call
   /// behind the Overview's 「正在跑」 zone AND its KPI tile, which is the whole reason it exists as its
@@ -318,11 +344,24 @@ class LiveSchedulerRepository implements SchedulerRepository {
   Future<List<TriggerEntity>> listTriggers() => _drain('/api/v1/triggers', TriggerEntity.fromJson);
 
   @override
-  Future<List<EntityRelation>> workflowTriggerEdges() => _drain(
-        '/api/v1/relations',
-        EntityRelation.fromJson,
-        query: const {'fromKind': 'workflow', 'toKind': 'trigger'},
-      );
+  Future<List<EntityRelation>> workflowTriggerEdges() async {
+    // `kind=equip` alone is the ONLY filter shape this call may use: the backend's validateFilter
+    // requires fromKind/fromId (and toKind/toId) in PAIRS, so a kind-only from/to filter is a 400 —
+    // which took the whole Overview down against the real backend (found live 0717; the fixture seam
+    // and testend both bypass this wire). Equip edges are a bounded single-user set, so client-side
+    // narrowing is the honest fix, not a backend contract change.
+    // 唯一合法的过滤形是 `kind=equip`:后端 validateFilter 要求 fromKind/fromId **成对**,只给 kind 不给
+    // id 的 from/to 过滤=400 —— 真机 0717 现形,曾把整个 Overview 拖死(fixture 缝与 testend 都不走这条
+    // 线)。equip 边是单用户有界集,客户端收窄即诚实修法、不动后端契约。
+    final edges = await _drain(
+      '/api/v1/relations',
+      EntityRelation.fromJson,
+      query: const {'kind': 'equip'},
+    );
+    return edges
+        .where((e) => e.fromKind == 'workflow' && e.toKind == 'trigger')
+        .toList(growable: false);
+  }
 
   @override
   Future<List<SchedulerInboxRow>> listInbox() async {
@@ -351,6 +390,8 @@ class LiveSchedulerRepository implements SchedulerRepository {
           String? triggerId,
           DateTime? startedAfter,
           DateTime? startedBefore,
+          DateTime? completedAfter,
+          DateTime? completedBefore,
           String? cursor,
           int? limit}) =>
       _api.getPage('/api/v1/flowruns', Flowrun.fromJson, query: {
@@ -358,10 +399,12 @@ class LiveSchedulerRepository implements SchedulerRepository {
         'status': ?status,
         'origin': ?origin,
         'triggerId': ?triggerId,
-        // RFC3339 in UTC — stored timestamps are UTC, a mixed-zone bound compares wrong (工单⑥).
+        // RFC3339 in UTC — stored timestamps are UTC, a mixed-zone bound compares wrong (工单⑥+⑮).
         // RFC3339 归一 UTC(存储是 UTC,混时区界比错)。
         if (startedAfter != null) 'startedAfter': startedAfter.toUtc().toIso8601String(),
         if (startedBefore != null) 'startedBefore': startedBefore.toUtc().toIso8601String(),
+        if (completedAfter != null) 'completedAfter': completedAfter.toUtc().toIso8601String(),
+        if (completedBefore != null) 'completedBefore': completedBefore.toUtc().toIso8601String(),
         'cursor': ?cursor,
         if (limit != null) 'limit': '$limit',
       });
@@ -396,6 +439,15 @@ class LiveSchedulerRepository implements SchedulerRepository {
   @override
   Future<List<Flowrun>> listRunningRuns() =>
       _drain('/api/v1/flowruns', Flowrun.fromJson, query: const {'status': 'running'});
+
+  @override
+  Future<List<Flowrun>> listFailedSince(DateTime completedAfter) => _drain(
+        '/api/v1/flowruns',
+        Flowrun.fromJson,
+        // completedAfter (NOT startedAfter): the tile counts on completed_at (工单⑮). RFC3339 UTC,
+        // same reason as listFlowruns' bounds. completedAfter(非 startedAfter):牌按 completed_at 数。
+        query: {'status': 'failed', 'completedAfter': completedAfter.toUtc().toIso8601String()},
+      );
 
   @override
   Future<WorkflowEntity> getWorkflow(String id) =>

@@ -13,13 +13,13 @@
 // note carries the measurements. Adding a section here means asking what it scans at 10^5 rows and
 // whether an index covers that — in that order.
 //
-// KNOWN AND MEASURED, not fixed here: at that volume the endpoint has a ~0.39s floor, essentially all
-// of it query ①'s GROUP BY — it visits every run of the requested workflows and evaluates julianday()
-// per row (the `since` windows cannot seek, since they bound completed_at while every index orders by
-// started_at). Unlike the streak this is LINEAR and predictable, so it is recorded rather than traded
-// for another index on a hunch: buying it back means a (ws, wf, status, completed_at) index or
-// splitting ① into per-status seeks, and neither should happen before someone measures that the floor
-// actually hurts. stats_bench_test.go is where that measurement goes.
+// KNOWN AND MEASURED, not fixed here: at that volume query ① costs ~0.39s, essentially all of it its
+// GROUP BY — it visits every run of the requested workflows. Unlike the streak this is LINEAR and
+// predictable, so it is recorded rather than traded for an index on a hunch: buying it back means a
+// (ws, wf, status, completed_at) index or splitting ① into per-status seeks, and neither should
+// happen before someone measures that the floor actually hurts. stats_bench_test.go is where that
+// measurement goes. (idx_fr_ws_status_completed, added by 工单⑮, does NOT buy it back and was never
+// meant to: it carries no workflow_id, and ① scans the workspace for its GROUP BY regardless.)
 //
 // 「六条查询、≤50 个 id、输出有界」**不是成本上界**——把它读成上界，正是本文件长出一条几秒级查询却没人发现
 // 的原因。这六条真正的成本由它们**扫**什么决定，而它们的输入是一个 workspace 的**整部 run 历史**——出厂
@@ -33,11 +33,41 @@
 // 回来得加 (ws, wf, status, completed_at) 索引、或把 ① 拆成逐状态 seek，而这两件事都该等到有人**测**出这
 // 个地板真的疼了再做。那次测量的去处就是 stats_bench_test.go。
 //
-// Time comparisons against the caller's `since` go through julianday() on BOTH sides: the driver
-// stores DATETIME as ISO-8601 text, and julianday normalizes the format drift between that text and
-// a Go-supplied bound, which raw string comparison would mis-order at the margins. Column-vs-column
-// comparisons within this table deliberately do NOT (④): same writer, same format, and julianday
-// there would only blind the index.
+// Time comparisons against the caller's `since` are BARE (`completed_at >= ?`). They used to go
+// through julianday() on both sides, to normalize a "format drift between stored text and a
+// Go-supplied bound" — THERE IS NO SUCH DRIFT, and 工单⑮ removed the wrapper after measuring. The
+// driver renders a bound time.Time and the orm renders a stored one through the same serializer
+// (`2026-07-17 10:00:00+00:00`, hex-verified on both sides), every writer stamps .UTC(), and Go
+// omits trailing zeros in the fraction — so within this one canonical format, text order IS
+// chronological order, exactly, at nanosecond precision. (Reading a row back through the driver
+// shows `2026-07-17T10:00:00Z`, which is what made the drift look real: that is the driver
+// CONVERTING on scan, not the stored bytes.)
+//
+// The wrapper was not merely useless, it was wrong: julianday() resolves to MILLISECONDS, so a run
+// landing 0.4ms before `since` compared as inside the window while a bare comparison — and
+// therefore the ListRuns page the Overview's 「24h 失败」 card opens — put it outside. Measured on
+// µs-spaced rows: the card counted 4, the list held 2. That is 「牌上写 3、点开列表显示 4」, the bug
+// this ocean is legislated against, hiding inside the thing meant to be defensive. Bare also lets
+// the window seek (idx_fr_ws_status_completed) and cost 41% less (51.6ms → 30.6ms on totals).
+//
+// julianday() remains for one job, in ① only: `AVG(julianday(a) - julianday(b))` is duration
+// ARITHMETIC, not a window — subtracting two texts is meaningless. Column-vs-column comparisons
+// stay bare too (④), where julianday would only blind the index.
+//
+// 与调用方 `since` 的时间比较是**裸的**（`completed_at >= ?`）。它们曾两侧都过 julianday()，理由是要归一
+// 「落库文本 vs Go 传入边界」之间的格式漂移——**根本没有这种漂移**，工单⑮ 实测后拆掉了它。驱动渲染绑定的
+// time.Time 与 orm 渲染落库的那个走**同一个**序列化器（`2026-07-17 10:00:00+00:00`，两侧 hex 实证），每个
+// 写者都盖 .UTC()，且 Go 会去掉小数尾零——故在这一种规范格式内，文本序**就是**时间序，精确到纳秒。（经驱动
+// 读回一行会显示 `2026-07-17T10:00:00Z`，这正是「漂移」看起来为真的原因：那是驱动**在 scan 时转换**，不是
+// 落库字节。）
+//
+// 那个包装不只是无用，它是**错的**：julianday() 只到**毫秒**，故一个在 `since` 前 0.4ms 落定的 run，会被它
+// 判进窗口，而裸比较——也就是 Overview「24h 失败」牌所点开的那份 ListRuns 页——把它判在窗外。µs 间距的行上
+// 实测：牌数 4、列表装 2。这正是「牌上写 3、点开列表显示 4」——本海洋立法所禁的那个 bug，藏在一个本该是防御
+// 的东西里面。裸比较还让窗口可以 seek（idx_fr_ws_status_completed）、并省下 41%（totals 51.6ms → 30.6ms）。
+//
+// julianday() 只为一件事留下、且只在 ① 里：`AVG(julianday(a) - julianday(b))` 是**时长算术**、不是窗口——
+// 两个文本相减没有意义。列与列的比较同样保持裸的（④），那里用 julianday 只会把索引弄瞎。
 //
 // stats.go 实现 flowrundomain.Repository.RunStats——运营统计批查（scheduler 工单③）。聚合 SQL 超出
 // 行映射 CRUD，走 orm 的原始读逃生口（db.Query）+ search store 的手动 workspace 隔离惯用形
@@ -77,13 +107,20 @@ func (s *Store) RunStats(ctx context.Context, q flowrundomain.StatsQuery) (*flow
 	// --- totals (workspace-wide, independent of the requested ids) ---------------------------
 
 	// completedSince/failedSince window on completed_at: "failed in the window" means the run
-	// REACHED failed inside it (see domain doc).
-	// completedSince/failedSince 按 completed_at 开窗：「窗口内失败」= run 在窗口内**落定**失败。
+	// REACHED failed inside it (see domain doc). The predicate is `completed_at >= ?` BARE, which is
+	// ListFilter.CompletedAfter character for character (scheduler 工单⑮) — failedSince IS the
+	// Overview's 「24h 失败」 card and that window IS the list the card opens, so the two must be one
+	// predicate rather than two that usually agree.
+	//
+	// completedSince/failedSince 按 completed_at 开窗：「窗口内失败」= run 在窗口内**落定**失败。谓词是
+	// **裸的** `completed_at >= ?`，与 ListFilter.CompletedAfter **逐字符相同**（scheduler 工单⑮）——
+	// failedSince **就是** Overview 的「24h 失败」牌，那个窗**就是**牌点开的那份列表，故两者必须是**同一个**
+	// 谓词、而非两个通常吻合的谓词。
 	err = s.db.QueryRow(ctx, `
 		SELECT
 			COUNT(*) FILTER (WHERE status = 'running'),
-			COUNT(*) FILTER (WHERE status = 'completed' AND julianday(completed_at) >= julianday(?)),
-			COUNT(*) FILTER (WHERE status = 'failed'    AND julianday(completed_at) >= julianday(?))
+			COUNT(*) FILTER (WHERE status = 'completed' AND completed_at >= ?),
+			COUNT(*) FILTER (WHERE status = 'failed'    AND completed_at >= ?)
 		FROM flowruns WHERE workspace_id = ?`,
 		q.Since, q.Since, wsID,
 	).Scan(&out.Totals.Running, &out.Totals.CompletedSince, &out.Totals.FailedSince)
@@ -148,10 +185,10 @@ func (s *Store) RunStats(ctx context.Context, q flowrundomain.StatsQuery) (*flow
 		SELECT workflow_id,
 			COUNT(*) FILTER (WHERE status = 'running'),
 			MAX(started_at),
-			COUNT(*) FILTER (WHERE status = 'completed' AND julianday(completed_at) >= julianday(?)),
-			COUNT(*) FILTER (WHERE status = 'failed'    AND julianday(completed_at) >= julianday(?)),
+			COUNT(*) FILTER (WHERE status = 'completed' AND completed_at >= ?),
+			COUNT(*) FILTER (WHERE status = 'failed'    AND completed_at >= ?),
 			AVG((julianday(completed_at) - julianday(started_at)) * 86400000.0)
-				FILTER (WHERE status = 'completed' AND replay_count = 0 AND julianday(completed_at) >= julianday(?))
+				FILTER (WHERE status = 'completed' AND replay_count = 0 AND completed_at >= ?)
 		FROM flowruns
 		WHERE workspace_id = ? AND workflow_id IN `+in+`
 		GROUP BY workflow_id`, args...)

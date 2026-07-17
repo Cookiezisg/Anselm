@@ -196,17 +196,16 @@ class FixtureSchedulerRepository implements SchedulerRepository {
       ),
       // wf_new / wf_draft: never ran (no stats row). wf_retired: inactive (no stats row).
     ];
-    // Window-aware failed totals — the Overview KPI's delta needs 24h vs 48h to differ:
-    // failed24=4, failed48=6 → prior-24h window = 2 → delta = +2 (▲2, §3 mock). 7d holds the rest.
-    // Bucketed by how far back the window reaches rather than by the literal wire word, because the
-    // Overview now sends an ABSOLUTE instant (工单⑭) — matching `'24h'` as a string would answer every
-    // KPI read with the 7d number. Whole hours absorb the sub-second drift between the caller's `now`
-    // and ours.
-    // 窗口感知失败数:24h=4 / 48h=6 → 前一个 24h 窗=2 → delta=+2(对齐 §3 示意)。按窗**回看多远**分档、
-    // 而非按线缆字面词——Overview 现在发的是**绝对**时刻(工单⑭),拿 '24h' 去字符串匹配会让每次 KPI 读取都
-    // 拿到 7d 的数。取整小时以吸收调用方的 now 与我们的 now 之间的亚秒漂移。
-    final lookbackH = DateTime.now().difference(_sinceInstant(since)).inHours;
-    final failedSince = lookbackH <= 24 ? 4 : (lookbackH <= 48 ? 6 : 9);
+    // Window-aware failed count — DERIVED from the seeds through the SAME predicate the 「24h 失败」 zone
+    // lists with ([_failedRunsMatching]), never a hand-tuned bucket, so the tile (`failedRuns.length`)
+    // and the count feeding its delta are one number by construction (工单⑮ — the whole point of
+    // `completedAfter`). With the seeds this yields 24h=5, 48h=6 (fr_e5f6 landed 30h ago), 7d=6 →
+    // delta = 5 − (6−5) = +4 (▲4). It reads the ABSOLUTE instant [since] carries, so it re-derives per
+    // window rather than matching a wire word.
+    // 窗口感知失败数——从种子经**与**「24h 失败」区列表所用的**同一份**谓词(_failedRunsMatching)**派生**,
+    // 绝非手调分档,故牌(failedRuns.length)与喂它 delta 的数**构造上**是一个数(工单⑮ completedAfter 的全部
+    // 意义)。当前种子:24h=5、48h=6(fr_e5f6 落定于 30h 前)、7d=6 → delta=5−(6−5)=+4(▲4)。
+    final failedSince = _failedRunsMatching(_sinceInstant(since)).length;
     // Live totals track the stateful cancels/decides (the demo stays honest after an action).
     // totals 跟随有状态操作(动作之后 demo 不撒谎)。
     final running = [for (final s in all) s.running].fold(0, (a, b) => a + b);
@@ -458,6 +457,22 @@ class FixtureSchedulerRepository implements SchedulerRepository {
   Future<List<Flowrun>> listRunningRuns() async =>
       [for (final r in _allRuns()) if (_statusOf(r) == 'running') r];
 
+  /// THE failed-in-window predicate, expressed ONCE — shared by [listFailedSince] (the 「24h 失败」
+  /// zone's rows) and [stats]' `totals.failedSince` (the tile's delta source), exactly as the backend's
+  /// `failedSince` and `?completedAfter` share one `completed_at >= ?` (工单⑮). Two copies would be a
+  /// bug with a timer on it: the tile says 5, the zone it opens shows 4. Newest-LANDED first (the
+  /// window's axis is completed_at). A running run has completedAt=null and is dropped, as the wire
+  /// `NULL >= ?` drops it. 那份「窗内失败」谓词,只表达一次——listFailedSince(区的行)与 stats 的
+  /// failedSince(牌的 delta 源)共用,正如后端 failedSince 与 ?completedAfter 共用一个 `completed_at >= ?`。
+  List<Flowrun> _failedRunsMatching(DateTime since) => [
+        for (final r in _allRuns())
+          if (r.status == 'failed' && r.completedAt != null && !r.completedAt!.isBefore(since)) r,
+      ]..sort((a, b) => b.completedAt!.compareTo(a.completedAt!));
+
+  @override
+  Future<List<Flowrun>> listFailedSince(DateTime completedAfter) async =>
+      _failedRunsMatching(completedAfter);
+
   @override
   Future<Page<Flowrun>> listFlowruns(
       {required String workflowId,
@@ -466,6 +481,8 @@ class FixtureSchedulerRepository implements SchedulerRepository {
       String? triggerId,
       DateTime? startedAfter,
       DateTime? startedBefore,
+      DateTime? completedAfter,
+      DateTime? completedBefore,
       String? cursor,
       int? limit}) async {
     final rows = [
@@ -475,7 +492,12 @@ class FixtureSchedulerRepository implements SchedulerRepository {
             (origin == null || r.origin == origin) &&
             (triggerId == null || r.triggerId == triggerId) &&
             (startedAfter == null || (r.startedAt != null && !r.startedAt!.isBefore(startedAfter))) &&
-            (startedBefore == null || (r.startedAt != null && r.startedAt!.isBefore(startedBefore))))
+            (startedBefore == null || (r.startedAt != null && r.startedAt!.isBefore(startedBefore))) &&
+            // completed_at window (工单⑮) — drops the unlanded (null completed_at), like NULL >= ?.
+            (completedAfter == null ||
+                (r.completedAt != null && !r.completedAt!.isBefore(completedAfter))) &&
+            (completedBefore == null ||
+                (r.completedAt != null && r.completedAt!.isBefore(completedBefore))))
           r,
     ]..sort((a, b) {
         final sa = a.startedAt, sb = b.startedAt;

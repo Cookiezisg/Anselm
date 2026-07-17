@@ -2766,6 +2766,9 @@ class Translations$scheduler$overview$en {
 	/// en: 'Failed · 24h'
 	String get kpiFailed24h => 'Failed · 24h';
 
+	/// en: 'Failed in the last 24h: $n. Show them in the failed-runs list.'
+	String kpiFailed24hA11y({required Object n}) => 'Failed in the last 24h: ${n}. Show them in the failed-runs list.';
+
 	/// en: 'Next fire'
 	String get kpiNextFire => 'Next fire';
 
@@ -2795,6 +2798,9 @@ class Translations$scheduler$overview$en {
 
 	/// en: 'Nothing is running right now.'
 	String get runningEmpty => 'Nothing is running right now.';
+
+	/// en: 'Failed · 24h ($n)'
+	String failed24hHead({required Object n}) => 'Failed · 24h (${n})';
 
 	/// en: '$name scheduled $at'
 	String trackPointA11y({required Object name, required Object at}) => '${name} scheduled ${at}';
@@ -6319,6 +6325,7 @@ extension on Translations {
 			'scheduler.overview.kpiWaiting' => 'Waiting on you',
 			'scheduler.overview.kpiWaitingA11y' => ({required Object n}) => 'Waiting on you: ${n}. Show them in the waiting list.',
 			'scheduler.overview.kpiFailed24h' => 'Failed · 24h',
+			'scheduler.overview.kpiFailed24hA11y' => ({required Object n}) => 'Failed in the last 24h: ${n}. Show them in the failed-runs list.',
 			'scheduler.overview.kpiNextFire' => 'Next fire',
 			'scheduler.overview.kpiNextFireA11y' => ({required Object d}) => 'Next fire in ${d}. Show it on the schedule track.',
 			'scheduler.overview.kpiNone' => '—',
@@ -6329,6 +6336,7 @@ extension on Translations {
 			'scheduler.overview.deltaDownA11y' => ({required Object n}) => '${n} fewer than the previous 24h',
 			'scheduler.overview.runningHead' => ({required Object n}) => 'Running now (${n})',
 			'scheduler.overview.runningEmpty' => 'Nothing is running right now.',
+			'scheduler.overview.failed24hHead' => ({required Object n}) => 'Failed · 24h (${n})',
 			'scheduler.overview.trackPointA11y' => ({required Object name, required Object at}) => '${name} scheduled ${at}',
 			'scheduler.overview.trackFolded' => ({required Object n}) => '${n} runs',
 			'scheduler.overview.trackTruncated' => 'More is scheduled inside this window than the track can show.',
@@ -6712,10 +6720,10 @@ extension on Translations {
 			'entities.detail.card.deps' => 'Dependencies',
 			'entities.detail.card.venv' => 'venv status',
 			'entities.detail.card.runtime' => 'Runtime',
-			'entities.detail.card.config' => 'Config readiness',
-			'entities.detail.card.tools' => 'Tool mounts',
 			_ => null,
 		} ?? switch (path) {
+			'entities.detail.card.config' => 'Config readiness',
+			'entities.detail.card.tools' => 'Tool mounts',
 			'entities.detail.card.skill' => 'Skill',
 			'entities.detail.card.knowledge' => 'Knowledge',
 			'entities.detail.card.model' => 'Model override',
@@ -7226,10 +7234,10 @@ extension on Translations {
 			'settings.storage.retention30' => '30 days',
 			'settings.storage.retention90' => '90 days',
 			'settings.storage.retention180' => '180 days',
-			'settings.storage.retentionForever' => 'Keep forever',
-			'settings.storage.retentionSaved' => 'Retention updated',
 			_ => null,
 		} ?? switch (path) {
+			'settings.storage.retentionForever' => 'Keep forever',
+			'settings.storage.retentionSaved' => 'Retention updated',
 			'settings.storage.resetPrefs' => 'Reset local preferences',
 			'settings.storage.resetPrefsDesc' => 'Clears this machine\'s UI preferences (theme/window/zoom…) only — never touches workspace data. The app will restart to apply the reset.',
 			'settings.storage.resetPrefsTitle' => 'Reset local preferences?',

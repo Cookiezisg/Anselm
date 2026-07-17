@@ -2,14 +2,18 @@ package scenarios
 
 // scheduler_p1_test.go — scheduler P1 工单黑盒:
 // ⑥ GET /flowruns 过滤器(origin/triggerId/startedAfter/startedBefore,真 run 真过滤 + 非法值 422)
+// ⑮ GET /flowruns 的 completedAfter/completedBefore 窗(半开边界由 run 自己的 completedAt 钉死 +
+//    NULL 剔除:未落定 run 被任一 completed 窗剔除 → status=running&completedAfter 空)
 // ⑦ trigger :pause/:resume(暂停后 cron 到点不 fire、:fire 422、重启后仍暂停;resume 后真 fire)
 //
-// scheduler_p1_test.go — black-box for the two scheduler P1 work orders: ⑥ flowrun list filters
-// over real runs (origin/triggerId/started window + loud 422s) and ⑦ the trigger pause/resume
-// switch (a paused cron does NOT fire at the tick, :fire is refused, the switch survives a
-// restart; resume fires again).
+// scheduler_p1_test.go — black-box for the scheduler list/schedule work orders: ⑥ flowrun list
+// filters over real runs (origin/triggerId/started window + loud 422s), ⑮ the completed_at window
+// (half-open bounds pinned by a run's own completedAt + the NULL rule that a still-running run is
+// dropped by any completed window), and ⑦ the trigger pause/resume switch (a paused cron does NOT
+// fire at the tick, :fire is refused, the switch survives a restart; resume fires again).
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -19,10 +23,11 @@ import (
 )
 
 type frRow struct {
-	ID        string `json:"id"`
-	Status    string `json:"status"`
-	Origin    string `json:"origin"`
-	TriggerID string `json:"triggerId"`
+	ID          string `json:"id"`
+	Status      string `json:"status"`
+	Origin      string `json:"origin"`
+	TriggerID   string `json:"triggerId"`
+	CompletedAt string `json:"completedAt"`
 }
 
 func listRunRows(t *testing.T, wc *harness.Client, query string) []frRow {
@@ -94,6 +99,146 @@ func TestFlowruns_ListFilters(t *testing.T) {
 	wc.GET("/api/v1/flowruns?startedAfter=yesterday").Fail(t, 422, "FLOWRUN_LIST_INVALID_FILTER")
 	wc.GET("/api/v1/flowruns?startedBefore=24h").Fail(t, 422, "FLOWRUN_LIST_INVALID_FILTER")
 	wc.GET("/api/v1/flowruns?status=parked").Fail(t, 422, "FLOWRUN_INVALID_STATUS") // 既有轴不回归。
+}
+
+// TestFlowruns_CompletedWindow — 工单⑮: the `?completedAfter`/`?completedBefore` window that makes the
+// Overview's 「24h 失败」 KPI card clickable. Two things black-box CANNOT test (they go to unit tests):
+// (1) that the read seeks idx_fr_ws_status_completed — that is an EXPLAIN guard (flowrun_plan_test.go),
+// (2) old runs (retention needs >1 day). What it CAN — and does here, against real rows — is the
+// SEMANTICS: half-open bounds pinned by a run's OWN completedAt (mid-point discrimination the started
+// window's test never did), and the load-bearing NULL rule — a run with no completed_at (parked, still
+// running) is dropped by ANY completed window, so `status=running&completedAfter=<past>` is empty. That
+// last one is the surprising-but-correct behavior a future reader must not "fix", so it is nailed here.
+func TestFlowruns_CompletedWindow(t *testing.T) {
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "fr-completed"}).OK(t, nil)
+	wc := c.WS(ws.Field(t, "id"))
+
+	// wfApproval: trigger → approval. A run parks (RUNNING, no completed_at). Decide "no" with no
+	// no-edge → it lands completed (gets a completed_at). Zero tokens, zero sandbox.
+	// wfApproval:trigger → approval。run park(RUNNING、无 completed_at);决 no 且无 no 边 → completed。
+	apfID := wc.POST("/api/v1/approvals", map[string]any{
+		"name": "cw_gate", "template": "ok {{ input.v }}?", "allowReason": true,
+	}).Field(t, "id")
+	wfApproval := wfCreate(t, wc, "cw_approval_pipe", []map[string]any{
+		{"op": "add_node", "node": map[string]any{"id": "start", "kind": "trigger", "ref": "trg_manual"}},
+		{"op": "add_node", "node": map[string]any{"id": "human", "kind": "approval", "ref": apfID, "input": map[string]any{"v": "start.v"}}},
+		{"op": "add_edge", "edge": map[string]any{"id": "e1", "from": "start", "to": "human"}},
+	})
+	// wfGhost: trigger → ghost function → always failed (a failed run HAS a completed_at). 幽灵 fn → failed。
+	wfGhost := wfCreate(t, wc, "cw_ghost_pipe", []map[string]any{
+		{"op": "add_node", "node": map[string]any{"id": "start", "kind": "trigger", "ref": "trg_manual"}},
+		{"op": "add_node", "node": map[string]any{"id": "boom", "kind": "action", "ref": "fn_ghost_never_exists"}},
+		{"op": "add_edge", "edge": map[string]any{"id": "e1", "from": "start", "to": "boom"}},
+	})
+
+	var started struct {
+		Flowrun struct {
+			ID string `json:"id"`
+		} `json:"flowrun"`
+		Nodes json.RawMessage `json:"nodes"`
+	}
+	// The RUNNING run — parked and left undecided (no completed_at, ever). 在跑 run:park 不决,永无 completed_at。
+	wc.POST("/api/v1/flowruns", map[string]any{"workflowId": wfApproval, "payload": map[string]any{"v": "run"}}).OK(t, &started)
+	if !strings.Contains(string(started.Nodes), `"parked"`) {
+		t.Fatalf("the running run must park: %s", started.Nodes)
+	}
+	runningID := started.Flowrun.ID
+	// The COMPLETED run — parked, then decided no (no no-edge → settles completed). 落定 completed 的 run。
+	wc.POST("/api/v1/flowruns", map[string]any{"workflowId": wfApproval, "payload": map[string]any{"v": "done"}}).OK(t, &started)
+	completedID := started.Flowrun.ID
+	wc.POST("/api/v1/flowruns/"+completedID+"/approvals/human:decide", map[string]any{"decision": "no", "reason": "cw"}).OK(t, nil)
+	harness.Eventually(t, 20000, "the completed run lands", func() bool {
+		r := wc.GET("/api/v1/flowruns/" + completedID)
+		return r.Status == 200 && strings.Contains(string(r.Data), `"status":"completed"`)
+	})
+	// The FAILED run — a ghost fn (a failed run also has a completed_at). 失败 run(也有 completed_at)。
+	failedID, status, _ := runAndWait(t, wc, wfGhost, map[string]any{}, 30000)
+	if status != "failed" {
+		t.Fatalf("ghost-fn run must fail, got %s", status)
+	}
+
+	find := func(rows []frRow, id string) *frRow {
+		for i := range rows {
+			if rows[i].ID == id {
+				return &rows[i]
+			}
+		}
+		return nil
+	}
+
+	// completed_at is on the wire for landed runs and ABSENT for the running one (omitempty). This is
+	// the whole premise: a completed window can only speak about runs that carry the column.
+	// completed_at 在落定 run 的线缆上、在 running 那个上**缺席**(omitempty)——completed 窗只讲带该列的 run。
+	all := listRunRows(t, wc, "?workflowId="+wfApproval)
+	completed := find(all, completedID)
+	running := find(all, runningID)
+	if completed == nil || completed.CompletedAt == "" {
+		t.Fatalf("the completed run must carry a completedAt: %+v", completed)
+	}
+	if running == nil || running.CompletedAt != "" {
+		t.Fatalf("the running run must NOT carry a completedAt (it never landed): %+v", running)
+	}
+
+	c0, err := time.Parse(time.RFC3339, completed.CompletedAt)
+	if err != nil {
+		t.Fatalf("parse completedAt %q: %v", completed.CompletedAt, err)
+	}
+	before := c0.Add(-time.Second).UTC().Format(time.RFC3339Nano)
+	after := c0.Add(time.Second).UTC().Format(time.RFC3339Nano)
+
+	// Half-open [after, before) on completed_at, pinned by the run's OWN instant:
+	//   completedAfter just before it  → present (inclusive lower bound reached from below)
+	//   completedAfter one second after → absent
+	//   completedBefore one second after → present ; completedBefore just before → absent
+	// 半开窗,由 run 自己的时刻钉死:下界含、上界不含。
+	if r := find(listRunRows(t, wc, "?workflowId="+wfApproval+"&completedAfter="+before), completedID); r == nil {
+		t.Fatalf("completedAfter just before its landing must INCLUDE the run")
+	}
+	if r := find(listRunRows(t, wc, "?workflowId="+wfApproval+"&completedAfter="+after), completedID); r != nil {
+		t.Fatalf("completedAfter one second after its landing must EXCLUDE the run")
+	}
+	if r := find(listRunRows(t, wc, "?workflowId="+wfApproval+"&completedBefore="+after), completedID); r == nil {
+		t.Fatalf("completedBefore just after its landing must INCLUDE the run")
+	}
+	if r := find(listRunRows(t, wc, "?workflowId="+wfApproval+"&completedBefore="+before), completedID); r != nil {
+		t.Fatalf("completedBefore just before its landing must EXCLUDE the run")
+	}
+
+	// THE load-bearing rule: a run with no completed_at is dropped by ANY completed window (NULL >= ?
+	// is never true). A wide-open completedAfter holds the completed run but NOT the still-parked one.
+	// 承重规则:无 completed_at 的 run 被任一 completed 窗剔除。宽窗收落定的、绝不收还 park 着的。
+	past := "2000-01-01T00:00:00Z"
+	wide := listRunRows(t, wc, "?workflowId="+wfApproval+"&completedAfter="+past)
+	if find(wide, completedID) == nil {
+		t.Fatalf("a wide completedAfter must hold the completed run")
+	}
+	if find(wide, runningID) != nil {
+		t.Fatalf("a wide completedAfter must NOT hold the still-running (unlanded) run")
+	}
+	// The surprising-but-correct one: status=running + completedAfter is EMPTY — a running run cannot
+	// satisfy a completed window. Nailed so nobody "fixes" it. 在跑 run 满足不了 completed 窗 → 空。
+	if rows := listRunRows(t, wc, "?workflowId="+wfApproval+"&status=running&completedAfter="+past); len(rows) != 0 {
+		t.Fatalf("status=running & completedAfter must be empty (running has no completed_at), got %d", len(rows))
+	}
+
+	// AND-composition with status across the workspace: the failed run is the card's exact predicate
+	// (status=failed & completedAfter=<past>). AND 组合:失败 run = 牌的精确谓词。
+	failedWide := listRunRows(t, wc, "?status=failed&completedAfter="+past)
+	if find(failedWide, failedID) == nil {
+		t.Fatalf("status=failed & completedAfter must hold the ghost-fn failure")
+	}
+	for _, r := range failedWide {
+		if r.Status != "failed" {
+			t.Fatalf("status=failed filter leaked a %s row", r.Status)
+		}
+	}
+
+	// Bad bounds are loud 422s naming the flowrun list filter (same code as startedAfter — same
+	// resource, deliberately NOT firings' code). 坏界 422、点名 flowrun 列表过滤(同 startedAfter 的码)。
+	wc.GET("/api/v1/flowruns?completedAfter=yesterday").Fail(t, 422, "FLOWRUN_LIST_INVALID_FILTER")
+	wc.GET("/api/v1/flowruns?completedBefore=24h").Fail(t, 422, "FLOWRUN_LIST_INVALID_FILTER")
 }
 
 type trgRow struct {

@@ -7,23 +7,49 @@ import (
 
 // ListFilter paginates a workspace's flowruns (newest-first). All filters compose with AND
 // (scheduler 工单⑥): WorkflowID / TriggerID narrow provenance, Status and Origin are closed-set
-// (an out-of-enum value is a loud 422, never a silent empty page — F168-M2), and the started_at
-// window is half-open [StartedAfter, StartedBefore) so adjacent windows tile without overlap
-// (zero time = that bound unset). NULL-origin rows (pre-provenance) never match an Origin filter.
+// (an out-of-enum value is a loud 422, never a silent empty page — F168-M2), and each time window
+// is half-open [After, Before) so adjacent windows tile without overlap (zero time = that bound
+// unset). NULL-origin rows (pre-provenance) never match an Origin filter.
+//
+// TWO windows, on the two timestamps a run has, because they answer two different questions
+// (scheduler 工单⑮): started_at asks "which runs BEGAN in this period", completed_at asks "which
+// runs LANDED in it". For failures the second is the only honest one — a run that began 30h ago
+// and failed an hour ago belongs to today's failures and to no window on started_at, and a run
+// that began inside the window and is still going belongs to neither. That difference is the whole
+// reason the Overview's 「24h 失败」 KPI card counts on completed_at (see Repository.RunStats'
+// failedSince, whose predicate this one is byte-for-byte), and the reason the card could not be
+// clicked until this window existed.
+//
+// CompletedAfter/Before select ONLY landed runs: completed_at is NULL while a run is running or
+// parked, and `NULL >= ?` is never true, so either bound silently excludes the unfinished. That is
+// the intent (a window on when runs LANDED cannot speak about runs that have not), and it is
+// pinned by a test rather than left to be "fixed" by someone reading it as a bug.
 //
 // ListFilter 分页一个 workspace 的 flowrun（最新优先）。所有过滤 AND 组合（scheduler 工单⑥）：
 // WorkflowID / TriggerID 收窄溯源，Status 与 Origin 是封闭集（枚举外值 422 大声拒、绝不静默空页——
-// F168-M2），started_at 窗口是半开区间 [StartedAfter, StartedBefore)——相邻窗口无缝拼接不重叠
-// （零值时间 = 该端不设界）。origin 为 NULL 的旧行永不匹配 Origin 过滤。
+// F168-M2），每个时间窗都是半开区间 [After, Before)——相邻窗口无缝拼接不重叠（零值时间 = 该端不设界）。
+// origin 为 NULL 的旧行永不匹配 Origin 过滤。
+//
+// **两个窗，开在 run 仅有的两个时刻上**，因为它们回答两个不同的问题（scheduler 工单⑮）：started_at 问
+// 「哪些 run 在这段时间**开始**」，completed_at 问「哪些 run 在这段时间**落定**」。对失败而言只有后者诚实
+// ——30 小时前起跑、一小时前失败的那个属于「今天的失败」、却不属于 started_at 上的任何窗；而窗内起跑、还在
+// 跑的那个两个窗都不属于。这个差别正是 Overview「24h 失败」牌按 completed_at 数的全部理由（见
+// Repository.RunStats 的 failedSince——本窗的谓词与它**逐字节相同**），也正是这张牌在本窗存在之前点不开的理由。
+//
+// CompletedAfter/Before **只**选落定的 run：run 在跑或 parked 时 completed_at 为 NULL，而 `NULL >= ?`
+// 永不为真，故任一界都会静默剔除未完成的。这是**本意**（一个问「何时落定」的窗，讲不了还没落定的 run），
+// 且由测试钉死——而不是留给后来人读成 bug 去「修」。
 type ListFilter struct {
-	WorkflowID    string
-	Status        string    // running | completed | failed | cancelled; "" = all. 空 = 全部。
-	TriggerID     string    // entry trg_ equality; "" = all. 入口 trg_ 等值；空 = 全部。
-	Origin        string    // RunOrigins member; "" = all. RunOrigins 之一；空 = 全部。
-	StartedAfter  time.Time // inclusive lower bound on started_at. started_at 含下界。
-	StartedBefore time.Time // exclusive upper bound on started_at. started_at 不含上界。
-	Cursor        string
-	Limit         int
+	WorkflowID      string
+	Status          string    // running | completed | failed | cancelled; "" = all. 空 = 全部。
+	TriggerID       string    // entry trg_ equality; "" = all. 入口 trg_ 等值；空 = 全部。
+	Origin          string    // RunOrigins member; "" = all. RunOrigins 之一；空 = 全部。
+	StartedAfter    time.Time // inclusive lower bound on started_at. started_at 含下界。
+	StartedBefore   time.Time // exclusive upper bound on started_at. started_at 不含上界。
+	CompletedAfter  time.Time // inclusive lower bound on completed_at; excludes unlanded. completed_at 含下界；剔除未落定。
+	CompletedBefore time.Time // exclusive upper bound on completed_at; excludes unlanded. completed_at 不含上界；剔除未落定。
+	Cursor          string
+	Limit           int
 }
 
 // Repository persists the two flowrun tables. Both are Log tables (D1: never deleted).

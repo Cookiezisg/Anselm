@@ -1143,6 +1143,7 @@ class _Translations$scheduler$overview$zh_CN extends Translations$scheduler$over
 	@override String get kpiWaiting => '等你处理';
 	@override String kpiWaitingA11y({required Object n}) => '等你处理 ${n} 条。在「等你处理」列表中显示它们。';
 	@override String get kpiFailed24h => '24h 失败';
+	@override String kpiFailed24hA11y({required Object n}) => '近 24h 失败 ${n} 次。在失败 run 列表中显示它们。';
 	@override String get kpiNextFire => '下次调度';
 	@override String kpiNextFireA11y({required Object d}) => '下次调度在 ${d} 后。在调度轨上显示它。';
 	@override String get kpiNone => '—';
@@ -1153,6 +1154,7 @@ class _Translations$scheduler$overview$zh_CN extends Translations$scheduler$over
 	@override String deltaDownA11y({required Object n}) => '较前一个 24h 少 ${n}';
 	@override String runningHead({required Object n}) => '正在跑 (${n})';
 	@override String get runningEmpty => '现在没有正在运行的 run。';
+	@override String failed24hHead({required Object n}) => '24h 失败 (${n})';
 	@override String trackPointA11y({required Object name, required Object at}) => '${name} 预计 ${at}';
 	@override String trackFolded({required Object n}) => '共 ${n} 次';
 	@override String get trackTruncated => '此窗口内还有更多调度,轨道未能全部显示。';
@@ -3059,6 +3061,7 @@ extension on TranslationsZhCn {
 			'scheduler.overview.kpiWaiting' => '等你处理',
 			'scheduler.overview.kpiWaitingA11y' => ({required Object n}) => '等你处理 ${n} 条。在「等你处理」列表中显示它们。',
 			'scheduler.overview.kpiFailed24h' => '24h 失败',
+			'scheduler.overview.kpiFailed24hA11y' => ({required Object n}) => '近 24h 失败 ${n} 次。在失败 run 列表中显示它们。',
 			'scheduler.overview.kpiNextFire' => '下次调度',
 			'scheduler.overview.kpiNextFireA11y' => ({required Object d}) => '下次调度在 ${d} 后。在调度轨上显示它。',
 			'scheduler.overview.kpiNone' => '—',
@@ -3069,6 +3072,7 @@ extension on TranslationsZhCn {
 			'scheduler.overview.deltaDownA11y' => ({required Object n}) => '较前一个 24h 少 ${n}',
 			'scheduler.overview.runningHead' => ({required Object n}) => '正在跑 (${n})',
 			'scheduler.overview.runningEmpty' => '现在没有正在运行的 run。',
+			'scheduler.overview.failed24hHead' => ({required Object n}) => '24h 失败 (${n})',
 			'scheduler.overview.trackPointA11y' => ({required Object name, required Object at}) => '${name} 预计 ${at}',
 			'scheduler.overview.trackFolded' => ({required Object n}) => '共 ${n} 次',
 			'scheduler.overview.trackTruncated' => '此窗口内还有更多调度,轨道未能全部显示。',
@@ -3452,10 +3456,10 @@ extension on TranslationsZhCn {
 			'entities.detail.card.deps' => '依赖',
 			'entities.detail.card.venv' => 'venv 状态',
 			'entities.detail.card.runtime' => '运行时',
-			'entities.detail.card.config' => '配置完整度',
-			'entities.detail.card.tools' => '工具挂载',
 			_ => null,
 		} ?? switch (path) {
+			'entities.detail.card.config' => '配置完整度',
+			'entities.detail.card.tools' => '工具挂载',
 			'entities.detail.card.skill' => '技能',
 			'entities.detail.card.knowledge' => '知识',
 			'entities.detail.card.model' => '模型覆盖',
@@ -3966,10 +3970,10 @@ extension on TranslationsZhCn {
 			'settings.storage.retention30' => '30 天',
 			'settings.storage.retention90' => '90 天',
 			'settings.storage.retention180' => '180 天',
-			'settings.storage.retentionForever' => '永久保留',
-			'settings.storage.retentionSaved' => '保留策略已更新',
 			_ => null,
 		} ?? switch (path) {
+			'settings.storage.retentionForever' => '永久保留',
+			'settings.storage.retentionSaved' => '保留策略已更新',
 			'settings.storage.resetPrefs' => '重置本地偏好',
 			'settings.storage.resetPrefsDesc' => '只清除本机的界面偏好(主题/窗口/缩放等),不碰任何工作区数据将重启应用以生效。',
 			'settings.storage.resetPrefsTitle' => '重置本地偏好?',

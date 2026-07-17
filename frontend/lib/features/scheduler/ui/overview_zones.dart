@@ -578,3 +578,67 @@ class _SchedulerRunningZoneState extends ConsumerState<SchedulerRunningZone>
     );
   }
 }
+
+// ─────────────────────────────────── 24h 失败 ───────────────────────────────────
+
+/// The «failed · 24h» zone (工单⑮) — the per-RUN list the 「24h 失败」 KPI tile opens. Each row: red dot
+/// · workflow name · mono fr_ chip · error first line (danger) · «landed N ago» meta · deep-link to the
+/// run detail. Passive (no batch, no cancel — these runs are already terminal); the operating power a
+/// failed run offers is replay, which needs the run composite (S4) and lives on its detail page.
+///
+/// **It is NOT the 7d 「失败聚合」 section below it** (§3), and the difference is the whole reason it
+/// exists: this zone lists RUNS in a 24h completed_at window (the tile's exact predicate); that section
+/// aggregates WORKFLOWS by consecutive-failure streak over 7d. A workflow that failed 4× overnight and
+/// then succeeded contributes 4 rows here and is absent there (self-healed) — two units, two windows.
+///
+/// Rendered only when non-empty: the tile is inert at zero (no list to open), so an always-present
+/// «24h 失败 (0)» section would be an empty failure box the board never scrolls to, and 「成功是背景音」
+/// says the detail layer stays silent when there is nothing wrong. The tile's clickability and this
+/// zone's presence are the same condition (`failedRuns.isNotEmpty`).
+///
+/// 「24h 失败」区(工单⑮)——「24h 失败」牌点开的**按 run** 列表。行=红点·名·mono fr_ chip·错误首句(danger)·
+/// 「N 前落定」meta·深链 run 详情。被动(无批量无取消——这些 run 已终态;失败 run 的操作权力是 replay,依赖
+/// run 复合[S4]、住它的详情页)。**不是**下面那个 7d「失败聚合」(§3):本区列 24h completed_at 窗内的 **run**
+/// (牌的精确谓词),那个按连败聚合 **workflow**、7d 窗——整夜失败 4 次然后跑通的 workflow 在这里贡献 4 行、在
+/// 那里缺席(已自愈)。**仅非空时渲**:牌在零时惰性(无列表可开),故常驻的「24h 失败 (0)」会是看板永不滚去的
+/// 空失败框,而「成功是背景音」要求明细层无事时闭嘴;牌的可点性与本区的在场是同一个条件(failedRuns.isNotEmpty)。
+class SchedulerFailedZone extends StatelessWidget {
+  const SchedulerFailedZone({required this.rows, required this.now, super.key});
+
+  final List<FailedRunRow> rows;
+  final DateTime now;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t.scheduler.overview;
+    return AnSection(
+      label: t.failed24hHead(n: '${rows.length}'),
+      children: [
+        for (final r in rows) _row(context, r),
+      ],
+    );
+  }
+
+  Widget _row(BuildContext context, FailedRunRow r) {
+    final landed = r.run.completedAt;
+    return AnLedgerRow(
+      lead: const AnStatusDot(AnStatus.err),
+      primary: r.workflowName,
+      mono: false,
+      chips: [
+        AnChip(truncate(r.run.id, AnTrunc.id),
+            mono: true, look: AnChipLook.outlined, tooltip: r.run.id),
+      ],
+      // The error first line — the same projection the big table and run detail render (one text,
+      // three surfaces). 错误首句:与大表/run 详情同一投影(一份文案三处)。
+      sub: errorFirstLine(r.run.error),
+      subTone: AnTone.danger,
+      // «landed N ago» — completed_at is the window's axis, so the meta names WHEN it failed.
+      // 「N 前落定」:completed_at 是窗轴,故 meta 说它**何时**失败。
+      meta: landed != null
+          ? context.t.scheduler.agoMeta(d: fmtWaited(now.difference(landed)))
+          : null,
+      onTap: () => context.go('/scheduler/w/${r.workflowId}/runs/${r.run.id}'),
+    );
+  }
+}

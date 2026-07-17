@@ -45,13 +45,16 @@ class _ZoneAnchor {
 }
 
 class _SchedulerOverviewViewState extends ConsumerState<SchedulerOverviewView> {
-  /// The three zones a KPI tile can open. Each tile reveals the zone that holds ITS OWN evidence:
-  /// 「在跑 N」 → the rows it counts; 「等你 N」 → the rows it counts; 「错过 N」 and 「下次调度」 → the track,
-  /// whose past ✕ and future rings are respectively what those two numbers are ABOUT.
-  /// 三个 KPI 牌可打开的区。每张牌揭示**自己那份证据**所在的区:「在跑 N」「等你 N」→ 它数的那些行;
-  /// 「错过 N」与「下次调度」→ 轨道,其过去的 ✕ 与未来的空心环分别正是这两个数**所谈论的东西**。
+  /// The zones a KPI tile can open. Each tile reveals the zone that holds ITS OWN evidence:
+  /// 「在跑 N」 → the rows it counts; 「等你 N」 → the rows it counts; 「24h 失败 N」 → the per-run failed
+  /// list it counts (工单⑮); 「错过 N」 and 「下次调度」 → the track, whose past ✕ and future rings are
+  /// respectively what those two numbers are ABOUT.
+  /// 各 KPI 牌可打开的区。每张牌揭示**自己那份证据**所在的区:「在跑 N」「等你 N」→ 它数的那些行;
+  /// 「24h 失败 N」→ 它数的那份按 run 的失败列表(工单⑮);「错过 N」与「下次调度」→ 轨道,其过去的 ✕ 与未来
+  /// 的空心环分别正是这两个数**所谈论的东西**。
   final _ZoneAnchor _waiting = _ZoneAnchor('waiting');
   final _ZoneAnchor _running = _ZoneAnchor('running');
+  final _ZoneAnchor _failed = _ZoneAnchor('failed');
   final _ZoneAnchor _schedule = _ZoneAnchor('schedule');
 
   @override
@@ -143,6 +146,10 @@ class _SchedulerOverviewViewState extends ConsumerState<SchedulerOverviewView> {
               // ——与失败区[最新 run]直通车同一条规矩(没有目标就不做成可点)。
               onRunning: d.runningRuns.isEmpty ? null : () => _reveal(_running),
               onWaiting: d.waiting.isEmpty ? null : () => _reveal(_waiting),
+              // The 24h-failed tile opens the per-run failed zone (工单⑮), present exactly when there
+              // are failures — inert at zero, same rule as running/waiting. 24h 失败牌开按 run 失败区,
+              // 恰在有失败时在场;零时惰性,同 running/waiting。
+              onFailed24h: d.failedRuns.isEmpty ? null : () => _reveal(_failed),
               // Only when the tick it names is really on the axis (see nextFireOnTrack). 所念刻度真在轴上才可点。
               onNextFire: nextFireOnTrack(d.track, d.kpi.nextFire) ? () => _reveal(_schedule) : null,
               onMissed: () => _reveal(_schedule),
@@ -155,6 +162,14 @@ class _SchedulerOverviewViewState extends ConsumerState<SchedulerOverviewView> {
           _washable(
               _running, SchedulerRunningZone(key: _running.key, rows: d.runningRuns, now: now)),
           _washable(_schedule, SchedulerScheduleZone(key: _schedule.key, track: d.track, now: now)),
+          // «24h 失败» — the per-run list the KPI tile opens (工单⑮), present only when non-empty (the
+          // tile is inert at zero, so the board never scrolls to an absent zone; 成功是背景音). Placed
+          // just above the 7d «失败聚合» so the two failure views (24h runs, then 7d workflow streaks)
+          // read together without being confused for one another.
+          // 24h 失败:牌点开的按 run 列表(工单⑮),仅非空时在场(零时牌惰性、看板不滚向不在的区;成功是背景音);
+          // 紧挨 7d 失败聚合之上,使两种失败视图(24h run、7d workflow 连败)相邻同读而不相混。
+          if (d.failedRuns.isNotEmpty)
+            _washable(_failed, SchedulerFailedZone(key: _failed.key, rows: d.failedRuns, now: now)),
           AnSection(
             label: t.overview.failuresHead,
             children: d.failures.isEmpty
@@ -240,26 +255,27 @@ class _SchedulerOverviewViewState extends ConsumerState<SchedulerOverviewView> {
 /// width. 「成功是背景音」: the absence of the tile IS the good news. It appears and disappears only on a
 /// durable refetch, never on a tick — 活性军规 permits exactly that.
 ///
-/// **Four of the five open the evidence they are about; 「24h 失败」 is inert, and that is a finding, not
-/// an omission.** Each click reveals the zone that holds THIS tile's own facts — running/waiting reveal
-/// the rows they are the length of, missed and next-fire reveal the track whose ✕ and rings they name.
-/// The failed tile has no such zone and provably cannot be given one from this ocean's endpoints; the
-/// reason is on the tile itself below. 宪法 says a KPI must open the list it counts, and a link to a
-/// nearby-but-different list is worse than none — so it keeps none.
+/// **Every tile opens the evidence it is about.** Each click reveals the zone that holds THIS tile's
+/// own facts — running/waiting/failed reveal the rows they are the length of, missed and next-fire
+/// reveal the track whose ✕ and rings they name. The 「24h 失败」 tile was the last inert one; 工单⑮
+/// gave `GET /flowruns` a `completedAfter` window, so it now opens the per-run failed list on the
+/// byte-identical predicate `failedSince` counts with — 宪法 says a KPI must open the list it counts,
+/// and now it can. (It is inert only at zero, like running/waiting: no rows, no zone to reveal.)
 ///
 /// KPI 牌:四张等宽 + 第五张「错过 N」**有话说时才出现**(判决⑥)。**为何「错过 0」不成牌**:禁虚荣数字 军规——
 /// 每个 KPI 须过决策测试(这个数会改变我做什么吗?);醒着的机器什么都不会错过,故「错过 0」是常态,一张天天读 0
 /// 的牌是装饰,还要占掉另外四张五分之一的宽。成功是背景音:**牌不在,本身就是好消息**。它只随 durable 重取增删、
-/// 绝不随 tick——活性军规恰好允许这一条。**五张里四张打开自己所谈论的那份证据;「24h 失败」惰性,而那是一个结论、
-/// 不是一处遗漏**:每次点击揭示的都是**这张牌自己**的事实所在的区——在跑/等你揭示它们所是其长度的那些行,错过与
-/// 下次调度揭示它们所念的 ✕ 与空心环。失败牌没有这样一个区,且**可证**地无法用本海洋的端点造出一个来——理由就写在
-/// 下面那张牌上。宪法说 KPI 必须点开它数的那个列表,而链到一个相近但不同的列表比没有链更糟,故它一个也不要。
+/// 绝不随 tick——活性军规恰好允许这一条。**每张牌都打开自己所谈论的那份证据**:在跑/等你/失败揭示它们所是其长度的
+/// 那些行,错过与下次调度揭示它们所念的 ✕ 与空心环。「24h 失败」曾是最后一张惰性牌;工单⑮ 给 `GET /flowruns`
+/// 加了 `completedAfter` 窗,故它现在点开走 failedSince **逐字节相同**谓词的按 run 失败列表——宪法说 KPI 必须
+/// 点开它数的那个列表,现在它做得到。(仅零时惰性,同 running/waiting:无行则无区可揭。)
 class _KpiStrip extends StatelessWidget {
   const _KpiStrip({
     required this.kpi,
     required this.now,
     required this.onRunning,
     required this.onWaiting,
+    required this.onFailed24h,
     required this.onNextFire,
     required this.onMissed,
   });
@@ -271,6 +287,9 @@ class _KpiStrip extends StatelessWidget {
   /// empty zone. 揭示每张牌所是其**长度**的那些行;无行时为 null,故牌绝不打开一个空区。
   final VoidCallback? onRunning;
   final VoidCallback? onWaiting;
+
+  /// Reveal the per-run failed list the 「24h 失败」 tile counts (工单⑮) — null at zero. 揭示失败牌数的按 run 列表。
+  final VoidCallback? onFailed24h;
 
   /// Reveal the track — null unless the named tick is really drawn on it ([nextFireOnTrack]).
   /// 揭示轨道;除非所念刻度真画在其上,否则 null。
@@ -299,29 +318,31 @@ class _KpiStrip extends StatelessWidget {
         onTap: onWaiting,
         a11y: t.kpiWaitingA11y(n: '${kpi.waiting}'),
       ),
-      // **The one tile with no click, and it is not waiting on a surface to be built — no surface can
-      // express its predicate.** It counts runs that REACHED failed inside the window: the backend
-      // windows `failedSince` on `completed_at`. Every run list this ocean can ask for windows on
-      // `started_at` (`GET /flowruns?startedAfter=`, api.md 工单⑥ — there is no `completedAfter`), so a
-      // list built from them would drop the 30h-old run that failed an hour ago and include the run that
-      // started inside the window and is still going. Not «close enough»: those are exactly the runs a
-      // 24h failure tile exists to surface.
+      // 24h 失败 — the per-run failed list it opens exists as of 工单⑮ (see the class doc + the
+      // SchedulerKpi.failed24h field for why `completedAfter` is the predicate that makes the tile and
+      // its list one fact). Clickable exactly when there are rows (onFailed24h null at zero).
       //
-      // «Failures · 7d» below is the nearby-but-different list the 宪法 names: it aggregates WORKFLOWS by
-      // consecutive-failure streak, not runs by window — a workflow that failed 4× overnight and then
-      // succeeded contributes 4 here and is absent there (self-healed, streak 0). Two units, two windows,
-      // two questions. Wiring them together would make the tile say 4 and open an empty zone.
-      //
-      // **唯一没有点击的那张,且它不是在等一个面被建出来——没有任何面表达得了它的谓词**:它数的是窗口内**落定**
-      // 为 failed 的 run(后端 failedSince 按 `completed_at` 开窗),而本海洋问得到的每一份 run 列表都按
-      // `started_at` 开窗(`GET /flowruns?startedAfter=`,api.md 工单⑥——根本没有 completedAfter);故照它们建出的
-      // 列表会**漏掉**30 小时前起跑、一小时前失败的那个,又会**混进**窗口内起跑却还在跑的那个。这不是「差不多」:
-      // 那恰恰就是一张 24h 失败牌存在的意义所在的那些 run。下面的「失败聚合 7d」正是宪法点名的那个**相近但不同**的
-      // 列表:它按**连败**聚合 **workflow**、不按窗口聚合 run——一个整夜失败 4 次然后跑通了的 workflow,在这里贡献 4、
-      // 在那里缺席(已自愈,连败 0)。两种单位、两个窗口、两个问题。把它们接起来,就会让牌写着 4、点开一个空区。
+      // The a11y must carry the delta itself when clickable: `_tile` wraps a tappable body in
+      // ExcludeSemantics (so `button`+`enabled` own the one node), which would swallow the delta's own
+      // Semantics below — and the delta can be non-zero at count 0 (0 today, 3 yesterday → ▼3
+      // improving, an inert tile that still has something to announce). So the sentence appends the
+      // delta phrase; when inert the nested Semantics below carries it instead.
+      // 24h 失败——它点开的按 run 失败列表自工单⑮ 起存在(为何 completedAfter 让牌与列表成一个事实,见类注释与
+      // SchedulerKpi.failed24h 字段)。恰在有行时可点(零时 onFailed24h 为 null)。可点时 a11y 须自带 delta:
+      // _tile 把可点 body 裹进 ExcludeSemantics(使 button+enabled 独占一个节点),会吞掉下面 delta 自己的
+      // Semantics——而 delta 在计数为 0 时仍可非零(今天 0、昨天 3 → ▼3 改善,惰性牌仍有话说)。故句子附上 delta 短语;
+      // 惰性时改由下面那个嵌套 Semantics 承载。
       _tile(
         context,
         label: t.kpiFailed24h,
+        onTap: onFailed24h,
+        a11y: onFailed24h == null
+            ? null
+            : [
+                t.kpiFailed24hA11y(n: '${kpi.failed24h}'),
+                if (kpi.failedDelta > 0) t.deltaUpA11y(n: '${kpi.failedDelta}'),
+                if (kpi.failedDelta < 0) t.deltaDownA11y(n: '${-kpi.failedDelta}'),
+              ].join(' '),
         value: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [

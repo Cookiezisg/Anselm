@@ -57,6 +57,24 @@ class SchedulerKpi {
   /// 在这里是 2 行)——一个看起来很像、答的却是另一个问题的第二源。
   final int waiting;
 
+  /// How many runs FAILED in the last 24h — **`SchedulerOverviewData.failedRuns.length`** (工单⑮).
+  ///
+  /// This tile could not be clicked until 工单⑮ gave `GET /flowruns` a `completedAfter` window: the
+  /// number counts runs that REACHED failed inside the window (`failedSince` windows on completed_at),
+  /// and before ⑮ every run list this ocean could ask for windowed on `started_at`, so a list built
+  /// from those would drop the run that started 30h ago and failed an hour ago and include the one that
+  /// started inside the window and is still running — not the runs the tile counts. Now the tile opens
+  /// the drained `listFailedSince(kpiSince)` list, on the byte-identical predicate `failedSince` counts
+  /// with, so — same as [running]/[waiting] — the number IS that list's length, not a second count.
+  /// **NOT** the 7d 「失败聚合」 zone: that aggregates WORKFLOWS by streak, a different window and unit;
+  /// linking there would make the tile say 4 and open a zone that self-healed to empty.
+  ///
+  /// 近 24h **失败**的 run 数——**就是 `failedRuns.length`**(工单⑮)。工单⑮ 给 `GET /flowruns` 加
+  /// `completedAfter` 窗之前这张牌点不开:数字数的是窗内**落定**为 failed 的 run(failedSince 按 completed_at
+  /// 开窗),而 ⑮ 前本海洋能问到的每份 run 列表都按 started_at 开窗——会漏掉 30h 前起跑一小时前失败的、又混进
+  /// 窗内起跑还在跑的。现在牌点开 `listFailedSince(kpiSince)` 拉全的列表、走 failedSince 所数的**逐字节相同**
+  /// 谓词,故同 running/waiting——数字**就是**那份列表的长度、非第二次计数。**不是** 7d「失败聚合」区:那按
+  /// 连败聚合 **workflow**、窗与单位都不同,链去那里会让牌写 4、点开一个已自愈成空的区。
   final int failed24h;
   final int failedDelta;
 
@@ -88,6 +106,21 @@ class SchedulerKpi {
 /// One live run row in the «正在跑» zone. 正在跑区一行。
 class RunningRunRow {
   const RunningRunRow({required this.workflowId, required this.workflowName, required this.run});
+
+  final String workflowId;
+  final String workflowName;
+  final Flowrun run;
+}
+
+/// One failed run in the 「24h 失败」 zone — the per-RUN list the KPI tile opens (工单⑮), NOT to be
+/// confused with the 7d per-WORKFLOW aggregation ([FailingWorkflowRow]): different window (24h vs 7d),
+/// different unit (run vs workflow). A run whose host is soft-deleted falls back to the bare id and
+/// stays (same as the running zone — it failed, the tile counts it, so the zone shows it).
+/// 「24h 失败」区的一行=牌点开的那份**按 run** 的列表(工单⑮),与 7d **按 workflow** 的聚合
+/// ([FailingWorkflowRow]) 不是一回事:窗不同(24h vs 7d)、单位不同(run vs workflow)。宿主软删的 run
+/// 回落裸 id 且留下(同正在跑区——它失败了、牌数着它,故区显示它)。
+class FailedRunRow {
+  const FailedRunRow({required this.workflowId, required this.workflowName, required this.run});
 
   final String workflowId;
   final String workflowName;
@@ -185,6 +218,7 @@ class SchedulerOverviewData {
     required this.kpi,
     this.waiting = const [],
     this.runningRuns = const [],
+    this.failedRuns = const [],
     this.track = const ScheduleTrackData(),
     this.failures = const [],
   });
@@ -193,6 +227,11 @@ class SchedulerOverviewData {
   final SchedulerKpi kpi;
   final List<SchedulerInboxRow> waiting;
   final List<RunningRunRow> runningRuns;
+
+  /// The 「24h 失败」 zone's rows — the per-run list the KPI tile opens (工单⑮). Its length equals
+  /// [kpi].failed24h by construction (same predicate/instant as `failedSince`, drained).
+  /// 「24h 失败」区的行——牌点开的按 run 列表(工单⑮);长度按构造等于 kpi.failed24h。
+  final List<FailedRunRow> failedRuns;
   final ScheduleTrackData track;
   final List<FailingWorkflowRow> failures;
 }
@@ -450,6 +489,13 @@ class SchedulerOverviewController extends AsyncNotifier<SchedulerOverviewData> {
       // 「正在跑」区**与**它那张牌,出自**一次**工作区级提问(见 listRunningRuns)——绝不逐 workflow 循环:那看不见
       // 孤儿的 run,于是递给牌一份比它所数的事实更短的列表。
       repo.listRunningRuns(),
+      // The 「24h 失败」 zone AND its KPI tile deep-link, from ONE workspace-wide question on the SAME
+      // `kpiSince` the stats call above counted `failedSince` from (see listFailedSince). Its length
+      // equals stats24.totals.failedSince by construction — same predicate, same instant, drained —
+      // which is the only thing that lets the tile open «the list it counts» without 「牌上写 3、点开
+      // 列表显示 4」. 「24h 失败」区**与**它那张牌的深链,出自**一次**工作区级提问、用的是上面 stats 数
+      // failedSince 所用的**同一个** kpiSince——其长度按构造等于 failedSince(同谓词、同时刻、拉全)。
+      repo.listFailedSince(kpiSince),
       for (final s in failing)
         repo.listFlowruns(workflowId: s.workflowId, status: 'failed', limit: 1),
     ]);
@@ -458,13 +504,14 @@ class SchedulerOverviewController extends AsyncNotifier<SchedulerOverviewData> {
     // best, the WRONG workflow's runs at worst).
     // 批次的定长头部,**具名**:下面那条探针列表按它取偏移;裸 6 抄在两处,只要插一个调用就会静默把 stats
     // 读成 page(轻则崩,重则读成**别的 workflow** 的 run)。
-    const fixed = 6;
+    const fixed = 7;
     final stats24 = results[0] as SchedulerStats;
     final stats48 = results[1] as SchedulerStats;
     final schedule = results[2] as TriggerSchedule;
     final firedPage = results[3] as Page<Firing>;
     final missedPage = results[4] as Page<Firing>;
     final liveRuns = results[5] as List<Flowrun>;
+    final failedRuns0 = results[6] as List<Flowrun>;
     // Merge the two pages into the ONE past-half set: the missed-only page is authoritative for ✕, so
     // the general page contributes everything EXCEPT missed and the two can never double-mark a tick.
     // 两页并成**一份**过去半:missed 单取那页对 ✕ 是权威,故通用页只贡献 **非** missed 的行,两者绝不把同一刻度
@@ -496,6 +543,24 @@ class SchedulerOverviewController extends AsyncNotifier<SchedulerOverviewData> {
       return sb.compareTo(sa);
     });
 
+    // Failed-in-24h rows: name each run, newest-LANDED first (completed_at — the window's axis, and
+    // the field the tile counts on; a null completed_at cannot appear here because the query filters
+    // it out). 24h 失败行:逐 run 取名,按**落定**时刻新→旧(completed_at 即窗轴、也是牌所数的列;查询已
+    // 剔除 completed_at 为 NULL 的行故这里不可能出现)。
+    final failedRuns = [
+      for (final run in failedRuns0)
+        FailedRunRow(
+          workflowId: run.workflowId,
+          workflowName: names[run.workflowId] ?? run.workflowId,
+          run: run,
+        ),
+    ];
+    failedRuns.sort((a, b) {
+      final ca = a.run.completedAt, cb = b.run.completedAt;
+      if (ca == null || cb == null) return ca == cb ? 0 : (ca == null ? 1 : -1);
+      return cb.compareTo(ca);
+    });
+
     // Failure aggregation: streak badge from stats, error first-line + deep link from the probe.
     // 失败聚合:连败徽来自 stats,错误首句+直通车来自探针。
     final failures = <FailingWorkflowRow>[];
@@ -514,16 +579,23 @@ class SchedulerOverviewController extends AsyncNotifier<SchedulerOverviewData> {
     return SchedulerOverviewData(
       firstUse: false,
       kpi: SchedulerKpi(
-        // Both tiles are `list.length` of the very list their click opens — see the fields' docs for
-        // why the two authoritative-looking backend counts (`totals.running` / `totals.parkedNodes`)
-        // are the wrong source here. 两张牌都是它们点击所打开的**那份列表**的 length——为何那两个看着更权威的
-        // 后端计数在此是错的源,见字段注释。
+        // THREE tiles are now `list.length` of the very list their click opens — see the fields' docs
+        // for why the authoritative-looking backend counts (`totals.running` / `totals.parkedNodes` /
+        // `totals.failedSince`) are the wrong SOURCE for the displayed number: each is a second count at
+        // a second instant, and 口径同源 means the tile IS the list, not a number that usually matches it.
+        // 三张牌现在都是它们点击所打开的**那份列表**的 length——为何那些看着更权威的后端计数(running/
+        // parkedNodes/failedSince)在此是错的**源**:每个都是「第二个瞬间的第二次计数」,而口径同源意味着牌
+        // **就是**列表、不是一个通常吻合的数。
         running: runningRuns.length,
         waiting: rail.inbox.length,
-        // NOT a list length, and it has no list: `failedSince` windows on **completed_at**, a predicate
-        // no surface in this ocean can express (see the tile in _KpiStrip). 不是列表长度,且它没有列表:
-        // failedSince 按 **completed_at** 开窗,而本海洋没有任何面表达得了那个谓词(见 _KpiStrip 的该牌注释)。
-        failed24h: stats24.totals.failedSince,
+        // The list `listFailedSince(kpiSince)` opens IS the tile now (工单⑮). Drained + same predicate +
+        // same instant as `failedSince` ⇒ its length equals the backend count (TestListRuns_CompletedWindow
+        // proves it), so taking `.length` cannot 「牌上写 3、点开列表显示 4」 even if a run fails between the
+        // stats read and this one. failed24h = 它点开的列表的 length(工单⑮)。
+        failed24h: failedRuns.length,
+        // The delta is a secondary annotation and needs BOTH windows, so it stays stats-based (a list
+        // for the prior 24h is not fetched); at the boundary failed24 == failedRuns.length. delta 是次要
+        // 标注、需两个窗,故仍走 stats;边界处 failed24 == failedRuns.length。
         failedDelta: kpiFailedDelta(
             failed24: stats24.totals.failedSince, failed48: stats48.totals.failedSince),
         // The backend's count, on the same `since` the ✕ below were fetched with. 后端数的,窗同下面的 ✕。
@@ -532,6 +604,7 @@ class SchedulerOverviewController extends AsyncNotifier<SchedulerOverviewData> {
       ),
       waiting: rail.inbox,
       runningRuns: runningRuns,
+      failedRuns: failedRuns,
       track: ScheduleTrackData(
         lanes: scheduleLanes(
           triggers: rail.triggers,

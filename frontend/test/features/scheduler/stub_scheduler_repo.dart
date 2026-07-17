@@ -44,6 +44,7 @@ class StubSchedulerRepo implements SchedulerRepository {
     this.failSchedule = false,
     this.failFirings = false,
     this.failRunningRuns = false,
+    this.failFailedRuns = false,
     this.failMatrix = false,
     this.failRetention = false,
   }) : matrixByWorkflow = matrixByWorkflow ?? {};
@@ -117,6 +118,7 @@ class StubSchedulerRepo implements SchedulerRepository {
   /// 「正在跑」区**与**它那张牌同读这**一次**调用,故它失败必须以看板诚实的错误态到达用户,绝不能变成「静默清空的区
   /// 上顶着一张读 0 的牌」——一张因为取数死了而读 0 的 KPI,是这块看板能撒的最危险的谎。
   final bool failRunningRuns;
+  final bool failFailedRuns;
   bool failMatrix;
   final bool failRetention;
 
@@ -329,6 +331,8 @@ class StubSchedulerRepo implements SchedulerRepository {
       String? triggerId,
       DateTime? startedAfter,
       DateTime? startedBefore,
+      DateTime? completedAfter,
+      DateTime? completedBefore,
       String? cursor,
       int? limit}) async {
     listFilters.add((
@@ -347,7 +351,13 @@ class StubSchedulerRepo implements SchedulerRepository {
             (startedAfter == null ||
                 (r.startedAt != null && !r.startedAt!.isBefore(startedAfter))) &&
             (startedBefore == null ||
-                (r.startedAt != null && r.startedAt!.isBefore(startedBefore))))
+                (r.startedAt != null && r.startedAt!.isBefore(startedBefore))) &&
+            // completed_at window (工单⑮): drops the unlanded (null completed_at), like NULL >= ?.
+            // completed_at 窗:剔除未落定(completed_at null),同 NULL >= ?。
+            (completedAfter == null ||
+                (r.completedAt != null && !r.completedAt!.isBefore(completedAfter))) &&
+            (completedBefore == null ||
+                (r.completedAt != null && r.completedAt!.isBefore(completedBefore))))
           r,
     ];
     // Offset cursor (the wire cursor is opaque anyway) — lets a battery walk real keyset paging.
@@ -372,6 +382,28 @@ class StubSchedulerRepo implements SchedulerRepository {
   Future<List<Flowrun>> listRunningRuns() async {
     if (failRunningRuns) throw StateError('running read failed');
     return [for (final r in runs.map(_live)) if (r.status == 'running') r];
+  }
+
+  /// The failed instants each [listFailedSince] call carried — a battery asserts the tile's list was
+  /// fetched on the SAME instant its `failedSince` counted from (工单⑮ same-predicate). Records the raw
+  /// DateTime so a test can compare it byte-for-byte against the stats `since`.
+  /// 每次 listFailedSince 带的 completedAfter 时刻——电池据此断言牌的列表与它 failedSince 所数**同一个**时刻取。
+  final List<DateTime> failedSinces = [];
+
+  /// Workspace-wide, drained failed-in-window runs — like [listRunningRuns], derived from the SAME seed
+  /// the zone renders (never a knob apart from the rows, so the tile's number and the list it opens
+  /// cannot be scripted to disagree). Drops the unlanded (null completed_at), as `NULL >= ?` does.
+  /// 工作区级、拉全的窗内失败 run——同 listRunningRuns,派生自区所渲染的**同一份**种子(绝不与行分开设旋钮,
+  /// 故牌的数与它点开的列表编不成分歧);剔除未落定(completed_at null),同 NULL >= ?。
+  @override
+  Future<List<Flowrun>> listFailedSince(DateTime completedAfter) async {
+    failedSinces.add(completedAfter);
+    if (failFailedRuns) throw StateError('failed read failed');
+    return [
+      for (final r in runs.map(_live))
+        if (r.status == 'failed' && r.completedAt != null && !r.completedAt!.isBefore(completedAfter))
+          r,
+    ]..sort((a, b) => b.completedAt!.compareTo(a.completedAt!));
   }
 
   @override

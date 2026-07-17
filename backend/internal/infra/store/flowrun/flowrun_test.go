@@ -648,3 +648,102 @@ func TestListRuns_Filters(t *testing.T) {
 		t.Fatalf("origin=gremlin must reject with ErrInvalidListFilter, got %v", err)
 	}
 }
+
+// pinCompleted forces completed_at to an exact instant (MarkRunTerminal stamps now()). Mirrors
+// mkRunAt's raw pin of started_at. pinCompleted 把 completed_at 钉到精确时刻（MarkRunTerminal 盖 now()）。
+func pinCompleted(t *testing.T, s *Store, ctx context.Context, id string, at time.Time) {
+	t.Helper()
+	if _, err := s.db.Exec(ctx, `UPDATE flowruns SET completed_at = ? WHERE id = ?`, at, id); err != nil {
+		t.Fatalf("pin completed_at %s: %v", id, err)
+	}
+}
+
+// TestListRuns_CompletedWindow — 工单⑮: the completed_at window is the Overview's 「24h 失败」 card
+// made clickable. Three things it must do, and one it must NOT: (1) half-open [after, before) on
+// completed_at, independent of the started_at window; (2) exclude the unlanded — a running / parked
+// run has completed_at = NULL and belongs to NO completed window; (3) compose with status; and
+// crucially (4) count the SAME set failedSince counts, because the card's number and the list it
+// opens are one fact — 「牌上写 3、点开列表显示 4」 is the bug this whole ocean is legislated against.
+//
+// TestListRuns_CompletedWindow — 工单⑮：completed_at 窗 = Overview「24h 失败」牌变得可点。它必须做三件、
+// 且必须**不**做一件：(1) completed_at 上半开窗 [after, before)、与 started_at 窗独立；(2) 剔除未落定的——
+// 在跑/parked 的 run completed_at 为 NULL、不属于任何 completed 窗；(3) 与 status 组合；关键 (4) 数**与
+// failedSince 相同**的集合，因为牌的数与它点开的列表是**同一个事实**——「牌上写 3、点开列表显示 4」正是本
+// 海洋立法所禁的 bug。
+func TestListRuns_CompletedWindow(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+
+	// Five failed runs, landing at distinct instants; one run still running (no completed_at).
+	// started_at is set well BEFORE completed_at so a started_at window could never stand in for a
+	// completed_at one. 五个失败 run、落定时刻各异；一个仍在跑（无 completed_at）。started_at 远早于
+	// completed_at，故 started_at 窗永远替代不了 completed_at 窗。
+	c1 := time.Date(2026, 7, 10, 8, 0, 0, 0, time.UTC)
+	c2 := time.Date(2026, 7, 11, 8, 0, 0, 0, time.UTC)
+	c3 := time.Date(2026, 7, 12, 8, 0, 0, 0, time.UTC)
+	c4 := time.Date(2026, 7, 13, 8, 0, 0, 0, time.UTC)
+	c5 := time.Date(2026, 7, 14, 8, 0, 0, 0, time.UTC)
+	longAgo := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	for _, r := range []struct {
+		id string
+		at time.Time
+	}{{"fr_1", c1}, {"fr_2", c2}, {"fr_3", c3}, {"fr_4", c4}, {"fr_5", c5}} {
+		mkRunAt(t, s, ctx, r.id, "wf_1", "trg_1", flowrundomain.OriginCron, longAgo)
+		if won, err := s.MarkRunTerminal(ctx, r.id, flowrundomain.StatusFailed, "boom"); err != nil || !won {
+			t.Fatalf("terminal %s: won=%v err=%v", r.id, won, err)
+		}
+		pinCompleted(t, s, ctx, r.id, r.at)
+	}
+	// A still-running run: no completed_at. It must vanish under ANY completed window. 在跑 run：无
+	// completed_at，任一 completed 窗下都必须消失。
+	mkRunAt(t, s, ctx, "fr_run", "wf_1", "trg_1", flowrundomain.OriginCron, c3)
+
+	eq := func(what string, got, want []string) {
+		t.Helper()
+		if len(got) != len(want) {
+			t.Fatalf("%s: got %v, want %v", what, got, want)
+		}
+		for i := range want {
+			if got[i] != want[i] {
+				t.Fatalf("%s: got %v, want %v", what, got, want)
+			}
+		}
+	}
+
+	// Half-open [c2, c4): c2 inclusive, c4 exclusive — newest-first. 半开 [c2,c4)：c2 含、c4 不含。
+	eq("completed [c2,c4)", listIDs(t, s, ctx, flowrundomain.ListFilter{CompletedAfter: c2, CompletedBefore: c4}), []string{"fr_3", "fr_2"})
+	eq("completedAfter c3", listIDs(t, s, ctx, flowrundomain.ListFilter{CompletedAfter: c3}), []string{"fr_5", "fr_4", "fr_3"})
+	eq("completedBefore c2", listIDs(t, s, ctx, flowrundomain.ListFilter{CompletedBefore: c2}), []string{"fr_1"})
+
+	// The unlanded run never appears — under a wide-open completedAfter it is still excluded, because
+	// NULL >= ? is never true. This is the surprising-but-correct behavior a future reader must not
+	// "fix". 未落定 run 永不出现——即便极宽的 completedAfter 也剔除它，因 NULL >= ? 永不为真。
+	eq("wide completedAfter excludes the running run",
+		listIDs(t, s, ctx, flowrundomain.ListFilter{CompletedAfter: longAgo}),
+		[]string{"fr_5", "fr_4", "fr_3", "fr_2", "fr_1"})
+	eq("status=running + completedAfter is empty (running has no completed_at)",
+		listIDs(t, s, ctx, flowrundomain.ListFilter{Status: flowrundomain.StatusRunning, CompletedAfter: longAgo}),
+		[]string{})
+
+	// Compose with status: only failed runs that ALSO landed in the window. 与 status 组合。
+	eq("status=failed + completed [c2,c4)",
+		listIDs(t, s, ctx, flowrundomain.ListFilter{Status: flowrundomain.StatusFailed, CompletedAfter: c2, CompletedBefore: c4}),
+		[]string{"fr_3", "fr_2"})
+
+	// (4) THE point: the list the card opens counts the same runs failedSince counts. Same predicate,
+	// same instant → the number on the card equals the length of the list, at every boundary.
+	// (4) 要害：牌点开的列表数着 failedSince 数的那些 run。同谓词、同时刻 → 牌上的数 == 列表的长度。
+	for _, since := range []time.Time{c1, c2, c3, c4, c5, c3.Add(-time.Nanosecond), c3.Add(time.Nanosecond)} {
+		stats, err := s.RunStats(ctx, flowrundomain.StatsQuery{Since: since})
+		if err != nil {
+			t.Fatalf("RunStats since=%s: %v", since, err)
+		}
+		list := listIDs(t, s, ctx, flowrundomain.ListFilter{Status: flowrundomain.StatusFailed, CompletedAfter: since})
+		if len(list) != stats.Totals.FailedSince {
+			t.Fatalf("SAME PREDICATE broken at since=%s: failedSince=%d but list has %d (%v) — "+
+				"「牌上写 %d、点开列表显示 %d」", since.Format(time.RFC3339Nano),
+				stats.Totals.FailedSince, len(list), list, stats.Totals.FailedSince, len(list))
+		}
+	}
+}

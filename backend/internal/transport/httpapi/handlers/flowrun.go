@@ -71,15 +71,27 @@ func (h *FlowrunHandler) List(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
+	completedAfter, err := parseListTime(query.Get("completedAfter"), "completedAfter", flowrundomain.ErrInvalidListFilter)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	completedBefore, err := parseListTime(query.Get("completedBefore"), "completedBefore", flowrundomain.ErrInvalidListFilter)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
 	runs, next, err := h.svc.ListRuns(r.Context(), flowrundomain.ListFilter{
-		WorkflowID:    query.Get("workflowId"),
-		Status:        query.Get("status"),
-		TriggerID:     query.Get("triggerId"),
-		Origin:        query.Get("origin"),
-		StartedAfter:  startedAfter,
-		StartedBefore: startedBefore,
-		Cursor:        p.Cursor,
-		Limit:         p.Limit,
+		WorkflowID:      query.Get("workflowId"),
+		Status:          query.Get("status"),
+		TriggerID:       query.Get("triggerId"),
+		Origin:          query.Get("origin"),
+		StartedAfter:    startedAfter,
+		StartedBefore:   startedBefore,
+		CompletedAfter:  completedAfter,
+		CompletedBefore: completedBefore,
+		Cursor:          p.Cursor,
+		Limit:           p.Limit,
 	})
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)

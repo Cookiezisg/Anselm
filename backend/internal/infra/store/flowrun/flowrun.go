@@ -125,6 +125,73 @@ var Schema = []string{
 	// 式的，故在此**记档而非顺手修**——见 stats.go 的头注释。
 	`CREATE INDEX IF NOT EXISTS idx_fr_ws_wf_status ON flowruns(workspace_id, workflow_id, status, started_at DESC, id DESC)`,
 
+	// idx_fr_ws_status_completed exists for ONE query: the Overview's 「24h 失败」 deep-link
+	// (?status=failed&completedAfter=, scheduler 工单⑮). Every other index here orders by started_at,
+	// so a completed_at window could not seek at all — and the shape is the cruel one again, for the
+	// same reason idx_fr_ws_wf_status was: it explodes when the workspace is HEALTHY. The page asks
+	// for 51 rows; a healthy workspace has ~4 failures in 24h; so SQLite walks EVERY row of the
+	// workspace down idx_fr_ws_created to prove there is no 5th. Rare failures cost more, not less.
+	//
+	// Measured (M1 Pro, 129,600 runs = cron@1m × the 90d default retention line + a second workspace,
+	// 4 failures in the window — the healthy case), whole query:
+	//
+	//	  regime                                              time      plan
+	//	  none                                                50.3ms    SEARCH idx_fr_ws_created (workspace_id=?)   ← walks the workspace
+	//	  (ws, completed_at DESC, id DESC)                    589µs     seek (workspace_id=? AND completed_at>?)
+	//	  (ws, status, completed_at DESC, id DESC)  ← this    33.6µs    seek (workspace_id=? AND status=? AND completed_at>?)
+	//
+	// 1,507× on the query that has a consumer, and 17.5× better than the status-less variant, whose
+	// extra work is filtering a whole 24h of runs down to the 4 failed ones. The shape mirrors
+	// idx_trf_ws_status — the firing side's card index (工单⑭) — because it is the same product
+	// question: one KPI card's deep-link, filtered by a status inside a window.
+	//
+	// NOT optional, and NOT a regression (the 工单⑭ lesson: adding ws_created without ws_trigger made
+	// a rare-trigger page SLOWER than the scan it replaced). Measured before/after across every
+	// existing flowrun read: ?workflowId 38.1→37.0µs, ?workflowId&status 21.2→22.2µs, bare workspace
+	// page 32.0→32.2µs, ?startedAfter 40.7→42.1µs — all unmoved, all keeping their own index.
+	// ?status=running (workspace-scoped) does re-plan onto this index, 19.5→21.5µs — noise, and it
+	// gains the workspace_id seek idx_fr_running lacks; ListRunningRuns (the CROSS-workspace boot
+	// path, no workspace_id predicate) keeps idx_fr_running, which is the only reason that partial
+	// index exists. The one real cost: a bare ?completedAfter with no status re-plans onto this index
+	// and goes 53µs→731µs, because a WIDE window makes the old ordered walk fill LIMIT 51 immediately.
+	// It has no consumer, it stays sub-millisecond, it is identical under the status-less variant (so
+	// it is inherent to indexing completed_at at all, not to this shape), and it INVERTS for narrow
+	// windows — exactly where the walk becomes the 50ms one above. Accepted, not hidden.
+	//
+	// A plain additive CREATE INDEX (no table rebuild, outcome-idempotent); the cost is one more index
+	// on flowruns writes, which are per-run-header, not per-node. Guard: flowrun_plan_test.go.
+	//
+	// idx_fr_ws_status_completed 只为**一条**查询存在：Overview「24h 失败」牌的深链
+	// （?status=failed&completedAfter=，scheduler 工单⑮）。这里其余索引全按 started_at 排，故 completed_at
+	// 窗根本 seek 不了——而且形状又是那个恶毒的：它**恰恰在 workspace 健康时**爆炸，与 idx_fr_ws_wf_status
+	// 同理。页要 51 行，健康 workspace 24h 内只有 ~4 次失败，于是 SQLite 沿 idx_fr_ws_created 走遍该
+	// workspace 的**每一行**，只为证明没有第 5 条。失败越少、越贵。
+	//
+	// 实测（M1 Pro，129,600 run = cron@1m × 90d 默认保留线 + 第二 workspace，窗内 4 次失败——健康档），整条查询：
+	//
+	//	  方案                                                时间      计划
+	//	  无                                                  50.3ms    SEARCH idx_fr_ws_created (workspace_id=?)   ← 走遍 workspace
+	//	  (ws, completed_at DESC, id DESC)                    589µs     seek (workspace_id=? AND completed_at>?)
+	//	  (ws, status, completed_at DESC, id DESC)  ← 本条    33.6µs    seek (workspace_id=? AND status=? AND completed_at>?)
+	//
+	// 对**有消费者**的那条查询快 1,507 倍，且比无 status 的变体快 17.5 倍——后者多做的功就是把整整 24h 的 run
+	// 过滤成那 4 条失败。形状**对齐 idx_trf_ws_status**（firing 侧的牌索引，工单⑭），因为这是同一个产品问题：
+	// 一张 KPI 牌的深链、按窗口内的某个 status 过滤。
+	//
+	// **并非可选、且不是回归**（工单⑭ 的教训：只加 ws_created 而无 ws_trigger，让稀有 trigger 的一页比它取代
+	// 的全表扫**更慢**）。逐条实测既有 flowrun 读的前后：?workflowId 38.1→37.0µs、?workflowId&status
+	// 21.2→22.2µs、裸 workspace 页 32.0→32.2µs、?startedAfter 40.7→42.1µs——**全不动**，各自守着自己的索引。
+	// ?status=running（workspace 级）确实改选本索引，19.5→21.5µs——噪声，且它拿到了 idx_fr_running 没有的
+	// workspace_id seek；ListRunningRuns（**跨** workspace 的 boot 恢复路径、无 workspace_id 谓词）仍走
+	// idx_fr_running，那正是那个偏索引存在的唯一理由。唯一真代价：不带 status 的裸 ?completedAfter 会改选
+	// 本索引、53µs→731µs——因为**宽**窗让旧的有序走查立刻填满 LIMIT 51。它没有消费者、仍在亚毫秒、且在无
+	// status 变体下**数值相同**（故这是「给 completed_at 加索引」本身的固有代价、非本形状的），并且在**窄**窗
+	// 上**反转**——窄窗正是走查变成上面那 50ms 的地方。**接受、不藏**。
+	//
+	// 纯增量 CREATE INDEX（不重建表、结果幂等）；代价是 flowruns 写入多维护一个索引，而 flowruns 是**逐 run 头**
+	// 写、非逐节点。守卫：flowrun_plan_test.go。
+	`CREATE INDEX IF NOT EXISTS idx_fr_ws_status_completed ON flowruns(workspace_id, status, completed_at DESC, id DESC)`,
+
 	// Column evolution — run provenance (scheduler 工单①). ADD COLUMN (not baked into the CREATE)
 	// so an existing install's flowruns table gains the columns on next boot; SQLite has no
 	// ADD COLUMN IF NOT EXISTS, so re-runs rely on db.Migrate treating "duplicate column name" on an
@@ -383,6 +450,26 @@ func (s *Store) ListRuns(ctx context.Context, filter flowrundomain.ListFilter) (
 	}
 	if !filter.StartedBefore.IsZero() {
 		q = q.Where("started_at < ?", filter.StartedBefore)
+	}
+	// Half-open window [CompletedAfter, CompletedBefore) on completed_at (scheduler 工单⑮) — the
+	// started_at window above VERBATIM, including the bare comparison. This predicate is the one
+	// RunStats' failedSince counts with (stats.go ①), character for character, which is what lets the
+	// Overview's 「24h 失败」 card open the list it counts: two spellings of one window is one spelling
+	// too many, and at a window's edge they disagree ("牌上写 3、点开列表显示 4").
+	//
+	// A run that has not landed has completed_at = NULL and `NULL >= ?` is never true, so either bound
+	// drops the still-running — deliberate, and pinned by TestListRuns_CompletedWindow.
+	//
+	// completed_at 上的半开窗 [CompletedAfter, CompletedBefore)（scheduler 工单⑮）——上面 started_at 窗的
+	// **逐字翻版**，含裸列比较。本谓词与 RunStats 的 failedSince（stats.go ①）**逐字符相同**，这正是
+	// Overview「24h 失败」牌得以点开它所数的那份列表的原因：一个窗两种写法，就多了一种写法——它们会在窗口
+	// 边缘打架（「牌上写 3、点开列表显示 4」）。未落定的 run 其 completed_at 为 NULL、而 `NULL >= ?` 永不为真，
+	// 故任一界都会剔除在跑的——**刻意如此**，由 TestListRuns_CompletedWindow 钉死。
+	if !filter.CompletedAfter.IsZero() {
+		q = q.Where("completed_at >= ?", filter.CompletedAfter)
+	}
+	if !filter.CompletedBefore.IsZero() {
+		q = q.Where("completed_at < ?", filter.CompletedBefore)
 	}
 	rows, next, err := q.Page(ctx, filter.Cursor, filter.Limit)
 	if err != nil {

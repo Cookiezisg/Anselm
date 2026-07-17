@@ -103,14 +103,20 @@ StubSchedulerRepo _fullRepo({Map<String, int> failed = const {'24h': 4, '48h': 6
             status: 'running',
             startedAt: _now.subtract(const Duration(seconds: 90)),
             updatedAt: _now),
-        Flowrun(
-            id: 'fr_dead1',
-            workflowId: 'wf_b',
-            status: 'failed',
-            error: 'HTTP 502 Bad Gateway: upstream did not respond\nretried 3 times',
-            startedAt: _now.subtract(const Duration(hours: 1)),
-            completedAt: _now.subtract(const Duration(hours: 1)),
-            updatedAt: _now),
+        // FOUR failed wf_b runs inside the 24h window — matching the streak of 4 and failedBySince[24h],
+        // so the 「24h 失败」 tile (= failedRuns.length, 工单⑮) reads 4 consistently with the delta, and
+        // its per-run zone shows the four rows. fr_dead1 is the newest (the 7d probe's latest-run link).
+        // 四个 wf_b 失败 run 落在 24h 窗内——与连败 4 及 failedBySince[24h] 一致,故「24h 失败」牌(=failedRuns.length)
+        // 读 4、与 delta 一致,且它的按 run 区显示这四行;fr_dead1 最新(7d 探针的最新 run 直通车)。
+        for (var i = 1; i <= 4; i++)
+          Flowrun(
+              id: 'fr_dead$i',
+              workflowId: 'wf_b',
+              status: 'failed',
+              error: 'HTTP 502 Bad Gateway: upstream did not respond\nretried 3 times',
+              startedAt: _now.subtract(Duration(hours: i)),
+              completedAt: _now.subtract(Duration(hours: i)),
+              updatedAt: _now),
       ],
     );
 
@@ -262,7 +268,9 @@ void main() {
       expect(d.firstUse, isFalse);
       expect(d.kpi.running, 1);
       expect(d.kpi.waiting, 2);
-      expect(d.kpi.failed24h, 4);
+      // The tile IS the length of its per-run failed list (工单⑮), not a second count. 牌就是列表长度。
+      expect(d.failedRuns, hasLength(4));
+      expect(d.kpi.failed24h, d.failedRuns.length);
       expect(d.kpi.failedDelta, 2);
       expect(d.kpi.nextFire, isNotNull);
 
@@ -308,6 +316,8 @@ void main() {
       // Zone heads (caption labels render uppercased). 区头(大写渲染)。
       expect(find.text(ov.runningHead(n: '1').toUpperCase()), findsOneWidget);
       expect(find.text(ov.scheduleHead.toUpperCase()), findsOneWidget);
+      expect(find.text(ov.failed24hHead(n: '4').toUpperCase()), findsOneWidget,
+          reason: '24h 失败区(工单⑮):牌点开的四行');
       expect(find.text(ov.failuresHead.toUpperCase()), findsOneWidget);
 
       // Running row: name + fr_ chip; elapsed rides the measure slot. 正在跑行。
@@ -328,7 +338,10 @@ void main() {
 
       // Failure row: streak chip + error FIRST line + through-train. 失败行。
       expect(find.text(ov.streak(n: '4')), findsOneWidget);
-      expect(find.text('HTTP 502 Bad Gateway: upstream did not respond'), findsOneWidget);
+      // The 502 error first-line renders in EACH 24h-failed run row (4) AND the 7d aggregation row (1)
+      // — one projection, five surfaces; the finding here is that both failure views show it honestly.
+      // 502 错误首句在每个 24h 失败 run 行(4)与 7d 聚合行(1)各现——一份投影五处;两种失败视图都诚实地显示它。
+      expect(find.text('HTTP 502 Bad Gateway: upstream did not respond'), findsNWidgets(5));
       expect(find.text(ov.latestRun), findsOneWidget);
 
       // No empty sentences on a full board. 满态无空句。
@@ -394,6 +407,27 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
       expect(router.routerDelegate.currentConfiguration.uri.toString(),
           '/scheduler/w/wf_a/runs/fr_live1');
+    });
+
+    testWidgets('a 24h-failed row deep-links into its run flagship (工单⑮)', (tester) async {
+      final router = GoRouter(initialLocation: '/', routes: [
+        GoRoute(path: '/', builder: (_, _) => const Scaffold(body: SchedulerOverviewView())),
+        GoRoute(
+            path: '/scheduler/w/:id/runs/:frId',
+            builder: (_, _) => const Scaffold(body: SizedBox())),
+      ]);
+      addTearDown(router.dispose);
+      await _pumpBoard(tester, _host(_fullRepo(), router: router));
+
+      // The newest failed wf_b run (fr_dead1) sits in the 24h-failed zone below the fold; scroll it in,
+      // then tapping it opens its detail. 最新的 wf_b 失败 run(fr_dead1)在折叠下的 24h 失败区里;滚进来再点。
+      await tester.ensureVisible(find.text('fr_dead1'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('fr_dead1'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(router.routerDelegate.currentConfiguration.uri.toString(),
+          '/scheduler/w/wf_b/runs/fr_dead1');
     });
 
     testWidgets('first-load failure: the error state with a retry', (tester) async {

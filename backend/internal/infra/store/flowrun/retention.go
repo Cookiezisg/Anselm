@@ -78,18 +78,23 @@ func (s *Store) PurgeTerminalRunsBefore(ctx context.Context, cutoff time.Time, b
 		// idiom (pluck the doomed ids, delete by that single source of truth) rather than a bare
 		// DELETE … WHERE <predicate>, which orm cannot bound anyway (Query.Delete ignores Limit, and
 		// stock SQLite has no DELETE … LIMIT) and which would give us no ids for the child deletes.
-		// julianday() on BOTH sides, the stats.go law: DATETIME is ISO-8601 TEXT and raw string
-		// comparison mis-orders second-precision legacy rows against nanosecond ones.
+		// The window is BARE (`completed_at < ?`), like every other completed_at/started_at window in
+		// this package: within the one canonical UTC text format all writers stamp, text order IS
+		// chronological order (TestTimeText_OrdersChronologically). julianday() here would only add
+		// millisecond rounding at the cutoff — harmless to a retention line measured in days, but
+		// inconsistent with the windows the Overview counts on, so bare keeps one rule.
 		// 在事务**内**收集这一批，再精确删这些 id——TrimOldestVersions 惯用形（先 pluck 将死 id、再按这个
 		// 单一真相源删），而非裸 DELETE … WHERE <谓词>：后者 orm 本就界不住（Query.Delete 忽略 Limit，
-		// 原版 SQLite 也无 DELETE … LIMIT），且不会给我们删子行要用的 id。julianday() **两侧都过**，
-		// stats.go 之法：DATETIME 是 ISO-8601 **文本**，裸字符串比较会把秒精度旧行与纳秒行错序。
+		// 原版 SQLite 也无 DELETE … LIMIT），且不会给我们删子行要用的 id。窗口是**裸的**（`completed_at < ?`），
+		// 与本包其余 completed_at/started_at 窗一致：在所有写者盖的那一种规范 UTC 文本格式内，文本序**就是**
+		// 时间序（TestTimeText_OrdersChronologically）。这里用 julianday() 只会在 cutoff 处加毫秒舍入——对以
+		// 天计的保留线无害，但与 Overview 所数的那些窗不一致，故裸比较保持一条规则。
 		rows, err := tx.Query(ctx, `
 			SELECT id FROM flowruns
 			WHERE workspace_id = ?
 				AND status IN ('completed','failed','cancelled')
 				AND completed_at IS NOT NULL
-				AND julianday(completed_at) < julianday(?)
+				AND completed_at < ?
 			ORDER BY completed_at ASC
 			LIMIT ?`, wsID, cutoff, batch)
 		if err != nil {

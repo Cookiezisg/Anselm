@@ -19,34 +19,42 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'stub_scheduler_repo.dart';
 
-// The other four KPI tiles (WRK-069 §3.1) — 「错过 N」 shipped its drill-down with 判决⑥; this is the
-// rest of the strip settling the same debt, and the ONE law they are all measured against:
+// The KPI tiles (WRK-069 §3.1) — 「错过 N」 shipped its drill-down with 判决⑥, 「24h 失败」 with 工单⑮;
+// this is the whole strip settling the same debt, and the ONE law they are all measured against:
 //
 //   **a tile opens the list it counts, or it opens nothing.**
 //
-// So every tile below carries a 口径同源 guard proving its number and the surface its click reveals are
-// the SAME predicate — and each guard is written so that re-pointing the tile at the plausible second
-// source (`totals.running` / `totals.parkedNodes` / an ungated next-fire) turns it RED. 「24h 失败」 has
-// no guard because it has no click: its predicate is provably inexpressible here, and the test that
-// says so is the one showing the nearby zone answering a different question.
+// So every clickable tile below carries a 口径同源 guard proving its number and the surface its click
+// reveals are the SAME predicate — and each guard is written so that re-pointing the tile at the
+// plausible second source (`totals.running` / `totals.parkedNodes` / a second-instant count / an
+// ungated next-fire) turns it RED. 「24h 失败」 was the last inert one until 工单⑮ gave `GET /flowruns` a
+// `completedAfter` window: now it opens the per-run failed list on the byte-identical predicate
+// `failedSince` counts with, and its guard is the SAME PREDICATE test below.
 //
-// 另外四张 KPI 牌:「错过 N」随判决⑥ 已还了它的钻取债,这里是其余几张还同一笔债,以及衡量它们的**唯一**一条法:
-// **牌要么点开它数的那个列表,要么什么都不点开**。故下面每张牌都带一条口径同源守卫,证明它的数字与它点击所揭示的
-// 面是**同一份谓词**——且每条守卫都写成:一旦把牌重新指向那个貌似合理的第二源(totals.running / totals.parkedNodes /
-// 无门的下次调度),它就**变红**。「24h 失败」没有守卫,因为它没有点击:它的谓词在此**可证**地表达不出来,而说明这一点的
-// 那个测试,正是展示「旁边那个区答的是另一个问题」的那一个。
+// KPI 牌:「错过 N」随判决⑥、「24h 失败」随工单⑮ 各还了它的钻取债,这里是整条牌带还同一笔债,以及衡量它们的**唯一**
+// 一条法:**牌要么点开它数的那个列表,要么什么都不点开**。故下面每张可点的牌都带一条口径同源守卫,证明它的数字与它
+// 点击所揭示的面是**同一份谓词**——且每条守卫都写成:一旦把牌重新指向那个貌似合理的第二源(totals.running /
+// totals.parkedNodes / 第二个瞬间的计数 / 无门的下次调度),它就**变红**。「24h 失败」曾是最后一张惰性牌,直到工单⑮
+// 给 `GET /flowruns` 加了 `completedAfter` 窗:现在它点开走 failedSince **逐字节相同**谓词的按 run 失败列表,其守卫
+// 就是下面那条 SAME PREDICATE 测试。
 
 final _now = DateTime.now();
 
 SchedulerWorkflowRow _wf(String id, String name) =>
     SchedulerWorkflowRow(id: id, name: name, lifecycleState: 'active', updatedAt: _now);
 
-Flowrun _run(String id, String wfId, {String status = 'running', Duration ago = const Duration(seconds: 90)}) =>
+Flowrun _run(String id, String wfId,
+        {String status = 'running',
+        Duration ago = const Duration(seconds: 90),
+        Duration? completedAgo}) =>
     Flowrun(
         id: id,
         workflowId: wfId,
         status: status,
         startedAt: _now.subtract(ago),
+        // A terminal run needs a completed_at for the completedAfter window (工单⑮); running leaves it
+        // null, and NULL >= ? drops it. 终态 run 需 completed_at 才落 completedAfter 窗;running 留 null。
+        completedAt: completedAgo != null ? _now.subtract(completedAgo) : null,
         updatedAt: _now);
 
 TriggerEntity _cron(String id, {DateTime? nextFireAt}) => TriggerEntity(
@@ -327,35 +335,70 @@ void main() {
     });
   });
 
-  // ─────────────────────── 24h 失败 → 没有去处(且这是个结论,不是遗漏) ───────────────────────
+  // ─────────────────────── 24h 失败 → 它的按 run 失败区(工单⑮) ───────────────────────
   group('24h 失败', () {
-    // The evidence that «Failures · 7d» is the nearby-but-different list the 宪法 names. It is not a
-    // matter of taste: the two answer different questions, in different units, over different windows,
-    // and here they disagree completely.
-    // 「失败聚合 7d」正是宪法点名的那个**相近但不同**的列表的证据。这不是口味问题:两者答的是不同的问题、
-    // 用不同的单位、跨不同的窗口——而在这里,它们完全不一致。
-    // Failed four times overnight, then SUCCEEDED. The streak self-healed to 0 → absent from the 7d
-    // roll-up, by design (自愈=证明跑通). The four failures are still inside the 24h window.
-    // 整夜失败四次,然后**跑通了**:连败自愈归 0 → 按设计不在 7d 榜上。而那四次失败仍在 24h 窗口里。
+    // The tile opens the PER-RUN failed list — NOT the 7d 「失败聚合」, which aggregates WORKFLOWS by
+    // streak. Here a workflow failed 4× inside 24h then SUCCEEDED: the four runs are in the 24h window
+    // (the tile counts 4, its zone shows 4 rows) while the streak self-healed to 0 (absent from the 7d
+    // roll-up). Two units, two windows — wiring the tile to the 7d zone would say 4 and open an empty
+    // one; wiring it to its own per-run zone says 4 and opens 4 rows. failedBySince still feeds the
+    // DELTA, but the tile's number now comes from the run list (口径同源, like running/waiting).
+    // 牌点开**按 run** 的失败列表——**不是** 7d「失败聚合」(那按连败聚合 workflow)。这里一个 workflow 在 24h
+    // 内失败 4 次然后**跑通了**:四个 run 在 24h 窗内(牌数 4、它的区显示 4 行),而连败自愈归 0(不在 7d 榜上)。
     StubSchedulerRepo repo() => StubSchedulerRepo(
           workflows: [_wf('wf_a', '数据清洗流水线')],
           byWorkflow: const [WorkflowRunStats(workflowId: 'wf_a', recent: ['completed'])],
-          failedBySince: const {'24h': 4, '48h': 4},
+          failedBySince: const {'24h': 4, '48h': 6},
+          runs: [
+            for (var i = 0; i < 4; i++)
+              _run('fr_f$i', 'wf_a',
+                  status: 'failed',
+                  ago: Duration(hours: i + 1),
+                  completedAgo: Duration(hours: i + 1)),
+          ],
         );
 
-    test('the tile says 4 while the 7d zone is legitimately EMPTY', () async {
+    test('the tile IS the length of its per-run list; the 7d zone is legitimately EMPTY', () async {
       final d = await _board(repo());
-      expect(d.kpi.failed24h, 4);
-      expect(d.failures, isEmpty, reason: '连败已自愈 → 7d 榜上没有它');
+      expect(d.failedRuns.length, 4, reason: '4 个失败 run 落在 24h completed_at 窗内');
+      expect(d.kpi.failed24h, d.failedRuns.length, reason: '牌就是它点开的列表的长度(口径同源)');
+      expect(d.failures, isEmpty, reason: '连败已自愈 → 7d 榜上没有它(两个不同的问题)');
     });
 
-    testWidgets('…so the tile grows NO click — linking it to the 7d zone would open an empty list',
+    testWidgets('the tile opens its per-run failed zone (工单⑮) — not the 7d aggregation',
         (tester) async {
       await _pumpBoard(tester, _host(repo()));
-      expect(find.text(ov.failuresEmpty), findsOneWidget);
-      expect(await _tapReveals(tester, ov.kpiFailed24h, SchedulerScheduleZone), isFalse);
-      expect(find.byType(AnWashHighlight), findsNothing,
-          reason: '这张牌一个点击都不长:把它接到 7d 榜上,就会让它写着 4、点开一个空区');
+      expect(find.text(ov.failuresEmpty), findsOneWidget, reason: '7d 聚合为空');
+      expect(await _tapReveals(tester, ov.kpiFailed24h, SchedulerFailedZone), isTrue,
+          reason: '牌点开的是它自己的按 run 失败区');
+    });
+
+    // The bug this whole ocean is legislated against, one assertion: the list the tile opens is fetched
+    // on the BYTE-IDENTICAL instant `failedSince` counted from. Send a relative word, or read a second
+    // now(), and 「牌上写 3、点开列表显示 4」. Re-pointing listFailedSince at a fresh DateTime.now() turns
+    // this RED. 牌点开的列表与它 failedSince 所数**同一个逐字节相同**的时刻取。
+    testWidgets('SAME PREDICATE: the failed list asks the byte-identical instant the tile counted from',
+        (tester) async {
+      final r = repo();
+      await _pumpBoard(tester, _host(r));
+      // The card's stats read is the ABSOLUTE 24h one (the rail also reads 168h, a relative word).
+      final abs24 = r.statsSinces
+          .where((s) => DateTime.tryParse(s) != null)
+          .where((s) => DateTime.now().difference(DateTime.parse(s)).inHours == 24)
+          .toList();
+      expect(abs24, hasLength(1), reason: '牌读一次 24h 绝对窗');
+      expect(r.failedSinces, hasLength(1), reason: '失败列表取一次');
+      expect(r.failedSinces.single.toUtc().toIso8601String(), abs24.single,
+          reason: '牌的 since 与失败列表的 completedAfter 必须**逐字节**相同——两个「差不多」的锚点就是「牌写 3、列表显示 4」');
+    });
+
+    test('zero failures → inert tile (no rows, no zone), same rule as running/waiting', () async {
+      final d = await _board(StubSchedulerRepo(
+        workflows: [_wf('wf_a', 'A')],
+        byWorkflow: const [WorkflowRunStats(workflowId: 'wf_a')],
+      ));
+      expect(d.kpi.failed24h, 0);
+      expect(d.failedRuns, isEmpty);
     });
   });
 
@@ -370,9 +413,18 @@ void main() {
           _host(StubSchedulerRepo(
             workflows: [_wf('wf_a', 'A')],
             byWorkflow: const [WorkflowRunStats(workflowId: 'wf_a')],
-            failedBySince: const {'24h': 4, '48h': 4},
+            // 48h = 2×24h ⇒ delta 0, so the failed tile's a11y is exactly its base sentence (no delta
+            // phrase appended) and bySemanticsLabel matches it. delta 0 使失败牌 a11y 恰为基句、可精确匹配。
+            failedBySince: const {'24h': 2, '48h': 4},
             inbox: [stubInboxRow('fr_p1', 'gate', now: _now)],
-            runs: [_run('fr_1', 'wf_a')],
+            runs: [
+              _run('fr_1', 'wf_a'),
+              for (var i = 0; i < 2; i++)
+                _run('fr_f$i', 'wf_a',
+                    status: 'failed',
+                    ago: Duration(hours: i + 1),
+                    completedAgo: Duration(hours: i + 1)),
+            ],
             triggers: [_cron('tr_1', nextFireAt: at)],
             edges: [_edge('wf_a', 'tr_1')],
             schedule: TriggerSchedule(points: [
@@ -383,10 +435,13 @@ void main() {
 
       // The sentence exists IFF the tile is a control — and it says what the click does, because a
       // desktop screen reader gets `label` and the action and almost nothing else (design-system §2).
+      // Every clickable tile is here, including 「24h 失败」 now that 工单⑮ gave it a list to open.
       // 句子在场 **当且仅当** 牌是控件——且它说清这一下会做什么:桌面读屏拿得到的几乎只有 label 与动作(§2)。
+      // 每张可点的牌都在,包括工单⑮ 让它有列表可开的「24h 失败」。
       for (final sentence in [
         ov.kpiRunningA11y(n: '1'),
         ov.kpiWaitingA11y(n: '1'),
+        ov.kpiFailed24hA11y(n: '2'),
         ov.kpiNextFireA11y(d: '3m'),
       ]) {
         final node = tester.getSemantics(find.bySemanticsLabel(sentence));
@@ -395,9 +450,23 @@ void main() {
         expect(data.hasAction(SemanticsAction.tap), isTrue,
             reason: '$sentence:动作是少数真到得了桌面读屏的东西之一——标 button 却不给它 = 按不动的按钮');
       }
+      handle.dispose();
+    });
 
-      // The inert tile stays furniture: no sentence, no button. 惰性的牌仍是家具:无句子、无按钮。
-      expect(find.bySemanticsLabel(RegExp(RegExp.escape(ov.kpiFailed24h) + r'.*Show')), findsNothing);
+    testWidgets('the 24h-failed tile at ZERO is furniture — no sentence, no button (like running/waiting)',
+        (tester) async {
+      final handle = tester.ensureSemantics();
+      await _pumpBoard(
+          tester,
+          _host(StubSchedulerRepo(
+            workflows: [_wf('wf_a', 'A')],
+            byWorkflow: const [WorkflowRunStats(workflowId: 'wf_a')],
+            // No failed runs seeded → the tile counts 0 and stays inert (nothing to reveal).
+            failedBySince: const {'24h': 0, '48h': 0},
+          )));
+      // Inert: no «Show them…» action sentence for the failed tile. 惰性:无「显示…」动作句。
+      expect(find.bySemanticsLabel(RegExp(RegExp.escape(ov.kpiFailed24h) + r'.*[Ss]how|失败.*显示')),
+          findsNothing);
       handle.dispose();
     });
   });

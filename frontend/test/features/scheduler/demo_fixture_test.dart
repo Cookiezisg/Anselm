@@ -77,14 +77,23 @@ void main() {
     expect(failed.hasMore, isTrue, reason: '连败 workflow 有多条失败,limit 截断诚实');
   });
 
-  test('failed totals are window-aware: 24h < 48h < 7d, and the KPI delta reads positive (+2)',
+  // failedSince is DERIVED from the failed run seeds through the same predicate the 「24h 失败」 zone
+  // lists with (工单⑮), so the tile (`failedRuns.length`), the delta's failed24, and this count are one
+  // number. The seeds tell «one night»: everything failed within the last ~30h, so the 48h window holds
+  // one more than the 24h window (fr_e5f6 landed 30h ago) and the 7d window holds nothing older still.
+  // failedSince 从失败 run 种子经与「24h 失败」区**同一份**谓词派生(工单⑮),故牌/delta/本计数是一个数。
+  // 种子讲「一夜」:一切在近 ~30h 内失败,故 48h 窗比 24h 窗多一个(fr_e5f6 落定于 30h 前)、7d 再无更老的。
+  test('failed totals are DERIVED and window-monotonic: 24h < 48h ≤ 7d, delta positive (worsening)',
       () async {
     final f24 = (await repo.stats(const [], since: '24h')).totals.failedSince;
     final f48 = (await repo.stats(const [], since: '48h')).totals.failedSince;
     final f7d = (await repo.stats(const [])).totals.failedSince;
-    expect(f24, lessThan(f48));
-    expect(f48, lessThan(f7d));
-    expect(f24 - (f48 - f24), 2, reason: '§3 示意「24h失败 4 ▲2」');
+    // The tile IS this list's length — same predicate, drained. 牌就是这份列表的长度。
+    final list24 = await repo.listFailedSince(DateTime.now().subtract(const Duration(hours: 24)));
+    expect(list24.length, f24, reason: '「牌上写 N、点开列表显示 N」:同谓词,构造相等');
+    expect(f24, lessThan(f48), reason: 'fr_e5f6 (30h 前) 落在 24-48h 带里');
+    expect(f48, lessThanOrEqualTo(f7d));
+    expect(f24 - (f48 - f24), greaterThan(0), reason: 'worsening: 坏的一夜就在最近 24h');
   });
 
   test('a listening cron trigger fires WITHIN the next 24h (the upcoming zone has a row)', () async {

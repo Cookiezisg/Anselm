@@ -10,11 +10,13 @@
 // The grid needs five scalar columns; raw SELECT takes only those. ① stays on the orm (20 header
 // rows, auto workspace isolation, pinned_refs is a small map).
 //
-// Row/cell ordering and the iteration aggregation are done in Go, not SQL: the ordering key is
-// COALESCE(started_at, ready_at, created_at) over columns of MIXED precision (⑫ ADD COLUMN rows vs
-// legacy), which SQLite would compare as TEXT and mis-order at the sub-second margins — the same
-// trap stats.go answers with julianday(). Parsed time.Time comparison in Go has no such margin, and
-// the batch is bounded (≤20 runs) so it costs nothing.
+// Row/cell ordering and the iteration aggregation are done in Go, not SQL: the multi-iteration
+// aggregation (worst disposition + iteration count per cell) is a grouping the batch is already
+// materialized for, so ordering its COALESCE(started_at, ready_at, created_at) key there is free
+// and keeps one code path. (This used to claim SQLite would "mis-order at the sub-second margins";
+// it would not — within the one canonical UTC text format all writers stamp, text order IS
+// chronological order, TestTimeText_OrdersChronologically. The batch is bounded (≤20 runs) so where
+// the sort runs is a wash either way.)
 //
 // matrix.go 实现 flowrundomain.Repository.RunMatrix——节点×run 状态格阵（scheduler 工单⑩），喂运营主页
 // 第三脸（S5 AnRunMatrix）。**两条**有界查询、绝不 N+1：① 该 workflow 近 RecentN 个 run，走既有
