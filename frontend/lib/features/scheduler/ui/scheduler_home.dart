@@ -701,8 +701,11 @@ class _RunTableZoneState extends ConsumerState<_RunTableZone> with BatchZone<_Ru
           for (final run in s.rows)
             AnExpandReveal(open: !leaving.contains(run.id), child: _row(context, s, run)),
           // The standard page-number pager (B4): 10/page + ‹/›/numbers/jump; a single page renders
-          // nothing (AnPager self-hides). USER-driven geometry (军规-legal). 标准翻页器;单页不渲。
-          if (s.total > SchedulerRunTableController.pageSize)
+          // nothing (AnPager self-hides). The «等人» filter is UNPAGED (running∩inbox shown whole,
+          // 复审 [1]/[5]): its total can exceed pageSize yet all rows are already on screen, so the
+          // pager would be inert — gate it out. 标准翻页器;等人过滤不分页(全展),故不渲翻页器免死钮。
+          if (s.filter != RunStatusFilter.waiting &&
+              s.total > SchedulerRunTableController.pageSize)
             Padding(
               padding: const EdgeInsets.only(top: AnGap.block),
               child: Align(

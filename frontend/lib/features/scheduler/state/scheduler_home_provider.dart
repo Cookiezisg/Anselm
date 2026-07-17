@@ -316,6 +316,13 @@ class SchedulerRunTableController extends AsyncNotifier<RunTableState> {
   /// The failed-count probe's page bound — beyond it the strip says «50+». 探针页界,越界渲 50+。
   static const probeCap = 50;
 
+  /// A monotonic request generation (WRK-070 复审 [2]): setPage/refetchTop are fire-and-forget on the
+  /// SAME notifier and the table stays interactive during the ~3-await _fetch, so a stale in-flight
+  /// page fetch could clobber a newer filter pick (last-write-wins). Each user-driven fetch stamps a
+  /// gen and only writes state if it is still the latest — same discipline as _reconcileRun's
+  /// state re-read. 请求代号:用户动作各盖代号,过时的在飞取数绝不回写(否则旧页覆盖新滤)。
+  int _gen = 0;
+
   @override
   Future<RunTableState> build() async {
     // The page-level range governs this table too — a range change rebuilds page 1 (主页重建拍板
@@ -517,9 +524,10 @@ class SchedulerRunTableController extends AsyncNotifier<RunTableState> {
       page: 1,
       rows: s.rows, // keep the last good rows on screen during the await (no empty flash) 重取不闪空
     );
+    final gen = ++_gen;
     state = AsyncData(base);
     final next = await AsyncValue.guard(() => _fetch(base));
-    if (!ref.mounted) return;
+    if (!ref.mounted || gen != _gen) return; // a newer pick superseded this one 更新的选择已接管
     // A failed refetch keeps the previous truth (first-load errors surface via build). 失败留旧真相。
     if (next.hasValue) state = next;
   }
@@ -531,9 +539,10 @@ class SchedulerRunTableController extends AsyncNotifier<RunTableState> {
     final s = state.value;
     if (s == null || page == s.page || page < 1) return;
     final base = s.copyWith(page: page);
+    final gen = ++_gen;
     state = AsyncData(base);
     final next = await AsyncValue.guard(() => _fetch(base));
-    if (!ref.mounted) return;
+    if (!ref.mounted || gen != _gen) return; // a newer pick superseded this one 更新的选择已接管
     if (next.hasValue) state = next;
   }
 }

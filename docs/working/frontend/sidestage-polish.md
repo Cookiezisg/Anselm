@@ -55,7 +55,7 @@ audience: [human, ai]
 - **几何锁**：`test/features/chat/ui/stage_alignment_test.dart`（5 测）——handler 代码窗左缘==body 左缘（function 同锁为参照）/ mcp 工具行文字==铭牌名文字同列 / subagent 尾行字形与文字首行同心 ±3px / 墓碑句==AnKv 键同起点。
 
 ### #2 Composer 三钮雷霆大 + 回车发送（0718-凌晨）
-- **定位**：@/📎/发送三钮全 `AnButtonSize.lg`（chat_composer.dart:444/446/459）——44px 级按钮配 15px 正文,比例失衡;壳被撑到 ~64 高。
+- **定位**：@/📎/发送三钮全 `AnButtonSize.lg`（chat_composer.dart:444/446/459）——lg=32 盒/20 形配 15px 正文偏重,比例失衡;壳被撑高。
 - **✅ 已落(0718)+ 拍板（三档同框样机比选）：28 档**——三钮全切 `AnButtonSize.md`(28 盒/16 形),发送=28 主色实心圆+16 箭头,壳单行态随之自然收矮;多行只长中间、两侧钮钉底行。样机 rig `test/dev/capture_composer_mock.dart` 用完即删。
 - **回车**：代码契约已是 Enter 发/Shift+Enter 换行/IME 合成期不发(默认档;可切 ⌘Enter)——开工真机验证,若实测不符按 bug 修。
 
@@ -124,6 +124,16 @@ audience: [human, ai]
 
 ### B13 审批卡重构 ✅ 已落(0718,+Reason 药丸按需长出/framed=AnCard 有边壳全消费面/Overview AnAutoGrid 双列卡/裸 fr_ 药丸随删)
 用户：Reason (optional) 常驻输入框「看着怪恶心」——改**小药丸「+ Reason」**,点击长出输入框(理由纯审计可选,不影响任何东西);审批卡**外面要一圈边框**(不裸);**Overview=双列卡片**,run 子页=单列占满。子页的 ApprovalGate 同款 +Reason 行为。
+
+## 复审整改（0718 收官,16-agent 对抗 10 候选→7 confirmed 全修）
+
+- **[medium] 大表竞态回写**（provider）：setPage/refetchTop 无请求代号,过时的在飞取数覆盖更新的过滤选择——加 `_gen` 单调代号(镜像 _reconcileRun 纪律),completer 闸乱序放行电池锁死。
+- **[medium] 等人过滤死翻页器**：`等人` 不分页(全展)但 total 可 >10 触发翻页器,点第二页无新行——render 加 `filter != waiting` 闸;12 等人行锁「翻页器不渲」。
+- **[medium] KPI 下次调度可点无标签**：可点(在轴)但值 isAfter(now)=false(刚滑过此刻)时 a11y null=无标签按钮——a11y 在「可点 或 显未来」都在场、相对词钳非负;**值仍 isAfter(now)**(轴外周 cron 仍显「1d」,kpi_drilldown 既有测守此);可点必带标签锁。
+- **[low] Overview 批量条幽灵缝**：barVisible 在 pruneTo 前算,翻页离开选区留 8px 半开条——两区移到 prune 后算。
+- **[low] 三处文档/注释**：composer 注释+台账「lg 44px」订正为 32 盒/20 形(AnButtonSize.lg=AnSize.row 32,无 44 命中区);approval_gate dartdoc「AnInfoCard」订正为有边 AnCard+「+理由」药丸。
+
+fe-verify 4304 全绿。
 
 ## 拍板状态（0718 落档）
 

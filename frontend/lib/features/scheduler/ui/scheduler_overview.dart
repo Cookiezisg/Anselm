@@ -334,6 +334,10 @@ class _KpiStrip extends StatelessWidget {
   /// Reveal the ticks this strip's 「错过 N」 counted. 显出「错过 N」数的那些刻度。
   final VoidCallback onMissed;
 
+  /// Clamp to zero — an on-track fire that just slipped past now must not fmtWaited a negative
+  /// duration. 对刚滑过此刻的在轴下次钳零,避免负时长。
+  static Duration _nonNeg(Duration d) => d.isNegative ? Duration.zero : d;
+
   @override
   Widget build(BuildContext context) {
     final t = context.t.scheduler.overview;
@@ -406,6 +410,13 @@ class _KpiStrip extends StatelessWidget {
           ],
         ),
       ),
+      // VALUE = honest news: show the next fire whenever it is in the future, EVEN off the drawn
+      // track (a weekly cron says «1d» though the 24h axis can't draw it). But a TAPPABLE tile must
+      // ALWAYS carry an a11y label — keying a11y on the value's `isAfter(now)` alone left a tappable
+      // (on-track) tile UNLABELLED when the on-track fire just slipped past wall-clock now (复审 [4]).
+      // So a11y is present when the tile is tappable OR shows a future fire; its word is clamped
+      // non-negative for the slipped-past edge. 值=诚实消息(未来即显,含轴外);但可点牌必带读屏标签——
+      // a11y 在「可点 或 显未来」时都在场,相对词对滑过此刻的边界钳非负。
       _tile(
         context,
         label: t.kpiNextFire,
@@ -418,8 +429,9 @@ class _KpiStrip extends StatelessWidget {
           style: _valueStyle(c),
         ),
         onTap: onNextFire,
-        a11y: nextFire != null && nextFire.isAfter(now)
-            ? t.kpiNextFireA11y(d: fmtWaited(nextFire.difference(now)))
+        a11y: (onNextFire != null || (nextFire != null && nextFire.isAfter(now)))
+            ? t.kpiNextFireA11y(
+                d: fmtWaited(_nonNeg(nextFire?.difference(now) ?? Duration.zero)))
             : null,
       ),
       // The fifth tile — present only when it has news. 第五张牌:有话说才在场。

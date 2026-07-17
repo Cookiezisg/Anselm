@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:anselm/core/contract/api_error.dart';
 import 'package:anselm/core/contract/entities/relation.dart';
 import 'package:anselm/core/contract/entities/scheduler_matrix.dart';
@@ -384,6 +386,12 @@ class StubSchedulerRepo implements SchedulerRepository {
         items: page, nextCursor: more ? '${offset + page.length}' : null, hasMore: more);
   }
 
+  /// When set, every listFlowrunsPage call parks on a fresh completer pushed here — a battery drains
+  /// them OUT OF ORDER to prove the run table's request-gen guard (复审 [2]) ignores a stale write.
+  /// 置位则每次 offset 取数停在新 completer;电池乱序放行,证大表请求代号忽略过时回写。
+  final List<Completer<void>> pageGates = [];
+  bool gatePages = false;
+
   @override
   Future<contract.OffsetPage<Flowrun>> listFlowrunsPage(
       {required String workflowId,
@@ -393,6 +401,11 @@ class StubSchedulerRepo implements SchedulerRepository {
       DateTime? startedBefore,
       required int offset,
       required int limit}) async {
+    if (gatePages) {
+      final gate = Completer<void>();
+      pageGates.add(gate);
+      await gate.future;
+    }
     pageAsks.add((offset: offset, limit: limit, status: status, origin: origin));
     final all = await listFlowruns(
         workflowId: workflowId,

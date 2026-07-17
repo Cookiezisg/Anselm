@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:anselm/core/contract/entities/relation.dart';
 import 'package:anselm/core/contract/entities/scheduler_matrix.dart';
 import 'package:anselm/core/contract/entities/scheduler_stats.dart';
@@ -13,6 +15,7 @@ import 'package:anselm/core/sse/frame.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/features/scheduler/data/scheduler_repository.dart';
 import 'package:anselm/features/scheduler/state/scheduler_home_provider.dart';
+import 'package:anselm/features/scheduler/ui/scheduler_home_model.dart';
 import 'package:anselm/features/scheduler/ui/scheduler_home.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/gestures.dart';
@@ -456,6 +459,39 @@ void main() {
       expect(repo.listFilters.any((f) => f.status == 'running'), isTrue);
     });
 
+    testWidgets('«等人» filter is UNPAGED: the pager never renders even with >10 matches '
+        '(复审 [1]/[5] 死钮修)', (tester) async {
+      // 12 running runs each parked on an approval → 12 waiting rows (running∩inbox). 12 等人行。
+      final runs = [
+        for (var i = 0; i < 12; i++)
+          Flowrun(
+              id: 'fr_wait${i.toString().padLeft(2, '0')}',
+              workflowId: 'wf_a',
+              origin: 'cron',
+              status: 'running',
+              startedAt: _now.subtract(Duration(minutes: i + 1)),
+              updatedAt: _now),
+      ];
+      final repo = StubSchedulerRepo(
+        workflows: [
+          SchedulerWorkflowRow(id: 'wf_a', name: '多等', lifecycleState: 'active', updatedAt: _now),
+        ],
+        byWorkflow: [WorkflowRunStats(workflowId: 'wf_a', running: 12, lastRunAt: _now)],
+        runs: runs,
+        inbox: [
+          for (var i = 0; i < 12; i++)
+            stubInboxRow('fr_wait${i.toString().padLeft(2, '0')}', 'gate', now: _now),
+        ],
+      );
+      await _pump(tester, repo);
+      await tester.tap(find.text(h.filterWaiting(n: '12')));
+      await tester.pump();
+      await _settle(tester);
+      expect(find.byType(AnLedgerRow), findsNWidgets(12), reason: '等人全展(不分页)');
+      expect(find.byType(AnPager), findsNothing,
+          reason: '等人不分页:全在一屏,翻页器不渲免死钮(复审 [1]/[5])');
+    });
+
     testWidgets('the page-level time-range capsule governs the TABLE too (0717 拍板:一颗胶囊治两区)',
         (tester) async {
       final repo = _repo();
@@ -478,6 +514,53 @@ void main() {
       final span = DateTime.now().difference(asked.last.startedAfter!);
       expect(span.inHours, closeTo(24, 1));
       expect(repo.matrixAsks, isNotEmpty, reason: '矩阵窗同随胶囊重建——一颗镜头两个区');
+    });
+
+    testWidgets('a stale in-flight page fetch NEVER clobbers a newer filter pick (复审 [2] 请求代号)',
+        (tester) async {
+      final runs = [
+        for (var i = 0; i < 24; i++)
+          Flowrun(
+              id: 'fr_g${i.toString().padLeft(2, '0')}',
+              workflowId: 'wf_a',
+              origin: 'cron',
+              status: i < 3 ? 'failed' : 'completed',
+              error: i < 3 ? 'boom' : null,
+              startedAt: _now.subtract(Duration(minutes: i + 1)),
+              completedAt: _now.subtract(Duration(minutes: i + 1)),
+              updatedAt: _now),
+      ];
+      final repo = StubSchedulerRepo(
+        workflows: [
+          SchedulerWorkflowRow(id: 'wf_a', name: '竞态', lifecycleState: 'active', updatedAt: _now),
+        ],
+        byWorkflow: [WorkflowRunStats(workflowId: 'wf_a', lastRunAt: _now)],
+        runs: runs,
+      );
+      await _pump(tester, repo);
+      final ctrl = ProviderScope.containerOf(tester.element(find.byType(AnPager)))
+          .read(schedulerRunTableProvider('wf_a').notifier);
+
+      // Now gate every page fetch so we can resolve them OUT OF ORDER. 从此闸住每次取数,乱序放行。
+      repo.gatePages = true;
+      unawaited(ctrl.setPage(3)); // stale request A (all·page3) 过时请求 A
+      await tester.pump();
+      unawaited(ctrl.refetchTop(filter: RunStatusFilter.failed)); // newer request B (failed·page1) 更新请求 B
+      await tester.pump();
+      expect(repo.pageGates.length, 2, reason: '两次取数都停在闸上');
+
+      // Resolve B (newer) FIRST, then A (stale). B 先放行、A 后放行。
+      repo.pageGates[1].complete();
+      await _settle(tester);
+      repo.pageGates[0].complete();
+      await _settle(tester);
+
+      // The stale A must NOT have overwritten B: filter stays failed, page stays 1. 过时 A 绝不覆盖 B。
+      final s = ProviderScope.containerOf(tester.element(find.byType(SchedulerHomeView)))
+          .read(schedulerRunTableProvider('wf_a'))
+          .value!;
+      expect(s.filter, RunStatusFilter.failed, reason: '更新的失败过滤存活');
+      expect(s.page, 1, reason: '页码是 B 的 1,不是 A 的 3');
     });
 
     testWidgets('the origin dropdown really reaches the wire', (tester) async {

@@ -596,11 +596,13 @@ class _SchedulerRunningZoneState extends ConsumerState<SchedulerRunningZone>
   Widget build(BuildContext context) {
     final t = context.t.scheduler.overview;
     final c = context.colors;
-    final barVisible = selected.length >= 2 || batchBusy;
     final visible = pageSlice(widget.rows);
     // Prune selection to the VISIBLE page (paging away drops the old page's picks — same as the big
     // table, whose rows ARE one page). 选区修剪到可见页(翻页即弃旧页选择,同大表)。
     pruneTo({for (final r in visible) _keyOf(r)});
+    // barVisible AFTER prune (复审 [3]): a stale off-page selection must not leave the batch bar's
+    // AnExpandReveal half-open (an 8px phantom gap). 修剪后再判:旧页选区不得留半开条(8px 幽灵缝)。
+    final barVisible = selected.length >= 2 || batchBusy;
     return AnSection(
       label: t.runningHead(n: '${widget.rows.length}'),
       children: [
@@ -827,9 +829,9 @@ class _SchedulerFailedZoneState extends ConsumerState<SchedulerFailedZone>
   Widget build(BuildContext context) {
     final t = context.t.scheduler.overview;
     final home = context.t.scheduler.home;
-    final barVisible = selected.length >= 2 || batchBusy;
     final visible = pageSlice(widget.rows);
     pruneTo({for (final r in visible) _keyOf(r)});
+    final barVisible = selected.length >= 2 || batchBusy; // after prune (复审 [3]) 修剪后再判
     return AnSection(
       label: t.failed24hHead(n: '${widget.rows.length}'),
       children: [

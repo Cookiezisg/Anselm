@@ -341,6 +341,10 @@ void main() {
       expect(find.textContaining('数据清洗流水线 · '), findsOneWidget,
           reason: '正在跑行=workflow · 来源短语(B10)');
       expect(find.text(ov.fireIn(d: '3m')), findsOneWidget, reason: 'KPI 下次调度牌');
+      // A TAPPABLE next-fire tile ALWAYS carries its a11y label (复审 [4]:值/a11y/可点同一信号——
+      // 曾用 isAfter(now) 判 a11y,在轴 fire 刚滑过此刻时留下无标签可点牌). 可点必有读屏标签。
+      expect(find.bySemanticsLabel(ov.kpiNextFireA11y(d: '3m')), findsOneWidget,
+          reason: '可点的下次调度牌恒带读屏标签(不留无标签按钮)');
 
       // Failure row: streak chip + error FIRST line + through-train. 失败行。
       expect(find.text(ov.streak(n: '4')), findsOneWidget);

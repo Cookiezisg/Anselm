@@ -438,8 +438,9 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
   }
 
   // md tier (28 box / 16 glyph) — the accessory buttons retreat to «inline neighbours» of the 15
-  // input (WRK-070 §A#2 用户三档同框样机拍板:28;lg 44-scale 与正文失衡,把壳撑到 ~64 高).
-  // md 档(28 盒/16 形):配件钮退成正文的「行内邻居」(样机比选定 28,lg 撑壳过高).
+  // input (WRK-070 §A#2 用户三档同框样机拍板:28;the old lg tier is 32 box / 20 glyph, whose scale
+  // over the 15 body read heavy). md 档(28 盒/16 形):配件钮退成正文的「行内邻居」(样机比选定 28,
+  // 旧 lg 档 32 盒/20 形对 15 正文偏重).
   List<Widget> _lead(Translations t) => [
         AnButton.iconOnly(AnIcons.mention,
             size: AnButtonSize.md, semanticLabel: t.chat.mentionEntity, onPressed: _insertMentionTrigger),

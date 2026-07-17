@@ -11,13 +11,14 @@ import '../../i18n/strings.g.dart';
 /// ocean, WRK-069 S2b — features don't import features) — a durable flowrun node stopped at an
 /// approval waits here for Approve / Reject (first-wins; a lost race reconciles the gate away). Four
 /// sites consume it (the run terminal, the cockpit tab, the flowrun inbox, the Scheduler «waiting on
-/// you» zone). [framed] wraps it in the [AnInfoCard] shell (the terminal / inbox faces); pass false
-/// to append it BARE inside an existing card or ledger row. A `allowReason` node grows the reason
-/// input, whose text rides [onDecide]'s second argument.
+/// you» zone). [framed] wraps it in a BORDERED [AnCard] shell (WRK-070 B13:用户裁「外面要一圈边边」,
+/// 弃无边 AnInfoCard); pass false to append it BARE inside an existing card or ledger row. A
+/// `allowReason` node grows the reason input ON DEMAND via a «+ 理由» pill (B13), whose text rides
+/// [onDecide]'s second argument.
 ///
 /// 唯一停车审批门(A-011;S2b 上收 core/run——features 互不依赖)——durable flowrun 停在审批节点,在此等
 /// 批准/拒绝(先到先得,输的一方 reconcile 掉门)。四处消费(run 终端/驾驶舱 tab/收件箱/Scheduler 等你处理区)。
-/// [framed] 包 AnInfoCard 壳;传 false 则裸接在既有卡/行内。allowReason 节点长出理由输入,文本走 onDecide 次参。
+/// [framed] 包**有边 AnCard** 壳(B13:用户要一圈边框);传 false 则裸接在既有卡/行内。allowReason 节点经「+ 理由」药丸按需长出输入,文本走 onDecide 次参。
 class ApprovalGate extends StatefulWidget {
   const ApprovalGate({
     required this.parked,
@@ -38,7 +39,7 @@ class ApprovalGate extends StatefulWidget {
   /// A decision already in flight — disables both buttons. 决断在途,压双钮。
   final bool busy;
 
-  /// Wrap in the [AnInfoCard] shell (false = bare append inside a host card). 是否包卡壳。
+  /// Wrap in a bordered [AnCard] shell (false = bare append inside a host card). 是否包有边卡壳。
   final bool framed;
 
   /// Show the «first-wins» hint line (the inbox omits it). 是否显「先到先得」提示。
