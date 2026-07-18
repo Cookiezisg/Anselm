@@ -10,24 +10,28 @@ import '../../../../core/ui/an_callout.dart';
 import '../../../../core/ui/an_dropdown.dart';
 import '../../../../core/ui/an_form_field.dart';
 import '../../../../core/ui/an_input.dart';
+import '../../../../core/ui/an_switch.dart';
 import '../../../../core/ui/icons.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../data/entity_kind.dart';
 import '../../state/detail/entity_detail_provider.dart';
+import '../../state/rel_graph_provider.dart';
+import '../../state/run/run_draft_store.dart';
 import '../../state/run/run_fields.dart';
 import '../../state/run/run_terminal_controller.dart';
 import '../../state/run/run_terminal_state.dart';
 import '../../state/selected_entity.dart';
 
-/// The run terminal's typed input form — renders the bound entity's declared inputs as type-appropriate
-/// controls (string/number → text, boolean → dropdown, object/array → JSON textarea), a method picker for
-/// handlers (fields follow the selected method), and an optional JSON payload for workflows. The input is
-/// written to the FAMILY controller's `draft` (so the header verb CTA can run without reaching into this
-/// widget); the inputs are uncontrolled (they hold their own text), keyed by ref+method+name so a method
-/// switch reseeds from the persisted draft. Coercion + validation happen in the controller on run.
+/// The debugger's input form — the entity contract's MIRROR (调试台三律之一, 0718 拍板): the entity's
+/// declared shape IS the form. Type-aware fields (string→text, number→numeric text, boolean→switch,
+/// object/array→mono JSON area, description as the placeholder); a handler's METHOD dropdown steers
+/// which fields render; a workflow's SOURCE picker lists its mounted triggers (+manual) and renders
+/// that trigger kind's payload template — cron honestly renders NO payload at all. Values live in the
+/// session [RunDraftStore] (per method/source bucket), and re-seed on a reproduce (store revision).
 ///
-/// run 终端的类型化入参表单——按声明类型渲控件;输入写入 family controller 的 draft(故头部动词 CTA 无需伸进本
-/// widget 即可 run);输入框非受控(自持文本),按 ref+method+name 键,换方法时从持久草稿重播。强转/校验在 controller。
+/// 调试台入参表单=实体契约的镜子:类型感知字段(描述做占位);handler 方法下拉换字段;workflow 来源
+/// 选择器(挂载 triggers+手动)按 trigger kind 渲 payload 模板——cron 如实无 payload。值住 session
+/// 草稿库(按方法/来源分桶),重现时经库版本号重播。
 class RunInputForm extends ConsumerStatefulWidget {
   const RunInputForm({
     required this.entityRef,
@@ -69,6 +73,7 @@ class _RunInputFormState extends ConsumerState<RunInputForm> {
     final p = runTerminalProvider(widget.entityRef);
     final state = ref.watch(p);
     final c = ref.read(p.notifier);
+    final store = ref.watch(runDraftStoreProvider);
     // initState defaults the method only if detail is already loaded — if it lands AFTER mount, catch it
     // here so the dropdown never sticks on placeholder (Run with an empty method → backend error).
     // initState 只在 detail 已载时设默认;detail 后到则在此补,否则下拉停 placeholder、空 method 点 Run 报错。
@@ -83,58 +88,71 @@ class _RunInputFormState extends ConsumerState<RunInputForm> {
     final detail = ref.watch(entityDetailProvider(widget.entityRef)).value;
     final methods = runMethods(detail);
     final fields = runInputFields(widget.entityRef.kind, detail, method: state.method);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (widget.entityRef.kind == EntityKind.handler) ...[
-          AnFormField(
-            label: r.method,
-            child: AnDropdown<String>(
-              block: true,
-              value: state.method.isEmpty ? null : state.method,
-              enabled: !state.isRunning,
-              options: [
-                for (final m in methods)
-                  AnDropdownOption(value: m.name, label: m.name, meta: m.streaming ? r.streaming : null),
-              ],
-              onChanged: c.setMethod,
+    // A reproduce bumps the store revision → this rebuilds and the value-keys below re-seed the
+    // uncontrolled inputs. 重现自增版本→重建、下方 key 换代、非受控输入重播。
+    return ListenableBuilder(
+      listenable: store,
+      builder: (context, _) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (widget.entityRef.kind == EntityKind.handler) ...[
+            AnFormField(
+              label: r.method,
+              child: AnDropdown<String>(
+                block: true,
+                value: state.method.isEmpty ? null : state.method,
+                enabled: !state.isRunning,
+                options: [
+                  for (final m in methods)
+                    AnDropdownOption(value: m.name, label: m.name, meta: m.streaming ? r.streaming : null),
+                ],
+                onChanged: c.setMethod,
+              ),
             ),
-          ),
-          const SizedBox(height: AnSpace.s12),
+            const SizedBox(height: AnSpace.s12),
+          ],
+          if (widget.entityRef.kind == EntityKind.workflow)
+            ..._workflowInputs(context, c, state, store)
+          else if (fields.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: AnSpace.s4),
+              child: Text(r.noInputs, style: AnText.meta.copyWith(color: context.colors.inkFaint)),
+            )
+          else
+            for (final f in fields) ...[
+              _field(context, c, f, state, store),
+              const SizedBox(height: AnSpace.s12),
+            ],
+          if (state.inputError != null) ...[
+            AnCallout(_inputErrorText(context, state.inputError!), severity: AnCalloutSeverity.danger),
+            const SizedBox(height: AnSpace.s12),
+          ],
+          _runButton(context, c, state),
         ],
-        if (widget.entityRef.kind == EntityKind.workflow)
-          _payloadField(context, c, state.isRunning)
-        else if (fields.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: AnSpace.s4),
-            child: Text(r.noInputs, style: AnText.meta.copyWith(color: context.colors.inkFaint)),
-          )
-        else
-          for (final f in fields) ...[_field(context, c, f, state), const SizedBox(height: AnSpace.s12)],
-        if (state.inputError != null) ...[
-          AnCallout(_inputErrorText(context, state.inputError!), severity: AnCalloutSeverity.danger),
-          const SizedBox(height: AnSpace.s12),
-        ],
-        _runButton(context, c, state),
-      ],
+      ),
     );
   }
 
-  Widget _field(BuildContext context, RunTerminalController c, Field f, RunTerminalState state) {
-    final key = ValueKey('${widget.entityRef}/${state.method}/${f.name}');
+  Key _seedKey(RunTerminalState state, RunDraftStore store, String name) =>
+      ValueKey('${widget.entityRef}/${state.method}/${state.source}/$name/${store.revision}');
+
+  Widget _field(BuildContext context, RunTerminalController c, Field f, RunTerminalState state,
+      RunDraftStore store) {
+    final key = _seedKey(state, store, f.name);
     final Widget input;
     if (f.type == 'boolean') {
-      final r = context.t.entities.run;
-      input = AnDropdown<bool>(
-        key: key,
-        block: true,
-        value: c.draft[f.name] as bool?,
-        enabled: !state.isRunning,
-        options: [
-          AnDropdownOption(value: true, label: r.boolTrue),
-          AnDropdownOption(value: false, label: r.boolFalse),
-        ],
-        onChanged: (v) => c.setField(f.name, v),
+      // A native boolean control — not a true/false dropdown (契约镜子:布尔穿开关的衣服). 布尔=开关。
+      input = Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: AnSwitch(
+          key: key,
+          value: c.draft[f.name] as bool? ?? false,
+          semanticLabel: f.name,
+          onChanged: state.isRunning ? null : (v) {
+            c.setField(f.name, v);
+            setState(() {}); // switch is CONTROLLED — reflect the flip 开关受控,翻转即重画
+          },
+        ),
       );
     } else {
       final multi = f.type == 'object' || f.type == 'array';
@@ -144,37 +162,117 @@ class _RunInputFormState extends ConsumerState<RunInputForm> {
         multiline: multi,
         mono: multi || f.type == 'number',
         enabled: !state.isRunning,
+        // The declared description IS the placeholder (0718 拍板: 描述进框,不再单独一行). 描述做占位。
+        placeholder: (f.description ?? '').isEmpty ? null : f.description,
         initialValue: c.draft[f.name] as String?,
         onChanged: (v) => c.setField(f.name, v),
       );
     }
     return AnFormField(
       label: f.name,
-      desc: f.description,
       labelTrailing: Text(f.type, style: AnText.meta.copyWith(color: context.colors.inkFaint)),
       child: input,
     );
   }
 
-  Widget _payloadField(BuildContext context, RunTerminalController c, bool busy) {
+  // ── workflow: source picker + per-kind payload template 来源选择器+分 kind 模板 ──
+
+  List<Widget> _workflowInputs(
+      BuildContext context, RunTerminalController c, RunTerminalState state, RunDraftStore store) {
     final r = context.t.entities.run;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        AnFormField(
-          label: r.payload,
-          child: AnInput(
-            key: ValueKey('${widget.entityRef}/$_payloadKey'),
-            block: true,
-            multiline: true,
-            mono: true,
-            enabled: !busy,
-            initialValue: c.draft[_payloadKey] as String?,
-            onChanged: (v) => c.setField(_payloadKey, v),
-          ),
+    // Mounted triggers = the graph's equip edges out of this workflow into trigger nodes (relation
+    // 域现成,零新端点). 挂载 triggers=relgraph 里本 wf 指向 trigger 的 equip 边。
+    final graph = ref.watch(relGraphProvider).value;
+    final triggers = <({String id, String name})>[];
+    if (graph != null) {
+      final names = {for (final n in graph.nodes) '${n.kind}:${n.id}': n.name};
+      for (final e in graph.edges) {
+        if (e.kind == 'equip' &&
+            e.fromKind == 'workflow' &&
+            e.fromId == widget.entityRef.id &&
+            e.toKind == 'trigger') {
+          triggers.add((id: e.toId, name: names['trigger:${e.toId}'] ?? e.toName));
+        }
+      }
+    }
+    // The picked trigger's KIND decides the template (watch keeps it warm; render/coerce stay
+    // same-judged via wfSourceKind on the controller side). 选中 trigger 的 kind 定模板(watch 保温)。
+    final sourceKind = state.source == 'manual'
+        ? 'manual'
+        : ref
+                .watch(entityDetailProvider(EntityRef(EntityKind.trigger, state.source)))
+                .value
+                ?.trigger
+                ?.kind
+                .name ??
+            'manual';
+    return [
+      AnFormField(
+        label: r.source,
+        child: AnDropdown<String>(
+          block: true,
+          value: state.source,
+          enabled: !state.isRunning,
+          options: [
+            AnDropdownOption(value: 'manual', label: r.sourceManual),
+            for (final t in triggers) AnDropdownOption(value: t.id, label: t.name),
+          ],
+          onChanged: c.setSource,
         ),
-        const SizedBox(height: AnSpace.s12),
-      ],
+      ),
+      const SizedBox(height: AnSpace.s12),
+      ...switch (sourceKind) {
+        // cron releases no payload — the form honestly renders NOTHING here (绝不硬造空 JSON 框骗人).
+        // cron 无 payload:如实什么都不渲。
+        'cron' => const <Widget>[],
+        'fsnotify' => [
+            _templateField(context, c, state, store, name: 'path', hint: r.fsnotifyPathHint),
+            const SizedBox(height: AnSpace.s12),
+            _templateField(context, c, state, store, name: 'event', hint: r.fsnotifyEventHint),
+            const SizedBox(height: AnSpace.s12),
+          ],
+        'sensor' => [
+            _templateField(context, c, state, store, name: 'value', hint: r.sensorValueHint, mono: true),
+            const SizedBox(height: AnSpace.s12),
+          ],
+        // webhook / manual: one JSON payload body (webhook 的 payload=请求体本身). 单 JSON 体。
+        _ => [
+            AnFormField(
+              label: r.payload,
+              labelTrailing: sourceKind == 'webhook'
+                  ? Text(r.webhookBody, style: AnText.meta.copyWith(color: context.colors.inkFaint))
+                  : null,
+              child: AnInput(
+                key: _seedKey(state, store, _payloadKey),
+                block: true,
+                multiline: true,
+                mono: true,
+                enabled: !state.isRunning,
+                placeholder: sourceKind == 'webhook' ? r.webhookBodyHint : r.payloadHint,
+                initialValue: c.draft[_payloadKey] as String?,
+                onChanged: (v) => c.setField(_payloadKey, v),
+              ),
+            ),
+            const SizedBox(height: AnSpace.s12),
+          ],
+      },
+    ];
+  }
+
+  Widget _templateField(BuildContext context, RunTerminalController c, RunTerminalState state,
+      RunDraftStore store,
+      {required String name, required String hint, bool mono = false}) {
+    return AnFormField(
+      label: name,
+      child: AnInput(
+        key: _seedKey(state, store, name),
+        block: true,
+        mono: mono,
+        enabled: !state.isRunning,
+        placeholder: hint,
+        initialValue: c.draft[name] as String?,
+        onChanged: (v) => c.setField(name, v),
+      ),
     );
   }
 

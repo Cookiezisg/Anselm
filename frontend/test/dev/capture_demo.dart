@@ -473,8 +473,9 @@ void main() {
         EntityKind.agent: verb.invoke,
         EntityKind.workflow: verb.trigger,
       }[selKind]!;
-      // The right island is already revealed (strong-linked to the selection); the header verb CTA both
-      // ensures it's open and fires the run. 右岛已随选区揭示;头部动词 CTA 展开 + 执行。
+      // The right island is already revealed (strong-linked to the selection); the verb button now lives
+      // ONLY in the island's debugger form (唯一执行点, 0718 拍板 — header CTA retired). 右岛已随选区
+      // 揭示;动词钮只住右岛调试台表单(头部 CTA 已退役)。
       await tester.tap(find.widgetWithText(AnButton, label).first);
       for (var i = 0; i < 24; i++) {
         await tester.pump(const Duration(milliseconds: 40)); // scripted stream frames

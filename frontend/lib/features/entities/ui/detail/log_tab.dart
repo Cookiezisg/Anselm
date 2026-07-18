@@ -12,8 +12,10 @@ import '../../../../core/ui/an_skeleton.dart';
 import '../../../../core/ui/an_state.dart';
 import '../../../../core/ui/icons.dart';
 import '../../../../i18n/strings.g.dart';
+import '../../../../core/shell/right_panel.dart';
 import '../../state/detail/log_list_provider.dart';
 import '../../state/detail/log_list_state.dart';
+import '../../state/run/run_terminal_controller.dart';
 import '../../state/selected_entity.dart';
 import 'detail_sections.dart';
 
@@ -64,7 +66,7 @@ class LogTab extends ConsumerWidget {
                   onToggle: () => notifier.toggle(row.id),
                   onSelect: () => notifier.toggle(row.id),
                 ),
-                detail: _detail(st, row),
+                detail: _detail(context, ref, st, row),
               ),
             if (st.loadingMore)
               const AnSkeleton.row()
@@ -89,7 +91,7 @@ class LogTab extends ConsumerWidget {
     );
   }
 
-  Widget _detail(LogListState st, LogRow row) {
+  Widget _detail(BuildContext context, WidgetRef ref, LogListState st, LogRow row) {
     final comp = st.flowruns[row.id];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -97,6 +99,24 @@ class LogTab extends ConsumerWidget {
         // Machine telemetry (ids / timestamps / raw JSON dumps) — chrome tier like its cockpit twin.
         // 机器遥测(id/时间戳/原始 JSON)——与驾驶舱孪生同守 chrome 档。
         kvList([for (final r in row.detailRows) (r.$1, r.$2)], wrap: true, dense: true),
+        // The archive hands the bench a reproduce key (档案馆→工作台单向门, 0719 拍板): fill the
+        // debugger from THIS execution and reveal the island. 从这次执行回填调试台并展开右岛。
+        if (row.run != null)
+          Padding(
+            padding: const EdgeInsets.only(top: AnSpace.s8),
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: AnButton(
+                label: context.t.entities.run.reproduce,
+                size: AnButtonSize.sm,
+                surface: true,
+                onPressed: () {
+                  ref.read(runTerminalProvider(entityRef).notifier).reproduce(row.run!);
+                  ref.read(rightPanelCollapsedProvider.notifier).set(false);
+                },
+              ),
+            ),
+          ),
         if (comp != null)
           for (final n in comp.nodes)
             AnRow(

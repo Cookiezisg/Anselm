@@ -15,6 +15,9 @@ import '../../data/entity_providers.dart';
 import '../../data/entity_repository.dart';
 import '../detail/entity_detail_provider.dart';
 import '../selected_entity.dart';
+import '../../data/entity_format.dart';
+import 'recent_runs_provider.dart';
+import 'run_draft_store.dart';
 import 'run_fields.dart';
 import 'run_terminal_state.dart';
 
@@ -80,8 +83,18 @@ class RunTerminalController extends Notifier<RunTerminalState> {
   }
 
   /// The current form input (raw values: String for text/number/object/array, bool for boolean), kept off
-  /// [state] so typing never rebuilds the lifecycle. Persists per entity (family + keepAlive). 当前表单草稿。
-  final Map<String, Object?> draft = {};
+  /// [state] so typing never rebuilds the lifecycle. Lives in the SESSION-LIVED [RunDraftStore] (调试台
+  /// 参数记忆, 0719 拍板): the controller is autoDispose, so an in-notifier map would forget on deselect —
+  /// the store keeps values per (entity, method|source) bucket for the whole app session.
+  /// 当前表单草稿——住 session 草稿库(autoDispose 下 notifier 内 map 会忘;库按 实体×方法|来源 分桶养全会话)。
+  Map<String, Object?> get draft => ref.read(runDraftStoreProvider).bucket(draftKey);
+
+  /// The CURRENT bucket coordinate: hd varies by method, wf by source. 当前桶坐标。
+  String get draftKey => switch (entityRef.kind) {
+        EntityKind.handler => runDraftKey(entityRef, state.method),
+        EntityKind.workflow => runDraftKey(entityRef, state.source),
+        _ => runDraftKey(entityRef),
+      };
 
   @override
   RunTerminalState build() {
@@ -101,6 +114,38 @@ class RunTerminalController extends Notifier<RunTerminalState> {
   /// Handler method pick — in [state] because it swaps which fields render. 方法选择(在 state、换字段)。
   void setMethod(String method) {
     if (state.method != method) state = state.copyWith(method: method, inputError: null);
+  }
+
+  /// Workflow payload-source pick ('manual' | trigger id) — swaps the payload fields + draft bucket.
+  /// workflow 来源选择:换 payload 字段与草稿桶。
+  void setSource(String source) {
+    if (state.source != source) state = state.copyWith(source: source, inputError: null);
+  }
+
+  /// The reproduce key (重现钥匙, 0719 拍板): fill the form back from a past execution — hd restores
+  /// the METHOD, wf restores the SOURCE, and the input lands in the exact seed shape (scalars→text,
+  /// bool→bool, structures→pretty JSON). The store bumps its revision so open forms re-seed.
+  /// 重现:把某次执行的输入原样回填(hd 连方法、wf 连来源);库自增版本使表单立即重播。
+  void reproduce(RecentRun run) {
+    if (entityRef.kind == EntityKind.handler && run.method.isNotEmpty) setMethod(run.method);
+    if (entityRef.kind == EntityKind.workflow) setSource(run.triggerId ?? 'manual');
+    final values = <String, Object?>{};
+    if (entityRef.kind == EntityKind.workflow) {
+      // Flowrun rows don't project the entry payload — the source is restored, the payload is the
+      // one part the user re-supplies (报告注明的唯一打折点). wf 行未投影 payload:还原来源,payload 留手填。
+    } else {
+      run.input.forEach((k, v) {
+        values[k] = switch (v) {
+          bool b => b,
+          num n => '$n',
+          String t => t,
+          null => null,
+          _ => prettyJson(v),
+        };
+      });
+    }
+    ref.read(runDraftStoreProvider).reproduce(draftKey, values);
+    state = state.copyWith(inputError: null);
   }
 
   /// Execute the verb for this entity using the current draft (the header CTA + the form button both land
@@ -199,6 +244,9 @@ class RunTerminalController extends Notifier<RunTerminalState> {
         _releaseRun?.call();
         _releaseRun = null;
       }
+      // The bench strip re-reads its five as soon as this run has an audit row (wf: the flowrun row
+      // exists right after :trigger). 运行落账即刷新「最近」条。
+      if (ref.mounted) ref.invalidate(recentRunsProvider(entityRef));
     }
   }
 
@@ -217,16 +265,32 @@ class RunTerminalController extends Notifier<RunTerminalState> {
   (Map<String, Object?>, String?) _coerce() {
     final detail = ref.read(entityDetailProvider(entityRef)).value;
     if (entityRef.kind == EntityKind.workflow) {
-      final raw = (draft['__payload__'] as String?)?.trim() ?? '';
-      if (raw.isEmpty) return (const {}, null);
-      final Object? decoded;
-      try {
-        decoded = jsonDecode(raw);
-      } catch (_) {
-        return (const {}, 'payloadInvalid');
+      // Payload by SOURCE (0718 拍板: the payload impersonates what the picked trigger releases):
+      // cron releases nothing → empty; fsnotify/sensor → their kind-template fields; webhook and
+      // manual → one JSON body. 按来源构造 payload:cron 空;fsnotify/sensor 走模板字段;webhook/手动=JSON。
+      switch (wfSourceKind(ref, entityRef, state.source)) {
+        case 'cron':
+          return (const {}, null);
+        case 'fsnotify':
+          final path = (draft['path'] as String?)?.trim() ?? '';
+          final event = (draft['event'] as String?)?.trim() ?? '';
+          return ({if (path.isNotEmpty) 'path': path, if (event.isNotEmpty) 'event': event}, null);
+        case 'sensor':
+          final raw = (draft['value'] as String?)?.trim() ?? '';
+          if (raw.isEmpty) return (const {}, null);
+          return ({'value': num.tryParse(raw) ?? raw}, null);
+        default: // webhook / manual — one JSON payload body 单 JSON 体
+          final raw = (draft['__payload__'] as String?)?.trim() ?? '';
+          if (raw.isEmpty) return (const {}, null);
+          final Object? decoded;
+          try {
+            decoded = jsonDecode(raw);
+          } catch (_) {
+            return (const {}, 'payloadInvalid');
+          }
+          if (decoded is! Map<String, dynamic>) return (const {}, 'payloadObject');
+          return (decoded, null);
       }
-      if (decoded is! Map<String, dynamic>) return (const {}, 'payloadObject');
-      return (decoded, null);
     }
     final req = <String, Object?>{};
     for (final f in runInputFields(entityRef.kind, detail, method: state.method)) {

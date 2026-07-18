@@ -214,11 +214,21 @@ fe-verify 4304 全绿。
 - **头部控件位置语法**（`AnShell` 头尾槽）：Scenes（`TranscriptToc`）对任一选中会话恒在；第一条 activity 到达时 **panel-right toggle 经 `AnExpandReveal(axis: horizontal)` 自尾端横向滑入**、把 Scenes 左移一格（真实位移;登台即在则即时,reduced 即时）。
 - **按钮出现 ≠ 岛自动打开**（WRK-065 继承）：**chat 桶默认收起**（`rightPanelCollapsedProvider` 唯 chat 默认 collapsed,余海洋默认开——首个 tool 跑绝不弹岛,收起态 live 只点 R-15 activityBit）。切到无 activity 对话:岛收、钮隐、Scenes 回位;开合持久化(W7)照旧。**代价**:workflow 编辑器/图页共用同一 provider,其测试在默认 chat 海洋跑→需 `selectedOceanProvider.overrideWith` 种 entities（真机它们本在 entities 海洋;冷深链到编辑器→收起态有 reopen 药丸,graceful）。
 
-**第二件——右岛内距单源律**：**`AnIsland` 的 12px 是唯一岛级内距,右岛一切消费方 body 禁自包水平 pad**——内容左缘=岛缘+12（行族+8→文字 20,与左岛逐像素同几何）。旧「`AnIsland(padding:zero)`+消费方自包 16=岛缘+28」双层 pad 退役。清尽:`AnInspectorHead`(start 16→0)/`AnInspector` head·body(水平→0)/gallery specimen(改 `AnIsland` 默认 12)/chat 侧幕手风琴(s4→0)/documents·scheduler·workflow-editor inspector body(all16→纵 16)/graph 实体卡(水平→0)。纵向 pad 各面语义保留。**run_terminal 除外**（实体调试台单在重写它——但它经共享 `AnInspectorHead` 白蹭到对齐的头,body 未动、留那份单收；报告已列)。
+**第二件——右岛内距单源律**：**`AnIsland` 的 12px 是唯一岛级内距,右岛一切消费方 body 禁自包水平 pad**——内容左缘=岛缘+12（行族+8→文字 20,与左岛逐像素同几何）。旧「`AnIsland(padding:zero)`+消费方自包 16=岛缘+28」双层 pad 退役。清尽:`AnInspectorHead`(start 16→0)/`AnInspector` head·body(水平→0)/gallery specimen(改 `AnIsland` 默认 12)/chat 侧幕手风琴(s4→0)/documents·scheduler·workflow-editor inspector body(all16→纵 16)/graph 实体卡(水平→0)。纵向 pad 各面语义保留。run_terminal 的那份尾巴已随实体调试台重建收掉（body 纵向 pad only,见下节）。
 
 **测试**：`sidestage_activity_test.dart`（纯函数 8 例 + 帧驱动 4 例:无 activity→NO / 触点·tool_call 到→YES / p01 纯问答 NO / cv_sync YES）· `sidestage_ondemand_shell_test.dart`（AppShell 端到端:activity→钮现·岛闭·点开;无 activity→无钮无岛）· `an_shell_test.dart`（toggle 横向滑入+Scenes 左移 / reduced 即时）· `right_panel_test.dart`（chat 默认收起、开合粘住）· `right_island_padding_test.dart`（内容左缘=岛缘+12、行族+20）。
 
 **landed-into**：`features/chat-sidestage.md` §0（按需存在 + 头语法 + 内距）· `design-system.md`（AnInspector 条目 ★右岛内距单源律 + `AnIsland(padding:zero)` 旧法退役）· `right_panel.dart`/`oceans` 无改（chat 默认在 provider 内）。`make fe-verify` 全绿 / `make docs` 净。
+
+## 实体调试台（用户 0718-19 拍板任务书 ✅ 已落）
+
+右岛 run 终端整体重建成**实体调试台**。三律:①**输入区=实体契约的镜子**——fn/ag 类型感知逐参数（string→文本/number→数字 mono/boolean→`AnSwitch`/object·array→多行 mono JSON,声明描述做 placeholder）;hd **method 下拉方向盘**（切换整体重生成字段）;wf **来源选择器**（挂载 triggers[relGraph equip 边,零新端点]+手动→按 trigger kind 渲 payload 模板:webhook=请求体/fsnotify=path+event/sensor=传感值/**cron=如实无 payload**;渲染与强转同判据 `wfSourceKind`）。②**唯一执行点**——中心页四 kind 动词 CTA 物理删除（`ocean_header` executable 分支+`onVerb` prop/接线;trigger `Fire` 保留=催 activation 非执行门）,执行只在右岛。③**零墓碑**——「Ready to run/Fill in the inputs」墓碑+i18n 死键删、Idle 胶囊删（头徽只在跑中/失败开口,ok/cancelled 归 `AnStatBar` 落定条;wf 落定条带 flowrunId+「打开 run →」深链旗舰）。
+
+**参数记忆** session 级:`RunDraftStore`（keepAlive ChangeNotifier,hd 按 method、wf 按来源分桶,`revision` 驱动非受控输入重播种）。**最近条+重现钥匙**:`recentRunsProvider`（四本账统一投影 top5,落定 invalidate 重取）→ `_RecentStrip`（`AnLedgerRow` 状态点+时刻+耗时+微标[单行 ellipsis],点行展开 IO 摘要,hover `AnExpandReveal(horizontal)` 滑出[重现]=回填输入,hd 连 method、wf 连来源[flowrun DTO 无 payload 投影,wf 只还原来源——唯一打折点];非数据态一律静默）;Logs tab 行展开同挂[重现]（`LogRow.run` 投影+开右岛）——**档案馆/工作台分层**。**右岛内距单源律补完**:run_terminal body 纵向 pad only（§A#2 尾巴收掉）。**数据缝核查=后端零改动**（三张执行日志表 input/output 全落库、列表端点全现成;`FunctionRunResult` 无 execId、flowrun 无 payload 投影按现契约打折,不加端点）。顺手修一真缺口:**entities 补「URL 拉海洋」一致性规则**（chat/documents/scheduler 三有它独缺,实体深链落错海洋——capture 帧揪出）。
+
+**测试**:`run_draft_store_test`（分桶/reproduce/copy 语义 4 例）+ `run_debugger_test`（契约镜子/方向盘重生成+分桶/wf 三形态+cron 空/最近条 top5+展开/重现回填/空账静默 6 例）+ 既有 run 面适配（零墓碑断言替 idleTitle、Done 回声双渲修）。demo 四 kind 帧:`demo_{fn_summarize,hd_slack,ag_researcher,wf_digest}.png`。
+
+**landed-into**:`features/entities.md`（调试台节整体重述+动词 CTA 退役+复用件清单）。`make fe-verify` 全绿 / `make docs` 净 / 后端 `make verify` 绿（零改动确认）。
 
 ## 拍板状态（0718 收官 ✅）
 

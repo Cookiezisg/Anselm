@@ -19,8 +19,6 @@ import '../data/entity_providers.dart';
 import '../state/detail/entity_detail.dart';
 import '../state/detail/entity_detail_provider.dart';
 import '../state/detail/observability_list_provider.dart';
-import '../../../core/shell/right_panel.dart';
-import '../state/run/run_terminal_controller.dart';
 import '../state/selected_entity.dart';
 import 'detail/log_tab.dart';
 import 'detail/run_cockpit_tab.dart';
@@ -152,12 +150,6 @@ class _EntityOceanState extends ConsumerState<EntityOcean> {
                 key: _headerKey,
                 child: EntityOceanHeader(
                   detail: detail,
-                  // The right island is bound to the selection; the verb CTA reveals it then fires the run
-                  // (header CTA = trigger run, demo-aligned). 头部动词钮:展开右岛 + 直接执行。
-                  onVerb: () {
-                    ref.read(rightPanelCollapsedProvider.notifier).set(false);
-                    ref.read(runTerminalProvider(detail.ref).notifier).run();
-                  },
                   // Trigger's Fire CTA: `:fire` a manual signal (→ an activation, NOT a run terminal),
                   // toast the new activation id, then refresh the activity list + lastFired badge.
                   // trigger 的 Fire:手动催一次 → toast 新 activation id → 刷新活动列表 + 徽标。

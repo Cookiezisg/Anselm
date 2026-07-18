@@ -12,6 +12,7 @@ import '../../data/entity_format.dart';
 import '../../data/entity_kind.dart';
 import '../../data/entity_providers.dart';
 import '../../data/entity_repository.dart';
+import '../run/recent_runs_provider.dart';
 import '../selected_entity.dart';
 import 'log_list_state.dart';
 
@@ -117,6 +118,14 @@ class LogListNotifier extends AsyncNotifier<LogListState>
       label: '${e.triggeredBy} · ${e.status}',
       meta: '${e.elapsedMs}ms',
       hint: fmtTime(e.startedAt ?? e.createdAt),
+      run: RecentRun(
+          id: e.id,
+          status: e.status,
+          startedAt: e.startedAt,
+          elapsedMs: e.elapsedMs,
+          triggeredBy: e.triggeredBy,
+          input: e.input,
+          output: e.output),
       detailRows: [
         (kv.id, e.id),
         (kv.triggeredBy, e.triggeredBy),
@@ -138,6 +147,15 @@ class LogListNotifier extends AsyncNotifier<LogListState>
       label: '${c.method} · ${c.status}',
       meta: '${c.elapsedMs}ms',
       hint: fmtTime(c.startedAt ?? c.createdAt),
+      run: RecentRun(
+          id: c.id,
+          status: c.status,
+          startedAt: c.startedAt,
+          elapsedMs: c.elapsedMs,
+          triggeredBy: c.triggeredBy,
+          input: c.input,
+          output: c.output,
+          method: c.method),
       detailRows: [
         (kv.id, c.id),
         (kv.method, c.method),
@@ -159,6 +177,14 @@ class LogListNotifier extends AsyncNotifier<LogListState>
       label: '${e.triggeredBy} · ${e.status}',
       meta: '${e.status} · ${e.elapsedMs}ms',
       hint: fmtTime(e.startedAt ?? e.createdAt),
+      run: RecentRun(
+          id: e.id,
+          status: e.status,
+          startedAt: e.startedAt,
+          elapsedMs: e.elapsedMs,
+          triggeredBy: e.triggeredBy,
+          input: e.input,
+          output: e.output),
       detailRows: [
         (kv.id, e.id),
         (kv.triggeredBy, e.triggeredBy),
@@ -180,6 +206,13 @@ class LogListNotifier extends AsyncNotifier<LogListState>
       label: f.id,
       meta: f.status,
       hint: fmtTime(f.startedAt ?? f.updatedAt),
+      // Flowrun DTO projects no payload — reproduce restores the SOURCE only (与「最近」条同一打折点).
+      run: RecentRun(
+          id: f.id,
+          status: f.status,
+          startedAt: f.startedAt,
+          triggeredBy: f.origin ?? '',
+          triggerId: f.triggerId),
       detailRows: [
         (kv.flowrunId, f.id),
         (kv.workflow, f.workflowId),

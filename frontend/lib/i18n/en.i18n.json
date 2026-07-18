@@ -1345,8 +1345,6 @@
       "runAgain": "Run again",
       "cancel": "Cancel",
       "close": "Close run terminal",
-      "idleTitle": "Ready to run",
-      "idleHint": "Fill in the inputs, then run.",
       "cancelled": "Cancelled",
       "outputHeading": "Output",
       "resultHeading": "Result",
@@ -1364,7 +1362,19 @@
         "dangerous": "Dangerous"
       },
       "inboxEmpty": "No pending approvals",
-      "inboxEmptyHint": "Approvals waiting for a decision will appear here."
+      "inboxEmptyHint": "Approvals waiting for a decision will appear here.",
+      "source": "Source",
+      "sourceManual": "Manual",
+      "fsnotifyPathHint": "file path",
+      "fsnotifyEventHint": "event, e.g. create",
+      "sensorValueHint": "sensor value",
+      "webhookBody": "request body",
+      "webhookBodyHint": "{\"invoice_id\": \"...\"}",
+      "payloadHint": "{ }",
+      "openFlowrun": "Open run →",
+      "recent": "recent",
+      "reproduce": "Reproduce",
+      "inputHeading": "input"
     },
     "val": {
       "yes": "yes",

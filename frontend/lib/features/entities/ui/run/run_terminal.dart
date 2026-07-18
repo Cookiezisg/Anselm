@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/tokens.dart';
 import '../../../../core/model/status_state.dart' show AnStatus, AnTone;
@@ -24,6 +25,16 @@ import '../../state/run/run_terminal_controller.dart';
 import '../../state/run/run_terminal_state.dart';
 import '../../state/selected_entity.dart';
 import '../../../../core/run/approval_gate.dart';
+import '../../../../core/design/colors.dart';
+import '../../../../core/design/typography.dart';
+import '../../../../core/model/time_format.dart';
+import '../../../../core/ui/an_status_dot.dart';
+import '../../../../core/ui/an_button.dart';
+import '../../../../core/ui/an_hover_region.dart';
+import '../../../../core/ui/an_expand_reveal.dart';
+import '../../../../core/ui/an_ledger_row.dart';
+import '../../../../core/ui/an_stat_bar.dart';
+import '../../state/run/recent_runs_provider.dart';
 import 'block_tree_view.dart';
 import 'run_input_form.dart';
 
@@ -90,7 +101,9 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
             behavior: const AnScrollBehavior(),
             child: SingleChildScrollView(
               controller: _scroll,
-              padding: const EdgeInsets.all(AnSpace.s16),
+              // Vertical only — the AnIsland 12px is the sole horizontal island inset (内距单源律).
+              // 仅纵向:岛壳 12 即唯一水平岛级内距。
+              padding: const EdgeInsets.symmetric(vertical: AnSpace.s16),
               child: SelectionArea(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -130,21 +143,50 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
       label: name,
       subLeading: sel.kind.verbLabel(context.t),
       subTrailing: _metaLine(context, sel, state),
-      subTrailingWidget: AnChip(badge.$1, tone: badge.$2),
+      subTrailingWidget: badge == null ? null : AnChip(badge.$1, tone: badge.$2),
       onClose: () => ref.read(rightPanelCollapsedProvider.notifier).set(true),
       closeSemantics: r.close,
     );
   }
 
-  (String, AnTone) _phaseBadge(BuildContext context, RunPhase phase) {
+  /// The head badge speaks only while running or failed (0718 拍板「状态只在跑中/失败在场」): idle is
+  /// silence, and a settled ok already speaks through the settled bar — a second Done is an echo.
+  /// 头徽只在跑中/失败开口:idle 静默;ok 落定由落定条陈述,头上再来一个 Done 是回声。
+  (String, AnTone)? _phaseBadge(BuildContext context, RunPhase phase) {
     final t = context.t;
     return switch (phase) {
-      RunPhase.idle => (t.status.idle, AnTone.none),
+      RunPhase.idle => null,
+      RunPhase.ok => null,
       RunPhase.running => (t.status.run, AnTone.accent),
-      RunPhase.ok => (t.status.done, AnTone.ok),
       RunPhase.failed => (t.status.err, AnTone.danger),
-      RunPhase.cancelled => (t.entities.run.cancelled, AnTone.none),
+      RunPhase.cancelled => null, // settled bar's statusLabel carries it 落定条陈述
     };
+  }
+
+  /// The settled bar (落定条, AnStatBar 族): status word + elapsed; a workflow adds its flowrun id
+  /// and the flagship door. 落定条:状态词+耗时;wf 加 flowrun id 与旗舰门。
+  Widget _settledBar(BuildContext context, EntityRef sel, RunTerminalState state) {
+    final r = context.t.entities.run;
+    return AnStatBar(
+      status: switch (state.phase) {
+        RunPhase.ok => AnStatus.done,
+        RunPhase.failed => AnStatus.err,
+        _ => AnStatus.idle,
+      },
+      statusLabel: state.phase == RunPhase.cancelled ? r.cancelled : null,
+      stats: [
+        if (state.elapsedMs > 0) AnStat(fmtDuration(Duration(milliseconds: state.elapsedMs)), tabular: true),
+        if (sel.kind == EntityKind.workflow && state.flowrunId != null) AnStat(state.flowrunId!, tabular: true),
+      ],
+      chips: [
+        if (sel.kind == EntityKind.workflow && state.flowrunId != null)
+          AnButton(
+            label: r.openFlowrun,
+            size: AnButtonSize.sm,
+            onPressed: () => context.go('/scheduler/runs/${state.flowrunId}'),
+          ),
+      ],
+    );
   }
 
   String _metaLine(BuildContext context, EntityRef sel, RunTerminalState state) {
@@ -173,18 +215,24 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
 
   // ── body ────────────────────────────────────────────────────────────────────
   Widget _output(BuildContext context, EntityRef sel, RunTerminalState state, RunStream s) {
-    final r = context.t.entities.run;
     if (state.phase == RunPhase.idle) {
-      return AnState(kind: AnStateKind.empty, size: AnStateSize.inset, title: r.idleTitle, hint: r.idleHint);
+      // Never ran → NOTHING here (零墓碑, 0718 拍板): the form above IS the guidance; below it, air.
+      // The bench strip renders separately. 没跑过=结果区不渲——表单即引导,下面是空气。
+      return _RecentStrip(entityRef: sel);
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (state.isTerminal) ...[
+          _settledBar(context, sel, state),
+          const SizedBox(height: AnSpace.s12),
+        ],
         if (state.phase == RunPhase.failed && (state.errorMsg ?? '').isNotEmpty) ...[
           AnCallout(state.errorMsg!, title: state.errorCode, severity: AnCalloutSeverity.danger),
           const SizedBox(height: AnSpace.s12),
         ],
         ..._kindBody(context, sel, state, s),
+        _RecentStrip(entityRef: sel),
       ],
     );
   }
@@ -289,4 +337,108 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
 
   // Plain Text — the whole scroll body is one SelectionArea (best-practice over per-row SelectableText).
   Widget _mono(BuildContext context, String text) => AnCodeBlock(text);
+}
+
+/// The bench strip (「最近」段, 0719 拍板): this entity's last five executions off the SAME ledgers
+/// the Logs tab pages — mixed real runs and bench runs, newest first. A row expands to its I/O
+/// digest; hovering slides out the REPRODUCE key (回填该次输入——hd 连方法、wf 连来源), the archive
+/// stays in the Logs tab (档案馆/工作台分层: the island never carries history).
+///
+/// 工作台条:该实体最近五次执行(与 Logs tab 同账,真跑/试跑混排新在前)。点行展开 IO 摘要;悬停滑出
+/// 「重现」钥匙;全史归 Logs tab——右岛永不装历史。
+class _RecentStrip extends ConsumerStatefulWidget {
+  const _RecentStrip({required this.entityRef});
+
+  final EntityRef entityRef;
+
+  @override
+  ConsumerState<_RecentStrip> createState() => _RecentStripState();
+}
+
+class _RecentStripState extends ConsumerState<_RecentStrip> {
+  String? _hovered;
+  String? _open;
+
+  @override
+  Widget build(BuildContext context) {
+    final r = context.t.entities.run;
+    if (!widget.entityRef.kind.executable) return const SizedBox.shrink();
+    final async = ref.watch(recentRunsProvider(widget.entityRef));
+    final rows = async.value ?? const <RecentRun>[];
+    // Quiet in every non-data state (加载/失败皆静默——工作台条是辅助面,失败不喊;档案有 Logs tab).
+    // 非数据态一律安静。
+    if (rows.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: AnSpace.s16),
+      child: AnSection(label: r.recent, variant: AnSectionVariant.quiet, children: [
+        for (final run in rows) _row(context, run),
+      ]),
+    );
+  }
+
+  Widget _row(BuildContext context, RecentRun run) {
+    final r = context.t.entities.run;
+    final c = ref.read(runTerminalProvider(widget.entityRef).notifier);
+    final hovered = _hovered == run.id;
+    return AnHoverRegion(
+      onEnter: (_) => setState(() => _hovered = run.id),
+      onExit: (_) => setState(() {
+        if (_hovered == run.id) _hovered = null;
+      }),
+      child: AnLedgerRow(
+        lead: AnStatusDot(AnStatus.fromRaw(run.status)),
+        primary: fmtDateTime(run.startedAt),
+        mono: false,
+        chips: [
+          // Single-line micro-labels (窄岛下不许折词成「workflo w」— 真机帧揪出). 微标不折行。
+          if (run.method.isNotEmpty)
+            Text(run.method,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AnText.metaTabular().copyWith(color: context.colors.inkFaint)),
+          if (run.triggeredBy.isNotEmpty)
+            Text(run.triggeredBy,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AnText.meta.copyWith(color: context.colors.inkFaint)),
+          // The reproduce key slides out on hover (原位横向滑出,零跳变——大表动词同文法). 悬停滑出重现。
+          AnExpandReveal(
+            axis: Axis.horizontal,
+            open: hovered,
+            child: Padding(
+              padding: const EdgeInsetsDirectional.only(start: AnSpace.s6),
+              child: AnButton(
+                label: r.reproduce,
+                size: AnButtonSize.sm,
+                surface: true,
+                onPressed: () => c.reproduce(run),
+              ),
+            ),
+          ),
+        ],
+        measure: run.elapsedMs > 0 ? fmtDuration(Duration(milliseconds: run.elapsedMs)) : null,
+        disclose: true,
+        expanded: _open == run.id,
+        onTap: () => setState(() => _open = _open == run.id ? null : run.id),
+        // Lazy I/O digest (C-006): input + output, capped pretty JSON. 惰性 IO 摘要。
+        expandBuilder: (_) => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (run.input.isNotEmpty) ...[
+              Text(r.inputHeading, style: AnText.meta.copyWith(color: context.colors.inkFaint)),
+              const SizedBox(height: AnSpace.s4),
+              AnCodeBlock(prettyJsonCapped(run.input)),
+            ],
+            if (run.output != null) ...[
+              if (run.input.isNotEmpty) const SizedBox(height: AnSpace.s8),
+              Text(r.resultHeading, style: AnText.meta.copyWith(color: context.colors.inkFaint)),
+              const SizedBox(height: AnSpace.s4),
+              AnCodeBlock(prettyJsonCapped(run.output)),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
 }

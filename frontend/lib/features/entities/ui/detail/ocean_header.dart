@@ -15,12 +15,9 @@ import '../../state/detail/entity_detail.dart';
 /// [onVerb]). Version content is read-only here (AI edits it via chat; hand-editing covers meta only).
 /// 详情海洋页头:面包屑 + 名称(onRename 时就地改名)+ 状态徽 + 动词 CTA。版本内容此处只读。
 class EntityOceanHeader extends StatelessWidget {
-  const EntityOceanHeader({required this.detail, this.onVerb, this.onFire, this.onRename, super.key});
+  const EntityOceanHeader({required this.detail, this.onFire, this.onRename, super.key});
 
   final EntityDetail detail;
-
-  /// Press the verb CTA → open the run terminal for this entity (null = disabled). 动词 CTA → 开 run 终端。
-  final VoidCallback? onVerb;
 
   /// Press the trigger's Fire CTA → `:fire` a manual signal (trigger only; produces an activation, NOT a
   /// run terminal — the payload is always `{manual:true}`, so there's no input form). 手动 Fire(仅 trigger)。
@@ -38,17 +35,12 @@ class EntityOceanHeader extends StatelessWidget {
       onTitleChange: onRename,
       crumbs: [d.crumbRoot, detail.ref.kind.typeLabel(t)],
       meta: _badges(t),
-      // Executable kinds get the run verb CTA (→ run terminal); trigger gets a Fire CTA (→ an activation,
-      // not a run); other support kinds have no action. 可执行 kind 动词 CTA;trigger 有 Fire;余支撑 kind 无。
+      // The run verb CTA is RETIRED (0718 拍板「唯一执行点」: execution lives only in the right-island
+      // debugger — two Run doors confused which to press); trigger keeps its Fire CTA (an activation,
+      // not a run — different act, not a second door). 动词 CTA 退役(唯一执行点=右岛调试台;两扇 Run 门
+      // 分不清点哪个);trigger 保留 Fire(那是催一发 activation,不是第二扇执行门)。
       actions: [
-        if (detail.ref.kind.executable)
-          AnButton(
-            label: detail.ref.kind.verbLabel(t),
-            icon: AnIcons.byKey(detail.ref.kind.scopeKind),
-            variant: AnButtonVariant.primary,
-            onPressed: onVerb,
-          )
-        else if (detail.ref.kind == EntityKind.trigger)
+        if (detail.ref.kind == EntityKind.trigger)
           AnButton(
             label: t.entities.detail.trigger.fire,
             icon: AnIcons.byKey(EntityKind.trigger.scopeKind),

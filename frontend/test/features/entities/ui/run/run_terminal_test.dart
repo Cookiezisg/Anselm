@@ -4,6 +4,7 @@ import 'package:anselm/core/contract/entities/values.dart';
 import 'package:anselm/core/messages/block_tree_reducer.dart';
 import 'package:anselm/core/sse/frame.dart';
 import 'package:anselm/core/ui/an_button.dart';
+import 'package:anselm/core/ui/an_state.dart';
 import 'package:anselm/core/ui/an_term_viewport.dart';
 import 'package:anselm/features/entities/data/entity_fixtures.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
@@ -70,11 +71,11 @@ Widget _host(FixtureEntityRepository repo, {EntityRef? sel, Widget child = const
 void main() {
   final r = t.entities.run;
 
-  testWidgets('function idle → typed input field + idle state', (tester) async {
+  testWidgets('function idle → typed input field, ZERO tombstone (零墓碑)', (tester) async {
     await tester.pumpWidget(_host(_fix(), sel: const EntityRef(EntityKind.function, 'fn_1')));
     await tester.pump(const Duration(milliseconds: 50)); // detail load
     expect(find.text('text'), findsOneWidget); // the declared input's label
-    expect(find.text(r.idleTitle), findsOneWidget);
+    expect(find.byType(AnState), findsNothing); // never-ran = air, not a tombstone 没跑过=空气
     expect(tester.takeException(), isNull);
   });
 

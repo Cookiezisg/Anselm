@@ -1552,8 +1552,6 @@ class _Translations$entities$run$zh_CN extends Translations$entities$run$en {
 	@override String get runAgain => '再运行一次';
 	@override String get cancel => '取消';
 	@override String get close => '关闭运行终端';
-	@override String get idleTitle => '准备运行';
-	@override String get idleHint => '填好入参后运行。';
 	@override String get cancelled => '已取消';
 	@override String get outputHeading => '输出';
 	@override String get resultHeading => '结果';
@@ -1569,6 +1567,18 @@ class _Translations$entities$run$zh_CN extends Translations$entities$run$en {
 	@override late final _Translations$entities$run$danger$zh_CN danger = _Translations$entities$run$danger$zh_CN._(_root);
 	@override String get inboxEmpty => '没有待审批';
 	@override String get inboxEmptyHint => '等待决断的审批会出现在这里。';
+	@override String get source => '来源';
+	@override String get sourceManual => '手动';
+	@override String get fsnotifyPathHint => '文件路径';
+	@override String get fsnotifyEventHint => '事件,如 create';
+	@override String get sensorValueHint => '传感值';
+	@override String get webhookBody => '请求体';
+	@override String get webhookBodyHint => '{"invoice_id": "..."}';
+	@override String get payloadHint => '{ }';
+	@override String get openFlowrun => '打开 run →';
+	@override String get recent => '最近';
+	@override String get reproduce => '重现';
+	@override String get inputHeading => '输入';
 }
 
 // Path: entities.val
@@ -3769,8 +3779,6 @@ extension on TranslationsZhCn {
 			'entities.run.runAgain' => '再运行一次',
 			'entities.run.cancel' => '取消',
 			'entities.run.close' => '关闭运行终端',
-			'entities.run.idleTitle' => '准备运行',
-			'entities.run.idleHint' => '填好入参后运行。',
 			'entities.run.cancelled' => '已取消',
 			'entities.run.outputHeading' => '输出',
 			'entities.run.resultHeading' => '结果',
@@ -3787,6 +3795,18 @@ extension on TranslationsZhCn {
 			'entities.run.danger.dangerous' => '危险',
 			'entities.run.inboxEmpty' => '没有待审批',
 			'entities.run.inboxEmptyHint' => '等待决断的审批会出现在这里。',
+			'entities.run.source' => '来源',
+			'entities.run.sourceManual' => '手动',
+			'entities.run.fsnotifyPathHint' => '文件路径',
+			'entities.run.fsnotifyEventHint' => '事件,如 create',
+			'entities.run.sensorValueHint' => '传感值',
+			'entities.run.webhookBody' => '请求体',
+			'entities.run.webhookBodyHint' => '{"invoice_id": "..."}',
+			'entities.run.payloadHint' => '{ }',
+			'entities.run.openFlowrun' => '打开 run →',
+			'entities.run.recent' => '最近',
+			'entities.run.reproduce' => '重现',
+			'entities.run.inputHeading' => '输入',
 			'entities.val.yes' => '是',
 			'entities.val.no' => '否',
 			'entities.overview.title' => '总览',
@@ -4055,6 +4075,8 @@ extension on TranslationsZhCn {
 			'settings.mcp.browse' => '浏览市场',
 			'settings.mcp.manualAdd' => '手动添加',
 			'settings.mcp.importJson' => '导入 mcp.json',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mcp.empty' => '还没有 MCP 服务器',
 			'settings.mcp.emptyHint' => '从市场安装、手动添加或导入 mcp.json。',
 			'settings.mcp.reconnect' => '重连',
@@ -4065,8 +4087,6 @@ extension on TranslationsZhCn {
 			'settings.mcp.confirmDelete' => '删除',
 			'settings.mcp.tools' => ({required Object n}) => '${n} 工具',
 			'settings.mcp.calls' => ({required Object n}) => '${n} 次调用',
-			_ => null,
-		} ?? switch (path) {
 			'settings.mcp.statusReady' => '就绪',
 			'settings.mcp.statusFailed' => '失败',
 			'settings.mcp.statusDegraded' => '降级',

@@ -3742,12 +3742,6 @@ class Translations$entities$run$en {
 	/// en: 'Close run terminal'
 	String get close => 'Close run terminal';
 
-	/// en: 'Ready to run'
-	String get idleTitle => 'Ready to run';
-
-	/// en: 'Fill in the inputs, then run.'
-	String get idleHint => 'Fill in the inputs, then run.';
-
 	/// en: 'Cancelled'
 	String get cancelled => 'Cancelled';
 
@@ -3791,6 +3785,42 @@ class Translations$entities$run$en {
 
 	/// en: 'Approvals waiting for a decision will appear here.'
 	String get inboxEmptyHint => 'Approvals waiting for a decision will appear here.';
+
+	/// en: 'Source'
+	String get source => 'Source';
+
+	/// en: 'Manual'
+	String get sourceManual => 'Manual';
+
+	/// en: 'file path'
+	String get fsnotifyPathHint => 'file path';
+
+	/// en: 'event, e.g. create'
+	String get fsnotifyEventHint => 'event, e.g. create';
+
+	/// en: 'sensor value'
+	String get sensorValueHint => 'sensor value';
+
+	/// en: 'request body'
+	String get webhookBody => 'request body';
+
+	/// en: '{"invoice_id": "..."}'
+	String get webhookBodyHint => '{"invoice_id": "..."}';
+
+	/// en: '{ }'
+	String get payloadHint => '{ }';
+
+	/// en: 'Open run →'
+	String get openFlowrun => 'Open run →';
+
+	/// en: 'recent'
+	String get recent => 'recent';
+
+	/// en: 'Reproduce'
+	String get reproduce => 'Reproduce';
+
+	/// en: 'input'
+	String get inputHeading => 'input';
 }
 
 // Path: entities.val
@@ -7144,8 +7174,6 @@ extension on Translations {
 			'entities.run.runAgain' => 'Run again',
 			'entities.run.cancel' => 'Cancel',
 			'entities.run.close' => 'Close run terminal',
-			'entities.run.idleTitle' => 'Ready to run',
-			'entities.run.idleHint' => 'Fill in the inputs, then run.',
 			'entities.run.cancelled' => 'Cancelled',
 			'entities.run.outputHeading' => 'Output',
 			'entities.run.resultHeading' => 'Result',
@@ -7162,6 +7190,18 @@ extension on Translations {
 			'entities.run.danger.dangerous' => 'Dangerous',
 			'entities.run.inboxEmpty' => 'No pending approvals',
 			'entities.run.inboxEmptyHint' => 'Approvals waiting for a decision will appear here.',
+			'entities.run.source' => 'Source',
+			'entities.run.sourceManual' => 'Manual',
+			'entities.run.fsnotifyPathHint' => 'file path',
+			'entities.run.fsnotifyEventHint' => 'event, e.g. create',
+			'entities.run.sensorValueHint' => 'sensor value',
+			'entities.run.webhookBody' => 'request body',
+			'entities.run.webhookBodyHint' => '{"invoice_id": "..."}',
+			'entities.run.payloadHint' => '{ }',
+			'entities.run.openFlowrun' => 'Open run →',
+			'entities.run.recent' => 'recent',
+			'entities.run.reproduce' => 'Reproduce',
+			'entities.run.inputHeading' => 'input',
 			'entities.val.yes' => 'yes',
 			'entities.val.no' => 'no',
 			'entities.overview.title' => 'Overview',
@@ -7430,6 +7470,8 @@ extension on Translations {
 			'settings.mcp.browse' => 'Browse marketplace',
 			'settings.mcp.manualAdd' => 'Add manually',
 			'settings.mcp.importJson' => 'Import mcp.json',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mcp.empty' => 'No MCP servers yet',
 			'settings.mcp.emptyHint' => 'Install from the marketplace, add manually, or import mcp.json.',
 			'settings.mcp.reconnect' => 'Reconnect',
@@ -7440,8 +7482,6 @@ extension on Translations {
 			'settings.mcp.confirmDelete' => 'Delete',
 			'settings.mcp.tools' => ({required Object n}) => '${n} tools',
 			'settings.mcp.calls' => ({required Object n}) => '${n} calls',
-			_ => null,
-		} ?? switch (path) {
 			'settings.mcp.statusReady' => 'ready',
 			'settings.mcp.statusFailed' => 'failed',
 			'settings.mcp.statusDegraded' => 'degraded',

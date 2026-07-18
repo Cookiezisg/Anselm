@@ -99,6 +99,12 @@ class AppShell extends ConsumerWidget {
     ref.listen(selectedSchedulerProvider, (prev, next) {
       if (next != null) ref.read(selectedOceanProvider.notifier).select(OceanKind.scheduler);
     });
+    // And for entities: an /entities/:kind/:id navigation pulls the ocean to entities — this rule
+    // existed for the other three URL-owning oceans but not here, so an entity deep link landed on
+    // whatever ocean was up. entities 同款(此前唯独缺这条,实体深链会落在别的海洋上)。
+    ref.listen(selectedEntityProvider, (prev, next) {
+      if (next != null) ref.read(selectedOceanProvider.notifier).select(OceanKind.entities);
+    });
     final notifOpen = ref.watch(notificationsOpenProvider);
     // Keep the event→toast dispatcher alive + subscribed for the whole session (it pops a top-right toast
     // for important stream events). A bare watch — its value is void. 保活事件→toast 派发器(整会话订阅)。

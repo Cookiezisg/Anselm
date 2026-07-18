@@ -25,6 +25,10 @@ abstract class RunTerminalState with _$RunTerminalState {
   const factory RunTerminalState({
     @Default(RunPhase.idle) RunPhase phase,
     @Default('') String method, // handler: the selected method (drives which fields render) 选中方法
+    // workflow: the payload SOURCE — 'manual' or a mounted trigger id; drives which payload fields
+    // render (来源选择器, 用户 0718 拍板: payload 是 trigger 释放信息的替身), and buckets the draft.
+    // workflow 的 payload 来源('manual' 或挂载 trigger id):驱动 payload 字段渲染并给草稿分桶。
+    @Default('manual') String source,
     Object? output, // fn/hd/ag result output 结果输出
     String? errorCode,
     String? errorMsg,

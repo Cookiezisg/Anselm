@@ -3,6 +3,7 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 import '../../../../core/contract/entities/common.dart';
 import '../../../../core/contract/entities/workflow.dart';
 import '../../../../core/model/status_state.dart';
+import '../run/recent_runs_provider.dart';
 
 part 'log_list_state.freezed.dart';
 
@@ -17,10 +18,14 @@ class LogRow {
     this.meta,
     this.hint,
     this.detailRows = const [],
+    this.run,
   });
 
   final String id;
   final AnStatus dot;
+  /// The reproduce projection (重现钥匙, 0719 拍板): the raw input/method/source of this execution,
+  /// null for rows that can't reproduce (wf flowruns project no payload → source-only). 重现投影。
+  final RecentRun? run;
   final String label;
   final String? meta;
   final String? hint;

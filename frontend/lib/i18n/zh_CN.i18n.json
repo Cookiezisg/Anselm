@@ -1345,8 +1345,6 @@
       "runAgain": "再运行一次",
       "cancel": "取消",
       "close": "关闭运行终端",
-      "idleTitle": "准备运行",
-      "idleHint": "填好入参后运行。",
       "cancelled": "已取消",
       "outputHeading": "输出",
       "resultHeading": "结果",
@@ -1364,7 +1362,19 @@
         "dangerous": "危险"
       },
       "inboxEmpty": "没有待审批",
-      "inboxEmptyHint": "等待决断的审批会出现在这里。"
+      "inboxEmptyHint": "等待决断的审批会出现在这里。",
+      "source": "来源",
+      "sourceManual": "手动",
+      "fsnotifyPathHint": "文件路径",
+      "fsnotifyEventHint": "事件,如 create",
+      "sensorValueHint": "传感值",
+      "webhookBody": "请求体",
+      "webhookBodyHint": "{\"invoice_id\": \"...\"}",
+      "payloadHint": "{ }",
+      "openFlowrun": "打开 run →",
+      "recent": "最近",
+      "reproduce": "重现",
+      "inputHeading": "输入"
     },
     "val": {
       "yes": "是",
