@@ -856,10 +856,20 @@ AnTimeRangePickerStrings _rangeStrings(BuildContext context) {
     applyLabel: t.apply,
     endBeforeStartError: t.endBeforeStart,
     weekdayLabels: t.weekdays.split(' '),
-    monthTitle: (m) => t.monthTitle(y: '${m.year}', m: m.month.toString().padLeft(2, '0')),
+    // Month WORDS come from the locale table (en «July 2026», zh 「2026 年 7 月」— the padded
+    // numeric «2026-07» read machine-ish, 用户 0718 诊断#5). 月词走 locale 表,机器味 ISO 退役。
+    monthTitle: (m) => t.monthTitle(y: '${m.year}', m: t.months.split(',')[m.month - 1]),
     prevMonthLabel: t.prevMonth,
     nextMonthLabel: t.nextMonth,
     capsuleA11y: t.capsuleA11y,
+    backLabel: t.backToPresets,
+    todayLabel: t.backToToday,
+    preciseTimeLabel: t.preciseTime,
+    // Day words: same-year days stay short; cross-year days carry the year (honesty over brevity).
+    // 日期词:同年短写,跨年带年。
+    dayText: (d) => d.year == DateTime.now().year
+        ? t.dayText(m: '${d.month}', d: '${d.day}')
+        : t.dayTextYear(y: '${d.year}', m: '${d.month}', d: '${d.day}'),
     gridSemanticLabel: t.gridA11y,
   );
 }

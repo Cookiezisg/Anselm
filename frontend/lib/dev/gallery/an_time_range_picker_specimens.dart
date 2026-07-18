@@ -5,13 +5,14 @@ import '../../core/model/time_range.dart';
 import '../../core/ui/ui.dart';
 import 'specimen.dart';
 
-/// AnTimeRangePicker / AnCalendar 标本(WRK-069 主页重建拍板 0717)。
+/// AnTimeRangePicker / AnCalendar 标本(WRK-069 拍板 0717;渐进披露重造 0718)。
 ///
 /// 设计裁决速记:
-///   · Grafana 定式双面板——快捷预设点即生效;绝对表单显式应用,半填两端不上线缆。
-///   · 预设是活表达式(每次取数现解析),绝对对是冻结两端;胶囊忠于意图(预设显名/绝对显两端)。
-///   · 终点早于起点=就地报错+拒绝应用,绝不偷偷交换。
-///   · 日历恒 6 行 42 格(跨月零跳高),范围三态(起帽/带身/终帽)+终点未定 hover 预览带。
+///   · 渐进披露三层:预设小单(点即生效,95% 路径两击)→「自定义范围…」日历面板(唯一显式应用)→
+///     「精确到时刻」披露(端点默认整天,点开才出滚轮)。
+///   · 日历是唯一权威:预设=写入范围的快捷方式,✓ 随值;胶囊忠于意图(预设显名/整天对显日子/带刻显时刻)。
+///   · 范围=连续缎带+圆帽(格缝一体,不再是离散点);终点早于起点=就地报错+拒绝应用,绝不偷偷交换。
+///   · 日历恒 6 行 42 格(跨月零跳高)+月头回今天;滚轮邻排向沿渐隐(读得出「停在哪」)。
 ///   · 键盘:日历整盘一个 Tab 停靠,←→↑↓ 走日、PgUp/PgDn 翻月(Shift=年)、Home/End 周首尾、Enter 选。
 ///
 /// gallery 为 dev-only,文案中文直写(i18n 豁免);app 侧文案经 AnTimeRangePickerStrings 从 slang 进。
@@ -33,6 +34,10 @@ final _strings = AnTimeRangePickerStrings(
   prevMonthLabel: '上个月',
   nextMonthLabel: '下个月',
   capsuleA11y: '时间范围',
+  backLabel: '返回快捷范围',
+  todayLabel: '回到今天',
+  preciseTimeLabel: '精确到时刻',
+  dayText: (d) => '${d.month} 月 ${d.day} 日',
 );
 
 /// 受控宿主——gallery 里可真点开、真选(标本即活控件)。
@@ -95,6 +100,7 @@ class _CalendarHostState extends State<_CalendarHost> {
       monthTitle: '$_month'.substring(0, 7),
       prevMonthLabel: '上个月',
       nextMonthLabel: '下个月',
+      todayLabel: '回到今天',
       gridSemanticLabel: '日历',
     );
   }
@@ -127,8 +133,8 @@ class _WheelHostState extends State<_WheelHost> {
 
 final anTimeRangePickerGalleryItem = GalleryItem(
   'AnTimeRangePicker 时间范围',
-  'Grafana 定式:一颗胶囊治全页——左快捷预设(点即生效、活表达式每次现解析)/右绝对表单(日期+时间双端+日历范围+'
-      '显式应用);终点早于起点就地报错绝不交换;日历恒 6 行 42 格零跳高、整盘单 Tab 停靠 APG 键盘',
+  'Grafana 定式+渐进披露三层:预设小单点即生效→自定义日历面板(连续缎带+圆帽+回今天+唯一应用)→'
+      '精确到时刻披露(默认整天);终点早于起点就地报错绝不交换;日历恒 6 行 42 格零跳高、整盘单 Tab 停靠 APG 键盘',
   [
     GallerySpecimen(
       '胶囊·预设态(点开真选)',
@@ -152,7 +158,7 @@ final anTimeRangePickerGalleryItem = GalleryItem(
       height: 80,
     ),
     GallerySpecimen(
-      '日历·范围三态(起帽/带身/终帽)',
+      '日历·连续缎带(圆帽坐带上,格缝一体)',
       (_) => Padding(
         padding: const EdgeInsets.all(AnSpace.s16),
         child: _CalendarHost(start: DateTime(2026, 7, 6), end: DateTime(2026, 7, 17)),

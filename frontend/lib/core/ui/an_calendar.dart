@@ -41,6 +41,7 @@ class AnCalendar extends StatefulWidget {
     required this.nextMonthLabel,
     this.rangeStart,
     this.rangeEnd,
+    this.todayLabel,
     this.daySemanticLabel,
     this.gridSemanticLabel = '',
     super.key,
@@ -67,11 +68,20 @@ class AnCalendar extends StatefulWidget {
   final String prevMonthLabel;
   final String nextMonthLabel;
 
+  /// «Back to today» button a11y label — non-null shows the button in the month head (jumps the
+  /// visible month to now). 「回今天」钮读屏词——非空即在月头渲钮(可见月跳回当下)。
+  final String? todayLabel;
+
   /// Screen-reader sentence for one day cell; falls back to `YYYY-MM-DD`. 逐日读屏句。
   final String Function(DateTime day)? daySemanticLabel;
 
   /// Container summary for the grid. 网格容器摘要。
   final String gridSemanticLabel;
+
+  /// The grid's fixed width (7 cells + 6 gaps) — the ONE source panel hosts size themselves from.
+  /// 网格定宽(7 格+6 缝)——宿主面板取宽的单一来源。
+  static const double gridWidth =
+      7 * _AnCalendarState._cell + 6 * _AnCalendarState._gap;
 
   @override
   State<AnCalendar> createState() => _AnCalendarState();
@@ -186,6 +196,16 @@ class _AnCalendarState extends State<AnCalendar> {
                 child: Text(widget.monthTitle,
                     style: AnText.label.weight(AnText.emphasisWeight).copyWith(color: c.ink)),
               ),
+              if (widget.todayLabel != null) ...[
+                AnButton.iconOnly(AnIcons.calendarToday,
+                    size: AnButtonSize.sm,
+                    semanticLabel: widget.todayLabel!,
+                    onPressed: () {
+                      final now = DateTime.now();
+                      widget.onMonthChange(DateTime(now.year, now.month, 1));
+                    }),
+                const SizedBox(width: AnSpace.s4),
+              ],
               AnButton.iconOnly(AnIcons.chevronLeft,
                   size: AnButtonSize.sm,
                   semanticLabel: widget.prevMonthLabel,
@@ -245,11 +265,14 @@ class _AnCalendarState extends State<AnCalendar> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              for (var col = 0; col < 7; col++) ...[
-                                if (col > 0) const SizedBox(width: _gap),
+                              // Cell gaps live INSIDE each cell box (right lane) so the range band
+                              // can paint across them — a SizedBox gap breaks the band into
+                              // disconnected chips (用户 0718 诊断#4). 缝并入格盒右道,范围带才能
+                              // 连续横贯——独立缝会把带切成离散点。
+                              for (var col = 0; col < 7; col++)
                                 _day(context, days[r * 7 + col], start, end, bandEnd,
-                                    focused && isSameDay(days[r * 7 + col], cursor)),
-                              ],
+                                    focused && isSameDay(days[r * 7 + col], cursor),
+                                    col: col),
                             ],
                           ),
                         ),
@@ -265,29 +288,28 @@ class _AnCalendarState extends State<AnCalendar> {
   }
 
   Widget _day(BuildContext context, DateTime day, DateTime? start, DateTime? end,
-      DateTime? bandEnd, bool isCursor) {
+      DateTime? bandEnd, bool isCursor,
+      {required int col}) {
     final c = context.colors;
     final inMonth = day.month == widget.month.month;
     final isStart = start != null && isSameDay(day, start);
     final isEnd = end != null && isSameDay(day, end);
-    final inBand = start != null &&
+    final isBandCap = bandEnd != null && isSameDay(day, bandEnd);
+    final isCap = isStart || isEnd || isBandCap;
+    // Inclusive band membership — caps included, so the underlay runs edge-to-edge under them and
+    // the round caps sit ON a continuous ribbon. 闭区间带成员(含端帽):底带贯穿帽下,圆帽坐在连续带上。
+    final inClosedBand = start != null &&
         bandEnd != null &&
-        day.isAfter(start) &&
-        day.isBefore(bandEnd) &&
-        !isStart &&
-        !isEnd;
-    final isCap = isStart || isEnd || (bandEnd != null && isSameDay(day, bandEnd));
+        !day.isBefore(start) &&
+        !day.isAfter(bandEnd);
+    final inBand = inClosedBand && !isCap;
 
-    final Color bg;
     final Color fg;
     if (isCap) {
-      bg = c.accent;
       fg = c.surface;
     } else if (inBand) {
-      bg = c.accentSoft;
       fg = inMonth ? c.ink : c.inkFaint;
     } else {
-      bg = const Color(0x00000000);
       fg = inMonth ? c.inkMuted : c.inkFaint;
     }
 
@@ -303,6 +325,40 @@ class _AnCalendarState extends State<AnCalendar> {
     }
 
     final hovered = _hover != null && isSameDay(_hover!, day);
+    // The continuous band underlay (用户 0718 拍板「端点圆头中间连成带」): the soft ribbon paints
+    // under the cell AND across its right gap lane when the next day continues the band, rounding
+    // off at band edges and week edges — the range reads as ONE ribbon, not discrete chips. The
+    // accent CAPS are full circles sitting on the ribbon.
+    // 连续底带:软色画在格下并横贯右缝(右邻仍在带内时),带缘/周缘圆头收口——范围读作一条缎带而非离散
+    // 点;accent 端帽是坐在缎带上的整圆。
+    final hasRightLane = col < 6;
+    final boxW = hasRightLane ? _cell + _gap : _cell;
+    final rightConnected = inClosedBand &&
+        hasRightLane &&
+        !isSameDay(day, bandEnd) &&
+        // The next calendar day continues the closed band. 右邻(明天)仍在闭带内。
+        !DateTime(day.year, day.month, day.day + 1).isAfter(bandEnd);
+    final leftRounded = inClosedBand && (isSameDay(day, start) || col == 0);
+    final rightRounded = inClosedBand && (isSameDay(day, bandEnd) || col == 6);
+
+    final dayCell = Container(
+      width: _cell,
+      height: _cell,
+      decoration: BoxDecoration(
+        color: isCap
+            ? c.accent
+            : (!inBand && hovered ? c.surfaceHover : const Color(0x00000000)),
+        // Caps are round (端点圆头); plain cells keep the tag radius for their hover wash.
+        borderRadius: BorderRadius.circular(isCap ? _cell / 2 : AnRadius.tag),
+        border: isCursor ? Border.all(color: c.accent, width: AnSize.ring) : null,
+      ),
+      child: Center(
+        child: Text('${day.day}',
+            style:
+                AnText.metaTabular().copyWith(color: isCap ? fg : (hovered ? c.ink : fg))),
+      ),
+    );
+
     return Semantics(
       label: widget.daySemanticLabel?.call(day) ?? _iso(day),
       button: true,
@@ -315,19 +371,28 @@ class _AnCalendarState extends State<AnCalendar> {
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: pick,
-          child: Container(
-            width: _cell,
+          child: SizedBox(
+            width: boxW,
             height: _cell,
-            decoration: BoxDecoration(
-              color: !isCap && !inBand && hovered ? c.surfaceHover : bg,
-              borderRadius: BorderRadius.circular(AnRadius.tag),
-              border: isCursor ? Border.all(color: c.accent, width: AnSize.ring) : null,
-            ),
-            child: Center(
-              child: Text('${day.day}',
-                  style: AnText.metaTabular()
-                      .copyWith(color: isCap ? fg : (hovered ? c.ink : fg))),
-            ),
+            child: Stack(children: [
+              if (inClosedBand)
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: rightConnected ? boxW : _cell,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: c.accentSoft,
+                      borderRadius: BorderRadius.horizontal(
+                        left: leftRounded ? Radius.circular(_cell / 2) : Radius.zero,
+                        right: rightRounded ? Radius.circular(_cell / 2) : Radius.zero,
+                      ),
+                    ),
+                  ),
+                ),
+              Align(alignment: Alignment.centerLeft, child: dayCell),
+            ]),
           ),
         ),
       ),

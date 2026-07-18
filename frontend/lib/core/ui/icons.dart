@@ -24,6 +24,7 @@ abstract final class AnIcons {
   static final IconData chevronLeft = _thin(LucideIcons.chevronLeft); // calendar month back 日历翻上月
   static final IconData chevronDown = _thin(LucideIcons.chevronDown);
   static final IconData calendarRange = _thin(LucideIcons.calendarRange); // time-range picker capsule 时间范围胶囊
+  static final IconData calendarToday = _thin(LucideIcons.calendarCheck); // calendar «back to today» 日历回今天
   static final IconData more = _thin(LucideIcons.ellipsis);
   static final IconData grip = _thin(LucideIcons.gripVertical);
   static final IconData close = _thin(LucideIcons.x);

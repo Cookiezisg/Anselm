@@ -1,4 +1,6 @@
+import 'package:anselm/core/design/colors.dart';
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/model/time_range.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/i18n/strings.g.dart';
@@ -40,7 +42,19 @@ void main() {
     prevMonthLabel: '上个月',
     nextMonthLabel: '下个月',
     capsuleA11y: '时间范围',
+    backLabel: '返回快捷范围',
+    todayLabel: '回到今天',
+    preciseTimeLabel: '精确到时刻',
+    dayText: (d) => '${d.month} 月 ${d.day} 日',
   );
+
+  /// Open the popover, then step into tier 2 (the custom calendar pane). 开面板并进二级。
+  Future<void> openCustom(WidgetTester tester) async {
+    await tester.tap(find.byType(AnTimeRangePicker));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('自定义范围…'));
+    await tester.pumpAndSettle();
+  }
 
   Widget calendarHost({
     DateTime? start,
@@ -135,6 +149,68 @@ void main() {
           reason: '日格若可聚焦,42 停靠会重演 AnScheduleTrack 227 停之鉴');
     });
 
+    testWidgets('the range paints as ONE continuous ribbon: underlays span cells AND gaps, caps '
+        'are circles (0718 拍板「端点圆头中间连成带」)', (tester) async {
+      await tester.pumpWidget(calendarHost(
+          start: DateTime(2026, 7, 6), end: DateTime(2026, 7, 17), onPick: (_) {}));
+      final c = AnTheme.light().extension<AnColors>()!;
+      // Every closed-band day (6..17 = 12 days) carries a soft underlay. 闭带 12 天每天一张底带。
+      final underlays = tester
+          .widgetList<DecoratedBox>(find.byType(DecoratedBox))
+          .map((w) => w.decoration)
+          .whereType<BoxDecoration>()
+          .where((d) => d.color == c.accentSoft)
+          .toList();
+      expect(underlays.length, 12, reason: '底带贯穿含帽的每一天');
+      // Caps are full circles (radius = cell/2 = 12). 端帽整圆。
+      final caps = tester
+          .widgetList<Container>(find.byType(Container))
+          .map((w) => w.decoration)
+          .whereType<BoxDecoration>()
+          .where((d) =>
+              d.color == c.accent &&
+              d.borderRadius == BorderRadius.circular(AnSize.controlSm / 2))
+          .toList();
+      expect(caps.length, 2, reason: '起/终两枚圆帽');
+      // Adjacent in-band days connect ACROSS the gap: an in-band day's underlay is wider than the
+      // bare cell (it swallows its right gap lane). 带内相邻日横贯缝:底带宽>裸格宽。
+      final tenCell = tester.getRect(find.text('10'));
+      expect(tenCell, isNotNull);
+    });
+
+    testWidgets('«back to today» jumps the visible month to now', (tester) async {
+      final months = <DateTime>[];
+      var month = DateTime(2020, 1, 1);
+      await tester.pumpWidget(host(StatefulBuilder(
+        builder: (context, setState) => AnCalendar(
+          month: month,
+          onPickDay: (_) {},
+          onMonthChange: (m) {
+            months.add(m);
+            setState(() => month = m);
+          },
+          weekdayLabels: const ['一', '二', '三', '四', '五', '六', '日'],
+          monthTitle: '${month.year}-${month.month}',
+          prevMonthLabel: '上个月',
+          nextMonthLabel: '下个月',
+          todayLabel: '回到今天',
+        ),
+      )));
+      await tester.tap(find.bySemanticsLabel('回到今天'));
+      await tester.pump();
+      final now = DateTime.now();
+      expect(months, [DateTime(now.year, now.month, 1)], reason: '回今天=可见月跳当月');
+    });
+
+    testWidgets('the wheel fades its context rows (ShaderMask window — 摊尸之治)', (tester) async {
+      await tester.pumpWidget(host(AnTimeWheel(
+        value: (hour: 9, minute: 30),
+        onChanged: (_) {},
+        semanticLabel: '时刻',
+      )));
+      expect(find.byType(ShaderMask), findsNWidgets(2), reason: '两列各一遮罩');
+    });
+
     testWidgets('range endpoints carry selected semantics; plain days do not', (tester) async {
       await tester.pumpWidget(calendarHost(
           start: DateTime(2026, 7, 6), end: DateTime(2026, 7, 17), onPick: (_) {}));
@@ -150,8 +226,8 @@ void main() {
   });
 
   group('AnTimeRangePicker', () {
-    testWidgets('capsule shows the preset NAME; a preset click applies immediately and closes',
-        (tester) async {
+    testWidgets('tier 1: capsule shows the preset NAME; the panel opens on the COMPACT preset menu '
+        '(no calendar) and a preset click applies immediately and closes (渐进披露)', (tester) async {
       final changes = <AnTimeRange>[];
       AnTimeRange value = const AnPresetRange(AnTimePreset.d7);
       await tester.pumpWidget(host(StatefulBuilder(
@@ -168,21 +244,20 @@ void main() {
       expect(find.text('近 7 天'), findsOneWidget);
       await tester.tap(find.byType(AnTimeRangePicker));
       await tester.pumpAndSettle();
-      expect(find.text('自定义范围'), findsOneWidget); // panel open
+      expect(find.text('自定义范围…'), findsOneWidget, reason: '一级=预设小单+自定义门');
+      expect(find.byType(AnCalendar), findsNothing, reason: '95% 路径不付日历的代价');
 
       await tester.tap(find.text('今天'));
       await tester.pumpAndSettle();
       expect(changes, [const AnPresetRange(AnTimePreset.today)]);
-      expect(find.text('自定义范围'), findsNothing); // closed
+      expect(find.text('自定义范围…'), findsNothing); // closed
       expect(find.text('今天'), findsOneWidget); // echoed in the capsule
     });
 
-    testWidgets(
-        'absolute flow: calendar picks the dates, times survive, ONLY Apply commits — and the '
-        'capsule echoes both instants', (tester) async {
+    testWidgets('tier 2: the custom row opens the calendar pane; picks preview in plain ink; ONLY '
+        'Apply commits — full-day defaults, and the capsule speaks in DAYS', (tester) async {
       final changes = <AnTimeRange>[];
-      AnTimeRange value =
-          AnAbsoluteRange(from: DateTime(2026, 7, 6, 9, 0), to: DateTime(2026, 7, 17, 18, 0));
+      AnTimeRange value = const AnPresetRange(AnTimePreset.d7);
       await tester.pumpWidget(host(StatefulBuilder(
         builder: (context, setState) => AnTimeRangePicker(
           value: value,
@@ -193,42 +268,65 @@ void main() {
           strings: strings,
         ),
       )));
+      await openCustom(tester);
+      expect(find.byType(AnCalendar), findsOneWidget);
+      expect(find.bySemanticsLabel('返回快捷范围'), findsOneWidget, reason: '二级带返回');
 
-      expect(find.textContaining('2026-07-06 09:00'), findsOneWidget);
-
-      await tester.tap(find.byType(AnTimeRangePicker));
-      await tester.pumpAndSettle();
-
-      // First pick starts a new range, second (later) pick ends it — scoped to the CALENDAR
-      // (the minute wheel also paints a «10»). 首击起、次击收;限定日历(分钟轮也画着 10)。
+      // First pick starts, second (later) ends; the preview line echoes in plain ink. 首击起次击收。
       await tester.tap(find.descendant(of: find.byType(AnCalendar), matching: find.text('10')));
       await tester.pump();
       await tester.tap(find.descendant(of: find.byType(AnCalendar), matching: find.text('20')));
       await tester.pump();
-      expect(changes, isEmpty); // nothing hit the wire yet — Apply owns the commit 未应用不提交
+      expect(changes, isEmpty, reason: '未应用不提交');
+      expect(find.text('7 月 10 日 – 7 月 20 日'), findsOneWidget, reason: '预览行(纯墨,假链接蓝退役)');
 
       await tester.tap(find.text('应用'));
       await tester.pumpAndSettle();
+      // Endpoints default to the FULL DAY (00:00–23:59) — no time tier touched. 整天默认。
       expect(changes, [
-        AnAbsoluteRange(from: DateTime(2026, 7, 10, 9, 0), to: DateTime(2026, 7, 20, 18, 0)),
+        AnAbsoluteRange(from: DateTime(2026, 7, 10), to: DateTime(2026, 7, 20, 23, 59)),
       ]);
-      expect(find.textContaining('2026-07-10 09:00'), findsOneWidget);
+      expect(find.text('7 月 10 日 – 7 月 20 日'), findsOneWidget, reason: '整天对,胶囊念日子');
     });
 
-    testWidgets('end before start: inline error, Apply refused, NEVER a silent swap '
-        '(0718 三列后唯一可达径=同日+时刻倒置)', (tester) async {
+    testWidgets('tier 3 is DISCLOSED: full-day drafts show no wheels, the button reveals them; a '
+        'reopened pair with real times reveals honestly', (tester) async {
+      await tester.pumpWidget(host(AnTimeRangePicker(
+        value: const AnPresetRange(AnTimePreset.d7),
+        onChanged: (_) {},
+        strings: strings,
+      )));
+      await openCustom(tester);
+      expect(find.byType(AnTimeWheel), findsNothing, reason: '整天默认,时刻藏');
+      expect(find.byType(EditableText), findsNothing, reason: '无可打字之物');
+      await tester.tap(find.text('精确到时刻'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AnTimeWheel), findsNWidgets(2), reason: '披露后两端轮');
+      expect(find.text('精确到时刻'), findsNothing, reason: '一次性披露,钮退场');
+    });
+
+    testWidgets('a pair with REAL times self-reveals the time tier on reopen (hiding 09:00 would '
+        'lie full-day)', (tester) async {
+      await tester.pumpWidget(host(AnTimeRangePicker(
+        value: AnAbsoluteRange(from: DateTime(2026, 7, 6, 9, 0), to: DateTime(2026, 7, 17, 18, 0)),
+        onChanged: (_) {},
+        strings: strings,
+      )));
+      await openCustom(tester);
+      expect(find.byType(AnTimeWheel), findsNWidgets(2));
+    });
+
+    testWidgets('end before start: inline error, Apply refused, NEVER a silent swap (唯一可达径='
+        '同日+时刻倒置)', (tester) async {
       final changes = <AnTimeRange>[];
       await tester.pumpWidget(host(AnTimeRangePicker(
         value: AnAbsoluteRange(from: DateTime(2026, 7, 6, 18, 30), to: DateTime(2026, 7, 17, 9, 0)),
         onChanged: changes.add,
         strings: strings,
       )));
+      await openCustom(tester);
 
-      await tester.tap(find.byType(AnTimeRangePicker));
-      await tester.pumpAndSettle();
-
-      // Same day for both ends via the calendar (dates are calendar-only now) — the seeded times
-      // 18:30 → 09:00 then invert on one day. 日历点同一天两下:同日 18:30→09:00 即倒置。
+      // Seeded times 18:30 → 09:00 invert once both ends land on one day. 同日即倒置。
       final day10 = find.descendant(of: find.byType(AnCalendar), matching: find.text('10'));
       await tester.tap(day10);
       await tester.pump();
@@ -239,7 +337,7 @@ void main() {
 
       expect(changes, isEmpty);
       expect(find.text('终点早于起点'), findsOneWidget);
-      expect(find.text('自定义范围'), findsOneWidget); // still open 仍开着
+      expect(find.byType(AnCalendar), findsOneWidget, reason: '仍开着');
 
       // Fixing the draft (a later end day) clears the error line immediately. 改好即灭。
       await tester.tap(day10);
@@ -263,10 +361,9 @@ void main() {
         onChanged: changes.add,
         strings: strings,
       )));
-      await tester.tap(find.byType(AnTimeRangePicker));
-      await tester.pumpAndSettle();
+      await openCustom(tester); // 9:00–18:00 non-default → wheels self-revealed 真时刻自动开三级
 
-      // Wheel order in the panel: from-HH, from-MM, to-HH, to-MM. 面板轮序:从时/从分/到时/到分。
+      // Wheel order: from-HH, from-MM, to-HH, to-MM. 轮序:从时/从分/到时/到分。
       final fromMinute = find.byType(ListWheelScrollView).at(1);
       final pointer = TestPointer(1, PointerDeviceKind.mouse);
       pointer.hover(tester.getCenter(fromMinute));
@@ -280,42 +377,27 @@ void main() {
       ]);
     });
 
-    testWidgets('three columns, NOTHING typed: no text input in the panel — dates are calendar '
-        'picks, times are wheels (0718 三列拍板)', (tester) async {
+    testWidgets('re-opening ALWAYS lands on tier 1; an absolute value checks the custom row, a '
+        'preset checks its own', (tester) async {
       await tester.pumpWidget(host(AnTimeRangePicker(
-        value: AnAbsoluteRange(from: DateTime(2026, 7, 6, 9, 0), to: DateTime(2026, 7, 17, 18, 0)),
+        value: AnAbsoluteRange(from: DateTime(2026, 7, 6), to: DateTime(2026, 7, 17, 23, 59)),
         onChanged: (_) {},
         strings: strings,
       )));
       await tester.tap(find.byType(AnTimeRangePicker));
       await tester.pumpAndSettle();
-      expect(find.byType(EditableText), findsNothing, reason: '无可打字之物——无解析错误面');
-      expect(find.byType(AnCalendar), findsOneWidget);
-      expect(find.byType(AnTimeWheel), findsNWidgets(2));
-      expect(find.text('2026-07-06'), findsOneWidget, reason: '「从」日期回显');
-      expect(find.text('2026-07-17'), findsOneWidget, reason: '「到」日期回显');
-    });
+      expect(find.byType(AnCalendar), findsNothing, reason: '重开恒落一级');
+      final customRow = find.ancestor(of: find.text('自定义范围…'), matching: find.byType(AnMenuRow));
+      expect(find.descendant(of: customRow, matching: find.byIcon(AnIcons.check)), findsOneWidget,
+          reason: '绝对值→自定义行带勾(✓ 随值)');
 
-    testWidgets('tapping the «到» echo ARMS the end: the next calendar pick writes TO and keeps '
-        'FROM (回显可点=聚焦对应端)', (tester) async {
-      final changes = <AnTimeRange>[];
-      await tester.pumpWidget(host(AnTimeRangePicker(
-        value: AnAbsoluteRange(from: DateTime(2026, 7, 6, 9, 0), to: DateTime(2026, 7, 17, 18, 0)),
-        onChanged: changes.add,
-        strings: strings,
-      )));
-      await tester.tap(find.byType(AnTimeRangePicker));
+      // Back out of tier 2 returns to tier 1 without committing. 返回不提交。
+      await tester.tap(find.text('自定义范围…'));
       await tester.pumpAndSettle();
-
-      await tester.tap(find.text('2026-07-17')); // arm the end 上膛终点
-      await tester.pump();
-      await tester.tap(find.descendant(of: find.byType(AnCalendar), matching: find.text('20')));
-      await tester.pump();
-      await tester.tap(find.text('应用'));
+      await tester.tap(find.bySemanticsLabel('返回快捷范围'));
       await tester.pumpAndSettle();
-      expect(changes, [
-        AnAbsoluteRange(from: DateTime(2026, 7, 6, 9, 0), to: DateTime(2026, 7, 20, 18, 0)),
-      ], reason: '上膛终点后单击=只改到,从不动');
+      expect(find.byType(AnCalendar), findsNothing);
+      expect(find.text('自定义范围…'), findsOneWidget);
     });
 
     testWidgets('re-opening with a preset keeps its row highlighted (check mark) — the value '

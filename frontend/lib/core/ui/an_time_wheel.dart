@@ -186,7 +186,24 @@ class _WheelColumnState extends State<_WheelColumn> {
               width: _WheelColumn.width,
               height: _WheelColumn.height,
               child: ExcludeSemantics(
-                child: ListWheelScrollView.useDelegate(
+                // Fade the context rows toward the edges (用户 0718 诊断#1「滚轮摊尸」): without a
+                // mask the neighbour numbers print at near-full strength and the wheel reads as a
+                // pile of numbers, not a wheel stopped at one — the window feel needs the fade.
+                // 邻排向沿渐隐:无遮罩时邻数几乎全强度平铺,轮读作一堆数字而非「停在某值的轮」。
+                child: ShaderMask(
+                  shaderCallback: (rect) => const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color(0x00FFFFFF),
+                      Color(0xFFFFFFFF),
+                      Color(0xFFFFFFFF),
+                      Color(0x00FFFFFF),
+                    ],
+                    stops: [0.0, 0.38, 0.62, 1.0],
+                  ).createShader(rect),
+                  blendMode: BlendMode.dstIn,
+                  child: ListWheelScrollView.useDelegate(
                   controller: _controller,
                   itemExtent: _WheelColumn.itemExtent,
                   physics: const FixedExtentScrollPhysics(),
@@ -210,6 +227,7 @@ class _WheelColumnState extends State<_WheelColumn> {
                         ),
                       ),
                   ]),
+                  ),
                 ),
               ),
             ),
