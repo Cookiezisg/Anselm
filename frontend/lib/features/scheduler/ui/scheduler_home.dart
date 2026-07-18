@@ -783,15 +783,19 @@ class _RunTableZoneState extends ConsumerState<_RunTableZone> with BatchZone<_Ru
                     onChanged: (v) =>
                         setState(() => v ? selected.add(key) : selected.remove(key)),
                   )
-                // The disclosure hand (B4): expanded wears ▾; a hovered collapsed row morphs its
-                // dot into ▸ — «this opens». 披露示能:展开 ▾;hover 点变 ▸——「这里能点开」。
-                : run.id == widget.linkedRunId
-                    ? Icon(AnIcons.chevronDown,
-                        size: AnSize.iconSm, color: context.colors.inkMuted)
-                    : hovered
-                        ? Icon(AnIcons.chevronRight,
-                            size: AnSize.iconSm, color: context.colors.inkMuted)
-                        : AnStatusDot(AnStatus.fromRaw(run.status)),
+                // The disclosure hand — 1:1 the LEFT-ISLAND morph (AnRow 同款,用户 0718「完整对齐
+                // 左岛」): a hovered/expanded row swaps the dot for the SAME 16px faint chevronRight,
+                // rotating 90° (spring, reduced 归零) when open. 披露示能=左岛原形:16px chevronRight
+                // + 展开旋 90°(spring/reduced 双闸),不再是 12px 小箭头换图标。
+                : hovered || run.id == widget.linkedRunId
+                    ? AnimatedRotation(
+                        duration: AnMotionPref.reduced(context) ? Duration.zero : AnMotion.mid,
+                        curve: AnMotion.spring,
+                        turns: run.id == widget.linkedRunId ? 0.25 : 0,
+                        child: Icon(AnIcons.chevronRight,
+                            size: AnSize.icon, color: context.colors.inkFaint),
+                      )
+                    : AnStatusDot(AnStatus.fromRaw(run.status)),
         primary: primary,
         mono: false,
         chips: [

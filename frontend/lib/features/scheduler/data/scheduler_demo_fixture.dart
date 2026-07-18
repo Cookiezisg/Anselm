@@ -337,11 +337,12 @@ class FixtureSchedulerRepository implements SchedulerRepository {
         updatedAt: _shift(_anchor.subtract(const Duration(days: 6))),
       ),
     ];
-    // wf_clean cron history: 22 hourly runs (2 failed) — pushes the table past one 25-row page.
-    // cron 史 22 条(2 失败),把大表推过一页。
-    for (var i = 0; i < 22; i++) {
+    // wf_clean cron history: 96 hourly runs (~4 天,周期性失败) — enough pages (10/页 → 10+) to
+    // exhibit the FOLDED pager + quick jumper (WRK-070 B4;用户 0718「来一个很多执行记录的」).
+    // cron 史 96 条:页数破折叠阈,折叠翻页器+跳页在 demo 可见。
+    for (var i = 0; i < 96; i++) {
       final started = _anchor.subtract(Duration(hours: 4 + i));
-      final failed = i == 3 || i == 11;
+      final failed = i % 12 == 3;
       runs.add(Flowrun(
         id: 'fr_hist${i.toString().padLeft(12, '0')}',
         workflowId: 'wf_clean',

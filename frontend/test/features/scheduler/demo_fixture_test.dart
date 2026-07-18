@@ -243,7 +243,9 @@ void main() {
       expect(stamps[i].isAfter(stamps[i - 1]), isFalse, reason: '新→旧');
     }
 
-    final all = [...first.items, ...second.items];
+    // Origin/failure coverage reads the WHOLE history (96 条时序史把旧行推出前两页 — WRK-070 B4
+    // 折叠翻页器种子). 覆盖断言抓全史;分页力学仍由上面两页证。
+    final all = (await repo.listFlowruns(workflowId: 'wf_clean', limit: 200)).items;
     final origins = {for (final r in all) r.origin};
     expect(origins, containsAll(<String?>['cron', 'chat', 'webhook', 'manual']), reason: '全来源种齐');
     expect(origins, contains(null), reason: '旧行(origin 缺席)种子 → unknown 脸');
