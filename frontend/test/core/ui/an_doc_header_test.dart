@@ -1,4 +1,5 @@
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/ui/an_crumbs.dart';
 import 'package:anselm/core/ui/an_doc_header.dart';
 import 'package:anselm/core/ui/an_button.dart';
 import 'package:anselm/core/ui/an_chip.dart';
@@ -28,7 +29,7 @@ void main() {
 
   testWidgets('renders crumb + title + description', (tester) async {
     await tester.pumpWidget(host(const AnDocHeader(
-      crumb: 'Documents',
+      crumbs: [AnCrumb('Documents')],
       name: 'Architecture Notes',
       description: 'design memo',
     )));
@@ -39,7 +40,7 @@ void main() {
 
   testWidgets('skill face: showTags:false hides the tags row', (tester) async {
     await tester.pumpWidget(host(const AnDocHeader(
-      crumb: 'Skills',
+      crumbs: [AnCrumb('Documents'), AnCrumb('Skills')],
       name: 'code-review',
       showTags: false,
       tags: ['x'], // even with tags present, showTags:false suppresses the row 即便有标签也不渲
@@ -49,7 +50,7 @@ void main() {
 
   testWidgets('document face: tags row renders when editable (onMetaChanged given)', (tester) async {
     await tester.pumpWidget(host(AnDocHeader(
-      crumb: 'Documents',
+      crumbs: [AnCrumb('Documents')],
       name: 'Doc',
       tags: const ['design'],
       onMetaChanged: (_) {},
@@ -58,7 +59,7 @@ void main() {
   });
 
   testWidgets('read-only (no onMetaChanged) + no tags → no tags row', (tester) async {
-    await tester.pumpWidget(host(const AnDocHeader(crumb: 'Documents', name: 'Doc')));
+    await tester.pumpWidget(host(const AnDocHeader(crumbs: [AnCrumb('Documents')], name: 'Doc')));
     // showTags defaults true, but with neither tags nor an edit callback the row is absent (no phantom
     // editor). 默认 showTags 但既无标签又不可编→不渲(无幽灵编辑器)。
     expect(find.byType(AnTags), findsNothing);
@@ -67,7 +68,7 @@ void main() {
   testWidgets('title rename fires onMetaChanged {name: ...}', (tester) async {
     Map<String, dynamic>? got;
     await tester.pumpWidget(host(AnDocHeader(
-      crumb: 'Documents',
+      crumbs: [AnCrumb('Documents')],
       name: 'Old',
       onMetaChanged: (m) => got = m,
     )));
@@ -84,7 +85,7 @@ void main() {
 
   testWidgets('nameEditable:false makes the title non-editable', (tester) async {
     await tester.pumpWidget(host(const AnDocHeader(
-      crumb: 'Skills',
+      crumbs: [AnCrumb('Documents'), AnCrumb('Skills')],
       name: 'code-review',
       nameEditable: false,
       showTags: false,
@@ -97,7 +98,7 @@ void main() {
   testWidgets('empty title/description show grey guides; empty tags show the dummy add-tag pill',
       (tester) async {
     await tester.pumpWidget(host(AnDocHeader(
-      crumb: 'Documents',
+      crumbs: [AnCrumb('Documents')],
       name: '',
       namePlaceholder: '未命名',
       description: '',
@@ -115,7 +116,7 @@ void main() {
 
   testWidgets('a non-empty title/description/tags render VALUES, not the guides', (tester) async {
     await tester.pumpWidget(host(AnDocHeader(
-      crumb: 'Documents',
+      crumbs: [AnCrumb('Documents')],
       name: 'Real Title',
       namePlaceholder: '未命名',
       description: 'a real summary',
@@ -134,7 +135,7 @@ void main() {
 
   testWidgets('tapping the dummy add-tag pill opens the AnTags input field', (tester) async {
     await tester.pumpWidget(host(AnDocHeader(
-      crumb: 'Documents',
+      crumbs: [AnCrumb('Documents')],
       name: 'Doc',
       tags: const [],
       addTagLabel: '添加标签',

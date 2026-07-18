@@ -11,6 +11,7 @@ import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/model/time_range.dart';
 import 'package:anselm/core/run/run_ledger.dart';
 import 'package:anselm/core/runtime.dart';
+import 'package:anselm/core/shell/shell_chrome.dart';
 import 'package:anselm/core/sse/frame.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/features/scheduler/data/scheduler_repository.dart';
@@ -274,6 +275,20 @@ void main() {
           findsOneWidget);
       expect(find.byType(AnTimeRangePicker), findsOneWidget, reason: '胶囊坐在页头 meta 行');
       expect(find.text(h.runNow), findsOneWidget);
+    });
+
+    testWidgets('breadcrumb law (用户 0719): grey crumb = «Scheduler» (parent only, never the name), '
+        'floating head = ONLY the workflow name (zero path)', (tester) async {
+      await _pump(tester, _repo());
+      // In-page grey crumb = the parent path «Scheduler»; the workflow name is the big TITLE, never a
+      // crumb segment (面包屑律①②:路径到上一级、黑字=自己). 页内灰面包屑=父路径;名是大标题、绝不入面包屑。
+      final crumbs = tester.widget<AnOceanHeader>(find.byType(AnOceanHeader)).crumbs;
+      expect(crumbs.map((c) => c.label), [t.scheduler.home.crumbRoot]);
+      expect(crumbs.map((c) => c.label), isNot(contains('数据清洗流水线')));
+      // The floating head binds ONLY the name — no «Scheduler / 名» path串 (面包屑律③). 浮层头只绑名、零路径。
+      final container = ProviderScope.containerOf(tester.element(find.byType(SchedulerHomeView)));
+      expect(container.read(shellHeadProvider).title, '数据清洗流水线');
+      expect(container.read(shellHeadProvider).title, isNot(contains('/')));
     });
 
     testWidgets('null stats read «—», NEVER 0% (缺席≠零)', (tester) async {

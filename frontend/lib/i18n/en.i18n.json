@@ -732,7 +732,6 @@
       "inactive": "Inactive"
     },
     "home": {
-      "crumb": "Scheduler / $name",
       "notFoundTitle": "Workflow not found",
       "notFoundHint": "It may have been deleted. Pick another workflow from the rail.",
       "moreA11y": "More actions",
@@ -820,7 +819,6 @@
       "rowRetry": "Retry"
     },
     "run": {
-      "crumb": "Scheduler / $name / $id",
       "notFoundTitle": "Run not found",
       "notFoundHint": "It may have been cleared by the retention policy. Pick another run from the workflow.",
       "errorTitle": "Couldn't load this run",

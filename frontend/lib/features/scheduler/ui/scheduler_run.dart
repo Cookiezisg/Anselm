@@ -150,10 +150,9 @@ class _SchedulerRunViewState extends ConsumerState<SchedulerRunView> {
       );
     }
 
-    // Bind «Scheduler / 名 / 来源短语» post-frame (entities 先例:每次数据重建重绑,onTap 恒新鲜) —
-    // the crumb's third segment speaks the run PHRASE, never a bare fr_ id (WRK-070 B1). 后帧绑;
-    // 第三段念来源短语,绝不裸 id。
-    final hostName = d.workflow?.name ?? widget.workflowId;
+    // Bind the floating head to ONLY the page's own title = the run's SOURCE PHRASE (用户 0719 面包屑律③:
+    // 浮层头零路径,只念本页是谁;「Scheduler / 名」路径已在页顶面包屑看过). The phrase, never a bare fr_ id
+    // (WRK-070 B1). 后帧绑;浮层头只念来源短语、不串「Scheduler / 名」路径。
     final crumbTriggers = {
       for (final tr
           in ref.watch(schedulerRailProvider).value?.triggers ?? const <TriggerEntity>[])
@@ -162,10 +161,7 @@ class _SchedulerRunViewState extends ConsumerState<SchedulerRunView> {
     final crumbPhrase = runPhrase(context, d.comp.flowrun, crumbTriggers, DateTime.now());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        ref.read(shellHeadProvider.notifier).bind(
-              t.run.crumb(name: hostName, id: crumbPhrase),
-              _scrollToTop,
-            );
+        ref.read(shellHeadProvider.notifier).bind(crumbPhrase, _scrollToTop);
       }
     });
 
@@ -378,7 +374,13 @@ class _DossierHeadState extends ConsumerState<_DossierHead> {
 
     final head = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       AnOceanHeader(
-        crumbs: [context.t.scheduler.home.crumbRoot, hostName],
+        // «Scheduler / <workflow 名>» — the parent path to the operations home; the run's SOURCE PHRASE is
+        // the big title (面包屑律:路径到上一级、黑字=自己). Root → the Overview, the name → the ops home.
+        // 父路径到运营主页;run 来源短语是大标题。根→总览,名→运营主页。
+        crumbs: [
+          AnCrumb(context.t.scheduler.home.crumbRoot, onTap: () => context.go('/scheduler')),
+          AnCrumb(hostName, onTap: () => context.go('/scheduler/w/${run.workflowId}')),
+        ],
         title: runPhrase(context, run, triggersById, widget.now),
         actions: [
           if (failed)

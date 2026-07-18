@@ -21,6 +21,7 @@ export 'an_calendar.dart';
 export 'an_code_block.dart';
 export 'an_count_up.dart';
 export 'an_countdown.dart';
+export 'an_crumbs.dart';
 export 'an_time_pulse.dart';
 export 'an_time_range_picker.dart';
 export 'an_time_wheel.dart';

@@ -8,6 +8,7 @@ import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
 import '../../../core/shell/shell_chrome.dart';
+import '../../../core/ui/an_crumbs.dart';
 import '../../../core/ui/an_page.dart';
 import '../../../core/ui/an_state.dart';
 import '../../../i18n/strings.g.dart';
@@ -16,11 +17,13 @@ import '../state/settings_detail_provider.dart';
 import '../state/settings_panel_provider.dart';
 import 'panels/settings_panels.dart';
 
-/// The settings ocean center — ONE [AnPage] document per panel: a big title + the panel body from
-/// the panel registry ([buildSettingsPanelBody]). Thin chrome, the entities/documents grammar:
-/// binds「设置 / 面板」to the floating breadcrumb, collapses it past the title, panel switch
-/// re-opens at the top. 设置海洋中心——每面板一页 AnPage 文档:大标题+面板体(注册表出)。薄 chrome,
-/// 同 entities/documents 文法:浮层头绑「设置 / 面板」、过标题折叠、换面板回顶。
+/// The settings ocean center — ONE [AnPage] document per panel: a grey parent-path crumb over a big
+/// title + the panel body from the panel registry ([buildSettingsPanelBody]). Thin chrome, the
+/// entities/documents grammar (用户 0719 面包屑律): the in-page crumb is the PARENT path — «Settings» for a
+/// panel, «Settings / [panel]» for a pushed detail — and the big black title is the page's own name
+/// (panel / detail); the floating head binds ONLY that title (zero path). Collapses past the title, panel
+/// switch re-opens at the top. 设置海洋中心——每面板一页:灰父路径面包屑 + 大黑字标题 + 面板体。面包屑=到
+/// 上一级的路径(面板级「Settings」/详情级「Settings / 面板」),黑字=自己(面板/详情);浮层头只绑黑字标题、零路径。
 class SettingsOcean extends ConsumerStatefulWidget {
   const SettingsOcean({super.key});
 
@@ -51,17 +54,18 @@ class _SettingsOceanState extends ConsumerState<SettingsOcean> {
     ref.read(shellHeadProvider.notifier).setCollapsed(_scroll.offset > _threshold);
   }
 
-  void _bindHead(String crumb) {
+  void _bindHead(String title) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      // Measure the big title block (the collapse threshold = its height past the head band) —
-      // the entity/document oceans' pattern, no per-ocean magic number (A-102). 实测大标题块高定阈
+      // Measure the big header block (the collapse threshold = its height past the head band) —
+      // the entity/document oceans' pattern, no per-ocean magic number (A-102). 实测头块高定阈
       // (头高−islandHead),同 entity/document 海洋,不再私铸魔数。
       final box = _headerKey.currentContext?.findRenderObject() as RenderBox?;
       if (box != null && box.hasSize) {
         _threshold = math.max(AnSpace.s8, box.size.height - AnSize.islandHead);
       }
-      ref.read(shellHeadProvider.notifier).bind(crumb, () {
+      // The floating head carries ONLY the page's own title, never the path (面包屑律③). 浮层头只绑黑字标题。
+      ref.read(shellHeadProvider.notifier).bind(title, () {
         if (_scroll.hasClients) {
           _scroll.animateTo(0, duration: AnMotion.mid, curve: AnMotion.easeOut);
         }
@@ -95,8 +99,16 @@ class _SettingsOceanState extends ConsumerState<SettingsOcean> {
     final entry = settingsCatalog.firstWhere((e) => e.panel == panel);
     final label = entry.labelOf(t);
     final detailLabel = _detailLabel(t, detail);
-    _bindHead(
-        '${t.settings.title} / $label${detailLabel == null ? '' : ' / $detailLabel'}');
+    // Black title = the page's own name (the pushed detail, else the panel); grey crumb = the PARENT path.
+    // At the panel level «Settings» is the current root (inert); at the pushed detail level the panel
+    // segment navigates BACK to it (pop the detail). 黑字=自己;灰路径=父级(详情级的面板段点击=弹回面板)。
+    final blackTitle = detailLabel ?? label;
+    final crumbs = <AnCrumb>[
+      AnCrumb(t.settings.title),
+      if (detailLabel != null)
+        AnCrumb(label, onTap: () => ref.read(settingsDetailProvider.notifier).pop()),
+    ];
+    _bindHead(blackTitle);
     // Panel switch: pop any pushed detail + fresh page opens at the top. 换面板弹出详情+回顶。
     ref.listen(settingsPanelProvider, (prev, next) {
       if (prev != next) {
@@ -123,7 +135,14 @@ class _SettingsOceanState extends ConsumerState<SettingsOcean> {
                 key: _headerKey,
                 child: Padding(
                   padding: const EdgeInsets.only(top: AnSpace.s24, bottom: AnSpace.s16),
-                  child: Text(detailLabel ?? label, style: AnText.readingH1.copyWith(color: c.ink)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      AnCrumbs(crumbs, style: AnText.meta),
+                      const SizedBox(height: AnSpace.s8),
+                      Text(blackTitle, style: AnText.readingH1.copyWith(color: c.ink)),
+                    ],
+                  ),
                 ),
               ),
               buildSettingsPanelBody(context, panel),

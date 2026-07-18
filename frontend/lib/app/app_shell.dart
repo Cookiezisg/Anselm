@@ -66,9 +66,9 @@ class AppShell extends ConsumerWidget {
     // title) clears it — breadcrumb lifecycle belongs to the ocean SWITCH, not to a side-effect-only
     // placeholder widget. 离开拥有浮层头的海洋(entities 详情/documents 页题)即清——生命周期属于海洋切换。
     ref.listen(selectedOceanProvider, (prev, next) {
-      // settings also binds the floating head ('设置 / <panel>') + collapses it on scroll but never
-      // clears on dispose — omit it and its stale crumb ghosts over the next ocean. settings 亦拥浮层头。
-      // scheduler binds 'Scheduler / 名 / fr_x' from S3 on (WRK-069 §11). scheduler 自 S3 起拥浮层头。
+      // The floating head binds ONLY the page's own title (用户 0719 面包屑律③:浮层头零路径). settings and
+      // scheduler are head owners too but never clear on dispose — omit them and their stale title ghosts
+      // over the next ocean. settings/scheduler 亦拥浮层头,dispose 不自清,故海洋切换在此统一清。
       const headOwners = {OceanKind.entities, OceanKind.documents, OceanKind.settings, OceanKind.scheduler};
       if (prev != null && headOwners.contains(prev) && prev != next) {
         ref.read(shellHeadProvider.notifier).clear();

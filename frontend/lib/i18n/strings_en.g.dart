@@ -3003,9 +3003,6 @@ class Translations$scheduler$home$en {
 
 	// Translations
 
-	/// en: 'Scheduler / $name'
-	String crumb({required Object name}) => 'Scheduler / ${name}';
-
 	/// en: 'Workflow not found'
 	String get notFoundTitle => 'Workflow not found';
 
@@ -3269,9 +3266,6 @@ class Translations$scheduler$run$en {
 	final Translations _root; // ignore: unused_field
 
 	// Translations
-
-	/// en: 'Scheduler / $name / $id'
-	String crumb({required Object name, required Object id}) => 'Scheduler / ${name} / ${id}';
 
 	/// en: 'Run not found'
 	String get notFoundTitle => 'Run not found';
@@ -6633,7 +6627,6 @@ extension on Translations {
 			'scheduler.status.active' => 'Active',
 			'scheduler.status.draining' => 'Draining',
 			'scheduler.status.inactive' => 'Inactive',
-			'scheduler.home.crumb' => ({required Object name}) => 'Scheduler / ${name}',
 			'scheduler.home.notFoundTitle' => 'Workflow not found',
 			'scheduler.home.notFoundHint' => 'It may have been deleted. Pick another workflow from the rail.',
 			'scheduler.home.moreA11y' => 'More actions',
@@ -6719,7 +6712,6 @@ extension on Translations {
 			'scheduler.home.crumbRoot' => 'Scheduler',
 			'scheduler.home.rowCancel' => 'Stop',
 			'scheduler.home.rowRetry' => 'Retry',
-			'scheduler.run.crumb' => ({required Object name, required Object id}) => 'Scheduler / ${name} / ${id}',
 			'scheduler.run.notFoundTitle' => 'Run not found',
 			'scheduler.run.notFoundHint' => 'It may have been cleared by the retention policy. Pick another run from the workflow.',
 			'scheduler.run.errorTitle' => 'Couldn\'t load this run',
@@ -6956,10 +6948,10 @@ extension on Translations {
 			'entities.detail.tab.activity' => 'Activity',
 			'entities.detail.tab.dispatch' => 'Dispatch',
 			'entities.detail.verb.run' => 'Run',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.verb.call' => 'Call',
 			'entities.detail.verb.invoke' => 'Invoke',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.verb.trigger' => 'Trigger',
 			'entities.detail.hero.envStatus' => ({required Object status}) => 'env ${status}',
 			'entities.detail.hero.noInputs' => 'no inputs',
@@ -7470,10 +7462,10 @@ extension on Translations {
 			'settings.mcp.browse' => 'Browse marketplace',
 			'settings.mcp.manualAdd' => 'Add manually',
 			'settings.mcp.importJson' => 'Import mcp.json',
-			_ => null,
-		} ?? switch (path) {
 			'settings.mcp.empty' => 'No MCP servers yet',
 			'settings.mcp.emptyHint' => 'Install from the marketplace, add manually, or import mcp.json.',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mcp.reconnect' => 'Reconnect',
 			'settings.mcp.detail' => 'Details',
 			'settings.mcp.deleteServer' => 'Delete',

@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/editor/an_editor.dart';
 import '../../../core/entity/mention_source.dart';
+import '../../../core/ui/an_crumbs.dart';
 import '../../../core/ui/an_doc_header.dart';
 import '../../../i18n/strings.g.dart';
 
@@ -21,7 +22,7 @@ import '../../../i18n/strings.g.dart';
 /// 标题坐标经 viewport reveal-offset 在编辑器内容空间↔页面滚动空间换算(对布局不敏感)。
 class AnDocumentEditor extends StatefulWidget {
   const AnDocumentEditor({
-    required this.crumb,
+    required this.crumbs,
     required this.name,
     this.nameEditable = true,
     this.autofocusName = false,
@@ -38,7 +39,9 @@ class AnDocumentEditor extends StatefulWidget {
     super.key,
   });
 
-  final String crumb;
+  /// The parent PATH shown above the title (`Documents / …树母链 / 父`, or `Documents / Skills`) — built by
+  /// the host from the document tree; never the doc's own name. 父路径(宿主据文档树构建,绝不含自己)。
+  final List<AnCrumb> crumbs;
   final String name;
   final bool nameEditable;
 
@@ -221,7 +224,7 @@ class AnDocumentEditorState extends State<AnDocumentEditor> {
   Widget _header(BuildContext context) {
     final t = context.t;
     return AnDocHeader(
-      crumb: widget.crumb,
+      crumbs: widget.crumbs,
       name: widget.name,
       nameEditable: widget.nameEditable,
       autofocusName: widget.autofocusName,

@@ -4,6 +4,7 @@ import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
 import 'an_action_group.dart';
+import 'an_crumbs.dart';
 import 'an_inline_edit.dart';
 
 /// D5 — the ocean page header: breadcrumb (where) + big H2 title (what) + meta (notes) + right actions
@@ -29,8 +30,10 @@ class AnOceanHeader extends StatelessWidget {
 
   final String title;
 
-  /// Breadcrumb parts ("where"), joined with `/`. 面包屑层级。
-  final List<String> crumbs;
+  /// Breadcrumb parts ("where") — the parent PATH only, each segment navigable via its [AnCrumb.onTap].
+  /// The page's own name is NEVER a crumb (it's the [title]); the «/» separator is [AnCrumbs]' (callers
+  /// pass structured segments, not a joined string). 面包屑=到上一级的路径(每段可点),绝不含自己;斜杠归原语。
+  final List<AnCrumb> crumbs;
 
   /// Non-null → the title edits in place (H2 inline rename). 非空则标题就地改名。
   final ValueChanged<String>? onTitleChange;
@@ -58,7 +61,7 @@ class AnOceanHeader extends StatelessWidget {
               constraints: const BoxConstraints(minHeight: AnSize.control),
               child: Row(
                 children: [
-                  Expanded(child: crumbs.isEmpty ? const SizedBox.shrink() : _crumb(c)),
+                  Expanded(child: AnCrumbs(crumbs)),
                   if (actions.isNotEmpty) ...[const SizedBox(width: AnSpace.s12), AnActionGroup(actions)],
                 ],
               ),
@@ -89,21 +92,6 @@ class AnOceanHeader extends StatelessWidget {
             ),
         ],
       ),
-    );
-  }
-
-  // crumb = parts joined by a faint `/` separator, ellipsizing as one line. 面包屑:parts + 灰 / 分隔,整行省略。
-  Widget _crumb(AnColors c) {
-    final spans = <InlineSpan>[];
-    for (var i = 0; i < crumbs.length; i++) {
-      if (i > 0) spans.add(TextSpan(text: '  /  ', style: AnText.label.copyWith(color: c.lineStrong)));
-      spans.add(TextSpan(text: crumbs[i]));
-    }
-    return Text.rich(
-      TextSpan(children: spans),
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: AnText.label.copyWith(color: c.inkFaint),
     );
   }
 }

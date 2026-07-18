@@ -2,6 +2,7 @@ import 'package:anselm/core/contract/entities/trigger.dart';
 import 'package:anselm/core/contract/entities/values.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/model/status_state.dart';
+import 'package:anselm/core/ui/an_button.dart';
 import 'package:anselm/core/ui/an_state.dart';
 import 'package:anselm/features/entities/data/entity_fixtures.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
@@ -108,8 +109,10 @@ void main() {
       await tester.pumpWidget(_wrap(EntityOceanHeader(detail: detail(), onFire: () {})));
       await tester.pump();
       expect(find.text(t.entities.detail.trigger.fire), findsOneWidget);
-      // No run/call/invoke/trigger verb button (support kind, not executable).
-      expect(find.text(t.entities.detail.verb.trigger), findsNothing);
+      // No run/call/invoke/trigger verb BUTTON (support kind, not executable) — scoped to AnButton so the
+      // «Entities / Trigger» crumb's kind segment (a plain Text = the same word) isn't mistaken for the
+      // retired CTA. 无运行动词按钮;限定 AnButton,免与面包屑 kind 段(同词纯文本)混淆。
+      expect(find.widgetWithText(AnButton, t.entities.detail.verb.trigger), findsNothing);
     });
 
     testWidgets('tapping Fire invokes onFire', (tester) async {

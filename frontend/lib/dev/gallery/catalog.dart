@@ -892,7 +892,7 @@ final GalleryCategory _g4NavShell = GalleryCategory('导航与壳 Nav & Shell', 
   GalleryItem('AnOceanHeader', '海洋页头:面包屑 + H2 标题(可就地改名)+ 右动作 + meta', [
     GallerySpecimen('editable (crumb + H2 + actions + meta)', (_) => const _OceanHeaderDemo(), span: true),
     GallerySpecimen('read-only', (_) => AnOceanHeader(
-          crumbs: const ['Docs', 'API'],
+          crumbs: const [AnCrumb('Docs'), AnCrumb('API')],
           title: 'reference.md',
           actions: [AnButton.iconOnly(AnIcons.more, semanticLabel: 'More', onPressed: () {})],
           meta: const [AnChip('document', tone: AnTone.accent)],
@@ -902,7 +902,7 @@ final GalleryCategory _g4NavShell = GalleryCategory('导航与壳 Nav & Shell', 
     GallerySpecimen('document (crumb + 大标题 + 描述 + tags)', (_) => const _DocHeaderDemo(), span: true),
     GallerySpecimen('空字段引导 (灰占位 / 添加简介… / dummy 药丸)', (_) => const _DocHeaderDemo(empty: true), span: true),
     GallerySpecimen('skill (无 tags,标题不可改名)', (_) => const AnDocHeader(
-          crumb: 'Skills',
+          crumbs: [AnCrumb('Documents'), AnCrumb('Skills')],
           name: 'code-review',
           nameEditable: false,
           description: '逐维审查改动并对抗验证',
@@ -1809,7 +1809,7 @@ class _OceanHeaderDemoState extends State<_OceanHeaderDemo> {
   String _title = 'normalize-input';
   @override
   Widget build(BuildContext context) => AnOceanHeader(
-        crumbs: const ['Workspace', 'Functions'],
+        crumbs: const [AnCrumb('Workspace'), AnCrumb('Functions')],
         title: _title,
         onTitleChange: (v) => setState(() => _title = v),
         actions: [
@@ -1909,7 +1909,7 @@ class _DocHeaderDemoState extends State<_DocHeaderDemo> {
   late List<String> _tags = widget.empty ? const [] : const ['design', 'backend'];
   @override
   Widget build(BuildContext context) => AnDocHeader(
-        crumb: 'Documents',
+        crumbs: const [AnCrumb('Documents')],
         name: _name,
         namePlaceholder: '未命名',
         description: _desc,

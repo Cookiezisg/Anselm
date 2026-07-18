@@ -145,6 +145,7 @@ lib/core/ui/an_code_surface.dart	reviewed
 lib/core/ui/an_composer.dart	reviewed
 lib/core/ui/an_count_up.dart	reviewed
 lib/core/ui/an_countdown.dart	pending
+lib/core/ui/an_crumbs.dart	converged
 lib/core/ui/an_deferred_loading.dart	converged
 lib/core/ui/an_dialog.dart	converged
 lib/core/ui/an_disclosure.dart	converged

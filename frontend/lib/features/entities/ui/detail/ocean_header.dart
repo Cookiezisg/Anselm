@@ -1,8 +1,10 @@
 import 'package:flutter/widgets.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/model/status_state.dart';
 import '../../../../core/ui/an_chip.dart';
 import '../../../../core/ui/an_button.dart';
+import '../../../../core/ui/an_crumbs.dart';
 import '../../../../core/ui/an_ocean_header.dart';
 import '../../../../core/ui/icons.dart';
 import '../../../../i18n/strings.g.dart';
@@ -33,7 +35,13 @@ class EntityOceanHeader extends StatelessWidget {
     return AnOceanHeader(
       title: detail.name,
       onTitleChange: onRename,
-      crumbs: [d.crumbRoot, detail.ref.kind.typeLabel(t)],
+      // «Entities / <Kind>» — the root navigates to the Overview; the kind is a rail grouping with no
+      // page of its own, so it's inert. The entity's OWN name is the big title, never a crumb (面包屑律)。
+      // 根导航到总览;kind 是 rail 分组、无独立页故惰性;实体自己的名是大标题、绝不入面包屑。
+      crumbs: [
+        AnCrumb(d.crumbRoot, onTap: () => context.go('/entities')),
+        AnCrumb(detail.ref.kind.typeLabel(t)),
+      ],
       meta: _badges(t),
       // The run verb CTA is RETIRED (0718 拍板「唯一执行点」: execution lives only in the right-island
       // debugger — two Run doors confused which to press); trigger keeps its Fire CTA (an activation,

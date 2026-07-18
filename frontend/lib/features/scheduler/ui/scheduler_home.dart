@@ -135,11 +135,11 @@ class _SchedulerHomeViewState extends ConsumerState<SchedulerHomeView> {
       );
     }
 
-    // Bind the floating-head crumb «Scheduler / 名» post-frame (entities 先例:每次数据重建重绑,
-    // onTap 恒新鲜). 后帧绑面包屑。
+    // Bind the floating head to ONLY the page's own title (用户 0719 面包屑律③:浮层头=只有黑字标题、零路径
+    // ——路径在页顶已看过,浮层头职责=提醒「这页是谁」+点击回顶). 后帧绑;浮层头只念本页标题、不串路径。
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        ref.read(shellHeadProvider.notifier).bind(t.home.crumb(name: row.name), _scrollToTop);
+        ref.read(shellHeadProvider.notifier).bind(row.name, _scrollToTop);
       }
     });
 
@@ -272,7 +272,9 @@ class _HealthHeadState extends ConsumerState<_HealthHead> {
       // 文档化页头(entities 同文法):页内面包屑 → 大标题 → meta 行(生命周期徽 · 范围统计句 · 页级时间
       // 胶囊)→ 右侧动作。
       AnOceanHeader(
-        crumbs: [t.home.crumbRoot],
+        // «Scheduler» → the Overview board; the workflow name is the big title (面包屑律:路径到上一级、
+        // 黑字=自己). 「Scheduler」导航到总览看板;workflow 名是大标题。
+        crumbs: [AnCrumb(t.home.crumbRoot, onTap: () => context.go('/scheduler'))],
         title: widget.row.name,
         meta: [
           AnChip(lifecycleWord,

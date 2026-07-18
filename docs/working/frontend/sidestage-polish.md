@@ -242,6 +242,16 @@ fe-verify 4304 全绿。
 
 **测试**：`an_markdown_test` 新增「scale」组——嵌入档 h1==15/h2==15/h3–h6==13-w400/正文 13-w300/块间距 8/行内码 12/围栏 `reading:false` 逐钉,及默认档 15/22 反证;`tool_card_document_skill_test` 补 `ProseWindow`=embedded 消费面钉子（标题 15 非 22）。既有 `markdown_parity_test`/`type_scale_guard` 全绿。gallery `markdown_specimens` 补「阅读档 vs 嵌入档同文档并排」样章。**landed-into**:`design-system.md`（typography 节「markdown 双档」立律,含字阶表 + Why + 业界锚 + 守卫钉子）。
 
+## 面包屑标准化——灰字=路径、黑字=自己、浮层头=只有自己（用户 0719 拍板 ✅ 已落）
+
+**病**：面包屑文法全 App 不统一——scheduler 运营主页/run 旗舰/Overview + settings 的**浮层头**串全路径（「Scheduler / 名」「Scheduler / 名 / 短语」「设置 / 面板 / 详情」），违反「路径页顶已看过、浮层头只提醒是谁」；documents 页内 crumb 只显「Documents」不含树母链；settings 页内根本无灰面包屑。
+
+**律（三条）**：① **页内 crumb（灰小字）= 完整路径到上一级为止、绝不含自己**（实体详情 `Entities / <Kind>`、scheduler run 子页 `Scheduler / <workflow 名>`、总览 `Scheduler`/`Entities`、文档 `Documents / …树母链 / 父`[深链中段折叠 `Documents / … / 父`,skill `Documents / Skills`]、settings 详情 `Settings / <面板>`）;② **大黑字标题=页面自己的名**,名只在黑字出现;③ **浮层头（滚上去）= 只有黑字标题、零路径**。灰路径每段可点导航到该级;**chat=唯一合法特例**。
+
+**实现（两件收口 + 全量排查）**：新原语 **`AnCrumbs`**（`core/ui/an_crumbs.dart`：`List<AnCrumb>{label,onTap?}` + 原语渲灰「/」+ `AnInteractive` 可点段 + `Flexible` 整行省略 + `foldAfter` 深链折中段「…」）——**禁消费方自拼「A / B」串**。`AnOceanHeader.crumbs`：`List<String>`→`List<AnCrumb>`（消费面 = scheduler home/run/overview·entities detail/overview）。`AnDocHeader.crumb`/`AnDocumentEditor.crumb`：String→`crumbs`（documents 从 `documentTree` 沿 parentId 上溯建父链[`documentCrumbs`,防环封顶]、skill 固定 `Documents / Skills`,`foldAfter:3`）。settings 页头补灰 crumb（面板级 `Settings`/详情级 `Settings / 面板`[点面板段 pop 详情]）。**`shellHead.bind` 全改只收黑字标题**：scheduler 三页 bind 名/短语/总览、settings bind `detailLabel ?? label`——删 i18n 死键 `scheduler.home.crumb`/`scheduler.run.crumb`。gallery 四 specimen 同步。
+
+**测试**：新 `an_crumbs_test`（分段渲染 + 原语渲「/」+ 可点导航 + 惰性段非 AnInteractive + `foldAfter` 折中段留首尾）;`an_ocean_header_test`/`an_doc_header_test` 适配 `AnCrumb`;`documents_test` `editor.crumbs`（根草稿=`[Documents]`、doc 首段=Documents 且不含自己名、skill=`[Documents,Skills]`）;`settings_shell_test`（浮层头=纯面板名、页内灰 crumb=`Settings`）;`scheduler_home_test` 代表页律（灰 crumb=`Scheduler` 不含名、浮层头=纯名不含「/」）;`trigger_test` 修 `find.text('Trigger')`→`find.widgetWithText(AnButton,…)`（kind crumb 段现为真 Text、旧 Text.rich 不被 `find.text` 命中）。fe-verify **4465 绿** + analyze 净。**landed-into**:`design-system.md`（AnOceanHeader 重述 + 面包屑三条律成文 + 新 `AnCrumbs` 条目 + AnDocHeader 重述）· `architecture.md`（`OceanBreadcrumb` = 只渲黑字标题、零路径）。
+
 ## 拍板状态（0718 收官 ✅）
 
 **全部议题已拍板 ✅**（§A #1 假想框律 / #2 composer 28 档 + §B B1–B13 全部）——0718「都同意，落一下档」。待用户宣布开工后一口气建造；交付纪律=每条带测试、双门禁全绿、demo 帧逐条核对、opus 车队对抗复审、文档 1:1 同提交、后端半（B4 offset+total）守 N/D/E/S/T。

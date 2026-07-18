@@ -3,12 +3,14 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/contract/entities/document.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/entity/mention_source.dart';
 import '../../../core/model/status_state.dart';
 import '../../../core/overlay/an_overlay.dart';
 import '../../../core/perf/debouncer.dart';
 import '../../../core/shell/shell_chrome.dart';
+import '../../../core/ui/an_crumbs.dart';
 import '../../../core/ui/an_deferred_loading.dart';
 import '../../../core/ui/an_page.dart';
 import '../../../core/ui/an_skeleton.dart';
@@ -31,6 +33,32 @@ final documentMentionNamesProvider =
   if (ids.isEmpty) return const {};
   return ref.read(mentionSourceProvider).resolveNames(ids);
 });
+
+/// The breadcrumb parent PATH for a document — «Documents / …ancestor names… / direct parent», walking
+/// [DocumentNode.parentId] up the [tree] (cycle-capped). It NEVER includes the doc itself (that is the big
+/// title, 面包屑律). The root «Documents» deselects to the ocean home; each ancestor navigates to its page;
+/// a deep tree folds its middle to «…» in [AnCrumbs]. 文档面包屑父路径:沿 parentId 上溯(防环封顶),绝不
+/// 含自己;根「Documents」回海洋主页、各祖先导航到其页、深链在原语内折中段。
+List<AnCrumb> documentCrumbs(BuildContext context, List<DocumentNode> tree, String docId) {
+  final t = context.t;
+  final byId = {for (final d in tree) d.id: d};
+  final ancestors = <DocumentNode>[];
+  final seen = <String>{docId};
+  var pid = byId[docId]?.parentId;
+  var guard = 0;
+  while (pid != null && guard++ < 64 && seen.add(pid)) {
+    final node = byId[pid];
+    if (node == null) break;
+    ancestors.add(node);
+    pid = node.parentId;
+  }
+  return [
+    AnCrumb(t.documents.documents, onTap: () => context.go('/')),
+    for (final a in ancestors.reversed)
+      AnCrumb(a.name.trim().isEmpty ? t.documents.untitled : a.name,
+          onTap: () => context.go(documentLocation(a.id))),
+  ];
+}
 
 /// The Documents ocean center — the native [AnDocumentEditor] fills the ocean, its title/description/tags
 /// header co-scrolling with the body in one page scroll (a product characteristic). This host stays thin:
@@ -226,6 +254,9 @@ class _DocEditViewState extends ConsumerState<_DocEditView> with _DocPageChrome 
   Widget build(BuildContext context) {
     final t = context.t;
     listenOutlineJumps();
+    // The crumb parent chain follows the tree (an ancestor rename / a deep-link tree-load reflows it); the
+    // watch only rebuilds this view's props — the GlobalKey editor keeps its State + cursor. 面包屑父链随树。
+    final tree = ref.watch(documentTreeProvider).value ?? const <DocumentNode>[];
     return ref.watch(openDocumentProvider(widget.id)).when(
           loading: () => const AnPage(child: AnDeferredLoading(child: AnSkeleton.lines(8))),
           error: (_, _) =>
@@ -240,7 +271,7 @@ class _DocEditViewState extends ConsumerState<_DocEditView> with _DocPageChrome 
                   orElse: () => const AnPage(child: AnDeferredLoading(child: AnSkeleton.lines(8))),
                   data: (names) => AnDocumentEditor(
                     key: editorKey,
-                    crumb: t.documents.documents,
+                    crumbs: documentCrumbs(context, tree, widget.id),
                     name: title,
                     autofocusName: _autofocusName,
                     description: doc.description,
@@ -401,7 +432,9 @@ class _DraftDocViewState extends ConsumerState<_DraftDocView> with _DocPageChrom
     bindHead(_draftName.trim().isEmpty ? t.documents.untitled : _draftName);
     return AnDocumentEditor(
       key: editorKey,
-      crumb: t.documents.documents,
+      // A draft is created at root, so its parent path is just «Documents» (root deselects to home).
+      // 草稿建于根级,父路径只有「Documents」(根回海洋主页)。
+      crumbs: [AnCrumb(t.documents.documents, onTap: () => context.go('/'))],
       name: _draftName, // empty → the header's grey «未命名» guide 空→头灰引导
       description: _draftDescription,
       tags: _draftTags,
@@ -518,7 +551,12 @@ class _SkillEditViewState extends ConsumerState<_SkillEditView> with _DocPageChr
             // skill 不含 @(后端只在 document 上解析 `[[id]]`)→无需解析名。
             return AnDocumentEditor(
               key: editorKey,
-              crumb: t.documents.skills,
+              // «Documents / Skills» — the skills collection is a flat list, so the parent path is fixed
+              // (skills have no dedicated route, so «Skills» is inert). 父路径固定;Skills 无独立路由=惰性。
+              crumbs: [
+                AnCrumb(t.documents.documents, onTap: () => context.go('/')),
+                AnCrumb(t.documents.skills),
+              ],
               name: skill.name,
               nameEditable: false, // the name IS the identity — not renamable in place
               showTags: false, // skills have no tags frontmatter — no phantom tags editor 无 tags 字段

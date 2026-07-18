@@ -14,18 +14,30 @@ void main() {
         ),
       );
 
-  testWidgets('renders crumb + title + actions + meta', (tester) async {
+  testWidgets('renders crumb (structured segments) + title + actions + meta', (tester) async {
     await tester.pumpWidget(host(AnOceanHeader(
-      crumbs: const ['Workspace', 'Functions'],
+      crumbs: const [AnCrumb('Workspace'), AnCrumb('Functions')],
       title: 'normalize-input',
       actions: [AnButton.iconOnly(AnIcons.more, semanticLabel: 'More', onPressed: () {})],
       meta: const [AnChip('function', tone: AnTone.accent)],
     )));
     expect(find.text('normalize-input'), findsOneWidget);
-    expect(find.textContaining('Workspace'), findsWidgets); // crumb (Text.rich → RichText)
+    expect(find.text('Workspace'), findsOneWidget); // crumb segment
+    expect(find.text('Functions'), findsOneWidget); // crumb segment
+    expect(find.text('normalize-input'), findsOneWidget); // the name is the TITLE, never a crumb 名只在黑字
     expect(find.byIcon(AnIcons.more), findsOneWidget);
     expect(find.text('function'), findsOneWidget); // meta badge
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a clickable crumb segment navigates (fires its onTap)', (tester) async {
+    var hits = 0;
+    await tester.pumpWidget(host(AnOceanHeader(
+      crumbs: [AnCrumb('Scheduler', onTap: () => hits++)],
+      title: 'my-workflow',
+    )));
+    await tester.tap(find.text('Scheduler'));
+    expect(hits, 1);
   });
 
   testWidgets('editable title edits in place (pencil → commit fires onTitleChange)', (tester) async {

@@ -4,6 +4,7 @@ import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
 import 'an_chip.dart';
+import 'an_crumbs.dart';
 import 'an_inline_edit.dart';
 import 'an_tags.dart';
 import 'icons.dart';
@@ -26,7 +27,7 @@ import 'icons.dart';
 /// 浮层头折叠阈;本件无滚动、无测量,只渲染。
 class AnDocHeader extends StatelessWidget {
   const AnDocHeader({
-    required this.crumb,
+    required this.crumbs,
     required this.name,
     this.nameEditable = true,
     this.autofocusName = false,
@@ -40,8 +41,10 @@ class AnDocHeader extends StatelessWidget {
     super.key,
   });
 
-  /// The parent path / kind line above the title. 标题上方的路径/类型行。
-  final String crumb;
+  /// The parent PATH above the title — `Documents / …树母链 / 父` for a page, `Documents / Skills` for a
+  /// skill (用户 0719 面包屑律:到上一级为止,绝不含自己). Each segment is navigable; the «/» separator and
+  /// the deep-tree middle-fold («…») are [AnCrumbs]'. 标题上方的父路径(每段可点、斜杠与深链折叠归原语)。
+  final List<AnCrumb> crumbs;
 
   /// The document/skill title — the reading-column H1. 标题=阅读列 H1。
   final String name;
@@ -87,7 +90,9 @@ class AnDocHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(crumb, style: AnText.meta.copyWith(color: c.inkFaint)),
+          // The reading-scale crumb path — a deep document tree folds its middle to «…» past 3 segments
+          // (Notion 同款). 阅读尺度面包屑路径;深链超 3 段折中段。
+          AnCrumbs(crumbs, style: AnText.meta, foldAfter: 3),
           const SizedBox(height: AnSpace.s8),
           // Renamable H1 title (skills aren't renamable — the name is the identity). 可改名 H1(skill 不可)。
           AnInlineEdit(

@@ -142,12 +142,11 @@ class _SchedulerOverviewViewState extends ConsumerState<SchedulerOverviewView> {
     if (d.firstUse) return _firstUse(context);
 
     final now = DateTime.now();
-    // Bind the floating head post-frame (entities 先例:每次重建重绑,onTap 恒新鲜). 后帧绑浮层头。
+    // Bind the floating head to ONLY the page's own title (用户 0719 面包屑律③:浮层头零路径,只念本页是谁).
+    // 后帧绑;浮层头只念本页标题(总览),不串「Scheduler / …」路径。
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        ref
-            .read(shellHeadProvider.notifier)
-            .bind(t.home.crumb(name: t.overviewTitle), _scrollToTop);
+        ref.read(shellHeadProvider.notifier).bind(t.overviewTitle, _scrollToTop);
       }
     });
     return AnPage(
@@ -156,8 +155,9 @@ class _SchedulerOverviewViewState extends ConsumerState<SchedulerOverviewView> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // The documentary page head (WRK-070 B11): grey crumb over the big title — the standard
-          // grammar every ocean page speaks. 文档化页头:灰 crumb + 大标题,全海洋标准文法。
-          AnOceanHeader(crumbs: [t.home.crumbRoot], title: t.overviewTitle),
+          // grammar every ocean page speaks. The Overview IS the Scheduler root, so «Scheduler» is the
+          // current context (inert), 总览 the title. 文档化页头:总览即 Scheduler 根,「Scheduler」惰性、黑字=总览。
+          AnOceanHeader(crumbs: [AnCrumb(t.home.crumbRoot)], title: t.overviewTitle),
           Padding(
             padding: const EdgeInsets.only(bottom: AnGap.section),
             child: _KpiStrip(

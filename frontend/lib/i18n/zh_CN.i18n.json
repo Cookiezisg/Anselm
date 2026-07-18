@@ -732,7 +732,6 @@
       "inactive": "停用"
     },
     "home": {
-      "crumb": "Scheduler / $name",
       "notFoundTitle": "找不到该 workflow",
       "notFoundHint": "它可能已被删除。从左侧选择另一个 workflow。",
       "moreA11y": "更多操作",
@@ -820,7 +819,6 @@
       "rowRetry": "重试"
     },
     "run": {
-      "crumb": "Scheduler / $name / $id",
       "notFoundTitle": "找不到这次运行",
       "notFoundHint": "它可能已被保留策略清理。从 workflow 里另选一次运行。",
       "errorTitle": "这次运行加载失败",

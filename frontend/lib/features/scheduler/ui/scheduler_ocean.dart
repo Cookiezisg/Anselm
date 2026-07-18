@@ -37,8 +37,8 @@ class SchedulerOcean extends ConsumerWidget {
         return SchedulerRunRelayView(flowrunId: flowrunId);
       case SchedulerOverview():
       case null:
-        // The Overview owns no crumb — clear a stale «Scheduler / 名» left by the home/flagship.
-        // Overview 无面包屑:清掉主页/旗舰留下的旧 crumb。
+        // Clear a stale floating-head title left by the home/flagship before the Overview binds its own.
+        // 清掉主页/旗舰留下的旧浮层头标题,等总览绑自己的。
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (context.mounted) ref.read(shellHeadProvider.notifier).clear();
         });

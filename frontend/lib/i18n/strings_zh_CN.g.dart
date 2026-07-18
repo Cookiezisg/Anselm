@@ -1236,7 +1236,6 @@ class _Translations$scheduler$home$zh_CN extends Translations$scheduler$home$en 
 	final TranslationsZhCn _root; // ignore: unused_field
 
 	// Translations
-	@override String crumb({required Object name}) => 'Scheduler / ${name}';
 	@override String get notFoundTitle => '找不到该 workflow';
 	@override String get notFoundHint => '它可能已被删除。从左侧选择另一个 workflow。';
 	@override String get moreA11y => '更多操作';
@@ -1331,7 +1330,6 @@ class _Translations$scheduler$run$zh_CN extends Translations$scheduler$run$en {
 	final TranslationsZhCn _root; // ignore: unused_field
 
 	// Translations
-	@override String crumb({required Object name, required Object id}) => 'Scheduler / ${name} / ${id}';
 	@override String get notFoundTitle => '找不到这次运行';
 	@override String get notFoundHint => '它可能已被保留策略清理。从 workflow 里另选一次运行。';
 	@override String get errorTitle => '这次运行加载失败';
@@ -3238,7 +3236,6 @@ extension on TranslationsZhCn {
 			'scheduler.status.active' => '生效',
 			'scheduler.status.draining' => '收尾中',
 			'scheduler.status.inactive' => '停用',
-			'scheduler.home.crumb' => ({required Object name}) => 'Scheduler / ${name}',
 			'scheduler.home.notFoundTitle' => '找不到该 workflow',
 			'scheduler.home.notFoundHint' => '它可能已被删除。从左侧选择另一个 workflow。',
 			'scheduler.home.moreA11y' => '更多操作',
@@ -3324,7 +3321,6 @@ extension on TranslationsZhCn {
 			'scheduler.home.crumbRoot' => '调度',
 			'scheduler.home.rowCancel' => '终止',
 			'scheduler.home.rowRetry' => '重试',
-			'scheduler.run.crumb' => ({required Object name, required Object id}) => 'Scheduler / ${name} / ${id}',
 			'scheduler.run.notFoundTitle' => '找不到这次运行',
 			'scheduler.run.notFoundHint' => '它可能已被保留策略清理。从 workflow 里另选一次运行。',
 			'scheduler.run.errorTitle' => '这次运行加载失败',
@@ -3561,10 +3557,10 @@ extension on TranslationsZhCn {
 			'entities.detail.tab.activity' => '活动',
 			'entities.detail.tab.dispatch' => '派发',
 			'entities.detail.verb.run' => '运行',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.verb.call' => '调用',
 			'entities.detail.verb.invoke' => '唤起',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.verb.trigger' => '触发',
 			'entities.detail.hero.envStatus' => ({required Object status}) => 'env ${status}',
 			'entities.detail.hero.noInputs' => '无入参',
@@ -4075,10 +4071,10 @@ extension on TranslationsZhCn {
 			'settings.mcp.browse' => '浏览市场',
 			'settings.mcp.manualAdd' => '手动添加',
 			'settings.mcp.importJson' => '导入 mcp.json',
-			_ => null,
-		} ?? switch (path) {
 			'settings.mcp.empty' => '还没有 MCP 服务器',
 			'settings.mcp.emptyHint' => '从市场安装、手动添加或导入 mcp.json。',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mcp.reconnect' => '重连',
 			'settings.mcp.detail' => '详情',
 			'settings.mcp.deleteServer' => '删除',

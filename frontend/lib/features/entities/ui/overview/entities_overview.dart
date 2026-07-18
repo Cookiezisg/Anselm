@@ -79,7 +79,9 @@ class _EntitiesOverviewViewState extends ConsumerState<EntitiesOverviewView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          AnOceanHeader(crumbs: [t.detail.crumbRoot], title: t.overview.title),
+          // The Overview IS the Entities root — «Entities» is the current context (inert), 总览 the title.
+          // 总览即 Entities 根:「Entities」是当前上下文(惰性),黑字=总览。
+          AnOceanHeader(crumbs: [AnCrumb(t.detail.crumbRoot)], title: t.overview.title),
           Padding(
             padding: const EdgeInsets.only(bottom: AnGap.section),
             child: _ClipTiles(counts: overviewCounts(groups)),

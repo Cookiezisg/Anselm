@@ -80,20 +80,23 @@ void main() {
     expect(find.text(t.settings.buildingHint), findsOneWidget);
   });
 
-  testWidgets('the ocean binds「设置 / 面板」to the floating-head provider', (tester) async {
+  testWidgets('the floating head binds ONLY the panel title (zero path); the in-page crumb is «Settings»',
+      (tester) async {
     final prefs = SettingsPrefs.inMemory();
     late ProviderContainer container;
     await tester.pumpWidget(_host(prefs));
     container = ProviderScope.containerOf(
         tester.element(find.byType(SettingsOcean)), listen: false);
     await tester.pumpAndSettle();
-    expect(container.read(shellHeadProvider).title,
-        '${t.settings.title} / ${t.settings.panels.general}');
+    // 用户 0719 面包屑律③:浮层头=只有黑字标题、零路径(路径在页顶的灰面包屑里看过). 浮层头只念面板名。
+    expect(container.read(shellHeadProvider).title, t.settings.panels.general);
+    // The PARENT path lives on the page as a grey crumb — «Settings» over the panel title. 页内灰面包屑=父路径。
+    expect(find.descendant(of: find.byType(SettingsOcean), matching: find.text(t.settings.title)),
+        findsWidgets);
 
     await tester.tap(find.text(t.settings.panels.about));
     await tester.pumpAndSettle();
-    expect(container.read(shellHeadProvider).title,
-        '${t.settings.title} / ${t.settings.panels.about}');
+    expect(container.read(shellHeadProvider).title, t.settings.panels.about);
   });
 
   testWidgets('a stale persisted panel name falls back to general (byName guard)', (tester) async {

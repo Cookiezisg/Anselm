@@ -226,7 +226,8 @@ void main() {
       final editor = tester.widget<AnDocumentEditor>(find.byType(AnDocumentEditor));
       expect(editor.name, '');
       expect(editor.initialMarkdown, '');
-      expect(editor.crumb, t.documents.documents);
+      // A root draft's parent path is just «Documents» (面包屑律:路径到上一级、绝不含自己). 根草稿父路径=Documents。
+      expect(editor.crumbs.single.label, t.documents.documents);
       expect(repo.createCount, 0, reason: 'draft landing must not POST until the first edit');
       // The old «pick a document» tombstone is retired. 旧「选一篇文档」墓碑退役。
       expect(find.text(t.documents.pickTitle), findsNothing);
@@ -325,7 +326,9 @@ void main() {
       // The native editor mounts with the doc's props (its header is Flutter now). 原生编辑器带 doc props 挂载。
       final editor = tester.widget<AnDocumentEditor>(find.byType(AnDocumentEditor));
       expect(editor.name, 'Getting Started');
-      expect(editor.crumb, t.documents.documents);
+      // The crumb path starts at «Documents» and NEVER includes the doc's own name. 面包屑首段=Documents,绝不含自己。
+      expect(editor.crumbs.first.label, t.documents.documents);
+      expect(editor.crumbs.map((c) => c.label), isNot(contains('Getting Started')));
       expect(editor.initialMarkdown, contains('# Hello'));
       expect(editor.nameEditable, isTrue);
       expect(editor.mentionSource, isNotNull);
@@ -346,7 +349,9 @@ void main() {
       await tester.pumpAndSettle();
       final editor = tester.widget<AnDocumentEditor>(find.byType(AnDocumentEditor));
       expect(editor.name, 'commit-helper');
-      expect(editor.crumb, t.documents.skills);
+      // A skill's parent path is «Documents / Skills» — the skills collection, never the skill name.
+      // skill 父路径=Documents / Skills(集合,绝不含 skill 名)。
+      expect(editor.crumbs.map((c) => c.label), [t.documents.documents, t.documents.skills]);
       expect(editor.nameEditable, isFalse); // the skill name IS its identity — not renamable. 名即身份。
       expect(editor.initialMarkdown, contains('commit-helper')); // the skill body '# commit-helper'
       expect(editor.mentionSource, isNull); // no @ mentions on skills. skill 不接 @。
