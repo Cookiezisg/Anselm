@@ -95,7 +95,14 @@ class _AnHoverCardState extends State<AnHoverCard> {
         onExit: (_) => _exit(),
         child: OverlayPortal(
           controller: _portal,
-          overlayChildBuilder: (context) => Positioned(
+          // Align, NEVER a bare Positioned: the Overlay theatre FORCES a non-positioned child to the
+          // full stage with TIGHT constraints, and tight beats the Container's maxWidth — the card
+          // became a screen-sized white slab (用户 0718 真机撞上的大白片). Align lets the card size to
+          // its content, then the follower paints it at the anchor. Locked by an_hover_card_test.
+          // 用 Align、绝不裸 Positioned:Overlay 剧场把非定位子件**强制铺满全台**(tight 碾过 maxWidth)
+          // ——卡曾变成挡半个 app 的大白片。Align 让卡按内容定尺寸,follower 再把它画到锚点。测试锁死。
+          overlayChildBuilder: (context) => Align(
+            alignment: AlignmentDirectional.topStart,
             // The card floats ABOVE the cell, centred on it, one gap clear (topCenter↔bottomCenter).
             // 卡浮在格正上方、居中、隔一档(topCenter↔bottomCenter)。
             child: CompositedTransformFollower(

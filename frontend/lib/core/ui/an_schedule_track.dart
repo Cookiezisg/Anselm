@@ -5,28 +5,33 @@ import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
 import '../model/status_state.dart';
-import '../model/time_format.dart';
 import 'an_a11y.dart';
 import 'an_focus_ring.dart';
+import 'an_scroll_behavior.dart';
 import 'an_hover_card.dart';
 import 'an_status_dot.dart';
 import 'icons.dart';
 import 'tone.dart';
 
-/// AnScheduleTrack (WRK-069 §12 · WRK-070 调度轨重造 0718「彻底做干净」) — the schedule board's one row per
-/// schedule, split by a «now» line into TWO differently-shaped halves that answer two different questions:
+/// AnScheduleTrack (WRK-069 §12 · WRK-070 调度轨重造 v2 0718「直接复用 Matrix View」) — the schedule
+/// board's one row per schedule, in the RUN MATRIX's own visual grammar (one grid language per ocean):
 ///
-///   • **PAST = a uniform time-BINNED bar** (status-page uptime bar / GitHub contribution grid): the same
-///     24 hourly cells on every lane, dense or sparse (the discrete-dot form is fully retired). A cell's
-///     colour is the WORST status of the runs that STARTED in that hour (the AnRunMatrix cell law: a
-///     completed run's soft-tint fill, a failure's red, an empty hour's faint outline — «empty is a real
-///     answer», never a colour). A `missed` tick never enters the fill; it lays a grey ✕ over the cell
-///     (a SHAPE beside the colour, WCAG 1.4.1), so it can never hide inside an aggregate — it is the
-///     evidence the 「错过 N」 KPI card deep-links to.
-///   • **FUTURE = a fixed-width segment, NOT a timeline** (Cronitor/Healthchecks next-run one-liner): one
-///     hollow ring ○ + «HH:mm (relative word)» + the schedule's own words. A forecast has no history to
-///     draw, so it says its next moment in a sentence rather than pretending to a position (relative
-///     wording carries the urgency the abandoned position-encoding used to). A paused lane says «已暂停».
+///   • **PAST = Matrix-View cells in whole-hour bins**: every lane wears the same row of controlSm
+///     squares (soft-tint fill + status-coloured hairline, the AnRunMatrix cell verbatim; an empty hour
+///     is a faint-outlined square — «empty is a real answer»). WHOLE hours only (0718 v2「都弄整个小时
+///     的」— no minute-offset window edges); the caller hands 25 bins (24 complete hours + the one in
+///     progress, a superset of any rolling 24h KPI window, so the 「错过 N」 evidence stays complete). A
+///     `missed` tick never enters the fill; it lays a grey ✕ INSIDE the cell (the matrix's «×N 在格内»
+///     grammar; a SHAPE beside the colour, WCAG 1.4.1).
+///     The grid SCROLLS SIDEWAYS inside itself, ANCHORED AT THE NEWEST EDGE with the lane names frozen
+///     left and the forecast frozen right (the matrix's frozen-lane scroll grammar) — the v1 blue now
+///     line and start/span/now ruler are retired: under the right anchor the trailing edge IS now, and
+///     the column heads (sliding with the grid) name every hour themselves ([binHeadLabel]: «20», a
+///     «7/19» date on the midnight anchor).
+///   • **FUTURE = a fixed-width FROZEN segment, NOT a timeline** (Cronitor/Healthchecks next-run
+///     one-liner): one hollow ring ○ + «HH:mm (relative word)» + the schedule's own words. A forecast
+///     has no history to draw, so it says its next moment in a sentence rather than pretending to a
+///     position. A paused lane says «已暂停».
 ///
 /// The cells COUNT every run, whatever its source (the grid answers HEALTH, not «cron execution rate» —
 /// the hover card names each run's source honestly); `missed` alone still comes from the firing ledger.
@@ -40,16 +45,17 @@ import 'tone.dart';
 /// ○ reveal a card listing the hour's runs (status · time · source · elapsed, failures on top) or the
 /// forecast; empty cells reveal nothing.
 ///
-/// **Architecture — hybrid, the [AnGraphCanvas] precedent** (design-system §2「CustomPainter 只配画没有
-/// 身份的像素」): the now line is inert furniture drawn by a [CustomPaint]底层 + [IgnorePointer]; the CELLS
-/// are real widgets, because a CustomPainter's pixels have no identity — its `semanticsBuilder` yields
-/// nodes that cannot be focused (custom_paint.dart creates no [FocusNode] anywhere), so ←→ traversal is
-/// physically impossible under a pure painter.
+/// **Architecture — cells are real widgets** (design-system §2「CustomPainter 只配画没有身份的像素」):
+/// a CustomPainter's pixels have no identity — its `semanticsBuilder` yields nodes that cannot be
+/// focused, so ←→ traversal is physically impossible under a pure painter. (The v1 now-line painter was
+/// the track's last furniture; it retired with the ruler — there is nothing left to paint.)
 ///
 /// ## Keyboard: ONE tab stop (roving tabindex), like [AnRunMatrix]
 ///
-/// The cursor's unit is a CELL — all 24 hourly bins (empty ones included: a track is a CLOCK and an empty
-/// hour is still a face on it) plus the future ○ where a lane has one. Every position owns a [FocusNode]
+/// The cursor's unit is a CELL — every hourly bin (empty ones included: a track is a CLOCK and an empty
+/// hour is still a face on it) plus the future ○ where a lane has one. Arrows DRAG THE VIEWPORT along
+/// (the matrix law: `FocusTraversalPolicy.defaultTraversalRequestFocusCallback`, never a hand-rolled
+/// ensureVisible). Every position owns a [FocusNode]
 /// this widget owns outright, and exactly one — the cursor's — has `skipTraversal: false` (the flag that
 /// still allows EXPLICIT focus, which is what an arrow does). Arrows re-bind [DirectionalFocusIntent] to a
 /// [DirectionalFocusAction] subclass (the `MenuAnchor` precedent) and running off the edge calls
@@ -67,18 +73,18 @@ import 'tone.dart';
 /// pattern ([laneSummaryLabel]); each cell keeps its own sentence ([binSemanticLabel] / a bare empty-hour
 /// line / [futureSemanticLabel]); cursor moves announce on macOS via [AnA11y.announceFocusMove].
 ///
-/// AnScheduleTrack 逐排程一行,被 now 线劈成**两种不同形状**的半:**过去=统一时段分箱条**(uptime bar / 贡献格,离散
-/// 点整个退役):全泳道同 24 格,格色=该时段内 run 的**最坏**状态(同矩阵格律,空=淡描边「空是真答案」);missed
-/// 不进格色、叠一枚灰 ✕(形状通道,永不藏进聚合——它是「错过 N」牌深链的证据)。**未来=定宽段非时间轴**(Cronitor
-/// next-run 一句话):一枚空心 ○ +「HH:mm(相对词)」+ 排程人话;暂停泳道说「已暂停」。格**统计所有来源的 run**(答
-/// 健康、非排程执行率,来源在 hover 卡如实标注),唯 missed 仍从 firing 账来。**点击=发射台**(同矩阵):一格一 run
-/// →旗舰、多 run →运营主页、空/纯 missed 格惰性(没有去处就不做成可点)。**hover=不可交互明细卡**(滚动冻结)。
-/// **架构=混合**(AnGraphCanvas 先例):now 线走 painter 底层 + IgnorePointer(惰性),**格是真 widget**(painter 像素
-/// 没有身份,纯 painter 下方向键遍历物理上做不到)。**键盘=唯一一个 Tab 停靠**(roving,同 AnRunMatrix):光标单位=格
-/// (24 时段格含空格——轨是钟、空格也是钟面)+ 未来 ○;每格 FocusNode 本件自持、恰一个光标 skipTraversal:false,
-/// 方向键重绑 Intent、出边 super.invoke 交还框架。←→ 按时序走本泳道(bin23→未来 ○);↑↓ 落邻泳道**同一小时**。
-/// 光标用 (泳道 id, slot) 定址。**读屏**:每 lane 一 Semantics 容器 + explicitChildNodes(承重),容器带行摘要,
-/// 每格带自己的句子;光标移动 macOS 补一发 announceFocusMove。
+/// AnScheduleTrack v2(0718 用户提案「直接复用 Matrix View」——一个海洋一种格语言):**过去=矩阵同款方格的整点
+/// 分箱**(controlSm 方格、soft 填充+状态色发丝描边逐字同矩阵;空=淡描边「空是真答案」;调用方给 25 格=24 完整
+/// 小时+进行中那格,任意滚动 24h KPI 窗的超集,「错过 N」证据恒完整);missed 在**格内**叠灰 ✕(矩阵「×N 在格内」
+/// 文法,形状通道,永不藏进聚合)。**格阵在自己肚子里横滚、右锚最新端**,名字车道冻结在左、预告段冻结在右(矩阵
+/// 冻结车道滚动文法)——v1 的蓝 now 线与「起点/跨度/now」刻度眉退役:右锚下右缘即现在,列头随格同滚、每小时自报
+/// 姓名([binHeadLabel]:「20」,0 点锚「7/19」)。**未来=定宽冻结段非时间轴**(Cronitor next-run 一句话)。格**统计
+/// 所有来源的 run**(答健康,来源在 hover 卡如实标注),唯 missed 仍从 firing 账来。**点击=发射台**(同矩阵)。
+/// **hover=不可交互明细卡**(滚动冻结)。**键盘=唯一一个 Tab 停靠**(roving,同 AnRunMatrix):光标单位=格(含空格
+/// ——轨是钟)+ 未来 ○;方向键重绑 Intent、出边 super.invoke 交还框架,**且把视口拖着走**(矩阵立法:框架自己的
+/// defaultTraversalRequestFocusCallback,绝不手搓 ensureVisible)。←→ 按时序走本泳道(末格→未来 ○);↑↓ 落邻泳道
+/// **同一小时**;光标 (泳道 id, slot) 定址。**读屏**:每 lane 一 Semantics 容器 + explicitChildNodes(承重),
+/// 容器带行摘要,每格带自己的句子;光标移动 macOS 补一发 announceFocusMove。
 
 /// One run inside a bin — its detail for the hover card AND the click target. [status] is already folded
 /// ([AnStatus.fromRaw]); [sourceLabel] is the caller's localized source phrase (core holds no copy);
@@ -269,8 +275,7 @@ class AnScheduleTrack extends StatefulWidget {
   const AnScheduleTrack({
     required this.lanes,
     required this.now,
-    this.pastWindow = const Duration(hours: 24),
-    this.nowLabel = '',
+    this.binHeadLabel,
     this.onBin,
     this.binSemanticLabel,
     this.emptyBinSemanticLabel,
@@ -283,14 +288,16 @@ class AnScheduleTrack extends StatefulWidget {
 
   final List<TrackLane> lanes;
 
-  /// The «now» instant — the ruler's start stamp is `now − pastWindow`. now 时刻。
+  /// The «now» instant (a11y ordering / callers' relative words). now 时刻(读屏/相对词用)。
   final DateTime now;
 
-  /// How far BACK the past grid reaches (the ruler's span word). 过去格回看多远(刻度眉跨度词)。
-  final Duration pastWindow;
-
-  /// The word the now line wears in the ruler (core holds no copy). now 线的词(core 无文案)。
-  final String nowLabel;
+  /// The column-head word above one cell («20», or «7/19» on the midnight anchor) — the caller's
+  /// glyphs, so the RULER of v1 (start stamp / span / now line) is fully retired: under the
+  /// right-anchored scroll the trailing edge IS now, and every column names its own hour (用户
+  /// 0718:「可以拖动的,每个小时都说明一下是哪一个小时」).
+  /// 每格列头词(「20」,0 点锚「7/19」)——调用方的记号;v1 的刻度眉(起点戳/跨度/now 线)整体退役:
+  /// 右锚下右缘即现在,每列自报所在小时。
+  final String Function(TrackBin bin)? binHeadLabel;
 
   /// A content cell was activated — the caller decides where to go (1 run → flagship, N → home). Never
   /// fired for an empty or missed-only bin. 内容格被激活;去处归调用方;空/纯 missed 格永不触发。
@@ -323,18 +330,28 @@ class AnScheduleTrack extends StatefulWidget {
 /// 光标地址:哪条泳道 + 哪个 slot(bin 下标,或 [_futureSlot] 表未来 ○);稳定对,绝非 widget 下标。
 typedef _TrackCursor = (String laneId, int slot);
 
-/// The slot that addresses a lane's future ○ (to the right of bin 23). 未来 ○ 的 slot(在 bin23 右侧)。
+/// The slot that addresses a lane's future ○ (to the right of the last bin). 未来 ○ 的 slot(末格右侧)。
 const int _futureSlot = -1;
+
+/// Row pitch — a Matrix-View cell (controlSm square) plus one s4 breathing gap; the frozen lane-name
+/// column, the grid rows and the frozen future segment all read this ONE height so the three segments
+/// can never drift out of register. 行节距=矩阵格(24 方格)+s4 行距;三段同读此一高,永不错位。
+const double _kRowH = AnSize.controlSm + AnSpace.s4;
+
+/// The column-head lane's height (the hour words). 列头行高(小时词)。
+const double _kHeadH = AnSize.icon;
 
 class _AnScheduleTrackState extends State<AnScheduleTrack> {
   _TrackCursor? _cursor;
   final Map<_TrackCursor, FocusNode> _nodes = {};
+  final ScrollController _hScroll = ScrollController();
 
   @override
   void dispose() {
     for (final n in _nodes.values) {
       n.dispose();
     }
+    _hScroll.dispose();
     super.dispose();
   }
 
@@ -370,9 +387,12 @@ class _AnScheduleTrackState extends State<AnScheduleTrack> {
       final li = widget.lanes.indexWhere((l) => l.id == cur.$1);
       if (li >= 0 && _slotExists(widget.lanes[li], cur.$2)) return (li, cur.$2);
     }
-    // Default = the first lane's first bin — a spot the user can always see. 默认=首泳道首格。
+    // Default = the first lane's NEWEST bin — under the right anchor that is the spot the user can
+    // always see (v2: bin 0 is 25 hours ago and off-screen; landing the cursor there would Tab the
+    // user into a cell they cannot see). 默认=首泳道**最新**格:右锚下那才是恒可见处(bin0 在 25 小时前
+    // 的屏外,Tab 落那儿=落进看不见的格)。
     for (var li = 0; li < widget.lanes.length; li++) {
-      if (widget.lanes[li].bins.isNotEmpty) return (li, 0);
+      if (widget.lanes[li].bins.isNotEmpty) return (li, widget.lanes[li].bins.length - 1);
     }
     return null;
   }
@@ -405,7 +425,7 @@ class _AnScheduleTrackState extends State<AnScheduleTrack> {
         if (idx < 0) return false;
         final next = idx + step;
         if (next < 0 || next >= ordered.length) return false;
-        _focus(li, ordered[next]);
+        _focus(li, ordered[next], dir);
         return true;
       case TraversalDirection.up:
       case TraversalDirection.down:
@@ -415,7 +435,7 @@ class _AnScheduleTrackState extends State<AnScheduleTrack> {
         final dl = dir == TraversalDirection.down ? 1 : -1;
         for (var l = li + dl; l >= 0 && l < widget.lanes.length; l += dl) {
           if (_slotExists(widget.lanes[l], slot)) {
-            _focus(l, slot);
+            _focus(l, slot, dir);
             return true;
           }
         }
@@ -423,11 +443,33 @@ class _AnScheduleTrackState extends State<AnScheduleTrack> {
     }
   }
 
-  void _focus(int li, int slot) {
+  void _focus(int li, int slot, [TraversalDirection? dir]) {
     final lane = widget.lanes[li];
     final key = (lane.id, slot);
     setState(() => _cursor = key);
-    _nodeFor(key, cursor: true).requestFocus();
+    final node = _nodeFor(key, cursor: true);
+    if (dir == null || node.context == null) {
+      node.requestFocus();
+    } else {
+      // Drag the viewport along (the AnRunMatrix law, verbatim): an explicit requestFocus skips the
+      // framework's scroll-into-view (it lives on requestFocusCallback, which only runs on TRAVERSAL),
+      // and this grid scrolls sideways inside itself — so call the framework's own callback with the
+      // SAME alignment policy its directional traversal picks; the stock mapping survives the reversed
+      // axis unchanged (矩阵实测背书,非推断).
+      // 把视口拖着一起走(矩阵立法逐字):显式 requestFocus 跳过框架滚动入视,故调框架自己的回调,对齐策略
+      // 照抄其方向遍历;原生映射在反转轴下原样成立(矩阵实测)。
+      FocusTraversalPolicy.defaultTraversalRequestFocusCallback(
+        node,
+        alignmentPolicy: switch (dir) {
+          TraversalDirection.up ||
+          TraversalDirection.left =>
+            ScrollPositionAlignmentPolicy.keepVisibleAtStart,
+          TraversalDirection.down ||
+          TraversalDirection.right =>
+            ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+        },
+      );
+    }
     // The focused node is the mechanism (Windows/Linux); this is the macOS-only repair — rule in
     // [AnA11y.announceFocusMove]. 被聚焦的节点是机制;这是给 macOS 补的那块。
     AnA11y.announceFocusMove(context, _sentence(lane, slot));
@@ -443,27 +485,77 @@ class _AnScheduleTrackState extends State<AnScheduleTrack> {
   @override
   Widget build(BuildContext context) {
     if (widget.lanes.isEmpty || _binCount == 0) return const SizedBox.shrink();
-    final start = widget.now.subtract(widget.pastWindow);
+    final c = context.colors;
+    final at = _resolved;
+    // The AnRunMatrix three-segment layout, verbatim (0718 v2「直接复用 Matrix View」): the lane-name
+    // column FROZEN outside the scroller (under the reverse anchor the oldest edge is off-screen by
+    // construction, and a grid whose rows can't be named is unreadable), the hour grid scrolling
+    // sideways inside itself ANCHORED AT THE NEWEST EDGE (offset 0 = now's hour — the v1 now line is
+    // retired: the trailing edge IS now), and the next-fire segment FROZEN on the right (the forecast
+    // must stay readable wherever the grid is scrolled). The column heads ride INSIDE the scroller —
+    // every hour names itself as it slides by.
+    // 矩阵三段布局逐字复用:名字车道冻结在滚动器外(右锚下最旧缘天然在屏外,叫不出行名的格阵没法读)、
+    // 小时格阵在自己肚子里横滚**右锚最新端**(offset 0=当前小时——v1 的 now 线退役:右缘即现在)、下一发段
+    // 冻结在右(滚到哪预告都在)。列头随滚动器走——每个小时滑过时自报姓名。
     return Actions(
       actions: <Type, Action<Intent>>{
         DirectionalFocusIntent: _TrackDirectionalFocusAction(this),
       },
-      // Furniture BELOW the lanes and inert — a painter draws the now line, IgnorePointer so it never
-      // steals a cell's click; the cells are widgets on top. 家具在下且惰性:painter 画 now 线、不吃命中。
-      child: Stack(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Positioned.fill(
-            child: IgnorePointer(
-              child: CustomPaint(
-                painter: _TrackFurniture(nowColor: context.colors.accent, futureW: AnSize.trackFutureW),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: _kHeadH + AnSpace.s4),
+              for (final lane in widget.lanes) _laneLabel(context, lane),
+            ],
+          ),
+          const SizedBox(width: AnSpace.s12),
+          Flexible(
+            child: RawScrollbar(
+              controller: _hScroll,
+              thumbVisibility: true,
+              thumbColor: c.lineStrong,
+              radius: const Radius.circular(AnRadius.pill),
+              thickness: AnSpace.s4,
+              minThumbLength: AnSize.controlSm,
+              child: ScrollConfiguration(
+                behavior: const AnScrollBehavior(),
+                // reverse: offset 0 = the NEWEST (trailing) edge — first frame opens on the current
+                // hour with no post-frame jump (矩阵同律). reverse:offset 0=最新缘,首帧即当前小时。
+                child: SingleChildScrollView(
+                  controller: _hScroll,
+                  scrollDirection: Axis.horizontal,
+                  reverse: true,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _colHeads(context),
+                      for (var i = 0; i < widget.lanes.length; i++) _lane(context, i, at),
+                      // The bar is an OVERLAY — give the last lane its own strip (矩阵同款条道).
+                      // 条是覆层,给末行让出一条道。
+                      const SizedBox(height: AnSpace.s8),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
+          const SizedBox(width: AnSpace.s12),
           Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              _ruler(context, start),
-              for (var i = 0; i < widget.lanes.length; i++) _lane(context, i),
+              const SizedBox(height: _kHeadH + AnSpace.s4),
+              for (var i = 0; i < widget.lanes.length; i++)
+                SizedBox(
+                  height: _kRowH,
+                  width: AnSize.trackFutureW,
+                  child: _future(context, i, widget.lanes[i], at),
+                ),
             ],
           ),
         ],
@@ -471,33 +563,57 @@ class _AnScheduleTrackState extends State<AnScheduleTrack> {
     );
   }
 
-  /// The scale eyebrow — three honest anchors: the start stamp, the span, and «now» (the past axis ENDS
-  /// at now; the future segment is unruled — it is a sentence, not an axis). Stamps are DATE+TIME
-  /// ([fmtDateTime]), not a wall clock: a 24h axis starting at 17:48 ENDS at 17:48, and a clock would
-  /// print the identical string at both ends. Stamps ellipsize so a narrow host degrades rather than
-  /// breaks. 刻度眉三锚:起点戳/跨度/now(过去轴终于 now;未来段无尺——它是句子不是轴)。戳走日期+时刻(24h 轴
-  /// 两端墙钟会印出同一串);戳 ellipsize,窄宿主降级而非破裂。
-  Widget _ruler(BuildContext context, DateTime start) {
+  /// The column-head row: one word per hour cell («20», «7/19» at midnight), sliding WITH the grid so
+  /// a dragged view always names what it shows (v1's start/span/now ruler is retired wholesale).
+  /// 列头行:每格一词(「20」,0 点「7/19」),随格同滚——拖到哪就标到哪;v1 三锚刻度眉整体退役。
+  Widget _colHeads(BuildContext context) {
     final c = context.colors;
-    final style = AnText.metaTabular().copyWith(color: c.inkFaint);
+    final heads = widget.lanes.first.bins;
     return Padding(
-      padding: const EdgeInsets.only(
-          left: AnSize.ganttLaneW + AnSpace.s12, right: AnSize.trackFutureW, bottom: AnSpace.s4),
-      child: Row(children: [
-        Flexible(
-            child:
-                Text(fmtDateTime(start), maxLines: 1, overflow: TextOverflow.ellipsis, style: style)),
-        Expanded(child: Center(child: Text(fmtWaited(widget.pastWindow), maxLines: 1, style: style))),
-        if (widget.nowLabel.isNotEmpty)
-          Text(widget.nowLabel, maxLines: 1, overflow: TextOverflow.clip, style: style),
+      padding: const EdgeInsets.only(bottom: AnSpace.s4),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        for (final bin in heads)
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: AnSpace.s4),
+            child: SizedBox(
+              width: AnSize.controlSm,
+              height: _kHeadH,
+              child: Center(
+                child: Text(
+                  widget.binHeadLabel?.call(bin) ?? '',
+                  maxLines: 1,
+                  overflow: TextOverflow.visible,
+                  softWrap: false,
+                  style: AnText.metaTabular().copyWith(color: c.inkFaint),
+                ),
+              ),
+            ),
+          ),
       ]),
     );
   }
 
-  Widget _lane(BuildContext context, int li) {
+  /// One frozen lane label (dimmed on a paused lane); the «已暂停» word rides the FUTURE segment —
+  /// one word, one place. 冻结泳道名(暂停灰显);「已暂停」词在未来段——一词一处。
+  Widget _laneLabel(BuildContext context, TrackLane lane) {
     final c = context.colors;
+    return SizedBox(
+      height: _kRowH,
+      width: AnSize.ganttLaneW,
+      child: Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: Text(
+          lane.label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: AnText.meta.copyWith(color: lane.dimmed ? c.inkFaint : c.inkMuted),
+        ),
+      ),
+    );
+  }
+
+  Widget _lane(BuildContext context, int li, (int, int)? at) {
     final lane = widget.lanes[li];
-    final at = _resolved;
     // ONE semantics container per lane (§12): the reader hears the summary, then walks the cells.
     // `explicitChildNodes` is LOAD-BEARING (see the class doc). 每泳道一个语义容器(§12),explicitChildNodes 承重。
     return Semantics(
@@ -505,35 +621,15 @@ class _AnScheduleTrackState extends State<AnScheduleTrack> {
       explicitChildNodes: true,
       label: widget.laneSummaryLabel?.call(lane) ??
           (lane.note.isEmpty ? lane.label : '${lane.label} · ${lane.note}'),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AnSpace.s0, vertical: AnSpace.s2),
-        child: SizedBox(
-          height: AnSize.row,
-          child: Row(children: [
-            // The lane label (dimmed on a paused lane). The «已暂停» word rides in the FUTURE segment,
-            // not here — one word, one place (色不独行 lives on that end). 泳道名(暂停灰显);「已暂停」词在
-            // 未来段、不在这里——一词一处。
-            SizedBox(
-              width: AnSize.ganttLaneW,
-              child: Text(
-                lane.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AnText.meta.copyWith(color: lane.dimmed ? c.inkFaint : c.inkMuted),
-              ),
+      child: SizedBox(
+        height: _kRowH,
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          for (final bin in lane.bins)
+            Padding(
+              padding: const EdgeInsetsDirectional.only(start: AnSpace.s4),
+              child: _binCell(context, li, lane, bin, at),
             ),
-            const SizedBox(width: AnSpace.s12),
-            // The past grid — 24 equal cells filling the remainder; each cell owns half the inter-cell
-            // gap so the row can never overflow at any width. 过去格:24 等分填满剩余宽,格内各含半格间距,任意宽度不溢出。
-            Expanded(
-              child: Row(children: [
-                for (final bin in lane.bins)
-                  Expanded(child: _binCell(context, li, lane, bin, at)),
-              ]),
-            ),
-            SizedBox(width: AnSize.trackFutureW, child: _future(context, li, lane, at)),
-          ]),
-        ),
+        ]),
       ),
     );
   }
@@ -542,24 +638,27 @@ class _AnScheduleTrackState extends State<AnScheduleTrack> {
       BuildContext context, int li, TrackLane lane, TrackBin bin, (int, int)? at) {
     final c = context.colors;
     final worst = bin.worst;
-    final fill = worst?.tone.softBg(c);
-    final border = worst == null ? c.line : worst.tone.fg(c);
-    Widget bar = Container(
-      height: AnSize.trackBinH,
+    final tone = worst?.tone;
+    // The Matrix View cell, verbatim (0718 v2 用户提案「直接复用」): a controlSm SQUARE, soft-tint fill
+    // + status-coloured hairline for a run cell, a transparent faint-outlined square for an empty hour
+    // (空是真答案,同矩阵「未及」). A missed tick lays a grey ✕ INSIDE the cell (matrix's «×N 在格内»
+    // grammar; a SHAPE beside the colour, WCAG 1.4.1) — one mark whatever the count, the number lives
+    // in the hover card. 矩阵格逐字复用:controlSm 方格、soft 填充+状态色发丝描边,空格透明淡描边;missed
+    // 在格内叠灰 ✕(矩阵「×N 在格内」文法,形状通道)——一枚记号不论几次,数目在 hover 卡。
+    Widget square = Container(
+      width: AnSize.controlSm,
+      height: AnSize.controlSm,
       decoration: BoxDecoration(
-        color: fill,
+        color: tone == null ? const Color(0x00000000) : tone.softBg(c),
         borderRadius: BorderRadius.circular(AnRadius.tag),
-        border: Border.all(color: border, width: AnSize.hairline),
+        border: Border.all(color: tone == null ? c.line : tone.fg(c), width: AnSize.hairline),
       ),
       alignment: Alignment.center,
-      // A missed tick lays a grey ✕ over the cell — a SHAPE beside the colour, never folded into the
-      // fill (WCAG 1.4.1). One mark whatever the count; the number lives in the hover card.
-      // missed 叠一枚灰 ✕(形状通道,绝不折进格色);一枚记号不论几次,数目在 hover 卡。
       child: bin.missedCount > 0
           ? Icon(AnIcons.close, size: AnSize.iconSm, color: c.inkMuted)
           : null,
     );
-    if (lane.dimmed && worst != null) bar = Opacity(opacity: AnOpacity.stratum, child: bar);
+    if (lane.dimmed && worst != null) square = Opacity(opacity: AnOpacity.stratum, child: square);
 
     // Content cell (has runs) → launch pad + hover card; missed-only or empty → inert, no card.
     // 内容格(有 run)→ 发射台 + hover 卡;纯 missed / 空 → 惰性、无卡。
@@ -569,15 +668,14 @@ class _AnScheduleTrackState extends State<AnScheduleTrack> {
         ? widget.binSemanticLabel?.call(lane, bin)
         : widget.emptyBinSemanticLabel?.call(lane, bin);
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AnSpace.s2 / 2),
+    return Center(
       child: _Cell(
         focusNode: widget.onBin == null ? null : _nodeFor((lane.id, bin.index), cursor: at == (li, bin.index)),
         tappable: tappable,
         onActivate: tappable ? () => _activate(lane, bin) : null,
         hoverBuilder: hover,
         semanticLabel: sentence,
-        child: bar,
+        child: square,
       ),
     );
   }
@@ -594,15 +692,12 @@ class _AnScheduleTrackState extends State<AnScheduleTrack> {
     // next fire) leaves the segment blank. 无预告可画:暂停说「已暂停」;仅非 cron 源(下次不可知)留空。
     if (f == null) {
       final word = lane.dimmed ? lane.note : '';
-      return Padding(
-        padding: const EdgeInsets.only(left: AnSpace.s12),
-        child: word.isEmpty
-            ? const SizedBox.shrink()
-            : Align(
-                alignment: Alignment.centerLeft,
-                child: Text(word, maxLines: 1, style: AnText.meta.copyWith(color: c.inkFaint)),
-              ),
-      );
+      return word.isEmpty
+          ? const SizedBox.shrink()
+          : Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: Text(word, maxLines: 1, style: AnText.meta.copyWith(color: c.inkFaint)),
+            );
     }
 
     final ring = AnStatusDot.raw(lane.dimmed ? c.inkFaint : c.inkMuted, hollow: true, size: AnSize.dot);
@@ -627,17 +722,14 @@ class _AnScheduleTrackState extends State<AnScheduleTrack> {
       ),
     ]);
 
-    return Padding(
-      padding: const EdgeInsets.only(left: AnSpace.s12),
-      child: _Cell(
-        focusNode: widget.onBin == null ? null : _nodeFor((lane.id, _futureSlot), cursor: at == (li, _futureSlot)),
-        // The future ○ is display-only (never a launch pad). 未来 ○ 只读、非发射台。
-        tappable: false,
-        onActivate: null,
-        hoverBuilder: widget.futureHoverBuilder?.call(lane),
-        semanticLabel: widget.futureSemanticLabel?.call(lane),
-        child: line,
-      ),
+    return _Cell(
+      focusNode: widget.onBin == null ? null : _nodeFor((lane.id, _futureSlot), cursor: at == (li, _futureSlot)),
+      // The future ○ is display-only (never a launch pad). 未来 ○ 只读、非发射台。
+      tappable: false,
+      onActivate: null,
+      hoverBuilder: widget.futureHoverBuilder?.call(lane),
+      semanticLabel: widget.futureSemanticLabel?.call(lane),
+      child: line,
     );
   }
 }
@@ -654,24 +746,6 @@ class _TrackDirectionalFocusAction extends DirectionalFocusAction {
     if (state._move(intent.direction)) return;
     super.invoke(intent);
   }
-}
-
-/// The inert furniture: the «now» rule at the past/future boundary (x = width − futureW). Inert = zero
-/// semantics, zero hit test — the cells own both. 惰性家具:过去/未来分界处的 now 线;零语义零命中(归格)。
-class _TrackFurniture extends CustomPainter {
-  const _TrackFurniture({required this.nowColor, required this.futureW});
-
-  final Color nowColor;
-  final double futureW;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final x = (size.width - futureW).clamp(0.0, size.width - AnSize.hairline);
-    canvas.drawRect(Rect.fromLTWH(x, 0, AnSize.hairline, size.height), Paint()..color = nowColor);
-  }
-
-  @override
-  bool shouldRepaint(_TrackFurniture old) => old.nowColor != nowColor || old.futureW != futureW;
 }
 
 /// One roving-cursor cell — a real [FocusNode] (so directional traversal gives ←→ for free), a keyboard

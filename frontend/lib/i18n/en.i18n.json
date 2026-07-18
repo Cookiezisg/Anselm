@@ -715,7 +715,6 @@
       "kpiMissed": "Missed · 24h",
       "kpiMissedA11y": "Missed · 24h: $n. Show them on the schedule track.",
       "trackPastTruncated": "Fires earlier than $at are not shown — the ledger holds more than one page.",
-      "trackNow": "now",
       "trackNextIn": "(in $d)",
       "trackCardHead": "$at · $n total",
       "trackCardMissed": "missed $at",

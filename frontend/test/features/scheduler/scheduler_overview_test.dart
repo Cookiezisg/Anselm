@@ -566,12 +566,20 @@ void main() {
   // 内容格=发射台(同矩阵):一 run→旗舰、多 run→运营主页;经 roving 光标驱动(Tab 进、方向键走到该小时、Enter)。
   group('B5 · 发射台', () {
     // A run started N hours before now lands in bin (24 − N). 距 now N 小时前的 run 落在 bin(24−N)。
+    // Seeded at the CENTRE of a whole-hour cell (整点格中央,恒稳): under whole-hour bins a «now −
+    // 6h30m» seed straddles the hour boundary as the wall clock's minutes drift — anchor to the
+    // hour instead. hoursAgo=k → the cell k whole hours back → bin index 24−k.
+    DateTime hourCentre(int hoursAgo) {
+      final l = _now.toLocal();
+      return DateTime(l.year, l.month, l.day, l.hour).subtract(Duration(hours: hoursAgo)).add(const Duration(minutes: 30));
+    }
+
     Flowrun run(String id, {required int hoursAgo, String status = 'completed'}) => Flowrun(
         id: id,
         workflowId: 'wf_a',
         status: status,
-        startedAt: _now.subtract(Duration(hours: hoursAgo, minutes: 30)),
-        completedAt: _now.subtract(Duration(hours: hoursAgo, minutes: 29)),
+        startedAt: hourCentre(hoursAgo),
+        completedAt: hourCentre(hoursAgo).add(const Duration(minutes: 1)),
         updatedAt: _now);
 
     Future<String> launch(WidgetTester tester, ScheduleTrackData track, {required int bin}) async {
@@ -601,11 +609,11 @@ void main() {
       await tester.pumpWidget(
           TranslationProvider(child: MaterialApp.router(theme: AnTheme.light(), routerConfig: router)));
       await tester.pump();
-      await tester.sendKeyEvent(LogicalKeyboardKey.tab); // → the cursor (bin 0)
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab); // → the cursor (the NEWEST bin, 24) 光标=最新格
       await tester.pump();
-      for (var i = 0; i < bin; i++) {
-        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-        await tester.pump();
+      for (var i = 24; i > bin; i--) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+        await tester.pumpAndSettle(); // viewport-drag settles per step 每步拖视口落定
       }
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pump();
@@ -620,9 +628,9 @@ void main() {
             workflowId: 'wf_a',
             workflowName: 'A',
             paused: false,
-            runs: [run('fr_solo', hoursAgo: 6)]), // → bin 17
+            runs: [run('fr_solo', hoursAgo: 6)]), // → bin 18 (25 whole-hour bins 整点 25 格)
       ]);
-      expect(await launch(tester, track, bin: 17), '/scheduler/w/wf_a/runs/fr_solo',
+      expect(await launch(tester, track, bin: 18), '/scheduler/w/wf_a/runs/fr_solo',
           reason: '一格一 run → 直进该 run 旗舰');
     });
 
@@ -635,10 +643,10 @@ void main() {
             workflowId: 'wf_a',
             workflowName: 'A',
             paused: false,
-            // Two runs in the SAME hour (both 6h ago) → bin 17. 同一小时两 run → bin 17。
+            // Two runs in the SAME hour (both 6h ago) → bin 18 (整点 25 格). 同一小时两 run。
             runs: [run('fr_a', hoursAgo: 6), run('fr_b', hoursAgo: 6)]),
       ]);
-      expect(await launch(tester, track, bin: 17), '/scheduler/w/wf_a',
+      expect(await launch(tester, track, bin: 18), '/scheduler/w/wf_a',
           reason: '多 run 格 → 该 workflow 运营主页(无单一旗舰可选)');
     });
   });
@@ -688,10 +696,10 @@ void main() {
           edges: [_edge('wf_a', 'tr_1')],
           workflowNames: const {'wf_a': 'A'},
           schedule: const TriggerSchedule(),
-          firings: [f('trf_old', 'tr_1', 'wf_a', FiringStatus.started, const Duration(hours: 25))],
+          firings: [f('trf_old', 'tr_1', 'wf_a', FiringStatus.started, const Duration(hours: 26))],
           now: _now,
         );
-        expect(lanes.single.firings, isEmpty, reason: '25h 前 > 24h 过去窗:轴上无处可站');
+        expect(lanes.single.firings, isEmpty, reason: '26h 前 > 25h 取数窗(整点 25 格):轴上无处可站');
       });
 
       // THE bug shape, guarded. A missed tick whose lane is gone (the workflow stopped listening, or
@@ -739,7 +747,10 @@ void main() {
       });
 
       test('the missed window floor is the KPI window — equal by construction, not by coincidence', () {
-        expect(SchedulerWindows.trackPastWindow, SchedulerWindows.kpiWindow);
+        // 25 whole-hour bins ⊇ any rolling 24h KPI window (v2 整点分箱下 ✕ 完整性不变式的新形态)。
+        expect(SchedulerWindows.trackBinCount, 25);
+        expect(SchedulerWindows.trackFetchWindow,
+            SchedulerWindows.kpiWindow + const Duration(hours: 1));
       });
     });
 
@@ -806,8 +817,11 @@ void main() {
 
         final missedFilter =
             repo.firingFilters.firstWhere((q) => q['status'] == FiringStatus.missed.name);
-        expect(missedFilter['createdAfter'], cardSince,
-            reason: '牌的 since 与 ✕ 的 createdAfter 必须**逐字节**相同——两个「差不多」的锚点就是「牌写 3、列表显示 4」');
+        // v2 整点分箱:✕ 取数窗比牌窗深恰一整点小时(trackFetchWindow=25h)——25 个整点格是任意滚动 24h
+        // 牌窗的**超集**,故牌数的每个 ✕ 仍必在轨上;深多少是**推导**出的常量,不是「差不多」。
+        expect(DateTime.parse(missedFilter['createdAfter']!),
+            DateTime.parse(cardSince).subtract(const Duration(hours: 1)),
+            reason: '✕ 的 createdAfter = 牌 since − 1h(整点 25 格超集,牌上每个 ✕ 都在轨上)');
         expect(missedFilter['createdBefore'], '',
             reason: '牌的窗是 [since, ∞)、无上界;给列表加一个上界就是第二份谓词');
       });

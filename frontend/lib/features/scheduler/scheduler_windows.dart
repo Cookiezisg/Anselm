@@ -63,16 +63,17 @@ abstract final class SchedulerWindows {
   static const Duration trackWindow = Duration(hours: 24);
   static const String trackWithin = '24h';
 
-  /// The track's PAST half (工单⑭/判决⑥) — deliberately EQUAL to [kpiWindow], and equal by
-  /// CONSTRUCTION rather than by coincidence: the 「错过 N」 card deep-links to the ✕ marks on this
-  /// track, so if the track looked back less far than the card counts, a missed tick could be counted
-  /// by the card and be off the axis of the very surface its click opens. §3's sketch drew the now
-  /// line left-of-centre («now 线偏左») when the past half was decoration; 判决⑥ made it the card's
-  /// evidence, and correctness outranks the sketch — so now sits at the CENTRE (past 24h + future 24h).
-  /// 轨道的**过去**半:刻意等于 kpiWindow,且是**构造上**相等而非碰巧相等——牌深链到本轨的 ✕,故轨若回看得比牌
-  /// 数的短,就会有被牌数进去、却落在它自己点开的那个面的轴外的刻度。§3 草图画「now 线偏左」是在过去半还只是
-  /// 装饰的时候;判决⑥ 让它成了牌的**证据**,而正确性大过草图——故 now 居中(过去 24h + 未来 24h)。
-  static const Duration trackPastWindow = kpiWindow;
+  /// The track's past grid, in WHOLE-HOUR bins (0718 v2 拍板「都弄整个小时的」): 25 cells = 24 complete
+  /// hours + the in-progress one. 25, not 24, is the ✕-completeness invariant reborn (工单⑭/判决⑥ 的
+  /// 本意): the 「错过 N」 card counts a ROLLING 24h window, whole-hour cells are up to 59min offset
+  /// from it — 25 whole hours are a superset of ANY rolling 24h window, so a tick the card counts can
+  /// never be off the grid of the very surface its click opens. [trackFetchWindow] is the matching
+  /// data lower bound (runs + firings must be fetched at least this far back).
+  /// 轨的过去格=**整点**分箱:25 格=24 完整小时+进行中那格。取 25 不取 24 是 ✕ 完整性不变式的新形态
+  /// (牌数**滚动** 24h 窗,整点格与它最多错开 59 分钟——25 个整点小时是任意滚动 24h 窗的**超集**,牌数进去
+  /// 的刻度绝不会落在它点开的那个面的格外)。[trackFetchWindow]=配套取数下界。
+  static const int trackBinCount = 25;
+  static const Duration trackFetchWindow = Duration(hours: trackBinCount);
 
   /// One page of the firing ledger behind the track's past half (`GET /firings?limit=`) — the
   /// endpoint's hard cap. Rows come newest-first, so a truncated page is the NEWEST slice and the

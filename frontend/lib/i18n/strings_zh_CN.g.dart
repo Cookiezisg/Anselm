@@ -1203,7 +1203,6 @@ class _Translations$scheduler$overview$zh_CN extends Translations$scheduler$over
 	@override String get kpiMissed => '24h 错过';
 	@override String kpiMissedA11y({required Object n}) => '24h 错过 ${n} 次。在时间轴上看它们。';
 	@override String trackPastTruncated({required Object at}) => '早于 ${at} 的触发未显示——账目不止一页。';
-	@override String get trackNow => '现在';
 	@override String trackNextIn({required Object d}) => '(${d} 后)';
 	@override String trackCardHead({required Object at, required Object n}) => '${at} · 共 ${n} 次';
 	@override String trackCardMissed({required Object at}) => '错过 ${at}';
@@ -3167,7 +3166,6 @@ extension on TranslationsZhCn {
 			'scheduler.overview.kpiMissed' => '24h 错过',
 			'scheduler.overview.kpiMissedA11y' => ({required Object n}) => '24h 错过 ${n} 次。在时间轴上看它们。',
 			'scheduler.overview.trackPastTruncated' => ({required Object at}) => '早于 ${at} 的触发未显示——账目不止一页。',
-			'scheduler.overview.trackNow' => '现在',
 			'scheduler.overview.trackNextIn' => ({required Object d}) => '(${d} 后)',
 			'scheduler.overview.trackCardHead' => ({required Object at, required Object n}) => '${at} · 共 ${n} 次',
 			'scheduler.overview.trackCardMissed' => ({required Object at}) => '错过 ${at}',
@@ -3503,9 +3501,9 @@ extension on TranslationsZhCn {
 			'entities.detail.verb.run' => '运行',
 			'entities.detail.verb.call' => '调用',
 			'entities.detail.verb.invoke' => '唤起',
+			'entities.detail.verb.trigger' => '触发',
 			_ => null,
 		} ?? switch (path) {
-			'entities.detail.verb.trigger' => '触发',
 			'entities.detail.hero.envStatus' => ({required Object status}) => 'env ${status}',
 			'entities.detail.hero.noInputs' => '无入参',
 			'entities.detail.hero.methods' => ({required Object n}) => '${n} 个方法',
@@ -4017,9 +4015,9 @@ extension on TranslationsZhCn {
 			'settings.mcp.importTitle' => '导入 mcp.json',
 			'settings.mcp.importHint' => '粘贴 Claude Desktop 的 mcpServers 片段',
 			'settings.mcp.overwrite' => '覆盖同名',
+			'settings.mcp.doImport' => '导入',
 			_ => null,
 		} ?? switch (path) {
-			'settings.mcp.doImport' => '导入',
 			'settings.mcp.importResult' => ({required Object n, required Object m}) => '导入 ${n} · 跳过 ${m}',
 			'settings.mcp.importInvalid' => 'JSON 无法解析',
 			'settings.mcp.market' => '市场',

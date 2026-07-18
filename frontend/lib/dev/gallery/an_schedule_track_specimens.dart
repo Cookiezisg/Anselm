@@ -21,8 +21,13 @@ import 'specimen.dart';
 // 小时**(轨是钟);hover 内容格或 ○ 出明细卡。
 
 final _now = DateTime(2026, 7, 16, 14, 30);
-final _start = _now.subtract(const Duration(hours: 24));
-const int _bins = 24;
+// Whole-hour bins (v2 拍板): 25 = 24 complete hours + the in-progress one. 整点 25 格。
+final _end = DateTime(2026, 7, 16, 15);
+final _start = _end.subtract(const Duration(hours: 25));
+const int _bins = 25;
+
+String _headOf(TrackBin bin) =>
+    bin.start.hour == 0 ? '${bin.start.month}/${bin.start.day}' : '${bin.start.hour}';
 
 String _hm(DateTime t) =>
     '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
@@ -52,7 +57,7 @@ TrackLane _lane(
       id: id,
       label: label,
       bins: binTrackEvents(
-          start: _start, end: _now, binCount: _bins, runs: runs, missed: missed),
+          start: _start, end: _end, binCount: _bins, runs: runs, missed: missed),
       future: future,
       dimmed: dimmed,
       note: note,
@@ -158,7 +163,7 @@ final anScheduleTrackGalleryItem = GalleryItem(
               child: AnScheduleTrack(
                 lanes: _mixed(),
                 now: _now,
-                nowLabel: '现在',
+                binHeadLabel: _headOf,
                 onBin: (_, _) {},
                 binSemanticLabel: _binA11y,
                 emptyBinSemanticLabel: (lane, bin) => '${bin.start.hour} 时,无运行',
@@ -186,7 +191,7 @@ final anScheduleTrackGalleryItem = GalleryItem(
                     ], future: TrackFuture(at: _now.add(Duration(minutes: 5 + l)), time: '14:${35 + l}', relative: '(${5 + l}m 后)', schedule: '每 5 分钟')),
                 ],
                 now: _now,
-                nowLabel: '现在',
+                binHeadLabel: _headOf,
                 onBin: (_, _) {},
                 binSemanticLabel: _binA11y,
                 emptyBinSemanticLabel: (lane, bin) => '${bin.start.hour} 时,无运行',
@@ -210,7 +215,7 @@ final anScheduleTrackGalleryItem = GalleryItem(
                       runs: [_run(4, AnStatus.done)]),
                 ],
                 now: _now,
-                nowLabel: '现在',
+                binHeadLabel: _headOf,
                 futureSemanticLabel: (lane) => lane.note,
                 laneSummaryLabel: (lane) => '${lane.label} · 已暂停',
               ),
@@ -222,11 +227,11 @@ final anScheduleTrackGalleryItem = GalleryItem(
         (_) => Padding(
               padding: const EdgeInsets.all(AnSpace.s16),
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                AnScheduleTrack(lanes: const [], now: _now, nowLabel: '现在'),
+                AnScheduleTrack(lanes: const [], now: _now),
                 AnScheduleTrack(
                   lanes: [_lane('a', '从未运行', runs: const [])],
                   now: _now,
-                  nowLabel: '现在',
+                  binHeadLabel: _headOf,
                   onBin: (_, _) {},
                   emptyBinSemanticLabel: (lane, bin) => '${bin.start.hour} 时,无运行',
                   laneSummaryLabel: (lane) => lane.label,

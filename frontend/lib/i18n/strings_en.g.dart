@@ -2944,9 +2944,6 @@ class Translations$scheduler$overview$en {
 	/// en: 'Fires earlier than $at are not shown — the ledger holds more than one page.'
 	String trackPastTruncated({required Object at}) => 'Fires earlier than ${at} are not shown — the ledger holds more than one page.';
 
-	/// en: 'now'
-	String get trackNow => 'now';
-
 	/// en: '(in $d)'
 	String trackNextIn({required Object d}) => '(in ${d})';
 
@@ -6505,7 +6502,6 @@ extension on Translations {
 			'scheduler.overview.kpiMissed' => 'Missed · 24h',
 			'scheduler.overview.kpiMissedA11y' => ({required Object n}) => 'Missed · 24h: ${n}. Show them on the schedule track.',
 			'scheduler.overview.trackPastTruncated' => ({required Object at}) => 'Fires earlier than ${at} are not shown — the ledger holds more than one page.',
-			'scheduler.overview.trackNow' => 'now',
 			'scheduler.overview.trackNextIn' => ({required Object d}) => '(in ${d})',
 			'scheduler.overview.trackCardHead' => ({required Object at, required Object n}) => '${at} · ${n} total',
 			'scheduler.overview.trackCardMissed' => ({required Object at}) => 'missed ${at}',
@@ -6841,9 +6837,9 @@ extension on Translations {
 			'entities.detail.verb.run' => 'Run',
 			'entities.detail.verb.call' => 'Call',
 			'entities.detail.verb.invoke' => 'Invoke',
+			'entities.detail.verb.trigger' => 'Trigger',
 			_ => null,
 		} ?? switch (path) {
-			'entities.detail.verb.trigger' => 'Trigger',
 			'entities.detail.hero.envStatus' => ({required Object status}) => 'env ${status}',
 			'entities.detail.hero.noInputs' => 'no inputs',
 			'entities.detail.hero.methods' => ({required Object n}) => '${n} methods',
@@ -7355,9 +7351,9 @@ extension on Translations {
 			'settings.mcp.importTitle' => 'Import mcp.json',
 			'settings.mcp.importHint' => 'Paste a Claude Desktop mcpServers snippet',
 			'settings.mcp.overwrite' => 'Overwrite same names',
+			'settings.mcp.doImport' => 'Import',
 			_ => null,
 		} ?? switch (path) {
-			'settings.mcp.doImport' => 'Import',
 			'settings.mcp.importResult' => ({required Object n, required Object m}) => 'Imported ${n} · skipped ${m}',
 			'settings.mcp.importInvalid' => 'Couldn\'t parse the JSON',
 			'settings.mcp.market' => 'Marketplace',

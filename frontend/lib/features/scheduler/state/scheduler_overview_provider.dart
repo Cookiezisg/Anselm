@@ -305,7 +305,7 @@ List<ScheduleLane> scheduleLanes({
   List<Firing> firings = const [],
   Map<String, List<Flowrun>> runsByWorkflow = const {},
   Duration window = SchedulerWindows.trackWindow,
-  Duration pastWindow = SchedulerWindows.trackPastWindow,
+  Duration pastWindow = SchedulerWindows.trackFetchWindow,
 }) {
   final horizon = now.add(window);
   final floor = now.subtract(pastWindow);
@@ -506,6 +506,10 @@ class SchedulerOverviewController extends AsyncNotifier<SchedulerOverviewData> {
     // 静默打架。「牌上写 3、点开列表显示 4」在此不是舍入误差,是本海洋立法所禁的那个 bug,故两者必须是**同一个值**、
     // 而非两个通常吻合的值。
     final kpiSince = now.subtract(SchedulerWindows.kpiWindow);
+    // The track's data floor — one whole hour deeper than the KPI window, because the grid bins by
+    // WHOLE hours (25 cells ⊇ any rolling 24h window; see trackFetchWindow). 轨取数下界:比 KPI 窗深
+    // 一个整点小时(25 格 ⊇ 任意滚动 24h 窗)。
+    final trackSince = now.subtract(SchedulerWindows.trackFetchWindow);
     final results = await Future.wait<Object>([
       repo.stats(const [], since: kpiSince.toUtc().toIso8601String()),
       repo.stats(const [],
@@ -523,10 +527,10 @@ class SchedulerOverviewController extends AsyncNotifier<SchedulerOverviewData> {
       // 一部分——那要**报告**、不是藏起来);[4] **单取** missed,走牌的精确谓词——它不能像 [3] 的切片那样悄悄不全:
       // 一个话痨 cron 的 200 行足以把每一个 ✕ 挤出「最新一页」,而牌照数不误。牌的证据自己一条查询,其完整性不取决于
       // 别的 trigger 有多忙。
-      repo.listFirings(createdAfter: kpiSince, limit: SchedulerWindows.firingPageLimit),
+      repo.listFirings(createdAfter: trackSince, limit: SchedulerWindows.firingPageLimit),
       repo.listFirings(
           status: FiringStatus.missed,
-          createdAfter: kpiSince,
+          createdAfter: trackSince,
           limit: SchedulerWindows.firingPageLimit),
       // The 「正在跑」 zone AND its KPI tile, from ONE workspace-wide question (see listRunningRuns) —
       // never a loop over the workflow list, which cannot see an orphan's run and would therefore hand
@@ -545,7 +549,7 @@ class SchedulerOverviewController extends AsyncNotifier<SchedulerOverviewData> {
       // 「错过 N」 card counts from, ALL sources, so the grid answers workflow health rather than cron
       // execution rate. Windowed on started_at (the grid bins by start), workspace-wide + drained (see
       // listRunsSince). 过去健康格:窗内开始的全来源 run,按 started_at 开窗、工作区级拉全。
-      repo.listRunsSince(kpiSince),
+      repo.listRunsSince(trackSince),
       for (final s in failing)
         repo.listFlowruns(workflowId: s.workflowId, status: 'failed', limit: 1),
     ]);

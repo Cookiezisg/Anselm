@@ -715,7 +715,6 @@
       "kpiMissed": "24h 错过",
       "kpiMissedA11y": "24h 错过 $n 次。在时间轴上看它们。",
       "trackPastTruncated": "早于 $at 的触发未显示——账目不止一页。",
-      "trackNow": "现在",
       "trackNextIn": "($d 后)",
       "trackCardHead": "$at · 共 $n 次",
       "trackCardMissed": "错过 $at",

@@ -319,8 +319,26 @@ class SchedulerScheduleZone extends StatelessWidget {
 
   static const int _cardCap = 5;
 
-  DateTime get _start => now.subtract(SchedulerWindows.trackPastWindow);
-  int get _binCount => SchedulerWindows.trackPastWindow.inHours;
+  /// Whole-hour bins (0718 v2 拍板「都弄整个小时的」): the window END is the top of the CURRENT hour's
+  /// next edge, and it reaches back [SchedulerWindows.trackBinCount] (25) whole hours — 24 complete
+  /// hours plus the in-progress one. INVARIANT kept: any rolling 24h KPI window (错过 N 牌) is a
+  /// subset of these 25 whole hours, so every missed tick the card counts is on the track.
+  /// 整点分箱:窗终=当前小时上缘,回看 25 个整点小时(24 完整+1 进行中)。不变式:任意滚动 24h KPI 窗
+  /// ⊆ 这 25 个整点小时——牌数的每个 missed 都在轨上。
+  DateTime get _windowEnd {
+    final l = now.toLocal();
+    return DateTime(l.year, l.month, l.day, l.hour).add(const Duration(hours: 1));
+  }
+
+  DateTime get _start => _windowEnd.subtract(const Duration(hours: SchedulerWindows.trackBinCount));
+  int get _binCount => SchedulerWindows.trackBinCount;
+
+  /// The column-head glyph over one cell: the hour number, or «M/D» on the midnight anchor (a date is
+  /// a stronger landmark than a zero). 列头记号:小时数,0 点格改「M/D」日期锚。
+  String _headOf(TrackBin bin) {
+    final l = bin.start.toLocal();
+    return l.hour == 0 ? '${l.month}/${l.day}' : '${l.hour}';
+  }
 
   /// The zero-padded hour word a bin sits on («17»). 格所在的整点词。
   String _hourOf(DateTime at) => at.toLocal().hour.toString().padLeft(2, '0');
@@ -352,7 +370,7 @@ class SchedulerScheduleZone extends StatelessWidget {
       id: '${lane.triggerId}/${lane.workflowId}',
       label: lane.workflowName,
       bins: binTrackEvents(
-          start: _start, end: now, binCount: _binCount, runs: runs, missed: missed),
+          start: _start, end: _windowEnd, binCount: _binCount, runs: runs, missed: missed),
       // 判决①: the paused lane greys and wears «已暂停» (rendered in the future segment) — never leaves.
       // 判决①:暂停泳道灰显、戴「已暂停」(渲在未来段)——绝不离开。
       dimmed: lane.paused,
@@ -519,8 +537,7 @@ class SchedulerScheduleZone extends StatelessWidget {
           AnScheduleTrack(
             lanes: [for (final lane in track.lanes) _laneOf(context, lane)],
             now: now,
-            pastWindow: SchedulerWindows.trackPastWindow,
-            nowLabel: t.trackNow,
+            binHeadLabel: _headOf,
             onBin: (lane, bin) => _launch(context, lane, bin),
             binSemanticLabel: (lane, bin) => _binA11y(context, lane, bin),
             emptyBinSemanticLabel: (lane, bin) => _emptyBinA11y(context, lane, bin),
