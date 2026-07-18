@@ -14,6 +14,7 @@ import '../../state/stage_truth.dart';
 import '../../state/mention_names.dart';
 import '../tool_card_document_skill.dart';
 import '../tool_card_skins.dart';
+import 'stage_frame.dart';
 import 'stage_scene.dart';
 
 /// The DOCUMENT stage (WRK-061 §7-8, W2 flagship) — the prose curtain: a spine minimap on the left
@@ -103,16 +104,19 @@ class _DocumentStageBodyState extends ConsumerState<DocumentStageBody> {
     if (scene.live) {
       final fastForwarding = baseline.isNotEmpty && !_diverged && text.isNotEmpty;
       return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+        // 假想框律:路径 chip / 前缀·快进 caption(裸内容)归假想框(X=8);spine 是结构件留 X=0、prose 窗是真框。
+        // The imaginary-frame law: the path chip / prefix·fast-forward caption (bare content) join the frame
+        // (X=8); the spine (a structural rail) stays at X=0 and the prose window is a real frame.
         if (path.isNotEmpty) ...[
-          AnPathChip(path: path),
+          stageFramed(AnPathChip(path: path)),
           const SizedBox(height: AnSpace.s4),
         ],
         if (baseline.isNotEmpty && _diverged && _prefixLen > 0) ...[
-          Text(t.chat.stage.prefixKept(n: _prefixLen),
-              style: AnText.meta.copyWith(color: c.inkFaint)),
+          stageFramed(Text(t.chat.stage.prefixKept(n: _prefixLen),
+              style: AnText.meta.copyWith(color: c.inkFaint))),
           const SizedBox(height: AnSpace.s4),
         ] else if (fastForwarding) ...[
-          Text(t.chat.stage.fastForwarding, style: AnText.meta.copyWith(color: c.inkFaint)),
+          stageFramed(Text(t.chat.stage.fastForwarding, style: AnText.meta.copyWith(color: c.inkFaint))),
           const SizedBox(height: AnSpace.s4),
         ],
         // Explicit twin heights instead of stretch/IntrinsicHeight — AnWindow's internal
@@ -149,8 +153,11 @@ class _DocumentStageBodyState extends ConsumerState<DocumentStageBody> {
     final settled = session.closedStringAt(['content']) ?? text;
     final oldBytes = truth?.asData?.value.sizeBytes ?? baseline.length;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+      // 假想框律:路径 chip 归假想框(X=8);ProseWindow 是真框、字节徽 Row 领起当家条真框,皆贴 X=0。
+      // The imaginary-frame law: the path chip joins the frame (X=8); the prose window is a real frame and the
+      // byte-badge row leads the real stat bar, both flush at X=0.
       if (path.isNotEmpty) ...[
-        AnPathChip(path: path),
+        stageFramed(AnPathChip(path: path)),
         const SizedBox(height: AnSpace.s4),
       ],
       if (settled.isNotEmpty) ProseWindow(markdown: settled),

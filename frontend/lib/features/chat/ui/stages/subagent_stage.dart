@@ -122,13 +122,16 @@ class _SubagentCard extends StatelessWidget {
         // ONE gutter — glyphs centred on the first line (the old start-align hung iconXs above the text;
         // unified to center), all text on the same column.
         if (showCurrent) ...[
-          stageGutterRow(child: AnShimmerText(_lineOf(context, current), style: AnText.meta.copyWith(color: c.inkMuted))),
+          // framed:false — these rows are already INSIDE the card's AnWindow content inset; the frame's X=8
+          // would double-indent them past the card header glyph. 卡内沟行不再叠加假想框内距(免越过卡头字形)。
+          stageGutterRow(framed: false, child: AnShimmerText(_lineOf(context, current), style: AnText.meta.copyWith(color: c.inkMuted))),
           if (tail.isNotEmpty) const SizedBox(height: AnSpace.s6),
         ],
         for (final b in tail)
           Padding(
             padding: const EdgeInsets.only(bottom: AnSpace.s2),
             child: stageGutterRow(
+              framed: false,
               lead: Icon(_glyphOf(b), size: AnSize.iconXs, color: c.inkFaint),
               child: Text(_lineOf(context, b),
                   maxLines: 1,

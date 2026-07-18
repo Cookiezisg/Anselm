@@ -10,6 +10,7 @@ import '../../../../i18n/strings.g.dart';
 import '../../state/stage_truth.dart';
 import '../tool_card_skins.dart';
 import '../tool_card_trigger.dart';
+import 'stage_frame.dart';
 import 'stage_scene.dart';
 
 /// The TRIGGER stage (WRK-061 §7-5, W3) — the sentry post: the first closed key (`kind`) swaps in the
@@ -43,40 +44,43 @@ class TriggerStageBody extends ConsumerWidget {
     final trig = truth?.asData?.value;
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+      // 假想框律:一切裸内容(spec 面/带点行/CEL/等待行)归假想框(X=8);runStatBar 是当家条真框、贴 X=0。
+      // The imaginary-frame law: every bare block (the spec face, dotted rows, CELs, waiting rows) joins the
+      // frame (X=8); only the result bar (a real frame) stays flush at X=0.
       if (kind.isEmpty && scene.live)
-        Row(children: [
+        stageFramed(Row(children: [
           AnRadarSweep(size: AnSize.icon.toDouble()),
           const SizedBox(width: AnSpace.s6),
           Text(t.chat.stage.awaitingReceipt, style: AnText.meta.copyWith(color: c.inkFaint)),
-        ])
+        ]))
       else if (kind.isNotEmpty) ...[
-        triggerConfigFaces(context, kind, config, truthId ?? ''),
+        stageFramed(triggerConfigFaces(context, kind, config, truthId ?? '')),
         // The sensor face is the discriminant special: its CELs get the grow treatment on top.
         // sensor=判别式专场:condition/output 以 AnCelGrow 加演。
         if (kind == 'sensor') ...[
           for (final key in const ['condition', 'output'])
             if (config[key] is String && (config[key] as String).isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: AnSpace.s2),
-                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              stageFramed(
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text('$key ', style: AnText.meta.copyWith(color: c.inkFaint)),
                   Expanded(child: AnCelGrow(expression: config[key] as String, live: scene.live)),
                 ]),
+                top: AnSpace.s2,
               ),
         ],
       ],
       if (scene.live && kind.isNotEmpty) ...[
         const SizedBox(height: AnSpace.s6),
-        Row(children: [
+        stageFramed(Row(children: [
           AnRadarSweep(size: AnSize.iconSm.toDouble()),
           const SizedBox(width: AnSpace.s6),
           Text(t.chat.stage.awaitingReceipt, style: AnText.meta.copyWith(color: c.inkFaint)),
-        ]),
+        ])),
       ],
       if (!scene.live && !scene.failed) ...[
         const SizedBox(height: AnSpace.s6),
         if (trig != null)
-          Wrap(spacing: AnSpace.s8, runSpacing: AnSpace.s4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+          stageFramed(Wrap(spacing: AnSpace.s8, runSpacing: AnSpace.s4, crossAxisAlignment: WrapCrossAlignment.center, children: [
             Row(mainAxisSize: MainAxisSize.min, children: [
               AnStatusDot.raw(trig.listening ? c.ok : c.inkFaint),
               const SizedBox(width: AnSpace.s4),
@@ -88,7 +92,7 @@ class TriggerStageBody extends ConsumerWidget {
             if (trig.refCount > 0)
               Text(t.chat.stage.refCountWord(n: trig.refCount),
                   style: AnText.meta.copyWith(color: c.inkFaint)),
-          ]),
+          ])),
         const SizedBox(height: AnSpace.s4),
         runStatBarOf(context, scene.state),
       ],

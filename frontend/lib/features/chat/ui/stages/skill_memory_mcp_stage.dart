@@ -180,9 +180,11 @@ class McpStageBody extends StatelessWidget {
       ),
       if (env is Map && env.isNotEmpty) ...[
         const SizedBox(height: AnSpace.s4),
-        Wrap(spacing: AnSpace.s4, runSpacing: AnSpace.s4, children: [
+        // 假想框律:env 键药丸(裸 chips)归假想框,左缘对齐上方铭牌沟行(X=8)。The imaginary-frame law:
+        // the env-key chips (bare chips) join the frame (X=8), aligned under the nameplate gutter row above.
+        stageFramed(Wrap(spacing: AnSpace.s4, runSpacing: AnSpace.s4, children: [
           for (final k in env.keys) AnChip('$k ••••', tone: AnTone.none),
-        ]),
+        ])),
       ],
       if (scene.live && scene.state.progressText.isNotEmpty) ...[
         const SizedBox(height: AnSpace.s6),

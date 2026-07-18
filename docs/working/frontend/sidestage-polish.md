@@ -16,7 +16,7 @@ audience: [human, ai]
 
 ## 议题清单
 
-### #1 左缘对齐乱 ✅ 已落(0718,agent 建 stage_frame 假想框律 + icon 沟,commit 0156db0a)
+### #1 左缘对齐乱 ✅ 已落(0718,一轮 stage_frame 假想框律 + icon 沟 commit 0156db0a；二轮真机复核后收尾——沟住进假想框 + control/trigger/workflow/function/agent/mcp/document 裸内容全归 X=8，见文末「二轮收尾」)
 
 **用户原话要点**：
 
@@ -53,6 +53,18 @@ audience: [human, ai]
 - **scene_from_truth.dart `SettledBody`**：红字墓碑句（X=0 裸奔）→ `stageFramed(top: s4)`，与其上 AnKv 键（X=8）同起点。
 - **item 7 逐座过审**：function/agent 已合规（只 chip/编辑器/条，无裸文字顶格，不动）；**保守不动**=control（旧梯 40% 瞬时地层，AnLadder 自持序号沟）/document（左缘由 minimap spine 锚定 X=0）/workflow（计数·判别式紧贴 framed 画布左缘、无干净对齐靶）/trigger（awaitingReceipt 双雷达尺寸不一、非 iconSm 沟）——皆有 stage-local 左锚系统，套 X=8 需设计签字，出几何轮范围。
 - **几何锁**：`test/features/chat/ui/stage_alignment_test.dart`（5 测）——handler 代码窗左缘==body 左缘（function 同锁为参照）/ mcp 工具行文字==铭牌名文字同列 / subagent 尾行字形与文字首行同心 ±3px / 墓碑句==AnKv 键同起点。
+
+**✅ 二轮收尾（0718，用户真机复核后两点不满足全修，commit `<pending>`）**：一轮 icon 沟起点仍在体左缘 X=0（icon 顶格贴岛缘），且 control/trigger 等一批裸内容顶格未动。二轮把「体内除真框满宽外，一切裸内容左缘统一从 X=8 起」铺满：
+- **沟住进假想框**：`stageGutterRow` 加 `bool framed=true`——默认带 `kStageFrameInset` 前导内距（left-only，保 child 省略文字右缘满宽），沟格从 X=8 起，一处改 mcp 铭牌/工具行/计数句/errorText、approval 预览行全生效；**唯 subagent 卡内两处尾行传 `framed:false`**（已在卡 `AnWindow` 内距里、+8 会二次缩进越过卡头字形）。
+- **control_stage**：旧梯 40% 瞬时地层（标签+分支行裸文字）+ `AnLadder` 整梯 → `stageFramed`（序号沟随整体右移到 X=8，AnLadder 骨架不动）；runStatBar 真框留 X=0。
+- **trigger_stage**：cron/webhook/fsnotify/sensor spec 面（`triggerConfigFaces` 调用点包 `stageFramed`，不动共享件本体）+ sensor CEL 行 + 两处 awaitingReceipt 雷达行 + 落定 listening/refCount Wrap → 全归 X=8；runStatBar 留 X=0。
+- **workflow_stage**：计数句 Row + 判别式抽屉（标题+emit 行）→ `stageFramed`；真画布 framed 图 + runStatBar 留 X=0。
+- **function_stage**：`_OpTicker`（op 芯片）+ 签名/依赖药丸 Wrap → `stageFramed`；AnCodeEditor/AnLayerDiff/runStatBar 真框留 X=0。
+- **agent_stage**：腰带芯片 Wrap（含 40% 旧腰带 Opacity）+ knowledge Wrap + model 芯片 → `stageFramed`；prompt AnWindow/AnLayerDiff/runStatBar 留 X=0。
+- **mcp（skill_memory_mcp_stage）**：env 键药丸 Wrap → `stageFramed`；铭牌/工具/计数/error 随 `stageGutterRow` 默认自动进框。
+- **document_stage**：spine 是结构件保留 X=0（不整体外退）；其**标准裸 caption**（路径 `AnPathChip` ×2、prefixKept/fastForwarding 前缀句）→ `stageFramed` 归 X=8，与其它 stage 文字列文法一致；prose 窗真框、字节徽 Row（领起当家条真框）留 X=0。
+- **skill/memory**：整体已在一张 `AnWindow` 真框内，内容天然在框内距里，不动。
+- **几何锁扩到 7 测**：新增 control 梯左缘==body+8、trigger cron spec 行==body+8；mcp 测补铭牌 icon（iconSm 填满沟格）左缘==body+8；一轮 handler/function 真框==body（X=0）与墓碑==KV 键仍锁「真框仍 0」。chat 全套 767 绿 + analyze 净。纯几何轮，StageDirector/流式行为零变化。
 
 ### #2 Composer 三钮雷霆大 + 回车发送（0718-凌晨）
 - **定位**：@/📎/发送三钮全 `AnButtonSize.lg`（chat_composer.dart:444/446/459）——lg=32 盒/20 形配 15px 正文偏重,比例失衡;壳被撑高。

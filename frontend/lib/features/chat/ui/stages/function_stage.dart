@@ -7,6 +7,7 @@ import '../../../../core/ui/ui.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../state/stage_truth.dart';
 import '../tool_card_skins.dart';
+import 'stage_frame.dart';
 import 'stage_scene.dart';
 
 /// The FUNCTION stage (WRK-061 §7-1, W2 flagship) — code being authored, live. Streaming: the op
@@ -48,7 +49,9 @@ class FunctionStageBody extends ConsumerWidget {
         const SizedBox(height: AnSpace.s6),
       ],
       if (ops.isNotEmpty) ...[
-        _OpTicker(ops: ops, live: scene.live),
+        // 假想框律:op ticker(裸 chips)归假想框(X=8);其下 AnCodeEditor(真框)贴 X=0。The imaginary-frame
+        // law: the op ticker (bare chips) joins the frame (X=8); the code editor (a real frame) below stays at X=0.
+        stageFramed(_OpTicker(ops: ops, live: scene.live)),
         const SizedBox(height: AnSpace.s6),
       ],
       if (code.isNotEmpty) ...[
@@ -94,9 +97,11 @@ class FunctionStageBody extends ConsumerWidget {
       }
     }
     if (chips.isEmpty) return const [];
+    // 假想框律:签名药丸/依赖芯片(裸 chips)归假想框(X=8)。The imaginary-frame law: the signature /
+    // dependency chips (bare chips) join the frame (X=8).
     return [
       const SizedBox(height: AnSpace.s6),
-      Wrap(spacing: AnSpace.s4, runSpacing: AnSpace.s4, children: chips),
+      stageFramed(Wrap(spacing: AnSpace.s4, runSpacing: AnSpace.s4, children: chips)),
     ];
   }
 }

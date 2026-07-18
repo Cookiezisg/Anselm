@@ -8,6 +8,7 @@ import '../../../../core/ui/ui.dart';
 import '../../model/tool_receipts.dart';
 import '../../state/stage_truth.dart';
 import '../tool_card_skins.dart';
+import 'stage_frame.dart';
 import 'stage_scene.dart';
 
 /// The AGENT stage (WRK-061 §7-3, W5) — the persona assembly bay: the prompt prose grows in the
@@ -61,28 +62,31 @@ class AgentStageBody extends ConsumerWidget {
         AnLayerDiff(oldText: old.prompt, versionLabel: 'v${old.version}', maxLines: 5),
       ],
       const SizedBox(height: AnSpace.s6),
+      // 假想框律:腰带/知识/模型芯片(裸 chips)归假想框(X=8);prompt AnWindow(真框)贴 X=0。The
+      // imaginary-frame law: the belt / knowledge / model chips (bare chips) join the frame (X=8); the prompt
+      // window (a real frame) stays at X=0.
       // The tool belt: closed refs click on; untouched slots keep the old belt at 40% (R-9). 腰带。
       if (toolsTouched)
-        Wrap(spacing: AnSpace.s4, runSpacing: AnSpace.s4, children: [
+        stageFramed(Wrap(spacing: AnSpace.s4, runSpacing: AnSpace.s4, children: [
           for (final ref_ in tools) _beltChip(ref_),
-        ])
+        ]))
       else if (scene.live && old != null && old.tools.isNotEmpty)
-        Opacity(
+        stageFramed(Opacity(
           opacity: AnOpacity.stratum,
           child: Wrap(spacing: AnSpace.s4, runSpacing: AnSpace.s4, children: [
             for (final ref_ in old.tools) _beltChip({'ref': ref_.ref, 'name': ref_.name}),
           ]),
-        ),
+        )),
       if (knowledgeTouched) ...[
         const SizedBox(height: AnSpace.s4),
-        Wrap(spacing: AnSpace.s4, runSpacing: AnSpace.s4, children: [
+        stageFramed(Wrap(spacing: AnSpace.s4, runSpacing: AnSpace.s4, children: [
           for (final k in knowledge)
             AnChip('$k', tone: AnTone.none),
-        ]),
+        ])),
       ],
       if (model != null && model.isNotEmpty) ...[
         const SizedBox(height: AnSpace.s4),
-        AnChip(model, tone: AnTone.accent),
+        stageFramed(AnChip(model, tone: AnTone.accent)),
       ],
       if (!scene.live && !scene.failed) ...[
         const SizedBox(height: AnSpace.s6),

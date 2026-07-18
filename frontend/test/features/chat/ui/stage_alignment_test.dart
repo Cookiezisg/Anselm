@@ -1,24 +1,30 @@
 import 'package:anselm/core/contract/conversation.dart';
 import 'package:anselm/core/contract/touchpoint.dart';
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/sse/frame.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/features/chat/data/chat_fixtures.dart';
 import 'package:anselm/features/chat/data/chat_providers.dart';
 import 'package:anselm/features/chat/state/touchpoint_ledger.dart';
 import 'package:anselm/features/chat/ui/stage_panel.dart';
+import 'package:anselm/features/chat/ui/stages/control_stage.dart';
 import 'package:anselm/features/chat/ui/stages/function_stage.dart';
 import 'package:anselm/features/chat/ui/stages/handler_stage.dart';
 import 'package:anselm/features/chat/ui/stages/scene_from_truth.dart';
+import 'package:anselm/features/chat/ui/stages/skill_memory_mcp_stage.dart';
+import 'package:anselm/features/chat/ui/stages/trigger_stage.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // WRK-070 §A#1 — the「假想框律」geometry locks. A REAL frame (AnCodeEditor …) fills the body width at X=0
-// and never indents twice; ICON-led rows share ONE gutter (icon 对 icon, 文字对文字); BARE text lives in
-// the imaginary frame (X=8, the AnKv-key line). Each test pins one of these so a future re-indent regresses
-// loudly. 假想框律几何锁:真框满宽贴 X=0、icon 沟对齐、裸文字归假想框(X=8,KV 键线)。
+// and never indents twice; every BARE block — text, an ICON-led gutter row, chips, the discriminant ladder —
+// lives in the imaginary frame at X=8 (the AnKv-key line): the gutter's icon cell now STARTS at X=8 (round 2:
+// no longer顶格 at the island edge), control's ladder starts at X=8, trigger's spec row starts at X=8. Each
+// test pins one so a future re-indent regresses loudly. 假想框律几何锁:真框满宽贴 X=0;裸内容(文字/icon 沟/
+// chips/梯)全归假想框 X=8——沟格从 X=8 起(二轮)、control 梯从 X=8、trigger spec 行从 X=8。
 
 const _conv = 'cv_1';
 const _scope = StreamScope(kind: 'conversation', id: _conv);
@@ -151,6 +157,15 @@ void main() {
     final toolLeft = tester.getTopLeft(find.text('create_issue')).dx;
     expect(toolLeft, moreOrLessEquals(nameLeft, epsilon: 0.5),
         reason: 'mcp tool text starts on the nameplate name column (icon 沟文法)');
+
+    // Round 2: the gutter ITSELF lives in the imaginary frame — the nameplate's iconSm glyph (which fills the
+    // iconSm cell, so no centring offset) starts at X=8 relative to the body, not顶格 at X=0. 沟格从 X=8 起。
+    final bodyLeft = tester.getTopLeft(find.byType(McpStageBody)).dx;
+    final iconLeft = tester
+        .getTopLeft(find.descendant(of: find.byType(McpStageBody), matching: find.byIcon(AnIcons.mcp)))
+        .dx;
+    expect(iconLeft - bodyLeft, moreOrLessEquals(AnSpace.s8, epsilon: 0.5),
+        reason: 'mcp nameplate icon (the gutter cell) starts at X=8, not顶格 (round 2)');
   });
 
   testWidgets('SUBAGENT: a tail row glyph is vertically CENTRED on its text first line (±3px)',
@@ -212,5 +227,47 @@ void main() {
     final tombLeft = tester.getTopLeft(find.text(t.feedback.cast.tombstone)).dx;
     expect(tombLeft, moreOrLessEquals(keyLeft, epsilon: 0.5),
         reason: 'tombstone line aligns with the AnKv key (X=8), not顶格 at X=0');
+  });
+
+  testWidgets('CONTROL: the discriminant ladder lives in the imaginary frame (X=8, round 2)',
+      (tester) async {
+    final repo = _repo();
+    await tester.pumpWidget(_host(repo));
+    await tester.pump();
+    const args =
+        '{"branches":[{"port":"ok","when":"input.amount < 100","emit":{}},{"port":"review","when":"true","emit":{}}]}';
+    repo.emitFrame(_conv, _open('tc', 'create_control'));
+    repo.emitFrame(_conv, _delta('tc', args));
+    await _stageFrames(tester);
+    repo.emitFrame(_conv, _close('tc', args));
+    await _settleFrames(tester);
+
+    expect(find.byType(ControlStageBody), findsOneWidget);
+    final bodyLeft = tester.getTopLeft(find.byType(ControlStageBody)).dx;
+    final ladderLeft = tester.getTopLeft(find.byType(AnLadder)).dx;
+    // Round 2: the whole ladder (its numbered gutter included) joins the imaginary frame — the ordinal circle
+    // starts at X=8, not顶格 at the body left. AnLadder's own ordinal→thread gutter is untouched, just shifted
+    // as one. 整梯归假想框:序号圆从 X=8 起(梯自持序号沟不动,整体右移)。
+    expect(ladderLeft - bodyLeft, moreOrLessEquals(AnSpace.s8, epsilon: 0.5),
+        reason: 'control ladder starts at X=8 (was顶格 at X=0)');
+  });
+
+  testWidgets('TRIGGER: the cron spec row lives in the imaginary frame (X=8, round 2)', (tester) async {
+    final repo = _repo();
+    await tester.pumpWidget(_host(repo));
+    await tester.pump();
+    // Kept LIVE (no close) so the spec face renders straight off the streamed config — no truth-provider GET.
+    // 保持 live:spec 面直接渲流入 config,不需 GET 对账。
+    repo.emitFrame(_conv, _open('tc', 'create_trigger'));
+    repo.emitFrame(_conv, _delta('tc', '{"kind":"cron","config":{"expression":"0 2 * * *"}}'));
+    await _stageFrames(tester);
+
+    expect(find.byType(TriggerStageBody), findsOneWidget);
+    final bodyLeft = tester.getTopLeft(find.byType(TriggerStageBody)).dx;
+    final specLeft = tester.getTopLeft(find.text('0 2 * * *')).dx;
+    // The cron spec (bare text) joins the imaginary frame — its left lands on the X=8 line, not顶格 at X=0.
+    // cron spec(裸文字)归假想框:左缘落 X=8 框线,不顶格。
+    expect(specLeft - bodyLeft, moreOrLessEquals(AnSpace.s8, epsilon: 0.5),
+        reason: 'trigger cron spec row starts at X=8 (was顶格 at X=0)');
   });
 }

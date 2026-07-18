@@ -9,6 +9,7 @@ import '../../../../i18n/strings.g.dart';
 import '../../state/stage_truth.dart';
 import '../tool_card_skins.dart';
 import '../tool_card_workflow.dart';
+import 'stage_frame.dart';
 import 'stage_scene.dart';
 
 /// The WORKFLOW stage (WRK-061 §7-4, W3) — the graph grows on a real canvas as ops close: add_node
@@ -45,14 +46,16 @@ class WorkflowStageBody extends ConsumerWidget {
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
       if (graph != null && (graph.nodes.isNotEmpty || graph.edges.isNotEmpty)) ...[
-        Row(children: [
+        // 假想框律:计数句(裸文字)归假想框(X=8);真画布(framed 图)贴 X=0。The imaginary-frame law:
+        // the count line (bare text) joins the frame (X=8); the real canvas (a framed graph) stays at X=0.
+        stageFramed(Row(children: [
           Text(t.chat.tool.wfGraphCounts(nodes: graph.nodes.length, edges: graph.edges.length),
               style: AnText.meta.copyWith(color: c.inkMuted)),
           if (showsOld && oldVersion != null) ...[
             const SizedBox(width: AnSpace.s8),
             Text(t.chat.stage.basedOn(n: oldVersion), style: AnText.meta.copyWith(color: c.inkFaint)),
           ],
-        ]),
+        ])),
         const SizedBox(height: AnSpace.s4),
         Opacity(
           // The resting old truth reads as the stratum (R-5) — full ink returns with the first op.
@@ -86,19 +89,23 @@ class WorkflowStageBody extends ConsumerWidget {
     }
     if (latest == null) return const [];
     final input = latest['input'] as Map;
+    // 假想框律:判别式抽屉的裸字(标题 + emit 行)归假想框(X=8),与计数句同一条框线。The imaginary-frame
+    // law: the discriminant drawer's bare text (title + emit rows) joins the frame (X=8), on the count line.
     return [
       const SizedBox(height: AnSpace.s6),
-      Text('${t.chat.stage.latestDiscriminant} · ${latest['id'] ?? ''}',
-          style: AnText.label.copyWith(color: c.inkFaint)),
-      const SizedBox(height: AnSpace.s2),
-      for (final e in input.entries)
-        Padding(
-          padding: const EdgeInsets.only(bottom: AnSpace.s2),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('${e.key} ← ', style: AnText.code.copyWith(color: c.inkFaint)),
-            Expanded(child: AnCelGrow(expression: '${e.value}', live: scene.live)),
-          ]),
-        ),
+      stageFramed(Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+        Text('${t.chat.stage.latestDiscriminant} · ${latest['id'] ?? ''}',
+            style: AnText.label.copyWith(color: c.inkFaint)),
+        const SizedBox(height: AnSpace.s2),
+        for (final e in input.entries)
+          Padding(
+            padding: const EdgeInsets.only(bottom: AnSpace.s2),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('${e.key} ← ', style: AnText.code.copyWith(color: c.inkFaint)),
+              Expanded(child: AnCelGrow(expression: '${e.value}', live: scene.live)),
+            ]),
+          ),
+      ])),
     ];
   }
 }
