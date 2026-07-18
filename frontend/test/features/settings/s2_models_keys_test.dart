@@ -3,7 +3,6 @@ import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/model/model_capabilities.dart';
 import 'package:anselm/core/contract/model_capability.dart';
 import 'package:anselm/core/settings/settings_prefs.dart';
-import 'package:anselm/core/ui/an_dropdown.dart';
 import 'package:anselm/features/settings/data/settings_repository.dart';
 import 'package:anselm/features/settings/state/api_keys_provider.dart';
 import 'package:anselm/features/settings/state/settings_detail_provider.dart';
@@ -103,16 +102,17 @@ void main() {
 
       await tester.tap(find.text(t.settings.keys.addKey).first); // 空态 hint 同词
       await tester.pumpAndSettle();
-      expect(find.text(t.settings.keys.saveKey), findsOneWidget, reason: '推入表单');
+      // ADD stage 0 (0719 重构): the vendor logo grid — no form until a provider is picked. 添加
+      // 第 0 段:厂家 logo 网格,选商前无表单。
+      expect(find.text(t.settings.keys.pickProvider), findsOneWidget, reason: '厂家网格先行');
+      expect(find.text(t.settings.keys.saveKey), findsNothing);
 
-      // Pick provider + fill. 选 provider 填表。
+      // Pick the provider by its card + fill. 点厂家卡选商,再填表。
       final panelEl = tester.element(find.byType(KeyForm));
       final container = ProviderScope.containerOf(panelEl, listen: false);
-      await tester.tap(find.byType(AnDropdown<String>).first);
+      await tester.tap(find.text('OpenAI'));
       await tester.pumpAndSettle();
-      expect(find.text('OpenAI'), findsWidgets, reason: 'provider 菜单已开');
-      await tester.tap(find.text('OpenAI').last);
-      await tester.pumpAndSettle();
+      expect(find.text(t.settings.keys.saveKey), findsOneWidget, reason: '选商后进表单');
       final inputs = find.byType(TextField);
       await tester.enterText(inputs.at(0), 'my-key'); // displayName
       await tester.enterText(inputs.at(1), 'sk-abc123'); // secret

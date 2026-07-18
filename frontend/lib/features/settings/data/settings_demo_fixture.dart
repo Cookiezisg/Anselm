@@ -3,6 +3,7 @@ import '../../../core/contract/mcp.dart';
 import '../../../core/contract/memory.dart';
 import '../../../core/contract/model_capability.dart';
 import '../../../core/contract/sandbox.dart';
+import '../../../core/contract/workspace.dart';
 import 'settings_repository.dart';
 
 /// The zero-backend settings fixture `make demo` mounts: a managed free-tier row with live quota +
@@ -76,28 +77,62 @@ SettingsRepository demoSettingsRepository() {
           sizeBytes: 18 * 1024 * 1024,
           status: 'ready',
           lastUsedAt: at),
-    ];
+    ]
+    // Workspaces panel — a second (deletable) row beside the active one, plus honest inventory
+    // numbers for the danger zone. 工作区面:当前之外再种一行(可删),危险区有真数字可陈。
+    ..extraWorkspaces.add(Workspace(
+        id: 'ws_demo_side0000',
+        name: 'Side Projects',
+        avatarColor: '#4CAF7D',
+        language: 'zh-CN',
+        createdAt: at,
+        updatedAt: at))
+    ..stats = const WorkspaceStats(
+        conversations: 12,
+        functions: 4,
+        handlers: 2,
+        agents: 3,
+        workflows: 2,
+        documents: 9,
+        blobBytes: 22 * 1024 * 1024);
 }
 
 /// The demo (key, model) catalog — what `GET /model-capabilities` would aggregate from the rows
-/// above. demo 能力目录——上面两行 key 聚合出的模型选项。
+/// above, capability specs + native knobs included so the three-stage picker has something honest
+/// to render. demo 能力目录——上面两行 key 聚合出的模型选项,带能力规格与原生 knobs,三段选择面板
+/// 有真东西可渲。
 const demoModelCapabilities = <ModelCapability>[
   ModelCapability(
       apiKeyId: 'aki_demo_managed0',
       keyName: 'Anselm Free',
       provider: 'anselm',
       modelId: 'deepseek-chat',
-      displayName: 'DeepSeek Chat'),
+      displayName: 'DeepSeek Chat',
+      contextWindow: 128000,
+      maxOutput: 8192),
   ModelCapability(
       apiKeyId: 'aki_demo_managed0',
       keyName: 'Anselm Free',
       provider: 'anselm',
       modelId: 'deepseek-reasoner',
-      displayName: 'DeepSeek Reasoner'),
+      displayName: 'DeepSeek Reasoner',
+      contextWindow: 128000,
+      maxOutput: 65536,
+      knobs: [
+        ModelKnob(
+            key: 'reasoning_effort',
+            label: 'Reasoning effort',
+            type: 'enum',
+            values: ['low', 'medium', 'high'],
+            defaultValue: 'medium'),
+      ]),
   ModelCapability(
       apiKeyId: 'aki_demo_byok0000',
       keyName: 'DeepSeek (personal)',
       provider: 'deepseek',
       modelId: 'deepseek-chat',
-      displayName: 'DeepSeek Chat'),
+      displayName: 'DeepSeek Chat',
+      contextWindow: 128000,
+      maxOutput: 8192,
+      vision: false),
 ];

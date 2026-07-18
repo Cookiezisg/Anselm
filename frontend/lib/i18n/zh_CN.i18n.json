@@ -1546,11 +1546,10 @@
     "resetToDefault": "重置为默认",
     "patchFailed": "保存失败,已恢复原值",
     "notifLevel": "通知级别",
-    "notifLevelDesc": "决定哪些事件弹出提醒",
+    "notifLevelDesc": "决定哪些事件弹出提醒;需要你处理的事项永远送达",
     "levelAll": "全部",
     "levelImportant": "仅需处理",
     "levelSilent": "静音",
-    "alwaysDelivered": "需要你处理的事项永远送达,不可关闭",
     "notifOs": "系统通知",
     "notifOsDesc": "窗口未聚焦时经系统通知中心送达",
     "notifToast": "应用内提醒",
@@ -1616,11 +1615,25 @@
       "scenarioAgentDesc": "invoke_agent 执行所用",
       "noDefault": "未配置",
       "clearDefault": "清除",
-      "notConfiguredWarn": "未配置——相关执行将报 MODEL_NOT_CONFIGURED",
+      "notConfiguredWarn": "未设默认对话模型,对话将无法开始",
       "searchDefault": "默认搜索密钥",
       "searchDefaultDesc": "WebSearch 工具所用(category=search 的可用密钥)",
       "keyOpFailed": "操作失败",
-      "refreshModels": "刷新模型列表"
+      "refreshModels": "刷新模型列表",
+      "pickProvider": "选择提供商",
+      "changeProvider": "重新选择",
+      "baseUrlRequiredHint": "自托管服务必填服务地址",
+      "savingProbe": "正在保存并探测…",
+      "stageCredential": "凭证",
+      "stageModel": "模型",
+      "stageKnobs": "参数",
+      "pickerApply": "应用",
+      "pickerChange": "修改",
+      "pickerClose": "收起",
+      "visionBadge": "视觉",
+      "docsBadge": "文档",
+      "noCapsGuide": "还没有可用模型——先添加一把探测通过的密钥",
+      "searchSection": "搜索"
     },
     "ws": {
       "section": "工作区",
@@ -1655,7 +1668,8 @@
       "cantCheck": "无法检查更新(离线或尚未发布)",
       "diagnostics": "诊断",
       "copyDiagnostics": "复制诊断信息",
-      "copied": "已复制"
+      "copied": "已复制",
+      "diagDesc": "复制版本与环境信息,便于报告问题"
     },
     "mem": {
       "section": "记忆",
@@ -1675,7 +1689,6 @@
       "deleteBody": "将物理删除「$name」的记忆文件,无法撤销。",
       "confirmDelete": "删除",
       "empty": "还没有记忆",
-      "emptyHint": "记忆让 AI 跨对话记住重要的事。",
       "dirtyTitle": "放弃未保存的修改?",
       "dirtyBody": "内容有改动尚未保存。",
       "discard": "放弃",
@@ -1685,12 +1698,10 @@
       "searchHint": "搜索记忆…"
     },
     "mcp": {
-      "statBar": "$n 台 · 就绪 $ready · 失败 $failed",
       "browse": "浏览市场",
       "manualAdd": "手动添加",
       "importJson": "导入 mcp.json",
       "empty": "还没有 MCP 服务器",
-      "emptyHint": "从市场安装、手动添加或导入 mcp.json。",
       "reconnect": "重连",
       "detail": "详情",
       "deleteServer": "删除",
@@ -1737,14 +1748,17 @@
       "noTools": "无工具",
       "noCalls": "暂无调用",
       "noStderr": "暂无输出",
-      "callsAgg": "✓ $ok · ✗ $failed"
+      "callsAgg": "✓ $ok · ✗ $failed",
+      "statCount": "$n 台",
+      "statReady": "就绪 $n",
+      "statFailed": "失败 $n",
+      "cardMenu": "更多操作"
     },
     "storage": {
       "dataDir": "数据目录",
       "revealFinder": "在访达中显示",
       "diskUsage": "磁盘占用",
       "diskSandbox": "沙箱运行时与环境",
-      "diskMore": "明细即将提供",
       "openLogs": "打开日志文件夹",
       "retention": "Run 历史保留",
       "retentionDesc": "超过保留线的 run 记录将被清理,统计与失败聚合不受影响。",
@@ -1773,7 +1787,8 @@
       "patchFailed": "保存失败",
       "modified": "已修改",
       "errorTitle": "限额加载失败",
-      "retry": "重试"
+      "retry": "重试",
+      "errorHint": "无法从引擎读取限额配置"
     },
     "network": {
       "section": "网络",
@@ -1813,7 +1828,6 @@
       "ownerSkill": "技能",
       "ownerConversation": "对话",
       "noRuntimes": "还没有运行时",
-      "noRuntimesHint": "AI 首次执行时会按需自动下载。",
       "noEnvs": "暂无环境",
       "disk": "磁盘占用",
       "gc": "回收空闲环境",

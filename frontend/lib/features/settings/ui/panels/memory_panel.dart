@@ -86,15 +86,17 @@ class _RosterState extends ConsumerState<_Roster> {
             label: t.settings.mem.newMemory,
             icon: AnIcons.plus,
             size: AnButtonSize.sm,
+            outline: true,
             onPressed: () => ref.read(settingsDetailProvider.notifier).push('addMemory'),
           ),
         ]),
         const SizedBox(height: AnSpace.s16),
         if (all.isEmpty)
+          // One quiet line — the New button above IS the guidance (零人话律). 一行安静句;
+          // 上方新建钮即引导,不另写解释文。
           AnState(
             kind: AnStateKind.empty,
             title: t.settings.mem.empty,
-            hint: t.settings.mem.emptyHint,
             size: AnStateSize.inset,
           )
         else

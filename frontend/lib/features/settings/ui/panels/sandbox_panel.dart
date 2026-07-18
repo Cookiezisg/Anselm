@@ -43,6 +43,7 @@ class SandboxPanel extends ConsumerWidget {
             AnButton(
               label: t.settings.sandbox.retry,
               size: AnButtonSize.sm,
+              outline: true,
               onPressed: () async {
                 await ref.read(settingsRepositoryProvider).retrySandboxBootstrap();
                 ref.invalidate(sandboxBootstrapProvider);
@@ -50,15 +51,15 @@ class SandboxPanel extends ConsumerWidget {
             ),
           ],
         ),
-      // Disk. 磁盘。
+      // Disk — an absolute byte figure has no denominator, so no meter track (a hollow bar under a
+      // number was theater, 0719 P0); nothing renders until the wire answers. 磁盘——绝对字节数无
+      // 分母,不渲进度轨(数字下挂空轨是剧场);未解析前不渲。
       AnSettingRow(
         label: t.settings.sandbox.disk,
-        child: SizedBox(
-          width: AnSize.ctlSlot,
-          // ratio:null already SHOWS indeterminate — an empty label is honest, no '…' sentinel.
-          // ratio:null 本身即不定态示能,空标即诚实。
-          child: AnMeter(ratio: null, label: disk == null ? '' : formatBytes(disk)),
-        ),
+        child: disk == null
+            ? const SizedBox.shrink()
+            : Text(formatBytes(disk),
+                style: AnText.metaTabular().copyWith(color: context.colors.inkMuted)),
       ),
       const SizedBox(height: AnSpace.s16),
       // Runtimes. 运行时。
@@ -72,15 +73,17 @@ class SandboxPanel extends ConsumerWidget {
             label: t.settings.sandbox.install,
             icon: AnIcons.plus,
             size: AnButtonSize.sm,
+            outline: true,
             onPressed: () => ref.read(settingsDetailProvider.notifier).push('sandboxInstall'),
           ),
         ],
         children: [
           if (runtimes.isEmpty)
+            // One quiet line, no promise prose — the install affordance above IS the guidance
+            // (零人话律). 一行安静句,不写承诺文案——上方安装入口即引导。
             AnState(
               kind: AnStateKind.empty,
               title: t.settings.sandbox.noRuntimes,
-              hint: t.settings.sandbox.noRuntimesHint,
               size: AnStateSize.inset,
             )
           else
@@ -366,6 +369,7 @@ class _GcZoneState extends ConsumerState<_GcZone> {
           AnButton(
             label: t.settings.sandbox.gcRun,
             size: AnButtonSize.sm,
+            outline: true,
             onPressed: () => _gc(int.tryParse(_days.text.trim()) ?? 30),
           ),
         ]),
@@ -376,6 +380,7 @@ class _GcZoneState extends ConsumerState<_GcZone> {
         child: AnButton(
           label: t.settings.sandbox.gcAll,
           size: AnButtonSize.sm,
+          outline: true,
           variant: AnButtonVariant.danger,
           onPressed: () async {
             final ok = await ref.read(overlayProvider.notifier).confirm(

@@ -425,6 +425,33 @@ void main() {
       expect(find.descendant(of: find.byType(AnKeycap), matching: find.byType(Focus)), findsNothing);
       expect(find.descendant(of: find.byType(AnKeycap), matching: find.byType(AnInteractive)), findsNothing);
     });
+
+    testWidgets('compact tier (0719): per-key caps at rest — one 20-high plate per fragment, fits a 32 row',
+        (tester) async {
+      var taps = 0;
+      await tester.pumpWidget(_host(
+          AnKeycap('⌘⇧B', keys: const ['⌘', '⇧', 'B'], onTap: () => taps++)));
+      await tester.pump();
+      // Three separate caps; no whole-chord text. 三枚独立帽,无整弦文本。
+      for (final k in ['⌘', '⇧', 'B']) {
+        expect(find.text(k), findsOneWidget);
+      }
+      expect(find.text('⌘⇧B'), findsNothing);
+      // Cap height = the keycap token (20) — the settings row keeps its 32 rhythm. 帽高 20,行回 32。
+      expect(tester.getSize(find.byType(AnKeycap)).height, AnSize.keycap);
+      // The whole chord is ONE tap target and ONE semantics label. 整弦一个点击靶+单语义。
+      await tester.tap(find.text('⇧'));
+      expect(taps, 1);
+      expect(find.bySemanticsLabel('⌘⇧B'), findsOneWidget);
+    });
+
+    testWidgets('recording keeps the wide plate (the big form is recording-dedicated)', (tester) async {
+      await tester.pumpWidget(_host(const AnKeycap('按下快捷键…',
+          keys: ['⌘', 'B'], state: AnKeycapState.recording)));
+      await tester.pump();
+      expect(find.text('按下快捷键…'), findsOneWidget, reason: '录制态渲宽板文本');
+      expect(find.text('⌘'), findsNothing, reason: '录制态不渲逐键帽');
+    });
   });
 
   group('AnSwatch 批5c', () {

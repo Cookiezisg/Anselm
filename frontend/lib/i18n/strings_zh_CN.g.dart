@@ -529,11 +529,10 @@ class _Translations$settings$zh_CN extends Translations$settings$en {
 	@override String get resetToDefault => '重置为默认';
 	@override String get patchFailed => '保存失败,已恢复原值';
 	@override String get notifLevel => '通知级别';
-	@override String get notifLevelDesc => '决定哪些事件弹出提醒';
+	@override String get notifLevelDesc => '决定哪些事件弹出提醒;需要你处理的事项永远送达';
 	@override String get levelAll => '全部';
 	@override String get levelImportant => '仅需处理';
 	@override String get levelSilent => '静音';
-	@override String get alwaysDelivered => '需要你处理的事项永远送达,不可关闭';
 	@override String get notifOs => '系统通知';
 	@override String get notifOsDesc => '窗口未聚焦时经系统通知中心送达';
 	@override String get notifToast => '应用内提醒';
@@ -1800,11 +1799,25 @@ class _Translations$settings$keys$zh_CN extends Translations$settings$keys$en {
 	@override String get scenarioAgentDesc => 'invoke_agent 执行所用';
 	@override String get noDefault => '未配置';
 	@override String get clearDefault => '清除';
-	@override String get notConfiguredWarn => '未配置——相关执行将报 MODEL_NOT_CONFIGURED';
+	@override String get notConfiguredWarn => '未设默认对话模型,对话将无法开始';
 	@override String get searchDefault => '默认搜索密钥';
 	@override String get searchDefaultDesc => 'WebSearch 工具所用(category=search 的可用密钥)';
 	@override String get keyOpFailed => '操作失败';
 	@override String get refreshModels => '刷新模型列表';
+	@override String get pickProvider => '选择提供商';
+	@override String get changeProvider => '重新选择';
+	@override String get baseUrlRequiredHint => '自托管服务必填服务地址';
+	@override String get savingProbe => '正在保存并探测…';
+	@override String get stageCredential => '凭证';
+	@override String get stageModel => '模型';
+	@override String get stageKnobs => '参数';
+	@override String get pickerApply => '应用';
+	@override String get pickerChange => '修改';
+	@override String get pickerClose => '收起';
+	@override String get visionBadge => '视觉';
+	@override String get docsBadge => '文档';
+	@override String get noCapsGuide => '还没有可用模型——先添加一把探测通过的密钥';
+	@override String get searchSection => '搜索';
 }
 
 // Path: settings.ws
@@ -1854,6 +1867,7 @@ class _Translations$settings$about$zh_CN extends Translations$settings$about$en 
 	@override String get diagnostics => '诊断';
 	@override String get copyDiagnostics => '复制诊断信息';
 	@override String get copied => '已复制';
+	@override String get diagDesc => '复制版本与环境信息,便于报告问题';
 }
 
 // Path: settings.mem
@@ -1880,7 +1894,6 @@ class _Translations$settings$mem$zh_CN extends Translations$settings$mem$en {
 	@override String deleteBody({required Object name}) => '将物理删除「${name}」的记忆文件,无法撤销。';
 	@override String get confirmDelete => '删除';
 	@override String get empty => '还没有记忆';
-	@override String get emptyHint => '记忆让 AI 跨对话记住重要的事。';
 	@override String get dirtyTitle => '放弃未保存的修改?';
 	@override String get dirtyBody => '内容有改动尚未保存。';
 	@override String get discard => '放弃';
@@ -1897,12 +1910,10 @@ class _Translations$settings$mcp$zh_CN extends Translations$settings$mcp$en {
 	final TranslationsZhCn _root; // ignore: unused_field
 
 	// Translations
-	@override String statBar({required Object n, required Object ready, required Object failed}) => '${n} 台 · 就绪 ${ready} · 失败 ${failed}';
 	@override String get browse => '浏览市场';
 	@override String get manualAdd => '手动添加';
 	@override String get importJson => '导入 mcp.json';
 	@override String get empty => '还没有 MCP 服务器';
-	@override String get emptyHint => '从市场安装、手动添加或导入 mcp.json。';
 	@override String get reconnect => '重连';
 	@override String get detail => '详情';
 	@override String get deleteServer => '删除';
@@ -1950,6 +1961,10 @@ class _Translations$settings$mcp$zh_CN extends Translations$settings$mcp$en {
 	@override String get noCalls => '暂无调用';
 	@override String get noStderr => '暂无输出';
 	@override String callsAgg({required Object ok, required Object failed}) => '✓ ${ok} · ✗ ${failed}';
+	@override String statCount({required Object n}) => '${n} 台';
+	@override String statReady({required Object n}) => '就绪 ${n}';
+	@override String statFailed({required Object n}) => '失败 ${n}';
+	@override String get cardMenu => '更多操作';
 }
 
 // Path: settings.storage
@@ -1963,7 +1978,6 @@ class _Translations$settings$storage$zh_CN extends Translations$settings$storage
 	@override String get revealFinder => '在访达中显示';
 	@override String get diskUsage => '磁盘占用';
 	@override String get diskSandbox => '沙箱运行时与环境';
-	@override String get diskMore => '明细即将提供';
 	@override String get openLogs => '打开日志文件夹';
 	@override String get retention => 'Run 历史保留';
 	@override String get retentionDesc => '超过保留线的 run 记录将被清理,统计与失败聚合不受影响。';
@@ -2000,6 +2014,7 @@ class _Translations$settings$limits$zh_CN extends Translations$settings$limits$e
 	@override String get modified => '已修改';
 	@override String get errorTitle => '限额加载失败';
 	@override String get retry => '重试';
+	@override String get errorHint => '无法从引擎读取限额配置';
 }
 
 // Path: settings.network
@@ -2053,7 +2068,6 @@ class _Translations$settings$sandbox$zh_CN extends Translations$settings$sandbox
 	@override String get ownerSkill => '技能';
 	@override String get ownerConversation => '对话';
 	@override String get noRuntimes => '还没有运行时';
-	@override String get noRuntimesHint => 'AI 首次执行时会按需自动下载。';
 	@override String get noEnvs => '暂无环境';
 	@override String get disk => '磁盘占用';
 	@override String get gc => '回收空闲环境';
@@ -3961,11 +3975,10 @@ extension on TranslationsZhCn {
 			'settings.resetToDefault' => '重置为默认',
 			'settings.patchFailed' => '保存失败,已恢复原值',
 			'settings.notifLevel' => '通知级别',
-			'settings.notifLevelDesc' => '决定哪些事件弹出提醒',
+			'settings.notifLevelDesc' => '决定哪些事件弹出提醒;需要你处理的事项永远送达',
 			'settings.levelAll' => '全部',
 			'settings.levelImportant' => '仅需处理',
 			'settings.levelSilent' => '静音',
-			'settings.alwaysDelivered' => '需要你处理的事项永远送达,不可关闭',
 			'settings.notifOs' => '系统通知',
 			'settings.notifOsDesc' => '窗口未聚焦时经系统通知中心送达',
 			'settings.notifToast' => '应用内提醒',
@@ -4030,11 +4043,25 @@ extension on TranslationsZhCn {
 			'settings.keys.scenarioAgentDesc' => 'invoke_agent 执行所用',
 			'settings.keys.noDefault' => '未配置',
 			'settings.keys.clearDefault' => '清除',
-			'settings.keys.notConfiguredWarn' => '未配置——相关执行将报 MODEL_NOT_CONFIGURED',
+			'settings.keys.notConfiguredWarn' => '未设默认对话模型,对话将无法开始',
 			'settings.keys.searchDefault' => '默认搜索密钥',
 			'settings.keys.searchDefaultDesc' => 'WebSearch 工具所用(category=search 的可用密钥)',
 			'settings.keys.keyOpFailed' => '操作失败',
 			'settings.keys.refreshModels' => '刷新模型列表',
+			'settings.keys.pickProvider' => '选择提供商',
+			'settings.keys.changeProvider' => '重新选择',
+			'settings.keys.baseUrlRequiredHint' => '自托管服务必填服务地址',
+			'settings.keys.savingProbe' => '正在保存并探测…',
+			'settings.keys.stageCredential' => '凭证',
+			'settings.keys.stageModel' => '模型',
+			'settings.keys.stageKnobs' => '参数',
+			'settings.keys.pickerApply' => '应用',
+			'settings.keys.pickerChange' => '修改',
+			'settings.keys.pickerClose' => '收起',
+			'settings.keys.visionBadge' => '视觉',
+			'settings.keys.docsBadge' => '文档',
+			'settings.keys.noCapsGuide' => '还没有可用模型——先添加一把探测通过的密钥',
+			'settings.keys.searchSection' => '搜索',
 			'settings.ws.section' => '工作区',
 			'settings.ws.current' => '当前',
 			'settings.ws.newWorkspace' => '新建工作区',
@@ -4066,11 +4093,14 @@ extension on TranslationsZhCn {
 			'settings.about.diagnostics' => '诊断',
 			'settings.about.copyDiagnostics' => '复制诊断信息',
 			'settings.about.copied' => '已复制',
+			'settings.about.diagDesc' => '复制版本与环境信息,便于报告问题',
 			'settings.mem.section' => '记忆',
 			'settings.mem.filterAll' => '全部',
 			'settings.mem.filterPinned' => '已固定',
 			'settings.mem.newMemory' => '新建记忆',
 			'settings.mem.name' => '名称',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mem.nameHint' => '小写字母开头,可用 a-z 0-9 - _',
 			'settings.mem.nameLocked' => '名称即文件名,不可改',
 			'settings.mem.invalidName' => '名称须以小写字母开头,仅含 a-z 0-9 - _(≤64)',
@@ -4083,22 +4113,17 @@ extension on TranslationsZhCn {
 			'settings.mem.deleteBody' => ({required Object name}) => '将物理删除「${name}」的记忆文件,无法撤销。',
 			'settings.mem.confirmDelete' => '删除',
 			'settings.mem.empty' => '还没有记忆',
-			'settings.mem.emptyHint' => '记忆让 AI 跨对话记住重要的事。',
 			'settings.mem.dirtyTitle' => '放弃未保存的修改?',
-			_ => null,
-		} ?? switch (path) {
 			'settings.mem.dirtyBody' => '内容有改动尚未保存。',
 			'settings.mem.discard' => '放弃',
 			'settings.mem.keepEditing' => '继续编辑',
 			'settings.mem.sourceUser' => '用户',
 			'settings.mem.sourceAi' => 'AI',
 			'settings.mem.searchHint' => '搜索记忆…',
-			'settings.mcp.statBar' => ({required Object n, required Object ready, required Object failed}) => '${n} 台 · 就绪 ${ready} · 失败 ${failed}',
 			'settings.mcp.browse' => '浏览市场',
 			'settings.mcp.manualAdd' => '手动添加',
 			'settings.mcp.importJson' => '导入 mcp.json',
 			'settings.mcp.empty' => '还没有 MCP 服务器',
-			'settings.mcp.emptyHint' => '从市场安装、手动添加或导入 mcp.json。',
 			'settings.mcp.reconnect' => '重连',
 			'settings.mcp.detail' => '详情',
 			'settings.mcp.deleteServer' => '删除',
@@ -4146,11 +4171,14 @@ extension on TranslationsZhCn {
 			'settings.mcp.noCalls' => '暂无调用',
 			'settings.mcp.noStderr' => '暂无输出',
 			'settings.mcp.callsAgg' => ({required Object ok, required Object failed}) => '✓ ${ok} · ✗ ${failed}',
+			'settings.mcp.statCount' => ({required Object n}) => '${n} 台',
+			'settings.mcp.statReady' => ({required Object n}) => '就绪 ${n}',
+			'settings.mcp.statFailed' => ({required Object n}) => '失败 ${n}',
+			'settings.mcp.cardMenu' => '更多操作',
 			'settings.storage.dataDir' => '数据目录',
 			'settings.storage.revealFinder' => '在访达中显示',
 			'settings.storage.diskUsage' => '磁盘占用',
 			'settings.storage.diskSandbox' => '沙箱运行时与环境',
-			'settings.storage.diskMore' => '明细即将提供',
 			'settings.storage.openLogs' => '打开日志文件夹',
 			'settings.storage.retention' => 'Run 历史保留',
 			'settings.storage.retentionDesc' => '超过保留线的 run 记录将被清理,统计与失败聚合不受影响。',
@@ -4178,6 +4206,7 @@ extension on TranslationsZhCn {
 			'settings.limits.modified' => '已修改',
 			'settings.limits.errorTitle' => '限额加载失败',
 			'settings.limits.retry' => '重试',
+			'settings.limits.errorHint' => '无法从引擎读取限额配置',
 			'settings.network.section' => '网络',
 			'settings.network.proxyHint' => '出站代理——AI 请求经它到达 LLM / MCP / 搜索服务',
 			'settings.network.httpProxy' => 'HTTP 代理',
@@ -4213,7 +4242,6 @@ extension on TranslationsZhCn {
 			'settings.sandbox.ownerSkill' => '技能',
 			'settings.sandbox.ownerConversation' => '对话',
 			'settings.sandbox.noRuntimes' => '还没有运行时',
-			'settings.sandbox.noRuntimesHint' => 'AI 首次执行时会按需自动下载。',
 			'settings.sandbox.noEnvs' => '暂无环境',
 			'settings.sandbox.disk' => '磁盘占用',
 			'settings.sandbox.gc' => '回收空闲环境',

@@ -225,8 +225,10 @@ class _McpImportFormState extends ConsumerState<McpImportForm> {
   }
 }
 
-/// The marketplace — the curated list with client-side search (the endpoint takes no query) and an
-/// installed mark by short-name match. 市场:本地搜索+短名比对已装标。
+/// The marketplace — the WHOLE curated registry listed by default (browse first; search is a
+/// filter, never a gate), as two-column brand cards: logo + short name + installed mark +
+/// description + prerequisite badge; click = the `:plan`-driven install form. 市场:默认全列
+/// (先浏览,搜索只是过滤、不是门),双列品牌卡(logo+短名+已装标+描述+前置徽);点卡进 :plan 安装表单。
 class McpMarket extends ConsumerStatefulWidget {
   const McpMarket({super.key});
 
@@ -240,6 +242,7 @@ class _McpMarketState extends ConsumerState<McpMarket> {
   @override
   Widget build(BuildContext context) {
     final t = Translations.of(context);
+    final c = context.colors;
     final entries = ref.watch(mcpRegistryProvider).value ?? const <McpRegistryEntry>[];
     final installed = {
       for (final s in ref.watch(mcpServersProvider).value ?? const <McpServerStatus>[]) s.name,
@@ -259,16 +262,44 @@ class _McpMarketState extends ConsumerState<McpMarket> {
         onChanged: (v) => setState(() => _query = v.trim()),
       ),
       const SizedBox(height: AnSpace.s12),
-      for (final e in rows)
-        AnRow(
-          leadless: true,
-          label: e.name.split('/').last,
-          mono: true,
-          hint: e.description,
-          meta: installed.contains(e.name.split('/').last) ? t.settings.mcp.installed : '',
-          onSelect: () =>
-              ref.read(settingsDetailProvider.notifier).push('mcpInstall', id: e.name),
-        ),
+      AnAutoGrid(
+        minColWidth: AnSize.block,
+        children: [
+          for (final e in rows)
+            AnCard(
+              selectable: true,
+              onSelect: () =>
+                  ref.read(settingsDetailProvider.notifier).push('mcpInstall', id: e.name),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  brandIconOr(mcpBrandFor(e.name),
+                      fallbackLabel: e.name.split('/').last, size: AnBrandSize.sm),
+                  const SizedBox(width: AnSpace.s8),
+                  Expanded(
+                    child: Text(e.name.split('/').last,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AnText.mono.copyWith(color: c.ink)),
+                  ),
+                  if (installed.contains(e.name.split('/').last))
+                    AnChip(t.settings.mcp.installed, tone: AnTone.ok),
+                ]),
+                if (e.description.isNotEmpty) ...[
+                  const SizedBox(height: AnSpace.s6),
+                  Text(e.description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AnText.meta.copyWith(color: c.inkMuted)),
+                ],
+                if (e.prerequisite.isNotEmpty) ...[
+                  const SizedBox(height: AnSpace.s6),
+                  AnChip(t.settings.mcp.prerequisite, tone: AnTone.warn,
+                      tooltip: e.prerequisite),
+                ],
+              ]),
+            ),
+        ],
+      ),
       if (rows.isEmpty)
         AnState(kind: AnStateKind.empty, size: AnStateSize.inset, title: t.settings.mcp.empty),
     ]);

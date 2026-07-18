@@ -75,6 +75,14 @@ class ShortcutChord {
     return _isMac ? '$mod$label' : '$mod+$label';
   }
 
+  /// Per-key display fragments (⌘ / ⌥ / ⇧ / B) — the keycap-row face renders one cap per entry.
+  /// 逐键片段(键帽行逐项一帽)。
+  List<String> get parts => [
+        if (_isMac) ...[if (cmd) '⌘', if (alt) '⌥', if (shift) '⇧']
+        else ...[if (cmd) 'Ctrl', if (alt) 'Alt', if (shift) 'Shift'],
+        _keyLabel(key),
+      ];
+
   static String _keyLabel(LogicalKeyboardKey key) => switch (key) {
         LogicalKeyboardKey.comma => ',',
         LogicalKeyboardKey.backslash => '\\',

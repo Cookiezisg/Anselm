@@ -42,7 +42,14 @@ void main() {
     await tester.pumpWidget(_host(repo));
     await tester.pumpAndSettle();
     final t = Translations.of(tester.element(find.byType(McpPanel)));
-    expect(find.text(t.settings.mcp.statBar(n: 3, ready: 1, failed: 1)), findsOneWidget);
+    // Segments render only when n>0 (0719 P1-3 零计数); joined with «·». 分段 n>0 才显。
+    expect(
+        find.text([
+          t.settings.mcp.statCount(n: 3),
+          t.settings.mcp.statReady(n: 1),
+          t.settings.mcp.statFailed(n: 1),
+        ].join(' · ')),
+        findsOneWidget);
     expect(find.text('context7'), findsOneWidget);
     expect(mcpDot('ready'), isNotNull);
     expect(mcpDot('disconnected'), isNull, reason: '未连接=无点');

@@ -1105,8 +1105,8 @@ class Translations$settings$en {
 	/// en: 'Notification level'
 	String get notifLevel => 'Notification level';
 
-	/// en: 'Which events pop up'
-	String get notifLevelDesc => 'Which events pop up';
+	/// en: 'Which events pop up — items that need your action are always delivered'
+	String get notifLevelDesc => 'Which events pop up — items that need your action are always delivered';
 
 	/// en: 'All'
 	String get levelAll => 'All';
@@ -1116,9 +1116,6 @@ class Translations$settings$en {
 
 	/// en: 'Silent'
 	String get levelSilent => 'Silent';
-
-	/// en: 'Items that need your action are always delivered and can't be turned off'
-	String get alwaysDelivered => 'Items that need your action are always delivered and can\'t be turned off';
 
 	/// en: 'System notifications'
 	String get notifOs => 'System notifications';
@@ -4304,8 +4301,8 @@ class Translations$settings$keys$en {
 	/// en: 'Clear'
 	String get clearDefault => 'Clear';
 
-	/// en: 'Not set — related runs will fail with MODEL_NOT_CONFIGURED'
-	String get notConfiguredWarn => 'Not set — related runs will fail with MODEL_NOT_CONFIGURED';
+	/// en: 'No default chat model set — chats cannot start'
+	String get notConfiguredWarn => 'No default chat model set — chats cannot start';
 
 	/// en: 'Default search key'
 	String get searchDefault => 'Default search key';
@@ -4318,6 +4315,48 @@ class Translations$settings$keys$en {
 
 	/// en: 'Refresh model list'
 	String get refreshModels => 'Refresh model list';
+
+	/// en: 'Choose a provider'
+	String get pickProvider => 'Choose a provider';
+
+	/// en: 'Change'
+	String get changeProvider => 'Change';
+
+	/// en: 'Required for self-hosted services'
+	String get baseUrlRequiredHint => 'Required for self-hosted services';
+
+	/// en: 'Saving & probing…'
+	String get savingProbe => 'Saving & probing…';
+
+	/// en: 'Credential'
+	String get stageCredential => 'Credential';
+
+	/// en: 'Model'
+	String get stageModel => 'Model';
+
+	/// en: 'Parameters'
+	String get stageKnobs => 'Parameters';
+
+	/// en: 'Apply'
+	String get pickerApply => 'Apply';
+
+	/// en: 'Change'
+	String get pickerChange => 'Change';
+
+	/// en: 'Close'
+	String get pickerClose => 'Close';
+
+	/// en: 'Vision'
+	String get visionBadge => 'Vision';
+
+	/// en: 'Docs'
+	String get docsBadge => 'Docs';
+
+	/// en: 'No usable models yet — add a key that passes its probe first'
+	String get noCapsGuide => 'No usable models yet — add a key that passes its probe first';
+
+	/// en: 'Search'
+	String get searchSection => 'Search';
 }
 
 // Path: settings.ws
@@ -4429,6 +4468,9 @@ class Translations$settings$about$en {
 
 	/// en: 'Copied'
 	String get copied => 'Copied';
+
+	/// en: 'Copies version and environment info for bug reports'
+	String get diagDesc => 'Copies version and environment info for bug reports';
 }
 
 // Path: settings.mem
@@ -4490,9 +4532,6 @@ class Translations$settings$mem$en {
 	/// en: 'No memories yet'
 	String get empty => 'No memories yet';
 
-	/// en: 'Memories let the AI remember things across conversations.'
-	String get emptyHint => 'Memories let the AI remember things across conversations.';
-
 	/// en: 'Discard unsaved changes?'
 	String get dirtyTitle => 'Discard unsaved changes?';
 
@@ -4523,9 +4562,6 @@ class Translations$settings$mcp$en {
 
 	// Translations
 
-	/// en: '$n servers · $ready ready · $failed failed'
-	String statBar({required Object n, required Object ready, required Object failed}) => '${n} servers · ${ready} ready · ${failed} failed';
-
 	/// en: 'Browse marketplace'
 	String get browse => 'Browse marketplace';
 
@@ -4537,9 +4573,6 @@ class Translations$settings$mcp$en {
 
 	/// en: 'No MCP servers yet'
 	String get empty => 'No MCP servers yet';
-
-	/// en: 'Install from the marketplace, add manually, or import mcp.json.'
-	String get emptyHint => 'Install from the marketplace, add manually, or import mcp.json.';
 
 	/// en: 'Reconnect'
 	String get reconnect => 'Reconnect';
@@ -4681,6 +4714,18 @@ class Translations$settings$mcp$en {
 
 	/// en: '✓ $ok · ✗ $failed'
 	String callsAgg({required Object ok, required Object failed}) => '✓ ${ok} · ✗ ${failed}';
+
+	/// en: '$n servers'
+	String statCount({required Object n}) => '${n} servers';
+
+	/// en: '$n ready'
+	String statReady({required Object n}) => '${n} ready';
+
+	/// en: '$n failed'
+	String statFailed({required Object n}) => '${n} failed';
+
+	/// en: 'More actions'
+	String get cardMenu => 'More actions';
 }
 
 // Path: settings.storage
@@ -4702,9 +4747,6 @@ class Translations$settings$storage$en {
 
 	/// en: 'Sandbox runtimes & envs'
 	String get diskSandbox => 'Sandbox runtimes & envs';
-
-	/// en: 'Breakdown coming soon'
-	String get diskMore => 'Breakdown coming soon';
 
 	/// en: 'Open logs folder'
 	String get openLogs => 'Open logs folder';
@@ -4795,6 +4837,9 @@ class Translations$settings$limits$en {
 
 	/// en: 'Retry'
 	String get retry => 'Retry';
+
+	/// en: 'Couldn't read the limits config from the engine'
+	String get errorHint => 'Couldn\'t read the limits config from the engine';
 }
 
 // Path: settings.network
@@ -4918,9 +4963,6 @@ class Translations$settings$sandbox$en {
 
 	/// en: 'No runtimes yet'
 	String get noRuntimes => 'No runtimes yet';
-
-	/// en: 'Auto-downloaded on demand the first time the AI runs code.'
-	String get noRuntimesHint => 'Auto-downloaded on demand the first time the AI runs code.';
 
 	/// en: 'No environments'
 	String get noEnvs => 'No environments';
@@ -7376,11 +7418,10 @@ extension on Translations {
 			'settings.resetToDefault' => 'Reset to default',
 			'settings.patchFailed' => 'Save failed — value restored',
 			'settings.notifLevel' => 'Notification level',
-			'settings.notifLevelDesc' => 'Which events pop up',
+			'settings.notifLevelDesc' => 'Which events pop up — items that need your action are always delivered',
 			'settings.levelAll' => 'All',
 			'settings.levelImportant' => 'Needs you',
 			'settings.levelSilent' => 'Silent',
-			'settings.alwaysDelivered' => 'Items that need your action are always delivered and can\'t be turned off',
 			'settings.notifOs' => 'System notifications',
 			'settings.notifOsDesc' => 'Delivered via the OS notification center while unfocused',
 			'settings.notifToast' => 'In-app toasts',
@@ -7445,11 +7486,25 @@ extension on Translations {
 			'settings.keys.scenarioAgentDesc' => 'Used by invoke_agent runs',
 			'settings.keys.noDefault' => 'Not set',
 			'settings.keys.clearDefault' => 'Clear',
-			'settings.keys.notConfiguredWarn' => 'Not set — related runs will fail with MODEL_NOT_CONFIGURED',
+			'settings.keys.notConfiguredWarn' => 'No default chat model set — chats cannot start',
 			'settings.keys.searchDefault' => 'Default search key',
 			'settings.keys.searchDefaultDesc' => 'Used by the WebSearch tool (category=search keys)',
 			'settings.keys.keyOpFailed' => 'Operation failed',
 			'settings.keys.refreshModels' => 'Refresh model list',
+			'settings.keys.pickProvider' => 'Choose a provider',
+			'settings.keys.changeProvider' => 'Change',
+			'settings.keys.baseUrlRequiredHint' => 'Required for self-hosted services',
+			'settings.keys.savingProbe' => 'Saving & probing…',
+			'settings.keys.stageCredential' => 'Credential',
+			'settings.keys.stageModel' => 'Model',
+			'settings.keys.stageKnobs' => 'Parameters',
+			'settings.keys.pickerApply' => 'Apply',
+			'settings.keys.pickerChange' => 'Change',
+			'settings.keys.pickerClose' => 'Close',
+			'settings.keys.visionBadge' => 'Vision',
+			'settings.keys.docsBadge' => 'Docs',
+			'settings.keys.noCapsGuide' => 'No usable models yet — add a key that passes its probe first',
+			'settings.keys.searchSection' => 'Search',
 			'settings.ws.section' => 'Workspaces',
 			'settings.ws.current' => 'Current',
 			'settings.ws.newWorkspace' => 'New workspace',
@@ -7481,11 +7536,14 @@ extension on Translations {
 			'settings.about.diagnostics' => 'Diagnostics',
 			'settings.about.copyDiagnostics' => 'Copy diagnostics',
 			'settings.about.copied' => 'Copied',
+			'settings.about.diagDesc' => 'Copies version and environment info for bug reports',
 			'settings.mem.section' => 'Memories',
 			'settings.mem.filterAll' => 'All',
 			'settings.mem.filterPinned' => 'Pinned',
 			'settings.mem.newMemory' => 'New memory',
 			'settings.mem.name' => 'Name',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mem.nameHint' => 'starts lowercase; a-z 0-9 - _',
 			'settings.mem.nameLocked' => 'The name is the filename — immutable',
 			'settings.mem.invalidName' => 'Must start with a lowercase letter; only a-z 0-9 - _ (≤64)',
@@ -7498,22 +7556,17 @@ extension on Translations {
 			'settings.mem.deleteBody' => ({required Object name}) => 'Physically deletes the file for “${name}”. This can\'t be undone.',
 			'settings.mem.confirmDelete' => 'Delete',
 			'settings.mem.empty' => 'No memories yet',
-			'settings.mem.emptyHint' => 'Memories let the AI remember things across conversations.',
 			'settings.mem.dirtyTitle' => 'Discard unsaved changes?',
-			_ => null,
-		} ?? switch (path) {
 			'settings.mem.dirtyBody' => 'The content has unsaved edits.',
 			'settings.mem.discard' => 'Discard',
 			'settings.mem.keepEditing' => 'Keep editing',
 			'settings.mem.sourceUser' => 'user',
 			'settings.mem.sourceAi' => 'AI',
 			'settings.mem.searchHint' => 'Search memories…',
-			'settings.mcp.statBar' => ({required Object n, required Object ready, required Object failed}) => '${n} servers · ${ready} ready · ${failed} failed',
 			'settings.mcp.browse' => 'Browse marketplace',
 			'settings.mcp.manualAdd' => 'Add manually',
 			'settings.mcp.importJson' => 'Import mcp.json',
 			'settings.mcp.empty' => 'No MCP servers yet',
-			'settings.mcp.emptyHint' => 'Install from the marketplace, add manually, or import mcp.json.',
 			'settings.mcp.reconnect' => 'Reconnect',
 			'settings.mcp.detail' => 'Details',
 			'settings.mcp.deleteServer' => 'Delete',
@@ -7561,11 +7614,14 @@ extension on Translations {
 			'settings.mcp.noCalls' => 'No calls yet',
 			'settings.mcp.noStderr' => 'No output yet',
 			'settings.mcp.callsAgg' => ({required Object ok, required Object failed}) => '✓ ${ok} · ✗ ${failed}',
+			'settings.mcp.statCount' => ({required Object n}) => '${n} servers',
+			'settings.mcp.statReady' => ({required Object n}) => '${n} ready',
+			'settings.mcp.statFailed' => ({required Object n}) => '${n} failed',
+			'settings.mcp.cardMenu' => 'More actions',
 			'settings.storage.dataDir' => 'Data directory',
 			'settings.storage.revealFinder' => 'Reveal in Finder',
 			'settings.storage.diskUsage' => 'Disk usage',
 			'settings.storage.diskSandbox' => 'Sandbox runtimes & envs',
-			'settings.storage.diskMore' => 'Breakdown coming soon',
 			'settings.storage.openLogs' => 'Open logs folder',
 			'settings.storage.retention' => 'Run history retention',
 			'settings.storage.retentionDesc' => 'Settled runs older than this are cleared. Statistics and failure aggregation windows (7d) are unaffected.',
@@ -7593,6 +7649,7 @@ extension on Translations {
 			'settings.limits.modified' => 'modified',
 			'settings.limits.errorTitle' => 'Couldn\'t load limits',
 			'settings.limits.retry' => 'Retry',
+			'settings.limits.errorHint' => 'Couldn\'t read the limits config from the engine',
 			'settings.network.section' => 'Network',
 			'settings.network.proxyHint' => 'Outbound proxy — AI requests reach LLM / MCP / search providers through it',
 			'settings.network.httpProxy' => 'HTTP proxy',
@@ -7628,7 +7685,6 @@ extension on Translations {
 			'settings.sandbox.ownerSkill' => 'Skills',
 			'settings.sandbox.ownerConversation' => 'Conversations',
 			'settings.sandbox.noRuntimes' => 'No runtimes yet',
-			'settings.sandbox.noRuntimesHint' => 'Auto-downloaded on demand the first time the AI runs code.',
 			'settings.sandbox.noEnvs' => 'No environments',
 			'settings.sandbox.disk' => 'Disk usage',
 			'settings.sandbox.gc' => 'Reclaim idle environments',

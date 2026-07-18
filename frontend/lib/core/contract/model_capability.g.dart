@@ -6,6 +6,25 @@ part of 'model_capability.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
+_ModelKnob _$ModelKnobFromJson(Map<String, dynamic> json) => _ModelKnob(
+  key: json['key'] as String,
+  label: json['label'] as String? ?? '',
+  type: json['type'] as String? ?? '',
+  values:
+      (json['values'] as List<dynamic>?)?.map((e) => e as String).toList() ??
+      const <String>[],
+  defaultValue: json['default'] as String? ?? '',
+);
+
+Map<String, dynamic> _$ModelKnobToJson(_ModelKnob instance) =>
+    <String, dynamic>{
+      'key': instance.key,
+      'label': instance.label,
+      'type': instance.type,
+      'values': instance.values,
+      'default': instance.defaultValue,
+    };
+
 _ModelCapability _$ModelCapabilityFromJson(Map<String, dynamic> json) =>
     _ModelCapability(
       apiKeyId: json['apiKeyId'] as String,
@@ -13,6 +32,15 @@ _ModelCapability _$ModelCapabilityFromJson(Map<String, dynamic> json) =>
       provider: json['provider'] as String? ?? '',
       modelId: json['modelId'] as String,
       displayName: json['displayName'] as String? ?? '',
+      contextWindow: (json['contextWindow'] as num?)?.toInt() ?? 0,
+      maxOutput: (json['maxOutput'] as num?)?.toInt() ?? 0,
+      vision: json['vision'] as bool? ?? false,
+      nativeDocs: json['nativeDocs'] as bool? ?? false,
+      knobs:
+          (json['knobs'] as List<dynamic>?)
+              ?.map((e) => ModelKnob.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const <ModelKnob>[],
     );
 
 Map<String, dynamic> _$ModelCapabilityToJson(_ModelCapability instance) =>
@@ -22,4 +50,9 @@ Map<String, dynamic> _$ModelCapabilityToJson(_ModelCapability instance) =>
       'provider': instance.provider,
       'modelId': instance.modelId,
       'displayName': instance.displayName,
+      'contextWindow': instance.contextWindow,
+      'maxOutput': instance.maxOutput,
+      'vision': instance.vision,
+      'nativeDocs': instance.nativeDocs,
+      'knobs': instance.knobs.map((e) => e.toJson()).toList(),
     };

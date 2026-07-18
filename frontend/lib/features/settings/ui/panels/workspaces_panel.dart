@@ -47,14 +47,17 @@ class _Roster extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Actions-only head — the panel title already says «Workspaces» (0719 P1-1); the New
+        // button keeps the head's right anchor. 徽章头:面板大题已言「工作区」;新建钮留右锚。
         AnSection(
-          label: t.settings.ws.section,
+          label: '',
           variant: AnSectionVariant.quiet,
           actions: [
             AnButton(
               label: t.settings.ws.newWorkspace,
               icon: AnIcons.plus,
               size: AnButtonSize.sm,
+              outline: true,
               onPressed: () =>
                   ref.read(settingsDetailProvider.notifier).push('addWorkspace'),
             ),

@@ -12,6 +12,7 @@ export 'an_attachment_thumb.dart';
 export 'an_auto_grid.dart';
 export 'an_batch_bar.dart';
 export 'an_brand_icon.dart';
+export 'brand_registry.dart';
 export 'an_button.dart';
 export 'an_callout.dart';
 export 'an_card.dart';

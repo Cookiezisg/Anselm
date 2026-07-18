@@ -40,6 +40,9 @@ class GeneralPanel extends ConsumerWidget {
         AnSection(
           label: t.settings.appearance,
           variant: AnSectionVariant.quiet,
+          // ONE badge for the whole single-scope page (first section) — four identical «device»
+          // badges were a chain of noise; mixed-scope pages still badge per section (S-16).
+          // 单域页只在首组标一次域徽;混域页仍逐节标(S-16)。
           actions: const [AnScopeBadge(AnSettingScope.device)],
           children: [
             AnSettingRow(
@@ -69,7 +72,6 @@ class GeneralPanel extends ConsumerWidget {
         AnSection(
           label: t.settings.language,
           variant: AnSectionVariant.quiet,
-          actions: const [AnScopeBadge(AnSettingScope.device)],
           children: [
             AnSettingRow(
               label: t.settings.languageRow,
@@ -96,7 +98,6 @@ class GeneralPanel extends ConsumerWidget {
         AnSection(
           label: t.settings.window,
           variant: AnSectionVariant.quiet,
-          actions: const [AnScopeBadge(AnSettingScope.device)],
           children: [
             AnSettingRow(
               label: t.settings.rememberWindow,
@@ -129,7 +130,6 @@ class GeneralPanel extends ConsumerWidget {
         AnSection(
           label: t.settings.updates,
           variant: AnSectionVariant.quiet,
-          actions: const [AnScopeBadge(AnSettingScope.device)],
           children: [
             AnSettingRow(
               label: t.settings.updateCheck,

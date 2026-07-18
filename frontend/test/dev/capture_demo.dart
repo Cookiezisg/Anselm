@@ -11,8 +11,8 @@ import 'package:anselm/app/router.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/router/navigation.dart';
-import 'package:anselm/features/documents/data/document_repository.dart';
-import 'package:anselm/features/documents/data/documents_demo_fixture.dart';
+import 'package:anselm/core/settings/settings_prefs.dart';
+import 'package:anselm/dev/demo_main.dart' show demoOverrides;
 import 'package:anselm/features/documents/state/document_state.dart';
 import 'package:anselm/core/runtime.dart';
 import 'package:anselm/core/shell/oceans.dart';
@@ -20,18 +20,11 @@ import 'package:anselm/core/shell/right_panel.dart';
 import 'package:anselm/core/run/flowrun_node_list.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/core/shell/shell_chrome.dart';
-import 'package:anselm/features/chat/data/chat_demo_fixture.dart';
-import 'package:anselm/features/chat/data/chat_providers.dart';
 import 'package:anselm/features/chat/state/selected_conversation.dart';
-import 'package:anselm/features/entities/data/entity_demo_fixture.dart';
 import 'package:anselm/features/notifications/data/notification_demo_fixture.dart';
-import 'package:anselm/features/scheduler/data/scheduler_demo_fixture.dart';
-import 'package:anselm/features/scheduler/data/scheduler_repository.dart';
 import 'package:anselm/features/settings/model/settings_catalog.dart';
 import 'package:anselm/features/settings/state/settings_panel_provider.dart';
-import 'package:anselm/features/notifications/data/notification_providers.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
-import 'package:anselm/features/entities/data/entity_providers.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -151,17 +144,14 @@ void main() {
       outName = 'demo_$selId';
     }
 
+    // ONE override source — demoOverrides(), shared with `make demo` and the perf harness. The old
+    // hand-copied subset here drifted TWICE (scheduler once, then the whole settings seam: capture
+    // frames hit the LIVE repo with no backend → limits ApiException / empty workspaces / MCP·memory·
+    // sandbox tombstones, 0719 审计误诊为 demo 断线). A copied list always rots; the shared list can't.
+    // 唯一 override 源=demoOverrides()(与 make demo/perf harness 共用)。旧手抄子集漂移过两次(先漏
+    // scheduler,再漏整个 settings 缝——capture 打到无后端的 Live repo,六面板假「坏」)。抄的清单必烂。
     await tester.pumpWidget(ProviderScope(
-      overrides: [
-        entityRepositoryProvider.overrideWithValue(demoEntityRepository()),
-        chatRepositoryProvider.overrideWithValue(demoChatRepository()),
-        notificationRepositoryProvider.overrideWithValue(demoNotificationRepository()),
-        documentsRepositoryProvider.overrideWithValue(demoDocumentsRepository()),
-        // Was missing — a scheduler frame captured against the LIVE repo renders error faces
-        // (发现于主页重建:矩阵常驻后此缺口立刻可见). demo 缺 scheduler override 的既有缺口,补上。
-        schedulerRepositoryProvider.overrideWithValue(demoSchedulerRepository()),
-        goRouterProvider.overrideWith(buildAppRouter),
-      ],
+      overrides: demoOverrides(SettingsPrefs.inMemory(), demoNotificationRepository()),
       child: TranslationProvider(child: const _CaptureApp()),
     ));
     await tester.pump();

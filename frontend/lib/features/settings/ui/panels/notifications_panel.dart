@@ -1,9 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/design/colors.dart';
 import '../../../../core/design/tokens.dart';
-import '../../../../core/design/typography.dart';
 import '../../../../core/overlay/an_overlay.dart';
 import '../../../../core/settings/app_prefs_providers.dart';
 import '../../../../core/settings/settings_prefs.dart';
@@ -27,13 +25,15 @@ class NotificationsPanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = Translations.of(context);
-    final c = context.colors;
     final level = ref.watch(stringSettingProvider(SettingsKeys.notifyLevel));
     final os = ref.watch(boolSettingProvider(SettingsKeys.notifyOs));
     final toast = ref.watch(boolSettingProvider(SettingsKeys.notifyToast));
 
+    // Actions-only head — the panel title already says «Notifications»; a same-named group head was
+    // pure repetition (0719 审计 P1-1). The badge keeps its seat. 徽章头——面板大题已言「通知」,
+    // 同名组头纯重复;域徽留座。
     return AnSection(
-      label: t.settings.panels.notifications,
+      label: '',
       variant: AnSectionVariant.quiet,
       actions: const [AnScopeBadge(AnSettingScope.device)],
       children: [
@@ -62,10 +62,6 @@ class NotificationsPanel extends ConsumerWidget {
               },
             ),
           ),
-        ),
-        Padding(
-          padding: const EdgeInsets.only(left: AnSpace.s8, top: AnSpace.s4, bottom: AnSpace.s8),
-          child: Text(t.settings.alwaysDelivered, style: AnText.meta.copyWith(color: c.inkFaint)),
         ),
         AnSettingRow(
           label: t.settings.notifOs,

@@ -19,10 +19,10 @@ class WorkspacePrefsController extends AsyncNotifier<Workspace> {
   // ── S2 scenario defaults (dedicated endpoints return the fresh workspace row) 场景默认 ──
 
   Future<void> setDefaultModel(String scenario,
-      {required String apiKeyId, required String modelId}) async {
+      {required String apiKeyId, required String modelId, Map<String, String>? options}) async {
     state = AsyncData(await ref
         .read(settingsRepositoryProvider)
-        .putDefaultModel(scenario, apiKeyId: apiKeyId, modelId: modelId));
+        .putDefaultModel(scenario, apiKeyId: apiKeyId, modelId: modelId, options: options));
   }
 
   Future<void> clearDefaultModel(String scenario) async {

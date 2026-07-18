@@ -114,6 +114,7 @@ abstract final class AnSize {
   static const double row = 32; // standard row height (the one) 标准行高(唯一)
   static const double control = 28;
   static const double controlSm = 24;
+  static const double keycap = 20; // per-key cap (AnKeycap compact tier) — sits inside a 32 row 单键帽高(紧凑档,住 32 行内)
   static const double tab = 34; // AnTabs text-underline tab height — INTENTIONALLY 2px over row (half-u), a bespoke nav metric (demo --tab-h) 文字下划线 tab 高(有意比 row 高 2px、半 u)
   static const double icon = 16;
   static const double iconSm = 12;
@@ -207,6 +208,8 @@ abstract final class AnSize {
   static const double ctlSlotLg = 320; // wide control slot (3+-seg segmented, model dropdowns) 宽控件槽
   static const double ctlSlotXl = 380; // extra-wide slot (long-label 3-seg: «streamable-http») 特宽槽(长标签三段)
   static const double numField = 140; // standalone numeric input (limits values) 独立数字输入
+  static const double providerCell = 132; // vendor logo-grid cell (add-key stage 0) 厂家网格格
+
   static const double tabPane = 480; // settings tab-pane fixed height (mcp/sandbox aligned, 批7 拍板) tab 面板定高
   static const double followSlop = 32; // ≈one row from the bottom still counts as pinned-to-tail 贴底判定容差(≈一行)
   static const double opticalNudge = 1; // 1px optical baseline nudge (icon-beside-text rows) 光学微调(图标旁基线)

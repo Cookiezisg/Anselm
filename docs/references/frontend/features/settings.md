@@ -31,20 +31,22 @@ audience: [human, ai]
 | 段 | 面板 | 文件 | 是什么 |
 |---|---|---|---|
 | 偏好 | **通用** General | `panels/general_panel.dart` | 主题三档(含 dark)+ 缩放六档(镜像 `WindowZoom`)+ 语言**单项双写**(UI locale 即时 + `workspace.language` PATCH,失败回滚)+ 记住窗口 + 开机自启 + 自动检查更新。 |
-| 偏好 | **通知** Notifications | `panels/notifications_panel.dart` | 三档级别(全部 / 仅需处理 / 静音)+ 只读「需你处理永远送达」+ OS / 应用内两开关 + 切静音一次性确认。喂 `ToastDispatcher` 三闸,详见 [`notifications`](notifications.md)。 |
-| 偏好 | **对话** Chat | `panels/chat_panel.dart` | 右岛自动登台三档(与 chat 的 `followModeProvider` **同一份状态**)+ 发送键两档 + webFetchMode(workspace PATCH)+「默认对话模型 → 模型与密钥」ghost 单源链。 |
-| 资源 | **模型与密钥** Models&keys | `panels/models_keys_panel.dart` | 旗舰面板:受管免费档卡(未开通 CTA / 配额 meter / 预算横幅)+ 密钥列表(受管锁顶 + Failed 徽 + Test/Edit/Delete,**行点击 = 编辑**)+ 场景默认三下拉 + 搜索默认键。`KeyForm` 是 **S-3 状态机**(首次 POST 绑 id、此后一律 PATCH;secret 提交即清)。新原语 `AnSecretField`/`AnMeter`。 |
-| 资源 | **MCP 服务器** MCP | `panels/mcp_panel.dart` + `mcp_forms.dart` | 名册(五态点 + 统计条 + 三 CTA)+ 详情(状态卡 + lastError 红字 + 工具 / 调用历史 / stderr 三 tab)+ 手动添加 + 导入 + 市场(本地搜索 + `:plan` 驱动安装表单)。**帧不可信**:`kindStream(entities,'mcp')` 任何帧 → 300ms coalesce 一次重取 + 410 强制重取。 |
+| 偏好 | **通知** Notifications | `panels/notifications_panel.dart` | 三档级别(全部 / 仅需处理 / 静音,「需你处理永远送达」并入级别行 desc)+ OS / 应用内两开关 + 切静音一次性确认;组头 = 徽章头(面板大题不复述)。喂 `ToastDispatcher` 三闸,详见 [`notifications`](notifications.md)。 |
+| 偏好 | **对话** Chat | `panels/chat_panel.dart` | 右岛自动登台三档(与 chat 的 `followModeProvider` **同一份状态**)+ 发送键两档 + webFetchMode(workspace PATCH)+「默认对话模型 → 模型与密钥」**标准可点行**(AnRow + hover 箭头,单源链不重复渲);首组徽章头、混域逐节域徽。 |
+| 资源 | **模型与密钥** Models&keys | `panels/models_keys_panel.dart` | 旗舰面板,**四区**(0719 重构):①受管免费档卡(未开通 CTA / 配额 meter / 预算横幅)②提供商区——**品牌 logo 密钥行**(受管锁顶 + 探测点尾端常驻 + Test/Edit/Delete hover,**行点击 = 编辑**),添加流程从**厂家 logo 网格**起步(ollama/custom baseUrl 硬必填才解锁保存),保存即 `:test`(飞行中转圈)③场景默认三行——收起一句话摘要,点开进**可复用三段面板 `ModelPickerPanel`**(凭证→模型[上下文窗+视觉/文档徽]→原生 knobs 通用渲染[enum 下拉/bool 开关/int 数字,default 预填],应用 `{apiKeyId,modelId,options}`;零可用引导跳密钥区)④搜索区(search 类 key 一层默认选择)。`KeyForm` 仍是 **S-3 状态机**(首次 POST 绑 id、此后一律 PATCH;secret 提交即清)。未配默认对话模型 = 人话句 + `MODEL_NOT_CONFIGURED` 收 tooltip。 |
+| 资源 | **MCP 服务器** MCP | `panels/mcp_panel.dart` + `mcp_forms.dart` | **已装 = 双列品牌卡**(0719 重造:brand icon + 名 + 状态点 + 统计句[零计数不显] + 失败卡诚实错误句 + ⋯ 菜单[重连/删除],点卡进详情)+ 详情(状态卡 + lastError 红字 + 工具 / 调用历史 / stderr 三 tab)+ 手动添加 + 导入 + **市场默认全列**(整个 curated 注册表双列卡浏览:brand icon + 描述 + 前置徽,搜索即过滤、绝不「空输入=空列表」;点卡进 `:plan` 驱动安装表单[isSecret 掩码 / required 星标])。统计条零计数律:`N 台 · 就绪 n · 失败 n` 各段 n>0 才显。**帧不可信**:`kindStream(entities,'mcp')` 任何帧 → 300ms coalesce 一次重取 + 410 强制重取。 |
 | 资源 | **记忆** Memory | `panels/memory_panel.dart` | 名册(全部 / 已固定投影 + 搜索 + 行内金 pin toggle + source·mtime)+ 推入编辑(建时活校验 slug、编辑锁名 + Cmd+S)+ 确认物理删除。PUT **恒送 `source:'user'`**(F147:更新时后端忽略、创建时必需)。 |
-| 资源 | **沙箱** Sandbox | `panels/sandbox_panel.dart` | 引导健康门(ok=false 红卡 + 重试)+ 磁盘 meter + 运行时(装 / 删 [409 `SANDBOX_ENV_IN_USE` 诚实])+ **五 owner 环境 tab**(function/handler/mcp/skill/conversation,状态点 + runningPid)+ GC(N 天 + 立即全回收两步)。 |
+| 资源 | **沙箱** Sandbox | `panels/sandbox_panel.dart` | 引导健康门(ok=false 红卡 + 重试)+ 磁盘占用(**诚实数字非进度轨**——绝对字节数无分母,未解析不渲)+ 运行时(装 / 删 [409 `SANDBOX_ENV_IN_USE` 诚实],AnTabs 五 owner 环境 tab)+ GC(N 天 + 立即全回收两步)。 |
 | 系统 | **工作区** Workspaces | `panels/workspaces_panel.dart` | 名册(色点 + 当前高亮,**点行 = 热切换**)+ 新建(六预设色盘)+ 推入编辑(改名同步底栏 / 改色 / **页尾危险区** `AnTypeToConfirm` 输名解锁,stats 真数字入散文;**当前 ws 与最后一个绝不给删**)。 |
-| 系统 | **存储与日志** Storage | `panels/storage_panel.dart` | 数据目录只读(后端解析,绝不猜)+ 访达 / 日志文件夹 + 沙箱磁盘 meter + 诊断复制 + **Run 历史保留**(机器级四档下拉)+ **数据库**(T4/WRK-070 机器级节:`storageStatProvider` 诚实显示「库 X MB,其中 Y MB 可回收」+「压缩数据库」按钮=`POST /storage:compact` 同步 VACUUM,忙态「压缩中…」+转圈锁库几秒、完成 toast「已回收 Y」+ 失效重取;**非危险动作**[VACUUM 不删行]故无输名双闸)+ 重置本地偏好(`SettingsPrefs.resetAll` 声明集)+ **出厂重置**(前端编排,`AnTypeToConfirm` 输「Anselm」双闸)。 |
-| 系统 | **高级限额** Limits | `panels/limits_panel.dart` | **schema 驱动**(`GET /limits/schema` → group AnSection + 每字段 AnSettingRow:点路径 `_valueAt` / 提交构部分嵌套 PATCH / modified 竖条 + 单项重置);越界回滚到服务端真相;零复刻 Go 常量。 |
-| 系统 | **网络** Network | `panels/network_panel.dart` | 三 proxy 字段(http/https/no_proxy)水化 + 整体替换 PATCH + **重启生效**橙字 + 全机域徽。 |
-| 系统 | **快捷键** Shortcuts | `panels/shortcuts_panel.dart` | 6 全局命令逐行(当前键帽 + 点键帽录下一组合键 [须带修饰键 / 冲突则拒并说明 / Esc 取消] + modified 竖条 + 单项重置 + 全部重置);录制态蓝框「Press a new chord…」。见下「全局快捷键」。 |
-| 系统 | **关于** About | `panels/about_panel.dart` | 版本区(app 版本 `package_info` + 引擎版本 `GET /version`)+ **v1 更新检查**(独立裸 Dio 查 GitHub Releases、semver 比较、三面)+ 诊断复制。 |
+| 系统 | **存储与日志** Storage | `panels/storage_panel.dart` | 无头首节(面板大题不复述)全走设置行文法:数据目录行(路径入 desc,**访达 / 日志钮钉行尾**)+ 磁盘占用行(诚实数字非进度轨)+ 诊断行(复制钮钉行尾)+ **Run 历史保留**(机器级四档下拉)+ **数据库**(T4/WRK-070 机器级节:`storageStatProvider` 诚实显示「库 X MB,其中 Y MB 可回收」+「压缩数据库」按钮=`POST /storage:compact` 同步 VACUUM,忙态「压缩中…」+转圈锁库几秒、完成 toast「已回收 Y」+ 失效重取;**非危险动作**[VACUUM 不删行]故无输名双闸)+ 重置本地偏好(`SettingsPrefs.resetAll` 声明集)+ **出厂重置**(前端编排,`AnTypeToConfirm` 输「Anselm」双闸)。 |
+| 系统 | **高级限额** Limits | `panels/limits_panel.dart` | **schema 驱动**(`GET /limits/schema` → group AnSection + 每字段 AnSettingRow:点路径 `_valueAt` / 提交构部分嵌套 PATCH / modified 竖条 + 单项重置);越界回滚到服务端真相;零复刻 Go 常量。整面载入失败 = AnState 人话句(ApiException.message),wire 码 / 原始错收 tooltip,重试 sm outline 钮。 |
+| 系统 | **网络** Network | `panels/network_panel.dart` | 三 proxy 字段(http/https/no_proxy)水化 + 整体替换 PATCH(**有真实改动才可保存**——dirty 比对已载配置)+ 重启注记归 `AnCallout`(warn,不裸奔)+ 全机域徽。 |
+| 系统 | **快捷键** Shortcuts | `panels/shortcuts_panel.dart` | 6 全局命令逐行(**静息 = 逐键小帽** `[⌘][B]`,20 高 mono 12、行回 32 节律;点帽录下一组合键 [须带修饰键 / 冲突则拒并说明 / Esc 取消] + modified 竖条 + 单项重置 + 全部重置);**宽板形态归录制/冲突态专属**(录制蓝框 accent / 冲突 danger)。见下「全局快捷键」。 |
+| 系统 | **关于** About | `panels/about_panel.dart` | 版本区(app 版本行 + **检查更新钮钉行尾** + 引擎版本行)+ **v1 更新检查**(独立裸 Dio 查 GitHub Releases、semver 比较、三面)+ 诊断行(复制钮钉行尾)。 |
 
-> 原语 gallery-first:`AnSwitch` / `AnSegmented` / `AnSettingRow`(modified 竖条 + hover 单项重置)/ `AnScopeBadge`(三域徽)/ `AnTypeToConfirm`(红框危险卡,输精确名解锁)/ `AnSecretField` / `AnMeter` / `AnKvRow` 均先进 gallery 再被面板组装。
+> 原语 gallery-first:`AnSwitch` / `AnSegmented` / `AnSettingRow`(modified 竖条 + hover 单项重置)/ `AnScopeBadge`(三域徽)/ `AnTypeToConfirm`(红框危险卡,输精确名解锁)/ `AnSecretField` / `AnMeter` / `AnKvRow` / `AnKeycap`(逐键帽紧凑档)/ `AnBrandIcon.brand` + 品牌注册表(`brand_registry.dart`)均先进 gallery 再被面板组装。
+>
+> **设置表单行文法(0719 总纲)**:①行 = `AnSettingRow`(标签 + desc + 行尾控件)——动作钮**归位进所属行尾**、漂浮孤行退役;②工具类动作钮统一 **sm + outline**(示能律:静息也像按钮;primary 留给表单 CTA,danger 标独立危险动作亦加 outline);③组头有信息才立——与面板大题同名的组头删(徽章头/无头节),同域徽只在首组标一次、**混域页逐节标**(S-16);④纵向表单字段 = `AnFormField`(标签 13 灰,两级配比:值 13 墨在控件内);⑤空态零人话(一行安静句,入口按钮即引导)、零计数不显、载入失败 = AnState 人话句 + 技术细节收 tooltip。
 
 ## 两条持久化轴 · 域徽
 
@@ -85,10 +87,11 @@ audience: [human, ai]
 ## 数据缝 + state
 
 - **唯一缝** `SettingsRepository`(`features/settings/data/`):`LiveSettingsRepository`(`ApiClient`)/ `FixtureSettingsRepository`(内存 + 脚本钩:`nextMcpStatus`/`failNextWorkspaceDelete`/`failNextRuntimeDelete`/`fixtureLimits`/`fixtureNetwork`/`envsByOwner`/`gcRemoved`…)/ `settingsRepositoryProvider` 单点 override。面约 40 方法覆盖 keys/workspaces/stats/version/memory/mcp/sandbox/limits/network/reset。
-- **能力目录上移 core**(S-15,`core/models/model_capabilities.dart`):chat 选择器与 settings 双消费,features 互不依赖;demo 装配直喂 `demoModelCapabilities`。
+- **能力目录上移 core**(S-15,`core/models/model_capabilities.dart`):chat 选择器与 settings 双消费,features 互不依赖;demo 装配直喂 `demoModelCapabilities`。`ModelCapability` 全镜像后端 `CapabilityView`(0719):`contextWindow`/`maxOutput`/`vision`/`nativeDocs` + `knobs[]`(`ModelKnob` 渲染描述符 `{key,label,type,values,default}`,原生词表不归一);`putDefaultModel` 带可选 `options`(map<string,string>,`ModelRef.options` 往返)。
+- **13 面板数据电池**(0719 P0 防线,`settings_demo_fixture_test.dart`):每面板在**真 demo override 清单**(`demoOverrides`,与 `make demo` / capture 同源)下 pump,断言种子数据渲出、无错误/空态脸——capture 手抄 override 子集漂移(六面板假「坏」的 0719 根因)从此过不了门禁;capture_demo 已改吃 `demoOverrides` 单源。
 - **state**(`features/settings/state/`):`api_keys_provider`(每变更重拉 + invalidate capabilities,test 在 `finally` 重拉)· `workspaces_provider` · `memories_provider`(pin 就地补单行)· `mcp_providers`(300ms coalesce)· `sandbox_providers` · `update_check_provider`(裸 Dio)· `settings_panel_provider` / `settings_detail_provider`。
-- **DTO** `core/contract/`:`api_key` · `memory` · `mcp`(5 型)· `limits`(`LimitField` `@JsonKey(name:'default')`)· `network` · `sandbox`(4 型)· `workspace`(+`WorkspaceStats`)。
+- **DTO** `core/contract/`:`api_key` · `memory` · `mcp`(5 型)· `limits`(`LimitField` `@JsonKey(name:'default')`)· `model_capability`(`ModelCapability` + `ModelKnob`,`@JsonKey(name:'default')` 同法)· `network` · `sandbox`(4 型)· `workspace`(+`WorkspaceStats`;`ModelRef.options`)。
 
 ## 状态
 
-✅ **全落**(S0 地基 → S1 偏好三面 → S1b dark 点亮 → 后端 P0 批 → S2 模型与密钥 [+keychain] → S3-pre 热切换 → S3 工作区 + 关于 → S4a 记忆 → S4b MCP → S5 存储 / 限额 / 网络 / 沙箱 → S6 快捷键收官)。13 面板全建,机器 / 工作区两域分明,平台地基(热切换 / keychain / 出厂重置 / 更新检查 / 可改绑快捷键)成活。`make verify`(后端,含工单①–⑩ 单测 + testend 黑盒)+ `make fe-verify`(前端 3312 测)+ `make docs` 全绿。**每片真机 E2E**(release build + 真 sidecar,逐面板交互 + 逐帧截图核对);真机验收累计修出多处 widget 测漏抓的真 bug(hover 不可达 / dio 层脉搏 disposed-Ref / Memory PUT 缺 source / 快捷键录后吞键 / 快捷键冷启动焦点序)。
+✅ **全落**(S0 地基 → S1 偏好三面 → S1b dark 点亮 → 后端 P0 批 → S2 模型与密钥 [+keychain] → S3-pre 热切换 → S3 工作区 + 关于 → S4a 记忆 → S4b MCP → S5 存储 / 限额 / 网络 / 沙箱 → S6 快捷键收官 → **0719 生产级战役**[P0 断线根因修复 + 13 面板数据电池 / P1 一致性扫荡(标题重复×4·徽去连环·零计数·空态零人话·游离句归位·跳转行·表单标签 13 档·错误人话·缩放置灰系有意[屏容量 cap]) / P2 按钮示能 sm outline + 归位 + 键帽紧凑档 / P3 模型与密钥四区重构 + MCP 双列卡与市场默认全列 + 品牌资产 52 枚(lobe-icons MIT + simple-icons CC0,首字母兜底)])。13 面板全建,机器 / 工作区两域分明,平台地基(热切换 / keychain / 出厂重置 / 更新检查 / 可改绑快捷键)成活。`make verify`(后端,含工单①–⑩ 单测 + testend 黑盒)+ `make fe-verify`(前端 3312 测)+ `make docs` 全绿。**每片真机 E2E**(release build + 真 sidecar,逐面板交互 + 逐帧截图核对);真机验收累计修出多处 widget 测漏抓的真 bug(hover 不可达 / dio 层脉搏 disposed-Ref / Memory PUT 缺 source / 快捷键录后吞键 / 快捷键冷启动焦点序)。

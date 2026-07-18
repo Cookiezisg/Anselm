@@ -31,12 +31,31 @@ class _NetworkPanelState extends ConsumerState<NetworkPanel> {
   bool _saving = false;
 
   @override
+  void initState() {
+    super.initState();
+    // Typing re-evaluates the save button's enablement (it compares against the loaded config —
+    // no edits, nothing to save). 输入须触发重建:保存钮以「与已载配置有差」为启用条件。
+    for (final ctl in [_http, _https, _no]) {
+      ctl.addListener(_onFieldChange);
+    }
+  }
+
+  void _onFieldChange() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   void dispose() {
     _http.dispose();
     _https.dispose();
     _no.dispose();
     super.dispose();
   }
+
+  bool _dirty(NetworkConfig cfg) =>
+      _http.text.trim() != cfg.httpProxy ||
+      _https.text.trim() != cfg.httpsProxy ||
+      _no.text.trim() != cfg.noProxy;
 
   Future<void> _save() async {
     if (_saving) return;
@@ -88,14 +107,17 @@ class _NetworkPanelState extends ConsumerState<NetworkPanel> {
           AnFormField(label: t.settings.network.httpsProxy, child: AnInput(controller: _https, mono: true, placeholder: t.settings.network.proxyPlaceholder)),
           const SizedBox(height: AnSpace.s12),
           AnFormField(label: t.settings.network.noProxy, child: AnInput(controller: _no, mono: true, placeholder: 'localhost,127.0.0.1')),
-          const SizedBox(height: AnSpace.s12),
-          const SizedBox(height: AnSpace.s4),
-          Text(t.settings.network.restartNote, style: AnText.label.copyWith(color: c.warn)),
+          const SizedBox(height: AnSpace.s16),
+          // The restart caveat lives in the callout family — not a bare orange sentence floating
+          // between fields (0719 P1-5). 重启注记归 callout 族,不再是字段间裸奔的橙句。
+          AnCallout(t.settings.network.restartNote, severity: AnCalloutSeverity.warn),
           const SizedBox(height: AnSpace.s16),
           AnButton(
             label: t.settings.network.save,
             variant: AnButtonVariant.primary,
-            onPressed: cfg == null || _saving ? null : _save,
+            // Enabled only with actual edits — a permanently-armed save invites no-op writes, and
+            // the disabled face is the standard one, honestly earned. 有真实改动才可点。
+            onPressed: cfg == null || _saving || !_dirty(cfg) ? null : _save,
           ),
         ]),
       ),

@@ -23,6 +23,7 @@ class AboutPanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = Translations.of(context);
+    final c = context.colors;
     // Local sidecar answers sub-threshold — an empty meta for a frame is honest, a '…' sentinel is
     // theater (AnDeferredLoading philosophy). 本地 sidecar 亚阈返回:空串诚实,'…' 哨兵是剧场。
     final engine = ref.watch(backendVersionProvider).value ?? '';
@@ -36,50 +37,55 @@ class AboutPanel extends ConsumerWidget {
           label: t.settings.about.versions,
           variant: AnSectionVariant.quiet,
           children: [
-            AnRow(leadless: true, label: t.settings.about.appVersion, meta: app, passive: true),
-            AnRow(
-                leadless: true,
-                label: t.settings.about.backendVersion,
-                meta: engine,
-                passive: true),
-            const SizedBox(height: AnSpace.s12),
-            Row(children: [
-              AnButton(
-                label: check.isLoading
-                    ? t.settings.about.checking
-                    : t.settings.about.checkUpdates,
-                onPressed: check.isLoading
-                    ? null
-                    : () => ref.read(updateCheckProvider.notifier).check(),
+            // The check button rides the app-version row's tail — the thing it updates (0719 P2:
+            // 漂浮孤行退役,动作归位进字段结构). 检查更新钉在应用版本行尾——它更新的正是这个值。
+            AnSettingRow(
+              label: t.settings.about.appVersion,
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Text(app, style: AnText.metaTabular().copyWith(color: c.inkMuted)),
+                const SizedBox(width: AnSpace.s12),
+                AnButton(
+                  label: check.isLoading
+                      ? t.settings.about.checking
+                      : t.settings.about.checkUpdates,
+                  size: AnButtonSize.sm,
+                  outline: true,
+                  onPressed: check.isLoading
+                      ? null
+                      : () => ref.read(updateCheckProvider.notifier).check(),
+                ),
+              ]),
+            ),
+            if (check.value != null)
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: _CheckOutcome(status: check.value),
               ),
-              const SizedBox(width: AnSpace.s12),
-              Flexible(child: _CheckOutcome(status: check.value)),
-            ]),
+            AnSettingRow(
+              label: t.settings.about.backendVersion,
+              child: Text(engine, style: AnText.metaTabular().copyWith(color: c.inkMuted)),
+            ),
           ],
         ),
         const SizedBox(height: AnSpace.s24),
-        AnSection(
+        AnSettingRow(
           label: t.settings.about.diagnostics,
-          variant: AnSectionVariant.quiet,
-          children: [
-            Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: AnButton(
-                label: t.settings.about.copyDiagnostics,
-                size: AnButtonSize.sm,
-                onPressed: () async {
-                  final text = 'Anselm $app · engine $engine · '
-                      '${Platform.operatingSystem} ${Platform.operatingSystemVersion}';
-                  await Clipboard.setData(ClipboardData(text: text));
-                  if (context.mounted) {
-                    ref
-                        .read(overlayProvider.notifier)
-                        .showToast(t.settings.about.copied, tone: AnTone.ok);
-                  }
-                },
-              ),
-            ),
-          ],
+          desc: t.settings.about.diagDesc,
+          child: AnButton(
+            label: t.settings.about.copyDiagnostics,
+            size: AnButtonSize.sm,
+            outline: true,
+            onPressed: () async {
+              final text = 'Anselm $app · engine $engine · '
+                  '${Platform.operatingSystem} ${Platform.operatingSystemVersion}';
+              await Clipboard.setData(ClipboardData(text: text));
+              if (context.mounted) {
+                ref
+                    .read(overlayProvider.notifier)
+                    .showToast(t.settings.about.copied, tone: AnTone.ok);
+              }
+            },
+          ),
         ),
       ],
     );

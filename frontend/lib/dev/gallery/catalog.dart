@@ -416,10 +416,11 @@ final GalleryCategory _g1Controls = GalleryCategory('基础控件 Controls', AnI
     GallerySpecimen('tooltip 覆盖 (hover 全值)', (_) => const AnChip('lexer.dart', look: AnChipLook.outlined, mono: true, copyValue: '/src/parser/lexer.dart', tooltip: '/src/parser/lexer.dart')),
     GallerySpecimen('icon-only (空标签纯示能)', (_) => const AnChip('', look: AnChipLook.outlined, copyValue: 'the-full-payload')),
   ]),
-  GalleryItem('AnKeycap 键帽', '快捷键弦控件脸:mono kbd 板三态(静息/录制/冲突);刻意不可聚焦(键盘归宿主,settings 焦点序教训)、不进 AnChip(输入控件非标签)', [
-    GallerySpecimen('idle', (_) => AnKeycap('⌘ K', onTap: () {})),
-    GallerySpecimen('recording (录制中)', (_) => const AnKeycap('按下快捷键…', state: AnKeycapState.recording)),
-    GallerySpecimen('error (冲突)', (_) => const AnKeycap('⌘ C', state: AnKeycapState.error)),
+  GalleryItem('AnKeycap 键帽', '快捷键弦控件脸(0719 紧凑档):静息=逐键小帽([⌘][B],20 高 mono 12、s2 间距,行回 32 节律);录制/冲突=宽板专属;刻意不可聚焦(键盘归宿主,settings 焦点序教训)、不进 AnChip(输入控件非标签)', [
+    GallerySpecimen('idle 逐键帽 (⌘⇧B)', (_) => AnKeycap('⌘⇧B', keys: const ['⌘', '⇧', 'B'], onTap: () {})),
+    GallerySpecimen('idle 单帽兜底 (无 keys)', (_) => AnKeycap('⌘K', onTap: () {})),
+    GallerySpecimen('recording (录制中,宽板)', (_) => const AnKeycap('按下快捷键…', state: AnKeycapState.recording)),
+    GallerySpecimen('error (冲突,宽板)', (_) => const AnKeycap('按下快捷键…', state: AnKeycapState.error)),
   ]),
   GalleryItem('AnSpinner 转圈', '唯一小型不定转圈(批7 B-071):icon 档淡环 strokeWidth 2;a11y 门=orAssistive(装饰循环冻成静态 spin 字形);行脚/面板加载用,整面占位归 AnState', [
     GallerySpecimen('default (icon 16)', (_) => const AnSpinner()),
@@ -957,6 +958,25 @@ final GalleryCategory _g4NavShell = GalleryCategory('导航与壳 Nav & Shell', 
   ]),
   GalleryItem('AnBrandIcon.mark', '裸品牌 mark(6 方块·无白底无边框·inkMuted 灰):供全屏/Win-Linux 窗控品牌区行内,和 nav 描边图标**同列同视觉大小**。此格并排真 nav 图标(16px 盒描边示意),比对 mark 方块可见大小与描边字形一致(_markContentRatio 收)', [
     GallerySpecimen('mark vs 真 nav 图标(16 盒对比)', (_) => const _BrandMarkDemo(), span: true),
+  ]),
+  GalleryItem('AnBrandIcon.brand 品牌资产', '随包品牌 SVG(assets/brand,lobe-icons MIT + simple-icons CC0,LICENSES.md 载明):ink 着色灰底盘,brandIconOr 经注册表解析 slug,**缺者一律首字母圆徽兜底**(每卡必有图标位)。消费方=模型与密钥 provider 区 + MCP 双列卡', [
+    GallerySpecimen('LLM 厂牌 (lobe-icons)', (_) => Wrap(spacing: AnSpace.s8, runSpacing: AnSpace.s8, children: [
+      for (final s in const ['openai', 'anthropic', 'gemini', 'deepseek', 'openrouter', 'qwen', 'zhipu', 'moonshot', 'doubao', 'ollama'])
+        AnTooltip(message: s, child: brandIconOr(s, fallbackLabel: s)),
+    ]), span: true),
+    GallerySpecimen('服务品牌 (simple-icons,节选)', (_) => Wrap(spacing: AnSpace.s8, runSpacing: AnSpace.s8, children: [
+      for (final s in const ['github', 'notion', 'supabase', 'sentry', 'postgresql', 'figma', 'zapier', 'todoist', 'stripe', 'vercel', 'atlassian', 'mongodb', 'huggingface', 'terraform', 'brave'])
+        AnTooltip(message: s, child: brandIconOr(s, fallbackLabel: s)),
+    ]), span: true),
+    GallerySpecimen('首字母兜底 (无资产 slug)', (_) => Wrap(spacing: AnSpace.s8, children: [
+      brandIconOr(null, fallbackLabel: 'serper'),
+      brandIconOr('no-such-brand', fallbackLabel: 'tavily'),
+      brandIconOr(null, fallbackLabel: 'custom'),
+    ]), span: true),
+    GallerySpecimen('managed (accent 火花)', (_) => Wrap(spacing: AnSpace.s8, children: [
+      brandIconOr('deepseek', fallbackLabel: 'deepseek', managed: true),
+      brandIconOr(null, fallbackLabel: 'anselm', managed: true),
+    ]), span: true),
   ]),
   GalleryItem('品牌 lockup', 'AnWindowControls 全屏/Win-Linux 露出的「Anselm」锁定组合:灰裸 mark + Newsreader(OFL 衬线)wordmark,纯净无点缀。真机对齐(mark 落 nav 图标列)+ 竖向节奏见侧栏', [
     GallerySpecimen('灰 mark + Newsreader wordmark (ink)', (_) => const _BrandLockupDemo(), span: true),

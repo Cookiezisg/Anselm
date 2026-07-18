@@ -9,11 +9,12 @@ import '../../../../core/overlay/an_overlay.dart';
 import '../../../../core/settings/app_prefs_providers.dart';
 import '../../../../core/settings/follow_mode.dart';
 import '../../../../core/settings/settings_prefs.dart';
-import '../../../../core/ui/an_button.dart';
+import '../../../../core/ui/an_row.dart';
 import '../../../../core/ui/an_scope_badge.dart';
 import '../../../../core/ui/an_section.dart';
 import '../../../../core/ui/an_segmented.dart';
 import '../../../../core/ui/an_setting_row.dart';
+import '../../../../core/ui/icons.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../model/settings_catalog.dart';
 import '../../state/settings_panel_provider.dart';
@@ -39,8 +40,11 @@ class ChatPanel extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Actions-only head (the panel title already says «Chat» — 0719 P1-1); the badge stays,
+        // and it is REAL information here: this page mixes device + workspace scopes per section.
+        // 徽章头(面板大题已言「对话」);徽留——本页混域,逐节域徽是真信息。
         AnSection(
-          label: t.settings.panels.chat,
+          label: '',
           variant: AnSectionVariant.quiet,
           actions: const [AnScopeBadge(AnSettingScope.device)],
           children: [
@@ -115,12 +119,15 @@ class ChatPanel extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: AnSpace.s16),
-        // Single-source ghost: the default chat model LIVES in Models & keys — link, don't re-render.
-        // 单一事实源 ghost 链:默认对话模型住模型与密钥,只链不重复渲。
-        AnButton(
+        // Single-source jump: the default chat model LIVES in Models & keys — link, don't
+        // re-render. A standard clickable row (chevron affordance), not a bare ghost line
+        // (0719 P1-6 示能). 单一事实源跳转:默认对话模型住模型与密钥,只链不重复渲;标准可点行
+        // (箭头示能),不再是裸 ghost 句。
+        AnRow(
+          icon: AnIcons.apiKey,
           label: t.settings.defaultModelLink,
-          variant: AnButtonVariant.ghost,
-          onPressed: () =>
+          actions: [Icon(AnIcons.chevronRight, size: AnSize.icon, color: c.inkFaint)],
+          onSelect: () =>
               ref.read(settingsPanelProvider.notifier).select(SettingsPanel.modelsKeys),
         ),
         // The async row's error voice (load failure) — the settings inline-error grammar:

@@ -55,16 +55,26 @@ class _Roster extends ConsumerWidget {
     final rows = ref.watch(mcpServersProvider).value ?? const <McpServerStatus>[];
     final ready = rows.where((s) => s.status == 'ready').length;
     final failed = rows.where((s) => s.status == 'failed').length;
+    // Zero counts are noise, not information — each segment renders only when n>0 (0719 P1-3);
+    // with no servers at all, the empty state below IS the answer. 零计数是噪声:分段 n>0 才显;
+    // 一台都没有时,下方空态即答案。
+    final statParts = [
+      if (rows.isNotEmpty) t.settings.mcp.statCount(n: rows.length),
+      if (ready > 0) t.settings.mcp.statReady(n: ready),
+      if (failed > 0) t.settings.mcp.statFailed(n: failed),
+    ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(children: [
           Expanded(
-            child: Text(
-              t.settings.mcp.statBar(n: rows.length, ready: ready, failed: failed),
-              style: AnText.label.copyWith(color: c.inkMuted),
-            ),
+            child: statParts.isEmpty
+                ? const SizedBox.shrink()
+                : Text(
+                    statParts.join(' · '),
+                    style: AnText.label.copyWith(color: c.inkMuted),
+                  ),
           ),
           AnButton(
             label: t.settings.mcp.browse,
@@ -76,68 +86,107 @@ class _Roster extends ConsumerWidget {
           AnButton(
             label: t.settings.mcp.manualAdd,
             size: AnButtonSize.sm,
+            outline: true,
             onPressed: () => ref.read(settingsDetailProvider.notifier).push('mcpAdd'),
           ),
           const SizedBox(width: AnSpace.s8),
           AnButton(
             label: t.settings.mcp.importJson,
             size: AnButtonSize.sm,
+            outline: true,
             onPressed: () => ref.read(settingsDetailProvider.notifier).push('mcpImport'),
           ),
         ]),
         const SizedBox(height: AnSpace.s16),
         if (rows.isEmpty)
+          // One quiet line — the three affordances above are the guidance (零人话律). 一行安静句。
           AnState(
             kind: AnStateKind.empty,
             title: t.settings.mcp.empty,
-            hint: t.settings.mcp.emptyHint,
             size: AnStateSize.inset,
           )
         else
-          for (final s in rows) _ServerRow(s: s),
+          // Installed = two-column brand cards (0719 重造): identity + status at the head, the
+          // stats line under it, the honest error line when failed, ⋯ for the verbs. 已装=双列
+          // 品牌卡:头行身份+状态点,下行统计,失败时诚实错误句,动词收 ⋯。
+          AnAutoGrid(
+            minColWidth: AnSize.block,
+            children: [for (final s in rows) _ServerCard(s: s)],
+          ),
       ],
     );
   }
 }
 
-class _ServerRow extends ConsumerWidget {
-  const _ServerRow({required this.s});
+class _ServerCard extends ConsumerWidget {
+  const _ServerCard({required this.s});
 
   final McpServerStatus s;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = Translations.of(context);
-    return AnRow(
-      dot: mcpDot(s.status),
-      leadless: mcpDot(s.status) == null,
-      label: s.name,
-      mono: true,
-      meta:
-          '${statusLabel(t, s.status)} · ${t.settings.mcp.tools(n: s.tools.length)} · ${t.settings.mcp.calls(n: s.totalCalls)}',
-      onSelect: () =>
-          ref.read(settingsDetailProvider.notifier).push('mcpServer', id: s.name),
-      actions: [
-        AnButton(
-          label: t.settings.mcp.reconnect,
-          size: AnButtonSize.sm,
-          onPressed: () async {
-            try {
-              await ref.read(mcpServersProvider.notifier).reconnect(s.name);
-            } on ApiException catch (e) {
-              ref
-                  .read(overlayProvider.notifier)
-                  .showToast(e.message, tone: AnTone.danger);
-            }
-          },
-        ),
-        AnButton(
-          label: t.settings.mcp.deleteServer,
-          size: AnButtonSize.sm,
-          variant: AnButtonVariant.danger,
-          onPressed: () => deleteMcpServer(context, ref, s.name),
-        ),
-      ],
+    final c = context.colors;
+    // Zero counts are noise (P1-3) — stat segments render only when n>0. 零计数不显。
+    final statParts = [
+      statusLabel(t, s.status),
+      if (s.tools.isNotEmpty) t.settings.mcp.tools(n: s.tools.length),
+      if (s.totalCalls > 0) t.settings.mcp.calls(n: s.totalCalls),
+    ];
+    return AnCard(
+      selectable: true,
+      onSelect: () => ref.read(settingsDetailProvider.notifier).push('mcpServer', id: s.name),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          brandIconOr(mcpBrandFor(s.name), fallbackLabel: s.name, size: AnBrandSize.sm),
+          const SizedBox(width: AnSpace.s8),
+          Expanded(
+            child: Text(s.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AnText.mono.copyWith(color: c.ink)),
+          ),
+          if (mcpDot(s.status) != null) AnStatusDot(mcpDot(s.status)!),
+          const SizedBox(width: AnSpace.s6),
+          AnMenu(
+            entries: [
+              AnMenuItem(
+                label: t.settings.mcp.reconnect,
+                icon: AnIcons.undo,
+                onTap: () async {
+                  try {
+                    await ref.read(mcpServersProvider.notifier).reconnect(s.name);
+                  } on ApiException catch (e) {
+                    ref
+                        .read(overlayProvider.notifier)
+                        .showToast(e.message, tone: AnTone.danger);
+                  }
+                },
+              ),
+              AnMenuItem(
+                label: t.settings.mcp.deleteServer,
+                danger: true,
+                onTap: () => deleteMcpServer(context, ref, s.name),
+              ),
+            ],
+            anchorBuilder: (context, toggle, isOpen) => AnButton.iconOnly(
+              AnIcons.more,
+              size: AnButtonSize.sm,
+              onPressed: toggle,
+              semanticLabel: t.settings.mcp.cardMenu,
+            ),
+          ),
+        ]),
+        const SizedBox(height: AnSpace.s6),
+        Text(statParts.join(' · '), style: AnText.meta.copyWith(color: c.inkMuted)),
+        if ((s.lastError ?? '').isNotEmpty) ...[
+          const SizedBox(height: AnSpace.s4),
+          Text(s.lastError!,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: AnText.meta.copyWith(color: c.danger)),
+        ],
+      ]),
     );
   }
 }

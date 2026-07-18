@@ -7,7 +7,9 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../../core/contract/api_error.dart';
 import '../../../../core/contract/retention.dart';
+import '../../../../core/design/colors.dart';
 import '../../../../core/design/tokens.dart';
+import '../../../../core/design/typography.dart';
 import '../../../../core/model/byte_format.dart';
 import '../../../../core/platform/app_relaunch.dart';
 import '../../../../core/platform/factory_reset.dart';
@@ -34,55 +36,55 @@ class StoragePanel extends ConsumerWidget {
     // no '…' sentinel string doubling as a logic value. null=未解析,可用性由类型承载、不设哨兵串。
     final String? dir = ref.watch(dataDirProvider).value;
     final disk = ref.watch(sandboxDiskProvider).value;
+    final c = context.colors;
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      // Headless first section — the panel title already names the page; a same-named group head
+      // was pure repetition (0719 审计 P1-1). Every row is the ONE settings-row grammar: label +
+      // desc + trailing control (buttons live at their row's tail, never floating on lone lines).
+      // 无头首节——面板大题已命名本页,同名组头纯重复。行全走唯一设置行文法:标签+描述+行尾控件
+      // (按钮归位进所属行尾,不再漂浮孤行)。
       AnSection(
-        label: t.settings.panels.storage,
+        label: '',
         variant: AnSectionVariant.quiet,
         children: [
-          AnRow(
-            leadless: true,
+          AnSettingRow(
             label: t.settings.storage.dataDir,
-            mono: true,
-            meta: dir ?? '',
-            passive: true,
-          ),
-          Align(
-            alignment: AlignmentDirectional.centerStart,
+            desc: dir ?? '',
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               AnButton(
                 label: t.settings.storage.revealFinder,
                 size: AnButtonSize.sm,
+                outline: true,
                 onPressed: dir == null ? null : () => _reveal(dir),
               ),
               const SizedBox(width: AnSpace.s8),
               AnButton(
                 label: t.settings.storage.openLogs,
                 size: AnButtonSize.sm,
+                outline: true,
                 onPressed: dir == null ? null : () => _reveal('$dir/logs'),
               ),
             ]),
           ),
-          const SizedBox(height: AnSpace.s12),
           AnSettingRow(
             label: t.settings.storage.diskUsage,
-            desc:
-                '${t.settings.storage.diskSandbox} · ${t.settings.storage.diskMore}',
-            child: SizedBox(
-              width: AnSize.ctlSlot,
-              child: AnMeter(
-                ratio: null,
-                // ratio:null already shows indeterminate — no '…' sentinel. 不定态示能已在,免哨兵。
-                label: disk == null ? '' : formatBytes(disk),
-              ),
-            ),
+            desc: t.settings.storage.diskSandbox,
+            // An absolute byte figure has no denominator — a meter track would be theater; the
+            // honest face is the number itself (and nothing while unresolved). 绝对字节数无分母,
+            // 渲进度轨是剧场;诚实脸=数字本身(未解析时不渲空轨)。
+            child: disk == null
+                ? const SizedBox.shrink()
+                : Text(formatBytes(disk),
+                    style: AnText.metaTabular().copyWith(color: c.inkMuted)),
           ),
-          const SizedBox(height: AnSpace.s8),
-          Align(
-            alignment: AlignmentDirectional.centerStart,
+          AnSettingRow(
+            label: t.settings.about.diagnostics,
+            desc: t.settings.about.diagDesc,
             child: AnButton(
               label: t.settings.about.copyDiagnostics,
               size: AnButtonSize.sm,
+              outline: true,
               onPressed: () => _copyDiagnostics(context, ref, dir ?? ''),
             ),
           ),
@@ -120,6 +122,7 @@ class StoragePanel extends ConsumerWidget {
         child: AnButton(
           label: t.settings.storage.resetPrefs,
           size: AnButtonSize.sm,
+          outline: true,
           variant: AnButtonVariant.danger,
           onPressed: () => _resetPrefs(context, ref),
         ),
@@ -343,6 +346,7 @@ class _DatabaseRowState extends ConsumerState<_DatabaseRow> {
         AnButton(
           label: _busy ? t.settings.storage.compacting : t.settings.storage.compact,
           size: AnButtonSize.sm,
+          outline: true,
           // Disabled until the stat resolves (and while compacting) — availability rides the value,
           // never a sentinel. 未解析前(与压缩中)禁用——可用性由值承载,绝不判哨兵。
           onPressed: (_busy || stat == null) ? null : _compact,

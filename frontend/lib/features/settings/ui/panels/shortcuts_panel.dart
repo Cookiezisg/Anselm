@@ -30,6 +30,7 @@ class ShortcutsPanel extends ConsumerWidget {
         AnButton(
           label: t.settings.shortcuts.resetAll,
           size: AnButtonSize.sm,
+          outline: true,
           onPressed: () => ref.read(shortcutBindingsProvider.notifier).resetAll(),
         ),
       ]),
@@ -155,11 +156,13 @@ class _ShortcutRowState extends ConsumerState<_ShortcutRow> {
         onFocusChange: (has) {
           if (!has && _recording) _stop();
         },
-        // The keycap primitive (批5c A-027) renders the tri-state plate; the recording Focus and
-        // state machine stay HERE untouched — the keycap is deliberately non-focusable (settings
-        // 战役焦点序教训:录制 Focus 不容抢焦). 键帽只管脸;录制焦点与状态机原地不动。
+        // The keycap primitive (批5c A-027; 0719 紧凑档) renders per-key caps at rest and the wide
+        // plate only while recording/conflicted; the recording Focus and state machine stay HERE
+        // untouched — the keycap is deliberately non-focusable (settings 战役焦点序教训:录制
+        // Focus 不容抢焦). 键帽只管脸(静息逐键帽/录制冲突宽板);录制焦点与状态机原地不动。
         child: AnKeycap(
           _recording ? t.settings.shortcuts.recording : widget.chord.display,
+          keys: _recording ? null : widget.chord.parts,
           state: _hint != null
               ? AnKeycapState.error
               : _recording

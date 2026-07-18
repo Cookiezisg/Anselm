@@ -59,7 +59,8 @@ abstract class SettingsRepository {
   Future<bool> provisionFreetier();
 
   /// Scenario ∈ dialogue|utility|agent; returns the fresh workspace row. 场景默认;返新 workspace 行。
-  Future<Workspace> putDefaultModel(String scenario, {required String apiKeyId, required String modelId});
+  Future<Workspace> putDefaultModel(String scenario,
+      {required String apiKeyId, required String modelId, Map<String, String>? options});
   Future<Workspace> deleteDefaultModel(String scenario);
   Future<Workspace> putDefaultSearch(String apiKeyId);
   Future<Workspace> deleteDefaultSearch();
@@ -278,9 +279,13 @@ class LiveSettingsRepository implements SettingsRepository {
 
   @override
   Future<Workspace> putDefaultModel(String scenario,
-          {required String apiKeyId, required String modelId}) =>
+          {required String apiKeyId, required String modelId, Map<String, String>? options}) =>
       api.putEntity('/api/v1/workspaces/$_id/default-models/$scenario', Workspace.fromJson,
-          body: {'apiKeyId': apiKeyId, 'modelId': modelId});
+          body: {
+            'apiKeyId': apiKeyId,
+            'modelId': modelId,
+            if (options != null && options.isNotEmpty) 'options': options,
+          });
 
   @override
   Future<Workspace> deleteDefaultModel(String scenario) =>
@@ -667,8 +672,9 @@ class FixtureSettingsRepository implements SettingsRepository {
 
   @override
   Future<Workspace> putDefaultModel(String scenario,
-          {required String apiKeyId, required String modelId}) async =>
-      _withDefault(scenario, ModelRef(apiKeyId: apiKeyId, modelId: modelId));
+          {required String apiKeyId, required String modelId, Map<String, String>? options}) async =>
+      _withDefault(scenario,
+          ModelRef(apiKeyId: apiKeyId, modelId: modelId, options: options ?? const {}));
 
   @override
   Future<Workspace> deleteDefaultModel(String scenario) async => _withDefault(scenario, null);

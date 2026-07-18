@@ -32,8 +32,12 @@ void main() {
     for (final cmd in ShortcutCommand.values) {
       expect(find.text(commandLabel(t, cmd)), findsOneWidget, reason: '命令 $cmd 一行');
     }
-    // The keycap for the default settings chord renders. 默认键帽渲染。
-    expect(find.text(kShortcutDefaults[ShortcutCommand.openSettings]!.display), findsOneWidget);
+    // The resting face is PER-KEY caps (0719 紧凑档): every command shows a ⌘ cap plus its key
+    // fragment — no single whole-chord text anymore. 静息=逐键帽:每命令一枚 ⌘ 帽+键片段帽。
+    expect(find.text('⌘'), findsNWidgets(ShortcutCommand.values.length));
+    expect(find.text(','), findsOneWidget, reason: '⌘, (打开设置) 的键片段帽');
+    expect(find.text(kShortcutDefaults[ShortcutCommand.openSettings]!.display), findsNothing,
+        reason: '整弦文本不再渲——拆成逐键帽');
   });
 
   testWidgets('capturing a fresh chord rebinds the command live', (tester) async {

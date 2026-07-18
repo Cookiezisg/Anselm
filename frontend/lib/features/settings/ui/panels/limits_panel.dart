@@ -27,7 +27,11 @@ class LimitsPanel extends ConsumerStatefulWidget {
 class _LimitsPanelState extends ConsumerState<LimitsPanel> {
   Map<String, dynamic>? _limits;
   List<LimitField>? _schema;
-  String? _error;
+
+  /// The raw load failure — humanized at build time (an `ApiException` already carries the human
+  /// sentence; the wire code goes to a tooltip, never the face). 原始载入错——build 时人话化
+  /// (ApiException 自带人话句;wire 码收 tooltip,绝不上脸)。
+  Object? _loadError;
 
   @override
   void initState() {
@@ -47,7 +51,7 @@ class _LimitsPanelState extends ConsumerState<LimitsPanel> {
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _error = '$e');
+      if (mounted) setState(() => _loadError = e);
     }
   }
 
@@ -98,20 +102,29 @@ class _LimitsPanelState extends ConsumerState<LimitsPanel> {
     final t = Translations.of(context);
     final c = context.colors;
     final schema = _schema;
-    if (_error != null) {
+    final loadError = _loadError;
+    if (loadError != null) {
       // Whole-pane load failure = AnState (the inline label+danger voice is reserved for form
-      // save errors). 整面载入失败归 AnState;行内 label+danger 留给表单保存错。
-      return AnState(
-        kind: AnStateKind.error,
-        size: AnStateSize.inset,
-        title: t.settings.limits.errorTitle,
-        hint: _error,
-        action: AnButton(
-          label: t.settings.limits.retry,
-          onPressed: () {
-            setState(() => _error = null);
-            _load();
-          },
+      // save errors). The face speaks human; the technical detail (wire code / raw error) rides a
+      // tooltip. 整面载入失败归 AnState;脸说人话,技术细节(码/原始错)收 tooltip。
+      final human = loadError is ApiException ? loadError.message : t.settings.limits.errorHint;
+      final detail = loadError is ApiException ? loadError.code : '$loadError';
+      return AnTooltip(
+        message: detail,
+        child: AnState(
+          kind: AnStateKind.error,
+          size: AnStateSize.inset,
+          title: t.settings.limits.errorTitle,
+          hint: human,
+          action: AnButton(
+            label: t.settings.limits.retry,
+            size: AnButtonSize.sm,
+            outline: true,
+            onPressed: () {
+              setState(() => _loadError = null);
+              _load();
+            },
+          ),
         ),
       );
     }
@@ -134,6 +147,7 @@ class _LimitsPanelState extends ConsumerState<LimitsPanel> {
         AnButton(
           label: t.settings.limits.resetAll,
           size: AnButtonSize.sm,
+          outline: true,
           variant: AnButtonVariant.danger,
           onPressed: _resetAll,
         ),

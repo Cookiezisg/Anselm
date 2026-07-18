@@ -1546,11 +1546,10 @@
     "resetToDefault": "Reset to default",
     "patchFailed": "Save failed — value restored",
     "notifLevel": "Notification level",
-    "notifLevelDesc": "Which events pop up",
+    "notifLevelDesc": "Which events pop up — items that need your action are always delivered",
     "levelAll": "All",
     "levelImportant": "Needs you",
     "levelSilent": "Silent",
-    "alwaysDelivered": "Items that need your action are always delivered and can't be turned off",
     "notifOs": "System notifications",
     "notifOsDesc": "Delivered via the OS notification center while unfocused",
     "notifToast": "In-app toasts",
@@ -1616,11 +1615,25 @@
       "scenarioAgentDesc": "Used by invoke_agent runs",
       "noDefault": "Not set",
       "clearDefault": "Clear",
-      "notConfiguredWarn": "Not set — related runs will fail with MODEL_NOT_CONFIGURED",
+      "notConfiguredWarn": "No default chat model set — chats cannot start",
       "searchDefault": "Default search key",
       "searchDefaultDesc": "Used by the WebSearch tool (category=search keys)",
       "keyOpFailed": "Operation failed",
-      "refreshModels": "Refresh model list"
+      "refreshModels": "Refresh model list",
+      "pickProvider": "Choose a provider",
+      "changeProvider": "Change",
+      "baseUrlRequiredHint": "Required for self-hosted services",
+      "savingProbe": "Saving & probing…",
+      "stageCredential": "Credential",
+      "stageModel": "Model",
+      "stageKnobs": "Parameters",
+      "pickerApply": "Apply",
+      "pickerChange": "Change",
+      "pickerClose": "Close",
+      "visionBadge": "Vision",
+      "docsBadge": "Docs",
+      "noCapsGuide": "No usable models yet — add a key that passes its probe first",
+      "searchSection": "Search"
     },
     "ws": {
       "section": "Workspaces",
@@ -1655,7 +1668,8 @@
       "cantCheck": "Couldn't check for updates (offline or nothing published yet)",
       "diagnostics": "Diagnostics",
       "copyDiagnostics": "Copy diagnostics",
-      "copied": "Copied"
+      "copied": "Copied",
+      "diagDesc": "Copies version and environment info for bug reports"
     },
     "mem": {
       "section": "Memories",
@@ -1675,7 +1689,6 @@
       "deleteBody": "Physically deletes the file for “$name”. This can't be undone.",
       "confirmDelete": "Delete",
       "empty": "No memories yet",
-      "emptyHint": "Memories let the AI remember things across conversations.",
       "dirtyTitle": "Discard unsaved changes?",
       "dirtyBody": "The content has unsaved edits.",
       "discard": "Discard",
@@ -1685,12 +1698,10 @@
       "searchHint": "Search memories…"
     },
     "mcp": {
-      "statBar": "$n servers · $ready ready · $failed failed",
       "browse": "Browse marketplace",
       "manualAdd": "Add manually",
       "importJson": "Import mcp.json",
       "empty": "No MCP servers yet",
-      "emptyHint": "Install from the marketplace, add manually, or import mcp.json.",
       "reconnect": "Reconnect",
       "detail": "Details",
       "deleteServer": "Delete",
@@ -1737,14 +1748,17 @@
       "noTools": "No tools",
       "noCalls": "No calls yet",
       "noStderr": "No output yet",
-      "callsAgg": "✓ $ok · ✗ $failed"
+      "callsAgg": "✓ $ok · ✗ $failed",
+      "statCount": "$n servers",
+      "statReady": "$n ready",
+      "statFailed": "$n failed",
+      "cardMenu": "More actions"
     },
     "storage": {
       "dataDir": "Data directory",
       "revealFinder": "Reveal in Finder",
       "diskUsage": "Disk usage",
       "diskSandbox": "Sandbox runtimes & envs",
-      "diskMore": "Breakdown coming soon",
       "openLogs": "Open logs folder",
       "retention": "Run history retention",
       "retentionDesc": "Settled runs older than this are cleared. Statistics and failure aggregation windows (7d) are unaffected.",
@@ -1773,7 +1787,8 @@
       "patchFailed": "Save failed",
       "modified": "modified",
       "errorTitle": "Couldn't load limits",
-      "retry": "Retry"
+      "retry": "Retry",
+      "errorHint": "Couldn't read the limits config from the engine"
     },
     "network": {
       "section": "Network",
@@ -1813,7 +1828,6 @@
       "ownerSkill": "Skills",
       "ownerConversation": "Conversations",
       "noRuntimes": "No runtimes yet",
-      "noRuntimesHint": "Auto-downloaded on demand the first time the AI runs code.",
       "noEnvs": "No environments",
       "disk": "Disk usage",
       "gc": "Reclaim idle environments",

@@ -4,17 +4,20 @@ import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
 
-/// A VERTICAL form field — label above ([AnText.strong] ink), an optional [desc] sub-line ([AnText.meta]
-/// muted), then a block control below, with an s6 gap. The app's "label-above / control-below" form
-/// vocabulary — distinct from the horizontal [AnField]/[AnKv] key-value rows (value hugs the right). An
-/// optional [labelTrailing] rides the label baseline (a type badge / unit). The between-field spacing is
-/// the caller's (a parent `Padding`/`SizedBox`), keeping the primitive pure. Collapses the label-above
-/// block that the editor inspector and the run input form each hand-rolled.
+/// A VERTICAL form field — label above ([AnText.label] 13 muted: the two-level type ratio puts the
+/// VALUE in the control at 13 ink and the label a shade back — a 16 «strong» label out-shouted every
+/// value it named, 0719 审计), an optional [desc] sub-line ([AnText.meta] muted), then a block control
+/// below, with an s6 gap. The app's "label-above / control-below" form vocabulary — distinct from the
+/// horizontal [AnField]/[AnKv] key-value rows (value hugs the right). An optional [labelTrailing]
+/// rides the label baseline (a type badge / unit). The between-field spacing is the caller's (a
+/// parent `Padding`/`SizedBox`), keeping the primitive pure. Collapses the label-above block that the
+/// editor inspector and the run input form each hand-rolled.
 ///
-/// 纵向表单字段——标签在上(AnText.strong 墨)、可选 [desc] 副行(AnText.meta 灰),下接 block 控件,间距 s6。
-/// app 的「标签在上、控件在下」表单语汇——区别于横向 AnField/AnKv 键值行(值贴右)。可选 [labelTrailing] 骑标签
-/// 基线(类型徽章 / 单位)。字段间的纵向间距归调用方(父级 Padding/SizedBox),保持原语纯净。收口编辑器检查器与
-/// run 输入表单各自手搓的「标签在上」字段块。
+/// 纵向表单字段——标签在上(AnText.label 13 灰:两级配比里值在控件内 13 墨、标签退一档——16 strong 标签
+/// 盖过它命名的值,0719 审计)、可选 [desc] 副行(AnText.meta 灰),下接 block 控件,间距 s6。app 的
+/// 「标签在上、控件在下」表单语汇——区别于横向 AnField/AnKv 键值行(值贴右)。可选 [labelTrailing] 骑标签
+/// 基线(类型徽章 / 单位)。字段间的纵向间距归调用方(父级 Padding/SizedBox),保持原语纯净。收口编辑器
+/// 检查器与 run 输入表单各自手搓的「标签在上」字段块。
 class AnFormField extends StatelessWidget {
   const AnFormField({
     required this.label,
@@ -42,7 +45,11 @@ class AnFormField extends StatelessWidget {
       label,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: (monoLabel ? AnText.mono : AnText.strong).copyWith(color: c.ink),
+      // mono labels (env-var names) are identifiers — they keep ink; prose labels recede to muted
+      // under the value they name. mono 标签(env 名)是标识符保墨;普通标签退灰、让位于值。
+      style: monoLabel
+          ? AnText.mono.copyWith(color: c.ink)
+          : AnText.label.copyWith(color: c.inkMuted),
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
