@@ -233,6 +233,12 @@ class MatrixRowSummary {
   final List<MatrixCellState?> cells;
 }
 
+/// The column-head lane's height: just the two micro-bars (2px selection + 3px duration) plus a
+/// breath — NOT a 24px control box (用户 0718:「标题和矩阵距离这么大」——旧 24 盒里 ~19px 全是空气,
+/// 贴着段题读作巨缝;点击目标损失可接受:列头仍 24 宽,格子亦可点同目的地).
+/// 列头车道高=两条微条+呼吸(12),弃 24 控件盒——空气紧贴段题读作巨缝。
+const double _kColHeadH = AnSize.iconSm;
+
 class AnRunMatrix extends StatefulWidget {
   const AnRunMatrix({
     required this.rows,
@@ -594,8 +600,8 @@ class _AnRunMatrixState extends State<AnRunMatrix> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Matches the col-head row's pitch (head 24 + its bottom gap 4). 对齐列头行节距。
-              const SizedBox(height: AnSize.controlSm + AnSpace.s4),
+              // Matches the col-head row's pitch (micro-bar lane + its bottom gap 4). 对齐列头行节距。
+              const SizedBox(height: _kColHeadH + AnSpace.s4),
               for (var i = 0; i < widget.rows.length; i++) _laneHead(context, i, at),
             ],
           ),
@@ -831,7 +837,7 @@ class _ColHead extends StatelessWidget {
       child: ExcludeSemantics(
         child: SizedBox(
           width: AnSize.controlSm,
-          height: AnSize.controlSm,
+          height: _kColHeadH,
           // Two layers, colour channels split cleanly (用户拍板 0717-晚): TOP = the selection
           // indicator — ink when this run is the page's selection, TRANSPARENT otherwise (the pixels
           // stay reserved so selecting never jumps the grid). BOTTOM (adjacent to the cells) = the
