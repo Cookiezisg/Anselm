@@ -160,6 +160,8 @@ fe-verify 4304 全绿。
 - **[low] pager 自夹**：home/overview 自夹 top 12 与 AnSection 12 叠成 24——删，间距归容器。
 - **[low] 文档陈旧**：an_ledger_row 类注释/tokens AnIndent 注释仍写 iconSm 格——勘正为 16 格+s8 等退。
 
+**0718 追改续（用户逐条）**：跳页框「Page 太大」→ 重造为安静小格：`AnInput compact` 档（24 盒+s8 内距，与页码钮同高）+「#」记号占位（词曾把盒宽逼到 76，`pagerJumpW` 收 44，词转读屏名）+ **合法数字滑出 ↵ 确认钮**（`AnExpandReveal` 新 `axis` 横向档，`AnIcons.enter` sm，点击=回车同径钳制，非法无钮、清空/提交收回出树；回车路径不动）。an_pager 9 测 + an_input compact 探针锁死。
+
 几何锁：an_ledger_row disclose 2 测 + home 段缝/pager 距 + overview 静息节奏 + run 三海拔/甘特框各 1 测。design-system（AnLedgerRow/AnPager/AnRunMatrix 三条目）与 scheduler.md 同提交重述。
 
 ## 拍板状态（0718 收官 ✅）

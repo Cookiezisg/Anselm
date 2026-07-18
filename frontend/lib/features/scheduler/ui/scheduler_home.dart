@@ -718,6 +718,7 @@ class _RunTableZoneState extends ConsumerState<_RunTableZone> with BatchZone<_Ru
                   nextLabel: t.pagerNext,
                   jumpHint: t.pagerJump,
                   pageLabel: (n) => t.pagerPage(n: '$n'),
+                  jumpToLabel: (n) => t.pagerJumpTo(n: '$n'),
                 ),
               ),
             ),

@@ -497,6 +497,7 @@ mixin _PeekZone<T extends ConsumerStatefulWidget> on ConsumerState<T> {
           nextLabel: home.pagerNext,
           jumpHint: home.pagerJump,
           pageLabel: (n) => home.pagerPage(n: '$n'),
+          jumpToLabel: (n) => home.pagerJumpTo(n: '$n'),
         ),
       ),
     );

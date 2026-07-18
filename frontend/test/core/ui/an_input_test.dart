@@ -62,4 +62,17 @@ void main() {
     a.dispose();
     b.dispose();
   });
+
+  testWidgets('compact tier: 24 box (controlSm) vs the standard 28; semanticLabel names a '
+      'glyph-placeholder field (0718 拍板,AnPager 跳页格档)', (tester) async {
+    await tester.pumpWidget(host(Column(children: const [
+      AnInput(placeholder: '#', compact: true, semanticLabel: '页码'),
+      AnInput(placeholder: 'word'),
+    ])));
+    final boxes = tester.widgetList<AnimatedContainer>(find.byType(AnimatedContainer)).toList();
+    expect(boxes[0].constraints!.minHeight, AnSize.controlSm, reason: '紧凑档 24 盒');
+    expect(boxes[1].constraints!.minHeight, AnSize.control, reason: '标准档 28 盒不动');
+    // The name merges with the glyph hint into one node («页码\n#»). 名与记号 hint 合并一节点。
+    expect(find.bySemanticsLabel(RegExp('^页码')), findsWidgets, reason: '记号占位的字段有读屏名');
+  });
 }

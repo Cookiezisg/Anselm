@@ -484,6 +484,7 @@ final GalleryCategory _g1Controls = GalleryCategory('基础控件 Controls', AnI
   ]),
   GalleryItem('AnInput', '值叶子:单行/多行/等宽', [
     GallerySpecimen('default', (_) => const AnInput(placeholder: 'Type…')),
+    GallerySpecimen('compact 24 · 「#」记号占位(0718,AnPager 跳页格档)', (_) => const AnInput(placeholder: '#', compact: true, tabular: true, semanticLabel: '页码')),
     GallerySpecimen('mono', (_) => const AnInput(initialValue: 'fn_3a9f', mono: true)),
     GallerySpecimen('readonly', (_) => const AnInput(initialValue: 'read only', readOnly: true)),
     GallerySpecimen('disabled', (_) => const AnInput(initialValue: 'disabled', enabled: false)),

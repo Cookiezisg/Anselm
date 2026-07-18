@@ -2,8 +2,9 @@ import 'package:flutter/widgets.dart';
 
 import '../design/tokens.dart';
 
-/// The kit's single collapse / expand reveal: a controller-driven [ClipRect] + [Align] height-factor tween
-/// (the ExpansionTile idiom) that grows DOWNWARD only and is gated to instant under reduced motion.
+/// The kit's single collapse / expand reveal: a controller-driven [ClipRect] + [Align] size-factor tween
+/// (the ExpansionTile idiom) that grows downward — or, with [axis] horizontal, out of the start edge —
+/// and is gated to instant under reduced motion.
 /// [AnRowDetail]'s detail panel and [AnSidebarList]'s group / type / branch children both route through it
 /// so the disclosure motion is byte-identical kit-wide (not re-rolled per site — #8).
 ///
@@ -18,7 +19,8 @@ import '../design/tokens.dart';
 /// **非 AnimatedSize**(后者在嵌套时会 performLayout 内自脏断言——sidebar 是嵌套树);ClipRect+Align 可安全嵌套。
 /// open 显 child,否则补间到 0 高、全收后从树移除(收起的行不可聚焦/不被屏读)。duration=Duration.zero 强制即时。
 class AnExpandReveal extends StatefulWidget {
-  const AnExpandReveal({required this.open, required Widget this.child, this.duration, super.key})
+  const AnExpandReveal(
+      {required this.open, required Widget this.child, this.duration, this.axis = Axis.vertical, super.key})
       : childBuilder = null;
 
   /// LAZY reveal (C-006): the child is built ONLY while open / animating — a fully-collapsed row never
@@ -26,10 +28,18 @@ class AnExpandReveal extends StatefulWidget {
   /// jsonDecode / regex / arg extraction every build); the eager [child] form would pay that cost each
   /// parent rebuild even while collapsed (during streaming: N collapsed cards × per frame). 惰性揭示:收起
   /// 态绝不调 builder,贵的体(族体 jsonDecode/正则/取参)收起时零成本。
-  const AnExpandReveal.builder({required this.open, required WidgetBuilder this.childBuilder, this.duration, super.key})
+  const AnExpandReveal.builder(
+      {required this.open, required WidgetBuilder this.childBuilder, this.duration, this.axis = Axis.vertical, super.key})
       : child = null;
 
   final bool open;
+
+  /// Reveal axis: vertical grows downward (the disclosure default); horizontal grows from the start
+  /// edge (an inline control sliding out — the pager's ↵ confirmer, 0718 首用). Same tween, same
+  /// reduced gating, same removed-when-closed hygiene on both axes.
+  /// 揭示轴:纵=向下(披露默认);横=自起始缘长出(行内控件滑出,翻页器 ↵ 首用)。同补间/同 reduced/
+  /// 同「全收即出树」卫生。
+  final Axis axis;
 
   /// The eager child (built by the caller before this widget). Null on the [AnExpandReveal.builder] form.
   /// 急切子件(调用方先建);builder 形为 null。
@@ -91,10 +101,14 @@ class _AnExpandRevealState extends State<AnExpandReveal> with SingleTickerProvid
       child: child,
       builder: (context, child) {
         if (_ctl.value == 0 && !widget.open) return const SizedBox.shrink();
+        final f = _factor.value.clamp(0.0, 1.0);
+        final horizontal = widget.axis == Axis.horizontal;
         return ClipRect(
           child: Align(
-            alignment: Alignment.topCenter, // grow downward only 仅向下
-            heightFactor: _factor.value.clamp(0.0, 1.0),
+            // vertical grows downward only; horizontal grows from the start edge. 纵仅向下;横自起始缘。
+            alignment: horizontal ? AlignmentDirectional.centerStart : Alignment.topCenter,
+            heightFactor: horizontal ? null : f,
+            widthFactor: horizontal ? f : null,
             child: child,
           ),
         );

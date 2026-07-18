@@ -751,6 +751,7 @@
       "pagerNext": "Next page",
       "pagerJump": "Page",
       "pagerPage": "Page $n",
+      "pagerJumpTo": "Jump to page $n",
       "filterA11y": "Filter runs by status",
       "filterAll": "All",
       "filterRunning": "Running $n",

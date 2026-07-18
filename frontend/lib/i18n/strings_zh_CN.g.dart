@@ -1253,6 +1253,7 @@ class _Translations$scheduler$home$zh_CN extends Translations$scheduler$home$en 
 	@override String get pagerNext => '下一页';
 	@override String get pagerJump => '页码';
 	@override String pagerPage({required Object n}) => '第 ${n} 页';
+	@override String pagerJumpTo({required Object n}) => '跳转到第 ${n} 页';
 	@override String get filterA11y => '按状态过滤运行';
 	@override String get filterAll => '全部';
 	@override String filterRunning({required Object n}) => '在跑 ${n}';
@@ -3191,6 +3192,7 @@ extension on TranslationsZhCn {
 			'scheduler.home.pagerNext' => '下一页',
 			'scheduler.home.pagerJump' => '页码',
 			'scheduler.home.pagerPage' => ({required Object n}) => '第 ${n} 页',
+			'scheduler.home.pagerJumpTo' => ({required Object n}) => '跳转到第 ${n} 页',
 			'scheduler.home.filterA11y' => '按状态过滤运行',
 			'scheduler.home.filterAll' => '全部',
 			'scheduler.home.filterRunning' => ({required Object n}) => '在跑 ${n}',
@@ -3494,9 +3496,9 @@ extension on TranslationsZhCn {
 			'entities.detail.hero.deps' => ({required Object n}) => '${n} 依赖',
 			'entities.detail.gate.config' => 'config',
 			'entities.detail.gate.env' => 'env',
-			'entities.detail.gate.instance' => 'instance',
 			_ => null,
 		} ?? switch (path) {
+			'entities.detail.gate.instance' => 'instance',
 			'entities.detail.codeToggle.expand' => ({required Object n}) => '展开全部 (${n} 行)',
 			'entities.detail.codeToggle.collapse' => '收起',
 			'entities.detail.sec.code' => '代码',
@@ -4008,9 +4010,9 @@ extension on TranslationsZhCn {
 			'settings.mcp.searchMarket' => '搜索市场…',
 			'settings.mcp.installed' => '已安装',
 			'settings.mcp.install' => '安装',
-			'settings.mcp.installing' => '安装中…',
 			_ => null,
 		} ?? switch (path) {
+			'settings.mcp.installing' => '安装中…',
 			'settings.mcp.prerequisite' => '前置',
 			'settings.mcp.requiredMark' => '必填',
 			'settings.mcp.oauthConnect' => '连接并授权',

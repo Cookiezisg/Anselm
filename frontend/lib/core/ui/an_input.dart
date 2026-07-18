@@ -23,6 +23,8 @@ class AnInput extends StatefulWidget {
     this.mono = false,
     this.block = false,
     this.seamless = false,
+    this.compact = false,
+    this.semanticLabel,
     this.enabled = true,
     this.readOnly = false,
     this.focusNode,
@@ -31,7 +33,7 @@ class AnInput extends StatefulWidget {
     this.tabular = false,
     this.style,
     super.key,
-  });
+  }) : assert(!(compact && multiline), 'compact is a single-line tier');
 
   final TextEditingController? controller;
   final String? initialValue;
@@ -54,6 +56,18 @@ class AnInput extends StatefulWidget {
   /// the SAME footprint as the display text it replaces (no layout jump). Caller sizes the width.
   /// 无边框、文字高的就地编辑字段——无框、无最小高,与被替换的展示文字同占位(不跳)。宽由调用方定。
   final bool seamless;
+
+  /// The small-control tier (0718 拍板,AnPager 跳页格首用): [AnSize.controlSm] (24) box +
+  /// [AnSpace.s8] horizontal pad — sits flush in a strip of small controls (page-number buttons,
+  /// sm icon buttons) where the standard 28 box reads a head taller. Single-line only.
+  /// 紧凑档:24 盒+s8 内距,与小控件带(页码钮/sm 图标钮)同高齐坐——标准 28 盒在那里高出一头。仅单行。
+  final bool compact;
+
+  /// Screen-reader name for a field whose visible placeholder is a GLYPH, not a word (the pager's
+  /// «#») — a glyph hint leaves the reader guessing. Rendered as a labeled container around the
+  /// field; null = the hint speaks for itself (the default for word placeholders).
+  /// 读屏名:占位是记号(如「#」)而非词的字段必须另给名字,否则读屏只能念记号;null=占位词自足。
+  final String? semanticLabel;
   final bool enabled;
   final bool readOnly;
   final FocusNode? focusNode;
@@ -180,15 +194,16 @@ class _AnInputState extends State<AnInput> {
     // Seamless: no box chrome, text-height — the caller constrains width (a Flexible, or AnLeadValue's
     // value slot) so it slots in where the display text was, no jump. 无框、文字高:宽由调用方约束,原位替换、不跳。
     if (widget.seamless) {
-      return Opacity(opacity: widget.enabled ? 1 : AnOpacity.disabled, child: field);
+      return _label(Opacity(opacity: widget.enabled ? 1 : AnOpacity.disabled, child: field));
     }
 
+    final boxH = widget.compact ? AnSize.controlSm : AnSize.control;
     final box = AnimatedContainer(
       duration: AnMotionPref.reduced(context) ? Duration.zero : AnMotion.fast, // focus-border fade = functional feedback 功能性反馈
-      height: widget.multiline ? null : AnSize.control,
-      constraints: BoxConstraints(minHeight: widget.multiline ? AnSize.control * 2 : AnSize.control),
+      height: widget.multiline ? null : boxH,
+      constraints: BoxConstraints(minHeight: widget.multiline ? AnSize.control * 2 : boxH),
       padding: EdgeInsets.symmetric(
-        horizontal: AnSpace.s12,
+        horizontal: widget.compact ? AnSpace.s8 : AnSpace.s12,
         vertical: widget.multiline ? AnSpace.s8 : 0,
       ),
       alignment: widget.multiline ? Alignment.topLeft : Alignment.centerLeft,
@@ -203,7 +218,7 @@ class _AnInputState extends State<AnInput> {
     // block fills width — but only with a bounded parent; otherwise fall back to inputMin so an
     // empty input doesn't collapse to a thin line (and doesn't crash unbounded).
     // block 占满需有界父;否则退化到 inputMin,空输入不塌成细线、也不在无界处崩。
-    return Opacity(
+    return _label(Opacity(
       opacity: widget.enabled ? 1 : AnOpacity.disabled,
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -213,6 +228,11 @@ class _AnInputState extends State<AnInput> {
           return SizedBox(width: AnSize.inputMin, child: box);
         },
       ),
-    );
+    ));
   }
+
+  /// Wrap in the screen-reader name when one is given (glyph-placeholder fields). 有读屏名才包。
+  Widget _label(Widget child) => widget.semanticLabel == null
+      ? child
+      : Semantics(container: true, label: widget.semanticLabel, child: child);
 }

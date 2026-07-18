@@ -1,5 +1,6 @@
 import 'package:anselm/core/design/theme.dart';
-import 'package:anselm/core/ui/an_pager.dart';
+import 'package:anselm/core/design/tokens.dart';
+import 'package:anselm/core/ui/ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -13,6 +14,7 @@ void main() {
     nextLabel: 'next',
     jumpHint: 'page',
     pageLabel: (n) => 'page $n',
+    jumpToLabel: (n) => 'jump to $n',
   );
 
   Widget host(int page, int count, void Function(int) onPage) => MaterialApp(
@@ -82,5 +84,49 @@ void main() {
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pump();
     expect(got, 12, reason: '越界跳页钳到末页');
+  });
+
+  // ── 跳页小格 + ↵ 确认钮 (0718 拍板「Page 太大」) ──────────────────────────────────────────
+
+  testWidgets('the jump cell is QUIET: «#» glyph placeholder, 24 box flush with the number strip, '
+      'width = the compact token (词不再定宽)', (tester) async {
+    await tester.pumpWidget(host(1, 12, (_) {}));
+    expect(find.text('#'), findsOneWidget, reason: '占位=「#」记号,非词');
+    // The reader name MERGES with the glyph hint into one node («page\n#») — the word is there.
+    // 读屏名与记号 hint 合并为一节点,词在场。
+    expect(find.bySemanticsLabel(RegExp('^page\n')), findsOneWidget, reason: '词转读屏名(jumpHint)');
+    final cell = tester.getRect(find.byType(AnInput));
+    expect(cell.width, AnSize.pagerJumpW, reason: '宽=紧凑 token(44)');
+    expect(cell.height, AnSize.controlSm, reason: '24 盒与页码钮同高,不再高一头');
+  });
+
+  testWidgets('a legal number slides the ↵ confirmer out; tapping it jumps (clamped) and clears; '
+      'the button then retracts', (tester) async {
+    var got = -1;
+    await tester.pumpWidget(host(1, 12, (p) => got = p));
+    expect(find.byIcon(AnIcons.enter), findsNothing, reason: '空格无钮');
+    await tester.enterText(find.byType(EditableText), '99');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    final confirm = find.byIcon(AnIcons.enter);
+    expect(confirm, findsOneWidget, reason: '合法数字 → ↵ 滑出');
+    expect(find.bySemanticsLabel('jump to 12'), findsOneWidget, reason: '钮读钳后的目标页');
+    await tester.tap(confirm);
+    await tester.pump();
+    expect(got, 12, reason: '点 ↵ = 回车同径(钳制)');
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byIcon(AnIcons.enter), findsNothing, reason: '提交清空后钮收回(控制器监听,非 onChanged)');
+  });
+
+  testWidgets('an illegal entry gets NO confirmer and Enter does not navigate', (tester) async {
+    var got = -1;
+    await tester.pumpWidget(host(1, 12, (p) => got = p));
+    await tester.enterText(find.byType(EditableText), 'abc');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byIcon(AnIcons.enter), findsNothing, reason: '非法输入无钮');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+    expect(got, -1, reason: '非法回车不跳');
   });
 }

@@ -3058,6 +3058,9 @@ class Translations$scheduler$home$en {
 	/// en: 'Page $n'
 	String pagerPage({required Object n}) => 'Page ${n}';
 
+	/// en: 'Jump to page $n'
+	String pagerJumpTo({required Object n}) => 'Jump to page ${n}';
+
 	/// en: 'Filter runs by status'
 	String get filterA11y => 'Filter runs by status';
 
@@ -6513,6 +6516,7 @@ extension on Translations {
 			'scheduler.home.pagerNext' => 'Next page',
 			'scheduler.home.pagerJump' => 'Page',
 			'scheduler.home.pagerPage' => ({required Object n}) => 'Page ${n}',
+			'scheduler.home.pagerJumpTo' => ({required Object n}) => 'Jump to page ${n}',
 			'scheduler.home.filterA11y' => 'Filter runs by status',
 			'scheduler.home.filterAll' => 'All',
 			'scheduler.home.filterRunning' => ({required Object n}) => 'Running ${n}',
@@ -6816,9 +6820,9 @@ extension on Translations {
 			'entities.detail.hero.deps' => ({required Object n}) => '${n} deps',
 			'entities.detail.gate.config' => 'config',
 			'entities.detail.gate.env' => 'env',
-			'entities.detail.gate.instance' => 'instance',
 			_ => null,
 		} ?? switch (path) {
+			'entities.detail.gate.instance' => 'instance',
 			'entities.detail.codeToggle.expand' => ({required Object n}) => 'Show all (${n} lines)',
 			'entities.detail.codeToggle.collapse' => 'Collapse',
 			'entities.detail.sec.code' => 'Code',
@@ -7330,9 +7334,9 @@ extension on Translations {
 			'settings.mcp.searchMarket' => 'Search the marketplace…',
 			'settings.mcp.installed' => 'Installed',
 			'settings.mcp.install' => 'Install',
-			'settings.mcp.installing' => 'Installing…',
 			_ => null,
 		} ?? switch (path) {
+			'settings.mcp.installing' => 'Installing…',
 			'settings.mcp.prerequisite' => 'Prerequisite',
 			'settings.mcp.requiredMark' => 'required',
 			'settings.mcp.oauthConnect' => 'Connect & authorize',
