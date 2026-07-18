@@ -188,6 +188,13 @@ abstract final class AnSize {
   static const double runListW = 208;
   static const double ganttLaneW = 132;
 
+  // AnScheduleTrack (WRK-070 调度轨重造) — the FUTURE next-fire segment's fixed width (the past grid
+  // takes the remainder, ~13-14px per hourly bin at reading-column width; the now line divides them),
+  // and the past bin's uptime-bar HEIGHT (a status-page uptime bar, filling the 32-row's breath).
+  // 调度轨:未来「下一发」段定宽(过去格条吃剩余宽、now 线分界),过去分箱格=状态页 uptime 竖条高。
+  static const double trackFutureW = 184;
+  static const double trackBinH = 20;
+
   // Editor-inspector field metrics — the field→CEL input-map key column + the small numeric field
   // (retry max-attempts). 检查器字段度量:输入映射 key 列 + 小数字输入框(retry 次数)。
   static const double inspectorKeyCol = 96;

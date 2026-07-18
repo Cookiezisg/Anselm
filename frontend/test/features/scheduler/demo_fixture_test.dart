@@ -538,6 +538,27 @@ void main() {
   });
 
 
+  // The schedule track's past-half GRID reads listRunsSince (裁决③/B1) — all statuses, all origins,
+  // windowed on started_at — so the demo shows the full health grammar: a dense workflow with both green
+  // and red hours, several sources. Data-level battery (D 轨:数据级电池取代真机帧).
+  // 调度轨过去格读 listRunsSince(裁决③/B1):全状态全来源、按 started_at 开窗,故 demo 展示满健康文法(既有绿又有红、多来源)。
+  test('调度轨 · the past grid has data: listRunsSince returns in-window runs, multi-status, multi-source',
+      () async {
+    final since = DateTime.now().subtract(const Duration(hours: 24));
+    final runs = await repo.listRunsSince(since);
+    expect(runs, isNotEmpty, reason: '过去健康格需要窗内 run');
+    expect(runs.every((r) => r.startedAt != null && !r.startedAt!.isBefore(since)), isTrue,
+        reason: '全部在窗内开始(按 started_at 开窗)');
+    expect(runs.map((r) => r.status).toSet().length, greaterThan(1),
+        reason: '多状态:健康格既有绿(completed)又有红(failed)');
+    expect(runs.any((r) => r.status == 'failed'), isTrue, reason: '至少一个失败 → 一个红格');
+    expect(runs.map((r) => r.origin).toSet().length, greaterThan(1),
+        reason: '裁决③:格统计**所有来源**——窗内不止 cron');
+    // The dense workflow (wf_clean) has many in-window runs → the high-frequency lane. 高频泳道种子。
+    expect(runs.where((r) => r.workflowId == 'wf_clean').length, greaterThan(5),
+        reason: '高频泳道(wf_clean)窗内多 run,逼出满格');
+  });
+
   // ── S6 seeds · 工单⑭/判决⑥ 的 firing 账 ──
 
   test('S6 · ⑭ the disposition palette is complete: started / skipped / superseded / shed / missed '

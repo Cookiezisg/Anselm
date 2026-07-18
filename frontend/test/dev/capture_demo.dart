@@ -168,6 +168,12 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300)); // the switch animation settles 切换动画落定
       outName = '${outName}_$_ocean';
+      // `--dart-define=TRACK=1` scrolls the schedule track into the frame (0718 轨重造验收帧). 滚轨入帧。
+      if (const bool.fromEnvironment('TRACK')) {
+        await tester.ensureVisible(find.byType(AnScheduleTrack).first);
+        await tester.pump(const Duration(milliseconds: 300));
+        outName = '${outName}_track';
+      }
     }
 
     // Deep-link to the scheduler operations home (real navigation) — captures the rebuilt page:

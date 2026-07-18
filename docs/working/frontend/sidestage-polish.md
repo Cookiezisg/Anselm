@@ -97,9 +97,9 @@ audience: [human, ai]
 - 列表改**每页 10 条 + 底部标准翻页器**（←/→、页码、跳转输入框；单页不显示）。
 - **技术点**：页码+跳转需要 offset+总数：后端小工单=flowruns list 加 `?offset`+返回 total。**✅ 用户 0718 拍板「加后端」**。
 
-### B5 排期时间线上的小数字看不懂 ✅ 已落(0718)
+### B5 排期时间线上的小数字看不懂 ✅→**已被彻底重造取代**(0718)
 定位：`an_schedule_track.dart` bucket 折叠——密集 firing（如 */5 cron）按像素桶折叠，点上方小数字=该桶折叠数。用户看不懂。
-拟案：数字撤下，折叠点渲成「厚点/胶囊 ×N」形 + hover tooltip 说人话（「这小时 9 次」）。**✅ 用户 0718「都同意」**。
+一轮拟案：数字撤下，折叠点渲成「厚点/胶囊 ×N」形 + hover tooltip 说人话。**用户真机复核仍不满**（「×9 看不懂」）→ **拍板彻底重造整个 `AnScheduleTrack`**（分箱格 + 下一发一句话 + hover 明细卡 + 全来源健康 + 发射台）——bucket 折叠/「×N」胶囊整个退役,见文末「0718 追改续（调度轨彻底重造）」。
 
 ### B6 emoji 禁令 ✅ 已落(0718,含 no_emoji_guard 卫士测试+⚙ 双渲清除)
 定位：`scheduler.nextFireIn = "⏱ $d 后"`。**✅ 用户 0718 立法：「只允许 icon，不允许 emoji」**——撤字符（icon 归 widget 层 AnIcons），全库审计可疑彩渲字符（⚙ 嫌疑；✓✗▲▼⌘ 文本字形逐个核）。
@@ -165,6 +165,8 @@ fe-verify 4304 全绿。
 几何锁：an_ledger_row disclose 2 测 + home 段缝/pager 距 + overview 静息节奏 + run 三海拔/甘特框各 1 测。design-system（AnLedgerRow/AnPager/AnRunMatrix 三条目）与 scheduler.md 同提交重述。
 
 **0718 追改续（滚动闪烁根治）**：用户报告——scheduler 主页鼠标停在内容行上用触控板滚动，触顶/触底 overscroll 后内容**持续闪烁**；鼠标在两侧空白处则正常回弹。探针定罪（一次性 `zz_scroll_probe`/`zz_minimal_probe`，用完转正即删）：overscroll 中内容在**静止光标**下移动 → MouseRegion enter/exit → 悬停行**换件 relayout**（点↔转圈 / 披露箭头现身，非纯换色的 repaint）→ 把进行中的 trackpad drag 喂回**反向**增量（栈证 `DragGestureRecognizer._checkUpdate → applyUserOffset`）→ overscroll 掐回 0 → 弹回 → hover 又翻 → **自激振荡**（实测 offset `30→0→0→30→0→0`，正常组单调橡皮筋 `30→37→44→…→147→…衰减`）；充要条件=**mouse hover 指针停在换件行上**（pan 命中位置无关）。**修=业界标准「滚动进行中冻结 hover」一处收口**：新原语 `AnHoverRegion`（滚动中缓存 enter/exit、滚停一次落定，`ScrollSilencedHoverMixin` 监听最近 Scrollable `isScrollingNotifier`）+ `AnInteractive` 内建同律（披露箭头 morph 走这条）；scheduler 大表 + Overview 三区四处 zone MouseRegion 换 `AnHoverRegion`。只冻 hover，press/tap/focus 不冻；顺带省滚动中的 hover 重建。锁：`an_hover_region_test`（冻结/直通/滚停 flush/换 position 重挂 四电池）+ `scheduler_scroll_hover_test`（治后 CONTENT+hover 轨迹与无换件轨迹逐帧 <0.1 一致 / 回弹单调无锯齿 / 滚停 hover 正确落位）——关掉修复两套皆红。design-system（AnHoverRegion 新条目 + AnInteractive 补句）同提交。
+
+**0718 追改续（调度轨彻底重造，用户裁「×9 看不懂 → 彻底做干净」）**：B5 一轮的「×N 胶囊」只是把裸数字包起来，用户真机复核仍不满——高频 cron 的未来预告被 bucket 折成一串「×9」胶囊、与 missed 的 ✕ 撞脸、无信息量，且疏密泳道形态分裂。**拍板彻底重造 `AnScheduleTrack`**（业界出处:过去半=status-page uptime bar / GitHub 贡献格的**统一时段分箱**;未来半=Cronitor/Healthchecks 的 **next-run 一句话**）:now 线劈两半——**过去=全泳道同 24 个小时格**（离散点 + `foldEvents`/「×N」胶囊整个退役），格色=时段内 run 的最坏状态（同矩阵色律,空=淡描边）,**missed 叠灰 ✕ 不进格色**;**未来=定宽段**（○ + HH:mm(相对词) + 排程句;暂停「已暂停」,下一发含轴外）。**格统计所有来源的 run**（裁决③:答健康非排程执行率——数据缝 feature 补 `listRunsSince` 拉工作区窗内全状态全来源 run;纯函数 `binTrackEvents` 分箱）。点击=发射台（1 run→旗舰/N→主页/空·纯 missed 惰性）,hover=不可交互明细卡（`AnHoverCard` 新原语:`OverlayPortal`+`LayerLink`+`AnHoverRegion` 滚动冻结,IgnorePointer+ExcludeSemantics;时段+总数 / 状态点·HH:mm·来源·耗时[失败置顶 cap5+溢出句] / missed 行 / 未来卡）。roving 键盘（光标单位=格含空格 + 未来 ○,←→ 走本泳道、↑↓ 同小时邻泳道,整轨唯一 Tab 停靠）+ 逐格·行摘要读屏保留。**修订四条旧裁决记档**（非违背,见 design-system 条目 + scheduler.md §3 项4）:①now 线不再居中（未来定宽~184、过去吃剩余~13-14px）②未来放弃位置编码③格统计所有来源④bucket 折叠退役。锁:`an_schedule_track_test` **19 测**（纯分箱引擎 + widget 契约:24 格恒定/最坏色/空描边/✕/未来三态/roving/发射台）+ `scheduler_overview_test` B5 发射台导航 + `demo_fixture_test` 调度轨数据缝 + 五形态 gallery 样章。design-system AnScheduleTrack 条目整体重述、scheduler.md 项4 + mockup 重述同提交。
 
 ## 拍板状态（0718 收官 ✅）
 

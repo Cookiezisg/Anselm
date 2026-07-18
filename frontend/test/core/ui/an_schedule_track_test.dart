@@ -1,199 +1,219 @@
+import 'package:anselm/core/design/colors.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-// AnScheduleTrack (WRK-069 §12, S5). Two layers: the PURE fold (no pump — the bucket engine is where
-// «防爆» actually happens, and it must be provable without a widget tree) and the widget contract
-// (three faces are distinguishable, a paused lane survives, every dot is focusable so ←→ works).
-// 两层:纯折叠(免 pump——防爆真正发生在 bucket 引擎里,必须脱 widget 树可证)+ widget 契约(三脸可区分、
-// 暂停泳道存活、每点可聚焦故 ←→ 成立)。
+// AnScheduleTrack (WRK-069 §12 · WRK-070 调度轨重造 0718). Two layers: the PURE bin engine (no pump — the
+// «防爆» is a fixed 24 hourly cells, provable without a widget tree) and the widget contract (24 cells
+// per lane, the worst-status fill, a missed ✕, the future «next-fire» segment, a paused lane surviving,
+// ONE Tab stop with the roving cursor, and the launch pad firing only on content cells).
+// 两层:纯分箱引擎(免 pump——恒 24 格,脱 widget 树可证)+ widget 契约(每泳道 24 格、最坏状态色、missed ✕、
+// 未来「下一发」段、暂停泳道存活、roving 光标唯一 Tab 停靠、发射台只在内容格触发)。
 
-final _now = DateTime(2026, 7, 16, 12);
+final _now = DateTime(2026, 7, 16, 14, 30);
+final _start = _now.subtract(const Duration(hours: 24));
 
-Widget _host(Widget child, {double width = 600}) => MaterialApp(
+TrackRun _run(DateTime at, AnStatus status, {String id = 'fr_x', String wf = 'wf_a', Duration? elapsed}) =>
+    TrackRun(id: id, workflowId: wf, at: at, status: status, sourceLabel: 'cron', elapsed: elapsed);
+
+TrackLane _lane(
+  String id,
+  String label, {
+  List<TrackRun> runs = const [],
+  List<DateTime> missed = const [],
+  TrackFuture? future,
+  bool dimmed = false,
+  String note = '',
+}) =>
+    TrackLane(
+      id: id,
+      label: label,
+      bins: binTrackEvents(start: _start, end: _now, binCount: 24, runs: runs, missed: missed),
+      future: future,
+      dimmed: dimmed,
+      note: note,
+    );
+
+Widget _host(Widget child, {double width = 800}) => MaterialApp(
       theme: AnTheme.light(),
       home: Scaffold(body: Center(child: SizedBox(width: width, child: child))),
     );
 
 void main() {
-  group('foldEvents (pure)', () {
-    test('drops events outside the axis — an unplaceable event is never faked into place', () {
-      final out = foldEvents(
-        [
-          TrackEvent(at: _now.add(const Duration(days: 30)), kind: TrackEventKind.future),
-          TrackEvent(at: _now.subtract(const Duration(days: 30)), kind: TrackEventKind.past),
-          TrackEvent(at: _now.add(const Duration(hours: 1)), kind: TrackEventKind.future),
-        ],
-        start: _now,
-        spanMs: const Duration(hours: 24).inMilliseconds,
-        trackWidth: 600,
-      );
-      expect(out.length, 1, reason: '轴外事件放不下就不渲,绝不硬塞进轴内假装放得下');
-      expect(out.single.event.kind, TrackEventKind.future);
+  group('binTrackEvents (pure)', () {
+    test('always produces exactly binCount hourly cells with contiguous bounds', () {
+      final bins = binTrackEvents(start: _start, end: _now, binCount: 24);
+      expect(bins, hasLength(24), reason: '恒 24 格:全泳道同构,无论疏密');
+      expect(bins.first.start, _start);
+      expect(bins.last.end, _now, reason: '过去轴终于 now');
+      for (var i = 1; i < bins.length; i++) {
+        expect(bins[i].start, bins[i - 1].end, reason: '格边界相接、不重不漏');
+      }
     });
 
-    test('folds a */5 cron (288 ticks) into a bounded, counted set of dots', () {
-      final out = foldEvents(
-        [
-          for (var i = 1; i <= 288; i++)
-            TrackEvent(at: _now.add(Duration(minutes: i * 5)), kind: TrackEventKind.future),
-        ],
-        start: _now,
-        spanMs: const Duration(hours: 24).inMilliseconds,
-        trackWidth: 600,
-      );
-      // 600px / 24px bucket = buckets 0..24, plus bucket 25 for an event landing exactly on the
-      // axis end (the right edge is closed) → 26 is the true ceiling. The point stands: the widget
-      // count is bounded by PIXELS, not by data — 288 ticks cannot make 288 dots.
-      // 600/24 → 桶 0..24,再加恰好落在轴末的事件占的第 25 桶(右缘闭合)=26 封顶。要害不变:widget 数由
-      // **像素**封顶、不由数据封顶——288 个刻度变不出 288 个点。
-      expect(out.length, lessThanOrEqualTo(26), reason: '288 刻度折成 ≤26 个点:防爆由像素桶保证');
-      expect(out.fold<int>(0, (n, p) => n + p.event.count), 288,
-          reason: '折叠不丢事件:计数总和必须仍是 288(聚合是诚实的,不是抽样)');
+    test('a run lands in the hour its startedAt falls into', () {
+      final at = _now.subtract(const Duration(hours: 5, minutes: 12));
+      final bins = binTrackEvents(
+          start: _start, end: _now, binCount: 24, runs: [_run(at, AnStatus.done)]);
+      final withRun = bins.where((b) => b.runs.isNotEmpty).toList();
+      expect(withRun, hasLength(1));
+      expect(withRun.single.start.isAfter(at) || withRun.single.start.isAtSameMomentAs(at), isFalse,
+          reason: 'run 的 startedAt ∈ [binStart, binEnd)');
+      expect(at.isBefore(withRun.single.end), isTrue);
     });
 
-    test('a bucket keeps its faces APART — missed and past never collapse into one dot', () {
-      final at = _now.add(const Duration(hours: 1));
-      final out = foldEvents(
-        [
-          TrackEvent(at: at, kind: TrackEventKind.past, status: AnStatus.done),
-          TrackEvent(at: at, kind: TrackEventKind.missed),
-        ],
-        start: _now,
-        spanMs: const Duration(hours: 24).inMilliseconds,
-        trackWidth: 600,
-      );
-      expect(out.length, 2, reason: '同桶不同 kind 各出一点——一个点绝不替另两个 kind 撒谎');
-      expect(out.map((p) => p.event.kind).toSet(),
-          {TrackEventKind.past, TrackEventKind.missed});
+    test('the bin boundary is HALF-OPEN [start, end): a tick on the edge lands in the LATER bin', () {
+      // Exactly on the boundary between bin 22 and 23 (2h before now, an integral hour). 恰在格边界。
+      final edge = _now.subtract(const Duration(hours: 2));
+      final bins = binTrackEvents(
+          start: _start, end: _now, binCount: 24, runs: [_run(edge, AnStatus.done)]);
+      final idx = bins.indexWhere((b) => b.runs.isNotEmpty);
+      expect(bins[idx].start, edge, reason: '边界刻度归 [start,end) 的那一格(其 start == 刻度)');
     });
 
-    test('within a kind the WORST status wins — a later green cannot erase a real failure', () {
-      final base = _now.add(const Duration(hours: 1));
-      final out = foldEvents(
-        [
-          TrackEvent(at: base, kind: TrackEventKind.past, status: AnStatus.done),
-          TrackEvent(
-              at: base.add(const Duration(seconds: 1)),
-              kind: TrackEventKind.past,
-              status: AnStatus.err),
-          TrackEvent(
-              at: base.add(const Duration(seconds: 2)),
-              kind: TrackEventKind.past,
-              status: AnStatus.done),
-        ],
-        start: _now,
-        spanMs: const Duration(hours: 24).inMilliseconds,
-        trackWidth: 600,
-      );
-      expect(out.length, 1);
-      expect(out.single.event.status, AnStatus.err,
-          reason: '同桶取最坏(同矩阵格律):后来的绿抹不掉真发生过的失败');
-      expect(out.single.event.count, 3, reason: '折叠点如实报它代表几个事件');
+    test('within a bin the WORST status wins — a later green cannot erase a real failure', () {
+      final h = _now.subtract(const Duration(hours: 3));
+      final bins = binTrackEvents(start: _start, end: _now, binCount: 24, runs: [
+        _run(h.add(const Duration(minutes: 5)), AnStatus.done),
+        _run(h.add(const Duration(minutes: 15)), AnStatus.err),
+        _run(h.add(const Duration(minutes: 45)), AnStatus.done),
+      ]);
+      final bin = bins.firstWhere((b) => b.runs.isNotEmpty);
+      expect(bin.runs, hasLength(3), reason: '格数它代表的全部 run,不折叠');
+      expect(bin.worst, AnStatus.err, reason: '同格取最坏(同矩阵格律)');
+      expect(bin.runs.first.status, AnStatus.err, reason: '桶内失败在前(=hover 卡读序)');
     });
 
-    test('a folded dot anchors on the EARLIEST instant in its bucket', () {
-      final first = _now.add(const Duration(hours: 1));
-      final out = foldEvents(
-        [
-          TrackEvent(at: first.add(const Duration(seconds: 30)), kind: TrackEventKind.future),
-          TrackEvent(at: first, kind: TrackEventKind.future),
-        ],
-        start: _now,
-        spanMs: const Duration(hours: 24).inMilliseconds,
-        trackWidth: 600,
-      );
-      expect(out.single.event.at, first, reason: '桶是一段跨度,它的左缘(最早刻)是诚实的站位');
+    test('missed ticks bin by their instant and never enter the run set', () {
+      final m = _now.subtract(const Duration(hours: 8, minutes: 30));
+      final bins = binTrackEvents(start: _start, end: _now, binCount: 24, missed: [m]);
+      final bin = bins.firstWhere((b) => b.missedCount > 0);
+      expect(bin.runs, isEmpty, reason: 'missed 不是 run');
+      expect(bin.missed.single, m, reason: 'missed 时刻留在格里,供卡念「错过 HH:mm」');
+      expect(bin.hasContent, isTrue);
+      expect(bin.hasRuns, isFalse);
     });
 
-    test('a zero/negative axis places nothing rather than dividing by it', () {
-      expect(foldEvents([TrackEvent(at: _now, kind: TrackEventKind.future)],
-              start: _now, spanMs: 0, trackWidth: 600),
+    test('anything outside [start, end) is dropped — an unplaceable event is never faked into place', () {
+      final bins = binTrackEvents(start: _start, end: _now, binCount: 24, runs: [
+        _run(_now.add(const Duration(hours: 1)), AnStatus.done), // future — off the past axis
+        _run(_now.subtract(const Duration(hours: 30)), AnStatus.done), // older than the window
+      ]);
+      expect(bins.every((b) => b.runs.isEmpty), isTrue, reason: '窗外放不下就不渲,绝不硬塞');
+    });
+
+    test('a zero/negative window places nothing rather than dividing by it', () {
+      expect(binTrackEvents(start: _now, end: _now, binCount: 24, runs: [_run(_now, AnStatus.done)]),
           isEmpty);
-      expect(foldEvents([TrackEvent(at: _now, kind: TrackEventKind.future)],
-              start: _now, spanMs: 1000, trackWidth: 0),
+      expect(
+          binTrackEvents(
+              start: _now, end: _start, binCount: 24, runs: [_run(_start, AnStatus.done)]),
           isEmpty);
+    });
+
+    test('an all-empty lane still bins to 24 empty cells (a clock with a blank face)', () {
+      final bins = binTrackEvents(start: _start, end: _now, binCount: 24);
+      expect(bins, hasLength(24));
+      expect(bins.every((b) => !b.hasContent && b.worst == null), isTrue,
+          reason: '空格是真答案:每格 worst==null → 淡描边');
     });
   });
 
   group('AnScheduleTrack (widget)', () {
     testWidgets('empty lanes render nothing — no ghost axis, no orphan ruler', (tester) async {
       await tester.pumpWidget(_host(AnScheduleTrack(lanes: const [], now: _now)));
-      expect(tester.getSize(find.byType(AnScheduleTrack)).height, 0,
-          reason: '零泳道=零高:不留一条指着空无的轴,也不留孤零零的刻度眉');
+      expect(tester.getSize(find.byType(AnScheduleTrack)).height, 0);
     });
 
-    testWidgets('a PAUSED lane greys but stays on the board with its word (判决①)', (tester) async {
-      await tester.pumpWidget(_host(AnScheduleTrack(
-        lanes: const [TrackLane(id: 'c', label: '每晚归档', dimmed: true, note: '已暂停', events: [])],
-        now: _now,
-      )));
-      expect(find.text('每晚归档'), findsOneWidget,
-          reason: '判决①:暂停的泳道**绝不消失**——泳道没了会被读成「没有这条排程」而非「你暂停了它」');
-      expect(find.text('已暂停'), findsOneWidget, reason: '灰显必须配词:色不独行');
-    });
-
-    testWidgets('a FOLD speaks as a «×N» capsule — never a bare numeral hovering above the dot '
-        '(WRK-070 B5 「9 9 9 5 看不懂」)', (tester) async {
-      await tester.pumpWidget(_host(AnScheduleTrack(
-        lanes: [
-          TrackLane(id: 'w', label: '周报生成', events: [
-            // 9 future ticks inside one pixel bucket → ONE folded mark. 一桶 9 刻=一枚折叠记号。
-            for (var i = 0; i < 9; i++)
-              TrackEvent(
-                  at: _now.add(Duration(minutes: 30 + i)), kind: TrackEventKind.future, label: 't$i'),
-          ]),
-        ],
-        now: _now,
-        foldedLabel: (n) => '+$n 个',
-      )));
-      expect(find.text('×9'), findsOneWidget, reason: '折叠=×N 胶囊,计数属于记号本身');
-      expect(find.text('9'), findsNothing, reason: '裸数字悬浮徽已废(用户看不懂)');
-    });
-
-    testWidgets('the three faces are distinguishable — a missed tick wears a ✕ SHAPE, not just grey',
+    testWidgets('a lane draws 24 hourly cells regardless of density (dense = sparse in geometry)',
         (tester) async {
       await tester.pumpWidget(_host(AnScheduleTrack(
         lanes: [
-          TrackLane(id: 'a', label: 'A', events: [
-            TrackEvent(
-                at: _now.add(const Duration(hours: 2)),
-                kind: TrackEventKind.past,
-                status: AnStatus.done),
-            TrackEvent(at: _now.add(const Duration(hours: 8)), kind: TrackEventKind.missed),
-            TrackEvent(at: _now.add(const Duration(hours: 16)), kind: TrackEventKind.future),
-          ]),
+          _lane('a', 'A', runs: [for (var h = 0; h < 24; h++) _run(_now.subtract(Duration(hours: h)), AnStatus.done)]),
         ],
         now: _now,
-        window: const Duration(hours: 24),
+        onBin: (_, _) {},
+        binSemanticLabel: (l, b) => '${b.start.hour}h',
+        emptyBinSemanticLabel: (l, b) => '${b.start.hour}h empty',
       )));
-      // ✕ is a glyph — the shape channel (WCAG 1.4.1), so the face survives colour-blindness AND
-      // greyscale. ✕ 是字形=形状通道:色盲与灰度下这张脸仍在。
-      expect(find.byType(Icon), findsOneWidget, reason: 'missed 必须有 ✕ 形状,不能只靠灰色');
-      // past + future are dots; the ✕ is not. 过去与未来是点,✕ 不是。
-      expect(find.byType(AnStatusDot), findsNWidgets(2));
+      // Every hourly cell is a real focus node (that is what makes ←→ work) — all 24 exist as
+      // addressable nodes even though only ONE is a Tab stop (the rest are skipTraversal:true).
+      // 每格=真焦点节点:24 个都在(可寻址),但只有一个是 Tab 停靠(其余 skipTraversal)。
+      final nodes = FocusManager.instance.rootScope.descendants
+          .where((n) => n.debugLabel?.startsWith('AnScheduleTrack') ?? false)
+          .length;
+      expect(nodes, 24, reason: '24 个可寻址格(全含,无未来 ○)');
     });
 
-    testWidgets('every dot is a real focus node — that is what makes ←→ traversal work', (tester) async {
+    testWidgets('the fill colour is the WORST outcome; an empty hour is a faint outline, never a colour',
+        (tester) async {
       await tester.pumpWidget(_host(AnScheduleTrack(
         lanes: [
-          TrackLane(id: 'a', label: 'A', events: [
-            TrackEvent(at: _now.add(const Duration(hours: 4)), kind: TrackEventKind.future),
-            TrackEvent(at: _now.add(const Duration(hours: 12)), kind: TrackEventKind.future),
+          _lane('a', 'A', runs: [
+            _run(_now.subtract(const Duration(hours: 3)), AnStatus.done),
+            _run(_now.subtract(const Duration(hours: 3, minutes: 20)), AnStatus.err),
           ]),
         ],
         now: _now,
-        onTap: (_) {},
+        onBin: (_, _) {},
       )));
-      // A dot must be a real widget with a real focus node: a CustomPainter paints pixels with no
-      // identity — `semanticsBuilder` yields nodes that cannot be focused — so ←→ would be physically
-      // impossible under a pure painter (design-system §7).
-      // 点必须是带真焦点节点的真 widget:painter 画的是**没有身份**的像素,其 semanticsBuilder 出的节点不可
-      // 聚焦,纯 painter 下 ←→ 物理上做不到(design-system §7)。
-      expect(find.byType(AnInteractive), findsNWidgets(2));
-      expect(find.byType(FocusableActionDetector), findsNWidgets(2));
+      // The one filled bin wears the danger tone; the other 23 are empty outlines — assert the danger
+      // fill is present (a run-matrix soft-bg family) and empty cells carry no fill.
+      // 一个填充格穿 danger 色,其余 23 空描边。
+      final c = AnTheme.light().extension<AnColors>()!;
+      final decos = tester
+          .widgetList<Container>(find.byType(Container))
+          .map((w) => w.decoration)
+          .whereType<BoxDecoration>()
+          .toList();
+      final filled = decos.where((d) => d.color != null && d.color!.a > 0).toList();
+      expect(filled.any((d) => d.color == AnStatus.err.tone.softBg(c)), isTrue,
+          reason: '最坏=err → danger softBg 填充');
+    });
+
+    testWidgets('a missed tick lays a ✕ SHAPE over the cell — not just grey (WCAG 1.4.1)',
+        (tester) async {
+      await tester.pumpWidget(_host(AnScheduleTrack(
+        lanes: [
+          _lane('a', 'A', missed: [_now.subtract(const Duration(hours: 6))]),
+        ],
+        now: _now,
+        onBin: (_, _) {},
+      )));
+      expect(find.byIcon(AnIcons.close), findsOneWidget, reason: 'missed 必须有 ✕ 形状');
+    });
+
+    testWidgets('the future segment: a hollow ○ + words / «已暂停» on a paused lane / blank when none',
+        (tester) async {
+      await tester.pumpWidget(_host(AnScheduleTrack(
+        lanes: [
+          _lane('a', '有排程',
+              future: TrackFuture(at: _now.add(const Duration(minutes: 2)), time: '14:32', relative: '(2m)', schedule: '每 15 分钟')),
+          _lane('c', '暂停的', dimmed: true, note: '已暂停'),
+          _lane('d', '无排程'),
+        ],
+        now: _now,
+        onBin: (_, _) {},
+      )));
+      // The forecast lane shows its next fire time + schedule word (one RichText phrase) + a hollow
+      // ring. 预告泳道:时刻+排程句(一条 RichText 短语)+空心环。
+      expect(find.textContaining('14:32', findRichText: true), findsOneWidget);
+      expect(find.textContaining('每 15 分钟', findRichText: true), findsOneWidget);
+      // A hollow ○ marks the forecast (a ring, never a solid dot). 空心 ○ 标预告。
+      expect(find.byType(AnStatusDot), findsOneWidget, reason: '未来段一枚空心 ○(过去格是 Container 不是点)');
+      // The paused lane says «已暂停» in its future segment — once, not twice. 暂停段说「已暂停」一次。
+      expect(find.text('已暂停'), findsOneWidget, reason: '判决①:灰显必须配词,且只此一处');
+    });
+
+    testWidgets('a PAUSED lane greys but stays on the board with its name (判决①)', (tester) async {
+      await tester.pumpWidget(_host(AnScheduleTrack(
+        lanes: [_lane('c', '每晚归档', dimmed: true, note: '已暂停')],
+        now: _now,
+        onBin: (_, _) {},
+      )));
+      expect(find.text('每晚归档'), findsOneWidget, reason: '暂停泳道**绝不消失**');
     });
 
     group('keyboard: ONE tab stop (roving tabindex)', () {
@@ -201,153 +221,133 @@ void main() {
           .where((n) => n.debugLabel?.startsWith('AnScheduleTrack') ?? false)
           .length;
 
-      /// A `*/5` cron across several lanes — folding bounds the DOTS, but every dot was still its own
-      /// Tab stop before the roving cursor (measured: 227 for 8 lanes).
-      /// 多条泳道的 */5 cron:折叠封住了**点数**,但在 roving 光标之前每个点仍是一个 Tab 停靠(实测 8 泳道=227)。
       Widget busy() => _host(
             AnScheduleTrack(
               lanes: [
                 for (var l = 0; l < 8; l++)
-                  TrackLane(id: 'l$l', label: 'lane $l', events: [
-                    for (var i = 1; i <= 288; i++)
-                      TrackEvent(at: _now.add(Duration(minutes: i * 5)), kind: TrackEventKind.future),
-                  ]),
+                  _lane('l$l', 'lane $l',
+                      runs: [for (var h = 0; h < 24; h++) _run(_now.subtract(Duration(hours: h)), AnStatus.done)],
+                      future: TrackFuture(at: _now.add(const Duration(minutes: 5)), time: '14:35', relative: '(5m)', schedule: 'x')),
               ],
               now: _now,
-              onTap: (_) {},
+              onBin: (_, _) {},
+              binSemanticLabel: (l, b) => '${b.start.hour}h',
+              emptyBinSemanticLabel: (l, b) => '${b.start.hour}h',
+              futureSemanticLabel: (l) => 'next',
             ),
             width: 1100,
           );
 
-      testWidgets('8 lanes × 288 ticks is ONE Tab stop, not 227', (tester) async {
+      testWidgets('8 lanes × (24 cells + future ○) is ONE Tab stop, not 200', (tester) async {
         await tester.pumpWidget(busy());
-        expect(trackStops(), 1,
-            reason: '折叠只封住点数;停靠数要靠 roving 光标封——一次 Tab 进、一次 Tab 出');
+        expect(trackStops(), 1, reason: 'roving 光标封停靠数——一次 Tab 进、一次 Tab 出');
       });
 
-      testWidgets('←→ walk the lane in time order; running off the edge hands focus back',
+      testWidgets('←→ walk a lane in time order (bin → future ○); ↑↓ land on the SAME hour of the next lane',
           (tester) async {
         await tester.pumpWidget(_host(Column(children: [
           AnScheduleTrack(
             lanes: [
-              TrackLane(id: 'a', label: 'A', events: [
-                TrackEvent(at: _now.add(const Duration(hours: 4)), kind: TrackEventKind.future),
-                TrackEvent(at: _now.add(const Duration(hours: 12)), kind: TrackEventKind.future),
-              ]),
+              _lane('a', 'A', runs: [_run(_now.subtract(const Duration(hours: 5)), AnStatus.done)]),
+              _lane('b', 'B', runs: [_run(_now.subtract(const Duration(hours: 5)), AnStatus.done)]),
             ],
             now: _now,
-            onTap: (_) {},
+            onBin: (_, _) {},
+            binSemanticLabel: (l, b) => '${b.start.hour}h',
+            emptyBinSemanticLabel: (l, b) => '${b.start.hour}h',
           ),
           Focus(focusNode: FocusNode(debugLabel: 'after'), child: const SizedBox(width: 80, height: 40)),
         ])));
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         await tester.pump();
-        expect(FocusManager.instance.primaryFocus?.debugLabel, contains('16:00'),
-            reason: 'Tab 进来落在光标点(第一条泳道最早的点)');
+        expect(FocusManager.instance.primaryFocus?.debugLabel, 'AnScheduleTrack (a, 0)',
+            reason: 'Tab 进落在光标(首泳道 bin 0)');
         await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
         await tester.pump();
-        expect(FocusManager.instance.primaryFocus?.debugLabel, contains('2026-07-17 00:00'),
-            reason: '→ 走到本泳道下一个点(时序)');
-        // Off the axis's end we hand the intent BACK to the framework — and the framework's honest
-        // answer to «→ with nothing to the right» is «focus stays», exactly as it is on any button.
-        // Handing back is the contract; where focus lands is the framework's call, not ours. The
-        // escape that matters is proved below, along the axis that HAS an exit.
-        // 走出轴末即把 intent **交还**框架——而框架对「右边什么都没有」的诚实回答就是「焦点不动」,与任何按钮
-        // 上一样。**交还**才是契约,落在哪由框架定、不由我们定;真正要紧的逃逸在下面那条**有出口**的轴上验。
-        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        expect(FocusManager.instance.primaryFocus?.debugLabel, 'AnScheduleTrack (a, 1)',
+            reason: '→ 走到本泳道下一格(时序)');
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
         await tester.pump();
-        expect(FocusManager.instance.primaryFocus?.debugLabel, contains('2026-07-17 00:00'),
-            reason: '右边没有东西 → 框架说焦点不动;这是交还的结果,不是我们吞了这一下');
-        // Down HAS somewhere to go — and that is the trap-free exit.
-        // 向下**有**去处——那才是不困人的出口。
+        expect(FocusManager.instance.primaryFocus?.debugLabel, 'AnScheduleTrack (b, 1)',
+            reason: '↓ 落邻泳道**同一小时**(轨是钟)');
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+        await tester.pump();
+        expect(FocusManager.instance.primaryFocus?.debugLabel, 'AnScheduleTrack (b, 0)');
+      });
+
+      testWidgets('running off the LAST lane hands focus back to the framework (never trapped)',
+          (tester) async {
+        await tester.pumpWidget(_host(Column(children: [
+          AnScheduleTrack(
+            lanes: [_lane('a', 'A', runs: [_run(_now.subtract(const Duration(hours: 5)), AnStatus.done)])],
+            now: _now,
+            onBin: (_, _) {},
+            binSemanticLabel: (l, b) => '${b.start.hour}h',
+            emptyBinSemanticLabel: (l, b) => '${b.start.hour}h',
+          ),
+          Focus(focusNode: FocusNode(debugLabel: 'after'), child: const SizedBox(width: 80, height: 40)),
+        ])));
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
         await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
         await tester.pump();
         expect(FocusManager.instance.primaryFocus?.debugLabel, 'after',
-            reason: '最后一条泳道再往下 → super.invoke → 默认遍历把用户送出轨道(MenuAnchor 同款);绝不困住');
+            reason: '最后一条泳道再往下 → super.invoke → 默认遍历送用户出去(绝不困住)');
       });
+    });
 
-      testWidgets('↑↓ land on the dot NEAREST IN TIME, and step OVER an empty lane',
-          (tester) async {
-        await tester.pumpWidget(_host(AnScheduleTrack(
-          lanes: [
-            TrackLane(id: 'a', label: 'A', events: [
-              TrackEvent(at: _now.add(const Duration(hours: 2)), kind: TrackEventKind.future),
-              TrackEvent(at: _now.add(const Duration(hours: 20)), kind: TrackEventKind.future),
-            ]),
-            // A paused schedule legitimately holds no events — there is nothing to land on.
-            // 暂停的排程合法地没有事件——无处可落。
-            const TrackLane(id: 'b', label: 'B', dimmed: true, events: []),
-            TrackLane(id: 'c', label: 'C', events: [
-              TrackEvent(at: _now.add(const Duration(hours: 3)), kind: TrackEventKind.future),
-              TrackEvent(at: _now.add(const Duration(hours: 19)), kind: TrackEventKind.future),
-            ]),
-          ],
-          now: _now,
-          onTap: (_) {},
-        )));
-        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-        await tester.pump();
+    testWidgets('launch pad: a CONTENT cell reports its bin; an empty / missed-only cell does NOT',
+        (tester) async {
+      TrackBin? tapped;
+      // A run 4h ago lands in bin 20 (start = now−24h; offset 20h). A missed-only bin sits at bin 14.
+      // 4h 前的 run 落 bin 20;纯 missed 在 bin 14。
+      await tester.pumpWidget(_host(AnScheduleTrack(
+        lanes: [
+          _lane('a', 'A',
+              runs: [_run(_now.subtract(const Duration(hours: 4)), AnStatus.done, id: 'fr_hit')],
+              missed: [_now.subtract(const Duration(hours: 10))]),
+        ],
+        now: _now,
+        onBin: (lane, bin) => tapped = bin,
+        binSemanticLabel: (l, b) => '${b.start.hour}h',
+        emptyBinSemanticLabel: (l, b) => '${b.start.hour}h',
+      )));
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      // Walk to the missed-only bin (14) and activate — it must NOT fire (no run to open). 纯 missed 格不发。
+      for (var i = 0; i < 14; i++) {
         await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
         await tester.pump();
-        expect(FocusManager.instance.primaryFocus?.debugLabel, contains('(a, 2026-07-17 08:00'),
-            reason: '光标在 A 的 20 小时后那个点');
-        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      }
+      expect(FocusManager.instance.primaryFocus?.debugLabel, 'AnScheduleTrack (a, 14)');
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(tapped, isNull, reason: '纯 missed 格没有 run 可开 → 惰性,不触发发射台');
+      // Walk on to the content bin (20) and activate — it reports its bin. 走到内容格 → 回报桶。
+      for (var i = 14; i < 20; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
         await tester.pump();
-        // A track is a CLOCK: ↓ from 08:00 must land on C's 07:00, not on C's first dot. And lane B
-        // (empty) is stepped over rather than swallowing the press.
-        // 轨是**钟**:从 08:00 往下必须落在 C 的 07:00,而不是 C 的第一个点;空泳道 B 被跨过,而不是把这一下吞掉。
-        expect(FocusManager.instance.primaryFocus?.debugLabel, contains('(c, 2026-07-17 07:00'),
-            reason: '↓ 落在**时间上最近**的点(07:00),不是列表里的第一个(15:00);空泳道跨过');
-      });
+      }
+      expect(FocusManager.instance.primaryFocus?.debugLabel, 'AnScheduleTrack (a, 20)');
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(tapped, isNotNull, reason: '内容格激活回报桶');
+      expect(tapped!.runs.single.id, 'fr_hit');
     });
 
-    testWidgets('a dot reports itself on tap', (tester) async {
-      TrackEvent? tapped;
-      await tester.pumpWidget(_host(AnScheduleTrack(
-        lanes: [
-          TrackLane(id: 'a', label: 'A', events: [
-            TrackEvent(at: _now.add(const Duration(hours: 4)), kind: TrackEventKind.future, id: 'e1'),
-          ]),
-        ],
-        now: _now,
-        onTap: (e) => tapped = e,
-      )));
-      await tester.tap(find.byType(AnInteractive));
-      expect(tapped?.id, 'e1');
-    });
-
-    testWidgets('each lane is ONE semantics container reading its label + paused word (§12)',
-        (tester) async {
+    testWidgets('each lane is ONE semantics container reading its summary (§12)', (tester) async {
       final handle = tester.ensureSemantics();
       await tester.pumpWidget(_host(AnScheduleTrack(
-        lanes: [
-          TrackLane(id: 'a', label: '数据清洗', events: [
-            TrackEvent(
-                at: _now.add(const Duration(hours: 4)),
-                kind: TrackEventKind.future,
-                label: '数据清洗'),
-          ]),
-          const TrackLane(id: 'c', label: '每晚归档', dimmed: true, note: '已暂停', events: []),
-        ],
+        lanes: [_lane('a', '数据清洗', runs: [_run(_now.subtract(const Duration(hours: 4)), AnStatus.done)])],
         now: _now,
-        eventSemanticLabel: (lane, e) => '${lane.label} 14:00 预计',
+        onBin: (_, _) {},
+        laneSummaryLabel: (l) => '${l.label},24 小时 1 次运行',
+        binSemanticLabel: (l, b) => '${b.start.hour} 时,1 次',
+        emptyBinSemanticLabel: (l, b) => '${b.start.hour} 时,无运行',
       )));
-      expect(find.bySemanticsLabel('数据清洗'), findsWidgets, reason: '§12:每 lane 一个语义节点');
-      expect(find.bySemanticsLabel('每晚归档 · 已暂停'), findsOneWidget,
-          reason: '读屏必须听得见「已暂停」——灰显是视觉,读屏用户看不见灰');
-      expect(find.bySemanticsLabel('数据清洗 14:00 预计'), findsOneWidget,
-          reason: '§12:事件读「{workflow} {time} {status}」');
+      expect(find.bySemanticsLabel('数据清洗,24 小时 1 次运行'), findsOneWidget,
+          reason: '§12:每 lane 一个语义容器带行摘要');
       handle.dispose();
-    });
-
-    testWidgets('a lane with no events still renders its rail (an honest empty schedule)',
-        (tester) async {
-      await tester.pumpWidget(_host(AnScheduleTrack(
-        lanes: const [TrackLane(id: 'a', label: 'A', events: [])],
-        now: _now,
-      )));
-      expect(find.text('A'), findsOneWidget);
-      expect(find.byType(AnStatusDot), findsNothing, reason: '无事件不造点');
     });
   });
 }

@@ -676,8 +676,6 @@
       "runningHead": "正在跑 ($n)",
       "runningEmpty": "现在没有正在运行的 run。",
       "failed24hHead": "24h 失败 ($n)",
-      "trackPointA11y": "$name 预计 $at",
-      "trackFolded": "共 $n 次",
       "trackTruncated": "此窗口内还有更多调度,轨道未能全部显示。",
       "failuresHead": "失败聚合 · 7d",
       "failuresEmpty": "近 7 天没有连续失败的 workflow。",
@@ -716,17 +714,26 @@
       "scheduleEmpty": "没有装备任何 cron 排程。",
       "kpiMissed": "24h 错过",
       "kpiMissedA11y": "24h 错过 $n 次。在时间轴上看它们。",
-      "trackFiredA11y": "$name 于 $at 触发 · $status",
-      "trackMissedA11y": "$name 错过了 $at 的刻度",
-      "trackPastTruncated": "早于 $at 的触发未显示——账目不止一页。"
+      "trackPastTruncated": "早于 $at 的触发未显示——账目不止一页。",
+      "trackNow": "现在",
+      "trackNextIn": "($d 后)",
+      "trackCardHead": "$at · 共 $n 次",
+      "trackCardMissed": "错过 $at",
+      "trackCardMore": "还有 $n 次",
+      "trackCardMoreOk": "全部成功",
+      "trackCardMoreFailed": "含 $m 次失败",
+      "trackCardNext": "下一发 $at · $schedule",
+      "trackCardNextBare": "下一发 $at",
+      "trackBinA11y": "$hour 时,$n 次:$ok 成 $fail 败",
+      "trackBinMissedClause": ",含 $x 次错过",
+      "trackBinEmptyA11y": "$hour 时,无运行",
+      "trackFutureA11y": "下一发 $at,$schedule",
+      "trackLaneSummaryA11y": "$name,24 小时 $n 次运行:$ok 成 $fail 败,错过 $missed 次;下一次 $next"
     },
     "status": {
       "active": "生效",
       "draining": "收尾中",
-      "inactive": "停用",
-      "firingFired": "已触发",
-      "firingQueued": "待跑",
-      "firingNotRun": "未执行"
+      "inactive": "停用"
     },
     "home": {
       "crumb": "Scheduler / $name",

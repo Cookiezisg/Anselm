@@ -146,6 +146,8 @@ class ScheduleLane {
     required this.paused,
     this.futureAt = const [],
     this.firings = const [],
+    this.runs = const [],
+    this.nextFireAt,
   });
 
   final String triggerId;
@@ -155,12 +157,28 @@ class ScheduleLane {
   final bool paused;
   final List<DateTime> futureAt;
 
-  /// The past half's durable rows, oldest→newest. The widget layer reads [Firing.status] to pick the
-  /// mark's face (`missed` → the grey ✕, everything else → a solid dot in its status colour) — the
-  /// discrimination lives in ONE place and reads the sealed enum, never a string literal.
-  /// 过去半的 durable 行(旧→新)。widget 层读 status 挑脸(missed→灰 ✕,其余→状态色实心点)——判别只此一处,
-  /// 且读的是封闭枚举、不是字符串字面量。
+  /// The past half's durable firing rows, oldest→newest — read ONLY for `missed` ticks now (工单⑭/裁决③):
+  /// the past grid's colour comes from RUNS (see [runs]), so a firing's non-missed dispositions no longer
+  /// paint anything; a `missed` firing is the tick that produced no run, and lays the grey ✕. The
+  /// discrimination reads the sealed enum, never a string literal.
+  /// 过去半的 durable firing 行(旧→新)——现在**只**为 `missed` 读(工单⑭/裁决③):格色来自 [runs],firing 的非
+  /// missed 处置不再画任何东西;missed=没产出 run 的刻度,叠灰 ✕。判别读封闭枚举、非字面量。
   final List<Firing> firings;
+
+  /// Every run of THIS lane's workflow that started in the past window, ALL sources (裁决③: the grid
+  /// answers workflow HEALTH, not cron execution rate). The widget bins these by hour and colours each
+  /// cell by their worst outcome; the hover card names each run's source honestly.
+  /// 本泳道 workflow 在过去窗内开始的**每一个** run,全来源(裁决③:格答 workflow 健康、非排程执行率)。widget 按
+  /// 小时分箱、按最坏结局着色;hover 卡如实标注每 run 来源。
+  final List<Flowrun> runs;
+
+  /// The trigger's read-time next fire (`cron.Next`) — the future segment's «下一发», honestly shown
+  /// even when it is BEYOND the drawn 24h axis (a weekly cron three days out is still the next fire). A
+  /// paused trigger reads null (the backend stamps no next-fire on a paused trigger). NOT to be confused
+  /// with [futureAt] (the in-window ticks the KPI 「下次调度」 tile checks its clickability against).
+  /// trigger 的读时下一发(cron.Next)——未来段的「下一发」,即便**越过**所画的 24h 轴也如实显示(三天后的周 cron 仍是
+  /// 下一发);暂停即 null。与 [futureAt](KPI 牌判可点性用的窗内刻度)不是一回事。
+  final DateTime? nextFireAt;
 }
 
 /// The whole track — both halves and their two INDEPENDENT honesty flags.
@@ -285,6 +303,7 @@ List<ScheduleLane> scheduleLanes({
   required TriggerSchedule schedule,
   required DateTime now,
   List<Firing> firings = const [],
+  Map<String, List<Flowrun>> runsByWorkflow = const {},
   Duration window = SchedulerWindows.trackWindow,
   Duration pastWindow = SchedulerWindows.trackPastWindow,
 }) {
@@ -324,6 +343,11 @@ List<ScheduleLane> scheduleLanes({
         for (final f in inWindow)
           if (f.triggerId == t.id && f.workflowId == wfId) f,
       ],
+      // The grid counts the WORKFLOW's runs (裁决③, all sources) — not per-trigger, since the lane's
+      // question is «is this workflow healthy». A next-fire the backend projected even beyond the axis.
+      // 格数 workflow 的 run(裁决③,全来源)——非逐 trigger,因泳道问的是「workflow 健康吗」。下一发含轴外。
+      runs: runsByWorkflow[wfId] ?? const [],
+      nextFireAt: t.nextFireAt,
     ));
   }
   // A `missed` tick whose lane no longer exists — the workflow stopped listening to that trigger, or
@@ -360,6 +384,10 @@ List<ScheduleLane> scheduleLanes({
       workflowName: workflowNames[f.workflowId] ?? f.workflowId,
       paused: byTrigger[f.triggerId]?.paused ?? false,
       firings: entry.value,
+      // The workflow may still have run since the tick was orphaned (a health signal beside its ✕).
+      // 泳道解绑后 workflow 可能仍跑过(✕ 旁的健康信号)。
+      runs: runsByWorkflow[f.workflowId] ?? const [],
+      nextFireAt: byTrigger[f.triggerId]?.nextFireAt,
     ));
   }
   // Soonest first; lanes with nothing coming (paused, or nothing due in the window) sink to the
@@ -422,6 +450,16 @@ List<WorkflowRunStats> topFailing(Iterable<WorkflowRunStats> stats, {int n = 5})
       if (s.consecutiveFailures > 0) s,
   ]..sort((a, b) => b.consecutiveFailures.compareTo(a.consecutiveFailures));
   return failing.length > n ? failing.sublist(0, n) : failing;
+}
+
+/// Group runs by their workflow — the past grid hangs each workflow's runs onto its lane(s) (裁决③).
+/// 按 workflow 分组 run——过去格把每个 workflow 的 run 挂到它的泳道上(裁决③)。
+Map<String, List<Flowrun>> _groupByWorkflow(Iterable<Flowrun> runs) {
+  final out = <String, List<Flowrun>>{};
+  for (final r in runs) {
+    (out[r.workflowId] ??= []).add(r);
+  }
+  return out;
 }
 
 /// The first non-empty line of a wire error (backend errors arrive multi-line). 错误首句。
@@ -503,15 +541,20 @@ class SchedulerOverviewController extends AsyncNotifier<SchedulerOverviewData> {
       // 列表显示 4」. 「24h 失败」区**与**它那张牌的深链,出自**一次**工作区级提问、用的是上面 stats 数
       // failedSince 所用的**同一个** kpiSince——其长度按构造等于 failedSince(同谓词、同时刻、拉全)。
       repo.listFailedSince(kpiSince),
+      // The schedule track's PAST-HALF grid (裁决③/B1) — every run started in the SAME window the
+      // 「错过 N」 card counts from, ALL sources, so the grid answers workflow health rather than cron
+      // execution rate. Windowed on started_at (the grid bins by start), workspace-wide + drained (see
+      // listRunsSince). 过去健康格:窗内开始的全来源 run,按 started_at 开窗、工作区级拉全。
+      repo.listRunsSince(kpiSince),
       for (final s in failing)
         repo.listFlowruns(workflowId: s.workflowId, status: 'failed', limit: 1),
     ]);
-    // The fixed head of the batch, NAMED: the probe list below indexes off it, and a bare `6` repeated
+    // The fixed head of the batch, NAMED: the probe list below indexes off it, and a bare `7` repeated
     // at two sites is one inserted call away from silently reading a stats object as a page (a crash at
     // best, the WRONG workflow's runs at worst).
-    // 批次的定长头部,**具名**:下面那条探针列表按它取偏移;裸 6 抄在两处,只要插一个调用就会静默把 stats
+    // 批次的定长头部,**具名**:下面那条探针列表按它取偏移;裸 7 抄在两处,只要插一个调用就会静默把 stats
     // 读成 page(轻则崩,重则读成**别的 workflow** 的 run)。
-    const fixed = 7;
+    const fixed = 8;
     final stats24 = results[0] as SchedulerStats;
     final stats48 = results[1] as SchedulerStats;
     final schedule = results[2] as TriggerSchedule;
@@ -519,6 +562,7 @@ class SchedulerOverviewController extends AsyncNotifier<SchedulerOverviewData> {
     final missedPage = results[4] as Page<Firing>;
     final liveRuns = results[5] as List<Flowrun>;
     final failedRuns0 = results[6] as List<Flowrun>;
+    final trackRuns = results[7] as List<Flowrun>;
     // Merge the two pages into the ONE past-half set: the missed-only page is authoritative for ✕, so
     // the general page contributes everything EXCEPT missed and the two can never double-mark a tick.
     // 两页并成**一份**过去半:missed 单取那页对 ✕ 是权威,故通用页只贡献 **非** missed 的行,两者绝不把同一刻度
@@ -622,6 +666,9 @@ class SchedulerOverviewController extends AsyncNotifier<SchedulerOverviewData> {
           workflowNames: names,
           schedule: schedule,
           firings: pastFirings,
+          // The past grid's runs, grouped by workflow (裁决③) — a lane hangs its workflow's runs.
+          // 过去格的 run,按 workflow 分组(裁决③)——泳道挂它 workflow 的 run。
+          runsByWorkflow: _groupByWorkflow(trackRuns),
           now: now,
         ),
         truncated: schedule.truncated,

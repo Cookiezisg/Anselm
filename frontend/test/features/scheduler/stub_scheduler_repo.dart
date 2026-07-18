@@ -433,6 +433,20 @@ class StubSchedulerRepo implements SchedulerRepository {
     return [for (final r in runs.map(_live)) if (r.status == 'running') r];
   }
 
+  /// Every started-in-window run the schedule track's past grid bins (B1) — all statuses, all origins,
+  /// derived from the SAME `runs` seed the zones render (never a knob apart from them). Records the
+  /// instant so a battery can prove the grid asked for its window. 过去健康格数据源:全状态全来源、同源。
+  final List<DateTime> runsSinces = [];
+
+  @override
+  Future<List<Flowrun>> listRunsSince(DateTime startedAfter) async {
+    runsSinces.add(startedAfter);
+    return [
+      for (final r in runs.map(_live))
+        if (r.startedAt != null && !r.startedAt!.isBefore(startedAfter)) r,
+    ];
+  }
+
   /// The failed instants each [listFailedSince] call carried — a battery asserts the tile's list was
   /// fetched on the SAME instant its `failedSince` counted from (工单⑮ same-predicate). Records the raw
   /// DateTime so a test can compare it byte-for-byte against the stats `since`.

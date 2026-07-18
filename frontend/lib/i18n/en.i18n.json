@@ -676,8 +676,6 @@
       "runningHead": "Running now ($n)",
       "runningEmpty": "Nothing is running right now.",
       "failed24hHead": "Failed · 24h ($n)",
-      "trackPointA11y": "$name scheduled $at",
-      "trackFolded": "$n runs",
       "trackTruncated": "More is scheduled inside this window than the track can show.",
       "failuresHead": "Failures · 7d",
       "failuresEmpty": "No consecutive failures in the last 7 days.",
@@ -716,17 +714,26 @@
       "scheduleEmpty": "No cron schedule is equipped.",
       "kpiMissed": "Missed · 24h",
       "kpiMissedA11y": "Missed · 24h: $n. Show them on the schedule track.",
-      "trackFiredA11y": "$name fired $at · $status",
-      "trackMissedA11y": "$name missed the $at tick",
-      "trackPastTruncated": "Fires earlier than $at are not shown — the ledger holds more than one page."
+      "trackPastTruncated": "Fires earlier than $at are not shown — the ledger holds more than one page.",
+      "trackNow": "now",
+      "trackNextIn": "(in $d)",
+      "trackCardHead": "$at · $n total",
+      "trackCardMissed": "missed $at",
+      "trackCardMore": "$n more",
+      "trackCardMoreOk": "all succeeded",
+      "trackCardMoreFailed": "$m failed",
+      "trackCardNext": "next $at · $schedule",
+      "trackCardNextBare": "next $at",
+      "trackBinA11y": "at $hour:00, $n runs: $ok ok, $fail failed",
+      "trackBinMissedClause": ", $x missed",
+      "trackBinEmptyA11y": "at $hour:00, no runs",
+      "trackFutureA11y": "next $at, $schedule",
+      "trackLaneSummaryA11y": "$name, $n runs in 24h: $ok ok, $fail failed, $missed missed; next $next"
     },
     "status": {
       "active": "Active",
       "draining": "Draining",
-      "inactive": "Inactive",
-      "firingFired": "Fired",
-      "firingQueued": "Queued",
-      "firingNotRun": "Did not run"
+      "inactive": "Inactive"
     },
     "home": {
       "crumb": "Scheduler / $name",

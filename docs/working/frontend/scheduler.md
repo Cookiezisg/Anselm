@@ -79,7 +79,7 @@ audience: [human, ai]
     - **a11y**:牌成控件即**念成控件**——label(句子说清这一下会做什么)+ `isButton` + **tap 动作**,**dump 实证**非推理。**label 标在卡内部、且只标 label**(`button`/`enabled` 的所有权留给 `AnCard` 的 `AnInteractive`,两份配置不共享旗标故合并成**一个**节点,design-system §2)。**顺带修掉第五张牌落地时的 a11y 形状**:从**外面**包一张 `ExcludeSemantics` 过的卡,实测丢 `isFocusable`/`hasEnabledState`,更要命的是丢 **tap 动作**——桌面上动作是少数真到得了读屏的东西之一,于是它念出一个**按不动**的按钮。
 2. **等你处理**(最贵地皮):`/flowrun-inbox` 全集(工单④enrich 带 workflow 名+deadline),每行=workflow 名+节点+等待时长+**AnCountdown 超时倒计时**(新原语,单顶层 Timer 共驱)+`ApprovalGate` 就地批/拒(带 reason);决策后行滑出;first-wins 输家 422→诚实 toast+refetch。**批量操作(判决②)**:行首 hover checkbox,选中≥2 浮出 `AnBatchBar` 批量条(「已选 3 · [批量批准][批量拒绝▾(共用理由)]」);批量=前端逐发 decide+**显式挂账**(每行 pending→逐行落定滑出),first-wins 批量语义=输家 422 汇总 toast「已批准 2 · 1 条已被别处处理」。
 3. **正在跑**(WRK-070 B10 **✅ 已落**,整体收敛到运营大表行文法):AnLedgerRow 活行=**状态点 + 原语披露示能**(0718 对齐审计:`disclose`——hover/展开换 16px 左岛箭头、展开旋 90°,12px 换图标旧形制退役)+ **「workflow 名 · 来源短语」**(`runPhrase`——跨 workflow 视图保留 workflow 名,随后接来源短语;**裸 fr_ id 删**[B1],收进速览卡+tooltip)+ **常驻 ⏹ 终止**(`rowCancel`+danger,大表 `_row` 照搬;旧 hover 行尾 ⏹ 退役)+ ↻N 徽 + 活耗时。tick 只驱动本区外观;`run_started`(工单①)durable 加行。**单击=行内展开速览卡**(`RunPeekCard`——从大表抽成 top-level 可复用件,与大表同款[甘特⇄图+「打开 →」旗舰门];Overview 无 `?run=` URL 载体,故用**区内本地 expanded 单选态**,再点收起、快速双击直进旗舰)。**多选批量取消**(判决②):hover/已选行 lead 换 `AnBatchCheck`,选中≥2 浮 `AnBatchBar`,danger 弹窗带清单「将取消这 3 个 run」。**前端翻页**(10/页 `AnPager`——`listRunningRuns` 抽全量到内存,纯客户端 `.skip/.take` 切片、非分页端点,无需后端;选区修剪到可见页)。选择/翻页/展开三态共享 `_PeekZone` mixin(与「24h 失败」区同一套)。
-4. **调度时间轴「近 24h · 未来 24h」**(判决⑥ **✅ 已落**,S6):**一条轴、两半**——`AnScheduleTrack` 的过去实心点着状态色(真开过的火)/未来空心虚点(措辞「预计」)/**missed 灰 ✕**(机器睡过头的刻度必须有脸,桌面 app 第一现实;**灰不红**=§7「未执行」中性桶,刻意背离 Temporal 惯例)。**now 线居中而非偏左**(原句「now 线偏左」作废——判决⑥ 让过去半从装饰变成「错过 N」牌的**证据**,故 `trackPastWindow ≡ kpiWindow` **构造上**相等:轨若回看得比牌数的短,就会有被牌数进去、却落在它自己点开的那个面的轴外的刻度)。**已暂停 trigger 的泳道灰显不消失**(判决①:止血状态可见,标「已暂停」),且它仍带着暂停之前开过的火。仅 cron 有未来点,其余 kind 如实缺席;过去点亦只挂在 cron 泳道上(本区答的是**排程**,webhook 是外部事件、不是排程)。**两处独立截断各一句诚实话**:`truncated`(未来半:窗内还有更多预告)与 `pastTruncated`(过去半:firing 账无界且按新→旧翻页,故撞帽的一页是**最新那片**、`pastFrom` 之前是**未知**而非**空**——句子点名可信数据从哪开始)。
+4. **调度时间轴「近 24h · 未来 24h」**(判决⑥ 已落 → **WRK-070 调度轨重造 0718「彻底做干净」重述**):`AnScheduleTrack` 逐排程一行,now 线劈成**两种不同形状**的半(出处:过去半=status-page **uptime bar** / GitHub **贡献格** 的统一分箱;未来半=Cronitor/Healthchecks **next-run 一句话**)。**过去=统一时段分箱格**(**离散点整个退役**——高频 cron 曾被折成一串「×9」胶囊、与 missed ✕ 撞脸无信息量):全泳道同 **24 个小时格**,格色=该时段内 run 的**最坏**状态(同矩阵色律,**无 run=空格淡描边**「空是真答案」);**missed 不进格色**、叠一枚灰 ✕(桌面 app 睡过头第一现实、**灰不红**,§7「未执行」桶;它是「错过 N」牌深链的证据)。**未来=定宽段(非时间轴)**:空心 ○ +「HH:mm(相对词)」+ 排程人话灰字,**下一发即便越过 24h 轴也如实显示**;暂停泳道说「已暂停」(判决①:止血阀必须看得见)。**格统计所有来源的 run**(**裁决③**:格答**健康**、非排程执行率;hover 卡里来源词如实标注),唯 missed 仍从 firing 账来。**点击=发射台**(同矩阵):一格一 run→旗舰、多 run→运营主页、空/纯 missed 格不可点。**hover=不可交互明细卡**(`AnHoverCard`,滚动冻结:时段+总数,行=状态点·HH:mm·来源·耗时[失败置顶,cap 5+溢出句],missed 行=✕「错过 HH:mm」;未来 ○ 卡=「下一发 HH:mm·排程句」)。**数据缝**:feature 补 `listRunsSince`(工作区窗内全状态全来源 run)+ 纯函数 `binTrackEvents` 分箱。**修订的旧裁决(记档,非违背)**:①**now 线不再居中**(未来定宽段~184px、过去格吃剩余~13-14px;原「居中」理由[过去半=错过牌证据]格子化后依然成立,`trackPastWindow ≡ kpiWindow` 不变,仅分段比例变)②**未来点放弃位置编码**(相对词补紧迫)③**格统计所有来源**(原「过去点只挂 cron」修订)④**bucket 折叠 `foldEvents`/「×N」胶囊整体退役**。**已暂停泳道灰显不消失**且仍带暂停前开过的火(过去格里)。**两处独立截断各一句诚实话**:`truncated`(未来半窗内还有更多预告)与 `pastTruncated`(firing 账无界、新→旧翻页,撞帽的一页是**最新那片**、`pastFrom` 之前**未知**非**空**)。当前形态见 [`design-system.md`](../../references/frontend/design-system.md) AnScheduleTrack 条目。
 5. **失败聚合(7d)**:**Top-N 榜,「连续失败计数+自愈清除」定义**(A 收编,Temporal Task Issues:连败才值得浮顶,自愈行灰化留痕)——workflow 名+连败 ×N 徽+错误首句+**[最新 run] 直通车**(A 收编,跳过主页中转直达详情)+就地 replay(C)。宿主已软删的失败带「已删除」墓碑徽,行仍可点进 run 详情。
 
 **零数据首用态**(盲区补):四区不渲空框废墟,整页收成一张教育卡——「第一个自动化还没建。去 Entities 建 workflow 并挂上 cron,或在对话里说『每天早上八点抓数据发我』」双深链 + 三行示意图。任一 workflow 出现即换正常盘面。
@@ -93,9 +93,10 @@ Scheduler · Overview
 ▎正在跑 (3)
 ● 数据清洗 fr_a1b2 cron   4/7 1m32s ⏹
 ● 库存同步 fr_c3d4 chat   2/5 12s   ⏹
-▎未来 24h                 now┆
- 清洗 ▪▪✕▪●┆─○────○────○─      ←实过去/✕missed/空心预计
- 周报 ▪    ┆───○
+▎近 24h · 未来 24h   2026-07-17 17:48    1d    ┃now   ←分箱格/✕missed/○下一发一句话
+ 周报生成 ▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦ ┃ ○ 17:55 (2m后) · 之后每15分钟
+ 库存同步 ▢▢✕▢▢✕▢▢▦▢▢▢▦▢▢▢▢▢▢▢▢▢▢▢ ┃ ○ 23:00 (5h后) · 每日23:00
+ 邮件归档 ▢▢▢▦▢▢▢▢▢▢▢▢▢▢▢▢▢▢▢▢▢▢▢▢ ┃ 已暂停
 ▎失败聚合 (7d)
  库存同步  连败×4  HTTP 502…      [replay][最新 run →]
  归档清理† 已自愈  磁盘满(已删除)  [历史]

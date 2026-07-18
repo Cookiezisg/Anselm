@@ -288,66 +288,223 @@ class _SchedulerWaitingZoneState extends ConsumerState<SchedulerWaitingZone>
 
 // ─────────────────────────────────── 未来调度 ───────────────────────────────────
 
-/// The schedule zone (S5 + 工单⑭/判决⑥) — ONE [AnScheduleTrack] carrying BOTH halves of one timeline:
-/// an absolute axis, a now line at the centre, one lane per (workflow × cron trigger), the past 24h of
-/// firings to the left of now and the next 24h of forecast ticks to its right.
+/// The schedule zone (WRK-070 调度轨重造 0718) — ONE [AnScheduleTrack] carrying both halves of one row
+/// per schedule, split by the now line. It maps the provider's [ScheduleLane]s onto the widget's core
+/// types: the PAST half is [binTrackEvents] over the lane's runs (health, all sources — 裁决③) with the
+/// `missed` firings laid on as ✕; the FUTURE half is a one-line forecast built from the lane's next fire.
+/// Both halves' i18n words (source phrases, the schedule cadence, the relative «(in Xm)», every a11y
+/// sentence, the hover card body) are assembled HERE — core holds no copy.
 ///
-/// **Three faces, three different claims, and the difference is the whole point** (§3.4): a `past` dot
-/// is solid in its status colour — a fire that really happened; a `future` dot is a hollow ring — a
-/// FORECAST, and the zone's words say 「预计」 so a prediction never reads as a measurement; a `missed`
-/// tick is a grey ✕ — a cron tick that came due while the machine slept, booked and never caught up.
-/// The ✕ is grey, not red, on purpose (§7 状态学「未执行」中性桶): a desktop app's machine sleeping at
-/// night is its first reality, not a fault — a deliberate departure from Temporal's «missed = red».
+/// **Click = launch pad**: a cell with one run opens that run's flagship, several open the workflow's
+/// operations home. **Hover = the detail card** ([binHoverBuilder]/[futureHoverBuilder]): the hour's
+/// runs (status · time · source · elapsed, failures on top, cap 5 + an honest overflow line) or the
+/// forecast. **Truncation is said out loud** (两处独立截断,两句话): a capped forecast window and a capped
+/// firing page are different facts, so they get separate sentences.
 ///
-/// **Why the past half only became possible now**: it needs a workspace-level, time-windowed firing
-/// query, and until 工单⑭ `GET /triggers/{id}/firings` was per-trigger with no time filter — a 24h
-/// history meant draining every trigger's whole ledger. S5 shipped no past half at all rather than
-/// draw the reachable subset, because a track that looks complete while hiding holes is worse than a
-/// track that admits it starts at now. `GET /firings?createdAfter=` closed that, and the SAME honesty
-/// still governs the remaining edge: the ledger is unbounded and pages newest-first, so a capped page
-/// makes everything before [ScheduleTrackData.pastFrom] unknown — and the zone SAYS so.
-///
-/// 调度区(S5 + 工单⑭/判决⑥):**一条** [AnScheduleTrack] 装下一条时间轴的**两半**——绝对轴、now 线居中、
-/// 逐 (workflow×cron) 泳道,now 左边是过去 24h 真开过的火、右边是未来 24h 的预告刻度。**三张脸=三种不同的
-/// 断言,而这个区别就是全部要害**:past 实心着状态色=真发生过;future 空心环=**预告**(区里的词说「预计」,
-/// 预测绝不读成实测);missed 灰 ✕=机器睡着时到期、记账且不补跑的刻度。✕ **刻意灰不红**(§7 状态学「未执行」
-/// 中性桶):桌面 app 的机器夜里睡觉是第一现实、不是故障——刻意背离 Temporal「missed=红」。**过去半为何现在才可能**:
-/// 它需要 workspace 级 + 带时间窗的 firing 查询,而工单⑭ 之前 `GET /triggers/{id}/firings` 逐 trigger、无时间
-/// 过滤——拉 24h 史等于把每本账拖干。S5 宁可一个过去点都不发,也不画「拿得到的那部分」:一条看起来完整却藏着洞的
-/// 轨道,比一条老实承认自己从 now 开始的轨道更糟。`GET /firings?createdAfter=` 补上了这个口子,而**同一条诚实**
-/// 仍管着剩下的边界:账无界、按新→旧翻页,故撞帽的一页会让 pastFrom 之前成为未知——区**明说**它。
+/// 调度区(0718 重造):**一条** [AnScheduleTrack],被 now 线劈两半。把 provider 的 [ScheduleLane] 映到 widget 核心
+/// 类型:过去半=对泳道 run 的 [binTrackEvents](健康、全来源——裁决③)+ missed firing 叠 ✕;未来半=从下一发建的一句
+/// 话预告。两半的 i18n 词(来源短语/排程节拍/相对词/读屏句/hover 卡体)全在**此处**拼——core 无文案。**点击=发射台**
+/// (一格一 run →旗舰、多 run →运营主页);**hover=明细卡**;两处独立截断各说一句。
 class SchedulerScheduleZone extends StatelessWidget {
-  const SchedulerScheduleZone({required this.track, required this.now, super.key});
+  const SchedulerScheduleZone(
+      {required this.track, required this.triggersById, required this.now, super.key});
 
   final ScheduleTrackData track;
+
+  /// The rail's already-fetched triggers — the source-phrase join a webhook/sensor run needs (B10 grammar,
+  /// zero N+1). trigger 连接:webhook/sensor 来源短语所需(零 N+1)。
+  final Map<String, TriggerEntity> triggersById;
+
   final DateTime now;
 
-  /// The word a PAST mark's colour is saying — colour NEVER travels alone (WCAG 1.4.1).
-  ///
-  /// Derived from [TrackEvent.status], **the very value the dot paints**, so word and colour agree BY
-  /// CONSTRUCTION. That is why it is not looked up from the [Firing] row: a 24h-past axis buckets at
-  /// ~1.8h, so a 15-minute cron folds ~7 fires into one mark, and the fold reports the bucket's WORST
-  /// status — a word fetched from any one row would then describe a different fire than the colour does.
-  ///
-  /// The three reachable tones get FIRING vocabulary, because the app-wide tone words would misname
-  /// them: a skipped fire is not 「空闲」/idle, it is 「未执行」— it fired and deliberately did not run.
-  /// run/err are unreachable by construction (the sealed 7 fold to wait/done/idle only, and `unknown`
-  /// falls to idle); if the backend ever widens the set they fall back to the app-wide tone words,
-  /// which stay TRUE — inventing a neutral word for a failure would not.
-  ///
-  /// 过去点的颜色正在说的那个词(色永不独行,WCAG 1.4.1)。取自 TrackEvent.status——**点所画的正是这个值**——
-  /// 故词与色**构造上**一致。所以它不从 Firing 行里查:24h 的过去轴按 ~1.8h 分桶,一个 15 分钟的 cron 会把 ~7 次
-  /// 火折成一个点,而折叠报的是该桶的**最坏**状态——从任一行取词都会描述一次与颜色所说不同的火。三个可达的调
-  /// 各给 **firing** 词,因为全 app 的调词会叫错它们:被跳过的火不是「空闲」,是「未执行」——它触发了,且刻意
-  /// 没有跑。run/err 构造上不可达(封闭 7 值只折到 wait/done/idle,unknown 落 idle);后端若加值,它们回落到全 app
-  /// 的调词——那仍是**真话**,而给一个失败编一个中性词不是。
-  static String _markWord(BuildContext context, AnStatus? s) => switch (s ?? AnStatus.idle) {
-        AnStatus.done => context.t.scheduler.status.firingFired,
-        AnStatus.wait => context.t.scheduler.status.firingQueued,
-        AnStatus.idle => context.t.scheduler.status.firingNotRun,
-        AnStatus.run => context.t.status.run,
-        AnStatus.err => context.t.status.err,
-      };
+  static const int _cardCap = 5;
+
+  DateTime get _start => now.subtract(SchedulerWindows.trackPastWindow);
+  int get _binCount => SchedulerWindows.trackPastWindow.inHours;
+
+  /// The zero-padded hour word a bin sits on («17»). 格所在的整点词。
+  String _hourOf(DateTime at) => at.toLocal().hour.toString().padLeft(2, '0');
+
+  /// Map a provider lane → the widget's core lane (bins + future), localizing every word here.
+  /// 把 provider 泳道映成核心泳道(格+未来),此处本地化每个词。
+  TrackLane _laneOf(BuildContext context, ScheduleLane lane) {
+    final runs = <TrackRun>[
+      for (final r in lane.runs)
+        if (r.startedAt != null)
+          TrackRun(
+            id: r.id,
+            workflowId: r.workflowId,
+            at: r.startedAt!,
+            status: AnStatus.fromRaw(r.status),
+            // The honest source word (裁决③: the grid counts all sources, the card names each one).
+            // 诚实来源词(裁决③:格统计所有来源、卡逐一点名)。
+            sourceLabel: runBasePhrase(context, runSourceOf(r, triggersById)),
+            elapsed: r.completedAt?.difference(r.startedAt!),
+          ),
+    ];
+    // Only `missed` firings paint on the new grid — the ✕ evidence the 「错过 N」 card deep-links to; the
+    // other dispositions are neither a run nor a missed tick. missed 才画在新格上(错过牌的 ✕ 证据);其余处置两不是。
+    final missed = <DateTime>[
+      for (final f in lane.firings)
+        if (f.status == FiringStatus.missed) f.createdAt,
+    ];
+    return TrackLane(
+      id: '${lane.triggerId}/${lane.workflowId}',
+      label: lane.workflowName,
+      bins: binTrackEvents(
+          start: _start, end: now, binCount: _binCount, runs: runs, missed: missed),
+      // 判决①: the paused lane greys and wears «已暂停» (rendered in the future segment) — never leaves.
+      // 判决①:暂停泳道灰显、戴「已暂停」(渲在未来段)——绝不离开。
+      dimmed: lane.paused,
+      note: lane.paused ? context.t.scheduler.home.paused : '',
+      future: _futureOf(context, lane),
+    );
+  }
+
+  /// The next fire as a sentence — honestly shown even beyond the 24h axis; null when paused (no next
+  /// fire) or when there is no cron forecast at all. 下一发一句话——含轴外;暂停/无 cron 预告即 null。
+  TrackFuture? _futureOf(BuildContext context, ScheduleLane lane) {
+    final at = lane.nextFireAt;
+    if (lane.paused || at == null || !at.isAfter(now)) return null;
+    final t = context.t.scheduler.overview;
+    return TrackFuture(
+      at: at,
+      time: fmtDayTime(at, now),
+      // Parenthesised so it never collides with the bare KPI «in 3m». 加括号,绝不与裸 KPI「in 3m」撞。
+      relative: t.trackNextIn(d: fmtWaited(at.difference(now))),
+      // The schedule's own words = the trigger's name (the user's description of its cadence). 排程句=trigger 名。
+      schedule: lane.triggerName,
+    );
+  }
+
+  void _launch(BuildContext context, TrackLane lane, TrackBin bin) {
+    if (bin.runs.isEmpty) return;
+    if (bin.runs.length == 1) {
+      final r = bin.runs.single;
+      context.go('/scheduler/w/${r.workflowId}/runs/${r.id}');
+    } else {
+      // Several runs in one hour → the workflow's operations home (no single flagship to pick). 多 run→运营主页。
+      context.go('/scheduler/w/${bin.runs.first.workflowId}');
+    }
+  }
+
+  // ── screen-reader sentences (§12) ──
+
+  String _binA11y(BuildContext context, TrackLane lane, TrackBin bin) {
+    final t = context.t.scheduler.overview;
+    final ok = bin.runs.where((r) => r.status == AnStatus.done).length;
+    final fail = bin.runs.where((r) => r.status == AnStatus.err).length;
+    final base =
+        t.trackBinA11y(hour: _hourOf(bin.start), n: '${bin.runs.length}', ok: '$ok', fail: '$fail');
+    return bin.missedCount > 0 ? '$base${t.trackBinMissedClause(x: '${bin.missedCount}')}' : base;
+  }
+
+  String _emptyBinA11y(BuildContext context, TrackLane lane, TrackBin bin) =>
+      context.t.scheduler.overview.trackBinEmptyA11y(hour: _hourOf(bin.start));
+
+  String _futureA11y(BuildContext context, TrackLane lane) {
+    final t = context.t.scheduler.overview;
+    final f = lane.future;
+    if (f == null) return lane.dimmed ? lane.note : '';
+    return t.trackFutureA11y(at: f.time, schedule: f.schedule);
+  }
+
+  String _laneA11y(BuildContext context, TrackLane lane) {
+    final t = context.t.scheduler.overview;
+    var n = 0, ok = 0, fail = 0, missed = 0;
+    for (final b in lane.bins) {
+      n += b.runs.length;
+      ok += b.runs.where((r) => r.status == AnStatus.done).length;
+      fail += b.runs.where((r) => r.status == AnStatus.err).length;
+      missed += b.missedCount;
+    }
+    final next = lane.future?.time ?? (lane.dimmed ? lane.note : t.kpiNone);
+    return t.trackLaneSummaryA11y(
+        name: lane.label, n: '$n', ok: '$ok', fail: '$fail', missed: '$missed', next: next);
+  }
+
+  // ── hover cards ──
+
+  Widget _binCard(BuildContext context, TrackLane lane, TrackBin bin) {
+    final t = context.t.scheduler.overview;
+    final c = context.colors;
+    final shown = bin.runs.take(_cardCap).toList();
+    final hidden = bin.runs.length > _cardCap ? bin.runs.skip(_cardCap).toList() : const <TrackRun>[];
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header = the hour + total activity (runs + missed). 头行=时段 + 总数。
+        Text(
+          t.trackCardHead(
+              at: fmtDayTime(bin.start, now), n: '${bin.runs.length + bin.missedCount}'),
+          style: AnText.meta.weight(AnText.emphasisWeight).copyWith(color: c.ink),
+        ),
+        const SizedBox(height: AnFlow.headBodyDense),
+        // Missed rows first — the ✕ evidence that drew the eye. 先列 missed:引来目光的 ✕ 证据。
+        for (final m in bin.missed) _cardMissedRow(context, m),
+        for (final r in shown) _cardRunRow(context, r),
+        if (hidden.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: AnSpace.s2),
+            child: Text(_overflowLine(context, hidden),
+                style: AnText.meta.copyWith(color: c.inkFaint)),
+          ),
+      ],
+    );
+  }
+
+  Widget _cardRunRow(BuildContext context, TrackRun r) {
+    final c = context.colors;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AnSpace.s2),
+      child: Row(children: [
+        AnStatusDot(r.status),
+        const SizedBox(width: AnSpace.s6),
+        Text(fmtDayTime(r.at, now), style: AnText.metaTabular().copyWith(color: c.inkMuted)),
+        const SizedBox(width: AnSpace.s8),
+        Flexible(
+          child: Text(r.sourceLabel,
+              maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.meta.copyWith(color: c.inkFaint)),
+        ),
+        const SizedBox(width: AnSpace.s8),
+        // Elapsed — «—» while the run is still in flight (never a fabricated zero). 耗时;在跑「—」。
+        Text(r.elapsed != null ? fmtDuration(r.elapsed!) : context.t.scheduler.overview.kpiNone,
+            style: AnText.metaTabular().copyWith(color: c.inkFaint)),
+      ]),
+    );
+  }
+
+  Widget _cardMissedRow(BuildContext context, DateTime at) {
+    final c = context.colors;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AnSpace.s2),
+      child: Row(children: [
+        Icon(AnIcons.close, size: AnSize.iconSm, color: c.inkMuted),
+        const SizedBox(width: AnSpace.s6),
+        Text(context.t.scheduler.overview.trackCardMissed(at: fmtDayTime(at, now)),
+            style: AnText.meta.copyWith(color: c.inkFaint)),
+      ]),
+    );
+  }
+
+  String _overflowLine(BuildContext context, List<TrackRun> hidden) {
+    final t = context.t.scheduler.overview;
+    final fails = hidden.where((r) => r.status == AnStatus.err).length;
+    final tail = fails > 0 ? t.trackCardMoreFailed(m: '$fails') : t.trackCardMoreOk;
+    return '${t.trackCardMore(n: '${hidden.length}')} · $tail';
+  }
+
+  Widget _futureCard(BuildContext context, TrackLane lane) {
+    final t = context.t.scheduler.overview;
+    final c = context.colors;
+    final f = lane.future;
+    if (f == null) return const SizedBox.shrink();
+    final text = f.schedule.isEmpty
+        ? t.trackCardNextBare(at: f.time)
+        : t.trackCardNext(at: f.time, schedule: f.schedule);
+    return Text(text, style: AnText.meta.copyWith(color: c.ink));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -360,63 +517,20 @@ class SchedulerScheduleZone extends StatelessWidget {
           Text(t.scheduleEmpty, style: AnText.body.copyWith(color: c.inkFaint))
         else ...[
           AnScheduleTrack(
-            lanes: [
-              for (final lane in track.lanes)
-                TrackLane(
-                  id: '${lane.triggerId}/${lane.workflowId}',
-                  label: lane.workflowName,
-                  // 判决①: the paused lane greys and wears the word — it never leaves the board.
-                  // 判决①:暂停泳道灰显并戴上词——它绝不离开看板。
-                  dimmed: lane.paused,
-                  note: lane.paused ? context.t.scheduler.home.paused : '',
-                  events: [
-                    // The past half (工单⑭): `missed` wears the ✕ face, every other disposition is a
-                    // solid dot in the colour AnStatus.fromRaw folds its word to — the SAME table the
-                    // rest of the app reads, so the four neutral dispositions land on idle grey here
-                    // without this widget deciding anything about colour.
-                    // 过去半(工单⑭):missed 戴 ✕ 脸,其余处置=实心点,色由 AnStatus.fromRaw 折它的词而来
-                    // ——与全 app 同一张表,故四个中性处置在此自然落 idle 灰,本件不对颜色做任何裁决。
-                    for (final f in lane.firings)
-                      TrackEvent(
-                        at: f.createdAt,
-                        kind: f.status == FiringStatus.missed
-                            ? TrackEventKind.missed
-                            : TrackEventKind.past,
-                        status: AnStatus.fromRaw(f.status.name),
-                        id: f.id,
-                        label: '${lane.workflowName} · ${lane.triggerName}',
-                      ),
-                    for (final at in lane.futureAt)
-                      TrackEvent(
-                        at: at,
-                        kind: TrackEventKind.future,
-                        // «预计» — a forecast must never read as a measured fact. 预告绝不读成实测。
-                        label: '${lane.workflowName} · ${lane.triggerName}',
-                      ),
-                  ],
-                ),
-            ],
+            lanes: [for (final lane in track.lanes) _laneOf(context, lane)],
             now: now,
-            window: SchedulerWindows.trackWindow,
-            // Equal to the KPI window BY CONSTRUCTION — the 「错过 N」 card deep-links to the ✕ on this
-            // very track, so it must look back exactly as far as the card counted (判决⑥).
-            // **构造上**等于 KPI 窗——「错过 N」牌深链到的正是本轨的 ✕,故它必须回看得与牌数的**一样远**。
             pastWindow: SchedulerWindows.trackPastWindow,
-            // One sentence per face. The forecast sentence says 「预计」 and MUST NOT be reused for a
-            // past mark — a fire that already happened being announced as «scheduled» is the plainest
-            // possible lie. 每张脸一句;预告句说「预计」,**绝不**给过去点复用——把已经发生的火念成「预计」是最
-            // 直白的谎。
-            eventSemanticLabel: (lane, e) => switch (e.kind) {
-              TrackEventKind.future => t.trackPointA11y(name: lane.label, at: fmtDateTime(e.at)),
-              TrackEventKind.missed => t.trackMissedA11y(name: lane.label, at: fmtDateTime(e.at)),
-              TrackEventKind.past => t.trackFiredA11y(
-                  name: lane.label, at: fmtDateTime(e.at), status: _markWord(context, e.status)),
-            },
-            foldedLabel: (n) => t.trackFolded(n: '$n'),
+            nowLabel: t.trackNow,
+            onBin: (lane, bin) => _launch(context, lane, bin),
+            binSemanticLabel: (lane, bin) => _binA11y(context, lane, bin),
+            emptyBinSemanticLabel: (lane, bin) => _emptyBinA11y(context, lane, bin),
+            futureSemanticLabel: (lane) => _futureA11y(context, lane),
+            laneSummaryLabel: (lane) => _laneA11y(context, lane),
+            binHoverBuilder: (lane, bin) => (ctx) => _binCard(ctx, lane, bin),
+            futureHoverBuilder: (lane) => (ctx) => _futureCard(ctx, lane),
           ),
           // Two INDEPENDENT truncations, two sentences — they are different facts and merging them
-          // would leave the reader unable to tell which half is partial. 两处**独立**截断、两句话:它们是不同的
-          // 事实,合成一句会让读者分不清是哪一半不全。
+          // would leave the reader unable to tell which half is partial. 两处**独立**截断、两句话。
           if (track.truncated)
             Padding(
               padding: const EdgeInsets.only(top: AnSpace.s8),

@@ -20,6 +20,7 @@ import 'package:anselm/features/scheduler/ui/overview_zones.dart';
 import 'package:anselm/features/scheduler/ui/scheduler_overview.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -556,6 +557,89 @@ void main() {
       await _pumpBoard(tester, _host(repo));
       expect(find.text(t.scheduler.overview.scheduleEmpty), findsOneWidget);
       expect(find.byType(AnScheduleTrack), findsNothing, reason: '零泳道不画一条指着空无的轴');
+    });
+  });
+
+  // ─────────────────────────── B5 · 发射台(格点击导航) ───────────────────────────
+  // A content cell is a launch pad (same law as AnRunMatrix): one run → that run's flagship, several →
+  // the workflow's operations home. Driven through the roving cursor (Tab in, arrow to the hour, Enter).
+  // 内容格=发射台(同矩阵):一 run→旗舰、多 run→运营主页;经 roving 光标驱动(Tab 进、方向键走到该小时、Enter)。
+  group('B5 · 发射台', () {
+    // A run started N hours before now lands in bin (24 − N). 距 now N 小时前的 run 落在 bin(24−N)。
+    Flowrun run(String id, {required int hoursAgo, String status = 'completed'}) => Flowrun(
+        id: id,
+        workflowId: 'wf_a',
+        status: status,
+        startedAt: _now.subtract(Duration(hours: hoursAgo, minutes: 30)),
+        completedAt: _now.subtract(Duration(hours: hoursAgo, minutes: 29)),
+        updatedAt: _now);
+
+    Future<String> launch(WidgetTester tester, ScheduleTrackData track, {required int bin}) async {
+      var landed = '/';
+      final router = GoRouter(initialLocation: '/', routes: [
+        GoRoute(
+            path: '/',
+            builder: (_, _) => Scaffold(
+                body: SizedBox(
+                    width: 900,
+                    child: SchedulerScheduleZone(
+                        track: track, triggersById: const {}, now: _now)))),
+        GoRoute(
+            path: '/scheduler/w/:id',
+            builder: (_, s) {
+              landed = '/scheduler/w/${s.pathParameters['id']}';
+              return const Scaffold(body: SizedBox());
+            }),
+        GoRoute(
+            path: '/scheduler/w/:id/runs/:frId',
+            builder: (_, s) {
+              landed = '/scheduler/w/${s.pathParameters['id']}/runs/${s.pathParameters['frId']}';
+              return const Scaffold(body: SizedBox());
+            }),
+      ]);
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+          TranslationProvider(child: MaterialApp.router(theme: AnTheme.light(), routerConfig: router)));
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab); // → the cursor (bin 0)
+      await tester.pump();
+      for (var i = 0; i < bin; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        await tester.pump();
+      }
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      return landed;
+    }
+
+    testWidgets('a ONE-run hour opens THAT run\'s flagship', (tester) async {
+      final track = ScheduleTrackData(lanes: [
+        ScheduleLane(
+            triggerId: 'tr_1',
+            triggerName: '每日',
+            workflowId: 'wf_a',
+            workflowName: 'A',
+            paused: false,
+            runs: [run('fr_solo', hoursAgo: 6)]), // → bin 17
+      ]);
+      expect(await launch(tester, track, bin: 17), '/scheduler/w/wf_a/runs/fr_solo',
+          reason: '一格一 run → 直进该 run 旗舰');
+    });
+
+    testWidgets('a MANY-run hour opens the workflow operations home (no single flagship to pick)',
+        (tester) async {
+      final track = ScheduleTrackData(lanes: [
+        ScheduleLane(
+            triggerId: 'tr_1',
+            triggerName: '每日',
+            workflowId: 'wf_a',
+            workflowName: 'A',
+            paused: false,
+            // Two runs in the SAME hour (both 6h ago) → bin 17. 同一小时两 run → bin 17。
+            runs: [run('fr_a', hoursAgo: 6), run('fr_b', hoursAgo: 6)]),
+      ]);
+      expect(await launch(tester, track, bin: 17), '/scheduler/w/wf_a',
+          reason: '多 run 格 → 该 workflow 运营主页(无单一旗舰可选)');
     });
   });
 

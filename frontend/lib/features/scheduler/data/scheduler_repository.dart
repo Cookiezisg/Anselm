@@ -190,6 +190,31 @@ abstract interface class SchedulerRepository {
   /// 并发上限所能产出的量。
   Future<List<Flowrun>> listRunningRuns();
 
+  /// EVERY run in the workspace that STARTED at or after [startedAfter] (`GET /flowruns?startedAfter=`,
+  /// drained, ALL statuses and ALL origins) — the schedule track's past-half grid (WRK-070 调度轨重造 B1).
+  ///
+  /// **Workspace-wide and source-blind, and that is the whole point** (裁决③: the past grid answers
+  /// «is this workflow healthy», not «did its cron fire»). The firing ledger only records TRIGGER-born
+  /// ticks, so a grid built from firings is blind to a manual / chat run and mis-colours a cron run
+  /// (a firing's `started` status says «the tick became a run», never whether that run then FAILED). A
+  /// run row carries the run's own outcome (for the cell colour), its start (for the hour bin + the
+  /// hover card time), its start→complete span (for the hover card's elapsed) and its origin (for the
+  /// honest source word) — the four things firings cannot give. `missed` still comes from the firing
+  /// ledger (a missed tick is precisely the tick that produced NO run).
+  ///
+  /// Windowed on `started_at` because the grid bins by when a run STARTED; drained (a page cap would let
+  /// a busy hour drop runs the grid must count) — the drain's defensive bound is far above what one
+  /// machine's concurrency can produce.
+  ///
+  /// 工作区里**每一个**在 [startedAfter] 或之后**开始**的 run(`GET /flowruns?startedAfter=`,翻页拉全,**全状态、
+  /// 全来源**)——调度轨过去半的健康格(B1)。**工作区级且不认来源,而这就是要害**(裁决③:格答「这个 workflow
+  /// 健康吗」而非「它的 cron 发了没」)。firing 账只记 trigger 生的刻度,故从 firing 建格看不见手动/对话 run、且给
+  /// cron run 上错色(firing 的 started 只说「刻度成了 run」、从不说那个 run 后来**失败**了)。run 行自带结局(格色)、
+  /// 开始(落格+卡时刻)、start→complete 跨度(卡耗时)、来源(诚实来源词)——firing 给不出的四样。missed 仍从 firing
+  /// 账来(missed 刻度正是那个**没产出 run** 的刻度)。按 started_at 开窗(格按 run 何时**开始**分箱);翻页拉全(页帽会
+  /// 让忙碌的一小时丢掉格必须数的 run)。
+  Future<List<Flowrun>> listRunsSince(DateTime startedAfter);
+
   /// The full workflow entity (`GET /workflows/{id}`) — the operations home's health head needs the
   /// lifecycle truth and the linked pane needs the active version's graph. 全量 workflow 实体
   /// (健康头生命周期 + 联动格活跃版本图)。
@@ -469,6 +494,16 @@ class LiveSchedulerRepository implements SchedulerRepository {
   @override
   Future<List<Flowrun>> listRunningRuns() =>
       _drain('/api/v1/flowruns', Flowrun.fromJson, query: const {'status': 'running'});
+
+  @override
+  Future<List<Flowrun>> listRunsSince(DateTime startedAfter) => _drain(
+        '/api/v1/flowruns',
+        Flowrun.fromJson,
+        // startedAfter (NOT completedAfter): the grid bins by when a run STARTED (B1). All statuses,
+        // no origin filter — the grid answers health across every source. RFC3339 UTC, same as the
+        // other bounds. startedAfter(非 completedAfter):格按 run **开始**分箱;全状态、无来源过滤。
+        query: {'startedAfter': startedAfter.toUtc().toIso8601String()},
+      );
 
   @override
   Future<List<Flowrun>> listFailedSince(DateTime completedAfter) => _drain(

@@ -456,6 +456,14 @@ class FixtureSchedulerRepository implements SchedulerRepository {
   Future<List<Flowrun>> listRunningRuns() async =>
       [for (final r in _allRuns()) if (_statusOf(r) == 'running') r];
 
+  @override
+  Future<List<Flowrun>> listRunsSince(DateTime startedAfter) async => [
+        // All statuses, all origins, started in the window — the past grid's health source (B1).
+        // 全状态全来源、窗内开始——过去健康格的数据源(B1)。
+        for (final r in _allRuns())
+          if (r.startedAt != null && !r.startedAt!.isBefore(startedAfter)) r,
+      ];
+
   /// THE failed-in-window predicate, expressed ONCE — shared by [listFailedSince] (the 「24h 失败」
   /// zone's rows) and [stats]' `totals.failedSince` (the tile's delta source), exactly as the backend's
   /// `failedSince` and `?completedAfter` share one `completed_at >= ?` (工单⑮). Two copies would be a

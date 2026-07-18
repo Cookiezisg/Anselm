@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../design/colors.dart';
@@ -7,213 +8,327 @@ import '../model/status_state.dart';
 import '../model/time_format.dart';
 import 'an_a11y.dart';
 import 'an_focus_ring.dart';
-import 'an_interactive.dart';
+import 'an_hover_card.dart';
 import 'an_status_dot.dart';
-import 'an_tooltip.dart';
 import 'icons.dart';
 import 'tone.dart';
 
-/// AnScheduleTrack (WRK-069 §12, S5) — the ABSOLUTE-TIME track: one horizontal axis, a «now» line, and
-/// a swim [lane] per schedule (a trigger, a workflow), each carrying discrete [TrackEvent] dots. It
-/// answers one question the rest of the board cannot: **what is about to happen, and did the recent
-/// scheduled things actually run.**
+/// AnScheduleTrack (WRK-069 §12 · WRK-070 调度轨重造 0718「彻底做干净」) — the schedule board's one row per
+/// schedule, split by a «now» line into TWO differently-shaped halves that answer two different questions:
 ///
-/// Three event faces, and the difference between them is the whole point (each carries a SHAPE channel
-/// beside its colour — WCAG 1.4.1, colour never speaks alone):
-///   • [TrackEventKind.past]   — a SOLID dot in its run's status colour: it happened, here is how it went.
-///   • [TrackEventKind.future] — a HOLLOW ring, and the caller's word for it says «预计»: a promise, not
-///     a fact. It must never be able to read as measured history.
-///   • [TrackEventKind.missed] — a grey ✕: the tick came due while the machine slept and was booked
-///     WITHOUT a catch-up run (工单⑨). A desktop app oversleeping is its first reality, not a failure —
-///     hence grey, never red (WRK-069 状态学「未执行」桶: a disposition is bookkeeping, not an error).
+///   • **PAST = a uniform time-BINNED bar** (status-page uptime bar / GitHub contribution grid): the same
+///     24 hourly cells on every lane, dense or sparse (the discrete-dot form is fully retired). A cell's
+///     colour is the WORST status of the runs that STARTED in that hour (the AnRunMatrix cell law: a
+///     completed run's soft-tint fill, a failure's red, an empty hour's faint outline — «empty is a real
+///     answer», never a colour). A `missed` tick never enters the fill; it lays a grey ✕ over the cell
+///     (a SHAPE beside the colour, WCAG 1.4.1), so it can never hide inside an aggregate — it is the
+///     evidence the 「错过 N」 KPI card deep-links to.
+///   • **FUTURE = a fixed-width segment, NOT a timeline** (Cronitor/Healthchecks next-run one-liner): one
+///     hollow ring ○ + «HH:mm (relative word)» + the schedule's own words. A forecast has no history to
+///     draw, so it says its next moment in a sentence rather than pretending to a position (relative
+///     wording carries the urgency the abandoned position-encoding used to). A paused lane says «已暂停».
 ///
-/// **Architecture — hybrid, the [AnGraphCanvas] precedent**: the furniture (axis rule, now line, lane
-/// baselines) is a [CustomPaint]底层 because it is inert; the EVENTS are real widgets, because a
-/// CustomPainter paints pixels with no identity — its `semanticsBuilder` yields nodes that cannot be
-/// focused (custom_paint.dart creates no [FocusNode] anywhere), so ←→ traversal would be physically
-/// impossible under a pure painter. See design-system.md §2「CustomPainter 只配画没有身份的像素」.
+/// The cells COUNT every run, whatever its source (the grid answers HEALTH, not «cron execution rate» —
+/// the hover card names each run's source honestly); `missed` alone still comes from the firing ledger.
+///
+/// **Click = launch pad** (the AnRunMatrix «tap a cell = go there» law): a cell with exactly one run
+/// opens that run's flagship, a cell with several opens the workflow's operations home, and an empty or
+/// missed-only cell is INERT (a dead affordance is a lie — there is nowhere true to go). The future ○ is
+/// display-only.
+///
+/// **Hover = a non-interactive detail card** ([AnHoverCard], scroll-frozen): content cells and the future
+/// ○ reveal a card listing the hour's runs (status · time · source · elapsed, failures on top) or the
+/// forecast; empty cells reveal nothing.
+///
+/// **Architecture — hybrid, the [AnGraphCanvas] precedent** (design-system §2「CustomPainter 只配画没有
+/// 身份的像素」): the now line is inert furniture drawn by a [CustomPaint]底层 + [IgnorePointer]; the CELLS
+/// are real widgets, because a CustomPainter's pixels have no identity — its `semanticsBuilder` yields
+/// nodes that cannot be focused (custom_paint.dart creates no [FocusNode] anywhere), so ←→ traversal is
+/// physically impossible under a pure painter.
 ///
 /// ## Keyboard: ONE tab stop (roving tabindex), like [AnRunMatrix]
 ///
-/// Folding bounds the dot count per lane by PIXELS (~28 on a full-bleed rail), but 8 lanes still
-/// measured **227 Tab stops** — a keyboard user who tabs into the track needs ~200 more presses to
-/// leave. So the track is one stop, by the same physics the matrix documents at length:
-///   • every dot owns a [FocusNode] this widget owns outright, and exactly one — the cursor's — has
-///     `skipTraversal: false` (the flag that still allows EXPLICIT focus, which is what an arrow does;
-///     `canRequestFocus: false` would forbid that too). Flutter leaves an externally-supplied node's
-///     flags alone (`focus_scope.dart` writes them only `if (!widget._usingExternalFocus)`).
-///   • arrows re-bind [DirectionalFocusIntent] to a [DirectionalFocusAction] subclass (the
-///     `MenuAnchor` precedent) — never `onKeyEvent`, which would either bubble to [WidgetsApp]'s
-///     default arrow→DirectionalFocusIntent bindings (focus jumps out mid-walk) or force us to
-///     hand-roll every edge case.
-///   • running off the edge calls `super.invoke(intent)` and the framework's own traversal walks the
-///     user OUT. Nobody is trapped.
-///   • ←→ walk a lane's dots in time order; **↑↓ land on the dot NEAREST IN TIME**, because a track is
-///     a clock: the thing «above» 14:00 is the other lane's 14:00, not its third dot. An empty lane has
-///     nothing to land on and is stepped over.
+/// The cursor's unit is a CELL — all 24 hourly bins (empty ones included: a track is a CLOCK and an empty
+/// hour is still a face on it) plus the future ○ where a lane has one. Every position owns a [FocusNode]
+/// this widget owns outright, and exactly one — the cursor's — has `skipTraversal: false` (the flag that
+/// still allows EXPLICIT focus, which is what an arrow does). Arrows re-bind [DirectionalFocusIntent] to a
+/// [DirectionalFocusAction] subclass (the `MenuAnchor` precedent) and running off the edge calls
+/// `super.invoke` so the framework walks the user OUT — nobody is trapped. ←→ walk a lane's bins in time
+/// order (bin23 → the future ○); **↑↓ land on the SAME hour of the adjacent lane** (a track is a clock,
+/// the thing «above» 14:00 is the other lane's 14:00). The cursor is addressed by **(lane id, slot)**, a
+/// stable address — a refresh cannot slide it onto a different hour.
 ///
-/// The cursor is addressed by (lane id, instant) — never an index — so a refresh that re-folds the
-/// axis cannot slide it onto a different event.
+/// ## Screen reader: a per-lane summary + a sentence per cell
 ///
-/// **Screen reader**: unlike the matrix (a dense 480-cell field, where per-cell nodes are a wall and
-/// the ROW summary is the answer), a lane's ~28 folded dots are each DISTINCT news — a run that
-/// happened, a forecast, a tick that was missed — so every dot keeps its own node and its own sentence.
-/// One [Semantics] container per lane, with `explicitChildNodes: true` — **load-bearing, not
-/// decoration**: without it a labelled container ABSORBS its descendants' labels, the lane reads out
-/// as one run-on string, and the dots stop being addressable nodes at all, which silently destroys the
-/// ←→ walk this lane exists to host (caught by the semantics-tree dump, never by looking at it).
+/// One [Semantics] container per lane with `explicitChildNodes: true` (**load-bearing, not decoration**:
+/// without it a labelled container ABSORBS its descendants' labels, the lane reads as one run-on string
+/// and the cells stop being addressable nodes at all — silently destroying the ←→ walk this lane exists
+/// to host, caught by the semantics-tree dump, never by looking). The container carries the lane's whole
+/// pattern ([laneSummaryLabel]); each cell keeps its own sentence ([binSemanticLabel] / a bare empty-hour
+/// line / [futureSemanticLabel]); cursor moves announce on macOS via [AnA11y.announceFocusMove].
 ///
-/// **Bucket folding** is what keeps both counts bounded: a `*/5` cron over 24h is 288 ticks that would
-/// otherwise be sub-pixel confetti AND 288 focus stops. Events are folded per (pixel bucket, kind); a
-/// folded dot carries [TrackEvent.count] and hovers the full list. Within one bucket the WORST status
-/// wins (the same law as the run matrix's cell fold — a later green tick cannot erase an earlier
-/// failure that really happened).
-///
-/// AnScheduleTrack 绝对时间轴:一条轴 + now 线 + 逐泳道离散事件点。三张脸各带**形状通道**(色永不独行):
-/// 过去=实心着状态色 / 未来=空心环 + 调用方的「预计」词(是承诺不是事实,绝不能读成实测史) / missed=灰 ✕
-/// (睡过头的刻度醒来记账不补跑;桌面 app 第一现实,非故障,故灰不红)。**架构=混合**(AnGraphCanvas 先例):
-/// 家具(轴/now 线/泳道基线)走 CustomPaint 底层(惰性),**事件是真 widget**——painter 画的是**没有身份**的
-/// 像素,它 semanticsBuilder 出的节点不可聚焦(custom_paint.dart 全文件不造任何 FocusNode),纯 painter 下
-/// ←→ 遍历物理上做不到(见 design-system §2)。
-///
-/// **键盘=唯一一个 Tab 停靠**(roving tabindex,同 AnRunMatrix):折叠已按**像素**封住每泳道点数(全宽轨约 28),
-/// 但 8 条泳道**实测仍有 227 个 Tab 停靠**——进去要再按 200 次才出得来。故:每点的 FocusNode 由本件自持,
-/// **恰好一个**(光标那个)skipTraversal:false(该旗标仍允许**显式**聚焦=方向键做的事;canRequestFocus:false
-/// 会连显式聚焦一起禁掉);外供节点的旗标框架不碰。**方向键覆盖 Intent 不抢键**(MenuAnchor 先例),用
-/// onKeyEvent 收裸方向键会冒泡到 WidgetsApp 默认绑定、焦点半途跳出。**越界 `super.invoke` 交还框架**,永不
-/// 困住。←→ 按时序走本泳道的点;**↑↓ 落在时间上最近的点**——轨是钟,14:00 的「上面」是另一条泳道的 14:00,
-/// 不是它的第三个点;空泳道无处可落,跨过。光标用 (泳道 id, 时刻) 定址、绝不用下标——重折叠不得让它滑到
-/// 另一个事件上。
-///
-/// **读屏**:与格阵(480 格的稠密场,逐格节点是一堵墙、答案在**行摘要**)不同,一条泳道的约 28 个折叠点**各是
-/// 一条独立的新闻**(跑过的 run / 预告 / 错过的刻度),故每点保留自己的节点与句子。每泳道一个 Semantics 容器 +
-/// `explicitChildNodes: true`——**承重的、非装饰**:没有它,带 label 的容器会**吸收**后代 label、泳道读成
-/// 一长串,而点根本不再是可寻址节点=本泳道存在的意义(←→ 遍历)被静默摧毁(靠语义树 dump 抓到,肉眼看不出)。
-///
-/// **bucket 聚合**同时封住 widget 数与焦点停靠数(*/5 的 cron 一天 288 个刻度=亚像素纸屑 + 288 个焦点停靠);
-/// 折叠按 (像素桶, kind),折叠点带 count、hover 出全清单;同桶取**最坏**状态(同矩阵格聚合律:后来的绿刻抹
-/// 不掉真发生过的失败)。
-enum TrackEventKind {
-  /// It already happened — solid, status-coloured. 已发生:实心着状态色。
-  past,
+/// AnScheduleTrack 逐排程一行,被 now 线劈成**两种不同形状**的半:**过去=统一时段分箱条**(uptime bar / 贡献格,离散
+/// 点整个退役):全泳道同 24 格,格色=该时段内 run 的**最坏**状态(同矩阵格律,空=淡描边「空是真答案」);missed
+/// 不进格色、叠一枚灰 ✕(形状通道,永不藏进聚合——它是「错过 N」牌深链的证据)。**未来=定宽段非时间轴**(Cronitor
+/// next-run 一句话):一枚空心 ○ +「HH:mm(相对词)」+ 排程人话;暂停泳道说「已暂停」。格**统计所有来源的 run**(答
+/// 健康、非排程执行率,来源在 hover 卡如实标注),唯 missed 仍从 firing 账来。**点击=发射台**(同矩阵):一格一 run
+/// →旗舰、多 run →运营主页、空/纯 missed 格惰性(没有去处就不做成可点)。**hover=不可交互明细卡**(滚动冻结)。
+/// **架构=混合**(AnGraphCanvas 先例):now 线走 painter 底层 + IgnorePointer(惰性),**格是真 widget**(painter 像素
+/// 没有身份,纯 painter 下方向键遍历物理上做不到)。**键盘=唯一一个 Tab 停靠**(roving,同 AnRunMatrix):光标单位=格
+/// (24 时段格含空格——轨是钟、空格也是钟面)+ 未来 ○;每格 FocusNode 本件自持、恰一个光标 skipTraversal:false,
+/// 方向键重绑 Intent、出边 super.invoke 交还框架。←→ 按时序走本泳道(bin23→未来 ○);↑↓ 落邻泳道**同一小时**。
+/// 光标用 (泳道 id, slot) 定址。**读屏**:每 lane 一 Semantics 容器 + explicitChildNodes(承重),容器带行摘要,
+/// 每格带自己的句子;光标移动 macOS 补一发 announceFocusMove。
 
-  /// It is scheduled — hollow, spoken as a forecast. 已排程:空心,措辞为预告。
-  future,
-
-  /// It came due while the app slept; booked, never caught up (工单⑨). 睡过头的刻度:记账不补跑。
-  missed,
-}
-
-/// One dot on a lane. [status] colours only a [TrackEventKind.past] dot (a forecast has no outcome to
-/// wear, and a missed tick's outcome IS «it did not run»). [label] is the caller's already-localized
-/// word for what this is (core holds no copy). [count] > 1 means this dot STANDS FOR that many folded
-/// events — it is never a lie about one event, it is an honest aggregate.
-/// 泳道上的一个点。status 只给过去的点着色(预告没有结局可穿,missed 的结局就是「没跑」);label=调用方
-/// 已本地化的词(core 不含文案);count>1=此点**代表**这么多折叠事件(不是对单个事件撒谎,是诚实聚合)。
-class TrackEvent {
-  const TrackEvent({
+/// One run inside a bin — its detail for the hover card AND the click target. [status] is already folded
+/// ([AnStatus.fromRaw]); [sourceLabel] is the caller's localized source phrase (core holds no copy);
+/// [elapsed] is null while the run is in flight (never a zero that reads as «instant»).
+/// 桶内一次 run:hover 卡明细 + 点击目标。status 已折好;sourceLabel=调用方本地化来源词(core 无文案);
+/// elapsed 在跑期间为 null(绝不用会被读成「瞬时」的 0)。
+class TrackRun {
+  const TrackRun({
+    required this.id,
+    required this.workflowId,
     required this.at,
-    required this.kind,
-    this.status,
-    this.label = '',
-    this.id = '',
-    this.count = 1,
+    required this.status,
+    this.sourceLabel = '',
+    this.elapsed,
   });
 
-  final DateTime at;
-  final TrackEventKind kind;
-
-  /// The run outcome a PAST dot wears; ignored on the other two faces. 过去点穿的结局;另两脸忽略。
-  final AnStatus? status;
-
-  final String label;
   final String id;
+  final String workflowId;
 
-  /// How many events this dot stands for after bucket folding (≥1). 折叠后此点代表几个事件(≥1)。
-  final int count;
+  /// The run's start instant — the bin it lands in and the card's time word. run 开始时刻。
+  final DateTime at;
+  final AnStatus status;
+  final String sourceLabel;
+  final Duration? elapsed;
 }
 
-/// One swim lane = one schedule. [dimmed] is the PAUSED face (判决①): a paused trigger's lane greys
-/// but **never disappears** — a stop-the-bleeding switch the user threw must stay visible, and a lane
-/// that vanished would read as «no such schedule» instead of «you paused this». Its [note] carries the
-/// caller's «已暂停» word. A dimmed lane legitimately holds zero future events (the backend refuses to
-/// stamp a next-fire on a paused trigger — see [TriggerSchedule]).
-/// 一泳道=一条排程。dimmed=**暂停脸**(判决①):暂停的 trigger 泳道**灰显但绝不消失**——用户扳下的止血阀
-/// 必须看得见,泳道消失会被读成「没有这条排程」而非「你暂停了它」;note 带调用方的「已暂停」词。灰泳道
-/// 合法地零未来事件(后端拒绝给暂停的 trigger 盖下次时间戳)。
+/// One hourly cell on a lane's past grid. [runs] are the runs that STARTED in [start, end) (failures
+/// first, then time-ascending — the hover card's reading order); [missedCount] is the misfire ticks that
+/// came due in the same hour (a grey ✕ overlay, never folded into the colour).
+/// 一格:startedAt ∈ [start,end) 的 run(失败在前、其余按时序——hover 卡读序)+ 同小时的 missed 刻度数
+/// (灰 ✕ 覆层,绝不折进格色)。
+class TrackBin {
+  const TrackBin({
+    required this.index,
+    required this.start,
+    required this.end,
+    this.runs = const [],
+    this.missed = const [],
+  });
+
+  final int index;
+  final DateTime start;
+  final DateTime end;
+  final List<TrackRun> runs;
+
+  /// The misfire ticks that came due in this hour (their instants, so the hover card can say «错过
+  /// HH:mm» for each). Kept as instants, not just a count, because the card lists them. 本小时的 missed
+  /// 刻度(时刻,故卡可逐条念「错过 HH:mm」)。
+  final List<DateTime> missed;
+
+  int get missedCount => missed.length;
+
+  bool get hasRuns => runs.isNotEmpty;
+
+  /// Something to hover / a place a ✕ can sit. A bin with neither is genuinely empty. 有内容(可 hover)。
+  bool get hasContent => runs.isNotEmpty || missedCount > 0;
+
+  /// The colour a cell wears = the WORST outcome across its runs (the run-matrix cell law: a later
+  /// success cannot erase an earlier failure). Null = no runs → the faint empty outline.
+  /// 格色=各 run 最坏结局(同矩阵:后来的成功抹不掉真发生过的失败);null=无 run → 淡描边空格。
+  AnStatus? get worst {
+    AnStatus? out;
+    for (final r in runs) {
+      out = _worstStatus(out, r.status);
+    }
+    return out;
+  }
+}
+
+/// The future half — the next fire as a SENTENCE, not a position. All three words are pre-localized by
+/// the caller (core holds no copy): [time] «17:55» / «7/19 09:00», [relative] «(in 2m)» (parenthesised,
+/// so it never collides with the bare KPI «in 2m»), [schedule] the trigger's own cadence words. A paused
+/// lane carries NO future (the backend stamps no next-fire on a paused trigger); the widget says «已暂停»
+/// from the lane's [TrackLane.note] instead. 未来半=一句话而非位置;三词皆调用方已本地化;暂停泳道无 future。
+class TrackFuture {
+  const TrackFuture({required this.at, this.time = '', this.relative = '', this.schedule = ''});
+
+  /// The next-fire instant — carried for ordering / a11y, not rendered directly. 下一发时刻(排序/读屏)。
+  final DateTime at;
+  final String time;
+  final String relative;
+  final String schedule;
+}
+
+/// One swim lane = one schedule. [bins] is the past grid (already binned by [binTrackEvents], the same
+/// list the keyboard model and the renderer read, so a cursor can never disagree with the screen).
+/// [dimmed] is the PAUSED face (判决①): a paused lane greys but NEVER disappears — a stop-the-bleeding
+/// switch the user threw must stay visible — and it carries the caller's «已暂停» word in [note] and a
+/// null [future].
+/// 一泳道=一条排程。bins=过去格(已由 binTrackEvents 分好,键盘模型与渲染读同一份);dimmed=暂停脸(判决①):
+/// 灰显但绝不消失,note 带「已暂停」词、future 为空。
 class TrackLane {
   const TrackLane({
     required this.id,
     required this.label,
-    required this.events,
+    required this.bins,
+    this.future,
     this.dimmed = false,
     this.note = '',
   });
 
   final String id;
   final String label;
-  final List<TrackEvent> events;
+  final List<TrackBin> bins;
+  final TrackFuture? future;
   final bool dimmed;
   final String note;
+}
+
+/// Worst-disposition fold (err > wait > run > done > idle) — the run matrix's cell law, verbatim: a
+/// later success cannot erase an earlier failure that really happened.
+/// 最坏处置折叠(同矩阵格律,逐字):后来的成功抹不掉真发生过的失败。
+AnStatus? _worstStatus(AnStatus? a, AnStatus? b) {
+  if (a == null) return b;
+  if (b == null) return a;
+  const rank = {
+    AnStatus.err: 4,
+    AnStatus.wait: 3,
+    AnStatus.run: 2,
+    AnStatus.done: 1,
+    AnStatus.idle: 0,
+  };
+  return (rank[a] ?? 0) >= (rank[b] ?? 0) ? a : b;
+}
+
+/// Bin [runs] + [missed] instants into [binCount] equal cells spanning `[start, end)` (24 hourly cells
+/// over the past 24h). Pure — unit-tested without a pump. A run/tick lands in bin `i` iff its instant is
+/// in `[start + i·w, start + (i+1)·w)`; anything outside `[start, end)` is dropped (unplaceable, so
+/// unshown). Within a bin, runs are ordered FAILURES-FIRST then time-ascending, which is the hover card's
+/// reading order — computed once here so the card never re-sorts.
+///
+/// 把 [runs] + [missed] 时刻分入 `[start, end)` 的 [binCount] 等分格(过去 24h 的 24 个小时格)。纯函数。
+/// 落格规则:instant ∈ `[start + i·w, start + (i+1)·w)`;窗外丢弃(放不下就不渲)。桶内 run 按**失败在前、
+/// 其余时序**排(=hover 卡读序,只在此排一次)。
+List<TrackBin> binTrackEvents({
+  required DateTime start,
+  required DateTime end,
+  required int binCount,
+  List<TrackRun> runs = const [],
+  List<DateTime> missed = const [],
+}) {
+  assert(binCount > 0, 'a track needs at least one bin');
+  final spanMs = end.difference(start).inMilliseconds;
+  // A zero/negative window can place nothing — return empty bins rather than divide by it.
+  // 零/负窗放不下任何东西——返空格,不拿它做除数。
+  if (spanMs <= 0) return const [];
+
+  DateTime edge(int i) => start.add(Duration(milliseconds: (spanMs * i / binCount).round()));
+  final bounds = [for (var i = 0; i <= binCount; i++) edge(i)];
+
+  int? slotOf(DateTime at) {
+    final offMs = at.difference(start).inMilliseconds;
+    if (offMs < 0 || offMs >= spanMs) return null; // outside the axis — unplaceable 轴外不渲
+    final s = (offMs * binCount / spanMs).floor();
+    return s < 0 ? 0 : (s >= binCount ? binCount - 1 : s);
+  }
+
+  final runsBySlot = List.generate(binCount, (_) => <TrackRun>[]);
+  final missedBySlot = List.generate(binCount, (_) => <DateTime>[]);
+  for (final r in runs) {
+    final s = slotOf(r.at);
+    if (s != null) runsBySlot[s].add(r);
+  }
+  for (final m in missed) {
+    final s = slotOf(m);
+    if (s != null) missedBySlot[s].add(m);
+  }
+
+  return [
+    for (var i = 0; i < binCount; i++)
+      TrackBin(
+        index: i,
+        start: bounds[i],
+        end: bounds[i + 1],
+        // Failures first, then time-ascending — the hover card reads a bin in this order. 失败在前、其余时序。
+        runs: runsBySlot[i]
+          ..sort((a, b) {
+            final af = a.status == AnStatus.err, bf = b.status == AnStatus.err;
+            if (af != bf) return af ? -1 : 1;
+            return a.at.compareTo(b.at);
+          }),
+        missed: missedBySlot[i]..sort(),
+      ),
+  ];
 }
 
 class AnScheduleTrack extends StatefulWidget {
   const AnScheduleTrack({
     required this.lanes,
     required this.now,
-    this.window = const Duration(hours: 24),
-    this.pastWindow = Duration.zero,
-    this.onTap,
-    this.eventSemanticLabel,
-    this.foldedLabel,
+    this.pastWindow = const Duration(hours: 24),
+    this.nowLabel = '',
+    this.onBin,
+    this.binSemanticLabel,
+    this.emptyBinSemanticLabel,
+    this.futureSemanticLabel,
+    this.laneSummaryLabel,
+    this.binHoverBuilder,
+    this.futureHoverBuilder,
     super.key,
   });
 
   final List<TrackLane> lanes;
 
-  /// The «now» instant — the axis anchor and the line's position. now 时刻:轴锚点与线位。
+  /// The «now» instant — the ruler's start stamp is `now − pastWindow`. now 时刻。
   final DateTime now;
 
-  /// How far FORWARD the axis reaches from [now]. 轴自 now 向前伸多远。
-  final Duration window;
-
-  /// How far BACK the axis reaches from [now]. Zero (the default) puts the now line at the left edge —
-  /// an honest «this track starts at now» for a caller with no history to show. Callers WITH past
-  /// events pass a span, and the line moves right by pastWindow/(pastWindow+window).
-  /// 轴自 now 向后伸多远。0(默认)把 now 线放在最左——对没有历史可给的调用方,这是诚实的「本轨自 now 起」;
-  /// 有过去事件的调用方传一个跨度,线便右移 pastWindow/(pastWindow+window)。
+  /// How far BACK the past grid reaches (the ruler's span word). 过去格回看多远(刻度眉跨度词)。
   final Duration pastWindow;
 
-  final void Function(TrackEvent)? onTap;
+  /// The word the now line wears in the ruler (core holds no copy). now 线的词(core 无文案)。
+  final String nowLabel;
 
-  /// Builds one dot's screen-reader sentence — «{lane} {time} {status}» (§12). Core owns no copy, so
-  /// the caller renders it; absent → the dot falls back to its own [TrackEvent.label].
-  /// 逐点读屏句「{泳道} {时刻} {状态}」;core 不含文案故由调用方渲;缺省时点回落自己的 label。
-  final String Function(TrackLane lane, TrackEvent event)? eventSemanticLabel;
+  /// A content cell was activated — the caller decides where to go (1 run → flagship, N → home). Never
+  /// fired for an empty or missed-only bin. 内容格被激活;去处归调用方;空/纯 missed 格永不触发。
+  final void Function(TrackLane lane, TrackBin bin)? onBin;
 
-  /// The word for a folded dot's count («+N 个»). 折叠点的计数词。
-  final String Function(int count)? foldedLabel;
+  /// One cell's screen-reader sentence when it has runs. 有 run 的格的读屏句。
+  final String Function(TrackLane lane, TrackBin bin)? binSemanticLabel;
+
+  /// One empty cell's sentence («{HH} 时,无运行»). 空格句。
+  final String Function(TrackLane lane, TrackBin bin)? emptyBinSemanticLabel;
+
+  /// The future ○'s sentence («预计 {time},{schedule}»). 未来 ○ 句。
+  final String Function(TrackLane lane)? futureSemanticLabel;
+
+  /// The lane container's whole-pattern summary. 泳道容器行摘要。
+  final String Function(TrackLane lane)? laneSummaryLabel;
+
+  /// The hover card's body for a content cell (lazy — built only while shown). 内容格 hover 卡体(惰性)。
+  final WidgetBuilder? Function(TrackLane lane, TrackBin bin)? binHoverBuilder;
+
+  /// The hover card's body for the future ○. 未来 ○ 的 hover 卡体。
+  final WidgetBuilder? Function(TrackLane lane)? futureHoverBuilder;
 
   @override
   State<AnScheduleTrack> createState() => _AnScheduleTrackState();
 }
 
-/// The roving cursor's address: which lane, and WHICH INSTANT on it — never an index, so a re-fold
-/// (the axis is width-dependent) cannot slide the cursor onto a different event.
-/// 光标地址:哪条泳道 + 哪个**时刻**;绝不用下标——重折叠(轴随宽度变)不得让光标滑到另一个事件上。
-typedef _TrackCursor = (String laneId, DateTime at);
+/// The roving cursor's address: which lane, and which SLOT on it — a bin index in `[0, binCount)`, or
+/// [_futureSlot] for the future ○. A stable (id, slot) pair, never a widget index.
+/// 光标地址:哪条泳道 + 哪个 slot(bin 下标,或 [_futureSlot] 表未来 ○);稳定对,绝非 widget 下标。
+typedef _TrackCursor = (String laneId, int slot);
+
+/// The slot that addresses a lane's future ○ (to the right of bin 23). 未来 ○ 的 slot(在 bin23 右侧)。
+const int _futureSlot = -1;
 
 class _AnScheduleTrackState extends State<AnScheduleTrack> {
   _TrackCursor? _cursor;
   final Map<_TrackCursor, FocusNode> _nodes = {};
-
-  /// The folded dots per lane, parallel to [AnScheduleTrack.lanes]. The fold is width-dependent (that
-  /// IS the pixel-bucket law), so it is computed inside the layout and memoized here — which makes the
-  /// keyboard model and the rendered dots read from ONE list. A cursor that disagreed with what is on
-  /// screen would be a bug factory.
-  /// 逐泳道的折叠点(与 lanes 平行)。折叠依赖宽度(像素桶律本体),故在布局内算出、在此记忆化——让**键盘模型
-  /// 与渲染出的点读同一份清单**。光标与屏上所见不一致会是一座 bug 工厂。
-  List<List<PlacedEvent>> _folded = const [];
 
   @override
   void dispose() {
@@ -227,12 +342,12 @@ class _AnScheduleTrackState extends State<AnScheduleTrack> {
   void didUpdateWidget(AnScheduleTrack old) {
     super.didUpdateWidget(old);
     if (old.lanes != widget.lanes) {
-      // A folded dot always stands on one of its lane's real instants, so the raw events bound the
-      // live key set — no need for the (width-dependent) fold to prune.
-      // 折叠点总是站在它那条泳道某个**真实**时刻上,故原始事件即可界定活键集——剪枝不需要(依赖宽度的)折叠。
+      // Prune focus nodes whose (lane, slot) address no longer exists. 剪掉地址已不存在的焦点节点。
       final live = <_TrackCursor>{
-        for (final l in widget.lanes)
-          for (final e in l.events) (l.id, e.at),
+        for (final l in widget.lanes) ...[
+          for (final b in l.bins) (l.id, b.index),
+          if (l.future != null) (l.id, _futureSlot),
+        ],
       };
       _nodes.removeWhere((k, n) {
         if (live.contains(k)) return false;
@@ -242,23 +357,22 @@ class _AnScheduleTrackState extends State<AnScheduleTrack> {
     }
   }
 
-  Duration get _span => widget.pastWindow + widget.window;
+  int get _binCount => widget.lanes.isEmpty ? 0 : widget.lanes.first.bins.length;
 
-  /// Where the cursor IS, as (lane index, dot index) — derived from the memoized fold, never stored:
-  /// an event that left the axis must not leave a ghost behind.
-  /// 光标**当前**在哪(泳道下标, 点下标):自记忆化的折叠派生、绝不存旧——离场的事件不得留下幽灵。
+  bool _slotExists(TrackLane lane, int slot) =>
+      slot == _futureSlot ? lane.future != null : (slot >= 0 && slot < lane.bins.length);
+
+  /// Where the cursor IS, as (lane index, slot) — derived from the current lanes, never stored stale.
+  /// 光标**当前**在哪(泳道下标, slot):自当前 lanes 派生、绝不存旧。
   (int, int)? get _resolved {
-    if (_folded.length != widget.lanes.length) return null;
     final cur = _cursor;
     if (cur != null) {
       final li = widget.lanes.indexWhere((l) => l.id == cur.$1);
-      if (li >= 0) {
-        final di = _folded[li].indexWhere((p) => p.event.at == cur.$2);
-        if (di >= 0) return (li, di);
-      }
+      if (li >= 0 && _slotExists(widget.lanes[li], cur.$2)) return (li, cur.$2);
     }
-    for (var l = 0; l < _folded.length; l++) {
-      if (_folded[l].isNotEmpty) return (l, 0);
+    // Default = the first lane's first bin — a spot the user can always see. 默认=首泳道首格。
+    for (var li = 0; li < widget.lanes.length; li++) {
+      if (widget.lanes[li].bins.isNotEmpty) return (li, 0);
     }
     return null;
   }
@@ -277,217 +391,259 @@ class _AnScheduleTrackState extends State<AnScheduleTrack> {
   bool _move(TraversalDirection dir) {
     final at = _resolved;
     if (at == null) return false;
-    final (li, di) = at;
+    final (li, slot) = at;
+    final lane = widget.lanes[li];
     switch (dir) {
       case TraversalDirection.left:
       case TraversalDirection.right:
-        // Visual, not ordinal (APG) — and a Row mirrors under RTL. 视觉方向(APG);RTL 下 Row 会镜像。
-        final step = (dir == TraversalDirection.right ? 1 : -1) *
-            (Directionality.of(context) == TextDirection.rtl ? -1 : 1);
-        final next = di + step;
-        if (next < 0 || next >= _folded[li].length) return false;
-        _focus(li, next);
+        // A lane reads bin0 … bin(binCount-1) → future ○; RTL mirrors the visual direction.
+        // 一泳道读 bin0…bin(n-1)→未来 ○;RTL 镜像视觉方向。
+        final forward = dir == TraversalDirection.right;
+        final step = (forward ? 1 : -1) * (Directionality.of(context) == TextDirection.rtl ? -1 : 1);
+        final ordered = <int>[for (var i = 0; i < lane.bins.length; i++) i, if (lane.future != null) _futureSlot];
+        final idx = ordered.indexOf(slot);
+        if (idx < 0) return false;
+        final next = idx + step;
+        if (next < 0 || next >= ordered.length) return false;
+        _focus(li, ordered[next]);
         return true;
       case TraversalDirection.up:
       case TraversalDirection.down:
-        final step = dir == TraversalDirection.down ? 1 : -1;
-        final t = _folded[li][di].event.at;
-        for (var l = li + step; l >= 0 && l < _folded.length; l += step) {
-          final dots = _folded[l];
-          if (dots.isEmpty) continue; // nothing to land on — step over 无处可落,跨过
-          // A track is a CLOCK: what sits «above» 14:00 is the other lane's 14:00, not its third dot.
-          // 轨是**钟**:14:00 的「上面」是另一条泳道的 14:00,不是它的第三个点。
-          var best = 0;
-          for (var i = 1; i < dots.length; i++) {
-            if (dots[i].event.at.difference(t).abs() < dots[best].event.at.difference(t).abs()) {
-              best = i;
-            }
+        // A track is a CLOCK: ↑↓ preserve the SLOT (the hour), landing on the same column of the
+        // adjacent lane. A lane without the future ○ is stepped over on the future slot.
+        // 轨是钟:↑↓ 保持 slot(小时),落邻泳道同一列;未来 slot 上,无 ○ 的泳道被跨过。
+        final dl = dir == TraversalDirection.down ? 1 : -1;
+        for (var l = li + dl; l >= 0 && l < widget.lanes.length; l += dl) {
+          if (_slotExists(widget.lanes[l], slot)) {
+            _focus(l, slot);
+            return true;
           }
-          _focus(l, best);
-          return true;
         }
         return false;
     }
   }
 
-  void _focus(int li, int di) {
+  void _focus(int li, int slot) {
     final lane = widget.lanes[li];
-    final event = _folded[li][di].event;
-    final key = (lane.id, event.at);
+    final key = (lane.id, slot);
     setState(() => _cursor = key);
-    // Explicit focus — the very thing skipTraversal keeps legal. The focused node carries the dot's
-    // sentence, which is what a screen reader reads on Windows/Linux.
-    // 显式聚焦——skipTraversal 保留的正是这一手;被聚焦的节点带着点的句子,Windows/Linux 读屏读的就是它。
     _nodeFor(key, cursor: true).requestFocus();
-    // The focused node is the mechanism; this is the macOS-only repair for it — rule in
-    // [AnA11y.announceFocusMove]. 机制是被聚焦的节点;这是给 macOS 补的那块,规则见 AnA11y.announceFocusMove。
-    AnA11y.announceFocusMove(context, widget.eventSemanticLabel?.call(lane, event) ?? event.label);
+    // The focused node is the mechanism (Windows/Linux); this is the macOS-only repair — rule in
+    // [AnA11y.announceFocusMove]. 被聚焦的节点是机制;这是给 macOS 补的那块。
+    AnA11y.announceFocusMove(context, _sentence(lane, slot));
+  }
+
+  String _sentence(TrackLane lane, int slot) {
+    if (slot == _futureSlot) return widget.futureSemanticLabel?.call(lane) ?? '';
+    final bin = lane.bins[slot];
+    if (bin.hasRuns) return widget.binSemanticLabel?.call(lane, bin) ?? '';
+    return widget.emptyBinSemanticLabel?.call(lane, bin) ?? '';
   }
 
   @override
   Widget build(BuildContext context) {
-    if (widget.lanes.isEmpty) return const SizedBox.shrink();
-    final spanMs = _span.inMilliseconds;
-    // A zero/negative axis can place nothing — refuse to draw a scale rather than divide by it.
-    // 零/负跨度的轴放不下任何东西——拒绝画一把没有意义的尺,而不是拿它做除数。
-    if (spanMs <= 0) return const SizedBox.shrink();
+    if (widget.lanes.isEmpty || _binCount == 0) return const SizedBox.shrink();
     final start = widget.now.subtract(widget.pastWindow);
-    final nowAt = widget.pastWindow.inMilliseconds / spanMs;
-    // Reset the memo to the current shape BEFORE layout refills it: a stale slot from a previous
-    // lane list must never be read as this one's.
-    // 布局回填**之前**先把记忆化重置成当前形状:上一份 lane 清单的残留槽绝不能被当成这一份的。
-    _folded = [for (var i = 0; i < widget.lanes.length; i++) const <PlacedEvent>[]];
-
     return Actions(
       actions: <Type, Action<Intent>>{
         DirectionalFocusIntent: _TrackDirectionalFocusAction(this),
       },
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      // Furniture BELOW the lanes and inert — a painter draws the now line, IgnorePointer so it never
+      // steals a cell's click; the cells are widgets on top. 家具在下且惰性:painter 画 now 线、不吃命中。
+      child: Stack(
         children: [
-          _ruler(context, start),
-          for (var i = 0; i < widget.lanes.length; i++) _lane(context, i, start, spanMs, nowAt),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(
+                painter: _TrackFurniture(nowColor: context.colors.accent, futureW: AnSize.trackFutureW),
+              ),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _ruler(context, start),
+              for (var i = 0; i < widget.lanes.length; i++) _lane(context, i),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  /// The scale eyebrow — start / span / end, three honest anchors (the [AnNodeGantt] ruler law: no
-  /// evenly-divided fake ticks on an axis whose labels would collide).
-  ///
-  /// Stamps are DATE+TIME, not [fmtClock]'s wall clock: this axis spans hours-to-days (a 24h window
-  /// starting at 12:00 ENDS at 12:00), so a clock would print the identical string at both ends and
-  /// the ruler would silently say the axis goes nowhere. (The gantt's axis is seconds-wide, which is
-  /// why the opposite choice is right THERE — the grain follows the span, and neither is a default.)
-  /// 刻度眉三锚点。戳走**日期+时刻**而非 fmtClock 的墙钟:本轴跨度是小时到天(12:00 起的 24h 窗**终于**
-  /// 12:00),用钟点会让两端印出同一个字符串、刻度眉静默宣称这条轴哪也没去。(甘特的轴是秒级跨度,故那边
-  /// 的相反选择才对——**粒度随跨度走**,两者都不是默认。)
+  /// The scale eyebrow — three honest anchors: the start stamp, the span, and «now» (the past axis ENDS
+  /// at now; the future segment is unruled — it is a sentence, not an axis). Stamps are DATE+TIME
+  /// ([fmtDateTime]), not a wall clock: a 24h axis starting at 17:48 ENDS at 17:48, and a clock would
+  /// print the identical string at both ends. Stamps ellipsize so a narrow host degrades rather than
+  /// breaks. 刻度眉三锚:起点戳/跨度/now(过去轴终于 now;未来段无尺——它是句子不是轴)。戳走日期+时刻(24h 轴
+  /// 两端墙钟会印出同一串);戳 ellipsize,窄宿主降级而非破裂。
   Widget _ruler(BuildContext context, DateTime start) {
     final c = context.colors;
     final style = AnText.metaTabular().copyWith(color: c.inkFaint);
     return Padding(
       padding: const EdgeInsets.only(
-          left: AnSize.ganttLaneW + AnSpace.s12, right: AnSpace.s8, bottom: AnSpace.s4),
-      // Flexible stamps: a full date+time is ~110px and there are two of them, so a narrow host (a
-      // gallery cell, a squeezed ocean) would overflow a rigid Row by more than the gutter is wide.
-      // They ellipsize instead — the span in the middle still carries the axis's length, so the
-      // eyebrow degrades rather than breaks. 可伸缩的戳:日期+时刻各约 110px、共两个,窄宿主(画廊格、
-      // 被挤窄的海洋)下刚性 Row 会溢出;改为裁切——中间的跨度仍带着轴长,故刻度眉是**降级**而非破裂。
+          left: AnSize.ganttLaneW + AnSpace.s12, right: AnSize.trackFutureW, bottom: AnSpace.s4),
       child: Row(children: [
         Flexible(
             child:
                 Text(fmtDateTime(start), maxLines: 1, overflow: TextOverflow.ellipsis, style: style)),
-        Expanded(child: Center(child: Text(fmtWaited(widget.window), maxLines: 1, style: style))),
-        Flexible(
-            child: Text(fmtDateTime(widget.now.add(widget.window)),
-                maxLines: 1, overflow: TextOverflow.ellipsis, style: style)),
+        Expanded(child: Center(child: Text(fmtWaited(widget.pastWindow), maxLines: 1, style: style))),
+        if (widget.nowLabel.isNotEmpty)
+          Text(widget.nowLabel, maxLines: 1, overflow: TextOverflow.clip, style: style),
       ]),
     );
   }
 
-  Widget _lane(BuildContext context, int li, DateTime start, int spanMs, double nowAt) {
+  Widget _lane(BuildContext context, int li) {
     final c = context.colors;
     final lane = widget.lanes[li];
-    // ONE semantics container per lane (§12): the reader hears the lane, then walks its dots.
-    // `explicitChildNodes` is LOAD-BEARING, not decoration: without it a labelled container ABSORBS
-    // its descendants' labels, and the lane node comes out reading «数据清洗 / 数据清洗 / 数据清洗
-    // 14:00 预计» as one run-on string while the dots stop being addressable nodes at all — which
-    // would silently destroy the ←→ walk this lane exists to host (caught by the semantics-tree dump,
-    // not by looking at it).
-    // 每泳道一个语义容器(§12):先听见泳道,再遍历它的点。**explicitChildNodes 是承重的、非装饰**——没有它,
-    // 带 label 的容器会**吸收**后代的 label,泳道节点读成「数据清洗/数据清洗/数据清洗 14:00 预计」一长串,
-    // 而点根本不再是可寻址节点=本泳道存在的意义(←→ 遍历)被静默摧毁(靠语义树 dump 抓到,肉眼看不出)。
+    final at = _resolved;
+    // ONE semantics container per lane (§12): the reader hears the summary, then walks the cells.
+    // `explicitChildNodes` is LOAD-BEARING (see the class doc). 每泳道一个语义容器(§12),explicitChildNodes 承重。
     return Semantics(
       container: true,
       explicitChildNodes: true,
-      label: lane.note.isEmpty ? lane.label : '${lane.label} · ${lane.note}',
+      label: widget.laneSummaryLabel?.call(lane) ??
+          (lane.note.isEmpty ? lane.label : '${lane.label} · ${lane.note}'),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8),
+        padding: const EdgeInsets.symmetric(horizontal: AnSpace.s0, vertical: AnSpace.s2),
         child: SizedBox(
           height: AnSize.row,
           child: Row(children: [
+            // The lane label (dimmed on a paused lane). The «已暂停» word rides in the FUTURE segment,
+            // not here — one word, one place (色不独行 lives on that end). 泳道名(暂停灰显);「已暂停」词在
+            // 未来段、不在这里——一词一处。
             SizedBox(
-              width: AnSize.ganttLaneW - AnSpace.s8,
-              child: Row(children: [
-                Flexible(
-                  child: Text(
-                    lane.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AnText.meta.copyWith(color: lane.dimmed ? c.inkFaint : c.inkMuted),
-                  ),
-                ),
-                // The paused word rides IN the lane, never replaces it (判决①). 暂停词随泳道,不取代它。
-                if (lane.note.isNotEmpty) ...[
-                  const SizedBox(width: AnSpace.s6),
-                  Text(lane.note,
-                      maxLines: 1,
-                      overflow: TextOverflow.clip,
-                      style: AnText.meta.copyWith(color: c.inkFaint)),
-                ],
-              ]),
+              width: AnSize.ganttLaneW,
+              child: Text(
+                lane.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AnText.meta.copyWith(color: lane.dimmed ? c.inkFaint : c.inkMuted),
+              ),
             ),
             const SizedBox(width: AnSpace.s12),
-            Expanded(child: _rail(context, li, start, spanMs, nowAt)),
+            // The past grid — 24 equal cells filling the remainder; each cell owns half the inter-cell
+            // gap so the row can never overflow at any width. 过去格:24 等分填满剩余宽,格内各含半格间距,任意宽度不溢出。
+            Expanded(
+              child: Row(children: [
+                for (final bin in lane.bins)
+                  Expanded(child: _binCell(context, li, lane, bin, at)),
+              ]),
+            ),
+            SizedBox(width: AnSize.trackFutureW, child: _future(context, li, lane, at)),
           ]),
         ),
       ),
     );
   }
 
-  Widget _rail(BuildContext context, int li, DateTime start, int spanMs, double nowAt) {
-    final lane = widget.lanes[li];
-    return LayoutBuilder(builder: (context, cst) {
-      final w = cst.maxWidth;
-      if (w <= 0) return const SizedBox.shrink();
-      final dots = foldEvents(lane.events, start: start, spanMs: spanMs, trackWidth: w);
-      // The memo the keyboard model reads (see [_folded]). 键盘模型读的那份记忆化(见 _folded)。
-      if (li < _folded.length) _folded[li] = dots;
-      final at = _resolved;
-      return Stack(clipBehavior: Clip.none, children: [
-        // Furniture BELOW the dots and inert — a painter draws the baseline + now line, and takes no
-        // hit test (IgnorePointer), so it can never steal a dot's click. 家具在点之下且惰性:painter 画
-        // 基线与 now 线、不吃命中(IgnorePointer),绝不抢点的点击。
-        Positioned.fill(
-          child: IgnorePointer(
-            child: CustomPaint(
-              painter: _TrackFurniture(
-                line: context.colors.line,
-                nowColor: context.colors.accent,
-                nowAt: nowAt,
+  Widget _binCell(
+      BuildContext context, int li, TrackLane lane, TrackBin bin, (int, int)? at) {
+    final c = context.colors;
+    final worst = bin.worst;
+    final fill = worst?.tone.softBg(c);
+    final border = worst == null ? c.line : worst.tone.fg(c);
+    Widget bar = Container(
+      height: AnSize.trackBinH,
+      decoration: BoxDecoration(
+        color: fill,
+        borderRadius: BorderRadius.circular(AnRadius.tag),
+        border: Border.all(color: border, width: AnSize.hairline),
+      ),
+      alignment: Alignment.center,
+      // A missed tick lays a grey ✕ over the cell — a SHAPE beside the colour, never folded into the
+      // fill (WCAG 1.4.1). One mark whatever the count; the number lives in the hover card.
+      // missed 叠一枚灰 ✕(形状通道,绝不折进格色);一枚记号不论几次,数目在 hover 卡。
+      child: bin.missedCount > 0
+          ? Icon(AnIcons.close, size: AnSize.iconSm, color: c.inkMuted)
+          : null,
+    );
+    if (lane.dimmed && worst != null) bar = Opacity(opacity: AnOpacity.stratum, child: bar);
+
+    // Content cell (has runs) → launch pad + hover card; missed-only or empty → inert, no card.
+    // 内容格(有 run)→ 发射台 + hover 卡;纯 missed / 空 → 惰性、无卡。
+    final tappable = widget.onBin != null && bin.hasRuns;
+    final hover = bin.hasContent ? widget.binHoverBuilder?.call(lane, bin) : null;
+    final sentence = bin.hasRuns
+        ? widget.binSemanticLabel?.call(lane, bin)
+        : widget.emptyBinSemanticLabel?.call(lane, bin);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AnSpace.s2 / 2),
+      child: _Cell(
+        focusNode: widget.onBin == null ? null : _nodeFor((lane.id, bin.index), cursor: at == (li, bin.index)),
+        tappable: tappable,
+        onActivate: tappable ? () => _activate(lane, bin) : null,
+        hoverBuilder: hover,
+        semanticLabel: sentence,
+        child: bar,
+      ),
+    );
+  }
+
+  void _activate(TrackLane lane, TrackBin bin) {
+    _cursorTo((lane.id, bin.index));
+    widget.onBin?.call(lane, bin);
+  }
+
+  Widget _future(BuildContext context, int li, TrackLane lane, (int, int)? at) {
+    final c = context.colors;
+    final f = lane.future;
+    // No forecast to draw. A paused lane says «已暂停»; a lane with only non-cron sources (no knowable
+    // next fire) leaves the segment blank. 无预告可画:暂停说「已暂停」;仅非 cron 源(下次不可知)留空。
+    if (f == null) {
+      final word = lane.dimmed ? lane.note : '';
+      return Padding(
+        padding: const EdgeInsets.only(left: AnSpace.s12),
+        child: word.isEmpty
+            ? const SizedBox.shrink()
+            : Align(
+                alignment: Alignment.centerLeft,
+                child: Text(word, maxLines: 1, style: AnText.meta.copyWith(color: c.inkFaint)),
               ),
-            ),
-          ),
+      );
+    }
+
+    final ring = AnStatusDot.raw(lane.dimmed ? c.inkFaint : c.inkMuted, hollow: true, size: AnSize.dot);
+    // The ○ is fixed; the whole «HH:mm (relative) · schedule» phrase rides ONE Expanded RichText with
+    // ellipsis, so a long trigger name (or a squeezed segment) degrades rather than overflowing — the
+    // time stays highest priority. 时刻词优先,整句一条 Expanded RichText 省略号:长名/挤压时降级不溢出。
+    final line = Row(children: [
+      ring,
+      const SizedBox(width: AnSpace.s6),
+      Expanded(
+        child: RichText(
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          text: TextSpan(style: AnText.meta.copyWith(color: c.ink), children: [
+            if (f.time.isNotEmpty) TextSpan(text: f.time),
+            if (f.relative.isNotEmpty)
+              TextSpan(text: ' ${f.relative}', style: TextStyle(color: c.inkFaint)),
+            if (f.schedule.isNotEmpty)
+              TextSpan(text: ' · ${f.schedule}', style: TextStyle(color: c.inkFaint)),
+          ]),
         ),
-        for (var di = 0; di < dots.length; di++)
-          Positioned(
-            left: (dots[di].at * w).clamp(0.0, w) - AnSize.controlSm / 2,
-            top: 0,
-            bottom: 0,
-            width: AnSize.controlSm,
-            child: _Dot(
-              lane: lane,
-              event: dots[di].event,
-              onTap: widget.onTap == null
-                  ? null
-                  : (e) {
-                      _cursorTo((lane.id, e.at));
-                      widget.onTap!(e);
-                    },
-              semanticLabel: widget.eventSemanticLabel?.call(lane, dots[di].event),
-              foldedLabel: widget.foldedLabel,
-              focusNode: widget.onTap == null
-                  ? null
-                  : _nodeFor((lane.id, dots[di].event.at), cursor: at == (li, di)),
-            ),
-          ),
-      ]);
-    });
+      ),
+    ]);
+
+    return Padding(
+      padding: const EdgeInsets.only(left: AnSpace.s12),
+      child: _Cell(
+        focusNode: widget.onBin == null ? null : _nodeFor((lane.id, _futureSlot), cursor: at == (li, _futureSlot)),
+        // The future ○ is display-only (never a launch pad). 未来 ○ 只读、非发射台。
+        tappable: false,
+        onActivate: null,
+        hoverBuilder: widget.futureHoverBuilder?.call(lane),
+        semanticLabel: widget.futureSemanticLabel?.call(lane),
+        child: line,
+      ),
+    );
   }
 }
 
-/// Arrows move the CURSOR along the track, and hand back to the framework at the edge — the
-/// `MenuAnchor` precedent. 方向键在轨内挪光标,到边即交还框架——MenuAnchor 同款先例。
+/// Arrows move the CURSOR along the track, and hand back to the framework at the edge — the `MenuAnchor`
+/// precedent. 方向键在轨内挪光标,到边即交还框架——MenuAnchor 同款先例。
 class _TrackDirectionalFocusAction extends DirectionalFocusAction {
   _TrackDirectionalFocusAction(this.state);
 
@@ -500,207 +656,103 @@ class _TrackDirectionalFocusAction extends DirectionalFocusAction {
   }
 }
 
-/// A placed dot — its axis fraction plus the (possibly folded) event it stands for. 已定位的点。
-class PlacedEvent {
-  const PlacedEvent(this.at, this.event);
-  final double at;
-  final TrackEvent event;
-}
-
-/// Fold [events] onto a [trackWidth]-wide axis: drop what falls outside, bucket by pixel × kind, and
-/// collapse each bucket to ONE dot carrying the bucket's count. Pure — unit-tested without a pump.
-///
-/// Why (bucket, kind) and not just bucket: the three faces answer different questions, and a bucket
-/// that held both a missed tick and a completed run must not silently pick one — at most three dots
-/// can share a bucket (a rare, honest crowd) instead of one dot that lies about the other two.
-/// Within a kind the WORST status wins and the EARLIEST instant anchors the dot (a bucket is a span;
-/// its left edge is the honest place to stand).
-///
-/// 把事件折到 trackWidth 宽的轴上:轴外的丢弃,按 (像素桶 × kind) 聚合,每桶收成一个带计数的点。纯函数。
-/// **为何按 (桶,kind) 而非只按桶**:三张脸回答的是不同的问题,一个同时装着 missed 刻度与 completed run
-/// 的桶绝不能静默挑一个——至多三点共享一桶(罕见且诚实的拥挤),好过一个点对另两个撒谎。同 kind 内取
-/// **最坏**状态、以**最早**时刻定锚(桶是一段跨度,它的左缘是诚实的站位)。
-List<PlacedEvent> foldEvents(
-  List<TrackEvent> events, {
-  required DateTime start,
-  required int spanMs,
-  required double trackWidth,
-  double bucketPx = AnSize.controlSm,
-}) {
-  if (spanMs <= 0 || trackWidth <= 0) return const [];
-  final buckets = <String, List<TrackEvent>>{};
-  for (final e in events) {
-    final offMs = e.at.difference(start).inMilliseconds;
-    if (offMs < 0 || offMs > spanMs) continue; // outside the axis — unplaceable, so unshown 轴外不渲
-    final at = offMs / spanMs;
-    final bucket = (at * trackWidth / bucketPx).floor();
-    (buckets['${e.kind.name}/$bucket'] ??= []).add(e);
-  }
-  final out = <PlacedEvent>[];
-  for (final group in buckets.values) {
-    group.sort((a, b) => a.at.compareTo(b.at));
-    final first = group.first;
-    final count = group.fold<int>(0, (n, e) => n + e.count);
-    final status = group.length == 1
-        ? first.status
-        : group.map((e) => e.status).fold<AnStatus?>(null, _worst);
-    final offMs = first.at.difference(start).inMilliseconds;
-    out.add(PlacedEvent(
-      offMs / spanMs,
-      TrackEvent(
-        at: first.at,
-        kind: first.kind,
-        status: status,
-        label: first.label,
-        id: first.id,
-        count: count,
-      ),
-    ));
-  }
-  // Time order IS reading order — and it is also what the semantics tree walks, since the dots are
-  // Positioned siblings whose default order the framework derives from their rects (verified by the
-  // semantics dump). No sortKey: an OrdinalSortKey's `name` is a BUCKET sorted lexicographically
-  // before its order, so naming lanes would sort «lane10» before «lane2».
-  // 时序即读序——也是语义树走的序:点是 Positioned 兄弟,框架按其 rect 推默认序(语义树 dump 已验)。
-  // 不加 sortKey:OrdinalSortKey 的 name 是**分桶**、按字典序排在 order 之前,给泳道命名会让 lane10 排在
-  // lane2 前面。
-  out.sort((a, b) => a.at.compareTo(b.at));
-  return out;
-}
-
-/// Worst-disposition fold (err > wait > run > done > idle) — the run matrix's cell law, verbatim: a
-/// later success cannot erase an earlier failure that really happened.
-/// 最坏处置折叠(同矩阵格律,逐字):后来的成功抹不掉真发生过的失败。
-AnStatus? _worst(AnStatus? a, AnStatus? b) {
-  if (a == null) return b;
-  if (b == null) return a;
-  const rank = {
-    AnStatus.err: 4,
-    AnStatus.wait: 3,
-    AnStatus.run: 2,
-    AnStatus.done: 1,
-    AnStatus.idle: 0,
-  };
-  return (rank[a] ?? 0) >= (rank[b] ?? 0) ? a : b;
-}
-
-/// The inert furniture: a hairline lane baseline + the «now» rule. Inert = zero semantics, zero hit
-/// test — the dots own both. 惰性家具:发丝基线 + now 线;零语义零命中(那两样归点)。
+/// The inert furniture: the «now» rule at the past/future boundary (x = width − futureW). Inert = zero
+/// semantics, zero hit test — the cells own both. 惰性家具:过去/未来分界处的 now 线;零语义零命中(归格)。
 class _TrackFurniture extends CustomPainter {
-  const _TrackFurniture({required this.line, required this.nowColor, required this.nowAt});
+  const _TrackFurniture({required this.nowColor, required this.futureW});
 
-  final Color line;
   final Color nowColor;
-  final double nowAt;
+  final double futureW;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final y = size.height / 2;
-    canvas.drawRect(
-      Rect.fromLTWH(0, y - AnSize.hairline / 2, size.width, AnSize.hairline),
-      Paint()..color = line,
-    );
-    final x = (nowAt * size.width).clamp(0.0, size.width - AnSize.hairline);
-    canvas.drawRect(
-      Rect.fromLTWH(x, 0, AnSize.hairline, size.height),
-      Paint()..color = nowColor,
-    );
+    final x = (size.width - futureW).clamp(0.0, size.width - AnSize.hairline);
+    canvas.drawRect(Rect.fromLTWH(x, 0, AnSize.hairline, size.height), Paint()..color = nowColor);
   }
 
   @override
-  bool shouldRepaint(_TrackFurniture old) =>
-      old.line != line || old.nowColor != nowColor || old.nowAt != nowAt;
+  bool shouldRepaint(_TrackFurniture old) => old.nowColor != nowColor || old.futureW != futureW;
 }
 
-/// One event dot — a real focus node (so the framework's directional traversal gives ←→ for free) with
-/// its own screen-reader sentence and a hover list. 一个事件点:真焦点节点(←→ 由框架方向性遍历白送),
-/// 自带读屏句与 hover 清单。
-class _Dot extends StatelessWidget {
-  const _Dot({
-    required this.lane,
-    required this.event,
-    this.onTap,
-    this.semanticLabel,
-    this.foldedLabel,
+/// One roving-cursor cell — a real [FocusNode] (so directional traversal gives ←→ for free), a keyboard
+/// focus ring, an optional launch tap, and an optional hover card. Every cell is focusable when the
+/// track is interactive (a track is a clock — even an empty hour is a stop); only content cells activate.
+/// 一个 roving 光标格:真焦点节点(←→ 白送)+ 键盘焦点环 + 可选发射点击 + 可选 hover 卡;交互轨下每格可聚焦
+/// (轨是钟,空格也是一站),唯内容格可激活。
+class _Cell extends StatefulWidget {
+  const _Cell({
+    required this.child,
     this.focusNode,
+    this.tappable = false,
+    this.onActivate,
+    this.hoverBuilder,
+    this.semanticLabel,
   });
 
-  final TrackLane lane;
-  final TrackEvent event;
-  final void Function(TrackEvent)? onTap;
-  final String? semanticLabel;
-  final String Function(int count)? foldedLabel;
+  final Widget child;
   final FocusNode? focusNode;
+  final bool tappable;
+  final VoidCallback? onActivate;
+  final WidgetBuilder? hoverBuilder;
+  final String? semanticLabel;
+
+  @override
+  State<_Cell> createState() => _CellState();
+}
+
+class _CellState extends State<_Cell> {
+  bool _focused = false;
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
-    final tap = onTap;
-    final folded = event.count > 1 && foldedLabel != null ? foldedLabel!(event.count) : '';
-    final tip = [
-      if (event.label.isNotEmpty) event.label,
-      '${fmtDateTime(event.at)}${folded.isEmpty ? '' : ' · $folded'}',
-    ].join('\n');
-
-    Widget mark = switch (event.kind) {
-      // Solid, in its outcome's colour. Never defaults to done: an unknown status folds to idle
-      // (neutral) — a dot must not be able to claim a success it never had.
-      // 实心着结局色;绝不默认 done——未知状态折 idle 中性,点不得声称它没有过的成功。
-      TrackEventKind.past =>
-        AnStatusDot.raw((event.status ?? AnStatus.idle).tone.fg(c), size: AnSize.dot),
-      // Hollow ring = a forecast. The «预计» wording lives in the caller's label/tooltip.
-      // 空心环=预告;「预计」措辞在调用方的 label/tooltip 里。
-      TrackEventKind.future =>
-        AnStatusDot.raw(lane.dimmed ? c.inkFaint : c.inkMuted, hollow: true, size: AnSize.dot),
-      // A grey ✕ — a SHAPE, not just a colour (WCAG 1.4.1), and grey because a missed tick is
-      // bookkeeping, not an error. 灰 ✕:靠**形状**而非只靠色(WCAG 1.4.1);灰,因为错过是记账不是故障。
-      TrackEventKind.missed => Icon(AnIcons.close, size: AnSize.iconSm, color: c.inkFaint),
-    };
-    if (event.count > 1) {
-      // A fold SPEAKS as a «×N» capsule at the dot's exact seat (WRK-070 B5 用户裁「小数字看不懂」
-      // — the bare numeral hovering above the dot read as noise). Toned like the dot it replaces;
-      // the tooltip keeps the full human sentence. 折叠点=「×N」胶囊,坐原点位、承原点色;人话在 tooltip。
-      final fg = switch (event.kind) {
-        TrackEventKind.past => (event.status ?? AnStatus.idle).tone.fg(c),
-        TrackEventKind.future => lane.dimmed ? c.inkFaint : c.inkMuted,
-        TrackEventKind.missed => c.inkFaint,
-      };
-      final bg = switch (event.kind) {
-        TrackEventKind.past => (event.status ?? AnStatus.idle).tone.softBg(c),
-        _ => c.surfaceHover,
-      };
-      mark = Container(
-        padding: const EdgeInsets.symmetric(horizontal: AnSpace.s4),
-        decoration:
-            BoxDecoration(color: bg, borderRadius: BorderRadius.circular(AnRadius.tag)),
-        child: Text('×${event.count}',
-            style: AnText.metaTabular().copyWith(color: fg)),
+    final label = widget.semanticLabel;
+    Widget visual = AnFocusRing(active: _focused, radius: AnRadius.tag, child: widget.child);
+    if (label != null && label.isNotEmpty) {
+      visual = Semantics(
+        label: label,
+        button: widget.tappable,
+        child: ExcludeSemantics(child: visual),
       );
     }
-    if (lane.dimmed && event.kind == TrackEventKind.past) {
-      mark = Opacity(opacity: AnOpacity.stratum, child: mark);
-    }
-
-    final dot = Semantics(
-      label: semanticLabel ?? event.label,
-      child: ExcludeSemantics(
-        // The capsule (count>1) sits centred at the same seat the dot would — the count is part of
-        // the mark now, never a floating numeral (B5). 胶囊坐点位正中;计数属于记号本身,不再悬浮。
-        child: Center(child: mark),
+    // ONE FocusableActionDetector owns focus + activation (principle #8, the AnInteractive substrate).
+    // enabled ⟺ the track is interactive (a focusNode was supplied): every cell is then focusable — the
+    // owner's `skipTraversal` on its node makes exactly one a Tab stop, an arrow's explicit focus still
+    // lands (Flutter leaves an external node's flags alone). Empty cells carry no shortcuts/actions, so
+    // Enter over an empty hour does nothing while the cursor can still rest there («轨是钟»).
+    // 一个 FAD 掌焦点+激活:enabled ⟺ 交互轨(给了 focusNode)→ 每格可聚焦,持有者的 skipTraversal 让恰一个成 Tab 停靠,
+    // 方向键显式聚焦仍落;空格无 shortcuts/actions,Enter 在空小时上无事,光标仍可停(轨是钟)。
+    Widget cell = FocusableActionDetector(
+      enabled: widget.focusNode != null,
+      focusNode: widget.focusNode,
+      mouseCursor: widget.tappable ? SystemMouseCursors.click : MouseCursor.defer,
+      shortcuts: widget.tappable
+          ? const <ShortcutActivator, Intent>{
+              SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+              SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
+            }
+          : const <ShortcutActivator, Intent>{},
+      actions: widget.tappable
+          ? <Type, Action<Intent>>{
+              ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) {
+                widget.onActivate?.call();
+                return null;
+              }),
+            }
+          : const <Type, Action<Intent>>{},
+      // Ring only on KEYBOARD focus (a mouse click moves the cursor without highlighting). 键盘聚焦才现环。
+      onShowFocusHighlight: (f) {
+        if (f != _focused && mounted) setState(() => _focused = f);
+      },
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.tappable ? widget.onActivate : null,
+        child: visual,
       ),
     );
-
-    final body = tap == null
-        ? dot
-        : AnInteractive(
-            onTap: () => tap(event),
-            focusNode: focusNode,
-            builder: (context, states) => AnFocusRing(
-              active: states.contains(WidgetState.focused),
-              radius: AnRadius.tag,
-              child: dot,
-            ),
-          );
-    return tip.isEmpty ? body : AnTooltip(message: tip, child: body);
+    final hover = widget.hoverBuilder;
+    if (hover != null) {
+      cell = AnHoverCard(cardBuilder: hover, child: cell);
+    }
+    return cell;
   }
 }

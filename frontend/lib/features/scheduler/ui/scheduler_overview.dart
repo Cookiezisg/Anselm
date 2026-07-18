@@ -191,7 +191,13 @@ class _SchedulerOverviewViewState extends ConsumerState<SchedulerOverviewView> {
                   rows: d.runningRuns,
                   triggersById: d.triggersById,
                   now: now)),
-          _washable(_schedule, SchedulerScheduleZone(key: _schedule.key, track: d.track, now: now)),
+          _washable(
+              _schedule,
+              SchedulerScheduleZone(
+                  key: _schedule.key,
+                  track: d.track,
+                  triggersById: d.triggersById,
+                  now: now)),
           // «24h 失败» — the per-run list the KPI tile opens (工单⑮), present only when non-empty (the
           // tile is inert at zero, so the board never scrolls to an absent zone; 成功是背景音). Placed
           // just above the 7d «失败聚合» so the two failure views (24h runs, then 7d workflow streaks)

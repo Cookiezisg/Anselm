@@ -1,220 +1,235 @@
 import 'package:flutter/widgets.dart';
 
+import '../../core/design/colors.dart';
 import '../../core/design/tokens.dart';
+import '../../core/design/typography.dart';
 import '../../core/ui/ui.dart';
 import 'specimen.dart';
 
-// AnScheduleTrack (WRK-069 §12, S5) — the absolute-time track. These specimens are where the three
-// event faces are PROVEN side by side, because the whole value of the widget is that they cannot be
-// confused: a solid status dot (it ran, here's how it went) vs a hollow ring (a forecast) vs a grey ✕
-// (the tick came due while the machine slept — booked, not caught up, and NOT an error).
+// AnScheduleTrack (WRK-069 §12 · WRK-070 调度轨重造 0718) — the schedule board's one row per schedule, a
+// now line splitting a time-BINNED past bar (uptime bar / contribution grid) from a fixed-width future
+// «next-fire» sentence (Cronitor next-run). These specimens PROVE the five forms side by side, because
+// the whole value is that they cannot be confused: a dense high-frequency lane whose every hour is
+// filled, a sparse lane, a lane with a missed ✕ over a filled hour, a paused lane greyed with «已暂停»,
+// and a lane with no forecast. The a11y walkthrough happens here (§12): the track is ONE Tab stop (a
+// roving cursor over the 24 hourly cells + the future ○), ←→ walks a lane, ↑↓ crosses to the SAME hour
+// of the next lane (a track is a clock). Hover a content cell or the ○ for its detail card.
 //
-// The a11y walkthrough happens here (§12 requires it): every dot is a real focus node — a
-// CustomPainter's pixels have no identity and cannot be focused — and the track is **ONE** Tab stop
-// (a roving cursor): Tab once to enter, ←→ to walk a lane in time order, ↑↓ to cross to the dot
-// NEAREST IN TIME on another lane (a track is a clock), and an arrow off the edge to leave. Before the
-// roving cursor, the 8-lane stress bed below measured **227** Tab stops. The screen reader reads each
-// dot as «{lane} {time} {status}» from [eventSemanticLabel].
-//
-// AnScheduleTrack 绝对时间轴。三张脸在此并排验明——本件的全部价值就在于它们不会被混淆:实心状态点(跑了,
-// 结局如此)/ 空心环(预告)/ 灰 ✕(睡过头的刻度:记账不补跑,且**不是**错误)。§12 要求的读屏走查在此发生:
-// 每点是真焦点节点(painter 的像素没有身份、不可聚焦),且整条轨是**唯一一个** Tab 停靠(roving 光标):
-// Tab 一次进、←→ 按时序走本泳道、↑↓ 跨到另一泳道**时间上最近**的点(轨是钟)、出边即离开。在 roving 光标
-// 之前,下面那张 8 泳道压力床实测有 **227** 个 Tab 停靠。读屏逐点念「{泳道} {时刻} {状态}」。
+// AnScheduleTrack 调度看板逐排程一行,now 线劈开时段分箱的过去条(uptime bar/贡献格)与定宽的「下一发」未来一句话
+// (Cronitor next-run)。五形态在此并排验明:高频满格 / 疏格 / 满格上叠 missed ✕ / 暂停灰显「已暂停」/ 无预告。§12
+// 读屏走查在此:整轨**唯一一个** Tab 停靠(roving 光标走 24 小时格 + 未来 ○),←→ 走本泳道、↑↓ 跨到下条泳道**同一
+// 小时**(轨是钟);hover 内容格或 ○ 出明细卡。
 
 final _now = DateTime(2026, 7, 16, 14, 30);
+final _start = _now.subtract(const Duration(hours: 24));
+const int _bins = 24;
 
-String _label(TrackLane lane, TrackEvent e) {
-  final when = '${e.at.hour.toString().padLeft(2, '0')}:${e.at.minute.toString().padLeft(2, '0')}';
-  final what = switch (e.kind) {
-    TrackEventKind.past => e.status == AnStatus.err ? '失败' : '成功',
-    TrackEventKind.future => '预计',
-    TrackEventKind.missed => '已错过',
-  };
-  return '${lane.label} $when $what';
+String _hm(DateTime t) =>
+    '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+TrackRun _run(int hoursAgo, AnStatus status, {int elapsedS = 30, int min = 0}) {
+  final at = _now.subtract(Duration(hours: hoursAgo, minutes: -min));
+  return TrackRun(
+    id: 'fr_${hoursAgo}_$min',
+    workflowId: 'wf_demo',
+    at: at,
+    status: status,
+    sourceLabel: 'cron · ${_hm(at)}',
+    elapsed: status == AnStatus.run ? null : Duration(seconds: elapsedS),
+  );
 }
 
-/// The full grammar: history on the left of the now line, forecasts on its right, a missed tick in
-/// between. 全文法:now 线左为史、右为预告,中间夹一个错过的刻度。
+TrackLane _lane(
+  String id,
+  String label, {
+  List<TrackRun> runs = const [],
+  List<DateTime> missed = const [],
+  TrackFuture? future,
+  bool dimmed = false,
+  String note = '',
+}) =>
+    TrackLane(
+      id: id,
+      label: label,
+      bins: binTrackEvents(
+          start: _start, end: _now, binCount: _bins, runs: runs, missed: missed),
+      future: future,
+      dimmed: dimmed,
+      note: note,
+    );
+
+/// The full grammar in one track: a dense lane, a sparse lane with a missed ✕, a paused lane, a lane
+/// with no forecast. 全文法一轨:高频满格 / 疏格带 missed / 暂停 / 无预告。
 List<TrackLane> _mixed() => [
-      TrackLane(id: 'a', label: '数据清洗', events: [
-        TrackEvent(
-            at: _now.subtract(const Duration(hours: 5)),
-            kind: TrackEventKind.past,
-            status: AnStatus.done,
-            label: '数据清洗'),
-        TrackEvent(
-            at: _now.subtract(const Duration(hours: 4)),
-            kind: TrackEventKind.past,
-            status: AnStatus.done,
-            label: '数据清洗'),
-        TrackEvent(
-            at: _now.subtract(const Duration(hours: 3)),
-            kind: TrackEventKind.missed,
-            label: '数据清洗'),
-        TrackEvent(
-            at: _now.subtract(const Duration(hours: 2)),
-            kind: TrackEventKind.past,
-            status: AnStatus.err,
-            label: '数据清洗'),
-        TrackEvent(
-            at: _now.subtract(const Duration(minutes: 20)),
-            kind: TrackEventKind.past,
-            status: AnStatus.run,
-            label: '数据清洗'),
-        TrackEvent(at: _now.add(const Duration(hours: 3)), kind: TrackEventKind.future, label: '数据清洗'),
-        TrackEvent(at: _now.add(const Duration(hours: 9)), kind: TrackEventKind.future, label: '数据清洗'),
-        TrackEvent(at: _now.add(const Duration(hours: 15)), kind: TrackEventKind.future, label: '数据清洗'),
+      // High-frequency: a run most hours, a couple failed — the dense bar. 高频满格,含两次失败。
+      _lane('a', '周报生成',
+          runs: [
+            for (var h = 1; h < 24; h++)
+              _run(h, h == 4 || h == 15 ? AnStatus.err : AnStatus.done, elapsedS: 12 + h),
+            _run(0, AnStatus.run, min: -5),
+          ],
+          future: TrackFuture(
+              at: _now.add(const Duration(minutes: 2)),
+              time: '14:32',
+              relative: '(2m 后)',
+              schedule: '之后每 15 分钟')),
+      // Sparse + missed: a few runs and two overslept ticks (the grey ✕). 疏格 + 两次错过(灰 ✕)。
+      _lane('b', '库存同步',
+          runs: [
+            _run(21, AnStatus.err),
+            _run(15, AnStatus.done),
+            _run(9, AnStatus.done),
+          ],
+          missed: [
+            _now.subtract(const Duration(hours: 19)),
+            _now.subtract(const Duration(hours: 13)),
+          ],
+          future: TrackFuture(
+              at: _now.add(const Duration(hours: 5)),
+              time: '23:00',
+              relative: '(5h 后)',
+              schedule: '每日 23:00')),
+      // No forecast in the window (a lane whose next fire is unknown) — the future segment is blank.
+      // 窗内无预告(下次不可知)——未来段留空。
+      _lane('c', '数据清洗流水线', runs: [
+        _run(16, AnStatus.done),
+        _run(10, AnStatus.done),
+        _run(6, AnStatus.done),
       ]),
-      TrackLane(id: 'b', label: '周报生成', events: [
-        TrackEvent(at: _now.add(const Duration(hours: 8)), kind: TrackEventKind.future, label: '周报生成'),
-      ]),
-      // 判决① — a paused lane greys but NEVER disappears, and legitimately holds no future points
-      // (the backend refuses to stamp a next-fire on a paused trigger). 暂停泳道灰显但绝不消失,且
-      // 合法地没有未来点(后端拒绝给暂停的 trigger 盖下次时间戳)。
-      TrackLane(id: 'c', label: '每晚归档', dimmed: true, note: '已暂停', events: [
-        TrackEvent(
-            at: _now.subtract(const Duration(hours: 6)),
-            kind: TrackEventKind.past,
-            status: AnStatus.done,
-            label: '每晚归档'),
-      ]),
+      // Paused (判决①): greyed, «已暂停», zero forecast — but the fires it made before it was paused stay.
+      // 暂停(判决①):灰显、「已暂停」、零预告——但暂停前开过的火仍在。
+      _lane('d', '邮件归档',
+          dimmed: true,
+          note: '已暂停',
+          runs: [_run(20, AnStatus.done), _run(14, AnStatus.done)]),
     ];
+
+String _binA11y(TrackLane lane, TrackBin bin) {
+  final ok = bin.runs.where((r) => r.status == AnStatus.done).length;
+  final fail = bin.runs.where((r) => r.status == AnStatus.err).length;
+  final base = '${bin.start.hour} 时,${bin.runs.length} 次:$ok 成 $fail 败';
+  return bin.missedCount > 0 ? '$base,含 ${bin.missedCount} 次错过' : base;
+}
+
+Widget _binCard(BuildContext context, TrackLane lane, TrackBin bin) {
+  final c = context.colors;
+  return Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text('${_hm(bin.start)} · 共 ${bin.runs.length + bin.missedCount} 次',
+          style: AnText.meta.weight(AnText.emphasisWeight).copyWith(color: c.ink)),
+      const SizedBox(height: AnFlow.headBodyDense),
+      for (final m in bin.missed)
+        Row(children: [
+          Icon(AnIcons.close, size: AnSize.iconSm, color: c.inkMuted),
+          const SizedBox(width: AnSpace.s6),
+          Text('错过 ${_hm(m)}', style: AnText.meta.copyWith(color: c.inkFaint)),
+        ]),
+      for (final r in bin.runs.take(5))
+        Row(children: [
+          AnStatusDot(r.status),
+          const SizedBox(width: AnSpace.s6),
+          Text(_hm(r.at), style: AnText.metaTabular().copyWith(color: c.inkMuted)),
+          const SizedBox(width: AnSpace.s8),
+          Flexible(
+              child: Text(r.sourceLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AnText.meta.copyWith(color: c.inkFaint))),
+          const SizedBox(width: AnSpace.s8),
+          Text(r.elapsed != null ? '${r.elapsed!.inSeconds}s' : '—',
+              style: AnText.metaTabular().copyWith(color: c.inkFaint)),
+        ]),
+    ],
+  );
+}
 
 final anScheduleTrackGalleryItem = GalleryItem(
   'AnScheduleTrack 调度时间轴',
-  '绝对时间轴 + now 线 + 逐泳道事件点:过去实心着状态色 / 未来空心环(预告) / missed 灰 ✕(睡过头记账,不染红);'
-      '暂停泳道灰显不消失(判决①);bucket 按 (像素桶×kind) 聚合防爆、折叠点带计数;每点=真焦点节点(←→ 遍历由框架白送)',
+  'now 线劈两半:过去=统一时段分箱条(uptime bar/贡献格,格色=时段内 run 最坏状态,空=淡描边;missed 叠灰 ✕);'
+      '未来=定宽「下一发」一句话(○ + HH:mm(相对词)+ 排程句;暂停说「已暂停」)。点格=发射台、hover 出明细卡;'
+      '每格=真焦点节点(←→ 遍历由框架白送)、整轨唯一 Tab 停靠(roving 光标)',
   [
     GallerySpecimen(
-        '全文法(过去/未来/missed/暂停泳道)',
+        '全文法(高频满格 / 疏格 + missed / 暂停 / 无预告)',
         (_) => Padding(
               padding: const EdgeInsets.all(AnSpace.s16),
               child: AnScheduleTrack(
                 lanes: _mixed(),
                 now: _now,
-                window: const Duration(hours: 18),
-                pastWindow: const Duration(hours: 6),
-                onTap: (_) {},
-                eventSemanticLabel: _label,
-                foldedLabel: (n) => '共 $n 次',
-              ),
-            ),
-        span: true),
-    GallerySpecimen(
-        '只有未来 + now 线贴左(过去点无数据源时的诚实态)',
-        (_) => Padding(
-              padding: const EdgeInsets.all(AnSpace.s16),
-              child: AnScheduleTrack(
-                lanes: [
-                  TrackLane(id: 'a', label: '数据清洗', events: [
-                    for (var i = 1; i <= 4; i++)
-                      TrackEvent(
-                          at: _now.add(Duration(hours: i * 5)),
-                          kind: TrackEventKind.future,
-                          label: '数据清洗'),
-                  ]),
-                  TrackLane(id: 'b', label: '周报生成', events: [
-                    TrackEvent(
-                        at: _now.add(const Duration(hours: 8)),
-                        kind: TrackEventKind.future,
-                        label: '周报生成'),
-                  ]),
-                ],
-                now: _now,
-                eventSemanticLabel: _label,
-              ),
-            ),
-        span: true),
-    GallerySpecimen(
-        '暂停泳道(灰显 + 「已暂停」+ 零未来点)',
-        (_) => Padding(
-              padding: const EdgeInsets.all(AnSpace.s16),
-              child: AnScheduleTrack(
-                lanes: [
-                  TrackLane(id: 'c', label: '每晚归档', dimmed: true, note: '已暂停', events: const []),
-                  TrackLane(id: 'a', label: '数据清洗', events: [
-                    TrackEvent(
-                        at: _now.add(const Duration(hours: 6)),
-                        kind: TrackEventKind.future,
-                        label: '数据清洗'),
-                  ]),
-                ],
-                now: _now,
-                eventSemanticLabel: _label,
+                nowLabel: '现在',
+                onBin: (_, _) {},
+                binSemanticLabel: _binA11y,
+                emptyBinSemanticLabel: (lane, bin) => '${bin.start.hour} 时,无运行',
+                futureSemanticLabel: (lane) =>
+                    lane.future == null ? lane.note : '下一发 ${lane.future!.time},${lane.future!.schedule}',
+                laneSummaryLabel: (lane) => lane.dimmed ? '${lane.label} · 已暂停' : lane.label,
+                binHoverBuilder: (lane, bin) => (ctx) => _binCard(ctx, lane, bin),
+                futureHoverBuilder: (lane) => (ctx) => Text(
+                    lane.future == null ? lane.note : '下一发 ${lane.future!.time} · ${lane.future!.schedule}',
+                    style: AnText.meta.copyWith(color: ctx.colors.ink)),
               ),
             ),
         span: true),
     // ── 压力床 ──
     GallerySpecimen(
-        '压力:8 条 */5 的 cron(各 288 刻度)→ bucket 折叠成带计数的点,绝不亚像素纸屑;'
-        '2304 个事件 → 约 224 个点 → **恰好 1 个 Tab 停靠**(折叠封点数,roving 光标封停靠数)',
+        '压力:8 条高频泳道(每条几乎格格有 run)→ 恒 24 格、恒 1 个 Tab 停靠(roving 光标封停靠数)',
         (_) => Padding(
               padding: const EdgeInsets.all(AnSpace.s16),
               child: AnScheduleTrack(
                 lanes: [
                   for (var l = 0; l < 8; l++)
-                    TrackLane(id: 'l$l', label: '高频采样 $l', events: [
-                      for (var i = 1; i <= 288; i++)
-                        TrackEvent(
-                            at: _now.add(Duration(minutes: i * 5 + l)),
-                            kind: TrackEventKind.future,
-                            label: '高频采样 $l'),
-                    ]),
+                    _lane('l$l', '高频采样 $l', runs: [
+                      for (var h = 0; h < 24; h++)
+                        _run(h, h % 7 == l % 7 ? AnStatus.err : AnStatus.done, min: l),
+                    ], future: TrackFuture(at: _now.add(Duration(minutes: 5 + l)), time: '14:${35 + l}', relative: '(${5 + l}m 后)', schedule: '每 5 分钟')),
                 ],
                 now: _now,
-                // Focusable dots are the point of this bed: folding alone left 227 Tab stops here.
-                // 可聚焦的点正是这张床的要害:光靠折叠,这里还剩 227 个 Tab 停靠。
-                onTap: (_) {},
-                eventSemanticLabel: _label,
-                foldedLabel: (n) => '共 $n 次',
+                nowLabel: '现在',
+                onBin: (_, _) {},
+                binSemanticLabel: _binA11y,
+                emptyBinSemanticLabel: (lane, bin) => '${bin.start.hour} 时,无运行',
+                futureSemanticLabel: (lane) => '下一发 ${lane.future?.time}',
+                laneSummaryLabel: (lane) => lane.label,
+                binHoverBuilder: (lane, bin) => (ctx) => _binCard(ctx, lane, bin),
               ),
             ),
         stress: true,
         span: true,
-        height: 320),
+        height: 372),
     GallerySpecimen(
-        '压力:超长泳道名(定宽车道内裁切,绝不挤走轨道)',
+        '压力:超长泳道名(定宽车道内裁切,绝不挤走格条)',
         (_) => Padding(
               padding: const EdgeInsets.all(AnSpace.s16),
               child: AnScheduleTrack(
                 lanes: [
-                  TrackLane(
-                      id: 'a',
-                      label: '每天凌晨把上游三个数据源全量拉下来做去重清洗再回写到仓库的那条流水线',
-                      note: '已暂停',
+                  _lane('a', '每天凌晨把上游三个数据源全量拉下来做去重清洗再回写到仓库的那条流水线',
                       dimmed: true,
-                      events: [
-                        TrackEvent(
-                            at: _now.add(const Duration(hours: 4)),
-                            kind: TrackEventKind.future,
-                            label: '清洗'),
-                      ]),
+                      note: '已暂停',
+                      runs: [_run(4, AnStatus.done)]),
                 ],
                 now: _now,
-                eventSemanticLabel: _label,
+                nowLabel: '现在',
+                futureSemanticLabel: (lane) => lane.note,
+                laneSummaryLabel: (lane) => '${lane.label} · 已暂停',
               ),
             ),
         stress: true,
         maxWidth: 420),
     GallerySpecimen(
-        '空 lanes 渲空 · 轴外事件不渲(放不下就不假装放得下)',
+        '空 lanes 渲空 · 全空泳道(每格淡描边,空是真答案)',
         (_) => Padding(
               padding: const EdgeInsets.all(AnSpace.s16),
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                AnScheduleTrack(lanes: const [], now: _now),
+                AnScheduleTrack(lanes: const [], now: _now, nowLabel: '现在'),
                 AnScheduleTrack(
-                  lanes: [
-                    TrackLane(id: 'a', label: '窗外事件', events: [
-                      // 30 天后 — 24h 轴放不下它,故不渲(轴外不可诚实定位)
-                      TrackEvent(
-                          at: _now.add(const Duration(days: 30)),
-                          kind: TrackEventKind.future,
-                          label: '窗外'),
-                    ]),
-                  ],
+                  lanes: [_lane('a', '从未运行', runs: const [])],
                   now: _now,
-                  eventSemanticLabel: _label,
+                  nowLabel: '现在',
+                  onBin: (_, _) {},
+                  emptyBinSemanticLabel: (lane, bin) => '${bin.start.hour} 时,无运行',
+                  laneSummaryLabel: (lane) => lane.label,
                 ),
               ]),
             ),
@@ -222,4 +237,3 @@ final anScheduleTrackGalleryItem = GalleryItem(
         span: true),
   ],
 );
-

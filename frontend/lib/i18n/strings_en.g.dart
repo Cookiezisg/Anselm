@@ -2827,12 +2827,6 @@ class Translations$scheduler$overview$en {
 	/// en: 'Failed · 24h ($n)'
 	String failed24hHead({required Object n}) => 'Failed · 24h (${n})';
 
-	/// en: '$name scheduled $at'
-	String trackPointA11y({required Object name, required Object at}) => '${name} scheduled ${at}';
-
-	/// en: '$n runs'
-	String trackFolded({required Object n}) => '${n} runs';
-
 	/// en: 'More is scheduled inside this window than the track can show.'
 	String get trackTruncated => 'More is scheduled inside this window than the track can show.';
 
@@ -2947,14 +2941,50 @@ class Translations$scheduler$overview$en {
 	/// en: 'Missed · 24h: $n. Show them on the schedule track.'
 	String kpiMissedA11y({required Object n}) => 'Missed · 24h: ${n}. Show them on the schedule track.';
 
-	/// en: '$name fired $at · $status'
-	String trackFiredA11y({required Object name, required Object at, required Object status}) => '${name} fired ${at} · ${status}';
-
-	/// en: '$name missed the $at tick'
-	String trackMissedA11y({required Object name, required Object at}) => '${name} missed the ${at} tick';
-
 	/// en: 'Fires earlier than $at are not shown — the ledger holds more than one page.'
 	String trackPastTruncated({required Object at}) => 'Fires earlier than ${at} are not shown — the ledger holds more than one page.';
+
+	/// en: 'now'
+	String get trackNow => 'now';
+
+	/// en: '(in $d)'
+	String trackNextIn({required Object d}) => '(in ${d})';
+
+	/// en: '$at · $n total'
+	String trackCardHead({required Object at, required Object n}) => '${at} · ${n} total';
+
+	/// en: 'missed $at'
+	String trackCardMissed({required Object at}) => 'missed ${at}';
+
+	/// en: '$n more'
+	String trackCardMore({required Object n}) => '${n} more';
+
+	/// en: 'all succeeded'
+	String get trackCardMoreOk => 'all succeeded';
+
+	/// en: '$m failed'
+	String trackCardMoreFailed({required Object m}) => '${m} failed';
+
+	/// en: 'next $at · $schedule'
+	String trackCardNext({required Object at, required Object schedule}) => 'next ${at} · ${schedule}';
+
+	/// en: 'next $at'
+	String trackCardNextBare({required Object at}) => 'next ${at}';
+
+	/// en: 'at $hour:00, $n runs: $ok ok, $fail failed'
+	String trackBinA11y({required Object hour, required Object n, required Object ok, required Object fail}) => 'at ${hour}:00, ${n} runs: ${ok} ok, ${fail} failed';
+
+	/// en: ', $x missed'
+	String trackBinMissedClause({required Object x}) => ', ${x} missed';
+
+	/// en: 'at $hour:00, no runs'
+	String trackBinEmptyA11y({required Object hour}) => 'at ${hour}:00, no runs';
+
+	/// en: 'next $at, $schedule'
+	String trackFutureA11y({required Object at, required Object schedule}) => 'next ${at}, ${schedule}';
+
+	/// en: '$name, $n runs in 24h: $ok ok, $fail failed, $missed missed; next $next'
+	String trackLaneSummaryA11y({required Object name, required Object n, required Object ok, required Object fail, required Object missed, required Object next}) => '${name}, ${n} runs in 24h: ${ok} ok, ${fail} failed, ${missed} missed; next ${next}';
 }
 
 // Path: scheduler.status
@@ -2973,15 +3003,6 @@ class Translations$scheduler$status$en {
 
 	/// en: 'Inactive'
 	String get inactive => 'Inactive';
-
-	/// en: 'Fired'
-	String get firingFired => 'Fired';
-
-	/// en: 'Queued'
-	String get firingQueued => 'Queued';
-
-	/// en: 'Did not run'
-	String get firingNotRun => 'Did not run';
 }
 
 // Path: scheduler.home
@@ -6445,8 +6466,6 @@ extension on Translations {
 			'scheduler.overview.runningHead' => ({required Object n}) => 'Running now (${n})',
 			'scheduler.overview.runningEmpty' => 'Nothing is running right now.',
 			'scheduler.overview.failed24hHead' => ({required Object n}) => 'Failed · 24h (${n})',
-			'scheduler.overview.trackPointA11y' => ({required Object name, required Object at}) => '${name} scheduled ${at}',
-			'scheduler.overview.trackFolded' => ({required Object n}) => '${n} runs',
 			'scheduler.overview.trackTruncated' => 'More is scheduled inside this window than the track can show.',
 			'scheduler.overview.failuresHead' => 'Failures · 7d',
 			'scheduler.overview.failuresEmpty' => 'No consecutive failures in the last 7 days.',
@@ -6485,15 +6504,24 @@ extension on Translations {
 			'scheduler.overview.scheduleEmpty' => 'No cron schedule is equipped.',
 			'scheduler.overview.kpiMissed' => 'Missed · 24h',
 			'scheduler.overview.kpiMissedA11y' => ({required Object n}) => 'Missed · 24h: ${n}. Show them on the schedule track.',
-			'scheduler.overview.trackFiredA11y' => ({required Object name, required Object at, required Object status}) => '${name} fired ${at} · ${status}',
-			'scheduler.overview.trackMissedA11y' => ({required Object name, required Object at}) => '${name} missed the ${at} tick',
 			'scheduler.overview.trackPastTruncated' => ({required Object at}) => 'Fires earlier than ${at} are not shown — the ledger holds more than one page.',
+			'scheduler.overview.trackNow' => 'now',
+			'scheduler.overview.trackNextIn' => ({required Object d}) => '(in ${d})',
+			'scheduler.overview.trackCardHead' => ({required Object at, required Object n}) => '${at} · ${n} total',
+			'scheduler.overview.trackCardMissed' => ({required Object at}) => 'missed ${at}',
+			'scheduler.overview.trackCardMore' => ({required Object n}) => '${n} more',
+			'scheduler.overview.trackCardMoreOk' => 'all succeeded',
+			'scheduler.overview.trackCardMoreFailed' => ({required Object m}) => '${m} failed',
+			'scheduler.overview.trackCardNext' => ({required Object at, required Object schedule}) => 'next ${at} · ${schedule}',
+			'scheduler.overview.trackCardNextBare' => ({required Object at}) => 'next ${at}',
+			'scheduler.overview.trackBinA11y' => ({required Object hour, required Object n, required Object ok, required Object fail}) => 'at ${hour}:00, ${n} runs: ${ok} ok, ${fail} failed',
+			'scheduler.overview.trackBinMissedClause' => ({required Object x}) => ', ${x} missed',
+			'scheduler.overview.trackBinEmptyA11y' => ({required Object hour}) => 'at ${hour}:00, no runs',
+			'scheduler.overview.trackFutureA11y' => ({required Object at, required Object schedule}) => 'next ${at}, ${schedule}',
+			'scheduler.overview.trackLaneSummaryA11y' => ({required Object name, required Object n, required Object ok, required Object fail, required Object missed, required Object next}) => '${name}, ${n} runs in 24h: ${ok} ok, ${fail} failed, ${missed} missed; next ${next}',
 			'scheduler.status.active' => 'Active',
 			'scheduler.status.draining' => 'Draining',
 			'scheduler.status.inactive' => 'Inactive',
-			'scheduler.status.firingFired' => 'Fired',
-			'scheduler.status.firingQueued' => 'Queued',
-			'scheduler.status.firingNotRun' => 'Did not run',
 			'scheduler.home.crumb' => ({required Object name}) => 'Scheduler / ${name}',
 			'scheduler.home.notFoundTitle' => 'Workflow not found',
 			'scheduler.home.notFoundHint' => 'It may have been deleted. Pick another workflow from the rail.',
@@ -6813,6 +6841,8 @@ extension on Translations {
 			'entities.detail.verb.run' => 'Run',
 			'entities.detail.verb.call' => 'Call',
 			'entities.detail.verb.invoke' => 'Invoke',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.verb.trigger' => 'Trigger',
 			'entities.detail.hero.envStatus' => ({required Object status}) => 'env ${status}',
 			'entities.detail.hero.noInputs' => 'no inputs',
@@ -6820,8 +6850,6 @@ extension on Translations {
 			'entities.detail.hero.deps' => ({required Object n}) => '${n} deps',
 			'entities.detail.gate.config' => 'config',
 			'entities.detail.gate.env' => 'env',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.gate.instance' => 'instance',
 			'entities.detail.codeToggle.expand' => ({required Object n}) => 'Show all (${n} lines)',
 			'entities.detail.codeToggle.collapse' => 'Collapse',
@@ -7327,6 +7355,8 @@ extension on Translations {
 			'settings.mcp.importTitle' => 'Import mcp.json',
 			'settings.mcp.importHint' => 'Paste a Claude Desktop mcpServers snippet',
 			'settings.mcp.overwrite' => 'Overwrite same names',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mcp.doImport' => 'Import',
 			'settings.mcp.importResult' => ({required Object n, required Object m}) => 'Imported ${n} · skipped ${m}',
 			'settings.mcp.importInvalid' => 'Couldn\'t parse the JSON',
@@ -7334,8 +7364,6 @@ extension on Translations {
 			'settings.mcp.searchMarket' => 'Search the marketplace…',
 			'settings.mcp.installed' => 'Installed',
 			'settings.mcp.install' => 'Install',
-			_ => null,
-		} ?? switch (path) {
 			'settings.mcp.installing' => 'Installing…',
 			'settings.mcp.prerequisite' => 'Prerequisite',
 			'settings.mcp.requiredMark' => 'required',

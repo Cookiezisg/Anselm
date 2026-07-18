@@ -47,6 +47,7 @@ export 'an_field.dart';
 export 'an_follow_pill.dart';
 export 'an_freshness_halo.dart';
 export 'an_honesty_ribbon.dart';
+export 'an_hover_card.dart';
 export 'an_hover_region.dart';
 export 'an_hover_surface.dart';
 export 'an_heat_bar.dart';

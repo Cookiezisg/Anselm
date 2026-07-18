@@ -1164,8 +1164,6 @@ class _Translations$scheduler$overview$zh_CN extends Translations$scheduler$over
 	@override String runningHead({required Object n}) => '正在跑 (${n})';
 	@override String get runningEmpty => '现在没有正在运行的 run。';
 	@override String failed24hHead({required Object n}) => '24h 失败 (${n})';
-	@override String trackPointA11y({required Object name, required Object at}) => '${name} 预计 ${at}';
-	@override String trackFolded({required Object n}) => '共 ${n} 次';
 	@override String get trackTruncated => '此窗口内还有更多调度,轨道未能全部显示。';
 	@override String get failuresHead => '失败聚合 · 7d';
 	@override String get failuresEmpty => '近 7 天没有连续失败的 workflow。';
@@ -1204,9 +1202,21 @@ class _Translations$scheduler$overview$zh_CN extends Translations$scheduler$over
 	@override String get scheduleEmpty => '没有装备任何 cron 排程。';
 	@override String get kpiMissed => '24h 错过';
 	@override String kpiMissedA11y({required Object n}) => '24h 错过 ${n} 次。在时间轴上看它们。';
-	@override String trackFiredA11y({required Object name, required Object at, required Object status}) => '${name} 于 ${at} 触发 · ${status}';
-	@override String trackMissedA11y({required Object name, required Object at}) => '${name} 错过了 ${at} 的刻度';
 	@override String trackPastTruncated({required Object at}) => '早于 ${at} 的触发未显示——账目不止一页。';
+	@override String get trackNow => '现在';
+	@override String trackNextIn({required Object d}) => '(${d} 后)';
+	@override String trackCardHead({required Object at, required Object n}) => '${at} · 共 ${n} 次';
+	@override String trackCardMissed({required Object at}) => '错过 ${at}';
+	@override String trackCardMore({required Object n}) => '还有 ${n} 次';
+	@override String get trackCardMoreOk => '全部成功';
+	@override String trackCardMoreFailed({required Object m}) => '含 ${m} 次失败';
+	@override String trackCardNext({required Object at, required Object schedule}) => '下一发 ${at} · ${schedule}';
+	@override String trackCardNextBare({required Object at}) => '下一发 ${at}';
+	@override String trackBinA11y({required Object hour, required Object n, required Object ok, required Object fail}) => '${hour} 时,${n} 次:${ok} 成 ${fail} 败';
+	@override String trackBinMissedClause({required Object x}) => ',含 ${x} 次错过';
+	@override String trackBinEmptyA11y({required Object hour}) => '${hour} 时,无运行';
+	@override String trackFutureA11y({required Object at, required Object schedule}) => '下一发 ${at},${schedule}';
+	@override String trackLaneSummaryA11y({required Object name, required Object n, required Object ok, required Object fail, required Object missed, required Object next}) => '${name},24 小时 ${n} 次运行:${ok} 成 ${fail} 败,错过 ${missed} 次;下一次 ${next}';
 }
 
 // Path: scheduler.status
@@ -1219,9 +1229,6 @@ class _Translations$scheduler$status$zh_CN extends Translations$scheduler$status
 	@override String get active => '生效';
 	@override String get draining => '收尾中';
 	@override String get inactive => '停用';
-	@override String get firingFired => '已触发';
-	@override String get firingQueued => '待跑';
-	@override String get firingNotRun => '未执行';
 }
 
 // Path: scheduler.home
@@ -3121,8 +3128,6 @@ extension on TranslationsZhCn {
 			'scheduler.overview.runningHead' => ({required Object n}) => '正在跑 (${n})',
 			'scheduler.overview.runningEmpty' => '现在没有正在运行的 run。',
 			'scheduler.overview.failed24hHead' => ({required Object n}) => '24h 失败 (${n})',
-			'scheduler.overview.trackPointA11y' => ({required Object name, required Object at}) => '${name} 预计 ${at}',
-			'scheduler.overview.trackFolded' => ({required Object n}) => '共 ${n} 次',
 			'scheduler.overview.trackTruncated' => '此窗口内还有更多调度,轨道未能全部显示。',
 			'scheduler.overview.failuresHead' => '失败聚合 · 7d',
 			'scheduler.overview.failuresEmpty' => '近 7 天没有连续失败的 workflow。',
@@ -3161,15 +3166,24 @@ extension on TranslationsZhCn {
 			'scheduler.overview.scheduleEmpty' => '没有装备任何 cron 排程。',
 			'scheduler.overview.kpiMissed' => '24h 错过',
 			'scheduler.overview.kpiMissedA11y' => ({required Object n}) => '24h 错过 ${n} 次。在时间轴上看它们。',
-			'scheduler.overview.trackFiredA11y' => ({required Object name, required Object at, required Object status}) => '${name} 于 ${at} 触发 · ${status}',
-			'scheduler.overview.trackMissedA11y' => ({required Object name, required Object at}) => '${name} 错过了 ${at} 的刻度',
 			'scheduler.overview.trackPastTruncated' => ({required Object at}) => '早于 ${at} 的触发未显示——账目不止一页。',
+			'scheduler.overview.trackNow' => '现在',
+			'scheduler.overview.trackNextIn' => ({required Object d}) => '(${d} 后)',
+			'scheduler.overview.trackCardHead' => ({required Object at, required Object n}) => '${at} · 共 ${n} 次',
+			'scheduler.overview.trackCardMissed' => ({required Object at}) => '错过 ${at}',
+			'scheduler.overview.trackCardMore' => ({required Object n}) => '还有 ${n} 次',
+			'scheduler.overview.trackCardMoreOk' => '全部成功',
+			'scheduler.overview.trackCardMoreFailed' => ({required Object m}) => '含 ${m} 次失败',
+			'scheduler.overview.trackCardNext' => ({required Object at, required Object schedule}) => '下一发 ${at} · ${schedule}',
+			'scheduler.overview.trackCardNextBare' => ({required Object at}) => '下一发 ${at}',
+			'scheduler.overview.trackBinA11y' => ({required Object hour, required Object n, required Object ok, required Object fail}) => '${hour} 时,${n} 次:${ok} 成 ${fail} 败',
+			'scheduler.overview.trackBinMissedClause' => ({required Object x}) => ',含 ${x} 次错过',
+			'scheduler.overview.trackBinEmptyA11y' => ({required Object hour}) => '${hour} 时,无运行',
+			'scheduler.overview.trackFutureA11y' => ({required Object at, required Object schedule}) => '下一发 ${at},${schedule}',
+			'scheduler.overview.trackLaneSummaryA11y' => ({required Object name, required Object n, required Object ok, required Object fail, required Object missed, required Object next}) => '${name},24 小时 ${n} 次运行:${ok} 成 ${fail} 败,错过 ${missed} 次;下一次 ${next}',
 			'scheduler.status.active' => '生效',
 			'scheduler.status.draining' => '收尾中',
 			'scheduler.status.inactive' => '停用',
-			'scheduler.status.firingFired' => '已触发',
-			'scheduler.status.firingQueued' => '待跑',
-			'scheduler.status.firingNotRun' => '未执行',
 			'scheduler.home.crumb' => ({required Object name}) => 'Scheduler / ${name}',
 			'scheduler.home.notFoundTitle' => '找不到该 workflow',
 			'scheduler.home.notFoundHint' => '它可能已被删除。从左侧选择另一个 workflow。',
@@ -3489,6 +3503,8 @@ extension on TranslationsZhCn {
 			'entities.detail.verb.run' => '运行',
 			'entities.detail.verb.call' => '调用',
 			'entities.detail.verb.invoke' => '唤起',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.verb.trigger' => '触发',
 			'entities.detail.hero.envStatus' => ({required Object status}) => 'env ${status}',
 			'entities.detail.hero.noInputs' => '无入参',
@@ -3496,8 +3512,6 @@ extension on TranslationsZhCn {
 			'entities.detail.hero.deps' => ({required Object n}) => '${n} 依赖',
 			'entities.detail.gate.config' => 'config',
 			'entities.detail.gate.env' => 'env',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.gate.instance' => 'instance',
 			'entities.detail.codeToggle.expand' => ({required Object n}) => '展开全部 (${n} 行)',
 			'entities.detail.codeToggle.collapse' => '收起',
@@ -4003,6 +4017,8 @@ extension on TranslationsZhCn {
 			'settings.mcp.importTitle' => '导入 mcp.json',
 			'settings.mcp.importHint' => '粘贴 Claude Desktop 的 mcpServers 片段',
 			'settings.mcp.overwrite' => '覆盖同名',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mcp.doImport' => '导入',
 			'settings.mcp.importResult' => ({required Object n, required Object m}) => '导入 ${n} · 跳过 ${m}',
 			'settings.mcp.importInvalid' => 'JSON 无法解析',
@@ -4010,8 +4026,6 @@ extension on TranslationsZhCn {
 			'settings.mcp.searchMarket' => '搜索市场…',
 			'settings.mcp.installed' => '已安装',
 			'settings.mcp.install' => '安装',
-			_ => null,
-		} ?? switch (path) {
 			'settings.mcp.installing' => '安装中…',
 			'settings.mcp.prerequisite' => '前置',
 			'settings.mcp.requiredMark' => '必填',

@@ -168,6 +168,7 @@ lib/core/ui/an_graph_canvas.dart	converged
 lib/core/ui/an_group_label.dart	converged
 lib/core/ui/an_heat_bar.dart	converged
 lib/core/ui/an_honesty_ribbon.dart	reviewed
+lib/core/ui/an_hover_card.dart	pending
 lib/core/ui/an_hover_region.dart	pending
 lib/core/ui/an_hover_surface.dart	converged
 lib/core/ui/an_info_card.dart	converged
