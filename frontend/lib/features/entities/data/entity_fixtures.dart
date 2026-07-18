@@ -7,6 +7,7 @@ import '../../../core/contract/entities/common.dart';
 import '../../../core/contract/entities/control.dart';
 import '../../../core/contract/entities/function.dart';
 import '../../../core/contract/entities/handler.dart';
+import '../../../core/contract/entities/relation.dart';
 import '../../../core/contract/entities/trigger.dart';
 import '../../../core/contract/entities/values.dart';
 import '../../../core/graph/graph_edit_ops.dart';
@@ -56,8 +57,10 @@ class FixtureEntityRepository implements EntityRepository {
     Map<String, List<Activation>>? activations,
     Map<String, List<Firing>>? firings,
     Map<String, HandlerConfig>? handlerConfigs,
+    EntityRelGraph? relGraph,
     this.runDelay = const Duration(milliseconds: 10),
-  })  : _functions = List.of(functions ?? const []),
+  })  : _relGraph = relGraph ?? const EntityRelGraph(),
+        _functions = List.of(functions ?? const []),
         _handlers = List.of(handlers ?? const []),
         _agents = List.of(agents ?? const []),
         _workflows = List.of(workflows ?? const []),
@@ -113,6 +116,7 @@ class FixtureEntityRepository implements EntityRepository {
   final Map<String, List<Activation>> _activations;
   final Map<String, List<Firing>> _firings;
   final Map<String, HandlerConfig> _handlerConfigs;
+  final EntityRelGraph _relGraph;
 
   final _lifecycle = <EntityKind, StreamController<EntitySignal>>{};
   final _panels = <String, StreamController<StreamEnvelope>>{};
@@ -158,6 +162,9 @@ class FixtureEntityRepository implements EntityRepository {
     }
     return _page(rows, cursor, limit);
   }
+
+  @override
+  Future<EntityRelGraph> getRelGraph() async => _relGraph;
 
   // ── ref-picker candidates ──────────────────────────────────────────────────
   @override

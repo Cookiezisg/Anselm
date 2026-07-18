@@ -36,7 +36,7 @@ core/contract/
     trigger.dart           # TriggerEntity(无版本)+ Activation/Firing + TriggerSource/FiringStatus 封闭枚举(支撑 rail kind;观测面)
     document.dart          # DocumentNode(Notion 树节点,一 DTO 兼服 /tree[省 content]与 /{id};file-like 用户可编,无版本)+ 护栏常量
     skill.dart             # Skill + Frontmatter(SKILL.md:name slug 即身份、body+YAML frontmatter;file-like)+ 护栏常量(body≤32KB/desc≤1024/name 正则)
-    relation.dart          # EntityRelation(关系图一条边,镜像 relation.go RelationView:kind 4 动词封闭集 + from/to {kind,id,name},名读时 hydrate;文档 backlinks = GET /relations?toKind=document&toId=…&kind=link)
+    relation.dart          # EntityRelation(关系图一条边,镜像 relation.go RelationView:kind 4 动词封闭集 + from/to {kind,id,name},名读时 hydrate;文档 backlinks = GET /relations?toKind=document&toId=…&kind=link)· EntityNode(镜像 relation.go Node:{kind,id,name} 去重端点节点,kind=11 种线缆值含 skill/mcp/document/conversation)· EntityRelGraph(镜像 Snapshot:{nodes,edges},GET /relgraph 全景快照,无参无分页,总览关系图数据源)
     common.dart            # ExecutionAggregates + CapabilityReport(跨域)
   conversation.dart        # Conversation(rail 行 + isGenerating/awaitingInput/hasUnread 三点 + modelOverride)+ ModelRef
   notification.dart        # NotificationItem(通知中心行:id/type[开放 <域>.<动作>]/payload map/readAt?[null=未读]/createdAt;domain·action·isUnread 读派生)——只投影 Emit 落行档,Broadcast 仅帧回声不现于此(events.md ⊞/⤳)

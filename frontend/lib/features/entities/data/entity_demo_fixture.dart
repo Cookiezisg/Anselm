@@ -3,6 +3,7 @@ import '../../../core/contract/entities/approval.dart';
 import '../../../core/contract/entities/control.dart';
 import '../../../core/contract/entities/function.dart';
 import '../../../core/contract/entities/handler.dart';
+import '../../../core/contract/entities/relation.dart';
 import '../../../core/contract/entities/trigger.dart';
 import '../../../core/contract/entities/values.dart';
 import '../../../core/contract/entities/workflow.dart';
@@ -174,6 +175,7 @@ FixtureEntityRepository demoEntityRepository() {
       );
 
   return DemoEntityRepository(
+    relGraph: demoRelGraph(),
     functions: [
       fn('fn_normalize', 'normalize-input', 'Coerce + trim raw fields', 'def main(text):\n    return text.strip().lower()'),
       fn('fn_validate', 'validate-schema', 'JSON-schema validate a payload', 'def main(payload):\n    validate(payload)\n    return True'),
@@ -441,6 +443,7 @@ class DemoEntityRepository extends FixtureEntityRepository {
     super.activations,
     super.firings,
     super.handlerConfigs,
+    super.relGraph,
   });
 
   @override
@@ -448,4 +451,88 @@ class DemoEntityRepository extends FixtureEntityRepository {
     if (id == 'fn_broken') throw StateError('scripted detail failure: $id');
     return super.getFunction(id);
   }
+}
+
+/// The demo workspace relation snapshot — a satisfying "full graph" for the Overview + explore states:
+/// two star hubs (fn_normalize referenced by 3 entities, hd_slack by 2 → they grow biggest), skill /
+/// document / mcp structural edges, in-degree-0 workflow sources (render small — nothing depends on them),
+/// and conversation provenance (create/edit) edges for the "show provenance" toggle. Node ids match the
+/// seeded rail entities so "open detail" resolves; skill/mcp/document/conversation are graph-only.
+/// demo 关系快照:两个星型枢纽 + skill/document/mcp 结构边 + 入度 0 的 workflow 源(小)+ 对话溯源边(供开关)。
+EntityRelGraph demoRelGraph() {
+  var seq = 0;
+  final edges = <EntityRelation>[];
+  final names = <String, ({String kind, String name})>{};
+  void note(String kind, String id, String name) => names[id] = (kind: kind, name: name);
+  void edge(String verb, String fromKind, String fromId, String toKind, String toId) {
+    edges.add(EntityRelation(
+      id: 'rel_${seq++}',
+      kind: verb,
+      fromKind: fromKind,
+      fromId: fromId,
+      fromName: names[fromId]?.name ?? fromId,
+      toKind: toKind,
+      toId: toId,
+      toName: names[toId]?.name ?? toId,
+    ));
+  }
+
+  // Name every endpoint first (so edges hydrate). 先命名端点。
+  note('function', 'fn_normalize', 'normalize-input');
+  note('function', 'fn_validate', 'validate-schema');
+  note('function', 'fn_weather', 'fetch-weather');
+  note('function', 'fn_summarize', 'summarize-text');
+  note('handler', 'hd_slack', 'slack');
+  note('handler', 'hd_postgres', 'postgres');
+  note('handler', 'hd_twilio', 'twilio');
+  note('agent', 'ag_researcher', 'researcher');
+  note('agent', 'ag_triager', 'triager');
+  note('workflow', 'wf_digest', 'daily-digest');
+  note('workflow', 'wf_invoice', 'invoice-sync');
+  note('workflow', 'wf_onboard', 'onboarding');
+  note('workflow', 'wf_release', 'deploy-release');
+  note('control', 'ctl_quality', 'quality-gate');
+  note('approval', 'ap_publish', 'publish-approval');
+  note('trigger', 'trg_3a1f', 'nightly-digest');
+  note('trigger', 'trg_wh1', 'github-push');
+  note('skill', 'sk_research', 'deep-research');
+  note('mcp', 'context7', 'context7');
+  note('mcp', 'filesystem', 'filesystem');
+  note('document', 'doc_handbook', 'handbook');
+  note('document', 'doc_style', 'house-style');
+  note('conversation', 'cv_1', 'Set up the digest');
+  note('conversation', 'cv_2', 'Ship the release');
+
+  // Structural edges (equip/link). 结构边。
+  edge('equip', 'workflow', 'wf_digest', 'trigger', 'trg_3a1f');
+  edge('equip', 'workflow', 'wf_digest', 'agent', 'ag_researcher');
+  edge('equip', 'workflow', 'wf_digest', 'function', 'fn_summarize');
+  edge('equip', 'workflow', 'wf_digest', 'control', 'ctl_quality');
+  edge('equip', 'workflow', 'wf_digest', 'handler', 'hd_slack');
+  edge('equip', 'workflow', 'wf_release', 'trigger', 'trg_wh1');
+  edge('equip', 'workflow', 'wf_release', 'function', 'fn_validate');
+  edge('equip', 'workflow', 'wf_release', 'approval', 'ap_publish');
+  edge('equip', 'workflow', 'wf_release', 'handler', 'hd_slack');
+  edge('equip', 'workflow', 'wf_invoice', 'handler', 'hd_postgres');
+  edge('equip', 'workflow', 'wf_invoice', 'function', 'fn_normalize');
+  edge('equip', 'workflow', 'wf_onboard', 'handler', 'hd_twilio');
+  edge('equip', 'agent', 'ag_researcher', 'function', 'fn_normalize');
+  edge('equip', 'agent', 'ag_researcher', 'skill', 'sk_research');
+  edge('equip', 'agent', 'ag_researcher', 'mcp', 'context7');
+  edge('equip', 'agent', 'ag_researcher', 'mcp', 'filesystem');
+  edge('equip', 'agent', 'ag_triager', 'function', 'fn_normalize');
+  edge('link', 'agent', 'ag_researcher', 'document', 'doc_handbook');
+  edge('link', 'agent', 'ag_researcher', 'document', 'doc_style');
+  edge('link', 'document', 'doc_style', 'function', 'fn_weather'); // a doc [[id]] wikilink
+
+  // Provenance edges (create/edit) — hidden until the "show provenance" toggle. 溯源边(默认藏)。
+  edge('create', 'conversation', 'cv_1', 'workflow', 'wf_digest');
+  edge('create', 'conversation', 'cv_1', 'agent', 'ag_researcher');
+  edge('create', 'conversation', 'cv_1', 'function', 'fn_normalize');
+  edge('edit', 'conversation', 'cv_1', 'function', 'fn_summarize');
+  edge('create', 'conversation', 'cv_2', 'workflow', 'wf_release');
+  edge('edit', 'conversation', 'cv_2', 'function', 'fn_validate');
+
+  final nodes = [for (final e in names.entries) EntityNode(kind: e.value.kind, id: e.key, name: e.value.name)];
+  return EntityRelGraph(nodes: nodes, edges: edges);
 }

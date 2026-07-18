@@ -6,6 +6,7 @@ import '../../../core/contract/entities/common.dart';
 import '../../../core/contract/entities/control.dart';
 import '../../../core/contract/entities/function.dart';
 import '../../../core/contract/entities/handler.dart';
+import '../../../core/contract/entities/relation.dart';
 import '../../../core/contract/entities/trigger.dart';
 import '../../../core/contract/entities/workflow.dart';
 import '../../../core/contract/page.dart';
@@ -33,6 +34,11 @@ typedef RefCandidate = ({String id, String name, String? meta});
 abstract interface class EntityRepository {
   // ── rail / list (uniform row across all 4 kinds) ──────────────────────────
   Future<Page<EntityRow>> listEntities(EntityKind kind, {String? cursor, int? limit, String? search});
+
+  /// The whole-workspace relation snapshot (`GET /api/v1/relgraph`) — deduped nodes + all edges. Backs
+  /// the Entities Overview relationship graph. No params, no pagination (bounded system resource). The
+  /// snapshot's nodes span all 11 backend EntityKinds, NOT just the 7 rail kinds. 全 workspace 关系快照。
+  Future<EntityRelGraph> getRelGraph();
 
   /// Fetch the rail ROW for one instance — the list uses this to materialize/refresh a row when a
   /// `created`/`edited`/`updated` lifecycle signal arrives (the signal carries only an id). 据 id 取单行
@@ -198,6 +204,12 @@ class LiveEntityRepository implements EntityRepository {
   Future<Page<EntityRow>> listEntities(EntityKind kind, {String? cursor, int? limit, String? search}) =>
       _api.getPage(kind.base, (m) => EntityRow.fromListItem(kind, m),
           query: _query(cursor, limit, {'search': ?search}));
+
+  // No query params — a bounded workspace snapshot (the backend takes none). `getData` returns the `data`
+  // object = {nodes, edges}. 无参:有界快照;getData 返 data 对象 {nodes, edges}。
+  @override
+  Future<EntityRelGraph> getRelGraph() async =>
+      EntityRelGraph.fromJson(await _api.getData('/api/v1/relgraph'));
 
   @override
   Future<EntityRow> getEntityRow(EntityKind kind, String id) async => EntityRow.fromListItem(

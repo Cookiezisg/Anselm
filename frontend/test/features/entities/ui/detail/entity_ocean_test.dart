@@ -1,8 +1,8 @@
-import 'package:anselm/core/ui/an_state.dart';
 import 'package:anselm/features/entities/data/entity_demo_fixture.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
 import 'package:anselm/features/entities/state/selected_entity.dart';
 import 'package:anselm/features/entities/ui/entity_ocean.dart';
+import 'package:anselm/features/entities/ui/overview/entities_overview.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -22,11 +22,13 @@ Widget _host({EntityRef? sel}) => routedHost(
 void main() {
   final d = t.entities.detail;
 
-  testWidgets('no selection → empty state', (tester) async {
+  testWidgets('no selection → the Overview home (retires the tombstone)', (tester) async {
     await tester.pumpWidget(_host());
     await tester.pump(const Duration(milliseconds: 50));
-    expect(find.byType(AnState), findsOneWidget);
-    expect(find.text(t.entities.selectTitle), findsOneWidget);
+    expect(find.byType(EntitiesOverviewView), findsOneWidget);
+    // The documentary head: grey crumb «Entities» + big «总览» title. 文档化头:灰 crumb + 大标题。
+    expect(find.text(t.entities.overview.title), findsWidgets);
+    expect(find.text(t.entities.overview.graphHead), findsOneWidget);
   });
 
   testWidgets('function → header + tabs + overview content', (tester) async {

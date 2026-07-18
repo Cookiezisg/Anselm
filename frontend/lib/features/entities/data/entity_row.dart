@@ -23,6 +23,9 @@ abstract class EntityRow with _$EntityRow {
     @Default(<String>[]) List<String> tags,
     required DateTime createdAt,
     required DateTime updatedAt,
+    // active version number (vN) — plucked from the embedded activeVersion; null for unversioned
+    // triggers or when the list wire omits the version. 活动版本号(vN),trigger 无版本/列表未带时为 null。
+    int? version,
     // handler badges
     String? configState,
     String? runtimeState,
@@ -51,6 +54,7 @@ abstract class EntityRow with _$EntityRow {
             DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
         updatedAt: DateTime.tryParse(m['updatedAt'] as String? ?? '') ??
             DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+        version: (m['activeVersion'] as Map<String, dynamic>?)?['version'] as int?,
         configState: m['configState'] as String?,
         runtimeState: m['runtimeState'] as String?,
         missingConfigCount: (m['missingConfig'] as List<dynamic>?)?.length ?? 0,

@@ -1,5 +1,7 @@
+import 'package:anselm/core/graph/force_layout.dart';
 import 'package:anselm/features/entities/data/entity_demo_fixture.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
+import 'package:anselm/features/entities/state/entities_overview_model.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // D-024/025/026/027/028 — the `make demo` entity fixture must SEED the control/approval logics, the
@@ -57,5 +59,47 @@ void main() {
     // control/approval ref candidates derive from the seeded logics/forms. 控制/审批候选自实体派生。
     expect(await repo.listControls(), isNotEmpty);
     expect(await repo.listApprovals(), isNotEmpty);
+  });
+
+  // WRK-072 — the Overview relationship graph seed: a satisfying full graph (2 star hubs + skill/mcp/
+  // document edges + in-degree-0 workflow sources + conversation provenance for the toggle). 总览关系图种子。
+  group('WRK-072 relationship graph seed', () {
+    test('the snapshot spans all node kinds incl. skill/mcp/document/conversation', () async {
+      final g = await repo.getRelGraph();
+      final kinds = {for (final n in g.nodes) n.kind};
+      expect(kinds, containsAll(['function', 'handler', 'agent', 'workflow', 'trigger', 'control', 'approval']));
+      expect(kinds, containsAll(['skill', 'mcp', 'document', 'conversation']),
+          reason: 'accessory kinds appear on the graph (never in the 7-value rail)');
+      expect(g.nodes.length, greaterThanOrEqualTo(20), reason: '20+ node satisfying graph');
+    });
+
+    test('fn_normalize + hd_slack are the star hubs (highest structural in-degree)', () async {
+      final g = await repo.getRelGraph();
+      final sub = structuralSubgraph(g);
+      final deg = inDegrees([for (final e in sub.edges) (from: e.fromId, to: e.toId)]);
+      expect(deg['fn_normalize'], greaterThanOrEqualTo(3), reason: 'referenced by wf_invoice + 2 agents');
+      expect(deg['hd_slack'], greaterThanOrEqualTo(2), reason: 'equipped by wf_digest + wf_release');
+      // Workflow sources are depended-on by nothing → in-degree 0 (render smallest). 顶层 workflow 入度 0。
+      expect(deg['wf_digest'] ?? 0, 0);
+    });
+
+    test('provenance edges exist but are excluded from the observing (structural) subgraph', () async {
+      final g = await repo.getRelGraph();
+      expect(g.edges.any((e) => e.kind == 'create' || e.kind == 'edit'), isTrue, reason: '溯源边在数据里');
+      final sub = structuralSubgraph(g);
+      expect(sub.edges.every((e) => e.kind == 'equip' || e.kind == 'link'), isTrue,
+          reason: 'observing state drops create/edit');
+      // The conversation nodes only hang off provenance edges → absent from the structural subgraph.
+      // 对话节点只挂溯源边→结构子图里没有。
+      expect(sub.nodes.any((n) => n.kind == 'conversation'), isFalse);
+    });
+
+    test('every edge name is hydrated (not a raw id)', () async {
+      final g = await repo.getRelGraph();
+      for (final e in g.edges) {
+        expect(e.fromName, isNotEmpty);
+        expect(e.toName, isNotEmpty);
+      }
+    });
   });
 }

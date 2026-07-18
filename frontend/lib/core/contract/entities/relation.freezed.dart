@@ -295,4 +295,551 @@ as String,
 
 }
 
+
+/// @nodoc
+mixin _$EntityNode {
+
+ String get kind; String get id; String get name;
+/// Create a copy of EntityNode
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$EntityNodeCopyWith<EntityNode> get copyWith => _$EntityNodeCopyWithImpl<EntityNode>(this as EntityNode, _$identity);
+
+  /// Serializes this EntityNode to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is EntityNode&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,kind,id,name);
+
+@override
+String toString() {
+  return 'EntityNode(kind: $kind, id: $id, name: $name)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $EntityNodeCopyWith<$Res>  {
+  factory $EntityNodeCopyWith(EntityNode value, $Res Function(EntityNode) _then) = _$EntityNodeCopyWithImpl;
+@useResult
+$Res call({
+ String kind, String id, String name
+});
+
+
+
+
+}
+/// @nodoc
+class _$EntityNodeCopyWithImpl<$Res>
+    implements $EntityNodeCopyWith<$Res> {
+  _$EntityNodeCopyWithImpl(this._self, this._then);
+
+  final EntityNode _self;
+  final $Res Function(EntityNode) _then;
+
+/// Create a copy of EntityNode
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? kind = null,Object? id = null,Object? name = null,}) {
+  return _then(_self.copyWith(
+kind: null == kind ? _self.kind : kind // ignore: cast_nullable_to_non_nullable
+as String,id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [EntityNode].
+extension EntityNodePatterns on EntityNode {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _EntityNode value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _EntityNode() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _EntityNode value)  $default,){
+final _that = this;
+switch (_that) {
+case _EntityNode():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _EntityNode value)?  $default,){
+final _that = this;
+switch (_that) {
+case _EntityNode() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String kind,  String id,  String name)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _EntityNode() when $default != null:
+return $default(_that.kind,_that.id,_that.name);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String kind,  String id,  String name)  $default,) {final _that = this;
+switch (_that) {
+case _EntityNode():
+return $default(_that.kind,_that.id,_that.name);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String kind,  String id,  String name)?  $default,) {final _that = this;
+switch (_that) {
+case _EntityNode() when $default != null:
+return $default(_that.kind,_that.id,_that.name);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _EntityNode implements EntityNode {
+  const _EntityNode({this.kind = '', this.id = '', this.name = ''});
+  factory _EntityNode.fromJson(Map<String, dynamic> json) => _$EntityNodeFromJson(json);
+
+@override@JsonKey() final  String kind;
+@override@JsonKey() final  String id;
+@override@JsonKey() final  String name;
+
+/// Create a copy of EntityNode
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$EntityNodeCopyWith<_EntityNode> get copyWith => __$EntityNodeCopyWithImpl<_EntityNode>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$EntityNodeToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _EntityNode&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,kind,id,name);
+
+@override
+String toString() {
+  return 'EntityNode(kind: $kind, id: $id, name: $name)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$EntityNodeCopyWith<$Res> implements $EntityNodeCopyWith<$Res> {
+  factory _$EntityNodeCopyWith(_EntityNode value, $Res Function(_EntityNode) _then) = __$EntityNodeCopyWithImpl;
+@override @useResult
+$Res call({
+ String kind, String id, String name
+});
+
+
+
+
+}
+/// @nodoc
+class __$EntityNodeCopyWithImpl<$Res>
+    implements _$EntityNodeCopyWith<$Res> {
+  __$EntityNodeCopyWithImpl(this._self, this._then);
+
+  final _EntityNode _self;
+  final $Res Function(_EntityNode) _then;
+
+/// Create a copy of EntityNode
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? kind = null,Object? id = null,Object? name = null,}) {
+  return _then(_EntityNode(
+kind: null == kind ? _self.kind : kind // ignore: cast_nullable_to_non_nullable
+as String,id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+
+}
+
+
+/// @nodoc
+mixin _$EntityRelGraph {
+
+ List<EntityNode> get nodes; List<EntityRelation> get edges;
+/// Create a copy of EntityRelGraph
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$EntityRelGraphCopyWith<EntityRelGraph> get copyWith => _$EntityRelGraphCopyWithImpl<EntityRelGraph>(this as EntityRelGraph, _$identity);
+
+  /// Serializes this EntityRelGraph to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is EntityRelGraph&&const DeepCollectionEquality().equals(other.nodes, nodes)&&const DeepCollectionEquality().equals(other.edges, edges));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(nodes),const DeepCollectionEquality().hash(edges));
+
+@override
+String toString() {
+  return 'EntityRelGraph(nodes: $nodes, edges: $edges)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $EntityRelGraphCopyWith<$Res>  {
+  factory $EntityRelGraphCopyWith(EntityRelGraph value, $Res Function(EntityRelGraph) _then) = _$EntityRelGraphCopyWithImpl;
+@useResult
+$Res call({
+ List<EntityNode> nodes, List<EntityRelation> edges
+});
+
+
+
+
+}
+/// @nodoc
+class _$EntityRelGraphCopyWithImpl<$Res>
+    implements $EntityRelGraphCopyWith<$Res> {
+  _$EntityRelGraphCopyWithImpl(this._self, this._then);
+
+  final EntityRelGraph _self;
+  final $Res Function(EntityRelGraph) _then;
+
+/// Create a copy of EntityRelGraph
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? nodes = null,Object? edges = null,}) {
+  return _then(_self.copyWith(
+nodes: null == nodes ? _self.nodes : nodes // ignore: cast_nullable_to_non_nullable
+as List<EntityNode>,edges: null == edges ? _self.edges : edges // ignore: cast_nullable_to_non_nullable
+as List<EntityRelation>,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [EntityRelGraph].
+extension EntityRelGraphPatterns on EntityRelGraph {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _EntityRelGraph value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _EntityRelGraph() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _EntityRelGraph value)  $default,){
+final _that = this;
+switch (_that) {
+case _EntityRelGraph():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _EntityRelGraph value)?  $default,){
+final _that = this;
+switch (_that) {
+case _EntityRelGraph() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<EntityNode> nodes,  List<EntityRelation> edges)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _EntityRelGraph() when $default != null:
+return $default(_that.nodes,_that.edges);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<EntityNode> nodes,  List<EntityRelation> edges)  $default,) {final _that = this;
+switch (_that) {
+case _EntityRelGraph():
+return $default(_that.nodes,_that.edges);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<EntityNode> nodes,  List<EntityRelation> edges)?  $default,) {final _that = this;
+switch (_that) {
+case _EntityRelGraph() when $default != null:
+return $default(_that.nodes,_that.edges);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _EntityRelGraph implements EntityRelGraph {
+  const _EntityRelGraph({final  List<EntityNode> nodes = const <EntityNode>[], final  List<EntityRelation> edges = const <EntityRelation>[]}): _nodes = nodes,_edges = edges;
+  factory _EntityRelGraph.fromJson(Map<String, dynamic> json) => _$EntityRelGraphFromJson(json);
+
+ final  List<EntityNode> _nodes;
+@override@JsonKey() List<EntityNode> get nodes {
+  if (_nodes is EqualUnmodifiableListView) return _nodes;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_nodes);
+}
+
+ final  List<EntityRelation> _edges;
+@override@JsonKey() List<EntityRelation> get edges {
+  if (_edges is EqualUnmodifiableListView) return _edges;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_edges);
+}
+
+
+/// Create a copy of EntityRelGraph
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$EntityRelGraphCopyWith<_EntityRelGraph> get copyWith => __$EntityRelGraphCopyWithImpl<_EntityRelGraph>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$EntityRelGraphToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _EntityRelGraph&&const DeepCollectionEquality().equals(other._nodes, _nodes)&&const DeepCollectionEquality().equals(other._edges, _edges));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_nodes),const DeepCollectionEquality().hash(_edges));
+
+@override
+String toString() {
+  return 'EntityRelGraph(nodes: $nodes, edges: $edges)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$EntityRelGraphCopyWith<$Res> implements $EntityRelGraphCopyWith<$Res> {
+  factory _$EntityRelGraphCopyWith(_EntityRelGraph value, $Res Function(_EntityRelGraph) _then) = __$EntityRelGraphCopyWithImpl;
+@override @useResult
+$Res call({
+ List<EntityNode> nodes, List<EntityRelation> edges
+});
+
+
+
+
+}
+/// @nodoc
+class __$EntityRelGraphCopyWithImpl<$Res>
+    implements _$EntityRelGraphCopyWith<$Res> {
+  __$EntityRelGraphCopyWithImpl(this._self, this._then);
+
+  final _EntityRelGraph _self;
+  final $Res Function(_EntityRelGraph) _then;
+
+/// Create a copy of EntityRelGraph
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? nodes = null,Object? edges = null,}) {
+  return _then(_EntityRelGraph(
+nodes: null == nodes ? _self._nodes : nodes // ignore: cast_nullable_to_non_nullable
+as List<EntityNode>,edges: null == edges ? _self._edges : edges // ignore: cast_nullable_to_non_nullable
+as List<EntityRelation>,
+  ));
+}
+
+
+}
+
 // dart format on

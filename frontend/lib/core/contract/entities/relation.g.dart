@@ -29,3 +29,36 @@ Map<String, dynamic> _$EntityRelationToJson(_EntityRelation instance) =>
       'toId': instance.toId,
       'toName': instance.toName,
     };
+
+_EntityNode _$EntityNodeFromJson(Map<String, dynamic> json) => _EntityNode(
+  kind: json['kind'] as String? ?? '',
+  id: json['id'] as String? ?? '',
+  name: json['name'] as String? ?? '',
+);
+
+Map<String, dynamic> _$EntityNodeToJson(_EntityNode instance) =>
+    <String, dynamic>{
+      'kind': instance.kind,
+      'id': instance.id,
+      'name': instance.name,
+    };
+
+_EntityRelGraph _$EntityRelGraphFromJson(Map<String, dynamic> json) =>
+    _EntityRelGraph(
+      nodes:
+          (json['nodes'] as List<dynamic>?)
+              ?.map((e) => EntityNode.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const <EntityNode>[],
+      edges:
+          (json['edges'] as List<dynamic>?)
+              ?.map((e) => EntityRelation.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const <EntityRelation>[],
+    );
+
+Map<String, dynamic> _$EntityRelGraphToJson(_EntityRelGraph instance) =>
+    <String, dynamic>{
+      'nodes': instance.nodes.map((e) => e.toJson()).toList(),
+      'edges': instance.edges.map((e) => e.toJson()).toList(),
+    };

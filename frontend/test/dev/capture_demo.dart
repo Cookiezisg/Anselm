@@ -26,6 +26,8 @@ import 'package:anselm/features/entities/data/entity_demo_fixture.dart';
 import 'package:anselm/features/notifications/data/notification_demo_fixture.dart';
 import 'package:anselm/features/scheduler/data/scheduler_demo_fixture.dart';
 import 'package:anselm/features/scheduler/data/scheduler_repository.dart';
+import 'package:anselm/features/settings/model/settings_catalog.dart';
+import 'package:anselm/features/settings/state/settings_panel_provider.dart';
 import 'package:anselm/features/notifications/data/notification_providers.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
 import 'package:anselm/features/entities/data/entity_providers.dart';
@@ -186,6 +188,37 @@ void main() {
         }
         outName = '${outName}_draft';
       }
+      // The entities ocean with NO selection is the Overview HOME (WRK-072) — settle the force graph +
+      // its fit before the grab so the three sections (tiles / relationship graph / recent ledger)
+      // capture. entities 海洋无选区=总览主页;截前让力导向图 settle+fit。
+      if (_ocean == 'entities' && _sel.isEmpty) {
+        await tester.pump(const Duration(milliseconds: 400));
+        outName = '${outName}_overview';
+      }
+      // `--dart-define=PANEL=<name>` deep-links one settings panel (0719 settings 全面板审计帧).
+      // 深链一个设置面板(全面板审计)。
+      const panelName = String.fromEnvironment('PANEL');
+      if (panelName.isNotEmpty) {
+        container.read(settingsPanelProvider.notifier).select(SettingsPanel.values.byName(panelName));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        outName = '${outName}_$panelName';
+      }
+    }
+
+    // Entities Overview + relationship-graph explore (WRK-072). The default demo frame (no flags) is now
+    // the Overview HOME at '/' (five tiles + the framed relationship graph + the recent ledger — the
+    // tombstone retired); `EGRAPH=1` deep-links the full-page EXPLORE state, and `EGSEL=<kind>:<id>`
+    // pre-selects a node so the right-island entity card captures. 总览默认帧=主页('/');EGRAPH 进全页探索态,
+    // EGSEL 预选节点截右岛卡。
+    if (const String.fromEnvironment('EGRAPH').isNotEmpty) {
+      const egsel = String.fromEnvironment('EGSEL');
+      container
+          .read(goRouterProvider)
+          .go(egsel.isEmpty ? '/entities/graph' : '/entities/graph?sel=$egsel');
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400)); // relGraph fetch + force settle + fit
+      outName = '${outName}_graph${egsel.isEmpty ? '' : '_sel'}';
     }
 
     // Deep-link to the scheduler operations home (real navigation) — captures the rebuilt page:

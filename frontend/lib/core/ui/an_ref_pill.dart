@@ -1,9 +1,9 @@
 import 'package:flutter/widgets.dart';
 
-import '../../i18n/strings.g.dart';
 import '../design/typography.dart';
 import 'an_chip.dart';
 import 'an_inline_capsule.dart';
+import 'entity_kind_visual.dart';
 import 'icons.dart';
 
 /// The target of a reference tap: the entity [kind] + its [id]. 提及目标:实体 kind + id。
@@ -55,40 +55,9 @@ class AnRefPill extends StatelessWidget {
   // intentionally swallows [onTap] (a mention with no resolved target isn't navigable). id 是唯一交互闸门:空 id 故意吞掉 onTap。
   bool get _interactive => id != null && id!.isNotEmpty && onTap != null;
 
-  // Localized kind word for the a11y prefix ("Agent: deploy-bot"). Cases = the backend EntityKind wire
-  // (relation/entitykind.go: 'document' not 'doc', incl. control/approval) — the contract source of
-  // truth, NOT the demo's icon-alias vocab. Unknown kind → raw string (the set is open, degrade
-  // gracefully). 类型词(a11y 前缀):case = 后端 EntityKind 线缆值(事实源,非 demo 图标别名);未知 kind 原样(开放集降级)。
-  String _kindWord(BuildContext context) {
-    final r = context.t.ref;
-    switch (kind.toLowerCase()) {
-      case 'function':
-        return r.function;
-      case 'handler':
-        return r.handler;
-      case 'workflow':
-        return r.workflow;
-      case 'agent':
-        return r.agent;
-      case 'document':
-      case 'doc': // demo alias for the same entity 文档(demo 别名)
-        return r.document;
-      case 'conversation':
-        return r.conversation;
-      case 'skill':
-        return r.skill;
-      case 'mcp':
-        return r.mcp;
-      case 'trigger':
-        return r.trigger;
-      case 'control':
-        return r.control;
-      case 'approval':
-        return r.approval;
-      default:
-        return kind;
-    }
-  }
+  // Localized kind word for the a11y prefix ("Agent: deploy-bot") — the ONE source is [entityKindWord]
+  // (core/ui/entity_kind_visual.dart), shared with AnRelationGraph. 类型词(a11y 前缀):单源 entityKindWord。
+  String _kindWord(BuildContext context) => entityKindWord(context, kind);
 
   @override
   Widget build(BuildContext context) {

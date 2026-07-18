@@ -1052,7 +1052,10 @@
     "fmtItalic": "Italic",
     "fmtStrike": "Strikethrough",
     "fmtCode": "Inline code",
-    "fmtLink": "Link"
+    "fmtLink": "Link",
+    "relationSummary": "Relationship graph. $nodes entities, $edges relations.",
+    "relationNode": "$name, $kind, referenced by $count",
+    "relationExpand": "Expand relationship graph"
   },
   "diff": {
     "added": "Added",
@@ -1366,6 +1369,28 @@
     "val": {
       "yes": "yes",
       "no": "no"
+    },
+    "overview": {
+      "title": "Overview",
+      "accessory": "Parts",
+      "graphHead": "Relationship graph",
+      "recentHead": "Recently updated"
+    },
+    "graph": {
+      "showProvenance": "Show provenance",
+      "openDetail": "Open in detail",
+      "groupEquips": "Equips",
+      "groupReferencedBy": "Referenced by",
+      "groupLinks": "Links",
+      "legend": "Kinds",
+      "back": "Back to overview",
+      "selectHint": "Select a node to inspect its relations.",
+      "verb": {
+        "equip": "equips",
+        "link": "links",
+        "create": "created",
+        "edit": "edited"
+      }
     }
   },
   "coldStart": {

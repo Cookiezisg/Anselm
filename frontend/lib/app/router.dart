@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../core/router/navigation.dart';
 import '../features/entities/data/entity_kind.dart';
 import '../features/entities/ui/detail/workflow_editor_page.dart';
+import '../features/entities/ui/graph/entities_graph_page.dart';
 import 'app_shell.dart';
 
 /// The app's GoRouter (Phase 4.1 STEP 6). Assembled in `app/` because it is the one place that knows BOTH
@@ -42,6 +43,19 @@ GoRouter buildAppRouter(Ref ref) {
     errorPageBuilder: _shellPage,
     routes: [
       GoRoute(path: '/', pageBuilder: _shellPage),
+      // `/entities` with no selection = the Overview home (same constant-key shell page; the URL parses
+      // to no selection → the ocean shows the Overview). `/entities` 无选中=总览主页(同常量壳页)。
+      GoRoute(path: '/entities', pageBuilder: _shellPage),
+      // The full-page relationship-graph EXPLORE state — a distinct frameless route (its OWN scaffold,
+      // NOT the shell), reached from the Overview's graph (node tap / "展开"). Width-aligned to the
+      // workflow editor precedent. 全页关系图探索态:独立无边框路由(自有 scaffold、非壳),从总览关系图进。
+      GoRoute(
+        path: '/entities/graph',
+        pageBuilder: (context, state) => const NoTransitionPage(
+          key: ValueKey('anselm-entities-graph'),
+          child: EntitiesGraphPage(),
+        ),
+      ),
       GoRoute(
         path: '/entities/:kind/:id',
         // Bounce an unknown kind home; a valid kind falls through (null = no redirect). 坏 kind 回首页。

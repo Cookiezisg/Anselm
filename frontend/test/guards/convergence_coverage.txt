@@ -64,6 +64,7 @@ lib/core/editor/an_editor_toolbar.dart	converged
 lib/core/entity/mention_source.dart	converged
 lib/core/error/error_boundary.dart	reviewed
 lib/core/graph/flowrun_timeline.dart	converged
+lib/core/graph/force_layout.dart	converged
 lib/core/graph/graph_edit_ops.dart	converged
 lib/core/graph/graph_model.dart	converged
 lib/core/graph/graph_run_state.dart	converged
@@ -209,6 +210,7 @@ lib/core/ui/an_radar_sweep.dart	converged
 lib/core/ui/an_rail_skeleton.dart	converged
 lib/core/ui/an_rail_states.dart	converged
 lib/core/ui/an_ref_pill.dart	converged
+lib/core/ui/an_relation_graph.dart	converged
 lib/core/ui/an_row.dart	converged
 lib/core/ui/an_row_detail.dart	converged
 lib/core/ui/an_run_board.dart	converged
@@ -253,6 +255,7 @@ lib/core/ui/an_wash_highlight.dart	converged
 lib/core/ui/an_window.dart	reviewed
 lib/core/ui/an_window_controls.dart	converged
 lib/core/ui/dry_intrinsic_width.dart	converged
+lib/core/ui/entity_kind_visual.dart	converged
 lib/core/ui/entity_ref_codec.dart	converged
 lib/core/ui/icons.dart	converged
 lib/core/ui/syntax_highlighter.dart	reviewed
@@ -267,6 +270,7 @@ lib/dev/editor_harness_main.dart	reviewed
 lib/dev/gallery/an_batch_bar_specimens.dart	pending
 lib/dev/gallery/an_countdown_specimens.dart	pending
 lib/dev/gallery/an_pager_specimens.dart	pending
+lib/dev/gallery/an_relation_graph_specimens.dart	converged
 lib/dev/gallery/an_run_matrix_specimens.dart	pending
 lib/dev/gallery/an_schedule_track_specimens.dart	pending
 lib/dev/gallery/an_term_tail_specimens.dart	converged
@@ -427,11 +431,13 @@ lib/features/entities/state/detail/version_list_provider.dart	converged
 lib/features/entities/state/detail/version_list_state.dart	converged
 lib/features/entities/state/detail/workflow_editor_provider.dart	reviewed
 lib/features/entities/state/detail/workflow_editor_state.dart	converged
+lib/features/entities/state/entities_overview_model.dart	converged
 lib/features/entities/state/entity_list_provider.dart	converged
 lib/features/entities/state/entity_list_state.dart	converged
 lib/features/entities/state/flowrun_inbox_provider.dart	converged
 lib/features/entities/state/rail_model.dart	converged
 lib/features/entities/state/rail_sort.dart	converged
+lib/features/entities/state/rel_graph_provider.dart	converged
 lib/features/entities/state/run/run_fields.dart	converged
 lib/features/entities/state/run/run_terminal_controller.dart	converged
 lib/features/entities/state/run/run_terminal_state.dart	converged
@@ -457,6 +463,10 @@ lib/features/entities/ui/entity_ocean.dart	reviewed
 lib/features/entities/ui/entity_rail.dart	reviewed
 lib/features/entities/ui/entity_rail_model.dart	converged
 lib/features/entities/ui/flowrun_inbox.dart	reviewed
+lib/features/entities/ui/graph/entities_graph_page.dart	converged
+lib/features/entities/ui/graph/graph_entity_card.dart	converged
+lib/features/entities/ui/graph/graph_labels.dart	converged
+lib/features/entities/ui/overview/entities_overview.dart	converged
 lib/features/entities/ui/run/block_tree_view.dart	converged
 lib/features/entities/ui/run/run_input_form.dart	reviewed
 lib/features/entities/ui/run/run_terminal.dart	converged

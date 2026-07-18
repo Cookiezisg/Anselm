@@ -82,15 +82,26 @@ class _EntityRailState extends ConsumerState<EntityRail> {
       builder: () => AnSidebarList(
         model: buildRailModel(
           groups,
-          RailLabels(kindLabel: (k) => k.typeLabel(t), newLabel: t.entities.kNew, filter: t.entities.filter),
+          RailLabels(
+            kindLabel: (k) => k.typeLabel(t),
+            newLabel: t.entities.kNew,
+            filter: t.entities.filter,
+            overview: t.entities.overview.title,
+          ),
           sort,
           showCount: showCount,
         ),
-        selectedId: selected?.id,
+        // No entity selected → the fixed «总览» row is the active one (the ocean is showing the Overview
+        // home). 无实体选中→总览行高亮(海洋正显总览主页)。
+        selectedId: selected?.id ?? entitiesOverviewRowId,
         showNew: false, // entity creation is a later phase; the rail is read+select only in 4.1
         menuEntries: _menu(t, sort, showCount),
         // Navigate to set selection — the route is the source of truth (STEP 6). 导航即设选区(路由为真相)。
         onSelect: (id) {
+          if (id == entitiesOverviewRowId) {
+            context.go('/'); // the entities home = the Overview (no selection) 总览主页
+            return;
+          }
           final kind = kindForId(groups, id);
           if (kind != null) context.go(entityLocation(kind, id));
         },

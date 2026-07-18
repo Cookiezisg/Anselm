@@ -1052,7 +1052,10 @@
     "fmtItalic": "斜体",
     "fmtStrike": "删除线",
     "fmtCode": "行内代码",
-    "fmtLink": "链接"
+    "fmtLink": "链接",
+    "relationSummary": "关系图。$nodes 个实体，$edges 条关系。",
+    "relationNode": "$name，$kind，被 $count 个实体引用",
+    "relationExpand": "展开关系图"
   },
   "diff": {
     "added": "新增",
@@ -1366,6 +1369,28 @@
     "val": {
       "yes": "是",
       "no": "否"
+    },
+    "overview": {
+      "title": "总览",
+      "accessory": "配件",
+      "graphHead": "关系图",
+      "recentHead": "最近更新"
+    },
+    "graph": {
+      "showProvenance": "显示溯源",
+      "openDetail": "打开详情",
+      "groupEquips": "装备了",
+      "groupReferencedBy": "被引用",
+      "groupLinks": "链接",
+      "legend": "类型",
+      "back": "返回总览",
+      "selectHint": "选择一个节点查看其关系。",
+      "verb": {
+        "equip": "装备了",
+        "link": "链接了",
+        "create": "创建了",
+        "edit": "编辑了"
+      }
     }
   },
   "coldStart": {

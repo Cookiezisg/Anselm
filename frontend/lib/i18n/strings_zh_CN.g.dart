@@ -363,6 +363,9 @@ class _Translations$a11y$zh_CN extends Translations$a11y$en {
 	@override String get fmtStrike => '删除线';
 	@override String get fmtCode => '行内代码';
 	@override String get fmtLink => '链接';
+	@override String relationSummary({required Object nodes, required Object edges}) => '关系图。${nodes} 个实体，${edges} 条关系。';
+	@override String relationNode({required Object name, required Object kind, required Object count}) => '${name}，${kind}，被 ${count} 个实体引用';
+	@override String get relationExpand => '展开关系图';
 }
 
 // Path: diff
@@ -426,6 +429,8 @@ class _Translations$entities$zh_CN extends Translations$entities$en {
 	@override late final _Translations$entities$detail$zh_CN detail = _Translations$entities$detail$zh_CN._(_root);
 	@override late final _Translations$entities$run$zh_CN run = _Translations$entities$run$zh_CN._(_root);
 	@override late final _Translations$entities$val$zh_CN val = _Translations$entities$val$zh_CN._(_root);
+	@override late final _Translations$entities$overview$zh_CN overview = _Translations$entities$overview$zh_CN._(_root);
+	@override late final _Translations$entities$graph$zh_CN graph = _Translations$entities$graph$zh_CN._(_root);
 }
 
 // Path: coldStart
@@ -1577,6 +1582,37 @@ class _Translations$entities$val$zh_CN extends Translations$entities$val$en {
 	@override String get no => '否';
 }
 
+// Path: entities.overview
+class _Translations$entities$overview$zh_CN extends Translations$entities$overview$en {
+	_Translations$entities$overview$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => '总览';
+	@override String get accessory => '配件';
+	@override String get graphHead => '关系图';
+	@override String get recentHead => '最近更新';
+}
+
+// Path: entities.graph
+class _Translations$entities$graph$zh_CN extends Translations$entities$graph$en {
+	_Translations$entities$graph$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get showProvenance => '显示溯源';
+	@override String get openDetail => '打开详情';
+	@override String get groupEquips => '装备了';
+	@override String get groupReferencedBy => '被引用';
+	@override String get groupLinks => '链接';
+	@override String get legend => '类型';
+	@override String get back => '返回总览';
+	@override String get selectHint => '选择一个节点查看其关系。';
+	@override late final _Translations$entities$graph$verb$zh_CN verb = _Translations$entities$graph$verb$zh_CN._(_root);
+}
+
 // Path: documents.props
 class _Translations$documents$props$zh_CN extends Translations$documents$props$en {
 	_Translations$documents$props$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
@@ -2466,6 +2502,19 @@ class _Translations$entities$run$danger$zh_CN extends Translations$entities$run$
 	// Translations
 	@override String get cautious => '谨慎';
 	@override String get dangerous => '危险';
+}
+
+// Path: entities.graph.verb
+class _Translations$entities$graph$verb$zh_CN extends Translations$entities$graph$verb$en {
+	_Translations$entities$graph$verb$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get equip => '装备了';
+	@override String get link => '链接了';
+	@override String get create => '创建了';
+	@override String get edit => '编辑了';
 }
 
 /// The flat map containing all translations for locale <zh-CN>.
@@ -3467,6 +3516,9 @@ extension on TranslationsZhCn {
 			'a11y.fmtStrike' => '删除线',
 			'a11y.fmtCode' => '行内代码',
 			'a11y.fmtLink' => '链接',
+			'a11y.relationSummary' => ({required Object nodes, required Object edges}) => '关系图。${nodes} 个实体，${edges} 条关系。',
+			'a11y.relationNode' => ({required Object name, required Object kind, required Object count}) => '${name}，${kind}，被 ${count} 个实体引用',
+			'a11y.relationExpand' => '展开关系图',
 			'diff.added' => '新增',
 			'diff.removed' => '删除',
 			'tree.invalidJson' => '无效 JSON',
@@ -3499,11 +3551,11 @@ extension on TranslationsZhCn {
 			'entities.detail.tab.activity' => '活动',
 			'entities.detail.tab.dispatch' => '派发',
 			'entities.detail.verb.run' => '运行',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.verb.call' => '调用',
 			'entities.detail.verb.invoke' => '唤起',
 			'entities.detail.verb.trigger' => '触发',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.hero.envStatus' => ({required Object status}) => 'env ${status}',
 			'entities.detail.hero.noInputs' => '无入参',
 			'entities.detail.hero.methods' => ({required Object n}) => '${n} 个方法',
@@ -3737,6 +3789,22 @@ extension on TranslationsZhCn {
 			'entities.run.inboxEmptyHint' => '等待决断的审批会出现在这里。',
 			'entities.val.yes' => '是',
 			'entities.val.no' => '否',
+			'entities.overview.title' => '总览',
+			'entities.overview.accessory' => '配件',
+			'entities.overview.graphHead' => '关系图',
+			'entities.overview.recentHead' => '最近更新',
+			'entities.graph.showProvenance' => '显示溯源',
+			'entities.graph.openDetail' => '打开详情',
+			'entities.graph.groupEquips' => '装备了',
+			'entities.graph.groupReferencedBy' => '被引用',
+			'entities.graph.groupLinks' => '链接',
+			'entities.graph.legend' => '类型',
+			'entities.graph.back' => '返回总览',
+			'entities.graph.selectHint' => '选择一个节点查看其关系。',
+			'entities.graph.verb.equip' => '装备了',
+			'entities.graph.verb.link' => '链接了',
+			'entities.graph.verb.create' => '创建了',
+			'entities.graph.verb.edit' => '编辑了',
 			'coldStart.connecting' => '正在准备工作区…',
 			'coldStart.errorTitle' => '无法准备工作区',
 			'coldStart.errorHint' => '本地引擎已连通,但工作区未就绪。',
@@ -3997,6 +4065,8 @@ extension on TranslationsZhCn {
 			'settings.mcp.confirmDelete' => '删除',
 			'settings.mcp.tools' => ({required Object n}) => '${n} 工具',
 			'settings.mcp.calls' => ({required Object n}) => '${n} 次调用',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mcp.statusReady' => '就绪',
 			'settings.mcp.statusFailed' => '失败',
 			'settings.mcp.statusDegraded' => '降级',
@@ -4016,8 +4086,6 @@ extension on TranslationsZhCn {
 			'settings.mcp.importHint' => '粘贴 Claude Desktop 的 mcpServers 片段',
 			'settings.mcp.overwrite' => '覆盖同名',
 			'settings.mcp.doImport' => '导入',
-			_ => null,
-		} ?? switch (path) {
 			'settings.mcp.importResult' => ({required Object n, required Object m}) => '导入 ${n} · 跳过 ${m}',
 			'settings.mcp.importInvalid' => 'JSON 无法解析',
 			'settings.mcp.market' => '市场',

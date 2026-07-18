@@ -750,6 +750,15 @@ class Translations$a11y$en {
 
 	/// en: 'Link'
 	String get fmtLink => 'Link';
+
+	/// en: 'Relationship graph. $nodes entities, $edges relations.'
+	String relationSummary({required Object nodes, required Object edges}) => 'Relationship graph. ${nodes} entities, ${edges} relations.';
+
+	/// en: '$name, $kind, referenced by $count'
+	String relationNode({required Object name, required Object kind, required Object count}) => '${name}, ${kind}, referenced by ${count}';
+
+	/// en: 'Expand relationship graph'
+	String get relationExpand => 'Expand relationship graph';
 }
 
 // Path: diff
@@ -862,6 +871,8 @@ class Translations$entities$en {
 	late final Translations$entities$detail$en detail = Translations$entities$detail$en.internal(_root);
 	late final Translations$entities$run$en run = Translations$entities$run$en.internal(_root);
 	late final Translations$entities$val$en val = Translations$entities$val$en.internal(_root);
+	late final Translations$entities$overview$en overview = Translations$entities$overview$en.internal(_root);
+	late final Translations$entities$graph$en graph = Translations$entities$graph$en.internal(_root);
 }
 
 // Path: coldStart
@@ -3797,6 +3808,62 @@ class Translations$entities$val$en {
 	String get no => 'no';
 }
 
+// Path: entities.overview
+class Translations$entities$overview$en {
+	Translations$entities$overview$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Overview'
+	String get title => 'Overview';
+
+	/// en: 'Parts'
+	String get accessory => 'Parts';
+
+	/// en: 'Relationship graph'
+	String get graphHead => 'Relationship graph';
+
+	/// en: 'Recently updated'
+	String get recentHead => 'Recently updated';
+}
+
+// Path: entities.graph
+class Translations$entities$graph$en {
+	Translations$entities$graph$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Show provenance'
+	String get showProvenance => 'Show provenance';
+
+	/// en: 'Open in detail'
+	String get openDetail => 'Open in detail';
+
+	/// en: 'Equips'
+	String get groupEquips => 'Equips';
+
+	/// en: 'Referenced by'
+	String get groupReferencedBy => 'Referenced by';
+
+	/// en: 'Links'
+	String get groupLinks => 'Links';
+
+	/// en: 'Kinds'
+	String get legend => 'Kinds';
+
+	/// en: 'Back to overview'
+	String get back => 'Back to overview';
+
+	/// en: 'Select a node to inspect its relations.'
+	String get selectHint => 'Select a node to inspect its relations.';
+
+	late final Translations$entities$graph$verb$en verb = Translations$entities$graph$verb$en.internal(_root);
+}
+
 // Path: documents.props
 class Translations$documents$props$en {
 	Translations$documents$props$en.internal(this._root);
@@ -5804,6 +5871,27 @@ class Translations$entities$run$danger$en {
 	String get dangerous => 'Dangerous';
 }
 
+// Path: entities.graph.verb
+class Translations$entities$graph$verb$en {
+	Translations$entities$graph$verb$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'equips'
+	String get equip => 'equips';
+
+	/// en: 'links'
+	String get link => 'links';
+
+	/// en: 'created'
+	String get create => 'created';
+
+	/// en: 'edited'
+	String get edit => 'edited';
+}
+
 /// The flat map containing all translations for locale <en>.
 /// Only for edge cases! For simple maps, use the map function of this library.
 ///
@@ -6803,6 +6891,9 @@ extension on Translations {
 			'a11y.fmtStrike' => 'Strikethrough',
 			'a11y.fmtCode' => 'Inline code',
 			'a11y.fmtLink' => 'Link',
+			'a11y.relationSummary' => ({required Object nodes, required Object edges}) => 'Relationship graph. ${nodes} entities, ${edges} relations.',
+			'a11y.relationNode' => ({required Object name, required Object kind, required Object count}) => '${name}, ${kind}, referenced by ${count}',
+			'a11y.relationExpand' => 'Expand relationship graph',
 			'diff.added' => 'Added',
 			'diff.removed' => 'Removed',
 			'tree.invalidJson' => 'Invalid JSON',
@@ -6835,11 +6926,11 @@ extension on Translations {
 			'entities.detail.tab.activity' => 'Activity',
 			'entities.detail.tab.dispatch' => 'Dispatch',
 			'entities.detail.verb.run' => 'Run',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.verb.call' => 'Call',
 			'entities.detail.verb.invoke' => 'Invoke',
 			'entities.detail.verb.trigger' => 'Trigger',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.hero.envStatus' => ({required Object status}) => 'env ${status}',
 			'entities.detail.hero.noInputs' => 'no inputs',
 			'entities.detail.hero.methods' => ({required Object n}) => '${n} methods',
@@ -7073,6 +7164,22 @@ extension on Translations {
 			'entities.run.inboxEmptyHint' => 'Approvals waiting for a decision will appear here.',
 			'entities.val.yes' => 'yes',
 			'entities.val.no' => 'no',
+			'entities.overview.title' => 'Overview',
+			'entities.overview.accessory' => 'Parts',
+			'entities.overview.graphHead' => 'Relationship graph',
+			'entities.overview.recentHead' => 'Recently updated',
+			'entities.graph.showProvenance' => 'Show provenance',
+			'entities.graph.openDetail' => 'Open in detail',
+			'entities.graph.groupEquips' => 'Equips',
+			'entities.graph.groupReferencedBy' => 'Referenced by',
+			'entities.graph.groupLinks' => 'Links',
+			'entities.graph.legend' => 'Kinds',
+			'entities.graph.back' => 'Back to overview',
+			'entities.graph.selectHint' => 'Select a node to inspect its relations.',
+			'entities.graph.verb.equip' => 'equips',
+			'entities.graph.verb.link' => 'links',
+			'entities.graph.verb.create' => 'created',
+			'entities.graph.verb.edit' => 'edited',
 			'coldStart.connecting' => 'Setting up your workspace…',
 			'coldStart.errorTitle' => 'Couldn\'t set up the workspace',
 			'coldStart.errorHint' => 'The local engine is reachable but the workspace didn\'t resolve.',
@@ -7333,6 +7440,8 @@ extension on Translations {
 			'settings.mcp.confirmDelete' => 'Delete',
 			'settings.mcp.tools' => ({required Object n}) => '${n} tools',
 			'settings.mcp.calls' => ({required Object n}) => '${n} calls',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mcp.statusReady' => 'ready',
 			'settings.mcp.statusFailed' => 'failed',
 			'settings.mcp.statusDegraded' => 'degraded',
@@ -7352,8 +7461,6 @@ extension on Translations {
 			'settings.mcp.importHint' => 'Paste a Claude Desktop mcpServers snippet',
 			'settings.mcp.overwrite' => 'Overwrite same names',
 			'settings.mcp.doImport' => 'Import',
-			_ => null,
-		} ?? switch (path) {
 			'settings.mcp.importResult' => ({required Object n, required Object m}) => 'Imported ${n} · skipped ${m}',
 			'settings.mcp.importInvalid' => 'Couldn\'t parse the JSON',
 			'settings.mcp.market' => 'Marketplace',

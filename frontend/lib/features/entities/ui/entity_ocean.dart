@@ -34,6 +34,7 @@ import 'detail/overview/trigger_overview.dart';
 import 'detail/overview/workflow_overview.dart';
 import 'detail/trigger_observability_tab.dart';
 import 'detail/version_tab.dart';
+import 'overview/entities_overview.dart';
 
 /// The detail "ocean" (the open window surface). Reads [selectedEntityProvider]: null → empty state;
 /// else watches [entityDetailProvider] → loading skeleton / error+retry / the header + 概览/版本/日志 tabs.
@@ -92,18 +93,10 @@ class _EntityOceanState extends ConsumerState<EntityOcean> {
       ref.read(shellHeadProvider.notifier).setCollapsed(false);
     });
 
-    if (selected == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) ref.read(shellHeadProvider.notifier).clear();
-      });
-      return Center(
-        child: AnState(
-          kind: AnStateKind.empty,
-          title: context.t.entities.selectTitle,
-          hint: context.t.entities.selectHint,
-        ),
-      );
-    }
+    // No selection → the Overview home (retires the "select an entity" tombstone; the ocean's default
+    // state, matching chat=landing / scheduler=Overview / documents=draft). The Overview owns its own
+    // scroll + floating head. 无选中→总览主页(退役墓碑;海洋默认态)。
+    if (selected == null) return const EntitiesOverviewView();
 
     final async = ref.watch(entityDetailProvider(selected));
     return async.when(
