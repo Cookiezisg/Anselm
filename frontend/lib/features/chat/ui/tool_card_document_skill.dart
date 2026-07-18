@@ -10,12 +10,13 @@ import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
 import 'tool_card_skins.dart';
 
-/// A PROSE READING WINDOW (WRK-056 #11) — settled rendered content (AnMarkdown 15/1.6) inside the ONE
-/// window shell ([AnWindow], WRK-066 族一 — the hand-rolled surface+hairline Container is retired),
-/// fade-collapsed past [AnSize.proseViewport] so a long document/skill/approval body doesn't own an
-/// unbounded wall. What the model authored, read as a TYPESET page (not a source wall).
-/// 散文阅读窗:落定排版态住唯一窗壳(手搓白框退役,批4)+ 超高 FadeCollapse(长文不背无界墙);
-/// 读成成品排版、非源码。
+/// A PROSE READING WINDOW (WRK-056 #11) — settled rendered content (AnMarkdown at the EMBEDDED scale: 13
+/// body, a single 15-w400 heading rung — this markdown lives INSIDE a window, so the reading ladder's big
+/// headings would shout) inside the ONE window shell ([AnWindow], WRK-066 族一 — the hand-rolled
+/// surface+hairline Container is retired), fade-collapsed past [AnSize.proseViewport] so a long
+/// document/skill/approval body doesn't own an unbounded wall. What the model authored, read as a TYPESET
+/// page (not a source wall). 散文阅读窗:落定排版态住唯一窗壳(手搓白框退役,批4)+ 超高 FadeCollapse(长文不背
+/// 无界墙);读成成品排版、非源码。**嵌入档**(13 正文+单一 15-w400 标题——它住在窗里,阅读档大标题会喊)。
 class ProseWindow extends StatelessWidget {
   const ProseWindow({required this.markdown, this.collapsedHeight = AnSize.proseViewport, super.key});
 
@@ -32,7 +33,7 @@ class ProseWindow extends StatelessWidget {
     return AnWindow(
       maxHeight: long ? collapsedHeight : null,
       collapsible: long,
-      child: AnMarkdown(markdown),
+      child: AnMarkdown(markdown, scale: AnMarkdownScale.embedded),
     );
   }
 }

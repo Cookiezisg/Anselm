@@ -133,7 +133,7 @@ class MemoryNoteCard extends StatelessWidget {
         const SizedBox(height: AnSpace.s6),
         const AnDivider(),
         const SizedBox(height: AnSpace.s6),
-        AnMarkdown(note.body),
+        AnMarkdown(note.body, scale: AnMarkdownScale.embedded),
       ],
     ]);
     return AnWindow(

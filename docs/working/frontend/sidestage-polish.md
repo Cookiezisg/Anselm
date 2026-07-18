@@ -230,6 +230,18 @@ fe-verify 4304 全绿。
 
 **landed-into**:`features/entities.md`（调试台节整体重述+动词 CTA 退役+复用件清单）。`make fe-verify` 全绿 / `make docs` 净 / 后端 `make verify` 绿（零改动确认）。
 
+## Markdown 双档——嵌入档「零新字号」（用户 0719 拍板 ✅ 已落）
+
+**病**：`AnMarkdown` 只有一套「阅读档」字阶（15 正文 + 22/18/15 大标题，为 720 阅读列/消息泡设计），被嵌入语境借用后大标题在小框里雷霆大（用户 0719 三帧实证:WebFetch 答窗「重试预算」/侧幕文档展台「值班手册」/skill 展台「Commit Helper」）。
+
+**律**：markdown 双档——**阅读档**只属于 720 阅读列 + 消息泡;**一切嵌入窗/岛内展台/预览面走嵌入档**。嵌入档=把 13 chrome 锚当正文轨用,**零新字号**（全取既有 `AnText` token）:正文 15→13(`body`)· h1/h2 22/18→**15-w400**(`readingH3`,唯一大级)· h3–h6 15→**13-w400**(`body.weight`,与正文同号靠字重+上距)· 块间距 12→8(`AnFlow.block`→`AnGap.stack`)· 围栏码 13→12(`AnCodeEditor.reading:false`)· 行内码 mono13→`codeInline`12(`AnCodeChip.dense`)· 列表记号/表格随档。标题**只两级**（小窗不需要六级戏剧性）。业界锚:GitHub hovercard / Notion 内联预览都把嵌入 prose 压页正文一档。
+
+**实现**：`AnMarkdown` 加 `scale`(枚举 `reading`/`embedded`,默认 reading——存量零破坏);两把梯在 `AnMarkdown` 样式表处收口(双 static 组件表按档换 `_AnNewLines`/`_AnHTag` 块间距,身份稳定不重解析),**消费方绝不各自 `copyWith` 字号**。新增 `AnCodeChip.dense`(默认仍 mono 13,保编辑器静置 chip 与 chat 阅读 chip 逐像素一致)。
+
+**消费面分类**（grep 全用点逐个定档）：**保持阅读档**=chat 助手答案(`chat_transcript` 文本块,默认)、用户泡、document/skill 编辑器正文、memory 主阅读面。**切嵌入档**=`ProseWindow`（工具卡 document/skill/subagent/approval/WebFetch summary/entity_get bodies/io_section 非裸全经它——单点切档全覆盖）· `ToolIOSection` 裸 prose(invoke_agent 字符串答案) · control approval 模板 · `MemoryNoteCard` 笺 · 侧幕 skill/memory/mcp 展台。**拿不准的裁**：`TranscriptPeek` 渲的是带标签紧凑行(非 `AnMarkdown`,不涉);用户泡走 `AnText.reading` 直排(非 markdown,留阅读档)。
+
+**测试**：`an_markdown_test` 新增「scale」组——嵌入档 h1==15/h2==15/h3–h6==13-w400/正文 13-w300/块间距 8/行内码 12/围栏 `reading:false` 逐钉,及默认档 15/22 反证;`tool_card_document_skill_test` 补 `ProseWindow`=embedded 消费面钉子（标题 15 非 22）。既有 `markdown_parity_test`/`type_scale_guard` 全绿。gallery `markdown_specimens` 补「阅读档 vs 嵌入档同文档并排」样章。**landed-into**:`design-system.md`（typography 节「markdown 双档」立律,含字阶表 + Why + 业界锚 + 守卫钉子）。
+
 ## 拍板状态（0718 收官 ✅）
 
 **全部议题已拍板 ✅**（§A #1 假想框律 / #2 composer 28 档 + §B B1–B13 全部）——0718「都同意，落一下档」。待用户宣布开工后一口气建造；交付纪律=每条带测试、双门禁全绿、demo 帧逐条核对、opus 车队对抗复审、文档 1:1 同提交、后端半（B4 offset+total）守 N/D/E/S/T。

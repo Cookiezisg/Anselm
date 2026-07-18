@@ -302,12 +302,39 @@ void main() {
         await tester.pump(const Duration(milliseconds: 80)); // ledger hydrate + toggle reveal 台账水化+钮滑入
       }
       outName = '${outName}_sel';
+      // TCEXPAND=<needle> — scroll a transcript tool card into view and tap it open (the collapsed row's
+      // summary text is the handle), so the EMBEDDED prose window (e.g. WebFetch 答窗) is captured expanded.
+      // TCEXPAND:滚动展开某工具卡,截其嵌入档答窗。
+      const tcExpand = String.fromEnvironment('TCEXPAND');
+      if (tcExpand.isNotEmpty) {
+        final f = find.textContaining(tcExpand).first;
+        await tester.ensureVisible(f);
+        await tester.pump(const Duration(milliseconds: 120));
+        await tester.tap(f, warnIfMissed: false);
+        for (var i = 0; i < 6; i++) {
+          await tester.pump(const Duration(milliseconds: 120)); // card expands + prose window typesets 卡展开+排版
+        }
+        outName = '${outName}_tc';
+      }
       if (const bool.fromEnvironment('CHATSTAGE')) {
         container.read(rightPanelCollapsedProvider.notifier).set(false);
         for (var i = 0; i < 6; i++) {
           await tester.pump(const Duration(milliseconds: 80)); // island reveal + accordion rows 岛揭示+行
         }
         outName = '${outName}_stage';
+        // STAGEPICK=<Cast row name> — tap a settled Cast row to open its sidestage stage (document/skill/…),
+        // so the stage's EMBEDDED markdown body is captured. STAGEPICK:点 Cast 行开侧幕展台,截其嵌入档正文。
+        const stagePick = String.fromEnvironment('STAGEPICK');
+        if (stagePick.isNotEmpty) {
+          final row = find.text(stagePick).last;
+          await tester.ensureVisible(row);
+          await tester.pump(const Duration(milliseconds: 120));
+          await tester.tap(row, warnIfMissed: false);
+          for (var i = 0; i < 8; i++) {
+            await tester.pump(const Duration(milliseconds: 120)); // director stages the body 导演器登台正文
+          }
+          outName = '${outName}_pick';
+        }
       }
     }
 

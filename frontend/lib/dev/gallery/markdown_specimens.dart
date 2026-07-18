@@ -18,11 +18,44 @@ import 'specimen.dart';
 const double _mdW = 620;
 
 Widget _md(String s) => AnMarkdown(s);
+Widget _mdEmbedded(String s) => AnMarkdown(s, scale: AnMarkdownScale.embedded);
+
+// One document rendered at BOTH scales side by side (the dual-scale law made visible). 同一文档双档并排。
+const String _dualDoc =
+    '# 值班手册\n\n'
+    '遇到告警先看 `dashboard`,再决定是否升级。\n\n'
+    '## 升级路径\n\n'
+    '1. 先 ping on-call\n'
+    '2. 15 分钟无响应升 L2\n\n'
+    '### 注意\n\n'
+    '不要在**未确认**前 rollback。\n\n'
+    '```py\nescalate(after="15m")\n```';
+
+// A captioned column so each scale reads under its own label. 每档配小字标签。
+Widget _scaled(BuildContext c, String caption, Widget child) => Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(caption, style: AnText.meta.copyWith(color: c.colors.inkFaint)),
+        const SizedBox(height: AnSpace.s8),
+        child,
+      ],
+    );
 
 final GalleryItem anMarkdownGalleryItem = GalleryItem(
   'AnMarkdown 渲染器',
-  'chat 文本块 markdown:阅读档 22/18/15 · 粗体 w400 · 围栏→AnCodeEditor · 表→AnThinTable · 链接闸 · 图不取网',
+  'chat 文本块 markdown:双档(阅读 22/18/15 · 嵌入 15/13)· 粗体 w400 · 围栏→AnCodeEditor · 表→AnProseTable · 链接闸 · 图不取网',
   [
+    // The dual scale, made visible — the SAME document at reading (720 column / bubbles) and embedded
+    // (tool-card windows / island stages): embedded keeps ONE louder heading rung, tightens the block gap,
+    // drops code a rung. 尺度双档并排:阅读档 vs 嵌入档,同一文档。
+    GallerySpecimen('尺度双档:阅读档 vs 嵌入档(同文档并排)', (c) => Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: _scaled(c, '阅读档 · 正文15 · 标题22/18/15', _md(_dualDoc))),
+        const SizedBox(width: AnSpace.s24),
+        Expanded(child: _scaled(c, '嵌入档 · 正文13 · 标题15/13', _mdEmbedded(_dualDoc))),
+      ],
+    ), span: true, maxWidth: _mdW),
     GallerySpecimen('段落 + 行内混排', (_) => _md(
       '把 **sync_inventory** 的重试改成了*指数退避*,细节见 [PR #42](https://example.com/pr/42)。'
       '失败会抛 `SyncError`,由上游 workflow 决定是否降级——~~静默吞掉~~不再发生。',

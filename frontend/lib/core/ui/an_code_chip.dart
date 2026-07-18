@@ -15,9 +15,15 @@ import '../design/typography.dart';
 /// 编辑器静置态(A′ 焦点换态)共用同一 widget,故文档代码芯片与 chat 逐像素一致、绝不各自实现漂移。TextStyle 背景只能
 /// 画紧贴矩形(无内距/圆角),圆角胶囊只有真 widget 能画——所以编辑器静置渲此原子芯片、仅编辑时换成可编辑文本。
 class AnCodeChip extends StatelessWidget {
-  const AnCodeChip(this.code, {super.key});
+  const AnCodeChip(this.code, {this.dense = false, super.key});
 
   final String code;
+
+  /// DENSE (embedded scale) → the 12 [AnText.codeInline] face, a rung under the DEFAULT mono 13. The default
+  /// is load-bearing: the document editor's rest-state chip AND the chat READING chip both use it, so they
+  /// stay pixel-identical — only markdown living in an embedded window (tool cards / stages, the
+  /// `AnMarkdownScale.embedded` scale) asks for the smaller rung. 密排(嵌入档)=12 小码档,默认仍 mono 13(编辑器静置 chip 与 chat 阅读 chip 逐像素一致)。
+  final bool dense;
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +34,7 @@ class AnCodeChip extends StatelessWidget {
         color: c.surfaceSunken,
         borderRadius: BorderRadius.circular(AnRadius.tag),
       ),
-      child: Text(code, style: AnText.mono.copyWith(color: c.ink)),
+      child: Text(code, style: (dense ? AnText.codeInline : AnText.mono).copyWith(color: c.ink)),
     );
   }
 }

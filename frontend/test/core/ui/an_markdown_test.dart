@@ -114,6 +114,63 @@ void main() {
     });
   });
 
+  // The DUAL SCALE (AnMarkdownScale) — the guard-style pins the gallery can't assert: embedded is 13 body +
+  // a SINGLE 15-w400 h1/h2 with h3–h6 on a 13-w400 rung, a tighter block gap, code a rung down; reading (the
+  // default, = the chat answer / message bubble) keeps 15 body + 22/18/15 headings. Zero new sizes.
+  // 尺度双档钉子:嵌入=13 正文+单一 15-w400 大标题、块间距收紧、代码降一号;阅读(默认=消息泡/答案)=15+22/18/15。
+  group('scale (reading vs embedded)', () {
+    testWidgets('DEFAULT scale is reading (the message bubble / chat answer): body 15, h1 22', (tester) async {
+      await tester.pumpWidget(host(const AnMarkdown('# Head\n\nplain body')));
+      expect(spanWhere(tester, 'Head').$2?.fontSize, 22); // readingH1
+      expect(spanWhere(tester, 'plain body').$2?.fontSize, 15); // reading body
+    });
+
+    testWidgets('embedded h1/h2 fold to 15-w400 (the one louder rung), h3–h6 to 13-w400, body 13', (tester) async {
+      const md = '# H1\n\n## H2\n\n### H3\n\n#### H4\n\nplain body';
+      await tester.pumpWidget(host(const AnMarkdown(md, scale: AnMarkdownScale.embedded)));
+      // both h1 and h2 land on the SINGLE 15-w400 rung (no 22/18 drama in a small frame)
+      expect(spanWhere(tester, 'H1').$2?.fontSize, 15);
+      expect(spanWhere(tester, 'H1').$2?.fontWeight, FontWeight.w400);
+      expect(spanWhere(tester, 'H2').$2?.fontSize, 15);
+      // h3–h6 fold onto the 13-w400 rung — same size as the body, hierarchy from weight + top-space
+      expect(spanWhere(tester, 'H3').$2?.fontSize, 13);
+      expect(spanWhere(tester, 'H3').$2?.fontWeight, FontWeight.w400);
+      expect(spanWhere(tester, 'H4').$2?.fontSize, 13);
+      expect(spanWhere(tester, 'H4').$2?.fontWeight, FontWeight.w400);
+      // body drops to the 13 chrome anchor (w300)
+      expect(spanWhere(tester, 'plain body').$2?.fontSize, 13);
+      expect(spanWhere(tester, 'plain body').$2?.fontWeight, FontWeight.w300);
+    });
+
+    testWidgets('block gap tightens one tier: reading 12 (AnFlow.block) → embedded 8 (AnGap.stack)', (tester) async {
+      // the _AnNewLines separator span sizes the blank line by fontSize; its rung differs per scale.
+      List<double?> gapSizes(WidgetTester t) => spans(t)
+          .where((s) => s.$1.contains('\n') && s.$1.trim().isEmpty)
+          .map((s) => s.$2?.fontSize)
+          .toList();
+      await tester.pumpWidget(host(const AnMarkdown('a\n\nb')));
+      expect(gapSizes(tester), isNotEmpty);
+      expect(gapSizes(tester).first, AnFlow.block); // reading 12
+      await tester.pumpWidget(host(const AnMarkdown('a\n\nb', scale: AnMarkdownScale.embedded)));
+      expect(gapSizes(tester).first, AnGap.stack); // embedded 8
+    });
+
+    testWidgets('inline code drops a rung: reading mono 13 → embedded codeInline 12', (tester) async {
+      await tester.pumpWidget(host(const AnMarkdown('use `retries` here')));
+      expect(tester.widget<Text>(find.text('retries')).style?.fontSize, 13); // AnText.mono
+      await tester.pumpWidget(host(const AnMarkdown('use `retries` here', scale: AnMarkdownScale.embedded)));
+      expect(tester.widget<Text>(find.text('retries')).style?.fontSize, 12); // AnText.codeInline
+    });
+
+    testWidgets('fenced code rides the scale: reading → codeReading 13 (reading:true), embedded → code 12 (reading:false)',
+        (tester) async {
+      await tester.pumpWidget(host(const AnMarkdown('```py\nprint(1)\n```')));
+      expect(tester.widget<AnCodeEditor>(find.byType(AnCodeEditor)).reading, isTrue);
+      await tester.pumpWidget(host(const AnMarkdown('```py\nprint(1)\n```', scale: AnMarkdownScale.embedded)));
+      expect(tester.widget<AnCodeEditor>(find.byType(AnCodeEditor)).reading, isFalse);
+    });
+  });
+
   group('tables', () {
     // Chat tables are the bordered [AnProseTable] (1:1 with the document editor), NOT the borderless
     // AnThinTable; cells parse rich; the :--:/--: separators drive per-column TextAlign. 有框表 1:1、富单元格。

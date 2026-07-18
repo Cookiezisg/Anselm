@@ -72,8 +72,9 @@ class SkillStageBody extends StatelessWidget {
         ],
         if (body.isNotEmpty)
           // Streaming shows the prose tail face BARE (this card IS the window — leaf law; the head
-          // slices its own O(tail)); the settled truth typesets in full. 流式=prose 尾无框脸(本卡即窗,
-          // 叶子律;O(tail) 族头内建);落定真 markdown 排版。
+          // slices its own O(tail)); the settled truth typesets in full at the EMBEDDED scale (an island
+          // stage inside the right island — the reading ladder's big headings would shout). 流式=prose 尾无框脸
+          // (本卡即窗,叶子律;O(tail) 族头内建);落定真 markdown 排版,嵌入档(住右岛台,阅读档大标题会喊)。
           scene.live
               ? AnLiveTail(body, style: AnLiveTailStyle.prose, bare: true)
               : (body.length > AnCap.proseFoldChars || '\n'.allMatches(body).length > AnCap.proseFoldLines)
@@ -83,9 +84,9 @@ class SkillStageBody extends StatelessWidget {
                       expandLabel: t.chat.tool.proseExpand,
                       collapseLabel: t.chat.tool.proseCollapse,
                       fadeColor: c.surface,
-                      child: AnMarkdown(body),
+                      child: AnMarkdown(body, scale: AnMarkdownScale.embedded),
                     )
-                  : AnMarkdown(body),
+                  : AnMarkdown(body, scale: AnMarkdownScale.embedded),
       ]),
     );
   }

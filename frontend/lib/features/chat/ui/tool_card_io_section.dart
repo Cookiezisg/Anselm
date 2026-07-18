@@ -59,9 +59,10 @@ class ToolIOSection extends StatelessWidget {
     if (v is bool || v is num) return _inline(c, '$v');
     if (v is String) {
       // bare + prose: render the typeset markdown WITHOUT ProseWindow's shell — ProseWindow IS an
-      // AnWindow and would nest inside the host window (leaf law; 批4 复审:合同洞). bare+prose=
-      // 裸排版,ProseWindow 即窗、在窗内会套窗。
-      if (prose && v.isNotEmpty) return bare ? AnMarkdown(v) : ProseWindow(markdown: v);
+      // AnWindow and would nest inside the host window (leaf law; 批4 复审:合同洞). Either way this is
+      // EMBEDDED scale (a tool-card result window — the bare face inherits what ProseWindow renders).
+      // bare+prose=裸排版,ProseWindow 即窗、在窗内会套窗;两脸皆嵌入档(工具卡结果窗)。
+      if (prose && v.isNotEmpty) return bare ? AnMarkdown(v, scale: AnMarkdownScale.embedded) : ProseWindow(markdown: v);
       final single = !v.contains('\n');
       if (single && v.length <= 80) return _inline(c, v);
       return _monoWindow(context, c, v);

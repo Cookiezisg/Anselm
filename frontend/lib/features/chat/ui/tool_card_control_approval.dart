@@ -151,7 +151,7 @@ Widget approvalFormBody(BuildContext context, ToolCardState state) {
           child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (template.isNotEmpty) AnMarkdown(approvalTemplateToMarkdown(template)),
+            if (template.isNotEmpty) AnMarkdown(approvalTemplateToMarkdown(template), scale: AnMarkdownScale.embedded),
             const SizedBox(height: AnGap.block),
             // The rules strip: timeout → behaviour, note-allowed. 规则条:超时→行为、可填备注。
             Wrap(

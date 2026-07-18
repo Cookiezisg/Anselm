@@ -162,5 +162,26 @@ void main() {
       expect(find.byType(AnWindow), findsOneWidget);
       expect(find.textContaining('展开'), findsOneWidget);
     });
+
+    // Consumer-face pin: ProseWindow (the ONE embedded prose surface — tool cards, sidestage, previews) renders
+    // AnMarkdown at the EMBEDDED scale, so a heading is the 15-w400 rung, NEVER the reading 22 (which would
+    // shout inside a window). ProseWindow=嵌入档:标题 15 而非阅读档 22。
+    testWidgets('ProseWindow renders EMBEDDED scale: a heading is 15-w400, not the reading 22', (tester) async {
+      await tester.pumpWidget(host(const ProseWindow(markdown: '# 值班手册\n\n正文一句')));
+      await tester.pumpAndSettle();
+      TextStyle? styleOf(String needle) {
+        for (final rich in tester.widgetList<RichText>(find.byType(RichText))) {
+          TextStyle? hit;
+          rich.text.visitChildren((span) {
+            if (span is TextSpan && (span.text?.contains(needle) ?? false)) hit = span.style;
+            return hit == null;
+          });
+          if (hit != null) return hit;
+        }
+        return null;
+      }
+      expect(styleOf('值班手册')?.fontSize, 15); // embedded h1 = readingH3 rung, NOT 22
+      expect(styleOf('值班手册')?.fontWeight, FontWeight.w400);
+    });
   });
 }
