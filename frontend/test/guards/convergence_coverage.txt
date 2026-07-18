@@ -167,6 +167,7 @@ lib/core/ui/an_follow_pill.dart	converged
 lib/core/ui/an_form_field.dart	converged
 lib/core/ui/an_freshness_halo.dart	converged
 lib/core/ui/an_graph_canvas.dart	converged
+lib/core/ui/an_group_head.dart	converged
 lib/core/ui/an_group_label.dart	converged
 lib/core/ui/an_heat_bar.dart	converged
 lib/core/ui/an_honesty_ribbon.dart	reviewed
@@ -208,6 +209,7 @@ lib/core/ui/an_popover.dart	converged
 lib/core/ui/an_prose_table.dart	pending
 lib/core/ui/an_quote_bar.dart	converged
 lib/core/ui/an_radar_sweep.dart	converged
+lib/core/ui/an_rail_filter_field.dart	converged
 lib/core/ui/an_rail_skeleton.dart	converged
 lib/core/ui/an_rail_states.dart	converged
 lib/core/ui/an_ref_pill.dart	converged
@@ -486,8 +488,8 @@ lib/features/notifications/state/notification_feed_state.dart	converged
 lib/features/notifications/state/toast_dispatcher.dart	reviewed
 lib/features/notifications/state/unread_count_provider.dart	converged
 lib/features/notifications/ui/notification_copy.dart	reviewed
-lib/features/notifications/ui/notification_feed.dart	reviewed
 lib/features/notifications/ui/notification_row.dart	reviewed
+lib/features/notifications/ui/notification_tray.dart	converged
 lib/features/scheduler/data/scheduler_demo_fixture.dart	pending
 lib/features/scheduler/data/scheduler_repository.dart	pending
 lib/features/scheduler/scheduler_windows.dart	pending

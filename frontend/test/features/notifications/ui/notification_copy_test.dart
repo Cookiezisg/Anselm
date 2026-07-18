@@ -72,15 +72,19 @@ void main() {
     expect(notificationLine(_n('mcp.reconnected', payload: {'name': 'm', 'status': 'failed'}), t).tone, AnTone.danger);
   });
 
-  test('dependency_broken: count in trail, dependent names in detail, no kind lead', () {
+  test('dependency_broken: standard subject clause (kind lead + deleted id as name), deps in detail', () {
+    // 0719 «句式归队»: the deleted entity IS the subject (kind lead + id name — its name is gone from the
+    // store by notify time), the trail is a proper verb phrase, the dependents ride the detail line.
     final l = notificationLine(_n('relation.dependency_broken', payload: {
-      'deletedKind': 'function',
+      'deletedKind': 'workflow',
+      'deletedId': 'nightly_sync',
       'dependents': [{'kind': 'agent', 'name': 'a1'}, {'kind': 'workflow', 'name': 'w1'}],
     }), t);
-    expect(l.lead, isNull);
+    expect(l.lead, t.ref.workflow); // the deleted entity's kind = the subject lead
+    expect(l.name, 'nightly_sync'); // named by id
     expect(l.tone, AnTone.warn);
-    expect(l.detail, 'a1 · w1');
-    expect(l.trail, contains('2'));
+    expect(l.detail, 'a1 · w1'); // dependents ride the detail line
+    expect(l.trail, contains('2')); // "…leaving 2 references dangling"
   });
 
   test('document uses path as the name', () {

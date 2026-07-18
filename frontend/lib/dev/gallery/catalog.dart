@@ -468,6 +468,24 @@ final GalleryCategory _g1Controls = GalleryCategory('基础控件 Controls', AnI
     GallerySpecimen('default', (_) => const AnGroupLabel('Entities'), span: true),
     GallerySpecimen('超长截断', (_) => const AnGroupLabel('a very long section caption that should ellipsis instead of wrapping'), stress: true, maxWidth: 150),
   ]),
+  GalleryItem('AnGroupHead', '可折叠大组头:label + 计数 + chevron;trailing 位挂 ⋯ 批量菜单(rail + 铃托盘共用)', [
+    GallerySpecimen('展开 + ⋯ 批量菜单 (托盘「待你处理」首用)', (context) => AnGroupHead(
+          label: 'Needs you',
+          count: 3,
+          open: true,
+          onToggle: () {},
+          padding: const EdgeInsetsDirectional.only(start: AnSpace.s12, end: AnSpace.s12),
+          trailing: AnMenu(
+            entries: [
+              AnMenuItem(label: 'Approve all', icon: AnIcons.check, onTap: () {}),
+              AnMenuItem(label: 'Reject all', icon: AnIcons.close, danger: true, onTap: () {}),
+            ],
+            anchorBuilder: (context, toggle, isOpen) =>
+                AnButton.iconOnly(AnIcons.more, size: AnButtonSize.sm, semanticLabel: 'More', onPressed: toggle),
+          ),
+        ), span: true, maxWidth: _railW),
+    GallerySpecimen('折叠 (无 trailing)', (_) => AnGroupHead(label: 'Earlier', count: 12, open: false, onToggle: () {}), span: true, maxWidth: _railW),
+  ]),
   GalleryItem('AnButton', '统一动作钮:变体/尺寸/图标/态', [
     GallerySpecimen('ghost', (_) => AnButton(label: 'Ghost', onPressed: () {})),
     GallerySpecimen('primary', (_) => AnButton(label: 'Run', icon: AnIcons.run, variant: AnButtonVariant.primary, onPressed: () {})),
@@ -487,6 +505,22 @@ final GalleryCategory _g1Controls = GalleryCategory('基础控件 Controls', AnI
           ),
         ), span: true),
     GallerySpecimen('icon', (_) => AnButton.iconOnly(AnIcons.more, semanticLabel: 'More', onPressed: () {})),
+    // iconOnly / ghost on a GREY row-hover wash — hover them: the fill deepens to surfaceHoverStrong (a
+    // clear notch below the surfaceHover wash) so the button reads as a button, not a smear (0719 fix; the
+    // user验收位). 灰洗底上的行内钮:hover 时底加深到 surfaceHoverStrong,不糊进行底。
+    GallerySpecimen('iconOnly·灰洗底 hover (行内钮验收位)', (context) => ColoredBox(
+          color: context.colors.surfaceHover,
+          child: Padding(
+            padding: const EdgeInsets.all(AnSpace.s8),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              AnButton.iconOnly(AnIcons.plus, size: AnButtonSize.sm, semanticLabel: 'New', onPressed: () {}),
+              const SizedBox(width: AnSpace.s6),
+              AnButton.iconOnly(AnIcons.more, size: AnButtonSize.sm, semanticLabel: 'More', onPressed: () {}),
+              const SizedBox(width: AnSpace.s6),
+              AnButton(label: 'Ghost', size: AnButtonSize.sm, onPressed: () {}),
+            ]),
+          ),
+        ), span: true),
     GallerySpecimen('icon toggled (格式开态)', (_) => Row(mainAxisSize: MainAxisSize.min, children: [
           AnButton.iconOnly(AnIcons.bold, toggled: true, semanticLabel: 'Bold', onPressed: () {}),
           const SizedBox(width: AnSpace.s4),

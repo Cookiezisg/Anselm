@@ -74,10 +74,18 @@ NotificationLine notificationLine(NotificationItem n, Translations t) {
         tone: AnTone.warn);
     case 'relation.dependency_broken':
       final deps = (payload['dependents'] as List?) ?? const [];
-      // No kind lead — the trail ("left N references dangling") is a full clause on its own. 无 kind lead。
+      final deletedKind = payload['deletedKind'] as String?;
+      final deletedId = (payload['deletedId'] as String?)?.nullIfEmpty;
+      // A STANDARD subject clause (0719 «句式归队»): «{Kind} 「{id}」 was deleted, leaving N references
+      // dangling» — the deleted entity IS the subject (lead kind + id name), the dangling dependents ride
+      // the detail line. Named by id, not name: at notify time the entity is already purged, so its display
+      // name is no longer resolvable (see relation.go notifyDependencyBroken — payload carries deletedId,
+      // never deletedName). 标准主语句:被删实体作主语(kind lead + id name),被依赖者进详情行;按 id 命名——
+      // 发通知时实体已 purge、显示名不再可解(后端 payload 只带 deletedId、无 deletedName)。
       return NotificationLine(
         icon: AnIcons.relations,
-        name: nameOf(),
+        lead: deletedKind != null ? _kindLabel(deletedKind, t) : null,
+        name: deletedId,
         trail: deps.length == 1 ? nt.depBrokenOne : nt.depBrokenMany(n: deps.length),
         tone: AnTone.warn,
         detail: _dependentNames(deps));

@@ -632,7 +632,16 @@
     "approvalHint": "First decision wins.",
     "reasonHint": "Reason (optional)",
     "addReason": "+ Reason",
-    "inferredRunning": "running (inferred)"
+    "inferredRunning": "running (inferred)",
+    "approveAll": "Approve all",
+    "rejectAll": "Reject all",
+    "batchApproveTitle": "Approve all $n?",
+    "batchRejectTitle": "Reject all $n?",
+    "batchDecideBody": "These approvals will be decided (first decision wins):\n$list",
+    "sumApproved": "$n approved",
+    "sumRejected": "$n rejected",
+    "sumLost": "$n already handled elsewhere",
+    "sumFailed": "$n failed"
   },
   "scheduler": {
     "railErrorTitle": "Couldn't load workflows",
@@ -965,6 +974,9 @@
     "feed": "Notifications",
     "markAllRead": "Mark all read",
     "markRead": "Mark read",
+    "searchPlaceholder": "Search notifications…",
+    "unreadOnly": "Unread only",
+    "displayOptions": "Display",
     "today": "Today",
     "yesterday": "Yesterday",
     "earlier": "Earlier",
@@ -996,8 +1008,8 @@
       "envReady": "environment ready",
       "envFailed": "environment build failed"
     },
-    "depBrokenOne": "left 1 reference dangling",
-    "depBrokenMany": "left $n references dangling",
+    "depBrokenOne": "was deleted, leaving 1 reference dangling",
+    "depBrokenMany": "was deleted, leaving $n references dangling",
     "view": "View",
     "errorTitle": "Couldn't load notifications",
     "errorHint": "The local engine didn't return the notification feed.",

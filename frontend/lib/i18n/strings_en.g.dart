@@ -353,6 +353,33 @@ class Translations$run$en {
 
 	/// en: 'running (inferred)'
 	String get inferredRunning => 'running (inferred)';
+
+	/// en: 'Approve all'
+	String get approveAll => 'Approve all';
+
+	/// en: 'Reject all'
+	String get rejectAll => 'Reject all';
+
+	/// en: 'Approve all $n?'
+	String batchApproveTitle({required Object n}) => 'Approve all ${n}?';
+
+	/// en: 'Reject all $n?'
+	String batchRejectTitle({required Object n}) => 'Reject all ${n}?';
+
+	/// en: 'These approvals will be decided (first decision wins): $list'
+	String batchDecideBody({required Object list}) => 'These approvals will be decided (first decision wins):\n${list}';
+
+	/// en: '$n approved'
+	String sumApproved({required Object n}) => '${n} approved';
+
+	/// en: '$n rejected'
+	String sumRejected({required Object n}) => '${n} rejected';
+
+	/// en: '$n already handled elsewhere'
+	String sumLost({required Object n}) => '${n} already handled elsewhere';
+
+	/// en: '$n failed'
+	String sumFailed({required Object n}) => '${n} failed';
 }
 
 // Path: scheduler
@@ -585,6 +612,15 @@ class Translations$notifications$en {
 	/// en: 'Mark read'
 	String get markRead => 'Mark read';
 
+	/// en: 'Search notifications…'
+	String get searchPlaceholder => 'Search notifications…';
+
+	/// en: 'Unread only'
+	String get unreadOnly => 'Unread only';
+
+	/// en: 'Display'
+	String get displayOptions => 'Display';
+
 	/// en: 'Today'
 	String get today => 'Today';
 
@@ -600,11 +636,11 @@ class Translations$notifications$en {
 	late final Translations$notifications$kind$en kind = Translations$notifications$kind$en.internal(_root);
 	late final Translations$notifications$verb$en verb = Translations$notifications$verb$en.internal(_root);
 
-	/// en: 'left 1 reference dangling'
-	String get depBrokenOne => 'left 1 reference dangling';
+	/// en: 'was deleted, leaving 1 reference dangling'
+	String get depBrokenOne => 'was deleted, leaving 1 reference dangling';
 
-	/// en: 'left $n references dangling'
-	String depBrokenMany({required Object n}) => 'left ${n} references dangling';
+	/// en: 'was deleted, leaving $n references dangling'
+	String depBrokenMany({required Object n}) => 'was deleted, leaving ${n} references dangling';
 
 	/// en: 'View'
 	String get view => 'View';
@@ -6535,6 +6571,15 @@ extension on Translations {
 			'run.reasonHint' => 'Reason (optional)',
 			'run.addReason' => '+ Reason',
 			'run.inferredRunning' => 'running (inferred)',
+			'run.approveAll' => 'Approve all',
+			'run.rejectAll' => 'Reject all',
+			'run.batchApproveTitle' => ({required Object n}) => 'Approve all ${n}?',
+			'run.batchRejectTitle' => ({required Object n}) => 'Reject all ${n}?',
+			'run.batchDecideBody' => ({required Object list}) => 'These approvals will be decided (first decision wins):\n${list}',
+			'run.sumApproved' => ({required Object n}) => '${n} approved',
+			'run.sumRejected' => ({required Object n}) => '${n} rejected',
+			'run.sumLost' => ({required Object n}) => '${n} already handled elsewhere',
+			'run.sumFailed' => ({required Object n}) => '${n} failed',
 			'scheduler.railErrorTitle' => 'Couldn\'t load workflows',
 			'scheduler.railErrorHint' => 'The backend didn\'t answer. Check the connection and retry.',
 			'scheduler.retry' => 'Retry',
@@ -6839,6 +6884,9 @@ extension on Translations {
 			'notifications.feed' => 'Notifications',
 			'notifications.markAllRead' => 'Mark all read',
 			'notifications.markRead' => 'Mark read',
+			'notifications.searchPlaceholder' => 'Search notifications…',
+			'notifications.unreadOnly' => 'Unread only',
+			'notifications.displayOptions' => 'Display',
 			'notifications.today' => 'Today',
 			'notifications.yesterday' => 'Yesterday',
 			'notifications.earlier' => 'Earlier',
@@ -6866,8 +6914,8 @@ extension on Translations {
 			'notifications.verb.waitingApproval' => 'is waiting for approval',
 			'notifications.verb.envReady' => 'environment ready',
 			'notifications.verb.envFailed' => 'environment build failed',
-			'notifications.depBrokenOne' => 'left 1 reference dangling',
-			'notifications.depBrokenMany' => ({required Object n}) => 'left ${n} references dangling',
+			'notifications.depBrokenOne' => 'was deleted, leaving 1 reference dangling',
+			'notifications.depBrokenMany' => ({required Object n}) => 'was deleted, leaving ${n} references dangling',
 			'notifications.view' => 'View',
 			'notifications.errorTitle' => 'Couldn\'t load notifications',
 			'notifications.errorHint' => 'The local engine didn\'t return the notification feed.',
@@ -6938,6 +6986,8 @@ extension on Translations {
 			'entities.sortRecent' => 'Recently active',
 			'entities.sortCreated' => 'Recently created',
 			'entities.sortName' => 'Name',
+			_ => null,
+		} ?? switch (path) {
 			'entities.displayLabel' => 'Display',
 			'entities.showCount' => 'Show counts',
 			'entities.detail.crumbRoot' => 'Entities',
@@ -6950,8 +7000,6 @@ extension on Translations {
 			'entities.detail.verb.run' => 'Run',
 			'entities.detail.verb.call' => 'Call',
 			'entities.detail.verb.invoke' => 'Invoke',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.verb.trigger' => 'Trigger',
 			'entities.detail.hero.envStatus' => ({required Object status}) => 'env ${status}',
 			'entities.detail.hero.noInputs' => 'no inputs',
@@ -7452,6 +7500,8 @@ extension on Translations {
 			'settings.mem.empty' => 'No memories yet',
 			'settings.mem.emptyHint' => 'Memories let the AI remember things across conversations.',
 			'settings.mem.dirtyTitle' => 'Discard unsaved changes?',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mem.dirtyBody' => 'The content has unsaved edits.',
 			'settings.mem.discard' => 'Discard',
 			'settings.mem.keepEditing' => 'Keep editing',
@@ -7464,8 +7514,6 @@ extension on Translations {
 			'settings.mcp.importJson' => 'Import mcp.json',
 			'settings.mcp.empty' => 'No MCP servers yet',
 			'settings.mcp.emptyHint' => 'Install from the marketplace, add manually, or import mcp.json.',
-			_ => null,
-		} ?? switch (path) {
 			'settings.mcp.reconnect' => 'Reconnect',
 			'settings.mcp.detail' => 'Details',
 			'settings.mcp.deleteServer' => 'Delete',

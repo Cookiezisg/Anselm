@@ -8,7 +8,6 @@ import '../../../core/model/status_state.dart';
 import '../../../core/model/time_format.dart';
 import '../../../core/ui/an_button.dart';
 import '../../../core/ui/an_hover_surface.dart';
-import '../../../core/ui/an_status_dot.dart';
 import '../../../core/ui/an_interactive.dart';
 import '../../../core/ui/icons.dart';
 import '../../../core/ui/tone.dart';
@@ -16,15 +15,18 @@ import '../../../i18n/strings.g.dart';
 import 'notification_copy.dart';
 
 /// ONE notification-center row — a pure presentational widget (no ref): [item] in, tap/mark-read out.
-/// Anatomy (WRK-058 §D.1): `[unread dot] [tone icon] {kind} {quoted name} {verb}  {relative time}` —
-/// the name's quote marks come from the locale (en “…” / zh 「…」) — with an optional muted second
-/// line (an error / a dependency count). UNREAD → the object name is emphasized (w400 ink) and a dot
-/// leads; READ → the whole row grays to inkFaint (a read row stays in the list as an audit trail,
-/// just quiet). On hover the time swaps for a "mark read" affordance (unread only).
+/// Anatomy: `[tone icon] {kind} {quoted name} {verb}  {relative time}` — the name's quote marks come from
+/// the locale (en “…” / zh 「…」) — with an optional muted second line (an error / a dependency count).
 ///
-/// 一条通知行——纯展示(无 ref):item 进,tap/mark-read 出。解剖(§D.1):未读点·tone 图标·{类}{带引号名}{动词}·
-/// 相对时间(引号随 locale:en “…” / zh 「…」),可选灰第二行。未读→宾语名 w400 ink + 行首点;已读→整行灰
-/// (留列表作审计流,只是安静)。hover 时时间换成 mark-read(仅未读)。
+/// **已读律 (0719): whole-row fade is the SOLE read/unread channel — there is NO leading unread dot.** The
+/// kind/tone icon is the ONE lead mark (its colour carries severity: warn amber / danger red). UNREAD → a
+/// coloured icon + ink name (w400); READ → the WHOLE row grays to inkFaint (a read row stays in the list as
+/// an audit trail, just quiet). On hover the time swaps for a "mark read" affordance (unread only).
+///
+/// 一条通知行——纯展示(无 ref):item 进,tap/mark-read 出。解剖:tone 图标·{类}{带引号名}{动词}·相对时间
+/// (引号随 locale:en “…” / zh 「…」),可选灰第二行。**已读律(0719):整行褪色是未读/已读唯一通道——无行首
+/// 未读点**;kind/tone 图标=唯一 lead 记号(色管严重度:warn 琥珀 / danger 红)。未读→彩图标 + 墨字名(w400);
+/// 已读→整行退 inkFaint(留列表作审计流,只是安静)。hover 时时间换成 mark-read(仅未读)。
 class NotificationRow extends StatelessWidget {
   const NotificationRow({
     required this.item,
@@ -70,19 +72,8 @@ class NotificationRow extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Unread dot column (fixed width so read/unread rows align). 未读点列(定宽,读/未读对齐)。
-                SizedBox(
-                  width: AnSpace.s8,
-                  child: unread
-                      ? Padding(
-                          padding: const EdgeInsets.only(top: AnSpace.s6),
-                          child: AnStatusDot.raw(
-                            _toneColor(line.tone, c, unread: true),
-                          ),
-                        )
-                      : null,
-                ),
-                const SizedBox(width: AnSpace.s6),
+                // The kind/tone icon is the SOLE lead mark — no leading unread dot (已读律 0719): unread vs
+                // read is carried entirely by the icon colour + the whole-row fade below. 唯一 lead=tone 图标,无未读点。
                 Padding(
                   padding: const EdgeInsets.only(top: AnSize.opticalNudge),
                   child: Icon(line.icon, size: AnSize.icon, color: iconColor),

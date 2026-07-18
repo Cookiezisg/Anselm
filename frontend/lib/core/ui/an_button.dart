@@ -139,10 +139,13 @@ class AnButton extends StatelessWidget {
             final weight = AnText.emphasisWeight;
             switch (variant) {
               // Resting bg = the hover colour at alpha 0 (whenActive) — pure alpha fade, no dark
-              // midpoint flash. 静止底=hover 色 alpha0(whenActive),纯 alpha 淡入、无暗闪。
+              // midpoint flash. ghost + icon (the app's INLINE row buttons: rail +/⋯, tray ⋯) hover a
+              // notch DEEPER (surfaceHoverStrong) so they read as buttons on a surfaceHover-washed row
+              // instead of melting into it (user 0719). 静止底=hover 色 alpha0(纯 alpha 淡入无暗闪);
+              // ghost+icon(行内钮:rail +/⋯、托盘 ⋯)hover 深一档 surfaceHoverStrong,不糊进灰洗底行。
               case AnButtonVariant.ghost:
                 fg = active ? c.ink : c.inkMuted;
-                bg = c.surfaceHover.whenActive(active);
+                bg = c.surfaceHoverStrong.whenActive(active);
               case AnButtonVariant.primary:
                 fg = c.onAccent;
                 bg = active ? c.accentHover : c.accent;
@@ -151,7 +154,7 @@ class AnButton extends StatelessWidget {
                 bg = c.dangerSoft.whenActive(active);
               case AnButtonVariant.icon:
                 fg = active ? c.ink : c.inkFaint;
-                bg = c.surfaceHover.whenActive(active);
+                bg = c.surfaceHoverStrong.whenActive(active);
             }
 
             // Toggle ON overrides the resting look: accent glyph over a solid accentSoft fill (the

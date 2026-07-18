@@ -81,7 +81,12 @@ class _ApprovalGateState extends State<ApprovalGate> {
 
     final body = Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
       if (prompt.isNotEmpty) ...[
-        Text(prompt, style: AnText.body.copyWith(color: c.ink)),
+        // The rendered prompt is a markdown template (`Deploy **v2.4.0** to production?`) — render it as
+        // EMBEDDED-scale markdown so `**strong**` is bold, not literal asterisks (0719 star bug). Embedded
+        // (not reading) because the gate lives inside a card / inbox / terminal, never a 720 reading column.
+        // 渲染后的问题句是 markdown 模板;走嵌入档 markdown 让 **粗** 真粗、非字面星号(0719 星号 bug);
+        // 嵌入档因门住在卡/收件箱/终端里、非阅读列。
+        AnMarkdown(prompt, scale: AnMarkdownScale.embedded),
         const SizedBox(height: AnSpace.s8),
       ],
       if (widget.collectReason && _allowReason) ...[

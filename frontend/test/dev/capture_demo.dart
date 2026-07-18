@@ -82,6 +82,12 @@ const _schedPick = String.fromEnvironment('SCHEDPICK');
 // Optional `--dart-define=NOTIF=1` opens the notifications tray (bell) — verify it takes over the left
 // island. 拉开通知托盘,验它接管左岛。
 const _notif = String.fromEnvironment('NOTIF');
+// Optional `--dart-define=NOTIFMENU=1` opens the tray then opens the first group-head ⋯ menu (「待你处理」的
+// 全部批准/拒绝批量菜单). 组头 ⋯ 菜单开态帧。
+const _notifMenu = String.fromEnvironment('NOTIFMENU');
+// Optional `--dart-define=NOTIFHOVER=1` opens the tray then hovers the first group-head ⋯ button — the head
+// washes surfaceHover while the button fills the DEEPER surfaceHoverStrong (行内钮 hover 色阶对比帧).
+const _notifHover = String.fromEnvironment('NOTIFHOVER');
 // Optional `--dart-define=CHATSEL=cv_id` deep-links to a conversation (on the chat ocean) so the rail's
 // selected-row highlight + route-derived selection are captured. 预选某对话,截 rail 高亮 + 路由派生选区。
 const _chatSel = String.fromEnvironment('CHATSEL');
@@ -386,9 +392,41 @@ void main() {
     // Open the notifications tray (bell) — it takes over the left-island middle. 拉开通知托盘,接管左岛中段。
     if (_notif.isNotEmpty) {
       container.read(notificationsOpenProvider.notifier).toggle();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 200));
+      // TWO-stage load: the injected «待你处理» band mounts only AFTER the feed resolves (it's the ListView's
+      // first item, built inside AnRailStates.builder), and flowrunInboxProvider (autoDispose) then fetches —
+      // so a single runAsync window misses it. Loop until both settle. 两段加载:band 在 feed 解析后才挂,须多轮泵。
+      for (var i = 0; i < 8; i += 1) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 40)));
+        await tester.pump(const Duration(milliseconds: 80));
+      }
       outName = '${outName}_notif';
+    }
+
+    // Open the tray + the first group-head ⋯ menu (the «待你处理» bulk 全部批准/拒绝). 组头 ⋯ 菜单开态。
+    if (_notifMenu.isNotEmpty || _notifHover.isNotEmpty) {
+      container.read(notificationsOpenProvider.notifier).toggle();
+      for (var i = 0; i < 8; i += 1) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 40)));
+        await tester.pump(const Duration(milliseconds: 80));
+      }
+      final moreBtn = find.byIcon(AnIcons.more).first;
+      if (_notifHover.isNotEmpty) {
+        // Hover the ⋯ button: the group head washes surfaceHover, the button fills the deeper
+        // surfaceHoverStrong — the two greys side by side (0719 行内钮 hover 色阶). 悬停 ⋯,两灰并置。
+        final g = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await g.addPointer(location: Offset.zero);
+        addTearDown(() => g.removePointer());
+        await tester.pump(); // register the pointer before moving (the scheduler _hover order) 先泵注册指针
+        await g.moveTo(tester.getCenter(moreBtn));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 200));
+        outName = '${outName}_notifhover';
+      } else {
+        await tester.tap(moreBtn);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 200));
+        outName = '${outName}_notifmenu';
+      }
     }
 
     // Open the workspace quick-actions menu — verify it matches the trigger width. 打开 workspace 菜单,验等宽。

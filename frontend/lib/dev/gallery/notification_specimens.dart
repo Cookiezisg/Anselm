@@ -46,7 +46,7 @@ final List<GallerySpecimen> notificationRowSpecimens = [
   GallerySpecimen('workflow.attention_changed · recovered', (_) => _row(_n('workflow.attention_changed', payload: {'name': 'etl_pipe', 'needsAttention': false})), span: true),
   GallerySpecimen('sandbox env failed (danger)', (_) => _row(_n('sandbox.env_status_changed', payload: {'status': 'failed', 'errorMsg': 'pip: no matching distribution for numpy==99'})), span: true),
   GallerySpecimen('relation.dependency_broken (warn + names)',
-      (_) => _row(_n('relation.dependency_broken', payload: {'deletedKind': 'function', 'dependents': [{'kind': 'agent', 'name': 'triager'}, {'kind': 'workflow', 'name': 'pipeline'}]})), span: true),
+      (_) => _row(_n('relation.dependency_broken', payload: {'deletedKind': 'function', 'deletedId': 'fetch_orders', 'dependents': [{'kind': 'agent', 'name': 'triager'}, {'kind': 'workflow', 'name': 'pipeline'}]})), span: true),
   GallerySpecimen('mcp.reconnected · failed', (_) => _row(_n('mcp.reconnected', payload: {'name': 'acme', 'status': 'failed'})), span: true),
   // ── read + fallback + stress ──
   GallerySpecimen('READ (grayed, stays in list)', (_) => NotificationRow(item: _n('function.created', payload: {'name': 'fetch_orders'}, read: true), now: _now, onTap: () {}), span: true, stress: true),

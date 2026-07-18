@@ -632,7 +632,16 @@
     "approvalHint": "first-wins:先到的决断生效。",
     "reasonHint": "备注(可选)",
     "addReason": "+ 理由",
-    "inferredRunning": "推测执行中"
+    "inferredRunning": "推测执行中",
+    "approveAll": "全部批准",
+    "rejectAll": "全部拒绝",
+    "batchApproveTitle": "批准全部 $n 项?",
+    "batchRejectTitle": "拒绝全部 $n 项?",
+    "batchDecideBody": "以下审批将被处理(先到的决断生效):\n$list",
+    "sumApproved": "已批准 $n 项",
+    "sumRejected": "已拒绝 $n 项",
+    "sumLost": "$n 项已被别处处理",
+    "sumFailed": "$n 项失败"
   },
   "scheduler": {
     "railErrorTitle": "workflow 加载失败",
@@ -965,6 +974,9 @@
     "feed": "通知",
     "markAllRead": "全部已读",
     "markRead": "标为已读",
+    "searchPlaceholder": "搜索通知…",
+    "unreadOnly": "仅显示未读",
+    "displayOptions": "显示",
     "today": "今天",
     "yesterday": "昨天",
     "earlier": "更早",
@@ -996,8 +1008,8 @@
       "envReady": "环境就绪",
       "envFailed": "环境构建失败"
     },
-    "depBrokenOne": "导致 1 处引用悬空",
-    "depBrokenMany": "导致 $n 处引用悬空",
+    "depBrokenOne": "删除后留下 1 处悬空引用",
+    "depBrokenMany": "删除后留下 $n 处悬空引用",
     "view": "查看",
     "errorTitle": "通知加载失败",
     "errorHint": "本地引擎没有返回通知列表。",

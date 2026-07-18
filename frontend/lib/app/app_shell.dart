@@ -34,7 +34,7 @@ import '../features/scheduler/ui/scheduler_run_inspector.dart';
 import '../features/settings/ui/settings_ocean.dart';
 import '../features/settings/ui/settings_rail.dart';
 import '../features/notifications/state/unread_count_provider.dart';
-import '../features/notifications/ui/notification_feed.dart';
+import '../features/notifications/ui/notification_tray.dart';
 import '../i18n/strings.g.dart';
 
 /// THE single shell composition — which feature sits in which island. Mounted by BOTH entries so the real
@@ -304,25 +304,21 @@ class _RailPlaceholder extends StatelessWidget {
       );
 }
 
-/// The notifications tray — takes over the left-island middle when the bell is on. Two sections (the app
-/// shell composes them, since one is an entities-feature widget and the other a notifications-feature
-/// one): the top "Needs you" band = the cross-run approval INBOX ([FlowrunInbox] sectioned — collapses
-/// when there's nothing to decide), and below it the "Notifications" [NotificationFeed] (the newest-first
-/// inbox, time-grouped, tap-to-source). The feed owns the scroll; approvals sit compact on top.
+/// The notifications tray — takes over the left-island middle when the bell is on. The [NotificationTray]
+/// owns the rail-architecture chrome (search + ⚙ menu + collapsible groups + feed); the app shell only
+/// INJECTS the cross-feature "Needs you" approval band ([FlowrunInbox] sectioned — an entities-feature
+/// widget), which the tray renders as its top group. Composed here (not inside the feature) so features
+/// stay independent.
 ///
-/// 铃托盘:铃开接管左岛中段。两段(app 壳组合,因一个是 entities feature 件、一个是 notifications feature 件):
-/// 顶「待你处理」=审批收件箱(FlowrunInbox 分段,无待决则塌),下「通知」=NotificationFeed(最新优先、时间分组、
-/// 点行到源)。feed 独占滚动,审批紧凑置顶。
+/// 铃托盘:铃开接管左岛中段。NotificationTray 持 rail 架构 chrome(搜索 + ⚙ 菜单 + 可折叠组 + feed);app 壳只
+/// 注入跨 feature 的「待你处理」审批带(FlowrunInbox 分段,entities 件),托盘渲作首组。在此组合(非在 feature 内)
+/// 保 features 互不依赖。
 class _NotificationsTray extends StatelessWidget {
   const _NotificationsTray();
 
   @override
-  Widget build(BuildContext context) => const Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          FlowrunInbox(sectioned: true),
-          Expanded(child: NotificationFeed()),
-        ],
+  Widget build(BuildContext context) => const NotificationTray(
+        approvalsBand: FlowrunInbox(sectioned: true),
       );
 }
 

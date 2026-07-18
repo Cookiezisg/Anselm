@@ -177,6 +177,15 @@ class _Translations$run$zh_CN extends Translations$run$en {
 	@override String get reasonHint => '备注(可选)';
 	@override String get addReason => '+ 理由';
 	@override String get inferredRunning => '推测执行中';
+	@override String get approveAll => '全部批准';
+	@override String get rejectAll => '全部拒绝';
+	@override String batchApproveTitle({required Object n}) => '批准全部 ${n} 项?';
+	@override String batchRejectTitle({required Object n}) => '拒绝全部 ${n} 项?';
+	@override String batchDecideBody({required Object list}) => '以下审批将被处理(先到的决断生效):\n${list}';
+	@override String sumApproved({required Object n}) => '已批准 ${n} 项';
+	@override String sumRejected({required Object n}) => '已拒绝 ${n} 项';
+	@override String sumLost({required Object n}) => '${n} 项已被别处处理';
+	@override String sumFailed({required Object n}) => '${n} 项失败';
 }
 
 // Path: scheduler
@@ -288,14 +297,17 @@ class _Translations$notifications$zh_CN extends Translations$notifications$en {
 	@override String get feed => '通知';
 	@override String get markAllRead => '全部已读';
 	@override String get markRead => '标为已读';
+	@override String get searchPlaceholder => '搜索通知…';
+	@override String get unreadOnly => '仅显示未读';
+	@override String get displayOptions => '显示';
 	@override String get today => '今天';
 	@override String get yesterday => '昨天';
 	@override String get earlier => '更早';
 	@override String get unknown => '有新动态';
 	@override late final _Translations$notifications$kind$zh_CN kind = _Translations$notifications$kind$zh_CN._(_root);
 	@override late final _Translations$notifications$verb$zh_CN verb = _Translations$notifications$verb$zh_CN._(_root);
-	@override String get depBrokenOne => '导致 1 处引用悬空';
-	@override String depBrokenMany({required Object n}) => '导致 ${n} 处引用悬空';
+	@override String get depBrokenOne => '删除后留下 1 处悬空引用';
+	@override String depBrokenMany({required Object n}) => '删除后留下 ${n} 处悬空引用';
 	@override String get view => '查看';
 	@override String get errorTitle => '通知加载失败';
 	@override String get errorHint => '本地引擎没有返回通知列表。';
@@ -3144,6 +3156,15 @@ extension on TranslationsZhCn {
 			'run.reasonHint' => '备注(可选)',
 			'run.addReason' => '+ 理由',
 			'run.inferredRunning' => '推测执行中',
+			'run.approveAll' => '全部批准',
+			'run.rejectAll' => '全部拒绝',
+			'run.batchApproveTitle' => ({required Object n}) => '批准全部 ${n} 项?',
+			'run.batchRejectTitle' => ({required Object n}) => '拒绝全部 ${n} 项?',
+			'run.batchDecideBody' => ({required Object list}) => '以下审批将被处理(先到的决断生效):\n${list}',
+			'run.sumApproved' => ({required Object n}) => '已批准 ${n} 项',
+			'run.sumRejected' => ({required Object n}) => '已拒绝 ${n} 项',
+			'run.sumLost' => ({required Object n}) => '${n} 项已被别处处理',
+			'run.sumFailed' => ({required Object n}) => '${n} 项失败',
 			'scheduler.railErrorTitle' => 'workflow 加载失败',
 			'scheduler.railErrorHint' => '后端没有应答,检查连接后重试。',
 			'scheduler.retry' => '重试',
@@ -3448,6 +3469,9 @@ extension on TranslationsZhCn {
 			'notifications.feed' => '通知',
 			'notifications.markAllRead' => '全部已读',
 			'notifications.markRead' => '标为已读',
+			'notifications.searchPlaceholder' => '搜索通知…',
+			'notifications.unreadOnly' => '仅显示未读',
+			'notifications.displayOptions' => '显示',
 			'notifications.today' => '今天',
 			'notifications.yesterday' => '昨天',
 			'notifications.earlier' => '更早',
@@ -3475,8 +3499,8 @@ extension on TranslationsZhCn {
 			'notifications.verb.waitingApproval' => '等待审批',
 			'notifications.verb.envReady' => '环境就绪',
 			'notifications.verb.envFailed' => '环境构建失败',
-			'notifications.depBrokenOne' => '导致 1 处引用悬空',
-			'notifications.depBrokenMany' => ({required Object n}) => '导致 ${n} 处引用悬空',
+			'notifications.depBrokenOne' => '删除后留下 1 处悬空引用',
+			'notifications.depBrokenMany' => ({required Object n}) => '删除后留下 ${n} 处悬空引用',
 			'notifications.view' => '查看',
 			'notifications.errorTitle' => '通知加载失败',
 			'notifications.errorHint' => '本地引擎没有返回通知列表。',
@@ -3547,6 +3571,8 @@ extension on TranslationsZhCn {
 			'entities.sortRecent' => '最近活跃',
 			'entities.sortCreated' => '最近创建',
 			'entities.sortName' => '名称',
+			_ => null,
+		} ?? switch (path) {
 			'entities.displayLabel' => '显示',
 			'entities.showCount' => '显示分组计数',
 			'entities.detail.crumbRoot' => '实体',
@@ -3559,8 +3585,6 @@ extension on TranslationsZhCn {
 			'entities.detail.verb.run' => '运行',
 			'entities.detail.verb.call' => '调用',
 			'entities.detail.verb.invoke' => '唤起',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.verb.trigger' => '触发',
 			'entities.detail.hero.envStatus' => ({required Object status}) => 'env ${status}',
 			'entities.detail.hero.noInputs' => '无入参',
@@ -4061,6 +4085,8 @@ extension on TranslationsZhCn {
 			'settings.mem.empty' => '还没有记忆',
 			'settings.mem.emptyHint' => '记忆让 AI 跨对话记住重要的事。',
 			'settings.mem.dirtyTitle' => '放弃未保存的修改?',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mem.dirtyBody' => '内容有改动尚未保存。',
 			'settings.mem.discard' => '放弃',
 			'settings.mem.keepEditing' => '继续编辑',
@@ -4073,8 +4099,6 @@ extension on TranslationsZhCn {
 			'settings.mcp.importJson' => '导入 mcp.json',
 			'settings.mcp.empty' => '还没有 MCP 服务器',
 			'settings.mcp.emptyHint' => '从市场安装、手动添加或导入 mcp.json。',
-			_ => null,
-		} ?? switch (path) {
 			'settings.mcp.reconnect' => '重连',
 			'settings.mcp.detail' => '详情',
 			'settings.mcp.deleteServer' => '删除',

@@ -17,6 +17,7 @@ class AnColors extends ThemeExtension<AnColors> {
     required this.surface,
     required this.surfaceSubtle,
     required this.surfaceHover,
+    required this.surfaceHoverStrong,
     required this.surfaceActive,
     required this.surfaceSunken,
     required this.ink,
@@ -52,6 +53,17 @@ class AnColors extends ThemeExtension<AnColors> {
   final Color surface;
   final Color surfaceSubtle;
   final Color surfaceHover;
+
+  /// A DEEPER interactive fill for an INLINE control (icon-only / ghost button) that sits ON a row which
+  /// is itself washed [surfaceHover] on hover — one clear notch darker than [surfaceHover] so the button
+  /// reads as a button, not as a smear in the row wash (the rail +/⋯, the tray group-head ⋯; user 0719:
+  /// «钮淹死在行底里»). Three distinguishable tiers: row hover [surfaceHover] < inline-button hover
+  /// [surfaceHoverStrong] < selection [surfaceActive] — the guard test asserts all three are distinct. On
+  /// white it also reads clearer than [surfaceHover] (one token, every app-wide inline button benefits).
+  /// Named like [line]→[lineStrong]. 行内钮(iconOnly/ghost)的更深交互底:比 surfaceHover 明显深一档,让钮在
+  /// 灰洗底行上仍读作按钮而非糊进行底(rail +/⋯、托盘组头 ⋯;用户 0719「钮淹死在行底里」)。三档可辨:行 hover
+  /// < 钮 hover < 选中,守卫断言三值互异;白底上也比 surfaceHover 更清楚(一处改全 app 行内钮受益)。命名同 line→lineStrong。
+  final Color surfaceHoverStrong;
   final Color surfaceActive;
 
   /// A neutral fill a notch off the base [surface] — for contained, NON-interactive regions (chat bubbles,
@@ -110,6 +122,7 @@ class AnColors extends ThemeExtension<AnColors> {
     surface: Color(0xFFFFFFFF),
     surfaceSubtle: Color(0xFFFBFBFD),
     surfaceHover: Color(0xFFF0F0F3),
+    surfaceHoverStrong: Color(0xFFE0E0E3), // one clear notch below surfaceHover (and below surfaceActive) — inline-button hover 行内钮 hover
     surfaceActive: Color(0xFFE9E9EC),
     surfaceSunken: Color(0xFFECECEF), // between surfaceHover and surfaceActive — a gentle inset well 轻凹填充
     ink: Color(0xFF1D1D1F),
@@ -157,6 +170,7 @@ class AnColors extends ThemeExtension<AnColors> {
     surface: Color(0xFF1C1C1E),
     surfaceSubtle: Color(0xFF232326),
     surfaceHover: Color(0xFF2A2A2D),
+    surfaceHoverStrong: Color(0xFF38383C), // one clear lift above surfaceHover (and above surfaceActive) — dark inverts 暗色行内钮 hover
     surfaceActive: Color(0xFF323236),
     surfaceSunken: Color(0xFF26262A), // gentle lift above the near-black base surface (dark inverts) 暗色轻凸
     ink: Color(0xFFF5F5F7),
@@ -204,6 +218,7 @@ class AnColors extends ThemeExtension<AnColors> {
     Color? surface,
     Color? surfaceSubtle,
     Color? surfaceHover,
+    Color? surfaceHoverStrong,
     Color? surfaceActive,
     Color? surfaceSunken,
     Color? ink,
@@ -238,6 +253,7 @@ class AnColors extends ThemeExtension<AnColors> {
       surface: surface ?? this.surface,
       surfaceSubtle: surfaceSubtle ?? this.surfaceSubtle,
       surfaceHover: surfaceHover ?? this.surfaceHover,
+      surfaceHoverStrong: surfaceHoverStrong ?? this.surfaceHoverStrong,
       surfaceActive: surfaceActive ?? this.surfaceActive,
       surfaceSunken: surfaceSunken ?? this.surfaceSunken,
       ink: ink ?? this.ink,
@@ -279,6 +295,7 @@ class AnColors extends ThemeExtension<AnColors> {
       surface: c(surface, other.surface),
       surfaceSubtle: c(surfaceSubtle, other.surfaceSubtle),
       surfaceHover: c(surfaceHover, other.surfaceHover),
+      surfaceHoverStrong: c(surfaceHoverStrong, other.surfaceHoverStrong),
       surfaceActive: c(surfaceActive, other.surfaceActive),
       surfaceSunken: c(surfaceSunken, other.surfaceSunken),
       ink: c(ink, other.ink),

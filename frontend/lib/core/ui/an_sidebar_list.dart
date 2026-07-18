@@ -9,11 +9,11 @@ import '../design/typography.dart';
 import '../model/sidebar_flatten.dart';
 import '../model/sidebar_model.dart';
 import 'an_spinner.dart';
-import 'an_button.dart';
+import 'an_group_head.dart';
 import 'an_inline_edit.dart';
-import 'an_input.dart';
 import 'an_interactive.dart';
 import 'an_menu.dart';
+import 'an_rail_filter_field.dart';
 import 'an_row.dart';
 import 'an_scroll_behavior.dart';
 import 'an_status_dot.dart';
@@ -386,41 +386,22 @@ class _AnSidebarListState extends State<AnSidebarList> {
   // New: rides AnRow (lead = +, label) so it shares the entity rows' geometry / hover / radius. New 行复用 AnRow。
   Widget _newRow() => AnRow(icon: AnIcons.plus, label: widget.model.newLabel, onSelect: widget.onNew);
 
-  // Filter: lead = search, an inline seamless input, a trailing sliders menu. 过滤行。
-  Widget _filterRow(BuildContext context) {
-    final c = context.colors;
-    return Container(
-      height: AnSize.row,
-      padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8),
-      child: Row(
-        children: [
-          Icon(AnIcons.search, size: AnSize.icon, color: c.inkFaint),
-          const SizedBox(width: AnSpace.s8),
-          Expanded(
-            child: AnInput(
-              controller: _filter,
-              seamless: true,
-              placeholder: widget.model.filterPlaceholder,
-              onChanged: (v) {
-                setState(() {
-                  _query = v;
-                  _rebuildFlat();
-                });
-                widget.onFilterChanged?.call(v);
-              },
-              onSubmitted: widget.onFilterSubmit,
-            ),
-          ),
-          if (widget.menuEntries.isNotEmpty)
-            AnMenu(
-              entries: widget.menuEntries,
-              anchorBuilder: (context, toggle, isOpen) => AnButton.iconOnly(AnIcons.sliders,
-                  size: AnButtonSize.sm, semanticLabel: context.t.a11y.displayOptions, onPressed: toggle),
-            ),
-        ],
-      ),
-    );
-  }
+  // Filter: the shared [AnRailFilterField] (search glyph + seamless input + trailing sliders menu). The
+  // local in-memory filter (_query force-opens branches + hides non-matches) AND the host's onFilterChanged
+  // both fire. 过滤行=共享 AnRailFilterField;本地过滤 + 宿主回调双触发。
+  Widget _filterRow(BuildContext context) => AnRailFilterField(
+        controller: _filter,
+        placeholder: widget.model.filterPlaceholder,
+        onChanged: (v) {
+          setState(() {
+            _query = v;
+            _rebuildFlat();
+          });
+          widget.onFilterChanged?.call(v);
+        },
+        onSubmitted: widget.onFilterSubmit,
+        menuEntries: widget.menuEntries,
+      );
 
   // Wraps a row in the SliverAnimatedList's size tween so a collapse/expand slides the row's height (the
   // children slide up under their head; axisAlignment -1 anchors to the top). 折叠补间:行高滑动(-1 顶锚)。
@@ -440,40 +421,18 @@ class _AnSidebarListState extends State<AnSidebarList> {
     }
   }
 
-  // A collapsible chat-style big-group head: gray emphasis label + total count + rotating chevron. Sticky
-  // → opaque surface so list rows scroll under it. 可折叠大组头:灰加粗 label + 总计数 + 转 chevron;sticky→opaque。
+  // A collapsible chat-style big-group head — the shared [AnGroupHead] primitive (gray emphasis label +
+  // total count + rotating chevron; sticky → opaque so list rows scroll under it). Depth folds into the
+  // start inset. 可折叠大组头=共享 AnGroupHead 原语;depth 并入起始内距。
   Widget _groupHead(BuildContext context, SidebarFlatNode n, {bool sticky = false}) {
-    final c = context.colors;
     final g = n.group!;
-    final open = _open(n.key);
-    return AnInteractive(
-      onTap: () => _toggle(n.key),
-      expanded: open,
-      builder: (ctx, states) => Container(
-        height: AnSize.row,
-        color: sticky ? c.surface : c.surfaceHover.whenActive(states.isActive),
-        padding: EdgeInsets.only(left: AnSpace.s8 + n.depth * AnSize.iconLg, right: AnSpace.s12),
-        child: Row(
-          children: [
-            Flexible(
-              child: Text(g.label!,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AnText.meta.weight(AnText.emphasisWeight).copyWith(color: c.inkFaint)),
-            ),
-            const SizedBox(width: AnSpace.s6),
-            Text('${g.totalRows}',
-                style: AnText.meta.weight(AnText.emphasisWeight).copyWith(color: c.inkFaint)),
-            const Spacer(),
-            AnimatedRotation(
-              turns: open ? 0.25 : 0,
-              duration: AnMotionPref.reduced(context) ? Duration.zero : AnMotion.mid,
-              curve: AnMotion.spring,
-              child: Icon(AnIcons.chevronRight, size: AnSize.iconSm, color: c.inkFaint),
-            ),
-          ],
-        ),
-      ),
+    return AnGroupHead(
+      label: g.label!,
+      count: g.totalRows,
+      open: _open(n.key),
+      onToggle: () => _toggle(n.key),
+      padding: EdgeInsetsDirectional.only(start: AnSpace.s8 + n.depth * AnSize.iconLg, end: AnSpace.s12),
+      sticky: sticky,
     );
   }
 
