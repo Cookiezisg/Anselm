@@ -6,6 +6,7 @@ import 'package:anselm/core/contract/entities/workflow.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/runtime.dart';
 import 'package:anselm/core/ui/an_button.dart';
+import 'package:anselm/core/ui/an_ledger_row.dart';
 import 'package:anselm/core/ui/an_ocean_header.dart';
 import 'package:anselm/core/ui/an_schedule_track.dart';
 import 'package:anselm/core/ui/an_section.dart';
@@ -304,6 +305,23 @@ void main() {
   });
 
   group('widget battery 电池', () {
+    testWidgets('resting rhythm: caption→first row = 8 (塌缩批量条不吃 12), last row→zone bottom '
+        '= 24 (单页空翻页器不占席) — 0718 全模块对齐审计', (tester) async {
+      await _pumpBoard(tester, _host(_fullRepo()));
+      final ov = t.scheduler.overview;
+      final capFinder = find.text(ov.runningHead(n: '1').toUpperCase());
+      final caption = tester.getRect(capFinder);
+      final section =
+          tester.getRect(find.ancestor(of: capFinder, matching: find.byType(AnSection)).first);
+      final row = tester.getRect(find
+          .descendant(of: find.byType(SchedulerRunningZone), matching: find.byType(AnLedgerRow))
+          .first);
+      expect(row.top - caption.bottom, moreOrLessEquals(8, epsilon: 0.6),
+          reason: '题→首行=8:塌缩批量条合进体列,不再被 AnSection 12 双夹成 20');
+      expect(section.bottom - row.bottom, moreOrLessEquals(24, epsilon: 0.6),
+          reason: '末行→区底=24:单页 SizedBox.shrink 翻页器不再占一个带距子席(曾 36)');
+    });
+
     testWidgets('full board: KPI strip + running row + upcoming row + failure row', (tester) async {
       await _pumpBoard(tester, _host(_fullRepo()));
       final ov = t.scheduler.overview;

@@ -520,6 +520,9 @@ class _ToolHitCardState extends State<_ToolHitCard> {
     final params = e['parameters'];
     final desc = '${e['description'] ?? ''}';
     return AnLedgerRow(
+      // The primitive's disclosure hand (0718 对齐审计 — the row toggled open with zero cue; the
+      // reserved lead cell gives the chevron a seat). 原语披露示能:此行曾无任何展开线索。
+      disclose: (desc.isNotEmpty || params is Map),
       primary: '${e['name'] ?? ''}',
       chips: [
         if (params is Map)

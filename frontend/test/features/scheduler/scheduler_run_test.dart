@@ -243,6 +243,27 @@ Future<void> _pump(WidgetTester tester, StubSchedulerRepo repo,
 
 void main() {
 
+  group('三海拔节奏 (0718 全模块对齐审计)', () {
+    testWidgets('altitude seams stack FLUSH (each AnSection carries its own 24 bottom — 曾 24/48/48) '
+        'and the gantt wears the same frame as its two neighbours', (tester) async {
+      _desktop(tester);
+      await _pump(tester, _repo());
+      Rect secOf(Finder inner) =>
+          tester.getRect(find.ancestor(of: inner, matching: find.byType(AnSection)).first);
+      final graphSec = secOf(find.byType(AnGraphCanvas));
+      final ganttSec = secOf(find.byType(AnNodeGantt));
+      final ledgerSec = secOf(find.byType(FlowrunNodeList));
+      expect(ganttSec.top - graphSec.bottom, moreOrLessEquals(0, epsilon: 0.6),
+          reason: '图→甘特贴合(24 在段自身底距,外无 top 垫)');
+      expect(ledgerSec.top - ganttSec.bottom, moreOrLessEquals(0, epsilon: 0.6),
+          reason: '甘特→台账贴合');
+      // The gantt is FRAMED like the graph canvas and the ledger window — no bare altitude floating
+      // between two bordered cards (0718 对齐审计:左轨同源). 甘特穿框,不再裸浮两卡之间。
+      expect(find.ancestor(of: find.byType(AnNodeGantt), matching: find.byType(AnWindow)),
+          findsOneWidget, reason: '甘特住 AnWindow');
+    });
+  });
+
   group('卷宗头 (§5.1)', () {
     testWidgets('the error sentence is the FIRST LINE, and the same string reaches the ledger row',
         (tester) async {

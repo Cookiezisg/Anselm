@@ -6,22 +6,26 @@ import '../design/typography.dart';
 import '../model/status_state.dart';
 import 'an_expand_reveal.dart';
 import 'an_interactive.dart';
+import 'icons.dart';
 
 /// The ROW family's LEDGER ROW head (WRK-066「同轨」族四) — the ONE run/hit/node line: a left [lead]
-/// (status dot / kind glyph — ALWAYS left, 文法; seated in a fixed [AnSize.iconSm] cell so primaries
-/// align across rows whatever the marker's size), a [primary] (mono id or text), trailing [chips]
-/// (chip family), an optional [sub] second line under the primary ([subTone] danger = the error-code
-/// voice), a right-muted tabular [measure] (elapsed / duration) and a [meta] whose right edge lands
-/// on ONE vertical line across rows (右缘铁线, 拍板 #4 — measure sits just left of it), an optional
-/// [expandChild] disclosure body (indented to the primary's left edge — the lead-cell offset lives
-/// HERE, not as caller arithmetic). Flex discipline (复审两案后立法): the LEFT CLUSTER is the row's
-/// only flex region — primary AND every chip are individually shrinkable, so a narrow host
-/// ellipsizes instead of overflowing, and the meta never moves off the right edge.
+/// (status dot / kind glyph — ALWAYS left, 文法; seated in a fixed [AnSize.icon] cell — 1:1 the
+/// left-island geometry — so primaries align across rows whatever the marker's size), a [primary]
+/// (mono id or text), trailing [chips] (chip family), an optional [sub] second line under the
+/// primary ([subTone] danger = the error-code voice), a right-muted tabular [measure] (elapsed /
+/// duration) and a [meta] whose right edge lands on ONE vertical line across rows (右缘铁线, 拍板
+/// #4 — measure sits just left of it), an optional [expandChild] disclosure body (inset EQUALLY
+/// from both edges — the phantom-frame s8, owned HERE, never caller arithmetic). A disclosing row
+/// sets [disclose] so the primitive itself renders the left-island chevron morph. Flex discipline
+/// (复审两案后立法): the LEFT CLUSTER is the row's only flex region — primary AND every chip are
+/// individually shrinkable, so a narrow host ellipsizes instead of overflowing, and the meta never
+/// moves off the right edge.
 ///
-/// 行族台账/命中行当家件:lead 恒左(定宽 iconSm 格,主文跨行对齐)、primary 下可挂 [sub] 副行
-/// (subTone danger=错误码声)、右簇 [measure](tabular 耗时)+[meta](右缘铁线,拍板 #4;measure 居其左)、
-/// expandChild 披露体(缩进=lead 格宽,由原语自持、非调用方算术)。弹性纪律(两案后立法):左簇是唯一
-/// 弹性区——primary 与每枚 chip 都可收缩,窄宿主裁切绝不溢出,meta 恒贴右缘。
+/// 行族台账/命中行当家件:lead 恒左(定宽 icon=16 格,左岛同几何,主文跨行对齐)、primary 下可挂 [sub]
+/// 副行(subTone danger=错误码声)、右簇 [measure](tabular 耗时)+[meta](右缘铁线,拍板 #4;measure 居
+/// 其左)、expandChild 披露体(两侧等退假想框 s8,由原语自持、非调用方算术);披露行设 [disclose],
+/// 箭头 morph 由原语自渲。弹性纪律(两案后立法):左簇是唯一弹性区——primary 与每枚 chip 都可收缩,
+/// 窄宿主裁切绝不溢出,meta 恒贴右缘。
 class AnLedgerRow extends StatelessWidget {
   const AnLedgerRow({
     required this.primary,
@@ -36,11 +40,23 @@ class AnLedgerRow extends StatelessWidget {
     this.expandChild,
     this.expandBuilder,
     this.expanded = false,
+    this.disclose = false,
     super.key,
   });
 
   /// Left slot: status dot / kind glyph — always LEFT, seated in a fixed-width cell. 左槽(定宽格)。
   final Widget? lead;
+
+  /// Bake the LEFT-ISLAND disclosure hand into the lead cell (0718 全模块对齐审计 F1 — four
+  /// consumers had hand-rolled four divergent hands, three rows gave no cue at all): while hovered
+  /// or [expanded] the cell swaps [lead] for the SAME 16px faint chevronRight, rotating 90° when
+  /// open (spring, reduced 归零) — 1:1 AnRow's collapsible morph. With a null [lead] the cell is
+  /// still reserved so the chevron has a seat. Callers whose lead must WIN the hover (a batch
+  /// check, a spinner) simply pass false for that state.
+  /// 披露示能收进原语(0718 对齐审计):悬停/展开把 lead 换成同一枚 16px 淡箭头、展开旋 90°
+  /// (spring/reduced 双闸)——1:1 左岛 morph;lead 为空也保格,箭头有座。悬停要让位给勾选/转圈的
+  /// 调用方,该态传 false 即可。
+  final bool disclose;
 
   final String primary;
 
@@ -89,7 +105,22 @@ class AnLedgerRow extends StatelessWidget {
     final subStyle = subTone == AnTone.danger
         ? AnText.code.copyWith(color: c.danger)
         : AnText.meta.copyWith(color: c.inkFaint);
-    final row = ConstrainedBox(
+    // The row body is built PER interaction state: the disclose morph needs the hover truth, so a
+    // tappable row rebuilds inside AnInteractive's builder (AnRow 同法). 行体按交互态构建:disclose
+    // morph 要 hover 真相,可点行在 AnInteractive builder 里重建。
+    Widget rowOf(bool active) {
+      // The baked disclosure hand: hovered/expanded swaps the lead for the left-island chevron,
+      // rotating 90° when open (用户 0718 拍板语义,原 scheduler 手搓收编). 悬停/展开换箭头、开旋 90°。
+      Widget? cellChild = lead;
+      if (disclose && (active || expanded)) {
+        cellChild = AnimatedRotation(
+          duration: AnMotionPref.reduced(context) ? Duration.zero : AnMotion.mid,
+          curve: AnMotion.spring,
+          turns: expanded ? 0.25 : 0,
+          child: Icon(AnIcons.chevronRight, size: AnSize.icon, color: c.inkFaint),
+        );
+      }
+      return ConstrainedBox(
       constraints: const BoxConstraints(minHeight: AnSize.row),
       // Contents inset s8 from BOTH edges (WRK-070 0718 用户裁「点点/时长要跟着标准的有框间距走」):
       // the row lives in a (hover-visible) phantom frame, so lead dot and right measure retreat from
@@ -99,7 +130,7 @@ class AnLedgerRow extends StatelessWidget {
         child: Row(
           crossAxisAlignment: effectiveSub == null ? CrossAxisAlignment.center : CrossAxisAlignment.start,
           children: [
-        if (lead != null) ...[
+        if (lead != null || disclose) ...[
           // Fixed lead cell, 1:1 the LEFT-ISLAND geometry (AnRow: 16px cell + s8 gap — WRK-070 0718
           // 用户裁「完整对齐左岛」): dots (7), glyphs (12) AND the 16px disclosure chevron all centre
           // in ONE 16px cell, so the chevron no longer overflows a 12px cell and crowds the text
@@ -112,7 +143,7 @@ class AnLedgerRow extends StatelessWidget {
             child: SizedBox(
               width: AnSize.icon,
               height: effectiveSub == null ? null : AnSize.controlSm,
-              child: Center(child: lead!),
+              child: Center(child: cellChild ?? const SizedBox.shrink()),
             ),
           ),
           const SizedBox(width: AnSpace.s8),
@@ -161,9 +192,10 @@ class AnLedgerRow extends StatelessWidget {
       ]),
       ),
     );
+    }
     final disclosing = expandChild != null || expandBuilder != null;
     final tappable = onTap == null
-        ? row
+        ? rowOf(false)
         // A tappable row SHOWS its hand on hover (WRK-070 B4 用户裁「列表太干,没有可互动的理解」——
         // 左岛行同款浅灰): the wash is the affordance, family-wide for every tappable ledger row.
         // 可点行 hover 浅灰示能(左岛同款)——族级:凡可点的台账行都亮。
@@ -175,7 +207,7 @@ class AnLedgerRow extends StatelessWidget {
                 color: c.surfaceHover.whenActive(states.isActive),
                 borderRadius: BorderRadius.circular(AnRadius.button),
               ),
-              child: row,
+              child: rowOf(states.isActive),
             ),
           );
     if (!disclosing) return tappable;

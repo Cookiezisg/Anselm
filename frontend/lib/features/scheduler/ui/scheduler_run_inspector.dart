@@ -123,6 +123,12 @@ class _RunDossierFaceState extends ConsumerState<_RunDossierFace> {
     }
   }
 
+  /// Whether the full-error section renders — the seam arithmetic below keys off it. 错误段在场否。
+  bool get _hasErrorText {
+    final e = widget.data.run.error;
+    return e != null && e.trim().isNotEmpty;
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = context.t.scheduler.run;
@@ -169,7 +175,11 @@ class _RunDossierFaceState extends ConsumerState<_RunDossierFace> {
         ),
         // The error IN FULL — the head carries only its first sentence, and this is where the rest
         // of it lives (nothing else in the page dumps text). 错误全文:头只带首句,全文住这。
-        if (run.error != null && run.error!.trim().isNotEmpty) ...[
+        // Spacers below are CONDITIONAL on the predecessor (0718 对齐审计): an AnSection already
+        // carries its own bottom AnGap.section, so a spacer after one doubled the seam to 48px —
+        // it is owed only when the predecessor is a bare block. 段前垫按前件裁:前件是 AnSection
+        // (自带 24 底距)就不垫,裸块才垫——旧无条件垫把段缝叠成 48。
+        if (_hasErrorText) ...[
           const SizedBox(height: AnGap.section),
           AnSection(label: t.errorHead, variant: AnSectionVariant.plain, children: [
             AnWindow(
@@ -181,7 +191,7 @@ class _RunDossierFaceState extends ConsumerState<_RunDossierFace> {
         // to «why did it behave differently than today's definition», so it belongs in the dossier.
         // 钉住的闭包:本 run 绑死在哪些实体版本上——「为什么它和今天的定义表现不同」的答案。
         if (run.pinnedRefs.isNotEmpty) ...[
-          const SizedBox(height: AnGap.section),
+          if (!_hasErrorText) const SizedBox(height: AnGap.section),
           AnSection(label: t.pinnedRefsHead, variant: AnSectionVariant.plain, children: [
             AnKv(
               dense: true,
@@ -192,7 +202,7 @@ class _RunDossierFaceState extends ConsumerState<_RunDossierFace> {
           ]),
         ],
         if (error != null && !d.orphan) ...[
-          const SizedBox(height: AnGap.section),
+          if (!_hasErrorText && run.pinnedRefs.isEmpty) const SizedBox(height: AnGap.section),
           AnButton(
             label: t.triage,
             icon: AnIcons.chat,
@@ -375,8 +385,11 @@ class _NodeInspectorFaceState extends ConsumerState<_NodeInspectorFace> {
           ]),
         // The execution log deep link — the audit row this node's work left behind (工单⑤ execId).
         // 执行日志深链:本节点留下的审计行。
+        // Spacers below are CONDITIONAL on the predecessor (0718 对齐审计, dossier 脸同法): an
+        // AnSection already carries its bottom 24 — only a bare predecessor is owed a spacer.
+        // 段前垫按前件裁:前件是 AnSection 不垫,裸块才垫。
         if (activity != null && activity.execId.isNotEmpty) ...[
-          const SizedBox(height: AnGap.section),
+          if (node.result.isEmpty) const SizedBox(height: AnGap.section),
           AnSection(label: t.execLogHead, variant: AnSectionVariant.plain, children: [
             AnKv(dense: true, rows: [
               AnKvRow(activity.kind, activity.execId, mono: true),
@@ -389,7 +402,8 @@ class _NodeInspectorFaceState extends ConsumerState<_NodeInspectorFace> {
         ],
         // The human gate, decidable right here (§10 人闸三处就地:Overview / 台账 / 右岛).
         if (parked) ...[
-          const SizedBox(height: AnGap.section),
+          if (node.result.isEmpty && !(activity != null && activity.execId.isNotEmpty))
+            const SizedBox(height: AnGap.section),
           ApprovalGate(
             parked: node,
             busy: _busy,
@@ -401,7 +415,9 @@ class _NodeInspectorFaceState extends ConsumerState<_NodeInspectorFace> {
         // per-node replay endpoint, so the button says what actually happens).
         // 失败节点重放的是整个 run(:replay 清全部失败行重走——没有逐节点重放端点,故钮说的是真实发生的事)。
         if (failed && !d.orphan) ...[
-          const SizedBox(height: AnGap.section),
+          if (parked ||
+              node.result.isEmpty && !(activity != null && activity.execId.isNotEmpty))
+            const SizedBox(height: AnGap.section),
           AnButton(
             label: t.replayNode,
             icon: AnIcons.history,

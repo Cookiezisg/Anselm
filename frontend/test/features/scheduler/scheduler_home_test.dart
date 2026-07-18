@@ -602,6 +602,13 @@ void main() {
       expect(find.byType(AnPager), findsOneWidget, reason: '多页出翻页器');
       expect(repo.pageAsks.last, (offset: 0, limit: 10, status: null, origin: null));
 
+      // The pager never self-margins: AnSection's 12 IS the gap above it (0718 对齐审计 — the old
+      // Padding(top) doubled it to 24 while rows sit 12 apart). 翻页器不自夹:行→翻页器=12。
+      final lastRow = tester.getRect(find.byType(AnLedgerRow).last);
+      final pagerRect = tester.getRect(find.byType(AnPager));
+      expect(pagerRect.top - lastRow.bottom, moreOrLessEquals(12, epsilon: 0.6),
+          reason: '行→翻页器 12(无自夹双倍)');
+
       // Jump to page 3 (the last, 4 rows). 跳到第 3 页(末页 4 行)。
       await tester.ensureVisible(find.byType(AnPager));
       await tester.tap(find.descendant(of: find.byType(AnPager), matching: find.text('3')));
@@ -616,6 +623,19 @@ void main() {
       await tester.pump();
       await _settle(tester);
       expect(find.byType(AnPager), findsNothing, reason: '单页不渲');
+    });
+
+    testWidgets('zone seams stack FLUSH — each AnSection carries its own 24 bottom, no doubled '
+        'wrapper (0718 全模块对齐审计:段缝曾 48)', (tester) async {
+      await _pump(tester, _repo());
+      Rect zoneOf(String label) => tester.getRect(
+          find.ancestor(of: find.text(label), matching: find.byType(AnSection)).first);
+      final matrix = zoneOf(h.matrixView);
+      final runs = zoneOf(h.runsHead);
+      final trig = zoneOf(h.triggersHead);
+      expect(runs.top - matrix.bottom, moreOrLessEquals(0, epsilon: 0.6),
+          reason: '矩阵→运行贴合(24 在段自身底距,外无 top 垫)');
+      expect(trig.top - runs.bottom, moreOrLessEquals(0, epsilon: 0.6), reason: '运行→触发器贴合');
     });
 
     testWidgets('the verb is PERSISTENT, inline after the phrase — no hover needed (需求⑦)',

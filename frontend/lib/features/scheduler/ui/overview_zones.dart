@@ -135,10 +135,13 @@ class _SchedulerWaitingZoneState extends ConsumerState<SchedulerWaitingZone>
     return AnSection(
       label: t.waitingHead(n: '${widget.rows.length}'),
       children: [
+        // ONE body child (0718 对齐审计,大表控制块同法): the collapsed batch bar must not earn
+        // AnSection's 12px inter-child gap (静息态题→卡曾 20px 应 8px). 合一子件:塌缩条不吃子距。
+        Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
         AnExpandReveal(
           open: barVisible,
           child: Padding(
-            padding: const EdgeInsets.only(bottom: AnSpace.s8),
+            padding: const EdgeInsets.only(bottom: AnGap.block),
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               AnBatchBar(
                 count: selected.length,
@@ -199,6 +202,7 @@ class _SchedulerWaitingZoneState extends ConsumerState<SchedulerWaitingZone>
               AnExpandReveal(
                   open: !leaving.contains(_keyOf(r)), child: _card(context, r)),
           ]),
+        ]),
       ],
     );
   }
@@ -475,25 +479,24 @@ mixin _PeekZone<T extends ConsumerStatefulWidget> on ConsumerState<T> {
     }
   }
 
-  /// The standard page-number pager (B4 primitive), reusing the operations home's words; a single
-  /// page renders nothing (AnPager self-hides). 标准翻页器,复用大表文案;单页不渲。
+  /// The standard page-number pager (B4 primitive), reusing the operations home's words. Hosts GATE
+  /// it below a second page and OWN the gap above it (0718 对齐审计: a bare SizedBox.shrink section
+  /// child still earned AnSection's 12px gap, and the old self-margin doubled the row gap to 24).
+  /// 标准翻页器,复用大表文案;宿主自闸单页不渲、自持上距(空壳子件吃 12px 幽灵距 + 自夹双倍之修)。
   Widget peekPager(BuildContext context, int total) {
     final pages = pageCountOf(total);
     if (pages <= 1) return const SizedBox.shrink();
     final home = context.t.scheduler.home;
-    return Padding(
-      padding: const EdgeInsets.only(top: AnGap.block),
-      child: Center(
-        child: AnPager(
-          page: pageNum.clamp(1, pages),
-          pageCount: pages,
-          onPage: onPageChange,
-          strings: AnPagerStrings(
-            prevLabel: home.pagerPrev,
-            nextLabel: home.pagerNext,
-            jumpHint: home.pagerJump,
-            pageLabel: (n) => home.pagerPage(n: '$n'),
-          ),
+    return Center(
+      child: AnPager(
+        page: pageNum.clamp(1, pages),
+        pageCount: pages,
+        onPage: onPageChange,
+        strings: AnPagerStrings(
+          prevLabel: home.pagerPrev,
+          nextLabel: home.pagerNext,
+          jumpHint: home.pagerJump,
+          pageLabel: (n) => home.pagerPage(n: '$n'),
         ),
       ),
     );
@@ -605,31 +608,44 @@ class _SchedulerRunningZoneState extends ConsumerState<SchedulerRunningZone>
     return AnSection(
       label: t.runningHead(n: '${widget.rows.length}'),
       children: [
-        AnExpandReveal(
-          open: barVisible,
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: AnSpace.s8),
-            child: AnBatchBar(
-              count: selected.length,
-              busy: batchBusy,
-              actions: [
-                BatchAction(
-                    label: t.batchCancel,
-                    icon: AnIcons.stop,
-                    tone: AnTone.danger,
-                    onRun: _batchCancel),
-              ],
-              onClear: () => setState(selected.clear),
+        // ONE body child (0718 对齐审计,大表控制块同法): the COLLAPSED batch bar and the single-page
+        // pager (SizedBox.shrink) must not each earn AnSection's 12px inter-child gap (塌缩双夹
+        // bug 类 — 静息态题→首行曾 20px 应 8px、末行下曾多 12px 幽灵距) — bar/rows/pager live in one
+        // Column that owns its internal rhythm. 合一子件:塌缩条与空翻页器不再吃 12px 子距,节奏自持。
+        Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+          AnExpandReveal(
+            open: barVisible,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: AnGap.block),
+              child: AnBatchBar(
+                count: selected.length,
+                busy: batchBusy,
+                actions: [
+                  BatchAction(
+                      label: t.batchCancel,
+                      icon: AnIcons.stop,
+                      tone: AnTone.danger,
+                      onRun: _batchCancel),
+                ],
+                onClear: () => setState(selected.clear),
+              ),
             ),
           ),
-        ),
-        if (widget.rows.isEmpty)
-          Text(t.runningEmpty, style: AnText.body.copyWith(color: c.inkFaint))
-        else ...[
-          for (final r in visible)
-            AnExpandReveal(open: !leaving.contains(_keyOf(r)), child: _row(context, r)),
-          peekPager(context, widget.rows.length),
-        ],
+          if (widget.rows.isEmpty)
+            Text(t.runningEmpty, style: AnText.body.copyWith(color: c.inkFaint))
+          else ...[
+            for (var i = 0; i < visible.length; i++) ...[
+              if (i > 0) const SizedBox(height: AnGap.block),
+              AnExpandReveal(
+                  open: !leaving.contains(_keyOf(visible[i])),
+                  child: _row(context, visible[i])),
+            ],
+            if (pageCountOf(widget.rows.length) > 1) ...[
+              const SizedBox(height: AnGap.block),
+              peekPager(context, widget.rows.length),
+            ],
+          ],
+        ]),
       ],
     );
   }
@@ -654,6 +670,10 @@ class _SchedulerRunningZoneState extends ConsumerState<SchedulerRunningZone>
         expanded: expanded,
         // Lazy (C-006): a collapsed row never builds its peek card. 惰性:收起不建卡。
         expandBuilder: (_) => RunPeekCard(workflowId: r.workflowId, flowrunId: r.run.id),
+        // The disclosure hand is the PRIMITIVE's (0718 对齐审计 — the 12px icon-swap the big table
+        // already retired was still living here): spinner/check win the cell, disclose yields.
+        // 披露示能归原语(大表已退役的 12px 换图标此处清残);转圈/勾选赢格,该态让位。
+        disclose: !isPending && !showCheck,
         lead: isPending
             ? const AnSpinner(size: AnSize.iconSm)
             : showCheck
@@ -663,14 +683,7 @@ class _SchedulerRunningZoneState extends ConsumerState<SchedulerRunningZone>
                     onChanged: (v) =>
                         setState(() => v ? selected.add(key) : selected.remove(key)),
                   )
-                // The disclosure hand: expanded ▾ / hovered ▸ / else the status dot. 披露示能。
-                : expanded
-                    ? Icon(AnIcons.chevronDown,
-                        size: AnSize.iconSm, color: context.colors.inkMuted)
-                    : hovered
-                        ? Icon(AnIcons.chevronRight,
-                            size: AnSize.iconSm, color: context.colors.inkMuted)
-                        : AnStatusDot(AnStatus.fromRaw(r.run.status)),
+                : AnStatusDot(AnStatus.fromRaw(r.run.status)),
         // Cross-workflow view → keep the workflow NAME, then the source phrase (裸 fr_ 药丸删,B1).
         // 跨 workflow 视图 → 保留 workflow 名 + 来源短语;裸 id 药丸删。
         primary: '${r.workflowName} · ${runPhrase(context, r.run, widget.triggersById, widget.now)}',
@@ -834,27 +847,37 @@ class _SchedulerFailedZoneState extends ConsumerState<SchedulerFailedZone>
     return AnSection(
       label: t.failed24hHead(n: '${widget.rows.length}'),
       children: [
-        AnExpandReveal(
-          open: barVisible,
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: AnSpace.s8),
-            child: AnBatchBar(
-              count: selected.length,
-              busy: batchBusy,
-              actions: [
-                BatchAction(
-                    label: home.batchReplay,
-                    icon: AnIcons.history,
-                    tone: AnTone.accent,
-                    onRun: _batchReplay),
-              ],
-              onClear: () => setState(selected.clear),
+        // ONE body child — same law as the running zone above (0718 对齐审计). 合一子件,同上区。
+        Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+          AnExpandReveal(
+            open: barVisible,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: AnGap.block),
+              child: AnBatchBar(
+                count: selected.length,
+                busy: batchBusy,
+                actions: [
+                  BatchAction(
+                      label: home.batchReplay,
+                      icon: AnIcons.history,
+                      tone: AnTone.accent,
+                      onRun: _batchReplay),
+                ],
+                onClear: () => setState(selected.clear),
+              ),
             ),
           ),
-        ),
-        for (final r in visible)
-          AnExpandReveal(open: !leaving.contains(_keyOf(r)), child: _row(context, r)),
-        peekPager(context, widget.rows.length),
+          for (var i = 0; i < visible.length; i++) ...[
+            if (i > 0) const SizedBox(height: AnGap.block),
+            AnExpandReveal(
+                open: !leaving.contains(_keyOf(visible[i])),
+                child: _row(context, visible[i])),
+          ],
+          if (pageCountOf(widget.rows.length) > 1) ...[
+            const SizedBox(height: AnGap.block),
+            peekPager(context, widget.rows.length),
+          ],
+        ]),
       ],
     );
   }
@@ -876,6 +899,8 @@ class _SchedulerFailedZoneState extends ConsumerState<SchedulerFailedZone>
       child: AnLedgerRow(
         expanded: expanded,
         expandBuilder: (_) => RunPeekCard(workflowId: r.workflowId, flowrunId: r.run.id),
+        // Same primitive hand as the running zone (0718 对齐审计清残). 同上,披露示能归原语。
+        disclose: !isPending && !showCheck,
         lead: isPending
             ? const AnSpinner(size: AnSize.iconSm)
             : showCheck
@@ -885,13 +910,7 @@ class _SchedulerFailedZoneState extends ConsumerState<SchedulerFailedZone>
                     onChanged: (v) =>
                         setState(() => v ? selected.add(key) : selected.remove(key)),
                   )
-                : expanded
-                    ? Icon(AnIcons.chevronDown,
-                        size: AnSize.iconSm, color: context.colors.inkMuted)
-                    : hovered
-                        ? Icon(AnIcons.chevronRight,
-                            size: AnSize.iconSm, color: context.colors.inkMuted)
-                        : const AnStatusDot(AnStatus.err),
+                : const AnStatusDot(AnStatus.err),
         primary: '${r.workflowName} · ${runPhrase(context, r.run, widget.triggersById, widget.now)}',
         mono: false,
         chips: [

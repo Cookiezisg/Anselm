@@ -108,7 +108,7 @@ final tongguiCodexCategory = GalleryCategory('同轨法典', AnIcons.entities, [
       GallerySpecimen('AnLedgerRow 批6 三槽:sub 副行 / danger 副行 / measure 计量', (c) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             const AnLedgerRow(lead: AnStatusDot(AnStatus.done), primary: 'fnexec_01ab', sub: 'chat 触发 · 第 3 次重试', measure: '942ms', meta: '2 分钟前'),
             const AnLedgerRow(lead: AnStatusDot(AnStatus.err), primary: 'charge', sub: 'HANDLER_RPC_TIMEOUT: charge() exceeded 30s', subTone: AnTone.danger, meta: '5 分钟前'),
-            AnLedgerRow(primary: 'search_tools', mono: true, chips: const [AnChip('2 args', tone: AnTone.none)], onTap: () {}, expanded: true, expandChild: Text('展开体缩进到主文左缘(原语自持,非调用方算术)', style: AnText.meta.copyWith(color: c.colors.inkFaint))),
+            AnLedgerRow(primary: 'search_tools', mono: true, disclose: true, chips: const [AnChip('2 args', tone: AnTone.none)], onTap: () {}, expanded: true, expandChild: Text('披露体两侧等退假想框 s8;disclose 行由原语渲左岛箭头 morph(悬停换、展开旋 90°)', style: AnText.meta.copyWith(color: c.colors.inkFaint))),
           ]), span: true),
       GallerySpecimen('AnLedgerList 列表壳(cap+展开全部 N)', (_) => AnLedgerList(cap: 3, children: [
             for (var i = 1; i <= 7; i++)

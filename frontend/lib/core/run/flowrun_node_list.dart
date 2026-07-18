@@ -234,6 +234,9 @@ class _FlowrunNodeListState extends State<FlowrunNodeList> {
     // danger sub voice (its indent arithmetic died with it). 族行:状态点归左,kind 字形降为首枚
     // chip,错误行走 danger 副行(缩进算术随行退役)。
     final row = AnLedgerRow(
+      // A row with a disclosure body wears the primitive's chevron morph (0718 对齐审计): tapping
+      // selects AND opens, so the hand is honest. 有披露体的行戴原语箭头示能——点行即选中并展开。
+      disclose: disclosure != null && pick != null,
       lead: AnStatusDot(AnStatus.fromRaw(l.status)),
       primary: l.nodeId,
       chips: [

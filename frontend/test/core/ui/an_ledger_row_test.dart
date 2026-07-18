@@ -1,6 +1,8 @@
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/i18n/strings.g.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -123,5 +125,62 @@ void main() {
     expect(bodyRect.left - host.left, moreOrLessEquals(host.right - bodyRect.right, epsilon: 0.6),
         reason: '展开体左右退距相等(用户 0718:「两边退的距离是一样的」)');
     expect(bodyRect.left - host.left, moreOrLessEquals(8, epsilon: 0.6));
+  });
+
+  // The baked disclosure hand (0718 全模块对齐审计 F1): rest shows the caller's lead; hover swaps in
+  // the 16px chevronRight; expanded keeps it rotated 90° even unhovered (scheduler 大表拍板语义)。
+  // 原语披露示能:静息=lead、悬停=16px 箭头、展开=旋 90° 常驻。
+  Widget discloseHost({required bool expanded, Widget? lead}) => TranslationProvider(
+        child: MaterialApp(
+          theme: AnTheme.light(),
+          home: Scaffold(
+            body: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              AnLedgerRow(
+                disclose: true,
+                lead: lead,
+                primary: 'row',
+                onTap: () {},
+                expanded: expanded,
+                expandChild: const SizedBox(width: double.infinity, height: 8),
+              ),
+            ]),
+          ),
+        ),
+      );
+
+  testWidgets('disclose: rest shows lead, hover swaps the left-island chevron (16px, 旋转在位)',
+      (tester) async {
+    // Desktop hover truth: FAD's hover highlight is mode-gated (test default touch swallows it) —
+    // the repo's established fix. 桌面悬停真相:FAD 高亮受模式门控,测试默认 touch 吞悬停,走仓内定式。
+    WidgetsBinding.instance.focusManager.highlightStrategy = FocusHighlightStrategy.alwaysTraditional;
+    await tester.pumpWidget(discloseHost(expanded: false, lead: const AnStatusDot(AnStatus.done)));
+    await tester.pump();
+    expect(find.byType(AnStatusDot), findsOneWidget, reason: '静息=调用方 lead');
+    expect(find.byIcon(AnIcons.chevronRight), findsNothing);
+
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await gesture.addPointer(location: tester.getCenter(find.byType(AnLedgerRow)));
+    addTearDown(gesture.removePointer);
+    await tester.pumpAndSettle();
+    expect(find.byIcon(AnIcons.chevronRight), findsOneWidget, reason: '悬停=箭头上位');
+    expect(find.byType(AnStatusDot), findsNothing, reason: 'lead 让位');
+    final icon = tester.widget<Icon>(find.byIcon(AnIcons.chevronRight));
+    expect(icon.size, AnSize.icon, reason: '左岛同款 16px,非旧 12px');
+    final rot = tester.widget<AnimatedRotation>(find.byType(AnimatedRotation));
+    expect(rot.turns, 0, reason: '未展开不旋');
+  });
+
+  testWidgets('disclose: expanded keeps the chevron rotated 90° even unhovered; null lead still '
+      'reserves the 16px cell (箭头有座)', (tester) async {
+    await tester.pumpWidget(discloseHost(expanded: true, lead: null));
+    await tester.pump();
+    // Unhovered but expanded → the chevron stays, rotated. 无悬停但展开:箭头常驻并旋转。
+    final rot = tester.widget<AnimatedRotation>(find.byType(AnimatedRotation));
+    expect(rot.turns, 0.25, reason: '展开旋 90°');
+    // The reserved cell indents the primary exactly like a led row (16 + s8). 空 lead 也保格。
+    final host = tester.getRect(find.byType(AnLedgerRow));
+    final primary = tester.getRect(find.text('row'));
+    expect(primary.left - host.left, moreOrLessEquals(8 + 16 + 8, epsilon: 0.6),
+        reason: '主文缩进=s8 框内距+16 格+s8 距(与有 lead 行同轨)');
   });
 }

@@ -131,6 +131,9 @@ class _RunRowState extends State<_RunRow> {
     // The family ledger row (批6 A-070/072 — the hand-rolled line and its indent arithmetic retire).
     // 族台账行(手拼行与缩进算术退役)。
     return AnLedgerRow(
+      // An expandable row wears the primitive's disclosure hand (0718 对齐审计 — a toggling row
+      // with a static dot gave the user no cue it opens). 可展开行戴原语披露示能(静点无示能之修)。
+      disclose: expandable,
       lead: lead,
       primary: row.monoId ?? row.text ?? '',
       mono: row.monoId != null,

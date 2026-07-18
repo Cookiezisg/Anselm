@@ -79,9 +79,9 @@ abstract final class AnFlow {
 /// HANGING INDENT tier (批7 B 轨) — a wrapped/second line aligns under the text that follows a lead
 /// marker, so the indent = marker slot + its inline gap. Named by MARKER so feature code never sums
 /// tokens (grammar #4): a dot-led hang is [dot], an icon-led hang is [icon]. The row family's OWN
-/// expandChild indent stays primitive-internal (iconSm-cell, AnLedgerRow).
+/// expandChild inset stays primitive-internal (the s8 phantom-frame inset, AnLedgerRow).
 /// 悬挂缩进档:换行/次行对齐到 lead 记号后的文字——缩进=记号槽+行内距。按记号命名,feature 层不再
-/// token 算术;行族披露体缩进仍原语自持。
+/// token 算术;行族披露体内距(假想框 s8)仍原语自持。
 abstract final class AnIndent {
   static const double dot = AnSize.dot + AnGap.inline; // 13 — dot-led hang (thinking rail, emit rows) 点式悬挂
   static const double icon = AnSize.icon + AnGap.inline; // 22 — icon-led hang (tool-card bodies) 图标式悬挂

@@ -163,24 +163,22 @@ class _SchedulerHomeViewState extends ConsumerState<SchedulerHomeView> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _HealthHead(row: row, stats: stats, now: now),
+          // ONLY the head→matrix seam needs a spacer (the head is a bare Column): every zone below
+          // is an AnSection that already carries its own bottom AnGap.section — stacking another
+          // Padding(top) doubled every section seam to 48px (0718 对齐审计,entities 参照=直接堆叠).
+          // 仅头→矩阵要垫(头是裸列);往下每区都是自带 24 底距的 AnSection,再包 top 垫=段缝双倍 48。
           Padding(
             padding: const EdgeInsets.only(top: AnGap.section),
             child: _MatrixZone(workflowId: row.id, linkedRunId: widget.linkedRunId),
           ),
-          Padding(
-            padding: const EdgeInsets.only(top: AnGap.section),
-            child: _RunTableZone(
-              workflowId: row.id,
-              workflowName: row.name,
-              triggersById: triggersById,
-              linkedRunId: widget.linkedRunId,
-              now: now,
-            ),
+          _RunTableZone(
+            workflowId: row.id,
+            workflowName: row.name,
+            triggersById: triggersById,
+            linkedRunId: widget.linkedRunId,
+            now: now,
           ),
-          Padding(
-            padding: const EdgeInsets.only(top: AnGap.section),
-            child: _TriggersZone(workflowId: row.id, triggers: myTriggers, now: now),
-          ),
+          _TriggersZone(workflowId: row.id, triggers: myTriggers, now: now),
         ],
       ),
     );
@@ -704,23 +702,22 @@ class _RunTableZoneState extends ConsumerState<_RunTableZone> with BatchZone<_Ru
           // nothing (AnPager self-hides). The «等人» filter is UNPAGED (running∩inbox shown whole,
           // 复审 [1]/[5]): its total can exceed pageSize yet all rows are already on screen, so the
           // pager would be inert — gate it out. 标准翻页器;等人过滤不分页(全展),故不渲翻页器免死钮。
+          // No self-margin (0718 对齐审计): AnSection owns the 12px gap above the pager — the old
+          // Padding(top) doubled it to 24 while rows sit 12 apart. 翻页器不自夹外距,间距归 AnSection。
           if (s.filter != RunStatusFilter.waiting &&
               s.total > SchedulerRunTableController.pageSize)
-            Padding(
-              padding: const EdgeInsets.only(top: AnGap.block),
-              child: Center(
-                child: AnPager(
-                  page: s.page,
-                  pageCount:
-                      (s.total + SchedulerRunTableController.pageSize - 1) ~/
-                          SchedulerRunTableController.pageSize,
-                  onPage: (p) => _table.setPage(p),
-                  strings: AnPagerStrings(
-                    prevLabel: t.pagerPrev,
-                    nextLabel: t.pagerNext,
-                    jumpHint: t.pagerJump,
-                    pageLabel: (n) => t.pagerPage(n: '$n'),
-                  ),
+            Center(
+              child: AnPager(
+                page: s.page,
+                pageCount:
+                    (s.total + SchedulerRunTableController.pageSize - 1) ~/
+                        SchedulerRunTableController.pageSize,
+                onPage: (p) => _table.setPage(p),
+                strings: AnPagerStrings(
+                  prevLabel: t.pagerPrev,
+                  nextLabel: t.pagerNext,
+                  jumpHint: t.pagerJump,
+                  pageLabel: (n) => t.pagerPage(n: '$n'),
                 ),
               ),
             ),
@@ -774,6 +771,10 @@ class _RunTableZoneState extends ConsumerState<_RunTableZone> with BatchZone<_Ru
         // would fetch full run composites for rows nobody opened.
         // 惰性:收起的行绝不建速览卡——每行急建会替没人点开的行拉全量 run 复合。
         expandBuilder: (_) => RunPeekCard(workflowId: widget.workflowId, flowrunId: run.id),
+        // The disclosure hand is the PRIMITIVE's (0718 对齐审计 F1 — the hand-roll retired into
+        // AnLedgerRow.disclose): spinner and batch check must WIN the cell, so disclose yields to
+        // them. 披露示能归原语(手搓收编);转圈/勾选要赢下格子,故该态让位。
+        disclose: !isPending && !showCheck,
         lead: isPending
             ? const AnSpinner(size: AnSize.iconSm)
             : showCheck
@@ -783,19 +784,7 @@ class _RunTableZoneState extends ConsumerState<_RunTableZone> with BatchZone<_Ru
                     onChanged: (v) =>
                         setState(() => v ? selected.add(key) : selected.remove(key)),
                   )
-                // The disclosure hand — 1:1 the LEFT-ISLAND morph (AnRow 同款,用户 0718「完整对齐
-                // 左岛」): a hovered/expanded row swaps the dot for the SAME 16px faint chevronRight,
-                // rotating 90° (spring, reduced 归零) when open. 披露示能=左岛原形:16px chevronRight
-                // + 展开旋 90°(spring/reduced 双闸),不再是 12px 小箭头换图标。
-                : hovered || run.id == widget.linkedRunId
-                    ? AnimatedRotation(
-                        duration: AnMotionPref.reduced(context) ? Duration.zero : AnMotion.mid,
-                        curve: AnMotion.spring,
-                        turns: run.id == widget.linkedRunId ? 0.25 : 0,
-                        child: Icon(AnIcons.chevronRight,
-                            size: AnSize.icon, color: context.colors.inkFaint),
-                      )
-                    : AnStatusDot(AnStatus.fromRaw(run.status)),
+                : AnStatusDot(AnStatus.fromRaw(run.status)),
         primary: primary,
         mono: false,
         chips: [

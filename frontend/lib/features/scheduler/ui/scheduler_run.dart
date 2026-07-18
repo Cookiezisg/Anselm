@@ -234,24 +234,23 @@ class _SchedulerRunViewState extends ConsumerState<SchedulerRunView> {
                     ],
                   ),
                 ),
-              Padding(
-                padding: const EdgeInsets.only(top: AnGap.section),
-                child: _GanttZone(
-                  chart: chart,
-                  selectedNodeId: widget.nodeId,
-                  onPick: (id) => _pick(id),
-                ),
+              // No spacer between altitudes (0718 对齐审计): each zone is an AnSection carrying its
+              // own bottom AnGap.section — the old Padding(top) doubled graph→gantt and gantt→ledger
+              // to 48px while head→graph read 24 (三海拔节奏 24/48/48 之病). Only the head→graph
+              // wrapper above stays (the head is a bare Column). 海拔间不再垫:各区自带 24 底距,
+              // 旧 top 垫叠成 48;仅头→图保留垫(头是裸列)。
+              _GanttZone(
+                chart: chart,
+                selectedNodeId: widget.nodeId,
+                onPick: (id) => _pick(id),
               ),
-              Padding(
-                padding: const EdgeInsets.only(top: AnGap.section),
-                child: _LedgerZone(
-                  data: d,
-                  graph: graph,
-                  inferred: inferred,
-                  selectedNodeId: widget.nodeId,
-                  selectedIteration: widget.iteration,
-                  onPick: (id, iter) => _pick(id, iteration: iter),
-                ),
+              _LedgerZone(
+                data: d,
+                graph: graph,
+                inferred: inferred,
+                selectedNodeId: widget.nodeId,
+                selectedIteration: widget.iteration,
+                onPick: (id, iter) => _pick(id, iteration: iter),
               ),
             ],
           ),
@@ -541,18 +540,24 @@ class _GanttZone extends StatelessWidget {
       variant: AnSectionVariant.plain,
       children: [
         Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-          AnNodeGantt(
-            rows: chart.rows,
-            chart: chart,
-            ruler: true,
-            nowLine: true,
-            selectedNodeId: selectedNodeId,
-            onNodePick: onPick,
-            notRunLabel: t.notRun,
-            waitingLabel: context.t.run.nodeWait,
-            inferredLabel: context.t.run.inferredRunning,
-            queueLabel: t.queueWord,
-            execLabel: t.execWord,
+          // Framed like its two neighbours (0718 对齐审计): the graph is a framed canvas and the
+          // ledger a framed AnWindow — an unframed gantt floated between two bordered cards and its
+          // row markers sat off the shared left rail (16 card pad + s8 row inset = 同一左轨).
+          // 与上下两海拔同穿框:裸甘特浮在两张有框卡之间,行记号也不落共享左轨。
+          AnWindow(
+            child: AnNodeGantt(
+              rows: chart.rows,
+              chart: chart,
+              ruler: true,
+              nowLine: true,
+              selectedNodeId: selectedNodeId,
+              onNodePick: onPick,
+              notRunLabel: t.notRun,
+              waitingLabel: context.t.run.nodeWait,
+              inferredLabel: context.t.run.inferredRunning,
+              queueLabel: t.queueWord,
+              execLabel: t.execWord,
+            ),
           ),
           // The axis collapsed (every stamp coincident — a sub-millisecond run, the local-sidecar
           // norm): the bars are EQUAL SLOTS showing sequence only, so the page says so instead of

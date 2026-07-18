@@ -147,6 +147,21 @@ audience: [human, ai]
 
 fe-verify 4304 全绿。
 
+## 0718 真机复核追改 + 全模块对齐审计（用户令「说对齐那就是整个模块都需要对齐」）
+
+复核追改九条已逐条落（回车发送 IME 塌缩守卫 / Ant 定式翻页器 / 行框式两侧 s8 / 展开体等退 / 侧幕假想框二轮 / demo 96 条史 / 箭头 1:1 左岛 / lead 格 16+s8 / 矩阵列头车道 24→12）。随后 21-agent 对齐审计（5 测量 finder 强制真量 + 逐条对抗证伪）16 候选 → **10 confirmed 全修**：
+
+- **[high] 披露示能归原语**：AnLedgerRow 无箭头 morph → 四处手搓四形（大表原形 / overview 两处 12px 换图标残留 / run_ledger·工具命中·节点台账零示能）——`disclose` prop 焊进原语（hover/展开换 16px 左岛箭头+旋 90°，lead 空也保格；勾选/转圈态调用方传 false 让位），六处消费方并源。
+- **[high] Overview 三区批量条双夹**：塌缩 AnExpandReveal 作 AnSection 裸子件，静息态题→内容 20px 应 8px——三区合一子件（大表控制块同法），条开时条→内容 12。
+- **[high] run 旗舰三海拔 24/48/48**：AnSection 自带 24 底距又被 top 垫叠加——甘特/台账两垫删，海拔贴合堆叠；inspector 双脸段前垫按前件裁（前件是 AnSection 不垫）。
+- **[medium] home 段缝 48**：矩阵/大表/触发器三区 top 垫删（仅头→矩阵保留，头是裸列）。
+- **[medium] 空 pager 幽灵 12px**：单页 SizedBox.shrink 仍占带距子席——宿主闸出（pageCountOf>1 才进列）。
+- **[medium] 甘特无框**：三海拔唯一裸块浮两卡之间、行记号左轨差 21.5px——穿 AnWindow 同框。
+- **[low] pager 自夹**：home/overview 自夹 top 12 与 AnSection 12 叠成 24——删，间距归容器。
+- **[low] 文档陈旧**：an_ledger_row 类注释/tokens AnIndent 注释仍写 iconSm 格——勘正为 16 格+s8 等退。
+
+几何锁：an_ledger_row disclose 2 测 + home 段缝/pager 距 + overview 静息节奏 + run 三海拔/甘特框各 1 测。design-system（AnLedgerRow/AnPager/AnRunMatrix 三条目）与 scheduler.md 同提交重述。
+
 ## 拍板状态（0718 收官 ✅）
 
 **全部议题已拍板 ✅**（§A #1 假想框律 / #2 composer 28 档 + §B B1–B13 全部）——0718「都同意，落一下档」。待用户宣布开工后一口气建造；交付纪律=每条带测试、双门禁全绿、demo 帧逐条核对、opus 车队对抗复审、文档 1:1 同提交、后端半（B4 offset+total）守 N/D/E/S/T。
