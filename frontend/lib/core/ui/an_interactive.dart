@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import 'an_a11y.dart';
+import 'an_hover_region.dart';
 
 /// The kit's canonical "visually engaged" predicate — hovered, pressed, OR (keyboard-)focused — so
 /// every control derives its hover/active surface the SAME way (no per-widget hovered||pressed vs
@@ -73,10 +74,16 @@ class AnInteractive extends StatefulWidget {
   State<AnInteractive> createState() => _AnInteractiveState();
 }
 
-class _AnInteractiveState extends State<AnInteractive> {
+class _AnInteractiveState extends State<AnInteractive> with ScrollSilencedHoverMixin<AnInteractive> {
   bool _hovered = false;
   bool _focused = false;
   bool _pressed = false;
+
+  // Hover DEFERRED while an ancestor scroller is in motion (0718 滚动闪烁审定,见 [AnHoverRegion]):
+  // applying a hover swap mid-scroll relayouts under the moving cursor and feeds the in-flight
+  // trackpad drag a reverse delta → overscroll self-oscillation (探针实证:披露箭头/换件行 flicker)。
+  // Flushed to [_hovered] once the scroller settles. press/tap/focus 不冻,只冻 hover;滚停一次应用。
+  bool? _pendingHover;
 
   bool get _canActivate => widget.enabled && widget.onTap != null;
 
@@ -92,16 +99,35 @@ class _AnInteractiveState extends State<AnInteractive> {
     if (mounted) setState(f);
   }
 
+  // FAD's hover highlight, gated on the ancestor scroll state (see [AnHoverRegion]): in motion →
+  // stash the latest value, no rebuild; settled → apply at once. 滚动中缓存 hover 不重建,滚停直通。
+  void _onHover(bool h) {
+    if (hoverScrollActive) {
+      _pendingHover = h;
+      return;
+    }
+    _set(() => _hovered = h);
+  }
+
+  @override
+  void onHoverScrollSettled() {
+    final h = _pendingHover;
+    if (h == null) return;
+    _pendingHover = null;
+    _set(() => _hovered = h);
+  }
+
   @override
   void didUpdateWidget(AnInteractive old) {
     super.didUpdateWidget(old);
     // FAD stops tracking when disabled but won't fire a hover/focus-off if the pointer leaves while
     // disabled — so a control disabled mid-hover would re-enable stuck "hovered". Clear on disable.
-    // FAD 禁用时停止跟踪,但禁用期间指针移开不会回调 → 重新启用会卡在 hover。禁用时清零。
+    // FAD 禁用时停止跟踪,但禁用期间指针移开不会回调 → 重新启用会卡在 hover。禁用时清零(含缓存态)。
     if (old.enabled && !widget.enabled && (_hovered || _focused || _pressed)) {
       _hovered = false;
       _focused = false;
       _pressed = false;
+      _pendingHover = null;
     }
   }
 
@@ -138,7 +164,7 @@ class _AnInteractiveState extends State<AnInteractive> {
           return null;
         }),
       },
-      onShowHoverHighlight: (h) => _set(() => _hovered = h),
+      onShowHoverHighlight: _onHover,
       onShowFocusHighlight: (f) => _set(() => _focused = f),
       child: Semantics(
         button: widget.onTap != null,

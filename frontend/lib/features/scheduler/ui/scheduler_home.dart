@@ -761,7 +761,10 @@ class _RunTableZoneState extends ConsumerState<_RunTableZone> with BatchZone<_Ru
       elapsed = null;
     }
 
-    return MouseRegion(
+    // Scroll-freeze the hover (0718 滚动闪烁审定,AnHoverRegion): the lead swaps dot↔spinner↔check
+    // on hover, so an overscroll dragging content under a parked cursor must not relayout mid-drag.
+    // 滚动中冻 hover:lead 随 hover 换件,overscroll 拖内容过静止光标时不得中途 relayout。
+    return AnHoverRegion(
       onEnter: (_) => setState(() => hoveredKey = key),
       onExit: (_) => setState(() {
         if (hoveredKey == key) hoveredKey = null;

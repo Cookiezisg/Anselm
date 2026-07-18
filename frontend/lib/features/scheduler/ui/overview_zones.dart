@@ -214,7 +214,10 @@ class _SchedulerWaitingZoneState extends ConsumerState<SchedulerWaitingZone>
     final isPending = pending.contains(key) || batchBusy && selected.contains(key);
     final selecting = selected.isNotEmpty;
     final showCheck = (selecting || hoveredKey == key) && !isPending;
-    return MouseRegion(
+    // Scroll-freeze the hover (0718 滚动闪烁审定,AnHoverRegion): the row/card swaps its lead
+    // (dot↔spinner↔check) on hover, so an overscroll dragging content under a parked cursor must
+    // not relayout mid-drag. 滚动中冻 hover:hover 换 lead,overscroll 拖内容过静止光标时不中途 relayout。
+    return AnHoverRegion(
       onEnter: (_) => setState(() => hoveredKey = key),
       onExit: (_) => setState(() {
         if (hoveredKey == key) hoveredKey = null;
@@ -662,7 +665,10 @@ class _SchedulerRunningZoneState extends ConsumerState<SchedulerRunningZone>
     final showCheck = (selecting || hovered) && !isPending;
     final expanded = expandedRunId == key;
     final started = r.run.startedAt;
-    return MouseRegion(
+    // Scroll-freeze the hover (0718 滚动闪烁审定,AnHoverRegion): the row/card swaps its lead
+    // (dot↔spinner↔check) on hover, so an overscroll dragging content under a parked cursor must
+    // not relayout mid-drag. 滚动中冻 hover:hover 换 lead,overscroll 拖内容过静止光标时不中途 relayout。
+    return AnHoverRegion(
       onEnter: (_) => setState(() => hoveredKey = key),
       onExit: (_) => setState(() {
         if (hoveredKey == key) hoveredKey = null;
@@ -892,7 +898,10 @@ class _SchedulerFailedZoneState extends ConsumerState<SchedulerFailedZone>
     final showCheck = (selecting || hovered) && !isPending;
     final expanded = expandedRunId == key;
     final landed = r.run.completedAt;
-    return MouseRegion(
+    // Scroll-freeze the hover (0718 滚动闪烁审定,AnHoverRegion): the row/card swaps its lead
+    // (dot↔spinner↔check) on hover, so an overscroll dragging content under a parked cursor must
+    // not relayout mid-drag. 滚动中冻 hover:hover 换 lead,overscroll 拖内容过静止光标时不中途 relayout。
+    return AnHoverRegion(
       onEnter: (_) => setState(() => hoveredKey = key),
       onExit: (_) => setState(() {
         if (hoveredKey == key) hoveredKey = null;

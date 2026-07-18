@@ -164,6 +164,8 @@ fe-verify 4304 全绿。
 
 几何锁：an_ledger_row disclose 2 测 + home 段缝/pager 距 + overview 静息节奏 + run 三海拔/甘特框各 1 测。design-system（AnLedgerRow/AnPager/AnRunMatrix 三条目）与 scheduler.md 同提交重述。
 
+**0718 追改续（滚动闪烁根治）**：用户报告——scheduler 主页鼠标停在内容行上用触控板滚动，触顶/触底 overscroll 后内容**持续闪烁**；鼠标在两侧空白处则正常回弹。探针定罪（一次性 `zz_scroll_probe`/`zz_minimal_probe`，用完转正即删）：overscroll 中内容在**静止光标**下移动 → MouseRegion enter/exit → 悬停行**换件 relayout**（点↔转圈 / 披露箭头现身，非纯换色的 repaint）→ 把进行中的 trackpad drag 喂回**反向**增量（栈证 `DragGestureRecognizer._checkUpdate → applyUserOffset`）→ overscroll 掐回 0 → 弹回 → hover 又翻 → **自激振荡**（实测 offset `30→0→0→30→0→0`，正常组单调橡皮筋 `30→37→44→…→147→…衰减`）；充要条件=**mouse hover 指针停在换件行上**（pan 命中位置无关）。**修=业界标准「滚动进行中冻结 hover」一处收口**：新原语 `AnHoverRegion`（滚动中缓存 enter/exit、滚停一次落定，`ScrollSilencedHoverMixin` 监听最近 Scrollable `isScrollingNotifier`）+ `AnInteractive` 内建同律（披露箭头 morph 走这条）；scheduler 大表 + Overview 三区四处 zone MouseRegion 换 `AnHoverRegion`。只冻 hover，press/tap/focus 不冻；顺带省滚动中的 hover 重建。锁：`an_hover_region_test`（冻结/直通/滚停 flush/换 position 重挂 四电池）+ `scheduler_scroll_hover_test`（治后 CONTENT+hover 轨迹与无换件轨迹逐帧 <0.1 一致 / 回弹单调无锯齿 / 滚停 hover 正确落位）——关掉修复两套皆红。design-system（AnHoverRegion 新条目 + AnInteractive 补句）同提交。
+
 ## 拍板状态（0718 收官 ✅）
 
 **全部议题已拍板 ✅**（§A #1 假想框律 / #2 composer 28 档 + §B B1–B13 全部）——0718「都同意，落一下档」。待用户宣布开工后一口气建造；交付纪律=每条带测试、双门禁全绿、demo 帧逐条核对、opus 车队对抗复审、文档 1:1 同提交、后端半（B4 offset+total）守 N/D/E/S/T。
