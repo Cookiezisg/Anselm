@@ -100,21 +100,22 @@ class AnLedgerRow extends StatelessWidget {
           crossAxisAlignment: effectiveSub == null ? CrossAxisAlignment.center : CrossAxisAlignment.start,
           children: [
         if (lead != null) ...[
-          // Fixed lead cell: dots (7) and glyphs (12) mix in one list — a bare lead drifts the
-          // primary's left edge row to row. On a two-line row the cell takes the primary's OWN top
-          // pad (s6) and a first-row-height box so the dot centres on the FIRST line — the old s8
-          // pad hung the dot above the text (用户 0717 报的红点漂移 bug).
-          // 定宽 lead 格:点/字形混列时主文左缘不漂。双行行里 lead 用主文自己的顶距(s6)+首行高盒,
-          // 点与**首行**同心——旧 s8 顶距把点吊在文字上方(用户报的红点漂移 bug)。
+          // Fixed lead cell, 1:1 the LEFT-ISLAND geometry (AnRow: 16px cell + s8 gap — WRK-070 0718
+          // 用户裁「完整对齐左岛」): dots (7), glyphs (12) AND the 16px disclosure chevron all centre
+          // in ONE 16px cell, so the chevron no longer overflows a 12px cell and crowds the text
+          // (箭头贴字的根因). On a two-line row the cell takes the primary's OWN top pad (s6) and a
+          // first-row-height box so the dot centres on the FIRST line (红点漂移 bug 之修不动).
+          // 定宽 lead 格=左岛同几何(16 格+s8 距):点/字形/16px 披露箭头同格居中——箭头不再挤爆 12 格
+          // 吃掉间距;双行行 lead 与首行同心照旧。
           Padding(
             padding: effectiveSub == null ? EdgeInsets.zero : const EdgeInsets.only(top: AnSpace.s6),
             child: SizedBox(
-              width: AnSize.iconSm,
+              width: AnSize.icon,
               height: effectiveSub == null ? null : AnSize.controlSm,
               child: Center(child: lead!),
             ),
           ),
-          const SizedBox(width: AnSpace.s6),
+          const SizedBox(width: AnSpace.s8),
         ],
         // The ONE flex region. Inside it primary and every chip are individually Flexible (loose) —
         // under width pressure each ellipsizes; rigid chips overflowed a 280px host (复审 HIGH #2).
