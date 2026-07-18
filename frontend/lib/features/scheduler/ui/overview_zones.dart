@@ -132,8 +132,11 @@ class _SchedulerWaitingZoneState extends ConsumerState<SchedulerWaitingZone>
     final t = context.t.scheduler.overview;
     final c = context.colors;
     final barVisible = selected.length >= 2 || batchBusy;
+    // Plain big segment title (0718 宁静化 — 段序重排): the caption→plain lift + the row count leaves
+    // the head (the KPI strip carries it, 大表先例:plain 题不带计数). 大字段题,计数归 KPI 牌。
     return AnSection(
-      label: t.waitingHead(n: '${widget.rows.length}'),
+      label: t.waitingHead,
+      variant: AnSectionVariant.plain,
       children: [
         // ONE body child (0718 对齐审计,大表控制块同法): the collapsed batch bar must not earn
         // AnSection's 12px inter-child gap (静息态题→卡曾 20px 应 8px). 合一子件:塌缩条不吃子距。
@@ -528,8 +531,10 @@ class SchedulerScheduleZone extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.t.scheduler.overview;
     final c = context.colors;
+    // Plain big segment title (0718 宁静化): 调度轨总览打头,大字段题对齐运营主页 Matrix View 语言。
     return AnSection(
       label: t.scheduleHead,
+      variant: AnSectionVariant.plain,
       children: [
         if (track.lanes.isEmpty)
           Text(t.scheduleEmpty, style: AnText.body.copyWith(color: c.inkFaint))
@@ -740,8 +745,10 @@ class _SchedulerRunningZoneState extends ConsumerState<SchedulerRunningZone>
     // barVisible AFTER prune (复审 [3]): a stale off-page selection must not leave the batch bar's
     // AnExpandReveal half-open (an 8px phantom gap). 修剪后再判:旧页选区不得留半开条(8px 幽灵缝)。
     final barVisible = selected.length >= 2 || batchBusy;
+    // Plain big segment title (0718 宁静化): count leaves the head → KPI strip. 大字段题,计数归 KPI 牌。
     return AnSection(
-      label: t.runningHead(n: '${widget.rows.length}'),
+      label: t.runningHead,
+      variant: AnSectionVariant.plain,
       children: [
         // ONE body child (0718 对齐审计,大表控制块同法): the COLLAPSED batch bar and the single-page
         // pager (SizedBox.shrink) must not each earn AnSection's 12px inter-child gap (塌缩双夹
@@ -827,13 +834,21 @@ class _SchedulerRunningZoneState extends ConsumerState<SchedulerRunningZone>
         primary: '${r.workflowName} · ${runPhrase(context, r.run, widget.triggersById, widget.now)}',
         mono: false,
         chips: [
-          // The persistent Stop verb, right where the eye already is (大表 _row 照搬). 常驻终止。
-          AnButton(
-            label: t.home.rowCancel,
-            icon: AnIcons.stop,
-            size: AnButtonSize.sm,
-            variant: AnButtonVariant.danger,
-            onPressed: isPending || batchBusy ? null : () => _cancelOne(r),
+          // The Stop verb slides out horizontally ON HOVER (0718 宁静化 — 动词安静待命): a resting
+          // row carries NO verb; hover reveals it from its original position (right after the phrase,
+          // 需求⑦ 位置裁决保留). surface=白底 line 边 so it reads on the grey row wash (灰洗底上可辨);
+          // danger fg. The reveal is reduced-double-gated by the primitive. 动词 hover 横向滑出。
+          AnExpandReveal(
+            axis: Axis.horizontal,
+            open: hovered && !isPending,
+            child: AnButton(
+              label: t.home.rowCancel,
+              icon: AnIcons.stop,
+              size: AnButtonSize.sm,
+              variant: AnButtonVariant.danger,
+              surface: true,
+              onPressed: isPending || batchBusy ? null : () => _cancelOne(r),
+            ),
           ),
           if (r.run.replayCount > 0)
             AnChip(context.t.run.replayTimes(n: '${r.run.replayCount}'),
@@ -982,8 +997,12 @@ class _SchedulerFailedZoneState extends ConsumerState<SchedulerFailedZone>
     final visible = pageSlice(widget.rows);
     pruneTo({for (final r in visible) _keyOf(r)});
     final barVisible = selected.length >= 2 || batchBusy; // after prune (复审 [3]) 修剪后再判
+    // A QUIET subsection (0718 宁静化 — 失败段两小节,24h 在上): this zone is now the first subsection
+    // under the plain «失败» segment head (owned by the board), so its own head is the small quiet
+    // label «Last 24h». 24h 小节:走 quiet 小标,坐在板级「失败」大字段题之下。
     return AnSection(
-      label: t.failed24hHead(n: '${widget.rows.length}'),
+      label: t.failed24hHead,
+      variant: AnSectionVariant.quiet,
       children: [
         // ONE body child — same law as the running zone above (0718 对齐审计). 合一子件,同上区。
         Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
@@ -1055,26 +1074,100 @@ class _SchedulerFailedZoneState extends ConsumerState<SchedulerFailedZone>
         primary: '${r.workflowName} · ${runPhrase(context, r.run, widget.triggersById, widget.now)}',
         mono: false,
         chips: [
-          // The persistent Retry verb the failed zone was missing (B10 补齐,大表 _row 照搬). 常驻重试。
-          AnButton(
-            label: t.home.rowRetry,
-            icon: AnIcons.history,
-            size: AnButtonSize.sm,
-            onPressed: isPending || batchBusy ? null : () => _replayOne(r),
+          // The Retry verb slides out horizontally ON HOVER (0718 宁静化 — 动词安静待命): resting rows
+          // carry no verb; surface=白底 line 边 reads on the grey wash, ink fg (ghost). 动词 hover 横向滑出。
+          AnExpandReveal(
+            axis: Axis.horizontal,
+            open: hovered && !isPending,
+            child: AnButton(
+              label: t.home.rowRetry,
+              icon: AnIcons.history,
+              size: AnButtonSize.sm,
+              surface: true,
+              onPressed: isPending || batchBusy ? null : () => _replayOne(r),
+            ),
           ),
           if (r.run.replayCount > 0)
             AnChip(context.t.run.replayTimes(n: '${r.run.replayCount}'),
                 look: AnChipLook.outlined),
         ],
-        // The error first line — the same projection the big table and run detail render (one text,
-        // three surfaces). 错误首句:与大表/run 详情同一投影(一份文案三处)。
-        sub: errorFirstLine(r.run.error),
-        subTone: AnTone.danger,
+        // The error sentence has LEFT the row (0718 宁静化 — 错误句撤出行 → 速览卡): the failed row is
+        // single-line, the red dot is the only alarm; run.error 全文 lives in the peek card now.
+        // 失败行单行化,红点=唯一警报;错误全文进速览卡(RunPeekCard)。
         // «landed N ago» — completed_at is the window's axis, so the meta names WHEN it failed.
         // 「N 前落定」:completed_at 是窗轴,故 meta 说它**何时**失败。
         meta: landed != null ? t.agoMeta(d: fmtWaited(widget.now.difference(landed))) : null,
         onTap: () => onPeekTap(r.run.id, '/scheduler/w/${r.workflowId}/runs/${r.run.id}'),
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────── 失败聚合 7d ───────────────────────────────────
+
+/// The «consecutive failures · 7d» subsection (0718 宁静化 — pulled off the board into a zone + brought
+/// onto the [_PeekZone] grammar): the SECOND subsection under the plain «失败» segment head (owned by
+/// the board). Each row is a chronic offender — red dot · workflow name · «failing ×N» streak chip ·
+/// «Open workflow →». The red error sentence has LEFT the row (点=唯一警报). A single tap expands the
+/// LATEST run's [RunPeekCard] (the SAME _PeekZone engine the running / 24h zones use — 零特例; the
+/// card's own «open run» door is the way to that run's flagship). The «Open workflow →» CTA opens the
+/// operations home, NOT one run — a streak is a workflow-level chronic illness, so the door points at
+/// the PATIENT (用户 0718 裁). Streaks are capped at 5 ([topFailing]), so this zone never pages.
+///
+/// 失败聚合 7d 小节:板级「失败」段的第二小节。行=红点·名·「failing ×N」胶囊·「打开 workflow →」;红错误句
+/// 撤出行(红点=唯一警报)。单击展开 latest run 速览卡(_PeekZone 同构、零特例,卡内「打开 run」进旗舰);
+/// 「打开 workflow →」进运营主页——连败是 workflow 级慢性病,CTA 指病人不指单次发病(用户 0718 裁)。连败 ≤5,不翻页。
+class SchedulerFailuresZone extends ConsumerStatefulWidget {
+  const SchedulerFailuresZone({required this.rows, super.key});
+
+  final List<FailingWorkflowRow> rows;
+
+  @override
+  ConsumerState<SchedulerFailuresZone> createState() => _SchedulerFailuresZoneState();
+}
+
+class _SchedulerFailuresZoneState extends ConsumerState<SchedulerFailuresZone>
+    with _PeekZone<SchedulerFailuresZone> {
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t.scheduler.overview;
+    final c = context.colors;
+    return AnSection(
+      label: t.failuresHead,
+      variant: AnSectionVariant.quiet,
+      children: [
+        if (widget.rows.isEmpty)
+          Text(t.failuresEmpty, style: AnText.body.copyWith(color: c.inkFaint))
+        else
+          for (final f in widget.rows) _row(context, f),
+      ],
+    );
+  }
+
+  Widget _row(BuildContext context, FailingWorkflowRow f) {
+    final t = context.t.scheduler.overview;
+    // The peek + row-tap exist only where the probe found a run — a dead affordance is a lie. The
+    // disclose hand + expand + tap all gate on the SAME latestRunId. AnLedgerRow drives its own
+    // disclosure hover through AnInteractive (scroll-frozen), so no external hover tracking is needed.
+    // 有 run 才有速览与行点击(死可供性是谎),披露/展开/点击同一条件;disclose morph 由原语自 hover 驱动。
+    final runId = f.latestRunId;
+    return AnLedgerRow(
+      lead: const AnStatusDot(AnStatus.err),
+      primary: f.workflowName,
+      mono: false,
+      disclose: runId != null,
+      expanded: runId != null && expandedRunId == runId,
+      expandBuilder:
+          runId != null ? (_) => RunPeekCard(workflowId: f.workflowId, flowrunId: runId) : null,
+      chips: [
+        AnChip(t.streak(n: '${f.streak}'), tone: AnTone.danger),
+        // «Open workflow →» → the operations home (always present — the home needs no run id). 打开 workflow。
+        AnChip(t.openWorkflow,
+            look: AnChipLook.outlined, onTap: () => context.go('/scheduler/w/${f.workflowId}')),
+      ],
+      onTap: runId != null
+          ? () => onPeekTap(runId, '/scheduler/w/${f.workflowId}/runs/$runId')
+          : null,
     );
   }
 }

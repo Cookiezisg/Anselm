@@ -471,6 +471,19 @@ final GalleryCategory _g1Controls = GalleryCategory('基础控件 Controls', AnI
     GallerySpecimen('primary', (_) => AnButton(label: 'Run', icon: AnIcons.run, variant: AnButtonVariant.primary, onPressed: () {})),
     GallerySpecimen('danger', (_) => AnButton(label: 'Delete', variant: AnButtonVariant.danger, onPressed: () {})),
     GallerySpecimen('danger outline', (_) => AnButton(label: 'Delete', icon: AnIcons.trash, variant: AnButtonVariant.danger, outline: true, onPressed: () {})),
+    // surface: white fill + line border so the button reads on a GREY row-hover wash (shown ON such a
+    // wash — a ghost/danger fill would be the same grey and vanish). 白底描边:灰洗底上可辨(置于洗底演示)。
+    GallerySpecimen('surface·灰洗底 (Stop/Retry hover 钮)', (context) => ColoredBox(
+          color: context.colors.surfaceHover,
+          child: Padding(
+            padding: const EdgeInsets.all(AnSpace.s8),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              AnButton(label: 'Stop', icon: AnIcons.stop, variant: AnButtonVariant.danger, surface: true, size: AnButtonSize.sm, onPressed: () {}),
+              const SizedBox(width: AnSpace.s6),
+              AnButton(label: 'Retry', icon: AnIcons.history, surface: true, size: AnButtonSize.sm, onPressed: () {}),
+            ]),
+          ),
+        ), span: true),
     GallerySpecimen('icon', (_) => AnButton.iconOnly(AnIcons.more, semanticLabel: 'More', onPressed: () {})),
     GallerySpecimen('icon toggled (格式开态)', (_) => Row(mainAxisSize: MainAxisSize.min, children: [
           AnButton.iconOnly(AnIcons.bold, toggled: true, semanticLabel: 'Bold', onPressed: () {}),

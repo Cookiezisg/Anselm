@@ -1,6 +1,5 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
@@ -180,6 +179,17 @@ class _SchedulerOverviewViewState extends ConsumerState<SchedulerOverviewView> {
               onMissed: () => _reveal(_schedule),
             ),
           ),
+          // New segment order (0718 宁静化 — 段序重排,用户逐条拍板): the schedule track 总览打头 →
+          // 等你处理 → 正在跑 → 失败段. The KPI strip stays on top (牌不是段). Each zone's anchor is
+          // keyed, so the KPI drill-down wash lands by GlobalKey regardless of order (re-verified).
+          // 段序:调度打头 → 等你处理 → 正在跑 → 失败段;KPI 钻取按 GlobalKey 锚,与顺序无关(已重验)。
+          _washable(
+              _schedule,
+              SchedulerScheduleZone(
+                  key: _schedule.key,
+                  track: d.track,
+                  triggersById: d.triggersById,
+                  now: now)),
           // «等你处理» — the costliest land (S2b): inbox rows + in-place ApprovalGate + AnBatchBar
           // batch approve/reject; then «正在跑» with hover ⏹ + batch cancel. 等你处理(就地审批+批量)
           // 与 正在跑(hover 取消+批量取消)两操作区。
@@ -191,65 +201,28 @@ class _SchedulerOverviewViewState extends ConsumerState<SchedulerOverviewView> {
                   rows: d.runningRuns,
                   triggersById: d.triggersById,
                   now: now)),
-          _washable(
-              _schedule,
-              SchedulerScheduleZone(
-                  key: _schedule.key,
-                  track: d.track,
-                  triggersById: d.triggersById,
-                  now: now)),
-          // «24h 失败» — the per-run list the KPI tile opens (工单⑮), present only when non-empty (the
-          // tile is inert at zero, so the board never scrolls to an absent zone; 成功是背景音). Placed
-          // just above the 7d «失败聚合» so the two failure views (24h runs, then 7d workflow streaks)
-          // read together without being confused for one another.
-          // 24h 失败:牌点开的按 run 列表(工单⑮),仅非空时在场(零时牌惰性、看板不滚向不在的区;成功是背景音);
-          // 紧挨 7d 失败聚合之上,使两种失败视图(24h run、7d workflow 连败)相邻同读而不相混。
-          if (d.failedRuns.isNotEmpty)
-            _washable(
-                _failed,
-                SchedulerFailedZone(
-                    key: _failed.key,
-                    rows: d.failedRuns,
-                    triggersById: d.triggersById,
-                    now: now)),
+          // 失败段 (0718 宁静化): a plain «失败» segment head over TWO quiet subsections — the 24h
+          // per-run list (工单⑮, present only when non-empty; the tile's drill-down anchor _failed
+          // lands on it) on top, then the always-on 7d consecutive-failure subsection. The segment is
+          // always present, matching the 7d subsection's always-on reassurance (成功是背景音: an empty
+          // subsection still says «you're clean»). 失败段:大字「失败」+ 两小节(24h 在上、7d 连败);恒在。
           AnSection(
-            label: t.overview.failuresHead,
-            children: d.failures.isEmpty
-                ? [_emptyLine(context, t.overview.failuresEmpty)]
-                : [for (final f in d.failures) _failureRow(context, f)],
+            label: t.overview.failuresSegmentHead,
+            variant: AnSectionVariant.plain,
+            children: [
+              if (d.failedRuns.isNotEmpty)
+                _washable(
+                    _failed,
+                    SchedulerFailedZone(
+                        key: _failed.key,
+                        rows: d.failedRuns,
+                        triggersById: d.triggersById,
+                        now: now)),
+              SchedulerFailuresZone(rows: d.failures),
+            ],
           ),
         ],
       ),
-    );
-  }
-
-  /// An honest quiet empty sentence under a zone head (no ghost frames). 区头下的诚实灰句。
-  Widget _emptyLine(BuildContext context, String text) =>
-      Text(text, style: AnText.body.copyWith(color: context.colors.inkFaint));
-
-  /// «Failures · 7d» row: red dot · workflow name · ×N streak chip · error first line · the
-  /// latest-run through-train. Replay waits for the run composite (S4). 失败聚合一行;replay 随 S4。
-  Widget _failureRow(BuildContext context, FailingWorkflowRow f) {
-    final t = context.t.scheduler.overview;
-    void openLatest() {
-      final id = f.latestRunId;
-      if (id != null) context.go('/scheduler/w/${f.workflowId}/runs/$id');
-    }
-
-    return AnLedgerRow(
-      lead: const AnStatusDot(AnStatus.err),
-      primary: f.workflowName,
-      mono: false,
-      chips: [
-        AnChip(t.streak(n: '${f.streak}'), tone: AnTone.danger),
-        // The through-train renders only when the probe found a run — a dead affordance is a lie.
-        // 直通车只在探到 run 时渲——没有目标就不做成可点。
-        if (f.latestRunId != null)
-          AnChip(t.latestRun, look: AnChipLook.outlined, onTap: openLatest),
-      ],
-      sub: f.error,
-      subTone: AnTone.danger,
-      onTap: f.latestRunId != null ? openLatest : null,
     );
   }
 

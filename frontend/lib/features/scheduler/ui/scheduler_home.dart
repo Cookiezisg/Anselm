@@ -792,41 +792,46 @@ class _RunTableZoneState extends ConsumerState<_RunTableZone> with BatchZone<_Ru
         primary: primary,
         mono: false,
         chips: [
-          // The persistent verb, right where the eye already is (需求⑦). 常驻动词,紧随视线。
+          // The verb slides out horizontally ON HOVER (0718 宁静化 — 动词安静待命): a resting row
+          // carries NO verb; hover reveals it from its original position (需求⑦ 位置裁决保留). surface=
+          // 白底 line 边 so it reads on the grey row wash (Stop 红字 / Retry 墨字). reduced 双闸走原语。
+          // 动词 hover 横向滑出;灰洗底上白底描边小钮可辨。
           if (running)
-            AnButton(
-              label: t.rowCancel,
-              icon: AnIcons.stop,
-              size: AnButtonSize.sm,
-              variant: AnButtonVariant.danger,
-              onPressed: isPending || batchBusy ? null : () => _cancelOne(run),
+            AnExpandReveal(
+              axis: Axis.horizontal,
+              open: hovered && !isPending,
+              child: AnButton(
+                label: t.rowCancel,
+                icon: AnIcons.stop,
+                size: AnButtonSize.sm,
+                variant: AnButtonVariant.danger,
+                surface: true,
+                onPressed: isPending || batchBusy ? null : () => _cancelOne(run),
+              ),
             )
           else if (failed)
-            AnButton(
-              label: t.rowRetry,
-              icon: AnIcons.history,
-              size: AnButtonSize.sm,
-              onPressed: isPending || batchBusy ? null : () => _replayOne(run),
+            AnExpandReveal(
+              axis: Axis.horizontal,
+              open: hovered && !isPending,
+              child: AnButton(
+                label: t.rowRetry,
+                icon: AnIcons.history,
+                size: AnButtonSize.sm,
+                surface: true,
+                onPressed: isPending || batchBusy ? null : () => _replayOne(run),
+              ),
             ),
           if (run.replayCount > 0)
             AnChip(context.t.run.replayTimes(n: '${run.replayCount}'),
                 look: AnChipLook.outlined),
         ],
-        sub: failed ? _errorFirstLine(run.error) : null,
-        subTone: AnTone.danger,
+        // The error sentence has LEFT the row (0718 宁静化 — 错误句撤出行 → 行内速览卡): the failed row
+        // is single-line, the red dot is the only alarm; run.error 全文 lives in the expand peek card
+        // (RunPeekCard). 失败行单行化,红点=唯一警报;错误全文进行内速览卡。
         measure: elapsed,
         onTap: () => _onRowTap(run),
       ),
     );
-  }
-
-  String? _errorFirstLine(String? error) {
-    if (error == null) return null;
-    for (final line in error.split('\n')) {
-      final s = line.trim();
-      if (s.isNotEmpty) return s;
-    }
-    return null;
   }
 }
 

@@ -170,6 +170,20 @@ fe-verify 4304 全绿。
 
 **0718 调度轨 v2(用户复核 v1「非常丑」→提案「直接复用 Matrix View」,当面拍板)**:格换矩阵同款 controlSm 方格(一个海洋一种格语言)/整点分箱 25 格(24 完整+进行中,⊇ 任意滚动 24h 牌窗,取数窗 25h 同源)/蓝 now 线+三锚刻度眉退役(右锚下右缘即现在)/列头随格同滚逐小时标注(0 点=日期锚)/横滚右锚+名字·预告两翼冻结(矩阵滚动文法)/默认光标=最新格/方向键拖视口(矩阵立法)。**顺手根治 hover 大白片真机 bug**:AnHoverCard 的 overlay child 曾是裸 Positioned,被 Overlay 剧场强制铺满全台(tight 碾过 maxWidth)渲成挡半个 app 的白板——改 Align(topStart) 包 follower,尺寸锁+突变验杀(回退即红)。an_schedule_track 23 测+an_hover_card 3 测+B5 适配。
 
+## 0718 Overview 宁静化(B3 主页间距之外的独立追改,用户逐条拍板)
+
+**喧闹诊断(用户,已确认)**:Overview 相比 Entities 页「喧闹」——**红色浓度失控**(5 红 Stop + 5 条红 mono 错误句 + 7d 又一段红 ≈ 20 处红)、**强色动词挥霍**、**六段五种形态无主次**、caption 全大写小灰段题吵。**红色预算法**=**点承载警报、句子回归内容、动词安静待命**;运营主页大表同律连改(一份法典三处生效)。
+
+**五条拍板**(全落):
+
+1. **段序重排 + 段题大字化**(`scheduler_overview.dart`):新段序 **调度(时间轴总览打头)→ 等你处理 → 正在跑 → 失败段**(失败段=24h 按 run + 7d 连败**同段两小节、24h 在上**;KPI 牌保持最顶,牌不是段)。全部段题 `caption` → **`AnSection` plain 大字**(对齐运营主页 Runs/Matrix View;**计数离开段题、归 KPI 牌**——大表先例)。**KPI 牌钻取滚动锚 `_ZoneAnchor` 随新段序全部对齐重验**(GlobalKey 锚,与顺序无关)。顺带 `kpiWaiting` 缩「等你/Waiting」以与 plain 段题「等你处理/Waiting on you」区分(计数一去,牌与段题同词冲突)。
+2. **动词 hover 滑出**(`overview_zones.dart` 正在跑 Stop / 失败 Retry + `scheduler_home.dart` 大表 Stop/Retry):静息**无动词**;hover 行(既有 hovered 态,走 `AnHoverRegion` 滚动冻结缝)→ 动词从**原位**(紧随短语后)横向滑出(`AnExpandReveal(axis: horizontal)`,reduced 双闸)。钮=**白底描边小钮** `AnButton(surface: true)`(surface 底 + line 边,灰洗底上可辨——用户「hover 整块都是灰,按钮也灰,根本看不到」;Stop 红字 / Retry 墨字)。**等你处理区 Approve/Reject 不适用**(审批是主动作,蓝 Approve 常驻);批量勾选框仍 hover 现、与动词共存(lead 在左格、动词在 chips,无交集)。
+3. **错误句撤出行 → 进速览卡**(run 行族):`overview_zones` 失败区 `_row` 与 `scheduler_home` 大表 `_row` 删 `sub`/`subTone` 红错误句 → **失败行单行化**(红点=唯一警报);`run.error` **全文**进 `run_peek_card.dart` 甘特/图下方新增错误区(`AnCallout` danger,与旗舰错误摘要同声)。**节点台账(run 旗舰页 `FlowrunNodeList`)不动**——详情页语境,失败节点错误首句是主角。
+4. **7d 连败小节改造**(`SchedulerFailuresZone` 从板级 `_failureRow` 抽成 `_PeekZone` zone):删红错误句、留「failing ×N」胶囊;**点行=展开 latest run 速览卡**(`_PeekZone` 同构、与其他行零特例,卡内 open 进该 run 旗舰);原「最新 run →」直通车**改语义**为「**打开 workflow →**」→ `/scheduler/w/:id`(**用户裁:连败是 workflow 级慢性病,CTA 指病人不指单次发病**;i18n `openWorkflow` en+zh 新词条)。
+5. **页容量 10/页保持**(无改动,验证即可)。
+
+**原语增量**:`AnButton` 新 `surface` bool(白底 line 边、字色随变体——现有 ghost/danger 变体底色=灰洗底同色故隐形,B 轨立法走 token 增量;design-system §5 AnButton 条目补句)。**测试**:overview 四段 plain 顺序断言 + 24h/7d 小节序 + 段题 plain + KPI 牌滚动锚四区重验;失败行单行(`sub` findsNothing)+ 卡内错误全文在场;动词静息无/hover 现/白底钮在洗底;7d 点行开卡→旗舰路由 / 「打开 workflow →」→ `/scheduler/w/:id` / 红句 findsNothing。既有 overview/home/s2b 断言按新拍板改(常驻动词→hover、错误副行寻址→来源短语寻址、head 大写/计数→plain)。
+
 ## 拍板状态（0718 收官 ✅）
 
 **全部议题已拍板 ✅**（§A #1 假想框律 / #2 composer 28 档 + §B B1–B13 全部）——0718「都同意，落一下档」。待用户宣布开工后一口气建造；交付纪律=每条带测试、双门禁全绿、demo 帧逐条核对、opus 车队对抗复审、文档 1:1 同提交、后端半（B4 offset+total）守 N/D/E/S/T。

@@ -33,6 +33,7 @@ class AnButton extends StatelessWidget {
     this.variant = AnButtonVariant.ghost,
     this.size = AnButtonSize.md,
     this.outline = false,
+    this.surface = false,
     this.block = false,
     this.elevated = false,
     this.round = false,
@@ -52,6 +53,7 @@ class AnButton extends StatelessWidget {
     this.size = AnButtonSize.md,
     this.variant = AnButtonVariant.icon,
     this.outline = false,
+    this.surface = false,
     this.elevated = false,
     this.round = false,
     this.toggled = false,
@@ -68,6 +70,12 @@ class AnButton extends StatelessWidget {
   final AnButtonVariant variant;
   final AnButtonSize size;
   final bool outline;
+
+  /// An opaque [AnColors.surface] fill + a hairline [AnColors.line] border, keeping the variant's own
+  /// foreground colour (danger → red, ghost → ink). For a small verb button that must read on a grey
+  /// row-hover wash — a ghost/danger fill is the SAME grey/soft tint as the wash and vanishes (0718
+  /// 宁静化: the hover-revealed ⏹/↻). 白底描边:灰洗底上小动词钮可辨;底=surface、边=line、字色随变体。
+  final bool surface;
   final bool block;
 
   /// A soft [AnColors.shadowFloat] elevation — a button that floats over busy content (a graph canvas).
@@ -153,11 +161,21 @@ class AnButton extends StatelessWidget {
               bg = c.accentSoft;
             }
 
+            // surface overrides ONLY the fill (keeps the variant's fg): opaque surface at rest, a
+            // gentle surfaceSunken on active so it stays a notch off the surrounding grey wash rather
+            // than melting into it. 白底覆写只动底(字色不变),active 走 surfaceSunken 与洗底错开一档。
+            if (surface) {
+              bg = active ? c.surfaceSunken : c.surface;
+            }
+
             // Always allocate the border slot (transparent when unfocused) so gaining the focus ring
             // doesn't shift the content by 1px. Focus ring = inkMuted (≥3:1 light & dark; lineStrong
-            // 0.13α was invisible in light). 边框槽常驻(未聚焦透明),聚焦不挪 1px;焦点环 inkMuted。
+            // 0.13α was invisible in light). surface's own hairline is c.line, still ceding to the
+            // focus ring when focused. 边框槽常驻(未聚焦透明),聚焦不挪 1px;焦点环 inkMuted;surface 边=line。
             final border = Border.all(
-              color: outline ? fg : c.inkMuted.whenActive(focused),
+              color: surface
+                  ? (focused ? c.inkMuted : c.line)
+                  : (outline ? fg : c.inkMuted.whenActive(focused)),
               width: AnSize.hairline,
             );
 

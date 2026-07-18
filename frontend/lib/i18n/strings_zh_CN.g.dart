@@ -1149,7 +1149,7 @@ class _Translations$scheduler$overview$zh_CN extends Translations$scheduler$over
 	// Translations
 	@override String get kpiRunning => '在跑';
 	@override String kpiRunningA11y({required Object n}) => '在跑 ${n} 个。在「正在跑」列表中显示它们。';
-	@override String get kpiWaiting => '等你处理';
+	@override String get kpiWaiting => '等你';
 	@override String kpiWaitingA11y({required Object n}) => '等你处理 ${n} 条。在「等你处理」列表中显示它们。';
 	@override String get kpiFailed24h => '24h 失败';
 	@override String kpiFailed24hA11y({required Object n}) => '近 24h 失败 ${n} 次。在失败 run 列表中显示它们。';
@@ -1161,15 +1161,16 @@ class _Translations$scheduler$overview$zh_CN extends Translations$scheduler$over
 	@override String deltaDown({required Object n}) => '▼${n}';
 	@override String deltaUpA11y({required Object n}) => '较前一个 24h 多 ${n}';
 	@override String deltaDownA11y({required Object n}) => '较前一个 24h 少 ${n}';
-	@override String runningHead({required Object n}) => '正在跑 (${n})';
+	@override String get runningHead => '正在跑';
 	@override String get runningEmpty => '现在没有正在运行的 run。';
-	@override String failed24hHead({required Object n}) => '24h 失败 (${n})';
+	@override String get failuresSegmentHead => '失败';
+	@override String get failed24hHead => '近 24 小时';
 	@override String get trackTruncated => '此窗口内还有更多调度,轨道未能全部显示。';
-	@override String get failuresHead => '失败聚合 · 7d';
+	@override String get failuresHead => '连续失败 · 7d';
 	@override String get failuresEmpty => '近 7 天没有连续失败的 workflow。';
 	@override String streak({required Object n}) => '连败 ×${n}';
-	@override String get latestRun => '最新 run →';
-	@override String waitingHead({required Object n}) => '等你处理 (${n})';
+	@override String get openWorkflow => '打开 workflow →';
+	@override String get waitingHead => '等你处理';
 	@override String get waitingEmpty => '没有等你处理的审批。';
 	@override String waitedFor({required Object d}) => '等 ${d}';
 	@override String selectRow({required Object name}) => '选择 ${name}';
@@ -1198,7 +1199,7 @@ class _Translations$scheduler$overview$zh_CN extends Translations$scheduler$over
 	@override String get firstUseChat => '打开对话';
 	@override String get errorTitle => '总览加载失败';
 	@override String get errorHint => '后端没有应答,检查连接后重试。';
-	@override String get scheduleHead => '近 24h · 未来 24h';
+	@override String get scheduleHead => '调度';
 	@override String get scheduleEmpty => '没有装备任何 cron 排程。';
 	@override String get kpiMissed => '24h 错过';
 	@override String kpiMissedA11y({required Object n}) => '24h 错过 ${n} 次。在时间轴上看它们。';
@@ -3112,7 +3113,7 @@ extension on TranslationsZhCn {
 			'scheduler.showInactive' => '显示停用',
 			'scheduler.overview.kpiRunning' => '在跑',
 			'scheduler.overview.kpiRunningA11y' => ({required Object n}) => '在跑 ${n} 个。在「正在跑」列表中显示它们。',
-			'scheduler.overview.kpiWaiting' => '等你处理',
+			'scheduler.overview.kpiWaiting' => '等你',
 			'scheduler.overview.kpiWaitingA11y' => ({required Object n}) => '等你处理 ${n} 条。在「等你处理」列表中显示它们。',
 			'scheduler.overview.kpiFailed24h' => '24h 失败',
 			'scheduler.overview.kpiFailed24hA11y' => ({required Object n}) => '近 24h 失败 ${n} 次。在失败 run 列表中显示它们。',
@@ -3124,15 +3125,16 @@ extension on TranslationsZhCn {
 			'scheduler.overview.deltaDown' => ({required Object n}) => '▼${n}',
 			'scheduler.overview.deltaUpA11y' => ({required Object n}) => '较前一个 24h 多 ${n}',
 			'scheduler.overview.deltaDownA11y' => ({required Object n}) => '较前一个 24h 少 ${n}',
-			'scheduler.overview.runningHead' => ({required Object n}) => '正在跑 (${n})',
+			'scheduler.overview.runningHead' => '正在跑',
 			'scheduler.overview.runningEmpty' => '现在没有正在运行的 run。',
-			'scheduler.overview.failed24hHead' => ({required Object n}) => '24h 失败 (${n})',
+			'scheduler.overview.failuresSegmentHead' => '失败',
+			'scheduler.overview.failed24hHead' => '近 24 小时',
 			'scheduler.overview.trackTruncated' => '此窗口内还有更多调度,轨道未能全部显示。',
-			'scheduler.overview.failuresHead' => '失败聚合 · 7d',
+			'scheduler.overview.failuresHead' => '连续失败 · 7d',
 			'scheduler.overview.failuresEmpty' => '近 7 天没有连续失败的 workflow。',
 			'scheduler.overview.streak' => ({required Object n}) => '连败 ×${n}',
-			'scheduler.overview.latestRun' => '最新 run →',
-			'scheduler.overview.waitingHead' => ({required Object n}) => '等你处理 (${n})',
+			'scheduler.overview.openWorkflow' => '打开 workflow →',
+			'scheduler.overview.waitingHead' => '等你处理',
 			'scheduler.overview.waitingEmpty' => '没有等你处理的审批。',
 			'scheduler.overview.waitedFor' => ({required Object d}) => '等 ${d}',
 			'scheduler.overview.selectRow' => ({required Object name}) => '选择 ${name}',
@@ -3161,7 +3163,7 @@ extension on TranslationsZhCn {
 			'scheduler.overview.firstUseChat' => '打开对话',
 			'scheduler.overview.errorTitle' => '总览加载失败',
 			'scheduler.overview.errorHint' => '后端没有应答,检查连接后重试。',
-			'scheduler.overview.scheduleHead' => '近 24h · 未来 24h',
+			'scheduler.overview.scheduleHead' => '调度',
 			'scheduler.overview.scheduleEmpty' => '没有装备任何 cron 排程。',
 			'scheduler.overview.kpiMissed' => '24h 错过',
 			'scheduler.overview.kpiMissedA11y' => ({required Object n}) => '24h 错过 ${n} 次。在时间轴上看它们。',
@@ -3501,9 +3503,9 @@ extension on TranslationsZhCn {
 			'entities.detail.verb.run' => '运行',
 			'entities.detail.verb.call' => '调用',
 			'entities.detail.verb.invoke' => '唤起',
-			'entities.detail.verb.trigger' => '触发',
 			_ => null,
 		} ?? switch (path) {
+			'entities.detail.verb.trigger' => '触发',
 			'entities.detail.hero.envStatus' => ({required Object status}) => 'env ${status}',
 			'entities.detail.hero.noInputs' => '无入参',
 			'entities.detail.hero.methods' => ({required Object n}) => '${n} 个方法',
@@ -4015,9 +4017,9 @@ extension on TranslationsZhCn {
 			'settings.mcp.importTitle' => '导入 mcp.json',
 			'settings.mcp.importHint' => '粘贴 Claude Desktop 的 mcpServers 片段',
 			'settings.mcp.overwrite' => '覆盖同名',
-			'settings.mcp.doImport' => '导入',
 			_ => null,
 		} ?? switch (path) {
+			'settings.mcp.doImport' => '导入',
 			'settings.mcp.importResult' => ({required Object n, required Object m}) => '导入 ${n} · 跳过 ${m}',
 			'settings.mcp.importInvalid' => 'JSON 无法解析',
 			'settings.mcp.market' => '市场',

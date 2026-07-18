@@ -306,19 +306,20 @@ void main() {
   });
 
   group('widget battery 电池', () {
-    testWidgets('resting rhythm: caption→first row = 8 (塌缩批量条不吃 12), last row→zone bottom '
-        '= 24 (单页空翻页器不占席) — 0718 全模块对齐审计', (tester) async {
+    testWidgets('resting rhythm: plain head→first row = 12 (塌缩批量条不吃额外 gap), last row→zone '
+        'bottom = 24 (单页空翻页器不占席) — 0718 全模块对齐审计 + 宁静化 plain 段题', (tester) async {
       await _pumpBoard(tester, _host(_fullRepo()));
       final ov = t.scheduler.overview;
-      final capFinder = find.text(ov.runningHead(n: '1').toUpperCase());
+      // Plain segment title now (0718 宁静化: caption→plain, no count). headBody = 12. 大字段题,题→体 12。
+      final capFinder = find.text(ov.runningHead);
       final caption = tester.getRect(capFinder);
       final section =
           tester.getRect(find.ancestor(of: capFinder, matching: find.byType(AnSection)).first);
       final row = tester.getRect(find
           .descendant(of: find.byType(SchedulerRunningZone), matching: find.byType(AnLedgerRow))
           .first);
-      expect(row.top - caption.bottom, moreOrLessEquals(8, epsilon: 0.6),
-          reason: '题→首行=8:塌缩批量条合进体列,不再被 AnSection 12 双夹成 20');
+      expect(row.top - caption.bottom, moreOrLessEquals(12, epsilon: 0.6),
+          reason: '题→首行=12(plain headBody):塌缩批量条合进体列,不再被 AnSection 双夹');
       expect(section.bottom - row.bottom, moreOrLessEquals(24, epsilon: 0.6),
           reason: '末行→区底=24:单页 SizedBox.shrink 翻页器不再占一个带距子席(曾 36)');
     });
@@ -334,18 +335,21 @@ void main() {
       expect(find.text(ov.kpiNextFire), findsOneWidget);
       expect(find.text(ov.deltaUp(n: '2')), findsOneWidget);
 
-      // Zone heads (caption labels render uppercased). 区头(大写渲染)。
-      expect(find.text(ov.runningHead(n: '1').toUpperCase()), findsOneWidget);
-      expect(find.text(ov.scheduleHead.toUpperCase()), findsOneWidget);
-      expect(find.text(ov.failed24hHead(n: '4').toUpperCase()), findsOneWidget,
-          reason: '24h 失败区(工单⑮):牌点开的四行');
-      expect(find.text(ov.failuresHead.toUpperCase()), findsOneWidget);
+      // Zone heads are PLAIN big titles now (0718 宁静化 — 段序重排 + 段题大字化, no uppercase, no
+      // count; the count lives on the KPI strip). 段题=plain 大字,不大写、不带计数(计数归 KPI 牌)。
+      expect(find.text(ov.runningHead), findsOneWidget);
+      expect(find.text(ov.scheduleHead), findsOneWidget);
+      // «失败» segment head (plain) + its two quiet subsections (24h + 7d). 失败段大字 + 两小节。
+      expect(find.text(ov.failuresSegmentHead), findsOneWidget, reason: '失败段大字段题');
+      expect(find.text(ov.failed24hHead), findsOneWidget,
+          reason: '24h 小节(工单⑮):牌点开的四行,quiet 小标');
+      expect(find.text(ov.failuresHead), findsOneWidget, reason: '7d 连败小节 quiet 小标');
 
-      // Running row (B10 大表行文法): «workflow · source phrase» primary + the PERSISTENT ⏹ Stop verb;
-      // the bare fr_ id is gone from the row — it lives in the peek card + tooltip only (B1/B10).
-      // 正在跑行:新文法「workflow · 来源短语」+ 常驻 ⏹;裸 id 从行里删(只在速览卡+tooltip)。
+      // Running row (B10 大表行文法): «workflow · source phrase» primary; the ⏹ Stop verb is now
+      // HOVER-revealed (0718 宁静化 — 动词安静待命), so a resting board shows NO verb. 裸 id 只在速览卡。
       expect(find.text('fr_live1'), findsNothing, reason: '行内无裸 id(B1/B10)');
-      expect(find.text(t.scheduler.home.rowCancel), findsOneWidget, reason: '正在跑行的常驻 ⏹ 终止');
+      expect(find.text(t.scheduler.home.rowCancel), findsNothing,
+          reason: '动词安静待命:静息行无 ⏹(hover 才滑出)');
 
       // The schedule TRACK (S5): a lane per (workflow × cron trigger), labelled by the WORKFLOW —
       // this ocean's axis is the workflow (§1/§3.4), and the trigger's name rides the dot's tooltip.
@@ -365,18 +369,35 @@ void main() {
       expect(find.bySemanticsLabel(ov.kpiNextFireA11y(d: '3m')), findsOneWidget,
           reason: '可点的下次调度牌恒带读屏标签(不留无标签按钮)');
 
-      // Failure row: streak chip + error FIRST line + through-train. 失败行。
+      // 7d failure row: streak chip + «Open workflow →» CTA (0718 用户裁:连败=workflow 级慢性病).
+      // 7d 失败行:连败胶囊 + 「打开 workflow →」。
       expect(find.text(ov.streak(n: '4')), findsOneWidget);
-      // The 502 error first-line renders in EACH 24h-failed run row (4) AND the 7d aggregation row (1)
-      // — one projection, five surfaces; the finding here is that both failure views show it honestly.
-      // 502 错误首句在每个 24h 失败 run 行(4)与 7d 聚合行(1)各现——一份投影五处;两种失败视图都诚实地显示它。
-      expect(find.text('HTTP 502 Bad Gateway: upstream did not respond'), findsNWidgets(5));
-      expect(find.text(ov.latestRun), findsOneWidget);
+      // The red error sentence has LEFT the rows (0718 宁静化 — 错误句撤出行 → 速览卡): a resting board
+      // carries NO error text (no peek card is expanded). 错误句撤出行:静息盘面零错误句(无展开速览卡)。
+      expect(find.text('HTTP 502 Bad Gateway: upstream did not respond'), findsNothing,
+          reason: '错误句撤出行,进速览卡(收起态不建);行单行化,红点=唯一警报');
+      expect(find.text(ov.openWorkflow), findsOneWidget, reason: '连败行 CTA=「打开 workflow →」');
 
       // No empty sentences on a full board. 满态无空句。
       expect(find.text(ov.runningEmpty), findsNothing);
       expect(find.text(ov.scheduleEmpty), findsNothing);
       expect(find.text(ov.failuresEmpty), findsNothing);
+    });
+
+    testWidgets('段序 (0718 宁静化 — 用户逐条拍板): schedule 打头 → 等你处理 → 正在跑 → 失败段, '
+        'four plain segment heads top-down; the KPI strip stays above them all (牌不是段)', (tester) async {
+      await _pumpBoard(tester, _host(_fullRepo()));
+      final ov = t.scheduler.overview;
+      double topOf(String label) => tester.getTopLeft(find.text(label).first).dy;
+      // The KPI strip sits above every segment. KPI 牌恒最顶。
+      expect(topOf(ov.kpiRunning), lessThan(topOf(ov.scheduleHead)), reason: '牌不是段,恒在段之上');
+      // The four plain segments, in the拍板 order. 四段 plain 顺序。
+      expect(topOf(ov.scheduleHead), lessThan(topOf(ov.waitingHead)), reason: '调度时间轴打头');
+      expect(topOf(ov.waitingHead), lessThan(topOf(ov.runningHead)), reason: '等你处理在正在跑之上');
+      expect(topOf(ov.runningHead), lessThan(topOf(ov.failuresSegmentHead)), reason: '失败段殿后');
+      // Inside the failure segment: 24h subsection ABOVE the 7d subsection (同段两小节,24h 在上).
+      expect(topOf(ov.failuresSegmentHead), lessThan(topOf(ov.failed24hHead)), reason: '段题在小节之上');
+      expect(topOf(ov.failed24hHead), lessThan(topOf(ov.failuresHead)), reason: '24h 小节在 7d 连败小节之上');
     });
 
     testWidgets('quiet workspace: three honest empty sentences, KPI dashes', (tester) async {

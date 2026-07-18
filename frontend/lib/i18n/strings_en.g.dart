@@ -2782,8 +2782,8 @@ class Translations$scheduler$overview$en {
 	/// en: 'Running: $n. Show them in the running-now list.'
 	String kpiRunningA11y({required Object n}) => 'Running: ${n}. Show them in the running-now list.';
 
-	/// en: 'Waiting on you'
-	String get kpiWaiting => 'Waiting on you';
+	/// en: 'Waiting'
+	String get kpiWaiting => 'Waiting';
 
 	/// en: 'Waiting on you: $n. Show them in the waiting list.'
 	String kpiWaitingA11y({required Object n}) => 'Waiting on you: ${n}. Show them in the waiting list.';
@@ -2818,20 +2818,23 @@ class Translations$scheduler$overview$en {
 	/// en: '$n fewer than the previous 24h'
 	String deltaDownA11y({required Object n}) => '${n} fewer than the previous 24h';
 
-	/// en: 'Running now ($n)'
-	String runningHead({required Object n}) => 'Running now (${n})';
+	/// en: 'Running now'
+	String get runningHead => 'Running now';
 
 	/// en: 'Nothing is running right now.'
 	String get runningEmpty => 'Nothing is running right now.';
 
-	/// en: 'Failed · 24h ($n)'
-	String failed24hHead({required Object n}) => 'Failed · 24h (${n})';
+	/// en: 'Failures'
+	String get failuresSegmentHead => 'Failures';
+
+	/// en: 'Last 24h'
+	String get failed24hHead => 'Last 24h';
 
 	/// en: 'More is scheduled inside this window than the track can show.'
 	String get trackTruncated => 'More is scheduled inside this window than the track can show.';
 
-	/// en: 'Failures · 7d'
-	String get failuresHead => 'Failures · 7d';
+	/// en: 'Consecutive · 7d'
+	String get failuresHead => 'Consecutive · 7d';
 
 	/// en: 'No consecutive failures in the last 7 days.'
 	String get failuresEmpty => 'No consecutive failures in the last 7 days.';
@@ -2839,11 +2842,11 @@ class Translations$scheduler$overview$en {
 	/// en: 'failing ×$n'
 	String streak({required Object n}) => 'failing ×${n}';
 
-	/// en: 'Latest run →'
-	String get latestRun => 'Latest run →';
+	/// en: 'Open workflow →'
+	String get openWorkflow => 'Open workflow →';
 
-	/// en: 'Waiting on you ($n)'
-	String waitingHead({required Object n}) => 'Waiting on you (${n})';
+	/// en: 'Waiting on you'
+	String get waitingHead => 'Waiting on you';
 
 	/// en: 'No approvals waiting on you.'
 	String get waitingEmpty => 'No approvals waiting on you.';
@@ -2929,8 +2932,8 @@ class Translations$scheduler$overview$en {
 	/// en: 'The backend didn't answer. Check the connection and retry.'
 	String get errorHint => 'The backend didn\'t answer. Check the connection and retry.';
 
-	/// en: 'Last 24h · next 24h'
-	String get scheduleHead => 'Last 24h · next 24h';
+	/// en: 'Schedule'
+	String get scheduleHead => 'Schedule';
 
 	/// en: 'No cron schedule is equipped.'
 	String get scheduleEmpty => 'No cron schedule is equipped.';
@@ -6448,7 +6451,7 @@ extension on Translations {
 			'scheduler.showInactive' => 'Show inactive',
 			'scheduler.overview.kpiRunning' => 'Running',
 			'scheduler.overview.kpiRunningA11y' => ({required Object n}) => 'Running: ${n}. Show them in the running-now list.',
-			'scheduler.overview.kpiWaiting' => 'Waiting on you',
+			'scheduler.overview.kpiWaiting' => 'Waiting',
 			'scheduler.overview.kpiWaitingA11y' => ({required Object n}) => 'Waiting on you: ${n}. Show them in the waiting list.',
 			'scheduler.overview.kpiFailed24h' => 'Failed · 24h',
 			'scheduler.overview.kpiFailed24hA11y' => ({required Object n}) => 'Failed in the last 24h: ${n}. Show them in the failed-runs list.',
@@ -6460,15 +6463,16 @@ extension on Translations {
 			'scheduler.overview.deltaDown' => ({required Object n}) => '▼${n}',
 			'scheduler.overview.deltaUpA11y' => ({required Object n}) => '${n} more than the previous 24h',
 			'scheduler.overview.deltaDownA11y' => ({required Object n}) => '${n} fewer than the previous 24h',
-			'scheduler.overview.runningHead' => ({required Object n}) => 'Running now (${n})',
+			'scheduler.overview.runningHead' => 'Running now',
 			'scheduler.overview.runningEmpty' => 'Nothing is running right now.',
-			'scheduler.overview.failed24hHead' => ({required Object n}) => 'Failed · 24h (${n})',
+			'scheduler.overview.failuresSegmentHead' => 'Failures',
+			'scheduler.overview.failed24hHead' => 'Last 24h',
 			'scheduler.overview.trackTruncated' => 'More is scheduled inside this window than the track can show.',
-			'scheduler.overview.failuresHead' => 'Failures · 7d',
+			'scheduler.overview.failuresHead' => 'Consecutive · 7d',
 			'scheduler.overview.failuresEmpty' => 'No consecutive failures in the last 7 days.',
 			'scheduler.overview.streak' => ({required Object n}) => 'failing ×${n}',
-			'scheduler.overview.latestRun' => 'Latest run →',
-			'scheduler.overview.waitingHead' => ({required Object n}) => 'Waiting on you (${n})',
+			'scheduler.overview.openWorkflow' => 'Open workflow →',
+			'scheduler.overview.waitingHead' => 'Waiting on you',
 			'scheduler.overview.waitingEmpty' => 'No approvals waiting on you.',
 			'scheduler.overview.waitedFor' => ({required Object d}) => 'waiting ${d}',
 			'scheduler.overview.selectRow' => ({required Object name}) => 'Select ${name}',
@@ -6497,7 +6501,7 @@ extension on Translations {
 			'scheduler.overview.firstUseChat' => 'Open the conversation',
 			'scheduler.overview.errorTitle' => 'Couldn\'t load the overview',
 			'scheduler.overview.errorHint' => 'The backend didn\'t answer. Check the connection and retry.',
-			'scheduler.overview.scheduleHead' => 'Last 24h · next 24h',
+			'scheduler.overview.scheduleHead' => 'Schedule',
 			'scheduler.overview.scheduleEmpty' => 'No cron schedule is equipped.',
 			'scheduler.overview.kpiMissed' => 'Missed · 24h',
 			'scheduler.overview.kpiMissedA11y' => ({required Object n}) => 'Missed · 24h: ${n}. Show them on the schedule track.',
@@ -6837,9 +6841,9 @@ extension on Translations {
 			'entities.detail.verb.run' => 'Run',
 			'entities.detail.verb.call' => 'Call',
 			'entities.detail.verb.invoke' => 'Invoke',
-			'entities.detail.verb.trigger' => 'Trigger',
 			_ => null,
 		} ?? switch (path) {
+			'entities.detail.verb.trigger' => 'Trigger',
 			'entities.detail.hero.envStatus' => ({required Object status}) => 'env ${status}',
 			'entities.detail.hero.noInputs' => 'no inputs',
 			'entities.detail.hero.methods' => ({required Object n}) => '${n} methods',
@@ -7351,9 +7355,9 @@ extension on Translations {
 			'settings.mcp.importTitle' => 'Import mcp.json',
 			'settings.mcp.importHint' => 'Paste a Claude Desktop mcpServers snippet',
 			'settings.mcp.overwrite' => 'Overwrite same names',
-			'settings.mcp.doImport' => 'Import',
 			_ => null,
 		} ?? switch (path) {
+			'settings.mcp.doImport' => 'Import',
 			'settings.mcp.importResult' => ({required Object n, required Object m}) => 'Imported ${n} · skipped ${m}',
 			'settings.mcp.importInvalid' => 'Couldn\'t parse the JSON',
 			'settings.mcp.market' => 'Marketplace',

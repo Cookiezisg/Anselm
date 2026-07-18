@@ -229,13 +229,11 @@ Future<void> _pump(WidgetTester tester, StubSchedulerRepo repo, {String? runId})
   await tester.pump(const Duration(seconds: 1));
 }
 
-/// Hover [target]. [reveal] (default [target]) is what gets scrolled into view first: a row's ERROR
-/// SUB-LINE is the natural hover handle but it is the row's BOTTOM line, so scrolling *it* to the
-/// viewport's top edge pushes the row's own hover action (vertically centred, i.e. higher) off-screen
-/// — the action is then found but un-hittable. Reveal the ROW, hover the line.
-/// 悬停 target;reveal(默认同 target)是先被滚入视口的那个:行的**错误副行**是天然的悬停把手,但它是行的
-/// **底**行——把**它**滚到视口顶缘会把该行自己的悬停动作(垂直居中、即更高)顶出屏幕,动作于是「找得到却
-/// 点不中」。故:滚**行**、悬停**行内那一句**。
+/// Hover [target]. [reveal] (default [target]) is scrolled into view first. Rows are single-line now
+/// (0718 宁静化: the error sub-line left the row), so the hover handle is the row's SOURCE PHRASE
+/// primary; a hover reveals both the batch checkbox (lead) and the hover-revealed verb (⏹/↻).
+/// 悬停 target;reveal(默认同 target)先滚入视口。行已单行化(错误副行撤出),故悬停把手=行的来源短语主文;
+/// 一次悬停同时现批量勾选框(lead)与滑出的动词(⏹/↻)。
 Future<TestGesture> _hover(WidgetTester tester, Finder target, {Finder? reveal}) async {
   await tester.ensureVisible(reveal ?? target);
   await tester.pump();
@@ -246,10 +244,6 @@ Future<TestGesture> _hover(WidgetTester tester, Finder target, {Finder? reveal})
   await tester.pump();
   return g;
 }
-
-Finder _rowCheck(String primary) => find.descendant(
-    of: find.ancestor(of: find.text(primary), matching: find.byType(AnLedgerRow)),
-    matching: find.byType(AnBatchCheck));
 
 /// A control inside the trigger card whose name is [name] — three cards share the same button
 /// labels, so every tap must name its card. 按卡定位控件(三卡共享同款按钮标签)。
@@ -425,10 +419,19 @@ void main() {
           reason: '行内不再渲 run id 药丸——身份=来源短语+时刻');
     });
 
-    testWidgets('failed rows carry the error FIRST LINE in the danger sub', (tester) async {
+    testWidgets('failed rows are single-line — the error moved off the row into the peek card '
+        '(0718 宁静化: 错误句撤出行 → 速览卡)', (tester) async {
+      // Resting: the failed row carries NO error sentence (single-line, red dot = the only alarm).
+      // 静息:失败行零错误句(单行化,红点=唯一警报)。
       await _pump(tester, _repo());
-      expect(find.text('HTTP 502 Bad Gateway: upstream did not respond'), findsOneWidget);
-      expect(find.textContaining('retried 3 times'), findsNothing, reason: '只取首句');
+      expect(find.textContaining('HTTP 502 Bad Gateway'), findsNothing,
+          reason: '错误句撤出行:失败行单行化');
+      // Expand fr_fail1's inline peek card → run.error appears IN FULL (AnCallout danger; the card's
+      // context allows the one red detail). 展开 fr_fail1 速览卡 → run.error 全文(卡语境一条红细节)。
+      await _pump(tester, _repo(), runId: 'fr_fail1');
+      await _settle(tester);
+      expect(find.text('HTTP 502 Bad Gateway: upstream did not respond\nretried 3 times'),
+          findsOneWidget, reason: '速览卡内 run.error 全文(不再只取首句)');
     });
 
     testWidgets('the count strip carries TRUE numbers and each click IS the wire filter',
@@ -638,17 +641,36 @@ void main() {
       expect(trig.top - runs.bottom, moreOrLessEquals(0, epsilon: 0.6), reason: '运行→触发器贴合');
     });
 
-    testWidgets('the verb is PERSISTENT, inline after the phrase — no hover needed (需求⑦)',
+    testWidgets('the verb is HOVER-revealed, inline after the phrase (0718 宁静化: 动词安静待命)',
         (tester) async {
       await _pump(tester, _repo());
-      // No pointer anywhere: running rows already wear ⏹ Stop, failed rows ↻ Retry. 零悬停即见。
-      expect(find.text(h.rowCancel), findsOneWidget, reason: '在跑行常驻 ⏹ 终止(种子恰一条在跑)');
-      expect(find.text(h.rowRetry), findsNWidgets(2), reason: '两条失败行常驻 ↻ 重试');
-      // The verb sits INSIDE the row (right after the phrase), not in a far-edge reserved cell.
-      // 动词在行内紧随短语,不在行尾预留格。
+      // Resting: NO verb anywhere (动词安静待命 — 静息行无动词). 静息:零动词。
+      expect(find.text(h.rowCancel), findsNothing, reason: '静息行无 ⏹');
+      expect(find.text(h.rowRetry), findsNothing, reason: '静息行无 ↻');
+
+      // Running filter → hover the one running row (its «cron · time» phrase is unique here) → the ⏹
+      // Stop slides out, inside the row. 在跑态 hover 唯一在跑行 → ⏹ 从行内滑出。
+      await tester.tap(find.text(h.filterRunning(n: '1')));
+      await tester.pump();
+      await _settle(tester);
+      final gRun = await _hover(tester, find.textContaining('cron'));
+      await tester.pump(const Duration(milliseconds: 300));
       expect(
           find.descendant(of: find.byType(AnLedgerRow), matching: find.text(h.rowCancel)),
-          findsOneWidget);
+          findsOneWidget, reason: 'hover 正在跑行 → ⏹ 从原位滑出(行内,紧随短语)');
+      await gRun.removePointer();
+      await tester.pump();
+      await _settle(tester);
+
+      // Failed filter → resting has no verb; hover fr_fail1 → the ↻ Retry slides out. 失败态 hover 现 ↻。
+      await tester.tap(find.text(h.filterFailed(n: '2')));
+      await tester.pump();
+      await _settle(tester);
+      expect(find.text(h.rowRetry), findsNothing, reason: '失败态静息仍无 ↻');
+      final gFail = await _hover(tester, find.textContaining('/invoice'));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text(h.rowRetry), findsOneWidget, reason: 'hover 失败行 → ↻ 滑出');
+      await gFail.removePointer();
     });
 
     testWidgets('single replay: the confirm carries the REAL memoization numbers', (tester) async {
@@ -658,14 +680,12 @@ void main() {
       await tester.pump();
       await _settle(tester);
 
-      // The verb is persistent and lives IN the row — address THAT row's Retry by ancestry off its
-      // error line (需求⑦:常驻内联,无需悬停;寻址走行自己的错误副行,绝不「页面上第一个 Retry」).
-      // 动词常驻行内——按该行错误副行做祖先寻址,绝不拿页序第一个。
+      // The verb is HOVER-revealed now (0718 宁静化) — address fr_fail1 by its source phrase '/invoice'
+      // (需求⑤ 无裸 id, 错误副行已撤), hover to slide out its ↻, then tap it. 悬停行(按来源短语寻址)→ 点 ↻。
       final failRow = find.ancestor(
-          of: find.text('HTTP 502 Bad Gateway: upstream did not respond'),
-          matching: find.byType(AnLedgerRow));
-      await tester.ensureVisible(failRow.first);
-      await tester.pump();
+          of: find.textContaining('/invoice'), matching: find.byType(AnLedgerRow));
+      final g = await _hover(tester, find.textContaining('/invoice'));
+      await tester.pump(const Duration(milliseconds: 300));
       await tester.tap(
           find.descendant(of: failRow, matching: find.text(h.rowRetry)).first,
           warnIfMissed: false);
@@ -678,6 +698,7 @@ void main() {
       await tester.pump();
       await _settle(tester);
       expect(repo.replayOrder, ['fr_fail1']);
+      await g.removePointer();
     });
 
     testWidgets('replay when the node history is unavailable → the numberless honest sentence',
@@ -689,16 +710,16 @@ void main() {
       await _settle(tester);
 
       final failRow = find.ancestor(
-          of: find.text('HTTP 502 Bad Gateway: upstream did not respond'),
-          matching: find.byType(AnLedgerRow));
-      await tester.ensureVisible(failRow.first);
-      await tester.pump();
+          of: find.textContaining('/invoice'), matching: find.byType(AnLedgerRow));
+      final g = await _hover(tester, find.textContaining('/invoice'));
+      await tester.pump(const Duration(milliseconds: 300));
       await tester.tap(
           find.descendant(of: failRow, matching: find.text(h.rowRetry)).first,
           warnIfMissed: false);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.text(h.replayBodyUnknown), findsOneWidget, reason: '取不到数字也不假造');
+      await g.removePointer();
     });
 
     testWidgets('batch replay: ≥2 selected → merged real numbers → SEQUENTIAL dispatch',
@@ -710,14 +731,14 @@ void main() {
       await tester.pump();
       await _settle(tester);
 
-      final g = await _hover(tester, find.text('HTTP 502 Bad Gateway: upstream did not respond'),
-          reveal: find.ancestor(
-              of: find.text('HTTP 502 Bad Gateway: upstream did not respond'),
-              matching: find.byType(AnLedgerRow)));
-      await tester.tap(_rowCheck('HTTP 502 Bad Gateway: upstream did not respond'));
+      // Address the first failed row by its source phrase (需求⑤ 无裸 id); hover reveals its checkbox.
+      // 按来源短语寻址失败行,hover 现勾选框。
+      final g = await _hover(tester, find.textContaining('/invoice'));
+      await tester.tap(find.byType(AnBatchCheck).first);
       await tester.pump();
       expect(find.byType(AnBatchBar), findsNothing, reason: '选中 1 不出条');
-      await tester.tap(_rowCheck('timeout: LLM 30s no answer'));
+      // Selecting mode now shows every failed row's checkbox — pick the second (last) one. 全现勾选框,选第二行。
+      await tester.tap(find.byType(AnBatchCheck).last);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.byType(AnBatchBar), findsOneWidget);

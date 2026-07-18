@@ -4,6 +4,7 @@ import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/runtime.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/features/scheduler/data/scheduler_repository.dart';
+import 'package:anselm/features/scheduler/ui/overview_zones.dart';
 import 'package:anselm/features/scheduler/ui/run_peek_card.dart';
 import 'package:anselm/features/scheduler/ui/scheduler_overview.dart';
 import 'package:anselm/i18n/strings.g.dart';
@@ -258,7 +259,7 @@ void main() {
         (tester) async {
       await _pumpBoard(tester, _repo());
 
-      expect(find.text(ov.waitingHead(n: '3').toUpperCase()), findsOneWidget);
+      expect(find.text(ov.waitingHead), findsOneWidget);
       expect(find.text('周报生成'), findsOneWidget);
       expect(find.text('发布上线'), findsOneWidget);
       // Soft-deleted host: the name fell back to the bare id — rendered as-is, still decidable.
@@ -324,7 +325,7 @@ void main() {
 
       expect(repo.decideOrder, ['fr_park1/approve_send:yes:周报没问题']);
       expect(find.text('周报生成'), findsNothing, reason: '决了行消失(refetch 收行)');
-      expect(find.text(ov.waitingHead(n: '2').toUpperCase()), findsOneWidget);
+      expect(find.text(ov.waitingHead), findsOneWidget);
     });
 
     testWidgets('losing first-wins (422) earns the honest toast and the row reconciles away',
@@ -448,20 +449,19 @@ void main() {
   });
 
   group('正在跑 running zone (B10 大表行文法)', () {
-    testWidgets('the PERSISTENT ⏹ Stop verb opens the danger confirm; cancel settles the row away',
-        (tester) async {
+    testWidgets('the ⏹ Stop verb is HOVER-revealed, opens the danger confirm; cancel settles the row '
+        'away (0718 宁静化: 动词安静待命)', (tester) async {
       final repo = _repo();
       await _pumpBoard(tester, repo);
 
-      expect(find.text(ov.runningHead(n: '2').toUpperCase()), findsOneWidget);
-      // The verb is PERSISTENT now (B10 — no hover-only far-edge ⏹): one Stop per running row.
-      // 动词常驻(B10:无 hover 行尾 ⏹):每行一枚 ⏹。
-      expect(find.text(t.scheduler.home.rowCancel), findsNWidgets(2), reason: '常驻 ⏹ 每行一枚');
-      expect(find.byWidgetPredicate((w) => w is Visibility && w.visible), findsNothing,
-          reason: 'hover 行尾 ⏹ 已退役,不再有 Visibility 门');
+      expect(find.text(ov.runningHead), findsOneWidget);
+      // Resting: no verb (动词安静待命). 静息:零动词。
+      expect(find.text(t.scheduler.home.rowCancel), findsNothing, reason: '静息行无 ⏹');
 
-      await tester.ensureVisible(_rowVerb('数据清洗流水线', t.scheduler.home.rowCancel));
-      await tester.pump();
+      // Hover the row → ⏹ slides out from its original position (after the phrase). hover → ⏹ 滑出。
+      final g = await _hover(tester, _rowPrimary('数据清洗流水线'));
+      await tester.pump(const Duration(milliseconds: 300)); // reveal
+      expect(_rowVerb('数据清洗流水线', t.scheduler.home.rowCancel), findsOneWidget, reason: 'hover → ⏹');
       await tester.tap(_rowVerb('数据清洗流水线', t.scheduler.home.rowCancel));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300)); // dialog transition
@@ -475,14 +475,15 @@ void main() {
 
       expect(repo.cancelOrder, ['fr_live1']);
       expect(find.textContaining('数据清洗流水线'), findsNothing, reason: '取消后 running 行消失');
-      expect(find.text(ov.runningHead(n: '1').toUpperCase()), findsOneWidget);
+      expect(find.text(ov.runningHead), findsOneWidget);
+      await g.removePointer();
     });
 
     testWidgets('dismissing the dialog cancels nothing', (tester) async {
       final repo = _repo();
       await _pumpBoard(tester, repo);
-      await tester.ensureVisible(_rowVerb('库存同步', t.scheduler.home.rowCancel));
-      await tester.pump();
+      final g = await _hover(tester, _rowPrimary('库存同步'));
+      await tester.pump(const Duration(milliseconds: 300));
       await tester.tap(_rowVerb('库存同步', t.scheduler.home.rowCancel));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
@@ -491,6 +492,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       expect(repo.cancelOrder, isEmpty);
       expect(find.textContaining('库存同步'), findsOneWidget);
+      await g.removePointer();
     });
 
     testWidgets('a run that already ended (422) earns the honest toast + reconcile', (tester) async {
@@ -499,8 +501,8 @@ void main() {
       // It ends elsewhere after the board loaded. 加载后 run 已自行结束。
       repo.cancelled.add('fr_live1');
 
-      await tester.ensureVisible(_rowVerb('数据清洗流水线', t.scheduler.home.rowCancel));
-      await tester.pump();
+      final g = await _hover(tester, _rowPrimary('数据清洗流水线'));
+      await tester.pump(const Duration(milliseconds: 300));
       await tester.tap(_rowVerb('数据清洗流水线', t.scheduler.home.rowCancel));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
@@ -511,6 +513,7 @@ void main() {
 
       expect(find.text(ov.alreadyFinished), findsOneWidget, reason: '诚实 toast');
       expect(find.textContaining('数据清洗流水线'), findsNothing, reason: '对账后行随真相消失');
+      await g.removePointer();
     });
 
     testWidgets('batch cancel: ≥2 selected → danger dialog with the victim LIST → sequential '
@@ -560,24 +563,27 @@ void main() {
       expect(find.byType(RunPeekCard), findsOneWidget, reason: '单击=行内展开速览卡(不跳转)');
       expect(find.text(t.scheduler.home.openRun), findsOneWidget, reason: '旗舰门在卡上');
       // The board is still here — an expand, not a navigation. 盘面还在:展开、非跳转。
-      expect(find.text(ov.runningHead(n: '2').toUpperCase()), findsOneWidget);
+      expect(find.text(ov.runningHead), findsOneWidget);
     });
   });
 
   group('24h 失败 failed zone (B10 补齐)', () {
-    testWidgets('each row carries the persistent ↻ Retry verb; a single replay confirms with REAL '
-        'numbers and settles the row away', (tester) async {
+    testWidgets('the ↻ Retry verb is hover-revealed; a single replay confirms with REAL numbers and '
+        'settles the row away (0718 宁静化)', (tester) async {
       final repo = _failedRepo();
       await _pumpBoard(tester, repo);
 
-      expect(find.text(ov.failed24hHead(n: '2').toUpperCase()), findsOneWidget);
-      // The verb the failed zone was MISSING before B10 — persistent, one per row. B10 前缺失的动词。
-      expect(find.text(t.scheduler.home.rowRetry), findsNWidgets(2), reason: '常驻 ↻ 每行一枚');
-      // The error first line still rides the danger sub. 错误首句仍在 danger 副行。
-      expect(find.textContaining('HTTP 502 Bad Gateway'), findsOneWidget);
+      expect(find.text(ov.failed24hHead), findsOneWidget);
+      // Resting: no verb (动词安静待命). 静息:零动词。
+      expect(find.text(t.scheduler.home.rowRetry), findsNothing, reason: '静息行无 ↻');
+      // The error sentence has LEFT the row (0718 宁静化 — 错误句撤出行 → 速览卡): single-line, red dot
+      // = the only alarm. 失败行单行化,错误撤出行(进速览卡)。
+      expect(find.textContaining('HTTP 502 Bad Gateway'), findsNothing,
+          reason: '错误句撤出行:失败行单行化');
 
-      await tester.ensureVisible(_rowVerb('数据清洗流水线', t.scheduler.home.rowRetry));
-      await tester.pump();
+      final g = await _hover(tester, _rowPrimary('数据清洗流水线'));
+      await tester.pump(const Duration(milliseconds: 300)); // reveal
+      expect(_rowVerb('数据清洗流水线', t.scheduler.home.rowRetry), findsOneWidget, reason: 'hover → ↻');
       await tester.tap(_rowVerb('数据清洗流水线', t.scheduler.home.rowRetry));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300)); // getRunFull + confirm
@@ -592,8 +598,9 @@ void main() {
       await _settle(tester);
 
       expect(repo.replayOrder, ['fr_bad1'], reason: '重放已派发');
-      expect(find.text(ov.failed24hHead(n: '1').toUpperCase()), findsOneWidget,
+      expect(find.text(ov.failed24hHead), findsOneWidget,
           reason: '重放后离开 24h 失败窗');
+      await g.removePointer();
     });
 
     testWidgets('multi-select batch replay: hover checkbox → bar at ≥2 → SEQUENTIAL dispatch → '
@@ -682,9 +689,12 @@ void main() {
     testWidgets('front-end pager: 12 failed runs → 10 on page 1, 2 on page 2 (drained list sliced '
         'client-side — no backend)', (tester) async {
       await _pumpBoard(tester, _manyFailedRepo());
-      expect(find.text(ov.failed24hHead(n: '12').toUpperCase()), findsOneWidget);
-      // Page 1: 10 rows → 10 persistent Retry verbs; the pager is present (>10 rows). 首页 10 行。
-      expect(find.text(t.scheduler.home.rowRetry), findsNWidgets(10), reason: '首页 10 行');
+      expect(find.text(ov.failed24hHead), findsOneWidget);
+      // Page 1: 10 rows (verbs are hover-revealed now, so count ROWS not resting verbs, scoped to the
+      // failed zone); the pager is present (>10 rows). 首页 10 行(动词 hover 才现,数行不数动词)。
+      expect(
+          find.descendant(of: find.byType(SchedulerFailedZone), matching: find.byType(AnLedgerRow)),
+          findsNWidgets(10), reason: '首页 10 行');
       expect(find.byType(AnPager), findsOneWidget, reason: '>10 行出翻页器');
 
       // Jump to page 2 → the remaining 2 rows (pure client slice, never a fetch). 跳第 2 页=剩 2 行。
@@ -693,7 +703,9 @@ void main() {
       await tester.tap(find.text('2'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
-      expect(find.text(t.scheduler.home.rowRetry), findsNWidgets(2), reason: '第 2 页 2 行');
+      expect(
+          find.descendant(of: find.byType(SchedulerFailedZone), matching: find.byType(AnLedgerRow)),
+          findsNWidgets(2), reason: '第 2 页 2 行');
     });
   });
 }

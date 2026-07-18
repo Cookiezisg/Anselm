@@ -136,6 +136,15 @@ class _RunPeekCardState extends ConsumerState<RunPeekCard> {
           ]),
           const SizedBox(height: AnGap.block),
           body,
+          // The run's error, in full (0718 宁静化 — 错误句撤出行 → 速览卡): the failed run rows are now
+          // single-line (red dot = the only alarm), and the ONE red detail lands HERE, in the card's
+          // context — AnCallout danger, the same error voice the run flagship's summary speaks (one
+          // text, consistent surfaces). Present only for a run that carries a wire error.
+          // run 错误全文:失败行已单行化(红点=唯一警报),那条红细节落在卡里(与旗舰错误摘要同声);仅有错误时在场。
+          if (comp != null && (comp.flowrun.error?.trim().isNotEmpty ?? false)) ...[
+            const SizedBox(height: AnGap.block),
+            AnCallout(comp.flowrun.error!.trim(), severity: AnCalloutSeverity.danger),
+          ],
         ]),
       ),
     );

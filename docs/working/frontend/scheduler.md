@@ -66,7 +66,12 @@ audience: [human, ai]
 
 ## 3. Overview 全局看板(`/scheduler`,无选中态)
 
-单页 AnPage 720,自上而下按「需要人的程度」排,首屏完整可下滚:
+单页 AnPage 720,自上而下排,首屏完整可下滚。**0718 宁静化(用户逐条拍板 —— Overview 相比 Entities「喧闹」:红色浓度失控 + 强色动词挥霍 + 六段五形态无主次;法则=点承载警报、句子回归内容、动词安静待命;同律亦施于运营主页大表 §4.3)**:
+
+- **① 段序重排**——**调度时间轴总览打头** → 等你处理 → 正在跑 → **失败段**(KPI 牌保持最顶,**牌不是段**)。旧序=等你处理→正在跑→调度→失败,现按此重排。
+- **② 段题大字化**——全部段题 `caption`(大写灰小标)→ **`AnSection` plain 大字**(对齐运营主页 Runs/Matrix View 语言);**计数离开段题、归 KPI 牌**(大表先例:plain 题不带计数)。`kpiWaiting` 顺势缩为「等你/Waiting」以与 plain 段题「等你处理/Waiting on you」区分。
+- **③ 动词安静待命**——正在跑 ⏹ / 失败 ↻ 从**常驻**改为 **hover 才从原位横向滑出**(`AnExpandReveal(axis: horizontal)`,reduced 双闸);钮=**白底描边小钮** `AnButton(surface: true)`(surface 底 + line 边,灰洗底上可辨——用户原话「hover 整个块都是灰的你按钮也是灰的根本看不到」;Stop 红字 / Retry 墨字)。**等你处理区审批 Approve/Reject 不适用**(审批是本区主动作,蓝 Approve 常驻);批量勾选框仍 hover 现,与动词共存。
+- **④ 错误句撤出行**——失败行**单行化、红点=唯一警报**;`run.error` **全文**进**行内速览卡**(`RunPeekCard` 甘特/图下方 `AnCallout` danger)。**节点台账(run 旗舰页)不动**——详情页语境,失败节点错误首句是主角。
 
 1. **KPI 牌**(AnCard+AnCountUp):在跑 N / 等你 N / 24h 失败 N(**delta 箭头** ▲2,A 收编)/ 下次调度 in 3m / **错过 N**(判决⑥ **✅ 已落**,S6:**有 missed 才出现的第五牌**——「错过 0」过不了决策测试,是醒着的机器的常态,天天读 0 的牌是装饰且吃掉另外四张的宽[禁虚荣数字 军规];**牌不在,本身就是好消息**[成功是背景音]。增删只随 durable 重取、绝不随 tick,故活性军规允许这处几何变化。点击=**滚动到并洗亮调度轨**——它数的那些刻度就是轨上的 ✕,同窗同谓词)。
 
@@ -77,29 +82,34 @@ audience: [human, ai]
     - **24h 失败 N → 「24h 失败」区(判决⑮ ✅ 已落,补后端接前端)**。它数的是窗口内**落定**为 failed 的 run(后端 `failedSince` 按 **`completed_at`** 开窗),而在工单⑮ 之前本海洋问得到的每一份 run 列表都按 **`started_at`** 开窗——照它建的列表会漏掉「30h 前起跑、1h 前失败」的那个,又会混进「窗内起跑、还在跑」的那个,故它曾是**唯一没有面表达得了其谓词**的牌。**判决=补后端**(迭代流程铁律②「必要时改后端」):`GET /flowruns` 加 **`?completedAfter`/`?completedBefore`**(completed_at 上的另一个半开窗,未落定 run 的 `completed_at` 为 NULL、`NULL >= ?` 永不为真故被剔除),与 `failedSince` **逐字节同谓词**(裸 `completed_at >= ?`;顺带修掉后端 `julianday()` 假「格式漂移」——实测无漂移且它只到毫秒会让牌与列表在窗口边缘打架);新增 `idx_fr_ws_status_completed` 索引(实测 50.3ms→33.6µs,EXPLAIN 守卫 `flowrun_plan_test.go`)。前端牌**深链到一个新的按 run 失败区** `SchedulerFailedZone`(仅非空时在场、`_ZoneAnchor` 揭示+洗亮；**WRK-070 B10 ✅**：本区亦收敛到运营大表行文法——「workflow · 来源短语」+ **常驻 ↻ 重试**[`rowRetry`，B10 前缺失，补齐]+ **多选批量重放**[`AnBatchBar`，failed 亦可多选]+ **单击行内速览卡** `RunPeekCard`[不跳转、双击进子页]+ **前端 10/页翻页** `AnPager`，与「正在跑」区共用 `_PeekZone` mixin + `RunPeekCard`),牌数=`failedRuns.length`(拉全 `listFailedSince(kpiSince)`,同 running/waiting 的口径同源——锚点 `kpiSince` 前端算一次、同一绝对时刻发给 stats 的 `?since=` 与列表的 `?completedAfter=`,突变体已验杀)。**下面的「失败聚合 7d」是宪法点名的那个相近但不同的列表**:按**连败**聚合 **workflow**、不按窗口聚合 run——整夜失败 4 次然后跑通的 workflow 在那里缺席(已自愈)、在这里(24h 按 run)在场,故两区**相邻同读而不相混**(不同窗、不同轴,链错就是「牌写 4、点开一个空区」)。
     - **零行即惰性**:「在跑 0」/「等你 0」/「24h 失败 0」不可点——没有列表可开,死可供性是谎(同失败区 [最新 run] 直通车的规矩);24h 失败牌的可点性与 `SchedulerFailedZone` 的在场是同一个条件 `failedRuns.isNotEmpty`(delta 可在 0 计数时仍非零=改善 ▼,牌仍显数与箭头、只是惰性)。
     - **a11y**:牌成控件即**念成控件**——label(句子说清这一下会做什么)+ `isButton` + **tap 动作**,**dump 实证**非推理。**label 标在卡内部、且只标 label**(`button`/`enabled` 的所有权留给 `AnCard` 的 `AnInteractive`,两份配置不共享旗标故合并成**一个**节点,design-system §2)。**顺带修掉第五张牌落地时的 a11y 形状**:从**外面**包一张 `ExcludeSemantics` 过的卡,实测丢 `isFocusable`/`hasEnabledState`,更要命的是丢 **tap 动作**——桌面上动作是少数真到得了读屏的东西之一,于是它念出一个**按不动**的按钮。
-2. **等你处理**(最贵地皮):`/flowrun-inbox` 全集(工单④enrich 带 workflow 名+deadline),每行=workflow 名+节点+等待时长+**AnCountdown 超时倒计时**(新原语,单顶层 Timer 共驱)+`ApprovalGate` 就地批/拒(带 reason);决策后行滑出;first-wins 输家 422→诚实 toast+refetch。**批量操作(判决②)**:行首 hover checkbox,选中≥2 浮出 `AnBatchBar` 批量条(「已选 3 · [批量批准][批量拒绝▾(共用理由)]」);批量=前端逐发 decide+**显式挂账**(每行 pending→逐行落定滑出),first-wins 批量语义=输家 422 汇总 toast「已批准 2 · 1 条已被别处处理」。
-3. **正在跑**(WRK-070 B10 **✅ 已落**,整体收敛到运营大表行文法):AnLedgerRow 活行=**状态点 + 原语披露示能**(0718 对齐审计:`disclose`——hover/展开换 16px 左岛箭头、展开旋 90°,12px 换图标旧形制退役)+ **「workflow 名 · 来源短语」**(`runPhrase`——跨 workflow 视图保留 workflow 名,随后接来源短语;**裸 fr_ id 删**[B1],收进速览卡+tooltip)+ **常驻 ⏹ 终止**(`rowCancel`+danger,大表 `_row` 照搬;旧 hover 行尾 ⏹ 退役)+ ↻N 徽 + 活耗时。tick 只驱动本区外观;`run_started`(工单①)durable 加行。**单击=行内展开速览卡**(`RunPeekCard`——从大表抽成 top-level 可复用件,与大表同款[甘特⇄图+「打开 →」旗舰门];Overview 无 `?run=` URL 载体,故用**区内本地 expanded 单选态**,再点收起、快速双击直进旗舰)。**多选批量取消**(判决②):hover/已选行 lead 换 `AnBatchCheck`,选中≥2 浮 `AnBatchBar`,danger 弹窗带清单「将取消这 3 个 run」。**前端翻页**(10/页 `AnPager`——`listRunningRuns` 抽全量到内存,纯客户端 `.skip/.take` 切片、非分页端点,无需后端;选区修剪到可见页)。选择/翻页/展开三态共享 `_PeekZone` mixin(与「24h 失败」区同一套)。
-4. **调度时间轴**(判决⑥ 已落 → WRK-070 调度轨重造 → **v2 0718 用户提案「直接复用 Matrix View」重述**——一个海洋一种格语言):`AnScheduleTrack` 逐排程一行,**矩阵三段布局**:左=名字车道冻结、中=**整点小时格阵**在自己肚子里**横滚右锚最新端**(矩阵冻结车道滚动文法)、右=「下一发」预告段冻结(184px)。**过去=矩阵同款 `controlSm` 方格的整点分箱**(出处:uptime bar/贡献格):**25 格=24 完整整点小时+进行中那格**(25 个整点小时 ⊇ 任意滚动 24h KPI 窗——「错过 N」牌数的每个 ✕ 恒在轨上,取数下界 `trackFetchWindow`=25h 同源);格色=时段内 run 最坏状态(同矩阵色律,空=淡描边「空是真答案」);missed 在**格内**叠灰 ✕(矩阵「×N 在格内」文法,永不藏)。**v1 蓝 now 线与三锚刻度眉退役**(用户 0718「蓝线很丑/日期显示不好看」):右锚下右缘即现在,**列头随格同滚逐小时标注**(「20」,0 点格「M/D」日期锚)。**未来=定宽冻结段**:○+「HH:mm(相对词)」+排程人话,越轴如实;暂停说「已暂停」(判决①)。格统计全来源 run(裁决③),missed 从 firing 账。**点击=发射台**(同矩阵);**hover=不可交互明细卡**(`AnHoverCard`:失败置顶 cap5+溢出句;**Overlay 剧场铁律**——overlay child 必须 Align 包 follower,裸 Positioned 会被剧场强制铺满成大白片[0718 真机 bug,尺寸锁+突变验杀]);**默认光标=最新格**(右锚下恒可见);方向键拖视口(矩阵立法逐字)。两处独立截断各一句诚实话照旧。当前形态见 design-system AnScheduleTrack/AnHoverCard 条目(23 测+B5 锁死)。
-5. **失败聚合(7d)**:**Top-N 榜,「连续失败计数+自愈清除」定义**(A 收编,Temporal Task Issues:连败才值得浮顶,自愈行灰化留痕)——workflow 名+连败 ×N 徽+错误首句+**[最新 run] 直通车**(A 收编,跳过主页中转直达详情)+就地 replay(C)。宿主已软删的失败带「已删除」墓碑徽,行仍可点进 run 详情。
+2. **调度时间轴**(**总览打头**,0718 段序重排;判决⑥ 已落 → WRK-070 调度轨重造 → **v2 0718「直接复用 Matrix View」**——一个海洋一种格语言;段题 plain「调度」;**轨本体 0718 v2 落定,本单一根手指不碰**):`AnScheduleTrack` 逐排程一行,**矩阵三段布局**:左=名字车道冻结、中=**整点小时格阵**在自己肚子里**横滚右锚最新端**(矩阵冻结车道滚动文法)、右=「下一发」预告段冻结(184px)。**过去=矩阵同款 `controlSm` 方格的整点分箱**:**25 格=24 完整整点小时+进行中那格**(25 个整点小时 ⊇ 任意滚动 24h KPI 窗——「错过 N」牌数的每个 ✕ 恒在轨上,取数下界 `trackFetchWindow`=25h 同源);格色=时段内 run 最坏状态(同矩阵色律,空=淡描边「空是真答案」);missed 在**格内**叠灰 ✕。**列头随格同滚逐小时标注**(「20」,0 点格「M/D」日期锚)。**未来=定宽冻结段**:○+「HH:mm(相对词)」+排程人话,越轴如实;暂停说「已暂停」(判决①)。格统计全来源 run(裁决③),missed 从 firing 账。**点击=发射台**;**hover=不可交互明细卡**(`AnHoverCard`:失败置顶 cap5+溢出句)。两处独立截断各一句诚实话。当前形态见 design-system AnScheduleTrack/AnHoverCard 条目(23 测+B5 锁死)。
+3. **等你处理**(最贵地皮;段题 plain「等你处理」,不带计数):`/flowrun-inbox` 全集(工单④enrich 带 workflow 名+deadline),每行=workflow 名+节点+等待时长+**AnCountdown 超时倒计时**(新原语,单顶层 Timer 共驱)+`ApprovalGate` 就地批/拒(带 reason);决策后行滑出;first-wins 输家 422→诚实 toast+refetch。**审批 Approve/Reject 常驻**(审批是本区主动作,动词 hover 律不适用,蓝 Approve 保留)。**批量操作(判决②)**:行首 hover checkbox,选中≥2 浮出 `AnBatchBar` 批量条(「已选 3 · [批量批准][批量拒绝▾(共用理由)]」);批量=前端逐发 decide+**显式挂账**(每行 pending→逐行落定滑出),first-wins 批量语义=输家 422 汇总 toast「已批准 2 · 1 条已被别处处理」。
+4. **正在跑**(WRK-070 B10 收敛大表行文法 + **0718 宁静化**):AnLedgerRow 活行=**状态点 + 原语披露示能**(`disclose`——hover/展开换 16px 左岛箭头、展开旋 90°)+ **「workflow 名 · 来源短语」**(`runPhrase`;**裸 fr_ id 删**[B1],收进速览卡+tooltip)+ **⏹ 终止(0718 hover 才滑出)**(`rowCancel`+danger,`AnButton(surface:true)` 白底描边;旧常驻 ⏹ 退役)+ ↻N 徽 + 活耗时。tick 只驱动本区外观;`run_started`(工单①)durable 加行。**单击=行内展开速览卡**(`RunPeekCard`,与大表同款[甘特⇄图+「打开 →」旗舰门];Overview 无 `?run=` URL 载体,故用区内本地 expanded 单选态,再点收起、快速双击直进旗舰)。**多选批量取消**(判决②):hover/已选行 lead 换 `AnBatchCheck`,选中≥2 浮 `AnBatchBar`,danger 弹窗带清单。**前端翻页**(10/页 `AnPager`,`listRunningRuns` 抽全量、纯客户端切片)。选择/翻页/展开三态共享 `_PeekZone` mixin。
+5. **失败段**(0718 宁静化 —— plain「失败」段题 + **两小节,24h 在上**;段恒在,匹配 7d 小节的常在诚实空句「你是干净的」):
+    - **24h 按 run**(`SchedulerFailedZone`,quiet 小标「近 24 小时」,判决⑮ ✅;仅非空在场、`_ZoneAnchor` 揭示+洗亮,是 KPI「24h 失败 N」牌的钻取锚):牌点开的**按 run** 列表(后端 `?completedAfter` 半开窗,与 `failedSince` 逐字节同谓词;`idx_fr_ws_status_completed` 索引)。收敛大表行文法——「workflow · 来源短语」+ **↻ 重试(0718 hover 才滑出,`surface` 白底描边)** + 多选批量重放(`AnBatchBar`)+ **单击行内速览卡** `RunPeekCard`(错误全文在卡里)+ 前端 10/页 `AnPager`,与「正在跑」区共用 `_PeekZone`。**红错误句撤出行**(0718 宁静化,进速览卡)。
+    - **7d 连败**(`SchedulerFailuresZone`,quiet 小标「连续失败 · 7d」,**恒在**、空态诚实句):**Top-N 连败榜**(「连续失败计数+自愈清除」定义,A 收编)——workflow 名 + 连败 ×N 徽 + **「打开 workflow →」**(**0718 用户裁:连败=workflow 级慢性病,CTA 指病人不指单次发病** → `/scheduler/w/:id`;旧「最新 run →」直通车退役)+ **单击展开 latest run 速览卡**(`_PeekZone` 同构、零特例,卡内「打开 run」进旗舰)。**红错误句删**(0718 宁静化,红点=唯一警报)。
+    - **不是同一列表**:24h 按 run(completed_at 窗)vs 7d 按 workflow 连败——整夜失败 4 次然后跑通的 workflow 在 24h 在场、在 7d 缺席(已自愈),故相邻同读而不相混。
 
-**零数据首用态**(盲区补):四区不渲空框废墟,整页收成一张教育卡——「第一个自动化还没建。去 Entities 建 workflow 并挂上 cron,或在对话里说『每天早上八点抓数据发我』」双深链 + 三行示意图。任一 workflow 出现即换正常盘面。
+**零数据首用态**(盲区补):不渲空框废墟,整页收成一张教育卡——「第一个自动化还没建。去 Entities 建 workflow 并挂上 cron,或在对话里说『每天早上八点抓数据发我』」双深链。任一 workflow 出现即换正常盘面。
 
 ```
 Scheduler · Overview
-┌在跑 3┐┌等你 2┐┌24h失败 4 ▲2┐┌下次 3m┐   ←全可点深链
-▎等你处理 (2)
-◐ 周报生成 · fr_9a12 · approve_send  等 18m · ⏳剩 2h
-  「本周报可以发出吗?」 理由[____] [拒绝][批准] 查看 run →
-▎正在跑 (3)
-● 数据清洗 fr_a1b2 cron   4/7 1m32s ⏹
-● 库存同步 fr_c3d4 chat   2/5 12s   ⏹
-▎近 24h · 未来 24h   2026-07-17 17:48    1d    ┃now   ←分箱格/✕missed/○下一发一句话
- 周报生成 ▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦ ┃ ○ 17:55 (2m后) · 之后每15分钟
+┌在跑 3┐┌等你 2┐┌24h失败 4 ▲2┐┌下次 3m┐   ←KPI 牌恒最顶,全可点深链;计数只在牌上
+调度                                        ←plain 大字段题(总览打头)
+ 数据清洗 ▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦▦ ┃ ○ 17:55 (2m后) · 之后每15分钟
  库存同步 ▢▢✕▢▢✕▢▢▦▢▢▢▦▢▢▢▢▢▢▢▢▢▢▢ ┃ ○ 23:00 (5h后) · 每日23:00
  邮件归档 ▢▢▢▦▢▢▢▢▢▢▢▢▢▢▢▢▢▢▢▢▢▢▢▢ ┃ 已暂停
-▎失败聚合 (7d)
- 库存同步  连败×4  HTTP 502…      [replay][最新 run →]
- 归档清理† 已自愈  磁盘满(已删除)  [历史]
+等你处理                                     ←plain 大字(不带计数)
+◐ 周报生成 · approve_send   等 18m · ⏳剩 2h
+  「本周报可以发出吗?」 理由[____] [拒绝][批准]    ←审批常驻(本区主动作)
+正在跑                                       ←plain 大字
+● 数据清洗 · cron · 19:14   1m32s   〔⏹〕      ←⏹ hover 才滑出(白底描边),静息无动词、单行
+● 库存同步 · chat · 19:02   12s
+失败                                         ←plain 大字段题
+  近 24h                                     ←quiet 小标
+  ○ 库存同步 · webhook · 18:40   3m前  〔↻〕    ←单行(红点),↻ hover 滑出;错误全文进速览卡
+  连续失败 · 7d                               ←quiet 小标
+  ○ 库存同步  连败×4   [打开 workflow →]       ←红句删;点行开速览卡,CTA 指 workflow 主页
 ```
 
 ## 4. workflow 运营主页(`/scheduler/w/:id`)
@@ -108,7 +118,7 @@ Scheduler · Overview
 
 1. **文档化页头**(0717-晚 需求②③,entities 同文法 `AnOceanHeader`):页内面包屑「调度」→ 大标题=名 → meta 行(生命周期徽 · **范围统计句**[成功率/均时**跟随页级范围**——`schedulerRangeStatsProvider` 逐 (workflow,范围) 1-id 批查,窗按 `statsWindowOf` 映射进 stats `since`/`until`;句子窗口词=胶囊之词;**答案盖范围章**(provider 返 `(range, stats)`,widget 只在章与胶囊相符时渲数字)——换胶囊的 reload 期间 Riverpod 保留旧值,新词配旧数=句子撒谎,故切换期渲「—」等新数落地,同范围 rail 节拍重载章不变不闪] · **页级 `AnTimeRangePicker` 胶囊**)→ 右上动作([Run now]+⋯菜单[:kill / 去 entities 编辑])。**珠串已删**(0717 问题2)。健康统计到此为止,不开洞察页。
 2. **矩阵区(页顶,0717 拍板;0717-晚 需求①②修形)**:**无段标题**(NODE × RUN 已删)、胶囊已上移页头 meta 行(**一颗胶囊治矩阵+大表+统计句**,大表原 24h/7d/30d 下拉已删)——**时序 `AnRunMatrix`** 直接坐页头下(旧在左新在右=时间轴,视口 `reverse` 锚最新端;滑近最旧缘懒加载更旧页[`SchedulerMatrixWindowController`:翻 `GET /flowruns` 页 → 逐页 `flowrun-matrix?flowrunIds=` 批查 → 归并,页尺 50=批帽,`runsById` 随窗累积供人话]、前插零位移;节点名车道冻结在滚动器外)。**列头两层**(需求①:颜色=状态/长度=耗时/蓝=在跑):上=选中指示条(选中墨色、平时透明占位),下=耗时比例条穿最终状态淡色(与格子同族),在跑实蓝满条;常驻灰基线删。**格阵是发射台**:点列头→直进该 run 旗舰页、点格→旗舰 + `?node=` 预选,行头惰性只作名;`?run=` 展开行的列被点亮(一个选区两处投影)。**列 tooltip/读屏=来源短语+时刻**(需求⑤,id 收 tooltip 末行)。空窗渲诚实句「这段时间没有运行」。
-3. **run 大表**(0717-晚 需求⑤⑦重排):AnLedgerRow 列表+keyset 分页哨兵。**行文法=「来源词 · 开始时刻」**(`run_phrase.dart` 唯一文法:当天 HH:mm/跨天 M/D HH:mm;cron 旧 HH:mm 摘要并入统一后缀;GHA「cron run 全长一样」之鉴)+ **可操作动词紧随其后常驻**(在跑=⏹ 终止/失败=↻ 重试——不再是给所有行占位的 hover 行尾格)+ ↻N 徽;**右缘只留执行时长**(左边已说「何时」,旧相对 ago 删=同一事实说两遍);**行内无裸 id**(fr_/cv_ 药丸删,完整 id 收速览卡+tooltip);失败行错误首句(sub,danger;**lead 状态点与主文首行同心**——旧 s8 顶距红点漂移 bug 已修入 AnLedgerRow 原语)。**过滤=状态计数条**(全部|在跑 n|失败 n|等人 n——三数皆**范围内同文法探针**[复审⑤口径同源];「等人」走 inbox 派生,**绝不 `?status=parked`**)+来源下拉。新 run 不插行,表顶 pill 归位。**行内速览卡**:单击行=开合 `?run=`(一次一行、再点收起;`expandBuilder` 惰性[C-006]),卡=[甘特 ⇄ 图]双脸+状态点+id 药丸+对话药丸(origin=chat)+「打开 →」旗舰门,快速双击直进旗舰。**批量 replay(判决②)**:过滤到失败态后行首 checkbox 多选,AnBatchBar [↻ 批量重放]合并真数字;批量 cancel 同构。
+3. **run 大表**(0717-晚 需求⑤⑦重排):AnLedgerRow 列表+keyset 分页哨兵。**行文法=「来源词 · 开始时刻」**(`run_phrase.dart` 唯一文法:当天 HH:mm/跨天 M/D HH:mm;cron 旧 HH:mm 摘要并入统一后缀;GHA「cron run 全长一样」之鉴)+ **可操作动词紧随其后**(在跑=⏹ 终止/失败=↻ 重试;**0718 宁静化:hover 才从原位横向滑出** `AnExpandReveal(horizontal)` + `AnButton(surface:true)` 白底描边、灰洗底可辨,旧常驻退役)+ ↻N 徽;**右缘只留执行时长**(左边已说「何时」,旧相对 ago 删=同一事实说两遍);**行内无裸 id**(fr_/cv_ 药丸删,完整 id 收速览卡+tooltip);**失败行单行化**(0718 宁静化:红点=唯一警报,`run.error` 全文撤出行、进行内速览卡 `RunPeekCard` 甘特/图下方 `AnCallout` danger;**lead 状态点与主文首行同心**——旧 s8 顶距红点漂移 bug 已修入 AnLedgerRow 原语)。**过滤=状态计数条**(全部|在跑 n|失败 n|等人 n——三数皆**范围内同文法探针**[复审⑤口径同源];「等人」走 inbox 派生,**绝不 `?status=parked`**)+来源下拉。新 run 不插行,表顶 pill 归位。**行内速览卡**:单击行=开合 `?run=`(一次一行、再点收起;`expandBuilder` 惰性[C-006]),卡=[甘特 ⇄ 图]双脸+状态点+id 药丸+对话药丸(origin=chat)+「打开 →」旗舰门,快速双击直进旗舰。**批量 replay(判决②)**:过滤到失败态后行首 checkbox 多选,AnBatchBar [↻ 批量重放]合并真数字;批量 cancel 同构。
 4. **triggers 调度陈列**(只观测,编辑深链 entities):每 trigger 一卡=kind 脸+cron 人话+**下 3 次具体时刻**(B 收编,crontab.guru 双保险,防「翻译对但表达式错」)+lastFiredAt+近 30 次 firing 竖条串(Uptime Kuma,有界+hover)+「N 次 skipped ▸」两级钻取 activations→firings(skipped/superseded/shed/**missed**(判决⑥)处置词,灰不染红)+**[暂停/恢复] 止血开关**(判决①定案:运行时权力就地开关,工单⑦;cron 表达式编辑仍归 entities)+**misfire 策略行**(判决⑥:「跳过并记账」默认,catchup 配置深链 entities trigger 编辑面)。
 
 ```
