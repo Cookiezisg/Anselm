@@ -190,6 +190,11 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
         outName = '${outName}_pick';
+      } else if (const bool.fromEnvironment('SCHEDPAGER')) {
+        // Scroll the run table's pager into the frame (B4 标准翻页器验收帧). 滚翻页器入帧。
+        await tester.ensureVisible(find.byType(AnPager).first);
+        await tester.pump(const Duration(milliseconds: 300));
+        outName = '${outName}_pager';
       } else if (_schedFlag.isNotEmpty) {
         outName = '${outName}_run';
         if (const bool.fromEnvironment('SCHEDNODES')) {
