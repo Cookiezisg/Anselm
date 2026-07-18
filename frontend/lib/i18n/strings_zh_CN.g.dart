@@ -71,8 +71,6 @@ class _Translations$chat$zh_CN extends Translations$chat$en {
 	// Translations
 	@override String get kNew => '新对话';
 	@override String get filter => '搜索对话…';
-	@override String get emptyTitle => '还没有对话';
-	@override String get emptyHint => '开始一个新对话吧。';
 	@override String get errorTitle => '对话列表加载失败';
 	@override String get errorHint => '本地引擎没有返回对话列表。';
 	@override String get retry => '重试';
@@ -188,8 +186,6 @@ class _Translations$scheduler$zh_CN extends Translations$scheduler$en {
 	final TranslationsZhCn _root; // ignore: unused_field
 
 	// Translations
-	@override String get railEmptyTitle => '还没有 workflow';
-	@override String get railEmptyHint => '去 Entities 创建一个,或让对话替你建。';
 	@override String get railErrorTitle => 'workflow 加载失败';
 	@override String get railErrorHint => '后端没有应答,检查连接后重试。';
 	@override String get retry => '重试';
@@ -292,8 +288,6 @@ class _Translations$notifications$zh_CN extends Translations$notifications$en {
 	@override String get feed => '通知';
 	@override String get markAllRead => '全部已读';
 	@override String get markRead => '标为已读';
-	@override String get emptyTitle => '都处理完了';
-	@override String get emptyHint => '新动态会出现在这里。';
 	@override String get today => '今天';
 	@override String get yesterday => '昨天';
 	@override String get earlier => '更早';
@@ -417,8 +411,6 @@ class _Translations$entities$zh_CN extends Translations$entities$en {
 	// Translations
 	@override String get kNew => '新建';
 	@override String get filter => '搜索实体…';
-	@override String get emptyTitle => '还没有实体';
-	@override String get emptyHint => '新建一个函数、处理器、智能体或工作流来开始。';
 	@override String get errorTitle => '无法加载实体';
 	@override String get errorHint => '本地引擎没有返回实体列表。';
 	@override String get retry => '重试';
@@ -464,8 +456,6 @@ class _Translations$documents$zh_CN extends Translations$documents$en {
 	@override String get errorTitle => '无法加载知识库';
 	@override String get errorHint => '本地引擎没有返回它。';
 	@override String get retry => '重试';
-	@override String get emptyTitle => '这里还什么都没有';
-	@override String get emptyHint => '新建一篇文档或一个技能开始。';
 	@override String get pickTitle => '选一篇文档';
 	@override String get pickHint => '在左侧选一篇文档或技能来阅读或编辑。';
 	@override String get loadFailed => '打不开这个';
@@ -2479,8 +2469,6 @@ extension on TranslationsZhCn {
 		return switch (path) {
 			'chat.kNew' => '新对话',
 			'chat.filter' => '搜索对话…',
-			'chat.emptyTitle' => '还没有对话',
-			'chat.emptyHint' => '开始一个新对话吧。',
 			'chat.errorTitle' => '对话列表加载失败',
 			'chat.errorHint' => '本地引擎没有返回对话列表。',
 			'chat.retry' => '重试',
@@ -2989,10 +2977,10 @@ extension on TranslationsZhCn {
 			'chat.contextCompacted' => '上下文已压缩',
 			'chat.contextCompactedCount' => ({required Object n}) => '上下文已压缩 · ${n} 条更早消息已折叠进摘要',
 			'chat.stage.title' => '侧幕',
-			_ => null,
-		} ?? switch (path) {
 			'chat.stage.island' => '活动',
 			'chat.stage.tasks' => '待办',
+			_ => null,
+		} ?? switch (path) {
 			'chat.stage.expandAll' => '展开全部',
 			'chat.stage.collapseAll' => '收起全部',
 			'chat.stage.following' => '跟随',
@@ -3090,8 +3078,6 @@ extension on TranslationsZhCn {
 			'run.reasonHint' => '备注(可选)',
 			'run.addReason' => '+ 理由',
 			'run.inferredRunning' => '推测执行中',
-			'scheduler.railEmptyTitle' => '还没有 workflow',
-			'scheduler.railEmptyHint' => '去 Entities 创建一个,或让对话替你建。',
 			'scheduler.railErrorTitle' => 'workflow 加载失败',
 			'scheduler.railErrorHint' => '后端没有应答,检查连接后重试。',
 			'scheduler.retry' => '重试',
@@ -3392,8 +3378,6 @@ extension on TranslationsZhCn {
 			'notifications.feed' => '通知',
 			'notifications.markAllRead' => '全部已读',
 			'notifications.markRead' => '标为已读',
-			'notifications.emptyTitle' => '都处理完了',
-			'notifications.emptyHint' => '新动态会出现在这里。',
 			'notifications.today' => '今天',
 			'notifications.yesterday' => '昨天',
 			'notifications.earlier' => '更早',
@@ -3480,8 +3464,6 @@ extension on TranslationsZhCn {
 			'startup.errorHint' => '渲染此视图时发生了意外错误。',
 			'entities.kNew' => '新建',
 			'entities.filter' => '搜索实体…',
-			'entities.emptyTitle' => '还没有实体',
-			'entities.emptyHint' => '新建一个函数、处理器、智能体或工作流来开始。',
 			'entities.errorTitle' => '无法加载实体',
 			'entities.errorHint' => '本地引擎没有返回实体列表。',
 			'entities.retry' => '重试',
@@ -3503,8 +3485,6 @@ extension on TranslationsZhCn {
 			'entities.detail.verb.run' => '运行',
 			'entities.detail.verb.call' => '调用',
 			'entities.detail.verb.invoke' => '唤起',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.verb.trigger' => '触发',
 			'entities.detail.hero.envStatus' => ({required Object status}) => 'env ${status}',
 			'entities.detail.hero.noInputs' => '无入参',
@@ -3513,6 +3493,8 @@ extension on TranslationsZhCn {
 			'entities.detail.gate.config' => 'config',
 			'entities.detail.gate.env' => 'env',
 			'entities.detail.gate.instance' => 'instance',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.codeToggle.expand' => ({required Object n}) => '展开全部 (${n} 行)',
 			'entities.detail.codeToggle.collapse' => '收起',
 			'entities.detail.sec.code' => '代码',
@@ -3752,8 +3734,6 @@ extension on TranslationsZhCn {
 			'documents.errorTitle' => '无法加载知识库',
 			'documents.errorHint' => '本地引擎没有返回它。',
 			'documents.retry' => '重试',
-			'documents.emptyTitle' => '这里还什么都没有',
-			'documents.emptyHint' => '新建一篇文档或一个技能开始。',
 			'documents.pickTitle' => '选一篇文档',
 			'documents.pickHint' => '在左侧选一篇文档或技能来阅读或编辑。',
 			'documents.loadFailed' => '打不开这个',
@@ -4017,8 +3997,6 @@ extension on TranslationsZhCn {
 			'settings.mcp.importTitle' => '导入 mcp.json',
 			'settings.mcp.importHint' => '粘贴 Claude Desktop 的 mcpServers 片段',
 			'settings.mcp.overwrite' => '覆盖同名',
-			_ => null,
-		} ?? switch (path) {
 			'settings.mcp.doImport' => '导入',
 			'settings.mcp.importResult' => ({required Object n, required Object m}) => '导入 ${n} · 跳过 ${m}',
 			'settings.mcp.importInvalid' => 'JSON 无法解析',
@@ -4029,6 +4007,8 @@ extension on TranslationsZhCn {
 			'settings.mcp.installing' => '安装中…',
 			'settings.mcp.prerequisite' => '前置',
 			'settings.mcp.requiredMark' => '必填',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mcp.oauthConnect' => '连接并授权',
 			'settings.mcp.oauthWaiting' => '等待浏览器授权…(最长 120 秒)',
 			'settings.mcp.tabTools' => '工具',

@@ -72,19 +72,17 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
     final showTime = ref.watch(showTimeProvider);
     final t = context.t;
 
-    // The three placeholder states over the ONE list AsyncValue: loading = nothing resolved yet; error =
-    // failed with nothing loaded; empty = loaded but zero rows. 三占位态基于单个列表 AsyncValue。
+    // The two placeholder states over the ONE list AsyncValue: loading = nothing resolved yet; error =
+    // failed with nothing loaded. Zero rows is NOT a state — the list renders its chrome + empty Pinned /
+    // Recents heads (满态收起的形状). 两占位态基于单个列表 AsyncValue;零行不是态,直落列表(渲 chrome + 空组头)。
     final rows = async.value?.rows ?? const <Conversation>[];
     return AnRailStates(
       loading: async.isLoading && !async.hasValue,
       error: async.hasError && !async.hasValue,
-      empty: rows.isEmpty,
       strings: AnRailStrings(
         errorTitle: t.chat.errorTitle,
         errorHint: t.chat.errorHint,
         retry: t.chat.retry,
-        emptyTitle: t.chat.emptyTitle,
-        emptyHint: t.chat.emptyHint,
       ),
       onRetry: () => ref.invalidate(conversationListProvider),
       builder: () {

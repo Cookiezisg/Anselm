@@ -80,12 +80,6 @@ class Translations$chat$en {
 	/// en: 'Search conversations…'
 	String get filter => 'Search conversations…';
 
-	/// en: 'No conversations yet'
-	String get emptyTitle => 'No conversations yet';
-
-	/// en: 'Start a new chat to begin.'
-	String get emptyHint => 'Start a new chat to begin.';
-
 	/// en: 'Couldn't load conversations'
 	String get errorTitle => 'Couldn\'t load conversations';
 
@@ -369,12 +363,6 @@ class Translations$scheduler$en {
 
 	// Translations
 
-	/// en: 'No workflows yet'
-	String get railEmptyTitle => 'No workflows yet';
-
-	/// en: 'Create one in Entities, or ask the conversation to build one for you.'
-	String get railEmptyHint => 'Create one in Entities, or ask the conversation to build one for you.';
-
 	/// en: 'Couldn't load workflows'
 	String get railErrorTitle => 'Couldn\'t load workflows';
 
@@ -596,12 +584,6 @@ class Translations$notifications$en {
 
 	/// en: 'Mark read'
 	String get markRead => 'Mark read';
-
-	/// en: 'You're all caught up'
-	String get emptyTitle => 'You\'re all caught up';
-
-	/// en: 'New activity shows up here.'
-	String get emptyHint => 'New activity shows up here.';
 
 	/// en: 'Today'
 	String get today => 'Today';
@@ -841,12 +823,6 @@ class Translations$entities$en {
 	/// en: 'Search entities…'
 	String get filter => 'Search entities…';
 
-	/// en: 'No entities yet'
-	String get emptyTitle => 'No entities yet';
-
-	/// en: 'Create a function, handler, agent, or workflow to get started.'
-	String get emptyHint => 'Create a function, handler, agent, or workflow to get started.';
-
 	/// en: 'Couldn't load entities'
 	String get errorTitle => 'Couldn\'t load entities';
 
@@ -940,12 +916,6 @@ class Translations$documents$en {
 
 	/// en: 'Retry'
 	String get retry => 'Retry';
-
-	/// en: 'Nothing here yet'
-	String get emptyTitle => 'Nothing here yet';
-
-	/// en: 'Create a document or a skill to get started.'
-	String get emptyHint => 'Create a document or a skill to get started.';
 
 	/// en: 'Pick a document'
 	String get pickTitle => 'Pick a document';
@@ -5817,8 +5787,6 @@ extension on Translations {
 		return switch (path) {
 			'chat.kNew' => 'New chat',
 			'chat.filter' => 'Search conversations…',
-			'chat.emptyTitle' => 'No conversations yet',
-			'chat.emptyHint' => 'Start a new chat to begin.',
 			'chat.errorTitle' => 'Couldn\'t load conversations',
 			'chat.errorHint' => 'The local engine didn\'t return the conversation list.',
 			'chat.retry' => 'Try again',
@@ -6327,10 +6295,10 @@ extension on Translations {
 			'chat.contextCompacted' => 'Context compacted',
 			'chat.contextCompactedCount' => ({required Object n}) => 'Context compacted · ${n} earlier messages folded into the summary',
 			'chat.stage.title' => 'Sidestage',
-			_ => null,
-		} ?? switch (path) {
 			'chat.stage.island' => 'Activity',
 			'chat.stage.tasks' => 'Tasks',
+			_ => null,
+		} ?? switch (path) {
 			'chat.stage.expandAll' => 'Expand all',
 			'chat.stage.collapseAll' => 'Collapse all',
 			'chat.stage.following' => 'Follow',
@@ -6428,8 +6396,6 @@ extension on Translations {
 			'run.reasonHint' => 'Reason (optional)',
 			'run.addReason' => '+ Reason',
 			'run.inferredRunning' => 'running (inferred)',
-			'scheduler.railEmptyTitle' => 'No workflows yet',
-			'scheduler.railEmptyHint' => 'Create one in Entities, or ask the conversation to build one for you.',
 			'scheduler.railErrorTitle' => 'Couldn\'t load workflows',
 			'scheduler.railErrorHint' => 'The backend didn\'t answer. Check the connection and retry.',
 			'scheduler.retry' => 'Retry',
@@ -6730,8 +6696,6 @@ extension on Translations {
 			'notifications.feed' => 'Notifications',
 			'notifications.markAllRead' => 'Mark all read',
 			'notifications.markRead' => 'Mark read',
-			'notifications.emptyTitle' => 'You\'re all caught up',
-			'notifications.emptyHint' => 'New activity shows up here.',
 			'notifications.today' => 'Today',
 			'notifications.yesterday' => 'Yesterday',
 			'notifications.earlier' => 'Earlier',
@@ -6818,8 +6782,6 @@ extension on Translations {
 			'startup.errorHint' => 'An unexpected error occurred while rendering this view.',
 			'entities.kNew' => 'New',
 			'entities.filter' => 'Search entities…',
-			'entities.emptyTitle' => 'No entities yet',
-			'entities.emptyHint' => 'Create a function, handler, agent, or workflow to get started.',
 			'entities.errorTitle' => 'Couldn\'t load entities',
 			'entities.errorHint' => 'The local engine didn\'t return the entity list.',
 			'entities.retry' => 'Try again',
@@ -6841,8 +6803,6 @@ extension on Translations {
 			'entities.detail.verb.run' => 'Run',
 			'entities.detail.verb.call' => 'Call',
 			'entities.detail.verb.invoke' => 'Invoke',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.verb.trigger' => 'Trigger',
 			'entities.detail.hero.envStatus' => ({required Object status}) => 'env ${status}',
 			'entities.detail.hero.noInputs' => 'no inputs',
@@ -6851,6 +6811,8 @@ extension on Translations {
 			'entities.detail.gate.config' => 'config',
 			'entities.detail.gate.env' => 'env',
 			'entities.detail.gate.instance' => 'instance',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.codeToggle.expand' => ({required Object n}) => 'Show all (${n} lines)',
 			'entities.detail.codeToggle.collapse' => 'Collapse',
 			'entities.detail.sec.code' => 'Code',
@@ -7090,8 +7052,6 @@ extension on Translations {
 			'documents.errorTitle' => 'Couldn\'t load your library',
 			'documents.errorHint' => 'The local engine didn\'t return it.',
 			'documents.retry' => 'Retry',
-			'documents.emptyTitle' => 'Nothing here yet',
-			'documents.emptyHint' => 'Create a document or a skill to get started.',
 			'documents.pickTitle' => 'Pick a document',
 			'documents.pickHint' => 'Choose a document or skill on the left to read or edit it.',
 			'documents.loadFailed' => 'Couldn\'t open this',
@@ -7355,8 +7315,6 @@ extension on Translations {
 			'settings.mcp.importTitle' => 'Import mcp.json',
 			'settings.mcp.importHint' => 'Paste a Claude Desktop mcpServers snippet',
 			'settings.mcp.overwrite' => 'Overwrite same names',
-			_ => null,
-		} ?? switch (path) {
 			'settings.mcp.doImport' => 'Import',
 			'settings.mcp.importResult' => ({required Object n, required Object m}) => 'Imported ${n} · skipped ${m}',
 			'settings.mcp.importInvalid' => 'Couldn\'t parse the JSON',
@@ -7367,6 +7325,8 @@ extension on Translations {
 			'settings.mcp.installing' => 'Installing…',
 			'settings.mcp.prerequisite' => 'Prerequisite',
 			'settings.mcp.requiredMark' => 'required',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mcp.oauthConnect' => 'Connect & authorize',
 			'settings.mcp.oauthWaiting' => 'Waiting for the browser… (up to 120s)',
 			'settings.mcp.tabTools' => 'Tools',

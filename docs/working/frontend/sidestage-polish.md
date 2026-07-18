@@ -184,6 +184,28 @@ fe-verify 4304 全绿。
 
 **原语增量**:`AnButton` 新 `surface` bool(白底 line 边、字色随变体——现有 ghost/danger 变体底色=灰洗底同色故隐形,B 轨立法走 token 增量;design-system §5 AnButton 条目补句)。**测试**:overview 四段 plain 顺序断言 + 24h/7d 小节序 + 段题 plain + KPI 牌滚动锚四区重验;失败行单行(`sub` findsNothing)+ 卡内错误全文在场;动词静息无/hover 现/白底钮在洗底;7d 点行开卡→旗舰路由 / 「打开 workflow →」→ `/scheduler/w/:id` / 红句 findsNothing。既有 overview/home/s2b 断言按新拍板改(常驻动词→hover、错误副行寻址→来源短语寻址、head 大写/计数→plain)。
 
+## 0718 左岛空态=满态收起的形状（新人之旅第一站，独立追改 ✅ 已落）
+
+**用户裁决语（0718，精神原话）**：「**项目做得优秀就不需要很多人话**」——空态 = **满态收起的样子，零文案**。左岛 chrome（+ 新建 / 搜索框 / ⚙ / 分组头）恒在，空的只是组内的行。全部「No conversations yet / Create a … to get started」墓碑与其 i18n 词条**物理退役**。新人第一次打开、样样为零时，看见的是**结构本身**（收起的完整形状）在教他产品长什么样——结构即引导。
+
+**病根**：`AnRailStates.empty`（`an_rail_states.dart`）在 `AnSidebarList` **外层**全区替换成 `AnState` 大墓碑，把列表连同它头部的 + / 搜索 / ⚙ 一起吞掉。
+
+**改法（已落）**：
+- **`AnRailStates`**：`empty` 形态退役——空列表直接走 `builder()`（正常渲 `AnSidebarList`，组空自然空）；`AnRailStrings.emptyTitle/emptyHint` 字段删除，优先级降为 loading > error > list；`loading`（骨架）/ `error`（重试）两态**不动**（瞬时非态、非「rail 本就空」）。
+- **五消费方**删 `empty:` 传参与空态词条接线，各岛空态最终形状：
+  - **Chat**：+ New chat / 搜索框 / **Pinned + Recents 组头**（零对话时**两组头都渲**、演示收起的完整形状；**有数据但无置顶时的既有「藏空 Pinned」规则不动**——二者共用 `isNotEmpty` 渲染路径，按裁决「零数据时组头全渲」加 `|| zeroData` 分流）。
+  - **Entities**：搜索框 + **七 kind 组头全渲**（`for (final g in groups)` 本就全发）。
+  - **Scheduler**：搜索框 + **Overview 固定行**（`waitingCount` 空时不显徽）；neverRan/inactive 沉底段本就 `isNotEmpty` 才出。
+  - **Documents**：+ New page / 搜索框 / **Documents + Skills 组头**（本就全发）。
+  - **通知托盘**：`notification_feed` 删空态墓碑——**「通知」段头恒在**（在 `AnRailStates` 外围）、段内空。（**取舍**：`flowrun_inbox` 分段模式的「待你处理」带**保持无待审即塌**——它不用 `AnRailStates`、无墓碑文案，且这是与 chat「藏空 Pinned」同律的内容驱动条件段：**满态-无审批时它本也塌**，故「满态收起」= 塌，强制常显反成噪声、违「优秀」标尺；标准面板模式的 `entities.run.inboxEmpty` 是**中心/面板空态**、不在本单左岛 rail 范围，留用。）
+- **计数自裁项**：空组头**不显「0」**（计数有货才有意义）——chat model `count(n)` 与 entities model 段头计数改 `n>0` 才渲。
+- **i18n**：删五对空态死键（en+zh 双表 + slang codegen 重跑）：`chat.emptyTitle/Hint`·`entities.emptyTitle/Hint`·`scheduler.railEmptyTitle/Hint`·`notifications.emptyTitle/Hint`·`documents.emptyTitle/Hint`（grep 确认各仅其 rail 用，`props/mem/mcp/run.inboxEmpty` 等同名异键留用）。
+- **`AnState` 组件本身保留**（error 态 + 中心海洋/面板空态还在用）。
+
+**测试**：各 rail 空数据电池加/改为 chrome-在场断言（`AnSidebarList` + New/组头 findsOneWidget、`AnState` findsNothing、计数「0」findsNothing）——chat（widget+model 零对话双头）/ entities（`entity_rail_test` + `five_battery` empty）/ documents（widget+model）/ notifications（widget，「通知」段头在场）/ scheduler（model：Overview 存活、无沉底段、无徽）。既有依赖墓碑的断言（`conversation_rail_test` 删到空 / `entity_rail_test` empty / `five_battery` empty / `notification_feed_test` empty）按新律改。demo fixture 不动（满态）。
+
+**landed-into**：`design-system.md`（AnRailStates 条目 + 令 §「rail 三态」重述）。`make fe-verify` 全绿 / `make docs` 净。
+
 ## 拍板状态（0718 收官 ✅）
 
 **全部议题已拍板 ✅**（§A #1 假想框律 / #2 composer 28 档 + §B B1–B13 全部）——0718「都同意，落一下档」。待用户宣布开工后一口气建造；交付纪律=每条带测试、双门禁全绿、demo 帧逐条核对、opus 车队对抗复审、文档 1:1 同提交、后端半（B4 offset+total）守 N/D/E/S/T。

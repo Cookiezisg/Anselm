@@ -97,7 +97,10 @@ class ConvRailLabels {
 ///
 /// 把已加载对话投影成 SidebarModel 喂 AnSidebarList,**完整镜像 entities rail**:一个 SidebarGroup 持两个带 icon 的可折叠
 /// SidebarType——置顶(pin 图标)与 最近(history 图标)——各带计数 + 其行。**只有一条头路径**(entities 的 AnRow 类型头:图标 lead、
-/// 计数右对齐、行缩进),无自造 flush 头、无时间桶。每行={id, 标题, 相对时间 meta, 前导点}。分节有行才出(无空置顶组)。单域:无客户端排序。
+/// 计数右对齐、行缩进),无自造 flush 头、无时间桶。每行={id, 标题, 相对时间 meta, 前导点}。单域:无客户端排序。
+///
+/// 分节发射规则(用户 0718 拍板 · 空态=满态收起的形状):**零对话**时**两组头都渲**(空的 置顶 + 最近)——它演示收起的
+/// 完整形状、教新人结构;**有数据但无置顶**时仍**藏空 置顶**(既有规则不动)。计数只在有货(n>0)时渲,空组头不显「0」。
 SidebarModel buildConversationRailModel(
   List<Conversation> rows, {
   required DateTime now,
@@ -121,16 +124,20 @@ SidebarModel buildConversationRailModel(
 
   final pinned = [for (final c in rows) if (c.pinned) toRow(c)];
   final recents = [for (final c in rows) if (!c.pinned) toRow(c)];
-  int? count(int n) => showCount ? n : null;
+  // Zero conversations = show BOTH heads (the collapsed shape of the full rail); with data, the "hide empty
+  // Pinned" rule holds. Count renders only when it has货 (n>0) — a "0" on an empty head is noise.
+  // 零对话=两组头都渲(满态收起形);有数据则藏空置顶。计数仅 n>0 时渲(空组头的「0」是噪声)。
+  final zeroData = rows.isEmpty;
+  int? count(int n) => showCount && n > 0 ? n : null;
 
   return SidebarModel(
     newLabel: labels.newLabel,
     filterPlaceholder: labels.filter,
     groups: [
       SidebarGroup(types: [
-        if (pinned.isNotEmpty)
+        if (pinned.isNotEmpty || zeroData)
           SidebarType(label: labels.pinned, icon: AnIcons.pin, count: count(pinned.length), rows: pinned),
-        if (recents.isNotEmpty)
+        if (recents.isNotEmpty || zeroData)
           SidebarType(
             label: labels.recents,
             icon: AnIcons.history,

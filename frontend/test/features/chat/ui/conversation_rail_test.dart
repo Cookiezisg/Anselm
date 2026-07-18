@@ -5,6 +5,7 @@ import 'package:anselm/core/router/navigation.dart';
 import 'package:anselm/core/ui/an_dialog.dart';
 import 'package:anselm/core/ui/an_inline_edit.dart';
 import 'package:anselm/core/ui/an_sidebar_list.dart';
+import 'package:anselm/core/ui/an_state.dart';
 import 'package:anselm/core/ui/icons.dart';
 import 'package:anselm/features/chat/data/chat_fixtures.dart';
 import 'package:anselm/features/chat/data/chat_providers.dart';
@@ -199,7 +200,7 @@ void main() {
     expect(find.text(t.chat.bucket.pinned), findsOneWidget); // re-bucketed into Pinned
   });
 
-  testWidgets('Delete → confirm accepted → the row is removed (empty state)', (tester) async {
+  testWidgets('Delete → confirm accepted → the row is removed; empty rail = the collapsed shape (chrome + both heads, no tombstone)', (tester) async {
     final fake = _FakeOverlay(true);
     await tester.pumpWidget(_host(FixtureChatRepository(conversations: [_c('cv_a', 'thread A')]), overlay: fake));
     await tester.pump(const Duration(milliseconds: 50));
@@ -210,7 +211,13 @@ void main() {
 
     expect(fake.confirmCalled, true);
     expect(find.text('thread A'), findsNothing);
-    expect(find.text(t.chat.emptyTitle), findsOneWidget); // last row gone → empty
+    // 用户 0718 拍板: empty rail = the FULL rail collapsed — the list's own chrome (New chat + both group
+    // heads) stays, no «No conversations yet» tombstone. 空态=满态收起:chrome 与两组头恒在、无墓碑。
+    expect(find.byType(AnState), findsNothing); // the old full-area empty tombstone is retired 墓碑退役
+    expect(find.byType(AnSidebarList), findsOneWidget);
+    expect(find.text(t.chat.kNew), findsOneWidget); // + New chat
+    expect(find.text(t.chat.bucket.pinned), findsOneWidget); // Pinned head renders even at zero data 零数据也渲
+    expect(find.text(t.chat.bucket.recents), findsOneWidget); // Recents head too
   });
 
   testWidgets('Delete → confirm declined → the row stays', (tester) async {

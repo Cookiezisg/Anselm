@@ -6,6 +6,7 @@ import 'package:anselm/core/contract/page.dart';
 import 'package:anselm/core/router/navigation.dart';
 import 'package:anselm/core/ui/an_sidebar_list.dart';
 import 'package:anselm/core/ui/an_skeleton.dart';
+import 'package:anselm/core/ui/an_state.dart';
 import 'package:anselm/core/ui/icons.dart';
 import 'package:anselm/features/entities/data/entity_fixtures.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
@@ -82,12 +83,18 @@ void main() {
     expect(container.read(selectedEntityProvider), const EntityRef(EntityKind.function, 'fn_1'));
   });
 
-  testWidgets('empty → AnState empty screen', (tester) async {
+  testWidgets('empty → the collapsed shape: chrome + every kind head, no tombstone', (tester) async {
     await tester.pumpWidget(_host(FixtureEntityRepository()));
     await tester.pump(const Duration(milliseconds: 50));
 
-    expect(find.byType(AnSidebarList), findsNothing);
-    expect(find.text(t.entities.emptyTitle), findsOneWidget);
+    // 用户 0718 拍板: an empty rail = the FULL rail with rows removed — the list (search + every kind head)
+    // renders, no «No entities yet» tombstone. 空态=满态收起:列表(搜索+每 kind 组头)恒在、无墓碑。
+    expect(find.byType(AnSidebarList), findsOneWidget);
+    expect(find.byType(AnState), findsNothing); // the old empty tombstone is retired 墓碑退役
+    expect(find.text(t.ref.function), findsOneWidget); // kind heads still render at zero data 零数据也渲 kind 头
+    expect(find.text(t.ref.handler), findsOneWidget);
+    expect(find.text(t.ref.workflow), findsOneWidget);
+    expect(find.text('0'), findsNothing); // an empty kind head shows no "0" count 空组头不显「0」
   });
 
   testWidgets('error → AnState error with retry', (tester) async {

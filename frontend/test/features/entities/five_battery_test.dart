@@ -1,4 +1,5 @@
 import 'package:anselm/core/ui/an_sidebar_list.dart';
+import 'package:anselm/core/ui/an_state.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
 import 'package:anselm/features/entities/ui/entity_ocean.dart';
 import 'package:anselm/features/entities/ui/entity_rail.dart';
@@ -35,8 +36,11 @@ void main() {
 
     switch (b) {
       case Battery.empty:
-        expect(find.byType(AnSidebarList), findsNothing);
-        expect(find.text(t.entities.emptyTitle), findsOneWidget);
+        // 用户 0718 拍板: empty = the FULL rail with rows removed — the list + every kind head renders, no
+        // tombstone. 空态=满态收起:列表+每 kind 组头恒在、无墓碑。
+        expect(find.byType(AnSidebarList), findsOneWidget);
+        expect(find.byType(AnState), findsNothing);
+        expect(find.text(t.ref.function), findsOneWidget); // kind heads present at zero data 零数据渲组头
       case Battery.overflow:
         // The 200-char Text is present as data (ellipsized visually, full string in the widget). 超长行在场。
         expect(find.text(overflowName), findsOneWidget);

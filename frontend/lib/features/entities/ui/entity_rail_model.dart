@@ -34,8 +34,11 @@ AnStatus? railDot(EntityRow r) => switch (r.kind) {
     };
 
 /// Build the rail model: one flat group with a collapsible section per kind (icon + label + count),
-/// entities as rows ordered by [sort]. [showCount] gates the per-section count badge (the ⚙ "show
-/// counts" toggle — null count → no badge). 构建 rail 模型:单平铺组 + 每 kind 一折叠段(按 sort 排序);showCount 关则段头不显计数。
+/// entities as rows ordered by [sort]. Every kind head always renders (an empty kind = the collapsed shape
+/// of a populated one — 空态=满态收起的形状). [showCount] gates the per-section count badge (the ⚙ "show
+/// counts" toggle); a count only renders when it has货 (n>0), so an empty kind head shows no "0".
+/// 构建 rail 模型:单平铺组 + 每 kind 一折叠段(按 sort 排序);每 kind 头恒渲(空 kind=满态收起形)。计数仅 showCount 开
+/// 且 n>0 时渲(空组头不显「0」)。
 SidebarModel buildRailModel(
   List<RailGroup> groups,
   RailLabels labels,
@@ -52,7 +55,7 @@ SidebarModel buildRailModel(
               SidebarType(
                 label: labels.kindLabel(g.kind),
                 icon: AnIcons.byKey(g.kind.scopeKind),
-                count: showCount ? g.count : null,
+                count: showCount && g.count > 0 ? g.count : null,
                 pageKey: g.kind.name, // pagination axis — onLoadMore maps this back to the kind 分页轴
                 hasMore: g.state.value?.hasMore ?? false,
                 loadingMore: g.state.value?.loadingMore ?? false,

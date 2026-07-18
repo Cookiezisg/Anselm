@@ -7,7 +7,8 @@ import 'package:anselm/core/router/navigation.dart';
 import 'package:anselm/core/entity/mention_source.dart';
 import 'package:anselm/features/documents/ui/an_document_editor.dart';
 import 'package:super_text_layout/super_text_layout.dart' show BlinkController;
-import 'package:anselm/core/ui/an_sidebar_list.dart' show AnRowDropZone;
+import 'package:anselm/core/ui/an_sidebar_list.dart' show AnRowDropZone, AnSidebarList;
+import 'package:anselm/core/ui/an_state.dart';
 import 'package:anselm/features/documents/data/document_fixtures.dart';
 import 'package:anselm/features/documents/data/document_repository.dart';
 import 'package:anselm/features/documents/state/document_state.dart';
@@ -131,6 +132,19 @@ void main() {
       await tester.tap(find.text('Getting Started'));
       await tester.pump();
       expect(ref.read(selectedDocProvider), (isSkill: false, id: 'doc_a'));
+    });
+
+    testWidgets('empty library → the collapsed shape: New page + Documents / Skills heads, no tombstone', (tester) async {
+      await tester.pumpWidget(_host(FixtureDocumentsRepository(documents: const [], skills: const []), const DocumentRail()));
+      await tester.pump();
+      await tester.pump();
+      // 用户 0718 拍板: an empty library = the FULL rail with rows removed — New page + both section heads
+      // render, no «Nothing here yet» tombstone. 空态=满态收起:New page + 双组头恒在、无墓碑。
+      expect(find.byType(AnSidebarList), findsOneWidget);
+      expect(find.byType(AnState), findsNothing); // the old empty tombstone is retired 墓碑退役
+      expect(find.text('New page'), findsOneWidget);
+      expect(find.text(t.documents.documents), findsOneWidget); // Documents head
+      expect(find.text(t.documents.skills), findsOneWidget); // Skills head
     });
 
     testWidgets('the New row creates a root page and selects it', (tester) async {

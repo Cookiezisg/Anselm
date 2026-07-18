@@ -2,8 +2,6 @@
   "chat": {
     "new": "New chat",
     "filter": "Search conversations…",
-    "emptyTitle": "No conversations yet",
-    "emptyHint": "Start a new chat to begin.",
     "errorTitle": "Couldn't load conversations",
     "errorHint": "The local engine didn't return the conversation list.",
     "retry": "Try again",
@@ -637,8 +635,6 @@
     "inferredRunning": "running (inferred)"
   },
   "scheduler": {
-    "railEmptyTitle": "No workflows yet",
-    "railEmptyHint": "Create one in Entities, or ask the conversation to build one for you.",
     "railErrorTitle": "Couldn't load workflows",
     "railErrorHint": "The backend didn't answer. Check the connection and retry.",
     "retry": "Retry",
@@ -965,8 +961,6 @@
     "feed": "Notifications",
     "markAllRead": "Mark all read",
     "markRead": "Mark read",
-    "emptyTitle": "You're all caught up",
-    "emptyHint": "New activity shows up here.",
     "today": "Today",
     "yesterday": "Yesterday",
     "earlier": "Earlier",
@@ -1073,8 +1067,6 @@
   "entities": {
     "new": "New",
     "filter": "Search entities…",
-    "emptyTitle": "No entities yet",
-    "emptyHint": "Create a function, handler, agent, or workflow to get started.",
     "errorTitle": "Couldn't load entities",
     "errorHint": "The local engine didn't return the entity list.",
     "retry": "Try again",
@@ -1385,8 +1377,6 @@
     "errorTitle": "Couldn't load your library",
     "errorHint": "The local engine didn't return it.",
     "retry": "Retry",
-    "emptyTitle": "Nothing here yet",
-    "emptyHint": "Create a document or a skill to get started.",
     "pickTitle": "Pick a document",
     "pickHint": "Choose a document or skill on the left to read or edit it.",
     "loadFailed": "Couldn't open this",

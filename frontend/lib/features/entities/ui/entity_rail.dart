@@ -65,20 +65,18 @@ class _EntityRailState extends ConsumerState<EntityRail> {
     final showCount = ref.watch(railShowCountProvider);
     final t = context.t;
 
-    // The three placeholder states are an AGGREGATE over the 4 kind lists: loading = nothing resolved yet;
-    // error = every kind failed with nothing to show; empty = loaded but zero rows across all kinds.
-    // 三占位态是 4 kind 列表的聚合:载=尚无一解 / 错=全 kind 失败且无可显 / 空=载完但全 kind 零行。
+    // The two placeholder states are an AGGREGATE over the 4 kind lists: loading = nothing resolved yet;
+    // error = every kind failed with nothing to show. Zero rows across all kinds is NOT a state — the list
+    // renders its chrome + all seven (empty) kind heads (满态收起的形状). 两占位态是 kind 列表的聚合:载=尚无一解 /
+    // 错=全 kind 失败且无可显;全 kind 零行不是态,直落列表(渲 chrome + 七个空 kind 组头)。
     final anyData = groups.any((g) => g.state.hasValue);
     return AnRailStates(
       loading: !anyData && groups.any((g) => g.state.isLoading),
       error: !anyData && groups.every((g) => g.state.hasError),
-      empty: groups.fold<int>(0, (sum, g) => sum + g.count) == 0,
       strings: AnRailStrings(
         errorTitle: t.entities.errorTitle,
         errorHint: t.entities.errorHint,
         retry: t.entities.retry,
-        emptyTitle: t.entities.emptyTitle,
-        emptyHint: t.entities.emptyHint,
       ),
       onRetry: _retryAll,
       builder: () => AnSidebarList(

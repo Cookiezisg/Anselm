@@ -72,21 +72,21 @@ class _NotificationFeedState extends ConsumerState<NotificationFeed> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // The "Notifications" section head is always present (the tray's persistent structure); an empty
+        // feed just renders it over an empty body — no tombstone. 「通知」段头恒在;空 feed 只是头下空身、无墓碑。
         _Header(title: t.feed, showMarkAll: hasUnread, onMarkAll: () => ref.read(notificationFeedProvider.notifier).markAllRead()),
         const AnDivider(),
-        // The four first-screen outcomes ride the ONE rail resolver (same face as the
-        // conversation/entity rails); header + divider stay outside it. 首屏四态走唯一 rail 件,头留外围。
+        // The first-screen outcomes ride the ONE rail resolver (same face as the conversation/entity rails);
+        // header + divider stay outside it. An empty feed is not a state — it resolves to the (empty) list.
+        // 首屏态走唯一 rail 件,头留外围。空 feed 不是态,直落(空)列表。
         Expanded(
           child: AnRailStates(
             loading: async.isLoading && !async.hasValue,
             error: async.hasError && !async.hasValue,
-            empty: rows.isEmpty,
             strings: AnRailStrings(
               errorTitle: t.errorTitle,
               errorHint: t.errorHint,
               retry: t.retry,
-              emptyTitle: t.emptyTitle,
-              emptyHint: t.emptyHint,
             ),
             onRetry: () => ref.invalidate(notificationFeedProvider),
             builder: () => _list(context, rows),

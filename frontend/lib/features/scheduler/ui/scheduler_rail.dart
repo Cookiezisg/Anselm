@@ -63,16 +63,15 @@ class _SchedulerRailState extends ConsumerState<SchedulerRail> {
       _ => null,
     };
 
+    // Zero workflows is NOT a state — the list renders the search box + the fixed Overview row (满态收起的形状).
+    // 零 workflow 不是态,直落列表(渲搜索框 + Overview 固定行)。
     return AnRailStates(
       loading: data.isLoading && !data.hasValue,
       error: data.hasError && !data.hasValue,
-      empty: data.hasValue && data.value!.workflows.isEmpty,
       strings: AnRailStrings(
         errorTitle: t.scheduler.railErrorTitle,
         errorHint: t.scheduler.railErrorHint,
         retry: t.scheduler.retry,
-        emptyTitle: t.scheduler.railEmptyTitle,
-        emptyHint: t.scheduler.railEmptyHint,
       ),
       onRetry: () => ref.read(schedulerRailProvider.notifier).refresh(),
       builder: () {

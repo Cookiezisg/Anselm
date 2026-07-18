@@ -217,6 +217,25 @@ void main() {
       expect(overview.meta, isNull);
       expect(overview.dot, isNull);
     });
+
+    // 用户 0718 拍板 — 空态=满态收起的形状: zero workflows still emit the fixed Overview row (over the search
+    // box, which the AnSidebarList always draws); no Never-ran / Inactive sections, and no badge on Overview.
+    // 零 workflow 仍出 Overview 固定行(搜索框由列表恒渲);无 Never-ran/Inactive 段、Overview 无徽。
+    test('zero workflows → the fixed Overview row stays; no folded sections, no badge', () {
+      final model = buildSchedulerRailModel(
+        workflows: const [],
+        stats: const {},
+        nextFireByWorkflow: const {},
+        waitingCount: 0,
+        labels: _labels,
+        now: _now,
+      );
+      final types = model.groups.single.types;
+      expect(types[0].rows.single.id, schedulerOverviewRowId); // Overview row survives 零态
+      expect(types[0].rows.single.meta, isNull); // no "0" waiting badge 空徽不显
+      expect(types[1].rows, isEmpty); // the (headless) main section is empty 主段空
+      expect(types.skip(2).where((t) => t.label != null), isEmpty); // no Never-ran / Inactive heads 无沉底段
+    });
   });
 }
 

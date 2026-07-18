@@ -2,8 +2,6 @@
   "chat": {
     "new": "新对话",
     "filter": "搜索对话…",
-    "emptyTitle": "还没有对话",
-    "emptyHint": "开始一个新对话吧。",
     "errorTitle": "对话列表加载失败",
     "errorHint": "本地引擎没有返回对话列表。",
     "retry": "重试",
@@ -637,8 +635,6 @@
     "inferredRunning": "推测执行中"
   },
   "scheduler": {
-    "railEmptyTitle": "还没有 workflow",
-    "railEmptyHint": "去 Entities 创建一个,或让对话替你建。",
     "railErrorTitle": "workflow 加载失败",
     "railErrorHint": "后端没有应答,检查连接后重试。",
     "retry": "重试",
@@ -965,8 +961,6 @@
     "feed": "通知",
     "markAllRead": "全部已读",
     "markRead": "标为已读",
-    "emptyTitle": "都处理完了",
-    "emptyHint": "新动态会出现在这里。",
     "today": "今天",
     "yesterday": "昨天",
     "earlier": "更早",
@@ -1073,8 +1067,6 @@
   "entities": {
     "new": "新建",
     "filter": "搜索实体…",
-    "emptyTitle": "还没有实体",
-    "emptyHint": "新建一个函数、处理器、智能体或工作流来开始。",
     "errorTitle": "无法加载实体",
     "errorHint": "本地引擎没有返回实体列表。",
     "retry": "重试",
@@ -1385,8 +1377,6 @@
     "errorTitle": "无法加载知识库",
     "errorHint": "本地引擎没有返回它。",
     "retry": "重试",
-    "emptyTitle": "这里还什么都没有",
-    "emptyHint": "新建一篇文档或一个技能开始。",
     "pickTitle": "选一篇文档",
     "pickHint": "在左侧选一篇文档或技能来阅读或编辑。",
     "loadFailed": "打不开这个",

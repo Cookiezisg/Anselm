@@ -9,8 +9,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-// The feed widget. Pins: empty → caught-up state; populated → rows + a "mark all read" header that clears
-// the badge + grays the rows; massive list doesn't throw.
+// The feed widget. Pins: empty → the "Notifications" section head stays over an empty body (no tombstone,
+// 用户 0718 拍板); populated → rows + a "mark all read" header that clears the badge + grays the rows;
+// massive list doesn't throw.
 
 NotificationItem _n(String id, {bool read = false}) => NotificationItem(
       id: id,
@@ -33,10 +34,13 @@ Widget _host(FixtureNotificationRepository repo) => ProviderScope(
 void main() {
   setUpAll(() => LocaleSettings.setLocaleRaw('zh-CN'));
 
-  testWidgets('empty feed → caught-up state, no mark-all', (tester) async {
+  testWidgets('empty feed → the "Notifications" head stays over an empty body (no tombstone, no mark-all)', (tester) async {
     await tester.pumpWidget(_host(FixtureNotificationRepository(seed: const [])));
     await tester.pumpAndSettle();
-    expect(find.text(t.notifications.emptyTitle), findsOneWidget);
+    // 用户 0718 拍板: an empty feed is the collapsed shape, not a «You're all caught up» tombstone — the
+    // persistent "通知" section head stays, nothing under it. 空态=收起形:段头恒在、身空、无墓碑。
+    expect(find.text(t.notifications.feed), findsOneWidget); // the section head
+    expect(find.byType(NotificationRow), findsNothing); // no rows
     expect(find.text(t.notifications.markAllRead), findsNothing);
   });
 

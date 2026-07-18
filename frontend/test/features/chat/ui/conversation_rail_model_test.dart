@@ -113,6 +113,15 @@ void main() {
       expect(types.map((t) => t.label), ['RECENTS']);
     });
 
+    // 用户 0718 拍板 — 空态=满态收起的形状: zero conversations render BOTH group heads (empty), teaching the
+    // structure; a "0" count is noise so an empty head carries no count. 零对话渲两组头(空)、不显「0」。
+    test('zero conversations → both Pinned + Recents heads render (empty), no counts', () {
+      final types = buildConversationRailModel(const [], now: _now, labels: _labels).groups.single.types;
+      expect(types.map((t) => t.label), ['PINNED', 'RECENTS']); // both heads, unlike the "no pinned" case
+      expect(types.every((t) => t.rows.isEmpty), isTrue); // empty bodies
+      expect(types.every((t) => t.count == null), isTrue); // no "0" on an empty head
+    });
+
     test('showCount/showTime off → section counts and row time meta are null (⚙ toggles)', () {
       final rows = [_cAt('cv_pin', _now, pinned: true), _cAt('cv_a', _now)];
       final types = buildConversationRailModel(rows,

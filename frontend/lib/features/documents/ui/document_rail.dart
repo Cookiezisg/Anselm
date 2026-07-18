@@ -49,17 +49,15 @@ class _DocumentRailState extends ConsumerState<DocumentRail> {
     final anyData = treeAsync.hasValue || skillsAsync.hasValue;
 
     return AnRailStates(
-      // Aggregate over both lists: loading = neither resolved; error = both failed with nothing; empty =
-      // loaded but zero documents AND zero skills. 两列表聚合:载=均未解 / 错=均败且无 / 空=载完全零。
+      // Aggregate over both lists: loading = neither resolved; error = both failed with nothing. Zero
+      // documents AND zero skills is NOT a state — the list renders New page + search + the Documents /
+      // Skills heads (满态收起的形状). 两列表聚合:载=均未解 / 错=均败且无;全零不是态,直落列表(渲 New page + 搜索 + 双组头)。
       loading: !anyData && (treeAsync.isLoading || skillsAsync.isLoading),
       error: !anyData && treeAsync.hasError && skillsAsync.hasError,
-      empty: anyData && tree.isEmpty && skills.isEmpty,
       strings: AnRailStrings(
         errorTitle: t.documents.errorTitle,
         errorHint: t.documents.errorHint,
         retry: t.documents.retry,
-        emptyTitle: t.documents.emptyTitle,
-        emptyHint: t.documents.emptyHint,
       ),
       onRetry: () {
         ref.invalidate(documentTreeProvider);
