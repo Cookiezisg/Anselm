@@ -91,7 +91,12 @@ class AnLedgerRow extends StatelessWidget {
         : AnText.meta.copyWith(color: c.inkFaint);
     final row = ConstrainedBox(
       constraints: const BoxConstraints(minHeight: AnSize.row),
-      child: Row(
+      // Contents inset s8 from BOTH edges (WRK-070 0718 用户裁「点点/时长要跟着标准的有框间距走」):
+      // the row lives in a (hover-visible) phantom frame, so lead dot and right measure retreat from
+      // its edges — the same s8 grammar as AnKv's phantom box. 行住假想框:两侧内容各退 s8(同 AnKv)。
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8),
+        child: Row(
           crossAxisAlignment: effectiveSub == null ? CrossAxisAlignment.center : CrossAxisAlignment.start,
           children: [
         if (lead != null) ...[
@@ -153,6 +158,7 @@ class AnLedgerRow extends StatelessWidget {
           ),
         ],
       ]),
+      ),
     );
     final disclosing = expandChild != null || expandBuilder != null;
     final tappable = onTap == null
@@ -172,13 +178,13 @@ class AnLedgerRow extends StatelessWidget {
             ),
           );
     if (!disclosing) return tappable;
-    // The disclosure body indents to the primary's left edge — the lead-cell offset lives in
-    // the primitive (its OWN structural constant), never as caller arithmetic (文法 #4 targets
-    // feature-layer sums). A lead-less row has its primary at 0, so the offset only applies
-    // when the lead cell exists (批6 复审). 披露体缩进到主文左缘——偏移量原语自持、非调用方
-    // 算术;无 lead 行主文在 0,缩进随 lead 存在与否。
-    final indent = EdgeInsetsDirectional.only(
-        start: lead != null ? AnSize.iconSm + AnSpace.s6 : 0, bottom: AnSpace.s4);
+    // The disclosure body insets EQUALLY from both edges (WRK-070 0718 用户裁「左边有退右边没退——
+    // 两边都按假想边框退同样的距离」): the body lives in the same phantom frame as the row, so both
+    // sides take the frame inset (s8); the old left-only lead-gutter indent read lopsided. The
+    // offset lives in the primitive (never caller arithmetic, 文法 #4).
+    // 披露体两侧等退:与行同住假想框,两侧同取框内距 s8;旧的仅左 lead 沟缩进读作偏斜。偏移原语自持。
+    const indent = EdgeInsetsDirectional.only(
+        start: AnSpace.s8, end: AnSpace.s8, bottom: AnSpace.s4);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
       tappable,
       // expandBuilder rides the LAZY reveal (C-006): a collapsed row never builds its body — a run

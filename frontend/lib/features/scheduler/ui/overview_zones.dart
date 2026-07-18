@@ -483,8 +483,7 @@ mixin _PeekZone<T extends ConsumerStatefulWidget> on ConsumerState<T> {
     final home = context.t.scheduler.home;
     return Padding(
       padding: const EdgeInsets.only(top: AnGap.block),
-      child: Align(
-        alignment: Alignment.centerLeft,
+      child: Center(
         child: AnPager(
           page: pageNum.clamp(1, pages),
           pageCount: pages,

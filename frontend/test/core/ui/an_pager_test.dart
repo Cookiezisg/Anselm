@@ -63,12 +63,24 @@ void main() {
     expect(got, -1);
   });
 
-  testWidgets('the jump field commits a CLAMPED page on submit', (tester) async {
+  testWidgets('few pages (≤7): ALL numbers, NO jump field (Ant 定式:很少就不需要跳转)',
+      (tester) async {
+    await tester.pumpWidget(host(2, 7, (_) {}));
+    for (var p = 1; p <= 7; p++) {
+      expect(find.text('$p'), findsOneWidget, reason: '≤7 页全列');
+    }
+    expect(find.text('…'), findsNothing);
+    expect(find.byType(EditableText), findsNothing, reason: '少页无跳转输入');
+  });
+
+  testWidgets('the jump field appears when folded and commits a CLAMPED page on submit',
+      (tester) async {
     var got = -1;
-    await tester.pumpWidget(host(1, 5, (p) => got = p));
+    await tester.pumpWidget(host(1, 12, (p) => got = p));
+    expect(find.byType(EditableText), findsOneWidget, reason: '折叠(>7)才有跳页');
     await tester.enterText(find.byType(EditableText), '99');
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pump();
-    expect(got, 5, reason: '越界跳页钳到末页');
+    expect(got, 12, reason: '越界跳页钳到末页');
   });
 }

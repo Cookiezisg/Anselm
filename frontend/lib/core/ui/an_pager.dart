@@ -9,15 +9,17 @@ import 'an_input.dart';
 import 'an_interactive.dart';
 import 'icons.dart';
 
-/// The standard page-number pager (WRK-070 B4 用户拍板:「左箭头 右箭头 页码 跳转输入框」):
-/// ‹ / › steps, a windowed number strip (1 … around-current … last, current emphasised), and a
-/// small jump field (Enter → clamped page). **A single page renders NOTHING** (拍板:没有多页就不要
-/// 显示) — the pager only exists when there is somewhere to go.
+/// The standard page-number pager (WRK-070 B4;形制照业界标准[Ant Design Pagination 定式],用户 0718
+/// 复核拍板): **few pages (≤ [_AnPagerState.foldThreshold]) show EVERY number and NO jump field**
+/// («‹ 1 2 3 ›» — 很少就不需要跳转); many pages fold to «‹ 1 … cur-1 cur cur+1 … last ›» AND grow
+/// the quick-jump field. The current page is emphasised (that IS the «你在第几页»); the last number
+/// IS the total. **A single page renders NOTHING** (拍板:没有多页就不要显示).
 ///
 /// Zero copy in core: the a11y words arrive via [AnPagerStrings]. Ellipses are text glyphs (…).
+/// Hosts should CENTER it under the list (标准摆位居中,消费方负责).
 ///
-/// 标准翻页器:‹/› 步进 + 开窗页码带(1 … 当前±1 … 末,当前加重)+ 跳页小输入(回车→钳制页码)。
-/// **单页不渲**——有处可去才存在。core 零文案:a11y 词经 AnPagerStrings 进。
+/// 标准翻页器(Ant 定式):少页全列无跳转;多页开窗折 … + 跳页输入;当前页加重即「在哪页」;末号即总页数;
+/// 单页不渲。core 零文案;宿主居中摆放。
 class AnPagerStrings {
   const AnPagerStrings({
     required this.prevLabel,
@@ -64,11 +66,16 @@ class _AnPagerState extends State<AnPager> {
     super.dispose();
   }
 
-  /// The windowed strip: first + last + current±1, gaps folded to one `…` sentinel (null).
-  /// 开窗页码带:首+末+当前±1,豁口折一枚 … 哨兵(null)。
+  /// Up to this many pages every number shows and the jump field stays hidden (Ant 定式);
+  /// beyond it the strip folds and the quick jumper appears. 折叠阈:≤7 全列免跳转,>7 开窗+跳页。
+  static const int foldThreshold = 7;
+
+  /// The number strip: ALL pages when few; folded «1 … cur±1 … last» when many (gaps = one `…`
+  /// sentinel, null). 页码带:少页全列;多页开窗,豁口折一枚 … 哨兵。
   List<int?> _strip() {
     final n = widget.pageCount;
     final cur = widget.page;
+    if (n <= foldThreshold) return [for (var p = 1; p <= n; p++) p];
     final keep = <int>{1, n, cur - 1, cur, cur + 1}..removeWhere((p) => p < 1 || p > n);
     final sorted = keep.toList()..sort();
     final out = <int?>[];
@@ -153,16 +160,19 @@ class _AnPagerState extends State<AnPager> {
           size: AnButtonSize.sm,
           semanticLabel: s.nextLabel,
           onPressed: widget.page < widget.pageCount ? () => _go(widget.page + 1) : null),
-      const SizedBox(width: AnSpace.s8),
-      SizedBox(
-        width: AnSize.pagerJumpW,
-        child: AnInput(
-          controller: _jump,
-          placeholder: s.jumpHint,
-          tabular: true,
-          onSubmitted: _jumpSubmit,
+      // The quick jumper exists only when the strip folds (很少就不需要跳转,Ant 同律). 折叠才有跳页。
+      if (widget.pageCount > foldThreshold) ...[
+        const SizedBox(width: AnSpace.s8),
+        SizedBox(
+          width: AnSize.pagerJumpW,
+          child: AnInput(
+            controller: _jump,
+            placeholder: s.jumpHint,
+            tabular: true,
+            onSubmitted: _jumpSubmit,
+          ),
         ),
-      ),
+      ],
     ]);
   }
 }

@@ -297,7 +297,8 @@ void main() {
       final t = tester.widget<Text>(find.text('TIMEOUT'));
       expect(t.style!.fontFamily, AnText.code.fontFamily);
     });
-    testWidgets('expandChild indents to the primary edge (the caller arithmetic died here)', (tester) async {
+    testWidgets('expandChild insets EQUALLY from both edges — the phantom frame s8, lead or not '
+        '(WRK-070 0718 用户裁,推翻批6 的仅左 lead 沟缩进)', (tester) async {
       // The reveal Align(topCenter) centres shrink-wrapped children — feed a stretched child like
       // real bodies are. 揭示层水平居中收身子件,喂撑满子件如真实用点。
       await tester.pumpWidget(_host(const AnLedgerRow(
@@ -306,17 +307,25 @@ void main() {
           expanded: true,
           expandChild: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [Text('BODY')]))));
       await tester.pump();
-      expect(tester.getTopLeft(find.text('BODY')).dx - tester.getTopLeft(find.byType(AnLedgerRow)).dx,
-          AnSize.iconSm + AnSpace.s6);
+      final host = tester.getRect(find.byType(AnLedgerRow));
+      final body = tester.getRect(find.text('BODY'));
+      expect(body.left - host.left, AnSpace.s8, reason: '左退=假想框 s8');
+      // The body COLUMN stretches to the inset width — its right edge mirrors the left. 体列右缘镜像左缘。
+      final col = tester.getRect(find
+          .ancestor(of: find.text('BODY'), matching: find.byType(Column))
+          .first);
+      expect(host.right - col.right, AnSpace.s8, reason: '右退=左退(两边一样)');
     });
-    testWidgets('a lead-less row expands flush-left — the indent follows the lead cell (批6 复审)', (tester) async {
+    testWidgets('a lead-less row expands with the SAME both-side inset (缩进不再随 lead)', (tester) async {
       await tester.pumpWidget(_host(const AnLedgerRow(
           primary: 'row',
           expanded: true,
           expandChild: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [Text('BODY')]))));
       await tester.pump();
-      // No lead → primary at 0 → the disclosure aligns to 0, not a phantom 18px. 无 lead 缩进为 0。
-      expect(tester.getTopLeft(find.text('BODY')).dx, tester.getTopLeft(find.byType(AnLedgerRow)).dx);
+      expect(
+          tester.getTopLeft(find.text('BODY')).dx - tester.getTopLeft(find.byType(AnLedgerRow)).dx,
+          AnSpace.s8,
+          reason: '无 lead 同样 s8——假想框与 lead 无关');
     });
     testWidgets('sub is trimmed for render AND geometry: leading \\n paints, whitespace-only stays one line (批6 复审)',
         (tester) async {

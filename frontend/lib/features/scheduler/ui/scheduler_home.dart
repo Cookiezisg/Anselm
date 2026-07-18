@@ -708,8 +708,7 @@ class _RunTableZoneState extends ConsumerState<_RunTableZone> with BatchZone<_Ru
               s.total > SchedulerRunTableController.pageSize)
             Padding(
               padding: const EdgeInsets.only(top: AnGap.block),
-              child: Align(
-                alignment: Alignment.centerLeft,
+              child: Center(
                 child: AnPager(
                   page: s.page,
                   pageCount:

@@ -238,8 +238,14 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
     final key = event.logicalKey;
 
     // While an IME composition is open, every key belongs to the IME (candidate navigation included).
-    // IME 合成期按键全归 IME(含候选导航)。
-    if (_ctrl.value.composing.isValid) return KeyEventResult.ignored;
+    // Guard = valid AND NON-COLLAPSED, spelled explicitly: after a macOS CJK commit the controller
+    // often keeps a COLLAPSED composing range (start==end) whose isValid is still true — and this
+    // SDK's `isComposingRangeValid` does NOT exclude collapsed either (probed) — so the old guard ate
+    // every post-commit Enter and the platform inserted a newline instead of sending (用户 0718
+    // 真机:「回车没有发送」根因). IME 合成期按键全归 IME;判据=有效且**非塌缩**(显式拼写——本 SDK 的
+    // isComposingRangeValid 同样不排塌缩,实测探明):塌缩 composing=无活动合成。
+    final composing = _ctrl.value.composing;
+    if (composing.isValid && !composing.isCollapsed) return KeyEventResult.ignored;
 
     // ── the open picker owns its keys (combobox standard; focus stays here) 面板开着时按键归它 ──
     if (_pickerOpen && _candidates.isNotEmpty) {

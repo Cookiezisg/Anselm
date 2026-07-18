@@ -77,4 +77,51 @@ void main() {
         reason: '点与主文首行近同心(±3px)');
   });
 
+
+  testWidgets('row contents inset s8 from BOTH edges; the disclosure body insets EQUALLY '
+      '(WRK-070 0718 假想框:两边退一样)', (tester) async {
+    await tester.pumpWidget(TranslationProvider(
+      child: MaterialApp(
+        theme: AnTheme.light(),
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.centerLeft,
+            child: SizedBox(
+              width: 420,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AnLedgerRow(
+                    lead: const AnStatusDot(AnStatus.done),
+                    primary: 'row',
+                    measure: '42.0s',
+                    onTap: () {},
+                    expanded: true,
+                    expandChild: const SizedBox(
+                        width: double.infinity,
+                        height: 20,
+                        child: ColoredBox(color: Color(0xFF000000))),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    ));
+    await tester.pump();
+    final host = tester.getRect(find.byType(AnLedgerRow));
+    final dot = tester.getRect(find.byType(AnStatusDot));
+    final measure = tester.getRect(find.text('42.0s'));
+    // Lead dot retreats from the left edge; the measure from the right — the phantom frame's s8.
+    expect(dot.left - host.left, greaterThanOrEqualTo(8), reason: '点从左缘退 ≥s8');
+    expect(host.right - measure.right, moreOrLessEquals(8, epsilon: 0.6), reason: '时长从右缘退 s8');
+    // The expansion insets EQUALLY on both sides. 展开体两侧等退。
+    final bodyRect = tester.getRect(
+        find.byWidgetPredicate((w) => w is ColoredBox && w.color == const Color(0xFF000000)));
+    expect(bodyRect.left - host.left, moreOrLessEquals(host.right - bodyRect.right, epsilon: 0.6),
+        reason: '展开体左右退距相等(用户 0718:「两边退的距离是一样的」)');
+    expect(bodyRect.left - host.left, moreOrLessEquals(8, epsilon: 0.6));
+  });
 }

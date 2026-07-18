@@ -120,6 +120,25 @@ void main() {
     expect(repo.lastSend?.content, 'hello', reason: '⌘Enter 发送');
   });
 
+  testWidgets('a STALE collapsed composing range does NOT eat Enter (macOS CJK 提交残留,用户 0718 '
+      '「回车没发送」根因)', (tester) async {
+    final repo = FixtureChatRepository(conversations: [_conv('cv_1')], messages: {'cv_1': []});
+    await tester.pumpWidget(_host(repo));
+    await _settle(tester);
+    await tester.enterText(find.byType(TextField), '你好世界');
+    // Simulate the macOS post-commit state: text committed, composing left COLLAPSED (4,4) — valid
+    // but empty. 模拟 macOS 提交后态:文本已提交,composing 残留塌缩 (4,4)——isValid 仍 true。
+    final field = tester.widget<TextField>(find.byType(TextField));
+    field.controller!.value = field.controller!.value.copyWith(
+      composing: const TextRange(start: 4, end: 4),
+    );
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await _settle(tester);
+    expect(repo.lastSend?.content, '你好世界',
+        reason: '塌缩 composing=无活动合成,回车必须发送(旧判据把它当合成期吞掉)');
+  });
+
   testWidgets('an IME-composing Enter never sends', (tester) async {
     final repo = FixtureChatRepository(conversations: [_conv('cv_1')], messages: {'cv_1': []});
     await tester.pumpWidget(_host(repo));
