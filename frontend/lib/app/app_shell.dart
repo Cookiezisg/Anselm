@@ -9,6 +9,7 @@ import '../core/shell/oceans.dart';
 import '../core/shell/shell_chrome.dart';
 import '../core/ui/ui.dart';
 import '../features/chat/state/selected_conversation.dart';
+import '../features/chat/state/sidestage_activity_provider.dart';
 import '../features/chat/state/stage_director_provider.dart';
 import '../features/chat/ui/stage_panel.dart';
 import '../features/chat/ui/chat_head.dart';
@@ -113,13 +114,18 @@ class AppShell extends ConsumerWidget {
         onEntities && (ref.watch(selectedEntityProvider)?.kind.executable ?? false);
     final hasDocSelection = onDocuments && ref.watch(selectedDocProvider) != null;
     final chatConversation = onChat ? ref.watch(selectedConversationProvider)?.id : null;
+    // The chat right island exists ONLY when the sidestage has content (用户 0718-19: 空对话的右岛钮=通向
+    // 墓碑的门). The Scenes (场次) button still rides the head for any selected thread (below) — only the
+    // right island + its panel-right toggle are activity-gated. 有 activity 才有右岛(+ toggle);Scenes 照旧。
+    final chatHasActivity =
+        chatConversation != null && ref.watch(sidestageActivityProvider(chatConversation));
     // Scheduler reveals the island ONLY on the run flagship (WRK-069 §6) — the Overview board and
     // the operations home are self-sufficient, and revealing an inspector for them would be an
     // island for the island's sake. scheduler 仅在 run 旗舰揭示右岛:看板与运营主页自足,不为放而放。
     final onScheduler = ocean == OceanKind.scheduler;
     final hasRunSelection = onScheduler && ref.watch(selectedSchedulerProvider) is SchedulerRun;
     final hasSelection =
-        hasEntitySelection || hasDocSelection || chatConversation != null || hasRunSelection;
+        hasEntitySelection || hasDocSelection || chatHasActivity || hasRunSelection;
     final rightCollapsed = ref.watch(rightPanelCollapsedProvider);
     // R-15: a collapsed sidestage keeps only the activity bit — a live channel behind the fold
     // lights a dot on the panel-right button. 收起的侧幕只留活动位:折叠后有 live 频道即点亮右钮点。

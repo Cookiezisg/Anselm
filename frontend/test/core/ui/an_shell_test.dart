@@ -196,6 +196,50 @@ void main() {
     expect(toggled, isTrue);
   });
 
+  // 0718-19 — the panel-right toggle is a HEAD MEMBER that SLIDES IN from the trailing edge the moment it
+  // first appears (a chat conversation's first activity), pushing the head-trailing Scenes button LEFT.
+  // «挤» is a real位移: new member inserts at the trailing edge, older members move left. 位置语法。
+  testWidgets('the panel-right toggle slides in at the trailing edge and pushes headTrailing left',
+      (tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    const scenes = SizedBox(key: ValueKey('scenesProbe'), width: 24, height: 24);
+
+    // No toggle → the Scenes button sits at the trailing end. 无 toggle:Scenes 在尾端。
+    await tester.pumpWidget(wrap(const AnShell(headTrailing: scenes)));
+    await tester.pumpAndSettle();
+    expect(find.byIcon(AnIcons.panelRight), findsNothing);
+    final scenesRightAlone = tester.getRect(find.byKey(const ValueKey('scenesProbe'))).right;
+
+    // Activity arrives → the toggle reveals (AnExpandReveal horizontal) and pushes Scenes left. 滑入+左移。
+    await tester.pumpWidget(wrap(AnShell(headTrailing: scenes, onToggleRight: () {})));
+    await tester.pumpAndSettle();
+    expect(find.byIcon(AnIcons.panelRight), findsOneWidget);
+    final scenesRightPushed = tester.getRect(find.byKey(const ValueKey('scenesProbe'))).right;
+    expect(scenesRightPushed, lessThan(scenesRightAlone),
+        reason: 'the sliding-in toggle pushes the Scenes button left (real 位移)');
+  });
+
+  testWidgets('reduced motion → the toggle reveal is instant (no slide)', (tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    Widget reduced(Widget child) => wrap(Builder(
+        builder: (context) =>
+            MediaQuery(data: MediaQuery.of(context).copyWith(disableAnimations: true), child: child)));
+
+    await tester.pumpWidget(reduced(const AnShell()));
+    await tester.pump();
+    expect(find.byIcon(AnIcons.panelRight), findsNothing);
+
+    await tester.pumpWidget(reduced(AnShell(onToggleRight: () {})));
+    await tester.pump(); // one frame — reduced motion is instant, no settle needed
+    expect(find.byIcon(AnIcons.panelRight), findsOneWidget);
+  });
+
   // --- fullscreen chrome collapse (the white-band bug) --------------------
   // In native macOS fullscreen the OS hides the traffic lights + taller title bar, so the shell must
   // collapse the reservations it makes FOR those lights: the vertical band (titlebarHeight → 0) and the

@@ -781,7 +781,6 @@ final GalleryCategory _g4NavShell = GalleryCategory('导航与壳 Nav & Shell', 
     GallerySpecimen('head + body (in island)', (_) => SizedBox(
           width: 320,
           child: AnIsland(
-            padding: EdgeInsets.zero,
             child: AnInspector(
               title: 'normalize-input',
               icon: AnIcons.function,
@@ -795,7 +794,6 @@ final GalleryCategory _g4NavShell = GalleryCategory('导航与壳 Nav & Shell', 
     GallerySpecimen('headless (slot fills + self-manages)', (_) => const SizedBox(
           width: 320,
           child: AnIsland(
-            padding: EdgeInsets.zero,
             child: AnInspector(
               headless: true,
               child: AnState(kind: AnStateKind.empty, size: AnStateSize.inset, title: 'Headless', hint: 'slot self-draws its head + scroll'),
@@ -805,7 +803,6 @@ final GalleryCategory _g4NavShell = GalleryCategory('导航与壳 Nav & Shell', 
     GallerySpecimen('超长标题 + 多卡滚动', (_) => SizedBox(
           width: 320,
           child: AnIsland(
-            padding: EdgeInsets.zero,
             child: AnInspector(
               title: 'an-extremely-long-inspector-title-that-must-ellipsis-in-the-head',
               icon: AnIcons.workflow,
@@ -821,7 +818,6 @@ final GalleryCategory _g4NavShell = GalleryCategory('导航与壳 Nav & Shell', 
     GallerySpecimen('label + subhead + close', (_) => SizedBox(
           width: 320,
           child: AnIsland(
-            padding: EdgeInsets.zero,
             child: AnInspectorHead(
               icon: AnIcons.node('action'),
               label: 'run_tests',
@@ -835,7 +831,6 @@ final GalleryCategory _g4NavShell = GalleryCategory('导航与壳 Nav & Shell', 
     GallerySpecimen('label + actions + close', (_) => SizedBox(
           width: 320,
           child: AnIsland(
-            padding: EdgeInsets.zero,
             child: AnInspectorHead(
               label: '活动',
               actions: [
@@ -851,14 +846,12 @@ final GalleryCategory _g4NavShell = GalleryCategory('导航与壳 Nav & Shell', 
     GallerySpecimen('label only (no subhead)', (_) => SizedBox(
           width: 320,
           child: AnIsland(
-            padding: EdgeInsets.zero,
             child: AnInspectorHead(icon: AnIcons.workflow, label: '检查器'),
           ),
         ), span: true),
     GallerySpecimen('超长 label 省略 + 超长 ref', (_) => SizedBox(
           width: 280,
           child: AnIsland(
-            padding: EdgeInsets.zero,
             child: AnInspectorHead(
               icon: AnIcons.node('agent'),
               label: 'an-extremely-long-node-identifier-that-must-ellipsis-and-hold',

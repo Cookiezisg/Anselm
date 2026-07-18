@@ -93,11 +93,12 @@ class WorkflowEditorInspector extends ConsumerWidget {
     );
   }
 
-  /// The scrolling body wrapper (bar hidden, s16 padding — the run-terminal body idiom). 滚动 body(隐条、s16)。
+  /// The scrolling body wrapper (bar hidden). No horizontal pad — the [AnIsland]'s 12px is the sole island
+  /// inset (single-source law); only vertical s16. 滚动 body(隐条、水平 0:岛壳 12 即唯一岛级内距,仅纵 s16)。
   Widget _body(Widget child) => ScrollConfiguration(
         behavior: const AnScrollBehavior(),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AnSpace.s16),
+          padding: const EdgeInsets.symmetric(vertical: AnSpace.s16),
           child: child,
         ),
       );

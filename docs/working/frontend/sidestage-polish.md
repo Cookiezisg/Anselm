@@ -206,6 +206,20 @@ fe-verify 4304 全绿。
 
 **landed-into**：`design-system.md`（AnRailStates 条目 + 令 §「rail 三态」重述）。`make fe-verify` 全绿 / `make docs` 净。
 
+## §A#2 Chat 右岛按需存在 + 右岛内距单源律（用户 0718-19 两件一单 ✅ 已落）
+
+**第一件——右岛按需存在**：空对话的右岛按钮=通向墓碑的门,故**有 Activity 才有右岛 + toggle**。
+
+- 判定源 = 侧幕自己的四条数据源、逐条镜像 `_AccordionList` 非空判断——新纯函数 `sidestageHasContent`（触点台账实体行 ∨ 首拉失败面 ∨ 活舞台主角/频道 ∨ 待办板 ∨ 落定 subagent）+ `sidestageActivityProvider(id)`（autoDispose family,`state/sidestage_activity_provider.dart`)。**裸人闸刻意排除**（ask_user 内联渲于对话流、不在侧幕→计它=按钮亮点开却空）。`AppShell` 以 `chatConversation != null && sidestageActivityProvider(id)` 组进 `hasSelection`；provider 在选中会话时保活台账/导演器/场记(岛开或闭),让 activity 一到按钮反应式亮相。
+- **头部控件位置语法**（`AnShell` 头尾槽）：Scenes（`TranscriptToc`）对任一选中会话恒在；第一条 activity 到达时 **panel-right toggle 经 `AnExpandReveal(axis: horizontal)` 自尾端横向滑入**、把 Scenes 左移一格（真实位移;登台即在则即时,reduced 即时）。
+- **按钮出现 ≠ 岛自动打开**（WRK-065 继承）：**chat 桶默认收起**（`rightPanelCollapsedProvider` 唯 chat 默认 collapsed,余海洋默认开——首个 tool 跑绝不弹岛,收起态 live 只点 R-15 activityBit）。切到无 activity 对话:岛收、钮隐、Scenes 回位;开合持久化(W7)照旧。**代价**:workflow 编辑器/图页共用同一 provider,其测试在默认 chat 海洋跑→需 `selectedOceanProvider.overrideWith` 种 entities（真机它们本在 entities 海洋;冷深链到编辑器→收起态有 reopen 药丸,graceful）。
+
+**第二件——右岛内距单源律**：**`AnIsland` 的 12px 是唯一岛级内距,右岛一切消费方 body 禁自包水平 pad**——内容左缘=岛缘+12（行族+8→文字 20,与左岛逐像素同几何）。旧「`AnIsland(padding:zero)`+消费方自包 16=岛缘+28」双层 pad 退役。清尽:`AnInspectorHead`(start 16→0)/`AnInspector` head·body(水平→0)/gallery specimen(改 `AnIsland` 默认 12)/chat 侧幕手风琴(s4→0)/documents·scheduler·workflow-editor inspector body(all16→纵 16)/graph 实体卡(水平→0)。纵向 pad 各面语义保留。**run_terminal 除外**（实体调试台单在重写它——但它经共享 `AnInspectorHead` 白蹭到对齐的头,body 未动、留那份单收；报告已列)。
+
+**测试**：`sidestage_activity_test.dart`（纯函数 8 例 + 帧驱动 4 例:无 activity→NO / 触点·tool_call 到→YES / p01 纯问答 NO / cv_sync YES）· `sidestage_ondemand_shell_test.dart`（AppShell 端到端:activity→钮现·岛闭·点开;无 activity→无钮无岛）· `an_shell_test.dart`（toggle 横向滑入+Scenes 左移 / reduced 即时）· `right_panel_test.dart`（chat 默认收起、开合粘住）· `right_island_padding_test.dart`（内容左缘=岛缘+12、行族+20）。
+
+**landed-into**：`features/chat-sidestage.md` §0（按需存在 + 头语法 + 内距）· `design-system.md`（AnInspector 条目 ★右岛内距单源律 + `AnIsland(padding:zero)` 旧法退役）· `right_panel.dart`/`oceans` 无改（chat 默认在 provider 内）。`make fe-verify` 全绿 / `make docs` 净。
+
 ## 拍板状态（0718 收官 ✅）
 
 **全部议题已拍板 ✅**（§A #1 假想框律 / #2 composer 28 档 + §B B1–B13 全部）——0718「都同意，落一下档」。待用户宣布开工后一口气建造；交付纪律=每条带测试、双门禁全绿、demo 帧逐条核对、opus 车队对抗复审、文档 1:1 同提交、后端半（B4 offset+total）守 N/D/E/S/T。

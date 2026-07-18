@@ -51,11 +51,12 @@ class AnInspector extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // head: icon + title, islandHead tall, top pad only (sits in the island's top band). 头。
+        // head: icon + title, islandHead tall, top pad only (sits in the island's top band). The wrapping
+        // [AnIsland]'s 12px is the sole horizontal inset (single-source law) — head adds none. 头(水平 0,岛供)。
         SizedBox(
           height: AnSize.islandHead,
           child: Padding(
-            padding: const EdgeInsetsDirectional.only(start: AnSpace.s16, end: AnSpace.s16, top: AnSpace.s8),
+            padding: const EdgeInsetsDirectional.only(top: AnSpace.s8),
             child: Row(
               children: [
                 if (icon != null) ...[
@@ -79,12 +80,13 @@ class AnInspector extends StatelessWidget {
             ),
           ),
         ),
-        // body: vertical block flow, scrolls with the bar hidden. 块流滚动、隐条。
+        // body: vertical block flow, scrolls with the bar hidden. No horizontal pad — the [AnIsland]'s 12px
+        // is the sole island inset (single-source law); block content lands on the island pad edge. 块流(水平 0)。
         Expanded(
           child: ScrollConfiguration(
             behavior: const AnScrollBehavior(),
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: AnSpace.s16, vertical: AnSpace.s8),
+              padding: const EdgeInsets.symmetric(vertical: AnSpace.s8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisSize: MainAxisSize.min,

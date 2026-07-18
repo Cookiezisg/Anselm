@@ -4,6 +4,7 @@ import '../../i18n/strings.g.dart';
 import '../design/colors.dart';
 import '../design/tokens.dart';
 import 'an_button.dart';
+import 'an_expand_reveal.dart';
 import 'an_island.dart';
 import 'an_window_controls.dart';
 import 'icons.dart';
@@ -311,33 +312,42 @@ class _OceanRegion extends StatelessWidget {
                     child: head ?? const SizedBox.shrink(),
                   ),
                 ),
-                // Head-trailing action (chat's scene/outline nav) sits just LEFT of the panel-right toggle —
-                // a small gap keeps the two icon buttons from touching. 头尾动作紧靠右岛钮左边(小缝分隔)。
-                if (headTrailing != null) ...[
-                  headTrailing!,
-                  const SizedBox(width: AnSpace.s4),
-                ],
-                if (showRightToggle)
-                  Stack(clipBehavior: Clip.none, children: [
-                    AnButton.iconOnly(
-                      AnIcons.panelRight,
-                      semanticLabel: context.t.shell.togglePanel,
-                      onPressed: onToggleRight,
-                    ),
-                    // R-15 activity bit: live work behind a collapsed island. 收起态活动位。
-                    if (rightActivity)
-                      Positioned(
-                        top: AnSpace.s2,
-                        right: AnSpace.s2,
-                        child: IgnorePointer(
-                          child: Container(
-                            width: AnSize.dot,
-                            height: AnSize.dot,
-                            decoration: BoxDecoration(color: c.accent, shape: BoxShape.circle),
+                // Head-trailing action (chat's scene/outline nav) sits just LEFT of the panel-right toggle.
+                // 头尾动作(chat 场次/大纲钮)紧靠右岛钮左边。
+                ?headTrailing,
+                // The panel-right toggle SLIDES IN from the trailing edge the moment it first appears
+                // (a chat conversation's first activity landing), pushing [headTrailing] (the Scenes button)
+                // LEFT — «挤» is a real位移. Mounting already-open is instant (a switch onto an existing
+                // island doesn't re-animate); reduced-motion is instant. The leading gap rides INSIDE the
+                // reveal so a collapsed toggle leaves NO stray gap. 位置语法:新成员(toggle)从尾端横向滑入、
+                // 旧成员(Scenes)左移;登台即在则即时,reduced 即时;间隙随揭示,收起态不留缝。
+                AnExpandReveal(
+                  axis: Axis.horizontal,
+                  open: showRightToggle,
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    if (headTrailing != null) const SizedBox(width: AnSpace.s4),
+                    Stack(clipBehavior: Clip.none, children: [
+                      AnButton.iconOnly(
+                        AnIcons.panelRight,
+                        semanticLabel: context.t.shell.togglePanel,
+                        onPressed: onToggleRight,
+                      ),
+                      // R-15 activity bit: live work behind a collapsed island. 收起态活动位。
+                      if (rightActivity)
+                        Positioned(
+                          top: AnSpace.s2,
+                          right: AnSpace.s2,
+                          child: IgnorePointer(
+                            child: Container(
+                              width: AnSize.dot,
+                              height: AnSize.dot,
+                              decoration: BoxDecoration(color: c.accent, shape: BoxShape.circle),
+                            ),
                           ),
                         ),
-                      ),
+                    ]),
                   ]),
+                ),
               ],
             ),
           ),

@@ -71,8 +71,12 @@ class AnInspectorHead extends StatelessWidget {
         : null;
     final hasSub = leading != null || (stt != null && stt.isNotEmpty) || subTrailingWidget != null;
     return Padding(
-      // Same band metrics as the ocean floating head / inspector top band. 同浮层头 / 检查器头带度量。
-      padding: const EdgeInsets.fromLTRB(AnSpace.s16, AnSpace.s12, AnSpace.s8, AnSpace.s8),
+      // Right-island inner-padding SINGLE SOURCE: the wrapping [AnIsland]'s 12px IS the island inset, so the
+      // head adds ZERO leading pad — its label/glyph land on the island pad edge, flush with the body content
+      // box below (row-family text then indents its own s8). Only a trailing s8 keeps the ✕ off the pad edge.
+      // 右岛内距单源:岛壳 12 即唯一岛级内距,头前导 0(标签/字形落岛 pad 缘,与下方 body 内容框齐,行族文字自缩 s8);
+      // 仅尾 s8 让 ✕ 不贴 pad 缘。
+      padding: const EdgeInsets.fromLTRB(0, AnSpace.s12, AnSpace.s8, AnSpace.s8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

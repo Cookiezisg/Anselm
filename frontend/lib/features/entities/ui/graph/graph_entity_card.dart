@@ -52,7 +52,9 @@ class GraphEntityCard extends ConsumerWidget {
         : ref.watch(entityRowFetchProvider((kind: railKind, id: id))).value;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(AnSpace.s16, AnSpace.s16, AnSpace.s16, AnSpace.s24),
+      // No horizontal pad — the [AnIsland]'s 12px is the sole island inset (single-source law); only
+      // vertical. 水平 0:岛壳 12 即唯一岛级内距,仅纵向。
+      padding: const EdgeInsets.only(top: AnSpace.s16, bottom: AnSpace.s24),
       children: [
         // Identity: kind glyph (kind-coloured) + name + vN. 身份:kind 字形(kind 色)+ 名 + vN。
         Row(crossAxisAlignment: CrossAxisAlignment.center, children: [

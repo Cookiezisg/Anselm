@@ -338,6 +338,7 @@ lib/features/chat/state/pending_attachments.dart	converged
 lib/features/chat/state/pending_interactions_provider.dart	converged
 lib/features/chat/state/rundown_provider.dart	converged
 lib/features/chat/state/selected_conversation.dart	converged
+lib/features/chat/state/sidestage_activity_provider.dart	pending
 lib/features/chat/state/stage_director_provider.dart	reviewed
 lib/features/chat/state/stage_expansion.dart	converged
 lib/features/chat/state/stage_truth.dart	converged

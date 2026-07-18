@@ -13,9 +13,17 @@ audience: [human, ai]
 
 > chat 海洋的右岛(V8,WRK-061 建成,W0–W7 全落)。**AI 干活时右岛自动活起来**:工具流入即登台直播、落定谢幕收进触点台账。建造规范与逐决策记录见归档 [`WRK-061`](../../../archive/chat-right-island/README.md);本文只陈当前物理事实。
 
+## 0. 存在条件——右岛按需存在（用户 0718-19 拍板）
+
+**有 Activity 才有右岛**：空对话的右岛按钮 = 通向墓碑的门,故无内容→无门。
+
+- **判定源** = 侧幕自己的四条数据源、逐条镜像 `_AccordionList` 的非空判断(`state/sidestage_activity_provider.dart` 的纯函数 `sidestageHasContent` + `sidestageActivityProvider(id)` autoDispose family):触点台账有实体行(或首拉失败→错误+重试面,亦是内容)∨ 活舞台主角/频道 ∨ 待办板 ∨ 落定 subagent(无触点,transcript 是唯一真相)。**裸人闸刻意排除**——`ask_user`(唯一无舞台无实体的闸)内联渲于对话流、不在侧幕,计它会让「按钮亮点开却空」。`AppShell` 以 `chatConversation != null && sidestageActivityProvider(id)` 组进 `hasSelection`,故右岛 + `onToggleRight` 皆 activity 门控;本 provider 在选中会话时保活台账/导演器/场记(岛开或闭),这让 activity 一到按钮就反应式亮相。
+- **头部控件位置语法**(`AnShell` 头尾槽):新成员从尾端插入、旧成员左移。**场次条 Scenes**(`TranscriptToc`)对任一选中会话恒在(与 activity 无关);第一条 activity 到达时 **panel-right toggle 经 `AnExpandReveal(axis: horizontal)` 自尾端横向滑入**、把 Scenes 往左挤一格(「挤」是真实位移;登台即在则即时,reduced 即时)。
+- **按钮出现 ≠ 岛自动打开**(WRK-065「运行中绝不自动弹窗」继承):activity 来了按钮亮相,开不开由用户点——故 **chat 桶默认收起**(`rightPanelCollapsedProvider` 唯 chat 默认 collapsed,余海洋默认开),首个 tool 跑不弹岛(收起态 live 活动只点亮 R-15 activityBit)。用户点开后照旧按海洋桶粘住(W7 持久化不变)。切到无 activity 对话:岛收、按钮隐、Scenes 回位。
+
 ## 1. 结构(自上而下)
 
-`StagePanel`(`features/chat/ui/stage_panel.dart`,`AppShell` 在 chat 海洋有选中会话时挂进右岛):
+`StagePanel`(`features/chat/ui/stage_panel.dart`,`AppShell` 在 chat 海洋**有 Activity**时挂进右岛,见 §0):
 
 | 段 | 物 |
 |---|---|

@@ -83,7 +83,9 @@ class _Face extends ConsumerWidget {
             child: ScrollConfiguration(
               behavior: const AnScrollBehavior(),
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(AnSpace.s16),
+                // No horizontal pad — the [AnIsland]'s 12px is the sole island inset (single-source law).
+                // 水平 0:岛壳 12 即唯一岛级内距。
+                padding: const EdgeInsets.symmetric(vertical: AnSpace.s16),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
               ),
             ),

@@ -389,7 +389,10 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
       onNotification: _onScroll,
       child: ListView.builder(
         controller: _scroll,
-        padding: const EdgeInsets.symmetric(horizontal: AnSpace.s4, vertical: AnSpace.s4),
+        // No horizontal pad — the [AnIsland]'s 12px is the sole island inset (single-source law), so each
+        // accordion AnRow洗底 flush to the island pad edge like the LEFT island's rail rows (island 12 + row
+        // s8 = text at 20). 水平 0:岛壳 12 即唯一岛级内距,行洗底到 pad 缘,与左岛逐像素同几何。
+        padding: const EdgeInsets.symmetric(vertical: AnSpace.s4),
         itemCount: todoCount + rows.length + (ledger.hasMore ? 1 : 0),
         itemBuilder: (context, i) {
           if (hasTodo && i == 0) {

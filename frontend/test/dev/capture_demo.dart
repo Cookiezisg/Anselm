@@ -16,6 +16,7 @@ import 'package:anselm/features/documents/data/documents_demo_fixture.dart';
 import 'package:anselm/features/documents/state/document_state.dart';
 import 'package:anselm/core/runtime.dart';
 import 'package:anselm/core/shell/oceans.dart';
+import 'package:anselm/core/shell/right_panel.dart';
 import 'package:anselm/core/run/flowrun_node_list.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/core/shell/shell_chrome.dart';
@@ -288,12 +289,26 @@ void main() {
       outName = '${outName}_doc';
     }
 
-    // Deep-link to a conversation (real navigation) so the rail highlights the selected row. 深链选中对话。
+    // Deep-link to a conversation (real navigation) so the rail highlights the selected row. Pump long
+    // enough for the sidestage-activity ledger to hydrate: an ACTIVITY conversation (cv_sync) lights the
+    // panel-right toggle (slides in, pushing Scenes left); a no-activity one (p01) shows Scenes alone.
+    // `CHATSTAGE=1` then opens the sidestage (activity-gated island now DEFAULTS COLLAPSED — 0718-19) to
+    // capture the right-island inner padding. 深链选中对话:泵到活动台账水化(cv_sync 亮 toggle,p01 只 Scenes);
+    // CHATSTAGE=1 开侧幕截右岛内距(activity 门控岛现默认收起)。
     if (_chatSel.isNotEmpty) {
       container.read(goRouterProvider).go(conversationLocation(_chatSel));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 80));
+      for (var i = 0; i < 8; i++) {
+        await tester.pump(const Duration(milliseconds: 80)); // ledger hydrate + toggle reveal 台账水化+钮滑入
+      }
       outName = '${outName}_sel';
+      if (const bool.fromEnvironment('CHATSTAGE')) {
+        container.read(rightPanelCollapsedProvider.notifier).set(false);
+        for (var i = 0; i < 6; i++) {
+          await tester.pump(const Duration(milliseconds: 80)); // island reveal + accordion rows 岛揭示+行
+        }
+        outName = '${outName}_stage';
+      }
     }
 
     // Open the rail's ⚙ sliders menu (Sort / Display) to capture it. 打开 rail 的 ⚙ 菜单。

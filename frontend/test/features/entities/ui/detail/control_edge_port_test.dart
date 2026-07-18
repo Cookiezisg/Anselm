@@ -1,6 +1,7 @@
 import 'package:anselm/core/contract/entities/control.dart';
 import 'package:anselm/core/contract/entities/workflow.dart';
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/shell/oceans.dart';
 import 'package:anselm/core/ui/an_dropdown.dart';
 import 'package:anselm/features/entities/data/entity_fixtures.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
@@ -61,7 +62,14 @@ FixtureEntityRepository _repo() => FixtureEntityRepository(
     );
 
 Widget _host(FixtureEntityRepository repo) => ProviderScope(
-      overrides: [entityRepositoryProvider.overrideWithValue(repo)],
+      overrides: [
+        entityRepositoryProvider.overrideWithValue(repo),
+        // The workflow editor is an ENTITIES surface — in the real app it is reached from the entities
+        // ocean, so the shared right-panel bucket it reads (rightPanelCollapsedProvider) is the entities
+        // one (default OPEN). Seed the ocean so the right island reveals (chat, the launch default, now
+        // defaults COLLAPSED — 0718-19). 编辑器=实体面,右岛桶取实体桶(默认开);种海洋 entities 让右岛揭示。
+        selectedOceanProvider.overrideWith(_EntitiesOcean.new),
+      ],
       child: TranslationProvider(
         child: MaterialApp(
           theme: AnTheme.light(),
@@ -69,6 +77,11 @@ Widget _host(FixtureEntityRepository repo) => ProviderScope(
         ),
       ),
     );
+
+class _EntitiesOcean extends SelectedOceanController {
+  @override
+  OceanKind build() => OceanKind.entities;
+}
 
 const _ref = EntityRef(EntityKind.workflow, 'wf_1');
 
