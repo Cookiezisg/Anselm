@@ -110,6 +110,10 @@ FixtureDocumentsRepository demoDocumentsRepository() {
               '- [ ] Backup & restore\n'
               '- [ ] Upgrade path\n'
               '- [x] Deploy'),
+      // An EMPTY page (no body) nested under Playbooks — the rail draws it with the blank-page icon
+      // (AnIcons.file), so `make demo` shows BOTH the empty and the written-doc icon side by side (B4).
+      // 空页(无正文):rail 用空白页 icon 渲它,demo 里空/已写双 icon 并列。
+      doc('doc_000000000010ab01', 'doc_00000000000d44f0', 'Scratch', 1, '/Playbooks/Scratch'),
       doc('doc_00000000000e55f1', 'doc_00000000000d44f0', 'Deploy', 0, '/Playbooks/Deploy',
           description: 'Cutting and verifying a release.',
           tags: const ['ops', 'release'],

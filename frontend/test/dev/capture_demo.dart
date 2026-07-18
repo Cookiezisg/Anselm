@@ -174,6 +174,18 @@ void main() {
         await tester.pump(const Duration(milliseconds: 300));
         outName = '${outName}_track';
       }
+      // The documents ocean with NO selection is the passive-landing DRAFT editor (a native super_editor
+      // mount that needs real async time to lay out its guides). Give it the same multi-layer pump as the
+      // DOC deep-link so the draft page + the tree's empty/written double-icons capture in-context (B2/B4).
+      // documents 海洋无选区=草稿编辑器(原生 super_editor,需真异步布局);给它与 DOC 深链同款多层泵,截草稿页 +
+      // 树空/已写双 icon。
+      if (_ocean == 'documents' && _doc.isEmpty) {
+        for (var i = 0; i < 12; i += 1) {
+          await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 40)));
+          await tester.pump(const Duration(milliseconds: 80));
+        }
+        outName = '${outName}_draft';
+      }
     }
 
     // Deep-link to the scheduler operations home (real navigation) — captures the rebuilt page:
@@ -192,10 +204,22 @@ void main() {
       }
       outName = '${outName}_w';
       if (_schedPick.isNotEmpty) {
+        // `SCHEDPICK=1|2|3` = the picker's three disclosure tiers (0718 渐进披露重造验收帧):
+        // presets menu / custom calendar pane / exact-times reveal. 三层各一帧。
         await tester.tap(find.byType(AnTimeRangePicker));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
-        outName = '${outName}_pick';
+        if (_schedPick == '2' || _schedPick == '3') {
+          await tester.tap(find.textContaining('自定义范围'));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+        }
+        if (_schedPick == '3') {
+          await tester.tap(find.text('精确到时刻'));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+        }
+        outName = '${outName}_pick$_schedPick';
       } else if (const bool.fromEnvironment('SCHEDPAGER')) {
         // Scroll the run table's pager into the frame (B4 标准翻页器验收帧). 滚翻页器入帧。
         await tester.ensureVisible(find.byType(AnPager).first);

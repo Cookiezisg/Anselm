@@ -3,8 +3,10 @@ import 'package:flutter/widgets.dart';
 import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
+import 'an_chip.dart';
 import 'an_inline_edit.dart';
 import 'an_tags.dart';
+import 'icons.dart';
 
 /// The READING-scale page header — the reading-column counterpart to [AnOceanHeader]. Where the ocean
 /// header sits at the CHROME scale (H2 title, label crumb) atop the entity/settings oceans, this one
@@ -27,9 +29,13 @@ class AnDocHeader extends StatelessWidget {
     required this.crumb,
     required this.name,
     this.nameEditable = true,
+    this.autofocusName = false,
+    this.namePlaceholder,
     this.description = '',
+    this.descriptionPlaceholder,
     this.tags = const [],
     this.showTags = true,
+    this.addTagLabel,
     this.onMetaChanged,
     super.key,
   });
@@ -43,8 +49,19 @@ class AnDocHeader extends StatelessWidget {
   /// Whether the title renames in place. Skills aren't renamable (the name is the identity). 可否就地改名。
   final bool nameEditable;
 
+  /// Open the title in edit mode (select-all) on mount — the active «+ New page» path lands focus on the
+  /// title so the first keystroke names it. 挂载即进标题编辑(全选):主动新建把焦点落在标题上。
+  final bool autofocusName;
+
+  /// Empty-title GUIDE (空字段引导律) — grey placeholder shown when [name] is empty (the passive draft
+  /// landing). null → blank. 空标题灰引导(被动草稿着陆)。
+  final String? namePlaceholder;
+
   /// The reading-style description under the title. 标题下的 reading 描述。
   final String description;
+
+  /// Empty-description GUIDE — grey, clickable «add a description…» placeholder. 空简介灰引导(可点)。
+  final String? descriptionPlaceholder;
 
   /// The tag labels (documents only). 标签(仅 document)。
   final List<String> tags;
@@ -52,6 +69,10 @@ class AnDocHeader extends StatelessWidget {
   /// Whether the tags row renders — skills have no `tags` frontmatter, so an editable tags row there is a
   /// phantom edit. skill 无 tags,故不渲标签行。
   final bool showTags;
+
+  /// Empty-tags GUIDE label — a grey dummy pill wearing the tag shape («add a tag») that opens the add
+  /// field on tap (空字段引导律:穿目标形态). null → the plain always-present add field. 空标签灰 dummy 药丸。
+  final String? addTagLabel;
 
   /// Reports a metadata edit — `{name?, description?, tags?}` (the host diffs + persists). Null → the
   /// title/description/tags still render but commits are inert. 元数据编辑回调(宿主 diff+存);null=只读渲染。
@@ -72,6 +93,8 @@ class AnDocHeader extends StatelessWidget {
           AnInlineEdit(
             value: name,
             enabled: nameEditable,
+            startEditing: autofocusName,
+            placeholder: namePlaceholder,
             style: AnText.readingH1.copyWith(color: c.ink),
             minHeight: AnSize.islandHead,
             // A doc page: an idle click elsewhere while renaming should SAVE (not silently drop). 点别处即存。
@@ -81,19 +104,69 @@ class AnDocHeader extends StatelessWidget {
           const SizedBox(height: AnSpace.s4),
           AnInlineEdit(
             value: description,
+            placeholder: descriptionPlaceholder,
             style: AnText.reading.copyWith(color: c.inkMuted),
             commitOnTapOutside: true,
             onCommit: (v) => meta('description', v),
           ),
           if (showTags && (tags.isNotEmpty || onMetaChanged != null)) ...[
             const SizedBox(height: AnSpace.s8),
-            AnTags(
-              tags: [for (final tag in tags) AnTag(tag)],
-              onChanged: (t) => meta('tags', [for (final tag in t) tag.label]),
+            _HeaderTagsRow(
+              tags: tags,
+              addTagLabel: addTagLabel,
+              onChanged: onMetaChanged == null ? null : (t) => meta('tags', t),
             ),
           ],
         ],
       ),
+    );
+  }
+}
+
+/// The header's tags row with the empty-field GUIDE (空字段引导律). Empty + editable + an [addTagLabel] →
+/// a grey dummy [AnChip] wearing the tag-pill shape; tapping it opens the [AnTags] add field (the guide
+/// previews the target shape). Non-empty (or no guide label) → the plain [AnTags] with its always-present
+/// field. Stateful only to own the dummy-pill ↔ field toggle. 头标签行:空+可编+有引导 → 灰 dummy 药丸,点开
+/// AnTags 输入框;非空 → 普通 AnTags。
+class _HeaderTagsRow extends StatefulWidget {
+  const _HeaderTagsRow({required this.tags, required this.addTagLabel, this.onChanged});
+
+  final List<String> tags;
+  final String? addTagLabel;
+  final ValueChanged<List<String>>? onChanged;
+
+  @override
+  State<_HeaderTagsRow> createState() => _HeaderTagsRowState();
+}
+
+class _HeaderTagsRowState extends State<_HeaderTagsRow> {
+  bool _adding = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final editable = widget.onChanged != null;
+    // The dummy-pill guide only when there's nothing yet, we're not mid-add, it's editable, and a guide
+    // label was supplied. 灰 dummy 药丸只在:空 + 未在添加 + 可编 + 有引导词。
+    if (widget.tags.isEmpty && !_adding && editable && widget.addTagLabel != null) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: AnChip(
+          widget.addTagLabel!,
+          look: AnChipLook.outlined,
+          icon: AnIcons.plus,
+          onTap: () => setState(() => _adding = true),
+        ),
+      );
+    }
+    return AnTags(
+      tags: [for (final tag in widget.tags) AnTag(tag)],
+      showAddField: _adding ? true : null,
+      onChanged: widget.onChanged == null
+          ? null
+          : (t) => widget.onChanged!([for (final tag in t) tag.label]),
+      onAddDismissed: () {
+        if (_adding && mounted) setState(() => _adding = false);
+      },
     );
   }
 }

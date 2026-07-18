@@ -24,8 +24,12 @@ class FixtureDocumentsRepository implements DocumentsRepository {
   DocumentNode _byId(String id) => _docs.firstWhere((d) => d.id == id);
 
   // ── documents ──────────────────────────────────────────────────────────────
+  // Mirror the Live `/tree` projection: metadata only (content stripped) + a hasContent bool (≡ backend
+  // size_bytes>0) that drives the rail's empty-page vs written-doc icon (B4). 镜像 Live /tree:去正文 +
+  // hasContent(≡ size_bytes>0),驱动 rail 空页/已写页 icon。
   @override
-  Future<List<DocumentNode>> getTree() async => List.of(_docs);
+  Future<List<DocumentNode>> getTree() async =>
+      [for (final d in _docs) d.copyWith(content: '', hasContent: d.content.isNotEmpty)];
   @override
   Future<DocumentNode> getDocument(String id) async => _byId(id);
   @override

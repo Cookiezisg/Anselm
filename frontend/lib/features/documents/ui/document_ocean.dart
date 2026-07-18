@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/design/tokens.dart';
 import '../../../core/entity/mention_source.dart';
@@ -35,15 +36,16 @@ final documentMentionNamesProvider =
 /// header co-scrolling with the body in one page scroll (a product characteristic). This host stays thin:
 /// it binds the doc name to the shell's floating breadcrumb, collapses it as the page scrolls (onScroll),
 /// drives the inspector's live outline focus (onActiveHeading), and answers outline jumps
-/// (scrollToHeading). No selection → an empty "pick" state. 文档海洋中心:原生 AnDocumentEditor 填满海洋,
-/// 标题头与正文同页同滚;宿主只绑浮层头 + 随滚折叠 + 喂大纲焦点 + 应答跳转。
+/// (scrollToHeading). No selection → the passive-landing DRAFT editor ([_DraftDocView], uncreated until the
+/// first edit). 文档海洋中心:原生 AnDocumentEditor 填满海洋,标题头与正文同页同滚;宿主只绑浮层头 + 随滚折叠 +
+/// 喂大纲焦点 + 应答跳转;无选区=被动着陆草稿编辑器(首次编辑才建)。
 class DocumentOcean extends ConsumerWidget {
   const DocumentOcean({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final t = context.t;
     final selected = ref.watch(selectedDocProvider);
+    final adopted = ref.watch(adoptedDraftDocProvider);
     // Deselection (navigating home / deleting the open node) clears the floating head + stale outline.
     // 取消选区即清浮层头 + 陈旧大纲。
     ref.listen(selectedDocProvider, (prev, next) {
@@ -56,8 +58,22 @@ class DocumentOcean extends ConsumerWidget {
         ref.read(shellHeadProvider.notifier).setCollapsed(false);
       }
     });
-    if (selected == null) {
-      return AnState(kind: AnStateKind.empty, title: t.documents.pickTitle, hint: t.documents.pickHint);
+
+    // Passive landing (no selection) → a DRAFT editor (uncreated); OR the just-created draft continuing
+    // seamlessly under its own new id (the ocean keeps the SAME editor mounted so the create is jump-free,
+    // B2/B6). The stable key means the draft view is NEVER remounted across «adopt + navigate».
+    // 无选区=草稿编辑器;或刚建的草稿在其新 id 下无缝续命(海洋保持同一编辑器不重挂,建即无跳变)。常量 key 保证不重挂。
+    final isAdoptedDraft = selected != null && !selected.isSkill && selected.id == adopted;
+    if (selected == null || isAdoptedDraft) {
+      return const _DraftDocView(key: ValueKey('doc-draft'));
+    }
+    // A real selection that isn't the adopted draft → any prior draft was left behind; drop the adoption
+    // (post-frame — can't mutate a provider mid-build) so re-opening that doc later mounts a fresh live
+    // editor. 真选区且非草稿 → 弃认领(帧后),使日后重开该 doc 挂全新编辑器。
+    if (adopted != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) ref.read(adoptedDraftDocProvider.notifier).set(null);
+      });
     }
     // Key by id so switching remounts the editor + its debouncer cleanly. 按 id 键控,换选即重建。
     return selected.isSkill
@@ -142,6 +158,21 @@ class _DocEditViewState extends ConsumerState<_DocEditView> with _DocPageChrome 
   final _save = Debouncer(AnMotion.autosave);
   final _outline = Debouncer(AnMotion.searchDebounce); // C-008: the outline re-extract is O(doc); debounce it
 
+  // One-shot: did the rail's active «+ New» path mark THIS doc for a title autofocus? Latched at mount
+  // (keyed by id) + cleared, so an async rebuild before the editor mounts can't lose it. 主动新建标题聚焦一次性。
+  late final bool _autofocusName;
+
+  @override
+  void initState() {
+    super.initState();
+    _autofocusName = ref.read(focusNewDocTitleProvider) == widget.id;
+    if (_autofocusName) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) ref.read(focusNewDocTitleProvider.notifier).set(null);
+      });
+    }
+  }
+
   @override
   void dispose() {
     // flush, NOT dispose: deliver the last unsaved edit before unmounting — a doc-switch/deselect within
@@ -211,6 +242,7 @@ class _DocEditViewState extends ConsumerState<_DocEditView> with _DocPageChrome 
                     key: editorKey,
                     crumb: t.documents.documents,
                     name: title,
+                    autofocusName: _autofocusName,
                     description: doc.description,
                     tags: doc.tags,
                     initialMarkdown: doc.content,
@@ -234,6 +266,153 @@ class _DocEditViewState extends ConsumerState<_DocEditView> with _DocPageChrome 
                 );
           },
         );
+  }
+}
+
+/// The PASSIVE-landing DRAFT editor (B2/B6) — the documents center when nothing is selected. A real
+/// [AnDocumentEditor] with NO documentId yet: empty title/description/tags/body wearing their grey guides
+/// (空字段引导律). The FIRST meaningful edit (title / body / description / tags — the emptiness gate) POSTs
+/// the create, ADOPTS the new id (so the ocean keeps THIS editor mounted — no remount, no cursor/content
+/// loss), invalidates the tree (a row grows in the rail), and navigates the URL to the real id. Write
+/// nothing then leave = nothing is kept (chat landing「首发才建线程」同心智).
+/// 被动着陆草稿编辑器:无 documentId 的真编辑器,空字段穿灰引导;首次有意义编辑即 POST 创建 + 认领新 id(海洋据
+/// 认领保持本编辑器不重挂→光标/内容不丢)+ invalidate 树 + 导航到真 id;什么都不写切走=不留。
+class _DraftDocView extends ConsumerStatefulWidget {
+  const _DraftDocView({super.key});
+
+  @override
+  ConsumerState<_DraftDocView> createState() => _DraftDocViewState();
+}
+
+class _DraftDocViewState extends ConsumerState<_DraftDocView> with _DocPageChrome {
+  final _save = Debouncer(AnMotion.autosave);
+  final _outline = Debouncer(AnMotion.searchDebounce);
+
+  String? _liveId; // null = still an uncreated draft 未创建
+  bool _creating = false;
+
+  // The in-progress draft (header display + create payload + emptiness gate). 草稿态(头显示+创建载荷+判空)。
+  String _draftName = '';
+  String _draftDescription = '';
+  List<String> _draftTags = const [];
+  String _draftMarkdown = '';
+
+  // The emptiness gate — title / body / description / tags all untouched (B2 判空标准). 判空标准。
+  bool get _empty =>
+      _draftName.trim().isEmpty &&
+      _draftMarkdown.trim().isEmpty &&
+      _draftDescription.trim().isEmpty &&
+      _draftTags.isEmpty;
+
+  @override
+  void dispose() {
+    _save.flush(); // deliver the last unsaved edit before unmounting (autosave-window switch). 卸载前交付末次未存。
+    _outline.dispose();
+    super.dispose();
+  }
+
+  /// First meaningful edit → create + adopt + navigate (once). 首次有意义编辑即创建+认领+导航(一次)。
+  Future<void> _ensureCreated() async {
+    if (_liveId != null || _creating || _empty) return;
+    _creating = true;
+    final repo = ref.read(documentsRepositoryProvider);
+    final t = context.t;
+    try {
+      final doc = await repo.createDocument(
+        name: _draftName.trim().isEmpty ? t.documents.untitled : _draftName.trim(),
+        content: _draftMarkdown,
+        description: _draftDescription.trim(),
+        tags: _draftTags,
+      );
+      if (!mounted) return;
+      setState(() => _liveId = doc.id);
+      // Adopt BEFORE navigating: the ocean keeps THIS view mounted (selected.id == adopted). 先认领后导航。
+      ref.read(adoptedDraftDocProvider.notifier).set(doc.id);
+      ref.invalidate(documentTreeProvider);
+      if (context.mounted) context.go(documentLocation(doc.id));
+      _scheduleSave(); // flush any keystrokes typed after the create snapshot. 补存创建后新增按键。
+    } catch (_) {
+      _creating = false;
+      if (mounted) {
+        ref.read(overlayProvider.notifier).showToast(t.documents.actionFailed, tone: AnTone.danger);
+      }
+    }
+  }
+
+  void _onChanged(String markdown) {
+    _draftMarkdown = markdown;
+    _outline.run(() {
+      if (mounted) feedOutlineOnEdit(markdown);
+    });
+    if (_liveId == null) {
+      _ensureCreated();
+    } else {
+      _scheduleSave();
+    }
+  }
+
+  // Debounced content PATCH once the draft is created (mirrors _DocEditView; repo captured while mounted so
+  // a flush-on-dispose never touches a disposed ref). 创建后去抖存正文;repo 挂载时捕获,防 dispose flush 碰 ref。
+  void _scheduleSave() {
+    final id = _liveId;
+    if (id == null) return;
+    final repo = ref.read(documentsRepositoryProvider);
+    _save.run(() async {
+      try {
+        await repo.updateDocument(id, {'content': _draftMarkdown});
+      } catch (_) {
+        if (!mounted) return;
+        ref.read(overlayProvider.notifier).showToast(context.t.documents.actionFailed, tone: AnTone.danger);
+      }
+    });
+  }
+
+  void _onMeta(Map<String, dynamic> m) {
+    setState(() {
+      if (m['name'] is String) _draftName = (m['name'] as String).trim();
+      if (m['description'] is String) _draftDescription = m['description'] as String;
+      if (m['tags'] is List) _draftTags = (m['tags'] as List).cast<String>();
+    });
+    if (_liveId == null) {
+      _ensureCreated();
+    } else {
+      _patchMeta(m);
+    }
+  }
+
+  Future<void> _patchMeta(Map<String, dynamic> fields) async {
+    final id = _liveId;
+    if (id == null) return;
+    try {
+      await ref.read(documentsRepositoryProvider).updateDocument(id, fields);
+      if (!mounted) return;
+      if (fields.containsKey('name')) ref.invalidate(documentTreeProvider);
+    } catch (_) {
+      if (mounted) {
+        ref.read(overlayProvider.notifier).showToast(context.t.documents.actionFailed, tone: AnTone.danger);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t;
+    listenOutlineJumps();
+    bindHead(_draftName.trim().isEmpty ? t.documents.untitled : _draftName);
+    return AnDocumentEditor(
+      key: editorKey,
+      crumb: t.documents.documents,
+      name: _draftName, // empty → the header's grey «未命名» guide 空→头灰引导
+      description: _draftDescription,
+      tags: _draftTags,
+      initialMarkdown: '', // constant — the AnEditor owns the live body (never reset across adopt). 正文归 AnEditor。
+      onChangedMarkdown: _onChanged,
+      onScroll: onScroll,
+      onActiveHeading: onActive,
+      // The @ typeahead reuses chat's entity mention seam — the same as a live document. @ 提及同实文档。
+      mentionSource: ref.watch(mentionSourceProvider),
+      onMetaChanged: _onMeta,
+    );
   }
 }
 

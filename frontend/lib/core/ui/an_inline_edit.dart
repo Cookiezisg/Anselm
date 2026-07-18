@@ -35,6 +35,7 @@ class AnInlineEdit extends StatefulWidget {
     this.startEditing = false,
     this.commitOnTapOutside = false,
     this.style,
+    this.placeholder,
     this.minHeight = AnSize.control,
     this.affordanceSize = AnButtonSize.sm,
     super.key,
@@ -42,6 +43,11 @@ class AnInlineEdit extends StatefulWidget {
 
   final String value;
   final ValueChanged<String> onCommit;
+
+  /// Empty-field GUIDE: when [value] is empty and idle, the row shows this text in [AnColors.inkFaint]
+  /// and a tap on it opens the field (design-system 空字段引导律 — the guide is grey, clickable, and
+  /// wears the target shape). null → an empty field renders blank. 空字段引导:空且静息时渲灰占位、可点入编辑。
+  final String? placeholder;
 
   /// Fired when an edit is abandoned (Esc / Cancel) — the resting text is unchanged. A host that MOUNTS
   /// this only while editing (e.g. a sidebar row's rename, unmounted on done) wires this to drop its
@@ -148,6 +154,27 @@ class _AnInlineEditState extends State<AnInlineEdit> {
     if (_hovered != v && mounted) setState(() => _hovered = v);
   }
 
+  // The idle label: the committed text, OR — when empty with a [placeholder] — a grey guide that opens
+  // the field on tap (空字段引导律:灰、可点、穿目标形态). The guide is a tap target on top of the pencil's
+  // own hover reveal (a mouse convenience; keyboard/AT still reach editing via the pencil).
+  // idle 标签:静态文字,或空+有 placeholder 时=可点灰引导(点开字段);与铅笔悬停揭示并存。
+  Widget _idleLabel(AnColors c) {
+    final showPlaceholder = _committed.isEmpty && widget.placeholder != null;
+    final label = Text(
+      showPlaceholder ? widget.placeholder! : _committed,
+      maxLines: 1,
+      softWrap: false,
+      overflow: TextOverflow.ellipsis,
+      style: (widget.style ?? AnText.body).copyWith(color: showPlaceholder ? c.inkFaint : c.ink),
+    );
+    if (!showPlaceholder) return label;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _begin,
+      child: label,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
@@ -221,15 +248,7 @@ class _AnInlineEditState extends State<AnInlineEdit> {
                             ? (_) => _commit(returnFocus: false)
                             : null,
                       )
-                    : Text(
-                        _committed,
-                        maxLines: 1,
-                        softWrap: false,
-                        overflow: TextOverflow.ellipsis,
-                        style: (widget.style ?? AnText.body).copyWith(
-                          color: c.ink,
-                        ),
-                      ),
+                    : _idleLabel(c),
               ),
               const SizedBox(
                 width: AnSpace.s8,

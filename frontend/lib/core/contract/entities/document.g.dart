@@ -13,6 +13,7 @@ _DocumentNode _$DocumentNodeFromJson(Map<String, dynamic> json) =>
       name: json['name'] as String? ?? '',
       description: json['description'] as String? ?? '',
       content: json['content'] as String? ?? '',
+      hasContent: json['hasContent'] as bool? ?? false,
       tags:
           (json['tags'] as List<dynamic>?)?.map((e) => e as String).toList() ??
           const <String>[],
@@ -30,6 +31,7 @@ Map<String, dynamic> _$DocumentNodeToJson(_DocumentNode instance) =>
       'name': instance.name,
       'description': instance.description,
       'content': instance.content,
+      'hasContent': instance.hasContent,
       'tags': instance.tags,
       'position': instance.position,
       'path': instance.path,

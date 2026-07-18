@@ -7,8 +7,10 @@ import 'package:anselm/core/router/navigation.dart';
 import 'package:anselm/core/entity/mention_source.dart';
 import 'package:anselm/features/documents/ui/an_document_editor.dart';
 import 'package:super_text_layout/super_text_layout.dart' show BlinkController;
+import 'package:anselm/core/ui/an_button.dart';
 import 'package:anselm/core/ui/an_sidebar_list.dart' show AnRowDropZone, AnSidebarList;
 import 'package:anselm/core/ui/an_state.dart';
+import 'package:anselm/core/ui/icons.dart';
 import 'package:anselm/features/documents/data/document_fixtures.dart';
 import 'package:anselm/features/documents/data/document_repository.dart';
 import 'package:anselm/features/documents/state/document_state.dart';
@@ -20,6 +22,7 @@ import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../support/router_harness.dart';
 
@@ -55,6 +58,8 @@ Widget _host(FixtureDocumentsRepository repo, Widget child, {String initialLocat
     overrides: [
       documentsRepositoryProvider.overrideWithValue(repo),
       goRouterProvider.overrideWithValue(router),
+      // The draft/live editors watch mentionSourceProvider (the @ picker seam) — give it a fake. @ 数据缝。
+      mentionSourceProvider.overrideWithValue(_FakeMentions()),
     ],
     child: TranslationProvider(
       child: MaterialApp.router(
@@ -99,6 +104,16 @@ void main() {
     test('unnamed document falls back to the untitled label', () {
       final model = buildDocumentsRailModel([_doc('doc_x', null, '', 0)], const [], _labels);
       expect(model.groups.single.types[0].rows.single.label, 'Untitled');
+    });
+
+    test('B4: the row icon tells an empty page (file) from a written one (fileText/doc) via hasContent', () {
+      final model = buildDocumentsRailModel([
+        DocumentNode(id: 'doc_empty', name: 'Empty', createdAt: _t, updatedAt: _t), // hasContent defaults false
+        DocumentNode(id: 'doc_full', name: 'Written', hasContent: true, createdAt: _t, updatedAt: _t),
+      ], const [], _labels);
+      final rows = model.groups.single.types[0].rows;
+      expect(rows.firstWhere((r) => r.id == 'doc_empty').icon, AnIcons.file, reason: '空页=空白页 icon');
+      expect(rows.firstWhere((r) => r.id == 'doc_full').icon, AnIcons.doc, reason: '已写=fileText icon');
     });
 
     test('docSelectionForRowId disambiguates skills by prefix', () {
@@ -147,7 +162,8 @@ void main() {
       expect(find.text(t.documents.skills), findsOneWidget); // Skills head
     });
 
-    testWidgets('the New row creates a root page and selects it', (tester) async {
+    testWidgets('B2 active: the New row creates a root page immediately, selects it, and flags the title '
+        'for one-shot autofocus (no inline-rename)', (tester) async {
       final repo = _repo();
       late WidgetRef ref;
       await tester.pumpWidget(_host(
@@ -163,20 +179,131 @@ void main() {
       await tester.tap(find.text('New page')); // the New row label (B9: unified to "New <thing>") 新建行标签
       await tester.pumpAndSettle();
       final tree = await repo.getTree();
-      // A new root page was created and became the selection (dropping into inline-rename). 新根页建成+选中。
+      // A new root page was created + became the selection; the active-create path DOESN'T inline-rename —
+      // it flags the fresh doc's TITLE for a one-shot autofocus (focus lands on the title in the ocean).
+      // 新根页建成+选中;主动新建不进行内改名,而是标记新 doc 标题一次性聚焦(焦点落海洋标题)。
       expect(tree.length, before + 1);
       final sel = ref.read(selectedDocProvider);
       expect(sel, isNotNull);
       expect(sel!.isSkill, isFalse);
       expect(tree.any((d) => d.id == sel.id && d.parentId == null), isTrue);
+      expect(ref.read(focusNewDocTitleProvider), sel.id,
+          reason: '主动新建把新 doc 标记为标题聚焦意图');
+    });
+
+    testWidgets('B3: a page row\'s + action creates a CHILD under that page (parent = that row)',
+        (tester) async {
+      final repo = _CountingDocsRepo(
+        documents: [_doc('doc_a', null, 'Getting Started', 0, content: '# Hello')],
+        skills: const [],
+      );
+      await tester.pumpWidget(_host(repo, const DocumentRail()));
+      await tester.pump();
+      await tester.pump();
+      // The row's `[+]` action is an AnButton carrying the newSubpage a11y label (hover-revealed by AnRow;
+      // its reachability is AnRow's shared concern — here we assert the WIRING: + → create-child).
+      // 行 `[+]`=带 newSubpage 标签的 AnButton;可达性归 AnRow(共用),此处断言接线:+ → 建子文档。
+      final plus = tester
+          .widgetList<AnButton>(
+              find.byWidgetPredicate((w) => w is AnButton && w.semanticLabel == t.a11y.newSubpage))
+          .toList();
+      expect(plus, hasLength(1), reason: 'exactly one page row → one + action');
+      plus.single.onPressed!();
+      await tester.pumpAndSettle();
+      expect(repo.createCount, 1);
+      expect(repo.lastCreatedParent, 'doc_a', reason: 'B3:行内 + 建的是该行的子文档(parent=该行)');
     });
   });
 
   group('DocumentOcean', () {
-    testWidgets('no selection → the pick empty state', (tester) async {
-      await tester.pumpWidget(_host(_repo(), const DocumentOcean()));
+    testWidgets('B2 passive: no selection → a DRAFT editor (empty, uncreated — NOT a pick tombstone)',
+        (tester) async {
+      final repo = _CountingDocsRepo(documents: const [], skills: const []);
+      await tester.pumpWidget(_host(repo, const DocumentOcean()));
+      await tester.pumpAndSettle();
+      // The center is a real editor with an EMPTY title/body (the header shows its grey guides); nothing is
+      // created until the first edit. 中心=空标题/正文的真编辑器(头显灰引导);首次编辑前不建。
+      final editor = tester.widget<AnDocumentEditor>(find.byType(AnDocumentEditor));
+      expect(editor.name, '');
+      expect(editor.initialMarkdown, '');
+      expect(editor.crumb, t.documents.documents);
+      expect(repo.createCount, 0, reason: 'draft landing must not POST until the first edit');
+      // The old «pick a document» tombstone is retired. 旧「选一篇文档」墓碑退役。
+      expect(find.text(t.documents.pickTitle), findsNothing);
+    });
+
+    testWidgets('B2 passive: the first body edit POSTs the create, navigates, and 转正 WITHOUT a remount',
+        (tester) async {
+      final repo = _CountingDocsRepo(documents: const [], skills: const []);
+      late WidgetRef ref;
+      // A PERSISTENT-shell harness: both `/` and `/documents/:id` return ONE page with a constant key, so
+      // the URL flip does NOT remount the subtree (mirrors the app's constant-key shell — the per-route
+      // `_host` would remount and mask the seam). 持久壳:两 route 共用常量 key 页,URL 翻转不重挂子树(镜像 app 常量壳)。
+      final host = Consumer(builder: (_, r, _) {
+        ref = r;
+        return const Scaffold(body: SizedBox(width: 720, height: 640, child: DocumentOcean()));
+      });
+      final router = GoRouter(initialLocation: '/', routes: [
+        GoRoute(path: '/', pageBuilder: (_, _) => NoTransitionPage(key: const ValueKey('shell'), child: host)),
+        GoRoute(
+            path: '/documents/:id',
+            pageBuilder: (_, _) => NoTransitionPage(key: const ValueKey('shell'), child: host)),
+      ]);
+      addTearDown(router.dispose);
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          documentsRepositoryProvider.overrideWithValue(repo),
+          goRouterProvider.overrideWithValue(router),
+          mentionSourceProvider.overrideWithValue(_FakeMentions()),
+        ],
+        child: TranslationProvider(child: MaterialApp.router(theme: AnTheme.light(), routerConfig: router)),
+      ));
+      await tester.pumpAndSettle();
+      // Capture the editor STATE before the edit — a seamless 转正 must keep the SAME State (no remount,
+      // no cursor/content loss, B6). 记录编辑前 State——无缝转正须保持同一 State(不重挂、光标/内容不丢)。
+      final stateBefore = tester.state<AnDocumentEditorState>(find.byType(AnDocumentEditor));
+      tester.widget<AnDocumentEditor>(find.byType(AnDocumentEditor)).onChangedMarkdown('# Hi\n\nfirst line');
+      await tester.pumpAndSettle();
+      expect(repo.createCount, 1, reason: 'first edit POSTs the create once');
+      final sel = ref.read(selectedDocProvider);
+      expect(sel?.id, repo.lastCreatedId, reason: 'navigated to the new id (route 转正)');
+      expect(ref.read(adoptedDraftDocProvider), repo.lastCreatedId, reason: 'the ocean adopted the new id');
+      final stateAfter = tester.state<AnDocumentEditorState>(find.byType(AnDocumentEditor));
+      expect(identical(stateBefore, stateAfter), isTrue,
+          reason: 'the create must NOT remount the editor — same State element (seamless 转正)');
+      // Clean up the pending autosave debounce timer. 收尾去抖计时器。
+      await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
-      expect(find.text(t.documents.pickTitle), findsOneWidget);
+    });
+
+    testWidgets('B2 passive: writing NOTHING then leaving creates nothing (什么都不留)', (tester) async {
+      final repo = _CountingDocsRepo(documents: const [], skills: const []);
+      await tester.pumpWidget(_host(repo, const DocumentOcean()));
+      await tester.pumpAndSettle();
+      // Leave without any edit. 未编辑即离开。
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      expect(repo.createCount, 0, reason: 'an untouched draft leaves nothing behind');
+    });
+
+    testWidgets('B2 active: an open doc flagged for title-autofocus mounts the editor with autofocusName',
+        (tester) async {
+      final repo = _repo();
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          documentsRepositoryProvider.overrideWithValue(repo),
+          selectedDocProvider.overrideWith(() => _PinnedSelection((isSkill: false, id: 'doc_a'))),
+          mentionSourceProvider.overrideWithValue(_FakeMentions()),
+          // Pre-flag doc_a for the one-shot title autofocus (the active-create hand-off). 预标记标题聚焦。
+          focusNewDocTitleProvider.overrideWith(() => _PinnedFocus('doc_a')),
+        ],
+        child: TranslationProvider(
+          child: MaterialApp(theme: AnTheme.light(), home: const Scaffold(body: DocumentOcean())),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      final editor = tester.widget<AnDocumentEditor>(find.byType(AnDocumentEditor));
+      expect(editor.autofocusName, isTrue, reason: '被标记的 doc 挂载时标题进编辑态(焦点落标题)');
     });
 
     testWidgets('a selected document opens in the native editor with its content + meta', (tester) async {
@@ -252,6 +379,10 @@ void main() {
           reason: 'dispose must FLUSH the pending autosave — the last edit must persist, not be dropped');
     });
   });
+
+  // B5 empty-field guides (the AnDocHeader primitive contract) live in test/core/ui/an_doc_header_test.dart.
+  // The B2 draft/live editors WIRE those guides via AnDocumentEditor (covered above). B5 引导原语契约在
+  // an_doc_header_test.dart;B2 草稿/实文档编辑器经 AnDocumentEditor 接线(上面已覆盖)。
 
   group('planDocMove', () {
     // Seed shape: doc_a(root,0){doc_b(0), doc_c(1)} · doc_d(root,1). 种子:两根、doc_a 携两子。
@@ -538,6 +669,40 @@ class _PinnedSelection extends SelectedDocController {
   final DocSelection _seed;
   @override
   DocSelection? build() => _seed;
+}
+
+/// Pins [focusNewDocTitleProvider] to a seed so a title-autofocus flag can be tested without the rail's
+/// create flow. 钉住标题聚焦标记,免走 rail 创建流程即可测。
+class _PinnedFocus extends FocusNewDocTitle {
+  _PinnedFocus(this._seed);
+  final String? _seed;
+  @override
+  String? build() => _seed;
+}
+
+/// A fixture that counts create calls + records the last created id/parent — the B2/B3 create batteries.
+/// 计数创建 + 记最后创建 id/parent 的 fixture(B2/B3 创建电池)。
+class _CountingDocsRepo extends FixtureDocumentsRepository {
+  _CountingDocsRepo({super.documents, super.skills});
+
+  int createCount = 0;
+  String? lastCreatedId;
+  String? lastCreatedParent;
+
+  @override
+  Future<DocumentNode> createDocument(
+      {required String name,
+      String? parentId,
+      String content = '',
+      String description = '',
+      List<String> tags = const []}) async {
+    createCount++;
+    lastCreatedParent = parentId;
+    final node = await super
+        .createDocument(name: name, parentId: parentId, content: content, description: description, tags: tags);
+    lastCreatedId = node.id;
+    return node;
+  }
 }
 
 /// A fixture whose lifecycle stream the test drives by hand, counting refetches. 手动驱动信号流的 fixture,计数重取。

@@ -703,6 +703,9 @@ class Translations$a11y$en {
 	/// en: 'More actions'
 	String get moreActions => 'More actions';
 
+	/// en: 'New sub-page'
+	String get newSubpage => 'New sub-page';
+
 	/// en: 'Zoom in'
 	String get graphZoomIn => 'Zoom in';
 
@@ -899,8 +902,14 @@ class Translations$documents$en {
 	/// en: 'Untitled'
 	String get untitled => 'Untitled';
 
-	/// en: 'Press '/' for commands'
-	String get editorHint => 'Press \'/\' for commands';
+	/// en: 'Start writing, or press / for commands'
+	String get editorHint => 'Start writing, or press / for commands';
+
+	/// en: 'Add a description…'
+	String get addDescription => 'Add a description…';
+
+	/// en: 'Add a tag'
+	String get addTag => 'Add a tag';
 
 	/// en: 'Search documents…'
 	String get filter => 'Search documents…';
@@ -3427,14 +3436,32 @@ class Translations$scheduler$range$en {
 	/// en: 'Mo Tu We Th Fr Sa Su'
 	String get weekdays => 'Mo Tu We Th Fr Sa Su';
 
-	/// en: '$y-$m'
-	String monthTitle({required Object y, required Object m}) => '${y}-${m}';
+	/// en: '$m $y'
+	String monthTitle({required Object m, required Object y}) => '${m} ${y}';
+
+	/// en: 'January,February,March,April,May,June,July,August,September,October,November,December'
+	String get months => 'January,February,March,April,May,June,July,August,September,October,November,December';
 
 	/// en: 'Previous month'
 	String get prevMonth => 'Previous month';
 
 	/// en: 'Next month'
 	String get nextMonth => 'Next month';
+
+	/// en: 'Back to quick ranges'
+	String get backToPresets => 'Back to quick ranges';
+
+	/// en: 'Back to today'
+	String get backToToday => 'Back to today';
+
+	/// en: 'Set exact times'
+	String get preciseTime => 'Set exact times';
+
+	/// en: '$m/$d'
+	String dayText({required Object m, required Object d}) => '${m}/${d}';
+
+	/// en: '$m/$d/$y'
+	String dayTextYear({required Object m, required Object d, required Object y}) => '${m}/${d}/${y}';
 
 	/// en: 'Time range'
 	String get capsuleA11y => 'Time range';
@@ -6630,9 +6657,15 @@ extension on Translations {
 			'scheduler.range.apply' => 'Apply',
 			'scheduler.range.endBeforeStart' => 'End is before start',
 			'scheduler.range.weekdays' => 'Mo Tu We Th Fr Sa Su',
-			'scheduler.range.monthTitle' => ({required Object y, required Object m}) => '${y}-${m}',
+			'scheduler.range.monthTitle' => ({required Object m, required Object y}) => '${m} ${y}',
+			'scheduler.range.months' => 'January,February,March,April,May,June,July,August,September,October,November,December',
 			'scheduler.range.prevMonth' => 'Previous month',
 			'scheduler.range.nextMonth' => 'Next month',
+			'scheduler.range.backToPresets' => 'Back to quick ranges',
+			'scheduler.range.backToToday' => 'Back to today',
+			'scheduler.range.preciseTime' => 'Set exact times',
+			'scheduler.range.dayText' => ({required Object m, required Object d}) => '${m}/${d}',
+			'scheduler.range.dayTextYear' => ({required Object m, required Object d, required Object y}) => '${m}/${d}/${y}',
 			'scheduler.range.capsuleA11y' => 'Time range',
 			'scheduler.range.gridA11y' => 'Calendar',
 			'action.edit' => 'Edit',
@@ -6754,6 +6787,7 @@ extension on Translations {
 			'a11y.addTagTo' => ({required Object field}) => 'Add tag: ${field}',
 			'a11y.displayOptions' => 'Display options',
 			'a11y.moreActions' => 'More actions',
+			'a11y.newSubpage' => 'New sub-page',
 			'a11y.graphZoomIn' => 'Zoom in',
 			'a11y.graphZoomOut' => 'Zoom out',
 			'a11y.graphFit' => 'Fit to view',
@@ -6804,6 +6838,8 @@ extension on Translations {
 			'entities.detail.verb.call' => 'Call',
 			'entities.detail.verb.invoke' => 'Invoke',
 			'entities.detail.verb.trigger' => 'Trigger',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.hero.envStatus' => ({required Object status}) => 'env ${status}',
 			'entities.detail.hero.noInputs' => 'no inputs',
 			'entities.detail.hero.methods' => ({required Object n}) => '${n} methods',
@@ -6811,8 +6847,6 @@ extension on Translations {
 			'entities.detail.gate.config' => 'config',
 			'entities.detail.gate.env' => 'env',
 			'entities.detail.gate.instance' => 'instance',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.codeToggle.expand' => ({required Object n}) => 'Show all (${n} lines)',
 			'entities.detail.codeToggle.collapse' => 'Collapse',
 			'entities.detail.sec.code' => 'Code',
@@ -7046,7 +7080,9 @@ extension on Translations {
 			'documents.documents' => 'Documents',
 			'documents.skills' => 'Skills',
 			'documents.untitled' => 'Untitled',
-			'documents.editorHint' => 'Press \'/\' for commands',
+			'documents.editorHint' => 'Start writing, or press / for commands',
+			'documents.addDescription' => 'Add a description…',
+			'documents.addTag' => 'Add a tag',
 			'documents.filter' => 'Search documents…',
 			'documents.kNew' => 'New page',
 			'documents.errorTitle' => 'Couldn\'t load your library',
@@ -7316,6 +7352,8 @@ extension on Translations {
 			'settings.mcp.importHint' => 'Paste a Claude Desktop mcpServers snippet',
 			'settings.mcp.overwrite' => 'Overwrite same names',
 			'settings.mcp.doImport' => 'Import',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mcp.importResult' => ({required Object n, required Object m}) => 'Imported ${n} · skipped ${m}',
 			'settings.mcp.importInvalid' => 'Couldn\'t parse the JSON',
 			'settings.mcp.market' => 'Marketplace',
@@ -7325,8 +7363,6 @@ extension on Translations {
 			'settings.mcp.installing' => 'Installing…',
 			'settings.mcp.prerequisite' => 'Prerequisite',
 			'settings.mcp.requiredMark' => 'required',
-			_ => null,
-		} ?? switch (path) {
 			'settings.mcp.oauthConnect' => 'Connect & authorize',
 			'settings.mcp.oauthWaiting' => 'Waiting for the browser… (up to 120s)',
 			'settings.mcp.tabTools' => 'Tools',

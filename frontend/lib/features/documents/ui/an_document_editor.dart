@@ -6,6 +6,7 @@ import '../../../core/design/tokens.dart';
 import '../../../core/editor/an_editor.dart';
 import '../../../core/entity/mention_source.dart';
 import '../../../core/ui/an_doc_header.dart';
+import '../../../i18n/strings.g.dart';
 
 /// The native documents view — a CO-SCROLL column (the product characteristic): the header (crumb +
 /// renamable title + description + tags) scrolls WITH the body inside ONE outer scrollable, and the body
@@ -23,6 +24,7 @@ class AnDocumentEditor extends StatefulWidget {
     required this.crumb,
     required this.name,
     this.nameEditable = true,
+    this.autofocusName = false,
     this.description = '',
     this.tags = const [],
     this.showTags = true,
@@ -39,6 +41,9 @@ class AnDocumentEditor extends StatefulWidget {
   final String crumb;
   final String name;
   final bool nameEditable;
+
+  /// Open the title in edit mode on mount — the active «+ New page» path focuses the title. 挂载即聚焦标题。
+  final bool autofocusName;
   final String description;
   final List<String> tags;
   /// Whether the tags editor renders. Skills have no `tags` frontmatter — showing an editable tags row
@@ -211,15 +216,22 @@ class AnDocumentEditorState extends State<AnDocumentEditor> {
   }
 
   // The reading-scale header is the [AnDocHeader] primitive (A-113 — the arrangement lives in gallery,
-  // not invented here); this feature only supplies the data + wires the metadata callback. 阅读尺度头=
-  // AnDocHeader 原语,本 feature 只喂数据+接元数据回调。
-  Widget _header(BuildContext context) => AnDocHeader(
-        crumb: widget.crumb,
-        name: widget.name,
-        nameEditable: widget.nameEditable,
-        description: widget.description,
-        tags: widget.tags,
-        showTags: widget.showTags,
-        onMetaChanged: widget.onMetaChanged,
-      );
+  // not invented here); this feature only supplies the data + wires the metadata callback + the empty-field
+  // guides (空字段引导律). 阅读尺度头=AnDocHeader 原语,本 feature 喂数据+接元数据回调+空字段引导词。
+  Widget _header(BuildContext context) {
+    final t = context.t;
+    return AnDocHeader(
+      crumb: widget.crumb,
+      name: widget.name,
+      nameEditable: widget.nameEditable,
+      autofocusName: widget.autofocusName,
+      namePlaceholder: t.documents.untitled,
+      description: widget.description,
+      descriptionPlaceholder: t.documents.addDescription,
+      tags: widget.tags,
+      showTags: widget.showTags,
+      addTagLabel: t.documents.addTag,
+      onMetaChanged: widget.onMetaChanged,
+    );
+  }
 }

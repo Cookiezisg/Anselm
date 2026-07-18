@@ -108,6 +108,32 @@ class SelectedDocController extends Notifier<DocSelection?> {
 final selectedDocProvider =
     NotifierProvider<SelectedDocController, DocSelection?>(SelectedDocController.new);
 
+/// The id of a document the rail JUST created via the ACTIVE «+ New page / row +» path — the ocean
+/// autofocuses that document's title (select-all) once on mount, then clears this. Only the active-create
+/// path sets it; the passive draft-landing path focuses the body naturally (the user just starts typing).
+/// A modern [Notifier] (NOT the legacy StateProvider — project stance, runtime.dart). rail 主动新建的 doc id:
+/// 海洋挂载时自动聚焦其标题(全选)一次后清空;仅主动新建设置它(被动草稿自然聚焦正文)。用现代 Notifier。
+class FocusNewDocTitle extends Notifier<String?> {
+  @override
+  String? build() => null;
+  void set(String? id) => state = id;
+}
+
+final focusNewDocTitleProvider = NotifierProvider<FocusNewDocTitle, String?>(FocusNewDocTitle.new);
+
+/// The id of the just-created draft the PASSIVE landing editor has ADOPTED — set the instant the draft
+/// POSTs its first edit. While `selectedDocProvider.id == this`, the ocean keeps the SAME draft editor
+/// mounted instead of handing off to a fresh `_DocEditView`, so the create is seamless (no remount, no
+/// cursor/content loss). Cleared when selection moves to any other node. 被动草稿转正 id:草稿首次编辑即 POST
+/// 后置此;当选区仍是它时,海洋保持草稿编辑器不换手(无重挂、光标/内容不丢);选区他移即清。
+class AdoptedDraftDoc extends Notifier<String?> {
+  @override
+  String? build() => null;
+  void set(String? id) => state = id;
+}
+
+final adoptedDraftDocProvider = NotifierProvider<AdoptedDraftDoc, String?>(AdoptedDraftDoc.new);
+
 /// The route location for a document page — the rail navigates here to select. Mirrors entityLocation.
 /// 文档页的路由位置——rail 导航至此以选中。镜像 entityLocation。
 String documentLocation(String id) => '/documents/$id';

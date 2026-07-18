@@ -1,6 +1,7 @@
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/ui/an_doc_header.dart';
 import 'package:anselm/core/ui/an_button.dart';
+import 'package:anselm/core/ui/an_chip.dart';
 import 'package:anselm/core/ui/an_inline_edit.dart';
 import 'package:anselm/core/ui/an_tags.dart';
 import 'package:anselm/i18n/strings.g.dart';
@@ -90,5 +91,62 @@ void main() {
     )));
     // A non-editable title still shows its text. 不可改名仍显示文本。
     expect(find.text('code-review'), findsOneWidget);
+  });
+
+  // ── B5 空字段引导律(empty-field guides): grey, clickable, wearing the target shape ──
+  testWidgets('empty title/description show grey guides; empty tags show the dummy add-tag pill',
+      (tester) async {
+    await tester.pumpWidget(host(AnDocHeader(
+      crumb: 'Documents',
+      name: '',
+      namePlaceholder: '未命名',
+      description: '',
+      descriptionPlaceholder: '添加简介…',
+      tags: const [],
+      addTagLabel: '添加标签',
+      onMetaChanged: (_) {},
+    )));
+    await tester.pump();
+    expect(find.text('未命名'), findsOneWidget, reason: '空标题=灰占位');
+    expect(find.text('添加简介…'), findsOneWidget, reason: '空简介=灰引导');
+    // Empty tags → a grey dummy AnChip wearing the tag shape (穿目标形态). 空标签=灰 dummy 药丸(AnChip)。
+    expect(find.widgetWithText(AnChip, '添加标签'), findsOneWidget);
+  });
+
+  testWidgets('a non-empty title/description/tags render VALUES, not the guides', (tester) async {
+    await tester.pumpWidget(host(AnDocHeader(
+      crumb: 'Documents',
+      name: 'Real Title',
+      namePlaceholder: '未命名',
+      description: 'a real summary',
+      descriptionPlaceholder: '添加简介…',
+      tags: const ['ops'],
+      addTagLabel: '添加标签',
+      onMetaChanged: (_) {},
+    )));
+    await tester.pump();
+    expect(find.text('Real Title'), findsOneWidget);
+    expect(find.text('a real summary'), findsOneWidget);
+    expect(find.text('ops'), findsOneWidget);
+    expect(find.text('添加简介…'), findsNothing);
+    expect(find.widgetWithText(AnChip, '添加标签'), findsNothing);
+  });
+
+  testWidgets('tapping the dummy add-tag pill opens the AnTags input field', (tester) async {
+    await tester.pumpWidget(host(AnDocHeader(
+      crumb: 'Documents',
+      name: 'Doc',
+      tags: const [],
+      addTagLabel: '添加标签',
+      onMetaChanged: (_) {},
+    )));
+    await tester.pump();
+    // At rest: the dummy pill, no input. 静息:dummy 药丸,无输入框。
+    expect(find.byType(AnTags), findsNothing);
+    await tester.tap(find.widgetWithText(AnChip, '添加标签'));
+    await tester.pumpAndSettle();
+    // Tapped: the dummy pill gives way to the AnTags add field (autofocused). 点开→AnTags 输入框。
+    expect(find.byType(AnTags), findsOneWidget);
+    expect(find.byType(EditableText), findsOneWidget);
   });
 }

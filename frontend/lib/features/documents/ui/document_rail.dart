@@ -16,15 +16,16 @@ import '../state/document_state.dart';
 import 'document_rail_model.dart';
 
 /// The left-island Documents navigator — one [AnSidebarList] over two sections (the recursive document
-/// page tree + the flat skill list), now with CRUD: a New row creates a root page (then inline-renames it),
-/// and each row hovers a ⋯ menu — pages get Rename / Duplicate / Delete, skills get Delete (skills have no
-/// rename: `name` is the slug/identity). Writes go straight through the repository seam and the two plain
-/// FutureProviders are `invalidate`d to refetch (no optimistic notifier). Deleting the open selection clears
-/// it. Filtering stays client-side inside AnSidebarList.
+/// page tree + the flat skill list), with CRUD: the New row (and each page row's hover `[+]`) creates an
+/// untitled page IMMEDIATELY and opens it in the ocean with focus on its title (the inline-rename idiom is
+/// retired from the new-doc flow — kept only for the ⋯-menu Rename). Each row hovers `[+][⋯]`: pages get
+/// New-child / Rename / Duplicate / Delete, skills get Delete (skills have no rename — `name` is the
+/// slug/identity — and no child). Writes go straight through the repository seam and the two providers are
+/// `invalidate`d to refetch. Deleting the open selection clears it. Filtering stays client-side.
 ///
-/// 左岛文档导航:一个 AnSidebarList 双段(文档页树 + skill 扁平列)+ CRUD:New 建根页(随即就地改名),每行
-/// hover ⋯ 菜单——页=改名/复制/删除,skill=删除(skill 无改名:name 即 slug 身份)。写过 repository 缝,两个
-/// 普通 FutureProvider invalidate 重取(无乐观 notifier);删掉选中即清选区。过滤仍走 AnSidebarList 客户端。
+/// 左岛文档导航:AnSidebarList 双段(文档页树 + skill 扁平列)+ CRUD:New 行(及每页行 hover `[+]`)立即建
+/// 未命名页 → 进海洋、焦点落标题(行内改名退出新建流程,仅留给 ⋯ 菜单);行 hover `[+][⋯]`:页=建子/改名/复制/删除,
+/// skill=删除(name 即 slug 身份、无改名亦无子)。写过 repository 缝、两 provider invalidate 重取;删选中即清选区。
 class DocumentRail extends ConsumerStatefulWidget {
   const DocumentRail({super.key});
 
@@ -85,7 +86,21 @@ class _DocumentRailState extends ConsumerState<DocumentRail> {
         editingRowId: _editingId,
         onRenameCommit: _renameDocument,
         onRenameCancel: () => setState(() => _editingId = null),
-        rowActionsBuilder: (rowId) => [_rowMenu(t, rowId, tree)],
+        // Per-row hover actions: `[+]` (create a child under this page) BEFORE `[⋯]`. Skill rows are flat
+        // (no children) → menu only. 行内动作:`[+]`(在此页下建子文档)在 `[⋯]` 前;skill 扁平无子,仅菜单。
+        rowActionsBuilder: (rowId) {
+          final sel = docSelectionForRowId(rowId);
+          if (sel.isSkill) return [_rowMenu(t, rowId, tree)];
+          return [
+            AnButton.iconOnly(
+              AnIcons.plus,
+              size: AnButtonSize.sm,
+              semanticLabel: t.a11y.newSubpage,
+              onPressed: () => _newChild(sel.id),
+            ),
+            _rowMenu(t, rowId, tree),
+          ];
+        },
         // Tree drag-reorder: pages drag (reparent via nest, reorder via insertion lines); skills sit out
         // (flat, no position in their contract). 树内拖拽:页可拖(嵌入=改父、插线=重排);skill 不参与(无位次)。
         onRowDropped: _onDrop,
@@ -160,14 +175,24 @@ class _DocumentRailState extends ConsumerState<DocumentRail> {
 
   // ── actions (write → invalidate to refetch; toast on failure) 写→invalidate 重取;失败 toast ──
 
-  Future<void> _newDocument() async {
+  /// Active create (B2): POST an untitled page immediately, open it in the ocean, and land focus on its
+  /// TITLE (not the rail's inline-rename — that idiom is retired from the new-doc flow, kept only for the
+  /// ⋯-menu Rename). An empty page stays; the user owns what they made. 主动新建:立即建未命名页 → 进海洋
+  /// 编辑 → 焦点落标题(行内改名退出新建流程,只留给 ⋯ 菜单);空着不删。
+  Future<void> _newDocument() => _create(parentId: null);
+
+  /// Active create of a CHILD (B3): same path, parent = the hovered row. 行内 + 建子文档(主动路径)。
+  Future<void> _newChild(String parentId) => _create(parentId: parentId);
+
+  Future<void> _create({required String? parentId}) async {
     try {
-      final doc = await _repo.createDocument(name: context.t.documents.untitled);
+      final doc = await _repo.createDocument(name: context.t.documents.untitled, parentId: parentId);
       if (!mounted) return;
       ref.invalidate(documentTreeProvider);
+      // Mark the fresh doc for a one-shot title autofocus, then navigate — the ocean reads + clears it.
+      // 标记新 doc 一次性标题聚焦,再导航——海洋读并清。
+      ref.read(focusNewDocTitleProvider.notifier).set(doc.id);
       context.go(documentLocation(doc.id));
-      // Drop straight into inline-rename on the fresh row. 新行直接进就地改名。
-      setState(() => _editingId = doc.id);
     } catch (_) {
       _toastFail();
     }

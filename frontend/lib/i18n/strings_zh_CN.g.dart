@@ -347,6 +347,7 @@ class _Translations$a11y$zh_CN extends Translations$a11y$en {
 	@override String addTagTo({required Object field}) => '添加标签:${field}';
 	@override String get displayOptions => '显示选项';
 	@override String get moreActions => '更多操作';
+	@override String get newSubpage => '新建子页面';
 	@override String get graphZoomIn => '放大';
 	@override String get graphZoomOut => '缩小';
 	@override String get graphFit => '适应画布';
@@ -450,7 +451,9 @@ class _Translations$documents$zh_CN extends Translations$documents$en {
 	@override String get documents => '文档';
 	@override String get skills => '技能';
 	@override String get untitled => '未命名';
-	@override String get editorHint => '按 “/” 唤起命令';
+	@override String get editorHint => '输入正文,按 / 唤起命令';
+	@override String get addDescription => '添加简介…';
+	@override String get addTag => '添加标签';
 	@override String get filter => '搜索文档…';
 	@override String get kNew => '新建页面';
 	@override String get errorTitle => '无法加载知识库';
@@ -1388,9 +1391,15 @@ class _Translations$scheduler$range$zh_CN extends Translations$scheduler$range$e
 	@override String get apply => '应用';
 	@override String get endBeforeStart => '终点早于起点';
 	@override String get weekdays => '一 二 三 四 五 六 日';
-	@override String monthTitle({required Object y, required Object m}) => '${y} 年 ${m} 月';
+	@override String monthTitle({required Object y, required Object m}) => '${y} 年 ${m}';
+	@override String get months => '1 月,2 月,3 月,4 月,5 月,6 月,7 月,8 月,9 月,10 月,11 月,12 月';
 	@override String get prevMonth => '上个月';
 	@override String get nextMonth => '下个月';
+	@override String get backToPresets => '返回快捷范围';
+	@override String get backToToday => '回到今天';
+	@override String get preciseTime => '精确到时刻';
+	@override String dayText({required Object m, required Object d}) => '${m} 月 ${d} 日';
+	@override String dayTextYear({required Object y, required Object m, required Object d}) => '${y} 年 ${m} 月 ${d} 日';
 	@override String get capsuleA11y => '时间范围';
 	@override String get gridA11y => '日历';
 }
@@ -3312,9 +3321,15 @@ extension on TranslationsZhCn {
 			'scheduler.range.apply' => '应用',
 			'scheduler.range.endBeforeStart' => '终点早于起点',
 			'scheduler.range.weekdays' => '一 二 三 四 五 六 日',
-			'scheduler.range.monthTitle' => ({required Object y, required Object m}) => '${y} 年 ${m} 月',
+			'scheduler.range.monthTitle' => ({required Object y, required Object m}) => '${y} 年 ${m}',
+			'scheduler.range.months' => '1 月,2 月,3 月,4 月,5 月,6 月,7 月,8 月,9 月,10 月,11 月,12 月',
 			'scheduler.range.prevMonth' => '上个月',
 			'scheduler.range.nextMonth' => '下个月',
+			'scheduler.range.backToPresets' => '返回快捷范围',
+			'scheduler.range.backToToday' => '回到今天',
+			'scheduler.range.preciseTime' => '精确到时刻',
+			'scheduler.range.dayText' => ({required Object m, required Object d}) => '${m} 月 ${d} 日',
+			'scheduler.range.dayTextYear' => ({required Object y, required Object m, required Object d}) => '${y} 年 ${m} 月 ${d} 日',
 			'scheduler.range.capsuleA11y' => '时间范围',
 			'scheduler.range.gridA11y' => '日历',
 			'action.edit' => '编辑',
@@ -3436,6 +3451,7 @@ extension on TranslationsZhCn {
 			'a11y.addTagTo' => ({required Object field}) => '添加标签:${field}',
 			'a11y.displayOptions' => '显示选项',
 			'a11y.moreActions' => '更多操作',
+			'a11y.newSubpage' => '新建子页面',
 			'a11y.graphZoomIn' => '放大',
 			'a11y.graphZoomOut' => '缩小',
 			'a11y.graphFit' => '适应画布',
@@ -3486,6 +3502,8 @@ extension on TranslationsZhCn {
 			'entities.detail.verb.call' => '调用',
 			'entities.detail.verb.invoke' => '唤起',
 			'entities.detail.verb.trigger' => '触发',
+			_ => null,
+		} ?? switch (path) {
 			'entities.detail.hero.envStatus' => ({required Object status}) => 'env ${status}',
 			'entities.detail.hero.noInputs' => '无入参',
 			'entities.detail.hero.methods' => ({required Object n}) => '${n} 个方法',
@@ -3493,8 +3511,6 @@ extension on TranslationsZhCn {
 			'entities.detail.gate.config' => 'config',
 			'entities.detail.gate.env' => 'env',
 			'entities.detail.gate.instance' => 'instance',
-			_ => null,
-		} ?? switch (path) {
 			'entities.detail.codeToggle.expand' => ({required Object n}) => '展开全部 (${n} 行)',
 			'entities.detail.codeToggle.collapse' => '收起',
 			'entities.detail.sec.code' => '代码',
@@ -3728,7 +3744,9 @@ extension on TranslationsZhCn {
 			'documents.documents' => '文档',
 			'documents.skills' => '技能',
 			'documents.untitled' => '未命名',
-			'documents.editorHint' => '按 “/” 唤起命令',
+			'documents.editorHint' => '输入正文,按 / 唤起命令',
+			'documents.addDescription' => '添加简介…',
+			'documents.addTag' => '添加标签',
 			'documents.filter' => '搜索文档…',
 			'documents.kNew' => '新建页面',
 			'documents.errorTitle' => '无法加载知识库',
@@ -3998,6 +4016,8 @@ extension on TranslationsZhCn {
 			'settings.mcp.importHint' => '粘贴 Claude Desktop 的 mcpServers 片段',
 			'settings.mcp.overwrite' => '覆盖同名',
 			'settings.mcp.doImport' => '导入',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mcp.importResult' => ({required Object n, required Object m}) => '导入 ${n} · 跳过 ${m}',
 			'settings.mcp.importInvalid' => 'JSON 无法解析',
 			'settings.mcp.market' => '市场',
@@ -4007,8 +4027,6 @@ extension on TranslationsZhCn {
 			'settings.mcp.installing' => '安装中…',
 			'settings.mcp.prerequisite' => '前置',
 			'settings.mcp.requiredMark' => '必填',
-			_ => null,
-		} ?? switch (path) {
 			'settings.mcp.oauthConnect' => '连接并授权',
 			'settings.mcp.oauthWaiting' => '等待浏览器授权…(最长 120 秒)',
 			'settings.mcp.tabTools' => '工具',

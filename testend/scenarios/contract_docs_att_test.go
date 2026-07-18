@@ -318,6 +318,23 @@ func TestContractDocsAtt_DocumentChildrenDuplicateMove(t *testing.T) {
 		if _, ok := row["sizeBytes"]; !ok {
 			t.Fatalf("tree rows must carry sizeBytes, got %v", row)
 		}
+		// hasContent bool drives the sidebar's empty-page vs written-doc icon (免拉正文).
+		if _, ok := row["hasContent"]; !ok {
+			t.Fatalf("tree rows must carry hasContent, got %v", row)
+		}
+	}
+	// The dup source has body "ROOTBODY" → hasContent true; assert the bool tracks real content.
+	// dup 源正文 "ROOTBODY" → hasContent 真；断言该 bool 跟随真实正文有无。
+	for _, row := range treeRows {
+		var id string
+		_ = json.Unmarshal(row["id"], &id)
+		if id != src.ID {
+			continue
+		}
+		var hc bool
+		if err := json.Unmarshal(row["hasContent"], &hc); err != nil || !hc {
+			t.Fatalf("tree row for a doc with content must report hasContent=true, got %s err=%v", row["hasContent"], err)
+		}
 	}
 
 	// A-doc-7 :duplicate 显式 parentId 落点 + 错误路径。

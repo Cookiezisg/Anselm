@@ -16,7 +16,9 @@ import 'package:anselm/core/ui/icons.dart';
 import 'package:anselm/features/scheduler/scheduler_windows.dart';
 import 'package:anselm/features/scheduler/data/scheduler_repository.dart';
 import 'package:anselm/features/scheduler/state/scheduler_overview_provider.dart';
+import 'package:anselm/features/scheduler/state/selected_scheduler.dart';
 import 'package:anselm/features/scheduler/ui/overview_zones.dart';
+import 'package:anselm/features/scheduler/ui/scheduler_ocean.dart';
 import 'package:anselm/features/scheduler/ui/scheduler_overview.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
@@ -896,4 +898,52 @@ void main() {
       });
     });
   });
+
+  // ─────────────────────────── A · 海洋默认页(恒显 Overview) ───────────────────────────
+  // The scheduler ocean's default page: /scheduler (SchedulerOverview) AND the null selection must BOTH
+  // land on the Overview board — never a blank centre or an empty tombstone. The zero-workflow content
+  // (the first-use education card) is covered above; here we lock the OCEAN ROUTING that always mounts
+  // the Overview. 海洋默认页:overview 选区与 null 选区都恒显 Overview 看板(绝不空白/墓碑);零 workflow 内容(教育卡)
+  // 上面已覆盖,此处锁「海洋恒挂 Overview」的路由。
+  group('A · 海洋默认页', () {
+    Widget oceanHost(SchedulerRepository repo, SchedulerSelection? selection) => ProviderScope(
+          overrides: [
+            sseGatewayProvider.overrideWithValue(null),
+            schedulerRepositoryProvider.overrideWithValue(repo),
+            selectedSchedulerProvider.overrideWith(() => _PinnedScheduler(selection)),
+          ],
+          child: TranslationProvider(
+            child: MaterialApp(theme: AnTheme.light(), home: const Scaffold(body: SchedulerOcean())),
+          ),
+        );
+
+    for (final (label, sel) in [('/scheduler (overview)', const SchedulerOverview()), ('null', null)]) {
+      testWidgets('$label → the Overview board (full workspace)', (tester) async {
+        await tester.pumpWidget(oceanHost(_fullRepo(), sel));
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 1)); // count-ups settle; breath keeps looping 数字落定
+        expect(find.byType(SchedulerOverviewView), findsOneWidget,
+            reason: '$label 恒显 Overview,绝不空白中心');
+        expect(find.text(t.scheduler.overviewTitle), findsOneWidget);
+      });
+    }
+
+    testWidgets('null selection with ZERO workflows still shows the Overview (its first-use card), not blank',
+        (tester) async {
+      await tester.pumpWidget(oceanHost(StubSchedulerRepo(), null));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.byType(SchedulerOverviewView), findsOneWidget, reason: '零 workflow 也进 Overview、非空墓碑');
+      expect(find.text(t.scheduler.overview.firstUseTitle), findsOneWidget, reason: '零 workflow=教育卡(仍是 Overview 的一部分)');
+    });
+  });
+}
+
+/// Pins the routed scheduler selection so the ocean's page routing can be tested without a live router.
+/// 钉住路由派生的 scheduler 选区,免真路由即可测海洋分页。
+class _PinnedScheduler extends SelectedScheduler {
+  _PinnedScheduler(this._seed);
+  final SchedulerSelection? _seed;
+  @override
+  SchedulerSelection? build() => _seed;
 }

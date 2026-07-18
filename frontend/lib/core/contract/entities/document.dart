@@ -17,6 +17,7 @@ abstract class DocumentNode with _$DocumentNode {
     @Default('') String name,
     @Default('') String description,
     @Default('') String content, // omitted by GET /tree (metadata only) → empty; full node via GET /{id}
+    @Default(false) bool hasContent, // GET /tree only: body non-empty (≡ sizeBytes>0) → drives empty-page vs written-doc icon
     @Default(<String>[]) List<String> tags,
     @Default(0) int position,
     @Default('') String path,

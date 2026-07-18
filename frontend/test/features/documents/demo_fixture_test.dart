@@ -11,8 +11,10 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('D-023 formatting reference seeds every block type', () async {
     final repo = demoDocumentsRepository();
-    final ref = (await repo.getTree()).firstWhere((d) => d.name == 'Formatting Reference');
-    final body = ref.content;
+    // The tree is metadata-only (content stripped, like the Live /tree) — fetch the body via getDocument.
+    // 树是仅元数据(去正文,同 Live /tree)——正文经 getDocument 取。
+    final meta = (await repo.getTree()).firstWhere((d) => d.name == 'Formatting Reference');
+    final body = (await repo.getDocument(meta.id)).content;
 
     // All six ATX heading depths present in the raw markdown (h1 sits at the very start). raw 含六档 # 记号。
     final lines = body.split('\n');
@@ -44,12 +46,25 @@ void main() {
     expect(body, contains('```dart'));
   });
 
+  test('B4: the demo tree carries BOTH an empty page (hasContent false) and written ones (true) — '
+      'so `make demo` shows the empty-page and written-doc icons side by side', () async {
+    final tree = await demoDocumentsRepository().getTree();
+    // The tree projection sets hasContent (≡ backend size_bytes>0) — content itself is stripped. hasContent 投影。
+    expect(tree.every((d) => d.content.isEmpty), isTrue, reason: '树是仅元数据(去正文)');
+    final empty = tree.where((d) => !d.hasContent).toList();
+    final written = tree.where((d) => d.hasContent).toList();
+    expect(empty, isNotEmpty, reason: '至少一篇空页(空白页 icon)');
+    expect(written, isNotEmpty, reason: '写过的页(fileText icon)');
+    expect(empty.any((d) => d.name == 'Scratch'), isTrue, reason: '「Scratch」空页种子在场');
+  });
+
   test('D-041 markdown corpus page IS the shared corpus + its wikilink target resolves', () async {
     // The `make demo` kitchen-sink page renders the exact same [buildMarkdownCorpus] as the 1:1 guard test
     // (markdown_parity_test) and the editor⇄chat harness — one source of truth, so the eyeball page and the
     // green guard can never disagree. 全谱页=守卫/harness 同一份语料。
-    final page = (await demoDocumentsRepository().getTree())
-        .firstWhere((d) => d.name == 'Markdown 全谱 (Kitchen Sink)');
+    final repo = demoDocumentsRepository();
+    final meta = (await repo.getTree()).firstWhere((d) => d.name == 'Markdown 全谱 (Kitchen Sink)');
+    final page = await repo.getDocument(meta.id); // body via getDocument (the tree is metadata-only). 正文经 getDocument。
     expect(page.content, buildMarkdownCorpus());
     expect(page.content, contains('[[$kCorpusMentionId]]'));
     // The demo entity fixture provides the wikilink's resolvable target with the corpus's declared name, so

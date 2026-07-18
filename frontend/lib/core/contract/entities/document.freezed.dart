@@ -16,6 +16,7 @@ T _$identity<T>(T value) => value;
 mixin _$DocumentNode {
 
  String get id; String? get parentId; String get name; String get description; String get content;// omitted by GET /tree (metadata only) → empty; full node via GET /{id}
+ bool get hasContent;// GET /tree only: body non-empty (≡ sizeBytes>0) → drives empty-page vs written-doc icon
  List<String> get tags; int get position; String get path; int get sizeBytes; DateTime get createdAt; DateTime get updatedAt;
 /// Create a copy of DocumentNode
 /// with the given fields replaced by the non-null parameter values.
@@ -29,16 +30,16 @@ $DocumentNodeCopyWith<DocumentNode> get copyWith => _$DocumentNodeCopyWithImpl<D
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is DocumentNode&&(identical(other.id, id) || other.id == id)&&(identical(other.parentId, parentId) || other.parentId == parentId)&&(identical(other.name, name) || other.name == name)&&(identical(other.description, description) || other.description == description)&&(identical(other.content, content) || other.content == content)&&const DeepCollectionEquality().equals(other.tags, tags)&&(identical(other.position, position) || other.position == position)&&(identical(other.path, path) || other.path == path)&&(identical(other.sizeBytes, sizeBytes) || other.sizeBytes == sizeBytes)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is DocumentNode&&(identical(other.id, id) || other.id == id)&&(identical(other.parentId, parentId) || other.parentId == parentId)&&(identical(other.name, name) || other.name == name)&&(identical(other.description, description) || other.description == description)&&(identical(other.content, content) || other.content == content)&&(identical(other.hasContent, hasContent) || other.hasContent == hasContent)&&const DeepCollectionEquality().equals(other.tags, tags)&&(identical(other.position, position) || other.position == position)&&(identical(other.path, path) || other.path == path)&&(identical(other.sizeBytes, sizeBytes) || other.sizeBytes == sizeBytes)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,parentId,name,description,content,const DeepCollectionEquality().hash(tags),position,path,sizeBytes,createdAt,updatedAt);
+int get hashCode => Object.hash(runtimeType,id,parentId,name,description,content,hasContent,const DeepCollectionEquality().hash(tags),position,path,sizeBytes,createdAt,updatedAt);
 
 @override
 String toString() {
-  return 'DocumentNode(id: $id, parentId: $parentId, name: $name, description: $description, content: $content, tags: $tags, position: $position, path: $path, sizeBytes: $sizeBytes, createdAt: $createdAt, updatedAt: $updatedAt)';
+  return 'DocumentNode(id: $id, parentId: $parentId, name: $name, description: $description, content: $content, hasContent: $hasContent, tags: $tags, position: $position, path: $path, sizeBytes: $sizeBytes, createdAt: $createdAt, updatedAt: $updatedAt)';
 }
 
 
@@ -49,7 +50,7 @@ abstract mixin class $DocumentNodeCopyWith<$Res>  {
   factory $DocumentNodeCopyWith(DocumentNode value, $Res Function(DocumentNode) _then) = _$DocumentNodeCopyWithImpl;
 @useResult
 $Res call({
- String id, String? parentId, String name, String description, String content, List<String> tags, int position, String path, int sizeBytes, DateTime createdAt, DateTime updatedAt
+ String id, String? parentId, String name, String description, String content, bool hasContent, List<String> tags, int position, String path, int sizeBytes, DateTime createdAt, DateTime updatedAt
 });
 
 
@@ -66,14 +67,15 @@ class _$DocumentNodeCopyWithImpl<$Res>
 
 /// Create a copy of DocumentNode
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? parentId = freezed,Object? name = null,Object? description = null,Object? content = null,Object? tags = null,Object? position = null,Object? path = null,Object? sizeBytes = null,Object? createdAt = null,Object? updatedAt = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? parentId = freezed,Object? name = null,Object? description = null,Object? content = null,Object? hasContent = null,Object? tags = null,Object? position = null,Object? path = null,Object? sizeBytes = null,Object? createdAt = null,Object? updatedAt = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,parentId: freezed == parentId ? _self.parentId : parentId // ignore: cast_nullable_to_non_nullable
 as String?,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,description: null == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
 as String,content: null == content ? _self.content : content // ignore: cast_nullable_to_non_nullable
-as String,tags: null == tags ? _self.tags : tags // ignore: cast_nullable_to_non_nullable
+as String,hasContent: null == hasContent ? _self.hasContent : hasContent // ignore: cast_nullable_to_non_nullable
+as bool,tags: null == tags ? _self.tags : tags // ignore: cast_nullable_to_non_nullable
 as List<String>,position: null == position ? _self.position : position // ignore: cast_nullable_to_non_nullable
 as int,path: null == path ? _self.path : path // ignore: cast_nullable_to_non_nullable
 as String,sizeBytes: null == sizeBytes ? _self.sizeBytes : sizeBytes // ignore: cast_nullable_to_non_nullable
@@ -164,10 +166,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String? parentId,  String name,  String description,  String content,  List<String> tags,  int position,  String path,  int sizeBytes,  DateTime createdAt,  DateTime updatedAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String? parentId,  String name,  String description,  String content,  bool hasContent,  List<String> tags,  int position,  String path,  int sizeBytes,  DateTime createdAt,  DateTime updatedAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _DocumentNode() when $default != null:
-return $default(_that.id,_that.parentId,_that.name,_that.description,_that.content,_that.tags,_that.position,_that.path,_that.sizeBytes,_that.createdAt,_that.updatedAt);case _:
+return $default(_that.id,_that.parentId,_that.name,_that.description,_that.content,_that.hasContent,_that.tags,_that.position,_that.path,_that.sizeBytes,_that.createdAt,_that.updatedAt);case _:
   return orElse();
 
 }
@@ -185,10 +187,10 @@ return $default(_that.id,_that.parentId,_that.name,_that.description,_that.conte
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String? parentId,  String name,  String description,  String content,  List<String> tags,  int position,  String path,  int sizeBytes,  DateTime createdAt,  DateTime updatedAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String? parentId,  String name,  String description,  String content,  bool hasContent,  List<String> tags,  int position,  String path,  int sizeBytes,  DateTime createdAt,  DateTime updatedAt)  $default,) {final _that = this;
 switch (_that) {
 case _DocumentNode():
-return $default(_that.id,_that.parentId,_that.name,_that.description,_that.content,_that.tags,_that.position,_that.path,_that.sizeBytes,_that.createdAt,_that.updatedAt);case _:
+return $default(_that.id,_that.parentId,_that.name,_that.description,_that.content,_that.hasContent,_that.tags,_that.position,_that.path,_that.sizeBytes,_that.createdAt,_that.updatedAt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -205,10 +207,10 @@ return $default(_that.id,_that.parentId,_that.name,_that.description,_that.conte
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String? parentId,  String name,  String description,  String content,  List<String> tags,  int position,  String path,  int sizeBytes,  DateTime createdAt,  DateTime updatedAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String? parentId,  String name,  String description,  String content,  bool hasContent,  List<String> tags,  int position,  String path,  int sizeBytes,  DateTime createdAt,  DateTime updatedAt)?  $default,) {final _that = this;
 switch (_that) {
 case _DocumentNode() when $default != null:
-return $default(_that.id,_that.parentId,_that.name,_that.description,_that.content,_that.tags,_that.position,_that.path,_that.sizeBytes,_that.createdAt,_that.updatedAt);case _:
+return $default(_that.id,_that.parentId,_that.name,_that.description,_that.content,_that.hasContent,_that.tags,_that.position,_that.path,_that.sizeBytes,_that.createdAt,_that.updatedAt);case _:
   return null;
 
 }
@@ -220,7 +222,7 @@ return $default(_that.id,_that.parentId,_that.name,_that.description,_that.conte
 @JsonSerializable()
 
 class _DocumentNode implements DocumentNode {
-  const _DocumentNode({required this.id, this.parentId, this.name = '', this.description = '', this.content = '', final  List<String> tags = const <String>[], this.position = 0, this.path = '', this.sizeBytes = 0, required this.createdAt, required this.updatedAt}): _tags = tags;
+  const _DocumentNode({required this.id, this.parentId, this.name = '', this.description = '', this.content = '', this.hasContent = false, final  List<String> tags = const <String>[], this.position = 0, this.path = '', this.sizeBytes = 0, required this.createdAt, required this.updatedAt}): _tags = tags;
   factory _DocumentNode.fromJson(Map<String, dynamic> json) => _$DocumentNodeFromJson(json);
 
 @override final  String id;
@@ -229,8 +231,10 @@ class _DocumentNode implements DocumentNode {
 @override@JsonKey() final  String description;
 @override@JsonKey() final  String content;
 // omitted by GET /tree (metadata only) → empty; full node via GET /{id}
+@override@JsonKey() final  bool hasContent;
+// GET /tree only: body non-empty (≡ sizeBytes>0) → drives empty-page vs written-doc icon
  final  List<String> _tags;
-// omitted by GET /tree (metadata only) → empty; full node via GET /{id}
+// GET /tree only: body non-empty (≡ sizeBytes>0) → drives empty-page vs written-doc icon
 @override@JsonKey() List<String> get tags {
   if (_tags is EqualUnmodifiableListView) return _tags;
   // ignore: implicit_dynamic_type
@@ -256,16 +260,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _DocumentNode&&(identical(other.id, id) || other.id == id)&&(identical(other.parentId, parentId) || other.parentId == parentId)&&(identical(other.name, name) || other.name == name)&&(identical(other.description, description) || other.description == description)&&(identical(other.content, content) || other.content == content)&&const DeepCollectionEquality().equals(other._tags, _tags)&&(identical(other.position, position) || other.position == position)&&(identical(other.path, path) || other.path == path)&&(identical(other.sizeBytes, sizeBytes) || other.sizeBytes == sizeBytes)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _DocumentNode&&(identical(other.id, id) || other.id == id)&&(identical(other.parentId, parentId) || other.parentId == parentId)&&(identical(other.name, name) || other.name == name)&&(identical(other.description, description) || other.description == description)&&(identical(other.content, content) || other.content == content)&&(identical(other.hasContent, hasContent) || other.hasContent == hasContent)&&const DeepCollectionEquality().equals(other._tags, _tags)&&(identical(other.position, position) || other.position == position)&&(identical(other.path, path) || other.path == path)&&(identical(other.sizeBytes, sizeBytes) || other.sizeBytes == sizeBytes)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,parentId,name,description,content,const DeepCollectionEquality().hash(_tags),position,path,sizeBytes,createdAt,updatedAt);
+int get hashCode => Object.hash(runtimeType,id,parentId,name,description,content,hasContent,const DeepCollectionEquality().hash(_tags),position,path,sizeBytes,createdAt,updatedAt);
 
 @override
 String toString() {
-  return 'DocumentNode(id: $id, parentId: $parentId, name: $name, description: $description, content: $content, tags: $tags, position: $position, path: $path, sizeBytes: $sizeBytes, createdAt: $createdAt, updatedAt: $updatedAt)';
+  return 'DocumentNode(id: $id, parentId: $parentId, name: $name, description: $description, content: $content, hasContent: $hasContent, tags: $tags, position: $position, path: $path, sizeBytes: $sizeBytes, createdAt: $createdAt, updatedAt: $updatedAt)';
 }
 
 
@@ -276,7 +280,7 @@ abstract mixin class _$DocumentNodeCopyWith<$Res> implements $DocumentNodeCopyWi
   factory _$DocumentNodeCopyWith(_DocumentNode value, $Res Function(_DocumentNode) _then) = __$DocumentNodeCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String? parentId, String name, String description, String content, List<String> tags, int position, String path, int sizeBytes, DateTime createdAt, DateTime updatedAt
+ String id, String? parentId, String name, String description, String content, bool hasContent, List<String> tags, int position, String path, int sizeBytes, DateTime createdAt, DateTime updatedAt
 });
 
 
@@ -293,14 +297,15 @@ class __$DocumentNodeCopyWithImpl<$Res>
 
 /// Create a copy of DocumentNode
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? parentId = freezed,Object? name = null,Object? description = null,Object? content = null,Object? tags = null,Object? position = null,Object? path = null,Object? sizeBytes = null,Object? createdAt = null,Object? updatedAt = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? parentId = freezed,Object? name = null,Object? description = null,Object? content = null,Object? hasContent = null,Object? tags = null,Object? position = null,Object? path = null,Object? sizeBytes = null,Object? createdAt = null,Object? updatedAt = null,}) {
   return _then(_DocumentNode(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,parentId: freezed == parentId ? _self.parentId : parentId // ignore: cast_nullable_to_non_nullable
 as String?,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,description: null == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
 as String,content: null == content ? _self.content : content // ignore: cast_nullable_to_non_nullable
-as String,tags: null == tags ? _self._tags : tags // ignore: cast_nullable_to_non_nullable
+as String,hasContent: null == hasContent ? _self.hasContent : hasContent // ignore: cast_nullable_to_non_nullable
+as bool,tags: null == tags ? _self._tags : tags // ignore: cast_nullable_to_non_nullable
 as List<String>,position: null == position ? _self.position : position // ignore: cast_nullable_to_non_nullable
 as int,path: null == path ? _self.path : path // ignore: cast_nullable_to_non_nullable
 as String,sizeBytes: null == sizeBytes ? _self.sizeBytes : sizeBytes // ignore: cast_nullable_to_non_nullable

@@ -41,10 +41,13 @@ SidebarModel buildDocumentsRailModel(List<DocumentNode> tree, List<Skill> skills
     list.sort((a, b) => a.position.compareTo(b.position));
   }
 
+  // Icon tells an empty page apart from a written one (B4): hasContent (≡ backend size_bytes>0) →
+  // fileText (AnIcons.doc); empty body → the blank-page glyph (AnIcons.file). A node with CHILDREN but
+  // no body still reads honestly as an empty page (its fold chevron says "folder"). 空/已写双 icon。
   SidebarRow toRow(DocumentNode d) => SidebarRow(
         id: d.id,
         label: d.name.isEmpty ? labels.untitled : d.name,
-        icon: AnIcons.doc,
+        icon: d.hasContent ? AnIcons.doc : AnIcons.file,
         children: [for (final child in byParent[d.id] ?? const <DocumentNode>[]) toRow(child)],
       );
 

@@ -903,8 +903,9 @@ final GalleryCategory _g4NavShell = GalleryCategory('导航与壳 Nav & Shell', 
           meta: const [AnChip('document', tone: AnTone.accent)],
         ), span: true),
   ]),
-  GalleryItem('AnDocHeader', '阅读尺度页头(AnOceanHeader 的阅读列对位件):灰面包屑 + 可改名 readingH1 大标题 + 可编 reading 描述 + 可编标签行;供 document/skill,skill 走 showTags:false 无标签', [
+  GalleryItem('AnDocHeader', '阅读尺度页头(AnOceanHeader 的阅读列对位件):灰面包屑 + 可改名 readingH1 大标题 + 可编 reading 描述 + 可编标签行;供 document/skill,skill 走 showTags:false 无标签。空字段引导律:空标题=灰「未命名」占位、空简介=灰「添加简介…」、空标签=灰 dummy 药丸「添加标签」(穿目标形态、可点入编辑)', [
     GallerySpecimen('document (crumb + 大标题 + 描述 + tags)', (_) => const _DocHeaderDemo(), span: true),
+    GallerySpecimen('空字段引导 (灰占位 / 添加简介… / dummy 药丸)', (_) => const _DocHeaderDemo(empty: true), span: true),
     GallerySpecimen('skill (无 tags,标题不可改名)', (_) => const AnDocHeader(
           crumb: 'Skills',
           name: 'code-review',
@@ -1897,23 +1898,29 @@ class _LazyStackSlotState extends State<_LazyStackSlot> {
   }
 }
 
-// AnDocHeader demo (stateful: holds the editable title / description / tags). AnDocHeader 演示(持可编标题/描述/标签)。
+// AnDocHeader demo (stateful: holds the editable title / description / tags). [empty] starts every field
+// blank so the empty-field GUIDES show (grey «未命名» placeholder / «添加简介…» / the dummy add-tag pill).
+// AnDocHeader 演示(持可编标题/描述/标签);empty=全空,展示空字段引导律(灰占位/添加简介…/dummy 药丸)。
 class _DocHeaderDemo extends StatefulWidget {
-  const _DocHeaderDemo();
+  const _DocHeaderDemo({this.empty = false});
+  final bool empty;
   @override
   State<_DocHeaderDemo> createState() => _DocHeaderDemoState();
 }
 
 class _DocHeaderDemoState extends State<_DocHeaderDemo> {
-  String _name = 'Architecture Notes';
-  String _desc = '本地优先 agentic workflow 平台的设计札记';
-  List<String> _tags = const ['design', 'backend'];
+  late String _name = widget.empty ? '' : 'Architecture Notes';
+  late String _desc = widget.empty ? '' : '本地优先 agentic workflow 平台的设计札记';
+  late List<String> _tags = widget.empty ? const [] : const ['design', 'backend'];
   @override
   Widget build(BuildContext context) => AnDocHeader(
         crumb: 'Documents',
         name: _name,
+        namePlaceholder: '未命名',
         description: _desc,
+        descriptionPlaceholder: '添加简介…',
         tags: _tags,
+        addTagLabel: '添加标签',
         onMetaChanged: (m) => setState(() {
           if (m['name'] case final String v) _name = v;
           if (m['description'] case final String v) _desc = v;
