@@ -201,6 +201,23 @@ void main() {
         await tester.pump(const Duration(milliseconds: 400));
         outName = '${outName}_$panelName';
       }
+      // `--dart-define=SEARCH=<query>` (with OCEAN=settings) types the query into the lifted-out rail
+      // filter → the item-level grouped results; add `JUMP=<label>` to click that result item and hold the
+      // scroll-to + wash frame (0719 设置项级搜索验收帧). 项级搜索结果帧 + JUMP=跳转洗亮帧。
+      const searchQuery = String.fromEnvironment('SEARCH');
+      if (searchQuery.isNotEmpty) {
+        await tester.enterText(find.byType(EditableText).first, searchQuery);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 200));
+        outName = '${outName}_search';
+        const jumpLabel = String.fromEnvironment('JUMP');
+        if (jumpLabel.isNotEmpty) {
+          await tester.tap(find.text(jumpLabel));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 500)); // hold mid-wash (full for the first ~45%) 停在洗亮满值窗
+          outName = '${outName}_jump';
+        }
+      }
     }
 
     // Entities Overview + relationship-graph explore (WRK-072). The default demo frame (no flags) is now

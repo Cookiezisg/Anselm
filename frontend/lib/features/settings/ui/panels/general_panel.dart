@@ -15,7 +15,9 @@ import '../../../../core/ui/an_segmented.dart';
 import '../../../../core/ui/an_setting_row.dart';
 import '../../../../core/ui/an_switch.dart';
 import '../../../../i18n/strings.g.dart';
+import '../../model/settings_search.dart';
 import '../../state/workspace_prefs_provider.dart';
+import '../settings_anchor.dart';
 
 /// ① 通用 — appearance / language / window & startup / updates (WRK-062 §3-①). Instant-apply
 /// throughout; the language row DOUBLE-WRITES (拍板 #2): UI locale (app scope) + the active
@@ -45,27 +47,30 @@ class GeneralPanel extends ConsumerWidget {
           // 单域页只在首组标一次域徽;混域页仍逐节标(S-16)。
           actions: const [AnScopeBadge(AnSettingScope.device)],
           children: [
-            AnSettingRow(
-              label: t.settings.theme,
-              desc: t.settings.themeDesc,
-              modified: theme != ThemePreference.light,
-              onReset: () => ref.read(themePreferenceProvider.notifier).set(ThemePreference.light),
-              resetLabel: t.settings.resetToDefault,
-              child: SizedBox(
-                width: AnSize.ctlSlotLg,
-                child: AnSegmented<ThemePreference>(
-                  options: [
-                    AnSegmentedOption(value: ThemePreference.light, label: t.settings.themeLight),
-                    AnSegmentedOption(value: ThemePreference.dark, label: t.settings.themeDark),
-                    AnSegmentedOption(value: ThemePreference.system, label: t.settings.themeSystem),
-                  ],
-                  value: theme,
-                  onChanged: (v) => ref.read(themePreferenceProvider.notifier).set(v),
+            SettingsAnchor(
+              item: SettingsItem.generalTheme,
+              child: AnSettingRow(
+                label: t.settings.theme,
+                desc: t.settings.themeDesc,
+                modified: theme != ThemePreference.light,
+                onReset: () => ref.read(themePreferenceProvider.notifier).set(ThemePreference.light),
+                resetLabel: t.settings.resetToDefault,
+                child: SizedBox(
+                  width: AnSize.ctlSlotLg,
+                  child: AnSegmented<ThemePreference>(
+                    options: [
+                      AnSegmentedOption(value: ThemePreference.light, label: t.settings.themeLight),
+                      AnSegmentedOption(value: ThemePreference.dark, label: t.settings.themeDark),
+                      AnSegmentedOption(value: ThemePreference.system, label: t.settings.themeSystem),
+                    ],
+                    value: theme,
+                    onChanged: (v) => ref.read(themePreferenceProvider.notifier).set(v),
+                  ),
                 ),
               ),
             ),
             const SizedBox(height: AnSpace.s4),
-            _ZoomRow(t: t),
+            SettingsAnchor(item: SettingsItem.generalZoom, child: _ZoomRow(t: t)),
           ],
         ),
         const SizedBox(height: AnSpace.s24),
@@ -73,22 +78,25 @@ class GeneralPanel extends ConsumerWidget {
           label: t.settings.language,
           variant: AnSectionVariant.quiet,
           children: [
-            AnSettingRow(
-              label: t.settings.languageRow,
-              desc: t.settings.languageDesc,
-              modified: locale != 'system',
-              onReset: () => _setLanguage(ref, context, 'system'),
-              resetLabel: t.settings.resetToDefault,
-              child: SizedBox(
-                width: AnSize.ctlSlot,
-                child: AnDropdown<String>(
-                  options: [
-                    AnDropdownOption(value: 'system', label: t.settings.langSystem),
-                    AnDropdownOption(value: 'en', label: t.settings.langEn),
-                    AnDropdownOption(value: 'zh-CN', label: t.settings.langZh),
-                  ],
-                  value: locale,
-                  onChanged: (v) => _setLanguage(ref, context, v),
+            SettingsAnchor(
+              item: SettingsItem.generalLanguage,
+              child: AnSettingRow(
+                label: t.settings.languageRow,
+                desc: t.settings.languageDesc,
+                modified: locale != 'system',
+                onReset: () => _setLanguage(ref, context, 'system'),
+                resetLabel: t.settings.resetToDefault,
+                child: SizedBox(
+                  width: AnSize.ctlSlot,
+                  child: AnDropdown<String>(
+                    options: [
+                      AnDropdownOption(value: 'system', label: t.settings.langSystem),
+                      AnDropdownOption(value: 'en', label: t.settings.langEn),
+                      AnDropdownOption(value: 'zh-CN', label: t.settings.langZh),
+                    ],
+                    value: locale,
+                    onChanged: (v) => _setLanguage(ref, context, v),
+                  ),
                 ),
               ),
             ),
@@ -99,29 +107,35 @@ class GeneralPanel extends ConsumerWidget {
           label: t.settings.window,
           variant: AnSectionVariant.quiet,
           children: [
-            AnSettingRow(
-              label: t.settings.rememberWindow,
-              desc: t.settings.rememberWindowDesc,
-              modified: remember != SettingsKeys.windowRemember.def,
-              onReset: () =>
-                  ref.read(boolSettingProvider(SettingsKeys.windowRemember).notifier).reset(),
-              resetLabel: t.settings.resetToDefault,
-              child: AnSwitch(
-                value: remember,
-                onChanged: (v) =>
-                    ref.read(boolSettingProvider(SettingsKeys.windowRemember).notifier).set(v),
+            SettingsAnchor(
+              item: SettingsItem.generalRememberWindow,
+              child: AnSettingRow(
+                label: t.settings.rememberWindow,
+                desc: t.settings.rememberWindowDesc,
+                modified: remember != SettingsKeys.windowRemember.def,
+                onReset: () =>
+                    ref.read(boolSettingProvider(SettingsKeys.windowRemember).notifier).reset(),
+                resetLabel: t.settings.resetToDefault,
+                child: AnSwitch(
+                  value: remember,
+                  onChanged: (v) =>
+                      ref.read(boolSettingProvider(SettingsKeys.windowRemember).notifier).set(v),
+                ),
               ),
             ),
             const SizedBox(height: AnSpace.s4),
-            AnSettingRow(
-              label: t.settings.launchAtLogin,
-              desc: t.settings.launchAtLoginDesc,
-              modified: atLogin != SettingsKeys.launchAtStartup.def,
-              onReset: () => _setLaunchAtLogin(ref, false),
-              resetLabel: t.settings.resetToDefault,
-              child: AnSwitch(
-                value: atLogin,
-                onChanged: (v) => _setLaunchAtLogin(ref, v),
+            SettingsAnchor(
+              item: SettingsItem.generalLaunchAtLogin,
+              child: AnSettingRow(
+                label: t.settings.launchAtLogin,
+                desc: t.settings.launchAtLoginDesc,
+                modified: atLogin != SettingsKeys.launchAtStartup.def,
+                onReset: () => _setLaunchAtLogin(ref, false),
+                resetLabel: t.settings.resetToDefault,
+                child: AnSwitch(
+                  value: atLogin,
+                  onChanged: (v) => _setLaunchAtLogin(ref, v),
+                ),
               ),
             ),
           ],
@@ -131,17 +145,20 @@ class GeneralPanel extends ConsumerWidget {
           label: t.settings.updates,
           variant: AnSectionVariant.quiet,
           children: [
-            AnSettingRow(
-              label: t.settings.updateCheck,
-              desc: t.settings.updateCheckDesc,
-              modified: updateCheck != SettingsKeys.updateCheck.def,
-              onReset: () =>
-                  ref.read(boolSettingProvider(SettingsKeys.updateCheck).notifier).reset(),
-              resetLabel: t.settings.resetToDefault,
-              child: AnSwitch(
-                value: updateCheck,
-                onChanged: (v) =>
-                    ref.read(boolSettingProvider(SettingsKeys.updateCheck).notifier).set(v),
+            SettingsAnchor(
+              item: SettingsItem.generalUpdateCheck,
+              child: AnSettingRow(
+                label: t.settings.updateCheck,
+                desc: t.settings.updateCheckDesc,
+                modified: updateCheck != SettingsKeys.updateCheck.def,
+                onReset: () =>
+                    ref.read(boolSettingProvider(SettingsKeys.updateCheck).notifier).reset(),
+                resetLabel: t.settings.resetToDefault,
+                child: AnSwitch(
+                  value: updateCheck,
+                  onChanged: (v) =>
+                      ref.read(boolSettingProvider(SettingsKeys.updateCheck).notifier).set(v),
+                ),
               ),
             ),
           ],

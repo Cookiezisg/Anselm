@@ -17,8 +17,10 @@ import '../../../../core/ui/an_setting_row.dart';
 import '../../../../core/ui/icons.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../model/settings_catalog.dart';
+import '../../model/settings_search.dart';
 import '../../state/settings_panel_provider.dart';
 import '../../state/workspace_prefs_provider.dart';
+import '../settings_anchor.dart';
 
 /// ③ 对话 — the sidestage auto-open three-notch (READS the shared core [followModeProvider]:
 /// one state, two homes — the sidestage head menu and this row must never diverge), the send key,
@@ -48,44 +50,50 @@ class ChatPanel extends ConsumerWidget {
           variant: AnSectionVariant.quiet,
           actions: const [AnScopeBadge(AnSettingScope.device)],
           children: [
-            AnSettingRow(
-              label: t.settings.autoStage,
-              desc: t.settings.autoStageDesc,
-              modified: follow != FollowMode.always,
-              onReset: () => ref.read(followModeProvider.notifier).set(FollowMode.always),
-              resetLabel: t.settings.resetToDefault,
-              child: SizedBox(
-                width: AnSize.ctlSlotLg,
-                child: AnSegmented<FollowMode>(
-                  options: [
-                    AnSegmentedOption(value: FollowMode.never, label: t.settings.stageNever),
-                    AnSegmentedOption(
-                        value: FollowMode.firstPerConversation, label: t.settings.stageFirst),
-                    AnSegmentedOption(value: FollowMode.always, label: t.settings.stageAlways),
-                  ],
-                  value: follow,
-                  onChanged: (v) => ref.read(followModeProvider.notifier).set(v),
+            SettingsAnchor(
+              item: SettingsItem.chatAutoStage,
+              child: AnSettingRow(
+                label: t.settings.autoStage,
+                desc: t.settings.autoStageDesc,
+                modified: follow != FollowMode.always,
+                onReset: () => ref.read(followModeProvider.notifier).set(FollowMode.always),
+                resetLabel: t.settings.resetToDefault,
+                child: SizedBox(
+                  width: AnSize.ctlSlotLg,
+                  child: AnSegmented<FollowMode>(
+                    options: [
+                      AnSegmentedOption(value: FollowMode.never, label: t.settings.stageNever),
+                      AnSegmentedOption(
+                          value: FollowMode.firstPerConversation, label: t.settings.stageFirst),
+                      AnSegmentedOption(value: FollowMode.always, label: t.settings.stageAlways),
+                    ],
+                    value: follow,
+                    onChanged: (v) => ref.read(followModeProvider.notifier).set(v),
+                  ),
                 ),
               ),
             ),
             const SizedBox(height: AnSpace.s4),
-            AnSettingRow(
-              label: t.settings.sendKey,
-              desc: t.settings.sendKeyDesc,
-              modified: sendKey != SettingsKeys.chatSendKey.def,
-              onReset: () =>
-                  ref.read(stringSettingProvider(SettingsKeys.chatSendKey).notifier).reset(),
-              resetLabel: t.settings.resetToDefault,
-              child: SizedBox(
-                width: AnSize.ctlSlot,
-                child: AnSegmented<String>(
-                  options: [
-                    AnSegmentedOption(value: 'enter', label: t.settings.sendEnter),
-                    AnSegmentedOption(value: 'cmdEnter', label: t.settings.sendCmdEnter),
-                  ],
-                  value: sendKey,
-                  onChanged: (v) =>
-                      ref.read(stringSettingProvider(SettingsKeys.chatSendKey).notifier).set(v),
+            SettingsAnchor(
+              item: SettingsItem.chatSendKey,
+              child: AnSettingRow(
+                label: t.settings.sendKey,
+                desc: t.settings.sendKeyDesc,
+                modified: sendKey != SettingsKeys.chatSendKey.def,
+                onReset: () =>
+                    ref.read(stringSettingProvider(SettingsKeys.chatSendKey).notifier).reset(),
+                resetLabel: t.settings.resetToDefault,
+                child: SizedBox(
+                  width: AnSize.ctlSlot,
+                  child: AnSegmented<String>(
+                    options: [
+                      AnSegmentedOption(value: 'enter', label: t.settings.sendEnter),
+                      AnSegmentedOption(value: 'cmdEnter', label: t.settings.sendCmdEnter),
+                    ],
+                    value: sendKey,
+                    onChanged: (v) =>
+                        ref.read(stringSettingProvider(SettingsKeys.chatSendKey).notifier).set(v),
+                  ),
                 ),
               ),
             ),
@@ -97,22 +105,25 @@ class ChatPanel extends ConsumerWidget {
           variant: AnSectionVariant.quiet,
           actions: const [AnScopeBadge(AnSettingScope.workspace)],
           children: [
-            AnSettingRow(
-              label: t.settings.webFetch,
-              desc: t.settings.webFetchDesc,
-              modified: (ws.value?.webFetchMode ?? 'local') != 'local',
-              onReset: () => _setWebFetch(ref, context, 'local'),
-              resetLabel: t.settings.resetToDefault,
-              enabled: ws.hasValue,
-              child: SizedBox(
-                width: AnSize.ctlSlot,
-                child: AnSegmented<String>(
-                  options: [
-                    AnSegmentedOption(value: 'local', label: t.settings.webLocal),
-                    AnSegmentedOption(value: 'jina', label: t.settings.webJina),
-                  ],
-                  value: ws.value?.webFetchMode ?? 'local',
-                  onChanged: (v) => _setWebFetch(ref, context, v),
+            SettingsAnchor(
+              item: SettingsItem.chatWebFetch,
+              child: AnSettingRow(
+                label: t.settings.webFetch,
+                desc: t.settings.webFetchDesc,
+                modified: (ws.value?.webFetchMode ?? 'local') != 'local',
+                onReset: () => _setWebFetch(ref, context, 'local'),
+                resetLabel: t.settings.resetToDefault,
+                enabled: ws.hasValue,
+                child: SizedBox(
+                  width: AnSize.ctlSlot,
+                  child: AnSegmented<String>(
+                    options: [
+                      AnSegmentedOption(value: 'local', label: t.settings.webLocal),
+                      AnSegmentedOption(value: 'jina', label: t.settings.webJina),
+                    ],
+                    value: ws.value?.webFetchMode ?? 'local',
+                    onChanged: (v) => _setWebFetch(ref, context, v),
+                  ),
                 ),
               ),
             ),

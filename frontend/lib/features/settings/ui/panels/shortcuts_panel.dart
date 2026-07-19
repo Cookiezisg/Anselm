@@ -7,6 +7,8 @@ import '../../../../core/shortcuts/shortcut_bindings.dart';
 import '../../../../core/shortcuts/shortcut_catalog.dart';
 import '../../../../core/ui/ui.dart';
 import '../../../../i18n/strings.g.dart';
+import '../../model/settings_search.dart';
+import '../settings_anchor.dart';
 
 /// ⑫ 快捷键 (WRK-062 §3, S6, 拍板 #4): every global command from the catalog, each row showing its
 /// current keycap + a rebind affordance (capture the next chord; a modifier is required; a conflict
@@ -36,10 +38,23 @@ class ShortcutsPanel extends ConsumerWidget {
       ]),
       const SizedBox(height: AnSpace.s16),
       for (final cmd in ShortcutCommand.values)
-        _ShortcutRow(command: cmd, chord: bindings[cmd]!),
+        SettingsAnchor(
+          item: shortcutAnchor(cmd),
+          child: _ShortcutRow(command: cmd, chord: bindings[cmd]!),
+        ),
     ]);
   }
 }
+
+/// The searchable-item anchor id for a global command (one row per command). 全局命令的可搜索锚 id。
+String shortcutAnchor(ShortcutCommand cmd) => switch (cmd) {
+      ShortcutCommand.toggleLeftIsland => SettingsItem.shortcutToggleLeft,
+      ShortcutCommand.toggleRightIsland => SettingsItem.shortcutToggleRight,
+      ShortcutCommand.openSettings => SettingsItem.shortcutOpenSettings,
+      ShortcutCommand.zoomIn => SettingsItem.shortcutZoomIn,
+      ShortcutCommand.zoomOut => SettingsItem.shortcutZoomOut,
+      ShortcutCommand.zoomReset => SettingsItem.shortcutZoomReset,
+    };
 
 String commandLabel(Translations t, ShortcutCommand cmd) => switch (cmd) {
       ShortcutCommand.toggleLeftIsland => t.settings.shortcuts.cmdToggleLeft,

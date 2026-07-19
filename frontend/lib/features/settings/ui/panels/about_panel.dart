@@ -11,8 +11,10 @@ import '../../../../core/design/typography.dart';
 import '../../../../core/platform/open_external_url.dart';
 import '../../../../core/ui/ui.dart';
 import '../../../../i18n/strings.g.dart';
+import '../../model/settings_search.dart';
 import '../../state/update_check_provider.dart';
 import '../../state/workspaces_provider.dart';
+import '../settings_anchor.dart';
 
 /// ⑬ 关于 (WRK-062 §3, S3): versions (app + engine), the v1 update check (拍板 #7 — query GitHub
 /// Releases, report, link out; never download), and copy-diagnostics. 关于页:版本(应用+引擎)/
@@ -39,43 +41,51 @@ class AboutPanel extends ConsumerWidget {
           children: [
             // The check button rides the app-version row's tail — the thing it updates (0719 P2:
             // 漂浮孤行退役,动作归位进字段结构). 检查更新钉在应用版本行尾——它更新的正是这个值。
-            AnSettingRow(
-              label: t.settings.about.appVersion,
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Text(app, style: AnText.metaTabular().copyWith(color: c.inkMuted)),
-                const SizedBox(width: AnSpace.s12),
-                AnButton(
-                  label: check.isLoading
-                      ? t.settings.about.checking
-                      : t.settings.about.checkUpdates,
-                  size: AnButtonSize.sm,
-                  outline: true,
-                  onPressed: check.isLoading
-                      ? null
-                      : () => ref.read(updateCheckProvider.notifier).check(),
-                ),
-              ]),
+            SettingsAnchor(
+              item: SettingsItem.aboutAppVersion,
+              child: AnSettingRow(
+                label: t.settings.about.appVersion,
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Text(app, style: AnText.metaTabular().copyWith(color: c.inkMuted)),
+                  const SizedBox(width: AnSpace.s12),
+                  AnButton(
+                    label: check.isLoading
+                        ? t.settings.about.checking
+                        : t.settings.about.checkUpdates,
+                    size: AnButtonSize.sm,
+                    outline: true,
+                    onPressed: check.isLoading
+                        ? null
+                        : () => ref.read(updateCheckProvider.notifier).check(),
+                  ),
+                ]),
+              ),
             ),
             if (check.value != null)
               Align(
                 alignment: AlignmentDirectional.centerEnd,
                 child: _CheckOutcome(status: check.value),
               ),
-            AnSettingRow(
-              label: t.settings.about.backendVersion,
-              child: Text(engine, style: AnText.metaTabular().copyWith(color: c.inkMuted)),
+            SettingsAnchor(
+              item: SettingsItem.aboutBackendVersion,
+              child: AnSettingRow(
+                label: t.settings.about.backendVersion,
+                child: Text(engine, style: AnText.metaTabular().copyWith(color: c.inkMuted)),
+              ),
             ),
           ],
         ),
         const SizedBox(height: AnSpace.s24),
-        AnSettingRow(
-          label: t.settings.about.diagnostics,
-          desc: t.settings.about.diagDesc,
-          child: AnButton(
-            label: t.settings.about.copyDiagnostics,
-            size: AnButtonSize.sm,
-            outline: true,
-            onPressed: () async {
+        SettingsAnchor(
+          item: SettingsItem.aboutDiagnostics,
+          child: AnSettingRow(
+            label: t.settings.about.diagnostics,
+            desc: t.settings.about.diagDesc,
+            child: AnButton(
+              label: t.settings.about.copyDiagnostics,
+              size: AnButtonSize.sm,
+              outline: true,
+              onPressed: () async {
               final text = 'Anselm $app · engine $engine · '
                   '${Platform.operatingSystem} ${Platform.operatingSystemVersion}';
               await Clipboard.setData(ClipboardData(text: text));
@@ -84,7 +94,8 @@ class AboutPanel extends ConsumerWidget {
                     .read(overlayProvider.notifier)
                     .showToast(t.settings.about.copied, tone: AnTone.ok);
               }
-            },
+              },
+            ),
           ),
         ),
       ],

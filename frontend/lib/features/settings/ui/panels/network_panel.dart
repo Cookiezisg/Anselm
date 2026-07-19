@@ -9,6 +9,8 @@ import '../../../../core/design/typography.dart';
 import '../../../../core/ui/ui.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../data/settings_repository.dart';
+import '../../model/settings_search.dart';
+import '../settings_anchor.dart';
 
 /// ⑪ 网络 (WRK-062 §3, S5, 拍板 #19): the machine-level outbound proxy (settings.json `network`
 /// section). Edits PATCH the whole config; a restart note is always shown (the backend caches the
@@ -102,11 +104,20 @@ class _NetworkPanelState extends ConsumerState<NetworkPanel> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           // The ONE label-above form block (批6c A-063 — the second private «label+input» dies;
           // the quiet 13 label steps up to the family face, 刻意收敛帧核). 唯一表单字段块。
-          AnFormField(label: t.settings.network.httpProxy, child: AnInput(controller: _http, mono: true, placeholder: t.settings.network.proxyPlaceholder)),
+          SettingsAnchor(
+            item: SettingsItem.networkHttpProxy,
+            child: AnFormField(label: t.settings.network.httpProxy, child: AnInput(controller: _http, mono: true, placeholder: t.settings.network.proxyPlaceholder)),
+          ),
           const SizedBox(height: AnSpace.s12),
-          AnFormField(label: t.settings.network.httpsProxy, child: AnInput(controller: _https, mono: true, placeholder: t.settings.network.proxyPlaceholder)),
+          SettingsAnchor(
+            item: SettingsItem.networkHttpsProxy,
+            child: AnFormField(label: t.settings.network.httpsProxy, child: AnInput(controller: _https, mono: true, placeholder: t.settings.network.proxyPlaceholder)),
+          ),
           const SizedBox(height: AnSpace.s12),
-          AnFormField(label: t.settings.network.noProxy, child: AnInput(controller: _no, mono: true, placeholder: 'localhost,127.0.0.1')),
+          SettingsAnchor(
+            item: SettingsItem.networkNoProxy,
+            child: AnFormField(label: t.settings.network.noProxy, child: AnInput(controller: _no, mono: true, placeholder: 'localhost,127.0.0.1')),
+          ),
           const SizedBox(height: AnSpace.s16),
           // The restart caveat lives in the callout family — not a bare orange sentence floating
           // between fields (0719 P1-5). 重启注记归 callout 族,不再是字段间裸奔的橙句。

@@ -504,6 +504,7 @@ class _Translations$settings$zh_CN extends Translations$settings$en {
 	@override late final _Translations$settings$sections$zh_CN sections = _Translations$settings$sections$zh_CN._(_root);
 	@override late final _Translations$settings$panels$zh_CN panels = _Translations$settings$panels$zh_CN._(_root);
 	@override String get filter => '搜索设置…';
+	@override String get searchNoMatch => '无匹配的设置';
 	@override String get building => '面板建设中';
 	@override String get buildingHint => '此面板随建造切片逐步点亮。';
 	@override String get appearance => '外观';
@@ -3950,6 +3951,7 @@ extension on TranslationsZhCn {
 			'settings.panels.shortcuts' => '快捷键',
 			'settings.panels.about' => '关于',
 			'settings.filter' => '搜索设置…',
+			'settings.searchNoMatch' => '无匹配的设置',
 			'settings.building' => '面板建设中',
 			'settings.buildingHint' => '此面板随建造切片逐步点亮。',
 			'settings.appearance' => '外观',
@@ -4098,9 +4100,9 @@ extension on TranslationsZhCn {
 			'settings.mem.filterAll' => '全部',
 			'settings.mem.filterPinned' => '已固定',
 			'settings.mem.newMemory' => '新建记忆',
-			'settings.mem.name' => '名称',
 			_ => null,
 		} ?? switch (path) {
+			'settings.mem.name' => '名称',
 			'settings.mem.nameHint' => '小写字母开头,可用 a-z 0-9 - _',
 			'settings.mem.nameLocked' => '名称即文件名,不可改',
 			'settings.mem.invalidName' => '名称须以小写字母开头,仅含 a-z 0-9 - _(≤64)',

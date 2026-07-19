@@ -1030,6 +1030,9 @@ class Translations$settings$en {
 	/// en: 'Search settings…'
 	String get filter => 'Search settings…';
 
+	/// en: 'No matching settings'
+	String get searchNoMatch => 'No matching settings';
+
 	/// en: 'Panel under construction'
 	String get building => 'Panel under construction';
 
@@ -7393,6 +7396,7 @@ extension on Translations {
 			'settings.panels.shortcuts' => 'Shortcuts',
 			'settings.panels.about' => 'About',
 			'settings.filter' => 'Search settings…',
+			'settings.searchNoMatch' => 'No matching settings',
 			'settings.building' => 'Panel under construction',
 			'settings.buildingHint' => 'This panel lights up slice by slice.',
 			'settings.appearance' => 'Appearance',
@@ -7541,9 +7545,9 @@ extension on Translations {
 			'settings.mem.filterAll' => 'All',
 			'settings.mem.filterPinned' => 'Pinned',
 			'settings.mem.newMemory' => 'New memory',
-			'settings.mem.name' => 'Name',
 			_ => null,
 		} ?? switch (path) {
+			'settings.mem.name' => 'Name',
 			'settings.mem.nameHint' => 'starts lowercase; a-z 0-9 - _',
 			'settings.mem.nameLocked' => 'The name is the filename — immutable',
 			'settings.mem.invalidName' => 'Must start with a lowercase letter; only a-z 0-9 - _ (≤64)',

@@ -1521,6 +1521,7 @@
       "about": "关于"
     },
     "filter": "搜索设置…",
+    "searchNoMatch": "无匹配的设置",
     "building": "面板建设中",
     "buildingHint": "此面板随建造切片逐步点亮。",
     "appearance": "外观",

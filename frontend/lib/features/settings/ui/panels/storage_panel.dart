@@ -18,6 +18,8 @@ import '../../../../core/settings/settings_prefs.dart';
 import '../../../../core/ui/ui.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../data/settings_repository.dart';
+import '../../model/settings_search.dart';
+import '../settings_anchor.dart';
 
 /// ⑨ 存储与日志 (WRK-062 §3, S5): the backend-resolved data directory (read-only + reveal), the
 /// sandbox disk figure, the logs folder, copy-diagnostics, the local-preferences reset (declared
@@ -48,44 +50,53 @@ class StoragePanel extends ConsumerWidget {
         label: '',
         variant: AnSectionVariant.quiet,
         children: [
-          AnSettingRow(
-            label: t.settings.storage.dataDir,
-            desc: dir ?? '',
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              AnButton(
-                label: t.settings.storage.revealFinder,
+          SettingsAnchor(
+            item: SettingsItem.storageDataDir,
+            child: AnSettingRow(
+              label: t.settings.storage.dataDir,
+              desc: dir ?? '',
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                AnButton(
+                  label: t.settings.storage.revealFinder,
+                  size: AnButtonSize.sm,
+                  outline: true,
+                  onPressed: dir == null ? null : () => _reveal(dir),
+                ),
+                const SizedBox(width: AnSpace.s8),
+                AnButton(
+                  label: t.settings.storage.openLogs,
+                  size: AnButtonSize.sm,
+                  outline: true,
+                  onPressed: dir == null ? null : () => _reveal('$dir/logs'),
+                ),
+              ]),
+            ),
+          ),
+          SettingsAnchor(
+            item: SettingsItem.storageDiskUsage,
+            child: AnSettingRow(
+              label: t.settings.storage.diskUsage,
+              desc: t.settings.storage.diskSandbox,
+              // An absolute byte figure has no denominator — a meter track would be theater; the
+              // honest face is the number itself (and nothing while unresolved). 绝对字节数无分母,
+              // 渲进度轨是剧场;诚实脸=数字本身(未解析时不渲空轨)。
+              child: disk == null
+                  ? const SizedBox.shrink()
+                  : Text(formatBytes(disk),
+                      style: AnText.metaTabular().copyWith(color: c.inkMuted)),
+            ),
+          ),
+          SettingsAnchor(
+            item: SettingsItem.storageDiagnostics,
+            child: AnSettingRow(
+              label: t.settings.about.diagnostics,
+              desc: t.settings.about.diagDesc,
+              child: AnButton(
+                label: t.settings.about.copyDiagnostics,
                 size: AnButtonSize.sm,
                 outline: true,
-                onPressed: dir == null ? null : () => _reveal(dir),
+                onPressed: () => _copyDiagnostics(context, ref, dir ?? ''),
               ),
-              const SizedBox(width: AnSpace.s8),
-              AnButton(
-                label: t.settings.storage.openLogs,
-                size: AnButtonSize.sm,
-                outline: true,
-                onPressed: dir == null ? null : () => _reveal('$dir/logs'),
-              ),
-            ]),
-          ),
-          AnSettingRow(
-            label: t.settings.storage.diskUsage,
-            desc: t.settings.storage.diskSandbox,
-            // An absolute byte figure has no denominator — a meter track would be theater; the
-            // honest face is the number itself (and nothing while unresolved). 绝对字节数无分母,
-            // 渲进度轨是剧场;诚实脸=数字本身(未解析时不渲空轨)。
-            child: disk == null
-                ? const SizedBox.shrink()
-                : Text(formatBytes(disk),
-                    style: AnText.metaTabular().copyWith(color: c.inkMuted)),
-          ),
-          AnSettingRow(
-            label: t.settings.about.diagnostics,
-            desc: t.settings.about.diagDesc,
-            child: AnButton(
-              label: t.settings.about.copyDiagnostics,
-              size: AnButtonSize.sm,
-              outline: true,
-              onPressed: () => _copyDiagnostics(context, ref, dir ?? ''),
             ),
           ),
         ],
@@ -100,7 +111,7 @@ class StoragePanel extends ConsumerWidget {
         label: t.settings.storage.retention,
         variant: AnSectionVariant.quiet,
         actions: const [AnScopeBadge(AnSettingScope.machine)],
-        children: [_RetentionRow()],
+        children: [SettingsAnchor(item: SettingsItem.storageRetention, child: _RetentionRow())],
       ),
       const SizedBox(height: AnSpace.s24),
       // ── 数据库 (磁盘回收, WRK-070 T4) ──
@@ -113,22 +124,25 @@ class StoragePanel extends ConsumerWidget {
         label: t.settings.storage.database,
         variant: AnSectionVariant.quiet,
         actions: const [AnScopeBadge(AnSettingScope.machine)],
-        children: [_DatabaseRow()],
+        children: [SettingsAnchor(item: SettingsItem.storageDatabase, child: _DatabaseRow())],
       ),
       const SizedBox(height: AnSpace.s24),
-      AnSettingRow(
-        label: t.settings.storage.resetPrefs,
-        desc: t.settings.storage.resetPrefsDesc,
-        child: AnButton(
+      SettingsAnchor(
+        item: SettingsItem.storageResetPrefs,
+        child: AnSettingRow(
           label: t.settings.storage.resetPrefs,
-          size: AnButtonSize.sm,
-          outline: true,
-          variant: AnButtonVariant.danger,
-          onPressed: () => _resetPrefs(context, ref),
+          desc: t.settings.storage.resetPrefsDesc,
+          child: AnButton(
+            label: t.settings.storage.resetPrefs,
+            size: AnButtonSize.sm,
+            outline: true,
+            variant: AnButtonVariant.danger,
+            onPressed: () => _resetPrefs(context, ref),
+          ),
         ),
       ),
       const SizedBox(height: AnSpace.s32),
-      _FactoryZone(dataDir: dir),
+      SettingsAnchor(item: SettingsItem.storageFactory, child: _FactoryZone(dataDir: dir)),
     ]);
   }
 

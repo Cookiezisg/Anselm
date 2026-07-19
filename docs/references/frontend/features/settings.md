@@ -20,11 +20,11 @@ audience: [human, ai]
 ## 壳与信息架构(S0 地基)
 
 - **入口**:左岛底栏齿轮格 → `selectedOceanProvider = settings`(顶部海洋切换器无选中、齿轮高亮);也可 **⌘,** 直达(全局快捷键)。
-- **左岛 = 目录** `settings_rail.dart`:搜索框 + **三段** `Preferences / Resources / System`(System 段可折叠),共 **13 面板**;内建面板粒度过滤(v1 搜索裁决)。
+- **左岛 = 目录 / 项级搜索** `settings_rail.dart`:搜索框(升到**设置项粒度**,macOS / VS Code 同款)+ **三段** `Preferences / Resources / System`(System 段可折叠),共 **13 面板**。空搜索 = 目录;有搜索 = 按面板分组的**设置项结果**。搜索框已抽出 `AnSidebarList`(新增 `showFilter:false`),同一个框驱动「目录 / 结果」两态。详见「设置项级搜索」节。
 - **中心 = 海洋** `settings_ocean.dart`:每面板一页 `AnPage`(H1 + 注册表体 + 浮层头「设置 / 面板」+ 换面板回顶);`settings_panels.dart` 是**穷尽 switch 注册表**(漏接体 = 编译错)。
 - **导航持久化** `settings_panel_provider.dart`:选面板存 `an.settings.panel`,重建同步恢复;过期枚举名回落 general(byName 门)。
 - **推入第三级** `settings_detail_provider.dart`:资源详情(密钥编辑 / 工作区编辑 / 记忆编辑 / MCP 详情)推入海洋,面包屑第三段 + Esc 返回 + 换面板弹出。
-- **三相等门禁**(`settings_catalog_gate_test`):面板 ↔ 目录、声明键 ↔ 归属分区(`ownedKeys`)、rail ↔ 目录 三者恒等,漏一个即红。
+- **三相等门禁**(`settings_catalog_gate_test`):面板 ↔ 目录、声明键 ↔ 归属分区(`ownedKeys`)、rail ↔ 目录 三者恒等,漏一个即红。**搜索索引 ↔ 挂载锚门禁**(`settings_search_test`,与三相等门禁同构):每面板 pump 后其挂载的 `SettingsAnchor` item 集恒等于 `settingsSearchIndex` 对该面板的声明——新增可搜索行忘声明、或删行忘清索引,双向皆红。
 
 ## 13 面板
 
@@ -47,6 +47,16 @@ audience: [human, ai]
 > 原语 gallery-first:`AnSwitch` / `AnSegmented` / `AnSettingRow`(modified 竖条 + hover 单项重置)/ `AnScopeBadge`(三域徽)/ `AnTypeToConfirm`(红框危险卡,输精确名解锁)/ `AnSecretField` / `AnMeter` / `AnKvRow` / `AnKeycap`(逐键帽紧凑档)/ `AnBrandIcon.brand` + 品牌注册表(`brand_registry.dart`)均先进 gallery 再被面板组装。
 >
 > **设置表单行文法(0719 总纲)**:①行 = `AnSettingRow`(标签 + desc + 行尾控件)——动作钮**归位进所属行尾**、漂浮孤行退役;②工具类动作钮统一 **sm + outline**(示能律:静息也像按钮;primary 留给表单 CTA,danger 标独立危险动作亦加 outline);③组头有信息才立——与面板大题同名的组头删(徽章头/无头节),同域徽只在首组标一次、**混域页逐节标**(S-16);④纵向表单字段 = `AnFormField`(标签 13 灰,两级配比:值 13 墨在控件内);⑤空态零人话(一行安静句,入口按钮即引导)、零计数不显、载入失败 = AnState 人话句 + 技术细节收 tooltip。
+
+## 设置项级搜索(用户 0719,macOS / VS Code 同款)
+
+rail 搜索框从**面板粒度**升到**设置项粒度**——输入「代理」→ rail 列表变为匹配项结果(`网络` 组下「HTTP 代理」「HTTPS 代理」「绕过代理」行);点结果 = 跳该面板 + 滚动到该项 + 洗亮(`AnWashHighlight`,scheduler 深跳同款配方)。
+
+- **声明式索引** `model/settings_search.dart`:`settingsSearchIndex` = 每个可搜索**设置项**的 `{panel, anchor, labelOf, hintOf}` 声明。索引按**当前 locale** 的 label + hint 建(中文界面搜中文、英文搜英文)。**`ownedKeys` 不是可用种子**——13 面板仅 4 个声明机器键、网络例子一个都没有,故搜索走本索引、不搭机器键表。内容是动态数据的面板(模型与密钥 / MCP / 记忆 / 工作区 / schema 驱动的限额 / 带健康门的沙箱)不声明项——它们经目录**仍按面板名可搜**(向下兼容);此索引只收静态配置行(通用 / 通知 / 对话 / 网络 / 存储 / 快捷键 / 关于共约 31 项)。
+- **分组规则** `buildSettingsSearchGroups`(纯函数):按面板目录序;面板名命中**或**任一项命中即收入;面板名命中时其**全部**项都出(搜类别见全部——「搜网络既出面板头行也出其下项」),否则只出 label/hint 命中的项。头行恒为面板本身(跳面板命中 → 旧的面板粒度搜索向下兼容,连不声明项的面板亦然)。空 query → 显目录;无匹配 → 一句安静句 `searchNoMatch`。
+- **定位锚 + 跳转** `ui/settings_anchor.dart` + `state/settings_jump_provider.dart`:每个可搜索行在其面板里被 `SettingsAnchor(item:…)` 包住(静息=纯透传、零布局变化)。结果点击 → 先 `select(panel)`、再 `settingsJumpProvider.request(anchor)`;目标面板挂载后其匹配锚 `Scrollable.ensureVisible`(坐浮层头之下)+ 一次性 `AnWashHighlight`(换 key 重跑)后放开目标(重搜同项可再触发)。目标外置(锚不持有)——点击处与锚互不相识,同 chat 的 `transcriptJumpProvider`。
+- **搜索框抽出** `ui/settings_rail.dart`:rail 自持 `AnRailFilterField` + query 态,`AnSidebarList` 新增 `showFilter:false` 让同一个框驱动「目录 / 结果」两态(有 query → 结果 `ListView`:面板头行 `AnRow` 跳面板 + 项行 `AnRow`(depth 1 leadless)跳转洗亮)。
+- **门禁**:见「壳与信息架构」的**搜索索引 ↔ 挂载锚门禁**(`settings_search_test`,与三相等门禁同构)。
 
 ## 两条持久化轴 · 域徽
 
@@ -89,7 +99,8 @@ audience: [human, ai]
 - **唯一缝** `SettingsRepository`(`features/settings/data/`):`LiveSettingsRepository`(`ApiClient`)/ `FixtureSettingsRepository`(内存 + 脚本钩:`nextMcpStatus`/`failNextWorkspaceDelete`/`failNextRuntimeDelete`/`fixtureLimits`/`fixtureNetwork`/`envsByOwner`/`gcRemoved`…)/ `settingsRepositoryProvider` 单点 override。面约 40 方法覆盖 keys/workspaces/stats/version/memory/mcp/sandbox/limits/network/reset。
 - **能力目录上移 core**(S-15,`core/models/model_capabilities.dart`):chat 选择器与 settings 双消费,features 互不依赖;demo 装配直喂 `demoModelCapabilities`。`ModelCapability` 全镜像后端 `CapabilityView`(0719):`contextWindow`/`maxOutput`/`vision`/`nativeDocs` + `knobs[]`(`ModelKnob` 渲染描述符 `{key,label,type,values,default}`,原生词表不归一);`putDefaultModel` 带可选 `options`(map<string,string>,`ModelRef.options` 往返)。
 - **13 面板数据电池**(0719 P0 防线,`settings_demo_fixture_test.dart`):每面板在**真 demo override 清单**(`demoOverrides`,与 `make demo` / capture 同源)下 pump,断言种子数据渲出、无错误/空态脸——capture 手抄 override 子集漂移(六面板假「坏」的 0719 根因)从此过不了门禁;capture_demo 已改吃 `demoOverrides` 单源。
-- **state**(`features/settings/state/`):`api_keys_provider`(每变更重拉 + invalidate capabilities,test 在 `finally` 重拉)· `workspaces_provider` · `memories_provider`(pin 就地补单行)· `mcp_providers`(300ms coalesce)· `sandbox_providers` · `update_check_provider`(裸 Dio)· `settings_panel_provider` / `settings_detail_provider`。
+- **state**(`features/settings/state/`):`api_keys_provider`(每变更重拉 + invalidate capabilities,test 在 `finally` 重拉)· `workspaces_provider` · `memories_provider`(pin 就地补单行)· `mcp_providers`(300ms coalesce)· `sandbox_providers` · `update_check_provider`(裸 Dio)· `settings_panel_provider` / `settings_detail_provider` / `settings_jump_provider`(设置项搜索的待跳锚,一次性)。
+- **搜索**(`model/settings_search.dart` + `ui/settings_anchor.dart`):声明式项索引 + 分组纯函数 + 行级定位锚(见「设置项级搜索」节)。
 - **DTO** `core/contract/`:`api_key` · `memory` · `mcp`(5 型)· `limits`(`LimitField` `@JsonKey(name:'default')`)· `model_capability`(`ModelCapability` + `ModelKnob`,`@JsonKey(name:'default')` 同法)· `network` · `sandbox`(4 型)· `workspace`(+`WorkspaceStats`;`ModelRef.options`)。
 
 ## 状态

@@ -62,6 +62,7 @@ class AnSidebarList extends StatefulWidget {
     this.onRetryLoad,
     this.menuEntries = const [],
     this.showNew = true,
+    this.showFilter = true,
     this.rowActionsBuilder,
     this.labelWidgetFor,
     this.editingRowId,
@@ -93,6 +94,12 @@ class AnSidebarList extends StatefulWidget {
   /// Sliders (Sort / Display) menu entries; empty → no sliders anchor. sliders 菜单项,空则不渲。
   final List<AnMenuEntry> menuEntries;
   final bool showNew;
+
+  /// The built-in [AnRailFilterField] row. false → the host owns the search field OUTSIDE the list
+  /// (settings lifts it out so the same box can drive an item-level result view that REPLACES the
+  /// directory). Default keeps the in-list filter. false=宿主在列表外自持搜索框(设置把它抽出,让同一
+  /// 个框驱动替换目录的项级结果视图);默认保留列表内过滤。
+  final bool showFilter;
 
   /// Optional trailing actions per row (e.g. a ⋯ menu), keyed by row id. 行尾动作(⋯ 菜单),按 id。
   final List<Widget> Function(String rowId)? rowActionsBuilder;
@@ -266,7 +273,7 @@ class _AnSidebarListState extends State<AnSidebarList> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (widget.showNew) _newRow(),
-        _filterRow(context),
+        if (widget.showFilter) _filterRow(context),
         Expanded(
           child: Stack(
             children: [

@@ -1521,6 +1521,7 @@
       "about": "About"
     },
     "filter": "Search settings…",
+    "searchNoMatch": "No matching settings",
     "building": "Panel under construction",
     "buildingHint": "This panel lights up slice by slice.",
     "appearance": "Appearance",
