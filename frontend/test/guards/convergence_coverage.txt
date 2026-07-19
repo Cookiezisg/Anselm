@@ -516,11 +516,13 @@ lib/features/scheduler/ui/scheduler_run_relay.dart	pending
 lib/features/settings/data/settings_demo_fixture.dart	reviewed
 lib/features/settings/data/settings_repository.dart	converged
 lib/features/settings/model/settings_catalog.dart	converged
+lib/features/settings/model/settings_search.dart	converged
 lib/features/settings/state/api_keys_provider.dart	converged
 lib/features/settings/state/mcp_providers.dart	converged
 lib/features/settings/state/memories_provider.dart	converged
 lib/features/settings/state/sandbox_providers.dart	converged
 lib/features/settings/state/settings_detail_provider.dart	converged
+lib/features/settings/state/settings_jump_provider.dart	converged
 lib/features/settings/state/settings_panel_provider.dart	converged
 lib/features/settings/state/update_check_provider.dart	converged
 lib/features/settings/state/workspace_prefs_provider.dart	converged
@@ -540,6 +542,7 @@ lib/features/settings/ui/panels/settings_panels.dart	converged
 lib/features/settings/ui/panels/shortcuts_panel.dart	reviewed
 lib/features/settings/ui/panels/storage_panel.dart	reviewed
 lib/features/settings/ui/panels/workspaces_panel.dart	reviewed
+lib/features/settings/ui/settings_anchor.dart	converged
 lib/features/settings/ui/settings_ocean.dart	reviewed
 lib/features/settings/ui/settings_rail.dart	converged
 lib/features/settings/ui/startup_update_check.dart	converged
