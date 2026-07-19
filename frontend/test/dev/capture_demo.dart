@@ -81,6 +81,13 @@ const _notifMenu = String.fromEnvironment('NOTIFMENU');
 // Optional `--dart-define=NOTIFHOVER=1` opens the tray then hovers the first group-head ⋯ button — the head
 // washes surfaceHover while the button fills the DEEPER surfaceHoverStrong (行内钮 hover 色阶对比帧).
 const _notifHover = String.fromEnvironment('NOTIFHOVER');
+// Optional `--dart-define=NOTIFHEADHOVER=true` opens the tray then hovers the «今天» time-bucket head — its
+// count meta swaps to the ⋯ bulk menu (全部已读/未读) + the rounded hover block appears, proving the tray head
+// is now the SAME AnRow primitive as the chat rail's Pinned/Recents head. 悬停时段组头,数字换 ⋯ + 圆角 hover 块。
+const _notifHeadHover = bool.fromEnvironment('NOTIFHEADHOVER');
+// Optional `--dart-define=NOTIFHEADFOLD=true` opens the tray then TAPS the «今天» head to collapse it — the
+// permanent chevron un-rotates + the head keeps NO residual gray (fixes «收起后还是灰色»). 收起时段组头,验无残留灰。
+const _notifHeadFold = bool.fromEnvironment('NOTIFHEADFOLD');
 // Optional `--dart-define=CHATSEL=cv_id` deep-links to a conversation (on the chat ocean) so the rail's
 // selected-row highlight + route-derived selection are captured. 预选某对话,截 rail 高亮 + 路由派生选区。
 const _chatSel = String.fromEnvironment('CHATSEL');
@@ -433,6 +440,34 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 200));
         outName = '${outName}_notifmenu';
+      }
+    }
+
+    // Open the tray then hover / collapse the «今天» time-bucket head — it is now the SAME AnRow primitive as
+    // the chat rail head (permanent chevron + count↔hover ⋯ + rounded hover block + whole-row toggle).
+    // Hover: reveal the count→⋯ swap. Fold: tap to collapse + verify no residual gray. 悬停/收起时段组头。
+    if (_notifHeadHover || _notifHeadFold) {
+      container.read(notificationsOpenProvider.notifier).toggle();
+      for (var i = 0; i < 8; i += 1) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 40)));
+        await tester.pump(const Duration(milliseconds: 80));
+      }
+      final head = find.text(LocaleSettings.instance.currentTranslations.notifications.today).first;
+      if (_notifHeadFold) {
+        await tester.tap(head); // collapse — touch tap carries no hover, so a fixed head shows NO gray
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        outName = '${outName}_notifheadfold';
+      } else {
+        WidgetsBinding.instance.focusManager.highlightStrategy = FocusHighlightStrategy.alwaysTraditional;
+        final g = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await g.addPointer(location: Offset.zero);
+        addTearDown(() => g.removePointer());
+        await tester.pump();
+        await g.moveTo(tester.getCenter(head)); // hover the head → count meta swaps to the ⋯
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 200));
+        outName = '${outName}_notifheadhover';
       }
     }
 

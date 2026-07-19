@@ -39,6 +39,7 @@ func (f *fakeRepo) MarkRead(_ context.Context, id string) error {
 	return notificationdomain.ErrNotFound
 }
 func (f *fakeRepo) MarkAllRead(_ context.Context) error        { return nil }
+func (f *fakeRepo) MarkAllUnread(_ context.Context) error      { return nil }
 func (f *fakeRepo) CountUnread(_ context.Context) (int, error) { return f.unread, nil }
 
 // fakeBridge records published events and can force a push error.
@@ -233,5 +234,22 @@ func TestMarkRead_NotFound(t *testing.T) {
 	svc := NewService(&fakeRepo{}, nil, zap.NewNop())
 	if err := svc.MarkRead(context.Background(), "noti_missing"); !errors.Is(err, notificationdomain.ErrNotFound) {
 		t.Errorf("want ErrNotFound, got %v", err)
+	}
+}
+
+// Mark-all-read / mark-all-unread are collection-level ops that delegate straight to the repo and
+// push NO frame (symmetric — the unread badge reconciles by REST refetch, never off a stream frame).
+// 集合级全标已读/未读纯委派 repo、不推任何帧(对称——未读徽标靠 REST 重取对账、绝不据帧)。
+func TestMarkAll_DelegatesWithoutFrame(t *testing.T) {
+	bridge := &fakeBridge{}
+	svc := NewService(&fakeRepo{}, bridge, zap.NewNop())
+	if err := svc.MarkAllRead(context.Background()); err != nil {
+		t.Fatalf("mark-all-read: %v", err)
+	}
+	if err := svc.MarkAllUnread(context.Background()); err != nil {
+		t.Fatalf("mark-all-unread: %v", err)
+	}
+	if len(bridge.published) != 0 {
+		t.Errorf("mark-all-read/unread must push NO frame, got %d", len(bridge.published))
 	}
 }

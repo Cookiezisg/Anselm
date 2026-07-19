@@ -7,24 +7,28 @@ import '../../../core/design/tokens.dart';
 import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
 import '../state/notification_feed_provider.dart';
-import '../state/unread_count_provider.dart';
 import 'notification_copy.dart';
 import 'notification_row.dart';
 
-/// The bell-takeover tray, rebuilt on the left-island rail architecture (0719) — a persistent
+/// The bell-takeover tray, rebuilt 1:1 on the left-island rail row (0719) — a persistent
 /// [AnRailFilterField] (search + a ⚙ display menu) over a scroll body of COLLAPSIBLE groups: an injected
 /// [approvalsBand] as the top «待你处理» group, then the notification feed time-bucketed into 今天/昨天/更早
-/// [AnGroupHead]s, each with a ⋯ menu (mark-all-read). The retired chrome — the "Notifications" title, the
-/// divider, the top "Mark all read" button — is gone; its function moved into the group ⋯ menus.
+/// heads. Every head is an [AnRow] — EXACTLY the chat rail's Pinned/Recents head (a permanent lead chevron,
+/// count meta that swaps to a hover ⋯ bulk menu, a rounded hover block, whole-row toggle) — lifted to the
+/// tray's 12-left single source via a +s4 outer padding. The head ⋯ carries mark-all-read / mark-all-unread
+/// (the whole ledger). The retired chrome — the "Notifications" title, the divider, the top "Mark all read"
+/// button — is gone; its function moved into the head ⋯ menus.
 ///
 /// The approvals band is injected (not imported) because it belongs to the ENTITIES feature — the app shell
 /// composes it in, keeping features independent. Search filters the FEED content (the band hides while a
 /// query is active — approvals aren't "notification content"). "Unread only" is the ⚙ display toggle.
 ///
-/// 铃托盘,照左岛 rail 架构重造(0719):常驻 AnRailFilterField(搜索 + ⚙ 显示菜单)+ 可折叠组滚动体:注入的
-/// approvalsBand 作顶「待你处理」组,下接通知 feed 按今天/昨天/更早分成 AnGroupHead 组、各带 ⋯ 菜单(全部已读)。
-/// 退役 chrome(「通知」标题 / 分割线 / 顶「全部已读」钮)全去,功能并入组 ⋯ 菜单。approvalsBand 注入(非 import)——
-/// 它属 entities feature,app 壳组合,features 保持独立。搜索过滤 feed 内容(有 query 时藏 band);⚙ = 仅显示未读。
+/// 铃托盘,1:1 照左岛 rail 行重造(0719):常驻 AnRailFilterField(搜索 + ⚙ 显示菜单)+ 可折叠组滚动体:注入的
+/// approvalsBand 作顶「待你处理」组,下接通知 feed 按今天/昨天/更早分组。每个组头就是 AnRow——与 chat rail 的
+/// 置顶/最近头一模一样(常驻箭头 lead + 数字 meta↔hover ⋯ 批量菜单 + 圆角 hover 块 + 整行折叠),经外 +s4 抬到
+/// 托盘 12 左缘单源。组头 ⋯ 带全部已读/全部未读(整本账)。退役 chrome(「通知」标题 / 分割线 / 顶「全部已读」钮)
+/// 全去,功能并入组头 ⋯。approvalsBand 注入(非 import)——它属 entities feature,app 壳组合,features 保持独立。
+/// 搜索过滤 feed 内容(有 query 时藏 band);⚙ = 仅显示未读。
 class NotificationTray extends ConsumerStatefulWidget {
   const NotificationTray({this.approvalsBand, super.key});
 
@@ -137,18 +141,22 @@ class _NotificationTrayState extends ConsumerState<NotificationTray> {
           }
           return switch (items[i]) {
             _BandEntry() => widget.approvalsBand ?? const SizedBox.shrink(),
-            _HeadEntry(:final bucket, :final label, :final count) => AnGroupHead(
-                label: label,
-                count: count,
-                open: _bucketOpen(bucket),
-                onToggle: () => setState(() =>
-                    _collapsed.contains(bucket) ? _collapsed.remove(bucket) : _collapsed.add(bucket)),
-                // 12-left single source — heads / rows / cards / the band all share one edge. 左缘单源 12。
-                padding: const EdgeInsetsDirectional.only(start: AnSpace.s12, end: AnSpace.s12),
-                // The retired top "Mark all read" button lives here now (acts on ALL notifications — one
-                // ledger, per-group already-read reads odd; user 0719 lean). Only when there's unread.
-                // 退役的顶「全部已读」钮现住这:作用于全部通知(一本账),仅有未读时显。
-                trailing: _markAllTrailing(context),
+            // The time-bucket head is the SAME primitive as the chat rail's Pinned/Recents head: an AnRow with
+            // a permanent lead chevron, count ↔ hover ⋯ in the trail, a rounded hover block, whole-row toggle.
+            // AnRow carries the rail's s8 imaginary-box inset; a +s4 outer padding lifts the content to the
+            // tray's 12-left single source so the chevron/count align with the notification rows / cards / band.
+            // 时段头=chat rail 置顶/最近头同款 AnRow;+s4 外距抬到托盘 12 左缘单源,与行/卡/带对齐。
+            _HeadEntry(:final bucket, :final label, :final count) => Padding(
+                padding: const EdgeInsetsDirectional.only(start: AnSpace.s4, end: AnSpace.s4),
+                child: AnRow(
+                  collapsible: true,
+                  open: _bucketOpen(bucket),
+                  label: label,
+                  meta: '$count',
+                  onSelect: () => _toggleBucket(bucket),
+                  onToggle: () => _toggleBucket(bucket),
+                  actions: _markAllActions(context),
+                ),
               ),
             _RowEntry(:final item) => NotificationRow(
                 item: item,
@@ -161,20 +169,35 @@ class _NotificationTrayState extends ConsumerState<NotificationTray> {
     );
   }
 
-  Widget? _markAllTrailing(BuildContext context) {
-    final hasUnread = (ref.watch(unreadCountProvider).value ?? 0) > 0;
-    if (!hasUnread) return null;
-    return AnMenu(
-      entries: [
-        AnMenuItem(
-          label: context.t.notifications.markAllRead,
-          icon: AnIcons.check,
-          onTap: () => ref.read(notificationFeedProvider.notifier).markAllRead(),
-        ),
-      ],
-      anchorBuilder: (context, toggle, isOpen) => AnButton.iconOnly(AnIcons.more,
-          size: AnButtonSize.sm, semanticLabel: context.t.a11y.moreActions, onPressed: toggle),
-    );
+  void _toggleBucket(int bucket) => setState(
+      () => _collapsed.contains(bucket) ? _collapsed.remove(bucket) : _collapsed.add(bucket));
+
+  /// The head's hover-revealed bulk menu (rides AnRow's meta↔actions swap — count at rest, ⋯ on hover):
+  /// mark ALL read / ALL unread. Both act on the WHOLE ledger (not the bucket — one account; per-bucket
+  /// read state reads odd, user 0719 lean). Both items are ALWAYS present and idempotent: the loaded feed
+  /// window can't authoritatively answer "does any read row exist" across the paginated ledger, so gating
+  /// an item would risk lying; a degenerate click (mark-all-read when nothing's unread, mark-all-unread when
+  /// nothing's read) is a harmless no-op. 组头 hover ⋯:全部已读/未读(整本账);两项恒在且幂等(退化态=无害 no-op)。
+  List<Widget> _markAllActions(BuildContext context) {
+    final t = context.t;
+    return [
+      AnMenu(
+        entries: [
+          AnMenuItem(
+            label: t.notifications.markAllRead,
+            icon: AnIcons.check,
+            onTap: () => ref.read(notificationFeedProvider.notifier).markAllRead(),
+          ),
+          AnMenuItem(
+            label: t.notifications.markAllUnread,
+            icon: AnIcons.undo,
+            onTap: () => ref.read(notificationFeedProvider.notifier).markAllUnread(),
+          ),
+        ],
+        anchorBuilder: (context, toggle, isOpen) => AnButton.iconOnly(AnIcons.more,
+            size: AnButtonSize.sm, semanticLabel: t.a11y.moreActions, onPressed: toggle),
+      ),
+    ];
   }
 
   /// Flatten the feed into (band?) + collapsible time-bucket groups, honoring the search query + the

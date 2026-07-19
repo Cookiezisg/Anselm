@@ -10,6 +10,7 @@ import 'package:anselm/features/entities/data/entity_fixtures.dart';
 import 'package:anselm/features/entities/data/entity_providers.dart';
 import 'package:anselm/features/entities/ui/flowrun_inbox.dart';
 import 'package:anselm/i18n/strings.g.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -88,6 +89,24 @@ Widget _sectionedHost(FixtureEntityRepository repo) => ProviderScope(
       ),
     );
 
+// The «Needs you» head is an AnRow whose ⋯ bulk menu rides the hover-revealed actions slot (the idle layer
+// is IgnorePointer'd) — hover the head with a real mouse, then click the ⋯. A synthesized touch tap carries
+// no hover, so the ⋯ would stay inert. 组头=AnRow,⋯ 骑 hover 揭示的动作槽;用真鼠标悬停组头再点 ⋯。
+Future<void> _openHeadMenu(WidgetTester tester, String headText) async {
+  WidgetsBinding.instance.focusManager.highlightStrategy = FocusHighlightStrategy.alwaysTraditional;
+  final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+  await mouse.addPointer(location: Offset.zero);
+  addTearDown(() => mouse.removePointer());
+  await mouse.moveTo(tester.getCenter(find.text(headText)));
+  await tester.pump(); // hover the head → ⋯ becomes hit-testable
+  final p = tester.getCenter(find.byIcon(AnIcons.more));
+  await mouse.moveTo(p);
+  await tester.pump();
+  await mouse.down(p);
+  await mouse.up();
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets('parked approvals render as decision cards (prompt + reason + approve/reject)',
       (tester) async {
@@ -156,9 +175,8 @@ void main() {
     await tester.pumpWidget(_sectionedHost(repo));
     await tester.pump();
     await tester.pump();
-    // open the per-group ⋯ bulk menu
-    await tester.tap(find.byIcon(AnIcons.more));
-    await tester.pumpAndSettle();
+    // open the per-group ⋯ bulk menu (hover-revealed on the AnRow head)
+    await _openHeadMenu(tester, t.notifications.needsYou);
     expect(find.text(t.run.approveAll), findsOneWidget);
     expect(find.text(t.run.rejectAll), findsOneWidget);
     await tester.tap(find.text(t.run.approveAll));

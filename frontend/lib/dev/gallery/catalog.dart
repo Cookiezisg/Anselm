@@ -469,24 +469,6 @@ final GalleryCategory _g1Controls = GalleryCategory('基础控件 Controls', AnI
     GallerySpecimen('default', (_) => const AnGroupLabel('Entities'), span: true),
     GallerySpecimen('超长截断', (_) => const AnGroupLabel('a very long section caption that should ellipsis instead of wrapping'), stress: true, maxWidth: 150),
   ]),
-  GalleryItem('AnGroupHead', '可折叠大组头:label + 计数 + chevron;trailing 位挂 ⋯ 批量菜单(rail + 铃托盘共用)', [
-    GallerySpecimen('展开 + ⋯ 批量菜单 (托盘「待你处理」首用)', (context) => AnGroupHead(
-          label: 'Needs you',
-          count: 3,
-          open: true,
-          onToggle: () {},
-          padding: const EdgeInsetsDirectional.only(start: AnSpace.s12, end: AnSpace.s12),
-          trailing: AnMenu(
-            entries: [
-              AnMenuItem(label: 'Approve all', icon: AnIcons.check, onTap: () {}),
-              AnMenuItem(label: 'Reject all', icon: AnIcons.close, danger: true, onTap: () {}),
-            ],
-            anchorBuilder: (context, toggle, isOpen) =>
-                AnButton.iconOnly(AnIcons.more, size: AnButtonSize.sm, semanticLabel: 'More', onPressed: toggle),
-          ),
-        ), span: true, maxWidth: _railW),
-    GallerySpecimen('折叠 (无 trailing)', (_) => AnGroupHead(label: 'Earlier', count: 12, open: false, onToggle: () {}), span: true, maxWidth: _railW),
-  ]),
   GalleryItem('AnButton', '统一动作钮:变体/尺寸/图标/态', [
     GallerySpecimen('ghost', (_) => AnButton(label: 'Ghost', onPressed: () {})),
     GallerySpecimen('primary', (_) => AnButton(label: 'Run', icon: AnIcons.run, variant: AnButtonVariant.primary, onPressed: () {})),
@@ -776,6 +758,26 @@ final GalleryCategory _g3RowsCards = GalleryCategory('行与卡 Rows & Cards', A
     GallerySpecimen('selected', (_) => AnRow(icon: AnIcons.agent, label: 'deploy-bot', meta: 'active', selected: true, onSelect: () {}), span: true),
     GallerySpecimen('emphatic selected (run 看板)', (_) => AnRow(dot: AnStatus.done, label: 'run #4821', meta: 'passed', selected: true, emphatic: true, onSelect: () {}), span: true),
     GallerySpecimen('collapsible (tree)', (_) => const _CollapsibleRowDemo(), span: true),
+    // icon-free collapsible = the notification-tray / bell group head: a PERMANENT chevron (no hover swap),
+    // count meta ↔ hover ⋯ bulk menu. 无图标 collapsible = 托盘/铃组头:常驻箭头 + 数字↔hover ⋯。
+    GallerySpecimen('无图标 collapsible = 常驻箭头 (托盘组头)', (context) => AnRow(
+          collapsible: true,
+          open: true,
+          label: 'Today',
+          meta: '5',
+          onSelect: () {},
+          onToggle: () {},
+          actions: [
+            AnMenu(
+              entries: [
+                AnMenuItem(label: 'Mark all read', icon: AnIcons.check, onTap: () {}),
+                AnMenuItem(label: 'Mark all unread', icon: AnIcons.undo, onTap: () {}),
+              ],
+              anchorBuilder: (context, toggle, isOpen) =>
+                  AnButton.iconOnly(AnIcons.more, size: AnButtonSize.sm, semanticLabel: 'More', onPressed: toggle),
+            ),
+          ],
+        ), span: true),
     GallerySpecimen('hint (多行)', (_) => AnRow(icon: AnIcons.handler, label: 'on-webhook', hint: 'Fires when an external HTTP request hits the mounted path.', onSelect: () {}), span: true),
     GallerySpecimen('depth + mono', (_) => AnRow(dot: AnStatus.idle, label: 'fn_3a9f0e88', mono: true, depth: 2, onSelect: () {}), span: true),
     GallerySpecimen('passive', (_) => AnRow(icon: AnIcons.doc, label: 'read-only annotation', passive: true), span: true),
@@ -1814,7 +1816,7 @@ class _SidebarDemoState extends State<_SidebarDemo> {
       newLabel: 'New entity',
       filterPlaceholder: 'Filter…',
       groups: [
-        SidebarGroup(label: 'Pinned', types: [
+        SidebarGroup(types: [
           SidebarType(label: 'Functions', icon: AnIcons.function, count: 2, rows: const [
             SidebarRow(id: 'fn1', label: 'normalize-input', dot: AnStatus.done),
             SidebarRow(id: 'fn2', label: 'validate-schema', dot: AnStatus.idle),

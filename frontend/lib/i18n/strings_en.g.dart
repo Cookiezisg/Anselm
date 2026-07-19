@@ -609,6 +609,9 @@ class Translations$notifications$en {
 	/// en: 'Mark all read'
 	String get markAllRead => 'Mark all read';
 
+	/// en: 'Mark all unread'
+	String get markAllUnread => 'Mark all unread';
+
 	/// en: 'Mark read'
 	String get markRead => 'Mark read';
 
@@ -6928,6 +6931,7 @@ extension on Translations {
 			'notifications.needsYou' => 'Needs you',
 			'notifications.feed' => 'Notifications',
 			'notifications.markAllRead' => 'Mark all read',
+			'notifications.markAllUnread' => 'Mark all unread',
 			'notifications.markRead' => 'Mark read',
 			'notifications.searchPlaceholder' => 'Search notifications…',
 			'notifications.unreadOnly' => 'Unread only',
@@ -7030,9 +7034,9 @@ extension on Translations {
 			'entities.sortLabel' => 'Sort',
 			'entities.sortRecent' => 'Recently active',
 			'entities.sortCreated' => 'Recently created',
-			'entities.sortName' => 'Name',
 			_ => null,
 		} ?? switch (path) {
+			'entities.sortName' => 'Name',
 			'entities.displayLabel' => 'Display',
 			'entities.showCount' => 'Show counts',
 			'entities.detail.crumbRoot' => 'Entities',
@@ -7544,9 +7548,9 @@ extension on Translations {
 			'settings.mem.section' => 'Memories',
 			'settings.mem.filterAll' => 'All',
 			'settings.mem.filterPinned' => 'Pinned',
-			'settings.mem.newMemory' => 'New memory',
 			_ => null,
 		} ?? switch (path) {
+			'settings.mem.newMemory' => 'New memory',
 			'settings.mem.name' => 'Name',
 			'settings.mem.nameHint' => 'starts lowercase; a-z 0-9 - _',
 			'settings.mem.nameLocked' => 'The name is the filename — immutable',

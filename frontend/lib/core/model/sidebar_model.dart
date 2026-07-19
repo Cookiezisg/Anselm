@@ -72,21 +72,15 @@ class SidebarType {
   String get foldKey => pageKey ?? label ?? '';
 }
 
-/// A big group: a collapsible chat-style header ([label]) over its [types], OR — when [label] is null —
-/// its types flatten directly (single-group compatibility). 大组(可折叠或平铺)。
+/// A group of [types] — a transparent container whose types flatten directly into the rail. Groups no
+/// longer carry a collapsible chat-style head: the tray's / bell's big-group heads now ride [AnRow] directly
+/// (0719, AnGroupHead retired), and every production rail (settings/chat/scheduler/documents/entities) builds
+/// label-less groups. 组=类型容器,直接平铺;不再带可折叠头(0719 组头改骑 AnRow、AnGroupHead 退役)。
 class SidebarGroup {
-  const SidebarGroup({this.label, this.types = const []});
+  const SidebarGroup({this.types = const []});
 
-  final String? label;
   final List<SidebarType> types;
-
-  bool get collapsible => label != null && label!.isNotEmpty;
-
-  /// Total rows under this group (the head count), recursing into branches. 组内行总数(含树枝)。
-  int get totalRows => types.fold(0, (s, t) => s + _countRows(t.rows));
 }
-
-int _countRows(List<SidebarRow> rows) => rows.fold(0, (s, r) => s + 1 + _countRows(r.children));
 
 /// The sidebar's data model: groups → types → rows. Framework-agnostic + pure (the widget renders it; the
 /// filter below is unit-tested). 侧栏数据模型(框架无关、纯;过滤单测)。

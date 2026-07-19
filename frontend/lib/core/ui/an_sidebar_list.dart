@@ -9,7 +9,6 @@ import '../design/typography.dart';
 import '../model/sidebar_flatten.dart';
 import '../model/sidebar_model.dart';
 import 'an_spinner.dart';
-import 'an_group_head.dart';
 import 'an_inline_edit.dart';
 import 'an_interactive.dart';
 import 'an_menu.dart';
@@ -417,8 +416,6 @@ class _AnSidebarListState extends State<AnSidebarList> {
 
   Widget _flatRow(BuildContext context, SidebarFlatNode n, {bool sticky = false}) {
     switch (n.kind) {
-      case SidebarNodeKind.groupHead:
-        return _groupHead(context, n, sticky: sticky);
       case SidebarNodeKind.typeHead:
         return _typeHead(context, n, sticky: sticky);
       case SidebarNodeKind.row:
@@ -426,21 +423,6 @@ class _AnSidebarListState extends State<AnSidebarList> {
       case SidebarNodeKind.footer:
         return _footer(context, n);
     }
-  }
-
-  // A collapsible chat-style big-group head — the shared [AnGroupHead] primitive (gray emphasis label +
-  // total count + rotating chevron; sticky → opaque so list rows scroll under it). Depth folds into the
-  // start inset. 可折叠大组头=共享 AnGroupHead 原语;depth 并入起始内距。
-  Widget _groupHead(BuildContext context, SidebarFlatNode n, {bool sticky = false}) {
-    final g = n.group!;
-    return AnGroupHead(
-      label: g.label!,
-      count: g.totalRows,
-      open: _open(n.key),
-      onToggle: () => _toggle(n.key),
-      padding: EdgeInsetsDirectional.only(start: AnSpace.s8 + n.depth * AnSize.iconLg, end: AnSpace.s12),
-      sticky: sticky,
-    );
   }
 
   // A section head (icon + label + count) — the entities kind sections, chat pinned/recents. It's a

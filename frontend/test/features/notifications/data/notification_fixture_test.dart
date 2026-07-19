@@ -39,6 +39,13 @@ void main() {
     expect(await repo.unreadCount(), 0);
   });
 
+  test('markAllUnread restores the full count (mirror of markAllRead)', () async {
+    final repo = FixtureNotificationRepository(seed: [_n('a'), _n('b', read: true), _n('c', read: true)]);
+    expect(await repo.unreadCount(), 1);
+    await repo.markAllUnread();
+    expect(await repo.unreadCount(), 3); // every row now unread
+  });
+
   test('emit prepends a row AND pushes an inbox-candidate signal', () async {
     final repo = FixtureNotificationRepository(seed: [_n('a')]);
     final sigs = [];

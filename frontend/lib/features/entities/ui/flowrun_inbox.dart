@@ -17,13 +17,14 @@ import '../state/flowrun_inbox_provider.dart';
 class FlowrunInbox extends ConsumerWidget {
   const FlowrunInbox({this.sectioned = false, super.key});
 
-  /// SECTIONED mode = the notification tray's top "Needs you" group: a COLLAPSIBLE [AnGroupHead] (with a
-  /// per-group ⋯ bulk menu — 全部批准 / 全部拒绝) over a non-scrolling card stack, collapsing to nothing when
-  /// there are no parked approvals (so the notification FEED below owns the scroll). Standalone mode (false)
-  /// is the full-panel inbox with its own empty/loading/error states + internal scroll.
+  /// SECTIONED mode = the notification tray's top "Needs you" group: a COLLAPSIBLE [AnRow] head (the SAME
+  /// rail primitive as the tray's time-bucket heads — permanent chevron + count ↔ hover ⋯ bulk menu 全部批准 /
+  /// 全部拒绝) over a non-scrolling card stack, collapsing to nothing when there are no parked approvals (so
+  /// the notification FEED below owns the scroll). Standalone mode (false) is the full-panel inbox with its
+  /// own empty/loading/error states + internal scroll.
   ///
-  /// 分段模式=通知托盘顶部「待你处理」组:可折叠 AnGroupHead(带逐组 ⋯ 批量菜单——全部批准/全部拒绝)+ 不滚动卡叠,
-  /// 无待审则塌成空,让下方通知 feed 独占滚动。独立模式(false)=整面板收件箱,自带空/加载/错误态 + 内部滚动。
+  /// 分段模式=通知托盘顶部「待你处理」组:可折叠 AnRow 头(与托盘时段头同款 rail 原语——常驻箭头 + 数字↔hover ⋯ 批量
+  /// 菜单 全部批准/全部拒绝)+ 不滚动卡叠,无待审则塌成空,让下方通知 feed 独占滚动。独立模式(false)=整面板收件箱。
   final bool sectioned;
 
   @override
@@ -62,10 +63,10 @@ class FlowrunInbox extends ConsumerWidget {
   }
 }
 
-/// The bell tray's "Needs you" band — a collapsible group of parked approvals with a per-group ⋯ bulk menu.
-/// It carries state (collapse + a bulk decision in flight), so it's stateful; the app shell composes it into
-/// the [NotificationTray] as the top group (one feature's widget, injected — features stay independent).
-/// 铃托盘「待你处理」带:可折叠审批组 + 逐组 ⋯ 批量菜单;持态(折叠 + 批量在途)故有状态,由 app 壳注入托盘顶。
+/// The bell tray's "Needs you" band — a collapsible [AnRow] head over the parked approvals, with a hover ⋯
+/// bulk menu. It carries state (collapse + a bulk decision in flight), so it's stateful; the app shell
+/// composes it into the [NotificationTray] as the top group (one feature's widget, injected — features stay
+/// independent). 铃托盘「待你处理」带:可折叠 AnRow 头 + hover ⋯ 批量菜单;持态(折叠 + 批量在途)故有状态,app 壳注入托盘顶。
 class _NeedsYouSection extends ConsumerStatefulWidget {
   const _NeedsYouSection();
 
@@ -140,20 +141,30 @@ class _NeedsYouSectionState extends ConsumerState<_NeedsYouSection> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        AnGroupHead(
-          label: t.notifications.needsYou,
-          count: parked.length,
-          open: _open,
-          onToggle: () => setState(() => _open = !_open),
-          // 12-left single source so the group head aligns with the tray's rows / cards / feed heads. 左缘单源 12。
-          padding: const EdgeInsetsDirectional.only(start: AnSpace.s12, end: AnSpace.s12),
-          trailing: _bulkBusy
-              ? const SizedBox(
+        // The «Needs you» head is the SAME primitive as the notification tray's time-bucket heads and the
+        // chat rail's Pinned/Recents head: an AnRow with a permanent lead chevron, count ↔ hover ⋯ in the
+        // trail, a rounded hover block, whole-row toggle — lifted to the tray's 12-left single source via a
+        // +s4 outer padding. 「待你处理」头=托盘时段头/chat rail 头同款 AnRow;+s4 外距抬到 12 左缘单源。
+        Padding(
+          padding: const EdgeInsetsDirectional.only(start: AnSpace.s4, end: AnSpace.s4),
+          child: AnRow(
+            collapsible: true,
+            open: _open,
+            label: t.notifications.needsYou,
+            meta: '${parked.length}',
+            onSelect: () => setState(() => _open = !_open),
+            onToggle: () => setState(() => _open = !_open),
+            // hover ⋯ = bulk decide (全部批准 / 全部拒绝). While a bulk decision is in flight the spinner
+            // rides the same trail slot (re-trigger is guarded in _bulkDecide). 忙态 spinner 骑同一尾槽。
+            actions: [
+              if (_bulkBusy)
+                const SizedBox(
                   width: AnSize.controlSm,
                   height: AnSize.controlSm,
                   child: Center(child: AnSpinner(size: AnSize.iconSm)),
                 )
-              : AnMenu(
+              else
+                AnMenu(
                   entries: [
                     AnMenuItem(label: t.run.approveAll, icon: AnIcons.check, onTap: () => _bulkDecide('yes', parked)),
                     AnMenuItem(label: t.run.rejectAll, icon: AnIcons.close, danger: true, onTap: () => _bulkDecide('no', parked)),
@@ -161,6 +172,8 @@ class _NeedsYouSectionState extends ConsumerState<_NeedsYouSection> {
                   anchorBuilder: (context, toggle, isOpen) => AnButton.iconOnly(AnIcons.more,
                       size: AnButtonSize.sm, semanticLabel: t.a11y.moreActions, onPressed: toggle),
                 ),
+            ],
+          ),
         ),
         AnExpandReveal(
           open: _open,

@@ -90,6 +90,18 @@ func (s *Store) MarkAllRead(ctx context.Context) error {
 	return nil
 }
 
+// MarkAllUnread clears read_at on every read notification in the workspace — the exact mirror of
+// MarkAllRead (write NULL where non-null, vs write now() where null); a nil arg binds SQL NULL.
+//
+// MarkAllUnread 给该 workspace 所有已读通知清 read_at——MarkAllRead 的精确镜像（在非空处写 NULL，
+// 对称于在空处写 now()）；nil 参数绑定 SQL NULL。
+func (s *Store) MarkAllUnread(ctx context.Context) error {
+	if _, err := s.repo.WhereNotNull("read_at").Update(ctx, "read_at", nil); err != nil {
+		return fmt.Errorf("notificationstore.MarkAllUnread: %w", err)
+	}
+	return nil
+}
+
 // CountUnread returns the unread count for the badge.
 //
 // CountUnread 返回未读数（badge 用）。

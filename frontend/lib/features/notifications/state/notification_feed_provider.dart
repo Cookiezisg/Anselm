@@ -109,12 +109,34 @@ class NotificationFeedNotifier extends AsyncNotifier<NotificationFeedState>
     } catch (_) {}
   }
 
+  /// Mark every row UNREAD — the mirror of [markAllRead]. Optimistically clears readAt on the loaded rows,
+  /// then REFETCHES the authoritative unread-count (N0): unlike mark-all-read's optimistic zero, the
+  /// post-state count is NOT a known constant — the ledger's total may exceed the loaded window, so the
+  /// badge can only be reconciled by re-reading the authoritative COUNT, never fabricated locally.
+  /// 全部标未读——markAllRead 的镜像:乐观清本地行 readAt,再**重取权威 unread-count**(N0)——未读数非已知常量,只能重读对账。
+  Future<void> markAllUnread() async {
+    _patchUnread();
+    try {
+      await _repo.markAllUnread();
+    } catch (_) {}
+    await ref.read(unreadCountProvider.notifier).refresh();
+  }
+
   void _patchRead(bool Function(NotificationItem) match) {
     final cur = state.value;
     if (cur == null) return;
     final stamp = DateTime.now();
     final rows = [
       for (final r in cur.rows) (r.isUnread && match(r)) ? r.copyWith(readAt: stamp) : r,
+    ];
+    state = AsyncData(cur.copyWith(rows: rows));
+  }
+
+  void _patchUnread() {
+    final cur = state.value;
+    if (cur == null) return;
+    final rows = [
+      for (final r in cur.rows) r.isUnread ? r : r.copyWith(readAt: null),
     ];
     state = AsyncData(cur.copyWith(rows: rows));
   }

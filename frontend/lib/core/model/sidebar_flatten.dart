@@ -3,10 +3,6 @@ import 'sidebar_model.dart';
 /// The kind of a flattened sidebar node — drives how the row builder renders it and whether it can be a
 /// sticky ancestor. 展平节点类型——驱动行渲染 + 能否作吸顶祖先。
 enum SidebarNodeKind {
-  /// A collapsible chat-style big-group head (label non-empty group). entities/chat don't use these
-  /// (label-null groups); documents/future rails may. 可折叠大组头(entities/chat 不用)。
-  groupHead,
-
   /// A collapsible section head (icon + label + count) — the entities kind sections, chat pinned/recents.
   /// 段头(icon+label+count)——entities kind 段、chat 置顶/最近。
   typeHead,
@@ -33,7 +29,6 @@ class SidebarFlatNode {
     required this.key,
     required this.depth,
     this.ancestors = const [],
-    this.group,
     this.type,
     this.row,
   });
@@ -43,14 +38,12 @@ class SidebarFlatNode {
   final int depth;
   final List<SidebarFlatNode> ancestors;
 
-  final SidebarGroup? group;
   final SidebarType? type;
   final SidebarRow? row;
 
-  /// A collapsible head that can pin as an ancestor: a group/type head, or a branch row (has children).
-  /// Leaf rows + footers are not branches. 可作吸顶祖先的可折叠头:group/type 头、或树枝行。
+  /// A collapsible head that can pin as an ancestor: a type head, or a branch row (has children).
+  /// Leaf rows + footers are not branches. 可作吸顶祖先的可折叠头:type 头、或树枝行。
   bool get isBranch =>
-      kind == SidebarNodeKind.groupHead ||
       kind == SidebarNodeKind.typeHead ||
       (kind == SidebarNodeKind.row && (row?.hasChildren ?? false));
 }
@@ -60,9 +53,9 @@ class SidebarFlatNode {
 ///   • a collapsed branch contributes its HEAD but none of its descendants
 ///   • an active [query] keeps only rows on the visible-id set ([sidebarVisibleIds]) and FORCE-EXPANDS
 ///     every ancestor (so a deep match is revealed), and drops heads with no visible descendant
-///   • depth: a label-null group is a transparent container (its types sit at depth 0); a collapsible
-///     group head is depth 0 and pushes its types to depth 1; a section head's rows sit at the head's
-///     depth (the head already groups them — no extra indent), branches nest +1
+///   • depth: a group is a transparent container (its types sit at depth 0 — groups no longer carry a
+///     collapsible head); a section head's rows sit at the head's depth (the head already groups them — no
+///     extra indent), branches nest +1
 ///   • a paginated type ([SidebarType.pageKey] != null) with hasMore/loadingMore/loadError contributes a
 ///     trailing [footer] node (the sentinel / loading / retry slot)
 ///
@@ -94,18 +87,10 @@ List<SidebarFlatNode> flattenSidebar(
   }
 
   for (final g in model.groups) {
-    List<SidebarFlatNode> groupAnc = const [];
-    var baseDepth = 0;
-
-    if (g.collapsible) {
-      if (active && !g.types.any((t) => t.rows.any((r) => _visibleDeep(r, visible)))) continue;
-      final gKey = 'g:${g.label}';
-      final gNode = SidebarFlatNode(kind: SidebarNodeKind.groupHead, key: gKey, depth: 0, group: g);
-      out.add(gNode);
-      if (!open(gKey)) continue; // collapsed group: head only
-      groupAnc = [gNode];
-      baseDepth = 1;
-    }
+    // A group is a transparent container (0719: no collapsible group head) — its types flatten at depth 0.
+    // 组=透明容器(0719 无可折叠组头)——类型直接平铺在 depth 0。
+    const groupAnc = <SidebarFlatNode>[];
+    const baseDepth = 0;
 
     for (final t in g.types) {
       if (active && !t.rows.any((r) => _visibleDeep(r, visible))) continue;

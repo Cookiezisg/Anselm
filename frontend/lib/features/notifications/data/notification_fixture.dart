@@ -52,6 +52,15 @@ class FixtureNotificationRepository implements NotificationRepository {
   }
 
   @override
+  Future<void> markAllUnread() async {
+    // Mirror of markAllRead: clear readAt on every read row → unread. copyWith(readAt: null) sets null via
+    // freezed's sentinel. markAllRead 的镜像:清全部已读行的 readAt(freezed 哨兵设 null)。
+    for (var i = 0; i < _rows.length; i++) {
+      if (!_rows[i].isUnread) _rows[i] = _rows[i].copyWith(readAt: null);
+    }
+  }
+
+  @override
   Future<int> unreadCount() async {
     unreadCountCalls++;
     return _rows.where((r) => r.isUnread).length;

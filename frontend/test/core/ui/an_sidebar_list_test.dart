@@ -13,7 +13,7 @@ void main() {
         newLabel: 'New',
         filterPlaceholder: 'Filter…',
         groups: [
-          SidebarGroup(label: 'Pinned', types: [
+          SidebarGroup(types: [
             SidebarType(label: 'Functions', icon: AnIcons.function, count: 2, rows: const [
               SidebarRow(id: 'fn1', label: 'normalize-input'),
               SidebarRow(id: 'fn2', label: 'validate-schema'),
@@ -32,10 +32,9 @@ void main() {
         ),
       );
 
-  testWidgets('renders New + filter + group/type heads + rows', (tester) async {
+  testWidgets('renders New + filter + section head + rows', (tester) async {
     await tester.pumpWidget(host(AnSidebarList(model: model(), onNew: () {}, onSelect: (_) {})));
     expect(find.text('New'), findsOneWidget);
-    expect(find.text('Pinned'), findsOneWidget); // group head
     expect(find.text('Functions'), findsOneWidget); // type head
     expect(find.text('normalize-input'), findsOneWidget);
     expect(find.text('validate-schema'), findsOneWidget);
@@ -65,14 +64,6 @@ void main() {
     await tester.tap(find.text('Functions')); // type head toggles (whole head; keyboard-operable, not mouse-only lead)
     await tester.pumpAndSettle();
     expect(find.text('normalize-input'), findsNothing); // type collapsed
-  });
-
-  testWidgets('collapsing a group hides its rows', (tester) async {
-    await tester.pumpWidget(host(AnSidebarList(model: model(), onSelect: (_) {})));
-    expect(find.text('normalize-input'), findsOneWidget);
-    await tester.tap(find.text('Pinned')); // the group head toggles
-    await tester.pumpAndSettle();
-    expect(find.text('normalize-input'), findsNothing); // collapsed
   });
 
   testWidgets('editingRowId swaps that row for an in-place rename field; commit bubbles (id, value)', (tester) async {

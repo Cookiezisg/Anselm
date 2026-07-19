@@ -973,6 +973,7 @@
     "needsYou": "Needs you",
     "feed": "Notifications",
     "markAllRead": "Mark all read",
+    "markAllUnread": "Mark all unread",
     "markRead": "Mark read",
     "searchPlaceholder": "Search notifications…",
     "unreadOnly": "Unread only",

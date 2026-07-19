@@ -167,7 +167,6 @@ lib/core/ui/an_follow_pill.dart	converged
 lib/core/ui/an_form_field.dart	converged
 lib/core/ui/an_freshness_halo.dart	converged
 lib/core/ui/an_graph_canvas.dart	converged
-lib/core/ui/an_group_head.dart	converged
 lib/core/ui/an_group_label.dart	converged
 lib/core/ui/an_heat_bar.dart	converged
 lib/core/ui/an_honesty_ribbon.dart	reviewed

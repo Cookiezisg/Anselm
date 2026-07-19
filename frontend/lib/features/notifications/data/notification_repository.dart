@@ -22,6 +22,12 @@ abstract interface class NotificationRepository {
   /// Mark every unread row read (`POST :mark-all-read` → 204, always idempotent). 全部已读(204 幂等)。
   Future<void> markAllRead();
 
+  /// Mark every row UNREAD — the mirror of [markAllRead] (`POST :mark-all-unread` → 204, no SSE echo, always
+  /// idempotent). The post-state count isn't a known constant (the ledger's total may exceed the loaded
+  /// window), so the caller refetches the authoritative [unreadCount] rather than optimistically zeroing.
+  /// 全部未读——markAllRead 的镜像(204 幂等、无 SSE 回声);因未读数非已知常量,调用方重取权威 unreadCount 对账。
+  Future<void> markAllUnread();
+
   /// The authoritative unread count (`GET /unread-count` → `{data:{unread:n}}`, a live COUNT). This is
   /// THE source of truth for the badge — mark-read has no SSE echo, so the badge reconciles by re-reading
   /// this, never by trusting a stream frame. 权威未读数(实时 COUNT);徽标真相,靠重读它对账而非信帧。
@@ -61,6 +67,10 @@ class LiveNotificationRepository implements NotificationRepository {
   @override
   Future<void> markAllRead() =>
       _api.postNoContent('/api/v1/notifications:mark-all-read');
+
+  @override
+  Future<void> markAllUnread() =>
+      _api.postNoContent('/api/v1/notifications:mark-all-unread');
 
   @override
   Future<int> unreadCount() async {

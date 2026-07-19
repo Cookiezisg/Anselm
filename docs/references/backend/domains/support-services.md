@@ -43,7 +43,7 @@ audience: [human, ai]
 
 ## notification —— 通知中心
 
-任何模块经 `Emitter` 端口发 `<domain>.<action>`，**两档**（都是 notifications 流上的 durable 信号，SSE 推送 best-effort）：**`Emit`** 落 DB 行 **并**推帧（DB 行是真相、`GET /notifications` 兜回——失败 / AI 可能干的实体生命周期，值得用户事后在收件箱找到）；**`Broadcast`** 只推帧、**不落行**（高频对账回声：rail 重排 / documents 树刷新 / env 装配开始等，进收件箱即噪音；临时 `noti_` id 锚定帧、通知中心不留痕，其真相是实体自身状态、消费者收帧后重取实体 REST 行/整树）。逐事件的档位登记见 [`events.md`](../events.md)「notifications 流」节（⊞ Emit / ⤳ Broadcast）。前端列表 + 未读徽标（`WhereNull(read_at).Count`）——只数落行的档。码 `NOTIFICATION_*` 2；ID `noti_`。
+任何模块经 `Emitter` 端口发 `<domain>.<action>`，**两档**（都是 notifications 流上的 durable 信号，SSE 推送 best-effort）：**`Emit`** 落 DB 行 **并**推帧（DB 行是真相、`GET /notifications` 兜回——失败 / AI 可能干的实体生命周期，值得用户事后在收件箱找到）；**`Broadcast`** 只推帧、**不落行**（高频对账回声：rail 重排 / documents 树刷新 / env 装配开始等，进收件箱即噪音；临时 `noti_` id 锚定帧、通知中心不留痕，其真相是实体自身状态、消费者收帧后重取实体 REST 行/整树）。逐事件的档位登记见 [`events.md`](../events.md)「notifications 流」节（⊞ Emit / ⤳ Broadcast）。前端列表 + 未读徽标（`WhereNull(read_at).Count`）——只数落行的档。集合级读态：`mark-all-read`（`WhereNull(read_at).Update(now)`）与其镜像 `mark-all-unread`（`WhereNotNull(read_at).Update(nil)`——清全部 read_at 回未读）皆纯 repo 委派、**不发帧**、204、幂等，徽标靠 unread-count 重取对账。码 `NOTIFICATION_*` 2；ID `noti_`。
 
 ## aispawn —— AI 工作对话引擎（:iterate / :triage）
 

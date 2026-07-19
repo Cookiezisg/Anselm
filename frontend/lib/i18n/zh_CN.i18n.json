@@ -973,6 +973,7 @@
     "needsYou": "待你处理",
     "feed": "通知",
     "markAllRead": "全部已读",
+    "markAllUnread": "全部未读",
     "markRead": "标为已读",
     "searchPlaceholder": "搜索通知…",
     "unreadOnly": "仅显示未读",

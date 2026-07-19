@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 // across the 5-battery edges + ancestor-reveal. SidebarModel 过滤纯核,直接测(无 widget),含 5 电池 + 祖先回填。
 void main() {
   const tree = SidebarModel(groups: [
-    SidebarGroup(label: 'Pinned', types: [
+    SidebarGroup(types: [
       SidebarType(label: 'Functions', rows: [
         SidebarRow(id: 'fn1', label: 'normalize-input', meta: 'fn'),
         SidebarRow(id: 'fn2', label: 'validate', meta: 'fn'),
@@ -61,10 +61,5 @@ void main() {
     final m = SidebarModel(groups: [SidebarGroup(types: [SidebarType(rows: rows)])]);
     expect(sidebarVisibleIds(m, 'item 1999'), contains('r1999'));
     expect(sidebarVisibleIds(m, 'item 1999').length, 1);
-  });
-
-  test('group.totalRows counts recursively (branch children included)', () {
-    expect(tree.groups[1].totalRows, 3); // doc1 + doc2 + doc3
-    expect(tree.groups[0].totalRows, 2);
   });
 }

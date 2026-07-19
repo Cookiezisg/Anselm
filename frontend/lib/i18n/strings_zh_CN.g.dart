@@ -296,6 +296,7 @@ class _Translations$notifications$zh_CN extends Translations$notifications$en {
 	@override String get needsYou => '待你处理';
 	@override String get feed => '通知';
 	@override String get markAllRead => '全部已读';
+	@override String get markAllUnread => '全部未读';
 	@override String get markRead => '标为已读';
 	@override String get searchPlaceholder => '搜索通知…';
 	@override String get unreadOnly => '仅显示未读';
@@ -3483,6 +3484,7 @@ extension on TranslationsZhCn {
 			'notifications.needsYou' => '待你处理',
 			'notifications.feed' => '通知',
 			'notifications.markAllRead' => '全部已读',
+			'notifications.markAllUnread' => '全部未读',
 			'notifications.markRead' => '标为已读',
 			'notifications.searchPlaceholder' => '搜索通知…',
 			'notifications.unreadOnly' => '仅显示未读',
@@ -3585,9 +3587,9 @@ extension on TranslationsZhCn {
 			'entities.sortLabel' => '排序',
 			'entities.sortRecent' => '最近活跃',
 			'entities.sortCreated' => '最近创建',
-			'entities.sortName' => '名称',
 			_ => null,
 		} ?? switch (path) {
+			'entities.sortName' => '名称',
 			'entities.displayLabel' => '显示',
 			'entities.showCount' => '显示分组计数',
 			'entities.detail.crumbRoot' => '实体',
@@ -4099,9 +4101,9 @@ extension on TranslationsZhCn {
 			'settings.mem.section' => '记忆',
 			'settings.mem.filterAll' => '全部',
 			'settings.mem.filterPinned' => '已固定',
-			'settings.mem.newMemory' => '新建记忆',
 			_ => null,
 		} ?? switch (path) {
+			'settings.mem.newMemory' => '新建记忆',
 			'settings.mem.name' => '名称',
 			'settings.mem.nameHint' => '小写字母开头,可用 a-z 0-9 - _',
 			'settings.mem.nameLocked' => '名称即文件名,不可改',

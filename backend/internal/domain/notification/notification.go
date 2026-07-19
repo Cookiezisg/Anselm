@@ -82,5 +82,6 @@ type Repository interface {
 	List(ctx context.Context, cursor string, limit int) (items []*Notification, next string, err error)
 	MarkRead(ctx context.Context, id string) error
 	MarkAllRead(ctx context.Context) error
+	MarkAllUnread(ctx context.Context) error
 	CountUnread(ctx context.Context) (int, error)
 }

@@ -59,7 +59,6 @@ export 'an_floating_bar.dart';
 export 'an_form_field.dart';
 export 'an_graph_canvas.dart';
 export 'an_relation_graph.dart';
-export 'an_group_head.dart';
 export 'an_group_label.dart';
 export 'an_doc_header.dart';
 export 'an_info_card.dart';

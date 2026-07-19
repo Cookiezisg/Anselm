@@ -85,4 +85,15 @@ void main() {
     expect(c.read(unreadCountProvider).value, 0);
     expect(await repo.unreadCount(), 0);
   });
+
+  test('markAllUnread flips the feed rows unread + REFETCHES the authoritative badge (N0)', () async {
+    final (c, repo) = setup([_n('a', read: true), _n('b', read: true), _n('c', read: true)]);
+    await c.read(notificationFeedProvider.future);
+    await c.read(unreadCountProvider.future); // 0 unread
+    expect(c.read(unreadCountProvider).value, 0);
+    await c.read(notificationFeedProvider.notifier).markAllUnread();
+    expect(c.read(notificationFeedProvider).value!.rows.every((r) => r.isUnread), isTrue); // optimistic flip
+    expect(c.read(unreadCountProvider).value, 3); // refetched authoritative count, not a local guess
+    expect(await repo.unreadCount(), 3); // persisted
+  });
 }

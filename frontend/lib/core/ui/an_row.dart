@@ -10,7 +10,9 @@ import 'icons.dart';
 
 /// C1 — the core list row: a three-column grid `[lead | label (1fr) | trail]`, alignment guaranteed by
 /// structure (never hand-measured). The lead is a status [dot] OR an [icon] that swaps to a chevron on
-/// row-hover (rotating 90° when [open]) for a [collapsible] tree node. The trail stacks [meta] text and
+/// row-hover (rotating 90° when [open]) for a [collapsible] tree node — and when a [collapsible] row has
+/// NO icon (dot/leadWidget also absent), the chevron is the PERMANENT lead (always shown, no hover swap;
+/// the notification tray / icon-free group heads). The trail stacks [meta] text and
 /// the hover-revealed [actions] at the SAME right anchor (opacity cross-fade, no reflow). [hint] makes a
 /// taller, top-aligned row whose hint wraps. [selected] tints the row; [emphatic] + selected adds an
 /// accent-soft fill + a left accent bar (run boards). [depth] indents per tree level; [mono] sets the
@@ -202,6 +204,17 @@ class AnRow extends StatelessWidget {
       // them here would repeat the 批5 thumb-✕ a11y regression. 自定义 lead 可交互(pin),自带语义——
       // 剥除=重蹈批5 缩略图 ✕ 覆辙。
       glyph = leadWidget!;
+    } else if (collapsible && icon == null) {
+      // No icon to hover-swap FROM (a notification-tray / icon-free group head): the disclosure chevron is
+      // the PERMANENT lead — always shown at rest, rotating 90° when open (dot/leadWidget were caught above,
+      // so the slot is genuinely empty otherwise; a HoverSwap here would just fade in an already-present
+      // chevron). 无图标可换(托盘/无图标组头):披露箭头常驻、open 旋转;此处不 HoverSwap(没有可揭示的第二脸)。
+      glyph = AnimatedRotation(
+        duration: reduced ? Duration.zero : AnMotion.mid,
+        curve: AnMotion.spring,
+        turns: open ? 0.25 : 0,
+        child: Icon(AnIcons.chevronRight, size: AnSize.icon, color: c.inkFaint),
+      );
     } else if (collapsible) {
       // icon ↔ chevron swap on hover; chevron rotates 90° when open. icon↔chevron 互换 + 旋转。
       glyph = _HoverSwap(
